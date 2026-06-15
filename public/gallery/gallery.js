@@ -213,9 +213,7 @@ async function loadPage() {
 		let avatars = Array.isArray(data.avatars) ? data.avatars : [];
 
 		// Client-side sort
-		if (state.sortBy === 'popular') {
-			avatars = [...avatars].sort((a, b) => (b.view_count || 0) - (a.view_count || 0));
-		} else if (state.sortBy === 'alpha') {
+		if (state.sortBy === 'alpha') {
 			avatars = [...avatars].sort((a, b) =>
 				(a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' }),
 			);

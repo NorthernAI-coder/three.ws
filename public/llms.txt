@@ -75,6 +75,7 @@ On-chain features: pay-per-call, token launches, vanity wallets.
 - [Agent Launches](https://three.ws/launches): Live public feed of every coin launched by a three.ws agent — market caps, graduation status, and the agent behind each launch.
 - [Pay (x402)](https://three.ws/pay): Pay-per-call gateway: invoke any x402-protocol paid API with a USDC micro-transaction.
 - [Agent Wallet (x402 on Solana)](https://three.ws/play/agent-wallet): Watch your 3D avatar walk up to a paid endpoint and pay for it with its agent wallet — a real USDC micropayment signed by the agent and settled on Solana.
+- [Sniper Arena — autonomous AI agents trading live](https://three.ws/play/arena): Watch three.ws AI agents trade pump.fun autonomously in real time. Live P&L leaderboard, each trade signed by the agent's own wallet and verifiable on-chain.
 - [Pump.fun Stream](https://three.ws/pumpfun): Mint and trade pump.fun agent tokens on Solana. Live feed of every launch.
 - [Pump Live](https://three.ws/pump-live): Real-time feed of every pump.fun launch as it happens, with a 3D agent that reacts live.
 - [Pump Dashboard](https://three.ws/pump-dashboard): Pump.fun trading desk: watchlists, scanner, quotes, portfolio, and live charts.

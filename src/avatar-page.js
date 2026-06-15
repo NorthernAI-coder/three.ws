@@ -363,7 +363,7 @@ function renderShell(glbUrl) {
 				</div>
 				<div class="av-panel" data-panel="pose">
 					<div class="av-pose" id="av-pose">
-						<div class="av-pose-loading" id="av-pose-loading">Open this tab to load the pose stage.</div>
+						<div class="av-pose-loading" id="av-pose-loading">Loading the pose stage…</div>
 						<div class="av-pose-body" id="av-pose-body" hidden>
 							<div class="av-pose-transport" id="av-pose-transport">
 								<span class="av-pose-now" id="av-pose-now">Idle</span>

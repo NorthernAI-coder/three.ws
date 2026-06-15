@@ -3,6 +3,20 @@
 	"entries": [
 		{
 			"date": "2026-06-15",
+			"title": "Sniper Arena — watch AI agents trade pump.fun live",
+			"summary": "Agents can now trade pump.fun autonomously. A new always-on engine watches every launch in real time, scores it against an agent's strategy (market-cap band, creator track record, socials), and — when it qualifies — buys from the agent's own Solana wallet, then manages the position to a take-profit, stop-loss, trailing stop, or timeout exit. Arming an agent is opt-in and capped: you set a daily budget, a per-trade size, and a mandatory stop-loss, with a kill switch that halts new buys instantly. The new Sniper Arena at three.ws/play/arena shows it all happening live — a P&L leaderboard, a streaming trade ticker where every fill links to its on-chain transaction, and the top agent's 3D avatar reacting to its own wins. Autonomous trading is experimental and you can lose the funds you commit.",
+			"tags": ["feature"],
+			"link": "/play/arena"
+		},
+		{
+			"date": "2026-06-15",
+			"title": "There's a cover at the Pole Club door",
+			"summary": "The club now has a line outside. Before the room opens you pay a $0.01 USDC cover at the door via x402, and an on-chain bouncer checks the paying wallet — banned wallets are turned away, everyone else gets in with a door tier (newcomer, regular, or VIP) based on their past club nights. Pay once and you're in for the night; reopen the page and the velvet rope drops automatically. The 3D room loads behind the door while you're in line, so it's warm the moment you step in.",
+			"tags": ["feature"],
+			"link": "/club"
+		},
+		{
+			"date": "2026-06-15",
 			"title": "Pose any avatar — a full motion library on the avatar page",
 			"summary": "Every avatar page has a new Pose tab. Open it and the avatar steps onto a live 3D stage you can orbit, with a searchable library of 100+ motions — idle, wave, dance, jump, flex, facepalm and more. Click one and it plays on the avatar instantly, even when the model itself ships no built-in animation: the clips retarget onto its skeleton in your browser. A speed slider and a reset-to-idle control round out the transport. Avatars without a standard humanoid rig get a clear message instead of a broken stage.",
 			"tags": ["feature"]

@@ -4402,3 +4402,177 @@ body.market-page > header {
 	.card-heart:hover,
 	.card-star:hover { transform: none; }
 }
+
+/* ── Creator animation listings + purchase modal ─────────────────────────────
+   Marketplace surface for clips authored in the Animation Studio (/pose) and
+   listed for sale via /api/animations/sell. Rendered by src/marketplace.js. */
+.market-anim-listings { margin-bottom: 8px; }
+.market-anim-listings-head,
+.market-anim-library-head {
+	display: flex;
+	align-items: baseline;
+	gap: 10px;
+	margin: 4px 0 14px;
+}
+.market-anim-library-head {
+	margin-top: 28px;
+	padding-top: 20px;
+	border-top: 1px solid var(--stroke);
+}
+.market-anim-listings-title { font-size: 15px; font-weight: 700; color: #fafafa; margin: 0; }
+.market-anim-listings-sub { font-size: 12px; color: #a1a1aa; }
+.market-anim-listings-grid { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+
+.anim-listing-card {
+	background: var(--surface-1);
+	border: 1px solid var(--stroke);
+	border-radius: 16px;
+	overflow: hidden;
+	cursor: pointer;
+	display: flex;
+	flex-direction: column;
+	transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+}
+.anim-listing-card:hover,
+.anim-listing-card:focus-visible {
+	border-color: rgba(255, 255, 255, 0.2);
+	transform: translateY(-2px);
+	box-shadow: 0 10px 28px rgba(0, 0, 0, 0.34);
+	outline: none;
+}
+.anim-listing-media {
+	position: relative;
+	aspect-ratio: 4 / 3;
+	background:
+		radial-gradient(circle at 50% 55%, rgba(255, 255, 255, 0.06), transparent 70%),
+		linear-gradient(180deg, #0a0a0a, #060606);
+}
+.anim-listing-thumb { width: 100%; height: 100%; object-fit: cover; display: block; }
+.anim-listing-thumb-empty {
+	width: 100%; height: 100%;
+	display: flex; align-items: center; justify-content: center;
+	font-size: 38px; opacity: 0.5;
+}
+.anim-listing-price {
+	position: absolute;
+	top: 10px; right: 10px;
+	font-size: 11px; font-weight: 700;
+	padding: 4px 9px;
+	border-radius: 999px;
+	backdrop-filter: blur(8px);
+	letter-spacing: 0.02em;
+}
+.anim-listing-price.paid {
+	background: rgba(99, 102, 241, 0.22);
+	color: #c7d2fe;
+	border: 1px solid rgba(129, 140, 248, 0.45);
+}
+.anim-listing-price.free {
+	background: rgba(52, 211, 153, 0.18);
+	color: #6ee7b7;
+	border: 1px solid rgba(52, 211, 153, 0.4);
+}
+.anim-listing-body { padding: 12px 14px 6px; flex: 1; }
+.anim-listing-name {
+	font-size: 14px; font-weight: 600; color: #fafafa;
+	white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.anim-listing-creator { font-size: 12px; color: #a1a1aa; margin-top: 2px; }
+.anim-listing-meta { display: flex; gap: 5px; margin-top: 9px; flex-wrap: wrap; }
+.anim-listing-cta {
+	padding: 10px 14px 13px;
+	font-size: 12px; font-weight: 600; color: #fafafa;
+	opacity: 0.55;
+	transition: opacity 0.15s ease;
+}
+.anim-listing-card:hover .anim-listing-cta,
+.anim-listing-card:focus-visible .anim-listing-cta { opacity: 0.95; }
+
+.anim-buy-overlay {
+	position: fixed; inset: 0; z-index: 1000;
+	display: flex; align-items: center; justify-content: center;
+	padding: 20px;
+	background: rgba(0, 0, 0, 0.66);
+	backdrop-filter: blur(4px);
+	animation: anim-buy-fade 0.16s ease;
+}
+@keyframes anim-buy-fade { from { opacity: 0; } to { opacity: 1; } }
+.anim-buy-card {
+	position: relative;
+	width: min(720px, 100%);
+	max-height: 90vh;
+	overflow: auto;
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	background: var(--surface-1, #0d0d0d);
+	border: 1px solid var(--stroke-strong, rgba(255, 255, 255, 0.14));
+	border-radius: 20px;
+	box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
+	animation: anim-buy-rise 0.2s ease;
+}
+@keyframes anim-buy-rise {
+	from { transform: translateY(10px); opacity: 0; }
+	to { transform: translateY(0); opacity: 1; }
+}
+.anim-buy-close {
+	position: absolute; top: 12px; right: 12px; z-index: 2;
+	width: 32px; height: 32px;
+	border-radius: 50%;
+	border: 1px solid rgba(255, 255, 255, 0.14);
+	background: rgba(0, 0, 0, 0.4);
+	color: #fafafa; cursor: pointer;
+	font-size: 14px; line-height: 1;
+	transition: background 0.15s ease;
+}
+.anim-buy-close:hover { background: rgba(255, 255, 255, 0.12); }
+.anim-buy-media {
+	position: relative;
+	background:
+		radial-gradient(circle at 50% 55%, rgba(255, 255, 255, 0.06), transparent 70%),
+		linear-gradient(180deg, #0a0a0a, #050505);
+	border-radius: 20px 0 0 20px;
+	min-height: 320px;
+}
+.anim-buy-media img { width: 100%; height: 100%; object-fit: cover; border-radius: 20px 0 0 20px; }
+.anim-buy-media-empty {
+	position: absolute; inset: 0;
+	display: flex; align-items: center; justify-content: center;
+	font-size: 64px; opacity: 0.45;
+}
+.anim-buy-info { padding: 26px 24px 22px; min-width: 0; }
+.anim-buy-name { font-size: 20px; font-weight: 700; color: #fafafa; margin: 0; line-height: 1.2; }
+.anim-buy-creator { font-size: 13px; color: #a1a1aa; margin: 4px 0 0; }
+.anim-buy-desc { font-size: 13px; color: #d4d4d8; line-height: 1.5; margin: 12px 0 0; }
+.anim-buy-meta { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 14px; }
+.anim-buy-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+.anim-buy-actions { margin-top: 20px; }
+.anim-buy-go { width: 100%; }
+.anim-buy-note { font-size: 12px; color: #a1a1aa; line-height: 1.5; margin: 12px 0 0; }
+.anim-buy-note-err { color: #fca5a5; }
+.anim-buy-snippet { margin-top: 16px; border-top: 1px solid var(--stroke); padding-top: 12px; }
+.anim-buy-snippet summary { font-size: 12px; font-weight: 600; color: #c7d2fe; cursor: pointer; }
+.anim-buy-endpoint { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+.anim-buy-endpoint code {
+	flex: 1; min-width: 0;
+	font-size: 11px; color: #d4d4d8;
+	background: rgba(255, 255, 255, 0.04);
+	border: 1px solid var(--stroke);
+	border-radius: 8px;
+	padding: 7px 9px;
+	overflow-x: auto; white-space: nowrap;
+}
+.anim-buy-code {
+	margin: 10px 0 0;
+	font-size: 11px; line-height: 1.5; color: #d4d4d8;
+	background: rgba(255, 255, 255, 0.04);
+	border: 1px solid var(--stroke);
+	border-radius: 10px;
+	padding: 12px;
+	overflow-x: auto;
+}
+.anim-buy-code code { white-space: pre; }
+@media (max-width: 600px) {
+	.anim-buy-card { grid-template-columns: 1fr; }
+	.anim-buy-media { border-radius: 20px 20px 0 0; min-height: 200px; }
+	.anim-buy-media img { border-radius: 20px 20px 0 0; }
+}

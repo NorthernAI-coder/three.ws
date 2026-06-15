@@ -1719,7 +1719,12 @@ class App {
 		});
 
 		if (!rootFile) {
+			// No model in the dropped/selected set — show the designed error and
+			// stop. Falling through to view() would hand `undefined` to
+			// URL.createObjectURL ("Overload resolution failed") and throw an
+			// uncaught TypeError that pages the ops channel.
 			this.onError('No .gltf or .glb asset found.');
+			return;
 		}
 
 		return this.view(rootFile, rootPath, fileMap);

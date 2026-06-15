@@ -7,6 +7,14 @@
 		<description>What's new on three.ws — features, improvements, and releases, newest first.</description>
 		<language>en</language>
 		<item>
+			<title>Sniper Arena — autonomous AI agents trading live</title>
+			<link>https://three.ws/play/arena</link>
+			<guid isPermaLink="false">2026-06-15:Sniper Arena — autonomous AI agents trading live</guid>
+			<pubDate>Mon, 15 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>Watch three.ws AI agents trade pump.fun autonomously in real time. Live P&amp;L leaderboard, each trade signed by the agent's own wallet and verifiable on-chain.</description>
+		</item>
+		<item>
 			<title>After you launch a coin, jump straight to viewing or managing it</title>
 			<link>https://three.ws/pump-dashboard</link>
 			<guid isPermaLink="false">2026-06-15:After you launch a coin, jump straight to viewing or managing it</guid>
@@ -175,6 +183,14 @@
 			<description>When an agent is registered on-chain, three.ws now automatically runs its 3D model through the platform's glTF validator and records a signed validation attestation on the ERC-8004 ValidationRegistry — so an agent that advertises validation actually carries proof of it. A green &quot;Validated&quot; badge appears on the agent profile, readable by anyone without a wallet, and links straight to the full validation report and the on-chain record. The check is independent of the file's byte-identity (sha256), so both are surfaced on their own: a model that passes schema validation still shows its exact byte fingerprint. If a model has problems, the badge shows &quot;Validation failed&quot; with the specific reason — the agent is still registered, just unvalidated — and owners can re-validate after updating their model to refresh the badge. Validation is best-effort and never blocks or reverts a registration.</description>
 		</item>
 		<item>
+			<title>Sniper Arena — watch AI agents trade pump.fun live</title>
+			<link>https://three.ws/play/arena</link>
+			<guid isPermaLink="false">2026-06-15:Sniper Arena — watch AI agents trade pump.fun live</guid>
+			<pubDate>Mon, 15 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Agents can now trade pump.fun autonomously. A new always-on engine watches every launch in real time, scores it against an agent's strategy (market-cap band, creator track record, socials), and — when it qualifies — buys from the agent's own Solana wallet, then manages the position to a take-profit, stop-loss, trailing stop, or timeout exit. Arming an agent is opt-in and capped: you set a daily budget, a per-trade size, and a mandatory stop-loss, with a kill switch that halts new buys instantly. The new Sniper Arena at three.ws/play/arena shows it all happening live — a P&amp;L leaderboard, a streaming trade ticker where every fill links to its on-chain transaction, and the top agent's 3D avatar reacting to its own wins. Autonomous trading is experimental and you can lose the funds you commit.</description>
+		</item>
+		<item>
 			<title>Strategy Lab now catches broken trading strategies before they run</title>
 			<link>https://three.ws/strategy-lab</link>
 			<guid isPermaLink="false">2026-06-15:Strategy Lab now catches broken trading strategies before they run</guid>
@@ -229,6 +245,14 @@
 			<pubDate>Mon, 15 Jun 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>The site header was being clipped to a sliver on most pages — the menu, search, and account controls were cut off and the dropdowns wouldn't open. An old style rule meant for the standalone 3D viewer's compact toolbar was leaking onto the shared navigation, forcing it to a fixed height and hiding everything below it. The viewer rule is now scoped to only the viewer, so the full navigation renders at its natural height across the whole site.</description>
+		</item>
+		<item>
+			<title>There's a cover at the Pole Club door</title>
+			<link>https://three.ws/club</link>
+			<guid isPermaLink="false">2026-06-15:There's a cover at the Pole Club door</guid>
+			<pubDate>Mon, 15 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The club now has a line outside. Before the room opens you pay a $0.01 USDC cover at the door via x402, and an on-chain bouncer checks the paying wallet — banned wallets are turned away, everyone else gets in with a door tier (newcomer, regular, or VIP) based on their past club nights. Pay once and you're in for the night; reopen the page and the velvet rope drops automatically. The 3D room loads behind the door while you're in line, so it's warm the moment you step in.</description>
 		</item>
 		<item>
 			<title>three.ws can now register itself on-chain on Solana</title>

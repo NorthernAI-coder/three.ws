@@ -65,7 +65,11 @@ function enhanceTrellisPrompt(raw) {
 
 // Per-request timeouts so a hung upstream never stalls a serverless function.
 // A completed poll streams the full GLB (can be several MB), so it gets longer.
-const SUBMIT_TIMEOUT_MS = 30_000;
+// Submit must cover a SYNCHRONOUS draft completion: the probe clocked ~12–13 s
+// in isolation, but under real NVCF load TRELLIS routinely runs longer and was
+// aborting at 30 s ("operation aborted due to timeout"). 45 s leaves headroom
+// and still returns well inside the forge function's budget.
+const SUBMIT_TIMEOUT_MS = 45_000;
 const POLL_TIMEOUT_MS = 60_000;
 
 // Sampling steps per quality tier, clamped to TRELLIS's accepted 10–50 window.
@@ -109,6 +113,37 @@ function providerError(status, message, retryAfter) {
 		if (Number.isFinite(secs)) err.retryAfter = secs;
 	}
 	return err;
+}
+
+// Pull the GLB out of a successful TRELLIS response. The documented and common
+// shape is JSON `{ artifacts: [{ base64 }] }`, but NVCF can also return the raw
+// GLB bytes directly (model/gltf-binary or octet-stream) — accept both. When
+// neither matches, return a compact diagnostic (content-type + top-level keys or
+// a body snippet) instead of a blind failure, so the real upstream shape shows
+// up in the logs and the gap can be closed precisely rather than guessed at.
+async function extractGlbBase64(res) {
+	const ct = (res.headers.get('content-type') || '').toLowerCase();
+	if (ct.includes('json')) {
+		const data = await res.json().catch(() => null);
+		const b64 =
+			data?.artifacts?.[0]?.base64 ||
+			data?.artifacts?.[0]?.data ||
+			(typeof data?.output === 'string' ? data.output : null) ||
+			data?.output?.[0]?.base64 ||
+			null;
+		if (b64) return { base64: b64 };
+		return {
+			base64: null,
+			diag: `json keys=${data && typeof data === 'object' ? JSON.stringify(Object.keys(data)) : 'unparseable'}`,
+		};
+	}
+	if (ct.includes('gltf') || ct.includes('octet-stream') || ct.startsWith('model/') || ct.includes('binary')) {
+		const buf = Buffer.from(await res.arrayBuffer());
+		if (buf.length > 0) return { base64: buf.toString('base64') };
+		return { base64: null, diag: `empty ${ct} body` };
+	}
+	const text = await res.text().catch(() => '');
+	return { base64: null, diag: `ct=${ct || 'none'} body[0:160]=${text.slice(0, 160)}` };
 }
 
 function buildTextBody({ prompt, tier, seed }) {
@@ -181,15 +216,15 @@ export function createNvidiaProvider() {
 		}
 
 		if (res.ok) {
-			const data = await res.json().catch(() => ({}));
-			const b64 = data?.artifacts?.[0]?.base64;
-			if (!b64) {
+			const { base64, diag } = await extractGlbBase64(res);
+			if (!base64) {
+				console.warn('[nvidia] sync 200 but no GLB artifact — %s', diag);
 				throw Object.assign(new Error('TRELLIS completed but returned no GLB artifact'), {
 					code: 'provider_error',
 					status: 502,
 				});
 			}
-			return { done: true, glbBase64: b64 };
+			return { done: true, glbBase64: base64 };
 		}
 
 		let detail = '';
@@ -243,11 +278,13 @@ export function createNvidiaProvider() {
 			if (res.status === 202) return { status: 'running' };
 
 			if (res.ok) {
-				const data = await res.json().catch(() => ({}));
-				const b64 = data?.artifacts?.[0]?.base64;
-				if (!b64) return { status: 'failed', error: 'TRELLIS finished but returned no GLB artifact' };
+				const { base64, diag } = await extractGlbBase64(res);
+				if (!base64) {
+					console.warn('[nvidia] poll 200 but no GLB artifact — %s', diag);
+					return { status: 'failed', error: 'TRELLIS finished but returned no GLB artifact' };
+				}
 				try {
-					const resultGlbUrl = await persistGlb(b64);
+					const resultGlbUrl = await persistGlb(base64);
 					return { status: 'done', resultGlbUrl };
 				} catch (err) {
 					return { status: 'failed', error: `failed to persist GLB: ${err?.message}` };

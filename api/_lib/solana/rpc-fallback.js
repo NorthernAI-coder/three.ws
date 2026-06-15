@@ -12,10 +12,19 @@
 //     burn through fallbacks).
 
 import { Connection } from '@solana/web3.js';
-import { solanaRpcEndpoints } from './connection.js';
+import { solanaRpcEndpoints, isEndpointCooling, markEndpointCooldown } from './connection.js';
 
 const MAX_CONSECUTIVE_FAILS = 3;
 const COOLDOWN_MS = 60_000;
+
+// Recover the upstream HTTP status from a thrown web3.js error so we can size the
+// shared per-provider cooldown (a quota 429 parks the provider for hours, a plain
+// 429 for minutes). web3.js surfaces 429 bodies verbatim, e.g.
+// "429 Too Many Requests: {…-32429…max usage reached…}".
+function statusFromErr(err) {
+	const m = String((err && err.message) || err).match(/\b(401|403|429|500|502|503|504)\b/);
+	return m ? Number(m[1]) : 429;
+}
 
 export function deriveWsUrl(httpUrl) {
 	return String(httpUrl).replace(/^https:/, 'wss:').replace(/^http:/, 'ws:');
@@ -65,6 +74,10 @@ export class RpcFallback {
 			this.connections[this.currentIndex] = new Connection(url, {
 				commitment: this.commitment,
 				wsEndpoint: deriveWsUrl(url),
+				// Fail fast on 429 so we rotate to the next provider immediately
+				// instead of web3.js running its 500/1000/2000/4000ms backoff loop
+				// ("Server responded with 429 … Retrying after Nms") on a dead lane.
+				disableRetryOnRateLimit: true,
 			});
 		}
 		return this.connections[this.currentIndex];
@@ -86,9 +99,13 @@ export class RpcFallback {
 	async withFallback(fn) {
 		const tried = new Set();
 		while (tried.size < this.urls.length) {
-			if (this.cooldownUntil[this.currentIndex] > Date.now()) {
+			// Skip endpoints parked in the shared process-wide cooldown (e.g. Helius
+			// after a quota 429) or this instance's local cooldown — don't re-probe a
+			// known-dead lane on every call. Count it as tried so the loop still
+			// terminates when everything is cooling.
+			if (isEndpointCooling(this.currentUrl) || this.cooldownUntil[this.currentIndex] > Date.now()) {
+				tried.add(this.currentIndex);
 				this._rotate();
-				if (tried.has(this.currentIndex)) break;
 				continue;
 			}
 			tried.add(this.currentIndex);
@@ -98,7 +115,14 @@ export class RpcFallback {
 				return result;
 			} catch (err) {
 				if (isRetryable(err)) {
-					console.warn('[rpc-fallback] %s rotated: %s', maskUrl(this.currentUrl), String(err).slice(0, 120));
+					const status = statusFromErr(err);
+					const ms = markEndpointCooldown(this.currentUrl, status, String((err && err.message) || err));
+					console.warn(
+						'[rpc-fallback] %s %s — cooling %dm, rotating',
+						maskUrl(this.currentUrl),
+						status,
+						Math.round(ms / 60_000),
+					);
 					this.reportFailure();
 				} else {
 					throw err;

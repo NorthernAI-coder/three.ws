@@ -25,7 +25,11 @@ import { SEED_PROMPTS, OG_USERNAMES } from '../_lib/seed-prompts.js';
 import { randomUUID } from 'node:crypto';
 
 const ORIGIN = () => env.APP_ORIGIN || 'https://three.ws';
-const FETCH_TIMEOUT_MS = 25_000;
+// Must exceed the forge endpoint's worst-case synchronous wait on the free
+// NVIDIA lane (SUBMIT_TIMEOUT_MS = 45 s in api/_providers/nvidia.js) so the cron
+// never aborts a generation that is legitimately still completing; still inside
+// the 60 s function budget.
+const FETCH_TIMEOUT_MS = 50_000;
 const MAX_CONCURRENT_PENDING = 3;
 const MIN_JOB_AGE_SECONDS = 20;
 

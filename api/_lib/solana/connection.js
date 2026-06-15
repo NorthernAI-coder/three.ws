@@ -20,9 +20,53 @@ function deriveWsUrl(httpUrl) {
 	return String(httpUrl).replace(/^https:/, 'wss:').replace(/^http:/, 'ws:');
 }
 
-const COOLDOWN_MS = 30_000;
+// Cooldown durations by failure class. Quota exhaustion (e.g. Helius -32429
+// "max usage reached") means the provider is dead for the billing window, so we
+// park it for hours instead of re-hammering it on every RPC call and every cron
+// tick — that re-hammering was the source of the 429 retry storm in the logs.
+// Plain rate-limits, auth rejections, and transient 5xx/network blips cool down
+// for shorter, proportionate windows.
+const QUOTA_COOLDOWN_MS = 6 * 3_600_000; // 6h — daily/monthly quota exhausted
+const RATE_LIMIT_COOLDOWN_MS = 10 * 60_000; // 10m — transient 429
+const AUTH_COOLDOWN_MS = 30 * 60_000; // 30m — bad/expired key on this provider only
+const SERVER_COOLDOWN_MS = 2 * 60_000; // 2m — provider 5xx
+const NETWORK_COOLDOWN_MS = 30_000; // 30s — fetch threw (DNS/connection blip)
 const PUBLIC_MAINNET = 'https://api.mainnet-beta.solana.com';
 const PUBLIC_DEVNET = 'https://api.devnet.solana.com';
+
+// Process-wide endpoint cooldown, keyed by full URL. Shared across every
+// Connection built in this lambda instance — both solanaConnection() and
+// RpcFallback — so once one provider reports quota-exhausted, ALL callers skip
+// it until it recovers. Per-instance state is correct on Vercel: it self-heals
+// on cooldown expiry and a cold start simply re-probes.
+const _endpointCooldown = new Map();
+
+function cooldownMsFor(status, bodyText) {
+	if (status === 429) {
+		return /max usage reached|-32429|quota|usage limit|credits?\s*exhausted/i.test(bodyText || '')
+			? QUOTA_COOLDOWN_MS
+			: RATE_LIMIT_COOLDOWN_MS;
+	}
+	if (status === 401 || status === 403) return AUTH_COOLDOWN_MS;
+	if (status >= 500) return SERVER_COOLDOWN_MS;
+	return RATE_LIMIT_COOLDOWN_MS;
+}
+
+/** True when `url` is currently parked in cooldown and should be skipped. */
+export function isEndpointCooling(url) {
+	return (_endpointCooldown.get(url) || 0) > Date.now();
+}
+
+/**
+ * Park `url` in cooldown for a window sized to the failure class. Returns the
+ * chosen cooldown in ms so callers can log it. `bodyText` (a 429 body or error
+ * message) is scanned for a quota signal to pick the long window.
+ */
+export function markEndpointCooldown(url, status, bodyText) {
+	const ms = cooldownMsFor(status, bodyText);
+	_endpointCooldown.set(url, Date.now() + ms);
+	return ms;
+}
 
 function dedupe(list) {
 	const seen = new Set();
@@ -79,35 +123,52 @@ function shouldRotate(status) {
 	return status === 401 || status === 403 || status === 429 || status >= 500;
 }
 
-// Per-Connection rotating fetch. Cooldown state is captured in this closure, so
-// it's shared across every JSON-RPC call made through one Connection instance.
-function makeRotatingFetch(endpoints) {
-	const cooldownUntil = new Array(endpoints.length).fill(0);
+// Rotating fetch backing a Connection. It NEVER surfaces a rotate-worthy status
+// (401/403/429/5xx) to @solana/web3.js — it either returns a healthy response or
+// throws — so web3.js's internal 429 backoff loop ("Server responded with 429 …
+// Retrying after Nms") never fires. Cooldowns live in the process-wide map, so a
+// quota-dead provider is skipped on the very next call (and next cron tick), not
+// re-probed every time.
+export function makeRotatingFetch(endpoints) {
 	return async function rotatingFetch(_info, init) {
 		let lastErr = null;
 		let attempted = false;
-		for (let i = 0; i < endpoints.length; i++) {
-			if (cooldownUntil[i] > Date.now()) continue;
+		for (const url of endpoints) {
+			if (isEndpointCooling(url)) continue;
 			attempted = true;
 			try {
-				const resp = await fetch(endpoints[i], init);
+				const resp = await fetch(url, init);
 				if (shouldRotate(resp.status)) {
-					cooldownUntil[i] = Date.now() + COOLDOWN_MS;
-					lastErr = new Error(`solana rpc ${resp.status} @ ${maskUrl(endpoints[i])}`);
-					if (i + 1 < endpoints.length) {
-						console.warn(`[solana-rpc] ${maskUrl(endpoints[i])} ${resp.status} — failing over`);
-					}
+					// Read the body only on the failure path (we never return it) so a
+					// quota signal can pick the long cooldown.
+					const bodyText = resp.status === 429 ? await resp.clone().text().catch(() => '') : '';
+					const ms = markEndpointCooldown(url, resp.status, bodyText);
+					// Logged only on the transition into cooldown — cooling endpoints
+					// are skipped above without a line, so this fires once per window
+					// per provider instead of on every RPC call.
+					console.warn(
+						`[solana-rpc] ${maskUrl(url)} ${resp.status} — cooling ${Math.round(ms / 60_000)}m, failing over`,
+					);
+					lastErr = new Error(`solana rpc ${resp.status} @ ${maskUrl(url)}`);
 					continue;
 				}
 				return resp;
 			} catch (err) {
-				cooldownUntil[i] = Date.now() + COOLDOWN_MS;
+				// A thrown fetch is a transient network/DNS blip, not a quota signal —
+				// cool only briefly so a healthy provider isn't parked for long.
+				_endpointCooldown.set(url, Date.now() + NETWORK_COOLDOWN_MS);
 				lastErr = err;
 			}
 		}
-		// Every endpoint is cooling down — don't hard-fail; take one more shot at
-		// the primary (its cooldown may have just lapsed under load).
-		if (!attempted) return fetch(endpoints[0], init);
+		// Every endpoint is cooling down. Rather than blindly re-hit the (likely
+		// dead) primary, take one shot at whichever recovers soonest — its cooldown
+		// may have just lapsed and it's the least-bad option.
+		if (!attempted) {
+			const soonest = endpoints
+				.slice()
+				.sort((a, b) => (_endpointCooldown.get(a) || 0) - (_endpointCooldown.get(b) || 0))[0];
+			return fetch(soonest, init);
+		}
 		throw lastErr || new Error('all solana rpc endpoints failed');
 	};
 }
@@ -124,6 +185,10 @@ export function solanaConnection({ url = null, commitment = 'confirmed', network
 	return new Connection(primary, {
 		commitment,
 		wsEndpoint: deriveWsUrl(primary),
+		// Never let web3.js run its own 429 backoff loop: with >1 endpoint the
+		// rotating fetch already hides 429s, and with a single endpoint we want to
+		// fail fast to the caller rather than spend seconds retrying a dead lane.
+		disableRetryOnRateLimit: true,
 		...(endpoints.length > 1 ? { fetch: makeRotatingFetch(endpoints) } : {}),
 	});
 }

@@ -34,6 +34,45 @@ const ZAUTH_HOST = (process.env.ZAUTH_API_ENDPOINT || 'https://back.zauthx402.co
 const _inflight = new Set();
 let _fetchWrapped = false;
 
+// Circuit breaker for the telemetry collector. From the Vercel runtime the
+// collector can be persistently unreachable ("fetch failed"), which both wastes
+// drain time on every monitored request and spams a warning per call. After N
+// consecutive failed submissions we trip the breaker: instrument() becomes a
+// no-op (no POST, no drain) until a cooldown elapses — logged once on trip and
+// once on recovery, not per request. State is per-lambda-instance, which is
+// correct: it self-heals on expiry and a cold start re-probes.
+const _CIRCUIT_THRESHOLD = Number(process.env.ZAUTH_CIRCUIT_FAILURE_THRESHOLD) || 5;
+const _CIRCUIT_COOLDOWN_MS = Number(process.env.ZAUTH_CIRCUIT_COOLDOWN_MS) || 300_000;
+let _collectorFailures = 0;
+let _collectorDownUntil = 0;
+
+function isCollectorDown() {
+	return _collectorDownUntil > Date.now();
+}
+
+function noteCollectorSuccess() {
+	_collectorFailures = 0;
+	if (_collectorDownUntil) {
+		_collectorDownUntil = 0;
+		console.log('[zauth] collector recovered — telemetry resumed');
+	}
+}
+
+function noteCollectorFailure(err) {
+	// Individual failures are only interesting in debug mode; steady-state we want
+	// a single line when the breaker trips, not one per request.
+	if (env.ZAUTH_DEBUG === '1') console.warn('[zauth] telemetry delivery failed (non-fatal):', err?.message || err);
+	if (isCollectorDown()) return;
+	_collectorFailures += 1;
+	if (_collectorFailures >= _CIRCUIT_THRESHOLD) {
+		_collectorDownUntil = Date.now() + _CIRCUIT_COOLDOWN_MS;
+		_collectorFailures = 0;
+		console.warn(
+			`[zauth] collector unreachable — pausing telemetry for ${Math.round(_CIRCUIT_COOLDOWN_MS / 60_000)}m`,
+		);
+	}
+}
+
 // The SDK's flush() early-returns while a previous batch is still submitting
 // (`isFlushing`) and nothing ever re-triggers it, so an event queued during
 // submission is stranded until some later request happens to queue another
@@ -65,12 +104,19 @@ function trackZauthFetch() {
 		if (url.includes(ZAUTH_HOST)) {
 			_inflight.add(promise);
 			promise.then(
-				() => { _inflight.delete(promise); if (env.ZAUTH_DEBUG === '1') console.log('[zauth] Batch submitted'); },
-				// Telemetry is fire-and-forget: a transient network blip reaching
-				// back.zauthx402.com (or the lambda freezing mid-POST) must never be
-				// logged at error level — it isn't a request failure and was
-				// drowning genuine errors in the function logs. Warn, not error.
-				(err) => { _inflight.delete(promise); console.warn('[zauth] telemetry delivery failed (non-fatal):', err?.message || err); },
+				() => {
+					_inflight.delete(promise);
+					noteCollectorSuccess();
+					if (env.ZAUTH_DEBUG === '1') console.log('[zauth] Batch submitted');
+				},
+				// Telemetry is fire-and-forget: a transient blip reaching the collector
+				// (or the lambda freezing mid-POST) is not a request failure. Feed the
+				// circuit breaker, which logs once when the collector is sustainedly
+				// down rather than once per request.
+				(err) => {
+					_inflight.delete(promise);
+					noteCollectorFailure(err);
+				},
 			);
 		}
 		return promise;
@@ -300,6 +346,10 @@ function shimRequest(req) {
 export function instrument(req, res) {
 	const mw = getMiddleware();
 	if (!mw) return false;
+	// Collector circuit breaker tripped: skip monitoring entirely (no POST, no
+	// drain await) until the cooldown elapses. Returning false means the caller
+	// won't await drain() for this request.
+	if (isCollectorDown()) return false;
 	// Idempotency: dispatcher routes (wk.js, x402/service.js) run wrap() at the
 	// top level AND invoke paidEndpoint-built handlers (also wrap()-ed) inside —
 	// without this guard the SDK middleware would observe and report the same
