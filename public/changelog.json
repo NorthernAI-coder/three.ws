@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-15T08:30:29.407Z",
+	"generated_at": "2026-06-15T10:14:40.135Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -56,6 +56,16 @@
 			"tags": [
 				"improvement",
 				"infra"
+			]
+		},
+		{
+			"date": "2026-06-15",
+			"type": "update",
+			"title": "Browse every community avatar from your dashboard",
+			"summary": "The dashboard Avatars page now has a Community tab alongside My avatars. It shows every public 3D avatar the whole community has built — with live spinning previews, a running count and total views, search, tag filters, and infinite scroll. Open any one as a live page, remix it in the 3D studio, or copy its share link, embed snippet, or GLB URL in a click.",
+			"link": "/dashboard/avatars",
+			"tags": [
+				"feature"
 			]
 		},
 		{
