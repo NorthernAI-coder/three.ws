@@ -35,6 +35,7 @@ Before writing a single line of code, answer these questions internally:
 6. **No fallback sample arrays** (e.g. `const sampleAgents = [...]`) shipped to production. Real fetch only.
 7. **Errors handled at boundaries** (network, user input). Internal code trusts itself.
 8. **No "good enough."** If you notice something is mediocre while building, fix it now. Don't leave it for later. Later never comes.
+9. **No errors without solutions.** There is always a correct answer — find it. Never let something fail because finding the fix felt hard. Every error has a root cause; every root cause has a fix. Ship working fallbacks and failsafes. Lazy error propagation is not engineering.
 
 ## The only coin — $THREE (absolute, no exceptions)
 
