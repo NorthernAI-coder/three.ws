@@ -62,6 +62,7 @@ export function startIntelWatcher({
 	network = 'mainnet',
 	windowMs = 90_000,
 	maxConcurrent = 400,
+	useLlm = false,
 	signal,
 	onIntel,
 } = {}) {
@@ -167,7 +168,7 @@ export function startIntelWatcher({
 				twitter: obs.meta.twitter,
 				telegram: obs.meta.telegram,
 				website: obs.meta.website,
-			});
+			}, { useLlm });
 
 			const record = {
 				mint,

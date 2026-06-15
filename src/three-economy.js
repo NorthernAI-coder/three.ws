@@ -212,6 +212,8 @@ function injectStyles() {
 	.ec-stat .v { font-size:28px; font-weight:820; letter-spacing:-.02em; font-variant-numeric:tabular-nums; }
 	.ec-stat .v .sym { font-size:14px; font-weight:600; color:var(--muted); margin-left:5px; }
 	.ec-stat .k { color:var(--muted); font-size:12.5px; margin-top:5px; }
+	.ec-stamp { margin-top:14px; font-size:12px; color:var(--muted-2); display:flex; align-items:center; gap:7px; }
+	.ec-stamp::before { content:''; width:6px; height:6px; border-radius:50%; background:var(--green); box-shadow:0 0 8px var(--green); }
 
 	/* Verify wallets */
 	.ec-wallets { display:grid; gap:13px; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); }
@@ -224,7 +226,7 @@ function injectStyles() {
 	.ec-wallet .wbal .sym { font-size:13px; color:var(--muted); margin-left:5px; font-weight:600; }
 	.ec-wallet .waddr { font-family:ui-monospace,Menlo,monospace; font-size:11.5px; color:var(--accent); }
 
-	/* Reflections + projector */
+	/* Rewards (value returned) + projector */
 	.ec-reflect { display:grid; gap:16px; grid-template-columns:1.1fr .9fr; align-items:start; }
 	@media (max-width:760px){ .ec-reflect{ grid-template-columns:1fr; } }
 	.ec-card { border:1px solid var(--line); border-radius:16px; padding:22px;
@@ -232,10 +234,14 @@ function injectStyles() {
 	.ec-reflect-big { font-size:38px; font-weight:850; letter-spacing:-.025em; color:var(--green);
 		font-variant-numeric:tabular-nums; }
 	.ec-reflect-sub { color:var(--muted); font-size:13.5px; margin-top:4px; }
-	.ec-reflect-list { margin-top:16px; border-top:1px solid var(--line); }
-	.ec-reflect-row { display:flex; justify-content:space-between; gap:12px; padding:11px 0; font-size:13px;
-		border-bottom:1px solid var(--line); }
-	.ec-reflect-row:last-child { border-bottom:none; }
+	.ec-reflect-table { width:100%; border-collapse:collapse; margin-top:16px; font-size:13px; }
+	.ec-reflect-table th { text-align:left; font-weight:600; color:var(--muted-2); font-size:11px;
+		text-transform:uppercase; letter-spacing:.06em; padding:0 0 8px; border-bottom:1px solid var(--line); }
+	.ec-reflect-table th:last-child { text-align:right; }
+	.ec-reflect-table td { padding:10px 0; border-bottom:1px solid var(--line); font-variant-numeric:tabular-nums; }
+	.ec-reflect-table tr:last-child td { border-bottom:none; }
+	.ec-txlink { color:var(--green); font-weight:600; font-size:12px; }
+	.ec-txlink:hover { text-decoration:underline; }
 	.ec-tag { font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; padding:2px 8px;
 		border-radius:999px; }
 	.ec-tag.paid { background:rgba(110,231,168,.12); color:var(--green); }
@@ -615,21 +621,27 @@ function reflectedHTML(stats) {
 	const total = fmtCompact(atomicsToTokens(r.total_atomics ?? '0', dec));
 	let history;
 	if (!r.recent?.length) {
-		history = `<p class="ec-muted" style="margin-top:14px;font-size:13px">Distributions begin once the rewards pool funds. Every run will appear here with an on-chain transaction you can verify — value returned to holders, never destroyed.</p>`;
+		history = `<p class="ec-muted" style="margin-top:14px;font-size:13px">Distributions begin once the rewards pool funds. Every run will appear here as a row with an on-chain transaction you can open — value returned to holders, never destroyed.</p>`;
 	} else {
-		history = `<div class="ec-reflect-list">${r.recent
+		// A real <table> for accessibility + copy/paste; completed runs link to the tx.
+		const rows = r.recent
 			.map((d) => {
 				const amt = fmtCompact(atomicsToTokens(d.distributed_atomics ?? '0', dec));
 				const when = d.created_at ? new Date(d.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
 				const paid = d.status === 'completed';
-				return `<div class="ec-reflect-row"><span class="ec-muted">${esc(when)}</span><span>${esc(amt)} $THREE → ${d.holder_count} holders</span><span class="ec-tag ${paid ? 'paid' : 'planned'}">${paid ? 'paid' : 'planned'}</span></div>`;
+				const tx = Array.isArray(d.tx_signatures) && d.tx_signatures[0] ? d.tx_signatures[0] : null;
+				const verify = tx
+					? `<a href="https://solscan.io/tx/${esc(tx)}" target="_blank" rel="noopener" class="ec-txlink">verify ↗</a>`
+					: `<span class="ec-tag ${paid ? 'paid' : 'planned'}">${paid ? 'paid' : 'planned'}</span>`;
+				return `<tr><td class="ec-muted">${esc(when)}</td><td>${esc(amt)} $THREE</td><td class="ec-muted">${d.holder_count} holders</td><td style="text-align:right">${verify}</td></tr>`;
 			})
-			.join('')}</div>`;
+			.join('');
+		history = `<table class="ec-reflect-table"><thead><tr><th>Date</th><th>Returned</th><th>To</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
 	}
 	return `
 	<div class="ec-card">
 		<div class="ec-reflect-big" id="ec-reflect-total">${esc(total)} <span style="font-size:18px;color:var(--muted)">$THREE</span></div>
-		<div class="ec-reflect-sub">returned to holders across ${r.run_count} distribution${r.run_count === 1 ? '' : 's'} — we never burn supply</div>
+		<div class="ec-reflect-sub">returned to holders across ${r.run_count} distribution${r.run_count === 1 ? '' : 's'} — funded by usage fees, never minted, never burned</div>
 		${history}
 	</div>
 	<div class="ec-card ec-proj">
@@ -863,8 +875,8 @@ function wireProjector(stats) {
 		if (eligibleSupply > 0 && reflectedTotal > 0) earned = (bag / eligibleSupply) * reflectedTotal;
 		out.innerHTML = `Holding <b>${fmtCompact(bag)} $THREE</b>${bagUsd != null ? ` <span class="ec-muted">(${fmtUsd(bagUsd)})</span>` : ''}<br/>` +
 			(earned != null && earned > 0
-				? `you'd have earned <b>≈ ${fmtCompact(earned)} $THREE</b> from reflections so far — and a fee discount on everything you buy.`
-				: `<span class="ec-muted">earns a share of every future reflection, plus a fee discount that grows with your tier.</span>`);
+				? `would have earned <b>≈ ${fmtCompact(earned)} $THREE</b> from past distributions — plus a fee discount on everything you buy. <span class="ec-muted">(historical, not a forecast)</span>`
+				: `<span class="ec-muted">earns a pro-rata share of every future distribution, plus a fee discount that grows with your tier.</span>`);
 	};
 	range.addEventListener('input', update);
 	update();
@@ -995,28 +1007,22 @@ async function load(root) {
 			setErr('ec-catalog', 'Price catalog is temporarily unavailable.');
 		});
 
+	// The tier ladder is always-on info content, so render the baseline immediately
+	// (never an empty/error box), then enhance with the holder's live "current" tier
+	// + progress when the authed call succeeds. A signed-out or failed call simply
+	// leaves the informative ladder in place.
+	const tiersEl = document.getElementById('ec-tiers');
+	if (tiersEl) tiersEl.innerHTML = tiersHTML({ ladder: DEFAULT_LADDER, tier: null, next: null });
 	getJSON(`${API}/tier`)
 		.then((t) => {
 			DISCOUNT_BPS = Number(t?.tier?.discount_bps) || 0;
-			const el = document.getElementById('ec-tiers');
-			if (el) el.innerHTML = tiersHTML(t);
+			if (tiersEl && t?.ladder?.length) tiersEl.innerHTML = tiersHTML(t);
 			// Re-render the price detail now that the discount is known.
 			const sel = document.querySelector('.ec-px-item.sel');
 			if (sel) sel.click();
 		})
-		.catch((e) => {
-			if (e.status === 401 || e.status === 403) {
-				const el = document.getElementById('ec-tiers');
-				// Render the ladder without a "current" marker, plus a sign-in nudge.
-				if (el)
-					el.innerHTML = tiersHTML({
-						ladder: DEFAULT_LADDER,
-						tier: null,
-						next: null,
-					});
-			} else {
-				setErr('ec-tiers', 'Tier info is temporarily unavailable.');
-			}
+		.catch(() => {
+			/* keep the baseline ladder — it's informative without auth */
 		});
 
 	wireNameStudio(root);

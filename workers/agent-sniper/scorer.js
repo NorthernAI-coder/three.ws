@@ -5,6 +5,8 @@
 // `reasons` always explains the verdict — kept on skipped events too so the
 // logs show WHY a mint was passed over, which is what you stare at when tuning.
 
+import { learnedScore } from './intel/learn.js';
+
 function n(v) {
 	if (v == null) return null;
 	const x = Number(v);
@@ -60,4 +62,62 @@ export function scoreMint(mint, strat) {
 	if (mcUsd != null) reasons.push(`mc_usd:${Math.round(mcUsd)}`);
 
 	return { pass: true, score, reasons };
+}
+
+/**
+ * Decide whether to buy a coin AFTER the Coin Intelligence Engine has finished
+ * observing it. Drives `trigger='intel_confirmed'` strategies. Unlike scoreMint
+ * (which fires blind on the create event), this has the full picture: bundle
+ * likelihood, organic score, concentration, dev behaviour, classification, and
+ * the learned weights. It can afford to be picky — a passed-over coin costs
+ * nothing, a bundle-rug costs real SOL.
+ *
+ * @param {object} rec    finished intel record (from intel/watcher.js)
+ * @param {object} strat  agent_sniper_strategies row (trigger=intel_confirmed)
+ * @param {object|null} weights  learned weights (from intel/store.getLearnedWeights)
+ * @returns {{ pass: boolean, score: number, reasons: string[] }}
+ */
+export function scoreIntel(rec, strat, weights = null) {
+	const reasons = [];
+	const s = rec?.signals || {};
+
+	// ── hard gates ───────────────────────────────────────────────────────────
+	const minQ = n(strat.min_quality_score);
+	if (minQ != null && (rec.quality_score == null || rec.quality_score < minQ)) {
+		return { pass: false, score: 0, reasons: [`quality_below_min:${rec.quality_score}`] };
+	}
+	const maxBundle = n(strat.max_bundle_score);
+	if (maxBundle != null && s.bundle_score != null && s.bundle_score > maxBundle) {
+		return { pass: false, score: 0, reasons: [`bundle_above_max:${s.bundle_score}`] };
+	}
+	const maxConc = n(strat.max_concentration_top1);
+	if (maxConc != null && s.concentration_top1 != null && s.concentration_top1 > maxConc) {
+		return { pass: false, score: 0, reasons: [`whale_concentration:${s.concentration_top1}`] };
+	}
+	// avoid_dev_dump defaults true (column default) — treat undefined as true.
+	if (strat.avoid_dev_dump !== false && s.dev_sold) {
+		return { pass: false, score: 0, reasons: ['dev_dumped'] };
+	}
+	const cats = Array.isArray(strat.allowed_categories) ? strat.allowed_categories.filter(Boolean) : [];
+	if (cats.length && rec.category && !cats.includes(rec.category)) {
+		return { pass: false, score: 0, reasons: [`category_excluded:${rec.category}`] };
+	}
+	// Reuse the new-mint hard filters that still apply post-observation.
+	if (strat.require_socials && !(rec.twitter || rec.telegram || rec.website)) {
+		return { pass: false, score: 0, reasons: ['no_socials'] };
+	}
+
+	// ── score: baseline quality + learned model + organic, minus risk ─────────
+	let score = (rec.quality_score ?? 0) / 100;
+	reasons.push(`quality:${rec.quality_score}`);
+	if (s.organic_score != null) { score += s.organic_score * 0.5; reasons.push(`organic:${s.organic_score}`); }
+	if (s.bundle_score != null) { score -= s.bundle_score * 0.5; if (s.bundle_score >= 0.4) reasons.push(`bundle:${s.bundle_score}`); }
+
+	const learned = learnedScore(s, weights);
+	if (learned != null) { score += learned; reasons.push(`learned:${learned}`); }
+
+	if (rec.category) reasons.push(`cat:${rec.category}`);
+	for (const flag of rec.risk_flags || []) reasons.push(`flag:${flag}`);
+
+	return { pass: true, score: Number(score.toFixed(4)), reasons };
 }

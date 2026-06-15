@@ -167,6 +167,9 @@ async function start(canvasEl) {
 	));
 	composer.addPass(new EffectPass(camera, new SMAAEffect()));
 
+	// Muffled club bass that swells as you near the door (armed on first input).
+	const approachAudio = new ClubApproachAudio();
+
 	const loader = gltfLoader(renderer);
 
 	// The journey, in order. You free-walk every one of these — no auto-walk.
@@ -273,6 +276,7 @@ async function start(canvasEl) {
 		doorGlow.position.copy(path.door).setY(1.6);
 		camYaw = Math.atan2(path.dir.x, path.dir.z);
 		updateCamera(1);
+		setJourneyStep(venueIndex);
 	}
 
 	// ── Input ──────────────────────────────────────────────────────────────
@@ -281,6 +285,7 @@ async function start(canvasEl) {
 	const look = { id: null, x: 0, y: 0, moved: false };
 
 	const onKeyDown = (e) => {
+		approachAudio.arm();
 		const k = e.key.toLowerCase();
 		if (k === 'e') { tryEnter(); return; }
 		if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) {
@@ -298,6 +303,7 @@ async function start(canvasEl) {
 	const joyKnob = document.getElementById('club-joystick-knob');
 
 	const onPointerDown = (e) => {
+		approachAudio.arm();
 		if (!inputEnabled) return;
 		const leftZone = isTouch && e.clientX < window.innerWidth * 0.4;
 		if (leftZone && !joy.active) {
@@ -356,6 +362,8 @@ async function start(canvasEl) {
 	setHint();
 	showHint(true);
 	showJoystick(isTouch);
+	showJourney(true);
+	setJourneyStep(venueIndex);
 
 	// Hint + prompt copy track where you are in the journey: the alley door takes
 	// the cover, the final place opens the stage, the rest just lead onward.
@@ -438,6 +446,7 @@ async function start(canvasEl) {
 		stepAvatar(ix, iz, dt);
 		anim.update(dt);
 		updateCamera(dt);
+		approachAudio.update(dt);
 
 		// Key light + proximity prompt follow the avatar in the alley.
 		key.position.set(rig.position.x, 5, rig.position.z + 1);
@@ -453,6 +462,11 @@ async function start(canvasEl) {
 			}
 			doorGlow.intensity = inRange ? 3.2 : 1.4;
 			doorMarker.pulse(now / 1000, inRange);
+			// Outside the club, the bass leaks louder the closer you get to the
+			// door, and the neon glows a touch hotter as you arrive.
+			const near = clamp(1 - d / 12, 0, 1);
+			if (currentCover) approachAudio.setProximity(near);
+			bloomEffect.intensity = 1.2 + near * 0.7;
 		}
 
 		switch (phase) {
@@ -550,6 +564,7 @@ async function start(canvasEl) {
 		if (phase !== 'walk') return;
 		paid = true;
 		currentCover = false;
+		approachAudio.handOff(); // the anthem (src/club.js) takes the night from here
 		showPrompt(false); showHint(false); showJoystick(false);
 		advance();
 	}
@@ -584,9 +599,21 @@ async function start(canvasEl) {
 function showPrompt(v) { toggle('club-door-prompt', v); }
 function showHint(v) { toggle('club-controls-hint', v); }
 function showJoystick(v) { toggle('club-joystick', v); }
+function showJourney(v) { toggle('club-journey', v); }
 function toggle(id, v) {
 	const el = document.getElementById(id);
 	if (el) el.classList.toggle('is-visible', !!v);
+}
+// Light the step you're on (Alley/Gallery/Clubhouse/Stage); earlier steps read
+// as done. `i` is the venue index; SEQUENCE.length marks arrival at the stage.
+function setJourneyStep(i) {
+	const el = document.getElementById('club-journey');
+	if (!el) return;
+	el.querySelectorAll('.club-journey-step').forEach((s) => {
+		const n = Number(s.dataset.step);
+		s.classList.toggle('is-done', n < i);
+		s.classList.toggle('is-active', n === i);
+	});
 }
 
 // ── Scene helpers ────────────────────────────────────────────────────────────

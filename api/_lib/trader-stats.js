@@ -398,7 +398,18 @@ export async function getTraderStats({ agentId, network, window = 'all', now = D
  * agents — if it ever grows past a few hundred active traders per window, move the
  * grouping into SQL with a windowed aggregate.
  */
-export async function getLeaderboard({ network, window = '30d', limit = 100, now = Date.now() }) {
+export const LEADERBOARD_SORTS = new Set(['score', 'pnl', 'winrate', 'roi']);
+
+const SORT_COMPARATORS = {
+	score: (a, b) => b.score - a.score || b.realized_pnl_sol - a.realized_pnl_sol,
+	pnl: (a, b) => b.realized_pnl_sol - a.realized_pnl_sol || b.score - a.score,
+	winrate: (a, b) => b.win_rate - a.win_rate || b.closed - a.closed,
+	roi: (a, b) => b.roi_pct - a.roi_pct || b.realized_pnl_sol - a.realized_pnl_sol,
+};
+
+export async function getLeaderboard({
+	network, window = '30d', limit = 100, sort = 'score', verifiedOnly = false, now = Date.now(),
+}) {
 	const start = windowStartIso(window, now);
 	const rows = start
 		? await sql`
@@ -469,10 +480,10 @@ export async function getLeaderboard({ network, window = '30d', limit = 100, now
 				last_active_at: m.last_active_at,
 			};
 		})
-		// Primary rank: score. Tie-break by realized SOL so a higher absolute book wins.
-		.sort((a, b) => b.score - a.score || b.realized_pnl_sol - a.realized_pnl_sol)
+		.filter((r) => (verifiedOnly ? r.verified : true))
+		.sort(SORT_COMPARATORS[sort] || SORT_COMPARATORS.score)
 		.slice(0, limit)
 		.map((r, i) => ({ rank: i + 1, ...r }));
 
-	return { network, window, sol_usd: solUsd, leaderboard: board, t: now };
+	return { network, window, sort, sol_usd: solUsd, leaderboard: board, t: now };
 }
