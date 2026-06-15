@@ -63,6 +63,9 @@
 			"includeFiles": "data/pages.json",
 			"maxDuration": 300
 		},
+		"api/cron/forge-seed-cron.js": {
+			"maxDuration": 55
+		},
 		"api/cron/[name].js": {
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 300
@@ -3228,6 +3231,10 @@
 		{
 			"path": "/api/cron/unstoppable-tick",
 			"schedule": "*/5 * * * *"
+		},
+		{
+			"path": "/api/cron/forge-seed-cron",
+			"schedule": "* * * * *"
 		}
 	]
 }
