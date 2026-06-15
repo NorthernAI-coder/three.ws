@@ -58,14 +58,19 @@ const DRAFT_KEY = 'launchpadStudio:draft';
 const SECRETS_KEY = 'launchpadStudio:secrets';   // { [slug]: ownerSecret }
 const RECENT_KEY = 'launchpadStudio:recent';     // [{slug, template, headline, updatedAt}, ...]
 
-const DEMO_AVATARS = [
-	{ id: 'demo-cz', name: 'CZ', model_url: '/avatars/cz.glb' },
-	{ id: 'demo-default', name: 'Default', model_url: '/avatars/default.glb' },
-	{ id: 'demo-robot', name: 'Robot Expressive', model_url: '/animations/robotexpressive.glb' },
-	{ id: 'demo-soldier', name: 'Soldier', model_url: '/animations/soldier.glb' },
-	{ id: 'demo-michelle', name: 'Michelle', model_url: 'https://cdn.jsdelivr.net/gh/mrdoob/three.js/examples/models/gltf/Michelle.glb' },
-	{ id: 'demo-xbot', name: 'Xbot', model_url: 'https://cdn.jsdelivr.net/gh/mrdoob/three.js/examples/models/gltf/Xbot.glb' },
+// Bundled starter avatars — real GLBs shipped in /public, so the gallery is
+// never empty even before the public-avatars API responds. { src, name, thumb }.
+const STARTER_AVATARS = [
+	{ name: 'Default', src: '/avatars/default.glb', thumb: '/avatars/thumbs/default.png' },
+	{ name: 'CZ', src: '/avatars/cz.glb', thumb: '/avatars/thumbs/cz.png' },
+	{ name: 'Robot', src: '/animations/robotexpressive.glb', thumb: '/avatars/thumbs/robotexpressive.png' },
+	{ name: 'Soldier', src: '/animations/soldier.glb', thumb: '/avatars/thumbs/soldier.png' },
+	{ name: 'Michelle', src: '/avatars/michelle.glb', thumb: '' },
+	{ name: 'Xbot', src: '/avatars/xbot.glb', thumb: '' },
+	{ name: 'Mannequin', src: '/avatars/mannequin.glb', thumb: '' },
+	{ name: 'Fox', src: '/avatars/fox.glb', thumb: '' },
 ];
+const FALLBACK_THUMB = '/avatars/thumbs/default.png';
 
 // ──────────────────────────────────────────────────────────────────────────
 // Styles (single template literal; component is self-mounted into <body>)
@@ -268,16 +273,59 @@ const STYLE = `
 	}
 	.color-input input[type=text] { font-family: ui-monospace, monospace; text-transform: uppercase; }
 
-	.avatar-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 0 20px; }
-	.avatar-tile {
-		aspect-ratio: 1; background: #181b21;
-		border: 1px solid #262b32; border-radius: 6px; cursor: pointer;
-		display: flex; align-items: flex-end; justify-content: center;
-		padding: 4px; font-size: 10px; color: #a1a1aa; text-align: center;
-		overflow: hidden; transition: border 0.12s;
+	/* Avatar picker — My agents · Platform gallery · Custom URL */
+	.lsp-avatar-picker { display: flex; flex-direction: column; gap: 16px; padding: 0 16px; }
+	.lsp-section-label {
+		font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
+		text-transform: uppercase; color: #71717a; margin: 0 0 8px;
 	}
-	.avatar-tile:hover { border-color: #3a4150; }
-	.avatar-tile.active { border-color: #ffffff; box-shadow: inset 0 0 0 1px #ffffff; }
+	.lsp-strip {
+		display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 6px;
+		-webkit-overflow-scrolling: touch; scrollbar-width: thin; scrollbar-color: #262b32 transparent;
+	}
+	.lsp-strip::-webkit-scrollbar { height: 6px; }
+	.lsp-strip::-webkit-scrollbar-thumb { background: #262b32; border-radius: 999px; }
+	.lsp-avatar-card {
+		flex: 0 0 auto; width: 64px; padding: 0; border: 0; background: transparent;
+		cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px;
+		font: inherit;
+	}
+	.lsp-avatar-card .thumb {
+		width: 64px; height: 64px; border-radius: 10px; object-fit: cover; display: block;
+		background: #181b21; border: 1px solid #262b32;
+		transition: border 0.12s, box-shadow 0.12s;
+	}
+	.lsp-avatar-card:hover .thumb { border-color: #3a4150; }
+	.lsp-avatar-card:focus-visible { outline: none; }
+	.lsp-avatar-card:focus-visible .thumb { box-shadow: 0 0 0 2px #ffffff; }
+	.lsp-avatar-card.is-selected .thumb { border-color: #ffffff; box-shadow: 0 0 0 4px rgba(255,255,255,0.2); }
+	.lsp-avatar-card .cap {
+		max-width: 64px; font-size: 10px; color: #a1a1aa; text-align: center;
+		overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+	}
+	.lsp-avatar-card.is-selected .cap { color: #f4f4f5; }
+	.lsp-skel {
+		flex: 0 0 auto; width: 64px; height: 64px; border-radius: 10px;
+		background: linear-gradient(90deg, #181b21 25%, #20252c 50%, #181b21 75%);
+		background-size: 200% 100%; animation: lsp-shimmer 1.2s ease-in-out infinite;
+	}
+	@keyframes lsp-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+	.lsp-more { flex: 0 0 auto; align-self: center; height: 64px; white-space: nowrap; }
+	.lsp-custom { border-top: 1px solid #1c2128; padding-top: 12px; }
+	.lsp-custom summary {
+		cursor: pointer; list-style: none; font-size: 12px; color: #a1a1aa;
+		padding: 2px 0; user-select: none;
+	}
+	.lsp-custom summary::-webkit-details-marker { display: none; }
+	.lsp-custom summary:hover { color: #f4f4f5; }
+	.lsp-custom[open] summary { color: #f4f4f5; margin-bottom: 8px; }
+	.lsp-custom input {
+		width: 100%; box-sizing: border-box; padding: 8px 10px; font: inherit; font-size: 12px;
+		color: #f4f4f5; background: #181b21; border: 1px solid #262b32; border-radius: 7px; outline: none;
+		font-family: ui-monospace, monospace;
+	}
+	.lsp-custom input:focus { border-color: #ffffff; }
+	.lsp-hint { color: #71717a; font-size: 11px; margin-top: 4px; line-height: 1.4; }
 
 	.skill-row {
 		display: grid; grid-template-columns: 1fr 90px 80px 28px;
@@ -584,14 +632,47 @@ function updateStage(stage, state) {
 // ──────────────────────────────────────────────────────────────────────────
 // Real-API helpers
 // ──────────────────────────────────────────────────────────────────────────
-async function fetchPublicAvatars() {
+// Caller's own three.ws avatars (one per agent identity). Requires a session
+// cookie — anonymous visitors get 401, which we map to null so the "My agents"
+// section is hidden rather than erroring. Returns [{ src, name, thumb }].
+async function fetchMyAgentAvatars() {
 	try {
-		const r = await fetch('/api/avatars/public?limit=18');
-		if (!r.ok) return [];
+		const r = await fetch('/api/agents?owner=me&limit=20', { credentials: 'include' });
+		if (!r.ok) return null; // 401 (signed out) or transient — hide the section
 		const data = await r.json();
-		return Array.isArray(data?.avatars) ? data.avatars : [];
+		const list = Array.isArray(data?.agents) ? data.agents : [];
+		return list
+			.map((a) => ({
+				src: a.avatar_model_url || a.meta?.avatar?.url || a.avatar_url || '',
+				thumb: a.avatar_thumbnail_url || a.meta?.avatar?.thumbnail_url || '',
+				name: a.name || 'Agent',
+			}))
+			.filter((a) => a.src);
 	} catch {
-		return [];
+		return null;
+	}
+}
+
+// One page of the public avatar gallery (newest first, cursor-paginated).
+// Returns { items: [{ src, name, thumb }], nextCursor }.
+async function fetchPublicAvatars(cursor, limit = 12) {
+	try {
+		const u = new URL('/api/avatars/public', location.origin);
+		u.searchParams.set('limit', String(limit));
+		if (cursor) u.searchParams.set('cursor', cursor);
+		const r = await fetch(u, { credentials: 'include' });
+		if (!r.ok) return { items: [], nextCursor: null };
+		const data = await r.json();
+		const items = (Array.isArray(data?.avatars) ? data.avatars : [])
+			.map((a) => ({
+				src: a.model_url || a.glb_url || '',
+				thumb: a.thumbnail_url || '',
+				name: a.name || 'Avatar',
+			}))
+			.filter((a) => a.src);
+		return { items, nextCursor: data?.next_cursor || null };
+	} catch {
+		return { items: [], nextCursor: null };
 	}
 }
 async function fetchLaunchpad(slug) {
@@ -662,8 +743,8 @@ export function mountLaunchpadStudio(root, options = {}) {
 			<aside class="sidebar">
 				<h3>Templates</h3>
 				<div data-templates></div>
-				<h3 style="margin-top: 18px">Avatars</h3>
-				<div class="avatar-grid" data-avatar-grid></div>
+				<h3 style="margin-top: 18px">Avatar</h3>
+				<div class="lsp-avatar-picker" data-avatar-picker></div>
 			</aside>
 			<main class="stage" data-stage></main>
 			<aside class="rail" data-rail></aside>
@@ -691,29 +772,141 @@ export function mountLaunchpadStudio(root, options = {}) {
 		render();
 	});
 
-	// Avatar gallery
-	const avatarWrap = $('[data-avatar-grid]', root);
-	function renderAvatars(list) {
-		avatarWrap.innerHTML = list.map((a) => `
-			<div class="avatar-tile ${a.model_url === state.avatar.src ? 'active' : ''}"
-				data-avatar-src="${esc(a.model_url)}"
-				data-avatar-name="${esc(a.name || a.id)}"
-				title="${esc(a.name || a.id)}">
-				${esc((a.name || a.id || '').slice(0, 14))}
-			</div>
-		`).join('');
+	// Avatar picker — three sections: My agents · Platform gallery · Custom URL.
+	// Built once, then refreshed in place as the two data sources resolve. The
+	// live <agent-3d> preview is driven by render() (it swaps src on the
+	// persistent element), so selecting a card never re-mounts the viewer.
+	const pickerEl = $('[data-avatar-picker]', root);
+	let agentsLoading = true;
+	let galleryLoading = true;
+	let myAgents = [];
+	let galleryItems = [];
+	let galleryCursor = null;
+	let galleryDone = false;
+	let galleryLoadingMore = false;
+	let customExpanded = false;
+	const seenSrc = new Set(STARTER_AVATARS.map((a) => a.src));
+
+	const isCustomUrl = (src) => Boolean(src) && !seenSrc.has(src);
+
+	function avatarCardHTML(item) {
+		const selected = item.src === state.avatar.src;
+		const thumb = item.thumb || FALLBACK_THUMB;
+		return `
+			<button class="lsp-avatar-card${selected ? ' is-selected' : ''}" type="button"
+				data-avatar-src="${esc(item.src)}" data-avatar-name="${esc(item.name)}"
+				aria-pressed="${selected}" aria-label="Use ${esc(item.name)} avatar" title="${esc(item.name)}">
+				<img class="thumb" loading="lazy" alt="" src="${esc(thumb)}"
+					onerror="this.onerror=null;this.src='${FALLBACK_THUMB}'" />
+				<span class="cap">${esc(item.name)}</span>
+			</button>`;
 	}
-	renderAvatars(DEMO_AVATARS);
-	fetchPublicAvatars().then((extras) => {
-		const seen = new Set(DEMO_AVATARS.map((a) => a.model_url));
-		renderAvatars([...DEMO_AVATARS, ...extras.filter((a) => a.model_url && !seen.has(a.model_url))]);
+	const section = (label, inner) =>
+		`<div class="lsp-section"><div class="lsp-section-label">${esc(label)}</div><div class="lsp-strip">${inner}</div></div>`;
+	const skeletonStrip = () => Array.from({ length: 5 }).map(() => '<div class="lsp-skel"></div>').join('');
+
+	function renderPicker() {
+		let html = '';
+		// Section 1 — My agents (only when signed in and at least one has an avatar)
+		if (agentsLoading) {
+			html += section('My agents', skeletonStrip());
+		} else if (myAgents.length) {
+			html += section('My agents', myAgents.map(avatarCardHTML).join(''));
+		}
+		// Section 2 — Platform gallery (starter avatars + public gallery, paginated)
+		if (galleryLoading) {
+			html += section('Platform gallery', skeletonStrip());
+		} else {
+			const cards = [...STARTER_AVATARS, ...galleryItems].map(avatarCardHTML).join('');
+			const more = galleryDone
+				? ''
+				: `<button class="btn tiny lsp-more" type="button" data-action="gallery-more"${galleryLoadingMore ? ' disabled' : ''}>${galleryLoadingMore ? 'Loading…' : 'Show more'}</button>`;
+			html += section('Platform gallery', cards + more);
+		}
+		// Section 3 — Custom URL (collapsed; power-user fallback)
+		const open = customExpanded || isCustomUrl(state.avatar.src);
+		html += `
+			<details class="lsp-custom"${open ? ' open' : ''}>
+				<summary>Or enter a URL →</summary>
+				<div class="lsp-custom-body">
+					<input type="url" data-avatar-url spellcheck="false" placeholder="https://.../avatar.glb"
+						value="${isCustomUrl(state.avatar.src) ? esc(state.avatar.src) : ''}" />
+					<div class="lsp-hint">Direct link to a hosted .glb or .gltf model.</div>
+				</div>
+			</details>`;
+		pickerEl.innerHTML = html;
+	}
+
+	// Lightweight highlight refresh — called from render() so card selection
+	// stays in sync without rebuilding (and losing scroll position / focus).
+	function syncPickerSelection() {
+		pickerEl.querySelectorAll('[data-avatar-src]').forEach((el) => {
+			const selected = el.dataset.avatarSrc === state.avatar.src;
+			el.classList.toggle('is-selected', selected);
+			el.setAttribute('aria-pressed', String(selected));
+		});
+	}
+
+	async function loadMoreGallery() {
+		if (galleryLoadingMore || galleryDone) return;
+		galleryLoadingMore = true;
+		renderPicker();
+		const { items, nextCursor } = await fetchPublicAvatars(galleryCursor);
+		const fresh = items.filter((a) => {
+			if (seenSrc.has(a.src)) return false;
+			seenSrc.add(a.src);
+			return true;
+		});
+		galleryItems = galleryItems.concat(fresh);
+		galleryCursor = nextCursor;
+		galleryDone = !nextCursor;
+		galleryLoadingMore = false;
+		renderPicker();
+	}
+
+	renderPicker(); // skeletons first
+
+	Promise.allSettled([fetchMyAgentAvatars(), fetchPublicAvatars(null)]).then(([agentsRes, galRes]) => {
+		const agents = agentsRes.status === 'fulfilled' ? agentsRes.value : null;
+		myAgents = Array.isArray(agents) ? agents : [];
+		myAgents.forEach((a) => seenSrc.add(a.src)); // don't repeat an agent's avatar in the gallery
+		agentsLoading = false;
+
+		const gal = galRes.status === 'fulfilled' ? galRes.value : { items: [], nextCursor: null };
+		galleryItems = gal.items.filter((a) => {
+			if (seenSrc.has(a.src)) return false;
+			seenSrc.add(a.src);
+			return true;
+		});
+		galleryCursor = gal.nextCursor;
+		galleryDone = !gal.nextCursor;
+		galleryLoading = false;
+		renderPicker();
 	});
-	avatarWrap.addEventListener('click', (e) => {
-		const tile = e.target.closest('[data-avatar-src]');
-		if (!tile) return;
-		state.avatar = { src: tile.dataset.avatarSrc, name: tile.dataset.avatarName };
+
+	pickerEl.addEventListener('click', (e) => {
+		if (e.target.closest('[data-action="gallery-more"]')) {
+			e.preventDefault();
+			loadMoreGallery();
+			return;
+		}
+		const card = e.target.closest('[data-avatar-src]');
+		if (!card) return;
+		state.avatar = { src: card.dataset.avatarSrc, name: card.dataset.avatarName || 'Avatar' };
 		render();
 	});
+	pickerEl.addEventListener('input', (e) => {
+		const inp = e.target.closest('[data-avatar-url]');
+		if (!inp) return;
+		const url = inp.value.trim();
+		state.avatar = url ? { src: url, name: 'Custom URL' } : { src: DEFAULT_AVATAR_SRC, name: 'Default' };
+		render();
+	});
+	// Remember a manual expand so a gallery "Show more" rebuild doesn't collapse it.
+	pickerEl.addEventListener('toggle', (e) => {
+		const d = e.target.closest('.lsp-custom');
+		if (d) customExpanded = d.open;
+	}, true);
 
 	// Topbar + global actions (delegated)
 	let recentDropdown = null;
@@ -936,9 +1129,7 @@ export function mountLaunchpadStudio(root, options = {}) {
 		root.querySelectorAll('[data-template-id]').forEach((el) => {
 			el.classList.toggle('active', el.dataset.templateId === state.template);
 		});
-		root.querySelectorAll('[data-avatar-src]').forEach((el) => {
-			el.classList.toggle('active', el.dataset.avatarSrc === state.avatar.src);
-		});
+		syncPickerSelection();
 	}
 
 	function render({ force = false } = {}) {

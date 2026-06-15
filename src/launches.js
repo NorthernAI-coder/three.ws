@@ -21,7 +21,6 @@
 import { mountCoinStatus } from './pump/coin-status-card.js';
 
 const PAGE_SIZE = 24;
-const ENRICH_CONCURRENCY = 4;
 const LIVE_REFRESH_MS = 60_000;
 
 const state = {
@@ -80,14 +79,6 @@ function timeAgo(iso) {
 	if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
 	if (s < 86400 * 30) return `${Math.floor(s / 86400)}d ago`;
 	return new Date(t).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-}
-
-function usdCompact(n) {
-	if (!Number.isFinite(n)) return '—';
-	if (n >= 1e9) return `$${(n / 1e9).toFixed(2)}B`;
-	if (n >= 1e6) return `$${(n / 1e6).toFixed(2)}M`;
-	if (n >= 1e3) return `$${(n / 1e3).toFixed(1)}K`;
-	return `$${n.toFixed(0)}`;
 }
 
 // ── generative identicons ────────────────────────────────────────────────────
@@ -412,37 +403,43 @@ function launchCard(launch, index, { featured = false } = {}) {
 		);
 	}
 
+	// Abstract orbital glyph seeded from the mint — the coin's visual fingerprint
+	// alongside the live market panel below it.
 	const art = el('div', { class: 'lx-coin-art' });
 	art.appendChild(mintIdenticon(launch.mint));
-	art.appendChild(el('img', { class: 'lx-coin-img', alt: '', loading: 'lazy' }));
+
+	// Live market panel. Mainnet coins stream price / market cap / graduation
+	// through the shared coin-status widget (single /api/pump/coin fetch, mapped
+	// and formatted once). Devnet mints have no pump.fun market data, so they
+	// fall back to a static identity line.
+	const market = el('div', { class: 'lx-market' });
+	if (isDevnet) {
+		market.appendChild(
+			el('div', { class: 'lx-market-devnet' }, [
+				el('h3', { class: 'lx-coin-name', text: launch.name || launch.symbol || 'Unnamed coin' }),
+				el('span', { class: 'lx-coin-symbol', text: launch.symbol ? `$${launch.symbol}` : shortAddr(launch.mint) }),
+				el('span', { class: 'lx-badge', text: 'Devnet · no market data' }),
+			]),
+		);
+	}
 
 	const card = el('article', { class: `lx-card${featured ? ' lx-card-featured' : ''}` }, [
 		featured ? el('span', { class: 'lx-feat-tag', text: 'Latest' }) : null,
 		featured && launch.symbol
 			? el('span', { class: 'lx-feat-ghost', 'aria-hidden': 'true', text: `$${launch.symbol}` })
 			: null,
-		el('div', { class: 'lx-card-top' }, [
-			art,
-			el('div', { class: 'lx-coin-id' }, [
-				el('h3', { class: 'lx-coin-name', text: launch.name || launch.symbol || 'Unnamed coin' }),
-				el('span', { class: 'lx-coin-symbol', text: launch.symbol ? `$${launch.symbol}` : shortAddr(launch.mint) }),
-			]),
-		]),
+		el('div', { class: 'lx-card-top' }, [art, market]),
 		badges,
-		el('div', { class: 'lx-stats' }, [
-			el('div', {}, [
-				el('span', { class: 'lx-mcap-label', text: 'Market cap' }),
-				el('span', { class: 'lx-mcap lx-mcap-value', text: isDevnet ? 'n/a' : '…' }),
-			]),
-			el('time', { class: 'lx-time', datetime: launch.created_at, text: timeAgo(launch.created_at) }),
-		]),
+		el('time', { class: 'lx-time', datetime: launch.created_at, text: timeAgo(launch.created_at) }),
 		agentChip(launch.agent),
 		el('div', { class: 'lx-card-actions' }, actions),
 		el('span', { class: 'lx-mint', text: launch.mint, title: launch.mint }),
 	]);
 
 	reveal(card, index);
-	if (!isDevnet) queueEnrich(launch.mint, card);
+	if (!isDevnet) {
+		cardStatusHandles.add(mountCoinStatus(market, launch.mint, { variant: 'card' }));
+	}
 	return card;
 }
 
@@ -587,6 +584,7 @@ async function loadPage({ reset = false } = {}) {
 		state.hasMore = false;
 		state.seenMints = new Set();
 		state.latestCreatedAt = null;
+		teardownStatusHandles(); // stop refresh timers from the cards we're about to drop
 		feedEl.textContent = '';
 		footerEl.textContent = '';
 		countEl.textContent = '';
