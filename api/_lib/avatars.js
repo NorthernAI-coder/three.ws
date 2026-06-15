@@ -35,7 +35,7 @@ export async function listAvatars({
 		`select a.id, a.owner_id, a.slug, a.name, a.description, a.storage_key, a.thumbnail_key,
 		        a.alt_text,
 		        a.appearance, a.appearance_hash, a.baked_storage_key, a.baked_at,
-		        a.size_bytes, a.content_type, a.source, a.visibility, a.tags, a.version,
+		        a.size_bytes, a.content_type, a.source, a.source_meta, a.fork_count, a.visibility, a.tags, a.version,
 		        a.model_category,
 		        a.created_at, a.updated_at, a.parent_avatar_id,
 		        ai.id as agent_id, ai.wallet_address as agent_wallet_address
@@ -242,7 +242,7 @@ export async function searchPublicAvatars({ q, tag, limit = 24, cursor, withTota
 		        av.alt_text,
 		        av.appearance, av.appearance_hash, av.baked_storage_key, av.baked_at,
 		        av.size_bytes,
-		        av.content_type, av.source, av.visibility, av.tags, av.view_count, av.created_at,
+		        av.content_type, av.source, av.source_meta, av.fork_count, av.visibility, av.tags, av.view_count, av.created_at,
 		        ai.id as agent_id, ai.onchain as agent_onchain
 		 from avatars av
 		 left join lateral (
@@ -346,6 +346,12 @@ function decorate(row) {
 		content_type: row.content_type,
 		source: row.source,
 		source_meta: row.source_meta || {},
+		// GitHub-style fork lineage. `forked_from` (captured at fork time in
+		// source_meta) names the original avatar + owner so the UI can render a
+		// "Forked from @owner" link without a join. `fork_count` is how many
+		// times THIS avatar has itself been forked by others.
+		forked_from: (row.source_meta && row.source_meta.forked_from) || null,
+		fork_count: row.fork_count == null ? 0 : Number(row.fork_count),
 		model_category: row.model_category || 'avatar',
 		visibility: row.visibility,
 		tags: row.tags || [],

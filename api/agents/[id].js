@@ -45,7 +45,7 @@ export default wrap(async function handler(req, res) {
 		return error(res, 404, 'not_found', 'agent not found');
 	}
 
-	if (sub === 'wallet') return handleWallet(req, res, id);
+	if (sub === 'wallet') return handleWallet(req, res, id, action);
 
 	if (sub === 'solana') {
 		const mod = await import('./solana-wallet.js');

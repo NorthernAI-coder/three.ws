@@ -47,3 +47,21 @@ npm run build:club-assets  # → both props + venue (in one shot)
 
 Output is deterministic — same input code produces byte-identical files —
 so committed files only change when a builder script changes.
+
+## Third-party entrance asset
+
+`space-smugglers-clubhouse.glb` is **not** authored by three.ws. It is the
+interior rendered live behind the cover-charge door (the backdrop in
+[src/club-entrance.js](../../../src/club-entrance.js)), compressed from a
+supplied "Space Smugglers Club House (dark version)" GLB export.
+
+| File                            | Source                      | License                        | Modifications                                                                                                                                                              |
+| ------------------------------- | --------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `space-smugglers-clubhouse.glb` | Supplied third-party export | © original author — see source | weld + prune + dedup, textures resized ≤2048 → WebP q82, position/normal/UV quantization, Meshopt compression (~20 MB → ~1.6 MB) via [scripts/build-club-entrance-venue.mjs](../../../scripts/build-club-entrance-venue.mjs) |
+
+This file is **not** CC0 — confirm the original model's license before any
+redistribution beyond three.ws. Regenerate from the source export with:
+
+```sh
+npm run build:club-entrance-venue   # → space-smugglers-clubhouse.glb
+```
