@@ -7,6 +7,14 @@
 		<description>What's new on three.ws — features, improvements, and releases, newest first.</description>
 		<language>en</language>
 		<item>
+			<title>Launch a Coin</title>
+			<link>https://three.ws/launch</link>
+			<guid isPermaLink="false">2026-06-15:Launch a Coin</guid>
+			<pubDate>Mon, 15 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>Mint a coin for your 3D AI agent in one flow — pick an agent, set the name, symbol, and image, then launch on pump.fun straight from your wallet with an optional three.ws-branded vanity mint.</description>
+		</item>
+		<item>
 			<title>Sniper Arena — autonomous AI agents trading live</title>
 			<link>https://three.ws/play/arena</link>
 			<guid isPermaLink="false">2026-06-15:Sniper Arena — autonomous AI agents trading live</guid>
@@ -156,7 +164,7 @@
 			<guid isPermaLink="false">2026-06-15:More uploaded avatars can dance</guid>
 			<pubDate>Mon, 15 Jun 2026 12:00:00 GMT</pubDate>
 			<category>improvement</category>
-			<description>The built-in animation library can now drive avatars built on CharacterStudio and Unreal Engine skeletons, not just Mixamo/Ready-rig ones. Previously a CharacterStudio or Fortnite-style rig would load but stand frozen because the animation system couldn't match its bone names; now those bones map automatically, so the full set of dances, poses, and idle motion plays on them everywhere avatars appear — the club, the walk view, AR, and the studio.</description>
+			<description>The built-in animation library can now drive avatars built on more skeleton types — including game-engine and other creator-tool rigs — not just the common ones. Previously some uploaded avatars would load but stand frozen because the animation system couldn't match their bone names; now those bones map automatically, so the full set of dances, poses, and idle motion plays on them everywhere avatars appear — the club, the walk view, AR, and the studio.</description>
 		</item>
 		<item>
 			<title>On-chain model validation for Solana agents</title>
@@ -348,7 +356,7 @@
 			<guid isPermaLink="false">2026-06-15:Three distinct dancers, now waiting at their poles</guid>
 			<pubDate>Mon, 15 Jun 2026 12:00:00 GMT</pubDate>
 			<category>improvement</category>
-			<description>The Pole Club stage no longer sits empty between tips. Three dancers now stand at their own poles, lit and facing the crowd, the moment you arrive — each a different 3D avatar pulled from the gallery (still tinted to her pole's neon color) instead of copies of one model. Tip a pole and that dancer steps onto it and runs her routine, then returns to her stance at the pole. No tip, no dance — same rule, just a stage that looks alive from the first second. Behind the scenes the animation engine now retargets onto CharacterStudio and Unreal-mannequin rigs too, so far more uploaded avatars can actually dance.</description>
+			<description>The Pole Club stage no longer sits empty between tips. Three dancers now stand at their own poles, lit and facing the crowd, the moment you arrive — each a different 3D avatar pulled from the gallery (still tinted to her pole's neon color) instead of copies of one model, and every dancer is auto-scaled to the same height so the lineup reads as a set. Tip a pole and that dancer steps onto it and runs her routine, then returns to her stance at the pole. No tip, no dance — same rule, just a stage that looks alive from the first second. Behind the scenes the animation engine now retargets onto more rig types, so far more uploaded avatars can actually dance.</description>
 		</item>
 		<item>
 			<title>three.ws can now register itself on-chain on Solana</title>

@@ -746,3 +746,281 @@ Always explain WHY a step is safe (non-custodial, hard caps, they sign). Answer
 in 1-3 short sentences. If they ask for guarantees, say plainly there are none and
 point to the verified track record + skin-in-the-game as the honest signal.
 ```
+
+---
+
+## 15. The Coin Intelligence Engine (the brain)
+
+> This is the system that makes every agent smart. It watches *every* coin that
+> launches on pump.fun, records *every* metric, derives deep signals (bundle vs
+> organic, wallet clusters, dev behavior, smart-money presence), classifies the
+> coin (meme / tech / news-meme / culture / community), and labels outcomes so it
+> **learns which signals actually predict winners over time**. Agents read a
+> single precomputed snapshot per coin in one fast call and act.
+
+The principle: **cheap signals on everything, expensive signals on candidates.**
+~10–20k coins launch on pump.fun per day; we cannot trace a funding graph or run
+an LLM on all of them. So we compute free/cheap signals on the full firehose, and
+escalate to expensive analysis (RPC funding-graph, bubblemaps, LLM classification)
+only for coins that clear a first filter or that an agent/user is actively
+watching. This keeps it fast and affordable while still "recording every coin."
+
+### 15.1 Pipeline (4 stages)
+
+```
+  ┌─ STAGE 1: INGEST (firehose, every coin) ──────────────────────────────┐
+  │ PumpPortal subscribeNewToken  → pf_coins row (instant, cheap)          │
+  │ Dynamic subscribeTokenTrade   → pf_trades for coins in their first     │
+  │   ~30–60 min "decision window" (rolling set, capped)                   │
+  │ subscribeMigration            → graduation outcome label               │
+  └───────────────────────────────────────────────────────────────────────┘
+                     │ first-filter passes (or agent is watching)
+                     ▼
+  ┌─ STAGE 2: ENRICH (candidates only, expensive) ────────────────────────┐
+  │ Helius RPC: funding-graph trace → bundle + cluster detection           │
+  │ Bubblemaps API (or our own graph): wallet connectivity %               │
+  │ pump.fun frontend-api-v3: holders, creator history, reply_count        │
+  │ LLM (free-first): classify category + theme + news-meme match          │
+  │ pf_wallets lookup: smart-money / sniper / insider / bundler presence   │
+  └───────────────────────────────────────────────────────────────────────┘
+                     │
+                     ▼
+  ┌─ STAGE 3: SCORE + SNAPSHOT (precompute the agent-readable view) ───────┐
+  │ Composite intel_score from signals weighted by historical predictive   │
+  │ power (pf_signal_stats). Write snapshot → Redis (sub-50ms reads) + DB.  │
+  └───────────────────────────────────────────────────────────────────────┘
+                     │
+                     ▼
+  ┌─ STAGE 4: LEARN (outcome labeler, closes the loop) ───────────────────┐
+  │ Cron: for each coin past N hours, record ATH mcap, ATH multiple,       │
+  │   graduated?, rugged?, time-to-rug, max-drawdown. Update               │
+  │   pf_signal_stats (conditional win-rates per signal bucket). Weights    │
+  │   feed back into Stage 3. Optionally retrain a model offline.          │
+  └───────────────────────────────────────────────────────────────────────┘
+```
+
+### 15.2 Data model (new tables)
+
+All on Neon Postgres (`api/_lib/db.js`), hot snapshots cached in Upstash Redis.
+High-volume `pf_trades` gets time-partitioning + a TTL/rollup so it doesn't grow
+unbounded — we keep raw trades for the decision window + recent history, and roll
+older data into per-coin aggregates in `pf_coin_wallets`.
+
+- **`pf_coins`** — one row per coin ever seen. Identity (mint, name, symbol,
+  creator, uri, socials, created_at, created_slot); launch metrics (dev_initial_buy_sol,
+  supply_bought_at_launch_pct); classification (category, theme_tags[],
+  is_news_meme, news_event, classify_confidence); verdicts (bundle_verdict,
+  bundle_pct, organic_score, cluster_pct, smart_money_count, sniper_count); state
+  (curve_pct, mcap_usd, holders, graduated, rugged); outcomes (ath_mcap_usd,
+  ath_multiple, graduated_at, rug_detected_at, max_drawdown_pct);
+  intel_score; snapshot_jsonb; updated_at.
+- **`pf_trades`** — every buy/sell on watched coins. (mint, wallet, side, sol,
+  tokens, price, slot, signature, ts). Partitioned by day; replay-guarded on
+  signature. Source: PumpPortal per-mint trades + Helius webhook.
+- **`pf_wallets`** — wallet reputation, the crown jewel. (address, first_seen,
+  trades_count, distinct_coins, est_realized_pnl_sol, win_rate,
+  graduated_buys, rug_buys, avg_hold_seconds, labels[] =
+  {smart_money|sniper|insider|bundler|bot|fresh|dev|whale}, cluster_id, funder,
+  score). Rebuilt incrementally as trades land.
+- **`pf_coin_wallets`** — per-coin per-wallet rollup. (mint, wallet, net_tokens,
+  bought_sol, sold_sol, first_buy_slot, is_dev, is_first_slot, is_bundle_member,
+  wallet_label). The compact form agents read for "who's in this coin."
+- **`pf_clusters`** — wallet clusters (bubblemaps-style). (cluster_id, mint,
+  member_wallets[], common_funder, supply_pct, kind = {bundle|insider|organic}).
+- **`pf_signal_stats`** — the learning memory. (signal_key, bucket, sample_size,
+  graduated_rate, rug_rate, median_ath_multiple, baseline_lift, updated_at). This
+  is what lets us say "coins matching this profile graduate 23% of the time vs a
+  4% baseline" — explainable, honest, and immediately useful before any ML.
+
+### 15.3 The signals we record & derive (every metric, organized)
+
+**Creator / dev signals**
+- prior launches, prior graduations, prior rugs (serial-rugger flag)
+- dev initial buy size (SOL + % of supply)
+- dev current holding %, and **did the dev sell** (and when)
+- dev wallet age + funding source
+
+**Launch-shape signals** (first 1–5 min — the decision window)
+- # buys in first slot / first 10 slots / first minute
+- unique buyer wallets vs total buys (concentration)
+- distribution of buy sizes (a few whales vs many small = different stories)
+- buy/sell ratio early, first-sell timing
+- initial market cap + velocity of mcap growth
+
+**Bundle vs organic** (the question you asked directly)
+- **Bundle detector:** clustered same-slot buys at launch + common funding source
+  + similar amounts → `bundle_pct` (supply captured by the bundle),
+  `bundle_wallet_count`, `bundle_verdict` ∈ {clean | light | heavy}.
+- **Organic score:** many distinct funders + varied buy sizes + aged (not fresh)
+  wallets + real social engagement (reply_count, working socials) → high.
+  Inverse-correlated with bundle. This is the single number a degen wants:
+  "is this real or is it a setup."
+
+**Holder / cluster signals (bubblemaps-style)**
+- top-10 holder concentration %, dev %, cluster supply %
+- connectivity graph: wallets sharing a common funder = one cluster (we build the
+  graph from Helius transfer traces; optionally cross-check Bubblemaps API)
+- # of distinct clusters vs # of holders (more clusters = more organic)
+
+**Wallet-quality signals** (from `pf_wallets` reputation)
+- **smart-money present:** any buyers are known winners → strong positive
+- **sniper present:** wallets that bought in the first slot / bought every recent launch
+- **insider present:** wallets funded right before launch from the dev's funder
+- **bot/fresh ratio:** brand-new wallets with no history
+
+**Classification signals** (LLM + heuristics over name/symbol/desc/image/socials)
+- **category:** meme | tech | AI | animal | political | culture | community |
+  news-meme | celebrity | utility | derivative/copycat
+- **is_news_meme** + the matched news event (check name/desc against trending
+  topics from a news/X-trends source) — "is this riding a news story?"
+- theme tags, copycat detection (is this the 14th "$SAMENAME" today?)
+- virality_potential (heuristic: catchiness + timeliness + social presence)
+
+**Momentum / live signals**
+- trade velocity & acceleration, buy pressure, holder growth rate
+- curve % to graduation + rate of approach
+- net flow (buy SOL − sell SOL) over rolling windows
+
+**Risk flags**
+- mint authority / freeze authority not revoked
+- honeypot / sell-tax (simulate a sell)
+- LP not burned (post-graduation)
+- dev sold, cluster dumping
+
+### 15.4 The learning loop (how it "learns from watching")
+
+1. **Label outcomes.** A cron walks coins older than N hours and records the
+   truth: did it graduate? peak mcap / ATH multiple? did it rug (and how fast)?
+   max drawdown? → `pf_coins` outcome columns.
+2. **Update signal stats.** For each signal bucket (e.g. `bundle_verdict=clean`,
+   `smart_money_count>=1`, `category=news-meme`), recompute graduated_rate,
+   rug_rate, median ATH multiple, and **lift over baseline** → `pf_signal_stats`.
+   This is Naive-Bayes-honest and works from day one: no black box, fully
+   explainable to users ("this profile historically graduates 6× the baseline").
+3. **Reweight the composite score.** Stage-3 `intel_score` weights each live
+   signal by its measured predictive power. As data accrues, weights self-tune.
+4. **(Later) Train a real model.** Once enough labeled history exists, train a
+   gradient-boosted model offline on the full signal vector → outcome, export
+   weights, load them in Stage 3. The statistical layer remains the explainable
+   fallback and the sanity check on the model.
+
+Honest note: this is a *probabilistic edge*, not a crystal ball. The pitch to
+users is exactly your framing — **small buys, lose sometimes, win more than you
+lose because the agent reads a hundred signals in the time you read one.** We
+never promise outcomes; we show the verified hit-rate.
+
+### 15.5 The fast agent read (the payoff)
+
+Agents must read all of this **as fast as a coin appears**. Two access modes:
+
+- **Pull:** `GET /api/pump/intel?mint=<mint>` and MCP tool **`get_coin_intel`** —
+  returns the precomputed snapshot from Redis (sub-50ms), with on-demand compute
+  fallback if the coin is cold. One call gives the agent everything in §15.3 plus
+  the composite score and a plain-language summary.
+- **Push:** an SSE/WS **intel feed** — every new coin emits its snapshot the
+  instant Stage 1+2 complete, so a sniper agent reacts within the decision window
+  without polling. Builds on the existing PumpPortal feed + `trades-stream.js`.
+
+Snapshot shape (`get_coin_intel` returns):
+```json
+{
+  "mint": "<mint>", "ticker": "$TICKER", "age_seconds": 47,
+  "intel_score": 0-100, "verdict": "strong|watch|avoid",
+  "classification": { "category": "news-meme", "news_event": "<event>",
+                      "theme_tags": ["..."], "is_copycat": false, "confidence": 0.82 },
+  "launch": { "dev_initial_buy_sol": 2.1, "dev_holding_pct": 4.2, "dev_sold": false,
+              "first_minute_unique_buyers": 38, "buy_sell_ratio": 6.4 },
+  "bundle": { "verdict": "clean", "bundle_pct": 3.1, "bundle_wallets": 2 },
+  "organic_score": 0-100,
+  "clusters": { "count": 31, "top_cluster_supply_pct": 6.0, "cluster_pct_total": 14.2 },
+  "wallets": { "smart_money": 2, "snipers": 5, "insiders": 0, "fresh_ratio": 0.41,
+               "notable": [ { "addr": "abc..", "label": "smart_money", "win_rate": 0.61 } ] },
+  "holders": { "count": 210, "top10_pct": 28.0 },
+  "momentum": { "curve_pct": 64, "velocity": "rising", "net_flow_sol_5m": 12.3 },
+  "risk_flags": ["mint_authority_live"],
+  "history": { "profile_graduated_rate": 0.23, "baseline": 0.04, "lift": 5.7x,
+               "sample_size": 1840 },
+  "summary": "News-meme, clean launch (3% bundle), 2 smart-money buyers, 38 unique buyers in first minute. Profile historically graduates 5.7× baseline. Mint authority not yet revoked.",
+  "computed_at": "<ts>"
+}
+```
+
+The agent's trade prompt (§10) gets one new tool — `get_coin_intel` — and the
+checklist collapses: instead of 6 separate reads, the agent gets the whole
+picture in one call, plus the *historical* odds for this exact profile. That's
+the "read it just as fast and act" you asked for.
+
+### 15.6 Real data sources (no mocks — honest about cost)
+
+- **PumpPortal WS** (free, already wired): new tokens, per-mint trades,
+  migrations. Caveat: no global trade firehose — we dynamically subscribe to
+  trades for coins in their decision window (rolling, capped set). For full
+  coverage at scale, the paid PumpPortal/Bitquery/Shyft pump.fun streams are the
+  upgrade path.
+- **Helius** (already wired via webhook): program-level txn monitoring, RPC for
+  funding-graph traces (bundle/cluster detection), holder reads. Rate-limited —
+  reserve for candidates.
+- **Bubblemaps API** (optional): wallet-connectivity clusters. We can build our
+  own funding graph from Helius first and add Bubblemaps as a cross-check /
+  premium enrichment.
+- **pump.fun frontend-api-v3** (already used): coin + creator-coins + reply_count.
+- **LLM via `llmComplete`** (free-first per policy): classification. Cheap models,
+  cached by mint, candidates only.
+- **News/X-trends source**: for `is_news_meme` matching (a trends API or X
+  search). Real integration, candidates only.
+
+### 15.7 Build order for the brain (slots into §8)
+
+1. **Schema + Stage 1 ingest.** Migration for `pf_coins` / `pf_trades` /
+   `pf_wallets` / `pf_coin_wallets` / `pf_clusters` / `pf_signal_stats`. Extend the
+   existing feed worker to write `pf_coins` on every mint and dynamically
+   subscribe to trades for the decision window. *Ships value immediately: a
+   complete recorded history of every coin.*
+2. **Wallet reputation (`pf_wallets`).** Roll up trades into per-wallet stats +
+   labels. Unlocks the highest-signal feature: "smart money just bought."
+3. **Bundle + cluster detector (Stage 2).** Helius funding-graph on candidates →
+   bundle_verdict, organic_score, clusters.
+4. **Classifier (Stage 2).** LLM category + news-meme on candidates.
+5. **Snapshot + `get_coin_intel` + intel SSE (Stage 3).** The fast agent read.
+6. **Outcome labeler + `pf_signal_stats` (Stage 4).** The learning loop. Now the
+   score self-improves and we can show historical hit-rates.
+7. **Wire into the scorer + agent prompts.** Replace the crude additive score in
+   `workers/agent-sniper/scorer.js` with the intel_score, and add `get_coin_intel`
+   to the trade prompt.
+
+### 15.8 Two new prompts for the brain
+
+**Coin Classifier** (Stage-2 LLM, one coin → taxonomy)
+```
+You classify a freshly-launched Solana memecoin from its metadata. You output a
+strict taxonomy verdict, nothing else. You are given: name, symbol, description,
+image caption, and any socials/links.
+
+Return JSON:
+{
+  "category": "meme|tech|ai|animal|political|culture|community|news-meme|celebrity|utility|copycat",
+  "is_news_meme": bool, "news_event": "<the real event it references, or null>",
+  "theme_tags": ["..."],          // short, lowercase, e.g. ["dog","election","layer2"]
+  "is_copycat": bool,             // does this ride an existing coin's name/brand?
+  "virality_potential": "low|med|high",
+  "rationale": "one sentence",
+  "confidence": 0.0-1.0
+}
+Rules: judge ONLY from the supplied metadata — do not invent backstory. If a
+"news_event" isn't clearly referenced, set it null and is_news_meme=false. Never
+reference any token other than the one supplied or $THREE. Lower confidence when
+the metadata is thin or ambiguous; do not guess to seem decisive.
+```
+
+**Intel Analyst** (turns the raw snapshot into the agent's plain-language read)
+```
+You convert a coin-intel snapshot (JSON) into a 2-3 sentence read a trader can
+act on in seconds. Lead with the verdict, then the 2-3 signals that most drive
+it, then the single biggest risk. Quote real numbers from the snapshot only.
+
+Never soften a red flag. If bundle_verdict is heavy, dev sold, or mint authority
+is live, say so first. If smart-money or a clean organic launch is the story,
+say that. End with the historical odds for this profile if present
+("this profile graduated 5.7× baseline over 1,840 samples"). No hype, no
+promises, no token other than this one or $THREE.
+```

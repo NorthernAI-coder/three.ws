@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<script>/* three.ws theme boot — no-flash; runtime in /theme-switcher.js */(function(){try{var m=localStorage.getItem('twx_theme');var l=m==='auto'?(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches):m==='light';document.documentElement.setAttribute('data-theme',l?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();</script>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Launch a Coin — mint a token for your 3D agent · three.ws</title>
+		<meta
+			name="description"
+			content="Launch a coin for your 3D AI agent in one flow. Pick an agent, set the name, symbol, and image, then mint on pump.fun straight from your wallet — with an optional three.ws-branded vanity mint."
+		/>
+		<meta name="robots" content="index, follow" />
+		<link rel="canonical" href="https://three.ws/launch" />
+
+		<meta property="og:type" content="website" />
+		<meta property="og:site_name" content="three.ws" />
+		<meta property="og:title" content="Launch a Coin — mint a token for your 3D agent" />
+		<meta
+			property="og:description"
+			content="Pick an agent, set name + symbol + image, and mint a coin on pump.fun straight from your wallet."
+		/>
+		<meta property="og:url" content="https://three.ws/launch" />
+		<meta property="og:image" content="https://three.ws/og-image.png" />
+		<meta property="og:image:width" content="1200" />
+		<meta property="og:image:height" content="630" />
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta name="twitter:title" content="Launch a Coin — mint a token for your 3D agent" />
+		<meta
+			name="twitter:description"
+			content="Pick an agent, set name + symbol + image, and mint a coin on pump.fun straight from your wallet."
+		/>
+		<meta name="twitter:image" content="https://three.ws/og-image.png" />
+
+		<link rel="icon" href="/favicon.ico" sizes="any" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+		<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+		<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+		<link rel="manifest" href="/site.webmanifest" />
+		<link rel="stylesheet" href="/style.css" />
+		<link rel="stylesheet" href="/nav.css" />
+		<link rel="stylesheet" href="/fonts/fonts.css" />
+		<link rel="stylesheet" href="/mobile.css" />
+
+		<style>
+			.lc-page {
+				min-height: 100vh;
+				display: flex;
+				flex-direction: column;
+			}
+			.lc-main {
+				flex: 1;
+				width: 100%;
+				max-width: 880px;
+				margin: 0 auto;
+				padding: 1.5rem 1rem 4rem;
+				box-sizing: border-box;
+			}
+			.lc-breadcrumb {
+				font-size: 0.78rem;
+				color: rgba(255, 255, 255, 0.4);
+				margin-bottom: 1.4rem;
+				display: flex;
+				gap: 0.45rem;
+				align-items: center;
+				flex-wrap: wrap;
+			}
+			.lc-breadcrumb a {
+				color: rgba(255, 255, 255, 0.55);
+				text-decoration: none;
+			}
+			.lc-breadcrumb a:hover {
+				color: #a4f0bc;
+			}
+			.lc-hero {
+				text-align: center;
+				margin-bottom: 1.8rem;
+			}
+			.lc-hero h1 {
+				font-size: clamp(1.7rem, 4.5vw, 2.5rem);
+				font-weight: 700;
+				letter-spacing: -0.02em;
+				margin: 0 0 0.6rem;
+				background: linear-gradient(180deg, #fff, rgba(255, 255, 255, 0.62));
+				-webkit-background-clip: text;
+				background-clip: text;
+				-webkit-text-fill-color: transparent;
+			}
+			.lc-hero p {
+				font-size: clamp(0.92rem, 2vw, 1.05rem);
+				color: rgba(255, 255, 255, 0.55);
+				line-height: 1.6;
+				max-width: 38ch;
+				margin: 0 auto;
+			}
+			.lc-hero .lc-pill {
+				display: inline-flex;
+				align-items: center;
+				gap: 0.4rem;
+				font-size: 0.72rem;
+				font-weight: 600;
+				letter-spacing: 0.04em;
+				color: #c8f0d8;
+				background: rgba(164, 240, 188, 0.08);
+				border: 1px solid rgba(164, 240, 188, 0.22);
+				border-radius: 999px;
+				padding: 0.3rem 0.7rem;
+				margin-bottom: 1rem;
+			}
+			.lc-pill-dot {
+				width: 6px;
+				height: 6px;
+				border-radius: 50%;
+				background: #a4f0bc;
+				box-shadow: 0 0 6px rgba(164, 240, 188, 0.6);
+			}
+		</style>
+	</head>
+	<body class="lc-page">
+		<header><div id="nav-container"></div></header>
+		<script src="/nav.js"></script>
+
+		<main class="lc-main" id="main-content">
+			<nav class="lc-breadcrumb" aria-label="Breadcrumb">
+				<a href="/">three.ws</a>
+				<span aria-hidden="true">/</span>
+				<a href="/launches">Launches</a>
+				<span aria-hidden="true">/</span>
+				<span>Launch a Coin</span>
+			</nav>
+
+			<section class="lc-hero">
+				<span class="lc-pill"><span class="lc-pill-dot"></span> Powered by pump.fun</span>
+				<h1>Launch a Coin</h1>
+				<p>Pick your agent, set the name, symbol, and image — then mint on-chain straight from your wallet.</p>
+			</section>
+
+			<div id="launch-root"></div>
+		</main>
+
+		<div id="footer-container"></div>
+		<script src="/footer.js"></script>
+
+		<script type="module">
+			import { mountLaunchCoin } from '/launch/launch.js';
+			mountLaunchCoin(document.getElementById('launch-root'));
+		</script>
+		<script src="/brand.js" defer></script>
+	</body>
+</html>

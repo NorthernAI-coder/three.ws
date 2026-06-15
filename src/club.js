@@ -425,6 +425,35 @@ const DANCER_META = [
 	{ name: 'Blaze', bio: 'Amber heat. Power and precision.', palette: 'amber', avatarId: 'd92b292e-c2db-40cb-bf88-3e141c6b0057' },
 ];
 
+// Every dancer is scaled to this standing height (metres) so a mix of
+// differently-authored gallery avatars reads as one lineup.
+const DANCER_HEIGHT_M = 1.75;
+
+/**
+ * Scale a freshly-cloned avatar root to `targetHeight` and ground its feet at
+ * local y=0, measuring with the skinning-aware (`precise`) bounding box so a
+ * rig with a scaled skeleton root or far-flung bind pose still sizes correctly.
+ * Called before the root is parented, so its world space equals its local space
+ * and the measured box is directly usable to offset `position.y`.
+ *
+ * @param {import('three').Object3D} root
+ * @param {number} targetHeight
+ */
+function fitRigToHeight(root, targetHeight) {
+	root.updateMatrixWorld(true);
+	root.traverse((n) => { if (n.isSkinnedMesh) n.skeleton?.update?.(); });
+
+	let box = new Box3().setFromObject(root, true);
+	const height = box.max.y - box.min.y;
+	if (Number.isFinite(height) && height > 0.05) {
+		const scale = Math.min(8, Math.max(0.05, targetHeight / height));
+		root.scale.multiplyScalar(scale);
+		root.updateMatrixWorld(true);
+		box = new Box3().setFromObject(root, true);
+	}
+	if (Number.isFinite(box.min.y)) root.position.y -= box.min.y;
+}
+
 class PoleStation {
 	constructor(idx, layout) {
 		this.idx = idx;
@@ -598,10 +627,16 @@ class PoleStation {
 				}
 			}
 		});
-		// Re-zero so feet sit at rig y=0 regardless of where the source GLB
-		// authored its origin (each avatar model differs).
-		const box = new Box3().setFromObject(root);
-		root.position.y -= box.min.y;
+		// Normalize size + ground the feet. Gallery avatars come from many
+		// pipelines (CharacterStudio, Unreal, RPM, uploads) at wildly different
+		// scales and skeleton offsets — one ships 3m tall and floating, another
+		// sub-metre. A plain rest-pose AABB (setFromObject without `precise`)
+		// reads the bind-pose geometry, which for a skinned rig can bear no
+		// relation to the posed silhouette. Measuring with `precise: true` runs
+		// each vertex through SkinnedMesh.getVertexPosition (applies bone skinning),
+		// so we get the real standing bounds — then scale every dancer to one
+		// height and drop her feet onto y=0 so the lineup reads as a set.
+		fitRigToHeight(root, DANCER_HEIGHT_M);
 		return root;
 	}
 
