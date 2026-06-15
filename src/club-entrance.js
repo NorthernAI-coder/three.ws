@@ -39,10 +39,21 @@ import {
 	Vector2,
 	Vector3,
 	WebGLRenderer,
-	ACESFilmicToneMapping,
+	NoToneMapping,
 } from 'three';
+import {
+	EffectComposer,
+	RenderPass,
+	EffectPass,
+	BloomEffect,
+	ToneMappingEffect,
+	VignetteEffect,
+	SMAAEffect,
+	ToneMappingMode,
+} from 'postprocessing';
 import { gltfLoader } from './loaders/gltf.js';
 import { AnimationManager } from './animation-manager.js';
+import { ClubApproachAudio } from './club-entrance-audio.js';
 import { log } from './shared/log.js';
 
 const TOUR_URL = '/club/venue/tour.glb';
@@ -102,12 +113,14 @@ function hasValidPass() {
 }
 
 async function start(canvasEl) {
-	const renderer = new WebGLRenderer({ canvas: canvasEl, antialias: true, alpha: true });
+	// antialias off + tone mapping deferred — SMAA + ACES run in the composer
+	// below, exactly like the pole stage (src/club.js), so the two halves of the
+	// journey share one cinematic look.
+	const renderer = new WebGLRenderer({ canvas: canvasEl, antialias: false, alpha: false });
 	renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 	renderer.setSize(window.innerWidth, window.innerHeight, false);
 	renderer.outputColorSpace = SRGBColorSpace;
-	renderer.toneMapping = ACESFilmicToneMapping;
-	renderer.toneMappingExposure = 1.12;
+	renderer.toneMapping = NoToneMapping;
 
 	const scene = new Scene();
 	// Opaque backdrop (matches the fog) so the pole stage rendering behind this
@@ -133,6 +146,26 @@ async function start(canvasEl) {
 	const key = new SpotLight(0xffe6c2, 10, 26, Math.PI / 5, 0.6, 1.2);
 	key.position.set(0, 5, 0);
 	scene.add(key, key.target);
+
+	// ── Postprocessing — the same cinematic stack as the pole stage ──────────
+	// Bloom makes the neon door/sign actually glow, ACES gives filmic colour,
+	// the vignette pulls focus to the path ahead, SMAA cleans the edges. We
+	// replace renderer.render() with composer.render(dt) in the loop below.
+	const bloomEffect = new BloomEffect({
+		intensity: 1.35,
+		luminanceThreshold: 0.32,
+		luminanceSmoothing: 0.08,
+		mipmapBlur: true,
+	});
+	const composer = new EffectComposer(renderer);
+	composer.addPass(new RenderPass(scene, camera));
+	composer.addPass(new EffectPass(
+		camera,
+		bloomEffect,
+		new ToneMappingEffect({ mode: ToneMappingMode.ACES_FILMIC }),
+		new VignetteEffect({ darkness: 0.5, offset: 0.3 }),
+	));
+	composer.addPass(new EffectPass(camera, new SMAAEffect()));
 
 	const loader = gltfLoader(renderer);
 
@@ -464,7 +497,7 @@ async function start(canvasEl) {
 			}
 		}
 
-		renderer.render(scene, camera);
+		composer.render(dt);
 		raf = requestAnimationFrame(frame);
 	}
 	raf = requestAnimationFrame(frame);
@@ -525,6 +558,7 @@ async function start(canvasEl) {
 
 	function onResize() {
 		renderer.setSize(window.innerWidth, window.innerHeight, false);
+		composer.setSize(window.innerWidth, window.innerHeight);
 		camera.aspect = window.innerWidth / window.innerHeight;
 		camera.updateProjectionMatrix();
 	}
@@ -537,7 +571,9 @@ async function start(canvasEl) {
 		window.removeEventListener('keyup', onKeyUp);
 		onAdmit = null;
 		try { anim.dispose?.(); } catch {}
+		try { approachAudio?.dispose(); } catch {}
 		disposeObject(scene);
+		composer.dispose();
 		renderer.dispose();
 		try { canvasEl.remove(); } catch {}
 		showHint(false); showJoystick(false); showPrompt(false);

@@ -709,6 +709,10 @@
 			"dest": "/launchpad.html"
 		},
 		{
+			"src": "/launch/?",
+			"dest": "/launch.html"
+		},
+		{
 			"src": "/next/?",
 			"dest": "/next/index.html"
 		},

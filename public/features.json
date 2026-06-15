@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-15T21:48:52.829Z",
+	"generated_at": "2026-06-15T22:01:36.771Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -506,6 +506,16 @@
 			"title": "Crypto",
 			"description": "On-chain features: pay-per-call, token launches, vanity wallets.",
 			"pages": [
+				{
+					"path": "/launch",
+					"title": "Launch a Coin",
+					"description": "Mint a coin for your 3D AI agent in one flow — pick an agent, set the name, symbol, and image, then launch on pump.fun straight from your wallet with an optional three.ws-branded vanity mint.",
+					"added": "2026-06-15",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
 				{
 					"path": "/launches",
 					"title": "Agent Launches",

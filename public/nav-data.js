@@ -85,8 +85,8 @@ export const NAV_GROUPS = [
 		items: [
 			{
 				title: 'Launch a Coin',
-				href: '/launchpad',
-				desc: 'Create a token for your agent',
+				href: '/launch',
+				desc: 'Mint a coin for your agent on pump.fun',
 			},
 			{
 				title: 'Live Stream',
