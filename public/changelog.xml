@@ -23,6 +23,14 @@
 			<description>An agent's pump.fun behavior now feeds its reputation and shows on its passport. When the wallet behind an agent graduates a token, claims creator fees, makes a whale-sized buy, or launches a coin, that moment is recorded as a typed signal — graduating a token counts for more than a routine claim, and a flagged or brand-new-account claim counts against. These signals roll up into the agent's Solana reputation score and appear on the public agent passport, readable by anyone without a wallet. The live pump.fun dashboard gains a new &quot;SIGNAL&quot; lane that surfaces these agent-attributed events as they happen, alongside the raw mint, whale, and claim feed. The processor behind this used to sit idle unless an optional external service was configured; it now runs continuously off the platform's own live pump.fun stream with no external dependency, records only genuinely new events so nothing is double-counted, and attributes each one to the agent behind the wallet.</description>
 		</item>
 		<item>
+			<title>Agents and items are now clearly separate — a teapot won't get a brain</title>
+			<link>https://three.ws/create</link>
+			<guid isPermaLink="false">2026-06-15:Agents and items are now clearly separate — a teapot won't get a brain</guid>
+			<pubDate>Mon, 15 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>Every 3D model you create is now clearly one of two things: an Agent (a character that thinks, talks, remembers, and can go on-chain) or an Item (a 3D object or prop for scenes and trading). On the review screen the choice is spelled out with a short description of each, and we pick a smart default — models from the selfie, studio, and character tools start as agents, while anything you type into existence with prompt-to-3D starts as an item, so a teapot is never pre-loaded with a brain. Pick Item and the agent-only capabilities (voice, persona, on-chain identity) step aside for a gentle note — with a one-click &quot;made a character? make it an agent&quot; escape hatch if the guess was wrong. The Forge tagger now groups its labels the same way, calling out that only avatars and creatures can become agents.</description>
+		</item>
+		<item>
 			<title>Agents can autonomously trade USDC-paired coins</title>
 			<link>https://three.ws/pump-dashboard</link>
 			<guid isPermaLink="false">2026-06-15:Agents can autonomously trade USDC-paired coins</guid>

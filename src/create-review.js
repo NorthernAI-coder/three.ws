@@ -41,10 +41,66 @@ import { log } from './shared/log.js';
 const RESUME_KEY = '3dagent:guest-avatar-resume';
 const $ = (sel) => document.querySelector(sel);
 
+// Sources that strongly imply a humanoid/creature avatar — default these to
+// 'avatar' (an agent that gets a brain). Everything else (prompt-to-3D, import,
+// upload, unknown) is an arbitrary 3D model, so default to 'object' (an item):
+// a teapot you typed into existence shouldn't pre-select "give it a brain". The
+// selector is always visible and switching is one click, so the default is just
+// a soft nudge, never a lock.
+const AVATAR_SOURCES = new Set(['avaturn', 'three-ws-studio', 'three-ws-selfie']);
+
+// 'avatar' = an Agent (gets a brain — voice, memory, on-chain identity);
+// 'object' = an Item (a 3D model saved to your library; props, not personalities).
+let creationType = 'avatar';
+
+function setCreationType(type) {
+	creationType = type;
+	const isAvatar = type === 'avatar';
+	$('#type-btn-avatar')?.classList.toggle('active', isAvatar);
+	$('#type-btn-object')?.classList.toggle('active', !isAvatar);
+	$('#type-btn-avatar')?.setAttribute('aria-pressed', String(isAvatar));
+	$('#type-btn-object')?.setAttribute('aria-pressed', String(!isAvatar));
+
+	const saveBtn = $('#save-btn');
+	if (saveBtn && !saveBtn.disabled) {
+		saveBtn.textContent = isAvatar ? 'Save to my account' : 'Save to library';
+	}
+
+	const heading = $('#heading');
+	if (heading) heading.textContent = isAvatar ? 'Meet your agent' : 'Your 3D item';
+	const subhead = $('#subhead');
+	if (subhead) {
+		subhead.textContent = isAvatar
+			? 'Try every capability before you save. Talk to it, drop it on any site, take it offline — see what your new agent can do, then claim it.'
+			: "A 3D object for your library — drop it into scenes, attach it to an agent, or export it anywhere. Items don't think or talk; that's what agents are for.";
+	}
+
+	const nameInput = $('#f-name');
+	if (nameInput) {
+		nameInput.placeholder = isAvatar ? 'Give your agent a name' : 'Give your item a name';
+	}
+
+	const handlePreview = $('#handle-preview');
+	if (handlePreview) handlePreview.hidden = !isAvatar;
+
+	syncCapabilities();
+}
+
+// Show the brain/agent capabilities for agents; for items, swap in a soft nudge
+// that explains items don't get a brain — with a one-click escape hatch back to
+// the agent path for anyone who made a character by mistake.
+function syncCapabilities() {
+	const onContent = !document.getElementById('content')?.hidden;
+	const isAvatar = creationType === 'avatar';
+	const caps = document.getElementById('capabilities');
+	const nudge = document.getElementById('item-nudge');
+	if (caps) caps.hidden = !onContent || !isAvatar;
+	if (nudge) nudge.hidden = !onContent || isAvatar;
+}
+
 function setPageState(state) {
 	document.getElementById('content').hidden = state !== 'content';
-	const caps = document.getElementById('capabilities');
-	if (caps) caps.hidden = state !== 'content';
+	syncCapabilities();
 }
 
 let staged = /** @type {Awaited<ReturnType<typeof loadGuest>>} */ (null);
@@ -88,10 +144,17 @@ async function renderPreview(record) {
 	const userFacingName = isAutoName ? '' : record.name;
 	$('#avatar-name').textContent = userFacingName || 'Your new avatar';
 	$('#f-name').value = userFacingName;
-	$('#tag-source').textContent =
-		prettySource(record.meta?.source || record.meta?.provider);
+	const src = record.meta?.source || record.meta?.provider || '';
+	$('#tag-source').textContent = prettySource(src);
 	$('#tag-size').textContent =
 		record.size > 0 ? `${Math.round(record.size / 1024)} KB` : '— KB';
+
+	// Default type based on creation source: known character tools (selfie,
+	// studio, Avaturn) → 'avatar' (an agent); generic prompt-to-3D / import /
+	// upload → 'object' (an item), since an arbitrary generated model is far
+	// more likely a prop than a character. The selector is right there to flip
+	// if the guess is wrong.
+	setCreationType(AVATAR_SOURCES.has(src) ? 'avatar' : 'object');
 
 	// Keep an object URL around for downstream consumers (Voice preview hands
 	// it to talk-mode, which loads via URL). The viewer itself now mounts
@@ -205,6 +268,18 @@ function wireControls() {
 	saveBtn.addEventListener('click', () => onSave());
 	startOverBtn.addEventListener('click', () => onStartOver());
 
+	document.querySelectorAll('.type-btn[data-type]').forEach((btn) => {
+		btn.addEventListener('click', () => setCreationType(btn.dataset.type));
+	});
+
+	// Soft-nudge escape hatch: "made a character? make it an agent" flips an
+	// item back onto the agent path without forcing the user to hunt for the
+	// selector again.
+	$('#item-nudge-promote')?.addEventListener('click', () => {
+		setCreationType('avatar');
+		document.getElementById('capabilities')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+	});
+
 	wireFeatureTiles();
 }
 
@@ -273,7 +348,7 @@ function applyAuthState({ detail }) {
 	const guestNote = $('#guest-note');
 	saveBtn.disabled = false;
 	if (detail.authed) {
-		saveBtn.textContent = 'Save to my account';
+		saveBtn.textContent = creationType === 'object' ? 'Save to library' : 'Save to my account';
 		guestNote.hidden = true;
 		// Returning from a /login round-trip with the resume flag set — finish
 		// what the user started.
@@ -306,14 +381,13 @@ async function onSave({ auto = false } = {}) {
 
 	saveBtn.disabled = true;
 	startOverBtn.disabled = true;
+	const isObject = creationType === 'object';
 	saveAbortController = new AbortController();
-	showSaveOverlay('Preparing upload…', 'Optimizing your avatar.', {
+	showSaveOverlay('Preparing upload…', isObject ? 'Saving your 3D model.' : 'Optimizing your avatar.', {
 		onCancel: () => saveAbortController?.abort(),
 	});
-	// Warm the destination so navigation after a successful save feels instant:
-	// the browser fetches /app and the agent shell scripts in parallel with the
-	// R2 PUT. Removed once we leave the page or on cancel.
-	primeDestinationPrefetch();
+	// Only prefetch /app for the agent path — no point warming it for library saves.
+	if (!isObject) primeDestinationPrefetch();
 
 	// Arm the resume sentinel before we touch the network. If the session
 	// expired between the cached auth hint and now, apiFetch redirects to
@@ -326,12 +400,13 @@ async function onSave({ auto = false } = {}) {
 		const meta = {
 			...staged.meta,
 			name,
+			...(isObject ? { model_category: 'item' } : {}),
 		};
 		const avatar = await saveRemoteGlbToAccount(staged.blob, meta, {
 			signal: saveAbortController.signal,
 			onProgress: (pct) => {
 				updateSaveOverlay(
-					pct >= 100 ? 'Finishing upload…' : 'Uploading your avatar…',
+					pct >= 100 ? 'Finishing upload…' : isObject ? 'Uploading your model…' : 'Uploading your avatar…',
 					pct >= 100 ? 'almost there' : `${pct}%`,
 				);
 				setSaveProgress(pct);
@@ -339,6 +414,17 @@ async function onSave({ auto = false } = {}) {
 		});
 		setSaveProgress(null);
 		setSaveCancellable(false);
+
+		if (isObject) {
+			updateSaveOverlay('Saving to library…', '');
+			await clearGuest();
+			await captureAndUploadThumbnail(avatar.id).catch(() => {});
+			releaseObjectUrl();
+			try { window.__twsGuide?.complete('create'); } catch (_) {}
+			window.location.href = '/dashboard/avatars?saved=1';
+			return;
+		}
+
 		updateSaveOverlay('Preparing your agent…', '');
 		const agent = await attachAvatarToAgent(avatar.id, name);
 		updateSaveOverlay('Opening your avatar…', '');

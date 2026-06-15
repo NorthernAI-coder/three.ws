@@ -3,6 +3,13 @@
 	"entries": [
 		{
 			"date": "2026-06-15",
+			"title": "Agents and items are now clearly separate — a teapot won't get a brain",
+			"summary": "Every 3D model you create is now clearly one of two things: an Agent (a character that thinks, talks, remembers, and can go on-chain) or an Item (a 3D object or prop for scenes and trading). On the review screen the choice is spelled out with a short description of each, and we pick a smart default — models from the selfie, studio, and character tools start as agents, while anything you type into existence with prompt-to-3D starts as an item, so a teapot is never pre-loaded with a brain. Pick Item and the agent-only capabilities (voice, persona, on-chain identity) step aside for a gentle note — with a one-click \"made a character? make it an agent\" escape hatch if the guess was wrong. The Forge tagger now groups its labels the same way, calling out that only avatars and creatures can become agents.",
+			"tags": ["improvement"],
+			"link": "/create"
+		},
+		{
+			"date": "2026-06-15",
 			"title": "Clearer launch & trade errors, and a graduated badge on coins",
 			"summary": "When a token launch or an in-world trade can't go through, the app now tells you exactly why and what to do next — \"Not enough SOL to cover the launch + network fees,\" \"Price moved beyond your slippage limit,\" \"You cancelled the signature in your wallet,\" or \"Couldn't reach the Solana network\" — instead of a single catch-all \"Connection error.\" Coins also show their lifecycle at a glance: the trade panel carries a badge marking whether a coin is still on its bonding curve or has graduated to the PumpSwap AMM, so a graduated coin is unmistakable. Backed by new end-to-end browser tests that drive the full four-step launch flow and the buy/sell widget so this conversion path can't silently break.",
 			"tags": ["improvement"],
