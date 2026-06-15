@@ -227,6 +227,8 @@ function renderShell(glbUrl) {
 					tone-mapping="aces"
 					environment-image="neutral"
 					reveal="auto"
+					autoplay
+					animation-crossfade-duration="300"
 					ar
 					ar-modes="webxr scene-viewer quick-look"
 					ar-scale="auto"
@@ -237,6 +239,12 @@ function renderShell(glbUrl) {
 						</div>
 					</div>
 				</model-viewer>
+				<div class="av-anim-bar" id="av-anim-bar" role="group" aria-label="Animation playback">
+					<button class="av-anim-toggle" id="av-anim-toggle" type="button" aria-label="Pause animation" aria-pressed="true">
+						<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+					</button>
+					<div class="av-anim-clips" id="av-anim-clips"></div>
+				</div>
 			</div>
 			<div class="av-meta-strip" id="av-meta-strip">
 				<div class="av-meta-item"><span class="av-meta-key">Format</span><span class="av-meta-val">glTF 2.0</span></div>
@@ -394,6 +402,7 @@ function renderShell(glbUrl) {
 	viewer?.addEventListener('load', () => {
 		$('av-stage-loading')?.remove();
 		positionThoughtHotspot(viewer);
+		setupAnimationControls(viewer);
 	});
 	viewer?.addEventListener('error', () => {
 		const ld = $('av-stage-loading');
@@ -1154,10 +1163,116 @@ function playClipByHint(hints, { loop = false } = {}) {
 		if (idx !== -1) break;
 	}
 	if (idx === -1) return;
-	viewer.animationName = clips[idx];
-	viewer.autoplay = true;
-	if (typeof viewer.play === 'function') viewer.play({ repetitions: loop ? Infinity : 1 });
+	playClip(viewer, clips[idx], { loop });
 }
+
+// Build the floating play/pause + clip-switcher bar once the model is loaded.
+// Visible only when the GLB actually carries animation clips. A rigged avatar
+// with a single embedded mocap take gets an autoplaying idle + a pause toggle;
+// a model with several takes gets a pill switcher to jump between them.
+function setupAnimationControls(viewer) {
+	const bar = $('av-anim-bar');
+	const clipsHost = $('av-anim-clips');
+	const toggle = $('av-anim-toggle');
+	if (!bar || !clipsHost || !toggle) return;
+
+	const clips = (viewer.availableAnimations || []).slice();
+	if (!clips.length) {
+		bar.removeAttribute('data-visible');
+		return;
+	}
+
+	// Mirror into the skills-panel detection set so wave/idle skills light up
+	// even before the byte-range stats probe resolves.
+	availableAnimations = new Set(clips.map((n) => n.toLowerCase()));
+
+	// Pick a sensible default: prefer a calm idle/breathing take, then a wave,
+	// then whatever ships first.
+	const lower = clips.map((n) => n.toLowerCase());
+	const preferred = ['idle', 'breath', 'stand', 'wave', 'dance'];
+	let defaultIdx = -1;
+	for (const hint of preferred) {
+		defaultIdx = lower.findIndex((n) => n.includes(hint));
+		if (defaultIdx !== -1) break;
+	}
+	if (defaultIdx === -1) defaultIdx = 0;
+
+	if (clips.length === 1) {
+		// One take — no switcher, just a label so the control reads clearly.
+		const label = document.createElement('span');
+		label.className = 'av-anim-label';
+		label.textContent = prettyClipName(clips[0], 0, 1);
+		clipsHost.replaceChildren(label);
+	} else {
+		const frag = document.createDocumentFragment();
+		clips.forEach((name, i) => {
+			const btn = document.createElement('button');
+			btn.type = 'button';
+			btn.className = 'av-anim-clip';
+			btn.dataset.clip = name;
+			btn.textContent = prettyClipName(name, i, clips.length);
+			btn.addEventListener('click', () => playClip(viewer, name, { loop: true }));
+			frag.appendChild(btn);
+		});
+		clipsHost.replaceChildren(frag);
+	}
+
+	toggle.addEventListener('click', () => {
+		if (animPlaying) {
+			viewer.pause();
+			setAnimPlaying(false);
+		} else {
+			if (typeof viewer.play === 'function') viewer.play({ repetitions: Infinity });
+			setAnimPlaying(true);
+		}
+	});
+
+	playClip(viewer, clips[defaultIdx], { loop: true });
+	bar.setAttribute('data-visible', '1');
+}
+
+// Play a named clip via model-viewer's public API and sync the control bar.
+function playClip(viewer, name, { loop = true } = {}) {
+	if (!viewer || !name) return;
+	viewer.animationName = name;
+	viewer.currentTime = 0;
+	if (typeof viewer.play === 'function') viewer.play({ repetitions: loop ? Infinity : 1 });
+	setAnimPlaying(true);
+	const clipsHost = $('av-anim-clips');
+	clipsHost?.querySelectorAll('.av-anim-clip').forEach((btn) => {
+		btn.classList.toggle('is-active', btn.dataset.clip === name);
+	});
+}
+
+// Toggle the play/pause button's icon + ARIA state.
+function setAnimPlaying(playing) {
+	animPlaying = playing;
+	const toggle = $('av-anim-toggle');
+	if (!toggle) return;
+	toggle.setAttribute('aria-pressed', String(playing));
+	toggle.setAttribute('aria-label', playing ? 'Pause animation' : 'Play animation');
+	toggle.innerHTML = playing
+		? '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>'
+		: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>';
+}
+
+// Humanize a raw glTF clip name for the switcher. Mocap exporters leave noise
+// like "mixamo.com" or "Armature|Take 001" — collapse those to a clean label.
+function prettyClipName(name, i, total) {
+	const raw = (name || '').trim();
+	if (!raw || /^mixamo\.com$/i.test(raw) || /\.(glb|gltf|fbx|com)$/i.test(raw)) {
+		return total > 1 ? `Clip ${i + 1}` : 'Animation';
+	}
+	const cleaned = raw
+		.replace(/^armature[|/_-]*/i, '')
+		.replace(/\|/g, ' ')
+		.replace(/[_-]+/g, ' ')
+		.trim();
+	if (!cleaned) return total > 1 ? `Clip ${i + 1}` : 'Animation';
+	return cleaned.replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+let animPlaying = false;
 
 // ── Plugins panel ─────────────────────────────────────────────────────
 

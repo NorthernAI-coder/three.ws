@@ -33,6 +33,7 @@ body {
 
 .chs-search {
 	flex: 1;
+	min-width: 0;
 	background: rgba(255, 255, 255, 0.7);
 	border: 1.5px solid rgba(0,0,0,0.1);
 	border-radius: 32px;
@@ -77,7 +78,10 @@ body {
 /* ── Grid ─────────────────────────────────────────────── */
 .chs-grid {
 	display: grid;
-	grid-template-columns: 1fr 1fr;
+	/* Mobile-first: one full-width column. minmax(0, 1fr) lets the track
+	   shrink below the cards' content min-width so token/stat rows never
+	   force horizontal scroll on narrow phones. */
+	grid-template-columns: minmax(0, 1fr);
 	gap: 12px;
 	padding: 16px 20px;
 	max-width: 640px;
@@ -85,7 +89,7 @@ body {
 }
 
 @media (min-width: 480px) {
-	.chs-grid { grid-template-columns: 1fr 1fr; }
+	.chs-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 /* ── Character card ───────────────────────────────────── */

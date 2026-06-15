@@ -59,6 +59,18 @@ import {
 	markFailed,
 	findByJob,
 } from './_lib/forge-store.js';
+import { constantTimeEquals } from './_lib/crypto.js';
+import { env as _env } from './_lib/env.js';
+
+// Returns true when the request carries the internal cron seed token, meaning
+// the call comes from forge-seed-cron (server→server). These bypass the per-IP
+// rate limit — they're metered by MAX_CONCURRENT_PENDING in the cron instead.
+function isInternalSeedRequest(req) {
+	const token = req.headers['x-forge-seed'];
+	if (!token) return false;
+	const secret = _env.CRON_SECRET;
+	return !!secret && constantTimeEquals(token, secret);
+}
 
 // The free NVIDIA NIM (TRELLIS) provider is loaded lazily and dynamically: it
 // ships in T1.1, so importing it statically would couple this whole endpoint to
@@ -144,6 +156,21 @@ function unconfigured(res) {
 		message:
 			'Text-to-3D generation is not configured on this deployment (REPLICATE_API_TOKEN is missing).',
 	});
+}
+
+// Whether a thrown provider error means the upstream itself is unavailable —
+// throttled, over-quota, unreachable, or 5xx — as opposed to a client/config
+// fault. Both never-dead-end fallbacks (image→3D to the self-hosted Hunyuan3D
+// worker, text→3D to the free NVIDIA NIM lane) degrade on exactly these so a
+// generation rides out a transient upstream outage instead of failing the user.
+function isUpstreamUnavailable(err) {
+	return (
+		err?.code === 'rate_limited' ||
+		err?.providerStatus === 429 ||
+		err?.code === 'provider_error' ||
+		err?.code === 'provider_unreachable' ||
+		(typeof err?.providerStatus === 'number' && err.providerStatus >= 500)
+	);
 }
 
 // Free NVIDIA NIM TRELLIS text→3D lane, extracted so it serves two callers:
@@ -289,9 +316,11 @@ async function startJob(req, res) {
 	}
 
 	const isFreeLane = BACKENDS[backendId]?.free === true;
-	const rl = isFreeLane ? await limits.mcp3dGenerateFree(ip) : await limits.mcp3dGenerate(ip);
-	if (!rl.success) {
-		return rateLimited(res, rl, 'Generation limit reached. Try again shortly.');
+	if (!isInternalSeedRequest(req)) {
+		const rl = isFreeLane ? await limits.mcp3dGenerateFree(ip) : await limits.mcp3dGenerate(ip);
+		if (!rl.success) {
+			return rateLimited(res, rl, 'Generation limit reached. Try again shortly.');
+		}
 	}
 
 	if (isImageMode) {
@@ -680,11 +709,46 @@ async function startJob(req, res) {
 			reconstructParams.path = path;
 		}
 
-		const job = await provider.submit({
-			mode: 'reconstruct',
-			sourceUrl: referenceImageUrl,
-			params: reconstructParams,
-		});
+		let job;
+		try {
+			job = await provider.submit({
+				mode: 'reconstruct',
+				sourceUrl: referenceImageUrl,
+				params: reconstructParams,
+			});
+		} catch (submitErr) {
+			// Image→3D free fallback: when the standing platform TRELLIS lane
+			// (Replicate) is over-quota or unreachable, retry on the self-hosted
+			// Hunyuan3D Cloud Run worker if it's wired — so a photo upload never
+			// dead-ends. The text→3D fallback (free NVIDIA NIM, in the outer catch)
+			// can't take photos, so image mode would otherwise have no escape. Scoped
+			// to the default trellis lane: a text prompt prefers the genuinely-free
+			// NVIDIA lane over paid GPU compute, and an explicitly chosen Hunyuan3D /
+			// BYOK backend that fails surfaces its own error. Provenance reports
+			// backend:hunyuan3d so the downgrade stays visible.
+			const hunyuanUrl = process.env.GCP_HUNYUAN3D_URL;
+			const canFallbackToHunyuan =
+				isImageMode &&
+				backendId === 'trellis' &&
+				hunyuanUrl &&
+				process.env.GCP_RECONSTRUCTION_KEY &&
+				isUpstreamUnavailable(submitErr);
+			if (!canFallbackToHunyuan) throw submitErr;
+			console.warn(
+				`[forge] platform TRELLIS lane unavailable (${submitErr?.providerStatus || submitErr?.code}); degrading image→3D to self-hosted Hunyuan3D`,
+			);
+			backendId = 'hunyuan3d';
+			provider = createGcpProvider({ reconstructUrl: hunyuanUrl });
+			// Hunyuan3D is poly-aware — supply the tier budget the TRELLIS params omit.
+			reconstructParams.target_polycount = tier.polycount;
+			reconstructParams.tier = tier.id;
+			reconstructParams.path = path;
+			job = await provider.submit({
+				mode: 'reconstruct',
+				sourceUrl: referenceImageUrl,
+				params: reconstructParams,
+			});
+		}
 
 		// How the job was actually conditioned. The provider reports back which
 		// backend handled it and how many views it fused — these can differ from
@@ -767,13 +831,7 @@ async function startJob(req, res) {
 		// reconstruct fallback (NVCF is text-only), so they fall through to the
 		// designed states below. `nvidiaTried` guards against re-running a lane that
 		// already failed this request (the draft nvidia→trellis→nvidia loop).
-		const upstreamUnavailable =
-			err?.code === 'rate_limited' ||
-			err?.providerStatus === 429 ||
-			err?.code === 'provider_error' ||
-			err?.code === 'provider_unreachable' ||
-			(typeof err?.providerStatus === 'number' && err.providerStatus >= 500);
-		if (upstreamUnavailable && !isImageMode && !nvidiaTried && prompt) {
+		if (isUpstreamUnavailable(err) && !isImageMode && !nvidiaTried && prompt) {
 			nvidiaTried = true;
 			console.warn(
 				`[forge] paid TRELLIS lane unavailable (${err?.providerStatus || err?.code}); degrading text→3D to free NVIDIA NIM`,

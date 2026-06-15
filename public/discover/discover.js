@@ -553,7 +553,7 @@ function renderAvatarCard(item) {
 			${tagChips ? `<div class="explore-card-svcs">${tagChips}</div>` : ''}
 			<div class="explore-card-foot">
 				<span class="explore-card-owner" title="Avatar made public by its creator">
-					${item.viewCount ? `<span class="explore-card-views">${escapeHtml(formatCompact(item.viewCount))} views</span>` : `@${escapeHtml(item.slug || 'avatar')}`}
+					@${escapeHtml(item.slug || 'avatar')}
 				</span>
 				<div class="explore-card-actions">
 					<a class="explore-card-link" href="${escapeAttr(detailUrl)}">View avatar</a>
@@ -615,12 +615,6 @@ function renderSolanaCard(item) {
 		</div>
 	`;
 	return card;
-}
-
-function formatCompact(n) {
-	if (n < 1000) return String(n);
-	if (n < 1_000_000) return (n / 1000).toFixed(n < 10_000 ? 1 : 0).replace(/\.0$/, '') + 'k';
-	return (n / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M';
 }
 
 function escapeHtml(s) {

@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-15T10:14:40.135Z",
+	"generated_at": "2026-06-15T15:13:26.566Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -56,6 +56,16 @@
 			"tags": [
 				"improvement",
 				"infra"
+			]
+		},
+		{
+			"date": "2026-06-15",
+			"type": "update",
+			"title": "Avatars come to life — animations now play on the avatar page",
+			"summary": "Every avatar page now plays its built-in animation the moment it loads, so a rigged avatar stands, breathes, or performs its motion instead of freezing in a static pose. A new floating control sits over the 3D stage: a play/pause button, plus a clip switcher when an avatar carries more than one take so you can jump between them. Avatars with no embedded motion are unaffected — the control only appears when there's something to play.",
+			"link": null,
+			"tags": [
+				"feature"
 			]
 		},
 		{
@@ -138,6 +148,16 @@
 			"tags": [
 				"feature",
 				"security"
+			]
+		},
+		{
+			"date": "2026-06-15",
+			"type": "update",
+			"title": "Pose any avatar — a full motion library on the avatar page",
+			"summary": "Every avatar page has a new Pose tab. Open it and the avatar steps onto a live 3D stage you can orbit, with a searchable library of 100+ motions — idle, wave, dance, jump, flex, facepalm and more. Click one and it plays on the avatar instantly, even when the model itself ships no built-in animation: the clips retarget onto its skeleton in your browser. A speed slider and a reset-to-idle control round out the transport. Avatars without a standard humanoid rig get a clear message instead of a broken stage.",
+			"link": null,
+			"tags": [
+				"feature"
 			]
 		},
 		{
@@ -231,6 +251,16 @@
 			"link": "/forge",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-15",
+			"type": "update",
+			"title": "The IRL page loads again",
+			"summary": "Opening three.ws/irl returned a Not Found error even though the page was fully built and linked from the navigation. The page wasn't mapped in our routing rules, so the server never served it. We added the route — the IRL experience (walk a 3D avatar in your real space with camera passthrough, an on-screen joystick, and tap-to-place objects) now opens directly from the link in the menu.",
+			"link": "/irl",
+			"tags": [
+				"fix"
 			]
 		},
 		{
