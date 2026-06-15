@@ -534,6 +534,8 @@
 				color: #a78bfa;
 			}
 			.card-example-text {
+				flex: 1;
+				min-width: 0;
 				white-space: nowrap;
 				overflow: hidden;
 				text-overflow: ellipsis;
@@ -630,6 +632,7 @@
 				bottom: 32px;
 				left: 50%;
 				transform: translateX(-50%);
+				max-width: min(calc(100vw - 32px), 420px);
 				padding: 11px 20px;
 				border-radius: 12px;
 				font-size: 13px;
@@ -678,6 +681,55 @@
 				}
 				.secondary-grid {
 					grid-template-columns: 1fr;
+				}
+				/* Card padding tuned down so content keeps room on phones */
+				.hero-card {
+					padding: 22px 18px;
+				}
+				.create-card {
+					padding: 18px;
+				}
+				/* Keep the badge clear of the wrapping hero title */
+				.recommended-badge {
+					top: 14px;
+					right: 14px;
+				}
+				.hero-card .card-icon-row {
+					padding-right: 96px;
+				}
+				/* Larger, comfortable tap targets for the visible CTAs */
+				.card-cta {
+					padding: 12px 18px;
+					min-height: 44px;
+				}
+				.your-avatars-manage {
+					padding: 6px 0;
+				}
+				/* Toast wraps and respects the home-indicator safe area */
+				.status-toast {
+					bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+					white-space: normal;
+					text-align: center;
+				}
+			}
+			@media (max-width: 380px) {
+				.create-title {
+					font-size: 26px;
+				}
+				.hero-card .card-title {
+					font-size: 20px;
+				}
+				/* Stack icon above title so neither collides with the badge */
+				.hero-card .card-icon-row {
+					flex-direction: column;
+					align-items: flex-start;
+					gap: 10px;
+					padding-right: 0;
+				}
+				.recommended-badge {
+					position: static;
+					align-self: flex-start;
+					margin-bottom: 12px;
 				}
 			}
 
