@@ -50,6 +50,7 @@ export const NAV = [
 
 	// ── Account ─────────────────────────────────────────────────────────
 	{ path: '/dashboard/account',     label: 'Account',         icon: 'user',      group: 'Account',    tags: ['wallets', 'sns', 'delegation', 'profile', 'action log', 'provider keys'] },
+	{ path: '/dashboard/referrals',   label: 'Referrals',       icon: 'gift',      group: 'Account',    tags: ['referral', 'invite', 'membership', 'card', 'refer a friend', 'share', 'rewards', 'position', 'score'] },
 	{ path: '/dashboard/wallet-grinder', label: 'Wallet Grinder', icon: 'sparkle',  group: 'Account',    tags: ['vanity', 'grind', 'keypair', 'wallet', 'solana', 'evm', 'ethereum', 'base', 'polygon', 'address', 'prefix', 'suffix'] },
 	{ path: '/dashboard/settings',    label: 'Settings',        icon: 'settings',  group: 'Account',    tags: ['sessions', 'notifications', 'preferences', 'storage', 'llm usage', 'vanity'] },
 	{ path: '/onchain',               label: 'On-chain (ERC-8004)', icon: 'chain', group: 'Account',    tags: ['erc8004', 'registry', 'onchain', 'identity'], external: true },
@@ -87,6 +88,7 @@ export const ICONS = {
 	devhub:    '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="16" height="12" rx="2"/><path d="M6 7l-2 2.5L6 12M14 7l2 2.5L14 12M9 13l2-8"/></svg>',
 	landscape: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="8" r="2"/><circle cx="14" cy="6" r="2"/><circle cx="10" cy="14" r="2"/><path d="M8 8l2 5M12 7l-2 6"/><path d="M3 3h14v14H3z" stroke-dasharray="2 2" opacity="0.3"/></svg>',
 	bounty:    '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="7.5"/><path d="M10 6v8M7 8l3-2 3 2M7 12l3 2 3-2"/></svg>',
+	gift:      '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="14" height="9" rx="1.5"/><path d="M3 11h14M10 8v9"/><path d="M10 8S8.5 4.5 6.5 4.5a2 2 0 000 4H10zM10 8s1.5-3.5 3.5-3.5a2 2 0 010 4H10z"/></svg>',
 };
 
 /** Resolve the route for the current pathname (exact match wins; falls back to startsWith). */

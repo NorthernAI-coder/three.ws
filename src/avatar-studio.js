@@ -153,6 +153,8 @@ async function init() {
 		if (titleEl) titleEl.textContent = 'Edit Avatar';
 		const backEl = $('as-back');
 		if (backEl) backEl.href = `/avatars/${encodeURIComponent(editAvatarId)}`;
+		// Editing an existing avatar → surface its agent-wallet panel.
+		mountAvatarWallet(editAvatar);
 	} else {
 		// Offer to restore a saved draft (only in create mode, not edit)
 		maybeSuggestDraft();
@@ -193,6 +195,15 @@ async function fetchEditAvatar(id) {
 	}
 	const { avatar } = await res.json();
 	return avatar;
+}
+
+// Surface the avatar's agent-wallet panel (create / manage) in the studio rail.
+function mountAvatarWallet(avatar) {
+	const el = $('as-actions');
+	if (!el || !avatar?.id) return;
+	el.style.display = 'block';
+	if (customElements.get('avatar-actions')) el.avatar = avatar;
+	else el.setAttribute('avatar-id', avatar.id);
 }
 
 // ── Draft autosave ───────────────────────────────────────────────────

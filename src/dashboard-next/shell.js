@@ -15,6 +15,7 @@ import { renderSidebar,  mountSidebarBehavior, mountMobileNavBehavior } from './
 import { renderTopbar,   mountTopbarBehavior  } from './components/topbar.js';
 import { renderDrawer,   mountDrawerBehavior  } from './components/drawer.js';
 import { mountPaletteBehavior } from './components/palette.js';
+import { claimPendingReferral } from './referral-claim.js';
 
 /**
  * Build the shell, mount its behaviour, and resolve to the <main> slot
@@ -61,6 +62,10 @@ export async function mountShell() {
 	mountDrawerBehavior(shell);
 	mountPaletteBehavior();
 	mountDrawerPulse(shell);
+
+	// If the user arrived via a referral link, attribute it now that they have a
+	// session. No-ops without a pending code; never blocks the page.
+	claimPendingReferral().catch(() => {});
 
 	// Light-up touch — the sidebar item we land on gets a brief accent
 	// pulse so users see "you are here" without having to track the
