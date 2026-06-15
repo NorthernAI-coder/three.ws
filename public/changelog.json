@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-15T17:27:04.306Z",
+	"generated_at": "2026-06-15T19:05:35.826Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -96,6 +96,16 @@
 			"link": "/play",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-15",
+			"type": "update",
+			"title": "Camera AR on /irl now turns on",
+			"summary": "The \"Camera AR\" button on the IRL page was stuck — it never lit up, on desktop or phone, so you could never drop your avatar into your real room. A startup error in the joystick setup was crashing the page's script before the button could ever be enabled. Fixed: the button now activates once your avatar loads, and tapping it opens the camera so you can walk your avatar across your real floor.",
+			"link": "/irl",
+			"tags": [
+				"fix"
 			]
 		},
 		{
@@ -381,8 +391,8 @@
 		{
 			"date": "2026-06-15",
 			"type": "update",
-			"title": "Walk into the Pole Club — a 3D entrance, not a loading screen",
-			"summary": "The club now has a way in. Land on /club and you're standing in an alley outside, in line at the door. Pay the $0.01 cover and the rope drops — you walk first-person through the club house interior, the night's anthem kicks in the moment you step inside, and the room with the poles opens up around you. The whole journey is real 3D, streamed from compressed scenes (~20 MB exports cut to ~1.6 MB each) so it loads while you wait at the door. Already paid tonight? You skip the line and walk straight back in.",
+			"title": "Walk into the Pole Club as your own 3D avatar",
+			"summary": "The club now has a way in that you control. Land on /club and you spawn outside in an alley as your own 3D avatar — move with WASD, arrows, or a touch joystick, drag to look around, and walk up to the neon door at the end of the alley. Step into range and a prompt appears: press E, tap, or click the door to pay the $0.01 cover. Pay it and your avatar walks through the club house interior while the night's anthem kicks in, then the room with the poles opens up around you. It's all real 3D, streamed from compressed scenes (~20 MB exports cut to ~1.6 MB each) and prefetched while you walk so nothing stalls. Already paid tonight? You skip the line and walk straight in.",
 			"link": "/club",
 			"tags": [
 				"feature"

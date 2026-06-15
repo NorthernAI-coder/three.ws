@@ -24,6 +24,7 @@ function initDoor(root) {
 	const payBtn = root.querySelector('#club-door-pay');
 	const msgEl = root.querySelector('#club-door-msg');
 	const tierEl = root.querySelector('#club-door-tier');
+	const backBtn = root.querySelector('#club-door-back');
 
 	// Already paid cover tonight? Drop the rope immediately — no double charge.
 	const cached = readPass();
@@ -32,11 +33,27 @@ function initDoor(root) {
 		return;
 	}
 
-	setState(root, 'queue');
-	// Focus the pay button so keyboard users land on the one action.
-	try { payBtn?.focus({ preventScroll: true }); } catch {}
-
+	// The card stays hidden until you walk your avatar up to the door in the
+	// alley (src/club-entrance.js → club:enter-door). Backing out (the card's
+	// back button or Escape) returns control to the alley.
+	setState(root, 'hidden');
 	payBtn?.addEventListener('click', () => payCover(root, { payBtn, msgEl, tierEl }));
+
+	window.addEventListener('club:enter-door', () => {
+		if (root.dataset.state !== 'hidden') return;
+		setState(root, 'queue');
+		try { payBtn?.focus({ preventScroll: true }); } catch {}
+	});
+
+	const backToAlley = () => {
+		setState(root, 'hidden');
+		setMsg(msgEl, '', null);
+		window.dispatchEvent(new CustomEvent('club:leave-door'));
+	};
+	backBtn?.addEventListener('click', backToAlley);
+	window.addEventListener('keydown', (e) => {
+		if (e.key === 'Escape' && root.dataset.state === 'queue') backToAlley();
+	});
 }
 
 async function payCover(root, { payBtn, msgEl, tierEl }) {

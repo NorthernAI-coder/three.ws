@@ -602,11 +602,12 @@
 				100% { opacity: 0; visibility: hidden; }
 			}
 
-			/* ── Entrance journey canvas ────────────────────────── */
-			/* The live first-person scene (src/club-entrance.js): the alley you
-			   land in, then the walk through the club house. Full-screen, behind
-			   the door card, above the pole stage. pointer-events:none so the
-			   card owns interaction; the module fades + removes it on arrival. */
+			/* ── Entrance scene canvas ──────────────────────────── */
+			/* The live third-person scene (src/club-entrance.js): your avatar in
+			   the alley, then the walk through the club house. Full-screen, below
+			   the cover card, above the pole stage. Takes pointer input for the
+			   move/look controller; touch-action:none so drags don't scroll the
+			   page. The module fades + removes it on arrival at the stage. */
 			.club-door-canvas {
 				position: fixed;
 				inset: 0;
@@ -614,8 +615,132 @@
 				height: 100%;
 				display: block;
 				z-index: 9400;
+				touch-action: none;
+				cursor: grab;
+			}
+			.club-door-canvas:active { cursor: grabbing; }
+
+			/* ── Entrance controller UI ─────────────────────────── */
+			/* Sit above the scene canvas (9400), below the cover card (9500). */
+			.club-controls-hint {
+				position: fixed;
+				left: 50%;
+				bottom: 28px;
+				transform: translateX(-50%) translateY(8px);
+				z-index: 9440;
+				padding: 9px 16px;
+				border-radius: 999px;
+				background: rgba(8, 5, 12, 0.62);
+				border: 1px solid rgba(255, 255, 255, 0.1);
+				backdrop-filter: blur(8px);
+				color: var(--text-2, #c9c2d6);
+				font-size: 13px;
+				letter-spacing: 0.01em;
+				pointer-events: none;
+				opacity: 0;
+				transition: opacity 0.5s ease, transform 0.5s ease;
+			}
+			.club-controls-hint.is-visible { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+			.club-door-prompt {
+				position: fixed;
+				left: 50%;
+				top: 50%;
+				transform: translate(-50%, -50%) scale(0.92);
+				z-index: 9460;
+				display: inline-flex;
+				align-items: center;
+				gap: 10px;
+				padding: 13px 22px;
+				border-radius: 14px;
+				border: 1px solid rgba(255, 59, 214, 0.55);
+				background: rgba(14, 6, 18, 0.82);
+				box-shadow: 0 0 34px -6px rgba(255, 59, 214, 0.7);
+				color: #fff;
+				font-size: 16px;
+				font-weight: 600;
+				cursor: pointer;
+				pointer-events: none;
+				opacity: 0;
+				transition: opacity 0.25s ease, transform 0.25s ease;
+			}
+			.club-door-prompt.is-visible {
+				opacity: 1;
+				pointer-events: auto;
+				transform: translate(-50%, -50%) scale(1);
+				animation: clubPromptBob 1.8s ease-in-out infinite;
+			}
+			.club-door-prompt:hover { border-color: #ff3bd6; box-shadow: 0 0 44px -4px rgba(255, 59, 214, 0.9); }
+			.club-door-prompt:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+			.club-door-prompt kbd {
+				font: 600 12px/1 'Inter', system-ui, sans-serif;
+				padding: 3px 8px;
+				border-radius: 6px;
+				background: rgba(255, 255, 255, 0.12);
+				border: 1px solid rgba(255, 255, 255, 0.25);
+				box-shadow: 0 1px 0 rgba(255, 255, 255, 0.15) inset;
+			}
+			@keyframes clubPromptBob {
+				0%, 100% { transform: translate(-50%, -50%) scale(1); }
+				50%      { transform: translate(-50%, calc(-50% - 5px)) scale(1); }
+			}
+
+			/* Touch joystick — repositions to first touch on the left of screen. */
+			.club-joystick {
+				position: fixed;
+				width: 124px;
+				height: 124px;
+				margin: -62px 0 0 -62px; /* centre on its left/top anchor */
+				border-radius: 50%;
+				background: radial-gradient(circle, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02) 70%, transparent);
+				border: 1px solid rgba(255, 255, 255, 0.14);
+				z-index: 9450;
+				pointer-events: none;
+				display: none;
+				opacity: 0;
+				transition: opacity 0.3s ease;
+				left: -200px;
+				top: -200px;
+			}
+			.club-joystick.is-visible { display: block; }
+			.club-joystick.is-active { opacity: 1; }
+			.club-joystick-knob {
+				position: absolute;
+				left: 50%;
+				top: 50%;
+				width: 52px;
+				height: 52px;
+				margin: -26px 0 0 -26px;
+				border-radius: 50%;
+				background: rgba(255, 59, 214, 0.5);
+				border: 1px solid rgba(255, 255, 255, 0.4);
+				box-shadow: 0 0 18px -2px rgba(255, 59, 214, 0.8);
+			}
+			@media (prefers-reduced-motion: reduce) {
+				.club-door-prompt.is-visible { animation: none; }
+			}
+
+			/* The cover card stays hidden until you reach the door in the alley. */
+			.club-door[data-state='hidden'] {
+				opacity: 0;
+				visibility: hidden;
 				pointer-events: none;
 			}
+			.club-door-back {
+				margin-top: 14px;
+				background: none;
+				border: 0;
+				color: var(--text-2, #c9c2d6);
+				font-size: 13px;
+				cursor: pointer;
+				padding: 6px 10px;
+				border-radius: 8px;
+				transition: color 0.15s ease, background 0.15s ease;
+			}
+			.club-door-back:hover { color: #fff; background: rgba(255, 255, 255, 0.06); }
+			.club-door-back:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+			/* Only offer the way back out while you're deciding (queue state). */
+			.club-door:not([data-state='queue']) .club-door-back { display: none; }
 
 			/* ── Door / cover-charge gate ───────────────────────── */
 			/* The line outside the club, in the alley. Sits above the entrance
@@ -1282,10 +1407,19 @@
 		<!-- Entrance overlay — fades out over 1s on load -->
 		<div id="club-entrance" class="club-entrance" aria-hidden="true"></div>
 
-		<!-- Entrance journey — live first-person scene (src/club-entrance.js):
-		     the alley you land in, then the walk through the club house after
-		     you pay. Sits behind the door card, above the pole stage. -->
+		<!-- Entrance scene — live third-person scene (src/club-entrance.js): your
+		     avatar in the alley, then the walk through the club house after you
+		     pay. Sits behind the cover card, above the pole stage. -->
 		<canvas id="club-door-canvas" class="club-door-canvas" aria-hidden="true"></canvas>
+
+		<!-- Controller UI for the alley (toggled by src/club-entrance.js). -->
+		<div id="club-controls-hint" class="club-controls-hint" role="status" aria-live="polite"></div>
+		<button id="club-door-prompt" type="button" class="club-door-prompt" aria-label="Enter the club">
+			Enter the club <kbd>E</kbd>
+		</button>
+		<div id="club-joystick" class="club-joystick" aria-hidden="true">
+			<div id="club-joystick-knob" class="club-joystick-knob"></div>
+		</div>
 
 		<!-- Door / cover-charge gate — the line outside the club, in the alley.
 		     The 3D room boots behind this overlay; src/club-gate.js drops the
@@ -1294,7 +1428,7 @@
 		<div
 			id="club-door"
 			class="club-door"
-			data-state="queue"
+			data-state="hidden"
 			role="dialog"
 			aria-modal="true"
 			aria-labelledby="club-door-title"
@@ -1308,12 +1442,12 @@
 
 				<!-- QUEUE: pay the cover -->
 				<div class="club-door-state is-queue">
-					<p class="club-door-eyebrow">You're in line · out in the alley</p>
+					<p class="club-door-eyebrow">At the door</p>
 					<h1 id="club-door-title" class="club-door-title">Pole Club</h1>
 					<p class="club-door-copy">
-						There's a cover tonight. Pay <b>$0.01 USDC</b> at the door — the
-						bouncer checks your wallet on-chain, and if you're on the list, the
-						rope drops and you walk inside.
+						There's a cover tonight. Pay <b>$0.01 USDC</b> — the bouncer checks
+						your wallet on-chain, and if you're on the list, the rope drops and
+						you walk inside.
 					</p>
 					<button type="button" id="club-door-pay" class="club-door-pay">
 						Pay cover · $0.01 to enter
@@ -1323,6 +1457,7 @@
 						Settled on-chain via <b>x402</b> on Base or Solana. One cover gets
 						you in for the night.
 					</p>
+					<button type="button" id="club-door-back" class="club-door-back">← Back to the alley</button>
 				</div>
 
 				<!-- CHECKING: bouncer reads the list -->

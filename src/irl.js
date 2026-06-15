@@ -417,13 +417,17 @@ const input = {
 	keys: { forward: 0, back: 0, left: 0, right: 0, run: false },
 };
 
-nipplejs.create({
+// nipplejs's .on() returns undefined (not chainable), so attach each listener
+// on the stored manager — chaining would throw and abort the module's boot.
+const joystick = nipplejs.create({
 	zone: joystickEl, mode: 'static', position: { left: '50%', top: '50%' },
 	size: 110, color: 'rgba(255,255,255,0.85)', restOpacity: 0.6,
-}).on('move', evt => {
+});
+joystick.on('move', evt => {
 	const v = evt?.data?.vector;
 	if (v) { input.joy.x = v.x; input.joy.y = v.y; input.joy.active = Math.hypot(v.x, v.y) > 0.05; }
-}).on('end', () => { input.joy.x = 0; input.joy.y = 0; input.joy.active = false; });
+});
+joystick.on('end', () => { input.joy.x = 0; input.joy.y = 0; input.joy.active = false; });
 
 window.addEventListener('keydown', e => {
 	switch (e.code) {
