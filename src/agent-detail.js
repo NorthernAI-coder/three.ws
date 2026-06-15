@@ -26,6 +26,7 @@ const solanaWeb3 = {
 };
 import { openSwapModal } from './swap-jupiter.js';
 import { onchainBadgeEl } from './shared/onchain-badge.js';
+import { mountValidationBadge } from './shared/validation-badge.js';
 import { seeInWorldHref, agentAvatarGlb } from './shared/agent-3d.js';
 import { renderError as renderAsyncError } from './shared/async-state.js';
 import { openCoinLaunch } from './shared/agent-coin.js';
@@ -34,6 +35,23 @@ import { showSharePanel } from './shared/share.js';
 import { enrichAgentDetail, renderEmbed as renderAgentEmbed } from './agent-detail-market.js';
 import { log } from './shared/log.js';
 import { mountViewSwitcher } from './view-switcher.js';
+import { mountCoinStatus } from './pump/coin-status-card.js';
+
+// Live coin-status widgets mounted on this page (token chip + launch-history
+// rows). Tracked so a re-render (e.g. avatar refresh) tears down their refresh
+// timers before remounting, rather than leaking intervals.
+const coinStatusHandles = [];
+
+function destroyCoinStatus() {
+	while (coinStatusHandles.length) {
+		const h = coinStatusHandles.pop();
+		try {
+			h.destroy();
+		} catch {
+			/* ignore */
+		}
+	}
+}
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -98,7 +116,8 @@ function pill(text, accent = '') {
 // ── Launch history ───────────────────────────────────────────────────────────
 // Every coin this agent has launched through the platform, newest first, from
 // GET /api/pump/by-agent (pump_agent_mints registry). Live market caps stream
-// in per row from /api/pump/coin. Links into the public /launches feed.
+// in per row from the shared coin-status widget (`row` variant). Links into the
+// public /launches feed.
 
 function launchTimeAgo(iso) {
 	const t = new Date(iso).getTime();
@@ -108,14 +127,6 @@ function launchTimeAgo(iso) {
 	if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
 	if (s < 86400 * 30) return `${Math.floor(s / 86400)}d ago`;
 	return new Date(t).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-}
-
-function launchUsdCompact(n) {
-	if (!Number.isFinite(n)) return '';
-	if (n >= 1e9) return `$${(n / 1e9).toFixed(2)}B`;
-	if (n >= 1e6) return `$${(n / 1e6).toFixed(2)}M`;
-	if (n >= 1e3) return `$${(n / 1e3).toFixed(1)}K`;
-	return `$${n.toFixed(0)}`;
 }
 
 async function renderLaunchHistory(container, agent) {
@@ -152,32 +163,25 @@ async function renderLaunchHistory(container, agent) {
 			const href = isDevnet
 				? `https://explorer.solana.com/address/${coin.mint}?cluster=devnet`
 				: `https://pump.fun/${coin.mint}`;
-			const mcapEl = el('span', { class: 'ad-launch-mcap' });
-			const row = el(
-				'a',
-				{
-					class: 'ad-launch-row',
-					href,
-					target: '_blank',
-					rel: 'noopener noreferrer',
-					'aria-label': `${coin.symbol || coin.name || 'coin'} on ${isDevnet ? 'Solana Explorer' : 'pump.fun'}`,
-				},
-				[
+			const row = el('a', {
+				class: 'ad-launch-row',
+				href,
+				target: '_blank',
+				rel: 'noopener noreferrer',
+				'aria-label': `${coin.symbol || coin.name || 'coin'} on ${isDevnet ? 'Solana Explorer' : 'pump.fun'}`,
+			});
+			box.appendChild(row);
+			if (isDevnet) {
+				// Devnet mints have no pump.fun market data — render the static row.
+				row.append(
 					el('span', { class: 'ad-launch-symbol', text: coin.symbol ? `$${coin.symbol}` : coin.name || '—' }),
 					el('span', { class: 'ad-mono ad-launch-mint', text: shortAddr(coin.mint) }),
-					mcapEl,
 					el('span', { class: 'ad-launch-time', text: launchTimeAgo(coin.created_at) }),
-				],
-			);
-			box.appendChild(row);
-			if (!isDevnet) {
-				fetch(`/api/pump/coin?mint=${encodeURIComponent(coin.mint)}`)
-					.then((r) => (r.ok ? r.json() : null))
-					.then((c) => {
-						const cap = Number(c?.usd_market_cap);
-						if (Number.isFinite(cap)) mcapEl.textContent = launchUsdCompact(cap);
-					})
-					.catch(() => {});
+				);
+			} else {
+				// Live market cap + time stream in through the shared widget — one
+				// /api/pump/coin fetch per row, mapped and formatted in one place.
+				coinStatusHandles.push(mountCoinStatus(row, coin.mint, { variant: 'row' }));
 			}
 		}
 	}
@@ -419,6 +423,27 @@ function render(agent) {
 		status.insertAdjacentElement('afterend', onchainBadge);
 	}
 
+	// Validation attestation badge — only for EVM ERC-8004 agents, read
+	// walletlessly from the on-chain ValidationRegistry. Re-mountable on refresh.
+	let validationSlot = document.getElementById('ad-validation-badge');
+	if (agent.chainId && agent.erc8004AgentId) {
+		if (!validationSlot) {
+			validationSlot = document.createElement('span');
+			validationSlot.id = 'ad-validation-badge';
+			validationSlot.style.marginLeft = '8px';
+			(onchainBadge || status).insertAdjacentElement('afterend', validationSlot);
+		}
+		mountValidationBadge({
+			container: validationSlot,
+			chainId: agent.chainId,
+			agentId: agent.erc8004AgentId,
+			isOwner: agent.isOwner,
+			glbUrl: agent.glbUrl || undefined,
+		});
+	} else {
+		validationSlot?.remove();
+	}
+
 	$('ad-id-short').textContent = shortAddr(agent.id);
 	$('ad-id-short').dataset.full = agent.id;
 	$('ad-asset-kind').textContent = agent.assetKind || 'Core Asset';
@@ -440,14 +465,28 @@ function render(agent) {
 	$('ad-holdings-addr').dataset.full = agent.wallet;
 	$('ad-holdings-sol').textContent = String(agent.solBalance ?? 0);
 
+	// A re-render (avatar refresh) clears the token body below; tear down any
+	// coin-status widgets first so their refresh timers don't leak.
+	destroyCoinStatus();
+
 	if (agent.token) {
 		$('ad-token-body').classList.remove('ad-muted');
 		$('ad-token-body').textContent = '';
-		const tokenRow = el('div', { class: 'ad-row ad-row-split' }, [
-			el('span', { text: agent.token.symbol || 'TOKEN' }),
-			el('span', { class: 'ad-mono', text: shortAddr(agent.token.mint) }),
-		]);
-		$('ad-token-body').appendChild(tokenRow);
+		// Live token chip — symbol · price · market cap · graduation %, streamed
+		// and formatted by the shared coin-status widget. Devnet tokens (no
+		// pump.fun market data) fall back to a static symbol + mint row.
+		if (agent.token.cluster === 'devnet') {
+			$('ad-token-body').appendChild(
+				el('div', { class: 'ad-row ad-row-split' }, [
+					el('span', { text: agent.token.symbol || 'TOKEN' }),
+					el('span', { class: 'ad-mono', text: shortAddr(agent.token.mint) }),
+				]),
+			);
+		} else {
+			const chipBox = el('div', { class: 'ad-token-chip' });
+			$('ad-token-body').appendChild(chipBox);
+			coinStatusHandles.push(mountCoinStatus(chipBox, agent.token.mint, { variant: 'chip' }));
+		}
 		const dashLink =
 			agent.token.pumpfun_url ||
 			(agent.token.cluster === 'devnet'
@@ -1644,6 +1683,12 @@ function normalize(rec, avatar) {
 		// The /api/agents/:id endpoint only includes `user_id` in the response when
 		// the requester is the owner — see api/agents.js decorate(row, isOwner).
 		isOwner: !!rec.user_id,
+		// On-chain ERC-8004 identifiers for the validation attestation badge.
+		// Present only for EVM-registered agents (Solana token agents have no
+		// erc8004_agent_id, so the validation badge is correctly skipped for them).
+		chainId: Number(onchain?.chain_id ?? rec.chain_id) || null,
+		erc8004AgentId: rec.erc8004_agent_id != null ? String(rec.erc8004_agent_id) : null,
+		glbUrl: rec.avatar_glb_url || onchain?.body_uri || meta.glb_url || null,
 		rawMetadata: rec,
 	};
 }

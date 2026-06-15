@@ -428,6 +428,140 @@
 					font-size: 1.05rem;
 				}
 			}
+
+			/* ── Rate / vouch panel ─────────────────────────────────────── */
+			.rate-panel {
+				border: 1px solid var(--border);
+				border-radius: 10px;
+				padding: 0.9rem 1rem;
+				margin: 0.6rem 0 0.2rem;
+				background: var(--bg);
+			}
+			.rate-panel[hidden] {
+				display: none;
+			}
+			.rate-head {
+				display: flex;
+				align-items: baseline;
+				justify-content: space-between;
+				gap: 0.5rem;
+				flex-wrap: wrap;
+			}
+			.rate-title {
+				font-weight: 600;
+				font-size: 0.95rem;
+			}
+			.rate-sub {
+				color: var(--muted);
+				font-size: 0.78rem;
+			}
+			.rate-stars {
+				display: inline-flex;
+				gap: 0.15rem;
+				margin: 0.55rem 0 0.3rem;
+			}
+			.rate-star {
+				font: inherit;
+				font-size: 1.5rem;
+				line-height: 1;
+				background: none;
+				border: none;
+				padding: 0 0.05rem;
+				cursor: pointer;
+				color: #cbb73a;
+				filter: grayscale(1) opacity(0.5);
+				transition:
+					filter 0.12s ease,
+					transform 0.12s ease;
+			}
+			.rate-star.on {
+				filter: none;
+			}
+			.rate-star:hover {
+				transform: scale(1.15);
+			}
+			.rate-star:focus-visible {
+				outline: 2px solid var(--info-fg);
+				border-radius: 4px;
+			}
+			.rate-row {
+				display: flex;
+				align-items: center;
+				gap: 0.5rem;
+				flex-wrap: wrap;
+				margin-top: 0.5rem;
+			}
+			.rate-row label {
+				font-size: 0.82rem;
+				color: var(--muted);
+				display: inline-flex;
+				align-items: center;
+				gap: 0.35rem;
+			}
+			.rate-panel input[type='text'],
+			.rate-panel input[type='number'] {
+				font: inherit;
+				padding: 0.35rem 0.5rem;
+				border: 1px solid var(--border);
+				border-radius: 6px;
+				background: #fff;
+				color: var(--fg);
+			}
+			.rate-panel input[type='text'] {
+				flex: 1;
+				min-width: 180px;
+			}
+			.rate-panel input[type='number'] {
+				width: 110px;
+			}
+			.rate-actions {
+				display: flex;
+				align-items: center;
+				gap: 0.5rem;
+				flex-wrap: wrap;
+				margin-top: 0.7rem;
+			}
+			.rate-btn {
+				font: inherit;
+				padding: 0.45rem 0.8rem;
+				border: 1px solid #111;
+				border-radius: 6px;
+				background: #111;
+				color: #fff;
+				cursor: pointer;
+				transition:
+					opacity 0.12s ease,
+					transform 0.08s ease;
+			}
+			.rate-btn.ghost {
+				background: #fff;
+				color: var(--fg);
+				border-color: var(--border);
+			}
+			.rate-btn:hover:not(:disabled) {
+				transform: translateY(-1px);
+			}
+			.rate-btn:active:not(:disabled) {
+				transform: translateY(0);
+			}
+			.rate-btn:disabled {
+				opacity: 0.45;
+				cursor: not-allowed;
+			}
+			.rate-status {
+				font-size: 0.8rem;
+				margin-top: 0.55rem;
+				min-height: 1.1em;
+			}
+			.rate-status.err {
+				color: var(--bad-fg);
+			}
+			.rate-status.ok {
+				color: var(--ok-fg);
+			}
+			.rate-status.work {
+				color: var(--muted);
+			}
 		</style>
 	</head>
 	<body>
@@ -460,6 +594,8 @@
 		<h2>Reputation <span class="hint" id="rep-hint"></span></h2>
 		<div id="reputation"></div>
 
+		<div id="rate" class="rate-panel" hidden></div>
+
 		<h2>
 			Recent attestations <span class="hint" id="atts-count"></span>
 			<span id="live" class="live-dot off" title="Live updates">off</span>
@@ -483,6 +619,7 @@
 			let cache = { rows: [], net: 'devnet', knownSigs: new Set(), freshSigs: new Set() };
 			let activeFilter = 'all';
 			let pollTimer = null;
+			let currentRep = null;
 			const POLL_MS = 8000;
 
 			const PUBKEY_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
@@ -598,6 +735,7 @@
 					const initialRows = atts.data || [];
 					renderIdentity(card, rep, asset, network, hist?.series || []);
 					renderTokenStats(card?.token_stats);
+					currentRep = rep;
 					renderReputation(rep);
 					cache = {
 						rows: initialRows,
@@ -607,6 +745,7 @@
 					};
 					$('filters').hidden = false;
 					renderAttestations();
+					renderRatePanel({ asset, network, owner: card?.identity?.owner || null });
 					startPolling(asset, network);
 				} catch (e) {
 					showError('identity', `Failed to load: ${e.message || e}`);
@@ -641,6 +780,7 @@
 							cache.knownSigs = new Set(rows.map((r) => r.signature));
 							cache.freshSigs = freshSigs;
 							renderAttestations();
+							currentRep = rep;
 							renderReputation(rep);
 							// clear the highlight class after the animation
 							setTimeout(() => {
@@ -1038,6 +1178,309 @@
 						return `disputed ${String(p.target_signature || '').slice(0, 12)}…${p.reason ? ` — ${p.reason}` : ''}`;
 					default:
 						return row.kind;
+				}
+			}
+
+			// ── Rate / vouch (the write path) ─────────────────────────────────
+			// Lets any visitor with a Solana wallet submit an on-chain feedback
+			// attestation (SPL Memo, kind=threews.feedback.v1) about this agent —
+			// optionally backed by a SOL stake (kind=threews.stake.v1) sent to the
+			// agent owner. Both reference the agent asset pubkey as a read-only key
+			// so the indexer (getSignaturesForAddress(asset)) folds them into the
+			// reputation summary shown above.
+			const MEMO_PROGRAM = 'MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr';
+			const MIN_STAKE_SOL = 0.001;
+			const WEB3_CDN = 'https://esm.sh/@solana/web3.js@1.95.3';
+			let web3Lib = null;
+			let rateState = { score: 0, asset: null, network: 'devnet', owner: null };
+
+			async function loadWeb3() {
+				if (web3Lib) return web3Lib;
+				web3Lib = await import(/* @vite-ignore */ WEB3_CDN);
+				return web3Lib;
+			}
+
+			function getSolanaWallet() {
+				if (typeof window === 'undefined') return null;
+				if (window.solflare?.isSolflare) return window.solflare;
+				if (window.solana?.isPhantom) return window.solana;
+				return window.solana || null;
+			}
+
+			function rpcUrl(network) {
+				return network === 'devnet'
+					? `${location.origin}/api/solana-rpc?net=devnet`
+					: `${location.origin}/api/solana-rpc`;
+			}
+
+			function setRateStatus(kind, text) {
+				const el = $('rate-status');
+				if (!el) return;
+				el.className = `rate-status ${kind}`;
+				el.textContent = text;
+			}
+
+			function isUserRejection(err) {
+				if (!err) return false;
+				if (err.code === 4001 || err.code === 'ACTION_REJECTED') return true;
+				return /reject|denied|cancel/i.test(err.message || '');
+			}
+
+			function renderRatePanel({ asset, network, owner }) {
+				rateState = { score: 0, asset, network, owner: owner || null };
+				const el = $('rate');
+				el.hidden = false;
+				const stakeDisabled = !owner;
+				el.innerHTML = `
+				<div class="rate-head">
+					<span class="rate-title">Rate this agent</span>
+					<span class="rate-sub">Signs an on-chain attestation from your Solana wallet · ${escapeHtml(network)}</span>
+				</div>
+				<div class="rate-stars" role="radiogroup" aria-label="Score, 1 to 5">
+					${[1, 2, 3, 4, 5]
+						.map(
+							(n) =>
+								`<button type="button" class="rate-star" data-score="${n}" role="radio" aria-checked="false" aria-label="${n} star${n === 1 ? '' : 's'}" tabindex="${n === 1 ? '0' : '-1'}">★</button>`,
+						)
+						.join('')}
+				</div>
+				<div class="rate-row">
+					<label style="flex:1">
+						Note (optional, public, on-chain)
+						<input type="text" id="rate-comment" maxlength="280" placeholder="e.g. fast, accurate, great at X" />
+					</label>
+				</div>
+				<div class="rate-row">
+					<label title="${stakeDisabled ? 'No owner wallet on record to receive a stake' : 'Send SOL to the agent owner alongside your rating'}">
+						<input type="checkbox" id="rate-stake-toggle" ${stakeDisabled ? 'disabled' : ''} />
+						Back it with a SOL stake ${stakeDisabled ? '(owner wallet unknown)' : '(economically-weighted vouch)'}
+					</label>
+					<span id="rate-stake-wrap" hidden>
+						<input type="number" id="rate-stake-amount" value="0.01" min="${MIN_STAKE_SOL}" max="100" step="0.001" aria-label="Stake amount in SOL" />
+						<span class="rate-sub">SOL → owner (min ${MIN_STAKE_SOL})</span>
+					</span>
+				</div>
+				<div class="rate-actions">
+					<button type="button" class="rate-btn" id="rate-submit" disabled>Sign &amp; submit</button>
+					<button type="button" class="rate-btn ghost" id="rate-refresh" title="Re-read reputation from chain">Refresh from chain</button>
+				</div>
+				<div class="rate-status work" id="rate-status" role="status" aria-live="polite"></div>
+			`;
+				wireRatePanel();
+			}
+
+			function wireRatePanel() {
+				const panel = $('rate');
+				const stars = Array.from(panel.querySelectorAll('.rate-star'));
+				const submitBtn = $('rate-submit');
+
+				function paint(score) {
+					stars.forEach((s) => {
+						const n = Number(s.dataset.score);
+						s.classList.toggle('on', n <= score);
+						s.setAttribute('aria-checked', n === score ? 'true' : 'false');
+						s.tabIndex = n === (score || 1) ? 0 : -1;
+					});
+				}
+				function pick(score) {
+					rateState.score = score;
+					paint(score);
+					submitBtn.disabled = false;
+				}
+				stars.forEach((s) => {
+					const n = Number(s.dataset.score);
+					s.addEventListener('mouseenter', () => paint(n));
+					s.addEventListener('mouseleave', () => paint(rateState.score));
+					s.addEventListener('click', () => pick(n));
+					s.addEventListener('keydown', (e) => {
+						if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
+							e.preventDefault();
+							const next = Math.min(5, (rateState.score || 0) + 1);
+							pick(next);
+							stars[next - 1].focus();
+						} else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
+							e.preventDefault();
+							const next = Math.max(1, (rateState.score || 1) - 1);
+							pick(next);
+							stars[next - 1].focus();
+						} else if (e.key === ' ' || e.key === 'Enter') {
+							e.preventDefault();
+							pick(n);
+						}
+					});
+				});
+
+				const toggle = $('rate-stake-toggle');
+				toggle.addEventListener('change', () => {
+					$('rate-stake-wrap').hidden = !toggle.checked;
+					submitBtn.textContent = toggle.checked ? 'Stake & vouch' : 'Sign & submit';
+				});
+
+				submitBtn.addEventListener('click', submitRating);
+				$('rate-refresh').addEventListener('click', async () => {
+					setRateStatus('work', 'Reading latest from chain…');
+					await refreshFromChain(rateState.asset, rateState.network, { force: true });
+					setRateStatus('work', '');
+				});
+			}
+
+			async function submitRating() {
+				const submitBtn = $('rate-submit');
+				const score = rateState.score;
+				if (!(score >= 1 && score <= 5)) {
+					setRateStatus('err', 'Pick a score from 1 to 5.');
+					return;
+				}
+				const comment = ($('rate-comment').value || '').trim().slice(0, 280);
+				const useStake = $('rate-stake-toggle').checked;
+				let stakeSol = 0;
+				if (useStake) {
+					stakeSol = parseFloat($('rate-stake-amount').value) || 0;
+					if (stakeSol < MIN_STAKE_SOL) {
+						setRateStatus('err', `Minimum stake is ${MIN_STAKE_SOL} SOL.`);
+						return;
+					}
+					if (!rateState.owner) {
+						setRateStatus('err', 'No owner wallet on record to receive a stake.');
+						return;
+					}
+				}
+				const wallet = getSolanaWallet();
+				if (!wallet) {
+					setRateStatus('err', 'No Solana wallet found — install Phantom or Solflare.');
+					return;
+				}
+
+				submitBtn.disabled = true;
+				setRateStatus('work', 'Connecting wallet…');
+				try {
+					const resp = await wallet.connect();
+					const payer = wallet.publicKey || resp?.publicKey;
+					if (!payer) throw new Error('Wallet returned no account');
+					const payerStr = payer.toString();
+
+					if (rateState.owner && payerStr === rateState.owner) {
+						setRateStatus('err', "You can't rate your own agent — connect a different wallet.");
+						submitBtn.disabled = false;
+						return;
+					}
+
+					// Double-review guard: the system averages each attester's ratings,
+					// so a second rating updates rather than duplicates. Confirm intent.
+					const already = (cache.rows || []).some(
+						(r) => r.kind === 'threews.feedback.v1' && r.attester === payerStr,
+					);
+					if (already && submitBtn.dataset.confirmed !== '1') {
+						submitBtn.dataset.confirmed = '1';
+						submitBtn.textContent = 'Update my rating';
+						setRateStatus('work', 'You have rated this agent before — submit again to update it.');
+						submitBtn.disabled = false;
+						return;
+					}
+
+					const web3 = await loadWeb3();
+					setRateStatus('work', useStake ? 'Building stake transaction…' : 'Building attestation…');
+					const conn = new web3.Connection(rpcUrl(rateState.network), 'confirmed');
+
+					const memo = {
+						v: 1,
+						kind: useStake ? 'threews.stake.v1' : 'threews.feedback.v1',
+						agent: rateState.asset,
+						score,
+						...(comment ? { comment } : {}),
+						ts: Math.floor(Date.now() / 1000),
+					};
+
+					const ixs = [];
+					if (useStake) {
+						ixs.push(
+							web3.SystemProgram.transfer({
+								fromPubkey: payer,
+								toPubkey: new web3.PublicKey(rateState.owner),
+								lamports: Math.round(stakeSol * 1e9),
+							}),
+						);
+					}
+					ixs.push(
+						new web3.TransactionInstruction({
+							programId: new web3.PublicKey(MEMO_PROGRAM),
+							keys: [{ pubkey: new web3.PublicKey(rateState.asset), isSigner: false, isWritable: false }],
+							data: new TextEncoder().encode(JSON.stringify(memo)),
+						}),
+					);
+
+					const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash('finalized');
+					const tx = new web3.Transaction({ feePayer: payer, blockhash, lastValidBlockHeight });
+					tx.add(...ixs);
+
+					setRateStatus('work', 'Approve in your wallet…');
+					const sent = await wallet.signAndSendTransaction(tx);
+					const sig = sent?.signature || sent;
+
+					setRateStatus('work', 'Confirming on-chain…');
+					await conn.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed');
+
+					// Optimistic projection — corrected by the from-chain refresh below.
+					optimisticBump(score, useStake);
+
+					setRateStatus('ok', 'Submitted ✓ — ');
+					const a = document.createElement('a');
+					a.href = explorer(sig, rateState.network);
+					a.target = '_blank';
+					a.rel = 'noopener';
+					a.textContent = 'view tx ↗';
+					$('rate-status').appendChild(a);
+
+					submitBtn.textContent = useStake ? 'Stake & vouch' : 'Sign & submit';
+					delete submitBtn.dataset.confirmed;
+					refreshFromChain(rateState.asset, rateState.network, { force: true });
+				} catch (e) {
+					if (isUserRejection(e)) setRateStatus('err', 'Cancelled.');
+					else setRateStatus('err', `Failed: ${e?.message || e}`);
+				} finally {
+					submitBtn.disabled = false;
+				}
+			}
+
+			function optimisticBump(score, useStake) {
+				if (!currentRep) return;
+				const rep = JSON.parse(JSON.stringify(currentRep));
+				rep.feedback = rep.feedback || {};
+				const prevTotal = rep.feedback.total || 0;
+				const prevAvg = rep.feedback.score_avg_weighted || rep.feedback.score_avg || 0;
+				const newTotal = prevTotal + 1;
+				rep.feedback.total = newTotal;
+				rep.feedback.unique_attesters = (rep.feedback.unique_attesters || 0) + 1;
+				rep.feedback.score_avg = (prevAvg * prevTotal + score) / newTotal;
+				rep.feedback.score_avg_weighted = rep.feedback.score_avg;
+				if (useStake) {
+					rep.stake = rep.stake || { total_lamports: '0', count: 0, unique_stakers: 0, top_stakers: [] };
+					rep.stake.count = (rep.stake.count || 0) + 1;
+				}
+				currentRep = rep;
+				renderReputation(rep);
+			}
+
+			async function refreshFromChain(asset, network, { force = false } = {}) {
+				if (!asset) return;
+				try {
+					if (force) {
+						await fetch(
+							`/api/agents/solana-attestations?asset=${asset}&network=${network}&limit=25&refresh=1`,
+						).catch(() => {});
+					}
+					const [atts, rep] = await Promise.all([
+						fetch(`/api/agents/solana-attestations?asset=${asset}&network=${network}&limit=25`).then((r) => r.json()),
+						fetch(`/api/agents/solana-reputation?asset=${asset}&network=${network}`).then((r) => r.json()),
+					]);
+					const rows = atts.data || [];
+					cache.rows = rows;
+					cache.knownSigs = new Set(rows.map((r) => r.signature));
+					renderAttestations();
+					currentRep = rep;
+					renderReputation(rep);
+				} catch {
+					/* transient — live poll will catch up */
 				}
 			}
 

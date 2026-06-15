@@ -2398,6 +2398,14 @@
 			"dest": "/api/erc8004/[action]?action=pin"
 		},
 		{
+			"src": "/api/erc8004/validate",
+			"dest": "/api/erc8004/[action]?action=validate"
+		},
+		{
+			"src": "/api/erc8004/validation",
+			"dest": "/api/erc8004/[action]?action=validation"
+		},
+		{
 			"src": "/api/subscriptions/plans(/.*)?",
 			"dest": "/api/subscriptions/plans.js"
 		},

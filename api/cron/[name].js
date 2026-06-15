@@ -51,6 +51,7 @@ import { SOLANA_USDC_MINT, SOLANA_USDC_MINT_DEVNET } from '../payments/_config.j
 import { chargeSubscription, failPayment } from '../_lib/subscription-billing.js';
 import { sendEmail } from '../_lib/email.js';
 import { fetchSafePublicUrl } from '../_lib/ssrf-guard.js';
+import { runPumpAlertRules } from '../_lib/pump-alert-runner.js';
 import { constantTimeEquals } from '../_lib/crypto.js';
 
 // ─── Cron auth ───────────────────────────────────────────────────────────────
@@ -1042,7 +1043,7 @@ async function handlePumpfunMonitor(req, res) {
 	// attester provisioning, so /api/healthz reports real bot status and the
 	// dashboard's server-side alerts fire even when no tab is open.
 	await writeBotHeartbeat();
-	const alertReport = await evaluateUserAlerts().catch((e) => ({
+	const alertReport = await runPumpAlertRules().catch((e) => ({
 		error: e?.message || String(e),
 	}));
 
@@ -1171,130 +1172,12 @@ async function writeBotHeartbeat() {
 }
 
 // ── Server-side alert delivery ──────────────────────────────────────────────
-// Evaluates each user's graduation alert rule against the real pumpfun_graduations
-// table and delivers via an in-app notification (user_notifications, type
-// 'pump_alert') plus the per-rule webhook when set. Honors cooldown_seconds and
-// dedupes via user_alert_fires.last_event_id so the same graduation is never
-// delivered twice. Whale / launch / fee rules are evaluated client-side from the
-// live feed for immediate, tab-open feedback; graduation is the persisted,
-// cross-session channel because it's the event type recorded server-side.
-const ALERT_GRADS_PER_RUN = 50;
-const ALERT_DELIVER_CAP = 10;
-
-async function evaluateUserAlerts() {
-	const report = { users: 0, delivered: 0, webhooks: 0, errors: 0 };
-
-	let configs;
-	try {
-		configs = await sql`
-			SELECT user_id, cooldown_seconds, webhook_url
-			FROM user_alert_configs
-			WHERE graduation = true
-		`;
-	} catch (e) {
-		// Table not migrated yet — skip cleanly.
-		return { skipped: 'alert_config_unavailable', detail: e?.message || String(e) };
-	}
-	if (!configs.length) return report;
-
-	const grads = await sql`
-		SELECT tx_signature, mint, name, symbol, amount_sol, market_cap_usd, seen_at
-		FROM pumpfun_graduations
-		WHERE seen_at > now() - interval '15 minutes'
-		ORDER BY seen_at ASC
-		LIMIT ${ALERT_GRADS_PER_RUN}
-	`;
-	if (!grads.length) return report;
-
-	for (const cfg of configs) {
-		report.users++;
-		try {
-			const [fire] = await sql`
-				SELECT last_fired_at, last_event_id FROM user_alert_fires
-				WHERE user_id = ${cfg.user_id} AND rule_type = 'graduation'
-			`;
-
-			// Cooldown gate.
-			if (fire?.last_fired_at) {
-				const sinceMs = Date.now() - new Date(fire.last_fired_at).getTime();
-				if (sinceMs < (cfg.cooldown_seconds || 30) * 1000) continue;
-			}
-
-			// Only graduations newer than the last delivered event.
-			let fresh = grads;
-			if (fire?.last_event_id) {
-				const idx = grads.findIndex((g) => g.tx_signature === fire.last_event_id);
-				if (idx >= 0) fresh = grads.slice(idx + 1);
-			}
-			if (!fresh.length) continue;
-
-			const toDeliver = fresh.slice(-ALERT_DELIVER_CAP);
-			for (const g of toDeliver) {
-				const payload = {
-					kind: 'graduation',
-					mint: g.mint,
-					name: g.name,
-					symbol: g.symbol,
-					amount_sol: g.amount_sol != null ? Number(g.amount_sol) : null,
-					market_cap_usd: g.market_cap_usd != null ? Number(g.market_cap_usd) : null,
-					tx: g.tx_signature,
-					at: g.seen_at,
-				};
-				try {
-					await sql`
-						insert into user_notifications (user_id, type, payload)
-						values (${cfg.user_id}, 'pump_alert', ${JSON.stringify(payload)}::jsonb)
-					`;
-					report.delivered++;
-				} catch {
-					report.errors++;
-				}
-				if (cfg.webhook_url) {
-					const ok = await postAlertWebhook(cfg.webhook_url, payload);
-					if (ok) report.webhooks++;
-				}
-			}
-
-			const latest = toDeliver[toDeliver.length - 1];
-			await sql`
-				insert into user_alert_fires (user_id, rule_type, last_fired_at, last_event_id)
-				values (${cfg.user_id}, 'graduation', now(), ${latest.tx_signature})
-				on conflict (user_id, rule_type) do update set
-					last_fired_at = now(),
-					last_event_id = excluded.last_event_id
-			`;
-		} catch (e) {
-			report.errors++;
-			console.error(
-				'[pumpfun-monitor] alert eval failed for user',
-				cfg.user_id,
-				e?.message || e,
-			);
-		}
-	}
-
-	return report;
-}
-
-// SSRF-guarded webhook POST. Returns true on a 2xx delivery.
-async function postAlertWebhook(url, payload) {
-	try {
-		const resp = await fetchSafePublicUrl(
-			url,
-			{
-				method: 'POST',
-				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ type: 'pump_alert', data: payload }),
-				signal: AbortSignal.timeout(8000),
-			},
-			{ allowHttp: false },
-		);
-		return resp.ok;
-	} catch (e) {
-		console.error('[pumpfun-monitor] webhook delivery failed:', e?.message || e);
-		return false;
-	}
-}
+// Pump dashboard alert rules are evaluated and delivered by the dedicated runner
+// module (api/_lib/pump-alert-runner.js), invoked as runPumpAlertRules() at the
+// top of handlePumpfunMonitor. It matches every enabled pump_alert_rules row
+// against the live pump.fun event stream (graduations, agent mints, prices,
+// whale buys), honors each rule's cooldown, dedupes, and fans matches out across
+// the in-app / webhook / Telegram delivery channels with per-channel isolation.
 
 /** Map a single (stats, cursor) row to the attestation events to emit. */
 function detectEvents(r) {
@@ -1568,6 +1451,43 @@ async function buybackLoadRelayer() {
 	return Keypair.fromSecretKey(Buffer.from(b64, 'base64'));
 }
 
+/**
+ * Resolve the quote currency a coin's autonomous lanes (buyback, distribute) must
+ * operate in. A coin's vaults, swaps, and burns all settle in its quote asset:
+ * USDC for USDC-paired coins, native SOL (wSOL) for SOL-paired coins. The
+ * authoritative source is the on-chain bonding curve — the same field the trade
+ * builders read — so this stays correct even for coins launched before the
+ * `quote_mint` column existed (their DB value is null but their curve is not).
+ *
+ * Falls back to the recorded `dbQuoteMint`, then to USDC (the agent earn
+ * currency), when the curve can't be read — so a transient RPC miss never
+ * silently switches a USDC coin onto the SOL vault.
+ *
+ * @returns {Promise<{ currencyStr: string, quoteSymbol: 'SOL'|'USDC'|'OTHER', source: 'chain'|'db'|'fallback' }>}
+ */
+async function resolveCoinQuoteCurrency({ network, mint, dbQuoteMint = null }) {
+	const { resolveCustodialQuote } = await import('../_lib/pump-trade-args.js');
+	try {
+		const { bondingCurvePda, PUMP_SDK } = await import('@pump-fun/pump-sdk');
+		const info = await getConnection({ network }).getAccountInfo(
+			bondingCurvePda(solanaPubkey(mint)),
+		);
+		if (info) {
+			const bc = PUMP_SDK.decodeBondingCurve(info);
+			const q = resolveCustodialQuote(bc.quoteMint, network);
+			return { currencyStr: q.quoteMint, quoteSymbol: q.quoteSymbol, source: 'chain' };
+		}
+	} catch {
+		// fall through to the DB hint / USDC default below
+	}
+	if (dbQuoteMint) {
+		const q = resolveCustodialQuote(dbQuoteMint, network);
+		return { currencyStr: q.quoteMint, quoteSymbol: q.quoteSymbol, source: 'db' };
+	}
+	const usdc = network === 'devnet' ? SOLANA_USDC_MINT_DEVNET : SOLANA_USDC_MINT;
+	return { currencyStr: usdc, quoteSymbol: 'USDC', source: 'fallback' };
+}
+
 async function handleRunBuyback(req, res) {
 	if (cors(req, res, { methods: 'GET,POST,OPTIONS', origins: '*' })) return;
 	if (!method(req, res, ['GET', 'POST'])) return;
@@ -1580,7 +1500,7 @@ async function handleRunBuyback(req, res) {
 	// legacy "always eligible, burn-only" behaviour via coalesce, so existing
 	// coins keep working until an owner opts into autopilot from /autopilot.
 	const mints = await sql`
-		select m.id, m.mint, m.network, m.slippage_bps,
+		select m.id, m.mint, m.network, m.slippage_bps, m.quote_mint,
 		       coalesce(ap.buyback_full_swap, m.full_swap) as full_swap,
 		       coalesce(ap.buyback_min_atomics, 0)         as buyback_min_atomics
 		from pump_agent_mints m
@@ -1592,7 +1512,15 @@ async function handleRunBuyback(req, res) {
 
 	const results = [];
 	for (const m of mints) {
-		const currencyStr = m.network === 'devnet' ? SOLANA_USDC_MINT_DEVNET : SOLANA_USDC_MINT;
+		// Operate in the coin's quote asset — the currency its vault holds and its
+		// curve swaps. USDC coins buy back with USDC, SOL coins with SOL. Anything
+		// the lane can't operate in still records a run row below (never a silent
+		// no-op): empty vaults → 'skipped', build/swap errors → 'failed'.
+		const { currencyStr } = await resolveCoinQuoteCurrency({
+			network: m.network,
+			mint: m.mint,
+			dbQuoteMint: m.quote_mint,
+		});
 		const currency = solanaPubkey(currencyStr);
 		const fullSwap = m.full_swap === true;
 		const minAtomics = BigInt(m.buyback_min_atomics ?? 0);
@@ -2188,7 +2116,7 @@ async function handleRunDistributePayments(req, res) {
 	// Pick mints to consider: those with confirmed payments since last
 	// distribute run, or never run before.
 	const mints = await sql`
-		select m.id, m.mint, m.network, m.buyback_bps,
+		select m.id, m.mint, m.network, m.buyback_bps, m.quote_mint,
 		       coalesce(ap.distribute_min_atomics, 0) as distribute_min_atomics
 		from pump_agent_mints m
 		left join pump_autopilot ap on ap.mint_id = m.id
@@ -2211,7 +2139,16 @@ async function handleRunDistributePayments(req, res) {
 	const results = [];
 
 	for (const m of mints) {
-		const currencyStr = m.network === 'devnet' ? SOLANA_USDC_MINT_DEVNET : SOLANA_USDC_MINT;
+		// Distribute the payment vault in the coin's quote asset so the whole
+		// earn → distribute → buyback → burn loop stays in one currency that the
+		// curve can swap. USDC coins distribute USDC, SOL coins SOL. Empty vaults
+		// record 'skipped' and SDK errors record 'failed' below — never a silent
+		// no-op.
+		const { currencyStr } = await resolveCoinQuoteCurrency({
+			network: m.network,
+			mint: m.mint,
+			dbQuoteMint: m.quote_mint,
+		});
 		const currency = solanaPubkey(currencyStr);
 
 		try {

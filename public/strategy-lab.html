@@ -48,6 +48,20 @@
 		.status.warn { background: var(--warn-bg); color: var(--warn-fg); }
 		.status.info { background: var(--info-bg); color: var(--info-fg); }
 
+		.issues { margin-top: .5rem; display: flex; flex-direction: column; gap: .35rem; }
+		.issue { display: grid; grid-template-columns: auto auto 1fr; gap: .4rem; align-items: start;
+			font-size: .78rem; padding: .4rem .55rem; border-radius: 6px; border-left: 3px solid transparent; }
+		.issue .badge { text-transform: uppercase; font-size: .6rem; font-weight: 700; letter-spacing: .05em;
+			padding: .1rem .35rem; border-radius: 4px; align-self: center; }
+		.issue code { font-size: .72rem; opacity: .85; align-self: center; white-space: nowrap; }
+		.issue .msg { line-height: 1.4; }
+		.issue.error   { background: var(--bad-bg);  color: var(--bad-fg);  border-left-color: var(--bad-fg); }
+		.issue.error .badge   { background: var(--bad-fg);  color: #fff; }
+		.issue.warning { background: var(--warn-bg); color: var(--warn-fg); border-left-color: var(--warn-fg); }
+		.issue.warning .badge { background: var(--warn-fg); color: #fff; }
+		.issue.info    { background: var(--info-bg); color: var(--info-fg); border-left-color: var(--info-fg); }
+		.issue.info .badge    { background: var(--info-fg); color: #fff; }
+
 		.metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: .5rem; margin: .5rem 0; }
 		.metric { border: 1px solid var(--border); border-radius: 8px; padding: .5rem .7rem; background: var(--bg); }
 		.metric .v { font-size: 1.3rem; font-weight: 600; line-height: 1.1; }
@@ -155,11 +169,15 @@
 				<button id="stop" disabled>Stop</button>
 			</div>
 			<div id="status" class="status info">Edit the spec and hit Validate.</div>
+			<div id="issues" class="issues" style="display:none"></div>
 			<div style="margin-top:.5rem; font-size:.75rem;" class="muted">
-				Predicate paths: <code>holders.total</code>, <code>holders.topHolderPct</code>,
-				<code>creator.rugCount</code>, <code>curve.priceSol</code>,
-				<code>position.pnlPct</code>, <code>position.ageSec</code>.
-				Ops: <code>&gt; &gt;= &lt; &lt;= == !=</code>.
+				Filter &amp; exit paths: <code>holders.total</code>, <code>holders.topHolderPct</code>,
+				<code>creator.rugCount</code>, <code>curve.graduationPct</code>, <code>curve.priceSol</code>,
+				<code>token.ageSec</code>, <code>token.marketCapSol</code>.
+				Exit-only (open position): <code>position.pnlPct</code>, <code>position.ageSec</code>,
+				<code>position.amountTokens</code>, <code>position.entryPriceSol</code>.
+				Ops: <code>&gt; &gt;= &lt; &lt;= == !=</code>. Validation flags unknown paths,
+				impossible thresholds, contradictory filters, and unreachable exit rules.
 			</div>
 		</section>
 
@@ -233,6 +251,19 @@
 	let currentWallet = null;   // { address, sol }
 
 	function setStatus(msg, kind = 'info') { status.className = 'status ' + kind; status.textContent = msg; }
+	const issuesEl = $('issues');
+	const ISSUE_ORDER = { error: 0, warning: 1, info: 2 };
+	function renderIssues(issues) {
+		if (!issues || !issues.length) { issuesEl.style.display = 'none'; issuesEl.innerHTML = ''; return; }
+		const sorted = [...issues].sort((a, b) => (ISSUE_ORDER[a.level] ?? 9) - (ISSUE_ORDER[b.level] ?? 9));
+		issuesEl.style.display = '';
+		issuesEl.innerHTML = sorted.map((i) => `
+			<div class="issue ${i.level || 'info'}">
+				<span class="badge">${escapeHtml(i.level || 'info')}</span>
+				<code>${escapeHtml(i.field || '—')}</code>
+				<span class="msg">${escapeHtml(i.message || '')}</span>
+			</div>`).join('');
+	}
 	function setWalletStatus(msg, kind) {
 		if (!msg) { walletStatus.style.display = 'none'; return; }
 		walletStatus.style.display = ''; walletStatus.className = 'status ' + (kind || 'info'); walletStatus.textContent = msg;
@@ -329,25 +360,42 @@
 
 	// ── Validate / Backtest / Run ──────────────────────────────────────
 	$('validate').onclick = async () => {
-		spec.classList.remove('invalid');
+		spec.classList.remove('invalid'); renderIssues([]);
 		let s; try { s = getSpec(); } catch { return; }
 		setStatus('Validating…');
 		const r = await fetch('/api/pump/strategy-validate', {
-			method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ strategy: s }),
+			method: 'POST', headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ strategy: s, network: netSel.value }),
 		}).then((r) => r.json()).catch((e) => ({ error: e.message }));
-		if (r.error) { setStatus('Invalid: ' + (r.error_description || r.error), 'bad'); spec.classList.add('invalid'); return; }
-		setStatus(`OK — ${r.data.filterCount} filter(s), ${r.data.exitCount} exit rule(s)`, 'ok');
+		if (r.error) {
+			const issues = r.issues || r.report?.issues || [{ level: 'error', field: '', message: r.error_description || r.error }];
+			const errCount = issues.filter((i) => i.level === 'error').length || 1;
+			setStatus(`Invalid — ${errCount} error${errCount === 1 ? '' : 's'} to fix`, 'bad');
+			spec.classList.add('invalid');
+			renderIssues(issues);
+			return;
+		}
+		const d = r.data || {};
+		const notes = (d.issues || []).filter((i) => i.level !== 'error');
+		setStatus(`Valid — ${d.filterCount} filter(s), ${d.exitCount} exit rule(s)` + (notes.length ? ` · ${notes.length} note${notes.length === 1 ? '' : 's'}` : ''), notes.length ? 'warn' : 'ok');
+		renderIssues(notes);
 	};
 
 	$('backtest').onclick = async () => {
-		spec.classList.remove('invalid');
+		spec.classList.remove('invalid'); renderIssues([]);
 		let s; try { s = getSpec(); } catch { return; }
 		setStatus('Sourcing mints from live MCP…');
 		clearLog(); pushLog('start', '▶ backtest started (real on-chain data)');
 		const r = await fetch('/api/pump/strategy-backtest', {
-			method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ strategy: s }),
+			method: 'POST', headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ strategy: s, network: netSel.value }),
 		}).then((r) => r.json()).catch((e) => ({ error: e.message }));
-		if (r.error) { setStatus('Backtest failed: ' + (r.error_description || r.error), 'bad'); pushLog('error', '! ' + (r.error_description || r.error)); return; }
+		if (r.error) {
+			setStatus('Backtest failed: ' + (r.error_description || r.error), 'bad');
+			pushLog('error', '! ' + (r.error_description || r.error));
+			if (r.issues) { spec.classList.add('invalid'); renderIssues(r.issues); }
+			return;
+		}
 		renderBacktest(r.data);
 		pushLog('done', `✓ ${r.data.tradeCount} trade(s), ROI ${r.data.roiPct.toFixed(1)}%, ${r.data.mintsUsed?.length} mints scanned`);
 		setStatus('Backtest complete', 'ok');
@@ -385,7 +433,7 @@
 	}
 
 	$('run').onclick = async () => {
-		spec.classList.remove('invalid');
+		spec.classList.remove('invalid'); renderIssues([]);
 		let s; try { s = getSpec(); } catch { return; }
 		const network = netSel.value;
 		const agentId = agentSel.value;
@@ -419,7 +467,16 @@
 				}),
 				signal: ctrl.signal,
 			});
-			if (!resp.ok) { setStatus('Run failed: HTTP ' + resp.status + ' — ' + await resp.text(), 'bad'); return; }
+			if (!resp.ok) {
+				let body = null; try { body = JSON.parse(await resp.text()); } catch {}
+				if (body?.issues) {
+					setStatus(`Run rejected — ${body.error_description || body.error}`, 'bad');
+					spec.classList.add('invalid'); renderIssues(body.issues);
+				} else {
+					setStatus('Run failed: HTTP ' + resp.status + (body?.error_description ? ' — ' + body.error_description : ''), 'bad');
+				}
+				return;
+			}
 			const reader = resp.body.getReader(), dec = new TextDecoder();
 			let buf = '';
 			while (true) {
@@ -513,28 +570,42 @@
 	function renderPortfolio(d) {
 		const el = $('portfolio');
 		if (!d) { el.innerHTML = '<p class="muted">Pick an agent above to load on-chain holdings.</p>'; return; }
-		const totalPnlClass = pn(d.unrealizedPnlSol);
+		// Per-quote subtotals — SOL and USDC are tallied separately so values in
+		// different currencies are never summed together.
+		const subs = d.subtotals && Object.keys(d.subtotals).length
+			? Object.values(d.subtotals)
+			: [];
+		const subCards = subs.map((s) => {
+			const dec = s.quoteSymbol === 'SOL' ? 4 : 2;
+			const cls = pn(s.unrealizedPnl);
+			return `
+				<div class="metric"><div class="v">${fmt(s.value, dec)} ${s.quoteSymbol}</div><div class="l">value (${s.positions} pos)</div></div>
+				<div class="metric"><div class="v">${fmt(s.costBasis, dec)} ${s.quoteSymbol}</div><div class="l">${s.quoteSymbol} cost basis</div></div>
+				<div class="metric"><div class="v ${cls}">${fmt(s.unrealizedPnl, dec)} ${s.quoteSymbol}</div><div class="l">${s.quoteSymbol} PnL (${pct(s.unrealizedPnlPct)})</div></div>`;
+		}).join('');
 		el.innerHTML = `
 			<div class="metrics" style="margin-top:.5rem">
-				<div class="metric"><div class="v">${(d.sol ?? 0).toFixed(4)}</div><div class="l">SOL balance</div></div>
-				<div class="metric"><div class="v">${fmt(d.totalValueSol, 4)}</div><div class="l">tokens value (SOL)</div></div>
-				<div class="metric"><div class="v">${fmt(d.totalCostBasisSol, 4)}</div><div class="l">cost basis</div></div>
-				<div class="metric"><div class="v ${totalPnlClass}">${fmt(d.unrealizedPnlSol, 4)}</div><div class="l">unrealized PnL</div></div>
-				<div class="metric"><div class="v ${totalPnlClass}">${pct(d.unrealizedPnlPct)}</div><div class="l">unrealized %</div></div>
+				<div class="metric"><div class="v">${(d.sol ?? 0).toFixed(4)} SOL</div><div class="l">wallet balance</div></div>
 				<div class="metric"><div class="v">${d.holdings.length}</div><div class="l">positions</div></div>
+				${subCards}
 			</div>
 			<table style="margin-top:.5rem">
-				<thead><tr><th>Mint</th><th class="num">Amount</th><th class="num">Price</th><th class="num">Value</th><th class="num">Cost</th><th class="num">PnL</th></tr></thead>
+				<thead><tr><th>Mint</th><th>Quote</th><th class="num">Amount</th><th class="num">Price</th><th class="num">Value</th><th class="num">Cost</th><th class="num">PnL</th></tr></thead>
 				<tbody>
-					${d.holdings.map((h) => `
+					${d.holdings.map((h) => {
+						const sym = h.quoteSymbol || 'SOL';
+						const dec = sym === 'SOL' ? 4 : 2;
+						return `
 						<tr>
 							<td><a href="https://pump.fun/${h.mint}" target="_blank"><code>${h.mint.slice(0, 8)}…</code></a></td>
+							<td>${sym}</td>
 							<td class="num">${fmt(h.amount, 2)}</td>
-							<td class="num">${fmt(h.priceSol, 8)}</td>
-							<td class="num">${fmt(h.valueSol, 4)}</td>
-							<td class="num">${h.costBasisSol == null ? '—' : fmt(h.costBasisSol, 4)}</td>
-							<td class="num"><span class="${pn(h.unrealizedPnlSol)}">${fmt(h.unrealizedPnlSol, 4)} (${pct(h.unrealizedPnlPct)})</span></td>
-						</tr>`).join('') || '<tr><td colspan="6" class="muted">— no token holdings —</td></tr>'}
+							<td class="num">${fmt(h.priceQuote, 8)}</td>
+							<td class="num">${h.valueQuote == null ? '—' : `${fmt(h.valueQuote, dec)} ${sym}`}</td>
+							<td class="num">${h.costBasis == null ? '—' : `${fmt(h.costBasis, dec)} ${sym}`}</td>
+							<td class="num"><span class="${pn(h.unrealizedPnl)}">${h.unrealizedPnl == null ? '—' : `${fmt(h.unrealizedPnl, dec)} ${sym}`} (${pct(h.unrealizedPnlPct)})</span></td>
+						</tr>`;
+					}).join('') || '<tr><td colspan="7" class="muted">— no token holdings —</td></tr>'}
 				</tbody>
 			</table>
 		`;

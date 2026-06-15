@@ -14,6 +14,7 @@ import { mountPumpFunCard } from './agent-home-pumpfun.js';
 import { mountAgentSolanaWalletCard } from './agent-solana-wallet.js';
 import { mountAgentVanityGrinderCard } from './agent-vanity-grinder.js';
 import { mountAgentEthVanityCard } from './agent-eth-vanity-card.js';
+import { mountAgentOnchainCard } from './agent-onchain-card.js';
 import { mountClaimsPanel } from './agent-home-claims.js';
 
 const ACTION_ICONS = {
@@ -71,6 +72,7 @@ export class AgentHome {
 
 	destroy() {
 		if (this._destroyClaims) this._destroyClaims();
+		if (this._onchainCard?.destroy) this._onchainCard.destroy();
 		if (this._panel) this._panel.remove();
 		clearInterval(this._emotionInterval);
 		this.protocol.off('*', this._onAnyAction);
@@ -214,6 +216,14 @@ export class AgentHome {
 		// with 401s. Caller can pass opts.isOwner to override identity state.
 		const isOwner = this.isOwner !== null ? this.isOwner : this.identity?.isOwner;
 		if (this.identity?.id && isOwner === true) {
+			// On-chain identity card — register an existing agent on ERC-8004,
+			// reusing its stored body/persona/voice/skills, or show its binding.
+			try {
+				this._onchainCard = mountAgentOnchainCard({ panel, identity: this.identity });
+			} catch {
+				/* card is optional */
+			}
+
 			let walletCard = null;
 			try {
 				walletCard = mountAgentSolanaWalletCard({

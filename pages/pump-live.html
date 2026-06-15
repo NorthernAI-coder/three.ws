@@ -245,11 +245,13 @@
   ::-webkit-scrollbar-thumb { background: var(--medium-grey); border-radius: 4px; }
   ::-webkit-scrollbar-thumb:hover { background: var(--light-grey); }
 
-  /* ── Responsive ────────────────────────────────────── */
+  /* ── Responsive ──────────────────────────────────────
+     Below 900px the kiosk row stacks vertically: the reacting 3D agent on
+     top, the live feed (with its own scroll region) beneath it. */
   @media (max-width: 900px) {
-    #main-container { flex-direction: column-reverse; }
-    #feed-container { width: 100%; height: 50%; border-top: 1px solid var(--dark-grey); }
-    #viewer-container { border-right: none; }
+    #main-container { flex-direction: column; }
+    #viewer-container { height: 45vh; min-height: 240px; border-right: none; border-bottom: 1px solid var(--dark-grey); }
+    #feed-container { width: 100%; flex: 1; min-height: 0; }
   }
 </style>
 		<link rel="stylesheet" href="/nav.css" />
@@ -314,28 +316,33 @@
   import { Viewer } from '/src/viewer.js';
 
   // ════════════════════════════════════════════════════════════════════
-  // 3D Agent Setup — the avatar reacts to each new launch. If the GLB or
-  // WebGL context fails to load we degrade gracefully: the feed must still
-  // connect and render, so the whole viewer init is isolated in try/catch.
+  // 3D Agent Setup — the avatar reacts to each new launch. The viewer loads
+  // asynchronously and is NEVER awaited at the top level: the live feed is the
+  // primary content, so it must connect immediately regardless of how long
+  // WebGL/GLB init takes (or whether it fails on a no-GPU/locked-down client).
+  // If the viewer never finishes loading, playAnimation() simply no-ops.
   // ════════════════════════════════════════════════════════════════════
 
   let viewer = null;
 
-  try {
-    const viewerEl = document.getElementById('viewer-container');
-    viewer = new Viewer(viewerEl, { kiosk: true });
-    window.viewer = viewer;
+  async function initViewer() {
+    try {
+      const viewerEl = document.getElementById('viewer-container');
+      const v = new Viewer(viewerEl, { kiosk: true });
 
-    await viewer.load('/animations/robotexpressive.glb', '', new Map());
+      await v.load('/animations/robotexpressive.glb', '', new Map());
 
-    const idleClip =
-      viewer.clips.find((c) => /^idle$/i.test(c.name)) || viewer.clips[0];
-    if (idleClip && viewer.mixer) {
-      viewer.mixer.clipAction(idleClip).play();
+      const idleClip =
+        v.clips.find((c) => /^idle$/i.test(c.name)) || v.clips[0];
+      if (idleClip && v.mixer) {
+        v.mixer.clipAction(idleClip).play();
+      }
+      viewer = v;            // only expose once fully loaded so playAnimation() is safe
+      window.viewer = v;
+    } catch (err) {
+      console.warn('[pump-live] 3D viewer unavailable, continuing with feed only:', err?.message || err);
+      viewer = null;
     }
-  } catch (err) {
-    console.warn('[pump-live] 3D viewer unavailable, continuing with feed only:', err?.message || err);
-    viewer = null;
   }
 
   function playAnimation(animationName, { loop = false } = {}) {
@@ -617,12 +624,15 @@
     $status.className = `status ${className}`;
   }
 
-  // Fetch the SOL price up front (so the first cards show USD), then poll it,
-  // and open the live feed.
-  await refreshSolPrice();
-  setInterval(refreshSolPrice, 60000);
+  // Bootstrap. The feed opens first and never waits on anything else — the
+  // SOL price and the 3D viewer hydrate in the background. Until the first
+  // price lands, market caps render in SOL (real data) and upgrade to USD on
+  // the next paint; cards are never blocked behind a price or a WebGL context.
   renderStats();
   connect();
+  refreshSolPrice();
+  setInterval(refreshSolPrice, 60000);
+  initViewer();
 </script>
 
 		<div id="footer-container"></div>

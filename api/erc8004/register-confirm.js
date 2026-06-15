@@ -15,6 +15,10 @@ const bodySchema = z.object({
 	agentId: z.union([z.string(), z.number()]).transform(String),
 	metadataUri: z.string().min(1),
 	ownerAddress: z.string().regex(/^0x[0-9a-fA-F]{40}$/),
+	// Optional: when binding an EXISTING three.ws agent on-chain, the agent's
+	// UUID. After the mint is verified below we write the unified meta.onchain
+	// block onto that row so the agent profile shows the on-chain badge on reload.
+	agentDbId: z.string().uuid().optional(),
 });
 
 export default wrap(async (req, res) => {
@@ -51,8 +55,79 @@ export default wrap(async (req, res) => {
 		ON CONFLICT (chain_id, agent_id) DO NOTHING
 	`;
 	await enrichMetadata(body.chainId, onChainId, body.metadataUri).catch(() => {});
-	return json(res, 200, { success: true, agentId: onChainId, chainId: body.chainId });
+
+	// When binding an existing three.ws agent, persist the unified on-chain block
+	// onto its agent_identities row. Owner-scoped: only the user who owns the row
+	// (or a bearer with avatars:write for their own row) may write it. The tx was
+	// just verified above (Registered event, agentId + owner match), so this is a
+	// trustworthy source for meta.onchain.
+	let bound = false;
+	if (body.agentDbId) {
+		const userId = session?.id || bearer?.userId || null;
+		if (userId) {
+			bound = await bindAgentOnchain({
+				agentDbId: body.agentDbId,
+				userId,
+				chainId: body.chainId,
+				registry: chain.registry,
+				onChainId,
+				ownerHex,
+				metadataUri: body.metadataUri,
+				txHash: body.txHash,
+			}).catch(() => false);
+		}
+	}
+
+	return json(res, 200, { success: true, agentId: onChainId, chainId: body.chainId, bound });
 });
+
+/**
+ * Write the canonical meta.onchain block (per 2026-04-29-onchain-unified.sql)
+ * onto an owned agent_identities row. Last-write-wins on re-bind; merges into
+ * any existing meta. Returns true when a row was updated.
+ */
+async function bindAgentOnchain({
+	agentDbId,
+	userId,
+	chainId,
+	registry,
+	onChainId,
+	ownerHex,
+	metadataUri,
+	txHash,
+}) {
+	const [existing] = await sql`
+		SELECT id, meta FROM agent_identities
+		WHERE id = ${agentDbId} AND user_id = ${userId} AND deleted_at IS NULL
+		LIMIT 1
+	`;
+	if (!existing) return false;
+
+	const onchain = {
+		chain: `eip155:${chainId}`,
+		family: 'evm',
+		tx_hash: txHash,
+		onchain_id: String(onChainId),
+		contract_or_mint: registry,
+		wallet: ownerHex,
+		metadata_uri: metadataUri,
+		confirmed_at: new Date().toISOString(),
+	};
+	const mergedMeta = { ...(existing.meta || {}), onchain };
+
+	await sql`
+		UPDATE agent_identities
+		SET meta = ${JSON.stringify(mergedMeta)}::jsonb,
+		    wallet_address = ${ownerHex},
+		    chain_id = ${chainId},
+		    erc8004_agent_id = ${BigInt(onChainId)},
+		    erc8004_registry = ${registry},
+		    registration_cid = ${metadataUri},
+		    updated_at = now()
+		WHERE id = ${agentDbId} AND user_id = ${userId}
+	`;
+	return true;
+}
 
 async function rpcCall(urls, m, params) {
 	const urlList = Array.isArray(urls) ? urls : [urls];

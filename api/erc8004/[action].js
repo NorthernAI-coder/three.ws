@@ -12,13 +12,19 @@ import { PutObjectCommand } from '@aws-sdk/client-s3';
 import { z } from 'zod';
 
 import { sql } from '../_lib/db.js';
-import { getSessionUser } from '../_lib/auth.js';
+import { getSessionUser, authenticateBearer, extractBearer, hasScope } from '../_lib/auth.js';
 import { cors, json, method, wrap, error, readJson, rateLimited } from '../_lib/http.js';
 import { parse } from '../_lib/validate.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
-import { resolveOnChainAgent, SERVER_CHAIN_META } from '../_lib/onchain.js';
+import {
+	resolveOnChainAgent,
+	resolveLatestValidation,
+	invalidateValidationCache,
+	SERVER_CHAIN_META,
+} from '../_lib/onchain.js';
 import { r2, publicUrl } from '../_lib/r2.js';
 import { env } from '../_lib/env.js';
+import { attestValidation, AttestError } from '../_lib/validation-attest.js';
 
 export default wrap(async (req, res) => {
 	const action = req.query?.action;
@@ -30,6 +36,10 @@ export default wrap(async (req, res) => {
 			return handleImport(req, res);
 		case 'pin':
 			return handlePin(req, res);
+		case 'validate':
+			return handleValidate(req, res);
+		case 'validation':
+			return handleValidationRead(req, res);
 		default:
 			return error(res, 404, 'not_found', 'unknown erc8004 action');
 	}
@@ -209,6 +219,156 @@ async function handleImport(req, res) {
 			avatar_url: resolved.image,
 		},
 	});
+}
+
+// ── validate (POST) ──────────────────────────────────────────────────────────
+// Run an agent's GLB through the platform glTF validator and record a signed
+// attestation on the ValidationRegistry. Re-runnable: each call records a fresh
+// attestation, so the badge reflects the latest GLB. Best-effort — config /
+// allow-list / undeployed-registry problems return a clear ops error and never
+// affect the agent's registration.
+
+const validateBodySchema = z.object({
+	chainId: z.number().int().positive().max(2_147_483_647),
+	agentId: agentIdSchema,
+	// Optional — when omitted we resolve the GLB from the index / on-chain manifest.
+	glbUrl: z.string().url().max(2048).optional(),
+});
+
+// AttestError.code → HTTP status. Config/precondition problems are 503 (the
+// platform must be wired), model/transport problems are 422/502.
+const ATTEST_STATUS = {
+	validator_key_not_configured: 503,
+	validation_registry_not_deployed: 503,
+	validator_not_allowlisted: 503,
+	no_rpc: 503,
+	unsupported_chain: 400,
+	invalid_glb_url: 422,
+	glb_fetch_failed: 502,
+	glb_too_large: 413,
+	registry_read_failed: 502,
+	record_failed: 502,
+};
+
+async function handleValidate(req, res) {
+	if (cors(req, res, { methods: 'POST,OPTIONS', credentials: true })) return;
+	if (!method(req, res, ['POST'])) return;
+
+	const session = await getSessionUser(req);
+	const bearer = session ? null : await authenticateBearer(extractBearer(req));
+	if (!session && !bearer) return error(res, 401, 'unauthorized', 'sign in required');
+	if (bearer && !hasScope(bearer.scope, 'avatars:write'))
+		return error(res, 403, 'insufficient_scope', 'avatars:write scope required');
+
+	const rl = await limits.registerIp(clientIp(req));
+	if (!rl.success) return rateLimited(res, rl);
+
+	const body = parse(validateBodySchema, await readJson(req));
+	const chainMeta = SERVER_CHAIN_META[body.chainId];
+	if (!chainMeta) return error(res, 400, 'bad_request', `unsupported chain ${body.chainId}`);
+
+	// Resolve the GLB to validate: explicit > index row > on-chain manifest body.
+	let glbUrl = body.glbUrl || null;
+	if (!glbUrl) {
+		const [row] = await sql`
+			SELECT glb_url FROM erc8004_agents_index
+			WHERE chain_id = ${body.chainId} AND agent_id = ${body.agentId}
+		`;
+		glbUrl = row?.glb_url || null;
+	}
+	if (!glbUrl) {
+		const resolved = await resolveOnChainAgent({
+			chainId: body.chainId,
+			agentId: body.agentId,
+			fetchManifest: true,
+			timeoutMs: 5000,
+		}).catch(() => null);
+		glbUrl = resolved?.bodyURI || null;
+	}
+	if (!glbUrl) {
+		return error(res, 422, 'no_glb', 'no GLB found for this agent to validate');
+	}
+
+	const validatedAt = new Date().toISOString();
+	let result;
+	try {
+		result = await attestValidation({
+			chainId: body.chainId,
+			agentId: body.agentId,
+			glbUrl,
+			validatedAt,
+		});
+	} catch (err) {
+		const code = err instanceof AttestError ? err.code : 'attest_failed';
+		const status = ATTEST_STATUS[code] || 500;
+		// Record the ops error for visibility — best-effort, never blocks.
+		await sql`
+			UPDATE erc8004_agents_index
+			SET validation_error = ${code}, validation_at = now()
+			WHERE chain_id = ${body.chainId} AND agent_id = ${body.agentId}
+		`.catch(() => {});
+		return error(res, status, code, err.message);
+	}
+
+	// Persist the latest attestation to the index cache (best-effort) and bust the
+	// on-chain read cache so the badge reflects this attestation immediately.
+	await sql`
+		UPDATE erc8004_agents_index
+		SET validation_passed = ${result.passed},
+		    validation_kind = ${result.kind},
+		    validation_proof_hash = ${result.proofHash},
+		    validation_proof_uri = ${result.proofURI},
+		    validation_tx = ${result.txHash},
+		    validator_address = ${result.validator.toLowerCase()},
+		    validation_at = ${validatedAt},
+		    validation_error = null
+		WHERE chain_id = ${body.chainId} AND agent_id = ${body.agentId}
+	`.catch(() => {});
+	await invalidateValidationCache({ chainId: body.chainId, agentId: body.agentId }).catch(() => {});
+
+	const explorerTx = `${chainMeta.explorer}/tx/${result.txHash}`;
+	return json(res, 200, {
+		ok: true,
+		validation: {
+			chainId: body.chainId,
+			agentId: body.agentId,
+			passed: result.passed,
+			kind: result.kind,
+			proofHash: result.proofHash,
+			proofURI: result.proofURI,
+			txHash: result.txHash,
+			txExplorer: explorerTx,
+			validator: result.validator,
+			validatedAt,
+			byteCheckSha256: result.sha256,
+			issues: result.report.issues,
+		},
+	});
+}
+
+// ── validation (GET) ─────────────────────────────────────────────────────────
+// Walletless read of the latest on-chain attestation — powers the "Validated"
+// badge on any surface without a wallet or RPC in the browser.
+
+async function handleValidationRead(req, res) {
+	if (cors(req, res, { methods: 'GET,OPTIONS', origins: '*' })) return;
+	if (!method(req, res, ['GET'])) return;
+
+	const rl = await limits.pumpMetaIp(clientIp(req));
+	if (!rl.success) return rateLimited(res, rl);
+
+	const chainId = Number(req.query?.chainId);
+	const agentId = String(req.query?.agentId ?? '').trim();
+	if (!Number.isInteger(chainId) || chainId <= 0) {
+		return error(res, 400, 'bad_request', 'chainId is required');
+	}
+	if (!/^\d{1,78}$/.test(agentId)) {
+		return error(res, 400, 'bad_request', 'agentId must be a non-negative integer');
+	}
+
+	const validation = await resolveLatestValidation({ chainId, agentId });
+	res.setHeader('cache-control', 'public, max-age=30, s-maxage=60');
+	return json(res, 200, { validation });
 }
 
 // ── pin ────────────────────────────────────────────────────────────────────

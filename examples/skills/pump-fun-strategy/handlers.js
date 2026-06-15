@@ -2,9 +2,21 @@
 // in dsl.js is the single source of truth: live runs and backtests share it,
 // so a backtest is a faithful preview of a live run.
 
-import { compileStrategy, buildView, parsePredicate, evalPredicate } from './dsl.js';
+import {
+	compileStrategy,
+	buildView,
+	parsePredicate,
+	evalPredicate,
+	validateStrategySpec,
+	strategyErrors,
+} from './dsl.js';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// Patterns in a read-MCP error that mean a mint definitively does not exist
+// (as opposed to a transient upstream/RPC failure, which must NOT fail-closed
+// a structurally-valid strategy).
+const MINT_MISSING_RE = /not found|invalid mint|no .*found|account not found|does not exist/i;
 
 async function call(ctx, tool, args) {
 	const res = await ctx.skills.invoke(tool, args);
@@ -12,21 +24,86 @@ async function call(ctx, tool, args) {
 	return res.data;
 }
 
-export async function validateStrategy({ strategy }) {
-	try {
-		const compiled = compileStrategy(strategy);
-		return {
-			ok: true,
-			data: {
-				filterCount: compiled.filters.length,
-				exitCount: compiled.exits.length,
-				filters: compiled.filters.map((p) => p.src),
-				exits: compiled.exits.map((e) => ({ if: e.when.src, do: e.action })),
-			},
-		};
-	} catch (e) {
-		return { ok: false, error: e.message };
+// validateStrategy — genuine semantic validation, not a syntax pass.
+//
+// Layer 1 (pure, always): validateStrategySpec — structure, predicate paths,
+// numeric domains, contradictory/unreachable rules, cap sanity.
+// Layer 2 (live, best-effort): for explicitly-listed mints, confirm they exist
+// and that their quote asset matches the strategy's SOL denomination.
+//   - `mintInfo[mint]` (supplied by the endpoint from launch records) is the
+//     authoritative agent-coin + quote-pairing source.
+//   - mints not in mintInfo are probed on-chain via ctx.skills.invoke.
+//   - A transient upstream failure downgrades to a warning so a working
+//     strategy is never falsely rejected; only a definitive "not found" or a
+//     confirmed quote mismatch is a hard error.
+export async function validateStrategy({ strategy, network = 'mainnet', mintInfo = null } = {}, ctx = null) {
+	const { issues, meta } = validateStrategySpec(strategy);
+
+	for (let i = 0; i < meta.mintList.length; i++) {
+		const mint = meta.mintList[i];
+		const field = `scan.mints[${i}]`;
+		const info = mintInfo?.[mint];
+
+		if (info?.isAgentCoin) {
+			if (info.quoteIsUsdc && meta.denominatedQuote === 'SOL') {
+				issues.push({
+					level: 'error',
+					field,
+					code: 'quote_asset_mismatch',
+					message: `${mint} is a ${info.quoteSymbol || 'USDC'}-paired agent coin, but this strategy denominates entry/exit in SOL (entry.amountSol, caps.*Sol). A live run would build a SOL trade against a ${info.quoteSymbol || 'USDC'} curve. Target a SOL-paired coin or re-denominate the strategy.`,
+				});
+			}
+			continue; // Known agent coin — it exists; no on-chain probe needed.
+		}
+
+		if (ctx?.skills?.invoke) {
+			let r;
+			try {
+				r = await ctx.skills.invoke('pump-fun.getTokenDetails', { mint, network });
+			} catch (e) {
+				r = { ok: false, error: e?.message };
+			}
+			if (r?.ok) {
+				if (info === undefined) {
+					issues.push({ level: 'info', field, code: 'not_agent_coin', message: `${mint} exists on ${network} but is not a three.ws agent coin — trading it is fine, but quote-asset pairing cannot be verified here.` });
+				}
+			} else if (MINT_MISSING_RE.test(String(r?.error ?? ''))) {
+				issues.push({ level: 'error', field, code: 'mint_not_found', message: `${mint} does not exist on ${network}. Check the address.` });
+			} else {
+				issues.push({ level: 'warning', field, code: 'mint_unverified', message: `Could not verify ${mint} right now (${r?.error || 'upstream unavailable'}). It is re-checked at run time.` });
+			}
+		}
 	}
+
+	// Final agreement guarantee: anything we deem valid must also compile for the
+	// runner. If compileStrategy disagrees, surface it rather than silently OK'ing.
+	const errors = issues.filter((x) => x.level === 'error');
+	if (!errors.length) {
+		try {
+			compileStrategy(strategy);
+		} catch (e) {
+			errors.push({ level: 'error', field: 'strategy', code: 'compile_failed', message: e.message });
+			issues.push(errors[errors.length - 1]);
+		}
+	}
+
+	const warnings = issues.filter((x) => x.level === 'warning');
+	const valid = errors.length === 0;
+	return {
+		ok: valid,
+		error: valid ? undefined : errors[0].message,
+		data: {
+			valid,
+			issues,
+			errorCount: errors.length,
+			warningCount: warnings.length,
+			filterCount: meta.filterCount,
+			exitCount: meta.exitCount,
+			filters: meta.filters,
+			exits: meta.exits,
+			summary: meta.summary,
+		},
+	};
 }
 
 async function fetchCandidates(ctx, scan) {
@@ -64,6 +141,10 @@ async function maybeSell(ctx, simulate, args) {
 }
 
 export async function runStrategy(args, ctx) {
+	// Pre-flight: refuse a semantically-broken spec before any RPC or signing,
+	// so validate and run can never disagree about what is runnable.
+	const fatal = strategyErrors(args.strategy);
+	if (fatal.length) throw new Error(`invalid strategy — ${fatal[0].message}`);
 	const compiled = compileStrategy(args.strategy);
 	const simulate = !!args.simulate;
 	const deadline = Date.now() + args.durationSec * 1000;
@@ -176,6 +257,8 @@ function priceFromTrade(t) {
 }
 
 export async function backtestStrategy(args, ctx) {
+	const fatal = strategyErrors(args.strategy);
+	if (fatal.length) return { ok: false, error: fatal[0].message };
 	const compiled = compileStrategy(args.strategy);
 	const mints = args.mints ?? args.strategy?.scan?.mints ?? [];
 	if (!mints.length) return { ok: false, error: 'backtest requires mints (in args or strategy.scan.mints)' };
@@ -346,4 +429,4 @@ export async function closeAllPositions(args, ctx) {
 }
 
 // Re-exported for tests.
-export { parsePredicate, evalPredicate, buildView, compileStrategy };
+export { parsePredicate, evalPredicate, buildView, compileStrategy, validateStrategySpec, strategyErrors };

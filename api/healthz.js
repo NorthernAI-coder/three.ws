@@ -59,8 +59,7 @@ async function probeMonitor() {
 			SELECT count(*)::int AS graduations FROM pumpfun_graduations
 		`;
 		const [{ watches }] = await sql`
-			SELECT count(*)::int AS watches FROM user_alert_configs
-			WHERE graduation OR whale OR fees OR launch
+			SELECT count(*)::int AS watches FROM pump_alert_rules WHERE enabled
 		`;
 		const beatMs = beat?.last_beat_at ? new Date(beat.last_beat_at).getTime() : 0;
 		const fresh = beatMs > 0 && now - beatMs < HEARTBEAT_FRESH_MS;

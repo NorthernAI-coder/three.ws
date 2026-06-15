@@ -8,7 +8,7 @@
 
 import type { Idl } from '@coral-xyz/anchor';
 
-export const AGENT_INVOCATION_PROGRAM_ID = 'CcdC7xDhQ9r2PoafbsfWVewcbuAYozECHJEXWe4ELnqR';
+export const AGENT_INVOCATION_PROGRAM_ID = 'AgEntJDMi1A7UadCoYcx6Fm3gusNk8SHLCi7vSUa4Zfo';
 
 export const IDL = {
   address: AGENT_INVOCATION_PROGRAM_ID,

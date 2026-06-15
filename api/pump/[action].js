@@ -95,7 +95,12 @@ import {
 	releaseSpend,
 } from '../_lib/agent-spend-policy.js';
 import { SOLANA_USDC_MINT, SOLANA_USDC_MINT_DEVNET, toUsdcAtomics } from '../payments/_config.js';
-import { classifyLaunchQuote, usdcMintFor } from '../_lib/pump-quote.js';
+import {
+	classifyLaunchQuote,
+	usdcMintFor,
+	tradeQuoteColumns,
+	walletQuoteDeltaAtomics,
+} from '../_lib/pump-quote.js';
 import {
 	slippagePercentFromBps,
 	resolveTokenProgramForMintOwner,
@@ -496,7 +501,7 @@ async function handleBuyConfirm(req, res) {
 	const body = parse(buyConfirmSchema, await readJson(req));
 
 	const [mintRow] = await sql`
-		select id from pump_agent_mints where mint=${body.mint} and network=${body.network} limit 1
+		select id, quote_mint from pump_agent_mints where mint=${body.mint} and network=${body.network} limit 1
 	`;
 	const mintId = mintRow?.id ?? null;
 
@@ -513,16 +518,37 @@ async function handleBuyConfirm(req, res) {
 		return error(res, 422, 'wallet_not_in_tx', 'wallet not in tx');
 
 	if (mintId) {
-		// `sol_amount` is a lamports column — only set for SOL-paired buys. USDC
-		// buys leave it null (no quote-amount column yet; see AUDIT follow-ups).
+		// Resolve the quote asset authoritatively from the coin's recorded pairing
+		// mint (NULL = SOL-paired), so a USDC buy never lands in the lamports
+		// column. `sol_amount` stays a SOL-only lamports field for legacy readers;
+		// `quote_amount` carries the spend in whichever quote's atomic units.
+		const { quote_mint, quote_symbol } = tradeQuoteColumns({
+			quoteMint: mintRow?.quote_mint,
+			network: body.network,
+		});
 		const lamports =
-			body.sol && body.sol > 0 ? BigInt(Math.floor(body.sol * 1_000_000_000)) : null;
+			quote_symbol === 'SOL' && body.sol > 0
+				? BigInt(Math.floor(body.sol * 1_000_000_000)).toString()
+				: null;
+		const quoteAmount =
+			quote_symbol === 'SOL'
+				? lamports
+				: body.usdc_amount > 0
+					? String(Math.round(body.usdc_amount * 1_000_000))
+					: walletQuoteDeltaAtomics({
+							tx,
+							wallet: body.wallet_address,
+							quoteSymbol: quote_symbol,
+							quoteMint: quote_mint,
+						});
 		await sql`
 			insert into pump_agent_trades
-				(mint_id, user_id, wallet, direction, route, sol_amount, slippage_bps, tx_signature, network)
+				(mint_id, user_id, wallet, direction, route, sol_amount,
+				 quote_mint, quote_symbol, quote_amount, slippage_bps, tx_signature, network)
 			values
 				(${mintId}, ${user.id}, ${body.wallet_address}, 'buy', ${body.route},
-				 ${lamports != null ? lamports.toString() : null}, ${body.slippage_bps ?? null}, ${body.tx_signature}, ${body.network})
+				 ${lamports}, ${quote_mint}, ${quote_symbol}, ${quoteAmount},
+				 ${body.slippage_bps ?? null}, ${body.tx_signature}, ${body.network})
 			on conflict (tx_signature, network) do nothing
 		`;
 	}
@@ -765,7 +791,7 @@ async function handleSellConfirm(req, res) {
 	const body = parse(sellConfirmSchema, await readJson(req));
 
 	const [mintRow] = await sql`
-		select id from pump_agent_mints where mint=${body.mint} and network=${body.network} limit 1
+		select id, quote_mint from pump_agent_mints where mint=${body.mint} and network=${body.network} limit 1
 	`;
 	const mintId = mintRow?.id ?? null;
 
@@ -782,12 +808,29 @@ async function handleSellConfirm(req, res) {
 		return error(res, 422, 'wallet_not_in_tx', 'wallet not in tx');
 
 	if (mintId) {
+		// The sell-confirm payload only carries the token quantity, so derive the
+		// proceeds (quote received) from the verified tx's on-chain balance delta
+		// rather than trusting client input — real settled amount, not an estimate.
+		const { quote_mint, quote_symbol } = tradeQuoteColumns({
+			quoteMint: mintRow?.quote_mint,
+			network: body.network,
+		});
+		const quoteAmount = walletQuoteDeltaAtomics({
+			tx,
+			wallet: body.wallet_address,
+			quoteSymbol: quote_symbol,
+			quoteMint: quote_mint,
+		});
+		// Keep sol_amount in sync for SOL sells so legacy readers see proceeds too.
+		const lamports = quote_symbol === 'SOL' ? quoteAmount : null;
 		await sql`
 			insert into pump_agent_trades
-				(mint_id, user_id, wallet, direction, route, token_amount, slippage_bps, tx_signature, network)
+				(mint_id, user_id, wallet, direction, route, sol_amount, token_amount,
+				 quote_mint, quote_symbol, quote_amount, slippage_bps, tx_signature, network)
 			values
 				(${mintId}, ${user.id}, ${body.wallet_address}, 'sell', ${body.route},
-				 ${body.tokens}, ${body.slippage_bps ?? null}, ${body.tx_signature}, ${body.network})
+				 ${lamports}, ${body.tokens}, ${quote_mint}, ${quote_symbol}, ${quoteAmount},
+				 ${body.slippage_bps ?? null}, ${body.tx_signature}, ${body.network})
 			on conflict (tx_signature, network) do nothing
 		`;
 	}
@@ -2217,11 +2260,24 @@ async function handlePortfolio(req, res) {
 	const conn = solanaConnection(network);
 	const owner = new PublicKey(address);
 
-	const [lamports, tokenResp, recentBuys] = await Promise.all([
+	const [lamports, tokenResp, tradeRows, recentBuys] = await Promise.all([
 		conn.getBalance(owner),
 		conn.getParsedTokenAccountsByOwner(owner, { programId: TOKEN_PROGRAM_ID }),
+		// Quote-aware cost basis from the trade ledger: net quote spent (buys −
+		// sells) per mint, in the quote asset's own atomic units, grouped by quote
+		// so SOL and USDC are never summed together.
 		sql`
-			SELECT payload, created_at FROM agent_actions
+			SELECT pam.mint, t.quote_symbol,
+			       COALESCE(SUM(CASE WHEN t.direction='buy'  THEN t.quote_amount ELSE 0 END), 0)::text AS buy_quote,
+			       COALESCE(SUM(CASE WHEN t.direction='sell' THEN t.quote_amount ELSE 0 END), 0)::text AS sell_quote
+			FROM pump_agent_trades t
+			JOIN pump_agent_mints pam ON pam.id = t.mint_id
+			WHERE t.wallet = ${address} AND t.network = ${network}
+			GROUP BY pam.mint, t.quote_symbol
+		`.catch(() => []),
+		// Legacy fallback for SOL coins whose buys predate the trade ledger.
+		sql`
+			SELECT payload FROM agent_actions
 			WHERE agent_id = ${agentId}
 			  AND type IN ('pumpfun.buy', 'buy')
 			ORDER BY created_at DESC
@@ -2240,48 +2296,106 @@ async function handlePortfolio(req, res) {
 		})
 		.filter((h) => h.amount > 0);
 
-	// Cost basis from recorded buys.
-	const basisByMint = new Map();
+	// Atomic→UI divisor per quote asset (lamports for SOL, 6-dec for USDC).
+	const QUOTE_ATOMS = { SOL: 1e9, USDC: 1e6 };
+
+	// Cost basis + quote asset per mint from the quote-aware trade ledger.
+	const basisByMint = new Map(); // mint -> { quoteSymbol, costBasis }
+	for (const r of tradeRows) {
+		const quoteSymbol = r.quote_symbol || 'SOL';
+		const net = BigInt(r.buy_quote || '0') - BigInt(r.sell_quote || '0');
+		const div = QUOTE_ATOMS[quoteSymbol] ?? null;
+		basisByMint.set(r.mint, {
+			quoteSymbol,
+			costBasis: div != null ? Number(net) / div : null,
+		});
+	}
+	// Supplement SOL basis from legacy agent_actions only for mints with no ledger
+	// rows — keeps historical portfolios intact without double-counting.
 	for (const row of recentBuys) {
 		const p = row.payload || {};
-		if (!p.mint) continue;
-		const prev = basisByMint.get(p.mint) ?? { sol: 0, tokens: 0 };
-		prev.sol += Number(p.amountSol) || 0;
-		prev.tokens += Number(p.amountTokens) || 0;
+		if (!p.mint || basisByMint.has(p.mint)) continue;
+		const prev = basisByMint.get(p.mint) ?? { quoteSymbol: 'SOL', costBasis: 0 };
+		prev.costBasis = (prev.costBasis ?? 0) + (Number(p.amountSol) || 0);
 		basisByMint.set(p.mint, prev);
+	}
+
+	// Authoritative quote asset for held agent coins not seen in the ledger.
+	const unknownMints = holdings.map((h) => h.mint).filter((m) => !basisByMint.has(m));
+	const quoteByMint = new Map();
+	if (unknownMints.length) {
+		const mintRows = await sql`
+			SELECT mint, quote_mint FROM pump_agent_mints
+			WHERE network = ${network} AND mint = ANY(${unknownMints})
+		`.catch(() => []);
+		for (const r of mintRows) {
+			quoteByMint.set(r.mint, tradeQuoteColumns({ quoteMint: r.quote_mint, network }).quote_symbol);
+		}
 	}
 
 	// Live price per holding via the read-only pump-fun MCP (parallelized).
 	const rt = makeRuntime();
 	const priced = await Promise.all(
 		holdings.map(async (h) => {
-			const [curve, basis] = [
-				await rt
-					.invoke('pump-fun.getBondingCurve', { mint: h.mint })
-					.catch(() => ({ ok: false })),
-				basisByMint.get(h.mint),
-			];
-			const priceSol = curve?.ok ? (curve.data?.priceSol ?? curve.data?.price ?? null) : null;
-			const valueSol = priceSol != null ? priceSol * h.amount : null;
-			const costBasisSol = basis ? basis.sol : null;
-			const unrealizedSol =
-				valueSol != null && costBasisSol != null ? valueSol - costBasisSol : null;
+			const curve = await rt
+				.invoke('pump-fun.getBondingCurve', { mint: h.mint })
+				.catch(() => ({ ok: false }));
+			const basis = basisByMint.get(h.mint);
+			const quoteSymbol = basis?.quoteSymbol ?? quoteByMint.get(h.mint) ?? 'SOL';
+			// A bonding-curve price is quote-per-token in the coin's OWN quote unit
+			// (SOL/token for SOL-paired, USDC/token for USDC-paired), so value and
+			// cost basis are always expressed in the same currency.
+			const priceQuote = curve?.ok ? (curve.data?.priceSol ?? curve.data?.price ?? null) : null;
+			const valueQuote = priceQuote != null ? priceQuote * h.amount : null;
+			const costBasis = basis?.costBasis ?? null;
+			const unrealized =
+				valueQuote != null && costBasis != null ? valueQuote - costBasis : null;
+			const isSol = quoteSymbol === 'SOL';
 			return {
 				...h,
-				priceSol,
-				valueSol,
-				costBasisSol,
-				unrealizedPnlSol: unrealizedSol,
+				quoteSymbol,
+				priceQuote,
+				valueQuote,
+				costBasis,
+				unrealizedPnl: unrealized,
 				unrealizedPnlPct:
-					unrealizedSol != null && costBasisSol > 0
-						? (unrealizedSol / costBasisSol) * 100
-						: null,
+					unrealized != null && costBasis > 0 ? (unrealized / costBasis) * 100 : null,
+				// Backward-compat SOL-named fields, populated only for SOL-paired
+				// coins so existing consumers never read a USDC figure as SOL.
+				priceSol: isSol ? priceQuote : null,
+				valueSol: isSol ? valueQuote : null,
+				costBasisSol: isSol ? costBasis : null,
+				unrealizedPnlSol: isSol ? unrealized : null,
 			};
 		}),
 	);
 
-	const totalValueSol = priced.reduce((s, p) => s + (p.valueSol ?? 0), 0);
-	const totalCostBasisSol = priced.reduce((s, p) => s + (p.costBasisSol ?? 0), 0);
+	// Per-quote subtotals — the fix for summing mismatched units. Each quote
+	// asset (SOL, USDC, …) gets its own value / cost-basis / PnL totals.
+	const subtotals = {};
+	for (const p of priced) {
+		const s = (subtotals[p.quoteSymbol] ??= {
+			quoteSymbol: p.quoteSymbol,
+			positions: 0,
+			value: 0,
+			costBasis: 0,
+			unrealizedPnl: 0,
+			unrealizedPnlPct: null,
+		});
+		s.positions += 1;
+		s.value += p.valueQuote ?? 0;
+		s.costBasis += p.costBasis ?? 0;
+	}
+	for (const s of Object.values(subtotals)) {
+		s.unrealizedPnl = s.value - s.costBasis;
+		s.unrealizedPnlPct = s.costBasis > 0 ? (s.unrealizedPnl / s.costBasis) * 100 : null;
+	}
+
+	// Top-level SOL totals stay backward-compatible — now scoped to SOL-paired
+	// holdings only (no cross-unit summing).
+	const solSub = subtotals.SOL ?? { value: 0, costBasis: 0 };
+	const totalValueSol = solSub.value;
+	const totalCostBasisSol = solSub.costBasis;
 	const unrealizedPnlSol = totalValueSol - totalCostBasisSol;
 
 	return json(res, 200, {
@@ -2291,6 +2405,7 @@ async function handlePortfolio(req, res) {
 			lamports,
 			sol: lamports / LAMPORTS_PER_SOL,
 			holdings: priced,
+			subtotals,
 			totalValueSol,
 			totalCostBasisSol,
 			unrealizedPnlSol,
@@ -2962,8 +3077,24 @@ async function handleStrategyBacktest(req, res) {
 
 	const body = await readJson(req);
 	if (!body?.strategy) return error(res, 400, 'validation_error', 'strategy required');
+	const network = body.network === 'devnet' ? 'devnet' : 'mainnet';
 
 	const rt = makeRuntime();
+
+	// Reject a semantically-broken spec up front with field-level issues, before
+	// sourcing mints or replaying — same validator the validate endpoint uses.
+	const vr = await rt.invoke('pump-fun-strategy.validateStrategy', {
+		strategy: body.strategy,
+		network,
+		mintInfo: await resolveStrategyMintInfo(body.strategy?.scan?.mints, network),
+	});
+	if (vr.data && !vr.data.valid) {
+		return error(res, 400, 'validation_error', vr.error || 'strategy is invalid', {
+			issues: vr.data.issues,
+			report: vr.data,
+		});
+	}
+
 	let mints;
 	try {
 		mints = await resolveStrategyMints(rt.invoke, body.strategy, body.mints, body.limit);
@@ -3066,6 +3197,25 @@ async function handleStrategyRun(req, res) {
 	const durationSec = Math.max(5, Math.min(600, Number(body.durationSec) || 30));
 	const mode = body.mode === 'live' ? 'live' : 'simulate';
 	const network = body.network === 'devnet' ? 'devnet' : 'mainnet';
+
+	// Pre-flight semantic validation BEFORE switching to SSE, so a broken spec
+	// (or a quote-asset mismatch on a listed coin) is rejected with a clean JSON
+	// error rather than streaming a doomed run. Same validator the validate
+	// endpoint and the runner use — they cannot disagree.
+	{
+		const mintInfo = await resolveStrategyMintInfo(body.strategy?.scan?.mints, network);
+		const vr = await makeRuntime().invoke('pump-fun-strategy.validateStrategy', {
+			strategy: body.strategy,
+			network,
+			mintInfo,
+		});
+		if (vr.data && !vr.data.valid) {
+			return error(res, 400, 'validation_error', vr.error || 'strategy is invalid', {
+				issues: vr.data.issues,
+				report: vr.data,
+			});
+		}
+	}
 
 	let wallet = null,
 		walletAddress = null,
@@ -3232,6 +3382,33 @@ async function handleLiveStream(req, res) {
 
 // ── strategy-validate ──────────────────────────────────────────────────────
 
+// Resolve authoritative agent-coin facts (existence + quote pairing) for the
+// mints a strategy explicitly lists. pump_agent_mints is the only place a
+// three.ws coin's quote asset is reliably known (the on-chain bonding curve
+// read does not surface it). Returns a map keyed by mint, or null on DB error
+// (the handler then falls back to an on-chain existence probe).
+async function resolveStrategyMintInfo(mints, network) {
+	const listed = Array.isArray(mints)
+		? [...new Set(mints.filter((m) => typeof m === 'string' && m.trim()).map((m) => m.trim()))]
+		: [];
+	if (!listed.length) return null;
+	try {
+		const rows = await sql`
+			SELECT mint, quote_mint FROM pump_agent_mints
+			WHERE mint = ANY(${listed}) AND network = ${network}
+		`;
+		const info = {};
+		for (const row of rows) {
+			const q = classifyLaunchQuote({ quoteMint: row.quote_mint, network });
+			info[row.mint] = { isAgentCoin: true, quoteIsUsdc: q.isUsdc, quoteSymbol: q.label };
+		}
+		return info;
+	} catch (e) {
+		console.error('[strategy-validate] mint info lookup failed', e?.message);
+		return null;
+	}
+}
+
 async function handleStrategyValidate(req, res) {
 	if (cors(req, res, { methods: 'POST,OPTIONS', origins: '*' })) return;
 	if (!method(req, res, ['POST'])) return;
@@ -3243,11 +3420,29 @@ async function handleStrategyValidate(req, res) {
 	if (!body?.strategy || typeof body.strategy !== 'object') {
 		return error(res, 400, 'validation_error', 'strategy required');
 	}
+	const network = body.network === 'devnet' ? 'devnet' : 'mainnet';
+
+	const mintInfo = await resolveStrategyMintInfo(body.strategy?.scan?.mints, network);
 
 	const rt = makeRuntime();
-	const r = await rt.invoke('pump-fun-strategy.validateStrategy', { strategy: body.strategy });
-	if (!r.ok) return error(res, 400, 'validation_error', r.error);
-	return json(res, 200, { data: r.data });
+	const r = await rt.invoke('pump-fun-strategy.validateStrategy', {
+		strategy: body.strategy,
+		network,
+		mintInfo,
+	});
+	const report = r.data ?? {
+		valid: false,
+		issues: [{ level: 'error', field: 'strategy', code: 'validate_failed', message: r.error || 'validation failed' }],
+		errorCount: 1,
+		warningCount: 0,
+	};
+	if (!report.valid) {
+		return error(res, 400, 'validation_error', r.error || 'strategy is invalid', {
+			issues: report.issues,
+			report,
+		});
+	}
+	return json(res, 200, { data: report });
 }
 
 // ── channel-feed ──────────────────────────────────────────────────────────────
@@ -3431,16 +3626,39 @@ async function handleCoinTrades(req, res) {
 	}
 	const raw = Array.isArray(body) ? body : Array.isArray(body?.trades) ? body.trades : [];
 	const trades = raw
-		.map((t) => ({
-			tx: t.tx,
-			timestamp: t.timestamp,
-			user: t.userAddress || t.user || null,
-			is_buy: String(t.type).toLowerCase() === 'buy',
-			sol_amount: Number(t.amountSol),
-			usd_amount: t.amountUsd != null ? Number(t.amountUsd) : null,
-			price_usd: t.priceUsd != null ? Number(t.priceUsd) : null,
-		}))
-		.filter((t) => t.tx && isFinite(t.sol_amount) && t.sol_amount > 0);
+		.map((t) => {
+			const solAmount = Number(t.amountSol);
+			const usdAmount = t.amountUsd != null ? Number(t.amountUsd) : null;
+			// pump.fun v2 USDC-paired coins report the quote spend on amountQuote/
+			// amountUsdc rather than amountSol. Surface whichever quote the upstream
+			// used (with a stable symbol) so USDC trades are no longer silently
+			// dropped by a SOL-only filter or shown as a misleading 0 SOL.
+			const usdcRaw = t.amountQuote ?? t.amountUsdc ?? null;
+			const isUsdcQuote = usdcRaw != null && (!isFinite(solAmount) || solAmount === 0);
+			const quoteSymbol = isUsdcQuote ? 'USDC' : 'SOL';
+			const quoteAmount = isUsdcQuote
+				? Number(usdcRaw)
+				: isFinite(solAmount)
+					? solAmount
+					: null;
+			return {
+				tx: t.tx,
+				timestamp: t.timestamp,
+				user: t.userAddress || t.user || null,
+				is_buy: String(t.type).toLowerCase() === 'buy',
+				sol_amount: isFinite(solAmount) ? solAmount : null,
+				quote_symbol: quoteSymbol,
+				quote_amount: quoteAmount,
+				usd_amount: usdAmount,
+				price_usd: t.priceUsd != null ? Number(t.priceUsd) : null,
+			};
+		})
+		.filter(
+			(t) =>
+				t.tx &&
+				((t.quote_amount != null && t.quote_amount > 0) ||
+					(t.usd_amount != null && t.usd_amount > 0)),
+		);
 	res.setHeader('cache-control', 'public, max-age=3');
 	return json(res, 200, { mint, trades });
 }

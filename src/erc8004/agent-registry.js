@@ -452,6 +452,35 @@ export async function registerAgent({
 		// Non-fatal — the cron crawler will pick it up within 15 minutes.
 	}
 
+	// ── 9. Kick a best-effort glTF validation attestation. The platform
+	// validator key signs recordValidation() server-side; this is async and
+	// non-blocking — a validation failure (or unconfigured validator) never
+	// affects the registration. The "Validated" badge appears once it lands.
+	if (glbUrl) {
+		log('Requesting validation attestation…');
+		fetch('/api/erc8004/validate', {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			credentials: 'include',
+			body: JSON.stringify({ chainId, agentId: String(agentId), glbUrl }),
+		})
+			.then(async (r) => {
+				const data = await r.json().catch(() => ({}));
+				if (r.ok && data?.validation) {
+					log(
+						data.validation.passed
+							? 'Validation attested on-chain ✓'
+							: 'Validation recorded (model has issues).',
+					);
+				} else if (data?.code) {
+					log(`Validation deferred (${data.code}).`);
+				}
+			})
+			.catch(() => {
+				/* best-effort — badge stays "not yet validated" until re-run */
+			});
+	}
+
 	return { agentId, registrationUrl, txHash: tx.hash, chainId };
 }
 
