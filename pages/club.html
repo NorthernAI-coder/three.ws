@@ -602,10 +602,26 @@
 				100% { opacity: 0; visibility: hidden; }
 			}
 
+			/* ── Entrance journey canvas ────────────────────────── */
+			/* The live first-person scene (src/club-entrance.js): the alley you
+			   land in, then the walk through the club house. Full-screen, behind
+			   the door card, above the pole stage. pointer-events:none so the
+			   card owns interaction; the module fades + removes it on arrival. */
+			.club-door-canvas {
+				position: fixed;
+				inset: 0;
+				width: 100%;
+				height: 100%;
+				display: block;
+				z-index: 9400;
+				pointer-events: none;
+			}
+
 			/* ── Door / cover-charge gate ───────────────────────── */
-			/* The line outside the club. Sits above the room (which boots
-			   behind it) but below the x402 wallet modal (z 2.1e9) so the
-			   payment flow renders on top. */
+			/* The line outside the club, in the alley. Sits above the entrance
+			   scene (which renders behind it) but below the x402 wallet modal
+			   (z 2.1e9) so the payment flow renders on top. The background is an
+			   accent vignette only — the live alley shows through it. */
 			.club-door {
 				position: fixed;
 				inset: 0;
@@ -615,9 +631,9 @@
 				justify-content: center;
 				padding: 24px;
 				background:
-					radial-gradient(120% 90% at 50% -10%, rgba(255, 59, 214, 0.16), transparent 55%),
-					radial-gradient(120% 90% at 50% 110%, rgba(74, 214, 255, 0.12), transparent 55%),
-					#040308;
+					radial-gradient(120% 90% at 50% -10%, rgba(255, 59, 214, 0.20), transparent 55%),
+					radial-gradient(120% 90% at 50% 110%, rgba(74, 214, 255, 0.16), transparent 55%),
+					radial-gradient(125% 125% at 50% 50%, transparent 32%, rgba(4, 3, 8, 0.74) 100%);
 				opacity: 1;
 				transition: opacity 0.7s ease, visibility 0.7s ease;
 			}
@@ -1266,9 +1282,15 @@
 		<!-- Entrance overlay — fades out over 1s on load -->
 		<div id="club-entrance" class="club-entrance" aria-hidden="true"></div>
 
-		<!-- Door / cover-charge gate — the line outside the club. The 3D room
-		     boots behind this overlay; src/club-gate.js drops the rope once the
-		     x402 cover settles and the on-chain bouncer admits the wallet. -->
+		<!-- Entrance journey — live first-person scene (src/club-entrance.js):
+		     the alley you land in, then the walk through the club house after
+		     you pay. Sits behind the door card, above the pole stage. -->
+		<canvas id="club-door-canvas" class="club-door-canvas" aria-hidden="true"></canvas>
+
+		<!-- Door / cover-charge gate — the line outside the club, in the alley.
+		     The 3D room boots behind this overlay; src/club-gate.js drops the
+		     rope once the x402 cover settles and the on-chain bouncer admits
+		     the wallet, handing off to the walk-through. -->
 		<div
 			id="club-door"
 			class="club-door"
@@ -1286,12 +1308,12 @@
 
 				<!-- QUEUE: pay the cover -->
 				<div class="club-door-state is-queue">
-					<p class="club-door-eyebrow">You're in line</p>
+					<p class="club-door-eyebrow">You're in line · out in the alley</p>
 					<h1 id="club-door-title" class="club-door-title">Pole Club</h1>
 					<p class="club-door-copy">
 						There's a cover tonight. Pay <b>$0.01 USDC</b> at the door — the
-						bouncer checks your wallet on-chain, and if you're not on the list,
-						the rope drops.
+						bouncer checks your wallet on-chain, and if you're on the list, the
+						rope drops and you walk inside.
 					</p>
 					<button type="button" id="club-door-pay" class="club-door-pay">
 						Pay cover · $0.01 to enter
@@ -1447,6 +1469,8 @@
 
 		<!-- x402 drop-in modal (Phantom/MetaMask wallet flow + 402 retry) -->
 		<script type="module" src="/x402.js"></script>
+		<!-- Entrance journey — alley → walk-through, behind the door card. -->
+		<script type="module" src="/src/club-entrance.js"></script>
 		<!-- Door gate — runs the cover-charge bouncer over the room boot. -->
 		<script type="module" src="/src/club-gate.js"></script>
 		<script type="module" src="/src/club.js"></script>

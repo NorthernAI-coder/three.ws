@@ -1,17 +1,25 @@
-// /club entrance — a real 3D scene behind the cover-charge door.
+// /club entrance — a first-person spatial journey into the club.
 //
-// Our avatar stands in the Space Smugglers club house while you wait in line.
-// It renders into its own canvas (#club-door-canvas) layered under the door
-// card, so the door (src/club-gate.js) is a panel floating over a live scene
-// rather than a flat screen. When the bouncer admits you (`club:admitted`),
-// the camera dollies in toward the avatar as the rope drops, then the scene
-// disposes and the pole stage (src/club.js) takes over.
+// You don't drop straight onto the pole floor. You arrive in the alley
+// outside, pay the cover at the door, then walk through the Space Smugglers
+// club house before the room with the poles opens up. Three beats, rendered
+// into one full-screen canvas (#club-door-canvas) layered under the cover
+// door card and above the pole stage (src/club.js, which boots in parallel):
 //
-// Kept deliberately light: one model (~1.6 MB Meshopt+WebP clubhouse, built by
-// scripts/build-club-entrance-venue.mjs), the shared avatar GLB (already
-// cached for the stage), a few accent lights, no postprocessing. If a wallet
-// already holds a pass for the night the door is gone on load, so we skip the
-// scene entirely.
+//   1. ALLEY      — you stand in alleyway.glb. The cover door (src/club-gate.js)
+//                   floats over the scene as the line outside.
+//   2. WALK-THROUGH — on `club:admitted` the canvas dips, swaps to the club
+//                   house interior, and the camera walks forward through it
+//                   while the walk-in anthem plays (wired in src/club.js).
+//   3. ARRIVE     — the canvas fades out and disposes, revealing the pole
+//                   stage that has been warming behind it the whole time.
+//
+// Deliberately light: two ~1.6 MB Meshopt+WebP environments (built by
+// scripts/build-club-entrance-venue.mjs), a moody light rig, no avatar rig
+// and no postprocessing. The club house is prefetched during the queue so the
+// walk-through never stalls. If a wallet already holds a pass for the night,
+// the door is gone on load and we skip the journey entirely. Any scene failure
+// degrades silently — the cover door and the room behind it still work.
 
 import {
 	AmbientLight,
@@ -29,26 +37,42 @@ import {
 	ACESFilmicToneMapping,
 } from 'three';
 import { gltfLoader } from './loaders/gltf.js';
-import { AnimationManager } from './animation-manager.js';
 import { log } from './shared/log.js';
 
+const ALLEYWAY_URL = '/club/venue/alleyway.glb';
 const CLUBHOUSE_URL = '/club/venue/space-smugglers-clubhouse.glb';
-const AVATAR_URL = '/avatars/default.glb';
-const MANIFEST_URL = '/animations/manifest.json';
 const PASS_KEY = 'club:pass:v1';
-const IDLE_CLIPS = new Set(['idle', 'walk']);
+
+const EYE = 1.62; // camera eye height, metres
+const ROOM_HEIGHT = 7.0; // environments are normalised to this Y so eye height reads human
+
+// Walk-through timeline (seconds).
+const LEAVE = 0.7; // fade the alley out as you step through the door
+const ENTER = 0.7; // fade the club house interior in
+const WALK = 4.2; // camera dolly forward through the interior
+const ARRIVE = 0.9; // fade out, revealing the pole stage
 
 const canvas = document.getElementById('club-door-canvas');
 const door = document.getElementById('club-door');
 
+// The bouncer admits via a one-shot event. Capture it at module scope so an
+// admit that fires before the scene finishes its first load is never missed.
+let admitted = false;
+let onAdmit = null;
+window.addEventListener('club:admitted', () => {
+	admitted = true;
+	if (onAdmit) onAdmit();
+}, { once: true });
+
 // No canvas, or the wallet already paid cover tonight (door auto-dismissed) —
-// nothing to render.
+// nothing to render. Drop the canvas so it never sits dead over the stage.
 if (canvas && door && !hasValidPass()) {
 	start(canvas).catch((err) => {
-		// A scene failure must never block entry — the cover door still works
-		// on its own. Just leave the canvas dark.
 		log.warn('[club-entrance] scene failed', err);
+		try { canvas.remove(); } catch {}
 	});
+} else {
+	canvas?.remove();
 }
 
 function hasValidPass() {
@@ -68,109 +92,136 @@ async function start(canvasEl) {
 	renderer.setSize(window.innerWidth, window.innerHeight, false);
 	renderer.outputColorSpace = SRGBColorSpace;
 	renderer.toneMapping = ACESFilmicToneMapping;
-	renderer.toneMappingExposure = 1.15;
+	renderer.toneMappingExposure = 1.12;
 
 	const scene = new Scene();
-	scene.background = null; // canvas alpha — the CSS gradient shows through edges
-	scene.fog = new Fog(0x05030a, 8, 26);
+	scene.background = null; // canvas alpha — the page's dark bg shows at the edges
+	scene.fog = new Fog(0x05030a, 7, 30);
 
-	const camera = new PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.05, 100);
-	const camStart = new Vector3(1.7, 1.65, 4.0);
-	const camLook = new Vector3(0, 1.0, 0);
-	camera.position.copy(camStart);
-	camera.lookAt(camLook);
+	const camera = new PerspectiveCamera(52, window.innerWidth / window.innerHeight, 0.05, 200);
 
-	// ── Lighting — moody club palette, keyed on the avatar ──────────────────
-	scene.add(new AmbientLight(0x241433, 0.7));
+	// ── Light rig — moody, works for both the alley and the interior ─────────
+	scene.add(new AmbientLight(0x241433, 0.65));
 	const hemi = new HemisphereLight(0xff6abf, 0x0a0512, 0.4);
-	hemi.position.set(0, 6, 0);
+	hemi.position.set(0, ROOM_HEIGHT, 0);
 	scene.add(hemi);
-
-	// Warm key spot from the doorway side, raking across the avatar.
-	const key = new SpotLight(0xffd6a0, 18, 16, Math.PI / 6, 0.5, 1.4);
-	key.position.set(2.4, 4.2, 3.2);
-	key.target.position.set(0, 1.0, 0);
-	scene.add(key, key.target);
-
-	// Neon rim accents — pink behind, cyan side — the club signature.
-	const pink = new PointLight(0xff3bd6, 6, 14, 1.5);
-	pink.position.set(-2.2, 2.4, -2.0);
+	// Neon accents — the club signature.
+	const pink = new PointLight(0xff3bd6, 7, 22, 1.4);
+	pink.position.set(-3, 3.2, -3);
 	scene.add(pink);
-	const cyan = new PointLight(0x4ad6ff, 4, 12, 1.6);
-	cyan.position.set(2.6, 1.6, -1.2);
+	const cyan = new PointLight(0x4ad6ff, 5, 20, 1.5);
+	cyan.position.set(3, 2.4, 2);
 	scene.add(cyan);
+	// A soft forward "lantern" parented to the camera so whatever you walk
+	// toward is always lit — reads like carrying your gaze through the dark.
+	const lantern = new SpotLight(0xffe6c2, 9, 22, Math.PI / 5, 0.6, 1.2);
+	lantern.position.set(0, 0.2, 0.4);
+	lantern.target.position.set(0, 0, -6);
+	camera.add(lantern, lantern.target);
+	scene.add(camera);
 
 	const loader = gltfLoader(renderer);
 
-	// Load the clubhouse + avatar + animation manifest together.
-	const [houseGltf, avatarGltf, manifest] = await Promise.all([
-		loader.loadAsync(CLUBHOUSE_URL),
-		loader.loadAsync(AVATAR_URL),
-		fetch(MANIFEST_URL, { cache: 'force-cache' }).then((r) => (r.ok ? r.json() : [])).catch(() => []),
-	]);
+	// Land in the alley first; prefetch the interior so the walk-through after
+	// the cover settles never has to wait on a download.
+	const alleyGltf = await loader.loadAsync(ALLEYWAY_URL);
+	const clubhousePromise = loader.loadAsync(CLUBHOUSE_URL);
 
-	// ── Clubhouse: normalize the authored export to a room-sized backdrop and
-	// drop it to the floor, pushed back so the avatar reads clearly in front.
-	// normalizeToHeight scales the largest dimension, so the source units are
-	// irrelevant. ─────────────────────────────────────────────────────────────
-	const house = houseGltf.scene;
-	normalizeToHeight(house, 8.5);
-	const houseBox = new Box3().setFromObject(house);
-	house.position.y -= houseBox.min.y; // feet of the room on the floor
-	house.position.z -= 2.0; // set the avatar forward of the interior
-	house.traverse((n) => {
-		if (n.isMesh && n.material && 'envMapIntensity' in n.material) n.material.envMapIntensity = 0.8;
-	});
-	scene.add(house);
+	let env = mountEnvironment(scene, alleyGltf.scene);
+	let path = walkPath(env.box);
+	camera.position.copy(path.start);
+	camera.lookAt(path.look);
 
-	// ── Avatar: our default, standing front-and-center, idling ──────────────
-	const avatar = avatarGltf.scene;
-	const aBox = new Box3().setFromObject(avatar);
-	avatar.position.y -= aBox.min.y;
-	const rig = new Group();
-	rig.add(avatar);
-	rig.rotation.y = Math.PI * 0.04; // a hair off-axis so it's not flat-on
-	scene.add(rig);
-
-	const anim = new AnimationManager();
-	anim.attach(avatar);
-	anim.setAnimationDefs((Array.isArray(manifest) ? manifest : []).filter((d) => IDLE_CLIPS.has(d.name)));
-	anim.play('idle').catch(() => {});
-
-	// ── Render loop ─────────────────────────────────────────────────────────
+	// ── State machine ────────────────────────────────────────────────────────
+	// Segments are driven by wall-clock elapsed time, not accumulated frame
+	// deltas, so the journey always runs its authored duration even when the
+	// GPU is slow — low fps just means a choppier walk, never slow-motion.
+	let phase = 'alley'; // alley → leaving → swapping → entering → walking → arriving → done
+	let phaseStart = performance.now();
 	let raf = 0;
-	let last = performance.now();
-	let t = 0;
-	let admitted = false;
-	let admitT = 0;
+
+	function setPhase(p) {
+		phase = p;
+		phaseStart = performance.now();
+	}
 
 	function frame(now) {
-		const dt = Math.min((now - last) / 1000, 0.05);
-		last = now;
-		t += dt;
-		anim.update(dt);
+		const t = now / 1000;
+		const elapsed = (now - phaseStart) / 1000;
 
-		if (!admitted) {
-			// Slow idle orbit drift around the avatar.
-			const a = Math.sin(t * 0.18) * 0.18;
-			camera.position.x = Math.sin(a) * 4.0 + Math.cos(a) * 1.7;
-			camera.position.z = Math.cos(a) * 4.0;
-			camera.position.y = 1.62 + Math.sin(t * 0.5) * 0.04;
-			camera.lookAt(camLook);
-		} else {
-			// Dolly in toward the avatar / doorway, then fade the canvas out.
-			admitT = Math.min(1, admitT + dt / 1.2);
-			const e = easeInOut(admitT);
-			camera.position.lerpVectors(camStart, new Vector3(0.2, 1.2, 1.5), e);
-			camera.lookAt(0, 1.15, 0);
-			canvasEl.style.opacity = String(1 - e);
-			if (admitT >= 1) return dispose();
+		switch (phase) {
+			case 'alley':
+				// Stand in the alley with a slow handheld sway.
+				idleSway(camera, path, t);
+				break;
+			case 'leaving': {
+				const k = Math.min(1, elapsed / LEAVE);
+				idleSway(camera, path, t);
+				canvasEl.style.opacity = String(1 - k);
+				if (k >= 1) doSwap();
+				break;
+			}
+			case 'swapping':
+				// Held at black while the interior finishes loading.
+				break;
+			case 'entering': {
+				const k = Math.min(1, elapsed / ENTER);
+				camera.position.copy(path.start);
+				camera.lookAt(path.look);
+				canvasEl.style.opacity = String(k);
+				if (k >= 1) setPhase('walking');
+				break;
+			}
+			case 'walking': {
+				const k = Math.min(1, elapsed / WALK);
+				camera.position.lerpVectors(path.start, path.end, easeInOut(k));
+				camera.position.y = EYE + Math.sin(t * 5.2) * 0.025; // a little life in the step
+				camera.lookAt(path.look);
+				if (k >= 1) setPhase('arriving');
+				break;
+			}
+			case 'arriving': {
+				const k = Math.min(1, elapsed / ARRIVE);
+				camera.lookAt(path.look);
+				canvasEl.style.opacity = String(1 - k);
+				if (k >= 1) return dispose();
+				break;
+			}
 		}
 
 		renderer.render(scene, camera);
 		raf = requestAnimationFrame(frame);
 	}
 	raf = requestAnimationFrame(frame);
+
+	function beginWalk() {
+		if (phase !== 'alley') return;
+		setPhase('leaving');
+	}
+	// If the admit already fired during load, start immediately; otherwise the
+	// module-scope listener calls us when it does.
+	onAdmit = beginWalk;
+	if (admitted) beginWalk();
+
+	async function doSwap() {
+		setPhase('swapping');
+		canvasEl.style.opacity = '0';
+		let clubScene = null;
+		try {
+			clubScene = (await clubhousePromise).scene;
+		} catch (err) {
+			// Interior failed — skip the walk-through and reveal the stage.
+			log.warn('[club-entrance] club house load failed', err);
+			return dispose();
+		}
+		disposeObject(env.root);
+		scene.remove(env.root);
+		env = mountEnvironment(scene, clubScene);
+		path = walkPath(env.box);
+		camera.position.copy(path.start);
+		camera.lookAt(path.look);
+		setPhase('entering');
+	}
 
 	function onResize() {
 		renderer.setSize(window.innerWidth, window.innerHeight, false);
@@ -179,41 +230,70 @@ async function start(canvasEl) {
 	}
 	window.addEventListener('resize', onResize);
 
-	// Bouncer admitted the wallet — start the push-in.
-	window.addEventListener('club:admitted', () => { admitted = true; admitT = 0; }, { once: true });
-
 	function dispose() {
 		cancelAnimationFrame(raf);
 		window.removeEventListener('resize', onResize);
-		try { anim.dispose?.(); } catch {}
-		scene.traverse((n) => {
-			if (n.isMesh) {
-				n.geometry?.dispose?.();
-				const mats = Array.isArray(n.material) ? n.material : [n.material];
-				mats.forEach((m) => {
-					if (!m) return;
-					for (const k in m) { if (m[k]?.isTexture) m[k].dispose(); }
-					m.dispose?.();
-				});
-			}
-		});
+		onAdmit = null;
+		disposeObject(scene);
 		renderer.dispose();
-		canvasEl.remove();
+		try { canvasEl.remove(); } catch {}
 	}
 }
 
-// Scale an object uniformly so its largest dimension equals `target` units.
-function normalizeToHeight(obj, target) {
-	const box = new Box3().setFromObject(obj);
+// Normalise an environment to a human-scaled room (height = ROOM_HEIGHT),
+// recentre it on the floor at the origin, add it, and return its world box.
+function mountEnvironment(scene, root) {
+	const box = new Box3().setFromObject(root);
 	const size = box.getSize(new Vector3());
-	const largest = Math.max(size.x, size.y, size.z) || 1;
-	const s = target / largest;
-	obj.scale.setScalar(s);
-	// Recenter on X/Z around the origin after scaling.
-	const box2 = new Box3().setFromObject(obj);
+	const s = ROOM_HEIGHT / (size.y || 1);
+	root.scale.setScalar(s);
+	const box2 = new Box3().setFromObject(root);
 	const center = box2.getCenter(new Vector3());
-	obj.position.x -= center.x;
-	obj.position.z -= center.z;
+	root.position.x -= center.x;
+	root.position.z -= center.z;
+	root.position.y -= box2.min.y; // floor at y = 0
+	const group = new Group();
+	group.add(root);
+	scene.add(group);
+	return { root: group, box: new Box3().setFromObject(group) };
+}
+
+// Build a forward dolly along the environment's longer horizontal axis — the
+// "depth" you walk down — independent of the model's authored orientation.
+function walkPath(box) {
+	const size = box.getSize(new Vector3());
+	const alongX = size.x > size.z;
+	const span = (alongX ? size.x : size.z) / 2;
+	const dir = alongX ? new Vector3(1, 0, 0) : new Vector3(0, 0, 1);
+	// Start just inside the near end, walk most of the way toward the far end.
+	const start = dir.clone().multiplyScalar(span * 0.85).setY(EYE);
+	const end = dir.clone().multiplyScalar(-span * 0.35).setY(EYE);
+	// Always look further down the axis you're walking.
+	const look = dir.clone().multiplyScalar(-span).setY(EYE * 0.92);
+	return { start, end, look, dir };
+}
+
+// Subtle standing sway: a slow lateral/vertical drift while you wait.
+function idleSway(camera, path, t) {
+	const lateral = new Vector3(-path.dir.z, 0, path.dir.x); // perpendicular, on the floor plane
+	camera.position.copy(path.start)
+		.addScaledVector(lateral, Math.sin(t * 0.35) * 0.18)
+		.setY(EYE + Math.sin(t * 0.5) * 0.03);
+	camera.lookAt(path.look);
+}
+
+function disposeObject(obj) {
+	obj.traverse((n) => {
+		if (n.isMesh) {
+			n.geometry?.dispose?.();
+			const mats = Array.isArray(n.material) ? n.material : [n.material];
+			mats.forEach((m) => {
+				if (!m) return;
+				for (const k in m) { if (m[k]?.isTexture) m[k].dispose(); }
+				m.dispose?.();
+			});
+		}
+	});
 }
 
 function easeInOut(x) {

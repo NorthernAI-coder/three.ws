@@ -31,6 +31,20 @@ function ensureModelViewer() {
 	document.head.appendChild(s);
 }
 
+let _aaLoaded = false;
+// Load the self-contained <avatar-actions> web component from /public on demand.
+// Loading via a runtime <script type=module> (rather than a static import) keeps
+// the one component definition shared by both bundled modules and plain HTML
+// pages without a build-time public-dir resolution.
+function ensureAvatarActions() {
+	if (_aaLoaded || customElements.get('avatar-actions')) return;
+	_aaLoaded = true;
+	const s = document.createElement('script');
+	s.type = 'module';
+	s.src = '/avatar-actions.js';
+	document.head.appendChild(s);
+}
+
 function esc(s) {
 	return String(s ?? '')
 		.replace(/&/g, '&amp;')
@@ -184,6 +198,7 @@ export class AvatarGalleryPicker {
 					<h2 class="agp-preview-name">No avatar selected</h2>
 					<p class="agp-preview-sub">Browse and pick an avatar</p>
 					<div class="agp-preview-tags"></div>
+					<avatar-actions class="agp-actions" style="display:none;margin:10px 0"></avatar-actions>
 					${showModes ? `
 						<div class="agp-modes" role="radiogroup" aria-label="Output mode">
 							<label><input type="radio" name="agp-mode" value="share" checked /><span>Share link</span></label>
@@ -208,6 +223,7 @@ export class AvatarGalleryPicker {
 			previewName: shell.querySelector('.agp-preview-name'),
 			previewSub: shell.querySelector('.agp-preview-sub'),
 			previewTags: shell.querySelector('.agp-preview-tags'),
+			actions: shell.querySelector('.agp-actions'),
 			payload: shell.querySelector('.agp-payload'),
 			cta: shell.querySelector('.agp-cta'),
 		};
@@ -453,6 +469,16 @@ export class AvatarGalleryPicker {
 		if (this._els.previewTags) {
 			this._els.previewTags.innerHTML = (a.tags || []).slice(0, 6).map((t) =>
 				`<span class="agp-preview-tag">${esc(t)}</span>`).join('');
+		}
+
+		// Ownership + wallet surface: a previewed avatar you don't own gets
+		// "Save to my avatars" (fork); your own gets its agent-wallet panel.
+		if (this._els.actions) {
+			ensureAvatarActions();
+			const el = this._els.actions;
+			el.style.display = 'block';
+			if (customElements.get('avatar-actions')) el.avatar = a;
+			else el.setAttribute('avatar-id', a.id);
 		}
 
 		// 3D preview

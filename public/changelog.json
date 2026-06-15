@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-15T16:05:28.055Z",
+	"generated_at": "2026-06-15T17:13:58.292Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -231,6 +231,16 @@
 			"tags": [
 				"feature",
 				"security"
+			]
+		},
+		{
+			"date": "2026-06-15",
+			"type": "update",
+			"title": "Save any avatar as your own — forks with their own wallet",
+			"summary": "Saving someone else's avatar now works like forking on GitHub: it mints a brand-new avatar in your account with its own copy of the model, linked back to the original with a \"Forked from\" credit and a fork counter on the source. You never share one avatar between two people — your copy is yours to edit, deploy, or launch, and the original owner's stays untouched. Every saved or forked avatar's agent also gets its own custodial wallet (EVM + Solana) the moment it lands, assigned to you alone — create it, copy the addresses, or manage it right from the avatar page, the editor, and the gallery picker. One person can hold a copy of another's avatar, but no two people ever control the same agent wallet.",
+			"link": "/gallery",
+			"tags": [
+				"feature"
 			]
 		},
 		{

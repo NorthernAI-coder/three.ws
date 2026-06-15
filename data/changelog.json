@@ -3,6 +3,13 @@
 	"entries": [
 		{
 			"date": "2026-06-15",
+			"title": "Save any avatar as your own — forks with their own wallet",
+			"summary": "Saving someone else's avatar now works like forking on GitHub: it mints a brand-new avatar in your account with its own copy of the model, linked back to the original with a \"Forked from\" credit and a fork counter on the source. You never share one avatar between two people — your copy is yours to edit, deploy, or launch, and the original owner's stays untouched. Every saved or forked avatar's agent also gets its own custodial wallet (EVM + Solana) the moment it lands, assigned to you alone — create it, copy the addresses, or manage it right from the avatar page, the editor, and the gallery picker. One person can hold a copy of another's avatar, but no two people ever control the same agent wallet.",
+			"tags": ["feature"],
+			"link": "/gallery"
+		},
+		{
+			"date": "2026-06-15",
 			"title": "Sell your animations in the marketplace",
 			"summary": "Animations you build in the Studio can now be listed for sale. Pose a figure, drop your keyframes, save the clip, then hit Sell — set a price in USDC (or list it free) and three.ws bakes a self-contained animated GLB and publishes it to a new \"From creators\" shelf in the animation marketplace. Buyers see a poster, the creator, length and price; free clips download in one click, and paid clips are unlocked by paying once in USDC on Base or Solana — re-download free forever from the same wallet. Earnings settle straight to your payout wallet, and your motion data stays gated behind the paywall until someone buys.",
 			"tags": ["feature"],

@@ -88,6 +88,7 @@
     "build:club-venue": "node scripts/build-club-venue.mjs",
     "build:club-hdri": "node scripts/build-club-hdri.mjs",
     "build:club-audio": "node scripts/build-club-audio.mjs",
+    "build:club-entrance-venue": "node scripts/build-club-entrance-venue.mjs",
     "build:club-assets": "(npm run build:club-props & npm run build:club-venue & npm run build:club-hdri & wait)",
     "build:artifact-viewer": "node scripts/build-artifact-viewer.mjs",
     "build:lib": "TARGET=lib vite build",
