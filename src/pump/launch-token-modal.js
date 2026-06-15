@@ -44,6 +44,7 @@ function _solFmt(v) {
 function _apiError(status, data) {
 	const code = data?.error || '';
 	const desc = data?.error_description || '';
+	const lc = `${code} ${desc}`.toLowerCase();
 	if (status === 429 || code === 'rate_limited')
 		return 'Too many launch attempts, try again tomorrow';
 	if (status === 404 || code === 'not_found') return null; // caller should close
@@ -51,10 +52,42 @@ function _apiError(status, data) {
 		status === 403 ||
 		code === 'forbidden' ||
 		code === 'wallet_mismatch' ||
-		desc.toLowerCase().includes('wallet')
+		lc.includes('wallet')
 	)
 		return 'Wrong wallet — connect the wallet that owns this agent';
+	if (code === 'insufficient_funds' || lc.includes('insufficient'))
+		return 'Not enough SOL in this wallet to cover the launch. Add SOL and try again.';
+	if (status === 401 || code === 'unauthorized')
+		return 'Sign in to three.ws with this wallet, then launch again.';
+	if (status >= 500)
+		return 'three.ws had a problem preparing the launch. Try again in a moment.';
 	return desc || `Request failed (${status})`;
+}
+
+/**
+ * Map a Solana broadcast / send-transaction failure to copy a user can act on.
+ * The RPC layer surfaces program errors ("custom program error: 0x1"),
+ * preflight failures, expiry, and transport errors — each needs a different
+ * next step, so a single "Connection error" catch-all is never enough.
+ * @param {unknown} err
+ */
+function _broadcastError(err) {
+	const raw = (err && (err.message || String(err))) || '';
+	const m = raw.toLowerCase();
+	if (/reject|denied|cancell?ed|user declined/.test(m))
+		return 'You cancelled the transaction in your wallet.';
+	if (/insufficient (lamports|funds)|custom program error: 0x1\b|debit an account/.test(m))
+		return 'Not enough SOL to cover the launch + network fees. Add SOL and try again.';
+	if (/slippage|0x1771|exceeds desired|too little|price moved/.test(m))
+		return 'The price moved beyond your limit (slippage). Try again.';
+	if (/blockhash not found|block height exceeded|expired|too old/.test(m))
+		return 'The network was busy and the transaction expired. Try again.';
+	if (/failed to fetch|networkerror|load failed|timed out|timeout|fetch failed|503|502|429/.test(m))
+		return "Couldn't reach the Solana network. Check your connection and try again.";
+	const short = raw.replace(/\s+/g, ' ').trim().slice(0, 120);
+	return short
+		? `Solana rejected the transaction: ${short}`
+		: 'Solana rejected the transaction. Try again.';
 }
 
 export class LaunchTokenModal {
@@ -618,7 +651,7 @@ export class LaunchTokenModal {
 		} catch {
 			if (!this._overlay) return;
 			this._overlay.querySelector('#ltm-quote').innerHTML =
-				`<div class="ltm-status-msg ltm-err">Connection error, please try again</div>`;
+				`<div class="ltm-status-msg ltm-err">Couldn't reach three.ws to price the launch. Check your connection and retry.</div>`;
 		}
 	}
 
@@ -738,8 +771,14 @@ export class LaunchTokenModal {
 			let signed;
 			try {
 				signed = await sol.signTransaction(tx);
-			} catch {
-				this._msg('Transaction signing cancelled.', true);
+			} catch (e) {
+				const m = (e?.message || String(e)).toLowerCase();
+				this._msg(
+					/reject|denied|cancell?ed|user declined/.test(m)
+						? 'You cancelled the signature in your wallet.'
+						: 'Your wallet could not sign the transaction. Reconnect and try again.',
+					true,
+				);
 				reset();
 				return;
 			}
@@ -758,10 +797,7 @@ export class LaunchTokenModal {
 					preflightCommitment: 'confirmed',
 				});
 			} catch (e) {
-				this._msg(
-					`Broadcast failed: ${(e.message || String(e)).slice(0, 100)}`,
-					true,
-				);
+				this._msg(_broadcastError(e), true);
 				reset();
 				return;
 			}
@@ -791,7 +827,9 @@ export class LaunchTokenModal {
 				prep.cluster === 'mainnet' ? `https://pump.fun/coin/${mint}` : null;
 			this._renderStep4(mint, pumpUrl, this.agentId);
 		} catch {
-			this._msg('Connection error, please try again', true);
+			// Reaches here only on a transport failure of the prep/confirm fetches
+			// (the sign + broadcast paths have their own mapped catches above).
+			this._msg("Couldn't reach three.ws to finish the launch. Check your connection and try again.", true);
 			reset();
 		}
 	}

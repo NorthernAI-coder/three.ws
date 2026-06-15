@@ -246,20 +246,17 @@ async function registerOnNetwork(net, { signerKey, cardURI, dryRun, glbName, glb
 	console.log(`  signer:   ${wallet.address}  (${ethers.formatEther(bal)} ETH)`);
 	console.log(`  tokenURI: ${cardURI}`);
 
-	// Optionally re-pin the card model + body to IPFS for this run.
-	let mintURI = cardURI;
+	// Optionally pin the GLB to IPFS now. The immutable card snapshot that points
+	// at this URI is pinned AFTER the mint (below), once the agentId is known, so
+	// the on-chain card embeds its own registration. We always mint against the
+	// stable https card URL so the seed Registered event carries a resolvable URI.
+	let glbIpfs = null;
 	if (process.env.PINATA_JWT) {
 		console.log('  pinning GLB to IPFS (PINATA_JWT present)…');
-		const glbIpfs = await pinToPinata(readFileSync(glbPath), glbName, 'model/gltf-binary');
-		const card = loadCard();
-		card.model.uri = glbIpfs;
-		card.registrations = upsertRegistration(card.registrations, net.chainId, registry, 0); // placeholder id; replaced after mint below via re-pin
+		glbIpfs = await pinToPinata(readFileSync(glbPath), glbName, 'model/gltf-binary');
 		console.log(`  GLB pinned: ${glbIpfs}`);
-		// The immutable card is pinned AFTER we know the agentId (below), so the
-		// on-chain card embeds its own registration. Until then mint against the
-		// stable https card URL so the seed event has a resolvable URI.
-		mintURI = cardURI;
 	}
+	const mintURI = cardURI;
 
 	const fn = contract.getFunction('register(string)');
 
@@ -302,6 +299,7 @@ async function registerOnNetwork(net, { signerKey, cardURI, dryRun, glbName, glb
 	let finalURI = cardURI;
 	if (process.env.PINATA_JWT) {
 		const card = loadCard();
+		if (glbIpfs) card.model.uri = glbIpfs;
 		card.registrations = upsertRegistration(card.registrations, net.chainId, registry, agentId);
 		const snapshot = Buffer.from(JSON.stringify(card, null, '\t'), 'utf8');
 		const cardIpfs = await pinToPinata(snapshot, `3d-agent-card-${net.chainId}.json`, 'application/json');

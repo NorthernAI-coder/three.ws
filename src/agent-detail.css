@@ -2114,16 +2114,18 @@ a {
 	color: var(--ad-dim);
 	font-size: 12px;
 }
-.ad-launch-mcap {
-	margin-left: auto;
-	font-variant-numeric: tabular-nums;
-	color: var(--ad-muted);
-	font-size: 12px;
-}
 .ad-launch-time {
 	color: var(--ad-dim);
 	font-size: 12px;
 	white-space: nowrap;
+}
+/* Shared coin-status `row` variant fills the launch-history anchor. */
+.ad-launch-row .csc-row {
+	width: 100%;
+}
+/* Token chip — shared coin-status `chip` variant, spaced above the CTA. */
+.ad-token-chip {
+	margin-bottom: 10px;
 }
 .ad-launch-feed-link {
 	margin-top: 6px;

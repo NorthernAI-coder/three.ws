@@ -21,6 +21,7 @@
 
 import { ACTION_TYPES } from './agent-protocol.js';
 import { THREE_WS_MARK } from './solana/vanity/brand.js';
+import { mountCoinStatus } from './pump/coin-status-card.js';
 
 const REFRESH_MS = 30_000;
 const QUOTE_DEBOUNCE_MS = 250;
@@ -88,6 +89,16 @@ export function mountPumpFunCard({ panel, identity, skills, memory, protocol }) 
 	cardBody.className = 'pumpfun-card-body';
 	root.appendChild(cardBody);
 
+	// Canonical live market readout (symbol · price · market cap · graduation %)
+	// rendered by the shared coin-status widget. Kept as a persistent node so the
+	// frequent innerHTML re-renders below (trade input, quotes, bot progress)
+	// re-parent it instead of remounting — the widget owns one /api/pump/coin
+	// fetch + 30s refresh, regardless of how often the card re-renders.
+	const coinStatusEl = document.createElement('div');
+	coinStatusEl.className = 'pumpfun-coin-status';
+	let coinStatusHandle = null;
+	let coinStatusMint = null;
+
 	const launchCard = () => {
 		const isGrinding = state.stampPhase === 'grinding';
 		const isStamped  = state.stampPhase === 'done';
@@ -133,8 +144,6 @@ export function mountPumpFunCard({ panel, identity, skills, memory, protocol }) 
 	};
 
 	const statusCard = (s) => {
-		const pct = s.progressPct != null ? `${s.progressPct.toFixed(1)}%` : '—';
-		const cap = s.marketCap ? formatLamports(s.marketCap) : '—';
 		const explorer =
 			s.network === 'devnet'
 				? `https://pump.fun/coin/${s.mint}?cluster=devnet`
@@ -147,17 +156,7 @@ export function mountPumpFunCard({ panel, identity, skills, memory, protocol }) 
 					<span class="pumpfun-card-title">${escapeHtml(s.symbol || 'Token')}</span>
 					<a class="pumpfun-card-link" href="${explorer}" target="_blank" rel="noopener" title="Open on pump.fun">↗</a>
 				</div>
-				<div class="pumpfun-stats">
-					<div class="pumpfun-stat">
-						<span class="pumpfun-stat-label">Market cap</span>
-						<span class="pumpfun-stat-value">${cap}</span>
-					</div>
-					<div class="pumpfun-stat">
-						<span class="pumpfun-stat-label">${grad ? 'Status' : 'To graduation'}</span>
-						<span class="pumpfun-stat-value">${grad ? 'Graduated' : pct}</span>
-					</div>
-				</div>
-				${grad ? '' : `<div class="pumpfun-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${(s.progressPct || 0).toFixed(1)}"><div class="pumpfun-progress-bar" style="width:${Math.min(100, s.progressPct || 0)}%"></div></div>`}
+				<div id="pf-coin-status-mount" class="pumpfun-coin-status-mount"></div>
 				<button class="pumpfun-card-mint" data-action="open-feed" title="Open live feed for this mint">${shortMint(s.mint)}</button>
 				<div class="pumpfun-card-actions">
 					<button class="pumpfun-btn ${s.tradeOpen === 'buy' ? 'pumpfun-btn--active' : ''}" data-action="toggle-buy">Buy</button>
@@ -307,6 +306,7 @@ export function mountPumpFunCard({ panel, identity, skills, memory, protocol }) 
 			return;
 		}
 		cardBody.innerHTML = state.mint ? statusCard(state) : launchCard();
+		syncCoinStatus();
 		bind();
 		// Restore focus to the input after re-render so typing stays uninterrupted.
 		if (state.tradeOpen) {
@@ -316,6 +316,21 @@ export function mountPumpFunCard({ panel, identity, skills, memory, protocol }) 
 				const len = el.value.length;
 				try { el.setSelectionRange(len, len); } catch {/*ignore*/}
 			}
+		}
+	};
+
+	// Re-parent the persistent coin-status node into the freshly rendered mount
+	// point and (re)mount the shared widget when the active mint changes. Moving
+	// the live node preserves the widget's fetch + refresh timer across renders;
+	// devnet mints have no pump.fun market data, so the widget is skipped there.
+	const syncCoinStatus = () => {
+		const mountPt = cardBody.querySelector('#pf-coin-status-mount');
+		if (!mountPt || !state.mint || state.network === 'devnet') return;
+		mountPt.appendChild(coinStatusEl);
+		if (coinStatusMint !== state.mint) {
+			if (coinStatusHandle) coinStatusHandle.destroy();
+			coinStatusMint = state.mint;
+			coinStatusHandle = mountCoinStatus(coinStatusEl, state.mint, { variant: 'chip' });
 		}
 	};
 
@@ -827,6 +842,7 @@ export function mountPumpFunCard({ panel, identity, skills, memory, protocol }) 
 			if (refreshTimer) clearInterval(refreshTimer);
 			if (quoteTimer) clearTimeout(quoteTimer);
 			if (unsubProtocol) unsubProtocol();
+			if (coinStatusHandle) coinStatusHandle.destroy();
 			root.remove();
 		},
 		refresh,

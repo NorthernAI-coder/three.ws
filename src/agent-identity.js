@@ -380,7 +380,16 @@ function _normalise(apiRecord) {
 		createdAt: apiRecord.created_at
 			? new Date(apiRecord.created_at).getTime()
 			: apiRecord.createdAt || Date.now(),
-		isRegistered: Boolean(apiRecord.erc8004_agent_id || apiRecord.isRegistered),
+		// On-chain when any registration signal is present: legacy EVM column,
+		// the canonical meta.onchain block (surfaced as `onchain`/`is_registered`
+		// by api/agents decorate), or an explicit flag.
+		isRegistered: Boolean(
+			apiRecord.erc8004_agent_id ||
+				apiRecord.isRegistered ||
+				apiRecord.is_registered ||
+				apiRecord.onchain ||
+				apiRecord.meta?.onchain,
+		),
 		// Server decorates owner-only fields (user_id, wallet_address, system_prompt,
 		// etc.) only when the requester owns the agent — see api/agents.js decorate().
 		// Use user_id presence as the canonical owner signal so visitor flows don't

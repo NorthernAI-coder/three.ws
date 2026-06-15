@@ -169,6 +169,10 @@
 	color: rgba(255, 255, 255, 0.95);
 }
 .ltm-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.ltm-btn:focus-visible {
+	outline: 2px solid rgba(120, 200, 140, 0.6);
+	outline-offset: 2px;
+}
 .ltm-btn-primary {
 	background: rgba(120, 200, 140, 0.16);
 	border-color: rgba(120, 200, 140, 0.35);

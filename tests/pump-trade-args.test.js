@@ -15,6 +15,9 @@ import { PumpSdk } from '@pump-fun/pump-sdk';
 import {
 	slippagePercentFromBps,
 	resolveTokenProgramForMintOwner,
+	resolveCustodialQuote,
+	usdcMintForNetwork,
+	WSOL_MINT,
 	SPL_TOKEN_PROGRAM_ID,
 	TOKEN_2022_PROGRAM_ID as T22_FROM_LIB,
 } from '../api/_lib/pump-trade-args.js';
@@ -94,6 +97,60 @@ describe('resolveTokenProgramForMintOwner', () => {
 		expect(err).not.toBeNull();
 		expect(err.status).toBe(422);
 		expect(err.code).toBe('unsupported_token_program');
+	});
+});
+
+// ── resolveCustodialQuote ──────────────────────────────────────────────────
+//
+// The custodial (server-signed) buy/sell/swap paths read the coin's quote asset
+// from its on-chain bonding curve and feed it to the v2 builder. This resolver
+// is the pure core of that decision: SOL-paired vs USDC-paired vs other SPL.
+
+describe('resolveCustodialQuote', () => {
+	const USDC = usdcMintForNetwork('mainnet');
+	const USDC_DEVNET = usdcMintForNetwork('devnet');
+
+	it('treats null/undefined (no quote on the curve) as SOL-paired', () => {
+		for (const v of [null, undefined, '']) {
+			const q = resolveCustodialQuote(v);
+			expect(q).toEqual({ isSol: true, isUsdc: false, quoteSymbol: 'SOL', quoteMint: WSOL_MINT });
+		}
+	});
+
+	it('treats the system-default pubkey (SOL curve sentinel) as SOL-paired', () => {
+		const q = resolveCustodialQuote(PublicKey.default);
+		expect(q.isSol).toBe(true);
+		expect(q.isUsdc).toBe(false);
+		expect(q.quoteMint).toBe(WSOL_MINT);
+	});
+
+	it('treats the explicit wrapped-SOL mint as SOL-paired (string and PublicKey)', () => {
+		expect(resolveCustodialQuote(WSOL_MINT).isSol).toBe(true);
+		expect(resolveCustodialQuote(NATIVE_MINT).isSol).toBe(true);
+		expect(resolveCustodialQuote(new PublicKey(WSOL_MINT)).quoteSymbol).toBe('SOL');
+	});
+
+	it('classifies the network USDC mint as USDC-paired', () => {
+		const q = resolveCustodialQuote(USDC, 'mainnet');
+		expect(q).toEqual({ isSol: false, isUsdc: true, quoteSymbol: 'USDC', quoteMint: USDC });
+		expect(resolveCustodialQuote(new PublicKey(USDC)).isUsdc).toBe(true);
+	});
+
+	it('is network-aware: devnet USDC is USDC on devnet but OTHER on mainnet', () => {
+		expect(resolveCustodialQuote(USDC_DEVNET, 'devnet').quoteSymbol).toBe('USDC');
+		const onMainnet = resolveCustodialQuote(USDC_DEVNET, 'mainnet');
+		expect(onMainnet.isUsdc).toBe(false);
+		expect(onMainnet.quoteSymbol).toBe('OTHER');
+		expect(onMainnet.quoteMint).toBe(USDC_DEVNET);
+	});
+
+	it('classifies an arbitrary SPL quote mint as OTHER (non-SOL, non-USDC)', () => {
+		const other = Keypair.generate().publicKey;
+		const q = resolveCustodialQuote(other, 'mainnet');
+		expect(q.isSol).toBe(false);
+		expect(q.isUsdc).toBe(false);
+		expect(q.quoteSymbol).toBe('OTHER');
+		expect(q.quoteMint).toBe(other.toBase58());
 	});
 });
 

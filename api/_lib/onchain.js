@@ -12,7 +12,13 @@
 
 import { Contract, getAddress } from 'ethers';
 import { evmFallbackProvider } from './evm/rpc.js';
-import { cacheGet, cacheSet } from './cache.js';
+import { cacheGet, cacheSet, cacheDel } from './cache.js';
+import {
+	CHAIN_BY_ID,
+	VALIDATION_REGISTRY_ABI,
+	validationRegistryFor,
+} from './erc8004-chains.js';
+import { KIND_GLB_SCHEMA } from '../../src/erc8004/validation-report.js';
 
 const IDENTITY_ABI = [
 	'function tokenURI(uint256 tokenId) external view returns (string)',
@@ -410,6 +416,92 @@ function _withTimeout(promise, ms) {
 			},
 		);
 	});
+}
+
+// ---------------------------------------------------------------------------
+// Validation attestations (ERC-8004 ValidationRegistry)
+// ---------------------------------------------------------------------------
+
+const VALIDATION_CACHE_TTL_S = 60;
+
+/**
+ * Read the latest on-chain validation attestation for an agent — no wallet
+ * required, so any surface can render the "Validated" badge straight from the
+ * server. Authoritative source is the on-chain ValidationRegistry; this layers a
+ * 60s cache on top (validation is re-runnable, so the badge stays fresh).
+ *
+ * Always resolves (never throws) so a badge fetch can't break a page:
+ *   - { available: false }          registry not deployed on this chain
+ *   - { available: true, exists:false }   deployed, but no attestation yet
+ *   - { available: true, exists:true, passed, proofHash, proofURI, … }
+ *
+ * @param {{ chainId: number, agentId: string|number, kind?: string }} p
+ */
+export async function resolveLatestValidation({ chainId, agentId, kind = KIND_GLB_SCHEMA }) {
+	const meta = CHAIN_BY_ID[chainId];
+	const registryAddr = validationRegistryFor(chainId);
+	const explorer = meta?.explorer || '';
+
+	const base = {
+		chainId,
+		agentId: String(agentId),
+		kind,
+		registry: registryAddr || null,
+		available: !!registryAddr,
+		exists: false,
+	};
+
+	if (!registryAddr) {
+		base.reason = 'validation_registry_not_deployed';
+		return base;
+	}
+
+	const cacheKey = `onchain-validation:${chainId}:${agentId}:${kind}`;
+	const cached = await cacheGet(cacheKey);
+	if (cached) return cached;
+
+	let provider;
+	try {
+		provider = await evmFallbackProvider(chainId, { primaryUrl: meta?.rpcUrls?.[0] });
+	} catch (err) {
+		return { ...base, error: `rpc_init: ${err.message}` };
+	}
+
+	const registry = new Contract(registryAddr, VALIDATION_REGISTRY_ABI, provider);
+	let v;
+	try {
+		v = await _withTimeout(registry.getLatestByKind(BigInt(agentId), kind), 4000);
+	} catch (err) {
+		// getLatestByKind reverts with "no validation" when none exists — that's a
+		// normal empty result, not an error.
+		const msg = String(err?.shortMessage || err?.reason || err?.message || '');
+		if (/no validation/i.test(msg) || err?.code === 'CALL_EXCEPTION') {
+			await cacheSet(cacheKey, base, VALIDATION_CACHE_TTL_S);
+			return base;
+		}
+		return { ...base, error: `chain_read: ${msg}` };
+	}
+
+	const timestamp = Number(v.timestamp);
+	const result = {
+		...base,
+		exists: true,
+		passed: Boolean(v.passed),
+		proofHash: v.proofHash,
+		proofURI: v.proofURI || null,
+		proofUrlResolved: v.proofURI ? resolveURI(v.proofURI) : null,
+		validator: _safeAddress(v.validator),
+		validatorExplorer: explorer && v.validator ? `${explorer}/address/${v.validator}` : null,
+		timestamp,
+		validatedAt: timestamp ? new Date(timestamp * 1000).toISOString() : null,
+	};
+	await cacheSet(cacheKey, result, VALIDATION_CACHE_TTL_S);
+	return result;
+}
+
+/** Invalidate the cached validation badge for an agent (call after a fresh attestation). */
+export async function invalidateValidationCache({ chainId, agentId, kind = KIND_GLB_SCHEMA }) {
+	await cacheDel(`onchain-validation:${chainId}:${agentId}:${kind}`);
 }
 
 /** Short address form 0xabc…def */

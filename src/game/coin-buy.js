@@ -49,6 +49,28 @@ function shortAddr(a) {
 }
 
 /**
+ * Map a buy failure to copy the player can act on. A bare "Purchase failed."
+ * tells them nothing; each branch points at the actual next step (add SOL,
+ * widen slippage, retry, reconnect). User cancellation isn't an error to shout
+ * about, so it gets the softest message.
+ * @param {Error & {status?: number}} err
+ */
+function friendlyTradeError(err) {
+	const raw = (err && (err.message || String(err))) || '';
+	const m = raw.toLowerCase();
+	if (/reject|denied|cancell?ed|user declined/.test(m)) return 'Cancelled in wallet.';
+	if (/insufficient (lamports|funds)|custom program error: 0x1\b|debit an account/.test(m))
+		return 'Not enough SOL to cover this buy + network fees. Add SOL and try again.';
+	if (/slippage|0x1771|exceeds desired|too little output|price moved/.test(m))
+		return 'Price moved beyond your slippage limit. Raise max slippage or try again.';
+	if (/blockhash not found|block height exceeded|expired|too old/.test(m))
+		return 'The network was busy and the order expired. Try again.';
+	if (/failed to fetch|networkerror|load failed|timed out|timeout|fetch failed|did not return a transaction|502|503|504/.test(m))
+		return "Couldn't reach the network. Check your connection and try again.";
+	return raw.replace(/\s+/g, ' ').trim().slice(0, 140) || 'Purchase failed. Try again.';
+}
+
+/**
  * Open the buy modal for a coin. Idempotent — a second call refocuses the
  * existing modal instead of stacking.
  * @param {{mint:string, name?:string, symbol?:string, image?:string}} coin
@@ -67,6 +89,10 @@ class BuyModal {
 		this.slippageBps = DEFAULT_SLIPPAGE_BPS;
 		this.busy = false;
 		this._quoteSeq = 0;
+		// null = unknown (first quote pending), true = graduated to the PumpSwap
+		// AMM, false = still on the bonding curve. Drives the stage pill so a
+		// graduated coin is visually unmistakable from a curve coin.
+		this.graduated = null;
 		this._build();
 		this._refreshWallet();
 		this._quote();
@@ -110,11 +136,16 @@ class BuyModal {
 			text: 'Or trade on pump.fun ↗',
 		});
 
+		this.stagePill = el('span', { class: 'cc-buy-stage', role: 'status', 'aria-live': 'polite', hidden: true });
+
 		const head = el('div', { class: 'cc-buy-head' }, [
 			this.coin.image ? el('img', { class: 'cc-buy-img', src: this.coin.image, alt: '' }) : el('div', { class: 'cc-buy-img cc-buy-img-ph', text: '◎' }),
 			el('div', { class: 'cc-buy-titles' }, [
 				el('div', { class: 'cc-buy-name', text: this.coin.name || 'Buy coin' }),
-				el('div', { class: 'cc-buy-sym', text: this.coin.symbol ? '$' + this.coin.symbol.toUpperCase() : this.coin.mint.slice(0, 8) + '…' }),
+				el('div', { class: 'cc-buy-sub' }, [
+					el('span', { class: 'cc-buy-sym', text: this.coin.symbol ? '$' + this.coin.symbol.toUpperCase() : this.coin.mint.slice(0, 8) + '…' }),
+					this.stagePill,
+				]),
 			]),
 			el('button', { class: 'cc-buy-x', type: 'button', 'aria-label': 'Close', text: '✕', onclick: () => this.close() }),
 		]);
@@ -192,6 +223,28 @@ class BuyModal {
 		this.cta.disabled = !(this.amount > 0);
 	}
 
+	// Reflect the coin's lifecycle stage (bonding curve vs graduated to the
+	// PumpSwap AMM) as a distinct, unmistakable pill next to the symbol.
+	_renderStage() {
+		const pill = this.stagePill;
+		if (!pill) return;
+		pill.classList.remove('cc-buy-stage-curve', 'cc-buy-stage-grad');
+		if (this.graduated === true) {
+			pill.hidden = false;
+			pill.classList.add('cc-buy-stage-grad');
+			pill.textContent = '🎓 Graduated · PumpSwap AMM';
+			pill.title = 'This coin filled its bonding curve and now trades on the PumpSwap AMM.';
+		} else if (this.graduated === false) {
+			pill.hidden = false;
+			pill.classList.add('cc-buy-stage-curve');
+			pill.textContent = '📈 On bonding curve';
+			pill.title = 'This coin is still on its pump.fun bonding curve and has not graduated yet.';
+		} else {
+			pill.hidden = true;
+			pill.textContent = '';
+		}
+	}
+
 	// --------------------------------------------------------------- quote
 	async _quote() {
 		if (!(this.amount > 0)) { this.quoteLine.textContent = ''; return; }
@@ -203,6 +256,9 @@ class BuyModal {
 			const { quoteSwap } = await import('../pump/pump-swap-quote.js');
 			const q = await quoteSwap({ inputMint: WSOL, outputMint: this.coin.mint, amountIn: lamports, slippageBps: this.slippageBps });
 			if (seq !== this._quoteSeq) return;
+			// A live AMM quote means the coin graduated off the bonding curve.
+			this.graduated = true;
+			this._renderStage();
 			const tokens = fmtTokens(q.amountOut);
 			const impact = (q.priceImpactBps / 100);
 			this.quoteLine.textContent = '';
@@ -212,9 +268,14 @@ class BuyModal {
 			);
 		} catch (err) {
 			if (seq !== this._quoteSeq) return;
-			// No AMM pool yet → the coin is still on the bonding curve. The buy still
-			// works (the server prices it on-curve); we just can't pre-quote the exact
+			// "Pool unavailable" means there's no AMM pool yet → the coin is still on
+			// the bonding curve. Any other error (RPC down, bad mint) leaves the stage
+			// unknown rather than wrongly claiming a stage. The buy still works
+			// on-curve (the server prices it); we just can't pre-quote the exact
 			// token amount. Say so honestly instead of pretending.
+			const onCurve = /pool unavailable|account does not exist|could not find/i.test(err?.message || '');
+			this.graduated = onCurve ? false : this.graduated;
+			this._renderStage();
 			this.quoteLine.classList.add('cc-buy-quote-warn');
 			this.quoteLine.textContent = `Still on the bonding curve — priced at buy. You'll receive ${this.sym} for ${this.amount} SOL.`;
 		}
@@ -287,10 +348,7 @@ class BuyModal {
 				]), 'err');
 				return;
 			}
-			const msg = err.message || 'Purchase failed.';
-			// User rejection in the wallet isn't an error worth shouting about.
-			const friendly = /reject|denied|cancell?ed|user/i.test(msg) ? 'Cancelled in wallet.' : msg;
-			this._setStatus(friendly, 'err');
+			this._setStatus(friendlyTradeError(err), 'err');
 		}
 	}
 

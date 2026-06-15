@@ -65,6 +65,11 @@ export const handleAttestations = wrap(async (req, res) => {
 	const network = url.searchParams.get('network') === 'mainnet' ? 'mainnet' : 'devnet';
 	const limit   = Math.min(Number(url.searchParams.get('limit') || 100), 500);
 	const includeRevoked = url.searchParams.get('include_revoked') === '1';
+	// One-shot on-demand reindex. The crawl cron only runs every 5 min, so a
+	// visitor who just submitted feedback would otherwise wait minutes to see it.
+	// `refresh=1` (already rate-limited by authIp above) pulls the latest
+	// signatures for this agent before answering, closing the submit→see-it loop.
+	const force = url.searchParams.get('refresh') === '1';
 
 	if (!asset) return error(res, 400, 'validation_error', 'asset query param required');
 	try { new PublicKey(asset); } catch { return error(res, 400, 'validation_error', 'invalid asset pubkey'); }
@@ -74,10 +79,11 @@ export const handleAttestations = wrap(async (req, res) => {
 		return error(res, 400, 'validation_error', 'kind must be one of: feedback, validation, task, accept, revoke, dispute, all');
 	}
 
-	const [cursor] = await sql`select last_indexed_at from solana_attestations_cursor where agent_asset = ${asset} limit 1`;
-	if (!cursor) {
+	let [cursor] = await sql`select last_indexed_at from solana_attestations_cursor where agent_asset = ${asset} limit 1`;
+	if (!cursor || force) {
 		const [agent] = await sql`select wallet_address as owner from agent_identities where meta->>'sol_mint_address' = ${asset} and deleted_at is null limit 1`;
 		try { await crawlAgentAttestations({ agentAsset: asset, network, ownerWallet: agent?.owner || null }); } catch {}
+		[cursor] = await sql`select last_indexed_at from solana_attestations_cursor where agent_asset = ${asset} limit 1`;
 	}
 
 	const rows = wantKind
