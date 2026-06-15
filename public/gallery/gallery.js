@@ -270,13 +270,6 @@ function updateStats() {
 		state.total != null ? state.total.toLocaleString() : state.totalLoaded.toLocaleString();
 }
 
-function formatCompact(n) {
-	if (n < 1000) return String(n);
-	if (n < 1_000_000) return (n / 1000).toFixed(n < 10_000 ? 1 : 0).replace(/\.0$/, '') + 'k';
-	if (n < 1_000_000_000) return (n / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M';
-	return (n / 1_000_000_000).toFixed(1).replace(/\.0$/, '') + 'B';
-}
-
 function renderTags() {
 	const tags = [...state.loadedTags].sort((a, b) => a.localeCompare(b));
 	if (!tags.length && !state.tag) {
@@ -307,7 +300,6 @@ function renderCard(a) {
 
 	const thumbSrc = a.thumbnail_url || `/api/avatars/${encodeURIComponent(a.id)}/og`;
 	const altText = a.alt_text || a.name || 'Avatar';
-	const views = a.view_count != null ? Number(a.view_count) : 0;
 	const created = formatRelative(a.created_at);
 
 	const thumbContent = glbUrl
@@ -336,8 +328,6 @@ function renderCard(a) {
 		.map((t) => `<span class="gallery-card-tag">${escapeHtml(t)}</span>`)
 		.join('');
 
-	const viewsLabel = views >= 1 ? `${formatCompact(views)} view${views === 1 ? '' : 's'}` : '';
-
 	const onchainBadge = window.twsOnchainBadge?.onchainBadgeHTML
 		? window.twsOnchainBadge.onchainBadgeHTML(a, { link: false, showChain: true, size: 'sm' })
 		: '';
@@ -355,7 +345,6 @@ function renderCard(a) {
 			${tagChips ? `<div class="gallery-card-tags">${tagChips}</div>` : ''}
 			<div class="gallery-card-foot">
 				<span class="gallery-card-meta">
-					${viewsLabel ? `<span class="gallery-card-views">${escapeHtml(viewsLabel)}</span>` : ''}
 					<span title="${escapeAttr(new Date(a.created_at || Date.now()).toLocaleString())}">${escapeHtml(created)}</span>
 				</span>
 				<div class="gallery-card-actions">

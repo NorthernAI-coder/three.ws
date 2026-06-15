@@ -431,11 +431,6 @@ body.gallery-page {
 	--progress-bar-color: rgba(255, 255, 255, 0.4);
 	--progress-bar-height: 2px;
 }
-.gallery-card-views {
-	font-size: 11px;
-	color: rgba(255, 255, 255, 0.5);
-	font-variant-numeric: tabular-nums;
-}
 .gallery-card-body {
 	display: flex;
 	flex-direction: column;

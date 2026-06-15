@@ -13,6 +13,7 @@ import { fbxFromUrl } from './remesh-convert.js';
 import { log } from './shared/log.js';
 import { emptyStateHTML, errorStateHTML } from './shared/state-kit.js';
 import { mountViewSwitcher } from './view-switcher.js';
+import { PoseStage, loadPoseManifest } from './avatar-pose.js';
 
 const ATTACHED_KEY_PREFIX = 'avatar_attached_v1:';
 
@@ -311,6 +312,7 @@ function renderShell(glbUrl) {
 			<nav class="av-tabs" role="tablist">
 				<button class="av-tab active" data-tab="overview" role="tab">Overview</button>
 				<button class="av-tab" data-tab="chat" role="tab">Chat</button>
+				<button class="av-tab" data-tab="pose" role="tab">Pose</button>
 				<button class="av-tab" data-tab="skills" role="tab">Skills</button>
 				<button class="av-tab" data-tab="plugins" role="tab">Plugins</button>
 				<button class="av-tab" data-tab="embed" role="tab">Embed</button>
@@ -349,6 +351,26 @@ function renderShell(glbUrl) {
 							<button type="button" class="av-chat-mic" id="av-chat-mic" aria-label="Dictate (voice input)" title="Dictate via microphone">🎤</button>
 							<button type="submit" class="av-chat-send" id="av-chat-send">Send</button>
 						</form>
+					</div>
+				</div>
+				<div class="av-panel" data-panel="pose">
+					<div class="av-pose" id="av-pose">
+						<div class="av-pose-loading" id="av-pose-loading">Open this tab to load the pose stage.</div>
+						<div class="av-pose-body" id="av-pose-body" hidden>
+							<div class="av-pose-transport" id="av-pose-transport">
+								<span class="av-pose-now" id="av-pose-now">Idle</span>
+								<div class="av-pose-controls">
+									<label class="av-pose-speed">
+										<span>Speed</span>
+										<input type="range" id="av-pose-speed" min="0.25" max="2" step="0.05" value="1" aria-label="Playback speed" />
+										<span class="av-pose-speed-val" id="av-pose-speed-val">1.0×</span>
+									</label>
+									<button type="button" class="av-pose-reset" id="av-pose-reset">Reset</button>
+								</div>
+							</div>
+							<input type="search" class="av-pose-search" id="av-pose-search" placeholder="Search poses…" autocomplete="off" aria-label="Search poses" />
+							<div class="av-pose-grid" id="av-pose-grid"></div>
+						</div>
 					</div>
 				</div>
 				<div class="av-panel" data-panel="skills">
@@ -612,7 +634,174 @@ function activateTab(tab) {
 	document.querySelectorAll('.av-panel').forEach((p) => {
 		p.classList.toggle('active', p.dataset.panel === tab);
 	});
+	// The Pose tab swaps the model-viewer stage for a live Three.js scene; every
+	// other tab restores it. Driven from here so deep-links and the view switcher
+	// enter/leave pose mode correctly too.
+	if (tab === 'pose') enterPoseMode();
+	else leavePoseMode();
 	return true;
+}
+
+// ── Pose stage ────────────────────────────────────────────────────────
+//
+// The Pose tab replaces the model-viewer stage with a live Three.js scene
+// (PoseStage) so the avatar can be driven through the shared clip library,
+// which model-viewer can't play (most avatar GLBs ship no embedded clips).
+// The stage mounts lazily on first open and only renders while visible, so
+// the page pays zero GPU cost until someone actually opens the tab.
+
+let poseStage = null;
+let poseMode = false;
+let poseDefs = null;
+let poseControlsBound = false;
+
+async function enterPoseMode() {
+	if (poseMode) return;
+	poseMode = true;
+	const stageEl = $('av-stage');
+	if (!stageEl) return;
+	stageEl.dataset.pose = '1';
+
+	if (!poseStage) {
+		const glbUrl = avatar.model_url || avatar.url;
+		if (!glbUrl) {
+			showPoseMessage('No 3D model is available for this avatar.');
+			return;
+		}
+		poseStage = new PoseStage(stageEl, { glbUrl });
+		poseStage.onChange = (name) => reflectPoseState(name);
+		try {
+			const { supported } = await poseStage.mount();
+			if (!poseMode) {
+				// User switched away while the model was still loading.
+				poseStage.stop();
+				return;
+			}
+			if (!supported) {
+				showPoseMessage(
+					'This avatar’s rig can’t be driven by the motion library — pose playback needs a rigged humanoid skeleton.',
+				);
+			} else {
+				revealPosePanel();
+			}
+		} catch (err) {
+			log.warn('[pose] stage failed to mount', err?.message);
+			showPoseMessage('The pose stage could not be loaded. Reload the page to try again.');
+			return;
+		}
+	}
+	poseStage.start();
+}
+
+function leavePoseMode() {
+	if (!poseMode) return;
+	poseMode = false;
+	poseStage?.stop();
+	const stageEl = $('av-stage');
+	if (stageEl) delete stageEl.dataset.pose;
+}
+
+function showPoseMessage(msg) {
+	const loadingEl = $('av-pose-loading');
+	if (loadingEl) {
+		loadingEl.hidden = false;
+		loadingEl.textContent = msg;
+	}
+	$('av-pose-body')?.setAttribute('hidden', '');
+}
+
+function revealPosePanel() {
+	const loadingEl = $('av-pose-loading');
+	const bodyEl = $('av-pose-body');
+	if (loadingEl) loadingEl.hidden = true;
+	if (bodyEl) bodyEl.hidden = false;
+	renderPoseGrid();
+	wirePoseControls();
+}
+
+async function renderPoseGrid() {
+	const grid = $('av-pose-grid');
+	if (!grid) return;
+	poseDefs = await loadPoseManifest();
+	if (!poseDefs.length) {
+		grid.innerHTML = emptyStateHTML({
+			compact: true,
+			icon: '🎭',
+			title: 'No poses available',
+			body: 'The motion library could not be loaded. Check your connection and reopen this tab.',
+		});
+		return;
+	}
+	grid.innerHTML = poseDefs
+		.map(
+			(d) => `
+			<button type="button" class="av-pose-clip" data-clip="${esc(d.name)}" title="${esc(d.label)}">
+				<span class="av-pose-clip-icon" aria-hidden="true">${esc(d.icon || '🎬')}</span>
+				<span class="av-pose-clip-label">${esc(d.label)}</span>
+			</button>`,
+		)
+		.join('');
+	grid.querySelectorAll('[data-clip]').forEach((btn) => {
+		btn.addEventListener('click', () => selectPose(btn.dataset.clip));
+	});
+	reflectPoseState('idle');
+}
+
+async function selectPose(name) {
+	if (!poseStage) return;
+	try {
+		await poseStage.play(name);
+	} catch (err) {
+		log.warn('[pose] clip failed to play', err?.message);
+	}
+}
+
+function reflectPoseState(name) {
+	$('av-pose-grid')
+		?.querySelectorAll('.av-pose-clip')
+		.forEach((b) => b.classList.toggle('is-active', b.dataset.clip === name));
+	const now = $('av-pose-now');
+	if (now) {
+		const def = poseDefs?.find((d) => d.name === name);
+		now.textContent = def ? def.label : name || 'Idle';
+	}
+}
+
+function wirePoseControls() {
+	if (poseControlsBound) return;
+	poseControlsBound = true;
+
+	const speed = $('av-pose-speed');
+	const speedVal = $('av-pose-speed-val');
+	const fmtSpeed = (v) => `${v % 1 === 0 ? v.toFixed(1) : String(v)}×`;
+	speed?.addEventListener('input', () => {
+		const v = Number(speed.value);
+		poseStage?.setSpeed(v);
+		if (speedVal) speedVal.textContent = fmtSpeed(v);
+	});
+
+	$('av-pose-reset')?.addEventListener('click', async () => {
+		if (speed) speed.value = '1';
+		if (speedVal) speedVal.textContent = '1.0×';
+		poseStage?.setSpeed(1);
+		try {
+			await poseStage?.reset();
+		} catch (err) {
+			log.warn('[pose] reset failed', err?.message);
+		}
+	});
+
+	const search = $('av-pose-search');
+	search?.addEventListener('input', () => {
+		const q = search.value.trim().toLowerCase();
+		$('av-pose-grid')
+			?.querySelectorAll('.av-pose-clip')
+			.forEach((b) => {
+				const def = poseDefs?.find((d) => d.name === b.dataset.clip);
+				const hay = `${def?.label || ''} ${def?.name || ''}`.toLowerCase();
+				b.style.display = !q || hay.includes(q) ? '' : 'none';
+			});
+	});
 }
 
 function bindTabs() {

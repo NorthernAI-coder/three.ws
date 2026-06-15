@@ -176,6 +176,209 @@
 				pointer-events: none;
 			}
 
+			/* ── Pose stage (live Three.js scene) ──────────────── */
+			/* The Pose tab swaps model-viewer for a real WebGL canvas that fills
+			   the stage. Toggled by [data-pose] on .av-stage from avatar-page.js. */
+			.av-pose-canvas {
+				position: absolute;
+				inset: 0;
+				width: 100% !important;
+				height: 100% !important;
+				display: block;
+				border-radius: inherit;
+				touch-action: none;
+			}
+			.av-stage[data-pose='1'] model-viewer { visibility: hidden; }
+			.av-stage:not([data-pose='1']) .av-pose-canvas { display: none; }
+
+			/* ── Pose panel (clip library + transport) ─────────── */
+			.av-pose { display: flex; flex-direction: column; gap: 12px; }
+			.av-pose-loading {
+				color: var(--text-3);
+				font-size: 13px;
+				line-height: 1.5;
+				padding: 8px 2px;
+			}
+			.av-pose-body { display: flex; flex-direction: column; gap: 12px; }
+			.av-pose-transport {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				gap: 12px;
+				flex-wrap: wrap;
+			}
+			.av-pose-now { font-size: 13px; font-weight: 600; color: var(--text); }
+			.av-pose-controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+			.av-pose-speed {
+				display: flex;
+				align-items: center;
+				gap: 8px;
+				font-size: 12px;
+				color: var(--text-2);
+			}
+			.av-pose-speed input[type='range'] {
+				width: 110px;
+				accent-color: var(--accent, #7c5cff);
+				cursor: pointer;
+			}
+			.av-pose-speed-val {
+				min-width: 40px;
+				font-variant-numeric: tabular-nums;
+				color: var(--text);
+			}
+			.av-pose-reset {
+				padding: 6px 12px;
+				border-radius: 8px;
+				border: 1px solid var(--border);
+				background: transparent;
+				color: var(--text-2);
+				font-size: 12px;
+				font-weight: 500;
+				cursor: pointer;
+				transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+			}
+			.av-pose-reset:hover { background: var(--hover, rgba(255, 255, 255, 0.06)); color: var(--text); }
+			.av-pose-reset:focus-visible { outline: 2px solid var(--accent, #7c5cff); outline-offset: 2px; }
+			.av-pose-search {
+				width: 100%;
+				padding: 9px 12px;
+				border-radius: 10px;
+				border: 1px solid var(--border);
+				background: var(--panel-2, rgba(255, 255, 255, 0.03));
+				color: var(--text);
+				font-size: 13px;
+			}
+			.av-pose-search::placeholder { color: var(--text-3); }
+			.av-pose-search:focus { outline: none; border-color: var(--accent, #7c5cff); }
+			.av-pose-grid {
+				display: grid;
+				grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+				gap: 8px;
+			}
+			.av-pose-clip {
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				gap: 6px;
+				padding: 12px 8px;
+				border-radius: 12px;
+				border: 1px solid var(--border);
+				background: var(--panel-2, rgba(255, 255, 255, 0.02));
+				color: var(--text-2);
+				cursor: pointer;
+				transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, transform 0.12s ease;
+			}
+			.av-pose-clip:hover {
+				background: var(--hover, rgba(255, 255, 255, 0.06));
+				color: var(--text);
+				transform: translateY(-1px);
+			}
+			.av-pose-clip:focus-visible { outline: 2px solid var(--accent, #7c5cff); outline-offset: 2px; }
+			.av-pose-clip.is-active {
+				border-color: var(--accent, #7c5cff);
+				background: color-mix(in srgb, var(--accent, #7c5cff) 16%, transparent);
+				color: var(--text);
+			}
+			.av-pose-clip-icon { font-size: 22px; line-height: 1; }
+			.av-pose-clip-label { font-size: 11px; font-weight: 500; text-align: center; }
+			@media (prefers-reduced-motion: reduce) {
+				.av-pose-clip:hover { transform: none; }
+			}
+
+			/* ── Animation control bar ─────────────────────────── */
+			.av-anim-bar {
+				position: absolute;
+				left: 50%;
+				bottom: 18px;
+				transform: translateX(-50%) translateY(6px);
+				display: flex;
+				align-items: center;
+				gap: 8px;
+				max-width: calc(100% - 32px);
+				padding: 6px 8px 6px 6px;
+				border: 1px solid var(--border);
+				border-radius: 999px;
+				background: color-mix(in srgb, var(--panel) 78%, transparent);
+				backdrop-filter: blur(14px) saturate(1.4);
+				-webkit-backdrop-filter: blur(14px) saturate(1.4);
+				box-shadow: 0 10px 30px -12px rgba(0, 0, 0, 0.55);
+				opacity: 0;
+				pointer-events: none;
+				transition: opacity 0.25s ease, transform 0.25s ease;
+				z-index: 4;
+			}
+			.av-anim-bar[data-visible='1'] {
+				opacity: 1;
+				pointer-events: auto;
+				transform: translateX(-50%) translateY(0);
+			}
+			.av-anim-toggle {
+				flex: 0 0 auto;
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				width: 34px;
+				height: 34px;
+				border-radius: 50%;
+				border: none;
+				background: var(--text);
+				color: var(--bg);
+				cursor: pointer;
+				transition: transform 0.15s ease, opacity 0.15s ease;
+			}
+			.av-anim-toggle:hover { transform: scale(1.06); }
+			.av-anim-toggle:active { transform: scale(0.96); }
+			.av-anim-toggle:focus-visible {
+				outline: 2px solid var(--accent, #7c5cff);
+				outline-offset: 2px;
+			}
+			.av-anim-toggle svg { width: 15px; height: 15px; display: block; }
+			.av-anim-clips {
+				display: flex;
+				align-items: center;
+				gap: 4px;
+				overflow-x: auto;
+				scrollbar-width: none;
+				-webkit-overflow-scrolling: touch;
+				padding-right: 4px;
+			}
+			.av-anim-clips::-webkit-scrollbar { display: none; }
+			.av-anim-clip {
+				flex: 0 0 auto;
+				padding: 6px 13px;
+				border-radius: 999px;
+				border: 1px solid transparent;
+				background: transparent;
+				color: var(--text-2);
+				font-size: 12px;
+				font-weight: 500;
+				white-space: nowrap;
+				cursor: pointer;
+				transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+			}
+			.av-anim-clip:hover { background: var(--hover, rgba(255, 255, 255, 0.06)); color: var(--text); }
+			.av-anim-clip:focus-visible {
+				outline: 2px solid var(--accent, #7c5cff);
+				outline-offset: 1px;
+			}
+			.av-anim-clip.is-active {
+				background: var(--text);
+				color: var(--bg);
+			}
+			.av-anim-label {
+				flex: 0 0 auto;
+				padding: 0 10px 0 4px;
+				font-size: 12px;
+				font-weight: 500;
+				color: var(--text-2);
+				letter-spacing: 0.01em;
+				white-space: nowrap;
+			}
+			@media (prefers-reduced-motion: reduce) {
+				.av-anim-bar { transition: none; }
+				.av-anim-toggle:hover { transform: none; }
+			}
+
 			.av-meta-strip {
 				display: flex;
 				gap: 18px;
