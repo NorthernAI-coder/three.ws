@@ -389,6 +389,21 @@ function render(agent) {
 	};
 	$('ad-name').textContent = agent.name;
 
+	// Let visitors save this agent's avatar as their own fork (its wallet is
+	// already managed in the holdings panel below, so fork-only here).
+	const fork = $('ad-avatar-actions');
+	if (fork && agent.avatar_id) {
+		if (!customElements.get('avatar-actions') && !document.querySelector('script[data-avatar-actions]')) {
+			const s = document.createElement('script');
+			s.type = 'module';
+			s.src = '/avatar-actions.js';
+			s.dataset.avatarActions = '1';
+			document.head.appendChild(s);
+		}
+		fork.setAttribute('avatar-id', agent.avatar_id);
+		fork.style.display = 'block';
+	}
+
 	// "See in 3D" drops this agent's avatar into the live $three world. Every
 	// agent has one — its own GLB if attached, the base mannequin otherwise — so
 	// the button is always live. Marketplace enrichment upgrades the href to a
@@ -1657,6 +1672,7 @@ function normalize(rec, avatar) {
 
 	return {
 		id: rec.id,
+		avatar_id: rec.avatar_id || avatar?.id || null,
 		name: rec.name || 'Unnamed agent',
 		assetKind: rec.is_registered ? 'Core Asset' : 'Off-chain',
 		// "Active" is a liveness signal, NOT an on-chain one. An agent is live as

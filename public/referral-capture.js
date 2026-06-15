@@ -22,7 +22,7 @@
 			if (!raw) return null;
 			var code = raw.trim().toUpperCase();
 			return CODE_RE.test(code) ? code : null;
-		} catch (e) {
+		} catch {
 			return null;
 		}
 	}
@@ -41,7 +41,7 @@
 				}
 			}
 		}
-	} catch (e) {
+	} catch {
 		/* private mode / disabled storage — referral capture is best-effort */
 	}
 })();

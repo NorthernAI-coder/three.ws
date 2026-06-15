@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-15T20:11:46.076Z",
+	"generated_at": "2026-06-15T20:22:29.540Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -218,6 +218,16 @@
 			"title": "Rate and vouch for Solana agents from their passport",
 			"summary": "Every Solana agent passport already showed its on-chain reputation — now you can add to it. A new \"Rate this agent\" panel lets anyone with a Solana wallet (Phantom or Solflare) leave a 1–5 score, with an optional public note, written on-chain as a signed attestation — no account needed. You can also back your rating with a SOL stake (from 0.001 SOL) sent to the agent's owner for an economically-weighted vouch. Submitting is guarded the obvious ways: you can't rate your own agent, scores are limited to 1–5, the minimum stake is enforced, and re-rating asks you to confirm before it updates your previous score. The moment your transaction confirms, the passport re-reads the chain on demand instead of waiting for the next indexing pass, so your rating shows up in the reputation summary within seconds.",
 			"link": "/agent-passport.html",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-15",
+			"type": "update",
+			"title": "Refer friends with a 3D membership card",
+			"summary": "Your account now has a Referrals page with a 3D, flippable membership card — your member number, referral count, and score on the front, a scannable QR for your invite link on the back. Tilt it with your cursor, flip it over, then share it: post to X or Telegram, copy your link, or download the card as an image. Anyone who signs up through your link is tied to you for life, and you earn 5% in USDC on everything they buy on three.ws. Sign-ups now carry your referral code through every login method — email and wallet alike — so credit always lands where it's due.",
+			"link": "/dashboard/referrals",
 			"tags": [
 				"feature"
 			]

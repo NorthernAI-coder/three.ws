@@ -145,6 +145,12 @@ class AvatarActions extends HTMLElement {
 		} catch {
 			/* render whatever we have */
 		}
+		// A bad / non-existent id (e.g. a default mannequin stand-in) never resolves
+		// an avatar — stay invisible rather than showing a stuck "Loading…".
+		if (!this._avatar) {
+			this.shadowRoot.innerHTML = '';
+			return;
+		}
 		this._render();
 	}
 

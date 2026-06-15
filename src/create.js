@@ -63,8 +63,30 @@ function markVideoAvatarUnavailable() {
 }
 
 async function handleFork(avatarId) {
-	showSaveOverlay('Loading avatar…');
+	showSaveOverlay('Saving avatar…');
 	try {
+		// Canonical, GitHub-style fork for signed-in users: the server copies the
+		// model into the caller's namespace, mints a new owned avatar with a
+		// "Forked from" link, and provisions its agent wallet. No client download.
+		const forkRes = await fetch('/api/avatars/fork', {
+			method: 'POST',
+			credentials: 'include',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ source_avatar_id: avatarId }),
+		});
+		if (forkRes.ok) {
+			const { avatar } = await forkRes.json();
+			window.location.href = `/avatars/${encodeURIComponent(avatar.id)}`;
+			return;
+		}
+		// Only auth failures fall through to the guest remix flow; surface real errors.
+		if (forkRes.status !== 401 && forkRes.status !== 403) {
+			const d = await forkRes.json().catch(() => ({}));
+			throw new Error(d.message || d.error || 'Could not save this avatar.');
+		}
+
+		// Not signed in → stage a guest copy so they can sign up at review and own it.
+		updateSaveOverlay('Loading avatar…');
 		const metaRes = await fetch(`/api/avatars/${encodeURIComponent(avatarId)}`);
 		if (!metaRes.ok) throw new Error('Could not load the original avatar.');
 		const { avatar } = await metaRes.json();

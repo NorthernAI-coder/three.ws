@@ -1096,6 +1096,10 @@
 			"dest": "/dashboard-next/account.html"
 		},
 		{
+			"src": "/dashboard/referrals/?",
+			"dest": "/dashboard-next/referrals.html"
+		},
+		{
 			"src": "/dashboard/settings/?",
 			"dest": "/dashboard-next/settings.html"
 		},
@@ -1995,6 +1999,14 @@
 		{
 			"src": "/api/users/by-subdomain",
 			"dest": "/api/users/by-subdomain.js"
+		},
+		{
+			"src": "/api/users/referrals",
+			"dest": "/api/users/referrals.js"
+		},
+		{
+			"src": "/api/users/referral-claim",
+			"dest": "/api/users/referral-claim.js"
 		},
 		{
 			"src": "/api/threews/subdomain",
