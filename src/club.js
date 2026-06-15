@@ -1012,6 +1012,30 @@ window.addEventListener('club:performance-end', () => {
 	audio.fadeOutStyle().catch((err) => log.warn('[club] fadeOutStyle', err));
 });
 
+// ── Walk-in anthem ────────────────────────────────────────────────────────
+// The moment the bouncer admits the wallet (src/club-gate.js → club:admitted,
+// in sync with the walk-through in src/club-entrance.js), play the entrance
+// track once. The door's "Pay cover" click is the user gesture that unlocks
+// the AudioContext, so prime it there — admit fires a beat later, after the
+// autoplay policy would otherwise block the anthem.
+{
+	const doorPay = document.getElementById('club-door-pay');
+	doorPay?.addEventListener('click', () => {
+		audio.ensureContext().catch(() => {});
+	}, { once: true });
+
+	const armOnGesture = () => {
+		const retry = () => audio.playEntrance().catch((err) => log.warn('[club] entrance audio', err));
+		window.addEventListener('pointerdown', retry, { once: true });
+		window.addEventListener('keydown', retry, { once: true });
+	};
+	window.addEventListener('club:admitted', () => {
+		// On a cached re-entry the door opens with no gesture, so the context is
+		// still locked — fall back to playing on the next interaction.
+		audio.playEntrance().catch(armOnGesture);
+	}, { once: true });
+}
+
 // ── Tip flow (x402 drop-in) ──────────────────────────────────────────────
 async function tipDancer({ dancer, dance, button }) {
 	if (!window.X402?.pay) {

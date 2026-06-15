@@ -129,6 +129,12 @@ async function init() {
 
 	$('ae-title').textContent = `Customize · ${avatar.name}`;
 	$('ae-back').href = `/avatars/${encodeURIComponent(avatar.id)}`;
+	// Owner is editing → surface the agent-wallet panel (create / manage) inline.
+	const actions = $('ae-actions');
+	if (actions) {
+		if (customElements.get('avatar-actions')) actions.avatar = avatar;
+		else actions.setAttribute('avatar-id', avatar.id);
+	}
 	// This avatar already has a baked GLB, so it's playable right now — light up
 	// the handoff into /play.
 	$('ae-play').disabled = false;

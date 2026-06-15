@@ -291,6 +291,7 @@ function renderShell(glbUrl) {
 					View in AR
 				</a>
 			</div>
+			<avatar-actions id="av-actions" avatar-id="${esc(avatar.id || avatarId)}" style="margin-top:14px;display:block"></avatar-actions>
 			${avatar.owner_id ? `
 			<div class="av-owner-row" id="av-owner-row">
 				<a class="av-owner-btn" href="/avatars/${encodeURIComponent(avatar.id || avatarId)}/edit">
@@ -412,6 +413,13 @@ function renderShell(glbUrl) {
 	$('av-use')?.addEventListener('click', startAgentWithAvatar);
 	$('av-talk')?.addEventListener('click', () => enterTalkMode());
 	$('av-download')?.addEventListener('click', openDownloadMenu);
+
+	// Per-avatar ownership + wallet surface: owner gets the agent-wallet panel
+	// (create / manage), everyone else gets "Save to my avatars" (fork). Seed it
+	// with the already-loaded avatar to skip a re-fetch — falls back to the
+	// avatar-id attribute (set in the template) if the element hasn't upgraded yet.
+	const actions = $('av-actions');
+	if (actions && customElements.get('avatar-actions')) actions.avatar = avatar;
 }
 
 /**

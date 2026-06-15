@@ -183,6 +183,14 @@
 			<description>When an agent is registered on-chain, three.ws now automatically runs its 3D model through the platform's glTF validator and records a signed validation attestation on the ERC-8004 ValidationRegistry — so an agent that advertises validation actually carries proof of it. A green &quot;Validated&quot; badge appears on the agent profile, readable by anyone without a wallet, and links straight to the full validation report and the on-chain record. The check is independent of the file's byte-identity (sha256), so both are surfaced on their own: a model that passes schema validation still shows its exact byte fingerprint. If a model has problems, the badge shows &quot;Validation failed&quot; with the specific reason — the agent is still registered, just unvalidated — and owners can re-validate after updating their model to refresh the badge. Validation is best-effort and never blocks or reverts a registration.</description>
 		</item>
 		<item>
+			<title>Save any avatar as your own — forks with their own wallet</title>
+			<link>https://three.ws/gallery</link>
+			<guid isPermaLink="false">2026-06-15:Save any avatar as your own — forks with their own wallet</guid>
+			<pubDate>Mon, 15 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Saving someone else's avatar now works like forking on GitHub: it mints a brand-new avatar in your account with its own copy of the model, linked back to the original with a &quot;Forked from&quot; credit and a fork counter on the source. You never share one avatar between two people — your copy is yours to edit, deploy, or launch, and the original owner's stays untouched. Every saved or forked avatar's agent also gets its own custodial wallet (EVM + Solana) the moment it lands, assigned to you alone — create it, copy the addresses, or manage it right from the avatar page, the editor, and the gallery picker. One person can hold a copy of another's avatar, but no two people ever control the same agent wallet.</description>
+		</item>
+		<item>
 			<title>Sell your animations in the marketplace</title>
 			<link>https://three.ws/marketplace?tab=animations</link>
 			<guid isPermaLink="false">2026-06-15:Sell your animations in the marketplace</guid>
