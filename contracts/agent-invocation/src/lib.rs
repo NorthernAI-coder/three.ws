@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
+declare_id!("CcdC7xDhQ9r2PoafbsfWVewcbuAYozECHJEXWe4ELnqR");
 
 /// Max accepted length (bytes) for `skill_name`, bounding the size of the
 /// emitted event and the compute spent formatting it.

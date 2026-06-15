@@ -789,7 +789,7 @@ export class LaunchTokenModal {
 			const mint = confirmed.agent?.token?.mint || prep.mint;
 			const pumpUrl =
 				prep.cluster === 'mainnet' ? `https://pump.fun/coin/${mint}` : null;
-			this._renderStep4(mint, pumpUrl);
+			this._renderStep4(mint, pumpUrl, this.agentId);
 		} catch {
 			this._msg('Connection error, please try again', true);
 			reset();
@@ -798,8 +798,20 @@ export class LaunchTokenModal {
 
 	// ── Step 4 — Success ──────────────────────────────────────────────────────
 
-	_renderStep4(mint, pumpUrl) {
+	_renderStep4(mint, pumpUrl, agentId) {
 		this._step = 4;
+		const isMainnet = this._d.cluster !== 'devnet';
+		const coin3dUrl = `/coin3d?mint=${encodeURIComponent(mint)}`;
+		const dashboardUrl = agentId
+			? `/pump-dashboard?agent=${encodeURIComponent(agentId)}`
+			: '/pump-dashboard';
+		const ctaRow = isMainnet
+			? `<div class="ltm-cta-row">
+					<a class="ltm-btn ltm-btn-primary" id="ltm-view-3d" href="${_esc(coin3dUrl)}" target="_blank" rel="noopener noreferrer">View in 3D</a>
+					<button class="ltm-btn" id="ltm-manage">Manage on Dashboard</button>
+					${pumpUrl ? `<a class="ltm-btn" id="ltm-pumpfun" href="${_esc(pumpUrl)}" target="_blank" rel="noopener noreferrer">View on pump.fun ↗</a>` : ''}
+				</div>`
+			: '';
 		this._paint(
 			this._shell(
 				'Token Launched!',
@@ -813,10 +825,10 @@ export class LaunchTokenModal {
 						<button class="ltm-btn" id="ltm-download">Download card</button>
 						<button class="ltm-btn ltm-btn-primary" id="ltm-share-x">Share on X</button>
 					</div>
-					${pumpUrl ? `<a class="ltm-pumpfun-link" href="${_esc(pumpUrl)}" target="_blank" rel="noopener noreferrer">View on pump.fun →</a>` : ''}
+					${ctaRow}
 				</div>`,
 				`<div></div>
-				<button class="ltm-btn ltm-btn-primary btn btn--primary" id="ltm-done">Done</button>`,
+				<button class="ltm-btn ltm-btn-primary btn btn--primary" id="ltm-done">Close</button>`,
 			),
 		);
 
@@ -850,9 +862,13 @@ export class LaunchTokenModal {
 			window.open(intent, '_blank', 'noopener,noreferrer');
 		});
 
+		ov.querySelector('#ltm-manage')?.addEventListener('click', () => {
+			this._close();
+			window.location.href = dashboardUrl;
+		});
+
 		ov.querySelector('#ltm-done').addEventListener('click', () => {
 			this._close();
-			location.reload();
 		});
 
 		window.dispatchEvent(

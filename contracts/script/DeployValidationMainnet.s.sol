@@ -27,8 +27,9 @@ contract DeployValidationMainnet is Script {
     // Canonical IdentityRegistry address (same on all 15 mainnet chains)
     address constant IDENTITY_REGISTRY = 0x8004A169FB4a3325136EB29fA0ceB6D2e539a432;
 
-    // Nick's deterministic CREATE2 factory — present on every EVM chain
-    address constant CREATE2_FACTORY = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
+    // Nick's deterministic CREATE2 factory (Arachnid proxy) — present on every EVM chain.
+    // Named ARACHNID_FACTORY to avoid colliding with forge-std Base.CREATE2_FACTORY.
+    address constant ARACHNID_FACTORY = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
 
     // Salt chosen to produce the 0x8004... vanity prefix on mainnet
     bytes32 constant SALT = keccak256(abi.encodePacked("ValidationRegistry", uint256(1)));
@@ -52,7 +53,7 @@ contract DeployValidationMainnet is Script {
 
         vm.stopBroadcast();
 
-        require(address(validation) == predictedAddr, "Address mismatch — wrong deployer or factory?");
+        require(address(validation) == predictedAddr, "Address mismatch - wrong deployer or factory?");
         console.log("Deployed ValidationRegistry:", address(validation));
     }
 
