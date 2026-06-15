@@ -3189,6 +3189,10 @@
 			"schedule": "*/5 * * * *"
 		},
 		{
+			"path": "/api/cron/trader-score-attest",
+			"schedule": "45 9 * * *"
+		},
+		{
 			"path": "/api/cron/index-delegations",
 			"schedule": "*/5 * * * *"
 		},
