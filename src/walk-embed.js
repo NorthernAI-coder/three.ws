@@ -24,7 +24,7 @@ import {
 	HemisphereLight,
 	Mesh,
 	MeshStandardMaterial,
-	PCFSoftShadowMap,
+	PCFShadowMap,
 	PerspectiveCamera,
 	PMREMGenerator,
 	Scene,
@@ -145,7 +145,7 @@ const HAS_SOLID_BG = !!(BG_PARAM && BG_PARAM !== 'transparent');
 // requested color. Transparent embeds keep alpha 0 so the host shows through.
 renderer.setClearColor(HAS_SOLID_BG ? new Color(BG_PARAM) : 0x000000, HAS_SOLID_BG ? 1 : 0);
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = PCFSoftShadowMap;
+renderer.shadowMap.type = PCFShadowMap;
 
 const scene = new Scene();
 

@@ -1,10 +1,18 @@
 // $THREE on-chain token layer — shared config + split policy.
 //
-// Centralizes the mint, decimals, treasury wallet, and burn address so no
-// literal addresses are scattered across the paid-action endpoints (Task 19
-// paid spins, Task 20 token-priced listings). Mirrors the HOLDER_PASS_SECRET
-// boot guard: a value that, if wrong/unset, would route real funds to the
-// wrong place fails loudly in production rather than silently mis-paying.
+// Centralizes the mint, decimals, treasury wallet, and rewards (reflections)
+// wallet so no literal addresses are scattered across the paid-action endpoints.
+// Mirrors the HOLDER_PASS_SECRET boot guard: a value that, if wrong/unset, would
+// route real funds to the wrong place fails loudly in production rather than
+// silently mis-paying.
+//
+// ECONOMY POLICY — NO PLATFORM BURNS. Every $THREE the platform charges routes to
+// the treasury, a holder-rewards (reflections) pool, and — on a sale — the
+// seller/creator. Supply is never destroyed; the treasury funds buybacks instead,
+// which creates buy pressure without deflation. The `burn` role and burn address
+// remain ONLY for the user-invoked burn primitive (three_burn in three-token-mcp,
+// where a holder may choose to burn their own bag). No platform split policy below
+// includes a burn leg.
 
 import { env } from '../env.js';
 
@@ -66,7 +74,46 @@ export function treasuryWalletOrNull() {
 	return env.THREE_TREASURY_WALLET || null;
 }
 
-/** The burn sink. Defaults to the Solana incinerator (unspendable ATA). */
+let _rewardsWarned = false;
+/**
+ * Rewards (reflections) wallet that receives the `rewards` share of every split.
+ * This is the pool distributed back to $THREE holders pro-rata (Lever: treasury
+ * loop). Same fail-closed contract as the treasury: production MUST set
+ * THREE_REWARDS_WALLET or fund-routing refuses; dev falls back to the burn sink so
+ * the split still has a valid destination and no real wallet is silently credited.
+ */
+export function rewardsWallet() {
+	const w = env.THREE_REWARDS_WALLET;
+	if (w) return w;
+	if (process.env.NODE_ENV === 'production') {
+		const e = new Error(
+			'[token] THREE_REWARDS_WALLET is required in production — refusing to route holder-rewards funds to an unset address.',
+		);
+		e.status = 503;
+		e.code = 'rewards_unavailable';
+		throw e;
+	}
+	if (!_rewardsWarned) {
+		_rewardsWarned = true;
+		console.warn(
+			'[token] THREE_REWARDS_WALLET is not set — falling back to the burn sink for dev. ' +
+				'Set THREE_REWARDS_WALLET in production or the holder-rewards share is burned.',
+		);
+	}
+	return burnAddress();
+}
+
+/** Non-throwing rewards lookup for READ paths (public config, status). */
+export function rewardsWalletOrNull() {
+	return env.THREE_REWARDS_WALLET || null;
+}
+
+/**
+ * The burn sink (Solana incinerator, unspendable ATA). Retained ONLY for the
+ * user-invoked burn primitive (three_burn) and as the dev fallback for unset
+ * fund-routing wallets. NO platform split policy routes here — see the economy
+ * policy note at the top of this file.
+ */
 export function burnAddress() {
 	return env.THREE_BURN_ADDRESS;
 }
@@ -74,30 +121,50 @@ export function burnAddress() {
 // ── Split policy ────────────────────────────────────────────────────────────
 //
 // Each policy is an ordered list of legs { role, bps }. bps across legs must
-// sum to 10_000. Roles 'burn' and 'treasury' resolve to the config addresses
-// above; 'seller' resolves to a per-call address (a marketplace listing's
-// payout wallet). Tasks 19/20 reuse the same verified-payment path by naming a
-// different policy here — the split ratio is a parameter, not a fork of logic.
+// sum to 10_000. Roles resolve to addresses:
+//   'treasury' → THREE_TREASURY_WALLET (the platform cut, funds buybacks)
+//   'rewards'  → THREE_REWARDS_WALLET  (the holder reflections pool)
+//   'seller'   → a per-call address (a marketplace listing's / creator's payout)
+// No platform policy routes to 'burn' — supply is never destroyed (see top note).
+// Every paid surface reuses the same verified-payment path by naming a policy
+// here; the split ratio is a parameter, not a fork of logic.
 export const SPLIT_POLICIES = Object.freeze({
-	// Task 19 — paid wheel spins: half burned, half to treasury.
-	spin: [
-		{ role: 'burn', bps: 5000 },
-		{ role: 'treasury', bps: 5000 },
+	// Pay-per-use compute (Forge paid tiers, voice clone, MCP-3D, Granite,
+	// selfie→avatar). 70% funds the platform/buybacks, 30% reflects to holders.
+	consumption: [
+		{ role: 'treasury', bps: 7000 },
+		{ role: 'rewards', bps: 3000 },
 	],
-	// Task 20 — token-priced marketplace sales: seller keeps 95%, 5% to treasury.
+	// Paid game spins (in-app wheel / actions). Former burn half now reflects to
+	// holders instead of being destroyed.
+	spin: [
+		{ role: 'treasury', bps: 5000 },
+		{ role: 'rewards', bps: 5000 },
+	],
+	// Token-priced marketplace sales (skills, animations, avatars, assets,
+	// collectible resales). Seller/creator keeps 90%, 5% treasury, 5% rewards.
 	marketplace_sale: [
-		{ role: 'seller', bps: 9500 },
+		{ role: 'seller', bps: 9000 },
 		{ role: 'treasury', bps: 500 },
+		{ role: 'rewards', bps: 500 },
+	],
+	// Scarcity drops + rare-name auctions + pay-to-mint. No seller leg (the
+	// platform mints the scarce good); 80% treasury, 20% reflects to holders.
+	scarcity_mint: [
+		{ role: 'treasury', bps: 8000 },
+		{ role: 'rewards', bps: 2000 },
 	],
 });
 
 function resolveRole(role, { sellerWallet } = {}) {
-	if (role === 'burn') return burnAddress();
 	if (role === 'treasury') return treasuryWallet();
+	if (role === 'rewards') return rewardsWallet();
 	if (role === 'seller') {
 		if (!sellerWallet) throw badRequest('sellerWallet is required for this split policy');
 		return sellerWallet;
 	}
+	// 'burn' intentionally has no platform route — the user-invoked burn primitive
+	// resolves its own destination from burnAddress() directly, not via a policy.
 	throw new Error(`[token] unknown split role: ${role}`);
 }
 
@@ -146,15 +213,21 @@ export function applySplit(totalAtomics, legs) {
 
 /** Public, non-secret config for clients to display and build transactions. */
 export function publicConfig() {
-	// Read path: surface the treasury as null when unset rather than throwing.
-	// The strict treasuryWallet() guard stays on the fund-routing path only.
+	// Read path: surface treasury/rewards as null when unset rather than throwing.
+	// The strict treasuryWallet()/rewardsWallet() guards stay on fund-routing only.
 	const treasury = treasuryWalletOrNull();
+	const rewards = rewardsWalletOrNull();
 	return {
 		mint: TOKEN_MINT,
 		symbol: TOKEN_SYMBOL,
 		decimals: TOKEN_DECIMALS,
 		treasury,
 		treasury_configured: treasury != null,
+		// Holder reflections pool — receives the `rewards` leg of every split and is
+		// distributed back to holders pro-rata by the rewards cron.
+		rewards_wallet: rewards,
+		rewards_configured: rewards != null,
+		// Retained for the user-invoked burn primitive only; no platform split burns.
 		burn_address: burnAddress(),
 		quote_ttl_seconds: env.THREE_QUOTE_TTL_S,
 		split_policies: Object.fromEntries(

@@ -14,7 +14,7 @@ import {
 	MeshBasicMaterial,
 	MeshStandardMaterial,
 	CanvasTexture,
-	PCFSoftShadowMap,
+	PCFShadowMap,
 	PerspectiveCamera,
 	PlaneGeometry,
 	PMREMGenerator,
@@ -80,7 +80,7 @@ export function initWalkPreview(container) {
 	}
 	renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 	renderer.shadowMap.enabled = true;
-	renderer.shadowMap.type = PCFSoftShadowMap;
+	renderer.shadowMap.type = PCFShadowMap;
 	// Count this context against the shared budget so <agent-3d> grids on the
 	// same page leave room for it (see webgl-budget.js / element.js).
 	reserveWebGLContext();

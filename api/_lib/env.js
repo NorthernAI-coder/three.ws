@@ -801,6 +801,14 @@ export const env = {
 	get THREE_TREASURY_WALLET() {
 		return opt('THREE_TREASURY_WALLET');
 	},
+	// Holder-rewards (reflections) wallet that receives the `rewards` share of every
+	// split. The rewards cron (api/cron/rewards-distribute.js) drains this pool back
+	// to holders pro-rata. REQUIRED in production — token/config.js fails closed
+	// (mirrors THREE_TREASURY_WALLET) rather than silently routing rewards to a
+	// placeholder. This is the platform's deflation-free alternative to burning.
+	get THREE_REWARDS_WALLET() {
+		return opt('THREE_REWARDS_WALLET');
+	},
 	// Burn address — defaults to the Solana incinerator, whose associated token
 	// account is unspendable (no key exists), so tokens transferred there are
 	// permanently removed from circulation. Verifiable as a plain destination.

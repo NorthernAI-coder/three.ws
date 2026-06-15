@@ -19,7 +19,7 @@ import {
 	HemisphereLight,
 	Mesh,
 	MeshBasicMaterial,
-	PCFSoftShadowMap,
+	PCFShadowMap,
 	PerspectiveCamera,
 	Plane,
 	Quaternion,
@@ -125,7 +125,7 @@ export function initHomePose(root) {
 	}
 	renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
 	renderer.shadowMap.enabled = true;
-	renderer.shadowMap.type = PCFSoftShadowMap;
+	renderer.shadowMap.type = PCFShadowMap;
 
 	const scene = new Scene();
 	const camera = new PerspectiveCamera(42, 1, 0.05, 100);

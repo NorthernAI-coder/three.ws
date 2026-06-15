@@ -29,7 +29,7 @@ import {
 	MeshStandardMaterial,
 	Object3D,
 	OrthographicCamera,
-	PCFSoftShadowMap,
+	PCFShadowMap,
 	PerspectiveCamera,
 	PlaneGeometry,
 	PMREMGenerator,
@@ -361,7 +361,7 @@ const renderer = new WebGLRenderer({ canvas, antialias: true, alpha: true, prese
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight, false);
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = PCFSoftShadowMap;
+renderer.shadowMap.type = PCFShadowMap;
 
 const scene = new Scene();
 

@@ -18,7 +18,7 @@ import {
 	Mesh,
 	MeshBasicMaterial,
 	MeshStandardMaterial,
-	PCFSoftShadowMap,
+	PCFShadowMap,
 	PerspectiveCamera,
 	Plane,
 	Quaternion,
@@ -201,7 +201,7 @@ function setupScene(canvas, hudStatus) {
 	});
 	renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 	renderer.shadowMap.enabled = true;
-	renderer.shadowMap.type = PCFSoftShadowMap;
+	renderer.shadowMap.type = PCFShadowMap;
 
 	const controls = new OrbitControls(camera, canvas);
 	controls.enableDamping = true;

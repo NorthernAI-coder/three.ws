@@ -1,0 +1,226 @@
+// Pricing catalog — the single source of truth for every paid action on the
+// platform, denominated in USD and settled in $THREE.
+//
+// WHY THIS EXISTS: before this file, prices lived scattered across endpoints
+// (forge-tiers.js, per-endpoint x402 challenges) and in two currencies. The
+// platform now charges in ONE currency, $THREE, through ONE rail
+// (api/_lib/token: quote → settle). Each action here names:
+//   • usd     — the retail price in USD (the quote unit; $THREE is the settle
+//               unit, converted at the live price by the token rail). `null`
+//               means the price is supplied per-call (auctions, variable mints).
+//   • policy  — a key of SPLIT_POLICIES (api/_lib/token/config.js). No policy
+//               burns; every spend routes to treasury + holder rewards (+ seller
+//               on a marketplace sale). See the economy-policy note there.
+//   • category— for grouping in the /three economy page + dashboards.
+//
+// Forge tier prices are READ from forge-tiers.js (their existing source of truth)
+// rather than copied, so a tier price is defined in exactly one place.
+//
+// This module is pure (no network, no DB, no env beyond forge-tiers' constants)
+// so it is safe to import on the client for display and on the server for pricing.
+
+import { TIERS, priceUsdcForTier } from '../forge-tiers.js';
+
+// ── Split-policy aliases ───────────────────────────────────────────────────────
+// Names map 1:1 to SPLIT_POLICIES keys; aliased here so call sites read in
+// product terms and a policy rename is a one-line change.
+export const POLICY = Object.freeze({
+	CONSUMPTION: 'consumption', // pay-per-use compute → treasury + rewards
+	MARKETPLACE: 'marketplace_sale', // creator/seller sale → seller + treasury + rewards
+	SCARCITY: 'scarcity_mint', // limited drops / auctions / pay-to-mint → treasury + rewards
+});
+
+// Forge: draft is FREE (the NVIDIA NIM lane). Standard/High are paid in $THREE.
+// Prices come from forge-tiers.js so they're never duplicated.
+const FORGE_STANDARD_USD = Number(priceUsdcForTier(TIERS.standard)); // 0.15
+const FORGE_HIGH_USD = Number(priceUsdcForTier(TIERS.high)); // 0.50
+
+// ── The catalog ─────────────────────────────────────────────────────────────────
+// id → { label, category, policy, usd }. `usd: null` ⇒ price set per-call.
+export const CATALOG = Object.freeze({
+	// ── Generation & compute (real GPU / vendor cost) — POLICY.CONSUMPTION ──────
+	'forge.standard': {
+		label: 'Forge — Standard generation',
+		category: 'generation',
+		policy: POLICY.CONSUMPTION,
+		usd: FORGE_STANDARD_USD,
+	},
+	'forge.high': {
+		label: 'Forge — High generation (PBR)',
+		category: 'generation',
+		policy: POLICY.CONSUMPTION,
+		usd: FORGE_HIGH_USD,
+	},
+	'mcp3d.text_to_3d': {
+		label: 'MCP-3D — text → 3D',
+		category: 'generation',
+		policy: POLICY.CONSUMPTION,
+		usd: FORGE_STANDARD_USD,
+	},
+	'mcp3d.image_to_3d': {
+		label: 'MCP-3D — image → 3D',
+		category: 'generation',
+		policy: POLICY.CONSUMPTION,
+		usd: FORGE_STANDARD_USD,
+	},
+	'mcp3d.auto_rig': {
+		label: 'MCP-3D — auto-rig',
+		category: 'generation',
+		policy: POLICY.CONSUMPTION,
+		usd: 0.1,
+	},
+	'mcp3d.stylize': {
+		label: 'MCP-3D — stylize',
+		category: 'generation',
+		policy: POLICY.CONSUMPTION,
+		usd: 0.1,
+	},
+	'mcp3d.retexture': {
+		label: 'MCP-3D — retexture',
+		category: 'generation',
+		policy: POLICY.CONSUMPTION,
+		usd: FORGE_STANDARD_USD,
+	},
+	'voice.clone': {
+		label: 'Voice Lab — custom voice clone',
+		category: 'generation',
+		policy: POLICY.CONSUMPTION,
+		usd: 0.5,
+	},
+	'selfie.reconstruct': {
+		label: 'Selfie → Avatar reconstruction',
+		category: 'generation',
+		policy: POLICY.CONSUMPTION,
+		usd: 0.25,
+	},
+	'granite.forecast': {
+		label: 'Granite Oracle — forecast',
+		category: 'data',
+		policy: POLICY.CONSUMPTION,
+		usd: 0.05,
+	},
+	'granite.vision': {
+		label: 'Granite Vision — image → identity',
+		category: 'data',
+		policy: POLICY.CONSUMPTION,
+		usd: 0.05,
+	},
+	'granite.proof': {
+		label: 'Granite Proof — notarized forecast',
+		category: 'data',
+		policy: POLICY.CONSUMPTION,
+		usd: 0.1,
+	},
+
+	// ── Scarcity & collectibles — POLICY.SCARCITY (price often per-call) ─────────
+	'name.auction': {
+		label: 'Rare *.threews.sol name',
+		category: 'scarcity',
+		policy: POLICY.SCARCITY,
+		usd: null, // set per name by rarity tier (see api/threews/auction.js)
+	},
+	'collectible.mint': {
+		label: 'Limited-edition collectible mint',
+		category: 'scarcity',
+		policy: POLICY.SCARCITY,
+		usd: null, // set per drop
+	},
+	'genesis.id': {
+		label: 'Genesis / numbered agent ID',
+		category: 'scarcity',
+		policy: POLICY.SCARCITY,
+		usd: null, // set per number rarity
+	},
+	'land.plot': {
+		label: 'City land plot',
+		category: 'scarcity',
+		policy: POLICY.SCARCITY,
+		usd: null, // set per plot
+	},
+
+	// ── Creator marketplace — POLICY.MARKETPLACE (requires a seller wallet) ──────
+	'skill.call': {
+		label: 'Skill call (creator-priced)',
+		category: 'marketplace',
+		policy: POLICY.MARKETPLACE,
+		usd: null,
+	},
+	'animation.purchase': {
+		label: 'Animation purchase',
+		category: 'marketplace',
+		policy: POLICY.MARKETPLACE,
+		usd: null,
+	},
+	'avatar.purchase': {
+		label: 'Avatar purchase',
+		category: 'marketplace',
+		policy: POLICY.MARKETPLACE,
+		usd: null,
+	},
+	'asset.download': {
+		label: 'Asset download',
+		category: 'marketplace',
+		policy: POLICY.MARKETPLACE,
+		usd: null,
+	},
+	'collectible.resale': {
+		label: 'Collectible resale (creator royalty)',
+		category: 'marketplace',
+		policy: POLICY.MARKETPLACE,
+		usd: null,
+	},
+});
+
+/** Look up a catalog entry. Throws a typed 404 if the action id is unknown. */
+export function catalogEntry(actionId) {
+	const e = CATALOG[actionId];
+	if (!e) {
+		const err = new Error(`unknown paid action: ${actionId}`);
+		err.status = 404;
+		err.code = 'unknown_action';
+		throw err;
+	}
+	return e;
+}
+
+/**
+ * Resolve the USD price for an action.
+ * @param {string} actionId             a key of CATALOG
+ * @param {object} [opts]
+ * @param {number} [opts.usd]           per-call price for variable actions (usd:null)
+ * @param {number} [opts.discountBps]   holder-tier fee discount in bps (0–10000),
+ *                                       applied only to fixed-price actions; ignored
+ *                                       for marketplace/scarcity prices the seller set.
+ * @returns {{ actionId, label, category, policy, usd }}
+ */
+export function priceForAction(actionId, { usd: usdOverride, discountBps = 0 } = {}) {
+	const entry = catalogEntry(actionId);
+	let usd = entry.usd;
+	if (usd == null) {
+		// Variable-price action: the caller MUST supply the per-call price.
+		if (!(Number(usdOverride) > 0)) {
+			const err = new Error(`action ${actionId} requires a per-call usd price`);
+			err.status = 400;
+			err.code = 'price_required';
+			throw err;
+		}
+		usd = Number(usdOverride);
+	} else if (discountBps > 0) {
+		// Fixed-price action: apply the holder-tier discount. Discount never makes
+		// a paid action free — clamp to a 1-cent floor so the rail still settles.
+		const clamped = Math.max(0, Math.min(10000, Math.floor(discountBps)));
+		usd = Math.max(0.01, Math.round(usd * (10000 - clamped)) / 10000);
+	}
+	return { actionId, label: entry.label, category: entry.category, policy: entry.policy, usd };
+}
+
+/** Public, display-safe view of the catalog (fixed prices only; variable shown as null). */
+export function publicCatalog() {
+	return Object.entries(CATALOG).map(([id, e]) => ({
+		id,
+		label: e.label,
+		category: e.category,
+		policy: e.policy,
+		usd: e.usd,
+	}));
+}

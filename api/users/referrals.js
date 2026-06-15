@@ -1,8 +1,12 @@
-import { sql } from '../_lib/db.js';
 import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.js';
 import { cors, json, error, method, wrap, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
+import { getMembershipCard } from '../_lib/referrals.js';
 
+// GET /api/users/referrals — the signed-in user's membership card payload:
+// referral code (lazily minted if absent), referral count + lifetime earnings,
+// signup position ("member #N"), and a derived score. Powers the 3D referral
+// card on /dashboard/referrals.
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'GET,OPTIONS', credentials: true })) return;
 	if (!method(req, res, ['GET'])) return;
@@ -15,27 +19,8 @@ export default wrap(async (req, res) => {
 	const rl = await limits.authIp(clientIp(req));
 	if (!rl.success) return rateLimited(res, rl);
 
-	const [user] = await sql`
-		SELECT
-			referral_code,
-			referral_earnings_total
-		FROM users
-		WHERE id = ${userId}
-	`;
+	const card = await getMembershipCard(userId);
+	if (!card) return error(res, 404, 'not_found', 'user not found');
 
-	if (!user) {
-		return error(res, 404, 'not_found', 'user not found');
-	}
-
-	const [referralCount] = await sql`
-		SELECT COUNT(*) as count
-		FROM users
-		WHERE referred_by_id = ${userId}
-	`;
-
-	return json(res, 200, {
-		referral_code: user.referral_code,
-		referral_earnings_total: user.referral_earnings_total,
-		referred_users_count: parseInt(referralCount.count, 10),
-	});
+	return json(res, 200, card);
 });
