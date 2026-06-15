@@ -3086,6 +3086,14 @@
 			mv.setAttribute('exposure', '0.92');
 			mv.setAttribute('environment-image', 'neutral');
 			mv.setAttribute('camera-controls', '');
+			// Defer the ~1.5MB GLB fetch until the card nears the viewport instead
+			// of pulling every model on first paint — that eager burst was failing
+			// on mobile (aborted loads under memory/network pressure) and flooding
+			// the error reporter. The poster (the lightweight forge preview image)
+			// shows instantly and remains as a graceful fallback if the mesh can't
+			// load, so a card is never blank.
+			mv.setAttribute('loading', 'lazy');
+			if (c.preview_image_url) mv.setAttribute('poster', c.preview_image_url);
 			mv.setAttribute('aria-label', c.prompt || 'Forged 3D model');
 			mv.style.cssText = 'width:100%;height:100%;--poster-color:transparent;background:transparent;';
 			wrap.appendChild(mv);

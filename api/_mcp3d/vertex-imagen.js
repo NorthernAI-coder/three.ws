@@ -89,12 +89,50 @@ async function getAccessToken() {
 // or base64-encoded. Accept every common mangling; reject with a designed
 // `unconfigured` error (instead of a raw JSON.parse crash) so callers can
 // branch to a fallback provider.
+// Escape raw control characters (newline, carriage return, tab) that appear
+// *inside* JSON string literals, leaving structural whitespace and already-
+// escaped sequences untouched. Walks the string tracking in-string state so it
+// never mangles the JSON between tokens. Lets a multi-line key-file paste parse.
+function escapeJsonControlChars(s) {
+  let out = '';
+  let inString = false;
+  let escaped = false;
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    if (escaped) {
+      out += ch;
+      escaped = false;
+      continue;
+    }
+    if (ch === '\\') {
+      out += ch;
+      escaped = true;
+      continue;
+    }
+    if (ch === '"') {
+      inString = !inString;
+      out += ch;
+      continue;
+    }
+    if (inString && ch === '\n') out += '\\n';
+    else if (inString && ch === '\r') out += '\\r';
+    else if (inString && ch === '\t') out += '\\t';
+    else out += ch;
+  }
+  return out;
+}
+
 function parseServiceAccount(raw) {
   let v = raw.trim();
   if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
     v = v.slice(1, -1).trim();
   }
   const candidates = [v, v.replace(/\\"/g, '"')];
+  // A multi-line paste of the raw key file leaves literal newlines/tabs/CRs
+  // *inside* the private_key string — valid in a file, but `JSON.parse` rejects
+  // raw control characters in a string literal ("Bad control character"). Add a
+  // candidate that escapes only those control chars so the paste parses cleanly.
+  candidates.push(escapeJsonControlChars(v), escapeJsonControlChars(v.replace(/\\"/g, '"')));
   if (/^[A-Za-z0-9+/=\s]+$/.test(v)) {
     try {
       candidates.push(Buffer.from(v, 'base64').toString('utf8'));

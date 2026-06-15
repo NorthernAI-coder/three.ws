@@ -65,8 +65,12 @@ function trackZauthFetch() {
 		if (url.includes(ZAUTH_HOST)) {
 			_inflight.add(promise);
 			promise.then(
-				() => { _inflight.delete(promise); console.log('[zauth] Batch submitted'); },
-				(err) => { _inflight.delete(promise); console.error('[zauth] Batch submit failed:', err.message); },
+				() => { _inflight.delete(promise); if (env.ZAUTH_DEBUG === '1') console.log('[zauth] Batch submitted'); },
+				// Telemetry is fire-and-forget: a transient network blip reaching
+				// back.zauthx402.com (or the lambda freezing mid-POST) must never be
+				// logged at error level — it isn't a request failure and was
+				// drowning genuine errors in the function logs. Warn, not error.
+				(err) => { _inflight.delete(promise); console.warn('[zauth] telemetry delivery failed (non-fatal):', err?.message || err); },
 			);
 		}
 		return promise;

@@ -175,13 +175,27 @@
 		) {
 			return true;
 		}
-		// A failed service-worker *registration* ("Script …/sw.js load failed") is
-		// a transient network/iOS-Safari hiccup; VitePWA's autoUpdate re-registers
-		// on the next visit, so it self-heals — noise, not an actionable fault.
-		if (report.message && /sw\.js\b[^]*load failed|load failed[^]*\bsw\.js\b/i.test(report.message)) {
+		// A failed service-worker *registration* is a transient network/iOS-Safari
+		// hiccup; VitePWA's autoUpdate re-registers on the next visit, so it
+		// self-heals — noise, not an actionable fault. iOS Safari surfaces it two
+		// ways: "Script …/sw.js load failed" and "Failed to register a
+		// ServiceWorker … An unknown error occurred when fetching the script."
+		if (
+			report.message &&
+			(/sw\.js\b[^]*load failed|load failed[^]*\bsw\.js\b/i.test(report.message) ||
+				/failed to register a serviceworker/i.test(report.message) ||
+				/error occurred when fetching the script/i.test(report.message))
+		) {
 			return true;
 		}
 		if (report.type === 'resource' && report.source) {
+			// A <model-viewer> whose mesh fails to load (slow/aborted GLB fetch
+			// under mobile memory or network pressure, a lost WebGL context) fires
+			// a resource error but degrades to its poster on its own — the user
+			// still sees the model's image. The object itself is served fine (the
+			// gallery only lists rows with a stored GLB); this is a transient,
+			// self-healing client condition, not a missing asset. Drop the noise.
+			if (report.tag === 'model-viewer') return true;
 			// Privacy-blocker-killed analytics — expected, not actionable.
 			if (IGNORED_RESOURCE_SOURCES.test(report.source)) return true;
 			// Expired signed URLs on third-party user-content — transient by design.
