@@ -140,6 +140,36 @@ describe('canonicalizeBoneName', () => {
 		expect(canonicalizeBoneName('mixamorig:left_arm')).toBe('LeftArm');
 		expect(canonicalizeBoneName('DEF-left_fore_arm')).toBe('LeftForeArm');
 	});
+
+	// glTF/FBX exporters (CharacterStudio, Blender, FBX2glTF) append a `_NN`
+	// node-de-dup index to keep names unique. These are the bone names that ship
+	// in real uploaded avatars — without stripping the suffix the whole animation
+	// library silently fails to bind to them.
+	it.each([
+		['mixamorig:Hips_01',        'Hips'],
+		['mixamorig:Spine_02',       'Spine'],
+		['mixamorig:Spine1_03',      'Spine1'],  // base name itself ends in a digit
+		['mixamorig:Spine2_04',      'Spine2'],
+		['mixamorig:Neck_05',        'Neck'],
+		['mixamorig:LeftForeArm_010','LeftForeArm'],
+		['mixamorig:LeftToeBase_058','LeftToeBase'],
+		['mixamorig:RightUpLeg_060', 'RightUpLeg'],
+		['Hips_01',                  'Hips'],
+		['LeftHandIndex1_016',       'LeftHandIndex1'], // digit base + dedup suffix
+	])('strips the glTF node-de-dup suffix: %s → %s', (input, expected) => {
+		expect(canonicalizeBoneName(input)).toBe(expected);
+	});
+
+	it('only strips the suffix when the plain form does not already resolve', () => {
+		// A genuinely numbered finger bone must keep its index — the un-stripped
+		// form resolves first, so we never reach the suffix strip.
+		expect(canonicalizeBoneName('left_hand_index_1')).toBe('LeftHandIndex1');
+		expect(canonicalizeBoneName('LeftHandIndex1')).toBe('LeftHandIndex1');
+		// End-effector / non-bone nodes still fall through to null after stripping.
+		expect(canonicalizeBoneName('mixamorig:HeadTop_End_07')).toBeNull();
+		expect(canonicalizeBoneName('mixamorig:LeftToe_End_059')).toBeNull();
+		expect(canonicalizeBoneName('Tail_01')).toBeNull();
+	});
 });
 
 describe('canonicalizeJointNodes (in-place rewrite)', () => {

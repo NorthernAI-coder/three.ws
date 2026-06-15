@@ -57,7 +57,8 @@ export class PoseLibrary {
 		this.user = undefined;       // undefined = unknown, null = signed out, object = signed in
 		this.savedClip = null;       // { id, slug, name, visibility } when editing a saved clip
 		this.tab = 'mine';
-		this.onSell = null;          // Task 6 sets this to wire the Sell action
+		// Wire the per-card Sell / Manage-sale action to the listing flow.
+		this.onSell = (clip) => this.openSellDialog(clip);
 	}
 
 	mount() {
@@ -521,6 +522,150 @@ export class PoseLibrary {
 		} catch (err) {
 			this.api.setStatus(`Export failed: ${err.message}`, 'error');
 		}
+	}
+
+	// ── Sell / list on the marketplace ────────────────────────────────────────
+	// List a saved animation for sale: bake a self-contained animated GLB, stage
+	// it in R2, then price it via /api/animations/sell. The clip surfaces in the
+	// marketplace animations feed and sells through the x402 paid-download
+	// endpoint (buy once in USDC, re-download free with the same wallet).
+	async openSellDialog(clip) {
+		// Bake the artifact from the live rig, so the clip being listed must be the
+		// one currently loaded. Re-open it first if needed (also lets the seller
+		// see exactly what they're listing).
+		if (this.savedClip?.id !== clip.id) {
+			this.api.setStatus(`Loading “${clip.name}” to prepare the listing…`);
+			await this._open(clip);
+			if (this.savedClip?.id !== clip.id) {
+				this.api.setStatus('Could not load that animation to list it.', 'error');
+				return;
+			}
+		}
+
+		const overlay = this._overlay();
+		const listed = !!clip.listed;
+		const curPrice = clip.price ? Number(clip.price.amount) : 0;
+
+		const priceInput = el('input', {
+			class: 'pl-input', id: 'pl-price', type: 'number', min: '0', step: '0.01',
+			value: curPrice ? String(curPrice) : '', placeholder: '0.00 (free)', 'aria-label': 'Price in USDC',
+		});
+		const priceHint = el('p', { class: 'pl-link-note' }, ['Buyers pay once in USDC (Base or Solana) and own the animated GLB. Leave blank or 0 to list it as a free download. Earnings settle to your default payout wallet.']);
+		const errLine = el('div', { class: 'pl-dialog-err', role: 'alert', hidden: true });
+		const statusLine = el('p', { class: 'pl-dialog-sub', hidden: true, role: 'status' });
+
+		const primaryBtn = el('button', { class: 'pose-btn pose-btn-primary', type: 'submit' }, [listed ? 'Update listing' : 'List for sale']);
+		const delistBtn = listed ? el('button', { class: 'pose-btn pl-danger', type: 'button' }, ['Remove from sale']) : null;
+
+		const form = el('form', { class: 'pl-dialog', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Sell animation' }, [
+			el('h2', { class: 'pl-dialog-title' }, [listed ? 'Manage marketplace listing' : 'Sell this animation']),
+			el('p', { class: 'pl-dialog-sub' }, [`“${clip.name}” will be published to the three.ws animation marketplace, playable on any avatar.`]),
+			el('label', { class: 'pl-field' }, [el('span', {}, ['Price (USDC)']), priceInput]),
+			priceHint,
+			statusLine,
+			errLine,
+			el('div', { class: 'pl-dialog-actions' }, [
+				el('button', { class: 'pose-btn', type: 'button', onclick: () => overlay.remove() }, ['Cancel']),
+				delistBtn,
+				primaryBtn,
+			]),
+		]);
+
+		const setBusy = (busy, label) => {
+			primaryBtn.disabled = busy;
+			if (delistBtn) delistBtn.disabled = busy;
+			if (label) { statusLine.hidden = false; statusLine.textContent = label; }
+		};
+
+		form.addEventListener('submit', async (ev) => {
+			ev.preventDefault();
+			errLine.hidden = true;
+			const price = Math.max(0, Number(priceInput.value) || 0);
+			setBusy(true, 'Baking the animated GLB…');
+			try {
+				const listing = await this._listForSale(clip, price, (msg) => (statusLine.textContent = msg));
+				overlay.remove();
+				Object.assign(clip, { listed: listing.listed, price: listing.price });
+				this._refreshCard(clip);
+				this.api.setStatus(
+					listing.price
+						? `Listed “${clip.name}” for ${listing.price.amount} ${listing.price.currency}. View it in the marketplace.`
+						: `Listed “${clip.name}” as a free download in the marketplace.`,
+				);
+			} catch (err) {
+				setBusy(false);
+				statusLine.hidden = true;
+				errLine.hidden = false;
+				errLine.textContent = err.message;
+			}
+		});
+
+		delistBtn?.addEventListener('click', async () => {
+			errLine.hidden = true;
+			setBusy(true, 'Removing from sale…');
+			try {
+				const body = await apiFetch('/api/animations/sell', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ id: clip.id, action: 'delist' }),
+				});
+				overlay.remove();
+				Object.assign(clip, { listed: false, price: body.listing.price });
+				this._refreshCard(clip);
+				this.api.setStatus(`“${clip.name}” removed from the marketplace.`);
+			} catch (err) {
+				setBusy(false);
+				statusLine.hidden = true;
+				errLine.hidden = false;
+				errLine.textContent = err.message;
+			}
+		});
+
+		overlay.appendChild(form);
+		document.body.appendChild(overlay);
+		priceInput.focus();
+	}
+
+	// Bake → upload → price. Returns the listing payload from /api/animations/sell.
+	async _listForSale(clip, price, onProgress = () => {}) {
+		const { buffer } = await this.api.bakeArtifact();
+		const bytes = buffer.byteLength;
+
+		onProgress('Staging the file…');
+		const presign = await apiFetch('/api/animations/presign', {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ size_bytes: bytes, content_type: 'model/gltf-binary', slug: clip.slug }),
+		});
+
+		onProgress('Uploading…');
+		const put = await fetch(presign.upload_url, {
+			method: 'PUT',
+			headers: { 'content-type': 'model/gltf-binary' },
+			body: buffer,
+		});
+		if (!put.ok) throw new Error(`Upload failed (${put.status})`);
+
+		onProgress('Publishing the listing…');
+		const body = await apiFetch('/api/animations/sell', {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({
+				id: clip.id,
+				price,
+				artifact_key: presign.storage_key,
+				artifact_bytes: bytes,
+				artifact_mime: 'model/gltf-binary',
+				listed: true,
+			}),
+		});
+		return body.listing;
+	}
+
+	// Re-render a card in place after a listing change.
+	_refreshCard(clip) {
+		const card = document.querySelector(`.pl-card[data-id="${clip.id}"]`);
+		if (card) card.replaceWith(this._card(clip, this.tab));
 	}
 
 	_resetSaveBtn() {

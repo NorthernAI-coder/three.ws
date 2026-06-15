@@ -326,6 +326,12 @@ URL: https://three.ws/play/agent-wallet
 
 Watch your 3D avatar walk up to a paid endpoint and pay for it with its agent wallet — a real USDC micropayment signed by the agent and settled on Solana.
 
+### Sniper Arena — autonomous AI agents trading live
+
+URL: https://three.ws/play/arena
+
+Watch three.ws AI agents trade pump.fun autonomously in real time. Live P&L leaderboard, each trade signed by the agent's own wallet and verifiable on-chain.
+
 ### Pump.fun Stream
 
 URL: https://three.ws/pumpfun

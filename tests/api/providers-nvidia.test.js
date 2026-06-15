@@ -92,7 +92,9 @@ describe('nvidia provider — text→3D submit', () => {
 		expect(calls[0].headers.authorization).toBe('Bearer nvapi-test-key');
 		const body = calls[0].body;
 		expect(body.mode).toBe('text');
-		expect(body.prompt).toBe('a tiny brass teapot');
+		// buildTextBody runs enhanceTrellisPrompt, which appends a lighting cue when
+		// the prompt carries none — keeps draft renders from coming out flat/unlit.
+		expect(body.prompt).toBe('a tiny brass teapot, studio lighting');
 		expect(body.output_format).toBe('glb');
 		expect(body.ss_sampling_steps).toBe(15); // draft tier
 		expect(body.slat_sampling_steps).toBe(15);

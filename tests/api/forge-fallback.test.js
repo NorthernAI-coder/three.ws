@@ -47,6 +47,24 @@ vi.mock('../../api/_providers/replicate.js', () => ({
 	}),
 }));
 
+// Free Hugging Face Spaces image→3D lane (fallback #2, after Hunyuan3D). Its
+// submit() blocks and packs the GLB into extJobId; status() echoes it back. The
+// real provider throws when HF_TOKEN is unset, so the mock mirrors that gating —
+// the lane is only available on deployments that configure a token.
+const hfSubmit = vi.fn(async () => ({ extJobId: 'hf-packed-job', rawStatus: 'completed' }));
+const hfStatus = vi.fn(async () => ({ status: 'done', resultGlbUrl: 'https://cdn.example/hf.glb' }));
+vi.mock('../../api/_providers/huggingface.js', () => ({
+	createRegenProvider: () => {
+		if (!process.env.HF_TOKEN) {
+			throw Object.assign(new Error('HF_TOKEN env var is required'), {
+				code: 'provider_unconfigured',
+				status: 501,
+			});
+		}
+		return { submit: hfSubmit, status: hfStatus };
+	},
+}));
+
 // FLUX text-to-image (the standard-tier intermediate view) succeeds — the
 // failure under test is the reconstruction submit, not image synthesis.
 vi.mock('../../api/_mcp3d/text-to-image.js', () => ({
@@ -153,10 +171,47 @@ describe('forge free-first fallback when the paid lane is over-quota', () => {
 		expect(gcpSubmit.mock.calls[0][0].params.target_polycount).toBeGreaterThan(0);
 	});
 
-	it('surfaces the honest busy state for an image upload when no Hunyuan3D worker is wired', async () => {
+	it('degrades an image upload to the free HuggingFace lane when no Hunyuan3D worker is wired but HF_TOKEN is set', async () => {
 		const savedUrl = process.env.GCP_HUNYUAN3D_URL;
 		delete process.env.GCP_HUNYUAN3D_URL;
+		process.env.HF_TOKEN = 'test-hf-token';
 		gcpSubmit.mockClear();
+		nvidiaTextTo3d.mockClear();
+		hfSubmit.mockClear();
+		hfStatus.mockClear();
+		try {
+			const req = makeReq({
+				image_urls: ['https://cdn.example/photo.png'],
+				prompt: 'a mug',
+				tier: 'standard',
+				path: 'image',
+				skip_validation: true,
+			});
+			const res = makeRes();
+			await handler(req, res);
+
+			// The HF Spaces lane blocks and returns the finished model synchronously,
+			// so image→3D never dead-ends. Provenance reports the lane that ran.
+			expect(res.statusCode).toBe(200);
+			expect(res.body.status).toBe('done');
+			expect(res.body.backend).toBe('huggingface');
+			expect(res.body.glb_url).toBe('https://cdn.example/hf.glb');
+			expect(hfSubmit).toHaveBeenCalled();
+			// The Hunyuan3D worker wasn't wired, and NVIDIA is text-only — neither runs.
+			expect(gcpSubmit).not.toHaveBeenCalled();
+			expect(nvidiaTextTo3d).not.toHaveBeenCalled();
+		} finally {
+			process.env.GCP_HUNYUAN3D_URL = savedUrl;
+			delete process.env.HF_TOKEN;
+		}
+	});
+
+	it('surfaces the honest busy state for an image upload when neither Hunyuan3D nor HF_TOKEN is configured', async () => {
+		const savedUrl = process.env.GCP_HUNYUAN3D_URL;
+		delete process.env.GCP_HUNYUAN3D_URL;
+		delete process.env.HF_TOKEN;
+		gcpSubmit.mockClear();
+		hfSubmit.mockClear();
 		try {
 			const req = makeReq({
 				image_urls: ['https://cdn.example/photo.png'],
@@ -173,6 +228,7 @@ describe('forge free-first fallback when the paid lane is over-quota', () => {
 			expect(res.statusCode).toBe(429);
 			expect(res.body.error).toBe('rate_limited');
 			expect(gcpSubmit).not.toHaveBeenCalled();
+			expect(hfSubmit).not.toHaveBeenCalled();
 		} finally {
 			process.env.GCP_HUNYUAN3D_URL = savedUrl;
 		}

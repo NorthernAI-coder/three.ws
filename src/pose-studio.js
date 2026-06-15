@@ -1569,6 +1569,9 @@ function boot() {
 			},
 			bake: () => bakeClip(doc, { resolveBoneName: (k) => k, rootName: 'Hips' }),
 			serialize: () => serializeClip(doc, { resolveBoneName: (k) => k, rootName: 'Hips' }),
+			// Bake the live rig (mesh + embedded clip) to a self-contained binary
+			// GLB — the sellable artifact for a marketplace listing.
+			bakeArtifact: () => bakeAnimatedGlb(),
 			captureThumbnail: () => {
 				renderer.render(scene, camera);
 				return renderer.domElement.toDataURL('image/png');
@@ -1584,6 +1587,7 @@ function boot() {
 		getDocument: () => timeline.getDocument(),
 		loadDocument: (d) => timeline.loadDocument(d),
 		serializeClip: () => timeline.serialize(),
+		bakeArtifact: () => timeline.bakeArtifact(),
 		captureThumbnail: () => timeline.captureThumbnail(),
 		keyframeCount: () => timeline.keyframeCount(),
 		currentAvatarId: () => state.avatar?.id || null,

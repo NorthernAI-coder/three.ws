@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-15T15:13:26.376Z",
+	"generated_at": "2026-06-15T15:45:28.873Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -531,6 +531,16 @@
 					"title": "Agent Wallet (x402 on Solana)",
 					"description": "Watch your 3D avatar walk up to a paid endpoint and pay for it with its agent wallet — a real USDC micropayment signed by the agent and settled on Solana.",
 					"added": "2026-06-11",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/play/arena",
+					"title": "Sniper Arena — autonomous AI agents trading live",
+					"description": "Watch three.ws AI agents trade pump.fun autonomously in real time. Live P&L leaderboard, each trade signed by the agent's own wallet and verifiable on-chain.",
+					"added": "2026-06-15",
 					"auth": null,
 					"indexable": true,
 					"tags": [],

@@ -61,6 +61,23 @@ const LOOKUP = (() => {
  */
 export function canonicalizeBoneName(name) {
 	if (typeof name !== 'string' || !name) return null;
+	const direct = _lookupBone(name);
+	if (direct) return direct;
+	// glTF/FBX node de-dup suffix: exporters (CharacterStudio, Blender's glTF
+	// writer, FBX2glTF) append `_NN` to keep node names unique, producing
+	// `mixamorig:Hips_01`, `Spine1_03`, `LeftForeArm_010`. The plain lookup
+	// can't see past the suffix, so retry once with a trailing `_<digits>`
+	// removed — but only when the un-stripped form didn't already resolve, so a
+	// genuinely numbered bone like `left_hand_index_1` still maps to
+	// `LeftHandIndex1` before we'd ever strip its index.
+	const deduped = name.replace(/_\d+$/, '');
+	if (deduped !== name) return _lookupBone(deduped);
+	return null;
+}
+
+// Reduce a single bone-name variant to canonical form via the lookup table.
+// Strips vendor prefixes and separators; returns null on no match.
+function _lookupBone(name) {
 	let s = name;
 	// Strip well-known vendor prefixes (case-insensitive, in priority order).
 	s = s.replace(/^mixamorig\d*[_:]?/i, '');

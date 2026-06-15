@@ -1,5 +1,6 @@
 import { AnimationClip, AnimationMixer, LoopRepeat, LoopOnce } from 'three';
 import { canonicalizeBoneName } from './glb-canonicalize.js';
+import { canonicalNodeMapFromObject, retargetClip } from './animation-retarget.js';
 import { log } from './shared/log.js';
 
 // Minimum number of canonical bones a skinned model must expose before the
@@ -46,8 +47,8 @@ export class AnimationManager {
 		this._animationDefs = [];
 		/** @type {Set<string>} Clip names that failed to load — buttons grayed out in UI. */
 		this._failed = new Set();
-		/** @type {Set<string>|null} Bone/node names of the currently attached model. */
-		this._boneNames = null;
+		/** @type {Map<string,string>|null} canonical bone → actual node name on the attached model. */
+		this._canonicalToNode = null;
 		/** @type {boolean} Whether the attached model's rig can play the canonical clip library. */
 		this._canonicalClipsSupported = false;
 	}
@@ -66,15 +67,33 @@ export class AnimationManager {
 		this.actions.clear();
 		this.currentAction = null;
 		this.currentName = null;
-		this._boneNames = _collectBoneNames(model);
+		// Build the canonical→node map once. Every clip is retargeted through it,
+		// so the library drives ANY humanoid rig — Mixamo, VRM-via-Mixamo,
+		// CharacterStudio, Blender — not just an already-canonical Avaturn rig.
+		this._canonicalToNode = canonicalNodeMapFromObject(model);
 		this._canonicalClipsSupported = _modelSupportsCanonicalClips(model);
 
 		for (const [name, clip] of this.clips) {
-			const filtered = _filterClip(clip, this._boneNames);
-			const action = this.mixer.clipAction(filtered);
+			const bound = this._retarget(clip);
+			if (!bound) continue;
+			const action = this.mixer.clipAction(bound);
 			action.enabled = true;
 			this.actions.set(name, action);
 		}
+	}
+
+	/**
+	 * Retarget a canonical-skeleton library clip onto the attached model's actual
+	 * bone names. Returns null when the rig shares too few bones to perform the
+	 * motion (a static prop, a non-humanoid rig), so callers skip building a dead
+	 * action. A clip whose tracks already match the rig 1:1 round-trips unchanged.
+	 * @param {THREE.AnimationClip} clip
+	 * @returns {THREE.AnimationClip|null}
+	 */
+	_retarget(clip) {
+		if (!this._canonicalToNode || this._canonicalToNode.size === 0) return null;
+		const { clip: out } = retargetClip(clip, this._canonicalToNode);
+		return out;
 	}
 
 	/** Detach, stop all actions, dispose mixer. */
@@ -85,7 +104,7 @@ export class AnimationManager {
 			this.mixer = null;
 		}
 		this.model = null;
-		this._boneNames = null;
+		this._canonicalToNode = null;
 		this._canonicalClipsSupported = false;
 		this.actions.clear();
 		this.currentAction = null;
@@ -155,12 +174,14 @@ export class AnimationManager {
 		this.clips.set(name, clip);
 
 		if (this.model && this.mixer) {
-			const filtered = _filterClip(clip, this._boneNames);
-			const action = this.mixer.clipAction(filtered);
-			action.enabled = true;
-			action.setLoop(opts.loop === false ? LoopOnce : LoopRepeat);
-			if (opts.loop === false) action.clampWhenFinished = true;
-			this.actions.set(name, action);
+			const bound = this._retarget(clip);
+			if (bound) {
+				const action = this.mixer.clipAction(bound);
+				action.enabled = true;
+				action.setLoop(opts.loop === false ? LoopOnce : LoopRepeat);
+				if (opts.loop === false) action.clampWhenFinished = true;
+				this.actions.set(name, action);
+			}
 		}
 		return clip;
 	}
@@ -304,12 +325,6 @@ export class AnimationManager {
 	}
 }
 
-function _collectBoneNames(model) {
-	const names = new Set();
-	model.traverse((n) => { if (n.name) names.add(n.name); });
-	return names;
-}
-
 // A pre-baked clip only deforms the mesh when its tracks address real skeleton
 // bones. Require both a SkinnedMesh and enough canonically-named bones so we
 // don't mistake a static prop (whose node happens to be named "Head") for a
@@ -325,17 +340,4 @@ function _modelSupportsCanonicalClips(model) {
 		}
 	});
 	return hasSkinnedMesh && canonical.size >= MIN_CANONICAL_BONES;
-}
-
-function _filterClip(clip, boneNames) {
-	if (!boneNames || boneNames.size === 0) return clip;
-	const valid = clip.tracks.filter((t) => {
-		const dot = t.name.indexOf('.');
-		const bone = dot !== -1 ? t.name.slice(0, dot) : t.name;
-		return boneNames.has(bone);
-	});
-	if (valid.length === clip.tracks.length) return clip;
-	const copy = clip.clone();
-	copy.tracks = valid;
-	return copy;
 }

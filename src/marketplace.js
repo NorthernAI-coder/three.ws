@@ -3089,29 +3089,146 @@ function bindAgentPricingModal() {
 
 // ── Animations tab ───────────────────────────────────────────────────────
 
-const animState = { loaded: false, loading: false, items: [], filter: 'all', q: '' };
+const animState = {
+	loaded: false, loading: false, items: [], filter: 'all', q: '',
+	listings: [], listingsLoaded: false,
+};
 
 async function loadAnimationsTab(force = false) {
 	if (animState.loading) return;
-	if (animState.loaded && !force) { renderAnimationsGrid(); return; }
+	if (animState.loaded && !force) { renderCreatorListings(); renderAnimationsGrid(); return; }
 	animState.loading = true;
 	const grid = $('animations-grid');
 	if (grid) grid.innerHTML = renderSkeletons(8);
-	try {
-		const r = await fetch('/animations/manifest.json');
-		if (!r.ok) throw new Error(`manifest ${r.status}`);
-		const raw = await r.json();
-		const arr = Array.isArray(raw) ? raw : (raw.animations || []);
-		animState.items = arr;
+	const listEl = ensureListingsContainer();
+	if (listEl) listEl.querySelector('.market-anim-listings-grid').innerHTML = renderSkeletons(4);
+
+	// Curated preset library + creator listings load independently — one failing
+	// must not blank the other.
+	const [presetRes, listingRes] = await Promise.allSettled([
+		fetch('/animations/manifest.json').then((r) => {
+			if (!r.ok) throw new Error(`manifest ${r.status}`);
+			return r.json();
+		}),
+		fetch('/api/marketplace/animations?limit=48').then((r) => {
+			if (!r.ok) throw new Error(`listings ${r.status}`);
+			return r.json();
+		}),
+	]);
+
+	if (presetRes.status === 'fulfilled') {
+		const raw = presetRes.value;
+		animState.items = Array.isArray(raw) ? raw : (raw.animations || []);
 		animState.loaded = true;
-	} catch (err) {
-		log.error('[marketplace] animations', err);
-		if (grid) grid.innerHTML = renderErrorState('animations');
-	} finally {
-		animState.loading = false;
+	} else {
+		log.error('[marketplace] animations presets', presetRes.reason);
+		if (grid && !animState.items.length) grid.innerHTML = renderErrorState('animations');
 	}
+
+	if (listingRes.status === 'fulfilled') {
+		animState.listings = listingRes.value.items || [];
+	} else {
+		log.error('[marketplace] animations listings', listingRes.reason);
+		animState.listings = [];
+	}
+	animState.listingsLoaded = true;
+	animState.loading = false;
+
+	renderCreatorListings();
 	renderAnimationsGrid();
 	bindAnimationsEvents();
+}
+
+// ── Creator listings (paid / free marketplace clips) ──────────────────────
+// Inserted as its own section above the curated preset library. The preset
+// grid (#animations-grid) keeps its existing markup; this block is created
+// on demand so the static HTML stays untouched.
+function ensureListingsContainer() {
+	let section = $('animations-listings');
+	if (section) return section;
+	const tab = document.querySelector('#market-animations-section .market-skills-tab');
+	const grid = $('animations-grid');
+	if (!tab || !grid) return null;
+	section = document.createElement('div');
+	section.id = 'animations-listings';
+	section.className = 'market-anim-listings';
+	section.innerHTML = `
+		<div class="market-anim-listings-head">
+			<h3 class="market-anim-listings-title">From creators</h3>
+			<span class="market-anim-listings-sub" id="animations-listings-sub"></span>
+		</div>
+		<div class="market-grid market-anim-listings-grid" id="animations-listings-grid"></div>
+		<div class="market-anim-library-head"><h3 class="market-anim-listings-title">Animation library</h3>
+			<span class="market-anim-listings-sub">Curated clips, free on any avatar</span></div>`;
+	tab.insertBefore(section, grid);
+	return section;
+}
+
+function renderCreatorListings() {
+	const section = ensureListingsContainer();
+	if (!section) return;
+	const grid = section.querySelector('.market-anim-listings-grid');
+	const sub = $('animations-listings-sub');
+	const q = animState.q.toLowerCase();
+
+	const filtered = animState.listings.filter((it) => {
+		if (animState.filter === 'loop' && it.loop !== true) return false;
+		if (animState.filter === 'action' && it.loop !== false) return false;
+		if (q && !(`${it.name} ${it.creator?.name || ''} ${(it.tags || []).join(' ')}`.toLowerCase().includes(q))) return false;
+		return true;
+	});
+
+	// Hide the whole "From creators" header + library divider when there are no
+	// listings at all (keeps the preset library looking intentional, not empty).
+	if (!animState.listings.length) { section.hidden = true; return; }
+	section.hidden = false;
+	if (sub) sub.textContent = `${filtered.length} for sale`;
+
+	if (!filtered.length) {
+		grid.innerHTML = `<div class="market-empty">No creator animations match your filter.</div>`;
+		return;
+	}
+
+	grid.innerHTML = filtered.map((it) => {
+		const priceLabel = it.free ? 'Free' : `${formatPrice(it.price.amount)} ${it.price.currency}`;
+		const dur = it.duration ? `${it.duration.toFixed(it.duration % 1 ? 1 : 0)}s` : '';
+		const typeLabel = it.loop !== false ? 'Loop' : 'Action';
+		const thumb = it.thumbnail_url
+			? `<img class="anim-listing-thumb" src="${escapeHtml(it.thumbnail_url)}" alt="" loading="lazy" />`
+			: `<div class="anim-listing-thumb anim-listing-thumb-empty">🎬</div>`;
+		return `<article class="anim-listing-card" data-listing-id="${escapeHtml(it.id)}" tabindex="0" role="button" aria-label="${escapeHtml(it.name)} — ${priceLabel}">
+			<div class="anim-listing-media">
+				${thumb}
+				<span class="anim-listing-price ${it.free ? 'free' : 'paid'}">${escapeHtml(priceLabel)}</span>
+			</div>
+			<div class="anim-listing-body">
+				<div class="anim-listing-name">${escapeHtml(it.name)}</div>
+				<div class="anim-listing-creator">${escapeHtml(it.creator?.name || 'Anonymous')}</div>
+				<div class="anim-listing-meta">
+					<span class="anim-type-pill ${it.loop !== false ? 'loop' : 'action'}">${typeLabel}</span>
+					${dur ? `<span class="stat-pill">${escapeHtml(dur)}</span>` : ''}
+					${it.purchase_count ? `<span class="stat-pill">${it.purchase_count} sold</span>` : ''}
+				</div>
+			</div>
+			<div class="anim-listing-cta">${it.free ? 'Get →' : 'Buy →'}</div>
+		</article>`;
+	}).join('');
+
+	grid.querySelectorAll('.anim-listing-card').forEach((card) => {
+		const id = card.dataset.listingId;
+		const open = () => openAnimationPurchase(id);
+		card.addEventListener('click', open);
+		card.addEventListener('keydown', (e) => {
+			if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
+		});
+	});
+}
+
+function formatPrice(amount) {
+	const n = Number(amount);
+	if (!isFinite(n)) return amount;
+	// Trim trailing zeros: 2.50 → 2.5, 2.00 → 2.
+	return `$${n.toFixed(2).replace(/\.?0+$/, '')}`;
 }
 
 function renderAnimationsGrid() {
@@ -3168,6 +3285,7 @@ function bindAnimationsEvents() {
 	if (search) {
 		search.addEventListener('input', () => {
 			animState.q = search.value.trim();
+			renderCreatorListings();
 			renderAnimationsGrid();
 		});
 	}
@@ -3175,9 +3293,123 @@ function bindAnimationsEvents() {
 		btn.addEventListener('click', () => {
 			animState.filter = btn.dataset.animFilter;
 			document.querySelectorAll('[data-anim-filter]').forEach((b) => b.classList.toggle('active', b === btn));
+			renderCreatorListings();
 			renderAnimationsGrid();
 		});
 	});
+}
+
+// ── Creator-animation purchase modal ──────────────────────────────────────
+// Self-contained overlay: poster, metadata, and the buy/get action. Free clips
+// download the GLB directly; paid clips pay once in USDC via the x402 endpoint
+// (buy once, re-download free with the same wallet) and surface a ready-to-run
+// snippet for agents/CLIs.
+async function openAnimationPurchase(id) {
+	const item = animState.listings.find((x) => x.id === id);
+	if (!item) return;
+
+	const existing = $('anim-buy-overlay');
+	if (existing) existing.remove();
+
+	const overlay = document.createElement('div');
+	overlay.id = 'anim-buy-overlay';
+	overlay.className = 'anim-buy-overlay';
+	overlay.setAttribute('role', 'dialog');
+	overlay.setAttribute('aria-modal', 'true');
+	overlay.setAttribute('aria-label', `Get ${item.name}`);
+
+	const priceLabel = item.free ? 'Free' : `${formatPrice(item.price.amount)} ${item.price.currency}`;
+	const endpoint = `${location.origin}${item.download_url}`;
+	const dur = item.duration ? `${item.duration.toFixed(item.duration % 1 ? 1 : 0)}s` : '';
+	const snippet =
+		`import { wrapFetchWithPayment } from '@three-ws/x402-fetch';\n` +
+		`const res = await wrapFetchWithPayment(fetch, wallet)('${endpoint}');\n` +
+		`const { downloadUrl } = await res.json(); // GLB, ready to play on any avatar`;
+
+	overlay.innerHTML = `
+		<div class="anim-buy-card">
+			<button class="anim-buy-close" type="button" aria-label="Close">✕</button>
+			<div class="anim-buy-media">
+				${item.thumbnail_url
+					? `<img src="${escapeHtml(item.thumbnail_url)}" alt="" />`
+					: `<div class="anim-buy-media-empty">🎬</div>`}
+				<span class="anim-listing-price ${item.free ? 'free' : 'paid'}">${escapeHtml(priceLabel)}</span>
+			</div>
+			<div class="anim-buy-info">
+				<h2 class="anim-buy-name">${escapeHtml(item.name)}</h2>
+				<p class="anim-buy-creator">by ${escapeHtml(item.creator?.name || 'Anonymous')}</p>
+				${item.description ? `<p class="anim-buy-desc">${escapeHtml(item.description)}</p>` : ''}
+				<div class="anim-buy-meta">
+					<span class="anim-type-pill ${item.loop !== false ? 'loop' : 'action'}">${item.loop !== false ? 'Loop' : 'Action'}</span>
+					${dur ? `<span class="stat-pill">${escapeHtml(dur)}</span>` : ''}
+					${item.frame_count ? `<span class="stat-pill">${item.frame_count} keys</span>` : ''}
+					${item.purchase_count ? `<span class="stat-pill">${item.purchase_count} sold</span>` : ''}
+				</div>
+				${(item.tags || []).length ? `<div class="anim-buy-tags">${item.tags.slice(0, 6).map((t) => `<span class="anim-cat-pill">${escapeHtml(t)}</span>`).join('')}</div>` : ''}
+				<div class="anim-buy-actions">
+					<button class="btn-primary anim-buy-go" type="button">${item.free ? 'Download GLB' : `Buy for ${escapeHtml(priceLabel)}`}</button>
+				</div>
+				<p class="anim-buy-note" id="anim-buy-note">${item.free
+					? 'Free download — a self-contained animated GLB that plays on any three.ws avatar.'
+					: 'Pay once in USDC (Base or Solana). Re-download free anytime by signing in with the same wallet.'}</p>
+				${item.free ? '' : `
+				<details class="anim-buy-snippet">
+					<summary>Pay programmatically (agents / CLI)</summary>
+					<div class="anim-buy-endpoint">
+						<code>${escapeHtml(endpoint)}</code>
+						<button class="market-chip anim-buy-copy-url" type="button">Copy URL</button>
+					</div>
+					<pre class="anim-buy-code"><code>${escapeHtml(snippet)}</code></pre>
+				</details>`}
+			</div>
+		</div>`;
+
+	document.body.appendChild(overlay);
+	const close = () => overlay.remove();
+	overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+	overlay.querySelector('.anim-buy-close').addEventListener('click', close);
+	const escHandler = (e) => { if (e.key === 'Escape') { close(); document.removeEventListener('keydown', escHandler); } };
+	document.addEventListener('keydown', escHandler);
+
+	const copyUrl = overlay.querySelector('.anim-buy-copy-url');
+	copyUrl?.addEventListener('click', () => {
+		navigator.clipboard?.writeText(endpoint).then(() => {
+			const t = copyUrl.textContent; copyUrl.textContent = 'Copied ✓';
+			setTimeout(() => { copyUrl.textContent = t; }, 1400);
+		});
+	});
+
+	const goBtn = overlay.querySelector('.anim-buy-go');
+	const note = overlay.querySelector('#anim-buy-note');
+	goBtn?.addEventListener('click', async () => {
+		if (item.free) {
+			goBtn.disabled = true; goBtn.textContent = 'Preparing…';
+			try {
+				const r = await fetch(endpoint, { headers: { accept: 'application/json' } });
+				const body = await r.json();
+				if (!r.ok || !body.downloadUrl) throw new Error(body.error_description || body.error || `download failed (${r.status})`);
+				triggerDownload(body.downloadUrl, `${item.slug || 'animation'}.glb`);
+				goBtn.textContent = 'Downloaded ✓';
+				if (note) note.textContent = 'Your download has started. The GLB plays on any three.ws avatar.';
+				if (item.purchase_count != null) item.purchase_count += 0;
+			} catch (err) {
+				goBtn.disabled = false; goBtn.textContent = 'Download GLB';
+				if (note) { note.textContent = err.message; note.classList.add('anim-buy-note-err'); }
+			}
+		} else {
+			// Paid: x402 settlement happens wallet-side. Surface the endpoint +
+			// snippet (revealed below) — there's no custodial in-browser signer.
+			const details = overlay.querySelector('.anim-buy-snippet');
+			if (details) { details.open = true; details.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
+			if (note) note.textContent = 'Pay from your wallet using the endpoint below. Once settled, the response carries a presigned GLB download URL.';
+		}
+	});
+}
+
+function triggerDownload(url, filename) {
+	const a = document.createElement('a');
+	a.href = url; a.download = filename; a.rel = 'noopener';
+	document.body.appendChild(a); a.click(); a.remove();
 }
 
 // ── Animation detail page ─────────────────────────────────────────────────
