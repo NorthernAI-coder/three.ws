@@ -26,12 +26,18 @@ export const TOKEN_MINT = process.env.GAME_TOKEN_MINT || 'FeMbDoX7R1Psc4GEcvJdsb
 export const TOKEN_DECIMALS = Number(process.env.GAME_TOKEN_DECIMALS || 6);
 export const TOKEN_SYMBOL = '$THREE';
 
-// The burn sink for paid-spin splits. Defaults to the canonical Solana
-// incinerator (an unspendable address) — sending $THREE to its ATA removes the
-// tokens from circulation. Matches api/_lib/token/config.js's burn address so
-// both token layers burn to the same place.
-export const BURN_ADDRESS =
-	process.env.GAME_TOKEN_BURN || process.env.THREE_BURN_ADDRESS || '1nc1nerator11111111111111111111111111111111';
+// The holder-rewards (reflections) sink for paid-spin and boutique splits. The
+// platform NEVER burns supply — the share that historically went to the
+// incinerator now routes to the rewards pool, which is distributed back to
+// holders pro-rata. Defaults to the configured rewards wallet, falling back to
+// the treasury so the split always has a real, spendable destination (never the
+// incinerator). Mirrors api/_lib/token/config.js's rewards wallet.
+export const REWARDS_SINK =
+	process.env.GAME_TOKEN_REWARDS ||
+	process.env.THREE_REWARDS_WALLET ||
+	process.env.GAME_TOKEN_TREASURY ||
+	process.env.PAYMENT_RECIPIENT_SOLANA ||
+	'';
 
 const SOLANA_RPC = process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com';
 const BIRDEYE_BASE = 'https://public-api.birdeye.so';
@@ -278,39 +284,40 @@ function accountKeyAt(tx, index) {
 
 // --- paid wheel spins (Task 19) ---------------------------------------------
 //
-// A spin costs $3 in $THREE, split 50% burned / 50% to treasury. The flow
-// mirrors marketplace settlement but with two fixed destinations (burn +
-// treasury) and a memo binding the on-chain tx to the exact quote it settles:
+// A spin costs $3 in $THREE, split 50% to holder rewards / 50% to treasury (no
+// supply is burned). The flow mirrors marketplace settlement but with two fixed
+// destinations (rewards + treasury) and a memo binding the tx to the quote it settles:
 //   buildSpinPayment() → client signs+broadcasts → verifySpinPayment().
 // Replay protection (a settled signature/nonce can't roll a second prize) is the
 // caller's responsibility — the caller tracks consumed nonces per process and
 // the short quote TTL bounds the window.
 
-// Split a total into burn + treasury legs by basis points. Treasury absorbs the
-// rounding remainder so the two legs always sum to exactly the total.
-export function splitBurnTreasury(rawTotal, burnBps = 5000) {
+// Split a total into rewards + treasury legs by basis points. Treasury absorbs the
+// rounding remainder so the two legs always sum to exactly the total. `rewardsBps`
+// is the share that reflects to holders (was the burn share — no supply is destroyed).
+export function splitTreasuryRewards(rawTotal, rewardsBps = 5000) {
 	const total = BigInt(rawTotal);
-	const burn = (total * BigInt(burnBps)) / 10000n;
-	const treasury = total - burn;
-	return { burn, treasury };
+	const rewards = (total * BigInt(rewardsBps)) / 10000n;
+	const treasury = total - rewards;
+	return { rewards, treasury };
 }
 
 // Three-leg split for a coin-tied sale (R25): the creator share comes off the top
-// (by `creatorBps`), then the remainder splits burn/treasury by `burnBps`. The
-// creator leg is taken FIRST so the platform's burn/treasury split is computed on
-// what's left — i.e. a 50% creator share over a 50/50 burn/treasury remainder
-// pays the creator 50%, burns 25%, treasuries 25%. Treasury absorbs every rounding
-// remainder so the three legs always sum to exactly the total. `creatorBps` is
-// clamped to [0,10000]; 0 (or a falsy creator wallet upstream) degenerates to the
-// plain burn/treasury split with a zero creator leg.
-export function splitCreatorTreasuryBurn(rawTotal, creatorBps = 0, burnBps = 5000) {
+// (by `creatorBps`), then the remainder splits treasury/rewards by `rewardsBps`. The
+// creator leg is taken FIRST so the platform's treasury/rewards split is computed on
+// what's left — i.e. a 50% creator share over a 50/50 treasury/rewards remainder
+// pays the creator 50%, treasuries 25%, reflects 25% to holders. Treasury absorbs
+// every rounding remainder so the three legs always sum to exactly the total.
+// `creatorBps` is clamped to [0,10000]; 0 (or a falsy creator wallet upstream)
+// degenerates to the plain treasury/rewards split with a zero creator leg.
+export function splitCreatorTreasuryRewards(rawTotal, creatorBps = 0, rewardsBps = 5000) {
 	const total = BigInt(rawTotal);
 	const cbps = BigInt(Math.max(0, Math.min(10000, Number(creatorBps) | 0)));
 	const creator = (total * cbps) / 10000n;
 	const remainder = total - creator;
-	const burn = (remainder * BigInt(burnBps)) / 10000n;
-	const treasury = remainder - burn;
-	return { creator, burn, treasury };
+	const rewards = (remainder * BigInt(rewardsBps)) / 10000n;
+	const treasury = remainder - rewards;
+	return { creator, rewards, treasury };
 }
 
 function memoInstruction(nonce) {
@@ -328,28 +335,29 @@ export async function buildSpinPayment({ buyerWallet, usd }) {
 	if (!tokenConfigured()) return null;
 	const priced = await quoteTokenForUsd(usd);
 	if (!priced || !(priced.raw > 0n)) return null;
-	const { burn: burnRaw, treasury: treasuryRaw } = splitBurnTreasury(priced.raw, 5000);
+	const { rewards: rewardsRaw, treasury: treasuryRaw } = splitTreasuryRewards(priced.raw, 5000);
 	const treasuryAddr = treasuryWallet();
+	const rewardsAddr = REWARDS_SINK || treasuryAddr;
 	const nonce = crypto.randomBytes(16).toString('hex');
 
 	const conn = new Connection(SOLANA_RPC, 'confirmed');
 	const mint = new PublicKey(TOKEN_MINT);
 	const buyer = new PublicKey(buyerWallet);
-	const burn = new PublicKey(BURN_ADDRESS);
+	const rewards = new PublicKey(rewardsAddr);
 	const treasury = new PublicKey(treasuryAddr);
 
 	const buyerATA = await getAssociatedTokenAddress(mint, buyer);
-	const burnATA = await getAssociatedTokenAddress(mint, burn);
+	const rewardsATA = await getAssociatedTokenAddress(mint, rewards);
 	const treasuryATA = await getAssociatedTokenAddress(mint, treasury);
 
 	const tx = new Transaction();
-	const [burnAcct, treasuryAcct] = await Promise.all([
-		conn.getAccountInfo(burnATA),
+	const [rewardsAcct, treasuryAcct] = await Promise.all([
+		conn.getAccountInfo(rewardsATA),
 		conn.getAccountInfo(treasuryATA),
 	]);
-	if (!burnAcct) tx.add(createAssociatedTokenAccountInstruction(buyer, burnATA, burn, mint));
+	if (!rewardsAcct) tx.add(createAssociatedTokenAccountInstruction(buyer, rewardsATA, rewards, mint));
 	if (!treasuryAcct) tx.add(createAssociatedTokenAccountInstruction(buyer, treasuryATA, treasury, mint));
-	tx.add(createTransferInstruction(buyerATA, burnATA, buyer, burnRaw));
+	tx.add(createTransferInstruction(buyerATA, rewardsATA, buyer, rewardsRaw));
 	tx.add(createTransferInstruction(buyerATA, treasuryATA, buyer, treasuryRaw));
 	tx.add(memoInstruction(nonce));
 
@@ -368,8 +376,8 @@ export async function buildSpinPayment({ buyerWallet, usd }) {
 		priceUsd: priced.price,
 		total: priced.raw.toString(),
 		tokens: priced.tokens,
-		burnAddr: BURN_ADDRESS,
-		burnRaw: burnRaw.toString(),
+		rewardsAddr,
+		rewardsRaw: rewardsRaw.toString(),
 		treasuryAddr,
 		treasuryRaw: treasuryRaw.toString(),
 		nonce,
@@ -380,7 +388,7 @@ export async function buildSpinPayment({ buyerWallet, usd }) {
 
 /**
  * Verify a settled paid spin on-chain: the quote is untampered + unexpired, the
- * tx carries the quote's memo nonce, the buyer matches, and both the burn and
+ * tx carries the quote's memo nonce, the buyer matches, and both the rewards and
  * treasury legs received at least their share. Pre/post token-balance deltas
  * make this robust to how the wallet assembled the transfers.
  * @param {{ quoteToken: string, txSig: string, buyerWallet?: string }} params
@@ -410,14 +418,14 @@ export async function verifySpinPayment({ quoteToken, txSig, buyerWallet }) {
 	if (!memo || memo !== q.nonce) return { ok: false, reason: 'memo_mismatch' };
 
 	const mint = TOKEN_MINT;
-	const burnATA = (await getAssociatedTokenAddress(new PublicKey(mint), new PublicKey(q.burnAddr))).toBase58();
+	const rewardsATA = (await getAssociatedTokenAddress(new PublicKey(mint), new PublicKey(q.rewardsAddr))).toBase58();
 	const treasuryATA = (await getAssociatedTokenAddress(new PublicKey(mint), new PublicKey(q.treasuryAddr))).toBase58();
 	const delta = (ownerATA) => {
 		const pre = (tx.meta?.preTokenBalances || []).find((b) => b.mint === mint && accountKeyAt(tx, b.accountIndex) === ownerATA);
 		const post = (tx.meta?.postTokenBalances || []).find((b) => b.mint === mint && accountKeyAt(tx, b.accountIndex) === ownerATA);
 		return BigInt(post?.uiTokenAmount?.amount || '0') - BigInt(pre?.uiTokenAmount?.amount || '0');
 	};
-	if (delta(burnATA) < BigInt(q.burnRaw)) return { ok: false, reason: 'burn_underpaid' };
+	if (delta(rewardsATA) < BigInt(q.rewardsRaw)) return { ok: false, reason: 'rewards_underpaid' };
 	if (delta(treasuryATA) < BigInt(q.treasuryRaw)) return { ok: false, reason: 'treasury_underpaid' };
 	// Creator leg (R25): when the quote sealed a creator transfer, the on-chain tx
 	// must have moved at least that share to the creator's $THREE account — else the
@@ -434,8 +442,8 @@ export async function verifySpinPayment({ quoteToken, txSig, buyerWallet }) {
 //
 // The boutique — and any future fixed-price $THREE sink — settles through this pair,
 // the spin flow's sibling generalised over an arbitrary token amount and `purpose`.
-// The player signs ONE transaction that splits a FIXED $THREE amount between the burn
-// sink and the treasury, carrying a memo nonce that binds the on-chain tx to this
+// The player signs ONE transaction that splits a FIXED $THREE amount between the holder
+// rewards pool and the treasury, carrying a memo nonce that binds the on-chain tx to this
 // exact quote. The server prices the charge (never the client), then re-fetches the
 // confirmed tx from RPC and checks both legs landed before releasing the unlock.
 // Replay protection is the caller's responsibility (track consumed nonces) AND, for
@@ -443,7 +451,7 @@ export async function verifySpinPayment({ quoteToken, txSig, buyerWallet }) {
 
 /**
  * Build the unsigned $THREE purchase the buyer signs. `amountRaw` is the total in
- * base units (string|bigint), split burn/treasury by `burnBps` (default 50/50).
+ * base units (string|bigint), split treasury/rewards by `rewardsBps` (default 50/50).
  * `extra` is sealed into the quote verbatim (e.g. the boutique listing id) so settle
  * can act on it without trusting the client. Returns null when no treasury is
  * configured, the buyer isn't a real wallet, or the amount is non-positive.
@@ -452,13 +460,13 @@ export async function verifySpinPayment({ quoteToken, txSig, buyerWallet }) {
  * of the SAME signed transaction to a coin creator's wallet. The creator leg is a
  * real third SPL transfer the buyer signs — no platform float, no second payout —
  * so the split is enforced on-chain atomically. The creator share comes off the
- * top; the remainder splits burn/treasury by `burnBps` as before. A falsy/invalid
- * creator wallet or a zero `bps` degenerates to the plain two-leg split.
+ * top; the remainder splits treasury/rewards by `rewardsBps` as before. A
+ * falsy/invalid creator wallet or a zero `bps` degenerates to the plain two-leg split.
  *
- * @param {{ buyerWallet: string, amountRaw: string|bigint, purpose: string, burnBps?: number, creator?: { wallet?: string, bps?: number }, extra?: object }} params
+ * @param {{ buyerWallet: string, amountRaw: string|bigint, purpose: string, rewardsBps?: number, creator?: { wallet?: string, bps?: number }, extra?: object }} params
  * @returns {Promise<null | { quoteToken: string, txBase64: string, quote: object }>}
  */
-export async function buildTokenPurchase({ buyerWallet, amountRaw, purpose, burnBps = 5000, creator = null, extra = {} }) {
+export async function buildTokenPurchase({ buyerWallet, amountRaw, purpose, rewardsBps = 5000, creator = null, extra = {} }) {
 	if (!tokenConfigured()) return null;
 	if (!isWalletAddress(buyerWallet)) return null;
 	let total;
@@ -467,7 +475,7 @@ export async function buildTokenPurchase({ buyerWallet, amountRaw, purpose, burn
 
 	// A creator leg only applies when both a valid wallet and a positive share are
 	// supplied (and the creator isn't the buyer — a no-op self-transfer). Otherwise
-	// fall back to the plain burn/treasury split, the creator leg zeroed.
+	// fall back to the plain treasury/rewards split, the creator leg zeroed.
 	const creatorBpsIn = Math.max(0, Math.min(10000, Number(creator?.bps) | 0));
 	const creatorWallet = creator?.wallet;
 	const creatorActive = creatorBpsIn > 0
@@ -475,36 +483,37 @@ export async function buildTokenPurchase({ buyerWallet, amountRaw, purpose, burn
 		&& creatorWallet !== buyerWallet;
 	const effectiveCreatorBps = creatorActive ? creatorBpsIn : 0;
 
-	const { creator: creatorRaw, burn: burnRaw, treasury: treasuryRaw } =
-		splitCreatorTreasuryBurn(total, effectiveCreatorBps, burnBps);
+	const { creator: creatorRaw, rewards: rewardsRaw, treasury: treasuryRaw } =
+		splitCreatorTreasuryRewards(total, effectiveCreatorBps, rewardsBps);
 	const treasuryAddr = treasuryWallet();
+	const rewardsAddr = REWARDS_SINK || treasuryAddr;
 	const nonce = crypto.randomBytes(16).toString('hex');
 
 	const conn = new Connection(SOLANA_RPC, 'confirmed');
 	const mint = new PublicKey(TOKEN_MINT);
 	const buyer = new PublicKey(buyerWallet);
-	const burn = new PublicKey(BURN_ADDRESS);
+	const rewards = new PublicKey(rewardsAddr);
 	const treasury = new PublicKey(treasuryAddr);
 
 	const buyerATA = await getAssociatedTokenAddress(mint, buyer);
-	const burnATA = await getAssociatedTokenAddress(mint, burn);
+	const rewardsATA = await getAssociatedTokenAddress(mint, rewards);
 	const treasuryATA = await getAssociatedTokenAddress(mint, treasury);
 	const creatorATA = creatorActive
 		? await getAssociatedTokenAddress(mint, new PublicKey(creatorWallet))
 		: null;
 
 	const tx = new Transaction();
-	const accountChecks = [conn.getAccountInfo(burnATA), conn.getAccountInfo(treasuryATA)];
+	const accountChecks = [conn.getAccountInfo(rewardsATA), conn.getAccountInfo(treasuryATA)];
 	if (creatorActive) accountChecks.push(conn.getAccountInfo(creatorATA));
-	const [burnAcct, treasuryAcct, creatorAcct] = await Promise.all(accountChecks);
-	if (!burnAcct) tx.add(createAssociatedTokenAccountInstruction(buyer, burnATA, burn, mint));
+	const [rewardsAcct, treasuryAcct, creatorAcct] = await Promise.all(accountChecks);
+	if (!rewardsAcct) tx.add(createAssociatedTokenAccountInstruction(buyer, rewardsATA, rewards, mint));
 	if (!treasuryAcct) tx.add(createAssociatedTokenAccountInstruction(buyer, treasuryATA, treasury, mint));
 	if (creatorActive && !creatorAcct) {
 		tx.add(createAssociatedTokenAccountInstruction(buyer, creatorATA, new PublicKey(creatorWallet), mint));
 	}
 	// Order legs largest-intent first for readability; amounts are what matter.
 	if (creatorActive && creatorRaw > 0n) tx.add(createTransferInstruction(buyerATA, creatorATA, buyer, creatorRaw));
-	if (burnRaw > 0n) tx.add(createTransferInstruction(buyerATA, burnATA, buyer, burnRaw));
+	if (rewardsRaw > 0n) tx.add(createTransferInstruction(buyerATA, rewardsATA, buyer, rewardsRaw));
 	if (treasuryRaw > 0n) tx.add(createTransferInstruction(buyerATA, treasuryATA, buyer, treasuryRaw));
 	tx.add(memoInstruction(nonce));
 
@@ -521,8 +530,8 @@ export async function buildTokenPurchase({ buyerWallet, amountRaw, purpose, burn
 		buyer: buyerWallet,
 		total: total.toString(),
 		tokens: Number(total) / 10 ** TOKEN_DECIMALS,
-		burnAddr: BURN_ADDRESS,
-		burnRaw: burnRaw.toString(),
+		rewardsAddr,
+		rewardsRaw: rewardsRaw.toString(),
 		treasuryAddr,
 		treasuryRaw: treasuryRaw.toString(),
 		// Creator leg (R25). Sealed into the quote so settle verifies the on-chain
@@ -539,7 +548,7 @@ export async function buildTokenPurchase({ buyerWallet, amountRaw, purpose, burn
 /**
  * Verify a settled $THREE purchase on-chain: the quote is untampered, unexpired, and
  * matches the expected purpose + buyer; the tx carries the quote's memo nonce; and the
- * burn + treasury legs each received at least their share. Pre/post token-balance
+ * rewards + treasury legs each received at least their share. Pre/post token-balance
  * deltas make this robust to however the wallet assembled the transfers.
  * @param {{ quoteToken: string, txSig: string, buyerWallet?: string, purpose?: string }} params
  * @returns {Promise<{ ok: boolean, reason?: string, nonce?: string, quote?: object }>}
@@ -568,14 +577,14 @@ export async function verifyTokenPurchase({ quoteToken, txSig, buyerWallet, purp
 	if (!memo || memo !== q.nonce) return { ok: false, reason: 'memo_mismatch' };
 
 	const mint = TOKEN_MINT;
-	const burnATA = (await getAssociatedTokenAddress(new PublicKey(mint), new PublicKey(q.burnAddr))).toBase58();
+	const rewardsATA = (await getAssociatedTokenAddress(new PublicKey(mint), new PublicKey(q.rewardsAddr))).toBase58();
 	const treasuryATA = (await getAssociatedTokenAddress(new PublicKey(mint), new PublicKey(q.treasuryAddr))).toBase58();
 	const delta = (ownerATA) => {
 		const pre = (tx.meta?.preTokenBalances || []).find((b) => b.mint === mint && accountKeyAt(tx, b.accountIndex) === ownerATA);
 		const post = (tx.meta?.postTokenBalances || []).find((b) => b.mint === mint && accountKeyAt(tx, b.accountIndex) === ownerATA);
 		return BigInt(post?.uiTokenAmount?.amount || '0') - BigInt(pre?.uiTokenAmount?.amount || '0');
 	};
-	if (delta(burnATA) < BigInt(q.burnRaw)) return { ok: false, reason: 'burn_underpaid' };
+	if (delta(rewardsATA) < BigInt(q.rewardsRaw)) return { ok: false, reason: 'rewards_underpaid' };
 	if (delta(treasuryATA) < BigInt(q.treasuryRaw)) return { ok: false, reason: 'treasury_underpaid' };
 	// Creator leg (R25): when the quote sealed a creator transfer, the on-chain tx
 	// must have moved at least that share to the creator's $THREE account — else the

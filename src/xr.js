@@ -11,7 +11,7 @@ import {
 	HemisphereLight,
 	Mesh,
 	MeshStandardMaterial,
-	PCFSoftShadowMap,
+	PCFShadowMap,
 	PerspectiveCamera,
 	PMREMGenerator,
 	Scene,
@@ -55,7 +55,7 @@ const renderer = new WebGLRenderer({ canvas, antialias: true, alpha: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight, false);
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = PCFSoftShadowMap;
+renderer.shadowMap.type = PCFShadowMap;
 renderer.outputColorSpace = 'srgb';
 
 const scene = new Scene();

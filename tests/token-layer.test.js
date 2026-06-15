@@ -111,10 +111,21 @@ describe('token config', () => {
 		expect(c.mint).toBe(TOKEN_MINT);
 		expect(c.symbol).toBe('$THREE');
 		expect(c.decimals).toBe(6);
+		// Burn address is retained for the user-invoked burn primitive only.
 		expect(c.burn_address).toBe('1nc1nerator11111111111111111111111111111111');
+		// Rewards (reflections) pool is the deflation-free alternative to burning.
+		expect('rewards_wallet' in c).toBe(true);
 		expect(c.quote_ttl_seconds).toBeGreaterThan(0);
+		expect(c.split_policies.consumption).toBeDefined();
 		expect(c.split_policies.spin).toBeDefined();
 		expect(c.split_policies.marketplace_sale).toBeDefined();
+		expect(c.split_policies.scarcity_mint).toBeDefined();
+	});
+
+	it('no platform split policy routes to a burn leg', () => {
+		for (const [name, legs] of Object.entries(SPLIT_POLICIES)) {
+			expect(legs.some((l) => l.role === 'burn'), `${name} must not burn`).toBe(false);
+		}
 	});
 
 	it('treasuryWallet warns in dev when unset and falls back to burn', () => {
@@ -139,27 +150,47 @@ describe('token config', () => {
 // ── Split policy ───────────────────────────────────────────────────────────────
 
 describe('resolveSplitLegs', () => {
-	it('spin policy yields burn + treasury legs summing to 10000 bps', () => {
-		const legs = resolveSplitLegs('spin');
-		expect(legs).toHaveLength(2);
-		const total = legs.reduce((s, l) => s + l.bps, 0);
-		expect(total).toBe(10_000);
-		const burnLeg = legs.find((l) => l.role === 'burn');
-		const treasuryLeg = legs.find((l) => l.role === 'treasury');
-		expect(burnLeg.bps).toBe(5000);
-		expect(treasuryLeg.bps).toBe(5000);
-		expect(burnLeg.address).toBe(burnAddress());
+	it('every policy sums to exactly 10000 bps', () => {
+		for (const name of Object.keys(SPLIT_POLICIES)) {
+			const opts = SPLIT_POLICIES[name].some((l) => l.role === 'seller')
+				? { sellerWallet: 'So11111111111111111111111111111111111111112' }
+				: {};
+			const legs = resolveSplitLegs(name, opts);
+			expect(legs.reduce((s, l) => s + l.bps, 0), `${name}`).toBe(10_000);
+		}
 	});
 
-	it('marketplace_sale policy yields seller + treasury legs summing to 10000 bps', () => {
+	it('consumption policy yields treasury + rewards legs (no burn)', () => {
+		const legs = resolveSplitLegs('consumption');
+		expect(legs).toHaveLength(2);
+		expect(legs.find((l) => l.role === 'treasury').bps).toBe(7000);
+		expect(legs.find((l) => l.role === 'rewards').bps).toBe(3000);
+		expect(legs.find((l) => l.role === 'burn')).toBeUndefined();
+	});
+
+	it('spin policy routes the former burn half to rewards instead', () => {
+		const legs = resolveSplitLegs('spin');
+		expect(legs).toHaveLength(2);
+		expect(legs.find((l) => l.role === 'treasury').bps).toBe(5000);
+		expect(legs.find((l) => l.role === 'rewards').bps).toBe(5000);
+		expect(legs.find((l) => l.role === 'burn')).toBeUndefined();
+	});
+
+	it('marketplace_sale yields seller + treasury + rewards legs', () => {
 		const seller = 'So11111111111111111111111111111111111111112';
 		const legs = resolveSplitLegs('marketplace_sale', { sellerWallet: seller });
-		expect(legs).toHaveLength(2);
-		const sellerLeg = legs.find((l) => l.role === 'seller');
-		const treasuryLeg = legs.find((l) => l.role === 'treasury');
-		expect(sellerLeg.bps).toBe(9500);
-		expect(treasuryLeg.bps).toBe(500);
-		expect(sellerLeg.address).toBe(seller);
+		expect(legs).toHaveLength(3);
+		expect(legs.find((l) => l.role === 'seller').bps).toBe(9000);
+		expect(legs.find((l) => l.role === 'treasury').bps).toBe(500);
+		expect(legs.find((l) => l.role === 'rewards').bps).toBe(500);
+		expect(legs.find((l) => l.role === 'seller').address).toBe(seller);
+	});
+
+	it('scarcity_mint yields treasury + rewards legs (no seller, no burn)', () => {
+		const legs = resolveSplitLegs('scarcity_mint');
+		expect(legs.find((l) => l.role === 'treasury').bps).toBe(8000);
+		expect(legs.find((l) => l.role === 'rewards').bps).toBe(2000);
+		expect(legs.find((l) => l.role === 'seller')).toBeUndefined();
 	});
 
 	it('marketplace_sale throws when sellerWallet is missing', () => {
@@ -179,7 +210,7 @@ describe('applySplit', () => {
 		expect(result[1].atomics).toBe(1_000_000n);
 	});
 
-	it('spin: odd total — remainder goes to the highest-bps leg (burn=treasury tie → first higher-index wins)', () => {
+	it('spin: odd total — remainder goes to the highest-bps leg (treasury=rewards tie)', () => {
 		const legs = resolveSplitLegs('spin');
 		const result = applySplit(1_000_001n, legs);
 		const total = result.reduce((s, l) => s + l.atomics, 0n);
@@ -187,13 +218,14 @@ describe('applySplit', () => {
 		// Both legs are 50/50; either may absorb the 1-atom remainder — just verify sum
 	});
 
-	it('marketplace_sale: 95/5 split is exact on 1_000_000', () => {
+	it('marketplace_sale: 90/5/5 split is exact on 1_000_000', () => {
 		const legs = resolveSplitLegs('marketplace_sale', {
 			sellerWallet: 'So11111111111111111111111111111111111111112',
 		});
 		const result = applySplit(1_000_000n, legs);
-		expect(result.find((l) => l.role === 'seller').atomics).toBe(950_000n);
+		expect(result.find((l) => l.role === 'seller').atomics).toBe(900_000n);
 		expect(result.find((l) => l.role === 'treasury').atomics).toBe(50_000n);
+		expect(result.find((l) => l.role === 'rewards').atomics).toBe(50_000n);
 	});
 
 	it('marketplace_sale: 95/5 split on odd total sums exactly', () => {
@@ -385,14 +417,16 @@ describe('issueQuote + verifyQuote', () => {
 		});
 		const sellerLeg = quote.legs.find((l) => l.role === 'seller');
 		const treasuryLeg = quote.legs.find((l) => l.role === 'treasury');
+		const rewardsLeg = quote.legs.find((l) => l.role === 'rewards');
 		expect(sellerLeg).toBeDefined();
 		expect(treasuryLeg).toBeDefined();
+		expect(rewardsLeg).toBeDefined();
 		expect(sellerLeg.address).toBe(seller);
-		// seller gets 95%
+		// seller gets 90%
 		const sellerAtomics = BigInt(sellerLeg.atomics);
 		const total = BigInt(quote.total);
-		expect(sellerAtomics * 100n).toBeGreaterThanOrEqual(total * 94n);
-		expect(sellerAtomics * 100n).toBeLessThanOrEqual(total * 96n);
+		expect(sellerAtomics * 100n).toBeGreaterThanOrEqual(total * 89n);
+		expect(sellerAtomics * 100n).toBeLessThanOrEqual(total * 91n);
 	});
 
 	it('different quotes produce different nonces', async () => {
@@ -414,7 +448,7 @@ describe('issueQuote + verifyQuote', () => {
 // ── On-chain verification ─────────────────────────────────────────────────────
 
 describe('verifyOnChain', () => {
-	const BURN_ADDR = '1nc1nerator11111111111111111111111111111111';
+	const REWARDS = 'RewardsXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX';
 	const TREASURY = 'TreasuryXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX';
 	const MEMO_PROGRAM = 'MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr';
 	const NONCE = 'test-nonce-abc123';
@@ -429,8 +463,8 @@ describe('verifyOnChain', () => {
 			mint: TOKEN_MINT,
 			total: '2000',
 			legs: legs ?? [
-				{ role: 'burn', address: BURN_ADDR, bps: 5000, atomics: '1000' },
 				{ role: 'treasury', address: TREASURY, bps: 5000, atomics: '1000' },
+				{ role: 'rewards', address: REWARDS, bps: 5000, atomics: '1000' },
 			],
 		};
 	}
@@ -474,12 +508,12 @@ describe('verifyOnChain', () => {
 	});
 
 	it('rejects when a split leg receives less than required', async () => {
-		// Only burn gets credited; treasury receives nothing → delta 0 < 1000 required
+		// Only treasury gets credited; rewards receives nothing → delta 0 < 1000 required
 		_mockTxResponse = makeTx({
 			postBalances: [
 				{
 					mint: TOKEN_MINT,
-					owner: BURN_ADDR,
+					owner: TREASURY,
 					accountIndex: 0,
 					uiTokenAmount: { amount: '1000' },
 				},
@@ -495,13 +529,13 @@ describe('verifyOnChain', () => {
 			postBalances: [
 				{
 					mint: TOKEN_MINT,
-					owner: BURN_ADDR,
+					owner: TREASURY,
 					accountIndex: 0,
 					uiTokenAmount: { amount: '1000' },
 				},
 				{
 					mint: TOKEN_MINT,
-					owner: TREASURY,
+					owner: REWARDS,
 					accountIndex: 1,
 					uiTokenAmount: { amount: '1000' },
 				},
@@ -521,13 +555,13 @@ describe('verifyOnChain', () => {
 			postBalances: [
 				{
 					mint: TOKEN_MINT,
-					owner: BURN_ADDR,
+					owner: TREASURY,
 					accountIndex: 0,
 					uiTokenAmount: { amount: '2000' },
 				},
 				{
 					mint: TOKEN_MINT,
-					owner: TREASURY,
+					owner: REWARDS,
 					accountIndex: 1,
 					uiTokenAmount: { amount: '2000' },
 				},

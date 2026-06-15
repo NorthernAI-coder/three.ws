@@ -27,6 +27,13 @@ import { issueQuote, verifyAndSettlePayment, listPayments } from '../_lib/token/
 const PURPOSES = {
 	spin: { policy: 'spin', maxUsd: 100, requiresSeller: false },
 	marketplace_sale: { policy: 'marketplace_sale', maxUsd: 1_000_000, requiresSeller: true },
+	// Pay-per-use compute (Forge paid tiers, voice clone, MCP-3D, Granite, selfie).
+	// Priced server-side from the pricing catalog; the ceiling guards the generic
+	// surface against an absurd client-supplied amount.
+	consumption: { policy: 'consumption', maxUsd: 100, requiresSeller: false },
+	// Scarcity drops, rare-name auctions, pay-to-mint. Platform mints the scarce
+	// good (no seller leg); the high ceiling allows premium auctions.
+	scarcity_mint: { policy: 'scarcity_mint', maxUsd: 1_000_000, requiresSeller: false },
 };
 
 const SOLANA_ADDRESS = z.string().regex(/^[1-9A-HJ-NP-Za-km-z]{32,44}$/, 'invalid Solana address');

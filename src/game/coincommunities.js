@@ -11,7 +11,7 @@
 // Colyseus), reused here so a coin community is a first-class 3D space.
 
 import {
-	Scene, WebGLRenderer, PerspectiveCamera, Group, Vector3, PCFSoftShadowMap, SRGBColorSpace,
+	Scene, WebGLRenderer, PerspectiveCamera, Group, Vector3, PCFShadowMap, SRGBColorSpace,
 	ACESFilmicToneMapping,
 	Mesh, MeshStandardMaterial, MeshBasicMaterial, CircleGeometry,
 	CylinderGeometry, PlaneGeometry,
@@ -390,7 +390,7 @@ export class CoinCommunities {
 		const r = new WebGLRenderer({ canvas: this.canvas, antialias: true });
 		r.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 		r.setSize(window.innerWidth, window.innerHeight);
-		r.shadowMap.enabled = true; r.shadowMap.type = PCFSoftShadowMap;
+		r.shadowMap.enabled = true; r.shadowMap.type = PCFShadowMap;
 		r.outputColorSpace = SRGBColorSpace;
 		// ACES keeps the cool moonlight key and the bright avatars from clipping;
 		// exposure is tuned for the dark monochrome arena (the LDR gradient backdrop

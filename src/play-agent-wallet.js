@@ -15,7 +15,7 @@ import {
 	HemisphereLight, DirectionalLight, Mesh, MeshStandardMaterial, MeshBasicMaterial,
 	CircleGeometry, BoxGeometry, PlaneGeometry, RingGeometry, CylinderGeometry,
 	CanvasTexture, SRGBColorSpace, DoubleSide, GridHelper, Vector3, MathUtils,
-	ACESFilmicToneMapping, PCFSoftShadowMap,
+	ACESFilmicToneMapping, PCFShadowMap,
 } from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import {
@@ -86,7 +86,7 @@ camera.position.set(-1.6, 2.5, 6.4);
 const renderer = new WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = PCFSoftShadowMap;
+renderer.shadowMap.type = PCFShadowMap;
 renderer.toneMapping = ACESFilmicToneMapping;
 stageEl.appendChild(renderer.domElement);
 

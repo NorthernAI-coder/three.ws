@@ -21,6 +21,7 @@ import {
 	AmbientLight,
 	Box3,
 	BoxGeometry,
+	Color,
 	Fog,
 	Group,
 	HemisphereLight,
@@ -109,7 +110,10 @@ async function start(canvasEl) {
 	renderer.toneMappingExposure = 1.12;
 
 	const scene = new Scene();
-	scene.background = null;
+	// Opaque backdrop (matches the fog) so the pole stage rendering behind this
+	// canvas never shows through the alley's open edges — the club stays hidden
+	// until the walk-through fades this whole canvas out via CSS opacity.
+	scene.background = new Color(0x05030a);
 	scene.fog = new Fog(0x05030a, 8, 34);
 
 	const camera = new PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.05, 200);
@@ -143,7 +147,14 @@ async function start(canvasEl) {
 
 	// ── Environment ──────────────────────────────────────────────────────────
 	let env = mountEnvironment(scene, alleyGltf.scene);
-	let path = walkPath(env.box);
+	// Anchor the entrance to the alley's modelled door so the prompt and the
+	// neon frame land on the real doorway, not a guessed end of the footprint.
+	let doorAnchor = findDoorAnchor(env.root);
+	let path = walkPath(env.box, doorAnchor);
+	// Seal the doorway: a dark plane just inside it so the lit interior never
+	// reads from the alley — the club stays hidden until you pay and walk in.
+	let occluder = doorAnchor ? buildDoorOccluder(doorAnchor, path.dir) : null;
+	if (occluder) scene.add(occluder);
 
 	// ── Avatar ─────────────────────────────────────────────────────────────
 	const avatar = avatarGltf.scene;
@@ -170,10 +181,29 @@ async function start(canvasEl) {
 	let inputEnabled = true;
 	let autoWalk = false; // forced forward motion during the walk-through
 
+	// The pavement surface sits above the environment's y=0 origin, so stand the
+	// avatar on the sampled floor rather than the box bottom (feet-through-floor).
+	const groundRay = new Raycaster();
+	const DOWN = new Vector3(0, -1, 0);
+	let floorY = 0;
+	// Ray for camera-wall collision (keeps its own `far`, used in updateCamera).
+	const camRay = new Raycaster();
+
 	placeSpawn();
+
+	// Cast straight down from above to the floor at (x, z). Starts at mid-room so
+	// it clears ceilings/awnings and returns the walkable surface height.
+	function sampleFloor(x, z) {
+		groundRay.set(new Vector3(x, ROOM_HEIGHT * 0.6, z), DOWN);
+		groundRay.far = ROOM_HEIGHT;
+		const hit = groundRay.intersectObject(env.root, true)[0];
+		return hit ? hit.point.y : 0;
+	}
 
 	function placeSpawn() {
 		rig.position.copy(path.spawn);
+		floorY = sampleFloor(path.spawn.x, path.spawn.z);
+		rig.position.y = floorY;
 		// Face the door (opposite the walk axis).
 		rig.rotation.y = Math.atan2(-path.dir.x, -path.dir.z);
 		doorMarker.group.position.copy(path.door);
@@ -380,9 +410,20 @@ async function start(canvasEl) {
 
 	function updateCamera(dt) {
 		const cosP = Math.cos(camPitch);
-		const off = new Vector3(Math.sin(camYaw) * cosP, Math.sin(camPitch) + 0.0, Math.cos(camYaw) * cosP);
-		const target = new Vector3(rig.position.x, HEAD_Y, rig.position.z);
-		const desired = target.clone().addScaledVector(off, CAM_DIST).setY(CAM_HEIGHT + Math.sin(camPitch) * CAM_DIST);
+		const off = new Vector3(Math.sin(camYaw) * cosP, Math.sin(camPitch), Math.cos(camYaw) * cosP);
+		const target = new Vector3(rig.position.x, rig.position.y + HEAD_Y, rig.position.z);
+		const desired = target.clone().addScaledVector(off, CAM_DIST);
+		desired.y = rig.position.y + CAM_HEIGHT + Math.sin(camPitch) * CAM_DIST;
+		// Pull the camera in front of any wall between it and the avatar, so you
+		// never see through walls or end up buried in geometry (a black frame).
+		const toCam = desired.clone().sub(target);
+		const dist = toCam.length();
+		if (dist > 1e-3) {
+			camRay.set(target, toCam.multiplyScalar(1 / dist));
+			camRay.far = dist;
+			const hit = camRay.intersectObject(env.root, true)[0];
+			if (hit) desired.copy(target).addScaledVector(camRay.ray.direction, Math.max(0.5, hit.distance - 0.2));
+		}
 		const a = 1 - Math.exp(-9 * dt);
 		camera.position.lerp(desired, a);
 		camera.lookAt(target);
@@ -410,11 +451,13 @@ async function start(canvasEl) {
 		}
 		scene.remove(doorMarker.group);
 		disposeObject(doorMarker.group);
+		if (occluder) { scene.remove(occluder); disposeObject(occluder); occluder = null; }
 		doorGlow.intensity = 0;
 		disposeObject(env.root);
 		scene.remove(env.root);
 		env = mountEnvironment(scene, clubScene);
-		path = walkPath(env.box);
+		doorAnchor = findDoorAnchor(env.root);
+		path = walkPath(env.box, doorAnchor);
 		placeSpawn();
 		setPhase('entering');
 	}
@@ -476,16 +519,71 @@ function mountEnvironment(scene, root) {
 	};
 }
 
-// Spawn point, door point, and walk axis derived from the longer horizontal
-// dimension — independent of the model's authored orientation.
-function walkPath(box) {
+// Where you spawn, where the door is, and which way you face. When the
+// environment ships a modelled door (the alley does — `metal_door`), anchor to
+// it: the approach axis runs from the door toward the room's interior, you
+// spawn back down that axis, and you stand just in front of the door to enter.
+// Otherwise fall back to the longer horizontal dimension so any unlabelled
+// environment (e.g. the club interior) still gets a sane walk path.
+function walkPath(box, anchor) {
 	const size = box.getSize(new Vector3());
+	const center = box.getCenter(new Vector3());
+
+	if (anchor) {
+		const door = anchor.center.clone().setY(0);
+		let dir = new Vector3(center.x - door.x, 0, center.z - door.z);
+		if (dir.lengthSq() < 1e-4) dir.set(0, 0, 1);
+		dir.normalize();
+		const reach = Math.abs(dir.x) * size.x + Math.abs(dir.z) * size.z;
+		// Spawn a few steps from the door — close enough that the chase camera
+		// stays well inside the alley (never behind the back wall) on load.
+		const spawn = door.clone().addScaledVector(dir, clamp(reach * 0.32, 3.0, 5.0)).setY(0);
+		// Stand just in front of the door (alley side), not inside the wall.
+		const doorP = door.clone().addScaledVector(dir, 0.35).setY(0);
+		return { dir, span: reach / 2, spawn, door: doorP, start: spawn, end: doorP };
+	}
+
 	const alongX = size.x > size.z;
 	const span = (alongX ? size.x : size.z) / 2;
 	const dir = alongX ? new Vector3(1, 0, 0) : new Vector3(0, 0, 1);
 	const spawn = dir.clone().multiplyScalar(span * 0.6).setY(0);
 	const doorP = dir.clone().multiplyScalar(-span * 0.82).setY(0);
 	return { dir, span, spawn, door: doorP, start: spawn, end: doorP };
+}
+
+// Locate the modelled door in an environment by name (matches the alley's
+// `metal_door*` meshes). Returns the largest match's world-space centre + size,
+// or null when the environment has no labelled door.
+function findDoorAnchor(root) {
+	root.updateMatrixWorld(true);
+	let best = null;
+	root.traverse((n) => {
+		if (!n.isMesh) return;
+		if (!/door/i.test(n.name || '') && !/door/i.test(n.parent?.name || '')) return;
+		const box = new Box3().setFromObject(n);
+		if (box.isEmpty()) return;
+		const size = box.getSize(new Vector3());
+		const score = size.x * size.y * size.z;
+		if (!best || score > best.score) best = { center: box.getCenter(new Vector3()), size, score };
+	});
+	return best;
+}
+
+// A dark slab set just inside the doorway, sized to the opening and turned to
+// face the alley. Blocks the line of sight into the lit interior so the club is
+// never visible from outside — paired with the neon frame in front of it, the
+// entrance reads as a shut, glowing door.
+function buildDoorOccluder(anchor, dir) {
+	const { size } = anchor;
+	const widthPerp = Math.abs(dir.z) * size.x + Math.abs(dir.x) * size.z;
+	const geo = new BoxGeometry(Math.max(widthPerp, 1.4) * 1.2 + 0.3, size.y * 1.2, 0.3);
+	const mat = new MeshStandardMaterial({ color: 0x06040b, roughness: 1, metalness: 0 });
+	const mesh = new Mesh(geo, mat);
+	mesh.position.copy(anchor.center);
+	mesh.rotation.y = Math.atan2(dir.x, dir.z);
+	// Nudge to the interior side of the door plane, hiding the recess behind it.
+	mesh.position.addScaledVector(dir, -0.2);
+	return mesh;
 }
 
 // A neon doorway: two posts, a lintel, and a glowing infill plane, with a

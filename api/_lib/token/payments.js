@@ -77,7 +77,7 @@ export async function verifyOnChain({ quote, txSignature, network = 'mainnet' })
 	}
 
 	// Every split leg must have received at least its share. Underpaying any leg
-	// (including the burn) voids the whole payment.
+	// (treasury, rewards, or seller) voids the whole payment.
 	const credited = {};
 	for (const leg of quote.legs) {
 		const need = BigInt(leg.atomics);
