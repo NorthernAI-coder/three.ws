@@ -8,10 +8,13 @@ and re-running `node scripts/build-club-audio.mjs` regenerates these
 files byte-for-byte.
 
 Because no external sample material was used, three.ws holds full
-copyright on these audio files and dedicates them to the public domain
+copyright on these loops and dedicates them to the public domain
 under **Creative Commons CC0 1.0 Universal**
 (https://creativecommons.org/publicdomain/zero/1.0/). You can use them
 for any purpose, with or without attribution.
+
+The one exception is `entrance.mp3` (the walk-in anthem) — a supplied
+third-party track that is **not** CC0. See its row in the table below.
 
 | File                 | Source                                                        | License | Length                | Notes                                                                 |
 | -------------------- | ------------------------------------------------------------- | ------- | --------------------- | --------------------------------------------------------------------- |
@@ -22,6 +25,7 @@ for any purpose, with or without attribution.
 | `capoeira.{ogg,mp3}` | Authored — 110 BPM berimbau ostinato + atabaque approximation | CC0 1.0 | ~8.7 s loop (4 bars)  | Brazilian roda rhythm for the Capoeira clip.                          |
 | `silly.{ogg,mp3}`    | Authored — 130 BPM major-key bounce + woodblock + cartoon arp | CC0 1.0 | ~7.4 s loop (4 bars)  | Playful bed for the Silly clip.                                       |
 | `pole.{ogg,mp3}`     | Authored — 105 BPM neutral groove + sine pad                  | CC0 1.0 | ~9.1 s loop (4 bars)  | Generic backing track for pole choreography clips (spin/climb/combo). |
+| `entrance.mp3`       | Supplied third-party track                                    | © original artist — **not** CC0 | full track, one-shot | Walk-in anthem played once on `club:admitted` via `ClubAudio.playEntrance()`. Not synthesised — confirm the artist's license before any redistribution beyond three.ws. |
 
 ## Mastering notes
 

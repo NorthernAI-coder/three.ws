@@ -477,7 +477,7 @@ async function handleDelete(req, res, id, auth) {
 
 // ── Wallet ────────────────────────────────────────────────────────────────
 
-export async function handleWallet(req, res, id) {
+export async function handleWallet(req, res, id, action = null) {
 	if (cors(req, res, { methods: 'POST,DELETE,OPTIONS', credentials: true })) return;
 
 	const auth = await resolveAuth(req);
@@ -485,10 +485,29 @@ export async function handleWallet(req, res, id) {
 	if (!(await requireCsrf(req, res, auth.userId))) return;
 
 	const [existing] = await sql`
-		SELECT id, user_id FROM agent_identities WHERE id = ${id} AND deleted_at IS NULL
+		SELECT id, user_id, wallet_address FROM agent_identities WHERE id = ${id} AND deleted_at IS NULL
 	`;
 	if (!existing) return error(res, 404, 'not_found', 'agent not found');
 	if (existing.user_id !== auth.userId) return error(res, 403, 'forbidden', 'not your agent');
+
+	// POST /api/agents/:id/wallet/provision — idempotently generate the agent's
+	// custodial EVM + Solana wallets. This is the "Create wallet" action surfaced
+	// on every avatar surface; safe to call repeatedly (returns existing addresses).
+	if (action === 'provision') {
+		if (!method(req, res, ['POST'])) return;
+		const { provisionAgentWallets } = await import('./_lib/agent-wallet.js');
+		try {
+			const wallets = await provisionAgentWallets(id);
+			return json(res, 200, {
+				ok: true,
+				created: wallets.created,
+				wallet_address: wallets.evm,
+				solana_address: wallets.solana,
+			});
+		} catch (e) {
+			return error(res, 500, 'provision_failed', e?.message || 'wallet provisioning failed');
+		}
+	}
 
 	if (req.method === 'DELETE') {
 		await sql`

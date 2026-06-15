@@ -127,7 +127,7 @@ async function handleCreate(req, res) {
 				// without its agent. The claim is naturally idempotent and the
 				// insert is guarded by NOT EXISTS below, so the whole sequence is
 				// safe to retry on a connection-level failure.
-				await withDbRetry(async () => {
+				const agentId = await withDbRetry(async () => {
 				// First try to claim an existing agent that has no avatar yet.
 				const linked = await sql`
 					WITH agent_to_update AS (
@@ -144,26 +144,37 @@ async function handleCreate(req, res) {
 					WHERE agent_identities.id = agent_to_update.id
 					RETURNING agent_identities.id
 				`;
+				if (linked.length) return linked[0].id;
 				// No existing agent to claim — create a default one. The NOT EXISTS
 				// guard keeps a retried insert (after a lost response) from
 				// creating a second agent for the same avatar.
-				if (!linked.length) {
-					await sql`
-						INSERT INTO agent_identities (user_id, name, avatar_id, is_public, created_at, updated_at)
-						SELECT
-							${auth.userId},
-							${avatar.name || 'My Agent'},
-							${avatar.id},
-							false,
-							NOW(),
-							NOW()
-						WHERE NOT EXISTS (
-							SELECT 1 FROM agent_identities
-							WHERE user_id = ${auth.userId} AND avatar_id = ${avatar.id}
-						)
-					`;
-				}
+				const [created] = await sql`
+					INSERT INTO agent_identities (user_id, name, avatar_id, is_public, created_at, updated_at)
+					SELECT
+						${auth.userId},
+						${avatar.name || 'My Agent'},
+						${avatar.id},
+						false,
+						NOW(),
+						NOW()
+					WHERE NOT EXISTS (
+						SELECT 1 FROM agent_identities
+						WHERE user_id = ${auth.userId} AND avatar_id = ${avatar.id}
+					)
+					RETURNING id
+				`;
+				return created?.id ?? null;
 				});
+
+				// Every avatar's agent gets a custodial wallet on first save so it
+				// can transact immediately. Idempotent — a claimed agent that already
+				// has a wallet is left untouched.
+				if (agentId) {
+					const { provisionAgentWallets } = await import('../_lib/agent-wallet.js');
+					await provisionAgentWallets(agentId).catch((e) =>
+						console.warn('[avatars] wallet provision failed', agentId, e?.message),
+					);
+				}
 			} catch (err) {
 				console.error('[avatars] auto-agent failed', {
 					avatarId: avatar.id,

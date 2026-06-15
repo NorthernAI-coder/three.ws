@@ -82,6 +82,54 @@ export async function recoverAgentKey(encryptedKey) {
 	return decrypt(encryptedKey);
 }
 
+/**
+ * Idempotently provision a custodial EVM wallet for an agent.
+ *
+ * Mirrors getOrCreateAgentSolanaWallet(): generate a keypair via
+ * generateAgentWallet(), store the address in agent_identities.wallet_address
+ * and the encrypted key in meta.encrypted_wallet_key, and never re-create if one
+ * already exists. Returns { address, created }.
+ */
+export async function getOrCreateAgentEvmWallet(agentId, { chainId = 8453 } = {}) {
+	const { sql } = await import('./db.js');
+	const [row] = await sql`
+		select id, wallet_address, meta from agent_identities
+		where id = ${agentId} and deleted_at is null
+		limit 1
+	`;
+	if (!row) throw new Error('agent not found');
+	if (row.wallet_address && row.meta?.encrypted_wallet_key) {
+		return { address: row.wallet_address, created: false };
+	}
+
+	const wallet = await generateAgentWallet();
+	const meta = {
+		...(row.meta || {}),
+		encrypted_wallet_key: wallet.encrypted_key,
+		evm_wallet_source: 'generated',
+	};
+	await sql`
+		update agent_identities
+		set wallet_address = ${wallet.address},
+		    chain_id = coalesce(chain_id, ${chainId}),
+		    meta = ${JSON.stringify(meta)}::jsonb
+		where id = ${agentId}
+	`;
+	return { address: wallet.address, created: true };
+}
+
+/**
+ * Idempotently provision BOTH the EVM and Solana custodial wallets for an agent.
+ * Used by the "create wallet" action on every avatar surface and by the
+ * auto-provision on first avatar save. Returns the live addresses.
+ * @returns {Promise<{ evm: string, solana: string, created: boolean }>}
+ */
+export async function provisionAgentWallets(agentId, { chainId = 8453 } = {}) {
+	const evm = await getOrCreateAgentEvmWallet(agentId, { chainId });
+	const sol = await getOrCreateAgentSolanaWallet(agentId);
+	return { evm: evm.address, solana: sol.address, created: evm.created || sol.created };
+}
+
 // ── EVM on-chain balance + spend helpers ────────────────────────────────────
 
 let _ethUsdPrice = null;

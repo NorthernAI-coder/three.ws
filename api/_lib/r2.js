@@ -6,6 +6,7 @@ import {
 	GetObjectCommand,
 	DeleteObjectCommand,
 	HeadObjectCommand,
+	CopyObjectCommand,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { env } from './env.js';
@@ -88,6 +89,24 @@ export async function putObject({ key, body, contentType, metadata = {} }) {
 			Metadata: metadata,
 		}),
 	);
+}
+
+// Server-side object copy (no download/re-upload). Used by avatar forks to
+// duplicate a source GLB/thumbnail into the new owner's `u/{ownerId}/` namespace
+// so the fork is a fully independent object. Returns false (and the caller can
+// fall back to referencing the source URL) when the source is an absolute URL
+// rather than a bucket object — those live outside our bucket and nothing needs
+// copying.
+export async function copyObject({ fromKey, toKey }) {
+	if (isAbsoluteUrl(fromKey)) return false;
+	await r2.send(
+		new CopyObjectCommand({
+			Bucket: env.S3_BUCKET,
+			CopySource: `${env.S3_BUCKET}/${encodeR2Key(fromKey)}`,
+			Key: toKey,
+		}),
+	);
+	return true;
 }
 
 export async function getObjectBuffer(key) {

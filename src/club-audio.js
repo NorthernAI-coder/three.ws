@@ -22,6 +22,8 @@ const AMBIENCE_GAIN = 0.35;
 const STYLE_GAIN = 0.75;
 const AMBIENCE_DUCK_GAIN = 0.1;
 const MASTER_GAIN = 0.75;
+// Walk-in anthem — plays once, full-volume, the moment the rope drops.
+const ENTRANCE_GAIN = 0.9;
 
 export class ClubAudio {
 	constructor() {
@@ -29,6 +31,8 @@ export class ClubAudio {
 		this.master = null;
 		this.ambience = null; // { source, gain }
 		this.style = null; // { name, source, gain }
+		this.entrance = null; // { source, gain } — one-shot walk-in anthem
+		this._entrancePlayed = false;
 		this.analyser = null;
 		this._buffers = new Map(); // styleName → AudioBuffer
 		this._loading = new Map(); // styleName → Promise<AudioBuffer>
@@ -184,6 +188,70 @@ export class ClubAudio {
 		}
 	}
 
+	// One-shot walk-in anthem: the moment the bouncer admits the wallet we
+	// play `entrance.{ogg,mp3}` straight through (no loop), ducking any crowd
+	// ambience under it and restoring it when the track ends. Routed through
+	// the master bus, so the mute pill silences it like everything else.
+	//
+	// Throws if the AudioContext can't be unlocked (no user gesture yet) so
+	// the caller can retry on the next interaction — and leaves
+	// `_entrancePlayed` false in that case so the retry still fires.
+	async playEntrance(name = 'entrance', { gain = ENTRANCE_GAIN } = {}) {
+		if (this._entrancePlayed) return null;
+		await this.ensureContext();
+		if (this.ctx.state === 'suspended') {
+			try {
+				await this.ctx.resume();
+			} catch {}
+		}
+		if (this.ctx.state === 'suspended') {
+			throw new Error('AudioContext locked — needs a user gesture');
+		}
+
+		const buf = await this.loadBuffer(name);
+		// A second caller may have won the race while we awaited the buffer.
+		if (this._entrancePlayed) return null;
+		this._entrancePlayed = true;
+
+		const source = this.ctx.createBufferSource();
+		source.buffer = buf;
+		source.loop = false;
+		const g = this.ctx.createGain();
+		g.gain.value = gain;
+		source.connect(g).connect(this.master);
+
+		const now = this.ctx.currentTime;
+		// Duck ambience under the anthem if it's already running.
+		if (this.ambience) {
+			this.ambience.gain.gain.cancelScheduledValues(now);
+			this.ambience.gain.gain.setValueAtTime(this.ambience.gain.gain.value, now);
+			this.ambience.gain.gain.linearRampToValueAtTime(AMBIENCE_DUCK_GAIN, now + 0.4);
+		}
+
+		source.onended = () => {
+			try {
+				source.disconnect();
+			} catch {}
+			// Bring ambience back up if it's still around when the anthem ends.
+			if (this.ambience && this.ctx) {
+				const t = this.ctx.currentTime;
+				this.ambience.gain.gain.cancelScheduledValues(t);
+				this.ambience.gain.gain.setValueAtTime(this.ambience.gain.gain.value, t);
+				this.ambience.gain.gain.linearRampToValueAtTime(AMBIENCE_GAIN, t + 1.2);
+			}
+			this.entrance = null;
+		};
+		source.start();
+		this.entrance = { source, gain: g };
+
+		if (this._onStatus) {
+			try {
+				this._onStatus(name);
+			} catch {}
+		}
+		return this.entrance;
+	}
+
 	_fadeOutLayer(layer, durationMs) {
 		const now = this.ctx.currentTime;
 		const end = now + Math.max(0.05, durationMs / 1000);
@@ -259,6 +327,7 @@ export function styleAudioFor(dance) {
 // Display labels for screen-reader announcements.
 export const TRACK_LABELS = Object.freeze({
 	ambience: 'Crowd ambience',
+	entrance: 'Walk-in anthem',
 	rumba: 'Rumba mix',
 	silly: 'Silly mix',
 	thriller: 'Thriller mix',
