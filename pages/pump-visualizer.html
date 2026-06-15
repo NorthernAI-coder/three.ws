@@ -111,6 +111,9 @@
 			display: flex;
 			gap: 8px;
 			align-items: center;
+			flex-wrap: wrap;
+			justify-content: center;
+			max-width: calc(100vw - 32px);
 			background: var(--vz-panel);
 			border: 1px solid var(--vz-border);
 			border-radius: 10px;
@@ -248,6 +251,31 @@
 			background: rgba(255, 255, 255, 0.18);
 			border-color: var(--vz-border);
 			color: var(--vz-text);
+		}
+
+		/* ── Cross-links to sibling launchpad surfaces ──── */
+		.vz-links {
+			display: flex;
+			gap: 12px;
+			align-items: center;
+			border-left: 1px solid rgba(255, 255, 255, 0.08);
+			padding-left: 8px;
+			margin-left: 2px;
+		}
+		.vz-links a {
+			color: var(--vz-muted);
+			text-decoration: none;
+			font-size: 10px;
+			letter-spacing: 0.04em;
+			text-transform: uppercase;
+			white-space: nowrap;
+			transition: color 0.15s;
+		}
+		.vz-links a:hover { color: var(--vz-text); }
+		.vz-links a:focus-visible {
+			outline: 1px solid var(--vz-accent);
+			outline-offset: 2px;
+			border-radius: 4px;
 		}
 
 		/* ── Help / hint ──────────────────────────────── */
@@ -645,10 +673,14 @@
 				<button type="button" data-sort="replies">Replies</button>
 				<button type="button" data-sort="recent">New</button>
 			</div>
+			<nav class="vz-links" aria-label="Explore the launchpad">
+				<a href="/pump-live">Feed →</a>
+				<a href="/launches">All launches →</a>
+			</nav>
 		</div>
 
 		<div class="vz-overlay vz-hint" id="vz-hint" aria-hidden="true">
-			<b>Drag</b> to rotate · <b>Scroll</b> to zoom · <b>Click</b> a sphere · <b>/</b> to search
+			<b>Drag</b> to rotate · <b>Scroll</b> to zoom · <b>Click</b> for details · <b>Double-click</b> to open · <b>/</b> to search
 			<button type="button" class="dismiss" id="vz-hint-dismiss" aria-label="Dismiss">×</button>
 		</div>
 
@@ -703,7 +735,7 @@
 		import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 		import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
-		const TRENDING_API = '/api/pump/trending?limit=50';
+		const TRENDING_API = '/api/pump/trending?limit=50&rich=1';
 		const LIVE_FEED_API = '/api/agents/pumpfun-feed?kind=mint';
 		const MIGRATIONS_FEED_API = '/api/agents/pumpfun-feed?kind=graduation';
 		const MIGRATIONS_BACKFILL_API = '/api/pump/recent-graduations?limit=20';
@@ -1158,6 +1190,15 @@
 			selectToken(data);
 		}
 
+		// Double-click drills straight into the full 3D coin page (same tab).
+		renderer.domElement.addEventListener('dblclick', () => {
+			raycaster.setFromCamera(pointer, camera);
+			const hits = raycaster.intersectObjects(visibleMeshes(), false);
+			if (!hits.length) return;
+			const mint = hits[0].object.userData.token?.mint;
+			if (mint) window.location.href = `/coin3d?mint=${encodeURIComponent(mint)}`;
+		});
+
 		function setHovered(entry) {
 			if (hovered === entry) return;
 			if (hovered && hovered !== selected) {
@@ -1259,7 +1300,9 @@
 			const linksEl = document.getElementById('vz-detail-links');
 			linksEl.innerHTML = '';
 			if (token.mint) {
-				linksEl.appendChild(linkNode(`https://pump.fun/coin/${token.mint}`, 'Pump.fun ↗', true));
+				// Primary action keeps the user inside three.ws — the full 3D coin page.
+				linksEl.appendChild(linkNode(`/coin3d?mint=${encodeURIComponent(token.mint)}`, 'Open in 3D →', { primary: true, internal: true }));
+				linksEl.appendChild(linkNode(`https://pump.fun/coin/${token.mint}`, 'Pump.fun ↗'));
 				linksEl.appendChild(linkNode(`https://solscan.io/token/${token.mint}`, 'Solscan ↗'));
 			}
 			if (token.twitter) linksEl.appendChild(linkNode(token.twitter, 'Twitter ↗'));
@@ -1270,11 +1313,14 @@
 			detailEl.setAttribute('aria-hidden', 'false');
 		}
 
-		function linkNode(href, label, primary) {
+		function linkNode(href, label, opts = {}) {
+			const { primary = false, internal = false } = opts;
 			const a = document.createElement('a');
 			a.href = href;
-			a.target = '_blank';
-			a.rel = 'noopener noreferrer';
+			if (!internal) {
+				a.target = '_blank';
+				a.rel = 'noopener noreferrer';
+			}
 			a.textContent = label;
 			if (primary) a.className = 'primary';
 			return a;
@@ -2090,8 +2136,13 @@
 			try {
 				const resp = await fetch(TRENDING_API, { headers: { accept: 'application/json' } });
 				if (!resp.ok) throw new Error(`API returned ${resp.status}`);
-				const data = await resp.json();
-				if (!Array.isArray(data) || !data.length) throw new Error('No trending tokens returned');
+				const payload = await resp.json();
+				// Rich trending is wrapped as { data: [...] }; tolerate a bare array
+				// too so the viewer survives any future shape change upstream.
+				const data = Array.isArray(payload) ? payload
+					: Array.isArray(payload?.data) ? payload.data
+					: [];
+				if (!data.length) throw new Error('No trending tokens returned');
 
 				state.all = data;
 				const sorted = sortTokens(state.all, state.sortMode);

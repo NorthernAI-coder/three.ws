@@ -2,12 +2,13 @@
 // contracts/agent-invocation/src/lib.rs. Anchor 0.30+ IDL format (carries its
 // own `address` + `metadata` and per-instruction discriminators).
 //
-// The `address` below is the program's declared id. Until the program is
-// deployed to a cluster you target, override it with `invokeSkill({ programId })`.
+// The `address` below is the program's live id, deployed to both Solana mainnet
+// and devnet (same program id on both clusters). Override it with
+// `invokeSkill({ programId })` only to target a different deployment.
 
 import type { Idl } from '@coral-xyz/anchor';
 
-export const AGENT_INVOCATION_PROGRAM_ID = 'Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS';
+export const AGENT_INVOCATION_PROGRAM_ID = 'CcdC7xDhQ9r2PoafbsfWVewcbuAYozECHJEXWe4ELnqR';
 
 export const IDL = {
   address: AGENT_INVOCATION_PROGRAM_ID,

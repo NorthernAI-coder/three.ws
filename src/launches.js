@@ -18,6 +18,8 @@
  *   · 60s live refresh that prepends genuinely new launches in place
  */
 
+import { mountCoinStatus } from './pump/coin-status-card.js';
+
 const PAGE_SIZE = 24;
 const ENRICH_CONCURRENCY = 4;
 const LIVE_REFRESH_MS = 60_000;
@@ -317,56 +319,22 @@ function reveal(card, index) {
 }
 
 // ── market enrichment (mainnet only) ─────────────────────────────────────────
-// Small worker pool over /api/pump/coin so a long feed page doesn't fire 100
-// concurrent requests; each result patches its card in place.
+// Live price / market cap / graduation now stream in through the shared
+// coin-status widget (src/pump/coin-status-card.js) — one fetch to
+// /api/pump/coin per card, field-mapped and formatted in one place. Each card
+// keeps a handle so its refresh timer is torn down when the feed is rebuilt.
 
-const enrichQueue = [];
-let enrichActive = 0;
+const cardStatusHandles = new Set();
 
-function queueEnrich(mint, card) {
-	enrichQueue.push({ mint, card });
-	pumpEnrichQueue();
-}
-
-function pumpEnrichQueue() {
-	while (enrichActive < ENRICH_CONCURRENCY && enrichQueue.length) {
-		const job = enrichQueue.shift();
-		enrichActive++;
-		enrichCard(job.mint, job.card).finally(() => {
-			enrichActive--;
-			pumpEnrichQueue();
-		});
-	}
-}
-
-async function enrichCard(mint, card) {
-	let coin;
-	try {
-		const r = await fetch(`/api/pump/coin?mint=${encodeURIComponent(mint)}`);
-		if (!r.ok) return;
-		coin = await r.json();
-	} catch {
-		return; // registry data already on screen; market data is best-effort
-	}
-	if (!coin || !card.isConnected) return;
-
-	const img = card.querySelector('.lx-coin-img');
-	const imgSrc = coin.image_uri || coin.image;
-	if (img && imgSrc) {
-		img.addEventListener('load', () => img.classList.add('lx-img-in'), { once: true });
-		img.src = imgSrc;
-	}
-
-	const mcap = card.querySelector('.lx-mcap-value');
-	const cap = Number(coin.usd_market_cap);
-	if (mcap && Number.isFinite(cap)) mcap.textContent = usdCompact(cap);
-
-	if (coin.complete) {
-		const badges = card.querySelector('.lx-badges');
-		if (badges && !badges.querySelector('.lx-badge-grad')) {
-			badges.prepend(el('span', { class: 'lx-badge lx-badge-grad', text: 'Graduated' }));
+function teardownStatusHandles() {
+	for (const h of cardStatusHandles) {
+		try {
+			h.destroy();
+		} catch {
+			/* ignore */
 		}
 	}
+	cardStatusHandles.clear();
 }
 
 // ── card rendering ───────────────────────────────────────────────────────────
@@ -424,6 +392,16 @@ function launchCard(launch, index, { featured = false } = {}) {
 		}),
 	];
 	if (!isDevnet) {
+		actions.push(
+			el('a', {
+				class: 'lx-action',
+				href: `/coin3d?mint=${encodeURIComponent(launch.mint)}`,
+				target: '_blank',
+				rel: 'noopener noreferrer',
+				text: '3D view',
+				'aria-label': `View ${launch.symbol || launch.name || 'coin'} in 3D`,
+			}),
+		);
 		actions.push(
 			el('a', {
 				class: 'lx-action',

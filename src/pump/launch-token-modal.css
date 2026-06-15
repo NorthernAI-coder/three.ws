@@ -354,18 +354,21 @@
 	box-sizing: border-box;
 	text-align: left;
 }
-.ltm-pumpfun-link {
-	display: inline-block;
-	padding: 0.55rem 1.4rem;
-	border-radius: 8px;
-	background: rgba(120, 200, 140, 0.16);
-	border: 1px solid rgba(120, 200, 140, 0.35);
-	color: #d8f5e2;
-	text-decoration: none;
-	font-size: 0.82rem;
-	transition: background 0.15s;
+.ltm-cta-row {
+	display: flex;
+	gap: 8px;
+	flex-wrap: wrap;
+	justify-content: center;
+	margin-top: 16px;
+	width: 100%;
 }
-.ltm-pumpfun-link:hover { background: rgba(120, 200, 140, 0.26); }
+.ltm-cta-row .ltm-btn { flex: 1; min-width: 130px; }
+.ltm-cta-row a.ltm-btn {
+	text-decoration: none;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+}
 
 /* Status spinner (reuse mp-spinner pattern) */
 @keyframes ltm-spin { to { transform: rotate(360deg); } }

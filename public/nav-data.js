@@ -148,6 +148,39 @@ export const NAV_GROUPS = [
 		],
 	},
 	{
+		label: 'Launch',
+		items: [
+			{
+				title: 'Launch a Coin',
+				href: '/launchpad',
+				desc: 'Create a token for your agent',
+			},
+			{
+				title: 'All Launches',
+				href: '/launches',
+				badge: 'New',
+				desc: 'Public feed of every agent coin',
+			},
+			{
+				title: 'Live Stream',
+				href: '/pump-live',
+				badge: 'Live',
+				badgeTone: 'live',
+				desc: 'Real-time new launches',
+			},
+			{
+				title: '3D Visualizer',
+				href: '/pump-visualizer',
+				desc: 'Trending tokens in 3D',
+			},
+			{
+				title: 'Token in 3D',
+				href: '/coin3d',
+				desc: 'View any token as a 3D scene',
+			},
+		],
+	},
+	{
 		label: 'Embed',
 		items: [
 			{ title: 'Widgets', href: '/widgets', desc: 'Browse + customize embeddable widgets' },

@@ -338,7 +338,11 @@ function renderHud(s) {
 			<div><dt>Status</dt><dd>${escapeHtml(grad)}</dd></div>
 			<div><dt>Top holders shown</dt><dd>${s.holders.length || 0}</dd></div>
 		</dl>
-		<a class="hud-link" href="https://pump.fun/coin/${encodeURIComponent(s.mint)}" target="_blank" rel="noopener">View on pump.fun ↗</a>`;
+		<div class="hud-links">
+			<a class="hud-link" href="https://pump.fun/coin/${encodeURIComponent(s.mint)}" target="_blank" rel="noopener">View on pump.fun ↗</a>
+			<a class="hud-link" href="/launches">All launches →</a>
+			${s.mint ? `<a class="hud-link" href="/communities/${encodeURIComponent(s.mint)}">3D world →</a>` : ''}
+		</div>`;
 }
 
 function compact(n) {

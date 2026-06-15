@@ -652,6 +652,7 @@ export function mountLaunchpadStudio(root, options = {}) {
 					<span class="pill" data-mode-pill>Template-driven</span>
 				</div>
 				<div class="actions">
+					<a class="btn ghost" href="/launches" title="Public feed of every coin launched by a three.ws agent">See all launched coins →</a>
 					<a class="btn ghost" href="/embed" title="The original place-and-scale embed editor">Open classic editor</a>
 					<button class="btn" data-action="open-recent">My launchpads ▾</button>
 					<button class="btn" data-action="new-draft" title="Start a new draft (current draft cleared)">New</button>

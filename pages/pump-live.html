@@ -10,7 +10,6 @@
 		<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
 		<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 		<link rel="manifest" href="/site.webmanifest" />
-<text y='.9em' font-size='90'>�</text></svg>">
 <title>3D-Agent · PumpFun Live</title>
 <meta name="description" content="Real-time stream of new PumpFun token launches on Solana, presented by a 3D Agent.">
 <link rel="canonical" href="https://three.ws/pump-live">
@@ -87,6 +86,45 @@
   }
   #header .status.connected { color: var(--green); }
   #header .status.error { color: #ff4141; }
+  #header .header-links {
+    margin-left: auto;
+    display: flex;
+    gap: 18px;
+    font-size: 13px;
+  }
+  #header .header-links a { color: var(--green); }
+  #header .header-links a:hover { text-decoration: underline; }
+
+  /* ── Stats bar ───────────────────────────────────── */
+  #stats-bar {
+    display: flex;
+    gap: 0;
+    background: #0d0d0d;
+    border-bottom: 1px solid var(--dark-grey);
+  }
+  .stat {
+    flex: 1;
+    padding: 10px 16px;
+    border-right: 1px solid var(--dark-grey);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .stat:last-child { border-right: none; }
+  .stat-label {
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #666;
+  }
+  .stat-value {
+    font-size: 18px;
+    font-weight: bold;
+    color: var(--green);
+    font-variant-numeric: tabular-nums;
+    transition: color 0.3s;
+  }
+  .stat-value.flash { color: #fff; }
 
   /* ── Feed ────────────────────────────────────────── */
   #feed-header {
@@ -120,16 +158,85 @@
     border-radius: 50%;
     border: 1px solid var(--light-grey);
   }
-  .token-info { flex: 1; }
-  .token-name { font-size: 16px; font-weight: bold; }
+  .token-info { flex: 1; min-width: 0; }
+  .token-name {
+    font-size: 16px;
+    font-weight: bold;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
   .token-symbol { color: #888; font-size: 12px; }
   .token-mcap { margin-top: 4px; font-size: 14px; color: var(--green); }
+  .token-meta { margin-top: 2px; font-size: 11px; color: #777; }
   .token-links { margin-top: 8px; font-size: 11px; display: flex; gap: 10px; }
 
   @keyframes fadeIn {
     from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }
   }
+
+  /* ── Skeleton (empty / waiting state) ──────────────── */
+  .skeleton-card {
+    background: var(--dark-grey);
+    border: 1px solid var(--medium-grey);
+    border-radius: 8px;
+    margin-bottom: 8px;
+    padding: 12px;
+    display: flex;
+    gap: 12px;
+  }
+  .skeleton-card .sk-avatar {
+    width: 50px; height: 50px; border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .skeleton-card .sk-lines { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+  .sk-line { height: 12px; border-radius: 4px; }
+  .sk-line.w70 { width: 70%; }
+  .sk-line.w40 { width: 40%; }
+  .sk-line.w55 { width: 55%; }
+  .sk-avatar, .sk-line {
+    background: linear-gradient(90deg, #1a1a1a 25%, #242424 50%, #1a1a1a 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s ease-in-out infinite;
+  }
+  @keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+  .feed-empty-hint {
+    text-align: center;
+    color: #666;
+    font-size: 12px;
+    padding: 4px 0 12px;
+  }
+
+  /* ── Error state ───────────────────────────────────── */
+  .feed-error {
+    margin: 12px 8px;
+    padding: 20px 16px;
+    border: 1px solid #5a2222;
+    background: rgba(255, 65, 65, 0.06);
+    border-radius: 8px;
+    text-align: center;
+  }
+  .feed-error h3 { color: #ff6b6b; font-size: 14px; margin-bottom: 6px; }
+  .feed-error p { color: #999; font-size: 12px; margin-bottom: 14px; line-height: 1.5; }
+  .feed-error button {
+    background: var(--green);
+    color: #0a0a0a;
+    border: none;
+    border-radius: 6px;
+    padding: 9px 18px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s, filter 0.15s;
+  }
+  .feed-error button:hover { filter: brightness(1.1); box-shadow: 0 0 12px var(--glow-color); }
+  .feed-error button:active { transform: translateY(1px); }
+  .feed-error button:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
 
   /* ── Scrollbar ─────────────────────────────────────── */
   ::-webkit-scrollbar { width: 8px; }
@@ -171,11 +278,29 @@
 <div id="header">
   <h1>🚀 3D Agent Live Feed</h1>
   <div class="status" id="status">● Connecting...</div>
+  <nav class="header-links" aria-label="Explore the launchpad">
+    <a href="/launches">All launches →</a>
+    <a href="/pump-visualizer">Visualizer →</a>
+  </nav>
 </div>
 
 <div id="main-container">
   <div id="viewer-container"></div>
   <div id="feed-container">
+    <div id="stats-bar" role="group" aria-label="Live launch statistics">
+      <div class="stat">
+        <span class="stat-label">Tokens launched</span>
+        <span class="stat-value" id="stat-launched" aria-live="polite">0</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Initial-buy volume</span>
+        <span class="stat-value" id="stat-volume" aria-live="polite">$0</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Last launch</span>
+        <span class="stat-value" id="stat-age" aria-live="polite">—</span>
+      </div>
+    </div>
     <div id="feed-header">
       <h2>New Tokens on Pump.fun</h2>
     </div>
@@ -188,24 +313,34 @@
   import { Viewer } from '/src/viewer.js';
 
   // ════════════════════════════════════════════════════════════════════
-  // 3D Agent Setup
+  // 3D Agent Setup — the avatar reacts to each new launch. If the GLB or
+  // WebGL context fails to load we degrade gracefully: the feed must still
+  // connect and render, so the whole viewer init is isolated in try/catch.
   // ════════════════════════════════════════════════════════════════════
 
-  const viewerEl = document.getElementById('viewer-container');
-  const viewer = new Viewer(viewerEl, { kiosk: true });
-  window.viewer = viewer;
+  let viewer = null;
 
-  await viewer.load('/animations/robotexpressive.glb', '', new Map());
+  try {
+    const viewerEl = document.getElementById('viewer-container');
+    viewer = new Viewer(viewerEl, { kiosk: true });
+    window.viewer = viewer;
 
-  const idleClip =
-    viewer.clips.find((c) => /^idle$/i.test(c.name)) || viewer.clips[0];
-  if (idleClip && viewer.mixer) {
-    viewer.mixer.clipAction(idleClip).play();
+    await viewer.load('/animations/robotexpressive.glb', '', new Map());
+
+    const idleClip =
+      viewer.clips.find((c) => /^idle$/i.test(c.name)) || viewer.clips[0];
+    if (idleClip && viewer.mixer) {
+      viewer.mixer.clipAction(idleClip).play();
+    }
+  } catch (err) {
+    console.warn('[pump-live] 3D viewer unavailable, continuing with feed only:', err?.message || err);
+    viewer = null;
   }
 
   function playAnimation(animationName, { loop = false } = {}) {
+    if (!viewer || !viewer.mixer) return;
     const clip = viewer.clips.find((c) => c.name === animationName);
-    if (!clip || !viewer.mixer) return;
+    if (!clip) return;
     const action = viewer.mixer.clipAction(clip);
     action.reset();
     action.setLoop(loop ? LoopRepeat : LoopOnce, loop ? Infinity : 1);
@@ -214,78 +349,283 @@
   }
 
   // ════════════════════════════════════════════════════════════════════
-  // PumpFun Live Token Feed Logic (adapted from original script)
+  // SOL price — drives real USD market caps. Sourced from the same-origin
+  // /api/pump/helius-stats endpoint (CoinGecko-backed, cached server-side).
+  // Refreshed every 60s; never blocks rendering. No hardcoded price.
+  // ════════════════════════════════════════════════════════════════════
+
+  let solPrice = 0;
+
+  async function refreshSolPrice() {
+    try {
+      const r = await fetch('/api/pump/helius-stats', { headers: { accept: 'application/json' } });
+      if (!r.ok) return;
+      const d = await r.json();
+      if (typeof d.sol_price === 'number' && d.sol_price > 0) solPrice = d.sol_price;
+    } catch { /* keep last known price; cards fall back to SOL-denominated MC */ }
+  }
+
+  // ════════════════════════════════════════════════════════════════════
+  // PumpFun Live Token Feed
+  //
+  // PumpPortal `subscribeNewToken` envelope (verified against the live feed):
+  //   { txType:'create', mint, name, symbol, uri, marketCapSol, solAmount,
+  //     traderPublicKey, signature, bondingCurveKey, ... }
+  //   - `uri` is a metadata JSON URL; the real image lives at its `.image`.
+  //   - there is NO `imageUri` field (the old renderer read a phantom field).
   // ════════════════════════════════════════════════════════════════════
 
   const RPC_ENDPOINT = 'wss://pumpportal.fun/api/data';
   const MAX_FEED_ITEMS = 100;
+  const META_FETCH_TIMEOUT_MS = 4000;
+
+  // Reconnect backoff: 2s → 4s → 8s → 16s → 32s → cap 60s, reset on open.
+  // After MAX_RECONNECT_ATTEMPTS consecutive failures we stop auto-retrying
+  // and surface a manual Retry button (permanent-outage error state).
+  const BASE_BACKOFF_MS = 2000;
+  const MAX_BACKOFF_MS = 60000;
+  const MAX_RECONNECT_ATTEMPTS = 8;
 
   const $log = document.getElementById('feed');
   const $status = document.getElementById('status');
+  const $statLaunched = document.getElementById('stat-launched');
+  const $statVolume = document.getElementById('stat-volume');
+  const $statAge = document.getElementById('stat-age');
 
-  let ws;
-  let reconnectTimer;
+  let ws = null;
+  let reconnectTimer = null;
+  let reconnectAttempts = 0;
+  let hasRenderedToken = false;
+  const seenMints = new Set();
+
+  // Live stats — accumulated only from real create events. Volume is kept in
+  // SOL and converted with the current SOL price at render time so a price
+  // refresh retroactively corrects the USD figure without double-counting.
+  let launchedCount = 0;
+  let volumeSol = 0;
+  let lastLaunchAt = 0;
+
+  const usd = (n) => '$' + n.toLocaleString(undefined, { maximumFractionDigits: n < 1000 ? 2 : 0 });
+  const isHttpUrl = (u) => typeof u === 'string' && /^https?:\/\//i.test(u);
+
+  function showSkeleton() {
+    $log.innerHTML = '';
+    for (let i = 0; i < 4; i++) {
+      const sk = document.createElement('div');
+      sk.className = 'skeleton-card';
+      sk.setAttribute('aria-hidden', 'true');
+      sk.innerHTML =
+        '<div class="sk-avatar"></div>' +
+        '<div class="sk-lines">' +
+          '<div class="sk-line w70"></div>' +
+          '<div class="sk-line w40"></div>' +
+          '<div class="sk-line w55"></div>' +
+        '</div>';
+      $log.appendChild(sk);
+    }
+    const hint = document.createElement('div');
+    hint.className = 'feed-empty-hint';
+    hint.id = 'feed-empty-hint';
+    hint.textContent = 'Waiting for new launches…';
+    $log.appendChild(hint);
+  }
+
+  function clearSkeleton() {
+    $log.querySelectorAll('.skeleton-card, #feed-empty-hint, .feed-error').forEach((el) => el.remove());
+  }
+
+  function showError() {
+    $log.innerHTML = '';
+    const box = document.createElement('div');
+    box.className = 'feed-error';
+    box.setAttribute('role', 'alert');
+
+    const h = document.createElement('h3');
+    h.textContent = 'Live feed unavailable';
+    const p = document.createElement('p');
+    p.textContent = 'Could not reach the pump.fun launch stream after several attempts. PumpPortal may be temporarily down.';
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = 'Retry connection';
+    btn.addEventListener('click', () => {
+      reconnectAttempts = 0;
+      showSkeleton();
+      connect();
+    });
+
+    box.append(h, p, btn);
+    $log.appendChild(box);
+  }
+
+  function flash(el) {
+    el.classList.add('flash');
+    setTimeout(() => el.classList.remove('flash'), 320);
+  }
+
+  function renderStats() {
+    $statLaunched.textContent = launchedCount.toLocaleString();
+    $statVolume.textContent = solPrice > 0
+      ? usd(volumeSol * solPrice)
+      : volumeSol.toFixed(2) + ' SOL';
+  }
+
+  function formatAgo(ts) {
+    if (!ts) return '—';
+    const s = Math.max(0, Math.floor((Date.now() - ts) / 1000));
+    if (s < 60) return s + 's ago';
+    const m = Math.floor(s / 60);
+    if (m < 60) return m + 'm ago';
+    return Math.floor(m / 60) + 'h ago';
+  }
+
+  // The "Last launch" stat re-formats a real timestamp once a second — it is a
+  // relative-time label over actual event data, not a fabricated ticker.
+  setInterval(() => {
+    $statAge.textContent = formatAgo(lastLaunchAt);
+  }, 1000);
 
   function connect() {
-    if (reconnectTimer) clearTimeout(reconnectTimer);
+    if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
 
-    setStatus('Connecting...', '');
+    setStatus('● Connecting…', '');
+    if (!hasRenderedToken) showSkeleton();
+
     ws = new WebSocket(RPC_ENDPOINT);
 
     ws.onopen = () => {
+      reconnectAttempts = 0;
       setStatus('● Live', 'connected');
       ws.send(JSON.stringify({ method: 'subscribeNewToken' }));
     };
 
     ws.onmessage = (event) => {
+      let token;
       try {
-        const tokenData = JSON.parse(event.data);
-        if (tokenData && tokenData.mint) {
-          renderToken(tokenData);
-        }
+        token = JSON.parse(event.data);
       } catch (error) {
-        console.error('Error parsing token data:', error);
+        console.error('[pump-live] bad frame:', error);
+        return;
       }
+      // Subscription acks ("Successfully subscribed…") have no mint — ignore.
+      if (!token || !token.mint || token.txType !== 'create') return;
+      if (seenMints.has(token.mint)) return;
+      seenMints.add(token.mint);
+      renderToken(token);
     };
 
     ws.onclose = () => {
-      setStatus('● Disconnected', 'error');
-      reconnectTimer = setTimeout(connect, 5000); // Reconnect after 5s
+      if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+        setStatus('● Offline', 'error');
+        showError();
+        return;
+      }
+      const delay = Math.min(BASE_BACKOFF_MS * 2 ** reconnectAttempts, MAX_BACKOFF_MS);
+      reconnectAttempts++;
+      setStatus(`● Reconnecting in ${Math.round(delay / 1000)}s…`, 'error');
+      reconnectTimer = setTimeout(connect, delay);
     };
 
     ws.onerror = (error) => {
-      console.error('WebSocket Error:', error);
-      ws.close();
+      console.error('[pump-live] WebSocket error:', error?.message || error);
+      try { ws.close(); } catch { /* onclose drives reconnect */ }
     };
   }
 
   function renderToken(token) {
-    const card = document.createElement('div');
+    if (!hasRenderedToken) {
+      hasRenderedToken = true;
+      clearSkeleton();
+    }
+
+    // Update live stats from the real event.
+    launchedCount++;
+    if (typeof token.solAmount === 'number' && token.solAmount > 0) volumeSol += token.solAmount;
+    lastLaunchAt = Date.now();
+    renderStats();
+    flash($statLaunched);
+    $statAge.textContent = formatAgo(lastLaunchAt);
+
+    const name = (token.name && String(token.name).trim()) || 'Unnamed Token';
+    const symbol = token.symbol ? '$' + String(token.symbol).trim() : '';
+    const mcSol = typeof token.marketCapSol === 'number' ? token.marketCapSol : null;
+    const mcapText = mcSol == null
+      ? 'Market Cap: —'
+      : solPrice > 0
+        ? 'Market Cap: ' + usd(mcSol * solPrice)
+        : 'Market Cap: ' + mcSol.toFixed(2) + ' SOL';
+
+    const card = document.createElement('article');
     card.className = 'token-card';
 
-    const imageUrl = token.imageUri || `https://ui-avatars.com/api/?name=${token.symbol || 'T'}&background=random`;
-    const mcap = token.marketCapSol ? `$${(token.marketCapSol * 150).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : 'N/A';
-    
-    card.innerHTML = `
-      <img src="${imageUrl}" alt="${token.name || 'Token'}">
-      <div class="token-info">
-        <div class="token-name">${token.name || 'Unnamed Token'}</div>
-        <div class="token-symbol">${token.symbol ? '$' + token.symbol : ''}</div>
-        <div class="token-mcap">Market Cap: ${mcap}</div>
-        <div class="token-links">
-          <a href="https://pump.fun/${token.mint}" target="_blank" rel="noopener noreferrer">Pump.fun</a>
-          <a href="https://solscan.io/token/${token.mint}" target="_blank" rel="noopener noreferrer">Solscan</a>
-        </div>
-      </div>
-    `;
+    // Placeholder avatar first (deterministic, no external call); the real
+    // image is fetched from the metadata URI and swapped in if it resolves.
+    const img = document.createElement('img');
+    img.loading = 'lazy';
+    img.alt = name;
+    img.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(token.symbol || token.name || 'T')}&background=1a1a1a&color=00ff41&bold=true`;
+    img.addEventListener('error', () => {
+      img.src = `https://ui-avatars.com/api/?name=T&background=1a1a1a&color=00ff41`;
+    }, { once: true });
+
+    const info = document.createElement('div');
+    info.className = 'token-info';
+
+    const nameEl = document.createElement('div');
+    nameEl.className = 'token-name';
+    nameEl.textContent = name;          // textContent → no HTML injection
+    nameEl.title = name;
+
+    const symEl = document.createElement('div');
+    symEl.className = 'token-symbol';
+    symEl.textContent = symbol;
+
+    const mcapEl = document.createElement('div');
+    mcapEl.className = 'token-mcap';
+    mcapEl.textContent = mcapText;
+
+    const links = document.createElement('div');
+    links.className = 'token-links';
+    const pumpLink = document.createElement('a');
+    pumpLink.href = 'https://pump.fun/' + encodeURIComponent(token.mint);
+    pumpLink.target = '_blank';
+    pumpLink.rel = 'noopener noreferrer';
+    pumpLink.textContent = 'Pump.fun';
+    const solscanLink = document.createElement('a');
+    solscanLink.href = 'https://solscan.io/token/' + encodeURIComponent(token.mint);
+    solscanLink.target = '_blank';
+    solscanLink.rel = 'noopener noreferrer';
+    solscanLink.textContent = 'Solscan';
+    links.append(pumpLink, solscanLink);
+
+    info.append(nameEl, symEl, mcapEl, links);
+    card.append(img, info);
 
     $log.prepend(card);
-    if ($log.children.length > MAX_FEED_ITEMS) {
-      $log.removeChild($log.lastChild);
-    }
-    
-    // Trigger agent animation for new token
+    while ($log.children.length > MAX_FEED_ITEMS) $log.removeChild($log.lastChild);
+
+    // Agent reacts to the new launch.
     playAnimation('Wave', { loop: false });
+
+    // Resolve the real token image from its metadata JSON, then swap it in.
+    hydrateImage(token.uri, img);
+  }
+
+  async function hydrateImage(metaUri, img) {
+    if (!isHttpUrl(metaUri)) return;
+    try {
+      const ctrl = new AbortController();
+      const tid = setTimeout(() => ctrl.abort(), META_FETCH_TIMEOUT_MS);
+      const r = await fetch(metaUri, { signal: ctrl.signal });
+      clearTimeout(tid);
+      if (!r.ok) return;
+      const meta = await r.json();
+      const src = meta && meta.image;
+      if (!isHttpUrl(src)) return;
+      // Preload before swapping so we never flash a broken image.
+      const probe = new Image();
+      probe.onload = () => { img.src = src; };
+      probe.src = src;
+    } catch { /* keep the placeholder avatar */ }
   }
 
   function setStatus(text, className) {
@@ -293,7 +633,11 @@
     $status.className = `status ${className}`;
   }
 
-  // Initial connection
+  // Fetch the SOL price up front (so the first cards show USD), then poll it,
+  // and open the live feed.
+  await refreshSolPrice();
+  setInterval(refreshSolPrice, 60000);
+  renderStats();
   connect();
 </script>
 
