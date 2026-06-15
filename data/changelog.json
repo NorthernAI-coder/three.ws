@@ -3,6 +3,34 @@
 	"entries": [
 		{
 			"date": "2026-06-15",
+			"title": "Fixed the footer floating over the avatar viewer",
+			"summary": "On avatar pages (and a few other 3D viewer pages), the site footer was breaking loose and floating in the middle of the screen, on top of the 3D model — and its links couldn't be clicked. A styling rule meant only for the small corner credit on viewer pages was leaking onto the real footer. It's fixed: the footer now sits properly at the bottom of the page where it belongs, fully clickable, and the avatar viewer is unobstructed.",
+			"tags": ["fix"],
+			"link": "/marketplace"
+		},
+		{
+			"date": "2026-06-15",
+			"title": "Verify the $THREE economy on-chain — no \"trust us\"",
+			"summary": "The /three economy page now shows the real, live Solana wallets behind the numbers. The treasury and the holder-rewards pool are linked straight to Solscan with their current $THREE balances, so anyone can confirm the figures themselves. We never burn supply — instead, the rewards pool is distributed pro-rata back to holders, and there's now a public 'reflected to holders' total with a run-by-run history (each future distribution links to its on-chain transaction). Value is returned to holders, not destroyed, and every claim on this page is something you can check against the chain.",
+			"tags": ["feature", "improvement"],
+			"link": "/three"
+		},
+		{
+			"date": "2026-06-15",
+			"title": "Sniper agents can now buy on a creator's first reward claim",
+			"summary": "The autonomous sniper has a second way to trigger. Alongside sniping brand-new launches, you can now arm an agent in \"first claim\" mode: it watches pump.fun on-chain and buys a creator's coin the very first time that creator EVER pulls their accrued creator rewards out of the fee vault — an irreversible signal that the creator is live and taking real fees. You set the rules: how much to spend per buy, your daily budget, how long to wait after the claim before buying, and a minimum (or maximum) claim size so the agent only acts on creators taking real money, not dust. It runs through the same guardrails as every snipe — mandatory stop-loss, price-impact circuit breaker, daily caps, and one-shot-per-coin — and manages the position to its exit automatically.",
+			"tags": ["feature"],
+			"link": "/play/arena"
+		},
+		{
+			"date": "2026-06-15",
+			"title": "Buy any coin straight from the Pump Visualizer",
+			"summary": "Click a coin in the Pump Visualizer and you can now buy it on the spot — no trip to pump.fun. The new Buy button opens a real on-chain trade window right in the detail panel: pick an amount, see a live price quote and your slippage, and your connected Solana wallet signs the purchase. It handles both bonding-curve and graduated coins, prices in SOL or USDC automatically, and lets you sell too. Same trade window the /play worlds use, now wherever you're exploring trending coins.",
+			"tags": ["feature"],
+			"link": "/pump-visualizer"
+		},
+		{
+			"date": "2026-06-15",
 			"title": "Pump Visualizer: a coin's look now tracks its market cap",
 			"summary": "On the Pump Visualizer, market cap no longer just sizes a coin — it shapes its whole look. As a coin's cap climbs it shifts color from cool blue through purple to green and gold, grows a crystalline wireframe cage that gains facets at each tier, and spins and pulses with more energy. On the trending refresh, a coin that moved gets a clear signal: it flashes green and pops bigger when its cap rose, red and dips when it fell, and crossing into a higher or lower tier visibly upgrades or downgrades its shape and color. A new on-screen key in the corner maps each color and tier to its market-cap range so it all reads at a glance.",
 			"tags": ["feature"],
@@ -10,8 +38,15 @@
 		},
 		{
 			"date": "2026-06-15",
-			"title": "Four distinct dancers, now waiting at their poles",
-			"summary": "The Pole Club stage no longer sits empty between tips. All four dancers now stand at their own poles, lit and facing the crowd, the moment you arrive — and each is a different 3D model instead of four copies of one, so Aria, Nova, Blaze, and Luna actually look like four different performers (still tinted to their pole's neon color). Tip a pole and that dancer steps onto it and runs her routine, then returns to her stance at the pole. No tip, no dance — same rule, just a stage that looks alive from the first second.",
+			"title": "Three distinct dancers, now waiting at their poles",
+			"summary": "The Pole Club stage no longer sits empty between tips. Three dancers now stand at their own poles, lit and facing the crowd, the moment you arrive — each a different 3D avatar pulled from the gallery (still tinted to her pole's neon color) instead of copies of one model. Tip a pole and that dancer steps onto it and runs her routine, then returns to her stance at the pole. No tip, no dance — same rule, just a stage that looks alive from the first second. Behind the scenes the animation engine now retargets onto CharacterStudio and Unreal-mannequin rigs too, so far more uploaded avatars can actually dance.",
+			"tags": ["improvement"],
+			"link": "/club"
+		},
+		{
+			"date": "2026-06-15",
+			"title": "More uploaded avatars can dance",
+			"summary": "The built-in animation library can now drive avatars built on CharacterStudio and Unreal Engine skeletons, not just Mixamo/Ready-rig ones. Previously a CharacterStudio or Fortnite-style rig would load but stand frozen because the animation system couldn't match its bone names; now those bones map automatically, so the full set of dances, poses, and idle motion plays on them everywhere avatars appear — the club, the walk view, AR, and the studio.",
 			"tags": ["improvement"],
 			"link": "/club"
 		},

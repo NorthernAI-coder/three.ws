@@ -306,6 +306,8 @@ function shell() {
 		</div>
 		${heroHTML()}
 		<div class="ec-section" id="stats"><h2>Live economy</h2><p class="ec-desc">Settled on-chain through the $THREE rail. No burns — every spend reflects to holders or funds buybacks.</p><div id="ec-stats"><div class="ec-grid ec-stats">${'<div class="ec-stat ec-skel" style="height:84px"></div>'.repeat(5)}</div></div></div>
+		<div class="ec-section" id="verify"><h2>Verify on-chain</h2><p class="ec-desc">No anonymous "trust us." The treasury and the holder-rewards pool are real Solana wallets — open them on Solscan and check the balances against the numbers above.</p><div id="ec-onchain"><div class="ec-grid ec-wallets">${'<div class="ec-wallet ec-skel" style="height:96px"></div>'.repeat(2)}</div></div></div>
+		<div class="ec-section" id="reflected"><h2>Reflected to holders</h2><p class="ec-desc">We never burn supply. The rewards pool is distributed pro-rata back to $THREE holders — value returned, not destroyed. Every run is recorded here.</p><div id="ec-reflected"><div class="ec-skel" style="height:80px"></div></div></div>
 		<div class="ec-section" id="tiers"><h2>Holder tiers</h2><div id="ec-tiers"><div class="ec-grid ec-tiers">${'<div class="ec-tier ec-skel" style="height:150px"></div>'.repeat(5)}</div></div></div>
 		<div class="ec-section" id="names"><h2>Rare names</h2><p class="ec-desc">Common <code>*.threews.sol</code> names are free. Short, dictionary, and reserved names are rare — priced in $THREE.</p>
 			<div class="ec-name"><input id="ec-name-input" type="text" placeholder="yourname" autocomplete="off" spellcheck="false" maxlength="63" aria-label="Check a name's rarity" /></div>
@@ -322,13 +324,23 @@ async function load() {
 		if (el) el.innerHTML = `<div class="ec-err">${esc(msg)}</div>`;
 	};
 
-	// Stats + catalog are public; tier needs auth (gracefully optional).
+	// Stats + catalog are public; tier needs auth (gracefully optional). One stats
+	// fetch feeds three panels: the headline cards, the verifiable wallets, and the
+	// reflected-to-holders history.
 	getJSON(`${API}/stats`)
 		.then((s) => {
-			const el = document.getElementById('ec-stats');
-			if (el) el.innerHTML = statsHTML(s);
+			const stats = document.getElementById('ec-stats');
+			if (stats) stats.innerHTML = statsHTML(s);
+			const onchain = document.getElementById('ec-onchain');
+			if (onchain) onchain.innerHTML = onchainHTML(s);
+			const reflected = document.getElementById('ec-reflected');
+			if (reflected) reflected.innerHTML = reflectedHTML(s);
 		})
-		.catch(() => setErr('ec-stats', 'Economy stats are temporarily unavailable.'));
+		.catch(() => {
+			setErr('ec-stats', 'Economy stats are temporarily unavailable.');
+			setErr('ec-onchain', 'On-chain data is temporarily unavailable.');
+			setErr('ec-reflected', 'Reflection history is temporarily unavailable.');
+		});
 
 	getJSON(`${API}/catalog`)
 		.then((c) => {

@@ -1,22 +1,24 @@
 // /club entrance — walk up to the club as your own 3D avatar.
 //
-// You don't drop onto the pole floor. You spawn as a third-person avatar and
-// you're in control: move (WASD / arrows / touch joystick) and look around
-// (drag). First you walk through a gallery tour; reach the end and you step
-// out into the alley, where you walk up to the neon door. Step into range and a
-// prompt appears — press E, tap, or click the door — and only then does the
-// cover-charge card (src/club-gate.js) ask you to pay. Pay the cover and your
-// avatar walks through the Space Smugglers club house interior while the anthem
-// plays (wired in src/club.js), and the room with the poles opens up around you
-// (src/club.js, booting behind it all).
+// You don't drop onto the pole floor — you walk there yourself, as a
+// third-person avatar, in control the whole way: move (WASD / arrows / touch
+// joystick) and look around (drag). We never auto-walk you. You spawn OUTSIDE
+// in the alley and walk up to the neon door; step into range and a prompt
+// appears — press E, tap, or click — and the cover-charge card (src/club-gate.js)
+// asks you to pay. Pay the cover and you keep walking, under your own control,
+// through each place in turn — a gallery hall, then the Space Smugglers club
+// house interior — until you reach the strip club itself (the pole stage, in
+// src/club.js), where you tip dancers to perform.
 //
-// Everything renders into one full-screen canvas (#club-door-canvas) layered
-// above the pole stage and below the cover card. Three Meshopt+WebP
-// environments (built by scripts/build-club-entrance-venue.mjs) plus the shared
-// avatar GLB; the alley and interior are prefetched while you walk so each
-// transition never stalls. Already paid tonight? The whole approach is skipped
-// on load. Any load failure degrades silently — the cover card and the room
-// behind it still work.
+// The journey is the SEQUENCE list below: every venue is free-walk; you reach
+// its exit and the next one fades in. The alley's door takes the cover; the
+// last venue hands off to the pole stage. Everything renders into one
+// full-screen canvas (#club-door-canvas) layered above the pole stage and below
+// the cover card. Three Meshopt+WebP environments (built by
+// scripts/build-club-entrance-venue.mjs) plus the shared avatar GLB; later
+// places are prefetched while you walk so each transition never stalls. Already
+// paid tonight? The whole approach is skipped on load. Any load failure
+// degrades silently — the cover card and the pole stage still work.
 
 import {
 	AmbientLight,
