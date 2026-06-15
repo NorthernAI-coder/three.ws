@@ -7892,11 +7892,13 @@ textarea.erc8004-code {
 	text-align: center;
 	padding: var(--space-2xl) 0 var(--space-xl);
 }
+.explore-hero h1,
 .explore-hero h2 {
 	font-family: 'Space Grotesk', system-ui, sans-serif;
-	font-size: clamp(2rem, 4vw, 3.2rem);
+	font-size: clamp(1.9rem, 6vw, 3.2rem);
 	font-weight: 700;
 	letter-spacing: -0.02em;
+	line-height: 1.08;
 	margin: var(--space-md) 0 var(--space-sm);
 	color: #fff;
 }
@@ -8407,6 +8409,108 @@ textarea.erc8004-code {
 .explore-load-more:hover {
 	background: rgba(255, 255, 255, 0.12);
 	color: #fff;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   /discover (body.explore-page) — mobile. Additive overrides only; desktop
+   above is untouched. Phones get a single comfortable column, full-width
+   tappable controls (>=44px), wrapping chip rows, and 16px inputs (no iOS
+   zoom). The legacy max-width:640px block near line 2514 targets a different
+   (older) explore layout and does not reach this page's selectors.
+   ─────────────────────────────────────────────────────────────────────── */
+@media screen and (max-width: 768px) {
+	/* Double padding (body.explore-page + .explore-main) ate too much width
+	   on phones, pushing the 260px grid track past the viewport. Tighten the
+	   inner gutter so content fits without horizontal scroll. */
+	.explore-main {
+		padding: var(--space-md) var(--space-sm) var(--space-2xl);
+	}
+	.explore-hero {
+		padding: var(--space-xl) 0 var(--space-lg);
+	}
+	.explore-sub {
+		font-size: 14px;
+	}
+
+	/* Stack the toolbar; every control spans the row and is easy to tap. */
+	.explore-controls {
+		flex-direction: column;
+		align-items: stretch;
+		gap: var(--space-sm);
+		padding: var(--space-sm);
+	}
+	.explore-search {
+		flex: 1 1 auto;
+		width: 100%;
+	}
+	.explore-search input {
+		/* >=16px stops iOS Safari from zooming the page on focus. */
+		font-size: 16px;
+		padding: 11px 40px 11px 14px;
+	}
+
+	/* Chip rows scroll horizontally instead of clipping/overflowing the page.
+	   Snap edges flush so the first/last chip aren't cut off. */
+	.explore-chips {
+		flex-wrap: nowrap;
+		overflow-x: auto;
+		-webkit-overflow-scrolling: touch;
+		scrollbar-width: none;
+		gap: 8px;
+		padding-bottom: 2px;
+		margin: 0 calc(-1 * var(--space-sm));
+		padding-inline: var(--space-sm);
+	}
+	.explore-chips::-webkit-scrollbar {
+		display: none;
+	}
+	.explore-chip {
+		flex: 0 0 auto;
+		min-height: 44px;
+		display: inline-flex;
+		align-items: center;
+		white-space: nowrap;
+	}
+
+	/* Chain + Sort selects: each on its own full-width row, fully tappable. */
+	.explore-chain-select,
+	.explore-sort-select {
+		display: flex;
+		width: 100%;
+		align-items: center;
+		gap: 10px;
+	}
+	.explore-chain-select label,
+	.explore-sort-select label {
+		flex: 0 0 auto;
+		min-width: 44px;
+	}
+	.explore-chain-select select,
+	.explore-sort-select select {
+		flex: 1 1 auto;
+		width: 100%;
+		min-height: 44px;
+		font-size: 16px;
+	}
+
+	/* One comfortable column on phones; the desktop 260px track would
+	   overflow a ~216px content box at 320px. */
+	.explore-grid {
+		grid-template-columns: 1fr;
+		gap: var(--space-md);
+	}
+
+	.explore-load-more {
+		min-height: 44px;
+	}
+}
+
+@media screen and (min-width: 480px) and (max-width: 768px) {
+	/* Two cards fit comfortably from ~480px up; below that, stay single-column. */
+	.explore-grid {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: var(--space-sm);
+	}
 }
 
 /* ─────────────────────────────────────────────────────────────────────────

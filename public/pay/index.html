@@ -497,7 +497,8 @@
     .composer { padding: 12px 16px; }
     aside.status { padding: 16px 16px; }
     .quick { gap: 6px; }
-    .quick button { font-size: 11px; padding: 5px 10px; }
+    /* >=44px tap target; full-width chips wrap cleanly */
+    .quick button { font-size: 12px; padding: 9px 12px; min-height: 40px; }
     footer.feed { padding: 6px 14px; gap: 8px; font-size: 10px; }
     .feed-label { display: none; }
     .walkthrough { padding: 22px 22px; }
@@ -505,10 +506,40 @@
     .mv-block model-viewer { height: 280px; }
     .avatars-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
     .avatar-card model-viewer { height: 110px; }
+
+    /* Inputs: 16px prevents iOS focus-zoom; comfortable tap height */
+    .input-row { gap: 8px; }
+    .input-row input { font-size: 16px; padding: 13px 14px; min-height: 48px; }
+    .input-row .send { font-size: 15px; padding: 0 18px; min-height: 48px; flex: 0 0 auto; }
+
+    /* Containers that kept desktop 28px gutters — pull in so nothing overflows 320px */
+    .chain-tabs { padding: 10px 16px 0; gap: 6px; overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; }
+    .chain-tab { padding: 10px 12px; font-size: 13px; white-space: nowrap; flex: 0 0 auto; }
+    .agent-bar { padding: 10px 16px; gap: 8px; }
+    .bsc-panel .bsc-header { padding: 16px 16px 8px; flex-wrap: wrap; }
+    .bsc-panel .bsc-header > div { min-width: 0; }
+    .bsc-connect { width: 100%; padding: 12px 16px; min-height: 44px; font-size: 14px; }
+    .bsc-info { padding: 6px 16px 12px; gap: 12px; }
+    .bsc-info code { word-break: break-all; }
+    .bsc-quick { padding: 4px 16px 14px; }
+    .bsc-chip { padding: 8px 12px; min-height: 40px; display: inline-flex; align-items: center; }
+    .bsc-log { padding: 16px 16px; }
+
+    /* Receipt + actions stay inside the panel, tappable */
+    .receipt .actions a, .receipt .actions button { padding: 10px 10px; min-height: 40px; font-size: 12px; display: flex; align-items: center; justify-content: center; }
+    /* Code/mono drawers wrap instead of forcing page scroll */
+    details.curl pre, .msg .body pre { white-space: pre-wrap; word-break: break-word; }
+    /* Long addresses/hashes in inline code must wrap, never scroll the page */
+    .msg .body code, .bsc-step code { overflow-wrap: anywhere; word-break: break-word; }
+    .bsc-info span { min-width: 0; }
   }
   @media (max-width: 420px) {
     .quick button[data-cmd="search_public_avatars:"] { display: none; }
     .pill .label { display: none; }
+    /* Stack the composer so the Pay button is full-width and finger-friendly */
+    .input-row { flex-direction: column; }
+    .input-row .send { width: 100%; }
+    .chain-tab .chip { display: none; }
   }
 
   /* Agent picker */
