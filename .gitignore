@@ -231,11 +231,11 @@ example.html
 scripts/test-corr.mjs
 *_tweets_*.json
 scripts/.corr-*
-space_smugglers_club_house_-_dark_version.glb
 
-im-in-love-wit-a-stripper-fast.mp3
-
-# Raw /club entrance source exports — the compressed runtime copies under
-# public/club/venue/ are the committed source of truth (rebuild with
-# scripts/build-club-entrance-venue.mjs).
-alleyway.glb
+# Raw /club entrance source exports (repo root only). The compressed runtime
+# copies under public/club/venue/ are the committed source of truth — rebuild
+# with scripts/build-club-entrance-venue.mjs. Anchored with a leading slash so
+# the public/club/venue/alleyway.glb runtime asset is NOT ignored.
+/space_smugglers_club_house_-_dark_version.glb
+/im-in-love-wit-a-stripper-fast.mp3
+/alleyway.glb

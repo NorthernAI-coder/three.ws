@@ -3,6 +3,13 @@
 	"entries": [
 		{
 			"date": "2026-06-15",
+			"title": "Walk into the Pole Club — a 3D entrance, not a loading screen",
+			"summary": "The club now has a way in. Land on /club and you're standing in an alley outside, in line at the door. Pay the $0.01 cover and the rope drops — you walk first-person through the club house interior, the night's anthem kicks in the moment you step inside, and the room with the poles opens up around you. The whole journey is real 3D, streamed from compressed scenes (~20 MB exports cut to ~1.6 MB each) so it loads while you wait at the door. Already paid tonight? You skip the line and walk straight back in.",
+			"tags": ["feature"],
+			"link": "/club"
+		},
+		{
+			"date": "2026-06-15",
 			"title": "Save any avatar as your own — forks with their own wallet",
 			"summary": "Saving someone else's avatar now works like forking on GitHub: it mints a brand-new avatar in your account with its own copy of the model, linked back to the original with a \"Forked from\" credit and a fork counter on the source. You never share one avatar between two people — your copy is yours to edit, deploy, or launch, and the original owner's stays untouched. Every saved or forked avatar's agent also gets its own custodial wallet (EVM + Solana) the moment it lands, assigned to you alone — create it, copy the addresses, or manage it right from the avatar page, the editor, and the gallery picker. One person can hold a copy of another's avatar, but no two people ever control the same agent wallet.",
 			"tags": ["feature"],
