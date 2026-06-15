@@ -79,6 +79,14 @@
 			<description>The in-world trade widget now speaks both currencies. Open Buy on a coin and the widget reads its real pairing from the chain: a SOL coin asks for SOL exactly as before, while a USDC-paired coin denominates the amount in USDC, shows your wallet's USDC balance, and prices and settles the trade in USDC. A new Sell tab lets you sell a coin you hold back to its quote asset — pick 25%, 50%, or Max of your balance, see the live payout, and sign once; for USDC coins the payout account is opened for you automatically in the same transaction. Every state is handled: not enough USDC offers a one-tap Add-funds flow, a moved price explains your slippage, and a cancelled signature is quietly acknowledged. The whole flow is your own wallet, signed in your browser, with a Solscan link the moment it lands.</description>
 		</item>
 		<item>
+			<title>Camera AR on /irl now turns on</title>
+			<link>https://three.ws/irl</link>
+			<guid isPermaLink="false">2026-06-15:Camera AR on /irl now turns on</guid>
+			<pubDate>Mon, 15 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>The &quot;Camera AR&quot; button on the IRL page was stuck — it never lit up, on desktop or phone, so you could never drop your avatar into your real room. A startup error in the joystick setup was crashing the page's script before the button could ever be enabled. Fixed: the button now activates once your avatar loads, and tapping it opens the camera so you can walk your avatar across your real floor.</description>
+		</item>
+		<item>
 			<title>Chat never stalls on a down AI model — instant, quiet failover</title>
 			<link>https://three.ws/chat</link>
 			<guid isPermaLink="false">2026-06-15:Chat never stalls on a down AI model — instant, quiet failover</guid>
@@ -295,12 +303,12 @@
 			<description>Coins launched against USDC are now tracked in the right currency end to end. Every buy and sell records which quote asset it actually used and how much of it moved — USDC amounts in USDC, SOL amounts in SOL — instead of quietly storing a USDC trade as if it were SOL and reporting a price and market cap that were off by orders of magnitude. Portfolios now subtotal holdings separately by quote asset, so your SOL positions and USDC positions each get their own value, cost basis, and unrealized P&amp;L with no more mixing of mismatched units. Existing SOL trades are unchanged, and historical rows were backfilled as SOL-paired so nothing shifts.</description>
 		</item>
 		<item>
-			<title>Walk into the Pole Club — a 3D entrance, not a loading screen</title>
+			<title>Walk into the Pole Club as your own 3D avatar</title>
 			<link>https://three.ws/club</link>
-			<guid isPermaLink="false">2026-06-15:Walk into the Pole Club — a 3D entrance, not a loading screen</guid>
+			<guid isPermaLink="false">2026-06-15:Walk into the Pole Club as your own 3D avatar</guid>
 			<pubDate>Mon, 15 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
-			<description>The club now has a way in. Land on /club and you're standing in an alley outside, in line at the door. Pay the $0.01 cover and the rope drops — you walk first-person through the club house interior, the night's anthem kicks in the moment you step inside, and the room with the poles opens up around you. The whole journey is real 3D, streamed from compressed scenes (~20 MB exports cut to ~1.6 MB each) so it loads while you wait at the door. Already paid tonight? You skip the line and walk straight back in.</description>
+			<description>The club now has a way in that you control. Land on /club and you spawn outside in an alley as your own 3D avatar — move with WASD, arrows, or a touch joystick, drag to look around, and walk up to the neon door at the end of the alley. Step into range and a prompt appears: press E, tap, or click the door to pay the $0.01 cover. Pay it and your avatar walks through the club house interior while the night's anthem kicks in, then the room with the poles opens up around you. It's all real 3D, streamed from compressed scenes (~20 MB exports cut to ~1.6 MB each) and prefetched while you walk so nothing stalls. Already paid tonight? You skip the line and walk straight in.</description>
 		</item>
 		<item>
 			<title>Building 3D AI Agents Live</title>
