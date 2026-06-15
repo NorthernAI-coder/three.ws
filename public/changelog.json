@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-15T17:13:58.292Z",
+	"generated_at": "2026-06-15T17:27:04.306Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -375,6 +375,16 @@
 			"link": null,
 			"tags": [
 				"fix",
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-15",
+			"type": "update",
+			"title": "Walk into the Pole Club — a 3D entrance, not a loading screen",
+			"summary": "The club now has a way in. Land on /club and you're standing in an alley outside, in line at the door. Pay the $0.01 cover and the rope drops — you walk first-person through the club house interior, the night's anthem kicks in the moment you step inside, and the room with the poles opens up around you. The whole journey is real 3D, streamed from compressed scenes (~20 MB exports cut to ~1.6 MB each) so it loads while you wait at the door. Already paid tonight? You skip the line and walk straight back in.",
+			"link": "/club",
+			"tags": [
 				"feature"
 			]
 		},
