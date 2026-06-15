@@ -3,6 +3,13 @@
 	"entries": [
 		{
 			"date": "2026-06-15",
+			"title": "The Forge always returns a model — the default never dead-ends",
+			"summary": "Typing a prompt into the Forge on the default Standard setting now always produces a 3D model, even when our paid reconstruction provider is throttled or over its quota. Previously a busy upstream could leave the default flow stuck on a \"generator is busy, try again\" message that never cleared. Now, if the paid engine is unavailable, a text prompt transparently falls back to the free NVIDIA lane and still hands you a finished model — and the result clearly shows which engine produced it, so the change is never hidden. Free-first, always a working fallback.",
+			"tags": ["fix"],
+			"link": "/forge"
+		},
+		{
+			"date": "2026-06-15",
 			"title": "The Forge grows itself — a new avatar or accessory every minute, tied to real accounts",
 			"summary": "A new auto-generation system creates a fresh 3D avatar or accessory every minute using the free NVIDIA lane and adds it to the community gallery. Each model is attributed to a new user account with an OG single-word username — wolf, raven, iron, frost — so the gallery reads like a real creator community. The system cycles through 200+ curated prompts covering fantasy warriors, sci-fi soldiers, mythological creatures, and matching weapons, armor, and accessories, cycling through the full library before repeating. Every model is a permanent GLB stored in our own CDN.",
 			"tags": ["feature"],
