@@ -53,7 +53,7 @@ async function feed(res, url) {
 		WHERE network = ${NETWORK}
 		  AND smart_money_score >= ${minScore}
 		  AND (${includeGraduated} OR graduated = false)
-		  AND scored_at > now() - make_interval(hours => 6)
+		  AND scored_at > now() - interval '6 hours'
 		ORDER BY smart_money_score DESC, scored_at DESC
 		LIMIT ${limit}
 	`;
