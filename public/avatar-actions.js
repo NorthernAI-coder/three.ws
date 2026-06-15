@@ -171,15 +171,28 @@ class AvatarActions extends HTMLElement {
 				? `<span class="forks">⑂ ${a.fork_count} ${a.fork_count === 1 ? 'fork' : 'forks'}</span>`
 				: '';
 
+		// mode: "full" (default) shows wallet to owners + fork to others;
+		// "wallet" shows only the wallet panel; "fork" shows only the save/fork
+		// affordance (use on surfaces that already manage the wallet elsewhere).
+		const mode = this.getAttribute('mode') || 'full';
 		let body = '';
 		if (this.isOwner) {
-			body = this._walletBlock();
+			body = mode === 'fork' ? '' : this._walletBlock();
+		} else if (mode === 'wallet') {
+			body = '';
 		} else if (this._me) {
 			body = `<button class="primary" data-act="fork" title="Save a copy to your own avatars">
 				⑂ Save to my avatars</button>
 				<div class="muted">Creates your own copy with its own agent wallet. The original stays untouched.</div>`;
 		} else {
 			body = `<a class="manage" href="/login.html?next=${encodeURIComponent(location.pathname + location.search)}">Sign in to save this avatar →</a>`;
+		}
+
+		// Nothing to show for this viewer/mode combo — stay invisible rather than
+		// render an empty card.
+		if (!body && !lineage && !forks) {
+			this.shadowRoot.innerHTML = '';
+			return;
 		}
 
 		this.shadowRoot.innerHTML = `${css}
