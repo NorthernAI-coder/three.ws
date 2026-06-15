@@ -1,8 +1,8 @@
 // /club — three.ws Pole Club
 //
-// A dark 3D venue with four pole stages arranged in a half-arc. Each pole has
+// A dark 3D venue with three pole stages arranged in a half-arc. Each pole has
 // a "Tip $0.001 to dance" button bound to /api/x402/dance-tip via the x402
-// drop-in modal (window.X402.pay). Four distinct dancers stand at their poles
+// drop-in modal (window.X402.pay). Three distinct dancers stand at their poles
 // facing the crowd; once the buyer's USDC settles, that slot's dancer steps
 // onto her pole and performs the selected routine for ~12s, then returns to her
 // idle stance at the pole. No tip, no routine.
@@ -81,10 +81,10 @@ const TIPS_HISTORY_URL = '/api/club/tips?limit=20';
 const TIPS_STREAM_URL = '/api/club/tips/stream';
 
 // ── Stage layout ─────────────────────────────────────────────────────────
-// Four poles in a half-arc facing the camera. Backstage is behind the bar at
+// Poles in a half-arc facing the camera (count = POLE_COUNT). Backstage is behind the bar at
 // negative Z so dancers visibly walk out before mounting the pole.
 const STAGE_RADIUS = 4.2;
-const POLE_COUNT = 4;
+const POLE_COUNT = 3;
 const POLE_HEIGHT = 3.6;
 const PERFORMANCE_FADE = 0.45; // seconds for clip crossfade
 // Top of the stage GLB. Authored in scripts/build-club-props.mjs at y=0.18.
@@ -412,16 +412,17 @@ document.querySelector('#club-stage')?.setAttribute('data-cam-mode', clubCam.get
 // ── Poles + spotlights ───────────────────────────────────────────────────
 const POLE_COLORS = [0xff3bd6, 0x4ad6ff, 0xff8a3b, 0x9b5dff];
 
-// Dancer registry — display names, bios, accent palette, and the GLB rig each
-// dancer wears. Four distinct humanoid avatars (all verified ≥8 canonical
-// bones, so the pre-baked clip library retargets onto every one — see
-// attachAvatar's runtime fallback for the failsafe). On top of the model we
-// still tint each with her pole's accent color so the four read as a set.
+// Dancer registry — display names, bios, accent palette, and the gallery
+// avatar each dancer wears. `avatarId` is resolved through /api/avatars/:id at
+// boot (see resolveDancerAvatarUrl); a local `avatar` path can be used instead.
+// All three rigs are verified drivable by the clip library (CharacterStudio +
+// Unreal-mannequin rigs are now retargetable — see src/glb-canonicalize.js),
+// and attachAvatar falls back to the default rig if any ever isn't. Each dancer
+// is still tinted with her pole's accent color so the three read as a set.
 const DANCER_META = [
-	{ name: 'Aria', bio: 'Neon pink fire. Classical meets street.', palette: 'pink', avatar: '/avatars/default.glb' },
-	{ name: 'Nova', bio: 'Cyan ice. Fluid and hypnotic.', palette: 'cyan', avatar: '/avatars/michelle.glb' },
-	{ name: 'Blaze', bio: 'Amber heat. Power and precision.', palette: 'amber', avatar: '/avatars/selfie-girl.glb' },
-	{ name: 'Luna', bio: 'Lunar glow. Gravity-defying flow.', palette: 'white', avatar: '/avatars/realistic-female.glb' },
+	{ name: 'Aria', bio: 'Neon pink fire. Classical meets street.', palette: 'pink', avatarId: 'cdc245f4-36f8-4e78-a1b6-58c3b73e247f' },
+	{ name: 'Nova', bio: 'Cyan ice. Fluid and hypnotic.', palette: 'cyan', avatarId: '25195a2e-130c-4da5-8cad-8e7490d69b45' },
+	{ name: 'Blaze', bio: 'Amber heat. Power and precision.', palette: 'amber', avatarId: 'd92b292e-c2db-40cb-bf88-3e141c6b0057' },
 ];
 
 class PoleStation {
@@ -590,7 +591,7 @@ class PoleStation {
 				n.material = n.material.clone();
 				n.material.envMapIntensity = 0.6;
 				// Tint each dancer subtly with the pole's accent color so the
-				// four are visually distinct even before the spotlight kicks in.
+				// dancers are visually distinct even before the spotlight kicks in.
 				if (n.material.emissive) {
 					n.material.emissive = new Color(POLE_COLORS[this.idx % POLE_COLORS.length]);
 					n.material.emissiveIntensity = 0.05;
@@ -914,6 +915,29 @@ function createAmbientParticles(count = 50) {
 let animationDefs = null;
 
 /**
+ * Resolve a dancer's avatar GLB URL. A gallery `avatarId` is looked up through
+ * the same /api/avatars/:id endpoint the rest of the app uses (Vite dev proxies
+ * it to production), reading the canonical `.url`; a local `avatar` path is
+ * used verbatim. Any failure falls back to the bundled default rig so a dancer
+ * always has a model to load.
+ *
+ * @param {{ avatar?: string, avatarId?: string }} meta
+ * @returns {Promise<string>}
+ */
+async function resolveDancerAvatarUrl(meta) {
+	if (meta.avatar) return meta.avatar;
+	if (!meta.avatarId) return AVATAR_URL;
+	try {
+		const res = await fetch(`/api/avatars/${encodeURIComponent(meta.avatarId)}`);
+		if (!res.ok) return AVATAR_URL;
+		const data = await res.json();
+		return data?.avatar?.url || AVATAR_URL;
+	} catch {
+		return AVATAR_URL;
+	}
+}
+
+/**
  * Wrap a three.js loader's callback-form `.load()` in a promise that
  * forwards every progress event into `setStatus`. `loadAsync` would be
  * shorter but it swallows the progress callback, leaving the user staring
@@ -955,9 +979,11 @@ async function bootstrap() {
 	// fetch in the same window. Any rejection bubbles up to the .catch in
 	// the call site below, which paints an error status and stops; no
 	// primitive fallback ever gets attached.
-	// Each dancer wears her own GLB; AVATAR_URL is always loaded too as the
-	// runtime fallback rig. De-dupe so a shared model loads once.
-	const avatarUrls = [...new Set([AVATAR_URL, ...DANCER_META.map((d) => d.avatar).filter(Boolean)])];
+	// Resolve each dancer's gallery avatar → GLB URL first (fast JSON lookups),
+	// then load the models alongside the venue. AVATAR_URL is always loaded too
+	// as the runtime fallback rig. De-dupe so a shared model loads once.
+	const dancerUrls = await Promise.all(DANCER_META.map(resolveDancerAvatarUrl));
+	const avatarUrls = [...new Set([AVATAR_URL, ...dancerUrls])];
 	const [venueGltf, hdrTexture, manifest, poleGltf, stageGltf, ...avatarGltfs] = await Promise.all([
 		loadWithProgress(loader, VENUE_GLB_URL, 'Loading club…'),
 		loadWithProgress(rgbe, VENUE_HDRI_URL, 'Loading lighting…'),
@@ -997,13 +1023,22 @@ async function bootstrap() {
 	// outer catch surfaces a precise error to the user instead of
 	// silently placing dancers at the origin.
 	const empties = collectVenueEmpties(venueGltf.scene, REQUIRED_VENUE_EMPTIES);
-	const anchors = resolveVenueAnchors(empties, stations.length);
-	for (let i = 0; i < stations.length; i += 1) {
-		stations[i].applyVenueOverrides({
-			stagePos: anchors.stages[i],
-			backstagePos: anchors.backstages[i],
-			spotPos: anchors.spots[i],
-		});
+	// The venue's stage / backstage / spot empties are authored for the 4-pole
+	// layout. Apply them only when the pole count matches; any other count uses
+	// the analytical arc (POLES), which spreads poles evenly for N. The
+	// mirrorball + bar-neon anchors are pole-count-independent and resolved
+	// regardless (slotCount 0 skips the per-pole arrays but still returns them).
+	const VENUE_STAGE_SLOTS = 4;
+	const useVenueStages = stations.length === VENUE_STAGE_SLOTS;
+	const anchors = resolveVenueAnchors(empties, useVenueStages ? VENUE_STAGE_SLOTS : 0);
+	if (useVenueStages) {
+		for (let i = 0; i < stations.length; i += 1) {
+			stations[i].applyVenueOverrides({
+				stagePos: anchors.stages[i],
+				backstagePos: anchors.backstages[i],
+				spotPos: anchors.spots[i],
+			});
+		}
 	}
 
 	// Expose the mirrorball + bar-neon anchors for prompt 04 (lighting).
@@ -1034,7 +1069,7 @@ async function bootstrap() {
 
 	for (const station of stations) {
 		station.attachProps({ poleTemplate, stageTemplate });
-		const wanted = DANCER_META[station.idx]?.avatar || AVATAR_URL;
+		const wanted = dancerUrls[station.idx] || AVATAR_URL;
 		const template = avatarTemplates.get(wanted) || fallbackTemplate;
 		station.attachAvatar(template, animationDefs, fallbackTemplate);
 	}
@@ -1460,9 +1495,9 @@ function handleResize() {
 window.addEventListener('resize', handleResize);
 
 // ── Keyboard shortcuts ───────────────────────────────────────────────────
-// 0     → overhead house cam
-// 1-4   → per-pole VIP cam
-// Esc   → back to free orbit
+// 0       → overhead house cam
+// 1-N     → per-pole VIP cam (N = pole count)
+// Esc     → back to free orbit
 // Inputs / selects in the side panel are excluded so typing doesn't move
 // the camera.
 window.addEventListener('keydown', (e) => {
@@ -1470,7 +1505,7 @@ window.addEventListener('keydown', (e) => {
 	if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
 	if (e.key === '0') return clubCam.setHouse();
 	if (e.key === 'Escape') return clubCam.setFree();
-	if (['1', '2', '3', '4'].includes(e.key)) {
+	if (/^[1-9]$/.test(e.key)) {
 		const layout = POLES.find((p) => p.id === e.key);
 		if (layout) clubCam.setVip(layout);
 	}

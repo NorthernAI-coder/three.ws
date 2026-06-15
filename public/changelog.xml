@@ -87,6 +87,14 @@
 			<description>The in-world trade widget now speaks both currencies. Open Buy on a coin and the widget reads its real pairing from the chain: a SOL coin asks for SOL exactly as before, while a USDC-paired coin denominates the amount in USDC, shows your wallet's USDC balance, and prices and settles the trade in USDC. A new Sell tab lets you sell a coin you hold back to its quote asset — pick 25%, 50%, or Max of your balance, see the live payout, and sign once; for USDC coins the payout account is opened for you automatically in the same transaction. Every state is handled: not enough USDC offers a one-tap Add-funds flow, a moved price explains your slippage, and a cancelled signature is quietly acknowledged. The whole flow is your own wallet, signed in your browser, with a Solscan link the moment it lands.</description>
 		</item>
 		<item>
+			<title>Buy any coin straight from the Pump Visualizer</title>
+			<link>https://three.ws/pump-visualizer</link>
+			<guid isPermaLink="false">2026-06-15:Buy any coin straight from the Pump Visualizer</guid>
+			<pubDate>Mon, 15 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Click a coin in the Pump Visualizer and you can now buy it on the spot — no trip to pump.fun. The new Buy button opens a real on-chain trade window right in the detail panel: pick an amount, see a live price quote and your slippage, and your connected Solana wallet signs the purchase. It handles both bonding-curve and graduated coins, prices in SOL or USDC automatically, and lets you sell too. Same trade window the /play worlds use, now wherever you're exploring trending coins.</description>
+		</item>
+		<item>
 			<title>Camera AR on /irl now turns on</title>
 			<link>https://three.ws/irl</link>
 			<guid isPermaLink="false">2026-06-15:Camera AR on /irl now turns on</guid>
@@ -111,12 +119,12 @@
 			<description>When a token launch or an in-world trade can't go through, the app now tells you exactly why and what to do next — &quot;Not enough SOL to cover the launch + network fees,&quot; &quot;Price moved beyond your slippage limit,&quot; &quot;You cancelled the signature in your wallet,&quot; or &quot;Couldn't reach the Solana network&quot; — instead of a single catch-all &quot;Connection error.&quot; Coins also show their lifecycle at a glance: the trade panel carries a badge marking whether a coin is still on its bonding curve or has graduated to the PumpSwap AMM, so a graduated coin is unmistakable. Backed by new end-to-end browser tests that drive the full four-step launch flow and the buy/sell widget so this conversion path can't silently break.</description>
 		</item>
 		<item>
-			<title>Four distinct dancers, now waiting at their poles</title>
-			<link>https://three.ws/club</link>
-			<guid isPermaLink="false">2026-06-15:Four distinct dancers, now waiting at their poles</guid>
+			<title>Fixed the footer floating over the avatar viewer</title>
+			<link>https://three.ws/marketplace</link>
+			<guid isPermaLink="false">2026-06-15:Fixed the footer floating over the avatar viewer</guid>
 			<pubDate>Mon, 15 Jun 2026 12:00:00 GMT</pubDate>
-			<category>improvement</category>
-			<description>The Pole Club stage no longer sits empty between tips. All four dancers now stand at their own poles, lit and facing the crowd, the moment you arrive — and each is a different 3D model instead of four copies of one, so Aria, Nova, Blaze, and Luna actually look like four different performers (still tinted to their pole's neon color). Tip a pole and that dancer steps onto it and runs her routine, then returns to her stance at the pole. No tip, no dance — same rule, just a stage that looks alive from the first second.</description>
+			<category>fix</category>
+			<description>On avatar pages (and a few other 3D viewer pages), the site footer was breaking loose and floating in the middle of the screen, on top of the 3D model — and its links couldn't be clicked. A styling rule meant only for the small corner credit on viewer pages was leaking onto the real footer. It's fixed: the footer now sits properly at the bottom of the page where it belongs, fully clickable, and the avatar viewer is unobstructed.</description>
 		</item>
 		<item>
 			<title>Homepage Forge is more reliable — no more &quot;busy&quot; on the second model</title>
@@ -141,6 +149,14 @@
 			<pubDate>Mon, 15 Jun 2026 12:00:00 GMT</pubDate>
 			<category>improvement</category>
 			<description>The launches feed, agent profile token panels, and the in-world agent coin card now share one live coin-status display, so every place that shows a coin reads the same numbers from the same source. Launch cards now stream the coin's real logo, USD price, market cap, a graduation progress ring and time since launch — not just market cap — with the orbital fingerprint as a placeholder until the logo loads. Agent profiles show a live price-and-graduation chip in the token panel and per-coin market caps in the launch history, and the agent home card's market readout is now consistent with the rest of the platform. Each card refreshes on its own and degrades gracefully to a Retry if pump.fun is briefly unreachable.</description>
+		</item>
+		<item>
+			<title>More uploaded avatars can dance</title>
+			<link>https://three.ws/club</link>
+			<guid isPermaLink="false">2026-06-15:More uploaded avatars can dance</guid>
+			<pubDate>Mon, 15 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>The built-in animation library can now drive avatars built on CharacterStudio and Unreal Engine skeletons, not just Mixamo/Ready-rig ones. Previously a CharacterStudio or Fortnite-style rig would load but stand frozen because the animation system couldn't match its bone names; now those bones map automatically, so the full set of dances, poses, and idle motion plays on them everywhere avatars appear — the club, the walk view, AR, and the studio.</description>
 		</item>
 		<item>
 			<title>On-chain model validation for Solana agents</title>
@@ -239,6 +255,14 @@
 			<description>Animations you build in the Studio can now be listed for sale. Pose a figure, drop your keyframes, save the clip, then hit Sell — set a price in USDC (or list it free) and three.ws bakes a self-contained animated GLB and publishes it to a new &quot;From creators&quot; shelf in the animation marketplace. Buyers see a poster, the creator, length and price; free clips download in one click, and paid clips are unlocked by paying once in USDC on Base or Solana — re-download free forever from the same wallet. Earnings settle straight to your payout wallet, and your motion data stays gated behind the paywall until someone buys.</description>
 		</item>
 		<item>
+			<title>Sniper agents can now buy on a creator's first reward claim</title>
+			<link>https://three.ws/play/arena</link>
+			<guid isPermaLink="false">2026-06-15:Sniper agents can now buy on a creator's first reward claim</guid>
+			<pubDate>Mon, 15 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The autonomous sniper has a second way to trigger. Alongside sniping brand-new launches, you can now arm an agent in &quot;first claim&quot; mode: it watches pump.fun on-chain and buys a creator's coin the very first time that creator EVER pulls their accrued creator rewards out of the fee vault — an irreversible signal that the creator is live and taking real fees. You set the rules: how much to spend per buy, your daily budget, how long to wait after the claim before buying, and a minimum (or maximum) claim size so the agent only acts on creators taking real money, not dust. It runs through the same guardrails as every snipe — mandatory stop-loss, price-impact circuit breaker, daily caps, and one-shot-per-coin — and manages the position to its exit automatically.</description>
+		</item>
+		<item>
 			<title>Sniper Arena — watch AI agents trade pump.fun live</title>
 			<link>https://three.ws/play/arena</link>
 			<guid isPermaLink="false">2026-06-15:Sniper Arena — watch AI agents trade pump.fun live</guid>
@@ -319,6 +343,14 @@
 			<description>The club now has a line outside. Before the room opens you pay a $0.01 USDC cover at the door via x402, and an on-chain bouncer checks the paying wallet — banned wallets are turned away, everyone else gets in with a door tier (newcomer, regular, or VIP) based on their past club nights. Pay once and you're in for the night; reopen the page and the velvet rope drops automatically. The 3D room loads behind the door while you're in line, so it's warm the moment you step in.</description>
 		</item>
 		<item>
+			<title>Three distinct dancers, now waiting at their poles</title>
+			<link>https://three.ws/club</link>
+			<guid isPermaLink="false">2026-06-15:Three distinct dancers, now waiting at their poles</guid>
+			<pubDate>Mon, 15 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>The Pole Club stage no longer sits empty between tips. Three dancers now stand at their own poles, lit and facing the crowd, the moment you arrive — each a different 3D avatar pulled from the gallery (still tinted to her pole's neon color) instead of copies of one model. Tip a pole and that dancer steps onto it and runs her routine, then returns to her stance at the pole. No tip, no dance — same rule, just a stage that looks alive from the first second. Behind the scenes the animation engine now retargets onto CharacterStudio and Unreal-mannequin rigs too, so far more uploaded avatars can actually dance.</description>
+		</item>
+		<item>
 			<title>three.ws can now register itself on-chain on Solana</title>
 			<link>https://three.ws/.well-known/agent-registration.json</link>
 			<guid isPermaLink="false">2026-06-15:three.ws can now register itself on-chain on Solana</guid>
@@ -341,6 +373,14 @@
 			<pubDate>Mon, 15 Jun 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>Coins launched against USDC are now tracked in the right currency end to end. Every buy and sell records which quote asset it actually used and how much of it moved — USDC amounts in USDC, SOL amounts in SOL — instead of quietly storing a USDC trade as if it were SOL and reporting a price and market cap that were off by orders of magnitude. Portfolios now subtotal holdings separately by quote asset, so your SOL positions and USDC positions each get their own value, cost basis, and unrealized P&amp;L with no more mixing of mismatched units. Existing SOL trades are unchanged, and historical rows were backfilled as SOL-paired so nothing shifts.</description>
+		</item>
+		<item>
+			<title>Verify the $THREE economy on-chain — no &quot;trust us&quot;</title>
+			<link>https://three.ws/three</link>
+			<guid isPermaLink="false">2026-06-15:Verify the $THREE economy on-chain — no &quot;trust us&quot;</guid>
+			<pubDate>Mon, 15 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The /three economy page now shows the real, live Solana wallets behind the numbers. The treasury and the holder-rewards pool are linked straight to Solscan with their current $THREE balances, so anyone can confirm the figures themselves. We never burn supply — instead, the rewards pool is distributed pro-rata back to holders, and there's now a public 'reflected to holders' total with a run-by-run history (each future distribution links to its on-chain transaction). Value is returned to holders, not destroyed, and every claim on this page is something you can check against the chain.</description>
 		</item>
 		<item>
 			<title>Walk into the Pole Club as your own 3D avatar</title>

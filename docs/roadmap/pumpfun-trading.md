@@ -1,6 +1,6 @@
 # Pump.fun Trading — Product Plan & Prompt Library
 
-**Status:** planning · **Owner:** TBD · **Last updated:** 2026-06-15
+**Status:** planning · **Owner:** TBD · **Last updated:** 2026-06-15 (creative-plays + cold-start expansion)
 
 > Scope lock: this document is *only* about pump.fun trading, deploying, and the
 > copy-trade / earn-when-copied economy around it. Everything else (forge,
@@ -530,3 +530,219 @@ Default to VETO when uncertain. Capital preservation is your only mandate.
 4. **Real vs. paper for v1 Arena leaders** — paper-trade to seed a credible board
    without funded-signer risk, then graduate to real.
 5. **Mainnet funded signer path** — the recurring blocker; needs an ops decision.
+
+---
+
+## 12. Outside-the-box plays (the creative expansion)
+
+The §3 surfaces are the skeleton. These are the mechanics that make it *fun*,
+*shareable*, and hard to leave. Ranked by leverage. Every one is buildable on
+rails we already have; the "builds on" note proves it.
+
+### Tier 1 — ship-these-first conversion engines (no custody, no funded signer)
+
+**12.1 Co-Pilot mode (suggest → one-tap approve).**
+The bridge between "I'll never give a bot my wallet" and full auto-copy. The
+agent surfaces a fully-formed trade — ticker, size, reasoning, TP/SL — and the
+user taps **Do it**; their own wallet signs. No delegation, no custody, no
+session key. This is the single highest-converting mechanic because it removes
+the trust cliff: the user feels the agent's edge with their finger on the
+trigger the whole time. Graduate users from Co-Pilot → full Copy once they trust
+a leader. *Builds on:* existing `buy-prep` → user-sign → `buy-confirm` flow +
+the trader prompt's structured output. **Zero new custody risk.**
+
+**12.2 Ghost-copy (paper-copy any agent).**
+"Copy" any leader with fake money. We simulate every trade they make against
+real prices and show the user *their* hypothetical equity curve: "If you'd
+ghost-copied DegenDestroyer for 7 days with 1 SOL, you'd be +0.34 SOL." Builds a
+*personal* trust record before a cent moves. Infinite top-of-funnel, zero
+custody, and the conversion prompt writes itself ("you left +0.34 SOL on the
+table — go live?"). *Builds on:* `strategy-backtest.js` simulation engine +
+positions ledger; just runs forward in real time instead of over history.
+
+**12.3 Fork-this-trade (the atomic social action).**
+Every trade everywhere — Feed card, X post, Telegram message, an agent profile's
+log — carries a one-tap **Fork** that opens the *same* trade pre-filled in the
+user's wallet at their chosen size. Turns every shared win into a conversion
+surface. The unit of virality isn't "follow me," it's "do what I just did, right
+now, in one tap." *Builds on:* deep-linkable trade params + Co-Pilot sign flow +
+`deliver-telegram.js`.
+
+**12.4 Trader Wrapped / Season recap.**
+Spotify-Wrapped for trading: an auto-generated, gorgeous, swipeable recap of a
+user's (or their agent's) week/season — best trade, biggest multiple, win rate,
+"you beat 87% of traders," rival head-to-head, the avatar reacting. One tap to
+post. Identity + flex + referral link in one artifact. *Builds on:* PnL-card
+renderer (§6.1) + positions ledger + reputation metrics.
+
+**12.5 Talk to your trader (voice/chat trading via the avatar).**
+Natural-language trading through the 3D avatar: "ape 0.3 into whatever's about to
+graduate," "show me the top sniper's last 5 trades," "sell half my $TICKER." The
+avatar answers in voice + emotes, surfaces the trade, user confirms. Nobody in
+the pump.fun terminal space has a *face* or a *voice* — the avatar layer is our
+moat, so make it the *interface*, not decoration. *Builds on:* `reactive` skill,
+edge-TTS readaloud, MCP read tools, Co-Pilot confirm.
+
+### Tier 2 — engagement & retention loops
+
+**12.6 Agent prediction markets.**
+Bet $THREE on "AgentX out-performs AgentY this week" — a separate engagement +
+revenue loop from copying. Spectators get skin in the game without trusting a
+bot with their main bag; it's a $THREE sink; it manufactures rivalries (§6.5)
+with money behind them. Resolve from the verified PnL ledger. *Builds on:*
+`agent_sniper_positions` for settlement, `charge-three.js`, holder tiers for
+fee discounts. (Keep it clearly a skill-prediction game; mind the regulatory
+framing in §9.)
+
+**12.7 Syndicates (social copy-pools).**
+Followers of a leader form a named **syndicate** with a shared chat, a group
+equity curve, and a leaderboard *against other syndicates*. Tribalism is the
+strongest retention force in crypto — give people a team, a flag, and an enemy.
+Leaders run syndicates as their fan club; the group dynamic keeps followers in
+even through a drawdown. *Builds on:* referral graph, leaderboard compute,
+copy-engine.
+
+**12.8 Inverse / Fade mode.**
+One tap to copy the *inverse* of a provably-terrible wallet ("everyone knows a
+guy who's a perfect reverse indicator"). Hilarious, endlessly shareable, and
+occasionally genuinely +EV. Pure content that doubles as a real strategy.
+*Builds on:* same copy-engine with a sign flip + a "consistently-losing wallet"
+screen over the trades index.
+
+**12.9 Index agents (the "ETF of degens").**
+One tap to copy a *basket* — "Top 5 Snipers," "This Week's Hottest," "Balanced
+Risk Index" — auto-rebalanced weekly from the Arena. Lower-variance entry product
+for normies who don't want to pick a single leader. The diversified on-ramp that
+converts the cautious. *Builds on:* leaderboard ranking + copy-engine fan-out +
+the 70/20/10 split prorated across the basket's leaders.
+
+**12.10 Sentiment-sourced trades with receipts.**
+When an agent trades partly on social signal, it shows the *source*: "bought
+because volume spiked 4x AND 3 tracked accounts posted $TICKER in 10 min" with
+the links. Transparency *is* content — it's a reason to screenshot, and it
+teaches followers why the edge is real. *Builds on:* channel-feed, a sentiment
+scout sub-agent (prompt 10.7), `get_token_trades`.
+
+### Tier 3 — texture, status, distribution
+
+- **12.11 Daily streaks & quests.** "Make 3 trades", "ghost-copy a new agent",
+  "share a win" → small $THREE / cosmetic rewards. Habit formation. *Builds on:*
+  $THREE rewards + cosmetics economy.
+- **12.12 Embeddable "copy me" widget.** A leader drops a live trade-card widget
+  in their X bio / site / stream overlay; strangers fork trades from it. Turns
+  every leader's existing audience into our funnel. *Builds on:* `<agent-3d>`
+  web component pattern + Fork deep-links.
+- **12.13 Live trade rooms in the world.** Spectate a leader trading live inside
+  `world.three.ws` (Hyperfy) — avatars, voice, a shared ticker tape, one-tap fork
+  from the room. Twitch-for-degens. *Builds on:* existing Hyperfy world + reactive
+  avatars + SSE trade stream.
+- **12.14 Auto-rivalry engine.** Leaderboard deltas auto-generate grudge-match
+  copy + matchups ("ValueVulture just passed DegenDestroyer — clap back?"). Free,
+  endless, on-brand content. *Builds on:* leaderboard diffs + narrator prompt.
+- **12.15 First-rug softener (careful).** An optional $THREE-funded community pool
+  that partially reimburses a *first-time* follower's first rug, gamified as a
+  welcome guarantee. Big trust unlock for normies — but model the abuse surface
+  and regulatory framing before building. Flagged, not committed.
+
+---
+
+## 13. Cold-start playbook (how the flywheel actually starts spinning)
+
+The §0 flywheel only turns if the *first* leaders and followers show up. Chicken-
+and-egg is the real risk, not the tech. Concretely:
+
+1. **Seed the Arena with in-house paper-traded agents on day one.** Run the five
+   persona prompts (§10.2) live against the *real* PumpPortal feed, executing as
+   **paper trades** (ghost P&L). This produces a credible, populated, live
+   leaderboard with real reasoning and real reactions — **with zero funded-signer
+   risk and zero custody.** The Arena looks alive before a single external user
+   arrives. Mark paper agents honestly ("Paper" badge); graduate the best to real
+   capital once a funded path exists.
+2. **Recruit human alpha by claiming their on-chain past.** Invite known
+   profitable wallets; let them *claim* their existing on-chain trade history into
+   a three.ws profile (verifiable, unfakeable) and instantly have a track record +
+   a way to earn. Their existing audience becomes our first followers. The pitch:
+   "your edge already exists on-chain and earns you nothing — wrap it here and get
+   paid when people copy it."
+3. **Make the Feed logged-out browsable.** A cold visitor sees wins + reasoning +
+   Copy buttons in 30 seconds, no signup wall. SEO surface + share surface +
+   instant value demo. Login is required only to *act*, never to *watch*.
+4. **Pay the first leaders in $THREE.** A bounded early-leader program: bonus
+   $THREE rewards for the first N agents/humans who hit verified track-record
+   thresholds (e.g. 30 days, >55% win rate, positive follower outcomes). Manufactures
+   supply of credible leaders before organic demand exists. *Builds on:* $THREE
+   rewards + reputation gates.
+5. **Push wins to where degens already live.** Telegram + X bots (§3.8) broadcast
+   notable trades out of the platform with Fork/Copy deep-links back in. Don't wait
+   for traders to come to the site; put the product in their existing feed.
+6. **Sequence around the blocker.** Everything in steps 1–5 plus all of §12 Tier 1
+   (Co-Pilot, Ghost-copy, Fork, Wrapped, voice) needs **no funded mainnet signer
+   and no custody** — it's read-only data + paper sim + user-signs-their-own-trade.
+   That means the *entire social/viral shell and conversion funnel can ship and
+   grow before* the custody/funded-signer decision (§9) is resolved. Full auto-copy
+   (delegated session keys moving real follower funds) is the *last* gate, not the
+   first. **This is the most important sequencing call in the doc.**
+
+---
+
+## 14. Three more prompts (copy-engine, sentiment scout, onboarding coach)
+
+### 14.1 Copy-Conductor (adapts a leader's trade to each follower)
+
+```
+You translate a LEADER's trade into a FOLLOWER's trade, respecting the follower's
+risk profile. You never invent trades; you only adapt the leader's actual trade.
+
+INPUT: the leader's executed trade (mint, side, leader_size, leader_wallet_pct),
+the follower POLICY (budget, per-trade cap, daily cap, max slippage, min
+liquidity, max concentration, copy_ratio), and the follower's current positions.
+
+RULES
+- Scale size by the follower's copy_ratio and caps, never the leader's raw size.
+- Refuse (emit SKIP) if: the buy would breach any follower cap, liquidity is below
+  the follower's floor, price impact at the follower's size exceeds max slippage,
+  or the follower already holds max concentration in this mint.
+- For sells, mirror proportionally to the follower's actual holding, not the
+  leader's.
+- Never let a follower's mirrored buy exceed a safe fraction of pool liquidity.
+
+OUTPUT JSON:
+{ "action": "BUY"|"SELL"|"SKIP", "mint": "<mint>", "size": <amount+asset|null>,
+  "reason": "one line", "tp_pct": <num|null>, "sl_pct": <num|null> }
+Default to SKIP when uncertain. The follower's caps are inviolable.
+```
+
+### 14.2 Sentiment Scout (sourced signal, with receipts)
+
+```
+You surface social + on-chain momentum for pump.fun tokens. You do NOT trade.
+You return candidates with EVIDENCE another agent can cite to followers.
+
+For each candidate return JSON:
+{ "mint": "<mint>", "ticker": "$TICKER", "momentum_score": 0-100,
+  "evidence": [ { "type": "volume_spike|fresh_buyers|social_mention|graduation_approach",
+                  "detail": "concrete number or quote", "source": "url|tool" } ],
+  "caution": "one line on the main risk" }
+Cite only real, retrievable evidence (tool output, a real post URL). Never
+fabricate a mention, a follower count, or a number. If evidence is thin, lower the
+score — do not pad it. Reference no token other than the candidate or $THREE.
+```
+
+### 14.3 Onboarding Coach (converts a cautious first-timer)
+
+```
+You are a friendly guide for a brand-new user who has never copy-traded. Goal:
+get them to a confident first action with the SMALLEST safe step. You never push,
+never promise returns, always disclose risk plainly ("you can lose what you put
+in").
+
+Path you steer toward, in order:
+1. Browse the Feed (no signup) — show them a verified win and its reasoning.
+2. Ghost-copy a top agent (fake money) — let them feel the edge risk-free.
+3. Co-Pilot one real trade at the minimum size, their wallet, their tap.
+4. Only then mention full Copy with caps.
+
+Always explain WHY a step is safe (non-custodial, hard caps, they sign). Answer
+in 1-3 short sentences. If they ask for guarantees, say plainly there are none and
+point to the verified track record + skin-in-the-game as the honest signal.
+```

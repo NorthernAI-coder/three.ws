@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-15T21:28:35.385Z",
+	"generated_at": "2026-06-15T21:48:52.845Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -111,6 +111,16 @@
 		{
 			"date": "2026-06-15",
 			"type": "update",
+			"title": "Buy any coin straight from the Pump Visualizer",
+			"summary": "Click a coin in the Pump Visualizer and you can now buy it on the spot — no trip to pump.fun. The new Buy button opens a real on-chain trade window right in the detail panel: pick an amount, see a live price quote and your slippage, and your connected Solana wallet signs the purchase. It handles both bonding-curve and graduated coins, prices in SOL or USDC automatically, and lets you sell too. Same trade window the /play worlds use, now wherever you're exploring trending coins.",
+			"link": "/pump-visualizer",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-15",
+			"type": "update",
 			"title": "Camera AR on /irl now turns on",
 			"summary": "The \"Camera AR\" button on the IRL page was stuck — it never lit up, on desktop or phone, so you could never drop your avatar into your real room. Two bugs were behind it: a startup error in the joystick setup crashed the page's script before the button could ever be enabled, and even once that was past, the camera could hang on \"Requesting camera…\" forever because playback was started before the video was visible. Both are fixed: the button now activates once your avatar loads, and tapping it opens the camera reliably on phone and desktop so you can walk your avatar across your real floor.",
 			"link": "/irl",
@@ -141,11 +151,11 @@
 		{
 			"date": "2026-06-15",
 			"type": "update",
-			"title": "Four distinct dancers, now waiting at their poles",
-			"summary": "The Pole Club stage no longer sits empty between tips. All four dancers now stand at their own poles, lit and facing the crowd, the moment you arrive — and each is a different 3D model instead of four copies of one, so Aria, Nova, Blaze, and Luna actually look like four different performers (still tinted to their pole's neon color). Tip a pole and that dancer steps onto it and runs her routine, then returns to her stance at the pole. No tip, no dance — same rule, just a stage that looks alive from the first second.",
-			"link": "/club",
+			"title": "Fixed the footer floating over the avatar viewer",
+			"summary": "On avatar pages (and a few other 3D viewer pages), the site footer was breaking loose and floating in the middle of the screen, on top of the 3D model — and its links couldn't be clicked. A styling rule meant only for the small corner credit on viewer pages was leaking onto the real footer. It's fixed: the footer now sits properly at the bottom of the page where it belongs, fully clickable, and the avatar viewer is unobstructed.",
+			"link": "/marketplace",
 			"tags": [
-				"improvement"
+				"fix"
 			]
 		},
 		{
@@ -175,6 +185,16 @@
 			"title": "Live coin status — price, market cap and graduation — now unified across the platform",
 			"summary": "The launches feed, agent profile token panels, and the in-world agent coin card now share one live coin-status display, so every place that shows a coin reads the same numbers from the same source. Launch cards now stream the coin's real logo, USD price, market cap, a graduation progress ring and time since launch — not just market cap — with the orbital fingerprint as a placeholder until the logo loads. Agent profiles show a live price-and-graduation chip in the token panel and per-coin market caps in the launch history, and the agent home card's market readout is now consistent with the rest of the platform. Each card refreshes on its own and degrades gracefully to a Retry if pump.fun is briefly unreachable.",
 			"link": "/launches",
+			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-15",
+			"type": "update",
+			"title": "More uploaded avatars can dance",
+			"summary": "The built-in animation library can now drive avatars built on CharacterStudio and Unreal Engine skeletons, not just Mixamo/Ready-rig ones. Previously a CharacterStudio or Fortnite-style rig would load but stand frozen because the animation system couldn't match its bone names; now those bones map automatically, so the full set of dances, poses, and idle motion plays on them everywhere avatars appear — the club, the walk view, AR, and the studio.",
+			"link": "/club",
 			"tags": [
 				"improvement"
 			]
@@ -306,6 +326,16 @@
 		{
 			"date": "2026-06-15",
 			"type": "update",
+			"title": "Sniper agents can now buy on a creator's first reward claim",
+			"summary": "The autonomous sniper has a second way to trigger. Alongside sniping brand-new launches, you can now arm an agent in \"first claim\" mode: it watches pump.fun on-chain and buys a creator's coin the very first time that creator EVER pulls their accrued creator rewards out of the fee vault — an irreversible signal that the creator is live and taking real fees. You set the rules: how much to spend per buy, your daily budget, how long to wait after the claim before buying, and a minimum (or maximum) claim size so the agent only acts on creators taking real money, not dust. It runs through the same guardrails as every snipe — mandatory stop-loss, price-impact circuit breaker, daily caps, and one-shot-per-coin — and manages the position to its exit automatically.",
+			"link": "/play/arena",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-15",
+			"type": "update",
 			"title": "Sniper Arena — watch AI agents trade pump.fun live",
 			"summary": "Agents can now trade pump.fun autonomously. A new always-on engine watches every launch in real time, scores it against an agent's strategy (market-cap band, creator track record, socials), and — when it qualifies — buys from the agent's own Solana wallet, then manages the position to a take-profit, stop-loss, trailing stop, or timeout exit. Arming an agent is opt-in and capped: you set a daily budget, a per-trade size, and a mandatory stop-loss, with a kill switch that halts new buys instantly. The new Sniper Arena at three.ws/play/arena shows it all happening live — a P&L leaderboard, a streaming trade ticker where every fill links to its on-chain transaction, and the top agent's 3D avatar reacting to its own wins. Autonomous trading is experimental and you can lose the funds you commit.",
 			"link": "/play/arena",
@@ -408,6 +438,16 @@
 		{
 			"date": "2026-06-15",
 			"type": "update",
+			"title": "Three distinct dancers, now waiting at their poles",
+			"summary": "The Pole Club stage no longer sits empty between tips. Three dancers now stand at their own poles, lit and facing the crowd, the moment you arrive — each a different 3D avatar pulled from the gallery (still tinted to her pole's neon color) instead of copies of one model. Tip a pole and that dancer steps onto it and runs her routine, then returns to her stance at the pole. No tip, no dance — same rule, just a stage that looks alive from the first second. Behind the scenes the animation engine now retargets onto CharacterStudio and Unreal-mannequin rigs too, so far more uploaded avatars can actually dance.",
+			"link": "/club",
+			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-15",
+			"type": "update",
 			"title": "three.ws can now register itself on-chain on Solana",
 			"summary": "Alongside its ERC-8004 identity, three.ws can now mint its own agent on Solana — as a Metaplex Core asset in the official \"three.ws Agents\" collection, exactly the way agents you deploy through the platform are registered. A one-command tool builds the platform's 3D Agent Card, verifies the avatar's SHA-256 against the exact GLB bytes served (so the model can't be silently swapped), pins the metadata, mints the asset into the collection, and writes the result back into the public discovery documents at three.ws/.well-known so any wallet, explorer, or agent can resolve and verify three.ws. The discovery card and its schema now carry Solana identities (CAIP-10) alongside EVM ones, and the platform agent's on-chain badge links straight to its Solana passport.",
 			"link": "/.well-known/agent-registration.json",
@@ -436,6 +476,17 @@
 			"tags": [
 				"fix",
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-15",
+			"type": "update",
+			"title": "Verify the $THREE economy on-chain — no \"trust us\"",
+			"summary": "The /three economy page now shows the real, live Solana wallets behind the numbers. The treasury and the holder-rewards pool are linked straight to Solscan with their current $THREE balances, so anyone can confirm the figures themselves. We never burn supply — instead, the rewards pool is distributed pro-rata back to holders, and there's now a public 'reflected to holders' total with a run-by-run history (each future distribution links to its on-chain transaction). Value is returned to holders, not destroyed, and every claim on this page is something you can check against the chain.",
+			"link": "/three",
+			"tags": [
+				"feature",
+				"improvement"
 			]
 		},
 		{
