@@ -229,7 +229,5 @@ bvefj.json
 demo6.html
 example.html
 scripts/test-corr.mjs
-
-# local correlation analysis (scraped data + outputs — never commit)
 *_tweets_*.json
-scripts/.corr-out.*
+scripts/.corr-*
