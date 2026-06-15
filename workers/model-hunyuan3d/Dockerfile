@@ -1,21 +1,28 @@
-FROM nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04
+FROM nvidia/cuda:12.1.1-cudnn8-devel-ubuntu22.04
 
+# devel (not runtime) base: hy3dgen's texture pipeline compiles CUDA extensions
+# (custom_rasterizer + differentiable_renderer) at install time and needs nvcc +
+# a C++ toolchain. TORCH_CUDA_ARCH_LIST targets the Cloud Run L4 (compute
+# capability 8.9) so the kernels build for it.
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
-    DEBIAN_FRONTEND=noninteractive
+    DEBIAN_FRONTEND=noninteractive \
+    TORCH_CUDA_ARCH_LIST="8.9+PTX"
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         python3.10 python3.10-dev python3-pip \
-        git curl wget \
+        git curl wget build-essential ninja-build \
         libgl1 libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/* \
     && ln -sf /usr/bin/python3.10 /usr/bin/python3 \
     && ln -sf /usr/bin/python3.10 /usr/bin/python \
     && pip install --upgrade pip setuptools wheel
 
-# Install torch first (cached layer).
-RUN pip install torch==2.3.1 --index-url https://download.pytorch.org/whl/cu121
+# torch first (cached layer), matching the CUDA 12.1 base. torchvision is a hard
+# dependency of hy3dgen's shape + paint pipelines (image backbones / transforms)
+# and is not pulled in transitively, so it's pinned alongside torch here.
+RUN pip install torch==2.3.1 torchvision==0.18.1 --index-url https://download.pytorch.org/whl/cu121
 
 COPY requirements.txt /app/requirements.txt
 RUN pip install -r /app/requirements.txt
