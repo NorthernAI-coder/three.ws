@@ -19,8 +19,21 @@
 
 import { PublicKey } from '@solana/web3.js';
 
+import { SOLANA_USDC_MINT, SOLANA_USDC_MINT_DEVNET } from '../payments/_config.js';
+
 export const SPL_TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
 export const TOKEN_2022_PROGRAM_ID = new PublicKey('TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb');
+
+// Wrapped SOL — the canonical quote mint for SOL-paired v2 coins. On-chain SOL
+// curves store `bonding_curve.quote_mint` as the system-default pubkey (all
+// zeros); both that and the explicit WSOL mint mean "SOL-paired".
+export const WSOL_MINT = 'So11111111111111111111111111111111111111112';
+const SYSTEM_DEFAULT_PUBKEY = '11111111111111111111111111111111';
+
+/** The USDC mint for a network ('mainnet' | 'devnet'). */
+export function usdcMintForNetwork(network) {
+	return network === 'devnet' ? SOLANA_USDC_MINT_DEVNET : SOLANA_USDC_MINT;
+}
 
 const KNOWN_TOKEN_PROGRAMS = new Set([
 	SPL_TOKEN_PROGRAM_ID.toBase58(),
@@ -58,4 +71,43 @@ export function resolveTokenProgramForMintOwner(owner) {
 		throw e;
 	}
 	return ownerPk.equals(TOKEN_2022_PROGRAM_ID) ? TOKEN_2022_PROGRAM_ID : SPL_TOKEN_PROGRAM_ID;
+}
+
+/**
+ * Resolve the quote asset for a custodial (server-signed) pump.fun trade from the
+ * coin's on-chain bonding-curve quote mint. Mirrors the wallet-signed resolution
+ * in api/pump/[action].js (handleBuyPrep / handleSellPrep) so the autonomous and
+ * wallet paths always agree on which currency a coin trades in.
+ *
+ * A SOL-paired curve stores `quote_mint` as null/undefined (older fetches) or the
+ * system-default pubkey (all zeros); the explicit WSOL mint means the same thing.
+ * Anything else is a stable/SPL quote: USDC when it matches the network USDC mint,
+ * otherwise OTHER.
+ *
+ * Pure — no chain access — so it is unit-testable in isolation.
+ *
+ * @param {import('@solana/web3.js').PublicKey|string|null|undefined} curveQuoteMint
+ *   `bondingCurve.quoteMint` from the on-chain curve.
+ * @param {'mainnet'|'devnet'} [network='mainnet']
+ * @returns {{ isSol: boolean, isUsdc: boolean, quoteSymbol: 'SOL'|'USDC'|'OTHER', quoteMint: string }}
+ *   - `isSol`: SOL-paired — trade in native SOL, no quote ATA needed.
+ *   - `isUsdc`: USDC-paired — trade in USDC, requires the agent's USDC ATA.
+ *   - `quoteMint`: canonical mint string to build/record against (WSOL for SOL).
+ *   - `quoteSymbol`: stable display/record label.
+ */
+export function resolveCustodialQuote(curveQuoteMint, network = 'mainnet') {
+	const raw =
+		curveQuoteMint == null
+			? ''
+			: curveQuoteMint instanceof PublicKey
+				? curveQuoteMint.toBase58()
+				: String(curveQuoteMint).trim();
+
+	if (!raw || raw === WSOL_MINT || raw === SYSTEM_DEFAULT_PUBKEY) {
+		return { isSol: true, isUsdc: false, quoteSymbol: 'SOL', quoteMint: WSOL_MINT };
+	}
+	if (raw === usdcMintForNetwork(network)) {
+		return { isSol: false, isUsdc: true, quoteSymbol: 'USDC', quoteMint: raw };
+	}
+	return { isSol: false, isUsdc: false, quoteSymbol: 'OTHER', quoteMint: raw };
 }

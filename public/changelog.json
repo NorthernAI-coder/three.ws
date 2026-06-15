@@ -1,11 +1,22 @@
 {
-	"generated_at": "2026-06-15T02:18:33.536Z",
+	"generated_at": "2026-06-15T02:33:46.714Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
 		"url": "https://three.ws"
 	},
 	"entries": [
+		{
+			"date": "2026-06-15",
+			"type": "update",
+			"title": "Autonomous coin buybacks and creator-fee distributions now run on schedule",
+			"summary": "Coins launched through three.ws with autopilot enabled now have their buybacks and creator-fee distributions executed automatically on an hourly schedule, instead of waiting for a manual trigger. A new balance watchdog checks every Solana signer the platform uses to pay on-chain fees and alerts the team the moment one runs low, so autopilot never silently stalls for lack of gas. No action needed from coin owners — it just works in the background.",
+			"link": null,
+			"tags": [
+				"improvement",
+				"infra"
+			]
+		},
 		{
 			"date": "2026-06-15",
 			"type": "update",
@@ -2727,7 +2738,7 @@
 			"date": "2026-05-04",
 			"type": "launch",
 			"title": "Pump Live",
-			"summary": "Real-time SSE feed of every pump.fun launch as it happens.",
+			"summary": "Real-time feed of every pump.fun launch as it happens, with a 3D agent that reacts live.",
 			"link": "/pump-live",
 			"tags": [
 				"launch"

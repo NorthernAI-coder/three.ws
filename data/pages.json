@@ -451,7 +451,7 @@
 				{
 					"path": "/pump-live",
 					"title": "Pump Live",
-					"description": "Real-time SSE feed of every pump.fun launch as it happens.",
+					"description": "Real-time feed of every pump.fun launch as it happens, with a 3D agent that reacts live.",
 					"priority": 0.7,
 					"changefreq": "daily",
 					"added": "2026-05-04"

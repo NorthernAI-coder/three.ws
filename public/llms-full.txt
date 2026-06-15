@@ -336,7 +336,7 @@ Mint and trade pump.fun agent tokens on Solana. Live feed of every launch.
 
 URL: https://three.ws/pump-live
 
-Real-time SSE feed of every pump.fun launch as it happens.
+Real-time feed of every pump.fun launch as it happens, with a 3D agent that reacts live.
 
 ### Pump Dashboard
 

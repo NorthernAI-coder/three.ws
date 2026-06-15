@@ -3,6 +3,12 @@
 	"entries": [
 		{
 			"date": "2026-06-15",
+			"title": "Autonomous coin buybacks and creator-fee distributions now run on schedule",
+			"summary": "Coins launched through three.ws with autopilot enabled now have their buybacks and creator-fee distributions executed automatically on an hourly schedule, instead of waiting for a manual trigger. A new balance watchdog checks every Solana signer the platform uses to pay on-chain fees and alerts the team the moment one runs low, so autopilot never silently stalls for lack of gas. No action needed from coin owners — it just works in the background.",
+			"tags": ["improvement", "infra"]
+		},
+		{
+			"date": "2026-06-15",
 			"title": "Launchpad Studio: pick your avatar from your own agents and the gallery",
 			"summary": "Building a launchpad in Launchpad Studio (three.ws/launchpad) no longer means hunting down a model URL by hand. The avatar picker now shows three sections: your own three.ws agents (when you're signed in), the platform avatar gallery with a Show more button to browse deeper, and a collapsed Or enter a URL field for power users who want to paste a custom .glb. Thumbnails load lazily, the selected avatar updates the live 3D preview instantly, and your choice is saved with the published page.",
 			"tags": ["feature", "improvement"],

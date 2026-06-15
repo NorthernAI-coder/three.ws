@@ -7,6 +7,14 @@
 		<description>What's new on three.ws — features, improvements, and releases, newest first.</description>
 		<language>en</language>
 		<item>
+			<title>Autonomous coin buybacks and creator-fee distributions now run on schedule</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-15:Autonomous coin buybacks and creator-fee distributions now run on schedule</guid>
+			<pubDate>Mon, 15 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>Coins launched through three.ws with autopilot enabled now have their buybacks and creator-fee distributions executed automatically on an hourly schedule, instead of waiting for a manual trigger. A new balance watchdog checks every Solana signer the platform uses to pay on-chain fees and alerts the team the moment one runs low, so autopilot never silently stalls for lack of gas. No action needed from coin owners — it just works in the background.</description>
+		</item>
+		<item>
 			<title>Launchpad Studio: pick your avatar from your own agents and the gallery</title>
 			<link>https://three.ws/launchpad</link>
 			<guid isPermaLink="false">2026-06-15:Launchpad Studio: pick your avatar from your own agents and the gallery</guid>
@@ -2132,7 +2140,7 @@
 			<guid isPermaLink="false">2026-05-04:Pump Live</guid>
 			<pubDate>Mon, 04 May 2026 12:00:00 GMT</pubDate>
 			<category>launch</category>
-			<description>Real-time SSE feed of every pump.fun launch as it happens.</description>
+			<description>Real-time feed of every pump.fun launch as it happens, with a 3D agent that reacts live.</description>
 		</item>
 		<item>
 			<title>Pump Visualizer</title>

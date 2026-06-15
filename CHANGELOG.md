@@ -6,6 +6,7 @@ Public history for [three.ws](https://three.ws), newest first. New pages come fr
 
 ## 2026-06-15
 
+- **Autonomous coin buybacks and creator-fee distributions now run on schedule** — Coins launched through three.ws with autopilot enabled now have their buybacks and creator-fee distributions executed automatically on an hourly schedule, instead of waiting for a manual trigger. A new balance watchdog checks every Solana signer the platform uses to pay on-chain fees and alerts the team the moment one runs low, so autopilot never silently stalls for lack of gas. No action needed from coin owners — it just works in the background. `[improvement, infra]`
 - **Launchpad Studio: pick your avatar from your own agents and the gallery** — Building a launchpad in Launchpad Studio (three.ws/launchpad) no longer means hunting down a model URL by hand. The avatar picker now shows three sections: your own three.ws agents (when you're signed in), the platform avatar gallery with a Show more button to browse deeper, and a collapsed Or enter a URL field for power users who want to paste a custom .glb. Thumbnails load lazily, the selected avatar updates the live 3D preview instantly, and your choice is saved with the published page. (`/launchpad`) `[feature, improvement]`
 - **Pump Visualizer’s Trending view fixed — spheres now sized by real market cap** — The Trending mode of the 3D Pump Visualizer (three.ws/pump-visualizer) now renders correctly: every coin appears as a sphere sized by its real USD market cap, textured with its actual logo, with a full detail panel showing market cap, all-time-high, replies, age, and socials. Previously Trending failed to load because the market data it relied on wasn’t reaching the scene. Click a sphere to inspect it, or double-click to open the full 3D coin page. The live Firehose and Migrations modes are unchanged. (`/pump-visualizer`) `[fix, improvement]`
 
@@ -376,7 +377,7 @@ Public history for [three.ws](https://three.ws), newest first. New pages come fr
 - **Community** (`/community`) — Featured creators, builds, and conversations from the three.ws community.
 - **How to Embed 3D On-Chain Agents on Your Site** (`/blog/how-to-embed-3d-onchain-agents`) — A complete walkthrough for embedding a three.ws 3D on-chain agent on any website using the <agent-3d> web component — from setup to CORS configuration and page integration.
 - **Pump Dashboard** (`/pump-dashboard`) — Pump.fun trading desk: watchlists, scanner, quotes, portfolio, and live charts.
-- **Pump Live** (`/pump-live`) — Real-time SSE feed of every pump.fun launch as it happens.
+- **Pump Live** (`/pump-live`) — Real-time feed of every pump.fun launch as it happens, with a 3D agent that reacts live.
 - **Pump Visualizer** (`/pump-visualizer`) — 3D visualizer of trending pump.fun tokens — live market data rendered as an interactive scene.
 - **Tutorials** (`/tutorials`) — Step-by-step build guides.
 - **Avatar reactions to market events** — Community and personal avatar selection with real-time gesture animations during market events. `[improvement]`
