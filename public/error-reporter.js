@@ -195,6 +195,16 @@
 			return true;
 		}
 		if (report.type === 'resource' && report.source) {
+			// A cross-origin resource that fails to load is outside our control: the
+			// Cloudflare Turnstile/CAPTCHA script Privy pulls from
+			// challenges.cloudflare.com, a third-party embed, a wallet in-app webview
+			// blocking an external host, or a user's network dropping a request to
+			// someone else's CDN. We serve our own assets correctly but cannot fix a
+			// third party's CDN or a user's blocker, so a cross-origin resource
+			// failure is noise, not an actionable site fault. Every first-party asset
+			// — including the /cdn proxy — is same-origin, so genuine 404s on our own
+			// files (e.g. /three.svg) still report.
+			if (isThirdPartyResource(report.source)) return true;
 			// A <model-viewer> whose mesh fails to load (slow/aborted GLB fetch
 			// under mobile memory or network pressure, a lost WebGL context) fires
 			// a resource error but degrades to its poster on its own — the user
@@ -219,6 +229,17 @@
 	function isCurrentPage(url) {
 		const strip = (u) => String(u).split('#')[0];
 		return strip(url) === strip(location.href);
+	}
+
+	// True when a resource URL points at a different origin than the page. Used to
+	// drop cross-origin (third-party) resource-load failures we can't act on. An
+	// unparseable URL is treated as third-party — it isn't one of our own assets.
+	function isThirdPartyResource(url) {
+		try {
+			return new URL(url, location.href).origin !== location.origin;
+		} catch {
+			return true;
+		}
 	}
 
 	function enqueue(report) {

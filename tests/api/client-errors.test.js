@@ -87,14 +87,17 @@ const errorEvent = (overrides = {}) => ({
 });
 
 let consoleError;
+let consoleInfo;
 beforeEach(() => {
 	state.rateLimited = false;
 	captureException.mockClear();
 	sendOpsAlert.mockClear();
 	consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+	consoleInfo = vi.spyOn(console, 'info').mockImplementation(() => {});
 });
 afterEach(() => {
 	consoleError.mockRestore();
+	consoleInfo.mockRestore();
 });
 
 describe('api/client-errors', () => {
@@ -200,6 +203,27 @@ describe('api/client-errors', () => {
 		expect(sendOpsAlert.mock.calls[0][0]).toContain('client error on https://three.ws/play');
 	});
 
+	it('logs resource failures at info severity, never as errors', async () => {
+		// A failed img/script (CDN blip, offline mobile network, third-party embed
+		// unreachable) is client telemetry, not a server fault — it must not surface
+		// in the error/warning dashboards. Still logged + searchable, just at info.
+		const { status } = await invoke({
+			body: {
+				page: 'https://three.ws/login',
+				events: [
+					{ type: 'resource', tag: 'img', message: 'failed to load img', source: 'https://three.ws/three.svg' },
+				],
+			},
+		});
+		expect(status).toBe(202);
+		const infoLine = consoleInfo.mock.calls.find(([tag]) => tag === '[client-error]');
+		expect(infoLine).toBeDefined();
+		expect(JSON.parse(infoLine[1]).source).toBe('https://three.ws/three.svg');
+		expect(consoleError.mock.calls.some(([tag]) => tag === '[client-error]')).toBe(false);
+		expect(captureException).not.toHaveBeenCalled();
+		expect(sendOpsAlert).not.toHaveBeenCalled();
+	});
+
 	it('ingests report-uri CSP reports (application/csp-report)', async () => {
 		const { status, body } = await invoke({
 			contentType: 'application/csp-report',
@@ -215,13 +239,16 @@ describe('api/client-errors', () => {
 		});
 		expect(status).toBe(202);
 		expect(body.received).toBe(1);
+		// CSP reports are client telemetry, not server faults — logged at info, not
+		// error, so the error/warning dashboards stay actionable.
 		const logged = JSON.parse(
-			consoleError.mock.calls.find(([tag]) => tag === '[client-error]')[1],
+			consoleInfo.mock.calls.find(([tag]) => tag === '[client-error]')[1],
 		);
 		expect(logged.type).toBe('csp');
 		expect(logged.message).toBe('CSP violation: script-src');
 		expect(logged.source).toBe('https://evil.example/x.js');
-		// CSP stays log-only: no Sentry, no ops page.
+		// CSP stays log-only and below error severity: no error line, no Sentry, no ops page.
+		expect(consoleError.mock.calls.some(([tag]) => tag === '[client-error]')).toBe(false);
 		expect(captureException).not.toHaveBeenCalled();
 		expect(sendOpsAlert).not.toHaveBeenCalled();
 	});
@@ -243,7 +270,7 @@ describe('api/client-errors', () => {
 		expect(status).toBe(202);
 		expect(body.received).toBe(1);
 		const logged = JSON.parse(
-			consoleError.mock.calls.find(([tag]) => tag === '[client-error]')[1],
+			consoleInfo.mock.calls.find(([tag]) => tag === '[client-error]')[1],
 		);
 		expect(logged.message).toBe('CSP violation: object-src');
 	});
