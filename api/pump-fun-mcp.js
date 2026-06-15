@@ -43,7 +43,7 @@ import { TOOLS, resolveToolName, rpcError, rpcEnvelope } from '../src/pump/mcp-t
 import { generateVanityKey } from '../src/pump/vanity-keygen.js';
 import bs58 from 'bs58';
 import { resolveSnsName, reverseLookupAddress } from '../src/solana/sns.js';
-import { scanFirstClaims } from './pump/[action].js';
+import { scanFirstClaims } from './_lib/pump-claims.js';
 
 // ── On-chain handlers ──────────────────────────────────────────────────────
 
