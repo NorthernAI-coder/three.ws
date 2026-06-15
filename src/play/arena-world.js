@@ -10,9 +10,9 @@
 // Ready Player Me, Mixamo, CharacterStudio — performs the same emotes.
 
 import {
-	Scene, PerspectiveCamera, WebGLRenderer, Group, Object3D,
+	Scene, PerspectiveCamera, WebGLRenderer, Group,
 	AmbientLight, DirectionalLight, PointLight, HemisphereLight,
-	PMREMGenerator, Color, Fog, Vector3, Vector2, Box3,
+	PMREMGenerator, Color, Fog, Vector3, Box3,
 	CircleGeometry, RingGeometry, TorusGeometry, CylinderGeometry,
 	MeshStandardMaterial, MeshBasicMaterial, Mesh, DoubleSide,
 	BufferGeometry, BufferAttribute, Points, PointsMaterial, AdditiveBlending,
@@ -30,7 +30,7 @@ const MANIFEST_URL = '/animations/manifest.json';
 // into every avatar so each clip is fetched + parsed a single time. Sizes were
 // chosen for fast first paint (idle/walk/buy/win/loss all < 1.1 MB).
 const CLIPS = {
-	idle: 'av-idle-breath',   // calm breathing loop — the resting state
+	idle: 'idle',             // full-body resting idle (arms down — NOT the torso-only breath)
 	walk: 'walk',             // spectator locomotion
 	buy: 'wave',              // a wave when an agent opens a position
 	win: 'celebrate',         // fist-pump on a profitable close
@@ -278,7 +278,6 @@ export class ArenaWorld {
 		avatar.leader = !!cfg.leader;
 		avatar.color = color;
 		avatar.idle();
-		if (cfg.leader) avatar.play('dance', { loop: true }); // the champ vibes
 
 		// DOM label data.
 		avatar.label = { name: cfg.name, pnlText: cfg.pnlText, pnlUp: cfg.pnlUp, thumbnail: cfg.thumbnail, rank: cfg.rank };
@@ -292,7 +291,7 @@ export class ArenaWorld {
 		if (this.player) { this._removeAvatar(this.player); this.player = null; }
 		const avatar = await this._makeAvatar(glbUrl);
 		const root = new Group();
-		root.position.set(0, 0, 9.5);  // entrance, facing the arena
+		root.position.set(0, 0, 5.6);  // just inside the entrance, facing the arena
 		root.rotation.y = Math.PI;
 		root.add(avatar.object);
 		this.scene.add(root);
@@ -300,9 +299,9 @@ export class ArenaWorld {
 		avatar.isPlayer = true;
 		avatar.idle();
 		this.player = avatar;
-		// Drop the camera into a follow rig behind the player.
-		this._cam.targetYaw = Math.PI;
-		this._cam.yaw = Math.PI;
+		// Camera sits behind the spectator (+Z) looking into the arena (−Z).
+		this._cam.targetYaw = 0;
+		this._cam.yaw = 0;
 		return avatar;
 	}
 
@@ -429,7 +428,7 @@ export class ArenaWorld {
 	// ── Controls (third-person follow) ────────────────────────────────────────
 
 	_initControls() {
-		this._cam = { yaw: Math.PI, targetYaw: Math.PI, pitch: 0.18, dist: 7.2, targetDist: 7.2 };
+		this._cam = { yaw: 0, targetYaw: 0, pitch: 0.30, dist: 11, targetDist: 11 };
 		this._keys = new Set();
 		this._drag = null;
 		this._move = { x: 0, y: 0 }; // joystick vector
@@ -460,7 +459,7 @@ export class ArenaWorld {
 		el.addEventListener('pointerup', endDrag);
 		el.addEventListener('pointercancel', endDrag);
 		el.addEventListener('wheel', (e) => {
-			this._cam.targetDist = MathUtils.clamp(this._cam.targetDist + Math.sign(e.deltaY) * 0.6, 3.2, 12);
+			this._cam.targetDist = MathUtils.clamp(this._cam.targetDist + Math.sign(e.deltaY) * 0.7, 4, 15);
 		}, { passive: true });
 
 		// Click-to-select an agent (raycast handled in arena.js via projected labels).
@@ -504,13 +503,17 @@ export class ArenaWorld {
 		const c = this._cam;
 		c.yaw = dampAngle(c.yaw, c.targetYaw, 8 * dt);
 		c.dist += (c.targetDist - c.dist) * Math.min(1, 8 * dt);
-		const focus = this.player ? this.player.root.position : new Vector3(0, 0, -1);
-		const fy = (this.player ? 1.5 : 1.6);
-		const cx = focus.x + Math.sin(c.yaw) * Math.cos(c.pitch) * c.dist;
-		const cz = focus.z + Math.cos(c.yaw) * Math.cos(c.pitch) * c.dist;
-		const cy = fy + Math.sin(c.pitch) * c.dist + 1.6;
-		this.camera.position.lerp(new Vector3(cx, cy, cz), Math.min(1, 6 * dt));
-		this.camera.lookAt(focus.x, fy + 0.4, focus.z);
+		const p = this.player ? this.player.root.position : new Vector3(0, 0, 0);
+		// Orbit a point biased from the spectator toward the arena centre so the
+		// agent line-up stays in frame while we still follow the player.
+		const tx = p.x * 0.55;
+		const tz = p.z * 0.5 - 2.0;
+		const ty = 1.2;
+		const cx = tx + Math.sin(c.yaw) * Math.cos(c.pitch) * c.dist;
+		const cz = tz + Math.cos(c.yaw) * Math.cos(c.pitch) * c.dist;
+		const cy = ty + Math.sin(c.pitch) * c.dist + 1.0;
+		this.camera.position.lerp(_tmpVec.set(cx, cy, cz), Math.min(1, 6 * dt));
+		this.camera.lookAt(tx, ty, tz);
 	}
 
 	// ── Loop ──────────────────────────────────────────────────────────────────
@@ -624,11 +627,6 @@ class ArenaAvatar {
 	}
 
 	idle() { this._busy = false; this.anim.crossfadeTo(this._clipMap.idle, 0.3); }
-
-	play(name, { loop = true } = {}) {
-		const clip = this._clipMap[name] || name;
-		this.anim.crossfadeTo(clip, 0.3);
-	}
 
 	setMoving(moving) {
 		if (this._busy) return;

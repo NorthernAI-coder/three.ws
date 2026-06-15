@@ -320,6 +320,12 @@ URL: https://three.ws/launches
 
 Live public feed of every coin launched by a three.ws agent — market caps, graduation status, and the agent behind each launch.
 
+### Trader Leaderboard
+
+URL: https://three.ws/leaderboard
+
+Pump.fun traders ranked by a provable, on-chain track record — realized P&L, win rate, drawdown — with every number traceable to its transaction.
+
 ### Pay (x402)
 
 URL: https://three.ws/pay
@@ -350,6 +356,12 @@ URL: https://three.ws/pump-live
 
 Real-time feed of every pump.fun launch as it happens, with a 3D agent that reacts live.
 
+### Coin Radar
+
+URL: https://three.ws/radar
+
+Live pump.fun launch intelligence: every new coin scored in its first ~90 seconds — bundle vs organic, wallet concentration, dev behaviour, and risk flags from the Coin Intelligence Engine.
+
 ### Pump Dashboard
 
 URL: https://three.ws/pump-dashboard
@@ -379,6 +391,12 @@ Grind a vanity smart-contract address using the ThreeWSFactory CREATE2 deployer 
 URL: https://three.ws/pump-visualizer
 
 3D visualizer of trending pump.fun tokens — live market data rendered as an interactive scene.
+
+### Coin Intelligence
+
+URL: https://three.ws/coin-intel
+
+Every pump.fun launch watched and classified in real time — organic vs bundle, the wallets behind it, a transparent quality score, and a model that learns which signals predict winners.
 
 ### watsonx Constellation
 

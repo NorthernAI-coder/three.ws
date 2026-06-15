@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-15T22:14:11.646Z",
+	"generated_at": "2026-06-15T22:28:21.999Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -527,6 +527,16 @@
 					"showcase": false
 				},
 				{
+					"path": "/leaderboard",
+					"title": "Trader Leaderboard",
+					"description": "Pump.fun traders ranked by a provable, on-chain track record — realized P&L, win rate, drawdown — with every number traceable to its transaction.",
+					"added": "2026-06-15",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
 					"path": "/pay",
 					"title": "Pay (x402)",
 					"description": "Pay-per-call gateway: invoke any x402-protocol paid API with a USDC micro-transaction.",
@@ -577,6 +587,16 @@
 					"showcase": false
 				},
 				{
+					"path": "/radar",
+					"title": "Coin Radar",
+					"description": "Live pump.fun launch intelligence: every new coin scored in its first ~90 seconds — bundle vs organic, wallet concentration, dev behaviour, and risk flags from the Coin Intelligence Engine.",
+					"added": "2026-06-15",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
 					"path": "/pump-dashboard",
 					"title": "Pump Dashboard",
 					"description": "Pump.fun trading desk: watchlists, scanner, quotes, portfolio, and live charts.",
@@ -621,6 +641,16 @@
 					"title": "Pump Visualizer",
 					"description": "3D visualizer of trending pump.fun tokens — live market data rendered as an interactive scene.",
 					"added": "2026-05-04",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/coin-intel",
+					"title": "Coin Intelligence",
+					"description": "Every pump.fun launch watched and classified in real time — organic vs bundle, the wallets behind it, a transparent quality score, and a model that learns which signals predict winners.",
+					"added": "2026-06-15",
 					"auth": null,
 					"indexable": true,
 					"tags": [],

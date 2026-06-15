@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<script>/* three.ws theme boot — no-flash; runtime in /theme-switcher.js */(function(){try{var m=localStorage.getItem('twx_theme');var l=m==='auto'?(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches):m==='light';document.documentElement.setAttribute('data-theme',l?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();</script>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Coin Radar — live pump.fun launch intelligence · three.ws</title>
+		<meta
+			name="description"
+			content="A live radar of every pump.fun coin in its first ~90 seconds of trading — classified and risk-scored by the Coin Intelligence Engine. See bundle vs organic, concentration, and risk flags before you act."
+		/>
+		<meta name="robots" content="index, follow" />
+		<link rel="canonical" href="https://three.ws/radar" />
+
+		<meta property="og:type" content="website" />
+		<meta property="og:site_name" content="three.ws" />
+		<meta property="og:title" content="Coin Radar — live pump.fun launch intelligence" />
+		<meta
+			property="og:description"
+			content="Every new pump.fun coin, scored in its first ~90 seconds: bundle vs organic, concentration, risk flags — live."
+		/>
+		<meta property="og:url" content="https://three.ws/radar" />
+		<meta property="og:image" content="https://three.ws/og-image.png" />
+		<meta property="og:image:width" content="1200" />
+		<meta property="og:image:height" content="630" />
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta name="twitter:title" content="Coin Radar — live pump.fun launch intelligence" />
+		<meta
+			name="twitter:description"
+			content="Every new pump.fun coin, scored in its first ~90 seconds: bundle vs organic, concentration, risk flags — live."
+		/>
+		<meta name="twitter:image" content="https://three.ws/og-image.png" />
+
+		<link rel="icon" href="/favicon.ico" sizes="any" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+		<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+		<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+		<link rel="manifest" href="/site.webmanifest" />
+		<link rel="stylesheet" href="/style.css" />
+		<link rel="stylesheet" href="/nav.css" />
+		<link rel="stylesheet" href="/fonts/fonts.css" />
+		<link rel="stylesheet" href="/mobile.css" />
+		<link rel="stylesheet" href="/src/radar.css" />
+
+		<script type="application/ld+json">
+			{
+				"@context": "https://schema.org",
+				"@type": "WebPage",
+				"name": "Coin Radar",
+				"description": "Live radar of every pump.fun coin in its first ~90 seconds of trading, classified and risk-scored by the Coin Intelligence Engine.",
+				"url": "https://three.ws/radar",
+				"isPartOf": { "@type": "WebSite", "name": "three.ws", "url": "https://three.ws" }
+			}
+		</script>
+	</head>
+	<body class="radar-page">
+		<header><div id="nav-container"></div></header>
+		<script src="/nav.js"></script>
+
+		<main class="radar-main" id="main-content">
+			<nav class="radar-breadcrumb" aria-label="Breadcrumb">
+				<a href="/">three.ws</a>
+				<span aria-hidden="true">/</span>
+				<a href="/launches">Launches</a>
+				<span aria-hidden="true">/</span>
+				<span>Coin Radar</span>
+			</nav>
+
+			<section class="radar-hero">
+				<span class="radar-pill"><span class="radar-pill-dot"></span> Coin Intelligence Engine</span>
+				<h1>Coin Radar</h1>
+				<p>
+					Every new pump.fun coin, watched for its first ~90 seconds of trading and scored on the
+					spot — bundle vs organic, wallet concentration, dev behaviour, and live risk flags. Read the
+					room before you act.
+				</p>
+			</section>
+
+			<div id="radar-root"></div>
+		</main>
+
+		<div id="footer-container"></div>
+		<script src="/footer.js"></script>
+
+		<script type="module">
+			import { mountRadar } from '/src/radar.js';
+			mountRadar(document.getElementById('radar-root'));
+		</script>
+		<script src="/brand.js" defer></script>
+	</body>
+</html>

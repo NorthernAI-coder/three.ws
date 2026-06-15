@@ -7,6 +7,22 @@
 		<description>What's new on three.ws — features, improvements, and releases, newest first.</description>
 		<language>en</language>
 		<item>
+			<title>Coin Intelligence</title>
+			<link>https://three.ws/coin-intel</link>
+			<guid isPermaLink="false">2026-06-15:Coin Intelligence</guid>
+			<pubDate>Mon, 15 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>Every pump.fun launch watched and classified in real time — organic vs bundle, the wallets behind it, a transparent quality score, and a model that learns which signals predict winners.</description>
+		</item>
+		<item>
+			<title>Coin Radar</title>
+			<link>https://three.ws/radar</link>
+			<guid isPermaLink="false">2026-06-15:Coin Radar</guid>
+			<pubDate>Mon, 15 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>Live pump.fun launch intelligence: every new coin scored in its first ~90 seconds — bundle vs organic, wallet concentration, dev behaviour, and risk flags from the Coin Intelligence Engine.</description>
+		</item>
+		<item>
 			<title>Launch a Coin</title>
 			<link>https://three.ws/launch</link>
 			<guid isPermaLink="false">2026-06-15:Launch a Coin</guid>
@@ -29,6 +45,14 @@
 			<pubDate>Mon, 15 Jun 2026 12:00:00 GMT</pubDate>
 			<category>launch</category>
 			<description>How three.ws charges in $THREE, the only coin: pay-per-use pricing for AI compute, hold-to-access holder tiers with lower fees, rare *.threews.sol names, and a holder-rewards loop. No burns — every spend funds the treasury or reflects back to holders.</description>
+		</item>
+		<item>
+			<title>Trader Leaderboard</title>
+			<link>https://three.ws/leaderboard</link>
+			<guid isPermaLink="false">2026-06-15:Trader Leaderboard</guid>
+			<pubDate>Mon, 15 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>Pump.fun traders ranked by a provable, on-chain track record — realized P&amp;L, win rate, drawdown — with every number traceable to its transaction.</description>
 		</item>
 		<item>
 			<title>After you launch a coin, jump straight to viewing or managing it</title>
@@ -381,6 +405,14 @@
 			<pubDate>Mon, 15 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>The platform that helps you put your agents on-chain now does the same for itself. three.ws publishes a 3D Agent Card — a verifiable manifest of its name, its default 3D avatar, and its A2A/MCP/x402 service endpoints — at three.ws/.well-known/3d-agent-card.json, and ships a one-command tool that mints the platform agent in the canonical ERC-8004 IdentityRegistry on Base (with a Base Sepolia rehearsal first). The card cryptographically commits to the avatar: the SHA-256 in the card matches the exact GLB bytes served, so any indexer or wallet can independently verify the model hasn't been swapped. Other agents and directories can now discover and trust three.ws the same way three.ws lets them be discovered.</description>
+		</item>
+		<item>
+			<title>Trader Leaderboard — pump.fun traders ranked by a track record you can verify</title>
+			<link>https://three.ws/leaderboard</link>
+			<guid isPermaLink="false">2026-06-15:Trader Leaderboard — pump.fun traders ranked by a track record you can verify</guid>
+			<pubDate>Mon, 15 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>A new leaderboard ranks every trading agent by a single Trader Score that blends realized P&amp;L, win rate, profit factor, consistency and drawdown — then holds back judgment until a trader has enough closed trades to trust. Losing trades are counted, never hidden, and fast in-and-out churn is penalized rather than rewarded. Filter by time window (24h / 7d / 30d / all-time), rank by score, P&amp;L, win rate or ROI, and show verified traders only. Open any trader for a full profile: a score gauge, a realized-equity curve, every key metric, their open positions, and a Proof tab where each closed trade links straight to its on-chain buy and sell transaction on Solscan — the numbers come from those, nothing else. The headline score is also committed on-chain daily as a signed attestation, so it can't be quietly edited after the fact. Share any track record as a one-tap PnL card.</description>
 		</item>
 		<item>
 			<title>USDC-paired agent coins now record and display correct trade amounts</title>

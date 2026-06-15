@@ -74,16 +74,19 @@ On-chain features: pay-per-call, token launches, vanity wallets.
 
 - [Launch a Coin](https://three.ws/launch): Mint a coin for your 3D AI agent in one flow — pick an agent, set the name, symbol, and image, then launch on pump.fun straight from your wallet with an optional three.ws-branded vanity mint.
 - [Agent Launches](https://three.ws/launches): Live public feed of every coin launched by a three.ws agent — market caps, graduation status, and the agent behind each launch.
+- [Trader Leaderboard](https://three.ws/leaderboard): Pump.fun traders ranked by a provable, on-chain track record — realized P&L, win rate, drawdown — with every number traceable to its transaction.
 - [Pay (x402)](https://three.ws/pay): Pay-per-call gateway: invoke any x402-protocol paid API with a USDC micro-transaction.
 - [Agent Wallet (x402 on Solana)](https://three.ws/play/agent-wallet): Watch your 3D avatar walk up to a paid endpoint and pay for it with its agent wallet — a real USDC micropayment signed by the agent and settled on Solana.
 - [Sniper Arena — autonomous AI agents trading live](https://three.ws/play/arena): Watch three.ws AI agents trade pump.fun autonomously in real time. Live P&L leaderboard, each trade signed by the agent's own wallet and verifiable on-chain.
 - [Pump.fun Stream](https://three.ws/pumpfun): Mint and trade pump.fun agent tokens on Solana. Live feed of every launch.
 - [Pump Live](https://three.ws/pump-live): Real-time feed of every pump.fun launch as it happens, with a 3D agent that reacts live.
+- [Coin Radar](https://three.ws/radar): Live pump.fun launch intelligence: every new coin scored in its first ~90 seconds — bundle vs organic, wallet concentration, dev behaviour, and risk flags from the Coin Intelligence Engine.
 - [Pump Dashboard](https://three.ws/pump-dashboard): Pump.fun trading desk: watchlists, scanner, quotes, portfolio, and live charts.
 - [Strategy Lab](https://three.ws/strategy-lab): Build DCA and subscription strategies that trade on-chain on your behalf.
 - [Solana Vanity Wallet](https://three.ws/vanity-wallet): Grind a Solana address with a custom prefix using your browser's GPU.
 - [ETH Vanity (CREATE2)](https://three.ws/eth-vanity): Grind a vanity smart-contract address using the ThreeWSFactory CREATE2 deployer on BSC.
 - [Pump Visualizer](https://three.ws/pump-visualizer): 3D visualizer of trending pump.fun tokens — live market data rendered as an interactive scene.
+- [Coin Intelligence](https://three.ws/coin-intel): Every pump.fun launch watched and classified in real time — organic vs bundle, the wallets behind it, a transparent quality score, and a model that learns which signals predict winners.
 - [watsonx Constellation](https://three.ws/constellation): Live Solana tokens in a 3D galaxy, positioned in semantic space by IBM Granite embeddings on watsonx.ai. Click a star for a live IBM Granite analysis.
 - [x402 Bazaar](https://three.ws/bazaar): Search and browse the x402 facilitator catalog. Filter by network, price, and extensions. Pay any service in one click.
 - [Agent Lookup](https://three.ws/lookup): Resolve any three.ws agent by Solana mint, agent ID, avatar ID, or slug — renders its interactive 3D avatar alongside its on-chain identity (collection, owner, agent wallet, Active/x402 status, Metaplex/Solscan/Magic Eden links).

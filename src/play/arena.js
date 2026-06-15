@@ -33,7 +33,6 @@ const isBig = (p) => (p?.pnl_sol ?? 0) >= 0.4 || (p?.pnl_pct ?? 0) >= 100;
 let world = null;
 let labelLayer = null;
 const labelEls = new Map(); // agentId -> { el, pos }
-let topAgentId = null;
 
 // ── boot ──────────────────────────────────────────────────────────────────────
 
@@ -41,6 +40,7 @@ let topAgentId = null;
 	const canvas = $('scene');
 	labelLayer = $('labels');
 	world = new ArenaWorld(canvas, { onAgentClick: focusAgent });
+	window.__arenaWorld = world; // debug/support hook
 
 	// Spin up the render loop immediately so the floor + lights are alive while
 	// avatars stream in (perceived performance).
@@ -59,7 +59,7 @@ let topAgentId = null;
 
 	world.setLabelUpdater(updateLabels);
 	mountControls();
-	mountJoystick(canvas);
+	mountJoystick();
 
 	await loadAndPlace();
 	connectStream();
@@ -108,9 +108,8 @@ async function loadAndPlace() {
 					thumbnail: row.image || '',
 					rank: row.rank,
 				}).then((agent) => createLabel(agent)).catch((err) => console.warn('[arena] spawn agent', err));
-			}, i * 180);
+			}, i * 120);
 		});
-		topAgentId = board[0].agent_id;
 	}
 
 	// Seed the tape with recent closed trades (oldest first so prepend keeps order).
@@ -139,16 +138,16 @@ async function loadBoardOnly() {
 // Arrange agents on a forward-facing arc; #1 elevated at the back-centre.
 function arenaPositions(n) {
 	const out = [];
-	// Leader.
-	out.push({ x: 0, z: -7.2, facing: 0 });
+	// Leader, elevated at the back-centre.
+	out.push({ x: 0, z: -5.4, facing: 0 });
 	const rest = n - 1;
 	for (let i = 0; i < rest; i++) {
 		const t = rest === 1 ? 0.5 : i / (rest - 1);   // 0..1
-		const ang = (t - 0.5) * (Math.PI * 0.95);        // spread ~ -85°..85°
-		const rad = 8.2;
+		const ang = (t - 0.5) * (Math.PI * 0.92);        // spread ~ -83°..83°
+		const rad = 5.6;
 		const x = Math.sin(ang) * rad;
-		const z = -3.4 - Math.cos(ang) * 3.6;            // bow toward the back
-		out.push({ x, z, facing: Math.atan2(x - 0, 12 - z) }); // face the entrance
+		const z = -1.4 - Math.cos(ang) * 3.0;            // gentle bow toward the back
+		out.push({ x, z, facing: Math.atan2(x - 0, 9 - z) }); // face the entrance
 	}
 	return out;
 }
@@ -157,7 +156,6 @@ function arenaPositions(n) {
 
 let es = null;
 function connectStream() {
-	const dot = $('liveDot');
 	es = new EventSource(`/api/sniper/stream?network=${NETWORK}`);
 	es.addEventListener('open', () => setLive(true));
 	es.addEventListener('buy', (m) => safe(() => onBuy(JSON.parse(m.data))));
@@ -165,7 +163,7 @@ function connectStream() {
 	es.addEventListener('update', () => {});
 	es.onerror = () => { setLive(false); try { es.close(); } catch {} setTimeout(connectStream, 2500); };
 }
-const safe = (fn) => { try { fn(); } catch (e) { /* one bad frame never breaks the stream */ } };
+const safe = (fn) => { try { fn(); } catch { /* one bad frame never breaks the stream */ } };
 
 function onBuy(p) {
 	world.reactBuy(p.agent_id, { amountText: fmtSol(p.entry_sol) });
@@ -268,7 +266,6 @@ function renderTopCard(top) {
 	if (top.image) { img.src = top.image; img.style.display = ''; } else img.style.display = 'none';
 }
 
-let tapeCount = 0;
 function pushTape(kind, p, { quiet = false } = {}) {
 	const tape = $('tape');
 	$('tapeEmpty')?.remove();
@@ -289,7 +286,6 @@ function pushTape(kind, p, { quiet = false } = {}) {
 		${pnl}`;
 	tape.prepend(row);
 	while (tape.children.length > 40) tape.lastChild.remove();
-	tapeCount++;
 }
 
 let bannerTimer = null;
@@ -397,7 +393,7 @@ async function choose(url, btn) {
 
 // ── mobile joystick (nipplejs, lazy) ────────────────────────────────────────────
 
-async function mountJoystick(canvas) {
+async function mountJoystick() {
 	const isTouch = matchMedia('(pointer: coarse)').matches;
 	if (!isTouch) return;
 	try {

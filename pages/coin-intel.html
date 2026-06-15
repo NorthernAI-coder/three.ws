@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<script>/* three.ws theme boot — no-flash; runtime in /theme-switcher.js */(function(){try{var m=localStorage.getItem('twx_theme');var l=m==='auto'?(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches):m==='light';document.documentElement.setAttribute('data-theme',l?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();</script>
+	<meta charset="UTF-8" />
+	<link rel="icon" href="/favicon.ico" sizes="any" />
+	<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+	<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+	<link rel="manifest" href="/site.webmanifest" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>Coin Intelligence · three.ws</title>
+	<meta name="description" content="Every pump.fun launch, watched and classified in real time — organic vs bundle, the wallets behind it, a transparent quality score, and a model that learns which signals actually predict winners." />
+	<link rel="canonical" href="https://three.ws/coin-intel" />
+	<link rel="stylesheet" href="/style.css" />
+	<link rel="stylesheet" href="/nav.css" />
+	<link rel="stylesheet" href="/mobile.css" />
+	<style>
+		:root {
+			--ci-bg: #07080c;
+			--ci-panel: rgba(16, 18, 26, 0.86);
+			--ci-panel-2: rgba(255, 255, 255, 0.03);
+			--ci-border: rgba(255, 255, 255, 0.09);
+			--ci-border-strong: rgba(255, 255, 255, 0.16);
+			--ci-text: #e9ebf2;
+			--ci-muted: #8a90a2;
+			--ci-faint: #5c6273;
+			--ci-accent: #8b5cf6;
+			--ci-success: #34d399;
+			--ci-warn: #fbbf24;
+			--ci-danger: #f87171;
+			--ci-neutral: #818cf8;
+			/* category palette */
+			--cat-meme: #fbbf24;     --cat-ai: #22d3ee;      --cat-tech: #818cf8;
+			--cat-culture: #f472b6;  --cat-community: #34d399; --cat-political: #f87171;
+			--cat-news: #fb923c;     --cat-animal: #a3e635;  --cat-celebrity: #c084fc;
+			--cat-utility: #94a3b8;  --cat-unknown: #64748b;
+		}
+		html, body { background: var(--ci-bg); color: var(--ci-text); }
+		body { margin: 0; min-height: 100vh; font-family: var(--font-body, 'Inter', system-ui, sans-serif); }
+		.site-header { position: sticky; top: 0; z-index: 50; background: rgba(0,0,0,0.82); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+		* { box-sizing: border-box; }
+
+		.ci-wrap { max-width: 1320px; margin: 0 auto; padding: 0 20px 80px; }
+
+		/* ── hero / header ─────────────────────────────── */
+		.ci-hero {
+			padding: 30px 0 18px;
+			display: flex; flex-wrap: wrap; gap: 18px;
+			align-items: flex-end; justify-content: space-between;
+		}
+		.ci-hero h1 {
+			font-family: var(--font-display, 'Space Grotesk', sans-serif);
+			font-size: clamp(1.7rem, 3.4vw, 2.5rem);
+			line-height: 1.05; margin: 0 0 6px; letter-spacing: -0.02em;
+			display: flex; align-items: center; gap: 12px;
+		}
+		.ci-hero h1 .pulse {
+			width: 11px; height: 11px; border-radius: 50%;
+			background: var(--ci-success); box-shadow: 0 0 0 0 rgba(52,211,153,0.6);
+			animation: ciPing 2.2s ease-out infinite; flex-shrink: 0;
+		}
+		.ci-hero[data-degraded="1"] h1 .pulse { background: var(--ci-warn); animation-name: ciPingWarn; }
+		@keyframes ciPing { 0%{box-shadow:0 0 0 0 rgba(52,211,153,0.55);} 70%{box-shadow:0 0 0 12px rgba(52,211,153,0);} 100%{box-shadow:0 0 0 0 rgba(52,211,153,0);} }
+		@keyframes ciPingWarn { 0%{box-shadow:0 0 0 0 rgba(251,191,36,0.5);} 70%{box-shadow:0 0 0 12px rgba(251,191,36,0);} 100%{box-shadow:0 0 0 0 rgba(251,191,36,0);} }
+		.ci-hero p { margin: 0; color: var(--ci-muted); font-size: 14px; max-width: 640px; line-height: 1.5; }
+		.ci-hero .lead-link { color: var(--ci-neutral); text-decoration: none; border-bottom: 1px solid transparent; transition: border-color .15s; }
+		.ci-hero .lead-link:hover { border-bottom-color: var(--ci-neutral); }
+
+		.ci-stats { display: flex; gap: 10px; flex-wrap: wrap; }
+		.ci-stat {
+			background: var(--ci-panel-2); border: 1px solid var(--ci-border);
+			border-radius: 12px; padding: 10px 14px; min-width: 92px;
+			font-family: var(--font-mono, ui-monospace, monospace);
+		}
+		.ci-stat .v { font-size: 20px; font-weight: 600; color: var(--ci-text); font-variant-numeric: tabular-nums; }
+		.ci-stat .l { font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--ci-faint); margin-top: 2px; }
+
+		/* ── tabs ──────────────────────────────────────── */
+		.ci-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--ci-border); margin: 8px 0 18px; overflow-x: auto; }
+		.ci-tab {
+			background: none; border: none; color: var(--ci-muted);
+			font: inherit; font-size: 13.5px; font-weight: 500;
+			padding: 12px 14px; cursor: pointer; position: relative; white-space: nowrap;
+			border-bottom: 2px solid transparent; transition: color .15s;
+		}
+		.ci-tab:hover { color: var(--ci-text); }
+		.ci-tab.is-active { color: var(--ci-text); border-bottom-color: var(--ci-accent); }
+		.ci-tab .count { color: var(--ci-faint); font-size: 11px; margin-left: 5px; font-variant-numeric: tabular-nums; }
+
+		/* ── toolbar (radar) ───────────────────────────── */
+		.ci-toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 16px; }
+		.ci-search { position: relative; flex: 1 1 200px; max-width: 300px; }
+		.ci-search input {
+			width: 100%; background: rgba(0,0,0,0.35); border: 1px solid var(--ci-border);
+			color: var(--ci-text); border-radius: 9px; padding: 9px 12px 9px 32px;
+			font: inherit; font-size: 13px; outline: none; transition: border-color .15s;
+		}
+		.ci-search input:focus { border-color: var(--ci-accent); }
+		.ci-search svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); width: 14px; height: 14px; stroke: var(--ci-faint); pointer-events: none; }
+		.ci-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+		.ci-chip {
+			background: var(--ci-panel-2); border: 1px solid var(--ci-border); color: var(--ci-muted);
+			border-radius: 999px; padding: 6px 12px; font: inherit; font-size: 12px; cursor: pointer;
+			text-transform: capitalize; transition: all .14s; display: inline-flex; align-items: center; gap: 6px;
+		}
+		.ci-chip:hover { color: var(--ci-text); border-color: var(--ci-border-strong); }
+		.ci-chip.is-active { background: rgba(139,92,246,0.18); border-color: rgba(139,92,246,0.5); color: #fff; }
+		.ci-chip .dot { width: 7px; height: 7px; border-radius: 50%; }
+		.ci-select {
+			background: rgba(0,0,0,0.35); border: 1px solid var(--ci-border); color: var(--ci-text);
+			border-radius: 9px; padding: 8px 12px; font: inherit; font-size: 12.5px; cursor: pointer;
+		}
+
+		/* ── coin grid ─────────────────────────────────── */
+		.ci-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 14px; }
+		.ci-card {
+			background: var(--ci-panel); border: 1px solid var(--ci-border); border-radius: 14px;
+			padding: 15px; cursor: pointer; position: relative; overflow: hidden;
+			transition: transform .16s cubic-bezier(.2,.8,.2,1), border-color .16s, box-shadow .16s;
+			animation: ciFadeIn .4s ease both;
+		}
+		@keyframes ciFadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+		.ci-card:hover { transform: translateY(-3px); border-color: var(--ci-border-strong); box-shadow: 0 12px 34px rgba(0,0,0,0.45); }
+		.ci-card:focus-visible { outline: 2px solid var(--ci-accent); outline-offset: 2px; }
+		.ci-card .verdict-edge { position: absolute; top: 0; left: 0; bottom: 0; width: 3px; }
+		.ci-card .head { display: flex; gap: 11px; align-items: center; }
+		.ci-card .avatar {
+			width: 44px; height: 44px; border-radius: 11px; background: #15171f; object-fit: cover;
+			border: 1px solid var(--ci-border); flex-shrink: 0;
+		}
+		.ci-card .id { min-width: 0; flex: 1; }
+		.ci-card .id .name { font-weight: 600; font-size: 14.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+		.ci-card .id .sub { display: flex; align-items: center; gap: 7px; margin-top: 2px; }
+		.ci-card .id .sym { font-family: var(--font-mono, monospace); font-size: 11.5px; color: var(--ci-neutral); }
+		.ci-card .id .age { font-size: 11px; color: var(--ci-faint); font-variant-numeric: tabular-nums; }
+
+		.cat-badge {
+			font-size: 9.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+			padding: 3px 7px; border-radius: 5px; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;
+		}
+		.cat-badge .glyph { width: 6px; height: 6px; border-radius: 50%; }
+
+		.ci-card .scorerow { display: flex; align-items: center; gap: 12px; margin: 13px 0 11px; }
+		.ring { --pct: 0; --col: var(--ci-neutral); width: 52px; height: 52px; flex-shrink: 0; position: relative; }
+		.ring svg { transform: rotate(-90deg); display: block; }
+		.ring .track { stroke: rgba(255,255,255,0.08); }
+		.ring .val { stroke: var(--col); stroke-linecap: round; transition: stroke-dashoffset .6s cubic-bezier(.2,.8,.2,1); }
+		.ring .label { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+		.ring .label .n { font-family: var(--font-mono, monospace); font-size: 14px; font-weight: 700; line-height: 1; }
+		.ring .label .t { font-size: 7px; letter-spacing: 0.08em; color: var(--ci-faint); text-transform: uppercase; margin-top: 1px; }
+		.verdict-pill {
+			font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 999px;
+			display: inline-flex; align-items: center; gap: 5px;
+		}
+		.verdict-pill .d { width: 6px; height: 6px; border-radius: 50%; }
+		.tone-success { color: var(--ci-success); background: rgba(52,211,153,0.13); }
+		.tone-success .d, .bg-success { background: var(--ci-success); }
+		.tone-warn { color: var(--ci-warn); background: rgba(251,191,36,0.13); }
+		.tone-warn .d, .bg-warn { background: var(--ci-warn); }
+		.tone-danger { color: var(--ci-danger); background: rgba(248,113,113,0.13); }
+		.tone-danger .d, .bg-danger { background: var(--ci-danger); }
+		.tone-neutral { color: var(--ci-neutral); background: rgba(129,140,248,0.13); }
+		.tone-neutral .d, .bg-neutral { background: var(--ci-neutral); }
+
+		.ob-bar { height: 6px; border-radius: 4px; background: rgba(255,255,255,0.06); overflow: hidden; display: flex; }
+		.ob-bar .organic { background: linear-gradient(90deg, #34d399, #10b981); }
+		.ob-bar .bundle { background: linear-gradient(90deg, #fb7185, #f43f5e); }
+		.ob-legend { display: flex; justify-content: space-between; font-size: 10px; color: var(--ci-faint); margin-top: 4px; }
+		.ob-legend b { font-variant-numeric: tabular-nums; }
+
+		.ci-card .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
+		.ci-card .metric { background: var(--ci-panel-2); border-radius: 8px; padding: 7px 8px; }
+		.ci-card .metric .mv { font-family: var(--font-mono, monospace); font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+		.ci-card .metric .ml { font-size: 9px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ci-faint); margin-top: 2px; }
+
+		.flags { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 11px; min-height: 4px; }
+		.flag {
+			font-size: 9.5px; font-weight: 600; padding: 2px 7px; border-radius: 5px;
+			background: rgba(248,113,113,0.12); color: #fca5a5; border: 1px solid rgba(248,113,113,0.22);
+			text-transform: capitalize;
+		}
+		.flag.soft { background: rgba(251,191,36,0.10); color: #fcd34d; border-color: rgba(251,191,36,0.2); }
+		.ci-card .narr { font-size: 11.5px; color: var(--ci-muted); line-height: 1.45; margin-top: 11px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+		/* ── skeleton / empty / error ──────────────────── */
+		.ci-skel { background: var(--ci-panel); border: 1px solid var(--ci-border); border-radius: 14px; padding: 15px; height: 240px; }
+		.ci-skel .sh { height: 12px; border-radius: 6px; background: linear-gradient(90deg, rgba(255,255,255,0.04), rgba(255,255,255,0.09), rgba(255,255,255,0.04)); background-size: 200% 100%; animation: ciShimmer 1.4s infinite; margin-bottom: 10px; }
+		@keyframes ciShimmer { 0%{background-position:200% 0;} 100%{background-position:-200% 0;} }
+		.ci-empty {
+			grid-column: 1 / -1; text-align: center; padding: 56px 24px;
+			border: 1px dashed var(--ci-border-strong); border-radius: 16px; background: var(--ci-panel-2);
+		}
+		.ci-empty .icon { font-size: 30px; opacity: 0.6; }
+		.ci-empty h3 { font-family: var(--font-display, sans-serif); margin: 12px 0 8px; font-size: 18px; }
+		.ci-empty p { color: var(--ci-muted); font-size: 13.5px; max-width: 520px; margin: 0 auto 8px; line-height: 1.55; }
+		.ci-empty .how { display: inline-flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 14px; }
+		.ci-empty .how span { font-size: 11px; color: var(--ci-muted); background: var(--ci-panel); border: 1px solid var(--ci-border); border-radius: 999px; padding: 5px 11px; }
+		.ci-retry { margin-top: 16px; background: var(--ci-accent); color: #fff; border: none; border-radius: 9px; padding: 9px 20px; font: inherit; cursor: pointer; }
+
+		/* ── detail drawer ─────────────────────────────── */
+		.ci-scrim { position: fixed; inset: 0; background: rgba(0,0,0,0.55); opacity: 0; pointer-events: none; transition: opacity .25s; z-index: 90; backdrop-filter: blur(2px); }
+		.ci-scrim.is-open { opacity: 1; pointer-events: auto; }
+		.ci-drawer {
+			position: fixed; top: 0; right: 0; bottom: 0; width: 460px; max-width: 94vw;
+			background: var(--ci-panel); border-left: 1px solid var(--ci-border); z-index: 91;
+			transform: translateX(100%); transition: transform .3s cubic-bezier(.2,.8,.2,1);
+			overflow-y: auto; backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+		}
+		.ci-drawer.is-open { transform: none; }
+		.ci-drawer .dwrap { padding: 22px; }
+		.ci-drawer .close { position: absolute; top: 16px; right: 16px; width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--ci-border); background: rgba(255,255,255,0.05); color: var(--ci-text); cursor: pointer; font-size: 16px; line-height: 1; z-index: 2; }
+		.ci-drawer .close:hover { background: rgba(255,255,255,0.12); }
+		.d-head { display: flex; gap: 14px; align-items: center; padding-right: 36px; }
+		.d-head .avatar { width: 58px; height: 58px; border-radius: 14px; background: #15171f; object-fit: cover; border: 1px solid var(--ci-border); flex-shrink: 0; }
+		.d-head .name { font-family: var(--font-display, sans-serif); font-size: 20px; font-weight: 600; line-height: 1.1; }
+		.d-head .sym { font-family: var(--font-mono, monospace); font-size: 13px; color: var(--ci-neutral); margin-top: 3px; }
+		.d-section { margin-top: 22px; }
+		.d-section > h4 { font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ci-faint); margin: 0 0 11px; font-weight: 600; }
+		.d-links { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 14px; }
+		.d-links a { font-size: 12px; padding: 7px 12px; border-radius: 8px; border: 1px solid var(--ci-border); color: var(--ci-text); text-decoration: none; background: rgba(255,255,255,0.05); transition: background .14s; }
+		.d-links a:hover { background: rgba(255,255,255,0.12); }
+		.d-links a.primary { background: var(--ci-accent); border-color: var(--ci-accent); color: #fff; }
+		.d-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+		.d-tag { font-size: 11px; padding: 3px 9px; border-radius: 999px; background: var(--ci-panel-2); border: 1px solid var(--ci-border); color: var(--ci-muted); }
+
+		.sig-row { display: flex; align-items: center; gap: 10px; margin-bottom: 9px; }
+		.sig-row .sname { font-size: 11.5px; color: var(--ci-muted); width: 132px; flex-shrink: 0; }
+		.sig-row .sbar { flex: 1; height: 7px; border-radius: 4px; background: rgba(255,255,255,0.06); overflow: hidden; }
+		.sig-row .sbar i { display: block; height: 100%; border-radius: 4px; transition: width .5s; }
+		.sig-row .sval { font-family: var(--font-mono, monospace); font-size: 11.5px; width: 42px; text-align: right; font-variant-numeric: tabular-nums; flex-shrink: 0; }
+
+		.d-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+		.d-stat { background: var(--ci-panel-2); border: 1px solid var(--ci-border); border-radius: 9px; padding: 10px 11px; }
+		.d-stat .v { font-family: var(--font-mono, monospace); font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
+		.d-stat .l { font-size: 9.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ci-faint); margin-top: 3px; }
+		.d-stat .v.g { color: var(--ci-success); } .d-stat .v.r { color: var(--ci-danger); }
+
+		.outcome-banner { padding: 12px 14px; border-radius: 11px; display: flex; align-items: center; gap: 12px; }
+		.outcome-banner .oi { font-size: 22px; }
+		.outcome-banner .ot { font-weight: 600; font-size: 14px; }
+		.outcome-banner .os { font-size: 11.5px; color: var(--ci-muted); margin-top: 2px; }
+
+		/* bubble-map */
+		.bubblemap { width: 100%; height: 248px; background: radial-gradient(ellipse at 50% 45%, rgba(139,92,246,0.06), transparent 70%); border: 1px solid var(--ci-border); border-radius: 12px; }
+		.bubblemap text { font-family: var(--font-mono, monospace); }
+		.bm-legend { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 8px; font-size: 10.5px; color: var(--ci-muted); }
+		.bm-legend span { display: inline-flex; align-items: center; gap: 5px; }
+		.bm-legend .sw { width: 9px; height: 9px; border-radius: 50%; }
+
+		/* trader rows */
+		.trader-row { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--ci-border); }
+		.trader-row:last-child { border-bottom: none; }
+		.trader-row .addr { font-family: var(--font-mono, monospace); font-size: 12px; color: var(--ci-text); }
+		.trader-row .addr a { color: inherit; text-decoration: none; border-bottom: 1px dotted var(--ci-faint); }
+		.trader-row .addr a:hover { color: var(--ci-neutral); }
+		.tlabels { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 3px; }
+		.tlabel { font-size: 9px; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; padding: 2px 6px; border-radius: 4px; }
+		.tl-smart_money { background: rgba(52,211,153,0.15); color: #6ee7b7; }
+		.tl-whale { background: rgba(34,211,238,0.15); color: #67e8f9; }
+		.tl-serial { background: rgba(129,140,248,0.15); color: #a5b4fc; }
+		.tl-creator { background: rgba(251,191,36,0.15); color: #fcd34d; }
+		.tl-sniper { background: rgba(251,146,60,0.16); color: #fdba74; }
+		.tl-bundled { background: rgba(248,113,113,0.15); color: #fca5a5; }
+		.tl-holding { background: rgba(52,211,153,0.13); color: #6ee7b7; }
+		.tl-dumped { background: rgba(248,113,113,0.15); color: #fca5a5; }
+		.tl-flipped { background: rgba(148,163,184,0.16); color: #cbd5e1; }
+		.tl-active { background: rgba(148,163,184,0.14); color: #cbd5e1; }
+		.trader-row .tright { margin-left: auto; text-align: right; flex-shrink: 0; }
+		.trader-row .tval { font-family: var(--font-mono, monospace); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+		.trader-row .tsub { font-size: 10px; color: var(--ci-faint); }
+		.winrate { font-family: var(--font-mono, monospace); font-size: 12px; padding: 2px 7px; border-radius: 6px; font-variant-numeric: tabular-nums; }
+
+		/* learning */
+		.learn-grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: 18px; }
+		.panel { background: var(--ci-panel); border: 1px solid var(--ci-border); border-radius: 14px; padding: 18px; }
+		.panel h3 { font-family: var(--font-display, sans-serif); font-size: 15px; margin: 0 0 4px; }
+		.panel .sub { color: var(--ci-muted); font-size: 12px; margin: 0 0 16px; line-height: 1.5; }
+		.wbar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+		.wbar-row .wn { font-size: 11.5px; color: var(--ci-text); width: 150px; flex-shrink: 0; }
+		.wbar-track { flex: 1; height: 9px; background: rgba(255,255,255,0.05); border-radius: 5px; position: relative; }
+		.wbar-track .mid { position: absolute; left: 50%; top: -3px; bottom: -3px; width: 1px; background: var(--ci-border-strong); }
+		.wbar-track i { position: absolute; top: 0; bottom: 0; border-radius: 5px; }
+		.wbar-row .wv { font-family: var(--font-mono, monospace); font-size: 11px; width: 48px; text-align: right; font-variant-numeric: tabular-nums; flex-shrink: 0; }
+		.outcome-bars { display: flex; flex-direction: column; gap: 11px; }
+		.ob-row { display: flex; align-items: center; gap: 10px; }
+		.ob-row .on { font-size: 12px; width: 92px; text-transform: capitalize; }
+		.ob-row .ot { flex: 1; height: 22px; background: rgba(255,255,255,0.04); border-radius: 6px; overflow: hidden; }
+		.ob-row .ot i { display: block; height: 100%; border-radius: 6px; }
+		.ob-row .oc { font-family: var(--font-mono, monospace); font-size: 12px; width: 64px; text-align: right; font-variant-numeric: tabular-nums; }
+		.cov-cats { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 6px; }
+		.cov-cat { font-size: 11px; padding: 4px 9px; border-radius: 999px; background: var(--ci-panel-2); border: 1px solid var(--ci-border); color: var(--ci-muted); display: inline-flex; gap: 6px; align-items: center; }
+		.cov-cat b { color: var(--ci-text); font-variant-numeric: tabular-nums; }
+
+		.section-title { font-family: var(--font-display, sans-serif); font-size: 14px; margin: 26px 0 12px; color: var(--ci-text); display: flex; align-items: center; gap: 8px; }
+		.section-title .badge { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding: 2px 7px; border-radius: 5px; background: rgba(52,211,153,0.14); color: var(--ci-success); }
+
+		.hide { display: none !important; }
+		@media (max-width: 760px) {
+			.learn-grid { grid-template-columns: 1fr; }
+			.ci-drawer { width: 100%; }
+			.ci-hero { padding-top: 22px; }
+		}
+	</style>
+	<meta property="og:type" content="website" />
+	<meta property="og:title" content="Coin Intelligence · three.ws" />
+	<meta property="og:description" content="Every pump.fun launch, watched and classified in real time — organic vs bundle, the wallets behind it, a transparent quality score, and a model that learns." />
+	<meta property="og:url" content="https://three.ws/coin-intel" />
+	<meta property="og:image" content="https://three.ws/og-image.png" />
+	<meta name="twitter:card" content="summary_large_image" />
+	<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"Coin Intelligence","applicationCategory":"FinanceApplication","operatingSystem":"Web","description":"Real-time pump.fun launch intelligence — classification, organic-vs-bundle detection, trader/wallet classification, and a learning quality model.","url":"https://three.ws/coin-intel","isPartOf":{"@type":"WebSite","name":"three.ws","url":"https://three.ws"}}</script>
+</head>
+<body>
+	<header class="site-header"><div id="nav-container"></div></header>
+	<script src="/nav.js"></script>
+
+	<main class="ci-wrap">
+		<div class="ci-hero" id="ci-hero">
+			<div>
+				<h1><span class="pulse" aria-hidden="true"></span>Coin Intelligence</h1>
+				<p>Every pump.fun launch, watched the second it appears — classified, measured trade-by-trade, and scored. Organic demand or a funded bundle? Who's actually buying? The engine learns which signals predict winners, and your <a class="lead-link" href="/sniper">3D agents read the same intel to act</a>.</p>
+			</div>
+			<div class="ci-stats" id="ci-stats" aria-live="polite"></div>
+		</div>
+
+		<nav class="ci-tabs" id="ci-tabs" role="tablist" aria-label="Coin intelligence views">
+			<button class="ci-tab is-active" data-tab="radar" role="tab">Radar<span class="count" id="cnt-radar"></span></button>
+			<button class="ci-tab" data-tab="leaderboard" role="tab">Leaderboard</button>
+			<button class="ci-tab" data-tab="traders" role="tab">Smart Money<span class="count" id="cnt-traders"></span></button>
+			<button class="ci-tab" data-tab="learning" role="tab">What it learned</button>
+		</nav>
+
+		<!-- RADAR -->
+		<section id="view-radar" data-view>
+			<div class="ci-toolbar">
+				<label class="ci-search">
+					<svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+					<input type="search" id="ci-q" placeholder="Search name, symbol, mint…" autocomplete="off" spellcheck="false" />
+				</label>
+				<div class="ci-chips" id="ci-cats" role="group" aria-label="Filter by category"></div>
+				<select class="ci-select" id="ci-verdict" aria-label="Filter by verdict">
+					<option value="">All verdicts</option>
+					<option value="strong">Strong</option>
+					<option value="watch">Watch</option>
+					<option value="caution">Caution</option>
+					<option value="avoid">Avoid</option>
+				</select>
+				<select class="ci-select" id="ci-minq" aria-label="Minimum quality">
+					<option value="">Any quality</option>
+					<option value="50">Quality ≥ 50</option>
+					<option value="70">Quality ≥ 70</option>
+					<option value="85">Quality ≥ 85</option>
+				</select>
+			</div>
+			<div class="ci-grid" id="ci-grid"></div>
+		</section>
+
+		<!-- LEADERBOARD -->
+		<section id="view-leaderboard" data-view class="hide">
+			<div class="section-title">Top quality · last 24h</div>
+			<div class="ci-grid" id="ci-lb-top"></div>
+			<div class="section-title">Confirmed winners <span class="badge">graduated / pumped</span></div>
+			<p style="color:var(--ci-muted);font-size:13px;margin:-4px 0 14px;max-width:640px;">What good looked like at launch — coins the engine observed that went on to graduate or 3×+. The signals shown are from their first seconds, before the outcome was known.</p>
+			<div class="ci-grid" id="ci-lb-win"></div>
+		</section>
+
+		<!-- TRADERS -->
+		<section id="view-traders" data-view class="hide">
+			<p style="color:var(--ci-muted);font-size:13px;margin:0 0 16px;max-width:680px;">Every wallet that traded an observed coin, classified by its cross-coin footprint. <b style="color:var(--ci-text)">Win-rate</b> is the share of its bought coins that graduated or pumped — counted once a wallet has at least 3 labeled coins. This is the order book behind the order book.</p>
+			<div class="panel" id="ci-traders"></div>
+		</section>
+
+		<!-- LEARNING -->
+		<section id="view-learning" data-view class="hide">
+			<div class="learn-grid">
+				<div class="panel">
+					<h3>Signal weights</h3>
+					<p class="sub">Each launch-time signal's correlation with a good outcome (graduated or pumped), learned from every labeled coin. Green predicts winners; red predicts losers. No black box — these are plain correlations the sniper blends into its score.</p>
+					<div id="ci-weights"></div>
+				</div>
+				<div>
+					<div class="panel" style="margin-bottom:18px;">
+						<h3>Outcomes observed</h3>
+						<p class="sub">Ground truth, labeled after the fact.</p>
+						<div class="outcome-bars" id="ci-outcomes"></div>
+					</div>
+					<div class="panel">
+						<h3>Coverage</h3>
+						<p class="sub" id="ci-coverage-sub">—</p>
+						<div class="cov-cats" id="ci-coverage"></div>
+					</div>
+				</div>
+			</div>
+		</section>
+	</main>
+
+	<div class="ci-scrim" id="ci-scrim"></div>
+	<aside class="ci-drawer" id="ci-drawer" aria-hidden="true" aria-label="Coin detail">
+		<button class="close" id="ci-drawer-close" aria-label="Close">×</button>
+		<div class="dwrap" id="ci-drawer-body"></div>
+	</aside>
+
+	<script type="module">
+		const API = '/api/pump/intel';
+		const REFRESH_MS = 15_000;
+
+		const CATS = ['meme','ai','tech','culture','community','political','news','animal','celebrity','utility','unknown'];
+		const CAT_COLOR = (c) => `var(--cat-${CATS.includes(c) ? c : 'unknown'})`;
+		const TRADER_LABEL_TEXT = {
+			smart_money: 'Smart money', whale: 'Whale', serial: 'Serial', creator: 'Creator',
+			sniper: 'Sniper', bundled: 'Bundled', holding: 'Holding', dumped: 'Dumped',
+			flipped: 'Flipped', active: 'Active',
+		};
+		const SIGNAL_META = [
+			['organic_score', 'Organic demand', 'good'],
+			['bundle_score', 'Bundle likelihood', 'bad'],
+			['coordination_score', 'Coordination', 'bad'],
+			['snipe_ratio', 'Snipe ratio', 'bad'],
+			['timing_entropy', 'Timing spread', 'good'],
+			['concentration_top1', 'Top wallet share', 'bad'],
+			['concentration_top10', 'Top-10 share', 'bad'],
+			['fresh_wallet_ratio', 'Fresh wallets', 'bad'],
+			['bubblemap_connectivity', 'Funder connectivity', 'bad'],
+		];
+		const FLAG_TEXT = {
+			bundle_launch: 'Bundle launch', dev_dumped: 'Dev dumped', single_whale: 'Single whale',
+			low_diversity: 'Low diversity', fresh_wallet_swarm: 'Fresh swarm', sell_pressure: 'Sell pressure', sniped: 'Sniped',
+		};
+		const HARD_FLAGS = new Set(['bundle_launch','dev_dumped','single_whale']);
+
+		// ── helpers ───────────────────────────────────────────────
+		const $ = (s, r = document) => r.querySelector(s);
+		const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+		const pct = (x) => x == null ? '—' : Math.round(x * 100) + '%';
+		const sol = (x) => x == null ? '—' : (x >= 100 ? Math.round(x) : x >= 1 ? x.toFixed(2) : x.toFixed(3)) + ' ◎';
+		const usd = (x) => { if (x == null) return '—'; if (x >= 1e9) return '$'+(x/1e9).toFixed(2)+'B'; if (x >= 1e6) return '$'+(x/1e6).toFixed(2)+'M'; if (x >= 1e3) return '$'+(x/1e3).toFixed(1)+'K'; return '$'+Math.round(x); };
+		const short = (a) => !a ? '—' : a.slice(0, 4) + '…' + a.slice(-4);
+		function ago(ms) {
+			if (!ms) return '';
+			const d = Date.now() - ms; if (d < 0) return 'now';
+			const m = d / 60000; if (m < 1) return Math.max(1, Math.floor(d/1000)) + 's';
+			if (m < 60) return Math.floor(m) + 'm'; const h = m/60; if (h < 24) return Math.floor(h) + 'h'; return Math.floor(h/24) + 'd';
+		}
+		const imgProxy = (uri, seed) => { if (!uri) return `https://api.dicebear.com/7.x/shapes/svg?seed=${encodeURIComponent(seed||'x')}`; if (uri.startsWith('data:')||uri.startsWith('/')) return uri; return `/api/img?url=${encodeURIComponent(uri)}${seed?`&seed=${encodeURIComponent(seed)}`:''}`; };
+		const fallbackImg = (seed) => `https://api.dicebear.com/7.x/shapes/svg?seed=${encodeURIComponent(seed||'x')}`;
+
+		async function api(params) {
+			const u = new URL(API, location.origin);
+			for (const [k, v] of Object.entries(params)) if (v != null && v !== '') u.searchParams.set(k, v);
+			const r = await fetch(u, { headers: { accept: 'application/json' } });
+			if (!r.ok) throw new Error('HTTP ' + r.status);
+			return r.json();
+		}
+
+		// ── ring (quality score) ──────────────────────────────────
+		function ring(score, tone) {
+			const s = Math.max(0, Math.min(100, score ?? 0));
+			const r = 22, c = 2 * Math.PI * r, off = c * (1 - s / 100);
+			const col = `var(--ci-${tone || 'neutral'})`;
+			return `<div class="ring" style="--col:${col}">
+				<svg width="52" height="52" viewBox="0 0 52 52">
+					<circle class="track" cx="26" cy="26" r="${r}" fill="none" stroke-width="5"/>
+					<circle class="val" cx="26" cy="26" r="${r}" fill="none" stroke-width="5" stroke-dasharray="${c.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}"/>
+				</svg>
+				<div class="label"><span class="n">${score == null ? '–' : Math.round(s)}</span><span class="t">score</span></div>
+			</div>`;
+		}
+		const catBadge = (c) => `<span class="cat-badge" style="color:${CAT_COLOR(c)};background:color-mix(in srgb, ${CAT_COLOR(c)} 14%, transparent)"><span class="glyph" style="background:${CAT_COLOR(c)}"></span>${esc(c||'unknown')}</span>`;
+		const verdictPill = (v) => `<span class="verdict-pill tone-${v.tone}"><span class="d"></span>${esc(v.label)}</span>`;
+
+		function obBar(organic, bundle) {
+			const o = Math.round((organic ?? 0) * 100), b = Math.round((bundle ?? 0) * 100);
+			return `<div><div class="ob-bar"><span class="organic" style="width:${o}%"></span><span class="bundle" style="width:${b}%"></span></div>
+				<div class="ob-legend"><span style="color:#34d399">Organic <b>${o}%</b></span><span style="color:#fb7185"><b>${b}%</b> Bundle</span></div></div>`;
+		}
+
+		function coinCard(coin) {
+			const v = coin.verdict;
+			const flags = (coin.risk_flags || []).slice(0, 4).map((f) =>
+				`<span class="flag ${HARD_FLAGS.has(f) ? '' : 'soft'}">${esc(FLAG_TEXT[f] || f)}</span>`).join('');
+			return `<article class="ci-card" tabindex="0" data-mint="${esc(coin.mint)}" role="button" aria-label="${esc(coin.name||coin.symbol||coin.mint)}">
+				<span class="verdict-edge bg-${v.tone}"></span>
+				<div class="head">
+					<img class="avatar" loading="lazy" referrerpolicy="no-referrer" src="${esc(imgProxy(coin.image_uri, coin.mint))}" onerror="this.onerror=null;this.src='${esc(fallbackImg(coin.mint))}'" alt="" />
+					<div class="id">
+						<div class="name">${esc(coin.name || 'Unknown')}</div>
+						<div class="sub"><span class="sym">$${esc((coin.symbol||'').toUpperCase())}</span><span class="age">${ago(coin.first_seen_at_ms)}</span></div>
+					</div>
+					${catBadge(coin.category)}
+				</div>
+				<div class="scorerow">
+					${ring(coin.quality_score, v.tone)}
+					<div style="flex:1;min-width:0">
+						<div style="margin-bottom:9px">${verdictPill(v)}${coin.is_news_meme ? ' <span class="flag soft" style="text-transform:none">news meme</span>' : ''}</div>
+						${obBar(coin.organic_score, coin.bundle_score)}
+					</div>
+				</div>
+				<div class="metrics">
+					<div class="metric"><div class="mv">${coin.unique_buyers ?? 0}</div><div class="ml">Buyers</div></div>
+					<div class="metric"><div class="mv">${coin.dev_buy_sol != null ? sol(coin.dev_buy_sol) : '—'}</div><div class="ml">Dev buy</div></div>
+					<div class="metric"><div class="mv">${pct(coin.concentration_top1)}</div><div class="ml">Top wallet</div></div>
+				</div>
+				<div class="flags">${flags}</div>
+				${coin.narrative ? `<div class="narr">${esc(coin.narrative)}</div>` : ''}
+			</article>`;
+		}
+
+		// ── radar ─────────────────────────────────────────────────
+		const state = { tab: 'radar', category: '', verdict: '', minq: '', q: '', coins: [], loading: false };
+		const grid = $('#ci-grid');
+
+		function renderCatChips() {
+			const wrap = $('#ci-cats');
+			wrap.innerHTML = `<button class="ci-chip ${state.category===''?'is-active':''}" data-cat="">All</button>` +
+				CATS.filter(c => c !== 'unknown').map(c =>
+					`<button class="ci-chip ${state.category===c?'is-active':''}" data-cat="${c}"><span class="dot" style="background:${CAT_COLOR(c)}"></span>${c}</button>`).join('');
+			wrap.querySelectorAll('.ci-chip').forEach(b => b.addEventListener('click', () => { state.category = b.dataset.cat; renderCatChips(); loadRadar(); }));
+		}
+
+		function skeletons(n = 6) { return Array.from({length:n}, () => `<div class="ci-skel"><div class="sh" style="width:60%"></div><div class="sh" style="width:90%"></div><div class="sh" style="width:40%"></div><div class="sh" style="width:75%"></div></div>`).join(''); }
+
+		function emptyState(degraded) {
+			if (degraded) {
+				return `<div class="ci-empty"><div class="icon">🛰️</div><h3>The engine is warming up</h3>
+					<p>The Coin Intelligence engine watches the live pump.fun firehose, observing each new launch's first ~90 seconds before it has a verdict. As soon as coins are observed they appear here — newest first.</p>
+					<div class="how"><span>Classifies every launch</span><span>Records every wallet</span><span>Organic vs bundle</span><span>Learns from outcomes</span></div>
+					<button class="ci-retry" id="ci-empty-retry">Refresh</button></div>`;
+			}
+			return `<div class="ci-empty"><div class="icon">🔍</div><h3>No coins match these filters</h3>
+				<p>Loosen the category, verdict, or quality filters to see more of the live radar.</p>
+				<button class="ci-retry" id="ci-empty-retry">Reset filters</button></div>`;
+		}
+
+		async function loadRadar() {
+			if (!state.coins.length) grid.innerHTML = skeletons();
+			state.loading = true;
+			try {
+				const data = await api({ view: 'feed', limit: 60, category: state.category, verdict: state.verdict, minQuality: state.minq, q: state.q });
+				state.degraded = !!data.degraded;
+				state.coins = data.coins || [];
+				$('#cnt-radar').textContent = state.degraded ? '' : state.coins.length;
+				if (state.degraded || !state.coins.length) {
+					grid.innerHTML = emptyState(state.degraded);
+					const rb = $('#ci-empty-retry');
+					if (rb) rb.addEventListener('click', () => { if (!state.degraded) { state.category=state.verdict=state.minq=state.q=''; $('#ci-q').value=''; $('#ci-verdict').value=''; $('#ci-minq').value=''; renderCatChips(); } loadRadar(); });
+				} else {
+					grid.innerHTML = state.coins.map(coinCard).join('');
+					wireCards(grid);
+				}
+			} catch (e) {
+				grid.innerHTML = `<div class="ci-empty"><div class="icon">⚠️</div><h3>Couldn't reach the intelligence feed</h3><p>${esc(e.message)}</p><button class="ci-retry" id="ci-empty-retry">Retry</button></div>`;
+				$('#ci-empty-retry')?.addEventListener('click', loadRadar);
+			} finally { state.loading = false; }
+		}
+
+		function wireCards(root) {
+			root.querySelectorAll('.ci-card').forEach(c => {
+				const open = () => openDrawer(c.dataset.mint);
+				c.addEventListener('click', open);
+				c.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
+			});
+		}
+
+		// ── leaderboard ───────────────────────────────────────────
+		let lbLoaded = false;
+		async function loadLeaderboard() {
+			if (lbLoaded) return;
+			$('#ci-lb-top').innerHTML = skeletons(3); $('#ci-lb-win').innerHTML = skeletons(3);
+			try {
+				const data = await api({ view: 'leaderboard', limit: 18 });
+				const top = data.top || [], win = data.winners || [];
+				$('#ci-lb-top').innerHTML = top.length ? top.map(coinCard).join('') : emptyState(!!data.degraded);
+				$('#ci-lb-win').innerHTML = win.length ? win.map(coinCard).join('')
+					: `<div class="ci-empty"><div class="icon">🌱</div><h3>No labeled winners yet</h3><p>Once observed coins graduate or 3×, they're labeled and surfaced here with their launch-time signals.</p></div>`;
+				wireCards($('#ci-lb-top')); wireCards($('#ci-lb-win'));
+				lbLoaded = true;
+			} catch (e) {
+				$('#ci-lb-top').innerHTML = `<div class="ci-empty"><div class="icon">⚠️</div><h3>Couldn't load leaderboard</h3><p>${esc(e.message)}</p></div>`;
+			}
+		}
+
+		// ── traders / smart money ─────────────────────────────────
+		let tradersLoaded = false;
+		function traderRow(t) {
+			const labels = (t.labels || []).map(l => `<span class="tlabel tl-${l}">${esc(TRADER_LABEL_TEXT[l] || l)}</span>`).join('');
+			let wr = '';
+			if (t.win_rate != null && t.labeled >= 1) {
+				const p = Math.round(t.win_rate * 100);
+				const tone = p >= 50 ? 'tone-success' : p >= 25 ? 'tone-warn' : 'tone-danger';
+				wr = `<span class="winrate ${tone}">${p}% <span style="opacity:.7">${t.wins}/${t.labeled}</span></span>`;
+			} else wr = `<span class="tsub">unproven</span>`;
+			return `<div class="trader-row">
+				<div style="min-width:0;flex:1">
+					<div class="addr"><a href="https://solscan.io/account/${esc(t.wallet)}" target="_blank" rel="noopener noreferrer">${esc(short(t.wallet))}</a></div>
+					<div class="tlabels">${labels}</div>
+				</div>
+				<div style="text-align:center;flex-shrink:0;width:108px">${wr}<div class="tsub">${t.coins} coins · ${t.buys} buys</div></div>
+				<div class="tright"><div class="tval">${sol(t.buy_sol)}</div><div class="tsub">net ${sol(t.net_sol)}</div></div>
+			</div>`;
+		}
+		async function loadTraders() {
+			if (tradersLoaded) return;
+			$('#ci-traders').innerHTML = `<div class="sub" style="color:var(--ci-muted)">Loading traders…</div>`;
+			try {
+				const data = await api({ view: 'traders', limit: 50 });
+				const ts = data.traders || [];
+				$('#cnt-traders').textContent = ts.length || '';
+				$('#ci-traders').innerHTML = ts.length ? ts.map(traderRow).join('')
+					: `<div class="ci-empty" style="border:none;background:none"><div class="icon">👻</div><h3>No traders recorded yet</h3><p>As the engine observes coins, every wallet that buys or sells is recorded and classified across coins. Smart-money win-rates appear once wallets accumulate labeled coins.</p></div>`;
+				tradersLoaded = true;
+			} catch (e) {
+				$('#ci-traders').innerHTML = `<div class="ci-empty" style="border:none;background:none"><div class="icon">⚠️</div><h3>Couldn't load traders</h3><p>${esc(e.message)}</p></div>`;
+			}
+		}
+
+		// ── learning ──────────────────────────────────────────────
+		let learnLoaded = false;
+		const OUTCOME_COLOR = { graduated: '#34d399', pumped: '#22d3ee', flat: '#818cf8', rugged: '#f87171', unknown: '#64748b' };
+		async function loadLearning() {
+			if (learnLoaded) return;
+			$('#ci-weights').innerHTML = `<div class="sub">Loading…</div>`;
+			try {
+				const data = await api({ view: 'learning' });
+				// weights
+				const ws = data.weights || [];
+				if (ws.length) {
+					const max = Math.max(0.15, ...ws.map(w => Math.abs(w.weight)));
+					$('#ci-weights').innerHTML = ws.map(w => {
+						const frac = Math.min(1, Math.abs(w.weight) / max), half = 50 * frac;
+						const pos = w.weight >= 0;
+						const i = pos
+							? `left:50%;width:${half}%;background:linear-gradient(90deg,#10b981,#34d399)`
+							: `right:50%;width:${half}%;background:linear-gradient(90deg,#f43f5e,#fb7185)`;
+						return `<div class="wbar-row"><span class="wn">${esc(prettySignal(w.signal))}</span><div class="wbar-track"><span class="mid"></span><i style="${i}"></i></div><span class="wv" style="color:${pos?'#34d399':'#fb7185'}">${w.weight>=0?'+':''}${w.weight.toFixed(2)}</span></div>`;
+					}).join('') + `<p class="sub" style="margin-top:14px">Trained on <b style="color:var(--ci-text)">${data.sample_size || 0}</b> labeled coins${data.trained_at ? ' · '+ago(new Date(data.trained_at).getTime())+' ago' : ''}.</p>`;
+				} else {
+					$('#ci-weights').innerHTML = `<div class="ci-empty" style="border:none;background:none;padding:30px 0"><div class="icon">🧠</div><h3>Not enough data to train yet</h3><p>The model needs ~50 labeled coins (graduated/pumped/flat/rugged) before it computes signal weights. Until then the sniper uses the transparent baseline quality score.</p></div>`;
+				}
+				// outcomes
+				const outs = data.outcomes || [];
+				const totalOut = outs.reduce((s, o) => s + o.count, 0) || 1;
+				const order = ['graduated','pumped','flat','rugged','unknown'];
+				$('#ci-outcomes').innerHTML = order.map(name => {
+					const o = outs.find(x => x.outcome === name) || { count: 0, avg_multiple: null };
+					const w = Math.round((o.count / totalOut) * 100);
+					return `<div class="ob-row"><span class="on">${name}</span><div class="ot"><i style="width:${Math.max(o.count?6:0,w)}%;background:${OUTCOME_COLOR[name]}"></i></div><span class="oc">${o.count}${o.avg_multiple?` · ${o.avg_multiple}×`:''}</span></div>`;
+				}).join('');
+				// coverage
+				const cov = data.coverage || { observed:0, classified:0, labeled:0, by_category:[] };
+				$('#ci-coverage-sub').innerHTML = `<b style="color:var(--ci-text)">${cov.observed}</b> coins observed · <b style="color:var(--ci-text)">${cov.classified}</b> classified · <b style="color:var(--ci-text)">${cov.labeled}</b> outcome-labeled`;
+				$('#ci-coverage').innerHTML = (cov.by_category||[]).map(c => `<span class="cov-cat"><span class="dot" style="width:7px;height:7px;border-radius:50%;background:${CAT_COLOR(c.category)}"></span>${esc(c.category)} <b>${c.count}</b></span>`).join('') || '<span class="sub">No categories yet.</span>';
+				learnLoaded = true;
+			} catch (e) {
+				$('#ci-weights').innerHTML = `<div class="ci-empty" style="border:none;background:none"><div class="icon">⚠️</div><h3>Couldn't load learning data</h3><p>${esc(e.message)}</p></div>`;
+			}
+		}
+		const prettySignal = (k) => ({ organic_score:'Organic demand', bundle_score:'Bundle likelihood', snipe_ratio:'Snipe ratio', coordination_score:'Coordination', timing_entropy:'Timing spread', concentration_top1:'Top wallet share', concentration_top5:'Top-5 share', concentration_top10:'Top-10 share', fresh_wallet_ratio:'Fresh wallets', bubblemap_connectivity:'Funder connectivity' }[k] || k);
+
+		// ── detail drawer + bubble-map ────────────────────────────
+		const scrim = $('#ci-scrim'), drawer = $('#ci-drawer'), drawerBody = $('#ci-drawer-body');
+		function closeDrawer() { drawer.classList.remove('is-open'); scrim.classList.remove('is-open'); drawer.setAttribute('aria-hidden','true'); }
+		$('#ci-drawer-close').addEventListener('click', closeDrawer);
+		scrim.addEventListener('click', closeDrawer);
+		document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeDrawer(); });
+
+		async function openDrawer(mint) {
+			drawer.classList.add('is-open'); scrim.classList.add('is-open'); drawer.setAttribute('aria-hidden','false');
+			drawer.scrollTop = 0;
+			drawerBody.innerHTML = `<div class="sh" style="height:60px;border-radius:14px;background:linear-gradient(90deg,rgba(255,255,255,.04),rgba(255,255,255,.09),rgba(255,255,255,.04));background-size:200% 100%;animation:ciShimmer 1.4s infinite"></div>`;
+			try {
+				const data = await api({ mint });
+				if (!data.found) { drawerBody.innerHTML = `<div class="ci-empty" style="border:none"><div class="icon">🔎</div><h3>Not observed yet</h3><p>This coin isn't in the intelligence index.</p></div>`; return; }
+				drawerBody.innerHTML = renderDetail(data);
+				const svg = $('#bm-svg'); if (svg) drawBubbleMap(svg, data.wallets || [], data.clusters || []);
+			} catch (e) {
+				drawerBody.innerHTML = `<div class="ci-empty" style="border:none"><div class="icon">⚠️</div><h3>Couldn't load detail</h3><p>${esc(e.message)}</p></div>`;
+			}
+		}
+
+		function renderDetail(d) {
+			const c = d.coin, v = c.verdict;
+			const tags = (c.tags || []).map(t => `<span class="d-tag">${esc(t)}</span>`).join('');
+			const sigRows = SIGNAL_META.map(([key, name, dir]) => {
+				const val = c[key];
+				if (val == null) return '';
+				const w = Math.round(val * 100);
+				const col = dir === 'good' ? (val >= 0.5 ? '#34d399' : '#fbbf24') : (val >= 0.5 ? '#f87171' : '#34d399');
+				return `<div class="sig-row"><span class="sname">${esc(name)}</span><div class="sbar"><i style="width:${w}%;background:${col}"></i></div><span class="sval">${pct(val)}</span></div>`;
+			}).join('');
+			const flags = (c.risk_flags||[]).map(f => `<span class="flag ${HARD_FLAGS.has(f)?'':'soft'}">${esc(FLAG_TEXT[f]||f)}</span>`).join('') || '<span class="sub" style="color:var(--ci-faint);font-size:12px">No risk flags raised.</span>';
+
+			let outcomeHtml = '';
+			if (d.outcome && d.outcome.outcome !== 'unknown') {
+				const o = d.outcome;
+				const map = { graduated:['🎓','Graduated','tone-success'], pumped:['🚀','Pumped',`tone-success`], flat:['➖','Flat','tone-neutral'], rugged:['💀','Rugged','tone-danger'] };
+				const m = map[o.outcome] || ['❔','Unknown','tone-neutral'];
+				outcomeHtml = `<div class="d-section"><h4>Outcome</h4><div class="outcome-banner ${m[2]}"><span class="oi">${m[0]}</span><div><div class="ot">${m[1]}</div><div class="os">${o.ath_multiple!=null?`ATH ${o.ath_multiple}× from first sight · `:''}${o.ath_market_cap_usd!=null?`ATH ${usd(o.ath_market_cap_usd)}`:''}${o.last_market_cap_usd!=null?` · now ${usd(o.last_market_cap_usd)}`:''}</div></div></div></div>`;
+			}
+
+			const wallets = d.wallets || [];
+			const walletRows = wallets.slice(0, 20).map(w => {
+				const labels = (w.labels||[]).map(l => `<span class="tlabel tl-${l}">${esc(TRADER_LABEL_TEXT[l]||l)}</span>`).join('');
+				return `<div class="trader-row">
+					<div style="min-width:0;flex:1">
+						<div class="addr"><a href="https://solscan.io/account/${esc(w.wallet)}" target="_blank" rel="noopener noreferrer">${esc(short(w.wallet))}</a></div>
+						<div class="tlabels">${labels||'<span class="tlabel tl-active">trader</span>'}</div>
+					</div>
+					<div class="tright"><div class="tval">${sol(w.net_sol)}</div><div class="tsub">${pct(w.share)} of buys</div></div>
+				</div>`;
+			}).join('');
+
+			const clusters = d.clusters || [];
+			const bmLegend = clusters.length
+				? `<div class="bm-legend">${clusters.slice(0,6).map((cl,i)=>`<span><span class="sw" style="background:${clusterColor(cl.cluster)}"></span>${cl.wallets} wallets · ${sol(cl.net_sol)}</span>`).join('')}<span><span class="sw" style="background:#fbbf24"></span>creator</span></div>`
+				: `<div class="bm-legend"><span><span class="sw" style="background:#fbbf24"></span>creator</span><span><span class="sw" style="background:#5b6478"></span>independent buyers (no shared funder)</span></div>`;
+
+			return `
+				<div class="d-head">
+					<img class="avatar" referrerpolicy="no-referrer" src="${esc(imgProxy(c.image_uri, c.mint))}" onerror="this.onerror=null;this.src='${esc(fallbackImg(c.mint))}'" alt="" />
+					<div><div class="name">${esc(c.name||'Unknown')}</div><div class="sym">$${esc((c.symbol||'').toUpperCase())} · ${esc(short(c.mint))}</div>
+					<div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">${catBadge(c.category)}${verdictPill(v)}${c.is_news_meme?'<span class="flag soft" style="text-transform:none">news meme</span>':''}</div></div>
+				</div>
+				<div class="d-section">
+					<div style="display:flex;align-items:center;gap:14px">
+						${ring(c.quality_score, v.tone)}
+						<div style="flex:1">${obBar(c.organic_score, c.bundle_score)}</div>
+					</div>
+				</div>
+				${c.narrative ? `<div class="d-section"><h4>Thesis</h4><p style="font-size:13.5px;line-height:1.55;color:var(--ci-text);margin:0">${esc(c.narrative)}</p>${tags?`<div class="d-tags" style="margin-top:10px">${tags}</div>`:''}<p class="sub" style="margin:8px 0 0;color:var(--ci-faint);font-size:11px">Classified by ${esc(c.classify_source||'heuristic')}${c.classify_confidence!=null?` · ${Math.round(c.classify_confidence*100)}% confidence`:''}</p></div>` : ''}
+				${outcomeHtml}
+				<div class="d-section"><h4>Launch signals</h4>${sigRows||'<span class="sub">No signal data.</span>'}</div>
+				<div class="d-section"><h4>Trade footprint</h4><div class="d-grid">
+					<div class="d-stat"><div class="v">${c.unique_buyers??0}</div><div class="l">Unique buyers</div></div>
+					<div class="d-stat"><div class="v">${c.unique_sellers??0}</div><div class="l">Unique sellers</div></div>
+					<div class="d-stat"><div class="v g">${sol(c.buy_volume_sol)}</div><div class="l">Buy volume</div></div>
+					<div class="d-stat"><div class="v r">${sol(c.sell_volume_sol)}</div><div class="l">Sell volume</div></div>
+					<div class="d-stat"><div class="v">${c.dev_buy_sol!=null?sol(c.dev_buy_sol):'—'}</div><div class="l">Dev buy ${c.dev_sold?'· <span style="color:var(--ci-danger)">dumped</span>':''}</div></div>
+					<div class="d-stat"><div class="v">${sol(c.largest_buy_sol)}</div><div class="l">Largest buy</div></div>
+				</div></div>
+				<div class="d-section"><h4>Risk flags</h4><div class="flags">${flags}</div></div>
+				<div class="d-section"><h4>Wallet network · funder clusters</h4>
+					<svg id="bm-svg" class="bubblemap" viewBox="0 0 420 248" preserveAspectRatio="xMidYMid meet"></svg>
+					${bmLegend}
+				</div>
+				<div class="d-section"><h4>Order book · classified ${wallets.length?`(${wallets.length} wallets)`:''}</h4>
+					${walletRows || '<span class="sub" style="color:var(--ci-faint);font-size:12px">No wallet-level data captured for this coin yet.</span>'}
+				</div>
+				<div class="d-section"><div class="d-links">
+					<a class="primary" href="/coin3d?mint=${encodeURIComponent(c.mint)}">Open in 3D →</a>
+					<a href="https://pump.fun/coin/${encodeURIComponent(c.mint)}" target="_blank" rel="noopener noreferrer">pump.fun ↗</a>
+					<a href="https://solscan.io/token/${encodeURIComponent(c.mint)}" target="_blank" rel="noopener noreferrer">Solscan ↗</a>
+				</div></div>`;
+		}
+
+		const CLUSTER_PALETTE = ['#f87171','#fb923c','#22d3ee','#a78bfa','#f472b6','#a3e635','#38bdf8','#fb7185'];
+		const clusterColor = (i) => CLUSTER_PALETTE[i % CLUSTER_PALETTE.length];
+
+		// Bubblemaps-lite: bubbles = top wallets sized by net SOL, grouped + colored
+		// by shared SOL funder. Wallets in the same cluster are linked + drawn near
+		// each other; independent buyers are scattered. The creator is gold-ringed.
+		function drawBubbleMap(svg, wallets, clusters) {
+			const W = 420, H = 248, ns = 'http://www.w3.org/2000/svg';
+			svg.innerHTML = '';
+			const top = wallets.filter(w => (w.net_sol||0) > 0).slice(0, 34);
+			if (!top.length) {
+				const t = document.createElementNS(ns, 'text');
+				t.setAttribute('x', W/2); t.setAttribute('y', H/2); t.setAttribute('text-anchor','middle');
+				t.setAttribute('fill', '#5c6273'); t.setAttribute('font-size','12');
+				t.textContent = 'No wallet network captured';
+				svg.appendChild(t); return;
+			}
+			const maxNet = Math.max(...top.map(w => w.net_sol));
+			const rOf = (n) => 7 + Math.sqrt(n / maxNet) * 21;
+
+			// group: each cluster id → center; null-cluster wallets scatter on outer ring.
+			const clusterIds = [...new Set(top.map(w => w.cluster).filter(c => c != null))];
+			const centers = new Map();
+			clusterIds.forEach((id, i) => {
+				const a = (i / Math.max(1, clusterIds.length)) * Math.PI * 2 - Math.PI / 2;
+				centers.set(id, { x: W/2 + Math.cos(a) * 78, y: H/2 + Math.sin(a) * 64 });
+			});
+			let scatterI = 0;
+			const scatterN = top.filter(w => w.cluster == null).length;
+			const placed = top.map(w => {
+				if (w.cluster != null && centers.has(w.cluster)) {
+					const c = centers.get(w.cluster);
+					const sib = top.filter(x => x.cluster === w.cluster);
+					const idx = sib.indexOf(w), a = (idx / Math.max(1, sib.length)) * Math.PI * 2;
+					return { w, x: c.x + Math.cos(a) * 22, y: c.y + Math.sin(a) * 22, cx: c.x, cy: c.y };
+				}
+				const a = (scatterI / Math.max(1, scatterN)) * Math.PI * 2;
+				scatterI++;
+				return { w, x: W/2 + Math.cos(a) * 96, y: H/2 + Math.sin(a) * 82, cx: null, cy: null };
+			});
+
+			// links within clusters
+			for (const p of placed) {
+				if (p.cx == null) continue;
+				const line = document.createElementNS(ns, 'line');
+				line.setAttribute('x1', p.x); line.setAttribute('y1', p.y);
+				line.setAttribute('x2', p.cx); line.setAttribute('y2', p.cy);
+				line.setAttribute('stroke', clusterColor(p.w.cluster)); line.setAttribute('stroke-width','1'); line.setAttribute('stroke-opacity','0.35');
+				svg.appendChild(line);
+			}
+			// bubbles
+			for (const p of placed) {
+				const r = rOf(p.w.net_sol);
+				const g = document.createElementNS(ns, 'g');
+				const circle = document.createElementNS(ns, 'circle');
+				circle.setAttribute('cx', p.x); circle.setAttribute('cy', p.y); circle.setAttribute('r', r);
+				const col = p.w.is_creator ? '#fbbf24' : (p.w.cluster != null ? clusterColor(p.w.cluster) : '#5b6478');
+				circle.setAttribute('fill', col); circle.setAttribute('fill-opacity', p.w.cluster != null || p.w.is_creator ? '0.5' : '0.32');
+				circle.setAttribute('stroke', col); circle.setAttribute('stroke-width', p.w.is_creator ? '2.2' : '1.2'); circle.setAttribute('stroke-opacity','0.95');
+				const title = document.createElementNS(ns, 'title');
+				title.textContent = `${short(p.w.wallet)}${p.w.is_creator?' (creator)':''} — net ${sol(p.w.net_sol)}${(p.w.labels||[]).length?' · '+p.w.labels.join(', '):''}`;
+				circle.appendChild(title);
+				g.appendChild(circle);
+				svg.appendChild(g);
+			}
+		}
+
+		// ── tabs ───────────────────────────────────────────────────
+		function switchTab(tab) {
+			state.tab = tab;
+			document.querySelectorAll('.ci-tab').forEach(t => t.classList.toggle('is-active', t.dataset.tab === tab));
+			document.querySelectorAll('[data-view]').forEach(s => s.classList.add('hide'));
+			$('#view-' + tab).classList.remove('hide');
+			if (tab === 'leaderboard') loadLeaderboard();
+			else if (tab === 'traders') loadTraders();
+			else if (tab === 'learning') loadLearning();
+		}
+		document.querySelectorAll('.ci-tab').forEach(t => t.addEventListener('click', () => switchTab(t.dataset.tab)));
+
+		// ── header stats ───────────────────────────────────────────
+		async function loadStats() {
+			try {
+				const data = await api({ view: 'learning' });
+				const cov = data.coverage || { observed:0, classified:0, labeled:0 };
+				const grad = (data.outcomes||[]).find(o => o.outcome === 'graduated')?.count || 0;
+				$('#ci-stats').innerHTML = [
+					['Observed', cov.observed], ['Classified', cov.classified], ['Labeled', cov.labeled], ['Graduated', grad],
+				].map(([l,v]) => `<div class="ci-stat"><div class="v">${v}</div><div class="l">${l}</div></div>`).join('');
+				$('#ci-hero').dataset.degraded = data.degraded ? '1' : '0';
+			} catch { $('#ci-hero').dataset.degraded = '1'; }
+		}
+
+		// ── filters wiring ─────────────────────────────────────────
+		let qDebounce;
+		$('#ci-q').addEventListener('input', (e) => { clearTimeout(qDebounce); qDebounce = setTimeout(() => { state.q = e.target.value.trim(); loadRadar(); }, 220); });
+		$('#ci-verdict').addEventListener('change', (e) => { state.verdict = e.target.value; loadRadar(); });
+		$('#ci-minq').addEventListener('change', (e) => { state.minq = e.target.value; loadRadar(); });
+
+		// ── boot + auto-refresh ────────────────────────────────────
+		renderCatChips();
+		loadStats();
+		loadRadar();
+		let timer = setInterval(() => { if (state.tab === 'radar' && !document.hidden) loadRadar(); }, REFRESH_MS);
+		document.addEventListener('visibilitychange', () => { if (!document.hidden && state.tab === 'radar') loadRadar(); });
+	</script>
+	<script src="/brand.js" defer></script>
+</body>
+</html>

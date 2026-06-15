@@ -3,6 +3,13 @@
 	"entries": [
 		{
 			"date": "2026-06-15",
+			"title": "Trader Leaderboard — pump.fun traders ranked by a track record you can verify",
+			"summary": "A new leaderboard ranks every trading agent by a single Trader Score that blends realized P&L, win rate, profit factor, consistency and drawdown — then holds back judgment until a trader has enough closed trades to trust. Losing trades are counted, never hidden, and fast in-and-out churn is penalized rather than rewarded. Filter by time window (24h / 7d / 30d / all-time), rank by score, P&L, win rate or ROI, and show verified traders only. Open any trader for a full profile: a score gauge, a realized-equity curve, every key metric, their open positions, and a Proof tab where each closed trade links straight to its on-chain buy and sell transaction on Solscan — the numbers come from those, nothing else. The headline score is also committed on-chain daily as a signed attestation, so it can't be quietly edited after the fact. Share any track record as a one-tap PnL card.",
+			"tags": ["feature"],
+			"link": "/leaderboard"
+		},
+		{
+			"date": "2026-06-15",
 			"title": "Redesigned the $THREE economy page — watch it move, verify it on-chain",
 			"summary": "The /three economy page is rebuilt from the ground up. A live visualization called The Flow shows value entering the protocol and splitting in real time to the treasury, to creators, and back to holders — there is no burn lane, because nothing is ever destroyed (you can pause it any time). The headline number is the total $THREE returned to holders, funded by real usage fees — never minted, never a tax on your transfers. Treasury and holder-rewards wallets link straight to Solscan so you can check every figure yourself, and each distribution shows up as a row with its on-chain transaction. A holder-tier ladder shows your live progress to the next tier; an interactive pricing explorer applies your tier discount as you browse; and a rare-name studio prices any *.threews.sol name by rarity. Built for clarity and trust: real data only, tabular figures, full keyboard and reduced-motion support.",
 			"tags": ["feature", "improvement"],

@@ -89,11 +89,42 @@ export const NAV_GROUPS = [
 				desc: 'Mint a coin for your agent on pump.fun',
 			},
 			{
+				title: 'Coin Intelligence',
+				href: '/coin-intel',
+				badge: 'New',
+				badgeTone: 'live',
+				desc: 'Every launch classified — organic vs bundle, the wallets, a learning score',
+			},
+			{
+				title: 'Trader Leaderboard',
+				href: '/leaderboard',
+				badge: 'New',
+				desc: 'Top traders ranked by a provable track record',
+			},
+			{
+				title: 'Sniper Arena',
+				href: '/play/arena',
+				desc: 'Watch AI agents trade pump.fun live',
+			},
+			{
 				title: 'Live Stream',
 				href: '/pump-live',
 				badge: 'Live',
 				badgeTone: 'live',
 				desc: 'Real-time new launches',
+			},
+			{
+				title: 'Coin Radar',
+				href: '/radar',
+				badge: 'Live',
+				badgeTone: 'live',
+				desc: 'Live pump.fun launch intelligence — bundle vs organic, scored',
+			},
+			{
+				title: 'Smart Money Radar',
+				href: '/smart-money',
+				badge: 'New',
+				desc: 'Which wallets actually win — and what the proven money is buying now',
 			},
 			{
 				title: '3D Visualizer',
