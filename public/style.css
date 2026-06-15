@@ -559,7 +559,13 @@ body.is-dragover .dropzone {
  * Header
  */
 
-header {
+/* Legacy 3D viewer/editor chrome (the wordmark + upload-bar header). Scoped
+ * with :not(.nav):not(:has(#nav-container)) so it never leaks onto the
+ * canonical global navigation, which is injected as a sticky
+ * <header class="nav"> inside a <header><div id="nav-container"></header>
+ * wrapper. Without this scope the fixed height + overflow-y:hidden below
+ * clipped the shared nav on every page that loads style.css. */
+header:not(.nav):not(:has(#nav-container)) {
 	display: flex;
 	flex-shrink: 0;
 	background: rgba(0, 0, 0, 0.8);
@@ -940,7 +946,7 @@ header h1 .wordmark-logo {
 }
 
 @media screen and (max-width: 700px) {
-	header {
+	header:not(.nav):not(:has(#nav-container)) {
 		padding: 0 1em;
 		height: 3rem;
 		line-height: 3rem;
@@ -970,7 +976,7 @@ header h1 .wordmark-logo {
 		padding: var(--space-xs) var(--space-md);
 	}
 
-	footer {
+	footer:not(.h-footer) {
 		bottom: auto;
 		top: calc(3rem + 0.5em);
 		left: 0.5em;
@@ -1039,7 +1045,11 @@ header h1 .wordmark-logo {
  * Footer
  */
 
-footer {
+/* Legacy corner credit footer (3D viewer/editor pages). Scoped with
+ * :not(.h-footer) so it never hijacks the canonical site footer
+ * (<footer class="h-footer h-footer-horizon">), which is a full-width
+ * block section with its own layout, positioning, and clickable controls. */
+footer:not(.h-footer) {
 	position: absolute;
 	bottom: calc(4rem + env(safe-area-inset-bottom, 0));
 	right: calc(var(--space-md) + env(safe-area-inset-right, 0));
@@ -1053,7 +1063,7 @@ footer {
 	pointer-events: none;
 }
 
-footer a {
+footer:not(.h-footer) a {
 	pointer-events: all;
 	color: rgba(255, 255, 255, 0.55);
 	text-decoration: none;
@@ -1062,15 +1072,15 @@ footer a {
 	align-items: center;
 }
 
-footer a:hover {
+footer:not(.h-footer) a:hover {
 	color: #fff;
 }
 
-footer a svg {
+footer:not(.h-footer) a svg {
 	vertical-align: middle;
 }
 
-footer .separator {
+footer:not(.h-footer) .separator {
 	color: rgba(255, 255, 255, 0.2);
 	font-size: 10px;
 }
@@ -8449,20 +8459,12 @@ textarea.erc8004-code {
 		padding: 11px 40px 11px 14px;
 	}
 
-	/* Chip rows scroll horizontally instead of clipping/overflowing the page.
-	   Snap edges flush so the first/last chip aren't cut off. */
+	/* Chip rows wrap into clean bands — for 3-4 chips this reads better than a
+	   scroll rail and carries zero overflow risk. */
 	.explore-chips {
-		flex-wrap: nowrap;
-		overflow-x: auto;
-		-webkit-overflow-scrolling: touch;
-		scrollbar-width: none;
+		flex-wrap: wrap;
 		gap: 8px;
-		padding-bottom: 2px;
-		margin: 0 calc(-1 * var(--space-sm));
-		padding-inline: var(--space-sm);
-	}
-	.explore-chips::-webkit-scrollbar {
-		display: none;
+		max-width: 100%;
 	}
 	.explore-chip {
 		flex: 0 0 auto;
@@ -8472,11 +8474,18 @@ textarea.erc8004-code {
 		white-space: nowrap;
 	}
 
-	/* Chain + Sort selects: each on its own full-width row, fully tappable. */
+	/* Chain + Sort selects stack, each on its own full-width row, fully tappable. */
+	.explore-controls-row {
+		flex-direction: column;
+		align-items: stretch;
+		gap: var(--space-sm);
+		width: 100%;
+	}
 	.explore-chain-select,
 	.explore-sort-select {
 		display: flex;
 		width: 100%;
+		min-width: 0;
 		align-items: center;
 		gap: 10px;
 	}
@@ -8489,6 +8498,9 @@ textarea.erc8004-code {
 	.explore-sort-select select {
 		flex: 1 1 auto;
 		width: 100%;
+		/* Without min-width:0 a <select> keeps the intrinsic width of its widest
+		   option (long chain names), forcing the row past the viewport. */
+		min-width: 0;
 		min-height: 44px;
 		font-size: 16px;
 	}
