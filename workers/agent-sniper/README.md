@@ -1,9 +1,15 @@
 # agent-sniper
 
-Autonomous pump.fun sniper. A long-lived Node worker that holds the PumpPortal
-new-mint feed open, scores each launch against every armed agent strategy, and
-snipes from the **agent's own** Solana wallet — then manages each position to a
-stop-loss / take-profit / trailing-stop / timeout exit.
+Autonomous pump.fun sniper. A long-lived Node worker that snipes from the
+**agent's own** Solana wallet, then manages each position to a stop-loss /
+take-profit / trailing-stop / timeout exit. Two triggers arm a strategy:
+
+- **`new_mint`** (default) — holds the PumpPortal new-mint feed open and scores
+  each launch as it happens.
+- **`first_claim`** — polls the on-chain pump.fun fee-claim stream and fires when
+  a creator pulls their accrued creator/delegated rewards for the **first time
+  ever** — an irreversible "the creator is live and taking real fees" signal.
+  Buys the creator's coin after an owner-set delay.
 
 It is deliberately **not** a Vercel cron: hourly ticks can't snipe a launch.
 
@@ -15,15 +21,34 @@ It is deliberately **not** a Vercel cron: hourly ticks can't snipe a launch.
 | `config.js` | Validated env (`loadConfig`). Throws on missing `DATABASE_URL`/`JWT_SECRET`; refuses live mode without a real RPC. |
 | `strategy-store.js` | Cached active-strategy list + `countOpenPositions` / `getDailySpend` / `getOpenPositions`. |
 | `scorer.js` | Pure `scoreMint(mint, strategy)` entry filter (mc band, creator history, socials, SOL-quote). |
+| `claim-scorer.js` | Pure `scoreClaim(claim, strategy)` entry filter for the first-claim trigger (claim-size band, mint resolvable). |
+| `first-claim-watch.js` | `startFirstClaimWatch` — polls the fee-claim stream, scores first-ever claims, holds the owner-set delay, snipes via `executeBuy`. |
 | `keys.js` | `loadAgentKeypair` — decrypts the agent secret via `recoverSolanaAgentKeypair`, TTL-cached, audited. |
 | `trade-client.js` | Wraps `PumpTradeClient`; `signAndSend` assembles a v0 tx, signs with the agent keypair, broadcasts, confirms. |
 | `executor.js` | `executeBuy` / `executeSell` — every guardrail, the idempotency lock, the only place that signs. |
 | `positions.js` | `runPositionSweep` — re-quotes open positions and triggers exits. |
 
-State lives in two tables (migration `api/_lib/migrations/20260615020000_agent_sniper.sql`):
-`agent_sniper_strategies` (owner-armed policy) and `agent_sniper_positions` (the
-sniper's own trade ledger — *not* `pump_agent_trades`, whose `mint_id` FK can't
-hold a stranger-launched mint).
+State lives in two tables (migrations `…20260615020000_agent_sniper.sql` +
+`…20260615030000_sniper_first_claim.sql`): `agent_sniper_strategies` (owner-armed
+policy, incl. `trigger`, `buy_delay_ms`, and the `*_claim_lamports` filters) and
+`agent_sniper_positions` (the sniper's own trade ledger, tagged with the
+`entry_trigger` that opened it — *not* `pump_agent_trades`, whose `mint_id` FK
+can't hold a stranger-launched mint).
+
+## First-claim trigger
+
+A `first_claim` strategy is armed exactly like a `new_mint` one (POST
+`/api/sniper/strategy` with `trigger: "first_claim"`), plus claim-specific knobs:
+
+| Field | Meaning |
+|-------|---------|
+| `buy_delay_ms` | Wait this long after the claim is observed before buying (0–600000). |
+| `min_claim_lamports` | Only fire when the first claim pulled ≥ this — a floor that skips dust. |
+| `max_claim_lamports` | Optional ceiling. |
+| `first_claim_max_age_seconds` | Ignore claims older than this when first seen (overrides `SNIPER_CLAIM_MAX_AGE_S`). |
+
+The poll loop reuses the SAME executor, idempotency lock, budget/concurrency
+caps, and position lifecycle as the new-mint path — only the trigger differs.
 
 ## Guardrails
 
@@ -54,6 +79,9 @@ Enforced in `executeBuy`, short-circuiting before any transaction:
 | `SNIPER_POLL_MS` | | `5000` | Position re-quote cadence. |
 | `SNIPER_MAX_GLOBAL_BUYS_PER_MIN` | | `10` | Platform-wide buy throttle backstop. |
 | `SNIPER_CONFIRM_TIMEOUT_MS` | | `60000` | Per-trade confirmation wait. |
+| `SNIPER_CLAIM_POLL_MS` | | `30000` | First-claim trigger: fee-claim poll cadence. |
+| `SNIPER_CLAIM_LOOKBACK_S` | | `600` | First-claim trigger: window scanned each poll (must exceed the poll interval). |
+| `SNIPER_CLAIM_MAX_AGE_S` | | `300` | First-claim trigger: default freshness gate (per-strategy override available). |
 
 ## Run locally
 
