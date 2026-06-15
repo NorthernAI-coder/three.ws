@@ -22,6 +22,11 @@ export const KIND_MAP = {
 export const KINDS_ALL = Object.values(KIND_MAP);
 export const MIN_STAKE_LAMPORTS = 1_000_000n; // 0.001 SOL
 
+// Subkind marking a glTF/GLB schema validation (the Solana analog of the EVM
+// ValidationRegistry's recordValidation glb-schema attestation). It rides on the
+// threews.validation.v1 kind but carries proof_hash/proof_uri instead of task_hash.
+export const SUBKIND_GLB_SCHEMA = 'glb-schema';
+
 // Validate a parsed memo payload against its schema. Returns true iff well-formed.
 export function validatePayload(p) {
 	if (!p || typeof p !== 'object') return false;
@@ -31,6 +36,12 @@ export function validatePayload(p) {
 		case 'threews.feedback.v1':
 			return Number.isInteger(p.score) && p.score >= 1 && p.score <= 5;
 		case 'threews.validation.v1':
+			// Model (glTF/GLB schema) validations carry a content proof hash + URI;
+			// task validations carry a task_hash. Either form must declare passed.
+			if (p.subkind === SUBKIND_GLB_SCHEMA) {
+				return typeof p.proof_hash === 'string' && p.proof_hash.length > 0
+					&& typeof p.passed === 'boolean';
+			}
 			return typeof p.task_hash === 'string' && typeof p.passed === 'boolean';
 		case 'threews.task.v1':
 			return typeof p.task_id === 'string' && typeof p.scope_hash === 'string';

@@ -67,7 +67,7 @@ SOLANA_RPC_URL=                    # mainnet (Helius/Triton recommended)
 SOLANA_RPC_URL_DEVNET=
 ```
 
-When `PUMPFUN_BOT_URL` is unset, the integration becomes a no-op: endpoints return `503 unavailable`, the cron returns `{ skipped: 'pumpfun bot not configured' }`, and the watch skills return a friendly error. Solana agents that don't use it pay no cost.
+`PUMPFUN_BOT_URL` is an **optional enrichment layer**, not a hard dependency. When it's unset (the prod default), the `pumpfun-signals` cron still runs off the live WS-fed `pumpfun_graduations` table and the `pf:claims` / `pf:whales` / `pf:mints` Redis lanes — only the bot's richer claim intel (tier, GitHub account age) is skipped. The `op=claims` read proxy and watch skills soft-degrade to empty when the bot is absent. Solana agents that don't use it pay no cost.
 
 ---
 
@@ -97,17 +97,36 @@ These are continuous-blend stimuli, not discrete states — they decay according
 
 ## Reputation signals
 
-The cron writes typed rows to `pumpfun_signals(wallet, agent_asset, kind, weight, payload, tx_signature)`. `solana-reputation` aggregates them as `pumpfun_signals: { count, weight, by_kind }` in the response.
+The cron writes typed rows to `pumpfun_signals(wallet, agent_asset, kind, weight, payload, tx_signature)`. `solana-reputation` aggregates them as `pumpfun_signals: { count, weight, by_kind }` in the response, and the agent-passport card surfaces a `pumpfun` block. The `/api/pump/channel-feed` `signal` lane renders them as live, agent-attributed feed cards.
+
+### Sources (no upstream bot required)
+
+The cron is **not gated on the optional `PUMPFUN_BOT_URL`** — every lane has a real, always-on source, and the cron emits whatever is live:
+
+| Lane | Source | Actor wallet |
+|---|---|---|
+| graduations | `pumpfunMcp.graduations()` → the WS-fed `pumpfun_graduations` table (kept fresh by the `pumpfun-graduations-sync` cron), or the bot when configured | `creator` / `dev_wallet` |
+| claims | bot `getRecentClaims` (rich tier/age intel) when configured, merged with the `pf:claims` Redis lane | `claimer` / `github_wallet` |
+| whales | `pf:whales` Redis lane (first whale-buy events) | `buyer` |
+| mints | `pf:mints` Redis lane (new token launches) | `creator` |
+
+A signal is only written when the actor wallet is linked to a three.ws agent (`user_wallets` → `agent_identities`, Solana). Each lane keeps a Postgres cursor in `pumpfun_signals_cursor(source, last_seen_ms, …)` so a run only evaluates events newer than the last — no re-scanning the whole window. The cursor lives in Postgres (not Redis) to keep Upstash write volume flat; the cron makes **zero new Redis writes** — only `lrange` reads.
+
+### Dedup key
+
+Rows are unique on `(tx_signature, kind)`, not `tx_signature` alone — a single claim transaction can legitimately produce `first_claim` + `influencer` + `new_account` rows at once.
 
 Default weights:
 
-| Kind | Weight |
-|---|---|
-| `first_claim` | +0.2 |
-| `graduation` | +0.3 |
-| `influencer` | +0.2 |
-| `new_account` | -0.2 |
-| `fake_claim` | -0.6 |
+| Kind | Weight | Lane |
+|---|---|---|
+| `graduation` | +0.3 | graduations |
+| `first_claim` | +0.2 | claims |
+| `influencer` | +0.2 | claims |
+| `whale_buy` | +0.1 | whales |
+| `launch` | +0.05 | mints |
+| `new_account` | -0.2 | claims |
+| `fake_claim` | -0.6 | claims |
 
 These are **off-chain** signals — flagged as such, not on-chain attestations. `verified=false` semantically. Weighting them into a final composite score is up to consumers; the endpoint exposes the raw aggregates.
 

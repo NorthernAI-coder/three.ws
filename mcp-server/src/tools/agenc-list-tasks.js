@@ -41,14 +41,14 @@ export async function buildAgenCListTasksTool() {
 			priceUsd: '$0.001',
 			inputSchema: inputJsonSchema,
 			example: {
-				creator: '5yC9BM8KUsJTPbWPLfA2N8qH1s9V8DQ3Vcw1G6Jdpump',
+				creator: 'THREEsynthetic111111111111111111111111111111',
 				cluster: 'devnet',
 			},
 			outputExample: {
 				ok: true,
 				cluster: 'devnet',
 				programId: '6UcJzbTEemBz3aY5wK5qKHGMD7bdRsmR4smND29gB2ab',
-				creator: '5yC9BM8KUsJTPbWPLfA2N8qH1s9V8DQ3Vcw1G6Jdpump',
+				creator: 'THREEsynthetic111111111111111111111111111111',
 				count: 1,
 				tasks: [
 					{

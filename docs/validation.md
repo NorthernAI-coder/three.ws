@@ -185,6 +185,66 @@ The minimum check suite for a `pass` verdict includes:
 - `manifest-integrity` — the agent card's `model.sha256` matches the actual bytes
 - `card-schema` — the card validates against the three.ws Card v1 spec
 
+### ValidationRegistry (Solana)
+
+Solana agents (Metaplex Core assets) get the same on-chain validation guarantee
+without a deployed registry contract. On Solana, attestations are first-class
+**SPL Memo transactions** indexed into the `solana_attestations` table — that
+index *is* the registry. A glTF/schema validation is a `threews.validation.v1`
+memo with `subkind: "glb-schema"`, signed by the platform validator and carrying
+the same proof fields as the EVM record.
+
+The platform validator signs and records automatically when an agent is
+registered (`/api/agents/solana-register-confirm`), and on demand:
+
+```js
+// POST /api/agents/solana-validate  (owner-authenticated)
+// body: { asset_pubkey, network: "mainnet"|"devnet", glb_url? }
+// glb_url defaults to the agent's avatar GLB.
+const res = await fetch('/api/agents/solana-validate', {
+  method: 'POST',
+  headers: { 'content-type': 'application/json' },
+  credentials: 'include',
+  body: JSON.stringify({ asset_pubkey, network: 'mainnet' }),
+}).then((r) => r.json());
+
+// → { passed, signature, proof_hash, proof_uri, model_sha256, validator, explorer }
+```
+
+The on-chain memo payload:
+
+```json
+{
+  "v": 1,
+  "kind": "threews.validation.v1",
+  "subkind": "glb-schema",
+  "agent": "<asset pubkey>",
+  "ts": 1781483899,
+  "passed": true,
+  "proof_hash": "<sha256 of the canonical report JSON>",
+  "proof_uri": "<URL to the full pinned report>",
+  "model_sha256": "<sha256 of the GLB bytes>",
+  "source": "threews.model-check"
+}
+```
+
+The proof hash is `sha256(JSON.stringify(report))` (Solana convention; the EVM
+side uses keccak256). Anyone can recompute it: re-run the validator on the same
+GLB, `JSON.stringify` the report, sha256 it, and compare against `proof_hash` in
+the memo. Read the latest and history:
+
+```
+GET /api/agents/solana-validation?asset=<pubkey>&network=mainnet
+→ { latest, history[], count, last_indexed_at }
+```
+
+The validation status also rides on the agent card
+(`/api/agents/solana-card`, `validation` block) and renders as a **model
+verified / model failed** badge on the agent passport. Schema:
+[`/.well-known/agent-attestation-schemas`](../api/wk.js). Recording is gated to
+the platform validator key (`ATTEST_AGENT_SECRET_KEY`); re-attesting an identical
+report is idempotent (returns the existing signature, no duplicate tx).
+
 ### Signed attestation (off-chain)
 
 For lighter-weight use cases, `src/attestations/gltf.js` provides a wallet-signed JSON attestation that does not require a blockchain transaction:

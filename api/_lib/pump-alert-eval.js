@@ -93,7 +93,9 @@ export function isWhaleBuy(rule, trade) {
  * @returns {{ fire: boolean, nextState: { side: 'over'|'under' }, reason: string }}
  */
 export function evaluatePriceRule(rule, currentMcapUsd, lastState = {}) {
-	const mcap = Number(currentMcapUsd);
+	// Number(null) is 0 (finite), so guard null/undefined explicitly — a missing
+	// price must hit the no-price branch, not read as a $0 market cap.
+	const mcap = currentMcapUsd == null ? NaN : Number(currentMcapUsd);
 	const threshold = Number(rule.threshold);
 	// Without a live price we can't decide — preserve prior state, don't fire.
 	if (!Number.isFinite(mcap) || !Number.isFinite(threshold) || threshold <= 0) {

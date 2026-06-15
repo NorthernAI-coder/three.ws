@@ -114,8 +114,42 @@ async function installHarness(page, cfg) {
 				return ok(999_999);
 			case 'getSignatureStatuses':
 				return ok({ context: { slot: 1 }, value: [null] });
-			case 'getTokenAccountsByOwner':
+			case 'getTokenAccountsByOwner': {
+				// Give a healthy USDC balance so a USDC buy isn't gated into the fund
+				// flow; everything else (coin holdings) reads empty — typed sells don't
+				// need a holdings fixture. Match on the request body so we're robust to
+				// the exact mint-filter param shape web3.js sends.
+				if ((route.request().postData() || '').includes(USDC)) {
+					return ok({
+						context: { slot: 1 },
+						value: [{
+							pubkey: Keypair.generate().publicKey.toBase58(),
+							account: {
+								lamports: 2039280,
+								owner: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
+								executable: false,
+								rentEpoch: 0,
+								space: 165,
+								data: {
+									program: 'spl-token',
+									space: 165,
+									parsed: {
+										type: 'account',
+										info: {
+											isNative: false,
+											mint: USDC,
+											owner: WALLET_ADDR,
+											state: 'initialized',
+											tokenAmount: { amount: '1000000000', decimals: 6, uiAmount: 1000, uiAmountString: '1000' },
+										},
+									},
+								},
+							},
+						}],
+					});
+				}
 				return ok({ context: { slot: 1 }, value: [] });
+			}
 			default:
 				// getAccountInfo / getMultipleAccounts → null → AMM SDK "pool
 				// unavailable", i.e. a SOL coin reads as still on the bonding curve.
@@ -200,10 +234,12 @@ test.describe('Coin trade widget', () => {
 		await expect(page.locator('.cc-buy-cta')).toContainText('Buy');
 		await page.locator('.cc-buy-cta').click(); // buy
 
-		await expect(page.locator('.cc-buy-status')).toContainText('Submitted', { timeout: 30_000 });
+		// Settles to a confirmed CTA; the durable end state is asserted (the
+		// transient "Submitted" status can be raced past when confirm is instant).
+		await expect(page.locator('.cc-buy-cta')).toContainText('Bought', { timeout: 60_000 });
 		expect(calls.buyPrep).toMatchObject({ mint: SOL_COIN.mint, wallet_address: WALLET_ADDR, network: 'mainnet', sol: 0.1 });
 		expect(calls.broadcast).toBe(1);
-		await expect(page.locator('.cc-buy-cta')).toContainText('Bought', { timeout: 60_000 });
+		await expect(page.locator('.cc-buy-status[data-kind="ok"]')).toContainText('Bought');
 	});
 
 	test('USDC buy happy path on a graduated coin', async ({ page }) => {
@@ -213,10 +249,13 @@ test.describe('Coin trade widget', () => {
 		await expect(page.locator('.cc-buy-unit')).toHaveText('USDC', { timeout: 15_000 });
 
 		await page.locator('.cc-buy-cta').click(); // connect
-		await expect(page.locator('.cc-buy-cta')).toContainText('Buy');
+		// Wait for the USDC balance to settle so the CTA is stably the buy action
+		// (an unsettled balance would route the CTA to the fund flow).
+		await expect(page.locator('.cc-buy-bal')).toContainText('1,000 USDC', { timeout: 15_000 });
+		await expect(page.locator('.cc-buy-cta')).toContainText('Buy 5 USDC');
 		await page.locator('.cc-buy-cta').click(); // buy
 
-		await expect(page.locator('.cc-buy-status')).toContainText('Submitted', { timeout: 30_000 });
+		await expect(page.locator('.cc-buy-cta')).toContainText('Bought', { timeout: 60_000 });
 		expect(calls.buyPrep).toMatchObject({ mint: USDC_COIN.mint, wallet_address: WALLET_ADDR, usdc_amount: 5 });
 		expect(calls.broadcast).toBe(1);
 	});
@@ -235,12 +274,11 @@ test.describe('Coin trade widget', () => {
 		await expect(page.locator('.cc-buy-cta')).toContainText('Sell');
 		await page.locator('.cc-buy-cta').click(); // sell
 
-		await expect(page.locator('.cc-buy-status')).toContainText('Submitted', { timeout: 30_000 });
+		await expect(page.locator('.cc-buy-cta')).toContainText('Sold', { timeout: 60_000 });
 		expect(calls.sellPrep).toMatchObject({ mint: SOL_COIN.mint, wallet_address: WALLET_ADDR, network: 'mainnet' });
 		// 1000 tokens at 6 decimals.
 		expect(calls.sellPrep.tokens).toBe('1000000000');
 		expect(calls.broadcast).toBe(1);
-		await expect(page.locator('.cc-buy-cta')).toContainText('Sold', { timeout: 60_000 });
 	});
 
 	test('a failed buy prep shows specific, actionable copy', async ({ page }) => {

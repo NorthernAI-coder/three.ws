@@ -170,6 +170,154 @@ export const handleAttestEvent = wrap(async (req, res) => {
 	return json(res, 202, { data: { deduped: true, status: 'in_progress' } });
 });
 
+// ── solana-validate (write: glTF/schema validation attestation) ────────────────
+
+import { attestValidationSolana, SolanaAttestError } from '../../_lib/solana-validation-attest.js';
+import { SUBKIND_GLB_SCHEMA } from '../../_lib/solana-attestations.js';
+
+const SOLANA_ATTEST_ERROR_STATUS = {
+	unsupported_network: 400,
+	invalid_asset: 400,
+	invalid_glb_url: 400,
+	glb_fetch_failed: 502,
+	glb_too_large: 413,
+	attester_key_not_configured: 500,
+	record_failed: 502,
+};
+
+const validateSchema = z.object({
+	asset_pubkey: z.string().min(32).max(44),
+	network:      z.enum(['mainnet', 'devnet']).default('mainnet'),
+	glb_url:      z.string().url().optional(),
+});
+
+export const handleValidate = wrap(async (req, res) => {
+	if (cors(req, res, { methods: 'POST,OPTIONS', credentials: true })) return;
+	if (!method(req, res, ['POST'])) return;
+
+	const user = await getSessionUser(req);
+	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
+
+	const rl = await limits.authIp(clientIp(req));
+	if (!rl.success) return rateLimited(res, rl);
+
+	const body = parse(validateSchema, await readJson(req));
+	const { asset_pubkey, network } = body;
+	try { new PublicKey(asset_pubkey); } catch { return error(res, 400, 'validation_error', 'invalid asset pubkey'); }
+
+	// Ownership: the agent must belong to the signed-in user (mirrors handleEdit).
+	const [agent] = await sql`select id, avatar_id from agent_identities where (meta->>'sol_mint_address') = ${asset_pubkey} and user_id = ${user.id} and deleted_at is null limit 1`;
+	if (!agent) return error(res, 404, 'not_found', 'agent not found for your account');
+
+	// Resolve the GLB to validate: explicit glb_url wins; otherwise the agent's
+	// avatar GLB. validateGlb SSRF-guards whatever URL we pass.
+	let glbUrl = body.glb_url || null;
+	if (!glbUrl && agent.avatar_id) {
+		const [av] = await sql`select storage_key from avatars where id = ${agent.avatar_id} and deleted_at is null limit 1`;
+		if (av?.storage_key) glbUrl = publicUrl(av.storage_key);
+	}
+	if (!glbUrl) return error(res, 422, 'no_model', 'agent has no GLB to validate — attach an avatar or pass glb_url');
+
+	let result;
+	try {
+		result = await attestValidationSolana({
+			network,
+			agentAsset: asset_pubkey,
+			glbUrl,
+			validatedAt: new Date().toISOString(),
+		});
+	} catch (e) {
+		if (e instanceof SolanaAttestError) {
+			return error(res, SOLANA_ATTEST_ERROR_STATUS[e.code] || 500, e.code, e.message);
+		}
+		throw e;
+	}
+
+	const { recordEvent } = await import('../../_lib/usage.js');
+	recordEvent({
+		userId: user.id, agentId: agent.id, kind: 'solana_validation', tool: 'glb-schema',
+		status: 'ok', meta: { network, signature: result.signature, passed: result.passed, deduped: result.status === 'deduped' },
+	});
+
+	return json(res, result.status === 'deduped' ? 200 : 201, {
+		ok: true,
+		passed: result.passed,
+		signature: result.signature,
+		proof_hash: result.proofHash,
+		proof_uri: result.proofUri,
+		model_sha256: result.modelSha256,
+		kind: result.kind,
+		subkind: SUBKIND_GLB_SCHEMA,
+		validator: result.validator,
+		network,
+		asset_pubkey,
+		deduped: result.status === 'deduped',
+		explorer: `https://explorer.solana.com/tx/${result.signature}${network === 'devnet' ? '?cluster=devnet' : ''}`,
+	});
+});
+
+// ── solana-validation (read: latest + history of glTF/schema validations) ──────
+
+export const handleValidation = wrap(async (req, res) => {
+	if (cors(req, res, { methods: 'GET,OPTIONS', origins: '*' })) return;
+	if (!method(req, res, ['GET'])) return;
+
+	const rl = await limits.authIp(clientIp(req));
+	if (!rl.success) return rateLimited(res, rl);
+
+	const url     = new URL(req.url, `http://${req.headers.host}`);
+	const asset   = url.searchParams.get('asset');
+	const network = url.searchParams.get('network') === 'mainnet' ? 'mainnet' : 'devnet';
+	const limit   = Math.min(Number(url.searchParams.get('limit') || 25), 200);
+	const force   = url.searchParams.get('refresh') === '1';
+
+	if (!asset) return error(res, 400, 'validation_error', 'asset query param required');
+	try { new PublicKey(asset); } catch { return error(res, 400, 'validation_error', 'invalid asset pubkey'); }
+
+	// Refresh-on-demand so a just-recorded validation is visible immediately.
+	let [cursor] = await sql`select last_indexed_at from solana_attestations_cursor where agent_asset = ${asset} limit 1`;
+	if (!cursor || force) {
+		const [a] = await sql`select wallet_address as owner from agent_identities where meta->>'sol_mint_address' = ${asset} and deleted_at is null limit 1`;
+		try { await crawlAgentAttestations({ agentAsset: asset, network, ownerWallet: a?.owner || null }); } catch {}
+		[cursor] = await sql`select last_indexed_at from solana_attestations_cursor where agent_asset = ${asset} limit 1`;
+	}
+
+	const rows = await sql`
+		select signature, slot, block_time, attester, payload, verified, revoked, disputed
+		from solana_attestations
+		where agent_asset = ${asset} and network = ${network}
+		  and kind = 'threews.validation.v1'
+		  and payload->>'subkind' = ${SUBKIND_GLB_SCHEMA}
+		  and revoked = false
+		order by slot desc nulls first, block_time desc
+		limit ${limit}
+	`;
+
+	const history = rows.map((r) => ({
+		signature: r.signature,
+		slot: r.slot,
+		block_time: r.block_time,
+		validator: r.attester,
+		passed: r.payload?.passed === true,
+		proof_hash: r.payload?.proof_hash || null,
+		proof_uri: r.payload?.proof_uri || null,
+		model_sha256: r.payload?.model_sha256 || null,
+		verified: r.verified,
+		disputed: r.disputed,
+		explorer: `https://explorer.solana.com/tx/${r.signature}${network === 'devnet' ? '?cluster=devnet' : ''}`,
+	}));
+
+	return json(res, 200, {
+		agent: asset,
+		network,
+		kind: SUBKIND_GLB_SCHEMA,
+		latest: history[0] || null,
+		count: history.length,
+		history,
+		last_indexed_at: cursor?.last_indexed_at || null,
+	}, { 'cache-control': 'public, max-age=30', 'access-control-allow-origin': '*' });
+});
+
 // ── solana-metadata ──────────────────────────────────────────────────────────
 
 export const handleMetadata = wrap(async (req, res) => {
@@ -268,6 +416,12 @@ export const handleCard = wrap(async (req, res) => {
 		if (s) token_stats = { mint: s.mint, network: s.network, graduated: s.graduated, bonding_curve: s.bonding_curve, amm: s.amm, last_signature: s.last_signature, last_signature_at: s.last_signature_at, recent_tx_count: s.recent_tx_count, refreshed_at: s.refreshed_at };
 	} catch {}
 
+	let validation = null;
+	try {
+		const [v] = await sql`select signature, attester, payload, block_time from solana_attestations where agent_asset = ${asset} and network = ${network} and kind = 'threews.validation.v1' and payload->>'subkind' = ${SUBKIND_GLB_SCHEMA} and revoked = false order by slot desc nulls first, block_time desc limit 1`;
+		if (v) validation = { passed: v.payload?.passed === true, proof_hash: v.payload?.proof_hash || null, proof_uri: v.payload?.proof_uri || null, validator: v.attester, signature: v.signature, validated_at: v.block_time };
+	} catch {}
+
 	return json(res, 200, {
 		schema_version: '1.0',
 		name: a.name,
@@ -293,6 +447,7 @@ export const handleCard = wrap(async (req, res) => {
 			a2a_paid: `${origin}/api/agents/a2a-paid`,
 			attestations: `${origin}/api/agents/solana-attestations?asset=${asset}&network=${network}`,
 			reputation: `${origin}/api/agents/solana-reputation?asset=${asset}&network=${network}`,
+			validation: `${origin}/api/agents/solana-validation?asset=${asset}&network=${network}`,
 			...(token_stats ? { quote: `${origin}/api/pump/quote?mint=${asset}&network=${network}`, price_history: `${origin}/api/agents/solana-price-history?asset=${asset}&network=${network}` } : {}),
 		},
 		attestation: {
@@ -301,6 +456,7 @@ export const handleCard = wrap(async (req, res) => {
 			memo_program: 'MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr',
 			usage: 'Sign an SPL Memo tx with one of the published schemas as JSON, including this asset_pubkey as a non-signer key.',
 		},
+		...(validation ? { validation } : {}),
 		...(pumpfun ? { pumpfun } : {}),
 		...(token_stats ? { token_stats } : {}),
 	}, { 'cache-control': 'public, max-age=120', 'access-control-allow-origin': '*' });
@@ -561,7 +717,28 @@ export const handleRegisterConfirm = wrap(async (req, res) => {
 
 	await sql`delete from agent_registrations_pending where user_id=${user.id} and payload->>'asset_pubkey'=${asset_pubkey}`;
 
-	return json(res, 201, { ok: true, agent: { ...agent, home_url: `${env.APP_ORIGIN}/agent/${agent.id}` }, sol_mint_address: asset_pubkey, tx_signature, network });
+	// Best-effort glTF/schema validation attestation, recorded on-chain by the
+	// platform validator. Mirrors the EVM auto-validation path: a failure here
+	// (missing key, RPC trouble, no avatar GLB) must never fail the registration.
+	let validation = null;
+	try {
+		if (avatar_id) {
+			const [av] = await sql`select storage_key from avatars where id = ${avatar_id} and deleted_at is null limit 1`;
+			if (av?.storage_key) {
+				const r = await attestValidationSolana({
+					network,
+					agentAsset: asset_pubkey,
+					glbUrl: publicUrl(av.storage_key),
+					validatedAt: new Date().toISOString(),
+				});
+				validation = { passed: r.passed, signature: r.signature, proof_hash: r.proofHash, deduped: r.status === 'deduped' };
+			}
+		}
+	} catch (e) {
+		validation = { error: e.code || 'validation_failed' };
+	}
+
+	return json(res, 201, { ok: true, agent: { ...agent, home_url: `${env.APP_ORIGIN}/agent/${agent.id}` }, sol_mint_address: asset_pubkey, tx_signature, network, ...(validation ? { validation } : {}) });
 });
 
 // ── solana-collection-metadata ─────────────────────────────────────────────────

@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-15T03:22:25.663Z",
+	"generated_at": "2026-06-15T03:51:37.984Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -14,6 +14,17 @@
 			"link": "/pump-dashboard",
 			"tags": [
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-15",
+			"type": "update",
+			"title": "Agent reputation now reflects a real pump.fun track record",
+			"summary": "An agent's pump.fun behavior now feeds its reputation and shows on its passport. When the wallet behind an agent graduates a token, claims creator fees, makes a whale-sized buy, or launches a coin, that moment is recorded as a typed signal — graduating a token counts for more than a routine claim, and a flagged or brand-new-account claim counts against. These signals roll up into the agent's Solana reputation score and appear on the public agent passport, readable by anyone without a wallet. The live pump.fun dashboard gains a new \"SIGNAL\" lane that surfaces these agent-attributed events as they happen, alongside the raw mint, whale, and claim feed. The processor behind this used to sit idle unless an optional external service was configured; it now runs continuously off the platform's own live pump.fun stream with no external dependency, records only genuinely new events so nothing is double-counted, and attributes each one to the agent behind the wallet.",
+			"link": "/pump-dashboard",
+			"tags": [
+				"improvement",
+				"fix"
 			]
 		},
 		{
@@ -40,12 +51,63 @@
 		{
 			"date": "2026-06-15",
 			"type": "update",
+			"title": "Buy and sell USDC-paired coins straight from the trade widget",
+			"summary": "The in-world trade widget now speaks both currencies. Open Buy on a coin and the widget reads its real pairing from the chain: a SOL coin asks for SOL exactly as before, while a USDC-paired coin denominates the amount in USDC, shows your wallet's USDC balance, and prices and settles the trade in USDC. A new Sell tab lets you sell a coin you hold back to its quote asset — pick 25%, 50%, or Max of your balance, see the live payout, and sign once; for USDC coins the payout account is opened for you automatically in the same transaction. Every state is handled: not enough USDC offers a one-tap Add-funds flow, a moved price explains your slippage, and a cancelled signature is quietly acknowledged. The whole flow is your own wallet, signed in your browser, with a Solscan link the moment it lands.",
+			"link": "/play",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-15",
+			"type": "update",
+			"title": "Clearer launch & trade errors, and a graduated badge on coins",
+			"summary": "When a token launch or an in-world trade can't go through, the app now tells you exactly why and what to do next — \"Not enough SOL to cover the launch + network fees,\" \"Price moved beyond your slippage limit,\" \"You cancelled the signature in your wallet,\" or \"Couldn't reach the Solana network\" — instead of a single catch-all \"Connection error.\" Coins also show their lifecycle at a glance: the trade panel carries a badge marking whether a coin is still on its bonding curve or has graduated to the PumpSwap AMM, so a graduated coin is unmistakable. Backed by new end-to-end browser tests that drive the full four-step launch flow and the buy/sell widget so this conversion path can't silently break.",
+			"link": "/pump-dashboard",
+			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-15",
+			"type": "update",
 			"title": "Launchpad Studio: pick your avatar from your own agents and the gallery",
 			"summary": "Building a launchpad in Launchpad Studio (three.ws/launchpad) no longer means hunting down a model URL by hand. The avatar picker now shows three sections: your own three.ws agents (when you're signed in), the platform avatar gallery with a Show more button to browse deeper, and a collapsed Or enter a URL field for power users who want to paste a custom .glb. Thumbnails load lazily, the selected avatar updates the live 3D preview instantly, and your choice is saved with the published page.",
 			"link": "/launchpad",
 			"tags": [
 				"feature",
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-15",
+			"type": "update",
+			"title": "Live coin status — price, market cap and graduation — now unified across the platform",
+			"summary": "The launches feed, agent profile token panels, and the in-world agent coin card now share one live coin-status display, so every place that shows a coin reads the same numbers from the same source. Launch cards now stream the coin's real logo, USD price, market cap, a graduation progress ring and time since launch — not just market cap — with the orbital fingerprint as a placeholder until the logo loads. Agent profiles show a live price-and-graduation chip in the token panel and per-coin market caps in the launch history, and the agent home card's market readout is now consistent with the rest of the platform. Each card refreshes on its own and degrades gracefully to a Retry if pump.fun is briefly unreachable.",
+			"link": "/launches",
+			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-15",
+			"type": "update",
+			"title": "On-chain model validation for Solana agents",
+			"summary": "Solana agents now get the same verifiable, on-chain glTF/model validation that EVM agents get from the ValidationRegistry — no contract to deploy. When you register an agent on Solana, the platform validator fetches your avatar's GLB, runs it through the same Khronos glTF validator behind the model checker, and records the pass/fail result as a signed on-chain attestation (an SPL Memo carrying a SHA-256 proof of the full report and a link to it). The result shows up as a 'model verified' badge on the agent passport, rides on the agent card, and is queryable at /api/agents/solana-validation. Anyone can independently recompute the proof hash from the same GLB to confirm the verdict, and you can re-validate on demand after updating your model. Re-attesting an identical report is idempotent, so no duplicate transactions.",
+			"link": null,
+			"tags": [
+				"feature",
+				"security"
+			]
+		},
+		{
+			"date": "2026-06-15",
+			"type": "update",
+			"title": "Pump dashboard alerts now run server-side — fire across devices even with the tab closed",
+			"summary": "Alert rules moved from your browser to our servers, so they fire whether or not a dashboard tab is open and follow you across every device you sign in on. Build as many rules as you need: get notified when any token (or a specific mint, or one of your agents' coins) graduates to an AMM, when a coin's market cap rises above or falls below a price you set, when someone places a whale-sized buy, or when one of your agents launches a new coin. Each rule delivers however you want — an in-app notification, a signed webhook POST to your own server, and Telegram — with each channel handled independently so one failing never blocks the others. Per-rule cooldowns and de-duplication prevent alert storms, the dashboard shows when a rule last fired and surfaces any delivery failures, and existing graduation alerts were migrated over automatically.",
+			"link": "/pump-dashboard",
+			"tags": [
+				"feature"
 			]
 		},
 		{
@@ -125,12 +187,34 @@
 		{
 			"date": "2026-06-15",
 			"type": "update",
+			"title": "three.ws can now register itself on-chain on Solana",
+			"summary": "Alongside its ERC-8004 identity, three.ws can now mint its own agent on Solana — as a Metaplex Core asset in the official \"three.ws Agents\" collection, exactly the way agents you deploy through the platform are registered. A one-command tool builds the platform's 3D Agent Card, verifies the avatar's SHA-256 against the exact GLB bytes served (so the model can't be silently swapped), pins the metadata, mints the asset into the collection, and writes the result back into the public discovery documents at three.ws/.well-known so any wallet, explorer, or agent can resolve and verify three.ws. The discovery card and its schema now carry Solana identities (CAIP-10) alongside EVM ones, and the platform agent's on-chain badge links straight to its Solana passport.",
+			"link": "/.well-known/agent-registration.json",
+			"tags": [
+				"feature",
+				"infra"
+			]
+		},
+		{
+			"date": "2026-06-15",
+			"type": "update",
 			"title": "three.ws now registers itself as an on-chain agent (ERC-8004)",
 			"summary": "The platform that helps you put your agents on-chain now does the same for itself. three.ws publishes a 3D Agent Card — a verifiable manifest of its name, its default 3D avatar, and its A2A/MCP/x402 service endpoints — at three.ws/.well-known/3d-agent-card.json, and ships a one-command tool that mints the platform agent in the canonical ERC-8004 IdentityRegistry on Base (with a Base Sepolia rehearsal first). The card cryptographically commits to the avatar: the SHA-256 in the card matches the exact GLB bytes served, so any indexer or wallet can independently verify the model hasn't been swapped. Other agents and directories can now discover and trust three.ws the same way three.ws lets them be discovered.",
 			"link": null,
 			"tags": [
 				"feature",
 				"infra"
+			]
+		},
+		{
+			"date": "2026-06-15",
+			"type": "update",
+			"title": "USDC-paired agent coins now record and display correct trade amounts",
+			"summary": "Coins launched against USDC are now tracked in the right currency end to end. Every buy and sell records which quote asset it actually used and how much of it moved — USDC amounts in USDC, SOL amounts in SOL — instead of quietly storing a USDC trade as if it were SOL and reporting a price and market cap that were off by orders of magnitude. Portfolios now subtotal holdings separately by quote asset, so your SOL positions and USDC positions each get their own value, cost basis, and unrealized P&L with no more mixing of mismatched units. Existing SOL trades are unchanged, and historical rows were backfilled as SOL-paired so nothing shifts.",
+			"link": null,
+			"tags": [
+				"fix",
+				"feature"
 			]
 		},
 		{

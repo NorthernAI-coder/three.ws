@@ -1684,13 +1684,32 @@ function normalize(rec, avatar) {
 		// the requester is the owner — see api/agents.js decorate(row, isOwner).
 		isOwner: !!rec.user_id,
 		// On-chain ERC-8004 identifiers for the validation attestation badge.
-		// Present only for EVM-registered agents (Solana token agents have no
-		// erc8004_agent_id, so the validation badge is correctly skipped for them).
-		chainId: Number(onchain?.chain_id ?? rec.chain_id) || null,
-		erc8004AgentId: rec.erc8004_agent_id != null ? String(rec.erc8004_agent_id) : null,
+		// Owner responses carry chain_id / erc8004_agent_id directly; public
+		// responses carry them through the canonical `onchain` block (caip2 chain +
+		// onchain_id). Resolved for EVM agents only — Solana token agents have no
+		// ValidationRegistry record, so the badge is correctly skipped for them.
+		...erc8004Ids(rec, onchain),
 		glbUrl: rec.avatar_glb_url || onchain?.body_uri || meta.glb_url || null,
 		rawMetadata: rec,
 	};
+}
+
+/** Resolve { chainId, erc8004AgentId } from owner or public on-chain fields (EVM only). */
+function erc8004Ids(rec, onchain) {
+	const caip2Match = /^eip155:(\d+)$/.exec(String(onchain?.chain || ''));
+	const isEvm = onchain
+		? onchain.family === 'evm' || !!caip2Match
+		: rec.chain_id != null && rec.erc8004_agent_id != null;
+	if (!isEvm) return { chainId: null, erc8004AgentId: null };
+
+	const chainId = Number(rec.chain_id ?? onchain?.chain_id ?? caip2Match?.[1]) || null;
+	const agentId =
+		rec.erc8004_agent_id != null
+			? String(rec.erc8004_agent_id)
+			: onchain?.onchain_id != null
+				? String(onchain.onchain_id)
+				: null;
+	return { chainId, erc8004AgentId: agentId };
 }
 
 // Agents and avatars live in separate tables with separate UUIDs — an agent

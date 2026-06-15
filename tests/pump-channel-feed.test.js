@@ -5,11 +5,13 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const mintsMock = vi.fn();
 const whalesMock = vi.fn();
 const claimsMock = vi.fn();
+const signalsMock = vi.fn();
 
 vi.mock('../api/_lib/channel-feed-sources.js', () => ({
 	getMints: (...a) => mintsMock(...a),
 	getWhales: (...a) => whalesMock(...a),
 	getClaims: (...a) => claimsMock(...a),
+	getSignals: (...a) => signalsMock(...a),
 }));
 
 vi.mock('../api/_lib/rate-limit.js', () => ({
@@ -52,9 +54,11 @@ describe('channel-feed endpoint', () => {
 		mintsMock.mockReset();
 		whalesMock.mockReset();
 		claimsMock.mockReset();
+		signalsMock.mockReset();
 		mintsMock.mockResolvedValue([]);
 		whalesMock.mockResolvedValue([]);
 		claimsMock.mockResolvedValue([]);
+		signalsMock.mockResolvedValue([]);
 	});
 
 	it('returns 200 with items array', async () => {
@@ -165,5 +169,45 @@ describe('channel-feed endpoint', () => {
 
 		const body = JSON.parse(res.body);
 		expect(body.items).toEqual([]);
+	});
+
+	it('includes agent-attributed signals in the default feed', async () => {
+		signalsMock.mockResolvedValueOnce([
+			{
+				signature: 'signal:gradtx:graduation',
+				tx_signature: 'gradtx',
+				mint: 'GM',
+				signal_kind: 'graduation',
+				weight: 0.3,
+				agent_name: 'Atlas',
+				summary: 'Atlas — graduated a token (+0.3)',
+				timestamp: 5000,
+			},
+		]);
+
+		const res = mockRes();
+		await handler(mockReq(), res);
+
+		const body = JSON.parse(res.body);
+		const sig = body.items.find((i) => i.kind === 'signal');
+		expect(sig).toBeTruthy();
+		expect(sig.signature).toBe('signal:gradtx:graduation');
+		expect(sig.signal_kind).toBe('graduation');
+	});
+
+	it('kinds=mint excludes the signal lane', async () => {
+		mintsMock.mockResolvedValueOnce([{ signature: 'mint1', mint: 'M1', timestamp: 100 }]);
+		signalsMock.mockResolvedValueOnce([
+			{ signature: 'signal:x:launch', tx_signature: 'x', signal_kind: 'launch', timestamp: 200 },
+		]);
+
+		const res = mockRes();
+		await handler(mockReq('?kinds=mint'), res);
+
+		const body = JSON.parse(res.body);
+		expect(body.items.some((i) => i.kind === 'signal')).toBe(false);
+		expect(body.items.some((i) => i.kind === 'mint')).toBe(true);
+		// signal source must not even be queried when filtered out
+		expect(signalsMock).not.toHaveBeenCalled();
 	});
 });

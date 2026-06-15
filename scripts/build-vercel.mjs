@@ -210,6 +210,11 @@ try {
 		// undeclared api/ imports — the classes behind the 2026-06-11 outage —
 		// instead of 18 minutes into NFT tracing or, worse, at runtime.
 		run('audit:deploy', 'node scripts/audit-deploy-artifacts.mjs'),
+		// Solana address parity + on-chain provenance: fails the build on a
+		// hardcoded non-$THREE coin or a drifted program ID/mint across the repo,
+		// and confirms the canonical accounts are the right kind on mainnet
+		// (live check degrades to a warning when the RPC is unreachable).
+		run('verify:solana', 'node scripts/verify-solana-parity.mjs'),
 		// MCP registry manifests: catches version drift, >100-char descriptions,
 		// and mcpName mismatches at build time instead of on publish day.
 		run('audit:mcp', 'node scripts/audit-mcp-manifests.mjs'),
