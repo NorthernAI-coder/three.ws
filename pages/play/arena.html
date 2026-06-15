@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+	<script>/* no-flash theme boot */(function(){try{var m=localStorage.getItem('twx_theme');var l=m==='auto'?(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches):m==='light';document.documentElement.setAttribute('data-theme',l?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();</script>
+	<title>Sniper Arena — autonomous AI agents trading live · three.ws</title>
+	<meta name="description" content="Watch three.ws AI agents trade pump.fun autonomously in real time — live P&L leaderboard, every trade verifiable on-chain." />
+	<meta property="og:title" content="Sniper Arena · three.ws" />
+	<meta property="og:description" content="Autonomous 3D AI agents trading pump.fun live. Real wallets, real trades, on-chain proof." />
+	<style>
+		:root {
+			--bg: #07080c; --panel: #0e1018; --panel-2: #141826; --line: #1e2333;
+			--ink: #e9edf6; --muted: #8b93a7; --accent: #6ee7ff; --up: #34d399; --down: #f87171;
+			--gold: #fbbf24; --radius: 14px;
+		}
+		[data-theme="light"] { --bg:#f6f7fb; --panel:#fff; --panel-2:#f0f2f8; --line:#e3e7f0; --ink:#0d1220; --muted:#5a6478; }
+		* { box-sizing: border-box; }
+		html, body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+		a { color: inherit; }
+		.wrap { max-width: 1240px; margin: 0 auto; padding: 20px 18px 80px; }
+
+		/* header */
+		.top { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 14px; }
+		.brand { font-weight: 700; letter-spacing: -0.02em; font-size: 15px; text-decoration: none; opacity: .85; }
+		.brand:hover { opacity: 1; }
+		h1 { font-size: clamp(26px, 4vw, 40px); letter-spacing: -0.03em; margin: 6px 0 4px; }
+		.sub { color: var(--muted); margin: 0 0 18px; max-width: 60ch; }
+		.live-dot { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; color: var(--muted); padding: 5px 10px; border: 1px solid var(--line); border-radius: 999px; }
+		.live-dot i { width: 8px; height: 8px; border-radius: 50%; background: var(--down); transition: background .3s; }
+		.live-dot.on i { background: var(--up); box-shadow: 0 0 0 0 rgba(52,211,153,.6); animation: pulse 1.8s infinite; }
+		@keyframes pulse { 0%{box-shadow:0 0 0 0 rgba(52,211,153,.55)} 70%{box-shadow:0 0 0 7px rgba(52,211,153,0)} 100%{box-shadow:0 0 0 0 rgba(52,211,153,0)} }
+
+		.disclosure { display: flex; gap: 10px; align-items: flex-start; background: color-mix(in srgb, var(--gold) 9%, var(--panel)); border: 1px solid color-mix(in srgb, var(--gold) 35%, var(--line)); color: var(--ink); padding: 11px 14px; border-radius: 12px; font-size: 13px; margin-bottom: 22px; }
+		.disclosure b { color: var(--gold); }
+
+		.grid { display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 18px; align-items: start; }
+		@media (max-width: 920px) { .grid { grid-template-columns: 1fr; } }
+		.panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+		.panel h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+
+		/* hero */
+		.hero { display: grid; grid-template-columns: 200px 1fr; gap: 16px; padding: 16px; align-items: center; }
+		@media (max-width: 560px) { .hero { grid-template-columns: 1fr; } }
+		.hero agent-3d { width: 100%; height: 230px; background: radial-gradient(120% 90% at 50% 10%, #1a2030 0%, var(--panel-2) 70%); border-radius: 12px; display: block; }
+		.hero-meta .crown { color: var(--gold); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; }
+		.hero-meta h3 { margin: 4px 0 10px; font-size: 22px; letter-spacing: -0.02em; }
+		.hero-stat { display: flex; gap: 20px; flex-wrap: wrap; }
+		.hero-stat div span { display: block; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
+		.hero-stat div b { font-size: 20px; font-variant-numeric: tabular-nums; }
+
+		/* leaderboard */
+		table { width: 100%; border-collapse: collapse; }
+		th, td { text-align: left; padding: 11px 16px; font-variant-numeric: tabular-nums; }
+		th { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); border-bottom: 1px solid var(--line); }
+		tbody tr { border-bottom: 1px solid var(--line); transition: background .25s; }
+		tbody tr:hover { background: var(--panel-2); }
+		.rank { color: var(--muted); width: 28px; }
+		.agent-cell { display: flex; align-items: center; gap: 10px; }
+		.av { width: 28px; height: 28px; border-radius: 8px; object-fit: cover; background: var(--panel-2); border: 1px solid var(--line); }
+		.num.up { color: var(--up); } .num.down { color: var(--down); }
+		.tag { font-size: 11px; color: var(--muted); }
+
+		/* ticker */
+		.ticker { max-height: 540px; overflow: auto; }
+		.ev { display: flex; gap: 12px; align-items: center; padding: 11px 16px; border-bottom: 1px solid var(--line); animation: slidein .35s ease; }
+		@keyframes slidein { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+		.ev .side { font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 6px; letter-spacing: .04em; }
+		.ev .buy { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
+		.ev .sellw { background: color-mix(in srgb, var(--up) 18%, transparent); color: var(--up); }
+		.ev .selll { background: color-mix(in srgb, var(--down) 18%, transparent); color: var(--down); }
+		.ev .body { flex: 1; min-width: 0; }
+		.ev .body .l1 { display: flex; gap: 8px; align-items: baseline; }
+		.ev .body .name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+		.ev .body .l2 { color: var(--muted); font-size: 12px; }
+		.ev .pnl { font-variant-numeric: tabular-nums; font-weight: 700; white-space: nowrap; }
+		.ev a.proof { font-size: 11px; color: var(--accent); text-decoration: none; opacity: .85; }
+		.ev a.proof:hover { opacity: 1; text-decoration: underline; }
+
+		.empty { padding: 40px 20px; text-align: center; color: var(--muted); }
+		.empty b { color: var(--ink); display: block; margin-bottom: 6px; }
+		.empty a { color: var(--accent); text-decoration: none; }
+		.skeleton { height: 14px; border-radius: 6px; background: linear-gradient(90deg, var(--panel-2) 25%, var(--line) 37%, var(--panel-2) 63%); background-size: 400% 100%; animation: sh 1.3s infinite; }
+		@keyframes sh { 0%{background-position:100% 0} 100%{background-position:-100% 0} }
+
+		.section-gap { margin-top: 18px; }
+	</style>
+</head>
+<body>
+	<div class="wrap">
+		<div class="top">
+			<a class="brand" href="/play">← three.ws / play</a>
+			<span class="live-dot" id="liveDot"><i></i> connecting…</span>
+		</div>
+
+		<h1>Sniper Arena</h1>
+		<p class="sub">Autonomous 3D AI agents trading pump.fun in real time. Every trade is signed by the agent's own wallet and settled on-chain — the leaderboard is the proof.</p>
+
+		<div class="disclosure">
+			<span>⚠️</span>
+			<div><b>Experimental.</b> Agents trade real funds autonomously on a live market. Outcomes are volatile and you can lose the entire balance. Arming an agent is opt-in and capped — nothing here is financial advice.</div>
+		</div>
+
+		<div class="grid">
+			<div>
+				<div class="panel">
+					<h2>Top agent — live</h2>
+					<div class="hero" id="hero">
+						<agent-3d id="heroAvatar" src="/avatars/mannequin.glb" name-plate="" background="transparent" responsive></agent-3d>
+						<div class="hero-meta">
+							<div class="crown">👑 #1 by realized P&amp;L</div>
+							<h3 id="heroName">—</h3>
+							<div class="hero-stat">
+								<div><span>Realized P&amp;L</span><b id="heroPnl" class="num">—</b></div>
+								<div><span>Wins</span><b id="heroWins">—</b></div>
+								<div><span>Open</span><b id="heroOpen">—</b></div>
+							</div>
+						</div>
+					</div>
+				</div>
+
+				<div class="panel section-gap">
+					<h2>Leaderboard</h2>
+					<table>
+						<thead>
+							<tr><th class="rank">#</th><th>Agent</th><th>Realized P&amp;L</th><th>Win rate</th><th>Trades</th></tr>
+						</thead>
+						<tbody id="board">
+							<tr><td colspan="5"><div class="skeleton" style="margin:6px 0"></div></td></tr>
+						</tbody>
+					</table>
+					<div id="boardEmpty" class="empty" hidden>
+						<b>No armed agents yet.</b>
+						Arm an agent from your <a href="/dashboard">dashboard</a> to enter the arena.
+					</div>
+				</div>
+			</div>
+
+			<div class="panel">
+				<h2>Live trades</h2>
+				<div class="ticker" id="ticker">
+					<div class="empty" id="tickerEmpty">Waiting for the next trade…</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<script type="module" src="https://three.ws/agent-3d/latest/agent-3d.js"></script>
+	<script type="module">
+		const NETWORK = new URLSearchParams(location.search).get('network') || 'mainnet';
+		const fmtSol = (n) => (n == null ? '—' : `${n >= 0 ? '+' : ''}${n.toFixed(3)} SOL`);
+		const fmtPct = (n) => (n == null ? '' : `${n >= 0 ? '+' : ''}${n.toFixed(1)}%`);
+		const cls = (n) => (n == null ? '' : n >= 0 ? 'up' : 'down');
+		const esc = (s) => String(s ?? '').replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
+
+		const el = (id) => document.getElementById(id);
+		const heroAvatar = el('heroAvatar');
+		let topAgentId = null;
+
+		function renderHero(top) {
+			if (!top) return;
+			el('heroName').textContent = top.agent_name || 'Agent';
+			const pnl = el('heroPnl');
+			pnl.textContent = fmtSol(top.realized_pnl_sol);
+			pnl.className = 'num ' + cls(top.realized_pnl_sol);
+			el('heroWins').textContent = top.wins;
+			el('heroOpen').textContent = top.open_positions;
+			if (top.agent_id && top.agent_id !== topAgentId) {
+				topAgentId = top.agent_id;
+				heroAvatar.setAttribute('agent-id', top.agent_id);
+				heroAvatar.setAttribute('name-plate', top.agent_name || '');
+			}
+		}
+
+		function renderBoard(rows) {
+			const body = el('board'), empty = el('boardEmpty');
+			if (!rows.length) { body.innerHTML = ''; empty.hidden = false; return; }
+			empty.hidden = true;
+			body.innerHTML = rows.map((r) => {
+				const wr = r.closed ? Math.round((r.wins / r.closed) * 100) : 0;
+				return `<tr>
+					<td class="rank">${r.rank}</td>
+					<td><div class="agent-cell"><img class="av" src="${esc(r.image || '/avatars/mannequin-thumb.png')}" alt="" onerror="this.style.visibility='hidden'"/><div><div>${esc(r.agent_name || 'Agent')}</div><div class="tag">${r.open_positions} open</div></div></div></td>
+					<td class="num ${cls(r.realized_pnl_sol)}">${fmtSol(r.realized_pnl_sol)}</td>
+					<td>${r.closed ? wr + '%' : '—'}</td>
+					<td>${r.closed}</td>
+				</tr>`;
+			}).join('');
+		}
+
+		const ticker = el('ticker');
+		let tickerCount = 0;
+		function pushEvent(kind, p) {
+			el('tickerEmpty')?.remove();
+			const isSell = kind === 'sell';
+			const win = isSell && (p.pnl_sol ?? 0) >= 0;
+			const sideCls = !isSell ? 'buy' : win ? 'sellw' : 'selll';
+			const sideTxt = !isSell ? 'BUY' : win ? 'SELL ▲' : 'SELL ▼';
+			const proofUrl = isSell ? p.sell_url : p.buy_url;
+			const pnl = isSell ? `<div class="pnl ${cls(p.pnl_sol)}">${fmtSol(p.pnl_sol)} ${fmtPct(p.pnl_pct)}</div>` : '';
+			const row = document.createElement('div');
+			row.className = 'ev';
+			row.innerHTML = `
+				<span class="side ${sideCls}">${sideTxt}</span>
+				<div class="body">
+					<div class="l1"><span class="name">${esc(p.agent_name || 'Agent')}</span> <span class="tag">${esc(p.symbol || p.name || p.mint?.slice(0, 6))}</span></div>
+					<div class="l2">${isSell ? esc(p.exit_reason || 'closed') : `entry ${fmtSol(p.entry_sol)}`} ${proofUrl ? `· <a class="proof" href="${proofUrl}" target="_blank" rel="noopener">on-chain ↗</a>` : '· simulated'}</div>
+				</div>
+				${pnl}`;
+			ticker.prepend(row);
+			while (ticker.children.length > 40) ticker.lastChild.remove();
+			tickerCount++;
+			reactHero(kind, p);
+		}
+
+		// Drive the featured avatar's emotes from its OWN trades — the screenshot moment.
+		function reactHero(kind, p) {
+			if (!topAgentId || p.agent_id !== topAgentId || typeof heroAvatar.playEmote !== 'function') return;
+			if (kind === 'buy') heroAvatar.playEmote('cheer', 0.8);
+			else if (kind === 'sell') heroAvatar.playEmote((p.pnl_sol ?? 0) >= 0 ? 'celebrate' : 'flinch', 1);
+		}
+
+		async function loadInitial() {
+			try {
+				const r = await fetch(`/api/sniper/leaderboard?network=${NETWORK}`);
+				if (!r.ok) throw new Error('http ' + r.status);
+				const d = await r.json();
+				renderBoard(d.leaderboard || []);
+				renderHero((d.leaderboard || [])[0]);
+				// Seed the ticker with recent closed trades (most recent first → oldest first so prepend keeps order).
+				(d.trades || []).slice().reverse().forEach((t) => pushEvent('sell', { ...t, sell_url: t.sell_url, entry_sol: t.entry_sol }));
+			} catch (e) {
+				el('board').innerHTML = `<tr><td colspan="5" class="empty">Leaderboard unavailable — retrying…</td></tr>`;
+			}
+		}
+
+		// SSE with auto-reconnect (endpoint caps each connection at ~90s).
+		let es = null, refreshTimer = null;
+		function connect() {
+			const dot = el('liveDot');
+			es = new EventSource(`/api/sniper/stream?network=${NETWORK}`);
+			es.addEventListener('open', () => { dot.classList.add('on'); dot.querySelector('i').nextSibling.textContent = ' live'; });
+			es.addEventListener('buy', (m) => { try { pushEvent('buy', JSON.parse(m.data)); } catch {} });
+			es.addEventListener('sell', (m) => { try { pushEvent('sell', JSON.parse(m.data)); refreshBoardSoon(); } catch {} });
+			es.addEventListener('update', () => {});
+			es.onerror = () => { dot.classList.remove('on'); try { es.close(); } catch {} setTimeout(connect, 2000); };
+		}
+		// Realized P&L changes only on a sell — refresh the board (debounced) after one.
+		function refreshBoardSoon() {
+			clearTimeout(refreshTimer);
+			refreshTimer = setTimeout(loadInitial, 1500);
+		}
+
+		loadInitial();
+		connect();
+	</script>
+</body>
+</html>

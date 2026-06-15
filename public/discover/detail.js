@@ -134,7 +134,6 @@ function render(item) {
 				: escapeHtml(item.author.handle);
 			metaItems.push(`<span class="detail-meta-item">By ${authorLink}</span>`);
 		}
-		if (item.viewCount) metaItems.push(`<span class="detail-meta-item">${item.viewCount.toLocaleString()} views</span>`);
 		if (item.createdAt) metaItems.push(`<span class="detail-meta-item">Added ${fmtDate(item.createdAt)}</span>`);
 	}
 	metaRow.innerHTML = metaItems.join('');
@@ -251,7 +250,6 @@ function render(item) {
 		}
 		if (item.source) rows.push(['Source', escapeHtml(item.source)]);
 		rows.push(['Added', fmtDate(item.createdAt)]);
-		if (item.viewCount) rows.push(['Views', item.viewCount.toLocaleString()]);
 		dl.innerHTML = rows.map(([k, v]) => `<dt>${escapeHtml(k)}</dt><dd class="detail-dl-normal">${v}</dd>`).join('');
 	}
 
