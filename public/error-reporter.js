@@ -123,6 +123,12 @@
 			if (target && target !== window && target.nodeName) {
 				const url = target.src || target.href;
 				if (!url || typeof url !== 'string') return null;
+				// The element wires its own onerror handler (gallery posters swap to
+				// a gradient tile, avatars fall back to an initial) — the app already
+				// owns and recovers from this load failure, so reporting it again as
+				// an uncaught resource error is double-counting transient, handled
+				// noise. Genuinely unhandled resource 404s still surface.
+				if (typeof target.onerror === 'function') return null;
 				return {
 					type: 'resource',
 					tag: target.nodeName.toLowerCase(),
