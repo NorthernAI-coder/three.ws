@@ -146,6 +146,104 @@ function unconfigured(res) {
 	});
 }
 
+// Free NVIDIA NIM TRELLIS text→3D lane, extracted so it serves two callers:
+//   1. the draft default (backendId === 'nvidia'), and
+//   2. the never-dead-end fallback the paid image-intermediate TRELLIS lane
+//      degrades to when Replicate is unreachable / over-quota (HTTP 429/5xx).
+// Returns true once it has written a 200 response, or false when the lane is
+// itself unavailable (so the caller can fall through to the next lane). Prompt
+// is required — NVCF is text-only; photo submissions never reach here.
+async function runNvidiaTextLane({ req, res, ip, prompt, aspect, tier, path }) {
+	let submitted;
+	try {
+		const nv = await loadNvidiaProvider();
+		submitted = await nv.textTo3d({ prompt, tier });
+	} catch (err) {
+		console.warn(`[forge] free NVIDIA NIM lane unavailable: ${err?.message || err}`);
+		return false;
+	}
+
+	const backendId = 'nvidia';
+	const provenance = {
+		mode: 'text_to_3d',
+		path,
+		tier: tier.id,
+		backend: backendId,
+		prompt: prompt || null,
+		preview_image_url: null,
+		reference_image_urls: [],
+		eta_seconds: estimateEtaSeconds({ backendId, tier }),
+		estimated_credits: estimateCredits({ backendId, path, tier }),
+	};
+
+	const clientKey = clientKeyFrom(req);
+	// Synchronous completion: NVCF already persisted the GLB to R2. Record a
+	// finished creation (a synthetic handle lets materialize copy + flip it to
+	// done) and return it so the client skips polling entirely.
+	if (!submitted.taskId && submitted.resultGlbUrl) {
+		const syntheticJob = randomUUID().replace(/-/g, '');
+		const creationId = await createCreation({
+			clientKey,
+			ipHash: hashIp(ip),
+			prompt,
+			aspect,
+			previewImageUrl: null,
+			replicateJobId: syntheticJob,
+			textToImageModel: null,
+			viewsRequested: 0,
+			viewsUsed: null,
+			multiview: false,
+			backend: backendId,
+			tier: tier.id,
+			path,
+		});
+		const durable = await materializeCreation({
+			replicateJobId: syntheticJob,
+			clientKey,
+			glbUrl: submitted.resultGlbUrl,
+		});
+		json(res, 200, {
+			job_id: null,
+			creation_id: durable?.id ?? creationId,
+			status: 'done',
+			glb_url: durable?.glbUrl ?? submitted.resultGlbUrl,
+			durable: Boolean(durable),
+			...provenance,
+		});
+		return true;
+	}
+
+	// Async: wrap the NVCF request id in a forge token so the poll routes back to
+	// the NIM provider, and store it as the job handle.
+	const token = encodeJobToken({
+		provider: 'nvidia',
+		kind: submitted.kind,
+		taskId: submitted.taskId,
+	});
+	const creationId = await createCreation({
+		clientKey,
+		ipHash: hashIp(ip),
+		prompt,
+		aspect,
+		previewImageUrl: null,
+		replicateJobId: submitted.taskId,
+		textToImageModel: null,
+		viewsRequested: 0,
+		viewsUsed: null,
+		multiview: false,
+		backend: backendId,
+		tier: tier.id,
+		path,
+	});
+	json(res, 200, {
+		job_id: token,
+		creation_id: creationId,
+		status: 'queued',
+		...provenance,
+	});
+	return true;
+}
+
 async function startJob(req, res) {
 	const ip = clientIp(req);
 	const body = await readJson(req, 8_000).catch(() => null);
@@ -169,6 +267,11 @@ async function startJob(req, res) {
 	let path = parsePath(body);
 	const tier = resolveTier(parseTier(body));
 	let backendId = resolveBackendId({ path, tier, backend: body?.backend, userImages: isImageMode });
+	// Tracks whether the free NVIDIA NIM lane has already been attempted this
+	// request, so the paid-lane fallback below never retries a lane that just
+	// failed (draft already tries nvidia first; standard/high reach it only as a
+	// last-resort fallback when Replicate is down).
+	let nvidiaTried = false;
 
 	// The geometry path is BYOK-only — no free model does native text→geometry.
 	// So when the caller didn't explicitly pick a backend and has no key for the
@@ -496,109 +599,20 @@ async function startJob(req, res) {
 			// intermediate view) and needs no BYOK key. It serves prompt submissions
 			// on the image path as the free draft default; photo submissions never
 			// resolve here (hosted preview is text-only — see the provider header).
-			// NVCF normally returns a poll handle; on the rare synchronous completion
-			// the GLB is already in R2.
+			// The free NVIDIA NIM lane is a flaky synchronous upstream — NVCF can be
+			// unreachable, accept the job but drop the request id, or finish with no
+			// artifact, and a missing module/key throws on load. Per the free-first
+			// "AI must never fail" policy none of these may surface as a dead 502: a
+			// failure here transparently degrades to the platform image-intermediate
+			// TRELLIS lane so the zero-setup free default still returns a model. Only
+			// the unit cost changes, and only when NIM is down. Provenance reports the
+			// lane that actually ran (trellis below), so the downgrade is never silent.
 			if (backendId === 'nvidia') {
-				// The free NVIDIA NIM lane is a flaky synchronous upstream — NVCF can be
-				// unreachable, accept the job but drop the request id, or finish with no
-				// artifact (each throws status 502 in api/_providers/nvidia.js), and a
-				// missing module/key throws on load. Per the free-first "AI must never
-				// fail" policy none of these may surface as a dead 502: any failure here
-				// transparently degrades to the platform image-intermediate TRELLIS lane
-				// so the zero-setup free default still returns a model. Only the unit
-				// cost changes, and only when NIM is down. Provenance reports the lane
-				// that actually ran (trellis below), so the downgrade is never silent.
-				let submitted = null;
-				try {
-					const nv = await loadNvidiaProvider();
-					submitted = await nv.textTo3d({ prompt, tier });
-				} catch (err) {
-					console.warn(
-						`[forge] free NVIDIA NIM lane unavailable, falling back to TRELLIS: ${err?.message || err}`,
-					);
-					backendId = 'trellis';
-				}
-
-				if (submitted) {
-				const provenance = {
-					mode: 'text_to_3d',
-					path,
-					tier: tier.id,
-					backend: backendId,
-					prompt: prompt || null,
-					preview_image_url: null,
-					reference_image_urls: [],
-					eta_seconds: estimateEtaSeconds({ backendId, tier }),
-					estimated_credits: estimateCredits({ backendId, path, tier }),
-				};
-
-				const clientKey = clientKeyFrom(req);
-				// Synchronous completion: NVCF already persisted the GLB to R2. Record a
-				// finished creation (a synthetic handle lets materialize copy + flip it
-				// to done) and return it so the client skips polling entirely.
-				if (!submitted.taskId && submitted.resultGlbUrl) {
-					const syntheticJob = randomUUID().replace(/-/g, '');
-					const creationId = await createCreation({
-						clientKey,
-						ipHash: hashIp(ip),
-						prompt,
-						aspect,
-						previewImageUrl: null,
-						replicateJobId: syntheticJob,
-						textToImageModel: null,
-						viewsRequested: 0,
-						viewsUsed: null,
-						multiview: false,
-						backend: backendId,
-						tier: tier.id,
-						path,
-					});
-					const durable = await materializeCreation({
-						replicateJobId: syntheticJob,
-						clientKey,
-						glbUrl: submitted.resultGlbUrl,
-					});
-					return json(res, 200, {
-						job_id: null,
-						creation_id: durable?.id ?? creationId,
-						status: 'done',
-						glb_url: durable?.glbUrl ?? submitted.resultGlbUrl,
-						durable: Boolean(durable),
-						...provenance,
-					});
-				}
-
-				// Async: wrap the NVCF request id in a forge token so the poll routes
-				// back to the NIM provider, and store it as the job handle.
-				const token = encodeJobToken({
-					provider: 'nvidia',
-					kind: submitted.kind,
-					taskId: submitted.taskId,
-				});
-				const creationId = await createCreation({
-					clientKey,
-					ipHash: hashIp(ip),
-					prompt,
-					aspect,
-					previewImageUrl: null,
-					replicateJobId: submitted.taskId,
-					textToImageModel: null,
-					viewsRequested: 0,
-					viewsUsed: null,
-					multiview: false,
-					backend: backendId,
-					tier: tier.id,
-					path,
-				});
-				return json(res, 200, {
-					job_id: token,
-					creation_id: creationId,
-					status: 'queued',
-					...provenance,
-				});
-				}
-				// nvidia failed → backendId is now 'trellis'; fall through to the
-				// image-intermediate path below, which serves the same free draft prompt.
+				nvidiaTried = true;
+				if (await runNvidiaTextLane({ req, res, ip, prompt, aspect, tier, path })) return;
+				// nvidia failed → fall through to the image-intermediate TRELLIS path
+				// below, which serves the same free draft prompt on Replicate.
+				backendId = 'trellis';
 			}
 
 			// ── Image-intermediate path (TRELLIS default, or Hunyuan3D self-host) ────
@@ -744,6 +758,33 @@ async function startJob(req, res) {
 				message: err.message || 'The provider account is out of credits.',
 			});
 		}
+		// Last-resort free fallback: when the paid image-intermediate TRELLIS lane
+		// (Replicate) is throttled, over-quota, or unreachable, a text prompt must
+		// never dead-end — degrade to the free NVIDIA NIM lane so the default
+		// "type a prompt → get a model" flow always returns something. Honors the
+		// free-first "AI must never fail" policy; provenance reports backend:nvidia
+		// so the downgrade is visible, not silent. Image uploads have no free
+		// reconstruct fallback (NVCF is text-only), so they fall through to the
+		// designed states below. `nvidiaTried` guards against re-running a lane that
+		// already failed this request (the draft nvidia→trellis→nvidia loop).
+		const upstreamUnavailable =
+			err?.code === 'rate_limited' ||
+			err?.providerStatus === 429 ||
+			err?.code === 'provider_error' ||
+			err?.code === 'provider_unreachable' ||
+			(typeof err?.providerStatus === 'number' && err.providerStatus >= 500);
+		if (upstreamUnavailable && !isImageMode && !nvidiaTried && prompt) {
+			nvidiaTried = true;
+			console.warn(
+				`[forge] paid TRELLIS lane unavailable (${err?.providerStatus || err?.code}); degrading text→3D to free NVIDIA NIM`,
+			);
+			try {
+				if (await runNvidiaTextLane({ req, res, ip, prompt, aspect, tier, path })) return;
+			} catch (fallbackErr) {
+				console.warn(`[forge] NVIDIA NIM fallback also failed: ${fallbackErr?.message || fallbackErr}`);
+			}
+		}
+
 		// Upstream throttling is a transient 429, not a server fault — return it as
 		// such with a retry hint so the page can show a "busy, try again" state.
 		if (err?.code === 'rate_limited' || err?.providerStatus === 429) {

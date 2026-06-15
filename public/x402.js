@@ -1081,7 +1081,11 @@ class CheckoutModal {
 				accepted: accept,
 				payload: {
 					signature,
-					authorization: { from: payerAddress, to: accept.payTo, value: accept.amount, validAfter, validBefore, nonce },
+					// CDP facilitator /verify requires the EIP-3009 time bounds as
+					// decimal strings, not JSON numbers — a numeric validAfter/
+					// validBefore is rejected with "'paymentPayload' is invalid".
+					// The signature is unaffected: uint256 0 and "0" encode identically.
+					authorization: { from: payerAddress, to: accept.payTo, value: accept.amount, validAfter: String(validAfter), validBefore: String(validBefore), nonce },
 				},
 			};
 			const builderCodeBlock = buildBuilderCodeEcho(this.challenge);

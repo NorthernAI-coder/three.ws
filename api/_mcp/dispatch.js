@@ -33,7 +33,14 @@ export async function dispatch(msg, auth, req) {
 	const isNotification = id === undefined;
 
 	try {
-		if (msg.jsonrpc !== '2.0') throw rpcError(-32600, 'invalid Request');
+		// Spec-compliant clients send `jsonrpc: "2.0"`, but minimal/legacy MCP
+		// clients routinely omit it on discovery calls (tools/list, initialize).
+		// Rejecting those with -32600 broke interop and spammed the logs for no
+		// security gain — auth and pricing still gate every call. Tolerate an
+		// absent version; only reject a version that is present and wrong.
+		if (msg.jsonrpc != null && msg.jsonrpc !== '2.0') {
+			throw rpcError(-32600, 'invalid Request');
+		}
 		const method = msg.method;
 
 		if (method === 'initialize') return ok(id, await onInitialize(msg.params, auth));

@@ -109,7 +109,12 @@ export function makeDispatcher({ serverInfo, instructions, catalog, tools, logNa
 		const isNotification = id === undefined;
 
 		try {
-			if (msg.jsonrpc !== '2.0') throw rpcError(-32600, 'invalid Request');
+			// Tolerate an absent `jsonrpc` version — minimal/legacy MCP clients
+			// omit it on discovery calls; auth and pricing still gate every call.
+			// Only reject a version that is present and not "2.0".
+			if (msg.jsonrpc != null && msg.jsonrpc !== '2.0') {
+				throw rpcError(-32600, 'invalid Request');
+			}
 			const method = msg.method;
 
 			if (method === 'initialize') {

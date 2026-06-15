@@ -180,8 +180,12 @@ export function buildEip3009TypedData({ accept, payerAddress, chainId, nowSecond
 			from: payerAddress,
 			to: accept.payTo,
 			value: accept.amount,
-			validAfter,
-			validBefore,
+			// CDP facilitator /verify requires the EIP-3009 time bounds as decimal
+			// strings, not JSON numbers — a numeric validAfter/validBefore is
+			// rejected with "'paymentPayload' is invalid". The signature is
+			// unaffected: uint256 0 and "0" encode to the same 32 bytes.
+			validAfter: String(validAfter),
+			validBefore: String(validBefore),
 			nonce: authNonce,
 		},
 	};
