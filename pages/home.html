@@ -102,7 +102,7 @@
 			content: ""; position: absolute; left: 50%; top: 0; bottom: 0;
 			width: 1px; background: var(--hairline);
 		}
-		@media (max-width: 980px) { .hero { grid-template-columns: 1fr; min-height: 0; } .hero::after { display: none; } }
+		@media (max-width: 980px) { .hero { grid-template-columns: 1fr; min-height: 0; } .hero::after { display: none; } .hero-text, .hero-stage { min-width: 0; } }
 		.hero-text {
 			padding: 96px 48px 96px 72px;
 			display: flex; flex-direction: column; justify-content: center;
@@ -150,10 +150,22 @@
 		.hero-bullets li {
 			display: flex; align-items: center; gap: 12px;
 			font-size: 15px; color: var(--text-2);
+			min-width: 0;
 		}
 		.hero-bullets li::before {
 			content: ""; width: 5px; height: 5px; border-radius: 50%;
 			background: var(--text-3); flex-shrink: 0;
+		}
+		/* On phones a bullet's sentence must wrap as one paragraph. Flex would
+		   split <strong>/glossary spans into separate wrapping items, so switch
+		   the row to normal inline flow with the dot as an inline marker. */
+		@media (max-width: 560px) {
+			.hero-bullets li {
+				display: block; padding-left: 17px; position: relative;
+			}
+			.hero-bullets li::before {
+				position: absolute; left: 0; top: 0.62em; transform: translateY(-50%);
+			}
 		}
 		.hero-bullets li strong { color: var(--text); font-weight: 550; }
 		.hero-cta-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
@@ -978,6 +990,9 @@
 			text-transform: uppercase; letter-spacing: 0.10em;
 		}
 		.foot-ca-addr { opacity: .55; font-size: 10.5px; }
+		.foot-ca { min-width: 0; max-width: 100%; }
+		.foot-ca-addr { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+		@media (max-width: 480px) { .foot-inner { flex-direction: column; align-items: flex-start; } .foot-ca { width: 100%; justify-content: flex-start; } }
 
 		/* ── HERO LOADING ───────────────────────────────────────── */
 		.hero-stage-shimmer {
@@ -2443,6 +2458,26 @@
 			.har-desktop-only { display: none; }
 			.har-mobile-only { display: flex; flex-direction: column; gap: 16px; }
 		}
+
+		/* iOS auto-zooms any focused field whose font-size is < 16px. Bump every
+		   editable/focusable text field to 16px on phones — desktop sizing above
+		   is untouched. Covers chat, playground, forge, mint, memory, hex inputs. */
+		@media (max-width: 720px) {
+			.hero-chat-input,
+			.pg-input, .pg-url-path, .pg-color-hex-input,
+			.pg-editor textarea, .pg-editor pre,
+			#home-forge textarea.hf-prompt, #home-forge textarea.hf-embed-code,
+			.memory-input, .mint-card-name { font-size: 16px; }
+			/* Primary CTAs need a comfortable 44px touch target on phones. The
+			   shared .btn system runs ~37px tall by default — lift only the
+			   homepage's lead actions, leaving the desktop button height intact. */
+			.hero-cta-row .btn, .cta-card .cta-row .btn,
+			.body-drop .cta-row .btn { min-height: 44px; }
+			/* Grow the hero chat send button + input to a thumb-friendly size. */
+			.hero-chat-send { width: 38px; height: 38px; }
+			.hero-chat-send svg { width: 16px; height: 16px; }
+			.hero-chat-input { padding: 11px 0; }
+		}
 	</style>
 	<noscript><style>.reveal{opacity:1!important;transform:none!important}.hero-text>*{opacity:1!important;transform:none!important}</style></noscript>
 	<script type="module" src="https://three.ws/agent-3d/latest/agent-3d.js"></script>
@@ -3631,7 +3666,7 @@
 			<p class="block-eyebrow"><span class="num">&bull;</span>Forge</p>
 			<h2 class="block-h">Type it. <em>Hold it in 3D.</em></h2>
 			<p class="block-lede">
-				A live slice of <a href="/forge">Forge</a> — the same text-to-3D pipeline that powers the full page, on its free draft lane. Describe an object and a textured, downloadable GLB takes shape right here, usually in seconds. The full Forge adds photo input, multi-view fusion, higher quality tiers, stylize filters, and retopology.
+				A live slice of <a href="/forge">Forge</a> — the same text-to-3D pipeline that powers the full page, on its free standard lane. Describe an object and a textured, downloadable GLB takes shape right here, usually within a minute. The full Forge adds photo input, multi-view fusion, higher quality tiers, stylize filters, and retopology.
 			</p>
 		</div>
 		<div class="hf-chamber reveal reveal-d1" data-hf-chamber data-hf-state="idle">
@@ -3644,7 +3679,7 @@
 			<div class="hf-telemetry" aria-live="polite">
 				<span data-hf-tel-state>standby</span>
 				<span class="hf-elapsed" data-hf-elapsed></span>
-				<span>draft &middot; free lane</span>
+				<span>standard &middot; free lane</span>
 			</div>
 
 			<!-- Session history — real captured frames of models you forged here,
@@ -3657,7 +3692,7 @@
 
 			<div class="hf-state" data-hf-idle>
 				<h3>Nothing forged yet</h3>
-				<p>Type a description — or take the suggestion — and a real textured mesh lands here, usually in seconds.</p>
+				<p>Type a description — or take the suggestion — and a real textured mesh lands here, usually within a minute.</p>
 				<span class="hf-idle-kbd"><kbd>Tab</kbd> takes the suggestion &middot; <kbd>&#8984;&#9166;</kbd> forges</span>
 			</div>
 

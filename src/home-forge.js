@@ -1,13 +1,16 @@
 // Mini Forge — homepage slice of /forge (text → 3D, real pipeline).
 //
-// Drives the same /api/forge endpoint as the full page, pinned to the draft
-// tier so the server resolves its free lane (NVIDIA-hosted TRELLIS today):
-// seconds-fast, no vendor spend per visitor, and a far higher rate ceiling
-// than the paid bucket — the right trade for a homepage teaser. That lane
-// completes synchronously (the POST returns the finished GLB, job_id null);
-// the async job_id + poll path is kept for when the server routes elsewhere.
-// The only timer is the honest elapsed counter — progress states come from
-// real API responses.
+// Drives the same /api/forge endpoint as the full page with the exact request
+// the full page sends on its free default — the standard tier on the TRELLIS
+// image lane (platform-keyed Replicate; free to the visitor, no sign-up). That
+// lane is the reliable one: it sustains back-to-back generations where the
+// NVIDIA-hosted draft preview throttles to a "busy" 429 on its tight free-tier
+// concurrency. The server still keeps the free NVIDIA lane beneath it as an
+// automatic degrade, so a Replicate hiccup never dead-ends a visitor. That lane
+// is asynchronous (the POST returns a job_id; we poll to the finished GLB); the
+// synchronous done-on-POST branch is kept for when the server degrades to a
+// lane that returns immediately. The only timer is the honest elapsed counter —
+// progress states come from real API responses.
 //
 // Presentation: the section is a single state-reactive "chamber" —
 // [data-hf-state] on the chamber root drives the ring/floor/telemetry CSS.
@@ -312,7 +315,16 @@ async function startJob(prompt) {
 	const res = await fetch('/api/forge', {
 		method: 'POST',
 		headers: { 'content-type': 'application/json', ...CLIENT_HEADERS },
-		body: JSON.stringify({ prompt, aspect_ratio: '1:1', tier: 'draft' }),
+		// Same request the full /forge page sends on its free default: the standard
+		// tier on the TRELLIS image lane (Replicate, platform-keyed). The server
+		// degrades to the free NVIDIA lane automatically if Replicate is throttled.
+		body: JSON.stringify({
+			prompt,
+			aspect_ratio: '1:1',
+			path: 'image',
+			tier: 'standard',
+			backend: 'trellis',
+		}),
 	});
 	const data = await res.json().catch(() => ({}));
 	if (res.status === 503 || data.error === 'unconfigured') {
@@ -480,8 +492,9 @@ async function run(prompt) {
 			};
 		}
 
-		// Free draft lane: the POST itself returns the finished model (job_id
-		// null) — polling would loop on invalid_job. Async lanes return a job_id.
+		// TRELLIS returns a job_id to poll; a server degrade to a synchronous
+		// lane (NVIDIA) instead returns the finished model on the POST itself
+		// (job_id null), where polling would loop on invalid_job. Handle both.
 		const done =
 			job.status === 'done' && job.glb_url ? job : await pollUntilDone(job.job_id, seq);
 		if (pollAbort || seq !== runSeq || !done) return; // cancelled

@@ -3,6 +3,13 @@
 	"entries": [
 		{
 			"date": "2026-06-15",
+			"title": "Homepage Forge is more reliable — no more \"busy\" on the second model",
+			"summary": "The mini Forge on the homepage now runs on the same free Standard lane as the full /forge page. Before, it used the free draft preview, which has tight concurrency and would return a \"generator is busy\" message on a quick second generation. Now back-to-back prompts hold up — models still land free with no sign-up, and the platform automatically degrades to the faster free lane if the main one is throttled.",
+			"tags": ["fix"],
+			"link": "/forge"
+		},
+		{
+			"date": "2026-06-15",
 			"title": "Chat never stalls on a down AI model — instant, quiet failover",
 			"summary": "If you pick a specific AI model for the agent (say Claude) and our key for that provider is temporarily unavailable, chat now hands you an answer instantly from a healthy free model instead of pausing on the dead provider. Previously the app re-tried the unavailable provider on the very first attempt of every single message — adding a little delay each time and filling our logs with repeat warnings. Now a provider with a key or billing problem is set aside for a few minutes after the first failure and skipped up front, even when it was the one you explicitly chose, so the next message goes straight to a model that works. Free-first, always a working fallback.",
 			"tags": ["improvement"],

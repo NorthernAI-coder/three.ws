@@ -728,8 +728,9 @@ body.gallery-page {
 		gap: 8px;
 	}
 	.gallery-hero-btn {
-		font-size: 12px;
-		padding: 9px 16px;
+		font-size: 13px;
+		padding: 11px 16px;
+		min-height: 44px;
 	}
 	.gallery-controls-top {
 		flex-direction: column;
@@ -786,6 +787,19 @@ body.gallery-page {
 		min-height: 40px;
 		font-size: 12px;
 		padding: 8px 10px;
+	}
+	/* Empty state: lighter padding + wrapping, full-width CTAs on phones. */
+	.gallery-empty {
+		padding: 24px 18px;
+		margin: 32px auto 20px;
+	}
+	.gallery-empty .gallery-clear-filters,
+	.gallery-empty .gallery-clear-cta {
+		display: inline-flex;
+		justify-content: center;
+		min-height: 44px;
+		align-items: center;
+		margin: 6px 4px 0;
 	}
 }
 

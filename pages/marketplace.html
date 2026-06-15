@@ -2461,6 +2461,102 @@
 			.market-memory-live-cta a:hover {
 				text-decoration: underline;
 			}
+
+			/* ──────────────────────────────────────────────────────────────
+			   Mobile corrections (≤600px). Supplements the responsive rules in
+			   marketplace.css / marketplace-v2.css for the gaps that file can't
+			   reach from this page. Loaded last in source order, so these win at
+			   equal specificity without needing !important. Desktop untouched.
+			   ────────────────────────────────────────────────────────────── */
+			@media (max-width: 600px) {
+				/* Listing grid: the shared marketplace.css rules resolve to
+				   repeat(2,1fr) below 480px, but the avatar cards carry a
+				   min-content (3D thumb + long names) that lets each 1fr track
+				   grow past half the viewport — so the second column is pushed
+				   off-screen and clipped. Force a single, full-width column and
+				   pin tracks to minmax(0,1fr) so a card can never exceed the
+				   container. Covers every .market-grid surface (discovery, mine,
+				   purchases, skills, similar/related). */
+				.market-grid {
+					grid-template-columns: minmax(0, 1fr);
+				}
+				/* Animation grid keeps its own compact two-up layout — it uses
+				   wide horizontal cards, not square 3D thumbs, so two fit fine. */
+				.market-grid.market-anim-grid {
+					grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+				}
+				/* Grid items default to min-width:auto (=min-content); pin to 0
+				   so a long unbroken agent name can't blow the track wider than
+				   the column. */
+				.market-grid > * {
+					min-width: 0;
+				}
+
+				/* iOS zooms the page when a focused input's font-size is < 16px.
+				   These controls still sit at 13–14px from the desktop sheet;
+				   bump them to 16px on phones to kill the zoom-on-focus jump.
+				   (Other inputs on the page are already 16px.) */
+				#market-search,
+				#market-sort,
+				#skills-sort,
+				#plugin-search,
+				#sf-category,
+				#market-import-json {
+					font-size: 16px;
+				}
+
+				/* Filter / price / model-category chip rows: give each row full
+				   width so they wrap as tidy bands instead of colliding, and let
+				   the chips themselves wrap rather than overflow. */
+				.market-topbar .market-filter-chips {
+					width: 100%;
+					flex-wrap: wrap;
+				}
+				/* Comfortable tap targets for chips and pills on touch. */
+				.market-chip {
+					min-height: 36px;
+					padding: 7px 14px;
+				}
+
+				/* Horizontal "top picks" rail: trim the card width so two-plus
+				   peek into view on a 320px screen, signalling it scrolls. */
+				.market-theme-pick {
+					flex: 0 0 116px;
+					width: 116px;
+				}
+				.market-theme-pick-stage {
+					height: 96px;
+				}
+
+				/* Hero (when shown above 480px): stack actions full-width so the
+				   CTAs are easy to tap and never clip. */
+				.market-hero-actions {
+					width: 100%;
+				}
+				.market-hero-actions > .market-hero-cta,
+				.market-hero-actions > .market-hero-secondary {
+					flex: 1 1 100%;
+					text-align: center;
+					justify-content: center;
+				}
+
+				/* Detail tabs: keep the 44px touch height while allowing the row
+				   to scroll horizontally (already set in marketplace.css). */
+				.market-tabs button {
+					min-height: 44px;
+				}
+			}
+
+			/* Very small phones (≤360px): the avatar detail / submit modal action
+			   buttons and sale rows want full width so nothing crowds or clips. */
+			@media (max-width: 360px) {
+				.avatar-modal-sale .sale-row {
+					flex-wrap: wrap;
+				}
+				.avatar-modal-sale .sale-row .sale-currency {
+					align-self: stretch;
+				}
+			}
 		</style>
 		<meta property="og:type" content="website" />
 		<meta property="og:title" content="Agent Marketplace · three.ws" />
