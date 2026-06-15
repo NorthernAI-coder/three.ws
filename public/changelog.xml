@@ -223,6 +223,14 @@
 			<description>Every Solana agent passport already showed its on-chain reputation — now you can add to it. A new &quot;Rate this agent&quot; panel lets anyone with a Solana wallet (Phantom or Solflare) leave a 1–5 score, with an optional public note, written on-chain as a signed attestation — no account needed. You can also back your rating with a SOL stake (from 0.001 SOL) sent to the agent's owner for an economically-weighted vouch. Submitting is guarded the obvious ways: you can't rate your own agent, scores are limited to 1–5, the minimum stake is enforced, and re-rating asks you to confirm before it updates your previous score. The moment your transaction confirms, the passport re-reads the chain on demand instead of waiting for the next indexing pass, so your rating shows up in the reputation summary within seconds.</description>
 		</item>
 		<item>
+			<title>Redesigned the $THREE economy page — watch it move, verify it on-chain</title>
+			<link>https://three.ws/three</link>
+			<guid isPermaLink="false">2026-06-15:Redesigned the $THREE economy page — watch it move, verify it on-chain</guid>
+			<pubDate>Mon, 15 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The /three economy page is rebuilt from the ground up. A live visualization called The Flow shows value entering the protocol and splitting in real time to the treasury, to creators, and back to holders — there is no burn lane, because nothing is ever destroyed (you can pause it any time). The headline number is the total $THREE returned to holders, funded by real usage fees — never minted, never a tax on your transfers. Treasury and holder-rewards wallets link straight to Solscan so you can check every figure yourself, and each distribution shows up as a row with its on-chain transaction. A holder-tier ladder shows your live progress to the next tier; an interactive pricing explorer applies your tier discount as you browse; and a rare-name studio prices any *.threews.sol name by rarity. Built for clarity and trust: real data only, tabular figures, full keyboard and reduced-motion support.</description>
+		</item>
+		<item>
 			<title>Refer friends with a 3D membership card</title>
 			<link>https://three.ws/dashboard/referrals</link>
 			<guid isPermaLink="false">2026-06-15:Refer friends with a 3D membership card</guid>

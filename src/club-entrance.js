@@ -407,7 +407,12 @@ async function start(canvasEl) {
 	// place fades out and the next one fades in for you to keep walking.
 	function advance() {
 		nearDoor = false;
-		setPhase(isFinalVenue() ? 'arriving' : 'swapOut');
+		if (isFinalVenue()) {
+			setJourneyStep(SEQUENCE.length); // light the Stage step
+			setPhase('arriving');
+		} else {
+			setPhase('swapOut');
+		}
 	}
 
 	// Backed out of the cover card without paying — resume walking the alley.
@@ -591,7 +596,7 @@ async function start(canvasEl) {
 		composer.dispose();
 		renderer.dispose();
 		try { canvasEl.remove(); } catch {}
-		showHint(false); showJoystick(false); showPrompt(false);
+		showHint(false); showJoystick(false); showPrompt(false); showJourney(false);
 	}
 }
 
