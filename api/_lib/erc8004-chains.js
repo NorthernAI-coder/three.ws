@@ -10,6 +10,28 @@
 export const IDENTITY_REGISTRY_MAINNET = '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432';
 export const IDENTITY_REGISTRY_TESTNET = '0x8004A818BFB912233c491871b3d84c89A494BD9e';
 
+// ValidationRegistry — CREATE2-deterministic, one address per network class.
+// Testnet is live (Base Sepolia and siblings). Mainnet is pending task 01
+// (contracts/script/DeployValidationMainnet.s.sol); leave '' until bytecode is
+// confirmed on every chain, then fill it here AND in src/erc8004/abi.js +
+// sdk/src/erc8004/abi.js (task 05 parity). Never list an address with no code.
+export const VALIDATION_REGISTRY_MAINNET = '';
+export const VALIDATION_REGISTRY_TESTNET = '0x8004Cb1BF31DAf7788923b405b754f57acEB4272';
+
+/**
+ * Minimal human-readable ValidationRegistry ABI for server reads + attestations.
+ * Mirrors contracts/src/ValidationRegistry.sol. The Validation tuple order is
+ * load-bearing — keep it in lockstep with the struct.
+ */
+export const VALIDATION_REGISTRY_ABI = [
+	'function recordValidation(uint256 agentId, bool passed, bytes32 proofHash, string proofURI, string kind) external',
+	'function isValidator(address) external view returns (bool)',
+	'function owner() external view returns (address)',
+	'function getValidationCount(uint256 agentId) external view returns (uint256)',
+	'function getLatestByKind(uint256 agentId, string kind) external view returns (tuple(address validator, bool passed, bytes32 proofHash, string proofURI, uint64 timestamp, string kind))',
+	'event ValidationRecorded(uint256 indexed agentId, address indexed validator, bool passed, bytes32 proofHash, string kind)',
+];
+
 /**
  * Chains where the ERC-8004 Identity Registry is deployed. Ordered so the most
  * active chains are crawled first when the cron has a time budget.
@@ -230,7 +252,22 @@ export const CHAINS = [
 	},
 ];
 
+// Decorate each chain with its ValidationRegistry address (deterministic by
+// network class). Mainnet entries carry '' until task 01 confirms bytecode.
+for (const c of CHAINS) {
+	c.validationRegistry = c.testnet ? VALIDATION_REGISTRY_TESTNET : VALIDATION_REGISTRY_MAINNET;
+}
+
 export const CHAIN_BY_ID = Object.fromEntries(CHAINS.map((c) => [c.id, c]));
+
+/**
+ * ValidationRegistry address for a chain, or '' when not yet deployed there.
+ * @param {number} chainId
+ * @returns {string}
+ */
+export function validationRegistryFor(chainId) {
+	return CHAIN_BY_ID[chainId]?.validationRegistry || '';
+}
 
 export function tokenExplorerUrl(chainId, agentId) {
 	const c = CHAIN_BY_ID[chainId];

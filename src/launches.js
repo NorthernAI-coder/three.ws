@@ -403,22 +403,27 @@ function launchCard(launch, index, { featured = false } = {}) {
 		);
 	}
 
-	// Abstract orbital glyph seeded from the mint — the coin's visual fingerprint
-	// alongside the live market panel below it.
-	const art = el('div', { class: 'lx-coin-art' });
-	art.appendChild(mintIdenticon(launch.mint));
+	// Abstract orbital glyph seeded from the mint — the coin's deterministic
+	// visual fingerprint. On mainnet it becomes the placeholder behind the real
+	// pump.fun logo (the shared widget crossfades the logo over it); on devnet,
+	// which has no market data, it's the standalone avatar.
+	const identicon = mintIdenticon(launch.mint);
 
-	// Live market panel. Mainnet coins stream price / market cap / graduation
-	// through the shared coin-status widget (single /api/pump/coin fetch, mapped
-	// and formatted once). Devnet mints have no pump.fun market data, so they
-	// fall back to a static identity line.
+	// Live market panel. Mainnet coins stream name / logo / price / market cap /
+	// graduation / time through the shared coin-status widget (single
+	// /api/pump/coin fetch, mapped and formatted once). Devnet mints have no
+	// pump.fun market data, so they fall back to a static identity line.
 	const market = el('div', { class: 'lx-market' });
 	if (isDevnet) {
+		const art = el('div', { class: 'lx-coin-art' }, [identicon]);
 		market.appendChild(
 			el('div', { class: 'lx-market-devnet' }, [
-				el('h3', { class: 'lx-coin-name', text: launch.name || launch.symbol || 'Unnamed coin' }),
-				el('span', { class: 'lx-coin-symbol', text: launch.symbol ? `$${launch.symbol}` : shortAddr(launch.mint) }),
-				el('span', { class: 'lx-badge', text: 'Devnet · no market data' }),
+				art,
+				el('div', { class: 'lx-coin-id' }, [
+					el('h3', { class: 'lx-coin-name', text: launch.name || launch.symbol || 'Unnamed coin' }),
+					el('span', { class: 'lx-coin-symbol', text: launch.symbol ? `$${launch.symbol}` : shortAddr(launch.mint) }),
+				]),
+				el('time', { class: 'lx-time', datetime: launch.created_at, text: timeAgo(launch.created_at) }),
 			]),
 		);
 	}
@@ -428,9 +433,8 @@ function launchCard(launch, index, { featured = false } = {}) {
 		featured && launch.symbol
 			? el('span', { class: 'lx-feat-ghost', 'aria-hidden': 'true', text: `$${launch.symbol}` })
 			: null,
-		el('div', { class: 'lx-card-top' }, [art, market]),
+		market,
 		badges,
-		el('time', { class: 'lx-time', datetime: launch.created_at, text: timeAgo(launch.created_at) }),
 		agentChip(launch.agent),
 		el('div', { class: 'lx-card-actions' }, actions),
 		el('span', { class: 'lx-mint', text: launch.mint, title: launch.mint }),
@@ -438,7 +442,9 @@ function launchCard(launch, index, { featured = false } = {}) {
 
 	reveal(card, index);
 	if (!isDevnet) {
-		cardStatusHandles.add(mountCoinStatus(market, launch.mint, { variant: 'card' }));
+		cardStatusHandles.add(
+			mountCoinStatus(market, launch.mint, { variant: 'card', placeholder: identicon }),
+		);
 	}
 	return card;
 }

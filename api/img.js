@@ -28,9 +28,15 @@
 import { wrap, cors, method, error, rateLimited } from './_lib/http.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 import { fetchModel } from './_lib/fetch-model.js';
+import { safeFetchJson } from './_lib/ssrf.js';
 
 const MAX_BYTES = 8 * 1024 * 1024; // 8 MB — generous for token art, bounded for abuse
 const TIMEOUT_MS = 10_000;
+// Token launch metadata (pump.fun et al.) is a small JSON doc whose `image`
+// field is the real art. Resolving it server-side lets the browser load token
+// images same-origin without the per-host CORS failures that a client-side
+// `fetch(metadataUri)` hits. Kept short — the JSON is tiny.
+const META_TIMEOUT_MS = 5_000;
 // Overall budget for ALL gateway attempts combined. The function's Vercel
 // maxDuration is 30s; trying 4 IPFS gateways at 10s each can reach 40s and get
 // the invocation killed BEFORE the placeholder redirect below ever runs —
@@ -128,6 +134,25 @@ function placeholderSvg(seed) {
 </svg>`;
 }
 
+// Resolve a token's artwork URL from its metadata JSON document. The metadata
+// is creator-controlled, so we (a) fetch through the SSRF-hardened JSON client,
+// (b) accept only an http(s) image URL — data: images are rejected so we never
+// serve attacker-supplied inline content from our own origin, and (c) return
+// null on any failure so the caller falls through to the on-brand placeholder.
+async function resolveImageFromMeta(metaUri) {
+	try {
+		const { ok, data } = await safeFetchJson(metaUri, { timeoutMs: META_TIMEOUT_MS });
+		if (!ok || !data || typeof data !== 'object') return null;
+		const candidate = data.image || data.image_url || data.imageUrl || data.imageUri || null;
+		if (typeof candidate !== 'string') return null;
+		const trimmed = candidate.trim();
+		if (!trimmed || /^data:/i.test(trimmed)) return null;
+		return trimmed;
+	} catch {
+		return null;
+	}
+}
+
 export default wrap(async function handler(req, res) {
 	if (cors(req, res, { methods: 'GET,OPTIONS', credentials: false })) return;
 	if (!method(req, res, ['GET'])) return;
@@ -137,13 +162,20 @@ export default wrap(async function handler(req, res) {
 	if (!rl.success) return rateLimited(res, rl, 'too many image requests');
 
 	const url = new URL(req.url, 'http://x');
-	const target = url.searchParams.get('url');
-	const seed = url.searchParams.get('seed') || target || '';
-	if (!target) return error(res, 400, 'missing_url', 'url query parameter is required');
+	const directUrl = url.searchParams.get('url');
+	const metaUri = url.searchParams.get('meta');
+	const seed = url.searchParams.get('seed') || directUrl || metaUri || '';
+
+	// Accept one of: ?url=<image>, ?meta=<metadata-json>, or ?seed=<x> (placeholder
+	// only). Callers streaming launch feeds pass `meta` so the real artwork is
+	// resolved server-side; a missing image still yields the branded placeholder.
+	if (!directUrl && !metaUri && !seed) {
+		return error(res, 400, 'missing_url', 'one of url, meta, or seed is required');
+	}
 
 	// data: URIs are not proxyable targets — redirecting to attacker-supplied
 	// data: content is an open-redirect/content-injection vector. Reject.
-	if (/^data:/i.test(target.trim())) {
+	if (directUrl && /^data:/i.test(directUrl.trim())) {
 		return error(
 			res,
 			400,
@@ -152,9 +184,17 @@ export default wrap(async function handler(req, res) {
 		);
 	}
 
+	// Resolve the artwork URL: an explicit ?url wins; otherwise read it from the
+	// token metadata document server-side. A null result simply falls through to
+	// the placeholder below — the loader always receives a valid image.
+	let target = directUrl;
+	if (!target && metaUri) {
+		target = await resolveImageFromMeta(metaUri);
+	}
+
 	let image = null;
 	const deadline = Date.now() + TOTAL_BUDGET_MS;
-	for (const candidate of candidates(target)) {
+	for (const candidate of target ? candidates(target) : []) {
 		// Shrink each attempt's timeout to fit the remaining overall budget so the
 		// loop never overruns into the function's hard kill. Once too little time
 		// is left to bother, stop and fall through to the placeholder.

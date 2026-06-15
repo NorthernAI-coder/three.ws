@@ -120,6 +120,17 @@ export const env = {
 	get A2A_PAYER_PRIVATE_KEY() {
 		return opt('A2A_PAYER_PRIVATE_KEY');
 	},
+
+	// ── ERC-8004 ValidationRegistry attestations ────────────────────────────
+	// EVM private key for the platform validator that signs glTF/schema
+	// validation attestations and calls recordValidation() on each chain. MUST
+	// be allow-listed via addValidator(<addr>) by the registry owner (task 01
+	// step 6) on every chain it attests on, and funded with gas. Never a
+	// payment-receiving key. Unset → the attestor returns a designed ops error
+	// (`validator_key_not_configured`) and registration proceeds unvalidated.
+	get VALIDATOR_PRIVATE_KEY() {
+		return opt('VALIDATOR_PRIVATE_KEY') || opt('ERC8004_VALIDATOR_PRIVATE_KEY');
+	},
 	// Solana secret key for the autonomous payer wallet that signs SPL
 	// TransferChecked payments when an agent pays a peer under a mandate on
 	// Solana — the primary A2A settlement rail. Accepts the same encodings as

@@ -378,7 +378,6 @@
 
   const RPC_ENDPOINT = 'wss://pumpportal.fun/api/data';
   const MAX_FEED_ITEMS = 100;
-  const META_FETCH_TIMEOUT_MS = 4000;
 
   // Reconnect backoff: 2s → 4s → 8s → 16s → 32s → cap 60s, reset on open.
   // After MAX_RECONNECT_ATTEMPTS consecutive failures we stop auto-retrying
@@ -558,15 +557,20 @@
     const card = document.createElement('article');
     card.className = 'token-card';
 
-    // Placeholder avatar first (deterministic, no external call); the real
-    // image is fetched from the metadata URI and swapped in if it resolves.
+    // Real token art via the same-origin image proxy. /api/img resolves the
+    // creator metadata JSON server-side (no client CORS), follows IPFS gateway
+    // fallbacks, and always returns a valid image — on-brand placeholder art
+    // (seeded by symbol) when the source is missing or unreachable.
     const img = document.createElement('img');
     img.loading = 'lazy';
-    img.alt = name;
-    img.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(token.symbol || token.name || 'T')}&background=1a1a1a&color=00ff41&bold=true`;
-    img.addEventListener('error', () => {
-      img.src = `https://ui-avatars.com/api/?name=T&background=1a1a1a&color=00ff41`;
-    }, { once: true });
+    img.decoding = 'async';
+    img.width = 50;
+    img.height = 50;
+    img.alt = `${name} token art`;
+    const seed = token.symbol || token.name || token.mint || 'token';
+    img.src = isHttpUrl(token.uri)
+      ? `/api/img?meta=${encodeURIComponent(token.uri)}&seed=${encodeURIComponent(seed)}`
+      : `/api/img?seed=${encodeURIComponent(seed)}`;
 
     const info = document.createElement('div');
     info.className = 'token-info';
@@ -606,27 +610,6 @@
 
     // Agent reacts to the new launch.
     playAnimation('Wave', { loop: false });
-
-    // Resolve the real token image from its metadata JSON, then swap it in.
-    hydrateImage(token.uri, img);
-  }
-
-  async function hydrateImage(metaUri, img) {
-    if (!isHttpUrl(metaUri)) return;
-    try {
-      const ctrl = new AbortController();
-      const tid = setTimeout(() => ctrl.abort(), META_FETCH_TIMEOUT_MS);
-      const r = await fetch(metaUri, { signal: ctrl.signal });
-      clearTimeout(tid);
-      if (!r.ok) return;
-      const meta = await r.json();
-      const src = meta && meta.image;
-      if (!isHttpUrl(src)) return;
-      // Preload before swapping so we never flash a broken image.
-      const probe = new Image();
-      probe.onload = () => { img.src = src; };
-      probe.src = src;
-    } catch { /* keep the placeholder avatar */ }
   }
 
   function setStatus(text, className) {

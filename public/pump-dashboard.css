@@ -448,6 +448,15 @@ html.pump-dashboard-page body {
 .pd-table tbody tr:hover { background: rgba(255, 255, 255, 0.02); }
 .pd-table tbody tr:last-child td { border-bottom: none; }
 
+/* Deep-linked agent row (?agent=<id>) — subtle accent wash + left marker. */
+.pd-table tbody tr.is-focused {
+	background: color-mix(in srgb, var(--accent) 12%, transparent);
+	box-shadow: inset 3px 0 0 var(--accent);
+}
+.pd-table tbody tr.is-focused:hover {
+	background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
 .pd-table .pd-addr {
 	font-family: var(--font-mono);
 	font-size: 0.78rem;

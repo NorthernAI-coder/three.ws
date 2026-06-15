@@ -1016,12 +1016,11 @@ async function handleSell(req, res, id) {
 	if (loaded.error) return error(res, loaded.error.status, loaded.error.code, loaded.error.msg);
 	const { keypair } = loaded;
 
-	const [{ PumpSdk, OnlinePumpSdk, getSellSolAmountFromTokenAmount, isLegacyQuoteMint }, BN] =
-		await Promise.all([
-			import('@pump-fun/pump-sdk'),
-			import('bn.js').then((m) => m.default || m),
-		]);
-	const { slippagePercentFromBps, resolveTokenProgramForMintOwner } =
+	const [{ PumpSdk, OnlinePumpSdk, getSellSolAmountFromTokenAmount }, BN] = await Promise.all([
+		import('@pump-fun/pump-sdk'),
+		import('bn.js').then((m) => m.default || m),
+	]);
+	const { slippagePercentFromBps, resolveTokenProgramForMintOwner, resolveCustodialQuote } =
 		await import('../../_lib/pump-trade-args.js');
 
 	const conn = solanaConnection(body.network);
@@ -1031,7 +1030,8 @@ async function handleSell(req, res, id) {
 	const tokenAmount = new BN(body.tokenAmount);
 
 	let instructions;
-	let expectedSolStr;
+	let quote; // resolved quote asset { isSol, isUsdc, quoteSymbol, quoteMint }
+	let expectedQuoteStr; // proceeds, in the coin's quote-asset atomic units
 	try {
 		const mintInfo = await conn.getAccountInfo(mint);
 		if (!mintInfo) return error(res, 404, 'mint_not_found', 'mint not found on this network');
@@ -1042,38 +1042,79 @@ async function handleSell(req, res, id) {
 			online.fetchFeeConfig().catch(() => null),
 			online.fetchSellState(mint, keypair.publicKey, tokenProgram),
 		]);
-		// Custodial sells are SOL-denominated; stable-paired proceeds would land
-		// as USDC the endpoint does not account for. Reject cleanly.
-		if (state.bondingCurve.quoteMint && !isLegacyQuoteMint(state.bondingCurve.quoteMint)) {
+
+		// Resolve the coin's quote asset from the on-chain curve. Proceeds settle
+		// in that asset — SOL into the wallet, USDC into the wallet's USDC ATA.
+		quote = resolveCustodialQuote(state.bondingCurve?.quoteMint, body.network);
+		if (!quote.isSol && !quote.isUsdc) {
 			return error(
 				res,
 				409,
-				'usdc_paired_coin',
-				'coin is stable-paired (non-SOL quote) — custodial sells are SOL-denominated; use /api/pump/sell-prep',
+				'unsupported_quote',
+				`coin is ${quote.quoteSymbol}-paired — custodial trading supports SOL and USDC quote assets only`,
 			);
 		}
-		const expectedSol = getSellSolAmountFromTokenAmount({
+
+		// Expected proceeds in quote atomics; the percent slippage shaves this into
+		// a real min-output floor instead of 0 (the SDK reads the curve's mayhem
+		// flag for fee-recipient selection internally).
+		const expectedQuote = getSellSolAmountFromTokenAmount({
 			global,
 			feeConfig,
 			mintSupply: state.bondingCurve.tokenTotalSupply,
 			bondingCurve: state.bondingCurve,
 			amount: tokenAmount,
 		});
-		expectedSolStr = expectedSol.toString();
-		// Unified v2 sell: percent slippage shaves the expected output into a
-		// real min_sol_output floor, and the SDK reads the curve's mayhem flag
-		// for fee-recipient selection (the legacy builder needed it passed in).
-		instructions = await sdk.sellV2Instructions({
-			global,
-			bondingCurveAccountInfo: state.bondingCurveAccountInfo,
-			bondingCurve: state.bondingCurve,
-			mint,
-			user: keypair.publicKey,
-			amount: tokenAmount,
-			quoteAmount: expectedSol,
-			slippage: slippagePercentFromBps(body.slippageBps, { defaultBps: 500 }),
-			tokenProgram,
-		});
+		expectedQuoteStr = expectedQuote.toString();
+
+		const ixs = [];
+		let quoteTokenProgram;
+		if (quote.isUsdc) {
+			// sell_v2 pays proceeds into the seller's quote ATA, which the program
+			// does NOT init (SELL.md #16) — create it idempotently first.
+			const quoteMintPk = new PublicKey(quote.quoteMint);
+			const quoteInfo = await conn.getAccountInfo(quoteMintPk);
+			if (!quoteInfo)
+				return error(
+					res,
+					404,
+					'quote_mint_not_found',
+					`quote mint ${quote.quoteMint} not found on ${body.network}`,
+				);
+			quoteTokenProgram = resolveTokenProgramForMintOwner(quoteInfo.owner);
+			const spl = await import('@solana/spl-token');
+			const userQuoteAta = spl.getAssociatedTokenAddressSync(
+				quoteMintPk,
+				keypair.publicKey,
+				true,
+				quoteTokenProgram,
+			);
+			ixs.push(
+				spl.createAssociatedTokenAccountIdempotentInstruction(
+					keypair.publicKey,
+					userQuoteAta,
+					keypair.publicKey,
+					quoteMintPk,
+					quoteTokenProgram,
+				),
+			);
+		}
+
+		ixs.push(
+			...(await sdk.sellV2Instructions({
+				global,
+				bondingCurveAccountInfo: state.bondingCurveAccountInfo,
+				bondingCurve: state.bondingCurve,
+				mint,
+				user: keypair.publicKey,
+				amount: tokenAmount,
+				quoteAmount: expectedQuote,
+				slippage: slippagePercentFromBps(body.slippageBps, { defaultBps: 500 }),
+				tokenProgram,
+				...(quote.isUsdc ? { quoteTokenProgram } : {}),
+			})),
+		);
+		instructions = ixs;
 	} catch (err) {
 		console.error('[pumpfun/sell] build failed', err);
 		return error(
@@ -1107,7 +1148,9 @@ async function handleSell(req, res, id) {
 			${JSON.stringify({
 				mint: body.mint,
 				tokenAmount: body.tokenAmount,
-				expectedSolLamports: expectedSolStr,
+				expectedQuoteAtomics: expectedQuoteStr,
+				quoteMint: quote.quoteMint,
+				quoteSymbol: quote.quoteSymbol,
 				slippageBps: body.slippageBps,
 				signature,
 				network: body.network,
@@ -1121,13 +1164,18 @@ async function handleSell(req, res, id) {
 			select id from pump_agent_mints where mint=${body.mint} and network=${body.network} limit 1
 		`;
 		if (m) {
+			// sol_amount stays lamports (SOL proceeds only); quote_amount carries the
+			// proceeds in the coin's own quote asset for both SOL and USDC.
+			const solProceeds = quote.isSol ? expectedQuoteStr || null : null;
 			await sql`
 				INSERT INTO pump_agent_trades
-					(mint_id, user_id, wallet, direction, route, sol_amount, token_amount, slippage_bps, tx_signature, network)
+					(mint_id, user_id, wallet, direction, route, sol_amount, token_amount, slippage_bps, tx_signature, network,
+					 quote_mint, quote_symbol, quote_amount)
 				VALUES
 					(${m.id}, ${auth.userId}, ${keypair.publicKey.toBase58()}, 'sell',
-					 'bonding_curve', ${expectedSolStr || null}, ${body.tokenAmount},
-					 ${body.slippageBps || null}, ${signature}, ${body.network})
+					 'bonding_curve', ${solProceeds}, ${body.tokenAmount},
+					 ${body.slippageBps || null}, ${signature}, ${body.network},
+					 ${quote.quoteMint}, ${quote.quoteSymbol}, ${expectedQuoteStr || null})
 				ON CONFLICT (tx_signature, network) DO NOTHING
 			`;
 		}
@@ -1140,7 +1188,9 @@ async function handleSell(req, res, id) {
 			signature,
 			mint: body.mint,
 			tokenAmount: body.tokenAmount,
-			expectedSolLamports: expectedSolStr,
+			...(quote.isSol
+				? { expectedSolLamports: expectedQuoteStr }
+				: { expectedUsdcAtomics: expectedQuoteStr, quoteMint: quote.quoteMint }),
 			explorer: `https://solscan.io/tx/${signature}${body.network === 'devnet' ? '?cluster=devnet' : ''}`,
 		},
 	});
@@ -1151,7 +1201,10 @@ async function handleSell(req, res, id) {
 const swapBodySchema = z.object({
 	mint: z.string().min(32).max(64),
 	side: z.enum(['buy', 'sell']),
+	// A buy spends the pool's quote asset: solAmount for SOL pools, usdcAmount for
+	// USDC pools. The resolved on-chain quote decides which is required.
 	solAmount: z.number().nonnegative().max(1000).optional(),
+	usdcAmount: z.number().nonnegative().max(1_000_000).optional(),
 	tokenAmount: z.string().regex(/^\d+$/).optional(),
 	slippageBps: z.number().int().min(0).max(10_000).default(500),
 	network: z.enum(['mainnet', 'devnet']).default('mainnet'),
@@ -1172,8 +1225,8 @@ async function handleSwap(req, res, id) {
 	} catch (e) {
 		return error(res, 400, 'validation_error', e.errors?.[0]?.message || 'invalid body');
 	}
-	if (body.side === 'buy' && !body.solAmount)
-		return error(res, 400, 'validation_error', 'side=buy requires solAmount');
+	if (body.side === 'buy' && !body.solAmount && !body.usdcAmount)
+		return error(res, 400, 'validation_error', 'side=buy requires solAmount or usdcAmount');
 	if (body.side === 'sell' && !body.tokenAmount)
 		return error(res, 400, 'validation_error', 'side=sell requires tokenAmount');
 
@@ -1188,7 +1241,7 @@ async function handleSwap(req, res, id) {
 	const mint = new PublicKey(body.mint);
 
 	// Detect graduation. If still on bonding curve, delegate to /buy or /sell.
-	const { PumpSdk, bondingCurvePda, isLegacyQuoteMint } = await import('@pump-fun/pump-sdk');
+	const { PumpSdk, bondingCurvePda } = await import('@pump-fun/pump-sdk');
 	const pumpSdk = new PumpSdk();
 	const bcInfo = await conn.getAccountInfo(bondingCurvePda(mint));
 	const bc = bcInfo ? pumpSdk.decodeBondingCurveNullable(bcInfo) : null;
@@ -1209,19 +1262,29 @@ async function handleSwap(req, res, id) {
 	const BN = (await import('bn.js')).default;
 	const amm = new PumpAmmSdk();
 	const online = new OnlinePumpAmmSdk(conn);
+	const { slippagePercentFromBps, resolveTokenProgramForMintOwner, resolveCustodialQuote } =
+		await import('../../_lib/pump-trade-args.js');
 
-	// The canonical pool PDA is keyed by quote mint. SOL curves store the
-	// default pubkey; stable-paired coins carry their real quote mint, which a
-	// SOL-denominated custodial swap cannot trade — reject those cleanly.
-	if (bc?.quoteMint && !isLegacyQuoteMint(bc.quoteMint)) {
+	// The canonical pool PDA is keyed by quote mint. SOL pools store the default
+	// pubkey; USDC pools carry the USDC mint. Resolve the coin's quote asset and
+	// trade in it — buy spends the quote, sell receives it.
+	const quote = resolveCustodialQuote(bc?.quoteMint, body.network);
+	if (!quote.isSol && !quote.isUsdc) {
 		return error(
 			res,
 			409,
-			'usdc_paired_coin',
-			'pool is stable-paired (non-SOL quote) — custodial swaps are SOL-denominated; use /api/pump/buy-prep or sell-prep',
+			'unsupported_quote',
+			`pool is ${quote.quoteSymbol}-paired — custodial trading supports SOL and USDC quote assets only`,
 		);
 	}
-	const poolKey = canonicalPumpPoolPda(mint);
+	if (body.side === 'buy' && quote.isUsdc && !body.usdcAmount)
+		return error(res, 400, 'validation_error', 'usdcAmount required to buy a USDC-paired pool');
+	if (body.side === 'buy' && quote.isSol && !body.solAmount)
+		return error(res, 400, 'validation_error', 'solAmount required to buy a SOL-paired pool');
+
+	const poolKey = quote.isUsdc
+		? canonicalPumpPoolPda(mint, new PublicKey(quote.quoteMint))
+		: canonicalPumpPoolPda(mint);
 	const swapState = await online
 		.swapSolanaState(poolKey, keypair.publicKey)
 		.catch(async (err) => {
@@ -1231,28 +1294,70 @@ async function handleSwap(req, res, id) {
 		});
 
 	// AMM SDK takes slippage as a PERCENT (1 = 1%) — api/_lib/pump-trade-args.js.
-	const { slippagePercentFromBps } = await import('../../_lib/pump-trade-args.js');
 	const slippage = slippagePercentFromBps(body.slippageBps, { defaultBps: 500 });
 
 	let instructions;
 	let quotedAmount;
 	try {
 		if (body.side === 'buy') {
-			const quoteLamports = new BN(Math.floor(body.solAmount * 1e9));
-			instructions = await amm.buyQuoteInput(swapState, quoteLamports, slippage);
-			quotedAmount = { quote_lamports: quoteLamports.toString() };
+			// Spend the pool's quote asset: USDC atomics (6dp) or SOL lamports.
+			const quoteIn = quote.isUsdc
+				? new BN(Math.round(body.usdcAmount * 1_000_000))
+				: new BN(Math.floor(body.solAmount * 1e9));
+
+			// USDC buys spend from the agent's USDC ATA — confirm it holds enough up
+			// front so the swap fails here with a clear error, not an on-chain revert.
+			if (quote.isUsdc) {
+				const quoteMintPk = new PublicKey(quote.quoteMint);
+				const quoteInfo = await conn.getAccountInfo(quoteMintPk);
+				if (!quoteInfo)
+					return error(
+						res,
+						404,
+						'quote_mint_not_found',
+						`quote mint ${quote.quoteMint} not found on ${body.network}`,
+					);
+				const quoteTokenProgram = resolveTokenProgramForMintOwner(quoteInfo.owner);
+				const { getAssociatedTokenAddressSync } = await import('@solana/spl-token');
+				const usdcAta = getAssociatedTokenAddressSync(
+					quoteMintPk,
+					keypair.publicKey,
+					true,
+					quoteTokenProgram,
+				);
+				let haveAtomics = 0n;
+				try {
+					const bal = await conn.getTokenAccountBalance(usdcAta);
+					haveAtomics = BigInt(bal?.value?.amount ?? 0);
+				} catch {
+					haveAtomics = 0n;
+				}
+				if (haveAtomics < BigInt(quoteIn.toString()))
+					return error(
+						res,
+						402,
+						'insufficient_usdc',
+						`agent wallet holds ${Number(haveAtomics) / 1e6} USDC, needs ${body.usdcAmount}`,
+					);
+			}
+
+			instructions = await amm.buyQuoteInput(swapState, quoteIn, slippage);
+			quotedAmount = quote.isUsdc
+				? { quote_usdc_atomics: quoteIn.toString() }
+				: { quote_lamports: quoteIn.toString() };
 		} else {
 			const baseAmount = new BN(body.tokenAmount);
 			instructions = await amm.sellBaseInput(swapState, baseAmount, slippage);
 			quotedAmount = { base_amount: baseAmount.toString() };
-			// Best-effort expected-SOL-out via constant-product on pool reserves.
+			// Best-effort expected quote-out via constant-product on pool reserves.
 			try {
 				const pool = swapState.pool || {};
 				const baseReserve = pool.baseReserve || pool.virtualBaseReserves;
 				const quoteReserve = pool.quoteReserve || pool.virtualQuoteReserves;
 				if (baseReserve && quoteReserve) {
 					const out = baseAmount.mul(quoteReserve).div(baseReserve.add(baseAmount));
-					quotedAmount.expectedSolLamports = out.toString();
+					quotedAmount[quote.isUsdc ? 'expectedUsdcAtomics' : 'expectedSolLamports'] =
+						out.toString();
 				}
 			} catch (e) {
 				console.error('[pumpfun/swap] sell quote failed', e);
@@ -1263,11 +1368,11 @@ async function handleSwap(req, res, id) {
 		return error(res, 422, 'build_failed', err.message || 'could not build swap ix');
 	}
 
-	// A swap-buy is a SOL outflow — reserve it against the daily cap atomically
-	// before sending (closes the concurrent-spend TOCTOU). A swap-sell is an
-	// inflow and is recorded after the fact, no reservation needed.
+	// A SOL swap-buy is a SOL outflow — reserve it against the daily cap atomically
+	// before sending (closes the concurrent-spend TOCTOU). USDC buys move USDC, not
+	// SOL (gated by the balance check above); sells are inflows. Neither reserves.
 	let reservation = null;
-	if (body.side === 'buy') {
+	if (body.side === 'buy' && quote.isSol) {
 		reservation = await reserveSpend({
 			agentId: id,
 			meta,
@@ -1321,6 +1426,8 @@ async function handleSwap(req, res, id) {
 					signature,
 					network: body.network,
 					venue: 'amm',
+					quoteMint: quote.quoteMint,
+					quoteSymbol: quote.quoteSymbol,
 					...quotedAmount,
 				})}::jsonb,
 				${'pumpfun'}
@@ -1335,6 +1442,8 @@ async function handleSwap(req, res, id) {
 			side: body.side,
 			venue: 'amm',
 			pool: poolKey.toBase58(),
+			quoteMint: quote.quoteMint,
+			quoteSymbol: quote.quoteSymbol,
 			explorer: `https://solscan.io/tx/${signature}${body.network === 'devnet' ? '?cluster=devnet' : ''}`,
 		},
 	});
