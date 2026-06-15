@@ -8684,37 +8684,16 @@ textarea.erc8004-code {
 	margin: 0;
 	line-height: 1.4;
 }
-.pumpfun-stats {
-	display: grid;
-	grid-template-columns: 1fr 1fr;
-	gap: 10px;
-}
-.pumpfun-stat {
+/* Live market readout — host for the shared coin-status `chip` widget. The
+   widget renders symbol · price · market cap · graduation % from a single
+   /api/pump/coin fetch, replacing the card's former bespoke stat tiles. */
+.pumpfun-coin-status-mount {
 	display: flex;
-	flex-direction: column;
-	gap: 2px;
 }
-.pumpfun-stat-label {
-	font-size: 10.5px;
-	text-transform: uppercase;
-	letter-spacing: 0.08em;
-	opacity: 0.55;
-}
-.pumpfun-stat-value {
-	font-size: 15px;
-	font-weight: 600;
-	font-variant-numeric: tabular-nums;
-}
-.pumpfun-progress {
-	height: 4px;
-	background: rgba(255, 255, 255, 0.08);
-	border-radius: var(--radius-pill);
-	overflow: hidden;
-}
-.pumpfun-progress-bar {
-	height: 100%;
-	background: linear-gradient(90deg, #b27dff, #6ce0c8);
-	transition: width .6s ease;
+.pumpfun-coin-status-mount .csc-chip {
+	flex-wrap: wrap;
+	gap: 8px 10px;
+	font-size: 13px;
 }
 .pumpfun-card-mint {
 	font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -8762,7 +8741,6 @@ textarea.erc8004-code {
 }
 .pumpfun-card-foot:hover { opacity: 0.85; }
 @media (prefers-reduced-motion: reduce) {
-	.pumpfun-progress-bar { transition: none; }
 	.pumpfun-card--skeleton { animation: none; }
 }
 
@@ -8923,7 +8901,6 @@ textarea.erc8004-code {
 	.pumpfun-card-actions { flex-wrap: wrap; }
 	.pumpfun-card-actions .pumpfun-btn { flex: 1 0 calc(50% - 3px); }
 	.pumpfun-card-actions .pumpfun-btn--ghost { flex: 1 0 100%; }
-	.pumpfun-stats { grid-template-columns: 1fr; gap: 6px; }
 	.pumpfun-trade-label { grid-template-columns: 1fr; }
 	.pumpfun-toasts {
 		left: 14px;

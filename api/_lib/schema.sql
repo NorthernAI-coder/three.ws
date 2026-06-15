@@ -992,17 +992,31 @@ create table if not exists user_prefs (
 -- and surface trust signals on the agent passport.
 create table if not exists pumpfun_signals (
     id                bigserial primary key,
-    wallet            text        not null,         -- claimer / creator base58 pubkey
+    wallet            text,                          -- claimer / creator / buyer base58 pubkey (null for mint-attributed signals)
     agent_asset       text,                          -- linked Solana agent if known
-    kind              text        not null,         -- 'first_claim' | 'fake_claim' | 'graduation' | 'influencer' | 'new_account'
+    kind              text        not null,         -- 'first_claim' | 'fake_claim' | 'graduation' | 'influencer' | 'new_account' | 'whale_buy' | 'launch'
     weight            real        not null default 0,-- reputation impact, -1..1
     payload           jsonb       not null default '{}'::jsonb,
-    tx_signature      text        unique,
-    seen_at           timestamptz not null default now()
+    tx_signature      text,
+    seen_at           timestamptz not null default now(),
+    -- One row per (transaction, signal kind): a single tx can legitimately
+    -- carry several signal kinds (e.g. first_claim + influencer + new_account).
+    constraint pumpfun_signals_tx_kind_key unique (tx_signature, kind)
 );
-create index if not exists pumpfun_signals_wallet on pumpfun_signals(wallet, seen_at desc);
-create index if not exists pumpfun_signals_agent  on pumpfun_signals(agent_asset, seen_at desc) where agent_asset is not null;
-create index if not exists pumpfun_signals_kind   on pumpfun_signals(kind, seen_at desc);
+create index if not exists pumpfun_signals_wallet  on pumpfun_signals(wallet, seen_at desc);
+create index if not exists pumpfun_signals_agent   on pumpfun_signals(agent_asset, seen_at desc) where agent_asset is not null;
+create index if not exists pumpfun_signals_kind    on pumpfun_signals(kind, seen_at desc);
+create index if not exists pumpfun_signals_seen_at on pumpfun_signals(seen_at desc);
+
+-- Per-source crawl cursor for the pumpfun-signals cron. Keeps the sweep from
+-- re-evaluating the whole recent-events window every run; lives in Postgres to
+-- avoid spending Upstash write quota (tasks/redis-burn-rate-reduction.md).
+create table if not exists pumpfun_signals_cursor (
+    source         text        primary key,         -- 'claims' | 'whales' | 'mints' | 'graduations'
+    last_seen_ms   bigint      not null default 0,
+    last_signature text,
+    updated_at     timestamptz not null default now()
+);
 
 -- ── marketplace_skills — community skill registry ────────────────────────────
 -- Two flavors:

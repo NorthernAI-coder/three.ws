@@ -898,7 +898,7 @@ export function registerPumpFunSkills(skills) {
 	// ── pumpfun.channelFeed ───────────────────────────────────────────────────
 	skills.register({
 		name: 'pumpfun.channelFeed',
-		description: 'Fetch recent pump.fun signals (new mints, whale buys, creator claims) as a digest the LLM can summarize.',
+		description: 'Fetch recent pump.fun activity (new mints, whale buys, creator claims) plus agent-attributed reputation signals as a digest the LLM can summarize.',
 		instruction: 'Read-only. No wallet required. Returns latest channel-feed items.',
 		animationHint: 'inspect',
 		voicePattern: 'Fetching pump.fun signal feed…',
@@ -909,7 +909,7 @@ export function registerPumpFunSkills(skills) {
 				limit: { type: 'integer', minimum: 1, maximum: 200, default: 20 },
 				kinds: {
 					type: 'string',
-					description: 'Comma-separated filter: mint, whale, claim (default: all)',
+					description: 'Comma-separated filter: mint, whale, claim, signal (default: all)',
 				},
 			},
 		},

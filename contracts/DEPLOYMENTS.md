@@ -27,6 +27,19 @@ Avalanche Fuji (43113)
 | ReputationRegistry   | `0x8004B663056A597Dffe9eCcC1965A193B7388713` | TODO: fill after deployment |
 | ValidationRegistry   | `0x8004Cb1BF31DAf7788923b405b754f57acEB4272` | TODO: fill after deployment |
 
+## Platform validator (ValidationRegistry attestor)
+
+The platform validator is the EVM key that signs glTF/schema validation
+attestations (`recordValidation`) when an agent is registered. It must be
+allow-listed via `addValidator(<addr>)` by the registry owner on every chain it
+attests on, funded with gas, and stored as the `VALIDATOR_PRIVATE_KEY` secret in
+Vercel (never committed). Provision/rotate with
+[`scripts/erc8004/provision-validator-key.mjs`](../scripts/erc8004/provision-validator-key.mjs).
+
+| Address | Allow-listed chains | Notes |
+| ------- | ------------------- | ----- |
+| `0x93Bc7EfB0059B784465619FC73C2db8D01b1CD04` | TODO: run `addValidator` per chain | Provisioned 2026-06-15. Pending funding + allow-list (testnet first: Base Sepolia 84532). |
+
 ## CREATE2 Factory (ThreeWSFactory)
 
 Custom vanity-prefixed CREATE2 deployer used to obtain matching addresses across chains.
@@ -76,9 +89,50 @@ from the same salt.
 | ---------------- | -------------------------------------------- | -------------------------------------------- | -- |
 | BSC (56)         | `0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d` | [`0x00000000381f09742a30a5a49975514AeC1B72Cc`](https://bscscan.com/address/0x00000000381f09742a30a5a49975514AeC1B72Cc) | [`0xc4f4e87f…`](https://bscscan.com/tx/0xc4f4e87f67c70044a8682ea50d59fbc04e9777f453538a6916075f5409e5b7ef) |
 | Arbitrum (42161) | `0xaf88d065e77c8cC2239327C5EDb3A432268e5831` | [`0xed3696489490dbfAFD82996ADB11165A56c33c49`](https://arbiscan.io/address/0xed3696489490dbfAFD82996ADB11165A56c33c49) | [`0xca39a600…`](https://arbiscan.io/tx/0xca39a6003e8a6144662aceae43ee2b2c5107e426e16ccf58a406d66d38f34e5f) |
-| Base (8453)      | `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` | predicted `0x31B13cDe47431EfcC8616C8495204e6E6C2Ded34` — ⚠ tx mined success but address has no code, treat as **not deployed** | [`0xb6fcf60b…`](https://basescan.org/tx/0xb6fcf60b4ca16d25e135f91046107e78518fca9aa4f180d5110a5116bcdfe4d0) |
+| Base (8453)      | `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` | [`0x31B13cDe47431EfcC8616C8495204e6E6C2Ded34`](https://basescan.org/address/0x31B13cDe47431EfcC8616C8495204e6E6C2Ded34) | [`0xb6fcf60b…`](https://basescan.org/tx/0xb6fcf60b4ca16d25e135f91046107e78518fca9aa4f180d5110a5116bcdfe4d0) |
 
-Base deploy must be re-run and the address re-checked before integrations point at it.
+### Base deploy status — LIVE, bytecode confirmed (re-verified 2026-06-15)
+
+The earlier "tx mined but address has no code → treat as **not deployed**" note was
+**wrong** — a stale/unsynced RPC reading at deploy time. The deploy succeeded. Proof,
+re-checked on-chain against live Base RPC:
+
+- Deploy tx [`0xb6fcf60b…`](https://basescan.org/tx/0xb6fcf60b4ca16d25e135f91046107e78518fca9aa4f180d5110a5116bcdfe4d0)
+  emitted `Deployed(addr=0x31B13cDe…, salt=0x5ef7540f…)` from `ThreeWSFactory` — so the
+  predicted address **is** the deployed address (no CREATE2 collision, no salt mismatch).
+- `eth_getCode(0x31B13cDe…)` returns **1243 bytes** (non-empty). `owner()` →
+  `0x4022de2D36C334E73C7a108805Cea11C0564f402` (the deployer EOA, as on BSC/Arbitrum),
+  and Base USDC `0x833589fCD6…` is embedded as the `USDC` immutable (BSC USDC is not).
+- Independently re-derived: compiling the in-repo source (`contracts/ThreeWSPayments.sol`,
+  solc `0.8.35`, optimizer 200) reproduces the **exact** recorded BSC init-code hash
+  `0xb55479df…` and live BSC address — confirming source + settings are byte-for-byte
+  correct — and CREATE2(`factory`, salt, Base-USDC init code) → `0x31B13cDe…`. The Base
+  init-code hash is `0x253291817df177b537145a05d0221065be924cffa606b387221b5c6bf8f1c475`.
+  (1243 bytes runtime, vs BSC's 1278, differs only because each chain's USDC enters the
+  constructor as an immutable.)
+
+**Basescan verification: PENDING (not yet verified).** Source + exact settings are
+captured in-repo; run `scripts/verify-threews-payments-base.mjs` with a
+`BASESCAN_API_KEY` set to publish (constructor args:
+`(0x4022de2D…, 0x833589fCD6…)`). The script prints the Standard JSON Input bundle for
+manual UI verification when no key is present.
+
+### Base payment routing — EOA `payTo` is intentional (no redeploy / no redirect)
+
+`X402_PAY_TO_BASE` stays the EOA `0x4022de2D36C334E73C7a108805Cea11C0564f402`, **not**
+the contract. Base x402 settles via the `exact` scheme (EIP-3009
+`transferWithAuthorization` / Permit2) through the CDP facilitator, which performs a
+plain ERC-20 USDC transfer to `payTo` — it never calls `pay(bytes32)` on the recipient.
+An EOA receiver is correct there: funds land directly and stay liquid. Pointing `payTo`
+at the contract would route USDC in via a raw transfer with **no `Payment` event**,
+recoverable only through the contract's `withdraw()` — strictly worse.
+
+`ThreeWSPayments` is load-bearing only on **BSC** (`X402_PAY_TO_BSC` = the contract),
+where Binance-Peg USDC implements no EIP-3009 and no facilitator advertises `eip155:56`,
+so the contract-mediated `pay(bytes32)` "direct" scheme is the only option (see
+`api/_lib/x402-bsc-direct.js`). The Base instance exists for cross-chain parity and as an
+on-chain record; the Base x402 flow has no code path that calls it, and Base payments
+have been settling correctly to the EOA all along.
 
 Deploy command (run from 3D-Agent repo where `scripts/deploy-multichain.mjs` lives):
 ```

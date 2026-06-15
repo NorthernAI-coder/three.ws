@@ -1,10 +1,17 @@
-// Native pump.fun buy — the in-world "ape this coin" flow for /play.
+// Native pump.fun trade widget — the in-world "ape this coin" flow for /play.
 //
 // Every /play world IS a pump.fun coin, so the most natural action in that
-// world is buying it. This is a REAL on-chain buy, not a redirect: the
-// three.ws server builds the unsigned transaction (handling both the bonding
-// curve and the post-graduation AMM via @pump-fun/pump-sdk), the player's
-// Solana wallet signs it, and we broadcast through our same-origin RPC proxy.
+// world is trading it. This is a REAL on-chain buy/sell, not a redirect: the
+// three.ws server builds the unsigned transaction (handling the bonding curve
+// and the post-graduation AMM, SOL- and USDC-paired, via @pump-fun/pump-sdk),
+// the player's Solana wallet signs it, and we broadcast through our same-origin
+// RPC proxy.
+//
+// Denomination-aware: a coin's quote asset (SOL or USDC) is detected on mount
+// from the on-chain bonding curve, and every label, input suffix, balance, and
+// quote is driven off it. SOL-paired coins behave exactly as the original
+// SOL-only widget; USDC-paired coins denominate the buy input in USDC, show the
+// wallet's USDC balance, and price/settle against the USDC curve.
 //
 // Loaded as its own lazy chunk (dynamic import on first Buy click) so the heavy
 // Solana/pump SDKs never weigh down the main /play bundle. The read-only quote
@@ -14,11 +21,25 @@
 import { detectSolanaWallet, SOLANA_RPC, solanaTxExplorerUrl } from '../erc8004/solana-deploy.js';
 
 const WSOL = 'So11111111111111111111111111111111111111112';
+const USDC_MINT = {
+	mainnet: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+	devnet: '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU',
+};
 const NETWORK = 'mainnet';
-const SOL_PRESETS = [0.1, 0.5, 1];
 const SLIPPAGE_PRESETS = [100, 300, 500]; // bps — 1% / 3% / 5%
 const DEFAULT_SLIPPAGE_BPS = 300;
 const PUMP_DECIMALS = 6; // pump.fun mints are always 6 decimals
+
+// Per-quote-asset denomination descriptors. SOL is the default until the coin's
+// pairing is detected, so a SOL coin never flickers and renders exactly as the
+// original widget; a USDC coin upgrades in place once detection resolves.
+const SOL_DENOM = { kind: 'sol', label: 'SOL', mint: WSOL, decimals: 9, presets: [0.1, 0.5, 1], step: 0.05 };
+function usdcDenom(network = NETWORK) {
+	return { kind: 'usdc', label: 'USDC', mint: USDC_MINT[network] || USDC_MINT.mainnet, decimals: 6, presets: [5, 25, 100], step: 1 };
+}
+
+// Sell uses fractions of the wallet's holdings instead of fixed amounts.
+const SELL_PRESETS = [['25%', 0.25], ['50%', 0.5], ['Max', 1]];
 
 let _open = null; // the live modal controller, so a second click reuses it
 
@@ -35,83 +56,120 @@ function el(tag, props = {}, kids = []) {
 	return n;
 }
 
+// Base-units (raw, decimals applied) → compact human token count.
 const fmtTokens = (raw) => {
 	const n = Number(raw) / 10 ** PUMP_DECIMALS;
 	if (!isFinite(n) || n <= 0) return null;
+	return compactCount(n);
+};
+
+// A UI token count (already divided) → compact human string.
+function compactCount(n) {
+	if (!isFinite(n) || n <= 0) return '0';
 	if (n >= 1e9) return (n / 1e9).toFixed(2) + 'B';
 	if (n >= 1e6) return (n / 1e6).toFixed(2) + 'M';
 	if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
 	return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
-};
+}
+
+// A decimal quote amount → string with asset-appropriate precision.
+function fmtQuote(n, denom) {
+	const v = Number(n);
+	if (!isFinite(v)) return '0';
+	const frac = denom.kind === 'usdc' ? (v >= 1 ? 2 : 4) : v >= 1 ? 3 : 5;
+	return v.toLocaleString(undefined, { maximumFractionDigits: frac });
+}
 
 function shortAddr(a) {
 	return a ? `${a.slice(0, 4)}…${a.slice(-4)}` : '';
 }
 
 /**
- * Map a buy failure to copy the player can act on. A bare "Purchase failed."
+ * Map a trade failure to copy the player can act on. A bare "Trade failed."
  * tells them nothing; each branch points at the actual next step (add SOL,
  * widen slippage, retry, reconnect). User cancellation isn't an error to shout
  * about, so it gets the softest message.
  * @param {Error & {status?: number}} err
+ * @param {'buy'|'sell'} [mode]
  */
-function friendlyTradeError(err) {
+function friendlyTradeError(err, mode = 'buy') {
 	const raw = (err && (err.message || String(err))) || '';
 	const m = raw.toLowerCase();
+	const noun = mode === 'sell' ? 'this sale' : 'this buy';
 	if (/reject|denied|cancell?ed|user declined/.test(m)) return 'Cancelled in wallet.';
 	if (/insufficient (lamports|funds)|custom program error: 0x1\b|debit an account/.test(m))
-		return 'Not enough SOL to cover this buy + network fees. Add SOL and try again.';
+		return `Not enough SOL to cover ${noun} + network fees. Add SOL and try again.`;
 	if (/slippage|0x1771|exceeds desired|too little output|price moved/.test(m))
 		return 'Price moved beyond your slippage limit. Raise max slippage or try again.';
 	if (/blockhash not found|block height exceeded|expired|too old/.test(m))
 		return 'The network was busy and the order expired. Try again.';
 	if (/failed to fetch|networkerror|load failed|timed out|timeout|fetch failed|did not return a transaction|502|503|504/.test(m))
 		return "Couldn't reach the network. Check your connection and try again.";
-	return raw.replace(/\s+/g, ' ').trim().slice(0, 140) || 'Purchase failed. Try again.';
+	return raw.replace(/\s+/g, ' ').trim().slice(0, 140) || `${mode === 'sell' ? 'Sale' : 'Purchase'} failed. Try again.`;
 }
 
 /**
- * Open the buy modal for a coin. Idempotent — a second call refocuses the
- * existing modal instead of stacking.
+ * Open the trade modal for a coin. Idempotent — a second call refocuses the
+ * existing modal instead of stacking. Opens in Buy mode; the user can switch to
+ * Sell inside the modal.
  * @param {{mint:string, name?:string, symbol?:string, image?:string}} coin
+ * @param {{mode?: 'buy'|'sell'}} [opts]
  */
-export function openBuyModal(coin) {
+export function openBuyModal(coin, opts = {}) {
 	if (!coin?.mint) return;
 	if (_open) { _open.focus(); return; }
-	_open = new BuyModal(coin);
+	_open = new TradeModal(coin, opts.mode === 'sell' ? 'sell' : 'buy');
 }
 
-class BuyModal {
-	constructor(coin) {
+export { openBuyModal as openTradeModal };
+
+class TradeModal {
+	constructor(coin, mode = 'buy') {
 		this.coin = coin;
+		this.symPlain = coin.symbol ? '$' + coin.symbol.toUpperCase() : '';
 		this.sym = coin.symbol ? '$' + coin.symbol.toUpperCase() : 'this coin';
-		this.amount = SOL_PRESETS[0];
+		this.symTokens = coin.symbol ? '$' + coin.symbol.toUpperCase() : 'tokens';
+		this.mode = mode;
+		// Optimistic SOL until detection confirms/upgrades the pairing, so a SOL
+		// coin renders identically to the original widget with no flicker.
+		this.denom = SOL_DENOM;
+		this.amount = mode === 'buy' ? SOL_DENOM.presets[0] : 0;
+		this._sellMax = false;
 		this.slippageBps = DEFAULT_SLIPPAGE_BPS;
 		this.busy = false;
 		this._quoteSeq = 0;
+		this._balSeq = 0;
+		this.quoteBalance = null; // wallet's USDC balance (USDC buys only)
+		this.holdings = null;     // wallet's holding of this coin (for sells)
 		// null = unknown (first quote pending), true = graduated to the PumpSwap
 		// AMM, false = still on the bonding curve. Drives the stage pill so a
 		// graduated coin is visually unmistakable from a curve coin.
 		this.graduated = null;
 		this._build();
+		this._detectP = this._detectDenom();
 		this._refreshWallet();
+		this._refreshBalances();
 		this._quote();
 	}
 
 	// --------------------------------------------------------------- view
 	_build() {
+		this.tabs = el('div', { class: 'cc-buy-tabs', role: 'tablist', 'aria-label': 'Trade direction' }, [
+			el('button', { class: 'cc-buy-tab' + (this.mode === 'buy' ? ' cc-on' : ''), type: 'button', role: 'tab', 'aria-selected': this.mode === 'buy', text: 'Buy', onclick: () => this._setMode('buy') }),
+			el('button', { class: 'cc-buy-tab' + (this.mode === 'sell' ? ' cc-on' : ''), type: 'button', role: 'tab', 'aria-selected': this.mode === 'sell', text: 'Sell', onclick: () => this._setMode('sell') }),
+		]);
+
+		this.fieldLabel = el('span', { class: 'cc-buy-field-label', text: this.mode === 'buy' ? 'You pay' : 'You sell' });
+		this.unitEl = el('span', { class: 'cc-buy-unit', text: this.denom.label });
 		this.amountInput = el('input', {
-			type: 'number', min: '0', step: '0.05', inputmode: 'decimal',
-			class: 'cc-buy-amount', value: String(this.amount), 'aria-label': 'Amount in SOL',
-			oninput: () => { this.amount = Math.max(0, Number(this.amountInput.value) || 0); this._syncPresets(); this._quote(); this._syncCta(); },
+			type: 'number', min: '0', step: String(this.denom.step), inputmode: 'decimal',
+			class: 'cc-buy-amount', value: this.mode === 'buy' ? String(this.amount) : '',
+			'aria-label': this._amountAria(),
+			oninput: () => { this._onAmountInput(); },
 		});
 
-		this.presetRow = el('div', { class: 'cc-buy-presets' },
-			SOL_PRESETS.map((v) => el('button', {
-				class: 'cc-buy-preset' + (v === this.amount ? ' cc-on' : ''), text: v + ' SOL', type: 'button',
-				onclick: () => { this.amount = v; this.amountInput.value = String(v); this._syncPresets(); this._quote(); this._syncCta(); },
-			})));
-
+		this.presetRow = el('div', { class: 'cc-buy-presets' });
+		this.balLine = el('div', { class: 'cc-buy-bal', role: 'status', 'aria-live': 'polite', hidden: true });
 		this.quoteLine = el('div', { class: 'cc-buy-quote', role: 'status', 'aria-live': 'polite' }, 'Fetching price…');
 
 		this.slipRow = el('div', { class: 'cc-buy-slip' }, [
@@ -141,22 +199,24 @@ class BuyModal {
 		const head = el('div', { class: 'cc-buy-head' }, [
 			this.coin.image ? el('img', { class: 'cc-buy-img', src: this.coin.image, alt: '' }) : el('div', { class: 'cc-buy-img cc-buy-img-ph', text: '◎' }),
 			el('div', { class: 'cc-buy-titles' }, [
-				el('div', { class: 'cc-buy-name', text: this.coin.name || 'Buy coin' }),
+				el('div', { class: 'cc-buy-name', text: this.coin.name || 'Trade coin' }),
 				el('div', { class: 'cc-buy-sub' }, [
-					el('span', { class: 'cc-buy-sym', text: this.coin.symbol ? '$' + this.coin.symbol.toUpperCase() : this.coin.mint.slice(0, 8) + '…' }),
+					el('span', { class: 'cc-buy-sym', text: this.symPlain || this.coin.mint.slice(0, 8) + '…' }),
 					this.stagePill,
 				]),
 			]),
 			el('button', { class: 'cc-buy-x', type: 'button', 'aria-label': 'Close', text: '✕', onclick: () => this.close() }),
 		]);
 
-		this.card = el('div', { class: 'cc-buy-card', role: 'dialog', 'aria-modal': 'true', 'aria-label': `Buy ${this.coin.name || 'coin'}` }, [
+		this.card = el('div', { class: 'cc-buy-card', role: 'dialog', 'aria-modal': 'true', 'aria-label': `Trade ${this.coin.name || 'coin'}` }, [
 			head,
+			this.tabs,
 			el('label', { class: 'cc-buy-field' }, [
-				el('span', { class: 'cc-buy-field-label', text: 'You pay' }),
-				el('div', { class: 'cc-buy-amount-wrap' }, [this.amountInput, el('span', { class: 'cc-buy-unit', text: 'SOL' })]),
+				this.fieldLabel,
+				el('div', { class: 'cc-buy-amount-wrap' }, [this.amountInput, this.unitEl]),
 			]),
 			this.presetRow,
+			this.balLine,
 			this.quoteLine,
 			this.slipRow,
 			this.walletLine,
@@ -173,7 +233,7 @@ class BuyModal {
 		});
 		document.body.appendChild(this.overlay);
 		requestAnimationFrame(() => this.overlay.classList.add('cc-on'));
-		this._syncCta();
+		this._syncMode();
 		setTimeout(() => this.amountInput.focus(), 30);
 	}
 
@@ -185,8 +245,95 @@ class BuyModal {
 		if (_open === this) _open = null;
 	}
 
+	_amountAria() {
+		return this.mode === 'buy' ? `Amount in ${this.denom.label}` : `Amount of ${this.symTokens} to sell`;
+	}
+
+	_onAmountInput() {
+		this._sellMax = false;
+		this.amount = Math.max(0, Number(this.amountInput.value) || 0);
+		this._syncPresets();
+		this._renderBalance();
+		this._quote();
+		this._syncCta();
+	}
+
+	// Rebuild presets + labels + balance for the current (mode, denom). Called on
+	// mount, on mode switch, and when detection upgrades the pairing to USDC.
+	_syncMode() {
+		this.fieldLabel.textContent = this.mode === 'buy' ? 'You pay' : 'You sell';
+		this.unitEl.textContent = this.mode === 'buy' ? this.denom.label : this.symTokens;
+		this.amountInput.setAttribute('aria-label', this._amountAria());
+		this.amountInput.step = String(this.mode === 'buy' ? this.denom.step : 1);
+		for (const t of this.tabs.children) {
+			const on = t.textContent.toLowerCase() === this.mode;
+			t.classList.toggle('cc-on', on);
+			t.setAttribute('aria-selected', String(on));
+		}
+
+		this.presetRow.textContent = '';
+		if (this.mode === 'buy') {
+			for (const v of this.denom.presets) {
+				this.presetRow.appendChild(el('button', {
+					class: 'cc-buy-preset' + (v === this.amount ? ' cc-on' : ''), type: 'button',
+					text: v + ' ' + this.denom.label,
+					onclick: () => { this._sellMax = false; this.amount = v; this.amountInput.value = String(v); this._syncPresets(); this._renderBalance(); this._quote(); this._syncCta(); },
+				}));
+			}
+		} else {
+			for (const [label, frac] of SELL_PRESETS) {
+				this.presetRow.appendChild(el('button', {
+					class: 'cc-buy-preset', type: 'button', text: label,
+					onclick: () => this._applySellFraction(label, frac),
+				}));
+			}
+		}
+		this._renderBalance();
+		this._syncPresets();
+	}
+
+	_applySellFraction(label, frac) {
+		const hold = this.holdings;
+		if (!hold || !(hold.ui > 0)) return;
+		this._sellMax = frac >= 1;
+		this.amount = this._sellMax ? hold.ui : Math.max(0, hold.ui * frac);
+		this.amountInput.value = this._sellMax ? String(hold.ui) : trimNum(this.amount);
+		for (const b of this.presetRow.children) b.classList.toggle('cc-on', b.textContent === label);
+		this._quote();
+		this._syncCta();
+	}
+
 	_syncPresets() {
-		for (const b of this.presetRow.children) b.classList.toggle('cc-on', b.textContent === this.amount + ' SOL');
+		if (this.mode === 'buy') {
+			for (const b of this.presetRow.children) b.classList.toggle('cc-on', b.textContent === this.amount + ' ' + this.denom.label);
+		} else if (!this._sellMax) {
+			for (const b of this.presetRow.children) b.classList.remove('cc-on');
+		}
+	}
+
+	// --------------------------------------------------------------- detection
+	// Read the coin's quote asset (and graduation status) from the on-chain
+	// curve. The buy/sell-prep endpoints auto-detect server-side too — this is
+	// purely so the UI denominates correctly before the user enters an amount.
+	async _detectDenom() {
+		try {
+			const r = await fetch(`/api/pump/quote?mint=${encodeURIComponent(this.coin.mint)}&network=${NETWORK}`);
+			const data = await r.json().catch(() => ({}));
+			if (!r.ok || !data?.quote_mint) return;
+			this.graduated = !!data.graduated;
+			this._renderStage();
+			if (data.quote_mint !== WSOL && this.denom.kind !== 'usdc') {
+				this.denom = usdcDenom(NETWORK);
+				if (this.mode === 'buy') {
+					this.amount = this.denom.presets[0];
+					this.amountInput.value = String(this.amount);
+				}
+				this._syncMode();
+				this._refreshBalances();
+				this._quote();
+				this._syncCta();
+			}
+		} catch { /* keep optimistic SOL — prep still auto-detects server-side */ }
 	}
 
 	// --------------------------------------------------------------- wallet
@@ -212,14 +359,103 @@ class BuyModal {
 		this._syncCta();
 	}
 
+	// Fetch the wallet's USDC balance (USDC buys) and coin holdings (sells). A
+	// SOL buy needs neither, so it makes no extra RPC call — keeping that path
+	// identical to the original SOL-only widget.
+	async _refreshBalances() {
+		const needsQuoteBal = this.mode === 'buy' && this.denom.kind === 'usdc';
+		const needsHoldings = this.mode === 'sell';
+		if (!needsQuoteBal && !needsHoldings) { this.quoteBalance = null; this.holdings = null; this._renderBalance(); return; }
+		const w = detectSolanaWallet();
+		const owner = w?.publicKey?.toString?.();
+		if (!owner) { this.quoteBalance = null; this.holdings = null; this._renderBalance(); this._syncCta(); return; }
+		const seq = ++this._balSeq;
+		try {
+			const { Connection, PublicKey } = await import('@solana/web3.js');
+			const conn = new Connection(SOLANA_RPC[NETWORK], 'confirmed');
+			const ownerPk = new PublicKey(owner);
+			const [coinRes, quoteRes] = await Promise.all([
+				needsHoldings ? conn.getParsedTokenAccountsByOwner(ownerPk, { mint: new PublicKey(this.coin.mint) }).catch(() => null) : Promise.resolve(null),
+				needsQuoteBal ? conn.getParsedTokenAccountsByOwner(ownerPk, { mint: new PublicKey(this.denom.mint) }).catch(() => null) : Promise.resolve(null),
+			]);
+			if (seq !== this._balSeq) return;
+			this.holdings = needsHoldings ? parseTokenAmount(coinRes) : null;
+			this.quoteBalance = needsQuoteBal ? parseTokenAmount(quoteRes) : null;
+			this._renderBalance();
+			this._syncCta();
+		} catch { /* leave balances null; states fall back to neutral */ }
+	}
+
+	_renderBalance() {
+		this.balLine.textContent = '';
+		this.balLine.classList.remove('cc-buy-bal-warn');
+		if (this.mode === 'buy' && this.denom.kind === 'usdc') {
+			this.balLine.hidden = false;
+			if (this.quoteBalance) {
+				const low = this.amount > 0 && this.amount > this.quoteBalance.ui + 1e-9;
+				this.balLine.classList.toggle('cc-buy-bal-warn', low);
+				this.balLine.append(el('span', { text: `Balance ${fmtQuote(this.quoteBalance.ui, this.denom)} USDC` }));
+				if (low) this.balLine.append(el('span', { class: 'cc-buy-bal-sep', text: ' · ' }), el('button', { class: 'cc-buy-link', type: 'button', text: 'Add USDC', onclick: () => this._openFund() }));
+			} else {
+				this.balLine.append(el('span', { text: 'Balance —' }));
+			}
+		} else if (this.mode === 'sell') {
+			this.balLine.hidden = false;
+			if (this.holdings) {
+				if (this.holdings.ui > 0) {
+					this.balLine.append(el('span', { text: `You hold ${compactCount(this.holdings.ui)} ${this.symTokens}` }));
+				} else {
+					this.balLine.append(el('span', { class: 'cc-buy-wallet-off', text: `You don't hold any ${this.symTokens} yet` }));
+				}
+			} else {
+				this.balLine.append(el('span', { text: 'Holdings —' }));
+			}
+		} else {
+			this.balLine.hidden = true;
+		}
+	}
+
+	_setMode(mode) {
+		if (this.mode === mode) return;
+		this.mode = mode;
+		this._sellMax = false;
+		this.amount = mode === 'buy' ? this.denom.presets[0] : 0;
+		this.amountInput.value = mode === 'buy' ? String(this.amount) : '';
+		this.quoteLine.textContent = '';
+		this.quoteLine.classList.remove('cc-buy-quote-warn');
+		this._setStatus('', '', true);
+		this._syncMode();
+		this._refreshBalances();
+		this._quote();
+		this._syncCta();
+		setTimeout(() => this.amountInput.focus(), 0);
+	}
+
 	_syncCta() {
 		const w = detectSolanaWallet();
 		const connected = !!w?.publicKey;
 		if (this.busy) { this.cta.disabled = true; return; }
-		if (!w) { this.cta.textContent = 'Get Phantom to buy'; this.ctaLabel = 'install'; this.cta.disabled = false; return; }
+		const verb = this.mode === 'sell' ? 'sell' : 'buy';
+		if (!w) { this.cta.textContent = `Get Phantom to ${verb}`; this.ctaLabel = 'install'; this.cta.disabled = false; return; }
 		if (!connected) { this.cta.textContent = 'Connect wallet'; this.ctaLabel = 'connect'; this.cta.disabled = false; return; }
+
+		if (this.mode === 'sell') {
+			this.ctaLabel = 'sell';
+			const hold = this.holdings?.ui || 0;
+			if (this.holdings && hold <= 0) { this.cta.textContent = `No ${this.symTokens} to sell`; this.cta.disabled = true; return; }
+			const ok = this.amount > 0 && (!this.holdings || this.amount <= hold + 1e-9);
+			this.cta.textContent = this.amount > 0 ? `Sell ${compactCount(this.amount)} ${this.symTokens}` : 'Enter an amount';
+			this.cta.disabled = !ok;
+			return;
+		}
+
+		// Buy. Insufficient USDC routes the CTA to the fund flow instead of a dead
+		// disabled button.
+		if (this.denom.kind === 'usdc' && this.quoteBalance && this.amount > 0 && this.amount > this.quoteBalance.ui + 1e-9) {
+			this.cta.textContent = 'Add USDC to buy'; this.ctaLabel = 'fund'; this.cta.disabled = false; return;
+		}
 		this.ctaLabel = 'buy';
-		this.cta.textContent = this.amount > 0 ? `Buy ${this.amount} SOL of ${this.sym}` : 'Enter an amount';
+		this.cta.textContent = this.amount > 0 ? `Buy ${this.amount} ${this.denom.label} of ${this.sym}` : 'Enter an amount';
 		this.cta.disabled = !(this.amount > 0);
 	}
 
@@ -247,6 +483,15 @@ class BuyModal {
 
 	// --------------------------------------------------------------- quote
 	async _quote() {
+		await this._detectP;
+		// SOL buys keep the original client-side AMM quote (price impact + honest
+		// bonding-curve fallback). Everything else (USDC buys, all sells) prices
+		// through the server quote endpoint, which handles USDC and both routes.
+		if (this.mode === 'buy' && this.denom.kind === 'sol') return this._quoteSolBuy();
+		return this._quoteServer();
+	}
+
+	async _quoteSolBuy() {
 		if (!(this.amount > 0)) { this.quoteLine.textContent = ''; return; }
 		const seq = ++this._quoteSeq;
 		this.quoteLine.classList.remove('cc-buy-quote-warn');
@@ -263,7 +508,7 @@ class BuyModal {
 			const impact = (q.priceImpactBps / 100);
 			this.quoteLine.textContent = '';
 			this.quoteLine.append(
-				el('span', { class: 'cc-buy-quote-out', text: tokens ? `≈ ${tokens} ${this.coin.symbol ? '$' + this.coin.symbol.toUpperCase() : 'tokens'}` : 'Quoted at market' }),
+				el('span', { class: 'cc-buy-quote-out', text: tokens ? `≈ ${tokens} ${this.symTokens}` : 'Quoted at market' }),
 				el('span', { class: 'cc-buy-quote-impact' + (impact >= 5 ? ' cc-buy-quote-warn' : ''), text: ` · ${impact < 0.01 ? '<0.01' : impact.toFixed(2)}% impact` }),
 			);
 		} catch (err) {
@@ -281,6 +526,78 @@ class BuyModal {
 		}
 	}
 
+	async _quoteServer() {
+		const seq = ++this._quoteSeq;
+		this.quoteLine.classList.remove('cc-buy-quote-warn');
+
+		if (this.mode === 'buy') {
+			if (!(this.amount > 0)) { this.quoteLine.textContent = ''; return; }
+			this.quoteLine.textContent = 'Fetching price…';
+			const u = new URLSearchParams({ mint: this.coin.mint, network: NETWORK, direction: 'buy', usdc: String(this.amount), slippage_bps: String(this.slippageBps) });
+			try {
+				const data = await fetch(`/api/pump/quote?${u}`).then((r) => r.json());
+				if (seq !== this._quoteSeq) return;
+				if (typeof data?.graduated === 'boolean') { this.graduated = data.graduated; this._renderStage(); }
+				const out = data?.quote?.tokens_out;
+				this.quoteLine.textContent = '';
+				if (out) {
+					const tokens = fmtTokens(out);
+					this.quoteLine.append(el('span', { class: 'cc-buy-quote-out', text: tokens ? `≈ ${tokens} ${this.symTokens}` : 'Quoted at market' }));
+					this.quoteLine.append(el('span', { class: 'cc-buy-quote-impact', text: ` · for ${this.amount} USDC` }));
+				} else {
+					this.quoteLine.classList.add('cc-buy-quote-warn');
+					this.quoteLine.textContent = `Priced at buy — you'll receive ${this.sym} for ${this.amount} USDC.`;
+				}
+			} catch {
+				if (seq !== this._quoteSeq) return;
+				this.quoteLine.classList.add('cc-buy-quote-warn');
+				this.quoteLine.textContent = `Priced at buy — you'll receive ${this.sym} for ${this.amount} USDC.`;
+			}
+			return;
+		}
+
+		// Sell.
+		const tokens = this._sellBaseUnits();
+		if (!tokens || tokens === '0') { this.quoteLine.textContent = ''; return; }
+		this.quoteLine.textContent = 'Fetching price…';
+		const u = new URLSearchParams({ mint: this.coin.mint, network: NETWORK, direction: 'sell', token: tokens, slippage_bps: String(this.slippageBps) });
+		try {
+			const data = await fetch(`/api/pump/quote?${u}`).then((r) => r.json());
+			if (seq !== this._quoteSeq) return;
+			if (typeof data?.graduated === 'boolean') { this.graduated = data.graduated; this._renderStage(); }
+			const q = data?.quote || {};
+			const out = this.denom.kind === 'usdc' ? q.usdc_out : q.sol_out;
+			this.quoteLine.textContent = '';
+			if (out != null) {
+				this.quoteLine.append(el('span', { class: 'cc-buy-quote-out', text: `≈ ${fmtQuote(out, this.denom)} ${this.denom.label}` }));
+				this.quoteLine.append(el('span', { class: 'cc-buy-quote-impact', text: ` · you receive` }));
+			} else {
+				this.quoteLine.classList.add('cc-buy-quote-warn');
+				this.quoteLine.textContent = `Priced at sale — you'll receive ${this.denom.label}.`;
+			}
+		} catch {
+			if (seq !== this._quoteSeq) return;
+			this.quoteLine.classList.add('cc-buy-quote-warn');
+			this.quoteLine.textContent = `Priced at sale — you'll receive ${this.denom.label}.`;
+		}
+	}
+
+	// Exact base-units to sell: the precise on-chain holding for "Max" (so no
+	// dust is left behind), otherwise the typed amount clamped to the balance.
+	_sellBaseUnits() {
+		const hold = this.holdings;
+		if (this._sellMax && hold?.base) return hold.base;
+		if (!(this.amount > 0)) return '0';
+		let want;
+		try { want = BigInt(Math.floor(this.amount * 10 ** PUMP_DECIMALS)); } catch { return '0'; }
+		if (want <= 0n) return '0';
+		if (hold?.base) {
+			const max = BigInt(hold.base);
+			if (want > max) want = max;
+		}
+		return want.toString();
+	}
+
 	// --------------------------------------------------------------- actions
 	async _onCta() {
 		if (this.busy) return;
@@ -290,23 +607,43 @@ class BuyModal {
 			this._setStatus('Approve the connection in your wallet…', '');
 			try { await w.connect(); } catch { this._setStatus('Wallet connection cancelled.', 'err'); return; }
 			this._refreshWallet();
+			this._refreshBalances();
 			this._setStatus('', '', true);
-			return; // let the user review, then click Buy
+			return; // let the user review, then click again
 		}
+		if (this.ctaLabel === 'fund') return this._openFund();
+		if (this.mode === 'sell') return this._sell();
 		this._buy();
 	}
 
+	async _openFund() {
+		const w = detectSolanaWallet();
+		const addr = w?.publicKey?.toString?.();
+		if (!addr) return this._onCta();
+		try {
+			const { showAddFunds } = await import('../shared/add-funds.js');
+			const res = await showAddFunds({ walletAddress: addr, requiredUsdc: this.amount });
+			if (res) {
+				this._setStatus('USDC added — you can buy now.', 'ok');
+				await this._refreshBalances();
+			}
+		} catch (err) {
+			this._setStatus(err?.message || 'Could not open the funding flow.', 'err');
+		}
+	}
+
 	async _buy() {
+		await this._detectP;
 		if (!(this.amount > 0)) return;
+		const isUsdc = this.denom.kind === 'usdc';
 		this.busy = true; this._syncCta();
 		const wallet = detectSolanaWallet();
 		const walletAddress = wallet.publicKey.toString();
 		try {
 			this._setStatus('Building your transaction…', '');
-			const prep = await this._fetchJson('/api/pump/buy-prep', {
-				mint: this.coin.mint, network: NETWORK, sol: this.amount,
-				slippage_bps: this.slippageBps, wallet_address: walletAddress,
-			});
+			const prepBody = { mint: this.coin.mint, network: NETWORK, slippage_bps: this.slippageBps, wallet_address: walletAddress };
+			if (isUsdc) prepBody.usdc_amount = this.amount; else prepBody.sol = this.amount;
+			const prep = await this._fetchJson('/api/pump/buy-prep', prepBody);
 
 			this._setStatus('Approve the purchase in your wallet…', '');
 			const { VersionedTransaction, Connection } = await import('@solana/web3.js');
@@ -322,43 +659,98 @@ class BuyModal {
 			const url = solanaTxExplorerUrl(NETWORK, sig);
 			this._setStatusNode(el('span', {}, ['Submitted — ', el('a', { href: url, target: '_blank', rel: 'noopener', text: 'view ↗' }), ' · confirming…']), 'ok');
 
-			const latest = await conn.getLatestBlockhash('confirmed');
-			try {
-				await conn.confirmTransaction({ signature: sig, blockhash: latest.blockhash, lastValidBlockHeight: latest.lastValidBlockHeight }, 'confirmed');
-			} catch { /* landed but slow to confirm — the explorer link is the source of truth */ }
+			await this._confirmOnChain(conn, sig);
 
 			// Best-effort server tracking; the buy already settled on-chain, so a
 			// failure here must never read as a failed purchase.
-			this._fetchJson('/api/pump/buy-confirm', {
-				mint: this.coin.mint, network: NETWORK, tx_signature: sig,
-				wallet_address: walletAddress, sol: this.amount, route: prep.route, slippage_bps: this.slippageBps,
-			}).catch(() => {});
+			const confirmBody = { mint: this.coin.mint, network: NETWORK, tx_signature: sig, wallet_address: walletAddress, route: prep.route, slippage_bps: this.slippageBps };
+			if (isUsdc) confirmBody.usdc_amount = this.amount; else confirmBody.sol = this.amount;
+			this._fetchJson('/api/pump/buy-confirm', confirmBody).catch(() => {});
 
 			this.cta.textContent = `Bought ${this.sym} ✓`;
 			this._setStatusNode(el('span', {}, [`Bought ${this.sym}. `, el('a', { href: url, target: '_blank', rel: 'noopener', text: 'View on Solscan ↗' })]), 'ok');
 			this.busy = false;
 			this.cta.disabled = true;
-			setTimeout(() => this._refreshWallet(), 1500);
+			setTimeout(() => { this._refreshWallet(); this._refreshBalances(); }, 1500);
 		} catch (err) {
 			this.busy = false; this._syncCta();
-			if (err.status === 401) {
-				this._setStatusNode(el('span', {}, [
-					'Sign in to three.ws to trade. ',
-					el('button', { class: 'cc-buy-link', type: 'button', text: 'Sign in', onclick: () => this._signInAndRetry() }),
-				]), 'err');
-				return;
-			}
-			this._setStatus(friendlyTradeError(err), 'err');
+			this._handleTradeError(err, 'buy', () => this._buy());
 		}
 	}
 
-	async _signInAndRetry() {
+	async _sell() {
+		await this._detectP;
+		const tokens = this._sellBaseUnits();
+		if (!tokens || tokens === '0') { this._setStatus('Enter an amount to sell.', 'err'); return; }
+		this.busy = true; this._syncCta();
+		const wallet = detectSolanaWallet();
+		const walletAddress = wallet.publicKey.toString();
+		try {
+			this._setStatus('Building your transaction…', '');
+			// sell-prep prepends an idempotent quote-ATA create for USDC sells. We
+			// sign and broadcast the FULL returned transaction unchanged — never
+			// stripping or re-ordering instructions — so that create lands with the
+			// sale atomically.
+			const prep = await this._fetchJson('/api/pump/sell-prep', {
+				mint: this.coin.mint, network: NETWORK, tokens, slippage_bps: this.slippageBps, wallet_address: walletAddress,
+			});
+
+			this._setStatus('Approve the sale in your wallet…', '');
+			const { VersionedTransaction, Connection } = await import('@solana/web3.js');
+			const tx = VersionedTransaction.deserialize(
+				Uint8Array.from(atob(prep.tx_base64), (c) => c.charCodeAt(0)),
+			);
+			const signed = await wallet.signTransaction(tx);
+
+			this._setStatus('Submitting on-chain…', '');
+			const conn = new Connection(SOLANA_RPC[NETWORK], 'confirmed');
+			const sig = await conn.sendRawTransaction(signed.serialize(), { skipPreflight: false, maxRetries: 3 });
+
+			const url = solanaTxExplorerUrl(NETWORK, sig);
+			this._setStatusNode(el('span', {}, ['Submitted — ', el('a', { href: url, target: '_blank', rel: 'noopener', text: 'view ↗' }), ' · confirming…']), 'ok');
+
+			await this._confirmOnChain(conn, sig);
+
+			this._fetchJson('/api/pump/sell-confirm', {
+				mint: this.coin.mint, network: NETWORK, tx_signature: sig, wallet_address: walletAddress, tokens, route: prep.route, slippage_bps: this.slippageBps,
+			}).catch(() => {});
+
+			this.cta.textContent = `Sold ${this.symTokens} ✓`;
+			this._setStatusNode(el('span', {}, [`Sold ${this.symTokens}. `, el('a', { href: url, target: '_blank', rel: 'noopener', text: 'View on Solscan ↗' })]), 'ok');
+			this.busy = false;
+			this.cta.disabled = true;
+			setTimeout(() => { this._refreshWallet(); this._refreshBalances(); }, 1500);
+		} catch (err) {
+			this.busy = false; this._syncCta();
+			this._handleTradeError(err, 'sell', () => this._sell());
+		}
+	}
+
+	async _confirmOnChain(conn, sig) {
+		const latest = await conn.getLatestBlockhash('confirmed');
+		try {
+			await conn.confirmTransaction({ signature: sig, blockhash: latest.blockhash, lastValidBlockHeight: latest.lastValidBlockHeight }, 'confirmed');
+		} catch { /* landed but slow to confirm — the explorer link is the source of truth */ }
+	}
+
+	_handleTradeError(err, mode, retry) {
+		if (err?.status === 401) {
+			this._setStatusNode(el('span', {}, [
+				'Sign in to three.ws to trade. ',
+				el('button', { class: 'cc-buy-link', type: 'button', text: 'Sign in', onclick: () => this._signInAndRetry(retry) }),
+			]), 'err');
+			return;
+		}
+		this._setStatus(friendlyTradeError(err, mode), 'err');
+	}
+
+	async _signInAndRetry(retry) {
 		this._setStatus('Opening sign-in…', '');
 		try {
 			const { signInWithWallet } = await import('../wallet-auth.js');
 			await signInWithWallet();
 			this._setStatus('Signed in — retrying…', 'ok');
-			this._buy();
+			(retry || (() => this._buy()))();
 		} catch (err) {
 			this._setStatus(err?.message || 'Sign-in failed.', 'err');
 		}
@@ -378,7 +770,7 @@ class BuyModal {
 			e.status = res.status;
 			throw e;
 		}
-		if (path.includes('buy-prep') && !data.tx_base64) throw new Error('server did not return a transaction');
+		if (path.includes('-prep') && !data.tx_base64) throw new Error('server did not return a transaction');
 		return data;
 	}
 
@@ -393,4 +785,28 @@ class BuyModal {
 		this.statusLine.setAttribute('data-kind', kind || '');
 		this.statusLine.appendChild(node);
 	}
+}
+
+// Pull the token amount out of a getParsedTokenAccountsByOwner response. The
+// mint filter can return more than one account (rare), so sum them.
+function parseTokenAmount(res) {
+	const accts = res?.value || [];
+	if (!accts.length) return { ui: 0, base: '0', decimals: PUMP_DECIMALS };
+	let base = 0n;
+	let decimals = PUMP_DECIMALS;
+	for (const a of accts) {
+		const ta = a?.account?.data?.parsed?.info?.tokenAmount;
+		if (!ta) continue;
+		try { base += BigInt(ta.amount || '0'); } catch { /* skip */ }
+		if (typeof ta.decimals === 'number') decimals = ta.decimals;
+	}
+	const ui = Number(base) / 10 ** decimals;
+	return { ui, base: base.toString(), decimals };
+}
+
+// Render a number with up to 6 fraction digits, no trailing zeros — for echoing
+// a chosen sell amount back into the input.
+function trimNum(n) {
+	if (!isFinite(n)) return '0';
+	return String(Number(n.toFixed(6)));
 }

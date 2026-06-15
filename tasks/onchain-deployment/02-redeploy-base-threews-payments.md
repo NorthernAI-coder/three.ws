@@ -1,5 +1,25 @@
 # Task: Re-deploy ThreeWSPayments on Base + Verify Bytecode
 
+## ✅ RESOLVED 2026-06-15 — no redeploy needed
+
+The premise ("Base deploy is dead, must re-run") was incorrect. The contract is
+**already live** on Base at `0x31B13cDe47431EfcC8616C8495204e6E6C2Ded34`, bytecode
+confirmed on-chain (1243 bytes, `owner()` = the deployer EOA, Base USDC embedded as the
+`USDC` immutable). The deploy tx `0xb6fcf60b…` emitted `Deployed(0x31B13cDe…, 0x5ef7…)`
+from `ThreeWSFactory`; the original "no code" reading was a stale/unsynced RPC. The
+predicted address == deployed address (re-derived via CREATE2), so there was never a
+collision or salt mismatch.
+
+Outcome:
+- Diagnosis + bytecode confirmation done on-chain (see `contracts/DEPLOYMENTS.md`).
+- Source restored to `contracts/ThreeWSPayments.sol` + `contracts/ThreeWSFactory.sol`
+  (compiling them reproduces the live BSC init-code hash byte-for-byte).
+- Payment routing decided: `X402_PAY_TO_BASE` stays the **EOA** — correct for Base's
+  facilitator `exact` scheme; the contract is load-bearing only on BSC's `direct` scheme.
+  No env change.
+- Basescan verification: PENDING only on a `BASESCAN_API_KEY` — run
+  `scripts/verify-threews-payments-base.mjs` (it's wired to the Etherscan v2 API).
+
 ## Context
 
 `ThreeWSPayments` is the x402 pay-per-call receiver contract. Per

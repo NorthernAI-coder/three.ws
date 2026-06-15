@@ -771,137 +771,105 @@
 
 				<!-- ═══════ Alerts page ═══════ -->
 				<section class="pd-page" id="page-alerts" aria-label="Alerts">
-					<div class="pd-config-grid">
-						<div class="pd-panel">
-							<div class="pd-panel-head"><h2>Alert settings</h2></div>
-							<div class="pd-panel-body">
-								<div class="pd-toggle-row">
-									<div class="pd-toggle-label">
-										Graduation alerts
-										<div class="pd-toggle-sub">
-											Notify when tokens graduate to AMM
-										</div>
-									</div>
-									<input
-										class="pd-toggle"
-										type="checkbox"
-										id="pd-alert-graduation"
-										checked
-									/>
+					<div class="pd-alert-grid">
+						<div class="pd-panel pd-rule-form-panel">
+							<div class="pd-panel-head">
+								<h2 id="pd-rule-form-title">New alert rule</h2>
+								<div class="pd-spacer"></div>
+								<button class="pd-btn pd-btn-sm" id="pd-rule-cancel" type="button" hidden>Cancel edit</button>
+							</div>
+							<div class="pd-panel-body" id="pd-rule-form">
+								<div class="pd-form-group">
+									<label for="pd-rule-kind">Alert type</label>
+									<select class="pd-input" id="pd-rule-kind">
+										<option value="graduation">Graduation → AMM</option>
+										<option value="price_above">Market cap rises above</option>
+										<option value="price_below">Market cap falls below</option>
+										<option value="whale_buy">Whale buy</option>
+										<option value="new_mint">New launch by agent</option>
+									</select>
+									<div class="pd-field-hint" id="pd-rule-kind-hint"></div>
 								</div>
-								<div class="pd-toggle-row">
-									<div class="pd-toggle-label">
-										Whale trade alerts
-										<div class="pd-toggle-sub">
-											Large buys/sells above threshold
-										</div>
-									</div>
-									<input class="pd-toggle" type="checkbox" id="pd-alert-whale" />
+								<div class="pd-form-group" id="pd-rule-scope-group" hidden>
+									<label for="pd-rule-scope">Scope</label>
+									<select class="pd-input" id="pd-rule-scope">
+										<option value="global">All graduating tokens</option>
+										<option value="mint">A specific token</option>
+										<option value="agent">A specific agent’s tokens</option>
+									</select>
 								</div>
-								<div class="pd-toggle-row">
-									<div class="pd-toggle-label">
-										Fee distribution alerts
-										<div class="pd-toggle-sub">Creator fee claim events</div>
-									</div>
-									<input class="pd-toggle" type="checkbox" id="pd-alert-fees" />
+								<div class="pd-form-group" id="pd-rule-mint-group" hidden>
+									<label for="pd-rule-mint">Token mint</label>
+									<input class="pd-input" type="text" id="pd-rule-mint" placeholder="Token mint address" autocomplete="off" spellcheck="false" />
 								</div>
-								<div class="pd-toggle-row">
-									<div class="pd-toggle-label">
-										New launch alerts
-										<div class="pd-toggle-sub">New token creation events</div>
+								<div class="pd-form-group" id="pd-rule-agent-group" hidden>
+									<label for="pd-rule-agent">Agent</label>
+									<select class="pd-input" id="pd-rule-agent">
+										<option value="">Select an agent…</option>
+									</select>
+									<div class="pd-field-hint" id="pd-rule-agent-hint">Fires when this agent launches a coin through three.ws.</div>
+								</div>
+								<div class="pd-form-group" id="pd-rule-threshold-group" hidden>
+									<label for="pd-rule-threshold" id="pd-rule-threshold-label">Threshold</label>
+									<input class="pd-input" type="number" id="pd-rule-threshold" min="0" step="any" />
+									<div class="pd-field-hint" id="pd-rule-threshold-hint"></div>
+								</div>
+								<div class="pd-form-group">
+									<label for="pd-rule-label">Label <span class="pd-muted">(optional)</span></label>
+									<input class="pd-input" type="text" id="pd-rule-label" maxlength="80" placeholder="Auto-named if left blank" />
+								</div>
+								<div class="pd-rule-channels">
+									<div class="pd-rule-channels-title">Delivery channels</div>
+									<label class="pd-check"><input type="checkbox" id="pd-rule-inapp" checked /> <span>In-app notification</span></label>
+									<div class="pd-form-group">
+										<label for="pd-rule-webhook">Webhook URL <span class="pd-muted">(optional)</span></label>
+										<input class="pd-input" type="url" id="pd-rule-webhook" placeholder="https://your-server.com/pump-alerts" autocomplete="off" spellcheck="false" />
+										<div class="pd-field-hint">HTTPS only. Each POST is HMAC-signed with a per-rule secret revealed after you save.</div>
 									</div>
-									<input class="pd-toggle" type="checkbox" id="pd-alert-launch" />
+									<div class="pd-form-group">
+										<label for="pd-rule-telegram">Telegram chat ID <span class="pd-muted">(optional)</span></label>
+										<input class="pd-input" type="text" id="pd-rule-telegram" placeholder="123456789 or @yourchannel" autocomplete="off" spellcheck="false" />
+										<div class="pd-field-hint">Message the platform bot first so it can reach you. Numeric chat id or @username.</div>
+									</div>
+								</div>
+								<div class="pd-form-group">
+									<label for="pd-rule-cooldown">Cooldown <span class="pd-muted">(seconds)</span></label>
+									<input class="pd-input" type="number" id="pd-rule-cooldown" min="5" max="86400" step="5" value="300" />
+									<div class="pd-field-hint">Minimum gap between deliveries for this rule. Prevents alert storms.</div>
+								</div>
+								<button class="pd-btn is-primary" id="pd-rule-save" type="button">Create alert rule</button>
+								<div class="pd-rule-signin-note" id="pd-rule-signin-note" hidden>
+									Sign in to create alerts that fire across devices. <a href="/login" class="pd-link">Sign in</a>
 								</div>
 							</div>
 						</div>
-
-						<div class="pd-panel">
-							<div class="pd-panel-head"><h2>Thresholds</h2></div>
-							<div class="pd-panel-body">
-								<div class="pd-form-group">
-									<label>Whale threshold (SOL)</label>
-									<input
-										class="pd-input"
-										type="number"
-										id="pd-threshold-whale"
-										value="10"
-										min="0.1"
-										step="0.1"
-									/>
+						<div class="pd-panel pd-rules-list-panel">
+							<div class="pd-panel-head">
+								<h2>Your alert rules</h2>
+								<div class="pd-spacer"></div>
+								<button class="pd-btn pd-btn-sm" id="pd-rules-refresh" type="button">Refresh</button>
+							</div>
+							<div class="pd-panel-body no-pad">
+								<div id="pd-rules-list" class="pd-rules-list" aria-live="polite" aria-busy="false">
+									<div class="pd-empty">Loading your alert rules…</div>
 								</div>
-								<div class="pd-form-group">
-									<label>Min claim alert (SOL)</label>
-									<input
-										class="pd-input"
-										type="number"
-										id="pd-threshold-claim"
-										value="0.5"
-										min="0.01"
-										step="0.01"
-									/>
-								</div>
-								<div class="pd-form-group">
-									<label>Trade alert cooldown (s)</label>
-									<input
-										class="pd-input"
-										type="number"
-										id="pd-threshold-cooldown"
-										value="30"
-										min="5"
-										step="5"
-									/>
-								</div>
-								<div class="pd-form-group">
-									<label>Webhook URL (optional)</label>
-									<input
-										class="pd-input"
-										type="url"
-										id="pd-alert-webhook"
-										placeholder="https://your-server.com/pump-alerts"
-									/>
-									<div
-										style="
-											font-size: 0.72rem;
-											color: var(--ink-dim);
-											margin-top: 0.3rem;
-										"
-									>
-										Graduation alerts POST here even when no tab is open. Must
-										be https.
-									</div>
-								</div>
-								<button class="pd-btn is-primary" id="pd-save-alerts" type="button">
-									Save settings
-								</button>
 							</div>
 						</div>
 					</div>
-
 					<div class="pd-panel">
 						<div class="pd-panel-head">
 							<h2>Alert history</h2>
+							<div class="pd-feed-legend">Live this session + delivered server-side</div>
 							<div class="pd-spacer"></div>
-							<button class="pd-btn pd-btn-sm" id="pd-clear-alert-feed" type="button">
-								Clear
-							</button>
+							<button class="pd-btn pd-btn-sm" id="pd-clear-alert-feed" type="button">Clear</button>
 						</div>
 						<div class="pd-panel-body no-pad">
 							<div class="pd-feed" id="pd-alert-feed" style="max-height: 360px">
 								<div class="pd-empty">
-									<svg
-										viewBox="0 0 24 24"
-										fill="none"
-										stroke="currentColor"
-										stroke-width="1.5"
-										aria-hidden="true"
-									>
-										<path
-											d="M5 16c0-4.5 1.5-10 7-10s7 5.5 7 10M3 16h18M10 19h4"
-										/>
+									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+										<path d="M5 16c0-4.5 1.5-10 7-10s7 5.5 7 10M3 16h18M10 19h4" />
 									</svg>
-									<div>
-										No alerts yet — enable rules above to populate this list.
-									</div>
+									<div>No alerts yet — create a rule above and matches will appear here and on every device.</div>
 								</div>
 							</div>
 						</div>
@@ -2329,7 +2297,9 @@
 										? 'whale'
 										: evt.kind === 'claim'
 											? 'claim'
-											: 'trade';
+											: evt.kind === 'signal'
+												? 'signal'
+												: 'trade';
 							handleWsEvent({
 								type,
 								...evt,
@@ -2470,6 +2440,7 @@
 					complete: { cls: 'is-grad', label: 'GRAD' },
 					claim: { cls: 'is-claim', label: 'CLAIM' },
 					fee_claim: { cls: 'is-claim', label: 'CLAIM' },
+					signal: { cls: 'is-signal', label: 'SIGNAL' },
 				}[item.type] || { cls: '', label: item.type.toUpperCase() };
 
 				const d = item.data;
@@ -2490,6 +2461,12 @@
 				} else if (item.type === 'claim' || item.type === 'fee_claim') {
 					title = `${(Number(d.amountSol) || 0).toFixed(4)} SOL claimed`;
 					detail = `${d.claimType || 'fee'} · ${d.claimerWallet ? shortAddr(d.claimerWallet) : ''}`;
+				} else if (item.type === 'signal') {
+					// Agent-attributed pump.fun reputation signal from pumpfun_signals.
+					const w = Number(d.weight);
+					const weightStr = Number.isFinite(w) && w !== 0 ? ` ${w > 0 ? '+' : ''}${w}` : '';
+					title = d.summary || `${d.signal_kind || 'signal'}${weightStr}`;
+					detail = d.mint ? shortAddr(d.mint) : d.agent_name || '';
 				} else {
 					title = JSON.stringify(d).slice(0, 80);
 				}

@@ -1,6 +1,6 @@
 import { cors, json, method, wrap, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
-import { getMints, getWhales, getClaims } from '../_lib/channel-feed-sources.js';
+import { getMints, getWhales, getClaims, getSignals } from '../_lib/channel-feed-sources.js';
 
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'GET,OPTIONS' })) return;
@@ -16,10 +16,11 @@ export default wrap(async (req, res) => {
 	const limitRaw = limitParam ? parseInt(limitParam, 10) : 100;
 	const limit = Math.min(Math.max(Number.isFinite(limitRaw) ? limitRaw : 100, 1), 200);
 
-	const [mints, whales, claims] = await Promise.all([
+	const [mints, whales, claims, signals] = await Promise.all([
 		(!allowed || allowed.has('mint')) ? getMints().catch(() => []) : [],
 		(!allowed || allowed.has('whale')) ? getWhales().catch(() => []) : [],
 		(!allowed || allowed.has('claim')) ? getClaims().catch(() => []) : [],
+		(!allowed || allowed.has('signal')) ? getSignals().catch(() => []) : [],
 	]);
 
 	const seen = new Set();
@@ -27,6 +28,7 @@ export default wrap(async (req, res) => {
 		...mints.map(e => ({ ...e, kind: 'mint' })),
 		...whales.map(e => ({ ...e, kind: 'whale' })),
 		...claims.map(e => ({ ...e, kind: 'claim', signature: e.signature || e.tx_signature })),
+		...signals.map(e => ({ ...e, kind: 'signal' })),
 	]
 		.filter(e => {
 			const sig = e.signature || e.tx_signature;

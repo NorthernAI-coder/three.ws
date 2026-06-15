@@ -496,6 +496,7 @@ html.pump-dashboard-page body {
 .pd-tag.is-whale   { background: rgba(251, 191, 36, 0.14); border-color: rgba(251, 191, 36, 0.3); color: var(--warn); }
 .pd-tag.is-grad    { background: var(--accent-soft); border-color: var(--stroke-strong); color: var(--accent); }
 .pd-tag.is-claim   { background: rgba(74, 222, 128, 0.14); border-color: rgba(74, 222, 128, 0.3); color: var(--success); }
+.pd-tag.is-signal  { background: rgba(129, 140, 248, 0.14); border-color: rgba(129, 140, 248, 0.32); color: #a5b4fc; }
 
 /* ── Live feed ───────────────────────────────────────────── */
 

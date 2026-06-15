@@ -312,49 +312,15 @@
 </div>
 
 <script type="module">
-  import { LoopOnce, LoopRepeat } from 'three';
-  import { Viewer } from '/src/viewer.js';
-
   // ════════════════════════════════════════════════════════════════════
-  // 3D Agent Setup — the avatar reacts to each new launch. The viewer loads
-  // asynchronously and is NEVER awaited at the top level: the live feed is the
-  // primary content, so it must connect immediately regardless of how long
-  // WebGL/GLB init takes (or whether it fails on a no-GPU/locked-down client).
-  // If the viewer never finishes loading, playAnimation() simply no-ops.
+  // PumpFun Live Token Feed — the primary content.
+  //
+  // This module imports nothing heavy (no three.js), so it executes the instant
+  // it parses and the WebSocket feed connects immediately. The 3D agent viewer
+  // lives in a SEPARATE module below and only reacts to the `pumplive:token`
+  // event this module dispatches — the feed therefore never waits on (and never
+  // breaks with) WebGL, the GLB download, or a slow CDN.
   // ════════════════════════════════════════════════════════════════════
-
-  let viewer = null;
-
-  async function initViewer() {
-    try {
-      const viewerEl = document.getElementById('viewer-container');
-      const v = new Viewer(viewerEl, { kiosk: true });
-
-      await v.load('/animations/robotexpressive.glb', '', new Map());
-
-      const idleClip =
-        v.clips.find((c) => /^idle$/i.test(c.name)) || v.clips[0];
-      if (idleClip && v.mixer) {
-        v.mixer.clipAction(idleClip).play();
-      }
-      viewer = v;            // only expose once fully loaded so playAnimation() is safe
-      window.viewer = v;
-    } catch (err) {
-      console.warn('[pump-live] 3D viewer unavailable, continuing with feed only:', err?.message || err);
-      viewer = null;
-    }
-  }
-
-  function playAnimation(animationName, { loop = false } = {}) {
-    if (!viewer || !viewer.mixer) return;
-    const clip = viewer.clips.find((c) => c.name === animationName);
-    if (!clip) return;
-    const action = viewer.mixer.clipAction(clip);
-    action.reset();
-    action.setLoop(loop ? LoopRepeat : LoopOnce, loop ? Infinity : 1);
-    action.clampWhenFinished = !loop;
-    action.play();
-  }
 
   // ════════════════════════════════════════════════════════════════════
   // SOL price — drives real USD market caps. Sourced from the same-origin
@@ -615,8 +581,8 @@
     $log.prepend(card);
     while ($log.children.length > MAX_FEED_ITEMS) $log.removeChild($log.lastChild);
 
-    // Agent reacts to the new launch.
-    playAnimation('Wave', { loop: false });
+    // Notify the 3D viewer module (decoupled — it may not be loaded yet).
+    window.dispatchEvent(new CustomEvent('pumplive:token', { detail: { symbol: token.symbol || '' } }));
   }
 
   function setStatus(text, className) {
@@ -624,15 +590,58 @@
     $status.className = `status ${className}`;
   }
 
-  // Bootstrap. The feed opens first and never waits on anything else — the
-  // SOL price and the 3D viewer hydrate in the background. Until the first
-  // price lands, market caps render in SOL (real data) and upgrade to USD on
-  // the next paint; cards are never blocked behind a price or a WebGL context.
+  // Bootstrap. The feed opens first and never waits on anything else — the SOL
+  // price hydrates in the background. Until the first price lands, market caps
+  // render in SOL (real data) and upgrade to USD on the next paint; cards are
+  // never blocked behind a price.
   renderStats();
   connect();
   refreshSolPrice();
   setInterval(refreshSolPrice, 60000);
-  initViewer();
+</script>
+
+<script type="module">
+  // ════════════════════════════════════════════════════════════════════
+  // 3D Agent Viewer — loaded independently of the feed. It imports three.js
+  // (heavy), so isolating it here means its download never delays the live
+  // feed above. It listens for `pumplive:token` and waves on each new launch.
+  // If WebGL is unavailable (no-GPU / locked-down browser) the whole init
+  // fails soft: the feed keeps working, the avatar pane just stays empty.
+  // ════════════════════════════════════════════════════════════════════
+  import { LoopOnce, LoopRepeat } from 'three';
+  import { Viewer } from '/src/viewer.js';
+
+  let viewer = null;
+
+  function playAnimation(animationName, { loop = false } = {}) {
+    if (!viewer || !viewer.mixer) return;
+    const clip = viewer.clips.find((c) => c.name === animationName);
+    if (!clip) return;
+    const action = viewer.mixer.clipAction(clip);
+    action.reset();
+    action.setLoop(loop ? LoopRepeat : LoopOnce, loop ? Infinity : 1);
+    action.clampWhenFinished = !loop;
+    action.play();
+  }
+
+  // React to launches even while the GLB is still loading — once `viewer` is
+  // set the next event animates; events before that simply no-op.
+  window.addEventListener('pumplive:token', () => playAnimation('Wave', { loop: false }));
+
+  try {
+    const viewerEl = document.getElementById('viewer-container');
+    const v = new Viewer(viewerEl, { kiosk: true });
+    await v.load('/animations/robotexpressive.glb', '', new Map());
+
+    const idleClip = v.clips.find((c) => /^idle$/i.test(c.name)) || v.clips[0];
+    if (idleClip && v.mixer) v.mixer.clipAction(idleClip).play();
+
+    viewer = v;            // expose only once fully loaded so playAnimation() is safe
+    window.viewer = v;
+  } catch (err) {
+    console.warn('[pump-live] 3D viewer unavailable, feed continues without it:', err?.message || err);
+    viewer = null;
+  }
 </script>
 
 		<div id="footer-container"></div>

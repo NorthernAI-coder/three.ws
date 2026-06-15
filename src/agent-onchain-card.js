@@ -106,7 +106,7 @@ export function mountAgentOnchainCard({ panel, identity }) {
 		const badge = onchainBadgeHTML(statusShape(identity), { size: 'md', label: 'On-chain' });
 		const onchain = identity.meta?.onchain || {};
 		const cardUri = onchain.metadata_uri ? resolveURI(onchain.metadata_uri) : null;
-		const agentIdLabel = status.registry || (onchain.onchain_id ? `#${onchain.onchain_id}` : '—');
+		const agentIdLabel = onchain.onchain_id ? `#${onchain.onchain_id}` : status.registry || '—';
 		return `
 			<div class="aoc-head">
 				<span class="aoc-title">On-chain identity</span>
