@@ -246,9 +246,18 @@ export class ArenaWorld {
 		return p;
 	}
 
-	async _makeAvatar(glbUrl, { fallback = '/avatars/default.glb' } = {}) {
+	_loadTemplateTimed(url, ms) {
+		return Promise.race([
+			this._loadTemplate(url),
+			new Promise((_, rej) => setTimeout(() => rej(new Error('glb timeout: ' + url)), ms)),
+		]);
+	}
+
+	// Load a GLB, falling back to a light known-good rig if the chosen one fails
+	// or stalls — so a crowd never ends up with a missing body.
+	async _makeAvatar(glbUrl, { fallback = '/avatars/mannequin.glb', timeout = 20000 } = {}) {
 		let gltf;
-		try { gltf = await this._loadTemplate(glbUrl); }
+		try { gltf = await this._loadTemplateTimed(glbUrl, timeout); }
 		catch { gltf = await this._loadTemplate(fallback); }
 		// Clone so multiple agents can share one downloaded GLB.
 		const model = cloneSkeleton(gltf.scene);

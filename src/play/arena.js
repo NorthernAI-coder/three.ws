@@ -90,26 +90,7 @@ async function loadAndPlace() {
 
 	if (!_placed && board.length) {
 		_placed = true;
-		const positions = arenaPositions(board.length);
-		// Spawn sequentially-ish but don't block the loop; stagger for a nice fill.
-		board.forEach((row, i) => {
-			const av = ROSTER[hash(row.agent_id) % ROSTER.length];
-			const pos = positions[i];
-			setTimeout(() => {
-				world.spawnAgent({
-					id: row.agent_id,
-					name: row.agent_name || 'Agent',
-					glbUrl: av.url,
-					position: [pos.x, pos.z],
-					facingY: pos.facing,
-					leader: i === 0,
-					pnlText: fmtSol(row.realized_pnl_sol),
-					pnlUp: (row.realized_pnl_sol ?? 0) >= 0,
-					thumbnail: row.image || '',
-					rank: row.rank,
-				}).then((agent) => createLabel(agent)).catch((err) => console.warn('[arena] spawn agent', err));
-			}, i * 120);
-		});
+		spawnAgentsProgressively(board);
 	}
 
 	// Seed the tape with recent closed trades (oldest first so prepend keeps order).
@@ -133,6 +114,41 @@ async function loadBoardOnly() {
 			}
 		});
 	} catch { /* keep last good */ }
+}
+
+// Spawn agents with bounded concurrency. Avatar GLBs are 1–3 MB and share a
+// Draco/KTX2 worker pool — firing all of them at once thrashes the pool and
+// stalls loads. Two workers pull from a queue so avatars pop in steadily and
+// every one resolves. Repeats are instant (the world template-caches by URL).
+const SPAWN_CONCURRENCY = 2;
+async function spawnAgentsProgressively(board) {
+	const positions = arenaPositions(board.length);
+	const queue = board.map((row, i) => ({ row, i, pos: positions[i] }));
+	const worker = async () => {
+		let job;
+		while ((job = queue.shift())) {
+			const { row, i, pos } = job;
+			const av = ROSTER[hash(row.agent_id) % ROSTER.length];
+			try {
+				const agent = await world.spawnAgent({
+					id: row.agent_id,
+					name: row.agent_name || 'Agent',
+					glbUrl: av.url,
+					position: [pos.x, pos.z],
+					facingY: pos.facing,
+					leader: i === 0,
+					pnlText: fmtSol(row.realized_pnl_sol),
+					pnlUp: (row.realized_pnl_sol ?? 0) >= 0,
+					thumbnail: row.image || '',
+					rank: row.rank,
+				});
+				createLabel(agent);
+			} catch (err) {
+				console.warn('[arena] spawn agent', err);
+			}
+		}
+	};
+	await Promise.all(Array.from({ length: SPAWN_CONCURRENCY }, worker));
 }
 
 // Arrange agents on a forward-facing arc; #1 elevated at the back-centre.
