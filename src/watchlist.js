@@ -143,10 +143,12 @@ function teardown() {
 // ── cards ────────────────────────────────────────────────────────────────────
 
 function watchCard(mint, index) {
+	// Primary card link opens Oracle conviction drawer for this coin.
+	// Secondary "launch page" link is rendered inside the coin-status-card footer.
 	const link = el('a', {
 		class: 'wl-card-link',
-		href: `/launches/${mint}`,
-		'aria-label': 'Open coin profile',
+		href: `/oracle?mint=${mint}`,
+		'aria-label': 'Open Oracle conviction breakdown',
 	});
 	const market = el('div', { class: 'wl-market' });
 	const removeBtn = el('button', {
@@ -166,7 +168,7 @@ function watchCard(mint, index) {
 		card.style.animationDelay = `${Math.min(index, 12) * 40}ms`;
 		card.classList.add('wl-in');
 	}
-	handles.add(mountCoinStatus(market, mint, { variant: 'card', placeholder: mintIdenticon(mint) }));
+	handles.add(mountCoinStatus(market, mint, { variant: 'card', placeholder: mintIdenticon(mint), showBuy: true }));
 	return card;
 }
 
