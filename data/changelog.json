@@ -3,6 +3,13 @@
 	"entries": [
 		{
 			"date": "2026-06-16",
+			"title": "Oracle social signal — X posts now feed into coin conviction scores",
+			"summary": "The Oracle's Narrative pillar now receives real-time social signal from X. When a coin's $SYMBOL is mentioned in a tweet, the post's reach and engagement — views, likes, retweets — translate into a virality boost that raises the Oracle's conviction score. KOL accounts (verified smart-money voices on X) apply a 1.5× multiplier. The POST /api/oracle/social endpoint accepts raw tweet batches from any scraper, and the three.surf chart tool ships a --push-social flag that pipes its tweet analysis directly into the Oracle after each run.",
+			"tags": ["feature", "improvement"],
+			"link": "/oracle"
+		},
+		{
+			"date": "2026-06-16",
 			"title": "Oracle conviction in the MCP — agents can now read the fused score and the full trader roster",
 			"summary": "The pump.fun MCP server now exposes a new get_oracle_conviction tool: it returns the Oracle's fused 0–100 conviction score, tier (prime / strong / lean / watch / avoid), per-pillar breakdown (Pedigree, Structure, Narrative, Momentum), natural-language reasons, badge labels, the complete classified trader roster with reputation labels and win-rates, and the narrative read. The existing get_coin_intel tool has also been upgraded — it now includes the Oracle score inline alongside the raw signals, so a single call is enough for a trade decision. 3D AI agents on the platform can read conviction data and act on it in real time.",
 			"tags": ["feature", "sdk"],
