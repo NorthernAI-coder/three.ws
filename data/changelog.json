@@ -3,6 +3,13 @@
 	"entries": [
 		{
 			"date": "2026-06-16",
+			"title": "Portfolio: Oracle conviction for every token you hold",
+			"summary": "The portfolio dashboard now shows Oracle conviction scores on Solana tokens. Each row gets a live badge showing the Oracle score and tier (prime / strong / lean). The pump.fun tokens table adds an Oracle column. And when you open any token's detail drawer, a conviction breakdown appears — score dial, pillar bars, and a link to the full Oracle analysis. Helps you make informed hold / sell decisions from the portfolio view.",
+			"tags": ["improvement"],
+			"link": "/dashboard/portfolio"
+		},
+		{
+			"date": "2026-06-16",
 			"title": "Copy trading: Oracle conviction gate",
 			"summary": "Copy subscriptions now support a minimum Oracle conviction score. Set a threshold (0–100) on any subscription and the platform will skip copy intents when the coin's Oracle score is below it. Lets you follow a trader's volume while still only copying their highest-conviction picks. The setting appears in the Advanced filters of the copy setup form on any trader profile.",
 			"tags": ["feature"],

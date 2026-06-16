@@ -504,14 +504,15 @@ function renderTableBody(section) {
 			? `<img src="${esc(t.logo)}" alt="" class="pf-token-logo" loading="lazy" />`
 			: `<div class="pf-token-logo pf-token-logo-ph">${esc((t.symbol || '?')[0])}</div>`;
 		const chainMeta = CHAIN[t.chain] || CHAIN.solana;
+		const isSolToken = t.chain === 'solana' && t.id && t.id !== 'native';
 
 		return `
-			<tr class="pf-row" data-chain="${esc(t.chain)}" data-id="${esc(t.id)}" tabindex="0" role="row">
+			<tr class="pf-row" data-chain="${esc(t.chain)}" data-id="${esc(t.id)}" ${isSolToken ? `data-oracle-mint="${esc(t.id)}"` : ''} tabindex="0" role="row">
 				<td class="pf-td">
 					<div class="pf-token-cell">
 						${logoHtml}
 						<div>
-							<div class="pf-token-symbol">${esc(t.symbol)} <span class="pf-token-chain-dot" style="background:${chainMeta.color}" title="${chainMeta.label}"></span></div>
+							<div class="pf-token-symbol">${esc(t.symbol)} <span class="pf-token-chain-dot" style="background:${chainMeta.color}" title="${chainMeta.label}"></span>${isSolToken ? '<span class="pf-oracle-badge"></span>' : ''}</div>
 							<div class="pf-token-name">${esc(t.name)}</div>
 						</div>
 					</div>
@@ -530,6 +531,8 @@ function renderTableBody(section) {
 		`;
 	}).join('');
 
+	enrichHoldingsOracle(tbody);
+
 	tbody.querySelectorAll('.pf-row').forEach((row) => {
 		const handler = () => {
 			const chain = row.dataset.chain;
@@ -540,6 +543,92 @@ function renderTableBody(section) {
 		row.addEventListener('click', handler);
 		row.addEventListener('keydown', (e) => { if (e.key === 'Enter') handler(); });
 	});
+}
+
+// ── Oracle conviction enrichment ──────────────────────────────────────────────
+
+const PF_TIER_COLOR = { prime: '#c084fc', strong: '#34d399', lean: '#fbbf24', watch: '#94a3b8', avoid: '#f87171' };
+
+async function batchOracleFetch(mints) {
+	if (!mints.length) return {};
+	const chunks = [];
+	for (let i = 0; i < mints.length; i += 20) chunks.push(mints.slice(i, i + 20));
+	const results = {};
+	try {
+		const resps = await Promise.all(
+			chunks.map((chunk) =>
+				fetch(`/api/oracle/batch?mints=${chunk.map(encodeURIComponent).join(',')}&network=mainnet`)
+					.then((r) => r.ok ? r.json() : null)
+					.catch(() => null),
+			),
+		);
+		for (const resp of resps) {
+			if (resp?.results) Object.assign(results, resp.results);
+		}
+	} catch { /* non-fatal */ }
+	return results;
+}
+
+async function enrichHoldingsOracle(tbody) {
+	const rows = [...tbody.querySelectorAll('[data-oracle-mint]')];
+	if (!rows.length) return;
+	const mints = [...new Set(rows.map((r) => r.dataset.oracleMint).filter(Boolean))];
+	const results = await batchOracleFetch(mints);
+	for (const row of rows) {
+		const mint = row.dataset.oracleMint;
+		const d = results[mint];
+		if (!d || d.score == null) continue;
+		const badge = row.querySelector('.pf-oracle-badge');
+		if (!badge || badge.hasChildNodes()) continue;
+		const color = PF_TIER_COLOR[d.tier] || '#94a3b8';
+		badge.innerHTML = `<a class="pf-ob" href="/oracle?mint=${encodeURIComponent(mint)}" title="Oracle conviction: ${d.score} · ${d.tier}" onclick="event.stopPropagation()" style="color:${color}">◎ ${d.score}</a>`;
+	}
+}
+
+async function enrichPumpOracle(tbody) {
+	const cells = [...tbody.querySelectorAll('[data-pump-oracle]')];
+	if (!cells.length) return;
+	const mints = [...new Set(cells.map((c) => c.dataset.pumpOracle).filter(Boolean))];
+	const results = await batchOracleFetch(mints);
+	for (const cell of cells) {
+		const mint = cell.dataset.pumpOracle;
+		const d = results[mint];
+		if (!d || d.score == null) { cell.textContent = '—'; continue; }
+		const color = PF_TIER_COLOR[d.tier] || '#94a3b8';
+		cell.innerHTML = `<a class="pf-ob pf-ob-pump" href="/oracle?mint=${encodeURIComponent(mint)}" title="${d.score} · ${d.tier}" style="color:${color}">◎ ${d.score} <span style="font-size:9px;opacity:.8;text-transform:uppercase;letter-spacing:.05em">${d.tier}</span></a>`;
+	}
+}
+
+async function enrichDrawerOracle(host, mint) {
+	const slot = host.querySelector('[data-slot="oracle-slot"]');
+	if (!slot) return;
+	try {
+		const r = await fetch(`/api/oracle/coin?mint=${encodeURIComponent(mint)}`);
+		if (!r.ok) { slot.remove(); return; }
+		const data = await r.json();
+		if (!slot.isConnected) return;
+		const cv = data?.conviction;
+		if (!cv || cv.score == null) { slot.remove(); return; }
+		const color = PF_TIER_COLOR[cv.tier] || '#94a3b8';
+		const pillars = cv.pillars || {};
+		const pillarHtml = Object.entries(pillars).map(([k, v]) => v != null ? `
+			<div class="pf-oracle-pillar">
+				<span class="pf-oracle-pillar-label">${k}</span>
+				<div class="pf-oracle-pillar-track"><div class="pf-oracle-pillar-fill" style="width:${Math.min(100, Number(v))}%;background:${color}"></div></div>
+				<span class="pf-oracle-pillar-val">${Math.round(Number(v))}</span>
+			</div>` : '').join('');
+		slot.innerHTML = `
+			<div class="pf-drawer-label">Oracle conviction</div>
+			<div class="pf-oracle-block">
+				<div class="pf-oracle-dial">
+					<span class="pf-oracle-score" style="color:${color}">${Math.round(cv.score)}</span>
+					<span class="pf-oracle-max">/100</span>
+					<span class="pf-oracle-tier" style="color:${color}">${cv.tier || ''}</span>
+				</div>
+				${pillarHtml ? `<div class="pf-oracle-pillars">${pillarHtml}</div>` : ''}
+				<a class="pf-oracle-link" href="/oracle?mint=${encodeURIComponent(mint)}" target="_blank" rel="noopener">Full conviction breakdown ↗</a>
+			</div>`;
+	} catch { /* non-fatal */ }
 }
 
 function sortTokens(tokens, col, dir) {
@@ -646,9 +735,10 @@ function renderPumpTokens(pumpAgents) {
 				<thead><tr>
 					<th class="pf-th">Agent / Token</th>
 					<th class="pf-th right">Holders</th>
+					<th class="pf-th right">Oracle</th>
 					<th class="pf-th right"></th>
 				</tr></thead>
-				<tbody>
+				<tbody id="pf-pump-tbody">
 					${pumpAgents.map((a) => {
 						const meta = a.meta?.pumpfun || a.meta?.token || {};
 						const mint = meta.mint || meta.address || meta.ca || '';
@@ -658,6 +748,7 @@ function renderPumpTokens(pumpAgents) {
 							<tr class="pf-row">
 								<td class="pf-td"><div class="pf-token-symbol" style="font-size:14px">$${esc(String(ticker).toUpperCase())}</div><div class="pf-token-name">${esc(a.name || a.display_name || '')}</div></td>
 								<td class="pf-td right mono">${esc(String(holders))}</td>
+								<td class="pf-td right"><span ${mint ? `data-pump-oracle="${esc(mint)}"` : ''} class="pf-oracle-cell"></span></td>
 								<td class="pf-td right">${mint ? `<a href="https://pump.fun/coin/${encodeURIComponent(mint)}" target="_blank" rel="noopener" class="pf-link">View ↗</a>` : ''}</td>
 							</tr>
 						`;
@@ -666,6 +757,8 @@ function renderPumpTokens(pumpAgents) {
 			</table>
 		</div>
 	`;
+	const pumpTbody = section.querySelector('#pf-pump-tbody');
+	if (pumpTbody) enrichPumpOracle(pumpTbody);
 	return section;
 }
 
@@ -715,7 +808,7 @@ async function openAssetDrawer(token) {
 
 	try {
 		const data = await get(`/api/portfolio/asset?chain=${encodeURIComponent(token.chain)}&id=${encodeURIComponent(token.id)}&days=30`);
-		renderDrawerContent(content, data);
+		renderDrawerContent(content, data, token);
 	} catch (err) {
 		content.innerHTML = `
 			<div class="pf-drawer-head">
@@ -732,7 +825,7 @@ async function openAssetDrawer(token) {
 	}
 }
 
-function renderDrawerContent(host, data) {
+function renderDrawerContent(host, data, token = null) {
 	const market = data.market || {};
 	const symbol = data.symbol || '?';
 	const chain = CHAIN[data.chain] || CHAIN.solana;
@@ -785,6 +878,8 @@ function renderDrawerContent(host, data) {
 				${market.ath_change_pct != null ? stat('From ATH', renderChangeText(market.ath_change_pct)) : ''}
 			</div>
 			` : ''}
+
+			<div data-slot="oracle-slot"></div>
 
 			${data.holdings?.length ? `
 			<div class="pf-drawer-label">Held in</div>
@@ -846,6 +941,10 @@ function renderDrawerContent(host, data) {
 
 	const form = host.querySelector('[data-slot="send-form"]');
 	if (form) mountSendForm(form, data);
+
+	// Oracle conviction — Solana non-native tokens only; fire-and-forget
+	const oracleMint = token?.chain === 'solana' && token?.id && token.id !== 'native' ? token.id : null;
+	if (oracleMint) enrichDrawerOracle(host, oracleMint);
 }
 
 // ── Asset price chart ─────────────────────────────────────────────────────
@@ -1272,6 +1371,26 @@ function injectStyles() {
 .pf-send-ok { color:var(--nxt-success); }
 .pf-send-ok a { color:var(--nxt-success); }
 .pf-send-err { color:var(--nxt-danger); }
+
+/* ── Oracle conviction badges ── */
+.pf-oracle-badge { display:inline-flex; align-items:center; margin-left:5px; vertical-align:middle; }
+.pf-ob { font-size:10.5px; font-weight:700; font-variant-numeric:tabular-nums; font-family:${MONO}; text-decoration:none; opacity:.85; transition:opacity .12s; white-space:nowrap; }
+.pf-ob:hover { opacity:1; text-decoration:underline; }
+.pf-ob-pump { display:inline-flex; align-items:center; gap:3px; }
+.pf-oracle-cell { display:inline-flex; }
+.pf-oracle-block { display:flex; flex-direction:column; gap:10px; padding:14px; border:1px solid var(--nxt-stroke); border-radius:10px; background:rgba(255,255,255,0.02); margin-bottom:4px; }
+.pf-oracle-dial { display:flex; align-items:baseline; gap:4px; }
+.pf-oracle-score { font-size:26px; font-weight:800; font-variant-numeric:tabular-nums; letter-spacing:-0.02em; }
+.pf-oracle-max { font-size:13px; color:var(--nxt-ink-fade); }
+.pf-oracle-tier { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.07em; margin-left:8px; }
+.pf-oracle-pillars { display:flex; flex-direction:column; gap:5px; }
+.pf-oracle-pillar { display:grid; grid-template-columns:68px 1fr 28px; align-items:center; gap:8px; font-size:11px; }
+.pf-oracle-pillar-label { color:var(--nxt-ink-fade); text-transform:capitalize; }
+.pf-oracle-pillar-track { height:4px; border-radius:2px; background:rgba(255,255,255,0.06); overflow:hidden; }
+.pf-oracle-pillar-fill { height:100%; border-radius:2px; transition:width .3s; }
+.pf-oracle-pillar-val { color:var(--nxt-ink-dim); text-align:right; font-variant-numeric:tabular-nums; }
+.pf-oracle-link { font-size:12px; color:var(--nxt-ink-dim); text-decoration:none; }
+.pf-oracle-link:hover { color:var(--nxt-ink); text-decoration:underline; }
 
 /* ── Responsive ── */
 @media (max-width: 760px) {
