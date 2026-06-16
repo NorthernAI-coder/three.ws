@@ -151,6 +151,13 @@ function renderForm(el, { leaderAgentId, leaderName, network, prefill }) {
 						<input class="cp-input" id="cp-mcc" type="number" step="1000" min="0" placeholder="any" value="${p.mcap_ceiling_usd ?? ''}" />
 					</label>
 				</div>
+				<div class="cp-row">
+					<label class="cp-field">
+						<span class="cp-label">Min Oracle conviction (0–100)</span>
+						<input class="cp-input" id="cp-oracle" type="number" step="1" min="0" max="100" placeholder="any" value="${p.min_oracle_score ?? ''}" />
+						<span class="cp-hint">Skip copies if Oracle score is below this. Leave blank to copy regardless of conviction.</span>
+					</label>
+				</div>
 				<label class="cp-check"><input type="checkbox" id="cp-sells" ${p.copy_sells === false ? '' : 'checked'} /> <span>Mirror their exits too</span></label>
 				<label class="cp-check"><input type="checkbox" id="cp-safe" ${p.require_safety_pass ? 'checked' : ''} /> <span>Only copy when coin safety is confirmed</span></label>
 			</details>
@@ -191,6 +198,7 @@ function renderForm(el, { leaderAgentId, leaderName, network, prefill }) {
 			daily_budget_sol: num('cp-daily'),
 			mcap_floor_usd: $('#cp-mcf', el).value === '' ? null : num('cp-mcf'),
 			mcap_ceiling_usd: $('#cp-mcc', el).value === '' ? null : num('cp-mcc'),
+			min_oracle_score: $('#cp-oracle', el).value === '' ? null : Math.round(num('cp-oracle')),
 			copy_sells: $('#cp-sells', el).checked,
 			require_safety_pass: $('#cp-safe', el).checked,
 		};

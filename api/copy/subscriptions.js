@@ -121,12 +121,12 @@ export default wrap(async (req, res) => {
 			copier_user_id, copier_wallet, leader_agent_id, leader_wallet, network, status,
 			sizing_rule, fixed_sol, multiplier, pct_balance,
 			per_trade_cap_sol, min_order_sol, daily_budget_sol, max_open_copies,
-			mcap_floor_usd, mcap_ceiling_usd, copy_sells, require_safety_pass, perf_fee_bps
+			mcap_floor_usd, mcap_ceiling_usd, copy_sells, require_safety_pass, min_oracle_score, perf_fee_bps
 		) values (
 			${userId}, ${wallet}, ${leaderId}, ${leaderWallet}, ${network}, 'active',
 			${v.sizing_rule}, ${v.fixed_sol}, ${v.multiplier}, ${v.pct_balance},
 			${v.per_trade_cap_sol}, ${v.min_order_sol}, ${v.daily_budget_sol}, ${v.max_open_copies},
-			${v.mcap_floor_usd}, ${v.mcap_ceiling_usd}, ${v.copy_sells}, ${v.require_safety_pass}, ${v.perf_fee_bps}
+			${v.mcap_floor_usd}, ${v.mcap_ceiling_usd}, ${v.copy_sells}, ${v.require_safety_pass}, ${v.min_oracle_score}, ${v.perf_fee_bps}
 		)
 		on conflict (copier_user_id, leader_agent_id, network) do update set
 			copier_wallet = excluded.copier_wallet,
@@ -144,6 +144,7 @@ export default wrap(async (req, res) => {
 			mcap_ceiling_usd = excluded.mcap_ceiling_usd,
 			copy_sells = excluded.copy_sells,
 			require_safety_pass = excluded.require_safety_pass,
+			min_oracle_score = excluded.min_oracle_score,
 			perf_fee_bps = excluded.perf_fee_bps,
 			updated_at = now()
 		returning *

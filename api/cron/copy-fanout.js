@@ -39,10 +39,14 @@ function requireCron(req, res) {
 
 // Best-effort coin context for the safety gate. pump.fun's public coin endpoint
 // gives a live USD market cap; richer signals (dev holding, liquidity, honeypot)
-// are left null and the engine treats them as "unknown".
+// are left null and the engine treats them as "unknown". Oracle score is merged
+// in separately so subscriptions with min_oracle_score can filter on it.
 const _coinCache = new Map();
-async function coinContext(mint) {
-	if (_coinCache.has(mint)) return _coinCache.get(mint);
+async function coinContext(mint, oracleScore) {
+	if (_coinCache.has(mint)) {
+		const cached = _coinCache.get(mint);
+		return oracleScore != null ? { ...cached, oracle_score: oracleScore } : cached;
+	}
 	let ctx = null;
 	try {
 		const r = await fetch(`https://frontend-api-v3.pump.fun/coins/${mint}`, {
@@ -54,7 +58,25 @@ async function coinContext(mint) {
 		}
 	} catch { /* leave null — engine handles missing context */ }
 	_coinCache.set(mint, ctx);
-	return ctx;
+	return oracleScore != null ? { ...(ctx || {}), oracle_score: oracleScore } : ctx;
+}
+
+// Fetch the latest Oracle conviction score for a mint from the DB. Returns null
+// if unscored. Called in the sniper fanout path (Oracle fanout has the score inline).
+const _oracleScoreCache = new Map();
+async function oracleScore(mint, network) {
+	const key = `${network}:${mint}`;
+	if (_oracleScoreCache.has(key)) return _oracleScoreCache.get(key);
+	try {
+		const [row] = await sql`
+			select score from oracle_conviction
+			where mint = ${mint} and network = ${network}
+			limit 1
+		`;
+		const score = row?.score != null ? Number(row.score) : null;
+		_oracleScoreCache.set(key, score);
+		return score;
+	} catch { return null; }
 }
 
 async function fanoutBuys(network, stats) {
@@ -94,7 +116,8 @@ async function fanoutBuys(network, stats) {
 			where leader_agent_id = ${pos.agent_id} and network = ${network} and status = 'active'
 		`;
 		if (!subs.length) continue;
-		const coin = await coinContext(pos.mint);
+		const score = await oracleScore(pos.mint, network);
+		const coin = await coinContext(pos.mint, score);
 		const entrySol = lamToSol(pos.entry_quote_lamports);
 
 		for (const sub of subs) {
@@ -216,7 +239,8 @@ async function fanoutOracleBuys(network, stats) {
 			where leader_agent_id = ${action.agent_id} and network = ${network} and status = 'active'
 		`;
 		if (!subs.length) continue;
-		const coin = await coinContext(action.mint);
+		// Oracle action has conviction inline — no DB lookup needed.
+		const coin = await coinContext(action.mint, action.conviction != null ? Number(action.conviction) : null);
 		const entrySol = Number(action.size_sol) || 0;
 
 		for (const sub of subs) {
