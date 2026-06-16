@@ -297,6 +297,25 @@
 			.xr-info-card.show { display: block; }
 			.xr-info-card strong { color: var(--text); }
 
+			/* Lock orbit button */
+			.xr-lock-btn {
+				appearance: none;
+				border: 1px solid var(--border);
+				background: rgba(255,255,255,0.04);
+				color: var(--text-2);
+				font: inherit; font-size: 12px; font-weight: 600;
+				padding: 7px 14px; border-radius: 999px; cursor: pointer;
+				display: inline-flex; align-items: center; gap: 6px;
+				transition: background 0.15s, border-color 0.15s, color 0.15s;
+				align-self: flex-start;
+			}
+			.xr-lock-btn:hover { color: var(--text); border-color: rgba(255,255,255,0.2); }
+			.xr-lock-btn.xr-lock--active {
+				color: #fbbf24;
+				border-color: rgba(251,191,36,0.45);
+				background: rgba(251,191,36,0.1);
+			}
+
 			/* ── Tap hint (shown in XR) ── */
 			#xr-tap-hint {
 				position: fixed; left: 50%; bottom: 200px;
@@ -380,6 +399,14 @@
 				<button id="xr-body-full" class="xr-toggle-btn" type="button">Full body</button>
 				<button id="xr-body-half" class="xr-toggle-btn half" type="button">Half body</button>
 			</div>
+
+			<button id="xr-lock-btn" type="button" class="xr-lock-btn" aria-pressed="false" aria-label="Lock avatar orbit">
+				<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+					<rect x="3" y="11" width="18" height="11" rx="2"/>
+					<path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+				</svg>
+				<span class="xr-lock-label">Lock</span>
+			</button>
 
 			<div id="xr-half-info" class="xr-info-card">
 				<strong>Half-body mode</strong> — lower-body bones are collapsed to the hip.
