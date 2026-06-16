@@ -418,6 +418,138 @@
 			flex-shrink: 0;
 		}
 
+		/* Nearby agents badge */
+		#irl-nearby-badge {
+			position: fixed;
+			top: 72px;
+			right: 16px;
+			z-index: 8;
+			background: rgba(0,0,0,0.72);
+			border: 1px solid rgba(255,255,255,0.13);
+			border-radius: 999px;
+			padding: 5px 12px;
+			font-size: 12px;
+			font-weight: 600;
+			color: #34d399;
+			backdrop-filter: blur(12px);
+			-webkit-backdrop-filter: blur(12px);
+			pointer-events: none;
+			transition: opacity 0.2s;
+		}
+		#irl-nearby-badge[hidden] { display: none; }
+
+		/* Agent interaction bottom sheet */
+		#irl-sheet {
+			position: fixed;
+			bottom: 0;
+			left: 0;
+			right: 0;
+			z-index: 20;
+			background: rgba(12,14,20,0.92);
+			border-top: 1px solid rgba(255,255,255,0.10);
+			border-radius: 18px 18px 0 0;
+			padding: 20px 24px 36px;
+			backdrop-filter: blur(20px);
+			-webkit-backdrop-filter: blur(20px);
+			transform: translateY(100%);
+			transition: transform 0.28s cubic-bezier(0.32,0.72,0,1);
+			pointer-events: none;
+		}
+		#irl-sheet.is-open {
+			transform: translateY(0);
+			pointer-events: all;
+		}
+		.irl-sheet-handle {
+			width: 40px;
+			height: 4px;
+			border-radius: 2px;
+			background: rgba(255,255,255,0.2);
+			margin: 0 auto 16px;
+		}
+		.irl-sheet-row {
+			display: flex;
+			align-items: center;
+			gap: 12px;
+			margin-bottom: 8px;
+		}
+		#irl-sheet-name {
+			font-size: 20px;
+			font-weight: 700;
+			color: #e5e7eb;
+			flex: 1;
+		}
+		#irl-sheet-dist {
+			font-size: 13px;
+			color: #6b7280;
+			font-variant-numeric: tabular-nums;
+		}
+		#irl-sheet-caption {
+			font-size: 14px;
+			color: #9ca3af;
+			margin-bottom: 14px;
+			line-height: 1.5;
+		}
+		.irl-sheet-actions {
+			display: flex;
+			gap: 10px;
+		}
+		.irl-sheet-btn {
+			flex: 1;
+			padding: 12px 16px;
+			border-radius: 12px;
+			border: 1px solid rgba(255,255,255,0.12);
+			background: rgba(255,255,255,0.06);
+			color: #e5e7eb;
+			font: inherit;
+			font-size: 14px;
+			font-weight: 600;
+			cursor: pointer;
+			transition: background 0.15s, border-color 0.15s;
+		}
+		.irl-sheet-btn:hover { background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.22); }
+		.irl-sheet-btn.primary { background: rgba(52,211,153,0.18); border-color: rgba(52,211,153,0.4); color: #34d399; }
+		.irl-sheet-btn.primary:hover { background: rgba(52,211,153,0.28); }
+		#irl-sheet-close {
+			background: none;
+			border: 1px solid rgba(255,255,255,0.12);
+			border-radius: 10px;
+			padding: 8px 16px;
+			color: #6b7280;
+			font: inherit;
+			font-size: 13px;
+			cursor: pointer;
+			margin-top: 12px;
+			width: 100%;
+			transition: color 0.15s, border-color 0.15s;
+		}
+		#irl-sheet-close:hover { color: #e5e7eb; border-color: rgba(255,255,255,0.25); }
+
+		/* 3D→2D agent labels (injected by JS per nearby pin) */
+		.irl-agent-label {
+			position: fixed;
+			transform: translate(-50%, -100%);
+			pointer-events: auto;
+			cursor: pointer;
+			z-index: 7;
+			background: rgba(0,0,0,0.76);
+			border: 1px solid rgba(136,187,255,0.42);
+			border-radius: 9px;
+			padding: 4px 10px;
+			font-size: 12px;
+			font-weight: 600;
+			color: #88bbff;
+			white-space: nowrap;
+			backdrop-filter: blur(8px);
+			-webkit-backdrop-filter: blur(8px);
+			box-shadow: 0 0 10px rgba(136,187,255,0.15);
+			animation: irl-label-in 0.22s ease-out;
+		}
+		@keyframes irl-label-in {
+			from { opacity:0; transform: translate(-50%, -90%); }
+			to   { opacity:1; transform: translate(-50%, -100%); }
+		}
+		.irl-agent-label-name { display: block; }
+
 		/* Desktop keyboard hints */
 		#irl-keys {
 			position: fixed;
@@ -553,6 +685,24 @@
 		</button>
 	</div>
 </footer>
+
+<!-- Nearby agents count badge (top-right, shown when GPS pins are loaded) -->
+<div id="irl-nearby-badge" hidden aria-live="polite"></div>
+
+<!-- Agent interaction bottom sheet (slides up when user taps a nearby pin label) -->
+<div id="irl-sheet" role="dialog" aria-modal="false" aria-label="Nearby agent">
+	<div class="irl-sheet-handle" aria-hidden="true"></div>
+	<div class="irl-sheet-row">
+		<span id="irl-sheet-name">Agent</span>
+		<span id="irl-sheet-dist"></span>
+	</div>
+	<p id="irl-sheet-caption" hidden></p>
+	<div class="irl-sheet-actions">
+		<button id="irl-sheet-pay" class="irl-sheet-btn primary" type="button" hidden>Pay via x402</button>
+		<button id="irl-sheet-view" class="irl-sheet-btn" type="button">View agent</button>
+	</div>
+	<button id="irl-sheet-close" type="button">Dismiss</button>
+</div>
 
 <script type="module" src="/src/irl.js"></script>
 

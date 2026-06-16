@@ -3,6 +3,20 @@
 	"entries": [
 		{
 			"date": "2026-06-16",
+			"title": "IRL: place your agent on the map — others nearby can see it",
+			"summary": "Pin your 3D avatar to a real GPS coordinate in IRL mode and other users who walk within 150 metres see your agent appear in their AR view. Each nearby agent shows its name and distance as a floating label; tap it for a detail sheet with the option to pay via x402. Your own pin is removed automatically when you unpin the avatar or close the page. Requires location permission.",
+			"tags": ["feature"],
+			"link": "/irl"
+		},
+		{
+			"date": "2026-06-16",
+			"title": "Oracle: rich conviction card on every shared link",
+			"summary": "Sharing an Oracle link — /oracle?mint=X — now generates a dynamic social card showing the coin's name, conviction score, tier badge, four-pillar breakdown (Who/How/What/Move), and smart wallet count. The card updates when you open the coin drawer, so the URL you share previews real conviction data on X, Telegram, Discord, and iMessage.",
+			"tags": ["feature", "improvement"],
+			"link": "/oracle"
+		},
+		{
+			"date": "2026-06-16",
 			"title": "Launch detail: pump.fun comment sentiment in Community section",
 			"summary": "The coin detail page now shows live pump.fun comment sentiment in the Community section — bullish / bearish / mixed classification with positive, negative, and neutral percentage bars, and a sample comment. Loads asynchronously after the page renders so it never delays the Oracle conviction score or smart money data. Coins with fewer than 3 comments are silently skipped.",
 			"tags": ["feature"],
