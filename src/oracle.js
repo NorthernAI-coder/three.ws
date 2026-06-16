@@ -1007,54 +1007,6 @@ async function loadMovers(reset = false) {
 
 window.oracleOpenMover = (mint) => openCoin(mint);
 
-async function loadHotSectors() {
-	const wrap = $('#hotSectors');
-	if (!wrap || wrap.dataset.loaded) return;
-	wrap.dataset.loaded = '1';
-
-	// show skeletons while loading
-	wrap.style.display = '';
-	wrap.innerHTML = Array.from({ length: 4 }, () => '<div class="hs-skel"></div>').join('');
-
-	const { ok, data } = await api(`/api/oracle/categories?network=${NETWORK}&hours=24`);
-	if (!ok || !data?.items?.length) { wrap.style.display = 'none'; return; }
-
-	wrap.innerHTML = data.items.slice(0, 8).map((c) => {
-		const imgSrc = c.best_image_uri || '';
-		const sym = esc((c.best_symbol || '?').toUpperCase());
-		const catLabel = esc(c.category.replace(/_/g, ' '));
-		const primeBadge = c.prime_count > 0 ? `<span class="hs-badge prime">${c.prime_count} prime</span>` : '';
-		const strongBadge = c.strong_count > 0 ? `<span class="hs-badge strong">${c.strong_count} strong</span>` : '';
-		const totalBadge = `<span class="hs-badge">${c.total} coins</span>`;
-		return `<div class="hs-card" role="button" tabindex="0"
-			aria-label="Filter by ${catLabel}"
-			onclick="window.__oracleFilterCat('${esc(c.category)}')"
-			onkeydown="if(event.key==='Enter'||event.key===' ')window.__oracleFilterCat('${esc(c.category)}')">
-			<div class="hs-head">
-				<div class="hs-img">${imgSrc ? `<img src="${esc(imgSrc)}" alt="" style="width:36px;height:36px;border-radius:8px;object-fit:cover" onerror="this.style.display='none'" loading="lazy" />` : sym.slice(0, 2)}</div>
-				<div><div class="hs-cat">${catLabel}</div></div>
-			</div>
-			<div><div class="hs-avg">${Math.round(c.avg_score)}</div><div class="hs-avg-label">avg score</div></div>
-			<div class="hs-badges">${primeBadge}${strongBadge}${totalBadge}</div>
-		</div>`;
-	}).join('');
-}
-
-window.__oracleFilterCat = (category) => {
-	state.category = state.category === category ? null : category;
-	const url = new URL(location.href);
-	if (state.category) url.searchParams.set('category', state.category); else url.searchParams.delete('category');
-	history.replaceState(null, '', url.toString());
-	// highlight active card
-	$$('#hotSectors .hs-card').forEach((el) => {
-		const onclick = el.getAttribute('onclick') || '';
-		const active = onclick.includes(`'${category}'`) && state.category === category;
-		el.style.borderColor = active ? 'var(--cyan)' : '';
-		el.style.background = active ? 'color-mix(in srgb, var(--cyan) 8%, var(--panel))' : '';
-	});
-	loadFeed();
-};
-
 function winCardHtml(w, idx) {
 	const tier = w.tier || 'watch';
 	const athStr = w.ath_multiple != null ? `${Number(w.ath_multiple).toFixed(1)}×` : w.graduated ? 'Grad ✓' : '—';
