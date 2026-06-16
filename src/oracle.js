@@ -59,17 +59,20 @@ function winTweet(w) {
 	const sym = (w.symbol || w.mint.slice(0, 6)).toUpperCase();
 	const ath = w.ath_multiple != null ? `${Number(w.ath_multiple).toFixed(1)}×` : 'graduated';
 	const score = w.score != null ? `${w.score}/100 ${w.tier}` : w.tier;
-	const url = `https://three.ws/oracle?mint=${encodeURIComponent(w.mint)}`;
-	const text = `Oracle called $${sym} (${score} conviction) — it went ${ath} 🔮\n\nproof.not.promises @trythreews\n${url}`;
+	const shareUrl = coinShareUrl(w.mint);
+	const text = `Oracle called $${sym} (${score} conviction) — it went ${ath} 🔮\n\nproof.not.promises @trythreews\n${shareUrl}`;
 	return `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
 }
 
+function coinShareUrl(mint) {
+	return `https://three.ws/oracle/coin/${encodeURIComponent(mint)}`;
+}
 function tweetConviction(c) {
 	const tier = c.tier || 'watch';
 	const score = c.score ?? '—';
 	const symbol = c.symbol || '—';
-	const oracleUrl = `https://three.ws/oracle?mint=${encodeURIComponent(c.mint)}`;
-	const text = `$${symbol} — ${score}/100 ${tier} conviction on @trythreews Oracle\n\nWho · How · What · Move all fused into one score.\n${oracleUrl}`;
+	const shareUrl = coinShareUrl(c.mint);
+	const text = `$${symbol} — ${score}/100 ${tier} conviction on @trythreews Oracle\n\nWho · How · What · Move all fused into one score.\n${shareUrl}`;
 	return `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
 }
 
@@ -1208,6 +1211,7 @@ function renderDrawer(d) {
 			<a class="dr-act" href="/launches/${esc(c.mint)}" target="_blank" rel="noopener">Details ↗</a>
 			<button class="dr-act dr-watch" id="drWatch" data-mint="${esc(c.mint)}" type="button" aria-pressed="${watchedMints().has(c.mint)}">${watchedMints().has(c.mint) ? '★ Watching' : '☆ Watch'}</button>
 			<button class="dr-act" id="drCopyMint" type="button" title="Copy mint address" data-mint="${esc(c.mint)}">Copy mint</button>
+			<button class="dr-act" id="drCopyLink" type="button" title="Copy shareable link" data-link="${esc(coinShareUrl(c.mint))}">Copy link</button>
 			<a class="dr-act dr-share" href="${tweetConviction(c)}" target="_blank" rel="noopener" title="Share conviction on X">Share ↗</a>
 			${c.structure_cap != null && c.structure_cap < 60 ? `<span class="note warn">structural cap ${c.structure_cap}</span>` : ''}
 		</div>
@@ -1285,6 +1289,18 @@ function renderDrawer(d) {
 				const orig = copyMintBtn.textContent;
 				copyMintBtn.textContent = 'Copied!';
 				setTimeout(() => { copyMintBtn.textContent = orig; }, 1800);
+			}).catch(() => {});
+		});
+	}
+
+	const copyLinkBtn = $('#drCopyLink');
+	if (copyLinkBtn) {
+		copyLinkBtn.addEventListener('click', () => {
+			const link = copyLinkBtn.dataset.link || coinShareUrl(c.mint);
+			navigator.clipboard.writeText(link).then(() => {
+				const orig = copyLinkBtn.textContent;
+				copyLinkBtn.textContent = 'Copied!';
+				setTimeout(() => { copyLinkBtn.textContent = orig; }, 1800);
 			}).catch(() => {});
 		});
 	}
