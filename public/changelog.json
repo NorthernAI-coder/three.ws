@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-16T07:30:01.908Z",
+	"generated_at": "2026-06-16T07:38:56.743Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -337,6 +337,16 @@
 			"type": "update",
 			"title": "Oracle: Activity feed and Agent leaderboard",
 			"summary": "Two new tabs on the Oracle page. Activity shows a live trading floor — every Oracle-armed agent action (buy/outcome/PnL) in real time, filterable by mode, tier, and outcome. Agents ranks every conviction agent by their real track record: win rate, realized PnL, and ROI across all graded calls. Subscribe to copy the top performers directly from the leaderboard.",
+			"link": "/oracle",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "update",
+			"title": "Oracle: Community sentiment pulse in coin drawer",
+			"summary": "The Oracle coin drawer now shows a Community Pulse section pulled live from pump.fun comments. After the conviction score loads, a background fetch reads recent comments and classifies them as bullish, bearish, or mixed, with positive / negative / neutral percentage bars and a sample of real comments. Coins with fewer than three comments are silently skipped. This adds the crowd-sentiment layer alongside Oracle's technical conviction pillars.",
 			"link": "/oracle",
 			"tags": [
 				"feature"
