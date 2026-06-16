@@ -23,16 +23,23 @@ async function armedWatches(network) {
 	`.catch(() => []);
 }
 
-/** Coins scored since a cursor — the work list for the agent loop. Exported so
- *  the serverless cron can pull a fixed recent window instead of a live cursor. */
+/** Coins scored since a cursor — the work list for the agent loop and the
+ *  alert pass. Returns enough fields for both act decisions and Telegram formatting. */
 export async function freshlyScored(network, sinceIso, limit = 60) {
-	return sql`
-		select mint, symbol, score, tier, category, smart_wallet_count, scored_at
+	const rows = await sql`
+		select mint, symbol, name, score, tier, category, smart_wallet_count, scored_at,
+		       pedigree, structure, narrative, momentum
 		from oracle_conviction
 		where network = ${network} and scored_at > ${sinceIso}::timestamptz
 		order by scored_at asc
 		limit ${limit}
 	`.catch(() => []);
+	// Attach a `pillars` object so downstream consumers (alerts, agent-eval) have
+	// a consistent shape regardless of whether the row came from the DB or SSE.
+	return rows.map((r) => ({
+		...r,
+		pillars: { pedigree: r.pedigree, structure: r.structure, narrative: r.narrative, momentum: r.momentum },
+	}));
 }
 
 async function alreadyActed(agentId, mint, network) {

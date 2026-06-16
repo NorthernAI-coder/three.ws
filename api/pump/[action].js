@@ -65,6 +65,7 @@ import { randomToken } from '../_lib/crypto.js';
 import { publishFeedEvent } from '../_lib/feed.js';
 import { normalizeGatewayURL } from '../../src/ipfs.js';
 import { buildTokenMetadata } from '../_lib/three-brand.js';
+import { buildPlatformFeeInstructions, pumpPlatformFeeBps } from '../_lib/pump-platform-fee.js';
 import { pinToIPFS, ipfsPinningConfigured } from '../_lib/ipfs-pin.js';
 import { THREE_WS_VANITY, hasThreeWsMark } from '../../src/solana/vanity/brand.js';
 import { grindVanityNode, GrindExhaustedError } from '../../src/solana/vanity/grinder-node.js';
@@ -414,6 +415,11 @@ async function handleBuyPrep(req, res) {
 				tokenProgram: baseTokenProgram,
 				quoteTokenProgram,
 			});
+			const __platformFee = await buildPlatformFeeInstructions({
+				network: body.network, payer: userPk, isUsdc: isUsdcQuote,
+				quoteMintPk, quoteTokenProgram, grossAtomics: BigInt(quoteAtomics.toString()), basis: 'buy',
+			});
+			if (__platformFee) ixs.push(...__platformFee.instructions);
 			const tx_base64 = await buildUnsignedTxBase64({
 				network: body.network,
 				payer: userPk,
@@ -427,6 +433,7 @@ async function handleBuyPrep(req, res) {
 				...(isUsdcQuote ? { usdc_in: body.usdc_amount } : { sol_in: body.sol }),
 				expected_tokens_out: tokenAmount.toString(),
 				slippage_bps: body.slippage_bps,
+				platform_fee: __platformFee ? __platformFee.disclosure : null,
 				tx_base64,
 			});
 		}
@@ -443,6 +450,11 @@ async function handleBuyPrep(req, res) {
 		const swapState = await onlineAmm.swapSolanaState(amm.poolKey, userPk);
 
 		const ixs = await offline.buyQuoteInput(swapState, quoteAtomics, slippagePct);
+		const __platformFee = await buildPlatformFeeInstructions({
+			network: body.network, payer: userPk, isUsdc: isUsdcQuote,
+			quoteMintPk, quoteTokenProgram, grossAtomics: BigInt(quoteAtomics.toString()), basis: 'buy',
+		});
+		if (__platformFee) ixs.push(...__platformFee.instructions);
 		const tx_base64 = await buildUnsignedTxBase64({
 			network: body.network,
 			payer: userPk,
@@ -456,6 +468,7 @@ async function handleBuyPrep(req, res) {
 			quote_mint: quoteMintDisplay,
 			...(isUsdcQuote ? { usdc_in: body.usdc_amount } : { sol_in: body.sol }),
 			slippage_bps: body.slippage_bps,
+			platform_fee: __platformFee ? __platformFee.disclosure : null,
 			tx_base64,
 		});
 	} catch (e) {
@@ -713,6 +726,11 @@ async function handleSellPrep(req, res) {
 					quoteTokenProgram,
 				})),
 			);
+			const __platformFee = await buildPlatformFeeInstructions({
+				network: body.network, payer: userPk, isUsdc: isUsdcQuote,
+				quoteMintPk, quoteTokenProgram, grossAtomics: BigInt(expectedQuoteOut.toString()), basis: 'sell',
+			});
+			if (__platformFee) ixs.push(...__platformFee.instructions);
 			const tx_base64 = await buildUnsignedTxBase64({
 				network: body.network,
 				payer: userPk,
@@ -728,6 +746,7 @@ async function handleSellPrep(req, res) {
 					? { expected_usdc_out: Number(expectedQuoteOut.toString()) / 1_000_000 }
 					: { expected_sol_out: Number(expectedQuoteOut.toString()) / 1_000_000_000 }),
 				slippage_bps: body.slippage_bps,
+				platform_fee: __platformFee ? __platformFee.disclosure : null,
 				tx_base64,
 			});
 		}
@@ -742,6 +761,24 @@ async function handleSellPrep(req, res) {
 		const onlineAmm = new ammMod.OnlinePumpAmmSdk(getConnection({ network: body.network }));
 		const swapState = await onlineAmm.swapSolanaState(amm.poolKey, userPk);
 		const ixs = await offline.sellBaseInput(swapState, tokens, slippagePct);
+		// Expected proceeds (uiQuote) is the fee basis for an AMM sell. Best-effort:
+		// if the low-level quote can't be derived we skip the fee, never the sell.
+		let __ammSellGross = 0n;
+		try {
+			const { uiQuote } = ammMod.sellBaseInput({
+				base: tokens, slippage: slippagePct,
+				baseReserve: swapState.poolBaseAmount, quoteReserve: swapState.poolQuoteAmount,
+				baseMintAccount: swapState.baseMintAccount, baseMint: swapState.baseMint,
+				coinCreator: swapState.pool.coinCreator, creator: swapState.pool.creator,
+				feeConfig: swapState.feeConfig, globalConfig: swapState.globalConfig,
+			});
+			__ammSellGross = BigInt(uiQuote.toString());
+		} catch { /* fee basis unavailable */ }
+		const __platformFee = await buildPlatformFeeInstructions({
+			network: body.network, payer: userPk, isUsdc: isUsdcQuote,
+			quoteMintPk, quoteTokenProgram, grossAtomics: __ammSellGross, basis: 'sell',
+		});
+		if (__platformFee) ixs.push(...__platformFee.instructions);
 		const tx_base64 = await buildUnsignedTxBase64({
 			network: body.network,
 			payer: userPk,
@@ -755,6 +792,7 @@ async function handleSellPrep(req, res) {
 			quote_mint: quoteMintDisplay,
 			tokens_in: body.tokens,
 			slippage_bps: body.slippage_bps,
+			platform_fee: __platformFee ? __platformFee.disclosure : null,
 			tx_base64,
 		});
 	} catch (e) {
@@ -2686,6 +2724,7 @@ async function handleQuote(req, res) {
 					virtual_token_reserves: curve.virtualTokenReserves?.toString?.() ?? null,
 					complete: curve.complete ?? false,
 				},
+				platform_fee_bps: pumpPlatformFeeBps(),
 				quote,
 			});
 		}
@@ -2804,6 +2843,7 @@ async function handleQuote(req, res) {
 				quote_reserve: quoteReserve.toString(),
 				lp_supply: pool.lpSupply?.toString?.() ?? null,
 			},
+			platform_fee_bps: pumpPlatformFeeBps(),
 			quote,
 		});
 	} catch (err) {

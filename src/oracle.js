@@ -1,11 +1,13 @@
 // Oracle — the fused pump.fun conviction war room.
 //
-// Reads /api/oracle/* (feed, coin, wallet, stream, watch). Every surface
-// degrades gracefully: if the backend isn't reachable yet (it deploys with the
-// migration), the page shows an honest "warming up" state instead of breaking.
+// Reads /api/oracle/* (feed, coin, wallet, stream, watch, trades). Every
+// surface degrades gracefully: if the backend isn't reachable yet (it deploys
+// with the migration), the page shows an honest "warming up" state instead of
+// breaking.
 //
 // Views: live conviction feed (with SSE), wallet reputation leaderboard,
-// conviction-tier edge backtest, and the agent action-loop arm panel.
+// conviction-tier edge backtest, the agent action-loop arm panel, and the 3D
+// force graph. The coin drawer also streams live trades via oracle-tape.js.
 
 const NETWORK = 'mainnet';
 const $ = (s, r = document) => r.querySelector(s);
@@ -61,6 +63,7 @@ const state = {
 	agents: [],
 	agentId: null,
 	watch: null,
+	tape: null,            // { destroy() } handle from oracle-tape.js
 };
 
 // ── boot ─────────────────────────────────────────────────────────────────────
@@ -380,7 +383,23 @@ function renderDrawer(d) {
 		${out ? `<div class="dr-sec">Outcome</div><div class="coin-meta">
 			<span class="chip ${out.graduated ? 'sm' : out.rugged ? 'flag' : ''}">${out.graduated ? 'graduated ✓' : out.rugged ? 'rugged ✕' : 'live'}</span>
 			${out.ath_multiple ? `<span class="chip">ATH <b>${Number(out.ath_multiple).toFixed(1)}×</b></span>` : ''}</div>` : ''}
+		<div class="dr-sec">Live trades</div>
+		<div id="tradeTape" class="trade-tape"></div>
 	`;
+
+	// Tear down any previous tape, then mount fresh for this coin.
+	state.tape?.destroy();
+	state.tape = null;
+	const tapeEl = $('#tradeTape');
+	if (tapeEl) {
+		import('./oracle-tape.js').then(({ mountTradeTape }) => {
+			// Guard: drawer may have been closed while the import was in flight.
+			if (!$('#tradeTape')) return;
+			state.tape = mountTradeTape(tapeEl, { mint: c.mint, network: NETWORK });
+		}).catch(() => {
+			if (tapeEl) tapeEl.innerHTML = '<div class="state" style="padding:16px 0">Trade feed unavailable.</div>';
+		});
+	}
 }
 
 function whoRow(w) {
@@ -402,6 +421,9 @@ function whoRow(w) {
 
 function closeDrawer() {
 	const dr = $('#drawer'); dr.classList.remove('open'); dr.setAttribute('aria-hidden', 'true');
+	// Tear down the trade tape so the PumpPortal SSE connection closes.
+	state.tape?.destroy();
+	state.tape = null;
 }
 
 async function openWallet(wallet) {

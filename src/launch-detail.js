@@ -38,6 +38,7 @@ import {
 
 const GRADUATION_CAP_USD = 69_000; // pump.fun bonding-curve graduation threshold
 const REDUCED_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const SOL_MINT = 'So11111111111111111111111111111111111111112';
 
 const state = {
 	mint: null,
@@ -48,6 +49,114 @@ const state = {
 	chartInterval: '15m',
 	priceTimer: 0,
 };
+
+// ── Jupiter Terminal lazy loader ─────────────────────────────────────────────
+// We load the Jupiter Terminal script only when the user clicks Buy, so it
+// never slows down cold page loads. The script self-registers as window.Jupiter.
+
+let _jupState = 'idle'; // idle | loading | ready | error
+const _jupCallbacks = [];
+
+function loadJupiter() {
+	if (_jupState === 'ready') return Promise.resolve();
+	if (_jupState === 'error') return Promise.reject(new Error('Jupiter Terminal failed to load'));
+	return new Promise((resolve, reject) => {
+		_jupCallbacks.push({ resolve, reject });
+		if (_jupState === 'loading') return;
+		_jupState = 'loading';
+		const s = document.createElement('script');
+		s.src = 'https://terminal.jup.ag/main-v3.js';
+		s.onload = () => {
+			_jupState = 'ready';
+			_jupCallbacks.splice(0).forEach((cb) => cb.resolve());
+		};
+		s.onerror = () => {
+			_jupState = 'error';
+			_jupCallbacks.splice(0).forEach((cb) => cb.reject(new Error('Jupiter Terminal failed to load')));
+		};
+		document.head.appendChild(s);
+	});
+}
+
+function openSwapModal(mint, symbol) {
+	// Remove any pre-existing modal (guard against double-click race).
+	document.getElementById('ld-swap-overlay')?.remove();
+
+	const containerId = 'jup-terminal-container';
+	const title = `Buy ${symbol ? `$${symbol}` : 'this token'}`;
+
+	const closeModal = () => {
+		overlay.remove();
+		// Destroy the terminal instance so it doesn't leak event listeners.
+		try { window.Jupiter?.close?.(); } catch { /* fine */ }
+	};
+
+	const loader = el('div', { class: 'ld-swap-loading' }, [
+		el('div', { class: 'ld-skel', style: 'height:420px;border-radius:var(--radius-md)' }),
+	]);
+	const container = el('div', { id: containerId, class: 'ld-swap-terminal' });
+
+	const modal = el('div', { class: 'ld-swap-modal', role: 'dialog', 'aria-modal': 'true', 'aria-label': title }, [
+		el('div', { class: 'ld-swap-head' }, [
+			el('span', { class: 'ld-swap-title', text: title }),
+			el('button', {
+				class: 'ld-swap-close',
+				type: 'button',
+				'aria-label': 'Close swap',
+				text: '✕',
+				onclick: closeModal,
+			}),
+		]),
+		loader,
+		container,
+	]);
+
+	const overlay = el('div', { id: 'ld-swap-overlay', class: 'ld-swap-overlay' });
+	overlay.appendChild(modal);
+	document.body.appendChild(overlay);
+
+	// Close on backdrop click or Escape.
+	overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
+	const escListener = (e) => { if (e.key === 'Escape') { closeModal(); document.removeEventListener('keydown', escListener); } };
+	document.addEventListener('keydown', escListener);
+
+	loadJupiter()
+		.then(() => {
+			loader.style.display = 'none';
+			// Use a public Solana RPC — Jupiter routes through its own aggregator
+			// so this only needs to submit the final signed transaction.
+			window.Jupiter.init({
+				displayMode: 'integrated',
+				integratedTargetId: containerId,
+				endpoint: 'https://api.mainnet-beta.solana.com',
+				formProps: {
+					initialInputMint: SOL_MINT,
+					initialOutputMint: mint,
+					swapMode: 'ExactIn',
+					fixedOutputMint: true,
+				},
+				containerStyles: {
+					borderRadius: '12px',
+					overflow: 'hidden',
+					background: 'var(--bg-0, #0a0a0a)',
+				},
+			});
+		})
+		.catch(() => {
+			loader.replaceChildren(
+				el('div', { class: 'ld-swap-error' }, [
+					el('p', { text: 'Could not load the swap terminal.' }),
+					el('a', {
+						class: 'ld-btn ld-btn-primary',
+						href: `https://pump.fun/${mint}`,
+						target: '_blank',
+						rel: 'noopener noreferrer',
+						text: `Trade on pump.fun ↗`,
+					}),
+				]),
+			);
+		});
+}
 
 // ── DOM helpers ──────────────────────────────────────────────────────────────
 
@@ -580,23 +689,46 @@ const WINDOW_HOURS = { '5m': 12, '15m': 36, '1h': 96, '4h': 480, '1d': 2160 };
 
 function areaChart(points) {
 	// points: [{t,o,h,l,c,v}] ascending. Pure SVG, theme-aware via currentColor.
+	// Volume bars rendered in a 40px panel at the bottom, price line above.
 	const w = 720;
-	const h = 240;
-	const pad = { t: 14, r: 8, b: 18, l: 8 };
+	const h = 270;
+	const volH = 40;  // height of volume bar panel
+	const priceH = h - volH;
+	const pad = { t: 14, r: 8, b: 4, l: 8 };
 	const closes = points.map((p) => p.c);
+	const vols = points.map((p) => p.v || 0);
 	const min = Math.min(...closes);
 	const max = Math.max(...closes);
 	const span = max - min || max || 1;
+	const maxVol = Math.max(...vols) || 1;
 	const innerW = w - pad.l - pad.r;
-	const innerH = h - pad.t - pad.b;
+	const innerH = priceH - pad.t - pad.b;
 	const x = (i) => pad.l + (i / Math.max(1, points.length - 1)) * innerW;
 	const y = (v) => pad.t + innerH - ((v - min) / span) * innerH;
 
 	const up = points.length > 1 && closes[closes.length - 1] >= closes[0];
 	const line = points.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)} ${y(p.c).toFixed(1)}`).join(' ');
-	const area = `${line} L${x(points.length - 1).toFixed(1)} ${(h - pad.b).toFixed(1)} L${x(0).toFixed(1)} ${(h - pad.b).toFixed(1)} Z`;
+	const area = `${line} L${x(points.length - 1).toFixed(1)} ${(priceH - pad.b).toFixed(1)} L${x(0).toFixed(1)} ${(priceH - pad.b).toFixed(1)} Z`;
 
-	const node = svg('svg', { viewBox: `0 0 ${w} ${h}`, class: `ld-chart-svg ${up ? 'ld-chart-up' : 'ld-chart-down'}`, preserveAspectRatio: 'none', role: 'img', 'aria-label': 'Price history' });
+	// Volume bars — each candle gets a bar in the lower panel. Buy-dominant
+	// candles (close > open) are tinted green, sell-dominant tinted red.
+	const barW = Math.max(1, (innerW / points.length) * 0.65);
+	const volBars = points.map((p, i) => {
+		const barH = (p.v / maxVol) * (volH - 6);
+		const isUp = p.c >= p.o;
+		const bx = x(i) - barW / 2;
+		const by = h - barH - 2;
+		return svg('rect', {
+			x: bx.toFixed(1),
+			y: by.toFixed(1),
+			width: barW.toFixed(1),
+			height: Math.max(1, barH).toFixed(1),
+			class: `ld-vol-bar ${isUp ? 'ld-vol-up' : 'ld-vol-dn'}`,
+			rx: '1',
+		});
+	});
+
+	const node = svg('svg', { viewBox: `0 0 ${w} ${h}`, class: `ld-chart-svg ${up ? 'ld-chart-up' : 'ld-chart-down'}`, preserveAspectRatio: 'none', role: 'img', 'aria-label': 'Price history chart with volume' });
 	const gradId = 'ldchartgrad';
 	const defs = svg('defs', {});
 	const grad = svg('linearGradient', { id: gradId, x1: '0', y1: '0', x2: '0', y2: '1' });
@@ -605,8 +737,10 @@ function areaChart(points) {
 		svg('stop', { offset: '100%', 'stop-color': 'currentColor', 'stop-opacity': '0' }),
 	);
 	defs.append(grad);
+	// Divider between price and volume panels.
+	const divider = svg('line', { x1: pad.l, y1: priceH, x2: w - pad.r, y2: priceH, class: 'ld-vol-divider' });
+	node.append(defs, ...volBars, divider);
 	node.append(
-		defs,
 		svg('path', { d: area, fill: `url(#${gradId})`, stroke: 'none' }),
 		svg('path', { d: line, fill: 'none', stroke: 'currentColor', 'stroke-width': '2', 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }),
 	);
@@ -891,9 +1025,11 @@ function renderAgent() {
 			]),
 		]);
 		body.appendChild(scoreEl);
-		body.appendChild(
-			el('a', { class: 'ld-btn ld-btn-ghost ld-btn-block', href: `/trader/${agent.id}`, text: 'Full track record →' }),
-		);
+		const ctaRow = el('div', { class: 'ld-agent-ctas' }, [
+			el('a', { class: 'ld-btn ld-btn-ghost ld-btn-sm', href: `/trader/${agent.id}`, text: 'Track record →' }),
+			el('a', { class: 'ld-btn ld-btn-accent ld-btn-sm', href: `/trader/${agent.id}#tp-copy-panel`, text: 'Copy trades ⚡' }),
+		]);
+		body.appendChild(ctaRow);
 	} else {
 		body.appendChild(
 			el('p', { class: 'ld-agent-note', text: 'No public trading track record yet for this agent.' }),
@@ -1114,10 +1250,7 @@ function renderActions() {
 	const target = $('ld-actions');
 	const isDevnet = state.network === 'devnet';
 	const symbol = (state.coin?.symbol || state.detail.registry?.symbol || '').toUpperCase();
-
-	const tradeHref = isDevnet
-		? `https://explorer.solana.com/address/${state.mint}?cluster=devnet`
-		: `https://pump.fun/${state.mint}`;
+	const mint = state.mint;
 
 	const watchBtn = el('button', { class: 'ld-btn ld-watch', type: 'button', 'aria-pressed': 'false' });
 	paintWatch(watchBtn);
@@ -1128,7 +1261,7 @@ function renderActions() {
 		type: 'button',
 		text: 'Share',
 		onclick: async (e) => {
-			const url = `${location.origin}/launches/${state.mint}`;
+			const url = `${location.origin}/launches/${mint}`;
 			const title = `${symbol ? `$${symbol}` : 'This coin'} on three.ws`;
 			if (navigator.share) {
 				try {
@@ -1150,12 +1283,29 @@ function renderActions() {
 		},
 	});
 
-	const buttons = [
-		el('a', { class: 'ld-btn ld-btn-primary', href: tradeHref, target: '_blank', rel: 'noopener noreferrer', text: isDevnet ? 'View on explorer ↗' : `Trade ${symbol ? `$${symbol}` : 'coin'} ↗` }),
-	];
-	if (!isDevnet) {
-		buttons.push(el('a', { class: 'ld-btn ld-btn-ghost', href: `/coin3d?mint=${encodeURIComponent(state.mint)}`, text: 'View in 3D' }));
+	const buttons = [];
+
+	if (isDevnet) {
+		buttons.push(
+			el('a', { class: 'ld-btn ld-btn-primary', href: `https://explorer.solana.com/address/${mint}?cluster=devnet`, target: '_blank', rel: 'noopener noreferrer', text: 'View on explorer ↗' }),
+		);
+	} else {
+		// Primary: in-platform Jupiter Terminal swap — keeps traders on three.ws.
+		buttons.push(
+			el('button', {
+				class: 'ld-btn ld-btn-primary ld-btn-buy',
+				type: 'button',
+				text: `Buy ${symbol ? `$${symbol}` : 'token'}`,
+				onclick: () => openSwapModal(mint, symbol),
+			}),
+		);
+		// Secondary: pump.fun direct link for power users who prefer it.
+		buttons.push(
+			el('a', { class: 'ld-btn ld-btn-ghost', href: `https://pump.fun/${mint}`, target: '_blank', rel: 'noopener noreferrer', text: 'pump.fun ↗' }),
+		);
+		buttons.push(el('a', { class: 'ld-btn ld-btn-ghost', href: `/coin3d?mint=${encodeURIComponent(mint)}`, text: 'View in 3D' }));
 	}
+
 	buttons.push(watchBtn, shareBtn);
 
 	const body = el('div', { class: 'ld-action-grid' }, buttons);

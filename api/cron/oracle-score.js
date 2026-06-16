@@ -9,8 +9,10 @@
 // without anything else running.
 //
 // Reuses the worker's real code paths (no duplicated logic):
-//   1. runScorePass     — score recent brain coins missing/stale in the cache.
-//   2. actOnFreshCoins  — run every armed watch against the just-scored window.
+//   1. runScorePass            — score recent brain coins missing/stale in the cache.
+//   2. actOnFreshCoins         — every armed watch acts on the just-scored window.
+//   3. runSettlePass           — grade resolved actions against real outcomes.
+//   4. alertNewHighConviction  — fire Telegram signals for new prime/strong coins.
 //
 // Simulate-default and idempotent: scoring upserts by (mint, network); each
 // (agent, mint) acts at most once. Live trading only happens when an operator
@@ -24,6 +26,7 @@ import { loadConfig } from '../../workers/oracle/config.js';
 import { runScorePass } from '../../workers/oracle/score-loop.js';
 import { actOnFreshCoins, freshlyScored } from '../../workers/oracle/agent-loop.js';
 import { runSettlePass } from '../../workers/oracle/settle-loop.js';
+import { alertNewHighConviction } from '../_lib/oracle/alerts.js';
 
 // How far back the agent pass looks for scored coins. Wider than the cron
 // cadence so a missed tick still catches up; the per-(agent,mint) dedup makes
@@ -72,6 +75,13 @@ export default wrap(async (req, res) => {
 	// open actions whose outcome is known get settled.
 	const settled = await runSettlePass(cfg);
 
+	// 4) Fire Telegram signals for any coins in this window that newly crossed
+	// prime/strong threshold and haven't been alerted before. Fire-and-forget
+	// inside the alert module — never delays or fails this cron response.
+	// We pass the full coin objects from freshlyScored (score, tier, pillars
+	// are all present in oracle_conviction rows).
+	const alerted = await alertNewHighConviction(coins, cfg.network);
+
 	return json(res, 200, {
 		ok: true,
 		network: cfg.network,
@@ -81,6 +91,7 @@ export default wrap(async (req, res) => {
 		window_coins: coins.length,
 		acted,
 		settled,
+		alerted,
 		ms: Date.now() - started,
 	});
 });

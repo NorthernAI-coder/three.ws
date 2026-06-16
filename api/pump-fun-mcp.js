@@ -751,6 +751,183 @@ async function handleGetTokenTrades({ mint, limit = 20, network = 'mainnet' }) {
 	return readTradesFromChain({ mint, limit, network });
 }
 
+// ── get_coin_intel ─────────────────────────────────────────────────────────
+
+// Reads the precomputed intel snapshot from pump_coin_intel + outcome label.
+// This is the highest-signal single read for a trade decision — it combines
+// classification, bundle/organic analysis, smart-money presence, bubblemaps
+// connectivity, risk flags, and labeled outcome into one call.
+async function handleGetCoinIntel({ mint, network = 'mainnet' } = {}) {
+	if (!mint || typeof mint !== 'string') throw new Error('mint required');
+	const cleanMint = mint.trim();
+
+	// Lazy import so the MCP handler loads in edge envs without DATABASE_URL.
+	let sql;
+	try {
+		sql = (await import('./_lib/db.js')).sql;
+	} catch {
+		return { found: false, reason: 'database_unavailable' };
+	}
+
+	const LAMPORTS_PER_SOL = 1_000_000_000;
+	const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : null; };
+	const sol = (v) => { const n = num(v); return n == null ? null : Math.round(n / LAMPORTS_PER_SOL * 10000) / 10000; };
+
+	try {
+		// Main intel row
+		const [row] = await sql`
+			select mint, network, symbol, name, creator, image_uri, description,
+				twitter, telegram, website, created_at, first_seen_at, observation_seconds,
+				dev_buy_lamports, dev_sold, buy_count, sell_count,
+				buy_volume_lamports, sell_volume_lamports, unique_buyers, unique_sellers,
+				largest_buy_lamports, signals, bundle_score, organic_score, snipe_ratio,
+				concentration_top10, fresh_wallet_ratio, bubblemap_connectivity,
+				quality_score, risk_flags, category, tags, narrative, is_news_meme,
+				classify_confidence, classify_source,
+				smart_money_count, smart_money_score, smart_money_notable, cluster_count
+			from pump_coin_intel
+			where mint = ${cleanMint} and network = ${network}
+			limit 1
+		`;
+
+		if (!row) return { found: false, mint: cleanMint, network };
+
+		const signals = (row.signals && typeof row.signals === 'object') ? row.signals : {};
+		const riskFlags = Array.isArray(row.risk_flags) ? row.risk_flags : [];
+		const q = num(row.quality_score) ?? 0;
+		const hardFlags = ['bundle_launch', 'dev_dumped', 'single_whale'];
+		const hard = riskFlags.some((f) => hardFlags.includes(f));
+		const verdict = hard || q < 25 ? { key: 'avoid', label: 'Avoid', tone: 'danger' }
+			: q < 50 || riskFlags.length ? { key: 'caution', label: 'Caution', tone: 'warn' }
+			: q < 72 ? { key: 'watch', label: 'Watch', tone: 'neutral' }
+			: { key: 'strong', label: 'Strong', tone: 'success' };
+
+		// Outcome label (may not exist yet for fresh coins)
+		let outcome = null;
+		try {
+			const [o] = await sql`
+				select outcome, graduated, rugged, ath_market_cap_usd, ath_multiple, labeled_at
+				from pump_coin_outcomes where mint = ${cleanMint} limit 1
+			`;
+			if (o) outcome = {
+				outcome: o.outcome,
+				graduated: o.graduated,
+				rugged: o.rugged,
+				ath_market_cap_usd: num(o.ath_market_cap_usd),
+				ath_multiple: num(o.ath_multiple),
+				labeled_at: o.labeled_at,
+			};
+		} catch { /* outcome table absent — fine */ }
+
+		// Top wallets (compact — notable ones only for the MCP response)
+		let topWallets = [];
+		try {
+			const wrows = await sql`
+				select wallet, buy_lamports, sell_lamports, is_creator, funder, first_seen_at
+				from pump_coin_wallets where mint = ${cleanMint}
+				order by buy_lamports desc limit 20
+			`;
+			const totalBuy = wrows.reduce((s, w) => s + (num(w.buy_lamports) || 0), 0) || 1;
+			topWallets = wrows.map((w) => ({
+				wallet: w.wallet,
+				is_creator: !!w.is_creator,
+				buy_sol: sol(w.buy_lamports),
+				sell_sol: sol(w.sell_lamports),
+				share: Math.round((num(w.buy_lamports) || 0) / totalBuy * 1000) / 1000,
+				funder: w.funder || null,
+			}));
+		} catch { /* wallets absent — fine */ }
+
+		const smartNotable = Array.isArray(row.smart_money_notable) ? row.smart_money_notable : [];
+
+		// Build a plain-language summary the agent can read directly
+		const parts = [];
+		if (verdict.key === 'avoid') parts.push('⛔ AVOID.');
+		else if (verdict.key === 'strong') parts.push('✅ Strong entry signal.');
+		if (row.smart_money_count > 0)
+			parts.push(`${row.smart_money_count} proven smart-money wallet${row.smart_money_count > 1 ? 's' : ''} entered (win-rate avg ${smartNotable[0]?.win_rate != null ? (smartNotable[0].win_rate * 100).toFixed(0) + '%' : 'unknown'}).`);
+		if (row.dev_sold) parts.push('Dev sold during observation window — high rug risk.');
+		if (riskFlags.includes('bundle_launch')) parts.push('Coordinated bundle launch detected.');
+		if (row.is_news_meme && signals.news_headline) parts.push(`News-meme: "${signals.news_headline}".`);
+		if (row.category && row.category !== 'unknown') parts.push(`Category: ${row.category}.`);
+		if (outcome?.graduated) parts.push('GRADUATED to Raydium.');
+		else if (outcome?.rugged) parts.push('Rugged.');
+		else if (outcome?.ath_multiple) parts.push(`ATH ${outcome.ath_multiple.toFixed(1)}× from entry.`);
+		const summary = parts.join(' ') || `Quality ${q}/100. ${riskFlags.length ? 'Risk flags: ' + riskFlags.join(', ') + '.' : 'No hard risk flags.'}`;
+
+		return {
+			found: true,
+			mint: row.mint,
+			network: row.network,
+			symbol: row.symbol,
+			name: row.name,
+			creator: row.creator,
+			image_uri: row.image_uri,
+			has_socials: !!(row.twitter || row.telegram || row.website),
+			twitter: row.twitter,
+			telegram: row.telegram,
+			website: row.website,
+			first_seen_at: row.first_seen_at,
+			observation_seconds: num(row.observation_seconds),
+
+			// Verdict
+			quality_score: q,
+			verdict,
+			risk_flags: riskFlags,
+			summary,
+
+			// Classification
+			category: row.category || 'unknown',
+			tags: Array.isArray(row.tags) ? row.tags : [],
+			narrative: row.narrative,
+			is_news_meme: !!row.is_news_meme,
+			news_headline: signals.news_headline || null,
+			news_url: signals.news_url || null,
+			classify_confidence: num(row.classify_confidence),
+			classify_source: row.classify_source,
+
+			// Core signals
+			organic_score: num(row.organic_score),
+			bundle_score: num(row.bundle_score),
+			snipe_ratio: num(row.snipe_ratio),
+			concentration_top10: num(row.concentration_top10),
+			fresh_wallet_ratio: num(row.fresh_wallet_ratio),
+			bubblemap_connectivity: num(row.bubblemap_connectivity),
+			cluster_count: num(row.cluster_count) ?? 0,
+			timing_entropy: num(signals.timing_entropy),
+
+			// Dev
+			dev_buy_sol: sol(row.dev_buy_lamports),
+			dev_sold: !!row.dev_sold,
+
+			// Trade footprint
+			unique_buyers: num(row.unique_buyers) ?? 0,
+			unique_sellers: num(row.unique_sellers) ?? 0,
+			buy_count: num(row.buy_count) ?? 0,
+			sell_count: num(row.sell_count) ?? 0,
+			buy_volume_sol: sol(row.buy_volume_lamports),
+			sell_volume_sol: sol(row.sell_volume_lamports),
+			largest_buy_sol: sol(row.largest_buy_lamports),
+			buy_sell_ratio: num(signals.buy_sell_ratio),
+
+			// Smart money
+			smart_money_count: num(row.smart_money_count) ?? 0,
+			smart_money_score: num(row.smart_money_score),
+			smart_money_notable: smartNotable,
+
+			// Wallet book
+			top_wallets: topWallets,
+
+			// Outcome (null if coin not yet labeled)
+			outcome,
+		};
+	} catch (err) {
+		const missing = /relation .* does not exist/i.test(String(err?.message));
+		if (missing) return { found: false, reason: 'engine_tables_pending' };
+		throw err;
+	}
+}
+
 // ── pumpfun_bot_status (metadata, always available) ────────────────────────
 
 // Reports whether the indexer is configured and, when it is, whether it's
@@ -811,6 +988,7 @@ const HANDLERS = {
 	get_bonding_curve: handleGetBondingCurve,
 	get_token_details: handleGetTokenDetails,
 	get_token_holders: handleGetTokenHolders,
+	get_coin_intel: handleGetCoinIntel,
 	kol_radar: handleKolRadar,
 	kol_leaderboard: handleKolLeaderboard,
 	search_tokens: indexerOrUnavailable('search_tokens'),
@@ -842,18 +1020,20 @@ const PROTOCOL_VERSION = '2025-06-18';
 const RESOURCE_PATH = '/api/pump-fun-mcp';
 const SERVER_INFO = { name: 'three.ws-pumpfun-mcp', version: '1.0.0' };
 const INSTRUCTIONS =
-	'Free, read-only pump.fun + Solana tools from three.ws. Token discovery ' +
-	'(search_tokens, get_trending_tokens, get_new_tokens, get_graduated_tokens, ' +
-	'get_king_of_the_hill), on-chain analysis (get_bonding_curve, get_token_holders, ' +
-	'get_token_details, get_token_trades), creator intelligence (get_creator_profile, ' +
-	'pumpfun_list_claims, pumpfun_watch_claims, pumpfun_first_claims), Solana Name ' +
-	'Service (sns_resolve, sns_reverseLookup), market signals (kol_radar, ' +
-	'kol_leaderboard, pumpfun_quote_swap, pumpfun_watch_whales), and social ' +
-	'sentiment (social_cashtag_sentiment, social_x_post_impact). Discovery tools ' +
-	'(search_tokens, get_trending_tokens, get_new_tokens, get_graduated_tokens, ' +
-	'get_king_of_the_hill, get_creator_profile) require the indexer backend and are ' +
-	'listed only when it is configured — call pumpfun_bot_status (always available) ' +
-	'to check. All data is live and on-chain; no API keys required for the free tools.';
+	'Free, read-only pump.fun + Solana tools from three.ws. ' +
+	'COIN INTELLIGENCE (call first before any trade): get_coin_intel returns the full ' +
+	'intelligence snapshot for a mint — bundle vs organic verdict, bubblemaps cluster ' +
+	'connectivity, smart-money presence with wallet win-rates, dev behaviour, category, ' +
+	'news-meme detection, risk flags, and a 0–100 quality score. ' +
+	'Token discovery (search_tokens, get_trending_tokens, get_new_tokens, ' +
+	'get_graduated_tokens, get_king_of_the_hill), on-chain analysis (get_bonding_curve, ' +
+	'get_token_holders, get_token_details, get_token_trades), creator intelligence ' +
+	'(get_creator_profile, pumpfun_list_claims, pumpfun_watch_claims, ' +
+	'pumpfun_first_claims), Solana Name Service (sns_resolve, sns_reverseLookup), ' +
+	'market signals (kol_radar, kol_leaderboard, pumpfun_quote_swap, ' +
+	'pumpfun_watch_whales), and social sentiment (social_cashtag_sentiment, ' +
+	'social_x_post_impact). Discovery tools require the indexer backend — call ' +
+	'pumpfun_bot_status (always available) to check. All data is live; no API key required.';
 const MAX_BATCH = 16;
 
 // Tools that are expensive (CPU grind or long-lived RPC subscriptions) or that

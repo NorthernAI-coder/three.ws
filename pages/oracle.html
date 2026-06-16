@@ -206,6 +206,32 @@
 		.note { font-size: 12px; color: var(--faint); margin-top: 10px; }
 		.note.warn { color: var(--amber); }
 
+		/* live trade tape */
+		.trade-tape { border: 1px solid var(--line); border-radius: var(--r-sm); overflow: hidden; background: rgba(0,0,0,0.2); }
+		.tape-header { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-bottom: 1px solid var(--line);
+			font: 600 11px/1 var(--mono); color: var(--muted); background: rgba(255,255,255,0.02); }
+		.tape-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); flex: none; transition: background .3s; }
+		.tape-dot.live { background: var(--up); box-shadow: 0 0 0 0 rgba(52,211,153,.5); animation: pulse 1.9s infinite; }
+		.tape-status { flex: 1; }
+		.tape-ct { color: var(--faint); }
+		.tape-list { max-height: 260px; overflow-y: auto; }
+		.tape-list::-webkit-scrollbar { width: 4px; }
+		.tape-list::-webkit-scrollbar-thumb { background: var(--line); border-radius: 2px; }
+		.tape-row { display: grid; grid-template-columns: 60px auto 1fr auto auto; gap: 7px; align-items: center;
+			padding: 7px 12px; border-bottom: 1px solid rgba(255,255,255,0.04); font: 600 11.5px/1 var(--mono);
+			transition: background .12s; }
+		.tape-row:last-child { border-bottom: none; }
+		.tape-row.flash { background: rgba(255,255,255,0.06); }
+		.tape-row.buy  .tape-type { color: var(--up); }
+		.tape-row.sell .tape-type { color: var(--down); }
+		.tape-type { font-size: 10.5px; letter-spacing: .04em; }
+		.tape-tag  { font-size: 10px; color: var(--faint); }
+		.tape-addr { color: var(--muted); font-size: 11px; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+		.tape-sol  { text-align: right; }
+		.tape-sol.buy  { color: var(--up); }
+		.tape-sol.sell { color: var(--down); }
+		.tape-mc { color: var(--faint); font-size: 10px; white-space: nowrap; }
+
 		.foot { margin-top: 34px; padding-top: 18px; border-top: 1px solid var(--line); font-size: 12.5px; color: var(--faint); }
 		.foot b { color: var(--muted); }
 
@@ -218,6 +244,8 @@
 		}
 		@media (prefers-reduced-motion: reduce) { * { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
 	</style>
+
+	<meta name="twitter:image" content="https://three.ws/og-image.png">
 </head>
 <body>
 	<div id="nav-container"></div>
