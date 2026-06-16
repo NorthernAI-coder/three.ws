@@ -3,6 +3,20 @@
 	"entries": [
 		{
 			"date": "2026-06-16",
+			"title": "Launch detail: pump.fun comment sentiment in Community section",
+			"summary": "The coin detail page now shows live pump.fun comment sentiment in the Community section — bullish / bearish / mixed classification with positive, negative, and neutral percentage bars, and a sample comment. Loads asynchronously after the page renders so it never delays the Oracle conviction score or smart money data. Coins with fewer than 3 comments are silently skipped.",
+			"tags": ["feature"],
+			"link": "/launches"
+		},
+		{
+			"date": "2026-06-16",
+			"title": "IRL: move your phone to look around your avatar in AR",
+			"summary": "When you pin an avatar to the real world in IRL mode, rotating your phone now physically moves the camera — the avatar stays locked to its spot while your view orbits around it, exactly like Pokémon GO. On iOS the app requests motion sensor access as required by iOS 13+. Drag still works as a fallback when orientation is unavailable. The lock icon pulses while active tracking is on.",
+			"tags": ["feature", "improvement"],
+			"link": "/irl"
+		},
+		{
+			"date": "2026-06-16",
 			"title": "Oracle: Daily Telegram digest for armed agents",
 			"summary": "Armed Oracle agents with Telegram alerts enabled now receive a daily morning summary (08:00 UTC). Each digest shows the agent's armed status, yesterday's action count with wins, losses, and open positions, realized PnL for the day, and up to 3 top-conviction coins currently above the agent's threshold. Stay informed without opening the app.",
 			"tags": ["feature"],
