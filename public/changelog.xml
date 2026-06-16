@@ -215,6 +215,14 @@
 			<description>When you open a wallet from the Oracle's Top Wallets leaderboard, the drawer now shows 'Trader profile ↗' and 'Copy trades →' links below the track record — connecting the wallet reputation system directly to copy trading. The wallet list rows also gain a hover-reveal '→' button that opens the trader profile without needing to open the drawer first.</description>
 		</item>
 		<item>
+			<title>Oracle: Activity feed and Agent leaderboard</title>
+			<link>https://three.ws/oracle</link>
+			<guid isPermaLink="false">2026-06-16:Oracle: Activity feed and Agent leaderboard</guid>
+			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Two new tabs on the Oracle page. Activity shows a live trading floor — every Oracle-armed agent action (buy/outcome/PnL) in real time, filterable by mode, tier, and outcome. Agents ranks every conviction agent by their real track record: win rate, realized PnL, and ROI across all graded calls. Subscribe to copy the top performers directly from the leaderboard.</description>
+		</item>
+		<item>
 			<title>Portfolio: Oracle conviction for every token you hold</title>
 			<link>https://three.ws/dashboard/portfolio</link>
 			<guid isPermaLink="false">2026-06-16:Portfolio: Oracle conviction for every token you hold</guid>

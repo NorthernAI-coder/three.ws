@@ -144,6 +144,25 @@ function boot() {
 	$('#proofLoadMoreBtn')?.addEventListener('click', () => {
 		$('#proofLoadMoreBtn').disabled = true; loadProof(false);
 	});
+	// activity feed filters
+	$('#afModeSeg')?.addEventListener('click', (e) => {
+		const b = e.target.closest('[data-afmode]'); if (!b) return;
+		$$('#afModeSeg button').forEach((x) => x.classList.toggle('on', x === b));
+		_afState.mode = b.dataset.afmode; loadActivity(true);
+	});
+	$('#afTierSeg')?.addEventListener('click', (e) => {
+		const b = e.target.closest('[data-aftier]'); if (!b) return;
+		$$('#afTierSeg button').forEach((x) => x.classList.toggle('on', x === b));
+		_afState.tier = b.dataset.aftier; loadActivity(true);
+	});
+	$('#afOutcomeSeg')?.addEventListener('click', (e) => {
+		const b = e.target.closest('[data-afoutcome]'); if (!b) return;
+		$$('#afOutcomeSeg button').forEach((x) => x.classList.toggle('on', x === b));
+		_afState.outcome = b.dataset.afoutcome; loadActivity(true);
+	});
+	$('#afMoreBtn')?.addEventListener('click', () => {
+		$('#afMoreBtn').disabled = true; loadActivity(false);
+	});
 	// drawer close
 	$$('#drawer [data-close]').forEach((el) => el.addEventListener('click', closeDrawer));
 	document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeDrawer(); });
@@ -166,6 +185,7 @@ function switchView(view) {
 	if (view === 'edge' && !$('#edgeWrap').dataset.loaded) loadEdge();
 	if (view === 'proof' && !$('#proofGrid').dataset.loaded) loadProof();
 	if (view === 'agents' && !$('#agentLeadWrap').dataset.loaded) loadAgentLeaderboard();
+	if (view === 'activity' && !$('#afTableWrap').dataset.loaded) loadActivity(true);
 	if (view === 'agent' && !$('#armBody').dataset.loaded) loadAgentPanel();
 	if (view === 'graph') loadGraph();
 }
@@ -446,6 +466,85 @@ function agentLeadRow(a, i) {
 		</a>
 		<a class="lrow-copy" href="/trader/${encodeURIComponent(a.agent_id)}#copy" title="Subscribe to copy this agent" rel="noopener">→</a>
 	</div>`;
+}
+
+// ── activity feed ─────────────────────────────────────────────────────────────
+const _afState = { mode: '', tier: '', outcome: '', cursor: null, loading: false };
+
+async function loadActivity(reset = false) {
+	if (_afState.loading) return;
+	_afState.loading = true;
+	const wrap = $('#afTableWrap');
+	wrap.dataset.loaded = '1';
+	if (reset) { _afState.cursor = null; wrap.innerHTML = afSkeletons(8); }
+
+	const params = new URLSearchParams({ network: NETWORK, limit: '40' });
+	if (_afState.mode)    params.set('mode',    _afState.mode);
+	if (_afState.tier)    params.set('tier',    _afState.tier);
+	if (_afState.outcome) params.set('outcome', _afState.outcome);
+	if (_afState.cursor)  params.set('before',  _afState.cursor);
+
+	const { ok, data } = await api(`/api/oracle/activity?${params}`);
+	_afState.loading = false;
+
+	const items = ok && data ? (data.items || []) : [];
+	if (!items.length && reset) {
+		wrap.innerHTML = `<div class="state"><b>No actions yet</b>Once Oracle-armed agents make their first call, the floor lights up here — every buy, every outcome, in real time.</div>`;
+		$('#ctActivity').textContent = '';
+		$('#afMore').style.display = 'none';
+		return;
+	}
+
+	if (reset) {
+		wrap.innerHTML = afTableHtml(items);
+	} else {
+		const tbody = wrap.querySelector('tbody');
+		if (tbody) tbody.insertAdjacentHTML('beforeend', items.map(afRow).join(''));
+	}
+
+	_afState.cursor = data?.next_before || null;
+	const moreEl = $('#afMore');
+	const moreBtn = $('#afMoreBtn');
+	moreEl.style.display = _afState.cursor ? '' : 'none';
+	if (moreBtn) moreBtn.disabled = false;
+	const total = data?.summary?.total ?? data?.total ?? null;
+	if (reset && total != null) $('#ctActivity').textContent = total;
+}
+
+function afSkeletons(n) {
+	return `<div class="af-outer">${Array.from({length: n}, () => '<div class="af-skel" style="height:46px;border-bottom:1px solid rgba(255,255,255,0.04)"></div>').join('')}</div>`;
+}
+
+function afTableHtml(items) {
+	return `<div class="af-outer"><table class="af-table"><thead><tr>
+		<th>Agent</th><th>Coin</th><th>Tier</th><th>Score</th><th>Size ◎</th><th>Mode</th><th>Outcome</th><th>PnL ◎</th><th>When</th>
+	</tr></thead><tbody>${items.map(afRow).join('')}</tbody></table></div>`;
+}
+
+function afRow(a) {
+	const av = a.agent_image
+		? `<img class="af-av" src="${esc(a.agent_image)}" alt="" loading="lazy">`
+		: `<div class="af-av" style="display:grid;place-items:center;font:700 11px/1 var(--mono);color:var(--faint)">${esc((a.agent_name || '?')[0].toUpperCase())}</div>`;
+	const outcome = a.outcome || 'open';
+	const outCls = outcome === 'win' ? 'af-outcome-win' : outcome === 'loss' ? 'af-outcome-loss' : 'af-outcome-open';
+	const outLabel = outcome === 'win'
+		? `✓ Win${a.peak_multiple ? ` ${Number(a.peak_multiple).toFixed(1)}×` : ''}`
+		: outcome === 'loss' ? '✗ Loss' : '—';
+	const pnl = a.realized_pnl_sol != null ? Number(a.realized_pnl_sol) : null;
+	const pnlStr = pnl != null ? `${pnl >= 0 ? '+' : ''}${Math.abs(pnl) < 0.01 ? pnl.toFixed(4) : pnl.toFixed(3)}` : '—';
+	const pnlCls = pnl != null ? (pnl >= 0 ? 'up' : 'dn') : '';
+	const modeBadge = a.mode === 'live' ? '<span class="act-live">live</span>' : '<span class="act-sim">sim</span>';
+	return `<tr class="af-row">
+		<td class="af-agent">${av}<a class="af-name" href="/agents/${encodeURIComponent(a.agent_id)}" target="_blank" rel="noopener">${esc(a.agent_name || 'Agent')}</a></td>
+		<td class="af-coin"><a href="${esc(a.pump_url)}" target="_blank" rel="noopener">${esc(a.symbol || a.mint?.slice(0, 6) || '?')}</a></td>
+		<td><span class="tierpill ${tierPill(a.tier)}">${esc(a.tier || '—')}</span></td>
+		<td class="af-mono">${a.conviction ?? '—'}</td>
+		<td class="af-mono">${a.size_sol != null ? Number(a.size_sol).toFixed(3) : '—'}</td>
+		<td>${modeBadge}</td>
+		<td class="${outCls}">${outLabel}</td>
+		<td class="af-mono ${pnlCls}">${pnlStr}</td>
+		<td class="af-mono" style="color:var(--faint);font-size:11px">${a.acted_at ? ago(a.acted_at) + ' ago' : '—'}</td>
+	</tr>`;
 }
 
 // ── edge (backtest) ──────────────────────────────────────────────────────────

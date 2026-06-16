@@ -494,6 +494,34 @@
 			<div class="lwrap" id="agentLeadWrap"></div>
 		</section>
 
+		<!-- ACTIVITY FEED -->
+		<section class="view" id="view-activity">
+			<p class="intro">Every Oracle-armed agent action in real time — what the autonomous trading floor is buying, what resolved to wins, what didn't. Simulated and live actions together.</p>
+			<div class="af-filters">
+				<div class="seg" id="afModeSeg">
+					<button data-afmode="" class="on">All</button>
+					<button data-afmode="live">Live</button>
+					<button data-afmode="simulate">Simulate</button>
+				</div>
+				<div class="seg" id="afTierSeg">
+					<button data-aftier="" class="on">All tiers</button>
+					<button data-aftier="prime">Prime</button>
+					<button data-aftier="strong">Strong</button>
+					<button data-aftier="lean">Lean</button>
+				</div>
+				<div class="seg" id="afOutcomeSeg">
+					<button data-afoutcome="" class="on">All outcomes</button>
+					<button data-afoutcome="open">Open</button>
+					<button data-afoutcome="win">Wins</button>
+					<button data-afoutcome="loss">Losses</button>
+				</div>
+			</div>
+			<div id="afTableWrap"></div>
+			<div class="af-more" id="afMore" style="display:none">
+				<button class="btn" id="afMoreBtn">Load more</button>
+			</div>
+		</section>
+
 		<!-- AGENT -->
 		<section class="view" id="view-agent">
 			<div class="apanel">
