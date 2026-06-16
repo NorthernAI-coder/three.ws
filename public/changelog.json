@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-16T06:26:02.424Z",
+	"generated_at": "2026-06-16T06:34:54.299Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -54,6 +54,16 @@
 			"link": "/agents",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "update",
+			"title": "Agents: Oracle and Sniper trading status on agent cards",
+			"summary": "The agents dashboard now shows live trading badges on each card. If an agent has Oracle conviction history, its win rate and realized PnL appear inline. If a sniper strategy is armed and active, the agent card shows the strategy's realized PnL. Both badges link to the relevant dashboard so you can drill in from the agents list.",
+			"link": "/dashboard/agents",
+			"tags": [
+				"improvement"
 			]
 		},
 		{

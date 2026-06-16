@@ -3,6 +3,13 @@
 	"entries": [
 		{
 			"date": "2026-06-16",
+			"title": "Agents: Oracle and Sniper trading status on agent cards",
+			"summary": "The agents dashboard now shows live trading badges on each card. If an agent has Oracle conviction history, its win rate and realized PnL appear inline. If a sniper strategy is armed and active, the agent card shows the strategy's realized PnL. Both badges link to the relevant dashboard so you can drill in from the agents list.",
+			"tags": ["improvement"],
+			"link": "/dashboard/agents"
+		},
+		{
+			"date": "2026-06-16",
 			"title": "Oracle: Activity feed and Agent leaderboard",
 			"summary": "Two new tabs on the Oracle page. Activity shows a live trading floor — every Oracle-armed agent action (buy/outcome/PnL) in real time, filterable by mode, tier, and outcome. Agents ranks every conviction agent by their real track record: win rate, realized PnL, and ROI across all graded calls. Subscribe to copy the top performers directly from the leaderboard.",
 			"tags": ["feature"],
