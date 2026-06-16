@@ -360,6 +360,10 @@
         <span class="stat-label">Last launch</span>
         <span class="stat-value" id="stat-age" aria-live="polite">—</span>
       </div>
+      <div class="stat" style="cursor:pointer" title="Filter to prime coins" onclick="document.querySelector('[data-ftier=prime]')?.click()">
+        <span class="stat-label">🔮 Prime scored</span>
+        <span class="stat-value" id="stat-prime" aria-live="polite" style="color:#c084fc">0</span>
+      </div>
     </div>
     <div id="feed-header">
       <h2>New Tokens on Pump.fun</h2>
@@ -456,6 +460,7 @@
   // judge them until Oracle scores them. After enrichment, applyCardFilter()
   // revisits each card and hides those that fall below the threshold.
   let filterTier = 'all';
+  let primeCount = 0;
 
   const TIER_RANK = { avoid: 0, watch: 1, lean: 2, strong: 3, prime: 4 };
   const MIN_RANK = { all: 0, strong: 3, prime: 4 };
@@ -814,6 +819,12 @@
           // Re-evaluate filter for this card now that it has a conviction score.
           const card = badge.closest('.token-card');
           if (card) applyCardFilter(card);
+          // Increment the session prime counter.
+          if (d.tier === 'prime') {
+            primeCount++;
+            const el = document.getElementById('stat-prime');
+            if (el) el.textContent = primeCount;
+          }
         }
       } catch { /* non-fatal */ }
     }
