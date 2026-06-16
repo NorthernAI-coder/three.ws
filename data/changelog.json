@@ -3,6 +3,13 @@
 	"entries": [
 		{
 			"date": "2026-06-16",
+			"title": "Sniper: Cumulative PnL chart in trade history",
+			"summary": "The Sniper Strategies page now shows a cumulative PnL curve above the trade history table. Each completed trade is plotted in chronological order, so you can see at a glance how your strategy's performance has trended over time. The chart is color-coded green or red based on the net result and includes smooth bezier interpolation between trades.",
+			"tags": ["improvement"],
+			"link": "/dashboard/sniper"
+		},
+		{
+			"date": "2026-06-16",
 			"title": "Oracle: Conviction-weighted position sizing",
 			"summary": "Oracle agents can now scale their position size by conviction strength. Enable 'Scale by conviction' in the Arm your agent panel to have the engine buy up to 1.5× the base size for the highest-scoring coins (score 100) and 1.0× at the minimum threshold. Positions are still capped by the daily SOL budget — this rewards the highest-conviction calls without increasing risk on lower-scoring entries.",
 			"tags": ["feature", "improvement"],
