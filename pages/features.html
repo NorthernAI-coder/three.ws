@@ -95,6 +95,115 @@
 			</section>
 
 			<!-- ════════════════════════════════════
+			     ANIMATION SHOWCASE — interactive demo
+			     ════════════════════════════════════ -->
+			<section class="feat-anim-showcase" id="animations" aria-label="Animation showcase">
+				<div class="feat-anim-inner">
+					<div class="feat-anim-stage" id="animStage">
+						<model-viewer
+							id="animViewer"
+							src="/animations/idle_anim.glb"
+							auto-rotate
+							auto-rotate-delay="0"
+							rotation-per-second="14deg"
+							interaction-prompt="none"
+							camera-controls
+							disable-zoom
+							shadow-intensity="0.2"
+							exposure="0.85"
+							environment-image="neutral"
+							camera-orbit="0deg 78deg 4.5m"
+							field-of-view="40deg"
+							loading="lazy"
+							reveal="interaction"
+							aria-label="3D avatar playing the selected animation"
+						></model-viewer>
+						<div class="feat-anim-stage-overlay" aria-hidden="true">
+							<span class="feat-anim-now-playing" id="animNowPlaying">Idle</span>
+						</div>
+					</div>
+					<div class="feat-anim-controls">
+						<p class="feat-eyebrow" style="margin-bottom:6px">70+ Animations</p>
+						<h2 class="feat-anim-title">Every move, live in your browser.</h2>
+						<p class="feat-anim-sub">Pick any animation below. Your avatar switches instantly — no page reload, no install. These run on any device, in any embed.</p>
+
+						<div class="feat-anim-groups" id="animGroups">
+							<div class="feat-anim-group">
+								<span class="feat-anim-group-label">Idle</span>
+								<div class="feat-anim-pills">
+									<button class="feat-anim-pill feat-anim-pill--active" data-src="/animations/idle_anim.glb">Idle</button>
+									<button class="feat-anim-pill" data-src="/animations/Idle_Breath.glb">Breathing</button>
+									<button class="feat-anim-pill" data-src="/animations/Just_chilling.glb">Chilling</button>
+									<button class="feat-anim-pill" data-src="/animations/Standard_Waiting.glb">Waiting</button>
+									<button class="feat-anim-pill" data-src="/animations/Standard_Vtubing_Movement.glb">Vtubing</button>
+									<button class="feat-anim-pill" data-src="/animations/pose1.glb">Pose</button>
+								</div>
+							</div>
+							<div class="feat-anim-group">
+								<span class="feat-anim-group-label">Dance</span>
+								<div class="feat-anim-pills">
+									<button class="feat-anim-pill" data-src="/animations/dance_shuffle.glb">Shuffle</button>
+									<button class="feat-anim-pill" data-src="/animations/Dance_Head_Banging_V03.glb">Head Bang</button>
+									<button class="feat-anim-pill" data-src="/animations/Banging_Tunes_left.glb">Banging Tunes</button>
+									<button class="feat-anim-pill" data-src="/animations/Energic_conductor.glb">Conductor</button>
+								</div>
+							</div>
+							<div class="feat-anim-group">
+								<span class="feat-anim-group-label">Celebration</span>
+								<div class="feat-anim-pills">
+									<button class="feat-anim-pill" data-src="/animations/Celebrating.glb">Celebrating</button>
+									<button class="feat-anim-pill" data-src="/animations/Cheering.glb">Cheering</button>
+									<button class="feat-anim-pill" data-src="/animations/Expressing_joy.glb">Joy</button>
+									<button class="feat-anim-pill" data-src="/animations/Brag_n_Claps.glb">Brag &amp; Clap</button>
+									<button class="feat-anim-pill" data-src="/animations/Call_Me.glb">Call Me</button>
+								</div>
+							</div>
+							<div class="feat-anim-group">
+								<span class="feat-anim-group-label">Athletic</span>
+								<div class="feat-anim-pills">
+									<button class="feat-anim-pill" data-src="/animations/back_flip.glb">Back Flip</button>
+									<button class="feat-anim-pill" data-src="/animations/Suoerhero_Jump.glb">Superhero Jump</button>
+									<button class="feat-anim-pill" data-src="/animations/Arm_Flex.glb">Arm Flex</button>
+									<button class="feat-anim-pill" data-src="/animations/Flexing_Arm.glb">Flexing</button>
+									<button class="feat-anim-pill" data-src="/animations/Gymnastics_Aerial.glb">Aerial</button>
+									<button class="feat-anim-pill" data-src="/animations/Gorilla_chest_bump.glb">Chest Bump</button>
+								</div>
+							</div>
+							<div class="feat-anim-group">
+								<span class="feat-anim-group-label">Combat</span>
+								<div class="feat-anim-pills">
+									<button class="feat-anim-pill" data-src="/animations/Angry.glb">Angry</button>
+									<button class="feat-anim-pill" data-src="/animations/Arm_Combo_Muay_Thai.glb">Muay Thai</button>
+									<button class="feat-anim-pill" data-src="/animations/Boxers_dance.glb">Boxer Dance</button>
+									<button class="feat-anim-pill" data-src="/animations/Standard_Push_Block_Variation.glb">Push Block</button>
+									<button class="feat-anim-pill" data-src="/animations/Cheap_Spy.glb">Spy</button>
+								</div>
+							</div>
+							<div class="feat-anim-group">
+								<span class="feat-anim-group-label">Walk</span>
+								<div class="feat-anim-pills">
+									<button class="feat-anim-pill" data-src="/animations/Standard_Walk_Cycle_Feminine.glb">Walk (F)</button>
+									<button class="feat-anim-pill" data-src="/animations/Standard_Walk_Crouching.glb">Crouching</button>
+									<button class="feat-anim-pill" data-src="/animations/Standard_Stand_To_Crouch_To_Stand.glb">Crouch+Stand</button>
+								</div>
+							</div>
+							<div class="feat-anim-group">
+								<span class="feat-anim-group-label">Mood</span>
+								<div class="feat-anim-pills">
+									<button class="feat-anim-pill" data-src="/animations/Facepalm.glb">Facepalm</button>
+									<button class="feat-anim-pill" data-src="/animations/Standard_Smoking.glb">Smoking</button>
+								</div>
+							</div>
+						</div>
+
+						<a href="/forge" class="btn-primary" style="display:inline-flex;align-items:center;gap:6px;margin-top:20px">
+							Generate your own avatar <span class="btn-arrow">→</span>
+						</a>
+					</div>
+				</div>
+			</section>
+
+			<!-- ════════════════════════════════════
 			     CORE — works today, no crypto
 			     ════════════════════════════════════ -->
 			<section class="feat-goal-section" id="core" aria-labelledby="goal-core-label">
@@ -281,25 +390,66 @@
 					</article>
 
 					<!-- Widget Studio -->
-					<article class="feat-card scroll-reveal" aria-label="Widget Studio">
-						<div class="feat-card-preview feat-card-preview--embed-code">
-							<div class="feat-code-block" aria-hidden="true">
-								<div class="feat-code-bar">
-									<span class="feat-code-dot"></span>
-									<span class="feat-code-dot"></span>
-									<span class="feat-code-dot"></span>
-									<span class="feat-code-label">your-site.html</span>
-								</div>
-								<pre
-									class="feat-code-body"
-								><code><span class="feat-c">&lt;!-- 1. load --&gt;</span>
+					<article class="feat-card feat-card--wide scroll-reveal" aria-label="Widget Studio">
+						<div class="feat-card-preview feat-card-preview--embed-live">
+							<div class="feat-embed-split">
+								<!-- Code side -->
+								<div class="feat-embed-code-wrap">
+									<div class="feat-code-block">
+										<div class="feat-code-bar">
+											<span class="feat-code-dot"></span>
+											<span class="feat-code-dot"></span>
+											<span class="feat-code-dot"></span>
+											<span class="feat-code-label">your-site.html</span>
+											<button class="feat-copy-btn" id="embedCopyBtn" aria-label="Copy snippet" title="Copy to clipboard">Copy</button>
+										</div>
+										<pre class="feat-code-body" id="embedSnippet"><code><span class="feat-c">&lt;!-- 1. load --&gt;</span>
 <span class="feat-tag">&lt;script</span> <span class="feat-attr">src</span>=<span class="feat-val">"https://three.ws/embed.js"</span><span class="feat-tag">&gt;&lt;/script&gt;</span>
 
 <span class="feat-c">&lt;!-- 2. drop the tag --&gt;</span>
 <span class="feat-tag">&lt;agent-3d</span>
-  <span class="feat-attr">agent-id</span>=<span class="feat-val">"3DAg…uPL"</span>
+  <span class="feat-attr">agent-id</span>=<span class="feat-val">"YOUR_AGENT_ID"</span>
   <span class="feat-attr">kiosk</span>
 <span class="feat-tag">&gt;&lt;/agent-3d&gt;</span></code></pre>
+									</div>
+								</div>
+								<!-- Live widget preview -->
+								<div class="feat-embed-preview-wrap" aria-label="Live widget preview">
+									<div class="feat-embed-widget-chrome">
+										<div class="feat-embed-widget-bar">
+											<span class="feat-code-dot"></span>
+											<span class="feat-code-dot"></span>
+											<span class="feat-code-dot"></span>
+											<span class="feat-embed-widget-url">your-site.com</span>
+										</div>
+										<div class="feat-embed-widget-body">
+											<div class="feat-embed-widget-bubble">
+												<span class="feat-embed-widget-name">3D Agent</span>
+												<model-viewer
+													src="/animations/idle_female_jan25.glb"
+													auto-rotate
+													auto-rotate-delay="0"
+													rotation-per-second="16deg"
+													interaction-prompt="none"
+													camera-controls="false"
+													disable-zoom
+													shadow-intensity="0"
+													exposure="0.85"
+													environment-image="neutral"
+													camera-orbit="0deg 76deg 4m"
+													field-of-view="38deg"
+													loading="lazy"
+													aria-label="Live widget preview — 3D AI agent"
+												></model-viewer>
+												<div class="feat-embed-chat-line">
+													<span class="feat-embed-chat-dot feat-embed-chat-dot--1"></span>
+													<span class="feat-embed-chat-dot feat-embed-chat-dot--2"></span>
+													<span class="feat-embed-chat-dot feat-embed-chat-dot--3"></span>
+												</div>
+											</div>
+										</div>
+									</div>
+								</div>
 							</div>
 						</div>
 						<div class="feat-card-body">
@@ -317,8 +467,8 @@
 								<strong>Why it's better:</strong> No SDK required on the consumer
 								side — one tag, any page, no build step.
 							</p>
-							<a href="/studio" class="btn-primary feat-card-cta">
-								Open Widget Studio <span class="btn-arrow">→</span>
+							<a href="/embed.html" class="btn-primary feat-card-cta">
+								Open Embed Editor <span class="btn-arrow">→</span>
 							</a>
 						</div>
 					</article>
@@ -1185,5 +1335,64 @@
 		<script src="/brand.js" defer></script>
 		<div id="footer-container"></div>
 		<script src="/footer.js"></script>
+		<script>
+			// Embed snippet copy button
+			(function () {
+				const btn = document.getElementById('embedCopyBtn');
+				if (!btn) return;
+				btn.addEventListener('click', function () {
+					const snippet = '<script src="https://three.ws/embed.js"><\/script>\n<agent-3d agent-id="YOUR_AGENT_ID" kiosk></agent-3d>';
+					navigator.clipboard.writeText(snippet).then(function () {
+						btn.textContent = 'Copied!';
+						btn.classList.add('copied');
+						setTimeout(function () {
+							btn.textContent = 'Copy';
+							btn.classList.remove('copied');
+						}, 2000);
+					}).catch(function () {
+						btn.textContent = 'Copy';
+					});
+				});
+			})();
+
+			// Animation showcase — pill picker
+			(function () {
+				const viewer = document.getElementById('animViewer');
+				const nowPlaying = document.getElementById('animNowPlaying');
+				const pills = document.querySelectorAll('.feat-anim-pill');
+				if (!viewer || !pills.length) return;
+
+				function selectAnim(pill) {
+					const src = pill.dataset.src;
+					if (!src) return;
+					pills.forEach((p) => p.classList.remove('feat-anim-pill--active'));
+					pill.classList.add('feat-anim-pill--active');
+					viewer.setAttribute('src', src);
+					const label = pill.textContent.trim();
+					if (nowPlaying) nowPlaying.textContent = label;
+				}
+
+				pills.forEach((pill) => {
+					pill.addEventListener('click', () => selectAnim(pill));
+				});
+
+				// Lazy-reveal: trigger model-viewer loading when stage scrolls into view
+				const stage = document.getElementById('animStage');
+				if (stage && 'IntersectionObserver' in window) {
+					const obs = new IntersectionObserver(
+						(entries) => {
+							if (entries[0].isIntersecting) {
+								viewer.setAttribute('reveal', 'auto');
+								obs.disconnect();
+							}
+						},
+						{ threshold: 0.2 },
+					);
+					obs.observe(stage);
+				} else if (viewer) {
+					viewer.setAttribute('reveal', 'auto');
+				}
+			})();
+		</script>
 	</body>
 </html>

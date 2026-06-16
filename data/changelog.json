@@ -2747,6 +2747,15 @@
 				"improvement"
 			],
 			"link": "/embed"
+		},
+		{
+			"date": "2026-06-16",
+			"title": "Features page — interactive animation showcase with 30+ live demos",
+			"summary": "The /features page now has a live animation showcase you can interact with in the browser. Pick from 30+ animations grouped by type (Idle, Dance, Celebration, Athletic, Combat, Walk, Mood) — the 3D avatar switches instantly with no page reload. The Widget Studio card also got a live preview panel showing what the embed looks like on a real site, plus a one-click snippet copy button.",
+			"tags": [
+				"improvement"
+			],
+			"link": "/features"
 		}
 	]
 }
