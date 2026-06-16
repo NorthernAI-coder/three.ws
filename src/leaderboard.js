@@ -298,17 +298,18 @@ async function loadOracleLeaderboard() {
 			? `<span class="${pnlClass(a.roi_pct)}">${a.roi_pct > 0 ? '+' : ''}${a.roi_pct}%</span>`
 			: '—';
 
-		const row = document.createElement('a');
+		const row = document.createElement('div');
 		row.className = 'lb-oracle-row';
-		row.href = `/trader/${encodeURIComponent(a.agent_id)}`;
 		row.setAttribute('data-rank', String(a.rank));
+		const traderHref = `/trader/${encodeURIComponent(a.agent_id)}`;
 		row.innerHTML = `
 			<span class="lb-rank">${a.rank}</span>
-			<span class="lb-trader">${img}<span class="lb-trader-meta"><span class="lb-trader-name">${name}</span></span></span>
+			<a class="lb-trader lb-oracle-trader-link" href="${traderHref}">${img}<span class="lb-trader-meta"><span class="lb-trader-name">${name}</span></span></a>
 			<span class="lb-col-num">${wr}</span>
 			<span class="lb-col-num lb-neg" style="font-size:12px;color:var(--ink-dim)">${wl}</span>
 			<span class="lb-col-num lb-hide-sm">${pnl}</span>
 			<span class="lb-col-num lb-hide-sm">${roi}</span>
+			<span class="lb-col-num"><a class="lb-btn lb-btn-primary" href="${traderHref}#tp-copy-panel" style="font-size:11px;padding:4px 11px">Copy →</a></span>
 		`;
 		container.appendChild(row);
 	}

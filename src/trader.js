@@ -139,7 +139,10 @@ function oracleBlock(oracle, agentId) {
 		<div class="tp-oracle-block">
 			<div class="tp-oracle-head">
 				<span class="tp-oracle-label">Oracle conviction</span>
-				<a class="tp-oracle-link" href="/oracle" target="_blank" rel="noopener">View live ↗</a>
+				<div style="display:flex;gap:10px;align-items:center">
+					<a class="tp-oracle-link" href="/oracle" target="_blank" rel="noopener">View live ↗</a>
+					<a class="lb-btn lb-btn-primary" href="#tp-copy-panel" style="font-size:11px;padding:4px 12px;border-radius:6px" onclick="document.getElementById('tp-copy-panel')?.scrollIntoView({behavior:'smooth',block:'start'});return false">Copy trades →</a>
+				</div>
 			</div>
 			<div class="tp-oracle-kpis">
 				<div class="tp-oracle-kpi"><span>Actions</span><b>${oracle.total}</b></div>
