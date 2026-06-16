@@ -78,7 +78,7 @@ async function loadAndPlace() {
 		const r = await fetch(`/api/sniper/leaderboard?network=${NETWORK}`);
 		if (!r.ok) throw new Error('http ' + r.status);
 		data = await r.json();
-	} catch (e) {
+	} catch {
 		renderBoard([]);
 		setEmpty(true);
 		return;
@@ -177,7 +177,7 @@ function connectStream() {
 	es.addEventListener('buy', (m) => safe(() => onBuy(JSON.parse(m.data))));
 	es.addEventListener('sell', (m) => safe(() => onSell(JSON.parse(m.data))));
 	es.addEventListener('update', () => {});
-	es.onerror = () => { setLive(false); try { es.close(); } catch {} setTimeout(connectStream, 2500); };
+	es.onerror = () => { setLive(false); try { es.close(); } catch { /* already closed */ } setTimeout(connectStream, 2500); };
 }
 const safe = (fn) => { try { fn(); } catch { /* one bad frame never breaks the stream */ } };
 
@@ -404,7 +404,7 @@ async function choose(url, btn) {
 		await world.spawnPlayer(url);
 		localStorage.setItem(PLAYER_KEY, url);
 		closePicker();
-	} catch (e) {
+	} catch {
 		btn.classList.add('failed');
 		setTimeout(() => btn.classList.remove('failed'), 1500);
 	} finally {
@@ -428,5 +428,5 @@ async function mountJoystick() {
 			world.setJoystick(Math.cos(a) * Math.min(1, f), Math.sin(a) * Math.min(1, f));
 		});
 		stick.on('end', () => world.setJoystick(0, 0));
-	} catch (e) { /* desktop / import failure — keyboard still works */ }
+	} catch { /* desktop / import failure — keyboard still works */ }
 }

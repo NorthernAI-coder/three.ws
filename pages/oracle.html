@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+	<title>Oracle — fused pump.fun conviction · three.ws</title>
+	<meta name="description" content="Oracle fuses who's buying, how they're buying, what the coin is, and how it's moving into one live conviction score for every pump.fun launch — and lets your 3D AI agent act on the highest-conviction plays. The more data we watch, the sharper every score." />
+	<meta property="og:title" content="Oracle · three.ws" />
+	<meta property="og:description" content="One conviction score per pump.fun launch, fused from full-coverage wallet + coin + structure data. Watch it live. Arm your agent to act on it." />
+	<meta property="og:type" content="website" />
+	<meta property="og:site_name" content="three.ws" />
+	<meta property="og:url" content="https://three.ws/oracle" />
+	<meta property="og:image" content="https://three.ws/og-image.png" />
+	<meta name="twitter:card" content="summary_large_image" />
+	<meta name="twitter:title" content="Oracle — fused pump.fun conviction" />
+	<meta name="twitter:description" content="One live conviction score per launch, fused from the most data on pump.fun. Arm your agent to act on it." />
+	<link rel="canonical" href="https://three.ws/oracle" />
+	<link rel="icon" href="/favicon.ico" />
+	<link rel="stylesheet" href="/nav.css" />
+	<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"Oracle","applicationCategory":"FinanceApplication","description":"Fused pump.fun conviction scoring — who's buying, how, what, and how it's moving, in one live score, with an agent action loop.","url":"https://three.ws/oracle","isPartOf":{"@type":"WebSite","name":"three.ws","url":"https://three.ws"}}</script>
+	<style>
+		:root {
+			--bg: #05060c; --panel: rgba(13,15,23,0.72); --panel-solid: #0c0e16; --line: rgba(255,255,255,0.09);
+			--ink: #eaeefa; --muted: #8a92a8; --faint: rgba(255,255,255,0.45);
+			--cyan: #5fe3ff; --violet: #a07bff; --gold: #fbbf24; --up: #34d399; --down: #f87171; --amber: #ff9d4d;
+			--r: 16px; --r-sm: 11px;
+			--mono: ui-monospace, "JetBrains Mono", SFMono-Regular, Menlo, monospace;
+			--shadow: 0 18px 52px -22px rgba(0,0,0,0.86), 0 1px 0 rgba(255,255,255,0.05) inset;
+			--blur: saturate(160%) blur(16px);
+			/* pillar accents */
+			--p-ped: #5fe3ff; --p-str: #34d399; --p-nar: #a07bff; --p-mom: #fbbf24;
+		}
+		* { box-sizing: border-box; }
+		html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--ink);
+			font: 15px/1.55 Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing: antialiased; }
+		body { background:
+			radial-gradient(58% 48% at 82% -6%, color-mix(in srgb, var(--violet) 17%, transparent), transparent 70%),
+			radial-gradient(48% 42% at 3% -2%, color-mix(in srgb, var(--cyan) 13%, transparent), transparent 66%), var(--bg); }
+		a { color: inherit; text-decoration: none; }
+		button { font: inherit; color: inherit; cursor: pointer; }
+		.wrap { max-width: 1200px; margin: 0 auto; padding: 0 18px 90px; }
+
+		/* hero */
+		.hero { padding: 40px 0 22px; }
+		.eyebrow { display: inline-flex; align-items: center; gap: 8px; font: 600 12px/1 var(--mono); letter-spacing: .04em;
+			text-transform: uppercase; color: var(--cyan); padding: 7px 12px; border: 1px solid color-mix(in srgb, var(--cyan) 30%, var(--line));
+			border-radius: 999px; background: color-mix(in srgb, var(--cyan) 9%, transparent); }
+		.eyebrow i { width: 7px; height: 7px; border-radius: 50%; background: var(--up); box-shadow: 0 0 0 0 rgba(52,211,153,.6); animation: pulse 1.9s infinite; }
+		.eyebrow i.off { background: var(--muted); animation: none; }
+		@keyframes pulse { 0%{box-shadow:0 0 0 0 rgba(52,211,153,.5)} 70%{box-shadow:0 0 0 7px rgba(52,211,153,0)} 100%{box-shadow:0 0 0 0 rgba(52,211,153,0)} }
+		.hero h1 { font-size: clamp(30px, 5vw, 48px); line-height: 1.04; letter-spacing: -0.026em; margin: 18px 0 12px; font-weight: 800; }
+		.hero h1 span { background: linear-gradient(100deg, var(--cyan), var(--violet)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+		.hero p { max-width: 700px; font-size: 16px; color: var(--muted); margin: 0; }
+		.statline { display: flex; flex-wrap: wrap; gap: 26px; margin-top: 22px; }
+		.statline div span { display: block; font: 600 10.5px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--faint); margin-bottom: 5px; }
+		.statline div b { font: 800 22px/1 var(--mono); }
+
+		/* tabs */
+		.tabs { display: flex; gap: 6px; margin: 28px 0 18px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+		.tab { padding: 11px 6px; margin-bottom: -1px; border: none; background: none; color: var(--muted); font-weight: 600; font-size: 14px;
+			border-bottom: 2px solid transparent; transition: color .2s, border-color .2s; }
+		.tab:hover { color: var(--ink); }
+		.tab.on { color: var(--ink); border-bottom-color: var(--cyan); }
+		.tab .ct { font: 600 11px/1 var(--mono); color: var(--faint); margin-left: 6px; }
+		.view { display: none; } .view.on { display: block; animation: fade .3s; }
+		@keyframes fade { from { opacity: 0; transform: translateY(4px); } }
+
+		/* filters */
+		.filters { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; }
+		.seg { display: inline-flex; background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 3px; gap: 2px; }
+		.seg button { padding: 6px 12px; border-radius: 999px; border: none; background: none; color: var(--muted); font: 600 12.5px/1 var(--mono); transition: background .16s, color .16s; }
+		.seg button.on { background: color-mix(in srgb, var(--cyan) 20%, transparent); color: var(--ink); }
+		.sel { background: var(--panel); border: 1px solid var(--line); border-radius: 999px; color: var(--ink); padding: 7px 12px; font: 600 12.5px/1 var(--mono); }
+
+		/* coin grid */
+		.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 14px; }
+		.coin { text-align: left; width: 100%; background: var(--panel); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+			border: 1px solid var(--line); border-radius: var(--r); padding: 15px; box-shadow: var(--shadow);
+			display: flex; flex-direction: column; gap: 13px; transition: transform .14s, border-color .18s; }
+		.coin:hover { transform: translateY(-3px); border-color: color-mix(in srgb, var(--cyan) 42%, var(--line)); }
+		.coin.flash { animation: flashin .9s ease-out; }
+		@keyframes flashin { 0% { box-shadow: 0 0 0 2px color-mix(in srgb, var(--cyan) 70%, transparent); transform: translateY(-6px); } 100% { box-shadow: var(--shadow); } }
+		.coin-top { display: grid; grid-template-columns: 46px 1fr auto; gap: 12px; align-items: center; }
+		.coin-img { width: 46px; height: 46px; border-radius: 12px; object-fit: cover; background: radial-gradient(120% 100% at 50% 0%, #1b2233, #0d1018); border: 1px solid var(--line); display: grid; place-items: center; font: 700 17px/1 var(--mono); color: var(--faint); }
+		.coin-id { min-width: 0; }
+		.coin-sym { font-weight: 700; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+		.coin-name { font-size: 12.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+		/* conviction dial */
+		.dial { text-align: center; }
+		.dial b { font: 800 26px/1 var(--mono); display: block; }
+		.dial span { font: 600 9px/1 var(--mono); text-transform: uppercase; letter-spacing: .09em; color: var(--faint); }
+		.t-prime b, .t-strong b { color: var(--up); }
+		.t-lean b { color: var(--gold); }
+		.t-watch b { color: var(--muted); }
+		.t-avoid b { color: var(--down); }
+		.tierpill { display: inline-block; font: 700 9.5px/1 var(--mono); text-transform: uppercase; letter-spacing: .08em; padding: 4px 7px; border-radius: 6px; margin-top: 4px; }
+		.tp-prime, .tp-strong { background: color-mix(in srgb, var(--up) 18%, transparent); color: var(--up); }
+		.tp-lean { background: color-mix(in srgb, var(--gold) 16%, transparent); color: var(--gold); }
+		.tp-watch { background: rgba(255,255,255,0.06); color: var(--faint); }
+		.tp-avoid { background: color-mix(in srgb, var(--down) 16%, transparent); color: var(--down); }
+		/* pillar bars */
+		.pillars { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+		.pil { }
+		.pil .lab { display: flex; justify-content: space-between; font: 600 9.5px/1 var(--mono); color: var(--faint); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 4px; }
+		.pil .lab b { color: var(--ink); }
+		.pil .track { height: 5px; border-radius: 3px; background: rgba(255,255,255,0.07); overflow: hidden; }
+		.pil .fill { height: 100%; border-radius: 3px; transition: width .5s cubic-bezier(.22,1,.36,1); }
+		.pil.ped .fill { background: var(--p-ped); } .pil.str .fill { background: var(--p-str); }
+		.pil.nar .fill { background: var(--p-nar); } .pil.mom .fill { background: var(--p-mom); }
+		.coin-meta { display: flex; gap: 7px; flex-wrap: wrap; }
+		.chip { font: 600 11px/1 var(--mono); padding: 5px 9px; border-radius: 8px; background: rgba(255,255,255,0.05); border: 1px solid var(--line); color: var(--muted); }
+		.chip b { color: var(--ink); }
+		.chip.cat { color: var(--violet); border-color: color-mix(in srgb, var(--violet) 30%, var(--line)); }
+		.chip.sm { color: var(--up); border-color: color-mix(in srgb, var(--up) 30%, var(--line)); }
+		.chip.flag { color: var(--down); border-color: color-mix(in srgb, var(--down) 30%, var(--line)); }
+		.chip.news { color: var(--amber); border-color: color-mix(in srgb, var(--amber) 30%, var(--line)); }
+
+		/* wallet leaderboard */
+		.lwrap { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; box-shadow: var(--shadow); }
+		.lhead, .lrow { display: grid; grid-template-columns: 38px 1fr 110px 86px 86px; gap: 10px; align-items: center; padding: 12px 16px; }
+		.lhead { font: 600 10.5px/1 var(--mono); text-transform: uppercase; letter-spacing: .08em; color: var(--faint); border-bottom: 1px solid var(--line); }
+		.lrow { border: 0; border-bottom: 1px solid var(--line); width: 100%; background: none; text-align: left; transition: background .16s; }
+		.lrow:last-child { border-bottom: none; }
+		.lrow:hover { background: rgba(255,255,255,0.04); }
+		.lrank { font: 700 14px/1 var(--mono); color: var(--faint); } .lrank.top { color: var(--gold); }
+		.lw { min-width: 0; display: flex; align-items: center; gap: 9px; }
+		.lw-addr { font: 600 13px/1 var(--mono); overflow: hidden; text-overflow: ellipsis; }
+		.lscore { font: 800 16px/1 var(--mono); text-align: right; }
+		.lstat { font: 600 13px/1 var(--mono); text-align: right; color: var(--muted); } .lstat b { color: var(--ink); }
+		.nlabel { font: 600 10px/1 var(--mono); padding: 4px 7px; border-radius: 6px; white-space: nowrap; }
+		.lb-smart_money { background: color-mix(in srgb, var(--up) 18%, transparent); color: var(--up); }
+		.lb-sniper { background: color-mix(in srgb, var(--gold) 16%, transparent); color: var(--gold); }
+		.lb-dumper, .lb-rugger { background: color-mix(in srgb, var(--down) 18%, transparent); color: var(--down); }
+		.lb-neutral, .lb-fresh, .lb-unproven { background: rgba(255,255,255,0.06); color: var(--faint); }
+
+		/* edge / backtest */
+		.edge { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; box-shadow: var(--shadow); }
+		.ehead, .erow { display: grid; grid-template-columns: 110px 1fr 92px 92px 96px; gap: 10px; align-items: center; padding: 13px 18px; }
+		.ehead { font: 600 10.5px/1 var(--mono); text-transform: uppercase; letter-spacing: .08em; color: var(--faint); border-bottom: 1px solid var(--line); }
+		.erow { border-bottom: 1px solid var(--line); } .erow:last-child { border: none; }
+		.gradbar { height: 7px; border-radius: 4px; background: rgba(255,255,255,0.07); overflow: hidden; }
+		.gradbar i { display: block; height: 100%; background: linear-gradient(90deg, var(--up), var(--cyan)); }
+		.intro { color: var(--muted); font-size: 13.5px; max-width: 720px; margin: 0 0 16px; }
+
+		/* agent panel */
+		.apanel { display: grid; grid-template-columns: 1.1fr 1fr; gap: 16px; align-items: start; }
+		.card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 18px; box-shadow: var(--shadow); }
+		.card h3 { margin: 0 0 4px; font-size: 16px; letter-spacing: -0.01em; }
+		.card .sub { color: var(--muted); font-size: 13px; margin: 0 0 16px; }
+		.field { margin-bottom: 14px; }
+		.field label { display: block; font: 600 10.5px/1 var(--mono); text-transform: uppercase; letter-spacing: .07em; color: var(--faint); margin-bottom: 7px; }
+		.field input, .field select { width: 100%; background: rgba(255,255,255,0.03); border: 1px solid var(--line); border-radius: var(--r-sm); color: var(--ink); padding: 10px 12px; font: 600 14px/1 var(--mono); }
+		.field input:focus, .field select:focus { outline: 2px solid color-mix(in srgb, var(--cyan) 60%, transparent); outline-offset: 1px; }
+		.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+		.toggle { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); }
+		.toggle .t-lab b { display: block; font-size: 14px; }
+		.toggle .t-lab span { font-size: 12px; color: var(--muted); }
+		.sw { width: 46px; height: 26px; border-radius: 999px; background: rgba(255,255,255,0.1); border: 1px solid var(--line); position: relative; transition: background .2s; flex: none; }
+		.sw::after { content: ""; position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 50%; background: #fff; transition: transform .2s; }
+		.sw.on { background: var(--up); } .sw.on::after { transform: translateX(20px); }
+		.sw.live.on { background: var(--amber); }
+		.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+		.cchip { padding: 6px 10px; border-radius: 999px; border: 1px solid var(--line); background: rgba(255,255,255,0.03); font: 600 12px/1 var(--mono); color: var(--muted); }
+		.cchip.on { border-color: color-mix(in srgb, var(--violet) 50%, var(--line)); color: var(--ink); background: color-mix(in srgb, var(--violet) 15%, transparent); }
+
+		/* drawer */
+		.drawer { position: fixed; inset: 0; z-index: 40; display: none; } .drawer.open { display: block; }
+		.dr-back { position: absolute; inset: 0; background: rgba(3,4,8,0.68); backdrop-filter: blur(5px); animation: fade .25s; }
+		.dr-panel { position: absolute; right: 0; top: 0; bottom: 0; width: min(520px, 100vw); background: var(--panel-solid);
+			border-left: 1px solid var(--line); box-shadow: var(--shadow); overflow: auto; animation: slidein .3s cubic-bezier(.22,1,.36,1); }
+		@keyframes slidein { from { transform: translateX(34px); opacity: .4; } }
+		.dr-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 20px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--panel-solid); z-index: 1; }
+		.dr-head h3 { margin: 0; font-size: 18px; letter-spacing: -0.01em; }
+		.dr-x { width: 34px; height: 34px; border-radius: 10px; border: 1px solid var(--line); background: rgba(255,255,255,0.03); display: grid; place-items: center; }
+		.dr-x:hover { border-color: var(--cyan); }
+		.dr-body { padding: 18px 20px; }
+		.dr-sec { font: 600 11px/1 var(--mono); text-transform: uppercase; letter-spacing: .09em; color: var(--faint); margin: 20px 0 10px; }
+		.reason { display: flex; gap: 9px; align-items: flex-start; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+		.reason:last-child { border: none; }
+		.rdot { width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; flex: none; }
+		.rdot.pedigree { background: var(--p-ped); } .rdot.structure { background: var(--p-str); }
+		.rdot.narrative { background: var(--p-nar); } .rdot.momentum { background: var(--p-mom); }
+		.nwallet { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; padding: 11px 0; border-bottom: 1px solid var(--line); }
+		.nwallet:last-child { border: none; }
+		.nw-left { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+		.nw-addr { font: 600 12.5px/1 var(--mono); display: flex; align-items: center; gap: 8px; }
+		.nw-sub { font: 600 10.5px/1 var(--mono); color: var(--faint); }
+		.nw-buy { font: 700 13px/1 var(--mono); text-align: right; }
+		.solscan { font: 600 12px/1 var(--mono); color: var(--cyan); }
+
+		/* states + buttons */
+		.state { padding: 56px 22px; text-align: center; color: var(--muted); }
+		.state b { display: block; color: var(--ink); font-size: 16px; margin-bottom: 8px; }
+		.btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 999px; border: 1px solid var(--line);
+			background: var(--panel); font-weight: 600; font-size: 13px; transition: transform .12s, border-color .2s, opacity .2s; }
+		.btn:hover { transform: translateY(-1px); border-color: color-mix(in srgb, var(--cyan) 50%, var(--line)); }
+		.btn:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+		.btn.primary { background: linear-gradient(135deg, color-mix(in srgb, var(--cyan) 26%, var(--panel)), color-mix(in srgb, var(--violet) 26%, var(--panel))); border-color: color-mix(in srgb, var(--cyan) 42%, var(--line)); color: #fff; width: 100%; justify-content: center; padding: 12px; }
+		.btn.full { width: 100%; justify-content: center; }
+		.skel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); height: 196px; position: relative; overflow: hidden; }
+		.skel::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent); animation: shimmer 1.4s infinite; }
+		@keyframes shimmer { to { transform: translateX(100%); } }
+		.note { font-size: 12px; color: var(--faint); margin-top: 10px; }
+		.note.warn { color: var(--amber); }
+
+		.foot { margin-top: 34px; padding-top: 18px; border-top: 1px solid var(--line); font-size: 12.5px; color: var(--faint); }
+		.foot b { color: var(--muted); }
+
+		@media (max-width: 760px) {
+			.apanel { grid-template-columns: 1fr; }
+			.lhead, .lrow { grid-template-columns: 30px 1fr 84px 70px; }
+			.ehead, .erow { grid-template-columns: 84px 1fr 70px 76px; }
+			.colhide { display: none; }
+			.dr-panel { width: 100vw; }
+		}
+		@media (prefers-reduced-motion: reduce) { * { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+	</style>
+</head>
+<body>
+	<div id="nav-container"></div>
+	<script defer src="/nav.js"></script>
+
+	<main class="wrap">
+		<header class="hero">
+			<span class="eyebrow"><i id="liveDot"></i> <span id="liveLabel">Live · fused conviction</span></span>
+			<h1>Stop guessing the coin.<br><span>Know the conviction.</span></h1>
+			<p>Oracle fuses four reads on every pump.fun launch — <b>who's</b> buying it (proven-wallet pedigree), <b>how</b> it's being bought (bundle vs. organic structure), <b>what</b> it is (cultural narrative), and <b>how</b> it's moving — into one transparent 0–100 conviction score. The more coins and wallets we watch, the sharper every score. Then arm your 3D agent to act on the plays that clear your bar.</p>
+			<div class="statline">
+				<div><span>Coins scored</span><b id="stScored">—</b></div>
+				<div><span>Strong+ live</span><b id="stStrong">—</b></div>
+				<div><span>Smart wallets in play</span><b id="stSmart">—</b></div>
+				<div><span>Updated</span><b id="stUpdated">—</b></div>
+			</div>
+		</header>
+
+		<nav class="tabs" role="tablist">
+			<button class="tab on" data-view="feed" role="tab">Live conviction <span class="ct" id="ctFeed"></span></button>
+			<button class="tab" data-view="wallets" role="tab">Top wallets <span class="ct" id="ctWallets"></span></button>
+			<button class="tab" data-view="edge" role="tab">The edge</button>
+			<button class="tab" data-view="agent" role="tab">Arm your agent</button>
+		</nav>
+
+		<!-- FEED -->
+		<section class="view on" id="view-feed">
+			<div class="filters">
+				<div class="seg" id="tierSeg">
+					<button data-tier="" class="on">All</button>
+					<button data-tier="prime">Prime</button>
+					<button data-tier="strong">Strong</button>
+					<button data-tier="lean">Lean</button>
+				</div>
+				<select class="sel" id="catSel" aria-label="Filter by narrative">
+					<option value="">All narratives</option>
+				</select>
+				<select class="sel" id="minSel" aria-label="Minimum score">
+					<option value="0">Any score</option>
+					<option value="56">≥ 56 (Lean)</option>
+					<option value="72">≥ 72 (Strong)</option>
+					<option value="86">≥ 86 (Prime)</option>
+				</select>
+			</div>
+			<div class="grid" id="feedGrid"></div>
+		</section>
+
+		<!-- WALLETS -->
+		<section class="view" id="view-wallets">
+			<p class="intro">Every wallet Oracle has judged, ranked by its real track record — how often it's an early buyer of coins that went on to graduate, against how often it sprays into duds or dumps on its followers. This is the pedigree that powers the conviction score.</p>
+			<div class="filters">
+				<div class="seg" id="labelSeg">
+					<button data-label="" class="on">All</button>
+					<button data-label="smart_money">Smart money</button>
+					<button data-label="sniper">Snipers</button>
+					<button data-label="rugger">Ruggers</button>
+				</div>
+			</div>
+			<div class="lwrap" id="walletWrap"></div>
+		</section>
+
+		<!-- EDGE -->
+		<section class="view" id="view-edge">
+			<p class="intro">Proof, not promises. Every conviction verdict is checked against ground truth — did the coin actually graduate to Raydium? This is the realized graduation rate by conviction tier across everything Oracle has scored. The edge only counts if the higher tiers win more often.</p>
+			<div class="edge" id="edgeWrap"></div>
+		</section>
+
+		<!-- AGENT -->
+		<section class="view" id="view-agent">
+			<div class="apanel">
+				<div class="card" id="armCard">
+					<h3>Arm your 3D agent</h3>
+					<p class="sub">Your agent watches the live conviction stream and acts the instant a coin clears your bar — buying a small position from its own custodial Solana wallet. Starts in <b>simulate</b> so you can watch it work risk-free before any real spend.</p>
+					<div id="armBody"></div>
+				</div>
+				<div class="card">
+					<h3>Recent actions</h3>
+					<p class="sub">Every move your agent makes — simulated or live — lands here, then gets graded against the outcome. This is your agent's win-rate ledger.</p>
+					<div id="actionsBody"><div class="state">Sign in and arm an agent to see its actions.</div></div>
+				</div>
+			</div>
+		</section>
+
+		<footer class="foot">
+			<b>How conviction is built.</b> Oracle reads the platform's full-coverage pump.fun data — every coin, every wallet, every outcome — and fuses pedigree (34%), structure (30%), narrative (18%) and momentum (18%) into one score, with a hard structural cap so a bundle or a dumping dev can never read "strong." Nothing here is financial advice; conviction is a probability, not a promise. Trade small, especially early.
+		</footer>
+	</main>
+
+	<!-- coin drawer -->
+	<div class="drawer" id="drawer" aria-hidden="true">
+		<div class="dr-back" data-close></div>
+		<div class="dr-panel" role="dialog" aria-modal="true" aria-label="Coin conviction detail">
+			<div class="dr-head">
+				<h3 id="drTitle">—</h3>
+				<button class="dr-x" data-close aria-label="Close">✕</button>
+			</div>
+			<div class="dr-body" id="drBody"></div>
+		</div>
+	</div>
+
+	<script type="module" src="/src/oracle.js"></script>
+</body>
+</html>

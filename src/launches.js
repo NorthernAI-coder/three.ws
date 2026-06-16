@@ -428,7 +428,17 @@ function launchCard(launch, index, { featured = false } = {}) {
 		);
 	}
 
+	// Whole-card stretched link to the coin's rich profile. Interactive children
+	// (agent chip, external actions) are raised above it in CSS so they keep
+	// their own targets; everything else opens the on-platform detail page.
+	const cardLink = el('a', {
+		class: 'lx-card-link',
+		href: isDevnet ? `/launches/${launch.mint}?network=devnet` : `/launches/${launch.mint}`,
+		'aria-label': `Open ${launch.symbol ? `$${launch.symbol}` : launch.name || 'coin'} profile`,
+	});
+
 	const card = el('article', { class: `lx-card${featured ? ' lx-card-featured' : ''}` }, [
+		cardLink,
 		featured ? el('span', { class: 'lx-feat-tag', text: 'Latest' }) : null,
 		featured && launch.symbol
 			? el('span', { class: 'lx-feat-ghost', 'aria-hidden': 'true', text: `$${launch.symbol}` })

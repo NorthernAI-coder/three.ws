@@ -113,6 +113,10 @@
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 300
 		},
+		"api/pump/launch-detail.js": {
+			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
+			"maxDuration": 30
+		},
 		"api/**/*.js": {
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 30
@@ -516,6 +520,10 @@
 		{
 			"src": "/pump-live/?",
 			"dest": "/pump-live.html"
+		},
+		{
+			"src": "/launches/([1-9A-HJ-NP-Za-km-z]{32,44})/?",
+			"dest": "/launch-detail.html"
 		},
 		{
 			"src": "/launches/?",
@@ -1670,6 +1678,10 @@
 		{
 			"src": "/api/onboarding/link-avatar",
 			"dest": "/api/onboarding/[action]?action=link-avatar"
+		},
+		{
+			"src": "/api/pump/launch-detail",
+			"dest": "/api/pump/launch-detail.js"
 		},
 		{
 			"src": "/api/pump/build-metadata",

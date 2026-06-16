@@ -1,0 +1,136 @@
+/**
+ * Oracle — agent action loop config ("arm my agent").
+ *
+ *   GET  /api/oracle/watch?agent_id=<uuid>&network=mainnet   → current config + recent actions
+ *   POST /api/oracle/watch  { agent_id, armed, mode, min_score, ... }  → arm/update
+ *
+ * Arming an agent to act on conviction is an explicit, owner-only opt-in. The
+ * agent watches the live conviction stream; when a coin crosses `min_score` (and
+ * its narrative is in `categories`, and — if required — at least one proven
+ * wallet is in), the loop executes a small buy from the agent's own custodial
+ * Solana wallet. `mode` defaults to 'simulate'; real spend is opt-in and capped.
+ *
+ * Auth: session cookie OR bearer token, scoped to agents the caller owns
+ * (agent_identities.user_id).
+ */
+
+import { cors, json, method, readJson, wrap, error, rateLimited } from '../_lib/http.js';
+import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.js';
+import { limits, clientIp } from '../_lib/rate-limit.js';
+import { sql } from '../_lib/db.js';
+import { z } from 'zod';
+import { getWatch, upsertWatch, recentActions } from '../_lib/oracle/store.js';
+
+const NETWORKS = new Set(['mainnet', 'devnet']);
+const TIERS = new Set(['prime', 'strong', 'lean', 'watch']);
+const CATEGORIES = new Set(['meme', 'tech', 'ai', 'culture', 'community', 'political', 'news', 'animal', 'celebrity', 'utility', 'unknown']);
+const numish = z.union([z.string(), z.number()]);
+
+const WATCH_SCHEMA = z.object({
+	agent_id: z.string().uuid(),
+	network: z.enum(['mainnet', 'devnet']).optional(),
+	armed: z.boolean().optional(),
+	mode: z.enum(['simulate', 'live']).optional(),
+	min_score: numish.optional(),
+	min_tier: z.string().optional(),
+	categories: z.array(z.string()).optional(),
+	per_trade_sol: numish.optional(),
+	max_daily_sol: numish.optional(),
+	max_open: numish.optional(),
+	require_smart_money: z.boolean().optional(),
+});
+
+async function resolveUserId(req) {
+	const session = await getSessionUser(req);
+	if (session) return session.id;
+	const bearer = await authenticateBearer(extractBearer(req));
+	if (bearer) return bearer.userId;
+	return null;
+}
+
+async function ownsAgent(userId, agentId) {
+	const rows = await sql`
+		select id from agent_identities
+		where id = ${agentId} and user_id = ${userId} and deleted_at is null
+		limit 1
+	`.catch(() => []);
+	return rows.length > 0;
+}
+
+export default wrap(async (req, res) => {
+	if (cors(req, res, { methods: 'GET,POST,OPTIONS', origins: '*' })) return;
+	if (!method(req, res, ['GET', 'POST'])) return;
+
+	const rl = await limits.mcpIp(clientIp(req));
+	if (!rl.success) return rateLimited(res, rl);
+
+	const userId = await resolveUserId(req);
+	if (!userId) return error(res, 401, 'unauthorized', 'sign in to arm an agent');
+
+	if (req.method === 'GET') {
+		const url = new URL(req.url, `http://${req.headers.host || 'x'}`);
+		const agentId = (url.searchParams.get('agent_id') || '').trim();
+		const network = NETWORKS.has(url.searchParams.get('network')) ? url.searchParams.get('network') : 'mainnet';
+		if (!agentId) return error(res, 400, 'validation_error', 'agent_id is required');
+		if (!(await ownsAgent(userId, agentId))) return error(res, 403, 'forbidden', 'you do not own this agent');
+
+		const [watch, actions] = await Promise.all([
+			getWatch(agentId, network),
+			recentActions(agentId, network, 50),
+		]);
+		return json(res, 200, { agent_id: agentId, network, watch: watch || defaultWatch(agentId, network), actions });
+	}
+
+	// POST — arm / update.
+	const body = await readJson(req).catch(() => null);
+	const parsed = WATCH_SCHEMA.safeParse(body);
+	if (!parsed.success) return error(res, 400, 'validation_error', 'invalid watch config', { issues: parsed.error.issues });
+
+	const cfg = parsed.data;
+	const network = NETWORKS.has(cfg.network) ? cfg.network : 'mainnet';
+	if (!(await ownsAgent(userId, cfg.agent_id))) return error(res, 403, 'forbidden', 'you do not own this agent');
+
+	// Normalize + clamp the risk knobs server-side; never trust the client.
+	const minScore = clampInt(cfg.min_score, 0, 100, 80);
+	const minTier = TIERS.has(cfg.min_tier) ? cfg.min_tier : 'strong';
+	const categories = Array.isArray(cfg.categories) ? cfg.categories.filter((c) => CATEGORIES.has(c)).slice(0, 11) : [];
+	const perTrade = clampNum(cfg.per_trade_sol, 0.001, 5, 0.05);
+	const maxDaily = clampNum(cfg.max_daily_sol, perTrade, 50, Math.max(0.5, perTrade * 10));
+	const maxOpen = clampInt(cfg.max_open, 1, 50, 5);
+
+	// A live, armed agent with no size makes no sense — guard it.
+	if (cfg.armed && cfg.mode === 'live' && perTrade <= 0) {
+		return error(res, 400, 'validation_error', 'set a per-trade size before arming a live agent');
+	}
+
+	const saved = await upsertWatch(cfg.agent_id, userId, network, {
+		armed: !!cfg.armed,
+		mode: cfg.mode || 'simulate',
+		min_score: minScore,
+		min_tier: minTier,
+		categories,
+		per_trade_sol: perTrade,
+		max_daily_sol: maxDaily,
+		max_open: maxOpen,
+		require_smart_money: cfg.require_smart_money !== false,
+	});
+
+	return json(res, 200, { agent_id: cfg.agent_id, network, watch: saved });
+});
+
+function defaultWatch(agentId, network) {
+	return {
+		agent_id: agentId, network, armed: false, mode: 'simulate',
+		min_score: 80, min_tier: 'strong', categories: [],
+		per_trade_sol: 0.05, max_daily_sol: 0.5, max_open: 5, require_smart_money: true,
+	};
+}
+
+function clampInt(v, lo, hi, dflt) {
+	const n = Math.round(Number(v));
+	return Number.isFinite(n) ? Math.max(lo, Math.min(hi, n)) : dflt;
+}
+function clampNum(v, lo, hi, dflt) {
+	const n = Number(v);
+	return Number.isFinite(n) ? Math.max(lo, Math.min(hi, n)) : dflt;
+}

@@ -213,6 +213,7 @@ const appConfig = {
 		reportCompressedSize: false,
 		rollupOptions: {
 			external: [
+				'/launch/launch.js',
 				'/studio/launch-panel.js',
 				'/studio/fees-panel.js',
 				'./fees-panel.js',
@@ -311,6 +312,7 @@ const appConfig = {
 				'agent-embed': resolve(__dirname, 'pages/agent-embed.html'),
 				'agent-detail': resolve(__dirname, 'pages/agent-detail.html'),
 				launches: resolve(__dirname, 'pages/launches.html'),
+				'launch-detail': resolve(__dirname, 'pages/launch-detail.html'),
 				leaderboard: resolve(__dirname, 'pages/leaderboard.html'),
 				trader: resolve(__dirname, 'pages/trader.html'),
 				'avatar-embed': resolve(__dirname, 'pages/avatar-embed.html'),
@@ -334,6 +336,7 @@ const appConfig = {
 				bounty: resolve(__dirname, 'pages/bounty.html'),
 				'pump-live': resolve(__dirname, 'pages/pump-live.html'),
 				radar: resolve(__dirname, 'pages/radar.html'),
+				oracle: resolve(__dirname, 'pages/oracle.html'),
 				'bulk-launch': resolve(__dirname, 'pages/bulk-launch.html'),
 				'pump-dashboard': resolve(__dirname, 'pages/pump-dashboard.html'),
 				autopilot: resolve(__dirname, 'pages/autopilot.html'),
@@ -672,6 +675,8 @@ support: resolve(__dirname, 'pages/support.html'),
 					'/pump-live/': resolve(root, 'pages/pump-live.html'),
 					'/radar': resolve(root, 'pages/radar.html'),
 					'/radar/': resolve(root, 'pages/radar.html'),
+					'/oracle': resolve(root, 'pages/oracle.html'),
+					'/oracle/': resolve(root, 'pages/oracle.html'),
 					'/pump-dashboard': resolve(root, 'pages/pump-dashboard.html'),
 					'/pump-dashboard/': resolve(root, 'pages/pump-dashboard.html'),
 					'/autopilot': resolve(root, 'pages/autopilot.html'),
@@ -1004,6 +1009,12 @@ support: resolve(__dirname, 'pages/support.html'),
 						/^\/communities\/[1-9A-HJ-NP-Za-km-z]{32,44}\/?$/.test(path)
 					)
 						filePath = resolve(root, 'pages/communities.html');
+					// /launches/:mint  → rich coin detail page
+					else if (
+						!filePath &&
+						/^\/launches\/[1-9A-HJ-NP-Za-km-z]{32,44}\/?$/.test(path)
+					)
+						filePath = resolve(root, 'pages/launch-detail.html');
 					// /@<handle>  → public live profile page
 					else if (!filePath && /^\/@[a-z0-9_-]{3,30}\/?$/i.test(path))
 						filePath = resolve(root, 'pages/handle.html');
