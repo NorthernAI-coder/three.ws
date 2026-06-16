@@ -294,6 +294,43 @@
 		.section-title { font-family: var(--font-display, sans-serif); font-size: 14px; margin: 26px 0 12px; color: var(--ci-text); display: flex; align-items: center; gap: 8px; }
 		.section-title .badge { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding: 2px 7px; border-radius: 5px; background: rgba(52,211,153,0.14); color: var(--ci-success); }
 
+		/* ── watchlist button on coin cards ───────────────── */
+		.ci-watch {
+			position: absolute; top: 10px; right: 10px; z-index: 2;
+			width: 28px; height: 28px; display: grid; place-items: center;
+			border-radius: 8px; border: 1px solid rgba(255,255,255,0.09);
+			background: rgba(0,0,0,0.3); color: rgba(255,255,255,0.45);
+			font-size: 14px; cursor: pointer;
+			transition: color .15s, border-color .15s, background .15s; opacity: 0;
+		}
+		.ci-card:hover .ci-watch, .ci-watch.ci-watched, .ci-watch:focus-visible { opacity: 1; }
+		.ci-watch.ci-watched { color: #7c83ff; border-color: #7c83ff; background: rgba(124,131,255,.12); }
+		.ci-watch:hover { color: #fff; border-color: rgba(255,255,255,.25); background: rgba(255,255,255,.08); }
+		@media (hover: none) { .ci-watch { opacity: 1; } }
+
+		/* ── drawer: watchlist toggle button ───────────────── */
+		.d-links button {
+			font-size: 12px; padding: 7px 12px; border-radius: 8px;
+			border: 1px solid var(--ci-border); color: var(--ci-text);
+			background: rgba(255,255,255,0.05); transition: background .14s, color .14s, border-color .14s;
+			cursor: pointer; font: inherit;
+		}
+		.d-links button:hover { background: rgba(255,255,255,0.12); }
+		.d-links button.d-watched { color: #7c83ff; border-color: #7c83ff; background: rgba(124,131,255,.08); }
+
+		/* ── Oracle conviction pill in drawer ──────────────── */
+		.ci-oracle-pill {
+			display: inline-flex; align-items: center; gap: 10px;
+			font: 700 12px/1 ui-monospace, monospace;
+			padding: 7px 12px; border-radius: 8px; margin-bottom: 9px;
+		}
+		.ci-oracle-prime  { background: rgba(147,51,234,.18);  border: 1px solid rgba(168,85,247,.45);  color: #c084fc; }
+		.ci-oracle-strong { background: rgba(59,130,246,.18);  border: 1px solid rgba(96,165,250,.45);  color: #93c5fd; }
+		.ci-oracle-lean   { background: rgba(234,179,8,.15);   border: 1px solid rgba(250,204,21,.4);   color: #fde047; }
+		.ci-oracle-watch  { background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.12); color: rgba(255,255,255,.55); }
+		.ci-oracle-avoid  { background: rgba(239,68,68,.14);   border: 1px solid rgba(248,113,113,.35); color: #fca5a5; }
+		.ci-oracle-pillars { display: flex; gap: 10px; flex-wrap: wrap; font-size: 10.5px; color: var(--ci-faint); font-family: var(--font-mono, monospace); margin-top: 6px; }
+
 		.hide { display: none !important; }
 		@media (max-width: 760px) {
 			.learn-grid { grid-template-columns: 1fr; }
@@ -432,6 +469,21 @@
 		};
 		const HARD_FLAGS = new Set(['bundle_launch','dev_dumped','single_whale']);
 
+		// ── watchlist helpers (shared key with oracle, launches, watchlist) ──
+		const WATCH_KEY = 'ld_watchlist';
+		function isWatched(mint) {
+			try { return JSON.parse(localStorage.getItem(WATCH_KEY) || '[]').includes(mint); } catch { return false; }
+		}
+		function toggleCiWatch(mint) {
+			try {
+				const list = JSON.parse(localStorage.getItem(WATCH_KEY) || '[]');
+				const idx = list.indexOf(mint);
+				if (idx >= 0) list.splice(idx, 1); else list.unshift(mint);
+				localStorage.setItem(WATCH_KEY, JSON.stringify(list.slice(0, 200)));
+				return idx < 0;
+			} catch { return false; }
+		}
+
 		// ── helpers ───────────────────────────────────────────────
 		const $ = (s, r = document) => r.querySelector(s);
 		const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
@@ -482,7 +534,14 @@
 			const v = coin.verdict;
 			const flags = (coin.risk_flags || []).slice(0, 4).map((f) =>
 				`<span class="flag ${HARD_FLAGS.has(f) ? '' : 'soft'}">${esc(FLAG_TEXT[f] || f)}</span>`).join('');
-			return `<article class="ci-card" tabindex="0" data-mint="${esc(coin.mint)}" role="button" aria-label="${esc(coin.name||coin.symbol||coin.mint)}">
+
+			const article = document.createElement('article');
+			article.className = 'ci-card';
+			article.tabIndex = 0;
+			article.dataset.mint = coin.mint;
+			article.setAttribute('role', 'button');
+			article.setAttribute('aria-label', coin.name || coin.symbol || coin.mint);
+			article.innerHTML = `
 				<span class="verdict-edge bg-${v.tone}"></span>
 				<div class="head">
 					<img class="avatar" loading="lazy" referrerpolicy="no-referrer" src="${esc(imgProxy(coin.image_uri, coin.mint))}" onerror="this.onerror=null;this.src='${esc(fallbackImg(coin.mint))}'" alt="" />
@@ -505,8 +564,37 @@
 					<div class="metric"><div class="mv">${pct(coin.concentration_top1)}</div><div class="ml">Top wallet</div></div>
 				</div>
 				<div class="flags">${flags}</div>
-				${coin.narrative ? `<div class="narr">${esc(coin.narrative)}</div>` : ''}
-			</article>`;
+				${coin.narrative ? `<div class="narr">${esc(coin.narrative)}</div>` : ''}`;
+
+			// open drawer on click/key (unless clicking the watch button)
+			article.addEventListener('click', (e) => { if (!e.target.closest('.ci-watch')) openDrawer(coin.mint); });
+			article.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDrawer(coin.mint); } });
+
+			// watchlist star button
+			const watched = isWatched(coin.mint);
+			const wb = document.createElement('button');
+			wb.type = 'button';
+			wb.className = `ci-watch${watched ? ' ci-watched' : ''}`;
+			wb.textContent = watched ? '★' : '☆';
+			const wlbl = watched ? 'Remove from watchlist' : 'Add to watchlist';
+			wb.setAttribute('aria-label', wlbl);
+			wb.title = wlbl;
+			wb.addEventListener('click', (e) => {
+				e.stopPropagation();
+				const now = toggleCiWatch(coin.mint);
+				wb.textContent = now ? '★' : '☆';
+				wb.classList.toggle('ci-watched', now);
+				const l = now ? 'Remove from watchlist' : 'Add to watchlist';
+				wb.setAttribute('aria-label', l); wb.title = l;
+				// reflect on any open drawer watch button
+				const dw = document.querySelector('#ci-drawer .d-watch[data-mint]');
+				if (dw && dw.dataset.mint === coin.mint) {
+					dw.textContent = now ? '★ Watching' : '☆ Watch';
+					dw.classList.toggle('d-watched', now);
+				}
+			});
+			article.appendChild(wb);
+			return article;
 		}
 
 		// ── radar ─────────────────────────────────────────────────
@@ -548,21 +636,13 @@
 					const rb = $('#ci-empty-retry');
 					if (rb) rb.addEventListener('click', () => { if (!state.degraded) { state.category=state.verdict=state.minq=state.q=''; $('#ci-q').value=''; $('#ci-verdict').value=''; $('#ci-minq').value=''; renderCatChips(); } loadRadar(); });
 				} else {
-					grid.innerHTML = state.coins.map(coinCard).join('');
-					wireCards(grid);
+					grid.innerHTML = '';
+					state.coins.forEach(c => grid.appendChild(coinCard(c)));
 				}
 			} catch (e) {
 				grid.innerHTML = `<div class="ci-empty"><div class="icon">⚠️</div><h3>Couldn't reach the intelligence feed</h3><p>${esc(e.message)}</p><button class="ci-retry" id="ci-empty-retry">Retry</button></div>`;
 				$('#ci-empty-retry')?.addEventListener('click', loadRadar);
 			} finally { state.loading = false; }
-		}
-
-		function wireCards(root) {
-			root.querySelectorAll('.ci-card').forEach(c => {
-				const open = () => openDrawer(c.dataset.mint);
-				c.addEventListener('click', open);
-				c.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
-			});
 		}
 
 		// ── leaderboard ───────────────────────────────────────────
@@ -573,10 +653,11 @@
 			try {
 				const data = await api({ view: 'leaderboard', limit: 18 });
 				const top = data.top || [], win = data.winners || [];
-				$('#ci-lb-top').innerHTML = top.length ? top.map(coinCard).join('') : emptyState(!!data.degraded);
-				$('#ci-lb-win').innerHTML = win.length ? win.map(coinCard).join('')
-					: `<div class="ci-empty"><div class="icon">🌱</div><h3>No labeled winners yet</h3><p>Once observed coins graduate or 3×, they're labeled and surfaced here with their launch-time signals.</p></div>`;
-				wireCards($('#ci-lb-top')); wireCards($('#ci-lb-win'));
+				const lbTop = $('#ci-lb-top'), lbWin = $('#ci-lb-win');
+				if (top.length) { lbTop.innerHTML = ''; top.forEach(c => lbTop.appendChild(coinCard(c))); }
+				else lbTop.innerHTML = emptyState(!!data.degraded);
+				if (win.length) { lbWin.innerHTML = ''; win.forEach(c => lbWin.appendChild(coinCard(c))); }
+				else lbWin.innerHTML = `<div class="ci-empty"><div class="icon">🌱</div><h3>No labeled winners yet</h3><p>Once observed coins graduate or 3×, they're labeled and surfaced here with their launch-time signals.</p></div>`;
 				lbLoaded = true;
 			} catch (e) {
 				$('#ci-lb-top').innerHTML = `<div class="ci-empty"><div class="icon">⚠️</div><h3>Couldn't load leaderboard</h3><p>${esc(e.message)}</p></div>`;
@@ -676,6 +757,68 @@
 				if (!data.found) { drawerBody.innerHTML = `<div class="ci-empty" style="border:none"><div class="icon">🔎</div><h3>Not observed yet</h3><p>This coin isn't in the intelligence index.</p></div>`; return; }
 				drawerBody.innerHTML = renderDetail(data);
 				const svg = $('#bm-svg'); if (svg) drawBubbleMap(svg, data.wallets || [], data.clusters || []);
+
+				// inject Oracle link + watchlist button into d-links
+				const dlinks = drawerBody.querySelector('.d-links');
+				if (dlinks) {
+					const oracleA = document.createElement('a');
+					oracleA.href = `/oracle?mint=${encodeURIComponent(mint)}`;
+					oracleA.target = '_blank';
+					oracleA.rel = 'noopener';
+					oracleA.textContent = 'Oracle ↗';
+					dlinks.appendChild(oracleA);
+
+					const isW = isWatched(mint);
+					const wb = document.createElement('button');
+					wb.type = 'button';
+					wb.className = `d-watch${isW ? ' d-watched' : ''}`;
+					wb.dataset.mint = mint;
+					wb.textContent = isW ? '★ Watching' : '☆ Watch';
+					wb.addEventListener('click', () => {
+						const now = toggleCiWatch(mint);
+						wb.textContent = now ? '★ Watching' : '☆ Watch';
+						wb.classList.toggle('d-watched', now);
+						// reflect on grid card watch button
+						const cardWb = document.querySelector(`.ci-card[data-mint="${CSS.escape(mint)}"] .ci-watch`);
+						if (cardWb) { cardWb.textContent = now ? '★' : '☆'; cardWb.classList.toggle('ci-watched', now); }
+					});
+					dlinks.appendChild(wb);
+				}
+
+				// async Oracle conviction injection — fires in parallel, injected when ready
+				fetch(`/api/oracle/coin?mint=${encodeURIComponent(mint)}`)
+					.then(r => r.ok ? r.json() : null)
+					.catch(() => null)
+					.then(od => {
+						if (!od?.conviction || !drawerBody.isConnected) return;
+						const cv = od.conviction;
+						const tier = cv.tier || 'watch';
+						const score = Math.round(Number(cv.score ?? 0));
+						const tierLabels = { prime: 'PRIME', strong: 'STRONG', lean: 'LEAN', watch: 'WATCH', avoid: 'AVOID' };
+						const p = cv.pillars || {};
+						const pillarsHtml = [
+							p.pedigree != null ? `<span>Who ${Math.round(p.pedigree)}</span>` : null,
+							p.structure != null ? `<span>How ${Math.round(p.structure)}</span>` : null,
+							p.narrative != null ? `<span>What ${Math.round(p.narrative)}</span>` : null,
+							p.momentum != null ? `<span>Move ${Math.round(p.momentum)}</span>` : null,
+						].filter(Boolean).join('');
+
+						const oracleSec = document.createElement('div');
+						oracleSec.className = 'd-section';
+						oracleSec.innerHTML = `<h4>Oracle conviction</h4>
+							<div class="ci-oracle-pill ci-oracle-${esc(tier)}">
+								<span>${esc(tierLabels[tier] || tier.toUpperCase())} · ${score}</span>
+								<a href="/oracle?mint=${encodeURIComponent(mint)}" style="color:inherit;opacity:.7;font-size:10px" target="_blank" rel="noopener">Full analysis ↗</a>
+							</div>
+							${pillarsHtml ? `<div class="ci-oracle-pillars">${pillarsHtml}</div>` : ''}`;
+
+						// insert before the first d-section that has "Launch signals" h4
+						const sigSection = [...drawerBody.querySelectorAll('.d-section')].find(
+							s => s.querySelector('h4')?.textContent?.includes('Launch signals')
+						);
+						if (sigSection) sigSection.insertAdjacentElement('beforebegin', oracleSec);
+					});
+
 			} catch (e) {
 				drawerBody.innerHTML = `<div class="ci-empty" style="border:none"><div class="icon">⚠️</div><h3>Couldn't load detail</h3><p>${esc(e.message)}</p></div>`;
 			}
