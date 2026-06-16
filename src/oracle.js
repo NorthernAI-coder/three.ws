@@ -1040,7 +1040,11 @@ function renderArmForm() {
 		</div>
 		<div class="field" style="margin-top:12px">
 			<label>Personal Telegram alerts <span class="chip sm" style="background:rgba(139,92,246,.15);color:#c084fc;border-color:rgba(139,92,246,.35)">optional</span></label>
-			<input id="agTelegram" type="text" placeholder="Your chat ID or @channel" autocomplete="off" style="font-size:12px;font-family:var(--mono,monospace)">
+			<div style="display:flex;gap:6px;align-items:center">
+				<input id="agTelegram" type="text" placeholder="Your chat ID or @channel" autocomplete="off" style="font-size:12px;font-family:var(--mono,monospace);flex:1;min-width:0">
+				<button id="agTgTest" class="btn sm" style="white-space:nowrap;flex-shrink:0" type="button">Send test</button>
+			</div>
+			<div id="agTgNote" style="display:none;margin-top:5px;font-size:11.5px;line-height:1.4"></div>
 			<div class="field-hint">Chat <a href="https://t.me/three_ws_bot" target="_blank" rel="noopener">@three_ws_bot</a> on Telegram and send <code>/start</code> to get your chat ID. You'll receive a signal whenever a coin crosses your threshold.</div>
 		</div>
 		<button class="btn primary" id="agSave" style="margin-top:8px">Save configuration</button>
@@ -1059,6 +1063,7 @@ function renderArmForm() {
 	$('#agCats').addEventListener('click', (e) => { const b = e.target.closest('.cchip'); if (b) b.classList.toggle('on'); });
 	$('#agSel').addEventListener('change', () => loadWatch($('#agSel').value));
 	$('#agSave').addEventListener('click', saveWatch);
+	$('#agTgTest').addEventListener('click', sendTelegramTest);
 
 	state.agentId = state.agents[0].id;
 	loadWatch(state.agentId);
@@ -1131,6 +1136,34 @@ async function saveWatch() {
 	} else {
 		note.className = 'note warn';
 		note.textContent = data?.error?.message || 'Could not save — sign in and make sure you own this agent.';
+	}
+}
+
+async function sendTelegramTest() {
+	const chatId = ($('#agTelegram').value || '').trim();
+	const note = $('#agTgNote');
+	if (!chatId) {
+		note.style.display = 'block';
+		note.style.color = 'var(--warn, #fbbf24)';
+		note.textContent = 'Enter your Telegram chat ID or @channel first.';
+		return;
+	}
+	const btn = $('#agTgTest');
+	btn.disabled = true; btn.textContent = 'Sending…';
+	note.style.display = 'none';
+	const { ok, data } = await api('/api/oracle/test-alert', {
+		method: 'POST',
+		headers: { 'content-type': 'application/json' },
+		body: JSON.stringify({ agent_id: state.agentId, chat_id: chatId }),
+	});
+	btn.disabled = false; btn.textContent = 'Send test';
+	note.style.display = 'block';
+	if (ok && data?.ok) {
+		note.style.color = 'var(--green, #34d399)';
+		note.textContent = '✓ Test message delivered. Check Telegram.';
+	} else {
+		note.style.color = 'var(--warn, #fbbf24)';
+		note.textContent = (data?.error || 'Delivery failed.') + (data?.hint ? ' ' + data.hint : '');
 	}
 }
 
