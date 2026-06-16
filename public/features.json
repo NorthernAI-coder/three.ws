@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-16T05:30:08.549Z",
+	"generated_at": "2026-06-16T05:32:08.404Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -510,6 +510,16 @@
 					"path": "/oracle",
 					"title": "Oracle — AI Conviction Engine",
 					"description": "A fused AI conviction engine for every pump.fun launch: pedigree (who's buying), structure (bundle vs organic), narrative (what story is it riding), and momentum — fused into a single 0–100 conviction score with transparent pillar reasoning.",
+					"added": "2026-06-16",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/activity",
+					"title": "Agent Activity — Oracle conviction in real time",
+					"description": "The trading floor: every Oracle conviction action from every autonomous 3D agent on pump.fun, live. Filter by tier and mode, track outcomes, and copy the winners.",
 					"added": "2026-06-16",
 					"auth": null,
 					"indexable": true,

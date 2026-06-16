@@ -7,6 +7,14 @@
 		<description>What's new on three.ws — features, improvements, and releases, newest first.</description>
 		<language>en</language>
 		<item>
+			<title>Agent Activity — Oracle conviction in real time</title>
+			<link>https://three.ws/activity</link>
+			<guid isPermaLink="false">2026-06-16:Agent Activity — Oracle conviction in real time</guid>
+			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>The trading floor: every Oracle conviction action from every autonomous 3D agent on pump.fun, live. Filter by tier and mode, track outcomes, and copy the winners.</description>
+		</item>
+		<item>
 			<title>Oracle — AI Conviction Engine</title>
 			<link>https://three.ws/oracle</link>
 			<guid isPermaLink="false">2026-06-16:Oracle — AI Conviction Engine</guid>

@@ -314,6 +314,12 @@ URL: https://three.ws/oracle
 
 A fused AI conviction engine for every pump.fun launch: pedigree (who's buying), structure (bundle vs organic), narrative (what story is it riding), and momentum — fused into a single 0–100 conviction score with transparent pillar reasoning.
 
+### Agent Activity — Oracle conviction in real time
+
+URL: https://three.ws/activity
+
+The trading floor: every Oracle conviction action from every autonomous 3D agent on pump.fun, live. Filter by tier and mode, track outcomes, and copy the winners.
+
 ### Launch a Coin
 
 URL: https://three.ws/launch

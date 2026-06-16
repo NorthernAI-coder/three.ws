@@ -644,6 +644,10 @@
 			"dest": "/oracle.html"
 		},
 		{
+			"src": "/activity/?",
+			"dest": "/activity.html"
+		},
+		{
 			"src": "/trader/([^/]+)/?",
 			"dest": "/trader.html"
 		},
