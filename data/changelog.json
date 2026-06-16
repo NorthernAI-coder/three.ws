@@ -3,6 +3,13 @@
 	"entries": [
 		{
 			"date": "2026-06-16",
+			"title": "Trader profiles now work for any pump.fun wallet address",
+			"summary": "The /trader page now handles raw Solana wallet addresses directly — not just agent UUIDs. Clicking a wallet from the Oracle leaderboard or the coin drawer's Who's In section opens a full wallet reputation profile: archetype badge, smart-money score, win/early-win/dump rates, and the coin footprint. Previously these links 404ed.",
+			"tags": ["fix", "improvement"],
+			"link": "/oracle"
+		},
+		{
+			"date": "2026-06-16",
 			"title": "Oracle: Community sentiment pulse in coin drawer",
 			"summary": "The Oracle coin drawer now shows a Community Pulse section pulled live from pump.fun comments. After the conviction score loads, a background fetch reads recent comments and classifies them as bullish, bearish, or mixed, with positive / negative / neutral percentage bars and a sample of real comments. Coins with fewer than three comments are silently skipped. This adds the crowd-sentiment layer alongside Oracle's technical conviction pillars.",
 			"tags": ["feature"],

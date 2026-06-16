@@ -29,6 +29,13 @@ const ctx = {
 	refCode: null,
 };
 
+// A Solana base58 address — 32-44 chars, no hyphens. Used to distinguish
+// wallet addresses from agent UUIDs in the URL path.
+const WALLET_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+const UUID_RE   = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function isWalletAddress(s) { return WALLET_RE.test(s) && !UUID_RE.test(s); }
+
 // --- Param parsing -----------------------------------------------------------
 function parseParams() {
 	const path = location.pathname.replace(/\/+$/, '');
@@ -464,10 +471,156 @@ async function load() {
 	}
 }
 
+// --- Wallet profile (for on-chain pump.fun wallets, not agent UUIDs) ---------
+async function loadWalletProfile() {
+	showSkeleton();
+	try {
+		const qs = new URLSearchParams({ address: ctx.agentId, network: ctx.network });
+		const res = await fetch(`/api/oracle/wallet?${qs}`, { headers: { accept: 'application/json' } });
+		if (!res.ok) throw new Error(`HTTP ${res.status}`);
+		const data = await res.json();
+		renderWalletProfile(data);
+	} catch {
+		showError('error');
+	}
+}
+
+const ARCH_COLOR = {
+	smart_money: '#34d399', kol: '#a78bfa', top_dev: '#60a5fa',
+	sniper: '#fbbf24', dumper: '#f87171', rugger: '#f43f5e',
+	fresh: '#94a3b8', neutral: '#94a3b8', unproven: '#64748b',
+};
+
+function renderWalletProfile(data) {
+	const addr = data.address || ctx.agentId;
+	const a = data.archetype || {};
+	const r = data.reputation;
+	const label = a.label || 'unproven';
+	const color = ARCH_COLOR[label] || '#94a3b8';
+
+	document.title = `${shortAddr(addr, 6, 4)} · wallet profile · three.ws`;
+
+	const recentRows = (data.recent || []).map((c) => {
+		const pnl = c.sell_sol > 0 ? c.sell_sol - c.buy_sol : null;
+		const pnlStr = pnl != null
+			? `<span class="${pnlClass(pnl)}" style="font-variant-numeric:tabular-nums">${fmtSol(pnl)}</span>`
+			: '—';
+		return `<tr>
+			<td><div class="tp-coin">
+				<span class="tp-coin-sym">${escapeHtml(c.symbol || c.mint.slice(0, 6))}${c.is_creator ? ' <span class="tp-reason">created</span>' : ''}</span>
+				<span class="tp-coin-mint">${escapeHtml(c.mint.slice(0, 8))}…</span>
+			</div></td>
+			<td style="text-align:right">${fmtSol(c.buy_sol, { sign: false })}</td>
+			<td style="text-align:right">${c.sell_sol > 0 ? fmtSol(c.sell_sol, { sign: false }) : '—'}</td>
+			<td style="text-align:right">${pnlStr}</td>
+			<td style="text-align:right"><a class="tp-proof-link" href="https://solscan.io/account/${escapeHtml(c.mint)}" target="_blank" rel="noopener">solscan ↗</a></td>
+		</tr>`;
+	}).join('') || `<tr><td colspan="5" style="text-align:center;color:var(--ink-faint)">No recent coins recorded.</td></tr>`;
+
+	const statsHtml = r ? `
+		<div class="tp-metrics">
+			<div class="tp-metric">
+				<div class="tp-metric-label">Smart score</div>
+				<div class="tp-metric-val" style="color:${color}">${Math.round(r.score)}</div>
+			</div>
+			<div class="tp-metric">
+				<div class="tp-metric-label">Win rate</div>
+				<div class="tp-metric-val ${r.win_rate >= 50 ? 'lb-pos' : 'lb-neg'}">${Math.round(r.win_rate)}%</div>
+			</div>
+			<div class="tp-metric">
+				<div class="tp-metric-label">Early win rate</div>
+				<div class="tp-metric-val ${r.early_win_rate >= 40 ? 'lb-pos' : ''}">${Math.round(r.early_win_rate)}%</div>
+			</div>
+			<div class="tp-metric">
+				<div class="tp-metric-label">Dump rate</div>
+				<div class="tp-metric-val ${r.dump_rate >= 60 ? 'lb-neg' : ''}">${Math.round(r.dump_rate)}%</div>
+			</div>
+			<div class="tp-metric">
+				<div class="tp-metric-label">Coins traded</div>
+				<div class="tp-metric-val">${r.coins_traded ?? 0}</div>
+			</div>
+			<div class="tp-metric">
+				<div class="tp-metric-label">Early entries</div>
+				<div class="tp-metric-val">${r.early_entries ?? 0}</div>
+			</div>
+			<div class="tp-metric">
+				<div class="tp-metric-label">Wins</div>
+				<div class="tp-metric-val lb-pos">${r.wins ?? 0}</div>
+			</div>
+			<div class="tp-metric">
+				<div class="tp-metric-label">Duds</div>
+				<div class="tp-metric-val lb-neg">${r.duds ?? 0}</div>
+			</div>
+			${r.creator_count ? `<div class="tp-metric">
+				<div class="tp-metric-label">Launched</div>
+				<div class="tp-metric-val">${r.creator_count}</div>
+			</div>` : ''}
+		</div>` : `<div class="tp-empty" style="text-align:center;padding:var(--space-xl) 0;color:var(--ink-faint)">
+			<p>No reputation data yet. This wallet hasn't been scored by the Oracle engine.</p>
+		</div>`;
+
+	content.innerHTML = `
+		<section class="tp-hero">
+			<div class="tp-avatar-wrap">
+				<img class="tp-avatar" src="${identicon(addr)}" alt="" />
+			</div>
+			<div class="tp-id">
+				<div class="tp-name"><span style="color:${color}">${escapeHtml(a.title || 'Unproven wallet')}</span></div>
+				<div class="tp-sub">
+					<a href="${solscanAddr(addr)}" target="_blank" rel="noopener" title="View on Solscan">${escapeHtml(shortAddr(addr, 6, 4))} ↗</a>
+					${r ? `<span>${r.coins_traded} coins</span>` : ''}
+					${r?.last_active_at ? `<span>active ${relTime(r.last_active_at)}</span>` : ''}
+				</div>
+				${a.blurb ? `<p class="tp-desc">${escapeHtml(a.blurb)}</p>` : ''}
+			</div>
+			<div class="tp-gauge">
+				${r ? gaugeSvg(Math.round(r.score)) : gaugeSvg(0)}
+				<div class="tp-gauge-val" style="margin-top:-58px;color:${color}">${r ? Math.round(r.score) : '—'}</div>
+				<div class="tp-gauge-label" style="margin-top:34px">Smart Score</div>
+			</div>
+		</section>
+
+		<div class="tp-actions">
+			<div></div>
+			<div style="display:flex;gap:var(--space-2xs)">
+				<button class="lb-btn" id="tp-share-wallet">Share wallet profile</button>
+				<a class="lb-btn" href="/oracle?wallet=${encodeURIComponent(addr)}" target="_blank">Oracle intel ↗</a>
+			</div>
+		</div>
+
+		${statsHtml}
+
+		<div class="tp-curve-wrap" style="margin-top:var(--space-lg)">
+			<div class="tp-curve-head">
+				<span class="tp-curve-title">Recent pump.fun footprint</span>
+				<span class="lb-muted">${(data.recent || []).length} coins recorded</span>
+			</div>
+			<table class="tp-table">
+				<thead><tr><th>Coin</th><th>Bought</th><th>Sold</th><th>P&L</th><th>On-chain</th></tr></thead>
+				<tbody>${recentRows}</tbody>
+			</table>
+		</div>
+	`;
+
+	const shareBtn = content.querySelector('#tp-share-wallet');
+	shareBtn?.addEventListener('click', () => {
+		const url = `${location.origin}/trader/${encodeURIComponent(addr)}`;
+		if (navigator.share) {
+			navigator.share({ title: `${a.title || 'Wallet'} · ${shortAddr(addr)} on three.ws`, url }).catch(() => {});
+		} else {
+			navigator.clipboard?.writeText(url).then(() => toast('Link copied')).catch(() => {});
+		}
+	});
+
+	root.setAttribute('aria-busy', 'false');
+}
+
 // --- Boot --------------------------------------------------------------------
 parseParams();
 if (!ctx.agentId) {
 	showError('not_found');
+} else if (isWalletAddress(ctx.agentId)) {
+	loadWalletProfile();
 } else {
 	loadRefCode();
 	load();
