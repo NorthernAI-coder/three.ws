@@ -400,6 +400,11 @@ function stratForm(s) {
 				<option value="false" ${s.require_sol_quote === false ? 'selected' : ''}>No</option>
 			</select>
 		</div>
+		<div class="sn-field">
+			<label>Min Oracle conviction (0–100)</label>
+			<input name="min_oracle_score" type="number" step="1" min="0" max="100" value="${s.min_oracle_score != null ? s.min_oracle_score : ''}" placeholder="any" />
+			<span class="sn-hint">Skip the snipe if Oracle conviction is below this. Leave blank to snipe regardless of conviction. New mints without a score are allowed through.</span>
+		</div>
 
 		${s.trigger === 'first_claim' ? firstClaimFields(s) : ''}
 
@@ -613,6 +618,7 @@ async function saveForm(form, root) {
 			max_creator_launches: fd.max_creator_launches !== '' ? Number(fd.max_creator_launches) : null,
 			require_socials: fd.require_socials === 'true',
 			require_sol_quote: fd.require_sol_quote !== 'false',
+			min_oracle_score: fd.min_oracle_score !== '' ? Math.round(Number(fd.min_oracle_score)) : null,
 		};
 		if (fd.trigger === 'first_claim') {
 			body.min_claim_lamports = fd.min_claim_lamports_sol !== '' ? solToLamports(fd.min_claim_lamports_sol) : null;

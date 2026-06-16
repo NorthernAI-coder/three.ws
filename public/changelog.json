@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-16T06:10:51.426Z",
+	"generated_at": "2026-06-16T06:20:19.677Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -316,6 +316,16 @@
 			"type": "update",
 			"title": "Sniper Strategies dashboard — manage autonomous trading agents",
 			"summary": "A new dashboard page at /dashboard/sniper lets you arm, configure, and monitor your autonomous pump.fun sniper agents without touching code. Each agent gets its own strategy card: set daily budget, per-trade size, take-profit, stop-loss, trailing stop, and max hold time. Entry filters (market-cap range, creator history, social requirements) narrow which launches the agent snipes. Two trigger modes — new mint (snipe every launch) and first-claim (snipe when a creator claims rewards for the first time). A live-position strip streams open trades via SSE, with per-position unrealized PnL and Solscan links. Kill-switch is one click. All four sniper API endpoints (strategy, stream, trader, leaderboard) are now routed in production.",
+			"link": "/dashboard/sniper",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "update",
+			"title": "Sniper: Oracle conviction gate",
+			"summary": "Agent sniper strategies now support a Min Oracle conviction setting (0–100). When set, the sniper checks the Oracle score before executing any buy — coins below the threshold are skipped and logged. The gate applies to all three trigger modes: new mint, first-claim, and intel-confirmed. Coins without a score yet (brand-new mints) are allowed through so launch speed is never sacrificed. Configure it in the sniper strategy form on the dashboard.",
 			"link": "/dashboard/sniper",
 			"tags": [
 				"feature"
