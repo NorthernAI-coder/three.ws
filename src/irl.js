@@ -36,6 +36,7 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import nipplejs from 'nipplejs';
 import { AnimationManager } from './animation-manager.js';
 import { log } from './shared/log.js';
+import { createAvatarPicker } from './avatar-picker.js';
 
 const AVATAR_URL_DEFAULT = '/avatars/default.glb';
 const ANIMATIONS_MANIFEST_URL = '/animations/manifest.json';
@@ -78,11 +79,12 @@ const subtitleEl  = $('irl-subtitle');
 const statusEl    = $('irl-status');
 const statusTxt   = $('irl-status-text');
 const spinner     = $('irl-spinner');
-const cameraBtn   = $('irl-camera-btn');
-const cameraLabel = $('irl-camera-label');
-const placeBtn    = $('irl-place-btn');
-const clearBtn    = $('irl-clear-btn');
-const pickerEl    = $('irl-picker');
+const cameraBtn      = $('irl-camera-btn');
+const cameraLabel    = $('irl-camera-label');
+const placeBtn       = $('irl-place-btn');
+const clearBtn       = $('irl-clear-btn');
+const pickerEl       = $('irl-picker');
+const avatarBtn      = $('irl-avatar-btn');
 
 // ── Status helpers ────────────────────────────────────────────────────────
 function setStatus(msg, { error = false, loading = false, sticky = false } = {}) {
@@ -482,19 +484,30 @@ window.addEventListener('keyup', e => {
 // ── Avatar loading ────────────────────────────────────────────────────────
 const animMgr = new AnimationManager();
 let avatar = null, avatarYaw = 0, avatarLean = 0, currentMotion = 'idle';
+let _currentAvatarId = null;
 
-async function loadAvatar() {
-	// If we have an ID, fetch metadata first to get the name for the bottom panel.
-	let avatarName  = 'Your Avatar';
-	let glbUrl      = resolveAvatarUrl(avatarIdParam);
+function _clearAvatar() {
+	if (avatar) {
+		avatarRig.remove(avatar);
+		avatar = null;
+	}
+	animMgr.detach();
+}
 
-	if (avatarIdParam && !/^https?:\/\//.test(avatarIdParam) && !avatarIdParam.startsWith('/')) {
+async function loadAvatar(idOrUrl, nameOverride) {
+	// Resolve id/url — accepts: null (default), a UUID (look up), a direct URL
+	const id  = idOrUrl !== undefined ? idOrUrl : avatarIdParam;
+	let avatarName = nameOverride || 'Your Avatar';
+	let glbUrl     = resolveAvatarUrl(typeof idOrUrl === 'string' && /^https?:\/\/|^\//.test(idOrUrl) ? idOrUrl : id);
+
+	// Fetch metadata only when id is a DB UUID (not already a URL)
+	if (id && !/^https?:\/\//.test(id) && !id.startsWith('/')) {
 		try {
-			const res = await fetch(`/api/avatars/${encodeURIComponent(avatarIdParam)}`);
+			const res = await fetch(`/api/avatars/${encodeURIComponent(id)}`);
 			if (res.ok) {
 				const { avatar: meta } = await res.json();
-				if (meta?.name) avatarName = meta.name;
-				if (meta?.url)  glbUrl     = meta.url;
+				if (meta?.name && !nameOverride) avatarName = meta.name;
+				if (meta?.url)  glbUrl = meta.url;
 			}
 		} catch {}
 	}
@@ -503,6 +516,8 @@ async function loadAvatar() {
 	document.title     = `${avatarName} IRL · three.ws`;
 
 	setStatus('Loading avatar…', { loading: true, sticky: true });
+
+	_clearAvatar();
 
 	const loader = new GLTFLoader();
 	const gltf   = await loader.loadAsync(glbUrl);
@@ -538,6 +553,27 @@ async function loadAvatar() {
 	cameraBtn.disabled = false;
 	cameraBtn.removeAttribute('aria-busy');
 	setStatus(null);
+}
+
+// ── Avatar picker ─────────────────────────────────────────────────────────
+const irlAvatarPicker = createAvatarPicker({
+	onSelect: async ({ id, url, name }) => {
+		_currentAvatarId = id;
+		// Update URL so sharing reflects the choice
+		const sp = new URLSearchParams(location.search);
+		if (id) sp.set('avatar', id); else sp.delete('avatar');
+		history.replaceState(null, '', location.pathname + (sp.toString() ? '?' + sp : ''));
+		try {
+			await loadAvatar(url, name);
+		} catch (err) {
+			log.error('[irl] avatar swap failed:', err);
+			setStatus(`Couldn't load avatar: ${err?.message ?? err}`, { error: true, sticky: true });
+		}
+	},
+});
+
+if (avatarBtn) {
+	avatarBtn.addEventListener('click', () => irlAvatarPicker.open(_currentAvatarId));
 }
 
 // ── Resize ────────────────────────────────────────────────────────────────
