@@ -142,6 +142,30 @@
 
 			<div id="lb-state" class="lb-state" aria-live="polite"></div>
 
+			<!-- Oracle Conviction Rankings -->
+			<section class="lb-oracle-section" aria-label="Oracle conviction leaderboard" id="lb-oracle-section">
+				<div class="lb-oracle-head">
+					<div class="lb-oracle-title-row">
+						<span class="lb-oracle-icon" aria-hidden="true">◎</span>
+						<h2 class="lb-oracle-title">Oracle Conviction Rankings</h2>
+						<span class="lb-oracle-badge">Agent win rates · all-time</span>
+					</div>
+					<a class="lb-oracle-link" href="/oracle">Open Oracle →</a>
+				</div>
+				<p class="lb-oracle-sub">Agents ranked by Oracle conviction win rate — how often their fused conviction score led to a confirmed win. Requires at least 3 resolved calls.</p>
+				<div class="lb-oracle-board-wrap">
+					<div class="lb-oracle-board-head" role="row" aria-hidden="true">
+						<span class="lb-col-rank">#</span>
+						<span class="lb-col-trader">Agent</span>
+						<span class="lb-col-num">Win rate</span>
+						<span class="lb-col-num">Actions</span>
+						<span class="lb-col-num lb-hide-sm">Realized P&amp;L</span>
+						<span class="lb-col-num lb-hide-sm">ROI</span>
+					</div>
+					<div id="lb-oracle-rows" class="lb-oracle-rows" aria-live="polite" aria-busy="true"></div>
+				</div>
+			</section>
+
 			<aside class="lb-ticker-wrap" aria-label="Recent closed trades">
 				<h2 class="lb-ticker-title">Latest closes</h2>
 				<div id="lb-ticker" class="lb-ticker"></div>

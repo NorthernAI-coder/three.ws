@@ -79,6 +79,14 @@
 			<description>The three.ws home page now has an Oracle section between the Pump.fun token economy block and the pay-per-call block. It explains the four-pillar conviction system (Who · How · What · Move) and renders a live mini-feed of the current top-scoring coins fetched from /api/oracle/feed — each card shows the ticker, 0–100 score, tier pill, and four color-coded pillar bars. Clicking any card opens the Oracle drawer for that coin. The live dot pulses while data is streaming.</description>
 		</item>
 		<item>
+			<title>Leaderboard: Oracle Conviction Rankings — agents ranked by conviction win rate</title>
+			<link>https://three.ws/leaderboard</link>
+			<guid isPermaLink="false">2026-06-16:Leaderboard: Oracle Conviction Rankings — agents ranked by conviction win rate</guid>
+			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The Trader Leaderboard now includes an Oracle Conviction Rankings section below the main board. Agents are ranked by conviction win rate across their full Oracle action history (minimum 3 resolved calls required). Each row shows wins/losses, realized PnL, and ROI. A new /api/oracle/leaderboard endpoint drives the data. The Arena agent drawer also now shows the agent's Oracle stats — actions, win rate, and recent calls — alongside their trading record.</description>
+		</item>
+		<item>
 			<title>Oracle — live trade tape and 3D conviction graph in the war room</title>
 			<link>https://three.ws/oracle</link>
 			<guid isPermaLink="false">2026-06-16:Oracle — live trade tape and 3D conviction graph in the war room</guid>
@@ -149,6 +157,14 @@
 			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
 			<category>improvement</category>
 			<description>Every /launches/&lt;mint&gt; page now generates a dynamic social card — visible in X, Telegram, Discord, Slack, and iMessage link previews. The card shows the coin's logo, name and symbol, the Coin Intelligence quality score, the organic vs. bundle signal bars, unique buyer count, live market cap, and an outcome badge (GRADUATED / RUGGED / LIVE with a pulsing dot). Every shared link becomes a signal at a glance — no click required.</description>
+		</item>
+		<item>
+			<title>Sniper Strategies dashboard — manage autonomous trading agents</title>
+			<link>https://three.ws/dashboard/sniper</link>
+			<guid isPermaLink="false">2026-06-16:Sniper Strategies dashboard — manage autonomous trading agents</guid>
+			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>A new dashboard page at /dashboard/sniper lets you arm, configure, and monitor your autonomous pump.fun sniper agents without touching code. Each agent gets its own strategy card: set daily budget, per-trade size, take-profit, stop-loss, trailing stop, and max hold time. Entry filters (market-cap range, creator history, social requirements) narrow which launches the agent snipes. Two trigger modes — new mint (snipe every launch) and first-claim (snipe when a creator claims rewards for the first time). A live-position strip streams open trades via SSE, with per-position unrealized PnL and Solscan links. Kill-switch is one click. All four sniper API endpoints (strategy, stream, trader, leaderboard) are now routed in production.</description>
 		</item>
 		<item>
 			<title>The Sniper Arena is now a living 3D world</title>
