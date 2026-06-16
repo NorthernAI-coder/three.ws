@@ -598,6 +598,10 @@
 			"dest": "/create-next.html"
 		},
 		{
+			"src": "/trending/?",
+			"dest": "/trending.html"
+		},
+		{
 			"src": "/trades/?",
 			"dest": "/trades.html"
 		},
@@ -1800,6 +1804,10 @@
 			"dest": "/api/pump/smart-money.js"
 		},
 		{
+			"src": "/api/pump/check-three-balance",
+			"dest": "/api/pump/check-three-balance.js"
+		},
+		{
 			"src": "/api/pump/launch-og",
 			"dest": "/api/pump/launch-og.js"
 		},
@@ -1946,6 +1954,10 @@
 		{
 			"src": "/api/sniper/leaderboard",
 			"dest": "/api/sniper/leaderboard.js"
+		},
+		{
+			"src": "/api/trending",
+			"dest": "/api/trending.js"
 		},
 		{
 			"src": "/api/trades/feed",

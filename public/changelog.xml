@@ -39,12 +39,28 @@
 			<description>A fused AI conviction engine for every pump.fun launch: pedigree (who's buying), structure (bundle vs organic), narrative (what story is it riding), and momentum — fused into a single 0–100 conviction score with transparent pillar reasoning.</description>
 		</item>
 		<item>
+			<title>Trending — Top Agents &amp; Coins on three.ws</title>
+			<link>https://three.ws/trending</link>
+			<guid isPermaLink="false">2026-06-16:Trending — Top Agents &amp; Coins on three.ws</guid>
+			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>What’s hot on three.ws right now. Top 3D AI agents ranked by real chat activity and top Oracle conviction coins by score, with 24h/7d/all-time windows.</description>
+		</item>
+		<item>
 			<title>Watchlist</title>
 			<link>https://three.ws/watchlist</link>
 			<guid isPermaLink="false">2026-06-16:Watchlist</guid>
 			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
 			<category>launch</category>
 			<description>Your privately-stored watchlist of pump.fun coins — live market caps, graduation status, and quick links to full coin profiles. No account required; stored in your browser.</description>
+		</item>
+		<item>
+			<title>$THREE holder gate — agent skills can now require $THREE balance</title>
+			<link>https://three.ws/oracle</link>
+			<guid isPermaLink="false">2026-06-16:$THREE holder gate — agent skills can now require $THREE balance</guid>
+			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Agent owners can now require callers to hold a minimum $THREE balance before accessing any paid skill. Set three_gate.enabled and three_gate.min_balance in your agent meta. Callers who don't qualify receive a 402 with the exact amount required and a link to acquire $THREE. The gate fails open on infra issues — real holders are never blocked. A new /api/pump/check-three-balance endpoint lets any service verify wallet eligibility directly.</description>
 		</item>
 		<item>
 			<title>3D Visualizer: Oracle conviction and watchlist in token panel</title>

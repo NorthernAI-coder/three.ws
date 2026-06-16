@@ -60,6 +60,12 @@ export const NAV_GROUPS = [
 		label: 'Discover',
 		items: [
 			{
+				title: 'Trending',
+				href: '/trending',
+				badge: 'New',
+				desc: 'Top agents by real activity + top Oracle conviction coins',
+			},
+			{
 				title: 'What is three.ws?',
 				href: '/what-is',
 				desc: 'Plain-English intro + real use-cases — start here',
@@ -166,6 +172,16 @@ export const NAV_GROUPS = [
 				title: '3D Visualizer',
 				href: '/pump-visualizer',
 				desc: 'Trending tokens in 3D',
+			},
+			{
+				title: 'All Launches',
+				href: '/launches',
+				desc: 'Every agent-launched coin — full history',
+			},
+			{
+				title: 'Token in 3D',
+				href: '/coin3d',
+				desc: 'View any token as a cinematic 3D scene',
 			},
 		],
 	},

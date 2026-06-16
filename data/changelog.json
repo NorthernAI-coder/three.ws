@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-06-16",
+			"title": "$THREE holder gate — agent skills can now require $THREE balance",
+			"summary": "Agent owners can now require callers to hold a minimum $THREE balance before accessing any paid skill. Set three_gate.enabled and three_gate.min_balance in your agent meta. Callers who don't qualify receive a 402 with the exact amount required and a link to acquire $THREE. The gate fails open on infra issues — real holders are never blocked. A new /api/pump/check-three-balance endpoint lets any service verify wallet eligibility directly.",
+			"tags": [
+				"feature"
+			],
+			"link": "/oracle"
+		},
+		{
+			"date": "2026-06-16",
 			"title": "Create flow: guided \"what's next\" screen after every avatar save",
 			"summary": "Saving an avatar or completing an agent no longer drops you on a blank library page. A new /create/next screen appears immediately after: your 3D model spins in the left panel while three action cards on the right guide you through the natural progression — give it an AI brain, embed it on any site, or optionally deploy it on-chain. Each card deep-links directly with your new avatar or agent pre-loaded so the session continues without starting over.",
 			"tags": [
