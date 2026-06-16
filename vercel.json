@@ -591,6 +591,10 @@
 			"dest": "/trades.html"
 		},
 		{
+			"src": "/claim-wallet/?",
+			"dest": "/claim-wallet.html"
+		},
+		{
 			"src": "/oracle/?",
 			"dest": "/oracle.html"
 		},
@@ -1903,6 +1907,10 @@
 		{
 			"src": "/api/sniper/trader",
 			"dest": "/api/sniper/trader.js"
+		},
+		{
+			"src": "/api/traders/preview",
+			"dest": "/api/traders/preview.js"
 		},
 		{
 			"src": "/api/sniper/leaderboard",

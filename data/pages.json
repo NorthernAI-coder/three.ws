@@ -465,6 +465,14 @@
 					"added": "2026-06-16"
 				},
 				{
+					"path": "/claim-wallet",
+					"title": "Claim Your Wallet \u2014 Verified pump.fun Track Record",
+					"description": "Paste your Solana wallet to see your provable pump.fun track record \u2014 win rate, smart-money score, reputation label, and coin history. Sign in to claim it as your official three.ws Trader Card.",
+					"priority": 0.8,
+					"changefreq": "weekly",
+					"added": "2026-06-16"
+				},
+				{
 					"path": "/pay",
 					"title": "Pay (x402)",
 					"description": "Pay-per-call gateway: invoke any x402-protocol paid API with a USDC micro-transaction.",

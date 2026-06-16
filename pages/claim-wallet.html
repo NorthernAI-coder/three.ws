@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<script>/* three.ws theme boot */(function(){try{var m=localStorage.getItem('twx_theme');var l=m==='auto'?(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches):m==='light';document.documentElement.setAttribute('data-theme',l?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();</script>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Claim Your Wallet · three.ws</title>
+		<meta
+			name="description"
+			content="Paste your Solana wallet to see your provable pump.fun track record — win rate, smart-money score, P&L — then claim it as your official three.ws Trader Card in one click."
+		/>
+		<meta property="og:type" content="website" />
+		<meta property="og:site_name" content="three.ws" />
+		<meta property="og:url" content="https://three.ws/claim-wallet" />
+		<meta property="og:title" content="Claim Your Wallet · three.ws" />
+		<meta property="og:description" content="See your verified pump.fun track record and claim it as your Trader Card." />
+		<meta property="og:image" content="https://three.ws/og-image.png" />
+		<meta property="og:image:width" content="1200" />
+		<meta property="og:image:height" content="630" />
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta name="twitter:site" content="@trythreews" />
+		<meta name="twitter:title" content="Claim Your Wallet · three.ws" />
+		<meta name="twitter:description" content="Paste your Solana wallet and see your provable pump.fun track record in seconds." />
+		<meta name="twitter:image" content="https://three.ws/og-image.png" />
+		<meta name="theme-color" content="#0a0a0a" />
+		<link rel="icon" href="/favicon.ico" sizes="any" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+		<link rel="manifest" href="/site.webmanifest" />
+		<link rel="stylesheet" href="/fonts/fonts.css" />
+		<link rel="stylesheet" href="/nav.css" />
+		<link rel="stylesheet" href="/footer.css" />
+		<script defer src="/footer-newsletter.js"></script>
+		<link rel="canonical" href="https://three.ws/claim-wallet" />
+
+		<style>
+		.cw-shell { max-width: 760px; margin: 0 auto; padding: 0 20px 80px; }
+
+		/* ── Hero ──────────────────────────────────────────── */
+		.cw-hero { text-align: center; padding: 64px 0 48px; }
+		.cw-kicker { font: 600 11px/1 var(--mono); text-transform: uppercase; letter-spacing: .1em; color: var(--faint); margin-bottom: 14px; }
+		.cw-title { font-size: clamp(26px, 5vw, 42px); font-weight: 800; letter-spacing: -.02em; margin: 0 0 14px; }
+		.cw-sub { color: var(--muted); font-size: 15px; max-width: 480px; margin: 0 auto 0; line-height: 1.65; }
+
+		/* ── Search box ─────────────────────────────────────── */
+		.cw-search { margin: 36px 0 0; display: flex; gap: 10px; }
+		.cw-input { flex: 1; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 12px 14px; font: 600 13px/1 var(--mono); color: var(--fg); outline: none; transition: border-color .14s; }
+		.cw-input::placeholder { color: var(--faint); font-weight: 400; }
+		.cw-input:focus { border-color: var(--cyan); }
+		.cw-btn { background: color-mix(in srgb, var(--cyan) 14%, transparent); border: 1px solid color-mix(in srgb, var(--cyan) 45%, var(--line)); border-radius: var(--r); padding: 12px 20px; font: 700 13px/1 var(--mono); color: var(--cyan); cursor: pointer; white-space: nowrap; transition: background .14s; }
+		.cw-btn:hover { background: color-mix(in srgb, var(--cyan) 22%, transparent); }
+		.cw-btn:disabled { opacity: .5; cursor: not-allowed; }
+		.cw-err { color: var(--dn); font: 600 12px/1 var(--mono); margin-top: 8px; }
+
+		/* ── Trader card preview ───────────────────────────── */
+		.cw-card { margin-top: 40px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 24px; animation: cwFadeIn .2s ease; }
+		@keyframes cwFadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
+
+		.cw-card-head { display: flex; align-items: center; gap: 16px; margin-bottom: 20px; }
+		.cw-wallet-icon { width: 52px; height: 52px; border-radius: 14px; background: linear-gradient(135deg, #1b2233 0%, #0d1018 100%); border: 1px solid var(--line); display: grid; place-items: center; font: 700 16px/1 var(--mono); color: var(--faint); flex: none; }
+		.cw-wallet-addr { font: 700 13px/1.3 var(--mono); color: var(--fg); word-break: break-all; }
+		.cw-wallet-addr span { color: var(--faint); font-weight: 400; }
+		.cw-label-badge { display: inline-flex; align-items: center; gap: 4px; font: 700 10px/1 var(--mono); text-transform: uppercase; letter-spacing: .07em; padding: 3px 8px; border-radius: 4px; margin-top: 4px; }
+		.cw-label-badge.smart_money { color: #34d399; background: rgba(52,211,153,.1); border: 1px solid rgba(52,211,153,.25); }
+		.cw-label-badge.sniper { color: #c084fc; background: rgba(192,132,252,.1); border: 1px solid rgba(192,132,252,.25); }
+		.cw-label-badge.dumper, .cw-label-badge.rugger { color: #f87171; background: rgba(248,113,113,.1); border: 1px solid rgba(248,113,113,.2); }
+		.cw-label-badge.neutral, .cw-label-badge.fresh, .cw-label-badge.unproven { color: var(--faint); background: var(--line); border: 1px solid var(--line); }
+
+		.cw-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 16px; margin-bottom: 20px; padding: 16px; background: var(--bg); border-radius: calc(var(--r) - 2px); border: 1px solid var(--line); }
+		.cw-stat-val { font: 700 20px/1 var(--mono); color: var(--fg); }
+		.cw-stat-val.green { color: #34d399; }
+		.cw-stat-val.red { color: #f87171; }
+		.cw-stat-lbl { font: 600 10px/1 var(--mono); text-transform: uppercase; letter-spacing: .07em; color: var(--faint); margin-top: 4px; }
+
+		/* coin history list */
+		.cw-coins-head { font: 600 11px/1 var(--mono); text-transform: uppercase; letter-spacing: .07em; color: var(--faint); margin-bottom: 10px; }
+		.cw-coin-row { display: grid; grid-template-columns: 32px 1fr auto; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); }
+		.cw-coin-row:last-child { border-bottom: 0; }
+		.cw-coin-img { width: 32px; height: 32px; border-radius: 8px; object-fit: cover; background: var(--line); border: 1px solid var(--line); display: grid; place-items: center; font: 700 10px/1 var(--mono); color: var(--faint); flex: none; }
+		.cw-coin-sym { font: 700 13px/1 var(--mono); color: var(--fg); }
+		.cw-coin-name { font: 400 11px/1 var(--sans); color: var(--faint); margin-top: 2px; }
+		.cw-coin-pnl { font: 700 13px/1 var(--mono); text-align: right; }
+		.cw-coin-pnl.pos { color: #34d399; }
+		.cw-coin-pnl.neg { color: #f87171; }
+		.cw-coin-pnl.neu { color: var(--faint); }
+		.cw-creator-badge { font: 600 9px/1 var(--mono); text-transform: uppercase; letter-spacing: .06em; padding: 1px 4px; border-radius: 3px; background: rgba(251,191,36,.12); color: #fbbf24; border: 1px solid rgba(251,191,36,.2); }
+
+		/* CTA bar */
+		.cw-cta { margin-top: 24px; background: color-mix(in srgb, var(--cyan) 6%, var(--panel)); border: 1px solid color-mix(in srgb, var(--cyan) 30%, var(--line)); border-radius: var(--r); padding: 20px; text-align: center; }
+		.cw-cta h3 { font-size: 17px; margin: 0 0 8px; }
+		.cw-cta p { font-size: 13px; color: var(--muted); margin: 0 0 16px; }
+		.cw-cta-btns { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+		.cw-cta-btn { padding: 10px 20px; border-radius: 8px; font: 700 13px/1 var(--mono); cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; transition: background .14s; }
+		.cw-cta-btn.primary { background: color-mix(in srgb, var(--cyan) 18%, transparent); border: 1px solid color-mix(in srgb, var(--cyan) 50%, transparent); color: var(--cyan); }
+		.cw-cta-btn.primary:hover { background: color-mix(in srgb, var(--cyan) 28%, transparent); }
+		.cw-cta-btn.secondary { background: none; border: 1px solid var(--line); color: var(--muted); }
+		.cw-cta-btn.secondary:hover { border-color: var(--cyan); color: var(--cyan); }
+
+		/* not-found state */
+		.cw-notfound { margin-top: 40px; text-align: center; padding: 48px 20px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); }
+		.cw-notfound h2 { font-size: 18px; margin: 0 0 10px; color: var(--muted); }
+		.cw-notfound p { font-size: 13px; color: var(--faint); line-height: 1.6; max-width: 340px; margin: 0 auto; }
+
+		/* skeleton */
+		.cw-skel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); height: 320px; animation: pulse 1.5s ease infinite; margin-top: 40px; }
+		@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+
+		@media (max-width: 500px) {
+			.cw-search { flex-direction: column; }
+			.cw-stats { grid-template-columns: repeat(2, 1fr); }
+		}
+		</style>
+	</head>
+	<body>
+		<header><div id="nav-container"></div></header>
+		<script src="/nav.js"></script>
+
+		<main class="cw-shell" aria-labelledby="cw-title">
+			<section class="cw-hero">
+				<p class="cw-kicker">Provable track record · verified on-chain</p>
+				<h1 id="cw-title" class="cw-title">Claim Your Wallet</h1>
+				<p class="cw-sub">
+					Paste your Solana wallet address. We'll pull your real pump.fun trade history
+					and show you how the platform scores your record — then you can claim it as your
+					official three.ws Trader Card in one step.
+				</p>
+
+				<div class="cw-search">
+					<input
+						class="cw-input"
+						id="cwInput"
+						type="text"
+						inputmode="text"
+						autocomplete="off"
+						spellcheck="false"
+						placeholder="Your Solana wallet address (base-58)"
+						aria-label="Solana wallet address"
+					/>
+					<button type="button" class="cw-btn" id="cwBtn">Preview</button>
+				</div>
+				<p class="cw-err" id="cwErr" hidden></p>
+			</section>
+
+			<div id="cwResult"></div>
+		</main>
+
+		<footer id="footer-root"></footer>
+		<script type="module" src="/src/claim-wallet.js"></script>
+	</body>
+</html>

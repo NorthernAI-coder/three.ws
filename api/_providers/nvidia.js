@@ -241,8 +241,16 @@ export function createNvidiaProvider() {
 		}
 
 		if (res.ok) {
+			// NVCF sometimes returns 200 (instead of 202) with { artifacts: [] } and
+			// an NVCF-REQID header when routing to async processing. Read the header
+			// before consuming the body so we can fall through to the poll path.
+			const reqId = res.headers.get('nvcf-reqid');
 			const { base64, diag } = await extractGlbBase64(res);
 			if (!base64) {
+				if (reqId) {
+					// Async job on 200 — same path as 202.
+					return { done: false, reqId };
+				}
 				console.warn('[nvidia] sync 200 but no GLB artifact — %s', diag);
 				throw Object.assign(new Error('TRELLIS completed but returned no GLB artifact'), {
 					code: 'provider_error',

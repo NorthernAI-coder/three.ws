@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-16T08:41:01.133Z",
+	"generated_at": "2026-06-16T08:55:35.038Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -12,6 +12,16 @@
 			"title": "Agent Activity — Oracle conviction in real time",
 			"summary": "The trading floor: every Oracle conviction action from every autonomous 3D agent on pump.fun, live. Filter by tier and mode, track outcomes, and copy the winners.",
 			"link": "/activity",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "launch",
+			"title": "Claim Your Wallet — Verified pump.fun Track Record",
+			"summary": "Paste your Solana wallet to see your provable pump.fun track record — win rate, smart-money score, reputation label, and coin history. Sign in to claim it as your official three.ws Trader Card.",
+			"link": "/claim-wallet",
 			"tags": [
 				"launch"
 			]
@@ -110,6 +120,16 @@
 		{
 			"date": "2026-06-16",
 			"type": "update",
+			"title": "Claim Your Wallet — see your verified pump.fun track record in seconds",
+			"summary": "Any pump.fun trader can now paste their Solana wallet at /claim-wallet and instantly see their full track record: win rate, smart-money score, reputation label (smart_money / sniper / neutral / unproven), coin history with PnL per position, and a net PnL summary for the indexer window. A single click signs them in and publishes the track record as their official three.ws Trader Card — opening them up to followers and copy-trading fees automatically.",
+			"link": "/claim-wallet",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "update",
 			"title": "Coin 3D: Oracle conviction score and watchlist in the HUD",
 			"summary": "The Token in 3D page now shows Oracle conviction alongside the bonding-curve stats. After the scene loads, the panel fetches the coin's conviction score and tier (prime/strong/lean/watch/avoid) asynchronously — no scene-render delay. Tap the score badge to jump to the full Oracle breakdown. A new Watch button syncs the token directly into your watchlist across the radar, launches, and visualizer surfaces.",
 			"link": "/coin3d",
@@ -154,6 +174,16 @@
 			"title": "Copy trading: Oracle conviction gate",
 			"summary": "Copy subscriptions now support a minimum Oracle conviction score. Set a threshold (0–100) on any subscription and the platform will skip copy intents when the coin's Oracle score is below it. Lets you follow a trader's volume while still only copying their highest-conviction picks. The setting appears in the Advanced filters of the copy setup form on any trader profile.",
 			"link": "/leaderboard",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "update",
+			"title": "Copy trading: Telegram notifications when a buy intent arrives",
+			"summary": "Copiers who enter a Telegram chat ID in their subscription settings now receive an instant message the moment the fanout cron creates a pending buy intent — coin name, tier, Oracle score, the sized order amount, and a direct link to the copy dashboard. Works for both sniper-sourced and Oracle conviction-sourced intents.",
+			"link": "/dashboard/copy",
 			"tags": [
 				"feature"
 			]
@@ -647,6 +677,17 @@
 			"link": "/play/arena",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "update",
+			"title": "Trader leaderboard + copy-trading now available as MCP tools for agents",
+			"summary": "Four new MCP tools close the autonomous copy-trading loop for any agent connected to three.ws: trader_leaderboard returns the top pump.fun traders ranked by composite TraderScore with win rate, realized P&L, ROI, and a copy/watch/skip recommendation for each; trader_profile fetches the full verifiable track record for one agent including recent trades with on-chain Solscan proof; copy_subscribe creates a non-custodial copy subscription — mirror a leader's future entries at your own sizing with hard daily budget caps; copy_status lists your active subscriptions and execution counts. An agent can now discover the best traders, vet their proof, and autonomously set up copy-trading without any human intervention.",
+			"link": "/leaderboard",
+			"tags": [
+				"feature",
+				"sdk"
 			]
 		},
 		{

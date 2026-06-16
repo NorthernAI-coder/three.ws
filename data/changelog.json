@@ -3,6 +3,20 @@
 	"entries": [
 		{
 			"date": "2026-06-16",
+			"title": "Claim Your Wallet — see your verified pump.fun track record in seconds",
+			"summary": "Any pump.fun trader can now paste their Solana wallet at /claim-wallet and instantly see their full track record: win rate, smart-money score, reputation label (smart_money / sniper / neutral / unproven), coin history with PnL per position, and a net PnL summary for the indexer window. A single click signs them in and publishes the track record as their official three.ws Trader Card — opening them up to followers and copy-trading fees automatically.",
+			"tags": ["feature"],
+			"link": "/claim-wallet"
+		},
+		{
+			"date": "2026-06-16",
+			"title": "Copy trading: Telegram notifications when a buy intent arrives",
+			"summary": "Copiers who enter a Telegram chat ID in their subscription settings now receive an instant message the moment the fanout cron creates a pending buy intent — coin name, tier, Oracle score, the sized order amount, and a direct link to the copy dashboard. Works for both sniper-sourced and Oracle conviction-sourced intents.",
+			"tags": ["feature"],
+			"link": "/dashboard/copy"
+		},
+		{
+			"date": "2026-06-16",
 			"title": "Trader leaderboard + copy-trading now available as MCP tools for agents",
 			"summary": "Four new MCP tools close the autonomous copy-trading loop for any agent connected to three.ws: trader_leaderboard returns the top pump.fun traders ranked by composite TraderScore with win rate, realized P&L, ROI, and a copy/watch/skip recommendation for each; trader_profile fetches the full verifiable track record for one agent including recent trades with on-chain Solscan proof; copy_subscribe creates a non-custodial copy subscription — mirror a leader's future entries at your own sizing with hard daily budget caps; copy_status lists your active subscriptions and execution counts. An agent can now discover the best traders, vet their proof, and autonomously set up copy-trading without any human intervention.",
 			"tags": ["feature", "sdk"],

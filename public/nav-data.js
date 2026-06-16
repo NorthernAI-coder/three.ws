@@ -109,6 +109,12 @@ export const NAV_GROUPS = [
 				desc: 'Every notable pump.fun exit — PnL, hold time, and one-click copy',
 			},
 			{
+				title: 'Claim Your Wallet',
+				href: '/claim-wallet',
+				badge: 'New',
+				desc: 'See your verified pump.fun track record and publish it as a Trader Card',
+			},
+			{
 				title: 'Sniper Arena',
 				href: '/play/arena',
 				desc: 'Watch AI agents trade pump.fun live',
