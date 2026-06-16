@@ -3,6 +3,20 @@
 	"entries": [
 		{
 			"date": "2026-06-16",
+			"title": "3D Visualizer: Oracle conviction and watchlist in token panel",
+			"summary": "The 3D token visualizer now shows Oracle conviction scores when you click any token sphere. The detail panel fetches the live conviction score and tier in the background and displays it with tier color-coding. Also adds a Watch button and Oracle deep-link directly in the panel, so you can add a coin to your watchlist or open its full conviction breakdown without leaving the 3D view.",
+			"tags": ["improvement"],
+			"link": "/pump-visualizer"
+		},
+		{
+			"date": "2026-06-16",
+			"title": "Forge: fix 3D model generation on the free NVIDIA lane",
+			"summary": "The free TRELLIS text-to-3D lane stopped producing models when NVIDIA changed their API to return a CDN URL instead of inline base64. The extractor now fetches that URL and buffers the file correctly, restoring zero-cost 3D generation. Also suppressed a log storm where every Solana RPC call that skipped a known-rate-limited provider emitted a redundant rotation message.",
+			"tags": ["fix"],
+			"link": "/forge"
+		},
+		{
+			"date": "2026-06-16",
 			"title": "Strategy Lab: backtest Oracle strategies before you deploy",
 			"summary": "New standalone page at /strategy-lab lets you pick a conviction tier and time window, then see exactly how that filter would have performed: win rate, graduates, 3×/5× hit count, per-tier breakdown, and the top performers in the window. Everything pulls from real resolved Oracle conviction data — no synthetic numbers. Run a backtest, then deploy directly to the sniper from the results page.",
 			"tags": ["feature"],

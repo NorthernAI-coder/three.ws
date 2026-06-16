@@ -449,6 +449,14 @@
 		}
 		.vz-detail .live-badge.is-grad::before { background: var(--vz-green); }
 
+		/* ── Oracle conviction badge in detail panel ───── */
+		.vz-oracle { display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; margin: 10px 0 0; text-decoration: none; color: inherit; transition: background .12s; }
+		.vz-oracle:hover { background: rgba(255,255,255,0.07); }
+		.vz-oracle-label { font-size: 10px; text-transform: uppercase; letter-spacing: .07em; color: var(--vz-muted); }
+		.vz-oracle-score { font-size: 22px; font-weight: 700; line-height: 1; }
+		.vz-oracle-tier { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
+		.vz-oracle-sk { height: 42px; background: rgba(255,255,255,0.06); border-radius: 8px; margin: 10px 0 0; animation: vzPulse 1.4s ease-in-out infinite; }
+
 		/* ── Legend (bottom-left rank list) ───────────── */
 		.vz-legend {
 			bottom: 16px;
@@ -777,6 +785,7 @@
 				<div class="stat"><div class="label">Age</div><div class="value" id="vz-detail-age"></div></div>
 			</div>
 			<div class="description" id="vz-detail-description"></div>
+			<div id="vz-oracle-slot"></div>
 			<div class="mint" id="vz-detail-mint" title="Token mint address"></div>
 			<div class="links" id="vz-detail-links"></div>
 		</aside>
@@ -1428,8 +1437,76 @@
 			if (token.telegram) linksEl.appendChild(linkNode(token.telegram, 'Telegram ↗'));
 			if (token.website) linksEl.appendChild(linkNode(token.website, 'Website ↗'));
 
+			// Watchlist button
+			if (token.mint) {
+				const wBtn = document.createElement('button');
+				wBtn.type = 'button';
+				const watched = isWatchedVz(token.mint);
+				wBtn.textContent = watched ? '★ Watching' : '☆ Watch';
+				wBtn.setAttribute('aria-pressed', String(watched));
+				wBtn.setAttribute('aria-label', watched ? 'Remove from watchlist' : 'Add to watchlist');
+				wBtn.dataset.watchMint = token.mint;
+				wBtn.addEventListener('click', () => {
+					const now = toggleVzWatch(token.mint);
+					wBtn.textContent = now ? '★ Watching' : '☆ Watch';
+					wBtn.setAttribute('aria-pressed', String(now));
+					wBtn.setAttribute('aria-label', now ? 'Remove from watchlist' : 'Add to watchlist');
+				});
+				linksEl.appendChild(wBtn);
+				linksEl.appendChild(linkNode(`/oracle?mint=${encodeURIComponent(token.mint)}`, 'Oracle →', { internal: true }));
+			}
+
 			detailEl.classList.add('is-open');
 			detailEl.setAttribute('aria-hidden', 'false');
+
+			// Async: fetch Oracle conviction for this coin
+			const oracleSlot = document.getElementById('vz-oracle-slot');
+			if (token.mint && oracleSlot) {
+				oracleSlot.innerHTML = '<div class="vz-oracle-sk"></div>';
+				fetchOracleConviction(token.mint).then((cv) => {
+					if (!cv) { oracleSlot.innerHTML = ''; return; }
+					const TIER_COLOR = { prime: '#c084fc', strong: '#34d399', lean: '#fbbf24', watch: '#94a3b8', avoid: '#f87171' };
+					const color = TIER_COLOR[cv.tier] || '#94a3b8';
+					oracleSlot.innerHTML = `<a class="vz-oracle" href="/oracle?mint=${encodeURIComponent(token.mint)}" aria-label="Oracle conviction: ${cv.score} — ${cv.tier}">
+						<div>
+							<div class="vz-oracle-label">Oracle conviction</div>
+							<div class="vz-oracle-score" style="color:${color}">${cv.score}</div>
+						</div>
+						<div class="vz-oracle-tier" style="color:${color}">${cv.tier || ''}</div>
+					</a>`;
+				}).catch(() => { oracleSlot.innerHTML = ''; });
+			} else if (oracleSlot) {
+				oracleSlot.innerHTML = '';
+			}
+		}
+
+		const _oracleCache = new Map();
+		async function fetchOracleConviction(mint) {
+			if (_oracleCache.has(mint)) return _oracleCache.get(mint);
+			try {
+				const r = await fetch(`/api/oracle/coin?mint=${encodeURIComponent(mint)}&network=mainnet`);
+				if (!r.ok) return null;
+				const d = await r.json();
+				const cv = d?.conviction ? { score: d.conviction.score, tier: d.conviction.tier } : null;
+				_oracleCache.set(mint, cv);
+				return cv;
+			} catch { return null; }
+		}
+
+		const VZ_WATCH_KEY = 'ld_watchlist';
+		function isWatchedVz(mint) {
+			try { const a = JSON.parse(localStorage.getItem(VZ_WATCH_KEY) || '[]'); return Array.isArray(a) && a.includes(mint); }
+			catch { return false; }
+		}
+		function toggleVzWatch(mint) {
+			try {
+				const a = JSON.parse(localStorage.getItem(VZ_WATCH_KEY) || '[]');
+				const list = Array.isArray(a) ? a : [];
+				const idx = list.indexOf(mint);
+				if (idx >= 0) list.splice(idx, 1); else list.unshift(mint);
+				localStorage.setItem(VZ_WATCH_KEY, JSON.stringify(list.slice(0, 200)));
+				return idx < 0;
+			} catch { return false; }
 		}
 
 		function linkNode(href, label, opts = {}) {
