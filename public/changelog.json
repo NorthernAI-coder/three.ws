@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-16T07:38:56.743Z",
+	"generated_at": "2026-06-16T07:45:29.212Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -508,6 +508,17 @@
 		{
 			"date": "2026-06-16",
 			"type": "update",
+			"title": "Trader profiles now work for any pump.fun wallet address",
+			"summary": "The /trader page now handles raw Solana wallet addresses directly — not just agent UUIDs. Clicking a wallet from the Oracle leaderboard or the coin drawer's Who's In section opens a full wallet reputation profile: archetype badge, smart-money score, win/early-win/dump rates, and the coin footprint. Previously these links 404ed.",
+			"link": "/oracle",
+			"tags": [
+				"fix",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "update",
 			"title": "Watchlist — save any coin and track it with live Oracle scores",
 			"summary": "Every launch card now has a bookmark button. Tap it to add the coin to your Watchlist at /watchlist — a personal live board of every coin you're watching. Each card refreshes every 30 seconds with real price, market cap, volume, and graduation progress. If Oracle has scored the coin, a conviction badge appears right on the card: tier (PRIME / STRONG / LEAN), overall score, and a compact pillar breakdown — Pedigree, Structure, Narrative, Momentum — so the four reads that matter are always visible without opening the coin's full page.",
 			"link": "/watchlist",
@@ -522,6 +533,17 @@
 			"summary": "Your watchlist now shows the Oracle conviction score and tier for every pinned coin — prime, strong, lean, watch, or avoid — right on the card. Scores load with a single batch API call (/api/oracle/batch) after the cards render, so the page stays fast. Tap any badge to open the full Oracle breakdown. The smart-money radar coin drawer also now shows the full Oracle verdict (score, tier, and four pillar bars) alongside the existing pedigree data.",
 			"link": "/watchlist",
 			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "update",
+			"title": "Watchlist: Oracle auto-refresh + browser alerts on tier upgrade",
+			"summary": "The watchlist now re-fetches Oracle conviction every 90 seconds for all watched coins. Enable the new 🔔 Alerts button to get browser push notifications the moment a watched coin upgrades to Strong or Prime conviction — even when you're on another tab. Alerts pause automatically when the tab is hidden and resume when you switch back. Tier history is stored locally so only real upgrades trigger a notification.",
+			"link": "/watchlist",
+			"tags": [
+				"feature",
 				"improvement"
 			]
 		},

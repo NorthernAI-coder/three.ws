@@ -11,17 +11,23 @@
 
 import { mountCoinStatus } from './pump/coin-status-card.js';
 
-const WATCH_KEY  = 'ld_watchlist'; // shared with src/launch-detail.js
-const TIER_COLOR = { prime: '#c084fc', strong: '#34d399', lean: '#fbbf24', watch: '#94a3b8', avoid: '#f87171' };
-const MINT_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
-const REDUCED_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const WATCH_KEY        = 'ld_watchlist'; // shared with src/launch-detail.js
+const LAST_TIERS_KEY   = 'wl_last_tiers'; // mint → tier, for upgrade detection
+const ALERTS_KEY       = 'wl_alerts_on';
+const TIER_COLOR       = { prime: '#c084fc', strong: '#34d399', lean: '#fbbf24', watch: '#94a3b8', avoid: '#f87171' };
+const TIER_RANK        = { avoid: 0, watch: 1, lean: 2, strong: 3, prime: 4 };
+const MINT_RE          = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+const REDUCED_MOTION   = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const REFRESH_MS       = 90_000;
 
-const feedEl = document.getElementById('wl-feed');
-const stateEl = document.getElementById('wl-state');
-const countEl = document.getElementById('wl-count');
-const clearBtn = document.getElementById('wl-clear');
+const feedEl    = document.getElementById('wl-feed');
+const stateEl   = document.getElementById('wl-state');
+const countEl   = document.getElementById('wl-count');
+const clearBtn  = document.getElementById('wl-clear');
+const alertsBtn = document.getElementById('wl-alerts');
 
 const handles = new Set();
+let refreshTimer = null;
 
 // ── DOM helper ───────────────────────────────────────────────────────────────
 
@@ -128,6 +134,65 @@ function remove(mint) {
 	render();
 }
 
+// ── tier memory ───────────────────────────────────────────────────────────────
+
+function readLastTiers() {
+	try { return JSON.parse(localStorage.getItem(LAST_TIERS_KEY) || '{}'); } catch { return {}; }
+}
+
+function saveLastTiers(map) {
+	try { localStorage.setItem(LAST_TIERS_KEY, JSON.stringify(map)); } catch { /* non-fatal */ }
+}
+
+// ── alerts ────────────────────────────────────────────────────────────────────
+
+function alertsEnabled() {
+	return localStorage.getItem(ALERTS_KEY) === '1' && Notification.permission === 'granted';
+}
+
+function updateAlertsBtn() {
+	if (!alertsBtn) return;
+	const on = alertsEnabled();
+	alertsBtn.setAttribute('aria-pressed', String(on));
+	alertsBtn.textContent = on ? '🔔 Alerts on' : '🔔 Alerts';
+	alertsBtn.style.color = on ? '#c084fc' : '';
+	alertsBtn.style.borderColor = on ? 'rgba(192,132,252,.4)' : '';
+}
+
+async function toggleAlerts() {
+	if (alertsEnabled()) {
+		localStorage.setItem(ALERTS_KEY, '0');
+		updateAlertsBtn();
+		return;
+	}
+	if (Notification.permission === 'denied') {
+		// Can't request again — show a tooltip-style message
+		alertsBtn.textContent = '🔕 Blocked by browser';
+		setTimeout(() => updateAlertsBtn(), 2400);
+		return;
+	}
+	const perm = await Notification.requestPermission().catch(() => 'denied');
+	if (perm === 'granted') {
+		localStorage.setItem(ALERTS_KEY, '1');
+	}
+	updateAlertsBtn();
+}
+
+function maybeFire(mint, symbol, newTier, oldTier) {
+	if (!alertsEnabled()) return;
+	const oldRank = TIER_RANK[oldTier] ?? -1;
+	const newRank = TIER_RANK[newTier] ?? -1;
+	if (newRank <= oldRank) return;
+	// Only notify for strong+ upgrades
+	if (newRank < TIER_RANK.strong) return;
+	const title = `${symbol || mint.slice(0, 8)} → ${newTier} conviction`;
+	const body  = `Oracle scored this coin ${newTier} on three.ws`;
+	try {
+		const n = new Notification(title, { body, icon: '/favicon-32x32.png', tag: mint });
+		n.onclick = () => { window.focus(); window.open(`/oracle?mint=${mint}`, '_blank'); n.close(); };
+	} catch { /* Notification blocked mid-flight */ }
+}
+
 // ── teardown ─────────────────────────────────────────────────────────────────
 
 function teardown() {
@@ -215,7 +280,6 @@ function render() {
 // Batch-fetch Oracle conviction for all watched mints and paint badges on cards.
 async function enrichWithOracleConviction(mints) {
 	if (!mints.length) return;
-	// Chunk into ≤20 per request (API limit).
 	const chunks = [];
 	for (let i = 0; i < mints.length; i += 20) chunks.push(mints.slice(i, i + 20));
 	let results = {};
@@ -232,11 +296,14 @@ async function enrichWithOracleConviction(mints) {
 		}
 	} catch { return; }
 
-	// Paint each card whose article has a data-mint attribute.
+	const lastTiers = readLastTiers();
+	const nextTiers = { ...lastTiers };
+
 	for (const article of feedEl.querySelectorAll('article[data-mint]')) {
 		const mint = article.dataset.mint;
 		const data = results[mint];
 		if (!data || data.score == null) continue;
+
 		let badge = article.querySelector('.wl-oracle-badge');
 		if (!badge) {
 			badge = document.createElement('div');
@@ -248,7 +315,26 @@ async function enrichWithOracleConviction(mints) {
 			<span class="wl-ob-score" style="color:${color}">${data.score}</span>
 			<span class="wl-ob-tier" style="color:${color}">${data.tier || ''}</span>
 		</a>`;
+
+		// Tier upgrade detection — only alert after first load (lastTiers exists)
+		const oldTier = lastTiers[mint];
+		const newTier = data.tier;
+		if (oldTier && newTier && oldTier !== newTier) {
+			maybeFire(mint, data.symbol || '', newTier, oldTier);
+		}
+		if (newTier) nextTiers[mint] = newTier;
 	}
+
+	saveLastTiers(nextTiers);
+}
+
+function scheduleRefresh() {
+	clearTimeout(refreshTimer);
+	refreshTimer = setTimeout(async () => {
+		const list = readList();
+		if (list.length) await enrichWithOracleConviction(list);
+		scheduleRefresh();
+	}, REFRESH_MS);
 }
 
 // ── ambient field (shared visual language) ──────────────────────────────────
@@ -343,10 +429,23 @@ clearBtn.addEventListener('click', () => {
 	render();
 });
 
+if (alertsBtn) {
+	updateAlertsBtn();
+	alertsBtn.addEventListener('click', () => toggleAlerts());
+}
+
 // Keep in sync if the user watches/unwatches a coin in another tab.
 window.addEventListener('storage', (e) => {
 	if (e.key === WATCH_KEY) render();
+	if (e.key === ALERTS_KEY) updateAlertsBtn();
+});
+
+// Pause refresh when tab is hidden, resume on visibility.
+document.addEventListener('visibilitychange', () => {
+	if (document.hidden) clearTimeout(refreshTimer);
+	else scheduleRefresh();
 });
 
 startParticleField();
 render();
+scheduleRefresh();
