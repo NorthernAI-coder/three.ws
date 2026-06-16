@@ -239,6 +239,23 @@ function boot() {
 	$('#afMoreBtn')?.addEventListener('click', () => {
 		$('#afMoreBtn').disabled = true; loadActivity(false);
 	});
+	// follow agent panel — delegated on the leaderboard container
+	document.addEventListener('click', (e) => {
+		const followBtn = e.target.closest('.lrow-follow');
+		if (!followBtn) return;
+		const entry = followBtn.closest('.al-entry');
+		if (!entry) return;
+		const panel = entry.querySelector('.follow-panel');
+		if (!panel) return;
+		const open = followBtn.getAttribute('aria-expanded') === 'true';
+		followBtn.setAttribute('aria-expanded', String(!open));
+		panel.hidden = open;
+		if (!open && !panel.dataset.loaded) {
+			panel.dataset.loaded = '1';
+			initFollowPanel(entry.dataset.agentId, panel);
+		}
+	});
+
 	// drawer close
 	$$('#drawer [data-close]').forEach((el) => el.addEventListener('click', closeDrawer));
 	document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeDrawer(); });
@@ -546,6 +563,103 @@ async function loadAgentLeaderboard() {
 	wrap.innerHTML = `
 		<div class="alhead"><span>#</span><span>Agent</span><span class="colhide">Actions</span><span>Win rate</span><span>PnL ◎</span></div>
 		${agents.map((a, i) => agentLeadRow(a, i)).join('')}`;
+	bindFollowHandlers(wrap);
+}
+
+function bindFollowHandlers(wrap) {
+	wrap.addEventListener('click', (e) => {
+		const btn = e.target.closest('.lrow-follow');
+		if (!btn) return;
+		e.preventDefault();
+		const entry = btn.closest('.al-entry');
+		const panel = entry?.querySelector('.follow-panel');
+		if (!panel) return;
+		const opening = panel.hidden;
+		panel.hidden = !opening;
+		btn.setAttribute('aria-expanded', String(opening));
+		if (opening) panel.querySelector('.fp-chat')?.focus();
+	});
+
+	wrap.addEventListener('input', (e) => {
+		const slider = e.target.closest('.fp-score');
+		if (!slider) return;
+		const label = slider.closest('.fp-score-field')?.querySelector('.fp-score-val');
+		if (label) label.textContent = slider.value;
+	});
+
+	wrap.addEventListener('submit', async (e) => {
+		const form = e.target.closest('.follow-form');
+		if (!form) return;
+		e.preventDefault();
+		const entry = form.closest('.al-entry');
+		const agentId = entry?.dataset.agentId;
+		const chatId = form.querySelector('.fp-chat')?.value.trim();
+		const minScore = Number(form.querySelector('.fp-score')?.value) || 54;
+		const msg = form.querySelector('.fp-msg');
+		if (!chatId) { showFpMsg(msg, 'Enter your Telegram chat ID or @handle', 'err'); return; }
+		localStorage.setItem('oracle_follow_chat', chatId);
+		showFpMsg(msg, 'Subscribing…', '');
+		const { ok, data } = await api('/api/oracle/follow', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ agent_id: agentId, chat_id: chatId, min_score: minScore }),
+		});
+		if (ok) {
+			showFpMsg(msg, data?.action === 'updated' ? 'Updated ✓' : 'Subscribed ✓', 'ok');
+		} else {
+			showFpMsg(msg, data?.message || 'Failed', 'err');
+		}
+	});
+
+	wrap.addEventListener('click', async (e) => {
+		const btn = e.target.closest('.fp-unsub');
+		if (!btn) return;
+		const form = btn.closest('.follow-form');
+		const entry = form?.closest('.al-entry');
+		const agentId = entry?.dataset.agentId;
+		const chatId = form?.querySelector('.fp-chat')?.value.trim();
+		const msg = form?.querySelector('.fp-msg');
+		if (!chatId) { showFpMsg(msg, 'Enter your chat ID first', 'err'); return; }
+		showFpMsg(msg, 'Unsubscribing…', '');
+		const { ok } = await api('/api/oracle/follow', {
+			method: 'DELETE',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ agent_id: agentId, chat_id: chatId }),
+		});
+		showFpMsg(msg, ok ? 'Unsubscribed' : 'Failed', ok ? 'ok' : 'err');
+	});
+}
+
+function showFpMsg(el, text, cls) {
+	if (!el) return;
+	el.textContent = text;
+	el.className = `fp-msg${cls ? ` fp-msg-${cls}` : ''}`;
+}
+
+async function initFollowPanel(agentId, panel) {
+	if (!agentId) return;
+	const chatInput = panel.querySelector('.fp-chat');
+	const savedChat = localStorage.getItem('oracle_follow_chat') || '';
+	if (chatInput && savedChat) {
+		chatInput.value = savedChat;
+		// Also cache for next open
+		chatInput.addEventListener('change', () => {
+			if (chatInput.value.trim()) localStorage.setItem('oracle_follow_chat', chatInput.value.trim());
+		});
+	}
+	if (!savedChat) return;
+	const { ok, data } = await api(
+		`/api/oracle/follow?agent_id=${encodeURIComponent(agentId)}&chat_id=${encodeURIComponent(savedChat)}&network=${NETWORK}`
+	);
+	if (!ok || !data?.following) return;
+	const msg = panel.querySelector('.fp-msg');
+	if (msg) showFpMsg(msg, 'Already following', 'ok');
+	if (data.min_score != null) {
+		const slider = panel.querySelector('.fp-score');
+		const val    = panel.querySelector('.fp-score-val');
+		if (slider) slider.value = String(data.min_score);
+		if (val)    val.textContent = String(data.min_score);
+	}
 }
 
 function agentLeadRow(a, i) {
@@ -558,20 +672,40 @@ function agentLeadRow(a, i) {
 		? `<img class="ag-av" src="${esc(a.image_url)}" alt="" loading="lazy" />`
 		: `<div class="ag-av ag-av-ph">${esc((a.name || '?')[0].toUpperCase())}</div>`;
 	const subLine = `${a.wins}W / ${a.losses}L${a.roi_pct != null ? ` · ROI ${a.roi_pct >= 0 ? '+' : ''}${a.roi_pct}%` : ''}`;
-	return `<div class="lrow-wrap" data-agent-id="${esc(a.agent_id)}">
-		<a class="alrow lrow" href="/agents/${encodeURIComponent(a.agent_id)}" target="_blank" rel="noopener">
-			<span class="lrank ${i < 3 ? 'top' : ''}">${i + 1}</span>
-			<span class="lw">${img}
-				<span>
-					<div class="ag-name">${esc(a.name || shortAddr(a.agent_id))}</div>
-					<div class="ag-wl colhide">${esc(subLine)}</div>
+	return `<div class="al-entry" data-agent-id="${esc(a.agent_id)}">
+		<div class="lrow-wrap">
+			<a class="alrow lrow" href="/agents/${encodeURIComponent(a.agent_id)}" target="_blank" rel="noopener">
+				<span class="lrank ${i < 3 ? 'top' : ''}">${i + 1}</span>
+				<span class="lw">${img}
+					<span>
+						<div class="ag-name">${esc(a.name || shortAddr(a.agent_id))}</div>
+						<div class="ag-wl colhide">${esc(subLine)}</div>
+					</span>
 				</span>
-			</span>
-			<span class="lstat colhide">${a.total}</span>
-			<span class="lstat"><b class="${wrClass}">${winRate}</b></span>
-			<span class="lstat"><b class="${pnlClass}">${pnlStr}</b></span>
-		</a>
-		<a class="lrow-copy" href="/trader/${encodeURIComponent(a.agent_id)}#copy" title="Subscribe to copy this agent" rel="noopener">→</a>
+				<span class="lstat colhide">${a.total}</span>
+				<span class="lstat"><b class="${wrClass}">${winRate}</b></span>
+				<span class="lstat"><b class="${pnlClass}">${pnlStr}</b></span>
+			</a>
+			<a class="lrow-copy" href="/trader/${encodeURIComponent(a.agent_id)}#copy" title="Copy this agent" rel="noopener">→</a>
+			<button class="lrow-follow" type="button" title="Follow agent signals on Telegram" aria-label="Follow agent on Telegram">+</button>
+		</div>
+		<div class="follow-panel" hidden>
+			<form class="follow-form" autocomplete="off">
+				<div class="fp-field">
+					<label class="fp-label">Telegram chat ID or @handle</label>
+					<input type="text" class="fp-chat" placeholder="@handle or -100…" spellcheck="false" />
+				</div>
+				<div class="fp-field fp-score-field">
+					<label class="fp-label">Min conviction score: <b class="fp-score-val">54</b></label>
+					<input type="range" class="fp-score" min="36" max="100" value="54" step="1" />
+				</div>
+				<div class="fp-actions">
+					<button type="submit" class="fp-sub">Subscribe</button>
+					<button type="button" class="fp-unsub">Unsubscribe</button>
+					<span class="fp-msg"></span>
+				</div>
+			</form>
+		</div>
 	</div>`;
 }
 
