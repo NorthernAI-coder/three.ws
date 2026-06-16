@@ -117,25 +117,50 @@ function providerError(status, message, retryAfter) {
 
 // Pull the GLB out of a successful TRELLIS response. The documented and common
 // shape is JSON `{ artifacts: [{ base64 }] }`, but NVCF can also return the raw
-// GLB bytes directly (model/gltf-binary or octet-stream) — accept both. When
-// neither matches, return a compact diagnostic (content-type + top-level keys or
-// a body snippet) instead of a blind failure, so the real upstream shape shows
-// up in the logs and the gap can be closed precisely rather than guessed at.
+// GLB bytes directly (model/gltf-binary or octet-stream), or a URL-based artifact
+// `{ artifacts: [{ url: "https://..." }] }` (observed when NVIDIA serves the GLB
+// from an asset CDN instead of inlining it). Accept all three. When none match,
+// return a compact diagnostic that shows both the top-level keys AND the
+// artifact[0] keys so the real upstream shape shows up in the logs precisely.
 async function extractGlbBase64(res) {
 	const ct = (res.headers.get('content-type') || '').toLowerCase();
 	if (ct.includes('json')) {
 		const data = await res.json().catch(() => null);
-		const b64 =
-			data?.artifacts?.[0]?.base64 ||
-			data?.artifacts?.[0]?.data ||
+		const artifact0 = data?.artifacts?.[0];
+
+		// Inline base64 — the documented shape; also accept output[] variants.
+		const inlineData = artifact0?.base64 ?? artifact0?.data ?? null;
+		const inlineB64 =
+			(typeof inlineData === 'string' && !inlineData.startsWith('http') ? inlineData : null) ||
 			(typeof data?.output === 'string' ? data.output : null) ||
 			data?.output?.[0]?.base64 ||
 			null;
-		if (b64) return { base64: b64 };
-		return {
-			base64: null,
-			diag: `json keys=${data && typeof data === 'object' ? JSON.stringify(Object.keys(data)) : 'unparseable'}`,
-		};
+		if (inlineB64) return { base64: inlineB64 };
+
+		// URL-based artifact — NVIDIA may serve the GLB from an asset CDN.
+		const artifactUrl =
+			(typeof artifact0?.url === 'string' ? artifact0.url : null) ||
+			(typeof inlineData === 'string' && inlineData.startsWith('http') ? inlineData : null) ||
+			null;
+		if (artifactUrl) {
+			try {
+				const artRes = await fetch(artifactUrl, { signal: AbortSignal.timeout(POLL_TIMEOUT_MS) });
+				if (!artRes.ok) {
+					return { base64: null, diag: `artifact url fetch ${artRes.status}: ${artifactUrl.slice(0, 80)}` };
+				}
+				const buf = Buffer.from(await artRes.arrayBuffer());
+				if (buf.length > 0) return { base64: buf.toString('base64') };
+				return { base64: null, diag: `artifact url returned empty body: ${artifactUrl.slice(0, 80)}` };
+			} catch (err) {
+				return { base64: null, diag: `artifact url fetch error: ${err?.message}` };
+			}
+		}
+
+		// Build a diagnostic that shows both levels so the actual schema is visible
+		// in the logs — top-level keys and artifact[0] keys if present.
+		const topKeys = data && typeof data === 'object' ? JSON.stringify(Object.keys(data)) : 'unparseable';
+		const artKeys = artifact0 && typeof artifact0 === 'object' ? ` artifact[0]=${JSON.stringify(Object.keys(artifact0))}` : '';
+		return { base64: null, diag: `json keys=${topKeys}${artKeys}` };
 	}
 	if (ct.includes('gltf') || ct.includes('octet-stream') || ct.startsWith('model/') || ct.includes('binary')) {
 		const buf = Buffer.from(await res.arrayBuffer());

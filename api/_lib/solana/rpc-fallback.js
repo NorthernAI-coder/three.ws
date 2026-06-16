@@ -103,9 +103,13 @@ export class RpcFallback {
 			// after a quota 429) or this instance's local cooldown — don't re-probe a
 			// known-dead lane on every call. Count it as tried so the loop still
 			// terminates when everything is cooling.
+			// Use _advanceSilently() here (no log) — the endpoint was already known-dead
+			// from a prior discovery; emitting a "rotated" line for every RPC call that
+			// skips a cooling provider flooded the logs with ~20+ identical lines per
+			// pump-agent-stats cron tick, all reporting the same known-dead Helius URL.
 			if (isEndpointCooling(this.currentUrl) || this.cooldownUntil[this.currentIndex] > Date.now()) {
 				tried.add(this.currentIndex);
-				this._rotate();
+				this._advanceSilently();
 				continue;
 			}
 			tried.add(this.currentIndex);
@@ -132,6 +136,17 @@ export class RpcFallback {
 		throw new Error('All RPC endpoints exhausted');
 	}
 
+	// Advance to the next endpoint without setting a local cooldown and without
+	// logging. Used when the endpoint is already known-cooling from the process-wide
+	// map — no new failure was discovered, so no log is warranted.
+	_advanceSilently() {
+		this.connections[this.currentIndex] = null;
+		this.currentIndex = (this.currentIndex + 1) % this.urls.length;
+		this.failCounts[this.currentIndex] = 0;
+	}
+
+	// Rotate due to a newly discovered consecutive-failure threshold. Sets a local
+	// cooldown and logs once so the rotation is visible in the log trail.
 	_rotate() {
 		this.cooldownUntil[this.currentIndex] = Date.now() + COOLDOWN_MS;
 		this.connections[this.currentIndex] = null;
