@@ -3,6 +3,13 @@
 	"entries": [
 		{
 			"date": "2026-06-16",
+			"title": "Oracle: Activity feed and Agent leaderboard",
+			"summary": "Two new tabs on the Oracle page. Activity shows a live trading floor — every Oracle-armed agent action (buy/outcome/PnL) in real time, filterable by mode, tier, and outcome. Agents ranks every conviction agent by their real track record: win rate, realized PnL, and ROI across all graded calls. Subscribe to copy the top performers directly from the leaderboard.",
+			"tags": ["feature"],
+			"link": "/oracle"
+		},
+		{
+			"date": "2026-06-16",
 			"title": "Sniper: Oracle conviction gate",
 			"summary": "Agent sniper strategies now support a Min Oracle conviction setting (0–100). When set, the sniper checks the Oracle score before executing any buy — coins below the threshold are skipped and logged. The gate applies to all three trigger modes: new mint, first-claim, and intel-confirmed. Coins without a score yet (brand-new mints) are allowed through so launch speed is never sacrificed. Configure it in the sniper strategy form on the dashboard.",
 			"tags": ["feature"],

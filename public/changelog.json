@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-16T06:20:19.677Z",
+	"generated_at": "2026-06-16T06:26:02.424Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -269,6 +269,16 @@
 			"link": "/oracle",
 			"tags": [
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "update",
+			"title": "Oracle: Activity feed and Agent leaderboard",
+			"summary": "Two new tabs on the Oracle page. Activity shows a live trading floor — every Oracle-armed agent action (buy/outcome/PnL) in real time, filterable by mode, tier, and outcome. Agents ranks every conviction agent by their real track record: win rate, realized PnL, and ROI across all graded calls. Subscribe to copy the top performers directly from the leaderboard.",
+			"link": "/oracle",
+			"tags": [
+				"feature"
 			]
 		},
 		{
