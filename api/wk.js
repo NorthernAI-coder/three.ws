@@ -674,6 +674,14 @@ async function handleX402Discovery(req, res) {
 			serviceName: 'three.ws Avatar Shop',
 			tags: ['3d', 'avatar', 'cosmetic', 'shop', 'wearable'],
 		}),
+		animationDownload: withService({
+			serviceName: 'three.ws Animation Bazaar',
+			tags: ['3d', 'animation', 'glb', 'motion', 'avatar'],
+		}),
+		clubCover: withService({
+			serviceName: 'three.ws Pole Club Cover',
+			tags: ['3d', 'avatar', 'club', 'access', 'cover'],
+		}),
 		forge: withService({
 			serviceName: 'three.ws Forge — text/image → 3D',
 			tags: ['3d', 'generation', 'text-to-3d', 'image-to-3d', 'glb', 'mesh'],
@@ -1556,6 +1564,63 @@ async function handleX402Discovery(req, res) {
 									},
 								},
 							},
+						}),
+					};
+				})(),
+				(() => {
+					// Animation price is per-animation (from DB); advertise a
+					// representative $0.01 so facilitators can index the route.
+					const url = `${origin}/api/x402/animation-download`;
+					const accepts = acceptsForPrice('10000', url);
+					return {
+						path: '/api/x402/animation-download',
+						url,
+						method: 'GET',
+						description:
+							'three.ws Animation Bazaar — pay once in USDC to unlock a 3D avatar animation (GLB). Each animation has its own price; the response carries a short-lived presigned URL the client fetches directly. Wallets that have already paid can re-download for free by signing in with SIWX.',
+						mimeType: 'application/json',
+						serviceName: routeMeta.animationDownload.serviceName,
+						tags: routeMeta.animationDownload.tags,
+						iconUrl: routeMeta.animationDownload.iconUrl,
+						accepts,
+						extensions: extensionsForAccepts(accepts, {
+							method: 'GET',
+							discoverable: true,
+							input: { id: 'pole-dancer-rumba' },
+							inputSchema: {
+								type: 'object',
+								required: ['id'],
+								properties: {
+									id: {
+										type: 'string',
+										minLength: 1,
+										maxLength: 128,
+										description: 'Animation slug or UUID from the animations catalog.',
+									},
+								},
+							},
+						}),
+					};
+				})(),
+				(() => {
+					const url = `${origin}/api/x402/club-cover`;
+					const accepts = acceptsForPrice('10000', url);
+					return {
+						path: '/api/x402/club-cover',
+						url,
+						method: 'GET',
+						description:
+							'three.ws Pole Club Cover Charge — pay $0.01 USDC to access the three.ws Pole Club. Once the payment settles the caller receives an entry token granting access to the live club scene for 24 hours.',
+						mimeType: 'application/json',
+						serviceName: routeMeta.clubCover.serviceName,
+						tags: routeMeta.clubCover.tags,
+						iconUrl: routeMeta.clubCover.iconUrl,
+						accepts,
+						extensions: extensionsForAccepts(accepts, {
+							method: 'GET',
+							discoverable: true,
+							input: {},
+							inputSchema: { type: 'object', properties: {} },
 						}),
 					};
 				})(),
