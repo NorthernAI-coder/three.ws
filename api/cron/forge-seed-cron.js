@@ -25,11 +25,12 @@ import { SEED_PROMPTS, OG_USERNAMES } from '../_lib/seed-prompts.js';
 import { randomUUID } from 'node:crypto';
 
 const ORIGIN = () => env.APP_ORIGIN || 'https://three.ws';
-// Must exceed the forge endpoint's worst-case synchronous wait on the free
-// NVIDIA lane (SUBMIT_TIMEOUT_MS = 45 s in api/_providers/nvidia.js) so the cron
-// never aborts a generation that is legitimately still completing; still inside
-// the 60 s function budget.
-const FETCH_TIMEOUT_MS = 50_000;
+// Must be large enough for the image-intermediate path (textToImage → NIM FLUX,
+// NIM_TIMEOUT_MS = 60 s in _mcp3d/text-to-image.js) yet leave the cron a small
+// window to clean up and return. When the timeout fires, fetchJson returns
+// { timedOut: true } — startNextJob treats that as a soft failure and rolls back
+// the pending user so the next tick can retry cleanly.
+const FETCH_TIMEOUT_MS = 55_000;
 const MAX_CONCURRENT_PENDING = 3;
 const MIN_JOB_AGE_SECONDS = 20;
 
@@ -49,11 +50,22 @@ function requireCron(req, res) {
 }
 
 async function fetchJson(url, options = {}) {
-	const res = await fetch(url, {
-		...options,
-		headers: { 'user-agent': 'threews-forge-seed/1.0', ...options.headers },
-		signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-	});
+	let res;
+	try {
+		res = await fetch(url, {
+			...options,
+			headers: { 'user-agent': 'threews-forge-seed/1.0', ...options.headers },
+			signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+		});
+	} catch (err) {
+		// AbortSignal.timeout fires a DOMException[TimeoutError]; treat it as a soft
+		// failure so the cron can clean up and return 200 instead of propagating a
+		// 500. Other network errors (DNS, ECONNREFUSED) are real failures — rethrow.
+		if (err?.name === 'TimeoutError' || err?.name === 'AbortError') {
+			return { status: 0, body: null, timedOut: true };
+		}
+		throw err;
+	}
 	let body = null;
 	try { body = await res.json(); } catch { /* non-JSON — status is enough */ }
 	return { status: res.status, body };
@@ -206,6 +218,11 @@ async function startNextJob(origin) {
 		},
 		body: JSON.stringify({ prompt: chosen.prompt, tier: 'draft', path: 'image' }),
 	});
+
+	if (submit.timedOut) {
+		await sql`delete from users where id = ${user.id}`.catch(() => {});
+		return { ok: false, reason: 'forge submit timed out — will retry next tick' };
+	}
 
 	if (submit.status !== 200) {
 		await sql`delete from users where id = ${user.id}`.catch(() => {});

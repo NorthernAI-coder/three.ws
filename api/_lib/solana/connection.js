@@ -142,13 +142,16 @@ export function makeRotatingFetch(endpoints) {
 					// Read the body only on the failure path (we never return it) so a
 					// quota signal can pick the long cooldown.
 					const bodyText = resp.status === 429 ? await resp.clone().text().catch(() => '') : '';
+					// Check BEFORE marking: if parallel rotatingFetch calls race onto
+					// the same endpoint simultaneously, only the first to resolve logs —
+					// all subsequent callers see alreadyCooling=true and skip the line.
+					const alreadyCooling = isEndpointCooling(url);
 					const ms = markEndpointCooldown(url, resp.status, bodyText);
-					// Logged only on the transition into cooldown — cooling endpoints
-					// are skipped above without a line, so this fires once per window
-					// per provider instead of on every RPC call.
-					console.warn(
-						`[solana-rpc] ${maskUrl(url)} ${resp.status} — cooling ${Math.round(ms / 60_000)}m, failing over`,
-					);
+					if (!alreadyCooling) {
+						console.warn(
+							`[solana-rpc] ${maskUrl(url)} ${resp.status} — cooling ${Math.round(ms / 60_000)}m, failing over`,
+						);
+					}
 					lastErr = new Error(`solana rpc ${resp.status} @ ${maskUrl(url)}`);
 					continue;
 				}

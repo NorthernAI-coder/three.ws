@@ -120,13 +120,20 @@ export class RpcFallback {
 			} catch (err) {
 				if (isRetryable(err)) {
 					const status = statusFromErr(err);
+					// Check BEFORE marking so parallel withFallback() calls that race
+					// onto the same endpoint only emit the log once: the first caller
+					// sees alreadyCooling=false, logs, then marks; every subsequent
+					// concurrent caller that resolves afterward sees alreadyCooling=true.
+					const alreadyCooling = isEndpointCooling(this.currentUrl);
 					const ms = markEndpointCooldown(this.currentUrl, status, String((err && err.message) || err));
-					console.warn(
-						'[rpc-fallback] %s %s — cooling %dm, rotating',
-						maskUrl(this.currentUrl),
-						status,
-						Math.round(ms / 60_000),
-					);
+					if (!alreadyCooling) {
+						console.warn(
+							'[rpc-fallback] %s %s — cooling %dm, rotating',
+							maskUrl(this.currentUrl),
+							status,
+							Math.round(ms / 60_000),
+						);
+					}
 					this.reportFailure();
 				} else {
 					throw err;

@@ -128,6 +128,13 @@ async function extractGlbBase64(res) {
 		const data = await res.json().catch(() => null);
 		const artifact0 = data?.artifacts?.[0];
 
+		// String artifact — NVIDIA sometimes returns the base64 string directly in
+		// the artifacts array rather than wrapped in an object { base64 }. Accept it
+		// unless it looks like a URL (those go through the artifactUrl path below).
+		if (typeof artifact0 === 'string' && artifact0.length > 0 && !artifact0.startsWith('http')) {
+			return { base64: artifact0 };
+		}
+
 		// Inline base64 — the documented shape; also accept output[] variants.
 		const inlineData = artifact0?.base64 ?? artifact0?.data ?? null;
 		const inlineB64 =
@@ -156,11 +163,21 @@ async function extractGlbBase64(res) {
 			}
 		}
 
-		// Build a diagnostic that shows both levels so the actual schema is visible
-		// in the logs — top-level keys and artifact[0] keys if present.
+		// Build a precise diagnostic showing top-level keys and artifact[0] shape so
+		// the actual upstream response is visible in the logs without guessing.
 		const topKeys = data && typeof data === 'object' ? JSON.stringify(Object.keys(data)) : 'unparseable';
-		const artKeys = artifact0 && typeof artifact0 === 'object' ? ` artifact[0]=${JSON.stringify(Object.keys(artifact0))}` : '';
-		return { base64: null, diag: `json keys=${topKeys}${artKeys}` };
+		const arts = data?.artifacts;
+		let artDesc = '';
+		if (Array.isArray(arts)) {
+			if (arts.length === 0) {
+				artDesc = ' artifacts=[]';
+			} else if (artifact0 && typeof artifact0 === 'object') {
+				artDesc = ` artifact[0]=${JSON.stringify(Object.keys(artifact0))}`;
+			} else {
+				artDesc = ` artifact[0]=${typeof artifact0}`;
+			}
+		}
+		return { base64: null, diag: `json keys=${topKeys}${artDesc}` };
 	}
 	if (ct.includes('gltf') || ct.includes('octet-stream') || ct.startsWith('model/') || ct.includes('binary')) {
 		const buf = Buffer.from(await res.arrayBuffer());
