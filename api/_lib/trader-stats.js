@@ -27,6 +27,7 @@
 
 import { sql } from './db.js';
 import { solUsdPrice } from './avatar-wallet.js';
+import { actionsSummary } from './oracle/store.js';
 
 const LAMPORTS_PER_SOL = 1e9;
 
@@ -386,7 +387,7 @@ export function shapeOpen(p, network) {
  * + open positions. Returns null if the agent has no positions on this network.
  */
 export async function getTraderStats({ agentId, network, window = 'all', now = Date.now() }) {
-	const [idRows, positions, solUsd, copiers] = await Promise.all([
+	const [idRows, positions, solUsd, copiers, oracleSummary] = await Promise.all([
 		sql`
 			select id, name, description, avatar_url, profile_image_url, is_public
 			from agent_identities where id = ${agentId} limit 1
@@ -394,6 +395,7 @@ export async function getTraderStats({ agentId, network, window = 'all', now = D
 		fetchTraderPositions({ agentId, network, window, now }),
 		cachedSolUsd(),
 		copierCountForAgent(agentId, network),
+		actionsSummary(agentId, network).catch(() => null),
 	]);
 	const identity = idRows[0];
 	if (!identity) return null;
@@ -421,6 +423,7 @@ export async function getTraderStats({ agentId, network, window = 'all', now = D
 		metrics,
 		closed,
 		open,
+		oracle: oracleSummary && oracleSummary.total > 0 ? oracleSummary : null,
 	};
 }
 

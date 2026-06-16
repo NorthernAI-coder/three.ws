@@ -227,6 +227,51 @@
 .tp-error h1, .tp-empty h1 { font-family: var(--font-display); font-size: var(--text-xl); margin-bottom: var(--space-2xs); }
 .tp-error p, .tp-empty p { color: var(--ink-dim); max-width: 44ch; margin: 0 auto var(--space-md); }
 
+/* Oracle conviction block */
+.tp-oracle-block {
+	margin: 20px 0;
+	border: 1px solid var(--stroke);
+	border-radius: var(--radius-lg);
+	overflow: hidden;
+	background: color-mix(in srgb, var(--accent, #7c83ff) 4%, var(--bg-1));
+}
+.tp-oracle-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 12px 16px;
+	border-bottom: 1px solid var(--stroke);
+}
+.tp-oracle-label {
+	font: 700 11px/1 var(--mono);
+	text-transform: uppercase;
+	letter-spacing: .08em;
+	color: var(--accent, #7c83ff);
+}
+.tp-oracle-link { font-size: 12px; color: var(--ink-dim); text-decoration: none; }
+.tp-oracle-link:hover { color: var(--ink); }
+.tp-oracle-kpis {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+	gap: 0;
+}
+.tp-oracle-kpi {
+	padding: 12px 14px;
+	border-right: 1px solid var(--stroke);
+	border-bottom: 1px solid var(--stroke);
+}
+.tp-oracle-kpi:nth-child(n + 999) { border-right: none; }
+.tp-oracle-kpi span {
+	font: 600 10px/1 var(--mono);
+	text-transform: uppercase;
+	letter-spacing: .05em;
+	color: var(--ink-faint);
+	display: block;
+	margin-bottom: 6px;
+}
+.tp-oracle-kpi b { font: 700 15px/1 var(--mono); }
+.tp-oracle-note { font-size: 11.5px; color: var(--ink-faint); margin: 0; padding: 10px 16px; }
+
 /* Toast for copy-link */
 .tp-toast {
 	position: fixed;
