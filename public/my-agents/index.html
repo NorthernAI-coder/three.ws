@@ -1,94 +1,212 @@
 <!doctype html>
 <html lang="en">
 	<head>
+		<script>/* three.ws theme boot — no-flash; runtime in /theme-switcher.js */(function(){try{var m=localStorage.getItem('twx_theme');var l=m==='auto'?(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches):m==='light';document.documentElement.setAttribute('data-theme',l?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();</script>
 		<meta charset="utf-8" />
-		<meta name="viewport" content="width=device-width, initial-scale=1" />
-		<meta name="robots" content="noindex" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 		<title>My Agents · three.ws</title>
-		<meta name="description" content="All your agents and avatars on three.ws — native agents plus any on-chain ERC-8004 agents linked to your wallets." />
-		<link rel="canonical" href="https://three.ws/my-agents" />
-		<link rel="icon" href="/favicon.ico" />
-		<link rel="stylesheet" href="/my-agents/my-agents.css" />
-		<script
-			type="module"
-			src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"
-			integrity="sha384-sr9b4Ux0WhAUGclJ0ym0FSY2zSOMmNSn0bP/SA0e6bNCrpn/5W3QL8mm+LdlQMKw"
-			crossorigin="anonymous"
-		></script>
+		<meta name="description" content="Manage your 3D AI agents on three.ws — edit, chat, check on-chain registration, and create new ones." />
+		<meta name="robots" content="noindex" />
+		<meta name="theme-color" content="#0a0a0c" />
+		<link rel="icon" href="/favicon.ico" sizes="any" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+		<link rel="manifest" href="/site.webmanifest" />
+		<link rel="stylesheet" href="/fonts/fonts.css" />
+		<link rel="stylesheet" href="/nav.css" />
+		<link rel="stylesheet" href="/footer.css" />
+		<style>
+		:root {
+			--bg: #05060c; --panel: rgba(13,15,23,0.72); --panel-solid: #0c0e16; --line: rgba(255,255,255,0.09);
+			--ink: #eaeefa; --muted: #8a92a8; --faint: rgba(255,255,255,0.45);
+			--cyan: #5fe3ff; --violet: #a07bff; --gold: #fbbf24; --up: #34d399; --down: #f87171;
+			--r: 14px; --mono: ui-monospace, "JetBrains Mono", SFMono-Regular, Menlo, monospace;
+		}
+		* { box-sizing: border-box; }
+		html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--ink);
+			font: 15px/1.55 Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+			-webkit-font-smoothing: antialiased; }
+		body { background: radial-gradient(52% 44% at 88% -4%, color-mix(in srgb, var(--violet) 14%, transparent), transparent 68%),
+			radial-gradient(44% 38% at 2% -2%, color-mix(in srgb, var(--cyan) 11%, transparent), transparent 62%), var(--bg); }
+		a { color: inherit; text-decoration: none; }
+		button { font: inherit; color: inherit; cursor: pointer; }
+		.wrap { max-width: 960px; margin: 0 auto; padding: 0 18px 90px; }
+
+		/* hero */
+		.hero { padding: 40px 0 24px; display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+		.hero-text h1 { font-size: clamp(26px, 4vw, 38px); font-weight: 800; letter-spacing: -0.024em; margin: 0 0 8px; }
+		.hero-text p { color: var(--muted); font-size: 15px; margin: 0; }
+		.btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 18px; border-radius: 8px;
+			font-weight: 600; font-size: 14px; border: 1px solid rgba(255,255,255,0.14); transition: all .16s; cursor: pointer; text-decoration: none; }
+		.btn-primary { background: linear-gradient(135deg, var(--cyan), var(--violet)); border-color: transparent; color: #050610; }
+		.btn-primary:hover { opacity: .88; }
+
+		/* auth gate */
+		.auth-gate { text-align: center; padding: 80px 24px; }
+		.auth-gate h2 { font-size: 22px; margin: 0 0 12px; }
+		.auth-gate p { color: var(--muted); margin: 0 0 24px; }
+
+		/* agent list */
+		.ag-list { display: flex; flex-direction: column; gap: 12px; }
+		.ag-row { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r);
+			padding: 16px 18px; display: grid; grid-template-columns: 52px 1fr auto; gap: 14px; align-items: center;
+			transition: border-color .18s; }
+		.ag-row:hover { border-color: color-mix(in srgb, var(--cyan) 30%, var(--line)); }
+		.ag-avatar { width: 52px; height: 52px; border-radius: 11px; object-fit: cover;
+			background: rgba(255,255,255,0.07); border: 1px solid var(--line); }
+		.ag-avatar-fallback { width: 52px; height: 52px; border-radius: 11px; background: linear-gradient(135deg, var(--violet), var(--cyan));
+			display: flex; align-items: center; justify-content: center; font: 800 22px/1 var(--mono); color: #050610; }
+		.ag-info { min-width: 0; }
+		.ag-name { font-weight: 700; font-size: 15.5px; margin-bottom: 2px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+		.ag-badge { font: 600 10.5px/1 var(--mono); padding: 2px 7px; border-radius: 999px; }
+		.ag-badge-onchain { color: var(--up); background: color-mix(in srgb, var(--up) 12%, transparent); border: 1px solid color-mix(in srgb, var(--up) 28%, transparent); }
+		.ag-badge-reg { color: var(--muted); background: rgba(255,255,255,0.06); border: 1px solid var(--line); }
+		.ag-desc { font-size: 13px; color: var(--muted); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+		.ag-skills { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 5px; }
+		.ag-skill { font-size: 11px; padding: 2px 7px; border-radius: 999px; background: rgba(255,255,255,0.06); border: 1px solid var(--line); color: var(--muted); }
+		.ag-actions { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+		.ag-action { font-size: 13px; font-weight: 600; color: var(--ink); padding: 6px 12px;
+			border: 1px solid var(--line); border-radius: 7px; background: rgba(255,255,255,0.05);
+			transition: all .14s; white-space: nowrap; text-decoration: none; }
+		.ag-action:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2); }
+		.ag-action.primary { color: var(--cyan); border-color: color-mix(in srgb, var(--cyan) 30%, var(--line)); }
+		.ag-action.primary:hover { background: color-mix(in srgb, var(--cyan) 10%, transparent); }
+
+		/* skeleton */
+		.ag-skel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 16px 18px; display: flex; gap: 14px; }
+		.sk { background: rgba(255,255,255,0.06); border-radius: 6px; animation: sk 1.4s ease-in-out infinite; }
+		@keyframes sk { 0%,100%{opacity:.5} 50%{opacity:.9} }
+
+		/* state */
+		.state { text-align: center; padding: 60px 20px; color: var(--muted); }
+		.state b { display: block; font-size: 17px; color: var(--ink); margin-bottom: 8px; }
+
+		@media (max-width: 600px) {
+			.ag-row { grid-template-columns: 42px 1fr; }
+			.ag-actions { grid-column: 1 / -1; }
+			.ag-avatar, .ag-avatar-fallback { width: 42px; height: 42px; font-size: 17px; border-radius: 9px; }
+		}
+		</style>
 	</head>
 	<body>
-		<header class="my-agents-header">
-			<div class="my-agents-header__brand"><a href="/"><img src="/three.svg" alt="" class="header-logo" aria-hidden="true" />three.ws</a></div>
-			<nav class="my-agents-header__nav" aria-label="Page navigation">
-				<a href="/app">Viewer</a>
-				<a href="/create">Create</a>
-				<a href="/discover">Discover</a>
-				<a href="/widgets">Widgets</a>
-				<a href="/studio">Studio</a>
-				<a href="/docs">Docs</a>
-				<a href="/my-agents" aria-current="page" title="ERC-8004 agents controlled by your linked wallets">My Agents</a>
-				<a href="/dashboard" title="Manage three.ws agents, avatars, widgets, billing">Dashboard</a>
-			</nav>
-		</header>
+		<header><div id="nav-container"></div></header>
+		<script src="/nav.js"></script>
 
-		<main class="my-agents-main" id="my-agents-main">
-			<div class="my-agents-head">
-				<div class="my-agents-head__text">
-					<h1 class="my-agents-title">My Agents</h1>
-					<p class="my-agents-subtitle">
-						Every agent you own: three.ws agents and on-chain (ERC-8004) agents from
-						your linked wallets. New users get a starter agent automatically.
-					</p>
+		<main class="wrap">
+			<div class="hero">
+				<div class="hero-text">
+					<h1>My Agents</h1>
+					<p>Your 3D AI agents — edit, chat, and manage them from here.</p>
 				</div>
-				<a class="my-agents-new" href="/create" id="my-agents-new-top" hidden>
-					<svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-					New agent
-				</a>
+				<a class="btn btn-primary" href="/create-agent" id="create-cta" style="display:none">+ Create agent</a>
 			</div>
 
-			<div id="my-agents-stats" class="my-agents-stats" hidden aria-label="Agent summary"></div>
-
-			<div id="my-agents-toolbar" class="my-agents-toolbar" hidden>
-				<div class="my-agents-search">
-					<svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/><path d="m20 20-3-3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-					<input
-						id="my-agents-search-input"
-						type="search"
-						placeholder="Search agents…"
-						aria-label="Search your agents by name"
-						autocomplete="off"
-					/>
-				</div>
-				<label class="my-agents-sort">
-					<span class="my-agents-sort__label">Sort</span>
-					<select id="my-agents-sort-select" aria-label="Sort agents">
-						<option value="recent">Newest first</option>
-						<option value="oldest">Oldest first</option>
-						<option value="name">Name (A–Z)</option>
-						<option value="chats">Most chats</option>
-					</select>
-				</label>
-			</div>
-
-			<div
-				id="my-agents-error"
-				class="my-agents-error-banner"
-				hidden
-				role="alert"
-				aria-live="polite"
-			></div>
-
-			<div
-				id="my-agents-grid"
-				class="my-agents-grid"
-				role="list"
-				aria-label="Your agents"
-				aria-live="polite"
-				aria-busy="true"
-			></div>
+			<div id="ma-root"></div>
 		</main>
 
-		<script type="module" src="/my-agents/my-agents.js"></script>
+		<script type="module">
+		const root = document.getElementById('ma-root');
+		const createCta = document.getElementById('create-cta');
+		const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+		function initial(name) { return (name || '?').trim()[0].toUpperCase(); }
+
+		function skeletons(n = 4) {
+			return Array.from({length: n}, () => `
+				<div class="ag-skel" aria-hidden="true">
+					<div class="sk" style="width:52px;height:52px;border-radius:11px;flex-shrink:0"></div>
+					<div style="flex:1;display:flex;flex-direction:column;gap:8px">
+						<div class="sk" style="width:40%;height:15px"></div>
+						<div class="sk" style="width:70%;height:12px"></div>
+					</div>
+				</div>`).join('');
+		}
+
+		async function load() {
+			root.innerHTML = `<div class="ag-list">${skeletons()}</div>`;
+
+			let res;
+			try {
+				res = await fetch('/api/agents', { credentials: 'include', headers: { accept: 'application/json' } });
+			} catch {
+				root.innerHTML = `<div class="state"><b>Connection error</b>Check your network and refresh.</div>`;
+				return;
+			}
+
+			if (res.status === 401) {
+				const next = encodeURIComponent(location.pathname);
+				root.innerHTML = `
+					<div class="auth-gate">
+						<h2>Sign in to manage your agents</h2>
+						<p>Create 3D AI agents, register them on-chain, and manage skills and memory.</p>
+						<a class="btn btn-primary" href="/login?next=${next}">Sign in</a>
+						&nbsp;&nbsp;
+						<a class="btn" href="/register" style="border:1px solid rgba(255,255,255,0.18)">Create account</a>
+					</div>`;
+				return;
+			}
+
+			if (!res.ok) {
+				root.innerHTML = `<div class="state"><b>Failed to load agents</b>Try refreshing the page.</div>`;
+				return;
+			}
+
+			const data = await res.json().catch(() => ({}));
+			const agents = data.agents || [];
+
+			createCta.style.display = 'inline-flex';
+
+			if (!agents.length) {
+				root.innerHTML = `
+					<div class="state">
+						<b>No agents yet</b>
+						Create your first 3D AI agent — give it a name, a 3D body, and skills.
+						<br><br>
+						<a class="btn btn-primary" href="/create-agent">Create an agent</a>
+					</div>`;
+				return;
+			}
+
+			const onchain = (a) => {
+				const m = a.meta || {};
+				return !!(a.onchain || m.sol_mint_address || m.erc8004_agent_id);
+			};
+			const thumb = (a) => {
+				if (a.avatar_thumbnail_url) return `<img class="ag-avatar" src="${esc(a.avatar_thumbnail_url)}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" />`;
+				if (a.avatar_model_url) return `<img class="ag-avatar" src="${esc(a.avatar_model_url)}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" />`;
+				return '';
+			};
+
+			root.innerHTML = `<div class="ag-list">${agents.map((a) => {
+				const oc = onchain(a);
+				const agentUrl = a.home_url || `/agent/${a.id}`;
+				const topSkills = (a.skills || []).slice(0, 4);
+				return `<div class="ag-row">
+					<div>
+						${thumb(a)}
+						<div class="ag-avatar-fallback" style="${thumb(a) ? 'display:none' : ''}">${esc(initial(a.name))}</div>
+					</div>
+					<div class="ag-info">
+						<div class="ag-name">
+							${esc(a.name)}
+							${oc ? `<span class="ag-badge ag-badge-onchain">✦ on-chain</span>` : `<span class="ag-badge ag-badge-reg">not registered</span>`}
+						</div>
+						${a.description ? `<div class="ag-desc">${esc(a.description)}</div>` : ''}
+						${topSkills.length ? `<div class="ag-skills">${topSkills.map((s) => `<span class="ag-skill">${esc(s)}</span>`).join('')}</div>` : ''}
+					</div>
+					<div class="ag-actions">
+						<a class="ag-action primary" href="${esc(agentUrl)}">View</a>
+						<a class="ag-action" href="/agent-edit?id=${esc(a.id)}">Edit</a>
+						${!oc ? `<a class="ag-action" href="/deploy?id=${esc(a.id)}" style="color:var(--gold);border-color:color-mix(in srgb, var(--gold) 28%, var(--line))">Deploy</a>` : ''}
+					</div>
+				</div>`;
+			}).join('')}</div>`;
+		}
+
+		load();
+		</script>
 		<script src="/brand.js" defer></script>
-</body>
+		<div id="footer-container"></div>
+		<script src="/footer.js"></script>
+	</body>
 </html>
