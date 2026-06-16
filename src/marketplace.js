@@ -4782,6 +4782,13 @@ function renderEmbedTab(a) {
 	if (wc) wc.textContent = wcSnippet;
 	if (iframe) iframe.textContent = iframeSnippet;
 	if (link) link.textContent = embedPageUrl;
+
+	// "Configure in wizard" — pre-loads this agent into the full embed editor
+	const wizardLink = $('d-embed-wizard-link');
+	if (wizardLink) {
+		const p = new URLSearchParams({ avatar: agentId, mode: 'chat' });
+		wizardLink.href = `/embed?${p}`;
+	}
 }
 
 function renderTokenCard(a) {

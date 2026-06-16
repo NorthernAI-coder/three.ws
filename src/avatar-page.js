@@ -617,7 +617,12 @@ function renderEmbedPanel(glbUrl) {
   allow="autoplay; xr-spatial-tracking"
 ></iframe>`;
 	const linkSnippet = fullUrl;
+	const wizardUrl = `/embed?${new URLSearchParams({ avatar: avatar.id || avatarId })}`;
 	return `
+		<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+			<p class="av-embed-intro" style="margin:0;font-size:13px;color:var(--ink-dim)">Drop this avatar on any website. Use the wizard for a live preview and platform instructions.</p>
+			<a href="${esc(wizardUrl)}" class="av-embed-wizard" target="_blank" rel="noopener">Configure in wizard ↗</a>
+		</div>
 		<div class="av-embed-section">
 			<div class="av-embed-label">
 				<span>Web component</span>

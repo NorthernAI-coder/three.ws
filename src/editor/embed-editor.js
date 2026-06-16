@@ -190,6 +190,8 @@ function mountEmbedEditor(root, opts = {}) {
 
 	// Resolve name + thumbnail for a deep-linked or pasted ID so the trigger
 	// shows a real chip instead of a bare UUID. Token guards against races.
+	// Tries avatar first; falls back to agent (marketplace) so chat-mode deep
+	// links from agent pages show the agent name/thumbnail instead of a bare ID.
 	let _metaToken = 0;
 	async function resolveAvatarMeta(id) {
 		const token = ++_metaToken;
@@ -202,14 +204,28 @@ function mountEmbedEditor(root, opts = {}) {
 		}
 		try {
 			const res = await fetch(`/api/avatars/${encodeURIComponent(id)}`, { credentials: 'include' });
+			if (res.ok) {
+				const { avatar } = await res.json();
+				if (token !== _metaToken || cfg.avatar !== id || !avatar) return;
+				cfg.avatarMeta = { name: avatar.name, thumbnail_url: avatar.thumbnail_url };
+				renderTrigger();
+				return;
+			}
+		} catch { /* fall through to agent lookup */ }
+		// Avatar lookup failed — try resolving as an agent identity
+		try {
+			const res = await fetch(`/api/marketplace/agents/${encodeURIComponent(id)}`, { credentials: 'include' });
 			if (!res.ok) return;
-			const { avatar } = await res.json();
-			if (token !== _metaToken || cfg.avatar !== id || !avatar) return;
-			cfg.avatarMeta = { name: avatar.name, thumbnail_url: avatar.thumbnail_url };
+			const { agent } = await res.json();
+			if (token !== _metaToken || cfg.avatar !== id || !agent) return;
+			cfg.avatarMeta = { name: agent.name, thumbnail_url: agent.avatar_thumbnail_url || null };
+			// Agent IDs default to chat mode if no mode was pre-set
+			if (!opts.mode && cfg.mode !== 'chat') {
+				cfg.mode = 'chat';
+				sync(); // updates mode buttons, snippet, and preview
+			}
 			renderTrigger();
-		} catch {
-			// Non-fatal: the chip just falls back to showing the raw ID.
-		}
+		} catch { /* Non-fatal: chip falls back to the raw ID */ }
 	}
 
 	// Controls (walking only)

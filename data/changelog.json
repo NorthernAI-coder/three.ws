@@ -2738,6 +2738,15 @@
 				"improvement"
 			],
 			"link": "/irl"
+		},
+		{
+			"date": "2026-06-16",
+			"title": "Embed wizard now reachable from every agent and avatar page",
+			"summary": "The full-featured embed wizard (/embed) is now one click away from any agent detail page, avatar page, and the dashboard agents list. Open it to configure size, environment, mode, and controls, see a live preview, and copy platform-specific instructions for plain HTML, React, WordPress, Webflow, or Shopify. When the wizard is opened from an agent page it pre-loads the agent and defaults to chat mode.",
+			"tags": [
+				"improvement"
+			],
+			"link": "/embed"
 		}
 	]
 }
