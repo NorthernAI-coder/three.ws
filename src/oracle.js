@@ -165,6 +165,7 @@ function switchView(view) {
 	if (view === 'wallets' && !$('#walletWrap').dataset.loaded) loadWallets();
 	if (view === 'edge' && !$('#edgeWrap').dataset.loaded) loadEdge();
 	if (view === 'proof' && !$('#proofGrid').dataset.loaded) loadProof();
+	if (view === 'agents' && !$('#agentLeadWrap').dataset.loaded) loadAgentLeaderboard();
 	if (view === 'agent' && !$('#armBody').dataset.loaded) loadAgentPanel();
 	if (view === 'graph') loadGraph();
 }
@@ -399,6 +400,51 @@ function walletRow(w, i) {
 			<span class="lscore">${Math.round(w.score)}</span>
 		</button>
 		<a class="lrow-copy" href="/trader/${encodeURIComponent(w.wallet)}" title="Trader profile + copy trades">→</a>
+	</div>`;
+}
+
+// ── oracle agent leaderboard ──────────────────────────────────────────────────
+async function loadAgentLeaderboard() {
+	const wrap = $('#agentLeadWrap');
+	wrap.dataset.loaded = '1';
+	wrap.innerHTML = '<div class="state">Loading agent rankings…</div>';
+	const { ok, data } = await api(`/api/oracle/leaderboard?network=${NETWORK}&limit=30&min_actions=1`);
+	const agents = ok && data ? (data.agents || []) : [];
+	if (!agents.length) {
+		wrap.innerHTML = `<div class="state"><b>No ranked agents yet</b>Once oracle agents have resolved enough conviction calls, they appear here ranked by win rate. Agents in simulate mode are included — their track records are just as honest.</div>`;
+		$('#ctAgents').textContent = '';
+		return;
+	}
+	$('#ctAgents').textContent = agents.length;
+	wrap.innerHTML = `
+		<div class="alhead"><span>#</span><span>Agent</span><span class="colhide">Actions</span><span>Win rate</span><span>PnL ◎</span></div>
+		${agents.map((a, i) => agentLeadRow(a, i)).join('')}`;
+}
+
+function agentLeadRow(a, i) {
+	const winRate = a.win_rate != null ? `${a.win_rate}%` : '—';
+	const wrClass = (a.win_rate || 0) >= 50 ? 'up' : 'dn';
+	const pnlVal = a.realized_pnl_sol != null ? Number(a.realized_pnl_sol) : null;
+	const pnlStr = pnlVal != null ? `${pnlVal >= 0 ? '+' : ''}${Math.abs(pnlVal) < 0.01 ? pnlVal.toFixed(4) : pnlVal.toFixed(3)}` : '—';
+	const pnlClass = pnlVal != null ? (pnlVal >= 0 ? 'up' : 'dn') : '';
+	const img = a.image_url
+		? `<img class="ag-av" src="${esc(a.image_url)}" alt="" loading="lazy" />`
+		: `<div class="ag-av ag-av-ph">${esc((a.name || '?')[0].toUpperCase())}</div>`;
+	const subLine = `${a.wins}W / ${a.losses}L${a.roi_pct != null ? ` · ROI ${a.roi_pct >= 0 ? '+' : ''}${a.roi_pct}%` : ''}`;
+	return `<div class="lrow-wrap" data-agent-id="${esc(a.agent_id)}">
+		<a class="alrow lrow" href="/agents/${encodeURIComponent(a.agent_id)}" target="_blank" rel="noopener">
+			<span class="lrank ${i < 3 ? 'top' : ''}">${i + 1}</span>
+			<span class="lw">${img}
+				<span>
+					<div class="ag-name">${esc(a.name || shortAddr(a.agent_id))}</div>
+					<div class="ag-wl colhide">${esc(subLine)}</div>
+				</span>
+			</span>
+			<span class="lstat colhide">${a.total}</span>
+			<span class="lstat"><b class="${wrClass}">${winRate}</b></span>
+			<span class="lstat"><b class="${pnlClass}">${pnlStr}</b></span>
+		</a>
+		<a class="lrow-copy" href="/trader/${encodeURIComponent(a.agent_id)}#copy" title="Subscribe to copy this agent" rel="noopener">→</a>
 	</div>`;
 }
 
