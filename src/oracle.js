@@ -127,7 +127,12 @@ function boot() {
 		$$('#tierSeg button').forEach((x) => x.classList.toggle('on', x === b));
 		state.tier = b.dataset.tier; syncFilterUrl(); loadFeed();
 	});
-	$('#catSel').addEventListener('change', (e) => { state.category = e.target.value; syncFilterUrl(); loadFeed(); });
+	$('#catSel').addEventListener('change', (e) => {
+		state.category = e.target.value;
+		syncFilterUrl();
+		loadFeed();
+		$$('#hotSectors .hs-card').forEach((c) => c.classList.toggle('active', c.dataset.cat === state.category && !!state.category));
+	});
 	$('#minSel').addEventListener('change', (e) => { state.minScore = Number(e.target.value) || 0; syncFilterUrl(); loadFeed(); });
 	$('#sortSeg').addEventListener('click', (e) => {
 		const b = e.target.closest('[data-fsort]'); if (!b) return;
@@ -413,6 +418,12 @@ async function loadHotSectors() {
 	}).join('');
 
 	el.style.display = '';
+
+	// Sync active state with any pre-selected category from URL params.
+	if (state.category) {
+		const activeCard = el.querySelector(`[data-cat="${CSS.escape(state.category)}"]`);
+		if (activeCard) activeCard.classList.add('active');
+	}
 
 	el.addEventListener('click', (e) => {
 		const card = e.target.closest('.hs-card');

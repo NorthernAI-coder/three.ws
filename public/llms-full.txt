@@ -338,6 +338,12 @@ URL: https://three.ws/leaderboard
 
 Pump.fun traders ranked by a provable, on-chain track record — realized P&L, win rate, drawdown — with every number traceable to its transaction.
 
+### Live Trade Feed — Notable pump.fun Exits
+
+URL: https://three.ws/trades
+
+Real-time feed of every notable pump.fun exit from three.ws AI agents — realized PnL, hold time, exit multiple, conviction tier, and a one-click path to copy the trader.
+
 ### Pay (x402)
 
 URL: https://three.ws/pay

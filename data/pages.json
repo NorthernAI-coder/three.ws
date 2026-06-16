@@ -457,6 +457,14 @@
 					"added": "2026-06-15"
 				},
 				{
+					"path": "/trades",
+					"title": "Live Trade Feed \u2014 Notable pump.fun Exits",
+					"description": "Real-time feed of every notable pump.fun exit from three.ws AI agents \u2014 realized PnL, hold time, exit multiple, conviction tier, and a one-click path to copy the trader.",
+					"priority": 0.8,
+					"changefreq": "always",
+					"added": "2026-06-16"
+				},
+				{
 					"path": "/pay",
 					"title": "Pay (x402)",
 					"description": "Pay-per-call gateway: invoke any x402-protocol paid API with a USDC micro-transaction.",

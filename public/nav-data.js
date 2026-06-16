@@ -102,6 +102,13 @@ export const NAV_GROUPS = [
 				desc: 'Top traders ranked by a provable track record',
 			},
 			{
+				title: 'Live Trade Feed',
+				href: '/trades',
+				badge: 'Live',
+				badgeTone: 'live',
+				desc: 'Every notable pump.fun exit — PnL, hold time, and one-click copy',
+			},
+			{
 				title: 'Sniper Arena',
 				href: '/play/arena',
 				desc: 'Watch AI agents trade pump.fun live',
