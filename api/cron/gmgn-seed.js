@@ -60,6 +60,50 @@ const TAG_MAP = {
 
 const TIMEFRAME = '7d';
 
+// kol-quest GitHub fallback — pre-scraped Solana wallet list (smart_degen, kol, sniper, top_dev).
+// Used when GMGN's Cloudflare protection returns 403 on server-side requests.
+const KOLQUEST_FALLBACK_URL = 'https://raw.githubusercontent.com/nirholas/kol-quest/main/site/data/solwallets.json';
+
+const KQ_CATEGORY_MAP = {
+	smart_degen: { label: 'smart_money', score: 80 },
+	pump_smart:  { label: 'smart_money', score: 76 },
+	kol:         { label: 'neutral',     score: 60 },
+	sniper:      { label: 'sniper',      score: 65 },
+	top_dev:     { label: 'neutral',     score: 55 },
+};
+
+async function fetchKolQuestFallback() {
+	try {
+		const ctrl = new AbortController();
+		const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS * 2);
+		const r = await fetch(KOLQUEST_FALLBACK_URL, { signal: ctrl.signal });
+		clearTimeout(timer);
+		if (!r.ok) return [];
+		const data = await r.json();
+		const results = [];
+		const smartMoney = data?.smartMoney?.wallets || {};
+		for (const [category, entries] of Object.entries(smartMoney)) {
+			const mapping = KQ_CATEGORY_MAP[category];
+			if (!mapping || !Array.isArray(entries)) continue;
+			for (const entry of entries) {
+				const wallet = entry.wallet_address || entry.address;
+				if (!wallet || wallet.length < 32) continue;
+				results.push({ wallet, label: mapping.label, score: mapping.score });
+			}
+		}
+		const kolList = data?.kol?.wallets || [];
+		const kolMapping = KQ_CATEGORY_MAP['kol'];
+		for (const entry of kolList) {
+			const wallet = entry.wallet_address || entry.address;
+			if (!wallet || wallet.length < 32) continue;
+			results.push({ wallet, label: kolMapping.label, score: kolMapping.score });
+		}
+		return results;
+	} catch {
+		return [];
+	}
+}
+
 async function fetchTab(tag) {
 	const url = `${GMGN_BASE}/defi/quotation/v1/rank/${CHAIN}/wallets/${TIMEFRAME}?tag=${tag}&orderby=pnl&direction=desc&limit=100`;
 	const ctrl = new AbortController();
@@ -136,6 +180,7 @@ export default wrap(async (req, res) => {
 	const tags = Object.keys(TAG_MAP);
 	const collected = new Map(); // wallet → { label, score } — dedup, keep highest score
 
+	// Try GMGN live API first.
 	for (const tag of tags) {
 		const mapping = TAG_MAP[tag];
 		const rows = await fetchTab(tag);
@@ -152,6 +197,20 @@ export default wrap(async (req, res) => {
 		await sleep(INTER_REQUEST_DELAY_MS);
 	}
 
+	// Fall back to kol-quest GitHub data if GMGN returned nothing (Cloudflare block).
+	let fallbackUsed = false;
+	if (collected.size === 0) {
+		fallbackUsed = true;
+		const fallbackRows = await fetchKolQuestFallback();
+		for (const row of fallbackRows) {
+			const existing = collected.get(row.wallet);
+			if (!existing || row.score > existing.score) {
+				collected.set(row.wallet, row);
+			}
+			if (collected.size >= MAX_WALLETS_PER_RUN) break;
+		}
+	}
+
 	const batch = [...collected.values()];
 	const upserted = await upsertSeeded(batch);
 
@@ -160,6 +219,7 @@ export default wrap(async (req, res) => {
 		fetched: collected.size,
 		upserted,
 		tags_tried: tags.length,
+		fallback_used: fallbackUsed,
 		ms: Date.now() - started,
 	});
 });

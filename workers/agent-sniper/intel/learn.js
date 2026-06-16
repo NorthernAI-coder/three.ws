@@ -22,6 +22,151 @@ export const TRAINABLE_SIGNALS = [
 	'fresh_wallet_ratio', 'bubblemap_connectivity',
 ];
 
+// Bucket definitions for conditional win-rate explainability.
+// Each entry: { col, label, buckets: [{key, test(row) -> bool}] }
+// "col" is the column name on the DB row; test() assigns each row to ≤1 bucket.
+const BUCKET_DIMS = [
+	{
+		col: 'bundle_score',
+		label: 'Bundle Score',
+		buckets: [
+			{ key: 'clean',   test: (r) => r.bundle_score != null && r.bundle_score < 0.2 },
+			{ key: 'medium',  test: (r) => r.bundle_score != null && r.bundle_score >= 0.2 && r.bundle_score < 0.5 },
+			{ key: 'high',    test: (r) => r.bundle_score != null && r.bundle_score >= 0.5 },
+			{ key: 'unknown', test: (r) => r.bundle_score == null },
+		],
+	},
+	{
+		col: 'organic_score',
+		label: 'Organic Score',
+		buckets: [
+			{ key: 'low',    test: (r) => r.organic_score != null && r.organic_score < 0.3 },
+			{ key: 'medium', test: (r) => r.organic_score != null && r.organic_score >= 0.3 && r.organic_score < 0.65 },
+			{ key: 'high',   test: (r) => r.organic_score != null && r.organic_score >= 0.65 },
+			{ key: 'unknown', test: (r) => r.organic_score == null },
+		],
+	},
+	{
+		col: 'quality_score',
+		label: 'Quality Score',
+		buckets: [
+			{ key: '<30',  test: (r) => r.quality_score != null && r.quality_score < 30 },
+			{ key: '30-50', test: (r) => r.quality_score != null && r.quality_score >= 30 && r.quality_score < 50 },
+			{ key: '50-70', test: (r) => r.quality_score != null && r.quality_score >= 50 && r.quality_score < 70 },
+			{ key: '>=70',  test: (r) => r.quality_score != null && r.quality_score >= 70 },
+			{ key: 'unknown', test: (r) => r.quality_score == null },
+		],
+	},
+	{
+		col: 'bubblemap_connectivity',
+		label: 'Bubblemaps Connectivity',
+		buckets: [
+			{ key: 'low',    test: (r) => r.bubblemap_connectivity != null && r.bubblemap_connectivity < 0.2 },
+			{ key: 'medium', test: (r) => r.bubblemap_connectivity != null && r.bubblemap_connectivity >= 0.2 && r.bubblemap_connectivity < 0.5 },
+			{ key: 'high',   test: (r) => r.bubblemap_connectivity != null && r.bubblemap_connectivity >= 0.5 },
+			{ key: 'unknown', test: (r) => r.bubblemap_connectivity == null },
+		],
+	},
+	{
+		col: 'unique_buyers',
+		label: 'Unique Buyers',
+		buckets: [
+			{ key: '<5',    test: (r) => r.unique_buyers != null && r.unique_buyers < 5 },
+			{ key: '5-20',  test: (r) => r.unique_buyers != null && r.unique_buyers >= 5 && r.unique_buyers < 20 },
+			{ key: '20-50', test: (r) => r.unique_buyers != null && r.unique_buyers >= 20 && r.unique_buyers < 50 },
+			{ key: '>=50',  test: (r) => r.unique_buyers != null && r.unique_buyers >= 50 },
+		],
+	},
+	{
+		col: 'smart_money_count',
+		label: 'Smart Money Count',
+		buckets: [
+			{ key: '0',   test: (r) => !r.smart_money_count || r.smart_money_count === 0 },
+			{ key: '1',   test: (r) => r.smart_money_count === 1 },
+			{ key: '2',   test: (r) => r.smart_money_count === 2 },
+			{ key: '>=3', test: (r) => r.smart_money_count != null && r.smart_money_count >= 3 },
+		],
+	},
+	{
+		col: 'is_news_meme',
+		label: 'News Meme',
+		buckets: [
+			{ key: 'false', test: (r) => !r.is_news_meme },
+			{ key: 'true',  test: (r) => !!r.is_news_meme },
+		],
+	},
+	{
+		col: 'dev_sold',
+		label: 'Dev Sold',
+		buckets: [
+			{ key: 'false', test: (r) => !r.dev_sold },
+			{ key: 'true',  test: (r) => !!r.dev_sold },
+		],
+	},
+	{
+		col: 'category',
+		label: 'Category',
+		// dynamic: each distinct category value becomes its own bucket
+		dynamic: true,
+	},
+];
+
+/**
+ * Compute per-signal, per-bucket win-rates from labeled rows.
+ * "good" = graduated or pumped. Baseline = overall fraction that are good.
+ * Buckets with < MIN_BUCKET_SIZE samples are omitted (noise, not signal).
+ *
+ * @param {Array} rows — labeled DB rows (need direct column values)
+ * @returns {{ [signal]: { [bucket]: { win_rate, count, baseline_win_rate } } }}
+ */
+export function computeConditionalWinRates(rows) {
+	const MIN_BUCKET_SIZE = 5;
+	const labels = rows.map((r) => (r.outcome === 'graduated' || r.outcome === 'pumped') ? 1 : 0);
+	const baselineWinRate = labels.length ? labels.reduce((s, v) => s + v, 0) / labels.length : 0;
+
+	const result = {};
+
+	for (const dim of BUCKET_DIMS) {
+		const dimResult = {};
+
+		if (dim.dynamic) {
+			// Category: group by distinct value
+			const byValue = {};
+			for (let i = 0; i < rows.length; i++) {
+				const v = rows[i][dim.col] || 'unknown';
+				if (!byValue[v]) byValue[v] = { wins: 0, count: 0 };
+				byValue[v].count++;
+				byValue[v].wins += labels[i];
+			}
+			for (const [val, stats] of Object.entries(byValue)) {
+				if (stats.count < MIN_BUCKET_SIZE) continue;
+				dimResult[val] = {
+					win_rate: Number((stats.wins / stats.count).toFixed(4)),
+					count: stats.count,
+					baseline_win_rate: Number(baselineWinRate.toFixed(4)),
+				};
+			}
+		} else {
+			for (const bucket of dim.buckets) {
+				let wins = 0, count = 0;
+				for (let i = 0; i < rows.length; i++) {
+					if (bucket.test(rows[i])) { count++; wins += labels[i]; }
+				}
+				if (count < MIN_BUCKET_SIZE) continue;
+				dimResult[bucket.key] = {
+					win_rate: Number((wins / count).toFixed(4)),
+					count,
+					baseline_win_rate: Number(baselineWinRate.toFixed(4)),
+				};
+			}
+		}
+
+		if (Object.keys(dimResult).length) result[dim.col] = dimResult;
+	}
+
+	return result;
+}
+
 let _sqlPromise = null;
 async function getSql() {
 	if (_sqlPromise) return _sqlPromise;
@@ -151,20 +296,31 @@ export function correlation(pairs) {
 /**
  * Recompute per-signal weights from all labeled coins and persist them.
  * "good" = graduated or pumped. Skips quietly until there's enough signal.
- * @returns {Promise<{ trained: boolean, sample_size: number, weights?: object }>}
+ *
+ * Also computes conditional win-rates (per-bucket explainability) and stores
+ * them alongside the Pearson weights so agents and humans can inspect "why."
+ *
+ * @returns {Promise<{ trained: boolean, sample_size: number, weights?: object, conditional_win_rates?: object }>}
  */
 export async function trainWeights({ network = 'mainnet', minSamples = 50 } = {}) {
 	const sql = await getSql();
 	if (!sql) return { trained: false, sample_size: 0 };
 
+	// Pull signals JSONB + all direct columns needed for conditional bucketing
 	const rows = await sql`
-		select i.signals, o.outcome
+		select
+			i.signals, o.outcome,
+			i.bundle_score, i.organic_score, i.quality_score,
+			i.bubblemap_connectivity, i.unique_buyers,
+			i.smart_money_count, i.is_news_meme,
+			i.dev_sold, i.category
 		from pump_coin_intel i
 		join pump_coin_outcomes o on o.mint = i.mint
 		where i.network = ${network} and o.outcome <> 'unknown'
 	`;
 	if (rows.length < minSamples) return { trained: false, sample_size: rows.length };
 
+	// Pearson correlation weights (existing)
 	const labels = rows.map((r) => (r.outcome === 'graduated' || r.outcome === 'pumped') ? 1 : 0);
 	const weights = {};
 	for (const key of TRAINABLE_SIGNALS) {
@@ -172,11 +328,19 @@ export async function trainWeights({ network = 'mainnet', minSamples = 50 } = {}
 		weights[key] = Number(correlation(pairs).toFixed(4));
 	}
 
+	// Per-signal conditional win-rates (explainability)
+	const conditional_win_rates = computeConditionalWinRates(rows);
+
 	await sql`
-		insert into pump_intel_weights (network, weights, sample_size)
-		values (${network}, ${JSON.stringify(weights)}::jsonb, ${rows.length})
+		insert into pump_intel_weights (network, weights, sample_size, conditional_win_rates)
+		values (
+			${network},
+			${JSON.stringify(weights)}::jsonb,
+			${rows.length},
+			${JSON.stringify(conditional_win_rates)}::jsonb
+		)
 	`;
-	return { trained: true, sample_size: rows.length, weights };
+	return { trained: true, sample_size: rows.length, weights, conditional_win_rates };
 }
 
 /**
