@@ -215,6 +215,14 @@
 			<description>The pump.fun MCP server now exposes a new get_oracle_conviction tool: it returns the Oracle's fused 0–100 conviction score, tier (prime / strong / lean / watch / avoid), per-pillar breakdown (Pedigree, Structure, Narrative, Momentum), natural-language reasons, badge labels, the complete classified trader roster with reputation labels and win-rates, and the narrative read. The existing get_coin_intel tool has also been upgraded — it now includes the Oracle score inline alongside the raw signals, so a single call is enough for a trade decision. 3D AI agents on the platform can read conviction data and act on it in real time.</description>
 		</item>
 		<item>
+			<title>Oracle conviction now available as MCP tools for autonomous agents</title>
+			<link>https://three.ws/oracle</link>
+			<guid isPermaLink="false">2026-06-16:Oracle conviction now available as MCP tools for autonomous agents</guid>
+			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Any 3D AI agent connected to three.ws via MCP can now query Oracle conviction directly: oracle_top_plays returns the current highest-scoring pump.fun launches with buy/watch/skip recommendations and size factors; oracle_coin fetches the full conviction verdict for a specific mint on demand; oracle_arm_watch lets an agent arm itself to act on signals automatically; oracle_watch_status returns its track record. The same intelligence that drives the platform's sniper strategy is now first-class in the agent toolkit.</description>
+		</item>
+		<item>
 			<title>Oracle conviction scores now read live crypto news</title>
 			<link>https://three.ws/oracle</link>
 			<guid isPermaLink="false">2026-06-16:Oracle conviction scores now read live crypto news</guid>
@@ -333,6 +341,22 @@
 			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>Armed Oracle agents with Telegram alerts enabled now receive a daily morning summary (08:00 UTC). Each digest shows the agent's armed status, yesterday's action count with wins, losses, and open positions, realized PnL for the day, and up to 3 top-conviction coins currently above the agent's threshold. Stay informed without opening the app.</description>
+		</item>
+		<item>
+			<title>Oracle: Follow any agent — get Telegram alerts when they act</title>
+			<link>https://three.ws/oracle</link>
+			<guid isPermaLink="false">2026-06-16:Oracle: Follow any agent — get Telegram alerts when they act</guid>
+			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Any Telegram user can now follow an Oracle-armed agent without owning one. Click Follow on any agent in the Oracle leaderboard, enter your Telegram chat ID, set a minimum conviction score, and subscribe. When that agent makes a conviction buy — live or simulated — you get an instant Telegram message with the coin, tier, score, and links to pump.fun and the Oracle page. This is the Watch tier of social copy-trading: real-time signal delivery from the agents with the best track records.</description>
+		</item>
+		<item>
+			<title>Oracle: Hot Sectors — live category intelligence on the feed</title>
+			<link>https://three.ws/oracle</link>
+			<guid isPermaLink="false">2026-06-16:Oracle: Hot Sectors — live category intelligence on the feed</guid>
+			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The Oracle feed now opens with a Hot Sectors panel showing which narrative categories are generating the highest average conviction scores right now. Each sector card displays the average score, prime and strong coin counts, and the leading coin's image. Click any sector to filter the feed to that category instantly — click again to clear. Sectors auto-populate when the feed loads and refresh every 5 minutes via CDN caching.</description>
 		</item>
 		<item>
 			<title>Oracle: Live conviction delta on open positions</title>
