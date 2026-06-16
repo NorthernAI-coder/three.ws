@@ -1821,6 +1821,14 @@
 			"dest": "/api/oracle/test-alert.js"
 		},
 		{
+			"src": "/api/social/sentiment",
+			"dest": "/api/social/sentiment.js"
+		},
+		{
+			"src": "/api/social/sentiment-pulse",
+			"dest": "/api/social/sentiment-pulse.js"
+		},
+		{
 			"src": "/api/copy/executions",
 			"dest": "/api/copy/executions.js"
 		},
