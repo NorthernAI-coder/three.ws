@@ -133,6 +133,42 @@ export async function alertProfitableExit(exits) {
 }
 
 /**
+ * Fire a Telegram alert the moment an agent makes a live oracle buy.
+ * Called by the agent-loop after each filled action so followers can copy
+ * before the coin moves.
+ *
+ * Only live-mode actions are alerted. Simulate actions generate too much
+ * volume and carry no real cost.
+ *
+ * @param {Array<{agent_id:string, agent_name?:string, symbol:string, mint:string, tier:string, conviction:number, size_sol:number, network:string}>} entries
+ * @returns {Promise<number>} number of alerts sent
+ */
+export async function alertAgentEntry(entries) {
+	const token = process.env.TELEGRAM_BOT_TOKEN;
+	const chatId = process.env.TELEGRAM_ORACLE_CHAT_ID;
+	if (!token || !chatId || !entries?.length) return 0;
+
+	let sent = 0;
+	for (const e of entries) {
+		const tierE = tierEmoji(e.tier);
+		const agentName = escHtml(e.agent_name || 'Agent');
+		const sym = escHtml((e.symbol || e.mint.slice(0, 6)).toUpperCase());
+		const sizeStr = e.size_sol != null ? `${Number(e.size_sol).toFixed(3)} SOL` : '?';
+		const convStr = e.conviction != null ? ` (${e.conviction})` : '';
+
+		const text = [
+			`${tierE} <b>${agentName}</b> entered <b>$${sym}</b>`,
+			`${escHtml(e.tier)} conviction${convStr}  ·  ${escHtml(sizeStr)}`,
+			`<a href="https://pump.fun/coin/${encodeURIComponent(e.mint)}">pump.fun</a>  ·  <a href="https://three.ws/oracle?mint=${encodeURIComponent(e.mint)}">Oracle ↗</a>  ·  <a href="https://three.ws/trader/${encodeURIComponent(e.agent_id)}">Copy trades →</a>`,
+		].join('\n');
+
+		await send(text);
+		sent++;
+	}
+	return sent;
+}
+
+/**
  * Fire alerts for newly-scored coins that cross the tier threshold for the
  * first time. Called by the oracle-score cron after each score pass.
  *
