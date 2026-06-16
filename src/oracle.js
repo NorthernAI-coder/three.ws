@@ -586,31 +586,54 @@ async function loadActions(agentId) {
 	const { ok, data } = await api(`/api/oracle/watch?agent_id=${encodeURIComponent(agentId)}&network=${NETWORK}`);
 	const actions = ok && data ? (data.actions || []) : [];
 	const s = (ok && data && data.summary) || null;
-	const header = s && s.total ? `
-		<div class="coin-meta" style="margin-bottom:12px">
-			<span class="chip">actions <b>${s.total}</b></span>
-			<span class="chip sm">wins <b>${s.wins}</b></span>
-			<span class="chip flag">losses <b>${s.losses}</b></span>
-			<span class="chip">win rate <b>${s.win_rate == null ? '—' : s.win_rate + '%'}</b></span>
-			<span class="chip ${s.realized_pnl_sol >= 0 ? 'sm' : 'flag'}">PnL <b>${s.realized_pnl_sol >= 0 ? '+' : ''}${fmtSol(s.realized_pnl_sol)}</b></span>
-			${s.roi_pct != null ? `<span class="chip">ROI <b>${s.roi_pct >= 0 ? '+' : ''}${s.roi_pct}%</b></span>` : ''}
+
+	const pnlSign = (v) => v >= 0 ? '+' : '';
+	const statline = s && s.total ? `
+		<div class="act-kpis">
+			<div class="act-kpi"><span>Total</span><b>${s.total}</b></div>
+			<div class="act-kpi"><span>Wins</span><b class="${s.wins > 0 ? 'up' : ''}">${s.wins}</b></div>
+			<div class="act-kpi"><span>Losses</span><b class="${s.losses > 0 ? 'dn' : ''}">${s.losses}</b></div>
+			<div class="act-kpi"><span>Win rate</span><b>${s.win_rate == null ? '—' : s.win_rate + '%'}</b></div>
+			<div class="act-kpi"><span>Realized PnL</span><b class="${s.realized_pnl_sol >= 0 ? 'up' : 'dn'}">${pnlSign(s.realized_pnl_sol)}${fmtSol(s.realized_pnl_sol)}</b></div>
+			${s.roi_pct != null ? `<div class="act-kpi"><span>ROI</span><b class="${s.roi_pct >= 0 ? 'up' : 'dn'}">${pnlSign(s.roi_pct)}${s.roi_pct}%</b></div>` : ''}
+			${s.open > 0 ? `<div class="act-kpi"><span>Open</span><b>${s.open}</b></div>` : ''}
 		</div>` : '';
+
 	if (!actions.length) {
-		body.innerHTML = `${header}<div class="state">No actions yet. Once armed, your agent's moves will appear here and get graded against outcomes.</div>`;
+		body.innerHTML = `${statline}<div class="state">No actions yet — once armed, every buy lands here and gets graded against the outcome in real time.</div>`;
 		return;
 	}
-	body.innerHTML = `${header}<div class="lwrap">${actions.map(actionRow).join('')}</div>`;
+
+	const rows = actions.map(actionRow).join('');
+	body.innerHTML = `
+		${statline}
+		<div class="act-wrap">
+			<table class="act-table">
+				<thead><tr>
+					<th>Coin</th><th>Tier</th><th>Conv.</th>
+					<th>Size</th><th>Outcome</th><th>PnL</th><th>When</th>
+				</tr></thead>
+				<tbody>${rows}</tbody>
+			</table>
+		</div>`;
 }
 
 function actionRow(a) {
-	const cls = a.outcome === 'win' ? 'sm' : a.outcome === 'loss' ? 'flag' : '';
-	return `<div class="nwallet" style="padding:11px 14px">
-		<div class="nw-left">
-			<span class="nw-addr">${esc(a.symbol || a.mint.slice(0, 6))} <span class="tierpill ${tierPill(a.tier)}">${esc(a.tier || '')}</span> <span class="chip" style="padding:3px 6px">${esc(a.mode)}</span></span>
-			<span class="nw-sub">conviction ${a.conviction ?? '—'} · ${esc(a.status)} · ${ago(a.acted_at)} ago${a.reason ? ' · ' + esc(a.reason) : ''}</span>
-		</div>
-		<span class="nw-buy ${cls ? 'chip ' + cls : ''}">${a.peak_multiple ? Number(a.peak_multiple).toFixed(1) + '×' : fmtSol(a.size_sol)}</span>
-	</div>`;
+	const outcome = a.outcome || 'open';
+	const outCls = outcome === 'win' ? 'up' : outcome === 'loss' ? 'dn' : '';
+	const outLabel = outcome === 'win' ? `✓ Win${a.peak_multiple ? ` · ${Number(a.peak_multiple).toFixed(1)}×` : ''}` : outcome === 'loss' ? '✗ Loss' : 'Open';
+	const pnl = a.realized_pnl_sol != null ? `${Number(a.realized_pnl_sol) >= 0 ? '+' : ''}${fmtSol(a.realized_pnl_sol)}` : '—';
+	const pnlCls = a.realized_pnl_sol != null ? (Number(a.realized_pnl_sol) >= 0 ? 'up' : 'dn') : '';
+	const modeBadge = a.mode === 'live' ? '<span class="act-live">live</span>' : '<span class="act-sim">sim</span>';
+	return `<tr class="act-row" data-outcome="${esc(outcome)}">
+		<td class="act-coin"><a href="https://pump.fun/coin/${esc(a.mint)}" target="_blank" rel="noopener">${esc(a.symbol || a.mint.slice(0, 6))}</a> ${modeBadge}</td>
+		<td><span class="tierpill ${tierPill(a.tier)}">${esc(a.tier || '—')}</span></td>
+		<td class="act-mono">${a.conviction ?? '—'}</td>
+		<td class="act-mono">${fmtSol(a.size_sol)}</td>
+		<td class="act-mono ${outCls}">${outLabel}</td>
+		<td class="act-mono ${pnlCls}">${pnl}</td>
+		<td class="act-when" title="${esc(a.acted_at || '')}">${ago(a.acted_at)} ago</td>
+	</tr>`;
 }
 
 document.addEventListener('DOMContentLoaded', boot);

@@ -146,7 +146,7 @@
 		.intro { color: var(--muted); font-size: 13.5px; max-width: 720px; margin: 0 0 16px; }
 
 		/* agent panel */
-		.apanel { display: grid; grid-template-columns: 1.1fr 1fr; gap: 16px; align-items: start; }
+		.apanel { display: grid; grid-template-columns: 1fr 1.8fr; gap: 16px; align-items: start; }
 		.card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 18px; box-shadow: var(--shadow); }
 		.card h3 { margin: 0 0 4px; font-size: 16px; letter-spacing: -0.01em; }
 		.card .sub { color: var(--muted); font-size: 13px; margin: 0 0 16px; }
@@ -231,6 +231,29 @@
 		.tape-sol.buy  { color: var(--up); }
 		.tape-sol.sell { color: var(--down); }
 		.tape-mc { color: var(--faint); font-size: 10px; white-space: nowrap; }
+
+		/* agent action track record */
+		.act-kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--r-sm); overflow: hidden; margin-bottom: 14px; }
+		.act-kpi { background: var(--panel-solid); padding: 11px 14px; }
+		.act-kpi span { display: block; font: 600 10px/1 var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--faint); margin-bottom: 5px; }
+		.act-kpi b { font: 800 18px/1 var(--mono); }
+		.act-kpi b.up { color: var(--up); }
+		.act-kpi b.dn { color: var(--down); }
+		.act-wrap { overflow-x: auto; }
+		.act-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+		.act-table th { padding: 8px 10px; text-align: left; font: 600 10px/1 var(--mono); letter-spacing: .07em; text-transform: uppercase; color: var(--faint); border-bottom: 1px solid var(--line); white-space: nowrap; }
+		.act-row td { padding: 9px 10px; border-bottom: 1px solid rgba(255,255,255,0.04); vertical-align: middle; }
+		.act-row:last-child td { border-bottom: none; }
+		.act-row[data-outcome="win"] .act-coin { color: var(--up); }
+		.act-row[data-outcome="loss"] .act-coin { color: var(--down); }
+		.act-coin a { color: inherit; text-decoration: none; font-weight: 600; }
+		.act-coin a:hover { text-decoration: underline; }
+		.act-mono { font-family: var(--mono); }
+		.act-mono.up { color: var(--up); }
+		.act-mono.dn { color: var(--down); }
+		.act-when { color: var(--faint); font-size: 11px; white-space: nowrap; }
+		.act-live { font: 700 9.5px/1 var(--mono); letter-spacing: .04em; padding: 2px 6px; border-radius: 4px; background: color-mix(in srgb, var(--amber) 18%, transparent); color: var(--amber); }
+		.act-sim  { font: 700 9.5px/1 var(--mono); letter-spacing: .04em; padding: 2px 6px; border-radius: 4px; background: rgba(255,255,255,0.06); color: var(--faint); }
 
 		.foot { margin-top: 34px; padding-top: 18px; border-top: 1px solid var(--line); font-size: 12.5px; color: var(--faint); }
 		.foot b { color: var(--muted); }
@@ -336,7 +359,7 @@
 				<div class="card">
 					<h3>Recent actions</h3>
 					<p class="sub">Every move your agent makes — simulated or live — lands here, then gets graded against the outcome. This is your agent's win-rate ledger.</p>
-					<div id="actionsBody"><div class="state">Sign in and arm an agent to see its actions.</div></div>
+					<div id="actionsBody" style="max-height:480px;overflow-y:auto"><div class="state">Sign in and arm an agent to see its actions.</div></div>
 				</div>
 			</div>
 		</section>

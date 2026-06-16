@@ -36,6 +36,7 @@ export const NAV = [
 	{ path: '/dashboard/analytics',   label: 'Analytics',       icon: 'chart',     group: 'Monetize',   tags: ['revenue', 'charts', 'metrics', 'funnel', 'performance', 'views', 'engagement'] },
 	{ path: '/dashboard/monetize',    label: 'Monetize',        icon: 'coin',      group: 'Monetize',   tags: ['revenue', 'payments', 'subscriptions', 'withdrawals', 'earnings', 'plan', 'billing'] },
 	{ path: '/dashboard/tokens',      label: 'Tokens',          icon: 'token',     group: 'Monetize',   tags: ['pump.fun', 'launch', 'bonding curve', 'royalties', 'trade'] },
+	{ path: '/dashboard/copy',        label: 'Copy Trading',    icon: 'live',      group: 'Monetize',   tags: ['copy', 'copy-trade', 'mirror', 'leader', 'follow', 'traders', 'intents', 'pump.fun', 'sniper'] },
 	{ path: '/dashboard/portfolio',   label: 'Portfolio',        icon: 'portfolio', group: 'Monetize',  tags: ['nft', 'holdings', 'balances', 'wallet', 'collection', 'crypto', 'tokens', 'chart', 'send'] },
 	{ path: '/dashboard/landscape',   label: 'Landscape',       icon: 'landscape', group: 'Monetize',   tags: ['competitors', 'market', 'competitive', 'intelligence', 'positioning', 'tam', 'investor'] },
 	{ path: '/reputation',            label: 'Reputation',      icon: 'star',      group: 'Monetize',   tags: ['reviews', 'attestations', 'onchain', 'trust', 'score'], external: true },

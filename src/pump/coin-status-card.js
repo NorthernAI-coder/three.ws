@@ -390,6 +390,18 @@ const STYLES = `
 .csc-card-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .csc-card-foot:empty { display: none; }
 
+.csc-conviction { display: flex; align-items: center; gap: 8px; padding: 6px 0 2px; }
+.csc-cv-pill { display: inline-flex; align-items: center; font-size: 11px; font-weight: 700;
+	letter-spacing: .06em; padding: 3px 9px; border-radius: 999px; border: 1px solid;
+	transition: opacity .2s; white-space: nowrap; }
+.csc-cv-breakdown { font-size: 11px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+	color: rgba(255,255,255,0.45); letter-spacing: .04em; }
+.csc-cv-prime  { background: rgba(147,51,234,.18);  border-color: rgba(168,85,247,.45);  color: #c084fc; }
+.csc-cv-strong { background: rgba(59,130,246,.18);  border-color: rgba(96,165,250,.45);  color: #93c5fd; }
+.csc-cv-lean   { background: rgba(234,179,8,.15);   border-color: rgba(250,204,21,.4);   color: #fde047; }
+.csc-cv-watch  { background: rgba(255,255,255,.05); border-color: rgba(255,255,255,.12); color: rgba(255,255,255,.55); }
+.csc-cv-avoid  { background: rgba(239,68,68,.14);   border-color: rgba(248,113,113,.35); color: #fca5a5; }
+
 .csc-skeleton { gap: 8px; }
 .csc-skel-bar { display: inline-block; height: 12px; min-width: 48px; flex: 1 1 48px; border-radius: 6px;
 	background: linear-gradient(90deg, rgba(255,255,255,0.06) 25%, rgba(255,255,255,0.12) 37%, rgba(255,255,255,0.06) 63%);
@@ -443,6 +455,7 @@ export function mountCoinStatus(container, mint, opts = {}) {
 	let abort = null;
 	let destroyed = false;
 	let lastCoin = null;
+	let lastConviction = null;
 
 	const paint = (node) => {
 		if (destroyed || !container) return;
@@ -453,15 +466,29 @@ export function mountCoinStatus(container, mint, opts = {}) {
 		if (destroyed) return;
 		if (abort) abort.abort();
 		abort = new AbortController();
+		const sig = abort.signal;
 		container.setAttribute('aria-busy', 'true');
 		if (!silent && !lastCoin) paint(skeleton(variant));
 
 		try {
-			const r = await fetch(`${COIN_ENDPOINT}?mint=${encodeURIComponent(mint)}`, { signal: abort.signal });
+			// Fire coin + oracle fetches in parallel; oracle is best-effort (card only).
+			const oraclePromise = variant === 'card'
+				? fetch(`${ORACLE_ENDPOINT}?mint=${encodeURIComponent(mint)}`, { signal: sig })
+					.then((r) => (r.ok ? r.json() : null))
+					.catch(() => null)
+				: null;
+
+			const r = await fetch(`${COIN_ENDPOINT}?mint=${encodeURIComponent(mint)}`, { signal: sig });
 			if (!r.ok) throw new Error(`coin api ${r.status}`);
 			const raw = await r.json();
 			lastCoin = mapCoin(raw, mint);
-			paint(render(lastCoin, { showBuy, placeholder }));
+
+			if (oraclePromise) {
+				const od = await oraclePromise;
+				if (od?.conviction) lastConviction = od.conviction;
+			}
+
+			paint(render(lastCoin, { showBuy, placeholder, conviction: lastConviction }));
 		} catch (err) {
 			if (err?.name === 'AbortError' || destroyed) return;
 			// A refresh blip keeps the last good render; only a cold failure with

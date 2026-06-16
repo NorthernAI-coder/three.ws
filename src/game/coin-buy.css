@@ -129,6 +129,16 @@
 	margin-top: 13px; min-height: 18px; font-size: 13px; color: var(--cc-text);
 	font-variant-numeric: tabular-nums; line-height: 1.4;
 }
+/* Fee disclosure — deliberately quiet (muted, small), but always present. */
+.cc-buy-fee {
+	margin-top: 7px; font-size: 11px; color: var(--cc-faint);
+	font-variant-numeric: tabular-nums; cursor: help;
+	display: flex; align-items: center; gap: 5px;
+}
+.cc-buy-fee[hidden] { display: none; }
+.cc-buy-fee-label { color: var(--cc-dim); }
+.cc-buy-fee-val { color: var(--cc-faint); }
+
 .cc-buy-quote-out { font-weight: 700; }
 .cc-buy-quote-impact { color: var(--cc-dim); }
 .cc-buy-quote-warn { color: #d8c08a; }

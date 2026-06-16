@@ -72,6 +72,7 @@ Experimental features actively shipping. Expect fast iteration.
 
 On-chain features: pay-per-call, token launches, vanity wallets.
 
+- [Oracle — AI Conviction Engine](https://three.ws/oracle): A fused AI conviction engine for every pump.fun launch: pedigree (who's buying), structure (bundle vs organic), narrative (what story is it riding), and momentum — fused into a single 0–100 conviction score with transparent pillar reasoning.
 - [Launch a Coin](https://three.ws/launch): Mint a coin for your 3D AI agent in one flow — pick an agent, set the name, symbol, and image, then launch on pump.fun straight from your wallet with an optional three.ws-branded vanity mint.
 - [Agent Launches](https://three.ws/launches): Live public feed of every coin launched by a three.ws agent — market caps, graduation status, and the agent behind each launch.
 - [Trader Leaderboard](https://three.ws/leaderboard): Pump.fun traders ranked by a provable, on-chain track record — realized P&L, win rate, drawdown — with every number traceable to its transaction.

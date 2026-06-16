@@ -146,6 +146,10 @@ class TradeModal {
 		// AMM, false = still on the bonding curve. Drives the stage pill so a
 		// graduated coin is visually unmistakable from a curve coin.
 		this.graduated = null;
+		// Platform trade fee (basis points), learned from the quote endpoint. null
+		// until the first quote resolves; 0 disables the fee line. Disclosed in the
+		// modal so a fee never lands as a surprise.
+		this.platformFeeBps = null;
 		this._build();
 		this._detectP = this._detectDenom();
 		this._refreshWallet();
@@ -172,6 +176,9 @@ class TradeModal {
 		this.presetRow = el('div', { class: 'cc-buy-presets' });
 		this.balLine = el('div', { class: 'cc-buy-bal', role: 'status', 'aria-live': 'polite', hidden: true });
 		this.quoteLine = el('div', { class: 'cc-buy-quote', role: 'status', 'aria-live': 'polite' }, 'Fetching price…');
+		// Subtle, always-honest fee disclosure — rate + estimated amount, updated
+		// live with the trade size. Hidden only when the platform fee is 0.
+		this.feeLine = el('div', { class: 'cc-buy-fee', role: 'note', hidden: true });
 
 		this.slipRow = el('div', { class: 'cc-buy-slip' }, [
 			el('span', { class: 'cc-buy-slip-label', text: 'Max slippage' }),
@@ -219,6 +226,7 @@ class TradeModal {
 			this.presetRow,
 			this.balLine,
 			this.quoteLine,
+			this.feeLine,
 			this.slipRow,
 			this.walletLine,
 			this.cta,
@@ -322,6 +330,7 @@ class TradeModal {
 			const data = await r.json().catch(() => ({}));
 			if (!r.ok || !data?.quote_mint) return;
 			this.graduated = !!data.graduated;
+			this._captureFee(data);
 			this._renderStage();
 			if (data.quote_mint !== WSOL && this.denom.kind !== 'usdc') {
 				this.denom = usdcDenom(NETWORK);
@@ -485,9 +494,44 @@ class TradeModal {
 		}
 	}
 
+	// Learn the platform fee rate from any quote-endpoint payload, then refresh
+	// the disclosure line. Honest by construction: the rate is whatever the
+	// server will actually charge, never a client-side guess.
+	_captureFee(data) {
+		if (data && typeof data.platform_fee_bps === 'number') {
+			this.platformFeeBps = data.platform_fee_bps;
+			this._renderFee();
+		}
+	}
+
+	// The fee disclosure line: "Platform fee 1% · ~0.0100 SOL" on a buy (the fee
+	// is added on top of what you pay) and "Platform fee 1% of proceeds" on a
+	// sell (taken from what you receive). Hidden when the fee is zero/unknown.
+	_renderFee() {
+		const line = this.feeLine;
+		if (!line) return;
+		const bps = this.platformFeeBps;
+		if (!bps || bps <= 0) { line.hidden = true; line.textContent = ''; return; }
+		const pct = bps / 100;
+		const pctStr = (Number.isInteger(pct) ? pct : pct.toFixed(2)) + '%';
+		line.hidden = false;
+		line.textContent = '';
+		line.append(el('span', { class: 'cc-buy-fee-label', text: 'Platform fee' }));
+		if (this.mode === 'buy' && this.amount > 0) {
+			const fee = this.amount * (bps / 10_000);
+			line.append(el('span', { class: 'cc-buy-fee-val', text: ` ${pctStr} · ~${fmtQuote(fee, this.denom)} ${this.denom.label}` }));
+		} else if (this.mode === 'sell') {
+			line.append(el('span', { class: 'cc-buy-fee-val', text: ` ${pctStr} of proceeds` }));
+		} else {
+			line.append(el('span', { class: 'cc-buy-fee-val', text: ` ${pctStr}` }));
+		}
+		line.title = 'A platform fee at pump.fun’s trade-fee rate, included in this transaction alongside the standard Solana network fee.';
+	}
+
 	// --------------------------------------------------------------- quote
 	async _quote() {
 		await this._detectP;
+		this._renderFee();
 		// SOL buys keep the original client-side AMM quote (price impact + honest
 		// bonding-curve fallback). Everything else (USDC buys, all sells) prices
 		// through the server quote endpoint, which handles USDC and both routes.
@@ -542,6 +586,7 @@ class TradeModal {
 				const data = await fetch(`/api/pump/quote?${u}`).then((r) => r.json());
 				if (seq !== this._quoteSeq) return;
 				if (typeof data?.graduated === 'boolean') { this.graduated = data.graduated; this._renderStage(); }
+				this._captureFee(data);
 				const out = data?.quote?.tokens_out;
 				this.quoteLine.textContent = '';
 				if (out) {
@@ -569,6 +614,7 @@ class TradeModal {
 			const data = await fetch(`/api/pump/quote?${u}`).then((r) => r.json());
 			if (seq !== this._quoteSeq) return;
 			if (typeof data?.graduated === 'boolean') { this.graduated = data.graduated; this._renderStage(); }
+			this._captureFee(data);
 			const q = data?.quote || {};
 			const out = this.denom.kind === 'usdc' ? q.usdc_out : q.sol_out;
 			this.quoteLine.textContent = '';
@@ -652,7 +698,7 @@ class TradeModal {
 			if (isUsdc) prepBody.usdc_amount = this.amount; else prepBody.sol = this.amount;
 			const prep = await this._fetchJson('/api/pump/buy-prep', prepBody);
 
-			this._setStatus('Approve the purchase in your wallet…', '');
+			this._setStatus(`Approve the purchase in your wallet…${this._feeNote(prep)}`, '');
 			const { VersionedTransaction, Connection } = await import('@solana/web3.js');
 			const tx = VersionedTransaction.deserialize(
 				Uint8Array.from(atob(prep.tx_base64), (c) => c.charCodeAt(0)),
@@ -702,7 +748,7 @@ class TradeModal {
 				mint: this.coin.mint, network: NETWORK, tokens, slippage_bps: this.slippageBps, wallet_address: walletAddress,
 			});
 
-			this._setStatus('Approve the sale in your wallet…', '');
+			this._setStatus(`Approve the sale in your wallet…${this._feeNote(prep)}`, '');
 			const { VersionedTransaction, Connection } = await import('@solana/web3.js');
 			const tx = VersionedTransaction.deserialize(
 				Uint8Array.from(atob(prep.tx_base64), (c) => c.charCodeAt(0)),
@@ -761,6 +807,19 @@ class TradeModal {
 		} catch (err) {
 			this._setStatus(err?.message || 'Sign-in failed.', 'err');
 		}
+	}
+
+	// The exact platform fee for a prepared trade, as a short suffix shown at the
+	// approval step so the precise amount is visible before the wallet signs.
+	// Empty when no fee applies. fee.amount_ui is the human amount in fee.asset.
+	_feeNote(prep) {
+		const fee = prep?.platform_fee;
+		if (!fee || !fee.amount_ui) return '';
+		const pct = fee.bps / 100;
+		const pctStr = (Number.isInteger(pct) ? pct : pct.toFixed(2)) + '%';
+		const amt = fee.asset === 'USDC' ? fee.amount_ui.toFixed(fee.amount_ui >= 1 ? 2 : 4)
+			: Number(fee.amount_ui).toLocaleString(undefined, { maximumFractionDigits: 6 });
+		return ` (incl. ${pctStr} platform fee ~${amt} ${fee.asset})`;
 	}
 
 	// POST helper that surfaces the HTTP status on the thrown error so callers can

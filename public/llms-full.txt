@@ -308,6 +308,12 @@ A curated gallery of three.ws's most powerful — and most hidden — features. 
 
 On-chain features: pay-per-call, token launches, vanity wallets.
 
+### Oracle — AI Conviction Engine
+
+URL: https://three.ws/oracle
+
+A fused AI conviction engine for every pump.fun launch: pedigree (who's buying), structure (bundle vs organic), narrative (what story is it riding), and momentum — fused into a single 0–100 conviction score with transparent pillar reasoning.
+
 ### Launch a Coin
 
 URL: https://three.ws/launch
