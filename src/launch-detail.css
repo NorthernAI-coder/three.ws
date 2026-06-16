@@ -397,11 +397,10 @@ body {
 }
 .ld-int-btn:hover { color: var(--ink-bright); }
 .ld-int-btn.active { color: var(--ink-bright); border-color: var(--stroke-strong); background: var(--surface-3); }
-.ld-chart-canvas { position: relative; min-height: 200px; }
+.ld-chart-canvas { position: relative; min-height: 220px; }
 .ld-chart-readout { display: flex; align-items: baseline; gap: var(--space-sm); margin-bottom: var(--space-2xs); }
 .ld-chart-price { font-family: var(--font-mono); font-size: var(--text-lg); font-weight: var(--weight-semibold); color: var(--ink-bright); }
 .ld-chart-change { font-family: var(--font-mono); font-size: var(--text-sm); }
-.ld-chart-svg { width: 100%; height: 220px; display: block; }
 .ld-chart-up { color: var(--success); }
 .ld-chart-down { color: var(--danger); }
 
@@ -541,7 +540,17 @@ body {
 .ld-btn-primary:hover { color: var(--bg-0); filter: brightness(1.08); }
 .ld-btn-ghost { background: transparent; }
 .ld-btn-block { width: 100%; justify-content: center; }
+.ld-btn-sm { font-size: var(--text-xs); padding: var(--space-xs) var(--space-sm); }
+.ld-btn-accent { background: color-mix(in srgb, var(--accent) 15%, transparent); color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
+.ld-btn-accent:hover { background: color-mix(in srgb, var(--accent) 22%, transparent); color: var(--accent); border-color: var(--accent); }
+.ld-btn-buy { position: relative; overflow: hidden; }
+.ld-btn-buy::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.12) 50%, transparent 100%); transform: translateX(-100%); transition: transform 0.4s ease; }
+.ld-btn-buy:hover::after { transform: translateX(100%); }
 .ld-watch-on { color: var(--warn); border-color: var(--warn); }
+
+/* ── Agent CTAs row ──────────────────────────────────────────────────────── */
+.ld-agent-ctas { display: flex; gap: var(--space-sm); }
+.ld-agent-ctas .ld-btn { flex: 1 1 auto; justify-content: center; }
 
 /* ── States ───────────────────────────────────────────────────────────────── */
 
@@ -555,6 +564,70 @@ body {
 .ld-fatal h1 { font-family: var(--font-display); font-size: var(--text-xl); color: var(--ink-bright); margin: 0 0 var(--space-sm); }
 .ld-fatal p { color: var(--ink-dim); margin: 0 0 var(--space-lg); }
 .ld-fatal-ctas { display: flex; gap: var(--space-sm); justify-content: center; flex-wrap: wrap; }
+
+/* ── Volume bars (chart) ─────────────────────────────────────────────────── */
+
+.ld-chart-svg { width: 100%; height: 250px; display: block; }
+.ld-vol-bar { opacity: 0.45; }
+.ld-vol-up { fill: var(--success); }
+.ld-vol-dn { fill: var(--danger); }
+.ld-vol-divider { stroke: var(--stroke); stroke-width: 0.5; }
+
+/* ── Swap modal ─────────────────────────────────────────────────────────── */
+
+.ld-swap-overlay {
+	position: fixed; inset: 0; z-index: 1000;
+	background: color-mix(in srgb, var(--bg-0) 60%, transparent);
+	backdrop-filter: blur(6px);
+	display: flex; align-items: center; justify-content: center;
+	padding: var(--space-md);
+	animation: ld-fade-in 180ms var(--ease-out);
+}
+@keyframes ld-fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+.ld-swap-modal {
+	background: var(--surface-1);
+	border: 1px solid var(--stroke-strong);
+	border-radius: var(--radius-lg);
+	width: 100%;
+	max-width: 480px;
+	max-height: 90vh;
+	overflow-y: auto;
+	box-shadow: 0 32px 80px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.04);
+	animation: ld-modal-in 220ms var(--ease-out);
+}
+@keyframes ld-modal-in { from { opacity: 0; transform: translateY(14px) scale(0.97); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .ld-swap-modal, .ld-swap-overlay { animation: none; } }
+
+.ld-swap-head {
+	display: flex; align-items: center; justify-content: space-between;
+	padding: var(--space-md) var(--space-md) var(--space-sm);
+	border-bottom: 1px solid var(--stroke);
+}
+.ld-swap-title {
+	font-family: var(--font-display);
+	font-size: var(--text-md);
+	font-weight: var(--weight-semibold);
+	color: var(--ink-bright);
+}
+.ld-swap-close {
+	width: 32px; height: 32px;
+	display: grid; place-items: center;
+	border: 1px solid var(--stroke); border-radius: var(--radius-sm);
+	background: var(--surface-2); color: var(--ink-dim);
+	cursor: pointer; font-size: var(--text-sm);
+	transition: border-color var(--duration-fast), color var(--duration-fast);
+}
+.ld-swap-close:hover { border-color: var(--stroke-strong); color: var(--ink-bright); }
+.ld-swap-close:focus-visible { outline: var(--focus-ring-width) solid var(--focus-ring-color); outline-offset: var(--focus-ring-offset); }
+
+.ld-swap-terminal { min-height: 420px; }
+.ld-swap-loading { padding: var(--space-md); }
+.ld-swap-error {
+	display: flex; flex-direction: column; align-items: center; gap: var(--space-md);
+	padding: var(--space-xl) var(--space-md); text-align: center;
+}
+.ld-swap-error p { margin: 0; font-size: var(--text-sm); color: var(--ink-dim); }
 
 /* ── Skeletons ────────────────────────────────────────────────────────────── */
 

@@ -1185,6 +1185,10 @@
 			"dest": "/dashboard-next/referrals.html"
 		},
 		{
+			"src": "/dashboard/copy/?",
+			"dest": "/dashboard-next/copy.html"
+		},
+		{
 			"src": "/dashboard/settings/?",
 			"dest": "/dashboard-next/settings.html"
 		},

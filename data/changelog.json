@@ -3,10 +3,31 @@
 	"entries": [
 		{
 			"date": "2026-06-16",
+			"title": "Copy trading — mirror proven traders, non-custodially, on your own terms",
+			"summary": "You can now copy any trader from their profile. Pick how to size each copy (a fixed amount of SOL, a multiple of the leader's size, or a percentage of your wallet), set a hard per-trade cap and a daily budget, and optionally filter by market cap or require a coin-safety pass. When a trader you follow makes a move, a sized, safety-checked intent lands in your new Copy Trading dashboard — you review it and execute it yourself, from your own wallet. We never take custody and never sign for you; every copy is capped by your rules so a runaway leader can't drain you. Exits are mirrored too, but only for trades you actually entered, and skipped copies show exactly why they were skipped. Manage everything — pause, resume, stop, edit size — in one place.",
+			"tags": ["feature"],
+			"link": "/dashboard/copy"
+		},
+		{
+			"date": "2026-06-16",
+			"title": "Oracle — live trade tape and 3D conviction graph in the war room",
+			"summary": "Two new war-room surfaces: every coin in Oracle now has a live trade tape inside its drawer that streams every buy and sell in real time, annotated with the trader's archetype — Smart Money, KOL, Sniper, Rugger — the moment it lands on-chain. Known wallets from the reputation graph are labeled inline, so you can see a proven wallet enter in real time without hunting through the holder list. Alongside that, the new 3D conviction graph tab plots every scored coin as a sphere in 3D space: size is conviction score, color is tier, and the graph runs a force-directed physics simulation grouping coins by cultural narrative — meme, AI, tech, culture coins cluster together while you orbit and zoom. Click any sphere to open its full conviction breakdown. Both surfaces are live when you open Oracle.",
+			"tags": ["feature", "improvement"],
+			"link": "/oracle"
+		},
+		{
+			"date": "2026-06-16",
 			"title": "Oracle — one conviction score per launch, and an agent that acts on it",
 			"summary": "Oracle is a new way to read pump.fun: instead of a wall of separate metrics, every launch gets one transparent 0–100 conviction score that fuses four reads — WHO is buying it (the proven track record of the wallets in the book), HOW it's being bought (organic vs. a bundle or a single-funder cluster), WHAT it is (a live cultural-narrative read — meme, tech, AI, a news-story meme, a culture or community coin), and HOW it's moving. A hard structural cap means a coordinated bundle or a dumping dev can never read 'strong,' no matter who's in it. Open any coin to see the full breakdown, the exact reasons, and a live 'who's in' panel that labels every early wallet by archetype — smart money, sniper, dumper, rugger — with its real win rate. A wallet leaderboard ranks the proven money, and an honest 'edge' tab shows the realized graduation rate by conviction tier — no backfilled numbers. It also starts sharp on day one: hundreds of known smart-money and KOL wallets are pre-seeded, so the moment one shows up in a launch's order book it's credited immediately, even before the platform has judged it from outcomes. Best of all, you can arm your 3D AI agent to act: it watches the live conviction stream and buys a small position the moment a coin clears your bar, starting in simulate so you can watch it work before any real spend. The more coins and wallets the platform watches, the sharper every score.",
 			"tags": ["feature"],
 			"link": "/oracle"
+		},
+		{
+			"date": "2026-06-16",
+			"title": "Buy any coin directly on three.ws — Jupiter swap embedded in the coin page",
+			"summary": "The Trade button on every launch profile now opens an in-platform Jupiter swap terminal instead of bouncing to pump.fun. The terminal is lazy-loaded only when you click, so cold page loads stay fast. Jupiter routes through every available liquidity source including pump.fun's AMM and bonding curve, so it works for both pre-graduation and graduated coins. The price chart now also shows volume bars alongside the price line — green for net-buy candles, red for net-sell — giving you an instant read on trade intensity at a glance. The agent panel shows a 'Copy trades' shortcut that takes you directly to the agent's copy-trade setup. And when Birdeye's OHLCV quota is exhausted, the chart falls back to GeckoTerminal automatically, so the chart never goes dark on an actively-trading coin.",
+			"tags": ["feature", "improvement"],
+			"link": "/launches"
 		},
 		{
 			"date": "2026-06-16",
