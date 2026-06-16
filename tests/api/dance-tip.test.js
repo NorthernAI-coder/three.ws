@@ -36,7 +36,7 @@ describe('STYLES — registry', () => {
 		}
 	});
 
-	it('declares the three pole choreography sequence styles', () => {
+	it('declares the three choreographed sequence styles', () => {
 		for (const key of POLE_KEYS) {
 			const style = STYLES[key];
 			expect(style, `${key} missing from STYLES`).toBeTruthy();
@@ -51,33 +51,52 @@ describe('STYLES — registry', () => {
 				expect(step.clip.length).toBeGreaterThan(0);
 				expect(step.durationSec).toBeGreaterThan(0);
 			}
+			// durationSec must equal the sum of the steps so the ticket's
+			// endsAt and the audio loop stay aligned with the choreography.
+			const total = style.sequence.reduce((acc, s) => acc + s.durationSec, 0);
+			expect(total, `${key} durationSec must equal its step sum`).toBe(style.durationSec);
 		}
 	});
 
-	it('spin sequence matches the documented (pole-spin, pole-bow) chain', () => {
+	// Invariant that would have caught the shipped-but-unperformable bug: every
+	// clip a paid style chains MUST be a real, deployed manifest clip the dancer
+	// rig can drive — otherwise the tip settles and the dancer stands frozen.
+	// `idle`/`walk` are stage transitions, not danceable styles, so they're not
+	// valid routine clips.
+	it('only references clips that exist in the deployed animation manifest', () => {
+		const PERFORMABLE = new Set(['dance', 'rumba', 'silly', 'thriller', 'capoeira']);
+		for (const [key, style] of Object.entries(STYLES)) {
+			const clips = style.sequence ? style.sequence.map((s) => s.clip) : [style.clip];
+			for (const clip of clips) {
+				expect(PERFORMABLE.has(clip), `${key} references undeployed clip "${clip}"`).toBe(true);
+			}
+		}
+	});
+
+	it('spin chains capoeira → dance', () => {
 		expect(STYLES.spin.sequence).toEqual([
-			{ clip: 'pole-spin', durationSec: 8 },
-			{ clip: 'pole-bow',  durationSec: 2 },
+			{ clip: 'capoeira', durationSec: 6 },
+			{ clip: 'dance',    durationSec: 4 },
 		]);
 		expect(STYLES.spin.durationSec).toBe(10);
 	});
 
-	it('climb sequence matches (pole-climb, pole-invert, pole-bow)', () => {
+	it('climb chains thriller → capoeira → dance', () => {
 		expect(STYLES.climb.sequence).toEqual([
-			{ clip: 'pole-climb',  durationSec: 5 },
-			{ clip: 'pole-invert', durationSec: 6 },
-			{ clip: 'pole-bow',    durationSec: 2 },
+			{ clip: 'thriller', durationSec: 7 },
+			{ clip: 'capoeira', durationSec: 4 },
+			{ clip: 'dance',    durationSec: 3 },
 		]);
-		expect(STYLES.climb.durationSec).toBe(13);
+		expect(STYLES.climb.durationSec).toBe(14);
 	});
 
-	it('combo sequence chains spin → climb → invert → floorwork → bow', () => {
+	it('combo chains rumba → capoeira → thriller → silly → dance', () => {
 		expect(STYLES.combo.sequence.map((s) => s.clip)).toEqual([
-			'pole-spin',
-			'pole-climb',
-			'pole-invert',
-			'pole-floorwork',
-			'pole-bow',
+			'rumba',
+			'capoeira',
+			'thriller',
+			'silly',
+			'dance',
 		]);
 		expect(STYLES.combo.durationSec).toBe(18);
 		// Sum of step durations matches the advertised total.
@@ -101,15 +120,15 @@ describe('pickStyle', () => {
 		expect(s.sequence).toBeUndefined();
 	});
 
-	it('returns sequence + first-step clip for a pole sequence style', () => {
+	it('returns sequence + first-step clip for a choreographed style', () => {
 		const s = pickStyle('spin');
 		expect(s.key).toBe('spin');
-		expect(s.clip).toBe('pole-spin'); // first step lifted as legacy `clip`
+		expect(s.clip).toBe('capoeira'); // first step lifted as legacy `clip`
 		expect(s.loop).toBe(false);
 		expect(s.track).toBe('pole');
 		expect(s.sequence).toEqual([
-			{ clip: 'pole-spin', durationSec: 8 },
-			{ clip: 'pole-bow',  durationSec: 2 },
+			{ clip: 'capoeira', durationSec: 6 },
+			{ clip: 'dance',    durationSec: 4 },
 		]);
 	});
 
@@ -206,16 +225,16 @@ describe('buildTicket', () => {
 		expect(ticket.dance).toBe('climb');
 		// `clip` carries the first step's clip for legacy consumers + the
 		// club_tips ledger row.
-		expect(ticket.clip).toBe('pole-climb');
+		expect(ticket.clip).toBe('thriller');
 		expect(ticket.loop).toBe(false);
-		expect(ticket.durationSec).toBe(13);
+		expect(ticket.durationSec).toBe(14);
 		expect(ticket.track).toBe('pole');
 		expect(ticket.sequence).toEqual([
-			{ clip: 'pole-climb',  durationSec: 5 },
-			{ clip: 'pole-invert', durationSec: 6 },
-			{ clip: 'pole-bow',    durationSec: 2 },
+			{ clip: 'thriller', durationSec: 7 },
+			{ clip: 'capoeira', durationSec: 4 },
+			{ clip: 'dance',    durationSec: 3 },
 		]);
-		expect(ticket.endsAt).toBe('2026-05-21T00:00:13.000Z');
+		expect(ticket.endsAt).toBe('2026-05-21T00:00:14.000Z');
 	});
 
 	it('defaults payer + requirement fields to null when absent', () => {

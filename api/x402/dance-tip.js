@@ -28,7 +28,7 @@ const DESCRIPTION =
 	'three.ws club stage — tip a dancer to perform one routine on the 3D ' +
 	'stage. Pay $0.001 USDC per performance. Pick a dancer slot (1-4) and a ' +
 	'dance style (free-floor: rumba, silly, thriller, capoeira, hiphop; ' +
-	'pole choreography: spin, climb, combo). The settled call returns a ' +
+	'choreographed routines: spin, climb, combo). The settled call returns a ' +
 	'performance ticket the /club page consumes to spawn the dancer and play ' +
 	'the routine — sequence styles chain multiple clips back-to-back.';
 
@@ -43,38 +43,40 @@ export const STYLES = Object.freeze({
 	thriller: { clip: 'thriller', label: 'Thriller', loop: true, durationSec: 14, track: 'thriller' },
 	capoeira: { clip: 'capoeira', label: 'Capoeira', loop: true, durationSec: 12, track: 'capoeira' },
 
-	// Pole choreography (new) — sequences chain clips at PoleStation playback
-	// time. The `pole-*` clips live in /public/animations/clips/. The audio
-	// loop crossfades to the dedicated `pole` track.
+	// Choreographed routines — sequences chain multiple clips back-to-back at
+	// PoleStation playback time (the feature free-floor styles lack). Every clip
+	// here is a real, deployed entry in /animations/manifest.json so the routine
+	// always performs; durationSec is the sum of the steps. The audio loop
+	// crossfades to the dedicated `pole` track (/public/club/audio/pole.*).
 	spin: {
-		label: 'Pole Spin',
+		label: 'Spin',
 		durationSec: 10,
 		track: 'pole',
 		sequence: [
-			{ clip: 'pole-spin', durationSec: 8 },
-			{ clip: 'pole-bow',  durationSec: 2 },
+			{ clip: 'capoeira', durationSec: 6 },
+			{ clip: 'dance',    durationSec: 4 },
 		],
 	},
 	climb: {
-		label: 'Climb + Invert',
-		durationSec: 13,
+		label: 'Slow Burn',
+		durationSec: 14,
 		track: 'pole',
 		sequence: [
-			{ clip: 'pole-climb',  durationSec: 5 },
-			{ clip: 'pole-invert', durationSec: 6 },
-			{ clip: 'pole-bow',    durationSec: 2 },
+			{ clip: 'thriller', durationSec: 7 },
+			{ clip: 'capoeira', durationSec: 4 },
+			{ clip: 'dance',    durationSec: 3 },
 		],
 	},
 	combo: {
-		label: 'Combo',
+		label: 'Full Combo',
 		durationSec: 18,
 		track: 'pole',
 		sequence: [
-			{ clip: 'pole-spin',      durationSec: 4 },
-			{ clip: 'pole-climb',     durationSec: 4 },
-			{ clip: 'pole-invert',    durationSec: 4 },
-			{ clip: 'pole-floorwork', durationSec: 4 },
-			{ clip: 'pole-bow',       durationSec: 2 },
+			{ clip: 'rumba',    durationSec: 4 },
+			{ clip: 'capoeira', durationSec: 4 },
+			{ clip: 'thriller', durationSec: 4 },
+			{ clip: 'silly',    durationSec: 3 },
+			{ clip: 'dance',    durationSec: 3 },
 		],
 	},
 });
@@ -99,7 +101,7 @@ const INPUT_SCHEMA = {
 			description:
 				'Performance style. Free-floor styles map to a single clip in ' +
 				'/animations/manifest.json. Sequence styles (spin, climb, combo) ' +
-				'chain multiple pole-* clips back-to-back.',
+				'chain multiple manifest clips back-to-back.',
 		},
 	},
 };
@@ -109,14 +111,14 @@ const OUTPUT_EXAMPLE = {
 	ticketId: 'a3f3d6c2-1f1b-4f10-9b6c-1b1f5e0c9c34',
 	dancer: '1',
 	dance: 'spin',
-	clip: 'pole-spin',
-	label: 'Pole Spin',
+	clip: 'capoeira',
+	label: 'Spin',
 	loop: false,
 	durationSec: 10,
 	track: 'pole',
 	sequence: [
-		{ clip: 'pole-spin', durationSec: 8 },
-		{ clip: 'pole-bow',  durationSec: 2 },
+		{ clip: 'capoeira', durationSec: 6 },
+		{ clip: 'dance',    durationSec: 4 },
 	],
 	startsAt: '2026-05-21T18:42:09.000Z',
 	endsAt:   '2026-05-21T18:42:19.000Z',

@@ -2,6 +2,7 @@
  * IRL GPS Pins — place 3D agents at real-world GPS coordinates.
  *
  * GET    /api/irl/pins?lat=&lng=&radius=150        nearby pins (public)
+ * GET    /api/irl/pins/mine?deviceToken=           my pins (device token or auth)
  * GET    /api/irl/pins?mine=1                      my pins (auth required)
  * POST   /api/irl/pins  { lat, lng, heading, avatarUrl, avatarName, caption, agentId }
  * PATCH  /api/irl/pins  { id, caption }            edit caption (auth required)
@@ -55,7 +56,27 @@ export default wrap(async (req, res) => {
 
 	await ensureTable();
 
-	// ── GET — my pins (auth) ──────────────────────────────────────────────────
+	// ── GET — my pins by device token (anonymous) or session (auth) ──────────
+	// Path: /api/irl/pins/mine?deviceToken=…  — lets a visitor browse and manage
+	// the pins they placed from this device even after a reload, without login.
+	if (req.method === 'GET' && req.url?.includes('/mine')) {
+		const deviceToken = req.query.deviceToken;
+		const session     = await getSessionUser(req).catch(() => null);
+		if (!deviceToken && !session) {
+			return json(res, 400, { error: 'deviceToken required' });
+		}
+		const rows = await sql`
+			SELECT id, lat, lng, avatar_name, caption, placed_at, expires_at
+			FROM irl_pins
+			WHERE (device_token = ${deviceToken ?? ''} OR user_id = ${session?.id ?? null})
+			  AND (expires_at IS NULL OR expires_at > NOW())
+			ORDER BY placed_at DESC
+			LIMIT 20
+		`;
+		return json(res, 200, { pins: rows });
+	}
+
+	// ── GET — my pins (auth, query-param form) ────────────────────────────────
 	if (req.method === 'GET' && req.query.mine === '1') {
 		const session = await getSessionUser(req).catch(() => null);
 		if (!session) return json(res, 401, { error: 'not authenticated' });

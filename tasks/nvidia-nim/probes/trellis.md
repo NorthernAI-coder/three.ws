@@ -137,3 +137,79 @@ The official schema (docs.api.nvidia.com/nim/reference/microsoft-trellis-infer) 
 
 The NVCF asset upload handshake itself works (asset create + presigned PUT both 200) —
 it is the TRELLIS preview function that refuses non-example references.
+
+---
+
+## Addendum 2026-06-16 (artifact-shape drift + hardening verification)
+
+**Symptom.** Prod logs showed the free text→3D seed lane failing every tick with:
+
+```
+[nvidia] sync 200 but no GLB artifact — json keys=["artifacts"]
+```
+
+i.e. HTTP 200 with `{ "artifacts": [...] }`, but the array item no longer matched the
+2026-06-11 `{ base64 }` shape recorded in §5. The hosted NVCF preview had drifted its
+artifact envelope. `extractGlbBase64()` was hardened (commits `c8f5615c` CDN-URL +
+better diagnostic, `e4eb831c` bare-string artifact, `fbbae6ed` numeric-key object) to
+accept the full union of observed shapes and to emit a precise diagnostic on any future
+drift:
+
+```
+[nvidia] sync 200 but no GLB artifact — json keys=[...] artifact[0]=[...]
+```
+
+The accepted shapes are now (any one yields GLB bytes → R2 persist → durable URL):
+
+| shape | example |
+|---|---|
+| inline base64 (original) | `{ artifacts: [ { base64: "<b64>" } ] }` |
+| inline base64 under `data` | `{ artifacts: [ { data: "<b64>" } ] }` |
+| bare string in the array | `{ artifacts: [ "<b64>" ] }` |
+| URL-based (CDN) | `{ artifacts: [ { url: "https://…/x.glb" } ] }` → fetched + buffered |
+| numeric-key object | `{ artifacts: { "0": { base64 | url } } }` |
+| raw bytes | `Content-Type: model/gltf-binary` / `octet-stream`, body is the GLB |
+
+**Live verification (2026-06-16, against deployed prod, the 09:19 build carrying
+`c8f5615c` + `e4eb831c`):**
+
+1. Direct forge probe — `POST https://three.ws/api/forge`
+   `{ prompt: "a small red cube, studio lighting", tier: "draft", path: "image" }`:
+
+   ```json
+   { "job_id": null, "status": "done", "backend": "nvidia",
+     "creation_id": "d1ad96d7-…", "durable": true, "mode": "text_to_3d",
+     "glb_url": "https://three.ws/cdn/forge/…/d1ad96d7-….glb", "eta_seconds": 13 }
+   ```
+   The persisted GLB fetched back at **3,627,288 bytes**, magic `glTF` (valid binary glTF v2).
+
+2. Autonomous seed cron — prod runtime logs show
+   `GET /api/cron/forge-seed-cron → 200` immediately followed by
+   `GET /cdn/forge/nvidia/<uuid>.glb → 200` (the `forge/nvidia/<uuid>.glb` key is
+   `persistGlb()`'s output) — the per-minute cron is seeding real NVIDIA GLBs. No
+   `[nvidia] sync 200 but no GLB artifact` lines remain.
+
+**Note on the upstream raw shape.** The exact current `artifact[0]` keys were *not*
+re-confirmed against `ai.api.nvidia.com` directly in this pass: `vercel env pull` returns
+`NVIDIA_API_KEY` (and all sensitive vars) **blank** in this environment, so no out-of-band
+key was available to hit the upstream endpoint. The lane is nonetheless verified working
+end-to-end in prod (above), and the extractor accepts every shape NVIDIA has been seen to
+return. To capture the precise raw envelope when a real key is on hand, run §7 below or:
+
+```bash
+# requires a real NVIDIA_API_KEY in the environment
+node - <<'EOF'
+const res = await fetch('https://ai.api.nvidia.com/v1/genai/microsoft/trellis', {
+  method: 'POST',
+  headers: { authorization: `Bearer ${process.env.NVIDIA_API_KEY}`,
+             accept: 'application/json', 'content-type': 'application/json' },
+  body: JSON.stringify({ mode: 'text', prompt: 'a small red cube, studio lighting',
+                         ss_sampling_steps: 10, slat_sampling_steps: 10, output_format: 'glb' }),
+  signal: AbortSignal.timeout(60_000),
+});
+const b = await res.json();
+const a0 = b.artifacts?.[0];
+console.log('status', res.status, 'top', Object.keys(b),
+  'artifact[0]', typeof a0 === 'object' ? Object.keys(a0) : `${typeof a0}:${String(a0).slice(0,40)}`);
+EOF
+```

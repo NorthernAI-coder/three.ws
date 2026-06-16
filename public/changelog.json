@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-16T10:35:10.776Z",
+	"generated_at": "2026-06-16T11:50:42.858Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -253,6 +253,16 @@
 		{
 			"date": "2026-06-16",
 			"type": "update",
+			"title": "Embed wizard now reachable from every agent and avatar page",
+			"summary": "The full-featured embed wizard (/embed) is now one click away from any agent detail page, avatar page, and the dashboard agents list. Open it to configure size, environment, mode, and controls, see a live preview, and copy platform-specific instructions for plain HTML, React, WordPress, Webflow, or Shopify. When the wizard is opened from an agent page it pre-loads the agent and defaults to chat mode.",
+			"link": "/embed",
+			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "update",
 			"title": "Every launch now has its own page — the full story of a coin in one place",
 			"summary": "Until now, clicking a coin on the launches feed sent you out to pump.fun. Now every launch opens a rich profile that stays on three.ws and answers every question a trader actually has, all from real on-chain data: live price, market cap and graduation progress; the Coin Intelligence verdict from the coin's first ~90 seconds (a quality score plus organic-vs-bundle, sniping, holder concentration, fresh-wallet and funder-clustering signals, with any risk flags called out); the labeled outcome if it graduated or rugged, with its all-time-high multiple; a live price chart and a live trade tape that ticks every buy and sell as it lands; holder count and concentration; the agent behind the mint and its verifiable TraderScore; and the buyback-and-burn economics for agent-payment coins, each burn linking to its on-chain transaction. Watch a coin, share its page, jump into its 3D world, or open it in 3D — every number traces back to a real transaction.",
 			"link": "/launches",
@@ -263,11 +273,31 @@
 		{
 			"date": "2026-06-16",
 			"type": "update",
+			"title": "Features page — interactive animation showcase with 30+ live demos",
+			"summary": "The /features page now has a live animation showcase you can interact with in the browser. Pick from 30+ animations grouped by type (Idle, Dance, Celebration, Athletic, Combat, Walk, Mood) — the 3D avatar switches instantly with no page reload. The Widget Studio card also got a live preview panel showing what the embed looks like on a real site, plus a one-click snippet copy button.",
+			"link": "/features",
+			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "update",
 			"title": "Forge: fix 3D model generation on the free NVIDIA lane",
 			"summary": "The free TRELLIS text-to-3D lane stopped producing models when NVIDIA changed their API to return a CDN URL instead of inline base64. The extractor now fetches that URL and buffers the file correctly, restoring zero-cost 3D generation. Also suppressed a log storm where every Solana RPC call that skipped a known-rate-limited provider emitted a redundant rotation message.",
 			"link": "/forge",
 			"tags": [
 				"fix"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "update",
+			"title": "Guided tour engine — spotlight coachmarks with server-backed persistence",
+			"summary": "Built a reusable in-app tour engine that any page can use with a simple declarative step list. Tours spotlight DOM elements with an animated overlay, show contextual tooltips with Back/Next/Skip controls, handle keyboard navigation (arrows + Escape), announce each step to screen readers, and remember completion in both localStorage and the server (so tours don't re-appear across devices). The dashboard now shows a 4-step orientation tour to new accounts pointing out the nav, creations, KPIs, and quick actions.",
+			"link": "/dashboard",
+			"tags": [
+				"feature"
 			]
 		},
 		{
@@ -309,6 +339,17 @@
 			"link": "/irl",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "update",
+			"title": "IRL mode now remembers your scene between visits",
+			"summary": "Refreshing or returning to the IRL AR playground no longer wipes your setup. Your chosen avatar, the pinned/locked state, and every object you placed on the floor (orbs, crates, crystals, rings, pillars) are now saved to your device and restored automatically on your next visit. Opening a shared ?avatar= link still takes precedence so explicit links always win.",
+			"link": "/irl",
+			"tags": [
+				"feature",
+				"improvement"
 			]
 		},
 		{
@@ -381,6 +422,17 @@
 			"link": "/trades",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "update",
+			"title": "Manage your IRL pins from a new \"My pins\" panel",
+			"summary": "Placed an agent at a real-world spot? A new \"My pins\" button now appears in the IRL playground once location is ready. Tap it to see every pin you placed from this device — with the agent name, your caption, how far away it is, and when you dropped it — and remove any of them with one tap. Your pins are remembered across page reloads, so you can always find and clean them up later. Deleting the pin you're currently standing on also unpins your agent right away.",
+			"link": "/irl",
+			"tags": [
+				"feature",
+				"improvement"
 			]
 		},
 		{
@@ -684,6 +736,17 @@
 		{
 			"date": "2026-06-16",
 			"type": "update",
+			"title": "Pay an agent in the IRL playground with one tap via x402",
+			"summary": "Walk up to an agent pinned in the real world that offers a paid service, and the interaction sheet now shows a working \"Pay via x402\" button. Tapping it connects your wallet, signs a USDC payment, and settles the call for real — no more \"coming soon\" placeholder. The button connects first if your wallet is locked, shows its progress (Connecting → Sending → Paid), stays disabled after a successful payment so you can't accidentally pay twice, and re-enables itself if a payment is cancelled or fails so you can retry.",
+			"link": "/irl",
+			"tags": [
+				"feature",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "update",
 			"title": "Portfolio: Oracle conviction for every token you hold",
 			"summary": "The portfolio dashboard now shows Oracle conviction scores on Solana tokens. Each row gets a live badge showing the Oracle score and tier (prime / strong / lean). The pump.fun tokens table adds an Oracle column. And when you open any token's detail drawer, a conviction breakdown appears — score dial, pillar bars, and a link to the full Oracle analysis. Helps you make informed hold / sell decisions from the portfolio view.",
 			"link": "/dashboard/portfolio",
@@ -719,6 +782,17 @@
 			"summary": "When you open a coin in the /radar drawer, it now shows the Oracle conviction score alongside the coin intelligence analysis — score, tier badge, and four pillar bars (pedigree/structure/narrative/momentum), with a link to the full Oracle breakdown. Data loads asynchronously so the drawer opens instantly.",
 			"link": "/radar",
 			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "update",
+			"title": "Related avatars now have a one-tap Walk IRL shortcut",
+			"summary": "Every avatar in the Related avatars row on an avatar's profile now reveals a small IRL pill when you hover (or always-on for touch devices). Tapping it drops you straight into the live IRL playground with that avatar pre-loaded — no need to open the profile first. Right-click still works for opening in a new tab.",
+			"link": "/irl",
+			"tags": [
+				"feature",
 				"improvement"
 			]
 		},
@@ -790,6 +864,16 @@
 			"link": "/play/arena",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "update",
+			"title": "Tipped club dances now always perform",
+			"summary": "The Spin, Slow Burn (formerly Climb) and Full Combo routines on the Pole Club stage were charging for a performance the dancer couldn't actually play — the choreography was wired to animation clips that were never shipped, so a tip would settle and the dancer would just walk out, stand still, and walk back. All three routines are now built from real, deployed dance clips, so every tip you pay produces a full, visible routine set to its music. As a safety net, the stage will never leave a dancer frozen again: if any clip can't load, she falls back to a real dance for the full duration so a paid tip always delivers a performance.",
+			"link": "/club",
+			"tags": [
+				"fix"
 			]
 		},
 		{

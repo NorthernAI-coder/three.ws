@@ -1793,30 +1793,38 @@ async function loadRelated() {
 	const grid = $('av-related-grid');
 	if (!grid) return;
 	$('av-related').hidden = false;
-	grid.innerHTML = items.map((a) => `
-		<a class="av-related-card" href="/avatars/${encodeURIComponent(a.avatarId)}">
-			<div class="av-related-thumb">
-				${a.glbUrl ? `<model-viewer
-					src="${esc(a.glbUrl)}"
-					alt="${esc(a.name || 'Avatar')}"
-					auto-rotate
-					rotation-per-second="14deg"
-					interaction-prompt="none"
-					disable-zoom
-					disable-pan
-					disable-tap
-					exposure="1"
-					shadow-intensity="0.4"
-					tone-mapping="aces"
-					loading="lazy"
-				></model-viewer>` : ''}
-			</div>
-			<div class="av-related-info">
-				<p class="av-related-name">${esc(a.name || 'Untitled')}</p>
-				<p class="av-related-author">${esc(a.author?.displayName || a.author?.handle || 'Anonymous')}</p>
-			</div>
-		</a>
-	`).join('');
+	grid.innerHTML = items.map((a) => {
+		const id = encodeURIComponent(a.avatarId);
+		return `
+		<div class="av-related-card">
+			<a class="av-related-main" href="/avatars/${id}" aria-label="Open ${esc(a.name || 'avatar')}">
+				<div class="av-related-thumb">
+					${a.glbUrl ? `<model-viewer
+						src="${esc(a.glbUrl)}"
+						alt="${esc(a.name || 'Avatar')}"
+						auto-rotate
+						rotation-per-second="14deg"
+						interaction-prompt="none"
+						disable-zoom
+						disable-pan
+						disable-tap
+						exposure="1"
+						shadow-intensity="0.4"
+						tone-mapping="aces"
+						loading="lazy"
+					></model-viewer>` : ''}
+				</div>
+				<div class="av-related-info">
+					<p class="av-related-name">${esc(a.name || 'Untitled')}</p>
+					<p class="av-related-author">${esc(a.author?.displayName || a.author?.handle || 'Anonymous')}</p>
+				</div>
+			</a>
+			<a class="av-related-irl" href="/irl?avatar=${id}" title="Walk ${esc(a.name || 'this avatar')} IRL" aria-label="Walk ${esc(a.name || 'this avatar')} IRL">
+				<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+				IRL
+			</a>
+		</div>`;
+	}).join('');
 }
 
 // ── Model measurement ─────────────────────────────────────────────────

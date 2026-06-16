@@ -162,9 +162,34 @@ async function getOffscreenCtx() {
 	return _offscreenCtx;
 }
 
+function disposeMaterial(material) {
+	if (!material) return;
+	// Disposing a material does NOT free its textures — release them explicitly.
+	for (const value of Object.values(material)) {
+		if (value && typeof value === 'object' && typeof value.dispose === 'function' && 'isTexture' in value) {
+			value.dispose();
+		}
+	}
+	material.dispose();
+}
+
+function disposeModel(model) {
+	model.traverse(ch => {
+		ch.geometry?.dispose();
+		if (Array.isArray(ch.material)) ch.material.forEach(disposeMaterial);
+		else disposeMaterial(ch.material);
+	});
+}
+
+// The offscreen renderer/scene is a single shared resource. Many cards enter the
+// viewport at once, so serialize the scene-mutation → render → readback section;
+// concurrent renders into one scene would composite the wrong models together.
+let _renderQueue = Promise.resolve();
+
 async function render3dThumb(glbUrl) {
 	if (_thumbCache.has(glbUrl)) return _thumbCache.get(glbUrl);
-	try {
+	const run = _renderQueue.then(async () => {
+		if (_thumbCache.has(glbUrl)) return _thumbCache.get(glbUrl);
 		const { renderer, camera, scene, loader, Box3, Vector3 } = await getOffscreenCtx();
 		const gltf = await loader.loadAsync(glbUrl);
 		const model = gltf.scene;
@@ -176,19 +201,19 @@ async function render3dThumb(glbUrl) {
 		model.position.sub(center.multiplyScalar(scale));
 		model.position.y += 0.15;
 		scene.add(model);
-		renderer.render(scene, camera);
-		const dataUrl = renderer.domElement.toDataURL('image/png');
-		scene.remove(model);
-		model.traverse(ch => {
-			ch.geometry?.dispose();
-			if (Array.isArray(ch.material)) ch.material.forEach(m => m.dispose());
-			else ch.material?.dispose();
-		});
-		_thumbCache.set(glbUrl, dataUrl);
-		return dataUrl;
-	} catch {
-		return null;
-	}
+		try {
+			renderer.render(scene, camera);
+			const dataUrl = renderer.domElement.toDataURL('image/png');
+			_thumbCache.set(glbUrl, dataUrl);
+			return dataUrl;
+		} finally {
+			scene.remove(model);
+			disposeModel(model);
+		}
+	}).catch(() => null);
+	// Keep the chain alive even when a render rejects, so later cards still run.
+	_renderQueue = run.catch(() => {});
+	return run;
 }
 
 function setupThumb3d(thumbDiv, glbUrl) {

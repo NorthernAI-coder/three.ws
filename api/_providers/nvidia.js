@@ -30,10 +30,22 @@
 //   poll    GET https://api.nvcf.nvidia.com/v2/nvcf/pexec/status/{NVCF-REQID}
 //           → 202 (still running)   |   200 (done, body holds the GLB)
 //
-//   result  body.artifacts[0].base64  — base64-encoded .glb; we decode it and
-//           persist to R2, then hand back a durable public URL like the other
-//           providers (replicate/meshy return upstream URLs; TRELLIS returns the
-//           bytes inline, so WE own the persist).
+//   result  The GLB rides inside `body.artifacts[0]`, but the hosted NVCF preview
+//           has shipped it in SEVERAL shapes over time — the original
+//           `{ base64 }` object is no longer the only one observed in prod. The
+//           extractor (extractGlbBase64) normalizes all of:
+//             • { artifacts: [ { base64 } ] }     inline base64 (original)
+//             • { artifacts: [ { data } ] }        inline base64 under `data`
+//             • { artifacts: [ "<base64 string>" ] }   bare string, no wrapper
+//             • { artifacts: [ { url } ] }         CDN URL → fetched + buffered here
+//             • { artifacts: { "0": {…} } }        object with numeric-string keys
+//           plus raw-bytes (model/gltf-binary | octet-stream) when Accept is
+//           ignored. Whatever the shape, we end up with GLB bytes, persist them to
+//           R2, and hand back a durable public URL like the other providers
+//           (replicate/meshy return upstream URLs; TRELLIS hands us the bytes — or
+//           a short-lived CDN URL — so WE own the durable persist). On an
+//           unrecognized shape the warn logs `json keys=[…] artifact[0]=[…]` so the
+//           next schema drift is visible in the first failure without guessing.
 //
 // Error codes match the established provider contract (replicate.js / meshy.js):
 //   provider_unreachable / invalid_key / insufficient_credits / rate_limited /

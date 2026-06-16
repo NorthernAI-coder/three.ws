@@ -144,6 +144,21 @@ export class AnimationManager {
 		return this._canonicalClipsSupported;
 	}
 
+	/**
+	 * Whether a named clip can actually be driven on the attached rig: it's
+	 * either already loaded, or registered in the defs and not yet known to
+	 * have failed. Lets callers (e.g. the paid club stage) drop un-performable
+	 * steps from a routine before playback instead of crossfading to a silent
+	 * no-op and leaving the avatar frozen.
+	 * @param {string} name
+	 * @returns {boolean}
+	 */
+	canPlay(name) {
+		if (this.clips.has(name)) return true;
+		if (this._failed.has(name)) return false;
+		return this._animationDefs.some((d) => d.name === name);
+	}
+
 	// ── Loading ────────────────────────────────────────────────────────────────
 
 	/**

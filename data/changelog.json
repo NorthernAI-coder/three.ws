@@ -3,6 +3,55 @@
 	"entries": [
 		{
 			"date": "2026-06-16",
+			"title": "Tipped club dances now always perform",
+			"summary": "The Spin, Slow Burn (formerly Climb) and Full Combo routines on the Pole Club stage were charging for a performance the dancer couldn't actually play — the choreography was wired to animation clips that were never shipped, so a tip would settle and the dancer would just walk out, stand still, and walk back. All three routines are now built from real, deployed dance clips, so every tip you pay produces a full, visible routine set to its music. As a safety net, the stage will never leave a dancer frozen again: if any clip can't load, she falls back to a real dance for the full duration so a paid tip always delivers a performance.",
+			"tags": [
+				"fix"
+			],
+			"link": "/club"
+		},
+		{
+			"date": "2026-06-16",
+			"title": "Pay an agent in the IRL playground with one tap via x402",
+			"summary": "Walk up to an agent pinned in the real world that offers a paid service, and the interaction sheet now shows a working \"Pay via x402\" button. Tapping it connects your wallet, signs a USDC payment, and settles the call for real — no more \"coming soon\" placeholder. The button connects first if your wallet is locked, shows its progress (Connecting → Sending → Paid), stays disabled after a successful payment so you can't accidentally pay twice, and re-enables itself if a payment is cancelled or fails so you can retry.",
+			"tags": [
+				"feature",
+				"improvement"
+			],
+			"link": "/irl"
+		},
+		{
+			"date": "2026-06-16",
+			"title": "Manage your IRL pins from a new \"My pins\" panel",
+			"summary": "Placed an agent at a real-world spot? A new \"My pins\" button now appears in the IRL playground once location is ready. Tap it to see every pin you placed from this device — with the agent name, your caption, how far away it is, and when you dropped it — and remove any of them with one tap. Your pins are remembered across page reloads, so you can always find and clean them up later. Deleting the pin you're currently standing on also unpins your agent right away.",
+			"tags": [
+				"feature",
+				"improvement"
+			],
+			"link": "/irl"
+		},
+		{
+			"date": "2026-06-16",
+			"title": "Related avatars now have a one-tap Walk IRL shortcut",
+			"summary": "Every avatar in the Related avatars row on an avatar's profile now reveals a small IRL pill when you hover (or always-on for touch devices). Tapping it drops you straight into the live IRL playground with that avatar pre-loaded — no need to open the profile first. Right-click still works for opening in a new tab.",
+			"tags": [
+				"feature",
+				"improvement"
+			],
+			"link": "/irl"
+		},
+		{
+			"date": "2026-06-16",
+			"title": "IRL mode now remembers your scene between visits",
+			"summary": "Refreshing or returning to the IRL AR playground no longer wipes your setup. Your chosen avatar, the pinned/locked state, and every object you placed on the floor (orbs, crates, crystals, rings, pillars) are now saved to your device and restored automatically on your next visit. Opening a shared ?avatar= link still takes precedence so explicit links always win.",
+			"tags": [
+				"feature",
+				"improvement"
+			],
+			"link": "/irl"
+		},
+		{
+			"date": "2026-06-16",
 			"title": "$THREE holder gate — agent skills can now require $THREE balance",
 			"summary": "Agent owners can now require callers to hold a minimum $THREE balance before accessing any paid skill. Set three_gate.enabled and three_gate.min_balance in your agent meta. Callers who don't qualify receive a 402 with the exact amount required and a link to acquire $THREE. The gate fails open on infra issues — real holders are never blocked. A new /api/pump/check-three-balance endpoint lets any service verify wallet eligibility directly.",
 			"tags": [
