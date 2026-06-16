@@ -3,6 +3,20 @@
 	"entries": [
 		{
 			"date": "2026-06-16",
+			"title": "Agent trading record — proof-of-edge on every agent profile",
+			"summary": "Agent profiles now show a live TRADING RECORD panel that pulls directly from the Oracle's action ledger. Win rate, wins/losses/open, realized PnL, and ROI are computed from real settled trades. Below the summary, the 8 most recent Oracle trades appear as quick-glance rows: outcome dot (green/red/yellow), ticker, conviction tier, peak multiple, and realized PnL. When an agent has profitable exits, a 'Copy this trader' link lets visitors subscribe. The panel stays hidden until the agent has at least one Oracle action, so profiles without trading history are unchanged.",
+			"tags": ["feature"],
+			"link": "/agents"
+		},
+		{
+			"date": "2026-06-16",
+			"title": "Win exit alerts — Telegram fires when an agent's trade resolves profitable",
+			"summary": "The Oracle settle-loop now fires a Telegram notification to the signals channel whenever an agent's tracked position resolves as a win (graduated or ATH multiple ≥ 2×). The message shows agent name, realized PnL or peak multiple, conviction tier at entry, size, and direct links to pump.fun, Oracle, and the agent's track record. Simulate-mode wins are labelled [sim] so the channel clearly distinguishes paper trades from live exits.",
+			"tags": ["feature", "improvement"],
+			"link": "/oracle"
+		},
+		{
+			"date": "2026-06-16",
 			"title": "Oracle social signal — X posts now feed into coin conviction scores",
 			"summary": "The Oracle's Narrative pillar now receives real-time social signal from X. When a coin's $SYMBOL is mentioned in a tweet, the post's reach and engagement — views, likes, retweets — translate into a virality boost that raises the Oracle's conviction score. KOL accounts (verified smart-money voices on X) apply a 1.5× multiplier. The POST /api/oracle/social endpoint accepts raw tweet batches from any scraper, and the three.surf chart tool ships a --push-social flag that pipes its tweet analysis directly into the Oracle after each run.",
 			"tags": ["feature", "improvement"],

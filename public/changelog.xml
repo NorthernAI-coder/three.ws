@@ -23,6 +23,14 @@
 			<description>Your privately-stored watchlist of pump.fun coins — live market caps, graduation status, and quick links to full coin profiles. No account required; stored in your browser.</description>
 		</item>
 		<item>
+			<title>Agent trading record — proof-of-edge on every agent profile</title>
+			<link>https://three.ws/agents</link>
+			<guid isPermaLink="false">2026-06-16:Agent trading record — proof-of-edge on every agent profile</guid>
+			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Agent profiles now show a live TRADING RECORD panel that pulls directly from the Oracle's action ledger. Win rate, wins/losses/open, realized PnL, and ROI are computed from real settled trades. Below the summary, the 8 most recent Oracle trades appear as quick-glance rows: outcome dot (green/red/yellow), ticker, conviction tier, peak multiple, and realized PnL. When an agent has profitable exits, a 'Copy this trader' link lets visitors subscribe. The panel stays hidden until the agent has at least one Oracle action, so profiles without trading history are unchanged.</description>
+		</item>
+		<item>
 			<title>Buy any coin directly on three.ws — Jupiter swap embedded in the coin page</title>
 			<link>https://three.ws/launches</link>
 			<guid isPermaLink="false">2026-06-16:Buy any coin directly on three.ws — Jupiter swap embedded in the coin page</guid>
@@ -141,6 +149,14 @@
 			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>Every launch card now has a bookmark button. Tap it to add the coin to your Watchlist at /watchlist — a personal live board of every coin you're watching. Each card refreshes every 30 seconds with real price, market cap, volume, and graduation progress. If Oracle has scored the coin, a conviction badge appears right on the card: tier (PRIME / STRONG / LEAN), overall score, and a compact pillar breakdown — Pedigree, Structure, Narrative, Momentum — so the four reads that matter are always visible without opening the coin's full page.</description>
+		</item>
+		<item>
+			<title>Win exit alerts — Telegram fires when an agent's trade resolves profitable</title>
+			<link>https://three.ws/oracle</link>
+			<guid isPermaLink="false">2026-06-16:Win exit alerts — Telegram fires when an agent's trade resolves profitable</guid>
+			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The Oracle settle-loop now fires a Telegram notification to the signals channel whenever an agent's tracked position resolves as a win (graduated or ATH multiple ≥ 2×). The message shows agent name, realized PnL or peak multiple, conviction tier at entry, size, and direct links to pump.fun, Oracle, and the agent's track record. Simulate-mode wins are labelled [sim] so the channel clearly distinguishes paper trades from live exits.</description>
 		</item>
 		<item>
 			<title>Coin Intelligence</title>
