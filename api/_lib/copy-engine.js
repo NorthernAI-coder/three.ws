@@ -46,6 +46,11 @@ export function normalizeSubscriptionInput(raw = {}) {
 		return { ok: false, error: 'mcap_floor_usd cannot exceed mcap_ceiling_usd' };
 	}
 
+	const minOracleScore = raw.min_oracle_score == null || raw.min_oracle_score === '' ? null : Math.round(n(raw.min_oracle_score));
+	if (minOracleScore != null && (minOracleScore < 0 || minOracleScore > 100)) {
+		return { ok: false, error: 'min_oracle_score must be between 0 and 100' };
+	}
+
 	return {
 		ok: true,
 		value: {
@@ -61,6 +66,7 @@ export function normalizeSubscriptionInput(raw = {}) {
 			mcap_ceiling_usd: mcapCeil,
 			copy_sells: raw.copy_sells !== false,
 			require_safety_pass: raw.require_safety_pass === true,
+			min_oracle_score: minOracleScore,
 			perf_fee_bps: perfBps,
 		},
 	};
@@ -150,6 +156,14 @@ export function evaluateSafety(sub, coin) {
 	if (coin.liquidity_usd != null && coin.liquidity_usd > 0 && coin.liquidity_usd < 1000) {
 		return { ok: false, reason: 'low_liquidity', detail: `Liquidity $${fmt(coin.liquidity_usd)} is too thin to copy safely.` };
 	}
+
+	// Oracle conviction gate: skip if the score is known and below the threshold.
+	if (sub.min_oracle_score != null && coin.oracle_score != null) {
+		if (n(coin.oracle_score) < n(sub.min_oracle_score)) {
+			return { ok: false, reason: 'below_oracle_threshold', detail: `Oracle conviction ${n(coin.oracle_score)} is below your minimum ${n(sub.min_oracle_score)}.` };
+		}
+	}
+
 	return { ok: true };
 }
 

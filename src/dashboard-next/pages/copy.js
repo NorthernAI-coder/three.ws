@@ -17,6 +17,7 @@ const SKIP_LABEL = {
 	low_liquidity: 'Liquidity too thin',
 	honeypot: 'Flagged as a honeypot',
 	safety_unknown: 'Coin safety unconfirmed',
+	below_oracle_threshold: 'Oracle conviction too low',
 	below_min_order: 'Sized below your minimum',
 	daily_budget_spent: 'Daily budget used up',
 	max_open_copies: 'Open-copies cap reached',
@@ -113,7 +114,7 @@ function subRow(s) {
 				<a href="${traderHref(s.leader_agent_id)}" style="color:inherit;text-decoration:none">${esc(s.leader_name || 'trader')}</a>
 				<span class="cp-tag ${paused ? 'paused' : 'on'}">${paused ? 'Paused' : '● Active'}</span>
 			</div>
-			<div class="cp-sub">${esc(sizingLabel(s))} · cap ${Number(s.per_trade_cap_sol)} ◎ · ${Number(s.daily_budget_sol)} ◎/day · ${Number(s.pending_count) || 0} pending</div>
+			<div class="cp-sub">${esc(sizingLabel(s))} · cap ${Number(s.per_trade_cap_sol)} ◎ · ${Number(s.daily_budget_sol)} ◎/day · ${Number(s.pending_count) || 0} pending${s.min_oracle_score != null ? ` · Oracle ≥${s.min_oracle_score}` : ''}</div>
 		</div>
 		<div class="cp-side">
 			<button class="cp-btn" data-sub-act="${paused ? 'active' : 'paused'}">${paused ? 'Resume' : 'Pause'}</button>
