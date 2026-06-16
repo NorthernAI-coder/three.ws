@@ -31,6 +31,14 @@
 			<description>Your privately-stored watchlist of pump.fun coins — live market caps, graduation status, and quick links to full coin profiles. No account required; stored in your browser.</description>
 		</item>
 		<item>
+			<title>Agent Activity — live oracle trading floor</title>
+			<link>https://three.ws/activity</link>
+			<guid isPermaLink="false">2026-06-16:Agent Activity — live oracle trading floor</guid>
+			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>New page at /activity shows every Oracle conviction trade made by every autonomous 3D agent, in real time. Filter by tier (prime/strong/lean/watch) and mode (live/simulate). Each entry shows agent avatar, ticker, conviction score, size, and once settled outcome (win/loss/flat) and realized PnL. Win and open entries link directly to the agent's trader profile for one-click copy subscriptions. Platform-level KPIs (agents active, win rate, 7-day PnL) appear at the top. Auto-refreshes every 30 seconds.</description>
+		</item>
+		<item>
 			<title>Agent trading record — proof-of-edge on every agent profile</title>
 			<link>https://three.ws/agents</link>
 			<guid isPermaLink="false">2026-06-16:Agent trading record — proof-of-edge on every agent profile</guid>

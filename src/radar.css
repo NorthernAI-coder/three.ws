@@ -412,6 +412,23 @@
 .rd-copy:hover { background: var(--surface-3); color: var(--ink); }
 .rd-copy:focus-visible { outline: var(--focus-ring-width) solid var(--focus-ring-color); outline-offset: 2px; }
 
+/* ── Oracle conviction in radar drawer ───────────────────────────────────── */
+.rd-oracle-sk { height: 80px; border-radius: 8px; background: linear-gradient(90deg, var(--surface-2) 25%, var(--surface-1) 37%, var(--surface-2) 63%); background-size: 400% 100%; animation: rd-sk 1.4s infinite; }
+@keyframes rd-sk { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
+.rd-oracle-body { display: flex; flex-direction: column; gap: 10px; }
+.rd-oracle-head { display: flex; align-items: center; gap: 10px; }
+.rd-oracle-dial { display: flex; align-items: baseline; gap: 2px; }
+.rd-oracle-score { font-family: var(--font-display); font-size: var(--text-2xl); font-weight: 800; line-height: 1; }
+.rd-oracle-max { font-size: var(--text-2xs); color: var(--ink-faint); }
+.rd-oracle-badge { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; padding: 3px 9px; border-radius: 99px; border: 1px solid; }
+.rd-oracle-pillars { display: flex; flex-direction: column; gap: 5px; }
+.rd-oracle-pillar { display: grid; grid-template-columns: 68px 1fr 28px; align-items: center; gap: 8px; }
+.rd-oracle-pillar-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-faint); }
+.rd-oracle-pillar-bar { height: 5px; border-radius: 99px; background: var(--surface-2); overflow: hidden; }
+.rd-oracle-pillar-fill { height: 100%; border-radius: 99px; transition: width .6s ease-out; }
+.rd-oracle-pillar-val { font: 600 11px/1 var(--font-mono); text-align: right; color: var(--ink-dim); }
+.rd-oracle-link { display: inline-block; align-self: flex-start; }
+
 /* ── responsive ───────────────────────────────────────────────────────────── */
 @media (max-width: 720px) {
 	.radar-main { padding: var(--space-md) var(--space-sm) var(--space-2xl); }

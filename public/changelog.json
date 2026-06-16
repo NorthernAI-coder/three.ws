@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-16T05:32:08.417Z",
+	"generated_at": "2026-06-16T05:33:11.937Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -34,6 +34,16 @@
 			"link": "/watchlist",
 			"tags": [
 				"launch"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "update",
+			"title": "Agent Activity — live oracle trading floor",
+			"summary": "New page at /activity shows every Oracle conviction trade made by every autonomous 3D agent, in real time. Filter by tier (prime/strong/lean/watch) and mode (live/simulate). Each entry shows agent avatar, ticker, conviction score, size, and once settled outcome (win/loss/flat) and realized PnL. Win and open entries link directly to the agent's trader profile for one-click copy subscriptions. Platform-level KPIs (agents active, win rate, 7-day PnL) appear at the top. Auto-refreshes every 30 seconds.",
+			"link": "/activity",
+			"tags": [
+				"feature"
 			]
 		},
 		{

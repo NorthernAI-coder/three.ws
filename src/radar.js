@@ -889,6 +889,13 @@ function renderDrawerContent(panel, coin) {
 	// wallet ledger
 	panel.append(renderWalletLedger(coin));
 
+	// Oracle conviction — async injection after drawer is visible
+	const oracleSec = el('div', 'rd-section rd-oracle');
+	const oracleSk = el('div', 'rd-oracle-sk');
+	oracleSec.append(el('h3', 'rd-h3', 'Oracle conviction'));
+	oracleSec.append(oracleSk);
+	panel.append(oracleSec);
+
 	// links + socials
 	const links = el('div', 'rd-section rd-links');
 	const scan = el('a', 'radar-btn radar-btn--ghost', 'Solscan');
@@ -899,6 +906,69 @@ function renderDrawerContent(panel, coin) {
 	if (s.telegram) links.append(socialLink('Telegram', s.telegram));
 	if (s.website) links.append(socialLink('Website', s.website));
 	panel.append(links);
+
+	// Fetch Oracle conviction async and inject into the already-visible section
+	if (coin.network !== 'devnet') {
+		const TIER_META = {
+			prime:   { label: 'PRIME',   color: '#c084fc', bg: 'rgba(192,132,252,.14)' },
+			strong:  { label: 'STRONG',  color: '#34d399', bg: 'rgba(52,211,153,.12)' },
+			lean:    { label: 'LEAN',    color: '#fbbf24', bg: 'rgba(251,191,36,.12)' },
+			watch:   { label: 'WATCH',   color: '#94a3b8', bg: 'rgba(148,163,184,.1)' },
+			avoid:   { label: 'AVOID',   color: '#f87171', bg: 'rgba(248,113,113,.12)' },
+		};
+		const PILLAR_COLORS = { pedigree: '#5fe3ff', structure: '#34d399', narrative: '#a07bff', momentum: '#fbbf24' };
+		fetch(`/api/oracle/coin?mint=${encodeURIComponent(coin.mint)}`)
+			.then(r => r.ok ? r.json() : null)
+			.catch(() => null)
+			.then(data => {
+				if (!oracleSec.isConnected) return;
+				const cv = data?.conviction;
+				if (!cv) {
+					oracleSk.replaceWith(el('p', 'rd-meta', 'No Oracle score yet for this coin.'));
+					return;
+				}
+				const tier = cv.tier || 'watch';
+				const meta = TIER_META[tier] || TIER_META.watch;
+				const score = Math.round(Number(cv.score ?? 0));
+				const pillars = cv.pillars || {};
+
+				const head = el('div', 'rd-oracle-head');
+				const dial = el('div', 'rd-oracle-dial');
+				const scoreEl = el('span', 'rd-oracle-score', String(score));
+				scoreEl.style.color = meta.color;
+				const maxEl = el('span', 'rd-oracle-max', '/100');
+				const badge = el('span', 'rd-oracle-badge', meta.label);
+				badge.style.cssText = `background:${meta.bg};color:${meta.color};border-color:${meta.color}40`;
+				dial.append(scoreEl, maxEl);
+				head.append(dial, badge);
+
+				const pillarRow = el('div', 'rd-oracle-pillars');
+				for (const key of ['pedigree', 'structure', 'narrative', 'momentum']) {
+					const val = Math.round(Number(pillars[key] ?? 0));
+					const row = el('div', 'rd-oracle-pillar');
+					const label = el('span', 'rd-oracle-pillar-label', key);
+					const bar = el('div', 'rd-oracle-pillar-bar');
+					const fill = el('div', 'rd-oracle-pillar-fill');
+					fill.style.cssText = `width:${val}%;background:${PILLAR_COLORS[key]}`;
+					const valEl = el('span', 'rd-oracle-pillar-val', String(val));
+					bar.append(fill);
+					row.append(label, bar, valEl);
+					pillarRow.append(row);
+				}
+
+				const link = el('a', 'radar-btn radar-btn--ghost rd-oracle-link', 'Full conviction →');
+				link.href = `/oracle?mint=${encodeURIComponent(coin.mint)}`;
+				link.target = '_blank';
+				link.rel = 'noopener noreferrer';
+				link.style.cssText = 'color:' + meta.color + ';border-color:' + meta.color + '40;margin-top:8px';
+
+				const body = el('div', 'rd-oracle-body');
+				body.append(head, pillarRow, link);
+				oracleSk.replaceWith(body);
+			});
+	} else {
+		oracleSec.remove();
+	}
 
 	const id = el('div', 'rd-mint');
 	id.append(el('span', null, 'Mint'));

@@ -3,6 +3,20 @@
 	"entries": [
 		{
 			"date": "2026-06-16",
+			"title": "Radar drawer: Oracle conviction scores now inline with coin intelligence",
+			"summary": "When you open a coin in the /radar drawer, it now shows the Oracle conviction score alongside the coin intelligence analysis — score, tier badge, and four pillar bars (pedigree/structure/narrative/momentum), with a link to the full Oracle breakdown. Data loads asynchronously so the drawer opens instantly.",
+			"tags": ["improvement"],
+			"link": "/radar"
+		},
+		{
+			"date": "2026-06-16",
+			"title": "Agent Activity — live oracle trading floor",
+			"summary": "New page at /activity shows every Oracle conviction trade made by every autonomous 3D agent, in real time. Filter by tier (prime/strong/lean/watch) and mode (live/simulate). Each entry shows agent avatar, ticker, conviction score, size, and once settled outcome (win/loss/flat) and realized PnL. Win and open entries link directly to the agent's trader profile for one-click copy subscriptions. Platform-level KPIs (agents active, win rate, 7-day PnL) appear at the top. Auto-refreshes every 30 seconds.",
+			"tags": ["feature"],
+			"link": "/activity"
+		},
+		{
+			"date": "2026-06-16",
 			"title": "Pump Dashboard: live Oracle conviction panel on the main trading desk",
 			"summary": "The Pump Dashboard now has a High Conviction panel alongside the live feed — showing the top 5 Oracle-scored coins (score ≥ 60) with their tier badge, 4-pillar bars, and a link to the Oracle drawer. The panel auto-refreshes every 90 seconds and pulses with a live indicator. Clicking any coin opens the full conviction breakdown.",
 			"tags": ["improvement"],
