@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-16T05:33:11.937Z",
+	"generated_at": "2026-06-16T05:33:25.339Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -227,6 +227,16 @@
 			"title": "Pump Dashboard: live Oracle conviction panel on the main trading desk",
 			"summary": "The Pump Dashboard now has a High Conviction panel alongside the live feed — showing the top 5 Oracle-scored coins (score ≥ 60) with their tier badge, 4-pillar bars, and a link to the Oracle drawer. The panel auto-refreshes every 90 seconds and pulses with a live indicator. Clicking any coin opens the full conviction breakdown.",
 			"link": "/pump-dashboard",
+			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "update",
+			"title": "Radar drawer: Oracle conviction scores now inline with coin intelligence",
+			"summary": "When you open a coin in the /radar drawer, it now shows the Oracle conviction score alongside the coin intelligence analysis — score, tier badge, and four pillar bars (pedigree/structure/narrative/momentum), with a link to the full Oracle breakdown. Data loads asynchronously so the drawer opens instantly.",
+			"link": "/radar",
 			"tags": [
 				"improvement"
 			]
