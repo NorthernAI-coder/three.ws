@@ -3,6 +3,13 @@
 	"entries": [
 		{
 			"date": "2026-06-16",
+			"title": "Home page now features Oracle — live conviction scores on the front page",
+			"summary": "The three.ws home page now has an Oracle section between the Pump.fun token economy block and the pay-per-call block. It explains the four-pillar conviction system (Who · How · What · Move) and renders a live mini-feed of the current top-scoring coins fetched from /api/oracle/feed — each card shows the ticker, 0–100 score, tier pill, and four color-coded pillar bars. Clicking any card opens the Oracle drawer for that coin. The live dot pulses while data is streaming.",
+			"tags": ["improvement"],
+			"link": "/"
+		},
+		{
+			"date": "2026-06-16",
 			"title": "Coin Intelligence — watchlist + Oracle conviction now in every card and drawer",
 			"summary": "The Coin Intelligence radar (/coin-intel) is now connected to both the watchlist and the Oracle. Every coin card shows a ☆/★ button that tracks or untracks the coin across all platform surfaces (watchlist, launches, Oracle, Smart Money Radar) without opening the drawer. Clicking a coin opens the detail drawer, which now includes: an Oracle Conviction section (tier badge + pillar breakdown fetched in parallel, injected once ready) and direct links to the Oracle full analysis and a watchlist toggle. The Oracle link and watch button sit alongside the existing pump.fun and Solscan links at the bottom of the drawer.",
 			"tags": ["improvement"],
