@@ -1154,9 +1154,6 @@ window.__oracleOpenRelated = (mint) => openCoin(mint);
 
 function whoRow(w) {
 	const title = ARCH_TITLE[w.label] || 'Unproven';
-
-function whoRow(w) {
-	const title = ARCH_TITLE[w.label] || 'Unproven';
 	const sub = [
 		w.is_creator ? 'creator' : null,
 		w.tag ? `@${w.tag}` : null,
