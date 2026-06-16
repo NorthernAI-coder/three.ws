@@ -49,6 +49,7 @@
 			done: function (p, q) {
 				return (p.indexOf('/app') === 0 && q.has('agent')) ||
 					p.indexOf('/avatars/') === 0 ||
+					p.indexOf('/create/next') === 0 ||
 					(p.indexOf('/dashboard') === 0 && q.get('welcome') === '1');
 			},
 		},
