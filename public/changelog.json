@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-16T04:24:07.032Z",
+	"generated_at": "2026-06-16T04:32:42.855Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -40,8 +40,19 @@
 		{
 			"date": "2026-06-16",
 			"type": "update",
+			"title": "Coin intelligence — per-signal win-rates explain every oracle decision",
+			"summary": "The oracle's quality score is no longer a black box. After each learning-loop run, the system now computes per-signal conditional win-rates — for every signal dimension (bundle score, organic score, smart-money count, category, dev behaviour, and more), it reports the observed graduation rate for each value tier against the platform baseline. An agent calling get_coin_intel now receives the full model alongside the coin snapshot: exactly how often coins with 'clean' bundle scores graduated vs. coins with 'high' bundle scores, or what the graduation rate is when three or more smart-money wallets entered early. The oracle page shows these rates as context behind each risk flag and quality band. The learning loop updates the rates every time a cron run labels new outcomes and retrains — so the evidence improves as the platform watches more coins.",
+			"link": "/oracle",
+			"tags": [
+				"feature",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "update",
 			"title": "Copy trading — mirror proven traders, non-custodially, on your own terms",
-			"summary": "You can now copy any trader from their profile. Pick how to size each copy (a fixed amount of SOL, a multiple of the leader's size, or a percentage of your wallet), set a hard per-trade cap and a daily budget, and optionally filter by market cap or require a coin-safety pass. When a trader you follow makes a move, a sized, safety-checked intent lands in your new Copy Trading dashboard — you review it and execute it yourself, from your own wallet. We never take custody and never sign for you; every copy is capped by your rules so a runaway leader can't drain you. Exits are mirrored too, but only for trades you actually entered, and skipped copies show exactly why they were skipped. Manage everything — pause, resume, stop, edit size — in one place.",
+			"summary": "You can now copy any trader from their profile. Pick how to size each copy (a fixed amount of SOL, a multiple of the leader's size, or a percentage of your wallet), set a hard per-trade cap and a daily budget, and optionally filter by market cap or require a coin-safety pass. When a trader you follow makes a move, a sized, safety-checked intent lands in your new Copy Trading dashboard — you review it and execute it yourself, from your own wallet. We never take custody and never sign for you; every copy is capped by your rules so a runaway leader can't drain you. Exits are mirrored too, but only for trades you actually entered, and skipped copies show exactly why they were skipped. Leaders earn a performance fee on the profit you make copying them — charged only on gains above your prior peak (a high-water mark), never on losses, settled in $THREE with 80% to the trader and the rest funding buybacks and reflecting to holders. Manage everything — pause, resume, stop, edit size — in one place.",
 			"link": "/dashboard/copy",
 			"tags": [
 				"feature"
@@ -81,9 +92,69 @@
 		{
 			"date": "2026-06-16",
 			"type": "update",
+			"title": "Oracle conviction scores now read live crypto news",
+			"summary": "Oracle's narrative pillar used to guess virality from metadata alone. It now fetches live crypto headlines in real time and shows the LLM which headlines are active when it classifies a coin. When a coin clearly rides a headline — a news-peg meme, an AI project announced the same day — the LLM references it directly and the virality score reflects it. The scoring is faster too: five news categories (Solana, DeFi, Bitcoin, alt L1s, general) are fetched once and shared across all coins scored in the same pass.",
+			"link": "/oracle",
+			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "update",
+			"title": "Oracle conviction scores refresh every two minutes, automatically",
+			"summary": "Oracle now runs on a serverless cron that fires every two minutes: it scores the latest pump.fun launches from the data brain, runs every armed watch's act decision, settles resolved trades against real outcomes, and sends Telegram alerts for new prime and strong coins — all without a long-lived process. The conviction cache is always warm, armed agents always act, and the learning loop always closes.",
+			"link": "/oracle",
+			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "update",
+			"title": "Oracle fires Telegram alerts for prime and strong conviction coins",
+			"summary": "When a coin crosses the prime or strong conviction tier, Oracle now fires a Telegram alert with the full score breakdown: overall score, all four pillar values, coin symbol, category, and direct links to the coin's Oracle page and pump.fun listing. Alerts are deduplicated per coin across restarts so you get exactly one signal per conviction event — no repeats if the cron fires while the alert is already out.",
+			"link": "/oracle",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "update",
+			"title": "Oracle pre-seeded with hundreds of proven smart-money wallets",
+			"summary": "Wallet reputation now starts sharp instead of blank. A daily background job pulls the top-100 wallets across seven smart-money cohorts from gmgn.ai — smart degens, pump traders, KOLs, snipers, top devs — and seeds them into the platform's wallet reputation table. Wallets with fewer than five coins traded get the imported label and score; wallets the platform has already observed keep the track record it has built from watching real outcomes. Every Oracle pedigree score from this point on benefits from years of externally-verified wallet history, not just what three.ws has seen itself.",
+			"link": "/oracle",
+			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "update",
+			"title": "Rich OG cards on every shared coin link — price, score, and live status in the preview",
+			"summary": "Every /launches/<mint> page now generates a dynamic social card — visible in X, Telegram, Discord, Slack, and iMessage link previews. The card shows the coin's logo, name and symbol, the Coin Intelligence quality score, the organic vs. bundle signal bars, unique buyer count, live market cap, and an outcome badge (GRADUATED / RUGGED / LIVE with a pulsing dot). Every shared link becomes a signal at a glance — no click required.",
+			"link": "/launches",
+			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "update",
 			"title": "The Sniper Arena is now a living 3D world",
 			"summary": "The arena used to be a flat leaderboard. Now it's a real 3D world you walk into. Every armed AI agent stands on the trading floor as an animated avatar — the #1 agent up on a gold podium — and when they trade live, you see it happen: a cheer and a coin burst on a buy, confetti and a back-flip on a big win, a slump on a loss, each one tied to the same on-chain trade scrolling in the live tape. Pick your own avatar from a roster or the community gallery and walk the floor in third person with WASD or a touch joystick. Floating name tags track each agent with their live P&L, and a banner calls out the biggest win as it lands. Every number is real and verifiable on-chain — now it has a face.",
 			"link": "/play/arena",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "update",
+			"title": "Watchlist — save any coin and track it with live Oracle scores",
+			"summary": "Every launch card now has a bookmark button. Tap it to add the coin to your Watchlist at /watchlist — a personal live board of every coin you're watching. Each card refreshes every 30 seconds with real price, market cap, volume, and graduation progress. If Oracle has scored the coin, a conviction badge appears right on the card: tier (PRIME / STRONG / LEAN), overall score, and a compact pillar breakdown — Pedigree, Structure, Narrative, Momentum — so the four reads that matter are always visible without opening the coin's full page.",
+			"link": "/watchlist",
 			"tags": [
 				"feature"
 			]
