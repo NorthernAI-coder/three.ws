@@ -29,6 +29,16 @@ function toggleOracleWatch(mint) {
 }
 
 // ── tiny helpers ─────────────────────────────────────────────────────────────
+function setMeta(prop, content) {
+	let el = document.querySelector(`meta[property="${prop}"], meta[name="${prop}"]`);
+	if (!el) {
+		el = document.createElement('meta');
+		document.head.appendChild(el);
+	}
+	el.setAttribute(prop.startsWith('og:') || prop.startsWith('twitter:') ? 'property' : 'name', prop);
+	el.setAttribute('content', content || '');
+}
+
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const shortAddr = (a) => (a && a.length > 10 ? `${a.slice(0, 4)}…${a.slice(-4)}` : a || '');
 const fmtSol = (n) => (n == null ? '—' : `${Number(n) < 0.01 && Number(n) > 0 ? Number(n).toFixed(4) : Number(n).toFixed(2)}◎`);
@@ -89,7 +99,7 @@ const state = {
 	tier: '',
 	category: '',
 	minScore: 0,
-	sort: 'score',         // 'score' | 'new'
+	sort: 'score',         // 'score' | 'hot' | 'new'
 	label: '',
 	feed: new Map(),       // mint -> item, preserves SSE + initial load
 	es: null,
@@ -298,7 +308,9 @@ async function loadFeed() {
 function renderFeed() {
 	const sorter = state.sort === 'new'
 		? (a, b) => new Date(b.scored_at || 0) - new Date(a.scored_at || 0)
-		: (a, b) => b.score - a.score;
+		: state.sort === 'hot'
+			? (a, b) => (Number(b.pillars?.momentum) || 0) - (Number(a.pillars?.momentum) || 0)
+			: (a, b) => b.score - a.score;
 	const items = [...state.feed.values()].sort(sorter);
 	$('#ctFeed').textContent = items.length ? items.length : '';
 	if (!items.length) return renderFeedEmpty('empty');
@@ -900,6 +912,19 @@ function renderDrawer(d) {
 	// Fetch and render conviction score history sparkline + community sentiment.
 	loadScoreHistory(c.mint);
 	loadSentimentPulse(c.mint);
+
+	// Update OG / Twitter meta so shared links carry the coin's conviction card.
+	const ogImg    = `https://three.ws/api/oracle/og?mint=${encodeURIComponent(c.mint)}`;
+	const ogTitle  = `$${c.symbol || c.mint.slice(0, 8)} — ${c.score ?? '?'}/100 ${c.tier || ''} conviction · Oracle`;
+	const ogDesc   = `Oracle scored this launch ${c.score ?? '?'}/100 (${c.tier || 'unscored'}). Who · How · What · Move — all fused into one signal.`;
+	setMeta('og:title',            ogTitle);
+	setMeta('og:description',      ogDesc);
+	setMeta('og:image',            ogImg);
+	setMeta('og:url',              `https://three.ws/oracle?mint=${encodeURIComponent(c.mint)}`);
+	setMeta('twitter:card',        'summary_large_image');
+	setMeta('twitter:title',       ogTitle);
+	setMeta('twitter:description', ogDesc);
+	setMeta('twitter:image',       ogImg);
 
 	// Tear down any previous tape, then mount fresh for this coin.
 	state.tape?.destroy();
