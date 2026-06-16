@@ -236,6 +236,47 @@ async function enrichIntentOracle(container) {
 	} catch { /* non-fatal */ }
 }
 
+function discoverRow(t) {
+	const wr = t.win_rate != null ? `${Math.round(t.win_rate * 100)}% WR` : null;
+	const pnlSol = t.realized_pnl_sol;
+	const pnlStr = pnlSol != null ? fmtSol(pnlSol) : null;
+	const imgSrc = t.image || '/favicon.ico';
+	const meta = [
+		t.closed_positions != null ? `${t.closed_positions} closed` : null,
+		wr, pnlStr ? `${pnlStr} PnL` : null,
+		t.score != null ? `Score ${Math.round(t.score)}` : null,
+	].filter(Boolean).join(' · ');
+	return `
+	<div class="cp-item">
+		<img class="cp-av" src="${esc(imgSrc)}" alt="" onerror="this.style.visibility='hidden'" />
+		<div class="cp-mid">
+			<div class="cp-title"><a href="/trader/${esc(t.agent_id)}" style="color:inherit;text-decoration:none">${esc(t.agent_name || 'agent')}</a></div>
+			<div class="cp-sub">${esc(meta)}</div>
+		</div>
+		<div class="cp-side">
+			<a class="cp-btn primary" href="/trader/${esc(t.agent_id)}">Copy →</a>
+		</div>
+	</div>`;
+}
+
+async function loadDiscover(host, copiedIds) {
+	const el = host.querySelector('#cp-discover-rows');
+	if (!el) return;
+	try {
+		const data = await get('/api/sniper/leaderboard?limit=20&sort=score');
+		const board = (data.leaderboard || []).filter((t) => !copiedIds.has(t.agent_id)).slice(0, 5);
+		if (!board.length) {
+			const sec = host.querySelector('#cp-discover');
+			if (sec) sec.remove();
+			return;
+		}
+		el.innerHTML = board.map(discoverRow).join('');
+	} catch {
+		const sec = host.querySelector('#cp-discover');
+		if (sec) sec.remove();
+	}
+}
+
 async function loadAndRender(host) {
 	let subs, pending, history, earnings;
 	try {
@@ -273,10 +314,20 @@ async function loadAndRender(host) {
 				${historyStats(hist)}
 				<div id="cp-history">${hist.length ? hist.map(historyRow).join('') : `<div class="cp-empty">Nothing yet.</div>`}</div>
 			</section>
+
+			<section class="cp-sec" id="cp-discover">
+				<div class="cp-sec-h"><h2>Discover traders</h2><a class="cp-btn ghost" href="/leaderboard" style="font-size:12px">Full leaderboard →</a></div>
+				<p class="cp-note">Top performers on the sniper leaderboard, ranked by score. Copy any trader in one click.</p>
+				<div id="cp-discover-rows"><div class="cp-skeleton"></div><div class="cp-skeleton" style="margin-top:4px"></div><div class="cp-skeleton" style="margin-top:4px"></div></div>
+			</section>
 		</div>`;
 
 	// Enrich pending intent rows with Oracle conviction badges
 	enrichIntentOracle(host.querySelector('#cp-pending'));
+
+	// Discover section: load top leaderboard traders the user isn't copying yet
+	const copiedIds = new Set(subs.filter((s) => s.status !== 'stopped').map((s) => s.leader_agent_id));
+	loadDiscover(host, copiedIds);
 
 	// Intent actions
 	host.querySelector('#cp-pending')?.addEventListener('click', async (e) => {
