@@ -66,6 +66,11 @@ const STYLE = `
 .cp-skeleton { height: 56px; border-radius: 10px; background: var(--nxt-bg-2); animation: cp-pulse 1.4s ease infinite; }
 @keyframes cp-pulse { 0%,100% { opacity: .55 } 50% { opacity: 1 } }
 .cp-note { font-size: 12px; color: var(--nxt-ink-faint); margin: 0 0 14px; }
+.cp-oracle { display: inline-flex; }
+.cp-ob { display: inline-flex; align-items: center; gap: 3px; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; padding: 2px 7px; text-decoration: none; font-size: 11px; transition: border-color .12s; }
+.cp-ob:hover { border-color: rgba(255,255,255,0.22); }
+.cp-ob-score { font-weight: 700; font-variant-numeric: tabular-nums; }
+.cp-ob-tier { font-size: 8.5px; text-transform: uppercase; letter-spacing: .06em; opacity: .8; }
 @media (max-width: 560px) { .cp-item { grid-template-columns: 1fr; } .cp-side { justify-content: flex-start; } .cp-av { display: none; } }
 </style>`;
 
@@ -76,13 +81,15 @@ function intentRow(e) {
 	const isBuy = e.direction === 'buy';
 	const amount = isBuy ? `<span class="cp-amt">${fmtSol(e.planned_sol)}</span>` : `<span class="cp-tag sell">Exit your copy</span>`;
 	const proof = e.leader_buy_sig ? `<a href="https://solscan.io/tx/${esc(e.leader_buy_sig)}" target="_blank" rel="noopener">leader tx ↗</a>` : '';
+	const mintAttr = e.mint ? ` data-oracle-mint="${esc(e.mint)}"` : '';
 	return `
-	<div class="cp-item" data-id="${esc(e.id)}">
+	<div class="cp-item" data-id="${esc(e.id)}"${mintAttr}>
 		<img class="cp-av" src="${esc(img(e))}" alt="" onerror="this.style.visibility='hidden'" />
 		<div class="cp-mid">
 			<div class="cp-title">
 				<span class="cp-tag ${isBuy ? 'buy' : 'sell'}">${isBuy ? 'BUY' : 'SELL'}</span>
 				${esc(e.symbol || e.name || 'coin')}
+				<span class="cp-oracle"></span>
 				<span class="cp-sub" style="margin:0">via <a href="${traderHref(e.leader_agent_id)}">${esc(e.leader_name || 'trader')}</a></span>
 			</div>
 			<div class="cp-sub">${relTime(e.created_at)} · ${proof}</div>
@@ -156,6 +163,33 @@ function historyRow(e) {
 	</div>`;
 }
 
+const CP_TIER_COLOR = { prime: '#c084fc', strong: '#34d399', lean: '#fbbf24', watch: '#94a3b8', avoid: '#f87171' };
+
+async function enrichIntentOracle(container) {
+	if (!container) return;
+	const rows = container.querySelectorAll('[data-oracle-mint]');
+	if (!rows.length) return;
+	const mints = [...new Set([...rows].map((r) => r.dataset.oracleMint).filter(Boolean))];
+	if (!mints.length) return;
+	try {
+		const r = await fetch(`/api/oracle/batch?mints=${mints.map(encodeURIComponent).join(',')}&network=mainnet`);
+		if (!r.ok) return;
+		const { results = {} } = await r.json();
+		for (const row of rows) {
+			const mint = row.dataset.oracleMint;
+			const d = results[mint];
+			if (!d || d.score == null) continue;
+			const badge = row.querySelector('.cp-oracle');
+			if (!badge || badge.hasChildNodes()) continue;
+			const color = CP_TIER_COLOR[d.tier] || '#94a3b8';
+			badge.innerHTML = `<a class="cp-ob" href="/oracle?mint=${encodeURIComponent(mint)}" title="Oracle conviction: ${d.score} (${d.tier})">
+				<span class="cp-ob-score" style="color:${color}">${d.score}</span>
+				<span class="cp-ob-tier" style="color:${color}">${d.tier}</span>
+			</a>`;
+		}
+	} catch { /* non-fatal */ }
+}
+
 async function loadAndRender(host) {
 	let subs, pending, history, earnings;
 	try {
@@ -193,6 +227,9 @@ async function loadAndRender(host) {
 				<div id="cp-history">${hist.length ? hist.map(historyRow).join('') : `<div class="cp-empty">Nothing yet.</div>`}</div>
 			</section>
 		</div>`;
+
+	// Enrich pending intent rows with Oracle conviction badges
+	enrichIntentOracle(host.querySelector('#cp-pending'));
 
 	// Intent actions
 	host.querySelector('#cp-pending')?.addEventListener('click', async (e) => {
