@@ -42,6 +42,7 @@ const deviceChip    = document.getElementById('xr-device-chip');
 const avatarLabel   = document.getElementById('xr-avatar-label');
 const changeAvatarBtn = document.getElementById('xr-change-avatar');
 const loadingEl     = document.getElementById('xr-loading');
+const lockBtn       = document.getElementById('xr-lock-btn');
 
 function setStatus(msg, type = 'idle') {
 	if (!statusEl) return;
@@ -75,6 +76,21 @@ controls.maxDistance = 6;
 controls.minPolarAngle = 0.2;
 controls.maxPolarAngle = Math.PI * 0.65;
 controls.update();
+
+let orbitLocked = false;
+
+function setOrbitLocked(next) {
+	orbitLocked = next;
+	controls.enabled = !next;
+	if (lockBtn) {
+		lockBtn.setAttribute('aria-pressed', String(next));
+		lockBtn.classList.toggle('xr-lock--active', next);
+		lockBtn.querySelector('.xr-lock-label').textContent = next ? 'Locked' : 'Lock';
+	}
+	setStatus(next ? 'Avatar pinned — orbit disabled' : 'Orbit unlocked', 'idle');
+}
+
+if (lockBtn) lockBtn.addEventListener('click', () => setOrbitLocked(!orbitLocked));
 
 // Lights
 const hemi = new HemisphereLight(0xbcd6ff, 0x202830, 0.7);
