@@ -7,6 +7,14 @@
 		<description>What's new on three.ws — features, improvements, and releases, newest first.</description>
 		<language>en</language>
 		<item>
+			<title>Oracle — AI Conviction Engine</title>
+			<link>https://three.ws/oracle</link>
+			<guid isPermaLink="false">2026-06-16:Oracle — AI Conviction Engine</guid>
+			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>A fused AI conviction engine for every pump.fun launch: pedigree (who's buying), structure (bundle vs organic), narrative (what story is it riding), and momentum — fused into a single 0–100 conviction score with transparent pillar reasoning.</description>
+		</item>
+		<item>
 			<title>Watchlist</title>
 			<link>https://three.ws/watchlist</link>
 			<guid isPermaLink="false">2026-06-16:Watchlist</guid>
@@ -15,12 +23,36 @@
 			<description>Your privately-stored watchlist of pump.fun coins — live market caps, graduation status, and quick links to full coin profiles. No account required; stored in your browser.</description>
 		</item>
 		<item>
+			<title>Buy any coin directly on three.ws — Jupiter swap embedded in the coin page</title>
+			<link>https://three.ws/launches</link>
+			<guid isPermaLink="false">2026-06-16:Buy any coin directly on three.ws — Jupiter swap embedded in the coin page</guid>
+			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The Trade button on every launch profile now opens an in-platform Jupiter swap terminal instead of bouncing to pump.fun. The terminal is lazy-loaded only when you click, so cold page loads stay fast. Jupiter routes through every available liquidity source including pump.fun's AMM and bonding curve, so it works for both pre-graduation and graduated coins. The price chart now also shows volume bars alongside the price line — green for net-buy candles, red for net-sell — giving you an instant read on trade intensity at a glance. The agent panel shows a 'Copy trades' shortcut that takes you directly to the agent's copy-trade setup. And when Birdeye's OHLCV quota is exhausted, the chart falls back to GeckoTerminal automatically, so the chart never goes dark on an actively-trading coin.</description>
+		</item>
+		<item>
+			<title>Copy trading — mirror proven traders, non-custodially, on your own terms</title>
+			<link>https://three.ws/dashboard/copy</link>
+			<guid isPermaLink="false">2026-06-16:Copy trading — mirror proven traders, non-custodially, on your own terms</guid>
+			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>You can now copy any trader from their profile. Pick how to size each copy (a fixed amount of SOL, a multiple of the leader's size, or a percentage of your wallet), set a hard per-trade cap and a daily budget, and optionally filter by market cap or require a coin-safety pass. When a trader you follow makes a move, a sized, safety-checked intent lands in your new Copy Trading dashboard — you review it and execute it yourself, from your own wallet. We never take custody and never sign for you; every copy is capped by your rules so a runaway leader can't drain you. Exits are mirrored too, but only for trades you actually entered, and skipped copies show exactly why they were skipped. Manage everything — pause, resume, stop, edit size — in one place.</description>
+		</item>
+		<item>
 			<title>Every launch now has its own page — the full story of a coin in one place</title>
 			<link>https://three.ws/launches</link>
 			<guid isPermaLink="false">2026-06-16:Every launch now has its own page — the full story of a coin in one place</guid>
 			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>Until now, clicking a coin on the launches feed sent you out to pump.fun. Now every launch opens a rich profile that stays on three.ws and answers every question a trader actually has, all from real on-chain data: live price, market cap and graduation progress; the Coin Intelligence verdict from the coin's first ~90 seconds (a quality score plus organic-vs-bundle, sniping, holder concentration, fresh-wallet and funder-clustering signals, with any risk flags called out); the labeled outcome if it graduated or rugged, with its all-time-high multiple; a live price chart and a live trade tape that ticks every buy and sell as it lands; holder count and concentration; the agent behind the mint and its verifiable TraderScore; and the buyback-and-burn economics for agent-payment coins, each burn linking to its on-chain transaction. Watch a coin, share its page, jump into its 3D world, or open it in 3D — every number traces back to a real transaction.</description>
+		</item>
+		<item>
+			<title>Oracle — live trade tape and 3D conviction graph in the war room</title>
+			<link>https://three.ws/oracle</link>
+			<guid isPermaLink="false">2026-06-16:Oracle — live trade tape and 3D conviction graph in the war room</guid>
+			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Two new war-room surfaces: every coin in Oracle now has a live trade tape inside its drawer that streams every buy and sell in real time, annotated with the trader's archetype — Smart Money, KOL, Sniper, Rugger — the moment it lands on-chain. Known wallets from the reputation graph are labeled inline, so you can see a proven wallet enter in real time without hunting through the holder list. Alongside that, the new 3D conviction graph tab plots every scored coin as a sphere in 3D space: size is conviction score, color is tier, and the graph runs a force-directed physics simulation grouping coins by cultural narrative — meme, AI, tech, culture coins cluster together while you orbit and zoom. Click any sphere to open its full conviction breakdown. Both surfaces are live when you open Oracle.</description>
 		</item>
 		<item>
 			<title>Oracle — one conviction score per launch, and an agent that acts on it</title>

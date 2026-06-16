@@ -51,6 +51,7 @@ export default wrap(async (req, res) => {
 		trained: train.trained,
 		sample_size: train.sample_size,
 		weights: train.weights || null,
+		conditional_win_rates: train.conditional_win_rates || null,
 		ms: Date.now() - started,
 	});
 });

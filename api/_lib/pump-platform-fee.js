@@ -27,16 +27,30 @@ const WSOL_MINT = 'So11111111111111111111111111111111111111112';
 const MAX_FEE_BPS = 500; // 5%
 
 /**
- * The platform trade-fee rate in basis points. Defaults to 100 (1%), matching
- * pump.fun's trade fee. Override per-environment with PUMP_PLATFORM_FEE_BPS
- * (e.g. set 0 to disable while testing). Clamped to [0, MAX_FEE_BPS].
+ * The platform trade-fee rate in basis points. Defaults to 0 (OFF) so the fee
+ * ships inert and never activates on deploy by surprise — set
+ * PUMP_PLATFORM_FEE_BPS=100 to charge 1% (matching pump.fun's trade fee) once
+ * trading has been verified. Clamped to [0, MAX_FEE_BPS]. The fee also requires
+ * a configured recipient (pumpFeeRecipient), so both knobs must be set to bill.
  * @returns {number}
  */
 export function pumpPlatformFeeBps() {
 	const raw = process.env.PUMP_PLATFORM_FEE_BPS;
-	const n = raw == null || String(raw).trim() === '' ? 100 : parseInt(raw, 10);
-	if (!Number.isFinite(n) || n < 0) return 100;
+	const n = raw == null || String(raw).trim() === '' ? 0 : parseInt(raw, 10);
+	if (!Number.isFinite(n) || n < 0) return 0;
 	return Math.min(n, MAX_FEE_BPS);
+}
+
+/**
+ * The fee rate that will ACTUALLY be charged right now: the configured bps when
+ * a recipient wallet is set, otherwise 0. Quote/UI surfaces use this so the
+ * displayed "Platform fee X%" never claims a fee the transaction won't take.
+ * @returns {Promise<number>}
+ */
+export async function effectivePumpFeeBps() {
+	const bps = pumpPlatformFeeBps();
+	if (bps <= 0) return 0;
+	return (await pumpFeeRecipient()) ? bps : 0;
 }
 
 let _recipientCache = null; // { at, pubkey }

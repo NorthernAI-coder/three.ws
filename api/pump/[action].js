@@ -65,7 +65,7 @@ import { randomToken } from '../_lib/crypto.js';
 import { publishFeedEvent } from '../_lib/feed.js';
 import { normalizeGatewayURL } from '../../src/ipfs.js';
 import { buildTokenMetadata } from '../_lib/three-brand.js';
-import { buildPlatformFeeInstructions, pumpPlatformFeeBps } from '../_lib/pump-platform-fee.js';
+import { buildPlatformFeeInstructions, effectivePumpFeeBps } from '../_lib/pump-platform-fee.js';
 import { pinToIPFS, ipfsPinningConfigured } from '../_lib/ipfs-pin.js';
 import { THREE_WS_VANITY, hasThreeWsMark } from '../../src/solana/vanity/brand.js';
 import { grindVanityNode, GrindExhaustedError } from '../../src/solana/vanity/grinder-node.js';
@@ -2724,7 +2724,7 @@ async function handleQuote(req, res) {
 					virtual_token_reserves: curve.virtualTokenReserves?.toString?.() ?? null,
 					complete: curve.complete ?? false,
 				},
-				platform_fee_bps: pumpPlatformFeeBps(),
+				platform_fee_bps: await effectivePumpFeeBps(),
 				quote,
 			});
 		}
@@ -2843,7 +2843,7 @@ async function handleQuote(req, res) {
 				quote_reserve: quoteReserve.toString(),
 				lp_supply: pool.lpSupply?.toString?.() ?? null,
 			},
-			platform_fee_bps: pumpPlatformFeeBps(),
+			platform_fee_bps: await effectivePumpFeeBps(),
 			quote,
 		});
 	} catch (err) {

@@ -69,7 +69,7 @@ function rowMarkup(r) {
 				<img class="lb-avatar" src="${escapeHtml(img)}" alt="" loading="lazy" onerror="this.src='${identicon(r.agent_id || r.wallet || '?')}'" />
 				<span class="lb-trader-meta">
 					<span class="lb-trader-name">${escapeHtml(r.agent_name || 'Unnamed agent')}${verifiedBadge(r.verified)}</span>
-					<span class="lb-trader-sub">${escapeHtml(shortAddr(r.wallet))} · ${r.unique_coins} coins</span>
+					<span class="lb-trader-sub">${escapeHtml(shortAddr(r.wallet))} · ${r.unique_coins} coins${r.copiers ? ` · <span class="lb-copiers">${r.copiers} copying</span>` : ''}</span>
 				</span>
 			</span>
 			<span class="lb-num">
