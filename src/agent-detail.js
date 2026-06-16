@@ -382,11 +382,13 @@ function render(agent) {
 
 	const $ = (id) => document.getElementById(id);
 
-	$('ad-avatar').src = agent.avatar || avatarDataUri(agent.name);
-	$('ad-avatar').alt = agent.name;
-	$('ad-avatar').onerror = () => {
-		$('ad-avatar').src = avatarDataUri(agent.name);
-	};
+	// Flat image fallback (hidden when model-viewer works)
+	const avatarImg = $('ad-avatar');
+	if (avatarImg) {
+		avatarImg.src = agent.avatar || avatarDataUri(agent.name);
+		avatarImg.alt = agent.name;
+		avatarImg.onerror = () => { avatarImg.src = avatarDataUri(agent.name); };
+	}
 	$('ad-name').textContent = agent.name;
 
 	// Let visitors save this agent's avatar as their own fork (its wallet is
@@ -425,17 +427,63 @@ function render(agent) {
 	// enrichment later refreshes this with the canonical GLB if it differs.
 	renderAgentEmbed({ ...agent, avatar_glb_url: agent.avatar_glb_url || agentAvatarGlb(agent) });
 
+	// ── Hero 3D avatar ────────────────────────────────────────────────────
+	const glbUrl = agentAvatarGlb(agent);
+	const mv3d = document.getElementById('ad-avatar-3d');
+	if (mv3d) {
+		mv3d.setAttribute('src', glbUrl);
+		mv3d.addEventListener('error', () => {
+			// GLB failed — show the flat image fallback
+			mv3d.style.display = 'none';
+			const img = document.getElementById('ad-avatar');
+			if (img) img.style.display = '';
+		}, { once: true });
+	}
+	// Radial glow behind avatar derived from agent name color
+	const glowEl = document.getElementById('ad-hero-glow');
+	if (glowEl) {
+		const [c1] = GRADIENTS[(agent.name?.charCodeAt(0) || 0) % GRADIENTS.length];
+		glowEl.style.background = `radial-gradient(ellipse 60% 55% at 50% 40%, ${c1}22 0%, transparent 70%)`;
+	}
+	// Fullscreen modal
+	const mvModal = document.getElementById('ad-avatar-modal-3d');
+	if (mvModal) mvModal.setAttribute('src', glbUrl);
+	const modal = document.getElementById('ad-3d-modal');
+	const avatarWrap = document.getElementById('ad-avatar-wrap');
+	if (modal && avatarWrap && !avatarWrap._modalWired) {
+		avatarWrap._modalWired = true;
+		avatarWrap.addEventListener('click', () => modal.classList.remove('hidden'));
+		avatarWrap.addEventListener('keydown', (e) => {
+			if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); modal.classList.remove('hidden'); }
+		});
+		document.getElementById('ad-3d-modal-close')?.addEventListener('click', () =>
+			modal.classList.add('hidden'),
+		);
+		modal.addEventListener('click', (e) => {
+			if (e.target === modal) modal.classList.add('hidden');
+		});
+	}
+
 	const status = $('ad-status');
 	status.textContent = agent.active ? 'Active' : 'Inactive';
 	status.classList.toggle('ad-status-inactive', !agent.active);
 
-	// On-chain badge sits beside the live/inactive status. Re-rendered safely if
-	// render() runs twice (e.g. avatar refresh) — drop any prior badge first.
+	// On-chain badge sits directly below the name as a pulsing pill.
+	// Re-rendered safely if render() runs twice — drop any prior badge first.
 	document.getElementById('ad-onchain-badge')?.remove();
 	const onchainBadge = onchainBadgeEl(agent.rawMetadata || agent, { size: 'md' });
 	if (onchainBadge) {
 		onchainBadge.id = 'ad-onchain-badge';
-		status.insertAdjacentElement('afterend', onchainBadge);
+		if (agent.onchain || agent.txHash || agent.contractAddress) {
+			onchainBadge.classList.add('ad-onchain-live');
+		}
+		// Insert right after the title row for prominence
+		const titleRow = document.querySelector('.ad-hero-title');
+		if (titleRow) {
+			titleRow.insertAdjacentElement('afterend', onchainBadge);
+		} else {
+			status.insertAdjacentElement('afterend', onchainBadge);
+		}
 	}
 
 	// Validation attestation badge — only for EVM ERC-8004 agents, read
@@ -1450,27 +1498,30 @@ function makeSnsResolver(inputEl, statusEl) {
 }
 
 function wireShareButton(agent) {
+	const origin   = location.origin;
+	const shareUrl = `${origin}/agent/${agent.id}`;
+	const remixUrl = `${origin}/create`;
+	const shareData = {
+		kind: 'agent',
+		id: agent.id,
+		title: agent.name || 'Agent',
+		description: agent.description || '',
+		shareUrl,
+		remixUrl,
+	};
+
+	// Hero float button (above the fold)
+	const floatBtn = document.getElementById('ad-hero-share-float');
+	if (floatBtn && !floatBtn._wired) {
+		floatBtn._wired = true;
+		floatBtn.addEventListener('click', () => showSharePanel(shareData, floatBtn));
+	}
+
 	const btn = document.getElementById('ad-share-btn');
 	if (!btn) return;
 
-	const origin = location.origin;
-	const shareUrl = `${origin}/agents/${agent.id}`;
-	const remixUrl = `${origin}/create`;
-
 	btn.style.display = '';
-	btn.addEventListener('click', () => {
-		showSharePanel(
-			{
-				kind: 'agent',
-				id: agent.id,
-				title: agent.name || 'Agent',
-				description: agent.description || '',
-				shareUrl,
-				remixUrl,
-			},
-			btn,
-		);
-	});
+	btn.addEventListener('click', () => showSharePanel(shareData, btn));
 }
 
 // ── Owner action bar (hero) + inline deploy slot (BLOCKCHAIN DETAILS) ────────
