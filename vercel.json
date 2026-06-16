@@ -72,6 +72,10 @@
 			"includeFiles": "{examples/skills/**,data/pages.json,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 120
 		},
+		"api/cron/oracle-digest.js": {
+			"includeFiles": "data/pages.json",
+			"maxDuration": 60
+		},
 		"api/cron/gmgn-seed.js": {
 			"maxDuration": 300
 		},
@@ -3491,6 +3495,10 @@
 		{
 			"path": "/api/cron/forge-seed-cron",
 			"schedule": "* * * * *"
+		},
+		{
+			"path": "/api/cron/oracle-digest",
+			"schedule": "0 8 * * *"
 		}
 	]
 }
