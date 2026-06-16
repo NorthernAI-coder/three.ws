@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-16T04:32:42.855Z",
+	"generated_at": "2026-06-16T04:40:22.704Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -87,6 +87,17 @@
 			"link": "/oracle",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "update",
+			"title": "Oracle conviction in the MCP — agents can now read the fused score and the full trader roster",
+			"summary": "The pump.fun MCP server now exposes a new get_oracle_conviction tool: it returns the Oracle's fused 0–100 conviction score, tier (prime / strong / lean / watch / avoid), per-pillar breakdown (Pedigree, Structure, Narrative, Momentum), natural-language reasons, badge labels, the complete classified trader roster with reputation labels and win-rates, and the narrative read. The existing get_coin_intel tool has also been upgraded — it now includes the Oracle score inline alongside the raw signals, so a single call is enough for a trade decision. 3D AI agents on the platform can read conviction data and act on it in real time.",
+			"link": "/oracle",
+			"tags": [
+				"feature",
+				"sdk"
 			]
 		},
 		{

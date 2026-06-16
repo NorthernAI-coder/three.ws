@@ -122,19 +122,23 @@ function earningsSection(earnings) {
 	if (!owing.length) return '';
 	const total = Number(earnings.total_fee_owed_sol) || 0;
 	const rows = owing.map((i) => `
-		<div class="cp-item">
+		<div class="cp-item" data-earn-sub="${esc(i.subscription_id)}">
 			<img class="cp-av" src="${esc(i.leader_image || '/favicon.ico')}" alt="" onerror="this.style.visibility='hidden'" />
 			<div class="cp-mid">
 				<div class="cp-title">${esc(i.leader_name || 'trader')}</div>
 				<div class="cp-sub">${fmtSol(i.cumulative_profit_sol)} profit copied · ${(i.perf_fee_bps / 100).toFixed(0)}% fee</div>
 			</div>
-			<div class="cp-side"><span class="cp-amt">${fmtSol(i.fee_sol)}</span></div>
+			<div class="cp-side">
+				<span class="cp-amt">${fmtSol(i.fee_sol)}</span>
+				<button class="cp-btn primary" data-settle="${esc(i.subscription_id)}" data-fee-usd="${esc(String(i.fee_usd || ''))}" aria-label="Settle performance fee">Settle in $THREE</button>
+			</div>
 		</div>`).join('');
 	return `
-		<section class="cp-sec">
-			<div class="cp-sec-h"><h2>Performance fees</h2><span class="cp-count">${fmtSol(total)}</span></div>
-			<p class="cp-note">Leaders earn a performance fee on the profit you make copying them — charged only on gains above your prior peak, never on losses. Settle in $THREE from your agent wallet; 80% goes to the trader, the rest funds buybacks and reflects to $THREE holders.</p>
-			<div>${rows}</div>
+		<section class="cp-sec" id="cp-earn">
+			<div class="cp-sec-h"><h2>Performance fees owed</h2><span class="cp-count">${fmtSol(total)}</span></div>
+			<p class="cp-note">Charged only on gains above your all-time peak. 80% goes to the trader, 15% to treasury, 5% to $THREE holders. Settlement ratchets your high-water mark so the same profit is never billed twice.</p>
+			<div id="cp-earn-rows">${rows}</div>
+			<div id="cp-earn-status" style="display:none;font-size:12px;color:var(--nxt-ink-faint);padding:10px 0"></div>
 		</section>`;
 }
 
@@ -220,6 +224,79 @@ async function loadAndRender(host) {
 			loadAndRender(host);
 		} catch { btn.disabled = false; }
 	});
+
+	// Performance fee settlement
+	host.querySelector('#cp-earn')?.addEventListener('click', async (e) => {
+		const btn = e.target.closest('[data-settle]');
+		if (!btn) return;
+		const subId = btn.dataset.settle;
+		const statusEl = host.querySelector('#cp-earn-status');
+		const setStatus = (msg) => { statusEl.style.display = msg ? 'block' : 'none'; statusEl.textContent = msg; };
+		btn.disabled = true;
+		try {
+			await payWithCopyFee(subId, setStatus);
+			setStatus('Fee settled. Reloading…');
+			setTimeout(() => loadAndRender(host), 1200);
+		} catch (err) {
+			setStatus(`Payment failed: ${err.message || 'unknown error'}. Try again.`);
+			btn.disabled = false;
+		}
+	});
+}
+
+const MEMO_PROGRAM_ID = 'MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr';
+
+async function payWithCopyFee(subscriptionId, onStatus = () => {}) {
+	// 1. Request the charge quote from the server
+	onStatus('Getting quote…');
+	const charge = await post('/api/copy/settle-fee', { subscription_id: subscriptionId });
+	if (charge.nothing_to_settle) throw new Error('Nothing to settle right now.');
+	if (!charge.quote || !charge.legs || !charge.memo) throw new Error('Invalid quote received.');
+
+	// 2. Load Solana SDK lazily
+	onStatus('Preparing transaction…');
+	const [{ Connection, PublicKey, Transaction, TransactionInstruction }, { getAssociatedTokenAddressSync, createTransferInstruction, createAssociatedTokenAccountIdempotentInstruction }] =
+		await Promise.all([import('@solana/web3.js'), import('@solana/spl-token')]);
+
+	const wallet = window.solana;
+	if (!wallet) throw Object.assign(new Error('No wallet found. Install Phantom.'), { code: 'no_wallet' });
+	if (!wallet.isConnected) await wallet.connect();
+	const payer = wallet.publicKey;
+	if (!payer) throw new Error('Wallet has no public key.');
+
+	const rpc = window.__solanaRpc || `${location.origin}/api/solana-rpc`;
+	const connection = new Connection(rpc, 'confirmed');
+
+	// 3. Build the $THREE SPL transfer + memo transaction
+	const mint = new PublicKey(charge.legs[0]?.mint || 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump');
+	const fromAta = getAssociatedTokenAddressSync(mint, payer);
+	const tx = new Transaction();
+	for (const leg of charge.legs) {
+		const owner = new PublicKey(leg.address);
+		const destAta = getAssociatedTokenAddressSync(mint, owner, true);
+		tx.add(createAssociatedTokenAccountIdempotentInstruction(payer, destAta, owner, mint));
+		tx.add(createTransferInstruction(fromAta, destAta, payer, BigInt(leg.atomics)));
+	}
+	tx.add(new TransactionInstruction({
+		keys: [],
+		programId: new PublicKey(MEMO_PROGRAM_ID),
+		data: new TextEncoder().encode(charge.memo),
+	}));
+	const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
+	tx.feePayer = payer;
+	tx.recentBlockhash = blockhash;
+
+	// 4. Sign and send
+	onStatus('Waiting for wallet signature…');
+	const signature = await wallet.sendTransaction(tx, connection);
+	onStatus('Confirming on-chain…');
+	await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, 'confirmed');
+
+	// 5. Settle — server verifies and ratchets the HWM
+	onStatus('Recording settlement…');
+	const settled = await post('/api/copy/settle-fee', { quoteToken: charge.quote, tx_signature: signature });
+	if (!settled.ok) throw new Error(settled.error_description || 'Settlement failed on server.');
+	return settled;
 }
 
 async function main() {

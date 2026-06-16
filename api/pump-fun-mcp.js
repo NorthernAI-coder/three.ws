@@ -854,6 +854,33 @@ async function handleGetCoinIntel({ mint, network = 'mainnet' } = {}) {
 			};
 		} catch { /* weights table absent — training hasn't run yet */ }
 
+		// Oracle conviction — fused 4-pillar score from the oracle engine (may not
+		// exist for brand-new coins; the oracle-score cron sweeps ~every 5 min).
+		let oracle = null;
+		try {
+			const [oc] = await sql`
+				select score, tier, pedigree, structure, narrative, momentum,
+				       structure_cap, badges, reasons, scored_at
+				from oracle_conviction
+				where mint = ${cleanMint} and network = ${network}
+				limit 1
+			`;
+			if (oc) oracle = {
+				score: num(oc.score),
+				tier: oc.tier,
+				pillars: {
+					pedigree: num(oc.pedigree),
+					structure: num(oc.structure),
+					narrative: num(oc.narrative),
+					momentum: num(oc.momentum),
+				},
+				structure_cap: !!oc.structure_cap,
+				badges: Array.isArray(oc.badges) ? oc.badges : [],
+				reasons: Array.isArray(oc.reasons) ? oc.reasons : [],
+				scored_at: oc.scored_at,
+			};
+		} catch { /* oracle tables not yet migrated — fine */ }
+
 		const smartNotable = Array.isArray(row.smart_money_notable) ? row.smart_money_notable : [];
 
 		// Build a plain-language summary the agent can read directly
@@ -939,6 +966,10 @@ async function handleGetCoinIntel({ mint, network = 'mainnet' } = {}) {
 
 			// Learning model: conditional win-rates so agents can see the evidence behind the score
 			model,
+
+			// Oracle conviction — fused score from the 4-pillar engine (null until scored)
+			oracle,
+			oracle_url: `https://three.ws/oracle?mint=${encodeURIComponent(cleanMint)}`,
 		};
 	} catch (err) {
 		const missing = /relation .* does not exist/i.test(String(err?.message));
@@ -999,6 +1030,169 @@ async function handlePumpfunBotStatus() {
 	}
 }
 
+// ── get_oracle_conviction ──────────────────────────────────────────────────
+
+// Returns the fused Oracle conviction score for a mint: 4-pillar breakdown,
+// tier, badges, reasons, full who's-in trader roster, narrative classification,
+// and labeled outcome when available.
+async function handleGetOracleConviction({ mint, network = 'mainnet' } = {}) {
+	if (!mint || typeof mint !== 'string') throw new Error('mint required');
+	const cleanMint = mint.trim();
+
+	let sql;
+	try {
+		sql = (await import('./_lib/db.js')).sql;
+	} catch {
+		return { found: false, reason: 'database_unavailable' };
+	}
+
+	const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : null; };
+
+	try {
+		// 1. Conviction verdict from oracle_conviction cache
+		const [conv] = await sql`
+			select mint, network, symbol, name, image_uri,
+			       score, tier, pedigree, structure, narrative, momentum,
+			       structure_cap, badges, reasons, components, category,
+			       smart_wallet_count, scored_at
+			from oracle_conviction
+			where mint = ${cleanMint} and network = ${network}
+			limit 1
+		`.catch(() => []);
+
+		if (conv == null) {
+			// Not yet scored — return basic identity if we at least know the coin
+			const [basic] = await sql`
+				select mint, symbol, name from pump_coin_intel
+				where mint = ${cleanMint} and network = ${network} limit 1
+			`.catch(() => []);
+			return {
+				found: !!basic,
+				mint: cleanMint,
+				symbol: basic?.symbol || null,
+				name: basic?.name || null,
+				conviction: null,
+				narrative: null,
+				whos_in: [],
+				outcome: null,
+				url: `https://three.ws/oracle?mint=${encodeURIComponent(cleanMint)}`,
+				reason: basic ? 'not_yet_scored' : 'unknown_mint',
+			};
+		}
+
+		// 2. Narrative classification
+		const [narr] = await sql`
+			select category, narrative, virality, confidence, tags, source
+			from oracle_narrative
+			where mint = ${cleanMint} and network = ${network} limit 1
+		`.catch(() => []);
+
+		// 3. Trader roster — wallets annotated with reputation labels
+		const walletRows = await sql`
+			select w.wallet, w.buy_lamports, w.sell_lamports, w.is_creator, w.funder,
+			       r.label, r.smart_money_score, r.win_rate, r.early_win_rate, r.tag
+			from pump_coin_wallets w
+			left join wallet_reputation r on r.wallet = w.wallet and r.network = ${network}
+			where w.mint = ${cleanMint}
+			order by w.buy_lamports desc
+			limit 50
+		`.catch(() => []);
+
+		// 4. Outcome label
+		let outcome = null;
+		try {
+			const [o] = await sql`
+				select outcome, graduated, rugged, ath_market_cap_usd, ath_multiple, labeled_at
+				from pump_coin_outcomes where mint = ${cleanMint} limit 1
+			`;
+			if (o) outcome = {
+				outcome: o.outcome,
+				graduated: o.graduated,
+				rugged: o.rugged,
+				ath_market_cap_usd: num(o.ath_market_cap_usd),
+				ath_multiple: num(o.ath_multiple),
+				labeled_at: o.labeled_at,
+			};
+		} catch { /* fine — table may not exist yet */ }
+
+		// Resolve wallet labels: brain reputation wins; knownWallet() seed fills the gap.
+		let knownWallet;
+		try {
+			knownWallet = (await import('./_lib/oracle/known-wallets.js')).knownWallet;
+		} catch { knownWallet = () => null; }
+
+		const whosIn = walletRows.map((w) => {
+			const brainLabel = w.label && w.label !== 'unproven' ? w.label : null;
+			const known = brainLabel ? null : knownWallet(w.wallet);
+			return {
+				wallet: w.wallet,
+				label: brainLabel || known?.label || 'unproven',
+				score: w.smart_money_score != null ? num(w.smart_money_score) : (known?.score ?? null),
+				win_rate: w.win_rate != null ? num(w.win_rate) : null,
+				early_win_rate: w.early_win_rate != null ? num(w.early_win_rate) : null,
+				source: brainLabel ? 'brain' : (known ? 'gmgn' : null),
+				tag: w.tag || known?.tag || null,
+				buy_sol: Number(w.buy_lamports || 0) / 1e9,
+				sell_sol: Number(w.sell_lamports || 0) / 1e9,
+				is_creator: !!w.is_creator,
+				funder: w.funder || null,
+			};
+		});
+
+		// Tier summary for agent quick-read
+		const tierLabel = {
+			prime: 'PRIME — highest conviction. Top-grade entry signal.',
+			strong: 'STRONG — solid conviction. Enter with normal position size.',
+			lean: 'LEAN — mild positive lean. Size small or wait for confirmation.',
+			watch: 'WATCH — insufficient signal. Observe only.',
+			avoid: 'AVOID — negative signal. Do not enter.',
+		}[conv.tier] || conv.tier;
+
+		return {
+			found: true,
+			mint: conv.mint,
+			network: conv.network,
+			symbol: conv.symbol,
+			name: conv.name,
+			image_uri: conv.image_uri,
+			category: conv.category || narr?.category || 'unknown',
+
+			conviction: {
+				score: num(conv.score),
+				tier: conv.tier,
+				tier_label: tierLabel,
+				pillars: {
+					pedigree: num(conv.pedigree),
+					structure: num(conv.structure),
+					narrative: num(conv.narrative),
+					momentum: num(conv.momentum),
+				},
+				structure_cap: !!conv.structure_cap,
+				badges: Array.isArray(conv.badges) ? conv.badges : [],
+				reasons: Array.isArray(conv.reasons) ? conv.reasons : [],
+				scored_at: conv.scored_at,
+			},
+
+			narrative: narr ? {
+				category: narr.category,
+				narrative: narr.narrative,
+				virality: num(narr.virality),
+				confidence: num(narr.confidence),
+				tags: Array.isArray(narr.tags) ? narr.tags : [],
+				source: narr.source,
+			} : null,
+
+			whos_in: whosIn,
+			outcome,
+			url: `https://three.ws/oracle?mint=${encodeURIComponent(cleanMint)}`,
+		};
+	} catch (err) {
+		const missing = /relation .* does not exist/i.test(String(err?.message));
+		if (missing) return { found: false, reason: 'oracle_tables_pending' };
+		throw err;
+	}
+}
+
 // ── Dispatch ───────────────────────────────────────────────────────────────
 
 // Keyed by CANONICAL (snake_case) names. tools/call resolves legacy camelCase
@@ -1008,6 +1202,7 @@ const HANDLERS = {
 	get_token_details: handleGetTokenDetails,
 	get_token_holders: handleGetTokenHolders,
 	get_coin_intel: handleGetCoinIntel,
+	get_oracle_conviction: handleGetOracleConviction,
 	kol_radar: handleKolRadar,
 	kol_leaderboard: handleKolLeaderboard,
 	search_tokens: indexerOrUnavailable('search_tokens'),
@@ -1039,11 +1234,17 @@ const PROTOCOL_VERSION = '2025-06-18';
 const RESOURCE_PATH = '/api/pump-fun-mcp';
 const SERVER_INFO = { name: 'three.ws-pumpfun-mcp', version: '1.0.0' };
 const INSTRUCTIONS =
-	'Free, read-only pump.fun + Solana tools from three.ws. ' +
-	'COIN INTELLIGENCE (call first before any trade): get_coin_intel returns the full ' +
-	'intelligence snapshot for a mint — bundle vs organic verdict, bubblemaps cluster ' +
-	'connectivity, smart-money presence with wallet win-rates, dev behaviour, category, ' +
-	'news-meme detection, risk flags, and a 0–100 quality score. ' +
+	'Free, read-only pump.fun + Solana intelligence tools from three.ws. ' +
+	'ORACLE CONVICTION (highest-signal trade read): get_oracle_conviction returns the ' +
+	'fused 0–100 Oracle score for a mint — a 4-pillar synthesis of pedigree (smart-money ' +
+	'presence), structure (organic vs bundle, holder concentration, bubblemaps connectivity), ' +
+	'narrative (category, meme virality, news hook), and momentum (velocity, timing). ' +
+	'Includes the tier (prime ≥86 / strong ≥72 / lean ≥54 / watch ≥36 / avoid), ' +
+	'natural-language reasons, badge labels, and the full classified trader roster with ' +
+	'win-rates. COIN INTELLIGENCE (raw signals): get_coin_intel returns every signal recorded ' +
+	'during the observation window — bundle/organic verdict, bubblemaps cluster connectivity, ' +
+	'smart-money wallet details, dev behaviour, category, news-meme detection, risk flags, ' +
+	'quality score, and now also includes the Oracle score inline. ' +
 	'Token discovery (search_tokens, get_trending_tokens, get_new_tokens, ' +
 	'get_graduated_tokens, get_king_of_the_hill), on-chain analysis (get_bonding_curve, ' +
 	'get_token_holders, get_token_details, get_token_trades), creator intelligence ' +

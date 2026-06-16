@@ -864,6 +864,10 @@ body {
 	outline-offset: var(--focus-ring-offset);
 }
 
+.lx-action-watch { flex: 0 0 auto; min-width: 36px; cursor: pointer; font-size: var(--text-md); }
+.lx-action-watch.lx-watched { color: var(--accent, #7c83ff); border-color: var(--accent, #7c83ff); }
+.lx-action-watch.lx-watched:hover { background: rgba(124,131,255,.08); }
+
 .lx-mint {
 	font-family: var(--font-mono);
 	font-size: var(--text-2xs);

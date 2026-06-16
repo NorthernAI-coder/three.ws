@@ -46,6 +46,25 @@ const statNetworkEl = document.getElementById('lx-stat-network');
 
 const REDUCED_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+// ── watchlist helpers (mirrors launch-detail.js & watchlist.js) ──────────────
+
+const WATCH_KEY = 'ld_watchlist';
+
+function watchedMints() {
+	try { return new Set(JSON.parse(localStorage.getItem(WATCH_KEY) || '[]')); } catch { return new Set(); }
+}
+
+function toggleWatch(mint) {
+	try {
+		const list = JSON.parse(localStorage.getItem(WATCH_KEY) || '[]');
+		const idx = list.indexOf(mint);
+		if (idx >= 0) list.splice(idx, 1);
+		else list.unshift(mint);
+		localStorage.setItem(WATCH_KEY, JSON.stringify(list.slice(0, 200)));
+		return idx < 0; // true = now watched
+	} catch { return false; }
+}
+
 // ── helpers ──────────────────────────────────────────────────────────────────
 
 function el(tag, props = {}, children = []) {
@@ -373,6 +392,26 @@ function launchCard(launch, index, { featured = false } = {}) {
 		);
 	}
 
+	const watched = !isDevnet && watchedMints().has(launch.mint);
+	const watchBtn = isDevnet ? null : el('button', {
+		class: `lx-action lx-action-watch${watched ? ' lx-watched' : ''}`,
+		type: 'button',
+		'aria-label': watched ? 'Remove from watchlist' : 'Add to watchlist',
+		'aria-pressed': String(watched),
+		title: watched ? 'Remove from watchlist' : 'Add to watchlist',
+		text: watched ? '★' : '☆',
+		onclick: (e) => {
+			e.preventDefault();
+			e.stopPropagation();
+			const nowWatched = toggleWatch(launch.mint);
+			watchBtn.textContent = nowWatched ? '★' : '☆';
+			watchBtn.classList.toggle('lx-watched', nowWatched);
+			watchBtn.setAttribute('aria-pressed', String(nowWatched));
+			watchBtn.setAttribute('aria-label', nowWatched ? 'Remove from watchlist' : 'Add to watchlist');
+			watchBtn.title = nowWatched ? 'Remove from watchlist' : 'Add to watchlist';
+		},
+	});
+
 	const actions = [
 		el('a', {
 			class: 'lx-action',
@@ -401,6 +440,7 @@ function launchCard(launch, index, { featured = false } = {}) {
 				'aria-label': `Visit the 3D world for ${launch.symbol || launch.name}`,
 			}),
 		);
+		if (watchBtn) actions.push(watchBtn);
 	}
 
 	// Abstract orbital glyph seeded from the mint — the coin's deterministic

@@ -13,6 +13,21 @@ const NETWORK = 'mainnet';
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 
+// ── watchlist helpers (same key as launch-detail.js and watchlist.js) ────────
+const WATCH_KEY = 'ld_watchlist';
+function watchedMints() {
+	try { return new Set(JSON.parse(localStorage.getItem(WATCH_KEY) || '[]')); } catch { return new Set(); }
+}
+function toggleOracleWatch(mint) {
+	try {
+		const list = JSON.parse(localStorage.getItem(WATCH_KEY) || '[]');
+		const idx = list.indexOf(mint);
+		if (idx >= 0) list.splice(idx, 1); else list.unshift(mint);
+		localStorage.setItem(WATCH_KEY, JSON.stringify(list.slice(0, 200)));
+		return idx < 0;
+	} catch { return false; }
+}
+
 // ── tiny helpers ─────────────────────────────────────────────────────────────
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const shortAddr = (a) => (a && a.length > 10 ? `${a.slice(0, 4)}…${a.slice(-4)}` : a || '');
@@ -177,8 +192,10 @@ function renderFeed() {
 	const items = [...state.feed.values()].sort((a, b) => b.score - a.score);
 	$('#ctFeed').textContent = items.length ? items.length : '';
 	if (!items.length) return renderFeedEmpty('empty');
-	$('#feedGrid').innerHTML = items.map(coinCard).join('');
-	$$('#feedGrid .coin').forEach((c) => c.addEventListener('click', () => openCoin(c.dataset.mint)));
+	const grid = $('#feedGrid');
+	grid.innerHTML = '';
+	const watched = watchedMints();
+	items.forEach((it) => grid.appendChild(coinCard(it, watched)));
 }
 
 function renderFeedEmpty(kind) {
@@ -194,19 +211,22 @@ function pillar(kind, label, val) {
 		<div class="track"><div class="fill" style="width:${Math.max(0, Math.min(100, val || 0))}%"></div></div></div>`;
 }
 
-function coinCard(it) {
+function coinCard(it, watched = new Set()) {
 	const p = it.pillars || {};
-	const img = it.image_uri
-		? `<img class="coin-img" src="${esc(it.image_uri)}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'coin-img',textContent:'${esc((it.symbol || '?')[0])}'}))">`
-		: `<div class="coin-img">${esc((it.symbol || '?')[0])}</div>`;
 	const badges = (it.badges || []).map((b) => {
 		const cls = b === 'smart-money' ? 'sm' : b === 'structure-flag' ? 'flag' : b === 'news' ? 'news' : '';
 		const txt = b === 'structure-flag' ? 'structure ⚑' : b;
 		return `<span class="chip ${cls}">${esc(txt)}</span>`;
 	}).join('');
-	return `<button class="coin ${tierClass(it.tier)}" data-mint="${esc(it.mint)}">
+
+	const btn = document.createElement('button');
+	btn.className = `coin ${tierClass(it.tier)}`;
+	btn.dataset.mint = it.mint;
+	btn.innerHTML = `
 		<div class="coin-top">
-			${img}
+			${it.image_uri
+				? `<img class="coin-img" src="${esc(it.image_uri)}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'coin-img',textContent:'${esc((it.symbol || '?')[0])}'}))">`
+				: `<div class="coin-img">${esc((it.symbol || '?')[0])}</div>`}
 			<div class="coin-id">
 				<div class="coin-sym">${esc(it.symbol || '—')}</div>
 				<div class="coin-name">${esc(it.name || it.mint.slice(0, 8))}</div>
@@ -227,8 +247,32 @@ function coinCard(it) {
 			${it.smart_wallet_count ? `<span class="chip sm"><b>${it.smart_wallet_count}</b> smart in</span>` : ''}
 			${badges}
 			<span class="chip">${ago(it.scored_at)} ago</span>
-		</div>
-	</button>`;
+		</div>`;
+	btn.addEventListener('click', () => openCoin(it.mint));
+
+	const isWatched = watched.has(it.mint);
+	const watchBtn = document.createElement('button');
+	watchBtn.className = `oc-watch${isWatched ? ' oc-watched' : ''}`;
+	watchBtn.type = 'button';
+	watchBtn.textContent = isWatched ? '★' : '☆';
+	watchBtn.setAttribute('aria-label', isWatched ? 'Remove from watchlist' : 'Add to watchlist');
+	watchBtn.setAttribute('aria-pressed', String(isWatched));
+	watchBtn.title = isWatched ? 'Remove from watchlist' : 'Add to watchlist';
+	watchBtn.addEventListener('click', (e) => {
+		e.stopPropagation();
+		const nowWatched = toggleOracleWatch(it.mint);
+		watchBtn.textContent = nowWatched ? '★' : '☆';
+		watchBtn.classList.toggle('oc-watched', nowWatched);
+		watchBtn.setAttribute('aria-pressed', String(nowWatched));
+		watchBtn.setAttribute('aria-label', nowWatched ? 'Remove from watchlist' : 'Add to watchlist');
+		watchBtn.title = nowWatched ? 'Remove from watchlist' : 'Add to watchlist';
+	});
+
+	const wrap = document.createElement('div');
+	wrap.className = 'coin-wrap';
+	wrap.appendChild(btn);
+	wrap.appendChild(watchBtn);
+	return wrap;
 }
 
 function setStats(data) {
