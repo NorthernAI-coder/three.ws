@@ -99,7 +99,8 @@ function toast(msg) {
 		}
 
 		host.appendChild(renderSummaryStrip(tokenData));
-		tokenData.forEach((td) => host.appendChild(renderTokenCard(td)));
+		const cards = tokenData.map((td) => { const el = renderTokenCard(td); host.appendChild(el); return { el, mint: td.mint }; });
+		enrichTokenCardsOracle(cards);
 	} catch (err) {
 		if (err instanceof ApiError && err.status === 401) {
 			location.href = `/login?return=${encodeURIComponent(location.pathname)}`;
@@ -226,8 +227,10 @@ function renderTokenCard({ agent, mint, token, stats, coin }) {
 		` : ''}
 
 		${mint ? `
+			<div class="tk-oracle-slot" data-oracle-mint="${esc(mint)}" style="margin-bottom:14px"></div>
 			<div style="display:flex;gap:8px;flex-wrap:wrap">
 				<button class="dn-btn primary" data-action="fees" style="font-size:12.5px">Fees &amp; rewards</button>
+				<a class="dn-btn" href="/oracle?mint=${encodeURIComponent(mint)}" rel="noopener" style="font-size:12.5px">Oracle ↗</a>
 				<a class="dn-btn" href="/pump-3d-agent?mint=${encodeURIComponent(mint)}" target="_blank" rel="noopener" style="font-size:12.5px">3D Agent view ↗</a>
 				<a class="dn-btn" href="https://solscan.io/token/${encodeURIComponent(mint)}" target="_blank" rel="noopener" style="font-size:12.5px">Solscan ↗</a>
 				${mint ? `<button class="dn-btn" data-action="copy-mint" data-mint="${esc(mint)}" style="font-size:12.5px">Copy CA</button>` : ''}
@@ -300,6 +303,63 @@ async function openFeesModal({ mint, network, creator, agentId, symbol, name }) 
 		});
 	} catch (err) {
 		inner.innerHTML = `<div style="padding:24px;color:var(--nxt-ink-fade,#999)">Couldn't load the fees panel: ${esc(err.message || 'error')}</div>`;
+	}
+}
+
+// ── Oracle conviction enrichment ──────────────────────────────────────────────
+
+const TK_TIER_COLOR = { prime: '#c084fc', strong: '#34d399', lean: '#fbbf24', watch: '#94a3b8', avoid: '#f87171' };
+
+async function enrichTokenCardsOracle(cards) {
+	const mints = cards.map((c) => c.mint).filter(Boolean);
+	if (!mints.length) return;
+	const chunks = [];
+	for (let i = 0; i < mints.length; i += 20) chunks.push(mints.slice(i, i + 20));
+	let results = {};
+	try {
+		const resps = await Promise.all(
+			chunks.map((chunk) =>
+				fetch(`/api/oracle/batch?mints=${chunk.map(encodeURIComponent).join(',')}&network=mainnet`)
+					.then((r) => r.ok ? r.json() : null)
+					.catch(() => null),
+			),
+		);
+		for (const resp of resps) {
+			if (resp?.results) Object.assign(results, resp.results);
+		}
+	} catch { return; }
+
+	for (const { el, mint } of cards) {
+		if (!mint) continue;
+		const d = results[mint];
+		const slot = el.querySelector('[data-oracle-mint]');
+		if (!slot) continue;
+		if (!d || d.score == null) {
+			slot.remove();
+			continue;
+		}
+		const color = TK_TIER_COLOR[d.tier] || '#94a3b8';
+		const pillars = d.pillars || {};
+		const pillarHtml = Object.entries(pillars)
+			.filter(([, v]) => v != null)
+			.map(([k, v]) => `
+				<div style="display:grid;grid-template-columns:64px 1fr 26px;align-items:center;gap:6px;font-size:11px">
+					<span style="color:var(--nxt-ink-fade);text-transform:capitalize">${esc(k)}</span>
+					<div style="height:4px;border-radius:2px;background:rgba(255,255,255,0.06);overflow:hidden"><div style="height:100%;width:${Math.min(100, Number(v))}%;background:${color}"></div></div>
+					<span style="color:var(--nxt-ink-dim);text-align:right">${Math.round(Number(v))}</span>
+				</div>`).join('');
+		slot.innerHTML = `
+			<div style="border:1px solid var(--nxt-stroke);border-radius:10px;padding:13px;background:rgba(255,255,255,0.02)">
+				<div style="display:flex;align-items:center;gap:10px;margin-bottom:${pillarHtml ? '12px' : '0'}">
+					<div style="display:flex;align-items:baseline;gap:3px">
+						<span style="font-size:24px;font-weight:800;font-variant-numeric:tabular-nums;color:${color}">${Math.round(d.score)}</span>
+						<span style="font-size:12px;color:var(--nxt-ink-fade)">/100</span>
+					</div>
+					<span style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:${color}">${esc(d.tier || '')}</span>
+					<span style="margin-left:auto;font-size:11.5px;color:var(--nxt-ink-dim)">Oracle conviction at launch</span>
+				</div>
+				${pillarHtml ? `<div style="display:flex;flex-direction:column;gap:5px">${pillarHtml}</div>` : ''}
+			</div>`;
 	}
 }
 
