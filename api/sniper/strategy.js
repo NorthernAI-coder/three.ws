@@ -89,6 +89,9 @@ const STRATEGY_SCHEMA = z.object({
 	max_concentration_top1: z.union([z.string(), z.number()]).nullable().optional(),
 	avoid_dev_dump: z.boolean().optional(),
 	allowed_categories: z.array(z.string()).nullable().optional(),
+	// Notifications: personal Telegram chat ID for this strategy's buy/sell alerts.
+	// Must be a numeric chat ID (positive = user/group, negative = supergroup/channel).
+	telegram_chat_id: z.string().regex(/^-?[0-9]+$/).nullable().optional(),
 });
 
 const atomicStr = (v, fallback = '0') => {
@@ -212,6 +215,7 @@ async function listStrategies(req, res, userId) {
 			max_concentration_top1: s.max_concentration_top1 != null ? Number(s.max_concentration_top1) : null,
 			avoid_dev_dump: s.avoid_dev_dump ?? true,
 			allowed_categories: s.allowed_categories || null,
+			telegram_chat_id: s.telegram_chat_id || null,
 			summary: {
 				open_positions: sum ? Number(sum.open_positions) : 0,
 				closed_positions: sum ? Number(sum.closed_positions) : 0,
@@ -260,6 +264,7 @@ async function upsertStrategy(req, res, userId) {
 		min_oracle_score: null,
 		min_quality_score: null, max_bundle_score: null, max_concentration_top1: null,
 		avoid_dev_dump: true, allowed_categories: null,
+		telegram_chat_id: null,
 	};
 
 	const next = {
@@ -291,6 +296,7 @@ async function upsertStrategy(req, res, userId) {
 		max_concentration_top1: 'max_concentration_top1' in p ? (p.max_concentration_top1 == null || p.max_concentration_top1 === '' ? null : Math.min(100, Math.max(0, Number(p.max_concentration_top1)))) : (cur.max_concentration_top1 != null ? Number(cur.max_concentration_top1) : null),
 		avoid_dev_dump: p.avoid_dev_dump ?? cur.avoid_dev_dump ?? true,
 		allowed_categories: 'allowed_categories' in p ? (Array.isArray(p.allowed_categories) ? p.allowed_categories.filter(Boolean) : null) : (cur.allowed_categories || null),
+		telegram_chat_id: 'telegram_chat_id' in p ? (p.telegram_chat_id || null) : (cur.telegram_chat_id || null),
 	};
 
 	// Mandatory stop-loss — never let the DB constraint be the first line of defense.
@@ -320,7 +326,7 @@ async function upsertStrategy(req, res, userId) {
 			 take_profit_pct, stop_loss_pct, trailing_stop_pct, max_hold_seconds,
 			 min_oracle_score,
 			 min_quality_score, max_bundle_score, max_concentration_top1,
-			 avoid_dev_dump, allowed_categories, updated_at)
+			 avoid_dev_dump, allowed_categories, telegram_chat_id, updated_at)
 		values
 			(${p.agent_id}, ${userId}, ${p.network}, ${next.enabled}, ${next.kill_switch},
 			 ${next.trigger}, ${next.buy_delay_ms}, ${next.min_claim_lamports}, ${next.max_claim_lamports}, ${next.first_claim_max_age_seconds},
@@ -331,7 +337,7 @@ async function upsertStrategy(req, res, userId) {
 			 ${next.take_profit_pct}, ${next.stop_loss_pct}, ${next.trailing_stop_pct}, ${next.max_hold_seconds},
 			 ${next.min_oracle_score},
 			 ${next.min_quality_score}, ${next.max_bundle_score}, ${next.max_concentration_top1},
-			 ${next.avoid_dev_dump}, ${next.allowed_categories}, now())
+			 ${next.avoid_dev_dump}, ${next.allowed_categories}, ${next.telegram_chat_id}, now())
 		on conflict (agent_id, network) do update set
 			enabled                  = excluded.enabled,
 			kill_switch              = excluded.kill_switch,
@@ -361,6 +367,7 @@ async function upsertStrategy(req, res, userId) {
 			max_concentration_top1   = excluded.max_concentration_top1,
 			avoid_dev_dump           = excluded.avoid_dev_dump,
 			allowed_categories       = excluded.allowed_categories,
+			telegram_chat_id         = excluded.telegram_chat_id,
 			updated_at               = now()
 		returning *
 	`;
@@ -398,6 +405,7 @@ async function upsertStrategy(req, res, userId) {
 			max_concentration_top1: row.max_concentration_top1 != null ? Number(row.max_concentration_top1) : null,
 			avoid_dev_dump: row.avoid_dev_dump ?? true,
 			allowed_categories: row.allowed_categories || null,
+			telegram_chat_id: row.telegram_chat_id || null,
 		},
 	});
 }

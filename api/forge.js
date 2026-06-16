@@ -740,7 +740,7 @@ async function startJob(req, res) {
 				nvidiaTried = true;
 				if (await runNvidiaTextLane({ req, res, ip, prompt, aspect, tier, path })) return;
 				// nvidia failed → fall through to the image-intermediate TRELLIS path
-				// below, which serves the same free draft prompt on Replicate.
+				// below, which gives the prompt a second chance on Replicate.
 				backendId = 'trellis';
 			}
 

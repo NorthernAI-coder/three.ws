@@ -1,13 +1,14 @@
 /**
- * Resilience tests for the free-first fallback in api/forge.js.
+ * Resilience tests for the free-first routing and fallback in api/forge.js.
  *
- * The default forge flow — type a prompt, Standard tier — routes to the paid
- * image-intermediate TRELLIS lane on Replicate. When that upstream is throttled
- * or over-quota (HTTP 429/5xx) a text prompt must NEVER dead-end: it degrades to
- * the free NVIDIA NIM lane so the user always gets a model. These tests stub the
- * provider boundaries and assert the degraded request still returns a finished
- * model with provenance reporting the lane that actually ran (backend:nvidia),
- * so the downgrade is visible rather than silent.
+ * Draft and Standard tier text prompts route DIRECTLY to the free NVIDIA NIM
+ * lane — Replicate is never called for them unless NVIDIA itself fails. When
+ * the paid Replicate lane IS invoked (e.g. by explicit backend selection or an
+ * NVIDIA outage) and returns 429/5xx, a text prompt must NEVER dead-end: it
+ * degrades to the free NVIDIA NIM lane so the default flow always returns a
+ * model. These tests stub the provider boundaries and assert requests return a
+ * finished model with provenance reporting the lane that actually ran
+ * (backend:nvidia), so the routing is visible and never silent.
  */
 
 import { describe, it, expect, vi, beforeAll } from 'vitest';
@@ -136,7 +137,7 @@ function makeRes() {
 }
 
 describe('forge free-first fallback when the paid lane is over-quota', () => {
-	it('degrades a Standard text prompt to the free NVIDIA lane instead of 429ing', async () => {
+	it('routes a Standard text prompt directly to the free NVIDIA lane (no Replicate call)', async () => {
 		const req = makeReq({ prompt: 'a red ceramic coffee mug', tier: 'standard', path: 'image' });
 		const res = makeRes();
 		await handler(req, res);
