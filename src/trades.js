@@ -301,7 +301,10 @@ function cardHtml(t) {
 
 	// Share text — pre-formatted tweet-ready PnL card
 	const shareText = buildShareText(t);
-	const shareUrl  = `https://three.ws${traderUrl}`;
+	// Use the SSR share page so social crawlers get a rich preview
+	const shareUrl  = t.agent_id
+		? `https://three.ws/trader/${encodeURIComponent(t.agent_id)}/share`
+		: `https://three.ws${traderUrl}`;
 	const tweetHref = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`;
 	// data-share attribute carries the share payload for native Web Share API
 	const shareData = encodeURIComponent(JSON.stringify({ text: shareText, url: shareUrl }));
