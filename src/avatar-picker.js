@@ -129,6 +129,87 @@ function thumbPlaceholderSvg() {
 	</svg>`;
 }
 
+// ── 3-D thumbnail renderer ─────────────────────────────────────────────────
+// Lazily created on first use; destroyed when no longer needed.
+let _offscreenCtx = null;
+const _thumbCache = new Map(); // glbUrl → data:image/png
+
+async function getOffscreenCtx() {
+	if (_offscreenCtx) return _offscreenCtx;
+	const [{ WebGLRenderer, Scene, PerspectiveCamera, AmbientLight, DirectionalLight, Box3, Vector3 },
+	       { GLTFLoader }] = await Promise.all([
+		import('three'),
+		import('three/addons/loaders/GLTFLoader.js'),
+	]);
+	const cvs = document.createElement('canvas');
+	cvs.width = 256; cvs.height = 256;
+	const renderer = new WebGLRenderer({ canvas: cvs, antialias: true, alpha: true });
+	renderer.setPixelRatio(1);
+	renderer.setSize(256, 256);
+	renderer.setClearColor(0x000000, 0);
+	const camera = new PerspectiveCamera(42, 1, 0.01, 100);
+	camera.position.set(0, 1.3, 2.2);
+	camera.lookAt(0, 1.0, 0);
+	const scene = new Scene();
+	scene.add(new AmbientLight(0xffffff, 1.0));
+	const sun = new DirectionalLight(0xffffff, 1.4);
+	sun.position.set(2, 4, 3);
+	scene.add(sun);
+	const fill = new DirectionalLight(0xaaccff, 0.5);
+	fill.position.set(-2, 2, -1);
+	scene.add(fill);
+	_offscreenCtx = { renderer, camera, scene, loader: new GLTFLoader(), Box3, Vector3 };
+	return _offscreenCtx;
+}
+
+async function render3dThumb(glbUrl) {
+	if (_thumbCache.has(glbUrl)) return _thumbCache.get(glbUrl);
+	try {
+		const { renderer, camera, scene, loader, Box3, Vector3 } = await getOffscreenCtx();
+		const gltf = await loader.loadAsync(glbUrl);
+		const model = gltf.scene;
+		const box = new Box3().setFromObject(model);
+		const size = box.getSize(new Vector3());
+		const center = box.getCenter(new Vector3());
+		const scale = 1.6 / Math.max(size.x, size.y, size.z);
+		model.scale.setScalar(scale);
+		model.position.sub(center.multiplyScalar(scale));
+		model.position.y += 0.15;
+		scene.add(model);
+		renderer.render(scene, camera);
+		const dataUrl = renderer.domElement.toDataURL('image/png');
+		scene.remove(model);
+		model.traverse(ch => {
+			ch.geometry?.dispose();
+			if (Array.isArray(ch.material)) ch.material.forEach(m => m.dispose());
+			else ch.material?.dispose();
+		});
+		_thumbCache.set(glbUrl, dataUrl);
+		return dataUrl;
+	} catch {
+		return null;
+	}
+}
+
+function setupThumb3d(thumbDiv, glbUrl) {
+	if (!glbUrl || typeof IntersectionObserver === 'undefined') return;
+	const obs = new IntersectionObserver(async entries => {
+		for (const entry of entries) {
+			if (!entry.isIntersecting) continue;
+			obs.disconnect();
+			const dataUrl = await render3dThumb(glbUrl);
+			if (dataUrl && thumbDiv.querySelector('.avp-thumb-placeholder')) {
+				const img = document.createElement('img');
+				img.src = dataUrl;
+				img.alt = '';
+				thumbDiv.innerHTML = '';
+				thumbDiv.appendChild(img);
+			}
+		}
+	}, { threshold: 0.1 });
+	obs.observe(thumbDiv);
+}
+
 export function createAvatarPicker({ onSelect } = {}) {
 	injectStyles();
 
@@ -204,6 +285,10 @@ export function createAvatarPicker({ onSelect } = {}) {
 						: thumbPlaceholderSvg()}
 				</div>
 				<div class="avp-label">${av.name}</div>`;
+
+			if (!av.thumbnailUrl && av.url) {
+				setupThumb3d(card.querySelector('.avp-thumb'), av.url);
+			}
 
 			card.addEventListener('click', () => {
 				grid.querySelectorAll('.avp-card').forEach(c => c.classList.remove('is-active'));

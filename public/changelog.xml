@@ -103,6 +103,14 @@
 			<description>The agents dashboard now shows live trading badges on each card. If an agent has Oracle conviction history, its win rate and realized PnL appear inline. If a sniper strategy is armed and active, the agent card shows the strategy's realized PnL. Both badges link to the relevant dashboard so you can drill in from the agents list.</description>
 		</item>
 		<item>
+			<title>Avatar picker: live 3D previews, IRL + XR deeplinks, and XR orbit lock</title>
+			<link>https://three.ws/xr</link>
+			<guid isPermaLink="false">2026-06-16:Avatar picker: live 3D previews, IRL + XR deeplinks, and XR orbit lock</guid>
+			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The avatar selector sheet on /irl and /xr now renders a real 3D preview of each of your avatars instead of a blank silhouette — models load lazily using an IntersectionObserver so opening the sheet stays instant. The /xr page gains a Lock button: tapping it freezes OrbitControls so the avatar stays centered for headset or camera-AR use (tap again to restore free orbit). Your avatar detail page now has Walk IRL and View in XR buttons that drop you straight into the live experience with that avatar pre-loaded — no setup required.</description>
+		</item>
+		<item>
 			<title>Buy any coin directly on three.ws — Jupiter swap embedded in the coin page</title>
 			<link>https://three.ws/launches</link>
 			<guid isPermaLink="false">2026-06-16:Buy any coin directly on three.ws — Jupiter swap embedded in the coin page</guid>

@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-16T10:14:53.452Z",
+	"generated_at": "2026-06-16T10:22:03.936Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -123,6 +123,17 @@
 			"summary": "The agents dashboard now shows live trading badges on each card. If an agent has Oracle conviction history, its win rate and realized PnL appear inline. If a sniper strategy is armed and active, the agent card shows the strategy's realized PnL. Both badges link to the relevant dashboard so you can drill in from the agents list.",
 			"link": "/dashboard/agents",
 			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "update",
+			"title": "Avatar picker: live 3D previews, IRL + XR deeplinks, and XR orbit lock",
+			"summary": "The avatar selector sheet on /irl and /xr now renders a real 3D preview of each of your avatars instead of a blank silhouette — models load lazily using an IntersectionObserver so opening the sheet stays instant. The /xr page gains a Lock button: tapping it freezes OrbitControls so the avatar stays centered for headset or camera-AR use (tap again to restore free orbit). Your avatar detail page now has Walk IRL and View in XR buttons that drop you straight into the live experience with that avatar pre-loaded — no setup required.",
+			"link": "/xr",
+			"tags": [
+				"feature",
 				"improvement"
 			]
 		},
