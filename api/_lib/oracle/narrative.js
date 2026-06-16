@@ -6,17 +6,18 @@
 // the conviction engine weights them differently (see conviction.js narrative
 // pillar). This module produces that read.
 //
-// Two paths, both REAL — never a mock:
-//   1. llmComplete (free providers first per platform policy) returns a strict
-//      JSON read of category + narrative thesis + a 0–100 virality estimate.
-//   2. If the LLM is unavailable or returns garbage, a deterministic keyword
-//      classifier produces a sane category + baseline virality so the pipeline
-//      never stalls and never fabricates confidence it doesn't have.
+// Three paths, all REAL:
+//   1. llmComplete with live news context injected from cryptocurrency.cv — the
+//      LLM sees matching headlines and writes a precise thesis ("rides today's
+//      Trump tariff announcement"). Virality is boosted by real news signal.
+//   2. llmComplete with no news context (fallback when news fetch fails).
+//   3. Deterministic keyword classifier when LLM is unavailable.
 //
 // Category set is aligned with the existing pump_coin_intel taxonomy so the two
 // systems agree; Oracle adds the free-text `narrative` and `virality`.
 
 import { llmComplete } from '../llm.js';
+import { fetchRelevantHeadlines, viralityBonus } from './news-context.js';
 
 export const CATEGORIES = [
 	'meme', 'tech', 'ai', 'culture', 'community',
@@ -89,6 +90,7 @@ export function heuristicNarrative(meta = {}) {
 		confidence: bestHits ? clamp(30 + bestHits * 12, 0, 80) / 100 : 0.2,
 		tags,
 		source: 'heuristic',
+		news_matched: false,
 	};
 }
 
@@ -102,24 +104,36 @@ function parseJsonish(text) {
 	try { return JSON.parse(t.slice(start, end + 1)); } catch { return null; }
 }
 
-const SYSTEM = `You are Oracle, a pump.fun launch analyst. Classify a new token's CULTURAL NARRATIVE from its metadata.
+const SYSTEM_BASE = `You are Oracle, a pump.fun launch analyst. Classify a new token's CULTURAL NARRATIVE from its metadata.
 Return ONLY minified JSON, no prose, with exactly these keys:
 {"category": one of ["meme","tech","ai","culture","community","political","news","animal","celebrity","utility","unknown"],
- "narrative": "one crisp sentence naming the actual thesis/story (e.g. 'rides today's <headline> news', 'CTO community revival', 'AI agent infra')",
+ "narrative": "one crisp sentence naming the actual thesis/story (e.g. 'rides today\\'s <headline> news', 'CTO community revival', 'AI agent infra')",
  "virality": integer 0-100 (how likely this catches sustained attention; reward live news hooks, recognizable culture, clean tickers; punish generic/empty),
  "tags": array of up to 5 short lowercase tags,
  "confidence": number 0-1}
 Be decisive. If it's a meme riding a current event, prefer "news". If it's a community/CTO takeover, prefer "community". If empty/spam, category "unknown" with low virality.`;
 
+function buildSystem(headlines) {
+	if (!headlines.length) return SYSTEM_BASE;
+	const headlineBlock = headlines
+		.map((h, i) => `${i + 1}. "${h.title}"${h.published_at ? ` (${h.published_at.slice(0, 10)})` : ''}`)
+		.join('\n');
+	return `${SYSTEM_BASE}\n\nLIVE CRYPTO HEADLINES RIGHT NOW:\n${headlineBlock}\nIf the token clearly rides one of these headlines, reference it directly in "narrative" and score virality higher (70+).`;
+}
+
 /**
- * Classify a coin's narrative. Tries the LLM (free-first); on any failure or a
- * malformed response, returns the deterministic heuristic. Never throws.
+ * Classify a coin's narrative. Tries the LLM with live news context (free-first);
+ * on any failure returns the deterministic heuristic. Never throws.
  *
- * @param {object} meta { name, symbol, description, twitter, telegram, website }
+ * @param {object} meta { name, symbol, description, twitter, telegram, website, tags }
  * @param {object} [opts] { timeoutMs }
- * @returns {Promise<{category:string, narrative:string, virality:number, confidence:number, tags:string[], source:'llm'|'heuristic'}>}
+ * @returns {Promise<{category:string, narrative:string, virality:number, confidence:number, tags:string[], source:'llm'|'heuristic', news_matched:boolean}>}
  */
 export async function classifyNarrative(meta = {}, opts = {}) {
+	// Fetch live headlines in parallel with prompt construction — adds real news
+	// signal for coins riding current events; safe no-op on network failure.
+	const headlines = await fetchRelevantHeadlines(meta).catch(() => []);
+
 	const user = JSON.stringify({
 		name: meta.name || null,
 		symbol: meta.symbol || null,
@@ -134,22 +148,24 @@ export async function classifyNarrative(meta = {}, opts = {}) {
 	let res;
 	try {
 		res = await llmComplete({
-			system: SYSTEM,
+			system: buildSystem(headlines),
 			user,
 			maxTokens: 220,
 			timeoutMs: opts.timeoutMs ?? 12_000,
 			track: { tool: 'oracle_narrative' },
 		});
 	} catch {
-		return heuristicNarrative(meta);
+		return { ...heuristicNarrative(meta), news_matched: false };
 	}
 
 	const parsed = parseJsonish(res?.text);
-	if (!parsed || typeof parsed !== 'object') return heuristicNarrative(meta);
+	if (!parsed || typeof parsed !== 'object') return { ...heuristicNarrative(meta), news_matched: false };
 
 	const category = CATEGORY_SET.has(String(parsed.category)) ? String(parsed.category) : 'unknown';
-	const virality = clamp(Math.round(Number(parsed.virality)));
-	if (!Number.isFinite(virality)) return heuristicNarrative(meta);
+	// Apply a live-news virality bonus on top of the LLM's own estimate.
+	const bonus = viralityBonus(headlines);
+	const virality = clamp(Math.round(Number(parsed.virality)) + bonus);
+	if (!Number.isFinite(virality)) return { ...heuristicNarrative(meta), news_matched: false };
 
 	return {
 		category,
@@ -158,5 +174,6 @@ export async function classifyNarrative(meta = {}, opts = {}) {
 		confidence: Math.max(0, Math.min(1, Number(parsed.confidence) || 0.5)),
 		tags: Array.isArray(parsed.tags) ? parsed.tags.slice(0, 5).map((t) => String(t).toLowerCase().slice(0, 24)) : [],
 		source: 'llm',
+		news_matched: headlines.length > 0,
 	};
 }

@@ -3,13 +3,16 @@
 // Category: meme | tech | ai | culture | community | political | news | animal |
 //           celebrity | utility | unknown
 //
-// Two layers, and it NEVER fails (Rule 9):
+// Three layers, and it NEVER fails (Rule 9):
 //   1. A deterministic keyword heuristic — instant, free, always available.
-//   2. An LLM pass (free-first via llmComplete) that refines category, extracts
-//      tags + a one-line narrative thesis, and flags news-driven memes.
-// If the LLM is unavailable or times out, the heuristic result stands.
+//   2. Real-time news headline matching via cryptocurrency.cv API (2-min cached).
+//      This gives is_news_meme ground truth — not a guess.
+//   3. An LLM pass (free-first via llmComplete) that refines category, extracts
+//      tags + a one-line narrative thesis.
+// If the LLM is unavailable or times out, the heuristic + news-match stand.
 
 import { llmComplete } from '../../../api/_lib/llm.js';
+import { matchNewsHeadline } from '../../../api/_lib/pump-intel/news-matcher.js';
 
 const CATEGORIES = [
 	'meme', 'tech', 'ai', 'culture', 'community',
@@ -101,44 +104,102 @@ function parseJson(text) {
 }
 
 /**
- * Full classification: heuristic seed, then LLM refinement when available.
+ * Full classification: heuristic seed → real-time news match → LLM refinement.
  * Always resolves to a usable record — never throws.
  *
- * @returns {Promise<{category, tags, narrative, is_news_meme, confidence, source}>}
+ * @returns {Promise<{category, tags, narrative, is_news_meme, news_headline, news_url, confidence, source}>}
  */
 export async function classifyCoin(coin = {}, { timeoutMs = 12_000, useLlm = true } = {}) {
 	const seed = heuristicClassify(coin);
 
-	// LLM disabled (cost control), or nothing to feed it — keep the heuristic.
+	// Layer 2: real-time news headline match (fast, cached, no LLM cost).
+	// Runs in parallel with any subsequent LLM call so it never adds latency.
+	const newsMatchPromise = (coin.name || coin.symbol || coin.description)
+		? matchNewsHeadline(coin).catch(() => ({ matched: false, headline: null, url: null, confidence: 0 }))
+		: Promise.resolve({ matched: false, headline: null, url: null, confidence: 0 });
+
+	// LLM disabled (cost control), or nothing to feed it — keep heuristic + news.
 	if (!useLlm || (!coin.name && !coin.symbol && !coin.description)) {
-		return { ...seed, narrative: null, is_news_meme: false };
+		const news = await newsMatchPromise;
+		const category = (news.matched && seed.category === 'unknown') ? 'news' : seed.category;
+		return {
+			...seed,
+			category,
+			narrative: null,
+			is_news_meme: news.matched,
+			news_headline: news.headline,
+			news_url: news.url,
+			confidence: news.matched ? Math.max(seed.confidence, news.confidence) : seed.confidence,
+		};
 	}
 
-	try {
-		const raw = await llmComplete({
+	// Layer 3: LLM + news in parallel
+	const [llmResult, news] = await Promise.allSettled([
+		llmComplete({
 			system: SYSTEM,
 			user: buildUser(coin),
 			maxTokens: 300,
 			timeoutMs,
-		});
-		const parsed = parseJson(typeof raw === 'string' ? raw : raw?.text);
-		if (!parsed) return { ...seed, narrative: null, is_news_meme: false };
+		}),
+		newsMatchPromise,
+	]);
+
+	const newsMatch = news.status === 'fulfilled' ? news.value
+		: { matched: false, headline: null, url: null, confidence: 0 };
+
+	try {
+		const raw = llmResult.status === 'fulfilled' ? llmResult.value : null;
+		const parsed = raw ? parseJson(typeof raw === 'string' ? raw : raw?.text) : null;
+
+		if (!parsed) {
+			// LLM failed — heuristic + news match
+			const category = (newsMatch.matched && seed.category === 'unknown') ? 'news' : seed.category;
+			return {
+				...seed,
+				category,
+				narrative: null,
+				is_news_meme: newsMatch.matched,
+				news_headline: newsMatch.headline,
+				news_url: newsMatch.url,
+				confidence: newsMatch.matched ? Math.max(seed.confidence, newsMatch.confidence) : seed.confidence,
+			};
+		}
 
 		const tags = Array.isArray(parsed.tags)
 			? parsed.tags.map((t) => String(t).toLowerCase().trim()).filter(Boolean).slice(0, 6)
 			: seed.tags;
 		const conf = Number(parsed.confidence);
+
+		// news-matcher overrides LLM's is_news_meme when it found a real headline —
+		// a real URL is more trustworthy than the model's guess.
+		const is_news_meme = newsMatch.matched || !!parsed.is_news_meme;
+		const llmCategory = coerceCategory(parsed.category);
+		const category = (newsMatch.matched && llmCategory !== 'news') ? 'news' : llmCategory;
+
 		return {
-			category: coerceCategory(parsed.category),
+			category,
 			tags: tags.length ? tags : seed.tags,
 			narrative: parsed.narrative ? String(parsed.narrative).slice(0, 280) : null,
-			is_news_meme: !!parsed.is_news_meme,
-			confidence: Number.isFinite(conf) ? Math.max(0, Math.min(1, conf)) : 0.6,
+			is_news_meme,
+			news_headline: newsMatch.headline,
+			news_url: newsMatch.url,
+			confidence: Number.isFinite(conf)
+				? Math.max(0, Math.min(1, newsMatch.matched ? Math.max(conf, newsMatch.confidence) : conf))
+				: (newsMatch.matched ? Math.max(seed.confidence, newsMatch.confidence) : 0.6),
 			source: 'llm',
 		};
 	} catch {
-		// LLM unavailable / timed out — heuristic stands. Never block the pipeline.
-		return { ...seed, narrative: null, is_news_meme: false };
+		// LLM parse failed — heuristic + news
+		const category = (newsMatch.matched && seed.category === 'unknown') ? 'news' : seed.category;
+		return {
+			...seed,
+			category,
+			narrative: null,
+			is_news_meme: newsMatch.matched,
+			news_headline: newsMatch.headline,
+			news_url: newsMatch.url,
+			confidence: newsMatch.matched ? Math.max(seed.confidence, newsMatch.confidence) : seed.confidence,
+		};
 	}
 }
 

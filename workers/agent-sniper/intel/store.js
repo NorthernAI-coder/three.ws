@@ -57,6 +57,7 @@ export async function persistIntel(rec, walletAgg) {
 	if (!sql) return;
 
 	const s = rec.signals || {};
+	const notableJson = JSON.stringify(rec.smart_money_notable || []);
 	try {
 		await sql`
 			insert into pump_coin_intel (
@@ -67,7 +68,9 @@ export async function persistIntel(rec, walletAgg) {
 				unique_buyers, unique_sellers, largest_buy_lamports,
 				signals, bundle_score, organic_score, snipe_ratio, concentration_top10,
 				fresh_wallet_ratio, bubblemap_connectivity, quality_score, risk_flags,
-				category, tags, narrative, classify_confidence, classify_source, updated_at
+				category, tags, narrative, is_news_meme, classify_confidence, classify_source,
+				smart_money_count, smart_money_score, smart_money_notable,
+				cluster_count, updated_at
 			) values (
 				${rec.mint}, ${rec.network || 'mainnet'}, ${rec.symbol || null}, ${rec.name || null},
 				${rec.creator || null}, ${rec.bonding_curve || null}, ${rec.image_uri || null}, ${rec.description || null},
@@ -78,10 +81,12 @@ export async function persistIntel(rec, walletAgg) {
 				${s.unique_buyers ?? 0}, ${s.unique_sellers ?? 0}, ${big(rec.largest_buy_lamports)},
 				${JSON.stringify(s)}::jsonb, ${s.bundle_score ?? null}, ${s.organic_score ?? null},
 				${s.snipe_ratio ?? null}, ${s.concentration_top10 ?? null},
-				${s.fresh_wallet_ratio ?? null}, ${s.bubblemap_connectivity ?? null},
+				${s.fresh_wallet_ratio ?? null}, ${rec.bubblemap_connectivity ?? s.bubblemap_connectivity ?? null},
 				${rec.quality_score ?? null}, ${rec.risk_flags || []},
 				${rec.category || null}, ${rec.tags || []}, ${rec.narrative || null},
-				${rec.classify_confidence ?? null}, ${rec.classify_source || null}, now()
+				${!!rec.is_news_meme}, ${rec.classify_confidence ?? null}, ${rec.classify_source || null},
+				${rec.smart_money_count ?? 0}, ${rec.smart_money_score ?? null}, ${notableJson}::jsonb,
+				${rec.cluster_count ?? 0}, now()
 			)
 			on conflict (mint) do update set
 				symbol = excluded.symbol, name = excluded.name,
@@ -101,8 +106,14 @@ export async function persistIntel(rec, walletAgg) {
 				bubblemap_connectivity = excluded.bubblemap_connectivity,
 				quality_score = excluded.quality_score, risk_flags = excluded.risk_flags,
 				category = excluded.category, tags = excluded.tags, narrative = excluded.narrative,
+				is_news_meme = excluded.is_news_meme,
 				classify_confidence = excluded.classify_confidence,
-				classify_source = excluded.classify_source, updated_at = now()
+				classify_source = excluded.classify_source,
+				smart_money_count = excluded.smart_money_count,
+				smart_money_score = excluded.smart_money_score,
+				smart_money_notable = excluded.smart_money_notable,
+				cluster_count = excluded.cluster_count,
+				updated_at = now()
 		`;
 	} catch (err) {
 		console.warn('[coin-intel] persist intel failed:', err?.message);
@@ -119,22 +130,25 @@ async function persistWallets(sql, mint, creator, walletAgg) {
 		.slice(0, 200);
 	try {
 		for (const [wallet, w] of rows) {
+			// funder is written by the funding-graph enrichment step in watcher.js
+			const funder = w.funder || null;
 			await sql`
 				insert into pump_coin_wallets (
 					mint, wallet, buy_count, sell_count, buy_lamports, sell_lamports,
-					base_bought, base_sold, first_seen_at, last_seen_at, is_creator
+					base_bought, base_sold, first_seen_at, last_seen_at, is_creator, funder
 				) values (
 					${mint}, ${wallet}, ${w.buyCount}, ${w.sellCount},
 					${big(w.buyLamports)}, ${big(w.sellLamports)},
 					${big(w.baseBought)}, ${big(w.baseSold)},
 					to_timestamp(${Math.floor(w.firstTs / 1000)}), to_timestamp(${Math.floor(w.lastTs / 1000)}),
-					${wallet === creator}
+					${wallet === creator}, ${funder}
 				)
 				on conflict (mint, wallet) do update set
 					buy_count = excluded.buy_count, sell_count = excluded.sell_count,
 					buy_lamports = excluded.buy_lamports, sell_lamports = excluded.sell_lamports,
 					base_bought = excluded.base_bought, base_sold = excluded.base_sold,
-					last_seen_at = excluded.last_seen_at
+					last_seen_at = excluded.last_seen_at,
+					funder = coalesce(excluded.funder, pump_coin_wallets.funder)
 			`;
 		}
 	} catch (err) {
