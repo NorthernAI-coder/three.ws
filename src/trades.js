@@ -8,6 +8,22 @@
 
 import { escapeHtml, fmtSol, fmtPct, holdTime, relTime, shortAddr } from './trader-format.js';
 
+const WATCH_KEY = 'ld_watchlist'; // shared with watchlist.js + launch-detail.js
+
+function readWatchlist() {
+	try { return new Set(JSON.parse(localStorage.getItem(WATCH_KEY) || '[]')); } catch { return new Set(); }
+}
+function toggleWatch(mint) {
+	try {
+		const arr = JSON.parse(localStorage.getItem(WATCH_KEY) || '[]');
+		const set = new Set(Array.isArray(arr) ? arr : []);
+		if (set.has(mint)) { set.delete(mint); }
+		else { set.add(mint); }
+		localStorage.setItem(WATCH_KEY, JSON.stringify([...set].slice(0, 200)));
+		return set.has(mint);
+	} catch { return false; }
+}
+
 const NETWORK_KEY = 'tf_network';
 const API = '/api/trades/feed';
 const REFRESH_MS = 30_000;
@@ -57,6 +73,18 @@ document.addEventListener('DOMContentLoaded', () => {
 	$('#tfRefresh').addEventListener('click', () => {
 		state.cursor = null;
 		load(true);
+	});
+
+	// Watch button — toggle mint in/out of local watchlist
+	document.addEventListener('click', (e) => {
+		const btn = e.target.closest('.tf-watch-btn');
+		if (!btn) return;
+		const mint = btn.dataset.mint;
+		if (!mint) return;
+		const nowWatching = toggleWatch(mint);
+		btn.textContent = nowWatching ? '★ Watching' : '☆ Watch';
+		btn.classList.toggle('tf-watching', nowWatching);
+		btn.setAttribute('aria-pressed', String(nowWatching));
 	});
 
 	// Share button — native Web Share API with X/Twitter fallback
@@ -278,6 +306,9 @@ function cardHtml(t) {
 	// data-share attribute carries the share payload for native Web Share API
 	const shareData = encodeURIComponent(JSON.stringify({ text: shareText, url: shareUrl }));
 
+	const isWatched = t.mint ? readWatchlist().has(t.mint) : false;
+	const watchLabel = isWatched ? '★ Watching' : '☆ Watch';
+
 	return `<article class="tf-card tf-win" aria-label="${sym} trade by ${agentName}">
 		${imgHtml}
 
@@ -311,6 +342,7 @@ function cardHtml(t) {
 		<div class="tf-actions">
 			<a href="${traderUrl}" class="tf-btn primary">Copy trader →</a>
 			<button type="button" class="tf-btn tf-share-btn" data-share="${shareData}" data-tweet="${escapeHtml(tweetHref)}" aria-label="Share this trade">Share ↗</button>
+			${t.mint ? `<button type="button" class="tf-btn tf-watch-btn${isWatched ? ' tf-watching' : ''}" data-mint="${escapeHtml(t.mint)}" aria-pressed="${isWatched}" title="Add to watchlist">${watchLabel}</button>` : ''}
 			${oracleUrl ? `<a href="${oracleUrl}" class="tf-btn" style="background:rgba(192,132,252,0.12);border-color:rgba(192,132,252,0.35);color:#c084fc">Oracle ↗</a>` : ''}
 			${pumpUrl ? `<a href="${pumpUrl}" class="tf-btn" target="_blank" rel="noopener">pump.fun ↗</a>` : ''}
 			${buySig  ? `<a href="${buySig}"  class="tf-btn" target="_blank" rel="noopener">Buy tx ↗</a>`  : ''}
