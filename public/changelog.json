@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-16T05:33:25.339Z",
+	"generated_at": "2026-06-16T05:44:09.881Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -279,6 +279,16 @@
 			"link": "/watchlist",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "update",
+			"title": "Watchlist: live Oracle conviction badges on every watched coin",
+			"summary": "Your watchlist now shows the Oracle conviction score and tier for every pinned coin — prime, strong, lean, watch, or avoid — right on the card. Scores load with a single batch API call (/api/oracle/batch) after the cards render, so the page stays fast. Tap any badge to open the full Oracle breakdown. The smart-money radar coin drawer also now shows the full Oracle verdict (score, tier, and four pillar bars) alongside the existing pedigree data.",
+			"link": "/watchlist",
+			"tags": [
+				"improvement"
 			]
 		},
 		{

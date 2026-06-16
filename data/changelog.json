@@ -3,6 +3,13 @@
 	"entries": [
 		{
 			"date": "2026-06-16",
+			"title": "Watchlist: live Oracle conviction badges on every watched coin",
+			"summary": "Your watchlist now shows the Oracle conviction score and tier for every pinned coin — prime, strong, lean, watch, or avoid — right on the card. Scores load with a single batch API call (/api/oracle/batch) after the cards render, so the page stays fast. Tap any badge to open the full Oracle breakdown. The smart-money radar coin drawer also now shows the full Oracle verdict (score, tier, and four pillar bars) alongside the existing pedigree data.",
+			"tags": ["improvement"],
+			"link": "/watchlist"
+		},
+		{
+			"date": "2026-06-16",
 			"title": "Radar drawer: Oracle conviction scores now inline with coin intelligence",
 			"summary": "When you open a coin in the /radar drawer, it now shows the Oracle conviction score alongside the coin intelligence analysis — score, tier badge, and four pillar bars (pedigree/structure/narrative/momentum), with a link to the full Oracle breakdown. Data loads asynchronously so the drawer opens instantly.",
 			"tags": ["improvement"],

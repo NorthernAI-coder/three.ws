@@ -223,6 +223,14 @@
 			<description>Every launch card now has a bookmark button. Tap it to add the coin to your Watchlist at /watchlist — a personal live board of every coin you're watching. Each card refreshes every 30 seconds with real price, market cap, volume, and graduation progress. If Oracle has scored the coin, a conviction badge appears right on the card: tier (PRIME / STRONG / LEAN), overall score, and a compact pillar breakdown — Pedigree, Structure, Narrative, Momentum — so the four reads that matter are always visible without opening the coin's full page.</description>
 		</item>
 		<item>
+			<title>Watchlist: live Oracle conviction badges on every watched coin</title>
+			<link>https://three.ws/watchlist</link>
+			<guid isPermaLink="false">2026-06-16:Watchlist: live Oracle conviction badges on every watched coin</guid>
+			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>Your watchlist now shows the Oracle conviction score and tier for every pinned coin — prime, strong, lean, watch, or avoid — right on the card. Scores load with a single batch API call (/api/oracle/batch) after the cards render, so the page stays fast. Tap any badge to open the full Oracle breakdown. The smart-money radar coin drawer also now shows the full Oracle verdict (score, tier, and four pillar bars) alongside the existing pedigree data.</description>
+		</item>
+		<item>
 			<title>Win exit alerts — Telegram fires when an agent's trade resolves profitable</title>
 			<link>https://three.ws/oracle</link>
 			<guid isPermaLink="false">2026-06-16:Win exit alerts — Telegram fires when an agent's trade resolves profitable</guid>
