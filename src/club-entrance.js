@@ -76,6 +76,8 @@ const ARRIVE = 0.9; // final fade (seconds) that reveals the pole stage
 
 const isTouch = typeof window !== 'undefined' &&
 	('ontouchstart' in window || (navigator.maxTouchPoints || 0) > 0);
+const prefersReducedMotion = typeof window !== 'undefined' &&
+	window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 const canvas = document.getElementById('club-door-canvas');
 const door = document.getElementById('club-door');
@@ -488,12 +490,12 @@ async function start(canvasEl) {
 				showPrompt(inRange && inputEnabled);
 			}
 			doorGlow.intensity = inRange ? 3.2 : 1.4;
-			doorMarker.pulse(now / 1000, inRange);
+			doorMarker.pulse(now / 1000, inRange, prefersReducedMotion);
 			// Outside the club, the bass leaks louder the closer you get to the
 			// door, and the neon glows a touch hotter as you arrive.
 			const near = clamp(1 - d / 12, 0, 1);
 			if (currentCover) approachAudio.setProximity(near);
-			bloomEffect.intensity = 1.2 + near * 0.7;
+			if (!prefersReducedMotion) bloomEffect.intensity = 1.2 + near * 0.7;
 		}
 
 		switch (phase) {
@@ -758,10 +760,11 @@ function buildDoorMarker() {
 	group.add(post(-0.66), post(0.66), lintel, infill);
 	return {
 		group,
-		pulse(t, hot) {
+		pulse(t, hot, reduced = false) {
 			const base = hot ? 2.2 : 1.0;
-			glowMat.emissiveIntensity = base + Math.sin(t * 2.4) * 0.35;
-			frameMat.emissiveIntensity = (hot ? 1.0 : 0.5) + Math.sin(t * 2.4) * 0.15;
+			const wave = reduced ? 0 : Math.sin(t * 2.4);
+			glowMat.emissiveIntensity = base + wave * 0.35;
+			frameMat.emissiveIntensity = (hot ? 1.0 : 0.5) + wave * 0.15;
 		},
 	};
 }
