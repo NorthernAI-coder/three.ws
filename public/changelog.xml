@@ -39,6 +39,14 @@
 			<description>The 3D token visualizer now shows Oracle conviction scores when you click any token sphere. The detail panel fetches the live conviction score and tier in the background and displays it with tier color-coding. Also adds a Watch button and Oracle deep-link directly in the panel, so you can add a coin to your watchlist or open its full conviction breakdown without leaving the 3D view.</description>
 		</item>
 		<item>
+			<title>Activity: Outcome filter on agent trade feed</title>
+			<link>https://three.ws/activity</link>
+			<guid isPermaLink="false">2026-06-16:Activity: Outcome filter on agent trade feed</guid>
+			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>The Oracle agent activity feed now has a Win / Loss / Open outcome filter alongside the existing tier and mode filters. Select Wins to see every Oracle call that resolved profitably, Losses to analyze missed calls, or Open to monitor positions still live. Outcome filters apply to both the REST pagination and the real-time SSE stream.</description>
+		</item>
+		<item>
 			<title>Agent Activity — live oracle trading floor</title>
 			<link>https://three.ws/activity</link>
 			<guid isPermaLink="false">2026-06-16:Agent Activity — live oracle trading floor</guid>

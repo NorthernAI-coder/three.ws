@@ -195,11 +195,27 @@
 
 		.ac-refresh { font-size: 11px; color: var(--ac-faint); margin-left: auto; }
 
+		/* outcome filter pills */
+		.ac-outcome-pill {
+			padding: 4px 10px; border-radius: 999px; border: 1px solid rgba(255,255,255,.1);
+			background: transparent; color: var(--ac-muted); font: inherit; font-size: 12px;
+			cursor: pointer; transition: color .13s, border-color .13s, background .13s;
+			white-space: nowrap;
+		}
+		.ac-outcome-pill:hover { color: var(--ac-text); border-color: rgba(255,255,255,.25); }
+		.ac-outcome-pill.is-active { background: rgba(255,255,255,.07); color: var(--ac-text); border-color: rgba(255,255,255,.22); }
+		.ac-outcome-pill.win.is-active  { color: var(--ac-up);   border-color: rgba(52,211,153,.45);  background: rgba(52,211,153,.1); }
+		.ac-outcome-pill.loss.is-active { color: var(--ac-dn);   border-color: rgba(248,113,113,.45); background: rgba(248,113,113,.09); }
+		.ac-outcome-pill.open.is-active { color: var(--ac-warn); border-color: rgba(251,191,36,.4);   background: rgba(251,191,36,.08); }
+
 		@media (max-width: 600px) {
 			.ac-right { display: none; }
 			.ac-row:hover { transform: none; }
 		}
 	</style>
+
+	<meta property="og:site_name" content="three.ws">
+	<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"Agent Activity — Oracle conviction in real time","description":"The trading floor: every Oracle conviction action from every autonomous 3D agent on pump.fun, live. Filter by tier and mode, track outcomes, and copy the winners.","url":"https://three.ws/activity","isPartOf":{"@type":"WebSite","name":"three.ws","url":"https://three.ws"}}</script>
 </head>
 <body>
 	<header class="site-header"><div id="nav-container"></div></header>
@@ -224,6 +240,11 @@
 			<button class="ac-mode-pill is-active" data-mode="">All</button>
 			<button class="ac-mode-pill live"     data-mode="live">Live only</button>
 			<button class="ac-mode-pill"          data-mode="simulate">Simulate</button>
+			<div class="ac-sep"></div>
+			<button class="ac-outcome-pill is-active" data-outcome="">All outcomes</button>
+			<button class="ac-outcome-pill win"  data-outcome="win">Wins ✓</button>
+			<button class="ac-outcome-pill loss" data-outcome="loss">Losses ✗</button>
+			<button class="ac-outcome-pill open" data-outcome="open">Open →</button>
 			<span class="ac-refresh" id="ac-refresh-note"></span>
 		</div>
 
@@ -311,7 +332,7 @@
 			</div>`).join('');
 		}
 
-		const state = { tier: '', mode: '', cursor: null, loading: false, items: [] };
+		const state = { tier: '', mode: '', outcome: '', cursor: null, loading: false, items: [] };
 		const feed = document.getElementById('ac-feed');
 		const loadMoreBtn = document.getElementById('ac-load-more');
 
@@ -323,9 +344,10 @@
 			const url = new URL(API, location.origin);
 			url.searchParams.set('network', 'mainnet');
 			url.searchParams.set('limit', '40');
-			if (state.tier)   url.searchParams.set('tier',   state.tier);
-			if (state.mode)   url.searchParams.set('mode',   state.mode);
-			if (state.cursor) url.searchParams.set('before', state.cursor);
+			if (state.tier)    url.searchParams.set('tier',    state.tier);
+			if (state.mode)    url.searchParams.set('mode',    state.mode);
+			if (state.outcome) url.searchParams.set('outcome', state.outcome);
+			if (state.cursor)  url.searchParams.set('before',  state.cursor);
 
 			try {
 				const r = await fetch(url, { headers: { accept: 'application/json' } });
@@ -384,8 +406,9 @@
 
 		// ── toolbar wiring ──
 		document.querySelector('.ac-toolbar').addEventListener('click', (e) => {
-			const tierBtn = e.target.closest('[data-tier]');
-			const modeBtn = e.target.closest('[data-mode]');
+			const tierBtn    = e.target.closest('[data-tier]');
+			const modeBtn    = e.target.closest('[data-mode]');
+			const outcomeBtn = e.target.closest('[data-outcome]');
 			if (tierBtn) {
 				document.querySelectorAll('[data-tier]').forEach(b => b.classList.toggle('is-active', b === tierBtn));
 				state.tier = tierBtn.dataset.tier;
@@ -394,6 +417,11 @@
 			if (modeBtn) {
 				document.querySelectorAll('[data-mode]').forEach(b => b.classList.toggle('is-active', b === modeBtn));
 				state.mode = modeBtn.dataset.mode;
+				load(true);
+			}
+			if (outcomeBtn) {
+				document.querySelectorAll('[data-outcome]').forEach(b => b.classList.toggle('is-active', b === outcomeBtn));
+				state.outcome = outcomeBtn.dataset.outcome;
 				load(true);
 			}
 		});
@@ -423,8 +451,9 @@
 				const item = JSON.parse(e.data);
 				if (seenIds.has(item.id)) return;
 				// Only show if passes current filters
-				if (state.tier && item.tier !== state.tier) return;
-				if (state.mode && item.mode !== state.mode) return;
+				if (state.tier    && item.tier    !== state.tier)    return;
+				if (state.mode    && item.mode    !== state.mode)    return;
+				if (state.outcome && (item.outcome || 'open') !== state.outcome) return;
 				if (state.cursor) return; // user is paginated — don't disrupt
 				seenIds.add(item.id);
 				sseLastCursor = item.acted_at;
