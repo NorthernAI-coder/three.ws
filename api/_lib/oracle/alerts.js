@@ -28,6 +28,12 @@ const MIN_TIER_RANK = TIER_ORDER[MIN_ALERT_TIER] ?? 2;
 // same worker even if alerted_at DB write is slow.
 const _alerted = new Set();
 
+// Personal signal dedup: map of "chatId:mint" → last alerted timestamp (ms).
+// Prevents the 15-min cron window from firing the same personal signal 3×
+// in a row. 1-hour cooldown per (subscriber, coin) pair.
+const _personalSignalAt = new Map();
+const PERSONAL_SIGNAL_COOLDOWN_MS = 60 * 60 * 1000;
+
 const TIER_EMOJI = { prime: '🟣', strong: '🔵', lean: '🟡', watch: '⚪', avoid: '🔴' };
 
 function tierEmoji(tier) { return TIER_EMOJI[tier] || '⚪'; }
@@ -256,6 +262,11 @@ export async function alertPersonalSignal(chatId, coin, minScore) {
 	const token = process.env.TELEGRAM_BOT_TOKEN;
 	if (!token || !chatId) return;
 	if ((Number(coin.score) || 0) < minScore) return;
+
+	const dedupKey = `${chatId}:${coin.mint}`;
+	const last = _personalSignalAt.get(dedupKey) || 0;
+	if (Date.now() - last < PERSONAL_SIGNAL_COOLDOWN_MS) return;
+	_personalSignalAt.set(dedupKey, Date.now());
 
 	const text = format(coin) + `\n<i>Your agent threshold: ${minScore}</i>`;
 	await sendTo(chatId, text);
