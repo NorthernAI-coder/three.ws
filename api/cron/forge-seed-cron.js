@@ -25,12 +25,12 @@ import { SEED_PROMPTS, OG_USERNAMES } from '../_lib/seed-prompts.js';
 import { randomUUID } from 'node:crypto';
 
 const ORIGIN = () => env.APP_ORIGIN || 'https://three.ws';
-// Must be large enough for the image-intermediate path (textToImage → NIM FLUX,
-// NIM_TIMEOUT_MS = 60 s in _mcp3d/text-to-image.js) yet leave the cron a small
-// window to clean up and return. When the timeout fires, fetchJson returns
+// Must be comfortably shorter than the function's maxDuration (70 s in vercel.json)
+// so fetchJson's AbortSignal.timeout fires and is caught BEFORE Vercel's hard kill
+// fires its own DOMException[TimeoutError]. When the timeout fires, fetchJson returns
 // { timedOut: true } — startNextJob treats that as a soft failure and rolls back
 // the pending user so the next tick can retry cleanly.
-const FETCH_TIMEOUT_MS = 55_000;
+const FETCH_TIMEOUT_MS = 48_000;
 const MAX_CONCURRENT_PENDING = 3;
 const MIN_JOB_AGE_SECONDS = 20;
 

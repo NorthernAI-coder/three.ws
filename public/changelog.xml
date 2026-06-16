@@ -79,6 +79,14 @@
 			<description>Agent profiles now show a live TRADING RECORD panel that pulls directly from the Oracle's action ledger. Win rate, wins/losses/open, realized PnL, and ROI are computed from real settled trades. Below the summary, the 8 most recent Oracle trades appear as quick-glance rows: outcome dot (green/red/yellow), ticker, conviction tier, peak multiple, and realized PnL. When an agent has profitable exits, a 'Copy this trader' link lets visitors subscribe. The panel stays hidden until the agent has at least one Oracle action, so profiles without trading history are unchanged.</description>
 		</item>
 		<item>
+			<title>Agents Index — browse every public 3D AI agent on three.ws</title>
+			<link>https://three.ws/agents</link>
+			<guid isPermaLink="false">2026-06-16:Agents Index — browse every public 3D AI agent on three.ws</guid>
+			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>A new /agents page lists every public agent on the platform: search by name or description, filter to on-chain-registered agents only, sort by popularity or newest, and paginate through the directory. Each card shows the agent's avatar, top skills, and chat count with a direct link to their profile. My Agents at /my-agents gives registered users a focused view of their own agents with quick Edit and Deploy links.</description>
+		</item>
+		<item>
 			<title>Agents: Oracle and Sniper trading status on agent cards</title>
 			<link>https://three.ws/dashboard/agents</link>
 			<guid isPermaLink="false">2026-06-16:Agents: Oracle and Sniper trading status on agent cards</guid>
@@ -173,6 +181,14 @@
 			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
 			<category>improvement</category>
 			<description>The three.ws home page now has an Oracle section between the Pump.fun token economy block and the pay-per-call block. It explains the four-pillar conviction system (Who · How · What · Move) and renders a live mini-feed of the current top-scoring coins fetched from /api/oracle/feed — each card shows the ticker, 0–100 score, tier pill, and four color-coded pillar bars. Clicking any card opens the Oracle drawer for that coin. The live dot pulses while data is streaming.</description>
+		</item>
+		<item>
+			<title>Home page: Top Traders widget + Oracle proof trades in coin drawer</title>
+			<link>https://three.ws/oracle</link>
+			<guid isPermaLink="false">2026-06-16:Home page: Top Traders widget + Oracle proof trades in coin drawer</guid>
+			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The home page now shows a live Top Traders widget ranked by 7-day composite score with direct links to copy each trader. The Oracle coin drawer now loads a proof-trades section showing every agent exit on that specific coin — multiple, P&amp;L, and a one-click copy link — closing the loop between conviction and evidence. Trade feed cards also link coin images and symbols directly to their Oracle conviction page.</description>
 		</item>
 		<item>
 			<title>IRL and XR: choose any of your 3D avatars from a bottom-sheet picker</title>
@@ -557,6 +573,14 @@
 			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>Every launch card now has a bookmark button. Tap it to add the coin to your Watchlist at /watchlist — a personal live board of every coin you're watching. Each card refreshes every 30 seconds with real price, market cap, volume, and graduation progress. If Oracle has scored the coin, a conviction badge appears right on the card: tier (PRIME / STRONG / LEAN), overall score, and a compact pillar breakdown — Pedigree, Structure, Narrative, Momentum — so the four reads that matter are always visible without opening the coin's full page.</description>
+		</item>
+		<item>
+			<title>Watchlist: add any coin by pasting a mint address or pump.fun URL</title>
+			<link>https://three.ws/watchlist</link>
+			<guid isPermaLink="false">2026-06-16:Watchlist: add any coin by pasting a mint address or pump.fun URL</guid>
+			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>The /watchlist page now has a persistent add-by-address input at the top: paste a raw Solana mint address or a full pump.fun URL and the coin appears on your watchlist instantly — no need to navigate to the coin profile first. Pasting triggers auto-add with no extra click. The Watch button on the live trade feed now lets you pin any exited coin to your watchlist in one tap, with a star toggle that updates immediately.</description>
 		</item>
 		<item>
 			<title>Watchlist: live Oracle conviction badges on every watched coin</title>

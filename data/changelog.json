@@ -3,6 +3,20 @@
 	"entries": [
 		{
 			"date": "2026-06-16",
+			"title": "Agent profile: deploy on-chain and edit controls for agent owners",
+			"summary": "When you own an agent, its profile page (/agent/:id) now shows a full owner action bar in the hero section with one-click access to Edit Agent, Manage Agents, and — for agents not yet deployed — a Deploy on-chain button. The BLOCKCHAIN DETAILS section now mounts an inline deploy widget that shows the chain selector and signs on Solana (Metaplex Core) or any EVM chain, with a persistent success chip linking to the explorer once deployed.",
+			"tags": ["improvement"],
+			"link": "/agents"
+		},
+		{
+			"date": "2026-06-16",
+			"title": "Watchlist: add any coin by pasting a mint address or pump.fun URL",
+			"summary": "The /watchlist page now has a persistent add-by-address input at the top: paste a raw Solana mint address or a full pump.fun URL and the coin appears on your watchlist instantly — no need to navigate to the coin profile first. Pasting triggers auto-add with no extra click. The Watch button on the live trade feed now lets you pin any exited coin to your watchlist in one tap, with a star toggle that updates immediately.",
+			"tags": ["improvement"],
+			"link": "/watchlist"
+		},
+		{
+			"date": "2026-06-16",
 			"title": "Home page: Top Traders widget + Oracle proof trades in coin drawer",
 			"summary": "The home page now shows a live Top Traders widget ranked by 7-day composite score with direct links to copy each trader. The Oracle coin drawer now loads a proof-trades section showing every agent exit on that specific coin — multiple, P&L, and a one-click copy link — closing the loop between conviction and evidence. Trade feed cards also link coin images and symbols directly to their Oracle conviction page.",
 			"tags": ["feature", "improvement"],

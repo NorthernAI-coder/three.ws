@@ -66,7 +66,7 @@
 			"maxDuration": 300
 		},
 		"api/cron/forge-seed-cron.js": {
-			"maxDuration": 55
+			"maxDuration": 70
 		},
 		"api/cron/oracle-score.js": {
 			"includeFiles": "{examples/skills/**,data/pages.json,data/_generated/**,sdk/src/sas-config.json}",

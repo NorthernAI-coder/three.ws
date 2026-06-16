@@ -176,6 +176,25 @@ async function extractGlbBase64(res) {
 			} else {
 				artDesc = ` artifact[0]=${typeof artifact0}`;
 			}
+		} else if (arts !== null && arts !== undefined && typeof arts === 'object') {
+			// NVIDIA sometimes returns artifacts as an object with numeric string keys
+			// (e.g. {"0": {"base64": "..."}}) — try to extract the same way as an array.
+			const firstVal = arts['0'] ?? Object.values(arts)[0] ?? null;
+			const firstB64 = firstVal?.base64 ?? (typeof firstVal === 'string' && !firstVal.startsWith('http') ? firstVal : null);
+			if (firstB64) return { base64: firstB64 };
+			const firstUrl = firstVal?.url ?? (typeof firstVal === 'string' && firstVal.startsWith('http') ? firstVal : null);
+			if (firstUrl) {
+				try {
+					const artRes = await fetch(firstUrl, { signal: AbortSignal.timeout(POLL_TIMEOUT_MS) });
+					if (artRes.ok) {
+						const buf = Buffer.from(await artRes.arrayBuffer());
+						if (buf.length > 0) return { base64: buf.toString('base64') };
+					}
+				} catch { /* fall through to diagnostic */ }
+			}
+			artDesc = ` artifacts(object)=${JSON.stringify(Object.keys(arts)).slice(0, 80)}`;
+		} else {
+			artDesc = ` artifacts=${arts === null ? 'null' : typeof arts}`;
 		}
 		return { base64: null, diag: `json keys=${topKeys}${artDesc}` };
 	}
