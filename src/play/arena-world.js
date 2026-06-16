@@ -66,6 +66,7 @@ export class ArenaWorld {
 		this._running = false;
 		this._raf = 0;
 		this._labels = new Set();  // ArenaAvatar with DOM labels to project
+		this._focus = null;        // { x, z, dist, until } cinematic agent focus
 
 		this._initRenderer();
 		this._initScene();
@@ -489,6 +490,7 @@ export class ArenaWorld {
 		mx += this._move.x; mz -= this._move.y;
 		const mag = Math.hypot(mx, mz);
 		const moving = mag > 0.08;
+		if (moving && this._focus) this._focus = null; // walking breaks a focus lock
 		if (moving) {
 			const len = Math.max(mag, 1);
 			mx /= len; mz /= len;
@@ -508,16 +510,33 @@ export class ArenaWorld {
 		p.setMoving(moving);
 	}
 
+	// Cinematically push the camera in on one agent for a few seconds (opening
+	// their detail drawer). Cleared early if the spectator starts walking.
+	focusOnAgent(agentId, ms = 5000) {
+		const a = this.agents.get(agentId);
+		if (!a) return;
+		const p = a.root.position;
+		this._focus = { x: p.x, z: p.z, dist: a.leader ? 6.5 : 5.2, until: performance.now() + ms };
+		// Swing the orbit so the camera ends up looking at the agent from the
+		// spectator's side of the floor (agents are at −Z, viewer at +Z).
+		this._cam.targetYaw = Math.atan2(p.x, p.z + 9) * 0.6;
+	}
+	clearFocus() { this._focus = null; }
+
 	_updateCamera(dt) {
 		const c = this._cam;
 		c.yaw = dampAngle(c.yaw, c.targetYaw, 8 * dt);
-		c.dist += (c.targetDist - c.dist) * Math.min(1, 8 * dt);
+		const focusing = this._focus && performance.now() < this._focus.until;
 		const p = this.player ? this.player.root.position : new Vector3(0, 0, 0);
-		// Orbit a point biased from the spectator toward the arena centre so the
-		// agent line-up stays in frame while we still follow the player.
-		const tx = p.x * 0.55;
-		const tz = p.z * 0.5 - 2.0;
-		const ty = 1.2;
+		// Orbit the focused agent when one is selected, otherwise a point biased
+		// from the spectator toward the arena centre (keeps the line-up framed).
+		let tx, tz, ty, distTarget;
+		if (focusing) {
+			tx = this._focus.x; tz = this._focus.z; ty = 1.45; distTarget = this._focus.dist;
+		} else {
+			tx = p.x * 0.55; tz = p.z * 0.5 - 2.0; ty = 1.2; distTarget = c.targetDist;
+		}
+		c.dist += (distTarget - c.dist) * Math.min(1, (focusing ? 4 : 8) * dt);
 		const cx = tx + Math.sin(c.yaw) * Math.cos(c.pitch) * c.dist;
 		const cz = tz + Math.cos(c.yaw) * Math.cos(c.pitch) * c.dist;
 		const cy = ty + Math.sin(c.pitch) * c.dist + 1.0;

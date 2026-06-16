@@ -23,7 +23,9 @@ async function armedWatches(network) {
 	`.catch(() => []);
 }
 
-async function freshlyScored(network, sinceIso, limit = 60) {
+/** Coins scored since a cursor — the work list for the agent loop. Exported so
+ *  the serverless cron can pull a fixed recent window instead of a live cursor. */
+export async function freshlyScored(network, sinceIso, limit = 60) {
 	return sql`
 		select mint, symbol, score, tier, category, smart_wallet_count, scored_at
 		from oracle_conviction
@@ -41,14 +43,16 @@ async function alreadyActed(agentId, mint, network) {
 	return r.length > 0;
 }
 
-export async function runAgentPass(cfg) {
-	if (cfg.globalKill) return 0;
+/**
+ * Run every armed watch against a given set of freshly-scored coins. Pure of the
+ * cursor so both the long-lived loop and the serverless cron share one code path.
+ * Each (agent, mint) acts at most once via the `alreadyActed` guard, so passing
+ * an overlapping window across invocations is safe and idempotent.
+ */
+export async function actOnFreshCoins(cfg, coins) {
+	if (cfg.globalKill || !coins.length) return 0;
 	const watches = await armedWatches(cfg.network);
 	if (!watches.length) return 0;
-
-	const coins = await freshlyScored(cfg.network, cursor);
-	if (coins.length) cursor = coins[coins.length - 1].scored_at;
-	if (!coins.length) return 0;
 
 	let acted = 0;
 	for (const watch of watches) {
@@ -64,4 +68,11 @@ export async function runAgentPass(cfg) {
 	}
 	if (acted) log.info(`agent loop: ${acted} action(s) across ${watches.length} armed agent(s)`);
 	return acted;
+}
+
+export async function runAgentPass(cfg) {
+	if (cfg.globalKill) return 0;
+	const coins = await freshlyScored(cfg.network, cursor);
+	if (coins.length) cursor = coins[coins.length - 1].scored_at;
+	return actOnFreshCoins(cfg, coins);
 }

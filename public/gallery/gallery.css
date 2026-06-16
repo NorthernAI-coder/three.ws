@@ -502,6 +502,18 @@ body.gallery-page {
 .gallery-card-dot {
 	opacity: 0.5;
 }
+.gallery-card-fork {
+	display: inline-flex;
+	align-items: center;
+	gap: 2px;
+	padding: 1px 6px;
+	border-radius: 999px;
+	background: rgba(153, 69, 255, 0.14);
+	color: rgba(184, 138, 255, 0.95);
+	font-size: 10px;
+	font-weight: 600;
+	white-space: nowrap;
+}
 .gallery-card-actions {
 	display: inline-flex;
 	gap: 6px;

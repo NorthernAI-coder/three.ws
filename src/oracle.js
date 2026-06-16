@@ -83,6 +83,13 @@ function boot() {
 	});
 	$('#catSel').addEventListener('change', (e) => { state.category = e.target.value; loadFeed(); });
 	$('#minSel').addEventListener('change', (e) => { state.minScore = Number(e.target.value) || 0; loadFeed(); });
+	const MINT_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+	$('#mintSearch').addEventListener('keydown', (e) => {
+		if (e.key !== 'Enter') return;
+		const v = e.target.value.trim();
+		if (MINT_RE.test(v)) { openCoin(v); e.target.blur(); }
+		else if (v) { e.target.style.borderColor = 'var(--down)'; setTimeout(() => { e.target.style.borderColor = ''; }, 900); }
+	});
 	$('#labelSeg').addEventListener('click', (e) => {
 		const b = e.target.closest('button'); if (!b) return;
 		$$('#labelSeg button').forEach((x) => x.classList.toggle('on', x === b));
@@ -523,11 +530,21 @@ async function loadActions(agentId) {
 	const body = $('#actionsBody');
 	const { ok, data } = await api(`/api/oracle/watch?agent_id=${encodeURIComponent(agentId)}&network=${NETWORK}`);
 	const actions = ok && data ? (data.actions || []) : [];
+	const s = (ok && data && data.summary) || null;
+	const header = s && s.total ? `
+		<div class="coin-meta" style="margin-bottom:12px">
+			<span class="chip">actions <b>${s.total}</b></span>
+			<span class="chip sm">wins <b>${s.wins}</b></span>
+			<span class="chip flag">losses <b>${s.losses}</b></span>
+			<span class="chip">win rate <b>${s.win_rate == null ? '—' : s.win_rate + '%'}</b></span>
+			<span class="chip ${s.realized_pnl_sol >= 0 ? 'sm' : 'flag'}">PnL <b>${s.realized_pnl_sol >= 0 ? '+' : ''}${fmtSol(s.realized_pnl_sol)}</b></span>
+			${s.roi_pct != null ? `<span class="chip">ROI <b>${s.roi_pct >= 0 ? '+' : ''}${s.roi_pct}%</b></span>` : ''}
+		</div>` : '';
 	if (!actions.length) {
-		body.innerHTML = '<div class="state">No actions yet. Once armed, your agent\'s moves will appear here and get graded against outcomes.</div>';
+		body.innerHTML = `${header}<div class="state">No actions yet. Once armed, your agent's moves will appear here and get graded against outcomes.</div>`;
 		return;
 	}
-	body.innerHTML = `<div class="lwrap">${actions.map(actionRow).join('')}</div>`;
+	body.innerHTML = `${header}<div class="lwrap">${actions.map(actionRow).join('')}</div>`;
 }
 
 function actionRow(a) {

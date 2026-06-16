@@ -144,7 +144,11 @@
 		<script src="/footer.js"></script>
 
 		<script type="module">
-			import { mountLaunchCoin } from '/launch/launch.js';
+			// launch.js and its dependency chain (/studio/launch-panel.js,
+			// /studio/fees-panel.js) live in public/ and are loaded by URL at
+			// runtime. @vite-ignore keeps rollup from trying to bundle a
+			// public-dir asset (which it cannot resolve) and aborting build:app.
+			const { mountLaunchCoin } = await import(/* @vite-ignore */ '/launch/launch.js');
 			mountLaunchCoin(document.getElementById('launch-root'));
 		</script>
 		<script src="/brand.js" defer></script>

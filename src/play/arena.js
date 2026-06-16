@@ -247,12 +247,129 @@ function updateLabels() {
 
 function focusAgent(id) {
 	const row = world.agents.get(id);
-	if (!row) return;
-	world._ringPulse?.(row.root.position, row.color);
-	row.emote('buy');
-	// Promote into the top card for a beat.
+	if (row) {
+		world._ringPulse?.(row.root.position, row.color);
+		row.emote('buy');
+		world.focusOnAgent(id);
+	}
 	const L = labelEls.get(id);
 	if (L) { L.el.classList.add('active'); setTimeout(() => L.el.classList.remove('active'), 2200); }
+	openAgentDrawer(id);
+}
+
+// ── agent detail drawer (real on-chain track record) ────────────────────────────
+
+let drawerAbort = null;
+async function openAgentDrawer(id) {
+	const el = $('agentDrawer');
+	el.classList.add('open');
+	const body = $('drawerBody');
+	body.innerHTML = `<div class="dw-skel"></div><div class="dw-skel"></div><div class="dw-skel" style="height:120px"></div>`;
+	// Cancel any in-flight previous fetch.
+	if (drawerAbort) drawerAbort.abort();
+	drawerAbort = new AbortController();
+	try {
+		const r = await fetch(`/api/sniper/trader?agent_id=${encodeURIComponent(id)}&network=${NETWORK}&window=all`, { signal: drawerAbort.signal });
+		if (!r.ok) throw new Error(r.status === 404 ? 'This trader isn’t public yet.' : `HTTP ${r.status}`);
+		renderAgentDrawer(await r.json(), id);
+	} catch (e) {
+		if (e.name === 'AbortError') return;
+		body.innerHTML = `<div class="dw-empty"><b>Couldn’t load this trader</b>${esc(e.message)}<br/><a href="/trader/${encodeURIComponent(id)}" target="_blank" rel="noopener">Open full profile ↗</a></div>`;
+	}
+}
+
+function closeAgentDrawer() {
+	$('agentDrawer').classList.remove('open');
+	if (drawerAbort) { drawerAbort.abort(); drawerAbort = null; }
+	world.clearFocus?.();
+}
+
+function renderAgentDrawer(data, id) {
+	const m = data.metrics || {};
+	const a = data.agent || {};
+	const verified = m.verified
+		? '<span class="dw-badge ok">✓ Verified profitable</span>'
+		: '<span class="dw-badge">Building track record</span>';
+	const scoreCls = m.score >= 70 ? 'up' : m.score >= 40 ? '' : 'down';
+	const stat = (label, val, cls = '') => `<div class="dw-stat"><span>${label}</span><b class="${cls}">${val}</b></div>`;
+	const pnlCls = (m.realized_pnl_sol ?? 0) >= 0 ? 'up' : 'down';
+
+	const grid = [
+		stat('Realized P&L', fmtSol(m.realized_pnl_sol) + (m.realized_pnl_usd != null ? `<small> ${fmtUsd(m.realized_pnl_usd)}</small>` : ''), pnlCls),
+		stat('Win rate', m.closed_count ? Math.round(m.win_rate * 100) + '%' : '—'),
+		stat('ROI', m.closed_count ? fmtPct(m.roi_pct) : '—', (m.roi_pct ?? 0) >= 0 ? 'up' : 'down'),
+		stat('Closed trades', m.closed_count ?? 0),
+		stat('Best trade', m.best_pnl_pct != null ? fmtPct(m.best_pnl_pct) : '—', 'up'),
+		stat('Max drawdown', m.max_drawdown_pct != null ? '−' + Math.abs(m.max_drawdown_pct).toFixed(1) + '%' : '—', 'down'),
+		stat('Avg hold', holdLabel(m.avg_hold_seconds)),
+		stat('Open now', m.open_count ?? 0),
+	].join('');
+
+	const trades = (data.closed || []).slice(0, 8).map((t) => {
+		const win = (t.pnl_sol ?? 0) >= 0;
+		const proof = t.sell_url || t.buy_url;
+		return `<div class="dw-trade">
+			<span class="dw-t-sym">${esc(t.symbol || t.name || (t.mint || '').slice(0, 6))}</span>
+			<span class="dw-t-reason">${esc(t.exit_reason || 'closed')}</span>
+			<span class="dw-t-pnl ${win ? 'up' : 'down'}">${fmtSol(t.pnl_sol)} ${fmtPct(t.pnl_pct)}</span>
+			${proof ? `<a href="${esc(proof)}" target="_blank" rel="noopener" title="On-chain proof">↗</a>` : '<span class="dw-sim">sim</span>'}
+		</div>`;
+	}).join('') || '<div class="dw-empty" style="padding:14px">No closed trades yet.</div>';
+
+	$('drawerBody').innerHTML = `
+		<div class="dw-head">
+			${a.image ? `<img src="${esc(a.image)}" alt="" onerror="this.remove()"/>` : '<span class="dw-av-fallback"></span>'}
+			<div>
+				<div class="dw-name">${esc(a.name || 'Agent')}</div>
+				<div class="dw-sub">${verified}</div>
+			</div>
+			<div class="dw-score ${scoreCls}"><b>${m.score ?? 0}</b><span>score</span></div>
+		</div>
+		${sparkline(data.closed || [])}
+		<div class="dw-grid">${grid}</div>
+		<div class="dw-section-h">Recent closed trades · every one on-chain</div>
+		<div class="dw-trades">${trades}</div>
+		<div class="dw-cta">
+			<a class="btn primary" href="/trader/${encodeURIComponent(id)}" target="_blank" rel="noopener">Full proof &amp; copy ↗</a>
+			${a.wallet ? `<a class="btn" href="https://solscan.io/account/${esc(a.wallet)}" target="_blank" rel="noopener">Wallet ↗</a>` : ''}
+		</div>`;
+}
+
+// Cumulative realized-P&L equity curve from the closed ledger (chronological).
+function sparkline(closed) {
+	const chron = [...closed].filter((t) => t.pnl_sol != null)
+		.sort((x, y) => new Date(x.closed_at) - new Date(y.closed_at));
+	if (chron.length < 2) return '';
+	let cum = 0; const pts = [0];
+	for (const t of chron) { cum += t.pnl_sol; pts.push(cum); }
+	const min = Math.min(...pts), max = Math.max(...pts), range = (max - min) || 1;
+	const W = 280, H = 56;
+	const coords = pts.map((v, i) => [
+		(i / (pts.length - 1)) * W,
+		H - ((v - min) / range) * (H - 6) - 3,
+	]);
+	const d = coords.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
+	const up = cum >= 0;
+	const col = up ? 'var(--up)' : 'var(--down)';
+	const area = `${d} L${W},${H} L0,${H} Z`;
+	const zeroY = (H - ((0 - min) / range) * (H - 6) - 3).toFixed(1);
+	return `<svg class="dw-spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">
+		<line x1="0" y1="${zeroY}" x2="${W}" y2="${zeroY}" stroke="rgba(255,255,255,.12)" stroke-dasharray="3 3"/>
+		<path d="${area}" fill="${col}" opacity="0.12"/>
+		<path d="${d}" fill="none" stroke="${col}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+	</svg>`;
+}
+
+function fmtUsd(n) {
+	if (n == null) return '';
+	const s = Math.abs(n) >= 1000 ? `$${Math.round(n).toLocaleString('en-US')}` : `$${Number(n).toFixed(2)}`;
+	return (n < 0 ? '−' : '') + s.replace('-', '');
+}
+function holdLabel(sec) {
+	if (!sec) return '—';
+	if (sec < 90) return `${Math.round(sec)}s`;
+	if (sec < 5400) return `${Math.round(sec / 60)}m`;
+	return `${(sec / 3600).toFixed(1)}h`;
 }
 
 // ── HUD: leaderboard, top card, tape, banner ────────────────────────────────────
@@ -342,7 +459,8 @@ function mountControls() {
 	$('emptyPick')?.addEventListener('click', openPicker);
 	// Collapse side panels on mobile.
 	$('togglePanels')?.addEventListener('click', () => document.body.classList.toggle('panels-open'));
-	window.addEventListener('keydown', (e) => { if (e.key === 'Escape') closePicker(); });
+	$('drawerClose')?.addEventListener('click', closeAgentDrawer);
+	window.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closePicker(); closeAgentDrawer(); } });
 }
 
 let pickerLoaded = false;

@@ -430,6 +430,142 @@ function renderVerdict() {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
+// SMART MONEY  — who is in this coin, and what is their track record
+//
+// The single most actionable question a trader has isn't "what is the chart" —
+// it's "who else is in, and do they win." The Smart Money Radar answers it: it
+// crosses every wallet's footprint in this coin against which coins those same
+// wallets historically graduated, scoring the *pedigree of the money* buying in.
+// Data: /api/pump/smart-money?mint= (404 until the rollup has scored this coin).
+// ════════════════════════════════════════════════════════════════════════════
+
+const WALLET_LABEL = {
+	smart_money: { label: 'Smart money', tone: 'good', tip: 'A wallet with a proven record of buying coins that went on to graduate.' },
+	sniper: { label: 'Sniper', tone: 'warn', tip: 'Habitually grabs supply in the first moments of a launch.' },
+	dumper: { label: 'Dumper', tone: 'danger', tip: 'Tends to sell into early buyers — exits fast.' },
+	rugger: { label: 'Rugger', tone: 'danger', tip: 'Has been tied to coins that rugged.' },
+	fresh: { label: 'Fresh', tone: 'muted', tip: 'A brand-new wallet with no track record yet.' },
+	neutral: { label: 'Neutral', tone: 'muted', tip: 'Trades both ways with no decisive edge.' },
+	unproven: { label: 'Unproven', tone: 'muted', tip: 'Not enough history to judge.' },
+};
+
+function walletRow(w) {
+	const meta = WALLET_LABEL[w.label] || { label: (w.label || 'wallet').replace(/_/g, ' '), tone: 'muted', tip: '' };
+	const winPct = w.win_rate != null ? Math.round(w.win_rate * 100) : null;
+	const record =
+		w.wins != null && w.duds != null && w.wins + w.duds > 0 ? `${w.wins}–${w.duds}` : null;
+
+	return el(
+		'a',
+		{
+			class: 'ld-sm-row',
+			href: `https://solscan.io/account/${w.wallet}`,
+			target: '_blank',
+			rel: 'noopener noreferrer',
+			'aria-label': `${meta.label} ${shortAddr(w.wallet)} — bought ${fmtSol(w.buy_sol, { sign: false })}`,
+		},
+		[
+			el('span', { class: `ld-sm-dot ld-fill-${meta.tone}`, 'aria-hidden': 'true' }),
+			el('div', { class: 'ld-sm-who' }, [
+				el('span', { class: 'ld-sm-addr', text: shortAddr(w.wallet, 4, 4) }),
+				el('span', { class: `ld-sm-label ld-${meta.tone}`, title: meta.tip, text: meta.label }),
+			]),
+			el('div', { class: 'ld-sm-rec' }, [
+				winPct != null ? el('span', { class: 'ld-sm-win', text: `${winPct}% win` }) : null,
+				record ? el('span', { class: 'ld-sm-wd', text: record }) : null,
+			]),
+			el('span', { class: 'ld-sm-buy', text: fmtSol(w.buy_sol, { sign: false }) }),
+		],
+	);
+}
+
+async function renderSmartMoney() {
+	const target = $('ld-smart');
+	if (state.network !== 'mainnet') {
+		target.hidden = true;
+		return;
+	}
+
+	let data = null;
+	try {
+		data = await fetchJson(`/api/pump/smart-money?mint=${encodeURIComponent(state.mint)}`);
+	} catch {
+		// 404 = the rollup hasn't scored this coin yet (too new, or pre-dates the
+		// engine). Render an honest "not scored yet" rather than hiding the panel.
+		section(
+			target,
+			'Smart money',
+			el('div', { class: 'ld-empty ld-empty-sm' }, [
+				el('p', { class: 'ld-empty-title', text: 'No smart-money read yet.' }),
+				el('p', {
+					text: 'The radar scores a coin once proven wallets touch it. New launches are picked up within minutes — check back, or watch the live radar.',
+				}),
+				el('a', { class: 'ld-btn ld-btn-ghost', href: '/radar', text: 'Open the Smart Money radar →' }),
+			]),
+			{ tag: 'wallet pedigree' },
+		);
+		return;
+	}
+
+	const coin = data.coin || {};
+	const notable = (data.notable || [])
+		.filter((w) => w && w.wallet)
+		.sort((a, b) => Number(b.buy_sol || 0) - Number(a.buy_sol || 0));
+	const score = Number(coin.smart_money_score);
+	const tone = scoreTone(Number.isFinite(score) ? score : null);
+	const provenSol = Number(coin.proven_buy_sol) || 0;
+	const smartCount =
+		Number(coin.smart_wallet_count) || notable.filter((w) => w.label === 'smart_money').length;
+
+	// The hook line — concrete, FOMO-honest, never synthesized.
+	const lede =
+		smartCount > 0
+			? `${smartCount} proven ${smartCount === 1 ? 'wallet has' : 'wallets have'} put ${fmtSol(provenSol, { sign: false })} into this coin.`
+			: provenSol > 0
+				? `${fmtSol(provenSol, { sign: false })} of the money here traces to wallets with a track record.`
+				: 'No wallets with a proven track record have bought this coin yet.';
+
+	const headline = el('div', { class: 'ld-sm-head' }, [
+		el('div', { class: `ld-quality ld-quality-${tone}` }, [
+			el('span', { class: 'ld-quality-num', text: Number.isFinite(score) ? String(Math.round(score)) : '—' }),
+			el('span', { class: 'ld-quality-max', text: 'pedigree' }),
+		]),
+		el('div', { class: 'ld-verdict-copy' }, [
+			el('span', { class: 'ld-verdict-label', text: 'Smart-money score' }),
+			el('p', { class: 'ld-narrative', text: lede }),
+		]),
+	]);
+
+	const children = [headline];
+
+	if (notable.length) {
+		children.push(
+			el('div', { class: 'ld-sm-list' }, [
+				el('div', { class: 'ld-sm-list-head' }, [
+					el('span', { text: 'Wallet' }),
+					el('span', { text: 'Record' }),
+					el('span', { text: 'Bought' }),
+				]),
+				...notable.slice(0, 8).map(walletRow),
+			]),
+		);
+	} else {
+		children.push(
+			el('p', {
+				class: 'ld-agent-note',
+				text: 'The radar is watching, but no notable wallets have surfaced in this coin yet.',
+			}),
+		);
+	}
+
+	children.push(
+		el('a', { class: 'ld-actions-foot', href: '/radar', text: 'See everything the smart money is buying →' }),
+	);
+
+	section(target, 'Smart money', el('div', { class: 'ld-sm' }, children), { tag: 'wallet pedigree' });
+}
+
+// ════════════════════════════════════════════════════════════════════════════
 // PRICE CHART
 // ════════════════════════════════════════════════════════════════════════════
 
@@ -1013,7 +1149,8 @@ function renderActions() {
 	buttons.push(watchBtn, shareBtn);
 
 	const body = el('div', { class: 'ld-action-grid' }, buttons);
-	section(target, 'Take action', body);
+	const foot = el('a', { class: 'ld-actions-foot', href: '/watchlist', text: 'View your watchlist →' });
+	section(target, 'Take action', el('div', {}, [body, foot]));
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -1177,6 +1314,7 @@ async function boot() {
 	// missing data source never blanks the page.
 	renderHero();
 	renderVerdict();
+	renderSmartMoney();
 	renderChart();
 	renderDistribution();
 	renderEconomics();

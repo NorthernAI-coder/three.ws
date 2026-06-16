@@ -166,13 +166,14 @@ async function handleCreate(req, res) {
 				return created?.id ?? null;
 				});
 
-				// Every avatar's agent gets a custodial wallet on first save so it
-				// can transact immediately. Idempotent — a claimed agent that already
-				// has a wallet is left untouched.
+				// Every 3D avatar's agent gets a custodial Solana wallet on first
+				// save so it can transact immediately. Solana-only by product
+				// decision — EVM is opt-in via the wallet panel, never auto-minted.
+				// Idempotent: an agent that already has a Solana wallet is untouched.
 				if (agentId) {
-					const { provisionAgentWallets } = await import('../_lib/agent-wallet.js');
-					await provisionAgentWallets(agentId).catch((e) =>
-						console.warn('[avatars] wallet provision failed', agentId, e?.message),
+					const { getOrCreateAgentSolanaWallet } = await import('../_lib/agent-wallet.js');
+					await getOrCreateAgentSolanaWallet(agentId).catch((e) =>
+						console.warn('[avatars] solana wallet provision failed', agentId, e?.message),
 					);
 				}
 			} catch (err) {

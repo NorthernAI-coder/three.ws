@@ -344,6 +344,8 @@ function renderCard(a) {
 			<div class="gallery-card-foot">
 				<span class="gallery-card-meta">
 					<span title="${escapeAttr(new Date(a.created_at || Date.now()).toLocaleString())}">${escapeHtml(created)}</span>
+					${a.forked_from ? `<span class="gallery-card-fork" title="Forked from ${escapeAttr(a.forked_from.owner_name || a.forked_from.name || 'another avatar')}">⑂ fork</span>` : ''}
+					${a.fork_count > 0 ? `<span class="gallery-card-fork" title="${a.fork_count} ${a.fork_count === 1 ? 'fork' : 'forks'}">⑂ ${a.fork_count}</span>` : ''}
 				</span>
 				<div class="gallery-card-actions">
 					<button type="button" class="gallery-card-btn gallery-card-btn--ghost" data-role="card-embed"

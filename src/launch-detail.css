@@ -519,6 +519,8 @@ body {
 .ld-community p { margin: 0 0 var(--space-sm); font-size: var(--text-sm); color: var(--ink-dim); line-height: 1.5; }
 .ld-community-ctas, .ld-action-grid { display: flex; flex-wrap: wrap; gap: var(--space-sm); }
 .ld-action-grid .ld-btn { flex: 1 1 auto; justify-content: center; }
+.ld-actions-foot { display: inline-block; margin-top: var(--space-md); font-size: var(--text-xs); color: var(--ink-dim); text-decoration: none; transition: color var(--duration-fast); }
+.ld-actions-foot:hover { color: var(--ink-bright); }
 
 /* ── Buttons ──────────────────────────────────────────────────────────────── */
 

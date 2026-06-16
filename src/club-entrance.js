@@ -89,15 +89,37 @@ window.addEventListener('club:admitted', () => {
 	if (onAdmit) onAdmit();
 }, { once: true });
 
+// ── Cinematic loader / intro ────────────────────────────────────────────────
+// Real byte progress across the alley + avatar; no fake timers. Fades out the
+// branded overlay once the scene is ready (or on failure, so nobody's stuck).
+const loaderBar = document.getElementById('club-loader-bar');
+const loaderStatus = document.getElementById('club-loader-status');
+const loadFrac = { alley: 0, avatar: 0 };
+function setLoaderProgress(which, e) {
+	if (which && e && e.total) loadFrac[which] = Math.min(1, e.loaded / e.total);
+	const pct = Math.round(((loadFrac.alley + loadFrac.avatar) / 2) * 100);
+	if (loaderBar) loaderBar.style.width = `${Math.max(4, pct)}%`;
+	if (loaderStatus && pct >= 100) loaderStatus.textContent = 'Step inside.';
+}
+function hideLoader() {
+	const el = document.getElementById('club-loader');
+	if (!el) return;
+	if (loaderBar) loaderBar.style.width = '100%';
+	el.classList.add('is-done');
+}
+
 if (canvas && door && !hasValidPass()) {
 	start(canvas).catch((err) => {
 		log.warn('[club-entrance] scene failed', err);
 		// Scene is dead — let the player into the cover flow directly so they're
 		// never stuck in a broken alley.
+		hideLoader();
 		try { canvas.remove(); } catch {}
 		window.dispatchEvent(new CustomEvent('club:enter-door'));
 	});
 } else {
+	// Paid already (or no canvas) — nothing to walk; clear the intro overlay.
+	hideLoader();
 	canvas?.remove();
 }
 
@@ -184,10 +206,10 @@ async function start(canvasEl) {
 	];
 
 	// Land in the alley + the avatar first; prefetch the rest so each place is
-	// ready the moment you walk into it.
+	// ready the moment you walk into it. The loader bar tracks real bytes.
 	const [firstGltf, avatarGltf, manifest] = await Promise.all([
-		loader.loadAsync(SEQUENCE[0].url),
-		loader.loadAsync(AVATAR_URL),
+		loader.loadAsync(SEQUENCE[0].url, (e) => setLoaderProgress('alley', e)),
+		loader.loadAsync(AVATAR_URL, (e) => setLoaderProgress('avatar', e)),
 		fetch(MANIFEST_URL, { cache: 'force-cache' }).then((r) => (r.ok ? r.json() : [])).catch(() => []),
 	]);
 	const loaded = SEQUENCE.map(() => null); // index-aligned gltf cache
@@ -519,6 +541,9 @@ async function start(canvasEl) {
 		composer.render(dt);
 		raf = requestAnimationFrame(frame);
 	}
+	// Draw one frame so the alley is on screen, then lift the intro overlay.
+	composer.render(0);
+	hideLoader();
 	raf = requestAnimationFrame(frame);
 
 	// Move + face the avatar, clamp to the corridor, and drive the walk clip.
