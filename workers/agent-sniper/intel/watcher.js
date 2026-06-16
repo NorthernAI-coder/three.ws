@@ -15,6 +15,8 @@ import WebSocket from 'ws';
 import { computeSignals } from './signals.js';
 import { classifyCoin } from './classify.js';
 import { persistIntel } from './store.js';
+import { resolveWalletFunders, buildClusters } from '../../../api/_lib/pump-intel/funder-graph.js';
+import { crossReferenceSmartMoney } from '../../../api/_lib/pump-intel/smart-money-xref.js';
 import { log } from '../log.js';
 
 const PUMPPORTAL_WS = 'wss://pumpportal.fun/api/data';
@@ -150,6 +152,8 @@ export function startIntelWatcher({
 
 		try {
 			const endedAtMs = Date.now();
+
+			// ── Phase 1: deterministic signal computation (sync, no I/O) ─────────
 			const { signals, quality_score, risk_flags, walletAgg } = computeSignals({
 				mint,
 				creator: obs.creator,
@@ -161,14 +165,70 @@ export function startIntelWatcher({
 			});
 			if (obs.mcSolFirstSeen != null) signals.mc_sol_first_seen = obs.mcSolFirstSeen;
 
-			const cls = await classifyCoin({
-				name: obs.meta.name,
-				symbol: obs.meta.symbol,
-				description: obs.meta.description,
-				twitter: obs.meta.twitter,
-				telegram: obs.meta.telegram,
-				website: obs.meta.website,
-			}, { useLlm });
+			// ── Phase 2: parallel enrichment (network I/O, best-effort) ──────────
+			// All three run concurrently; any failure degrades gracefully to null.
+			const buyerWallets = [...walletAgg.keys()].filter((w) => {
+				const a = walletAgg.get(w);
+				return a && a.buyCount > 0;
+			});
+
+			const [cls, funderMap, smartMoneyResult] = await Promise.allSettled([
+				// 2a. LLM/heuristic classification
+				classifyCoin({
+					name: obs.meta.name,
+					symbol: obs.meta.symbol,
+					description: obs.meta.description,
+					twitter: obs.meta.twitter,
+					telegram: obs.meta.telegram,
+					website: obs.meta.website,
+				}, { useLlm }),
+
+				// 2b. Funding-graph: resolve SOL funder for each buyer wallet.
+				// We skip wallets with no buy activity and cap at 60 to stay within
+				// Helius rate limits. The most active/suspicious wallets are scored
+				// first because walletAgg preserves insertion order (arrival time).
+				resolveWalletFunders(buyerWallets.slice(0, 60)),
+
+				// 2c. Smart-money cross-reference: which observed buyers have a proven
+				// track record in wallet_reputation? Runs a single batched DB query.
+				crossReferenceSmartMoney(buyerWallets),
+			]);
+
+			// Unwrap settled results — never let a single failure abort the record.
+			const classification = cls.status === 'fulfilled' ? cls.value
+				: { category: 'unknown', tags: [], narrative: null, is_news_meme: false, confidence: 0.15, source: 'heuristic' };
+
+			const resolvedFunders = funderMap.status === 'fulfilled' ? funderMap.value : new Map();
+			const { clusters, connectivity } = buildClusters(resolvedFunders);
+
+			const smartMoney = smartMoneyResult.status === 'fulfilled' ? smartMoneyResult.value
+				: { count: 0, notable: [], top_label: null };
+
+			// Push funder into walletAgg so persistIntel writes it to pump_coin_wallets
+			for (const [wallet, funder] of resolvedFunders) {
+				const entry = walletAgg.get(wallet);
+				if (entry) entry.funder = funder || null;
+			}
+
+			// ── Phase 3: upgrade signals with enrichment results ─────────────────
+			if (connectivity != null) signals.bubblemap_connectivity = connectivity;
+			signals.smart_money_count = smartMoney.count;
+			signals.smart_money_score = smartMoney.score ?? null;
+			// Re-derive organic score with connectivity and fresh_wallet_ratio if available.
+			// (bubblemap_connectivity penalises coordination; smart money boosts confidence.)
+			if (connectivity != null) {
+				const existing = signals.organic_score ?? 0;
+				signals.organic_score = Math.max(0, Math.min(1,
+					existing * (1 - 0.3 * connectivity) + (smartMoney.count > 0 ? 0.05 * Math.min(smartMoney.count, 3) : 0)
+				));
+				signals.organic_score = Math.round(signals.organic_score * 10000) / 10000;
+			}
+
+			// Flag coordinated cluster in risk_flags if connectivity is high.
+			if (connectivity != null && connectivity >= 0.4 && !risk_flags.includes('coordinated_cluster')) {
+				risk_flags.push('coordinated_cluster');
+			}
+			// Smart money entering is an additive signal, not a risk flag — store in signals only.
 
 			const record = {
 				mint,
@@ -190,20 +250,50 @@ export function startIntelWatcher({
 				sell_volume_lamports: solToLamports(signals.sell_volume_sol || 0),
 				largest_buy_lamports: solToLamports(signals.largest_buy_sol || 0),
 				signals,
-				quality_score,
+				quality_score: recomputeQuality(quality_score, signals, smartMoney.count),
 				risk_flags,
-				category: cls.category,
-				tags: cls.tags,
-				narrative: cls.narrative,
-				classify_confidence: cls.confidence,
-				classify_source: cls.source,
+				category: classification.category,
+				tags: classification.tags,
+				narrative: classification.narrative,
+				is_news_meme: classification.is_news_meme,
+				classify_confidence: classification.confidence,
+				classify_source: classification.source,
+				// Smart-money enrichment fields (stored in record, persisted via new migration)
+				smart_money_count: smartMoney.count,
+				smart_money_score: smartMoney.score ?? null,
+				smart_money_notable: smartMoney.notable,
+				// Cluster summary
+				cluster_count: clusters.size,
+				bubblemap_connectivity: connectivity,
 			};
 
 			await persistIntel(record, walletAgg);
 			if (active && onIntel) { try { onIntel(record); } catch {} }
+
+			log.info?.('intel finalized', {
+				mint,
+				symbol: obs.meta.symbol,
+				quality: record.quality_score,
+				category: record.category,
+				smart_money: smartMoney.count,
+				connectivity: connectivity != null ? connectivity.toFixed(3) : null,
+				clusters: clusters.size,
+				buyers: buyerWallets.length,
+			});
 		} catch (err) {
 			log.error?.('intel finalize failed', { mint, err: err?.message });
 		}
+	}
+
+	// Recompute quality score incorporating smart-money signal.
+	// Smart money entering early is the strongest positive signal we have.
+	function recomputeQuality(baseScore, signals, smartMoneyCount) {
+		let q = baseScore;
+		if (smartMoneyCount >= 1) q += 8;
+		if (smartMoneyCount >= 2) q += 6;
+		if (smartMoneyCount >= 3) q += 4;
+		// connectivity penalty already applied to organic_score; don't double-count.
+		return Math.max(0, Math.min(100, Math.round(q)));
 	}
 
 	function connect() {

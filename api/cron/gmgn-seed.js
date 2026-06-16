@@ -1,0 +1,165 @@
+// GET/POST /api/cron/gmgn-seed — seed wallet_reputation from gmgn.ai smart money rankings.
+//
+// gmgn.ai maintains the industry-standard Solana smart money taxonomy: smart_degen,
+// pump_smart, launchpad_smart, KOL wallets, snipers, etc. These labels predate our
+// system by years and cover wallets that may never appear in our own pump_coin_wallets
+// table. Seeding them gives the Oracle pedigree pillar ground truth across the
+// entire ecosystem rather than only wallets we've personally observed.
+//
+// How it works:
+//   1. Fetch each wallet-ranking tab from gmgn.ai's public (unauthenticated) API.
+//      The API patterns were reverse-engineered from their network traffic (see
+//      nirholas/scrape-smart-wallets). No API key required; we respect rate limits.
+//   2. Translate gmgn tags → our label taxonomy (smart_money/sniper/dumper/neutral).
+//   3. Upsert into wallet_reputation. Only sets label + smart_money_score from the
+//      gmgn signal; our own on-chain observed stats (wins/duds etc.) are never
+//      overwritten — they accumulate independently and take precedence on the score
+//      once we have sufficient observed history (≥5 judged coins).
+//   4. Idempotent: safe to run daily. Caps at 500 wallets per run.
+//
+// This runs once/day at off-peak hours — wallet rankings don't change minute-to-minute.
+// The per-run cap and respectful delays make it a good citizen even without auth.
+
+import { error, json, method, wrap } from '../_lib/http.js';
+import { env } from '../_lib/env.js';
+import { constantTimeEquals } from '../_lib/crypto.js';
+import { sql } from '../_lib/db.js';
+
+const NETWORK = 'mainnet';
+const CHAIN = 'sol';
+const GMGN_BASE = 'https://gmgn.ai';
+const MAX_WALLETS_PER_RUN = 500;
+const FETCH_TIMEOUT_MS = 8000;
+// Be respectful: 300ms between gmgn requests so we don't hammer them.
+const INTER_REQUEST_DELAY_MS = 300;
+
+function requireCron(req, res) {
+	const secret = process.env.CRON_SECRET || env.CRON_SECRET;
+	if (!secret) { error(res, 503, 'not_configured', 'CRON_SECRET unset'); return false; }
+	const auth = req.headers['authorization'] || '';
+	const presented = auth.startsWith('Bearer ') ? auth.slice(7) : '';
+	if (!constantTimeEquals(presented, secret)) {
+		error(res, 401, 'unauthorized', 'invalid cron secret');
+		return false;
+	}
+	return true;
+}
+
+// gmgn tab → our label. smart_degen/pump_smart = proven smart money buyers.
+// launchpad_smart = launch specialists. renowned = KOL (community influence).
+// snipe_bot = sniper (high win rate but different risk profile). top_dev = creators.
+const TAG_MAP = {
+	smart_degen:     { label: 'smart_money', score: 82 },
+	pump_smart:      { label: 'smart_money', score: 78 },
+	launchpad_smart: { label: 'smart_money', score: 72 },
+	renowned:        { label: 'neutral',     score: 60 }, // KOL — influence, not edge
+	snipe_bot:       { label: 'sniper',      score: 65 },
+	top_dev:         { label: 'neutral',     score: 55 }, // creators — not necessarily smart buyers
+	fresh_wallet:    { label: 'fresh',       score: 30 },
+};
+
+const TIMEFRAME = '7d';
+
+async function fetchTab(tag) {
+	const url = `${GMGN_BASE}/defi/quotation/v1/rank/${CHAIN}/wallets/${TIMEFRAME}?tag=${tag}&orderby=pnl&direction=desc&limit=100`;
+	const ctrl = new AbortController();
+	const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
+	try {
+		const res = await fetch(url, {
+			headers: {
+				'User-Agent': 'Mozilla/5.0 (compatible; three.ws oracle/1.0)',
+				'Accept': 'application/json',
+				'Referer': 'https://gmgn.ai/',
+			},
+			signal: ctrl.signal,
+		});
+		if (!res.ok) return [];
+		const data = await res.json();
+		// gmgn returns { code: 0, data: { rank: [...] } } or { rank: [...] }
+		return data?.data?.rank || data?.rank || [];
+	} catch {
+		return [];
+	} finally {
+		clearTimeout(timer);
+	}
+}
+
+function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
+
+/**
+ * Upsert a batch of seeded wallets into wallet_reputation.
+ * Only touches label + smart_money_score if the wallet has < 5 judged coins
+ * in our own system — once we've observed them ourselves we trust our own data.
+ */
+async function upsertSeeded(batch) {
+	if (!batch.length) return 0;
+	// Build values for a single multi-row upsert.
+	const values = batch.map((w) => ({
+		wallet: w.wallet,
+		network: NETWORK,
+		label: w.label,
+		score: w.score,
+	}));
+
+	// Postgres doesn't support VALUES with json arrays easily via tagged sql;
+	// process in chunks of 50 with individual upserts.
+	let count = 0;
+	const CHUNK = 50;
+	for (let i = 0; i < values.length; i += CHUNK) {
+		const chunk = values.slice(i, i + CHUNK);
+		await Promise.allSettled(chunk.map((v) =>
+			sql`
+				insert into wallet_reputation (wallet, network, label, smart_money_score, first_seen_at, updated_at)
+				values (${v.wallet}, ${v.network}, ${v.label}, ${v.score}, now(), now())
+				on conflict (wallet, network) do update set
+					label = case
+						when wallet_reputation.coins_traded >= 5 then wallet_reputation.label
+						else excluded.label
+					end,
+					smart_money_score = case
+						when wallet_reputation.coins_traded >= 5 then wallet_reputation.smart_money_score
+						else greatest(wallet_reputation.smart_money_score, excluded.smart_money_score)
+					end,
+					updated_at = now()
+			`,
+		));
+		count += chunk.length;
+	}
+	return count;
+}
+
+export default wrap(async (req, res) => {
+	if (!method(req, res, ['GET', 'POST'])) return;
+	if (!requireCron(req, res)) return;
+
+	const started = Date.now();
+	const tags = Object.keys(TAG_MAP);
+	const collected = new Map(); // wallet → { label, score } — dedup, keep highest score
+
+	for (const tag of tags) {
+		const mapping = TAG_MAP[tag];
+		const rows = await fetchTab(tag);
+		for (const row of rows) {
+			const wallet = row?.wallet_address || row?.address || row?.wallet;
+			if (!wallet || typeof wallet !== 'string' || wallet.length < 32) continue;
+			const existing = collected.get(wallet);
+			if (!existing || mapping.score > existing.score) {
+				collected.set(wallet, { wallet, label: mapping.label, score: mapping.score });
+			}
+			if (collected.size >= MAX_WALLETS_PER_RUN) break;
+		}
+		if (collected.size >= MAX_WALLETS_PER_RUN) break;
+		await sleep(INTER_REQUEST_DELAY_MS);
+	}
+
+	const batch = [...collected.values()];
+	const upserted = await upsertSeeded(batch);
+
+	return json(res, 200, {
+		ok: true,
+		fetched: collected.size,
+		upserted,
+		tags_tried: tags.length,
+		ms: Date.now() - started,
+	});
+});

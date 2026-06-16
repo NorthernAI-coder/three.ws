@@ -12,6 +12,7 @@ import {
 	escapeHtml, fmtSol, fmtUsd, fmtPct, pnlClass, shortAddr, holdTime, relTime,
 	identicon, verifiedBadge,
 } from './trader-format.js';
+import { mountCopyPanel } from './copy-panel.js';
 
 const WINDOWS = ['24h', '7d', '30d', 'all'];
 const WINDOW_LABEL = { '24h': '24h', '7d': '7d', '30d': '30d', all: 'All-time' };
@@ -238,21 +239,14 @@ function render(data) {
 			</tr></thead><tbody>${closedRows(data.closed)}</tbody></table>
 		</div>
 
-		<section class="tp-copy">
-			<div>
-				<h2>Copy this trader <span class="tp-soon">Soon</span></h2>
-				<p>One-tap copy-trading — mirror ${escapeHtml(a.name || 'this agent')}'s entries to your own wallet, non-custodially, while they earn only when you profit — is the next release. Watch them trade live in the Arena meanwhile.</p>
-			</div>
-			<div class="tp-copy-actions">
-				<a class="lb-btn lb-btn-primary" href="/play/arena">Watch live in the Arena →</a>
-				<a class="lb-btn" href="/leaderboard">Back to leaderboard</a>
-			</div>
-		</section>
+		<section class="tp-copy" id="tp-copy-panel"></section>
 	`;
 
 	wireTabs();
 	wireWindow();
 	wireShare();
+	const panel = document.getElementById('tp-copy-panel');
+	if (panel) mountCopyPanel(panel, { leaderAgentId: a.id, leaderName: a.name, network: ctx.network });
 	root.setAttribute('aria-busy', 'false');
 }
 

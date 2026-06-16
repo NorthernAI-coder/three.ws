@@ -6,6 +6,9 @@
 		"NODE_OPTIONS": "--no-deprecation"
 	},
 	"functions": {
+		"api/cron/copy-fanout.js": {
+			"maxDuration": 120
+		},
 		"api/club/tips-stream.js": {
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 300
@@ -69,6 +72,9 @@
 			"includeFiles": "{examples/skills/**,data/pages.json,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 120
 		},
+		"api/cron/gmgn-seed.js": {
+			"maxDuration": 300
+		},
 		"api/cron/[name].js": {
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 300
@@ -130,6 +136,38 @@
 			"maxDuration": 30
 		},
 		"api/**/*.js": {
+			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
+			"maxDuration": 30
+		},
+		"api/oracle/coin.js": {
+			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
+			"maxDuration": 30
+		},
+		"api/oracle/feed.js": {
+			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
+			"maxDuration": 30
+		},
+		"api/oracle/signal.js": {
+			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
+			"maxDuration": 30
+		},
+		"api/oracle/stream.js": {
+			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
+			"maxDuration": 300
+		},
+		"api/oracle/wallet.js": {
+			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
+			"maxDuration": 30
+		},
+		"api/oracle/watch.js": {
+			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
+			"maxDuration": 30
+		},
+		"api/copy/executions.js": {
+			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
+			"maxDuration": 30
+		},
+		"api/copy/subscriptions.js": {
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 30
 		}
@@ -229,7 +267,7 @@
 			"src": "/avatar-wallet-chat/",
 			"dest": "/avatar-wallet-chat.html"
 		},
-{
+		{
 			"src": "/support",
 			"dest": "/support.html"
 		},
@@ -548,6 +586,10 @@
 		{
 			"src": "/leaderboard/?",
 			"dest": "/leaderboard.html"
+		},
+		{
+			"src": "/oracle/?",
+			"dest": "/oracle.html"
 		},
 		{
 			"src": "/trader/([^/]+)/?",
@@ -1706,6 +1748,38 @@
 		{
 			"src": "/api/pump/smart-money",
 			"dest": "/api/pump/smart-money.js"
+		},
+		{
+			"src": "/api/oracle/coin",
+			"dest": "/api/oracle/coin.js"
+		},
+		{
+			"src": "/api/oracle/feed",
+			"dest": "/api/oracle/feed.js"
+		},
+		{
+			"src": "/api/oracle/signal",
+			"dest": "/api/oracle/signal.js"
+		},
+		{
+			"src": "/api/oracle/stream",
+			"dest": "/api/oracle/stream.js"
+		},
+		{
+			"src": "/api/oracle/wallet",
+			"dest": "/api/oracle/wallet.js"
+		},
+		{
+			"src": "/api/oracle/watch",
+			"dest": "/api/oracle/watch.js"
+		},
+		{
+			"src": "/api/copy/executions",
+			"dest": "/api/copy/executions.js"
+		},
+		{
+			"src": "/api/copy/subscriptions",
+			"dest": "/api/copy/subscriptions.js"
 		},
 		{
 			"src": "/api/pump/build-metadata",
@@ -3192,6 +3266,10 @@
 			"schedule": "*/2 * * * *"
 		},
 		{
+			"path": "/api/cron/gmgn-seed",
+			"schedule": "0 3 * * *"
+		},
+		{
 			"path": "/api/cron/quota-check",
 			"schedule": "0 * * * *"
 		},
@@ -3250,6 +3328,10 @@
 		{
 			"path": "/api/cron/trader-score-attest",
 			"schedule": "45 9 * * *"
+		},
+		{
+			"path": "/api/cron/copy-fanout",
+			"schedule": "*/2 * * * *"
 		},
 		{
 			"path": "/api/cron/index-delegations",
