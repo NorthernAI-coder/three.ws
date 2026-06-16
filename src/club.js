@@ -110,6 +110,9 @@ const POLES = Array.from({ length: POLE_COUNT }, (_, i) => {
 	};
 });
 
+const prefersReducedMotion = typeof window !== 'undefined' &&
+	window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
 // ── DOM ───────────────────────────────────────────────────────────────────
 const canvas = document.getElementById('club-canvas');
 const polesPanel = document.getElementById('club-poles');
@@ -1647,7 +1650,8 @@ function animate() {
 		// Spotlight pulse — gentle sinusoidal intensity variation.
 		// Only for idle poles; performing poles have their own intensity target.
 		if (!station.performing && station.spot) {
-			const pulse = Math.sin(t * 1.2 + station.idx * 1.5) * 0.15 + 1.0;
+			const pulse = prefersReducedMotion ? 1.0
+				: Math.sin(t * 1.2 + station.idx * 1.5) * 0.15 + 1.0;
 			station.spot.intensity = station.spotIdleIntensity * pulse;
 		}
 
@@ -1655,7 +1659,7 @@ function animate() {
 		// the beat so the haze pulses in time with her routine.
 		if (station.beamMat) {
 			station.beamMat.opacity = station.beamBaseOpacity * (1 + peak * 0.9)
-				+ Math.sin(t * 1.5 + station.idx) * 0.01;
+				+ (prefersReducedMotion ? 0 : Math.sin(t * 1.5 + station.idx) * 0.01);
 		}
 
 		// Update progress bar for performing stations.
@@ -1684,8 +1688,8 @@ function animate() {
 	// Camera state machine — orbit / VIP / house / auto.
 	clubCam.tick(dt);
 
-	// Audio-reactive bloom — pulse intensity with the beat.
-	bloomEffect.intensity = 1.0 + peak * 1.5;
+	// Audio-reactive bloom — pulse intensity with the beat (skip under reduced motion).
+	if (!prefersReducedMotion) bloomEffect.intensity = 1.0 + peak * 1.5;
 
 	composer.render(dt);
 	rafId = requestAnimationFrame(animate);
