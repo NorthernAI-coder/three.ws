@@ -838,6 +838,22 @@ async function handleGetCoinIntel({ mint, network = 'mainnet' } = {}) {
 			}));
 		} catch { /* wallets absent — fine */ }
 
+		// Latest model conditional win-rates (so agents see the evidence behind each signal)
+		let model = null;
+		try {
+			const [wrow] = await sql`
+				select weights, conditional_win_rates, sample_size, trained_at
+				from pump_intel_weights
+				where network = ${network}
+				order by trained_at desc limit 1
+			`;
+			if (wrow) model = {
+				sample_size: wrow.sample_size,
+				trained_at: wrow.trained_at,
+				conditional_win_rates: wrow.conditional_win_rates || null,
+			};
+		} catch { /* weights table absent — training hasn't run yet */ }
+
 		const smartNotable = Array.isArray(row.smart_money_notable) ? row.smart_money_notable : [];
 
 		// Build a plain-language summary the agent can read directly

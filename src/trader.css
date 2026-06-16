@@ -63,6 +63,7 @@
 }
 .tp-sub a { color: var(--ink-dim); text-decoration: none; border-bottom: 1px dotted var(--stroke-strong); }
 .tp-sub a:hover { color: var(--ink-bright); }
+.tp-copiers { color: var(--success); font-weight: var(--weight-semibold); }
 .tp-desc { margin-top: var(--space-sm); color: var(--ink-dim); font-size: var(--text-sm); line-height: var(--leading-normal); max-width: 60ch; }
 
 /* Score gauge */
