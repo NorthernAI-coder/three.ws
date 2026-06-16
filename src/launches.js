@@ -21,6 +21,7 @@
 import { mountCoinStatus } from './pump/coin-status-card.js';
 
 const PAGE_SIZE = 24;
+const ORACLE_TIER_COLOR = { prime: '#c084fc', strong: '#34d399', lean: '#fbbf24', watch: '#94a3b8', avoid: '#f87171' };
 const LIVE_REFRESH_MS = 60_000;
 
 const state = {
@@ -347,6 +348,46 @@ function teardownStatusHandles() {
 	cardStatusHandles.clear();
 }
 
+// ── Oracle conviction batch enrichment ───────────────────────────────────────
+// After each page of cards renders, batch-fetch Oracle conviction for all
+// visible mints (≤20 per request) and paint a tier badge on each card.
+// Non-blocking: a fetch failure leaves cards untouched.
+
+async function enrichCardsWithOracle(cards) {
+	const mints = cards
+		.map((c) => c.dataset.mint)
+		.filter(Boolean);
+	if (!mints.length) return;
+	const chunks = [];
+	for (let i = 0; i < mints.length; i += 20) chunks.push(mints.slice(i, i + 20));
+	let results = {};
+	try {
+		const resps = await Promise.all(
+			chunks.map((ch) =>
+				fetch(`/api/oracle/batch?mints=${ch.map(encodeURIComponent).join(',')}&network=mainnet`)
+					.then((r) => r.ok ? r.json() : null)
+					.catch(() => null),
+			),
+		);
+		for (const r of resps) {
+			if (r?.results) Object.assign(results, r.results);
+		}
+	} catch { return; }
+
+	for (const card of cards) {
+		const mint = card.dataset.mint;
+		const data = results[mint];
+		if (!data || data.score == null) continue;
+		const badge = card.querySelector('.lx-oracle-badge');
+		if (!badge) continue;
+		const color = ORACLE_TIER_COLOR[data.tier] || '#94a3b8';
+		badge.innerHTML = `<a class="lx-ob-link" href="/oracle?mint=${encodeURIComponent(mint)}" title="Oracle conviction: ${data.score} — ${data.tier || 'unscored'}" tabindex="-1" aria-hidden="true">
+			<span class="lx-ob-score" style="color:${color}">${data.score}</span>
+			<span class="lx-ob-tier" style="color:${color}">${data.tier || ''}</span>
+		</a>`;
+	}
+}
+
 // ── card rendering ───────────────────────────────────────────────────────────
 
 function agentChip(agent) {
@@ -477,7 +518,7 @@ function launchCard(launch, index, { featured = false } = {}) {
 		'aria-label': `Open ${launch.symbol ? `$${launch.symbol}` : launch.name || 'coin'} profile`,
 	});
 
-	const card = el('article', { class: `lx-card${featured ? ' lx-card-featured' : ''}` }, [
+	const card = el('article', { class: `lx-card${featured ? ' lx-card-featured' : ''}`, 'data-mint': launch.mint }, [
 		cardLink,
 		featured ? el('span', { class: 'lx-feat-tag', text: 'Latest' }) : null,
 		featured && launch.symbol
@@ -488,6 +529,7 @@ function launchCard(launch, index, { featured = false } = {}) {
 		agentChip(launch.agent),
 		el('div', { class: 'lx-card-actions' }, actions),
 		el('span', { class: 'lx-mint', text: launch.mint, title: launch.mint }),
+		el('div', { class: 'lx-oracle-badge', 'aria-hidden': 'true' }),
 	]);
 
 	reveal(card, index);
@@ -653,10 +695,14 @@ async function loadPage({ reset = false } = {}) {
 		const { launches = [], has_more: hasMore = false } = await fetchLaunches(state.offset, PAGE_SIZE);
 
 		clearSkeletons();
+		const newCards = [];
 		launches.forEach((l, i) => {
 			state.seenMints.add(l.mint);
-			feedEl.appendChild(launchCard(l, i, { featured: isFirstPage && i === 0 }));
+			const card = launchCard(l, i, { featured: isFirstPage && i === 0 });
+			feedEl.appendChild(card);
+			newCards.push(card);
 		});
+		enrichCardsWithOracle(newCards);
 		state.offset += launches.length;
 		state.count += launches.length;
 		state.hasMore = hasMore;
@@ -697,13 +743,16 @@ async function liveRefresh() {
 	if (!fresh.length) return;
 
 	const anchor = feedEl.querySelector('.lx-card');
+	const freshCards = [];
 	// Newest-first: insert in reverse so the very newest ends up on top.
 	for (let i = fresh.length - 1; i >= 0; i--) {
 		const l = fresh[i];
 		state.seenMints.add(l.mint);
 		const card = launchCard(l, 0);
 		feedEl.insertBefore(card, anchor || feedEl.firstChild);
+		freshCards.push(card);
 	}
+	enrichCardsWithOracle(freshCards);
 	state.count += fresh.length;
 	state.offset += fresh.length;
 	state.latestCreatedAt = fresh[0].created_at;

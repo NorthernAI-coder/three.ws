@@ -159,6 +159,10 @@
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 300
 		},
+		"api/oracle/action-stream.js": {
+			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
+			"maxDuration": 300
+		},
 		"api/oracle/wallet.js": {
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 30
@@ -1836,6 +1840,10 @@
 		{
 			"src": "/api/oracle/stream",
 			"dest": "/api/oracle/stream.js"
+		},
+		{
+			"src": "/api/oracle/action-stream",
+			"dest": "/api/oracle/action-stream.js"
 		},
 		{
 			"src": "/api/oracle/wallet",

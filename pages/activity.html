@@ -233,8 +233,9 @@
 
 	<script src="/brand.js" defer></script>
 	<script type="module">
-		const API = '/api/oracle/activity';
-		const REFRESH_MS = 30_000;
+		const API        = '/api/oracle/activity';
+		const STREAM_API = '/api/oracle/action-stream';
+		const REFRESH_MS = 60_000;
 
 		const TIER_EMOJI = { prime: '🟣', strong: '🔵', lean: '🟡', watch: '⚪', avoid: '🔴' };
 		const sol  = (n) => n == null ? '—' : (Math.abs(Number(n)) >= 1 ? Number(n).toFixed(2) : Number(n).toFixed(3)) + ' ◎';
@@ -270,7 +271,7 @@
 			const verb = outcome === 'win' ? 'closed ↑' : outcome === 'loss' ? 'closed ↓' : outcome === 'flat' ? 'closed' : 'entered';
 			const convScore = item.conviction != null ? ` · ${item.conviction}` : '';
 
-			return `<div class="ac-row oc-${outcome}" data-agent="${esc(item.agent_id)}">
+			return `<div class="ac-row oc-${outcome}" data-id="${esc(item.id)}" data-agent="${esc(item.agent_id)}">
 				<span class="outcome-edge"></span>
 				<img class="ac-av" src="${esc(av)}" alt="" onerror="${imgErr}" loading="lazy" />
 				<div class="ac-body">
@@ -399,20 +400,90 @@
 
 		loadMoreBtn.addEventListener('click', () => { loadMoreBtn.disabled = true; load(false); });
 
-		// ── boot + auto-refresh ──
-		load(true);
+		// ── SSE — real-time updates ──────────────────────────────────────────
 		const note = document.getElementById('ac-refresh-note');
-		let tick = REFRESH_MS / 1000;
-		const countdown = setInterval(() => {
-			tick--;
-			note.textContent = `Refreshes in ${tick}s`;
-			if (tick <= 0) {
-				tick = REFRESH_MS / 1000;
-				if (!state.cursor && !state.loading) load(true); // only refresh if on first page
-			}
-		}, 1000);
+		const seenIds = new Set();
+		let sseActive = false;
+		let sseLastCursor = null;
+
+		function startSse() {
+			const url = new URL('/api/oracle/action-stream', location.origin);
+			url.searchParams.set('network', 'mainnet');
+			if (state.mode) url.searchParams.set('mode', state.mode);
+			if (sseLastCursor) url.searchParams.set('since', sseLastCursor);
+
+			const es = new EventSource(url.toString());
+			sseActive = false;
+			es.addEventListener('hello', () => {
+				sseActive = true;
+				note.textContent = '⚡ Live';
+			});
+
+			es.addEventListener('action', (e) => {
+				const item = JSON.parse(e.data);
+				if (seenIds.has(item.id)) return;
+				// Only show if passes current filters
+				if (state.tier && item.tier !== state.tier) return;
+				if (state.mode && item.mode !== state.mode) return;
+				if (state.cursor) return; // user is paginated — don't disrupt
+				seenIds.add(item.id);
+				sseLastCursor = item.acted_at;
+				state.items.unshift(item);
+				const div = document.createElement('div');
+				div.innerHTML = renderRow(item);
+				const row = div.firstElementChild;
+				// Animate in from top
+				row.style.animationDelay = '0ms';
+				feed.prepend(row);
+			});
+
+			es.addEventListener('settle', (e) => {
+				const item = JSON.parse(e.data);
+				const existing = feed.querySelector(`[data-id="${CSS.escape(item.id)}"]`);
+				if (!existing) return;
+				// Replace the row in-place with updated outcome
+				const div = document.createElement('div');
+				div.innerHTML = renderRow(item);
+				const updated = div.firstElementChild;
+				existing.replaceWith(updated);
+			});
+
+			es.addEventListener('bye', (e) => {
+				const d = JSON.parse(e.data || '{}');
+				if (d.since) sseLastCursor = d.since;
+				es.close();
+				sseActive = false;
+				// Reconnect after 500ms
+				setTimeout(startSse, 500);
+			});
+
+			es.addEventListener('error', () => {
+				sseActive = false;
+				note.textContent = 'Reconnecting…';
+				es.close();
+				// Fallback to polling if SSE fails
+				setTimeout(() => { if (!sseActive) startSse(); }, 5000);
+			});
+
+			return es;
+		}
+
+		// ── boot ──
+		load(true).then(() => {
+			// Seed seen IDs from initial load
+			state.items.forEach((it) => seenIds.add(it.id));
+			// Start SSE
+			if (typeof EventSource !== 'undefined') startSse();
+		});
+
+		// Fallback polling (fires if SSE is down and we're on first page)
+		setInterval(() => {
+			if (!sseActive && !state.cursor && !state.loading) load(true);
+			if (!sseActive) note.textContent = 'Reconnecting…';
+		}, REFRESH_MS);
+
 		document.addEventListener('visibilitychange', () => {
-			if (!document.hidden && !state.cursor && !state.loading) load(true);
+			if (!document.hidden && !sseActive && !state.cursor && !state.loading) load(true);
 		});
 	</script>
 </body>
