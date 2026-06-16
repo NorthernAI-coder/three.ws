@@ -191,7 +191,30 @@
 				</div>
 
 				<section class="ad-hero">
-					<img class="ad-hero-avatar" id="ad-avatar" alt="" />
+					<div class="ad-hero-glow" id="ad-hero-glow" aria-hidden="true"></div>
+					<button class="ad-hero-share-float" id="ad-hero-share-float" aria-label="Share this agent" title="Share">
+						<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+					</button>
+					<div class="ad-hero-avatar-wrap" id="ad-avatar-wrap" role="button" aria-label="View full 3D model" tabindex="0">
+						<model-viewer
+							id="ad-avatar-3d"
+							class="ad-hero-avatar"
+							auto-rotate
+							camera-controls
+							disable-zoom
+							disable-pan
+							interaction-prompt="none"
+							loading="eager"
+							reveal="auto"
+							shadow-intensity="0"
+							exposure="1.1"
+							alt="Agent 3D avatar"
+						></model-viewer>
+						<img class="ad-hero-avatar" id="ad-avatar" alt="" style="display:none" />
+						<div class="ad-hero-avatar-overlay" aria-hidden="true">
+							<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+						</div>
+					</div>
 					<div class="ad-hero-body">
 						<div class="ad-hero-title">
 							<h1 id="ad-name"></h1>
@@ -562,6 +585,8 @@
 					</div>
 				</section>
 
+				<details class="ad-embed-disclosure">
+					<summary>Developers →</summary>
 				<section class="ad-card ad-embed-card" id="ad-embed-card" hidden>
 					<div class="ad-card-head">
 						<span class="ad-bullet ad-bullet-muted"></span>
@@ -598,6 +623,7 @@
 						<pre class="ad-embed-code" id="ad-embed-link"></pre>
 					</div>
 				</section>
+				</details>
 
 				<section class="ad-card ad-versions-card" id="ad-versions-card" hidden>
 					<div class="ad-card-head">
@@ -705,6 +731,21 @@
 						</div>
 					</section>
 				</div>
+			</div>
+		</div>
+
+		<!-- Fullscreen 3D viewer modal -->
+		<div class="ad-3d-modal hidden" id="ad-3d-modal" role="dialog" aria-modal="true" aria-label="Full-screen 3D viewer">
+			<div class="ad-3d-modal-inner">
+				<button class="ad-3d-modal-close" id="ad-3d-modal-close" aria-label="Close">✕</button>
+				<model-viewer
+					id="ad-avatar-modal-3d"
+					auto-rotate
+					camera-controls
+					shadow-intensity="0"
+					exposure="1.1"
+					alt="Agent 3D avatar — fullscreen"
+				></model-viewer>
 			</div>
 		</div>
 
