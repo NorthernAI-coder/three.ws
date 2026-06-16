@@ -257,47 +257,63 @@ export class DeployButton {
 			const style = document.createElement('style');
 			style.id = 'db-progress-kf';
 			style.textContent = `
-				@keyframes db-pulse { 0%,100%{box-shadow:0 0 0 0 rgba(99,102,241,.7)} 50%{box-shadow:0 0 0 8px rgba(99,102,241,0)} }
+				@keyframes db-pulse { 0%,100%{box-shadow:0 0 0 0 rgba(99,102,241,.55)} 50%{box-shadow:0 0 0 10px rgba(99,102,241,0)} }
 				@keyframes db-spin  { to{transform:rotate(360deg)} }
-				@keyframes db-flow  { 0%{stroke-dashoffset:24} 100%{stroke-dashoffset:0} }
+				@keyframes db-flow  { to{background-position:0 -16px} }
+				@keyframes db-rise  { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:none} }
+				@keyframes db-blink { 0%,100%{opacity:.35} 50%{opacity:1} }
+				.db-step{display:flex;align-items:center;gap:11px;padding:11px 14px;border-radius:10px;font-size:13px;transition:background .25s,border-color .25s,color .25s,opacity .25s}
+				.db-step--done{background:rgba(99,102,241,.92);border:1px solid rgba(99,102,241,.55);color:#fff;font-weight:600;opacity:1}
+				.db-step--active{background:rgba(99,102,241,.14);border:1px solid rgba(99,102,241,.85);color:#c7d2fe;font-weight:700;opacity:1;animation:db-pulse 1.7s ease-in-out infinite}
+				.db-step--pending{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);color:#5b6270;font-weight:500;opacity:.6}
+				.db-connector{width:2px;height:16px;margin-left:27px;border-radius:2px}
+				.db-connector--filled{background:rgba(99,102,241,.7)}
+				.db-connector--flow{background:linear-gradient(180deg,rgba(99,102,241,.85) 0 8px,transparent 8px 16px);background-size:2px 16px;animation:db-flow .55s linear infinite}
+				.db-connector--idle{background:rgba(255,255,255,.07)}
+				.db-status{margin-top:14px;font-size:16px;font-weight:700;letter-spacing:-.01em;line-height:1.2;background:linear-gradient(90deg,#c7d2fe,#a5b4fc);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;animation:db-rise .35s ease both}
+				.db-status--done{background:linear-gradient(90deg,#a7f3d0,#6ee7b7)}
+				.db-cancel{margin-top:14px;font-size:12.5px;font-weight:600;background:transparent;border:1px solid rgba(255,255,255,.16);border-radius:8px;padding:8px 16px;cursor:pointer;color:#9ca3af;transition:border-color .15s,color .15s,background .15s}
+				.db-cancel:hover{border-color:rgba(248,113,113,.6);color:#fca5a5;background:rgba(248,113,113,.08)}
+				.db-cancel:focus-visible{outline:2px solid rgba(165,180,252,.8);outline-offset:2px}
 			`;
 			document.head.appendChild(style);
 		}
 
-		const liveText = activeIdx < steps.length ? `${steps[activeIdx]}…` : 'Done';
-		const tiles = steps.map((s, i) => {
-			const done    = i < activeIdx;
-			const active  = i === activeIdx;
-			const pending = i > activeIdx;
-			const bg   = done ? 'rgba(99,102,241,.9)' : active ? 'rgba(99,102,241,.12)' : 'rgba(255,255,255,.04)';
-			const bord = done ? 'rgba(99,102,241,.6)' : active ? 'rgba(99,102,241,.8)' : 'rgba(255,255,255,.1)';
-			const col  = done ? '#fff' : active ? '#a5b4fc' : '#6b7280';
-			const anim = active ? 'animation:db-pulse 1.6s ease-in-out infinite' : '';
+		const isDone = activeIdx >= steps.length;
+		const liveText = isDone ? 'Deployed on-chain' : `${steps[activeIdx]}…`;
+
+		const rows = steps.map((s, i) => {
+			const done   = i < activeIdx;
+			const active = i === activeIdx;
+			const cls = done ? 'db-step--done' : active ? 'db-step--active' : 'db-step--pending';
 			const icon = done
-				? `<span style="font-size:15px;line-height:1">✓</span>`
+				? `<span style="font-size:16px;line-height:1;width:18px;text-align:center;flex-shrink:0">✓</span>`
 				: active
-					? `<svg width="16" height="16" viewBox="0 0 16 16" style="animation:db-spin .9s linear infinite;flex-shrink:0"><circle cx="8" cy="8" r="6" fill="none" stroke="rgba(165,180,252,.25)" stroke-width="2"/><path d="M8 2A6 6 0 0 1 14 8" fill="none" stroke="#a5b4fc" stroke-width="2" stroke-linecap="round"/></svg>`
-					: `<span style="width:16px;height:16px;display:inline-block;border-radius:50%;background:rgba(255,255,255,.06)"></span>`;
-			return `<div style="display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:8px;background:${bg};border:1px solid ${bord};color:${col};font-size:12px;font-weight:${active ? '600' : '500'};${anim}">
-				${icon}
-				<span>${_esc(s)}</span>
-			</div>`;
-		}).join(`<svg width="2" height="14" viewBox="0 0 2 14" style="flex-shrink:0;margin:0 2px">
-			<line x1="1" y1="0" x2="1" y2="14" stroke="rgba(255,255,255,.1)" stroke-width="1.5" stroke-dasharray="4 3" style="animation:db-flow .7s linear infinite"/>
-		</svg>`);
+					? `<svg width="18" height="18" viewBox="0 0 18 18" style="animation:db-spin .85s linear infinite;flex-shrink:0"><circle cx="9" cy="9" r="7" fill="none" stroke="rgba(165,180,252,.22)" stroke-width="2"/><path d="M9 2A7 7 0 0 1 16 9" fill="none" stroke="#c7d2fe" stroke-width="2" stroke-linecap="round"/></svg>`
+					: `<span style="width:18px;height:18px;flex-shrink:0;display:inline-block;border-radius:50%;border:1.5px solid rgba(255,255,255,.1)"></span>`;
+			const tile = `<div class="db-step ${cls}">${icon}<span>${_esc(s)}</span></div>`;
+			if (i === steps.length - 1) return tile;
+			// Connector below this tile: filled if next step reached, flowing if
+			// this step is the active one (work in progress), idle otherwise.
+			const conn = done
+				? (i + 1 <= activeIdx ? 'db-connector--filled' : 'db-connector--flow')
+				: active
+					? 'db-connector--flow'
+					: 'db-connector--idle';
+			return `${tile}<div class="db-connector ${conn}" aria-hidden="true"></div>`;
+		}).join('');
 
 		this._root.innerHTML = `
 			<div role="status" aria-live="polite" aria-label="Deployment progress"
-				style="display:flex;flex-direction:row;align-items:center;gap:4px;flex-wrap:wrap">
-				${tiles}
-				<span class="visually-hidden">${_esc(liveText)}</span>
+				style="display:flex;flex-direction:column;align-items:stretch;gap:0">
+				${rows}
 			</div>
+			<div class="db-status ${isDone ? 'db-status--done' : ''}">${_esc(liveText)}</div>
 			<div class="deploy-progress-detail" aria-live="polite"
-				style="margin-top:8px;font-size:11px;color:#6b7280;font-family:ui-monospace,monospace;min-height:1.2em;letter-spacing:.01em">
+				style="margin-top:7px;font-size:11.5px;color:#6b7280;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;min-height:1.2em;letter-spacing:.01em${extra?.text ? ';animation:db-blink 1.6s ease-in-out infinite' : ''}">
 				${extra?.text ? _esc(extra.text) : ''}
 			</div>
-			${extra?.cancelable ? `<button class="deploy-cancel-btn" type="button"
-				style="margin-top:10px;font-size:12px;font-weight:500;background:none;border:1px solid rgba(255,255,255,.15);border-radius:6px;padding:5px 14px;cursor:pointer;color:#9ca3af;transition:border-color .15s,color .15s">Stop grinding</button>` : ''}
+			${extra?.cancelable ? `<button class="db-cancel deploy-cancel-btn" type="button">⊘ Stop grinding</button>` : ''}
 		`;
 		if (extra?.onCancel) {
 			const cb = this._root.querySelector('.deploy-cancel-btn');

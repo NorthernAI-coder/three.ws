@@ -661,6 +661,12 @@ async function setLocked(next) {
 				gpsModeActive = true;
 				document.body.classList.add('gps-mode');
 				const headingDeg = ((cameraYaw * 180 / Math.PI) % 360 + 360) % 360;
+				// Snap the avatar to face the heading we're about to store so it
+				// matches how nearby users will see it — spawnNearbyPin() rotates
+				// foreign avatars with the same -(heading) → Y mapping. Keeping
+				// avatarYaw in sync means a later unlock+walk lerps from here too.
+				avatarYaw = -(headingDeg * Math.PI / 180);
+				avatarRig.quaternion.setFromAxisAngle(upY, avatarYaw);
 				openCaptionPanel(pinLat, pinLng, headingDeg);
 			}
 		} else {
@@ -1255,6 +1261,18 @@ function tick() {
 
 // ── Boot ──────────────────────────────────────────────────────────────────
 initGPS();
+
+// Show My Pins button if the authenticated user already has saved pins
+fetch('/api/irl/pins?mine=1', { credentials: 'include' })
+	.then(r => r.ok ? r.json() : null)
+	.then(d => {
+		if (d?.pins?.length) {
+			const btn = document.getElementById('irl-mypins-btn');
+			if (btn) btn.style.display = '';
+		}
+	})
+	.catch(() => {});
+
 loadAvatar()
 	.then(() => requestAnimationFrame(tick))
 	.catch(err => {

@@ -223,6 +223,14 @@
 			<description>When you pin an avatar to the real world in IRL mode, rotating your phone now physically moves the camera — the avatar stays locked to its spot while your view orbits around it, exactly like Pokémon GO. On iOS the app requests motion sensor access as required by iOS 13+. Drag still works as a fallback when orientation is unavailable. The lock icon pulses while active tracking is on.</description>
 		</item>
 		<item>
+			<title>IRL: pinned avatars now face the direction you were looking</title>
+			<link>https://three.ws/irl</link>
+			<guid isPermaLink="false">2026-06-16:IRL: pinned avatars now face the direction you were looking</guid>
+			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>When you pin your agent to a real-world spot in IRL mode, the app records which compass direction you were facing and stores it with the pin. Nearby users now see your avatar oriented that way — north, NE, east, and so on — instead of every agent facing the same default direction. The orientation is preserved as the detailed 3D model loads in, your own avatar snaps to the stored heading the moment you lock it, and the placement status confirms it (e.g. &quot;Pinned facing NE&quot;). Your IRL Placements dashboard shows a facing badge on each pin card.</description>
+		</item>
+		<item>
 			<title>IRL: place your agent on the map — others nearby can see it</title>
 			<link>https://three.ws/irl</link>
 			<guid isPermaLink="false">2026-06-16:IRL: place your agent on the map — others nearby can see it</guid>
@@ -261,6 +269,14 @@
 			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>A new public feed at /trades shows every notable closed position from three.ws AI agents in real time: exit multiple, realized PnL, hold time, Oracle conviction tier, and the number of copiers following that trader. No login needed. Filter by time window (1h / 24h / 7d / 30d), minimum profit threshold, and network. Each card links directly to the trader's profile, the coin on pump.fun, and the on-chain buy/sell transactions. The feed is the platform's top-of-funnel virality surface — every win is a provable, shareable ad.</description>
+		</item>
+		<item>
+			<title>On-chain deploy: cinematic step-by-step progress</title>
+			<link>https://three.ws/agents</link>
+			<guid isPermaLink="false">2026-06-16:On-chain deploy: cinematic step-by-step progress</guid>
+			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>Deploying an agent on-chain now shows a dramatic vertical progress flow — each step is a glowing tile with a checkmark when done, a pulsing animated spinner on the active step, and flowing connector lines between them. The current step is called out in large status text with a live terminal-style detail line underneath (handy when grinding a vanity address). The vanity-grind cancel is now a clearly labeled Stop grinding button. After a successful mint on Solana or any EVM chain, you're taken straight to the reveal page for your new on-chain agent.</description>
 		</item>
 		<item>
 			<title>Oracle — live trade tape and 3D conviction graph in the war room</title>

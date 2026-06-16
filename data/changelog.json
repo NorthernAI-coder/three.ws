@@ -3,6 +3,24 @@
 	"entries": [
 		{
 			"date": "2026-06-16",
+			"title": "IRL: pinned avatars now face the direction you were looking",
+			"summary": "When you pin your agent to a real-world spot in IRL mode, the app records which compass direction you were facing and stores it with the pin. Nearby users now see your avatar oriented that way — north, NE, east, and so on — instead of every agent facing the same default direction. The orientation is preserved as the detailed 3D model loads in, your own avatar snaps to the stored heading the moment you lock it, and the placement status confirms it (e.g. \"Pinned facing NE\"). Your IRL Placements dashboard shows a facing badge on each pin card.",
+			"tags": [
+				"feature"
+			],
+			"link": "/irl"
+		},
+		{
+			"date": "2026-06-16",
+			"title": "On-chain deploy: cinematic step-by-step progress",
+			"summary": "Deploying an agent on-chain now shows a dramatic vertical progress flow — each step is a glowing tile with a checkmark when done, a pulsing animated spinner on the active step, and flowing connector lines between them. The current step is called out in large status text with a live terminal-style detail line underneath (handy when grinding a vanity address). The vanity-grind cancel is now a clearly labeled Stop grinding button. After a successful mint on Solana or any EVM chain, you're taken straight to the reveal page for your new on-chain agent.",
+			"tags": [
+				"improvement"
+			],
+			"link": "/agents"
+		},
+		{
+			"date": "2026-06-16",
 			"title": "Oracle: rich social previews when sharing conviction links",
 			"summary": "Every Oracle coin conviction link now resolves to a server-rendered preview page (/oracle/coin/<mint>) that shows the score, tier, and pillar breakdown as a rich social card on X/Twitter, Telegram, Discord, Slack, and iMessage — no more generic placeholder when sharing a pump.fun conviction signal. The Oracle drawer's Share button and tweet links now point to these canonical share URLs. A Copy link button in the drawer makes it one-tap to grab the shareable link.",
 			"tags": [
