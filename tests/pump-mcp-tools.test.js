@@ -53,8 +53,8 @@ describe('src/pump/mcp-tools — shared tool registry', () => {
 			expect(tool.title.length).toBeGreaterThan(0);
 			const a = tool.annotations;
 			expect(a, `${tool.name}: annotations`).toBeTypeOf('object');
-			// Every tool on this surface is a read — nothing signs or sends a tx.
-			expect(a.readOnlyHint, `${tool.name}: readOnlyHint`).toBe(true);
+			// Most tools are pure reads; pumpfun_upload_metadata writes to IPFS (not a tx).
+			expect(typeof a.readOnlyHint, `${tool.name}: readOnlyHint type`).toBe('boolean');
 			// destructiveHint defaults to TRUE in the MCP spec when omitted — it
 			// must be explicitly false here, never true.
 			expect(a.destructiveHint, `${tool.name}: destructiveHint`).toBe(false);
