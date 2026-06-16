@@ -14,6 +14,19 @@ import { loadAgentKeypair } from './keys.js';
 
 const LAMPORTS = 1e9;
 
+// Rotating Jito tip accounts (from jito-labs/jito-solana, current as of 2025-Q4).
+// One is picked at random per bundle to spread load across validators.
+const JITO_TIP_ACCOUNTS = [
+	'96gYZGLnJYVFmbjzopPSU6QiEV5fGqZNyN9nmNhvrZU5',
+	'HFqU5x63VTqvQss8hp11i4wVV8bD44PvwucfZ2bU7gRe',
+	'Cw8CFyM9FkoMi7K7Crf6HNQqf4uEMzpKw6QNghXLvLkY',
+	'ADaUMid9yfUytqMBgopwjb2DTLSokTSzL1zt13UZKZr',
+	'DfXygSm4jCyNCybVYYK6DwvWqjKee8pbDmJGcLWNDXjh',
+	'ADuUkR4vqLUMWXxW9gh6D6L8pMSawimctcNZ5pGwDcEt',
+	'DttWaMuVvTiduZRnguLF7jNxTgiMBZ1hyAumKUiL2KRL',
+	'3AVi9Tg9Uo68tJfuvoKvqKNWKkC5wPdSSdeBnizKZ6jT',
+];
+
 /**
  * @param {object} args
  * @param {object} args.cfg     worker config
@@ -50,7 +63,10 @@ export async function executeAction({ cfg, watch, coin, size, reason }) {
 			await insertAction({ ...base, status: 'skipped', tx_signature: null, reason: 'agent has no Solana wallet' });
 			return { status: 'skipped' };
 		}
-		const sig = await buyOnPump({ network: cfg.network, mint: coin.mint, solAmount: cappedSize, payer: keys.keypair });
+		const sig = await buyOnPump({
+			network: cfg.network, mint: coin.mint, solAmount: cappedSize, payer: keys.keypair,
+			useJito: cfg.useJito, jitoTipSol: cfg.jitoTipSol, jitoBundleUrl: cfg.jitoBundleUrl,
+		});
 		await insertAction({ ...base, status: 'filled', tx_signature: sig });
 		log.info(`LIVE buy ${coin.symbol || coin.mint.slice(0, 6)} ${sig}`);
 		return { status: 'filled', sig };
@@ -80,14 +96,18 @@ async function entryMarketCap(mint, network) {
 }
 
 /**
- * Build + sign + send a pump.fun buy from the agent's keypair. Uses the same
- * PumpTradeClient the production trade path uses. Lazy-imports the heavy SDK so
- * the worker boots fast and simulate-only deploys never load it.
+ * Build + sign + send a pump.fun buy. Routes via Jito bundle when `useJito`
+ * is true (MEV-protected, validator-prioritised), otherwise sends via standard
+ * RPC broadcast. Lazy-imports the heavy SDK so the worker boots fast and
+ * simulate-only deploys never load it.
+ *
+ * Returns a transaction signature string. Jito paths prefix the bundle ID with
+ * "jito:" so the settle-loop can distinguish bundle IDs from tx sigs.
  */
-async function buyOnPump({ network, mint, solAmount, payer }) {
+async function buyOnPump({ network, mint, solAmount, payer, useJito = false, jitoTipSol = 0.002, jitoBundleUrl }) {
 	const { getPumpTradeClient } = await import('../../api/_lib/pump.js');
 	const { client, connection, BN, web3 } = await getPumpTradeClient({ network });
-	const { PublicKey, VersionedTransaction, TransactionMessage } = web3;
+	const { PublicKey, VersionedTransaction, TransactionMessage, SystemProgram } = web3;
 
 	const user = payer.publicKey;
 	const quoteAmount = new BN(Math.round(solAmount * LAMPORTS));
@@ -99,12 +119,62 @@ async function buyOnPump({ network, mint, solAmount, payer }) {
 	});
 
 	const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
+
+	if (useJito) {
+		return buyOnPumpJito({
+			ixs, user, payer, blockhash, jitoTipSol, jitoBundleUrl,
+			web3: { PublicKey, VersionedTransaction, TransactionMessage, SystemProgram },
+		});
+	}
+
 	const msg = new TransactionMessage({ payerKey: user, recentBlockhash: blockhash, instructions: ixs }).compileToV0Message();
 	const tx = new VersionedTransaction(msg);
 	tx.sign([payer]);
 	const sig = await connection.sendRawTransaction(tx.serialize(), { skipPreflight: false, maxRetries: 3 });
 	await connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed');
 	return sig;
+}
+
+/**
+ * Submit a single-transaction Jito bundle. Prepends a SOL tip transfer to one
+ * of the rotating Jito tip accounts so the bundle gets validator priority.
+ * Returns `jito:<bundleId>` — the bundle ID is stored as the "signature" in the
+ * DB since Jito does not return a tx sig synchronously.
+ */
+async function buyOnPumpJito({ ixs, user, payer, blockhash, jitoTipSol, jitoBundleUrl, web3 }) {
+	const { PublicKey, VersionedTransaction, TransactionMessage, SystemProgram } = web3;
+	const bs58 = (await import('bs58')).default;
+
+	const tipAccount = JITO_TIP_ACCOUNTS[Math.floor(Math.random() * JITO_TIP_ACCOUNTS.length)];
+	const tipIx = SystemProgram.transfer({
+		fromPubkey: user,
+		toPubkey: new PublicKey(tipAccount),
+		lamports: Math.round(jitoTipSol * LAMPORTS),
+	});
+
+	const msg = new TransactionMessage({
+		payerKey: user,
+		recentBlockhash: blockhash,
+		instructions: [tipIx, ...ixs],
+	}).compileToV0Message();
+	const tx = new VersionedTransaction(msg);
+	tx.sign([payer]);
+
+	const url = jitoBundleUrl || 'https://mainnet.block-engine.jito.wtf/api/v1/bundles';
+	const res = await fetch(url, {
+		method: 'POST',
+		headers: { 'content-type': 'application/json' },
+		body: JSON.stringify({
+			jsonrpc: '2.0', id: 1, method: 'sendBundle',
+			params: [[bs58.encode(tx.serialize())]],
+		}),
+	});
+	if (!res.ok) throw new Error(`Jito HTTP ${res.status}`);
+	const json = await res.json();
+	if (json.error) throw new Error(`Jito: ${json.error.message || JSON.stringify(json.error)}`);
+	const bundleId = json.result;
+	log.info(`Jito bundle submitted: ${bundleId} (tip ${jitoTipSol} SOL → ${tipAccount.slice(0, 8)}…)`);
+	return `jito:${bundleId}`;
 }
 
 /** Open positions + today's committed SOL for an agent — feeds the decision caps. */
