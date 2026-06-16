@@ -546,6 +546,12 @@ export const limits = {
 		getLimiter('video:generate:global', { limit: 100, window: '1 h', critical: true }).limit(
 			'global',
 		),
+	// Oracle personal Telegram test-alert (api/oracle/test-alert). Fires a real
+	// Telegram message via the bot, so keep per-IP burst tight to prevent spamming
+	// third-party chats. 5 per 10 minutes is generous enough for manual setup
+	// retries while blocking scripted abuse.
+	oracleTelegramTestIp: (ip) =>
+		getLimiter('oracle:tg-test:ip', { limit: 5, window: '10 m' }).limit(ip),
 };
 
 // Trust only proxy headers that Vercel itself sets and signs. Naively reading
