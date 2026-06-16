@@ -69,7 +69,7 @@ export default wrap(async (req, res) => {
 		// Distinct armed agents.
 		sql`
 			select count(distinct agent_id) as agents_armed
-			from oracle_agent_watches
+			from oracle_agent_watch
 			where network = ${network}
 			  and armed = true
 		`.catch(() => [{}]),
