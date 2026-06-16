@@ -313,6 +313,38 @@ function solscanUrl(sig, network) {
 	return network === 'devnet' ? `https://solscan.io/tx/${sig}?cluster=devnet` : `https://solscan.io/tx/${sig}`;
 }
 
+/**
+ * Active copiers per leader on a network → Map(agentId → count). Best-effort: if
+ * the copy_subscriptions table isn't migrated yet, degrade to an empty map rather
+ * than failing the whole leaderboard.
+ */
+async function activeCopierCounts(network) {
+	try {
+		const rows = await sql`
+			select leader_agent_id, count(*)::int as copiers
+			from copy_subscriptions
+			where network = ${network} and status = 'active'
+			group by leader_agent_id
+		`;
+		return new Map(rows.map((r) => [r.leader_agent_id, Number(r.copiers) || 0]));
+	} catch {
+		return new Map();
+	}
+}
+
+/** Active copier count for one leader. Best-effort (see activeCopierCounts). */
+async function copierCountForAgent(agentId, network) {
+	try {
+		const [row] = await sql`
+			select count(*)::int as copiers from copy_subscriptions
+			where leader_agent_id = ${agentId} and network = ${network} and status = 'active'
+		`;
+		return Number(row?.copiers) || 0;
+	} catch {
+		return 0;
+	}
+}
+
 /** Shape a closed position for the profile history + Proof tab (every number → tx). */
 export function shapeClosed(p, network) {
 	return {
@@ -354,13 +386,14 @@ export function shapeOpen(p, network) {
  * + open positions. Returns null if the agent has no positions on this network.
  */
 export async function getTraderStats({ agentId, network, window = 'all', now = Date.now() }) {
-	const [idRows, positions, solUsd] = await Promise.all([
+	const [idRows, positions, solUsd, copiers] = await Promise.all([
 		sql`
 			select id, name, description, avatar_url, profile_image_url, is_public
 			from agent_identities where id = ${agentId} limit 1
 		`,
 		fetchTraderPositions({ agentId, network, window, now }),
 		cachedSolUsd(),
+		copierCountForAgent(agentId, network),
 	]);
 	const identity = idRows[0];
 	if (!identity) return null;
@@ -380,6 +413,7 @@ export async function getTraderStats({ agentId, network, window = 'all', now = D
 			image: identity.profile_image_url || identity.avatar_url || null,
 			is_public: identity.is_public !== false,
 			wallet,
+			copiers,
 		},
 		network,
 		window,
@@ -434,6 +468,7 @@ export async function getLeaderboard({
 			where p.network = ${network} and a.is_public is not false
 		`;
 	const solUsd = await cachedSolUsd();
+	const copiers = await activeCopierCounts(network);
 
 	const byAgent = new Map();
 	for (const r of rows) {
@@ -478,6 +513,7 @@ export async function getLeaderboard({
 				unique_coins: m.unique_coins,
 				churn_pct: m.churn_pct,
 				last_active_at: m.last_active_at,
+				copiers: copiers.get(g.agent_id) || 0,
 			};
 		})
 		.filter((r) => (verifiedOnly ? r.verified : true))

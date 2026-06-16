@@ -25,6 +25,7 @@
  */
 
 const COIN_ENDPOINT = '/api/pump/coin';
+const ORACLE_ENDPOINT = '/api/oracle/coin';
 const DEFAULT_REFRESH_MS = 30_000;
 // pump.fun bonding curves complete (graduate) around a ~$69k USD market cap;
 // the same constant the agent token widget uses for its graduation gauge.
@@ -178,6 +179,32 @@ function graduationRing(pct) {
 	return svg;
 }
 
+// ── Oracle conviction badge ──────────────────────────────────────────────────
+
+const TIER_LABEL = { prime: 'PRIME', strong: 'STRONG', lean: 'LEAN', watch: 'WATCH', avoid: 'AVOID' };
+
+function renderConvictionBadge(conviction) {
+	if (!conviction || conviction.score == null) return null;
+	const tier = conviction.tier || 'watch';
+	const score = Math.round(Number(conviction.score));
+	const p = conviction.pillars || {};
+	const pill = el('span', {
+		class: `csc-cv-pill csc-cv-${tier}`,
+		text: `${TIER_LABEL[tier] || tier.toUpperCase()} · ${score}`,
+		title: `Oracle conviction: ${score}/100`,
+	});
+	const pillars = [
+		p.pedigree != null ? `P:${Math.round(p.pedigree)}` : null,
+		p.structure != null ? `S:${Math.round(p.structure)}` : null,
+		p.narrative != null ? `N:${Math.round(p.narrative)}` : null,
+		p.momentum != null ? `M:${Math.round(p.momentum)}` : null,
+	].filter(Boolean);
+	const breakdown = pillars.length
+		? el('span', { class: 'csc-cv-breakdown', text: pillars.join('  ') })
+		: null;
+	return el('div', { class: 'csc-conviction', 'aria-label': `Oracle conviction score: ${score}, tier ${tier}` }, [pill, breakdown]);
+}
+
 // ── variant renderers ────────────────────────────────────────────────────────
 
 function renderChip(coin, opts) {
@@ -260,12 +287,15 @@ function renderCard(coin, opts) {
 		el('div', { class: 'csc-bar-fill', style: `width:${Math.min(100, coin.graduationPct || 0).toFixed(1)}%` }),
 	]);
 
+	const conviction = opts.conviction || null;
+	const badge = renderConvictionBadge(conviction);
+
 	const foot = el('div', { class: 'csc-card-foot' }, [
 		coin.createdAt ? el('span', { class: 'csc-time', text: `Launched ${timeSince(coin.createdAt)}` }) : null,
 		opts.showBuy ? buyLink(coin.mint) : null,
 	]);
 
-	return el('div', { class: 'csc csc-card' }, [head, stats, coin.graduationPct != null ? bar : null, foot]);
+	return el('div', { class: 'csc csc-card' }, [head, stats, coin.graduationPct != null ? bar : null, badge, foot]);
 }
 
 /**
