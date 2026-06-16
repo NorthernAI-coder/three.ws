@@ -978,6 +978,103 @@ async function handleGetCoinIntel({ mint, network = 'mainnet' } = {}) {
 	}
 }
 
+// ── pumpfun_upload_metadata ────────────────────────────────────────────────
+//
+// Build + pin a pump.fun-ready metadata JSON to IPFS. Returns an ipfs:// URI
+// the caller passes to /api/pump/launch-agent as the `uri` field to launch
+// their coin. Requires bearer auth (API key) so Pinata credits aren't open.
+//
+// Two-step: (1) pin the image, (2) build the metadata JSON with the image CID
+// and pin that too. Both steps use the same Pinata/Web3.Storage credentials
+// already wired for the pinning API — no new env vars needed.
+
+const PINATA_PIN_API = 'https://api.pinata.cloud/pinning/pinFileToIPFS';
+const W3S_PIN_API = 'https://api.web3.storage/upload';
+const IMG_MAX_BYTES = 5 * 1024 * 1024; // 5 MB
+const META_IMG_TIMEOUT_MS = 8_000;
+
+async function _pinBuffer(buf, filename) {
+	const pinataJwt = process.env.PINATA_JWT;
+	if (pinataJwt) {
+		const form = new FormData();
+		form.append('file', new Blob([buf]), filename);
+		const r = await fetch(PINATA_PIN_API, {
+			method: 'POST',
+			headers: { Authorization: `Bearer ${pinataJwt}` },
+			body: form,
+		});
+		if (!r.ok) throw Object.assign(new Error(`Pinata ${r.status}`), { rpcCode: -32004 });
+		return { cid: (await r.json()).IpfsHash, provider: 'pinata' };
+	}
+	const w3sToken = process.env.WEB3_STORAGE_TOKEN;
+	if (w3sToken) {
+		const r = await fetch(W3S_PIN_API, {
+			method: 'POST',
+			headers: { Authorization: `Bearer ${w3sToken}`, 'X-NAME': filename },
+			body: buf,
+		});
+		if (!r.ok) throw Object.assign(new Error(`Web3.Storage ${r.status}`), { rpcCode: -32004 });
+		return { cid: (await r.json()).cid, provider: 'web3.storage' };
+	}
+	throw rpcError(-32004, 'no IPFS pinning provider configured (PINATA_JWT or WEB3_STORAGE_TOKEN)');
+}
+
+async function _fetchImgBuf(imageUrl) {
+	if (imageUrl.startsWith('data:')) {
+		const comma = imageUrl.indexOf(',');
+		if (comma === -1) throw rpcError(-32602, 'invalid data: URI');
+		const meta = imageUrl.slice(0, comma);
+		const payload = imageUrl.slice(comma + 1);
+		const buf = meta.includes('base64')
+			? Buffer.from(payload, 'base64')
+			: Buffer.from(decodeURIComponent(payload));
+		if (buf.byteLength > IMG_MAX_BYTES) throw rpcError(-32602, 'image exceeds 5 MB');
+		const mime = meta.split(':')[1]?.split(';')[0] || 'image/png';
+		return { buf, filename: `image.${mime.split('/')[1] || 'png'}` };
+	}
+	const ctrl = new AbortController();
+	const tid = setTimeout(() => ctrl.abort(), META_IMG_TIMEOUT_MS);
+	try {
+		const r = await fetch(imageUrl, { signal: ctrl.signal });
+		if (!r.ok) throw rpcError(-32004, `image fetch failed: HTTP ${r.status}`);
+		const buf = Buffer.from(await r.arrayBuffer());
+		if (buf.byteLength > IMG_MAX_BYTES) throw rpcError(-32602, 'image exceeds 5 MB');
+		const ct = r.headers.get('content-type') || 'image/png';
+		const ext = ct.split('/')[1]?.split(';')[0] || 'png';
+		const fname = new URL(imageUrl, 'https://x').pathname.split('/').pop() || `image.${ext}`;
+		return { buf, filename: fname };
+	} finally { clearTimeout(tid); }
+}
+
+async function handleUploadMetadata({ name, symbol, description, image_url, twitter, telegram, website } = {}) {
+	if (!name || !symbol || !description || !image_url)
+		throw rpcError(-32602, 'name, symbol, description, and image_url are required');
+	if (String(name).length > 32) throw rpcError(-32602, 'name exceeds 32 chars');
+	if (String(symbol).length > 10) throw rpcError(-32602, 'symbol exceeds 10 chars');
+	if (String(description).length > 500) throw rpcError(-32602, 'description exceeds 500 chars');
+
+	const { buf: imgBuf, filename: imgFilename } = await _fetchImgBuf(image_url);
+	const { cid: imageCid, provider } = await _pinBuffer(imgBuf, imgFilename);
+	const imageUri = `https://ipfs.io/ipfs/${imageCid}`;
+
+	const meta = {
+		name: String(name).slice(0, 32),
+		symbol: String(symbol).replace(/^\$/, '').slice(0, 10),
+		description: String(description).slice(0, 500),
+		image: imageUri,
+		showName: true,
+		createdOn: 'https://three.ws',
+	};
+	if (twitter) meta.twitter = String(twitter);
+	if (telegram) meta.telegram = String(telegram);
+	if (website) meta.website = String(website);
+
+	const metaBuf = Buffer.from(JSON.stringify(meta), 'utf8');
+	const { cid } = await _pinBuffer(metaBuf, 'metadata.json');
+	const uri = `https://ipfs.io/ipfs/${cid}`;
+	return { uri, cid, image_cid: imageCid, provider };
+}
+
 // ── pumpfun_bot_status (metadata, always available) ────────────────────────
 
 // Reports whether the indexer is configured and, when it is, whether it's
@@ -1222,6 +1319,7 @@ const HANDLERS = {
 	pumpfun_quote_swap: handleQuoteSwap,
 	sns_resolve: handleSnsResolve,
 	sns_reverseLookup: handleSnsReverseLookup,
+	pumpfun_upload_metadata: handleUploadMetadata,
 	pumpfun_bot_status: handlePumpfunBotStatus,
 };
 
@@ -1253,7 +1351,11 @@ const INSTRUCTIONS =
 	'market signals (kol_radar, kol_leaderboard, pumpfun_quote_swap, ' +
 	'pumpfun_watch_whales), and social sentiment (social_cashtag_sentiment, ' +
 	'social_x_post_impact). Discovery tools require the indexer backend — call ' +
-	'pumpfun_bot_status (always available) to check. All data is live; no API key required.';
+	'pumpfun_bot_status (always available) to check. ' +
+	'LAUNCH A COIN: to deploy a new pump.fun coin as an agent, call pumpfun_upload_metadata ' +
+	'(bearer required) to pin name/symbol/description/image to IPFS and get a uri, then POST ' +
+	'to /api/pump/launch-agent with agent_id + uri to build, sign, and submit the launch ' +
+	'transaction using the agent\'s custodial wallet. All data is live; most tools need no key.';
 const MAX_BATCH = 16;
 
 // Tools that are expensive (CPU grind or long-lived RPC subscriptions) or that
@@ -1264,6 +1366,7 @@ const AUTH_REQUIRED_TOOLS = new Set([
 	'pumpfun_vanity_mint',
 	'pumpfun_watch_whales',
 	'pumpfun_watch_claims',
+	'pumpfun_upload_metadata',
 ]);
 
 // Resolve the caller's credentials for a gated tool, once per request. Returns

@@ -268,7 +268,7 @@ async function payWithCopyFee(subscriptionId, onStatus = () => {}) {
 	const connection = new Connection(rpc, 'confirmed');
 
 	// 3. Build the $THREE SPL transfer + memo transaction
-	const mint = new PublicKey(charge.legs[0]?.mint || 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump');
+	const mint = new PublicKey(charge.mint);
 	const fromAta = getAssociatedTokenAddressSync(mint, payer);
 	const tx = new Transaction();
 	for (const leg of charge.legs) {
