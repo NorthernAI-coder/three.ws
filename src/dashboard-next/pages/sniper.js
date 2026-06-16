@@ -243,6 +243,9 @@ function stratCard(s) {
 	const img = s.image || '/favicon.ico';
 	const triggerLabel = s.trigger === 'first_claim' ? 'First-claim trigger' : 'New mint trigger';
 
+	const walletBal = s.wallet_sol != null ? s.wallet_sol : null;
+	const walletWarn = walletBal != null && walletBal < lamportsToSol(s.per_trade_lamports || '0') + 0.003;
+
 	return `<div class="sn-card ${armed ? 'armed' : ''}" data-agent="${esc(s.agent_id)}">
 		<div class="sn-card-head" data-toggle="card">
 			<img class="sn-av" src="${esc(img)}" alt="" onerror="this.style.visibility='hidden'" />
@@ -252,6 +255,7 @@ function stratCard(s) {
 					<span>${triggerLabel}</span>
 					<span>${fmtSol(lamportsToSol(s.per_trade_lamports))} / trade</span>
 					<span>Daily budget: ${fmtSol(lamportsToSol(s.daily_budget_lamports))}</span>
+					${walletBal != null ? `<span class="${walletWarn ? 'sn-neg' : ''}">Wallet: ${fmtSol(walletBal)}${walletWarn ? ' ⚠ low' : ''}</span>` : ''}
 				</div>
 			</div>
 			<div class="sn-badges">
@@ -268,7 +272,9 @@ function stratCard(s) {
 					${s.kill_switch ? 'Clear kill switch' : 'Kill switch'}
 				</button>
 				<a class="sn-toggle-btn" href="/trader/${esc(s.agent_id)}" target="_blank" rel="noopener">Track record ↗</a>
+				${s.wallet_address ? `<a class="sn-toggle-btn" href="https://solscan.io/account/${esc(s.wallet_address)}" target="_blank" rel="noopener">Wallet ↗</a>` : ''}
 			</div>
+			${walletWarn ? `<div style="font-size:12px;color:var(--nxt-warn,#f59e0b);padding:4px 0 12px;border-bottom:1px solid var(--nxt-line);margin-bottom:12px;">⚠ Wallet balance (${fmtSol(walletBal)}) may be too low for a trade. Fund ${s.wallet_address ? `<a href="https://solscan.io/account/${esc(s.wallet_address)}" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">${s.wallet_address.slice(0,8)}…</a>` : 'the agent wallet'} with more SOL before arming.</div>` : ''}
 			<div class="sn-sum">
 				<div class="sn-sum-item">
 					<span class="sn-sum-label">Open</span>
