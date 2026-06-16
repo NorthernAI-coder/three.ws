@@ -16,7 +16,7 @@ import { buildBazaarSchema } from '../_lib/x402-spec.js';
 import { withService } from '../_lib/x402/bazaar-helpers.js';
 import { sql } from '../_lib/db.js';
 import { presignGet } from '../_lib/r2.js';
-import { error } from '../_lib/http.js';
+import { error, json } from '../_lib/http.js';
 import { env } from '../_lib/env.js';
 
 const ROUTE = '/api/x402/animation-download';
@@ -131,6 +131,9 @@ async function presignPayload(row) {
 	};
 }
 
+// Exported for contract tests (price/statement/payout logic) without a live DB.
+export const __test__ = { priceAtomics, buildSiwxStatement, buildPayToOverride, UUID_RE };
+
 export default async function handler(req, res) {
 	const id = req.query?.id ? String(req.query.id).trim() : '';
 	if (!UUID_RE.test(id)) {
@@ -150,7 +153,8 @@ export default async function handler(req, res) {
 	// Free listing — no paywall, hand back the presigned URL directly.
 	if (!row.price_amount || Number(row.price_amount) <= 0) {
 		try {
-			return res.status(200).json(await presignPayload(row));
+			res.setHeader('Cache-Control', 'no-store');
+			return json(res, 200, await presignPayload(row));
 		} catch (err) {
 			return error(res, 502, 'presign_failed', err.message);
 		}
@@ -179,8 +183,11 @@ export default async function handler(req, res) {
 			expirationSeconds: 300,
 		},
 		async handler(ctx) {
-			// Count only fresh paid settlements — not free SIWX re-downloads.
-			if (ctx?.payer && !ctx?.bypass) {
+			// Count only fresh paid settlements. `requirement` is set solely on
+			// the verified-payment path — the free SIWX re-download path (which
+			// also carries `payer`) and auth-hints bypass leave it null, so this
+			// never inflates the count on repeat downloads.
+			if (ctx?.requirement && ctx?.payer) {
 				queueMicrotask(async () => {
 					try {
 						await sql`update animation_clips set purchase_count = purchase_count + 1 where id = ${row.id}`;
