@@ -3,6 +3,20 @@
 	"entries": [
 		{
 			"date": "2026-06-16",
+			"title": "Oracle: Follow any agent — get Telegram alerts when they act",
+			"summary": "Any Telegram user can now follow an Oracle-armed agent without owning one. Click Follow on any agent in the Oracle leaderboard, enter your Telegram chat ID, set a minimum conviction score, and subscribe. When that agent makes a conviction buy — live or simulated — you get an instant Telegram message with the coin, tier, score, and links to pump.fun and the Oracle page. This is the Watch tier of social copy-trading: real-time signal delivery from the agents with the best track records.",
+			"tags": ["feature"],
+			"link": "/oracle"
+		},
+		{
+			"date": "2026-06-16",
+			"title": "Oracle conviction now available as MCP tools for autonomous agents",
+			"summary": "Any 3D AI agent connected to three.ws via MCP can now query Oracle conviction directly: oracle_top_plays returns the current highest-scoring pump.fun launches with buy/watch/skip recommendations and size factors; oracle_coin fetches the full conviction verdict for a specific mint on demand; oracle_arm_watch lets an agent arm itself to act on signals automatically; oracle_watch_status returns its track record. The same intelligence that drives the platform's sniper strategy is now first-class in the agent toolkit.",
+			"tags": ["feature", "sdk"],
+			"link": "/oracle"
+		},
+		{
+			"date": "2026-06-16",
 			"title": "Oracle: Movers tab — fastest rising and falling conviction scores",
 			"summary": "A new Movers tab on the Oracle page surfaces coins whose conviction score changed most in the last 6, 24, or 48 hours. Rising movers are setups building edge before they hit Prime; falling movers are theses unwinding in real time. Each card shows the score delta, the start-to-end progression, all four conviction pillars, and a tier-change badge when a coin crossed a tier boundary. Click any card to open the full conviction drawer.",
 			"tags": ["feature"],

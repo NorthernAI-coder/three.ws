@@ -147,6 +147,10 @@
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 60
 		},
+		"api/oracle/follow.js": {
+			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
+			"maxDuration": 10
+		},
 		"api/copy/settle-fee.js": {
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 60
@@ -1793,6 +1797,10 @@
 			"dest": "/api/oracle/social.js"
 		},
 		{
+			"src": "/api/oracle/follow",
+			"dest": "/api/oracle/follow.js"
+		},
+		{
 			"src": "/api/oracle/backtest",
 			"dest": "/api/oracle/backtest.js"
 		},
@@ -1827,6 +1835,10 @@
 		{
 			"src": "/api/oracle/movers",
 			"dest": "/api/oracle/movers.js"
+		},
+		{
+			"src": "/api/oracle/categories",
+			"dest": "/api/oracle/categories.js"
 		},
 		{
 			"src": "/api/oracle/stats",
