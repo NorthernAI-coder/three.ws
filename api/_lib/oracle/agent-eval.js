@@ -8,8 +8,24 @@
 const TIER_RANK = { avoid: 0, watch: 1, lean: 2, strong: 3, prime: 4 };
 
 /**
+ * When size_scaling is enabled, scale the position up to 1.5× the base
+ * per_trade_sol based on how far above the minimum threshold the score lands:
+ *   scaleFactor = 1.0 + clamp((score - min_score) / (100 - min_score), 0, 1) × 0.5
+ *
+ * A coin at the exact minimum scores at 1.0× base; one at 100 scores at 1.5×.
+ * The executor still applies its hard per-trade SOL cap on top.
+ */
+function scaledSize(base, score, minScore) {
+	const range = 100 - minScore;
+	if (range <= 0) return base;
+	const factor = 1.0 + Math.max(0, Math.min(1, (score - minScore) / range)) * 0.5;
+	// Round to 4 decimal places so the logged reason stays readable.
+	return Math.round(base * factor * 10000) / 10000;
+}
+
+/**
  * @param {object} args
- * @param {object} args.watch  oracle_agent_watch row (armed, mode, min_score, min_tier, categories, per_trade_sol, max_daily_sol, max_open, require_smart_money)
+ * @param {object} args.watch  oracle_agent_watch row (armed, mode, min_score, min_tier, categories, per_trade_sol, max_daily_sol, max_open, require_smart_money, size_scaling)
  * @param {object} args.coin   scored coin { score, tier, category, smart_wallet_count }
  * @param {number} args.openCount       agent's currently-open positions
  * @param {number} args.spentTodaySol   agent's SOL committed today
@@ -44,14 +60,20 @@ export function evaluateWatch({ watch, coin, openCount = 0, spentTodaySol = 0 })
 	if (openCount >= (Number(watch.max_open) || 5)) {
 		return block(`at max open positions (${openCount})`);
 	}
-	const size = Number(watch.per_trade_sol) || 0;
-	if (size <= 0) return block('per-trade size is zero');
+
+	const base = Number(watch.per_trade_sol) || 0;
+	if (base <= 0) return block('per-trade size is zero');
+
+	// Conviction-weighted sizing: larger positions for higher-scoring coins.
+	const size = watch.size_scaling ? scaledSize(base, score, minScore) : base;
+
 	const maxDaily = Number(watch.max_daily_sol) || 0;
 	if (maxDaily > 0 && spentTodaySol + size > maxDaily + 1e-9) {
 		return block(`daily budget reached (${spentTodaySol.toFixed(3)}/${maxDaily} SOL)`);
 	}
 
-	return { act: true, size, reason: `conviction ${score} ≥ ${minScore} (${coin.tier}); ${coin.smart_wallet_count || 0} smart in` };
+	const scalingNote = watch.size_scaling && size !== base ? ` → ${size} SOL (conviction-scaled)` : '';
+	return { act: true, size, reason: `conviction ${score} ≥ ${minScore} (${coin.tier}); ${coin.smart_wallet_count || 0} smart in${scalingNote}` };
 }
 
 function block(reason) { return { act: false, size: 0, reason }; }

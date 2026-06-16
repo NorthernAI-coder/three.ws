@@ -38,6 +38,7 @@ const WATCH_SCHEMA = z.object({
 	max_daily_sol: numish.optional(),
 	max_open: numish.optional(),
 	require_smart_money: z.boolean().optional(),
+	size_scaling: z.boolean().optional(),
 });
 
 async function resolveUserId(req) {

@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-16T06:34:54.299Z",
+	"generated_at": "2026-06-16T07:02:32.992Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -34,6 +34,16 @@
 			"link": "/watchlist",
 			"tags": [
 				"launch"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "update",
+			"title": "3D Visualizer: Oracle conviction and watchlist in token panel",
+			"summary": "The 3D token visualizer now shows Oracle conviction scores when you click any token sphere. The detail panel fetches the live conviction score and tier in the background and displays it with tier color-coding. Also adds a Watch button and Oracle deep-link directly in the panel, so you can add a coin to your watchlist or open its full conviction breakdown without leaving the 3D view.",
+			"link": "/pump-visualizer",
+			"tags": [
+				"improvement"
 			]
 		},
 		{
@@ -126,6 +136,16 @@
 			"link": "/launches",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "update",
+			"title": "Forge: fix 3D model generation on the free NVIDIA lane",
+			"summary": "The free TRELLIS text-to-3D lane stopped producing models when NVIDIA changed their API to return a CDN URL instead of inline base64. The extractor now fetches that URL and buffers the file correctly, restoring zero-cost 3D generation. Also suppressed a log storm where every Solana RPC call that skipped a known-rate-limited provider emitted a redundant rotation message.",
+			"link": "/forge",
+			"tags": [
+				"fix"
 			]
 		},
 		{
@@ -294,6 +314,17 @@
 		{
 			"date": "2026-06-16",
 			"type": "update",
+			"title": "Oracle: Conviction-weighted position sizing",
+			"summary": "Oracle agents can now scale their position size by conviction strength. Enable 'Scale by conviction' in the Arm your agent panel to have the engine buy up to 1.5× the base size for the highest-scoring coins (score 100) and 1.0× at the minimum threshold. Positions are still capped by the daily SOL budget — this rewards the highest-conviction calls without increasing risk on lower-scoring entries.",
+			"link": "/oracle",
+			"tags": [
+				"feature",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "update",
 			"title": "Portfolio: Oracle conviction for every token you hold",
 			"summary": "The portfolio dashboard now shows Oracle conviction scores on Solana tokens. Each row gets a live badge showing the Oracle score and tier (prime / strong / lean). The pump.fun tokens table adds an Oracle column. And when you open any token's detail drawer, a conviction breakdown appears — score dial, pillar bars, and a link to the full Oracle analysis. Helps you make informed hold / sell decisions from the portfolio view.",
 			"link": "/dashboard/portfolio",
@@ -347,6 +378,26 @@
 			"title": "Sniper: Oracle conviction gate",
 			"summary": "Agent sniper strategies now support a Min Oracle conviction setting (0–100). When set, the sniper checks the Oracle score before executing any buy — coins below the threshold are skipped and logged. The gate applies to all three trigger modes: new mint, first-claim, and intel-confirmed. Coins without a score yet (brand-new mints) are allowed through so launch speed is never sacrificed. Configure it in the sniper strategy form on the dashboard.",
 			"link": "/dashboard/sniper",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "update",
+			"title": "Sniper: personal Telegram trade notifications",
+			"summary": "Each sniper strategy can now send buy and sell alerts to your own Telegram chat instead of (or in addition to) the platform ops channel. Add your Telegram chat ID in the Notifications section of any strategy form on the sniper dashboard. Get instant alerts the moment your agent opens or closes a position, with coin name, size, PnL, and Solscan proof link.",
+			"link": "/dashboard/sniper",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "update",
+			"title": "Strategy Lab: backtest Oracle strategies before you deploy",
+			"summary": "New standalone page at /strategy-lab lets you pick a conviction tier and time window, then see exactly how that filter would have performed: win rate, graduates, 3×/5× hit count, per-tier breakdown, and the top performers in the window. Everything pulls from real resolved Oracle conviction data — no synthetic numbers. Run a backtest, then deploy directly to the sniper from the results page.",
+			"link": "/strategy-lab",
 			"tags": [
 				"feature"
 			]

@@ -31,6 +31,14 @@
 			<description>Your privately-stored watchlist of pump.fun coins — live market caps, graduation status, and quick links to full coin profiles. No account required; stored in your browser.</description>
 		</item>
 		<item>
+			<title>3D Visualizer: Oracle conviction and watchlist in token panel</title>
+			<link>https://three.ws/pump-visualizer</link>
+			<guid isPermaLink="false">2026-06-16:3D Visualizer: Oracle conviction and watchlist in token panel</guid>
+			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>The 3D token visualizer now shows Oracle conviction scores when you click any token sphere. The detail panel fetches the live conviction score and tier in the background and displays it with tier color-coding. Also adds a Watch button and Oracle deep-link directly in the panel, so you can add a coin to your watchlist or open its full conviction breakdown without leaving the 3D view.</description>
+		</item>
+		<item>
 			<title>Agent Activity — live oracle trading floor</title>
 			<link>https://three.ws/activity</link>
 			<guid isPermaLink="false">2026-06-16:Agent Activity — live oracle trading floor</guid>
@@ -101,6 +109,14 @@
 			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>Until now, clicking a coin on the launches feed sent you out to pump.fun. Now every launch opens a rich profile that stays on three.ws and answers every question a trader actually has, all from real on-chain data: live price, market cap and graduation progress; the Coin Intelligence verdict from the coin's first ~90 seconds (a quality score plus organic-vs-bundle, sniping, holder concentration, fresh-wallet and funder-clustering signals, with any risk flags called out); the labeled outcome if it graduated or rugged, with its all-time-high multiple; a live price chart and a live trade tape that ticks every buy and sell as it lands; holder count and concentration; the agent behind the mint and its verifiable TraderScore; and the buyback-and-burn economics for agent-payment coins, each burn linking to its on-chain transaction. Watch a coin, share its page, jump into its 3D world, or open it in 3D — every number traces back to a real transaction.</description>
+		</item>
+		<item>
+			<title>Forge: fix 3D model generation on the free NVIDIA lane</title>
+			<link>https://three.ws/forge</link>
+			<guid isPermaLink="false">2026-06-16:Forge: fix 3D model generation on the free NVIDIA lane</guid>
+			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>The free TRELLIS text-to-3D lane stopped producing models when NVIDIA changed their API to return a CDN URL instead of inline base64. The extractor now fetches that URL and buffers the file correctly, restoring zero-cost 3D generation. Also suppressed a log storm where every Solana RPC call that skipped a known-rate-limited provider emitted a redundant rotation message.</description>
 		</item>
 		<item>
 			<title>Home page now features Oracle — live conviction scores on the front page</title>
@@ -231,6 +247,14 @@
 			<description>Two new tabs on the Oracle page. Activity shows a live trading floor — every Oracle-armed agent action (buy/outcome/PnL) in real time, filterable by mode, tier, and outcome. Agents ranks every conviction agent by their real track record: win rate, realized PnL, and ROI across all graded calls. Subscribe to copy the top performers directly from the leaderboard.</description>
 		</item>
 		<item>
+			<title>Oracle: Conviction-weighted position sizing</title>
+			<link>https://three.ws/oracle</link>
+			<guid isPermaLink="false">2026-06-16:Oracle: Conviction-weighted position sizing</guid>
+			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Oracle agents can now scale their position size by conviction strength. Enable 'Scale by conviction' in the Arm your agent panel to have the engine buy up to 1.5× the base size for the highest-scoring coins (score 100) and 1.0× at the minimum threshold. Positions are still capped by the daily SOL budget — this rewards the highest-conviction calls without increasing risk on lower-scoring entries.</description>
+		</item>
+		<item>
 			<title>Portfolio: Oracle conviction for every token you hold</title>
 			<link>https://three.ws/dashboard/portfolio</link>
 			<guid isPermaLink="false">2026-06-16:Portfolio: Oracle conviction for every token you hold</guid>
@@ -277,6 +301,22 @@
 			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>Agent sniper strategies now support a Min Oracle conviction setting (0–100). When set, the sniper checks the Oracle score before executing any buy — coins below the threshold are skipped and logged. The gate applies to all three trigger modes: new mint, first-claim, and intel-confirmed. Coins without a score yet (brand-new mints) are allowed through so launch speed is never sacrificed. Configure it in the sniper strategy form on the dashboard.</description>
+		</item>
+		<item>
+			<title>Sniper: personal Telegram trade notifications</title>
+			<link>https://three.ws/dashboard/sniper</link>
+			<guid isPermaLink="false">2026-06-16:Sniper: personal Telegram trade notifications</guid>
+			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Each sniper strategy can now send buy and sell alerts to your own Telegram chat instead of (or in addition to) the platform ops channel. Add your Telegram chat ID in the Notifications section of any strategy form on the sniper dashboard. Get instant alerts the moment your agent opens or closes a position, with coin name, size, PnL, and Solscan proof link.</description>
+		</item>
+		<item>
+			<title>Strategy Lab: backtest Oracle strategies before you deploy</title>
+			<link>https://three.ws/strategy-lab</link>
+			<guid isPermaLink="false">2026-06-16:Strategy Lab: backtest Oracle strategies before you deploy</guid>
+			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>New standalone page at /strategy-lab lets you pick a conviction tier and time window, then see exactly how that filter would have performed: win rate, graduates, 3×/5× hit count, per-tier breakdown, and the top performers in the window. Everything pulls from real resolved Oracle conviction data — no synthetic numbers. Run a backtest, then deploy directly to the sniper from the results page.</description>
 		</item>
 		<item>
 			<title>The Sniper Arena is now a living 3D world</title>
