@@ -45,6 +45,14 @@ function ago(ts) {
 }
 function solscan(addr) { return `https://solscan.io/account/${addr}`; }
 function pumpUrl(mint) { return `https://pump.fun/coin/${mint}`; }
+function tweetConviction(c) {
+	const tier = c.tier || 'watch';
+	const score = c.score ?? '—';
+	const symbol = c.symbol || '—';
+	const oracleUrl = `https://three.ws/oracle?mint=${encodeURIComponent(c.mint)}`;
+	const text = `$${symbol} — ${score}/100 ${tier} conviction on @trythreews Oracle\n\nWho · How · What · Move all fused into one score.\n${oracleUrl}`;
+	return `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
+}
 
 const CATEGORIES = ['meme', 'tech', 'ai', 'culture', 'community', 'political', 'news', 'animal', 'celebrity', 'utility', 'unknown'];
 const ARCH_TITLE = {
@@ -353,38 +361,85 @@ function walletRow(w, i) {
 
 // ── edge (backtest) ──────────────────────────────────────────────────────────
 let _backtest = null;
-function cacheBacktest(bt) { _backtest = bt; if ($('#edgeWrap').dataset.loaded) renderEdge(); }
+function cacheBacktest(bt) {
+	// Normalize old { tier, scored, resolved, grad_rate, avg_ath_multiple } rows
+	// into the richer format from /api/oracle/backtest if the feed returns both.
+	if (!_backtest && Array.isArray(bt)) _backtest = { by_tier: bt, aggregate: null, top_performers: [] };
+	if ($('#edgeWrap').dataset.loaded) renderEdge();
+}
 
 async function loadEdge() {
 	const wrap = $('#edgeWrap');
 	wrap.dataset.loaded = '1';
-	if (!_backtest) {
-		const { data } = await api(`/api/oracle/feed?network=${NETWORK}&limit=1`);
-		_backtest = data?.backtest || [];
+	wrap.innerHTML = '<div class="state">Loading performance data…</div>';
+	const { ok, data } = await api(`/api/oracle/backtest?period=30d&network=${NETWORK}`);
+	if (ok && data) {
+		_backtest = data;
+	} else if (!_backtest) {
+		// Fallback: try to get the old format from the feed
+		const { data: feed } = await api(`/api/oracle/feed?network=${NETWORK}&limit=1`);
+		if (feed?.backtest) _backtest = { by_tier: feed.backtest, aggregate: null, top_performers: [] };
 	}
 	renderEdge();
 }
 
 function renderEdge() {
 	const wrap = $('#edgeWrap');
-	const rows = (_backtest || []).filter((r) => r.scored > 0);
+	const bt = _backtest;
+	const tiers = bt?.by_tier || [];
+	const rows = tiers.filter((r) => (r.total || r.scored || 0) > 0);
+
 	if (!rows.length) {
-		wrap.innerHTML = `<div class="state"><b>The edge is still proving itself</b>Win-rate by tier appears once Oracle has scored coins that have since resolved to an outcome (graduated or not). This is intentionally honest — no backfilled numbers.</div>`;
+		wrap.innerHTML = `<div class="state"><b>The edge is still proving itself.</b> Win-rate by tier appears once Oracle has scored coins that have since resolved to an outcome. This is intentionally honest — no backfilled numbers.</div>`;
 		return;
 	}
+
+	const agg = bt?.aggregate;
+	const aggLine = agg && agg.total > 0 ? `
+		<div class="edge-agg">
+			<div class="edge-kpi"><span>Total scored</span><b>${agg.total}</b></div>
+			<div class="edge-kpi"><span>Win rate</span><b class="${(agg.win_rate||0) >= 50 ? 'up' : 'dn'}">${agg.win_rate != null ? agg.win_rate + '%' : '—'}</b></div>
+			<div class="edge-kpi"><span>Wins</span><b class="up">${agg.wins}</b></div>
+			<div class="edge-kpi"><span>Losses</span><b class="dn">${agg.losses}</b></div>
+			<div class="edge-kpi"><span>Graduated</span><b>${agg.graduated}</b></div>
+			<div class="edge-kpi"><span>Rugged</span><b>${agg.rugged}</b></div>
+			<div class="edge-kpi"><span>≥ 5×</span><b>${agg.five_x}</b></div>
+			<div class="edge-kpi"><span>≥ 10×</span><b>${agg.ten_x}</b></div>
+		</div>` : '';
+
+	const top = bt?.top_performers?.slice(0, 5) || [];
+	const topHtml = top.length ? `
+		<div class="dr-sec" style="margin-top:20px">Top performers (30d by ATH)</div>
+		<div class="edge-top">
+			${top.map((t) => `<a class="edge-top-row" href="https://pump.fun/coin/${esc(t.mint)}" target="_blank" rel="noopener">
+				<span class="tierpill ${tierPill(t.tier)}">${esc(t.tier)}</span>
+				<b>${esc(t.symbol || t.mint.slice(0, 6))}</b>
+				<span class="edge-ath">${t.ath_multiple ? Number(t.ath_multiple).toFixed(1) + '×' : t.graduated ? '✓ grad' : '—'}</span>
+			</a>`).join('')}
+		</div>` : '';
+
 	wrap.innerHTML = `
-		<div class="ehead"><span>Tier</span><span>Graduation rate</span><span class="colhide">Resolved</span><span>Avg ATH×</span><span>Scored</span></div>
-		${rows.map(edgeRow).join('')}`;
+		${aggLine}
+		<div class="ehead" style="margin-top:${agg ? '20px' : '0'}"><span>Tier</span><span>Win rate</span><span class="colhide">Wins / Losses</span><span>Avg ATH×</span><span>≥ 5×</span></div>
+		${rows.map(edgeRow).join('')}
+		${topHtml}
+		<p style="font-size:11px;color:var(--faint);margin-top:18px">Win = graduated OR ATH ≥ 2×. Loss = rugged OR ATH &lt; 1.2×. Open positions excluded. 30-day window.</p>`;
 }
 
 function edgeRow(r) {
-	const grad = r.grad_rate ?? 0;
+	// Support both old format (grad_rate, scored) and new format (win_rate, total, wins, losses)
+	const winRate = r.win_rate ?? r.grad_rate ?? null;
+	const total = r.total || r.scored || 0;
+	const wins = r.wins ?? 0;
+	const losses = r.losses ?? 0;
+	const ath = r.avg_ath ? Number(r.avg_ath).toFixed(1) : (r.avg_ath_multiple ? Number(r.avg_ath_multiple).toFixed(1) : null);
+	const fiveX = r.five_x ?? 0;
 	return `<div class="erow">
 		<span><span class="tierpill ${tierPill(r.tier)}">${esc(r.tier)}</span></span>
-		<span><div class="gradbar"><i style="width:${grad}%"></i></div><span class="lstat" style="text-align:left"><b>${r.grad_rate == null ? '—' : grad + '%'}</b></span></span>
-		<span class="lstat colhide">${r.resolved}</span>
-		<span class="lstat"><b>${r.avg_ath_multiple ? r.avg_ath_multiple.toFixed(1) + '×' : '—'}</b></span>
-		<span class="lstat">${r.scored}</span>
+		<span><div class="gradbar"><i style="width:${winRate ?? 0}%"></i></div><span class="lstat" style="text-align:left"><b>${winRate != null ? winRate + '%' : '—'}</b></span></span>
+		<span class="lstat colhide">${wins} / ${losses}</span>
+		<span class="lstat"><b>${ath ? ath + '×' : '—'}</b></span>
+		<span class="lstat">${fiveX}</span>
 	</div>`;
 }
 
@@ -471,9 +526,11 @@ function renderDrawer(d) {
 				${pillar('mom', 'Move', p.momentum)}
 			</div>
 		</div>
-		<div style="display:flex;gap:14px;margin:14px 0 2px">
-			<a class="solscan" href="${pumpUrl(c.mint)}" target="_blank" rel="noopener">pump.fun ↗</a>
-			<a class="solscan" href="${solscan(c.mint)}" target="_blank" rel="noopener">solscan ↗</a>
+		<div class="dr-actions">
+			<a class="dr-act" href="${pumpUrl(c.mint)}" target="_blank" rel="noopener">pump.fun ↗</a>
+			<a class="dr-act" href="${solscan(c.mint)}" target="_blank" rel="noopener">solscan ↗</a>
+			<button class="dr-act dr-watch" id="drWatch" data-mint="${esc(c.mint)}" type="button" aria-pressed="${watchedMints().has(c.mint)}">${watchedMints().has(c.mint) ? '★ Watching' : '☆ Watch'}</button>
+			<a class="dr-act dr-share" href="${tweetConviction(c)}" target="_blank" rel="noopener" title="Share conviction on X">Share ↗</a>
 			${c.structure_cap != null && c.structure_cap < 60 ? `<span class="note warn">structural cap ${c.structure_cap}</span>` : ''}
 		</div>
 		${narr ? `<div class="dr-sec">Narrative</div><div style="font-size:13.5px;color:var(--ink)">${esc(narr.narrative || '')}</div>
@@ -499,6 +556,25 @@ function renderDrawer(d) {
 			state.tape = mountTradeTape(tapeEl, { mint: c.mint, network: NETWORK });
 		}).catch(() => {
 			if (tapeEl) tapeEl.innerHTML = '<div class="state" style="padding:16px 0">Trade feed unavailable.</div>';
+		});
+	}
+
+	// Watch toggle
+	const watchBtn = $('#drWatch');
+	if (watchBtn) {
+		watchBtn.addEventListener('click', () => {
+			toggleOracleWatch(c.mint);
+			const now = watchedMints().has(c.mint);
+			watchBtn.textContent = now ? '★ Watching' : '☆ Watch';
+			watchBtn.setAttribute('aria-pressed', String(now));
+			// Reflect on the coin card in the feed grid if visible.
+			const cardEl = document.querySelector(`#feedGrid .coin[data-mint="${CSS.escape(c.mint)}"]`);
+			const cardWatchBtn = cardEl?.querySelector('.oc-watch');
+			if (cardWatchBtn) {
+				cardWatchBtn.textContent = now ? '★' : '☆';
+				cardWatchBtn.classList.toggle('oc-watched', now);
+				cardWatchBtn.setAttribute('aria-pressed', String(now));
+			}
 		});
 	}
 }

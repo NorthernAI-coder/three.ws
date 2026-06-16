@@ -68,6 +68,16 @@
 
 		/* coin grid */
 		.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 14px; }
+		.sm-coin-wrap { position: relative; }
+		.sm-watch { position: absolute; top: 10px; right: 10px; z-index: 2; width: 28px; height: 28px;
+			display: grid; place-items: center; border-radius: 8px; border: 1px solid var(--line);
+			background: rgba(0,0,0,0.3); color: rgba(255,255,255,0.45); font-size: 14px; cursor: pointer;
+			transition: color .15s, border-color .15s; opacity: 0; }
+		.sm-coin-wrap:hover .sm-watch, .sm-watch.sm-watched, .sm-watch:focus-visible { opacity: 1; }
+		.sm-watch.sm-watched { color: #7c83ff; border-color: #7c83ff; background: rgba(124,131,255,.12); }
+		.sm-watch:hover { color: var(--ink); }
+		.sm-watch:focus-visible { outline: 2px solid #7c83ff; outline-offset: 1px; }
+		@media (hover: none) { .sm-watch { opacity: 1; } }
 		.coin { text-align: left; width: 100%; background: var(--panel); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
 			border: 1px solid var(--line); border-radius: var(--r); padding: 15px; box-shadow: var(--shadow);
 			display: flex; flex-direction: column; gap: 13px; transition: transform .14s, border-color .18s; }
@@ -213,6 +223,20 @@
 		const labelText = { smart_money: 'smart money', sniper: 'sniper', dumper: 'dumper', rugger: 'rugger', fresh: 'fresh', neutral: 'neutral', unproven: 'new' };
 		const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
+		const WATCH_KEY = 'ld_watchlist';
+		function isWatched(mint) {
+			try { return JSON.parse(localStorage.getItem(WATCH_KEY) || '[]').includes(mint); } catch { return false; }
+		}
+		function toggleSmWatch(mint) {
+			try {
+				const list = JSON.parse(localStorage.getItem(WATCH_KEY) || '[]');
+				const idx = list.indexOf(mint);
+				if (idx >= 0) list.splice(idx, 1); else list.unshift(mint);
+				localStorage.setItem(WATCH_KEY, JSON.stringify(list.slice(0, 200)));
+				return idx < 0;
+			} catch { return false; }
+		}
+
 		let timer = null;
 
 		async function getJSON(url) {
@@ -228,7 +252,11 @@
 				: `<div class="coin-img">${esc((c.symbol || '?').slice(0, 2))}</div>`;
 			const notable = (c.notable || []).slice(0, 4).map((n) =>
 				`<span class="nlabel lb-${n.label || 'neutral'}">${short(n.wallet)}</span>`).join('');
-			return `<button class="coin" data-mint="${esc(c.mint)}">
+
+			const btn = document.createElement('button');
+			btn.className = 'coin';
+			btn.dataset.mint = c.mint;
+			btn.innerHTML = `
 				<div class="coin-top">
 					${img}
 					<div class="coin-id"><div class="coin-sym">${esc(c.symbol || '—')}</div><div class="coin-name">${esc(c.name || c.mint.slice(0, 10))}</div></div>
@@ -240,8 +268,32 @@
 					${c.category ? `<span class="chip cat">${esc(c.category)}</span>` : ''}
 					${c.graduated ? '<span class="chip" style="color:var(--up)">graduated</span>' : ''}
 				</div>
-				${notable ? `<div class="notable-row">${notable}</div>` : ''}
-			</button>`;
+				${notable ? `<div class="notable-row">${notable}</div>` : ''}`;
+			btn.addEventListener('click', () => openCoin(c.mint));
+
+			const watched = isWatched(c.mint);
+			const wb = document.createElement('button');
+			wb.className = `sm-watch${watched ? ' sm-watched' : ''}`;
+			wb.type = 'button';
+			wb.textContent = watched ? '★' : '☆';
+			wb.setAttribute('aria-label', watched ? 'Remove from watchlist' : 'Add to watchlist');
+			wb.setAttribute('aria-pressed', String(watched));
+			wb.title = watched ? 'Remove from watchlist' : 'Add to watchlist';
+			wb.addEventListener('click', (e) => {
+				e.stopPropagation();
+				const nowWatched = toggleSmWatch(c.mint);
+				wb.textContent = nowWatched ? '★' : '☆';
+				wb.classList.toggle('sm-watched', nowWatched);
+				wb.setAttribute('aria-pressed', String(nowWatched));
+				const lbl = nowWatched ? 'Remove from watchlist' : 'Add to watchlist';
+				wb.setAttribute('aria-label', lbl);
+				wb.title = lbl;
+			});
+
+			const wrap = document.createElement('div');
+			wrap.className = 'sm-coin-wrap';
+			wrap.append(btn, wb);
+			return wrap;
 		}
 
 		function renderFeed(coins) {
@@ -252,8 +304,8 @@
 					The radar only lights up when wallets with a real track record start buying a new launch. As coins are judged (≈6h after launch) and reputations build, this fills in. Check back shortly.</div>`;
 				return;
 			}
-			grid.innerHTML = coins.map(coinCard).join('');
-			grid.querySelectorAll('.coin').forEach((el) => el.addEventListener('click', () => openCoin(el.dataset.mint)));
+			grid.innerHTML = '';
+			coins.forEach((c) => grid.appendChild(coinCard(c)));
 		}
 
 		function walletRow(w, i) {
