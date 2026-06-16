@@ -61,7 +61,8 @@ const TAP_THRESHOLD      = 10;   // px — beyond this it's a drag, not a tap
 
 // ── URL params ────────────────────────────────────────────────────────────
 const params = new URLSearchParams(location.search);
-const avatarIdParam = params.get('avatar') || '';
+const avatarIdParam  = params.get('avatar')    || '';
+const highlightPinId = params.get('highlight') || '';
 
 function resolveAvatarUrl(id) {
 	if (!id) return AVATAR_URL_DEFAULT;
@@ -648,21 +649,21 @@ async function setLocked(next) {
 
 			// GPS: anchor the avatar to real-world coordinates
 			if (gpsState.ready) {
-				// Pin is at the avatar's current virtual position translated to GPS
 				const mLat = 110540;
 				const mLng = 111320 * Math.cos(gpsState.lat * (Math.PI / 180));
-				gpsPin = {
-					lat: gpsState.lat + (-avatarRig.position.z / mLat),
-					lng: gpsState.lng + ( avatarRig.position.x / mLng),
-				};
+				const pinLat = gpsState.lat + (-avatarRig.position.z / mLat);
+				const pinLng = gpsState.lng + ( avatarRig.position.x / mLng);
 				gpsModeActive = true;
-				savePin(gpsPin.lat, gpsPin.lng).then(id => { if (id && gpsPin) gpsPin.id = id; });
+				document.body.classList.add('gps-mode');
+				const headingDeg = ((cameraYaw * 180 / Math.PI) % 360 + 360) % 360;
+				openCaptionPanel(pinLat, pinLng, headingDeg);
 			}
 		} else {
 			devOrientBaseAlpha = null;
 			arFrozenCamPos  = camera.position.clone();
 			arFrozenCamLook = camLookCurrent.clone();
 			document.body.classList.remove('is-locked');
+			document.body.classList.remove('gps-mode');
 
 			// Remove the GPS pin
 			if (gpsPin?.id) {
@@ -755,21 +756,71 @@ function initGPS() {
 	);
 }
 
-async function savePin(lat, lng) {
+function compassLabel(deg) {
+	const dirs = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+	return dirs[Math.round(((deg % 360) + 360) % 360 / 45) % 8];
+}
+
+async function savePin(lat, lng, heading = 0, caption = '') {
 	try {
 		const r = await fetch('/api/irl/pins', {
 			method: 'POST',
+			credentials: 'include',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({
 				lat, lng,
+				heading:     Math.round(heading) % 360,
+				caption:     caption || null,
 				avatarUrl:   resolveAvatarUrl(_currentAvatarId),
 				avatarName:  nameEl.textContent,
 				deviceToken: _deviceToken,
+				agentId:     avatarIdParam || null,
 			}),
 		});
 		if (!r.ok) return null;
-		return (await r.json()).pin?.id ?? null;
+		const data = await r.json();
+		return data.pin ? { id: data.pin.id, permanent: !!data.pin.permanent } : null;
 	} catch { return null; }
+}
+
+// ── Caption panel (pre-save) ──────────────────────────────────────────────
+
+const captionPanel   = document.getElementById('irl-caption-panel');
+const captionInput   = document.getElementById('irl-caption-input');
+const captionConfirm = document.getElementById('irl-caption-confirm');
+const captionCancel  = document.getElementById('irl-caption-cancel');
+
+function openCaptionPanel(pinLat, pinLng, headingDeg) {
+	if (!captionPanel) {
+		commitPin(pinLat, pinLng, headingDeg, '');
+		return;
+	}
+	captionInput.value = '';
+	captionPanel.classList.add('is-open');
+	setTimeout(() => captionInput.focus(), 300);
+	captionConfirm.onclick = () => {
+		captionPanel.classList.remove('is-open');
+		commitPin(pinLat, pinLng, headingDeg, captionInput.value.trim());
+	};
+	captionCancel.onclick = () => {
+		captionPanel.classList.remove('is-open');
+		setLocked(false);
+	};
+}
+
+function commitPin(pinLat, pinLng, headingDeg, caption) {
+	gpsPin = { lat: pinLat, lng: pinLng };
+	savePin(pinLat, pinLng, headingDeg, caption).then(result => {
+		if (result && gpsPin) {
+			gpsPin.id = result.id;
+			const dir = compassLabel(headingDeg);
+			setStatus(result.permanent
+				? `Pinned facing ${dir} — permanently visible to nearby users`
+				: `Pinned facing ${dir} — others nearby can see you for 7 days`);
+			const myPinsBtn = document.getElementById('irl-mypins-btn');
+			if (myPinsBtn) myPinsBtn.style.display = '';
+		}
+	});
 }
 
 // ── Nearby agents ─────────────────────────────────────────────────────────
@@ -805,6 +856,22 @@ async function loadNearbyPins() {
 		}
 
 		updateNearbyBadge();
+
+		// Flash pin label if ?highlight= matches
+		if (highlightPinId) {
+			const target = nearbyPins.find(p => p.id === highlightPinId);
+			if (target?.labelEl) {
+				target.labelEl.style.transition = 'background .2s, color .2s';
+				target.labelEl.style.background = 'rgba(139,92,246,0.9)';
+				target.labelEl.style.color = '#fff';
+				setTimeout(() => {
+					if (target.labelEl) {
+						target.labelEl.style.background = '';
+						target.labelEl.style.color = '';
+					}
+				}, 2500);
+			}
+		}
 	} catch {}
 }
 
@@ -812,6 +879,8 @@ function spawnNearbyPin(pin) {
 	const g  = new Group();
 	const wp = gpsToWorld(pin.lat, pin.lng);
 	g.position.set(wp.x, 0, wp.z);
+	// Three.js Y rotation is CCW; compass heading is CW from north — negate
+	if (pin.heading != null) g.rotation.y = -(pin.heading * Math.PI / 180);
 
 	// Glowing beacon placeholder (replaced by real GLB when close)
 	const beacon = new Mesh(
@@ -857,6 +926,8 @@ async function loadPinGLB(pin) {
 		while (pin.group.children.length) pin.group.remove(pin.group.children[0]);
 		pin.group.add(model);
 		pin.glbLoaded = true;
+		// Re-apply heading — GLTFLoader can reset the group transform
+		if (pin.heading != null) pin.group.rotation.y = -(pin.heading * Math.PI / 180);
 	} catch {}
 }
 
@@ -867,6 +938,68 @@ function updateNearbyBadge() {
 	badge.textContent = n > 0 ? `${n} nearby` : '';
 	badge.hidden = n === 0;
 }
+
+// ── My Pins management ────────────────────────────────────────────────────
+
+async function loadMyPins() {
+	const list = document.getElementById('irl-mypins-list');
+	if (!list) return;
+	list.innerHTML = '<p class="irl-mypins-empty">Loading…</p>';
+	try {
+		const r = await fetch('/api/irl/pins?mine=1', { credentials: 'include' });
+		if (!r.ok) {
+			list.innerHTML = '<p class="irl-mypins-empty">Sign in to view your pins</p>';
+			return;
+		}
+		const { pins } = await r.json();
+		if (!pins.length) {
+			list.innerHTML = '<p class="irl-mypins-empty">No active pins</p>';
+			return;
+		}
+		list.innerHTML = pins.map(p => `<div class="irl-pin-row" data-pid="${_escHtml(p.id)}">
+			<div class="irl-pin-info">
+				<div class="irl-pin-name">${_escHtml(p.avatar_name || 'Agent')}</div>
+				${p.caption ? `<div class="irl-pin-caption">${_escHtml(p.caption)}</div>` : ''}
+				<div class="irl-pin-meta">${p.expires_at ? `Expires ${new Date(p.expires_at).toLocaleDateString()}` : 'Permanent'}</div>
+			</div>
+			<button class="irl-pin-del" data-del="${_escHtml(p.id)}" type="button">Remove</button>
+		</div>`).join('');
+	} catch {
+		list.innerHTML = '<p class="irl-mypins-empty">Failed to load</p>';
+	}
+}
+
+document.getElementById('irl-mypins-btn')?.addEventListener('click', () => {
+	const sheet = document.getElementById('irl-mypins-sheet');
+	if (!sheet) return;
+	sheet.classList.add('is-open');
+	loadMyPins();
+});
+
+document.getElementById('irl-mypins-close')?.addEventListener('click', () => {
+	document.getElementById('irl-mypins-sheet')?.classList.remove('is-open');
+});
+
+document.getElementById('irl-mypins-list')?.addEventListener('click', async (e) => {
+	const btn = e.target.closest('[data-del]');
+	if (!btn) return;
+	const id = btn.dataset.del;
+	btn.disabled = true;
+	btn.textContent = '…';
+	const r = await fetch(`/api/irl/pins?id=${encodeURIComponent(id)}`, {
+		method: 'DELETE', credentials: 'include',
+	}).catch(() => null);
+	if (r?.ok) {
+		btn.closest('.irl-pin-row')?.remove();
+		if (!document.getElementById('irl-mypins-list')?.querySelector('.irl-pin-row')) {
+			const list = document.getElementById('irl-mypins-list');
+			if (list) list.innerHTML = '<p class="irl-mypins-empty">No active pins</p>';
+		}
+	} else {
+		btn.disabled = false;
+		btn.textContent = 'Remove';
+	}
+});
 
 // ── Interaction sheet ─────────────────────────────────────────────────────
 function openPinSheet(pin) {
@@ -909,6 +1042,29 @@ document.getElementById('irl-sheet-pay')?.addEventListener('click', async (e) =>
 		}
 	} catch { setStatus('Payment failed', { error: true }); }
 });
+
+// ── Radar minimap ────────────────────────────────────────────────────────
+function updateRadar() {
+	const radar = document.getElementById('irl-radar');
+	if (!radar || !gpsModeActive) return;
+	radar.querySelectorAll('.irl-radar-dot').forEach(d => d.remove());
+	const R = 60; // half of 120px radar
+	for (const pin of nearbyPins) {
+		if (!pin.group) continue;
+		const wx = pin.group.position.x;
+		const wz = pin.group.position.z;
+		const px = R + (wx / NEARBY_RADIUS) * R;
+		const py = R + (-wz / NEARBY_RADIUS) * R;
+		if (px < 0 || px > 120 || py < 0 || py > 120) continue;
+		const dot = document.createElement('div');
+		dot.className = 'irl-radar-dot';
+		dot.style.left = `${px}px`;
+		dot.style.top  = `${py}px`;
+		dot.title = `${pin.avatar_name || 'Agent'} · ${pin.distance_m ?? Math.round(Math.hypot(wx, wz))}m`;
+		dot.addEventListener('click', () => openPinSheet(pin));
+		radar.appendChild(dot);
+	}
+}
 
 // ── Label 3D→2D projection (called each frame) ───────────────────────────
 const _lblVec = new Vector3();
@@ -1054,6 +1210,7 @@ function tick() {
 
 	// Project nearby agent labels to screen space
 	updateLabels();
+	updateRadar();
 
 	renderer.render(scene, camera);
 	requestAnimationFrame(tick);
