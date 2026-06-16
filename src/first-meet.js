@@ -9,6 +9,7 @@
  * @returns {Promise<void>} resolves when user clicks either button
  */
 import { log } from './shared/log.js';
+import { startTour } from './shared/tour.js';
 export async function playFirstMeet({ viewer, agent, onShare, onContinue }) {
 	const reducedMotion =
 		typeof window !== 'undefined' &&
@@ -197,33 +198,13 @@ export async function playFirstMeet({ viewer, agent, onShare, onContinue }) {
 		btnContinue.addEventListener('click', () => {
 			cleanup();
 			onContinue?.();
-			// Launch guided tour unless already completed
-			if (!localStorage.getItem(TOUR_DONE_KEY)) {
-				runTour(agent).catch(log.error);
-			}
+			runTour(agent).catch(log.error);
 			resolve();
 		});
 	});
 }
 
-// ── Tour constants ─────────────────────────────────────────────────────────────
-
-const TOUR_DONE_KEY = 'threews:tour:done';
-
 // ── Utility ───────────────────────────────────────────────────────────────────
-
-function waitForEl(selector, timeoutMs = 3000) {
-	return new Promise((resolve) => {
-		const el = document.querySelector(selector);
-		if (el) return resolve(el);
-		const obs = new MutationObserver(() => {
-			const found = document.querySelector(selector);
-			if (found) { obs.disconnect(); resolve(found); }
-		});
-		obs.observe(document.body, { childList: true, subtree: true });
-		setTimeout(() => { obs.disconnect(); resolve(null); }, timeoutMs);
-	});
-}
 
 function escHtml(s) {
 	return String(s ?? '').replace(/[&<>"']/g, (c) => ({
@@ -232,158 +213,31 @@ function escHtml(s) {
 }
 
 // ── Coach-mark tour ───────────────────────────────────────────────────────────
+// Powered by src/shared/tour.js — id-namespaced, server-backed persistence.
 
 async function runTour(agent) {
-	if (localStorage.getItem(TOUR_DONE_KEY)) return;
-
-	const STEPS = [
+	const TOUR_ID = 'dashboard-first-meet';
+	const outcome = await startTour([
 		{
-			selectors: ['.dnx-hero-card'],
+			target: '.dnx-hero-card',
 			title: 'Your agent is live',
-			body: 'Click "Live page" to preview, "Edit" to customize the look, or "Embed" to deploy on any website.',
+			body: 'Click "Live page" to preview, "Edit" to customize the look, or "Embed wizard" to deploy on any website.',
 		},
 		{
-			selectors: ['#dnx-onboarding', '.dnx-ob'],
+			target: '#dnx-onboarding, .dnx-ob',
 			title: 'Your setup checklist',
 			body: 'Complete these steps to unlock your agent\'s full potential — from personality to payments.',
 		},
 		{
-			selectors: ['.dnx-shortcuts-grid', '.dnx-quick-card'],
+			target: '.dnx-shortcuts-grid, .dnx-quick-card',
 			title: 'Quick shortcuts',
 			body: 'Shortcuts to your most-used tools. Pin any page from the directory below to customize this section.',
 		},
-	];
-
-	// Screen-reader live region
-	const liveRegion = document.createElement('div');
-	liveRegion.className = 'fm-sr-only';
-	liveRegion.setAttribute('aria-live', 'polite');
-	liveRegion.setAttribute('aria-atomic', 'true');
-	document.body.appendChild(liveRegion);
-
-	// Spotlight rect highlight
-	const spotlight = document.createElement('div');
-	spotlight.className = 'fm-spotlight';
-	spotlight.setAttribute('aria-hidden', 'true');
-	document.body.appendChild(spotlight);
-
-	// Tooltip bubble
-	const bubble = document.createElement('div');
-	bubble.className = 'fm-tour-bubble';
-	bubble.setAttribute('role', 'dialog');
-	bubble.setAttribute('aria-modal', 'false');
-	bubble.setAttribute('aria-label', 'Guided tour');
-	document.body.appendChild(bubble);
-
-	let activeTarget = null;
-	let stepIndex = 0;
-
-	function finish() {
-		liveRegion.remove();
-		spotlight.remove();
-		bubble.remove();
-		if (activeTarget) activeTarget.removeAttribute('data-fm-tour-target');
-		document.removeEventListener('keydown', keyHandler);
-		localStorage.setItem(TOUR_DONE_KEY, '1');
-		showChecklist(agent);
-	}
-
-	async function goToStep(idx) {
-		if (idx >= STEPS.length) { finish(); return; }
-
-		const step = STEPS[idx];
-		stepIndex = idx;
-
-		// Clear previous target
-		if (activeTarget) activeTarget.removeAttribute('data-fm-tour-target');
-
-		// Find target — try each selector, wait for first one
-		let target = null;
-		for (const sel of step.selectors) {
-			target = document.querySelector(sel);
-			if (target) break;
-		}
-		if (!target) {
-			target = await waitForEl(step.selectors[0], 2000);
-		}
-		if (!target) {
-			// Skip this step — element not available
-			goToStep(idx + 1);
-			return;
-		}
-
-		activeTarget = target;
-		target.setAttribute('data-fm-tour-target', '');
-
-		// Position spotlight over target
-		const rect = target.getBoundingClientRect();
-		const PAD = 8;
-		spotlight.style.top = `${rect.top - PAD}px`;
-		spotlight.style.left = `${rect.left - PAD}px`;
-		spotlight.style.width = `${rect.width + PAD * 2}px`;
-		spotlight.style.height = `${rect.height + PAD * 2}px`;
-		spotlight.classList.add('fm-spotlight-on');
-
-		// Render bubble
-		const isLast = idx === STEPS.length - 1;
-		bubble.innerHTML = `
-			<div class="fm-tour-meta">${idx + 1} / ${STEPS.length}</div>
-			<div class="fm-tour-title">${escHtml(step.title)}</div>
-			<p class="fm-tour-body">${escHtml(step.body)}</p>
-			<div class="fm-tour-nav">
-				${idx > 0
-					? `<button class="fm-tour-ghost" type="button" data-action="back" aria-label="Previous step">Back</button>`
-					: ''}
-				<button class="fm-tour-ghost fm-tour-skip" type="button" data-action="skip">Skip tour</button>
-				<button class="fm-tour-primary" type="button" data-action="next">
-					${isLast ? 'Done' : 'Next →'}
-				</button>
-			</div>
-		`;
-
-		// Position bubble near target
-		positionBubble(bubble, rect);
-
-		liveRegion.textContent = `Tour step ${idx + 1} of ${STEPS.length}: ${step.title}. ${step.body}`;
-
-		// Wire buttons
-		bubble.querySelector('[data-action="next"]').addEventListener('click', () => goToStep(idx + 1));
-		bubble.querySelector('[data-action="skip"]').addEventListener('click', finish);
-		const backBtn = bubble.querySelector('[data-action="back"]');
-		if (backBtn) backBtn.addEventListener('click', () => goToStep(idx - 1));
-
-		// Move focus to primary action
-		bubble.querySelector('[data-action="next"]').focus();
-	}
-
-	function positionBubble(el, targetRect) {
-		const bw = Math.min(300, window.innerWidth - 32);
-		el.style.width = `${bw}px`;
-
-		const preferredLeft = Math.min(
-			Math.max(16, targetRect.left + targetRect.width / 2 - bw / 2),
-			window.innerWidth - bw - 16,
-		);
-		el.style.left = `${preferredLeft}px`;
-
-		const spaceBelow = window.innerHeight - targetRect.bottom;
-		if (spaceBelow >= 160) {
-			el.style.top = `${targetRect.bottom + 14}px`;
-			el.style.bottom = '';
-		} else {
-			el.style.bottom = `${window.innerHeight - targetRect.top + 14}px`;
-			el.style.top = '';
-		}
-	}
-
-	function keyHandler(e) {
-		if (e.key === 'Escape') finish();
-		if (e.key === 'ArrowRight' || e.key === 'ArrowDown') goToStep(stepIndex + 1);
-		if ((e.key === 'ArrowLeft' || e.key === 'ArrowUp') && stepIndex > 0) goToStep(stepIndex - 1);
-	}
-	document.addEventListener('keydown', keyHandler);
-
-	goToStep(0);
+	], {
+		id: TOUR_ID,
+		onComplete: () => showChecklist(agent),
+	});
+	if (outcome === 'skipped') showChecklist(agent);
 }
 
 // ── Next-steps checklist ──────────────────────────────────────────────────────

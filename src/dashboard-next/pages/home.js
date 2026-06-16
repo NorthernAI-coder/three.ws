@@ -7,6 +7,7 @@
 import { mountShell } from '../shell.js';
 import { requireUser, get, esc, relTime, ApiError } from '../api.js';
 import { log } from '../../shared/log.js';
+import { startTour, isTourDone, syncTourPrefs } from '../../shared/tour.js';
 import {
 	cryptoOptionalBannerHTML,
 	cryptoOptionalTagHTML,
@@ -94,7 +95,8 @@ const STATE = {
 
 	// First-run guided tour — fires once after wizard completion (?welcome=1)
 	const _welcomeUrl = new URL(location.href);
-	if (_welcomeUrl.searchParams.get('welcome') === '1' && !localStorage.getItem('threews:tour:done')) {
+	const fromWelcome = _welcomeUrl.searchParams.get('welcome') === '1';
+	if (fromWelcome && !localStorage.getItem('threews:tour:done')) {
 		_welcomeUrl.searchParams.delete('welcome');
 		history.replaceState(null, '', _welcomeUrl.toString());
 
@@ -115,6 +117,37 @@ const STATE = {
 				onContinue() {},
 			}).catch(log.error);
 		}).catch(log.error);
+	} else if (isNew && !fromWelcome) {
+		// Dashboard orientation — fires once for new accounts on their first plain
+		// visit. Skipped if the welcome tour already ran (first-meet covers it).
+		syncTourPrefs(); // pull server state so we don't re-show a completed tour
+		setTimeout(() => {
+			startTour([
+				{
+					target: '.dn-rail',
+					title: 'Navigation rail',
+					body: 'Your Build, Grow, Money, and Account sections live here. Agents and avatars are in Build; payments and revenue are in Money.',
+					placement: 'below',
+				},
+				{
+					target: '.dnx-hero, .dnx-hero-card, [data-slot="hero"]',
+					title: 'Your creations',
+					body: 'Your avatars and agents appear here as live 3D previews. Click any to manage it or jump to the Live page.',
+				},
+				{
+					target: '[data-slot="kpis"], .dnx-kpis',
+					title: 'Performance at a glance',
+					body: 'Revenue, views, chat sessions, and active avatars — updated every 30 seconds.',
+				},
+				{
+					target: '[data-slot="quick"], .dnx-quick',
+					title: 'Quick actions',
+					body: 'Shortcut tiles to create, build, and monetize. Customize these from the directory below.',
+				},
+			], {
+				id: 'dashboard-orientation',
+			}).catch(log.error);
+		}, 800); // brief delay so slots finish painting
 	}
 
 	const refresh = async () => {
