@@ -3,6 +3,13 @@
 	"entries": [
 		{
 			"date": "2026-06-16",
+			"title": "Activity: Outcome filter on agent trade feed",
+			"summary": "The Oracle agent activity feed now has a Win / Loss / Open outcome filter alongside the existing tier and mode filters. Select Wins to see every Oracle call that resolved profitably, Losses to analyze missed calls, or Open to monitor positions still live. Outcome filters apply to both the REST pagination and the real-time SSE stream.",
+			"tags": ["improvement"],
+			"link": "/activity"
+		},
+		{
+			"date": "2026-06-16",
 			"title": "Pump Live: Oracle conviction filter + pause control",
 			"summary": "The Pump.fun live feed now has a conviction filter bar: All, Strong+, or Prime. When a filter is active, coins below that Oracle tier are automatically hidden once they receive their conviction score. A queued count shows how many launches arrived while paused. The ⏸ Pause button freezes new cards from prepending — useful for examining a coin without it scrolling away.",
 			"tags": ["feature", "improvement"],

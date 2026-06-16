@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-16T07:26:33.217Z",
+	"generated_at": "2026-06-16T07:30:01.908Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -42,6 +42,16 @@
 			"title": "3D Visualizer: Oracle conviction and watchlist in token panel",
 			"summary": "The 3D token visualizer now shows Oracle conviction scores when you click any token sphere. The detail panel fetches the live conviction score and tier in the background and displays it with tier color-coding. Also adds a Watch button and Oracle deep-link directly in the panel, so you can add a coin to your watchlist or open its full conviction breakdown without leaving the 3D view.",
 			"link": "/pump-visualizer",
+			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "update",
+			"title": "Activity: Outcome filter on agent trade feed",
+			"summary": "The Oracle agent activity feed now has a Win / Loss / Open outcome filter alongside the existing tier and mode filters. Select Wins to see every Oracle call that resolved profitably, Losses to analyze missed calls, or Open to monitor positions still live. Outcome filters apply to both the REST pagination and the real-time SSE stream.",
+			"link": "/activity",
 			"tags": [
 				"improvement"
 			]
