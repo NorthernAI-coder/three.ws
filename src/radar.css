@@ -268,6 +268,16 @@
 .rc-detail:active { transform: translateY(1px); }
 .rc-detail:focus-visible { outline: var(--focus-ring-width) solid var(--focus-ring-color); outline-offset: 2px; }
 
+.rc-watch {
+	font-size: var(--text-md); line-height: 1; padding: var(--space-2xs) var(--space-xs);
+	background: var(--surface-2); border: 1px solid var(--stroke); border-radius: var(--radius-md);
+	color: var(--ink-dim); cursor: pointer;
+	transition: color var(--duration-fast), border-color var(--duration-fast);
+}
+.rc-watch.rc-watched { color: var(--accent, #7c83ff); border-color: var(--accent, #7c83ff); }
+.rc-watch:hover { color: var(--ink-bright); border-color: var(--stroke-strong); }
+.rc-watch:focus-visible { outline: var(--focus-ring-width) solid var(--focus-ring-color); outline-offset: 2px; }
+
 /* ── skeleton ─────────────────────────────────────────────────────────────── */
 .radar-card--skeleton { cursor: default; pointer-events: none; gap: var(--space-md); }
 .sk {
