@@ -363,7 +363,7 @@ const STYLES = `
 .csc-mcap { font-weight: 600; }
 .csc-grad { font-size: 11px; padding: 1px 7px; border-radius: 999px; background: rgba(120,140,255,0.14); color: rgba(190,200,255,0.95); }
 .csc-grad-done { background: rgba(120,200,140,0.16); color: rgba(170,235,190,0.95); }
-.csc-buy { color: var(--accent, #7c83ff); text-decoration: none; font-weight: 600; transition: opacity .15s; }
+.csc-buy { position: relative; z-index: 2; color: var(--accent, #7c83ff); text-decoration: none; font-weight: 600; transition: opacity .15s; }
 .csc-buy:hover { opacity: .8; }
 .csc-buy:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; border-radius: 4px; }
 
@@ -390,7 +390,7 @@ const STYLES = `
 .csc-card-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .csc-card-foot:empty { display: none; }
 
-.csc-conviction { display: flex; align-items: center; gap: 8px; padding: 6px 0 2px; }
+.csc-conviction { position: relative; z-index: 2; display: flex; align-items: center; gap: 8px; padding: 6px 0 2px; }
 .csc-cv-pill { display: inline-flex; align-items: center; font-size: 11px; font-weight: 700;
 	letter-spacing: .06em; padding: 3px 9px; border-radius: 999px; border: 1px solid;
 	transition: opacity .2s; white-space: nowrap; }

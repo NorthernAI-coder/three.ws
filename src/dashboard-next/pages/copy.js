@@ -116,6 +116,28 @@ function subRow(s) {
 	</div>`;
 }
 
+function earningsSection(earnings) {
+	const items = (earnings && earnings.items) || [];
+	const owing = items.filter((i) => i.fee_sol > 0);
+	if (!owing.length) return '';
+	const total = Number(earnings.total_fee_owed_sol) || 0;
+	const rows = owing.map((i) => `
+		<div class="cp-item">
+			<img class="cp-av" src="${esc(i.leader_image || '/favicon.ico')}" alt="" onerror="this.style.visibility='hidden'" />
+			<div class="cp-mid">
+				<div class="cp-title">${esc(i.leader_name || 'trader')}</div>
+				<div class="cp-sub">${fmtSol(i.cumulative_profit_sol)} profit copied · ${(i.perf_fee_bps / 100).toFixed(0)}% fee</div>
+			</div>
+			<div class="cp-side"><span class="cp-amt">${fmtSol(i.fee_sol)}</span></div>
+		</div>`).join('');
+	return `
+		<section class="cp-sec">
+			<div class="cp-sec-h"><h2>Performance fees</h2><span class="cp-count">${fmtSol(total)}</span></div>
+			<p class="cp-note">Leaders earn a performance fee on the profit you make copying them — charged only on gains above your prior peak, never on losses. Settle in $THREE from your agent wallet; 80% goes to the trader, the rest funds buybacks and reflects to $THREE holders.</p>
+			<div>${rows}</div>
+		</section>`;
+}
+
 function historyRow(e) {
 	const status = e.status;
 	const label = status === 'skipped' ? (SKIP_LABEL[e.skip_reason] || 'Skipped') : status[0].toUpperCase() + status.slice(1);
@@ -131,12 +153,13 @@ function historyRow(e) {
 }
 
 async function loadAndRender(host) {
-	let subs, pending, history;
+	let subs, pending, history, earnings;
 	try {
-		[subs, pending, history] = await Promise.all([
+		[subs, pending, history, earnings] = await Promise.all([
 			get('/api/copy/subscriptions').then((r) => r.subscriptions || []),
 			get('/api/copy/executions?status=pending').then((r) => r.executions || []),
 			get('/api/copy/executions?status=all&limit=40').then((r) => r.executions || []),
+			get('/api/copy/earnings').then((r) => r).catch(() => ({ items: [], total_fee_owed_sol: 0 })),
 		]);
 	} catch {
 		host.innerHTML = `<div class="cp-sec"><div class="cp-empty">Couldn't load your copies. <button class="cp-btn" id="cp-reload">Retry</button></div></div>`;
@@ -158,6 +181,8 @@ async function loadAndRender(host) {
 				<div class="cp-sec-h"><h2>Your copies</h2><span class="cp-count">${subs.filter((s) => s.status !== 'stopped').length}</span></div>
 				<div id="cp-subs">${subs.filter((s) => s.status !== 'stopped').length ? subs.filter((s) => s.status !== 'stopped').map(subRow).join('') : `<div class="cp-empty">You're not copying anyone yet. <a href="/leaderboard" style="color:var(--nxt-accent)">Find a trader →</a></div>`}</div>
 			</section>
+
+			${earningsSection(earnings)}
 
 			<section class="cp-sec">
 				<div class="cp-sec-h"><h2>History</h2><span class="cp-count">${hist.length}</span></div>

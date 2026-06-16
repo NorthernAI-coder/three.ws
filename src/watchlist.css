@@ -141,7 +141,7 @@ body {
 	outline: var(--focus-ring-width) solid var(--focus-ring-color);
 	outline-offset: -2px;
 }
-.wl-market { position: relative; z-index: 0; }
+.wl-market { position: relative; }
 
 .wl-remove {
 	position: absolute;
