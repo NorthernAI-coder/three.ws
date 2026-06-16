@@ -95,6 +95,11 @@ export const NAV_GROUPS = [
 				desc: 'Mint a coin for your agent on pump.fun',
 			},
 			{
+				title: 'Launchpad Studio',
+				href: '/launchpad',
+				desc: 'Build a white-label hosted launchpad page in minutes',
+			},
+			{
 				title: 'Coin Intelligence',
 				href: '/coin-intel',
 				badge: 'New',

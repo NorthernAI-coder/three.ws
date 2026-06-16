@@ -492,6 +492,7 @@ import { mplCore, create, ruleSet, updatePlugin, update, fetchAsset, fetchCollec
 import { generateSigner, publicKey as umiPublicKey, signerIdentity, createNoopSigner } from '@metaplex-foundation/umi';
 import bs58 from 'bs58';
 import { limits as _limits } from '../../_lib/rate-limit.js';
+import { mplAgentIdentity, getAgentIdentityV2AccountDataSerializer, findAgentIdentityV1Pda } from '@metaplex-foundation/mpl-agent-registry';
 
 const BASE58_RE = /^[1-9A-HJ-NP-Za-km-z]+$/;
 const VANITY_FREE_THRESHOLD = 5;
@@ -1059,4 +1060,102 @@ export const handleReputationHistory = wrap(async (req, res) => {
 	});
 
 	return json(res, 200, { agent: asset, network, days, series });
+});
+
+// ── solana-registration-card ──────────────────────────────────────────────────
+// Resolves an asset pubkey → Metaplex Agent Registry registration card JSON.
+//
+// Resolution chain:
+//   1. On-chain identity PDA: if agentRegistrationUri is present —
+//      - data: URI  → decode base64 payload, return inline as application/json
+//      - https: URI → 302 redirect so callers always get the live card
+//   2. DB lookup by sol_mint_address: redirect to /api/agents/{id}/registration
+//      (the platform's stable, mutable endpoint for this agent)
+//   3. 404 with a clear description of what was tried
+//
+// Note: the current on-chain program (mpl-agent-registry v0.2.5) stores only
+// a membership marker in the identity PDA; agentRegistrationUri is not persisted
+// in the account bytes (confirmed by reading 104-byte V2 accounts for all
+// tested assets). Step 2 is therefore the primary resolution path today.
+
+export const handleRegistrationCard = wrap(async (req, res) => {
+	if (cors(req, res, { methods: 'GET,OPTIONS', origins: '*' })) return;
+	if (!method(req, res, ['GET'])) return;
+
+	const url = new URL(req.url, `http://${req.headers.host}`);
+	const asset = url.searchParams.get('asset');
+	if (!asset) return error(res, 400, 'validation_error', 'asset query param required');
+	try { new PublicKey(asset); } catch { return error(res, 400, 'validation_error', 'invalid asset pubkey'); }
+
+	const network = url.searchParams.get('network') === 'devnet' ? 'devnet' : 'mainnet';
+	const rpcUrl = network === 'devnet'
+		? (process.env.SOLANA_RPC_URL_DEVNET || 'https://api.devnet.solana.com')
+		: (process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com');
+
+	const origin = env.APP_ORIGIN;
+
+	// ── Step 1: on-chain identity PDA ────────────────────────────────────────
+	let pdaUri = null;
+	try {
+		const umi = createUmi(rpcUrl).use(mplCore()).use(mplAgentIdentity());
+		const assetPk = umiPublicKey(asset);
+		const [pdaAddr] = findAgentIdentityV1Pda(umi, { asset: assetPk });
+		const acct = await umi.rpc.getAccount(pdaAddr).catch(() => null);
+		if (acct?.exists && acct.data?.length) {
+			const ser = getAgentIdentityV2AccountDataSerializer();
+			const [parsed] = ser.deserialize(acct.data, 0);
+			// The current program version does not write agentRegistrationUri into
+			// the account, so this will be absent for all existing assets. The
+			// check is here for forward-compatibility when the program is upgraded.
+			if (parsed?.agentRegistrationUri) pdaUri = parsed.agentRegistrationUri;
+		}
+	} catch { /* RPC or deserialize failure — fall through to DB */ }
+
+	if (pdaUri) {
+		if (pdaUri.startsWith('data:')) {
+			// Decode inline registration document and return it as JSON.
+			try {
+				const [meta, b64] = pdaUri.slice('data:'.length).split(',', 2);
+				if (!b64) return error(res, 502, 'bad_data_uri', 'malformed data: URI in identity PDA');
+				const encoding = meta.includes('base64') ? 'base64' : 'utf8';
+				const raw = encoding === 'base64' ? Buffer.from(b64, 'base64').toString('utf8') : decodeURIComponent(b64);
+				const doc = JSON.parse(raw);
+				return json(res, 200, doc, {
+					'cache-control': 'public, max-age=3600',
+					'access-control-allow-origin': '*',
+					'x-registration-source': 'onchain-data-uri',
+					'x-asset': asset,
+				});
+			} catch {
+				return error(res, 502, 'bad_data_uri', 'failed to decode data: URI from identity PDA');
+			}
+		}
+		if (pdaUri.startsWith('https://') || pdaUri.startsWith('http://')) {
+			res.setHeader('access-control-allow-origin', '*');
+			res.setHeader('x-registration-source', 'onchain-https-uri');
+			res.setHeader('x-asset', asset);
+			res.writeHead(302, { Location: pdaUri });
+			res.end();
+			return;
+		}
+	}
+
+	// ── Step 2: DB lookup by sol_mint_address ────────────────────────────────
+	const [agent] = await sql`
+		select id from agent_identities
+		where (meta->>'sol_mint_address') = ${asset} and deleted_at is null
+		limit 1
+	`;
+	if (agent) {
+		const registrationUrl = `${origin}/api/agents/${agent.id}/registration`;
+		res.setHeader('access-control-allow-origin', '*');
+		res.setHeader('x-registration-source', 'db-registration-endpoint');
+		res.setHeader('x-asset', asset);
+		res.writeHead(302, { Location: registrationUrl });
+		res.end();
+		return;
+	}
+
+	// ── Step 3: not found ────────────────────────────────────────────────────
+	return error(res, 404, 'not_found', `no registration card found for asset ${asset} — identity PDA has no agentRegistrationUri and asset is not registered on three.ws`);
 });
