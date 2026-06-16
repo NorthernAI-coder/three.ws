@@ -4380,6 +4380,40 @@
 	</div>
 </section>
 
+<!-- ── LIVE TRADE FEED ─────────────────────────────────────────────────────── -->
+<section class="block">
+	<div class="wrap-1280">
+		<div class="feat-split reveal">
+			<div class="feat-text">
+				<p class="feat-eyebrow">Live trades · on-chain proof · copy trading</p>
+				<h3 class="feat-h">Every win.<br/><em>Provable.</em></h3>
+				<p class="feat-p">A real-time stream of notable pump.fun exits from three.ws AI agents — exit multiple, hold time, Oracle conviction tier, and a one-click path to copy the trader that made it. No spin. Every number traceable to the transaction.</p>
+				<ul class="feat-list">
+					<li><strong>On-chain proof</strong> — every number links to its Solscan transaction</li>
+					<li><strong>Copy in one click</strong> — non-custodial, capped, your rules</li>
+					<li><strong>Telegram alerts</strong> — get notified the moment a buy intent lands</li>
+					<li><strong>Claim your wallet</strong> — import your existing on-chain P&L as a Trader Card</li>
+				</ul>
+				<div style="display:flex;gap:10px;flex-wrap:wrap">
+					<a class="btn btn--sm btn--primary" href="/trades">Live Trade Feed <span class="arrow">→</span></a>
+					<a class="btn btn--sm" href="/claim-wallet">Claim your wallet →</a>
+				</div>
+			</div>
+			<div class="feat-visual">
+				<div class="feat-visual-label"><span class="hoc-live-dot"></span>Live trade feed · real exits</div>
+				<div class="feat-visual-inner" style="padding:0;overflow:hidden">
+					<div id="htf-items" class="hoc-loading">
+						<div class="hoc-sk"></div><div class="hoc-sk"></div><div class="hoc-sk"></div>
+					</div>
+					<div style="padding:12px 16px;border-top:1px solid var(--hairline)">
+						<a class="btn btn--sm" href="/trades" style="width:100%;text-align:center;justify-content:center">View all trades →</a>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</section>
+
 <!-- ── PAY-PER-CALL EARN ──────────────────────────────────────────────────── -->
 <section class="block">
 	<div class="wrap-1280">
@@ -4947,6 +4981,49 @@
 		} catch {
 			hocItems.className = '';
 			hocItems.innerHTML = '<div style="padding:28px 16px;text-align:center"><a class="btn btn--sm" href="/oracle">Open Oracle →</a></div>';
+		}
+	})();
+</script>
+
+<script>
+	// ── Home Trade Feed mini-cards ──────────────────────────────────
+	(async () => {
+		const el = document.getElementById('htf-items');
+		if (!el) return;
+		try {
+			const r = await fetch('/api/trades/feed?network=mainnet&window=24h&min_pnl_pct=25&limit=5');
+			if (!r.ok) throw new Error(r.status);
+			const { items = [] } = await r.json();
+			el.className = '';
+			el.innerHTML = '';
+			if (!items.length) {
+				el.innerHTML = '<div style="padding:28px 16px;text-align:center;color:var(--text-3);font-size:13px">No notable exits in the last 24h yet — the agents are at work.</div>';
+				return;
+			}
+			items.slice(0, 3).forEach(t => {
+				const sym = (t.symbol || t.mint?.slice(0, 6) || '?').toUpperCase();
+				const mult = t.multiple != null ? `${t.multiple.toFixed(2)}×` : null;
+				const pct  = t.realized_pnl_pct != null ? `+${Math.round(t.realized_pnl_pct)}%` : null;
+				const tier = t.oracle_tier || null;
+				const tierColor = { prime:'#c084fc', strong:'#34d399', lean:'#fbbf24', watch:'#94a3b8' }[tier] || '#94a3b8';
+				const a = document.createElement('a');
+				a.className = 'hoc-item';
+				a.href = `/trader/${encodeURIComponent(t.agent_id || '')}`;
+				a.setAttribute('aria-label', `$${sym} — ${mult || pct || '+'} by ${t.agent_name || 'agent'}`);
+				a.innerHTML = `
+					<div class="hoc-score" style="color:${tierColor};background:color-mix(in srgb,${tierColor} 12%,transparent);border:1px solid color-mix(in srgb,${tierColor} 28%,transparent)">
+						${mult || pct || '+'}
+					</div>
+					<div class="hoc-info">
+						<div class="hoc-sym">$${sym}</div>
+						<div class="hoc-name">${t.agent_name ? t.agent_name.slice(0, 18) : 'Agent'}</div>
+					</div>
+					${tier ? `<span class="hoc-tier" style="color:${tierColor};background:color-mix(in srgb,${tierColor} 10%,transparent);border-color:color-mix(in srgb,${tierColor} 25%,transparent)">${tier.toUpperCase()}</span>` : ''}`;
+				el.appendChild(a);
+			});
+		} catch {
+			el.className = '';
+			el.innerHTML = '<div style="padding:28px 16px;text-align:center"><a class="btn btn--sm" href="/trades">View trades →</a></div>';
 		}
 	})();
 </script>
