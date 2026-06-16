@@ -418,23 +418,20 @@
 			flex-shrink: 0;
 		}
 
-		/* Nearby agents badge */
+		/* Nearby agents badge — inline next to the IRL badge in the topbar */
 		#irl-nearby-badge {
-			position: fixed;
-			top: 72px;
-			right: 16px;
-			z-index: 8;
-			background: rgba(0,0,0,0.72);
-			border: 1px solid rgba(255,255,255,0.13);
+			display: inline-flex;
+			align-items: center;
+			margin-left: 6px;
+			font-size: 10px;
+			font-weight: 700;
+			letter-spacing: 0.04em;
+			color: var(--green);
+			background: rgba(74,222,128,0.12);
+			border: 1px solid rgba(74,222,128,0.35);
 			border-radius: 999px;
-			padding: 5px 12px;
-			font-size: 12px;
-			font-weight: 600;
-			color: #34d399;
-			backdrop-filter: blur(12px);
-			-webkit-backdrop-filter: blur(12px);
-			pointer-events: none;
-			transition: opacity 0.2s;
+			padding: 2px 8px;
+			white-space: nowrap;
 		}
 		#irl-nearby-badge[hidden] { display: none; }
 
@@ -613,6 +610,7 @@
 			<span class="irl-badge-dot"></span>
 			IRL
 		</span>
+		<span id="irl-nearby-badge" hidden aria-live="polite"></span>
 	</div>
 	<button class="irl-share-btn" id="irl-share-btn" type="button" aria-label="Share">Share</button>
 </header>
@@ -686,22 +684,21 @@
 	</div>
 </footer>
 
-<!-- Nearby agents count badge (top-right, shown when GPS pins are loaded) -->
-<div id="irl-nearby-badge" hidden aria-live="polite"></div>
-
 <!-- Agent interaction bottom sheet (slides up when user taps a nearby pin label) -->
 <div id="irl-sheet" role="dialog" aria-modal="false" aria-label="Nearby agent">
 	<div class="irl-sheet-handle" aria-hidden="true"></div>
-	<div class="irl-sheet-row">
-		<span id="irl-sheet-name">Agent</span>
-		<span id="irl-sheet-dist"></span>
+	<div class="irl-sheet-header">
+		<div class="irl-sheet-meta">
+			<div class="irl-sheet-title" id="irl-sheet-name">Agent</div>
+			<div class="irl-sheet-dist" id="irl-sheet-dist"></div>
+		</div>
+		<button class="irl-sheet-close" id="irl-sheet-close" type="button" aria-label="Close">×</button>
 	</div>
 	<p id="irl-sheet-caption" hidden></p>
 	<div class="irl-sheet-actions">
-		<button id="irl-sheet-pay" class="irl-sheet-btn primary" type="button" hidden>Pay via x402</button>
-		<button id="irl-sheet-view" class="irl-sheet-btn" type="button">View agent</button>
+		<button id="irl-sheet-pay" class="irl-sheet-btn irl-sheet-btn-primary" type="button" hidden>Pay via x402</button>
+		<button id="irl-sheet-view" class="irl-sheet-btn irl-sheet-btn-secondary" type="button">View agent</button>
 	</div>
-	<button id="irl-sheet-close" type="button">Dismiss</button>
 </div>
 
 <script type="module" src="/src/irl.js"></script>
