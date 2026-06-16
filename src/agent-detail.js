@@ -1218,6 +1218,71 @@ function renderReputation(r) {
 	card.style.display = '';
 }
 
+const TIER_EMOJI_MAP = { prime: '🟣', strong: '🔵', lean: '🟡', watch: '⚪', avoid: '🔴' };
+
+async function renderOracleTrackRecord(agentId) {
+	const card = document.getElementById('ad-trading-card');
+	if (!card || !agentId) return;
+	let data;
+	try {
+		const r = await fetch(`/api/oracle/agent-stats?agent_id=${encodeURIComponent(agentId)}&limit=8`);
+		if (!r.ok) return;
+		data = await r.json();
+	} catch { return; }
+
+	const s = data.summary;
+	if (!s || s.total === 0) return; // agent has no oracle actions — keep card hidden
+
+	card.style.display = '';
+
+	const allSim = (data.recent_actions || []).every((a) => a.mode === 'simulate');
+	const modePill = document.getElementById('ad-trade-mode-pill');
+	if (modePill && allSim) modePill.hidden = false;
+
+	const winRateEl = document.getElementById('ad-trade-winrate');
+	if (winRateEl) winRateEl.textContent = s.win_rate != null ? `${s.win_rate}%` : '—';
+
+	const wlEl = document.getElementById('ad-trade-wl');
+	if (wlEl) wlEl.textContent = `${s.wins}W / ${s.losses}L / ${s.open} open`;
+
+	const pnlEl = document.getElementById('ad-trade-pnl');
+	if (pnlEl) {
+		const pnl = s.realized_pnl_sol;
+		pnlEl.textContent = pnl != null ? `${pnl >= 0 ? '+' : ''}${Number(pnl).toFixed(4)} SOL` : '—';
+		pnlEl.className = pnl > 0 ? 'ad-trade-pnl positive' : pnl < 0 ? 'ad-trade-pnl negative' : '';
+	}
+
+	const roiEl = document.getElementById('ad-trade-roi');
+	if (roiEl) roiEl.textContent = s.roi_pct != null ? `${s.roi_pct >= 0 ? '+' : ''}${s.roi_pct}%` : '—';
+
+	const histEl = document.getElementById('ad-trade-history');
+	if (histEl) {
+		histEl.innerHTML = '';
+		for (const a of (data.recent_actions || [])) {
+			const outcome = a.outcome || 'open';
+			const tierE = TIER_EMOJI_MAP[a.tier] || '';
+			const peak = a.peak_multiple != null ? `${Number(a.peak_multiple).toFixed(1)}×` : '';
+			const pnlVal = a.realized_pnl_sol;
+			const pnlText = pnlVal != null
+				? `${pnlVal >= 0 ? '+' : ''}${Number(pnlVal).toFixed(3)} SOL`
+				: '';
+			const row = document.createElement('a');
+			row.className = 'ad-trade-row';
+			row.href = a.oracle_url || `https://three.ws/oracle?mint=${a.mint}`;
+			row.target = '_blank';
+			row.rel = 'noopener noreferrer';
+			row.innerHTML = `<span class="ad-trade-outcome ${outcome}"></span><span class="ad-trade-symbol">$${(a.symbol || '?').toUpperCase()}</span><span class="ad-trade-tier">${tierE} ${a.tier || ''}</span><span class="ad-trade-peak">${peak}</span><span class="ad-trade-pnl ${pnlVal != null && pnlVal >= 0 ? 'positive' : pnlVal != null ? 'negative' : ''}">${pnlText}</span>`;
+			histEl.appendChild(row);
+		}
+	}
+
+	const copyLink = document.getElementById('ad-trade-copy-link');
+	if (copyLink && s.wins > 0) {
+		copyLink.href = `/dashboard?tab=copy&follow=${encodeURIComponent(agentId)}`;
+		copyLink.hidden = false;
+	}
+}
+
 function renderEmbedPolicy(p) {
 	if (!p || typeof p !== 'object') return;
 	const card = document.getElementById('ad-embed-policy-card');
@@ -1831,7 +1896,7 @@ function runLoad() {
 	loadAgent(id)
 		.then(({ agent, error, notFound, redirecting }) => {
 			if (redirecting) return;
-			if (agent) return render(agent);
+			if (agent) { render(agent); renderOracleTrackRecord(agent.id); return; }
 			if (notFound) return renderNotFound(id, typeof error === 'string' ? error : '');
 			renderLoadError(error);
 		})

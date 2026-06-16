@@ -117,6 +117,36 @@ function metricsGrid(m) {
 	`;
 }
 
+// --- Oracle conviction block -------------------------------------------------
+function oracleBlock(oracle, agentId) {
+	const pnlStr = oracle.realized_pnl_sol != null
+		? `<span class="${pnlClass(oracle.realized_pnl_sol)}">${fmtSol(oracle.realized_pnl_sol)}</span>`
+		: '—';
+	const wrStr = oracle.win_rate != null
+		? `<span class="${oracle.win_rate >= 50 ? 'lb-pos' : 'lb-neg'}">${oracle.win_rate}%</span>`
+		: '—';
+	const roiStr = oracle.roi_pct != null
+		? `<span class="${pnlClass(oracle.roi_pct)}">${oracle.roi_pct > 0 ? '+' : ''}${oracle.roi_pct}%</span>`
+		: '—';
+	return `
+		<div class="tp-oracle-block">
+			<div class="tp-oracle-head">
+				<span class="tp-oracle-label">Oracle conviction</span>
+				<a class="tp-oracle-link" href="/oracle" target="_blank" rel="noopener">View live ↗</a>
+			</div>
+			<div class="tp-oracle-kpis">
+				<div class="tp-oracle-kpi"><span>Actions</span><b>${oracle.total}</b></div>
+				<div class="tp-oracle-kpi"><span>Win rate</span><b>${wrStr}</b></div>
+				<div class="tp-oracle-kpi"><span>Wins</span><b class="lb-pos">${oracle.wins}</b></div>
+				<div class="tp-oracle-kpi"><span>Losses</span><b class="lb-neg">${oracle.losses}</b></div>
+				<div class="tp-oracle-kpi"><span>Open</span><b>${oracle.open}</b></div>
+				<div class="tp-oracle-kpi"><span>Realized</span><b>${pnlStr}</b></div>
+				${oracle.roi_pct != null ? `<div class="tp-oracle-kpi"><span>ROI</span><b>${roiStr}</b></div>` : ''}
+			</div>
+			<p class="tp-oracle-note">Conviction actions are scored against ground truth — did the coin graduate? The win rate above is the engine's accuracy on this agent's calls, not wallet trades.</p>
+		</div>`;
+}
+
 // --- Trade tables ------------------------------------------------------------
 function closedRows(closed) {
 	if (!closed.length) return '<tr><td colspan="6" style="text-align:center;color:var(--ink-faint)">No closed trades in this window.</td></tr>';
@@ -200,6 +230,8 @@ function render(data) {
 		</div>
 
 		<div class="tp-metrics">${metricsGrid(m)}</div>
+
+		${data.oracle ? oracleBlock(data.oracle, a.id) : ''}
 
 		<div class="tp-curve-wrap">
 			<div class="tp-curve-head">
