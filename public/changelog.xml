@@ -127,6 +127,14 @@
 			<description>Oracle now runs on a serverless cron that fires every two minutes: it scores the latest pump.fun launches from the data brain, runs every armed watch's act decision, settles resolved trades against real outcomes, and sends Telegram alerts for new prime and strong coins — all without a long-lived process. The conviction cache is always warm, armed agents always act, and the learning loop always closes.</description>
 		</item>
 		<item>
+			<title>Oracle copy trading — conviction buys now fan out to copy subscribers</title>
+			<link>https://three.ws/trader</link>
+			<guid isPermaLink="false">2026-06-16:Oracle copy trading — conviction buys now fan out to copy subscribers</guid>
+			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Copy subscribers now receive intents from Oracle conviction buys, not just sniper engine positions. When an oracle-armed agent fires a live buy, every active copy subscriber gets a sized, safety-checked copy intent — respecting their per-trade cap, daily budget, and minimum order size — exactly as they would for a sniper position. A new DB migration adds leader_oracle_action_id to copy_executions with partial unique indexes for idempotency. Simulated oracle actions are excluded; only mode=live fills fan out.</description>
+		</item>
+		<item>
 			<title>Oracle fires Telegram alerts for prime and strong conviction coins</title>
 			<link>https://three.ws/oracle</link>
 			<guid isPermaLink="false">2026-06-16:Oracle fires Telegram alerts for prime and strong conviction coins</guid>
@@ -149,6 +157,14 @@
 			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>The Oracle's Narrative pillar now receives real-time social signal from X. When a coin's $SYMBOL is mentioned in a tweet, the post's reach and engagement — views, likes, retweets — translate into a virality boost that raises the Oracle's conviction score. KOL accounts (verified smart-money voices on X) apply a 1.5× multiplier. The POST /api/oracle/social endpoint accepts raw tweet batches from any scraper, and the three.surf chart tool ships a --push-social flag that pipes its tweet analysis directly into the Oracle after each run.</description>
+		</item>
+		<item>
+			<title>Pump Dashboard: live Oracle conviction panel on the main trading desk</title>
+			<link>https://three.ws/pump-dashboard</link>
+			<guid isPermaLink="false">2026-06-16:Pump Dashboard: live Oracle conviction panel on the main trading desk</guid>
+			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>The Pump Dashboard now has a High Conviction panel alongside the live feed — showing the top 5 Oracle-scored coins (score ≥ 60) with their tier badge, 4-pillar bars, and a link to the Oracle drawer. The panel auto-refreshes every 90 seconds and pulses with a live indicator. Clicking any coin opens the full conviction breakdown.</description>
 		</item>
 		<item>
 			<title>Rich OG cards on every shared coin link — price, score, and live status in the preview</title>

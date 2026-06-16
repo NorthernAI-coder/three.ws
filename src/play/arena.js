@@ -270,12 +270,12 @@ async function openAgentDrawer(id) {
 	drawerAbort = new AbortController();
 	try {
 		const r = await fetch(`/api/sniper/trader?agent_id=${encodeURIComponent(id)}&network=${NETWORK}&window=all`, { signal: drawerAbort.signal });
-		if (!r.ok) throw new Error(r.status === 404 ? ‘This trader isn’t public yet.’ : `HTTP ${r.status}`);
+		if (!r.ok) throw new Error(r.status === 404 ? "This trader isn't public yet." : `HTTP ${r.status}`);
 		renderAgentDrawer(await r.json(), id);
 		enrichDrawerWithOracle(id);
 	} catch (e) {
-		if (e.name === ‘AbortError’) return;
-		body.innerHTML = `<div class="dw-empty"><b>Couldn’t load this trader</b>${esc(e.message)}<br/><a href="/trader/${encodeURIComponent(id)}" target="_blank" rel="noopener">Open full profile ↗</a></div>`;
+		if (e.name === 'AbortError') return;
+		body.innerHTML = `<div class="dw-empty"><b>Couldn't load this trader</b>${esc(e.message)}<br/><a href="/trader/${encodeURIComponent(id)}" target="_blank" rel="noopener">Open full profile ↗</a></div>`;
 	}
 }
 
@@ -286,38 +286,38 @@ async function enrichDrawerWithOracle(id) {
 		const data = await r.json();
 		const s = data.summary;
 		if (!s || s.total === 0) return;
-		const body = $(‘drawerBody’);
+		const body = $('drawerBody');
 		if (!body) return;
-		const cta = body.querySelector(‘.dw-cta’);
+		const cta = body.querySelector('.dw-cta');
 		if (!cta) return;
 
 		const wrVal = s.win_rate;
-		const wrClass = wrVal >= 50 ? ‘up’ : ‘down’;
-		const wr = wrVal != null ? `<b class="${wrClass}">${wrVal}%</b>` : ‘<b>—</b>’;
+		const wrClass = wrVal >= 50 ? 'up' : 'down';
+		const wr = wrVal != null ? `<b class="${wrClass}">${wrVal}%</b>` : '<b>—</b>';
 		const pnlVal = s.realized_pnl_sol;
-		const pnlClass = pnlVal >= 0 ? ‘up’ : ‘down’;
-		const pnlPrefix = pnlVal >= 0 ? ‘+’ : ‘’;
+		const pnlClass = pnlVal >= 0 ? 'up' : 'down';
+		const pnlPrefix = pnlVal >= 0 ? '+' : '';
 		const pnlStr = pnlVal != null
 			? `<b class="${pnlClass}">${pnlPrefix}${Number(pnlVal).toFixed(3)}</b>`
-			: ‘<b>—</b>’;
-		const openStr = s.open > 0 ? ` · ${s.open} open` : ‘’;
+			: '<b>—</b>';
+		const openStr = s.open > 0 ? ` · ${s.open} open` : '';
 
 		const actions = (data.recent_actions || []).slice(0, 5);
 		const actionsHtml = actions.map((a) => {
-			const outcome = a.outcome || ‘open’;
-			const tier = a.tier || ‘’;
-			const peak = a.peak_multiple != null ? `${Number(a.peak_multiple).toFixed(1)}×` : ‘—‘;
+			const outcome = a.outcome || 'open';
+			const tier = a.tier || '';
+			const peak = a.peak_multiple != null ? `${Number(a.peak_multiple).toFixed(1)}×` : '—';
 			const sym = esc((a.symbol || a.mint.slice(0, 6)).toUpperCase());
-			const peakCls = (a.peak_multiple ?? 0) >= 2 ? ‘ up’ : ‘’;
+			const peakCls = (a.peak_multiple ?? 0) >= 2 ? ' up' : '';
 			return `<a class="dw-oracle-action" href="/oracle?mint=${encodeURIComponent(a.mint)}" target="_blank" rel="noopener">
 				<span class="dw-oracle-dot ${outcome}"></span>
 				<span class="dw-oracle-sym">${sym}</span>
 				<span class="dw-oracle-tier">${tier}</span>
 				<span class="dw-oracle-peak${peakCls}">${peak}</span>
 			</a>`;
-		}).join(‘’);
+		}).join('');
 
-		const block = document.createElement(‘div’);
+		const block = document.createElement('div');
 		block.innerHTML = `
 			<div class="dw-oracle-h">Oracle conviction</div>
 			<div class="dw-oracle-kpis">
@@ -325,7 +325,7 @@ async function enrichDrawerWithOracle(id) {
 				<div class="dw-oracle-kpi"><span>Win rate</span>${wr}</div>
 				<div class="dw-oracle-kpi"><span>Realized</span>${pnlStr}</div>
 			</div>
-			${actions.length > 0 ? `<div class="dw-oracle-actions">${actionsHtml}</div>` : ‘’}
+			${actions.length > 0 ? `<div class="dw-oracle-actions">${actionsHtml}</div>` : ''}
 		`;
 		body.insertBefore(block, cta);
 	} catch { /* non-fatal */ }

@@ -96,6 +96,35 @@
 			#pd-market-chart {
 				cursor: crosshair;
 			}
+			/* Oracle conviction panel */
+			.pd-oracle-live-dot {
+				display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+				background: #a07bff; margin-left: 6px; vertical-align: middle;
+				box-shadow: 0 0 0 0 rgba(160,123,255,.4);
+				animation: pd-oracle-pulse 2.4s ease-out infinite;
+			}
+			@keyframes pd-oracle-pulse {
+				0% { box-shadow: 0 0 0 0 rgba(160,123,255,.45); }
+				70% { box-shadow: 0 0 0 7px rgba(160,123,255,0); }
+				100% { box-shadow: 0 0 0 0 rgba(160,123,255,0); }
+			}
+			.pd-oracle-feed { display: flex; flex-direction: column; gap: 1px; background: var(--line, rgba(255,255,255,.07)); max-height: 360px; overflow-y: auto; }
+			.pd-oracle-item { display: grid; grid-template-columns: 44px 1fr auto; align-items: center; gap: 10px; padding: 10px 14px; background: var(--surface-0, #0d0f14); text-decoration: none; color: inherit; transition: background .15s; }
+			.pd-oracle-item:hover { background: rgba(255,255,255,.04); }
+			.pd-oracle-score-col { display: flex; flex-direction: column; align-items: center; line-height: 1; }
+			.pd-oracle-score-num { font: 800 18px/1 var(--font-mono, monospace); }
+			.pd-oracle-score-label { font-size: 8px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted, #888); margin-top: 2px; }
+			.pd-oracle-info { min-width: 0; }
+			.pd-oracle-sym { font-weight: 700; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+			.pd-oracle-name { font-size: 11px; color: var(--muted, #888); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+			.pd-oracle-pillars { display: flex; gap: 3px; margin-top: 4px; }
+			.pd-oracle-bar { width: 28px; height: 3px; border-radius: 99px; background: rgba(255,255,255,.1); overflow: hidden; }
+			.pd-oracle-bar-fill { height: 100%; border-radius: 99px; }
+			.pd-oracle-tier-badge { font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; padding: 2px 7px; border-radius: 99px; border: 1px solid; flex-shrink: 0; align-self: flex-start; }
+			.pd-oracle-empty { padding: 24px 14px; text-align: center; color: var(--muted, #888); font-size: 12.5px; }
+			.pd-oracle-empty a { color: var(--accent, #7c83ff); }
+			.pd-oracle-sk { height: 60px; background: linear-gradient(90deg, rgba(255,255,255,.03) 25%, rgba(255,255,255,.06) 37%, rgba(255,255,255,.03) 63%); background-size: 400% 100%; animation: pd-sk 1.4s infinite; border-bottom: 1px solid var(--line, rgba(255,255,255,.07)); }
+			@keyframes pd-sk { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
 		</style>
 
 		<meta name="twitter:card" content="summary_large_image" />
@@ -552,6 +581,21 @@
 											transform: translate(-50%, -120%);
 										"
 									></div>
+								</div>
+							</div>
+						</div>
+
+						<div class="pd-panel pd-mod-6">
+							<div class="pd-panel-head">
+								<h2>High conviction <span class="pd-oracle-live-dot" aria-hidden="true"></span></h2>
+								<div class="pd-spacer"></div>
+								<a class="pd-btn pd-btn-sm" href="/oracle" style="font-size:11px">Oracle →</a>
+							</div>
+							<div class="pd-panel-body no-pad">
+								<div id="pd-oracle-feed" class="pd-oracle-feed">
+									<div class="pd-oracle-sk"></div>
+									<div class="pd-oracle-sk"></div>
+									<div class="pd-oracle-sk"></div>
 								</div>
 							</div>
 						</div>
@@ -4777,6 +4821,71 @@
 				state.monitorInterval = setInterval(pollMonitorStats, 10000);
 				setInterval(updateUptime, 1000);
 			});
+		</script>
+
+		<script>
+		(function() {
+			const TIER_META = {
+				prime:   { color: '#c084fc', bg: 'rgba(192,132,252,.14)', label: 'PRIME' },
+				strong:  { color: '#34d399', bg: 'rgba(52,211,153,.12)',  label: 'STRONG' },
+				lean:    { color: '#fbbf24', bg: 'rgba(251,191,36,.12)',  label: 'LEAN' },
+				watch:   { color: '#94a3b8', bg: 'rgba(148,163,184,.1)', label: 'WATCH' },
+				avoid:   { color: '#f87171', bg: 'rgba(248,113,113,.12)', label: 'AVOID' },
+			};
+			const PILLAR_COLORS = { pedigree: '#5fe3ff', structure: '#34d399', narrative: '#a07bff', momentum: '#fbbf24' };
+			const esc = s => String(s ?? '').replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+
+			function renderOracleFeed(coins) {
+				const el = document.getElementById('pd-oracle-feed');
+				if (!el) return;
+				if (!coins || coins.length === 0) {
+					el.innerHTML = `<div class="pd-oracle-empty">No high-conviction coins right now — <a href="/oracle">explore Oracle →</a></div>`;
+					return;
+				}
+				el.innerHTML = coins.slice(0, 5).map(c => {
+					const cv = c.conviction || {};
+					const tier = cv.tier || 'watch';
+					const meta = TIER_META[tier] || TIER_META.watch;
+					const score = Math.round(Number(cv.score ?? 0));
+					const pillars = cv.pillars || {};
+					const pillarHtml = ['pedigree', 'structure', 'narrative', 'momentum'].map(k => {
+						const v = Math.round(Number(pillars[k] ?? 0));
+						return `<div class="pd-oracle-bar" title="${k}: ${v}"><div class="pd-oracle-bar-fill" style="width:${v}%;background:${PILLAR_COLORS[k]}"></div></div>`;
+					}).join('');
+					const sym = esc((c.symbol || '').toUpperCase() || (c.mint || '').slice(0, 6));
+					const name = esc(c.name || '');
+					return `<a class="pd-oracle-item" href="/oracle?mint=${encodeURIComponent(c.mint)}" target="_blank" rel="noopener">
+						<div class="pd-oracle-score-col" style="color:${meta.color}">
+							<span class="pd-oracle-score-num">${score}</span>
+							<span class="pd-oracle-score-label">score</span>
+						</div>
+						<div class="pd-oracle-info">
+							<div class="pd-oracle-sym">$${sym}</div>
+							${name ? `<div class="pd-oracle-name">${name}</div>` : ''}
+							<div class="pd-oracle-pillars">${pillarHtml}</div>
+						</div>
+						<span class="pd-oracle-tier-badge" style="color:${meta.color};background:${meta.bg};border-color:${meta.color}40">${meta.label}</span>
+					</a>`;
+				}).join('');
+			}
+
+			async function loadOracleFeed() {
+				try {
+					const r = await fetch('/api/oracle/feed?network=mainnet&limit=5&min_score=60');
+					if (!r.ok) throw new Error();
+					const d = await r.json();
+					renderOracleFeed(d.coins || []);
+				} catch {
+					const el = document.getElementById('pd-oracle-feed');
+					if (el) el.innerHTML = `<div class="pd-oracle-empty"><a href="/oracle">Open Oracle →</a></div>`;
+				}
+			}
+
+			document.addEventListener('DOMContentLoaded', () => {
+				loadOracleFeed();
+				setInterval(loadOracleFeed, 90_000);
+			});
+		})();
 		</script>
 
 		<script src="/footer.js" defer></script>
