@@ -18,7 +18,7 @@ async function armedWatches(network) {
 	return sql`
 		select w.agent_id, w.user_id, w.network, w.armed, w.mode, w.min_score, w.min_tier,
 		       w.categories, w.per_trade_sol, w.max_daily_sol, w.max_open, w.require_smart_money,
-		       a.name as agent_name
+		       w.size_scaling, a.name as agent_name
 		from oracle_agent_watch w
 		join agent_identities a on a.id = w.agent_id and a.deleted_at is null
 		where w.armed = true and w.network = ${network}
