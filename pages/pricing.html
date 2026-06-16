@@ -891,11 +891,12 @@
 				});
 			});
 
-			const clock = new THREE.Clock();
+			const timer = new THREE.Timer();
 			(function tick() {
 				requestAnimationFrame(tick);
 				try {
-					const dt = Math.min(clock.getDelta(), 0.05);
+					timer.update();
+					const dt = Math.min(timer.getDelta(), 0.05);
 					mixer?.update(dt);
 					if (phase === 'walking' && avatar && walkStart && walkEnd) {
 						walkT += dt;

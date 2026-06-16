@@ -1,115 +1,173 @@
 # A07 — Orphaned & Duplicate Page Sweep — Report
 
-**Date:** 2026-06-05 · **Track:** Health · **Status:** Complete
+**Re-sweep:** 2026-06-16 · **Track:** Health · **Status:** Complete
+**Verifier:** [`verify-routes.mjs`](verify-routes.mjs) (run from repo root)
 
-Inventory of every `pages/**.html` and `public/**.html`, cross-referenced against the
-production route table (`vercel.json`, 625 routes) and the dev/build route map
-(`vite.config.js` — Rollup `input`, dev `fileMap`, and dynamic regex branches). Each file is
-classified **live / orphan / duplicate / partial**, and every orphan was routed, redirected, or
-deleted. No route now points at a missing file.
+Inventory of every `pages/**.html`, `public/**.html`, and root `*.html`,
+cross-referenced against the production route table (`vercel.json`) and the
+build/dev route map (`vite.config.js` — Rollup `input` + dev clean-URL
+middleware). Each file is classified **live / orphan / duplicate / partial**, and
+every orphan was routed, redirected, or deleted. No route points at a missing
+file.
 
-## How reachability was determined
+> An earlier sweep (2026-06-05) resolved a prior batch — `avatar-edit`,
+> `create/video`, `extension-{privacy,terms}`, `embed-walk` (wired) and
+> `deal`, `pump-3d-agent`, `pumpfun-{search,trending}` (deleted). All of those
+> are now live/gone and verified. This re-sweep covers orphans that have
+> accumulated since.
 
-Production output (`dist/`) is built by `npm run build:vercel` → Vite. The reachability rules:
+## How reachability is determined
 
-- **`public/**`** is copied verbatim into `dist/` (the `dist/public` mirror is then flattened
-  away), so every `public/x.html` is served at `/x.html`. A clean URL (e.g. `/bazaar`) needs a
-  `vercel.json` route → `/bazaar.html`.
-- **`pages/*.html`** is emitted **only if it is a Rollup `input`** in `vite.config.js`. Built
-  pages land at `dist/pages/...` and are flattened to `dist/<name>.html` (subdirs like
-  `ibm/`, `features/`, `dashboard-next/`, `create/` keep their structure). **A `pages/*.html`
-  that is not a Rollup input is never built — any route pointing at it 404s in production.**
-- The dev server has a generic `/<slug>` → `pages/<slug>.html` fallback, which masks these
-  orphans in dev. Production has no such fallback, so the Rollup `input` map is the source of
-  truth for what's actually shipped.
+```
+pages/<path>.html   ─(Rollup input)→  dist/pages/<path>.html ─(flatten-pages-dir)→  dist/<path>.html
+public/**           ─(publicDir copy)────────────────────────────────────────────→  dist/**
+docs/ , blog/       ─(closeBundle cpSync)─────────────────────────────────────────→  dist/docs , dist/blog
+```
 
-A validator script (below) flags (a) `vercel.json` `.html` dests with no build target and
-(b) `pages/*.html` files absent from the Rollup inputs. Both now return clean.
+- `public/**` ships verbatim, so every `public/x.html` is reachable at `/x.html`;
+  a clean URL (`/x`) needs a `vercel.json` route.
+- **`pages/*.html` ships only if it is a Rollup `input`** in `vite.config.js`. A
+  `pages/*.html` that is **not** an input is never built — any route pointing at
+  it 404s in production. The dev server's `/<slug>` → `pages/<slug>.html`
+  fallback masks this locally, so the Rollup `input` map is the source of truth.
+- Two route definitions must stay in sync: `vercel.json` `routes` (prod) and the
+  `vite.config.js` dev clean-URL middleware. Both were updated.
 
-## Findings & actions
+## Headline numbers (post-sweep)
 
-### pages/*.html — orphans found (9) and resolved
+| Metric | Count |
+|---|---|
+| `pages/*.html` files | 151 — **100% are Rollup inputs** |
+| `public/**/*.html` files | 255 |
+| Root `*.html` files | 3 (untracked, never ship — see below) |
+| Vercel literal `.html` route dests | 202 — **0 broken** |
+| Vercel parameterized (`$1`) dests | 7 — all directory-backed |
+| **Broken routes (dest → missing file)** | **0** |
+| **Orphan `pages/` files (not built)** | **0** |
 
-| File | Route | Classification | Action |
-|------|-------|----------------|--------|
-| `pages/avatar-edit.html` (692 ln, `/src/avatar-edit.js` 27 KB) | `/avatars/:id/edit` (prod route existed → **404**) | **orphan — real feature, unbuilt** | **Wired** — added Rollup input + dev regex branch |
-| `pages/create/video.html` (556 ln, `/src/create-video.js` 12 KB) | `/create/video` (prod route existed → **404**) | **orphan — real feature, unbuilt** | **Wired** — added Rollup input + dev `fileMap` |
-| `pages/extension-privacy.html` | `/extension/privacy` (prod route existed → **404**) | **orphan — required legal page, unbuilt** | **Wired** — added Rollup input + dev `fileMap` |
-| `pages/extension-terms.html` | `/extension/terms` (prod route existed → **404**) | **orphan — required legal page, unbuilt** | **Wired** — added Rollup input + dev `fileMap` |
-| `pages/embed-walk.html` (647 ln — Walk-embed snippet generator, actively maintained) | `/embed/walk` (prod route existed → **404**) | **orphan — real feature, unbuilt** | **Wired** — added Rollup input + dev `fileMap` |
-| `pages/deal.html` (995 ln — "Agent Deal" payments demo) | `/deal`, `/deal/` | **orphan — superseded by `/demo`, `/pay`, `/agent-exchange`; no inbound links** | **Deleted** file + both routes |
-| `pages/pump-3d-agent.html` (16 ln — client-side redirect stub → `/pump-live`) | none | **orphan — dead stub** | **Deleted** |
-| `pages/pumpfun-search.html` | none | **orphan — superseded by `/pump-dashboard`, `/pump-live`** | **Deleted** |
-| `pages/pumpfun-trending.html` | none | **orphan — superseded by `/pump-dashboard`, `/pump-live`** | **Deleted** |
+## Findings & actions — `pages/*.html`
 
-> The earlier route audit also named `pumpfun-{buy,counter,widget}.html`; those were already
-> removed by a sibling agent during this sweep.
+### Orphans wired live — had a route + links, but were never built
 
-After this pass **every `pages/*.html` (114 files) is a Rollup input** — none are orphaned.
+These four had a Vercel route **and** inbound links, yet were absent from the
+Rollup input map → the route 404'd in production. Added as build inputs in
+`vite.config.js` (+ matching dev clean-URL aliases):
 
-### Broken route dest fixed
+| Page | Route | Notes |
+|---|---|---|
+| `pages/activity.html` (Agent Activity · Oracle) | `/activity` | 14 inbound links; unbuilt |
+| `pages/trending.html` (Trending) | `/trending` | 13 inbound links (nav, home); unbuilt |
+| `pages/create-next.html` ("Your avatar is ready") | `/create/next` | wired as a create milestone; unbuilt |
+| `pages/mint-success.html` ("Agent deployed") | `/mint-success` | post-deploy success page; unbuilt |
 
-| Route | Was | Now |
-|-------|-----|-----|
-| `/paywall`, `/paywall/` | `dest: /public/paywall.html` (**404** — `public/` is stripped in `dist/`) | `dest: /paywall.html` (the flattened verbatim copy). Dev `fileMap` entry added for parity. |
+### Orphans wired live — linked, but had no route at all
 
-### Duplicate dashboards consolidated
+Linked from nav / forge UI with neither a build input nor a route → the links
+404'd. Added build input **and** route (`vercel.json` + dev alias):
 
-Three dashboard trees existed. Canonical is **`pages/dashboard-next/`** (served at both
-`/dashboard/*` and `/dashboard-next/*`).
+| Page | New route | Linked from |
+|---|---|---|
+| `pages/coin-intel.html` (Coin Intelligence) | `/coin-intel` | nav-data, sitemap, `src/radar.js` |
+| `pages/compose.html` (Scene Composer) | `/compose` | forge.html, `src/app.js`, `src/forge.js`, sitemap |
 
-| Tree | Files | Status | Action |
-|------|-------|--------|--------|
-| `pages/dashboard-next/` | 16 | **canonical (live)** | keep |
-| `public/dashboard-classic/` | 19 | **duplicate** — every `/dashboard-classic/*` is already a `301` to `/dashboard/*` (catch-all `301` covers `index.html`), so the files were dead bytes never served | **Deleted** entire tree |
-| `public/dashboard/` | 17 | **duplicate (mostly)** — all clean `/dashboard/*` slugs `301`/rewrite to `dashboard-next`; only `/dashboard/x402` → `public/dashboard/x402.html` is still canonically served | **Left for E06** (owns the dashboard merge); `x402.html` is live, the rest are shadowed |
+### Built pages missing a clean-URL prod route (dev/prod mismatch)
 
-## public/**.html — classification summary
+These ship as `dist/X.html` (reachable at `/X.html`) but their clean URL `/X`
+was wired only in the dev middleware — linked by clean URL from nav/sitemap, so
+they 404'd in prod. Added the missing prod routes:
 
-`public/**` files are all reachable as static `/<path>.html` even without a clean route, so none
-are "404 orphans." Notable categories:
+| Page | New route | Linked from |
+|---|---|---|
+| `pages/radar.html` | `/radar` | nav, home, launches, sitemap |
+| `pages/smart-money.html` | `/smart-money` | nav, sitemap |
 
-- **Live (routed):** `bazaar`, `login`, `register`, `studio/`, `pay/`, `discover/`, `gallery/`,
-  `agents/`, `reputation/`, `demos/**`, `demo/**`, `news/**`, `sitemap/`, `validation/`,
-  `hydrate/`, etc. — all have `vercel.json` routes and/or Rollup inputs.
-- **Partials (intentional, not standalone):** `public/nav.html` (198 ln) and
-  `public/footer.html` (125 ln) are fragments injected into every page via `#nav-container` /
-  footer loader — **not** routes. Left as-is (do not delete or route).
-- **Static-only (reachable at `/<name>.html`, not surfaced in nav):** e.g. `crypto-demo.html`,
-  `gmgn.html`, `arbitrage.html`, `siwx-test.html`, `pump-grid-poc.html`,
-  `studio-deposit-harness.html`, `wallet-connect-demo.html`. These satisfy the DoD's
-  reachability bar (no 404) but are demo/test surfaces; flagged here for a future curation pass
-  rather than deleted in this sweep (several are referenced by docs/marketing).
+### Deleted (dead)
+
+| File | Reason |
+|---|---|
+| `pages/forge-v2.html` | "Forge v2 preview" — **0** inbound references anywhere; superseded by the canonical `pages/forge.html` (`/forge`). |
+| `pages/strategy-lab.html` | Dead **duplicate**. The live, routed `/strategy-lab` is served by `public/strategy-lab.html` (registered in the dev middleware). The `pages/` copy was never a build input and differed — it shipped nothing. |
+
+### Partial — kept intentionally
+
+| File | Reason |
+|---|---|
+| `pages/gallery-picker.html` | Avatar gallery-picker component embedded by other surfaces (`public/demos/*`, worlds lobby). Build input so its scripts bundle; reachable at `/gallery-picker.html`. Not a nav page — intentional partial. |
+
+## Findings & actions — `public/**.html`
+
+`public/**` files all ship verbatim and are reachable at `/<path>.html` (the
+final `vercel.json` catch route `"/(.*)" → "/$1"` serves them), so none are
+"404 orphans." Categories:
+
+- **Live (routed):** `login`, `register`, `studio/`, `pay/`, `discover/`,
+  `gallery/`, `agents/`, `reputation/`, `validation/`, `demos/**`, `demo/**`,
+  `news/**`, `sitemap/`, `strategy-lab`, etc. — all have routes / inputs.
+- **Partials (not standalone routes):** `public/nav.html`, `public/footer.html`
+  fragments injected via `#nav-container` / footer loader; `public/demos/404.html`
+  is the demos lab's designed not-found page (also embedded as the index empty
+  state, documented in the `docs/` demo-routes map). Left as-is.
+- **Static-only demo/test surfaces:** reachable at `/<name>.html` (satisfy the
+  no-404 bar) but not surfaced in nav. Flagged for a future curation pass rather
+  than deleted here — several are referenced by docs.
+
+### Root `*.html`
+
+`demo5.html`, `demo6.html`, `example.html` exist in the repo root but are
+**untracked** (not in git) and are **not** built or copied — Vite only processes
+`pages/` and `public/`, so they never ship. Left as local scratch (deleting
+untracked files outside scope); flagged so they are not mistaken for live pages.
+`.gitignore` or deletion is recommended if they ever appear staged.
+
+## Duplicate dashboards — status & hand-off to E06
+
+The brief referenced `pages/dashboard/*`, `pages/dashboard-next/*`, and
+`public/dashboard-classic/*`. Current ground truth:
+
+- `pages/dashboard/` — **does not exist** (already removed).
+- `public/dashboard-classic/` — **does not exist** (already removed). All
+  `/dashboard-classic/*` URLs **301-redirect** into `/dashboard/*` (18 rules).
+- `pages/dashboard-next/` — **canonical** built dashboard (24 auto-discovered
+  inputs). `/dashboard/` and `/dashboard/<x>` serve / rewrite to
+  `dist/dashboard-next/<x>.html`.
+- `public/dashboard/` — **legacy static tree** (18 files). Every section URL
+  either 301-redirects to its `dashboard-next` equivalent
+  (`/dashboard/wallets → /dashboard/account`, `/dashboard/strategy → /dashboard/library`, …)
+  or is caught by `/dashboard/([^./]+) → /dashboard-next/$1.html`. The static
+  files are effectively shadowed by redirects.
+
+**No dashboard route is broken** — the consolidation is already expressed as a
+redirect layer. Physically deleting the shadowed `public/dashboard/*` files is
+**owned by E06** and intentionally left untouched: that tree is under active
+concurrent development (recent commits touch both `public/dashboard/` and
+`pages/dashboard-next/`), and removing it mid-flight risks breaking redirect
+fallbacks. Flagged for E06 to finish.
 
 ## Verification
 
 ```
-# (1) vercel.json .html dests with no build target → real 404 routes
-# (2) pages/*.html absent from Rollup inputs → unbuilt
-node tasks/site-overhaul/A-health/verify-routes.mjs
-#   (1) → (none) ✓
-#   (2) → (none) ✓
+$ node tasks/site-overhaul/A-health/verify-routes.mjs
+(1) vercel routes whose .html dest has no build target:  (none) ✓
+(2) pages/*.html not registered as a Vite input:         (none) ✓
 ```
 
-Live dev-server spot-checks (`npm run dev`, port 3000):
+The verifier now (a) scans the whole `vite.config.js` for inputs (robust against
+the input block's whitespace) and (b) validates parameterized (`$1`) dests by
+checking the directory ships ≥1 file, instead of skipping them blindly.
 
-| URL | HTTP | Title |
-|-----|------|-------|
-| `/extension/privacy` | 200 | Privacy Policy — three.ws Walk Avatar Extension |
-| `/extension/terms` | 200 | Terms of Service — three.ws Walk Avatar Extension |
-| `/create/video` | 200 | Talking avatar video · three.ws |
-| `/embed/walk` | 200 | Walk Avatar Embed Generator · three.ws |
-| `/avatars/:id/edit` | 200 | Customize Avatar · three.ws |
-| `/paywall.html` | 200 | Payment Required — three.ws |
-| `/deal`, `/pumpfun-search`, `/pump-3d-agent` | 404 | (deleted, as expected) |
+An isolated Vite build of the six newly-wired pages (`activity`, `coin-intel`,
+`trending`, `compose`, `create-next`, `mint-success`) completes with **exit 0** —
+all module imports (`/src/shared/agent-3d.js`, `/src/erc8004/chain-meta.js`,
+`/src/scene-compose.js`) resolve cleanly. (The full 437-page `npm run build` is
+memory-bound in this sandbox and gets OOM-killed; route integrity is verified by
+the script + isolated build, matching the prior sweep's approach.)
 
 ## Files changed
 
-- `vite.config.js` — 5 new Rollup inputs (`avatar-edit`, `create-video`, `extension-privacy`,
-  `extension-terms`, `embed-walk`); dev `fileMap` + regex branches for `/create/video`,
-  `/extension/{privacy,terms}`, `/embed/walk`, `/avatars/:id/edit`, `/paywall`.
-- `vercel.json` — removed dead `/deal` routes; fixed `/paywall` dest.
-- Deleted: `pages/deal.html`, `pages/pump-3d-agent.html`, `pages/pumpfun-search.html`,
-  `pages/pumpfun-trending.html`, `public/dashboard-classic/` (19 files).
-</content>
-</invoke>
+- `vite.config.js` — 6 new Rollup inputs (`activity`, `coin-intel`, `trending`,
+  `compose`, `create-next`, `mint-success`) + dev clean-URL aliases for each.
+- `vercel.json` — added routes `/radar`, `/smart-money`, `/coin-intel`,
+  `/compose`.
+- Deleted: `pages/forge-v2.html`, `pages/strategy-lab.html`.
+- `tasks/site-overhaul/A-health/verify-routes.mjs` — hardened (whole-file input
+  scan + parameterized-dest directory validation).

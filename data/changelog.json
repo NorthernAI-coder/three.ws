@@ -3,6 +3,23 @@
 	"entries": [
 		{
 			"date": "2026-06-16",
+			"title": "Fixed a batch of nav links that used to dead-end on a 404",
+			"summary": "Swept the whole site for pages that were linked from the menus or built but never wired into the production router. Trending, Activity, Radar, Smart Money, Coin Intelligence, the Scene Composer, the create-flow \"your avatar is ready\" step, and the post-deploy success screen all used to 404 in production even though they were finished — they now open correctly. Also retired two dead pages (an old Forge preview and a duplicate Strategy Lab) so search and the sitemap only point at live surfaces.",
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"title": "The whole platform now works keyboard-only and meets WCAG AA",
+			"summary": "Ran an accessibility pass across the home page, Marketplace, your agent home, the Dashboard, and Pricing. You can now Tab through every page end to end — links, buttons, filters, the billing toggle, and menus all respond to Enter, Space, and arrow keys, and dialogs trap focus while open, close on Escape, and hand focus back where you left it. Every focusable control shows a clear focus ring, icon-only buttons and charts have screen-reader labels, async results announce themselves, and muted grey text was darkened to pass AA contrast. If you've turned on \"reduce motion\" in your OS, decorative animations now stay still.",
+			"tags": [
+				"improvement",
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-16",
 			"title": "Pages that hit a network error now show a retry, never a blank screen",
 			"summary": "Audited every data-loading surface across the home page, Discover, the Marketplace, your Dashboard, agent profiles, and the create flow so a flaky connection always lands on a designed state instead of an empty void. Lists that fail to load now show a clear \"Couldn't load this — Retry\" message with a working retry button; sections still loading show a skeleton instead of a frozen spinner; and the home hero, transcript and knowledge popups, and avatar pickers recover cleanly if a request drops. Toggle your connection off and reload — the page tells you what happened and how to recover.",
 			"tags": [

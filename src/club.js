@@ -45,7 +45,7 @@ import {
 	SMAAEffect,
 	ToneMappingMode,
 } from 'postprocessing';
-import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
+import { HDRLoader } from 'three/addons/loaders/HDRLoader.js';
 import { clone as cloneSkinnedScene } from 'three/addons/utils/SkeletonUtils.js';
 
 import { gltfLoader } from './loaders/gltf.js';
@@ -1080,7 +1080,7 @@ async function bootstrap() {
 	setStatus('Loading club…');
 
 	const loader = gltfLoader(renderer);
-	const rgbe = new RGBELoader();
+	const rgbe = new HDRLoader();
 
 	// Load everything in parallel — the venue + HDRI are the heaviest
 	// payloads but the avatar + animation manifest + pole/stage props can

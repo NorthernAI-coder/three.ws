@@ -322,9 +322,13 @@
 		.three-signal:hover .ts-cta, .three-signal:focus-visible .ts-cta { color: var(--text); }
 		.three-signal:hover .ts-cta .ts-arrow, .three-signal:focus-visible .ts-cta .ts-arrow { transform: translateX(4px); }
 		.three-signal:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-		/* Error fallback: collapse to a single quiet "view stats" affordance. */
+		/* Error fallback: collapse to a single quiet "view stats" affordance.
+		   Hide the price/change placeholders so the leftover em-dash never
+		   renders glued to the fallback copy. */
 		.three-signal[data-state="error"] .ts-cell:not(.ts-cell--brand):not(.ts-cell--cta) { display: none; }
 		.three-signal[data-state="error"] .ts-cell--brand .ts-v { font-size: 14px; color: var(--text-2); }
+		.three-signal[data-state="error"] #ts-price,
+		.three-signal[data-state="error"] #ts-change { display: none; }
 		.three-signal[data-state="error"] .ts-err { display: inline; }
 		.ts-err { display: none; font-size: 12.5px; color: var(--text-3); margin-left: 8px; }
 		/* On narrow screens the row scrolls horizontally; hide the CTA arrow to
