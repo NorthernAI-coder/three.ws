@@ -808,43 +808,6 @@ function structurePanel(st) {
 }
 
 
-
-const TIER_COLORS = { prime: '#c084fc', strong: '#34d399', lean: '#fbbf24', watch: '#94a3b8', avoid: '#f87171' };
-
-function scoreSparkline(history) {
-	if (!Array.isArray(history) || history.length < 2) return '';
-	const W = 240; const H = 40; const PAD = 4;
-	const scores = history.map((h) => Number(h.score));
-	const times  = history.map((h) => new Date(h.scored_at).getTime());
-	const minT = times[0]; const maxT = times[times.length - 1];
-	const rangeT = maxT - minT || 1;
-	const minS = Math.max(0, Math.min(...scores) - 5);
-	const maxS = Math.min(100, Math.max(...scores) + 5);
-	const rangeS = maxS - minS || 1;
-	const px = (i) => PAD + ((times[i] - minT) / rangeT) * (W - PAD * 2);
-	const py = (i) => H - PAD - ((scores[i] - minS) / rangeS) * (H - PAD * 2);
-	const pts = scores.map((_, i) => \`\${px(i).toFixed(1)},\${py(i).toFixed(1)}\`).join(' ');
-	const lastColor = TIER_COLORS[history[history.length - 1]?.tier] || '#97a0c4';
-	const firstLabel = history[0]?.scored_at
-		? new Date(history[0].scored_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-		: '';
-	const lastLabel = history[history.length - 1]?.scored_at
-		? new Date(history[history.length - 1].scored_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-		: '';
-	return \`<div class="dr-sec">Score history <span style="color:var(--faint);font-weight:400;font-size:10px">last 72h · \${history.length} update\${history.length === 1 ? '' : 's'}</span></div>
-		<div class="score-spark">
-			<svg viewBox="0 0 \${W} \${H}" aria-hidden="true" preserveAspectRatio="none">
-				<polyline points="\${pts}" fill="none" stroke="\${lastColor}" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" opacity="0.9"/>
-				<circle cx="\${px(scores.length - 1).toFixed(1)}" cy="\${py(scores.length - 1).toFixed(1)}" r="3" fill="\${lastColor}"/>
-			</svg>
-			<div class="score-spark-labels">
-				<span>\${firstLabel}</span>
-				<span style="color:\${lastColor};font-weight:700">\${scores[scores.length - 1]}</span>
-				<span>\${lastLabel}</span>
-			</div>
-		</div>\`;
-}
-
 function renderDrawer(d) {
 	const c = d.conviction; const p = c.pillars || {};
 	$('#drTitle').innerHTML = `${esc(c.symbol || '—')} <span style="color:var(--muted);font:600 13px var(--mono)">${esc(c.name || '')}</span>`;
@@ -881,7 +844,6 @@ function renderDrawer(d) {
 		${out ? `<div class="dr-sec">Outcome</div><div class="coin-meta">
 			<span class="chip ${out.graduated ? 'sm' : out.rugged ? 'flag' : ''}">${out.graduated ? 'graduated ✓' : out.rugged ? 'rugged ✕' : 'live'}</span>
 			${out.ath_multiple ? `<span class="chip">ATH <b>${Number(out.ath_multiple).toFixed(1)}×</b></span>` : ''}</div>` : ''}
-		${scoreSparkline(d.score_history)}
 		<div class="dr-sec">Live trades</div>
 		<div id="tradeTape" class="trade-tape"></div>
 	`;
