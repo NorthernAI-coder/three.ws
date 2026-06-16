@@ -133,8 +133,6 @@ function boot() {
 		const b = e.target.closest('[data-fsort]'); if (!b) return;
 		$$('#sortSeg button').forEach((x) => x.classList.toggle('on', x === b));
 		state.sort = b.dataset.fsort; syncFilterUrl(); renderFeed();
-		if (state.sort === 'hot') loadHotSectors();
-		$('#hotSectors').style.display = state.sort === 'hot' ? '' : 'none';
 	});
 	const MINT_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 	const searchEl = $('#mintSearch');
@@ -420,12 +418,13 @@ async function loadHotSectors() {
 		const card = e.target.closest('.hs-card');
 		if (!card) return;
 		const cat = card.dataset.cat;
-		state.category = cat;
+		// Toggle: clicking the active category again deselects it.
+		state.category = state.category === cat ? '' : cat;
 		syncFilterUrl();
 		const catSel = $('#catSel');
-		if (catSel) catSel.value = cat;
+		if (catSel) catSel.value = state.category;
 		loadFeed();
-		$$('#hotSectors .hs-card').forEach((c) => c.classList.toggle('active', c === card));
+		$$('#hotSectors .hs-card').forEach((c) => c.classList.toggle('active', c === card && !!state.category));
 	});
 }
 
@@ -921,55 +920,6 @@ function edgeRow(r) {
 // ── proof / wins gallery ──────────────────────────────────────────────────────
 
 const _proofState = { tier: '', period: '30d', cursor: null, loading: false };
-
-// ── hot sectors ──────────────────────────────────────────────────────────────
-
-let _hotSectorsLoaded = false;
-
-async function loadHotSectors(force = false) {
-	if (_hotSectorsLoaded && !force) return;
-	_hotSectorsLoaded = true;
-	const wrap = $('#hotSectors');
-	if (!wrap) return;
-	wrap.innerHTML = Array.from({ length: 6 }, () => '<div class="hs-skel"></div>').join('');
-	try {
-		const r = await fetch(`/api/oracle/categories?network=${NETWORK}&hours=24`, { headers: { accept: 'application/json' } });
-		if (!r.ok) throw new Error('fetch failed');
-		const data = await r.json();
-		const cats = (data.categories || []).filter((c) => c.total >= 1);
-		if (!cats.length) { wrap.innerHTML = '<p style="color:var(--faint);font-size:13px">No categories with scored coins yet.</p>'; return; }
-		wrap.innerHTML = cats.map((c) => {
-			const imgSrc = c.best_image_uri ? `/api/img?url=${encodeURIComponent(c.best_image_uri)}&w=72` : null;
-			const img = imgSrc
-				? `<img class="hs-img" src="${x(imgSrc)}" alt="" loading="lazy" onerror="this.src='/api/img?seed=${x(c.category)}'">`
-				: `<div class="hs-img">${x((c.category || '?')[0].toUpperCase())}</div>`;
-			const avg = Math.round(Number(c.avg_score) || 0);
-			const prime = Number(c.prime_count) || 0;
-			const strong = Number(c.strong_count) || 0;
-			const badges = [
-				prime  > 0 ? `<span class="hs-badge prime">${prime} Prime</span>` : '',
-				strong > 0 ? `<span class="hs-badge strong">${strong} Strong</span>` : '',
-				`<span class="hs-badge">${c.total} scored</span>`,
-			].filter(Boolean).join('');
-			return `<div class="hs-card" role="button" tabindex="0" data-hs-cat="${x(c.category)}">
-				<div class="hs-head">${img}<div><div class="hs-cat">${x(c.category)}</div>${c.best_symbol ? `<div style="font-size:11px;color:var(--faint)">Best: ${x(c.best_symbol)}</div>` : ''}</div></div>
-				<div><div class="hs-avg">${avg}</div><div class="hs-avg-label">avg conviction</div></div>
-				<div class="hs-badges">${badges}</div>
-			</div>`;
-		}).join('');
-		wrap.querySelectorAll('[data-hs-cat]').forEach((el) => {
-			const activate = () => {
-				const sel = $('#catSel');
-				if (sel) { sel.value = el.dataset.hsCat; sel.dispatchEvent(new Event('change')); }
-			};
-			el.addEventListener('click', activate);
-			el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activate(); } });
-		});
-	} catch {
-		wrap.innerHTML = '<p style="color:var(--faint);font-size:13px">Could not load sectors — try again.</p>';
-		_hotSectorsLoaded = false;
-	}
-}
 
 // ── movers ──────────────────────────────────────────────────────────────────
 const _moversState = { direction: 'rising', hours: 24 };
