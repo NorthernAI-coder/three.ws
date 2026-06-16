@@ -44,6 +44,79 @@ async function subscribedWatches(network) {
 	`.catch(() => []);
 }
 
+/** All follower subscriptions grouped by chat_id. */
+async function followerSubscriptions(network) {
+	const rows = await sql`
+		select f.chat_id, f.min_score, f.agent_id, a.name as agent_name
+		from oracle_followers f
+		join agent_identities a on a.id = f.agent_id and a.deleted_at is null
+		where f.network = ${network}
+		order by f.chat_id, f.agent_id
+	`.catch(() => []);
+
+	// Group by chat_id
+	const map = new Map();
+	for (const r of rows) {
+		if (!map.has(r.chat_id)) map.set(r.chat_id, { chat_id: r.chat_id, min_score: r.min_score, agents: [] });
+		map.get(r.chat_id).agents.push({ agent_id: r.agent_id, agent_name: r.agent_name });
+	}
+	return [...map.values()];
+}
+
+async function followedAgentStats(agentIds, network) {
+	if (!agentIds.length) return [];
+	const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+	return sql`
+		select a.agent_id, ai.name as agent_name,
+		       count(a.id) as total,
+		       count(a.id) filter (where a.outcome = 'win')  as wins,
+		       count(a.id) filter (where a.outcome = 'loss') as losses,
+		       sum(a.realized_pnl_sol)                       as pnl
+		from oracle_watch_actions a
+		join agent_identities ai on ai.id = a.agent_id
+		where a.agent_id = any(${agentIds}::uuid[])
+		  and a.network = ${network}
+		  and a.acted_at > ${since}::timestamptz
+		group by a.agent_id, ai.name
+	`.catch(() => []);
+}
+
+function buildFollowerMessage(follower, agentStats, coins) {
+	const agentList = follower.agents.map((a) => esc(a.agent_name || 'Agent')).join(', ');
+	const lines = [
+		`🔮 <b>Oracle daily digest — agents you follow</b>`,
+		`Following: ${esc(agentList)}`,
+		``,
+	];
+
+	if (agentStats.length) {
+		lines.push(`<b>Last 24h activity</b>`);
+		for (const s of agentStats) {
+			const pnlStr = s.pnl != null && Number(s.pnl) !== 0
+				? `  ·  PnL <b>${Number(s.pnl) >= 0 ? '+' : ''}${Number(s.pnl).toFixed(4)} SOL</b>`
+				: '';
+			lines.push(`• <b>${esc(s.agent_name || 'Agent')}</b>: ${s.total} action${s.total !== 1 ? 's' : ''}, ${s.wins}W / ${s.losses}L${pnlStr}`);
+		}
+		lines.push(``);
+	} else {
+		lines.push(`<i>No actions in the last 24h from your followed agents.</i>`, ``);
+	}
+
+	if (coins.length) {
+		lines.push(`<b>Top conviction above your threshold (${follower.min_score})</b>`);
+		for (const c of coins) {
+			const e = TIER_EMOJI[c.tier] || '⚪';
+			lines.push(`${e} <b>$${esc(c.symbol || c.mint.slice(0, 6))}</b> · <code>${c.score}</code> · <a href="https://three.ws/oracle?mint=${encodeURIComponent(c.mint)}">view</a>`);
+		}
+		lines.push(``);
+	} else {
+		lines.push(`<i>No coins above your threshold (${follower.min_score}) right now.</i>`, ``);
+	}
+
+	lines.push(`<a href="https://three.ws/oracle">Open Oracle →</a>`);
+	return lines.join('\n');
+}
+
 async function todayStats(agentId, network) {
 	const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 	const rows = await sql`
@@ -150,6 +223,8 @@ export default wrap(async (req, res) => {
 
 	let sent = 0;
 	let failed = 0;
+
+	// Digest for armed agent owners
 	for (const watch of watches) {
 		const [stats, coins] = await Promise.all([
 			todayStats(watch.agent_id, network),
@@ -160,5 +235,21 @@ export default wrap(async (req, res) => {
 		if (ok) sent++; else failed++;
 	}
 
-	return json(res, 200, { ok: true, network, subscribers: watches.length, sent, failed });
+	// Digest for followers (users who followed agents but don't own one)
+	// Skip chat_ids already receiving the owner digest above to avoid duplicate messages.
+	const ownerChats = new Set(watches.map((w) => w.telegram_chat_id));
+	const followers = (await followerSubscriptions(network)).filter((f) => !ownerChats.has(f.chat_id));
+
+	for (const follower of followers) {
+		const agentIds = follower.agents.map((a) => a.agent_id);
+		const [agentStats, coins] = await Promise.all([
+			followedAgentStats(agentIds, network),
+			topCoins(Number(follower.min_score) || 54, network),
+		]);
+		const text = buildFollowerMessage(follower, agentStats, coins);
+		const ok = await sendDigest(follower.chat_id, text);
+		if (ok) sent++; else failed++;
+	}
+
+	return json(res, 200, { ok: true, network, subscribers: watches.length + followers.length, sent, failed });
 });
