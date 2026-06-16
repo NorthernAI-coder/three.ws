@@ -808,6 +808,43 @@ function structurePanel(st) {
 }
 
 
+
+const TIER_COLORS = { prime: '#c084fc', strong: '#34d399', lean: '#fbbf24', watch: '#94a3b8', avoid: '#f87171' };
+
+function scoreSparkline(history) {
+	if (!Array.isArray(history) || history.length < 2) return '';
+	const W = 240; const H = 40; const PAD = 4;
+	const scores = history.map((h) => Number(h.score));
+	const times  = history.map((h) => new Date(h.scored_at).getTime());
+	const minT = times[0]; const maxT = times[times.length - 1];
+	const rangeT = maxT - minT || 1;
+	const minS = Math.max(0, Math.min(...scores) - 5);
+	const maxS = Math.min(100, Math.max(...scores) + 5);
+	const rangeS = maxS - minS || 1;
+	const px = (i) => PAD + ((times[i] - minT) / rangeT) * (W - PAD * 2);
+	const py = (i) => H - PAD - ((scores[i] - minS) / rangeS) * (H - PAD * 2);
+	const pts = scores.map((_, i) => \`\${px(i).toFixed(1)},\${py(i).toFixed(1)}\`).join(' ');
+	const lastColor = TIER_COLORS[history[history.length - 1]?.tier] || '#97a0c4';
+	const firstLabel = history[0]?.scored_at
+		? new Date(history[0].scored_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+		: '';
+	const lastLabel = history[history.length - 1]?.scored_at
+		? new Date(history[history.length - 1].scored_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+		: '';
+	return \`<div class="dr-sec">Score history <span style="color:var(--faint);font-weight:400;font-size:10px">last 72h · \${history.length} update\${history.length === 1 ? '' : 's'}</span></div>
+		<div class="score-spark">
+			<svg viewBox="0 0 \${W} \${H}" aria-hidden="true" preserveAspectRatio="none">
+				<polyline points="\${pts}" fill="none" stroke="\${lastColor}" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" opacity="0.9"/>
+				<circle cx="\${px(scores.length - 1).toFixed(1)}" cy="\${py(scores.length - 1).toFixed(1)}" r="3" fill="\${lastColor}"/>
+			</svg>
+			<div class="score-spark-labels">
+				<span>\${firstLabel}</span>
+				<span style="color:\${lastColor};font-weight:700">\${scores[scores.length - 1]}</span>
+				<span>\${lastLabel}</span>
+			</div>
+		</div>\`;
+}
+
 function renderDrawer(d) {
 	const c = d.conviction; const p = c.pillars || {};
 	$('#drTitle').innerHTML = `${esc(c.symbol || '—')} <span style="color:var(--muted);font:600 13px var(--mono)">${esc(c.name || '')}</span>`;
@@ -835,6 +872,7 @@ function renderDrawer(d) {
 			<a class="dr-act dr-share" href="${tweetConviction(c)}" target="_blank" rel="noopener" title="Share conviction on X">Share ↗</a>
 			${c.structure_cap != null && c.structure_cap < 60 ? `<span class="note warn">structural cap ${c.structure_cap}</span>` : ''}
 		</div>
+		<div id="scoreHistoryWrap" style="margin-top:12px"></div>
 		${narr ? `<div class="dr-sec">Narrative</div><div style="font-size:13.5px;color:var(--ink)">${esc(narr.narrative || '')}</div>
 			<div class="coin-meta" style="margin-top:8px"><span class="chip cat">${esc(narr.category)}</span><span class="chip">virality <b>${narr.virality ?? '—'}</b></span><span class="chip">${esc(narr.source || '')}</span></div>` : ''}
 		<div class="dr-sec">Why this score</div>${reasons}
@@ -843,9 +881,13 @@ function renderDrawer(d) {
 		${out ? `<div class="dr-sec">Outcome</div><div class="coin-meta">
 			<span class="chip ${out.graduated ? 'sm' : out.rugged ? 'flag' : ''}">${out.graduated ? 'graduated ✓' : out.rugged ? 'rugged ✕' : 'live'}</span>
 			${out.ath_multiple ? `<span class="chip">ATH <b>${Number(out.ath_multiple).toFixed(1)}×</b></span>` : ''}</div>` : ''}
+		${scoreSparkline(d.score_history)}
 		<div class="dr-sec">Live trades</div>
 		<div id="tradeTape" class="trade-tape"></div>
 	`;
+
+	// Fetch and render conviction score history sparkline.
+	loadScoreHistory(c.mint);
 
 	// Tear down any previous tape, then mount fresh for this coin.
 	state.tape?.destroy();
@@ -895,6 +937,42 @@ function whoRow(w) {
 			<span class="nw-sub">${esc(sub || '—')}</span>
 		</div>
 		<span class="nw-buy">${fmtSol(w.buy_sol)}</span>
+	</div>`;
+}
+
+async function loadScoreHistory(mint) {
+	const wrap = $('#scoreHistoryWrap');
+	if (!wrap) return;
+	const { ok, data } = await api(`/api/oracle/history?mint=${encodeURIComponent(mint)}&network=${NETWORK}&hours=48`);
+	if (!ok || !data?.points?.length || data.points.length < 2) { wrap.innerHTML = ''; return; }
+	wrap.innerHTML = renderSparkline(data.points, data.trend);
+}
+
+function renderSparkline(points, trend) {
+	const W = 220; const H = 40; const PAD = 4;
+	const scores = points.map((p) => Number(p.score));
+	const min = Math.max(0, Math.min(...scores) - 5);
+	const max = Math.min(100, Math.max(...scores) + 5);
+	const range = max - min || 1;
+	const n = scores.length;
+	const xs = scores.map((_, i) => PAD + (i / (n - 1)) * (W - PAD * 2));
+	const ys = scores.map((s) => PAD + (1 - (s - min) / range) * (H - PAD * 2));
+	const d = xs.map((x, i) => `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${ys[i].toFixed(1)}`).join(' ');
+	const trendColor = trend === 'rising' ? '#34d399' : trend === 'falling' ? '#f87171' : '#94a3b8';
+	const trendArrow = trend === 'rising' ? '↑' : trend === 'falling' ? '↓' : '→';
+	const lastScore = scores[n - 1];
+	const firstScore = scores[0];
+	const delta = lastScore - firstScore;
+	const deltaStr = delta > 0 ? `+${delta}` : `${delta}`;
+	return `<div style="display:flex;align-items:center;gap:8px;padding:8px 0 4px">
+		<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="flex-shrink:0;overflow:visible" aria-label="Conviction history">
+			<polyline points="${xs.map((x, i) => `${x.toFixed(1)},${ys[i].toFixed(1)}`).join(' ')}" fill="none" stroke="${trendColor}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.9"/>
+			<circle cx="${xs[n-1].toFixed(1)}" cy="${ys[n-1].toFixed(1)}" r="2.5" fill="${trendColor}"/>
+		</svg>
+		<div style="font-size:11px;line-height:1.4;flex-shrink:0">
+			<div style="color:${trendColor};font-weight:700;letter-spacing:.02em">${trendArrow} ${deltaStr} pts</div>
+			<div style="color:var(--muted)">${points.length} readings · 48 h</div>
+		</div>
 	</div>`;
 }
 
