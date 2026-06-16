@@ -610,12 +610,20 @@
 			"dest": "/activity.html"
 		},
 		{
+			"src": "/trader/([^/]+)/share/?",
+			"dest": "/api/trader-share?agent_id=$1"
+		},
+		{
 			"src": "/trader/([^/]+)/?",
 			"dest": "/trader.html"
 		},
 		{
 			"src": "/trader/?",
 			"dest": "/trader.html"
+		},
+		{
+			"src": "/api/trader-og",
+			"dest": "/api/trader-og.js"
 		},
 		{
 			"src": "/admin/bulk-launch/?",

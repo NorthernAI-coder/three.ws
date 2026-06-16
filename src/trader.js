@@ -318,8 +318,9 @@ function wireWindow() {
 }
 
 function shareUrl() {
-	const base = `${location.origin}/trader/${encodeURIComponent(ctx.agentId)}`;
-	return ctx.refCode ? `${base}?ref=${encodeURIComponent(ctx.refCode)}` : base;
+	// /trader/<id>/share → SSR page with rich OG preview for social crawlers
+	const share = `${location.origin}/trader/${encodeURIComponent(ctx.agentId)}/share`;
+	return ctx.refCode ? `${share}?ref=${encodeURIComponent(ctx.refCode)}` : share;
 }
 
 function toast(msg) {
