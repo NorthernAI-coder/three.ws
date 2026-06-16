@@ -203,3 +203,44 @@ body {
 .wl-btn-primary { background: var(--accent); color: var(--bg-0); border-color: var(--accent); }
 .wl-btn-primary:hover { color: var(--bg-0); filter: brightness(1.08); }
 .wl-btn-ghost { background: transparent; }
+
+/* ── Oracle conviction badge ─────────────────────────────────────────────── */
+
+.wl-oracle-badge {
+	position: absolute;
+	bottom: var(--space-sm, 10px);
+	right: var(--space-sm, 10px);
+	z-index: 3;
+	pointer-events: none;
+}
+.wl-ob-link {
+	pointer-events: all;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	background: rgba(0,0,0,0.55);
+	border: 1px solid rgba(255,255,255,0.10);
+	border-radius: 8px;
+	padding: 5px 9px 4px;
+	text-decoration: none;
+	line-height: 1;
+	backdrop-filter: blur(6px);
+	transition: background 0.14s, border-color 0.14s, transform 0.14s;
+}
+.wl-ob-link:hover { background: rgba(0,0,0,0.75); border-color: rgba(255,255,255,0.22); transform: scale(1.05); }
+.wl-ob-score {
+	font-family: var(--font-mono, ui-monospace, monospace);
+	font-size: 17px;
+	font-weight: 800;
+	font-variant-numeric: tabular-nums;
+	letter-spacing: -0.01em;
+}
+.wl-ob-tier {
+	font-family: var(--font-mono, ui-monospace, monospace);
+	font-size: 8.5px;
+	font-weight: 700;
+	letter-spacing: 0.07em;
+	text-transform: uppercase;
+	opacity: 0.85;
+	margin-top: 2px;
+}

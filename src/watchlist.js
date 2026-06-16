@@ -11,7 +11,8 @@
 
 import { mountCoinStatus } from './pump/coin-status-card.js';
 
-const WATCH_KEY = 'ld_watchlist'; // shared with src/launch-detail.js
+const WATCH_KEY  = 'ld_watchlist'; // shared with src/launch-detail.js
+const TIER_COLOR = { prime: '#c084fc', strong: '#34d399', lean: '#fbbf24', watch: '#94a3b8', avoid: '#f87171' };
 const MINT_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 const REDUCED_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -163,7 +164,8 @@ function watchCard(mint, index) {
 			remove(mint);
 		},
 	});
-	const card = el('article', { class: 'wl-card' }, [link, removeBtn, market]);
+	const oracleBadge = el('div', { class: 'wl-oracle-badge', 'data-oracle': mint });
+	const card = el('article', { class: 'wl-card', 'data-mint': mint }, [link, oracleBadge, removeBtn, market]);
 	if (!REDUCED_MOTION) {
 		card.style.animationDelay = `${Math.min(index, 12) * 40}ms`;
 		card.classList.add('wl-in');
@@ -206,6 +208,47 @@ function render() {
 
 	list.forEach((mint, i) => feedEl.appendChild(watchCard(mint, i)));
 	feedEl.setAttribute('aria-busy', 'false');
+
+	enrichWithOracleConviction(list);
+}
+
+// Batch-fetch Oracle conviction for all watched mints and paint badges on cards.
+async function enrichWithOracleConviction(mints) {
+	if (!mints.length) return;
+	// Chunk into ≤20 per request (API limit).
+	const chunks = [];
+	for (let i = 0; i < mints.length; i += 20) chunks.push(mints.slice(i, i + 20));
+	let results = {};
+	try {
+		const responses = await Promise.all(
+			chunks.map((chunk) =>
+				fetch(`/api/oracle/batch?mints=${chunk.map(encodeURIComponent).join(',')}&network=mainnet`)
+					.then((r) => r.ok ? r.json() : null)
+					.catch(() => null),
+			),
+		);
+		for (const resp of responses) {
+			if (resp?.results) Object.assign(results, resp.results);
+		}
+	} catch { return; }
+
+	// Paint each card whose article has a data-mint attribute.
+	for (const article of feedEl.querySelectorAll('article[data-mint]')) {
+		const mint = article.dataset.mint;
+		const data = results[mint];
+		if (!data || data.score == null) continue;
+		let badge = article.querySelector('.wl-oracle-badge');
+		if (!badge) {
+			badge = document.createElement('div');
+			badge.className = 'wl-oracle-badge';
+			article.appendChild(badge);
+		}
+		const color = TIER_COLOR[data.tier] || '#94a3b8';
+		badge.innerHTML = `<a class="wl-ob-link" href="/oracle?mint=${encodeURIComponent(mint)}" aria-label="Oracle conviction: ${data.score} ${data.tier || ''}">
+			<span class="wl-ob-score" style="color:${color}">${data.score}</span>
+			<span class="wl-ob-tier" style="color:${color}">${data.tier || ''}</span>
+		</a>`;
+	}
 }
 
 // ── ambient field (shared visual language) ──────────────────────────────────
