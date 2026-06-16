@@ -175,6 +175,14 @@
 			<description>Copiers who enter a Telegram chat ID in their subscription settings now receive an instant message the moment the fanout cron creates a pending buy intent — coin name, tier, Oracle score, the sized order amount, and a direct link to the copy dashboard. Works for both sniper-sourced and Oracle conviction-sourced intents.</description>
 		</item>
 		<item>
+			<title>Create flow: guided &quot;what's next&quot; screen after every avatar save</title>
+			<link>https://three.ws/create</link>
+			<guid isPermaLink="false">2026-06-16:Create flow: guided &quot;what's next&quot; screen after every avatar save</guid>
+			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Saving an avatar or completing an agent no longer drops you on a blank library page. A new /create/next screen appears immediately after: your 3D model spins in the left panel while three action cards on the right guide you through the natural progression — give it an AI brain, embed it on any site, or optionally deploy it on-chain. Each card deep-links directly with your new avatar or agent pre-loaded so the session continues without starting over.</description>
+		</item>
+		<item>
 			<title>Every launch now has its own page — the full story of a coin in one place</title>
 			<link>https://three.ws/launches</link>
 			<guid isPermaLink="false">2026-06-16:Every launch now has its own page — the full story of a coin in one place</guid>

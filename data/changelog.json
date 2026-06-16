@@ -3,6 +3,16 @@
 	"entries": [
 		{
 			"date": "2026-06-16",
+			"title": "Create flow: guided \"what's next\" screen after every avatar save",
+			"summary": "Saving an avatar or completing an agent no longer drops you on a blank library page. A new /create/next screen appears immediately after: your 3D model spins in the left panel while three action cards on the right guide you through the natural progression — give it an AI brain, embed it on any site, or optionally deploy it on-chain. Each card deep-links directly with your new avatar or agent pre-loaded so the session continues without starting over.",
+			"tags": [
+				"feature",
+				"improvement"
+			],
+			"link": "/create"
+		},
+		{
+			"date": "2026-06-16",
 			"title": "Avatar picker: live 3D previews, IRL + XR deeplinks, and XR orbit lock",
 			"summary": "The avatar selector sheet on /irl and /xr now renders a real 3D preview of each of your avatars instead of a blank silhouette — models load lazily using an IntersectionObserver so opening the sheet stays instant. The /xr page gains a Lock button: tapping it freezes OrbitControls so the avatar stays centered for headset or camera-AR use (tap again to restore free orbit). Your avatar detail page now has Walk IRL and View in XR buttons that drop you straight into the live experience with that avatar pre-loaded — no setup required.",
 			"tags": [
