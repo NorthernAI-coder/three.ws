@@ -269,7 +269,7 @@ function stratCard(s) {
 	const wins = s.summary?.wins || 0;
 	const wr = closed > 0 ? Math.round((wins / closed) * 100) : null;
 	const img = s.image || '/favicon.ico';
-	const triggerLabel = s.trigger === 'first_claim' ? 'First-claim trigger' : 'New mint trigger';
+	const triggerLabel = s.trigger === 'first_claim' ? 'First-claim trigger' : s.trigger === 'intel_confirmed' ? 'Intel-confirmed trigger' : 'New mint trigger';
 
 	const walletBal = s.wallet_sol != null ? s.wallet_sol : null;
 	const walletWarn = walletBal != null && walletBal < lamportsToSol(s.per_trade_lamports || '0') + 0.003;
@@ -432,6 +432,7 @@ function stratForm(s) {
 		</div>
 
 		${s.trigger === 'first_claim' ? firstClaimFields(s) : ''}
+		${s.trigger === 'intel_confirmed' ? intelFields(s) : ''}
 
 		<div class="sn-save-row">
 			<button type="submit" class="sn-btn primary" data-save="${esc(s.agent_id)}">Save changes</button>
@@ -457,6 +458,39 @@ function firstClaimFields(s) {
 			<label>Max claim age (seconds)</label>
 			<input name="first_claim_max_age_seconds" type="number" min="1" max="86400" value="${s.first_claim_max_age_seconds != null ? s.first_claim_max_age_seconds : ''}" placeholder="300" />
 			<span class="sn-hint">Skip if the claim tx is older than this.</span>
+		</div>`;
+}
+
+function intelFields(s) {
+	const cats = Array.isArray(s.allowed_categories) ? s.allowed_categories.join(', ') : '';
+	return `
+		<div class="sn-section-head">Coin Intelligence Filters</div>
+		<div class="sn-field">
+			<label>Min quality score (0–100)</label>
+			<input name="min_quality_score" type="number" step="1" min="0" max="100" value="${s.min_quality_score != null ? s.min_quality_score : ''}" placeholder="e.g. 60" />
+			<span class="sn-hint">Overall quality composite. 0 = any, 100 = best only. Higher = fewer but cleaner entries.</span>
+		</div>
+		<div class="sn-field">
+			<label>Max bundle score (0–1)</label>
+			<input name="max_bundle_score" type="number" step="0.05" min="0" max="1" value="${s.max_bundle_score != null ? s.max_bundle_score : ''}" placeholder="e.g. 0.5" />
+			<span class="sn-hint">Bundle likelihood from wallet graph analysis. 0 = no bundles tolerated, 1 = allow all.</span>
+		</div>
+		<div class="sn-field">
+			<label>Max top-wallet concentration (%)</label>
+			<input name="max_concentration_top1" type="number" step="1" min="0" max="100" value="${s.max_concentration_top1 != null ? s.max_concentration_top1 : ''}" placeholder="e.g. 20" />
+			<span class="sn-hint">Skip if the single largest holder owns more than this % of supply.</span>
+		</div>
+		<div class="sn-field">
+			<label>Avoid dev dump</label>
+			<select name="avoid_dev_dump">
+				<option value="true" ${s.avoid_dev_dump !== false ? 'selected' : ''}>Yes — skip if dev sold (recommended)</option>
+				<option value="false" ${s.avoid_dev_dump === false ? 'selected' : ''}>No — allow dev sells</option>
+			</select>
+		</div>
+		<div class="sn-field">
+			<label>Allowed categories (comma-separated)</label>
+			<input name="allowed_categories" type="text" value="${esc(cats)}" placeholder="e.g. meme, animal, culture (blank = allow all)" />
+			<span class="sn-hint">Only snipe coins classified into these categories. Leave blank to allow all.</span>
 		</div>`;
 }
 
@@ -752,6 +786,13 @@ async function saveForm(form, root) {
 			body.min_claim_lamports = fd.min_claim_lamports_sol !== '' ? solToLamports(fd.min_claim_lamports_sol) : null;
 			body.max_claim_lamports = fd.max_claim_lamports_sol !== '' ? solToLamports(fd.max_claim_lamports_sol) : null;
 			body.first_claim_max_age_seconds = fd.first_claim_max_age_seconds !== '' ? Number(fd.first_claim_max_age_seconds) : null;
+		}
+		if (fd.trigger === 'intel_confirmed') {
+			body.min_quality_score = fd.min_quality_score !== '' ? Number(fd.min_quality_score) : null;
+			body.max_bundle_score = fd.max_bundle_score !== '' ? Number(fd.max_bundle_score) : null;
+			body.max_concentration_top1 = fd.max_concentration_top1 !== '' ? Number(fd.max_concentration_top1) : null;
+			body.avoid_dev_dump = fd.avoid_dev_dump !== 'false';
+			body.allowed_categories = fd.allowed_categories ? fd.allowed_categories.split(',').map((c) => c.trim()).filter(Boolean) : null;
 		}
 
 		await post('/api/sniper/strategy', body);
