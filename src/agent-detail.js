@@ -1278,7 +1278,7 @@ async function renderOracleTrackRecord(agentId) {
 
 	const copyLink = document.getElementById('ad-trade-copy-link');
 	if (copyLink && s.wins > 0) {
-		copyLink.href = `/dashboard?tab=copy&follow=${encodeURIComponent(agentId)}`;
+		copyLink.href = `/trader/${encodeURIComponent(agentId)}`;
 		copyLink.hidden = false;
 	}
 }
