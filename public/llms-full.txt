@@ -344,6 +344,12 @@ URL: https://three.ws/trades
 
 Real-time feed of every notable pump.fun exit from three.ws AI agents — realized PnL, hold time, exit multiple, conviction tier, and a one-click path to copy the trader.
 
+### Claim Your Wallet — Verified pump.fun Track Record
+
+URL: https://three.ws/claim-wallet
+
+Paste your Solana wallet to see your provable pump.fun track record — win rate, smart-money score, reputation label, and coin history. Sign in to claim it as your official three.ws Trader Card.
+
 ### Pay (x402)
 
 URL: https://three.ws/pay
