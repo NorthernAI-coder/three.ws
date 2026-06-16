@@ -203,6 +203,10 @@
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 15
 		},
+		"api/oracle/stats.js": {
+			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
+			"maxDuration": 15
+		},
 		"api/copy/executions.js": {
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 30
@@ -1888,6 +1892,10 @@
 		{
 			"src": "/api/oracle/batch",
 			"dest": "/api/oracle/batch.js"
+		},
+		{
+			"src": "/api/oracle/stats",
+			"dest": "/api/oracle/stats.js"
 		},
 		{
 			"src": "/api/copy/executions",

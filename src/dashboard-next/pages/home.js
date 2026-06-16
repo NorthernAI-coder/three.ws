@@ -356,13 +356,15 @@ async function loadTradingOverview(host) {
 
 	const cards = host.querySelector('#dnx-trading-cards');
 
-	const [sniperRes, copyRes] = await Promise.allSettled([
+	const [sniperRes, copyRes, oracleRes] = await Promise.allSettled([
 		get('/api/sniper/strategy?limit=30'),
 		get('/api/copy/subscriptions'),
+		get('/api/oracle/stats'),
 	]);
 
 	const strategies = (sniperRes.status === 'fulfilled' ? sniperRes.value?.strategies : null) || [];
 	const subscriptions = (copyRes.status === 'fulfilled' ? copyRes.value?.subscriptions : null) || [];
+	const oStats = (oracleRes.status === 'fulfilled' ? oracleRes.value : null) || {};
 
 	const armedStrategies = strategies.filter((s) => s.enabled && !s.kill_switch_engaged);
 	const openPositions = strategies.reduce((n, s) => n + (Number(s.open_positions) || 0), 0);
@@ -374,6 +376,25 @@ async function loadTradingOverview(host) {
 	const pnlSign = totalPnl >= 0 ? '+' : '';
 	const pnlStr = `${pnlSign}${Math.abs(totalPnl) >= 1 ? totalPnl.toFixed(2) : totalPnl.toFixed(3)} ◎`;
 	const pnlClass = totalPnl >= 0 ? 'dnx-tc-pos' : 'dnx-tc-neg';
+
+	// Oracle card copy assembly.
+	const oScored24h   = Number(oStats.scored_24h)   || 0;
+	const oWinRate     = oStats.win_rate != null ? oStats.win_rate : null;
+	const oBestAth     = oStats.best_ath != null ? Number(oStats.best_ath) : null;
+	const oPrimeCount  = Number(oStats.prime_count)  || 0;
+	const oOpenActions = Number(oStats.open_actions) || 0;
+
+	const oValueText = oScored24h > 0
+		? `${oScored24h.toLocaleString()} <span class="dnx-tc-unit">scored today</span>`
+		: `<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;vertical-align:text-bottom"><circle cx="7" cy="7" r="5"/><path d="M7 4.5v2.7l1.6 1.6"/></svg> Live`;
+	const oMeta1 = oWinRate != null
+		? `<span class="dnx-tc-pos">${oWinRate}% win rate</span>`
+		: '<span class="dnx-tc-dim">Conviction scoring every coin</span>';
+	const oMeta2 = oBestAth != null
+		? `<span>best ${oBestAth.toFixed(1)}× · ${oPrimeCount} prime</span>`
+		: oOpenActions > 0
+			? `<span>${oOpenActions} open action${oOpenActions !== 1 ? 's' : ''}</span>`
+			: '<span class="dnx-tc-arm-cta">Arm an agent →</span>';
 
 	cards.innerHTML = `
 		<a class="dnx-tc" href="/dashboard/sniper">
@@ -388,11 +409,8 @@ async function loadTradingOverview(host) {
 		</a>
 		<a class="dnx-tc" href="/oracle">
 			<div class="dnx-tc-label">Oracle</div>
-			<div class="dnx-tc-value"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;vertical-align:text-bottom"><circle cx="7" cy="7" r="5"/><path d="M7 4.5v2.7l1.6 1.6"/></svg> Live</div>
-			<div class="dnx-tc-meta">
-				<span>Conviction scoring every coin</span>
-				<span class="dnx-tc-arm-cta">Arm an agent →</span>
-			</div>
+			<div class="dnx-tc-value">${oValueText}</div>
+			<div class="dnx-tc-meta">${oMeta1}${oMeta2}</div>
 		</a>
 		<a class="dnx-tc" href="/dashboard/copy">
 			<div class="dnx-tc-label">Copy trading</div>

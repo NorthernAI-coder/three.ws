@@ -215,6 +215,14 @@
 			<description>When you open a wallet from the Oracle's Top Wallets leaderboard, the drawer now shows 'Trader profile ↗' and 'Copy trades →' links below the track record — connecting the wallet reputation system directly to copy trading. The wallet list rows also gain a hover-reveal '→' button that opens the trader profile without needing to open the drawer first.</description>
 		</item>
 		<item>
+			<title>Portfolio: Oracle conviction for every token you hold</title>
+			<link>https://three.ws/dashboard/portfolio</link>
+			<guid isPermaLink="false">2026-06-16:Portfolio: Oracle conviction for every token you hold</guid>
+			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>The portfolio dashboard now shows Oracle conviction scores on Solana tokens. Each row gets a live badge showing the Oracle score and tier (prime / strong / lean). The pump.fun tokens table adds an Oracle column. And when you open any token's detail drawer, a conviction breakdown appears — score dial, pillar bars, and a link to the full Oracle analysis. Helps you make informed hold / sell decisions from the portfolio view.</description>
+		</item>
+		<item>
 			<title>Pump Dashboard: live Oracle conviction panel on the main trading desk</title>
 			<link>https://three.ws/pump-dashboard</link>
 			<guid isPermaLink="false">2026-06-16:Pump Dashboard: live Oracle conviction panel on the main trading desk</guid>
