@@ -6,7 +6,7 @@
 import crypto from 'node:crypto';
 import { z } from 'zod';
 import { PublicKey } from '@solana/web3.js';
-import { solanaConnection } from '../../_lib/solana/connection.js';
+import { solanaConnection, solanaRpcEndpoints, isEndpointCooling } from '../../_lib/solana/connection.js';
 import { sql } from '../../_lib/db.js';
 import { cors, json, method, wrap, error, readJson, rateLimited } from '../../_lib/http.js';
 import { limits, clientIp } from '../../_lib/rate-limit.js';
@@ -549,14 +549,11 @@ export const handleRegisterPrep = wrap(async (req, res) => {
 		}
 	}
 
-	const PUBLIC_RPC = {
-		mainnet: 'https://api.mainnet-beta.solana.com',
-		devnet: 'https://api.devnet.solana.com',
-	};
-	const configuredRpc = network === 'devnet'
-		? (process.env.SOLANA_RPC_URL_DEVNET || PUBLIC_RPC.devnet)
-		: (process.env.SOLANA_RPC_URL || PUBLIC_RPC.mainnet);
-	const publicRpc = PUBLIC_RPC[network] || PUBLIC_RPC.mainnet;
+	// Pick the first non-cooling endpoint from the full Helius → Alchemy → Ankr →
+	// public chain. When Helius is parked in _endpointCooldown (e.g. quota 429)
+	// this silently skips it rather than burning a 503 on the user.
+	const rpcEndpoints = solanaRpcEndpoints(network);
+	const liveEndpoint = rpcEndpoints.find((ep) => !isEndpointCooling(ep)) || rpcEndpoints[0];
 
 	const appOrigin = env.APP_ORIGIN;
 
@@ -566,7 +563,7 @@ export const handleRegisterPrep = wrap(async (req, res) => {
 	// configured RPC is unreachable.
 	const assetSigner = asset_pubkey
 		? createNoopSigner(umiPublicKey(asset_pubkey))
-		: generateSigner(createUmi(publicRpc).use(mplCore()));
+		: generateSigner(createUmi(liveEndpoint).use(mplCore()));
 	const assetPubkey = assetSigner.publicKey;
 
 	const passportUrl = `${appOrigin}/agent-passport.html?asset=${assetPubkey}&network=${network}`;
@@ -629,19 +626,10 @@ export const handleRegisterPrep = wrap(async (req, res) => {
 
 	let txBytes;
 	try {
-		txBytes = await buildTx(configuredRpc);
+		txBytes = await buildTx(liveEndpoint);
 	} catch (rpcErr) {
-		if (configuredRpc === publicRpc) {
-			console.error('[solana/register-prep] public RPC failed:', rpcErr.message);
-			return error(res, 503, 'rpc_unavailable', 'Solana RPC temporarily unavailable — try again in a moment.');
-		}
-		console.warn('[solana/register-prep] configured RPC failed, retrying with public RPC:', rpcErr.message);
-		try {
-			txBytes = await buildTx(publicRpc);
-		} catch (fallbackErr) {
-			console.error('[solana/register-prep] public RPC fallback also failed:', fallbackErr.message);
-			return error(res, 503, 'rpc_unavailable', 'Solana RPC temporarily unavailable — try again in a moment.');
-		}
+		console.error('[solana/register-prep] RPC error after all fallbacks:', rpcErr.message);
+		return error(res, 503, 'rpc_unavailable', 'Solana RPC temporarily unavailable — try again in a moment.');
 	}
 
 	const txBase64 = Buffer.from(txBytes).toString('base64');

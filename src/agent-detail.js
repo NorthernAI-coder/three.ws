@@ -391,6 +391,20 @@ function render(agent) {
 	}
 	$('ad-name').textContent = agent.name;
 
+	// Update page title, canonical URL, and OG tags for social sharing
+	if (agent.id && agent.name) {
+		const pageUrl = `https://three.ws/agent/${agent.id}`;
+		const ogImg   = `https://three.ws/api/og/agent?id=${encodeURIComponent(agent.id)}`;
+		document.title = `${agent.name} · three.ws`;
+		const canonical = document.getElementById('canonical-link');
+		if (canonical) canonical.href = pageUrl;
+		document.querySelector('meta[property="og:url"]')?.setAttribute('content', pageUrl);
+		document.querySelector('meta[property="og:title"]')?.setAttribute('content', `${agent.name} · three.ws`);
+		document.querySelector('meta[property="og:image"]')?.setAttribute('content', ogImg);
+		document.querySelector('meta[name="twitter:title"]')?.setAttribute('content', `${agent.name} · three.ws`);
+		document.querySelector('meta[name="twitter:image"]')?.setAttribute('content', ogImg);
+	}
+
 	// Let visitors save this agent's avatar as their own fork (its wallet is
 	// already managed in the holdings panel below, so fork-only here).
 	const fork = $('ad-avatar-actions');
@@ -1499,7 +1513,7 @@ function makeSnsResolver(inputEl, statusEl) {
 
 function wireShareButton(agent) {
 	const origin   = location.origin;
-	const shareUrl = `${origin}/agent/${agent.id}`;
+	const shareUrl = `${origin}/agent/${agent.id}/share`;
 	const remixUrl = `${origin}/create`;
 	const shareData = {
 		kind: 'agent',
