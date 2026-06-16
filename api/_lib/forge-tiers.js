@@ -118,7 +118,7 @@ export const BACKENDS = Object.freeze({
 		// Free NVIDIA NIM lane — no vendor credit cost. This is what makes it the
 		// free-first draft default per platform policy.
 		free: true,
-		blurb: 'Free TRELLIS generation on NVIDIA NIM — the default draft lane for prompts; no vendor cost. Photo input uses the standing engine.',
+		blurb: 'Free TRELLIS generation on NVIDIA NIM — the default lane for text prompts at draft and standard tiers; no vendor cost. Photo input uses the standing engine.',
 	}),
 	trellis: Object.freeze({
 		id: 'trellis',
@@ -259,22 +259,25 @@ export const DEFAULT_BACKEND_FOR_PATH = Object.freeze({
 	sketch: 'triposg',
 });
 
-// Free-first override: when the caller asks for the draft tier without naming a
-// backend, prefer the free NVIDIA NIM lane (platform LLM/free-first policy) on
-// the paths it serves — but only when it's actually configured, so a deployment
-// without NVIDIA_API_KEY transparently keeps the standing per-path default. Paid
-// backends (Replicate/Meshy/Tripo) stay fully selectable at every tier.
-export const FREE_DEFAULT_FOR_DRAFT = Object.freeze({
-	image: 'nvidia',
+// Free-first override: when the caller asks for draft or standard tier without
+// naming a backend, prefer the free NVIDIA NIM lane (platform LLM/free-first
+// policy) on the paths it serves — but only when it's actually configured, so a
+// deployment without NVIDIA_API_KEY transparently keeps the standing per-path
+// default. Paid backends (Replicate/Meshy/Tripo) stay fully selectable at every
+// tier. High tier always goes to the full-quality paid lane.
+export const FREE_DEFAULT_FOR_TIERS = Object.freeze({
+	draft: Object.freeze({ image: 'nvidia' }),
+	standard: Object.freeze({ image: 'nvidia' }),
 });
 
 // Resolve the default backend for a (path, tier) when the caller didn't name
-// one. Tier matters because the draft tier routes to the free lane first;
+// one. Draft and standard route to the free lane first when it's configured;
 // `userImages` matters because a free lane that can't take user photos
 // (BACKENDS[id].userImages === false) must not be defaulted for them.
 function defaultBackendFor(p, tierId, userImages) {
-	if (tierId === 'draft') {
-		const free = FREE_DEFAULT_FOR_DRAFT[p];
+	const freeMap = FREE_DEFAULT_FOR_TIERS[tierId];
+	if (freeMap) {
+		const free = freeMap[p];
 		const b = free && BACKENDS[free];
 		if (
 			b &&

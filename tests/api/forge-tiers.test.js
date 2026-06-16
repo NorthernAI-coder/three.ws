@@ -1,8 +1,8 @@
 // Forge backend registry — registration + default-routing contract.
 //
-// Focuses on the free NVIDIA NIM lane added for the draft tier (free-first
-// platform policy): it must be the draft default WHEN configured, must never
-// disturb the existing per-path defaults at other tiers, and must stay fully
+// Focuses on the free NVIDIA NIM lane (free-first platform policy): it is the
+// default for draft AND standard tiers on text prompts WHEN configured, must
+// never disturb other tiers or the geometry path, and must stay fully
 // selectable. The provider module / live behavior is covered separately.
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
@@ -39,22 +39,24 @@ describe('forge-tiers — NVIDIA NIM backend registration', () => {
 		expect(backendIsConfigured('nvidia')).toBe(true);
 	});
 
-	describe('draft-tier default routing', () => {
+	describe('free-tier default routing', () => {
 		it('keeps the Replicate TRELLIS default when NIM is unconfigured', () => {
 			delete process.env.NVIDIA_API_KEY;
 			expect(resolveBackendId({ path: 'image', tier: 'draft' })).toBe('trellis');
+			expect(resolveBackendId({ path: 'image', tier: 'standard' })).toBe('trellis');
 		});
 
-		it('routes the draft tier to the free NIM lane when configured', () => {
+		it('routes draft and standard tiers to the free NIM lane when configured', () => {
 			process.env.NVIDIA_API_KEY = 'nvapi-test';
 			expect(resolveBackendId({ path: 'image', tier: 'draft' })).toBe('nvidia');
+			expect(resolveBackendId({ path: 'image', tier: 'standard' })).toBe('nvidia');
 		});
 
-		it('never disturbs standard/high or the geometry path', () => {
+		it('never disturbs the high tier or the geometry path', () => {
 			process.env.NVIDIA_API_KEY = 'nvapi-test';
-			expect(resolveBackendId({ path: 'image', tier: 'standard' })).toBe('trellis');
 			expect(resolveBackendId({ path: 'image', tier: 'high' })).toBe('trellis');
 			expect(resolveBackendId({ path: 'geometry', tier: 'draft' })).toBe('meshy');
+			expect(resolveBackendId({ path: 'geometry', tier: 'standard' })).toBe('meshy');
 		});
 	});
 
@@ -80,20 +82,25 @@ describe('forge-tiers — NVIDIA NIM backend registration', () => {
 		const draftEst = nv.estimates.image.find((e) => e.tier === 'draft');
 		expect(draftEst.eta_seconds).toBeGreaterThan(0);
 		expect(draftEst.credits).toBeNull();
-		// The tier-aware default map advertises the free lane for draft.
+		// The tier-aware default map advertises the free lane for draft and standard.
 		expect(cat.default_backend_for_tier.draft.image).toBe('nvidia');
-		expect(cat.default_backend_for_tier.standard.image).toBe('trellis');
+		expect(cat.default_backend_for_tier.standard.image).toBe('nvidia');
+		expect(cat.default_backend_for_tier.high.image).toBe('trellis');
 	});
 
 	// NVIDIA's hosted TRELLIS preview is text-only (rejects every user-image
 	// input — see tasks/nvidia-nim/probes/trellis.md). Photo submissions must
 	// never default onto it.
-	it('routes a photo draft to the standing image backend, not the text-only free lane', () => {
+	it('routes photo submissions to the standing image backend, not the text-only free lane', () => {
 		process.env.NVIDIA_API_KEY = 'nvapi-test';
+		// Photo uploads at draft and standard must route to trellis (NVIDIA is text-only).
 		expect(resolveBackendId({ path: 'image', tier: 'draft', userImages: true })).toBe('trellis');
-		// Prompt-only drafts still get the free lane.
+		expect(resolveBackendId({ path: 'image', tier: 'standard', userImages: true })).toBe('trellis');
+		// Prompt-only drafts and standard requests still get the free lane.
 		expect(resolveBackendId({ path: 'image', tier: 'draft', userImages: false })).toBe('nvidia');
 		expect(resolveBackendId({ path: 'image', tier: 'draft' })).toBe('nvidia');
+		expect(resolveBackendId({ path: 'image', tier: 'standard', userImages: false })).toBe('nvidia');
+		expect(resolveBackendId({ path: 'image', tier: 'standard' })).toBe('nvidia');
 	});
 
 	it('honors an explicit nvidia selection in resolution (the handler owns the rejection)', () => {

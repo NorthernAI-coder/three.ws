@@ -38,6 +38,7 @@ export const NAV = [
 	{ path: '/dashboard/tokens',      label: 'Tokens',          icon: 'token',     group: 'Monetize',   tags: ['pump.fun', 'launch', 'bonding curve', 'royalties', 'trade'] },
 	{ path: '/dashboard/copy',        label: 'Copy Trading',    icon: 'live',      group: 'Monetize',   tags: ['copy', 'copy-trade', 'mirror', 'leader', 'follow', 'traders', 'intents', 'pump.fun', 'sniper'] },
 	{ path: '/dashboard/sniper',      label: 'Sniper Strategies', icon: 'live',    group: 'Monetize',   tags: ['sniper', 'autonomous', 'strategy', 'pump.fun', 'auto-trade', 'budget', 'positions', 'pnl', 'kill-switch'] },
+	{ path: '/oracle',                label: 'Oracle',          icon: 'oracle',    group: 'Monetize',   tags: ['conviction', 'score', 'tier', 'pump.fun', 'signal', 'ai', 'trade intelligence', 'wins', 'proof', 'leaderboard'], external: true },
 	{ path: '/dashboard/portfolio',   label: 'Portfolio',        icon: 'portfolio', group: 'Monetize',  tags: ['nft', 'holdings', 'balances', 'wallet', 'collection', 'crypto', 'tokens', 'chart', 'send'] },
 	{ path: '/dashboard/landscape',   label: 'Landscape',       icon: 'landscape', group: 'Monetize',   tags: ['competitors', 'market', 'competitive', 'intelligence', 'positioning', 'tam', 'investor'] },
 	{ path: '/reputation',            label: 'Reputation',      icon: 'star',      group: 'Monetize',   tags: ['reviews', 'attestations', 'onchain', 'trust', 'score'], external: true },
@@ -90,6 +91,7 @@ export const ICONS = {
 	skills:    '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="14" height="14" rx="3"/><path d="M7 7h6M7 10h4M7 13h5"/></svg>',
 	devhub:    '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="16" height="12" rx="2"/><path d="M6 7l-2 2.5L6 12M14 7l2 2.5L14 12M9 13l2-8"/></svg>',
 	landscape: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="8" r="2"/><circle cx="14" cy="6" r="2"/><circle cx="10" cy="14" r="2"/><path d="M8 8l2 5M12 7l-2 6"/><path d="M3 3h14v14H3z" stroke-dasharray="2 2" opacity="0.3"/></svg>',
+	oracle:    '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="9" r="5.5"/><path d="M6.5 9a3.5 3.5 0 007 0"/><circle cx="10" cy="9" r="1.2" fill="currentColor" stroke="none"/><path d="M10 14.5v2.5M7 16.5h6"/></svg>',
 	bounty:    '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="7.5"/><path d="M10 6v8M7 8l3-2 3 2M7 12l3 2 3-2"/></svg>',
 	gift:      '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="14" height="9" rx="1.5"/><path d="M3 11h14M10 8v9"/><path d="M10 8S8.5 4.5 6.5 4.5a2 2 0 000 4H10zM10 8s1.5-3.5 3.5-3.5a2 2 0 010 4H10z"/></svg>',
 };

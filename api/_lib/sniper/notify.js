@@ -12,13 +12,13 @@
 
 const TIMEOUT_MS = 3000;
 
-function chatId() {
+function defaultChatId() {
 	return process.env.TELEGRAM_SNIPER_CHAT_ID || process.env.TELEGRAM_ALERTS_CHAT_ID || null;
 }
 
-function send(text) {
+function send(text, chatIdOverride) {
 	const token = process.env.TELEGRAM_BOT_TOKEN;
-	const id = chatId();
+	const id = chatIdOverride || defaultChatId();
 	if (!token || !id) return;
 	const controller = new AbortController();
 	const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
@@ -43,8 +43,9 @@ const icon = (r) => ({ take_profit: '✅', trailing_stop: '✅', stop_loss: '�
 
 /**
  * Notify when the sniper opens a position (buy confirmed).
+ * chatId overrides the default ops channel — used for per-strategy personal alerts.
  */
-export function notifyBuy({ agentName, symbol, mint, solSpent, mode, sig }) {
+export function notifyBuy({ agentName, symbol, mint, solSpent, mode, sig, chatId }) {
 	const modeTag = mode === 'live' ? '' : ' [sim]';
 	const pumpLink = mint ? `https://pump.fun/coin/${mint}` : null;
 	const solLink = sig && sig !== 'SIMULATED' ? `https://solscan.io/tx/${sig}` : null;
@@ -56,13 +57,14 @@ export function notifyBuy({ agentName, symbol, mint, solSpent, mode, sig }) {
 	];
 	if (pumpLink) lines.push(`pump.fun: ${pumpLink}`);
 	if (solLink) lines.push(`tx: ${solLink}`);
-	send(lines.join('\n'));
+	send(lines.join('\n'), chatId || null);
 }
 
 /**
  * Notify when the sniper closes a position (sell confirmed or failed).
+ * chatId overrides the default ops channel — used for per-strategy personal alerts.
  */
-export function notifySell({ agentName, symbol, mint, pnlSol, pnlPct, exitReason, mode, sig }) {
+export function notifySell({ agentName, symbol, mint, pnlSol, pnlPct, exitReason, mode, sig, chatId }) {
 	const modeTag = mode === 'live' ? '' : ' [sim]';
 	const solLink = sig && sig !== 'SIMULATED' ? `https://solscan.io/tx/${sig}` : null;
 	const pumpLink = mint ? `https://pump.fun/coin/${mint}` : null;
@@ -74,5 +76,5 @@ export function notifySell({ agentName, symbol, mint, pnlSol, pnlPct, exitReason
 	];
 	if (pumpLink) lines.push(`pump.fun: ${pumpLink}`);
 	if (solLink) lines.push(`tx: ${solLink}`);
-	send(lines.join('\n'));
+	send(lines.join('\n'), chatId || null);
 }
