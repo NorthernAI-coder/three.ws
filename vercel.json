@@ -238,6 +238,9 @@
 		"api/sniper/leaderboard.js": {
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 30
+		},
+		"api/sniper/history.js": {
+			"maxDuration": 20
 		}
 	},
 	"routes": [
@@ -1928,6 +1931,10 @@
 		{
 			"src": "/api/sniper/leaderboard",
 			"dest": "/api/sniper/leaderboard.js"
+		},
+		{
+			"src": "/api/sniper/history",
+			"dest": "/api/sniper/history.js"
 		},
 		{
 			"src": "/api/pump/build-metadata",

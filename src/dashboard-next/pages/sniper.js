@@ -129,6 +129,27 @@ const STYLE = `<style>
 .sn-ob-tier { font: 600 8px/1 var(--nxt-mono, monospace); text-transform: uppercase; letter-spacing: .06em; opacity: .8; }
 .sn-empty { color: var(--nxt-ink-faint); font-size: 13px; padding: 24px 16px; text-align: center; }
 
+/* trade history */
+.sn-hist { background: var(--nxt-panel); border: 1px solid var(--nxt-stroke); border-radius: var(--nxt-radius); overflow: hidden; }
+.sn-hist-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px 12px; border-bottom: 1px solid var(--nxt-line); }
+.sn-hist-head h3 { font-size: 14px; margin: 0; }
+.sn-hist-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.sn-hist-table th { padding: 9px 14px; text-align: left; font: 600 10px/1 var(--nxt-mono, monospace); letter-spacing: .07em; text-transform: uppercase; color: var(--nxt-ink-faint); border-bottom: 1px solid var(--nxt-line); white-space: nowrap; }
+.sn-hist-table th.r, .sn-hist-table td.r { text-align: right; }
+.sn-hist-row td { padding: 10px 14px; border-bottom: 1px solid rgba(255,255,255,0.04); vertical-align: middle; white-space: nowrap; }
+.sn-hist-row:last-child td { border-bottom: none; }
+.sn-hist-sym { font-weight: 700; font-size: 13px; }
+.sn-hist-agent { font-size: 11px; color: var(--nxt-ink-faint); margin-top: 2px; }
+.sn-hist-mono { font-family: var(--nxt-mono, monospace); font-variant-numeric: tabular-nums; }
+.sn-hist-tag { font-size: 10px; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--nxt-stroke); color: var(--nxt-ink-faint); }
+.sn-hist-tag.tp { color: var(--nxt-success); border-color: color-mix(in srgb, var(--nxt-success) 40%, transparent); }
+.sn-hist-tag.sl { color: var(--nxt-danger, #f87171); border-color: color-mix(in srgb, var(--nxt-danger, #f87171) 40%, transparent); }
+.sn-hist-link { color: var(--nxt-accent); text-decoration: none; font-size: 11px; }
+.sn-hist-link:hover { text-decoration: underline; }
+.sn-hist-more { display: block; text-align: center; padding: 12px; font-size: 12px; color: var(--nxt-ink-faint); border-top: 1px solid var(--nxt-line); background: none; border-left:0;border-right:0;border-bottom:0; width:100%; cursor:pointer; }
+.sn-hist-more:hover { color: var(--nxt-ink); }
+@media (max-width: 640px) { .sn-hist-table th.hide-mobile, .sn-hist-row td.hide-mobile { display: none; } }
+
 /* new strategy cta */
 .sn-new { background: var(--nxt-panel); border: 1px dashed var(--nxt-stroke); border-radius: var(--nxt-radius); padding: 20px 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .sn-new-text { font-size: 13px; color: var(--nxt-ink-faint); max-width: 340px; }
@@ -188,6 +209,7 @@ async function refresh(root) {
 	root.innerHTML = render();
 	wireEvents(root);
 	startSse(root);
+	loadTradeHistory(root);
 }
 
 function render() {
@@ -199,6 +221,7 @@ function render() {
 			${hasStrats ? _strategies.map(stratCard).join('') : ''}
 		</div>
 		${livePositionsSection()}
+		<div id="sn-hist-mount"></div>
 		${newStrategyCta()}
 	</div>`;
 }
@@ -507,6 +530,109 @@ async function enrichPositionOracle() {
 			</a>`;
 		}
 	} catch { /* non-fatal */ }
+}
+
+// ── Trade history ─────────────────────────────────────────────────────────────
+
+const EXIT_TAG = {
+	take_profit: ['tp', 'Take profit'],
+	stop_loss:   ['sl', 'Stop loss'],
+	trailing_stop: ['sl', 'Trailing stop'],
+	timeout:     ['', 'Timeout'],
+	kill_switch: ['', 'Kill switch'],
+	manual:      ['', 'Manual'],
+};
+
+function histRow(t) {
+	const pnlCls = t.pnl_sol > 0 ? 'sn-pos' : t.pnl_sol < 0 ? 'sn-neg' : '';
+	const pnlStr = t.pnl_sol != null ? `<span class="${pnlCls} sn-hist-mono">${fmtSol(t.pnl_sol)}</span>` : '—';
+	const pctStr = t.pnl_pct != null ? `<span class="${pnlCls} sn-hist-mono">${t.pnl_pct >= 0 ? '+' : ''}${t.pnl_pct.toFixed(1)}%</span>` : '—';
+	const [tagCls, tagLabel] = EXIT_TAG[t.exit_reason] || ['', t.exit_reason || '—'];
+	const entrySol = t.entry_sol != null ? `<span class="sn-hist-mono">${fmtSol(t.entry_sol)}</span>` : '—';
+	const links = [
+		t.buy_url ? `<a class="sn-hist-link" href="${esc(t.buy_url)}" target="_blank" rel="noopener">buy ↗</a>` : '',
+		t.sell_url ? `<a class="sn-hist-link" href="${esc(t.sell_url)}" target="_blank" rel="noopener">sell ↗</a>` : '',
+	].filter(Boolean).join(' · ');
+	const holdMs = t.opened_at && t.closed_at
+		? new Date(t.closed_at).getTime() - new Date(t.opened_at).getTime()
+		: null;
+	const holdStr = holdMs != null ? holdDuration(holdMs) : '—';
+	return `<tr class="sn-hist-row">
+		<td>
+			<div class="sn-hist-sym">${esc(t.symbol)}</div>
+			<div class="sn-hist-agent">${esc(t.agent_name || '')}</div>
+		</td>
+		<td class="r">${entrySol}</td>
+		<td class="r">${pnlStr}</td>
+		<td class="r hide-mobile">${pctStr}</td>
+		<td class="r hide-mobile"><span class="sn-hist-mono">${holdStr}</span></td>
+		<td class="r"><span class="sn-hist-tag ${tagCls}">${esc(tagLabel)}</span></td>
+		<td class="r hide-mobile">${links || '—'}</td>
+	</tr>`;
+}
+
+function holdDuration(ms) {
+	const s = Math.round(ms / 1000);
+	if (s < 60) return `${s}s`;
+	const m = Math.floor(s / 60);
+	if (m < 60) return `${m}m`;
+	return `${Math.floor(m / 60)}h ${m % 60}m`;
+}
+
+let _histLoading = false;
+let _histLimit = 25;
+
+async function loadTradeHistory(root, append = false) {
+	if (_histLoading) return;
+	const mount = root.querySelector('#sn-hist-mount');
+	if (!mount) return;
+	_histLoading = true;
+	if (!append) {
+		mount.innerHTML = `<div class="sn-hist"><div class="sn-hist-head"><h3>Trade History</h3></div><div class="sn-empty" style="padding:24px 18px">Loading…</div></div>`;
+	}
+	try {
+		const data = await get(`/api/sniper/history?limit=${_histLimit}`);
+		const trades = data.trades || [];
+		if (!trades.length) {
+			mount.innerHTML = `<div class="sn-hist"><div class="sn-hist-head"><h3>Trade History</h3></div><div class="sn-empty" style="padding:24px 18px">No closed trades yet. Your completed snipes appear here.</div></div>`;
+			return;
+		}
+		const hasMore = trades.length >= _histLimit;
+		mount.innerHTML = `
+		<div class="sn-hist">
+			<div class="sn-hist-head">
+				<h3>Trade History</h3>
+				<span style="font-size:12px;color:var(--nxt-ink-faint)">${trades.length} closed trade${trades.length !== 1 ? 's' : ''}</span>
+			</div>
+			<div style="overflow-x:auto">
+				<table class="sn-hist-table">
+					<thead>
+						<tr>
+							<th>Coin</th>
+							<th class="r">Entry</th>
+							<th class="r">PnL</th>
+							<th class="r hide-mobile">PnL %</th>
+							<th class="r hide-mobile">Hold</th>
+							<th class="r">Exit</th>
+							<th class="r hide-mobile">Proof</th>
+						</tr>
+					</thead>
+					<tbody>${trades.map(histRow).join('')}</tbody>
+				</table>
+			</div>
+			${hasMore ? `<button class="sn-hist-more" id="sn-hist-more">Load more</button>` : ''}
+		</div>`;
+		if (hasMore) {
+			mount.querySelector('#sn-hist-more')?.addEventListener('click', () => {
+				_histLimit += 25;
+				loadTradeHistory(root, false);
+			});
+		}
+	} catch {
+		mount.innerHTML = `<div class="sn-hist"><div class="sn-hist-head"><h3>Trade History</h3></div><div class="sn-empty" style="padding:20px 18px;color:var(--nxt-ink-faint)">Couldn't load trade history.</div></div>`;
+	} finally {
+		_histLoading = false;
+	}
 }
 
 // ── New strategy CTA ──────────────────────────────────────────────────────────
