@@ -325,7 +325,44 @@ function mountEmbedEditor(root, opts = {}) {
 		copyBtn._t = setTimeout(() => { copyBtn.textContent = 'Copy snippet'; copyBtn.classList.remove('is-ok'); }, 1600);
 	});
 
-	previewWrap.append(previewBar, previewFrame, snippetBar, snippetBox, copyBtn);
+	// ── Platform instructions ─────────────────────────────────────────────────
+	const PLATFORMS = [
+		{ id: 'html',      label: 'HTML' },
+		{ id: 'react',     label: 'React' },
+		{ id: 'wordpress', label: 'WordPress' },
+		{ id: 'webflow',   label: 'Webflow' },
+		{ id: 'shopify',   label: 'Shopify' },
+	];
+	const PLATFORM_INSTRUCTIONS = {
+		html:      'Paste the snippet anywhere inside your HTML file, between <body> tags. Works in any static site, Squarespace, Wix, or raw HTML.',
+		react:     'In your React component, render a <div> with a ref and inject the iframe via dangerouslySetInnerHTML, or just paste the snippet verbatim into a JSX block using the <div dangerouslySetInnerHTML={{ __html: \`...\` }} /> pattern.',
+		wordpress: '1. Open a page or post editor → click + to add a block → search "Custom HTML". 2. Paste the snippet into the block. 3. Click Preview or Publish.',
+		webflow:   '1. Open your page in the Webflow Designer. 2. Add an Embed block (press A → search "Embed"). 3. Paste the snippet and click Save & Close. 4. Publish.',
+		shopify:   '1. In your Shopify admin, go to Online Store → Themes → Customize. 2. Add a Custom HTML section where you want the avatar. 3. Paste the snippet. 4. Save.',
+	};
+
+	let activePlatform = 'html';
+	const platformBar = el('div', { className: 'ee-bar ee-platform-bar' }, [
+		el('span', { className: 'ee-bar-title', textContent: 'Where to paste' }),
+	]);
+	const platformTabs = el('div', { className: 'ee-segment ee-segment-sm ee-platform-tabs' });
+	const platformNote = el('p', { className: 'ee-platform-note', textContent: PLATFORM_INSTRUCTIONS.html });
+
+	const platformBtns = new Map();
+	for (const p of PLATFORMS) {
+		const b = el('button', { type: 'button', className: 'ee-seg-btn', textContent: p.label });
+		b.addEventListener('click', () => {
+			activePlatform = p.id;
+			platformBtns.forEach((btn, id) => btn.classList.toggle('is-active', id === p.id));
+			platformNote.textContent = PLATFORM_INSTRUCTIONS[p.id];
+		});
+		platformBtns.set(p.id, b);
+		platformTabs.appendChild(b);
+	}
+	platformBtns.get('html').classList.add('is-active');
+
+	const platformSection = el('div', { className: 'ee-platform-section' }, [platformBar, platformTabs, platformNote]);
+	previewWrap.append(previewBar, previewFrame, snippetBar, snippetBox, copyBtn, platformSection);
 
 	root.append(panel, previewWrap);
 
@@ -606,6 +643,11 @@ function injectStyles() {
 		.ee-copy:hover { background:#4f52e0; }
 		.ee-copy:active { transform:translateY(1px); }
 		.ee-copy.is-ok { background:#22c55e; }
+		.ee-platform-section { display:flex; flex-direction:column; gap:10px; border-top:1px solid #1c2026; padding-top:14px; }
+		.ee-platform-bar { margin-bottom:0; }
+		.ee-platform-tabs { flex-wrap:wrap; }
+		.ee-platform-tabs .ee-seg-btn { padding:5px 10px; font-size:11.5px; flex:none; }
+		.ee-platform-note { font-size:12.5px; color:#71717a; line-height:1.6; margin:0; padding:12px 14px; background:#0a0c0f; border:1px solid #1c2026; border-radius:9px; }
 		@media (max-width:860px) {
 			.embed-editor { grid-template-columns:1fr; height:auto; }
 			.ee-panel { border-right:none; border-bottom:1px solid #1c2026; }
