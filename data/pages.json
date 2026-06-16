@@ -497,6 +497,14 @@
 					"added": "2026-06-15"
 				},
 				{
+					"path": "/watchlist",
+					"title": "Watchlist",
+					"description": "Your privately-stored watchlist of pump.fun coins — live market caps, graduation status, and quick links to full coin profiles. No account required; stored in your browser.",
+					"priority": 0.7,
+					"changefreq": "daily",
+					"added": "2026-06-16"
+				},
+				{
 					"path": "/pump-dashboard",
 					"title": "Pump Dashboard",
 					"description": "Pump.fun trading desk: watchlists, scanner, quotes, portfolio, and live charts.",

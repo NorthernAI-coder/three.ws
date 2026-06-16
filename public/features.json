@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-16T02:57:48.293Z",
+	"generated_at": "2026-06-16T03:33:09.816Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -601,6 +601,16 @@
 					"title": "Coin Radar",
 					"description": "Live pump.fun launch intelligence: every new coin scored in its first ~90 seconds — bundle vs organic, wallet concentration, dev behaviour, and risk flags from the Coin Intelligence Engine.",
 					"added": "2026-06-15",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/watchlist",
+					"title": "Watchlist",
+					"description": "Your privately-stored watchlist of pump.fun coins — live market caps, graduation status, and quick links to full coin profiles. No account required; stored in your browser.",
+					"added": "2026-06-16",
 					"auth": null,
 					"indexable": true,
 					"tags": [],
