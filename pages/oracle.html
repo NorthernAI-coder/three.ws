@@ -73,6 +73,19 @@
 		.seg button.on { background: color-mix(in srgb, var(--cyan) 20%, transparent); color: var(--ink); }
 		.sel { background: var(--panel); border: 1px solid var(--line); border-radius: 999px; color: var(--ink); padding: 7px 12px; font: 600 12.5px/1 var(--mono); }
 
+		/* symbol search dropdown */
+		.ms-drop { position: absolute; top: calc(100% + 6px); left: 0; min-width: 260px; max-width: 360px;
+			background: var(--panel); border: 1px solid var(--line); border-radius: 10px; z-index: 100;
+			box-shadow: 0 8px 24px rgba(0,0,0,.35); overflow: hidden; }
+		.ms-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%;
+			padding: 9px 14px; background: none; border: none; color: var(--ink); font: 13px/1 var(--mono);
+			cursor: pointer; text-align: left; transition: background .12s; }
+		.ms-item:hover, .ms-item:focus-visible { background: rgba(255,255,255,.06); outline: none; }
+		.ms-sym { font-weight: 700; font-size: 13px; }
+		.ms-tier { font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; white-space: nowrap; }
+		[data-theme="light"] .ms-drop { box-shadow: 0 8px 24px rgba(0,0,0,.12); }
+		[data-theme="light"] .ms-item:hover { background: rgba(0,0,0,.04); }
+
 		/* coin grid */
 		.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 14px; }
 		.coin-wrap { position: relative; }
@@ -459,7 +472,7 @@
 					<button data-fsort="score" class="on">Top</button>
 					<button data-fsort="new">New</button>
 				</div>
-				<input class="sel" id="mintSearch" placeholder="Paste a mint to score it…" aria-label="Score any coin by mint address" style="min-width:230px;flex:1;max-width:320px" />
+				<div style="position:relative;flex:1;min-width:230px;max-width:320px"><input class="sel" id="mintSearch" placeholder="Search symbol or paste mint…" aria-label="Search by symbol, name, or paste a mint address" autocomplete="off" style="width:100%" /></div>
 			</div>
 			<div class="grid" id="feedGrid"></div>
 		</section>

@@ -125,11 +125,59 @@ function boot() {
 		state.sort = b.dataset.fsort; renderFeed();
 	});
 	const MINT_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
-	$('#mintSearch').addEventListener('keydown', (e) => {
+	const searchEl = $('#mintSearch');
+	let _searchTimer = null;
+	const _searchDrop = document.createElement('div');
+	_searchDrop.id = 'mintSearchDrop';
+	_searchDrop.className = 'ms-drop';
+	_searchDrop.style.display = 'none';
+	searchEl.parentNode?.insertBefore(_searchDrop, searchEl.nextSibling);
+
+	function closeSearchDrop() { _searchDrop.style.display = 'none'; _searchDrop.innerHTML = ''; }
+
+	async function doSymbolSearch(q) {
+		if (!q || q.length < 2) { closeSearchDrop(); return; }
+		const res = await fetch(`/api/oracle/search?q=${encodeURIComponent(q)}&network=${NETWORK}&limit=8`).catch(() => null);
+		if (!res?.ok) { closeSearchDrop(); return; }
+		const data = await res.json().catch(() => null);
+		const items = data?.items || [];
+		if (!items.length) { closeSearchDrop(); return; }
+		const TCOL = { prime: '#c084fc', strong: '#34d399', lean: '#fbbf24', watch: '#94a3b8', avoid: '#f87171' };
+		_searchDrop.innerHTML = items.map((it) => {
+			const col = TCOL[it.tier] || '#94a3b8';
+			return `<button class="ms-item" data-mint="${esc(it.mint)}" type="button">
+				<span class="ms-sym">${esc(it.symbol || it.name || it.mint.slice(0, 8))}</span>
+				<span class="ms-tier" style="color:${col}">${esc(it.tier || '')}${it.score != null ? ` ${it.score}` : ''}</span>
+			</button>`;
+		}).join('');
+		_searchDrop.style.display = '';
+	}
+
+	searchEl.addEventListener('input', () => {
+		const v = searchEl.value.trim();
+		clearTimeout(_searchTimer);
+		if (MINT_RE.test(v)) { closeSearchDrop(); return; }
+		_searchTimer = setTimeout(() => doSymbolSearch(v), 280);
+	});
+
+	searchEl.addEventListener('keydown', (e) => {
+		if (e.key === 'Escape') { closeSearchDrop(); return; }
 		if (e.key !== 'Enter') return;
-		const v = e.target.value.trim();
-		if (MINT_RE.test(v)) { openCoin(v); e.target.blur(); }
-		else if (v) { e.target.style.borderColor = 'var(--down)'; setTimeout(() => { e.target.style.borderColor = ''; }, 900); }
+		const v = searchEl.value.trim();
+		if (MINT_RE.test(v)) { openCoin(v); searchEl.blur(); closeSearchDrop(); }
+	});
+
+	_searchDrop.addEventListener('click', (e) => {
+		const btn = e.target.closest('[data-mint]');
+		if (!btn) return;
+		openCoin(btn.dataset.mint);
+		searchEl.value = '';
+		closeSearchDrop();
+		searchEl.blur();
+	});
+
+	document.addEventListener('click', (e) => {
+		if (!searchEl.contains(e.target) && !_searchDrop.contains(e.target)) closeSearchDrop();
 	});
 	$('#labelSeg').addEventListener('click', (e) => {
 		const b = e.target.closest('button'); if (!b) return;

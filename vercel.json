@@ -1813,6 +1813,10 @@
 			"dest": "/api/oracle/batch.js"
 		},
 		{
+			"src": "/api/oracle/search",
+			"dest": "/api/oracle/search.js"
+		},
+		{
 			"src": "/api/oracle/history",
 			"dest": "/api/oracle/history.js"
 		},
