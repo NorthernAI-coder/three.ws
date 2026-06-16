@@ -291,6 +291,14 @@ function renderShell(glbUrl) {
 					<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
 					View in AR
 				</a>
+				<a class="av-ar-btn" href="/irl?avatar=${encodeURIComponent(avatar.id || avatarId)}">
+					<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+					Walk IRL
+				</a>
+				<a class="av-ar-btn" href="/xr?avatar=${encodeURIComponent(avatar.id || avatarId)}">
+					<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7l9-4 9 4v10l-9 4-9-4V7z"/><path d="M12 3v18M3 7l9 4 9-4"/></svg>
+					View in XR
+				</a>
 			</div>
 			<avatar-actions id="av-actions" avatar-id="${esc(avatar.id || avatarId)}" style="margin-top:14px;display:block"></avatar-actions>
 			${avatar.owner_id ? `
