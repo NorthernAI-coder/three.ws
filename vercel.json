@@ -198,6 +198,22 @@
 		"api/copy/settle-fee.js": {
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 60
+		},
+		"api/sniper/strategy.js": {
+			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
+			"maxDuration": 30
+		},
+		"api/sniper/stream.js": {
+			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
+			"maxDuration": 90
+		},
+		"api/sniper/trader.js": {
+			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
+			"maxDuration": 30
+		},
+		"api/sniper/leaderboard.js": {
+			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
+			"maxDuration": 30
 		}
 	},
 	"routes": [
@@ -1217,6 +1233,10 @@
 			"dest": "/dashboard-next/copy.html"
 		},
 		{
+			"src": "/dashboard/sniper/?",
+			"dest": "/dashboard-next/sniper.html"
+		},
+		{
 			"src": "/dashboard/settings/?",
 			"dest": "/dashboard-next/settings.html"
 		},
@@ -1840,6 +1860,22 @@
 		{
 			"src": "/api/copy/settle-fee",
 			"dest": "/api/copy/settle-fee.js"
+		},
+		{
+			"src": "/api/sniper/strategy",
+			"dest": "/api/sniper/strategy.js"
+		},
+		{
+			"src": "/api/sniper/stream",
+			"dest": "/api/sniper/stream.js"
+		},
+		{
+			"src": "/api/sniper/trader",
+			"dest": "/api/sniper/trader.js"
+		},
+		{
+			"src": "/api/sniper/leaderboard",
+			"dest": "/api/sniper/leaderboard.js"
 		},
 		{
 			"src": "/api/pump/build-metadata",
