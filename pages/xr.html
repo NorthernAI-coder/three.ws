@@ -132,6 +132,20 @@
 			.xr-chip--camera { background: rgba(251,191,36,0.1); color: #fbbf24; border-color: rgba(251,191,36,0.3); }
 			.xr-chip--none   { background: rgba(255,255,255,0.04); color: var(--text-2); border-color: var(--border); }
 
+			/* Share button */
+			#xr-share-btn {
+				margin-left: auto;
+				display: flex; align-items: center; gap: 5px;
+				padding: 6px 12px; border-radius: 999px;
+				border: 1px solid var(--border);
+				background: rgba(255,255,255,0.05);
+				color: var(--text-2); font: inherit; font-size: 12px; font-weight: 600;
+				cursor: pointer; backdrop-filter: blur(12px);
+				transition: background 0.15s, color 0.15s, border-color 0.15s;
+				flex-shrink: 0;
+			}
+			#xr-share-btn:hover { color: var(--text); border-color: rgba(255,255,255,0.18); background: rgba(255,255,255,0.1); }
+
 			/* ── Loading overlay ── */
 			#xr-loading {
 				position: fixed; inset: 0; z-index: 30;
@@ -367,6 +381,10 @@
 			</a>
 			<div class="xr-wordmark">three<span>.ws</span> XR</div>
 			<div id="xr-device-chip" class="xr-chip xr-chip--none">Detecting…</div>
+			<button id="xr-share-btn" type="button" aria-label="Share screenshot">
+				<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+				Share
+			</button>
 		</div>
 
 		<!-- Floating mode badge -->
@@ -446,5 +464,60 @@
 			})();
 		</script>
 		<script src="/brand.js" defer></script>
+		<script>
+			document.getElementById('xr-share-btn').addEventListener('click', async () => {
+				const btn = document.getElementById('xr-share-btn');
+				const origHTML = btn.innerHTML;
+				btn.disabled = true;
+				btn.querySelector('svg') && (btn.querySelector('svg').style.display = 'none');
+				btn.lastChild.textContent = '…';
+
+				async function captureFrame() {
+					const cvs = document.getElementById('xr-canvas');
+					if (!cvs) return null;
+					const w = cvs.width; const h = cvs.height;
+					if (!w || !h) return null;
+					const out = document.createElement('canvas');
+					out.width = w; out.height = h;
+					const ctx2 = out.getContext('2d');
+					const vid = document.getElementById('xr-camera-feed');
+					if (vid && !vid.paused && vid.videoWidth) {
+						try { ctx2.drawImage(vid, 0, 0, w, h); } catch {}
+					}
+					try { ctx2.drawImage(cvs, 0, 0); } catch {}
+					return new Promise(res => out.toBlob(res, 'image/png'));
+				}
+
+				try {
+					const blob = await captureFrame();
+					if (blob) {
+						const file = new File([blob], 'three-ws-xr.png', { type: 'image/png' });
+						if (navigator.share && navigator.canShare?.({ files: [file] })) {
+							await navigator.share({ title: 'XR · three.ws', files: [file] });
+							btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg> Shared!';
+							setTimeout(() => { btn.innerHTML = origHTML; btn.disabled = false; }, 2000);
+							return;
+						}
+						const objUrl = URL.createObjectURL(blob);
+						const a = document.createElement('a');
+						a.href = objUrl; a.download = 'three-ws-xr.png'; a.click();
+						setTimeout(() => URL.revokeObjectURL(objUrl), 4000);
+						btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg> Saved!';
+						setTimeout(() => { btn.innerHTML = origHTML; btn.disabled = false; }, 2000);
+						return;
+					}
+				} catch {}
+
+				// Fallback: share URL
+				const url = location.href;
+				if (navigator.share) {
+					try { await navigator.share({ title: 'XR · three.ws', url }); } catch {}
+				} else {
+					try { await navigator.clipboard.writeText(url); } catch {}
+				}
+				btn.innerHTML = origHTML;
+				btn.disabled = false;
+			});
+		</script>
 </body>
 </html>

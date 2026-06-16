@@ -594,6 +594,10 @@
 			"dest": "/mint-success.html"
 		},
 		{
+			"src": "/create/next/?",
+			"dest": "/create-next.html"
+		},
+		{
 			"src": "/trades/?",
 			"dest": "/trades.html"
 		},

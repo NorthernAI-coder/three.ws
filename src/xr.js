@@ -54,7 +54,7 @@ function setStatus(msg, type = 'idle') {
 
 // ── Three.js setup ───────────────────────────────────────────────────────────
 
-const renderer = new WebGLRenderer({ canvas, antialias: true, alpha: true });
+const renderer = new WebGLRenderer({ canvas, antialias: true, alpha: true, preserveDrawingBuffer: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight, false);
 renderer.shadowMap.enabled = true;

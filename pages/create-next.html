@@ -1,0 +1,379 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<script>/* three.ws theme boot — no-flash */(function(){try{var m=localStorage.getItem('twx_theme');var l=m==='auto'?(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches):m==='light';document.documentElement.setAttribute('data-theme',l?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();</script>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+	<title>Your avatar is ready · three.ws</title>
+	<meta name="robots" content="noindex" />
+	<link rel="icon" href="/favicon.ico" sizes="any" />
+	<link rel="stylesheet" href="/fonts/fonts.css" />
+	<script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"></script>
+	<style>
+		*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+		html, body {
+			height: 100%;
+			background: #050508;
+			color: #e5e7eb;
+			font-family: Inter, system-ui, sans-serif;
+		}
+
+		/* ── layout ── */
+		.cn-shell {
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			min-height: 100vh;
+		}
+
+		/* ── left: avatar panel ── */
+		.cn-left {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+			padding: 40px 32px;
+			position: relative;
+			background: radial-gradient(ellipse 80% 60% at 50% 60%, rgba(99,102,241,.1) 0%, transparent 70%);
+			border-right: 1px solid rgba(255,255,255,.06);
+		}
+
+		.cn-avatar-wrap {
+			position: relative;
+			width: clamp(200px, 40vw, 320px);
+			height: clamp(200px, 40vw, 320px);
+			opacity: 0; transform: scale(.92);
+			transition: opacity .8s ease-out, transform .8s ease-out;
+		}
+		.cn-avatar-wrap.show { opacity: 1; transform: none; }
+
+		.cn-avatar-glow {
+			position: absolute; inset: -24px;
+			border-radius: 50%;
+			background: radial-gradient(circle at center, rgba(99,102,241,.22) 0%, transparent 70%);
+			animation: glow-pulse 3s ease-in-out infinite;
+			opacity: 0; transition: opacity .6s ease-out;
+		}
+		.cn-avatar-glow.show { opacity: 1; }
+
+		model-viewer.cn-mv, .cn-initial {
+			width: 100%; height: 100%;
+			border-radius: 50%;
+			--progress-bar-color: transparent;
+		}
+		.cn-initial {
+			display: flex; align-items: center; justify-content: center;
+			background: linear-gradient(135deg, #312e81, #4f46e5);
+			font-size: 4rem; font-weight: 800;
+			color: rgba(255,255,255,.9);
+		}
+
+		.cn-avatar-label {
+			margin-top: 20px;
+			font-size: 1.1rem; font-weight: 700; color: #f9fafb;
+			letter-spacing: -.01em; text-align: center;
+			opacity: 0; transition: opacity .6s ease-out;
+		}
+		.cn-avatar-label.show { opacity: 1; }
+
+		.cn-avatar-tag {
+			margin-top: 8px;
+			font-size: 11px; font-weight: 600; letter-spacing: .1em;
+			text-transform: uppercase; color: #a5b4fc;
+			opacity: 0; transition: opacity .6s ease-out;
+		}
+		.cn-avatar-tag.show { opacity: 1; }
+
+		.cn-back {
+			position: absolute; bottom: 24px;
+			font-size: 12px; color: #6b7280;
+			text-decoration: none;
+			transition: color .15s;
+		}
+		.cn-back:hover { color: #9ca3af; }
+
+		/* ── right: next steps ── */
+		.cn-right {
+			display: flex;
+			flex-direction: column;
+			justify-content: center;
+			padding: 48px 40px;
+			gap: 0;
+		}
+
+		.cn-header {
+			opacity: 0; transform: translateY(10px);
+			transition: opacity .6s ease-out, transform .6s ease-out;
+		}
+		.cn-header.show { opacity: 1; transform: none; }
+
+		.cn-kicker {
+			font-size: 11px; font-weight: 700;
+			letter-spacing: .14em; text-transform: uppercase;
+			color: #6366f1; margin-bottom: 8px;
+		}
+
+		.cn-headline {
+			font-size: clamp(1.4rem, 2.5vw, 2rem);
+			font-weight: 800; line-height: 1.15;
+			color: #f9fafb;
+		}
+
+		.cn-steps {
+			margin-top: 32px;
+			display: flex; flex-direction: column; gap: 0;
+		}
+
+		.cn-step {
+			display: flex; gap: 18px;
+			padding: 20px 24px;
+			border-radius: 14px;
+			border: 1px solid rgba(255,255,255,.07);
+			background: rgba(255,255,255,.03);
+			cursor: pointer;
+			transition: border-color .2s, background .2s, transform .15s;
+			text-decoration: none; color: inherit;
+			opacity: 0; transform: translateX(14px);
+			position: relative;
+			margin-bottom: 10px;
+		}
+		.cn-step:last-child { margin-bottom: 0; }
+		.cn-step.show { opacity: 1; transform: none; }
+		.cn-step:hover {
+			border-color: rgba(99,102,241,.5);
+			background: rgba(99,102,241,.07);
+			transform: translateX(3px);
+		}
+		.cn-step.primary {
+			border-color: rgba(99,102,241,.4);
+			background: rgba(99,102,241,.1);
+		}
+		.cn-step.primary:hover {
+			border-color: rgba(99,102,241,.7);
+			background: rgba(99,102,241,.16);
+		}
+		.cn-step.optional {
+			border-style: dashed;
+			border-color: rgba(255,255,255,.1);
+		}
+
+		.cn-step-num {
+			width: 32px; height: 32px;
+			border-radius: 50%;
+			display: flex; align-items: center; justify-content: center;
+			flex-shrink: 0;
+			font-size: 13px; font-weight: 700;
+			background: rgba(99,102,241,.15); color: #a5b4fc;
+		}
+		.cn-step.primary .cn-step-num {
+			background: rgba(99,102,241,.4); color: #e0e7ff;
+		}
+		.cn-step.optional .cn-step-num {
+			background: rgba(255,255,255,.06); color: #6b7280;
+		}
+
+		.cn-step-body { flex: 1; }
+
+		.cn-step-title {
+			font-size: 14px; font-weight: 700;
+			color: #e5e7eb;
+			display: flex; align-items: center; gap: 8px;
+		}
+		.cn-step.optional .cn-step-title { color: #9ca3af; }
+
+		.cn-opt-pill {
+			font-size: 9px; font-weight: 700; letter-spacing: .1em;
+			text-transform: uppercase; color: #4b5563;
+			border: 1px solid rgba(255,255,255,.1);
+			padding: 1px 6px; border-radius: 4px;
+		}
+
+		.cn-step-desc {
+			margin-top: 3px;
+			font-size: 12.5px; color: #6b7280; line-height: 1.5;
+		}
+		.cn-step.primary .cn-step-desc { color: #9ca3af; }
+
+		.cn-step-arrow {
+			align-self: center;
+			font-size: 16px; color: #4b5563;
+			transition: transform .15s;
+			flex-shrink: 0;
+		}
+		.cn-step:hover .cn-step-arrow { transform: translateX(3px); color: #a5b4fc; }
+		.cn-step.optional:hover .cn-step-arrow { transform: translateX(3px); color: #6b7280; }
+
+		/* ── animations ── */
+		@keyframes glow-pulse {
+			0%,100% { opacity: .5; transform: scale(1); }
+			50%      { opacity: 1; transform: scale(1.06); }
+		}
+
+		/* ── mobile ── */
+		@media (max-width: 700px) {
+			.cn-shell {
+				grid-template-columns: 1fr;
+				grid-template-rows: auto 1fr;
+			}
+			.cn-left {
+				border-right: none;
+				border-bottom: 1px solid rgba(255,255,255,.06);
+				padding: 32px 24px 24px;
+				background: radial-gradient(ellipse 120% 100% at 50% 80%, rgba(99,102,241,.09) 0%, transparent 70%);
+			}
+			.cn-avatar-wrap {
+				width: clamp(140px, 50vw, 200px);
+				height: clamp(140px, 50vw, 200px);
+			}
+			.cn-right { padding: 28px 20px 40px; }
+			.cn-step { padding: 16px 18px; }
+		}
+	</style>
+</head>
+<body>
+	<div class="cn-shell">
+		<div class="cn-left">
+			<div class="cn-avatar-wrap" id="cnAvatarWrap">
+				<div class="cn-avatar-glow" id="cnAvatarGlow"></div>
+				<div class="cn-initial" id="cnInitial">?</div>
+			</div>
+			<div class="cn-avatar-label" id="cnAvatarLabel">Loading…</div>
+			<div class="cn-avatar-tag" id="cnAvatarTag">3D AI Agent</div>
+			<a class="cn-back" href="/dashboard/avatars">← Back to avatars</a>
+		</div>
+
+		<div class="cn-right">
+			<div class="cn-header" id="cnHeader">
+				<div class="cn-kicker">What's next?</div>
+				<h1 class="cn-headline" id="cnHeadline">Your avatar is ready.<br>Here's where it gets powerful.</h1>
+			</div>
+
+			<div class="cn-steps" id="cnSteps">
+				<a class="cn-step primary show" id="cnStep1" href="#" style="transition-delay:.05s">
+					<div class="cn-step-num">1</div>
+					<div class="cn-step-body">
+						<div class="cn-step-title" id="cnStep1Title">Give it a brain</div>
+						<div class="cn-step-desc" id="cnStep1Desc">Set its personality, system prompt, and voice. Your avatar becomes a real AI agent in minutes.</div>
+					</div>
+					<div class="cn-step-arrow">→</div>
+				</a>
+				<a class="cn-step show" id="cnStep2" href="#" style="transition-delay:.12s">
+					<div class="cn-step-num">2</div>
+					<div class="cn-step-body">
+						<div class="cn-step-title">Embed it anywhere</div>
+						<div class="cn-step-desc">Drop a live talking 3D widget on any website in 2 minutes. Copy one snippet.</div>
+					</div>
+					<div class="cn-step-arrow">→</div>
+				</a>
+				<a class="cn-step optional show" id="cnStep3" href="#" style="transition-delay:.2s">
+					<div class="cn-step-num">3</div>
+					<div class="cn-step-body">
+						<div class="cn-step-title">Deploy on-chain <span class="cn-opt-pill">Optional</span></div>
+						<div class="cn-step-desc">Mint your agent as a collectible. Make it discoverable and tradeable.</div>
+					</div>
+					<div class="cn-step-arrow">→</div>
+				</a>
+			</div>
+		</div>
+	</div>
+
+	<script type="module">
+		import { agentAvatarGlb } from '/src/shared/agent-3d.js';
+
+		const p = new URLSearchParams(location.search);
+		const avatarId = p.get('avatarId') || '';
+		const agentId  = p.get('agentId')  || '';
+		const fromFlow = p.get('from') || 'object';
+
+		// If this is an agent save (has agentId), step 1 goes to /app (AI chat).
+		// If avatar-only, step 1 goes to /create-agent (build an agent from the avatar).
+		const step1Href   = agentId ? `/app?agent=${encodeURIComponent(agentId)}` : (avatarId ? `/create-agent?avatar=${encodeURIComponent(avatarId)}` : '/create-agent');
+		const step1Label  = agentId ? 'Chat with your agent' : 'Give it a brain';
+		const step1Desc   = agentId
+			? 'Talk to your agent, customize its personality, and set a system prompt.'
+			: 'Set its personality, system prompt, and voice. Your avatar becomes a real AI agent in minutes.';
+		const step2Href   = avatarId ? `/embed.html?avatar=${encodeURIComponent(avatarId)}` : '/embed.html';
+		const step3Href   = agentId ? `/deploy?agent=${encodeURIComponent(agentId)}` : (avatarId ? `/create-agent?avatar=${encodeURIComponent(avatarId)}&then=deploy` : '/launchpad');
+		const headline    = agentId ? 'Your agent is ready.<br>Here\'s where it gets powerful.' : 'Your avatar is ready.<br>Here\'s where it gets powerful.';
+		const backHref    = agentId ? `/app?agent=${encodeURIComponent(agentId)}` : '/dashboard/avatars';
+		const avatarTag   = agentId ? '3D AI Agent' : '3D Avatar';
+
+		// Wire static links that don't need data
+		document.getElementById('cnStep1').href = step1Href;
+		document.getElementById('cnStep1Title').textContent = step1Label;
+		document.getElementById('cnStep1Desc').textContent = step1Desc;
+		document.getElementById('cnStep2').href = step2Href;
+		document.getElementById('cnStep3').href = step3Href;
+		document.getElementById('cnHeadline').innerHTML = headline;
+		document.querySelector('.cn-back').href = backHref;
+		document.getElementById('cnAvatarTag').textContent = avatarTag;
+
+		// Stagger reveals
+		function after(ms, fn) { setTimeout(fn, ms); }
+		after(0,   () => document.getElementById('cnHeader').classList.add('show'));
+		after(80,  () => document.getElementById('cnAvatarWrap').classList.add('show'));
+		after(500, () => document.getElementById('cnAvatarGlow').classList.add('show'));
+		after(600, () => document.getElementById('cnAvatarLabel').classList.add('show'));
+		after(700, () => document.getElementById('cnAvatarTag').classList.add('show'));
+		// Step cards already have show class, transition-delay handles stagger
+
+		async function loadData() {
+			let name = '';
+			let glbUrl = null;
+
+			if (agentId) {
+				try {
+					const r = await fetch(`/api/agents/${encodeURIComponent(agentId)}`, { credentials: 'include' });
+					if (r.ok) {
+						const agent = await r.json();
+						name = agent.name || '';
+						glbUrl = agentAvatarGlb(agent);
+					}
+				} catch { /* non-fatal */ }
+			} else if (avatarId) {
+				try {
+					const r = await fetch(`/api/avatars/${encodeURIComponent(avatarId)}`, { credentials: 'include' });
+					if (r.ok) {
+						const avatar = await r.json();
+						name = avatar.name || '';
+						glbUrl = avatar.model_url || avatar.glb_url;
+					}
+				} catch { /* non-fatal */ }
+			}
+
+			// Try URL-param name as fallback
+			if (!name) name = p.get('name') || (agentId ? 'Your agent' : 'Your avatar');
+
+			document.getElementById('cnAvatarLabel').textContent = name;
+			document.getElementById('cnInitial').textContent = (name[0] || 'A').toUpperCase();
+			document.title = `${name} · three.ws`;
+
+			if (glbUrl) {
+				const wrap = document.getElementById('cnAvatarWrap');
+				const ph   = document.getElementById('cnInitial');
+
+				const mv = document.createElement('model-viewer');
+				mv.className = 'cn-mv';
+				mv.setAttribute('src', glbUrl);
+				mv.setAttribute('auto-rotate', '');
+				mv.setAttribute('auto-rotate-delay', '0');
+				mv.setAttribute('rotation-per-second', '20deg');
+				mv.setAttribute('camera-controls', '');
+				mv.setAttribute('interaction-prompt', 'none');
+				mv.setAttribute('environment-image', 'neutral');
+				mv.setAttribute('exposure', '0.9');
+				mv.setAttribute('shadow-intensity', '0.3');
+				mv.setAttribute('loading', 'eager');
+				mv.setAttribute('reveal', 'auto');
+				mv.setAttribute('style', 'width:100%;height:100%;background:transparent;border-radius:50%');
+				mv.setAttribute('alt', `${name} 3D avatar`);
+
+				mv.addEventListener('load', () => { ph.style.display = 'none'; });
+				wrap.appendChild(mv);
+			}
+		}
+
+		loadData();
+	</script>
+</body>
+</html>

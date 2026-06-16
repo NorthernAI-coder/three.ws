@@ -884,17 +884,64 @@
 
 <script>
 document.getElementById('irl-share-btn').addEventListener('click', async () => {
+	const btn = document.getElementById('irl-share-btn');
+	const origText = btn.textContent;
+
+	// Capture the current frame from the Three.js canvas (+ camera feed if in AR)
+	async function captureFrame() {
+		const irl = document.getElementById('irl-canvas');
+		if (!irl) return null;
+		const w = irl.width; const h = irl.height;
+		if (!w || !h) return null;
+		const out = document.createElement('canvas');
+		out.width = w; out.height = h;
+		const ctx2 = out.getContext('2d');
+		const vid = document.getElementById('irl-camera');
+		if (document.body.classList.contains('is-ar') && vid && !vid.paused) {
+			try { ctx2.drawImage(vid, 0, 0, w, h); } catch {}
+		}
+		try { ctx2.drawImage(irl, 0, 0); } catch {}
+		return new Promise(res => out.toBlob(res, 'image/png'));
+	}
+
+	btn.disabled = true;
+	btn.textContent = '…';
+
+	try {
+		const blob = await captureFrame();
+		if (blob) {
+			const file = new File([blob], 'three-ws-irl.png', { type: 'image/png' });
+			if (navigator.share && navigator.canShare?.({ files: [file] })) {
+				await navigator.share({ title: 'IRL · three.ws', files: [file] });
+				btn.textContent = 'Shared!';
+				setTimeout(() => { btn.textContent = origText; btn.disabled = false; }, 2000);
+				return;
+			}
+			// Download on desktop
+			const objUrl = URL.createObjectURL(blob);
+			const a = document.createElement('a');
+			a.href = objUrl; a.download = 'three-ws-irl.png';
+			a.click();
+			setTimeout(() => URL.revokeObjectURL(objUrl), 4000);
+			btn.textContent = 'Saved!';
+			setTimeout(() => { btn.textContent = origText; btn.disabled = false; }, 2000);
+			return;
+		}
+	} catch {}
+
+	// Fallback: share / copy URL
 	const url = location.href;
 	if (navigator.share) {
-		try { await navigator.share({ title: 'IRL · three.ws', url }); return; } catch {}
+		try { await navigator.share({ title: 'IRL · three.ws', url }); btn.textContent = 'Shared!'; setTimeout(() => { btn.textContent = origText; btn.disabled = false; }, 2000); return; } catch {}
 	}
 	try {
 		await navigator.clipboard.writeText(url);
-		const btn = document.getElementById('irl-share-btn');
-		const orig = btn.textContent;
 		btn.textContent = 'Copied!';
-		setTimeout(() => { btn.textContent = orig; }, 1800);
-	} catch {}
+	} catch {
+		btn.textContent = origText;
+	}
+	btn.disabled = false;
+	setTimeout(() => { if (btn.textContent !== origText) { btn.textContent = origText; } }, 1800);
 });
 </script>
 </body>
