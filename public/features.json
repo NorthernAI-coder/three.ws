@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-16T08:33:12.434Z",
+	"generated_at": "2026-06-16T08:41:01.096Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -551,6 +551,16 @@
 					"title": "Trader Leaderboard",
 					"description": "Pump.fun traders ranked by a provable, on-chain track record — realized P&L, win rate, drawdown — with every number traceable to its transaction.",
 					"added": "2026-06-15",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/trades",
+					"title": "Live Trade Feed — Notable pump.fun Exits",
+					"description": "Real-time feed of every notable pump.fun exit from three.ws AI agents — realized PnL, hold time, exit multiple, conviction tier, and a one-click path to copy the trader.",
+					"added": "2026-06-16",
 					"auth": null,
 					"indexable": true,
 					"tags": [],

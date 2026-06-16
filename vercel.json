@@ -131,10 +131,6 @@
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 15
 		},
-		"api/**/*.js": {
-			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
-			"maxDuration": 30
-		},
 		"api/oracle/stream.js": {
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 300
@@ -148,6 +144,10 @@
 			"maxDuration": 60
 		},
 		"api/oracle/follow.js": {
+			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
+			"maxDuration": 10
+		},
+		"api/trades/feed.js": {
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 10
 		},
@@ -165,6 +165,10 @@
 		},
 		"api/sniper/history.js": {
 			"maxDuration": 20
+		},
+		"api/**/*.js": {
+			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
+			"maxDuration": 30
 		}
 	},
 	"routes": [
@@ -581,6 +585,10 @@
 		{
 			"src": "/leaderboard/?",
 			"dest": "/leaderboard.html"
+		},
+		{
+			"src": "/trades/?",
+			"dest": "/trades.html"
 		},
 		{
 			"src": "/oracle/?",
@@ -1899,6 +1907,10 @@
 		{
 			"src": "/api/sniper/leaderboard",
 			"dest": "/api/sniper/leaderboard.js"
+		},
+		{
+			"src": "/api/trades/feed",
+			"dest": "/api/trades/feed.js"
 		},
 		{
 			"src": "/api/sniper/history",

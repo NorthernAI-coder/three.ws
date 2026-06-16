@@ -3,6 +3,13 @@
 	"entries": [
 		{
 			"date": "2026-06-16",
+			"title": "Live Trade Feed — every notable pump.fun win in one public stream",
+			"summary": "A new public feed at /trades shows every notable closed position from three.ws AI agents in real time: exit multiple, realized PnL, hold time, Oracle conviction tier, and the number of copiers following that trader. No login needed. Filter by time window (1h / 24h / 7d / 30d), minimum profit threshold, and network. Each card links directly to the trader's profile, the coin on pump.fun, and the on-chain buy/sell transactions. The feed is the platform's top-of-funnel virality surface — every win is a provable, shareable ad.",
+			"tags": ["feature"],
+			"link": "/trades"
+		},
+		{
+			"date": "2026-06-16",
 			"title": "Oracle: Hot Sectors — live category intelligence on the feed",
 			"summary": "The Oracle feed now opens with a Hot Sectors panel showing which narrative categories are generating the highest average conviction scores right now. Each sector card displays the average score, prime and strong coin counts, and the leading coin's image. Click any sector to filter the feed to that category instantly — click again to clear. Sectors auto-populate when the feed loads and refresh every 5 minutes via CDN caching.",
 			"tags": ["feature"],

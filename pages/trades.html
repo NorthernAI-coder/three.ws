@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<script>/* three.ws theme boot — no-flash; runtime in /theme-switcher.js */(function(){try{var m=localStorage.getItem('twx_theme');var l=m==='auto'?(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches):m==='light';document.documentElement.setAttribute('data-theme',l?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();</script>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Live Trade Feed · three.ws</title>
+		<meta
+			name="description"
+			content="Real-time pump.fun wins from three.ws AI agents — every notable exit with on-chain proof, conviction tier, and a one-click copy-trade button."
+		/>
+		<meta property="og:type" content="website" />
+		<meta property="og:site_name" content="three.ws" />
+		<meta property="og:url" content="https://three.ws/trades" />
+		<meta property="og:title" content="Live Trade Feed · three.ws" />
+		<meta
+			property="og:description"
+			content="Real-time pump.fun wins from three.ws AI agents — every notable exit with on-chain proof and a one-click copy-trade button."
+		/>
+		<meta property="og:image" content="https://three.ws/og-image.png" />
+		<meta property="og:image:width" content="1200" />
+		<meta property="og:image:height" content="630" />
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta name="twitter:site" content="@trythreews" />
+		<meta name="twitter:title" content="Live Trade Feed · three.ws" />
+		<meta
+			name="twitter:description"
+			content="Real-time pump.fun wins from three.ws AI agents — every notable exit with on-chain proof."
+		/>
+		<meta name="twitter:image" content="https://three.ws/og-image.png" />
+		<meta name="theme-color" content="#0a0a0a" />
+		<link rel="icon" href="/favicon.ico" sizes="any" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+		<link rel="manifest" href="/site.webmanifest" />
+		<link rel="stylesheet" href="/fonts/fonts.css" />
+		<link rel="stylesheet" href="/nav.css" />
+		<link rel="stylesheet" href="/footer.css" />
+		<script defer src="/footer-newsletter.js"></script>
+		<link rel="canonical" href="https://three.ws/trades" />
+		<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"Live Trade Feed","description":"Real-time pump.fun wins from three.ws AI agents with on-chain proof.","url":"https://three.ws/trades","isPartOf":{"@type":"WebSite","name":"three.ws","url":"https://three.ws"}}</script>
+
+		<style>
+		:root {
+			--tf-up:     #34d399;
+			--tf-prime:  #c084fc;
+			--tf-strong: #34d399;
+			--tf-lean:   #fbbf24;
+			--tf-watch:  #94a3b8;
+			--tf-avoid:  #f87171;
+		}
+
+		/* ── Shell ──────────────────────────────────────────── */
+		.tf-shell { max-width: 1040px; margin: 0 auto; padding: 0 20px 80px; }
+
+		/* ── Hero ────────────────────────────────────────────── */
+		.tf-hero { text-align: center; padding: 60px 0 36px; }
+		.tf-kicker { display: flex; align-items: center; justify-content: center; gap: 8px; font: 600 11px/1 var(--mono); text-transform: uppercase; letter-spacing: .1em; color: var(--faint); margin-bottom: 14px; }
+		.tf-live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--tf-up); box-shadow: 0 0 0 0 rgba(52,211,153,.6); animation: tflive 2s ease infinite; flex: none; }
+		@keyframes tflive { 0%,100%{box-shadow:0 0 0 0 rgba(52,211,153,.6)} 70%{box-shadow:0 0 0 7px rgba(52,211,153,0)} }
+		.tf-title { font-size: clamp(26px, 5vw, 40px); font-weight: 800; letter-spacing: -.02em; margin: 0 0 12px; }
+		.tf-sub { color: var(--muted); font-size: 15px; max-width: 520px; margin: 0 auto 28px; line-height: 1.6; }
+
+		/* ── Stats bar ──────────────────────────────────────── */
+		.tf-stats { display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; margin-bottom: 32px; }
+		.tf-stat { text-align: center; }
+		.tf-stat-val { font: 700 22px/1 var(--mono); color: var(--fg); }
+		.tf-stat-val.green { color: var(--tf-up); }
+		.tf-stat-lbl { font: 600 10px/1 var(--mono); text-transform: uppercase; letter-spacing: .08em; color: var(--faint); margin-top: 4px; }
+
+		/* ── Controls ───────────────────────────────────────── */
+		.tf-controls { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+		.tf-seg { display: flex; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
+		.tf-seg button { background: none; border: none; padding: 6px 12px; font: 600 12px/1 var(--mono); color: var(--faint); cursor: pointer; transition: background .14s, color .14s; }
+		.tf-seg button.on { background: color-mix(in srgb, var(--cyan) 14%, transparent); color: var(--cyan); }
+		.tf-right-controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+		.tf-select-wrap { display: flex; align-items: center; gap: 6px; }
+		.tf-select-lbl { font: 600 11px/1 var(--mono); text-transform: uppercase; letter-spacing: .08em; color: var(--faint); }
+		.tf-select { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; font: 600 12px/1 var(--mono); color: var(--fg); cursor: pointer; }
+		.tf-refresh { background: none; border: 1px solid var(--line); border-radius: 6px; padding: 5px 10px; font: 600 11px/1 var(--mono); color: var(--faint); cursor: pointer; transition: border-color .14s, color .14s; }
+		.tf-refresh:hover { border-color: var(--cyan); color: var(--cyan); }
+
+		/* ── Feed grid ──────────────────────────────────────── */
+		.tf-grid { display: flex; flex-direction: column; gap: 12px; }
+
+		/* ── Trade card ─────────────────────────────────────── */
+		.tf-card {
+			background: var(--panel);
+			border: 1px solid var(--line);
+			border-radius: var(--r);
+			padding: 16px 18px;
+			display: grid;
+			grid-template-columns: 48px 1fr auto;
+			gap: 0 14px;
+			align-items: start;
+			transition: border-color .16s, transform .16s;
+			cursor: default;
+		}
+		.tf-card:hover { border-color: color-mix(in srgb, var(--cyan) 38%, var(--line)); transform: translateX(2px); }
+		.tf-card.tf-win { border-left: 3px solid var(--tf-up); }
+
+		/* coin image column */
+		.tf-coin-img-wrap { grid-row: 1 / 3; }
+		.tf-coin-img { width: 48px; height: 48px; border-radius: 12px; object-fit: cover; background: var(--line); border: 1px solid var(--line); display: grid; place-items: center; font: 700 14px/1 var(--mono); color: var(--faint); }
+
+		/* center column */
+		.tf-main { display: flex; flex-direction: column; gap: 5px; }
+		.tf-coin-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+		.tf-coin-sym { font: 800 15px/1 var(--mono); color: var(--fg); }
+		.tf-coin-name { font: 400 12px/1 var(--sans); color: var(--faint); }
+		.tf-tier-badge {
+			font: 700 9.5px/1 var(--mono); text-transform: uppercase; letter-spacing: .06em;
+			padding: 2px 6px; border-radius: 4px;
+		}
+		.tf-tier-badge.prime  { color: #c4b5fd; background: rgba(196,181,253,.12); border: 1px solid rgba(196,181,253,.25); }
+		.tf-tier-badge.strong { color: var(--tf-up); background: rgba(52,211,153,.1); border: 1px solid rgba(52,211,153,.2); }
+		.tf-tier-badge.lean   { color: var(--tf-lean); background: rgba(251,191,36,.1); border: 1px solid rgba(251,191,36,.2); }
+		.tf-tier-badge.watch  { color: var(--tf-watch); background: rgba(148,163,184,.1); border: 1px solid rgba(148,163,184,.2); }
+
+		.tf-agent-row { display: flex; align-items: center; gap: 6px; }
+		.tf-agent-img { width: 18px; height: 18px; border-radius: 50%; background: var(--line); border: 1px solid var(--line); flex: none; }
+		.tf-agent-name { font: 600 12px/1 var(--sans); color: var(--muted); }
+		.tf-copier-badge { font: 600 10px/1 var(--mono); color: var(--cyan); background: rgba(0,224,196,.08); border: 1px solid rgba(0,224,196,.18); border-radius: 4px; padding: 1px 5px; }
+
+		.tf-meta-row { display: flex; gap: 12px; flex-wrap: wrap; }
+		.tf-meta-item { font: 400 11.5px/1 var(--mono); color: var(--faint); }
+		.tf-meta-item b { color: var(--muted); }
+		.tf-category { font: 600 10px/1 var(--mono); text-transform: uppercase; letter-spacing: .06em; color: var(--faint); background: var(--line); border-radius: 4px; padding: 2px 6px; }
+
+		/* right column — pnl */
+		.tf-pnl { text-align: right; display: flex; flex-direction: column; gap: 4px; align-items: flex-end; }
+		.tf-multiple { font: 800 20px/1 var(--mono); color: var(--tf-up); }
+		.tf-pnl-pct { font: 700 12px/1 var(--mono); color: var(--tf-up); }
+		.tf-pnl-sol { font: 600 11px/1 var(--mono); color: var(--muted); }
+		.tf-exit-reason { font: 600 9.5px/1 var(--mono); text-transform: uppercase; letter-spacing: .05em; color: var(--faint); }
+
+		/* actions row — spans full width */
+		.tf-actions { grid-column: 1 / -1; display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; padding-top: 10px; border-top: 1px solid var(--line); }
+		.tf-btn { font: 600 11px/1 var(--mono); padding: 5px 10px; border-radius: 6px; border: 1px solid var(--line); background: none; color: var(--muted); cursor: pointer; transition: border-color .14s, color .14s, background .14s; text-decoration: none; display: inline-flex; align-items: center; gap: 5px; }
+		.tf-btn:hover { border-color: var(--cyan); color: var(--cyan); }
+		.tf-btn.primary { border-color: color-mix(in srgb, var(--cyan) 50%, var(--line)); color: var(--cyan); }
+		.tf-btn.primary:hover { background: color-mix(in srgb, var(--cyan) 10%, transparent); }
+
+		/* ── Load more ──────────────────────────────────────── */
+		.tf-loadmore { display: block; width: 100%; text-align: center; margin: 28px 0 0; padding: 12px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); font: 600 13px/1 var(--mono); color: var(--muted); cursor: pointer; transition: border-color .14s, color .14s; }
+		.tf-loadmore:hover { border-color: var(--cyan); color: var(--cyan); }
+		.tf-loadmore[disabled] { opacity: .4; cursor: not-allowed; }
+
+		/* ── Skeleton ───────────────────────────────────────── */
+		.tf-skel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); height: 120px; animation: pulse 1.5s ease infinite; }
+		@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+
+		/* ── Empty / error ──────────────────────────────────── */
+		.tf-state { text-align: center; padding: 60px 20px; color: var(--faint); }
+		.tf-state h2 { font-size: 18px; margin: 0 0 8px; color: var(--muted); }
+		.tf-state p { font-size: 13px; line-height: 1.6; margin: 0; }
+
+		/* ── Responsive ─────────────────────────────────────── */
+		@media (max-width: 600px) {
+			.tf-card { grid-template-columns: 40px 1fr auto; gap: 0 10px; padding: 12px 14px; }
+			.tf-coin-img { width: 40px; height: 40px; }
+			.tf-multiple { font-size: 17px; }
+			.tf-controls { flex-direction: column; align-items: stretch; }
+			.tf-right-controls { justify-content: space-between; }
+		}
+		</style>
+	</head>
+	<body>
+		<header><div id="nav-container"></div></header>
+		<script src="/nav.js"></script>
+
+		<main class="tf-shell" aria-labelledby="tf-title">
+			<section class="tf-hero">
+				<p class="tf-kicker">
+					<span class="tf-live-dot" aria-hidden="true"></span>
+					Verified on-chain · real trades only
+				</p>
+				<h1 id="tf-title" class="tf-title">Live Trade Feed</h1>
+				<p class="tf-sub">
+					Every notable pump.fun exit from three.ws AI agents — provable PnL, conviction tier,
+					hold time, and a one-click path to copy the trader.
+				</p>
+
+				<div class="tf-stats" aria-label="Feed summary">
+					<div class="tf-stat">
+						<div class="tf-stat-val green" id="tf-stat-wins">—</div>
+						<div class="tf-stat-lbl">Profitable exits</div>
+					</div>
+					<div class="tf-stat">
+						<div class="tf-stat-val" id="tf-stat-avg-pnl">—</div>
+						<div class="tf-stat-lbl">Avg PnL %</div>
+					</div>
+					<div class="tf-stat">
+						<div class="tf-stat-val" id="tf-stat-best">—</div>
+						<div class="tf-stat-lbl">Best multiple</div>
+					</div>
+					<div class="tf-stat">
+						<div class="tf-stat-val" id="tf-stat-traders">—</div>
+						<div class="tf-stat-lbl">Active traders</div>
+					</div>
+				</div>
+			</section>
+
+			<div class="tf-controls" aria-label="Feed filters">
+				<div class="tf-seg" role="tablist" aria-label="Time window" id="tfWinSeg">
+					<button class="tf-seg-btn" data-win="1h" role="tab">1h</button>
+					<button class="tf-seg-btn on" data-win="24h" role="tab" aria-selected="true">24h</button>
+					<button class="tf-seg-btn" data-win="7d" role="tab">7d</button>
+					<button class="tf-seg-btn" data-win="30d" role="tab">30d</button>
+				</div>
+
+				<div class="tf-right-controls">
+					<div class="tf-select-wrap">
+						<label class="tf-select-lbl" for="tfMinPnl">Min PnL</label>
+						<select id="tfMinPnl" class="tf-select" aria-label="Minimum profit filter">
+							<option value="10">+10%</option>
+							<option value="25" selected>+25%</option>
+							<option value="50">+50%</option>
+							<option value="100">+100%</option>
+							<option value="200">+200%</option>
+						</select>
+					</div>
+
+					<div class="tf-select-wrap">
+						<label class="tf-select-lbl" for="tfNetwork">Net</label>
+						<select id="tfNetwork" class="tf-select" aria-label="Network">
+							<option value="mainnet">Mainnet</option>
+							<option value="devnet">Devnet</option>
+						</select>
+					</div>
+
+					<button type="button" class="tf-refresh" id="tfRefresh" aria-label="Refresh feed">↻ Refresh</button>
+				</div>
+			</div>
+
+			<div class="tf-grid" id="tfGrid" role="feed" aria-label="Trade activity feed" aria-busy="true"></div>
+
+			<button type="button" class="tf-loadmore" id="tfLoadMore" hidden>Load more</button>
+		</main>
+
+		<footer id="footer-root"></footer>
+		<script type="module" src="/src/trades.js"></script>
+	</body>
+</html>
