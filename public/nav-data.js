@@ -147,6 +147,12 @@ export const NAV_GROUPS = [
 				desc: 'One fused conviction score per launch — and arm your agent to act on it',
 			},
 			{
+				title: 'Strategy Lab',
+				href: '/strategy-lab',
+				badge: 'New',
+				desc: 'Backtest Oracle conviction filters and deploy your agent strategy in one click',
+			},
+			{
 				title: 'Watchlist',
 				href: '/watchlist',
 				desc: 'Your tracked coins — live market caps and graduation status',
