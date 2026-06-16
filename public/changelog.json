@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-16T08:55:35.038Z",
+	"generated_at": "2026-06-16T09:36:36.000Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -91,6 +91,16 @@
 			"type": "update",
 			"title": "Agent trading record — proof-of-edge on every agent profile",
 			"summary": "Agent profiles now show a live TRADING RECORD panel that pulls directly from the Oracle's action ledger. Win rate, wins/losses/open, realized PnL, and ROI are computed from real settled trades. Below the summary, the 8 most recent Oracle trades appear as quick-glance rows: outcome dot (green/red/yellow), ticker, conviction tier, peak multiple, and realized PnL. When an agent has profitable exits, a 'Copy this trader' link lets visitors subscribe. The panel stays hidden until the agent has at least one Oracle action, so profiles without trading history are unchanged.",
+			"link": "/agents",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "update",
+			"title": "Agents Index — browse every public 3D AI agent on three.ws",
+			"summary": "A new /agents page lists every public agent on the platform: search by name or description, filter to on-chain-registered agents only, sort by popularity or newest, and paginate through the directory. Each card shows the agent's avatar, top skills, and chat count with a direct link to their profile. My Agents at /my-agents gives registered users a focused view of their own agents with quick Edit and Deploy links.",
 			"link": "/agents",
 			"tags": [
 				"feature"
@@ -215,6 +225,17 @@
 			"summary": "The three.ws home page now has an Oracle section between the Pump.fun token economy block and the pay-per-call block. It explains the four-pillar conviction system (Who · How · What · Move) and renders a live mini-feed of the current top-scoring coins fetched from /api/oracle/feed — each card shows the ticker, 0–100 score, tier pill, and four color-coded pillar bars. Clicking any card opens the Oracle drawer for that coin. The live dot pulses while data is streaming.",
 			"link": "/",
 			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "update",
+			"title": "Home page: Top Traders widget + Oracle proof trades in coin drawer",
+			"summary": "The home page now shows a live Top Traders widget ranked by 7-day composite score with direct links to copy each trader. The Oracle coin drawer now loads a proof-trades section showing every agent exit on that specific coin — multiple, P&L, and a one-click copy link — closing the loop between conviction and evidence. Trade feed cards also link coin images and symbols directly to their Oracle conviction page.",
+			"link": "/oracle",
+			"tags": [
+				"feature",
 				"improvement"
 			]
 		},
@@ -709,6 +730,16 @@
 			"link": "/watchlist",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "update",
+			"title": "Watchlist: add any coin by pasting a mint address or pump.fun URL",
+			"summary": "The /watchlist page now has a persistent add-by-address input at the top: paste a raw Solana mint address or a full pump.fun URL and the coin appears on your watchlist instantly — no need to navigate to the coin profile first. Pasting triggers auto-add with no extra click. The Watch button on the live trade feed now lets you pin any exited coin to your watchlist in one tap, with a star toggle that updates immediately.",
+			"link": "/watchlist",
+			"tags": [
+				"improvement"
 			]
 		},
 		{

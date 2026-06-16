@@ -635,6 +635,7 @@ function render(agent) {
 
 	document.querySelector('.ad-main').classList.remove('loading');
 	bindWalletActions(agent.isOwner);
+	mountOwnerBar(agent);
 	wireShareButton(agent);
 
 	loadExtraSections(agent.id, agent.rawMetadata, agent.isOwner);
@@ -1470,6 +1471,176 @@ function wireShareButton(agent) {
 			btn,
 		);
 	});
+}
+
+// ── Owner action bar (hero) + inline deploy slot (BLOCKCHAIN DETAILS) ────────
+
+function mountOwnerBar(agent) {
+	const bar = document.getElementById('ad-owner-bar');
+	if (!bar) return;
+
+	// Always reset so re-renders are idempotent.
+	bar.innerHTML = '';
+	bar.hidden = !agent.isOwner;
+	if (!agent.isOwner) return;
+
+	// Edit Agent
+	const editLink = el('a', {
+		class: 'ad-btn',
+		href: `/agent-edit?id=${encodeURIComponent(agent.id)}`,
+	});
+	editLink.textContent = '✏ Edit Agent';
+	bar.appendChild(editLink);
+
+	// Dashboard link
+	const dashLink = el('a', {
+		class: 'ad-btn',
+		href: '/dashboard-next/agents',
+	});
+	dashLink.textContent = 'Manage Agents';
+	bar.appendChild(dashLink);
+
+	// Deploy on-chain (only if not yet deployed)
+	const alreadyDeployed = !!(
+		(agent.rawMetadata?.onchain || agent.onchain)?.txHash
+	);
+	if (!alreadyDeployed) {
+		const deployBtn = el('button', {
+			class: 'ad-btn ad-btn-deploy',
+			type: 'button',
+		});
+		deployBtn.textContent = '⬡ Deploy on-chain';
+		deployBtn.addEventListener('click', () => openDeployModalFromDetail(agent));
+		bar.appendChild(deployBtn);
+	}
+
+	// Mount inline OnchainDeployButton in BLOCKCHAIN DETAILS section.
+	// This shows the success chip when deployed, or the full chain-select +
+	// deploy button for owners who haven't deployed yet.
+	mountDeploySlot(agent);
+}
+
+async function mountDeploySlot(agent) {
+	const slot = document.getElementById('ad-deploy-slot');
+	if (!slot) return;
+	slot.innerHTML = '';
+	if (!agent.isOwner) return;
+
+	try {
+		const [{ OnchainDeployButton }, ] = await Promise.all([
+			import('./onchain/deploy-button.js'),
+			import('./erc8004/deploy-button.css'),
+		]);
+		const deployAgentObj = {
+			id: agent.id,
+			name: agent.name || '',
+			description: agent.description || '',
+			avatar_id: agent.avatar_id || null,
+			skills: Array.isArray(agent.skills) && agent.skills.length ? agent.skills : undefined,
+			onchain: agent.onchain || agent.rawMetadata?.onchain || null,
+		};
+		const btn = new OnchainDeployButton({ agent: deployAgentObj, container: slot });
+		btn.mount();
+
+		// When deploy succeeds, hide the "Deploy on-chain" button in the owner bar
+		// (the success chip in the slot replaces the call-to-action).
+		const observer = new MutationObserver(() => {
+			if (deployAgentObj.onchain?.txHash && slot.querySelector('.deploy-chip--success')) {
+				observer.disconnect();
+				const heroDeployBtn = document.querySelector('#ad-owner-bar .ad-btn-deploy');
+				if (heroDeployBtn) heroDeployBtn.remove();
+				// Refresh the status badge to show the on-chain badge.
+				import('./shared/onchain-badge.js').then(({ onchainBadgeEl }) => {
+					document.getElementById('ad-onchain-badge')?.remove();
+					const badge = onchainBadgeEl({ onchain: deployAgentObj.onchain }, { size: 'md' });
+					if (badge) {
+						badge.id = 'ad-onchain-badge';
+						document.getElementById('ad-status')?.insertAdjacentElement('afterend', badge);
+					}
+				}).catch(() => {});
+			}
+		});
+		observer.observe(slot, { childList: true, subtree: true });
+	} catch (err) {
+		log.warn('[agent-detail] deploy slot failed:', err?.message);
+	}
+}
+
+async function openDeployModalFromDetail(agent) {
+	try {
+		const [{ OnchainDeployButton }] = await Promise.all([
+			import('./onchain/deploy-button.js'),
+			import('./erc8004/deploy-button.css'),
+		]);
+
+		const overlay = document.createElement('div');
+		overlay.style.cssText = `
+			position:fixed;inset:0;z-index:1000;
+			background:rgba(8,9,14,0.72);backdrop-filter:blur(6px);
+			display:grid;place-items:center;padding:20px;
+		`;
+		overlay.innerHTML = `
+			<div role="dialog" aria-modal="true" aria-label="Deploy agent on-chain" style="
+				width:min(460px,100%);
+				background:linear-gradient(180deg,rgba(22,24,32,0.97),rgba(16,17,24,0.97));
+				border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:24px;
+				box-shadow:0 20px 60px rgba(0,0,0,0.6);
+			">
+				<div style="font-size:17px;font-weight:600;margin-bottom:6px;color:#e7e9ee">Deploy on-chain</div>
+				<div style="font-size:12.5px;color:rgba(231,233,238,0.5);margin-bottom:18px">
+					Register <strong style="color:#e7e9ee">${escapeText(agent.name || 'this agent')}</strong> on-chain.
+					Pick a chain, sign one transaction — the asset becomes the agent's permanent on-chain identity.
+				</div>
+				<div data-slot="deploy-host" style="display:flex;justify-content:center;margin-bottom:18px"></div>
+				<div style="display:flex;gap:8px;justify-content:flex-end">
+					<button data-action="cancel" style="
+						background:rgba(255,255,255,0.06);color:#e7e9ee;border:1px solid rgba(255,255,255,0.1);
+						border-radius:8px;padding:7px 16px;font-size:13px;cursor:pointer;font-family:inherit;
+					">Close</button>
+				</div>
+			</div>
+		`;
+		document.body.appendChild(overlay);
+
+		const deployHost = overlay.querySelector('[data-slot="deploy-host"]');
+		const deployAgentObj = {
+			id: agent.id,
+			name: agent.name || '',
+			description: agent.description || '',
+			avatar_id: agent.avatar_id || null,
+			skills: Array.isArray(agent.skills) && agent.skills.length ? agent.skills : undefined,
+			onchain: agent.onchain || agent.rawMetadata?.onchain || null,
+		};
+		const deployBtn = new OnchainDeployButton({ agent: deployAgentObj, container: deployHost });
+		deployBtn.mount();
+
+		let deployed = false;
+		const observer = new MutationObserver(() => {
+			if (deployAgentObj.onchain?.txHash && deployHost.querySelector('.deploy-chip--success')) {
+				deployed = true;
+			}
+		});
+		observer.observe(deployHost, { childList: true, subtree: true });
+
+		const close = () => {
+			observer.disconnect();
+			deployBtn.unmount();
+			overlay.remove();
+			document.removeEventListener('keydown', onKey);
+			if (deployed) {
+				// Refresh the owner bar so the deploy button disappears and the slot
+				// shows the persistent success chip.
+				agent.onchain = deployAgentObj.onchain;
+				mountOwnerBar(agent);
+			}
+		};
+		function onKey(e) { if (e.key === 'Escape') close(); }
+		document.addEventListener('keydown', onKey);
+		overlay.querySelector('[data-action="cancel"]').addEventListener('click', close);
+		overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+	} catch (err) {
+		log.warn('[agent-detail] deploy modal failed:', err?.message);
+	}
 }
 
 function bindWalletActions(isOwner) {
