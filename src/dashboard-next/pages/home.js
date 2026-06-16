@@ -46,6 +46,7 @@ const STATE = {
 			<div class="dnx-col-main">
 				<section data-slot="hero" class="dnx-hero"></section>
 				<section data-slot="kpis"  class="dnx-kpis"></section>
+				<section data-slot="trading" class="dnx-trading-wrap"></section>
 				<section data-slot="health" class="dnx-health-wrap"></section>
 				<section data-slot="quick" class="dnx-quick"></section>
 				<section data-slot="directory" class="dnx-directory"></section>
@@ -62,6 +63,7 @@ const STATE = {
 		onboarding: main.querySelector('[data-slot="onboarding"]'),
 		hero: main.querySelector('[data-slot="hero"]'),
 		kpis: main.querySelector('[data-slot="kpis"]'),
+		trading: main.querySelector('[data-slot="trading"]'),
 		health: main.querySelector('[data-slot="health"]'),
 		quick: main.querySelector('[data-slot="quick"]'),
 		directory: main.querySelector('[data-slot="directory"]'),
@@ -81,6 +83,7 @@ const STATE = {
 	const agents  = agentsRes.status === 'fulfilled'  ? (agentsRes.value?.agents  ?? []) : [];
 
 	renderHero(slots.hero, avatars, avatarsRes.status === 'rejected' ? avatarsRes.reason : null);
+	loadTradingOverview(slots.trading);
 	renderAgentHealth(slots.health, agents, widgets);
 	renderQuickActions(slots.quick, { avatars, agents });
 	renderDirectory(slots.directory);
@@ -332,6 +335,76 @@ function renderKpiCard(c) {
 }
 
 // ── Agent health ─────────────────────────────────────────────────────────
+
+// ── Trading overview ──────────────────────────────────────────────────────
+// Compact 3-card strip showing live sniper, Oracle, and copy trading status.
+// All fetches are fire-and-forget; each card renders independently so a slow
+// endpoint doesn't block the others.
+
+async function loadTradingOverview(host) {
+	host.innerHTML = `
+		<div class="dn-panel dnx-trading-panel">
+			<div class="dnx-trading-head">
+				<span class="dn-panel-title">Autonomous trading</span>
+				<a class="dn-btn dn-btn-sm" href="/activity" style="font-size:11px">Live activity →</a>
+			</div>
+			<div class="dnx-trading-cards" id="dnx-trading-cards">
+				${[0,1,2].map(() => `<div class="dnx-tc dnx-tc-sk"><div class="dn-skeleton" style="height:12px;width:50%;margin-bottom:6px"></div><div class="dn-skeleton" style="height:22px;width:80%;margin-bottom:4px"></div><div class="dn-skeleton" style="height:10px;width:60%"></div></div>`).join('')}
+			</div>
+		</div>
+	`;
+
+	const cards = host.querySelector('#dnx-trading-cards');
+
+	const [sniperRes, copyRes] = await Promise.allSettled([
+		get('/api/sniper/strategy?limit=30'),
+		get('/api/copy/subscriptions'),
+	]);
+
+	const strategies = (sniperRes.status === 'fulfilled' ? sniperRes.value?.strategies : null) || [];
+	const subscriptions = (copyRes.status === 'fulfilled' ? copyRes.value?.subscriptions : null) || [];
+
+	const armedStrategies = strategies.filter((s) => s.enabled && !s.kill_switch_engaged);
+	const openPositions = strategies.reduce((n, s) => n + (Number(s.open_positions) || 0), 0);
+	const totalPnl = strategies.reduce((n, s) => n + (Number(s.realized_pnl_sol) || 0), 0);
+
+	const activeSubs = subscriptions.filter((s) => s.status === 'active');
+	const pendingIntents = subscriptions.reduce((n, s) => n + (Number(s.pending_count) || 0), 0);
+
+	const pnlSign = totalPnl >= 0 ? '+' : '';
+	const pnlStr = `${pnlSign}${Math.abs(totalPnl) >= 1 ? totalPnl.toFixed(2) : totalPnl.toFixed(3)} ◎`;
+	const pnlClass = totalPnl >= 0 ? 'dnx-tc-pos' : 'dnx-tc-neg';
+
+	cards.innerHTML = `
+		<a class="dnx-tc" href="/dashboard/sniper">
+			<div class="dnx-tc-label">Sniper</div>
+			<div class="dnx-tc-value">${armedStrategies.length} <span class="dnx-tc-unit">armed</span></div>
+			<div class="dnx-tc-meta">
+				${openPositions > 0
+					? `<span>${openPositions} open position${openPositions !== 1 ? 's' : ''}</span>`
+					: '<span class="dnx-tc-dim">No open positions</span>'}
+				${strategies.length > 0 ? `<span class="${pnlClass}">${pnlStr}</span>` : ''}
+			</div>
+		</a>
+		<a class="dnx-tc" href="/oracle">
+			<div class="dnx-tc-label">Oracle</div>
+			<div class="dnx-tc-value"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;vertical-align:text-bottom"><circle cx="7" cy="7" r="5"/><path d="M7 4.5v2.7l1.6 1.6"/></svg> Live</div>
+			<div class="dnx-tc-meta">
+				<span>Conviction scoring every coin</span>
+				<span class="dnx-tc-arm-cta">Arm an agent →</span>
+			</div>
+		</a>
+		<a class="dnx-tc" href="/dashboard/copy">
+			<div class="dnx-tc-label">Copy trading</div>
+			<div class="dnx-tc-value">${activeSubs.length} <span class="dnx-tc-unit">subscription${activeSubs.length !== 1 ? 's' : ''}</span></div>
+			<div class="dnx-tc-meta">
+				${pendingIntents > 0
+					? `<span class="dnx-tc-pos">${pendingIntents} pending intent${pendingIntents !== 1 ? 's' : ''} →</span>`
+					: '<span class="dnx-tc-dim">No pending intents</span>'}
+			</div>
+		</a>
+	`;
+}
 
 function renderAgentHealth(host, agents, widgets) {
 	if (!agents.length) {
@@ -1890,6 +1963,32 @@ function injectStyles() {
 			.dnx-dir-search-wrap { padding: 0 14px 10px; }
 			.dnx-dir-head-toggle { padding: 14px 14px 8px; }
 			.dnx-dir-body { padding: 0 14px 14px; }
+		}
+
+		/* ── Trading overview ─────────────────────────────────────────── */
+		.dnx-trading-panel { padding: 16px; margin-bottom: 12px; }
+		.dnx-trading-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+		.dnx-trading-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+		.dnx-tc {
+			display: flex; flex-direction: column; gap: 4px;
+			background: var(--nxt-surface-2, rgba(255,255,255,0.04));
+			border: 1px solid var(--nxt-line, rgba(255,255,255,0.08));
+			border-radius: 10px; padding: 14px 15px;
+			text-decoration: none; color: inherit;
+			transition: border-color 0.14s, background 0.14s;
+		}
+		.dnx-tc:hover { border-color: var(--nxt-accent, #7c83ff); background: rgba(124,131,255,0.06); }
+		.dnx-tc-sk { pointer-events: none; }
+		.dnx-tc-label { font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--nxt-ink-fade); margin-bottom: 2px; }
+		.dnx-tc-value { font-size: 20px; font-weight: 700; line-height: 1.1; color: var(--nxt-ink); display: flex; align-items: center; }
+		.dnx-tc-unit { font-size: 12px; font-weight: 400; color: var(--nxt-ink-fade); margin-left: 4px; align-self: flex-end; padding-bottom: 1px; }
+		.dnx-tc-meta { display: flex; gap: 8px; flex-wrap: wrap; font-size: 11.5px; color: var(--nxt-ink-fade); margin-top: 2px; }
+		.dnx-tc-pos { color: var(--nxt-success, #34d399); }
+		.dnx-tc-neg { color: var(--nxt-danger, #f87171); }
+		.dnx-tc-dim { color: var(--nxt-ink-faint, #5c6273); }
+		.dnx-tc-arm-cta { color: var(--nxt-accent, #7c83ff); }
+		@media (max-width: 600px) {
+			.dnx-trading-cards { grid-template-columns: 1fr; }
 		}
 	`;
 	const tag = document.createElement('style');
