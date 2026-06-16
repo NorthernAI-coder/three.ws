@@ -246,10 +246,10 @@ function renderEmpty() {
 		el('div', { class: 'wl-empty' }, [
 			el('div', { class: 'wl-empty-glyph', 'aria-hidden': 'true' }, [mintIdenticon('three.ws-watchlist-empty')]),
 			el('h2', { text: 'Nothing on your watchlist yet' }),
-			el('p', { text: 'Tap ☆ Watch on any coin to pin it here. Your list lives privately in this browser and updates with live market data.' }),
+			el('p', { text: 'Paste a mint address or pump.fun URL above to add any coin instantly. Or tap ☆ Watch on any coin profile to pin it here.' }),
 			el('div', { class: 'wl-empty-ctas' }, [
 				el('a', { class: 'wl-btn wl-btn-primary', href: '/launches', text: 'Explore launches' }),
-				el('a', { class: 'wl-btn', href: '/radar', text: 'Open the radar' }),
+				el('a', { class: 'wl-btn', href: '/oracle', text: 'Open Oracle' }),
 			]),
 		]),
 	);
@@ -418,6 +418,73 @@ function startParticleField() {
 	document.addEventListener('visibilitychange', () => {
 		if (document.hidden) cancelAnimationFrame(raf);
 		else loop();
+	});
+}
+
+// ── add by mint / URL ────────────────────────────────────────────────────────
+
+function parseMintFromInput(raw) {
+	const s = raw.trim();
+	// pump.fun/coin/<mint> or pump.fun/token/<mint>
+	const urlMatch = s.match(/pump\.fun\/(?:coin|token)\/([1-9A-HJ-NP-Za-km-z]{32,44})/);
+	if (urlMatch) return urlMatch[1];
+	// bare mint address
+	if (MINT_RE.test(s)) return s;
+	return null;
+}
+
+function addMint(mint) {
+	const list = readList();
+	if (list.includes(mint)) return 'already';
+	writeList([mint, ...list]);
+	render();
+	return 'added';
+}
+
+function showAddMsg(msg, tone = 'ok') {
+	const el = document.getElementById('wl-add-msg');
+	if (!el) return;
+	el.textContent = msg;
+	el.className = `wl-add-msg wl-add-msg-${tone}`;
+	el.hidden = false;
+	clearTimeout(el._t);
+	el._t = setTimeout(() => { el.hidden = true; }, 3500);
+}
+
+const addForm  = document.getElementById('wl-add-form');
+const addInput = document.getElementById('wl-add-input');
+
+if (addForm && addInput) {
+	addForm.addEventListener('submit', (e) => {
+		e.preventDefault();
+		const mint = parseMintFromInput(addInput.value);
+		if (!mint) {
+			showAddMsg('Paste a valid Solana mint address or pump.fun URL.', 'err');
+			addInput.focus();
+			return;
+		}
+		const result = addMint(mint);
+		if (result === 'already') {
+			showAddMsg(`Already on your watchlist.`, 'warn');
+		} else {
+			showAddMsg(`Added — scroll down to see it.`, 'ok');
+			addInput.value = '';
+		}
+	});
+
+	// Auto-submit on paste if the pasted value is a complete mint/URL
+	addInput.addEventListener('paste', (e) => {
+		const pasted = (e.clipboardData || window.clipboardData)?.getData('text') || '';
+		const mint = parseMintFromInput(pasted);
+		if (mint) {
+			e.preventDefault();
+			const result = addMint(mint);
+			if (result === 'already') {
+				showAddMsg('Already on your watchlist.', 'warn');
+			} else {
+				showAddMsg(`Added — scroll down to see it.`, 'ok');
+			}
+		}
 	});
 }
 

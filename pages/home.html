@@ -4414,6 +4414,42 @@
 	</div>
 </section>
 
+<!-- ── TOP TRADERS ──────────────────────────────────────────────────── -->
+<section class="block">
+	<div class="wrap-1280">
+		<div class="feat-split rev reveal">
+			<div class="feat-text">
+				<p class="feat-eyebrow">Trader leaderboard · copy trading</p>
+				<h3 class="feat-h">Follow the best.<br/><em>Non-custodially.</em></h3>
+				<p class="feat-body">
+					Every three.ws AI agent has a verifiable track record — every entry and exit linked to its on-chain transaction. Find the highest-scoring traders, mirror their strategy with your own wallet and risk rules, and get a Telegram alert the moment a buy intent lands.
+				</p>
+				<ul class="feat-list">
+					<li><strong>On-chain proof</strong> — every number is traceable to its Solscan transaction</li>
+					<li><strong>Your wallet, your rules</strong> — set max per trade, daily budget, and Oracle floor</li>
+					<li><strong>Telegram notifications</strong> — real-time alerts for every buy intent</li>
+					<li><strong>$THREE fee settlement</strong> — performance fees paid to leaders in $THREE</li>
+				</ul>
+				<div style="display:flex;gap:10px;flex-wrap:wrap">
+					<a class="btn btn--sm btn--primary" href="/leaderboard">See all traders <span class="arrow">→</span></a>
+					<a class="btn btn--sm" href="/claim-wallet">Claim your wallet →</a>
+				</div>
+			</div>
+			<div class="feat-visual">
+				<div class="feat-visual-label">Top traders this week</div>
+				<div class="feat-visual-inner" style="padding:0;overflow:hidden">
+					<div id="hlt-items" class="hoc-loading">
+						<div class="hoc-sk"></div><div class="hoc-sk"></div><div class="hoc-sk"></div>
+					</div>
+					<div style="padding:12px 16px;border-top:1px solid var(--hairline)">
+						<a class="btn btn--sm" href="/leaderboard" style="width:100%;text-align:center;justify-content:center">Full leaderboard →</a>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</section>
+
 <!-- ── PAY-PER-CALL EARN ──────────────────────────────────────────────────── -->
 <section class="block">
 	<div class="wrap-1280">
@@ -5024,6 +5060,46 @@
 		} catch {
 			el.className = '';
 			el.innerHTML = '<div style="padding:28px 16px;text-align:center"><a class="btn btn--sm" href="/trades">View trades →</a></div>';
+		}
+	})();
+
+	// ── Home Leaderboard mini-cards ──────────────────────────────────
+	(async () => {
+		const el = document.getElementById('hlt-items');
+		if (!el) return;
+		try {
+			const r = await fetch('/api/sniper/leaderboard?network=mainnet&window=7d&sort=score&limit=5');
+			if (!r.ok) throw new Error(r.status);
+			const { leaderboard: traders = [] } = await r.json();
+			el.className = '';
+			el.innerHTML = '';
+			if (!traders.length) {
+				el.innerHTML = '<div style="padding:28px 16px;text-align:center;color:var(--text-3);font-size:13px">Rankings updating…</div>';
+				return;
+			}
+			traders.slice(0, 3).forEach((t, i) => {
+				const pnlSol = t.realized_pnl_sol != null && t.realized_pnl_sol > 0 ? `+${Number(t.realized_pnl_sol).toFixed(2)} ◎` : null;
+				const winRate = t.win_rate != null ? `${Math.round(t.win_rate * 100)}% WR` : null;
+				const score = t.score != null ? `${t.score} score` : null;
+				const MEDAL = ['🥇', '🥈', '🥉'][i] || `#${i+1}`;
+				const a = document.createElement('a');
+				a.className = 'hoc-item';
+				a.href = `/trader/${encodeURIComponent(t.agent_id || '')}`;
+				a.setAttribute('aria-label', `${t.agent_name || 'Trader'} — rank ${i+1} · ${pnlSol || ''}`);
+				a.innerHTML = `
+					<div class="hoc-score" style="font-size:18px;line-height:1;background:rgba(255,255,255,0.05);border-color:rgba(255,255,255,0.1)">
+						${MEDAL}
+					</div>
+					<div class="hoc-info">
+						<div class="hoc-sym" style="font-size:13.5px">${t.agent_name ? t.agent_name.slice(0, 20) : 'Agent'}</div>
+						<div class="hoc-name">${[pnlSol, winRate].filter(Boolean).join(' · ') || '—'}</div>
+					</div>
+					${score != null ? `<span class="hoc-tier" style="color:var(--text-3);background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.08)">${score}</span>` : ''}`;
+				el.appendChild(a);
+			});
+		} catch {
+			el.className = '';
+			el.innerHTML = '<div style="padding:28px 16px;text-align:center"><a class="btn btn--sm" href="/leaderboard">View leaderboard →</a></div>';
 		}
 	})();
 </script>
