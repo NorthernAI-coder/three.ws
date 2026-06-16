@@ -1,31 +1,18 @@
 import { describe, it, expect } from 'vitest';
-import { readFileSync, existsSync, readdirSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, '..');
 const ibmCssPath = resolve(repoRoot, 'public/ibm.css');
-const ibmPagesDir = resolve(repoRoot, 'pages/ibm');
 
-/**
- * Guards the three.ws × IBM design system (public/ibm.css).
- *
- * WHY THIS EXISTS
- * ---------------
- * Every /ibm page used to carry its own :root with the same IBM Carbon colors
- * spelled eight different ways — that drift is why the pages looked like eight
- * sites. We unified them onto one shared stylesheet. With ~20 agents editing
- * this tree, this test is the latch that keeps it unified: it fails the moment
- * a page stops linking the system, re-introduces local design tokens, or
- * references a token the system doesn't define.
- */
+// Guards public/ibm.css: ensures the shared IBM Carbon design system stylesheet
+// defines the canonical tokens, aliases, and primitives all IBM pages depended on.
+// (The pages/ibm/ pages themselves were removed in commit 7af4f0b3; only the
+// shared stylesheet and its src/ibm-*.js logic modules remain.)
 
 const ibmCss = existsSync(ibmCssPath) ? readFileSync(ibmCssPath, 'utf8') : '';
-
-// Tokens that are intentionally set per-element (inline style=) or in JS, never
-// globally in :root. Referencing these without a global definition is correct.
-const DYNAMIC_TOKENS = new Set(['col', 'pct', 'dot-color', 'card-bg', 'vborder']);
 
 // Names every legacy page relies on; deleting any of these aliases would break
 // pages that still say var(--up) / var(--ibm) etc.
@@ -47,12 +34,6 @@ function definedTokens(css) {
 	return out;
 }
 
-function ibmPages() {
-	if (!existsSync(ibmPagesDir)) return [];
-	return readdirSync(ibmPagesDir)
-		.filter((f) => f.endsWith('.html'))
-		.map((f) => ({ name: f, html: readFileSync(resolve(ibmPagesDir, f), 'utf8') }));
-}
 
 describe('IBM design system — public/ibm.css', () => {
 	it('the shared stylesheet exists', () => {
@@ -90,48 +71,3 @@ describe('IBM design system — public/ibm.css', () => {
 	});
 });
 
-describe('IBM design system — page conformance', () => {
-	const pages = ibmPages();
-
-	it('there are /ibm pages to check', () => {
-		expect(pages.length).toBeGreaterThan(0);
-	});
-
-	for (const { name, html } of pages) {
-		describe(name, () => {
-			it('links the shared design system', () => {
-				expect(
-					/href="\/ibm\.css"/.test(html),
-					`${name} must <link> /ibm.css`,
-				).toBe(true);
-			});
-
-			it('does not re-define design tokens in a local :root', () => {
-				// A local :root means the page is drifting away from the system again.
-				const rootBlocks = html.match(/:root\s*\{[^}]*\}/g) || [];
-				const offenders = rootBlocks.filter((b) => /--[a-z]/.test(b));
-				expect(
-					offenders.length,
-					`${name} defines tokens in a local :root — move them to public/ibm.css`,
-				).toBe(0);
-			});
-
-			it('only references tokens the system defines (or dynamic/inline ones)', () => {
-				const defs = definedTokens(ibmCss);
-				const undefinedRefs = new Set();
-				// match var(--token ...) and capture whether a fallback (comma) follows
-				for (const m of html.matchAll(/var\(\s*(--[a-z0-9-]+)\s*(,)?/g)) {
-					const token = m[1].slice(2);
-					const hasFallback = Boolean(m[2]);
-					if (hasFallback) continue; // var(--x, fallback) is always safe
-					if (defs.has(token) || DYNAMIC_TOKENS.has(token)) continue;
-					undefinedRefs.add(token);
-				}
-				expect(
-					[...undefinedRefs],
-					`${name} references undefined token(s); define them in public/ibm.css or give a var() fallback`,
-				).toEqual([]);
-			});
-		});
-	}
-});

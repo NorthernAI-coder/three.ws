@@ -89,7 +89,16 @@
 		</style>
 	</head>
 	<body>
-		<header><div id="nav-container"></div></header>
+		<header>
+			<div id="nav-container">
+				<!-- Static fallback replaced at runtime by nav.js; kept here so
+				     static HTML readers (tests, crawlers, no-JS) can see the nav. -->
+				<nav aria-label="Site navigation">
+					<a href="/discover">Discover</a>
+					<a href="/my-agents" aria-current="page">My Agents</a>
+				</nav>
+			</div>
+		</header>
 		<script src="/nav.js"></script>
 
 		<main class="wrap">
