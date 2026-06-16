@@ -633,33 +633,282 @@ async function setLocked(next) {
 	if (lockBtn) {
 		lockBtn.setAttribute('aria-pressed', String(next));
 		lockBtn.classList.toggle('is-active', next);
-		lockBtn.querySelector('.irl-lock-label').textContent = next ? 'Locked' : 'Lock';
+		lockBtn.querySelector('.irl-lock-label').textContent = next ? 'Pinned' : 'Pin here';
 	}
 	if (arActive) {
 		if (next) {
-			// Capture baseline — delta orientation from here drives the camera
+			// Capture baseline orientation — gyro deltas from here drive the camera
 			devOrientBaseAlpha    = lastDevAlpha;
 			devOrientBaseBeta     = lastDevBeta;
 			devOrientBaseCamYaw   = cameraYaw;
 			devOrientBaseCamPitch = cameraPitch;
-			// Unfreeze — gyro (or drag fallback) now moves the camera
 			arFrozenCamPos  = null;
 			arFrozenCamLook = null;
 			document.body.classList.add('is-locked');
+
+			// GPS: anchor the avatar to real-world coordinates
+			if (gpsState.ready) {
+				// Pin is at the avatar's current virtual position translated to GPS
+				const mLat = 110540;
+				const mLng = 111320 * Math.cos(gpsState.lat * (Math.PI / 180));
+				gpsPin = {
+					lat: gpsState.lat + (-avatarRig.position.z / mLat),
+					lng: gpsState.lng + ( avatarRig.position.x / mLng),
+				};
+				gpsModeActive = true;
+				savePin(gpsPin.lat, gpsPin.lng).then(id => { if (id && gpsPin) gpsPin.id = id; });
+			}
 		} else {
 			devOrientBaseAlpha = null;
 			arFrozenCamPos  = camera.position.clone();
 			arFrozenCamLook = camLookCurrent.clone();
 			document.body.classList.remove('is-locked');
+
+			// Remove the GPS pin
+			if (gpsPin?.id) {
+				fetch(`/api/irl/pins?id=${gpsPin.id}&deviceToken=${_deviceToken}`, { method: 'DELETE' }).catch(() => {});
+			}
+			gpsPin = null;
+			gpsModeActive = false;
 		}
 	}
+	const gpsNote = gpsState.ready ? ' · others nearby can see you' : '';
 	setStatus(next
-		? (arActive ? 'Pinned — move phone to look around' : 'Avatar pinned — drag to orbit')
-		: 'Avatar unpinned');
+		? (arActive ? `Pinned in real space${gpsNote} — move phone to look around` : 'Agent pinned — drag to orbit')
+		: 'Agent unpinned');
 }
 
 if (lockBtn) {
 	lockBtn.addEventListener('click', () => setLocked(!avatarLocked));
+}
+
+// ── GPS world-anchor system ───────────────────────────────────────────────
+//
+// When the user pins their agent we record the GPS latitude/longitude of that
+// real-world spot. From then on the avatar's 3D position is derived from the
+// delta between the user's current GPS and the pin's GPS. As they walk away
+// the avatar appears smaller (perspective); as they turn, the existing gyro
+// system already rotates the camera so the agent stays locked to real-world
+// direction — Pokémon GO style, but for 3D AI agents.
+//
+// Coordinate system: North = −Z  ·  East = +X  ·  Y = up  ·  1 unit = 1 m.
+
+const EYE_HEIGHT = 1.6; // metres — camera height in GPS pin mode
+
+let _deviceToken = localStorage.getItem('irl_device_token');
+if (!_deviceToken) {
+	_deviceToken = crypto.randomUUID();
+	localStorage.setItem('irl_device_token', _deviceToken);
+}
+
+const gpsState = { lat: null, lng: null, ready: false, watchId: null };
+let gpsPin = null;        // { lat, lng, id? } — the user's own anchored pin
+let gpsModeActive = false;
+
+function gpsToWorld(agentLat, agentLng) {
+	if (!gpsState.ready) return new Vector3(0, 0, 0);
+	const mLat = 110540;
+	const mLng = 111320 * Math.cos(gpsState.lat * (Math.PI / 180));
+	return new Vector3(
+		(agentLng - gpsState.lng) * mLng,   // east  = +X
+		0,
+		-(agentLat - gpsState.lat) * mLat,  // north = −Z
+	);
+}
+
+let _lastNearbyFetch = 0;
+const NEARBY_RADIUS   = 150; // metres
+const NEARBY_INTERVAL = 15000; // ms
+
+function onGPSPosition(pos) {
+	gpsState.lat   = pos.coords.latitude;
+	gpsState.lng   = pos.coords.longitude;
+	gpsState.ready = true;
+
+	// Move pinned avatar to its GPS-anchored world position
+	if (gpsPin) {
+		const wp = gpsToWorld(gpsPin.lat, gpsPin.lng);
+		avatarRig.position.set(wp.x, 0, wp.z);
+	}
+
+	// Update world positions of all nearby agents
+	for (const p of nearbyPins) {
+		if (p.group) {
+			const wp = gpsToWorld(p.lat, p.lng);
+			p.group.position.set(wp.x, 0, wp.z);
+		}
+	}
+
+	const now = Date.now();
+	if (now - _lastNearbyFetch > NEARBY_INTERVAL) {
+		_lastNearbyFetch = now;
+		loadNearbyPins();
+	}
+}
+
+function initGPS() {
+	if (!navigator.geolocation) return;
+	gpsState.watchId = navigator.geolocation.watchPosition(
+		onGPSPosition,
+		() => {},
+		{ enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 },
+	);
+}
+
+async function savePin(lat, lng) {
+	try {
+		const r = await fetch('/api/irl/pins', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+				lat, lng,
+				avatarUrl:   resolveAvatarUrl(_currentAvatarId),
+				avatarName:  nameEl.textContent,
+				deviceToken: _deviceToken,
+			}),
+		});
+		if (!r.ok) return null;
+		return (await r.json()).pin?.id ?? null;
+	} catch { return null; }
+}
+
+// ── Nearby agents ─────────────────────────────────────────────────────────
+let nearbyPins = []; // [{ id, lat, lng, avatar_url, avatar_name, caption, x402_endpoint, distance_m, group, labelEl, glbLoaded }]
+
+async function loadNearbyPins() {
+	if (!gpsState.ready) return;
+	try {
+		const r = await fetch(
+			`/api/irl/pins?lat=${gpsState.lat}&lng=${gpsState.lng}&radius=${NEARBY_RADIUS}`,
+		);
+		if (!r.ok) return;
+		const { pins } = await r.json();
+
+		const incoming = pins.filter(p => !gpsPin?.id || p.id !== gpsPin.id);
+		const inIds    = new Set(incoming.map(p => p.id));
+
+		// Remove disappeared pins
+		nearbyPins = nearbyPins.filter(p => {
+			if (inIds.has(p.id)) return true;
+			if (p.group)   scene.remove(p.group);
+			if (p.labelEl) p.labelEl.remove();
+			return false;
+		});
+
+		// Spawn new arrivals
+		for (const pin of incoming) {
+			if (!nearbyPins.find(n => n.id === pin.id)) {
+				const entry = { ...pin, group: null, labelEl: null, glbLoaded: false };
+				nearbyPins.push(entry);
+				spawnNearbyPin(entry);
+			}
+		}
+
+		updateNearbyBadge();
+	} catch {}
+}
+
+function spawnNearbyPin(pin) {
+	const g  = new Group();
+	const wp = gpsToWorld(pin.lat, pin.lng);
+	g.position.set(wp.x, 0, wp.z);
+
+	// Glowing beacon placeholder (replaced by real GLB when close)
+	const beacon = new Mesh(
+		new SphereGeometry(0.22, 24, 18),
+		new MeshPhysicalMaterial({
+			color: 0x88bbff, emissive: 0x1a44ff, emissiveIntensity: 0.9,
+			metalness: 0.1, roughness: 0.06, transmission: 0.35, thickness: 0.3,
+		}),
+	);
+	beacon.position.y = 1.2;
+	beacon.castShadow = true;
+	g.add(beacon);
+	pin.group = g;
+	scene.add(g);
+
+	// Floating HTML name label
+	const el = document.createElement('div');
+	el.className   = 'irl-agent-label';
+	el.style.display = 'none';
+	el.innerHTML   = `<span class="irl-agent-label-name">${_escHtml(pin.avatar_name || 'Agent')}</span>`;
+	el.addEventListener('click', () => openPinSheet(pin));
+	document.body.appendChild(el);
+	pin.labelEl = el;
+
+	// Load real GLB if nearby
+	const loadedCount = nearbyPins.filter(p => p.glbLoaded).length;
+	if (pin.distance_m < 80 && loadedCount < 5 && pin.avatar_url) loadPinGLB(pin);
+}
+
+function _escHtml(s) {
+	return String(s ?? '').replace(/[&<>"']/g, c =>
+		({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+async function loadPinGLB(pin) {
+	try {
+		const gltf  = await new GLTFLoader().loadAsync(pin.avatar_url);
+		if (!pin.group) return;
+		const model = gltf.scene;
+		model.traverse(n => { if (n.isMesh) n.castShadow = true; });
+		const box = new Box3().setFromObject(model);
+		model.position.y -= box.min.y;
+		while (pin.group.children.length) pin.group.remove(pin.group.children[0]);
+		pin.group.add(model);
+		pin.glbLoaded = true;
+	} catch {}
+}
+
+function updateNearbyBadge() {
+	const badge = document.getElementById('irl-nearby-badge');
+	if (!badge) return;
+	const n = nearbyPins.length;
+	badge.textContent = n > 0 ? `${n} nearby` : '';
+	badge.hidden = n === 0;
+}
+
+// ── Interaction sheet ─────────────────────────────────────────────────────
+function openPinSheet(pin) {
+	const sheet = document.getElementById('irl-sheet');
+	if (!sheet) return;
+	const safe = (s) => _escHtml(s ?? '');
+	document.getElementById('irl-sheet-name').textContent    = pin.avatar_name || 'Agent';
+	document.getElementById('irl-sheet-dist').textContent    = `${pin.distance_m ?? '?'}m away`;
+	const cap = document.getElementById('irl-sheet-caption');
+	cap.textContent = pin.caption || '';
+	cap.hidden = !pin.caption;
+	const payBtn = document.getElementById('irl-sheet-pay');
+	if (payBtn) {
+		payBtn.hidden = !pin.x402_endpoint;
+		payBtn.dataset.endpoint = pin.x402_endpoint ?? '';
+	}
+	sheet.classList.add('is-open');
+}
+
+document.getElementById('irl-sheet-close')?.addEventListener('click', () => {
+	document.getElementById('irl-sheet')?.classList.remove('is-open');
+});
+
+// ── Label 3D→2D projection (called each frame) ───────────────────────────
+const _lblVec = new Vector3();
+function updateLabels() {
+	for (const pin of nearbyPins) {
+		if (!pin.labelEl || !pin.group) continue;
+		_lblVec.set(
+			pin.group.position.x,
+			pin.group.position.y + 2.5,
+			pin.group.position.z,
+		);
+		_lblVec.project(camera);
+		if (_lblVec.z > 1) { pin.labelEl.style.display = 'none'; continue; }
+		const sx = (_lblVec.x * 0.5 + 0.5) * window.innerWidth;
+		const sy = (-_lblVec.y * 0.5 + 0.5) * window.innerHeight;
+		const offscreen = sx < -80 || sx > window.innerWidth + 80 || sy < -80 || sy > window.innerHeight + 80;
+		pin.labelEl.style.display = offscreen ? 'none' : 'block';
+		pin.labelEl.style.left    = `${sx}px`;
+		pin.labelEl.style.top     = `${sy}px`;
+	}
 }
 
 // ── Resize ────────────────────────────────────────────────────────────────
@@ -740,11 +989,28 @@ function tick() {
 	avatarLean += (targetLean - avatarLean) * LEAN_LERP;
 	if (avatar) avatar.rotation.x = avatarLean;
 
-	// Camera — frozen when AR is active so background stays anchored
-	if (arFrozenCamPos) {
+	// Camera ─────────────────────────────────────────────────────────────────
+	if (gpsModeActive && avatarLocked && arActive) {
+		// GPS mode: camera fixed at the user's physical eye level.
+		// The avatar (and nearby agents) are at GPS-derived world positions.
+		// Gyro delta continues to drive cameraYaw/cameraPitch so pointing the
+		// phone at the real spot where the agent was placed reveals it there.
+		camera.position.set(0, EYE_HEIGHT, 0);
+		camera.rotation.order = 'YXZ';
+		camera.rotation.y = cameraYaw;
+		camera.rotation.x = -cameraPitch;
+		camera.rotation.z = 0;
+		camLookCurrent.set(
+			Math.sin(cameraYaw) * Math.cos(cameraPitch),
+			Math.sin(-cameraPitch),
+			-Math.cos(cameraYaw) * Math.cos(cameraPitch),
+		).add(camera.position);
+	} else if (arFrozenCamPos) {
+		// Plain AR mode: background stays anchored, avatar walks freely
 		camera.position.copy(arFrozenCamPos);
 		camera.lookAt(arFrozenCamLook);
 	} else {
+		// Normal follow camera
 		const offset = CAM_OFFSET.clone();
 		offset.applyAxisAngle(new Vector3(1, 0, 0), -cameraPitch);
 		offset.applyAxisAngle(upY, cameraYaw);
@@ -766,11 +1032,15 @@ function tick() {
 		}
 	}
 
+	// Project nearby agent labels to screen space
+	updateLabels();
+
 	renderer.render(scene, camera);
 	requestAnimationFrame(tick);
 }
 
 // ── Boot ──────────────────────────────────────────────────────────────────
+initGPS();
 loadAvatar()
 	.then(() => requestAnimationFrame(tick))
 	.catch(err => {

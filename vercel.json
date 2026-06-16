@@ -1813,6 +1813,10 @@
 			"dest": "/api/oracle/batch.js"
 		},
 		{
+			"src": "/api/oracle/og",
+			"dest": "/api/oracle/og.js"
+		},
+		{
 			"src": "/api/oracle/search",
 			"dest": "/api/oracle/search.js"
 		},
@@ -1835,6 +1839,10 @@
 		{
 			"src": "/api/social/sentiment-pulse",
 			"dest": "/api/social/sentiment-pulse.js"
+		},
+		{
+			"src": "/api/irl/pins",
+			"dest": "/api/irl/pins.js"
 		},
 		{
 			"src": "/api/copy/executions",
