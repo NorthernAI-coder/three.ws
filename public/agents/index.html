@@ -1,524 +1,283 @@
 <!doctype html>
 <html lang="en">
 	<head>
-		<meta charset="UTF-8" />
-		<meta http-equiv="X-UA-Compatible" content="IE=edge" />
-		<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-		<title>Agent Directory · three.ws</title>
-		<meta name="description" content="Browse every registered agent on three.ws — filter by chain, search by name, and view on-chain passports." />
-		<meta name="theme-color" content="#000000" />
-		<link rel="canonical" href="https://three.ws/agents" />
+		<script>/* three.ws theme boot — no-flash; runtime in /theme-switcher.js */(function(){try{var m=localStorage.getItem('twx_theme');var l=m==='auto'?(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches):m==='light';document.documentElement.setAttribute('data-theme',l?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();</script>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Agents Index · three.ws</title>
+		<meta name="description" content="Browse every public 3D AI agent on three.ws — chat, check skills, and copy the ones you like." />
 		<meta property="og:type" content="website" />
 		<meta property="og:site_name" content="three.ws" />
-		<meta property="og:title" content="Agent Directory · three.ws" />
-		<meta property="og:description" content="Browse every registered agent on three.ws." />
 		<meta property="og:url" content="https://three.ws/agents" />
+		<meta property="og:title" content="Agents Index · three.ws" />
+		<meta property="og:description" content="Browse every public 3D AI agent on three.ws — chat, check skills, and copy the ones you like." />
 		<meta property="og:image" content="https://three.ws/og-image.png" />
-		<meta property="og:image:width" content="1200" />
-		<meta property="og:image:height" content="630" />
 		<meta name="twitter:card" content="summary_large_image" />
-		<meta name="twitter:title" content="Agent Directory · three.ws" />
-		<meta name="twitter:description" content="Browse every registered agent on three.ws." />
-		<meta name="twitter:image" content="https://three.ws/og-image.png" />
-		<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"Agent Directory","description":"Browse every registered agent on three.ws.","url":"https://three.ws/agents","isPartOf":{"@type":"WebSite","name":"three.ws","url":"https://three.ws"}}</script>
-		<link rel="shortcut icon" href="/favicon.ico" />
-		<link rel="stylesheet" href="/style.css" />
-		<link rel="stylesheet" href="/nav.css" />
+		<meta name="twitter:site" content="@trythreews" />
+		<meta name="theme-color" content="#0a0a0c" />
+		<link rel="icon" href="/favicon.ico" sizes="any" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+		<link rel="manifest" href="/site.webmanifest" />
+		<link rel="canonical" href="https://three.ws/agents" />
 		<link rel="stylesheet" href="/fonts/fonts.css" />
+		<link rel="stylesheet" href="/nav.css" />
+		<link rel="stylesheet" href="/footer.css" />
+		<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"Agents Index","description":"Browse every public 3D AI agent on three.ws.","url":"https://three.ws/agents","isPartOf":{"@type":"WebSite","name":"three.ws","url":"https://three.ws"}}</script>
 		<style>
-			/* ── Page-scoped styles ── */
-			.agents-hero {
-				text-align: center;
-				padding: 4rem 1rem 2.5rem;
-			}
+		:root {
+			--bg: #05060c; --panel: rgba(13,15,23,0.72); --panel-solid: #0c0e16; --line: rgba(255,255,255,0.09);
+			--ink: #eaeefa; --muted: #8a92a8; --faint: rgba(255,255,255,0.45);
+			--cyan: #5fe3ff; --violet: #a07bff; --gold: #fbbf24; --up: #34d399; --down: #f87171;
+			--r: 14px; --r-sm: 9px;
+			--mono: ui-monospace, "JetBrains Mono", SFMono-Regular, Menlo, monospace;
+		}
+		* { box-sizing: border-box; }
+		html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--ink);
+			font: 15px/1.55 Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+			-webkit-font-smoothing: antialiased; }
+		body { background: radial-gradient(52% 44% at 88% -4%, color-mix(in srgb, var(--violet) 14%, transparent), transparent 68%),
+			radial-gradient(44% 38% at 2% -2%, color-mix(in srgb, var(--cyan) 11%, transparent), transparent 62%), var(--bg); }
+		a { color: inherit; text-decoration: none; }
+		button { font: inherit; color: inherit; cursor: pointer; }
+		.wrap { max-width: 1200px; margin: 0 auto; padding: 0 18px 90px; }
 
-			.agents-eyebrow {
-				font-size: 0.78rem;
-				font-weight: 600;
-				letter-spacing: 0.08em;
-				text-transform: uppercase;
-				color: var(--ink-dim, #888);
-				margin-bottom: 0.75rem;
-			}
+		/* hero */
+		.hero { padding: 40px 0 24px; }
+		.eyebrow { display: inline-flex; align-items: center; gap: 8px; font: 600 12px/1 var(--mono);
+			letter-spacing: .04em; text-transform: uppercase; color: var(--cyan); padding: 6px 12px;
+			border: 1px solid color-mix(in srgb, var(--cyan) 28%, var(--line)); border-radius: 999px;
+			background: color-mix(in srgb, var(--cyan) 8%, transparent); margin-bottom: 18px; }
+		.hero h1 { font-size: clamp(28px, 5vw, 44px); line-height: 1.05; letter-spacing: -0.025em;
+			margin: 0 0 10px; font-weight: 800; }
+		.hero h1 span { background: linear-gradient(100deg, var(--cyan), var(--violet));
+			-webkit-background-clip: text; background-clip: text; color: transparent; }
+		.hero p { max-width: 580px; font-size: 15.5px; color: var(--muted); margin: 0 0 22px; }
+		.hero-ctas { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+		.btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 18px; border-radius: 8px;
+			font-weight: 600; font-size: 14px; border: 1px solid rgba(255,255,255,0.14); transition: all .16s; cursor: pointer; }
+		.btn-primary { background: linear-gradient(135deg, var(--cyan), var(--violet)); border-color: transparent; color: #050610; }
+		.btn-primary:hover { opacity: .88; }
+		.btn-ghost { background: rgba(255,255,255,0.05); color: var(--ink); }
+		.btn-ghost:hover { background: rgba(255,255,255,0.1); }
 
-			.agents-hero h1 {
-				font-size: clamp(2rem, 5vw, 3rem);
-				font-weight: 700;
-				line-height: 1.1;
-				margin-bottom: 0.75rem;
-				background: linear-gradient(135deg, #00d9ff 0%, #ffffff 60%);
-				background-clip: text;
-				-webkit-background-clip: text;
-				-webkit-text-fill-color: transparent;
-			}
+		/* controls */
+		.controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 20px; }
+		.search-wrap { flex: 1; min-width: 200px; position: relative; }
+		.search-wrap input { width: 100%; background: var(--panel); border: 1px solid var(--line);
+			border-radius: 8px; padding: 9px 14px 9px 36px; font: 14px/1 inherit; color: var(--ink); outline: none;
+			transition: border-color .16s; }
+		.search-wrap input:focus { border-color: color-mix(in srgb, var(--cyan) 50%, var(--line)); }
+		.search-wrap svg { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; stroke: var(--muted); }
+		select.ctrl { background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+			padding: 9px 12px; font: 14px/1 inherit; color: var(--ink); outline: none; cursor: pointer; }
+		select.ctrl:focus { border-color: color-mix(in srgb, var(--cyan) 50%, var(--line)); }
+		.count-label { font-size: 13px; color: var(--muted); white-space: nowrap; }
 
-			.agents-hero p {
-				font-size: 1rem;
-				color: var(--ink-dim, #a0a0a0);
-				max-width: 520px;
-				margin: 0 auto;
-			}
+		/* grid */
+		.agents-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+		@media (max-width: 480px) { .agents-grid { grid-template-columns: 1fr; } }
 
-			/* Controls bar */
-			.agents-controls {
-				max-width: 1400px;
-				margin: 0 auto 2rem;
-				padding: 0 1.5rem;
-				display: flex;
-				flex-wrap: wrap;
-				gap: 1rem;
-				align-items: center;
-			}
+		/* agent card */
+		.ag-card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r);
+			padding: 18px; display: flex; flex-direction: column; gap: 12px; transition: border-color .18s, transform .18s; position: relative; overflow: hidden; }
+		.ag-card:hover { border-color: color-mix(in srgb, var(--cyan) 35%, var(--line)); transform: translateY(-2px); }
+		.ag-card-link { position: absolute; inset: 0; z-index: 1; }
+		.ag-top { display: flex; gap: 12px; align-items: flex-start; }
+		.ag-avatar { width: 52px; height: 52px; border-radius: 11px; object-fit: cover;
+			background: rgba(255,255,255,0.07); border: 1px solid var(--line); flex-shrink: 0; }
+		.ag-avatar-fallback { width: 52px; height: 52px; border-radius: 11px; background: linear-gradient(135deg, var(--violet), var(--cyan));
+			display: flex; align-items: center; justify-content: center; font: 800 22px/1 var(--mono); color: #050610; flex-shrink: 0; }
+		.ag-meta { min-width: 0; flex: 1; }
+		.ag-name { font-weight: 700; font-size: 15.5px; line-height: 1.2; margin-bottom: 3px;
+			white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+		.ag-badge-onchain { display: inline-flex; align-items: center; gap: 4px; font: 600 10.5px/1 var(--mono);
+			color: var(--up); padding: 2px 7px; border-radius: 999px; background: color-mix(in srgb, var(--up) 12%, transparent);
+			border: 1px solid color-mix(in srgb, var(--up) 30%, transparent); }
+		.ag-desc { font-size: 13px; color: var(--muted); line-height: 1.45;
+			overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+		.ag-footer { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 4px; }
+		.ag-skill { font-size: 11px; padding: 2px 8px; border-radius: 999px;
+			background: rgba(255,255,255,0.06); border: 1px solid var(--line); color: var(--muted); }
+		.ag-chats { font-size: 12px; color: var(--faint); margin-left: auto; font-variant-numeric: tabular-nums; }
 
-			.agents-search {
-				position: relative;
-				flex: 1;
-				min-width: 220px;
-			}
+		/* skeleton */
+		.ag-skel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 18px;
+			display: flex; gap: 12px; }
+		.sk { background: rgba(255,255,255,0.06); border-radius: 6px; animation: sk 1.4s ease-in-out infinite; }
+		@keyframes sk { 0%,100%{opacity:.5} 50%{opacity:.9} }
 
-			.agents-search input {
-				width: 100%;
-				padding: 0.65rem 1rem;
-				background: rgba(255, 255, 255, 0.05);
-				border: 1px solid rgba(255, 255, 255, 0.12);
-				border-radius: 8px;
-				color: var(--ink, #e0e0e0);
-				font-size: 0.95rem;
-				font-family: inherit;
-				transition: border-color 0.18s ease, background 0.18s ease;
-			}
+		/* state */
+		.state { text-align: center; padding: 60px 20px; color: var(--muted); }
+		.state b { display: block; font-size: 17px; color: var(--ink); margin-bottom: 8px; }
+		.state a { color: var(--cyan); }
 
-			.agents-search input::placeholder { color: #555; }
+		/* load more */
+		.load-more-wrap { text-align: center; margin-top: 28px; }
 
-			.agents-search input:focus {
-				outline: none;
-				border-color: #00d9ff;
-				background: rgba(0, 217, 255, 0.04);
-			}
-
-			.agents-filter-group {
-				display: flex;
-				align-items: center;
-				gap: 0.5rem;
-				flex-wrap: wrap;
-			}
-
-			.agents-filter-label {
-				font-size: 0.8rem;
-				font-weight: 600;
-				text-transform: uppercase;
-				letter-spacing: 0.06em;
-				color: var(--ink-dim, #888);
-			}
-
-			.filter-chip {
-				padding: 0.4rem 0.9rem;
-				background: rgba(255, 255, 255, 0.05);
-				border: 1px solid rgba(255, 255, 255, 0.1);
-				border-radius: 20px;
-				cursor: pointer;
-				font-size: 0.85rem;
-				font-family: inherit;
-				color: var(--ink-dim, #a0a0a0);
-				transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
-			}
-
-			.filter-chip:hover { background: rgba(255, 255, 255, 0.1); }
-
-			.filter-chip.active {
-				background: #00d9ff;
-				border-color: transparent;
-				color: #000;
-				font-weight: 600;
-			}
-
-			.agents-sort {
-				padding: 0.45rem 0.9rem;
-				background: rgba(255, 255, 255, 0.05);
-				border: 1px solid rgba(255, 255, 255, 0.12);
-				border-radius: 8px;
-				color: var(--ink, #e0e0e0);
-				cursor: pointer;
-				font-size: 0.85rem;
-				font-family: inherit;
-			}
-
-			.agents-sort:focus { outline: none; border-color: #00d9ff; }
-			.agents-sort option { background: #111; color: #e0e0e0; }
-
-			/* Grid */
-			.agents-wrap {
-				max-width: 1400px;
-				margin: 0 auto;
-				padding: 0 1.5rem 4rem;
-			}
-
-			.agent-grid {
-				display: grid;
-				grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-				gap: 1.5rem;
-				margin-bottom: 2rem;
-			}
-
-			/* Cards rendered by AgentsDirectory.js */
-			.agent-card {
-				background: rgba(255, 255, 255, 0.03);
-				border: 1px solid rgba(255, 255, 255, 0.08);
-				border-radius: 12px;
-				overflow: hidden;
-				cursor: pointer;
-				transition: border-color 0.22s ease, background 0.22s ease, transform 0.22s ease, box-shadow 0.22s ease;
-				display: flex;
-				flex-direction: column;
-				padding: 1.1rem 1.25rem 1.25rem;
-				gap: 0.65rem;
-			}
-
-			.agent-card:hover {
-				border-color: rgba(0, 217, 255, 0.45);
-				background: rgba(0, 217, 255, 0.04);
-				transform: translateY(-3px);
-				box-shadow: 0 8px 28px rgba(0, 217, 255, 0.12);
-			}
-
-			/* card-head: small avatar + title side by side */
-			.card-head {
-				display: flex;
-				align-items: center;
-				gap: 0.85rem;
-			}
-
-			.card-avatar-sm {
-				width: 52px;
-				height: 52px;
-				flex-shrink: 0;
-				border-radius: 8px;
-				background: rgba(255, 255, 255, 0.04);
-				border: 1px solid rgba(255, 255, 255, 0.08);
-				display: flex;
-				align-items: center;
-				justify-content: center;
-				overflow: hidden;
-				color: #555;
-				font-size: 1.4rem;
-			}
-
-			.card-avatar-sm img {
-				width: 100%;
-				height: 100%;
-				object-fit: cover;
-			}
-
-			.avatar-placeholder { opacity: 0.4; }
-
-			.card-title { flex: 1; min-width: 0; }
-
-			.card-name-row {
-				display: flex;
-				align-items: center;
-				gap: 0.4rem;
-				margin-bottom: 0.2rem;
-			}
-
-			.card-name {
-				font-size: 0.95rem;
-				font-weight: 600;
-				color: var(--ink, #fff);
-				line-height: 1.3;
-				white-space: nowrap;
-				overflow: hidden;
-				text-overflow: ellipsis;
-			}
-
-			.active-dot {
-				width: 7px;
-				height: 7px;
-				border-radius: 50%;
-				background: #22c55e;
-				flex-shrink: 0;
-			}
-
-			.card-id {
-				font-size: 0.75rem;
-				color: var(--ink-dim, #888);
-				font-family: 'Monaco', 'Courier New', monospace;
-				white-space: nowrap;
-				overflow: hidden;
-				text-overflow: ellipsis;
-			}
-
-			.card-desc {
-				font-size: 0.82rem;
-				color: var(--ink-dim, #a0a0a0);
-				line-height: 1.45;
-			}
-
-			.card-protos, .card-trust, .card-onchain, .card-owner {
-				display: flex;
-				flex-wrap: wrap;
-				gap: 0.35rem;
-				font-size: 0.72rem;
-			}
-
-			.proto-badge {
-				padding: 0.2rem 0.45rem;
-				background: rgba(255, 255, 255, 0.06);
-				border: 1px solid rgba(255, 255, 255, 0.12);
-				border-radius: 4px;
-				color: var(--ink-dim, #aaa);
-				font-weight: 500;
-			}
-
-			.trust-pill {
-				padding: 0.2rem 0.45rem;
-				background: rgba(34, 197, 94, 0.1);
-				border: 1px solid rgba(34, 197, 94, 0.25);
-				border-radius: 4px;
-				color: #86efac;
-				font-weight: 500;
-			}
-
-			.owner-addr {
-				font-family: 'Monaco', 'Courier New', monospace;
-				color: var(--ink-dim, #888);
-				cursor: pointer;
-			}
-
-			.owner-copy {
-				background: none;
-				border: none;
-				color: var(--ink-dim, #888);
-				cursor: pointer;
-				font-size: 0.9em;
-				padding: 0 0.2rem;
-			}
-
-			.owner-copy.copied { color: #22c55e; }
-
-			.card-actions {
-				display: flex;
-				gap: 0.5rem;
-				flex-wrap: wrap;
-				margin-top: auto;
-				padding-top: 0.2rem;
-			}
-
-			.card-see3d {
-				display: inline-flex;
-				align-items: center;
-				gap: 0.35rem;
-				padding: 0.35rem 0.65rem;
-				font-size: 0.76rem;
-				font-weight: 600;
-				color: #00d9ff;
-				background: rgba(0, 217, 255, 0.08);
-				border: 1px solid rgba(0, 217, 255, 0.28);
-				border-radius: 6px;
-				text-decoration: none;
-				transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
-			}
-
-			.card-see3d:hover {
-				background: rgba(0, 217, 255, 0.15);
-				border-color: rgba(0, 217, 255, 0.55);
-				transform: translateY(-1px);
-			}
-
-			.card-see3d:focus-visible {
-				outline: 2px solid #00d9ff;
-				outline-offset: 2px;
-			}
-
-			/* States */
-			.agents-loading {
-				text-align: center;
-				padding: 3rem 2rem;
-				color: var(--ink-dim, #a0a0a0);
-				display: flex;
-				align-items: center;
-				justify-content: center;
-				gap: 0.75rem;
-			}
-
-			.agents-loading::after {
-				content: '';
-				display: inline-block;
-				width: 1rem;
-				height: 1rem;
-				border: 2px solid rgba(0, 217, 255, 0.3);
-				border-top-color: #00d9ff;
-				border-radius: 50%;
-				animation: spin 0.8s linear infinite;
-			}
-
-			@keyframes spin { to { transform: rotate(360deg); } }
-
-			.agents-empty {
-				text-align: center;
-				padding: 5rem 2rem;
-			}
-
-			.agents-empty h2 {
-				font-size: 1.4rem;
-				font-weight: 600;
-				color: var(--ink, #fff);
-				margin-bottom: 0.75rem;
-			}
-
-			.agents-empty p {
-				font-size: 0.95rem;
-				color: var(--ink-dim, #a0a0a0);
-				margin-bottom: 2rem;
-				max-width: 460px;
-				margin-inline: auto;
-			}
-
-			.agents-empty-actions {
-				display: flex;
-				gap: 0.75rem;
-				justify-content: center;
-				flex-wrap: wrap;
-			}
-
-			.btn-primary {
-				padding: 0.65rem 1.4rem;
-				background: #00d9ff;
-				border: none;
-				border-radius: 8px;
-				color: #000;
-				font-weight: 600;
-				font-size: 0.9rem;
-				cursor: pointer;
-				text-decoration: none;
-				display: inline-block;
-				transition: opacity 0.18s ease, transform 0.18s ease;
-			}
-
-			.btn-primary:hover { opacity: 0.88; transform: translateY(-1px); }
-
-			.btn-ghost {
-				padding: 0.65rem 1.4rem;
-				background: transparent;
-				border: 1px solid rgba(255, 255, 255, 0.22);
-				border-radius: 8px;
-				color: var(--ink, #e0e0e0);
-				font-weight: 500;
-				font-size: 0.9rem;
-				cursor: pointer;
-				text-decoration: none;
-				display: inline-block;
-				transition: border-color 0.18s ease, background 0.18s ease;
-			}
-
-			.btn-ghost:hover {
-				border-color: rgba(255, 255, 255, 0.4);
-				background: rgba(255, 255, 255, 0.05);
-			}
-
-			/* Pagination */
-			.agents-pagination {
-				display: flex;
-				justify-content: center;
-				align-items: center;
-				gap: 1rem;
-				padding: 2rem 0;
-				flex-wrap: wrap;
-			}
-
-			.pag-btn {
-				padding: 0.5rem 1rem;
-				background: rgba(255, 255, 255, 0.05);
-				border: 1px solid rgba(255, 255, 255, 0.1);
-				border-radius: 8px;
-				color: var(--ink, #e0e0e0);
-				cursor: pointer;
-				font-size: 0.88rem;
-				font-family: inherit;
-				transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
-			}
-
-			.pag-btn:hover:not(:disabled) {
-				background: rgba(0, 217, 255, 0.1);
-				border-color: #00d9ff;
-				color: #00d9ff;
-			}
-
-			.pag-btn:disabled { opacity: 0.3; cursor: not-allowed; }
-
-			.pag-info {
-				font-size: 0.88rem;
-				color: var(--ink-dim, #a0a0a0);
-			}
-
-			@media (max-width: 640px) {
-				.agents-controls { flex-direction: column; align-items: stretch; }
-				.agents-search { min-width: 100%; }
-				.agents-search input { font-size: max(16px, 1em); }
-				.agent-grid { grid-template-columns: 1fr; }
-			}
+		@media (max-width: 600px) {
+			.controls { gap: 6px; }
+			.hero h1 { font-size: 26px; }
+		}
 		</style>
 	</head>
 	<body>
-		<header>
-			<div id="nav-container"></div>
-		</header>
+		<header><div id="nav-container"></div></header>
 		<script src="/nav.js"></script>
 
-		<main>
-			<section class="agents-hero">
-				<p class="agents-eyebrow">ERC-8004 Agent Directory</p>
-				<h1>Agent Directory</h1>
-				<p>Discover registered agents across the ecosystem</p>
+		<main class="wrap">
+			<section class="hero">
+				<div class="eyebrow">3D AI Agents</div>
+				<h1>Agent <span>Index</span></h1>
+				<p>Every public 3D AI agent on three.ws. Chat with them, check their skills, or fork them as your own starting point.</p>
+				<div class="hero-ctas">
+					<a class="btn btn-primary" href="/create-agent">Create an agent</a>
+					<a class="btn btn-ghost" href="/marketplace">Marketplace</a>
+				</div>
 			</section>
 
-			<div class="agents-controls">
-				<div class="agents-search">
-					<input
-						type="text"
-						id="search"
-						placeholder="Search by name, ID, or description…"
-						aria-label="Search agents"
-					/>
+			<div class="controls">
+				<div class="search-wrap">
+					<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+						<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+					</svg>
+					<input id="ag-search" type="search" placeholder="Search agents…" autocomplete="off" />
 				</div>
-				<div class="agents-filter-group">
-					<span class="agents-filter-label">Chain:</span>
-					<button class="filter-chip active" data-filter="all">All</button>
-					<button class="filter-chip" data-filter="8453">Base</button>
-					<button class="filter-chip" data-filter="84532">Base Sepolia</button>
-					<button class="filter-chip" data-filter="10">Optimism</button>
-					<button class="filter-chip" data-filter="137">Polygon</button>
-				</div>
-				<select id="sort" class="agents-sort" aria-label="Sort agents">
-					<option value="newest">Newest First</option>
-					<option value="oldest">Oldest First</option>
-					<option value="name">Alphabetical</option>
+				<select id="ag-sort" class="ctrl" aria-label="Sort">
+					<option value="popular">Most popular</option>
+					<option value="newest">Newest first</option>
+					<option value="name">Name A–Z</option>
 				</select>
+				<label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);cursor:pointer;user-select:none">
+					<input id="ag-onchain" type="checkbox" />
+					On-chain only
+				</label>
+				<span id="ag-count" class="count-label"></span>
 			</div>
 
-			<div class="agents-wrap">
-				<div id="loading" class="agents-loading" style="display: none">Loading agents</div>
-				<div id="agents" class="agent-grid"></div>
-
-				<div id="empty-state" class="agents-empty" style="display: none">
-					<h2>No agents found</h2>
-					<p>Be the first to register your agent on-chain — generate its 3D body from a text prompt, then give it a brain.</p>
-					<div class="agents-empty-actions">
-						<a href="/create" class="btn-primary">Create Agent</a>
-						<a href="/forge" class="btn-ghost">Generate 3D from text</a>
-					</div>
-				</div>
-
-				<div id="pagination" class="agents-pagination" style="display: none">
-					<button id="prev-btn" class="pag-btn">← Previous</button>
-					<span id="page-info" class="pag-info"></span>
-					<button id="next-btn" class="pag-btn">Next →</button>
-				</div>
+			<div id="ag-grid" class="agents-grid" aria-label="Agents" aria-busy="true"></div>
+			<div id="ag-state" class="state" hidden></div>
+			<div class="load-more-wrap" id="ag-more-wrap" hidden>
+				<button id="ag-more" class="btn btn-ghost">Load more</button>
 			</div>
 		</main>
 
-		<div id="footer-container"></div>
-		<script src="/footer.js" defer></script>
-		<script type="module" src="./boot.js"></script>
+		<script type="module">
+		const API = '/api/agents/public';
+		const $ = (id) => document.getElementById(id);
+		const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+		const grid   = $('ag-grid');
+		const stateEl = $('ag-state');
+		const countEl = $('ag-count');
+		const moreWrap = $('ag-more-wrap');
+		const moreBtn  = $('ag-more');
+
+		const state = { q: '', sort: 'popular', onchain: false, cursor: null, loading: false, total: 0 };
+
+		function skeletons(n = 8) {
+			return Array.from({length: n}, () => `
+				<div class="ag-skel" aria-hidden="true">
+					<div class="sk" style="width:52px;height:52px;border-radius:11px;flex-shrink:0"></div>
+					<div style="flex:1;display:flex;flex-direction:column;gap:8px;padding-top:2px">
+						<div class="sk" style="width:55%;height:15px"></div>
+						<div class="sk" style="width:88%;height:12px"></div>
+						<div class="sk" style="width:70%;height:12px"></div>
+					</div>
+				</div>`).join('');
+		}
+
+		function initial(name) {
+			return (name || '?').trim()[0].toUpperCase();
+		}
+
+		function cardHtml(a) {
+			const onchain = a.is_registered;
+			const topSkills = (a.skills || []).slice(0, 3);
+			const chats = a.chat_count > 0 ? `${a.chat_count.toLocaleString()} chat${a.chat_count === 1 ? '' : 's'}` : '';
+			const avatar = a.avatar_thumbnail
+				? `<img class="ag-avatar" src="${esc(a.avatar_thumbnail)}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" /><div class="ag-avatar-fallback" style="display:none">${esc(initial(a.name))}</div>`
+				: `<div class="ag-avatar-fallback">${esc(initial(a.name))}</div>`;
+
+			return `<div class="ag-card">
+				<a class="ag-card-link" href="${esc(a.home_url)}" aria-label="${esc(a.name)}"></a>
+				<div class="ag-top">
+					<div style="display:flex;flex-direction:column;gap:6px;align-items:center">
+						${avatar}
+						${onchain ? `<span class="ag-badge-onchain">✦ on-chain</span>` : ''}
+					</div>
+					<div class="ag-meta">
+						<div class="ag-name">${esc(a.name)}</div>
+						${a.description ? `<div class="ag-desc">${esc(a.description)}</div>` : ''}
+					</div>
+				</div>
+				${topSkills.length || chats ? `<div class="ag-footer">
+					${topSkills.map((s) => `<span class="ag-skill">${esc(s)}</span>`).join('')}
+					${chats ? `<span class="ag-chats">${esc(chats)}</span>` : ''}
+				</div>` : ''}
+			</div>`;
+		}
+
+		async function load(reset = false) {
+			if (state.loading) return;
+			state.loading = true;
+			if (reset) { state.cursor = null; state.total = 0; grid.innerHTML = skeletons(); stateEl.hidden = true; }
+
+			const url = new URL(API, location.origin);
+			url.searchParams.set('limit', '24');
+			url.searchParams.set('sort', state.sort);
+			if (state.q) url.searchParams.set('q', state.q);
+			if (state.cursor) url.searchParams.set('before', state.cursor);
+			if (state.onchain) url.searchParams.set('onchain', '1');
+
+			try {
+				const r = await fetch(url, { headers: { accept: 'application/json' } });
+				if (!r.ok) throw new Error('HTTP ' + r.status);
+				const data = await r.json();
+				const items = data.agents || [];
+
+				if (reset) {
+					grid.innerHTML = items.length ? items.map(cardHtml).join('') : '';
+				} else {
+					items.forEach((a) => grid.insertAdjacentHTML('beforeend', cardHtml(a)));
+				}
+
+				state.total += items.length;
+				state.cursor = data.next_cursor || null;
+				countEl.textContent = state.total > 0 ? `${state.total}${data.has_more ? '+' : ''} agents` : '';
+
+				moreWrap.hidden = !data.has_more;
+
+				if (!state.total) {
+					stateEl.innerHTML = state.q
+						? `<b>No agents found</b>Search found nothing for "${esc(state.q)}". Try a different term.`
+						: `<b>No public agents yet</b><a href="/create-agent">Create the first one →</a>`;
+					stateEl.hidden = false;
+				}
+			} catch {
+				if (reset) {
+					stateEl.innerHTML = `<b>Couldn't load agents</b>Try refreshing the page.`;
+					stateEl.hidden = false;
+					grid.innerHTML = '';
+				}
+				moreWrap.hidden = true;
+			}
+			state.loading = false;
+		}
+
+		let _t;
+		$('ag-search').addEventListener('input', (e) => {
+			clearTimeout(_t);
+			_t = setTimeout(() => { state.q = e.target.value.trim(); load(true); }, 320);
+		});
+		$('ag-sort').addEventListener('change', (e) => { state.sort = e.target.value; load(true); });
+		$('ag-onchain').addEventListener('change', (e) => { state.onchain = e.target.checked; load(true); });
+		moreBtn.addEventListener('click', () => load(false));
+
+		load(true);
+		</script>
 		<script src="/brand.js" defer></script>
+		<div id="footer-container"></div>
+		<script src="/footer.js"></script>
 	</body>
 </html>
