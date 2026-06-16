@@ -2,7 +2,7 @@
  * Scene Composer — real-time multi-object 3D editor with Forge integration.
  *
  * Improvements over v1:
- *   - THREE.Clock + AnimationMixer: avatar animations play automatically
+ *   - THREE.Timer + AnimationMixer: avatar animations play automatically
  *   - Undo/redo command system (Ctrl+Z / Ctrl+Y), 50-deep stack
  *   - F to frame/focus the selected object (smooth dolly)
  *   - Ctrl+D to duplicate selected object
@@ -191,7 +191,7 @@ rimLight.position.set(0, 5, -8);
 scene.add(rimLight);
 
 // Clock + mixer
-const clock = new THREE.Clock();
+const clock = new THREE.Timer();
 let mixer = null;
 
 // ── Resize ────────────────────────────────────────────────────────────────────
@@ -208,6 +208,7 @@ resize();
 // ── Render loop ───────────────────────────────────────────────────────────────
 function animate() {
 	requestAnimationFrame(animate);
+	clock.update();
 	const delta = clock.getDelta();
 	if (mixer) mixer.update(delta);
 	orbit.update();

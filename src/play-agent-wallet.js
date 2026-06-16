@@ -11,7 +11,7 @@
 // the side panel in lockstep. No mocks: the $0.01 leaves the wallet for real.
 
 import {
-	Scene, PerspectiveCamera, WebGLRenderer, Group, Clock, Color, FogExp2,
+	Scene, PerspectiveCamera, WebGLRenderer, Group, Timer, Color, FogExp2,
 	HemisphereLight, DirectionalLight, Mesh, MeshStandardMaterial, MeshBasicMaterial,
 	CircleGeometry, BoxGeometry, PlaneGeometry, RingGeometry, CylinderGeometry,
 	CanvasTexture, SRGBColorSpace, DoubleSide, GridHelper, Vector3, MathUtils,
@@ -414,7 +414,7 @@ function drawBoard() {
 
 // ── render loop ─────────────────────────────────────────────────────────────
 
-const clock = new Clock();
+const clock = new Timer();
 let redrawAcc = 0;
 function resize() {
 	const w = stageEl.clientWidth, h = stageEl.clientHeight;
@@ -426,6 +426,7 @@ new ResizeObserver(resize).observe(stageEl);
 resize();
 
 renderer.setAnimationLoop(() => {
+	clock.update();
 	const dt = Math.min(clock.getDelta(), 0.1);
 	t += dt;
 	if (avatarReady) { tickWalk(dt); anim.update(dt); }

@@ -16,7 +16,7 @@ import {
 	WebGLRenderer,
 	Box3,
 	Vector3,
-	Clock,
+	Timer,
 	HemisphereLight,
 	DirectionalLight,
 	AmbientLight,
@@ -73,7 +73,7 @@ export class PoseStage {
 		this.scene = null;
 		this.camera = null;
 		this.controls = null;
-		this.clock = new Clock();
+		this.clock = new Timer();
 		this.model = null;
 		this.anim = new AnimationManager();
 
@@ -201,10 +201,11 @@ export class PoseStage {
 	start() {
 		if (this._running || this._disposed) return;
 		this._running = true;
-		this.clock.getDelta(); // discard the gap accumulated while hidden
+		this.clock.update(); // discard the gap accumulated while hidden
 		const tick = () => {
 			if (!this._running) return;
 			this._frame = requestAnimationFrame(tick);
+			this.clock.update();
 			const delta = this.clock.getDelta();
 			this.anim.update(delta);
 			this.controls.update();

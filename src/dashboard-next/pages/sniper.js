@@ -98,6 +98,9 @@ const STYLE = `<style>
 .sn-field input, .sn-field select { background: var(--nxt-bg-2); border: 1px solid var(--nxt-stroke); border-radius: var(--nxt-radius-sm); color: var(--nxt-ink); padding: 7px 10px; font-size: 13px; font-family: inherit; width: 100%; transition: border-color .12s; }
 .sn-field input:focus, .sn-field select:focus { outline: none; border-color: var(--nxt-accent); }
 .sn-field .sn-hint { font-size: 11px; color: var(--nxt-ink-faint); }
+.sn-field-full { grid-column: 1 / -1; }
+.sn-link { color: var(--nxt-accent); text-decoration: none; }
+.sn-link:hover { text-decoration: underline; }
 .sn-section-head { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--nxt-ink-dim); margin: 16px 0 8px; grid-column: 1 / -1; }
 .sn-save-row { grid-column: 1 / -1; display: flex; gap: 10px; align-items: center; margin-top: 6px; }
 .sn-btn { font-size: 13px; padding: 8px 18px; border-radius: var(--nxt-radius-sm); border: 1px solid transparent; cursor: pointer; transition: opacity .14s, transform .14s; }
@@ -433,6 +436,13 @@ function stratForm(s) {
 
 		${s.trigger === 'first_claim' ? firstClaimFields(s) : ''}
 		${s.trigger === 'intel_confirmed' ? intelFields(s) : ''}
+
+		<div class="sn-section-head">Notifications</div>
+		<div class="sn-field sn-field-full">
+			<label>Telegram chat ID (optional)</label>
+			<input name="telegram_chat_id" type="text" inputmode="numeric" value="${s.telegram_chat_id || ''}" placeholder="e.g. 123456789" autocomplete="off" />
+			<span class="sn-hint">Get buy/sell alerts in your own Telegram chat. Message <a class="sn-link" href="https://t.me/userinfobot" target="_blank" rel="noopener">@userinfobot</a> to find your chat ID, then forward its reply here. Leave blank to use the platform ops channel.</span>
+		</div>
 
 		<div class="sn-save-row">
 			<button type="submit" class="sn-btn primary" data-save="${esc(s.agent_id)}">Save changes</button>
@@ -781,6 +791,7 @@ async function saveForm(form, root) {
 			require_socials: fd.require_socials === 'true',
 			require_sol_quote: fd.require_sol_quote !== 'false',
 			min_oracle_score: fd.min_oracle_score !== '' ? Math.round(Number(fd.min_oracle_score)) : null,
+			telegram_chat_id: fd.telegram_chat_id && /^-?[0-9]+$/.test(fd.telegram_chat_id.trim()) ? fd.telegram_chat_id.trim() : null,
 		};
 		if (fd.trigger === 'first_claim') {
 			body.min_claim_lamports = fd.min_claim_lamports_sol !== '' ? solToLamports(fd.min_claim_lamports_sol) : null;
