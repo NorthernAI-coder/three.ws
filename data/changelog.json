@@ -2756,6 +2756,15 @@
 				"improvement"
 			],
 			"link": "/features"
+		},
+		{
+			"date": "2026-06-16",
+			"title": "Guided tour engine — spotlight coachmarks with server-backed persistence",
+			"summary": "Built a reusable in-app tour engine that any page can use with a simple declarative step list. Tours spotlight DOM elements with an animated overlay, show contextual tooltips with Back/Next/Skip controls, handle keyboard navigation (arrows + Escape), announce each step to screen readers, and remember completion in both localStorage and the server (so tours don't re-appear across devices). The dashboard now shows a 4-step orientation tour to new accounts pointing out the nav, creations, KPIs, and quick actions.",
+			"tags": [
+				"feature"
+			],
+			"link": "/dashboard"
 		}
 	]
 }
