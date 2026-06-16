@@ -1264,10 +1264,25 @@ function actionRow(a) {
 	const pnl = a.realized_pnl_sol != null ? `${Number(a.realized_pnl_sol) >= 0 ? '+' : ''}${fmtSol(a.realized_pnl_sol)}` : '—';
 	const pnlCls = a.realized_pnl_sol != null ? (Number(a.realized_pnl_sol) >= 0 ? 'up' : 'dn') : '';
 	const modeBadge = a.mode === 'live' ? '<span class="act-live">live</span>' : '<span class="act-sim">sim</span>';
+
+	// For open positions show current conviction score alongside entry, with delta.
+	let convCell;
+	if (outcome === 'open' && a.current_score != null) {
+		const entry = Number(a.conviction) || 0;
+		const cur = Number(a.current_score);
+		const delta = cur - entry;
+		const deltaCls = delta > 0 ? 'up' : delta < 0 ? 'dn' : '';
+		const deltaStr = delta !== 0 ? `<span class="act-delta ${deltaCls}">${delta > 0 ? '+' : ''}${delta}</span>` : '';
+		const curCls = tierPill(a.current_tier);
+		convCell = `<span class="${curCls}" style="padding:1px 4px;font-size:11px">${cur}</span>${deltaStr}`;
+	} else {
+		convCell = a.conviction ?? '—';
+	}
+
 	return `<tr class="act-row" data-outcome="${esc(outcome)}">
 		<td class="act-coin"><a href="https://pump.fun/coin/${esc(a.mint)}" target="_blank" rel="noopener">${esc(a.symbol || a.mint.slice(0, 6))}</a> ${modeBadge}</td>
 		<td><span class="tierpill ${tierPill(a.tier)}">${esc(a.tier || '—')}</span></td>
-		<td class="act-mono">${a.conviction ?? '—'}</td>
+		<td class="act-mono">${convCell}</td>
 		<td class="act-mono">${fmtSol(a.size_sol)}</td>
 		<td class="act-mono ${outCls}">${outLabel}</td>
 		<td class="act-mono ${pnlCls}">${pnl}</td>
