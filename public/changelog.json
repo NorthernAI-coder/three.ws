@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-16T07:47:07.505Z",
+	"generated_at": "2026-06-16T07:55:16.593Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -184,6 +184,27 @@
 			"title": "IRL and XR: choose any of your 3D avatars from a bottom-sheet picker",
 			"summary": "Both /irl and /xr now let you swap your 3D avatar without leaving the page. Tap Avatar (IRL) or Change (XR) to open a thumbnail grid of all your uploaded avatars. Selecting one hot-swaps the model in the scene instantly — camera, animations, half-body mode, and AR state all carry over. Signed-out users see a prompt to sign in; empty accounts link to the creation flow.",
 			"link": "/irl",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "update",
+			"title": "IRL: move your phone to look around your avatar in AR",
+			"summary": "When you pin an avatar to the real world in IRL mode, rotating your phone now physically moves the camera — the avatar stays locked to its spot while your view orbits around it, exactly like Pokémon GO. On iOS the app requests motion sensor access as required by iOS 13+. Drag still works as a fallback when orientation is unavailable. The lock icon pulses while active tracking is on.",
+			"link": "/irl",
+			"tags": [
+				"feature",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "update",
+			"title": "Launch detail: pump.fun comment sentiment in Community section",
+			"summary": "The coin detail page now shows live pump.fun comment sentiment in the Community section — bullish / bearish / mixed classification with positive, negative, and neutral percentage bars, and a sample comment. Loads asynchronously after the page renders so it never delays the Oracle conviction score or smart money data. Coins with fewer than 3 comments are silently skipped.",
+			"link": "/launches",
 			"tags": [
 				"feature"
 			]

@@ -151,6 +151,22 @@
 			<description>Both /irl and /xr now let you swap your 3D avatar without leaving the page. Tap Avatar (IRL) or Change (XR) to open a thumbnail grid of all your uploaded avatars. Selecting one hot-swaps the model in the scene instantly — camera, animations, half-body mode, and AR state all carry over. Signed-out users see a prompt to sign in; empty accounts link to the creation flow.</description>
 		</item>
 		<item>
+			<title>IRL: move your phone to look around your avatar in AR</title>
+			<link>https://three.ws/irl</link>
+			<guid isPermaLink="false">2026-06-16:IRL: move your phone to look around your avatar in AR</guid>
+			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>When you pin an avatar to the real world in IRL mode, rotating your phone now physically moves the camera — the avatar stays locked to its spot while your view orbits around it, exactly like Pokémon GO. On iOS the app requests motion sensor access as required by iOS 13+. Drag still works as a fallback when orientation is unavailable. The lock icon pulses while active tracking is on.</description>
+		</item>
+		<item>
+			<title>Launch detail: pump.fun comment sentiment in Community section</title>
+			<link>https://three.ws/launches</link>
+			<guid isPermaLink="false">2026-06-16:Launch detail: pump.fun comment sentiment in Community section</guid>
+			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The coin detail page now shows live pump.fun comment sentiment in the Community section — bullish / bearish / mixed classification with positive, negative, and neutral percentage bars, and a sample comment. Loads asynchronously after the page renders so it never delays the Oracle conviction score or smart money data. Coins with fewer than 3 comments are silently skipped.</description>
+		</item>
+		<item>
 			<title>Launches: Oracle conviction tier filter</title>
 			<link>https://three.ws/launches</link>
 			<guid isPermaLink="false">2026-06-16:Launches: Oracle conviction tier filter</guid>

@@ -1282,20 +1282,73 @@ async function renderTape() {
 // COMMUNITY
 // ════════════════════════════════════════════════════════════════════════════
 
-function renderCommunity() {
+async function renderCommunity() {
 	const target = $('ld-community');
 	if (state.network !== 'mainnet') {
 		target.hidden = true;
 		return;
 	}
 	const symbol = (state.coin?.symbol || state.detail.registry?.symbol || '').toUpperCase();
+
+	const sentWrap = el('div', { class: 'ld-sentiment-wrap' }, [
+		el('div', { class: 'ld-skel', style: 'height:64px;margin-bottom:10px' }),
+	]);
+
 	const body = el('div', { class: 'ld-community' }, [
-		el('p', { text: `Every coin gets a live chat and a walkable 3D world. Meet the holders of ${symbol ? `$${symbol}` : 'this coin'}.` }),
-		el('div', { class: 'ld-community-ctas' }, [
+		sentWrap,
+		el('p', { style: 'font-size:12.5px;color:var(--ld-muted)', text: `Every coin gets a live chat and a walkable 3D world. Meet the holders of ${symbol ? `$${symbol}` : 'this coin'}.` }),
+		el('div', { class: 'ld-community-ctas', style: 'margin-top:10px' }, [
 			el('a', { class: 'ld-btn ld-btn-ghost', href: `/communities/${state.mint}`, text: 'Open chat & world →' }),
 		]),
 	]);
-	section(target, 'Community', body);
+	section(target, 'Community', body, { tag: 'pump.fun sentiment' });
+
+	// Async: fetch pump.fun comment sentiment
+	try {
+		const res = await fetch('/api/social/sentiment-pulse', {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ token: state.mint }),
+			signal: AbortSignal.timeout(10000),
+		});
+		if (!res.ok) { sentWrap.replaceChildren(); return; }
+		const d = await res.json();
+		if (!d.ok || !d.overall || d.overall.count < 3) { sentWrap.replaceChildren(); return; }
+		const o = d.overall;
+		const scoreColor = o.score >= 60 ? 'var(--ld-good)' : o.score <= 40 ? 'var(--ld-bad)' : 'var(--ld-muted)';
+		const sentLabel = o.score >= 60 ? 'bullish' : o.score <= 40 ? 'bearish' : 'mixed';
+
+		const bars = [
+			['Positive', Math.round(o.posPct), 'var(--ld-good)'],
+			['Negative', Math.round(o.negPct), 'var(--ld-bad)'],
+			['Neutral',  Math.round(o.neuPct), 'var(--ld-muted)'],
+		].map(([label, pct, color]) =>
+			el('div', { class: 'ld-oracle-pillar' }, [
+				el('span', { class: 'ld-oracle-pillar-label', text: label }),
+				el('div', { class: 'ld-oracle-pillar-bar' }, [
+					el('div', { class: 'ld-oracle-pillar-fill', style: `width:${pct}%;background:${color}` }),
+				]),
+				el('span', { class: 'ld-oracle-pillar-val', text: `${pct}%` }),
+			])
+		);
+
+		const examples = (o.examples || []).slice(0, 1).map((ex) =>
+			el('p', { class: 'ld-sent-example', style: 'font-size:11px;color:var(--ld-muted);margin-top:6px;font-style:italic;line-height:1.5' }, [
+				document.createTextNode(`"${ex}"`)
+			])
+		);
+
+		sentWrap.replaceChildren(
+			el('div', { style: 'display:flex;align-items:center;gap:8px;margin-bottom:8px' }, [
+				el('span', { style: `font:600 12px var(--font-mono,monospace);color:${scoreColor}` }, [document.createTextNode(sentLabel)]),
+				el('span', { style: 'font:10px var(--font-mono,monospace);color:var(--ld-muted)' }, [document.createTextNode(`${o.count} comments`)]),
+			]),
+			el('div', { class: 'ld-oracle-pillars' }, bars),
+			...examples,
+		);
+	} catch {
+		sentWrap.replaceChildren();
+	}
 }
 
 // ════════════════════════════════════════════════════════════════════════════
