@@ -301,6 +301,51 @@ export async function alertPersonalConvictionDrop(chatId, drop) {
 	await sendTo(chatId, text);
 }
 
+/**
+ * Fan-out entry alert to all Telegram subscribers of a given agent.
+ * Called by the agent-loop after every filled action (simulate or live).
+ * Each follower only receives the alert if the coin's score meets their
+ * personal min_score threshold.
+ *
+ * @param {string} agentId       UUID of the agent that acted
+ * @param {{ symbol:string, mint:string, tier:string, score:number, size_sol?:number, mode:string, network:string }} entry
+ * @returns {Promise<number>} followers alerted
+ */
+export async function alertFollowers(agentId, entry) {
+	const token = process.env.TELEGRAM_BOT_TOKEN;
+	if (!token || !agentId) return 0;
+
+	const network = entry.network || 'mainnet';
+	const score   = Number(entry.score) || 0;
+
+	const rows = await sql`
+		select f.chat_id
+		from oracle_followers f
+		where f.agent_id = ${agentId}
+		  and f.network  = ${network}
+		  and f.min_score <= ${score}
+	`.catch(() => []);
+	if (!rows.length) return 0;
+
+	const tierE  = tierEmoji(entry.tier);
+	const sym    = escHtml((entry.symbol || entry.mint.slice(0, 6)).toUpperCase());
+	const sizeStr = entry.size_sol != null ? `${Number(entry.size_sol).toFixed(3)} SOL` : '?';
+	const modeLabel = entry.mode === 'simulate' ? ' <i>[sim]</i>' : '';
+
+	const text = [
+		`${tierE} Followed agent entered <b>$${sym}</b>${modeLabel}`,
+		`${escHtml(entry.tier)} conviction (${score})  ·  ${escHtml(sizeStr)}`,
+		`<a href="https://pump.fun/coin/${encodeURIComponent(entry.mint)}">pump.fun</a>  ·  <a href="https://three.ws/oracle?mint=${encodeURIComponent(entry.mint)}">Oracle ↗</a>`,
+	].join('\n');
+
+	let sent = 0;
+	for (const { chat_id } of rows) {
+		sendTo(chat_id, text).catch(() => {});
+		sent++;
+	}
+	return sent;
+}
+
 /** Send to a specific chat ID (not the platform channel). */
 async function sendTo(chatId, text) {
 	const token = process.env.TELEGRAM_BOT_TOKEN;

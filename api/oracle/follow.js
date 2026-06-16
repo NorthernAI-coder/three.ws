@@ -1,0 +1,133 @@
+/**
+ * Oracle — agent follower subscriptions (the Watch tier of social copy-trading).
+ *
+ *   GET    /api/oracle/follow?agent_id=<uuid>&chat_id=<telegram>&network=mainnet
+ *          → { following: bool, min_score: int|null }
+ *
+ *   POST   /api/oracle/follow  { agent_id, chat_id, min_score? }
+ *          → { ok: true, action: 'subscribed'|'updated' }
+ *          Idempotent: posting again updates min_score on an existing row.
+ *
+ *   DELETE /api/oracle/follow  { agent_id, chat_id }
+ *          → { ok: true }
+ *
+ * No auth required: the Telegram chat_id is the caller-supplied identity.
+ * Rate-limited per IP and per (agent_id, chat_id) pair to prevent spam.
+ *
+ * How the signals are delivered: when an armed Oracle agent makes a conviction
+ * buy (in `workers/oracle/agent-loop.js`), the agent-loop calls
+ * `alertFollowers()` (api/_lib/oracle/alerts.js) which fans out a Telegram
+ * message to every follower subscribed to that agent above their min_score.
+ */
+
+import { cors, json, method, readJson, wrap, error, rateLimited } from '../_lib/http.js';
+import { limits, clientIp } from '../_lib/rate-limit.js';
+import { sql } from '../_lib/db.js';
+
+const NETWORKS = new Set(['mainnet', 'devnet']);
+const CHAT_ID_RE = /^-?\d{1,20}$|^@[a-zA-Z0-9_]{5,32}$/;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function validateChatId(v) {
+	return typeof v === 'string' && CHAT_ID_RE.test(v.trim());
+}
+
+export default wrap(async (req, res) => {
+	if (cors(req, res, { methods: 'GET,POST,DELETE,OPTIONS', origins: '*' })) return;
+	const ip = clientIp(req);
+
+	// ── GET — check follow status ─────────────────────────────────────────────
+	if (method(req, res, ['GET'], { silent: true })) {
+		const rl = await limits.publicIp(ip);
+		if (!rl.success) return rateLimited(res, rl);
+
+		const params  = new URL(req.url, `http://${req.headers.host || 'x'}`).searchParams;
+		const agentId = params.get('agent_id') || '';
+		const chatId  = (params.get('chat_id') || '').trim();
+		const network = NETWORKS.has(params.get('network')) ? params.get('network') : 'mainnet';
+
+		if (!UUID_RE.test(agentId)) return error(res, 400, 'validation_error', 'agent_id must be a UUID');
+		if (!validateChatId(chatId)) return error(res, 400, 'validation_error', 'chat_id must be a numeric ID or @handle');
+
+		const rows = await sql`
+			select min_score from oracle_followers
+			where agent_id = ${agentId} and chat_id = ${chatId} and network = ${network}
+			limit 1
+		`.catch(() => []);
+
+		return json(res, 200, {
+			following:  rows.length > 0,
+			min_score:  rows.length > 0 ? Number(rows[0].min_score) : null,
+		});
+	}
+
+	// ── POST — subscribe or update ────────────────────────────────────────────
+	if (method(req, res, ['POST'], { silent: true })) {
+		const rl = await limits.oracleFollowIp(ip);
+		if (!rl.success) return rateLimited(res, rl);
+
+		const body = await readJson(req, res);
+		if (!body) return;
+
+		const agentId  = (body.agent_id  || '').trim();
+		const chatId   = (body.chat_id   || '').trim();
+		const network  = NETWORKS.has(body.network) ? body.network : 'mainnet';
+		const minScore = Math.min(100, Math.max(0, Number(body.min_score ?? 54) || 54));
+
+		if (!UUID_RE.test(agentId)) return error(res, 400, 'validation_error', 'agent_id must be a UUID');
+		if (!validateChatId(chatId)) return error(res, 400, 'validation_error', 'chat_id must be a numeric Telegram ID or @handle');
+
+		// Ensure the agent exists (guard against phantom subscriptions)
+		const agentRows = await sql`
+			select id from agent_identities where id = ${agentId} and deleted_at is null limit 1
+		`.catch(() => []);
+		if (!agentRows.length) return error(res, 404, 'not_found', 'agent not found');
+
+		const existing = await sql`
+			select id from oracle_followers
+			where agent_id = ${agentId} and chat_id = ${chatId} and network = ${network}
+			limit 1
+		`.catch(() => []);
+
+		if (existing.length) {
+			await sql`
+				update oracle_followers
+				set min_score = ${minScore}
+				where agent_id = ${agentId} and chat_id = ${chatId} and network = ${network}
+			`;
+			return json(res, 200, { ok: true, action: 'updated', min_score: minScore });
+		}
+
+		await sql`
+			insert into oracle_followers (agent_id, chat_id, network, min_score)
+			values (${agentId}, ${chatId}, ${network}, ${minScore})
+			on conflict (agent_id, chat_id, network) do update set min_score = excluded.min_score
+		`;
+		return json(res, 201, { ok: true, action: 'subscribed', min_score: minScore });
+	}
+
+	// ── DELETE — unsubscribe ──────────────────────────────────────────────────
+	if (method(req, res, ['DELETE'], { silent: true })) {
+		const rl = await limits.publicIp(ip);
+		if (!rl.success) return rateLimited(res, rl);
+
+		const body = await readJson(req, res);
+		if (!body) return;
+
+		const agentId = (body.agent_id || '').trim();
+		const chatId  = (body.chat_id  || '').trim();
+		const network = NETWORKS.has(body.network) ? body.network : 'mainnet';
+
+		if (!UUID_RE.test(agentId)) return error(res, 400, 'validation_error', 'agent_id must be a UUID');
+		if (!validateChatId(chatId)) return error(res, 400, 'validation_error', 'chat_id must be a numeric Telegram ID or @handle');
+
+		await sql`
+			delete from oracle_followers
+			where agent_id = ${agentId} and chat_id = ${chatId} and network = ${network}
+		`.catch(() => {});
+
+		return json(res, 200, { ok: true });
+	}
+
+	error(res, 405, 'method_not_allowed', 'GET, POST or DELETE required');
+});

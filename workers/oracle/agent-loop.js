@@ -9,7 +9,7 @@ import { sql } from '../../api/_lib/db.js';
 import { log } from './log.js';
 import { evaluateWatch } from '../../api/_lib/oracle/agent-eval.js';
 import { executeAction, agentBudget } from './executor.js';
-import { alertAgentEntry, alertPersonalEntry, alertPersonalSignal, alertPersonalConvictionDrop } from '../../api/_lib/oracle/alerts.js';
+import { alertAgentEntry, alertPersonalEntry, alertPersonalSignal, alertPersonalConvictionDrop, alertFollowers } from '../../api/_lib/oracle/alerts.js';
 
 // Module cursor — only consider verdicts scored since the last pass.
 let cursor = new Date(Date.now() - 60_000).toISOString();
@@ -159,6 +159,16 @@ export async function actOnFreshCoins(cfg, coins) {
 						network: cfg.network,
 					}).catch(() => {});
 				}
+				// Follower fan-out: alert all subscribers of this agent.
+				alertFollowers(watch.agent_id, {
+					symbol:   coin.symbol,
+					mint:     coin.mint,
+					tier:     coin.tier,
+					score:    coin.score,
+					size_sol: decision.size,
+					mode:     watch.mode,
+					network:  cfg.network,
+				}).catch(() => {});
 			}
 		}
 	}

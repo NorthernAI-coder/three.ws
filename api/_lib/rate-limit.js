@@ -552,6 +552,12 @@ export const limits = {
 	// retries while blocking scripted abuse.
 	oracleTelegramTestIp: (ip) =>
 		getLimiter('oracle:tg-test:ip', { limit: 5, window: '10 m' }).limit(ip),
+
+	// Oracle follower subscribe/update — write path creates a DB row and will
+	// eventually fan out Telegram messages, so keep post-rate tight.
+	// 10 per hour per IP is enough for manual setup; bots would need more.
+	oracleFollowIp: (ip) =>
+		getLimiter('oracle:follow:ip', { limit: 10, window: '1 h' }).limit(ip),
 };
 
 // Trust only proxy headers that Vercel itself sets and signs. Naively reading

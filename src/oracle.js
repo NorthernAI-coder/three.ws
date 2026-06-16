@@ -1015,7 +1015,9 @@ function renderDrawer(d) {
 		<div class="dr-actions">
 			<a class="dr-act" href="${pumpUrl(c.mint)}" target="_blank" rel="noopener">pump.fun ↗</a>
 			<a class="dr-act" href="${solscan(c.mint)}" target="_blank" rel="noopener">solscan ↗</a>
+			<a class="dr-act" href="/launches/${esc(c.mint)}" target="_blank" rel="noopener">Details ↗</a>
 			<button class="dr-act dr-watch" id="drWatch" data-mint="${esc(c.mint)}" type="button" aria-pressed="${watchedMints().has(c.mint)}">${watchedMints().has(c.mint) ? '★ Watching' : '☆ Watch'}</button>
+			<button class="dr-act" id="drCopyMint" type="button" title="Copy mint address" data-mint="${esc(c.mint)}">Copy mint</button>
 			<a class="dr-act dr-share" href="${tweetConviction(c)}" target="_blank" rel="noopener" title="Share conviction on X">Share ↗</a>
 			${c.structure_cap != null && c.structure_cap < 60 ? `<span class="note warn">structural cap ${c.structure_cap}</span>` : ''}
 		</div>
@@ -1082,7 +1084,76 @@ function renderDrawer(d) {
 			}
 		});
 	}
+
+	// Copy mint address
+	const copyMintBtn = $('#drCopyMint');
+	if (copyMintBtn) {
+		copyMintBtn.addEventListener('click', () => {
+			navigator.clipboard.writeText(c.mint).then(() => {
+				const orig = copyMintBtn.textContent;
+				copyMintBtn.textContent = 'Copied!';
+				setTimeout(() => { copyMintBtn.textContent = orig; }, 1800);
+			}).catch(() => {});
+		});
+	}
+
+	// Load related coins in same category (async — does not block drawer)
+	if (c.category) loadRelatedCoins(c.mint, c.category);
 }
+
+async function loadRelatedCoins(mint, category) {
+	const whosSec = $('#drBody')?.querySelector('.dr-sec:last-of-type');
+	if (!whosSec || !$('#drBody')) return;
+
+	const { ok, data } = await api(
+		`/api/oracle/feed?network=${NETWORK}&category=${encodeURIComponent(category)}&limit=6&min_score=60`
+	);
+	if (!ok || !data?.items?.length) return;
+	if (!$('#drBody')) return; // drawer closed while fetching
+
+	const related = data.items.filter((it) => it.mint !== mint).slice(0, 3);
+	if (!related.length) return;
+
+	const TIER_META = { prime: { color: '#c084fc' }, strong: { color: '#34d399' }, lean: { color: '#fbbf24' }, watch: { color: '#94a3b8' }, avoid: { color: '#f87171' } };
+
+	const html = `<div class="dr-sec" style="margin-top:16px">Related · ${esc(category)}</div>
+		<div style="display:flex;flex-direction:column;gap:6px">
+			${related.map((r) => {
+				const tc = (TIER_META[r.tier] || TIER_META.watch).color;
+				const imgEl = r.image_uri
+					? `<img src="${esc(r.image_uri)}" alt="" style="width:28px;height:28px;border-radius:7px;object-fit:cover;flex:none;border:1px solid var(--line)" loading="lazy">`
+					: `<div style="width:28px;height:28px;border-radius:7px;background:var(--line);display:grid;place-items:center;font:700 11px/1 var(--mono);color:var(--faint);flex:none">${esc((r.symbol||'?')[0])}</div>`;
+				return `<button type="button" onclick="window.__oracleOpenRelated('${esc(r.mint)}')"
+					style="display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 10px;cursor:pointer;text-align:left;width:100%;transition:background .12s"
+					onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='var(--panel)'">
+					${imgEl}
+					<span style="flex:1;min-width:0">
+						<span style="font-weight:700;font-size:13px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.symbol || r.mint.slice(0,8))}</span>
+						<span style="font-size:11px;color:var(--muted)">${esc(r.name||'')}</span>
+					</span>
+					<span style="display:flex;flex-direction:column;align-items:flex-end;flex:none">
+						<span style="font:700 14px/1 var(--mono);color:${tc}">${r.score}</span>
+						<span class="tierpill tp-${esc(r.tier)}" style="margin-top:3px;padding:1px 5px;font-size:9px">${esc(r.tier)}</span>
+					</span>
+				</button>`;
+			}).join('')}
+		</div>`;
+
+	// Insert before the "Who's in" section.
+	const body = $('#drBody');
+	if (!body) return;
+	const whosSecEl = Array.from(body.querySelectorAll('.dr-sec')).find((el) => el.textContent.startsWith("Who's in"));
+	if (whosSecEl) {
+		whosSecEl.insertAdjacentHTML('beforebegin', html);
+	} else {
+		body.insertAdjacentHTML('beforeend', html);
+	}
+}
+
+window.__oracleOpenRelated = (mint) => openCoin(mint);
+
+function whoRow(w) {
+	const title = ARCH_TITLE[w.label] || 'Unproven';
 
 function whoRow(w) {
 	const title = ARCH_TITLE[w.label] || 'Unproven';
