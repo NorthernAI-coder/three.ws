@@ -356,15 +356,18 @@ async function loadTradingOverview(host) {
 
 	const cards = host.querySelector('#dnx-trading-cards');
 
-	const [sniperRes, copyRes, oracleRes] = await Promise.allSettled([
+	const [sniperRes, copyRes, oracleRes, oFeedRes] = await Promise.allSettled([
 		get('/api/sniper/strategy?limit=30'),
 		get('/api/copy/subscriptions'),
 		get('/api/oracle/stats'),
+		fetch('/api/oracle/feed?tier=prime&limit=3&network=mainnet').then((r) => r.ok ? r.json() : null).catch(() => null),
 	]);
 
 	const strategies = (sniperRes.status === 'fulfilled' ? sniperRes.value?.strategies : null) || [];
 	const subscriptions = (copyRes.status === 'fulfilled' ? copyRes.value?.subscriptions : null) || [];
 	const oStats = (oracleRes.status === 'fulfilled' ? oracleRes.value : null) || {};
+	const oFeed = (oFeedRes.status === 'fulfilled' ? oFeedRes.value : null);
+	const oPrimePick = oFeed?.items?.[0] ?? null;
 
 	const armedStrategies = strategies.filter((s) => s.enabled && !s.kill_switch_engaged);
 	const openPositions = strategies.reduce((n, s) => n + (Number(s.open_positions) || 0), 0);
@@ -390,11 +393,13 @@ async function loadTradingOverview(host) {
 	const oMeta1 = oWinRate != null
 		? `<span class="dnx-tc-pos">${oWinRate}% win rate</span>`
 		: '<span class="dnx-tc-dim">Conviction scoring every coin</span>';
-	const oMeta2 = oBestAth != null
-		? `<span>best ${oBestAth.toFixed(1)}× · ${oPrimeCount} prime</span>`
-		: oOpenActions > 0
-			? `<span>${oOpenActions} open action${oOpenActions !== 1 ? 's' : ''}</span>`
-			: '<span class="dnx-tc-arm-cta">Arm an agent →</span>';
+	const oMeta2 = oPrimePick
+		? `<span style="color:#c084fc;font-weight:600">🔮 $${esc(oPrimePick.symbol || oPrimePick.name || '')} · ${oPrimePick.score}</span>`
+		: oBestAth != null
+			? `<span>best ${oBestAth.toFixed(1)}× · ${oPrimeCount} prime</span>`
+			: oOpenActions > 0
+				? `<span>${oOpenActions} open action${oOpenActions !== 1 ? 's' : ''}</span>`
+				: '<span class="dnx-tc-arm-cta">Arm an agent →</span>';
 
 	cards.innerHTML = `
 		<a class="dnx-tc" href="/dashboard/sniper">
@@ -407,7 +412,7 @@ async function loadTradingOverview(host) {
 				${strategies.length > 0 ? `<span class="${pnlClass}">${pnlStr}</span>` : ''}
 			</div>
 		</a>
-		<a class="dnx-tc" href="/oracle">
+		<a class="dnx-tc" href="${oPrimePick ? `/oracle?mint=${encodeURIComponent(oPrimePick.mint)}` : '/oracle'}">
 			<div class="dnx-tc-label">Oracle</div>
 			<div class="dnx-tc-value">${oValueText}</div>
 			<div class="dnx-tc-meta">${oMeta1}${oMeta2}</div>
