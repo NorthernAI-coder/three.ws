@@ -59,6 +59,21 @@ document.addEventListener('DOMContentLoaded', () => {
 		load(true);
 	});
 
+	// Share button — native Web Share API with X/Twitter fallback
+	document.addEventListener('click', (e) => {
+		const btn = e.target.closest('.tf-share-btn');
+		if (!btn) return;
+		const raw = btn.dataset.share;
+		if (!raw) return;
+		let payload;
+		try { payload = JSON.parse(decodeURIComponent(raw)); } catch { return; }
+		if (navigator.share) {
+			navigator.share({ title: 'three.ws Trade', text: payload.text, url: payload.url }).catch(() => {});
+		} else {
+			window.open(btn.dataset.tweet, '_blank', 'noopener,width=550,height=420');
+		}
+	});
+
 	$('#tfLoadMore').addEventListener('click', () => loadMore());
 
 	load(true);
@@ -195,6 +210,24 @@ function renderStats(items) {
 
 const TIER_LABEL = { prime: 'Prime', strong: 'Strong', lean: 'Lean', watch: 'Watch', avoid: 'Avoid' };
 
+function buildShareText(t) {
+	const sym     = (t.symbol || t.mint?.slice(0, 6) || '?').toUpperCase();
+	const mult    = t.multiple    != null ? `${t.multiple.toFixed(2)}×` : null;
+	const pct     = t.realized_pnl_pct != null ? `+${Math.round(t.realized_pnl_pct)}%` : null;
+	const sol     = t.realized_pnl_sol != null ? `+${t.realized_pnl_sol.toFixed(3)} SOL` : null;
+	const hold    = t.hold_seconds != null ? holdTime(t.hold_seconds) : null;
+	const agent   = t.agent_name || shortAddr(t.agent_id || '');
+	const tier    = t.oracle_tier ? ` [${t.oracle_tier.toUpperCase()}]` : '';
+
+	const parts = [`$${sym}${tier}`];
+	if (mult)  parts.push(mult);
+	if (pct)   parts.push(pct);
+	if (sol)   parts.push(sol);
+	if (hold)  parts.push(`in ${hold}`);
+
+	return `${parts.join(' · ')} by ${agent} on @trythreews\nCopy this trader:`;
+}
+
 function cardHtml(t) {
 	const sym      = escapeHtml((t.symbol || t.mint?.slice(0, 6) || '?').toUpperCase());
 	const name     = t.name ? escapeHtml(t.name) : '';
@@ -235,6 +268,13 @@ function cardHtml(t) {
 	const buySig  = t.buy_sig  ? `https://solscan.io/tx/${escapeHtml(t.buy_sig)}`  : null;
 	const sellSig = t.sell_sig ? `https://solscan.io/tx/${escapeHtml(t.sell_sig)}` : null;
 
+	// Share text — pre-formatted tweet-ready PnL card
+	const shareText = buildShareText(t);
+	const shareUrl  = `https://three.ws${traderUrl}`;
+	const tweetHref = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`;
+	// data-share attribute carries the share payload for native Web Share API
+	const shareData = encodeURIComponent(JSON.stringify({ text: shareText, url: shareUrl }));
+
 	return `<article class="tf-card tf-win" aria-label="${sym} trade by ${agentName}">
 		<div class="tf-coin-img-wrap">${imgHtml}</div>
 
@@ -267,6 +307,7 @@ function cardHtml(t) {
 
 		<div class="tf-actions">
 			<a href="${traderUrl}" class="tf-btn primary">Copy trader →</a>
+			<button type="button" class="tf-btn tf-share-btn" data-share="${shareData}" data-tweet="${escapeHtml(tweetHref)}" aria-label="Share this trade">Share ↗</button>
 			${pumpUrl ? `<a href="${pumpUrl}" class="tf-btn" target="_blank" rel="noopener">pump.fun ↗</a>` : ''}
 			${buySig  ? `<a href="${buySig}"  class="tf-btn" target="_blank" rel="noopener">Buy tx ↗</a>`  : ''}
 			${sellSig ? `<a href="${sellSig}" class="tf-btn" target="_blank" rel="noopener">Sell tx ↗</a>` : ''}
