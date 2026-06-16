@@ -121,6 +121,20 @@ function boot() {
 		$$('#labelSeg button').forEach((x) => x.classList.toggle('on', x === b));
 		state.label = b.dataset.label; loadWallets();
 	});
+	// proof filters
+	$('#proofTierSeg')?.addEventListener('click', (e) => {
+		const b = e.target.closest('[data-ptier]'); if (!b) return;
+		$$('#proofTierSeg button').forEach((x) => x.classList.toggle('on', x === b));
+		_proofState.tier = b.dataset.ptier; loadProof(true);
+	});
+	$('#proofPeriodSeg')?.addEventListener('click', (e) => {
+		const b = e.target.closest('[data-pperiod]'); if (!b) return;
+		$$('#proofPeriodSeg button').forEach((x) => x.classList.toggle('on', x === b));
+		_proofState.period = b.dataset.pperiod; loadProof(true);
+	});
+	$('#proofLoadMoreBtn')?.addEventListener('click', () => {
+		$('#proofLoadMoreBtn').disabled = true; loadProof(false);
+	});
 	// drawer close
 	$$('#drawer [data-close]').forEach((el) => el.addEventListener('click', closeDrawer));
 	document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeDrawer(); });
@@ -141,6 +155,7 @@ function switchView(view) {
 	$$('.view').forEach((v) => v.classList.toggle('on', v.id === `view-${view}`));
 	if (view === 'wallets' && !$('#walletWrap').dataset.loaded) loadWallets();
 	if (view === 'edge' && !$('#edgeWrap').dataset.loaded) loadEdge();
+	if (view === 'proof' && !$('#proofGrid').dataset.loaded) loadProof();
 	if (view === 'agent' && !$('#armBody').dataset.loaded) loadAgentPanel();
 	if (view === 'graph') loadGraph();
 }
@@ -350,13 +365,16 @@ async function loadWallets() {
 
 function walletRow(w, i) {
 	const a = w.archetype || { label: w.label, title: ARCH_TITLE[w.label] || 'Unproven' };
-	return `<button class="lrow" data-wallet="${esc(w.wallet)}">
-		<span class="lrank ${i < 3 ? 'top' : ''}">${i + 1}</span>
-		<span class="lw"><span class="nlabel lb-${esc(w.label)}">${esc(a.title)}</span><span class="lw-addr">${esc(shortAddr(w.wallet))}</span></span>
-		<span class="lstat colhide"><b>${fmtPct(w.win_rate)}</b></span>
-		<span class="lstat"><b>${fmtPct(w.early_win_rate)}</b></span>
-		<span class="lscore">${Math.round(w.score)}</span>
-	</button>`;
+	return `<div class="lrow-wrap">
+		<button class="lrow" data-wallet="${esc(w.wallet)}">
+			<span class="lrank ${i < 3 ? 'top' : ''}">${i + 1}</span>
+			<span class="lw"><span class="nlabel lb-${esc(w.label)}">${esc(a.title)}</span><span class="lw-addr">${esc(shortAddr(w.wallet))}</span></span>
+			<span class="lstat colhide"><b>${fmtPct(w.win_rate)}</b></span>
+			<span class="lstat"><b>${fmtPct(w.early_win_rate)}</b></span>
+			<span class="lscore">${Math.round(w.score)}</span>
+		</button>
+		<a class="lrow-copy" href="/trader/${encodeURIComponent(w.wallet)}" title="Trader profile + copy trades">→</a>
+	</div>`;
 }
 
 // ── edge (backtest) ──────────────────────────────────────────────────────────
@@ -441,6 +459,110 @@ function edgeRow(r) {
 		<span class="lstat"><b>${ath ? ath + '×' : '—'}</b></span>
 		<span class="lstat">${fiveX}</span>
 	</div>`;
+}
+
+// ── proof / wins gallery ──────────────────────────────────────────────────────
+
+const _proofState = { tier: '', period: '30d', cursor: null, loading: false };
+
+function winCardHtml(w, idx) {
+	const tier = w.tier || 'watch';
+	const athStr = w.ath_multiple != null ? `${Number(w.ath_multiple).toFixed(1)}×` : w.graduated ? 'Grad ✓' : '—';
+	const imgSrc = w.image_uri || '';
+	const sym = esc((w.symbol || w.mint.slice(0, 6)).toUpperCase());
+	const scoreColor = tier === 'prime' ? 'var(--up)' : tier === 'strong' ? 'var(--up)' : tier === 'lean' ? 'var(--gold)' : 'var(--muted)';
+	const pillars = w.pillars || {};
+	const pil = (k, cls, lbl) => {
+		const v = pillars[k] != null ? Math.round(Number(pillars[k])) : null;
+		return `<div class="win-pil ${cls}">
+			<label>${lbl}<b>${v != null ? v : '?'}</b></label>
+			<div class="win-pil-bar"><div class="win-pil-fill" style="width:${v ?? 0}%"></div></div>
+		</div>`;
+	};
+	const when = w.scored_at ? ago(w.scored_at) : '';
+	return `<a class="win-card win-in" href="${esc(w.oracle_url)}" style="animation-delay:${Math.min(idx * 40, 400)}ms">
+		<div class="win-card-head">
+			<div class="win-img">${imgSrc ? `<img src="${esc(imgSrc)}" alt="" style="width:42px;height:42px;border-radius:10px;object-fit:cover" onerror="this.style.display='none'" loading="lazy" />` : sym.slice(0, 2)}</div>
+			<div class="win-id">
+				<div class="win-sym">$${sym}</div>
+				${w.name ? `<div class="win-name">${esc(w.name)}</div>` : ''}
+			</div>
+			<div class="win-ath">
+				<span class="win-ath-val">${esc(athStr)}</span>
+				<span class="win-ath-label">ATH</span>
+			</div>
+		</div>
+		<div class="win-body">
+			<div class="win-score-row">
+				<span class="win-score-label">Oracle at entry</span>
+				<span class="win-score-val" style="color:${scoreColor}">${w.score != null ? w.score : '—'}</span>
+				<span class="tierpill tp-${tier}" style="margin-left:6px">${tier}</span>
+			</div>
+			<div class="win-pillars">
+				${pil('pedigree', 'ped', 'Who')}${pil('structure', 'str', 'How')}${pil('narrative', 'nar', 'What')}${pil('momentum', 'mom', 'Move')}
+			</div>
+			<div class="win-badges">
+				${w.graduated ? '<span class="win-grad">Graduated</span>' : ''}
+				<span class="win-when">${esc(when)}</span>
+			</div>
+			<div class="win-links">
+				<a class="win-link" href="${esc(w.pump_url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">pump.fun ↗</a>
+				<a class="win-link" href="${esc(w.oracle_url)}" onclick="event.stopPropagation()">Oracle ↗</a>
+			</div>
+		</div>
+	</a>`;
+}
+
+function proofSkeletons(n = 6) {
+	return Array.from({ length: n }, () => '<div class="skel" style="height:220px;border-radius:var(--r)"></div>').join('');
+}
+
+async function loadProof(reset = false) {
+	if (_proofState.loading) return;
+	_proofState.loading = true;
+	const grid = $('#proofGrid');
+	grid.dataset.loaded = '1';
+	if (reset) { _proofState.cursor = null; grid.innerHTML = proofSkeletons(); }
+
+	const url = `/api/oracle/wins?network=${NETWORK}&period=${_proofState.period}&limit=24&min_ath=2`;
+	const q = url + (_proofState.tier ? `&tier=${_proofState.tier}` : '') + (_proofState.cursor ? `&before=${_proofState.cursor}` : '');
+
+	const { ok, data } = await api(q);
+	_proofState.loading = false;
+
+	if (!ok || !data?.items) {
+		if (reset) grid.innerHTML = `<div class="state" style="grid-column:1/-1"><b>No proved wins yet.</b><br>Once Oracle-scored coins resolve to a positive outcome, they appear here. The engine is scoring live.</div>`;
+		return;
+	}
+
+	const items = data.items || [];
+	if (reset) {
+		grid.innerHTML = items.length ? items.map(winCardHtml).join('') : `<div class="state" style="grid-column:1/-1"><b>No wins resolved yet in this period.</b><br>Try a longer window or check back as more coins resolve.</div>`;
+	} else {
+		items.forEach((w, i) => grid.insertAdjacentHTML('beforeend', winCardHtml(w, i)));
+	}
+
+	_proofState.cursor = data.next_before || null;
+	const moreWrap = $('#proofLoadMore');
+	const moreBtn  = $('#proofLoadMoreBtn');
+	moreWrap.style.display = _proofState.cursor ? '' : 'none';
+	if (moreBtn) { moreBtn.disabled = false; }
+
+	// Render KPIs on first load
+	if (reset && data.summary) {
+		const kpis = $('#proofKpis');
+		const s = data.summary;
+		kpis.style.display = '';
+		kpis.innerHTML = [
+			['Wins', s.total_wins ?? 0, 'up'],
+			['Best ATH', s.best_ath != null ? `${Number(s.best_ath).toFixed(1)}×` : '—', 'up'],
+			['5× or more', s.five_x_count ?? 0, ''],
+			['10× or more', s.ten_x_count ?? 0, ''],
+			['Graduated', s.graduated_count ?? 0, ''],
+		].map(([l, v, cls]) => `<div class="proof-kpi"><span>${l}</span><b class="${cls}">${v}</b></div>`).join('');
+		const ctProof = $('#ctProof');
+		if (ctProof && s.total_wins) ctProof.textContent = s.total_wins;
+	}
 }
 
 // ── coin drawer ──────────────────────────────────────────────────────────────
@@ -636,7 +758,11 @@ async function openWallet(wallet) {
 			${r.creator_count ? `<span class="chip">created <b>${r.creator_count}</b></span>` : ''}
 		</div>` : '<div class="state">This wallet has no judged history yet.</div>'}
 		<div class="dr-sec">Recent footprint</div>${recent}
-		<div style="margin-top:14px"><a class="solscan" href="${solscan(wallet)}" target="_blank" rel="noopener">View on solscan ↗</a></div>
+		<div class="dr-actions" style="margin-top:16px">
+			<a class="dr-act" href="/trader/${encodeURIComponent(wallet)}" rel="noopener">Trader profile ↗</a>
+			<a class="dr-act" href="/trader/${encodeURIComponent(wallet)}#copy" rel="noopener" style="background:rgba(139,92,246,.18);border-color:rgba(139,92,246,.45)">Copy trades →</a>
+			<a class="dr-act solscan" href="${solscan(wallet)}" target="_blank" rel="noopener">Solscan ↗</a>
+		</div>
 	`;
 }
 
