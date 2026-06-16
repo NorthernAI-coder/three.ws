@@ -247,6 +247,14 @@
 			<description>The /features page now has a live animation showcase you can interact with in the browser. Pick from 30+ animations grouped by type (Idle, Dance, Celebration, Athletic, Combat, Walk, Mood) — the 3D avatar switches instantly with no page reload. The Widget Studio card also got a live preview panel showing what the embed looks like on a real site, plus a one-click snippet copy button.</description>
 		</item>
 		<item>
+			<title>Fixed a batch of nav links that used to dead-end on a 404</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-16:Fixed a batch of nav links that used to dead-end on a 404</guid>
+			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Swept the whole site for pages that were linked from the menus or built but never wired into the production router. Trending, Activity, Radar, Smart Money, Coin Intelligence, the Scene Composer, the create-flow &quot;your avatar is ready&quot; step, and the post-deploy success screen all used to 404 in production even though they were finished — they now open correctly. Also retired two dead pages (an old Forge preview and a duplicate Strategy Lab) so search and the sitemap only point at live surfaces.</description>
+		</item>
+		<item>
 			<title>Forge: fix 3D model generation on the free NVIDIA lane</title>
 			<link>https://three.ws/forge</link>
 			<guid isPermaLink="false">2026-06-16:Forge: fix 3D model generation on the free NVIDIA lane</guid>
@@ -725,6 +733,14 @@
 			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>The arena used to be a flat leaderboard. Now it's a real 3D world you walk into. Every armed AI agent stands on the trading floor as an animated avatar — the #1 agent up on a gold podium — and when they trade live, you see it happen: a cheer and a coin burst on a buy, confetti and a back-flip on a big win, a slump on a loss, each one tied to the same on-chain trade scrolling in the live tape. Pick your own avatar from a roster or the community gallery and walk the floor in third person with WASD or a touch joystick. Floating name tags track each agent with their live P&amp;L, and a banner calls out the biggest win as it lands. Every number is real and verifiable on-chain — now it has a face.</description>
+		</item>
+		<item>
+			<title>The whole platform now works keyboard-only and meets WCAG AA</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-16:The whole platform now works keyboard-only and meets WCAG AA</guid>
+			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>Ran an accessibility pass across the home page, Marketplace, your agent home, the Dashboard, and Pricing. You can now Tab through every page end to end — links, buttons, filters, the billing toggle, and menus all respond to Enter, Space, and arrow keys, and dialogs trap focus while open, close on Escape, and hand focus back where you left it. Every focusable control shows a clear focus ring, icon-only buttons and charts have screen-reader labels, async results announce themselves, and muted grey text was darkened to pass AA contrast. If you've turned on &quot;reduce motion&quot; in your OS, decorative animations now stay still.</description>
 		</item>
 		<item>
 			<title>Tipped club dances now always perform</title>

@@ -11,6 +11,11 @@
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
 
   let W = 0, H = 0, animId = null, initialized = false, paused = false;
+  // Honour reduced-motion: we render a single static frame and never loop.
+  const reduceMotion = window.matchMedia
+    && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // Cached canvas rect (see refreshRect) so pointer handlers avoid layout reads.
+  let rectCache = { left: 0, top: 0, width: 0, height: 0 };
 
   // ── Config ───────────────────────────────────────────────────
   const cfg = {
@@ -29,6 +34,7 @@
     canvas.width = Math.round(W * dpr);
     canvas.height = Math.round(H * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    refreshRect();
     if (initialized) { layoutAllText(); buildTunnel(); }
   }
   const ro = new ResizeObserver(resize);
@@ -47,8 +53,15 @@
     };
   }
 
+  // Refresh the cached canvas rect so pointer handlers don't force a layout
+  // read (getBoundingClientRect) on every mousemove/touchmove — a classic
+  // source of input-handler jank. Updated on resize and scroll only.
+  function refreshRect() { rectCache = canvas.getBoundingClientRect(); }
+  window.addEventListener('scroll', refreshRect, { passive: true });
+
   function toLocal(clientX, clientY) {
-    const r = canvas.getBoundingClientRect();
+    const r = rectCache;
+    if (!r.width || !r.height) return { x: -1, y: -1 };
     const sx = W / r.width, sy = H / r.height;
     return { x: (clientX - r.left) * sx, y: (clientY - r.top) * sy };
   }
@@ -554,16 +567,32 @@
   let lastT = performance.now(), time = 0;
   const hint = container.querySelector('.dragon-hint');
 
-  // Pause when scrolled fully out of view to save CPU
-  let inView = true;
+  // Only run the loop while the section is actually on screen AND the tab is
+  // visible. Start out paused — the IntersectionObserver below kicks the loop
+  // off when the section scrolls into view, so a below-the-fold dragon never
+  // burns main-thread time during the initial page load.
+  let inView = false;
+  let tabVisible = !document.hidden;
+
+  function maybeStart() {
+    if (reduceMotion || animId || !inView || !tabVisible) return;
+    lastT = performance.now();
+    animId = requestAnimationFrame(frame);
+  }
+
   const io = new IntersectionObserver((entries) => {
-    inView = entries[0].isIntersecting;
-    if (inView && !animId) { lastT = performance.now(); animId = requestAnimationFrame(frame); }
+    inView = entries[entries.length - 1].isIntersecting;
+    if (inView) maybeStart();
   }, { threshold: 0, rootMargin: '200px' });
   io.observe(container);
 
+  document.addEventListener('visibilitychange', () => {
+    tabVisible = !document.hidden;
+    if (tabVisible) maybeStart();
+  });
+
   function frame(now) {
-    if (!inView) { animId = null; return; }
+    if (!inView || !tabVisible) { animId = null; return; }
     const dt = Math.min((now - lastT) / 1000, 0.05);
     lastT = now; time += dt; autoPilotT += dt;
 
@@ -590,12 +619,28 @@
     animId = requestAnimationFrame(frame);
   }
 
+  // Draw a single settled frame so the section never shows a blank canvas
+  // before the loop starts (or, under reduced-motion, ever runs).
+  function renderStatic() {
+    const em = effectiveMouse();
+    ctx.save();
+    ctx.fillStyle = '#050505'; ctx.fillRect(-10, -10, W + 20, H + 20);
+    drawTunnel();
+    drawRunes(0);
+    drawLetters();
+    drawDragon(0, em.x, em.y);
+    ctx.restore();
+  }
+
   // Init
   resize();
   layoutAllText();
   buildTunnel();
   rebuildDragon();
   initialized = true;
-  document.fonts.ready.then(() => layoutAllText());
-  animId = requestAnimationFrame(frame);
+  document.fonts.ready.then(() => { layoutAllText(); if (!animId) renderStatic(); });
+  renderStatic();
+  // maybeStart is a no-op until the section is in view (and the tab visible),
+  // and under reduced-motion the static frame above is all we ever paint.
+  maybeStart();
 })();
