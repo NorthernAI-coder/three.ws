@@ -160,6 +160,14 @@ function renderForm(el, { leaderAgentId, leaderName, network, prefill }) {
 				</div>
 				<label class="cp-check"><input type="checkbox" id="cp-sells" ${p.copy_sells === false ? '' : 'checked'} /> <span>Mirror their exits too</span></label>
 				<label class="cp-check"><input type="checkbox" id="cp-safe" ${p.require_safety_pass ? 'checked' : ''} /> <span>Only copy when coin safety is confirmed</span></label>
+				<div class="cp-row" style="margin-top:10px">
+					<label class="cp-field">
+						<span class="cp-label">Telegram alerts (optional)</span>
+						<input class="cp-input" id="cp-tg" type="text" inputmode="numeric" autocomplete="off" spellcheck="false"
+						       placeholder="Your Telegram chat ID (numeric)" value="${escapeHtml(p.telegram_chat_id || '')}" pattern="-?[0-9]+" />
+						<span class="cp-hint">Get your chat ID from @userinfobot. You'll be notified the moment a buy intent lands.</span>
+					</label>
+				</div>
 			</details>
 
 			<p class="cp-err" id="cp-err" hidden></p>
@@ -201,6 +209,7 @@ function renderForm(el, { leaderAgentId, leaderName, network, prefill }) {
 			min_oracle_score: $('#cp-oracle', el).value === '' ? null : Math.round(num('cp-oracle')),
 			copy_sells: $('#cp-sells', el).checked,
 			require_safety_pass: $('#cp-safe', el).checked,
+			telegram_chat_id: (() => { const v = ($('#cp-tg', el)?.value || '').trim(); return /^-?[0-9]+$/.test(v) ? v : null; })(),
 		};
 
 		const btn = $('#cp-submit', el);

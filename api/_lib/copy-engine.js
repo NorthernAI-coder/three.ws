@@ -51,6 +51,13 @@ export function normalizeSubscriptionInput(raw = {}) {
 		return { ok: false, error: 'min_oracle_score must be between 0 and 100' };
 	}
 
+	// Telegram chat ID: numeric string (positive or negative integer).
+	const tgRaw = raw.telegram_chat_id == null ? null : String(raw.telegram_chat_id).trim();
+	const telegramChatId = tgRaw === '' || tgRaw === null ? null : tgRaw;
+	if (telegramChatId != null && !/^-?[0-9]+$/.test(telegramChatId)) {
+		return { ok: false, error: 'telegram_chat_id must be a numeric Telegram chat ID' };
+	}
+
 	return {
 		ok: true,
 		value: {
@@ -68,6 +75,7 @@ export function normalizeSubscriptionInput(raw = {}) {
 			require_safety_pass: raw.require_safety_pass === true,
 			min_oracle_score: minOracleScore,
 			perf_fee_bps: perfBps,
+			telegram_chat_id: telegramChatId,
 		},
 	};
 }

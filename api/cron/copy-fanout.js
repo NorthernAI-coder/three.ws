@@ -28,6 +28,50 @@ import { planCopyOrder } from '../_lib/copy-engine.js';
 const NETWORKS = ['mainnet', 'devnet'];
 const lamToSol = (l) => (l == null ? 0 : Number(BigInt(l)) / 1e9);
 
+// ── Telegram notification helpers ─────────────────────────────────────────────
+
+async function sendTg(chatId, text) {
+	const token = process.env.TELEGRAM_BOT_TOKEN;
+	if (!token || !chatId) return;
+	try {
+		await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ chat_id: chatId, text, disable_web_page_preview: true }),
+			signal: AbortSignal.timeout(5000),
+		});
+	} catch { /* best-effort */ }
+}
+
+function buyIntentMessage({ sym, name, plannedSol, leaderName, oracleScore, oracleTier, mint, network, traderUrl }) {
+	const coin = sym ? `$${sym}${name ? ` (${name})` : ''}` : mint?.slice(0, 8) || 'unknown';
+	const tier = oracleTier ? ` [${oracleTier.toUpperCase()}]` : '';
+	const score = oracleScore != null ? ` · score ${Math.round(oracleScore)}` : '';
+	const net = network === 'devnet' ? ' [devnet]' : '';
+	const lines = [
+		`⚡ Copy Trade Intent${net}`,
+		`${coin}${tier}${score}`,
+		`Leader: ${leaderName || 'unknown'}`,
+		`Your order: ${plannedSol != null ? `${plannedSol.toFixed(4)} SOL` : 'sized by your rules'}`,
+		``,
+		`Act now → https://three.ws${traderUrl}/dashboard/copy`,
+		mint ? `pump.fun → https://pump.fun/${mint}` : '',
+	].filter((l) => l !== undefined);
+	return lines.join('\n');
+}
+
+// Fetch agent display name (cached per run).
+const _agentNameCache = new Map();
+async function agentName(agentId) {
+	if (_agentNameCache.has(agentId)) return _agentNameCache.get(agentId);
+	try {
+		const [row] = await sql`select name from agent_identities where id = ${agentId} limit 1`;
+		const n = row?.name || null;
+		_agentNameCache.set(agentId, n);
+		return n;
+	} catch { return null; }
+}
+
 function requireCron(req, res) {
 	const secret = process.env.CRON_SECRET || env.CRON_SECRET;
 	if (!secret) { error(res, 503, 'not_configured', 'CRON_SECRET unset'); return false; }
@@ -150,6 +194,16 @@ async function fanoutBuys(network, stats) {
 				if (status === 'pending') {
 					spent.set(sub.id, (spent.get(sub.id) || 0) + (planned || 0));
 					open.set(sub.id, (open.get(sub.id) || 0) + 1);
+					// Telegram notify copier of the new buy intent (best-effort, async).
+					if (sub.telegram_chat_id) {
+						const leader = await agentName(pos.agent_id);
+						sendTg(sub.telegram_chat_id, buyIntentMessage({
+							sym: pos.symbol, name: pos.name, plannedSol: planned,
+							leaderName: leader, oracleScore: score,
+							oracleTier: null, mint: pos.mint, network,
+							traderUrl: `/trader/${pos.agent_id}`,
+						}));
+					}
 				}
 			}
 		}
@@ -278,6 +332,18 @@ async function fanoutOracleBuys(network, stats) {
 				if (status === 'pending') {
 					spent.set(sub.id, (spent.get(sub.id) || 0) + (planned || 0));
 					open.set(sub.id, (open.get(sub.id) || 0) + 1);
+					// Telegram notify copier of the new oracle-sourced buy intent (best-effort).
+					if (sub.telegram_chat_id) {
+						const leader = await agentName(action.agent_id);
+						sendTg(sub.telegram_chat_id, buyIntentMessage({
+							sym: action.symbol, name: null, plannedSol: planned,
+							leaderName: leader,
+							oracleScore: action.conviction != null ? Number(action.conviction) : null,
+							oracleTier: action.tier || null,
+							mint: action.mint, network,
+							traderUrl: `/trader/${action.agent_id}`,
+						}));
+					}
 				}
 			}
 		}
