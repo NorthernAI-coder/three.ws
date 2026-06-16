@@ -463,17 +463,27 @@
 			background: rgba(255,255,255,0.2);
 			margin: 0 auto 16px;
 		}
-		.irl-sheet-row {
+		.irl-sheet-header {
 			display: flex;
 			align-items: center;
+			justify-content: space-between;
 			gap: 12px;
-			margin-bottom: 8px;
+			margin-bottom: 12px;
 		}
-		#irl-sheet-name {
+		.irl-sheet-meta {
+			display: flex;
+			flex-direction: column;
+			gap: 2px;
+			flex: 1;
+			min-width: 0;
+		}
+		.irl-sheet-title {
 			font-size: 20px;
 			font-weight: 700;
 			color: #e5e7eb;
-			flex: 1;
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
 		}
 		#irl-sheet-dist {
 			font-size: 13px;
@@ -504,22 +514,26 @@
 			transition: background 0.15s, border-color 0.15s;
 		}
 		.irl-sheet-btn:hover { background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.22); }
-		.irl-sheet-btn.primary { background: rgba(52,211,153,0.18); border-color: rgba(52,211,153,0.4); color: #34d399; }
-		.irl-sheet-btn.primary:hover { background: rgba(52,211,153,0.28); }
-		#irl-sheet-close {
-			background: none;
+		.irl-sheet-btn-primary { background: rgba(52,211,153,0.18); border-color: rgba(52,211,153,0.4); color: #34d399; }
+		.irl-sheet-btn-primary:hover { background: rgba(52,211,153,0.28); }
+		.irl-sheet-close {
+			width: 32px;
+			height: 32px;
+			flex-shrink: 0;
+			padding: 0;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			background: rgba(255,255,255,0.06);
 			border: 1px solid rgba(255,255,255,0.12);
-			border-radius: 10px;
-			padding: 8px 16px;
+			border-radius: 50%;
 			color: #6b7280;
 			font: inherit;
-			font-size: 13px;
+			font-size: 16px;
 			cursor: pointer;
-			margin-top: 12px;
-			width: 100%;
-			transition: color 0.15s, border-color 0.15s;
+			transition: color 0.15s, border-color 0.15s, background 0.15s;
 		}
-		#irl-sheet-close:hover { color: #e5e7eb; border-color: rgba(255,255,255,0.25); }
+		.irl-sheet-close:hover { color: #e5e7eb; border-color: rgba(255,255,255,0.25); background: rgba(255,255,255,0.10); }
 
 		/* 3D→2D agent labels (injected by JS per nearby pin) */
 		.irl-agent-label {
