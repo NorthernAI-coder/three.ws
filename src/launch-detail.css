@@ -559,6 +559,21 @@ body {
 .ld-empty-title { font-weight: var(--weight-semibold); color: var(--ink-bright); margin: 0 0 var(--space-2xs); }
 .ld-empty p { margin: 0 0 var(--space-sm); font-size: var(--text-sm); color: var(--ink-dim); }
 
+/* ── Oracle Conviction (sidebar) ─────────────────────────────────────────── */
+.ld-oracle-body { display: flex; flex-direction: column; gap: var(--space-sm); }
+.ld-oracle-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm); }
+.ld-oracle-dial { display: flex; align-items: baseline; gap: 2px; }
+.ld-oracle-score { font-family: var(--font-display); font-size: var(--text-2xl); font-weight: var(--weight-bold); line-height: 1; color: var(--ink-bright); }
+.ld-oracle-score-max { font-size: var(--text-2xs); color: var(--ink-dim); }
+.ld-oracle-tier { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; padding: 3px 9px; border-radius: var(--radius-pill); border: 1px solid; }
+.ld-oracle-pillars { display: flex; flex-direction: column; gap: 6px; }
+.ld-oracle-pillar { display: grid; grid-template-columns: 68px 1fr 28px; align-items: center; gap: var(--space-xs); }
+.ld-oracle-pillar-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-dim); }
+.ld-oracle-pillar-bar { height: 5px; border-radius: 99px; background: var(--surface-2); overflow: hidden; }
+.ld-oracle-pillar-fill { height: 100%; border-radius: 99px; transition: width .6s var(--ease-out); }
+.ld-oracle-pillar-val { font: 600 11px/1 var(--font-mono); text-align: right; color: var(--ink-dim); }
+.ld-oracle-actions { margin-top: var(--space-2xs); }
+
 .ld-state { margin-top: var(--space-lg); }
 .ld-fatal { text-align: center; max-width: 460px; margin: var(--space-2xl) auto; }
 .ld-fatal h1 { font-family: var(--font-display); font-size: var(--text-xl); color: var(--ink-bright); margin: 0 0 var(--space-sm); }
