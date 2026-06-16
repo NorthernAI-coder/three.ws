@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-16T07:11:06.000Z",
+	"generated_at": "2026-06-16T07:15:23.582Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -340,6 +340,16 @@
 			"link": "/oracle",
 			"tags": [
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "update",
+			"title": "Oracle: Personal Telegram conviction alerts",
+			"summary": "Oracle agents now support personal Telegram alerts. Add your Telegram chat ID in the Arm your agent panel to receive a direct message every time a coin crosses your conviction threshold — no more checking the feed. Entry alerts fire when your agent takes an action (simulate or live mode). Chat @three_ws_bot on Telegram and send /start to get your chat ID.",
+			"link": "/oracle",
+			"tags": [
+				"feature"
 			]
 		},
 		{

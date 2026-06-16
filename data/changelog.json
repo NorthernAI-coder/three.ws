@@ -3,6 +3,13 @@
 	"entries": [
 		{
 			"date": "2026-06-16",
+			"title": "Oracle: Personal Telegram conviction alerts",
+			"summary": "Oracle agents now support personal Telegram alerts. Add your Telegram chat ID in the Arm your agent panel to receive a direct message every time a coin crosses your conviction threshold — no more checking the feed. Entry alerts fire when your agent takes an action (simulate or live mode). Chat @three_ws_bot on Telegram and send /start to get your chat ID.",
+			"tags": ["feature"],
+			"link": "/oracle"
+		},
+		{
+			"date": "2026-06-16",
 			"title": "Oracle: New / Top sort toggle on conviction feed",
 			"summary": "The live conviction feed now has a Top / New toggle. Top (default) ranks coins by conviction score so the highest-confidence plays surface first. New sorts by when the coin was scored — useful for catching fresh launches the moment Oracle processes them before the wider market. No extra network request: the sort switches client-side from the already-loaded feed.",
 			"tags": ["improvement"],

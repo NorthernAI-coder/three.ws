@@ -211,3 +211,76 @@ export async function alertNewHighConviction(coins, network = 'mainnet') {
 	}
 	return sent;
 }
+
+/**
+ * Send a personal entry alert directly to one subscriber's Telegram chat.
+ * Called by the agent-loop for every watch that has a telegram_chat_id, whether
+ * simulate or live (marked clearly in the message).
+ *
+ * @param {string} chatId
+ * @param {{agent_name?:string, symbol:string, mint:string, tier:string, conviction:number, size_sol:number, mode:string, network:string}} entry
+ * @returns {Promise<void>}
+ */
+export async function alertPersonalEntry(chatId, entry) {
+	const token = process.env.TELEGRAM_BOT_TOKEN;
+	if (!token || !chatId) return;
+
+	const tierE = tierEmoji(entry.tier);
+	const sym = escHtml((entry.symbol || entry.mint.slice(0, 6)).toUpperCase());
+	const sizeStr = entry.size_sol != null ? `${Number(entry.size_sol).toFixed(3)} SOL` : '?';
+	const convStr = entry.conviction != null ? ` (score ${entry.conviction})` : '';
+	const modeLabel = entry.mode === 'simulate' ? ' <i>[simulated]</i>' : '';
+	const agentName = escHtml(entry.agent_name || 'Your agent');
+
+	const text = [
+		`${tierE} <b>${agentName}</b> entered <b>$${sym}</b>${modeLabel}`,
+		`${escHtml(entry.tier)} conviction${convStr}  ·  ${escHtml(sizeStr)}`,
+		`<a href="https://pump.fun/coin/${encodeURIComponent(entry.mint)}">pump.fun</a>  ·  <a href="https://three.ws/oracle?mint=${encodeURIComponent(entry.mint)}">Oracle ↗</a>`,
+	].join('\n');
+
+	await sendTo(chatId, text);
+}
+
+/**
+ * Send a personal conviction signal to one subscriber when a coin crosses their
+ * agent's min_score threshold. Only fires for coins the platform hasn't already
+ * alerted in this run — the platform channel gets one alert per coin, but the
+ * personal alert fires for every subscriber whose threshold the coin crosses.
+ *
+ * @param {string} chatId
+ * @param {object} coin  oracle_conviction row (score, tier, symbol, mint, pillars, …)
+ * @param {number} minScore  subscriber's personal threshold
+ * @returns {Promise<void>}
+ */
+export async function alertPersonalSignal(chatId, coin, minScore) {
+	const token = process.env.TELEGRAM_BOT_TOKEN;
+	if (!token || !chatId) return;
+	if ((Number(coin.score) || 0) < minScore) return;
+
+	const text = format(coin) + `\n<i>Your agent threshold: ${minScore}</i>`;
+	await sendTo(chatId, text);
+}
+
+/** Send to a specific chat ID (not the platform channel). */
+async function sendTo(chatId, text) {
+	const token = process.env.TELEGRAM_BOT_TOKEN;
+	if (!token) return;
+
+	const ctrl = new AbortController();
+	const timer = setTimeout(() => ctrl.abort(), ALERT_TIMEOUT_MS);
+	try {
+		await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({
+				chat_id: chatId,
+				text: text.slice(0, 4000),
+				parse_mode: 'HTML',
+				disable_web_page_preview: true,
+			}),
+			signal: ctrl.signal,
+		});
+	} catch { /* fire-and-forget */ } finally {
+		clearTimeout(timer);
+	}
+}

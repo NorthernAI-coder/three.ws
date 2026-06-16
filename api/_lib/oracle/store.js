@@ -256,12 +256,14 @@ export async function upsertWatch(agentId, userId, network, cfg) {
 	const row = await sql`
 		insert into oracle_agent_watch (
 			agent_id, user_id, network, armed, mode, min_score, min_tier, categories,
-			per_trade_sol, max_daily_sol, max_open, require_smart_money, size_scaling, updated_at
+			per_trade_sol, max_daily_sol, max_open, require_smart_money, size_scaling,
+			telegram_chat_id, updated_at
 		) values (
 			${agentId}, ${userId || null}, ${network}, ${!!cfg.armed}, ${cfg.mode || 'simulate'},
 			${cfg.min_score ?? 80}, ${cfg.min_tier || 'strong'}, ${JSON.stringify(cfg.categories || [])}::jsonb,
 			${cfg.per_trade_sol ?? 0.05}, ${cfg.max_daily_sol ?? 0.5}, ${cfg.max_open ?? 5},
-			${cfg.require_smart_money !== false}, ${!!cfg.size_scaling}, now()
+			${cfg.require_smart_money !== false}, ${!!cfg.size_scaling},
+			${cfg.telegram_chat_id || null}, now()
 		)
 		on conflict (agent_id, network) do update set
 			user_id = coalesce(excluded.user_id, oracle_agent_watch.user_id),
@@ -269,7 +271,8 @@ export async function upsertWatch(agentId, userId, network, cfg) {
 			min_tier = excluded.min_tier, categories = excluded.categories,
 			per_trade_sol = excluded.per_trade_sol, max_daily_sol = excluded.max_daily_sol,
 			max_open = excluded.max_open, require_smart_money = excluded.require_smart_money,
-			size_scaling = excluded.size_scaling, updated_at = now()
+			size_scaling = excluded.size_scaling, telegram_chat_id = excluded.telegram_chat_id,
+			updated_at = now()
 		returning *
 	`;
 	return row[0];
