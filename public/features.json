@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-16T10:26:03.264Z",
+	"generated_at": "2026-06-16T10:35:10.765Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -551,6 +551,16 @@
 					"title": "Trader Leaderboard",
 					"description": "Pump.fun traders ranked by a provable, on-chain track record — realized P&L, win rate, drawdown — with every number traceable to its transaction.",
 					"added": "2026-06-15",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/trending",
+					"title": "Trending — Top Agents & Coins on three.ws",
+					"description": "What’s hot on three.ws right now. Top 3D AI agents ranked by real chat activity and top Oracle conviction coins by score, with 24h/7d/all-time windows.",
+					"added": "2026-06-16",
 					"auth": null,
 					"indexable": true,
 					"tags": [],

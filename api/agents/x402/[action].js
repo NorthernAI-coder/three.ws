@@ -97,6 +97,30 @@ async function handleInvoke(req, res) {
 			currency: price.currency,
 		});
 
+	// $THREE holder gate — agents can require callers to hold a minimum $THREE
+	// balance. Checked after payment to use the verified payerAddress; the intent
+	// is NOT consumed on gate failure so the caller can acquire $THREE and retry.
+	const gate = agent.meta?.three_gate;
+	if (gate?.enabled && paid.payerAddress) {
+		const minBalance = parseInt(gate.min_balance ?? 1, 10) || 1;
+		try {
+			const { checkThreeBalance } = await import('../../_lib/three-gate.js');
+			const gateResult = await checkThreeBalance(paid.payerAddress, minBalance);
+			if (!gateResult.eligible) {
+				return error(res, 402, 'insufficient_three_balance',
+					'This agent requires a minimum $THREE balance. Acquire $THREE to use this skill.',
+					{
+						required: minBalance,
+						held: gateResult.balance,
+						buy_url: 'https://pump.fun/FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump',
+					},
+				);
+			}
+		} catch {
+			// Gate check failure → fail open so callers aren't blocked by infra.
+		}
+	}
+
 	// Execute the skill BEFORE consuming the payment intent: if the handler
 	// throws, wrap() returns the error with the intent untouched, so the buyer's
 	// payment still covers a retry instead of being burned on a failed call.

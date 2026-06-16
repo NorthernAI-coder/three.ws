@@ -338,6 +338,12 @@ URL: https://three.ws/leaderboard
 
 Pump.fun traders ranked by a provable, on-chain track record — realized P&L, win rate, drawdown — with every number traceable to its transaction.
 
+### Trending — Top Agents & Coins on three.ws
+
+URL: https://three.ws/trending
+
+What’s hot on three.ws right now. Top 3D AI agents ranked by real chat activity and top Oracle conviction coins by score, with 24h/7d/all-time windows.
+
 ### Live Trade Feed — Notable pump.fun Exits
 
 URL: https://three.ws/trades

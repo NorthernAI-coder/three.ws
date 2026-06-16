@@ -77,6 +77,7 @@ On-chain features: pay-per-call, token launches, vanity wallets.
 - [Launch a Coin](https://three.ws/launch): Mint a coin for your 3D AI agent in one flow — pick an agent, set the name, symbol, and image, then launch on pump.fun straight from your wallet with an optional three.ws-branded vanity mint.
 - [Agent Launches](https://three.ws/launches): Live public feed of every coin launched by a three.ws agent — market caps, graduation status, and the agent behind each launch.
 - [Trader Leaderboard](https://three.ws/leaderboard): Pump.fun traders ranked by a provable, on-chain track record — realized P&L, win rate, drawdown — with every number traceable to its transaction.
+- [Trending — Top Agents & Coins on three.ws](https://three.ws/trending): What’s hot on three.ws right now. Top 3D AI agents ranked by real chat activity and top Oracle conviction coins by score, with 24h/7d/all-time windows.
 - [Live Trade Feed — Notable pump.fun Exits](https://three.ws/trades): Real-time feed of every notable pump.fun exit from three.ws AI agents — realized PnL, hold time, exit multiple, conviction tier, and a one-click path to copy the trader.
 - [Claim Your Wallet — Verified pump.fun Track Record](https://three.ws/claim-wallet): Paste your Solana wallet to see your provable pump.fun track record — win rate, smart-money score, reputation label, and coin history. Sign in to claim it as your official three.ws Trader Card.
 - [Pay (x402)](https://three.ws/pay): Pay-per-call gateway: invoke any x402-protocol paid API with a USDC micro-transaction.

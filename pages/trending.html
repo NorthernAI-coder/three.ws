@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<script>/* three.ws theme boot */(function(){try{var m=localStorage.getItem('twx_theme');var l=m==='auto'?(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches):m==='light';document.documentElement.setAttribute('data-theme',l?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();</script>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+	<title>Trending · three.ws</title>
+	<meta name="description" content="What's hot on three.ws — top AI agents ranked by real activity and top Oracle conviction coins ranked by score." />
+	<link rel="icon" href="/favicon.ico" sizes="any" />
+	<link rel="stylesheet" href="/fonts/fonts.css" />
+	<link rel="canonical" href="https://three.ws/trending" />
+	<meta property="og:title" content="Trending — three.ws" />
+	<meta property="og:description" content="Top 3D AI agents by real chat activity. Top conviction coins by Oracle score." />
+	<meta property="og:image" content="https://three.ws/og-image.png" />
+	<meta name="twitter:card" content="summary_large_image" />
+</head>
+<body>
+	<div id="nav-container"></div>
+
+	<main class="tr-main" id="main">
+		<div class="tr-head">
+			<h1 class="tr-h1">Trending</h1>
+			<p class="tr-sub">What's hot on three.ws right now.</p>
+		</div>
+
+		<div class="tr-controls">
+			<div class="tr-tabs" role="tablist">
+				<button class="tr-tab active" role="tab" aria-selected="true"  data-tab="agents">Agents</button>
+				<button class="tr-tab"        role="tab" aria-selected="false" data-tab="coins">Coins</button>
+			</div>
+			<div class="tr-windows" role="group" aria-label="Time window">
+				<button class="tr-win active" data-win="24h">24h</button>
+				<button class="tr-win"        data-win="7d">7d</button>
+				<button class="tr-win"        data-win="all">All time</button>
+			</div>
+		</div>
+
+		<div class="tr-content">
+			<section class="tr-section active" id="sec-agents" aria-label="Trending agents">
+				<div class="tr-legend">
+					<span>Agent</span>
+					<span class="tr-legend-r">Chats <span class="tr-legend-window" id="legendWindow">24h</span></span>
+				</div>
+				<ol class="tr-list" id="agentList" aria-live="polite">
+					<li class="tr-skeleton"></li>
+					<li class="tr-skeleton"></li>
+					<li class="tr-skeleton"></li>
+					<li class="tr-skeleton"></li>
+					<li class="tr-skeleton"></li>
+				</ol>
+				<div class="tr-empty" id="agentEmpty" hidden>No trending agents yet — check back soon.</div>
+				<div class="tr-error" id="agentError" hidden>Failed to load agents. <button class="tr-retry" id="agentRetry">Retry</button></div>
+			</section>
+
+			<section class="tr-section" id="sec-coins" aria-label="Top conviction coins">
+				<div class="tr-legend">
+					<span>Coin</span>
+					<span class="tr-legend-r">Oracle score</span>
+				</div>
+				<ol class="tr-list" id="coinList" aria-live="polite">
+					<li class="tr-skeleton"></li>
+					<li class="tr-skeleton"></li>
+					<li class="tr-skeleton"></li>
+					<li class="tr-skeleton"></li>
+					<li class="tr-skeleton"></li>
+				</ol>
+				<div class="tr-empty" id="coinEmpty" hidden>No scored coins in the last 36 hours.</div>
+				<div class="tr-error" id="coinError" hidden>Failed to load coins. <button class="tr-retry" id="coinRetry">Retry</button></div>
+			</section>
+		</div>
+
+		<p class="tr-footnote">
+			Agent ranking: chats with real users via embedded widgets. Coins: <a href="/oracle">Oracle</a> conviction score (pedigree + structure + narrative + momentum), refreshed every 30 min.
+		</p>
+	</main>
+
+	<div id="footer-container"></div>
+
+	<style>
+		*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+		html { font-family: Inter, system-ui, sans-serif; background: #050508; color: #e5e7eb; }
+
+		.tr-main {
+			max-width: 740px; margin: 0 auto;
+			padding: 40px 20px 80px;
+		}
+
+		/* ── head ── */
+		.tr-head { margin-bottom: 28px; }
+		.tr-h1 { font-size: clamp(1.6rem, 4vw, 2.2rem); font-weight: 800; color: #f9fafb; letter-spacing: -.02em; }
+		.tr-sub { margin-top: 6px; font-size: 14px; color: #6b7280; }
+
+		/* ── controls ── */
+		.tr-controls {
+			display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;
+			margin-bottom: 24px;
+		}
+
+		.tr-tabs { display: flex; gap: 2px; background: rgba(255,255,255,.05); border-radius: 10px; padding: 3px; }
+		.tr-tab {
+			padding: 7px 18px; border-radius: 8px; border: none; cursor: pointer;
+			font-size: 13px; font-weight: 600; background: transparent; color: #6b7280;
+			transition: background .15s, color .15s;
+		}
+		.tr-tab.active { background: rgba(99,102,241,.25); color: #a5b4fc; }
+		.tr-tab:not(.active):hover { color: #d1d5db; background: rgba(255,255,255,.05); }
+
+		.tr-windows { display: flex; gap: 6px; }
+		.tr-win {
+			padding: 5px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,.1);
+			font-size: 12px; font-weight: 600; cursor: pointer;
+			background: transparent; color: #6b7280;
+			transition: border-color .15s, color .15s, background .15s;
+		}
+		.tr-win.active { border-color: rgba(99,102,241,.6); color: #a5b4fc; background: rgba(99,102,241,.1); }
+		.tr-win:not(.active):hover { color: #d1d5db; border-color: rgba(255,255,255,.2); }
+
+		/* ── section / legend ── */
+		.tr-section { display: none; }
+		.tr-section.active { display: block; }
+
+		.tr-legend {
+			display: flex; justify-content: space-between;
+			font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+			color: #4b5563; padding: 0 16px 10px;
+		}
+
+		/* ── list rows ── */
+		.tr-list { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+
+		.tr-row {
+			display: flex; align-items: center; gap: 14px;
+			padding: 13px 16px; border-radius: 12px;
+			border: 1px solid rgba(255,255,255,.07);
+			background: rgba(255,255,255,.025);
+			text-decoration: none; color: inherit;
+			transition: border-color .2s, background .2s, transform .15s;
+		}
+		.tr-row:hover { border-color: rgba(99,102,241,.35); background: rgba(99,102,241,.06); transform: translateX(2px); }
+
+		.tr-rank {
+			width: 22px; text-align: center; flex-shrink: 0;
+			font-size: 11px; font-weight: 700; color: #4b5563;
+		}
+		.tr-rank-1 { color: #f59e0b; }
+		.tr-rank-2 { color: #9ca3af; }
+		.tr-rank-3 { color: #b45309; }
+
+		/* agent avatar */
+		.tr-av {
+			width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0;
+			background: linear-gradient(135deg, #312e81, #4f46e5);
+			display: flex; align-items: center; justify-content: center;
+			font-size: 16px; font-weight: 700; color: rgba(255,255,255,.8);
+			overflow: hidden;
+		}
+		.tr-av img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; display: block; }
+
+		/* coin badge */
+		.tr-coin-badge {
+			width: 40px; height: 40px; border-radius: 10px; flex-shrink: 0;
+			background: linear-gradient(135deg, #064e3b, #065f46);
+			display: flex; align-items: center; justify-content: center;
+			font-size: 12px; font-weight: 800; color: #6ee7b7;
+			letter-spacing: -.03em;
+		}
+
+		.tr-body { flex: 1; min-width: 0; }
+		.tr-name {
+			font-size: 14px; font-weight: 700; color: #f3f4f6;
+			white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+		}
+		.tr-desc {
+			margin-top: 2px;
+			font-size: 12px; color: #6b7280;
+			white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+		}
+
+		.tr-meta { text-align: right; flex-shrink: 0; }
+		.tr-metric { font-size: 15px; font-weight: 700; color: #f3f4f6; }
+		.tr-metric-label { font-size: 10px; color: #6b7280; margin-top: 1px; }
+
+		/* tier pill */
+		.tr-tier {
+			display: inline-flex; align-items: center; gap: 4px;
+			font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+			padding: 2px 7px; border-radius: 6px; border: 1px solid;
+		}
+		.tr-tier-prime   { color: #f59e0b; border-color: rgba(245,158,11,.3); background: rgba(245,158,11,.08); }
+		.tr-tier-strong  { color: #10b981; border-color: rgba(16,185,129,.3); background: rgba(16,185,129,.08); }
+		.tr-tier-lean    { color: #3b82f6; border-color: rgba(59,130,246,.3); background: rgba(59,130,246,.08); }
+		.tr-tier-watch   { color: #8b5cf6; border-color: rgba(139,92,246,.3); background: rgba(139,92,246,.08); }
+		.tr-tier-avoid   { color: #6b7280; border-color: rgba(107,114,128,.2); background: rgba(107,114,128,.05); }
+
+		/* onchain badge */
+		.tr-onchain {
+			font-size: 9px; font-weight: 700; letter-spacing: .08em;
+			color: #10b981; border: 1px solid rgba(16,185,129,.3);
+			padding: 1px 5px; border-radius: 4px; margin-left: 6px;
+		}
+
+		/* skeleton */
+		.tr-skeleton {
+			height: 68px; border-radius: 12px;
+			background: linear-gradient(90deg, rgba(255,255,255,.04) 0%, rgba(255,255,255,.07) 50%, rgba(255,255,255,.04) 100%);
+			background-size: 200% 100%;
+			animation: skeleton-sweep 1.4s ease-in-out infinite;
+		}
+		@keyframes skeleton-sweep { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+		.tr-empty, .tr-error {
+			padding: 40px 20px; text-align: center;
+			font-size: 14px; color: #6b7280;
+		}
+		.tr-retry {
+			margin-left: 8px; color: #6366f1; background: none; border: none; cursor: pointer;
+			font-size: 14px; text-decoration: underline;
+		}
+
+		.tr-footnote {
+			margin-top: 32px;
+			font-size: 12px; color: #4b5563; line-height: 1.6;
+			border-top: 1px solid rgba(255,255,255,.06); padding-top: 16px;
+		}
+		.tr-footnote a { color: #6366f1; text-decoration: none; }
+		.tr-footnote a:hover { color: #a5b4fc; }
+
+		@media (max-width: 480px) {
+			.tr-controls { flex-direction: column; align-items: flex-start; }
+			.tr-desc { display: none; }
+		}
+	</style>
+
+	<script type="module">
+		import '/src/nav.js';
+		import '/src/footer.js';
+
+		const $ = (s) => document.querySelector(s);
+		const $$ = (s) => document.querySelectorAll(s);
+		const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) =>
+			({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+
+		let currentTab = 'agents';
+		let currentWin = '24h';
+		let cache = {}; // cache[key] = data
+
+		// ── Tab switching ───────────────────────────────────────────────────
+		$$('.tr-tab').forEach(btn => {
+			btn.addEventListener('click', () => {
+				const tab = btn.dataset.tab;
+				if (tab === currentTab) return;
+				currentTab = tab;
+				$$('.tr-tab').forEach(b => { b.classList.toggle('active', b.dataset.tab === tab); b.setAttribute('aria-selected', String(b.dataset.tab === tab)); });
+				$$('.tr-section').forEach(s => s.classList.toggle('active', s.id === `sec-${tab}`));
+			});
+		});
+
+		// ── Window switching ────────────────────────────────────────────────
+		$$('.tr-win').forEach(btn => {
+			btn.addEventListener('click', () => {
+				const win = btn.dataset.win;
+				if (win === currentWin) return;
+				currentWin = win;
+				$$('.tr-win').forEach(b => b.classList.toggle('active', b.dataset.win === win));
+				$('#legendWindow').textContent = { '24h': '24h', '7d': '7d', 'all': 'all time' }[win];
+				loadData();
+			});
+		});
+
+		// ── Retry buttons ───────────────────────────────────────────────────
+		$('#agentRetry').addEventListener('click', loadData);
+		$('#coinRetry').addEventListener('click', loadData);
+
+		// ── Tier pill ───────────────────────────────────────────────────────
+		function tierPill(tier) {
+			if (!tier) return '';
+			return `<span class="tr-tier tr-tier-${esc(tier)}">${esc(tier)}</span>`;
+		}
+
+		// ── Compact number ──────────────────────────────────────────────────
+		const compact = new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 });
+		function fmt(n) { return n == null ? '—' : compact.format(Number(n)); }
+
+		// ── Render agents ───────────────────────────────────────────────────
+		function renderAgents(agents) {
+			const list  = $('#agentList');
+			const empty = $('#agentEmpty');
+			const error = $('#agentError');
+
+			error.hidden = true;
+			if (!agents.length) { list.innerHTML = ''; empty.hidden = false; return; }
+			empty.hidden = true;
+
+			list.innerHTML = agents.map(a => {
+				const count = currentWin === 'all' ? a.chat_count : (a.window_chats ?? a.chat_count);
+				const initial = (a.name || 'A')[0].toUpperCase();
+				const avHtml = a.avatar_thumbnail_url
+					? `<img src="${esc(a.avatar_thumbnail_url)}" alt="" loading="lazy" />`
+					: esc(initial);
+				const onchainBadge = a.is_onchain ? '<span class="tr-onchain">◈ on-chain</span>' : '';
+				const rankCls = a.rank <= 3 ? ` tr-rank-${a.rank}` : '';
+				return `<li>
+					<a class="tr-row" href="${esc(a.agent_url)}">
+						<span class="tr-rank${rankCls}">${a.rank}</span>
+						<span class="tr-av">${avHtml}</span>
+						<span class="tr-body">
+							<span class="tr-name">${esc(a.name || 'Unnamed agent')}${onchainBadge}</span>
+							${a.description ? `<span class="tr-desc">${esc(a.description)}</span>` : ''}
+						</span>
+						<span class="tr-meta">
+							<span class="tr-metric">${fmt(count)}</span>
+							<span class="tr-metric-label">chats</span>
+						</span>
+					</a>
+				</li>`;
+			}).join('');
+		}
+
+		// ── Render coins ────────────────────────────────────────────────────
+		function renderCoins(coins) {
+			const list  = $('#coinList');
+			const empty = $('#coinEmpty');
+			const error = $('#coinError');
+
+			error.hidden = true;
+			if (!coins.length) { list.innerHTML = ''; empty.hidden = false; return; }
+			empty.hidden = true;
+
+			list.innerHTML = coins.map(c => {
+				const sym = (c.symbol || '?').slice(0, 5);
+				const rankCls = c.rank <= 3 ? ` tr-rank-${c.rank}` : '';
+				return `<li>
+					<a class="tr-row" href="${esc(c.coin_url)}">
+						<span class="tr-rank${rankCls}">${c.rank}</span>
+						<span class="tr-coin-badge">$${esc(sym)}</span>
+						<span class="tr-body">
+							<span class="tr-name">$${esc(c.symbol || '—')}</span>
+							<span class="tr-desc">${tierPill(c.tier)} · momentum ${c.momentum}/100 · wallets ${fmt(c.smart_wallet_count)}</span>
+						</span>
+						<span class="tr-meta">
+							<span class="tr-metric">${c.score}</span>
+							<span class="tr-metric-label">/100 score</span>
+						</span>
+					</a>
+				</li>`;
+			}).join('');
+		}
+
+		// ── Skeleton states ─────────────────────────────────────────────────
+		function setSkeletons(listId, count = 5) {
+			const list = $('#' + listId);
+			list.innerHTML = Array.from({ length: count }, () => '<li class="tr-skeleton"></li>').join('');
+		}
+
+		// ── Load ────────────────────────────────────────────────────────────
+		async function loadData() {
+			const key = currentWin;
+			if (cache[key]) {
+				renderAgents(cache[key].agents);
+				renderCoins(cache[key].coins);
+				return;
+			}
+
+			setSkeletons('agentList');
+			setSkeletons('coinList');
+			$('#agentEmpty').hidden = true;
+			$('#agentError').hidden = true;
+			$('#coinEmpty').hidden  = true;
+			$('#coinError').hidden  = true;
+
+			try {
+				const r = await fetch(`/api/trending?window=${encodeURIComponent(key)}&limit=10`);
+				if (!r.ok) throw new Error('HTTP ' + r.status);
+				const data = await r.json();
+				cache[key] = data;
+				renderAgents(data.agents || []);
+				renderCoins(data.coins   || []);
+			} catch {
+				$('#agentList').innerHTML = '';
+				$('#coinList').innerHTML  = '';
+				$('#agentError').hidden = false;
+				$('#coinError').hidden  = false;
+			}
+		}
+
+		loadData();
+	</script>
+</body>
+</html>

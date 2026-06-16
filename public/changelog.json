@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-16T10:26:03.275Z",
+	"generated_at": "2026-06-16T10:35:10.776Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -49,11 +49,31 @@
 		{
 			"date": "2026-06-16",
 			"type": "launch",
+			"title": "Trending — Top Agents & Coins on three.ws",
+			"summary": "What’s hot on three.ws right now. Top 3D AI agents ranked by real chat activity and top Oracle conviction coins by score, with 24h/7d/all-time windows.",
+			"link": "/trending",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "launch",
 			"title": "Watchlist",
 			"summary": "Your privately-stored watchlist of pump.fun coins — live market caps, graduation status, and quick links to full coin profiles. No account required; stored in your browser.",
 			"link": "/watchlist",
 			"tags": [
 				"launch"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "update",
+			"title": "$THREE holder gate — agent skills can now require $THREE balance",
+			"summary": "Agent owners can now require callers to hold a minimum $THREE balance before accessing any paid skill. Set three_gate.enabled and three_gate.min_balance in your agent meta. Callers who don't qualify receive a 402 with the exact amount required and a link to acquire $THREE. The gate fails open on infra issues — real holders are never blocked. A new /api/pump/check-three-balance endpoint lets any service verify wallet eligibility directly.",
+			"link": "/oracle",
+			"tags": [
+				"feature"
 			]
 		},
 		{
