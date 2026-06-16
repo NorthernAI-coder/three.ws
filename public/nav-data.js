@@ -139,6 +139,11 @@ export const NAV_GROUPS = [
 				desc: 'Your tracked coins — live market caps and graduation status',
 			},
 			{
+				title: 'Agent Activity',
+				href: '/activity',
+				desc: 'Every agent trade in real time — entries, outcomes, and who to copy',
+			},
+			{
 				title: '3D Visualizer',
 				href: '/pump-visualizer',
 				desc: 'Trending tokens in 3D',

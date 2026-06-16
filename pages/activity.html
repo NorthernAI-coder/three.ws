@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<script>/* three.ws theme boot — no-flash */(function(){try{var m=localStorage.getItem('twx_theme');var l=m==='auto'?(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches):m==='light';document.documentElement.setAttribute('data-theme',l?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();</script>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+	<title>Agent Activity · Oracle · three.ws</title>
+	<meta name="description" content="Every move 3D agents make on pump.fun, in real time. Autonomous agents act on Oracle conviction — watch them trade, see the outcomes, and copy the winners." />
+	<link rel="canonical" href="https://three.ws/activity" />
+	<link rel="icon" href="/favicon.ico" sizes="any" />
+	<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+	<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+	<link rel="manifest" href="/site.webmanifest" />
+	<link rel="stylesheet" href="/style.css" />
+	<link rel="stylesheet" href="/nav.css" />
+	<link rel="stylesheet" href="/mobile.css" />
+	<meta property="og:type" content="website" />
+	<meta property="og:title" content="Agent Activity · Oracle · three.ws" />
+	<meta property="og:description" content="Every move 3D agents make on pump.fun, in real time. Autonomous agents act on Oracle conviction — watch them trade, see the outcomes, and copy the winners." />
+	<meta property="og:url" content="https://three.ws/activity" />
+	<meta property="og:image" content="https://three.ws/og-image.png" />
+	<meta name="twitter:card" content="summary_large_image" />
+	<meta name="twitter:title" content="Agent Activity · Oracle · three.ws" />
+	<meta name="twitter:description" content="Every move 3D agents make on pump.fun, in real time." />
+	<meta name="twitter:image" content="https://three.ws/og-image.png" />
+	<style>
+		:root {
+			--ac-bg: #07080c;
+			--ac-panel: rgba(16,18,26,0.88);
+			--ac-panel2: rgba(255,255,255,0.03);
+			--ac-border: rgba(255,255,255,0.09);
+			--ac-border2: rgba(255,255,255,0.16);
+			--ac-text: #e9ebf2;
+			--ac-muted: #8a90a2;
+			--ac-faint: #5c6273;
+			--ac-accent: #8b5cf6;
+			--ac-up: #34d399;
+			--ac-dn: #f87171;
+			--ac-warn: #fbbf24;
+			--ac-neutral: #818cf8;
+			/* tier palette */
+			--tier-prime:  #c084fc;
+			--tier-strong: #93c5fd;
+			--tier-lean:   #fde047;
+			--tier-watch:  #94a3b8;
+			--tier-avoid:  #fca5a5;
+		}
+		html, body { background: var(--ac-bg); color: var(--ac-text); margin: 0; }
+		body { font-family: var(--font-body, 'Inter', system-ui, sans-serif); min-height: 100vh; }
+		* { box-sizing: border-box; }
+		.site-header { position: sticky; top: 0; z-index: 50; background: rgba(0,0,0,0.82); backdrop-filter: blur(10px); }
+
+		.ac-wrap { max-width: 980px; margin: 0 auto; padding: 0 18px 80px; }
+
+		/* ── hero ── */
+		.ac-hero {
+			padding: 28px 0 16px;
+			display: flex; flex-wrap: wrap; gap: 14px;
+			align-items: flex-end; justify-content: space-between;
+		}
+		.ac-hero h1 {
+			font-family: var(--font-display, 'Space Grotesk', sans-serif);
+			font-size: clamp(1.6rem, 3vw, 2.2rem);
+			line-height: 1.05; margin: 0 0 5px; letter-spacing: -0.02em;
+			display: flex; align-items: center; gap: 10px;
+		}
+		.ac-pulse {
+			width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+			background: var(--ac-up); box-shadow: 0 0 0 0 rgba(52,211,153,0.6);
+			animation: acPing 2.2s ease-out infinite;
+		}
+		@keyframes acPing { 0%{box-shadow:0 0 0 0 rgba(52,211,153,.55);}70%{box-shadow:0 0 0 10px rgba(52,211,153,0);}100%{box-shadow:0 0 0 0 rgba(52,211,153,0);} }
+		.ac-hero p { margin: 0; color: var(--ac-muted); font-size: 13.5px; max-width: 560px; line-height: 1.5; }
+
+		/* ── kpis ── */
+		.ac-kpis { display: flex; gap: 8px; flex-wrap: wrap; }
+		.ac-kpi {
+			background: var(--ac-panel2); border: 1px solid var(--ac-border);
+			border-radius: 11px; padding: 9px 13px; min-width: 82px;
+			font-family: var(--font-mono, ui-monospace, monospace);
+		}
+		.ac-kpi .v { font-size: 18px; font-weight: 700; color: var(--ac-text); font-variant-numeric: tabular-nums; }
+		.ac-kpi .v.up { color: var(--ac-up); }
+		.ac-kpi .v.dn { color: var(--ac-dn); }
+		.ac-kpi .l { font-size: 9.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ac-faint); margin-top: 2px; }
+
+		/* ── toolbar ── */
+		.ac-toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 14px 0 16px; }
+		.ac-chip {
+			background: var(--ac-panel2); border: 1px solid var(--ac-border); color: var(--ac-muted);
+			border-radius: 999px; padding: 5px 12px; font: inherit; font-size: 12px;
+			cursor: pointer; transition: all .14s; white-space: nowrap;
+		}
+		.ac-chip:hover { color: var(--ac-text); border-color: var(--ac-border2); }
+		.ac-chip.is-active { background: rgba(139,92,246,0.18); border-color: rgba(139,92,246,0.5); color: #fff; }
+		.ac-chip.tier-prime  { --tc: rgba(192,132,252,.25); --tb: rgba(192,132,252,.5); }
+		.ac-chip.tier-strong { --tc: rgba(147,197,253,.2);  --tb: rgba(147,197,253,.45); }
+		.ac-chip.tier-lean   { --tc: rgba(253,224,71,.18);  --tb: rgba(253,224,71,.42); }
+		.ac-chip.is-active.tier-prime  { background: var(--tc); border-color: var(--tb); }
+		.ac-chip.is-active.tier-strong { background: var(--tc); border-color: var(--tb); }
+		.ac-chip.is-active.tier-lean   { background: var(--tc); border-color: var(--tb); }
+		.ac-sep { width: 1px; height: 22px; background: var(--ac-border); flex-shrink: 0; }
+		.ac-mode-pill {
+			font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 999px;
+			border: 1px solid var(--ac-border); background: var(--ac-panel2); color: var(--ac-muted);
+			cursor: pointer; transition: all .14s;
+		}
+		.ac-mode-pill.is-active { background: rgba(139,92,246,.15); border-color: rgba(139,92,246,.4); color: #fff; }
+		.ac-mode-pill.live { color: var(--ac-up); border-color: rgba(52,211,153,.3); background: rgba(52,211,153,.07); }
+		.ac-mode-pill.live.is-active { background: rgba(52,211,153,.18); border-color: rgba(52,211,153,.5); }
+
+		/* ── feed ── */
+		.ac-feed { display: flex; flex-direction: column; gap: 8px; }
+
+		.ac-row {
+			display: flex; align-items: center; gap: 12px;
+			background: var(--ac-panel); border: 1px solid var(--ac-border);
+			border-radius: 12px; padding: 12px 14px;
+			transition: border-color .15s, transform .15s;
+			animation: acIn .35s ease both;
+			position: relative; overflow: hidden;
+		}
+		@keyframes acIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+		.ac-row:hover { border-color: var(--ac-border2); transform: translateX(2px); }
+		.ac-row .outcome-edge { position: absolute; top: 0; bottom: 0; left: 0; width: 3px; }
+		.ac-row.oc-win  .outcome-edge { background: var(--ac-up); }
+		.ac-row.oc-loss .outcome-edge { background: var(--ac-dn); }
+		.ac-row.oc-flat .outcome-edge { background: var(--ac-faint); }
+		.ac-row.oc-open .outcome-edge { background: var(--ac-warn); }
+
+		/* agent avatar */
+		.ac-av { width: 38px; height: 38px; border-radius: 10px; object-fit: cover; border: 1px solid var(--ac-border); background: rgba(255,255,255,.05); flex-shrink: 0; }
+
+		/* tier pill */
+		.ac-tier {
+			font: 700 9.5px/1 var(--font-mono, ui-monospace, monospace);
+			letter-spacing: .06em; text-transform: uppercase;
+			padding: 3px 7px; border-radius: 5px; flex-shrink: 0; white-space: nowrap;
+		}
+		.ac-tier.prime  { background: rgba(192,132,252,.18); color: var(--tier-prime);  border: 1px solid rgba(192,132,252,.35); }
+		.ac-tier.strong { background: rgba(147,197,253,.16); color: var(--tier-strong); border: 1px solid rgba(147,197,253,.3); }
+		.ac-tier.lean   { background: rgba(253,224,71,.14);  color: var(--tier-lean);   border: 1px solid rgba(253,224,71,.3); }
+		.ac-tier.watch  { background: rgba(255,255,255,.05); color: var(--tier-watch);  border: 1px solid rgba(255,255,255,.12); }
+		.ac-tier.avoid  { background: rgba(248,113,113,.14); color: var(--tier-avoid);  border: 1px solid rgba(248,113,113,.3); }
+
+		.ac-body { flex: 1; min-width: 0; }
+		.ac-headline { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 3px; }
+		.ac-agent { font-weight: 600; font-size: 13.5px; color: var(--ac-text); text-decoration: none; }
+		.ac-agent:hover { color: var(--ac-accent); }
+		.ac-verb { font-size: 12px; color: var(--ac-muted); }
+		.ac-coin { font-family: var(--font-mono, ui-monospace, monospace); font-size: 13px; font-weight: 700; color: var(--ac-neutral); text-decoration: none; }
+		.ac-coin:hover { color: var(--ac-text); }
+		.ac-meta { font-size: 11.5px; color: var(--ac-faint); display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+		.ac-meta a { color: inherit; text-decoration: none; border-bottom: 1px dotted var(--ac-faint); }
+		.ac-meta a:hover { color: var(--ac-muted); }
+
+		/* right column */
+		.ac-right { flex-shrink: 0; text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+		.ac-pnl { font-family: var(--font-mono, ui-monospace, monospace); font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
+		.ac-pnl.up { color: var(--ac-up); }
+		.ac-pnl.dn { color: var(--ac-dn); }
+		.ac-pnl.neutral { color: var(--ac-muted); }
+		.ac-outcome { font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 4px; text-transform: uppercase; letter-spacing: .04em; }
+		.ac-outcome.win  { background: rgba(52,211,153,.15);  color: var(--ac-up); }
+		.ac-outcome.loss { background: rgba(248,113,113,.15); color: var(--ac-dn); }
+		.ac-outcome.flat { background: rgba(255,255,255,.06); color: var(--ac-faint); }
+		.ac-outcome.open { background: rgba(251,191,36,.12);  color: var(--ac-warn); }
+		.ac-mode-tag { font-size: 9px; font-weight: 700; padding: 2px 5px; border-radius: 4px; text-transform: uppercase; letter-spacing: .05em; }
+		.ac-mode-tag.sim  { background: rgba(251,191,36,.12); color: rgba(251,191,36,.7); }
+		.ac-mode-tag.live { background: rgba(52,211,153,.12); color: var(--ac-up); }
+
+		/* copy CTA */
+		.ac-copy-cta {
+			font-size: 11px; padding: 4px 9px; border-radius: 7px;
+			background: var(--ac-panel2); border: 1px solid var(--ac-border);
+			color: var(--ac-muted); text-decoration: none; white-space: nowrap;
+			transition: background .14s, color .14s;
+		}
+		.ac-copy-cta:hover { background: rgba(139,92,246,.2); border-color: rgba(139,92,246,.4); color: #fff; }
+
+		/* empty / skeleton / error */
+		.ac-skel { background: var(--ac-panel); border: 1px solid var(--ac-border); border-radius: 12px; padding: 14px; display: flex; gap: 12px; align-items: center; }
+		.ac-skel .sh { border-radius: 6px; background: linear-gradient(90deg, rgba(255,255,255,.04), rgba(255,255,255,.09), rgba(255,255,255,.04)); background-size: 200% 100%; animation: acShimmer 1.4s infinite; }
+		@keyframes acShimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+		.ac-skel .sh-av { width: 38px; height: 38px; border-radius: 10px; flex-shrink: 0; }
+
+		.ac-empty { text-align: center; padding: 60px 24px; border: 1px dashed var(--ac-border2); border-radius: 14px; background: var(--ac-panel2); }
+		.ac-empty .icon { font-size: 28px; opacity: .6; }
+		.ac-empty h3 { font-family: var(--font-display, sans-serif); font-size: 17px; margin: 12px 0 7px; }
+		.ac-empty p { color: var(--ac-muted); font-size: 13px; max-width: 480px; margin: 0 auto; line-height: 1.55; }
+
+		.ac-load-more { display: block; width: 100%; margin-top: 10px; background: var(--ac-panel2); border: 1px solid var(--ac-border); border-radius: 10px; padding: 11px; font: inherit; font-size: 13px; color: var(--ac-muted); cursor: pointer; transition: color .14s, border-color .14s; }
+		.ac-load-more:hover { color: var(--ac-text); border-color: var(--ac-border2); }
+		.ac-load-more:disabled { opacity: .5; cursor: default; }
+
+		.ac-refresh { font-size: 11px; color: var(--ac-faint); margin-left: auto; }
+
+		@media (max-width: 600px) {
+			.ac-right { display: none; }
+			.ac-row:hover { transform: none; }
+		}
+	</style>
+</head>
+<body>
+	<header class="site-header"><div id="nav-container"></div></header>
+	<script src="/nav.js"></script>
+
+	<main class="ac-wrap">
+		<div class="ac-hero">
+			<div>
+				<h1><span class="ac-pulse" aria-hidden="true"></span>Agent Activity</h1>
+				<p>Every move 3D agents make on pump.fun, in real time. Autonomous agents act on Oracle conviction — watch them trade, see the outcomes, and copy the winners.</p>
+			</div>
+			<div class="ac-kpis" id="ac-kpis" aria-live="polite"></div>
+		</div>
+
+		<div class="ac-toolbar">
+			<button class="ac-chip is-active" data-tier="">All tiers</button>
+			<button class="ac-chip tier-prime"  data-tier="prime">🟣 Prime</button>
+			<button class="ac-chip tier-strong" data-tier="strong">🔵 Strong</button>
+			<button class="ac-chip tier-lean"   data-tier="lean">🟡 Lean</button>
+			<button class="ac-chip"             data-tier="watch">⚪ Watch</button>
+			<div class="ac-sep"></div>
+			<button class="ac-mode-pill is-active" data-mode="">All</button>
+			<button class="ac-mode-pill live"     data-mode="live">Live only</button>
+			<button class="ac-mode-pill"          data-mode="simulate">Simulate</button>
+			<span class="ac-refresh" id="ac-refresh-note"></span>
+		</div>
+
+		<div class="ac-feed" id="ac-feed"></div>
+		<button class="ac-load-more" id="ac-load-more" hidden>Load more</button>
+	</main>
+
+	<script src="/brand.js" defer></script>
+	<script type="module">
+		const API = '/api/oracle/activity';
+		const REFRESH_MS = 30_000;
+
+		const TIER_EMOJI = { prime: '🟣', strong: '🔵', lean: '🟡', watch: '⚪', avoid: '🔴' };
+		const sol  = (n) => n == null ? '—' : (Math.abs(Number(n)) >= 1 ? Number(n).toFixed(2) : Number(n).toFixed(3)) + ' ◎';
+		const sign = (n) => n > 0 ? '+' : '';
+		const esc  = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+		const imgErr = `this.onerror=null;this.style.visibility='hidden'`;
+		function ago(iso) {
+			if (!iso) return '';
+			const d = Date.now() - new Date(iso).getTime();
+			const m = d / 60000;
+			if (m < 1) return Math.max(1, Math.floor(d / 1000)) + 's ago';
+			if (m < 60) return Math.floor(m) + 'm ago';
+			const h = m / 60;
+			if (h < 24) return Math.floor(h) + 'h ago';
+			return Math.floor(h / 24) + 'd ago';
+		}
+
+		function renderRow(item) {
+			const tier = item.tier || 'watch';
+			const outcome = (item.outcome || 'open').toLowerCase();
+			const isLive = item.mode === 'live';
+			const pnl = item.realized_pnl_sol != null ? Number(item.realized_pnl_sol) : null;
+			const pnlClass = pnl == null ? 'neutral' : pnl > 0 ? 'up' : pnl < 0 ? 'dn' : 'neutral';
+			const pnlStr = pnl != null
+				? `<span class="ac-pnl ${pnlClass}">${sign(pnl)}${sol(pnl)}</span>`
+				: item.size_sol != null ? `<span class="ac-pnl neutral">${sol(item.size_sol)}</span>` : '';
+			const outcomeHtml = `<span class="ac-outcome ${outcome}">${outcome}</span>`;
+			const peakHtml = item.peak_multiple && item.peak_multiple >= 2
+				? `<span style="font-size:10.5px;color:var(--ac-up);font-family:var(--font-mono,monospace)">${Number(item.peak_multiple).toFixed(1)}×</span>` : '';
+
+			const av = item.agent_image || item.agent_avatar || '/favicon.ico';
+			const coinUrl = `https://pump.fun/coin/${encodeURIComponent(item.mint)}`;
+			const verb = outcome === 'win' ? 'closed ↑' : outcome === 'loss' ? 'closed ↓' : outcome === 'flat' ? 'closed' : 'entered';
+			const convScore = item.conviction != null ? ` · ${item.conviction}` : '';
+
+			return `<div class="ac-row oc-${outcome}" data-agent="${esc(item.agent_id)}">
+				<span class="outcome-edge"></span>
+				<img class="ac-av" src="${esc(av)}" alt="" onerror="${imgErr}" loading="lazy" />
+				<div class="ac-body">
+					<div class="ac-headline">
+						<span class="ac-tier ${tier}">${TIER_EMOJI[tier] || ''} ${tier}</span>
+						<a class="ac-agent" href="/agents/${esc(item.agent_id)}">${esc(item.agent_name)}</a>
+						<span class="ac-verb">${verb}</span>
+						<a class="ac-coin" href="${esc(coinUrl)}" target="_blank" rel="noopener">$${esc((item.symbol || item.mint.slice(0,6)).toUpperCase())}</a>
+					</div>
+					<div class="ac-meta">
+						<span>${ago(item.acted_at)}</span>
+						<span>${sol(item.size_sol)} · conviction${convScore}</span>
+						${item.pump_url ? `<a href="${esc(item.pump_url)}" target="_blank" rel="noopener">pump.fun ↗</a>` : ''}
+						<a href="/oracle?mint=${encodeURIComponent(item.mint)}" target="_blank" rel="noopener">Oracle ↗</a>
+					</div>
+				</div>
+				<div class="ac-right">
+					${pnlStr}
+					<div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
+						${outcomeHtml}
+						${peakHtml}
+						<span class="ac-mode-tag ${isLive ? 'live' : 'sim'}">${isLive ? 'live' : 'sim'}</span>
+					</div>
+					${outcome === 'win' || outcome === 'open'
+						? `<a class="ac-copy-cta" href="/trader/${encodeURIComponent(item.agent_id)}">Copy trades →</a>` : ''}
+				</div>
+			</div>`;
+		}
+
+		function skeletons(n = 5) {
+			return Array.from({length: n}, () => `<div class="ac-skel">
+				<div class="sh sh-av"></div>
+				<div style="flex:1;display:flex;flex-direction:column;gap:8px">
+					<div class="sh" style="width:55%;height:13px"></div>
+					<div class="sh" style="width:80%;height:11px"></div>
+				</div>
+			</div>`).join('');
+		}
+
+		const state = { tier: '', mode: '', cursor: null, loading: false, items: [] };
+		const feed = document.getElementById('ac-feed');
+		const loadMoreBtn = document.getElementById('ac-load-more');
+
+		async function load(reset = false) {
+			if (state.loading) return;
+			state.loading = true;
+			if (reset) { state.items = []; state.cursor = null; feed.innerHTML = skeletons(); }
+
+			const url = new URL(API, location.origin);
+			url.searchParams.set('network', 'mainnet');
+			url.searchParams.set('limit', '40');
+			if (state.tier)   url.searchParams.set('tier',   state.tier);
+			if (state.mode)   url.searchParams.set('mode',   state.mode);
+			if (state.cursor) url.searchParams.set('before', state.cursor);
+
+			try {
+				const r = await fetch(url, { headers: { accept: 'application/json' } });
+				if (!r.ok) throw new Error('HTTP ' + r.status);
+				const data = await r.json();
+				const items = data.items || [];
+
+				if (reset) {
+					state.items = items;
+					if (items.length) {
+						feed.innerHTML = items.map(renderRow).join('');
+					} else {
+						feed.innerHTML = `<div class="ac-empty">
+							<div class="icon">🤖</div>
+							<h3>No agent actions yet</h3>
+							<p>Once an Oracle-armed 3D agent acts on a conviction signal, it appears here. <a href="/oracle" style="color:var(--ac-accent)">Arm your agent →</a></p>
+						</div>`;
+					}
+				} else {
+					state.items.push(...items);
+					feed.insertAdjacentHTML('beforeend', items.map(renderRow).join(''));
+				}
+
+				state.cursor = data.next_before || null;
+				loadMoreBtn.hidden = !state.cursor;
+				loadMoreBtn.disabled = false;
+
+				// KPIs
+				if (data.summary) renderKpis(data.summary);
+
+			} catch (e) {
+				if (reset) {
+					feed.innerHTML = `<div class="ac-empty">
+						<div class="icon">⚠️</div>
+						<h3>Couldn't load activity</h3>
+						<p>${esc(e.message)}</p>
+					</div>`;
+				}
+			} finally {
+				state.loading = false;
+			}
+		}
+
+		function renderKpis(s) {
+			const kpis = document.getElementById('ac-kpis');
+			const pnl = Number(s.total_pnl_sol) || 0;
+			const winRate = s.wins + s.losses > 0 ? Math.round(s.wins / (s.wins + s.losses) * 100) : null;
+			kpis.innerHTML = [
+				['Agents', s.agent_count, ''],
+				['Actions (7d)', s.total, ''],
+				['Wins', s.wins, 'up'],
+				['Win rate', winRate != null ? winRate + '%' : '—', winRate >= 50 ? 'up' : 'dn'],
+				['PnL (7d)', (pnl >= 0 ? '+' : '') + sol(pnl), pnl >= 0 ? 'up' : 'dn'],
+			].map(([l, v, cls]) => `<div class="ac-kpi"><div class="v ${cls}">${v}</div><div class="l">${l}</div></div>`).join('');
+		}
+
+		// ── toolbar wiring ──
+		document.querySelector('.ac-toolbar').addEventListener('click', (e) => {
+			const tierBtn = e.target.closest('[data-tier]');
+			const modeBtn = e.target.closest('[data-mode]');
+			if (tierBtn) {
+				document.querySelectorAll('[data-tier]').forEach(b => b.classList.toggle('is-active', b === tierBtn));
+				state.tier = tierBtn.dataset.tier;
+				load(true);
+			}
+			if (modeBtn) {
+				document.querySelectorAll('[data-mode]').forEach(b => b.classList.toggle('is-active', b === modeBtn));
+				state.mode = modeBtn.dataset.mode;
+				load(true);
+			}
+		});
+
+		loadMoreBtn.addEventListener('click', () => { loadMoreBtn.disabled = true; load(false); });
+
+		// ── boot + auto-refresh ──
+		load(true);
+		const note = document.getElementById('ac-refresh-note');
+		let tick = REFRESH_MS / 1000;
+		const countdown = setInterval(() => {
+			tick--;
+			note.textContent = `Refreshes in ${tick}s`;
+			if (tick <= 0) {
+				tick = REFRESH_MS / 1000;
+				if (!state.cursor && !state.loading) load(true); // only refresh if on first page
+			}
+		}, 1000);
+		document.addEventListener('visibilitychange', () => {
+			if (!document.hidden && !state.cursor && !state.loading) load(true);
+		});
+	</script>
+</body>
+</html>
