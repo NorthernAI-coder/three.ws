@@ -256,6 +256,65 @@ function ambientField() {
 	draw();
 }
 
+// --- Oracle Conviction Rankings -------------------------------------------
+async function loadOracleLeaderboard() {
+	const container = document.getElementById('lb-oracle-rows');
+	if (!container) return;
+	container.innerHTML = [1, 2, 3, 4, 5].map(() => '<span class="lb-oracle-sk"></span>').join('');
+	container.setAttribute('aria-busy', 'true');
+
+	let data;
+	try {
+		const r = await fetch('/api/oracle/leaderboard?network=mainnet&limit=10&min_actions=3');
+		if (!r.ok) throw new Error(`HTTP ${r.status}`);
+		data = await r.json();
+	} catch {
+		container.innerHTML = `<div class="lb-oracle-empty">Could not load conviction rankings — <a href="/oracle">browse Oracle →</a></div>`;
+		container.setAttribute('aria-busy', 'false');
+		return;
+	}
+
+	const agents = data.agents || [];
+	if (agents.length === 0) {
+		container.innerHTML = `<div class="lb-oracle-empty">No agents with enough resolved conviction calls yet. <a href="/oracle">Explore Oracle →</a></div>`;
+		container.setAttribute('aria-busy', 'false');
+		return;
+	}
+
+	container.innerHTML = '';
+	for (const a of agents) {
+		const img = a.image_url
+			? `<img class="lb-avatar" src="${escapeHtml(a.image_url)}" alt="" loading="lazy" onerror="this.remove()" />`
+			: `<span class="lb-avatar">${identicon(a.agent_id)}</span>`;
+		const name = escapeHtml(a.name || a.agent_id.slice(0, 8) + '…');
+		const wr = a.win_rate != null
+			? `<span class="${a.win_rate >= 60 ? 'lb-pos' : a.win_rate >= 40 ? '' : 'lb-neg'}">${a.win_rate}%</span>`
+			: '—';
+		const wl = `${a.wins}W · ${a.losses}L${a.open > 0 ? ` · ${a.open}↗` : ''}`;
+		const pnl = a.realized_pnl_sol != null
+			? `<span class="${pnlClass(a.realized_pnl_sol)}">${fmtSol(a.realized_pnl_sol)}</span>`
+			: '—';
+		const roi = a.roi_pct != null
+			? `<span class="${pnlClass(a.roi_pct)}">${a.roi_pct > 0 ? '+' : ''}${a.roi_pct}%</span>`
+			: '—';
+
+		const row = document.createElement('a');
+		row.className = 'lb-oracle-row';
+		row.href = `/trader/${encodeURIComponent(a.agent_id)}`;
+		row.setAttribute('data-rank', String(a.rank));
+		row.innerHTML = `
+			<span class="lb-rank">${a.rank}</span>
+			<span class="lb-trader">${img}<span class="lb-trader-meta"><span class="lb-trader-name">${name}</span></span></span>
+			<span class="lb-col-num">${wr}</span>
+			<span class="lb-col-num lb-neg" style="font-size:12px;color:var(--ink-dim)">${wl}</span>
+			<span class="lb-col-num lb-hide-sm">${pnl}</span>
+			<span class="lb-col-num lb-hide-sm">${roi}</span>
+		`;
+		container.appendChild(row);
+	}
+	container.setAttribute('aria-busy', 'false');
+}
+
 // --- Boot --------------------------------------------------------------------
 readUrl();
 syncControlsToState();
@@ -263,3 +322,4 @@ wireControls();
 ambientField();
 load();
 startTimer();
+loadOracleLeaderboard();

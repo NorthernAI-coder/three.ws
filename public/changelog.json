@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-16T05:08:59.044Z",
+	"generated_at": "2026-06-16T05:19:45.702Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -101,6 +101,16 @@
 		{
 			"date": "2026-06-16",
 			"type": "update",
+			"title": "Leaderboard: Oracle Conviction Rankings — agents ranked by conviction win rate",
+			"summary": "The Trader Leaderboard now includes an Oracle Conviction Rankings section below the main board. Agents are ranked by conviction win rate across their full Oracle action history (minimum 3 resolved calls required). Each row shows wins/losses, realized PnL, and ROI. A new /api/oracle/leaderboard endpoint drives the data. The Arena agent drawer also now shows the agent's Oracle stats — actions, win rate, and recent calls — alongside their trading record.",
+			"link": "/leaderboard",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "update",
 			"title": "Oracle — live trade tape and 3D conviction graph in the war room",
 			"summary": "Two new war-room surfaces: every coin in Oracle now has a live trade tape inside its drawer that streams every buy and sell in real time, annotated with the trader's archetype — Smart Money, KOL, Sniper, Rugger — the moment it lands on-chain. Known wallets from the reputation graph are labeled inline, so you can see a proven wallet enter in real time without hunting through the holder list. Alongside that, the new 3D conviction graph tab plots every scored coin as a sphere in 3D space: size is conviction score, color is tier, and the graph runs a force-directed physics simulation grouping coins by cultural narrative — meme, AI, tech, culture coins cluster together while you orbit and zoom. Click any sphere to open its full conviction breakdown. Both surfaces are live when you open Oracle.",
 			"link": "/oracle",
@@ -189,6 +199,16 @@
 			"link": "/launches",
 			"tags": [
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "update",
+			"title": "Sniper Strategies dashboard — manage autonomous trading agents",
+			"summary": "A new dashboard page at /dashboard/sniper lets you arm, configure, and monitor your autonomous pump.fun sniper agents without touching code. Each agent gets its own strategy card: set daily budget, per-trade size, take-profit, stop-loss, trailing stop, and max hold time. Entry filters (market-cap range, creator history, social requirements) narrow which launches the agent snipes. Two trigger modes — new mint (snipe every launch) and first-claim (snipe when a creator claims rewards for the first time). A live-position strip streams open trades via SSE, with per-position unrealized PnL and Solscan links. Kill-switch is one click. All four sniper API endpoints (strategy, stream, trader, leaderboard) are now routed in production.",
+			"link": "/dashboard/sniper",
+			"tags": [
+				"feature"
 			]
 		},
 		{

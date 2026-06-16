@@ -441,11 +441,118 @@
 .lb-btn-primary { background: var(--accent); color: var(--btn-primary-fg); border-color: transparent; }
 .lb-btn:focus-visible { outline: var(--focus-ring-width) solid var(--focus-ring-color); outline-offset: var(--focus-ring-offset); }
 
+/* ---- Oracle Conviction Rankings ---- */
+.lb-oracle-section {
+	margin: var(--space-2xl) 0 var(--space-xl);
+	border: 1px solid var(--stroke);
+	border-radius: var(--radius-xl);
+	overflow: hidden;
+	background: var(--surface-1);
+}
+.lb-oracle-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--space-md);
+	padding: var(--space-lg) var(--space-lg) 0;
+}
+.lb-oracle-title-row {
+	display: flex;
+	align-items: center;
+	gap: var(--space-sm);
+}
+.lb-oracle-icon {
+	font-size: 20px;
+	color: var(--accent);
+}
+.lb-oracle-title {
+	font-size: var(--text-lg);
+	font-weight: 700;
+	letter-spacing: -0.01em;
+}
+.lb-oracle-badge {
+	font-size: 10.5px;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: .06em;
+	color: var(--ink-dim);
+	padding: 3px 9px;
+	border-radius: var(--radius-pill);
+	background: var(--surface-2);
+	border: 1px solid var(--stroke);
+}
+.lb-oracle-link {
+	font-size: 13px;
+	color: var(--accent);
+	text-decoration: none;
+	white-space: nowrap;
+	flex-shrink: 0;
+}
+.lb-oracle-link:hover { text-decoration: underline; }
+.lb-oracle-sub {
+	font-size: 13px;
+	color: var(--ink-dim);
+	padding: var(--space-xs) var(--space-lg) var(--space-md);
+	line-height: 1.5;
+}
+.lb-oracle-board-wrap {
+	border-top: 1px solid var(--stroke);
+}
+.lb-oracle-board-head {
+	display: grid;
+	grid-template-columns: 36px minmax(0, 2.4fr) 0.9fr 0.8fr 1.1fr 0.8fr;
+	align-items: center;
+	gap: var(--space-xs);
+	padding: var(--space-sm) var(--space-md);
+	font-size: var(--text-2xs);
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
+	color: var(--ink-faint);
+	background: var(--surface-2);
+	border-bottom: 1px solid var(--stroke);
+}
+.lb-oracle-rows { display: flex; flex-direction: column; }
+.lb-oracle-row {
+	display: grid;
+	grid-template-columns: 36px minmax(0, 2.4fr) 0.9fr 0.8fr 1.1fr 0.8fr;
+	align-items: center;
+	gap: var(--space-xs);
+	padding: var(--space-sm) var(--space-md);
+	border-bottom: 1px solid var(--hairline);
+	text-decoration: none;
+	color: inherit;
+	transition: background var(--duration-fast) var(--ease-standard);
+}
+.lb-oracle-row:last-child { border-bottom: 0; }
+.lb-oracle-row:hover { background: var(--surface-2); }
+.lb-oracle-row .lb-rank { color: var(--ink-faint); font: 600 13px/1 var(--font-mono); }
+.lb-oracle-row[data-rank='1'] .lb-rank { color: #fcd34d; }
+.lb-oracle-row[data-rank='2'] .lb-rank { color: #d4d4d8; }
+.lb-oracle-row[data-rank='3'] .lb-rank { color: #d8a06a; }
+.lb-oracle-row .lb-col-num { text-align: right; font-variant-numeric: tabular-nums; font: 600 13.5px/1 var(--font-mono); }
+.lb-oracle-empty {
+	padding: var(--space-xl) var(--space-md);
+	text-align: center;
+	color: var(--ink-dim);
+	font-size: 13px;
+}
+.lb-oracle-empty a { color: var(--accent); }
+.lb-oracle-sk {
+	display: block;
+	height: 44px;
+	border-bottom: 1px solid var(--hairline);
+	background: linear-gradient(90deg, var(--surface-2) 25%, var(--surface-1) 37%, var(--surface-2) 63%);
+	background-size: 400% 100%;
+	animation: lb-shimmer 1.4s infinite;
+}
+
 /* ---- Responsive ---- */
 @media (max-width: 880px) {
 	.lb-hide-md { display: none !important; }
 	.lb-board-head,
 	.lb-row { grid-template-columns: 30px minmax(0, 2.2fr) 0.9fr 1.1fr 0.9fr 0.8fr 0.8fr 88px; }
+	.lb-oracle-board-head,
+	.lb-oracle-row { grid-template-columns: 30px minmax(0, 2.2fr) 0.9fr 0.8fr 1.1fr 0.8fr; }
 }
 @media (max-width: 620px) {
 	.lb-shell { padding: var(--space-lg) var(--space-sm) var(--space-xl); }
@@ -456,6 +563,9 @@
 	.lb-board-head,
 	.lb-row { grid-template-columns: 26px minmax(0, 1.7fr) 0.8fr 1fr 70px; }
 	.lb-avatar { width: 32px; height: 32px; }
+	.lb-oracle-board-head,
+	.lb-oracle-row { grid-template-columns: 26px minmax(0, 1.7fr) 0.9fr 0.8fr; }
+	.lb-oracle-head { flex-direction: column; align-items: flex-start; gap: var(--space-xs); padding-bottom: var(--space-xs); }
 }
 
 @media (prefers-reduced-motion: reduce) {
