@@ -125,6 +125,10 @@
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 30
 		},
+		"api/pump/smart-money.js": {
+			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
+			"maxDuration": 30
+		},
 		"api/**/*.js": {
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 30
@@ -1698,6 +1702,10 @@
 		{
 			"src": "/api/pump/coin-intel",
 			"dest": "/api/pump/coin-intel.js"
+		},
+		{
+			"src": "/api/pump/smart-money",
+			"dest": "/api/pump/smart-money.js"
 		},
 		{
 			"src": "/api/pump/build-metadata",
