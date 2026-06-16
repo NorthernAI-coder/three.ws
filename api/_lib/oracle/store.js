@@ -331,11 +331,16 @@ export async function purgeOldHistory(network = 'mainnet') {
 
 export async function recentActions(agentId, network = 'mainnet', limit = 50) {
 	return sql`
-		select mint, symbol, conviction, tier, mode, size_sol, status, reason,
-		       tx_signature, peak_multiple, realized_pnl_sol, outcome, acted_at
-		from oracle_watch_actions
-		where agent_id = ${agentId} and network = ${network}
-		order by acted_at desc limit ${Math.min(100, Math.max(1, limit))}
+		select a.mint, a.symbol, a.conviction, a.tier, a.mode, a.size_sol, a.status, a.reason,
+		       a.tx_signature, a.peak_multiple, a.realized_pnl_sol, a.outcome, a.acted_at,
+		       oc.score  as current_score,
+		       oc.tier   as current_tier
+		from oracle_watch_actions a
+		left join oracle_conviction oc
+		       on oc.mint = a.mint and oc.network = a.network
+		      and (a.outcome is null or a.outcome = 'open')
+		where a.agent_id = ${agentId} and a.network = ${network}
+		order by a.acted_at desc limit ${Math.min(100, Math.max(1, limit))}
 	`.catch(() => []);
 }
 
