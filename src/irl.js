@@ -890,6 +890,26 @@ document.getElementById('irl-sheet-close')?.addEventListener('click', () => {
 	document.getElementById('irl-sheet')?.classList.remove('is-open');
 });
 
+document.getElementById('irl-sheet-view')?.addEventListener('click', () => {
+	const sheet = document.getElementById('irl-sheet');
+	const name  = document.getElementById('irl-sheet-name')?.textContent || '';
+	sheet?.classList.remove('is-open');
+	window.open(`/walk?agent=${encodeURIComponent(name)}`, '_blank', 'noopener');
+});
+
+document.getElementById('irl-sheet-pay')?.addEventListener('click', async (e) => {
+	const endpoint = e.currentTarget.dataset.endpoint;
+	if (!endpoint) return;
+	try {
+		const r = await fetch(endpoint, { method: 'POST' });
+		if (r.status === 402) {
+			setStatus('Payment required — x402 support coming soon', { error: true });
+		} else if (r.ok) {
+			setStatus('Payment sent');
+		}
+	} catch { setStatus('Payment failed', { error: true }); }
+});
+
 // ── Label 3D→2D projection (called each frame) ───────────────────────────
 const _lblVec = new Vector3();
 function updateLabels() {

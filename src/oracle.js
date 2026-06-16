@@ -125,14 +125,14 @@ function boot() {
 	$('#tierSeg').addEventListener('click', (e) => {
 		const b = e.target.closest('button'); if (!b) return;
 		$$('#tierSeg button').forEach((x) => x.classList.toggle('on', x === b));
-		state.tier = b.dataset.tier; loadFeed();
+		state.tier = b.dataset.tier; syncFilterUrl(); loadFeed();
 	});
-	$('#catSel').addEventListener('change', (e) => { state.category = e.target.value; loadFeed(); });
-	$('#minSel').addEventListener('change', (e) => { state.minScore = Number(e.target.value) || 0; loadFeed(); });
+	$('#catSel').addEventListener('change', (e) => { state.category = e.target.value; syncFilterUrl(); loadFeed(); });
+	$('#minSel').addEventListener('change', (e) => { state.minScore = Number(e.target.value) || 0; syncFilterUrl(); loadFeed(); });
 	$('#sortSeg').addEventListener('click', (e) => {
 		const b = e.target.closest('[data-fsort]'); if (!b) return;
 		$$('#sortSeg button').forEach((x) => x.classList.toggle('on', x === b));
-		state.sort = b.dataset.fsort; renderFeed();
+		state.sort = b.dataset.fsort; syncFilterUrl(); renderFeed();
 	});
 	const MINT_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 	const searchEl = $('#mintSearch');
@@ -231,14 +231,39 @@ function boot() {
 	$$('#drawer [data-close]').forEach((el) => el.addEventListener('click', closeDrawer));
 	document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeDrawer(); });
 
+	// Read initial filter state from URL — enables shareable filter links.
+	const qs = new URLSearchParams(location.search);
+	const VALID_TIERS = new Set(['prime', 'strong', 'lean', 'watch', 'avoid']);
+	const VALID_SORTS = new Set(['score', 'hot', 'new']);
+	const VALID_CATS = new Set(CATEGORIES);
+
+	const qTier     = qs.get('tier') || '';
+	const qCategory = qs.get('category') || '';
+	const qMinScore = Math.max(0, Math.min(100, Number(qs.get('min_score')) || 0));
+	const qSort     = qs.get('sort') || 'score';
+
+	if (VALID_TIERS.has(qTier))    { state.tier     = qTier;     const b = $(`#tierSeg [data-tier="${qTier}"]`); if (b) { $$('#tierSeg button').forEach((x) => x.classList.toggle('on', x === b)); } }
+	if (VALID_CATS.has(qCategory)) { state.category  = qCategory; const s = $('#catSel'); if (s) s.value = qCategory; }
+	if (qMinScore)                 { state.minScore  = qMinScore; const s = $('#minSel'); if (s) s.value = String(qMinScore); }
+	if (VALID_SORTS.has(qSort) && qSort !== 'score') { state.sort = qSort; const b = $(`#sortSeg [data-fsort="${qSort}"]`); if (b) { $$('#sortSeg button').forEach((x) => x.classList.toggle('on', x === b)); } }
+
 	loadFeed();
 	openStream();
 
 	// If the page was opened with ?mint= (e.g. from a shared link or Telegram alert),
 	// open that coin's drawer immediately after the feed loads.
-	const initialMint = new URLSearchParams(location.search).get('mint');
 	const MINT_RE2 = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+	const initialMint = qs.get('mint');
 	if (initialMint && MINT_RE2.test(initialMint)) openCoin(initialMint);
+}
+
+function syncFilterUrl() {
+	const url = new URL(location.href);
+	if (state.tier)     url.searchParams.set('tier', state.tier); else url.searchParams.delete('tier');
+	if (state.category) url.searchParams.set('category', state.category); else url.searchParams.delete('category');
+	if (state.minScore) url.searchParams.set('min_score', String(state.minScore)); else url.searchParams.delete('min_score');
+	if (state.sort && state.sort !== 'score') url.searchParams.set('sort', state.sort); else url.searchParams.delete('sort');
+	history.replaceState(null, '', url.toString());
 }
 
 function switchView(view) {
