@@ -9,10 +9,15 @@ import { sql } from '../../api/_lib/db.js';
 import { log } from './log.js';
 import { evaluateWatch } from '../../api/_lib/oracle/agent-eval.js';
 import { executeAction, agentBudget } from './executor.js';
-import { alertAgentEntry, alertPersonalEntry, alertPersonalSignal } from '../../api/_lib/oracle/alerts.js';
+import { alertAgentEntry, alertPersonalEntry, alertPersonalSignal, alertPersonalConvictionDrop } from '../../api/_lib/oracle/alerts.js';
 
 // Module cursor — only consider verdicts scored since the last pass.
 let cursor = new Date(Date.now() - 60_000).toISOString();
+
+// In-memory dedup for conviction-drop alerts: Set of "agentId:mint" pairs alerted
+// in this process lifetime. Prevents spam when the same coin stays below threshold
+// across multiple score passes.
+const _dropAlerted = new Set();
 
 async function armedWatches(network) {
 	return sql`
@@ -44,6 +49,31 @@ export async function freshlyScored(network, sinceIso, limit = 60) {
 	}));
 }
 
+/**
+ * Find open agent positions that have been re-scored in this pass and whose
+ * new conviction has dropped significantly (≥5 pts below entry conviction)
+ * AND is now below the agent's min_score. Returns one row per (agent_id, mint).
+ * Used for personal conviction-drop exit warnings.
+ */
+async function droppedConvictionPositions(network, mints) {
+	if (!mints.length) return [];
+	return sql`
+		select a.agent_id, a.mint, a.conviction as entry_conviction,
+		       oc.score as new_score, oc.tier as new_tier, oc.symbol,
+		       w.min_score, w.telegram_chat_id
+		from oracle_watch_actions a
+		join oracle_conviction oc on oc.mint = a.mint and oc.network = a.network
+		join oracle_agent_watch w on w.agent_id = a.agent_id and w.network = a.network
+		where a.network = ${network}
+		  and a.mint = any(${mints}::text[])
+		  and (a.outcome is null or a.outcome = 'open')
+		  and w.armed = true
+		  and w.telegram_chat_id is not null
+		  and oc.score < w.min_score
+		  and (a.conviction::numeric - oc.score::numeric) >= 5
+	`.catch((e) => { log.warn('droppedConvictionPositions query failed:', e.message); return []; });
+}
+
 async function alreadyActed(agentId, mint, network) {
 	const r = await sql`
 		select 1 from oracle_watch_actions
@@ -62,6 +92,23 @@ export async function actOnFreshCoins(cfg, coins) {
 	if (cfg.globalKill || !coins.length) return 0;
 	const watches = await armedWatches(cfg.network);
 	if (!watches.length) return 0;
+
+	// Conviction-drop exit warnings — batch, one query for all fresh mints.
+	const freshMints = coins.map((c) => c.mint);
+	const drops = await droppedConvictionPositions(cfg.network, freshMints);
+	for (const d of drops) {
+		const key = `${d.agent_id}:${d.mint}`;
+		if (_dropAlerted.has(key)) continue;
+		_dropAlerted.add(key);
+		alertPersonalConvictionDrop(d.telegram_chat_id, {
+			symbol:       d.symbol,
+			mint:         d.mint,
+			newScore:     Number(d.new_score),
+			newTier:      d.new_tier,
+			entryScore:   Number(d.entry_conviction),
+			minScore:     Number(d.min_score),
+		}).catch(() => {});
+	}
 
 	let acted = 0;
 	const liveEntries = [];
