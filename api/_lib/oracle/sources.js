@@ -14,6 +14,7 @@
 //   pump_coin_outcomes — ground-truth outcome (for the conviction backtest)
 
 import { sql } from '../db.js';
+import { knownWallet, knownIsProven } from './known-wallets.js';
 
 const LAMPORTS = 1e9;
 const n = (v) => (v == null ? null : Number(v));
@@ -57,7 +58,7 @@ export async function assembleIntel(mint, network = 'mainnet') {
 	`);
 	if (!coin) return null;
 
-	const [smart, narr] = await Promise.all([
+	const [smart, narr, topBuyers] = await Promise.all([
 		tryRow(() => sql`
 			select smart_money_score, smart_wallet_count, proven_buy_lamports, total_buy_lamports, notable
 			from coin_smart_money where mint = ${mint} and network = ${network} limit 1
@@ -66,9 +67,56 @@ export async function assembleIntel(mint, network = 'mainnet') {
 			select category, narrative, virality, confidence
 			from oracle_narrative where mint = ${mint} and network = ${network} limit 1
 		`),
+		tryRows(() => sql`
+			select wallet, buy_lamports, is_creator
+			from pump_coin_wallets where mint = ${mint}
+			order by buy_lamports desc limit 25
+		`),
 	]);
 
-	return toCoinIntel({ coin, smart, narr });
+	const intel = toCoinIntel({ coin, smart, narr });
+	enrichWithKnownWallets(intel, topBuyers);
+	return intel;
+}
+
+/**
+ * Fold the known-wallet prior into a coin's pedigree. For each top buyer that's
+ * a known smart-money/KOL/sniper wallet (gmgn seed), ensure it's in `notable`
+ * with its known label + a synthetic score, and recount proven wallets. This is
+ * what gives a brand-new launch real pedigree signal before the brain has
+ * judged its buyers. Mutates `intel.smartMoney` in place.
+ *
+ * @param {object} intel  normalized CoinIntel
+ * @param {Array<{wallet:string, buy_lamports:any}>} topBuyers
+ */
+export function enrichWithKnownWallets(intel, topBuyers = []) {
+	const sm = intel.smartMoney || (intel.smartMoney = { notable: [] });
+	const notable = Array.isArray(sm.notable) ? sm.notable : (sm.notable = []);
+	const byWallet = new Map(notable.map((w) => [w.wallet, w]));
+
+	for (const b of topBuyers) {
+		const known = knownWallet(b.wallet);
+		if (!known) continue;
+		const buySol = Number(b.buy_lamports || 0) / LAMPORTS;
+		const existing = byWallet.get(b.wallet);
+		if (existing) {
+			// Only upgrade an unlabeled/weaker brain entry with the known prior.
+			if (!existing.label || existing.label === 'unproven') {
+				existing.label = known.label;
+				existing.score = existing.score || known.score;
+				existing.source = 'gmgn';
+				existing.tag = existing.tag || known.tag;
+			}
+		} else {
+			const entry = { wallet: b.wallet, label: known.label, score: known.score, buy_sol: buySol, source: 'gmgn', tag: known.tag };
+			notable.push(entry);
+			byWallet.set(b.wallet, entry);
+		}
+	}
+
+	// Recount proven wallets across brain + prior so the pedigree pillar sees them.
+	const provenCount = notable.filter((w) => knownIsProven(w.label) || Number(w.score) >= 70).length;
+	if (provenCount > (Number(sm.smartWalletCount) || 0)) sm.smartWalletCount = provenCount;
 }
 
 /**

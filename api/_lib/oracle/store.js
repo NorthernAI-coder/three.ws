@@ -9,6 +9,7 @@ import { assembleIntel, walletProfile, coinOutcome } from './sources.js';
 import { classifyNarrative } from './narrative.js';
 import { convict } from './conviction.js';
 import { summarizeActions } from './settle.js';
+import { knownWallet } from './known-wallets.js';
 
 /** Persist a narrative classification. */
 export async function upsertNarrative(mint, network, narr) {
@@ -170,17 +171,25 @@ export async function readCoin(mint, network = 'mainnet') {
 		structure_cap: cached?.structure_cap ?? null,
 		narrative: narr,
 		outcome,
-		whos_in: whosIn.map((w) => ({
-			wallet: w.wallet,
-			label: w.label || 'unproven',
-			score: w.smart_money_score != null ? Number(w.smart_money_score) : null,
-			win_rate: w.win_rate != null ? Number(w.win_rate) : null,
-			early_win_rate: w.early_win_rate != null ? Number(w.early_win_rate) : null,
-			buy_sol: Number(w.buy_lamports || 0) / 1e9,
-			sell_sol: Number(w.sell_lamports || 0) / 1e9,
-			is_creator: w.is_creator,
-			funder: w.funder,
-		})),
+		whos_in: whosIn.map((w) => {
+			const brainLabel = w.label && w.label !== 'unproven' ? w.label : null;
+			const known = brainLabel ? null : knownWallet(w.wallet);
+			return {
+				wallet: w.wallet,
+				// Brain reputation wins; the known-wallet prior fills the gap for
+				// wallets the brain hasn't judged yet.
+				label: brainLabel || known?.label || 'unproven',
+				score: w.smart_money_score != null ? Number(w.smart_money_score) : (known?.score ?? null),
+				win_rate: w.win_rate != null ? Number(w.win_rate) : null,
+				early_win_rate: w.early_win_rate != null ? Number(w.early_win_rate) : null,
+				source: brainLabel ? 'brain' : (known ? 'gmgn' : null),
+				tag: known?.tag || null,
+				buy_sol: Number(w.buy_lamports || 0) / 1e9,
+				sell_sol: Number(w.sell_lamports || 0) / 1e9,
+				is_creator: w.is_creator,
+				funder: w.funder,
+			};
+		}),
 	};
 }
 
