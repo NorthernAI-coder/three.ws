@@ -127,6 +127,13 @@ export const NAV_GROUPS = [
 				desc: 'Which wallets actually win — and what the proven money is buying now',
 			},
 			{
+				title: 'Oracle',
+				href: '/oracle',
+				badge: 'New',
+				badgeTone: 'live',
+				desc: 'One fused conviction score per launch — and arm your agent to act on it',
+			},
+			{
 				title: '3D Visualizer',
 				href: '/pump-visualizer',
 				desc: 'Trending tokens in 3D',

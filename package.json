@@ -135,6 +135,7 @@
     "validate:cards": "node scripts/validate-agent-cards.mjs",
     "db:migrate": "node scripts/apply-migrations.mjs --apply",
     "db:status": "node scripts/apply-migrations.mjs",
+    "worker:oracle": "node workers/oracle/index.js",
     "pump:smoke": "node scripts/pumpfun-lifecycle-smoke.js",
     "pump:refresh-idls": "node scripts/refresh-pump-idls.mjs",
     "seed:skills": "node scripts/seed-skills.js",

@@ -519,6 +519,27 @@ body {
 	transform: none;
 }
 
+/* Whole-card link to the coin's rich profile. Sits above the cursor-light
+   layer but below the genuinely-interactive children (agent chip, external
+   actions), which are raised in turn so they keep their own click targets. */
+.lx-card-link {
+	position: absolute;
+	inset: 0;
+	z-index: 1;
+	border-radius: inherit;
+	cursor: pointer;
+}
+.lx-card-link:focus-visible {
+	outline: var(--focus-ring-width) solid var(--focus-ring-color);
+	outline-offset: -2px;
+}
+.lx-card .lx-agent-row,
+.lx-card .lx-card-actions,
+.lx-card .lx-mint {
+	position: relative;
+	z-index: 2;
+}
+
 .lx-card::before {
 	content: '';
 	position: absolute;

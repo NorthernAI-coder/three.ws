@@ -1,0 +1,31 @@
+// Oracle worker — config. Validated once at boot; live mode demands the secrets
+// needed to load agent wallets and sign, so a misconfigured live deploy fails
+// loud instead of silently never trading.
+
+import { env } from '../../api/_lib/env.js';
+
+const num = (v, d) => (Number.isFinite(Number(v)) ? Number(v) : d);
+
+export function loadConfig() {
+	const mode = (process.env.ORACLE_MODE || 'simulate').toLowerCase() === 'live' ? 'live' : 'simulate';
+	const network = (process.env.ORACLE_NETWORK || 'mainnet').toLowerCase() === 'devnet' ? 'devnet' : 'mainnet';
+
+	const cfg = {
+		mode,
+		network,
+		globalKill: process.env.ORACLE_GLOBAL_KILL === '1',
+		scoreIntervalMs: num(process.env.ORACLE_SCORE_INTERVAL_MS, 15_000),
+		agentIntervalMs: num(process.env.ORACLE_AGENT_INTERVAL_MS, 3_000),
+		scoreBatch: num(process.env.ORACLE_SCORE_BATCH, 20),
+		rescoreAfterSec: num(process.env.ORACLE_RESCORE_AFTER_SEC, 180),
+		// Hard ceiling on any single live action, regardless of a watch's config —
+		// a server-side backstop the owner UI can't exceed.
+		maxTradeSolHardCap: num(process.env.ORACLE_MAX_TRADE_SOL, 0.25),
+	};
+
+	if (!env.DATABASE_URL) throw new Error('[oracle] DATABASE_URL is required');
+	if (cfg.mode === 'live' && !env.JWT_SECRET) {
+		throw new Error('[oracle] live mode requires JWT_SECRET (to decrypt agent wallets)');
+	}
+	return cfg;
+}
