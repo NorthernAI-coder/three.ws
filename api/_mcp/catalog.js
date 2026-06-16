@@ -12,6 +12,7 @@ import { toolDefs as animationDefs } from './tools/animations.js';
 import { toolDefs as memoryDefs } from './tools/memory.js';
 import { toolDefs as embedDefs } from './tools/embed.js';
 import { toolDefs as oracleDefs } from './tools/oracle.js';
+import { toolDefs as traderDefs } from './tools/trader.js';
 
 const baseDefs = [
 	...avatarDefs,
@@ -23,6 +24,7 @@ const baseDefs = [
 	...agentDefs,
 	...memoryDefs,
 	...oracleDefs,
+	...traderDefs,
 ];
 
 // Free, public entry point — listed first so discovery clients see it up top.
@@ -34,7 +36,7 @@ const gettingStarted = {
 	...buildGettingStartedTool({
 		server: 'three.ws',
 		tagline:
-			'The main three.ws MCP server: render and manage 3D avatars and models, animations, an agent registry, agent memory, live pump.fun market data, and Oracle conviction signals.',
+			'The main three.ws MCP server: render and manage 3D avatars and models, animations, an agent registry, agent memory, live pump.fun market data, Oracle conviction signals, and the trader leaderboard + copy-trading system.',
 		tools: baseDefs,
 		priceFor,
 		access: [
