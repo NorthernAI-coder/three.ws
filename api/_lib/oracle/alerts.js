@@ -261,6 +261,35 @@ export async function alertPersonalSignal(chatId, coin, minScore) {
 	await sendTo(chatId, text);
 }
 
+/**
+ * Fire a personal conviction-drop warning when a coin's score falls
+ * significantly below the subscriber's entry conviction AND below their
+ * min_score threshold. Signals that the thesis for an open position is
+ * weakening — the subscriber should reassess.
+ *
+ * @param {string} chatId
+ * @param {{ symbol:string, mint:string, newScore:number, newTier:string, entryScore:number, minScore:number }} drop
+ */
+export async function alertPersonalConvictionDrop(chatId, drop) {
+	const token = process.env.TELEGRAM_BOT_TOKEN;
+	if (!token || !chatId) return;
+
+	const sym     = escHtml((drop.symbol || drop.mint.slice(0, 6)).toUpperCase());
+	const newTier = escHtml(drop.newTier || 'unknown');
+	const emoji   = TIER_EMOJI[drop.newTier] || '⚪';
+	const delta   = Math.round(drop.entryScore - drop.newScore);
+	const mintLink = encodeURIComponent(drop.mint);
+
+	const text = [
+		`⚠️ <b>$${sym}</b> conviction weakened`,
+		`${emoji} ${newTier} · score <b>${drop.newScore}</b>  (was ${drop.entryScore} at entry,  −${delta} pts)`,
+		`Below your threshold of ${drop.minScore} — consider reviewing your position.`,
+		`<a href="https://pump.fun/coin/${mintLink}">pump.fun</a>  ·  <a href="https://three.ws/oracle?mint=${mintLink}">Oracle ↗</a>`,
+	].join('\n');
+
+	await sendTo(chatId, text);
+}
+
 /** Send to a specific chat ID (not the platform channel). */
 async function sendTo(chatId, text) {
 	const token = process.env.TELEGRAM_BOT_TOKEN;
