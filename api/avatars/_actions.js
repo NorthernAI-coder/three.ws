@@ -308,6 +308,7 @@ const handlePublic = wrap(async (req, res) => {
 		result = await searchPublicAvatars({
 			q: url.searchParams.get('q') || undefined,
 			tag: url.searchParams.get('tag') || undefined,
+			category: url.searchParams.get('category') || undefined,
 			limit,
 			cursor: url.searchParams.get('cursor') || undefined,
 			withTotals: url.searchParams.get('totals') === '1',

@@ -11036,3 +11036,29 @@ a.pill--devnet:hover {
 	.screenshot-modal-backdrop,
 	.screenshot-modal { animation: none; }
 }
+
+/* ── Avatar-edit: equip-from-gallery toast ──────────────────── */
+.ae-equip-toast {
+	position: fixed;
+	bottom: 1.25rem;
+	left: 50%;
+	transform: translateX(-50%) translateY(0.75rem);
+	background: var(--tws-accent, #9b5dff);
+	color: #fff;
+	padding: 0.6rem 1.2rem;
+	border-radius: 999px;
+	font-size: 0.88rem;
+	font-weight: 500;
+	box-shadow: 0 4px 20px rgba(155, 93, 255, 0.35);
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity 0.25s, transform 0.25s;
+	z-index: 9900;
+	white-space: nowrap;
+	max-width: calc(100vw - 2rem);
+	text-align: center;
+}
+.ae-equip-toast.is-visible {
+	opacity: 1;
+	transform: translateX(-50%) translateY(0);
+}

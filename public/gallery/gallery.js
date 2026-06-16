@@ -2,20 +2,23 @@
  * /gallery — public avatar gallery.
  *
  * Lists every avatar with visibility=public on three.ws via GET /api/avatars/public.
- * Supports debounced search (?q=), tag filter (?tag=), infinite scroll via cursor
- * pagination, and URL state sync so deep links restore filters.
+ * Supports debounced search (?q=), category filter (?category=), tag filter (?tag=),
+ * infinite scroll via cursor pagination, and URL state sync so deep links restore filters.
  *
  * Card actions:
  *   • Preview  → /app#model=<glb-url>  (opens in the main viewer)
  *   • Studio   → /studio?avatar=<id>   (preselect in widget studio)
  *   • Details  → /avatars/<id> (avatar studio page)
  *   • Embed    → /api/avatars/view tracker fires when the link is followed
+ *   • Equip    → /avatars/:id/edit?equip-glb=… (accessory category only)
  */
 
 const els = {
 	search: document.querySelector('[data-role="search"]'),
 	searchClear: document.querySelector('[data-role="search-clear"]'),
 	sort: document.querySelector('[data-role="sort"]'),
+	catWrap: document.querySelector('[data-role="cat-wrap"]'),
+	cats: document.querySelector('[data-role="cats"]'),
 	tagWrap: document.querySelector('[data-role="tag-wrap"]'),
 	tags: document.querySelector('[data-role="tags"]'),
 	grid: document.querySelector('[data-role="grid"]'),
@@ -31,6 +34,7 @@ const initialParams = new URLSearchParams(location.search);
 const state = {
 	query: initialParams.get('q') || '',
 	tag: initialParams.get('tag') || '',
+	category: initialParams.get('category') || '',
 	sortBy: initialParams.get('sort') || 'newest',
 	cursor: null,
 	loading: false,
@@ -58,6 +62,7 @@ function updateSearchClearVisibility() {
 function syncUrl() {
 	const p = new URLSearchParams();
 	if (state.query) p.set('q', state.query);
+	if (state.category) p.set('category', state.category);
 	if (state.tag) p.set('tag', state.tag);
 	if (state.sortBy !== 'newest') p.set('sort', state.sortBy);
 	const qs = p.toString();
@@ -107,6 +112,16 @@ els.tags.addEventListener('click', (e) => {
 	resetAndLoad();
 });
 
+els.cats?.addEventListener('click', (e) => {
+	const btn = e.target.closest('[data-cat]');
+	if (!btn) return;
+	const cat = btn.dataset.cat === state.category ? '' : btn.dataset.cat;
+	state.category = cat;
+	renderCats();
+	syncUrl();
+	resetAndLoad();
+});
+
 els.loadMore.addEventListener('click', () => loadPage());
 
 els.status.addEventListener('click', (e) => {
@@ -114,15 +129,28 @@ els.status.addEventListener('click', (e) => {
 });
 
 els.grid.addEventListener('click', (e) => {
-	const btn = e.target.closest('[data-role="card-embed"]');
-	if (!btn) return;
-	e.preventDefault();
-	e.stopPropagation();
-	openAvatarEmbedModal({
-		avatarId: btn.dataset.avatarId,
-		glbUrl: btn.dataset.glbUrl,
-		name: btn.dataset.name,
-	});
+	const embedBtn = e.target.closest('[data-role="card-embed"]');
+	if (embedBtn) {
+		e.preventDefault();
+		e.stopPropagation();
+		openAvatarEmbedModal({
+			avatarId: embedBtn.dataset.avatarId,
+			glbUrl: embedBtn.dataset.glbUrl,
+			name: embedBtn.dataset.name,
+		});
+		return;
+	}
+	const equipBtn = e.target.closest('[data-role="card-equip"]');
+	if (equipBtn) {
+		e.preventDefault();
+		e.stopPropagation();
+		openEquipModal({
+			accessoryId: equipBtn.dataset.avatarId,
+			glbUrl: equipBtn.dataset.glbUrl,
+			name: equipBtn.dataset.name,
+			thumb: equipBtn.dataset.thumb,
+		});
+	}
 });
 
 // IntersectionObserver-based infinite scroll. Falls back to the manual
@@ -143,11 +171,13 @@ if ('IntersectionObserver' in window) {
 function clearAllFilters() {
 	state.query = '';
 	state.tag = '';
+	state.category = '';
 	state.sortBy = 'newest';
 	els.search.value = '';
 	if (els.sort) els.sort.value = 'newest';
 	updateSearchClearVisibility();
 	renderTags();
+	renderCats();
 	syncUrl();
 	resetAndLoad();
 }
@@ -198,6 +228,7 @@ async function loadPage() {
 
 	const params = new URLSearchParams();
 	if (state.query) params.set('q', state.query);
+	if (state.category) params.set('category', state.category);
 	if (state.tag) params.set('tag', state.tag);
 	if (state.cursor) params.set('cursor', state.cursor);
 	params.set('limit', '24');
@@ -231,12 +262,13 @@ async function loadPage() {
 
 		updateStats();
 		renderTags();
+		if (isFirstPage) renderCats();
 
 		state.cursor = data.next_cursor || null;
 		els.loadMore.hidden = !state.cursor;
 
 		if (els.grid.children.length === 0) {
-			const filtersActive = !!state.query || !!state.tag;
+			const filtersActive = !!state.query || !!state.tag || !!state.category;
 			els.status.innerHTML = filtersActive
 				? `<div class="gallery-empty">
 						<div class="gallery-empty-art">🔍</div>
@@ -283,6 +315,27 @@ function renderTags() {
 				`<button type="button" class="gallery-tag${
 					t === state.tag ? ' is-active' : ''
 				}" data-tag="${escapeAttr(t)}">${escapeHtml(t)}</button>`,
+		)
+		.join('');
+}
+
+const CATEGORY_LABELS = [
+	{ value: '', label: 'All' },
+	{ value: 'avatar', label: 'Avatars' },
+	{ value: 'accessory', label: 'Accessories' },
+	{ value: 'item', label: 'Items' },
+	{ value: 'scene', label: 'Scenes' },
+	{ value: 'creature', label: 'Creatures' },
+];
+
+function renderCats() {
+	if (!els.cats) return;
+	els.cats.innerHTML = CATEGORY_LABELS
+		.map(
+			({ value, label }) =>
+				`<button type="button" class="gallery-tag${
+					value === state.category ? ' is-active' : ''
+				}" data-cat="${escapeAttr(value)}">${escapeHtml(label)}</button>`,
 		)
 		.join('');
 }
@@ -352,7 +405,14 @@ function renderCard(a) {
 						data-avatar-id="${escapeAttr(String(a.id))}"
 						data-glb-url="${escapeAttr(glbUrl)}"
 						data-name="${escapeAttr(a.name || 'Avatar')}">Embed</button>
-					<a class="gallery-card-btn gallery-card-btn--primary" href="${escapeAttr(studioUrl)}" title="Use in Widget Studio">Use</a>
+					${a.model_category === 'accessory'
+						? `<button type="button" class="gallery-card-btn gallery-card-btn--primary" data-role="card-equip"
+								data-avatar-id="${escapeAttr(String(a.id))}"
+								data-glb-url="${escapeAttr(glbUrl)}"
+								data-name="${escapeAttr(a.name || 'Accessory')}"
+								data-thumb="${escapeAttr(a.thumbnail_url || '')}">Equip</button>`
+						: `<a class="gallery-card-btn gallery-card-btn--primary" href="${escapeAttr(studioUrl)}" title="Use in Widget Studio">Use</a>`
+					}
 				</div>
 			</div>
 		</div>
@@ -390,6 +450,86 @@ function escapeHtml(s) {
 }
 function escapeAttr(s) {
 	return escapeHtml(s).replace(/'/g, '&#39;');
+}
+
+// ── Equip modal — pick an avatar to wear this accessory on ─────────────────
+async function openEquipModal({ accessoryId, glbUrl, name, thumb }) {
+	document.querySelector('.gallery-equip-modal')?.remove();
+
+	const modal = document.createElement('div');
+	modal.className = 'gallery-equip-modal embed-modal';
+	modal.setAttribute('role', 'dialog');
+	modal.setAttribute('aria-modal', 'true');
+	modal.setAttribute('aria-label', `Equip ${name || 'accessory'}`);
+
+	modal.innerHTML = `
+		<div class="embed-modal__backdrop" data-role="close"></div>
+		<div class="embed-modal__panel" role="document" style="max-width:460px">
+			<header class="embed-modal__head">
+				<div>
+					<h2 class="embed-modal__title">Equip ${escapeHtml(name || 'Accessory')}</h2>
+					<p class="embed-modal__sub">Choose an avatar to wear this accessory on.</p>
+				</div>
+				<button type="button" class="embed-modal__close" data-role="close" aria-label="Close">×</button>
+			</header>
+			<div class="equip-modal-body" data-role="equip-body">
+				<div class="equip-modal-loading">Loading your avatars…</div>
+			</div>
+		</div>
+	`;
+	document.body.appendChild(modal);
+
+	const close = () => {
+		modal.remove();
+		document.removeEventListener('keydown', onEsc);
+	};
+	const onEsc = (e) => { if (e.key === 'Escape') close(); };
+	document.addEventListener('keydown', onEsc);
+	modal.querySelectorAll('[data-role="close"]').forEach((el) => el.addEventListener('click', close));
+
+	const body = modal.querySelector('[data-role="equip-body"]');
+
+	try {
+		const res = await fetch('/api/avatars', { credentials: 'include' });
+		if (res.status === 401) {
+			body.innerHTML = `
+				<p class="equip-modal-hint">Sign in to equip accessories on your avatars.</p>
+				<a class="gallery-card-btn gallery-card-btn--primary equip-signin-btn" href="/login?redirect=${encodeURIComponent(location.href)}">Sign in</a>
+			`;
+			return;
+		}
+		if (!res.ok) throw new Error(`HTTP ${res.status}`);
+		const data = await res.json();
+		const avatars = Array.isArray(data.avatars) ? data.avatars : [];
+
+		if (!avatars.length) {
+			body.innerHTML = `
+				<p class="equip-modal-hint">You have no avatars yet. Upload one first.</p>
+				<a class="gallery-card-btn gallery-card-btn--primary equip-signin-btn" href="/dashboard/avatars">Upload avatar</a>
+			`;
+			return;
+		}
+
+		const list = document.createElement('div');
+		list.className = 'equip-avatar-list';
+		for (const av of avatars.slice(0, 12)) {
+			const editUrl = `/avatars/${encodeURIComponent(av.id)}/edit?equip-glb=${encodeURIComponent(glbUrl || '')}&equip-name=${encodeURIComponent(name || '')}&equip-bone=Head`;
+			const thumbSrc = av.thumbnail_url || `/api/avatars/${encodeURIComponent(av.id)}/og`;
+			const row = document.createElement('a');
+			row.href = editUrl;
+			row.className = 'equip-avatar-row';
+			row.innerHTML = `
+				<img class="equip-avatar-thumb" src="${escapeAttr(thumbSrc)}" alt="" loading="lazy" decoding="async" />
+				<span class="equip-avatar-name">${escapeHtml(av.name || 'Untitled')}</span>
+				<span class="equip-avatar-cta">Equip →</span>
+			`;
+			list.appendChild(row);
+		}
+		body.innerHTML = '';
+		body.appendChild(list);
+	} catch (err) {
+		body.innerHTML = `<p class="equip-modal-hint equip-modal-error">Could not load your avatars — ${escapeHtml(err.message)}</p>`;
+	}
 }
 
 // Embed modal
@@ -505,6 +645,7 @@ function openAvatarEmbedModal({ avatarId, glbUrl, name }) {
 	}, 50);
 }
 
+renderCats();
 resetAndLoad();
 
 // =============================================================================
