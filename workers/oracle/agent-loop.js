@@ -9,6 +9,7 @@ import { sql } from '../../api/_lib/db.js';
 import { log } from './log.js';
 import { evaluateWatch } from '../../api/_lib/oracle/agent-eval.js';
 import { executeAction, agentBudget } from './executor.js';
+import { alertAgentEntry } from '../../api/_lib/oracle/alerts.js';
 
 // Module cursor — only consider verdicts scored since the last pass.
 let cursor = new Date(Date.now() - 60_000).toISOString();
@@ -16,7 +17,8 @@ let cursor = new Date(Date.now() - 60_000).toISOString();
 async function armedWatches(network) {
 	return sql`
 		select w.agent_id, w.user_id, w.network, w.armed, w.mode, w.min_score, w.min_tier,
-		       w.categories, w.per_trade_sol, w.max_daily_sol, w.max_open, w.require_smart_money
+		       w.categories, w.per_trade_sol, w.max_daily_sol, w.max_open, w.require_smart_money,
+		       a.name as agent_name
 		from oracle_agent_watch w
 		join agent_identities a on a.id = w.agent_id and a.deleted_at is null
 		where w.armed = true and w.network = ${network}
@@ -62,6 +64,7 @@ export async function actOnFreshCoins(cfg, coins) {
 	if (!watches.length) return 0;
 
 	let acted = 0;
+	const liveEntries = [];
 	for (const watch of watches) {
 		const { openCount, spentTodaySol } = await agentBudget(watch.agent_id, cfg.network);
 		let open = openCount, spent = spentTodaySol;
@@ -70,10 +73,26 @@ export async function actOnFreshCoins(cfg, coins) {
 			if (!decision.act) continue;
 			if (await alreadyActed(watch.agent_id, coin.mint, cfg.network)) continue;
 			const res = await executeAction({ cfg, watch, coin, size: decision.size, reason: decision.reason });
-			if (res.status === 'filled') { acted += 1; open += 1; spent += decision.size; }
+			if (res.status === 'filled') {
+				acted += 1; open += 1; spent += decision.size;
+				// Collect live entries for the Telegram entry alert.
+				if (watch.mode === 'live' && cfg.mode === 'live') {
+					liveEntries.push({
+						agent_id: watch.agent_id,
+						agent_name: watch.agent_name || null,
+						symbol: coin.symbol,
+						mint: coin.mint,
+						tier: coin.tier,
+						conviction: coin.score,
+						size_sol: decision.size,
+						network: cfg.network,
+					});
+				}
+			}
 		}
 	}
 	if (acted) log.info(`agent loop: ${acted} action(s) across ${watches.length} armed agent(s)`);
+	if (liveEntries.length) alertAgentEntry(liveEntries).catch(() => {});
 	return acted;
 }
 
