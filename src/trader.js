@@ -180,6 +180,7 @@ function render(data) {
 					<span>${m.closed_count} closed trades</span>
 					<span>${m.unique_coins} coins</span>
 					${m.last_active_at ? `<span>active ${relTime(m.last_active_at)}</span>` : ''}
+					${a.copiers ? `<span class="tp-copiers">${a.copiers} copying</span>` : ''}
 				</div>
 				${a.description ? `<p class="tp-desc">${escapeHtml(a.description)}</p>` : ''}
 			</div>
