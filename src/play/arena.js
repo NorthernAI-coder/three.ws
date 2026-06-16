@@ -292,10 +292,13 @@ async function enrichDrawerWithOracle(id) {
 		if (!cta) return;
 
 		const wrVal = s.win_rate;
-		const wr = wrVal != null ? `<b class="${wrVal >= 50 ? ‘up’ : ‘down’}">${wrVal}%</b>` : ‘<b>—</b>’;
+		const wrClass = wrVal >= 50 ? ‘up’ : ‘down’;
+		const wr = wrVal != null ? `<b class="${wrClass}">${wrVal}%</b>` : ‘<b>—</b>’;
 		const pnlVal = s.realized_pnl_sol;
+		const pnlClass = pnlVal >= 0 ? ‘up’ : ‘down’;
+		const pnlPrefix = pnlVal >= 0 ? ‘+’ : ‘’;
 		const pnlStr = pnlVal != null
-			? `<b class="${pnlVal >= 0 ? ‘up’ : ‘down’}">${pnlVal >= 0 ? ‘+’ : ‘’}${Number(pnlVal).toFixed(3)}</b>`
+			? `<b class="${pnlClass}">${pnlPrefix}${Number(pnlVal).toFixed(3)}</b>`
 			: ‘<b>—</b>’;
 		const openStr = s.open > 0 ? ` · ${s.open} open` : ‘’;
 

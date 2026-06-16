@@ -1508,7 +1508,7 @@ function renderSkeleton() {
 		]),
 		el('div', { class: 'ld-hero-stats' }, Array.from({ length: 4 }, () => el('div', { class: 'ld-skel', style: 'height:46px' }))),
 	);
-	for (const id of ['ld-verdict', 'ld-chart', 'ld-agent']) {
+	for (const id of ['ld-verdict', 'ld-chart', 'ld-agent', 'ld-oracle']) {
 		$(id).replaceChildren(el('div', { class: 'ld-skel', style: 'height:120px' }));
 	}
 }
