@@ -487,6 +487,7 @@ window.addEventListener('keyup', e => {
 const animMgr = new AnimationManager();
 let avatar = null, avatarYaw = 0, avatarLean = 0, currentMotion = 'idle';
 let _currentAvatarId = null;
+let _currentAgentId  = null;
 
 function _clearAvatar() {
 	if (avatar) {
@@ -503,6 +504,7 @@ async function loadAvatar(idOrUrl, nameOverride) {
 	let glbUrl     = resolveAvatarUrl(typeof idOrUrl === 'string' && /^https?:\/\/|^\//.test(idOrUrl) ? idOrUrl : id);
 
 	// Fetch metadata only when id is a DB UUID (not already a URL)
+	_currentAgentId = null;
 	if (id && !/^https?:\/\//.test(id) && !id.startsWith('/')) {
 		try {
 			const res = await fetch(`/api/avatars/${encodeURIComponent(id)}`);
@@ -510,6 +512,7 @@ async function loadAvatar(idOrUrl, nameOverride) {
 				const { avatar: meta } = await res.json();
 				if (meta?.name && !nameOverride) avatarName = meta.name;
 				if (meta?.url)  glbUrl = meta.url;
+				if (meta?.agent_id) _currentAgentId = meta.agent_id;
 			}
 		} catch {}
 	}
@@ -566,7 +569,9 @@ const irlAvatarPicker = createAvatarPicker({
 		if (id) sp.set('avatar', id); else sp.delete('avatar');
 		history.replaceState(null, '', location.pathname + (sp.toString() ? '?' + sp : ''));
 		try {
-			await loadAvatar(url, name);
+			// Pass UUID id (not the CDN url) so loadAvatar fetches metadata
+			// and captures agent_id for pin attribution (task-06).
+			await loadAvatar(id || url, name);
 		} catch (err) {
 			log.error('[irl] avatar swap failed:', err);
 			setStatus(`Couldn't load avatar: ${err?.message ?? err}`, { error: true, sticky: true });
@@ -774,7 +779,7 @@ async function savePin(lat, lng, heading = 0, caption = '') {
 				avatarUrl:   resolveAvatarUrl(_currentAvatarId),
 				avatarName:  nameEl.textContent,
 				deviceToken: _deviceToken,
-				agentId:     avatarIdParam || null,
+				agentId:     _currentAgentId || null,
 			}),
 		});
 		if (!r.ok) return null;
@@ -1005,7 +1010,6 @@ document.getElementById('irl-mypins-list')?.addEventListener('click', async (e) 
 function openPinSheet(pin) {
 	const sheet = document.getElementById('irl-sheet');
 	if (!sheet) return;
-	const safe = (s) => _escHtml(s ?? '');
 	document.getElementById('irl-sheet-name').textContent    = pin.avatar_name || 'Agent';
 	document.getElementById('irl-sheet-dist').textContent    = `${pin.distance_m ?? '?'}m away`;
 	const cap = document.getElementById('irl-sheet-caption');
@@ -1016,6 +1020,8 @@ function openPinSheet(pin) {
 		payBtn.hidden = !pin.x402_endpoint;
 		payBtn.dataset.endpoint = pin.x402_endpoint ?? '';
 	}
+	sheet.dataset.agentId   = pin.agent_id   ?? '';
+	sheet.dataset.agentName = pin.avatar_name ?? '';
 	sheet.classList.add('is-open');
 }
 
@@ -1024,23 +1030,54 @@ document.getElementById('irl-sheet-close')?.addEventListener('click', () => {
 });
 
 document.getElementById('irl-sheet-view')?.addEventListener('click', () => {
-	const sheet = document.getElementById('irl-sheet');
-	const name  = document.getElementById('irl-sheet-name')?.textContent || '';
+	const sheet   = document.getElementById('irl-sheet');
+	const agentId = sheet?.dataset.agentId;
+	const name    = sheet?.dataset.agentName || document.getElementById('irl-sheet-name')?.textContent || '';
 	sheet?.classList.remove('is-open');
-	window.open(`/walk?agent=${encodeURIComponent(name)}`, '_blank', 'noopener');
+	if (agentId) {
+		window.open(`/agents/${agentId}`, '_blank', 'noopener');
+	} else {
+		window.open(`/walk?agent=${encodeURIComponent(name)}`, '_blank', 'noopener');
+	}
 });
 
 document.getElementById('irl-sheet-pay')?.addEventListener('click', async (e) => {
-	const endpoint = e.currentTarget.dataset.endpoint;
+	const btn      = e.currentTarget;
+	const endpoint = btn.dataset.endpoint;
 	if (!endpoint) return;
+
+	if (!window.ethereum) {
+		setStatus('Connect an Ethereum wallet (MetaMask) to pay via x402', { error: true });
+		return;
+	}
+
+	btn.disabled = true;
+	const origText = btn.textContent;
+	btn.textContent = 'Sending…';
 	try {
-		const r = await fetch(endpoint, { method: 'POST' });
-		if (r.status === 402) {
-			setStatus('Payment required — x402 support coming soon', { error: true });
-		} else if (r.ok) {
+		const { withX402 } = await import('/packages/x402-fetch/dist/index.esm.js');
+		const pay = withX402(window.ethereum, { maxPaymentUsd: 1.00 });
+		const r = await pay(endpoint, { method: 'POST' });
+		if (r.ok) {
 			setStatus('Payment sent');
+			btn.textContent = 'Paid ✓';
+			btn.disabled = true;
+		} else {
+			const msg = await r.text().catch(() => r.status);
+			setStatus(`Payment failed (${msg})`, { error: true });
+			btn.disabled = false;
+			btn.textContent = origText;
 		}
-	} catch { setStatus('Payment failed', { error: true }); }
+	} catch (err) {
+		const msg = err?.message ?? String(err);
+		if (msg.includes('rejected') || msg.includes('denied')) {
+			setStatus('Payment cancelled', { error: true });
+		} else {
+			setStatus(`Payment failed — ${msg}`, { error: true });
+		}
+		btn.disabled = false;
+		btn.textContent = origText;
+	}
 });
 
 // ── Radar minimap ────────────────────────────────────────────────────────
