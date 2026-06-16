@@ -1006,3 +1006,78 @@ body.gallery-page {
 		gap: 10px;
 	}
 }
+
+/* ── Category filter chips ───────────────────────────────────── */
+.gallery-cat-wrap {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	flex-wrap: wrap;
+	margin-top: 0.75rem;
+}
+.gallery-cats {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.4rem;
+}
+
+/* ── Equip modal — accessory-to-avatar picker ────────────────── */
+.equip-modal-body {
+	padding: 1rem 1.25rem 1.5rem;
+}
+.equip-modal-loading,
+.equip-modal-hint {
+	color: var(--tws-muted, #888);
+	font-size: 0.9rem;
+	padding: 0.75rem 0;
+}
+.equip-modal-error { color: var(--tws-danger, #f55); }
+.equip-signin-btn {
+	display: inline-block;
+	margin-top: 0.75rem;
+}
+.equip-avatar-list {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+	max-height: 360px;
+	overflow-y: auto;
+}
+.equip-avatar-row {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	padding: 0.6rem 0.75rem;
+	border-radius: 10px;
+	background: var(--tws-surface-2, rgba(255,255,255,0.05));
+	border: 1px solid transparent;
+	text-decoration: none;
+	color: inherit;
+	transition: border-color 0.15s, background 0.15s;
+}
+.equip-avatar-row:hover {
+	border-color: var(--tws-accent, #9b5dff);
+	background: var(--tws-surface-hover, rgba(155,93,255,0.08));
+}
+.equip-avatar-thumb {
+	width: 48px;
+	height: 48px;
+	border-radius: 8px;
+	object-fit: cover;
+	background: var(--tws-surface-2, #1a1a1a);
+	flex-shrink: 0;
+}
+.equip-avatar-name {
+	flex: 1;
+	font-weight: 500;
+	font-size: 0.9rem;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.equip-avatar-cta {
+	font-size: 0.8rem;
+	color: var(--tws-accent, #9b5dff);
+	font-weight: 600;
+	flex-shrink: 0;
+}

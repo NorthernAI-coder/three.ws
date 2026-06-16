@@ -211,7 +211,7 @@ export async function deleteAvatar({ id, userId }) {
 	return true;
 }
 
-export async function searchPublicAvatars({ q, tag, limit = 24, cursor, withTotals = false }) {
+export async function searchPublicAvatars({ q, tag, category, limit = 24, cursor, withTotals = false }) {
 	limit = Math.min(Math.max(limit, 1), 100);
 	const params = [];
 	const conds = [`deleted_at is null`, `visibility = 'public'`];
@@ -222,6 +222,10 @@ export async function searchPublicAvatars({ q, tag, limit = 24, cursor, withTota
 	if (tag) {
 		params.push(tag);
 		conds.push(`$${params.length} = any(tags)`);
+	}
+	if (category) {
+		params.push(category);
+		conds.push(`model_category = $${params.length}`);
 	}
 	const filterParams = params.slice();
 	const filterConds = conds.join(' and ');
@@ -239,7 +243,7 @@ export async function searchPublicAvatars({ q, tag, limit = 24, cursor, withTota
 	// a deployed agent is preferred over an undeployed one for the same avatar.
 	const rows = await sql(
 		`select av.id, av.owner_id, av.slug, av.name, av.description, av.storage_key, av.thumbnail_key,
-		        av.alt_text,
+		        av.alt_text, av.model_category,
 		        av.appearance, av.appearance_hash, av.baked_storage_key, av.baked_at,
 		        av.size_bytes,
 		        av.content_type, av.source, av.source_meta, av.fork_count, av.visibility, av.tags, av.view_count, av.created_at,

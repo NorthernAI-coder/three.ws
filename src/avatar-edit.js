@@ -34,8 +34,19 @@ const segments = location.pathname.split('/').filter(Boolean);
 // `/avatars/:id/edit` in prod, `?id=:id` in dev.
 const fromPath =
 	segments[0] === 'avatars' && segments[2] === 'edit' ? segments[1] : null;
-const fromQuery = new URLSearchParams(location.search).get('id');
+const editParams = new URLSearchParams(location.search);
+const fromQuery = editParams.get('id');
 const avatarId = fromPath || fromQuery || '';
+
+// When arriving from the gallery "Equip" button, pre-apply the selected
+// accessory GLB once the scene is ready. Supports hat, glasses, earrings kinds
+// via ?equip-kind=hat|glasses|earrings (defaults to hat).
+const equipGlb = editParams.get('equip-glb') || '';
+const equipName = editParams.get('equip-name') || 'Gallery accessory';
+const equipBone = editParams.get('equip-bone') || 'Head';
+const equipKind = ['glasses', 'earrings'].includes(editParams.get('equip-kind') || '')
+	? editParams.get('equip-kind')
+	: 'hat';
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) =>
@@ -157,6 +168,40 @@ async function init() {
 	bindHeader();
 
 	await scenePromise;
+
+	// Gallery equip: pre-apply the accessory GLB from the query param and dirty
+	// the state so the Save button activates. A toast tells the user what happened.
+	if (equipGlb && accessoryManager) {
+		const syntheticPreset = {
+			id: `gallery:${btoa(equipGlb).replace(/[^a-z0-9]/gi, '').slice(0, 32)}`,
+			kind: equipKind,
+			name: equipName,
+			glbUrl: equipGlb,
+			attachBone: equipBone,
+		};
+		await queueOp(() => accessoryManager.applyPreset(syntheticPreset));
+		if (!workingAppearance.accessories.includes(syntheticPreset.id)) {
+			workingAppearance = {
+				...workingAppearance,
+				accessories: [...workingAppearance.accessories, syntheticPreset.id],
+			};
+		}
+		updateDirtyState();
+		renderActivePanel();
+		showEquipToast(equipName);
+	}
+}
+
+function showEquipToast(name) {
+	const toast = document.createElement('div');
+	toast.className = 'ae-equip-toast';
+	toast.textContent = `"${name}" added — save to keep it on your avatar.`;
+	document.body.appendChild(toast);
+	requestAnimationFrame(() => toast.classList.add('is-visible'));
+	setTimeout(() => {
+		toast.classList.remove('is-visible');
+		toast.addEventListener('transitionend', () => toast.remove(), { once: true });
+	}, 4500);
 }
 
 async function bootScene() {
