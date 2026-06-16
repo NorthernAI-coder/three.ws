@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
+	<script>/* three.ws theme boot — no-flash; runtime in /theme-switcher.js */(function(){try{var m=localStorage.getItem('twx_theme');var l=m==='auto'?(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches):m==='light';document.documentElement.setAttribute('data-theme',l?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();</script>
 	<meta charset="utf-8" />
 	<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 	<title>Agent deployed · three.ws</title>
@@ -176,11 +177,17 @@
 
 	<script type="module">
 		import { agentAvatarGlb } from '/src/shared/agent-3d.js';
+		import { CHAIN_META, txExplorerUrl } from '/src/erc8004/chain-meta.js';
 
 		const p = new URLSearchParams(location.search);
 		const agentId = p.get('id')  || '';
 		const txSig   = p.get('tx')  || '';
 		const chain   = p.get('chain') || 'solana-mainnet';
+
+		// `chain` is either a Solana cluster string ('solana-mainnet' /
+		// 'solana-devnet') or a numeric EVM chainId (e.g. 8453). Resolve once.
+		const evmChainId = /^\d+$/.test(chain) ? Number(chain) : null;
+		const evmMeta    = evmChainId != null ? CHAIN_META[evmChainId] : null;
 
 		// Starfield
 		const canvas = document.getElementById('starfield');
@@ -227,16 +234,26 @@
 		after(2000, () => document.getElementById('txRow').classList.add('show'));
 		after(2400, () => document.getElementById('ctas').classList.add('show'));
 
-		// Chain label + explorer URL
+		// Chain label + explorer URL — Solana clusters and EVM chains both supported.
 		function chainLabel(c) {
 			if (c === 'solana-mainnet') return 'SOLANA';
-			if (c === 'solana-devnet')  return 'SOLANA DEVNET';
+			if (c === 'solana-devnet')  return 'SOLANA · DEVNET';
+			if (evmMeta) return evmMeta.testnet ? `${evmMeta.name} · TESTNET`.toUpperCase() : evmMeta.name.toUpperCase();
 			return c.toUpperCase().replace(/-/g, ' ');
 		}
+		// Short, human chain name for share copy ("live on Base").
+		function chainDisplayName(c) {
+			if (c === 'solana-mainnet') return 'Solana';
+			if (c === 'solana-devnet')  return 'Solana devnet';
+			if (evmMeta) return evmMeta.name;
+			return 'chain';
+		}
 		function explorerUrl(c, sig) {
+			if (!sig) return '';
 			if (c === 'solana-mainnet') return `https://solscan.io/tx/${sig}`;
 			if (c === 'solana-devnet')  return `https://explorer.solana.com/tx/${sig}?cluster=devnet`;
-			return `#`;
+			if (evmMeta) return txExplorerUrl(evmChainId, sig);
+			return '';
 		}
 		function shortSig(s) {
 			if (!s || s.length < 16) return s || '—';
@@ -246,7 +263,13 @@
 		document.getElementById('chainBadge').textContent = chainLabel(chain);
 		document.getElementById('txHash').textContent     = shortSig(txSig);
 		const expUrl = explorerUrl(chain, txSig);
-		document.getElementById('txLink').href = expUrl;
+		const txLinkEl = document.getElementById('txLink');
+		if (expUrl) {
+			txLinkEl.href = expUrl;
+		} else {
+			// No verifiable tx (or unknown chain) — don't show a dead link.
+			txLinkEl.style.display = 'none';
+		}
 
 		// Agent fetch + avatar
 		async function loadAgent() {
@@ -267,7 +290,7 @@
 			document.getElementById('btnView').href = `/agent/${encodeURIComponent(agentId)}`;
 			document.getElementById('btnShare').addEventListener('click', () => {
 				const url  = `https://three.ws/agent/${encodeURIComponent(agentId)}`;
-				const text = `Just deployed my 3D AI Agent on-chain.\n\n${name} is live on Solana.\n\n${url}`;
+				const text = `Just deployed my 3D AI Agent on-chain.\n\n${name} is live on ${chainDisplayName(chain)}.\n\n${url}`;
 				if (navigator.share) {
 					navigator.share({ title: `${name} — deployed on three.ws`, text, url }).catch(() => {});
 					return;

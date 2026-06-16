@@ -1061,7 +1061,7 @@ document.getElementById('irl-sheet-pay')?.addEventListener('click', async (e) =>
 	const origText = btn.textContent;
 	btn.textContent = 'Sending…';
 	try {
-		const { withX402 } = await import('/packages/x402-fetch/dist/index.esm.js');
+		const { withX402 } = await import('../packages/x402-fetch/dist/index.esm.js');
 		const pay = withX402(window.ethereum, { maxPaymentUsd: 1.00 });
 		const r = await pay(endpoint, { method: 'POST' });
 		if (r.ok) {

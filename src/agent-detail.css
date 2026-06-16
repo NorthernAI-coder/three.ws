@@ -362,6 +362,25 @@ model-viewer.ad-hero-avatar {
 	--poster-color: transparent;
 	background: var(--ad-bg-2);
 }
+.ad-3d-modal-world {
+	position: absolute;
+	bottom: 16px; left: 50%;
+	transform: translateX(-50%);
+	display: inline-flex; align-items: center; gap: 7px;
+	padding: 9px 16px;
+	border-radius: 999px;
+	background: rgba(255,255,255,.1);
+	border: 1px solid rgba(255,255,255,.16);
+	color: #fff;
+	font-size: 13px; font-weight: 600;
+	text-decoration: none;
+	backdrop-filter: blur(8px);
+	transition: background .15s, transform .15s;
+}
+.ad-3d-modal-world:hover {
+	background: rgba(255,255,255,.18);
+	transform: translateX(-50%) translateY(-1px);
+}
 
 /* Embed disclosure */
 .ad-embed-disclosure summary {

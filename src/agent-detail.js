@@ -462,19 +462,34 @@ function render(agent) {
 	// Fullscreen modal
 	const mvModal = document.getElementById('ad-avatar-modal-3d');
 	if (mvModal) mvModal.setAttribute('src', glbUrl);
+	// "View in AR" link drops this agent into the live three.ws world (every
+	// agent has a body — custom GLB or mannequin — so the href is always real).
+	const modalWorld = document.getElementById('ad-3d-modal-world');
+	if (modalWorld) {
+		const worldHref = seeInWorldHref(agent);
+		if (worldHref && worldHref !== '#') {
+			modalWorld.href = worldHref;
+			modalWorld.hidden = false;
+		} else {
+			modalWorld.hidden = true;
+		}
+	}
 	const modal = document.getElementById('ad-3d-modal');
 	const avatarWrap = document.getElementById('ad-avatar-wrap');
+	const closeModal = () => modal.classList.add('hidden');
 	if (modal && avatarWrap && !avatarWrap._modalWired) {
 		avatarWrap._modalWired = true;
 		avatarWrap.addEventListener('click', () => modal.classList.remove('hidden'));
 		avatarWrap.addEventListener('keydown', (e) => {
 			if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); modal.classList.remove('hidden'); }
 		});
-		document.getElementById('ad-3d-modal-close')?.addEventListener('click', () =>
-			modal.classList.add('hidden'),
-		);
+		document.getElementById('ad-3d-modal-close')?.addEventListener('click', closeModal);
 		modal.addEventListener('click', (e) => {
-			if (e.target === modal) modal.classList.add('hidden');
+			if (e.target === modal) closeModal();
+		});
+		// Esc closes the fullscreen viewer — standard modal affordance.
+		document.addEventListener('keydown', (e) => {
+			if (e.key === 'Escape' && !modal.classList.contains('hidden')) closeModal();
 		});
 	}
 
