@@ -21,6 +21,20 @@ const ARCHETYPES = {
 		tone: 'good',
 		blurb: 'Repeatedly early into coins that went on to graduate. Following them is the edge.',
 	},
+	kol: {
+		label: 'kol',
+		title: 'KOL',
+		glyph: '★',
+		tone: 'good',
+		blurb: 'A known influencer / caller wallet. Their entries move attention — and price — fast.',
+	},
+	top_dev: {
+		label: 'top_dev',
+		title: 'Top Dev',
+		glyph: '✦',
+		tone: 'warn',
+		blurb: 'A creator wallet with a notable launch history. Read alongside the structure signals.',
+	},
 	sniper: {
 		label: 'sniper',
 		title: 'Sniper',
@@ -95,7 +109,8 @@ export function allArchetypes() {
  * @param {string|null|undefined} label
  */
 export function isProven(label, score = 0) {
-	return String(label).toLowerCase() === 'smart_money' || Number(score) >= 70;
+	const l = String(label).toLowerCase();
+	return l === 'smart_money' || l === 'kol' || Number(score) >= 70;
 }
 
 /**
