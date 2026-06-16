@@ -180,6 +180,18 @@ function el(tag, props = {}, children = []) {
 const $ = (id) => document.getElementById(id);
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
+// Update or create a <meta> tag by property or name attribute.
+function setMeta(prop, content) {
+	let el = document.querySelector(`meta[property="${prop}"]`) ||
+	         document.querySelector(`meta[name="${prop}"]`);
+	if (!el) {
+		el = document.createElement('meta');
+		el.setAttribute(prop.startsWith('og:') || prop.startsWith('twitter:') ? 'property' : 'name', prop);
+		document.head.appendChild(el);
+	}
+	el.setAttribute('content', content);
+}
+
 function svg(tag, attrs) {
 	const node = document.createElementNS(SVG_NS, tag);
 	for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, String(v));
@@ -1467,6 +1479,21 @@ async function boot() {
 	}
 	state.detail = detail;
 	state.coin = await loadCoin();
+
+	// Update page-level meta tags so JS-capable crawlers (X, Telegram, Discord)
+	// see coin-specific OG data instead of the static placeholder in HTML.
+	const regName = detail.registry?.name || detail.intel?.name || '';
+	const regSym = detail.registry?.symbol || detail.intel?.symbol || '';
+	const pageTitle = [regSym ? `$${regSym}` : '', regName, 'three.ws'].filter(Boolean).join(' · ');
+	const pageDesc = `${regSym ? `$${regSym} ` : ''}on three.ws — live price, intelligence score, smart money, and trade history.`;
+	const ogImg = `https://three.ws/api/pump/launch-og?mint=${state.mint}`;
+	document.title = pageTitle;
+	setMeta('og:title', pageTitle);
+	setMeta('og:description', pageDesc);
+	setMeta('og:image', ogImg);
+	setMeta('twitter:title', pageTitle);
+	setMeta('twitter:description', pageDesc);
+	setMeta('twitter:image', ogImg);
 
 	$('ld-shell').setAttribute('aria-busy', 'false');
 
