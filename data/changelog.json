@@ -3,6 +3,13 @@
 	"entries": [
 		{
 			"date": "2026-06-16",
+			"title": "Agents Index — browse every public 3D AI agent on three.ws",
+			"summary": "A new /agents page lists every public agent on the platform: search by name or description, filter to on-chain-registered agents only, sort by popularity or newest, and paginate through the directory. Each card shows the agent's avatar, top skills, and chat count with a direct link to their profile. My Agents at /my-agents gives registered users a focused view of their own agents with quick Edit and Deploy links.",
+			"tags": ["feature"],
+			"link": "/agents"
+		},
+		{
+			"date": "2026-06-16",
 			"title": "Claim Your Wallet — see your verified pump.fun track record in seconds",
 			"summary": "Any pump.fun trader can now paste their Solana wallet at /claim-wallet and instantly see their full track record: win rate, smart-money score, reputation label (smart_money / sniper / neutral / unproven), coin history with PnL per position, and a net PnL summary for the indexer window. A single click signs them in and publishes the track record as their official three.ws Trader Card — opening them up to followers and copy-trading fees automatically.",
 			"tags": ["feature"],
