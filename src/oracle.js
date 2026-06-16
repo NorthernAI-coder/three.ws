@@ -998,6 +998,11 @@ function renderArmForm() {
 			<div class="t-lab"><b id="agArmLab">Armed</b><span>Master switch for this agent</span></div>
 			<div class="sw" id="agArm" role="switch" aria-checked="false"></div>
 		</div>
+		<div class="field" style="margin-top:12px">
+			<label>Personal Telegram alerts <span class="chip sm" style="background:rgba(139,92,246,.15);color:#c084fc;border-color:rgba(139,92,246,.35)">optional</span></label>
+			<input id="agTelegram" type="text" placeholder="Your chat ID or @channel" autocomplete="off" style="font-size:12px;font-family:var(--mono,monospace)">
+			<div class="field-hint">Chat <a href="https://t.me/three_ws_bot" target="_blank" rel="noopener">@three_ws_bot</a> on Telegram and send <code>/start</code> to get your chat ID. You'll receive a signal whenever a coin crosses your threshold.</div>
+		</div>
 		<button class="btn primary" id="agSave" style="margin-top:8px">Save configuration</button>
 		<div class="note" id="agNote"></div>`;
 
@@ -1050,6 +1055,7 @@ async function loadWatch(agentId) {
 			: '1.0× at min score → up to 1.5× at score 100';
 		const cats = new Set(w.categories || []);
 		$$('#agCats .cchip').forEach((b) => b.classList.toggle('on', cats.has(b.dataset.cat)));
+		$('#agTelegram').value = w.telegram_chat_id || '';
 	}
 	loadActions(agentId);
 }
@@ -1071,6 +1077,7 @@ async function saveWatch() {
 		max_open: Number($('#agOpen').value) || 5,
 		require_smart_money: $('#agSmart').classList.contains('on'),
 		size_scaling: $('#agScale').classList.contains('on'),
+		telegram_chat_id: ($('#agTelegram').value || '').trim() || null,
 	};
 	const { ok, data } = await api('/api/oracle/watch', {
 		method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
@@ -1078,7 +1085,8 @@ async function saveWatch() {
 	btn.disabled = false; btn.textContent = 'Save configuration';
 	const note = $('#agNote');
 	if (ok && data?.watch) {
-		note.className = 'note'; note.textContent = data.watch.armed ? `Armed in ${data.watch.mode} mode. Your agent is watching the stream.` : 'Saved. Toggle "Armed" to start watching.';
+		const tgNote = data.watch.telegram_chat_id ? ' Telegram alerts active.' : '';
+		note.className = 'note'; note.textContent = data.watch.armed ? `Armed in ${data.watch.mode} mode. Your agent is watching the stream.${tgNote}` : `Saved. Toggle "Armed" to start watching.${tgNote}`;
 		loadActions(state.agentId);
 	} else {
 		note.className = 'note warn';

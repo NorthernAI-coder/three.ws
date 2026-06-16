@@ -39,6 +39,7 @@ const WATCH_SCHEMA = z.object({
 	max_open: numish.optional(),
 	require_smart_money: z.boolean().optional(),
 	size_scaling: z.boolean().optional(),
+	telegram_chat_id: z.string().max(64).optional().nullable(),
 });
 
 async function resolveUserId(req) {
@@ -105,6 +106,12 @@ export default wrap(async (req, res) => {
 		return error(res, 400, 'validation_error', 'set a per-trade size before arming a live agent');
 	}
 
+	// Sanitize telegram_chat_id: allow numeric IDs (positive or negative) and
+	// @handle-style strings. Strip anything that looks like a URL or injection.
+	const rawTg = (cfg.telegram_chat_id || '').trim();
+	const telegramChatId = /^-?\d{1,20}$/.test(rawTg) || /^@[A-Za-z0-9_]{3,32}$/.test(rawTg)
+		? rawTg : null;
+
 	const saved = await upsertWatch(cfg.agent_id, userId, network, {
 		armed: !!cfg.armed,
 		mode: cfg.mode || 'simulate',
@@ -116,6 +123,7 @@ export default wrap(async (req, res) => {
 		max_open: maxOpen,
 		require_smart_money: cfg.require_smart_money !== false,
 		size_scaling: !!cfg.size_scaling,
+		telegram_chat_id: telegramChatId || null,
 	});
 
 	return json(res, 200, { agent_id: cfg.agent_id, network, watch: saved });
@@ -126,7 +134,7 @@ function defaultWatch(agentId, network) {
 		agent_id: agentId, network, armed: false, mode: 'simulate',
 		min_score: 80, min_tier: 'strong', categories: [],
 		per_trade_sol: 0.05, max_daily_sol: 0.5, max_open: 5,
-		require_smart_money: true, size_scaling: false,
+		require_smart_money: true, size_scaling: false, telegram_chat_id: null,
 	};
 }
 

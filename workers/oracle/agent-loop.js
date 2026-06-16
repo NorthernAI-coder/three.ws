@@ -9,7 +9,7 @@ import { sql } from '../../api/_lib/db.js';
 import { log } from './log.js';
 import { evaluateWatch } from '../../api/_lib/oracle/agent-eval.js';
 import { executeAction, agentBudget } from './executor.js';
-import { alertAgentEntry } from '../../api/_lib/oracle/alerts.js';
+import { alertAgentEntry, alertPersonalEntry, alertPersonalSignal } from '../../api/_lib/oracle/alerts.js';
 
 // Module cursor — only consider verdicts scored since the last pass.
 let cursor = new Date(Date.now() - 60_000).toISOString();
@@ -18,7 +18,7 @@ async function armedWatches(network) {
 	return sql`
 		select w.agent_id, w.user_id, w.network, w.armed, w.mode, w.min_score, w.min_tier,
 		       w.categories, w.per_trade_sol, w.max_daily_sol, w.max_open, w.require_smart_money,
-		       w.size_scaling, a.name as agent_name
+		       w.size_scaling, w.telegram_chat_id, a.name as agent_name
 		from oracle_agent_watch w
 		join agent_identities a on a.id = w.agent_id and a.deleted_at is null
 		where w.armed = true and w.network = ${network}
@@ -68,6 +68,17 @@ export async function actOnFreshCoins(cfg, coins) {
 	for (const watch of watches) {
 		const { openCount, spentTodaySol } = await agentBudget(watch.agent_id, cfg.network);
 		let open = openCount, spent = spentTodaySol;
+
+		// Personal signal alerts: fire once per watch for coins that clear its threshold
+		// even if the agent doesn't end up acting (budget full, already acted, etc.).
+		if (watch.telegram_chat_id) {
+			for (const coin of coins) {
+				if ((Number(coin.score) || 0) >= (Number(watch.min_score) || 0)) {
+					alertPersonalSignal(watch.telegram_chat_id, coin, Number(watch.min_score) || 0).catch(() => {});
+				}
+			}
+		}
+
 		for (const coin of coins) {
 			const decision = evaluateWatch({ watch, coin, openCount: open, spentTodaySol: spent });
 			if (!decision.act) continue;
@@ -75,7 +86,7 @@ export async function actOnFreshCoins(cfg, coins) {
 			const res = await executeAction({ cfg, watch, coin, size: decision.size, reason: decision.reason });
 			if (res.status === 'filled') {
 				acted += 1; open += 1; spent += decision.size;
-				// Collect live entries for the Telegram entry alert.
+				// Platform channel: live-mode entries only (too much noise for sim).
 				if (watch.mode === 'live' && cfg.mode === 'live') {
 					liveEntries.push({
 						agent_id: watch.agent_id,
@@ -87,6 +98,19 @@ export async function actOnFreshCoins(cfg, coins) {
 						size_sol: decision.size,
 						network: cfg.network,
 					});
+				}
+				// Personal entry alert: always fires if the subscriber has a chat ID.
+				if (watch.telegram_chat_id) {
+					alertPersonalEntry(watch.telegram_chat_id, {
+						agent_name: watch.agent_name || null,
+						symbol: coin.symbol,
+						mint: coin.mint,
+						tier: coin.tier,
+						conviction: coin.score,
+						size_sol: decision.size,
+						mode: watch.mode,
+						network: cfg.network,
+					}).catch(() => {});
 				}
 			}
 		}
