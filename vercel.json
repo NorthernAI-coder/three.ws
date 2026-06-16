@@ -171,6 +171,10 @@
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 60
 		},
+		"api/oracle/social.js": {
+			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
+			"maxDuration": 30
+		},
 		"api/copy/executions.js": {
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 30
@@ -1800,6 +1804,10 @@
 		{
 			"src": "/api/oracle/trades",
 			"dest": "/api/oracle/trades.js"
+		},
+		{
+			"src": "/api/oracle/social",
+			"dest": "/api/oracle/social.js"
 		},
 		{
 			"src": "/api/copy/executions",
