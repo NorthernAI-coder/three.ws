@@ -115,6 +115,7 @@ export default wrap(async (req, res) => {
 		max_daily_sol: maxDaily,
 		max_open: maxOpen,
 		require_smart_money: cfg.require_smart_money !== false,
+		size_scaling: !!cfg.size_scaling,
 	});
 
 	return json(res, 200, { agent_id: cfg.agent_id, network, watch: saved });
@@ -124,7 +125,8 @@ function defaultWatch(agentId, network) {
 	return {
 		agent_id: agentId, network, armed: false, mode: 'simulate',
 		min_score: 80, min_tier: 'strong', categories: [],
-		per_trade_sol: 0.05, max_daily_sol: 0.5, max_open: 5, require_smart_money: true,
+		per_trade_sol: 0.05, max_daily_sol: 0.5, max_open: 5,
+		require_smart_money: true, size_scaling: false,
 	};
 }
 
