@@ -368,6 +368,12 @@ URL: https://three.ws/radar
 
 Live pump.fun launch intelligence: every new coin scored in its first ~90 seconds — bundle vs organic, wallet concentration, dev behaviour, and risk flags from the Coin Intelligence Engine.
 
+### Watchlist
+
+URL: https://three.ws/watchlist
+
+Your privately-stored watchlist of pump.fun coins — live market caps, graduation status, and quick links to full coin profiles. No account required; stored in your browser.
+
 ### Pump Dashboard
 
 URL: https://three.ws/pump-dashboard

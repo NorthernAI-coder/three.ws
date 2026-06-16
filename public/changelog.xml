@@ -7,6 +7,14 @@
 		<description>What's new on three.ws — features, improvements, and releases, newest first.</description>
 		<language>en</language>
 		<item>
+			<title>Watchlist</title>
+			<link>https://three.ws/watchlist</link>
+			<guid isPermaLink="false">2026-06-16:Watchlist</guid>
+			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>Your privately-stored watchlist of pump.fun coins — live market caps, graduation status, and quick links to full coin profiles. No account required; stored in your browser.</description>
+		</item>
+		<item>
 			<title>Every launch now has its own page — the full story of a coin in one place</title>
 			<link>https://three.ws/launches</link>
 			<guid isPermaLink="false">2026-06-16:Every launch now has its own page — the full story of a coin in one place</guid>

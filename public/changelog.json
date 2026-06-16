@@ -1,11 +1,21 @@
 {
-	"generated_at": "2026-06-16T02:57:48.307Z",
+	"generated_at": "2026-06-16T03:33:09.828Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
 		"url": "https://three.ws"
 	},
 	"entries": [
+		{
+			"date": "2026-06-16",
+			"type": "launch",
+			"title": "Watchlist",
+			"summary": "Your privately-stored watchlist of pump.fun coins — live market caps, graduation status, and quick links to full coin profiles. No account required; stored in your browser.",
+			"link": "/watchlist",
+			"tags": [
+				"launch"
+			]
+		},
 		{
 			"date": "2026-06-16",
 			"type": "update",

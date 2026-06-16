@@ -134,6 +134,11 @@ export const NAV_GROUPS = [
 				desc: 'One fused conviction score per launch — and arm your agent to act on it',
 			},
 			{
+				title: 'Watchlist',
+				href: '/watchlist',
+				desc: 'Your tracked coins — live market caps and graduation status',
+			},
+			{
 				title: '3D Visualizer',
 				href: '/pump-visualizer',
 				desc: 'Trending tokens in 3D',
