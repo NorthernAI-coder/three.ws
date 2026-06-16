@@ -159,6 +159,14 @@
 			<description>When you pin an avatar to the real world in IRL mode, rotating your phone now physically moves the camera — the avatar stays locked to its spot while your view orbits around it, exactly like Pokémon GO. On iOS the app requests motion sensor access as required by iOS 13+. Drag still works as a fallback when orientation is unavailable. The lock icon pulses while active tracking is on.</description>
 		</item>
 		<item>
+			<title>IRL: place your agent on the map — others nearby can see it</title>
+			<link>https://three.ws/irl</link>
+			<guid isPermaLink="false">2026-06-16:IRL: place your agent on the map — others nearby can see it</guid>
+			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Pin your 3D avatar to a real GPS coordinate in IRL mode and other users who walk within 150 metres see your agent appear in their AR view. Each nearby agent shows its name and distance as a floating label; tap it for a detail sheet with the option to pay via x402. Your own pin is removed automatically when you unpin the avatar or close the page. Requires location permission.</description>
+		</item>
+		<item>
 			<title>Launch detail: pump.fun comment sentiment in Community section</title>
 			<link>https://three.ws/launches</link>
 			<guid isPermaLink="false">2026-06-16:Launch detail: pump.fun comment sentiment in Community section</guid>
@@ -335,6 +343,14 @@
 			<description>The agent arm panel's action history now shows the current conviction score alongside the entry conviction for each open position, with a color-coded +/- delta. A green +12 means Oracle's view has strengthened since you entered; a red -8 is a thesis weakening in real time. Settled wins and losses show only the entry conviction as before.</description>
 		</item>
 		<item>
+			<title>Oracle: Movers tab — fastest rising and falling conviction scores</title>
+			<link>https://three.ws/oracle</link>
+			<guid isPermaLink="false">2026-06-16:Oracle: Movers tab — fastest rising and falling conviction scores</guid>
+			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>A new Movers tab on the Oracle page surfaces coins whose conviction score changed most in the last 6, 24, or 48 hours. Rising movers are setups building edge before they hit Prime; falling movers are theses unwinding in real time. Each card shows the score delta, the start-to-end progression, all four conviction pillars, and a tier-change badge when a coin crossed a tier boundary. Click any card to open the full conviction drawer.</description>
+		</item>
+		<item>
 			<title>Oracle: New / Top sort toggle on conviction feed</title>
 			<link>https://three.ws/oracle</link>
 			<guid isPermaLink="false">2026-06-16:Oracle: New / Top sort toggle on conviction feed</guid>
@@ -349,6 +365,14 @@
 			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>Oracle agents now support personal Telegram alerts. Add your Telegram chat ID in the Arm your agent panel to receive a direct message every time a coin crosses your conviction threshold — no more checking the feed. Entry alerts fire when your agent takes an action (simulate or live mode). Chat @three_ws_bot on Telegram and send /start to get your chat ID.</description>
+		</item>
+		<item>
+			<title>Oracle: rich conviction card on every shared link</title>
+			<link>https://three.ws/oracle</link>
+			<guid isPermaLink="false">2026-06-16:Oracle: rich conviction card on every shared link</guid>
+			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Sharing an Oracle link — /oracle?mint=X — now generates a dynamic social card showing the coin's name, conviction score, tier badge, four-pillar breakdown (Who/How/What/Move), and smart wallet count. The card updates when you open the coin drawer, so the URL you share previews real conviction data on X, Telegram, Discord, and iMessage.</description>
 		</item>
 		<item>
 			<title>Oracle: Verify Telegram setup with a test message</title>

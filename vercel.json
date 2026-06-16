@@ -1825,6 +1825,10 @@
 			"dest": "/api/oracle/history.js"
 		},
 		{
+			"src": "/api/oracle/movers",
+			"dest": "/api/oracle/movers.js"
+		},
+		{
 			"src": "/api/oracle/stats",
 			"dest": "/api/oracle/stats.js"
 		},

@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-16T07:55:16.593Z",
+	"generated_at": "2026-06-16T08:17:23.973Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -197,6 +197,16 @@
 			"tags": [
 				"feature",
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "update",
+			"title": "IRL: place your agent on the map — others nearby can see it",
+			"summary": "Pin your 3D avatar to a real GPS coordinate in IRL mode and other users who walk within 150 metres see your agent appear in their AR view. Each nearby agent shows its name and distance as a floating label; tap it for a detail sheet with the option to pay via x402. Your own pin is removed automatically when you unpin the avatar or close the page. Requires location permission.",
+			"link": "/irl",
+			"tags": [
+				"feature"
 			]
 		},
 		{
@@ -429,6 +439,16 @@
 		{
 			"date": "2026-06-16",
 			"type": "update",
+			"title": "Oracle: Movers tab — fastest rising and falling conviction scores",
+			"summary": "A new Movers tab on the Oracle page surfaces coins whose conviction score changed most in the last 6, 24, or 48 hours. Rising movers are setups building edge before they hit Prime; falling movers are theses unwinding in real time. Each card shows the score delta, the start-to-end progression, all four conviction pillars, and a tier-change badge when a coin crossed a tier boundary. Click any card to open the full conviction drawer.",
+			"link": "/oracle",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "update",
 			"title": "Oracle: New / Top sort toggle on conviction feed",
 			"summary": "The live conviction feed now has a Top / New toggle. Top (default) ranks coins by conviction score so the highest-confidence plays surface first. New sorts by when the coin was scored — useful for catching fresh launches the moment Oracle processes them before the wider market. No extra network request: the sort switches client-side from the already-loaded feed.",
 			"link": "/oracle",
@@ -444,6 +464,17 @@
 			"link": "/oracle",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "update",
+			"title": "Oracle: rich conviction card on every shared link",
+			"summary": "Sharing an Oracle link — /oracle?mint=X — now generates a dynamic social card showing the coin's name, conviction score, tier badge, four-pillar breakdown (Who/How/What/Move), and smart wallet count. The card updates when you open the coin drawer, so the URL you share previews real conviction data on X, Telegram, Discord, and iMessage.",
+			"link": "/oracle",
+			"tags": [
+				"feature",
+				"improvement"
 			]
 		},
 		{

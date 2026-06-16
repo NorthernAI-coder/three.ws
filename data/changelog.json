@@ -3,6 +3,13 @@
 	"entries": [
 		{
 			"date": "2026-06-16",
+			"title": "Oracle: Movers tab — fastest rising and falling conviction scores",
+			"summary": "A new Movers tab on the Oracle page surfaces coins whose conviction score changed most in the last 6, 24, or 48 hours. Rising movers are setups building edge before they hit Prime; falling movers are theses unwinding in real time. Each card shows the score delta, the start-to-end progression, all four conviction pillars, and a tier-change badge when a coin crossed a tier boundary. Click any card to open the full conviction drawer.",
+			"tags": ["feature"],
+			"link": "/oracle"
+		},
+		{
+			"date": "2026-06-16",
 			"title": "IRL: place your agent on the map — others nearby can see it",
 			"summary": "Pin your 3D avatar to a real GPS coordinate in IRL mode and other users who walk within 150 metres see your agent appear in their AR view. Each nearby agent shows its name and distance as a floating label; tap it for a detail sheet with the option to pay via x402. Your own pin is removed automatically when you unpin the avatar or close the page. Requires location permission.",
 			"tags": ["feature"],
