@@ -26,6 +26,13 @@ export async function upsertNarrative(mint, network, narr) {
 
 /** Persist a fused conviction verdict for a coin. */
 export async function upsertConviction({ mint, network, intel, verdict }) {
+	// Fetch the previous score before overwriting so we can decide whether to
+	// append a history row. Skips the SELECT when the table is warm (will be null
+	// only on cold misses or the very first score for a coin).
+	const prev = await sql`
+		select score from oracle_conviction where mint = ${mint} and network = ${network} limit 1
+	`.then((r) => (r[0] ? Number(r[0].score) : null)).catch(() => null);
+
 	await sql`
 		insert into oracle_conviction (
 			mint, network, symbol, name, image_uri,
@@ -49,6 +56,20 @@ export async function upsertConviction({ mint, network, intel, verdict }) {
 			category = excluded.category, smart_wallet_count = excluded.smart_wallet_count,
 			scored_at = now()
 	`;
+
+	// Write a history row when the score changes by ≥3 pts or it's the first score.
+	const delta = prev == null ? Infinity : Math.abs(verdict.score - prev);
+	if (delta >= 3) {
+		await sql`
+			insert into oracle_conviction_history
+				(mint, network, score, tier, pedigree, structure, narrative, momentum)
+			values (
+				${mint}, ${network}, ${verdict.score}, ${verdict.tier},
+				${verdict.pillars.pedigree}, ${verdict.pillars.structure},
+				${verdict.pillars.narrative}, ${verdict.pillars.momentum}
+			)
+		`.catch(() => { /* non-fatal — history is a nice-to-have */ });
+	}
 }
 
 // Compact audit trail of the normalized inputs that produced a verdict.
