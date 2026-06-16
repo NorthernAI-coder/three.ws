@@ -10,6 +10,7 @@ import { log } from './log.js';
 import { loadAgentKeypair } from './keys.js';
 import { getTradeCtx, signAndSend } from './trade-client.js';
 import { countOpenPositions, getDailySpend } from './strategy-store.js';
+import { notifyBuy, notifySell } from '../../api/_lib/sniper/notify.js';
 
 // Fee + rent headroom we keep above the trade size so a buy doesn't fail for
 // lack of lamports to pay fees / open the token ATA.
@@ -123,6 +124,7 @@ export async function executeBuy({ cfg, strat, mint, throttle }) {
 				WHERE id = ${posId}
 			`;
 			log.trade('buy', { ...tag, mode: cfg.mode, sig, sol: lamportsToSol(perTrade), base: baseAmount.toString(), impact: Number(quote.priceImpactPct).toFixed(2) });
+			notifyBuy({ agentName: strat.agent_name || strat.agent_id, symbol: mint.symbol, mint: mint.mint, solSpent: lamportsToSol(perTrade), mode: cfg.mode, sig });
 			return { status: 'open', sig };
 		} catch (err) {
 			return await fail(posId, tag, errCode(err), err);
@@ -180,6 +182,7 @@ export async function executeSell({ cfg, position, reason }) {
 				WHERE id = ${position.id}
 			`;
 			log.trade('sell', { ...tag, mode: cfg.mode, sig, pnl_sol: lamportsToSol(pnl), pnl_pct: pnlPct.toFixed(1) });
+			notifySell({ agentName: position.agent_name || position.agent_id, symbol: position.symbol, mint: position.mint, pnlSol: lamportsToSol(pnl), pnlPct, exitReason: reason, mode: cfg.mode, sig });
 			return { status: 'closed', sig, pnl: pnl.toString() };
 		} catch (err) {
 			// A failed sell must NOT terminate the position — leave it 'open' so the
