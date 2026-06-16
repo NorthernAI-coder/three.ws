@@ -3,6 +3,13 @@
 	"entries": [
 		{
 			"date": "2026-06-16",
+			"title": "Coin Intelligence — watchlist + Oracle conviction now in every card and drawer",
+			"summary": "The Coin Intelligence radar (/coin-intel) is now connected to both the watchlist and the Oracle. Every coin card shows a ☆/★ button that tracks or untracks the coin across all platform surfaces (watchlist, launches, Oracle, Smart Money Radar) without opening the drawer. Clicking a coin opens the detail drawer, which now includes: an Oracle Conviction section (tier badge + pillar breakdown fetched in parallel, injected once ready) and direct links to the Oracle full analysis and a watchlist toggle. The Oracle link and watch button sit alongside the existing pump.fun and Solscan links at the bottom of the drawer.",
+			"tags": ["improvement"],
+			"link": "/coin-intel"
+		},
+		{
+			"date": "2026-06-16",
 			"title": "Agent trading record — proof-of-edge on every agent profile",
 			"summary": "Agent profiles now show a live TRADING RECORD panel that pulls directly from the Oracle's action ledger. Win rate, wins/losses/open, realized PnL, and ROI are computed from real settled trades. Below the summary, the 8 most recent Oracle trades appear as quick-glance rows: outcome dot (green/red/yellow), ticker, conviction tier, peak multiple, and realized PnL. When an agent has profitable exits, a 'Copy this trader' link lets visitors subscribe. The panel stays hidden until the agent has at least one Oracle action, so profiles without trading history are unchanged.",
 			"tags": ["feature"],

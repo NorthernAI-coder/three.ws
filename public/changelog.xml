@@ -47,6 +47,14 @@
 			<description>The oracle's quality score is no longer a black box. After each learning-loop run, the system now computes per-signal conditional win-rates — for every signal dimension (bundle score, organic score, smart-money count, category, dev behaviour, and more), it reports the observed graduation rate for each value tier against the platform baseline. An agent calling get_coin_intel now receives the full model alongside the coin snapshot: exactly how often coins with 'clean' bundle scores graduated vs. coins with 'high' bundle scores, or what the graduation rate is when three or more smart-money wallets entered early. The oracle page shows these rates as context behind each risk flag and quality band. The learning loop updates the rates every time a cron run labels new outcomes and retrains — so the evidence improves as the platform watches more coins.</description>
 		</item>
 		<item>
+			<title>Coin Intelligence — watchlist + Oracle conviction now in every card and drawer</title>
+			<link>https://three.ws/coin-intel</link>
+			<guid isPermaLink="false">2026-06-16:Coin Intelligence — watchlist + Oracle conviction now in every card and drawer</guid>
+			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>The Coin Intelligence radar (/coin-intel) is now connected to both the watchlist and the Oracle. Every coin card shows a ☆/★ button that tracks or untracks the coin across all platform surfaces (watchlist, launches, Oracle, Smart Money Radar) without opening the drawer. Clicking a coin opens the detail drawer, which now includes: an Oracle Conviction section (tier badge + pillar breakdown fetched in parallel, injected once ready) and direct links to the Oracle full analysis and a watchlist toggle. The Oracle link and watch button sit alongside the existing pump.fun and Solscan links at the bottom of the drawer.</description>
+		</item>
+		<item>
 			<title>Copy trading — mirror proven traders, non-custodially, on your own terms</title>
 			<link>https://three.ws/dashboard/copy</link>
 			<guid isPermaLink="false">2026-06-16:Copy trading — mirror proven traders, non-custodially, on your own terms</guid>

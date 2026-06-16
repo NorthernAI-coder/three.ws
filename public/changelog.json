@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-16T04:57:34.479Z",
+	"generated_at": "2026-06-16T05:01:26.226Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -55,6 +55,16 @@
 			"link": "/oracle",
 			"tags": [
 				"feature",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "update",
+			"title": "Coin Intelligence — watchlist + Oracle conviction now in every card and drawer",
+			"summary": "The Coin Intelligence radar (/coin-intel) is now connected to both the watchlist and the Oracle. Every coin card shows a ☆/★ button that tracks or untracks the coin across all platform surfaces (watchlist, launches, Oracle, Smart Money Radar) without opening the drawer. Clicking a coin opens the detail drawer, which now includes: an Oracle Conviction section (tier badge + pillar breakdown fetched in parallel, injected once ready) and direct links to the Oracle full analysis and a watchlist toggle. The Oracle link and watch button sit alongside the existing pump.fun and Solscan links at the bottom of the drawer.",
+			"link": "/coin-intel",
+			"tags": [
 				"improvement"
 			]
 		},
