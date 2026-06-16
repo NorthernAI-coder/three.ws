@@ -311,6 +311,14 @@
 			<description>The Pump Dashboard now has a High Conviction panel alongside the live feed — showing the top 5 Oracle-scored coins (score ≥ 60) with their tier badge, 4-pillar bars, and a link to the Oracle drawer. The panel auto-refreshes every 90 seconds and pulses with a live indicator. Clicking any coin opens the full conviction breakdown.</description>
 		</item>
 		<item>
+			<title>Pump Live: Oracle conviction filter + pause control</title>
+			<link>https://three.ws/pump-live</link>
+			<guid isPermaLink="false">2026-06-16:Pump Live: Oracle conviction filter + pause control</guid>
+			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The Pump.fun live feed now has a conviction filter bar: All, Strong+, or Prime. When a filter is active, coins below that Oracle tier are automatically hidden once they receive their conviction score. A queued count shows how many launches arrived while paused. The ⏸ Pause button freezes new cards from prepending — useful for examining a coin without it scrolling away.</description>
+		</item>
+		<item>
 			<title>Radar drawer: Oracle conviction scores now inline with coin intelligence</title>
 			<link>https://three.ws/radar</link>
 			<guid isPermaLink="false">2026-06-16:Radar drawer: Oracle conviction scores now inline with coin intelligence</guid>

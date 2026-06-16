@@ -3,6 +3,13 @@
 	"entries": [
 		{
 			"date": "2026-06-16",
+			"title": "Pump Live: Oracle conviction filter + pause control",
+			"summary": "The Pump.fun live feed now has a conviction filter bar: All, Strong+, or Prime. When a filter is active, coins below that Oracle tier are automatically hidden once they receive their conviction score. A queued count shows how many launches arrived while paused. The ⏸ Pause button freezes new cards from prepending — useful for examining a coin without it scrolling away.",
+			"tags": ["feature", "improvement"],
+			"link": "/pump-live"
+		},
+		{
+			"date": "2026-06-16",
 			"title": "Oracle: Conviction score history sparkline",
 			"summary": "The coin conviction drawer now shows a 48-hour score history sparkline. As Oracle re-scores a coin, each meaningful change (≥3 points) is recorded. The drawer surfaces the trend — rising, stable, or falling — so you can see whether conviction is building or rolling over before making a move.",
 			"tags": ["feature", "improvement"],

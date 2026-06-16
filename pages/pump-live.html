@@ -186,6 +186,49 @@
   .pl-ob-score { font: 700 11px/1 monospace; font-variant-numeric: tabular-nums; }
   .pl-ob-tier { font: 600 8px/1 monospace; text-transform: uppercase; letter-spacing: .06em; opacity: .8; }
 
+  /* ── Conviction filter bar ────────────────────────────────── */
+  #filter-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--dark-grey);
+    background: #0c0c0c;
+    flex-wrap: wrap;
+  }
+  #filter-bar .fb-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: #555;
+    margin-right: 2px;
+    white-space: nowrap;
+  }
+  .fb-btn {
+    padding: 3px 10px;
+    border-radius: 999px;
+    border: 1px solid #2a2a2a;
+    background: transparent;
+    color: #666;
+    font-size: 11px;
+    font-family: inherit;
+    cursor: pointer;
+    transition: color .13s, border-color .13s, background .13s;
+    white-space: nowrap;
+  }
+  .fb-btn:hover { color: #aaa; border-color: #444; }
+  .fb-btn.active { color: #e0e0e0; border-color: #555; background: #1c1c1c; }
+  .fb-btn.active.tier-prime { color: #c084fc; border-color: rgba(192,132,252,.45); background: rgba(192,132,252,.06); }
+  .fb-btn.active.tier-strong { color: #34d399; border-color: rgba(52,211,153,.45); background: rgba(52,211,153,.05); }
+  #filter-count {
+    font-size: 10px;
+    color: #444;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+  .token-card.pl-filtered { display: none; }
+
   @keyframes fadeIn {
     from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }
@@ -321,6 +364,14 @@
     <div id="feed-header">
       <h2>New Tokens on Pump.fun</h2>
     </div>
+    <div id="filter-bar" role="group" aria-label="Filter by Oracle conviction">
+      <span class="fb-label">Oracle</span>
+      <button class="fb-btn active" data-ftier="all" aria-pressed="true">All</button>
+      <button class="fb-btn tier-strong" data-ftier="strong" aria-pressed="false">Strong+</button>
+      <button class="fb-btn tier-prime" data-ftier="prime" aria-pressed="false">Prime</button>
+      <span id="filter-count" style="flex:1;text-align:right" aria-live="polite"></span>
+      <button class="fb-btn" id="fb-pause" aria-pressed="false" title="Pause / resume the live feed">⏸ Pause</button>
+    </div>
     <div id="feed"></div>
   </div>
 </div>
@@ -398,6 +449,77 @@
   let reconnectAttempts = 0;
   let hasRenderedToken = false;
   const seenMints = new Set();
+
+  // ── Conviction filter ─────────────────────────────────────────────────────
+  // 'all' = show everything, 'strong' = strong + prime, 'prime' = prime only.
+  // Unenriched cards (no badge yet) are always shown when filtering — we can't
+  // judge them until Oracle scores them. After enrichment, applyCardFilter()
+  // revisits each card and hides those that fall below the threshold.
+  let filterTier = 'all';
+
+  const TIER_RANK = { avoid: 0, watch: 1, lean: 2, strong: 3, prime: 4 };
+  const MIN_RANK = { all: 0, strong: 3, prime: 4 };
+
+  function cardTier(card) {
+    const badge = card.querySelector('[data-oracle-mint]');
+    if (!badge || !badge.hasChildNodes()) return null;
+    const link = badge.querySelector('.pl-ob-link');
+    if (!link) return null;
+    return link.querySelector('.pl-ob-tier')?.textContent?.trim() || null;
+  }
+
+  function applyCardFilter(card) {
+    if (filterTier === 'all') { card.classList.remove('pl-filtered'); return; }
+    const tier = cardTier(card);
+    if (!tier) { card.classList.remove('pl-filtered'); return; } // not yet enriched — keep visible
+    const rank = TIER_RANK[tier] ?? -1;
+    card.classList.toggle('pl-filtered', rank < MIN_RANK[filterTier]);
+  }
+
+  function applyAllFilters() {
+    const cards = $log.querySelectorAll('.token-card');
+    cards.forEach(applyCardFilter);
+    updateFilterCount();
+  }
+
+  function updateFilterCount() {
+    const countEl = document.getElementById('filter-count');
+    if (!countEl) return;
+    if (filterTier === 'all') { countEl.textContent = ''; return; }
+    const all = $log.querySelectorAll('.token-card').length;
+    const hidden = $log.querySelectorAll('.token-card.pl-filtered').length;
+    const shown = all - hidden;
+    countEl.textContent = `${shown} of ${all} shown`;
+  }
+
+  // ── Pause toggle ──────────────────────────────────────────────────────────
+  let feedPaused = false;
+  let pauseQueue = [];
+
+  document.getElementById('fb-pause').addEventListener('click', () => {
+    feedPaused = !feedPaused;
+    const btn = document.getElementById('fb-pause');
+    btn.textContent = feedPaused ? '▶ Resume' : '⏸ Pause';
+    btn.classList.toggle('active', feedPaused);
+    btn.setAttribute('aria-pressed', String(feedPaused));
+    if (!feedPaused && pauseQueue.length) {
+      pauseQueue.forEach((token) => renderToken(token));
+      pauseQueue = [];
+    }
+  });
+
+  // Wire conviction filter buttons
+  document.getElementById('filter-bar').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-ftier]');
+    if (!btn) return;
+    filterTier = btn.dataset.ftier;
+    document.querySelectorAll('#filter-bar [data-ftier]').forEach((b) => {
+      const on = b === btn;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+    applyAllFilters();
+  });
 
   // Live stats — accumulated only from real create events. Volume is kept in
   // SOL and converted with the current SOL price at render time so a price
@@ -511,6 +633,12 @@
       if (!token || !token.mint || token.txType !== 'create') return;
       if (seenMints.has(token.mint)) return;
       seenMints.add(token.mint);
+      if (feedPaused) {
+        pauseQueue.push(token);
+        const pauseBtn = document.getElementById('fb-pause');
+        if (pauseBtn) pauseBtn.textContent = `▶ Resume (${pauseQueue.length})`;
+        return;
+      }
       renderToken(token);
     };
 
@@ -683,9 +811,13 @@
           a.setAttribute('aria-label', `Oracle ${d.tier} — score ${d.score}`);
           a.innerHTML = `<span class="pl-ob-score" style="color:${color}">${d.score}</span><span class="pl-ob-tier" style="color:${color}">${d.tier}</span>`;
           badge.appendChild(a);
+          // Re-evaluate filter for this card now that it has a conviction score.
+          const card = badge.closest('.token-card');
+          if (card) applyCardFilter(card);
         }
       } catch { /* non-fatal */ }
     }
+    updateFilterCount();
   }
 
   // First pass after 30s (new coins need time to get scored), then every 30s
