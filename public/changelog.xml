@@ -183,6 +183,14 @@
 			<description>The Pump Dashboard now has a High Conviction panel alongside the live feed — showing the top 5 Oracle-scored coins (score ≥ 60) with their tier badge, 4-pillar bars, and a link to the Oracle drawer. The panel auto-refreshes every 90 seconds and pulses with a live indicator. Clicking any coin opens the full conviction breakdown.</description>
 		</item>
 		<item>
+			<title>Radar drawer: Oracle conviction scores now inline with coin intelligence</title>
+			<link>https://three.ws/radar</link>
+			<guid isPermaLink="false">2026-06-16:Radar drawer: Oracle conviction scores now inline with coin intelligence</guid>
+			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>When you open a coin in the /radar drawer, it now shows the Oracle conviction score alongside the coin intelligence analysis — score, tier badge, and four pillar bars (pedigree/structure/narrative/momentum), with a link to the full Oracle breakdown. Data loads asynchronously so the drawer opens instantly.</description>
+		</item>
+		<item>
 			<title>Rich OG cards on every shared coin link — price, score, and live status in the preview</title>
 			<link>https://three.ws/launches</link>
 			<guid isPermaLink="false">2026-06-16:Rich OG cards on every shared coin link — price, score, and live status in the preview</guid>
