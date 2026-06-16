@@ -15,6 +15,21 @@
 const POLL_MS = 12000;
 const DEFAULT_LIMIT = 60;
 
+// ── watchlist helpers (same key as launch-detail.js, watchlist.js, launches.js, oracle.js) ──
+const WATCH_KEY = 'ld_watchlist';
+function isWatched(mint) {
+	try { return JSON.parse(localStorage.getItem(WATCH_KEY) || '[]').includes(mint); } catch { return false; }
+}
+function toggleRadarWatch(mint) {
+	try {
+		const list = JSON.parse(localStorage.getItem(WATCH_KEY) || '[]');
+		const idx = list.indexOf(mint);
+		if (idx >= 0) list.splice(idx, 1); else list.unshift(mint);
+		localStorage.setItem(WATCH_KEY, JSON.stringify(list.slice(0, 200)));
+		return idx < 0;
+	} catch { return false; }
+}
+
 const CATEGORIES = [
 	'meme', 'tech', 'ai', 'culture', 'community',
 	'political', 'news', 'animal', 'celebrity', 'utility', 'unknown',
@@ -462,7 +477,24 @@ function renderCard(coin) {
 	const detail = el('button', 'rc-detail', 'Full intel →');
 	detail.type = 'button';
 	detail.addEventListener('click', (e) => { e.stopPropagation(); open(); });
-	foot.append(scan, detail);
+
+	const watched = isWatched(coin.mint);
+	const watchBtn = el('button', `rc-watch${watched ? ' rc-watched' : ''}`, watched ? '★' : '☆');
+	watchBtn.type = 'button';
+	watchBtn.setAttribute('aria-label', watched ? 'Remove from watchlist' : 'Add to watchlist');
+	watchBtn.setAttribute('aria-pressed', String(watched));
+	watchBtn.title = watched ? 'Remove from watchlist' : 'Add to watchlist';
+	watchBtn.addEventListener('click', (e) => {
+		e.stopPropagation();
+		const nowWatched = toggleRadarWatch(coin.mint);
+		watchBtn.textContent = nowWatched ? '★' : '☆';
+		watchBtn.classList.toggle('rc-watched', nowWatched);
+		watchBtn.setAttribute('aria-pressed', String(nowWatched));
+		watchBtn.setAttribute('aria-label', nowWatched ? 'Remove from watchlist' : 'Add to watchlist');
+		watchBtn.title = nowWatched ? 'Remove from watchlist' : 'Add to watchlist';
+	});
+
+	foot.append(scan, detail, watchBtn);
 	card.append(foot);
 
 	if (isNew) requestAnimationFrame(() => card.classList.remove('is-enter'));
