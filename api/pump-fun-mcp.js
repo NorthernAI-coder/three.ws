@@ -936,6 +936,9 @@ async function handleGetCoinIntel({ mint, network = 'mainnet' } = {}) {
 
 			// Outcome (null if coin not yet labeled)
 			outcome,
+
+			// Learning model: conditional win-rates so agents can see the evidence behind the score
+			model,
 		};
 	} catch (err) {
 		const missing = /relation .* does not exist/i.test(String(err?.message));

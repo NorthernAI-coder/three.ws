@@ -46,7 +46,7 @@ function format(coin) {
 		pillars ? `<i>${pillars}</i>` : '',
 		`<code>${escHtml(coin.mint)}</code>`,
 		`${category}${smart}`,
-		`<a href="https://pump.fun/coin/${encodeURIComponent(coin.mint)}">pump.fun</a>  ·  <a href="https://three.ws/launch-detail?mint=${encodeURIComponent(coin.mint)}">Oracle</a>`,
+		`<a href="https://pump.fun/coin/${encodeURIComponent(coin.mint)}">pump.fun</a>  ·  <a href="https://three.ws/oracle?mint=${encodeURIComponent(coin.mint)}">Oracle</a>`,
 	].filter(Boolean).join('\n');
 }
 

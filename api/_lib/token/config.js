@@ -154,6 +154,15 @@ export const SPLIT_POLICIES = Object.freeze({
 		{ role: 'treasury', bps: 8000 },
 		{ role: 'rewards', bps: 2000 },
 	],
+	// Copy-trading performance fee — charged on a copier's realized profit only.
+	// The leader (seller leg) keeps 80%; the platform takes 15% (funds buybacks +
+	// the referrer's share via the existing referral ledger); 5% reflects to
+	// holders. Same on-chain split machinery as every other paid surface.
+	copy_performance_fee: [
+		{ role: 'seller', bps: 8000 },
+		{ role: 'treasury', bps: 1500 },
+		{ role: 'rewards', bps: 500 },
+	],
 });
 
 function resolveRole(role, { sellerWallet } = {}) {
