@@ -175,6 +175,16 @@
     font-size: 14px; line-height: 1; padding: 2px 7px; cursor: pointer; transition: color .15s, border-color .15s; }
   .token-watch.watched { color: #7c83ff; border-color: #7c83ff; }
   .token-watch:hover { color: #fff; border-color: #aaa; }
+  .pl-oracle-badge { margin-left: auto; flex-shrink: 0; }
+  .pl-ob-link {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 6px; padding: 2px 7px; text-decoration: none;
+    transition: background 0.12s, border-color 0.12s;
+  }
+  .pl-ob-link:hover { background: rgba(255,255,255,0.07); border-color: rgba(255,255,255,0.22); }
+  .pl-ob-score { font: 700 11px/1 monospace; font-variant-numeric: tabular-nums; }
+  .pl-ob-tier { font: 600 8px/1 monospace; text-transform: uppercase; letter-spacing: .06em; opacity: .8; }
 
   @keyframes fadeIn {
     from { opacity: 0; transform: translateY(10px); }
@@ -547,6 +557,7 @@
 
     const card = document.createElement('article');
     card.className = 'token-card';
+    card.dataset.mint = token.mint;
 
     // Real token art via the same-origin image proxy. /api/img resolves the
     // creator metadata JSON server-side (no client CORS), follows IPFS gateway
@@ -608,7 +619,10 @@
       watchBtn.setAttribute('aria-label', lbl);
       watchBtn.setAttribute('aria-pressed', String(nowWatched));
     });
-    links.append(pumpLink, solscanLink, watchBtn);
+    const oracleBadge = document.createElement('span');
+    oracleBadge.className = 'pl-oracle-badge';
+    oracleBadge.dataset.oracleMint = token.mint;
+    links.append(pumpLink, solscanLink, watchBtn, oracleBadge);
 
     info.append(nameEl, symEl, mcapEl, links);
     card.append(img, info);
@@ -633,6 +647,50 @@
   connect();
   refreshSolPrice();
   setInterval(refreshSolPrice, 60000);
+
+  // ── Oracle conviction badges ────────────────────────────────────────────
+  // Newly-launched coins are too fresh to have conviction scores; batch-poll
+  // every 30s so cards that get scored while on screen upgrade automatically.
+  const TIER_COLOR = { prime: '#c084fc', strong: '#34d399', lean: '#fbbf24', watch: '#94a3b8', avoid: '#f87171' };
+  const BATCH_MAX = 20;
+
+  async function enrichOracleBadges() {
+    const badges = $log.querySelectorAll('[data-oracle-mint]');
+    if (!badges.length) return;
+    // Collect unscored mints only (badge is still empty)
+    const pending = [];
+    for (const b of badges) {
+      if (!b.hasChildNodes()) pending.push(b.dataset.oracleMint);
+    }
+    if (!pending.length) return;
+    // Chunk into batches of ≤20
+    for (let i = 0; i < pending.length; i += BATCH_MAX) {
+      const chunk = pending.slice(i, i + BATCH_MAX);
+      try {
+        const r = await fetch(`/api/oracle/batch?mints=${chunk.map(encodeURIComponent).join(',')}&network=mainnet`);
+        if (!r.ok) continue;
+        const { results = {} } = await r.json();
+        for (const mint of chunk) {
+          const d = results[mint];
+          if (!d || d.score == null) continue;
+          const badge = $log.querySelector(`[data-oracle-mint="${CSS.escape(mint)}"]`);
+          if (!badge || badge.hasChildNodes()) continue;
+          const color = TIER_COLOR[d.tier] || '#94a3b8';
+          const a = document.createElement('a');
+          a.className = 'pl-ob-link';
+          a.href = `/oracle?mint=${encodeURIComponent(mint)}`;
+          a.title = `Oracle conviction: ${d.score} (${d.tier})`;
+          a.setAttribute('aria-label', `Oracle ${d.tier} — score ${d.score}`);
+          a.innerHTML = `<span class="pl-ob-score" style="color:${color}">${d.score}</span><span class="pl-ob-tier" style="color:${color}">${d.tier}</span>`;
+          badge.appendChild(a);
+        }
+      } catch { /* non-fatal */ }
+    }
+  }
+
+  // First pass after 30s (new coins need time to get scored), then every 30s
+  setTimeout(enrichOracleBadges, 30_000);
+  setInterval(enrichOracleBadges, 30_000);
 </script>
 
 <script type="module">
