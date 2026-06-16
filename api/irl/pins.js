@@ -1,13 +1,16 @@
 /**
  * IRL GPS Pins — place 3D agents at real-world GPS coordinates.
  *
- * GET  /api/irl/pins?lat=&lng=&radius=150   nearby pins (public)
- * POST /api/irl/pins  { lat, lng, heading, avatarUrl, avatarName, caption, agentId }
- * DELETE /api/irl/pins?id=  (requires device_token cookie match or auth)
+ * GET    /api/irl/pins?lat=&lng=&radius=150        nearby pins (public)
+ * GET    /api/irl/pins?mine=1                      my pins (auth required)
+ * POST   /api/irl/pins  { lat, lng, heading, avatarUrl, avatarName, caption, agentId }
+ * PATCH  /api/irl/pins  { id, caption }            edit caption (auth required)
+ * DELETE /api/irl/pins?id=                         remove own pin (device_token or auth)
  */
 
 import { cors, json, wrap } from '../_lib/http.js';
 import { sql } from '../_lib/db.js';
+import { getSessionUser } from '../_lib/auth.js';
 
 // Haversine distance in meters between two GPS points
 function haversineDist(lat1, lng1, lat2, lng2) {
@@ -47,10 +50,24 @@ async function ensureTable() {
 }
 
 export default wrap(async (req, res) => {
-	cors(req, res, { methods: ['GET', 'POST', 'DELETE', 'OPTIONS'] });
+	cors(req, res, { methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'] });
 	if (req.method === 'OPTIONS') return res.end();
 
 	await ensureTable();
+
+	// ── GET — my pins (auth) ──────────────────────────────────────────────────
+	if (req.method === 'GET' && req.query.mine === '1') {
+		const session = await getSessionUser(req).catch(() => null);
+		if (!session) return json(res, 401, { error: 'not authenticated' });
+		const rows = await sql`
+			SELECT id, lat, lng, heading, avatar_url, avatar_name, caption, agent_id, placed_at, expires_at
+			FROM irl_pins
+			WHERE user_id = ${session.id}
+			ORDER BY placed_at DESC
+			LIMIT 100
+		`;
+		return json(res, 200, { pins: rows });
+	}
 
 	// ── GET — nearby pins ─────────────────────────────────────────────────────
 	if (req.method === 'GET') {
@@ -101,25 +118,46 @@ export default wrap(async (req, res) => {
 			return json(res, 400, { error: 'invalid coordinates' });
 		}
 
+		const session   = await getSessionUser(req).catch(() => null);
+		const userId    = session?.id ?? null;
+		// Authenticated users get permanent pins; anonymous expire in 7 days.
+		const expiresAt = userId ? null : new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString();
+
 		const [pin] = await sql`
 			INSERT INTO irl_pins
 				(user_id, agent_id, device_token, lat, lng, heading,
-				 avatar_url, avatar_name, caption, x402_endpoint)
+				 avatar_url, avatar_name, caption, x402_endpoint, expires_at)
 			VALUES (
-				${body.userId    ?? null},
-				${body.agentId   ?? null},
+				${userId},
+				${body.agentId    ?? null},
 				${body.deviceToken ?? null},
 				${lat}, ${lng},
 				${parseFloat(body.heading) || 0},
 				${body.avatarUrl   ?? null},
 				${body.avatarName  ?? null},
 				${body.caption     ?? null},
-				${body.x402Endpoint ?? null}
+				${body.x402Endpoint ?? null},
+				${expiresAt}
 			)
 			RETURNING *
 		`;
 
-		return json(res, 201, { pin });
+		return json(res, 201, { pin: { ...pin, permanent: expiresAt === null } });
+	}
+
+	// ── PATCH — edit caption ──────────────────────────────────────────────────
+	if (req.method === 'PATCH') {
+		const session = await getSessionUser(req).catch(() => null);
+		if (!session) return json(res, 401, { error: 'not authenticated' });
+		const { id, caption } = req.body ?? {};
+		if (!id) return json(res, 400, { error: 'id required' });
+		const [row] = await sql`
+			UPDATE irl_pins SET caption = ${caption ?? null}
+			WHERE id = ${id} AND user_id = ${session.id}
+			RETURNING id, caption
+		`;
+		if (!row) return json(res, 404, { error: 'not found' });
+		return json(res, 200, { pin: row });
 	}
 
 	// ── DELETE — remove own pin ───────────────────────────────────────────────
@@ -129,11 +167,18 @@ export default wrap(async (req, res) => {
 
 		if (!id) return json(res, 400, { error: 'id required' });
 
+		const session = await getSessionUser(req).catch(() => null);
+		const userId  = session?.id ?? null;
+
 		// Allow deletion by device_token (anonymous) or user_id (authenticated)
 		const result = await sql`
 			DELETE FROM irl_pins
 			WHERE id = ${id}
-			  AND (device_token = ${deviceToken ?? ''} OR device_token IS NULL)
+			  AND (
+			    device_token = ${deviceToken ?? ''}
+			    OR user_id = ${userId}
+			    OR (device_token IS NULL AND ${userId} IS NULL)
+			  )
 			RETURNING id
 		`;
 

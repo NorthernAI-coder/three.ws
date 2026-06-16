@@ -1011,6 +1011,40 @@ a {
 	color: var(--ad-muted);
 }
 
+/* Owner action bar — edit, manage, deploy CTAs shown only to the agent owner */
+.ad-owner-bar {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	flex-wrap: wrap;
+	margin: 10px 0 6px;
+	padding: 10px 12px;
+	background: rgba(139, 92, 246, 0.07);
+	border: 1px solid rgba(139, 92, 246, 0.18);
+	border-radius: 10px;
+}
+.ad-owner-bar .ad-btn {
+	font-size: 12.5px;
+	padding: 6px 13px;
+	text-decoration: none;
+}
+.ad-btn-deploy {
+	background: rgba(139, 92, 246, 0.15) !important;
+	border-color: rgba(139, 92, 246, 0.4) !important;
+	color: #c4b5fd !important;
+}
+.ad-btn-deploy:hover {
+	background: rgba(139, 92, 246, 0.25) !important;
+}
+
+/* Deploy slot in BLOCKCHAIN DETAILS — inline OnchainDeployButton */
+.ad-deploy-slot {
+	margin: 12px 0 4px;
+}
+.ad-deploy-slot:empty {
+	display: none;
+}
+
 /* Hero actions */
 .ad-market-actions {
 	display: inline-flex;
