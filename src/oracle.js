@@ -309,10 +309,26 @@ function coinCard(it, watched = new Set()) {
 
 function setStats(data) {
 	const items = data.items || [];
+	// Populate from feed immediately, then override with richer global stats.
 	$('#stScored').textContent = data.count ?? items.length;
 	$('#stStrong').textContent = items.filter((i) => i.tier === 'strong' || i.tier === 'prime').length;
 	$('#stSmart').textContent = items.reduce((s, i) => s + (i.smart_wallet_count || 0), 0);
-	$('#stUpdated').textContent = 'now';
+	$('#stUpdated').textContent = '—';
+	// Fetch global platform stats asynchronously.
+	loadGlobalStats();
+}
+
+async function loadGlobalStats() {
+	try {
+		const { ok, data } = await api('/api/oracle/stats');
+		if (!ok || !data) return;
+		if (data.scored_24h != null) $('#stScored').textContent = data.scored_24h.toLocaleString();
+		if (data.win_rate != null) $('#stStrong').textContent = data.win_rate + '%';
+		else $('#stStrong').textContent = '—';
+		if (data.best_ath != null) $('#stSmart').textContent = Number(data.best_ath).toFixed(1) + '×';
+		else $('#stSmart').textContent = '—';
+		if (data.prime_count != null) $('#stUpdated').textContent = data.prime_count.toLocaleString();
+	} catch { /* non-fatal */ }
 }
 
 // ── live stream ──────────────────────────────────────────────────────────────
