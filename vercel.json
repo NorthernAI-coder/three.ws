@@ -169,6 +169,9 @@
 		"api/**/*.js": {
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 30
+		},
+		"api/irl/pins.js": {
+			"maxDuration": 15
 		}
 	},
 	"routes": [
@@ -593,6 +596,10 @@
 		{
 			"src": "/claim-wallet/?",
 			"dest": "/claim-wallet.html"
+		},
+		{
+			"src": "/oracle/coin/([1-9A-HJ-NP-Za-km-z]{32,44})/?",
+			"dest": "/api/oracle-share?mint=$1"
 		},
 		{
 			"src": "/oracle/?",
