@@ -339,9 +339,11 @@ function stratForm(s) {
 		<div class="sn-field">
 			<label>Trigger</label>
 			<select name="trigger">
-				<option value="new_mint" ${s.trigger !== 'first_claim' ? 'selected' : ''}>New mint — snipe every launch</option>
+				<option value="new_mint" ${s.trigger === 'new_mint' || (!s.trigger || (s.trigger !== 'first_claim' && s.trigger !== 'intel_confirmed')) ? 'selected' : ''}>New mint — snipe every launch</option>
 				<option value="first_claim" ${s.trigger === 'first_claim' ? 'selected' : ''}>First claim — creator claims for first time</option>
+				<option value="intel_confirmed" ${s.trigger === 'intel_confirmed' ? 'selected' : ''}>Intel confirmed — buy after Coin Intelligence verdict</option>
 			</select>
+			<span class="sn-hint">Intel confirmed waits for the observation window (~60s) and only buys if the coin passes bundle detection and quality analysis.</span>
 			<span class="sn-hint">When the agent enters a position.</span>
 		</div>
 		<div class="sn-field">

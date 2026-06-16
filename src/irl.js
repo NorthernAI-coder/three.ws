@@ -85,6 +85,7 @@ const placeBtn       = $('irl-place-btn');
 const clearBtn       = $('irl-clear-btn');
 const pickerEl       = $('irl-picker');
 const avatarBtn      = $('irl-avatar-btn');
+const lockBtn        = $('irl-lock-btn');
 
 // ── Status helpers ────────────────────────────────────────────────────────
 function setStatus(msg, { error = false, loading = false, sticky = false } = {}) {
@@ -576,6 +577,34 @@ if (avatarBtn) {
 	avatarBtn.addEventListener('click', () => irlAvatarPicker.open(_currentAvatarId));
 }
 
+// ── Avatar lock ───────────────────────────────────────────────────────────
+let avatarLocked = false;
+
+function setLocked(next) {
+	avatarLocked = next;
+	if (lockBtn) {
+		lockBtn.setAttribute('aria-pressed', String(next));
+		lockBtn.classList.toggle('is-active', next);
+		lockBtn.querySelector('.irl-lock-label').textContent = next ? 'Locked' : 'Lock';
+	}
+	// In AR mode, unfreeze the camera when locked so drag-to-orbit still works
+	// around the pinned avatar. Restore the freeze on unlock.
+	if (arActive) {
+		if (next) {
+			arFrozenCamPos  = null;
+			arFrozenCamLook = null;
+		} else {
+			arFrozenCamPos  = camera.position.clone();
+			arFrozenCamLook = camLookCurrent.clone();
+		}
+	}
+	setStatus(next ? 'Avatar pinned — drag to orbit' : 'Avatar unpinned');
+}
+
+if (lockBtn) {
+	lockBtn.addEventListener('click', () => setLocked(!avatarLocked));
+}
+
 // ── Resize ────────────────────────────────────────────────────────────────
 function resize() {
 	renderer.setSize(window.innerWidth, window.innerHeight, false);
@@ -607,7 +636,7 @@ function tick() {
 	const wantRun = mag > 0.9 || input.keys.run;
 	const speed   = mag * (wantRun ? RUN_SPEED : WALK_SPEED);
 
-	if (mag > 0.01 && avatar) {
+	if (mag > 0.01 && avatar && !avatarLocked) {
 		moveFwd.copy(camLookCurrent).sub(camera.position);
 		moveFwd.y = 0;
 		if (moveFwd.lengthSq() < 1e-6) moveFwd.set(0, 0, -1); else moveFwd.normalize();

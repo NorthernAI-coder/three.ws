@@ -57,7 +57,7 @@ const STRATEGY_SCHEMA = z.object({
 	// trigger: what arms this strategy.
 	//   new_mint    — snipe new pump.fun launches off the PumpPortal feed (default).
 	//   first_claim — snipe a creator's coin the first time they EVER claim rewards.
-	trigger: z.enum(['new_mint', 'first_claim']).optional(),
+	trigger: z.enum(['new_mint', 'first_claim', 'intel_confirmed']).optional(),
 	buy_delay_ms: z.union([z.string(), z.number()]).optional(),
 	// first_claim entry filters (null clears)
 	min_claim_lamports: optLamports,
@@ -83,6 +83,12 @@ const STRATEGY_SCHEMA = z.object({
 	max_hold_seconds: z.union([z.string(), z.number()]).optional(),
 	// Oracle conviction gate (0–100, null = skip check)
 	min_oracle_score: z.union([z.string(), z.number()]).nullable().optional(),
+	// Intel-confirmed specific filters (null = ignore)
+	min_quality_score: z.union([z.string(), z.number()]).nullable().optional(),
+	max_bundle_score: z.union([z.string(), z.number()]).nullable().optional(),
+	max_concentration_top1: z.union([z.string(), z.number()]).nullable().optional(),
+	avoid_dev_dump: z.boolean().optional(),
+	allowed_categories: z.array(z.string()).nullable().optional(),
 });
 
 const atomicStr = (v, fallback = '0') => {
@@ -201,6 +207,11 @@ async function listStrategies(req, res, userId) {
 			trailing_stop_pct: s.trailing_stop_pct != null ? Number(s.trailing_stop_pct) : null,
 			max_hold_seconds: s.max_hold_seconds,
 			min_oracle_score: s.min_oracle_score != null ? Number(s.min_oracle_score) : null,
+			min_quality_score: s.min_quality_score != null ? Number(s.min_quality_score) : null,
+			max_bundle_score: s.max_bundle_score != null ? Number(s.max_bundle_score) : null,
+			max_concentration_top1: s.max_concentration_top1 != null ? Number(s.max_concentration_top1) : null,
+			avoid_dev_dump: s.avoid_dev_dump ?? true,
+			allowed_categories: s.allowed_categories || null,
 			summary: {
 				open_positions: sum ? Number(sum.open_positions) : 0,
 				closed_positions: sum ? Number(sum.closed_positions) : 0,
@@ -247,6 +258,8 @@ async function upsertStrategy(req, res, userId) {
 		take_profit_pct: null, stop_loss_pct: 30, trailing_stop_pct: null,
 		max_hold_seconds: 1800,
 		min_oracle_score: null,
+		min_quality_score: null, max_bundle_score: null, max_concentration_top1: null,
+		avoid_dev_dump: true, allowed_categories: null,
 	};
 
 	const next = {
@@ -273,6 +286,11 @@ async function upsertStrategy(req, res, userId) {
 		trailing_stop_pct: 'trailing_stop_pct' in p ? numOrNull(p.trailing_stop_pct) : (cur.trailing_stop_pct != null ? Number(cur.trailing_stop_pct) : null),
 		max_hold_seconds: p.max_hold_seconds != null ? clampInt(p.max_hold_seconds, 30, 86400, 1800) : cur.max_hold_seconds,
 		min_oracle_score: 'min_oracle_score' in p ? (p.min_oracle_score == null || p.min_oracle_score === '' ? null : Math.min(100, Math.max(0, Math.round(Number(p.min_oracle_score))))) : cur.min_oracle_score,
+		min_quality_score: 'min_quality_score' in p ? (p.min_quality_score == null || p.min_quality_score === '' ? null : Math.min(100, Math.max(0, Math.round(Number(p.min_quality_score))))) : (cur.min_quality_score != null ? Number(cur.min_quality_score) : null),
+		max_bundle_score: 'max_bundle_score' in p ? (p.max_bundle_score == null || p.max_bundle_score === '' ? null : Math.min(1, Math.max(0, Number(p.max_bundle_score)))) : (cur.max_bundle_score != null ? Number(cur.max_bundle_score) : null),
+		max_concentration_top1: 'max_concentration_top1' in p ? (p.max_concentration_top1 == null || p.max_concentration_top1 === '' ? null : Math.min(100, Math.max(0, Number(p.max_concentration_top1)))) : (cur.max_concentration_top1 != null ? Number(cur.max_concentration_top1) : null),
+		avoid_dev_dump: p.avoid_dev_dump ?? cur.avoid_dev_dump ?? true,
+		allowed_categories: 'allowed_categories' in p ? (Array.isArray(p.allowed_categories) ? p.allowed_categories.filter(Boolean) : null) : (cur.allowed_categories || null),
 	};
 
 	// Mandatory stop-loss — never let the DB constraint be the first line of defense.
@@ -300,7 +318,9 @@ async function upsertStrategy(req, res, userId) {
 			 min_market_cap_usd, max_market_cap_usd, min_creator_graduated, max_creator_launches,
 			 require_socials, require_sol_quote,
 			 take_profit_pct, stop_loss_pct, trailing_stop_pct, max_hold_seconds,
-			 min_oracle_score, updated_at)
+			 min_oracle_score,
+			 min_quality_score, max_bundle_score, max_concentration_top1,
+			 avoid_dev_dump, allowed_categories, updated_at)
 		values
 			(${p.agent_id}, ${userId}, ${p.network}, ${next.enabled}, ${next.kill_switch},
 			 ${next.trigger}, ${next.buy_delay_ms}, ${next.min_claim_lamports}, ${next.max_claim_lamports}, ${next.first_claim_max_age_seconds},
@@ -309,7 +329,9 @@ async function upsertStrategy(req, res, userId) {
 			 ${next.min_market_cap_usd}, ${next.max_market_cap_usd}, ${next.min_creator_graduated}, ${next.max_creator_launches},
 			 ${next.require_socials}, ${next.require_sol_quote},
 			 ${next.take_profit_pct}, ${next.stop_loss_pct}, ${next.trailing_stop_pct}, ${next.max_hold_seconds},
-			 ${next.min_oracle_score}, now())
+			 ${next.min_oracle_score},
+			 ${next.min_quality_score}, ${next.max_bundle_score}, ${next.max_concentration_top1},
+			 ${next.avoid_dev_dump}, ${next.allowed_categories}, now())
 		on conflict (agent_id, network) do update set
 			enabled                  = excluded.enabled,
 			kill_switch              = excluded.kill_switch,
@@ -334,6 +356,11 @@ async function upsertStrategy(req, res, userId) {
 			trailing_stop_pct        = excluded.trailing_stop_pct,
 			max_hold_seconds         = excluded.max_hold_seconds,
 			min_oracle_score         = excluded.min_oracle_score,
+			min_quality_score        = excluded.min_quality_score,
+			max_bundle_score         = excluded.max_bundle_score,
+			max_concentration_top1   = excluded.max_concentration_top1,
+			avoid_dev_dump           = excluded.avoid_dev_dump,
+			allowed_categories       = excluded.allowed_categories,
 			updated_at               = now()
 		returning *
 	`;
@@ -366,6 +393,11 @@ async function upsertStrategy(req, res, userId) {
 			trailing_stop_pct: row.trailing_stop_pct != null ? Number(row.trailing_stop_pct) : null,
 			max_hold_seconds: row.max_hold_seconds,
 			min_oracle_score: row.min_oracle_score != null ? Number(row.min_oracle_score) : null,
+			min_quality_score: row.min_quality_score != null ? Number(row.min_quality_score) : null,
+			max_bundle_score: row.max_bundle_score != null ? Number(row.max_bundle_score) : null,
+			max_concentration_top1: row.max_concentration_top1 != null ? Number(row.max_concentration_top1) : null,
+			avoid_dev_dump: row.avoid_dev_dump ?? true,
+			allowed_categories: row.allowed_categories || null,
 		},
 	});
 }
