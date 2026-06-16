@@ -551,6 +551,87 @@ function renderVerdict() {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
+// ORACLE CONVICTION — fused conviction score from the Oracle system
+// ════════════════════════════════════════════════════════════════════════════
+
+const ORACLE_TIER_META = {
+	prime:   { label: 'PRIME',   color: '#c084fc', bg: 'rgba(192,132,252,.14)' },
+	strong:  { label: 'STRONG',  color: '#34d399', bg: 'rgba(52,211,153,.12)' },
+	lean:    { label: 'LEAN',    color: '#fbbf24', bg: 'rgba(251,191,36,.12)' },
+	watch:   { label: 'WATCH',   color: '#94a3b8', bg: 'rgba(148,163,184,.1)' },
+	avoid:   { label: 'AVOID',   color: '#f87171', bg: 'rgba(248,113,113,.12)' },
+};
+const ORACLE_PILLAR_COLORS = {
+	pedigree: '#5fe3ff', structure: '#34d399', narrative: '#a07bff', momentum: '#fbbf24',
+};
+
+async function renderOracleConviction() {
+	const target = $('ld-oracle');
+	if (!target || state.network !== 'mainnet') return;
+	target.replaceChildren(el('div', { class: 'ld-skel', style: 'height:140px' }));
+
+	let data;
+	try {
+		const r = await fetch(`/api/oracle/coin?mint=${encodeURIComponent(state.mint)}`);
+		if (!r.ok) { target.replaceChildren(); return; }
+		data = await r.json();
+	} catch { target.replaceChildren(); return; }
+
+	const cv = data.conviction;
+	if (!cv) { target.replaceChildren(); return; }
+
+	const tier = cv.tier || 'watch';
+	const meta = ORACLE_TIER_META[tier] || ORACLE_TIER_META.watch;
+	const score = Math.round(Number(cv.score ?? 0));
+	const pillars = cv.pillars || {};
+
+	const tierBadge = el('span', {
+		class: 'ld-oracle-tier',
+		style: `background:${meta.bg};color:${meta.color};border-color:${meta.color}40`,
+		text: meta.label,
+	});
+
+	const scoreDial = el('div', { class: 'ld-oracle-dial' }, [
+		el('span', { class: 'ld-oracle-score', text: String(score) }),
+		el('span', { class: 'ld-oracle-score-max', text: '/100' }),
+	]);
+
+	const pillarRow = el('div', { class: 'ld-oracle-pillars' },
+		['pedigree', 'structure', 'narrative', 'momentum'].map((key) => {
+			const val = Math.round(Number(pillars[key] ?? 0));
+			const bar = el('div', { class: 'ld-oracle-pillar-bar' }, [
+				el('div', {
+					class: 'ld-oracle-pillar-fill',
+					style: `width:${val}%;background:${ORACLE_PILLAR_COLORS[key]}`,
+				}),
+			]);
+			return el('div', { class: 'ld-oracle-pillar' }, [
+				el('span', { class: 'ld-oracle-pillar-label', text: key }),
+				bar,
+				el('span', { class: 'ld-oracle-pillar-val', text: String(val) }),
+			]);
+		}),
+	);
+
+	const actions = el('div', { class: 'ld-oracle-actions' }, [
+		el('a', {
+			class: 'ld-btn ld-btn-ghost ld-btn-sm ld-btn-block',
+			href: `/oracle?mint=${encodeURIComponent(state.mint)}`,
+			target: '_blank',
+			rel: 'noopener',
+			text: 'Full conviction breakdown ↗',
+		}),
+	]);
+
+	const body = el('div', { class: 'ld-oracle-body' }, [
+		el('div', { class: 'ld-oracle-head' }, [scoreDial, tierBadge]),
+		pillarRow,
+		actions,
+	]);
+	section(target, 'Oracle Conviction', body, { tag: 'fused · 4 reads' });
+}
+
+// ════════════════════════════════════════════════════════════════════════════
 // SMART MONEY  — who is in this coin, and what is their track record
 //
 // The single most actionable question a trader has isn't "what is the chart" —
@@ -1501,6 +1582,7 @@ async function boot() {
 	// missing data source never blanks the page.
 	renderHero();
 	renderVerdict();
+	renderOracleConviction();
 	renderSmartMoney();
 	renderChart();
 	renderDistribution();

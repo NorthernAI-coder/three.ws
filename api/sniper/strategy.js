@@ -18,7 +18,22 @@ import { cors, json, method, readJson, wrap, error, rateLimited } from '../_lib/
 import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { sql } from '../_lib/db.js';
+import { solanaConnection } from '../_lib/solana/connection.js';
+import { env } from '../_lib/env.js';
 import { z } from 'zod';
+
+// Best-effort SOL balance for an agent's Solana wallet. Returns null on any error.
+async function getSolBalance(address) {
+	if (!address || !env.HELIUS_API_KEY) return null;
+	try {
+		const conn = solanaConnection();
+		const { PublicKey } = await import('@solana/web3.js');
+		const lamports = await conn.getBalance(new PublicKey(address));
+		return lamports / 1e9;
+	} catch {
+		return null;
+	}
+}
 
 async function resolveUserId(req) {
 	const session = await getSessionUser(req);
@@ -123,7 +138,8 @@ export default wrap(async (req, res) => {
 async function listStrategies(req, res, userId) {
 	const rows = await sql`
 		select s.*, a.name as agent_name,
-		       a.avatar_url as agent_avatar, a.profile_image_url as agent_image
+		       a.avatar_url as agent_avatar, a.profile_image_url as agent_image,
+		       a.meta->>'solana_address' as solana_address
 		from agent_sniper_strategies s
 		join agent_identities a on a.id = s.agent_id
 		where s.user_id = ${userId}
@@ -145,9 +161,17 @@ async function listStrategies(req, res, userId) {
 		: [];
 	const byAgent = new Map(summary.map((s) => [s.agent_id, s]));
 
+	// Fetch wallet balances concurrently — best-effort, never block on failure.
+	const balances = await Promise.all(
+		rows.map((r) => getSolBalance(r.solana_address).catch(() => null)),
+	);
+	const balanceMap = new Map(rows.map((r, i) => [r.agent_id, balances[i]]));
+
 	const strategies = rows.map((s) => {
 		const sum = byAgent.get(s.agent_id);
 		return {
+			wallet_sol: balanceMap.get(s.agent_id) ?? null,
+			wallet_address: s.solana_address || null,
 			agent_id: s.agent_id,
 			agent_name: s.agent_name,
 			image: s.agent_image || s.agent_avatar || null,
