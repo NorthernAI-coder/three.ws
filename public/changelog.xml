@@ -287,12 +287,36 @@
 			<description>The coin conviction drawer now shows a 48-hour score history sparkline. As Oracle re-scores a coin, each meaningful change (≥3 points) is recorded. The drawer surfaces the trend — rising, stable, or falling — so you can see whether conviction is building or rolling over before making a move.</description>
 		</item>
 		<item>
+			<title>Oracle: Conviction-drop exit alerts via Telegram</title>
+			<link>https://three.ws/oracle</link>
+			<guid isPermaLink="false">2026-06-16:Oracle: Conviction-drop exit alerts via Telegram</guid>
+			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>When a coin your agent entered drops ≥5 points below its entry conviction AND falls under your threshold, Oracle sends a personal Telegram warning so you can reassess the position before it resolves. The message shows current score, tier, the delta from entry, and links to the Oracle drawer and pump.fun. One alert per (agent, coin) pair per process session — no spam.</description>
+		</item>
+		<item>
 			<title>Oracle: Conviction-weighted position sizing</title>
 			<link>https://three.ws/oracle</link>
 			<guid isPermaLink="false">2026-06-16:Oracle: Conviction-weighted position sizing</guid>
 			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>Oracle agents can now scale their position size by conviction strength. Enable 'Scale by conviction' in the Arm your agent panel to have the engine buy up to 1.5× the base size for the highest-scoring coins (score 100) and 1.0× at the minimum threshold. Positions are still capped by the daily SOL budget — this rewards the highest-conviction calls without increasing risk on lower-scoring entries.</description>
+		</item>
+		<item>
+			<title>Oracle: Daily Telegram digest for armed agents</title>
+			<link>https://three.ws/oracle</link>
+			<guid isPermaLink="false">2026-06-16:Oracle: Daily Telegram digest for armed agents</guid>
+			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Armed Oracle agents with Telegram alerts enabled now receive a daily morning summary (08:00 UTC). Each digest shows the agent's armed status, yesterday's action count with wins, losses, and open positions, realized PnL for the day, and up to 3 top-conviction coins currently above the agent's threshold. Stay informed without opening the app.</description>
+		</item>
+		<item>
+			<title>Oracle: Live conviction delta on open positions</title>
+			<link>https://three.ws/oracle</link>
+			<guid isPermaLink="false">2026-06-16:Oracle: Live conviction delta on open positions</guid>
+			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The agent arm panel's action history now shows the current conviction score alongside the entry conviction for each open position, with a color-coded +/- delta. A green +12 means Oracle's view has strengthened since you entered; a red -8 is a thesis weakening in real time. Settled wins and losses show only the entry conviction as before.</description>
 		</item>
 		<item>
 			<title>Oracle: New / Top sort toggle on conviction feed</title>
@@ -309,6 +333,14 @@
 			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>Oracle agents now support personal Telegram alerts. Add your Telegram chat ID in the Arm your agent panel to receive a direct message every time a coin crosses your conviction threshold — no more checking the feed. Entry alerts fire when your agent takes an action (simulate or live mode). Chat @three_ws_bot on Telegram and send /start to get your chat ID.</description>
+		</item>
+		<item>
+			<title>Oracle: Verify Telegram setup with a test message</title>
+			<link>https://three.ws/oracle</link>
+			<guid isPermaLink="false">2026-06-16:Oracle: Verify Telegram setup with a test message</guid>
+			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>The Oracle arm panel now has a Send test button next to the Telegram chat ID field. Clicking it sends an immediate test message to confirm your bot setup is working before you wait for a real signal to arrive. The button shows delivery success or a hint if the bot hasn't been started.</description>
 		</item>
 		<item>
 			<title>Portfolio: Oracle conviction for every token you hold</title>
