@@ -1207,6 +1207,10 @@
 			"dest": "/dashboard-next/copy.html"
 		},
 		{
+			"src": "/dashboard/irl-placements/?",
+			"dest": "/dashboard-next/irl-placements.html"
+		},
+		{
 			"src": "/dashboard/sniper/?",
 			"dest": "/dashboard-next/sniper.html"
 		},

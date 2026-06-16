@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-16T09:36:36.000Z",
+	"generated_at": "2026-06-16T09:45:33.033Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -84,6 +84,16 @@
 			"link": "/activity",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "update",
+			"title": "Agent profile: deploy on-chain and edit controls for agent owners",
+			"summary": "When you own an agent, its profile page (/agent/:id) now shows a full owner action bar in the hero section with one-click access to Edit Agent, Manage Agents, and — for agents not yet deployed — a Deploy on-chain button. The BLOCKCHAIN DETAILS section now mounts an inline deploy widget that shows the chain selector and signs on Solana (Metaplex Core) or any EVM chain, with a persistent success chip linking to the explorer once deployed.",
+			"link": "/agents",
+			"tags": [
+				"improvement"
 			]
 		},
 		{
@@ -236,6 +246,16 @@
 			"link": "/oracle",
 			"tags": [
 				"feature",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "update",
+			"title": "IRL — permanent pins for signed-in users, compass heading, and manage placements from dashboard",
+			"summary": "Authenticated users now get permanent GPS pins (no 7-day expiry). Avatars face the correct compass direction when pinned — the heading is captured from the device compass and applied when foreign avatars spawn. New /dashboard/irl-placements page lets you view, edit captions, and remove all your placed avatars from any device without physically going back.",
+			"link": "/irl",
+			"tags": [
 				"improvement"
 			]
 		},
@@ -576,6 +596,16 @@
 			"link": "/oracle",
 			"tags": [
 				"feature",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "update",
+			"title": "Oracle: rich social previews when sharing conviction links",
+			"summary": "Every Oracle coin conviction link now resolves to a server-rendered preview page (/oracle/coin/<mint>) that shows the score, tier, and pillar breakdown as a rich social card on X/Twitter, Telegram, Discord, Slack, and iMessage — no more generic placeholder when sharing a pump.fun conviction signal. The Oracle drawer's Share button and tweet links now point to these canonical share URLs. A Copy link button in the drawer makes it one-tap to grab the shareable link.",
+			"link": "/oracle",
+			"tags": [
 				"improvement"
 			]
 		},
