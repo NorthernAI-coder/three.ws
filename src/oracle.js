@@ -45,6 +45,15 @@ function ago(ts) {
 }
 function solscan(addr) { return `https://solscan.io/account/${addr}`; }
 function pumpUrl(mint) { return `https://pump.fun/coin/${mint}`; }
+function winTweet(w) {
+	const sym = (w.symbol || w.mint.slice(0, 6)).toUpperCase();
+	const ath = w.ath_multiple != null ? `${Number(w.ath_multiple).toFixed(1)}×` : 'graduated';
+	const score = w.score != null ? `${w.score}/100 ${w.tier}` : w.tier;
+	const url = `https://three.ws/oracle?mint=${encodeURIComponent(w.mint)}`;
+	const text = `Oracle called $${sym} (${score} conviction) — it went ${ath} 🔮\n\nproof.not.promises @trythreews\n${url}`;
+	return `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
+}
+
 function tweetConviction(c) {
 	const tier = c.tier || 'watch';
 	const score = c.score ?? '—';
@@ -508,6 +517,7 @@ function winCardHtml(w, idx) {
 			<div class="win-links">
 				<a class="win-link" href="${esc(w.pump_url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">pump.fun ↗</a>
 				<a class="win-link" href="${esc(w.oracle_url)}" onclick="event.stopPropagation()">Oracle ↗</a>
+				<a class="win-link" style="margin-left:auto;color:var(--muted)" href="${esc(winTweet(w))}" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="Share on X">Share ↗</a>
 			</div>
 		</div>
 	</a>`;
