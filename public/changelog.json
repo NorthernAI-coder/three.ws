@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-16T07:04:29.220Z",
+	"generated_at": "2026-06-16T07:11:06.000Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -84,6 +84,16 @@
 			"link": "/launches",
 			"tags": [
 				"feature",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "update",
+			"title": "Coin 3D: Oracle conviction score and watchlist in the HUD",
+			"summary": "The Token in 3D page now shows Oracle conviction alongside the bonding-curve stats. After the scene loads, the panel fetches the coin's conviction score and tier (prime/strong/lean/watch/avoid) asynchronously — no scene-render delay. Tap the score badge to jump to the full Oracle breakdown. A new Watch button syncs the token directly into your watchlist across the radar, launches, and visualizer surfaces.",
+			"link": "/coin3d",
+			"tags": [
 				"improvement"
 			]
 		},
@@ -319,6 +329,16 @@
 			"link": "/oracle",
 			"tags": [
 				"feature",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "update",
+			"title": "Oracle: New / Top sort toggle on conviction feed",
+			"summary": "The live conviction feed now has a Top / New toggle. Top (default) ranks coins by conviction score so the highest-confidence plays surface first. New sorts by when the coin was scored — useful for catching fresh launches the moment Oracle processes them before the wider market. No extra network request: the sort switches client-side from the already-loaded feed.",
+			"link": "/oracle",
+			"tags": [
 				"improvement"
 			]
 		},

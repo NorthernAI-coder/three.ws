@@ -71,6 +71,14 @@
 			<description>The Trade button on every launch profile now opens an in-platform Jupiter swap terminal instead of bouncing to pump.fun. The terminal is lazy-loaded only when you click, so cold page loads stay fast. Jupiter routes through every available liquidity source including pump.fun's AMM and bonding curve, so it works for both pre-graduation and graduated coins. The price chart now also shows volume bars alongside the price line — green for net-buy candles, red for net-sell — giving you an instant read on trade intensity at a glance. The agent panel shows a 'Copy trades' shortcut that takes you directly to the agent's copy-trade setup. And when Birdeye's OHLCV quota is exhausted, the chart falls back to GeckoTerminal automatically, so the chart never goes dark on an actively-trading coin.</description>
 		</item>
 		<item>
+			<title>Coin 3D: Oracle conviction score and watchlist in the HUD</title>
+			<link>https://three.ws/coin3d</link>
+			<guid isPermaLink="false">2026-06-16:Coin 3D: Oracle conviction score and watchlist in the HUD</guid>
+			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>The Token in 3D page now shows Oracle conviction alongside the bonding-curve stats. After the scene loads, the panel fetches the coin's conviction score and tier (prime/strong/lean/watch/avoid) asynchronously — no scene-render delay. Tap the score badge to jump to the full Oracle breakdown. A new Watch button syncs the token directly into your watchlist across the radar, launches, and visualizer surfaces.</description>
+		</item>
+		<item>
 			<title>Coin intelligence — per-signal win-rates explain every oracle decision</title>
 			<link>https://three.ws/oracle</link>
 			<guid isPermaLink="false">2026-06-16:Coin intelligence — per-signal win-rates explain every oracle decision</guid>
@@ -253,6 +261,14 @@
 			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>Oracle agents can now scale their position size by conviction strength. Enable 'Scale by conviction' in the Arm your agent panel to have the engine buy up to 1.5× the base size for the highest-scoring coins (score 100) and 1.0× at the minimum threshold. Positions are still capped by the daily SOL budget — this rewards the highest-conviction calls without increasing risk on lower-scoring entries.</description>
+		</item>
+		<item>
+			<title>Oracle: New / Top sort toggle on conviction feed</title>
+			<link>https://three.ws/oracle</link>
+			<guid isPermaLink="false">2026-06-16:Oracle: New / Top sort toggle on conviction feed</guid>
+			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>The live conviction feed now has a Top / New toggle. Top (default) ranks coins by conviction score so the highest-confidence plays surface first. New sorts by when the coin was scored — useful for catching fresh launches the moment Oracle processes them before the wider market. No extra network request: the sort switches client-side from the already-loaded feed.</description>
 		</item>
 		<item>
 			<title>Portfolio: Oracle conviction for every token you hold</title>
