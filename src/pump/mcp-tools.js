@@ -95,8 +95,16 @@ export const TOOL_ANNOTATIONS = Object.freeze({
 	social_cashtag_sentiment: { title: 'Cashtag Sentiment', ...LOCAL_DETERMINISTIC },
 	kol_leaderboard: { title: 'KOL Leaderboard', ...LIVE_READ },
 	get_coin_intel: { title: 'Coin Intel', ...LIVE_READ },
+	get_oracle_conviction: { title: 'Oracle Conviction', ...LIVE_READ },
 	pumpfun_quote_swap: { title: 'Swap Quote (Read-Only)', ...LIVE_READ },
 	social_x_post_impact: { title: 'X Post Price Impact', ...LIVE_READ },
+	pumpfun_upload_metadata: {
+		title: 'Upload Coin Metadata',
+		readOnlyHint: false,
+		destructiveHint: false,
+		idempotentHint: true,
+		openWorldHint: true,
+	},
 	pumpfun_bot_status: { title: 'Indexer Status', ...LIVE_READ },
 });
 
@@ -525,9 +533,147 @@ export const TOOLS = [
 				dev_sold: { type: 'boolean' },
 				unique_buyers: { type: 'integer' },
 				outcome: { type: 'object', nullable: true, description: 'Labeled outcome if available (graduated, ath_multiple, etc).' },
+				oracle: {
+					type: 'object',
+					nullable: true,
+					description: 'Fused Oracle conviction score (null if the Oracle engine has not yet scored this coin). Call get_oracle_conviction for the full read including who\'s-in roster and narrative.',
+					properties: {
+						score: { type: 'number', description: '0–100 fused Oracle score.' },
+						tier: { type: 'string', enum: ['prime', 'strong', 'lean', 'watch', 'avoid'] },
+						pillars: { type: 'object', description: 'Per-pillar scores: pedigree, structure, narrative, momentum (each 0–100).' },
+						badges: { type: 'array', items: { type: 'string' } },
+						reasons: { type: 'array', items: { type: 'string' }, description: 'Natural-language explanation of the score.' },
+					},
+				},
+				oracle_url: { type: 'string', description: 'Oracle deep-link for the coin — opens the Oracle war-room drawer directly.' },
 			},
 			required: ['found'],
 			additionalProperties: true,
+		},
+	},
+	{
+		name: 'get_oracle_conviction',
+		description:
+			'Oracle conviction score for a pump.fun mint — the fused 0–100 score the Oracle engine produces by combining four intelligence pillars: pedigree (who bought it), structure (organic vs bundle, holder concentration, bubblemaps connectivity), narrative (category, meme virality, news hook), and momentum (timing, velocity). Returns the tier (prime ≥86 / strong ≥72 / lean ≥54 / watch ≥36 / avoid), the per-pillar breakdown, the natural-language reasons that drove the score, the full "who\'s in" trader roster with reputation labels and win-rates, and the narrative read (category, virality, tags). Call this when you need the highest-confidence trade signal — it synthesises everything get_coin_intel exposes into one actionable score. Pairs with get_coin_intel for raw signals.',
+		inputSchema: {
+			type: 'object',
+			properties: {
+				mint: { type: 'string', description: 'Solana mint address (base58).' },
+				network: { type: 'string', enum: ['mainnet', 'devnet'], default: 'mainnet' },
+			},
+			required: ['mint'],
+		},
+		outputSchema: {
+			type: 'object',
+			properties: {
+				found: { type: 'boolean' },
+				mint: { type: 'string' },
+				symbol: { type: 'string' },
+				name: { type: 'string' },
+				conviction: {
+					type: 'object',
+					nullable: true,
+					description: 'Fused conviction verdict. null if the Oracle has not yet scored this coin.',
+					properties: {
+						score: { type: 'number', description: '0–100 fused Oracle score.' },
+						tier: { type: 'string', enum: ['prime', 'strong', 'lean', 'watch', 'avoid'], description: 'prime ≥86, strong ≥72, lean ≥54, watch ≥36, avoid <36.' },
+						pillars: {
+							type: 'object',
+							properties: {
+								pedigree: { type: 'number', description: 'Smart-money pedigree pillar score (0–100, weight 34%).' },
+								structure: { type: 'number', description: 'Structure pillar score: organic/bundle/concentration/connectivity (0–100, weight 30%).' },
+								narrative: { type: 'number', description: 'Narrative pillar score: category fit, meme virality, news hook (0–100, weight 18%).' },
+								momentum: { type: 'number', description: 'Momentum pillar score: velocity, buy/sell ratio, timing entropy (0–100, weight 18%).' },
+							},
+						},
+						structure_cap: { type: 'boolean', description: 'true when structural flags capped the score below raw pillar math.' },
+						badges: { type: 'array', items: { type: 'string' }, description: 'Short human-readable badges attached to this coin, e.g. "Smart money: 3 wallets".' },
+						reasons: { type: 'array', items: { type: 'string' }, description: 'Natural-language sentences explaining every signal that drove the score.' },
+						scored_at: { type: 'string', description: 'ISO timestamp when the conviction was last computed.' },
+					},
+				},
+				narrative: {
+					type: 'object',
+					nullable: true,
+					description: 'Narrative classification for the coin.',
+					properties: {
+						category: { type: 'string', description: 'E.g. meme, ai, tech, culture, news, defi.' },
+						narrative: { type: 'string', description: 'One-sentence description of the coin\'s story or hook.' },
+						virality: { type: 'number', nullable: true, description: '0–1 estimated virality of the narrative.' },
+						confidence: { type: 'number', nullable: true },
+						tags: { type: 'array', items: { type: 'string' } },
+						source: { type: 'string', description: 'Classifier that produced the narrative read.' },
+					},
+				},
+				whos_in: {
+					type: 'array',
+					description: 'Classified trader roster — every wallet that touched this coin, annotated with their reputation.',
+					items: {
+						type: 'object',
+						properties: {
+							wallet: { type: 'string' },
+							label: { type: 'string', description: 'Trader archetype: smart_money, kol, sniper, whale, early_degen, recycler, dca_buyer, dca_seller, bot, unproven.' },
+							score: { type: 'number', nullable: true, description: 'Brain reputation score (0–100).' },
+							win_rate: { type: 'number', nullable: true, description: 'Historical win-rate (0–1).' },
+							early_win_rate: { type: 'number', nullable: true, description: 'Win-rate on early entries specifically.' },
+							source: { type: 'string', nullable: true, description: '"brain" (trained) or "gmgn" (seed corpus).' },
+							tag: { type: 'string', nullable: true, description: 'Social handle when known (from seed corpus).' },
+							buy_sol: { type: 'number', description: 'Total SOL bought.' },
+							sell_sol: { type: 'number', description: 'Total SOL sold.' },
+							is_creator: { type: 'boolean' },
+							funder: { type: 'string', nullable: true, description: 'The wallet that funded this one (if identified).' },
+						},
+					},
+				},
+				outcome: {
+					type: 'object',
+					nullable: true,
+					description: 'Labeled outcome if available.',
+					properties: {
+						outcome: { type: 'string' },
+						graduated: { type: 'boolean' },
+						rugged: { type: 'boolean' },
+						ath_market_cap_usd: { type: 'number', nullable: true },
+						ath_multiple: { type: 'number', nullable: true },
+					},
+				},
+				url: { type: 'string', description: 'Oracle deep-link URL for this coin.' },
+			},
+			required: ['found'],
+			additionalProperties: true,
+		},
+	},
+	{
+		name: 'pumpfun_upload_metadata',
+		description:
+			'Upload coin metadata (name, symbol, description, image) to IPFS and get back a pump.fun-ready metadata URI. Call this before launching a coin — pass the returned uri to the launch-agent endpoint or the studio launch flow. Requires a valid bearer token (API key). Image may be a public HTTPS URL or a base64 data URI (max 10 MB). The returned uri is a permanent ipfs:// link; the call is idempotent for the same content.',
+		inputSchema: {
+			type: 'object',
+			properties: {
+				name: { type: 'string', description: 'Coin name (1–32 chars).' },
+				symbol: { type: 'string', description: 'Ticker symbol (1–10 chars, no $).' },
+				description: { type: 'string', description: 'Coin description (max 500 chars).' },
+				image_url: {
+					type: 'string',
+					description:
+						'Image for the coin icon. Public HTTPS URL or base64 data URI (data:image/png;base64,…). Square image, at least 400×400 px, under 5 MB.',
+				},
+				twitter: { type: 'string', description: 'Twitter/X handle or URL (optional).' },
+				telegram: { type: 'string', description: 'Telegram URL (optional).' },
+				website: { type: 'string', description: 'Website URL (optional).' },
+			},
+			required: ['name', 'symbol', 'description', 'image_url'],
+		},
+		outputSchema: {
+			type: 'object',
+			properties: {
+				uri: { type: 'string', description: 'ipfs:// URI ready for the pump.fun launch-agent `uri` field.' },
+				cid: { type: 'string', description: 'IPFS CID of the metadata JSON.' },
+				image_cid: { type: 'string', description: 'IPFS CID of the uploaded image.' },
+				provider: { type: 'string', description: 'IPFS provider used.' },
+			},
+			required: ['uri', 'cid'],
+			additionalProperties: false,
 		},
 	},
 	{

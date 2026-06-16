@@ -75,6 +75,17 @@
 
 		/* coin grid */
 		.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 14px; }
+		.coin-wrap { position: relative; }
+		.oc-watch { position: absolute; top: 10px; right: 10px; z-index: 2; width: 28px; height: 28px;
+			display: grid; place-items: center; border-radius: 8px; border: 1px solid var(--line);
+			background: rgba(0,0,0,0.3); color: rgba(255,255,255,0.45); font-size: 14px; cursor: pointer;
+			transition: color .15s, border-color .15s, background .15s; opacity: 0; }
+		.coin-wrap:hover .oc-watch, .oc-watch.oc-watched, .oc-watch:focus-visible { opacity: 1; }
+		.oc-watch.oc-watched { color: var(--accent, #7c83ff); border-color: var(--accent, #7c83ff); background: rgba(124,131,255,.12); }
+		.oc-watch:hover { color: var(--ink); border-color: var(--stroke-strong, rgba(255,255,255,.2)); }
+		.oc-watch:focus-visible { outline: 2px solid var(--accent, #7c83ff); outline-offset: 1px; }
+		@media (hover: none) { .oc-watch { opacity: 1; } }
+
 		.coin { text-align: left; width: 100%; background: var(--panel); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
 			border: 1px solid var(--line); border-radius: var(--r); padding: 15px; box-shadow: var(--shadow);
 			display: flex; flex-direction: column; gap: 13px; transition: transform .14s, border-color .18s; }

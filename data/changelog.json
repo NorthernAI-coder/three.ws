@@ -3,6 +3,13 @@
 	"entries": [
 		{
 			"date": "2026-06-16",
+			"title": "Oracle conviction in the MCP — agents can now read the fused score and the full trader roster",
+			"summary": "The pump.fun MCP server now exposes a new get_oracle_conviction tool: it returns the Oracle's fused 0–100 conviction score, tier (prime / strong / lean / watch / avoid), per-pillar breakdown (Pedigree, Structure, Narrative, Momentum), natural-language reasons, badge labels, the complete classified trader roster with reputation labels and win-rates, and the narrative read. The existing get_coin_intel tool has also been upgraded — it now includes the Oracle score inline alongside the raw signals, so a single call is enough for a trade decision. 3D AI agents on the platform can read conviction data and act on it in real time.",
+			"tags": ["feature", "sdk"],
+			"link": "/oracle"
+		},
+		{
+			"date": "2026-06-16",
 			"title": "Rich OG cards on every shared coin link — price, score, and live status in the preview",
 			"summary": "Every /launches/<mint> page now generates a dynamic social card — visible in X, Telegram, Discord, Slack, and iMessage link previews. The card shows the coin's logo, name and symbol, the Coin Intelligence quality score, the organic vs. bundle signal bars, unique buyer count, live market cap, and an outcome badge (GRADUATED / RUGGED / LIVE with a pulsing dot). Every shared link becomes a signal at a glance — no click required.",
 			"tags": ["improvement"],

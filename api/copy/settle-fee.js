@@ -120,6 +120,7 @@ export default wrap(async (req, res) => {
 		sol_usd: solUsd,
 		fee_usd: Number(usd.toFixed(4)),
 		quote: quote.token,
+		memo: quote.quote.nonce,
 		legs: quote.quote.legs,
 		expires_at: quote.expiresAt,
 	});
