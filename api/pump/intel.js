@@ -146,20 +146,27 @@ function shapeCoin(r) {
 
 // Stable column projection — explicit so added engine columns never break us and
 // missing ones surface as a clean error we can degrade on.
-const COIN_COLS = sql`
-	mint, network, symbol, name, creator, image_uri, description, twitter, telegram, website,
-	created_at, first_seen_at, observation_seconds,
-	dev_buy_lamports, dev_sold, buy_count, sell_count,
-	buy_volume_lamports, sell_volume_lamports, unique_buyers, unique_sellers, largest_buy_lamports,
-	signals, bundle_score, organic_score, snipe_ratio, concentration_top10,
-	fresh_wallet_ratio, bubblemap_connectivity, quality_score, risk_flags,
-	category, tags, narrative, classify_confidence, classify_source
-`;
+// Plain string (not a sql fragment) so this module can load without DATABASE_URL.
+const COIN_COLS =
+	'mint, network, symbol, name, creator, image_uri, description, twitter, telegram, website, ' +
+	'created_at, first_seen_at, observation_seconds, ' +
+	'dev_buy_lamports, dev_sold, buy_count, sell_count, ' +
+	'buy_volume_lamports, sell_volume_lamports, unique_buyers, unique_sellers, largest_buy_lamports, ' +
+	'signals, bundle_score, organic_score, snipe_ratio, concentration_top10, ' +
+	'fresh_wallet_ratio, bubblemap_connectivity, quality_score, risk_flags, ' +
+	'category, tags, narrative, classify_confidence, classify_source';
+
+// Tagged-template helper: prepends the column projection so each query site stays
+// focused on the WHERE/ORDER-BY without duplicating the column list.
+// Usage: coinSql`where mint = ${mint} and network = ${net} limit 1`
+function coinSql(statics, ...params) {
+	const merged = [`select ${COIN_COLS} from pump_coin_intel ${statics[0]}`, ...statics.slice(1)];
+	return sql(merged, ...params);
+}
 
 // ── one coin: full intel + outcome + wallet bubble-map ───────────────────────
 async function getCoin(mint, network) {
-	const [row] = await sql`
-		select ${COIN_COLS} from pump_coin_intel
+	const [row] = await coinSql`
 		where mint = ${mint} and network = ${network} limit 1
 	`;
 	if (!row) return { found: false };
@@ -246,8 +253,7 @@ async function getCoin(mint, network) {
 // ── recent feed (the live radar) ─────────────────────────────────────────────
 async function getFeed({ network, limit, category, minQuality, verdict, q }) {
 	const cap = Math.max(1, Math.min(120, limit || 60));
-	const rows = await sql`
-		select ${COIN_COLS} from pump_coin_intel
+	const rows = await coinSql`
 		where network = ${network}
 		  and (${category}::text is null or category = ${category})
 		  and (${minQuality}::int is null or quality_score >= ${minQuality})
@@ -269,8 +275,7 @@ async function getFeed({ network, limit, category, minQuality, verdict, q }) {
 // ── leaderboard: best-quality recent + confirmed winners ─────────────────────
 async function getLeaderboard({ network, limit }) {
 	const cap = Math.max(1, Math.min(50, limit || 20));
-	const topRows = await sql`
-		select ${COIN_COLS} from pump_coin_intel
+	const topRows = await coinSql`
 		where network = ${network} and quality_score is not null
 		  and first_seen_at >= now() - interval '24 hours'
 		order by quality_score desc, first_seen_at desc
@@ -278,20 +283,13 @@ async function getLeaderboard({ network, limit }) {
 	`;
 	let winners = [];
 	try {
-		const winRows = await sql`
-			select ${sql`i.mint, i.network, i.symbol, i.name, i.creator, i.image_uri, i.description,
-				i.twitter, i.telegram, i.website, i.created_at, i.first_seen_at, i.observation_seconds,
-				i.dev_buy_lamports, i.dev_sold, i.buy_count, i.sell_count, i.buy_volume_lamports,
-				i.sell_volume_lamports, i.unique_buyers, i.unique_sellers, i.largest_buy_lamports,
-				i.signals, i.bundle_score, i.organic_score, i.snipe_ratio, i.concentration_top10,
-				i.fresh_wallet_ratio, i.bubblemap_connectivity, i.quality_score, i.risk_flags,
-				i.category, i.tags, i.narrative, i.classify_confidence, i.classify_source`}
-			from pump_coin_intel i
-			join pump_coin_outcomes o on o.mint = i.mint
-			where i.network = ${network} and o.outcome in ('graduated','pumped')
-			order by o.ath_multiple desc nulls last, o.labeled_at desc
-			limit ${cap}
-		`;
+		const WIN_COLS = COIN_COLS.split(', ').map((c) => `i.${c.trim()}`).join(', ');
+		const winStatics = [
+			`select ${WIN_COLS} from pump_coin_intel i join pump_coin_outcomes o on o.mint = i.mint where i.network = `,
+			` and o.outcome in ('graduated','pumped') order by o.ath_multiple desc nulls last, o.labeled_at desc limit `,
+			'',
+		];
+		const winRows = await sql(winStatics, network, cap);
 		winners = winRows.map(shapeCoin);
 	} catch { /* outcomes absent — no winners yet */ }
 	return { top: topRows.map(shapeCoin), winners };
