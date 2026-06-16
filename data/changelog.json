@@ -3,6 +3,20 @@
 	"entries": [
 		{
 			"date": "2026-06-16",
+			"title": "Strategy Lab: backtest Oracle strategies before you deploy",
+			"summary": "New standalone page at /strategy-lab lets you pick a conviction tier and time window, then see exactly how that filter would have performed: win rate, graduates, 3×/5× hit count, per-tier breakdown, and the top performers in the window. Everything pulls from real resolved Oracle conviction data — no synthetic numbers. Run a backtest, then deploy directly to the sniper from the results page.",
+			"tags": ["feature"],
+			"link": "/strategy-lab"
+		},
+		{
+			"date": "2026-06-16",
+			"title": "Sniper: personal Telegram trade notifications",
+			"summary": "Each sniper strategy can now send buy and sell alerts to your own Telegram chat instead of (or in addition to) the platform ops channel. Add your Telegram chat ID in the Notifications section of any strategy form on the sniper dashboard. Get instant alerts the moment your agent opens or closes a position, with coin name, size, PnL, and Solscan proof link.",
+			"tags": ["feature"],
+			"link": "/dashboard/sniper"
+		},
+		{
+			"date": "2026-06-16",
 			"title": "Agents: Oracle and Sniper trading status on agent cards",
 			"summary": "The agents dashboard now shows live trading badges on each card. If an agent has Oracle conviction history, its win rate and realized PnL appear inline. If a sniper strategy is armed and active, the agent card shows the strategy's realized PnL. Both badges link to the relevant dashboard so you can drill in from the agents list.",
 			"tags": ["improvement"],

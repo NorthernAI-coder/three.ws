@@ -18,9 +18,10 @@
 
 import { cors, method, wrap, readJson, error, rateLimited } from './_lib/http.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
-
-const PUBLIC_MAINNET = 'https://api.mainnet-beta.solana.com';
-const PUBLIC_DEVNET = 'https://api.devnet.solana.com';
+import {
+	solanaRpcEndpoints,
+	makeRotatingFetch,
+} from './_lib/solana/connection.js';
 
 // Methods a browser Connection needs to read balances/accounts, build, simulate,
 // send, and confirm transactions. Deliberately excludes getProgramAccounts and
@@ -69,11 +70,12 @@ function isBoundedProgramScan(entry) {
 // calls and sidestep the per-request rate limit.
 const MAX_BATCH = 10;
 
-function upstreamUrl(network) {
-	if (network === 'devnet') {
-		return process.env.SOLANA_RPC_URL_DEVNET || PUBLIC_DEVNET;
-	}
-	return process.env.SOLANA_RPC_URL || PUBLIC_MAINNET;
+// Returns a fetch function that rotates across Helius → Alchemy → Ankr → public,
+// skipping any endpoint currently in the process-wide cooldown map (same cooldown
+// state shared by solanaConnection() so a quota-dead provider stays skipped).
+function upstreamFetch(network) {
+	const endpoints = solanaRpcEndpoints(network === 'devnet' ? 'devnet' : 'mainnet');
+	return makeRotatingFetch(endpoints);
 }
 
 // Validate one or a batch of JSON-RPC payloads. Returns an error code string,
@@ -129,7 +131,8 @@ export default wrap(async function handler(req, res) {
 
 	let upstream;
 	try {
-		upstream = await fetch(upstreamUrl(network), {
+		const rotateFetch = upstreamFetch(network);
+		upstream = await rotateFetch(null, {
 			method: 'POST',
 			headers: { 'content-type': 'application/json' },
 			body: JSON.stringify(body),

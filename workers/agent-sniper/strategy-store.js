@@ -59,7 +59,7 @@ export async function getOpenPositions(network) {
 	return sql`
 		SELECT p.*, s.take_profit_pct, s.stop_loss_pct, s.trailing_stop_pct,
 		       s.max_hold_seconds, s.slippage_bps, s.user_id AS strat_user_id,
-		       s.kill_switch
+		       s.kill_switch, s.telegram_chat_id
 		FROM agent_sniper_positions p
 		JOIN agent_sniper_strategies s ON s.id = p.strategy_id
 		WHERE p.network = ${network}
