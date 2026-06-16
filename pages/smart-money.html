@@ -161,6 +161,21 @@
 			.dr-panel { width: 100vw; }
 		}
 		@media (prefers-reduced-motion: reduce) { * { animation-duration: .01ms !important; } }
+
+		/* oracle conviction in coin drawer */
+		.sm-oracle-slot { margin-top: 6px; }
+		.sm-oracle-body { display: flex; align-items: center; gap: 16px; background: rgba(255,255,255,0.03); border: 1px solid var(--line); border-radius: var(--r); padding: 14px; }
+		.sm-oracle-dial { display: flex; flex-direction: column; align-items: center; flex-shrink: 0; }
+		.sm-oracle-score { font: 800 36px/1 var(--mono); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+		.sm-oracle-tier { font: 700 10px/1 var(--mono); text-transform: uppercase; letter-spacing: .08em; margin-top: 5px; opacity: .85; }
+		.sm-pillars { flex: 1; display: flex; flex-direction: column; gap: 7px; }
+		.sm-pillar { display: grid; grid-template-columns: 72px 1fr 30px; gap: 7px; align-items: center; }
+		.sm-pillar-lbl { font: 600 10.5px/1 var(--mono); color: var(--faint); }
+		.sm-pillar-track { height: 5px; border-radius: 99px; background: rgba(255,255,255,0.07); overflow: hidden; }
+		.sm-pillar-fill { height: 100%; border-radius: 99px; transition: width .4s var(--ease, ease); }
+		.sm-pillar-val { font: 700 11px/1 var(--mono); text-align: right; font-variant-numeric: tabular-nums; }
+		.sm-oracle-link { display: inline-block; margin-top: 10px; font: 600 12px/1 var(--mono); color: var(--cyan); text-decoration: none; }
+		.sm-oracle-link:hover { text-decoration: underline; }
 	</style>
 </head>
 <body>
@@ -329,6 +344,18 @@
 			list.querySelectorAll('.lrow').forEach((el) => el.addEventListener('click', () => openWallet(el.dataset.wallet)));
 		}
 
+		const TIER_COLOR = { prime: '#c084fc', strong: '#34d399', lean: '#fbbf24', watch: '#94a3b8', avoid: '#f87171' };
+		const PILLAR_COLOR = { pedigree: '#5fe3ff', structure: '#34d399', narrative: '#a07bff', momentum: '#fbbf24' };
+
+		function oraclePillarBar(label, value, color) {
+			const pct = value != null ? Math.max(0, Math.min(100, Math.round(Number(value)))) : 0;
+			return `<div class="sm-pillar">
+				<span class="sm-pillar-lbl">${esc(label)}</span>
+				<div class="sm-pillar-track"><div class="sm-pillar-fill" style="width:${pct}%;background:${color}"></div></div>
+				<span class="sm-pillar-val" style="color:${color}">${value != null ? pct : '—'}</span>
+			</div>`;
+		}
+
 		async function openCoin(mint) {
 			openDrawer('Loading…', '<div class="skel" style="height:120px"></div>');
 			try {
@@ -348,7 +375,38 @@
 					</div>
 					<div class="dr-sec">Notable wallets buying</div>
 					${rows}
+					<div id="sm-oracle-slot" class="sm-oracle-slot">
+						<div class="skel" style="height:80px;margin-top:16px"></div>
+					</div>
 					<a class="btn primary" style="margin-top:18px" href="https://pump.fun/${esc(coin.mint)}" target="_blank" rel="noopener">Open on pump.fun →</a>`;
+
+				// Async-enrich with full Oracle conviction
+				fetch(`/api/oracle/coin?mint=${encodeURIComponent(mint)}&network=mainnet`)
+					.then((r) => r.ok ? r.json() : null)
+					.catch(() => null)
+					.then((data) => {
+						const slot = document.getElementById('sm-oracle-slot');
+						if (!slot || !slot.isConnected) return;
+						const c = data?.conviction;
+						if (!c || c.score == null) { slot.remove(); return; }
+						const p = c.pillars || {};
+						const tierColor = TIER_COLOR[c.tier] || '#94a3b8';
+						slot.innerHTML = `
+							<div class="dr-sec" style="margin-top:18px">Oracle conviction</div>
+							<div class="sm-oracle-body">
+								<div class="sm-oracle-dial">
+									<span class="sm-oracle-score" style="color:${tierColor}">${c.score}</span>
+									<span class="sm-oracle-tier" style="color:${tierColor}">${esc(c.tier || '')}</span>
+								</div>
+								<div class="sm-pillars">
+									${oraclePillarBar('Pedigree', p.pedigree, PILLAR_COLOR.pedigree)}
+									${oraclePillarBar('Structure', p.structure, PILLAR_COLOR.structure)}
+									${oraclePillarBar('Narrative', p.narrative, PILLAR_COLOR.narrative)}
+									${oraclePillarBar('Momentum', p.momentum, PILLAR_COLOR.momentum)}
+								</div>
+							</div>
+							<a href="/oracle?mint=${encodeURIComponent(mint)}" class="sm-oracle-link" target="_blank" rel="noopener">Full conviction breakdown →</a>`;
+					});
 			} catch (e) {
 				$('drBody').innerHTML = `<div class="state"><b>Not scored yet.</b>This coin hasn't been picked up by the radar.</div>`;
 			}
