@@ -317,6 +317,77 @@ function buildGraduationRing(snapshot) {
 	spin.add(arc);
 }
 
+// ── Watchlist (shared ld_watchlist key) ──────────────────────────────────────
+const WATCH_KEY = 'ld_watchlist';
+
+function isWatched(mintAddr) {
+	try {
+		return JSON.parse(localStorage.getItem(WATCH_KEY) || '[]').includes(mintAddr);
+	} catch {
+		return false;
+	}
+}
+
+function toggleWatch(mintAddr) {
+	try {
+		let list = JSON.parse(localStorage.getItem(WATCH_KEY) || '[]');
+		if (list.includes(mintAddr)) {
+			list = list.filter((m) => m !== mintAddr);
+		} else {
+			list = [mintAddr, ...list];
+		}
+		localStorage.setItem(WATCH_KEY, JSON.stringify(list));
+		return list.includes(mintAddr);
+	} catch {
+		return false;
+	}
+}
+
+// ── Oracle conviction ─────────────────────────────────────────────────────────
+const _c3dOracleCache = new Map();
+
+async function fetchOracleConviction(mintAddr, net) {
+	const key = `${net}:${mintAddr}`;
+	if (_c3dOracleCache.has(key)) return _c3dOracleCache.get(key);
+	try {
+		const r = await fetch(
+			`/api/oracle/coin?mint=${encodeURIComponent(mintAddr)}&network=${net}`,
+			{ signal: AbortSignal.timeout(8000) },
+		);
+		if (!r.ok) return null;
+		const d = await r.json();
+		const cv = d?.conviction ? { score: d.conviction.score, tier: d.conviction.tier } : null;
+		_c3dOracleCache.set(key, cv);
+		return cv;
+	} catch {
+		return null;
+	}
+}
+
+const TIER_COLORS = {
+	prime: '#44e08a',
+	strong: '#6ea8ff',
+	lean: '#f0c040',
+	watch: '#ff9944',
+	avoid: '#ff5555',
+};
+
+function renderOracleSlot(cv, mintAddr) {
+	const el = document.getElementById('c3d-oracle');
+	if (!el) return;
+	if (!cv) {
+		el.style.display = 'none';
+		return;
+	}
+	const color = TIER_COLORS[cv.tier] || '#97a0c4';
+	el.innerHTML = `<a class="c3d-oracle" href="/oracle?mint=${encodeURIComponent(mintAddr)}" aria-label="Oracle conviction: ${cv.score} ${cv.tier}">
+		<span class="c3d-oracle-label">Oracle</span>
+		<span class="c3d-oracle-score" style="color:${color}">${cv.score}</span>
+		<span class="c3d-oracle-tier" style="color:${color}">${cv.tier}</span>
+		<span class="c3d-oracle-arrow">→</span>
+	</a>`;
+}
+
 // ── HUD ───────────────────────────────────────────────────────────────────────
 function renderHud(s) {
 	const cap = s.marketCapUsd !== null ? `$${compact(s.marketCapUsd)}` : '—';
@@ -326,6 +397,7 @@ function renderHud(s) {
 			? `${Math.round(s.graduationProgress * 100)}% to graduation`
 			: 'Bonding curve';
 	const conc = s.topHolderPercent !== null ? `${s.topHolderPercent.toFixed(1)}%` : '—';
+	const watching = s.mint ? isWatched(s.mint) : false;
 	hud.hidden = false;
 	hud.innerHTML = `
 		<div class="hud-head">
@@ -338,11 +410,21 @@ function renderHud(s) {
 			<div><dt>Status</dt><dd>${escapeHtml(grad)}</dd></div>
 			<div><dt>Top holders shown</dt><dd>${s.holders.length || 0}</dd></div>
 		</dl>
+		<div id="c3d-oracle"><div class="c3d-oracle-sk" aria-hidden="true"></div></div>
 		<div class="hud-links">
-			<a class="hud-link" href="https://pump.fun/coin/${encodeURIComponent(s.mint)}" target="_blank" rel="noopener">View on pump.fun ↗</a>
+			${s.mint ? `<button id="c3d-watch" class="c3d-watch-btn" type="button" aria-pressed="${watching}">${watching ? '★ Watching' : '☆ Watch'}</button>` : ''}
+			<a class="hud-link" href="https://pump.fun/coin/${encodeURIComponent(s.mint)}" target="_blank" rel="noopener">pump.fun ↗</a>
 			<a class="hud-link" href="/launches">All launches →</a>
 			${s.mint ? `<a class="hud-link" href="/communities/${encodeURIComponent(s.mint)}">3D world →</a>` : ''}
 		</div>`;
+
+	if (s.mint) {
+		document.getElementById('c3d-watch')?.addEventListener('click', function () {
+			const now = toggleWatch(s.mint);
+			this.textContent = now ? '★ Watching' : '☆ Watch';
+			this.setAttribute('aria-pressed', String(now));
+		});
+	}
 }
 
 function compact(n) {
@@ -389,6 +471,9 @@ async function main() {
 	renderHud(snapshot);
 	setStatus(null);
 	document.title = `${snapshot.name}${snapshot.symbol ? ` ($${snapshot.symbol})` : ''} · 3D — three.ws`;
+
+	// Async — does not block scene render
+	fetchOracleConviction(mint, network).then((cv) => renderOracleSlot(cv, mint));
 
 	// Expose the live scene for embedders and host pages (e.g. to react to the
 	// loaded snapshot or drive the camera from the outside).
