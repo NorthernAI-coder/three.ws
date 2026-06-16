@@ -131,9 +131,12 @@
 		.lwrap { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; box-shadow: var(--shadow); }
 		.lhead, .lrow { display: grid; grid-template-columns: 38px 1fr 110px 86px 86px; gap: 10px; align-items: center; padding: 12px 16px; }
 		.lhead { font: 600 10.5px/1 var(--mono); text-transform: uppercase; letter-spacing: .08em; color: var(--faint); border-bottom: 1px solid var(--line); }
-		.lrow { border: 0; border-bottom: 1px solid var(--line); width: 100%; background: none; text-align: left; transition: background .16s; }
-		.lrow:last-child { border-bottom: none; }
-		.lrow:hover { background: rgba(255,255,255,0.04); }
+		.lrow-wrap { display: flex; align-items: stretch; border-bottom: 1px solid var(--line); }
+		.lrow-wrap:last-child { border-bottom: none; }
+		.lrow { flex: 1; border: 0; background: none; text-align: left; transition: background .16s; cursor: pointer; }
+		.lrow-wrap:hover .lrow { background: rgba(255,255,255,0.04); }
+		.lrow-copy { display: flex; align-items: center; justify-content: center; width: 34px; flex-shrink: 0; color: var(--faint); font-size: 14px; text-decoration: none; opacity: 0; transition: opacity .14s, color .14s, background .14s; border-left: 1px solid var(--line); }
+		.lrow-wrap:hover .lrow-copy { opacity: 1; color: var(--violet); background: rgba(139,92,246,.06); }
 		.lrank { font: 700 14px/1 var(--mono); color: var(--faint); } .lrank.top { color: var(--gold); }
 		.lw { min-width: 0; display: flex; align-items: center; gap: 9px; }
 		.lw-addr { font: 600 13px/1 var(--mono); overflow: hidden; text-overflow: ellipsis; }
@@ -299,6 +302,48 @@
 		.foot { margin-top: 34px; padding-top: 18px; border-top: 1px solid var(--line); font-size: 12.5px; color: var(--faint); }
 		.foot b { color: var(--muted); }
 
+		/* proof / wins gallery */
+		.proof-kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; margin-bottom: 20px; }
+		.proof-kpi { background: var(--panel); padding: 13px 16px; }
+		.proof-kpi span { display: block; font: 600 9.5px/1 var(--mono); text-transform: uppercase; letter-spacing: .07em; color: var(--faint); margin-bottom: 6px; }
+		.proof-kpi b { font: 800 22px/1 var(--mono); color: var(--ink); }
+		.proof-kpi b.up { color: var(--up); }
+		.proof-filters { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; }
+		.proof-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+		.win-card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden;
+			box-shadow: var(--shadow); display: flex; flex-direction: column; transition: transform .14s, border-color .18s; text-decoration: none; color: inherit; }
+		.win-card:hover { transform: translateY(-3px); border-color: color-mix(in srgb, var(--up) 40%, var(--line)); }
+		.win-card-head { display: flex; align-items: center; gap: 12px; padding: 14px 14px 10px; }
+		.win-img { width: 42px; height: 42px; border-radius: 10px; object-fit: cover; background: radial-gradient(120% 100% at 50% 0%, #1b2233, #0d1018); border: 1px solid var(--line); display: grid; place-items: center; font: 700 15px/1 var(--mono); color: var(--faint); flex: none; }
+		.win-id { flex: 1; min-width: 0; }
+		.win-sym { font-weight: 700; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+		.win-name { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px; }
+		.win-ath { display: flex; flex-direction: column; align-items: flex-end; flex: none; }
+		.win-ath-val { font: 800 26px/1 var(--mono); color: var(--up); letter-spacing: -0.02em; }
+		.win-ath-label { font: 600 9px/1 var(--mono); text-transform: uppercase; letter-spacing: .07em; color: var(--faint); margin-top: 2px; }
+		.win-body { padding: 0 14px 14px; display: flex; flex-direction: column; gap: 10px; }
+		.win-score-row { display: flex; align-items: center; gap: 8px; }
+		.win-score-label { font: 600 9.5px/1 var(--mono); text-transform: uppercase; letter-spacing: .06em; color: var(--faint); }
+		.win-score-val { font: 800 18px/1 var(--mono); }
+		.win-pillars { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+		.win-pil label { display: flex; justify-content: space-between; font: 600 9px/1 var(--mono); color: var(--faint); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 3px; }
+		.win-pil label b { color: var(--ink); }
+		.win-pil-bar { height: 4px; border-radius: 2px; background: rgba(255,255,255,0.07); overflow: hidden; }
+		.win-pil-fill { height: 100%; border-radius: 2px; }
+		.win-pil.ped .win-pil-fill { background: var(--p-ped); }
+		.win-pil.str .win-pil-fill { background: var(--p-str); }
+		.win-pil.nar .win-pil-fill { background: var(--p-nar); }
+		.win-pil.mom .win-pil-fill { background: var(--p-mom); }
+		.win-badges { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+		.win-grad { font: 700 9.5px/1 var(--mono); padding: 3px 8px; border-radius: 5px; background: color-mix(in srgb, var(--up) 16%, transparent); color: var(--up); letter-spacing: .04em; text-transform: uppercase; }
+		.win-when { font: 600 10.5px/1 var(--mono); color: var(--faint); margin-left: auto; }
+		.win-links { display: flex; gap: 12px; padding-top: 8px; border-top: 1px solid var(--line); }
+		.win-link { font: 600 11.5px/1 var(--mono); color: var(--cyan); text-decoration: none; transition: opacity .15s; }
+		.win-link:hover { opacity: .7; }
+		.win-in { animation: winIn .4s cubic-bezier(.22,1,.36,1) both; }
+		@keyframes winIn { from { opacity: 0; transform: translateY(10px) scale(.97); } }
+		.proof-load-more { display: flex; justify-content: center; margin-top: 22px; }
+
 		@media (max-width: 760px) {
 			.apanel { grid-template-columns: 1fr; }
 			.lhead, .lrow { grid-template-columns: 30px 1fr 84px 70px; }
@@ -333,6 +378,7 @@
 			<button class="tab" data-view="wallets" role="tab">Top wallets <span class="ct" id="ctWallets"></span></button>
 			<button class="tab" data-view="graph" role="tab">3D graph</button>
 			<button class="tab" data-view="edge" role="tab">The edge</button>
+			<button class="tab" data-view="proof" role="tab">Proof ✓ <span class="ct" id="ctProof"></span></button>
 			<button class="tab" data-view="agent" role="tab">Arm your agent</button>
 		</nav>
 
@@ -402,6 +448,30 @@
 					<p class="sub">Every move your agent makes — simulated or live — lands here, then gets graded against the outcome. This is your agent's win-rate ledger.</p>
 					<div id="actionsBody" style="max-height:480px;overflow-y:auto"><div class="state">Sign in and arm an agent to see its actions.</div></div>
 				</div>
+			</div>
+		</section>
+
+		<!-- PROOF — win gallery -->
+		<section class="view" id="view-proof">
+			<p class="intro">Coins the Oracle called at conviction — and how they resolved. Every card shows the score at entry time versus the ground-truth outcome: graduated, ATH multiple, or both. Proof, not promises.</p>
+			<div class="proof-kpis" id="proofKpis" style="display:none"></div>
+			<div class="proof-filters">
+				<div class="seg" id="proofTierSeg">
+					<button data-ptier="" class="on">All tiers</button>
+					<button data-ptier="prime">Prime</button>
+					<button data-ptier="strong">Strong</button>
+					<button data-ptier="lean">Lean</button>
+				</div>
+				<div class="seg" id="proofPeriodSeg">
+					<button data-pperiod="7d">7d</button>
+					<button data-pperiod="30d" class="on">30d</button>
+					<button data-pperiod="90d">90d</button>
+					<button data-pperiod="all">All time</button>
+				</div>
+			</div>
+			<div class="proof-grid" id="proofGrid"></div>
+			<div class="proof-load-more" id="proofLoadMore" style="display:none">
+				<button class="btn" id="proofLoadMoreBtn">Load more wins</button>
 			</div>
 		</section>
 
