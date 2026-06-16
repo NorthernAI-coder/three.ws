@@ -1,7 +1,7 @@
 /**
  * Public trade activity feed — notable closed positions from all agents.
  *
- *   GET /api/trades/feed?network=mainnet&window=24h&min_pnl_pct=20&limit=40&cursor=<iso>
+ *   GET /api/trades/feed?network=mainnet&window=24h&min_pnl_pct=20&limit=40&cursor=<iso>&mint=<base58>
  *
  * Returns the most recent closed positions where the agent turned a meaningful
  * profit — sorted newest-exit first. No auth required; this is the platform's
@@ -25,6 +25,7 @@ import { sql } from '../_lib/db.js';
 
 const NETWORKS = new Set(['mainnet', 'devnet']);
 const WINDOWS  = new Set(['1h', '6h', '24h', '7d', '30d', 'all']);
+const MINT_RE  = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 
 const WINDOW_INTERVAL = {
 	'1h':  '1 hour',
@@ -49,17 +50,21 @@ export default wrap(async (req, res) => {
 	const limit   = Math.min(80, Math.max(1, Number(p.get('limit')) || 40));
 	const minPnl  = Math.max(0, Number(p.get('min_pnl_pct')) || 10);   // % profit threshold
 	const cursor  = p.get('cursor') || null;                             // ISO timestamp for pagination
+	const mintRaw = (p.get('mint') || '').trim();
+	const mintFilter = MINT_RE.test(mintRaw) ? mintRaw : null;          // filter to one coin (oracle drawer)
 
 	const interval = WINDOW_INTERVAL[window] || null;
 
-	// Build the time-window condition
-	const windowCond = interval
+	// When filtering by mint, ignore the time window (show all trades on that coin)
+	const windowCond = interval && !mintFilter
 		? sql`and pos.closed_at > now() - ${interval}::interval`
 		: sql``;
 
 	const cursorCond = cursor && /^\d{4}-\d{2}-\d{2}T/.test(cursor)
 		? sql`and pos.closed_at < ${cursor}::timestamptz`
 		: sql``;
+
+	const mintCond = mintFilter ? sql`and pos.mint = ${mintFilter}` : sql``;
 
 	const rows = await sql`
 		select
@@ -114,6 +119,7 @@ export default wrap(async (req, res) => {
 		  and pos.realized_pnl_pct >= ${minPnl}
 		  ${windowCond}
 		  ${cursorCond}
+		  ${mintCond}
 
 		order by pos.closed_at desc
 		limit ${limit}
@@ -160,13 +166,15 @@ export default wrap(async (req, res) => {
 
 	const nextCursor = items.length === limit ? items[items.length - 1].closed_at : null;
 
+	const cacheAge = mintFilter ? 60 : 30;
 	return json(res, 200, {
 		network,
-		window,
+		window: mintFilter ? 'all' : window,
 		min_pnl_pct: minPnl,
+		mint: mintFilter || null,
 		count: items.length,
 		items,
 		next_cursor: nextCursor,
 		generated_at: new Date().toISOString(),
-	}, { 'Cache-Control': 'public, max-age=30, stale-while-revalidate=120' });
+	}, { 'Cache-Control': `public, max-age=${cacheAge}, stale-while-revalidate=120` });
 });
