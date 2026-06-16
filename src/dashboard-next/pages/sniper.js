@@ -114,7 +114,7 @@ const STYLE = `<style>
 .sn-live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--nxt-success); animation: sn-pulse 2s ease infinite; }
 @keyframes sn-pulse { 0%,100% { opacity: 1 } 50% { opacity: .35 } }
 .sn-pos-list { padding: 0; }
-.sn-pos-row { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center; padding: 11px 16px; border-bottom: 1px solid var(--nxt-line); }
+.sn-pos-row { display: grid; grid-template-columns: 1fr auto auto auto; gap: 10px; align-items: center; padding: 11px 16px; border-bottom: 1px solid var(--nxt-line); }
 .sn-pos-row:last-child { border-bottom: 0; }
 .sn-pos-info { min-width: 0; }
 .sn-pos-sym { font-weight: 600; font-size: 14px; }
@@ -122,6 +122,11 @@ const STYLE = `<style>
 .sn-pos-pnl { font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; }
 .sn-pos-link { font-size: 12px; color: var(--nxt-accent); text-decoration: none; padding: 4px 10px; border: 1px solid color-mix(in srgb, var(--nxt-accent) 35%, transparent); border-radius: var(--nxt-radius-sm); white-space: nowrap; transition: background .12s; }
 .sn-pos-link:hover { background: color-mix(in srgb, var(--nxt-accent) 12%, transparent); }
+.sn-pos-oracle { display: inline-flex; }
+.sn-ob { display: inline-flex; align-items: center; gap: 3px; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; padding: 3px 7px; text-decoration: none; transition: border-color .12s; }
+.sn-ob:hover { border-color: rgba(255,255,255,0.22); }
+.sn-ob-score { font: 700 11px/1 var(--nxt-mono, monospace); font-variant-numeric: tabular-nums; }
+.sn-ob-tier { font: 600 8px/1 var(--nxt-mono, monospace); text-transform: uppercase; letter-spacing: .06em; opacity: .8; }
 .sn-empty { color: var(--nxt-ink-faint); font-size: 13px; padding: 24px 16px; text-align: center; }
 
 /* new strategy cta */
@@ -450,6 +455,7 @@ function renderPositions(positions) {
 		return;
 	}
 	el.innerHTML = positions.map(posRow).join('');
+	enrichPositionOracle();
 }
 
 function posRow(p) {
@@ -458,14 +464,44 @@ function posRow(p) {
 	const link = p.entry_buy_sig && p.entry_buy_sig !== 'SIMULATED'
 		? `<a class="sn-pos-link" href="${solscanTx(p.entry_buy_sig)}" target="_blank" rel="noopener">Solscan ↗</a>`
 		: p.mint ? `<a class="sn-pos-link" href="${pumpUrl(p.mint)}" target="_blank" rel="noopener">pump.fun ↗</a>` : '';
-	return `<div class="sn-pos-row">
+	const mintAttr = p.mint ? ` data-oracle-mint="${esc(p.mint)}"` : '';
+	return `<div class="sn-pos-row"${mintAttr}>
 		<div class="sn-pos-info">
 			<div class="sn-pos-sym">${esc(p.symbol || p.mint?.slice(0, 8) || '—')}</div>
 			<div class="sn-pos-sub">${esc(p.agent_name || '')} · opened ${relTime(p.opened_at)}</div>
 		</div>
 		<div class="sn-pos-pnl">${pnlStr}</div>
+		<span class="sn-pos-oracle"></span>
 		${link}
 	</div>`;
+}
+
+const SN_TIER_COLOR = { prime: '#c084fc', strong: '#34d399', lean: '#fbbf24', watch: '#94a3b8', avoid: '#f87171' };
+
+async function enrichPositionOracle() {
+	const el = document.getElementById('sn-positions');
+	if (!el) return;
+	const rows = el.querySelectorAll('[data-oracle-mint]');
+	if (!rows.length) return;
+	const mints = [...new Set([...rows].map((r) => r.dataset.oracleMint).filter(Boolean))];
+	if (!mints.length) return;
+	try {
+		const r = await fetch(`/api/oracle/batch?mints=${mints.map(encodeURIComponent).join(',')}&network=mainnet`);
+		if (!r.ok) return;
+		const { results = {} } = await r.json();
+		for (const row of rows) {
+			const mint = row.dataset.oracleMint;
+			const d = results[mint];
+			if (!d || d.score == null) continue;
+			const badge = row.querySelector('.sn-pos-oracle');
+			if (!badge || badge.hasChildNodes()) continue;
+			const color = SN_TIER_COLOR[d.tier] || '#94a3b8';
+			badge.innerHTML = `<a class="sn-ob" href="/oracle?mint=${encodeURIComponent(mint)}" title="Oracle conviction: ${d.score} (${d.tier})">
+				<span class="sn-ob-score" style="color:${color}">${d.score}</span>
+				<span class="sn-ob-tier" style="color:${color}">${d.tier}</span>
+			</a>`;
+		}
+	} catch { /* non-fatal */ }
 }
 
 // ── New strategy CTA ──────────────────────────────────────────────────────────
