@@ -3,6 +3,13 @@
 	"entries": [
 		{
 			"date": "2026-06-16",
+			"title": "Oracle: Community sentiment pulse in coin drawer",
+			"summary": "The Oracle coin drawer now shows a Community Pulse section pulled live from pump.fun comments. After the conviction score loads, a background fetch reads recent comments and classifies them as bullish, bearish, or mixed, with positive / negative / neutral percentage bars and a sample of real comments. Coins with fewer than three comments are silently skipped. This adds the crowd-sentiment layer alongside Oracle's technical conviction pillars.",
+			"tags": ["feature"],
+			"link": "/oracle"
+		},
+		{
+			"date": "2026-06-16",
 			"title": "Activity: Outcome filter on agent trade feed",
 			"summary": "The Oracle agent activity feed now has a Win / Loss / Open outcome filter alongside the existing tier and mode filters. Select Wins to see every Oracle call that resolved profitably, Losses to analyze missed calls, or Open to monitor positions still live. Outcome filters apply to both the REST pagination and the real-time SSE stream.",
 			"tags": ["improvement"],

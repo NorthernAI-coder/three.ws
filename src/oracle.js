@@ -839,6 +839,7 @@ function renderDrawer(d) {
 		${narr ? `<div class="dr-sec">Narrative</div><div style="font-size:13.5px;color:var(--ink)">${esc(narr.narrative || '')}</div>
 			<div class="coin-meta" style="margin-top:8px"><span class="chip cat">${esc(narr.category)}</span><span class="chip">virality <b>${narr.virality ?? '—'}</b></span><span class="chip">${esc(narr.source || '')}</span></div>` : ''}
 		<div class="dr-sec">Why this score</div>${reasons}
+		<div id="communityPulseWrap"></div>
 		${structurePanel(d.components?.structure)}
 		<div class="dr-sec">Who's in <span style="color:var(--faint)">(${(d.whos_in || []).length})</span></div>${whos}
 		${out ? `<div class="dr-sec">Outcome</div><div class="coin-meta">
@@ -848,8 +849,9 @@ function renderDrawer(d) {
 		<div id="tradeTape" class="trade-tape"></div>
 	`;
 
-	// Fetch and render conviction score history sparkline.
+	// Fetch and render conviction score history sparkline + community sentiment.
 	loadScoreHistory(c.mint);
+	loadSentimentPulse(c.mint);
 
 	// Tear down any previous tape, then mount fresh for this coin.
 	state.tape?.destroy();
@@ -908,6 +910,57 @@ async function loadScoreHistory(mint) {
 	const { ok, data } = await api(`/api/oracle/history?mint=${encodeURIComponent(mint)}&network=${NETWORK}&hours=48`);
 	if (!ok || !data?.points?.length || data.points.length < 2) { wrap.innerHTML = ''; return; }
 	wrap.innerHTML = renderSparkline(data.points, data.trend);
+}
+
+async function loadSentimentPulse(mint) {
+	const wrap = $('#communityPulseWrap');
+	if (!wrap) return;
+	try {
+		const res = await fetch('/api/social/sentiment-pulse', {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ token: mint }),
+			signal: AbortSignal.timeout(10000),
+		});
+		if (!res.ok) { if ($('#communityPulseWrap')) $('#communityPulseWrap').innerHTML = ''; return; }
+		const d = await res.json();
+		const el = $('#communityPulseWrap');
+		if (!el) return;
+		if (!d.ok || !d.overall || d.overall.count < 3) { el.innerHTML = ''; return; }
+		const o = d.overall;
+		const scoreColor = o.score >= 60 ? 'var(--up)' : o.score <= 40 ? 'var(--down)' : 'var(--muted)';
+		const sentLabel = o.score >= 60 ? 'bullish' : o.score <= 40 ? 'bearish' : 'mixed';
+		const sentChipCls = o.score >= 60 ? 'sm' : o.score <= 40 ? 'flag' : '';
+		const exHtml = (o.examples || []).slice(0, 2).map(
+			(ex) => `<div class="reason" style="font-size:11.5px;opacity:.75"><span class="rdot nar"></span><span>${esc(ex)}</span></div>`
+		).join('');
+		el.innerHTML = `
+			<div class="dr-sec">Community pulse <span style="color:var(--faint);font-weight:400;font-size:10px">pump.fun · ${o.count} comments</span></div>
+			<div class="coin-meta" style="margin-bottom:8px">
+				<span class="chip ${sentChipCls}" style="color:${scoreColor}">${sentLabel} · ${o.score}</span>
+			</div>
+			<div class="str-grid">
+				<div class="str-row">
+					<span class="str-lbl">Positive</span>
+					<div class="str-track"><div class="str-fill" style="width:${Math.round(o.posPct)}%;background:var(--up)"></div></div>
+					<span class="str-val" style="color:var(--up)">${Math.round(o.posPct)}%</span>
+				</div>
+				<div class="str-row">
+					<span class="str-lbl">Negative</span>
+					<div class="str-track"><div class="str-fill" style="width:${Math.round(o.negPct)}%;background:var(--down)"></div></div>
+					<span class="str-val" style="color:var(--down)">${Math.round(o.negPct)}%</span>
+				</div>
+				<div class="str-row">
+					<span class="str-lbl">Neutral</span>
+					<div class="str-track"><div class="str-fill" style="width:${Math.round(o.neuPct)}%;background:var(--muted)"></div></div>
+					<span class="str-val" style="color:var(--muted)">${Math.round(o.neuPct)}%</span>
+				</div>
+			</div>
+			${exHtml}`;
+	} catch {
+		const el = $('#communityPulseWrap');
+		if (el) el.innerHTML = '';
+	}
 }
 
 function renderSparkline(points, trend) {
