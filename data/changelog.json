@@ -3,6 +3,27 @@
 	"entries": [
 		{
 			"date": "2026-06-16",
+			"title": "Oracle Proof ✓ tab — gallery of verified high-conviction wins",
+			"summary": "New Proof ✓ tab on the Oracle page shows every coin that the Oracle called strong or prime and that subsequently delivered — graduated to Raydium or hit ≥2× ATH. Each card shows the conviction score at call time, the four pillar breakdown, and the outcome ATH multiple. Filterable by tier and time window (7d / 30d / 90d). This is the edge made visible: every number is ground-truth, on-chain verifiable.",
+			"tags": ["feature"],
+			"link": "/oracle"
+		},
+		{
+			"date": "2026-06-16",
+			"title": "Oracle wallet drawer: trader profile and copy-trades links",
+			"summary": "When you open a wallet from the Oracle's Top Wallets leaderboard, the drawer now shows 'Trader profile ↗' and 'Copy trades →' links below the track record — connecting the wallet reputation system directly to copy trading. The wallet list rows also gain a hover-reveal '→' button that opens the trader profile without needing to open the drawer first.",
+			"tags": ["improvement"],
+			"link": "/oracle"
+		},
+		{
+			"date": "2026-06-16",
+			"title": "IRL and XR: choose any of your 3D avatars from a bottom-sheet picker",
+			"summary": "Both /irl and /xr now let you swap your 3D avatar without leaving the page. Tap Avatar (IRL) or Change (XR) to open a thumbnail grid of all your uploaded avatars. Selecting one hot-swaps the model in the scene instantly — camera, animations, half-body mode, and AR state all carry over. Signed-out users see a prompt to sign in; empty accounts link to the creation flow.",
+			"tags": ["feature"],
+			"link": "/irl"
+		},
+		{
+			"date": "2026-06-16",
 			"title": "Watchlist: live Oracle conviction badges on every watched coin",
 			"summary": "Your watchlist now shows the Oracle conviction score and tier for every pinned coin — prime, strong, lean, watch, or avoid — right on the card. Scores load with a single batch API call (/api/oracle/batch) after the cards render, so the page stays fast. Tap any badge to open the full Oracle breakdown. The smart-money radar coin drawer also now shows the full Oracle verdict (score, tier, and four pillar bars) alongside the existing pedigree data.",
 			"tags": ["improvement"],

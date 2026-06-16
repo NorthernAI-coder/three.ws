@@ -26,6 +26,7 @@ import { WebXRSession } from './ar/webxr.js';
 import { canUseQuickLook } from './ar/quick-look.js';
 import { canUseSceneViewer, openSceneViewer } from './ar/scene-viewer.js';
 import { log } from './shared/log.js';
+import { createAvatarPicker } from './avatar-picker.js';
 
 // ── DOM ──────────────────────────────────────────────────────────────────────
 
@@ -39,6 +40,7 @@ const statusEl      = document.getElementById('xr-status');
 const statusDot     = document.getElementById('xr-status-dot');
 const deviceChip    = document.getElementById('xr-device-chip');
 const avatarLabel   = document.getElementById('xr-avatar-label');
+const changeAvatarBtn = document.getElementById('xr-change-avatar');
 const loadingEl     = document.getElementById('xr-loading');
 
 function setStatus(msg, type = 'idle') {
@@ -387,9 +389,18 @@ halfBtn.addEventListener('click', () => {
 
 // ── Avatar loading ────────────────────────────────────────────────────────────
 
-async function resolveAvatarUrl() {
-	const params = new URLSearchParams(location.search);
-	const id = params.get('avatar');
+let _currentAvatarId = null;
+
+function _clearAvatar() {
+	if (xrViewer.content) {
+		scene.remove(xrViewer.content);
+		xrViewer.content = null;
+	}
+	animationManager.detach();
+	xrViewer.mixer = null;
+}
+
+async function _resolveAvatarUrl(id) {
 	if (!id) return '/avatars/default.glb';
 	const res = await fetch(`/api/avatars/${encodeURIComponent(id)}`);
 	if (!res.ok) return '/avatars/default.glb';
@@ -397,9 +408,22 @@ async function resolveAvatarUrl() {
 	return avatar?.url || '/avatars/default.glb';
 }
 
-async function loadAvatar() {
-	const url = await resolveAvatarUrl();
+async function loadAvatar(idOrUrl) {
+	const params = new URLSearchParams(location.search);
+	const id = idOrUrl !== undefined ? idOrUrl : params.get('avatar');
+
+	let url;
+	if (!id) {
+		url = '/avatars/default.glb';
+	} else if (/^https?:\/\/|^\//.test(id)) {
+		url = id;
+	} else {
+		url = await _resolveAvatarUrl(id);
+	}
+
 	_avatarGlbUrl = url;
+	_clearAvatar();
+
 	const loader = new GLTFLoader();
 	const gltf = await loader.loadAsync(url);
 	const root = gltf.scene;
@@ -435,10 +459,12 @@ async function loadAvatar() {
 	xrViewer.mixer = animationManager.mixer;
 	if (animationManager._animationDefs.length) animationManager.play('idle');
 
-	// Avatar name from URL param
-	const params = new URLSearchParams(location.search);
+	// Re-apply half-body if the mode was active during a hot-swap
+	if (halfBodyActive) applyHalfBody();
+
+	// Avatar label: prefer picker-supplied name, fall back to URL param
 	const handle = params.get('handle');
-	if (avatarLabel && handle) avatarLabel.textContent = handle;
+	if (avatarLabel) avatarLabel.textContent = handle || 'Your Avatar';
 }
 
 // ── Resize ───────────────────────────────────────────────────────────────────
@@ -448,6 +474,33 @@ window.addEventListener('resize', () => {
 	camera.aspect = window.innerWidth / window.innerHeight;
 	camera.updateProjectionMatrix();
 });
+
+// ── Avatar picker ─────────────────────────────────────────────────────────────
+
+const avatarPicker = createAvatarPicker({
+	onSelect: async ({ id, url, name }) => {
+		_currentAvatarId = id;
+		if (avatarLabel) avatarLabel.textContent = name;
+		setStatus('Loading avatar…', 'loading');
+		// Update URL so sharing reflects the chosen avatar
+		const sp = new URLSearchParams(location.search);
+		if (id) sp.set('avatar', id); else sp.delete('avatar');
+		history.replaceState(null, '', location.pathname + (sp.toString() ? '?' + sp : ''));
+		try {
+			await loadAvatar(url);
+			setStatus('Avatar loaded', 'idle');
+		} catch (err) {
+			setStatus('Failed to load avatar', 'error');
+			log.error('[xr] avatar swap failed:', err);
+		}
+	},
+});
+
+if (changeAvatarBtn) {
+	changeAvatarBtn.addEventListener('click', () => {
+		avatarPicker.open(_currentAvatarId);
+	});
+}
 
 // ── Init ─────────────────────────────────────────────────────────────────────
 
