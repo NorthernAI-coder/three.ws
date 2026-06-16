@@ -72,7 +72,14 @@ const STYLE = `
 .cp-ob:hover { border-color: rgba(255,255,255,0.22); }
 .cp-ob-score { font-weight: 700; font-variant-numeric: tabular-nums; }
 .cp-ob-tier { font-size: 8.5px; text-transform: uppercase; letter-spacing: .06em; opacity: .8; }
-@media (max-width: 560px) { .cp-item { grid-template-columns: 1fr; } .cp-side { justify-content: flex-start; } .cp-av { display: none; } }
+.cp-stats { display: flex; gap: 2px; margin-bottom: 16px; border-radius: var(--nxt-radius); overflow: hidden; border: 1px solid var(--nxt-stroke); }
+.cp-stat { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 10px 8px; background: var(--nxt-bg-2); gap: 2px; }
+.cp-stat-val { font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.cp-stat-lbl { font-size: 11px; color: var(--nxt-ink-faint); white-space: nowrap; }
+.cp-stat-detail { display: inline-flex; align-items: center; justify-content: center; width: 14px; height: 14px; background: var(--nxt-stroke); border-radius: 50%; font-size: 9px; color: var(--nxt-ink-faint); cursor: help; }
+.cp-stat-sol .cp-stat-val { color: var(--nxt-accent); }
+.cp-hint { display: block; font-size: var(--text-2xs, 11px); color: var(--nxt-ink-faint); margin-top: 4px; line-height: 1.4; }
+@media (max-width: 560px) { .cp-item { grid-template-columns: 1fr; } .cp-side { justify-content: flex-start; } .cp-av { display: none; } .cp-stats { flex-wrap: wrap; } .cp-stat { min-width: 45%; } }
 </style>`;
 
 function img(e) { return e.leader_image || e.leader_avatar || '/favicon.ico'; }
@@ -150,6 +157,44 @@ function earningsSection(earnings) {
 		</section>`;
 }
 
+function historyStats(hist) {
+	if (!hist.length) return '';
+	const acted = hist.filter((e) => e.status === 'acted');
+	const skipped = hist.filter((e) => e.status === 'skipped');
+	const dismissed = hist.filter((e) => e.status === 'dismissed');
+	const solDeployed = acted.reduce((s, e) => s + (Number(e.planned_sol) || 0), 0);
+
+	const skipReasons = {};
+	for (const e of skipped) {
+		const k = e.skip_reason || 'unknown';
+		skipReasons[k] = (skipReasons[k] || 0) + 1;
+	}
+	const skipBreakdown = Object.entries(skipReasons)
+		.sort((a, b) => b[1] - a[1])
+		.map(([r, n]) => `${SKIP_LABEL[r] || r} (${n})`)
+		.join(', ');
+
+	return `
+	<div class="cp-stats">
+		<div class="cp-stat">
+			<span class="cp-stat-val">${acted.length}</span>
+			<span class="cp-stat-lbl">Acted</span>
+		</div>
+		<div class="cp-stat cp-stat-sol">
+			<span class="cp-stat-val">${fmtSol(solDeployed)}</span>
+			<span class="cp-stat-lbl">Deployed</span>
+		</div>
+		<div class="cp-stat">
+			<span class="cp-stat-val">${skipped.length}</span>
+			<span class="cp-stat-lbl">Skipped${skipped.length && skipBreakdown ? ` <span class="cp-stat-detail" title="${esc(skipBreakdown)}">?</span>` : ''}</span>
+		</div>
+		<div class="cp-stat">
+			<span class="cp-stat-val">${dismissed.length}</span>
+			<span class="cp-stat-lbl">Dismissed</span>
+		</div>
+	</div>`;
+}
+
 function historyRow(e) {
 	const status = e.status;
 	const label = status === 'skipped' ? (SKIP_LABEL[e.skip_reason] || 'Skipped') : status[0].toUpperCase() + status.slice(1);
@@ -225,6 +270,7 @@ async function loadAndRender(host) {
 
 			<section class="cp-sec">
 				<div class="cp-sec-h"><h2>History</h2><span class="cp-count">${hist.length}</span></div>
+				${historyStats(hist)}
 				<div id="cp-history">${hist.length ? hist.map(historyRow).join('') : `<div class="cp-empty">Nothing yet.</div>`}</div>
 			</section>
 		</div>`;
