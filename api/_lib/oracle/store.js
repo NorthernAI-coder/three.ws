@@ -299,6 +299,36 @@ export async function upsertWatch(agentId, userId, network, cfg) {
 	return row[0];
 }
 
+/** Conviction score history for a coin (newest first, up to 48 points). */
+export async function readScoreHistory(mint, network = 'mainnet', hours = 72) {
+	const rows = await sql`
+		select score, tier, pedigree, structure, narrative, momentum, scored_at
+		from oracle_conviction_history
+		where mint = ${mint} and network = ${network}
+		  and scored_at > now() - (${hours} || ' hours')::interval
+		order by scored_at asc
+		limit 200
+	`.catch(() => []);
+	return rows.map((r) => ({
+		score: r.score,
+		tier: r.tier,
+		pillars: {
+			pedigree: r.pedigree, structure: r.structure,
+			narrative: r.narrative, momentum: r.momentum,
+		},
+		scored_at: r.scored_at,
+	}));
+}
+
+/** Purge conviction history older than 72 hours. Called by the score cron. */
+export async function purgeOldHistory(network = 'mainnet') {
+	await sql`
+		delete from oracle_conviction_history
+		where scored_at < now() - interval '72 hours'
+		  and network = ${network}
+	`.catch(() => { /* non-fatal */ });
+}
+
 export async function recentActions(agentId, network = 'mainnet', limit = 50) {
 	return sql`
 		select mint, symbol, conviction, tier, mode, size_sol, status, reason,

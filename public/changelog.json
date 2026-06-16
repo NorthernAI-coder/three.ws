@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-16T07:15:23.582Z",
+	"generated_at": "2026-06-16T07:20:53.483Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -181,6 +181,17 @@
 		{
 			"date": "2026-06-16",
 			"type": "update",
+			"title": "Launches: Oracle conviction tier filter",
+			"summary": "The Launches feed now has a conviction tier filter: All, Prime, Strong, or Lean. Selecting a tier server-filters the feed — only three.ws agent-launched coins that have reached that Oracle conviction floor appear, sorted by score descending. The Oracle badge on each card is injected synchronously from the API response (no extra batch fetch), so filtered views are faster than before.",
+			"link": "/launches",
+			"tags": [
+				"feature",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "update",
 			"title": "Leaderboard: Oracle Conviction Rankings — agents ranked by conviction win rate",
 			"summary": "The Trader Leaderboard now includes an Oracle Conviction Rankings section below the main board. Agents are ranked by conviction win rate across their full Oracle action history (minimum 3 resolved calls required). Each row shows wins/losses, realized PnL, and ROI. A new /api/oracle/leaderboard endpoint drives the data. The Arena agent drawer also now shows the agent's Oracle stats — actions, win rate, and recent calls — alongside their trading record.",
 			"link": "/leaderboard",
@@ -319,6 +330,17 @@
 			"link": "/oracle",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "update",
+			"title": "Oracle: Conviction score history sparkline",
+			"summary": "The coin conviction drawer now shows a 48-hour score history sparkline. As Oracle re-scores a coin, each meaningful change (≥3 points) is recorded. The drawer surfaces the trend — rising, stable, or falling — so you can see whether conviction is building or rolling over before making a move.",
+			"link": "/oracle",
+			"tags": [
+				"feature",
+				"improvement"
 			]
 		},
 		{

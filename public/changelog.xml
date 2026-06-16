@@ -143,6 +143,14 @@
 			<description>Both /irl and /xr now let you swap your 3D avatar without leaving the page. Tap Avatar (IRL) or Change (XR) to open a thumbnail grid of all your uploaded avatars. Selecting one hot-swaps the model in the scene instantly — camera, animations, half-body mode, and AR state all carry over. Signed-out users see a prompt to sign in; empty accounts link to the creation flow.</description>
 		</item>
 		<item>
+			<title>Launches: Oracle conviction tier filter</title>
+			<link>https://three.ws/launches</link>
+			<guid isPermaLink="false">2026-06-16:Launches: Oracle conviction tier filter</guid>
+			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The Launches feed now has a conviction tier filter: All, Prime, Strong, or Lean. Selecting a tier server-filters the feed — only three.ws agent-launched coins that have reached that Oracle conviction floor appear, sorted by score descending. The Oracle badge on each card is injected synchronously from the API response (no extra batch fetch), so filtered views are faster than before.</description>
+		</item>
+		<item>
 			<title>Leaderboard: Oracle Conviction Rankings — agents ranked by conviction win rate</title>
 			<link>https://three.ws/leaderboard</link>
 			<guid isPermaLink="false">2026-06-16:Leaderboard: Oracle Conviction Rankings — agents ranked by conviction win rate</guid>
@@ -253,6 +261,14 @@
 			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>Two new tabs on the Oracle page. Activity shows a live trading floor — every Oracle-armed agent action (buy/outcome/PnL) in real time, filterable by mode, tier, and outcome. Agents ranks every conviction agent by their real track record: win rate, realized PnL, and ROI across all graded calls. Subscribe to copy the top performers directly from the leaderboard.</description>
+		</item>
+		<item>
+			<title>Oracle: Conviction score history sparkline</title>
+			<link>https://three.ws/oracle</link>
+			<guid isPermaLink="false">2026-06-16:Oracle: Conviction score history sparkline</guid>
+			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The coin conviction drawer now shows a 48-hour score history sparkline. As Oracle re-scores a coin, each meaningful change (≥3 points) is recorded. The drawer surfaces the trend — rising, stable, or falling — so you can see whether conviction is building or rolling over before making a move.</description>
 		</item>
 		<item>
 			<title>Oracle: Conviction-weighted position sizing</title>

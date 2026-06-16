@@ -27,6 +27,7 @@ import { runScorePass } from '../../workers/oracle/score-loop.js';
 import { actOnFreshCoins, freshlyScored } from '../../workers/oracle/agent-loop.js';
 import { runSettlePass } from '../../workers/oracle/settle-loop.js';
 import { alertNewHighConviction } from '../_lib/oracle/alerts.js';
+import { purgeOldHistory } from '../_lib/oracle/store.js';
 
 // How far back the agent pass looks for scored coins. Wider than the cron
 // cadence so a missed tick still catches up; the per-(agent,mint) dedup makes
@@ -81,6 +82,10 @@ export default wrap(async (req, res) => {
 	// We pass the full coin objects from freshlyScored (score, tier, pillars
 	// are all present in oracle_conviction rows).
 	const alerted = await alertNewHighConviction(coins, cfg.network);
+
+	// 5) Prune conviction history older than 72 hours — fire-and-forget so a
+	// slow delete never extends the cron response time.
+	purgeOldHistory(cfg.network).catch(() => {});
 
 	return json(res, 200, {
 		ok: true,
