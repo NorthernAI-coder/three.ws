@@ -742,7 +742,7 @@ function agentLeadRow(a, i) {
 				<span class="lstat"><b class="${wrClass}">${winRate}</b></span>
 				<span class="lstat"><b class="${pnlClass}">${pnlStr}</b></span>
 			</a>
-			<a class="lrow-copy" href="/trader/${encodeURIComponent(a.agent_id)}#copy" title="Copy this agent" rel="noopener">→</a>
+			<a class="lrow-copy" href="/trader/${encodeURIComponent(a.agent_id)}#tp-copy-panel" title="Copy this agent" rel="noopener">→</a>
 			<button class="lrow-follow" type="button" title="Follow agent signals on Telegram" aria-label="Follow agent on Telegram">+</button>
 		</div>
 		<div class="follow-panel" hidden>
@@ -832,7 +832,7 @@ function afRow(a) {
 	const pnlCls = pnl != null ? (pnl >= 0 ? 'up' : 'dn') : '';
 	const modeBadge = a.mode === 'live' ? '<span class="act-live">live</span>' : '<span class="act-sim">sim</span>';
 	return `<tr class="af-row">
-		<td class="af-agent">${av}<a class="af-name" href="/agents/${encodeURIComponent(a.agent_id)}" target="_blank" rel="noopener">${esc(a.agent_name || 'Agent')}</a></td>
+		<td class="af-agent">${av}<a class="af-name" href="/trader/${encodeURIComponent(a.agent_id)}" target="_blank" rel="noopener">${esc(a.agent_name || 'Agent')}</a></td>
 		<td class="af-coin"><a href="${esc(a.pump_url)}" target="_blank" rel="noopener">${esc(a.symbol || a.mint?.slice(0, 6) || '?')}</a></td>
 		<td><span class="tierpill ${tierPill(a.tier)}">${esc(a.tier || '—')}</span></td>
 		<td class="af-mono">${a.conviction ?? '—'}</td>
