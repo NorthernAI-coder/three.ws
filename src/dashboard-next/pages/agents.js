@@ -282,6 +282,7 @@ function renderAgents(host, agents, avatars, root) {
 	});
 
 	loadInlineReviewStats(host, agents);
+	enrichAgentTradingStatus(host, agents);
 }
 
 // ── Deploy on-chain (Metaplex Core / ERC-8004) ─────────────────────────────
@@ -468,6 +469,7 @@ function agentCard(a, avatars) {
 					</span>
 				</div>
 				${a.persona?.tagline || a.tagline ? `<div style="font-size:13px;color:var(--nxt-ink-dim);margin-top:6px;font-style:italic">${esc((a.persona?.tagline || a.tagline).slice(0, 120))}</div>` : ''}
+				<div data-trading-slot style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px"></div>
 			</div>
 
 			<div class="dn-agent-actions">
@@ -528,6 +530,69 @@ async function loadInlineReviewStats(host, agents) {
 		badge.title = `${avg.toFixed(2)} avg from ${count} review${count === 1 ? '' : 's'}`;
 		const nameRow = card.querySelector('div > div:nth-child(2) > div:first-child');
 		if (nameRow) nameRow.appendChild(badge);
+	}
+}
+
+async function enrichAgentTradingStatus(host, agents) {
+	if (!agents.length) return;
+	const [oracleRes, sniperRes] = await Promise.allSettled([
+		fetch('/api/oracle/leaderboard?network=mainnet&limit=50&min_actions=1', { credentials: 'include' })
+			.then((r) => r.ok ? r.json() : null).catch(() => null),
+		fetch('/api/sniper/strategy', { credentials: 'include' })
+			.then((r) => r.ok ? r.json() : null).catch(() => null),
+	]);
+
+	const oracleMap = new Map();
+	const oracleAgents = oracleRes.status === 'fulfilled' && oracleRes.value?.agents ? oracleRes.value.agents : [];
+	for (const a of oracleAgents) oracleMap.set(a.agent_id, a);
+
+	const sniperMap = new Map();
+	const sniperStrats = sniperRes.status === 'fulfilled' && sniperRes.value?.strategies ? sniperRes.value.strategies : [];
+	for (const s of sniperStrats) sniperMap.set(s.agent_id, s);
+
+	for (const agent of agents) {
+		const card = host.querySelector(`[data-agent-id="${agent.id}"]`);
+		const slot = card?.querySelector('[data-trading-slot]');
+		if (!slot) continue;
+
+		const oracle = oracleMap.get(agent.id);
+		const sniper = sniperMap.get(agent.id);
+
+		if (!oracle && !sniper) continue;
+
+		const badges = [];
+
+		if (oracle) {
+			const wrStr = oracle.win_rate != null ? `${oracle.win_rate}%` : '—';
+			const pnl = Number(oracle.realized_pnl_sol || 0);
+			const pnlStr = pnl !== 0 ? ` · ${pnl >= 0 ? '+' : ''}${Math.abs(pnl) < 0.01 ? pnl.toFixed(4) : pnl.toFixed(3)} ◎` : '';
+			const winColor = (oracle.win_rate || 0) >= 50 ? '#a78bfa' : '#f87171';
+			badges.push(`<a href="/oracle#agent" style="
+				display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;
+				padding:3px 9px;border-radius:999px;text-decoration:none;
+				border:1px solid rgba(167,139,250,0.35);
+				background:rgba(167,139,250,0.08);color:#a78bfa;" title="Oracle conviction track record">
+				<span style="color:${winColor}">${wrStr}</span>
+				<span style="opacity:0.7;font-size:10px">oracle${pnlStr}</span>
+			</a>`);
+		}
+
+		if (sniper && sniper.enabled && !sniper.kill_switch) {
+			const pnlLam = BigInt(sniper.summary?.realized_pnl_lamports || '0');
+			const pnl = Number(pnlLam) / 1e9;
+			const pnlStr = pnl !== 0 ? `${pnl >= 0 ? '+' : ''}${Math.abs(pnl) < 0.01 ? pnl.toFixed(4) : pnl.toFixed(3)} ◎` : '0 ◎';
+			const pnlColor = pnl >= 0 ? '#34d399' : '#f87171';
+			badges.push(`<a href="/dashboard/sniper" style="
+				display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;
+				padding:3px 9px;border-radius:999px;text-decoration:none;
+				border:1px solid rgba(52,211,153,0.35);
+				background:rgba(52,211,153,0.07);color:#34d399;" title="Sniper strategy active">
+				<span style="color:${pnlColor}">${pnlStr}</span>
+				<span style="opacity:0.7;font-size:10px">sniper</span>
+			</a>`);
+		}
+
+		if (badges.length) slot.innerHTML = badges.join('');
 	}
 }
 
