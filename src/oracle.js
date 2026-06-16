@@ -978,6 +978,10 @@ function renderArmForm() {
 			<div class="sw on" id="agSmart" role="switch" aria-checked="true"></div>
 		</div>
 		<div class="toggle">
+			<div class="t-lab"><b>Scale by conviction</b><span id="agScaleSub">1.0× at min score → up to 1.5× at score 100</span></div>
+			<div class="sw" id="agScale" role="switch" aria-checked="false"></div>
+		</div>
+		<div class="toggle">
 			<div class="t-lab"><b>Mode</b><span id="agModeSub">Simulate — logs actions, spends nothing</span></div>
 			<div class="sw live" id="agLive" role="switch" aria-checked="false"></div>
 		</div>
@@ -990,6 +994,12 @@ function renderArmForm() {
 
 	// toggles
 	wireSwitch('#agSmart');
+	wireSwitch('#agScale', (on) => {
+		const sizeInput = $('#agSize');
+		$('#agScaleSub').textContent = on
+			? `${Number(sizeInput?.value || 0.05).toFixed(3)} SOL base → up to ${(Number(sizeInput?.value || 0.05) * 1.5).toFixed(3)} SOL at score 100`
+			: '1.0× at min score → up to 1.5× at score 100';
+	});
 	wireSwitch('#agLive', (on) => { $('#agModeSub').textContent = on ? 'Live — real SOL from the agent wallet (capped)' : 'Simulate — logs actions, spends nothing'; $('#agLive').classList.toggle('on', on); });
 	wireSwitch('#agArm');
 	$('#agCats').addEventListener('click', (e) => { const b = e.target.closest('.cchip'); if (b) b.classList.toggle('on'); });
@@ -1021,9 +1031,14 @@ async function loadWatch(agentId) {
 		$('#agDaily').value = w.max_daily_sol ?? 0.5;
 		$('#agOpen').value = w.max_open ?? 5;
 		setSwitch('#agSmart', w.require_smart_money !== false);
+		setSwitch('#agScale', !!w.size_scaling);
 		setSwitch('#agArm', !!w.armed);
 		const live = w.mode === 'live'; setSwitch('#agLive', live);
 		$('#agModeSub').textContent = live ? 'Live — real SOL from the agent wallet (capped)' : 'Simulate — logs actions, spends nothing';
+		const base = Number(w.per_trade_sol) || 0.05;
+		$('#agScaleSub').textContent = w.size_scaling
+			? `${base.toFixed(3)} SOL base → up to ${(base * 1.5).toFixed(3)} SOL at score 100`
+			: '1.0× at min score → up to 1.5× at score 100';
 		const cats = new Set(w.categories || []);
 		$$('#agCats .cchip').forEach((b) => b.classList.toggle('on', cats.has(b.dataset.cat)));
 	}
@@ -1046,6 +1061,7 @@ async function saveWatch() {
 		max_daily_sol: Number($('#agDaily').value) || 0.5,
 		max_open: Number($('#agOpen').value) || 5,
 		require_smart_money: $('#agSmart').classList.contains('on'),
+		size_scaling: $('#agScale').classList.contains('on'),
 	};
 	const { ok, data } = await api('/api/oracle/watch', {
 		method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),

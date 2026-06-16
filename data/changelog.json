@@ -3,6 +3,13 @@
 	"entries": [
 		{
 			"date": "2026-06-16",
+			"title": "Oracle: Conviction-weighted position sizing",
+			"summary": "Oracle agents can now scale their position size by conviction strength. Enable 'Scale by conviction' in the Arm your agent panel to have the engine buy up to 1.5× the base size for the highest-scoring coins (score 100) and 1.0× at the minimum threshold. Positions are still capped by the daily SOL budget — this rewards the highest-conviction calls without increasing risk on lower-scoring entries.",
+			"tags": ["feature", "improvement"],
+			"link": "/oracle"
+		},
+		{
+			"date": "2026-06-16",
 			"title": "3D Visualizer: Oracle conviction and watchlist in token panel",
 			"summary": "The 3D token visualizer now shows Oracle conviction scores when you click any token sphere. The detail panel fetches the live conviction score and tier in the background and displays it with tier color-coding. Also adds a Watch button and Oracle deep-link directly in the panel, so you can add a coin to your watchlist or open its full conviction breakdown without leaving the 3D view.",
 			"tags": ["improvement"],

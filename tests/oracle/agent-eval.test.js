@@ -59,4 +59,40 @@ describe('evaluateWatch', () => {
 		const d = evaluateWatch({ watch: baseWatch, coin: goodCoin, openCount: 0, spentTodaySol: 0.45 });
 		expect(d.act).toBe(true);
 	});
+
+	describe('size_scaling', () => {
+		const scalingWatch = { ...baseWatch, size_scaling: true, min_score: 72, per_trade_sol: 0.1 };
+
+		it('returns base size at the minimum score', () => {
+			const d = evaluateWatch({ watch: scalingWatch, coin: { ...goodCoin, score: 72 } });
+			expect(d.act).toBe(true);
+			expect(d.size).toBe(0.1); // 1.0× at min score
+		});
+
+		it('returns 1.5× base at score 100', () => {
+			const d = evaluateWatch({ watch: scalingWatch, coin: { ...goodCoin, score: 100 } });
+			expect(d.act).toBe(true);
+			expect(d.size).toBeCloseTo(0.15, 4); // 1.5× at max
+		});
+
+		it('scales proportionally in the middle', () => {
+			// score 86 is (86-72)/(100-72) = 14/28 = 0.5 of the range → 1.25×
+			const d = evaluateWatch({ watch: scalingWatch, coin: { ...goodCoin, score: 86 } });
+			expect(d.act).toBe(true);
+			expect(d.size).toBeCloseTo(0.125, 4);
+		});
+
+		it('does not scale when size_scaling is false', () => {
+			const d = evaluateWatch({ watch: { ...scalingWatch, size_scaling: false }, coin: { ...goodCoin, score: 100 } });
+			expect(d.act).toBe(true);
+			expect(d.size).toBe(0.1); // no scaling
+		});
+
+		it('blocks when scaled size would exceed daily budget', () => {
+			// base 0.1 × 1.5 = 0.15; spent 0.45 + 0.15 = 0.60 > 0.5 max
+			const d = evaluateWatch({ watch: scalingWatch, coin: { ...goodCoin, score: 100 }, openCount: 0, spentTodaySol: 0.45 });
+			expect(d.act).toBe(false);
+			expect(d.reason).toMatch(/daily budget/);
+		});
+	});
 });
