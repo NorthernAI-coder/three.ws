@@ -77,7 +77,7 @@ function renderActive(el, { existing, leaderName, leaderAgentId, network }) {
 	el.innerHTML = `
 		<h2>You're copying ${escapeHtml(leaderName || 'this trader')} ${paused ? '<span class="tp-soon" style="color:var(--ink-faint);border-color:var(--stroke)">Paused</span>' : '<span class="cp-on">● Active</span>'}</h2>
 		<p>${escapeHtml(sizeLabel)} · cap ${Number(s.per_trade_cap_sol)} SOL/trade · ${Number(s.daily_budget_sol)} SOL/day.
-		   New trades arrive as intents in your dashboard.</p>
+		   New trades arrive as intents in your dashboard.${s.telegram_chat_id ? ` Telegram alerts on.` : ''}</p>
 		<div class="cp-actions">
 			<a class="lb-btn lb-btn-primary" href="/dashboard/copy">Manage copies →</a>
 			<button class="lb-btn" id="cp-toggle">${paused ? 'Resume' : 'Pause'}</button>

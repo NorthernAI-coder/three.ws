@@ -121,7 +121,7 @@ function subRow(s) {
 				<a href="${traderHref(s.leader_agent_id)}" style="color:inherit;text-decoration:none">${esc(s.leader_name || 'trader')}</a>
 				<span class="cp-tag ${paused ? 'paused' : 'on'}">${paused ? 'Paused' : '● Active'}</span>
 			</div>
-			<div class="cp-sub">${esc(sizingLabel(s))} · cap ${Number(s.per_trade_cap_sol)} ◎ · ${Number(s.daily_budget_sol)} ◎/day · ${Number(s.pending_count) || 0} pending${s.min_oracle_score != null ? ` · Oracle ≥${s.min_oracle_score}` : ''}</div>
+			<div class="cp-sub">${esc(sizingLabel(s))} · cap ${Number(s.per_trade_cap_sol)} ◎ · ${Number(s.daily_budget_sol)} ◎/day · ${Number(s.pending_count) || 0} pending${s.min_oracle_score != null ? ` · Oracle ≥${s.min_oracle_score}` : ''}${s.telegram_chat_id ? ' · TG alerts on' : ''}</div>
 		</div>
 		<div class="cp-side">
 			<button class="cp-btn" data-sub-act="${paused ? 'active' : 'paused'}">${paused ? 'Resume' : 'Pause'}</button>
