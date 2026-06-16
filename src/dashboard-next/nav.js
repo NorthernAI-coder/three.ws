@@ -44,6 +44,7 @@ export const NAV = [
 	{ path: '/reputation',            label: 'Reputation',      icon: 'star',      group: 'Monetize',   tags: ['reviews', 'attestations', 'onchain', 'trust', 'score'], external: true },
 
 	// ── Explore ─────────────────────────────────────────────────────────
+	{ path: '/dashboard/irl-placements', label: 'IRL Placements', icon: 'pin', group: 'Explore', tags: ['irl', 'ar', 'gps', 'pin', 'place', 'avatar', 'location', 'anchor', 'real world'] },
 	{ path: '/go',                    label: 'GO · Bounties',   icon: 'bounty',    group: 'Explore',    tags: ['bounty', 'earn', 'submit', 'proof', 'challenge', 'reward', 'go'], external: true },
 	{ path: '/gallery-picker',        label: 'Gallery',         icon: 'gallery',   group: 'Explore',    tags: ['browse', 'avatars', 'public', 'models', 'pick'], external: true },
 	{ path: '/discover',              label: 'Discover',        icon: 'globe',     group: 'Explore',    tags: ['explore', 'directory', 'onchain', 'agents'], external: true },
@@ -94,6 +95,7 @@ export const ICONS = {
 	oracle:    '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="9" r="5.5"/><path d="M6.5 9a3.5 3.5 0 007 0"/><circle cx="10" cy="9" r="1.2" fill="currentColor" stroke="none"/><path d="M10 14.5v2.5M7 16.5h6"/></svg>',
 	bounty:    '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="7.5"/><path d="M10 6v8M7 8l3-2 3 2M7 12l3 2 3-2"/></svg>',
 	gift:      '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="14" height="9" rx="1.5"/><path d="M3 11h14M10 8v9"/><path d="M10 8S8.5 4.5 6.5 4.5a2 2 0 000 4H10zM10 8s1.5-3.5 3.5-3.5a2 2 0 010 4H10z"/></svg>',
+	pin:       '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2a5 5 0 015 5c0 3.5-5 11-5 11S5 10.5 5 7a5 5 0 015-5z"/><circle cx="10" cy="7" r="1.8"/></svg>',
 };
 
 /** Resolve the route for the current pathname (exact match wins; falls back to startsWith). */

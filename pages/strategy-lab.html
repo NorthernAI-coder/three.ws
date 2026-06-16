@@ -274,12 +274,16 @@
 			}
 		}
 
+		const TIER_MIN_SCORE = { prime: 75, strong: 55, lean: 40, watch: 20 };
 		function updateDeployLink(tier) {
 			const link = document.getElementById('sl-deploy-link');
-			const label = tier === 'all' ? 'Deploy to sniper →' : `Deploy ${tier} strategy →`;
+			const label = tier === 'all' ? 'Deploy strategy →' : `Deploy ${tier} strategy →`;
 			link.textContent = label;
-			// Append tier as a query hint for the sniper page (cosmetic — sniper reads DB)
-			link.href = `/dashboard/sniper`;
+			const score = TIER_MIN_SCORE[tier];
+			const params = new URLSearchParams({ from: 'strategy-lab' });
+			if (tier && tier !== 'all') params.set('preset_tier', tier);
+			if (score != null) params.set('preset_score', String(score));
+			link.href = `/dashboard/sniper?${params.toString()}`;
 		}
 
 		function renderResults(data, tier, per) {

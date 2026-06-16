@@ -220,6 +220,12 @@ async function refresh(root) {
 	wireEvents(root);
 	startSse(root);
 	loadTradeHistory(root);
+
+	// Auto-open arm modal when arriving from Strategy Lab with a preset
+	const qp = new URLSearchParams(location.search);
+	if (qp.get('from') === 'strategy-lab' && qp.get('preset_tier')) {
+		openArmModal(root);
+	}
 }
 
 function render() {
@@ -921,10 +927,17 @@ function openArmModal(root) {
 	const armedIds = new Set(_strategies.map((s) => s.agent_id));
 	const unarmed = _agents.filter((a) => !armedIds.has(a.id));
 
+	// Read preset params passed from Strategy Lab
+	const qp = new URLSearchParams(location.search);
+	const presetTier  = qp.get('preset_tier') || '';
+	const presetScore = qp.get('preset_score') ? Number(qp.get('preset_score')) : null;
+	const fromLab     = qp.get('from') === 'strategy-lab';
+
 	const overlay = document.createElement('div');
 	overlay.className = 'sn-overlay';
 	overlay.innerHTML = `<div class="sn-modal">
 		<h2>Arm an agent</h2>
+		${fromLab && presetTier ? `<p style="color:var(--nxt-ink-faint);font-size:13px;margin:0 0 14px">Strategy Lab preset: <strong style="color:var(--nxt-accent)">${esc(presetTier)}</strong> conviction filter (min score ${presetScore ?? '—'}).</p>` : ''}
 		${!unarmed.length
 			? '<p style="color:var(--nxt-ink-faint);font-size:13px">All your agents already have a strategy. Edit their config in the cards above.</p>'
 			: `<div class="sn-field" style="margin-bottom:16px">
@@ -942,6 +955,11 @@ function openArmModal(root) {
 			<div class="sn-field" style="margin-top:12px">
 				<label>Per-trade size (SOL)</label>
 				<input id="sn-arm-per-trade" type="number" min="0.001" step="0.001" value="0.01" />
+			</div>
+			<div class="sn-field" style="margin-top:12px">
+				<label>Min Oracle conviction score (0–100, blank = no filter)</label>
+				<input id="sn-arm-oracle" type="number" min="0" max="100" step="1" value="${presetScore != null ? presetScore : ''}" placeholder="e.g. 55 for strong+" />
+				<span class="sn-hint">Only enter coins that clear this conviction threshold. Higher = fewer, higher-quality entries.</span>
 			</div>`
 		}
 		<div class="sn-modal-foot">
@@ -956,9 +974,11 @@ function openArmModal(root) {
 	overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
 
 	overlay.querySelector('#sn-arm-confirm')?.addEventListener('click', async (e) => {
-		const agentId = overlay.querySelector('#sn-arm-agent')?.value;
-		const budget = overlay.querySelector('#sn-arm-budget')?.value;
+		const agentId  = overlay.querySelector('#sn-arm-agent')?.value;
+		const budget   = overlay.querySelector('#sn-arm-budget')?.value;
 		const perTrade = overlay.querySelector('#sn-arm-per-trade')?.value;
+		const oracleRaw = overlay.querySelector('#sn-arm-oracle')?.value.trim();
+		const minOracle = oracleRaw !== '' ? Math.max(0, Math.min(100, Number(oracleRaw))) : null;
 		if (!agentId) { toast('Select an agent first'); return; }
 		e.target.disabled = true;
 		try {
@@ -970,6 +990,7 @@ function openArmModal(root) {
 				per_trade_lamports: solToLamports(perTrade || '0.01'),
 				stop_loss_pct: 30,
 				max_hold_seconds: 1800,
+				min_oracle_score: minOracle,
 			});
 			overlay.remove();
 			const sn_root = document.getElementById('sn-root');

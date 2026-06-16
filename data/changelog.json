@@ -5,859 +5,1141 @@
 			"date": "2026-06-16",
 			"title": "Oracle: rich social previews when sharing conviction links",
 			"summary": "Every Oracle coin conviction link now resolves to a server-rendered preview page (/oracle/coin/<mint>) that shows the score, tier, and pillar breakdown as a rich social card on X/Twitter, Telegram, Discord, Slack, and iMessage — no more generic placeholder when sharing a pump.fun conviction signal. The Oracle drawer's Share button and tweet links now point to these canonical share URLs. A Copy link button in the drawer makes it one-tap to grab the shareable link.",
-			"tags": ["improvement"],
+			"tags": [
+				"improvement"
+			],
 			"link": "/oracle"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "Agent profile: deploy on-chain and edit controls for agent owners",
 			"summary": "When you own an agent, its profile page (/agent/:id) now shows a full owner action bar in the hero section with one-click access to Edit Agent, Manage Agents, and — for agents not yet deployed — a Deploy on-chain button. The BLOCKCHAIN DETAILS section now mounts an inline deploy widget that shows the chain selector and signs on Solana (Metaplex Core) or any EVM chain, with a persistent success chip linking to the explorer once deployed.",
-			"tags": ["improvement"],
+			"tags": [
+				"improvement"
+			],
 			"link": "/agents"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "Watchlist: add any coin by pasting a mint address or pump.fun URL",
 			"summary": "The /watchlist page now has a persistent add-by-address input at the top: paste a raw Solana mint address or a full pump.fun URL and the coin appears on your watchlist instantly — no need to navigate to the coin profile first. Pasting triggers auto-add with no extra click. The Watch button on the live trade feed now lets you pin any exited coin to your watchlist in one tap, with a star toggle that updates immediately.",
-			"tags": ["improvement"],
+			"tags": [
+				"improvement"
+			],
 			"link": "/watchlist"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "Home page: Top Traders widget + Oracle proof trades in coin drawer",
 			"summary": "The home page now shows a live Top Traders widget ranked by 7-day composite score with direct links to copy each trader. The Oracle coin drawer now loads a proof-trades section showing every agent exit on that specific coin — multiple, P&L, and a one-click copy link — closing the loop between conviction and evidence. Trade feed cards also link coin images and symbols directly to their Oracle conviction page.",
-			"tags": ["feature", "improvement"],
+			"tags": [
+				"feature",
+				"improvement"
+			],
 			"link": "/oracle"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "Agents Index — browse every public 3D AI agent on three.ws",
 			"summary": "A new /agents page lists every public agent on the platform: search by name or description, filter to on-chain-registered agents only, sort by popularity or newest, and paginate through the directory. Each card shows the agent's avatar, top skills, and chat count with a direct link to their profile. My Agents at /my-agents gives registered users a focused view of their own agents with quick Edit and Deploy links.",
-			"tags": ["feature"],
+			"tags": [
+				"feature"
+			],
 			"link": "/agents"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "Claim Your Wallet — see your verified pump.fun track record in seconds",
 			"summary": "Any pump.fun trader can now paste their Solana wallet at /claim-wallet and instantly see their full track record: win rate, smart-money score, reputation label (smart_money / sniper / neutral / unproven), coin history with PnL per position, and a net PnL summary for the indexer window. A single click signs them in and publishes the track record as their official three.ws Trader Card — opening them up to followers and copy-trading fees automatically.",
-			"tags": ["feature"],
+			"tags": [
+				"feature"
+			],
 			"link": "/claim-wallet"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "Copy trading: Telegram notifications when a buy intent arrives",
 			"summary": "Copiers who enter a Telegram chat ID in their subscription settings now receive an instant message the moment the fanout cron creates a pending buy intent — coin name, tier, Oracle score, the sized order amount, and a direct link to the copy dashboard. Works for both sniper-sourced and Oracle conviction-sourced intents.",
-			"tags": ["feature"],
+			"tags": [
+				"feature"
+			],
 			"link": "/dashboard/copy"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "Trader leaderboard + copy-trading now available as MCP tools for agents",
 			"summary": "Four new MCP tools close the autonomous copy-trading loop for any agent connected to three.ws: trader_leaderboard returns the top pump.fun traders ranked by composite TraderScore with win rate, realized P&L, ROI, and a copy/watch/skip recommendation for each; trader_profile fetches the full verifiable track record for one agent including recent trades with on-chain Solscan proof; copy_subscribe creates a non-custodial copy subscription — mirror a leader's future entries at your own sizing with hard daily budget caps; copy_status lists your active subscriptions and execution counts. An agent can now discover the best traders, vet their proof, and autonomously set up copy-trading without any human intervention.",
-			"tags": ["feature", "sdk"],
+			"tags": [
+				"feature",
+				"sdk"
+			],
 			"link": "/leaderboard"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "Live Trade Feed — every notable pump.fun win in one public stream",
 			"summary": "A new public feed at /trades shows every notable closed position from three.ws AI agents in real time: exit multiple, realized PnL, hold time, Oracle conviction tier, and the number of copiers following that trader. No login needed. Filter by time window (1h / 24h / 7d / 30d), minimum profit threshold, and network. Each card links directly to the trader's profile, the coin on pump.fun, and the on-chain buy/sell transactions. The feed is the platform's top-of-funnel virality surface — every win is a provable, shareable ad.",
-			"tags": ["feature"],
+			"tags": [
+				"feature"
+			],
 			"link": "/trades"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "Oracle: Hot Sectors — live category intelligence on the feed",
 			"summary": "The Oracle feed now opens with a Hot Sectors panel showing which narrative categories are generating the highest average conviction scores right now. Each sector card displays the average score, prime and strong coin counts, and the leading coin's image. Click any sector to filter the feed to that category instantly — click again to clear. Sectors auto-populate when the feed loads and refresh every 5 minutes via CDN caching.",
-			"tags": ["feature"],
+			"tags": [
+				"feature"
+			],
 			"link": "/oracle"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "Oracle: Follow any agent — get Telegram alerts when they act",
 			"summary": "Any Telegram user can now follow an Oracle-armed agent without owning one. Click Follow on any agent in the Oracle leaderboard, enter your Telegram chat ID, set a minimum conviction score, and subscribe. When that agent makes a conviction buy — live or simulated — you get an instant Telegram message with the coin, tier, score, and links to pump.fun and the Oracle page. This is the Watch tier of social copy-trading: real-time signal delivery from the agents with the best track records.",
-			"tags": ["feature"],
+			"tags": [
+				"feature"
+			],
 			"link": "/oracle"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "Oracle conviction now available as MCP tools for autonomous agents",
 			"summary": "Any 3D AI agent connected to three.ws via MCP can now query Oracle conviction directly: oracle_top_plays returns the current highest-scoring pump.fun launches with buy/watch/skip recommendations and size factors; oracle_coin fetches the full conviction verdict for a specific mint on demand; oracle_arm_watch lets an agent arm itself to act on signals automatically; oracle_watch_status returns its track record. The same intelligence that drives the platform's sniper strategy is now first-class in the agent toolkit.",
-			"tags": ["feature", "sdk"],
+			"tags": [
+				"feature",
+				"sdk"
+			],
 			"link": "/oracle"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "Oracle: Movers tab — fastest rising and falling conviction scores",
 			"summary": "A new Movers tab on the Oracle page surfaces coins whose conviction score changed most in the last 6, 24, or 48 hours. Rising movers are setups building edge before they hit Prime; falling movers are theses unwinding in real time. Each card shows the score delta, the start-to-end progression, all four conviction pillars, and a tier-change badge when a coin crossed a tier boundary. Click any card to open the full conviction drawer.",
-			"tags": ["feature"],
+			"tags": [
+				"feature"
+			],
 			"link": "/oracle"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "IRL: place your agent on the map — others nearby can see it",
 			"summary": "Pin your 3D avatar to a real GPS coordinate in IRL mode and other users who walk within 150 metres see your agent appear in their AR view. Each nearby agent shows its name and distance as a floating label; tap it for a detail sheet with the option to pay via x402. Your own pin is removed automatically when you unpin the avatar or close the page. Requires location permission.",
-			"tags": ["feature"],
+			"tags": [
+				"feature"
+			],
 			"link": "/irl"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "Oracle: rich conviction card on every shared link",
 			"summary": "Sharing an Oracle link — /oracle?mint=X — now generates a dynamic social card showing the coin's name, conviction score, tier badge, four-pillar breakdown (Who/How/What/Move), and smart wallet count. The card updates when you open the coin drawer, so the URL you share previews real conviction data on X, Telegram, Discord, and iMessage.",
-			"tags": ["feature", "improvement"],
+			"tags": [
+				"feature",
+				"improvement"
+			],
 			"link": "/oracle"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "Launch detail: pump.fun comment sentiment in Community section",
 			"summary": "The coin detail page now shows live pump.fun comment sentiment in the Community section — bullish / bearish / mixed classification with positive, negative, and neutral percentage bars, and a sample comment. Loads asynchronously after the page renders so it never delays the Oracle conviction score or smart money data. Coins with fewer than 3 comments are silently skipped.",
-			"tags": ["feature"],
+			"tags": [
+				"feature"
+			],
 			"link": "/launches"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "IRL: move your phone to look around your avatar in AR",
 			"summary": "When you pin an avatar to the real world in IRL mode, rotating your phone now physically moves the camera — the avatar stays locked to its spot while your view orbits around it, exactly like Pokémon GO. On iOS the app requests motion sensor access as required by iOS 13+. Drag still works as a fallback when orientation is unavailable. The lock icon pulses while active tracking is on.",
-			"tags": ["feature", "improvement"],
+			"tags": [
+				"feature",
+				"improvement"
+			],
 			"link": "/irl"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "Oracle: Daily Telegram digest for armed agents",
 			"summary": "Armed Oracle agents with Telegram alerts enabled now receive a daily morning summary (08:00 UTC). Each digest shows the agent's armed status, yesterday's action count with wins, losses, and open positions, realized PnL for the day, and up to 3 top-conviction coins currently above the agent's threshold. Stay informed without opening the app.",
-			"tags": ["feature"],
+			"tags": [
+				"feature"
+			],
 			"link": "/oracle"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "Oracle: Live conviction delta on open positions",
 			"summary": "The agent arm panel's action history now shows the current conviction score alongside the entry conviction for each open position, with a color-coded +/- delta. A green +12 means Oracle's view has strengthened since you entered; a red -8 is a thesis weakening in real time. Settled wins and losses show only the entry conviction as before.",
-			"tags": ["feature", "improvement"],
+			"tags": [
+				"feature",
+				"improvement"
+			],
 			"link": "/oracle"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "Oracle: Conviction-drop exit alerts via Telegram",
 			"summary": "When a coin your agent entered drops ≥5 points below its entry conviction AND falls under your threshold, Oracle sends a personal Telegram warning so you can reassess the position before it resolves. The message shows current score, tier, the delta from entry, and links to the Oracle drawer and pump.fun. One alert per (agent, coin) pair per process session — no spam.",
-			"tags": ["feature"],
+			"tags": [
+				"feature"
+			],
 			"link": "/oracle"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "Oracle: Verify Telegram setup with a test message",
 			"summary": "The Oracle arm panel now has a Send test button next to the Telegram chat ID field. Clicking it sends an immediate test message to confirm your bot setup is working before you wait for a real signal to arrive. The button shows delivery success or a hint if the bot hasn't been started.",
-			"tags": ["improvement"],
+			"tags": [
+				"improvement"
+			],
 			"link": "/oracle"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "Watchlist: Oracle auto-refresh + browser alerts on tier upgrade",
 			"summary": "The watchlist now re-fetches Oracle conviction every 90 seconds for all watched coins. Enable the new 🔔 Alerts button to get browser push notifications the moment a watched coin upgrades to Strong or Prime conviction — even when you're on another tab. Alerts pause automatically when the tab is hidden and resume when you switch back. Tier history is stored locally so only real upgrades trigger a notification.",
-			"tags": ["feature", "improvement"],
+			"tags": [
+				"feature",
+				"improvement"
+			],
 			"link": "/watchlist"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "Trader profiles now work for any pump.fun wallet address",
 			"summary": "The /trader page now handles raw Solana wallet addresses directly — not just agent UUIDs. Clicking a wallet from the Oracle leaderboard or the coin drawer's Who's In section opens a full wallet reputation profile: archetype badge, smart-money score, win/early-win/dump rates, and the coin footprint. Previously these links 404ed.",
-			"tags": ["fix", "improvement"],
+			"tags": [
+				"fix",
+				"improvement"
+			],
 			"link": "/oracle"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "Oracle: Community sentiment pulse in coin drawer",
 			"summary": "The Oracle coin drawer now shows a Community Pulse section pulled live from pump.fun comments. After the conviction score loads, a background fetch reads recent comments and classifies them as bullish, bearish, or mixed, with positive / negative / neutral percentage bars and a sample of real comments. Coins with fewer than three comments are silently skipped. This adds the crowd-sentiment layer alongside Oracle's technical conviction pillars.",
-			"tags": ["feature"],
+			"tags": [
+				"feature"
+			],
 			"link": "/oracle"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "Activity: Outcome filter on agent trade feed",
 			"summary": "The Oracle agent activity feed now has a Win / Loss / Open outcome filter alongside the existing tier and mode filters. Select Wins to see every Oracle call that resolved profitably, Losses to analyze missed calls, or Open to monitor positions still live. Outcome filters apply to both the REST pagination and the real-time SSE stream.",
-			"tags": ["improvement"],
+			"tags": [
+				"improvement"
+			],
 			"link": "/activity"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "Pump Live: Oracle conviction filter + pause control",
 			"summary": "The Pump.fun live feed now has a conviction filter bar: All, Strong+, or Prime. When a filter is active, coins below that Oracle tier are automatically hidden once they receive their conviction score. A queued count shows how many launches arrived while paused. The ⏸ Pause button freezes new cards from prepending — useful for examining a coin without it scrolling away.",
-			"tags": ["feature", "improvement"],
+			"tags": [
+				"feature",
+				"improvement"
+			],
 			"link": "/pump-live"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "Oracle: Conviction score history sparkline",
 			"summary": "The coin conviction drawer now shows a 48-hour score history sparkline. As Oracle re-scores a coin, each meaningful change (≥3 points) is recorded. The drawer surfaces the trend — rising, stable, or falling — so you can see whether conviction is building or rolling over before making a move.",
-			"tags": ["feature", "improvement"],
+			"tags": [
+				"feature",
+				"improvement"
+			],
 			"link": "/oracle"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "Launches: Oracle conviction tier filter",
 			"summary": "The Launches feed now has a conviction tier filter: All, Prime, Strong, or Lean. Selecting a tier server-filters the feed — only three.ws agent-launched coins that have reached that Oracle conviction floor appear, sorted by score descending. The Oracle badge on each card is injected synchronously from the API response (no extra batch fetch), so filtered views are faster than before.",
-			"tags": ["feature", "improvement"],
+			"tags": [
+				"feature",
+				"improvement"
+			],
 			"link": "/launches"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "Oracle: Personal Telegram conviction alerts",
 			"summary": "Oracle agents now support personal Telegram alerts. Add your Telegram chat ID in the Arm your agent panel to receive a direct message every time a coin crosses your conviction threshold — no more checking the feed. Entry alerts fire when your agent takes an action (simulate or live mode). Chat @three_ws_bot on Telegram and send /start to get your chat ID.",
-			"tags": ["feature"],
+			"tags": [
+				"feature"
+			],
 			"link": "/oracle"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "Oracle: New / Top sort toggle on conviction feed",
 			"summary": "The live conviction feed now has a Top / New toggle. Top (default) ranks coins by conviction score so the highest-confidence plays surface first. New sorts by when the coin was scored — useful for catching fresh launches the moment Oracle processes them before the wider market. No extra network request: the sort switches client-side from the already-loaded feed.",
-			"tags": ["improvement"],
+			"tags": [
+				"improvement"
+			],
 			"link": "/oracle"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "Coin 3D: Oracle conviction score and watchlist in the HUD",
 			"summary": "The Token in 3D page now shows Oracle conviction alongside the bonding-curve stats. After the scene loads, the panel fetches the coin's conviction score and tier (prime/strong/lean/watch/avoid) asynchronously — no scene-render delay. Tap the score badge to jump to the full Oracle breakdown. A new Watch button syncs the token directly into your watchlist across the radar, launches, and visualizer surfaces.",
-			"tags": ["improvement"],
+			"tags": [
+				"improvement"
+			],
 			"link": "/coin3d"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "Sniper: Cumulative PnL chart in trade history",
 			"summary": "The Sniper Strategies page now shows a cumulative PnL curve above the trade history table. Each completed trade is plotted in chronological order, so you can see at a glance how your strategy's performance has trended over time. The chart is color-coded green or red based on the net result and includes smooth bezier interpolation between trades.",
-			"tags": ["improvement"],
+			"tags": [
+				"improvement"
+			],
 			"link": "/dashboard/sniper"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "Oracle: Conviction-weighted position sizing",
 			"summary": "Oracle agents can now scale their position size by conviction strength. Enable 'Scale by conviction' in the Arm your agent panel to have the engine buy up to 1.5× the base size for the highest-scoring coins (score 100) and 1.0× at the minimum threshold. Positions are still capped by the daily SOL budget — this rewards the highest-conviction calls without increasing risk on lower-scoring entries.",
-			"tags": ["feature", "improvement"],
+			"tags": [
+				"feature",
+				"improvement"
+			],
 			"link": "/oracle"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "3D Visualizer: Oracle conviction and watchlist in token panel",
 			"summary": "The 3D token visualizer now shows Oracle conviction scores when you click any token sphere. The detail panel fetches the live conviction score and tier in the background and displays it with tier color-coding. Also adds a Watch button and Oracle deep-link directly in the panel, so you can add a coin to your watchlist or open its full conviction breakdown without leaving the 3D view.",
-			"tags": ["improvement"],
+			"tags": [
+				"improvement"
+			],
 			"link": "/pump-visualizer"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "Forge: fix 3D model generation on the free NVIDIA lane",
 			"summary": "The free TRELLIS text-to-3D lane stopped producing models when NVIDIA changed their API to return a CDN URL instead of inline base64. The extractor now fetches that URL and buffers the file correctly, restoring zero-cost 3D generation. Also suppressed a log storm where every Solana RPC call that skipped a known-rate-limited provider emitted a redundant rotation message.",
-			"tags": ["fix"],
+			"tags": [
+				"fix"
+			],
 			"link": "/forge"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "Strategy Lab: backtest Oracle strategies before you deploy",
 			"summary": "New standalone page at /strategy-lab lets you pick a conviction tier and time window, then see exactly how that filter would have performed: win rate, graduates, 3×/5× hit count, per-tier breakdown, and the top performers in the window. Everything pulls from real resolved Oracle conviction data — no synthetic numbers. Run a backtest, then deploy directly to the sniper from the results page.",
-			"tags": ["feature"],
+			"tags": [
+				"feature"
+			],
 			"link": "/strategy-lab"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "Sniper: personal Telegram trade notifications",
 			"summary": "Each sniper strategy can now send buy and sell alerts to your own Telegram chat instead of (or in addition to) the platform ops channel. Add your Telegram chat ID in the Notifications section of any strategy form on the sniper dashboard. Get instant alerts the moment your agent opens or closes a position, with coin name, size, PnL, and Solscan proof link.",
-			"tags": ["feature"],
+			"tags": [
+				"feature"
+			],
 			"link": "/dashboard/sniper"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "Agents: Oracle and Sniper trading status on agent cards",
 			"summary": "The agents dashboard now shows live trading badges on each card. If an agent has Oracle conviction history, its win rate and realized PnL appear inline. If a sniper strategy is armed and active, the agent card shows the strategy's realized PnL. Both badges link to the relevant dashboard so you can drill in from the agents list.",
-			"tags": ["improvement"],
+			"tags": [
+				"improvement"
+			],
 			"link": "/dashboard/agents"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "Oracle: Activity feed and Agent leaderboard",
 			"summary": "Two new tabs on the Oracle page. Activity shows a live trading floor — every Oracle-armed agent action (buy/outcome/PnL) in real time, filterable by mode, tier, and outcome. Agents ranks every conviction agent by their real track record: win rate, realized PnL, and ROI across all graded calls. Subscribe to copy the top performers directly from the leaderboard.",
-			"tags": ["feature"],
+			"tags": [
+				"feature"
+			],
 			"link": "/oracle"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "Sniper: Oracle conviction gate",
 			"summary": "Agent sniper strategies now support a Min Oracle conviction setting (0–100). When set, the sniper checks the Oracle score before executing any buy — coins below the threshold are skipped and logged. The gate applies to all three trigger modes: new mint, first-claim, and intel-confirmed. Coins without a score yet (brand-new mints) are allowed through so launch speed is never sacrificed. Configure it in the sniper strategy form on the dashboard.",
-			"tags": ["feature"],
+			"tags": [
+				"feature"
+			],
 			"link": "/dashboard/sniper"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "Portfolio: Oracle conviction for every token you hold",
 			"summary": "The portfolio dashboard now shows Oracle conviction scores on Solana tokens. Each row gets a live badge showing the Oracle score and tier (prime / strong / lean). The pump.fun tokens table adds an Oracle column. And when you open any token's detail drawer, a conviction breakdown appears — score dial, pillar bars, and a link to the full Oracle analysis. Helps you make informed hold / sell decisions from the portfolio view.",
-			"tags": ["improvement"],
+			"tags": [
+				"improvement"
+			],
 			"link": "/dashboard/portfolio"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "Copy trading: Oracle conviction gate",
 			"summary": "Copy subscriptions now support a minimum Oracle conviction score. Set a threshold (0–100) on any subscription and the platform will skip copy intents when the coin's Oracle score is below it. Lets you follow a trader's volume while still only copying their highest-conviction picks. The setting appears in the Advanced filters of the copy setup form on any trader profile.",
-			"tags": ["feature"],
+			"tags": [
+				"feature"
+			],
 			"link": "/leaderboard"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "Oracle conviction visible across every trading surface",
 			"summary": "Oracle conviction badges now appear on: live sniper positions in the dashboard (score + tier next to each open trade), pending copy intents (so you can see the conviction before you execute), and the pump.fun live stream (coins get their badge scored asynchronously once Oracle rates them).",
-			"tags": ["improvement"],
+			"tags": [
+				"improvement"
+			],
 			"link": "/oracle"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "Oracle Proof ✓ tab — gallery of verified high-conviction wins",
 			"summary": "New Proof ✓ tab on the Oracle page shows every coin that the Oracle called strong or prime and that subsequently delivered — graduated to Raydium or hit ≥2× ATH. Each card shows the conviction score at call time, the four pillar breakdown, and the outcome ATH multiple. Filterable by tier and time window (7d / 30d / 90d). This is the edge made visible: every number is ground-truth, on-chain verifiable.",
-			"tags": ["feature"],
+			"tags": [
+				"feature"
+			],
 			"link": "/oracle"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "Oracle wallet drawer: trader profile and copy-trades links",
 			"summary": "When you open a wallet from the Oracle's Top Wallets leaderboard, the drawer now shows 'Trader profile ↗' and 'Copy trades →' links below the track record — connecting the wallet reputation system directly to copy trading. The wallet list rows also gain a hover-reveal '→' button that opens the trader profile without needing to open the drawer first.",
-			"tags": ["improvement"],
+			"tags": [
+				"improvement"
+			],
 			"link": "/oracle"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "IRL and XR: choose any of your 3D avatars from a bottom-sheet picker",
 			"summary": "Both /irl and /xr now let you swap your 3D avatar without leaving the page. Tap Avatar (IRL) or Change (XR) to open a thumbnail grid of all your uploaded avatars. Selecting one hot-swaps the model in the scene instantly — camera, animations, half-body mode, and AR state all carry over. Signed-out users see a prompt to sign in; empty accounts link to the creation flow.",
-			"tags": ["feature"],
+			"tags": [
+				"feature"
+			],
 			"link": "/irl"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "Watchlist: live Oracle conviction badges on every watched coin",
 			"summary": "Your watchlist now shows the Oracle conviction score and tier for every pinned coin — prime, strong, lean, watch, or avoid — right on the card. Scores load with a single batch API call (/api/oracle/batch) after the cards render, so the page stays fast. Tap any badge to open the full Oracle breakdown. The smart-money radar coin drawer also now shows the full Oracle verdict (score, tier, and four pillar bars) alongside the existing pedigree data.",
-			"tags": ["improvement"],
+			"tags": [
+				"improvement"
+			],
 			"link": "/watchlist"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "Radar drawer: Oracle conviction scores now inline with coin intelligence",
 			"summary": "When you open a coin in the /radar drawer, it now shows the Oracle conviction score alongside the coin intelligence analysis — score, tier badge, and four pillar bars (pedigree/structure/narrative/momentum), with a link to the full Oracle breakdown. Data loads asynchronously so the drawer opens instantly.",
-			"tags": ["improvement"],
+			"tags": [
+				"improvement"
+			],
 			"link": "/radar"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "Agent Activity — live oracle trading floor",
 			"summary": "New page at /activity shows every Oracle conviction trade made by every autonomous 3D agent, in real time. Filter by tier (prime/strong/lean/watch) and mode (live/simulate). Each entry shows agent avatar, ticker, conviction score, size, and once settled outcome (win/loss/flat) and realized PnL. Win and open entries link directly to the agent's trader profile for one-click copy subscriptions. Platform-level KPIs (agents active, win rate, 7-day PnL) appear at the top. Auto-refreshes every 30 seconds.",
-			"tags": ["feature"],
+			"tags": [
+				"feature"
+			],
 			"link": "/activity"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "Pump Dashboard: live Oracle conviction panel on the main trading desk",
 			"summary": "The Pump Dashboard now has a High Conviction panel alongside the live feed — showing the top 5 Oracle-scored coins (score ≥ 60) with their tier badge, 4-pillar bars, and a link to the Oracle drawer. The panel auto-refreshes every 90 seconds and pulses with a live indicator. Clicking any coin opens the full conviction breakdown.",
-			"tags": ["improvement"],
+			"tags": [
+				"improvement"
+			],
 			"link": "/pump-dashboard"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "Oracle copy trading — conviction buys now fan out to copy subscribers",
 			"summary": "Copy subscribers now receive intents from Oracle conviction buys, not just sniper engine positions. When an oracle-armed agent fires a live buy, every active copy subscriber gets a sized, safety-checked copy intent — respecting their per-trade cap, daily budget, and minimum order size — exactly as they would for a sniper position. A new DB migration adds leader_oracle_action_id to copy_executions with partial unique indexes for idempotency. Simulated oracle actions are excluded; only mode=live fills fan out.",
-			"tags": ["feature"],
+			"tags": [
+				"feature"
+			],
 			"link": "/trader"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "Leaderboard: Oracle Conviction Rankings — agents ranked by conviction win rate",
 			"summary": "The Trader Leaderboard now includes an Oracle Conviction Rankings section below the main board. Agents are ranked by conviction win rate across their full Oracle action history (minimum 3 resolved calls required). Each row shows wins/losses, realized PnL, and ROI. A new /api/oracle/leaderboard endpoint drives the data. The Arena agent drawer also now shows the agent's Oracle stats — actions, win rate, and recent calls — alongside their trading record.",
-			"tags": ["feature"],
+			"tags": [
+				"feature"
+			],
 			"link": "/leaderboard"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "Sniper Strategies dashboard — manage autonomous trading agents",
 			"summary": "A new dashboard page at /dashboard/sniper lets you arm, configure, and monitor your autonomous pump.fun sniper agents without touching code. Each agent gets its own strategy card: set daily budget, per-trade size, take-profit, stop-loss, trailing stop, and max hold time. Entry filters (market-cap range, creator history, social requirements) narrow which launches the agent snipes. Two trigger modes — new mint (snipe every launch) and first-claim (snipe when a creator claims rewards for the first time). A live-position strip streams open trades via SSE, with per-position unrealized PnL and Solscan links. Kill-switch is one click. All four sniper API endpoints (strategy, stream, trader, leaderboard) are now routed in production.",
-			"tags": ["feature"],
+			"tags": [
+				"feature"
+			],
 			"link": "/dashboard/sniper"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "Home page now features Oracle — live conviction scores on the front page",
 			"summary": "The three.ws home page now has an Oracle section between the Pump.fun token economy block and the pay-per-call block. It explains the four-pillar conviction system (Who · How · What · Move) and renders a live mini-feed of the current top-scoring coins fetched from /api/oracle/feed — each card shows the ticker, 0–100 score, tier pill, and four color-coded pillar bars. Clicking any card opens the Oracle drawer for that coin. The live dot pulses while data is streaming.",
-			"tags": ["improvement"],
+			"tags": [
+				"improvement"
+			],
 			"link": "/"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "Coin Intelligence — watchlist + Oracle conviction now in every card and drawer",
 			"summary": "The Coin Intelligence radar (/coin-intel) is now connected to both the watchlist and the Oracle. Every coin card shows a ☆/★ button that tracks or untracks the coin across all platform surfaces (watchlist, launches, Oracle, Smart Money Radar) without opening the drawer. Clicking a coin opens the detail drawer, which now includes: an Oracle Conviction section (tier badge + pillar breakdown fetched in parallel, injected once ready) and direct links to the Oracle full analysis and a watchlist toggle. The Oracle link and watch button sit alongside the existing pump.fun and Solscan links at the bottom of the drawer.",
-			"tags": ["improvement"],
+			"tags": [
+				"improvement"
+			],
 			"link": "/coin-intel"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "Agent trading record — proof-of-edge on every agent profile",
 			"summary": "Agent profiles now show a live TRADING RECORD panel that pulls directly from the Oracle's action ledger. Win rate, wins/losses/open, realized PnL, and ROI are computed from real settled trades. Below the summary, the 8 most recent Oracle trades appear as quick-glance rows: outcome dot (green/red/yellow), ticker, conviction tier, peak multiple, and realized PnL. When an agent has profitable exits, a 'Copy this trader' link lets visitors subscribe. The panel stays hidden until the agent has at least one Oracle action, so profiles without trading history are unchanged.",
-			"tags": ["feature"],
+			"tags": [
+				"feature"
+			],
 			"link": "/agents"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "Win exit alerts — Telegram fires when an agent's trade resolves profitable",
 			"summary": "The Oracle settle-loop now fires a Telegram notification to the signals channel whenever an agent's tracked position resolves as a win (graduated or ATH multiple ≥ 2×). The message shows agent name, realized PnL or peak multiple, conviction tier at entry, size, and direct links to pump.fun, Oracle, and the agent's track record. Simulate-mode wins are labelled [sim] so the channel clearly distinguishes paper trades from live exits.",
-			"tags": ["feature", "improvement"],
+			"tags": [
+				"feature",
+				"improvement"
+			],
 			"link": "/oracle"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "Oracle social signal — X posts now feed into coin conviction scores",
 			"summary": "The Oracle's Narrative pillar now receives real-time social signal from X. When a coin's $SYMBOL is mentioned in a tweet, the post's reach and engagement — views, likes, retweets — translate into a virality boost that raises the Oracle's conviction score. KOL accounts (verified smart-money voices on X) apply a 1.5× multiplier. The POST /api/oracle/social endpoint accepts raw tweet batches from any scraper, and the three.surf chart tool ships a --push-social flag that pipes its tweet analysis directly into the Oracle after each run.",
-			"tags": ["feature", "improvement"],
+			"tags": [
+				"feature",
+				"improvement"
+			],
 			"link": "/oracle"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "Oracle conviction in the MCP — agents can now read the fused score and the full trader roster",
 			"summary": "The pump.fun MCP server now exposes a new get_oracle_conviction tool: it returns the Oracle's fused 0–100 conviction score, tier (prime / strong / lean / watch / avoid), per-pillar breakdown (Pedigree, Structure, Narrative, Momentum), natural-language reasons, badge labels, the complete classified trader roster with reputation labels and win-rates, and the narrative read. The existing get_coin_intel tool has also been upgraded — it now includes the Oracle score inline alongside the raw signals, so a single call is enough for a trade decision. 3D AI agents on the platform can read conviction data and act on it in real time.",
-			"tags": ["feature", "sdk"],
+			"tags": [
+				"feature",
+				"sdk"
+			],
 			"link": "/oracle"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "Rich OG cards on every shared coin link — price, score, and live status in the preview",
 			"summary": "Every /launches/<mint> page now generates a dynamic social card — visible in X, Telegram, Discord, Slack, and iMessage link previews. The card shows the coin's logo, name and symbol, the Coin Intelligence quality score, the organic vs. bundle signal bars, unique buyer count, live market cap, and an outcome badge (GRADUATED / RUGGED / LIVE with a pulsing dot). Every shared link becomes a signal at a glance — no click required.",
-			"tags": ["improvement"],
+			"tags": [
+				"improvement"
+			],
 			"link": "/launches"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "Watchlist — save any coin and track it with live Oracle scores",
 			"summary": "Every launch card now has a bookmark button. Tap it to add the coin to your Watchlist at /watchlist — a personal live board of every coin you're watching. Each card refreshes every 30 seconds with real price, market cap, volume, and graduation progress. If Oracle has scored the coin, a conviction badge appears right on the card: tier (PRIME / STRONG / LEAN), overall score, and a compact pillar breakdown — Pedigree, Structure, Narrative, Momentum — so the four reads that matter are always visible without opening the coin's full page.",
-			"tags": ["feature"],
+			"tags": [
+				"feature"
+			],
 			"link": "/watchlist"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "Oracle conviction scores refresh every two minutes, automatically",
 			"summary": "Oracle now runs on a serverless cron that fires every two minutes: it scores the latest pump.fun launches from the data brain, runs every armed watch's act decision, settles resolved trades against real outcomes, and sends Telegram alerts for new prime and strong coins — all without a long-lived process. The conviction cache is always warm, armed agents always act, and the learning loop always closes.",
-			"tags": ["improvement"],
+			"tags": [
+				"improvement"
+			],
 			"link": "/oracle"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "Oracle conviction scores now read live crypto news",
 			"summary": "Oracle's narrative pillar used to guess virality from metadata alone. It now fetches live crypto headlines in real time and shows the LLM which headlines are active when it classifies a coin. When a coin clearly rides a headline — a news-peg meme, an AI project announced the same day — the LLM references it directly and the virality score reflects it. The scoring is faster too: five news categories (Solana, DeFi, Bitcoin, alt L1s, general) are fetched once and shared across all coins scored in the same pass.",
-			"tags": ["improvement"],
+			"tags": [
+				"improvement"
+			],
 			"link": "/oracle"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "Oracle pre-seeded with hundreds of proven smart-money wallets",
 			"summary": "Wallet reputation now starts sharp instead of blank. A daily background job pulls the top-100 wallets across seven smart-money cohorts from gmgn.ai — smart degens, pump traders, KOLs, snipers, top devs — and seeds them into the platform's wallet reputation table. Wallets with fewer than five coins traded get the imported label and score; wallets the platform has already observed keep the track record it has built from watching real outcomes. Every Oracle pedigree score from this point on benefits from years of externally-verified wallet history, not just what three.ws has seen itself.",
-			"tags": ["improvement"],
+			"tags": [
+				"improvement"
+			],
 			"link": "/oracle"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "Oracle fires Telegram alerts for prime and strong conviction coins",
 			"summary": "When a coin crosses the prime or strong conviction tier, Oracle now fires a Telegram alert with the full score breakdown: overall score, all four pillar values, coin symbol, category, and direct links to the coin's Oracle page and pump.fun listing. Alerts are deduplicated per coin across restarts so you get exactly one signal per conviction event — no repeats if the cron fires while the alert is already out.",
-			"tags": ["feature"],
+			"tags": [
+				"feature"
+			],
 			"link": "/oracle"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "Coin intelligence — per-signal win-rates explain every oracle decision",
 			"summary": "The oracle's quality score is no longer a black box. After each learning-loop run, the system now computes per-signal conditional win-rates — for every signal dimension (bundle score, organic score, smart-money count, category, dev behaviour, and more), it reports the observed graduation rate for each value tier against the platform baseline. An agent calling get_coin_intel now receives the full model alongside the coin snapshot: exactly how often coins with 'clean' bundle scores graduated vs. coins with 'high' bundle scores, or what the graduation rate is when three or more smart-money wallets entered early. The oracle page shows these rates as context behind each risk flag and quality band. The learning loop updates the rates every time a cron run labels new outcomes and retrains — so the evidence improves as the platform watches more coins.",
-			"tags": ["feature", "improvement"],
+			"tags": [
+				"feature",
+				"improvement"
+			],
 			"link": "/oracle"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "Copy trading — mirror proven traders, non-custodially, on your own terms",
 			"summary": "You can now copy any trader from their profile. Pick how to size each copy (a fixed amount of SOL, a multiple of the leader's size, or a percentage of your wallet), set a hard per-trade cap and a daily budget, and optionally filter by market cap or require a coin-safety pass. When a trader you follow makes a move, a sized, safety-checked intent lands in your new Copy Trading dashboard — you review it and execute it yourself, from your own wallet. We never take custody and never sign for you; every copy is capped by your rules so a runaway leader can't drain you. Exits are mirrored too, but only for trades you actually entered, and skipped copies show exactly why they were skipped. Leaders earn a performance fee on the profit you make copying them — charged only on gains above your prior peak (a high-water mark), never on losses, settled in $THREE with 80% to the trader and the rest funding buybacks and reflecting to holders. Manage everything — pause, resume, stop, edit size — in one place.",
-			"tags": ["feature"],
+			"tags": [
+				"feature"
+			],
 			"link": "/dashboard/copy"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "Oracle — live trade tape and 3D conviction graph in the war room",
 			"summary": "Two new war-room surfaces: every coin in Oracle now has a live trade tape inside its drawer that streams every buy and sell in real time, annotated with the trader's archetype — Smart Money, KOL, Sniper, Rugger — the moment it lands on-chain. Known wallets from the reputation graph are labeled inline, so you can see a proven wallet enter in real time without hunting through the holder list. Alongside that, the new 3D conviction graph tab plots every scored coin as a sphere in 3D space: size is conviction score, color is tier, and the graph runs a force-directed physics simulation grouping coins by cultural narrative — meme, AI, tech, culture coins cluster together while you orbit and zoom. Click any sphere to open its full conviction breakdown. Both surfaces are live when you open Oracle.",
-			"tags": ["feature", "improvement"],
+			"tags": [
+				"feature",
+				"improvement"
+			],
 			"link": "/oracle"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "Oracle — one conviction score per launch, and an agent that acts on it",
 			"summary": "Oracle is a new way to read pump.fun: instead of a wall of separate metrics, every launch gets one transparent 0–100 conviction score that fuses four reads — WHO is buying it (the proven track record of the wallets in the book), HOW it's being bought (organic vs. a bundle or a single-funder cluster), WHAT it is (a live cultural-narrative read — meme, tech, AI, a news-story meme, a culture or community coin), and HOW it's moving. A hard structural cap means a coordinated bundle or a dumping dev can never read 'strong,' no matter who's in it. Open any coin to see the full breakdown, the exact reasons, and a live 'who's in' panel that labels every early wallet by archetype — smart money, sniper, dumper, rugger — with its real win rate. A wallet leaderboard ranks the proven money, and an honest 'edge' tab shows the realized graduation rate by conviction tier — no backfilled numbers. It also starts sharp on day one: hundreds of known smart-money and KOL wallets are pre-seeded, so the moment one shows up in a launch's order book it's credited immediately, even before the platform has judged it from outcomes. Best of all, you can arm your 3D AI agent to act: it watches the live conviction stream and buys a small position the moment a coin clears your bar, starting in simulate so you can watch it work before any real spend. The more coins and wallets the platform watches, the sharper every score.",
-			"tags": ["feature"],
+			"tags": [
+				"feature"
+			],
 			"link": "/oracle"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "Buy any coin directly on three.ws — Jupiter swap embedded in the coin page",
 			"summary": "The Trade button on every launch profile now opens an in-platform Jupiter swap terminal instead of bouncing to pump.fun. The terminal is lazy-loaded only when you click, so cold page loads stay fast. Jupiter routes through every available liquidity source including pump.fun's AMM and bonding curve, so it works for both pre-graduation and graduated coins. The price chart now also shows volume bars alongside the price line — green for net-buy candles, red for net-sell — giving you an instant read on trade intensity at a glance. The agent panel shows a 'Copy trades' shortcut that takes you directly to the agent's copy-trade setup. And when Birdeye's OHLCV quota is exhausted, the chart falls back to GeckoTerminal automatically, so the chart never goes dark on an actively-trading coin.",
-			"tags": ["feature", "improvement"],
+			"tags": [
+				"feature",
+				"improvement"
+			],
 			"link": "/launches"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "Every launch now has its own page — the full story of a coin in one place",
 			"summary": "Until now, clicking a coin on the launches feed sent you out to pump.fun. Now every launch opens a rich profile that stays on three.ws and answers every question a trader actually has, all from real on-chain data: live price, market cap and graduation progress; the Coin Intelligence verdict from the coin's first ~90 seconds (a quality score plus organic-vs-bundle, sniping, holder concentration, fresh-wallet and funder-clustering signals, with any risk flags called out); the labeled outcome if it graduated or rugged, with its all-time-high multiple; a live price chart and a live trade tape that ticks every buy and sell as it lands; holder count and concentration; the agent behind the mint and its verifiable TraderScore; and the buyback-and-burn economics for agent-payment coins, each burn linking to its on-chain transaction. Watch a coin, share its page, jump into its 3D world, or open it in 3D — every number traces back to a real transaction.",
-			"tags": ["feature"],
+			"tags": [
+				"feature"
+			],
 			"link": "/launches"
 		},
 		{
 			"date": "2026-06-16",
 			"title": "The Sniper Arena is now a living 3D world",
 			"summary": "The arena used to be a flat leaderboard. Now it's a real 3D world you walk into. Every armed AI agent stands on the trading floor as an animated avatar — the #1 agent up on a gold podium — and when they trade live, you see it happen: a cheer and a coin burst on a buy, confetti and a back-flip on a big win, a slump on a loss, each one tied to the same on-chain trade scrolling in the live tape. Pick your own avatar from a roster or the community gallery and walk the floor in third person with WASD or a touch joystick. Floating name tags track each agent with their live P&L, and a banner calls out the biggest win as it lands. Every number is real and verifiable on-chain — now it has a face.",
-			"tags": ["feature"],
+			"tags": [
+				"feature"
+			],
 			"link": "/play/arena"
 		},
 		{
 			"date": "2026-06-15",
 			"title": "Coin Radar — every pump.fun launch watched, scored, and classified the moment it goes live",
 			"summary": "A new intelligence engine watches the first ~90 seconds of every coin that launches on pump.fun and reads what the trading actually says about it. It records every wallet and every buy and sell, then derives the signals that separate a real launch from a trap: is this a coordinated bundle or organic demand? did the dev dump? is one whale holding everything? how concentrated and how fresh are the buyers? Each coin gets a 0–100 quality score, plain-language risk flags, and a category (meme, tech, AI, culture, community, news and more) with a one-line read on what it is. Browse it all on the new Coin Radar — filter by quality, category, or risk, and open any coin for the full signal breakdown and the top-trader ledger with links to Solscan. Your trading agents read the exact same intelligence through a public API, and a new \"intel-confirmed\" strategy lets a sniper wait for the verdict and only buy launches that clear your quality and bundle limits. The engine also learns: it labels how each watched coin actually turned out and sharpens its own signal weights over time. Wallet-graph signals are shown only when measured — never faked.",
-			"tags": ["feature"],
+			"tags": [
+				"feature"
+			],
 			"link": "/radar"
 		},
 		{
 			"date": "2026-06-15",
 			"title": "Smart Money Radar — follow the wallets that actually win on pump.fun",
 			"summary": "A new way to read a launch: don't judge the coin, judge the money buying it. The Smart Money Radar builds a live reputation graph of every pump.fun wallet by crossing each coin's buyers with the coins that actually graduated to Raydium — so each wallet earns a real, first-party track record. Wallets that keep getting in early on winners are labeled smart money; the ones that spray into duds or dump on followers are flagged. The radar then scores every fresh coin by the pedigree of the money accumulating it, so you can see what the proven winners are quietly buying right now. Browse the live feed, sort the wallet leaderboard, and click into any coin or wallet to see the receipts. Built from full-coverage trade data — an edge that compounds as more outcomes land.",
-			"tags": ["feature"],
+			"tags": [
+				"feature"
+			],
 			"link": "/smart-money"
 		},
 		{
 			"date": "2026-06-15",
 			"title": "Trader Leaderboard — pump.fun traders ranked by a track record you can verify",
 			"summary": "A new leaderboard ranks every trading agent by a single Trader Score that blends realized P&L, win rate, profit factor, consistency and drawdown — then holds back judgment until a trader has enough closed trades to trust. Losing trades are counted, never hidden, and fast in-and-out churn is penalized rather than rewarded. Filter by time window (24h / 7d / 30d / all-time), rank by score, P&L, win rate or ROI, and show verified traders only. Open any trader for a full profile: a score gauge, a realized-equity curve, every key metric, their open positions, and a Proof tab where each closed trade links straight to its on-chain buy and sell transaction on Solscan — the numbers come from those, nothing else. The headline score is also committed on-chain daily as a signed attestation, so it can't be quietly edited after the fact. Share any track record as a one-tap PnL card.",
-			"tags": ["feature"],
+			"tags": [
+				"feature"
+			],
 			"link": "/leaderboard"
 		},
 		{
 			"date": "2026-06-15",
 			"title": "Redesigned the $THREE economy page — watch it move, verify it on-chain",
 			"summary": "The /three economy page is rebuilt from the ground up. A live visualization called The Flow shows value entering the protocol and splitting in real time to the treasury, to creators, and back to holders — there is no burn lane, because nothing is ever destroyed (you can pause it any time). The headline number is the total $THREE returned to holders, funded by real usage fees — never minted, never a tax on your transfers. Treasury and holder-rewards wallets link straight to Solscan so you can check every figure yourself, and each distribution shows up as a row with its on-chain transaction. A holder-tier ladder shows your live progress to the next tier; an interactive pricing explorer applies your tier discount as you browse; and a rare-name studio prices any *.threews.sol name by rarity. Built for clarity and trust: real data only, tabular figures, full keyboard and reduced-motion support.",
-			"tags": ["feature", "improvement"],
+			"tags": [
+				"feature",
+				"improvement"
+			],
 			"link": "/three"
 		},
 		{
 			"date": "2026-06-15",
 			"title": "Fixed the footer floating over the avatar viewer",
 			"summary": "On avatar pages (and a few other 3D viewer pages), the site footer was breaking loose and floating in the middle of the screen, on top of the 3D model — and its links couldn't be clicked. A styling rule meant only for the small corner credit on viewer pages was leaking onto the real footer. It's fixed: the footer now sits properly at the bottom of the page where it belongs, fully clickable, and the avatar viewer is unobstructed.",
-			"tags": ["fix"],
+			"tags": [
+				"fix"
+			],
 			"link": "/marketplace"
 		},
 		{
 			"date": "2026-06-15",
 			"title": "Verify the $THREE economy on-chain — no \"trust us\"",
 			"summary": "The /three economy page now shows the real, live Solana wallets behind the numbers. The treasury and the holder-rewards pool are linked straight to Solscan with their current $THREE balances, so anyone can confirm the figures themselves. We never burn supply — instead, the rewards pool is distributed pro-rata back to holders, and there's now a public 'reflected to holders' total with a run-by-run history (each future distribution links to its on-chain transaction). Value is returned to holders, not destroyed, and every claim on this page is something you can check against the chain.",
-			"tags": ["feature", "improvement"],
+			"tags": [
+				"feature",
+				"improvement"
+			],
 			"link": "/three"
 		},
 		{
 			"date": "2026-06-15",
 			"title": "Sniper agents can now buy on a creator's first reward claim",
 			"summary": "The autonomous sniper has a second way to trigger. Alongside sniping brand-new launches, you can now arm an agent in \"first claim\" mode: it watches pump.fun on-chain and buys a creator's coin the very first time that creator EVER pulls their accrued creator rewards out of the fee vault — an irreversible signal that the creator is live and taking real fees. You set the rules: how much to spend per buy, your daily budget, how long to wait after the claim before buying, and a minimum (or maximum) claim size so the agent only acts on creators taking real money, not dust. It runs through the same guardrails as every snipe — mandatory stop-loss, price-impact circuit breaker, daily caps, and one-shot-per-coin — and manages the position to its exit automatically.",
-			"tags": ["feature"],
+			"tags": [
+				"feature"
+			],
 			"link": "/play/arena"
 		},
 		{
 			"date": "2026-06-15",
 			"title": "Buy any coin straight from the Pump Visualizer",
 			"summary": "Click a coin in the Pump Visualizer and you can now buy it on the spot — no trip to pump.fun. The new Buy button opens a real on-chain trade window right in the detail panel: pick an amount, see a live price quote and your slippage, and your connected Solana wallet signs the purchase. It handles both bonding-curve and graduated coins, prices in SOL or USDC automatically, and lets you sell too. Same trade window the /play worlds use, now wherever you're exploring trending coins.",
-			"tags": ["feature"],
+			"tags": [
+				"feature"
+			],
 			"link": "/pump-visualizer"
 		},
 		{
 			"date": "2026-06-15",
 			"title": "Pump Visualizer: a coin's look now tracks its market cap",
 			"summary": "On the Pump Visualizer, market cap no longer just sizes a coin — it shapes its whole look. As a coin's cap climbs it shifts color from cool blue through purple to green and gold, grows a crystalline wireframe cage that gains facets at each tier, and spins and pulses with more energy. On the trending refresh, a coin that moved gets a clear signal: it flashes green and pops bigger when its cap rose, red and dips when it fell, and crossing into a higher or lower tier visibly upgrades or downgrades its shape and color. A new on-screen key in the corner maps each color and tier to its market-cap range so it all reads at a glance.",
-			"tags": ["feature"],
+			"tags": [
+				"feature"
+			],
 			"link": "/pump-visualizer"
 		},
 		{
 			"date": "2026-06-15",
 			"title": "Three distinct dancers, now waiting at their poles",
 			"summary": "The Pole Club stage no longer sits empty between tips. Three dancers now stand at their own poles, lit and facing the crowd, the moment you arrive — each a different 3D avatar pulled from the gallery (still tinted to her pole's neon color) instead of copies of one model, and every dancer is auto-scaled to the same height so the lineup reads as a set. Tip a pole and that dancer steps onto it and runs her routine, then returns to her stance at the pole. No tip, no dance — same rule, just a stage that looks alive from the first second. Behind the scenes the animation engine now retargets onto more rig types, so far more uploaded avatars can actually dance.",
-			"tags": ["improvement"],
+			"tags": [
+				"improvement"
+			],
 			"link": "/club"
 		},
 		{
 			"date": "2026-06-15",
 			"title": "More uploaded avatars can dance",
 			"summary": "The built-in animation library can now drive avatars built on more skeleton types — including game-engine and other creator-tool rigs — not just the common ones. Previously some uploaded avatars would load but stand frozen because the animation system couldn't match their bone names; now those bones map automatically, so the full set of dances, poses, and idle motion plays on them everywhere avatars appear — the club, the walk view, AR, and the studio.",
-			"tags": ["improvement"],
+			"tags": [
+				"improvement"
+			],
 			"link": "/club"
 		},
 		{
 			"date": "2026-06-15",
 			"title": "The $THREE economy, on one page",
 			"summary": "A new page at /three lays out exactly how three.ws uses $THREE — the only coin. You pay in $THREE only for things that cost real compute (premium 3D generation, voice cloning, advanced data); creating agents, browsing, embedding, chatting, basic worlds, and draft generation stay free forever. Holders get a tier ladder: hold $THREE for lower fees on everything you do pay for, higher free limits, private worlds, and early access. Short and dictionary *.threews.sol names are now priced by rarity (common names remain free). And there are no burns — every $THREE spent flows to the treasury or reflects back to holders pro-rata. The page shows live settled volume, what's reflected to holders, and your own tier.",
-			"tags": ["feature"],
+			"tags": [
+				"feature"
+			],
 			"link": "/three"
 		},
 		{
 			"date": "2026-06-15",
 			"title": "Refer friends with a 3D membership card",
 			"summary": "Your account now has a Referrals page with a 3D, flippable membership card — your member number, referral count, and score on the front, a scannable QR for your invite link on the back. Tilt it with your cursor, flip it over, then share it: post to X or Telegram, copy your link, or download the card as an image. Anyone who signs up through your link is tied to you for life, and you earn 5% in USDC on everything they buy on three.ws. Sign-ups now carry your referral code through every login method — email and wallet alike — so credit always lands where it's due.",
-			"tags": ["feature"],
+			"tags": [
+				"feature"
+			],
 			"link": "/dashboard/referrals"
 		},
 		{
 			"date": "2026-06-15",
 			"title": "Camera AR on /irl now turns on",
 			"summary": "The \"Camera AR\" button on the IRL page was stuck — it never lit up, on desktop or phone, so you could never drop your avatar into your real room. Two bugs were behind it: a startup error in the joystick setup crashed the page's script before the button could ever be enabled, and even once that was past, the camera could hang on \"Requesting camera…\" forever because playback was started before the video was visible. Both are fixed: the button now activates once your avatar loads, and tapping it opens the camera reliably on phone and desktop so you can walk your avatar across your real floor.",
-			"tags": ["fix"],
+			"tags": [
+				"fix"
+			],
 			"link": "/irl"
 		},
 		{
 			"date": "2026-06-15",
 			"title": "Walk into the Pole Club as your own 3D avatar",
 			"summary": "The club now has a way in that you control. Land on /club and you spawn outside in an alley as your own 3D avatar — move with WASD, arrows, or a touch joystick, drag to look around, and walk up to the neon door at the end of the alley. Step into range and a prompt appears: press E, tap, or click the door to pay the $0.01 cover. Pay it and your avatar walks through the club house interior while the night's anthem kicks in, then the room with the poles opens up around you. It's all real 3D, streamed from compressed scenes (~20 MB exports cut to ~1.6 MB each) and prefetched while you walk so nothing stalls. Already paid tonight? You skip the line and walk straight in.",
-			"tags": ["feature"],
+			"tags": [
+				"feature"
+			],
 			"link": "/club"
 		},
 		{
 			"date": "2026-06-15",
 			"title": "Save any avatar as your own — forks with their own wallet",
 			"summary": "Saving someone else's avatar now works like forking on GitHub: it mints a brand-new avatar in your account with its own copy of the model, linked back to the original with a \"Forked from\" credit and a fork counter on the source. You never share one avatar between two people — your copy is yours to edit, deploy, or launch, and the original owner's stays untouched. Every saved or forked avatar's agent also gets its own custodial wallet (EVM + Solana) the moment it lands, assigned to you alone — create it, copy the addresses, or manage it right from the avatar page, the editor, and the gallery picker. One person can hold a copy of another's avatar, but no two people ever control the same agent wallet.",
-			"tags": ["feature"],
+			"tags": [
+				"feature"
+			],
 			"link": "/gallery"
 		},
 		{
 			"date": "2026-06-15",
 			"title": "Sell your animations in the marketplace",
 			"summary": "Animations you build in the Studio can now be listed for sale. Pose a figure, drop your keyframes, save the clip, then hit Sell — set a price in USDC (or list it free) and three.ws bakes a self-contained animated GLB and publishes it to a new \"From creators\" shelf in the animation marketplace. Buyers see a poster, the creator, length and price; free clips download in one click, and paid clips are unlocked by paying once in USDC on Base or Solana — re-download free forever from the same wallet. Earnings settle straight to your payout wallet, and your motion data stays gated behind the paywall until someone buys.",
-			"tags": ["feature"],
+			"tags": [
+				"feature"
+			],
 			"link": "/marketplace?tab=animations"
 		},
 		{
 			"date": "2026-06-15",
 			"title": "Sniper Arena — watch AI agents trade pump.fun live",
 			"summary": "Agents can now trade pump.fun autonomously. A new always-on engine watches every launch in real time, scores it against an agent's strategy (market-cap band, creator track record, socials), and — when it qualifies — buys from the agent's own Solana wallet, then manages the position to a take-profit, stop-loss, trailing stop, or timeout exit. Arming an agent is opt-in and capped: you set a daily budget, a per-trade size, and a mandatory stop-loss, with a kill switch that halts new buys instantly. The new Sniper Arena at three.ws/play/arena shows it all happening live — a P&L leaderboard, a streaming trade ticker where every fill links to its on-chain transaction, and the top agent's 3D avatar reacting to its own wins. Autonomous trading is experimental and you can lose the funds you commit.",
-			"tags": ["feature"],
+			"tags": [
+				"feature"
+			],
 			"link": "/play/arena"
 		},
 		{
 			"date": "2026-06-15",
 			"title": "There's a cover at the Pole Club door",
 			"summary": "The club now has a line outside. Before the room opens you pay a $0.01 USDC cover at the door via x402, and an on-chain bouncer checks the paying wallet — banned wallets are turned away, everyone else gets in with a door tier (newcomer, regular, or VIP) based on their past club nights. Pay once and you're in for the night; reopen the page and the velvet rope drops automatically. The 3D room loads behind the door while you're in line, so it's warm the moment you step in.",
-			"tags": ["feature"],
+			"tags": [
+				"feature"
+			],
 			"link": "/club"
 		},
 		{
 			"date": "2026-06-15",
 			"title": "Pose any avatar — a full motion library on the avatar page",
 			"summary": "Every avatar page has a new Pose tab. Open it and the avatar steps onto a live 3D stage you can orbit, with a searchable library of 100+ motions — idle, wave, dance, jump, flex, facepalm and more. Click one and it plays on the avatar instantly, even when the model itself ships no built-in animation: the clips retarget onto its skeleton in your browser. A speed slider and a reset-to-idle control round out the transport. Avatars without a standard humanoid rig get a clear message instead of a broken stage.",
-			"tags": ["feature"]
+			"tags": [
+				"feature"
+			]
 		},
 		{
 			"date": "2026-06-15",
 			"title": "Avatars come to life — animations now play on the avatar page",
 			"summary": "Every avatar page now plays its built-in animation the moment it loads, so a rigged avatar stands, breathes, or performs its motion instead of freezing in a static pose. A new floating control sits over the 3D stage: a play/pause button, plus a clip switcher when an avatar carries more than one take so you can jump between them. Avatars with no embedded motion are unaffected — the control only appears when there's something to play.",
-			"tags": ["feature"]
+			"tags": [
+				"feature"
+			]
 		},
 		{
 			"date": "2026-06-15",
 			"title": "The IRL page loads again",
 			"summary": "Opening three.ws/irl returned a Not Found error even though the page was fully built and linked from the navigation. The page wasn't mapped in our routing rules, so the server never served it. We added the route — the IRL experience (walk a 3D avatar in your real space with camera passthrough, an on-screen joystick, and tap-to-place objects) now opens directly from the link in the menu.",
-			"tags": ["fix"],
+			"tags": [
+				"fix"
+			],
 			"link": "/irl"
 		},
 		{
 			"date": "2026-06-15",
 			"title": "Browse every community avatar from your dashboard",
 			"summary": "The dashboard Avatars page now has a Community tab alongside My avatars. It shows every public 3D avatar the whole community has built — with live spinning previews, a running count and total views, search, tag filters, and infinite scroll. Open any one as a live page, remix it in the 3D studio, or copy its share link, embed snippet, or GLB URL in a click.",
-			"tags": ["feature"],
+			"tags": [
+				"feature"
+			],
 			"link": "/dashboard/avatars"
 		},
 		{
 			"date": "2026-06-15",
 			"title": "The top navigation is back on every page",
 			"summary": "The site header was being clipped to a sliver on most pages — the menu, search, and account controls were cut off and the dropdowns wouldn't open. An old style rule meant for the standalone 3D viewer's compact toolbar was leaking onto the shared navigation, forcing it to a fixed height and hiding everything below it. The viewer rule is now scoped to only the viewer, so the full navigation renders at its natural height across the whole site.",
-			"tags": ["fix"]
+			"tags": [
+				"fix"
+			]
 		},
 		{
 			"date": "2026-06-15",
 			"title": "The site footer and top pages are now polished on phones",
 			"summary": "On mobile the footer's link columns ran off the right edge and got cut off — the contract address and legal links were unreachable — because an old style rule for the 3D viewer's corner credit was hijacking the main footer's layout. The footer now stacks into clean, tappable columns on every page. We also did a mobile pass across the most-used pages — Home, Discover, Create, Forge, Marketplace, Gallery, and Pay — eliminating sideways scrolling, enlarging tap targets to a comfortable size, and stopping form fields from zooming the page when you tap them.",
-			"tags": ["fix", "improvement"]
+			"tags": [
+				"fix",
+				"improvement"
+			]
 		},
 		{
 			"date": "2026-06-15",
 			"title": "Homepage Forge is more reliable — no more \"busy\" on the second model",
 			"summary": "The mini Forge on the homepage now runs on the same free Standard lane as the full /forge page. Before, it used the free draft preview, which has tight concurrency and would return a \"generator is busy\" message on a quick second generation. Now back-to-back prompts hold up — models still land free with no sign-up, and the platform automatically degrades to the faster free lane if the main one is throttled.",
-			"tags": ["fix"],
+			"tags": [
+				"fix"
+			],
 			"link": "/forge"
 		},
 		{
 			"date": "2026-06-15",
 			"title": "Chat never stalls on a down AI model — instant, quiet failover",
 			"summary": "If you pick a specific AI model for the agent (say Claude) and our key for that provider is temporarily unavailable, chat now hands you an answer instantly from a healthy free model instead of pausing on the dead provider. Previously the app re-tried the unavailable provider on the very first attempt of every single message — adding a little delay each time and filling our logs with repeat warnings. Now a provider with a key or billing problem is set aside for a few minutes after the first failure and skipped up front, even when it was the one you explicitly chose, so the next message goes straight to a model that works. Free-first, always a working fallback.",
-			"tags": ["improvement"],
+			"tags": [
+				"improvement"
+			],
 			"link": "/chat"
 		},
 		{
 			"date": "2026-06-15",
 			"title": "The Forge always returns a model — the default never dead-ends",
 			"summary": "Typing a prompt into the Forge on the default Standard setting now always produces a 3D model, even when our paid reconstruction provider is throttled or over its quota. Previously a busy upstream could leave the default flow stuck on a \"generator is busy, try again\" message that never cleared. Now, if the paid engine is unavailable, a text prompt transparently falls back to the free NVIDIA lane and still hands you a finished model — and the result clearly shows which engine produced it, so the change is never hidden. Free-first, always a working fallback.",
-			"tags": ["fix"],
+			"tags": [
+				"fix"
+			],
 			"link": "/forge"
 		},
 		{
 			"date": "2026-06-15",
 			"title": "The Forge grows itself — a new avatar or accessory every minute, tied to real accounts",
 			"summary": "A new auto-generation system creates a fresh 3D avatar or accessory every minute using the free NVIDIA lane and adds it to the community gallery. Each model is attributed to a new user account with an OG single-word username — wolf, raven, iron, frost — so the gallery reads like a real creator community. The system cycles through 200+ curated prompts covering fantasy warriors, sci-fi soldiers, mythological creatures, and matching weapons, armor, and accessories, cycling through the full library before repeating. Every model is a permanent GLB stored in our own CDN.",
-			"tags": ["feature"],
+			"tags": [
+				"feature"
+			],
 			"link": "/forge"
 		},
 		{
 			"date": "2026-06-15",
 			"title": "Agents and items are now clearly separate — a teapot won't get a brain",
 			"summary": "Every 3D model you create is now clearly one of two things: an Agent (a character that thinks, talks, remembers, and can go on-chain) or an Item (a 3D object or prop for scenes and trading). On the review screen the choice is spelled out with a short description of each, and we pick a smart default — models from the selfie, studio, and character tools start as agents, while anything you type into existence with prompt-to-3D starts as an item, so a teapot is never pre-loaded with a brain. Pick Item and the agent-only capabilities (voice, persona, on-chain identity) step aside for a gentle note — with a one-click \"made a character? make it an agent\" escape hatch if the guess was wrong. The Forge tagger now groups its labels the same way, calling out that only avatars and creatures can become agents.",
-			"tags": ["improvement"],
+			"tags": [
+				"improvement"
+			],
 			"link": "/create"
 		},
 		{
 			"date": "2026-06-15",
 			"title": "Clearer launch & trade errors, and a graduated badge on coins",
 			"summary": "When a token launch or an in-world trade can't go through, the app now tells you exactly why and what to do next — \"Not enough SOL to cover the launch + network fees,\" \"Price moved beyond your slippage limit,\" \"You cancelled the signature in your wallet,\" or \"Couldn't reach the Solana network\" — instead of a single catch-all \"Connection error.\" Coins also show their lifecycle at a glance: the trade panel carries a badge marking whether a coin is still on its bonding curve or has graduated to the PumpSwap AMM, so a graduated coin is unmistakable. Backed by new end-to-end browser tests that drive the full four-step launch flow and the buy/sell widget so this conversion path can't silently break.",
-			"tags": ["improvement"],
+			"tags": [
+				"improvement"
+			],
 			"link": "/pump-dashboard"
 		},
 		{
 			"date": "2026-06-15",
 			"title": "Pump dashboard alerts now run server-side — fire across devices even with the tab closed",
 			"summary": "Alert rules moved from your browser to our servers, so they fire whether or not a dashboard tab is open and follow you across every device you sign in on. Build as many rules as you need: get notified when any token (or a specific mint, or one of your agents' coins) graduates to an AMM, when a coin's market cap rises above or falls below a price you set, when someone places a whale-sized buy, or when one of your agents launches a new coin. Each rule delivers however you want — an in-app notification, a signed webhook POST to your own server, and Telegram — with each channel handled independently so one failing never blocks the others. Per-rule cooldowns and de-duplication prevent alert storms, the dashboard shows when a rule last fired and surfaces any delivery failures, and existing graduation alerts were migrated over automatically.",
-			"tags": ["feature"],
+			"tags": [
+				"feature"
+			],
 			"link": "/pump-dashboard"
 		},
 		{
 			"date": "2026-06-15",
 			"title": "On-chain model validation for Solana agents",
 			"summary": "Solana agents now get the same verifiable, on-chain glTF/model validation that EVM agents get from the ValidationRegistry — no contract to deploy. When you register an agent on Solana, the platform validator fetches your avatar's GLB, runs it through the same Khronos glTF validator behind the model checker, and records the pass/fail result as a signed on-chain attestation (an SPL Memo carrying a SHA-256 proof of the full report and a link to it). The result shows up as a 'model verified' badge on the agent passport, rides on the agent card, and is queryable at /api/agents/solana-validation. Anyone can independently recompute the proof hash from the same GLB to confirm the verdict, and you can re-validate on demand after updating your model. Re-attesting an identical report is idempotent, so no duplicate transactions.",
-			"tags": ["feature", "security"]
+			"tags": [
+				"feature",
+				"security"
+			]
 		},
 		{
 			"date": "2026-06-15",
 			"title": "Live coin status — price, market cap and graduation — now unified across the platform",
 			"summary": "The launches feed, agent profile token panels, and the in-world agent coin card now share one live coin-status display, so every place that shows a coin reads the same numbers from the same source. Launch cards now stream the coin's real logo, USD price, market cap, a graduation progress ring and time since launch — not just market cap — with the orbital fingerprint as a placeholder until the logo loads. Agent profiles show a live price-and-graduation chip in the token panel and per-coin market caps in the launch history, and the agent home card's market readout is now consistent with the rest of the platform. Each card refreshes on its own and degrades gracefully to a Retry if pump.fun is briefly unreachable.",
-			"tags": ["improvement"],
+			"tags": [
+				"improvement"
+			],
 			"link": "/launches"
 		},
 		{
 			"date": "2026-06-15",
 			"title": "USDC-paired agent coins now record and display correct trade amounts",
 			"summary": "Coins launched against USDC are now tracked in the right currency end to end. Every buy and sell records which quote asset it actually used and how much of it moved — USDC amounts in USDC, SOL amounts in SOL — instead of quietly storing a USDC trade as if it were SOL and reporting a price and market cap that were off by orders of magnitude. Portfolios now subtotal holdings separately by quote asset, so your SOL positions and USDC positions each get their own value, cost basis, and unrealized P&L with no more mixing of mismatched units. Existing SOL trades are unchanged, and historical rows were backfilled as SOL-paired so nothing shifts.",
-			"tags": ["fix", "feature"]
+			"tags": [
+				"fix",
+				"feature"
+			]
 		},
 		{
 			"date": "2026-06-15",
 			"title": "three.ws can now register itself on-chain on Solana",
 			"summary": "Alongside its ERC-8004 identity, three.ws can now mint its own agent on Solana — as a Metaplex Core asset in the official \"three.ws Agents\" collection, exactly the way agents you deploy through the platform are registered. A one-command tool builds the platform's 3D Agent Card, verifies the avatar's SHA-256 against the exact GLB bytes served (so the model can't be silently swapped), pins the metadata, mints the asset into the collection, and writes the result back into the public discovery documents at three.ws/.well-known so any wallet, explorer, or agent can resolve and verify three.ws. The discovery card and its schema now carry Solana identities (CAIP-10) alongside EVM ones, and the platform agent's on-chain badge links straight to its Solana passport.",
-			"tags": ["feature", "infra"],
+			"tags": [
+				"feature",
+				"infra"
+			],
 			"link": "/.well-known/agent-registration.json"
 		},
 		{
 			"date": "2026-06-15",
 			"title": "Buy and sell USDC-paired coins straight from the trade widget",
 			"summary": "The in-world trade widget now speaks both currencies. Open Buy on a coin and the widget reads its real pairing from the chain: a SOL coin asks for SOL exactly as before, while a USDC-paired coin denominates the amount in USDC, shows your wallet's USDC balance, and prices and settles the trade in USDC. A new Sell tab lets you sell a coin you hold back to its quote asset — pick 25%, 50%, or Max of your balance, see the live payout, and sign once; for USDC coins the payout account is opened for you automatically in the same transaction. Every state is handled: not enough USDC offers a one-tap Add-funds flow, a moved price explains your slippage, and a cancelled signature is quietly acknowledged. The whole flow is your own wallet, signed in your browser, with a Solscan link the moment it lands.",
-			"tags": ["feature"],
+			"tags": [
+				"feature"
+			],
 			"link": "/play"
 		},
 		{
 			"date": "2026-06-15",
 			"title": "Agent reputation now reflects a real pump.fun track record",
 			"summary": "An agent's pump.fun behavior now feeds its reputation and shows on its passport. When the wallet behind an agent graduates a token, claims creator fees, makes a whale-sized buy, or launches a coin, that moment is recorded as a typed signal — graduating a token counts for more than a routine claim, and a flagged or brand-new-account claim counts against. These signals roll up into the agent's Solana reputation score and appear on the public agent passport, readable by anyone without a wallet. The live pump.fun dashboard gains a new \"SIGNAL\" lane that surfaces these agent-attributed events as they happen, alongside the raw mint, whale, and claim feed. The processor behind this used to sit idle unless an optional external service was configured; it now runs continuously off the platform's own live pump.fun stream with no external dependency, records only genuinely new events so nothing is double-counted, and attributes each one to the agent behind the wallet.",
-			"tags": ["improvement", "fix"],
+			"tags": [
+				"improvement",
+				"fix"
+			],
 			"link": "/pump-dashboard"
 		},
 		{
 			"date": "2026-06-15",
 			"title": "Registered agents now carry an on-chain \"Validated\" badge",
 			"summary": "When an agent is registered on-chain, three.ws now automatically runs its 3D model through the platform's glTF validator and records a signed validation attestation on the ERC-8004 ValidationRegistry — so an agent that advertises validation actually carries proof of it. A green \"Validated\" badge appears on the agent profile, readable by anyone without a wallet, and links straight to the full validation report and the on-chain record. The check is independent of the file's byte-identity (sha256), so both are surfaced on their own: a model that passes schema validation still shows its exact byte fingerprint. If a model has problems, the badge shows \"Validation failed\" with the specific reason — the agent is still registered, just unvalidated — and owners can re-validate after updating their model to refresh the badge. Validation is best-effort and never blocks or reverts a registration.",
-			"tags": ["feature", "security"],
+			"tags": [
+				"feature",
+				"security"
+			],
 			"link": "/marketplace"
 		},
 		{
 			"date": "2026-06-15",
 			"title": "Strategy Lab now catches broken trading strategies before they run",
 			"summary": "Validation in the Strategy Lab (three.ws/strategy-lab) went from a basic syntax check to a real soundness check, so a strategy can't quietly pass review and then misbehave with live funds. It now flags the mistakes that used to slip through: a misspelled metric that silently never matches, a threshold that can never be true (like a percentage above 100), filters that contradict each other so the strategy would never buy, a position rule placed where no position exists yet, a per-trade size larger than the session budget, and later exit rules that an earlier rule always triggers first. When you point a strategy at specific coins, it confirms each one actually exists and warns if a SOL-denominated strategy targets a USDC-paired coin. Problems are shown inline, field by field, with a plain-language reason and exactly where to fix them — and the same checks now guard Backtest and Run, so what validates is what executes.",
-			"tags": ["improvement"],
+			"tags": [
+				"improvement"
+			],
 			"link": "/strategy-lab"
 		},
 		{
 			"date": "2026-06-15",
 			"title": "Pump Live: real token art, live market caps, and a feed that heals itself",
 			"summary": "The Pump Live showcase (three.ws/pump-live) — where a 3D agent reacts to brand-new pump.fun launches in real time — is now fully wired. Every new coin appears with its real artwork and a live USD market cap, instead of a generic avatar and a rough estimate. A new stats bar tracks tokens launched, initial-buy volume, and time since the last launch as events stream in. Before the first launch arrives you get a tidy loading skeleton instead of a blank panel; if the upstream stream drops, the feed reconnects on its own with a backoff and, if it stays down, shows a clear message with a Retry button. Token images are resolved and served through three.ws, so they always load cleanly and never trip browser security errors, and the page keeps streaming even on devices that can't run the 3D view.",
-			"tags": ["improvement", "fix"],
+			"tags": [
+				"improvement",
+				"fix"
+			],
 			"link": "/pump-live"
 		},
 		{
 			"date": "2026-06-15",
 			"title": "Agents can autonomously trade USDC-paired coins",
 			"summary": "An agent's own wallet can now buy and sell USDC-paired coins on its own — not just SOL ones. Until now the autonomous lanes (an agent's buy/sell endpoints, scheduled buybacks, and creator-fee distributions) assumed every coin priced in SOL, so on a USDC coin they would have built a SOL trade the market refuses. Now the agent reads each coin's real pairing straight from the chain and trades in the matching currency: a USDC coin is bought and sold in USDC, with the agent's USDC account opened automatically and its balance checked up front so a trade fails clearly instead of reverting on-chain. Buybacks and fee distributions follow the same rule — they run in the coin's own currency, and if a coin's setup genuinely can't support a run, it's recorded with the reason rather than silently skipped. Every trade is now logged with the exact quote asset and amount, so prices and volumes stay correct for USDC and SOL coins alike. SOL coins behave exactly as before.",
-			"tags": ["feature"],
+			"tags": [
+				"feature"
+			],
 			"link": "/pump-dashboard"
 		},
 		{
 			"date": "2026-06-15",
 			"title": "Rate and vouch for Solana agents from their passport",
 			"summary": "Every Solana agent passport already showed its on-chain reputation — now you can add to it. A new \"Rate this agent\" panel lets anyone with a Solana wallet (Phantom or Solflare) leave a 1–5 score, with an optional public note, written on-chain as a signed attestation — no account needed. You can also back your rating with a SOL stake (from 0.001 SOL) sent to the agent's owner for an economically-weighted vouch. Submitting is guarded the obvious ways: you can't rate your own agent, scores are limited to 1–5, the minimum stake is enforced, and re-rating asks you to confirm before it updates your previous score. The moment your transaction confirms, the passport re-reads the chain on demand instead of waiting for the next indexing pass, so your rating shows up in the reputation summary within seconds.",
-			"tags": ["feature"],
+			"tags": [
+				"feature"
+			],
 			"link": "/agent-passport.html"
 		},
 		{
 			"date": "2026-06-15",
 			"title": "Register an existing agent on-chain in one click",
 			"summary": "Any agent you already built can now be given an ERC-8004 on-chain identity straight from its profile — no re-entering its name, 3D model, voice, or skills. The new \"Register on-chain\" control reuses everything the agent already has, automatically assembles and pins a full agent manifest (its persona, voice, installed skills, and memory mode), links that manifest to the on-chain agent card, and mints the identity on the network you pick. Re-running it on the same network is a safe no-op, and your profile shows a live on-chain badge with explorer and agent-card links the moment it's done.",
-			"tags": ["feature"],
+			"tags": [
+				"feature"
+			],
 			"link": "/agents"
 		},
 		{
 			"date": "2026-06-15",
 			"title": "The pump.fun graduations feed stays fresh around the clock",
 			"summary": "The recent-graduations feed and the graduation data behind pump.fun signals and MCP tools now refresh continuously in the background, instead of only updating while someone had the live feed open. A new scheduled job listens to the real pump.fun migration stream and records graduations as they happen, so the feed shows up-to-date tokens even after quiet periods. Graduation data is also served straight from our own live records, so it never silently falls back to an empty list.",
-			"tags": ["infra", "improvement"]
+			"tags": [
+				"infra",
+				"improvement"
+			]
 		},
 		{
 			"date": "2026-06-15",
 			"title": "After you launch a coin, jump straight to viewing or managing it",
 			"summary": "The success screen you see right after launching a coin no longer dead-ends. Alongside the shareable card and copy/share buttons, there's now a clear set of next steps: View in 3D opens your coin as a live, interactive 3D scene; Manage on Dashboard takes you straight to that agent's control panel — with its row highlighted and ready — so you can speak, animate, and manage it; and View on pump.fun opens the coin on pump.fun. Closing the modal no longer forces a full page reload, so the rest of the page updates smoothly in place.",
-			"tags": ["improvement"],
+			"tags": [
+				"improvement"
+			],
 			"link": "/pump-dashboard"
 		},
 		{
 			"date": "2026-06-15",
 			"title": "three.ws now registers itself as an on-chain agent (ERC-8004)",
 			"summary": "The platform that helps you put your agents on-chain now does the same for itself. three.ws publishes a 3D Agent Card — a verifiable manifest of its name, its default 3D avatar, and its A2A/MCP/x402 service endpoints — at three.ws/.well-known/3d-agent-card.json, and ships a one-command tool that mints the platform agent in the canonical ERC-8004 IdentityRegistry on Base (with a Base Sepolia rehearsal first). The card cryptographically commits to the avatar: the SHA-256 in the card matches the exact GLB bytes served, so any indexer or wallet can independently verify the model hasn't been swapped. Other agents and directories can now discover and trust three.ws the same way three.ws lets them be discovered.",
-			"tags": ["feature", "infra"]
+			"tags": [
+				"feature",
+				"infra"
+			]
 		},
 		{
 			"date": "2026-06-15",
 			"title": "Autonomous coin buybacks and creator-fee distributions now run on schedule",
 			"summary": "Coins launched through three.ws with autopilot enabled now have their buybacks and creator-fee distributions executed automatically on an hourly schedule, instead of waiting for a manual trigger. A new balance watchdog checks every Solana signer the platform uses to pay on-chain fees and alerts the team the moment one runs low, so autopilot never silently stalls for lack of gas. No action needed from coin owners — it just works in the background.",
-			"tags": ["improvement", "infra"]
+			"tags": [
+				"improvement",
+				"infra"
+			]
 		},
 		{
 			"date": "2026-06-15",
 			"title": "Launchpad Studio: pick your avatar from your own agents and the gallery",
 			"summary": "Building a launchpad in Launchpad Studio (three.ws/launchpad) no longer means hunting down a model URL by hand. The avatar picker now shows three sections: your own three.ws agents (when you're signed in), the platform avatar gallery with a Show more button to browse deeper, and a collapsed Or enter a URL field for power users who want to paste a custom .glb. Thumbnails load lazily, the selected avatar updates the live 3D preview instantly, and your choice is saved with the published page.",
-			"tags": ["feature", "improvement"],
+			"tags": [
+				"feature",
+				"improvement"
+			],
 			"link": "/launchpad"
 		},
 		{
 			"date": "2026-06-15",
-			"title": "Pump Visualizer\u2019s Trending view fixed \u2014 spheres now sized by real market cap",
-			"summary": "The Trending mode of the 3D Pump Visualizer (three.ws/pump-visualizer) now renders correctly: every coin appears as a sphere sized by its real USD market cap, textured with its actual logo, with a full detail panel showing market cap, all-time-high, replies, age, and socials. Previously Trending failed to load because the market data it relied on wasn\u2019t reaching the scene. Click a sphere to inspect it, or double-click to open the full 3D coin page. The live Firehose and Migrations modes are unchanged.",
-			"tags": ["fix", "improvement"],
+			"title": "Pump Visualizer’s Trending view fixed — spheres now sized by real market cap",
+			"summary": "The Trending mode of the 3D Pump Visualizer (three.ws/pump-visualizer) now renders correctly: every coin appears as a sphere sized by its real USD market cap, textured with its actual logo, with a full detail panel showing market cap, all-time-high, replies, age, and socials. Previously Trending failed to load because the market data it relied on wasn’t reaching the scene. Click a sphere to inspect it, or double-click to open the full 3D coin page. The live Firehose and Migrations modes are unchanged.",
+			"tags": [
+				"fix",
+				"improvement"
+			],
 			"link": "/pump-visualizer"
 		},
 		{
 			"date": "2026-06-14",
 			"title": "React component library for embedding 3D AI agents",
 			"summary": "npm install @three-ws/react gives you <Agent3D> — a React wrapper around the three.ws walk embed player. Drop a 3D AI agent into any React app in two lines of code, with props for controls, size, and background, plus onLoad/onError callbacks and a ref handle to drive the avatar live.",
-			"tags": ["feature", "sdk"],
+			"tags": [
+				"feature",
+				"sdk"
+			],
 			"link": "/embed/walk"
 		},
 		{
 			"date": "2026-06-14",
 			"title": "x402-fetch — automatic pay-per-call fetch wrapper",
 			"summary": "npm install @three-ws/x402-fetch gives you withX402(wallet) — a drop-in fetch wrapper that silently handles x402 payment challenges. Connect a wallet once; call any paid three.ws API like a free one. It signs USDC-on-Base payments locally with zero dependencies, refuses to overspend past a maxPaymentUsd guard you set, and works in the browser (MetaMask), in Node (private key), or with a three.ws agent wallet.",
-			"tags": ["feature", "sdk"],
+			"tags": [
+				"feature",
+				"sdk"
+			],
 			"link": "/docs/sdk"
 		},
 		{
@@ -2398,6 +2680,15 @@
 			"summary": "New page at /irl. Open it and your avatar appears with a joystick. Hit Camera and your phone's rear camera becomes the background — the avatar walks on your real floor. Switch on Add Object, pick a shape (Orb, Crate, Crystal, Ring, or Pillar), and tap anywhere on the floor to drop it into the scene. Objects spawn with a smooth scale animation. Drag to orbit the camera, WASD on desktop. Share your setup with one tap.",
 			"tags": [
 				"feature"
+			],
+			"link": "/irl"
+		},
+		{
+			"date": "2026-06-16",
+			"title": "IRL — permanent pins for signed-in users, compass heading, and manage placements from dashboard",
+			"summary": "Authenticated users now get permanent GPS pins (no 7-day expiry). Avatars face the correct compass direction when pinned — the heading is captured from the device compass and applied when foreign avatars spawn. New /dashboard/irl-placements page lets you view, edit captions, and remove all your placed avatars from any device without physically going back.",
+			"tags": [
+				"improvement"
 			],
 			"link": "/irl"
 		}
