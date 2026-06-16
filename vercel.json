@@ -178,6 +178,14 @@
 		"api/copy/subscriptions.js": {
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 30
+		},
+		"api/copy/earnings.js": {
+			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
+			"maxDuration": 30
+		},
+		"api/copy/settle-fee.js": {
+			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
+			"maxDuration": 60
 		}
 	},
 	"routes": [
@@ -1800,6 +1808,14 @@
 		{
 			"src": "/api/copy/subscriptions",
 			"dest": "/api/copy/subscriptions.js"
+		},
+		{
+			"src": "/api/copy/earnings",
+			"dest": "/api/copy/earnings.js"
+		},
+		{
+			"src": "/api/copy/settle-fee",
+			"dest": "/api/copy/settle-fee.js"
 		},
 		{
 			"src": "/api/pump/build-metadata",

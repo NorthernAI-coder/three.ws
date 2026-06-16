@@ -121,6 +121,7 @@ export default wrap(async (req, res) => {
 		fee_usd: Number(usd.toFixed(4)),
 		quote: quote.token,
 		memo: quote.quote.nonce,
+		mint: quote.quote.mint,
 		legs: quote.quote.legs,
 		expires_at: quote.expiresAt,
 	});
