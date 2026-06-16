@@ -535,6 +535,88 @@
 		}
 		.irl-sheet-close:hover { color: #e5e7eb; border-color: rgba(255,255,255,0.25); background: rgba(255,255,255,0.10); }
 
+		/* Caption input panel — slides up before pin is saved */
+		#irl-caption-panel {
+			position: fixed;
+			bottom: 0;
+			left: 0;
+			right: 0;
+			z-index: 21;
+			background: rgba(12,14,20,0.95);
+			border-top: 1px solid rgba(255,255,255,0.12);
+			border-radius: 18px 18px 0 0;
+			padding: 20px 22px 36px;
+			backdrop-filter: blur(22px);
+			-webkit-backdrop-filter: blur(22px);
+			transform: translateY(100%);
+			transition: transform 0.28s cubic-bezier(0.32,0.72,0,1);
+			pointer-events: none;
+		}
+		#irl-caption-panel.is-open {
+			transform: translateY(0);
+			pointer-events: all;
+		}
+		#irl-caption-panel .irl-sheet-handle { margin-bottom: 14px; }
+		#irl-caption-panel h3 { font-size: 16px; font-weight: 700; color: #e5e7eb; margin: 0 0 12px; }
+		#irl-caption-input {
+			width: 100%;
+			background: rgba(255,255,255,0.05);
+			border: 1px solid rgba(255,255,255,0.13);
+			border-radius: 11px;
+			padding: 11px 13px;
+			color: #e5e7eb;
+			font: 14px/1.5 inherit;
+			resize: none;
+			box-sizing: border-box;
+			display: block;
+			margin-bottom: 12px;
+			transition: border-color 0.15s;
+		}
+		#irl-caption-input:focus { outline: none; border-color: rgba(52,211,153,0.5); }
+		#irl-caption-input::placeholder { color: #6b7280; }
+		.irl-caption-row { display: flex; gap: 10px; }
+		#irl-caption-confirm { flex: 1; padding: 12px 16px; border-radius: 12px; border: 1px solid rgba(52,211,153,0.4); background: rgba(52,211,153,0.18); color: #34d399; font: 600 14px inherit; cursor: pointer; transition: background 0.15s; }
+		#irl-caption-confirm:hover { background: rgba(52,211,153,0.28); }
+		#irl-caption-cancel { width: 44px; height: 44px; padding: 0; border-radius: 12px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.06); color: #6b7280; font: 600 18px inherit; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.15s; }
+		#irl-caption-cancel:hover { background: rgba(255,255,255,0.12); color: #e5e7eb; }
+
+		/* My Pins management sheet */
+		#irl-mypins-sheet {
+			position: fixed;
+			bottom: 0;
+			left: 0;
+			right: 0;
+			z-index: 21;
+			background: rgba(12,14,20,0.95);
+			border-top: 1px solid rgba(255,255,255,0.10);
+			border-radius: 18px 18px 0 0;
+			padding: 20px 22px 36px;
+			backdrop-filter: blur(22px);
+			-webkit-backdrop-filter: blur(22px);
+			transform: translateY(100%);
+			transition: transform 0.28s cubic-bezier(0.32,0.72,0,1);
+			pointer-events: none;
+			max-height: 70vh;
+			overflow-y: auto;
+		}
+		#irl-mypins-sheet.is-open {
+			transform: translateY(0);
+			pointer-events: all;
+		}
+		#irl-mypins-sheet .irl-sheet-handle { margin-bottom: 14px; }
+		.irl-mypins-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+		.irl-mypins-header h3 { font-size: 16px; font-weight: 700; color: #e5e7eb; margin: 0; }
+		.irl-pin-row { display: flex; align-items: flex-start; gap: 12px; padding: 11px 0; border-bottom: 1px solid rgba(255,255,255,0.07); }
+		.irl-pin-row:last-child { border-bottom: none; }
+		.irl-pin-info { flex: 1; min-width: 0; }
+		.irl-pin-name { font-size: 14px; font-weight: 600; color: #e5e7eb; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+		.irl-pin-caption { font-size: 12.5px; color: #9ca3af; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+		.irl-pin-meta { font-size: 11.5px; color: #6b7280; margin-top: 3px; }
+		.irl-pin-del { flex-shrink: 0; padding: 6px 8px; border-radius: 8px; border: 1px solid rgba(248,113,113,0.2); background: rgba(248,113,113,0.08); color: #f87171; font: 600 12px inherit; cursor: pointer; transition: background 0.15s; white-space: nowrap; }
+		.irl-pin-del:hover { background: rgba(248,113,113,0.18); }
+		.irl-mypins-empty { font-size: 14px; color: #6b7280; text-align: center; padding: 18px 0; }
+		#irl-mypins-btn { display: none; }
+
 		/* 3D→2D agent labels (injected by JS per nearby pin) */
 		.irl-agent-label {
 			position: fixed;
@@ -671,6 +753,10 @@
 			<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>
 			Clear
 		</button>
+		<button class="irl-pill-btn" id="irl-mypins-btn" type="button" aria-label="My active pins">
+			<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+			My pins
+		</button>
 	</div>
 
 	<!-- Object picker (revealed when Add Object is active) -->
@@ -697,6 +783,27 @@
 		</button>
 	</div>
 </footer>
+
+<!-- Caption input panel (slides up before a pin is saved) -->
+<div id="irl-caption-panel" role="dialog" aria-modal="true" aria-label="Add a caption to your pin">
+	<div class="irl-sheet-handle" aria-hidden="true"></div>
+	<h3>Pin your agent here</h3>
+	<textarea id="irl-caption-input" rows="3" placeholder="Add a caption… e.g. 'P2P trades here — DM me on Telegram' (optional)"></textarea>
+	<div class="irl-caption-row">
+		<button id="irl-caption-confirm" type="button">Pin it</button>
+		<button id="irl-caption-cancel" type="button" aria-label="Cancel">×</button>
+	</div>
+</div>
+
+<!-- My Pins management sheet -->
+<div id="irl-mypins-sheet" role="dialog" aria-modal="true" aria-label="My active pins">
+	<div class="irl-sheet-handle" aria-hidden="true"></div>
+	<div class="irl-mypins-header">
+		<h3>My pins</h3>
+		<button class="irl-sheet-close" id="irl-mypins-close" type="button" aria-label="Close">×</button>
+	</div>
+	<div id="irl-mypins-list"><p class="irl-mypins-empty">Loading…</p></div>
+</div>
 
 <!-- Agent interaction bottom sheet (slides up when user taps a nearby pin label) -->
 <div id="irl-sheet" role="dialog" aria-modal="false" aria-label="Nearby agent">

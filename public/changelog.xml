@@ -71,6 +71,14 @@
 			<description>New page at /activity shows every Oracle conviction trade made by every autonomous 3D agent, in real time. Filter by tier (prime/strong/lean/watch) and mode (live/simulate). Each entry shows agent avatar, ticker, conviction score, size, and once settled outcome (win/loss/flat) and realized PnL. Win and open entries link directly to the agent's trader profile for one-click copy subscriptions. Platform-level KPIs (agents active, win rate, 7-day PnL) appear at the top. Auto-refreshes every 30 seconds.</description>
 		</item>
 		<item>
+			<title>Agent profile: deploy on-chain and edit controls for agent owners</title>
+			<link>https://three.ws/agents</link>
+			<guid isPermaLink="false">2026-06-16:Agent profile: deploy on-chain and edit controls for agent owners</guid>
+			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>When you own an agent, its profile page (/agent/:id) now shows a full owner action bar in the hero section with one-click access to Edit Agent, Manage Agents, and — for agents not yet deployed — a Deploy on-chain button. The BLOCKCHAIN DETAILS section now mounts an inline deploy widget that shows the chain selector and signs on Solana (Metaplex Core) or any EVM chain, with a persistent success chip linking to the explorer once deployed.</description>
+		</item>
+		<item>
 			<title>Agent trading record — proof-of-edge on every agent profile</title>
 			<link>https://three.ws/agents</link>
 			<guid isPermaLink="false">2026-06-16:Agent trading record — proof-of-edge on every agent profile</guid>
@@ -189,6 +197,14 @@
 			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>The home page now shows a live Top Traders widget ranked by 7-day composite score with direct links to copy each trader. The Oracle coin drawer now loads a proof-trades section showing every agent exit on that specific coin — multiple, P&amp;L, and a one-click copy link — closing the loop between conviction and evidence. Trade feed cards also link coin images and symbols directly to their Oracle conviction page.</description>
+		</item>
+		<item>
+			<title>IRL — permanent pins for signed-in users, compass heading, and manage placements from dashboard</title>
+			<link>https://three.ws/irl</link>
+			<guid isPermaLink="false">2026-06-16:IRL — permanent pins for signed-in users, compass heading, and manage placements from dashboard</guid>
+			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>Authenticated users now get permanent GPS pins (no 7-day expiry). Avatars face the correct compass direction when pinned — the heading is captured from the device compass and applied when foreign avatars spawn. New /dashboard/irl-placements page lets you view, edit captions, and remove all your placed avatars from any device without physically going back.</description>
 		</item>
 		<item>
 			<title>IRL and XR: choose any of your 3D avatars from a bottom-sheet picker</title>
@@ -453,6 +469,14 @@
 			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>Sharing an Oracle link — /oracle?mint=X — now generates a dynamic social card showing the coin's name, conviction score, tier badge, four-pillar breakdown (Who/How/What/Move), and smart wallet count. The card updates when you open the coin drawer, so the URL you share previews real conviction data on X, Telegram, Discord, and iMessage.</description>
+		</item>
+		<item>
+			<title>Oracle: rich social previews when sharing conviction links</title>
+			<link>https://three.ws/oracle</link>
+			<guid isPermaLink="false">2026-06-16:Oracle: rich social previews when sharing conviction links</guid>
+			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>Every Oracle coin conviction link now resolves to a server-rendered preview page (/oracle/coin/&lt;mint&gt;) that shows the score, tier, and pillar breakdown as a rich social card on X/Twitter, Telegram, Discord, Slack, and iMessage — no more generic placeholder when sharing a pump.fun conviction signal. The Oracle drawer's Share button and tweet links now point to these canonical share URLs. A Copy link button in the drawer makes it one-tap to grab the shareable link.</description>
 		</item>
 		<item>
 			<title>Oracle: Verify Telegram setup with a test message</title>
