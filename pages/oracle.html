@@ -473,6 +473,7 @@
 		.hs-wrap { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; margin-bottom: 20px; }
 		.hs-card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 12px 14px; cursor: pointer; transition: border-color .16s, transform .16s; display: flex; flex-direction: column; gap: 8px; }
 		.hs-card:hover { border-color: color-mix(in srgb, var(--cyan) 42%, var(--line)); transform: translateY(-2px); }
+		.hs-card.active { border-color: var(--cyan); background: color-mix(in srgb, var(--cyan) 8%, var(--panel)); }
 		.hs-head { display: flex; align-items: center; gap: 10px; }
 		.hs-img { width: 36px; height: 36px; border-radius: 8px; object-fit: cover; background: radial-gradient(120% 100% at 50% 0%, #1b2233, #0d1018); border: 1px solid var(--line); display: grid; place-items: center; font: 700 13px/1 var(--mono); color: var(--faint); flex: none; }
 		.hs-cat { font-weight: 700; font-size: 13px; text-transform: capitalize; }

@@ -151,6 +151,10 @@
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 10
 		},
+		"api/oracle/categories.js": {
+			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
+			"maxDuration": 10
+		},
 		"api/copy/settle-fee.js": {
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 60
@@ -1799,6 +1803,10 @@
 		{
 			"src": "/api/oracle/follow",
 			"dest": "/api/oracle/follow.js"
+		},
+		{
+			"src": "/api/oracle/categories",
+			"dest": "/api/oracle/categories.js"
 		},
 		{
 			"src": "/api/oracle/backtest",
