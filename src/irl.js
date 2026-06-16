@@ -100,7 +100,7 @@ function setStatus(msg, { error = false, loading = false, sticky = false } = {})
 }
 
 // ── Renderer / scene ──────────────────────────────────────────────────────
-const renderer = new WebGLRenderer({ canvas, antialias: true, alpha: true });
+const renderer = new WebGLRenderer({ canvas, antialias: true, alpha: true, preserveDrawingBuffer: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight, false);
 renderer.setClearColor(0x000000, 0);
@@ -283,7 +283,43 @@ if (!navigator.mediaDevices?.getUserMedia) {
 // ── Placed objects ────────────────────────────────────────────────────────
 let placeModeActive = false;
 let selectedType    = 'orb';
-const placedObjects = []; // { mesh, spawnT }
+const placedObjects = []; // { mesh, spawnT, type }
+
+// ── Session persistence (localStorage) ───────────────────────────────────
+const SESSION_KEY = 'irl_session_v1';
+
+function _saveSession() {
+	try {
+		localStorage.setItem(SESSION_KEY, JSON.stringify({
+			avatarId: _currentAvatarId,
+			locked:   avatarLocked,
+			placedObjects: placedObjects.map(o => ({
+				type: o.type,
+				x:    o.mesh.position.x,
+				z:    o.mesh.position.z,
+			})),
+		}));
+	} catch {}
+}
+
+function _restoreSession() {
+	try {
+		const raw = localStorage.getItem(SESSION_KEY);
+		if (!raw) return;
+		const s = JSON.parse(raw);
+		for (const o of (s.placedObjects ?? [])) {
+			const def = OBJ_DEFS[o.type];
+			if (!def) continue;
+			const mesh = def.create();
+			mesh.position.x = Number(o.x) || 0;
+			mesh.position.z = Number(o.z) || 0;
+			mesh.scale.setScalar(1);
+			scene.add(mesh);
+			placedObjects.push({ mesh, spawnT: SPAWN_DURATION, type: o.type });
+		}
+		if (placedObjects.length) clearBtn.hidden = false;
+	} catch {}
+}
 
 const OBJ_DEFS = {
 	orb: {
@@ -389,6 +425,7 @@ clearBtn.addEventListener('click', () => {
 	placedObjects.length = 0;
 	clearBtn.hidden = true;
 	setStatus('Objects cleared');
+	_saveSession();
 });
 
 // ── Tap-to-place raycasting ───────────────────────────────────────────────
@@ -416,8 +453,9 @@ canvas.addEventListener('pointerup', e => {
 	mesh.position.z = hits[0].point.z;
 	mesh.scale.setScalar(0.001);
 	scene.add(mesh);
-	placedObjects.push({ mesh, spawnT: 0 });
+	placedObjects.push({ mesh, spawnT: 0, type: selectedType });
 	clearBtn.hidden = false;
+	_saveSession();
 });
 
 // ── Joystick ──────────────────────────────────────────────────────────────
@@ -500,6 +538,8 @@ function _clearAvatar() {
 async function loadAvatar(idOrUrl, nameOverride) {
 	// Resolve id/url — accepts: null (default), a UUID (look up), a direct URL
 	const id  = idOrUrl !== undefined ? idOrUrl : avatarIdParam;
+	// Track the active avatar for session persistence
+	if (id && !/^https?:\/\//.test(id) && !id.startsWith('/')) _currentAvatarId = id;
 	let avatarName = nameOverride || 'Your Avatar';
 	let glbUrl     = resolveAvatarUrl(typeof idOrUrl === 'string' && /^https?:\/\/|^\//.test(idOrUrl) ? idOrUrl : id);
 
@@ -558,6 +598,7 @@ async function loadAvatar(idOrUrl, nameOverride) {
 	cameraBtn.disabled = false;
 	cameraBtn.removeAttribute('aria-busy');
 	setStatus(null);
+	_saveSession();
 }
 
 // ── Avatar picker ─────────────────────────────────────────────────────────
@@ -688,6 +729,7 @@ async function setLocked(next) {
 	setStatus(next
 		? (arActive ? `Pinned in real space${gpsNote} — move phone to look around` : 'Agent pinned — drag to orbit')
 		: 'Agent unpinned');
+	_saveSession();
 }
 
 if (lockBtn) {
@@ -1274,7 +1316,10 @@ fetch('/api/irl/pins?mine=1', { credentials: 'include' })
 	.catch(() => {});
 
 loadAvatar()
-	.then(() => requestAnimationFrame(tick))
+	.then(() => {
+		_restoreSession();
+		requestAnimationFrame(tick);
+	})
 	.catch(err => {
 		log.error('[irl] avatar load failed:', err);
 		nameEl.textContent = 'Avatar';

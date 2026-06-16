@@ -421,7 +421,7 @@ async function onSave({ auto = false } = {}) {
 			await captureAndUploadThumbnail(avatar.id).catch(() => {});
 			releaseObjectUrl();
 			try { window.__twsGuide?.complete('create'); } catch (_) {}
-			window.location.href = '/dashboard/avatars?saved=1';
+			window.location.href = `/create/next?avatarId=${encodeURIComponent(avatar.id)}&name=${encodeURIComponent(name)}&from=object`;
 			return;
 		}
 
@@ -446,7 +446,7 @@ async function onSave({ auto = false } = {}) {
 		// Mark the "create your first avatar" step of the getting-started guide
 		// done at the true completion point, before we navigate away.
 		try { window.__twsGuide?.complete('create'); } catch (_) {}
-		window.location.href = '/app?agent=' + agent.id;
+		window.location.href = `/create/next?agentId=${encodeURIComponent(agent.id)}&avatarId=${encodeURIComponent(avatar.id)}&name=${encodeURIComponent(name)}&from=agent`;
 	} catch (err) {
 		log.error('[create-review] save failed', err);
 		setSaveCancellable(false);
