@@ -104,10 +104,12 @@ export const pumpfunMcp = {
 	async graduations({ limit = 20 } = {}) {
 		if (pumpfunBotEnabled()) {
 			const r = await jsonrpc('getGraduations', { limit });
+			// Propagate explicit RPC application errors (e.g. auth / config problems).
+			if (!r.ok && r.error && r.error !== 'bot not configured') return r;
 			const arr = Array.isArray(r.data) ? r.data : r.data?.items;
 			if (r.ok && Array.isArray(arr) && arr.length) return { ok: true, data: arr };
-			// Bot configured but unreachable / empty — fall through to the live
-			// WS-fed table rather than surfacing an error or empty result.
+			// Bot unreachable or returned empty — fall through to the live
+			// WS-fed table so the tool never surfaces a blank result.
 		}
 		const items = await liveGraduations(limit);
 		return { ok: true, data: items };
