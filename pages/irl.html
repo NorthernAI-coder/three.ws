@@ -358,6 +358,17 @@
 			background: rgba(251,191,36,0.1);
 		}
 		#irl-lock-btn.is-active:hover { background: rgba(251,191,36,0.18); }
+		/* Gyro pulse on lock icon when actively tracking orientation in AR */
+		body.is-ar.is-locked #irl-lock-icon {
+			animation: irl-gyro-pulse 2.5s ease-in-out infinite;
+		}
+		@keyframes irl-gyro-pulse {
+			0%, 100% { opacity: 1; }
+			50%       { opacity: 0.45; }
+		}
+		/* Hide joystick when avatar is locked (can't move) */
+		body.is-ar.is-locked #irl-joystick { pointer-events: none; opacity: 0; transition: opacity 0.2s; }
+		body.is-ar.is-locked #irl-keys { display: none; }
 
 		/* Object picker — slides up above the secondary row */
 		#irl-picker {
