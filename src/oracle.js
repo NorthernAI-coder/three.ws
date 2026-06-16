@@ -104,6 +104,12 @@ function boot() {
 
 	loadFeed();
 	openStream();
+
+	// If the page was opened with ?mint= (e.g. from a shared link or Telegram alert),
+	// open that coin's drawer immediately after the feed loads.
+	const initialMint = new URLSearchParams(location.search).get('mint');
+	const MINT_RE2 = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+	if (initialMint && MINT_RE2.test(initialMint)) openCoin(initialMint);
 }
 
 function switchView(view) {
@@ -260,6 +266,8 @@ function onLiveCoin(it) {
 	if (state.minScore && it.score < state.minScore) return;
 	const isNew = !state.feed.has(it.mint);
 	state.feed.set(it.mint, it);
+	// Push fresh coin to the 3D graph if it's mounted.
+	if (graphHandle?.addCoin) graphHandle.addCoin(it);
 	if (state.view !== 'feed') return;
 	renderFeed();
 	if (isNew) {
@@ -342,6 +350,10 @@ async function openCoin(mint) {
 	dr.classList.add('open'); dr.setAttribute('aria-hidden', 'false');
 	$('#drTitle').textContent = 'Loading…';
 	$('#drBody').innerHTML = '<div class="state">Reading the order book…</div>';
+	// Update URL so this conviction view is shareable / bookmarkable.
+	const url = new URL(location.href);
+	url.searchParams.set('mint', mint);
+	history.replaceState(null, '', url.toString());
 	const { ok, data } = await api(`/api/oracle/coin?mint=${encodeURIComponent(mint)}&network=${NETWORK}`);
 	if (!ok || !data || !data.conviction) {
 		$('#drTitle').textContent = 'Not observed yet';
@@ -350,6 +362,50 @@ async function openCoin(mint) {
 	}
 	renderDrawer(data);
 }
+
+function structurePanel(st) {
+	if (!st) return '';
+	const pct = (n) => (n == null ? '—' : `${Math.round(Number(n))}%`);
+	const bar = (val, color) => `<div class="str-track"><div class="str-fill" style="width:${Math.max(0,Math.min(100,val||0))}%;background:${color}"></div></div>`;
+	const organic  = Number(st.organicScore  ?? 0);
+	const bundle   = Number(st.bundleScore   ?? 0);
+	const top10    = Number(st.top10Pct      ?? 0);
+	const connect  = Number(st.bubblemapConnectivity ?? 0);
+	const devSold  = Number(st.devSoldPct    ?? 0);
+	const devBuy   = st.creatorHoldPct != null ? `${Math.round(Number(st.creatorHoldPct))}%` : '—';
+	const buyers   = st.uniqueBuyers   ?? '—';
+	const bundleFl = st.bundleFlag;
+	if (!st.organicScore && !st.bundleScore && !st.top10Pct && !st.bubblemapConnectivity) return '';
+	return `
+		<div class="dr-sec">Structure <span style="color:var(--faint);font-weight:400;font-size:10px">wallet graph · buy pattern</span></div>
+		<div class="str-grid">
+			<div class="str-row">
+				<span class="str-lbl">Organic buy</span>
+				${bar(organic, 'var(--up)')}
+				<span class="str-val" style="color:var(--up)">${pct(organic)}</span>
+			</div>
+			<div class="str-row">
+				<span class="str-lbl">Bundle / coord</span>
+				${bar(bundle, bundleFl ? 'var(--down)' : 'var(--amber)')}
+				<span class="str-val" style="color:${bundleFl ? 'var(--down)' : 'var(--amber)'}">${pct(bundle)}${bundleFl ? ' ⚑' : ''}</span>
+			</div>
+			${top10 ? `<div class="str-row">
+				<span class="str-lbl">Top 10 hold</span>
+				${bar(top10, top10 > 60 ? 'var(--down)' : 'var(--gold)')}
+				<span class="str-val" style="color:${top10 > 60 ? 'var(--down)' : 'var(--gold)'}">${pct(top10)}</span>
+			</div>` : ''}
+			${connect ? `<div class="str-row">
+				<span class="str-lbl">Graph density</span>
+				${bar(connect, connect > 50 ? 'var(--down)' : 'var(--muted)')}
+				<span class="str-val" style="color:${connect > 50 ? 'var(--down)' : 'var(--muted)'}">${pct(connect)}</span>
+			</div>` : ''}
+		</div>
+		<div class="coin-meta" style="margin-top:10px">
+			${buyers !== '—' ? `<span class="chip">buyers <b>${buyers}</b></span>` : ''}
+			${devBuy !== '—' ? `<span class="chip ${devSold > 50 ? 'flag' : ''}">dev hold <b>${devBuy}</b>${devSold > 20 ? ` · sold ${Math.round(devSold)}%` : ''}</span>` : ''}
+		</div>`;
+}
+
 
 function renderDrawer(d) {
 	const c = d.conviction; const p = c.pillars || {};
@@ -379,6 +435,7 @@ function renderDrawer(d) {
 		${narr ? `<div class="dr-sec">Narrative</div><div style="font-size:13.5px;color:var(--ink)">${esc(narr.narrative || '')}</div>
 			<div class="coin-meta" style="margin-top:8px"><span class="chip cat">${esc(narr.category)}</span><span class="chip">virality <b>${narr.virality ?? '—'}</b></span><span class="chip">${esc(narr.source || '')}</span></div>` : ''}
 		<div class="dr-sec">Why this score</div>${reasons}
+		${structurePanel(d.components?.structure)}
 		<div class="dr-sec">Who's in <span style="color:var(--faint)">(${(d.whos_in || []).length})</span></div>${whos}
 		${out ? `<div class="dr-sec">Outcome</div><div class="coin-meta">
 			<span class="chip ${out.graduated ? 'sm' : out.rugged ? 'flag' : ''}">${out.graduated ? 'graduated ✓' : out.rugged ? 'rugged ✕' : 'live'}</span>
@@ -424,6 +481,12 @@ function closeDrawer() {
 	// Tear down the trade tape so the PumpPortal SSE connection closes.
 	state.tape?.destroy();
 	state.tape = null;
+	// Clear the mint param so the URL reflects the closed state.
+	const url = new URL(location.href);
+	if (url.searchParams.has('mint')) {
+		url.searchParams.delete('mint');
+		history.replaceState(null, '', url.toString());
+	}
 }
 
 async function openWallet(wallet) {
