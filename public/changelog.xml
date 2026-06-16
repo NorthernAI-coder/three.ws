@@ -79,6 +79,14 @@
 			<description>You can now copy any trader from their profile. Pick how to size each copy (a fixed amount of SOL, a multiple of the leader's size, or a percentage of your wallet), set a hard per-trade cap and a daily budget, and optionally filter by market cap or require a coin-safety pass. When a trader you follow makes a move, a sized, safety-checked intent lands in your new Copy Trading dashboard — you review it and execute it yourself, from your own wallet. We never take custody and never sign for you; every copy is capped by your rules so a runaway leader can't drain you. Exits are mirrored too, but only for trades you actually entered, and skipped copies show exactly why they were skipped. Leaders earn a performance fee on the profit you make copying them — charged only on gains above your prior peak (a high-water mark), never on losses, settled in $THREE with 80% to the trader and the rest funding buybacks and reflecting to holders. Manage everything — pause, resume, stop, edit size — in one place.</description>
 		</item>
 		<item>
+			<title>Copy trading: Oracle conviction gate</title>
+			<link>https://three.ws/leaderboard</link>
+			<guid isPermaLink="false">2026-06-16:Copy trading: Oracle conviction gate</guid>
+			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Copy subscriptions now support a minimum Oracle conviction score. Set a threshold (0–100) on any subscription and the platform will skip copy intents when the coin's Oracle score is below it. Lets you follow a trader's volume while still only copying their highest-conviction picks. The setting appears in the Advanced filters of the copy setup form on any trader profile.</description>
+		</item>
+		<item>
 			<title>Every launch now has its own page — the full story of a coin in one place</title>
 			<link>https://three.ws/launches</link>
 			<guid isPermaLink="false">2026-06-16:Every launch now has its own page — the full story of a coin in one place</guid>
@@ -149,6 +157,14 @@
 			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
 			<category>improvement</category>
 			<description>Oracle now runs on a serverless cron that fires every two minutes: it scores the latest pump.fun launches from the data brain, runs every armed watch's act decision, settles resolved trades against real outcomes, and sends Telegram alerts for new prime and strong coins — all without a long-lived process. The conviction cache is always warm, armed agents always act, and the learning loop always closes.</description>
+		</item>
+		<item>
+			<title>Oracle conviction visible across every trading surface</title>
+			<link>https://three.ws/oracle</link>
+			<guid isPermaLink="false">2026-06-16:Oracle conviction visible across every trading surface</guid>
+			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>Oracle conviction badges now appear on: live sniper positions in the dashboard (score + tier next to each open trade), pending copy intents (so you can see the conviction before you execute), and the pump.fun live stream (coins get their badge scored asynchronously once Oracle rates them).</description>
 		</item>
 		<item>
 			<title>Oracle copy trading — conviction buys now fan out to copy subscribers</title>

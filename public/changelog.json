@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-16T05:55:19.137Z",
+	"generated_at": "2026-06-16T06:10:14.784Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -101,6 +101,16 @@
 		{
 			"date": "2026-06-16",
 			"type": "update",
+			"title": "Copy trading: Oracle conviction gate",
+			"summary": "Copy subscriptions now support a minimum Oracle conviction score. Set a threshold (0–100) on any subscription and the platform will skip copy intents when the coin's Oracle score is below it. Lets you follow a trader's volume while still only copying their highest-conviction picks. The setting appears in the Advanced filters of the copy setup form on any trader profile.",
+			"link": "/leaderboard",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "update",
 			"title": "Every launch now has its own page — the full story of a coin in one place",
 			"summary": "Until now, clicking a coin on the launches feed sent you out to pump.fun. Now every launch opens a rich profile that stays on three.ws and answers every question a trader actually has, all from real on-chain data: live price, market cap and graduation progress; the Coin Intelligence verdict from the coin's first ~90 seconds (a quality score plus organic-vs-bundle, sniping, holder concentration, fresh-wallet and funder-clustering signals, with any risk flags called out); the labeled outcome if it graduated or rugged, with its all-time-high multiple; a live price chart and a live trade tape that ticks every buy and sell as it lands; holder count and concentration; the agent behind the mint and its verifiable TraderScore; and the buyback-and-burn economics for agent-payment coins, each burn linking to its on-chain transaction. Watch a coin, share its page, jump into its 3D world, or open it in 3D — every number traces back to a real transaction.",
 			"link": "/launches",
@@ -185,6 +195,16 @@
 			"type": "update",
 			"title": "Oracle conviction scores refresh every two minutes, automatically",
 			"summary": "Oracle now runs on a serverless cron that fires every two minutes: it scores the latest pump.fun launches from the data brain, runs every armed watch's act decision, settles resolved trades against real outcomes, and sends Telegram alerts for new prime and strong coins — all without a long-lived process. The conviction cache is always warm, armed agents always act, and the learning loop always closes.",
+			"link": "/oracle",
+			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "update",
+			"title": "Oracle conviction visible across every trading surface",
+			"summary": "Oracle conviction badges now appear on: live sniper positions in the dashboard (score + tier next to each open trade), pending copy intents (so you can see the conviction before you execute), and the pump.fun live stream (coins get their badge scored asynchronously once Oracle rates them).",
 			"link": "/oracle",
 			"tags": [
 				"improvement"
