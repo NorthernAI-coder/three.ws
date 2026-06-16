@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-16T10:22:03.936Z",
+	"generated_at": "2026-06-16T10:26:03.275Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -217,6 +217,17 @@
 			"link": "/dashboard/copy",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "update",
+			"title": "Create flow: guided \"what's next\" screen after every avatar save",
+			"summary": "Saving an avatar or completing an agent no longer drops you on a blank library page. A new /create/next screen appears immediately after: your 3D model spins in the left panel while three action cards on the right guide you through the natural progression — give it an AI brain, embed it on any site, or optionally deploy it on-chain. Each card deep-links directly with your new avatar or agent pre-loaded so the session continues without starting over.",
+			"link": "/create",
+			"tags": [
+				"feature",
+				"improvement"
 			]
 		},
 		{
