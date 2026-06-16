@@ -106,7 +106,7 @@ function buildFollowerMessage(follower, agentStats, coins) {
 		lines.push(`<b>Top conviction above your threshold (${follower.min_score})</b>`);
 		for (const c of coins) {
 			const e = TIER_EMOJI[c.tier] || '⚪';
-			lines.push(`${e} <b>$${esc(c.symbol || c.mint.slice(0, 6))}</b> · <code>${c.score}</code> · <a href="https://three.ws/oracle?mint=${encodeURIComponent(c.mint)}">view</a>`);
+			lines.push(`${e} <b>$${esc(c.symbol || c.mint.slice(0, 6))}</b> · <code>${c.score}</code> · <a href="https://three.ws/oracle/coin/${encodeURIComponent(c.mint)}">view</a>`);
 		}
 		lines.push(``);
 	} else {
@@ -199,7 +199,7 @@ function buildMessage(watch, stats, coins) {
 		lines.push(`<b>Top signals above threshold (${watch.min_score})</b>`);
 		for (const c of coins) {
 			const e = TIER_EMOJI[c.tier] || '⚪';
-			lines.push(`${e} <b>$${esc(c.symbol || c.mint.slice(0, 6))}</b> · <code>${c.score}</code> · <a href="https://three.ws/oracle?mint=${encodeURIComponent(c.mint)}">view</a>`);
+			lines.push(`${e} <b>$${esc(c.symbol || c.mint.slice(0, 6))}</b> · <code>${c.score}</code> · <a href="https://three.ws/oracle/coin/${encodeURIComponent(c.mint)}">view</a>`);
 		}
 		lines.push(``);
 	} else {

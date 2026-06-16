@@ -52,7 +52,7 @@ function format(coin) {
 		pillars ? `<i>${pillars}</i>` : '',
 		`<code>${escHtml(coin.mint)}</code>`,
 		`${category}${smart}`,
-		`<a href="https://pump.fun/coin/${encodeURIComponent(coin.mint)}">pump.fun</a>  ·  <a href="https://three.ws/oracle?mint=${encodeURIComponent(coin.mint)}">Oracle</a>`,
+		`<a href="https://pump.fun/coin/${encodeURIComponent(coin.mint)}">pump.fun</a>  ·  <a href="https://three.ws/oracle/coin/${encodeURIComponent(coin.mint)}">Oracle</a>`,
 	].filter(Boolean).join('\n');
 }
 
@@ -129,7 +129,7 @@ export async function alertProfitableExit(exits) {
 		const text = [
 			`${emoji} <b>${agentName}</b> made <b>${escHtml(pnlStr)}</b> on <b>$${sym}</b>${modeLabel}`,
 			`Peak: <b>${peakStr}</b>  ·  Size: ${escHtml(sizeStr)}  ·  Entry: ${tierE} ${escHtml(e.tier)} conviction (${e.conviction ?? '?'})`,
-			`<a href="https://pump.fun/coin/${encodeURIComponent(e.mint)}">pump.fun</a>  ·  <a href="https://three.ws/oracle?mint=${encodeURIComponent(e.mint)}">Oracle</a>  ·  <a href="https://three.ws/agents/${encodeURIComponent(e.agent_id)}">Track record</a>`,
+			`<a href="https://pump.fun/coin/${encodeURIComponent(e.mint)}">pump.fun</a>  ·  <a href="https://three.ws/oracle/coin/${encodeURIComponent(e.mint)}">Oracle</a>  ·  <a href="https://three.ws/agents/${encodeURIComponent(e.agent_id)}">Track record</a>`,
 		].join('\n');
 
 		await send(text);
@@ -165,7 +165,7 @@ export async function alertAgentEntry(entries) {
 		const text = [
 			`${tierE} <b>${agentName}</b> entered <b>$${sym}</b>`,
 			`${escHtml(e.tier)} conviction${convStr}  ·  ${escHtml(sizeStr)}`,
-			`<a href="https://pump.fun/coin/${encodeURIComponent(e.mint)}">pump.fun</a>  ·  <a href="https://three.ws/oracle?mint=${encodeURIComponent(e.mint)}">Oracle ↗</a>  ·  <a href="https://three.ws/trader/${encodeURIComponent(e.agent_id)}">Copy trades →</a>`,
+			`<a href="https://pump.fun/coin/${encodeURIComponent(e.mint)}">pump.fun</a>  ·  <a href="https://three.ws/oracle/coin/${encodeURIComponent(e.mint)}">Oracle ↗</a>  ·  <a href="https://three.ws/trader/${encodeURIComponent(e.agent_id)}">Copy trades →</a>`,
 		].join('\n');
 
 		await send(text);
@@ -241,7 +241,7 @@ export async function alertPersonalEntry(chatId, entry) {
 	const text = [
 		`${tierE} <b>${agentName}</b> entered <b>$${sym}</b>${modeLabel}`,
 		`${escHtml(entry.tier)} conviction${convStr}  ·  ${escHtml(sizeStr)}`,
-		`<a href="https://pump.fun/coin/${encodeURIComponent(entry.mint)}">pump.fun</a>  ·  <a href="https://three.ws/oracle?mint=${encodeURIComponent(entry.mint)}">Oracle ↗</a>`,
+		`<a href="https://pump.fun/coin/${encodeURIComponent(entry.mint)}">pump.fun</a>  ·  <a href="https://three.ws/oracle/coin/${encodeURIComponent(entry.mint)}">Oracle ↗</a>`,
 	].join('\n');
 
 	await sendTo(chatId, text);
@@ -295,7 +295,7 @@ export async function alertPersonalConvictionDrop(chatId, drop) {
 		`⚠️ <b>$${sym}</b> conviction weakened`,
 		`${emoji} ${newTier} · score <b>${drop.newScore}</b>  (was ${drop.entryScore} at entry,  −${delta} pts)`,
 		`Below your threshold of ${drop.minScore} — consider reviewing your position.`,
-		`<a href="https://pump.fun/coin/${mintLink}">pump.fun</a>  ·  <a href="https://three.ws/oracle?mint=${mintLink}">Oracle ↗</a>`,
+		`<a href="https://pump.fun/coin/${mintLink}">pump.fun</a>  ·  <a href="https://three.ws/oracle/coin/${mintLink}">Oracle ↗</a>`,
 	].join('\n');
 
 	await sendTo(chatId, text);
@@ -335,7 +335,7 @@ export async function alertFollowers(agentId, entry) {
 	const text = [
 		`${tierE} Followed agent entered <b>$${sym}</b>${modeLabel}`,
 		`${escHtml(entry.tier)} conviction (${score})  ·  ${escHtml(sizeStr)}`,
-		`<a href="https://pump.fun/coin/${encodeURIComponent(entry.mint)}">pump.fun</a>  ·  <a href="https://three.ws/oracle?mint=${encodeURIComponent(entry.mint)}">Oracle ↗</a>`,
+		`<a href="https://pump.fun/coin/${encodeURIComponent(entry.mint)}">pump.fun</a>  ·  <a href="https://three.ws/oracle/coin/${encodeURIComponent(entry.mint)}">Oracle ↗</a>`,
 	].join('\n');
 
 	let sent = 0;
