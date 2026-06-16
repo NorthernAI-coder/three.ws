@@ -111,6 +111,14 @@
 			<description>Wallet reputation now starts sharp instead of blank. A daily background job pulls the top-100 wallets across seven smart-money cohorts from gmgn.ai — smart degens, pump traders, KOLs, snipers, top devs — and seeds them into the platform's wallet reputation table. Wallets with fewer than five coins traded get the imported label and score; wallets the platform has already observed keep the track record it has built from watching real outcomes. Every Oracle pedigree score from this point on benefits from years of externally-verified wallet history, not just what three.ws has seen itself.</description>
 		</item>
 		<item>
+			<title>Oracle social signal — X posts now feed into coin conviction scores</title>
+			<link>https://three.ws/oracle</link>
+			<guid isPermaLink="false">2026-06-16:Oracle social signal — X posts now feed into coin conviction scores</guid>
+			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The Oracle's Narrative pillar now receives real-time social signal from X. When a coin's $SYMBOL is mentioned in a tweet, the post's reach and engagement — views, likes, retweets — translate into a virality boost that raises the Oracle's conviction score. KOL accounts (verified smart-money voices on X) apply a 1.5× multiplier. The POST /api/oracle/social endpoint accepts raw tweet batches from any scraper, and the three.surf chart tool ships a --push-social flag that pipes its tweet analysis directly into the Oracle after each run.</description>
+		</item>
+		<item>
 			<title>Rich OG cards on every shared coin link — price, score, and live status in the preview</title>
 			<link>https://three.ws/launches</link>
 			<guid isPermaLink="false">2026-06-16:Rich OG cards on every shared coin link — price, score, and live status in the preview</guid>
