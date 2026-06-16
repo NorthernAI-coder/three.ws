@@ -197,7 +197,7 @@
 					<div class="ag-actions">
 						<a class="ag-action primary" href="${esc(agentUrl)}">View</a>
 						<a class="ag-action" href="/agent/${esc(a.id)}/edit">Edit</a>
-						${!oc ? `<a class="ag-action" href="/deploy?id=${esc(a.id)}" style="color:var(--gold);border-color:color-mix(in srgb, var(--gold) 28%, var(--line))">Deploy</a>` : ''}
+						${!oc ? `<a class="ag-action" href="/agent/${esc(a.id)}/edit" style="color:var(--gold);border-color:color-mix(in srgb, var(--gold) 28%, var(--line))">Deploy</a>` : ''}
 					</div>
 				</div>`;
 			}).join('')}</div>`;
