@@ -70,15 +70,18 @@ const STAGE_GLB_URL = '/club/props/stage.glb';
 const VENUE_GLB_URL = '/club/venue/club-venue.glb';
 const VENUE_HDRI_URL = '/club/venue/club-hdri.hdr';
 
-// Clips we actually use — keeps the manifest pre-fetch small. Pole-specific
-// clips (pole-spin, pole-climb, etc.) are added here once their source FBX
-// files land in /public/animations/ and re-run of `npm run build:animations`
-// registers them in /animations/manifest.json.
+// Clips we actually use — keeps the manifest pre-fetch small. Every name here
+// must exist in /animations/manifest.json (built by `npm run build:animations`);
+// a style sold by /api/x402/dance-tip may only chain clips from this set, or a
+// paid routine would crossfade to a no-op and leave the dancer frozen.
 const REQUIRED_CLIPS = new Set([
 	'idle', 'dance', 'rumba', 'silly', 'thriller', 'capoeira', 'walk',
-	'pole-walk-on', 'pole-spin', 'pole-climb', 'pole-invert', 'pole-floorwork', 'pole-bow',
 ]);
 const WALK_CLIP = 'walk';
+// Guaranteed-present clip every dancer can drive. Used as the failsafe routine
+// when a ticket's requested clips can't be loaded on the chosen rig, so a paid
+// tip always yields a real performance (Hard rule 9: ship a working fallback).
+const FALLBACK_CLIP = 'dance';
 
 const TIP_ENDPOINT = '/api/x402/dance-tip';
 const TIPS_HISTORY_URL = '/api/club/tips?limit=20';
@@ -775,17 +778,34 @@ class PoleStation {
 
 	async _arriveAtPole() {
 		this.walkPhase = 'dancing';
-		const steps = ticketSteps(this.activeTicket).length
+		const requested = ticketSteps(this.activeTicket).length
 			? ticketSteps(this.activeTicket)
-			: [{ clip: this.activeTicket?.clip || 'dance', durationSec: this.activeTicket?.durationSec || 12 }];
+			: [{ clip: this.activeTicket?.clip || FALLBACK_CLIP, durationSec: this.activeTicket?.durationSec || 12 }];
 
-		await playSequence({
-			anim: this.anim,
-			steps,
-			fadeSec: PERFORMANCE_FADE,
-			isCancelled: () => !this.performing,
-			sleep: (ms) => this.sleep(ms),
-		});
+		// A tip is real on-chain money — never let a missing or un-retargetable
+		// clip leave her standing frozen at the pole. Drop steps this rig can't
+		// drive; if that empties the routine, perform the always-present fallback
+		// clip for the routine's full duration so the payer always sees a dance.
+		let steps = this.anim ? requested.filter((s) => this.anim.canPlay(s.clip)) : requested;
+		if (!steps.length) {
+			const total = requested.reduce((acc, s) => acc + (Number(s.durationSec) || 0), 0)
+				|| this.activeTicket?.durationSec || 12;
+			steps = [{ clip: FALLBACK_CLIP, durationSec: total }];
+		}
+
+		try {
+			await playSequence({
+				anim: this.anim,
+				steps,
+				fadeSec: PERFORMANCE_FADE,
+				isCancelled: () => !this.performing,
+				sleep: (ms) => this.sleep(ms),
+			});
+		} catch (err) {
+			// A playback fault must still release the stage — fall through to the
+			// walk-off below rather than stranding her mid-routine.
+			log.warn(`[club] dancer ${this.id} performance playback failed`, err);
+		}
 
 		// Sequence finished (or was cancelled) — step the dancer back off the
 		// pole to her idle home. Cancellation is a fast-path: performing is
@@ -868,8 +888,8 @@ class PoleStation {
 			const dist = dir.length();
 			if (dist < 0.04) {
 				this.rig.position.copy(target);
-				if (this.walkPhase === 'to-pole') this._arriveAtPole();
-				else this._arriveHome();
+				if (this.walkPhase === 'to-pole') this._arriveAtPole().catch((err) => log.warn(`[club] dancer ${this.id} arrive-at-pole failed`, err));
+				else this._arriveHome().catch((err) => log.warn(`[club] dancer ${this.id} arrive-home failed`, err));
 			} else {
 				dir.normalize();
 				const step = Math.min(dist, 1.4 * dt);
@@ -1280,7 +1300,10 @@ async function tipDancer({ dancer, dance, button }) {
 		// A short triple buzz on phones the moment USDC settles — the tip lands
 		// in your hand the way it lands on stage.
 		try { navigator.vibrate?.([18, 40, 60]); } catch { /* unsupported */ }
-		station.startPerformance(ticket);
+		station.startPerformance(ticket).catch((err) => {
+			log.warn('[club] startPerformance failed', err);
+			setStatus('Performance hit a snag — tip again to retry.', { kind: 'warn' });
+		});
 
 		// Crossfade ambience → style loop in sync with the dancer walking
 		// out. Prefer the explicit `track` from the ticket; fall back to a

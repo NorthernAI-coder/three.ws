@@ -288,6 +288,17 @@ const placedObjects = []; // { mesh, spawnT, type }
 // ── Session persistence (localStorage) ───────────────────────────────────
 const SESSION_KEY = 'irl_session_v1';
 
+// Snapshot the persisted session ONCE at module load. loadAvatar() runs
+// _saveSession() against the empty boot scene before _restoreSession() gets to
+// read it, so reading localStorage live inside restore would see that wiped
+// state. Capture the real saved session here instead.
+const _savedSession = (() => {
+	try {
+		const raw = localStorage.getItem(SESSION_KEY);
+		return raw ? JSON.parse(raw) : null;
+	} catch { return null; }
+})();
+
 function _saveSession() {
 	try {
 		localStorage.setItem(SESSION_KEY, JSON.stringify({
@@ -303,21 +314,26 @@ function _saveSession() {
 }
 
 function _restoreSession() {
+	const s = _savedSession;
+	if (!s) return;
 	try {
-		const raw = localStorage.getItem(SESSION_KEY);
-		if (!raw) return;
-		const s = JSON.parse(raw);
+		// Objects first, then lock — so setLocked()'s own save (and the explicit
+		// one below) capture the fully restored scene rather than an empty one.
 		for (const o of (s.placedObjects ?? [])) {
 			const def = OBJ_DEFS[o.type];
 			if (!def) continue;
 			const mesh = def.create();
 			mesh.position.x = Number(o.x) || 0;
 			mesh.position.z = Number(o.z) || 0;
-			mesh.scale.setScalar(1);
+			mesh.scale.setScalar(1); // skip spawn animation on restore
 			scene.add(mesh);
 			placedObjects.push({ mesh, spawnT: SPAWN_DURATION, type: o.type });
 		}
 		if (placedObjects.length) clearBtn.hidden = false;
+		if (s.locked) setLocked(true);
+		// loadAvatar() persisted the empty boot scene before we got here; write
+		// the restored state back so it survives a refresh with no further edits.
+		_saveSession();
 	} catch {}
 }
 
@@ -775,9 +791,13 @@ const NEARBY_RADIUS   = 150; // metres
 const NEARBY_INTERVAL = 15000; // ms
 
 function onGPSPosition(pos) {
+	const wasReady = gpsState.ready;
 	gpsState.lat   = pos.coords.latitude;
 	gpsState.lng   = pos.coords.longitude;
 	gpsState.ready = true;
+
+	// First fix: GPS is live, so the user can place + manage pins from here.
+	if (!wasReady) revealMyPinsBtn();
 
 	// Move pinned avatar to its GPS-anchored world position
 	if (gpsPin) {
@@ -870,8 +890,7 @@ function commitPin(pinLat, pinLng, headingDeg, caption) {
 			setStatus(result.permanent
 				? `Pinned facing ${dir} — permanently visible to nearby users`
 				: `Pinned facing ${dir} — others nearby can see you for 7 days`);
-			const myPinsBtn = document.getElementById('irl-mypins-btn');
-			if (myPinsBtn) myPinsBtn.style.display = '';
+			revealMyPinsBtn();
 		}
 	});
 }
@@ -993,65 +1012,123 @@ function updateNearbyBadge() {
 }
 
 // ── My Pins management ────────────────────────────────────────────────────
+//
+// Anonymous ownership: pins are tied to the localStorage device token, so a
+// visitor can browse and delete the pins they placed from this device even
+// after a reload — no account needed. The endpoint also unions in any pins the
+// user placed while signed in.
+
+const TRASH_SVG = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
+
+// Haversine distance in metres between two GPS points
+function haversineMeters(lat1, lng1, lat2, lng2) {
+	const R = 6371000;
+	const dLat = (lat2 - lat1) * Math.PI / 180;
+	const dLng = (lng2 - lng1) * Math.PI / 180;
+	const a = Math.sin(dLat / 2) ** 2 +
+		Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+	return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function relativeTime(iso) {
+	const t = new Date(iso).getTime();
+	if (!isFinite(t)) return '';
+	const secs = Math.max(0, Math.round((Date.now() - t) / 1000));
+	if (secs < 60) return 'just now';
+	const mins = Math.round(secs / 60);
+	if (mins < 60) return `${mins}m ago`;
+	const hrs = Math.round(mins / 60);
+	if (hrs < 24) return `${hrs}h ago`;
+	return `${Math.round(hrs / 24)}d ago`;
+}
+
+function _pinMetaLine(p) {
+	const parts = [];
+	if (gpsState.ready && isFinite(p.lat) && isFinite(p.lng)) {
+		parts.push(`${Math.round(haversineMeters(gpsState.lat, gpsState.lng, p.lat, p.lng))}m away`);
+	}
+	if (p.placed_at) parts.push(relativeTime(p.placed_at));
+	if (!p.expires_at) parts.push('permanent');
+	return parts.join(' · ');
+}
 
 async function loadMyPins() {
-	const list = document.getElementById('irl-mypins-list');
-	if (!list) return;
-	list.innerHTML = '<p class="irl-mypins-empty">Loading…</p>';
+	if (!_deviceToken) return [];
 	try {
-		const r = await fetch('/api/irl/pins?mine=1', { credentials: 'include' });
-		if (!r.ok) {
-			list.innerHTML = '<p class="irl-mypins-empty">Sign in to view your pins</p>';
-			return;
-		}
-		const { pins } = await r.json();
-		if (!pins.length) {
-			list.innerHTML = '<p class="irl-mypins-empty">No active pins</p>';
-			return;
-		}
-		list.innerHTML = pins.map(p => `<div class="irl-pin-row" data-pid="${_escHtml(p.id)}">
-			<div class="irl-pin-info">
-				<div class="irl-pin-name">${_escHtml(p.avatar_name || 'Agent')}</div>
-				${p.caption ? `<div class="irl-pin-caption">${_escHtml(p.caption)}</div>` : ''}
-				<div class="irl-pin-meta">${p.expires_at ? `Expires ${new Date(p.expires_at).toLocaleDateString()}` : 'Permanent'}</div>
-			</div>
-			<button class="irl-pin-del" data-del="${_escHtml(p.id)}" type="button">Remove</button>
-		</div>`).join('');
+		const r = await fetch(`/api/irl/pins/mine?deviceToken=${encodeURIComponent(_deviceToken)}`, {
+			credentials: 'include',
+		});
+		if (!r.ok) return [];
+		return (await r.json()).pins ?? [];
 	} catch {
-		list.innerHTML = '<p class="irl-mypins-empty">Failed to load</p>';
+		return [];
 	}
 }
 
-document.getElementById('irl-mypins-btn')?.addEventListener('click', () => {
+function renderMyPins(pins) {
+	const list = document.getElementById('irl-mypins-list');
+	if (!list) return;
+	if (!pins.length) {
+		list.innerHTML = '<p class="irl-mypins-empty">No active pins yet — pin your agent to a real-world spot and it shows up here.</p>';
+		return;
+	}
+	list.innerHTML = pins.map(p => `<div class="irl-pin-row" data-pid="${_escHtml(p.id)}">
+		<div class="irl-pin-info">
+			<div class="irl-pin-name">${_escHtml(p.avatar_name || 'Agent')}</div>
+			${p.caption ? `<div class="irl-pin-caption">${_escHtml(p.caption)}</div>` : ''}
+			<div class="irl-pin-meta">${_escHtml(_pinMetaLine(p))}</div>
+		</div>
+		<button class="irl-pin-del" data-del="${_escHtml(p.id)}" type="button" aria-label="Delete this pin">${TRASH_SVG}</button>
+	</div>`).join('');
+}
+
+async function openMyPinsSheet() {
 	const sheet = document.getElementById('irl-mypins-sheet');
-	if (!sheet) return;
+	const list  = document.getElementById('irl-mypins-list');
+	if (!sheet || !list) return;
 	sheet.classList.add('is-open');
-	loadMyPins();
-});
+	list.innerHTML = '<p class="irl-mypins-empty">Loading…</p>';
+	renderMyPins(await loadMyPins());
+}
+
+async function deleteMyPin(id, btn) {
+	if (btn) { btn.disabled = true; btn.innerHTML = '…'; }
+	const r = await fetch(
+		`/api/irl/pins?id=${encodeURIComponent(id)}&deviceToken=${encodeURIComponent(_deviceToken ?? '')}`,
+		{ method: 'DELETE', credentials: 'include' },
+	).catch(() => null);
+	if (!r?.ok) {
+		if (btn) { btn.disabled = false; btn.innerHTML = TRASH_SVG; }
+		setStatus('Could not delete that pin', { error: true });
+		return;
+	}
+	// If we just deleted the avatar currently anchored in this session, clear it.
+	if (gpsPin?.id === id) setLocked(false);
+
+	btn?.closest('.irl-pin-row')?.remove();
+	const list = document.getElementById('irl-mypins-list');
+	if (list && !list.querySelector('.irl-pin-row')) {
+		list.innerHTML = '<p class="irl-mypins-empty">No active pins</p>';
+	}
+	setStatus('Pin removed');
+}
+
+// Reveal the My pins control once GPS is live and this device has a token.
+function revealMyPinsBtn() {
+	if (!_deviceToken) return;
+	const btn = document.getElementById('irl-mypins-btn');
+	if (btn) btn.style.display = '';
+}
+
+document.getElementById('irl-mypins-btn')?.addEventListener('click', openMyPinsSheet);
 
 document.getElementById('irl-mypins-close')?.addEventListener('click', () => {
 	document.getElementById('irl-mypins-sheet')?.classList.remove('is-open');
 });
 
-document.getElementById('irl-mypins-list')?.addEventListener('click', async (e) => {
+document.getElementById('irl-mypins-list')?.addEventListener('click', (e) => {
 	const btn = e.target.closest('[data-del]');
-	if (!btn) return;
-	const id = btn.dataset.del;
-	btn.disabled = true;
-	btn.textContent = '…';
-	const r = await fetch(`/api/irl/pins?id=${encodeURIComponent(id)}`, {
-		method: 'DELETE', credentials: 'include',
-	}).catch(() => null);
-	if (r?.ok) {
-		btn.closest('.irl-pin-row')?.remove();
-		if (!document.getElementById('irl-mypins-list')?.querySelector('.irl-pin-row')) {
-			const list = document.getElementById('irl-mypins-list');
-			if (list) list.innerHTML = '<p class="irl-mypins-empty">No active pins</p>';
-		}
-	} else {
-		btn.disabled = false;
-		btn.textContent = 'Remove';
-	}
+	if (btn) deleteMyPin(btn.dataset.del, btn);
 });
 
 // ── Interaction sheet ─────────────────────────────────────────────────────
@@ -1101,6 +1178,27 @@ document.getElementById('irl-sheet-pay')?.addEventListener('click', async (e) =>
 
 	btn.disabled = true;
 	const origText = btn.textContent;
+
+	// Gate on an authorized wallet before signing. The x402 adapter would prompt
+	// lazily on first sign, but doing it up front gives the user a clear connect
+	// step and lets us bail cleanly (button re-enabled) if they decline.
+	btn.textContent = 'Connecting…';
+	try {
+		const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+		if (!Array.isArray(accounts) || !accounts.length) {
+			setStatus('Connect your wallet to pay via x402', { error: true });
+			btn.disabled = false;
+			btn.textContent = origText;
+			return;
+		}
+	} catch (err) {
+		const m = err?.message ?? String(err);
+		setStatus(/reject|denied|4001/i.test(m) ? 'Wallet connection cancelled' : `Couldn't connect wallet — ${m}`, { error: true });
+		btn.disabled = false;
+		btn.textContent = origText;
+		return;
+	}
+
 	btn.textContent = 'Sending…';
 	try {
 		const { withX402 } = await import('../packages/x402-fetch/dist/index.esm.js');
@@ -1304,18 +1402,14 @@ function tick() {
 // ── Boot ──────────────────────────────────────────────────────────────────
 initGPS();
 
-// Show My Pins button if the authenticated user already has saved pins
-fetch('/api/irl/pins?mine=1', { credentials: 'include' })
-	.then(r => r.ok ? r.json() : null)
-	.then(d => {
-		if (d?.pins?.length) {
-			const btn = document.getElementById('irl-mypins-btn');
-			if (btn) btn.style.display = '';
-		}
-	})
-	.catch(() => {});
+// Reveal My pins on load if this device already owns pins — management must
+// survive a reload (and a denied GPS prompt). The GPS-ready path reveals it too.
+loadMyPins().then(pins => { if (pins.length) revealMyPinsBtn(); });
 
-loadAvatar()
+// URL ?avatar= wins over the saved session (an explicit link is intentional);
+// otherwise fall back to whatever avatar was active last visit.
+const _targetAvatarId = avatarIdParam || _savedSession?.avatarId || null;
+loadAvatar(_targetAvatarId)
 	.then(() => {
 		_restoreSession();
 		requestAnimationFrame(tick);

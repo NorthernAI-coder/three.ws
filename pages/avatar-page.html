@@ -1434,20 +1434,70 @@
 				gap: 12px;
 			}
 			.av-related-card {
+				position: relative;
 				background: var(--panel);
 				border: 1px solid var(--border);
 				border-radius: 12px;
 				overflow: hidden;
-				cursor: pointer;
-				text-decoration: none;
-				color: inherit;
 				transition:
 					border-color 0.15s,
 					transform 0.15s;
 			}
+			.av-related-main {
+				display: block;
+				text-decoration: none;
+				color: inherit;
+				cursor: pointer;
+			}
 			.av-related-card:hover {
 				border-color: var(--border-2);
 				transform: translateY(-1px);
+			}
+			.av-related-irl {
+				position: absolute;
+				top: 8px;
+				right: 8px;
+				z-index: 2;
+				display: inline-flex;
+				align-items: center;
+				gap: 4px;
+				padding: 4px 9px;
+				background: rgba(10, 10, 12, 0.72);
+				-webkit-backdrop-filter: blur(6px);
+				backdrop-filter: blur(6px);
+				border: 1px solid rgba(255, 255, 255, 0.28);
+				border-radius: 999px;
+				color: #fff;
+				font-size: 10px;
+				font-weight: 700;
+				letter-spacing: 0.04em;
+				text-decoration: none;
+				opacity: 0;
+				transform: translateY(-2px);
+				transition:
+					opacity 0.15s,
+					transform 0.15s,
+					background 0.15s,
+					border-color 0.15s;
+				pointer-events: none;
+			}
+			.av-related-card:hover .av-related-irl,
+			.av-related-card:focus-within .av-related-irl {
+				opacity: 1;
+				transform: translateY(0);
+				pointer-events: auto;
+			}
+			.av-related-irl:hover {
+				background: rgba(10, 10, 12, 0.9);
+				border-color: rgba(255, 255, 255, 0.55);
+			}
+			/* Touch devices have no hover — keep the IRL pill always tappable. */
+			@media (hover: none) {
+				.av-related-irl {
+					opacity: 1;
+					transform: none;
+					pointer-events: auto;
+				}
 			}
 			.av-related-thumb {
 				aspect-ratio: 1 / 1;

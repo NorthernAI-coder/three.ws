@@ -166,12 +166,12 @@
 		"api/sniper/history.js": {
 			"maxDuration": 20
 		},
+		"api/irl/pins.js": {
+			"maxDuration": 15
+		},
 		"api/**/*.js": {
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 30
-		},
-		"api/irl/pins.js": {
-			"maxDuration": 15
 		}
 	},
 	"routes": [
@@ -392,6 +392,10 @@
 		{
 			"src": "/api/agents/solana-card",
 			"dest": "/api/agents/solana/[action]?action=card"
+		},
+		{
+			"src": "/api/agents/solana-registration-card",
+			"dest": "/api/agents/solana/[action]?action=registration-card"
 		},
 		{
 			"src": "/api/agents/solana-price-history",
@@ -1914,6 +1918,10 @@
 		{
 			"src": "/api/social/sentiment-pulse",
 			"dest": "/api/social/sentiment-pulse.js"
+		},
+		{
+			"src": "/api/irl/pins/mine",
+			"dest": "/api/irl/pins.js"
 		},
 		{
 			"src": "/api/irl/pins",
