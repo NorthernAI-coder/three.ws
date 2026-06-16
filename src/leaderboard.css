@@ -319,6 +319,7 @@
 	overflow: hidden;
 	text-overflow: ellipsis;
 }
+.lb-copiers { color: var(--success); }
 
 .lb-score {
 	display: inline-flex;
