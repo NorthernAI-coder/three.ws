@@ -27,6 +27,7 @@ const LIVE_REFRESH_MS = 60_000;
 const state = {
 	network: 'mainnet',
 	agentId: null,
+	oracleTier: '',   // '' = all, 'prime' | 'strong' | 'lean'
 	offset: 0,
 	hasMore: false,
 	loading: false,
@@ -353,6 +354,16 @@ function teardownStatusHandles() {
 // visible mints (≤20 per request) and paint a tier badge on each card.
 // Non-blocking: a fetch failure leaves cards untouched.
 
+function paintOracleBadge(card, mint, data) {
+	const badge = card.querySelector('.lx-oracle-badge');
+	if (!badge || !data || data.score == null) return;
+	const color = ORACLE_TIER_COLOR[data.tier] || '#94a3b8';
+	badge.innerHTML = `<a class="lx-ob-link" href="/oracle?mint=${encodeURIComponent(mint)}" title="Oracle conviction: ${data.score} — ${data.tier || 'unscored'}" tabindex="-1" aria-hidden="true">
+		<span class="lx-ob-score" style="color:${color}">${data.score}</span>
+		<span class="lx-ob-tier" style="color:${color}">${data.tier || ''}</span>
+	</a>`;
+}
+
 async function enrichCardsWithOracle(cards) {
 	const mints = cards
 		.map((c) => c.dataset.mint)
@@ -375,16 +386,7 @@ async function enrichCardsWithOracle(cards) {
 	} catch { return; }
 
 	for (const card of cards) {
-		const mint = card.dataset.mint;
-		const data = results[mint];
-		if (!data || data.score == null) continue;
-		const badge = card.querySelector('.lx-oracle-badge');
-		if (!badge) continue;
-		const color = ORACLE_TIER_COLOR[data.tier] || '#94a3b8';
-		badge.innerHTML = `<a class="lx-ob-link" href="/oracle?mint=${encodeURIComponent(mint)}" title="Oracle conviction: ${data.score} — ${data.tier || 'unscored'}" tabindex="-1" aria-hidden="true">
-			<span class="lx-ob-score" style="color:${color}">${data.score}</span>
-			<span class="lx-ob-tier" style="color:${color}">${data.tier || ''}</span>
-		</a>`;
+		paintOracleBadge(card, card.dataset.mint, results[card.dataset.mint]);
 	}
 }
 
@@ -596,23 +598,28 @@ function clearSkeletons() {
 }
 
 function renderEmpty() {
-	const filtered = !!state.agentId;
+	const filtered = !!state.agentId || !!state.oracleTier;
+	const tierLabel = state.oracleTier
+		? { prime: 'prime conviction', strong: 'strong conviction', lean: 'lean conviction' }[state.oracleTier] || state.oracleTier
+		: null;
 	feedEl.appendChild(
 		el('div', { class: 'lx-state' }, [
-			el('h2', { text: filtered ? 'No launches by this agent yet' : 'No launches yet' }),
+			el('h2', { text: filtered ? 'No matching launches' : 'No launches yet' }),
 			el('p', {
-				text: filtered
-					? 'This agent has not launched a coin on this network. Clear the filter to see the full feed.'
-					: state.network === 'devnet'
-						? 'Nothing has been launched on devnet. Switch to mainnet to see live launches.'
-						: 'Be the first: create an agent, give it a coin, and it shows up here in real time.',
+				text: tierLabel
+					? `No three.ws agent launches have ${tierLabel} Oracle scores yet. Try a lower tier or clear the filter.`
+					: state.agentId
+						? 'This agent has not launched a coin on this network. Clear the filter to see the full feed.'
+						: state.network === 'devnet'
+							? 'Nothing has been launched on devnet. Switch to mainnet to see live launches.'
+							: 'Be the first: create an agent, give it a coin, and it shows up here in real time.',
 			}),
 			filtered
 				? el('button', {
 						class: 'lx-btn',
 						type: 'button',
-						text: 'Clear filter',
-						onclick: () => setAgentFilter(null),
+						text: 'Clear filters',
+						onclick: () => { setAgentFilter(null); setOracleTier(''); },
 					})
 				: el('div', { class: 'lx-state-ctas' }, [
 						el('a', {
@@ -667,6 +674,7 @@ async function fetchLaunches(offset, limit) {
 		limit: String(limit),
 	});
 	if (state.agentId) params.set('agent_id', state.agentId);
+	if (state.oracleTier) params.set('min_tier', state.oracleTier);
 	const r = await fetch(`/api/pump/launches?${params}`);
 	if (!r.ok) throw new Error(`launches api ${r.status}`);
 	const body = await r.json();
@@ -696,13 +704,21 @@ async function loadPage({ reset = false } = {}) {
 
 		clearSkeletons();
 		const newCards = [];
+		const cardsNeedingOracle = [];
 		launches.forEach((l, i) => {
 			state.seenMints.add(l.mint);
 			const card = launchCard(l, i, { featured: isFirstPage && i === 0 });
 			feedEl.appendChild(card);
 			newCards.push(card);
+			// When the API already returned Oracle data (Oracle-tier filter active),
+			// paint the badge immediately — no batch fetch needed.
+			if (l.oracle) {
+				paintOracleBadge(card, l.mint, l.oracle);
+			} else {
+				cardsNeedingOracle.push(card);
+			}
 		});
-		enrichCardsWithOracle(newCards);
+		if (cardsNeedingOracle.length) enrichCardsWithOracle(cardsNeedingOracle);
 		state.offset += launches.length;
 		state.count += launches.length;
 		state.hasMore = hasMore;
@@ -768,6 +784,8 @@ function syncUrl() {
 	else url.searchParams.delete('network');
 	if (state.agentId) url.searchParams.set('agent_id', state.agentId);
 	else url.searchParams.delete('agent_id');
+	if (state.oracleTier) url.searchParams.set('oracle_tier', state.oracleTier);
+	else url.searchParams.delete('oracle_tier');
 	history.replaceState(null, '', url);
 }
 
@@ -778,6 +796,18 @@ function setNetwork(network) {
 		const active = b.dataset.network === network;
 		b.classList.toggle('active', active);
 		b.setAttribute('aria-selected', String(active));
+	});
+	syncUrl();
+	loadPage({ reset: true });
+}
+
+function setOracleTier(tier) {
+	if (state.oracleTier === tier) return;
+	state.oracleTier = tier;
+	document.querySelectorAll('.lx-of-btn').forEach((b) => {
+		const active = b.dataset.tier === tier;
+		b.classList.toggle('active', active);
+		b.setAttribute('aria-pressed', String(active));
 	});
 	syncUrl();
 	loadPage({ reset: true });
@@ -826,12 +856,22 @@ function boot() {
 	state.network = qs.get('network') === 'devnet' ? 'devnet' : 'mainnet';
 	const agentId = qs.get('agent_id');
 	state.agentId = agentId && /^[0-9a-f-]{36}$/i.test(agentId) ? agentId : null;
+	const VALID_TIERS = new Set(['prime', 'strong', 'lean']);
+	const oracleTierParam = qs.get('oracle_tier') || '';
+	state.oracleTier = VALID_TIERS.has(oracleTierParam) ? oracleTierParam : '';
 
 	document.querySelectorAll('.lx-net-btn').forEach((b) => {
 		const active = b.dataset.network === state.network;
 		b.classList.toggle('active', active);
 		b.setAttribute('aria-selected', String(active));
 		b.addEventListener('click', () => setNetwork(b.dataset.network));
+	});
+
+	document.querySelectorAll('.lx-of-btn').forEach((b) => {
+		const active = b.dataset.tier === state.oracleTier;
+		b.classList.toggle('active', active);
+		b.setAttribute('aria-pressed', String(active));
+		b.addEventListener('click', () => setOracleTier(b.dataset.tier));
 	});
 
 	if (state.agentId) {

@@ -2417,7 +2417,16 @@ async function handleLaunches(req, res) {
 	if (agentId && !isUuid(agentId))
 		return error(res, 400, 'validation_error', 'agent_id must be a uuid');
 
-	const cacheKey = `${network}:${agentId || ''}:${offset}:${limit}`;
+	const minTierParam = url.searchParams.get('min_tier') || '';
+	// Tiers ordered by descending conviction: prime > strong > lean > watch > avoid.
+	const TIER_RANK = { prime: 5, strong: 4, lean: 3, watch: 2, avoid: 1 };
+	const minTierRank = TIER_RANK[minTierParam] || 0;
+	// All tiers at or above the requested floor.
+	const tiersAbove = minTierRank > 0
+		? Object.keys(TIER_RANK).filter((t) => TIER_RANK[t] >= minTierRank)
+		: [];
+
+	const cacheKey = `${network}:${agentId || ''}:${minTierParam}:${offset}:${limit}`;
 	const now = Date.now();
 	const hit = LAUNCHES_CACHE.get(cacheKey);
 	if (hit && now - hit.at < LAUNCHES_TTL_MS) {
@@ -2425,34 +2434,57 @@ async function handleLaunches(req, res) {
 		return json(res, 200, hit.body);
 	}
 
-	// Over-fetch by one row to compute has_more without a count(*) round trip.
-	const rows = agentId
-		? await sql`
-				select pam.mint, pam.network, pam.name, pam.symbol, pam.buyback_bps,
-				       pam.metadata_uri, pam.quote_mint, pam.created_at,
-				       ai.id as agent_id, ai.name as agent_name,
-				       a.thumbnail_key as avatar_thumbnail_key,
-				       a.visibility as avatar_visibility
-				from pump_agent_mints pam
-				left join agent_identities ai on ai.id = pam.agent_id and ai.deleted_at is null
-				left join avatars a on a.id = ai.avatar_id and a.deleted_at is null
-				where pam.network=${network} and pam.agent_id=${agentId}
-				order by pam.created_at desc
-				limit ${limit + 1} offset ${offset}
-			`
-		: await sql`
-				select pam.mint, pam.network, pam.name, pam.symbol, pam.buyback_bps,
-				       pam.metadata_uri, pam.quote_mint, pam.created_at,
-				       ai.id as agent_id, ai.name as agent_name,
-				       a.thumbnail_key as avatar_thumbnail_key,
-				       a.visibility as avatar_visibility
-				from pump_agent_mints pam
-				left join agent_identities ai on ai.id = pam.agent_id and ai.deleted_at is null
-				left join avatars a on a.id = ai.avatar_id and a.deleted_at is null
-				where pam.network=${network}
-				order by pam.created_at desc
-				limit ${limit + 1} offset ${offset}
-			`;
+	let rows;
+	if (tiersAbove.length) {
+		// Oracle-filtered: JOIN oracle_conviction and sort by score descending.
+		const baseWhere = agentId
+			? sql`where pam.network=${network} and pam.agent_id=${agentId} and oc.tier = any(${tiersAbove})`
+			: sql`where pam.network=${network} and oc.tier = any(${tiersAbove})`;
+		rows = await sql`
+			select pam.mint, pam.network, pam.name, pam.symbol, pam.buyback_bps,
+			       pam.metadata_uri, pam.quote_mint, pam.created_at,
+			       ai.id as agent_id, ai.name as agent_name,
+			       a.thumbnail_key as avatar_thumbnail_key,
+			       a.visibility as avatar_visibility,
+			       oc.score as oracle_score, oc.tier as oracle_tier, oc.category as oracle_category
+			from pump_agent_mints pam
+			join oracle_conviction oc on oc.mint = pam.mint and oc.network = pam.network
+			left join agent_identities ai on ai.id = pam.agent_id and ai.deleted_at is null
+			left join avatars a on a.id = ai.avatar_id and a.deleted_at is null
+			${baseWhere}
+			order by oc.score desc, pam.created_at desc
+			limit ${limit + 1} offset ${offset}
+		`;
+	} else {
+		// Over-fetch by one row to compute has_more without a count(*) round trip.
+		rows = agentId
+			? await sql`
+					select pam.mint, pam.network, pam.name, pam.symbol, pam.buyback_bps,
+					       pam.metadata_uri, pam.quote_mint, pam.created_at,
+					       ai.id as agent_id, ai.name as agent_name,
+					       a.thumbnail_key as avatar_thumbnail_key,
+					       a.visibility as avatar_visibility
+					from pump_agent_mints pam
+					left join agent_identities ai on ai.id = pam.agent_id and ai.deleted_at is null
+					left join avatars a on a.id = ai.avatar_id and a.deleted_at is null
+					where pam.network=${network} and pam.agent_id=${agentId}
+					order by pam.created_at desc
+					limit ${limit + 1} offset ${offset}
+				`
+			: await sql`
+					select pam.mint, pam.network, pam.name, pam.symbol, pam.buyback_bps,
+					       pam.metadata_uri, pam.quote_mint, pam.created_at,
+					       ai.id as agent_id, ai.name as agent_name,
+					       a.thumbnail_key as avatar_thumbnail_key,
+					       a.visibility as avatar_visibility
+					from pump_agent_mints pam
+					left join agent_identities ai on ai.id = pam.agent_id and ai.deleted_at is null
+					left join avatars a on a.id = ai.avatar_id and a.deleted_at is null
+					where pam.network=${network}
+					order by pam.created_at desc
+					limit ${limit + 1} offset ${offset}
+				`;
+	}
 
 	const hasMore = rows.length > limit;
 	const launches = rows.slice(0, limit).map((r) => {
@@ -2467,6 +2499,9 @@ async function handleLaunches(req, res) {
 			metadata_uri: normalizeGatewayURL(r.metadata_uri) || r.metadata_uri,
 			quote_mint: r.quote_mint,
 			created_at: r.created_at,
+			oracle: r.oracle_score != null
+				? { score: Number(r.oracle_score), tier: r.oracle_tier, category: r.oracle_category || null }
+				: null,
 			agent: r.agent_id
 				? {
 						id: r.agent_id,
@@ -2481,7 +2516,7 @@ async function handleLaunches(req, res) {
 		};
 	});
 
-	const body = { data: { launches, has_more: hasMore, offset, limit, network } };
+	const body = { data: { launches, has_more: hasMore, offset, limit, network, min_tier: minTierParam || null } };
 	LAUNCHES_CACHE.set(cacheKey, { at: now, body });
 	// Keep the per-instance cache bounded — feed pages only ever walk forward.
 	if (LAUNCHES_CACHE.size > 200) {

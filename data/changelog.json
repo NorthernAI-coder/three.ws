@@ -3,6 +3,13 @@
 	"entries": [
 		{
 			"date": "2026-06-16",
+			"title": "Launches: Oracle conviction tier filter",
+			"summary": "The Launches feed now has a conviction tier filter: All, Prime, Strong, or Lean. Selecting a tier server-filters the feed — only three.ws agent-launched coins that have reached that Oracle conviction floor appear, sorted by score descending. The Oracle badge on each card is injected synchronously from the API response (no extra batch fetch), so filtered views are faster than before.",
+			"tags": ["feature", "improvement"],
+			"link": "/launches"
+		},
+		{
+			"date": "2026-06-16",
 			"title": "Oracle: Personal Telegram conviction alerts",
 			"summary": "Oracle agents now support personal Telegram alerts. Add your Telegram chat ID in the Arm your agent panel to receive a direct message every time a coin crosses your conviction threshold — no more checking the feed. Entry alerts fire when your agent takes an action (simulate or live mode). Chat @three_ws_bot on Telegram and send /start to get your chat ID.",
 			"tags": ["feature"],
