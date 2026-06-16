@@ -42,6 +42,9 @@ the **fusion** and the **action loop** on top.
 | `ORACLE_SCORE_BATCH` | `20` | coins scored per pass |
 | `ORACLE_RESCORE_AFTER_SEC` | `180` | re-score a coin after this staleness |
 | `ORACLE_MAX_TRADE_SOL` | `0.25` | hard per-trade cap (live) |
+| `ORACLE_USE_JITO` | `0` | `1` routes live buys through Jito bundles (MEV-protected) |
+| `JITO_TIP_SOL` | `0.002` | Jito validator tip in SOL (capped at 0.01) |
+| `JITO_BUNDLE_URL` | mainnet block-engine | Jito block-engine bundles endpoint |
 
 ## Run
 

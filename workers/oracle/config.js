@@ -22,6 +22,11 @@ export function loadConfig() {
 		// Hard ceiling on any single live action, regardless of a watch's config —
 		// a server-side backstop the owner UI can't exceed.
 		maxTradeSolHardCap: num(process.env.ORACLE_MAX_TRADE_SOL, 0.25),
+		// When set, live buys go through Jito bundles (MEV-protected, prioritised)
+		// instead of standard RPC broadcast. Tip in SOL is capped at 0.01.
+		useJito: process.env.ORACLE_USE_JITO === '1',
+		jitoTipSol: Math.min(num(process.env.JITO_TIP_SOL, 0.002), 0.01),
+		jitoBundleUrl: process.env.JITO_BUNDLE_URL || 'https://mainnet.block-engine.jito.wtf/api/v1/bundles',
 	};
 
 	if (!env.DATABASE_URL) throw new Error('[oracle] DATABASE_URL is required');
