@@ -236,9 +236,11 @@ function cardHtml(t) {
 	const agentName = escapeHtml(t.agent_name || shortAddr(t.agent_id || ''));
 	const traderUrl = `/trader/${escapeHtml(t.agent_id || '')}`;
 
-	const imgHtml = imgSrc
+	const coinHref  = t.mint && t.oracle_score != null ? `/oracle?mint=${escapeHtml(t.mint)}` : (pumpUrl || '#');
+	const coinTarget = t.oracle_score != null ? '' : ' target="_blank" rel="noopener"';
+	const imgHtml = `<a href="${coinHref}"${coinTarget} class="tf-coin-img-link" aria-label="View ${sym} conviction on Oracle" style="display:block;line-height:0">${imgSrc
 		? `<img src="${imgSrc}" alt="" class="tf-coin-img" style="width:48px;height:48px;border-radius:12px;object-fit:cover" onerror="this.outerHTML='<div class=tf-coin-img>${sym.slice(0, 2)}</div>'" loading="lazy" />`
-		: `<div class="tf-coin-img">${sym.slice(0, 2)}</div>`;
+		: `<div class="tf-coin-img">${sym.slice(0, 2)}</div>`}</a>`;
 
 	const agentImgHtml = agentImg
 		? `<img src="${agentImg}" alt="" class="tf-agent-img" style="width:18px;height:18px;border-radius:50%;object-fit:cover" onerror="this.style.display='none'" loading="lazy" />`
@@ -264,7 +266,8 @@ function cardHtml(t) {
 
 	const scoreStr = t.oracle_score != null ? `Score ${Math.round(t.oracle_score)}` : '';
 
-	const pumpUrl = t.mint ? `https://pump.fun/${escapeHtml(t.mint)}` : null;
+	const pumpUrl   = t.mint ? `https://pump.fun/${escapeHtml(t.mint)}` : null;
+	const oracleUrl = t.mint && t.oracle_score != null ? `/oracle?mint=${escapeHtml(t.mint)}` : null;
 	const buySig  = t.buy_sig  ? `https://solscan.io/tx/${escapeHtml(t.buy_sig)}`  : null;
 	const sellSig = t.sell_sig ? `https://solscan.io/tx/${escapeHtml(t.sell_sig)}` : null;
 
@@ -276,11 +279,11 @@ function cardHtml(t) {
 	const shareData = encodeURIComponent(JSON.stringify({ text: shareText, url: shareUrl }));
 
 	return `<article class="tf-card tf-win" aria-label="${sym} trade by ${agentName}">
-		<div class="tf-coin-img-wrap">${imgHtml}</div>
+		${imgHtml}
 
 		<div class="tf-main">
 			<div class="tf-coin-row">
-				<span class="tf-coin-sym">$${sym}</span>
+				<a href="${coinHref}"${coinTarget} class="tf-coin-sym" style="color:inherit;text-decoration:none" aria-label="View ${sym} Oracle conviction">$${sym}</a>
 				${name ? `<span class="tf-coin-name">${name}</span>` : ''}
 				${tierBadge}
 				${catBadge}
@@ -308,6 +311,7 @@ function cardHtml(t) {
 		<div class="tf-actions">
 			<a href="${traderUrl}" class="tf-btn primary">Copy trader →</a>
 			<button type="button" class="tf-btn tf-share-btn" data-share="${shareData}" data-tweet="${escapeHtml(tweetHref)}" aria-label="Share this trade">Share ↗</button>
+			${oracleUrl ? `<a href="${oracleUrl}" class="tf-btn" style="background:rgba(192,132,252,0.12);border-color:rgba(192,132,252,0.35);color:#c084fc">Oracle ↗</a>` : ''}
 			${pumpUrl ? `<a href="${pumpUrl}" class="tf-btn" target="_blank" rel="noopener">pump.fun ↗</a>` : ''}
 			${buySig  ? `<a href="${buySig}"  class="tf-btn" target="_blank" rel="noopener">Buy tx ↗</a>`  : ''}
 			${sellSig ? `<a href="${sellSig}" class="tf-btn" target="_blank" rel="noopener">Sell tx ↗</a>` : ''}
