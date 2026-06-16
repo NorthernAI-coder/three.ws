@@ -1223,11 +1223,13 @@ function renderDrawer(d) {
 			${out.ath_multiple ? `<span class="chip">ATH <b>${Number(out.ath_multiple).toFixed(1)}×</b></span>` : ''}</div>` : ''}
 		<div class="dr-sec">Live trades</div>
 		<div id="tradeTape" class="trade-tape"></div>
+		<div id="drProofTradesWrap"></div>
 	`;
 
 	// Fetch and render conviction score history sparkline + community sentiment.
 	loadScoreHistory(c.mint);
 	loadSentimentPulse(c.mint);
+	loadProofTrades(c.mint);
 
 	// Update OG / Twitter meta so shared links carry the coin's conviction card.
 	const ogImg    = `https://three.ws/api/oracle/og?mint=${encodeURIComponent(c.mint)}`;
