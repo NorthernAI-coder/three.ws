@@ -50,6 +50,47 @@ function safeR2Url(key) {
 	}
 }
 
+// Creator fee-sharing earnings — what the coin's creator has actually earned
+// from pump.fun's creator-reward program. Two public pump.fun endpoints (the
+// same ones the pump.fun frontend calls): coin metadata → creator wallet, then
+// the creator's fee-sharing totals filtered to this mint. Best-effort and
+// timeout-bounded; degrades to null so it never blocks or slows the page.
+const PUMP_FRONTEND_V3 = 'https://frontend-api-v3.pump.fun';
+const PUMP_SWAP_API = 'https://swap-api.pump.fun';
+
+async function fetchCreatorFees(mint, network) {
+	if (network !== 'mainnet') return null;
+	try {
+		const metaResp = await fetch(`${PUMP_FRONTEND_V3}/coins-v2/${mint}`, {
+			headers: { accept: 'application/json' },
+			signal: AbortSignal.timeout(5000),
+		});
+		if (!metaResp.ok) return null;
+		const meta = await metaResp.json();
+		const creator = meta?.creator || meta?.creator_address;
+		if (!creator || typeof creator !== 'string') return null;
+
+		const totResp = await fetch(
+			`${PUMP_SWAP_API}/v1/fee-sharing/account/${creator}/totals?mint=${mint}`,
+			{ headers: { accept: 'application/json' }, signal: AbortSignal.timeout(5000) },
+		);
+		if (!totResp.ok) return null;
+		const t = await totResp.json();
+		const earnedSol = Number(t?.shareholderTotalEarned?.sol);
+		if (!Number.isFinite(earnedSol)) return null;
+		return {
+			creator,
+			earned_sol: earnedSol,
+			earned_usd: Number(t?.shareholderTotalEarned?.usd) || null,
+			claimed_sol: Number(t?.shareholderClaimed?.sol) || 0,
+			unclaimed_sol: Number(t?.shareholderUnclaimed?.sol) || 0,
+			mint_count: t?.mintCount != null ? Number(t.mintCount) : null,
+		};
+	} catch {
+		return null;
+	}
+}
+
 // Short-lived per-instance cache — the page is read far more than coins are
 // observed, and every underlying query is cheap-but-not-free.
 const CACHE = new Map();
@@ -152,12 +193,15 @@ async function buildDetail(mint, network) {
 				max(created_at)                                                       as last_burn_at
 			from pump_buyback_runs where mint_id=${reg.id}
 		`;
-		const burnsFeed = await sql`
-			select id, currency_mint, tx_signature, burn_amount, created_at
-			from pump_buyback_runs
-			where mint_id=${reg.id} and status='confirmed'
-			order by created_at desc limit 8
-		`;
+		const [burnsFeed, creatorFees] = await Promise.all([
+			sql`
+				select id, currency_mint, tx_signature, burn_amount, created_at
+				from pump_buyback_runs
+				where mint_id=${reg.id} and status='confirmed'
+				order by created_at desc limit 8
+			`,
+			fetchCreatorFees(mint, network),
+		]);
 		economics = {
 			confirmed_payments: stats?.confirmed_payments ?? 0,
 			unique_payers: stats?.unique_payers ?? 0,
@@ -169,6 +213,7 @@ async function buildDetail(mint, network) {
 				last_burn_at: burnRow?.last_burn_at ?? null,
 			},
 			burns_feed: burnsFeed,
+			creator_fees: creatorFees,
 		};
 
 		// The launching agent's verifiable PnL — same truth layer as the

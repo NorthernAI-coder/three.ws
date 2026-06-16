@@ -769,7 +769,10 @@ function renderEconomics() {
 		return;
 	}
 
-	if (buybackBps <= 0 && (!econ || econ.confirmed_payments === 0)) {
+	const creatorFees = econ?.creator_fees;
+	const hasCreatorFees = !!creatorFees && Number(creatorFees.earned_sol) > 0;
+
+	if (buybackBps <= 0 && (!econ || econ.confirmed_payments === 0) && !hasCreatorFees) {
 		section(
 			target,
 			'Economics',
@@ -796,6 +799,13 @@ function renderEconomics() {
 			metric('Paid calls', compact(econ?.confirmed_payments || 0), `${compact(econ?.unique_payers || 0)} payers`),
 			metric('Burn runs', compact(econ?.burns?.runs || 0)),
 			burned > 0 ? metric('Supply burned', compact(burned / 1e6)) : null,
+			hasCreatorFees
+				? metric(
+						'Creator earned',
+						fmtSol(Number(creatorFees.earned_sol), { sign: false }),
+						creatorFees.earned_usd != null ? fmtUsd(Number(creatorFees.earned_usd), { sign: false }) : null,
+					)
+				: null,
 		]),
 	]);
 
