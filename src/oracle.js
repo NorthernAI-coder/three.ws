@@ -31,8 +31,8 @@ function pumpUrl(mint) { return `https://pump.fun/coin/${mint}`; }
 
 const CATEGORIES = ['meme', 'tech', 'ai', 'culture', 'community', 'political', 'news', 'animal', 'celebrity', 'utility', 'unknown'];
 const ARCH_TITLE = {
-	smart_money: 'Smart Money', sniper: 'Sniper', dumper: 'Dumper', rugger: 'Rugger',
-	fresh: 'Fresh', neutral: 'Neutral', unproven: 'Unproven',
+	smart_money: 'Smart Money', kol: 'KOL', top_dev: 'Top Dev', sniper: 'Sniper',
+	dumper: 'Dumper', rugger: 'Rugger', fresh: 'Fresh', neutral: 'Neutral', unproven: 'Unproven',
 };
 
 async function api(path, opts = {}) {
@@ -110,7 +110,39 @@ function switchView(view) {
 	if (view === 'wallets' && !$('#walletWrap').dataset.loaded) loadWallets();
 	if (view === 'edge' && !$('#edgeWrap').dataset.loaded) loadEdge();
 	if (view === 'agent' && !$('#armBody').dataset.loaded) loadAgentPanel();
+	if (view === 'graph') loadGraph();
 }
+
+let graphHandle = null;
+async function loadGraph() {
+	const canvas = $('#og-canvas');
+	const labels = $('#og-labels');
+	const stateEl = $('#og-state');
+	if (!canvas || canvas.dataset.loaded) return;
+	canvas.dataset.loaded = '1';
+	if (stateEl) stateEl.textContent = 'Loading conviction data…';
+	try {
+		const { mountOracleGraph } = await import('./oracle-graph.js');
+		const q = new URLSearchParams({ network: NETWORK, limit: '80' });
+		const { data } = await api(`/api/oracle/feed?${q}`);
+		const coins = Array.isArray(data?.items) ? data.items : [];
+		if (!coins.length) {
+			if (stateEl) stateEl.textContent = 'No scored coins yet — check back once the Oracle has swept.';
+			return;
+		}
+		if (stateEl) stateEl.textContent = '';
+		graphHandle = mountOracleGraph(canvas, labels);
+		graphHandle.loadCoins(coins);
+	} catch (err) {
+		if (stateEl) stateEl.textContent = `Graph failed to load: ${err.message}`;
+	}
+}
+
+// Open coin drawer from the 3D graph node click.
+window.addEventListener('oracle:open-coin', (e) => {
+	const mint = e.detail?.mint;
+	if (mint) openCoin(mint);
+});
 
 // ── feed ─────────────────────────────────────────────────────────────────────
 function feedSkeletons() {
@@ -355,7 +387,8 @@ function whoRow(w) {
 	const title = ARCH_TITLE[w.label] || 'Unproven';
 	const sub = [
 		w.is_creator ? 'creator' : null,
-		w.score != null ? `rep ${Math.round(w.score)}` : null,
+		w.tag ? `@${w.tag}` : null,
+		w.source === 'gmgn' ? 'gmgn-known' : (w.score != null ? `rep ${Math.round(w.score)}` : null),
 		w.win_rate != null ? `${Math.round(w.win_rate)}% win` : null,
 	].filter(Boolean).join(' · ');
 	return `<div class="nwallet">
