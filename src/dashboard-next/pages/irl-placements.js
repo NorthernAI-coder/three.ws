@@ -263,11 +263,12 @@ async function mount(el) {
 	});
 }
 
-mountShell({
-	title: 'IRL Placements',
-	requireAuth: true,
-	onMount: async (el) => {
+(async function boot() {
+	const el = await mountShell();
+	try {
 		await requireUser();
 		await mount(el);
-	},
-});
+	} catch (e) {
+		el.innerHTML = `<div class="irl-empty"><b>Couldn't load placements</b>${esc(e?.message || 'Please try again.')}</div>${STYLE}`;
+	}
+})();

@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-16T09:45:33.033Z",
+	"generated_at": "2026-06-16T10:11:40.092Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -283,6 +283,16 @@
 		{
 			"date": "2026-06-16",
 			"type": "update",
+			"title": "IRL: pinned avatars now face the direction you were looking",
+			"summary": "When you pin your agent to a real-world spot in IRL mode, the app records which compass direction you were facing and stores it with the pin. Nearby users now see your avatar oriented that way — north, NE, east, and so on — instead of every agent facing the same default direction. The orientation is preserved as the detailed 3D model loads in, your own avatar snaps to the stored heading the moment you lock it, and the placement status confirms it (e.g. \"Pinned facing NE\"). Your IRL Placements dashboard shows a facing badge on each pin card.",
+			"link": "/irl",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "update",
 			"title": "IRL: place your agent on the map — others nearby can see it",
 			"summary": "Pin your 3D avatar to a real GPS coordinate in IRL mode and other users who walk within 150 metres see your agent appear in their AR view. Each nearby agent shows its name and distance as a floating label; tap it for a detail sheet with the option to pay via x402. Your own pin is removed automatically when you unpin the avatar or close the page. Requires location permission.",
 			"link": "/irl",
@@ -329,6 +339,16 @@
 			"link": "/trades",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "update",
+			"title": "On-chain deploy: cinematic step-by-step progress",
+			"summary": "Deploying an agent on-chain now shows a dramatic vertical progress flow — each step is a glowing tile with a checkmark when done, a pulsing animated spinner on the active step, and flowing connector lines between them. The current step is called out in large status text with a live terminal-style detail line underneath (handy when grinding a vanity address). The vanity-grind cancel is now a clearly labeled Stop grinding button. After a successful mint on Solana or any EVM chain, you're taken straight to the reveal page for your new on-chain agent.",
+			"link": "/agents",
+			"tags": [
+				"improvement"
 			]
 		},
 		{
