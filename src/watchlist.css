@@ -1,0 +1,205 @@
+/* /watchlist — coins the trader is tracking (device-local).
+   Token-driven (public/tokens.css via nav.css); shares the editorial language
+   of /launches. The coin cards themselves are rendered by the shared
+   coin-status widget (csc-* classes); this file styles the page chrome, the
+   card wrapper, and the empty state. */
+
+body {
+	margin: 0;
+	background: var(--bg-0);
+	color: var(--ink);
+	font-family: var(--font-body);
+	overflow-x: hidden;
+}
+
+#wl-field {
+	position: fixed;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	z-index: 0;
+	pointer-events: none;
+	opacity: 0.8;
+}
+.wl-aurora {
+	position: fixed;
+	inset: -20%;
+	z-index: 0;
+	pointer-events: none;
+	background:
+		radial-gradient(36% 28% at 16% 10%, var(--accent-soft), transparent 70%),
+		radial-gradient(30% 26% at 86% 26%, var(--surface-3), transparent 70%),
+		radial-gradient(40% 34% at 60% 96%, var(--surface-2), transparent 72%);
+	filter: blur(52px);
+	animation: wl-drift 28s var(--ease-standard) infinite alternate;
+}
+@keyframes wl-drift {
+	from { transform: translate3d(-1.5%, -1%, 0) scale(1); }
+	to { transform: translate3d(1.5%, 2%, 0) scale(1.06); }
+}
+@media (prefers-reduced-motion: reduce) { .wl-aurora { animation: none; } }
+
+.wl-shell {
+	position: relative;
+	z-index: 1;
+	max-width: 1120px;
+	margin: 0 auto;
+	padding: calc(var(--header-h) + var(--space-2xl)) var(--space-lg) var(--space-2xl);
+}
+
+/* ── Hero ─────────────────────────────────────────────────────────────────── */
+
+.wl-hero { margin-bottom: var(--space-xl); }
+.wl-kicker {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-xs);
+	font-size: var(--text-sm);
+	font-weight: var(--weight-semibold);
+	letter-spacing: 0.2em;
+	text-transform: uppercase;
+	color: var(--ink-dim);
+	margin: 0 0 var(--space-md);
+	padding: var(--space-xs) var(--space-sm);
+	border: 1px solid var(--stroke);
+	border-radius: var(--radius-pill);
+	background: var(--surface-1);
+	backdrop-filter: blur(var(--blur-sm));
+}
+.wl-live-dot {
+	width: 7px;
+	height: 7px;
+	border-radius: 50%;
+	background: var(--success);
+	box-shadow: 0 0 0 0 color-mix(in srgb, var(--success) 55%, transparent);
+	animation: wl-pulse 1.8s var(--ease-standard) infinite;
+}
+@keyframes wl-pulse {
+	0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--success) 55%, transparent); }
+	70% { box-shadow: 0 0 0 6px transparent; }
+	100% { box-shadow: 0 0 0 0 transparent; }
+}
+@media (prefers-reduced-motion: reduce) { .wl-live-dot { animation: none; } }
+
+.wl-title {
+	margin: 0 0 var(--space-sm);
+	font-family: var(--font-display);
+	font-size: var(--text-3xl);
+	font-weight: var(--weight-bold);
+	letter-spacing: -0.03em;
+	color: var(--ink-bright);
+	line-height: 1;
+}
+.wl-sub {
+	margin: 0 0 var(--space-lg);
+	max-width: 56ch;
+	font-size: var(--text-md);
+	color: var(--ink-dim);
+	line-height: 1.55;
+}
+.wl-hero-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	flex-wrap: wrap;
+	gap: var(--space-sm);
+}
+.wl-count { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--ink-dim); }
+.wl-hero-ctas { display: flex; gap: var(--space-sm); }
+
+/* ── Grid + cards ─────────────────────────────────────────────────────────── */
+
+.wl-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+	gap: var(--space-md);
+}
+.wl-card {
+	position: relative;
+	border: 1px solid var(--stroke);
+	border-radius: var(--radius-lg);
+	background: linear-gradient(165deg, var(--surface-2), transparent 55%), var(--surface-1);
+	box-shadow: var(--shadow-1);
+	backdrop-filter: blur(var(--blur-sm));
+	padding: var(--space-md);
+	overflow: hidden;
+	transition: border-color var(--duration-fast) var(--ease-standard), box-shadow var(--duration-base) var(--ease-standard), transform var(--duration-base) var(--ease-standard);
+}
+.wl-card:hover { border-color: var(--stroke-strong); box-shadow: var(--shadow-3); transform: translateY(-2px); }
+.wl-in { animation: wl-reveal var(--duration-slow) var(--ease-emphasized) both; }
+@keyframes wl-reveal { from { opacity: 0; transform: translateY(14px) scale(0.985); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .wl-in { animation: none; } .wl-card:hover { transform: none; } }
+
+.wl-card-link {
+	position: absolute;
+	inset: 0;
+	z-index: 1;
+	border-radius: inherit;
+	cursor: pointer;
+}
+.wl-card-link:focus-visible {
+	outline: var(--focus-ring-width) solid var(--focus-ring-color);
+	outline-offset: -2px;
+}
+.wl-market { position: relative; z-index: 0; }
+
+.wl-remove {
+	position: absolute;
+	top: var(--space-xs);
+	right: var(--space-xs);
+	z-index: 2;
+	width: 26px;
+	height: 26px;
+	display: grid;
+	place-items: center;
+	border-radius: var(--radius-pill);
+	border: 1px solid var(--stroke);
+	background: var(--surface-2);
+	color: var(--ink-dim);
+	font-size: var(--text-xs);
+	cursor: pointer;
+	opacity: 0;
+	transition: opacity var(--duration-fast), color var(--duration-fast), border-color var(--duration-fast);
+}
+.wl-card:hover .wl-remove,
+.wl-remove:focus-visible { opacity: 1; }
+.wl-remove:hover { color: var(--danger); border-color: var(--danger); }
+@media (hover: none) { .wl-remove { opacity: 1; } }
+
+/* ── Empty state ──────────────────────────────────────────────────────────── */
+
+.wl-state { margin-top: var(--space-md); }
+.wl-empty {
+	text-align: center;
+	max-width: 460px;
+	margin: var(--space-2xl) auto;
+}
+.wl-empty-glyph { width: 72px; height: 72px; margin: 0 auto var(--space-md); opacity: 0.7; }
+.wl-empty-glyph svg { width: 100%; height: 100%; }
+.wl-empty h2 { font-family: var(--font-display); font-size: var(--text-xl); color: var(--ink-bright); margin: 0 0 var(--space-sm); }
+.wl-empty p { color: var(--ink-dim); margin: 0 0 var(--space-lg); line-height: 1.55; }
+.wl-empty-ctas { display: flex; gap: var(--space-sm); justify-content: center; flex-wrap: wrap; }
+
+/* ── Buttons ──────────────────────────────────────────────────────────────── */
+
+.wl-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-2xs);
+	font-size: var(--text-sm);
+	font-weight: var(--weight-medium);
+	text-decoration: none;
+	cursor: pointer;
+	border: 1px solid var(--stroke-strong);
+	border-radius: var(--radius-md);
+	padding: var(--space-sm) var(--space-md);
+	background: var(--surface-2);
+	color: var(--ink);
+	transition: transform var(--duration-fast) var(--ease-standard), background var(--duration-fast), border-color var(--duration-fast), color var(--duration-fast);
+}
+.wl-btn:hover { transform: translateY(-1px); border-color: var(--ink-dim); color: var(--ink-bright); }
+.wl-btn:active { transform: translateY(0); }
+.wl-btn:focus-visible { outline: var(--focus-ring-width) solid var(--focus-ring-color); outline-offset: var(--focus-ring-offset); }
+.wl-btn-primary { background: var(--accent); color: var(--bg-0); border-color: var(--accent); }
+.wl-btn-primary:hover { color: var(--bg-0); filter: brightness(1.08); }
+.wl-btn-ghost { background: transparent; }

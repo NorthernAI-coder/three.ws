@@ -8,6 +8,7 @@ import { sql } from '../db.js';
 import { assembleIntel, walletProfile, coinOutcome } from './sources.js';
 import { classifyNarrative } from './narrative.js';
 import { convict } from './conviction.js';
+import { summarizeActions } from './settle.js';
 
 /** Persist a narrative classification. */
 export async function upsertNarrative(mint, network, narr) {
@@ -273,4 +274,18 @@ export async function recentActions(agentId, network = 'mainnet', limit = 50) {
 		where agent_id = ${agentId} and network = ${network}
 		order by acted_at desc limit ${Math.min(100, Math.max(1, limit))}
 	`.catch(() => []);
+}
+
+/** Agent win-rate summary across all its actions. */
+export async function actionsSummary(agentId, network = 'mainnet') {
+	const rows = await sql`
+		select outcome, realized_pnl_sol, size_sol
+		from oracle_watch_actions
+		where agent_id = ${agentId} and network = ${network}
+	`.catch(() => []);
+	return summarizeActions(rows.map((r) => ({
+		outcome: r.outcome,
+		realized_pnl_sol: r.realized_pnl_sol != null ? Number(r.realized_pnl_sol) : null,
+		size_sol: r.size_sol != null ? Number(r.size_sol) : 0,
+	})));
 }

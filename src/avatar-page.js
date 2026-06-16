@@ -110,6 +110,7 @@ async function init() {
 	loadPlugins();
 	loadRelated();
 	loadUsedBy();
+	loadForks();
 	measureModel(glbUrl);
 }
 
@@ -333,6 +334,10 @@ function renderShell(glbUrl) {
 						<h3 class="av-used-by-heading" id="av-used-by-heading">Used by</h3>
 						<div class="av-used-by-grid" id="av-used-by-grid"></div>
 					</section>
+						<section class="av-used-by" id="av-forks" hidden aria-labelledby="av-forks-heading">
+							<h3 class="av-used-by-heading" id="av-forks-heading">Forks</h3>
+							<div class="av-used-by-grid" id="av-forks-grid"></div>
+						</section>
 					${renderAttribution()}
 					${renderAttached()}
 				</div>
@@ -1721,6 +1726,41 @@ async function loadUsedBy() {
 				<div class="av-used-by-meta">
 					<span class="av-used-by-name">${esc(a.name)}</span>
 					${badge}
+				</div>
+			</a>`;
+		})
+		.join('');
+}
+
+// ── Forks (GitHub-style network) ──────────────────────────────────────
+
+async function loadForks() {
+	const grid = $('av-forks-grid');
+	const section = $('av-forks');
+	if (!grid || !section) return;
+
+	let forks;
+	try {
+		const r = await fetch(`/api/avatars/fork?of=${encodeURIComponent(avatarId)}&limit=12`);
+		if (!r.ok) return;
+		({ forks } = await r.json());
+	} catch {
+		return; // optional section — stays hidden on network failure
+	}
+	if (!Array.isArray(forks) || forks.length === 0) return;
+
+	section.hidden = false;
+	grid.innerHTML = forks
+		.map((f) => {
+			const thumb = f.thumbnail_url
+				? `<img class="av-used-by-thumb" src="${esc(f.thumbnail_url)}" alt="${esc(f.name)}" loading="lazy" />`
+				: `<div class="av-used-by-thumb av-used-by-thumb--placeholder" aria-hidden="true">${esc((f.name || 'A').slice(0, 1).toUpperCase())}</div>`;
+			const by = f.owner_name ? `<span class="av-used-by-badge">by ${esc(f.owner_name)}</span>` : '';
+			return `<a class="av-used-by-card" href="/avatars/${encodeURIComponent(f.id)}" title="${esc(f.name)}">
+				${thumb}
+				<div class="av-used-by-meta">
+					<span class="av-used-by-name">${esc(f.name)}</span>
+					${by}
 				</div>
 			</a>`;
 		})

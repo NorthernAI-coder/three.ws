@@ -478,17 +478,50 @@ async function handleDelete(req, res, id, auth) {
 // ── Wallet ────────────────────────────────────────────────────────────────
 
 export async function handleWallet(req, res, id, action = null) {
-	if (cors(req, res, { methods: 'POST,DELETE,OPTIONS', credentials: true })) return;
+	if (cors(req, res, { methods: 'GET,POST,DELETE,OPTIONS', credentials: true })) return;
 
 	const auth = await resolveAuth(req);
 	if (!auth) return error(res, 401, 'unauthorized', 'sign in required');
-	if (!(await requireCsrf(req, res, auth.userId))) return;
 
 	const [existing] = await sql`
-		SELECT id, user_id, wallet_address FROM agent_identities WHERE id = ${id} AND deleted_at IS NULL
+		SELECT id, user_id, wallet_address, chain_id, meta FROM agent_identities WHERE id = ${id} AND deleted_at IS NULL
 	`;
 	if (!existing) return error(res, 404, 'not_found', 'agent not found');
 	if (existing.user_id !== auth.userId) return error(res, 403, 'forbidden', 'not your agent');
+
+	// GET /api/agents/:id/wallet — owner-only wallet status: addresses + live
+	// balances. Balances are best-effort (RPC hiccups return null, never a 500)
+	// so the panel can render addresses immediately and fill balances in after.
+	if (req.method === 'GET') {
+		const evmAddr = existing.wallet_address || null;
+		const solAddr = existing.meta?.solana_address || null;
+		const chainId = existing.chain_id || 8453;
+		let evmBalanceEth = null;
+		let sol = null;
+		let usdc = null;
+		if (evmAddr || solAddr) {
+			const { getAgentBalance, getSolanaAddressBalances } = await import('./_lib/agent-wallet.js');
+			const [evmRes, solRes] = await Promise.allSettled([
+				evmAddr ? getAgentBalance(id) : Promise.resolve(null),
+				solAddr ? getSolanaAddressBalances(solAddr, 'mainnet') : Promise.resolve(null),
+			]);
+			if (evmRes.status === 'fulfilled' && evmRes.value) evmBalanceEth = evmRes.value.balance_eth;
+			if (solRes.status === 'fulfilled' && solRes.value) {
+				sol = solRes.value.sol;
+				usdc = solRes.value.usdc;
+			}
+		}
+		return json(res, 200, {
+			wallet_address: evmAddr,
+			chain_id: chainId,
+			solana_address: solAddr,
+			balance_eth: evmBalanceEth,
+			solana_balance: sol,
+			usdc_balance: usdc,
+		});
+	}
+
+	if (!(await requireCsrf(req, res, auth.userId))) return;
 
 	// POST /api/agents/:id/wallet/provision — idempotently generate the agent's
 	// custodial EVM + Solana wallets. This is the "Create wallet" action surfaced

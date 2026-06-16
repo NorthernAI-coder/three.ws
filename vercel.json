@@ -65,6 +65,10 @@
 		"api/cron/forge-seed-cron.js": {
 			"maxDuration": 55
 		},
+		"api/cron/oracle-score.js": {
+			"includeFiles": "{examples/skills/**,data/pages.json,data/_generated/**,sdk/src/sas-config.json}",
+			"maxDuration": 120
+		},
 		"api/cron/[name].js": {
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 300
@@ -114,6 +118,10 @@
 			"maxDuration": 300
 		},
 		"api/pump/launch-detail.js": {
+			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
+			"maxDuration": 30
+		},
+		"api/pump/coin-intel.js": {
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 30
 		},
@@ -528,6 +536,10 @@
 		{
 			"src": "/launches/?",
 			"dest": "/launches.html"
+		},
+		{
+			"src": "/watchlist/?",
+			"dest": "/watchlist.html"
 		},
 		{
 			"src": "/leaderboard/?",
@@ -1682,6 +1694,10 @@
 		{
 			"src": "/api/pump/launch-detail",
 			"dest": "/api/pump/launch-detail.js"
+		},
+		{
+			"src": "/api/pump/coin-intel",
+			"dest": "/api/pump/coin-intel.js"
 		},
 		{
 			"src": "/api/pump/build-metadata",
@@ -3162,6 +3178,10 @@
 		{
 			"path": "/api/cron/intel-learn",
 			"schedule": "*/15 * * * *"
+		},
+		{
+			"path": "/api/cron/oracle-score",
+			"schedule": "*/2 * * * *"
 		},
 		{
 			"path": "/api/cron/quota-check",

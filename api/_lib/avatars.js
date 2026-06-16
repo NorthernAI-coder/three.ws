@@ -273,6 +273,52 @@ export async function searchPublicAvatars({ q, tag, limit = 24, cursor, withTota
 	return result;
 }
 
+// Public forks of an avatar — the GitHub-style "forked by" network. Only
+// public/unlisted forks are listed (private forks stay invisible to the source
+// owner), newest first, with the forker's display name for attribution.
+export async function listForks({ avatarId, limit = 24, cursor }) {
+	if (!isUuid(avatarId)) return { forks: [], next_cursor: null };
+	limit = Math.min(Math.max(limit, 1), 100);
+	const params = [avatarId];
+	const conds = [
+		'a.parent_avatar_id = $1',
+		'a.deleted_at is null',
+		`a.visibility in ('public','unlisted')`,
+	];
+	if (cursor) {
+		params.push(new Date(cursor));
+		conds.push(`a.created_at < $${params.length}`);
+	}
+	params.push(limit + 1);
+	const rows = await sql(
+		`select a.id, a.slug, a.name, a.thumbnail_key, a.storage_key, a.visibility,
+		        a.created_at, a.fork_count, u.display_name as owner_name
+		 from avatars a join users u on u.id = a.owner_id
+		 where ${conds.join(' and ')}
+		 order by a.created_at desc limit $${params.length}`,
+		params,
+	);
+	const hasMore = rows.length > limit;
+	const page = hasMore ? rows.slice(0, limit) : rows;
+	return {
+		forks: page.map((r) => ({
+			id: r.id,
+			slug: r.slug,
+			name: r.name,
+			owner_name: r.owner_name || null,
+			visibility: r.visibility,
+			fork_count: Number(r.fork_count || 0),
+			created_at: r.created_at,
+			thumbnail_url: r.thumbnail_key ? publicUrl(r.thumbnail_key) : null,
+			model_url:
+				r.visibility === 'public' || r.visibility === 'unlisted'
+					? publicUrl(r.storage_key)
+					: null,
+		})),
+		next_cursor: hasMore ? new Date(page[page.length - 1].created_at).toISOString() : null,
+	};
+}
+
 export async function resolveAvatarUrl(row, { expiresIn = 600 } = {}) {
 	const key = _servedStorageKey(row);
 	if (row.visibility === 'public' || row.visibility === 'unlisted') {

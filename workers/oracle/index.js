@@ -15,6 +15,7 @@ import { loadConfig } from './config.js';
 import { log } from './log.js';
 import { runScorePass } from './score-loop.js';
 import { runAgentPass } from './agent-loop.js';
+import { runSettlePass } from './settle-loop.js';
 
 async function main() {
 	const cfg = loadConfig();
@@ -38,6 +39,7 @@ async function main() {
 
 	loop('score', runScorePass, cfg.scoreIntervalMs);
 	loop('agent', runAgentPass, cfg.agentIntervalMs);
+	loop('settle', runSettlePass, cfg.settleIntervalMs);
 }
 
 main().catch((e) => { log.error('fatal:', e?.message || e); process.exit(1); });

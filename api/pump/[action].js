@@ -59,6 +59,7 @@ import { cors, json, method, readJson, wrap, error, rateLimited } from '../_lib/
 import { putObject, publicUrl as r2PublicUrl } from '../_lib/r2.js';
 import { env } from '../_lib/env.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
+import { resolveOrCreateAgentForAvatar as resolveLaunchAgentId } from '../_lib/agent-identity.js';
 import { parse, isUuid } from '../_lib/validate.js';
 import { randomToken } from '../_lib/crypto.js';
 import { publishFeedEvent } from '../_lib/feed.js';
@@ -1150,67 +1151,6 @@ const launchPrepSchema = z
 		path: ['agent_id'],
 	});
 
-// Resolve a usable agent_identities.id for the launch. If the caller passed
-// avatar_id (e.g. from /studio, where users pick an avatar and not a separate
-// agent), find the agent_identity already linked to that avatar — or create
-// one inline so the launch can proceed without a detour through the agent
-// registration wizard.
-async function resolveLaunchAgentId({ userId, agentId, avatarId }) {
-	if (agentId) {
-		const [row] = await sql`
-			select id, name from agent_identities
-			where id=${agentId} and user_id=${userId} and deleted_at is null
-			limit 1
-		`;
-		return row || null;
-	}
-	const [linked] = await sql`
-		select id, name from agent_identities
-		where user_id=${userId} and avatar_id=${avatarId} and deleted_at is null
-		order by created_at asc limit 1
-	`;
-	if (linked) return linked;
-
-	const [avatar] = await sql`
-		select id, name, description from avatars
-		where id=${avatarId} and owner_id=${userId} and deleted_at is null
-		limit 1
-	`;
-	if (!avatar) return null;
-
-	const agentName = (avatar.name || 'Agent').slice(0, 100);
-	const agentDesc = avatar.description ? String(avatar.description).slice(0, 1000) : null;
-	try {
-		const [created] = await sql`
-			insert into agent_identities (user_id, name, description, avatar_id)
-			values (${userId}, ${agentName}, ${agentDesc}, ${avatar.id})
-			returning id, name
-		`;
-		return created;
-	} catch (err) {
-		if (err?.code !== '23505') throw err;
-		// Unique-per-user constraint: reuse the user's existing identity and
-		// link it to this avatar if it has none yet.
-		const [unlinked] = await sql`
-			select id, name from agent_identities
-			where user_id=${userId} and avatar_id is null and deleted_at is null
-			order by created_at asc limit 1
-		`;
-		if (unlinked) {
-			await sql`
-				update agent_identities set avatar_id=${avatar.id}, updated_at=now()
-				where id=${unlinked.id}
-			`;
-			return unlinked;
-		}
-		const [any] = await sql`
-			select id, name from agent_identities
-			where user_id=${userId} and deleted_at is null
-			order by created_at asc limit 1
-		`;
-		return any || null;
-	}
-}
 
 async function handleLaunchPrep(req, res) {
 	if (cors(req, res, { methods: 'POST,OPTIONS', credentials: true })) return;

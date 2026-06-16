@@ -630,6 +630,85 @@
 
 			/* ── Entrance controller UI ─────────────────────────── */
 			/* Sit above the scene canvas (9400), below the cover card (9500). */
+			/* Cinematic intro / loading screen for the walk in. Sits above the
+			   entrance canvas, below the cover card; fades out once the alley is
+			   ready (driven by src/club-entrance.js with real byte progress). */
+			.club-loader {
+				position: fixed;
+				inset: 0;
+				z-index: 9480;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				text-align: center;
+				padding: 24px;
+				background:
+					radial-gradient(120% 90% at 50% 18%, rgba(255, 59, 214, 0.14), transparent 55%),
+					radial-gradient(110% 80% at 50% 100%, rgba(74, 214, 255, 0.1), transparent 60%),
+					#050308;
+				opacity: 1;
+				transition: opacity 0.7s ease;
+			}
+			.club-loader.is-done { opacity: 0; pointer-events: none; }
+			.club-loader-inner { max-width: 460px; width: 100%; }
+			.club-loader-kicker {
+				font-size: 11px;
+				font-weight: 600;
+				letter-spacing: 0.42em;
+				text-transform: uppercase;
+				color: var(--accent-2, #4ad6ff);
+				opacity: 0.85;
+				margin-bottom: 14px;
+			}
+			.club-loader-title {
+				margin: 0;
+				font-size: clamp(40px, 11vw, 76px);
+				font-weight: 800;
+				line-height: 0.96;
+				letter-spacing: -0.02em;
+				color: #fff;
+				text-shadow: 0 0 28px rgba(255, 59, 214, 0.55);
+			}
+			.club-loader-title span {
+				display: block;
+				background: linear-gradient(92deg, #ff3bd6, #ff8a3b 60%, #4ad6ff);
+				-webkit-background-clip: text;
+				background-clip: text;
+				-webkit-text-fill-color: transparent;
+				color: transparent;
+				text-shadow: none;
+			}
+			.club-loader-tagline {
+				margin: 16px auto 28px;
+				max-width: 360px;
+				font-size: 14px;
+				line-height: 1.5;
+				color: var(--text-2, #c2a8d8);
+			}
+			.club-loader-track {
+				height: 4px;
+				border-radius: 999px;
+				background: rgba(255, 255, 255, 0.08);
+				overflow: hidden;
+			}
+			.club-loader-bar {
+				height: 100%;
+				width: 4%;
+				border-radius: 999px;
+				background: linear-gradient(90deg, #ff3bd6, #4ad6ff);
+				box-shadow: 0 0 16px rgba(255, 59, 214, 0.8);
+				transition: width 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+			}
+			.club-loader-status {
+				margin-top: 14px;
+				font-size: 12px;
+				letter-spacing: 0.04em;
+				color: var(--text-3, #7c5d92);
+			}
+			@media (prefers-reduced-motion: reduce) {
+				.club-loader, .club-loader-bar { transition: none; }
+			}
+
 			/* Journey progress — where you are on the walk in (Alley → Stage). */
 			.club-journey {
 				position: fixed;
@@ -1492,6 +1571,17 @@
 		     avatar in the alley, then the walk through the club house after you
 		     pay. Sits behind the cover card, above the pole stage. -->
 		<canvas id="club-door-canvas" class="club-door-canvas" aria-hidden="true"></canvas>
+
+		<!-- Cinematic intro + real load progress while the alley streams in. -->
+		<div id="club-loader" class="club-loader" role="status" aria-live="polite">
+			<div class="club-loader-inner">
+				<div class="club-loader-kicker">three.ws</div>
+				<h1 class="club-loader-title">Pole<span>Club</span></h1>
+				<p class="club-loader-tagline">Step into the alley and walk it in. Tip a dancer and she takes the pole.</p>
+				<div class="club-loader-track"><div id="club-loader-bar" class="club-loader-bar"></div></div>
+				<div id="club-loader-status" class="club-loader-status">Loading the night…</div>
+			</div>
+		</div>
 
 		<!-- Controller UI for the walk in (toggled by src/club-entrance.js). -->
 		<nav id="club-journey" class="club-journey" aria-label="Walk-in progress">

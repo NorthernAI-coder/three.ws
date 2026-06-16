@@ -9,7 +9,7 @@
 // alone; the original owner's avatar, agent, and wallet are untouched.
 
 import { getSessionUser, authenticateBearer, extractBearer, hasScope } from '../_lib/auth.js';
-import { createAvatar, storageKeyFor } from '../_lib/avatars.js';
+import { createAvatar, storageKeyFor, listForks } from '../_lib/avatars.js';
 import { copyObject, headObject } from '../_lib/r2.js';
 import { provisionAgentWallets } from '../_lib/agent-wallet.js';
 import { sql } from '../_lib/db.js';
@@ -20,8 +20,22 @@ import { recordEvent } from '../_lib/usage.js';
 import { dispatchWebhooks } from '../_lib/webhook-dispatch.js';
 
 export default wrap(async (req, res) => {
-	if (cors(req, res, { methods: 'POST,OPTIONS', credentials: true })) return;
-	if (!method(req, res, ['POST'])) return;
+	if (cors(req, res, { methods: 'GET,POST,OPTIONS', credentials: true })) return;
+	if (!method(req, res, ['GET', 'POST'])) return;
+
+	// GET /api/avatars/fork?of=<avatarId> — public fork network of an avatar.
+	// Anonymous-safe: it only exposes public/unlisted forks.
+	if (req.method === 'GET') {
+		const url = new URL(req.url, 'http://x');
+		const of = String(url.searchParams.get('of') || '').trim();
+		if (!isUuid(of)) return error(res, 400, 'validation_error', 'of=<avatarId> required');
+		const result = await listForks({
+			avatarId: of,
+			limit: Math.min(Math.max(Number(url.searchParams.get('limit')) || 24, 1), 100),
+			cursor: url.searchParams.get('cursor'),
+		});
+		return json(res, 200, result);
+	}
 
 	const auth = await resolveAuth(req, 'avatars:write');
 	if (!auth) return error(res, 401, 'unauthorized', 'avatars:write scope required');

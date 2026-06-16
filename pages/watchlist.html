@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<script>/* three.ws theme boot — no-flash; runtime in /theme-switcher.js */(function(){try{var m=localStorage.getItem('twx_theme');var l=m==='auto'?(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches):m==='light';document.documentElement.setAttribute('data-theme',l?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();</script>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Watchlist · three.ws</title>
+		<meta
+			name="description"
+			content="Your watched coins on three.ws — live market caps, graduation status, and the Coin Intelligence verdict for every mint you're tracking."
+		/>
+		<meta property="og:type" content="website" />
+		<meta property="og:site_name" content="three.ws" />
+		<meta property="og:url" content="https://three.ws/watchlist" />
+		<meta property="og:title" content="Watchlist · three.ws" />
+		<meta property="og:description" content="Your watched coins on three.ws — live market caps, graduation status, and intelligence for every mint you track." />
+		<meta property="og:image" content="https://three.ws/og-image.png" />
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta name="twitter:site" content="@trythreews" />
+		<meta name="theme-color" content="#0a0a0a" />
+		<link rel="icon" href="/favicon.ico" sizes="any" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+		<link rel="manifest" href="/site.webmanifest" />
+		<link rel="stylesheet" href="/fonts/fonts.css" />
+		<link rel="stylesheet" href="/nav.css" />
+		<link rel="stylesheet" href="/src/watchlist.css" />
+		<link rel="stylesheet" href="/footer.css" />
+		<link rel="canonical" href="https://three.ws/watchlist" />
+	</head>
+	<body>
+		<header><div id="nav-container"></div></header>
+		<script src="/nav.js"></script>
+
+		<canvas id="wl-field" aria-hidden="true"></canvas>
+		<div class="wl-aurora" aria-hidden="true"></div>
+
+		<main class="wl-shell">
+			<section class="wl-hero">
+				<p class="wl-kicker"><span class="wl-live-dot" aria-hidden="true"></span>Saved on this device</p>
+				<h1 class="wl-title">Watchlist</h1>
+				<p class="wl-sub">
+					Coins you're tracking, with live market caps and graduation status. Tap any card for the
+					full profile. Your list is stored privately in this browser.
+				</p>
+				<div class="wl-hero-row">
+					<span id="wl-count" class="wl-count" aria-live="polite"></span>
+					<div class="wl-hero-ctas">
+						<a class="wl-btn" href="/launches">Browse launches</a>
+						<button id="wl-clear" class="wl-btn wl-btn-ghost" type="button" hidden>Clear all</button>
+					</div>
+				</div>
+			</section>
+
+			<section id="wl-feed" class="wl-grid" aria-label="Watched coins" aria-busy="true"></section>
+			<div id="wl-state" class="wl-state"></div>
+		</main>
+
+		<script type="module" src="/src/watchlist.js"></script>
+		<script src="/brand.js" defer></script>
+		<div id="footer-container"></div>
+		<script src="/footer.js"></script>
+	</body>
+</html>

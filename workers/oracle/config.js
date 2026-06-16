@@ -16,6 +16,7 @@ export function loadConfig() {
 		globalKill: process.env.ORACLE_GLOBAL_KILL === '1',
 		scoreIntervalMs: num(process.env.ORACLE_SCORE_INTERVAL_MS, 15_000),
 		agentIntervalMs: num(process.env.ORACLE_AGENT_INTERVAL_MS, 3_000),
+		settleIntervalMs: num(process.env.ORACLE_SETTLE_INTERVAL_MS, 60_000),
 		scoreBatch: num(process.env.ORACLE_SCORE_BATCH, 20),
 		rescoreAfterSec: num(process.env.ORACLE_RESCORE_AFTER_SEC, 180),
 		// Hard ceiling on any single live action, regardless of a watch's config —

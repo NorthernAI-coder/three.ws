@@ -78,6 +78,8 @@ button.primary:hover { filter: brightness(1.08); background: var(--aa-acc); }
 .addr code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: var(--aa-fg); }
 .copy { padding: 3px 7px; font-size: 11px; }
 .copy.copied { color: var(--aa-good); border-color: var(--aa-good); }
+.bal { margin-left: auto; font-size: 11px; color: var(--aa-dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.bal.has { color: var(--aa-fg); }
 .manage { color: var(--aa-acc); text-decoration: none; font-size: 12px; font-weight: 600; }
 .manage:hover { text-decoration: underline; }
 .msg { font-size: 12px; padding: 8px 10px; border-radius: 8px; }
@@ -226,15 +228,16 @@ class AvatarActions extends HTMLElement {
 				<button class="primary" data-act="create-wallet">Create wallet</button>
 			</div>`;
 		}
-		const addr = (chain, a) =>
+		const addr = (chain, a, balKey) =>
 			a
 				? `<div class="addr"><span class="chain">${chain}</span><code>${short(a)}</code>
-					<button class="copy" data-copy="${a}" title="Copy ${chain} address">Copy</button></div>`
+					<button class="copy" data-copy="${a}" title="Copy ${chain} address">Copy</button>
+					<span class="bal" data-bal="${balKey}"></span></div>`
 				: '';
 		return `<div class="wallet">
 			<div class="row spread"><h4>Agent wallet</h4>${manage}</div>
-			${addr('EVM', evm)}
-			${addr('SOL', sol)}
+			${addr('EVM', evm, 'eth')}
+			${addr('SOL', sol, 'sol')}
 			${evm && sol ? '' : `<button data-act="create-wallet">Provision missing chain</button>`}
 		</div>`;
 	}
@@ -261,6 +264,38 @@ class AvatarActions extends HTMLElement {
 		root
 			.querySelector('[data-act="create-wallet"]')
 			?.addEventListener('click', () => this._createWallet());
+
+		// Fill live balances after the addresses are on screen (owner + has wallet).
+		if (this.isOwner && this._agent && root.querySelector('.bal')) this._loadBalances();
+	}
+
+	async _loadBalances() {
+		const ag = this._agent;
+		if (!ag) return;
+		let d;
+		try {
+			const r = await fetch(`${API}/api/agents/${ag.id}/wallet`, { credentials: 'include' });
+			if (!r.ok) return;
+			d = await r.json();
+		} catch {
+			return;
+		}
+		const root = this.shadowRoot;
+		const fmt = (n, unit) =>
+			n == null ? '' : `${Number(n).toLocaleString(undefined, { maximumFractionDigits: 4 })} ${unit}`;
+		const eth = root.querySelector('[data-bal="eth"]');
+		if (eth && d.balance_eth != null) {
+			eth.textContent = fmt(d.balance_eth, 'ETH');
+			eth.classList.add('has');
+		}
+		const sol = root.querySelector('[data-bal="sol"]');
+		if (sol && (d.solana_balance != null || d.usdc_balance != null)) {
+			const parts = [];
+			if (d.solana_balance != null) parts.push(fmt(d.solana_balance, 'SOL'));
+			if (d.usdc_balance) parts.push(fmt(d.usdc_balance, 'USDC'));
+			sol.textContent = parts.join(' · ');
+			sol.classList.add('has');
+		}
 	}
 
 	_msg(kind, html) {

@@ -15,10 +15,14 @@ import {
 	BufferGeometry,
 	Timer,
 	Color,
+	ConeGeometry,
+	DoubleSide,
 	EquirectangularReflectionMapping,
 	Fog,
 	Group,
 	HemisphereLight,
+	Mesh,
+	MeshBasicMaterial,
 	PerspectiveCamera,
 	PMREMGenerator,
 	PointLight,
@@ -484,6 +488,43 @@ class PoleStation {
 		this.spotActiveIntensity = 12.0;
 		spot.intensity = this.spotIdleIntensity;
 
+		// Volumetric beam — a translucent cone of light from the spot down to the
+		// stage, additively blended so it reads as haze in the air rather than a
+		// solid object. A per-vertex gradient (bright at the source → black at the
+		// floor) gives the soft falloff without a custom shader; opacity tracks the
+		// spotlight and pulses with the beat (see the render loop). The single
+		// biggest "it feels real" upgrade for the room.
+		const beamH = 6.0;
+		const beamGeo = new ConeGeometry(1.15, beamH, 28, 1, true);
+		const beamColor = new Color(POLE_COLORS[idx % POLE_COLORS.length]);
+		const bpos = beamGeo.attributes.position;
+		const bcol = new Float32Array(bpos.count * 3);
+		for (let i = 0; i < bpos.count; i += 1) {
+			const t = (bpos.getY(i) + beamH / 2) / beamH; // 1 at the apex, 0 at the floor
+			const f = t * t; // bias the glow toward the source
+			bcol[i * 3] = beamColor.r * f;
+			bcol[i * 3 + 1] = beamColor.g * f;
+			bcol[i * 3 + 2] = beamColor.b * f;
+		}
+		beamGeo.setAttribute('color', new BufferAttribute(bcol, 3));
+		const beamMat = new MeshBasicMaterial({
+			vertexColors: true,
+			transparent: true,
+			opacity: 0,
+			blending: AdditiveBlending,
+			depthWrite: false,
+			side: DoubleSide,
+			fog: false,
+			toneMapped: false,
+		});
+		const beam = new Mesh(beamGeo, beamMat);
+		beam.position.set(layout.x, beamH / 2, layout.z); // apex at the spot height, base on the floor
+		beam.renderOrder = 2;
+		scene.add(beam);
+		this.beam = beam;
+		this.beamMat = beamMat;
+		this.beamBaseOpacity = 0.05;
+
 		// Floor accent point light — sits at the base of the pole.
 		const accent = new PointLight(POLE_COLORS[idx % POLE_COLORS.length], 0.9, 4.5, 1.6);
 		accent.position.set(layout.x, 0.6, layout.z);
@@ -805,6 +846,15 @@ class PoleStation {
 		}
 		if (this._accentTarget != null) {
 			this.accent.intensity += (this._accentTarget - this.accent.intensity) * Math.min(1, dt * 4);
+		}
+
+		// Volumetric beam brightness rides the spotlight: a faint haze when idle,
+		// a thick shaft of light when she's under the hot spot. The beat pulse is
+		// layered on in the render loop.
+		if (this.beamMat) {
+			const span = Math.max(0.001, this.spotActiveIntensity - this.spotIdleIntensity);
+			const norm = Math.max(0, Math.min(1, (this.spot.intensity - this.spotIdleIntensity) / span));
+			this.beamBaseOpacity = 0.045 + norm * 0.17;
 		}
 
 		// Drive avatar walk between waypoints.
@@ -1224,6 +1274,9 @@ async function tipDancer({ dancer, dance, button }) {
 		if (!ticket?.ok) {
 			throw new Error(ticket?.error || 'tip did not settle');
 		}
+		// A short triple buzz on phones the moment USDC settles — the tip lands
+		// in your hand the way it lands on stage.
+		try { navigator.vibrate?.([18, 40, 60]); } catch { /* unsupported */ }
 		station.startPerformance(ticket);
 
 		// Crossfade ambience → style loop in sync with the dancer walking
@@ -1585,6 +1638,9 @@ function animate() {
 
 	watchdog.tick(dt);
 
+	// Beat level — drives both the bloom and the volumetric beams this frame.
+	const peak = audio.getPeak();
+
 	for (const station of stations) {
 		station.tick(dt);
 
@@ -1593,6 +1649,13 @@ function animate() {
 		if (!station.performing && station.spot) {
 			const pulse = Math.sin(t * 1.2 + station.idx * 1.5) * 0.15 + 1.0;
 			station.spot.intensity = station.spotIdleIntensity * pulse;
+		}
+
+		// Volumetric beam — rides the spotlight (set in tick) and breathes with
+		// the beat so the haze pulses in time with her routine.
+		if (station.beamMat) {
+			station.beamMat.opacity = station.beamBaseOpacity * (1 + peak * 0.9)
+				+ Math.sin(t * 1.5 + station.idx) * 0.01;
 		}
 
 		// Update progress bar for performing stations.
@@ -1622,7 +1685,6 @@ function animate() {
 	clubCam.tick(dt);
 
 	// Audio-reactive bloom — pulse intensity with the beat.
-	const peak = audio.getPeak();
 	bloomEffect.intensity = 1.0 + peak * 1.5;
 
 	composer.render(dt);

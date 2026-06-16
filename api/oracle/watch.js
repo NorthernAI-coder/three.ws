@@ -19,7 +19,7 @@ import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { sql } from '../_lib/db.js';
 import { z } from 'zod';
-import { getWatch, upsertWatch, recentActions } from '../_lib/oracle/store.js';
+import { getWatch, upsertWatch, recentActions, actionsSummary } from '../_lib/oracle/store.js';
 
 const NETWORKS = new Set(['mainnet', 'devnet']);
 const TIERS = new Set(['prime', 'strong', 'lean', 'watch']);
@@ -74,11 +74,12 @@ export default wrap(async (req, res) => {
 		if (!agentId) return error(res, 400, 'validation_error', 'agent_id is required');
 		if (!(await ownsAgent(userId, agentId))) return error(res, 403, 'forbidden', 'you do not own this agent');
 
-		const [watch, actions] = await Promise.all([
+		const [watch, actions, summary] = await Promise.all([
 			getWatch(agentId, network),
 			recentActions(agentId, network, 50),
+			actionsSummary(agentId, network),
 		]);
-		return json(res, 200, { agent_id: agentId, network, watch: watch || defaultWatch(agentId, network), actions });
+		return json(res, 200, { agent_id: agentId, network, watch: watch || defaultWatch(agentId, network), actions, summary });
 	}
 
 	// POST — arm / update.
