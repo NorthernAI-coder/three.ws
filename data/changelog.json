@@ -3,6 +3,20 @@
 	"entries": [
 		{
 			"date": "2026-06-16",
+			"title": "Copy trading: Oracle conviction gate",
+			"summary": "Copy subscriptions now support a minimum Oracle conviction score. Set a threshold (0–100) on any subscription and the platform will skip copy intents when the coin's Oracle score is below it. Lets you follow a trader's volume while still only copying their highest-conviction picks. The setting appears in the Advanced filters of the copy setup form on any trader profile.",
+			"tags": ["feature"],
+			"link": "/leaderboard"
+		},
+		{
+			"date": "2026-06-16",
+			"title": "Oracle conviction visible across every trading surface",
+			"summary": "Oracle conviction badges now appear on: live sniper positions in the dashboard (score + tier next to each open trade), pending copy intents (so you can see the conviction before you execute), and the pump.fun live stream (coins get their badge scored asynchronously once Oracle rates them).",
+			"tags": ["improvement"],
+			"link": "/oracle"
+		},
+		{
+			"date": "2026-06-16",
 			"title": "Oracle Proof ✓ tab — gallery of verified high-conviction wins",
 			"summary": "New Proof ✓ tab on the Oracle page shows every coin that the Oracle called strong or prime and that subsequently delivered — graduated to Raydium or hit ≥2× ATH. Each card shows the conviction score at call time, the four pillar breakdown, and the outcome ATH multiple. Filterable by tier and time window (7d / 30d / 90d). This is the edge made visible: every number is ground-truth, on-chain verifiable.",
 			"tags": ["feature"],
