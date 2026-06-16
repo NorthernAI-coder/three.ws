@@ -353,5 +353,25 @@
 		"pattern": "RPM",
 		"file": "pages/create.html",
 		"reason": "Same single-line RPM importer entry point on /create — the abbreviation appears in the link text."
+	},
+	{
+		"pattern": "Avaturn",
+		"file": "docs/internal/ISSUES-ARCHIVE-2026-05.md",
+		"reason": "Closed-issue archive — historical record of a rejected Avaturn integration (status: NOT USING / CLOSED); not surfaced in any live product UI."
+	},
+	{
+		"pattern": "avaturn-api-key",
+		"file": "docs/internal/ISSUES-ARCHIVE-2026-05.md",
+		"reason": "Closed-issue archive — references the internal remediation-guide filename (fix-avaturn-api-key.md); not user-facing copy."
+	},
+	{
+		"pattern": "character-studio/eslint.config.mjs",
+		"file": "docs/internal/ISSUES-ARCHIVE-2026-05.md",
+		"reason": "Closed-issue archive — technical context note about the character-studio eslint migration; not user-facing copy."
+	},
+	{
+		"pattern": "readyplayerme.glb",
+		"file": "public/demos-embed/selfie.html",
+		"reason": "Hosted GLB asset filename for a 3D avatar in the embed demo — the asset name is a legacy identifier, not visible UI copy."
 	}
 ]

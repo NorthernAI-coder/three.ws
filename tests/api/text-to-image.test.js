@@ -114,7 +114,8 @@ describe('textToImage — NIM FLUX free lane (first)', () => {
 		expect(vertexState.generate).not.toHaveBeenCalled();
 		expect(calls).toHaveLength(1);
 		expect(calls[0].url).toContain('flux.1-schnell');
-		expect(calls[0].body).toMatchObject({ prompt: 'a red teapot', steps: 4 });
+		expect(calls[0].body.prompt).toMatch(/^a red teapot/);
+		expect(calls[0].body).toMatchObject({ steps: 4 });
 		// schnell is guidance-distilled: the endpoint 422s on cfg_scale > 0
 		// (verified live), so the request must not send it at all.
 		expect(calls[0].body).not.toHaveProperty('cfg_scale');

@@ -483,6 +483,11 @@ export async function handleWallet(req, res, id, action = null) {
 	const auth = await resolveAuth(req);
 	if (!auth) return error(res, 401, 'unauthorized', 'sign in required');
 
+	// CSRF check before any DB lookups for state-mutating methods.
+	if (req.method !== 'GET') {
+		if (!(await requireCsrf(req, res, auth.userId))) return;
+	}
+
 	const [existing] = await sql`
 		SELECT id, user_id, wallet_address, chain_id, meta FROM agent_identities WHERE id = ${id} AND deleted_at IS NULL
 	`;
@@ -520,8 +525,6 @@ export async function handleWallet(req, res, id, action = null) {
 			usdc_balance: usdc,
 		});
 	}
-
-	if (!(await requireCsrf(req, res, auth.userId))) return;
 
 	// POST /api/agents/:id/wallet/provision — idempotently generate the agent's
 	// custodial EVM + Solana wallets. This is the "Create wallet" action surfaced
