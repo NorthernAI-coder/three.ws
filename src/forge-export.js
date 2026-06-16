@@ -13,6 +13,10 @@
 // Like the stylize/optimize panels, this module injects its own markup and
 // styles and only needs the result panel's download anchor to exist.
 
+import { createLogger } from './shared/log.js';
+
+const log = createLogger('forge-export');
+
 const download = document.getElementById('download');
 const resultPanel = document.getElementById('state-result');
 
@@ -282,7 +286,7 @@ if (download && resultPanel) {
 				if (status.textContent === 'saved ✓') status.textContent = '';
 			}, 4000);
 		} catch (err) {
-			console.error('[forge-export]', format.id, err);
+			log.error(format.id, err);
 			status.textContent = 'failed — retry';
 			status.classList.add('is-error');
 		} finally {

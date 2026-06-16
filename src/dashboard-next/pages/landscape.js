@@ -348,6 +348,7 @@ function paintPositionMap(host) {
 	host.innerHTML = '';
 	const canvas = document.createElement('canvas');
 	canvas.style.cssText = 'width:100%;height:100%;display:block;cursor:crosshair';
+	canvas.setAttribute('aria-hidden', 'true');
 	host.appendChild(canvas);
 
 	const tooltip = document.createElement('div');
@@ -716,6 +717,7 @@ function paintGrowthChart(host) {
 	host.innerHTML = '';
 	const canvas = document.createElement('canvas');
 	canvas.style.cssText = 'width:100%;height:100%;display:block';
+	canvas.setAttribute('aria-hidden', 'true');
 	host.appendChild(canvas);
 
 	const dpr = window.devicePixelRatio || 1;

@@ -245,7 +245,20 @@ export class Viewer {
 			this._intersectionObserver.observe(this.el);
 		}
 
-		this._onResize = this.resize.bind(this);
+		// Coalesce resize bursts (a window drag, or the ResizeObserver firing
+		// alongside the window 'resize' event) into one resize() per animation
+		// frame — resize() reallocates the renderer + composer framebuffers and
+		// may re-frame the model, which is wasteful to run several times per
+		// frame. _resizeRaf holds the pending frame id; resize() runs once when
+		// it fires.
+		this._resizeRaf = null;
+		this._onResize = () => {
+			if (this._resizeRaf != null) return;
+			this._resizeRaf = requestAnimationFrame(() => {
+				this._resizeRaf = null;
+				if (!this._disposed) this.resize();
+			});
+		};
 		this._onKeyDown = (e) => {
 			if (this.isInputFocused()) return;
 			if (e.key === 'p' || e.key === 'P') {
@@ -1321,7 +1334,10 @@ export class Viewer {
 	_ensureAxesRenderer() {
 		if (this.axesRenderer || !this.axesDiv) return this.axesRenderer;
 		this.axesRenderer = new WebGLRenderer({ alpha: true });
-		this.axesRenderer.setPixelRatio(window.devicePixelRatio);
+		// Match the main renderer's DPR cap — the tiny axes gizmo gains nothing
+		// from rendering at full retina density and the extra fragments are pure
+		// waste on high-DPI phones.
+		this.axesRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 		this.axesRenderer.setSize(this.axesDiv.clientWidth, this.axesDiv.clientHeight);
 		this.axesDiv.appendChild(this.axesRenderer.domElement);
 		return this.axesRenderer;
@@ -1829,6 +1845,10 @@ export class Viewer {
 		if (this._rafId !== null) {
 			cancelAnimationFrame(this._rafId);
 			this._rafId = null;
+		}
+		if (this._resizeRaf != null) {
+			cancelAnimationFrame(this._resizeRaf);
+			this._resizeRaf = null;
 		}
 
 		document.removeEventListener('visibilitychange', this._onVisibilityChange);

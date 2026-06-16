@@ -3,6 +3,59 @@
 	"entries": [
 		{
 			"date": "2026-06-16",
+			"title": "Pages that hit a network error now show a retry, never a blank screen",
+			"summary": "Audited every data-loading surface across the home page, Discover, the Marketplace, your Dashboard, agent profiles, and the create flow so a flaky connection always lands on a designed state instead of an empty void. Lists that fail to load now show a clear \"Couldn't load this — Retry\" message with a working retry button; sections still loading show a skeleton instead of a frozen spinner; and the home hero, transcript and knowledge popups, and avatar pickers recover cleanly if a request drops. Toggle your connection off and reload — the page tells you what happened and how to recover.",
+			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"title": "Embedded agents and the marketplace lobby fail gracefully instead of crashing",
+			"summary": "Hardened the async boundaries on a few load paths so a flaky network never leaves a silent crash in the page. When an embedded agent, a saved widget, or an on-chain agent can't load, you now get a clear \"Couldn't load this\" message with a retry button instead of a half-rendered viewer. On the marketplace lobby, a hiccup loading the 3D model decoder no longer throws an uncaught error — the gallery degrades quietly and the rest of the page keeps working.",
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"title": "Create-flow feature previews now show live data, not sample numbers",
+			"summary": "The capability previews on the avatar create screen — Reputation, Analytics, and Token Launch — used to display illustrative sample figures (placeholder reviews, made-up revenue, a fake token price). They now pull real numbers live: Reputation and Analytics show the platform's actual on-chain attestation count, registered-agent totals, widgets and chains; Token Launch shows the live $THREE market (price, 24h change, market cap, volume). Each strip loads with a skeleton and quietly collapses if a data source is briefly unreachable, so you never see invented figures. Skill-pricing previews now read \"you set the price\" instead of fabricated per-call amounts.",
+			"tags": [
+				"improvement"
+			],
+			"link": "/create-review"
+		},
+		{
+			"date": "2026-06-16",
+			"title": "Home page token buttons now land on real pages",
+			"summary": "Two buttons in the home page's token-economy section pointed at pages that never existed — \"Explore token agents\" and \"Trending tokens\" both led to 404s. They now go to the right places: \"Explore token agents\" opens the Agent Launches feed, and \"Trending tokens\" opens Coin Radar, the live pump.fun launch-intelligence view.",
+			"tags": [
+				"fix"
+			],
+			"link": "/launches"
+		},
+		{
+			"date": "2026-06-16",
+			"title": "Live $THREE market signal now greets you on the home page",
+			"summary": "Right under the hero, the home page now shows a live $THREE signal bar pulling real market data: current price with its 24h change (green up, red down), market cap, 24h trading volume, and the running total of $THREE permanently burned by agent deployments. Every figure is fetched live from the token API (Birdeye → DexScreener → GeckoTerminal failover, edge-cached) and refreshes every 30 seconds without a reload. If the data source is briefly unreachable it degrades to a quiet link to the token page instead of showing blanks, and it pauses refreshing while the tab is in the background.",
+			"tags": [
+				"feature",
+				"improvement"
+			],
+			"link": "/three-token"
+		},
+		{
+			"date": "2026-06-16",
+			"title": "Agent-wallet payment demo fails gracefully when the local bridge isn't running",
+			"summary": "The /play/agent-wallet demo pays a real x402 endpoint by signing through a bridge that runs in your terminal. On the live site, with no bridge to reach, the page used to hang on \"Connecting to bridge…\" while a doomed network request timed out in the background. It now recognizes there's no local bridge and shows the \"Bridge offline\" banner immediately — with the exact command to start the bridge — instead of stalling. Multiplayer /walk and the avatar creator were also hardened so they degrade cleanly when their server isn't configured rather than trying to reach a local address that doesn't exist in production.",
+			"tags": [
+				"fix"
+			],
+			"link": "/play/agent-wallet"
+		},
+		{
+			"date": "2026-06-16",
 			"title": "Tipped club dances now always perform",
 			"summary": "The Spin, Slow Burn (formerly Climb) and Full Combo routines on the Pole Club stage were charging for a performance the dancer couldn't actually play — the choreography was wired to animation clips that were never shipped, so a tip would settle and the dancer would just walk out, stand still, and walk back. All three routines are now built from real, deployed dance clips, so every tip you pay produces a full, visible routine set to its music. As a safety net, the stage will never leave a dancer frozen again: if any clip can't load, she falls back to a real dance for the full duration so a paid tip always delivers a performance.",
 			"tags": [

@@ -13,6 +13,7 @@
 
 import { mountShell } from '../shell.js';
 import { requireUser, get, post, esc, relTime, formatUsdc, ApiError } from '../api.js';
+import { errorStateHTML, ensureStateKitStyles } from '../../shared/state-kit.js';
 
 const MONO = `'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace`;
 
@@ -62,45 +63,7 @@ function toast(msg) {
 
 		const host = main.querySelector('[data-slot="content"]');
 
-		const [agentsResp, dashResp] = await Promise.all([
-			safeGet('/api/agents'),
-			safeGet('/api/pump/dashboard'),
-		]);
-
-		const agents = agentsResp?.agents || [];
-		const dashTokens = dashResp?.tokens || [];
-
-		// Build enriched token list: match pump tokens from agent meta + dashboard data
-		const pumpAgents = agents.filter((a) =>
-			a.meta?.pumpfun?.mint || a.meta?.token?.mint || a.meta?.token?.ca,
-		);
-
-		// Fetch per-agent token stats
-		const tokenData = await Promise.all(
-			pumpAgents.map(async (a) => {
-				const mint = a.meta?.pumpfun?.mint || a.meta?.token?.mint || a.meta?.token?.ca;
-				const byAgent = await safeGet(`/api/pump/by-agent?agent_id=${encodeURIComponent(a.id)}`);
-				const fromDash = dashTokens.find((t) => t.mint === mint || t.address === mint);
-				return {
-					agent: a,
-					mint: mint || byAgent?.data?.mint || null,
-					token: byAgent?.token || fromDash || null,
-					stats: byAgent?.stats || fromDash?.stats || null,
-					coin: byAgent?.data || null, // { agent_authority, network, symbol, name, sharing_config }
-				};
-			}),
-		);
-
-		host.innerHTML = '';
-
-		if (!pumpAgents.length) {
-			host.appendChild(renderEmpty());
-			return;
-		}
-
-		host.appendChild(renderSummaryStrip(tokenData));
-		const cards = tokenData.map((td) => { const el = renderTokenCard(td); host.appendChild(el); return { el, mint: td.mint }; });
-		enrichTokenCardsOracle(cards);
+		await loadTokens(host);
 	} catch (err) {
 		if (err instanceof ApiError && err.status === 401) {
 			location.href = `/login?return=${encodeURIComponent(location.pathname)}`;
@@ -109,6 +72,69 @@ function toast(msg) {
 		}
 	}
 })();
+
+async function loadTokens(host) {
+	host.innerHTML = `<div class="dn-skeleton" style="height:200px;border-radius:12px"></div>`;
+
+	const [agentsSettled, dashSettled] = await Promise.allSettled([
+		get('/api/agents'),
+		get('/api/pump/dashboard'),
+	]);
+
+	if (agentsSettled.status === 'rejected'
+		&& agentsSettled.reason instanceof ApiError
+		&& agentsSettled.reason.status === 401) {
+		location.href = `/login?return=${encodeURIComponent(location.pathname)}`;
+		return;
+	}
+
+	// Both primary surfaces failing means the network is down — render a retryable
+	// error rather than renderEmpty(), which would wrongly read as "no tokens".
+	if (agentsSettled.status === 'rejected' && dashSettled.status === 'rejected') {
+		ensureStateKitStyles();
+		host.innerHTML = errorStateHTML({
+			title: "Couldn't load your tokens",
+			body: 'We had trouble reaching the token service. Check your connection and try again.',
+		});
+		host.querySelector('[data-sk-retry]')?.addEventListener('click', () => loadTokens(host));
+		return;
+	}
+
+	const agents = (agentsSettled.status === 'fulfilled' ? agentsSettled.value?.agents : null) || [];
+	const dashTokens = (dashSettled.status === 'fulfilled' ? dashSettled.value?.tokens : null) || [];
+
+	// Build enriched token list: match pump tokens from agent meta + dashboard data
+	const pumpAgents = agents.filter((a) =>
+		a.meta?.pumpfun?.mint || a.meta?.token?.mint || a.meta?.token?.ca,
+	);
+
+	// Fetch per-agent token stats
+	const tokenData = await Promise.all(
+		pumpAgents.map(async (a) => {
+			const mint = a.meta?.pumpfun?.mint || a.meta?.token?.mint || a.meta?.token?.ca;
+			const byAgent = await safeGet(`/api/pump/by-agent?agent_id=${encodeURIComponent(a.id)}`);
+			const fromDash = dashTokens.find((t) => t.mint === mint || t.address === mint);
+			return {
+				agent: a,
+				mint: mint || byAgent?.data?.mint || null,
+				token: byAgent?.token || fromDash || null,
+				stats: byAgent?.stats || fromDash?.stats || null,
+				coin: byAgent?.data || null, // { agent_authority, network, symbol, name, sharing_config }
+			};
+		}),
+	);
+
+	host.innerHTML = '';
+
+	if (!pumpAgents.length) {
+		host.appendChild(renderEmpty());
+		return;
+	}
+
+	host.appendChild(renderSummaryStrip(tokenData));
+	const cards = tokenData.map((td) => { const el = renderTokenCard(td); host.appendChild(el); return { el, mint: td.mint }; });
+	enrichTokenCardsOracle(cards);
+}
 
 async function safeGet(url) {
 	try { return await get(url); }

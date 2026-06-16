@@ -103,6 +103,14 @@
 			<description>Agent profiles now show a live TRADING RECORD panel that pulls directly from the Oracle's action ledger. Win rate, wins/losses/open, realized PnL, and ROI are computed from real settled trades. Below the summary, the 8 most recent Oracle trades appear as quick-glance rows: outcome dot (green/red/yellow), ticker, conviction tier, peak multiple, and realized PnL. When an agent has profitable exits, a 'Copy this trader' link lets visitors subscribe. The panel stays hidden until the agent has at least one Oracle action, so profiles without trading history are unchanged.</description>
 		</item>
 		<item>
+			<title>Agent-wallet payment demo fails gracefully when the local bridge isn't running</title>
+			<link>https://three.ws/play/agent-wallet</link>
+			<guid isPermaLink="false">2026-06-16:Agent-wallet payment demo fails gracefully when the local bridge isn't running</guid>
+			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>The /play/agent-wallet demo pays a real x402 endpoint by signing through a bridge that runs in your terminal. On the live site, with no bridge to reach, the page used to hang on &quot;Connecting to bridge…&quot; while a doomed network request timed out in the background. It now recognizes there's no local bridge and shows the &quot;Bridge offline&quot; banner immediately — with the exact command to start the bridge — instead of stalling. Multiplayer /walk and the avatar creator were also hardened so they degrade cleanly when their server isn't configured rather than trying to reach a local address that doesn't exist in production.</description>
+		</item>
+		<item>
 			<title>Agents Index — browse every public 3D AI agent on three.ws</title>
 			<link>https://three.ws/agents</link>
 			<guid isPermaLink="false">2026-06-16:Agents Index — browse every public 3D AI agent on three.ws</guid>
@@ -199,12 +207,28 @@
 			<description>Saving an avatar or completing an agent no longer drops you on a blank library page. A new /create/next screen appears immediately after: your 3D model spins in the left panel while three action cards on the right guide you through the natural progression — give it an AI brain, embed it on any site, or optionally deploy it on-chain. Each card deep-links directly with your new avatar or agent pre-loaded so the session continues without starting over.</description>
 		</item>
 		<item>
+			<title>Create-flow feature previews now show live data, not sample numbers</title>
+			<link>https://three.ws/create-review</link>
+			<guid isPermaLink="false">2026-06-16:Create-flow feature previews now show live data, not sample numbers</guid>
+			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>The capability previews on the avatar create screen — Reputation, Analytics, and Token Launch — used to display illustrative sample figures (placeholder reviews, made-up revenue, a fake token price). They now pull real numbers live: Reputation and Analytics show the platform's actual on-chain attestation count, registered-agent totals, widgets and chains; Token Launch shows the live $THREE market (price, 24h change, market cap, volume). Each strip loads with a skeleton and quietly collapses if a data source is briefly unreachable, so you never see invented figures. Skill-pricing previews now read &quot;you set the price&quot; instead of fabricated per-call amounts.</description>
+		</item>
+		<item>
 			<title>Embed wizard now reachable from every agent and avatar page</title>
 			<link>https://three.ws/embed</link>
 			<guid isPermaLink="false">2026-06-16:Embed wizard now reachable from every agent and avatar page</guid>
 			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
 			<category>improvement</category>
 			<description>The full-featured embed wizard (/embed) is now one click away from any agent detail page, avatar page, and the dashboard agents list. Open it to configure size, environment, mode, and controls, see a live preview, and copy platform-specific instructions for plain HTML, React, WordPress, Webflow, or Shopify. When the wizard is opened from an agent page it pre-loads the agent and defaults to chat mode.</description>
+		</item>
+		<item>
+			<title>Embedded agents and the marketplace lobby fail gracefully instead of crashing</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-16:Embedded agents and the marketplace lobby fail gracefully instead of crashing</guid>
+			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Hardened the async boundaries on a few load paths so a flaky network never leaves a silent crash in the page. When an embedded agent, a saved widget, or an on-chain agent can't load, you now get a clear &quot;Couldn't load this&quot; message with a retry button instead of a half-rendered viewer. On the marketplace lobby, a hiccup loading the 3D model decoder no longer throws an uncaught error — the gallery degrades quietly and the rest of the page keeps working.</description>
 		</item>
 		<item>
 			<title>Every launch now has its own page — the full story of a coin in one place</title>
@@ -245,6 +269,14 @@
 			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
 			<category>improvement</category>
 			<description>The three.ws home page now has an Oracle section between the Pump.fun token economy block and the pay-per-call block. It explains the four-pillar conviction system (Who · How · What · Move) and renders a live mini-feed of the current top-scoring coins fetched from /api/oracle/feed — each card shows the ticker, 0–100 score, tier pill, and four color-coded pillar bars. Clicking any card opens the Oracle drawer for that coin. The live dot pulses while data is streaming.</description>
+		</item>
+		<item>
+			<title>Home page token buttons now land on real pages</title>
+			<link>https://three.ws/launches</link>
+			<guid isPermaLink="false">2026-06-16:Home page token buttons now land on real pages</guid>
+			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Two buttons in the home page's token-economy section pointed at pages that never existed — &quot;Explore token agents&quot; and &quot;Trending tokens&quot; both led to 404s. They now go to the right places: &quot;Explore token agents&quot; opens the Agent Launches feed, and &quot;Trending tokens&quot; opens Coin Radar, the live pump.fun launch-intelligence view.</description>
 		</item>
 		<item>
 			<title>Home page: Top Traders widget + Oracle proof trades in coin drawer</title>
@@ -325,6 +357,14 @@
 			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>The Trader Leaderboard now includes an Oracle Conviction Rankings section below the main board. Agents are ranked by conviction win rate across their full Oracle action history (minimum 3 resolved calls required). Each row shows wins/losses, realized PnL, and ROI. A new /api/oracle/leaderboard endpoint drives the data. The Arena agent drawer also now shows the agent's Oracle stats — actions, win rate, and recent calls — alongside their trading record.</description>
+		</item>
+		<item>
+			<title>Live $THREE market signal now greets you on the home page</title>
+			<link>https://three.ws/three-token</link>
+			<guid isPermaLink="false">2026-06-16:Live $THREE market signal now greets you on the home page</guid>
+			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Right under the hero, the home page now shows a live $THREE signal bar pulling real market data: current price with its 24h change (green up, red down), market cap, 24h trading volume, and the running total of $THREE permanently burned by agent deployments. Every figure is fetched live from the token API (Birdeye → DexScreener → GeckoTerminal failover, edge-cached) and refreshes every 30 seconds without a reload. If the data source is briefly unreachable it degrades to a quiet link to the token page instead of showing blanks, and it pauses refreshing while the tab is in the background.</description>
 		</item>
 		<item>
 			<title>Live Trade Feed — every notable pump.fun win in one public stream</title>
@@ -573,6 +613,14 @@
 			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
 			<category>improvement</category>
 			<description>The Oracle arm panel now has a Send test button next to the Telegram chat ID field. Clicking it sends an immediate test message to confirm your bot setup is working before you wait for a real signal to arrive. The button shows delivery success or a hint if the bot hasn't been started.</description>
+		</item>
+		<item>
+			<title>Pages that hit a network error now show a retry, never a blank screen</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-16:Pages that hit a network error now show a retry, never a blank screen</guid>
+			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>Audited every data-loading surface across the home page, Discover, the Marketplace, your Dashboard, agent profiles, and the create flow so a flaky connection always lands on a designed state instead of an empty void. Lists that fail to load now show a clear &quot;Couldn't load this — Retry&quot; message with a working retry button; sections still loading show a skeleton instead of a frozen spinner; and the home hero, transcript and knowledge popups, and avatar pickers recover cleanly if a request drops. Toggle your connection off and reload — the page tells you what happened and how to recover.</description>
 		</item>
 		<item>
 			<title>Pay an agent in the IRL playground with one tap via x402</title>

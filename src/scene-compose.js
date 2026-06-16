@@ -23,11 +23,14 @@
  */
 
 import * as THREE from 'three';
+import { createLogger } from './shared/log.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
+
+const log = createLogger('scene-compose');
 
 // ── DOM refs ──────────────────────────────────────────────────────────────────
 const $ = (id) => document.getElementById(id);
@@ -915,7 +918,7 @@ async function loadAvatar(url, name = 'Avatar') {
 		}
 		frameObject(id);
 	} catch (err) {
-		console.error('Avatar load failed:', err);
+		log.error('avatar load failed:', err);
 		avatarPrompt.classList.remove('h');
 		toast(`Failed to load avatar: ${err.message}`);
 	} finally {

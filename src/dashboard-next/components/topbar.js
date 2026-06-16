@@ -28,7 +28,7 @@ export function renderTopbar(pathname) {
 				</span>
 				<kbd>⌘K</kbd>
 			</button>
-			<button type="button" class="dn-topbar-btn" data-action="toggle-notifs" aria-label="Notifications" style="position:relative">
+			<button type="button" class="dn-topbar-btn" data-action="toggle-notifs" aria-label="Notifications" aria-haspopup="menu" aria-expanded="false" style="position:relative">
 				<svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2a6 6 0 016 6v3l1.5 2.5H2.5L4 11V8a6 6 0 016-6z"/><path d="M8 17a2 2 0 004 0"/></svg>
 				<span data-slot="notif-badge" style="
 					display:none;position:absolute;top:2px;right:2px;
@@ -40,11 +40,11 @@ export function renderTopbar(pathname) {
 			<button type="button" class="dn-topbar-btn" data-action="toggle-drawer" aria-label="Toggle activity drawer" aria-pressed="false">
 				<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="3"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.2 3.2l1.4 1.4M11.4 11.4l1.4 1.4M3.2 12.8l1.4-1.4M11.4 4.6l1.4-1.4"/></svg>
 			</button>
-			<div class="dn-topbar-user" data-action="toggle-user-menu" data-component="topbar-user" aria-haspopup="true">
-				<div class="dn-topbar-user-avatar" data-slot="initials">··</div>
+			<button type="button" class="dn-topbar-user" data-action="toggle-user-menu" data-component="topbar-user" aria-haspopup="menu" aria-expanded="false" aria-label="Account menu">
+				<span class="dn-topbar-user-avatar" data-slot="initials" aria-hidden="true">··</span>
 				<span data-slot="label">Loading…</span>
-				<svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 4l4 4 4-4"/></svg>
-			</div>
+				<svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M2 4l4 4 4-4"/></svg>
+			</button>
 		</header>`;
 }
 
@@ -140,11 +140,14 @@ function setDrawerOpen(shellEl, open) {
 
 function toggleNotifsDropdown(btn) {
 	const existing = document.querySelector('[data-topbar-notifs]');
-	if (existing) { existing.remove(); return; }
+	if (existing) { closeNotifsDropdown(existing, btn); return; }
 
 	const rect = btn.getBoundingClientRect();
 	const drop = document.createElement('div');
 	drop.setAttribute('data-topbar-notifs', '');
+	drop.setAttribute('role', 'dialog');
+	drop.setAttribute('aria-label', 'Notifications');
+	btn.setAttribute('aria-expanded', 'true');
 	drop.style.cssText = `
 		position:fixed;top:${rect.bottom + 8}px;right:${window.innerWidth - rect.right}px;
 		width:320px;max-height:420px;overflow-y:auto;
@@ -165,11 +168,20 @@ function toggleNotifsDropdown(btn) {
 
 	const closeOnOutside = (e) => {
 		if (!drop.contains(e.target) && e.target !== btn) {
-			drop.remove();
-			document.removeEventListener('click', closeOnOutside, true);
+			closeNotifsDropdown(drop, btn, closeOnOutside, onKey);
 		}
 	};
-	setTimeout(() => document.addEventListener('click', closeOnOutside, true), 0);
+	const onKey = (e) => {
+		if (e.key === 'Escape') {
+			e.stopPropagation();
+			closeNotifsDropdown(drop, btn, closeOnOutside, onKey);
+			btn.focus();
+		}
+	};
+	setTimeout(() => {
+		document.addEventListener('click', closeOnOutside, true);
+		document.addEventListener('keydown', onKey, true);
+	}, 0);
 
 	fetch('/api/notifications?limit=10', { credentials: 'include' })
 		.then((r) => r.ok ? r.json() : null)
@@ -194,17 +206,27 @@ function toggleNotifsDropdown(btn) {
 		});
 }
 
+function closeNotifsDropdown(drop, btn, onOutside, onKey) {
+	drop.remove();
+	if (btn) btn.setAttribute('aria-expanded', 'false');
+	if (onOutside) document.removeEventListener('click', onOutside, true);
+	if (onKey) document.removeEventListener('keydown', onKey, true);
+}
+
 // ── User menu popover ──────────────────────────────────────────────────────
 
 function toggleUserMenu(chip) {
 	const existing = document.querySelector('[data-topbar-user-menu]');
-	if (existing) { existing.remove(); return; }
+	if (existing) { closeUserMenu(existing, chip); return; }
 
 	const rect = chip.getBoundingClientRect();
 	const rawMe = chip.dataset.me ? JSON.parse(chip.dataset.me) : {};
 
+	chip.setAttribute('aria-expanded', 'true');
 	const menu = document.createElement('div');
 	menu.setAttribute('data-topbar-user-menu', '');
+	menu.setAttribute('role', 'menu');
+	menu.setAttribute('aria-label', 'Account menu');
 	menu.style.cssText = `
 		position:fixed;top:${rect.bottom + 8}px;right:${window.innerWidth - rect.right}px;
 		min-width:240px;
@@ -226,30 +248,32 @@ function toggleUserMenu(chip) {
 			<div style="margin-top:6px"><span class="dn-tag" style="font-size:11px;text-transform:capitalize">${esc(plan)}</span></div>
 		</div>
 		<div style="padding:6px 0">
-			<a href="/dashboard/portfolio" class="dn-user-menu-item">Portfolio & NFTs</a>
-			<a href="/dashboard/account" class="dn-user-menu-item">Account</a>
-			<a href="/dashboard/settings" class="dn-user-menu-item">Settings</a>
-			${wallet ? `<button class="dn-user-menu-item" data-action="copy-wallet" style="width:100%;text-align:left;background:none;border:none;cursor:pointer;color:inherit">Copy wallet address</button>` : ''}
-			${email ? `<button class="dn-user-menu-item" data-action="copy-email" style="width:100%;text-align:left;background:none;border:none;cursor:pointer;color:inherit">Copy email</button>` : ''}
+			<a href="/dashboard/portfolio" class="dn-user-menu-item" role="menuitem">Portfolio & NFTs</a>
+			<a href="/dashboard/account" class="dn-user-menu-item" role="menuitem">Account</a>
+			<a href="/dashboard/settings" class="dn-user-menu-item" role="menuitem">Settings</a>
+			${wallet ? `<button type="button" role="menuitem" class="dn-user-menu-item" data-action="copy-wallet" style="width:100%;text-align:left;background:none;border:none;cursor:pointer;color:inherit">Copy wallet address</button>` : ''}
+			${email ? `<button type="button" role="menuitem" class="dn-user-menu-item" data-action="copy-email" style="width:100%;text-align:left;background:none;border:none;cursor:pointer;color:inherit">Copy email</button>` : ''}
 		</div>
 		<div style="padding:6px 0;border-top:1px solid var(--nxt-stroke)">
-			<button class="dn-user-menu-item danger" data-action="sign-out" style="width:100%;text-align:left;background:none;border:none;cursor:pointer">Sign out</button>
+			<button type="button" role="menuitem" class="dn-user-menu-item danger" data-action="sign-out" style="width:100%;text-align:left;background:none;border:none;cursor:pointer">Sign out</button>
 		</div>
 	`;
 
 	injectMenuStyles();
 	document.body.appendChild(menu);
+	// Move focus into the menu so keyboard users land on the first item.
+	requestAnimationFrame(() => menu.querySelector('[role="menuitem"]')?.focus());
 
 	menu.querySelector('[data-action="copy-wallet"]')?.addEventListener('click', async () => {
 		try { await navigator.clipboard.writeText(wallet); } catch { /* ignore */ }
-		menu.remove();
+		closeUserMenu(menu, chip, closeOnOutside, onKey);
 	});
 	menu.querySelector('[data-action="copy-email"]')?.addEventListener('click', async () => {
 		try { await navigator.clipboard.writeText(email); } catch { /* ignore */ }
-		menu.remove();
+		closeUserMenu(menu, chip, closeOnOutside, onKey);
 	});
 	menu.querySelector('[data-action="sign-out"]')?.addEventListener('click', async () => {
-		menu.remove();
+		closeUserMenu(menu, chip, closeOnOutside, onKey);
 		try { await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }); }
 		catch { /* best effort */ }
 		location.href = '/';
@@ -257,11 +281,36 @@ function toggleUserMenu(chip) {
 
 	const closeOnOutside = (e) => {
 		if (!menu.contains(e.target) && !chip.contains(e.target)) {
-			menu.remove();
-			document.removeEventListener('click', closeOnOutside, true);
+			closeUserMenu(menu, chip, closeOnOutside, onKey);
 		}
 	};
-	setTimeout(() => document.addEventListener('click', closeOnOutside, true), 0);
+	// Keyboard: Escape closes (focus returns to the chip); arrow keys roam items.
+	const onKey = (e) => {
+		const items = [...menu.querySelectorAll('[role="menuitem"]')];
+		if (e.key === 'Escape') {
+			e.stopPropagation();
+			closeUserMenu(menu, chip, closeOnOutside, onKey);
+			chip.focus();
+		} else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+			e.preventDefault();
+			const idx = items.indexOf(document.activeElement);
+			const next = e.key === 'ArrowDown'
+				? (idx + 1) % items.length
+				: (idx - 1 + items.length) % items.length;
+			items[next]?.focus();
+		}
+	};
+	setTimeout(() => {
+		document.addEventListener('click', closeOnOutside, true);
+		document.addEventListener('keydown', onKey, true);
+	}, 0);
+}
+
+function closeUserMenu(menu, chip, onOutside, onKey) {
+	menu.remove();
+	if (chip) chip.setAttribute('aria-expanded', 'false');
+	if (onOutside) document.removeEventListener('click', onOutside, true);
+	if (onKey) document.removeEventListener('keydown', onKey, true);
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────

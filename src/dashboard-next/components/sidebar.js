@@ -49,7 +49,7 @@ export function renderSidebar(pathname) {
 				${groups}
 			</nav>
 			<div class="dn-rail-foot">
-				<button type="button" class="dn-rail-item" data-action="rail-collapse" title="Collapse sidebar">
+				<button type="button" class="dn-rail-item" data-action="rail-collapse" title="Collapse sidebar" aria-label="Collapse sidebar" aria-expanded="true">
 					<span class="dn-rail-item-icon" aria-hidden="true">
 						<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5l-5 5 5 5"/></svg>
 					</span>
@@ -65,13 +65,24 @@ export function mountSidebarBehavior(shellEl) {
 		try { return localStorage.getItem(STORAGE_KEY) === '1'; }
 		catch { return false; }
 	})();
+	const syncCollapseAria = (isCollapsed) => {
+		const btn = shellEl.querySelector('[data-action="rail-collapse"]');
+		if (!btn) return;
+		// aria-expanded reflects the rail's expanded state: collapsed === not expanded.
+		btn.setAttribute('aria-expanded', isCollapsed ? 'false' : 'true');
+		btn.setAttribute('aria-label', isCollapsed ? 'Expand sidebar' : 'Collapse sidebar');
+		btn.setAttribute('title', isCollapsed ? 'Expand sidebar' : 'Collapse sidebar');
+	};
+
 	if (collapsed) shellEl.setAttribute('data-rail-collapsed', 'true');
+	syncCollapseAria(collapsed);
 
 	shellEl.addEventListener('click', (e) => {
 		const btn = e.target.closest?.('[data-action="rail-collapse"]');
 		if (!btn) return;
 		const next = shellEl.getAttribute('data-rail-collapsed') !== 'true';
 		shellEl.setAttribute('data-rail-collapsed', next ? 'true' : 'false');
+		syncCollapseAria(next);
 		try { localStorage.setItem(STORAGE_KEY, next ? '1' : '0'); }
 		catch { /* private mode — ignore */ }
 	});
@@ -101,7 +112,7 @@ export function renderMobileNav(pathname) {
 		</a>`;
 	}).join('');
 	const moreActive = SHEET_ROUTES.some((r) => r.path === here) ? ' active' : '';
-	const moreBtn = `<button type="button" class="dn-rail-mobile-slot${moreActive}" data-action="mobile-more" aria-haspopup="true">
+	const moreBtn = `<button type="button" class="dn-rail-mobile-slot${moreActive}" data-action="mobile-more" aria-haspopup="dialog" aria-expanded="false" aria-label="More navigation">
 		<span aria-hidden="true">${MORE_ICON}</span>
 		<span class="dn-rail-mobile-label">More</span>
 	</button>`;
@@ -117,15 +128,20 @@ export function mountMobileNavBehavior(shellEl, pathname) {
 		${renderMobileNav(pathname)}
 		<div class="dn-rail-foot" style="display:none"></div>
 	`;
-	rail.querySelector('[data-action="mobile-more"]')?.addEventListener('click', openSheet);
+	rail.querySelector('[data-action="mobile-more"]')?.addEventListener('click', (e) => openSheet(e.currentTarget));
 }
 
-function openSheet() {
+function openSheet(trigger) {
 	const here = currentRoute(location.pathname)?.path;
+	const lastFocused = trigger || document.activeElement;
+	if (trigger) trigger.setAttribute('aria-expanded', 'true');
 	const backdrop = document.createElement('div');
 	backdrop.className = 'dn-mobile-sheet-backdrop';
 	const sheet = document.createElement('div');
 	sheet.className = 'dn-mobile-sheet';
+	sheet.setAttribute('role', 'dialog');
+	sheet.setAttribute('aria-modal', 'true');
+	sheet.setAttribute('aria-label', 'More navigation');
 	sheet.innerHTML = `
 		<div class="dn-mobile-sheet-handle" aria-hidden="true"></div>
 		${SHEET_ROUTES.map((r) => `<a href="${esc(r.path)}" class="dn-mobile-sheet-item"${r.path === here ? ' aria-current="page"' : ''}>
@@ -144,16 +160,39 @@ function openSheet() {
 	`;
 	document.body.appendChild(backdrop);
 	document.body.appendChild(sheet);
-	requestAnimationFrame(() => sheet.classList.add('open'));
+	requestAnimationFrame(() => {
+		sheet.classList.add('open');
+		sheet.querySelector('a, button')?.focus();
+	});
+
+	const focusables = () => [...sheet.querySelectorAll('a[href], button:not([disabled])')];
 
 	let closed = false;
-	const onKey = (e) => { if (e.key === 'Escape') close(); };
+	const onKey = (e) => {
+		if (e.key === 'Escape') { close(); return; }
+		if (e.key === 'Tab') {
+			// Trap focus within the sheet while it's open.
+			const items = focusables();
+			if (!items.length) return;
+			const first = items[0];
+			const last = items[items.length - 1];
+			if (e.shiftKey && document.activeElement === first) {
+				e.preventDefault(); last.focus();
+			} else if (!e.shiftKey && document.activeElement === last) {
+				e.preventDefault(); first.focus();
+			}
+		}
+	};
 	const close = () => {
 		if (closed) return;
 		closed = true;
 		sheet.classList.remove('open');
 		backdrop.style.opacity = '0';
 		window.removeEventListener('keydown', onKey);
+		if (trigger) trigger.setAttribute('aria-expanded', 'false');
+		if (lastFocused && typeof lastFocused.focus === 'function') {
+			try { lastFocused.focus(); } catch { /* element gone */ }
+		}
 		setTimeout(() => { sheet.remove(); backdrop.remove(); }, 260);
 	};
 

@@ -32,7 +32,10 @@
 				<div class="detail-error-icon">⚠</div>
 				<h2 data-role="error-title">Not found</h2>
 				<p data-role="error-msg">This item could not be loaded.</p>
-				<a href="/discover" class="detail-btn">← Back to Discover</a>
+				<div class="detail-error-actions">
+					<button type="button" class="detail-btn detail-btn--primary" data-role="error-retry" hidden>Retry</button>
+					<a href="/discover" class="detail-btn">← Back to Discover</a>
+				</div>
 			</div>
 
 			<!-- Content (populated by JS) -->

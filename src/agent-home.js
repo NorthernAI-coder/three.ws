@@ -87,7 +87,7 @@ export class AgentHome {
 		panel.className = 'agent-home-panel';
 		panel.innerHTML = `
 			<div class="agent-home-identity">
-				<div class="agent-home-avatar-ring" id="agent-avatar-ring">
+				<div class="agent-home-avatar-ring" id="agent-avatar-ring" aria-hidden="true">
 					<div class="agent-home-avatar-inner" id="agent-avatar-inner">
 						<span class="agent-home-avatar-emoji" id="agent-avatar-emoji">◎</span>
 					</div>
@@ -108,19 +108,19 @@ export class AgentHome {
 						${
 							id.isRegistered
 								? `
-						<span class="agent-home-badge erc8004" title="Registered on-chain (ERC-8004)">
-							<svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+						<span class="agent-home-badge erc8004" title="Registered on-chain (ERC-8004)" aria-label="Registered on-chain (ERC-8004)" role="img">
+							<svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
 						</span>`
 								: ''
 						}
 					</div>
-					<div class="agent-home-status" id="agent-home-status">
-						<span class="agent-home-dot online"></span>
+					<div class="agent-home-status" id="agent-home-status" role="status" aria-live="polite">
+						<span class="agent-home-dot online" aria-hidden="true"></span>
 						<span id="agent-home-emotion-label">present</span>
 						<span class="agent-home-status-sep" aria-hidden="true">·</span>
 						${id.walletAddress
 							? `<span class="agent-home-address" id="agent-home-address">${_shortAddr(id.walletAddress)}</span>`
-							: `<button class="agent-home-address agent-home-address--cta" id="agent-home-address" title="Connect wallet to register on-chain">no wallet</button>`
+							: `<button class="agent-home-address agent-home-address--cta" id="agent-home-address" type="button" title="Connect wallet to register on-chain" aria-label="Connect wallet to register on-chain">no wallet</button>`
 						}
 					</div>
 					<p
@@ -134,11 +134,11 @@ export class AgentHome {
 						aria-label="Agent description (editable)"
 					>${_esc(id.description || '')}</p>
 				</div>
-				<button class="agent-home-btn" id="agent-copy-link" title="Copy agent link">
-					<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+				<button class="agent-home-btn" id="agent-copy-link" type="button" title="Copy agent link" aria-label="Copy agent link">
+					<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
 				</button>
-				<button class="agent-home-btn" id="agent-home-hide" title="Hide panel" aria-label="Hide agent panel">
-					<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13H5v-2h14v2z"/></svg>
+				<button class="agent-home-btn" id="agent-home-hide" type="button" title="Hide panel" aria-label="Hide agent panel">
+					<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M19 13H5v-2h14v2z"/></svg>
 				</button>
 			</div>
 
@@ -149,7 +149,7 @@ export class AgentHome {
 				<summary class="agent-home-skills-summary">
 					<span class="agent-home-skills-label">Skills</span>
 					<span class="agent-home-skills-count">${skills.length}</span>
-					<svg class="agent-home-chevron" width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z"/></svg>
+					<svg class="agent-home-chevron" width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z"/></svg>
 				</summary>
 				<div class="agent-home-skills-strip" id="agent-skills-strip">
 					${skills.map((s) => `<span class="agent-skill-chip">${_esc(s)}</span>`).join('')}
@@ -167,9 +167,9 @@ export class AgentHome {
 				${this._renderMemoryBar()}
 			</div>
 
-			<div class="agent-home-timeline" id="agent-timeline">
+			<div class="agent-home-timeline" id="agent-timeline" role="log" aria-live="polite" aria-label="Agent activity log">
 				<div class="agent-timeline-empty">
-					<svg class="agent-timeline-empty-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a6 6 0 0 0-4 10.5V15a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-2.5A6 6 0 0 0 12 2z"/><path d="M10 20h4"/><path d="M11 23h2"/></svg>
+					<svg class="agent-timeline-empty-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 2a6 6 0 0 0-4 10.5V15a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-2.5A6 6 0 0 0 12 2z"/><path d="M10 20h4"/><path d="M11 23h2"/></svg>
 					<span class="agent-timeline-empty-title">Waiting for activity</span>
 					<span class="agent-timeline-empty-sub">Your agent's actions will log here once it starts working</span>
 				</div>
@@ -487,7 +487,7 @@ export class AgentHome {
 		nudge.className = 'agent-wallet-nudge';
 		nudge.innerHTML =
 			`<span class="agent-wallet-nudge-text">Connect wallet to register on-chain</span>` +
-			`<button class="agent-wallet-nudge-btn" id="agent-wallet-nudge-btn">Connect →</button>`;
+			`<button class="agent-wallet-nudge-btn" id="agent-wallet-nudge-btn" type="button">Connect →</button>`;
 		nudge.querySelector('#agent-wallet-nudge-btn').addEventListener('click', () => {
 			document.dispatchEvent(new CustomEvent('agent-home:connect-wallet', { bubbles: true }));
 		});
@@ -551,7 +551,7 @@ export class AgentHome {
 		const item = document.createElement('div');
 		item.className = 'agent-timeline-item';
 		item.innerHTML = `
-			<span class="agent-timeline-icon">${ACTION_ICONS[action.type] || ACTION_ICONS.default}</span>
+			<span class="agent-timeline-icon" aria-hidden="true">${ACTION_ICONS[action.type] || ACTION_ICONS.default}</span>
 			<span class="agent-timeline-text">${_timelineText(action)}</span>
 			<span class="agent-timeline-time">${_relTime(action.timestamp)}</span>
 		`;

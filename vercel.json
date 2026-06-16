@@ -622,6 +622,22 @@
 			"dest": "/oracle.html"
 		},
 		{
+			"src": "/radar/?",
+			"dest": "/radar.html"
+		},
+		{
+			"src": "/smart-money/?",
+			"dest": "/smart-money.html"
+		},
+		{
+			"src": "/coin-intel/?",
+			"dest": "/coin-intel.html"
+		},
+		{
+			"src": "/compose/?",
+			"dest": "/compose.html"
+		},
+		{
 			"src": "/activity/?",
 			"dest": "/activity.html"
 		},

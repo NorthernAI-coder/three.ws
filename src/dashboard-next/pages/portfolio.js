@@ -1,6 +1,7 @@
 import { mountShell } from '../shell.js';
 import { requireUser, get, post, esc, relTime, ApiError } from '../api.js';
 import { createChart, AreaSeries, LineSeries } from 'lightweight-charts';
+import { errorStateHTML, ensureStateKitStyles } from '../../shared/state-kit.js';
 
 const MONO = `'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace`;
 const REFRESH_MS = 60_000;
@@ -59,39 +60,7 @@ function disposeAssetChart() {
 
 		const host = main.querySelector('[data-slot="content"]');
 
-		const [summaryRes, historyRes, avatarsRes, agentsRes] = await Promise.allSettled([
-			get('/api/portfolio/summary?snapshot=1'),
-			get('/api/portfolio/history?days=90'),
-			get('/api/avatars?limit=100'),
-			get('/api/agents'),
-		]);
-
-		STATE.summary = summaryRes.status === 'fulfilled' ? summaryRes.value : null;
-		STATE.history = historyRes.status === 'fulfilled' ? historyRes.value : null;
-		const avatars = avatarsRes.status === 'fulfilled' ? (avatarsRes.value?.avatars ?? []) : [];
-		const agents = agentsRes.status === 'fulfilled' ? (agentsRes.value?.agents ?? []) : [];
-
-		host.innerHTML = '';
-
-		if (!STATE.summary?.wallets?.length) {
-			host.appendChild(renderEmptyState());
-			return;
-		}
-
-		STATE.merged = mergeHoldings(STATE.summary);
-
-		host.appendChild(renderHero(STATE.summary, STATE.history));
-		host.appendChild(renderWallets(STATE.summary));
-		host.appendChild(renderHoldings());
-
-		const nftAvatars = avatars.filter((a) => a.nft_mint || a.nft_address || a.token_id);
-		if (nftAvatars.length) host.appendChild(renderNftAvatars(nftAvatars));
-
-		const pumpAgents = agents.filter((a) => a.meta?.pumpfun?.mint || a.meta?.token?.mint || a.meta?.token?.ca);
-		if (pumpAgents.length) host.appendChild(renderPumpTokens(pumpAgents));
-
-		mountDrawerContainer();
-		startAutoRefresh(host);
+		await loadPortfolio(host);
 
 		window.addEventListener('beforeunload', cleanup);
 	} catch (err) {
@@ -102,6 +71,63 @@ function disposeAssetChart() {
 		}
 	}
 })();
+
+async function loadPortfolio(host) {
+	host.innerHTML = buildSkeleton();
+
+	const [summaryRes, historyRes, avatarsRes, agentsRes] = await Promise.allSettled([
+		get('/api/portfolio/summary?snapshot=1'),
+		get('/api/portfolio/history?days=90'),
+		get('/api/avatars?limit=100'),
+		get('/api/agents'),
+	]);
+
+	// The summary is the primary surface. When it rejects (network down), every
+	// downstream render is empty — but renderEmptyState() would wrongly tell the
+	// user they have "no wallets". Show a retryable error for the load failure;
+	// reserve the empty state for a successful response with zero wallets.
+	if (summaryRes.status === 'rejected') {
+		const err = summaryRes.reason;
+		if (err instanceof ApiError && err.status === 401) {
+			location.href = `/login?return=${encodeURIComponent(location.pathname)}`;
+			return;
+		}
+		ensureStateKitStyles();
+		host.innerHTML = errorStateHTML({
+			title: "Couldn't load your portfolio",
+			body: 'We had trouble reaching your wallet balances. Check your connection and try again.',
+		});
+		host.querySelector('[data-sk-retry]')?.addEventListener('click', () => loadPortfolio(host));
+		return;
+	}
+
+	STATE.summary = summaryRes.value;
+	STATE.history = historyRes.status === 'fulfilled' ? historyRes.value : null;
+	const avatars = avatarsRes.status === 'fulfilled' ? (avatarsRes.value?.avatars ?? []) : [];
+	const agents = agentsRes.status === 'fulfilled' ? (agentsRes.value?.agents ?? []) : [];
+
+	host.innerHTML = '';
+
+	if (!STATE.summary?.wallets?.length) {
+		host.appendChild(renderEmptyState());
+		return;
+	}
+
+	STATE.merged = mergeHoldings(STATE.summary);
+
+	host.appendChild(renderHero(STATE.summary, STATE.history));
+	host.appendChild(renderWallets(STATE.summary));
+	host.appendChild(renderHoldings());
+
+	const nftAvatars = avatars.filter((a) => a.nft_mint || a.nft_address || a.token_id);
+	if (nftAvatars.length) host.appendChild(renderNftAvatars(nftAvatars));
+
+	const pumpAgents = agents.filter((a) => a.meta?.pumpfun?.mint || a.meta?.token?.mint || a.meta?.token?.ca);
+	if (pumpAgents.length) host.appendChild(renderPumpTokens(pumpAgents));
+
+	mountDrawerContainer();
+	startAutoRefresh(host);
+}
 
 function cleanup() {
 	disposePortfolioChart();
@@ -265,6 +291,16 @@ async function handlePeriodChange(heroPanel, days) {
 
 function renderPortfolioChart(container, points, currentUsd) {
 	disposePortfolioChart();
+
+	// The charting lib paints into an internal canvas that's opaque to screen
+	// readers; describe the series on the container so it has an accessible name.
+	const firstUsd = points[0]?.usd ?? 0;
+	const dir = currentUsd >= firstUsd ? 'up' : 'down';
+	const pct = firstUsd > 0 ? Math.abs(((currentUsd - firstUsd) / firstUsd) * 100).toFixed(1) : '0';
+	container.setAttribute('role', 'img');
+	container.setAttribute('aria-label',
+		`Portfolio value chart over the selected period, ${points.length} points, ` +
+		`currently $${fmtUsd(currentUsd)}, trending ${dir} ${pct}%.`);
 
 	const chart = createChart(container, {
 		width: container.clientWidth,

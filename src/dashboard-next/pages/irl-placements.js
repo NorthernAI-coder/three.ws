@@ -211,7 +211,7 @@ async function mount(el) {
 			const id      = card.dataset.id;
 			const current = captionEl.dataset.caption || '';
 			captionEl.replaceWith(`<div class="irl-caption-edit">
-				<input class="irl-caption-input" type="text" value="${esc(current)}" placeholder="Caption…" maxlength="140" />
+				<input class="irl-caption-input" type="text" value="${esc(current)}" placeholder="Caption…" maxlength="140" aria-label="Placement caption" />
 				<button class="irl-action" data-save="${esc(id)}">Save</button>
 				<button class="irl-action" data-cancel>Cancel</button>
 			</div>`);

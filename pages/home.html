@@ -52,8 +52,8 @@
 			--hairline-strong: #2a2a2a;
 			--text:      #f6f6f6;
 			--text-2:    #a8a8a8;
-			--text-3:    #6a6a6a;
-			--text-4:    #4a4a4a;
+			--text-3:    #8a8a8a; /* AA: ≥4.5:1 on dark surfaces for secondary text */
+			--text-4:    #6e6e6e; /* AA: ≥3:1 (large/decorative only) */
 			--accent:    #ffffff;
 			--accent-2:  #ffffff;
 			--green:     #e8e8e8;
@@ -184,7 +184,11 @@
 			transition: color 0.15s, border-color 0.15s;
 		}
 		.hero-reassure a:hover, .hero-reassure a:focus-visible {
-			color: var(--text); border-bottom-color: var(--text-3); outline: none;
+			color: var(--text); border-bottom-color: var(--text-3);
+		}
+		.hero-reassure a:focus-visible {
+			outline: var(--focus-ring-width,2px) solid var(--focus-ring-color,var(--accent));
+			outline-offset: var(--focus-ring-offset,2px); border-radius: 2px;
 		}
 
 		.metrics {
@@ -226,7 +230,7 @@
 			position: absolute; bottom: 24px; right: 28px; z-index: 5;
 			text-align: right; font-family: var(--font-mono); font-size: 10.5px;
 			letter-spacing: 0.14em; text-transform: uppercase;
-			color: var(--text-4); line-height: 1.6;
+			color: var(--text-3); line-height: 1.6;
 		}
 		.stage-meta span { display: block; }
 		.stage-meta span:first-child { color: var(--text-3); }
@@ -236,8 +240,101 @@
 			transition: transform 0.35s cubic-bezier(.2,.7,.3,1);
 			will-change: transform;
 		}
+		.hero-stage-fallback {
+			position: absolute; inset: 0;
+			display: flex; flex-direction: column;
+			align-items: center; justify-content: center;
+			gap: 12px; text-align: center; padding: 24px;
+		}
+		.hero-stage-fallback p {
+			margin: 0; color: var(--text-3); font-size: 13.5px; max-width: 240px;
+		}
 
-		/* ── STATS BAR ───────────────────────────────────────────── */
+		/* ── LIVE $THREE SIGNAL ──────────────────────────────────── */
+		/* A real, self-refreshing market signal pulled from
+		   /api/three-token/stats. Sits directly under the hero so the
+		   first thing a holder sees is live proof the token is trading. */
+		.three-signal {
+			display: flex; align-items: center; gap: 0;
+			border-top: 1px solid var(--hairline);
+			background: var(--surface-0);
+			color: var(--text-2); text-decoration: none;
+			font-family: var(--font-mono);
+			overflow-x: auto; scrollbar-width: none;
+			scroll-snap-type: x proximity;
+		}
+		.three-signal::-webkit-scrollbar { display: none; }
+		.three-signal-inner {
+			display: flex; align-items: stretch;
+			max-width: 1280px; margin: 0 auto; width: 100%;
+			padding: 0 32px; min-width: max-content;
+		}
+		@media (max-width: 720px) { .three-signal-inner { padding: 0 20px; } }
+		.ts-cell {
+			display: flex; flex-direction: column; gap: 5px;
+			padding: 16px 26px; position: relative;
+			scroll-snap-align: start; white-space: nowrap;
+		}
+		.ts-cell + .ts-cell::before {
+			content: ""; position: absolute; left: 0; top: 50%;
+			transform: translateY(-50%); width: 1px; height: 26px;
+			background: var(--hairline);
+		}
+		.ts-cell--brand { padding-left: 0; }
+		.ts-k {
+			font-size: 9.5px; letter-spacing: 0.18em; text-transform: uppercase;
+			color: var(--text-3); display: inline-flex; align-items: center; gap: 7px;
+		}
+		.ts-k .ts-live-dot {
+			width: 6px; height: 6px; border-radius: 50%;
+			background: var(--green); box-shadow: 0 0 6px var(--green);
+			animation: pulse-green 2.4s ease-in-out infinite;
+		}
+		.ts-v {
+			font-size: 16px; letter-spacing: -0.01em; color: var(--text);
+			font-weight: 600; font-variant-numeric: tabular-nums;
+			display: inline-flex; align-items: baseline; gap: 8px;
+		}
+		.ts-cell--brand .ts-v {
+			font-family: var(--font-display); letter-spacing: 0.01em;
+		}
+		.ts-chg { font-size: 12.5px; font-weight: 600; font-variant-numeric: tabular-nums; }
+		.ts-chg--up { color: var(--success); }
+		.ts-chg--down { color: var(--danger); }
+		.ts-chg--flat { color: var(--text-3); }
+		/* Loading skeleton: a shimmering bar where each value will land. */
+		.three-signal[data-state="loading"] .ts-v { color: transparent; }
+		.three-signal[data-state="loading"] .ts-v::after {
+			content: ""; position: absolute; bottom: 16px;
+			width: 64px; height: 15px; border-radius: 5px;
+			background: linear-gradient(90deg, var(--surface-2) 25%, var(--surface-3) 37%, var(--surface-2) 63%);
+			background-size: 400% 100%; animation: ts-shimmer 1.4s ease infinite;
+		}
+		.three-signal[data-state="loading"] .ts-cell--brand .ts-v::after { width: 88px; }
+		@keyframes ts-shimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+		.three-signal .ts-cta {
+			margin-left: auto; align-self: center; padding-right: 0;
+			display: inline-flex; align-items: center; gap: 8px;
+			font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
+			color: var(--text-3); transition: color 0.15s;
+		}
+		.three-signal .ts-cta .ts-arrow { transition: transform 0.18s; }
+		.three-signal:hover .ts-cta, .three-signal:focus-visible .ts-cta { color: var(--text); }
+		.three-signal:hover .ts-cta .ts-arrow, .three-signal:focus-visible .ts-cta .ts-arrow { transform: translateX(4px); }
+		.three-signal:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+		/* Error fallback: collapse to a single quiet "view stats" affordance. */
+		.three-signal[data-state="error"] .ts-cell:not(.ts-cell--brand):not(.ts-cell--cta) { display: none; }
+		.three-signal[data-state="error"] .ts-cell--brand .ts-v { font-size: 14px; color: var(--text-2); }
+		.three-signal[data-state="error"] .ts-err { display: inline; }
+		.ts-err { display: none; font-size: 12.5px; color: var(--text-3); margin-left: 8px; }
+		/* On narrow screens the row scrolls horizontally; hide the CTA arrow to
+		   save space and let the values breathe. */
+		@media (max-width: 720px) {
+			.ts-cell { padding: 13px 18px; }
+			.ts-cell--brand { padding-left: 0; }
+			.three-signal .ts-cta { display: none; }
+		}
+
 		/* ── CAPABILITY STRIP ──────────────────────────────────── */
 		.capability-strip {
 			position: relative;
@@ -303,7 +400,7 @@
 		.press-strip-cap {
 			font-family: var(--font-mono); font-size: 10.5px;
 			letter-spacing: 0.2em; text-transform: uppercase;
-			color: var(--text-4); text-align: center; margin-bottom: 24px;
+			color: var(--text-3); text-align: center; margin-bottom: 24px;
 		}
 		.press-row {
 			display: flex; flex-wrap: wrap; justify-content: center;
@@ -409,7 +506,7 @@
 		.door:hover { background: var(--surface-1); }
 		.door-num {
 			font-family: var(--font-mono); font-size: 11.5px;
-			letter-spacing: 0.18em; color: var(--text-4); margin-bottom: 28px;
+			letter-spacing: 0.18em; color: var(--text-3); margin-bottom: 28px;
 			display: flex; justify-content: space-between; align-items: baseline;
 		}
 		.door-num .lbl { color: var(--text-3); }
@@ -470,7 +567,7 @@
 			display: inline-flex; align-items: center;
 			font-family: var(--font-mono); font-size: 10.5px;
 			letter-spacing: 0.15em; text-transform: uppercase;
-			color: var(--text-4); border: 1px solid var(--hairline-strong);
+			color: var(--text-3); border: 1px solid var(--hairline-strong);
 			padding: 4px 9px; border-radius: 99px;
 			margin-top: 4px; width: fit-content;
 		}
@@ -582,8 +679,8 @@
 			position: absolute; bottom: 10px; left: 50%;
 			transform: translateX(-50%); display: flex; gap: 14px;
 			font-family: var(--font-mono); font-size: 9.5px;
-			color: var(--text-4); letter-spacing: 0.06em;
-			opacity: 0.7; pointer-events: none; z-index: 3;
+			color: var(--text-2); letter-spacing: 0.06em;
+			opacity: 0.85; pointer-events: none; z-index: 3;
 			white-space: nowrap;
 		}
 		.walk-preview-hint kbd {
@@ -621,11 +718,11 @@
 		.earn-row:last-child { border-bottom: none; }
 		.earn-row-left { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 		.earn-row-name { font-size: 14px; font-weight: 500; color: var(--text); }
-		.earn-row-time { font-family: var(--font-mono); font-size: 11px; color: var(--text-4); }
+		.earn-row-time { font-family: var(--font-mono); font-size: 11px; color: var(--text-3); }
 		.earn-row-amount { font-family: var(--font-display); font-size: 16px; font-weight: 600; color: var(--green); display: flex; align-items: baseline; gap: 7px; }
 		.earn-row-amount.buy { color: var(--buy); }
 		.earn-row-amount.sell { color: var(--sell); }
-		.hlt-usd { font-family: var(--font-mono); font-size: 10px; font-weight: 500; color: var(--text-4); }
+		.hlt-usd { font-family: var(--font-mono); font-size: 10px; font-weight: 500; color: var(--text-3); }
 		.hlt-side { font-weight: 700; }
 		.hlt-side.buy { color: var(--buy); }
 		.hlt-side.sell { color: var(--sell); }
@@ -771,12 +868,13 @@
 		}
 		.dev-tab {
 			padding: 10px 18px; font-family: var(--font-mono); font-size: 11px;
-			letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-4);
+			letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-3);
 			cursor: pointer; border-bottom: 2px solid transparent;
 			transition: color 0.15s, border-color 0.15s; user-select: none;
 			background: none; border-top: none; border-left: none; border-right: none;
 		}
 		.dev-tab:hover { color: var(--text-2); }
+		.dev-tab:focus-visible { outline: var(--focus-ring-width,2px) solid var(--focus-ring-color,var(--accent)); outline-offset: -2px; }
 		.dev-tab.active { color: var(--text); border-bottom-color: var(--text); }
 		.dev-tab-content { display: none; }
 		.dev-tab-content.active { display: block; }
@@ -802,11 +900,17 @@
 		.dev-link:hover { border-color: var(--text); color: var(--text); }
 		.dev-right { display: flex; flex-direction: column; }
 		.dev-api-row {
+			width: 100%; text-align: left; font: inherit; color: inherit;
+			background: transparent; border: none;
 			padding: 14px 20px; border-bottom: 1px solid var(--hairline);
 			display: flex; flex-direction: column; gap: 4px;
 			cursor: pointer; transition: background 0.15s;
 		}
 		.dev-api-row:hover { background: var(--surface-1); }
+		.dev-api-row:focus-visible {
+			outline: var(--focus-ring-width,2px) solid var(--focus-ring-color,var(--accent));
+			outline-offset: -2px;
+		}
 		.dev-api-row.active {
 			background: var(--surface-2);
 			box-shadow: inset 3px 0 0 var(--text-3);
@@ -818,14 +922,14 @@
 		.dev-api-path {
 			font-family: var(--font-mono); font-size: 13px; color: var(--text);
 		}
-		.dev-api-desc { font-size: 12px; color: var(--text-4); }
+		.dev-api-desc { font-size: 12px; color: var(--text-3); }
 		.dev-badge {
 			display: inline-block; font-family: var(--font-mono); font-size: 10px;
 			letter-spacing: 0.1em; text-transform: uppercase;
 			padding: 2px 7px; border-radius: 4px; font-weight: 700;
 			min-width: 36px; text-align: center;
 		}
-		.dev-badge.get  { background: rgba(74,222,128,0.12); color: #4ade80; }
+		.dev-badge.get  { background: rgba(74,222,128,0.12); color: var(--success); }
 		.dev-badge.post { background: rgba(96,165,250,0.12); color: #60a5fa; }
 		.dev-badge.mcp  { background: rgba(255,92,168,0.12); color: #ff8cc8; }
 
@@ -835,7 +939,7 @@
 		.pg-field-label {
 			font-family: var(--font-mono); font-size: 10.5px;
 			letter-spacing: 0.12em; text-transform: uppercase;
-			color: var(--text-4); margin-bottom: 6px; display: block;
+			color: var(--text-3); margin-bottom: 6px; display: block;
 		}
 		.pg-input {
 			width: 100%; background: var(--surface-2); border: 1px solid var(--hairline-strong);
@@ -844,6 +948,10 @@
 			transition: border-color 0.15s;
 		}
 		.pg-input:focus { border-color: var(--text-3); }
+		.pg-input:focus-visible, .pg-url-path:focus-visible {
+			outline: var(--focus-ring-width,2px) solid var(--focus-ring-color,var(--accent));
+			outline-offset: var(--focus-ring-offset,2px);
+		}
 		.pg-input::placeholder { color: var(--text-4); }
 		textarea.pg-input { min-height: 80px; resize: vertical; line-height: 1.6; }
 		.pg-url-bar {
@@ -853,7 +961,7 @@
 		}
 		.pg-url-method {
 			padding: 9px 12px; font-family: var(--font-mono); font-size: 11px;
-			font-weight: 700; letter-spacing: 0.08em; color: #4ade80;
+			font-weight: 700; letter-spacing: 0.08em; color: var(--success);
 			border-right: 1px solid var(--hairline-strong); background: var(--surface-1);
 			min-width: 52px; text-align: center; user-select: none;
 		}
@@ -875,13 +983,13 @@
 		.pg-actions { display: flex; gap: 10px; align-items: center; margin-bottom: 16px; }
 		.pg-status {
 			font-family: var(--font-mono); font-size: 11px;
-			letter-spacing: 0.05em; color: var(--text-4);
+			letter-spacing: 0.05em; color: var(--text-3);
 		}
-		.pg-status.ok { color: #4ade80; }
-		.pg-status.err { color: #f87171; }
-		.pg-status.warn { color: #fbbf24; }
-		.pg-status.err::before { background: #f87171; box-shadow: 0 0 5px #f87171; }
-		.pg-status.warn::before { background: #fbbf24; box-shadow: 0 0 5px #fbbf24; }
+		.pg-status.ok { color: var(--success); }
+		.pg-status.err { color: var(--danger); }
+		.pg-status.warn { color: var(--warn); }
+		.pg-status.err::before { background: var(--danger); box-shadow: 0 0 5px var(--danger); }
+		.pg-status.warn::before { background: var(--warn); box-shadow: 0 0 5px var(--warn); }
 		.pg-key-field { margin-bottom: 16px; }
 		.pg-key-hint {
 			float: right; text-transform: none; letter-spacing: 0;
@@ -897,7 +1005,7 @@
 			padding: 10px 16px; border-bottom: 1px solid var(--hairline);
 			font-family: var(--font-mono); font-size: 10.5px;
 			letter-spacing: 0.1em; text-transform: uppercase;
-			color: var(--text-4); display: flex; justify-content: space-between;
+			color: var(--text-3); display: flex; justify-content: space-between;
 		}
 		.pg-response-body {
 			padding: 16px; font-family: var(--font-mono); font-size: 12px;
@@ -908,13 +1016,13 @@
 		.pg-response-body::-webkit-scrollbar-track { background: transparent; }
 		.pg-response-body::-webkit-scrollbar-thumb { background: var(--hairline-strong); border-radius: 3px; }
 		.pg-empty {
-			padding: 40px 24px; text-align: center; color: var(--text-4);
+			padding: 40px 24px; text-align: center; color: var(--text-3);
 			font-size: 13px; line-height: 1.6;
 		}
 		.pg-empty-icon { font-size: 32px; margin-bottom: 12px; opacity: 0.3; }
 		.pg-response-body .json-key { color: #60a5fa; }
-		.pg-response-body .json-str { color: #4ade80; }
-		.pg-response-body .json-num { color: #fbbf24; }
+		.pg-response-body .json-str { color: var(--success); }
+		.pg-response-body .json-num { color: var(--warn); }
 		.pg-response-body .json-bool { color: var(--accent); }
 		.pg-response-body .json-null { color: var(--text-4); }
 		.pg-curl-code {
@@ -955,7 +1063,7 @@
 		.foot-col-h {
 			font-family: var(--font-mono); font-size: 10px;
 			text-transform: uppercase; letter-spacing: 0.18em;
-			color: var(--text-4); margin-bottom: 6px;
+			color: var(--text-3); margin-bottom: 6px;
 		}
 		.foot-col a {
 			color: rgba(255,255,255,.32); font-size: 13px;
@@ -1089,7 +1197,11 @@
 			border-radius: 999px; padding: 4px 4px 4px 16px;
 			transition: border-color 0.2s;
 		}
-		.hero-chat-form:focus-within { border-color: rgba(255,255,255,0.25); }
+		.hero-chat-form:focus-within {
+			border-color: rgba(255,255,255,0.25);
+			outline: var(--focus-ring-width,2px) solid var(--focus-ring-color,var(--accent));
+			outline-offset: var(--focus-ring-offset,2px);
+		}
 		.hero-chat-input {
 			flex: 1; background: transparent; border: none; outline: none;
 			color: var(--text); font-family: var(--font-body);
@@ -1177,7 +1289,7 @@
 			font-size: 10px;
 			letter-spacing: 0.22em;
 			text-transform: uppercase;
-			color: var(--text-4);
+			color: var(--text-3);
 			display: flex;
 			align-items: center;
 			gap: 8px;
@@ -1227,7 +1339,7 @@
 			font-family: var(--font-mono);
 			font-size: 10px;
 			letter-spacing: 0.12em;
-			color: var(--text-4);
+			color: var(--text-3);
 		}
 		.hero-chips-counter strong { color: var(--text-3); font-weight: 600; }
 		@media (max-width: 980px) {
@@ -1318,7 +1430,7 @@
 			font-family: var(--font-mono);
 			font-size: 11px;
 			letter-spacing: 0.18em;
-			color: var(--text-4);
+			color: var(--text-3);
 			margin-bottom: 6px;
 		}
 		.stack-card-title {
@@ -1450,7 +1562,7 @@
 		.wyg-anim-label {
 			font-family: var(--font-mono); font-size: 10px;
 			letter-spacing: 0.22em; text-transform: uppercase;
-			color: var(--text-4);
+			color: var(--text-3);
 		}
 		.wyg-anim-stop {
 			width: 14px; height: 14px;
@@ -1655,7 +1767,7 @@
 		.pg-control-label {
 			font-family: var(--font-mono); font-size: 10px;
 			letter-spacing: 0.18em; text-transform: uppercase;
-			color: var(--text-4); flex-shrink: 0;
+			color: var(--text-3); flex-shrink: 0;
 		}
 		.pg-chips { display: flex; gap: 4px; flex-wrap: wrap; }
 		.pg-chip {
@@ -1717,6 +1829,10 @@
 		/* Editor: textarea overlay on pre for highlighting */
 		.pg-editor {
 			position: relative; flex: 1; min-height: 320px;
+		}
+		.pg-editor:focus-within {
+			outline: var(--focus-ring-width,2px) solid var(--focus-ring-color,var(--accent));
+			outline-offset: -2px;
 		}
 		.pg-editor textarea,
 		.pg-editor pre {
@@ -1846,7 +1962,7 @@
 		.pg-color-popover-label {
 			font-family: var(--font-mono); font-size: 10px;
 			letter-spacing: 0.15em; text-transform: uppercase;
-			color: var(--text-4);
+			color: var(--text-3);
 		}
 		.pg-color-swatches {
 			display: grid;
@@ -1882,6 +1998,10 @@
 			transition: border-color 0.15s;
 		}
 		.pg-color-hex-input:focus { border-color: var(--text-3); }
+		.pg-color-hex-input:focus-visible {
+			outline: var(--focus-ring-width,2px) solid var(--focus-ring-color,var(--accent));
+			outline-offset: var(--focus-ring-offset,2px);
+		}
 		.pg-color-preview {
 			width: 28px; height: 28px; border-radius: 5px;
 			border: 1px solid var(--hairline-strong);
@@ -2107,7 +2227,7 @@
 		}
 		.manifesto-neg {
 			font-size: clamp(16px, 1.6vw, 19px);
-			color: var(--text-4);
+			color: var(--text-3);
 			margin: 0;
 			line-height: 1.5;
 			text-decoration: line-through;
@@ -2202,8 +2322,9 @@
 		.bento-action-btn.primary:hover{background:#fff;border-color:#fff}
 		.bento-action-btn.ghost{background:transparent;color:var(--text-2)}
 		.studio-zone{display:flex;gap:8px;align-items:stretch}
-		.studio-drop{flex:1;border:1px dashed var(--hairline-strong);border-radius:8px;padding:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;cursor:pointer;transition:border-color .2s,background .2s;font-family:var(--font-mono);font-size:11px;color:var(--text-3);text-align:center;min-height:80px}
+		.studio-drop{flex:1;width:100%;background:transparent;border:1px dashed var(--hairline-strong);border-radius:8px;padding:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;cursor:pointer;transition:border-color .2s,background .2s;font-family:var(--font-mono);font-size:11px;color:var(--text-3);text-align:center;min-height:80px}
 		.studio-drop:hover,.studio-drop.drag-over{border-color:var(--text-2);background:rgba(255,255,255,.03)}
+		.studio-drop:focus-visible{outline:var(--focus-ring-width,2px) solid var(--focus-ring-color,var(--accent));outline-offset:var(--focus-ring-offset,2px)}
 		.studio-drop-icon{font-size:22px;opacity:.5}
 		.studio-preview-img{width:44px;height:44px;border-radius:50%;object-fit:cover;border:1px solid var(--hairline-strong);flex:none}
 		.studio-ready{display:none;flex-direction:column;align-items:stretch;gap:12px;padding:14px;border:1px solid var(--hairline-strong);border-radius:8px;background:rgba(255,255,255,.02)}
@@ -2219,43 +2340,44 @@
 		.mocap-demo{display:flex;flex-direction:column;gap:8px}
 		.mocap-bar{display:flex;align-items:center;gap:10px}
 		.mocap-waveform{width:100%;height:48px;border-radius:6px;background:var(--surface-2);border:1px solid var(--hairline-strong);display:block}
-		.mocap-status{font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;color:var(--text-4);text-align:center}
+		.mocap-status{font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;color:var(--text-3);text-align:center}
 		.mocap-status.live{color:var(--text-2)}
 		.walk-minimap-wrap{position:relative;border-radius:8px;overflow:hidden;border:1px solid var(--hairline-strong);background:#0d0d0d}
 		.walk-minimap{width:100%;height:140px;display:block;cursor:crosshair}
 		.walk-minimap:focus{outline:2px solid rgba(255,255,255,.3);outline-offset:-2px}
 		.walk-minimap-hud{position:absolute;top:6px;left:8px;display:flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:9px;color:var(--text-3);letter-spacing:.08em}
-		.walk-minimap-dot{width:5px;height:5px;border-radius:50%;background:#4ade80;box-shadow:0 0 4px #4ade8088}
-		.walk-minimap-hint{position:absolute;bottom:6px;left:50%;transform:translateX(-50%);font-family:var(--font-mono);font-size:8.5px;color:var(--text-4);letter-spacing:.06em;white-space:nowrap}
+		.walk-minimap-dot{width:5px;height:5px;border-radius:50%;background:var(--success);box-shadow:0 0 4px #4ade8088}
+		.walk-minimap-hint{position:absolute;bottom:6px;left:50%;transform:translateX(-50%);font-family:var(--font-mono);font-size:8.5px;color:var(--text-3);letter-spacing:.06em;white-space:nowrap}
 		.walk-minimap-hint kbd{display:inline-block;padding:0 3px;border:1px solid var(--hairline-strong);border-radius:2px;font-family:var(--font-mono);font-size:8px;background:var(--surface-2)}
 		.x402-demo{display:flex;flex-direction:column;gap:8px}
 		.x402-step{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--surface-2);border:1px solid var(--hairline-strong);border-radius:8px;transition:all .3s ease}
 		.x402-code{font-family:var(--font-mono);font-size:11.5px;color:var(--text-2);flex:1}
-		.x402-code.err{color:#f87171}
-		.x402-code.ok{color:#4ade80}
+		.x402-code.err{color:var(--danger)}
+		.x402-code.ok{color:var(--success)}
 		.x402-spinner{width:16px;height:16px;border:2px solid var(--hairline-strong);border-top-color:var(--text-2);border-radius:50%;animation:walk-spin .6s linear infinite;display:none}
-		.x402-amount{font-family:var(--font-display);font-size:14px;font-weight:600;color:#4ade80;display:none}
+		.x402-amount{font-family:var(--font-display);font-size:14px;font-weight:600;color:var(--success);display:none}
 		.x402-amount.show{display:block}
 		.mint-demo{perspective:600px}
 		.mint-card{position:relative;padding:16px;background:var(--surface-2);border:1px solid var(--hairline-strong);border-radius:10px;transition:transform .6s cubic-bezier(.2,.7,.3,1),box-shadow .3s,border-color .3s}
 		.mint-card.minted{border-color:rgba(255,255,255,.2);box-shadow:0 0 20px -4px rgba(255,255,255,.08)}
 		.mint-card-inner{display:flex;align-items:center;justify-content:space-between;gap:10px}
 		.mint-card-info{display:flex;flex-direction:column;gap:2px}
-		.mint-card-label{font-family:var(--font-mono);font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:var(--text-4);transition:color .3s}
+		.mint-card-label{font-family:var(--font-mono);font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:var(--text-3);transition:color .3s}
 		.mint-card-name{font-family:var(--font-display);font-size:16px;font-weight:600;color:var(--text);background:transparent;border:none;border-bottom:1px dashed transparent;padding:0 1px 1px;margin:0;width:auto;max-width:170px;outline:none;transition:border-color .15s}
-		.mint-card-name:hover:not(:disabled),.mint-card-name:focus{border-bottom-color:var(--text-4)}
+		.mint-card-name:hover:not(:disabled),.mint-card-name:focus{border-bottom-color:var(--text-2)}
+		.mint-card-name:focus-visible{outline:var(--focus-ring-width,2px) solid var(--focus-ring-color,var(--accent));outline-offset:var(--focus-ring-offset,2px);border-radius:2px}
 		.mint-card-name::placeholder{color:var(--text-4)}
 		.mint-card-name:disabled{opacity:.65;cursor:default}
 		.mint-card.error{border-color:rgba(248,113,113,.45)}
 		.mint-card-name.shake{animation:mint-shake .4s cubic-bezier(.36,.07,.19,.97)}
 		@keyframes mint-shake{10%,90%{transform:translateX(-1px)}20%,80%{transform:translateX(2px)}30%,50%,70%{transform:translateX(-4px)}40%,60%{transform:translateX(4px)}}
 		.mint-card-chain{font-family:var(--font-mono);font-size:10px;color:var(--text-3);display:block}
-		.mint-card-chain a{color:#4ade80;text-decoration:none;border-bottom:1px solid rgba(74,222,128,.3)}
-		.mint-card-chain a:hover{border-bottom-color:#4ade80}
-		.mint-card.minted .mint-card-label{color:#4ade80}
+		.mint-card-chain a{color:var(--success);text-decoration:none;border-bottom:1px solid rgba(74,222,128,.3)}
+		.mint-card-chain a:hover{border-bottom-color:var(--success)}
+		.mint-card.minted .mint-card-label{color:var(--success)}
 		.mint-status{margin:11px 0 0;font-family:var(--font-mono);font-size:10.5px;line-height:1.4;color:var(--text-3)}
-		.mint-status.err{color:#f87171}
-		.mint-status.ok{color:#4ade80}
+		.mint-status.err{color:var(--danger)}
+		.mint-status.ok{color:var(--success)}
 		.mint-status a{color:inherit;text-decoration:underline;text-underline-offset:2px}
 		.mint-progress{width:28px;height:28px;position:relative;display:none}
 		.mint-progress.active{display:block}
@@ -2264,18 +2386,18 @@
 		@keyframes mint-spin{from{transform:rotate(-90deg)}to{transform:rotate(270deg)}}
 		.mint-progress circle{fill:none;stroke-width:3;stroke:var(--text-2);stroke-linecap:round;stroke-dasharray:78.5;stroke-dashoffset:78.5;transition:stroke-dashoffset 1.2s cubic-bezier(.2,.7,.3,1)}
 		.mint-progress.active:not(.done) circle{stroke-dashoffset:55}
-		.mint-progress.done circle{stroke-dashoffset:0;stroke:#4ade80;transition:stroke-dashoffset .5s cubic-bezier(.2,.7,.3,1)}
+		.mint-progress.done circle{stroke-dashoffset:0;stroke:var(--success);transition:stroke-dashoffset .5s cubic-bezier(.2,.7,.3,1)}
 		.skill-demo{display:flex;flex-direction:column;gap:8px}
 		.skill-result{background:var(--surface-2);border:1px solid var(--hairline-strong);border-radius:7px;padding:10px 14px;font-family:var(--font-mono);font-size:11px;color:var(--text-2);line-height:1.6;max-height:100px;overflow-y:auto;transition:border-color .3s}
 		.skill-result.fresh{border-color:rgba(255,255,255,.2)}
 		.skill-result .json-key{color:#60a5fa}
-		.skill-result .json-str{color:#4ade80}
-		.skill-result .json-num{color:#fbbf24}
+		.skill-result .json-str{color:var(--success)}
+		.skill-result .json-num{color:var(--warn)}
 		.skill-result .json-dim{color:var(--text-3)}
 		.skill-result.loading{color:var(--text-3)}
 		.skill-result.err{border-color:rgba(248,113,113,.4)}
 		.skill-loading .json-key{color:#60a5fa}
-		.skill-err{color:#f87171}
+		.skill-err{color:var(--danger)}
 		.skill-cursor{color:var(--text-3);animation:skillBlink 1s steps(2,end) infinite}
 		.skill-dots::after{content:'';animation:skillDots 1.4s steps(4,end) infinite}
 		@keyframes skillDots{0%{content:''}25%{content:'.'}50%{content:'..'}75%{content:'...'}}
@@ -2285,6 +2407,7 @@
 		.memory-input-row{display:flex;gap:6px}
 		.memory-input{flex:1;background:var(--surface-2);border:1px solid var(--hairline-strong);border-radius:6px;padding:7px 10px;font-family:var(--font-mono);font-size:11.5px;color:var(--text);outline:none;transition:border-color .15s}
 		.memory-input:focus{border-color:var(--text-3)}
+		.memory-input:focus-visible{outline:var(--focus-ring-width,2px) solid var(--focus-ring-color,var(--accent));outline-offset:var(--focus-ring-offset,2px)}
 		.memory-input::placeholder{color:var(--text-4)}
 		.memory-log{display:flex;flex-direction:column;gap:4px;max-height:72px;overflow-y:auto}
 		.memory-entry{font-family:var(--font-mono);font-size:10.5px;color:var(--text-3);line-height:1.5;padding:3px 0;animation:mem-in .3s ease}
@@ -2304,8 +2427,8 @@
 		.ar-phone-crosshair::before{width:16px;height:1px}
 		.ar-phone-crosshair::after{width:1px;height:16px}
 		.ar-info{display:flex;flex-direction:column;gap:4px}
-		.ar-status{font-family:var(--font-mono);font-size:10px;color:var(--text-4);letter-spacing:.08em}
-		.ar-status.ready{color:#4ade80}
+		.ar-status{font-family:var(--font-mono);font-size:10px;color:var(--text-3);letter-spacing:.08em}
+		.ar-status.ready{color:var(--success)}
 		.mktplace-strip{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:2px 0}
 		.mktplace-strip::-webkit-scrollbar{display:none}
 		.mktplace-item{flex-shrink:0;width:52px;height:52px;border-radius:10px;overflow:hidden;border:1px solid var(--hairline-strong);cursor:pointer;background:var(--surface-2);transition:border-color .15s,transform .15s;position:relative;display:block}
@@ -2315,12 +2438,12 @@
 		.mktplace-more{flex-shrink:0;width:52px;height:52px;border-radius:10px;border:1px dashed var(--hairline-strong);display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:18px;color:var(--text-4);cursor:pointer;transition:border-color .15s,color .15s;text-decoration:none}
 		.mktplace-more:hover{border-color:var(--text-3);color:var(--text-2)}
 		.analytics-demo{display:flex;flex-direction:column;gap:10px;--spark:#34d399;--spark-deep:#10b981}
-		.analytics-example-tag{align-self:flex-start;font-family:var(--font-mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--text-4);border:1px solid var(--hairline);border-radius:5px;padding:2px 7px}
+		.analytics-example-tag{align-self:flex-start;font-family:var(--font-mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--text-3);border:1px solid var(--hairline);border-radius:5px;padding:2px 7px}
 		.analytics-counters{display:flex;gap:16px}
 		.analytics-counter{display:flex;flex-direction:column;gap:1px}
 		.analytics-val{font-family:var(--font-display);font-size:18px;font-weight:600;color:var(--text);font-variant-numeric:tabular-nums;letter-spacing:-0.02em}
 		.analytics-val#an-revenue{color:var(--spark)}
-		.analytics-lbl{font-family:var(--font-mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--text-4)}
+		.analytics-lbl{font-family:var(--font-mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--text-3)}
 		.analytics-spark{width:100%;height:40px;display:block}
 		.analytics-spark path{fill:none;stroke:var(--spark);stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 0 3px color-mix(in srgb,var(--spark) 55%,transparent))}
 		.analytics-spark .spark-fill{fill:url(#spark-grad);stroke:none;opacity:1;filter:none}
@@ -2504,6 +2627,24 @@
 		@keyframes hoc-shimmer { to { background-position: -200% 0; } }
 		.hoc-live-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--green, #22c55e); margin-right: 7px; vertical-align: middle; box-shadow: 0 0 0 0 rgba(34,197,94,.6); animation: hoc-pulse 2s infinite; }
 		@keyframes hoc-pulse { 0%{box-shadow:0 0 0 0 rgba(34,197,94,.5)} 70%{box-shadow:0 0 0 6px rgba(34,197,94,0)} 100%{box-shadow:0 0 0 0 rgba(34,197,94,0)} }
+
+		/* ── MOTION SAFETY ──────────────────────────────────────────
+		   Honor the OS "reduce motion" setting. This page hardcodes ~30
+		   keyframe animations and many transitions that tokens.css cannot
+		   reach; neutralize all decorative motion globally so the layout
+		   stays static for vestibular-sensitive visitors. Essential state
+		   feedback still renders — only the animation/transition is dropped. */
+		@media (prefers-reduced-motion: reduce) {
+			html { scroll-behavior: auto; }
+			*, *::before, *::after {
+				animation-duration: 0.001ms !important;
+				animation-iteration-count: 1 !important;
+				animation-delay: 0ms !important;
+				transition-duration: 0.001ms !important;
+				transition-delay: 0ms !important;
+				scroll-behavior: auto !important;
+			}
+		}
 	</style>
 	<noscript><style>.reveal{opacity:1!important;transform:none!important}.hero-text>*{opacity:1!important;transform:none!important}</style></noscript>
 	<script type="module" src="https://three.ws/agent-3d/latest/agent-3d.js"></script>
@@ -2579,6 +2720,37 @@
 		</div>
 	</div>
 </section>
+
+<!-- ── LIVE $THREE SIGNAL — real market data from /api/three-token/stats ── -->
+<a class="three-signal" id="three-signal" href="/three-token" data-state="loading"
+   aria-label="Live $THREE market stats — open the token page">
+	<div class="three-signal-inner">
+		<div class="ts-cell ts-cell--brand">
+			<span class="ts-k"><span class="ts-live-dot" aria-hidden="true"></span>$THREE · live</span>
+			<span class="ts-v">
+				<span id="ts-price">—</span>
+				<span class="ts-chg ts-chg--flat" id="ts-change"></span>
+				<span class="ts-err" id="ts-err">view live stats</span>
+			</span>
+		</div>
+		<div class="ts-cell">
+			<span class="ts-k">Market cap</span>
+			<span class="ts-v" id="ts-mcap">—</span>
+		</div>
+		<div class="ts-cell">
+			<span class="ts-k">Volume 24h</span>
+			<span class="ts-v" id="ts-vol">—</span>
+		</div>
+		<div class="ts-cell">
+			<span class="ts-k">$THREE burned</span>
+			<span class="ts-v" id="ts-burned">—</span>
+		</div>
+		<div class="ts-cell ts-cell--cta ts-cta" aria-hidden="true">
+			<span>Token</span>
+			<span class="ts-arrow">→</span>
+		</div>
+	</div>
+</a>
 
 <!-- ── CAPABILITY STRIP ───────────────────────────────────────────── -->
 <div class="capability-strip" id="capability-strip" aria-hidden="true">
@@ -2724,7 +2896,7 @@
 						<div class="pg-color-swatches" id="pg-color-swatches"></div>
 						<div class="pg-color-hex-row">
 							<div class="pg-color-preview" id="pg-color-preview"></div>
-							<input class="pg-color-hex-input" id="pg-color-hex" type="text" placeholder="#1b1b1b" maxlength="7" spellcheck="false" autocomplete="off" />
+							<input class="pg-color-hex-input" id="pg-color-hex" type="text" placeholder="#1b1b1b" maxlength="7" spellcheck="false" autocomplete="off" aria-label="Custom background color hex value" />
 						</div>
 					</div>
 				</div>
@@ -2742,7 +2914,7 @@
 				<div class="pg-left">
 					<div class="pg-editor-head">index.html</div>
 					<div class="pg-editor" id="pg-editor">
-						<textarea id="pg-textarea" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off"></textarea>
+						<textarea id="pg-textarea" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off" aria-label="Embed code editor"></textarea>
 						<pre id="pg-highlight" aria-hidden="true"></pre>
 					</div>
 				</div>
@@ -2960,7 +3132,7 @@
 						<span class="wyg-card-pill"><span class="dot" style="background:#ffffff"></span>Celebration</span>
 						<span class="wyg-card-pill"><span class="dot" style="background:#34d399"></span>Curiosity</span>
 						<span class="wyg-card-pill"><span class="dot" style="background:#60a5fa"></span>Empathy</span>
-						<span class="wyg-card-pill"><span class="dot" style="background:#fbbf24"></span>Concern</span>
+						<span class="wyg-card-pill"><span class="dot" style="background:var(--warn)"></span>Concern</span>
 					</div>
 				</div>
 
@@ -3064,7 +3236,7 @@
 		display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
 		overflow: hidden;
 	}
-	.hcf-meta { font-size: 11px; font-family: var(--font-mono); color: var(--text-4); margin-top: auto; padding-top: 6px; }
+	.hcf-meta { font-size: 11px; font-family: var(--font-mono); color: var(--text-3); margin-top: auto; padding-top: 6px; }
 	.hcf-skel {
 		border-radius: 14px; border: 1px solid var(--hairline);
 		background: var(--surface-1); overflow: hidden;
@@ -3258,6 +3430,9 @@
 	#home-pose .hp-slider { -webkit-appearance: none; appearance: none; width: 100%; height: 3px; border-radius: 2px; background: var(--hairline-strong); outline: none; cursor: pointer; }
 	#home-pose .hp-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 15px; height: 15px; border-radius: 50%; background: var(--text); border: 2px solid #09090a; box-shadow: 0 0 0 1px var(--hairline-strong); cursor: grab; transition: transform .12s; }
 	#home-pose .hp-slider::-webkit-slider-thumb:hover { transform: scale(1.15); }
+	#home-pose .hp-slider:focus-visible { outline: var(--focus-ring-width,2px) solid var(--focus-ring-color,var(--accent)); outline-offset: var(--focus-ring-offset,4px); }
+	#home-pose .hp-slider:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 3px var(--focus-ring-color,var(--accent)); }
+	#home-pose .hp-slider:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--focus-ring-color,var(--accent)); }
 	#home-pose .hp-slider::-moz-range-thumb { width: 13px; height: 13px; border-radius: 50%; background: var(--text); border: 2px solid #09090a; cursor: grab; }
 	#home-pose .hp-mini-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 	#home-pose .hp-btn {
@@ -3493,6 +3668,7 @@
 		transition: box-shadow 0.2s ease;
 	}
 	#home-forge .hf-bar:focus-within { box-shadow: 0 18px 48px -20px rgba(0, 0, 0, 0.85), 0 0 0 4px rgba(139, 92, 246, 0.14); }
+	#home-forge .hf-bar:focus-within { outline: var(--focus-ring-width,2px) solid var(--focus-ring-color,var(--accent)); outline-offset: var(--focus-ring-offset,2px); }
 	#home-forge .hf-bar-glyph { color: var(--text-3); font-size: 13px; flex: none; }
 	#home-forge [data-hf-state='generating'] .hf-bar-glyph { color: #ffb454; }
 	#home-forge .hf-prompt {
@@ -4038,11 +4214,11 @@
 				<p class="bento-desc">Upload a photo, webcam shot, or existing GLB. Our pipeline generates a fully rigged, animatable 3D character compatible with VRM and standard glTF/GLB avatar formats. Retargets to any animation clip instantly.</p>
 				<div class="bento-interact" id="studio-interact">
 					<div class="studio-zone" id="studio-zone">
-						<div class="studio-drop" id="studio-drop">
-							<div class="studio-drop-icon">↑</div>
+						<button type="button" class="studio-drop" id="studio-drop" aria-label="Upload a selfie — drop an image here or activate to choose a file">
+							<span class="studio-drop-icon" aria-hidden="true">↑</span>
 							<span>Drop a selfie or click to upload</span>
-							<input type="file" accept="image/*" id="studio-file" style="display:none" />
-						</div>
+						</button>
+						<input type="file" accept="image/*" id="studio-file" style="display:none" aria-label="Selfie image file" />
 						<button class="bento-action-btn studio-webcam-btn" id="studio-webcam-btn" type="button">Webcam</button>
 					</div>
 					<div class="studio-ready" id="studio-ready">
@@ -4222,11 +4398,11 @@
 				<p class="bento-desc">Your agent remembers every visitor across devices and sessions. Tie-in to your own data sources or use the built-in vector memory.</p>
 				<div class="bento-interact memory-demo" id="memory-demo">
 					<div class="memory-input-row">
-						<input class="memory-input" id="memory-input" placeholder="Tell the agent something..." maxlength="120" />
+						<input class="memory-input" id="memory-input" placeholder="Tell the agent something..." maxlength="120" aria-label="Tell the agent something to remember" />
 						<button class="bento-action-btn sm" id="memory-store-btn">Store</button>
 					</div>
 					<button class="bento-action-btn sm" id="memory-recall-btn" style="align-self:flex-start">Recall</button>
-					<div class="memory-log" id="memory-log"></div>
+					<div class="memory-log" id="memory-log" aria-live="polite"></div>
 				</div>
 			</div>
 
@@ -4320,7 +4496,7 @@
 					<li><strong>Trending dashboard</strong> — track your token across the Pump.fun leaderboard in real-time</li>
 				</ul>
 				<div>
-					<a class="btn btn--sm" href="/pump-3d-agent">Explore token agents <span class="arrow">→</span></a>
+					<a class="btn btn--sm" href="/launches">Explore token agents <span class="arrow">→</span></a>
 				</div>
 			</div>
 			<div class="feat-visual">
@@ -4336,7 +4512,7 @@
 					</a>
 					<div class="earn-rows" id="hlt-rows" style="border:1px solid var(--hairline);border-radius:8px;overflow:hidden;"></div>
 					<div style="display:flex;gap:10px;">
-						<a class="btn btn--sm" href="/pumpfun-trending" style="flex:1;justify-content:center;">Trending tokens</a>
+						<a class="btn btn--sm" href="/radar" style="flex:1;justify-content:center;">Trending tokens</a>
 						<button class="btn btn--sm btn--primary" id="hlt-launch" type="button" style="flex:1;justify-content:center;">Launch yours</button>
 					</div>
 				</div>
@@ -4601,25 +4777,25 @@
 							</div>
 							<div class="pg-url-bar">
 								<div class="pg-url-method" id="pg-method">GET</div>
-								<input class="pg-url-path" id="pg-path" readonly />
+								<input class="pg-url-path" id="pg-path" readonly aria-label="Request URL path" />
 							</div>
 							<div id="pg-params"></div>
 							<div id="pg-body-wrap" style="display:none;">
 								<div class="pg-field">
-									<label class="pg-field-label">Request body</label>
+									<label class="pg-field-label" for="pg-body">Request body</label>
 									<textarea class="pg-input" id="pg-body" placeholder='{ "key": "value" }'></textarea>
 								</div>
 							</div>
 							<div class="pg-actions">
 								<button type="button" class="pg-send" id="pg-send">Send</button>
-								<span class="pg-status" id="pg-status"></span>
+								<span class="pg-status" id="pg-status" role="status" aria-live="polite"></span>
 							</div>
 							<div class="pg-response" id="pg-response" style="display:none;">
 								<div class="pg-response-head">
 									<span>Response</span>
 									<button type="button" class="pg-copy" id="pg-copy-resp">Copy</button>
 								</div>
-								<div class="pg-response-body" id="pg-response-body"></div>
+								<div class="pg-response-body" id="pg-response-body" aria-live="polite" aria-atomic="true"></div>
 							</div>
 						</div>
 					</div>
@@ -4668,48 +4844,48 @@
 					<span>Endpoints</span>
 					<span>v1</span>
 				</div>
-				<div class="dev-api-row" data-endpoint="list-agents">
-					<div style="display:flex;align-items:center;gap:8px;">
+				<button type="button" class="dev-api-row" aria-pressed="false" data-endpoint="list-agents">
+					<span style="display:flex;align-items:center;gap:8px;">
 						<span class="dev-badge get">GET</span>
 						<span class="dev-api-path">/v1/agents</span>
-					</div>
-					<div class="dev-api-desc">List all agents in your account</div>
-				</div>
-				<div class="dev-api-row" data-endpoint="create-agent">
-					<div style="display:flex;align-items:center;gap:8px;">
+					</span>
+					<span class="dev-api-desc">List all agents in your account</span>
+				</button>
+				<button type="button" class="dev-api-row" aria-pressed="false" data-endpoint="create-agent">
+					<span style="display:flex;align-items:center;gap:8px;">
 						<span class="dev-badge post">POST</span>
 						<span class="dev-api-path">/v1/agents</span>
-					</div>
-					<div class="dev-api-desc">Create agent from avatar + prompt</div>
-				</div>
-				<div class="dev-api-row" data-endpoint="chat">
-					<div style="display:flex;align-items:center;gap:8px;">
+					</span>
+					<span class="dev-api-desc">Create agent from avatar + prompt</span>
+				</button>
+				<button type="button" class="dev-api-row" aria-pressed="false" data-endpoint="chat">
+					<span style="display:flex;align-items:center;gap:8px;">
 						<span class="dev-badge post">POST</span>
 						<span class="dev-api-path">/v1/chat</span>
-					</div>
-					<div class="dev-api-desc">Send a message, stream a response</div>
-				</div>
-				<div class="dev-api-row" data-endpoint="get-avatar">
-					<div style="display:flex;align-items:center;gap:8px;">
+					</span>
+					<span class="dev-api-desc">Send a message, stream a response</span>
+				</button>
+				<button type="button" class="dev-api-row" aria-pressed="false" data-endpoint="get-avatar">
+					<span style="display:flex;align-items:center;gap:8px;">
 						<span class="dev-badge get">GET</span>
 						<span class="dev-api-path">/v1/avatars/:id</span>
-					</div>
-					<div class="dev-api-desc">Fetch avatar metadata and GLB URL</div>
-				</div>
-				<div class="dev-api-row" data-endpoint="mcp">
-					<div style="display:flex;align-items:center;gap:8px;">
+					</span>
+					<span class="dev-api-desc">Fetch avatar metadata and GLB URL</span>
+				</button>
+				<button type="button" class="dev-api-row" aria-pressed="false" data-endpoint="mcp">
+					<span style="display:flex;align-items:center;gap:8px;">
 						<span class="dev-badge mcp">MCP</span>
 						<span class="dev-api-path">three.ws/mcp</span>
-					</div>
-					<div class="dev-api-desc">Model Context Protocol server</div>
-				</div>
-				<div class="dev-api-row" data-endpoint="a2a">
-					<div style="display:flex;align-items:center;gap:8px;">
+					</span>
+					<span class="dev-api-desc">Model Context Protocol server</span>
+				</button>
+				<button type="button" class="dev-api-row" aria-pressed="false" data-endpoint="a2a">
+					<span style="display:flex;align-items:center;gap:8px;">
 						<span class="dev-badge mcp">A2A</span>
 						<span class="dev-api-path">/v1/a2a/:agentId</span>
-					</div>
-					<div class="dev-api-desc">Agent-to-agent protocol endpoint</div>
-				</div>
+					</span>
+					<span class="dev-api-desc">Agent-to-agent protocol endpoint</span>
+				</button>
 				<div style="padding:14px 20px;margin-top:auto;border-top:1px solid var(--hairline);">
 					<a class="btn btn--sm" href="/dashboard/api">Get API key <span class="arrow">&rarr;</span></a>
 				</div>
@@ -4960,9 +5136,11 @@
 	// Live pump.fun token card + real "Launch yours" flow.
 	import { initHomeLiveToken } from '/src/home-live-token.js';
 	import { initHomepageLauncher } from '/src/pump/homepage-launcher.js';
+	import { initHomeThreeSignal } from '/src/home-three-signal.js';
 	const hltCard = document.getElementById('hlt-card');
 	if (hltCard) initHomeLiveToken(hltCard);
 	initHomepageLauncher(document.getElementById('hlt-launch'));
+	initHomeThreeSignal(document.getElementById('three-signal'));
 </script>
 
 <script type="module">
@@ -5165,14 +5343,17 @@
 		for (const [k, v] of Object.entries(AGENT_ATTRS)) el.setAttribute(k, v);
 		return el;
 	}
-	(async () => {
+	async function bootHeroAvatar() {
+		const heroInner = document.getElementById('hero-stage-inner');
+		const shimmer = document.getElementById('hero-shimmer');
 		try {
 			const r = await fetch(`${location.origin}/api/avatars/${AVATAR_ID}`);
+			if (!r.ok) throw new Error('HTTP ' + r.status);
 			const d = await r.json();
 			const glb = devProxyGlb(d.avatar?.model_url || d.avatar?.url);
-			if (!glb) return;
-			const heroInner = document.getElementById('hero-stage-inner');
+			if (!glb) throw new Error('no model url');
 			if (heroInner) {
+				heroInner.innerHTML = '';
 				const heroEl = spawnAgent(glb);
 				heroInner.appendChild(heroEl);
 				initHeroWalk(heroEl);
@@ -5180,8 +5361,21 @@
 			}
 		} catch (e) {
 			console.warn('[home] avatar boot failed', e);
+			// Designed fallback — never leave the hero shimmering forever on a network failure.
+			if (shimmer) shimmer.classList.add('hidden');
+			if (heroInner) {
+				heroInner.innerHTML = '<div class="hero-stage-fallback" role="status">'
+					+ '<p>The live preview couldn’t load right now.</p>'
+					+ '<button type="button" class="btn btn--sm" id="hero-retry">Retry</button></div>';
+				heroInner.querySelector('#hero-retry')?.addEventListener('click', () => {
+					if (shimmer) shimmer.classList.remove('hidden');
+					heroInner.innerHTML = '';
+					bootHeroAvatar();
+				});
+			}
 		}
-	})();
+	}
+	bootHeroAvatar();
 
 	// ── What You Get: avatar viewer + animation gallery ────────────
 	(function initWygSection() {

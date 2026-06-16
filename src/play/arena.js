@@ -7,6 +7,9 @@
 // pinned over each agent's head. All data is real — no placeholders.
 
 import { ArenaWorld } from './arena-world.js';
+import { createLogger } from '../shared/log.js';
+
+const log = createLogger('arena');
 
 const NETWORK = new URLSearchParams(location.search).get('network') || 'mainnet';
 
@@ -50,12 +53,12 @@ const labelEls = new Map(); // agentId -> { el, pos }
 	try {
 		await world.loadAnimations();
 	} catch (e) {
-		console.warn('[arena] animations failed', e);
+		log.warn('animations failed', e);
 	}
 
 	// Spectator avatar: restore saved pick, else a sensible default.
 	const saved = localStorage.getItem(PLAYER_KEY);
-	try { await world.spawnPlayer(saved || '/avatars/default.glb'); } catch (e) { console.warn('[arena] player spawn', e); }
+	try { await world.spawnPlayer(saved || '/avatars/default.glb'); } catch (e) { log.warn('player spawn', e); }
 
 	world.setLabelUpdater(updateLabels);
 	mountControls();
@@ -144,7 +147,7 @@ async function spawnAgentsProgressively(board) {
 				});
 				createLabel(agent);
 			} catch (err) {
-				console.warn('[arena] spawn agent', err);
+				log.warn('spawn agent', err);
 			}
 		}
 	};

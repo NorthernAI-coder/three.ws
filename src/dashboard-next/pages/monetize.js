@@ -6,6 +6,7 @@
 
 import { mountShell } from '../shell.js';
 import { requireUser, get, post, put, del, esc, relTime, formatUsdc, ApiError } from '../api.js';
+import { errorStateHTML, ensureStateKitStyles } from '../../shared/state-kit.js';
 
 const USDC_MINTS = {
 	solana: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
@@ -120,6 +121,24 @@ async function loadAndRender(host, me, agents) {
 		selectedAgentId ? safe(() => get(`/api/monetization/wallet?${agentParam}`)) : Promise.resolve(null),
 		selectedAgentId ? safe(() => get(`/api/monetization/revenue?${agentParam}&period=all`)) : Promise.resolve(null),
 	]);
+
+	// If every primary revenue surface failed to load, the page would otherwise
+	// render an all-zero hero and empty panels with no signal that the data is
+	// simply unreachable. Surface a single retryable error instead.
+	const allPrimaryFailed = revenue === null && withdrawalsResp === null
+		&& walletsResp === null && summary === null;
+	if (allPrimaryFailed) {
+		ensureStateKitStyles();
+		host.innerHTML = errorStateHTML({
+			title: "Couldn't load your earnings",
+			body: 'We had trouble reaching the billing service. Check your connection and try again.',
+		});
+		host.querySelector('[data-sk-retry]')?.addEventListener('click', () => {
+			renderSkeleton(host);
+			loadAndRender(host, me, agents);
+		});
+		return;
+	}
 
 	const withdrawals = withdrawalsResp?.withdrawals || [];
 	const wallets = walletsResp?.wallets || [];
@@ -571,7 +590,7 @@ function renderRevenueChart({ initial, defaultRange }) {
 				<div class="dn-panel-title">Revenue Over Time</div>
 				<div class="dn-panel-sub" style="margin:2px 0 0">Net earnings after platform fees.</div>
 			</div>
-			<select data-slot="range" class="mon-select">
+			<select data-slot="range" class="mon-select" aria-label="Revenue time range">
 				${RANGES.map((r) => `<option value="${r.key}"${r.key === defaultRange ? ' selected' : ''}>${esc(r.label)}</option>`).join('')}
 			</select>
 		</div>
@@ -637,6 +656,9 @@ function paintCanvasChart(host, timeseries) {
 	}));
 
 	const max = Math.max(0.01, ...data.map(d => d.value));
+
+	canvas.setAttribute('role', 'img');
+	canvas.setAttribute('aria-label', `Net revenue over time line chart, ${data.length} period${data.length !== 1 ? 's' : ''}, peak $${max.toFixed(max >= 100 ? 0 : 2)}`);
 
 	const points = data.map((d, i) => ({
 		x: PAD.left + (i / Math.max(1, data.length - 1)) * innerW,

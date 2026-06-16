@@ -29,6 +29,7 @@ import { onchainBadgeEl } from './shared/onchain-badge.js';
 import { mountValidationBadge } from './shared/validation-badge.js';
 import { seeInWorldHref, agentAvatarGlb } from './shared/agent-3d.js';
 import { renderError as renderAsyncError } from './shared/async-state.js';
+import { skeletonHTML } from './shared/state-kit.js';
 import { openCoinLaunch } from './shared/agent-coin.js';
 import { Modal } from './shared/modal.js';
 import { showSharePanel } from './shared/share.js';
@@ -837,6 +838,8 @@ async function loadReviews(agentId, agentRec) {
 
 	const isOwner = !!agentRec?.user_id;
 
+	body.innerHTML = skeletonHTML(2, 'text');
+
 	let data;
 	try {
 		const r = await fetch(`/api/marketplace/agents/${encodeURIComponent(agentId)}/reviews`, {
@@ -846,7 +849,12 @@ async function loadReviews(agentId, agentRec) {
 		const json = await r.json();
 		data = json.data;
 	} catch (e) {
-		body.innerHTML = `<div class="ad-reviews-error">Could not load reviews. Try refreshing.</div>`;
+		renderAsyncError(
+			body,
+			e,
+			{ error: { title: 'Couldn’t load reviews', body: 'Check your connection and try again.' }, context: 'agent-detail:reviews' },
+			() => loadReviews(agentId, agentRec),
+		);
 		return;
 	}
 
