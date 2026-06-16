@@ -48,6 +48,18 @@
 					Coins you're tracking, with live market caps and graduation status. Tap any card for the
 					full profile. Your list is stored privately in this browser.
 				</p>
+				<form id="wl-add-form" class="wl-add-form" autocomplete="off">
+					<input
+						id="wl-add-input"
+						class="wl-add-input"
+						type="text"
+						placeholder="Paste a mint address or pump.fun URL to add…"
+						spellcheck="false"
+						aria-label="Mint address or pump.fun URL"
+					/>
+					<button type="submit" class="wl-btn wl-btn-primary wl-add-btn">Add</button>
+				</form>
+				<div id="wl-add-msg" class="wl-add-msg" aria-live="polite" hidden></div>
 				<div class="wl-hero-row">
 					<span id="wl-count" class="wl-count" aria-live="polite"></span>
 					<div class="wl-hero-ctas">

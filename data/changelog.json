@@ -3,6 +3,13 @@
 	"entries": [
 		{
 			"date": "2026-06-16",
+			"title": "Home page: Top Traders widget + Oracle proof trades in coin drawer",
+			"summary": "The home page now shows a live Top Traders widget ranked by 7-day composite score with direct links to copy each trader. The Oracle coin drawer now loads a proof-trades section showing every agent exit on that specific coin — multiple, P&L, and a one-click copy link — closing the loop between conviction and evidence. Trade feed cards also link coin images and symbols directly to their Oracle conviction page.",
+			"tags": ["feature", "improvement"],
+			"link": "/oracle"
+		},
+		{
+			"date": "2026-06-16",
 			"title": "Agents Index — browse every public 3D AI agent on three.ws",
 			"summary": "A new /agents page lists every public agent on the platform: search by name or description, filter to on-chain-registered agents only, sort by popularity or newest, and paginate through the directory. Each card shows the agent's avatar, top skills, and chat count with a direct link to their profile. My Agents at /my-agents gives registered users a focused view of their own agents with quick Edit and Deploy links.",
 			"tags": ["feature"],
