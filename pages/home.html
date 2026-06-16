@@ -2478,6 +2478,32 @@
 			.hero-chat-send svg { width: 16px; height: 16px; }
 			.hero-chat-input { padding: 11px 0; }
 		}
+
+		/* ── Oracle conviction mini-cards (home section) ─────────────── */
+		.hoc-item { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--hairline); transition: background .14s; text-decoration: none; color: inherit; }
+		.hoc-item:last-child { border-bottom: none; }
+		.hoc-item:hover { background: rgba(255,255,255,0.03); }
+		.hoc-score { font-family: var(--font-mono,monospace); font-size: 22px; font-weight: 800; line-height: 1; width: 42px; text-align: center; flex-shrink: 0; }
+		.hoc-score.t-prime, .hoc-score.t-strong { color: var(--green, #22c55e); }
+		.hoc-score.t-lean { color: var(--amber, #f59e0b); }
+		.hoc-score.t-watch { color: var(--text-3, #6a6a6a); }
+		.hoc-score.t-avoid { color: var(--red, #ef4444); }
+		.hoc-info { flex: 1; min-width: 0; }
+		.hoc-sym { font-weight: 700; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+		.hoc-name { font-size: 11px; color: var(--text-3, #6a6a6a); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+		.hoc-pillars { display: flex; gap: 4px; margin-top: 5px; }
+		.hoc-pillar { height: 3px; border-radius: 2px; flex: 1; background: rgba(255,255,255,.06); position: relative; overflow: hidden; }
+		.hoc-pillar-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 2px; }
+		.hoc-tier { font-family: var(--font-mono,monospace); font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; padding: 3px 7px; border-radius: 5px; white-space: nowrap; flex-shrink: 0; }
+		.hoc-tier.t-prime, .hoc-tier.t-strong { background: rgba(34,197,94,.14); color: var(--green, #22c55e); }
+		.hoc-tier.t-lean { background: rgba(245,158,11,.13); color: var(--amber, #f59e0b); }
+		.hoc-tier.t-watch { background: rgba(255,255,255,.05); color: var(--text-3, #6a6a6a); }
+		.hoc-tier.t-avoid { background: rgba(239,68,68,.14); color: var(--red, #ef4444); }
+		.hoc-loading { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; }
+		.hoc-sk { height: 48px; border-radius: 8px; background: linear-gradient(90deg, rgba(255,255,255,.04) 25%, rgba(255,255,255,.08) 50%, rgba(255,255,255,.04) 75%); background-size: 200% 100%; animation: hoc-shimmer 1.3s linear infinite; }
+		@keyframes hoc-shimmer { to { background-position: -200% 0; } }
+		.hoc-live-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--green, #22c55e); margin-right: 7px; vertical-align: middle; box-shadow: 0 0 0 0 rgba(34,197,94,.6); animation: hoc-pulse 2s infinite; }
+		@keyframes hoc-pulse { 0%{box-shadow:0 0 0 0 rgba(34,197,94,.5)} 70%{box-shadow:0 0 0 6px rgba(34,197,94,0)} 100%{box-shadow:0 0 0 0 rgba(34,197,94,0)} }
 	</style>
 	<noscript><style>.reveal{opacity:1!important;transform:none!important}.hero-text>*{opacity:1!important;transform:none!important}</style></noscript>
 	<script type="module" src="https://three.ws/agent-3d/latest/agent-3d.js"></script>
@@ -4319,6 +4345,41 @@
 	</div>
 </section>
 
+<!-- ── ORACLE CONVICTION ─────────────────────────────────────────────── -->
+<section class="block">
+	<div class="wrap-1280">
+		<div class="feat-split reveal">
+			<div class="feat-text">
+				<p class="feat-eyebrow">Oracle · Fused conviction scoring</p>
+				<h3 class="feat-h">One score.<br/><em>Four reads fused.</em></h3>
+				<p class="feat-body">
+					Oracle reads every pump.fun launch the instant it surfaces and fuses four independent signals into a single 0–100 conviction score: <strong>who's buying</strong> (proven-wallet pedigree), <strong>how</strong> (organic vs coordinated buy structure), <strong>what</strong> it is (cultural narrative and virality), and <strong>how it's moving</strong> (momentum). Hard structural caps mean a bundled coin can never score Strong — the score is honest, not flattering.
+				</p>
+				<ul class="feat-list">
+					<li><strong>Scores every launch</strong> — the instant it appears on-chain, before the crowd forms</li>
+					<li><strong>Smart-wallet pedigree</strong> — did the proven money get in early? What's their win rate?</li>
+					<li><strong>Structure detection</strong> — bundles, snipers, concentration flags, dev behavior</li>
+					<li><strong>Agent action loop</strong> — arm your 3D agent to buy automatically at prime or strong tier</li>
+				</ul>
+				<div>
+					<a class="btn btn--sm btn--primary" href="/oracle">Open Oracle <span class="arrow">→</span></a>
+				</div>
+			</div>
+			<div class="feat-visual">
+				<div class="feat-visual-label"><span class="hoc-live-dot"></span>Oracle conviction · live feed</div>
+				<div class="feat-visual-inner" style="padding:0;overflow:hidden">
+					<div id="hoc-items" class="hoc-loading">
+						<div class="hoc-sk"></div><div class="hoc-sk"></div><div class="hoc-sk"></div>
+					</div>
+					<div style="padding:12px 16px;border-top:1px solid var(--hairline)">
+						<a class="btn btn--sm" href="/oracle" style="width:100%;text-align:center;justify-content:center">View all conviction scores →</a>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</section>
+
 <!-- ── PAY-PER-CALL EARN ──────────────────────────────────────────────────── -->
 <section class="block">
 	<div class="wrap-1280">
@@ -4832,6 +4893,62 @@
 	const hltCard = document.getElementById('hlt-card');
 	if (hltCard) initHomeLiveToken(hltCard);
 	initHomepageLauncher(document.getElementById('hlt-launch'));
+</script>
+
+<script type="module">
+	// Oracle conviction mini-feed on home page.
+	// Fetches top scoring coins from /api/oracle/feed and renders compact cards
+	// showing ticker, score, tier pill, and four pillar bars.
+	(async function initHomeOracle() {
+		const hocItems = document.getElementById('hoc-items');
+		if (!hocItems) return;
+
+		const PIL_COLOR = { pedigree: '#5fe3ff', structure: '#34d399', narrative: '#a07bff', momentum: '#fbbf24' };
+		const TIER_LABEL = { prime: 'PRIME', strong: 'STRONG', lean: 'LEAN', watch: 'WATCH', avoid: 'AVOID' };
+		const tc = (t) => `t-${t || 'watch'}`;
+
+		function miniCard(it) {
+			const tier = it.tier || 'watch';
+			const score = Math.round(it.score ?? 0);
+			const p = it.pillars || {};
+			const bars = ['pedigree','structure','narrative','momentum'].map(k =>
+				`<div class="hoc-pillar"><div class="hoc-pillar-fill" style="width:${Math.max(0,Math.min(100,p[k]||0))}%;background:${PIL_COLOR[k]}"></div></div>`
+			).join('');
+			const sym = (it.symbol || '?').toUpperCase();
+			const name = it.name || it.mint.slice(0, 8);
+
+			const a = document.createElement('a');
+			a.className = 'hoc-item';
+			a.href = `/oracle?mint=${encodeURIComponent(it.mint)}`;
+			a.setAttribute('aria-label', `$${sym} — ${score} conviction, ${tier} tier`);
+			a.innerHTML = `
+				<div class="hoc-score ${tc(tier)}">${score}</div>
+				<div class="hoc-info">
+					<div class="hoc-sym">$${sym}</div>
+					<div class="hoc-name">${name}</div>
+					<div class="hoc-pillars">${bars}</div>
+				</div>
+				<span class="hoc-tier ${tc(tier)}">${TIER_LABEL[tier] || tier.toUpperCase()}</span>`;
+			return a;
+		}
+
+		try {
+			const r = await fetch('/api/oracle/feed?network=mainnet&limit=6&min_score=56');
+			if (!r.ok) throw new Error(r.status);
+			const data = await r.json();
+			const items = (data.items || []).sort((a, b) => b.score - a.score).slice(0, 3);
+			hocItems.className = '';
+			hocItems.innerHTML = '';
+			if (!items.length) {
+				hocItems.innerHTML = '<div style="padding:32px 16px;text-align:center;color:var(--text-3);font-size:13px">Oracle is warming up — scores arrive live as new coins surface.</div>';
+				return;
+			}
+			items.forEach(it => hocItems.appendChild(miniCard(it)));
+		} catch {
+			hocItems.className = '';
+			hocItems.innerHTML = '<div style="padding:28px 16px;text-align:center"><a class="btn btn--sm" href="/oracle">Open Oracle →</a></div>';
+		}
+	})();
 </script>
 
 <script>
