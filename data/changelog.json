@@ -3,6 +3,13 @@
 	"entries": [
 		{
 			"date": "2026-06-16",
+			"title": "Watchlist: Oracle auto-refresh + browser alerts on tier upgrade",
+			"summary": "The watchlist now re-fetches Oracle conviction every 90 seconds for all watched coins. Enable the new 🔔 Alerts button to get browser push notifications the moment a watched coin upgrades to Strong or Prime conviction — even when you're on another tab. Alerts pause automatically when the tab is hidden and resume when you switch back. Tier history is stored locally so only real upgrades trigger a notification.",
+			"tags": ["feature", "improvement"],
+			"link": "/watchlist"
+		},
+		{
+			"date": "2026-06-16",
 			"title": "Trader profiles now work for any pump.fun wallet address",
 			"summary": "The /trader page now handles raw Solana wallet addresses directly — not just agent UUIDs. Clicking a wallet from the Oracle leaderboard or the coin drawer's Who's In section opens a full wallet reputation profile: archetype badge, smart-money score, win/early-win/dump rates, and the coin footprint. Previously these links 404ed.",
 			"tags": ["fix", "improvement"],
