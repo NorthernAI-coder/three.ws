@@ -3,6 +3,13 @@
 	"entries": [
 		{
 			"date": "2026-06-16",
+			"title": "Coin 3D: Oracle conviction score and watchlist in the HUD",
+			"summary": "The Token in 3D page now shows Oracle conviction alongside the bonding-curve stats. After the scene loads, the panel fetches the coin's conviction score and tier (prime/strong/lean/watch/avoid) asynchronously — no scene-render delay. Tap the score badge to jump to the full Oracle breakdown. A new Watch button syncs the token directly into your watchlist across the radar, launches, and visualizer surfaces.",
+			"tags": ["improvement"],
+			"link": "/coin3d"
+		},
+		{
+			"date": "2026-06-16",
 			"title": "Sniper: Cumulative PnL chart in trade history",
 			"summary": "The Sniper Strategies page now shows a cumulative PnL curve above the trade history table. Each completed trade is plotted in chronological order, so you can see at a glance how your strategy's performance has trended over time. The chart is color-coded green or red based on the net result and includes smooth bezier interpolation between trades.",
 			"tags": ["improvement"],

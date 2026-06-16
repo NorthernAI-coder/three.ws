@@ -229,6 +229,80 @@
 				}
 			}
 
+			/* Oracle conviction badge */
+			.c3d-oracle {
+				display: flex;
+				align-items: center;
+				gap: 8px;
+				padding: 10px 12px;
+				background: rgba(255, 255, 255, 0.04);
+				border: 1px solid rgba(255, 255, 255, 0.07);
+				border-radius: 8px;
+				margin: 12px 0 14px;
+				text-decoration: none;
+				color: inherit;
+				transition: background 0.12s;
+			}
+			.c3d-oracle:hover {
+				background: rgba(255, 255, 255, 0.08);
+			}
+			.c3d-oracle:focus-visible {
+				outline: 2px solid var(--accent);
+				outline-offset: 3px;
+			}
+			.c3d-oracle-label {
+				font-size: 11px;
+				text-transform: uppercase;
+				letter-spacing: 0.06em;
+				color: var(--muted);
+				flex-shrink: 0;
+			}
+			.c3d-oracle-score {
+				font-size: 22px;
+				font-weight: 700;
+				line-height: 1;
+			}
+			.c3d-oracle-tier {
+				font-size: 11px;
+				font-weight: 600;
+				text-transform: uppercase;
+				letter-spacing: 0.05em;
+			}
+			.c3d-oracle-arrow {
+				margin-left: auto;
+				color: var(--muted);
+				font-size: 13px;
+			}
+			.c3d-oracle-sk {
+				height: 42px;
+				background: rgba(255, 255, 255, 0.05);
+				border-radius: 8px;
+				margin: 12px 0 14px;
+				animation: c3dPulse 1.4s ease-in-out infinite;
+			}
+			@keyframes c3dPulse {
+				0%, 100% { opacity: 0.4; }
+				50% { opacity: 0.8; }
+			}
+			/* Watch button */
+			.c3d-watch-btn {
+				background: none;
+				border: none;
+				cursor: pointer;
+				padding: 0;
+				font-family: inherit;
+				font-size: 13px;
+				font-weight: 600;
+				color: var(--accent);
+				transition: opacity 0.15s ease;
+			}
+			.c3d-watch-btn:hover { opacity: 0.78; }
+			.c3d-watch-btn:focus-visible {
+				outline: 2px solid var(--accent);
+				outline-offset: 3px;
+				border-radius: 4px;
+			}
+
 			@media (max-width: 520px) {
 				#hud {
 					width: calc(100vw - 32px);
