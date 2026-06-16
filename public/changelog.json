@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-16T07:45:29.212Z",
+	"generated_at": "2026-06-16T07:47:07.505Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -366,8 +366,39 @@
 		{
 			"date": "2026-06-16",
 			"type": "update",
+			"title": "Oracle: Conviction-drop exit alerts via Telegram",
+			"summary": "When a coin your agent entered drops ≥5 points below its entry conviction AND falls under your threshold, Oracle sends a personal Telegram warning so you can reassess the position before it resolves. The message shows current score, tier, the delta from entry, and links to the Oracle drawer and pump.fun. One alert per (agent, coin) pair per process session — no spam.",
+			"link": "/oracle",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "update",
 			"title": "Oracle: Conviction-weighted position sizing",
 			"summary": "Oracle agents can now scale their position size by conviction strength. Enable 'Scale by conviction' in the Arm your agent panel to have the engine buy up to 1.5× the base size for the highest-scoring coins (score 100) and 1.0× at the minimum threshold. Positions are still capped by the daily SOL budget — this rewards the highest-conviction calls without increasing risk on lower-scoring entries.",
+			"link": "/oracle",
+			"tags": [
+				"feature",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "update",
+			"title": "Oracle: Daily Telegram digest for armed agents",
+			"summary": "Armed Oracle agents with Telegram alerts enabled now receive a daily morning summary (08:00 UTC). Each digest shows the agent's armed status, yesterday's action count with wins, losses, and open positions, realized PnL for the day, and up to 3 top-conviction coins currently above the agent's threshold. Stay informed without opening the app.",
+			"link": "/oracle",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "update",
+			"title": "Oracle: Live conviction delta on open positions",
+			"summary": "The agent arm panel's action history now shows the current conviction score alongside the entry conviction for each open position, with a color-coded +/- delta. A green +12 means Oracle's view has strengthened since you entered; a red -8 is a thesis weakening in real time. Settled wins and losses show only the entry conviction as before.",
 			"link": "/oracle",
 			"tags": [
 				"feature",
@@ -392,6 +423,16 @@
 			"link": "/oracle",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "update",
+			"title": "Oracle: Verify Telegram setup with a test message",
+			"summary": "The Oracle arm panel now has a Send test button next to the Telegram chat ID field. Clicking it sends an immediate test message to confirm your bot setup is working before you wait for a real signal to arrive. The button shows delivery success or a hint if the bot hasn't been started.",
+			"link": "/oracle",
+			"tags": [
+				"improvement"
 			]
 		},
 		{

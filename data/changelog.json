@@ -3,6 +3,34 @@
 	"entries": [
 		{
 			"date": "2026-06-16",
+			"title": "Oracle: Daily Telegram digest for armed agents",
+			"summary": "Armed Oracle agents with Telegram alerts enabled now receive a daily morning summary (08:00 UTC). Each digest shows the agent's armed status, yesterday's action count with wins, losses, and open positions, realized PnL for the day, and up to 3 top-conviction coins currently above the agent's threshold. Stay informed without opening the app.",
+			"tags": ["feature"],
+			"link": "/oracle"
+		},
+		{
+			"date": "2026-06-16",
+			"title": "Oracle: Live conviction delta on open positions",
+			"summary": "The agent arm panel's action history now shows the current conviction score alongside the entry conviction for each open position, with a color-coded +/- delta. A green +12 means Oracle's view has strengthened since you entered; a red -8 is a thesis weakening in real time. Settled wins and losses show only the entry conviction as before.",
+			"tags": ["feature", "improvement"],
+			"link": "/oracle"
+		},
+		{
+			"date": "2026-06-16",
+			"title": "Oracle: Conviction-drop exit alerts via Telegram",
+			"summary": "When a coin your agent entered drops ≥5 points below its entry conviction AND falls under your threshold, Oracle sends a personal Telegram warning so you can reassess the position before it resolves. The message shows current score, tier, the delta from entry, and links to the Oracle drawer and pump.fun. One alert per (agent, coin) pair per process session — no spam.",
+			"tags": ["feature"],
+			"link": "/oracle"
+		},
+		{
+			"date": "2026-06-16",
+			"title": "Oracle: Verify Telegram setup with a test message",
+			"summary": "The Oracle arm panel now has a Send test button next to the Telegram chat ID field. Clicking it sends an immediate test message to confirm your bot setup is working before you wait for a real signal to arrive. The button shows delivery success or a hint if the bot hasn't been started.",
+			"tags": ["improvement"],
+			"link": "/oracle"
+		},
+		{
+			"date": "2026-06-16",
 			"title": "Watchlist: Oracle auto-refresh + browser alerts on tier upgrade",
 			"summary": "The watchlist now re-fetches Oracle conviction every 90 seconds for all watched coins. Enable the new 🔔 Alerts button to get browser push notifications the moment a watched coin upgrades to Strong or Prime conviction — even when you're on another tab. Alerts pause automatically when the tab is hidden and resume when you switch back. Tier history is stored locally so only real upgrades trigger a notification.",
 			"tags": ["feature", "improvement"],
