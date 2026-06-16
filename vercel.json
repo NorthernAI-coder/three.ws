@@ -2348,6 +2348,14 @@
 			"dest": "/agent-edit.html"
 		},
 		{
+			"src": "/agent/([^/]+)/share/?",
+			"dest": "/api/agent-share?id=$1"
+		},
+		{
+			"src": "/api/og/agent",
+			"dest": "/api/og/agent.js"
+		},
+		{
 			"src": "/agent/([^/]+)/edit",
 			"dest": "/agent-edit.html"
 		},
