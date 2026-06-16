@@ -155,6 +155,15 @@
 		.gradbar { height: 7px; border-radius: 4px; background: rgba(255,255,255,0.07); overflow: hidden; }
 		.gradbar i { display: block; height: 100%; background: linear-gradient(90deg, var(--up), var(--cyan)); }
 		.intro { color: var(--muted); font-size: 13.5px; max-width: 720px; margin: 0 0 16px; }
+		.edge-agg { display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; margin-bottom: 0; }
+		.edge-kpi { background: var(--panel); padding: 12px 14px; }
+		.edge-kpi span { font: 600 10px/1 var(--mono); text-transform: uppercase; letter-spacing: .06em; color: var(--faint); display: block; margin-bottom: 6px; }
+		.edge-kpi b { font: 700 18px/1 var(--mono); color: var(--ink); }
+		.edge-kpi b.up { color: var(--up); } .edge-kpi b.dn { color: var(--down); }
+		.edge-top { display: flex; flex-direction: column; gap: 6px; }
+		.edge-top-row { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--ink); font-size: 13px; padding: 8px 12px; border-radius: 8px; background: var(--panel); border: 1px solid var(--line); transition: border-color .14s; }
+		.edge-top-row:hover { border-color: var(--stroke-strong, var(--cyan)); }
+		.edge-ath { margin-left: auto; font: 700 13px/1 var(--mono); color: var(--up); }
 
 		/* agent panel */
 		.apanel { display: grid; grid-template-columns: 1fr 1.8fr; gap: 16px; align-items: start; }
@@ -207,6 +216,13 @@
 		.nw-sub { font: 600 10.5px/1 var(--mono); color: var(--faint); }
 		.nw-buy { font: 700 13px/1 var(--mono); text-align: right; }
 		.solscan { font: 600 12px/1 var(--mono); color: var(--cyan); }
+		.dr-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 14px 0 2px; }
+		.dr-act { font: 600 12px/1 var(--mono); color: var(--cyan); text-decoration: none; background: none; border: none; cursor: pointer; padding: 0; transition: opacity .15s; }
+		.dr-act:hover { opacity: .7; }
+		.dr-act:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 2px; }
+		.dr-watch { color: var(--faint); }
+		.dr-watch[aria-pressed="true"] { color: var(--accent); }
+		.dr-share { color: var(--amber, #f5a623); }
 
 		/* states + buttons */
 		.state { padding: 56px 22px; text-align: center; color: var(--muted); }

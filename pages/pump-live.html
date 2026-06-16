@@ -170,7 +170,11 @@
   .token-symbol { color: #888; font-size: 12px; }
   .token-mcap { margin-top: 4px; font-size: 14px; color: var(--green); }
   .token-meta { margin-top: 2px; font-size: 11px; color: #777; }
-  .token-links { margin-top: 8px; font-size: 11px; display: flex; gap: 10px; }
+  .token-links { margin-top: 8px; font-size: 11px; display: flex; gap: 10px; align-items: center; }
+  .token-watch { background: none; border: 1px solid var(--medium-grey); border-radius: 6px; color: #666;
+    font-size: 14px; line-height: 1; padding: 2px 7px; cursor: pointer; transition: color .15s, border-color .15s; }
+  .token-watch.watched { color: #7c83ff; border-color: #7c83ff; }
+  .token-watch:hover { color: #fff; border-color: #aaa; }
 
   @keyframes fadeIn {
     from { opacity: 0; transform: translateY(10px); }
@@ -327,6 +331,20 @@
   // /api/pump/helius-stats endpoint (CoinGecko-backed, cached server-side).
   // Refreshed every 60s; never blocks rendering. No hardcoded price.
   // ════════════════════════════════════════════════════════════════════
+
+  const WATCH_KEY = 'ld_watchlist';
+  function isWatched(mint) {
+    try { return JSON.parse(localStorage.getItem(WATCH_KEY) || '[]').includes(mint); } catch { return false; }
+  }
+  function toggleWatch(mint) {
+    try {
+      const list = JSON.parse(localStorage.getItem(WATCH_KEY) || '[]');
+      const idx = list.indexOf(mint);
+      if (idx >= 0) list.splice(idx, 1); else list.unshift(mint);
+      localStorage.setItem(WATCH_KEY, JSON.stringify(list.slice(0, 200)));
+      return idx < 0;
+    } catch { return false; }
+  }
 
   let solPrice = 0;
 
@@ -573,7 +591,24 @@
     solscanLink.target = '_blank';
     solscanLink.rel = 'noopener noreferrer';
     solscanLink.textContent = 'Solscan';
-    links.append(pumpLink, solscanLink);
+    const watchBtn = document.createElement('button');
+    watchBtn.className = `token-watch${isWatched(token.mint) ? ' watched' : ''}`;
+    watchBtn.type = 'button';
+    watchBtn.textContent = isWatched(token.mint) ? '★' : '☆';
+    watchBtn.title = isWatched(token.mint) ? 'Remove from watchlist' : 'Add to watchlist';
+    watchBtn.setAttribute('aria-label', watchBtn.title);
+    watchBtn.setAttribute('aria-pressed', String(isWatched(token.mint)));
+    watchBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const nowWatched = toggleWatch(token.mint);
+      watchBtn.textContent = nowWatched ? '★' : '☆';
+      watchBtn.classList.toggle('watched', nowWatched);
+      const lbl = nowWatched ? 'Remove from watchlist' : 'Add to watchlist';
+      watchBtn.title = lbl;
+      watchBtn.setAttribute('aria-label', lbl);
+      watchBtn.setAttribute('aria-pressed', String(nowWatched));
+    });
+    links.append(pumpLink, solscanLink, watchBtn);
 
     info.append(nameEl, symEl, mcapEl, links);
     card.append(img, info);

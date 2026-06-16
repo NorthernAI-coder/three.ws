@@ -92,6 +92,47 @@ async function markAlerted(mint, network) {
 }
 
 /**
+ * Fire a Telegram alert when an agent's open position resolves as a win.
+ * Called by the settle-loop after grading.
+ *
+ * @param {Array<{agent_name:string, agent_id:string, symbol:string, mint:string, tier:string, conviction:number, mode:string, size_sol:number, realized_pnl_sol:number, peak_multiple:number, network:string}>} exits
+ * @returns {Promise<number>} number of alerts sent
+ */
+export async function alertProfitableExit(exits) {
+	const token = process.env.TELEGRAM_BOT_TOKEN;
+	const chatId = process.env.TELEGRAM_ORACLE_CHAT_ID;
+	if (!token || !chatId || !exits?.length) return 0;
+
+	let sent = 0;
+	for (const e of exits) {
+		// Only alert live-mode wins with positive PnL or a meaningful ATH.
+		if (e.mode !== 'live' && e.mode !== 'simulate') continue;
+		if ((e.realized_pnl_sol ?? 0) <= 0 && (e.peak_multiple ?? 0) < 2) continue;
+
+		const pnlStr = e.realized_pnl_sol != null
+			? `+${Number(e.realized_pnl_sol).toFixed(4)} SOL`
+			: `${(e.peak_multiple ?? 0).toFixed(2)}× peak`;
+		const peakStr = e.peak_multiple != null ? `${Number(e.peak_multiple).toFixed(2)}×` : '?';
+		const sizeStr = e.size_sol != null ? `${Number(e.size_sol).toFixed(3)} SOL` : '?';
+		const emoji = e.mode === 'simulate' ? '🤖 [sim]' : '🤖';
+		const tierE = tierEmoji(e.tier);
+		const agentName = escHtml(e.agent_name || e.agent_id || 'Agent');
+		const sym = escHtml(e.symbol || '?');
+		const modeLabel = e.mode === 'simulate' ? ' <i>(simulated)</i>' : '';
+
+		const text = [
+			`${emoji} <b>${agentName}</b> made <b>${escHtml(pnlStr)}</b> on <b>$${sym}</b>${modeLabel}`,
+			`Peak: <b>${peakStr}</b>  ·  Size: ${escHtml(sizeStr)}  ·  Entry: ${tierE} ${escHtml(e.tier)} conviction (${e.conviction ?? '?'})`,
+			`<a href="https://pump.fun/coin/${encodeURIComponent(e.mint)}">pump.fun</a>  ·  <a href="https://three.ws/oracle?mint=${encodeURIComponent(e.mint)}">Oracle</a>  ·  <a href="https://three.ws/agents/${encodeURIComponent(e.agent_id)}">Track record</a>`,
+		].join('\n');
+
+		await send(text);
+		sent++;
+	}
+	return sent;
+}
+
+/**
  * Fire alerts for newly-scored coins that cross the tier threshold for the
  * first time. Called by the oracle-score cron after each score pass.
  *
