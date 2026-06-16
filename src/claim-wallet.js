@@ -10,6 +10,16 @@
 const WALLET_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 const $ = (sel, root = document) => root.querySelector(sel);
 
+let _session = null;
+async function getSession() {
+	if (_session !== null) return _session;
+	try {
+		const r = await fetch('/api/auth/me', { credentials: 'include' });
+		_session = r.ok ? await r.json() : false;
+	} catch { _session = false; }
+	return _session;
+}
+
 function esc(s) {
 	return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
@@ -36,7 +46,9 @@ function shortAddr(a) {
 document.addEventListener('DOMContentLoaded', () => {
 	const input = $('#cwInput');
 	const btn   = $('#cwBtn');
-	const errEl = $('#cwErr');
+
+	// Warm up auth check in parallel with any pre-fill preview.
+	getSession();
 
 	// Pre-fill from URL param ?wallet=...
 	const qs = new URL(location.href).searchParams;
@@ -93,7 +105,25 @@ async function preview(wallet) {
 		return;
 	}
 
-	result.innerHTML = cardHtml(data);
+	const session = await getSession();
+	result.innerHTML = cardHtml(data, !!session);
+
+	// Wire share button (only present when signed in)
+	const shareBtn = result.querySelector('#cwShare');
+	if (shareBtn) {
+		const traderUrl = `${location.origin}/trader/${encodeURIComponent(wallet)}`;
+		const label = data.profile?.label ? ` (${LABEL_COPY[data.profile.label] || data.profile.label})` : '';
+		const wr = data.profile?.win_rate != null ? ` · ${fmtPct(data.profile.win_rate)} WR` : '';
+		const shareText = `My verified pump.fun Trader Card${label}${wr} — provable on-chain on @trythreews`;
+		shareBtn.addEventListener('click', () => {
+			if (navigator.share) {
+				navigator.share({ title: 'three.ws Trader Card', text: shareText, url: traderUrl }).catch(() => {});
+			} else {
+				const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(traderUrl)}`;
+				window.open(twitterUrl, '_blank', 'noopener,width=550,height=420');
+			}
+		});
+	}
 }
 
 // ── Card HTML ─────────────────────────────────────────────────────────────────
@@ -108,7 +138,7 @@ const LABEL_COPY = {
 	unproven:    'Unproven',
 };
 
-function cardHtml({ wallet, profile, coins, summary }) {
+function cardHtml({ wallet, profile, coins, summary }, isSignedIn = false) {
 	const label   = profile?.label || 'unproven';
 	const labelTxt = LABEL_COPY[label] || label;
 	const shortW   = shortAddr(wallet);
@@ -151,6 +181,27 @@ function cardHtml({ wallet, profile, coins, summary }) {
 	}).join('');
 
 	const loginUrl = `/login?next=${encodeURIComponent(`/claim-wallet?wallet=${encodeURIComponent(wallet)}`)}`;
+	const traderUrl = `/trader/${encodeURIComponent(wallet)}`;
+
+	const ctaHtml = isSignedIn
+		? `<div class="cw-cta cw-cta-claimed">
+			<h3>Your Trader Card is live</h3>
+			<p>Share your track record publicly. Anyone can follow your trades and copy your entries
+			   from their own wallet — you earn a performance fee when they profit.</p>
+			<div class="cw-cta-btns">
+				<a href="${esc(traderUrl)}" class="cw-cta-btn primary">View your Trader Card →</a>
+				<button type="button" class="cw-cta-btn secondary" id="cwShare">Share ↗</button>
+			</div>
+		   </div>`
+		: `<div class="cw-cta">
+			<h3>This is your track record — own it</h3>
+			<p>Sign in to publish this as your official three.ws Trader Card. Your history becomes provable,
+			   shareable, and open for followers to copy — and you earn a performance fee on their profits.</p>
+			<div class="cw-cta-btns">
+				<a href="${esc(loginUrl)}" class="cw-cta-btn primary">Sign in to claim →</a>
+				<a href="/leaderboard" class="cw-cta-btn secondary">See the leaderboard</a>
+			</div>
+		   </div>`;
 
 	return `<div class="cw-card">
 		<div class="cw-card-head">
@@ -168,15 +219,7 @@ function cardHtml({ wallet, profile, coins, summary }) {
 			<div class="cw-coins-list">${coinsHtml}</div>
 		` : ''}
 
-		<div class="cw-cta">
-			<h3>This is your track record — own it</h3>
-			<p>Sign in to publish this as your official three.ws Trader Card. Your history becomes provable,
-			   shareable, and open for followers to copy — and you earn a performance fee on their profits.</p>
-			<div class="cw-cta-btns">
-				<a href="${esc(loginUrl)}" class="cw-cta-btn primary">Sign in to claim →</a>
-				<a href="/leaderboard" class="cw-cta-btn secondary">See the leaderboard</a>
-			</div>
-		</div>
+		${ctaHtml}
 	</div>`;
 }
 
