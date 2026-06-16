@@ -15,6 +15,7 @@
 import { scanFirstClaims } from '../../api/_lib/pump-claims.js';
 import { scoreClaim } from './claim-scorer.js';
 import { executeBuy } from './executor.js';
+import { oracleGate } from './oracle-gate.js';
 import { cachedStrategies } from './strategy-store.js';
 import { log } from './log.js';
 
@@ -41,8 +42,14 @@ export function startFirstClaimWatch({ cfg, queue, throttle, isHalted }) {
 
 	const scheduleBuy = (strat, candidate) => {
 		const delay = Math.max(0, Math.min(600_000, Number(strat.buy_delay_ms) || 0));
+		const execJob = async () => {
+			const og = await oracleGate(candidate.mint, cfg.network, strat);
+			if (!og.pass) { log.info('oracle gate skip', { agent: strat.agent_id, mint: candidate.mint, reason: og.reason }); return; }
+			if (og.skipped) log.info('oracle unscored — proceeding', { agent: strat.agent_id, mint: candidate.mint });
+			await executeBuy({ cfg, strat, mint: candidate, throttle });
+		};
 		if (delay === 0) {
-			if (!isHalted()) queue.push(() => executeBuy({ cfg, strat, mint: candidate, throttle }));
+			if (!isHalted()) queue.push(execJob);
 			return;
 		}
 		const timer = setTimeout(() => {
@@ -51,7 +58,7 @@ export function startFirstClaimWatch({ cfg, queue, throttle, isHalted }) {
 			log.info('first-claim buy (delayed)', {
 				agent: strat.agent_id, mint: candidate.mint, delayMs: delay,
 			});
-			queue.push(() => executeBuy({ cfg, strat, mint: candidate, throttle }));
+			queue.push(execJob);
 		}, delay);
 		if (timer.unref) timer.unref();
 		timers.add(timer);

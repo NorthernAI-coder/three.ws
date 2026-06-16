@@ -15,6 +15,7 @@ import { log } from './log.js';
 import { refreshStrategies, cachedStrategies, logStrategyLoad } from './strategy-store.js';
 import { scoreMint, scoreIntel } from './scorer.js';
 import { executeBuy } from './executor.js';
+import { oracleGate } from './oracle-gate.js';
 import { runPositionSweep } from './positions.js';
 import { startFirstClaimWatch } from './first-claim-watch.js';
 import { startIntelWatcher } from './intel/watcher.js';
@@ -83,7 +84,12 @@ async function main() {
 			const { pass, reasons } = scoreMint(data, strat);
 			if (!pass) continue;
 			log.info('candidate', { agent: strat.agent_id, mint: data.mint, symbol: data.symbol, reasons });
-			queue.push(() => executeBuy({ cfg, strat, mint: data, throttle }));
+			queue.push(async () => {
+				const og = await oracleGate(data.mint, cfg.network, strat);
+				if (!og.pass) { log.info('oracle gate skip', { agent: strat.agent_id, mint: data.mint, reason: og.reason }); return; }
+				if (og.skipped) log.info('oracle unscored — proceeding', { agent: strat.agent_id, mint: data.mint });
+				await executeBuy({ cfg, strat, mint: data, throttle });
+			});
 		}
 	};
 
@@ -108,10 +114,15 @@ async function main() {
 						const { pass, score, reasons } = scoreIntel(rec, strat, weights);
 						if (!pass) return;
 						log.info('intel candidate', { agent: strat.agent_id, mint: rec.mint, symbol: rec.symbol, score, reasons });
-						queue.push(() => executeBuy({
-							cfg, strat, throttle,
-							mint: { mint: rec.mint, symbol: rec.symbol, name: rec.name, entry_trigger: 'intel_confirmed', trigger_ref: rec.mint },
-						}));
+						queue.push(async () => {
+							const og = await oracleGate(rec.mint, cfg.network, strat);
+							if (!og.pass) { log.info('oracle gate skip', { agent: strat.agent_id, mint: rec.mint, reason: og.reason }); return; }
+							if (og.skipped) log.info('oracle unscored — proceeding', { agent: strat.agent_id, mint: rec.mint });
+							await executeBuy({
+								cfg, strat, throttle,
+								mint: { mint: rec.mint, symbol: rec.symbol, name: rec.name, entry_trigger: 'intel_confirmed', trigger_ref: rec.mint },
+							});
+						});
 					})
 					.catch((err) => log.error('intel score failed', { mint: rec.mint, err: err?.message }));
 			}

@@ -81,6 +81,8 @@ const STRATEGY_SCHEMA = z.object({
 	stop_loss_pct: z.union([z.string(), z.number()]).optional(),
 	trailing_stop_pct: optPct,
 	max_hold_seconds: z.union([z.string(), z.number()]).optional(),
+	// Oracle conviction gate (0–100, null = skip check)
+	min_oracle_score: z.union([z.string(), z.number()]).nullable().optional(),
 });
 
 const atomicStr = (v, fallback = '0') => {
@@ -198,6 +200,7 @@ async function listStrategies(req, res, userId) {
 			stop_loss_pct: Number(s.stop_loss_pct),
 			trailing_stop_pct: s.trailing_stop_pct != null ? Number(s.trailing_stop_pct) : null,
 			max_hold_seconds: s.max_hold_seconds,
+			min_oracle_score: s.min_oracle_score != null ? Number(s.min_oracle_score) : null,
 			summary: {
 				open_positions: sum ? Number(sum.open_positions) : 0,
 				closed_positions: sum ? Number(sum.closed_positions) : 0,
@@ -243,6 +246,7 @@ async function upsertStrategy(req, res, userId) {
 		require_socials: false, require_sol_quote: true,
 		take_profit_pct: null, stop_loss_pct: 30, trailing_stop_pct: null,
 		max_hold_seconds: 1800,
+		min_oracle_score: null,
 	};
 
 	const next = {
@@ -268,6 +272,7 @@ async function upsertStrategy(req, res, userId) {
 		stop_loss_pct: p.stop_loss_pct != null ? Number(p.stop_loss_pct) : Number(cur.stop_loss_pct),
 		trailing_stop_pct: 'trailing_stop_pct' in p ? numOrNull(p.trailing_stop_pct) : (cur.trailing_stop_pct != null ? Number(cur.trailing_stop_pct) : null),
 		max_hold_seconds: p.max_hold_seconds != null ? clampInt(p.max_hold_seconds, 30, 86400, 1800) : cur.max_hold_seconds,
+		min_oracle_score: 'min_oracle_score' in p ? (p.min_oracle_score == null || p.min_oracle_score === '' ? null : Math.min(100, Math.max(0, Math.round(Number(p.min_oracle_score))))) : cur.min_oracle_score,
 	};
 
 	// Mandatory stop-loss — never let the DB constraint be the first line of defense.
@@ -294,7 +299,8 @@ async function upsertStrategy(req, res, userId) {
 			 slippage_bps, max_price_impact_pct,
 			 min_market_cap_usd, max_market_cap_usd, min_creator_graduated, max_creator_launches,
 			 require_socials, require_sol_quote,
-			 take_profit_pct, stop_loss_pct, trailing_stop_pct, max_hold_seconds, updated_at)
+			 take_profit_pct, stop_loss_pct, trailing_stop_pct, max_hold_seconds,
+			 min_oracle_score, updated_at)
 		values
 			(${p.agent_id}, ${userId}, ${p.network}, ${next.enabled}, ${next.kill_switch},
 			 ${next.trigger}, ${next.buy_delay_ms}, ${next.min_claim_lamports}, ${next.max_claim_lamports}, ${next.first_claim_max_age_seconds},
@@ -302,7 +308,8 @@ async function upsertStrategy(req, res, userId) {
 			 ${next.slippage_bps}, ${next.max_price_impact_pct},
 			 ${next.min_market_cap_usd}, ${next.max_market_cap_usd}, ${next.min_creator_graduated}, ${next.max_creator_launches},
 			 ${next.require_socials}, ${next.require_sol_quote},
-			 ${next.take_profit_pct}, ${next.stop_loss_pct}, ${next.trailing_stop_pct}, ${next.max_hold_seconds}, now())
+			 ${next.take_profit_pct}, ${next.stop_loss_pct}, ${next.trailing_stop_pct}, ${next.max_hold_seconds},
+			 ${next.min_oracle_score}, now())
 		on conflict (agent_id, network) do update set
 			enabled                  = excluded.enabled,
 			kill_switch              = excluded.kill_switch,
@@ -326,6 +333,7 @@ async function upsertStrategy(req, res, userId) {
 			stop_loss_pct            = excluded.stop_loss_pct,
 			trailing_stop_pct        = excluded.trailing_stop_pct,
 			max_hold_seconds         = excluded.max_hold_seconds,
+			min_oracle_score         = excluded.min_oracle_score,
 			updated_at               = now()
 		returning *
 	`;
@@ -357,6 +365,7 @@ async function upsertStrategy(req, res, userId) {
 			stop_loss_pct: Number(row.stop_loss_pct),
 			trailing_stop_pct: row.trailing_stop_pct != null ? Number(row.trailing_stop_pct) : null,
 			max_hold_seconds: row.max_hold_seconds,
+			min_oracle_score: row.min_oracle_score != null ? Number(row.min_oracle_score) : null,
 		},
 	});
 }

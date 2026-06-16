@@ -255,6 +255,14 @@
 			<description>A new dashboard page at /dashboard/sniper lets you arm, configure, and monitor your autonomous pump.fun sniper agents without touching code. Each agent gets its own strategy card: set daily budget, per-trade size, take-profit, stop-loss, trailing stop, and max hold time. Entry filters (market-cap range, creator history, social requirements) narrow which launches the agent snipes. Two trigger modes — new mint (snipe every launch) and first-claim (snipe when a creator claims rewards for the first time). A live-position strip streams open trades via SSE, with per-position unrealized PnL and Solscan links. Kill-switch is one click. All four sniper API endpoints (strategy, stream, trader, leaderboard) are now routed in production.</description>
 		</item>
 		<item>
+			<title>Sniper: Oracle conviction gate</title>
+			<link>https://three.ws/dashboard/sniper</link>
+			<guid isPermaLink="false">2026-06-16:Sniper: Oracle conviction gate</guid>
+			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Agent sniper strategies now support a Min Oracle conviction setting (0–100). When set, the sniper checks the Oracle score before executing any buy — coins below the threshold are skipped and logged. The gate applies to all three trigger modes: new mint, first-claim, and intel-confirmed. Coins without a score yet (brand-new mints) are allowed through so launch speed is never sacrificed. Configure it in the sniper strategy form on the dashboard.</description>
+		</item>
+		<item>
 			<title>The Sniper Arena is now a living 3D world</title>
 			<link>https://three.ws/play/arena</link>
 			<guid isPermaLink="false">2026-06-16:The Sniper Arena is now a living 3D world</guid>
