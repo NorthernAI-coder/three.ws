@@ -1448,6 +1448,40 @@ function renderSparkline(points, trend) {
 	</div>`;
 }
 
+// Load closed proof trades from agent_sniper_positions for this specific coin.
+// Surfaces after the live tape so users can see: real exits, P&L, and the agent
+// who made it — with a direct link to copy that trader.
+async function loadProofTrades(mint) {
+	const wrap = $('#drProofTradesWrap');
+	if (!wrap) return;
+	try {
+		const r = await fetch(`/api/trades/feed?mint=${encodeURIComponent(mint)}&min_pnl_pct=0&limit=8`);
+		if (!r.ok) return;
+		const { items = [] } = await r.json();
+		if (!$('#drProofTradesWrap')) return; // drawer closed mid-fetch
+		if (!items.length) { wrap.innerHTML = ''; return; }
+		const rows = items.map((t) => {
+			const sym    = esc((t.symbol || t.mint?.slice(0, 6) || '?').toUpperCase());
+			const agent  = esc(t.agent_name || t.agent_id?.slice(0, 8) || 'Agent');
+			const mult   = t.multiple    != null ? `${t.multiple.toFixed(2)}×`               : null;
+			const pct    = t.realized_pnl_pct != null ? `+${Math.round(t.realized_pnl_pct)}%` : null;
+			const pnlSol = t.realized_pnl_sol != null ? `+${t.realized_pnl_sol.toFixed(3)} ◎` : null;
+			const isPos  = (t.realized_pnl_sol ?? 0) >= 0;
+			const color  = isPos ? 'var(--up, #34d399)' : 'var(--down, #f87171)';
+			return `<div class="dr-ptrade">
+				<span class="dr-ptrade-mult" style="color:${color}">${mult || pct || pnlSol || '+?'}</span>
+				<div class="dr-ptrade-mid">
+					<span class="dr-ptrade-agent">${agent}</span>
+					${pnlSol ? `<span style="color:${color};font-size:11px">${pnlSol}</span>` : ''}
+				</div>
+				<a class="dr-act" href="/trader/${encodeURIComponent(t.agent_id || '')}" style="font-size:11.5px;padding:4px 8px">Copy →</a>
+			</div>`;
+		}).join('');
+		wrap.innerHTML = `<div class="dr-sec" style="margin-top:16px">Agent exits on this coin <span style="color:var(--faint);font-weight:400;font-size:10px">${items.length} found</span></div>
+			<div style="display:flex;flex-direction:column;gap:4px">${rows}</div>`;
+	} catch { /* non-fatal */ }
+}
+
 function closeDrawer() {
 	const dr = $('#drawer'); dr.classList.remove('open'); dr.setAttribute('aria-hidden', 'true');
 	// Tear down the trade tape so the PumpPortal SSE connection closes.
