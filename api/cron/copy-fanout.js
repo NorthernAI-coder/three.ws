@@ -1,18 +1,23 @@
 // GET /api/cron/copy-fanout — turn leader trades into copier intents.
 //
-// Polls agent_sniper_positions for recent entries (and closes) by agents that
-// have active copy subscribers, and for each (position, subscriber) generates a
-// sized, safety-checked copy INTENT via the pure copy-engine. Non-custodial: it
-// only records the intent — the copier acts from their own wallet.
+// Two fanout sources:
+//   1. agent_sniper_positions — the sniper engine's real executed positions.
+//   2. oracle_watch_actions   — the Oracle conviction agent's live buys.
 //
-//   BUY  fanout: a leader opens a position → size each subscriber's order, clamp
-//                to their per-trade cap + remaining daily budget, gate on coin
-//                safety, and insert a pending intent (or a transparent 'skipped'
-//                row explaining why it didn't fire).
-//   SELL fanout: a leader closes a position → mirror an exit intent ONLY to
-//                copiers who actually acted on the matching buy.
+// For each (position/action, subscriber) the cron generates a sized,
+// safety-checked copy INTENT via the pure copy-engine. Non-custodial: it only
+// records the intent — the copier acts from their own wallet.
 //
-// Idempotent via the unique (subscription_id, leader_position_id, direction).
+//   BUY  fanout: a leader opens/buys → size each subscriber's order, clamp to
+//                their per-trade cap + remaining daily budget, gate on coin safety,
+//                and insert a pending intent (or a 'skipped' row with reason).
+//   SELL fanout (sniper only): a leader closes → mirror exit ONLY to copiers who
+//                acted on the matching buy. Oracle sells are not modelled (there
+//                is no explicit exit event — outcomes are graded after the fact).
+//
+// Idempotent via partial unique indexes:
+//   (subscription_id, leader_position_id,      direction) when leader_position_id      is not null
+//   (subscription_id, leader_oracle_action_id, direction) when leader_oracle_action_id is not null
 
 import { error, json, method, wrap } from '../_lib/http.js';
 import { env } from '../_lib/env.js';
@@ -166,6 +171,95 @@ async function fanoutSells(network, stats) {
 	}
 }
 
+// ── Oracle conviction fanout ───────────────────────────────────────────────────
+// Mirrors live oracle buy actions to copy subscribers, using the same sizing
+// and safety logic as the sniper fanout. Only `mode = 'live'` actions fan out.
+
+async function fanoutOracleBuys(network, stats) {
+	// Only live fills from the last 8 minutes that have at least one active
+	// copy subscriber following the acting agent.
+	const actions = await sql`
+		select a.id, a.agent_id, a.mint, a.symbol, a.conviction, a.tier, a.size_sol, a.acted_at
+		from oracle_watch_actions a
+		where a.network = ${network}
+		  and a.mode = 'live'
+		  and a.status = 'filled'
+		  and a.acted_at > now() - interval '8 minutes'
+		  and exists (
+		    select 1 from copy_subscriptions s
+		    where s.leader_agent_id = a.agent_id and s.network = ${network} and s.status = 'active'
+		  )
+		order by a.acted_at desc
+		limit 200
+	`;
+	if (!actions.length) return;
+
+	// Per-subscription day-spend + open-intent counts, batched once.
+	const spendRows = await sql`
+		select subscription_id, coalesce(sum(planned_sol), 0) as spent
+		from copy_executions
+		where direction = 'buy' and status in ('pending', 'acted') and created_at::date = current_date
+		group by subscription_id
+	`;
+	const openRows = await sql`
+		select subscription_id, count(*) as open
+		from copy_executions
+		where direction = 'buy' and status = 'pending'
+		group by subscription_id
+	`;
+	const spent = new Map(spendRows.map((r) => [r.subscription_id, Number(r.spent) || 0]));
+	const open = new Map(openRows.map((r) => [r.subscription_id, Number(r.open) || 0]));
+
+	for (const action of actions) {
+		const subs = await sql`
+			select * from copy_subscriptions
+			where leader_agent_id = ${action.agent_id} and network = ${network} and status = 'active'
+		`;
+		if (!subs.length) continue;
+		const coin = await coinContext(action.mint);
+		const entrySol = Number(action.size_sol) || 0;
+
+		for (const sub of subs) {
+			const decision = planCopyOrder({
+				subscription: sub,
+				position: { direction: 'buy', entry_sol: entrySol, mint: action.mint },
+				coin,
+				spentTodaySol: spent.get(sub.id) || 0,
+				openCopies: open.get(sub.id) || 0,
+			});
+			const status = decision.action === 'copy' ? 'pending' : 'skipped';
+			const planned = decision.action === 'copy' ? decision.order_sol : null;
+
+			// Note: leader_position_id is null for oracle-sourced intents.
+			// Idempotency is guaranteed by the copy_executions_oracle_idem partial unique index.
+			const [inserted] = await sql`
+				insert into copy_executions (
+					subscription_id, copier_user_id, leader_agent_id, leader_position_id, leader_oracle_action_id,
+					network, mint, symbol, direction, planned_sol, leader_entry_sol, status, skip_reason,
+					safety
+				) values (
+					${sub.id}, ${sub.copier_user_id}, ${action.agent_id}, null, ${action.id},
+					${network}, ${action.mint}, ${action.symbol || null}, 'buy', ${planned}, ${entrySol},
+					${status}, ${decision.reason && status === 'skipped' ? decision.reason : null},
+					${coin ? JSON.stringify(coin) : null}::jsonb
+				)
+				on conflict (subscription_id, leader_oracle_action_id, direction)
+				where leader_oracle_action_id is not null
+				do nothing
+				returning id
+			`;
+			if (inserted) {
+				const key = `oracle_${status}`;
+				stats[key] = (stats[key] || 0) + 1;
+				if (status === 'pending') {
+					spent.set(sub.id, (spent.get(sub.id) || 0) + (planned || 0));
+					open.set(sub.id, (open.get(sub.id) || 0) + 1);
+				}
+			}
+		}
+	}
+}
+
 export default wrap(async (req, res) => {
 	if (!method(req, res, ['GET', 'POST'])) return;
 	if (!requireCron(req, res)) return;
@@ -176,6 +270,7 @@ export default wrap(async (req, res) => {
 		try {
 			await fanoutBuys(network, stats);
 			await fanoutSells(network, stats);
+			await fanoutOracleBuys(network, stats);
 		} catch (err) {
 			stats[`error_${network}`] = err.message;
 		}

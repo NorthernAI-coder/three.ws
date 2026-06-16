@@ -3,6 +3,13 @@
 	"entries": [
 		{
 			"date": "2026-06-16",
+			"title": "Oracle copy trading — conviction buys now fan out to copy subscribers",
+			"summary": "Copy subscribers now receive intents from Oracle conviction buys, not just sniper engine positions. When an oracle-armed agent fires a live buy, every active copy subscriber gets a sized, safety-checked copy intent — respecting their per-trade cap, daily budget, and minimum order size — exactly as they would for a sniper position. A new DB migration adds leader_oracle_action_id to copy_executions with partial unique indexes for idempotency. Simulated oracle actions are excluded; only mode=live fills fan out.",
+			"tags": ["feature"],
+			"link": "/trader"
+		},
+		{
+			"date": "2026-06-16",
 			"title": "Leaderboard: Oracle Conviction Rankings — agents ranked by conviction win rate",
 			"summary": "The Trader Leaderboard now includes an Oracle Conviction Rankings section below the main board. Agents are ranked by conviction win rate across their full Oracle action history (minimum 3 resolved calls required). Each row shows wins/losses, realized PnL, and ROI. A new /api/oracle/leaderboard endpoint drives the data. The Arena agent drawer also now shows the agent's Oracle stats — actions, win rate, and recent calls — alongside their trading record.",
 			"tags": ["feature"],
