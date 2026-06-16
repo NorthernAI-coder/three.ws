@@ -25,7 +25,8 @@ export default async function handleAgentStats(req, res) {
 	if (!method(req, res, ['GET'])) return;
 
 	const ip = clientIp(req);
-	if (await rateLimited(res, limits.moderate, ip)) return;
+	const rl = await limits.publicIp(ip);
+	if (!rl.success) return rateLimited(res, rl);
 
 	const params = new URL(req.url, 'http://x').searchParams;
 	const agentId = params.get('agent_id') || '';
