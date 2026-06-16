@@ -189,6 +189,18 @@ function boot() {
 	document.addEventListener('click', (e) => {
 		if (!searchEl.contains(e.target) && !_searchDrop.contains(e.target)) closeSearchDrop();
 	});
+	// movers filters
+	$('#movDirSeg')?.addEventListener('click', (e) => {
+		const b = e.target.closest('[data-movdir]'); if (!b) return;
+		$$('#movDirSeg button').forEach((x) => x.classList.toggle('on', x === b));
+		_moversState.direction = b.dataset.movdir; loadMovers(true);
+	});
+	$('#movHrSeg')?.addEventListener('click', (e) => {
+		const b = e.target.closest('[data-movhr]'); if (!b) return;
+		$$('#movHrSeg button').forEach((x) => x.classList.toggle('on', x === b));
+		_moversState.hours = Number(b.dataset.movhr); loadMovers(true);
+	});
+
 	$('#labelSeg').addEventListener('click', (e) => {
 		const b = e.target.closest('button'); if (!b) return;
 		$$('#labelSeg button').forEach((x) => x.classList.toggle('on', x === b));
@@ -270,6 +282,7 @@ function switchView(view) {
 	state.view = view;
 	$$('.tab').forEach((t) => t.classList.toggle('on', t.dataset.view === view));
 	$$('.view').forEach((v) => v.classList.toggle('on', v.id === `view-${view}`));
+	if (view === 'movers' && !$('#moversGrid').dataset.loaded) loadMovers();
 	if (view === 'wallets' && !$('#walletWrap').dataset.loaded) loadWallets();
 	if (view === 'edge' && !$('#edgeWrap').dataset.loaded) loadEdge();
 	if (view === 'proof' && !$('#proofGrid').dataset.loaded) loadProof();
@@ -728,6 +741,92 @@ function edgeRow(r) {
 // ── proof / wins gallery ──────────────────────────────────────────────────────
 
 const _proofState = { tier: '', period: '30d', cursor: null, loading: false };
+
+// ── movers ──────────────────────────────────────────────────────────────────
+const _moversState = { direction: 'rising', hours: 24 };
+
+function moverCardHtml(m) {
+	const tier = m.tier || 'watch';
+	const deltaSign = m.delta >= 0 ? '+' : '';
+	const deltaCls = m.delta >= 0 ? 'up' : 'dn';
+	const imgSrc = m.image_uri
+		? `<img class="mv-img" src="${esc(m.image_uri)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">`
+		: `<div class="mv-img">${esc((m.symbol || '?')[0])}</div>`;
+	const TIER_META = { prime: { color: '#c084fc' }, strong: { color: '#34d399' }, lean: { color: '#fbbf24' }, watch: { color: '#94a3b8' }, avoid: { color: '#f87171' } };
+	const tierColor = (TIER_META[tier] || TIER_META.watch).color;
+
+	const pil = (val, key) => {
+		const v = Math.max(0, Math.min(100, Number(val) || 0));
+		const labels = { pedigree: 'Who', structure: 'How', narrative: 'What', momentum: 'Move' };
+		return `<div class="mv-pil">
+			<div class="mv-pil-label">${labels[key] || key}</div>
+			<div class="mv-pil-bar"><div class="mv-pil-fill" style="width:${v}%"></div></div>
+		</div>`;
+	};
+
+	const tierChangedHtml = m.tier_changed
+		? `<div class="mv-tier-change">Tier: ${esc(m.first_tier)} → ${esc(m.tier)}</div>`
+		: '';
+
+	return `<div class="mv-card mv-${m.delta >= 0 ? 'rising' : 'falling'}" role="button" tabindex="0"
+		data-mint="${esc(m.mint)}" onclick="window.oracleOpenMover('${esc(m.mint)}')"
+		onkeydown="if(event.key==='Enter'||event.key===' ')window.oracleOpenMover('${esc(m.mint)}')">
+		<div class="mv-head">
+			${imgSrc}
+			<div class="mv-id">
+				<div class="mv-sym">${esc(m.symbol || m.mint.slice(0, 8))}</div>
+				<div class="mv-name">${esc(m.name || '')}</div>
+			</div>
+			<div class="mv-delta">
+				<div class="mv-delta-val ${deltaCls}">${deltaSign}${m.delta}</div>
+				<div class="mv-delta-label">score Δ</div>
+			</div>
+		</div>
+		<div class="mv-scores">
+			<span style="color:var(--muted)">${m.first_score ?? '?'}</span>
+			<span class="mv-arrow">→</span>
+			<span class="mv-score-cur" style="color:${tierColor}">${m.score ?? '?'}</span>
+			<span class="tierpill tp-${tier}" style="margin-left:4px;padding:1px 6px;font-size:10px">${tier}</span>
+			${m.category ? `<span style="color:var(--faint);font-size:11px;margin-left:auto">${esc(m.category)}</span>` : ''}
+		</div>
+		${tierChangedHtml}
+		<div class="mv-pillars">
+			${pil(m.pillars?.pedigree, 'pedigree')}
+			${pil(m.pillars?.structure, 'structure')}
+			${pil(m.pillars?.narrative, 'narrative')}
+			${pil(m.pillars?.momentum, 'momentum')}
+		</div>
+	</div>`;
+}
+
+async function loadMovers(reset = false) {
+	const grid = $('#moversGrid');
+	if (!grid) return;
+	grid.dataset.loaded = '1';
+
+	const skels = Array.from({ length: 6 }, () =>
+		'<div class="skel" style="height:160px;border-radius:var(--r)"></div>'
+	).join('');
+	if (reset || !grid.children.length) grid.innerHTML = skels;
+
+	const { direction, hours } = _moversState;
+	const { ok, data } = await api(
+		`/api/oracle/movers?network=${NETWORK}&direction=${direction}&hours=${hours}&limit=40`
+	);
+
+	if (!ok || !data?.items?.length) {
+		grid.innerHTML = `<div class="state" style="grid-column:1/-1">
+			<b>No movers yet in this window.</b>
+			Conviction deltas appear once Oracle re-scores the same coins in the selected window.
+			${direction === 'rising' ? 'Try the 48h window or check back as more coins get re-scored.' : ''}
+		</div>`;
+		return;
+	}
+
+	grid.innerHTML = data.items.map(moverCardHtml).join('');
+}
+
+window.oracleOpenMover = (mint) => openCoin(mint);
 
 function winCardHtml(w, idx) {
 	const tier = w.tier || 'watch';
