@@ -6,6 +6,7 @@
 
 import { mountShell } from '../shell.js';
 import { requireUser, get, esc, relTime, formatUsdc, ApiError } from '../api.js';
+import { errorStateHTML, ensureStateKitStyles } from '../../shared/state-kit.js';
 
 const RANGES = [
 	{ key: '7d',  days: 7,   label: '7 days',   granularity: 'day' },
@@ -62,6 +63,22 @@ async function loadAndRender(root) {
 		safe(() => get('/api/billing/summary')),
 		safe(() => get(`/api/monetization/revenue?period=${range.key}`)),
 	]);
+
+	// Every primary surface (revenue, agents, widgets, summary) failing means the
+	// network is down, not that the user has no data — render a retryable error
+	// instead of an all-zero dashboard that looks deceptively "empty".
+	if (revenue === null && agents === null && widgets === null && summary === null) {
+		ensureStateKitStyles();
+		root.innerHTML = errorStateHTML({
+			title: "Couldn't load analytics",
+			body: 'We had trouble reaching the analytics service. Check your connection and try again.',
+		});
+		root.querySelector('[data-sk-retry]')?.addEventListener('click', () => {
+			renderSkeletons(root);
+			loadAndRender(root);
+		});
+		return;
+	}
 
 	const agentList = agents?.agents ?? [];
 	const widgetList = widgets?.widgets ?? [];
@@ -182,6 +199,13 @@ function paintCanvasLineChart(host, timeseries) {
 	host.innerHTML = '';
 	const canvas = document.createElement('canvas');
 	canvas.style.cssText = 'width:100%;height:100%;display:block';
+	// Canvas is opaque to assistive tech — describe the trend it depicts.
+	const total = timeseries.reduce((a, p) => a + (Number(p.value) || 0), 0);
+	const peak = timeseries.reduce((m, p) => Math.max(m, Number(p.value) || 0), 0);
+	canvas.setAttribute('role', 'img');
+	canvas.setAttribute('aria-label',
+		`Revenue over time line chart, ${timeseries.length} data points, ` +
+		`total $${total.toFixed(2)}, peak day $${peak.toFixed(2)}.`);
 	host.appendChild(canvas);
 
 	const dpr = window.devicePixelRatio || 1;
@@ -346,6 +370,12 @@ function paintHorizontalBarChart(host, bySkill) {
 	host.innerHTML = '';
 	const canvas = document.createElement('canvas');
 	canvas.style.cssText = 'width:100%;height:100%;display:block';
+	const ranked = [...bySkill].sort((a, b) => Number(b.net_total) - Number(a.net_total)).slice(0, 8);
+	const summary = ranked
+		.map((s) => `${(s.skill || 'Other').replace(/_/g, ' ')} ${formatUsdc(Number(s.net_total))}`)
+		.join(', ');
+	canvas.setAttribute('role', 'img');
+	canvas.setAttribute('aria-label', `Revenue by skill bar chart. ${summary}.`);
 	host.appendChild(canvas);
 
 	const dpr = window.devicePixelRatio || 1;

@@ -20,6 +20,7 @@
 
 import { mountShell } from '../shell.js';
 import { requireUser, get, post, del, put, esc, relTime, ApiError } from '../api.js';
+import { errorStateHTML, ensureStateKitStyles } from '../../shared/state-kit.js';
 
 // Scopes accepted by /api/keys — match api/keys/index.js ALLOWED_SCOPES exactly.
 const SCOPES = [
@@ -39,8 +40,37 @@ const EXPIRY_OPTIONS = [
 const KEY_PLACEHOLDER = 'YOUR_API_KEY';
 
 (async function boot() {
-	const main = await mountShell();
-	const me = await requireUser();
+	let main;
+	try {
+		main = await mountShell();
+	} catch {
+		// Shell failed to mount — nothing renderable yet, surface a full-page retry.
+		ensureStateKitStyles();
+		const fallback = document.querySelector('.dn-main-inner') || document.body;
+		fallback.innerHTML = errorStateHTML({
+			title: "Couldn't load this page",
+			body: 'We had trouble loading the dashboard. Check your connection and try again.',
+		});
+		fallback.querySelector('[data-sk-retry]')?.addEventListener('click', () => location.reload());
+		return;
+	}
+
+	let me;
+	try {
+		me = await requireUser();
+	} catch (err) {
+		if (err instanceof ApiError && err.status === 401) {
+			location.href = `/login?return=${encodeURIComponent(location.pathname)}`;
+			return;
+		}
+		ensureStateKitStyles();
+		main.innerHTML = errorStateHTML({
+			title: "Couldn't verify your session",
+			body: 'We had trouble confirming you are signed in. Check your connection and try again.',
+		});
+		main.querySelector('[data-sk-retry]')?.addEventListener('click', () => location.reload());
+		return;
+	}
 
 	main.innerHTML = `
 		<h1 class="dn-h1">API & embed</h1>
@@ -1037,13 +1067,13 @@ function renderPolicyRow(agent, i) {
 				<div class="dn-dim dn-mono-sm">${esc(agent.id.slice(0, 8))}…</div>
 			</div>
 			<div>
-				<select data-policy-mode disabled>
+				<select data-policy-mode disabled aria-label="Embed policy mode for ${esc(name)}">
 					<option value="allowlist">Allowlist</option>
 					<option value="denylist">Denylist</option>
 				</select>
 			</div>
 			<div>
-				<textarea data-policy-hosts placeholder="example.com&#10;*.partner.io" rows="3" disabled></textarea>
+				<textarea data-policy-hosts placeholder="example.com&#10;*.partner.io" rows="3" disabled aria-label="Allowed embed hosts for ${esc(name)}, one per line"></textarea>
 			</div>
 			<div class="dn-policy-actions">
 				<span class="dn-tag" data-policy-status>Loading…</span>

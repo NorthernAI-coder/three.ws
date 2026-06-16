@@ -27,7 +27,21 @@ import { CC_AVATAR_KEY } from './game/play-handoff.js';
 // ── config ──────────────────────────────────────────────────────────────────
 
 const params = new URLSearchParams(location.search);
-const BRIDGE_URL = (params.get('bridge') || 'http://127.0.0.1:4402').replace(/\/$/, '');
+// The agent-wallet bridge (scripts/agent-wallet-x402-bridge.mjs) holds a signing
+// key in the developer's terminal session, so it only ever runs locally — there
+// is no hosted production equivalent. Default to the local bridge in dev (or when
+// the host is literal localhost); in production stay empty so we surface the
+// designed "bridge offline" banner instead of hammering a dead 127.0.0.1 socket.
+function defaultBridgeUrl() {
+	const explicit = params.get('bridge');
+	if (explicit) return explicit.replace(/\/$/, '');
+	let isDev = false;
+	try { isDev = import.meta?.env?.DEV === true; } catch (_) {}
+	const host = typeof location !== 'undefined' ? location.hostname : '';
+	const isLocalHost = host === 'localhost' || host === '127.0.0.1';
+	return isDev || isLocalHost ? 'http://127.0.0.1:4402' : '';
+}
+const BRIDGE_URL = defaultBridgeUrl();
 // The paid endpoint the avatar buys from. three.ws prod by default so the
 // payment settles against the live facilitator even from local dev.
 const ENDPOINT = params.get('endpoint') || 'https://three.ws/api/x402/crypto-intel';
@@ -529,6 +543,17 @@ function updatePayButton() {
 // ── bridge client ───────────────────────────────────────────────────────────
 
 async function refreshStatus() {
+	if (!BRIDGE_URL) {
+		// Production / no local bridge configured: skip the doomed socket and go
+		// straight to the offline banner that explains how to run the bridge.
+		live.bridge = 'offline';
+		$('bridgeOffline').classList.add('show');
+		$('lowBalance').classList.remove('show');
+		$('wBal').innerHTML = '—<small>USD</small>';
+		updatePayButton();
+		renderStages();
+		return;
+	}
 	try {
 		const r = await fetch(`${BRIDGE_URL}/status`, { signal: AbortSignal.timeout(4000) });
 		if (!r.ok) throw new Error('HTTP ' + r.status);
@@ -555,6 +580,7 @@ async function refreshStatus() {
 
 async function loadQuote() {
 	try {
+		if (!BRIDGE_URL) throw new Error('no local bridge');
 		const qs = new URLSearchParams({ endpoint: ENDPOINT, method: 'POST', body: JSON.stringify({ topic: activeTopic }) });
 		const r = await fetch(`${BRIDGE_URL}/quote?${qs}`, { signal: AbortSignal.timeout(8000) });
 		if (!r.ok) throw new Error('HTTP ' + r.status);

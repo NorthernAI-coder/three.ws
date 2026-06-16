@@ -49,6 +49,50 @@
 				border: 0;
 			}
 
+			/* Skip-to-content link — visible only on keyboard focus. Lets keyboard
+			   and screen-reader users jump past the sidebar nav straight to the
+			   marketplace content. */
+			.skip-link {
+				position: absolute;
+				left: 12px;
+				top: -48px;
+				z-index: 4000;
+				padding: 10px 16px;
+				background: #fafafa;
+				color: #000;
+				border-radius: 8px;
+				font-size: 13px;
+				font-weight: 600;
+				text-decoration: none;
+				transition: top 0.15s ease;
+			}
+			.skip-link:focus,
+			.skip-link:focus-visible {
+				top: 12px;
+				outline: var(--focus-ring-width, 2px) solid var(--focus-ring-color, #fff);
+				outline-offset: var(--focus-ring-offset, 2px);
+			}
+
+			/* Global keyboard-focus safety net. Many interactive nodes on this page
+			   are built from JS HTML strings (cards, chips, action buttons, embed
+			   copy buttons) and rely on the UA outline. Pin a consistent, visible
+			   focus-visible ring on every focusable element using the shared token
+			   vocabulary so no keyboard user is ever left without an indicator.
+			   Elements that declare their own richer focus-visible ring (theme
+			   picks, skill cards) keep it — this only fills the gaps. */
+			.market-page a:focus-visible,
+			.market-page button:focus-visible,
+			.market-page input:focus-visible,
+			.market-page select:focus-visible,
+			.market-page textarea:focus-visible,
+			.market-page [tabindex]:focus-visible,
+			.market-page [role='button']:focus-visible,
+			.market-page [role='link']:focus-visible,
+			.market-page [role='tab']:focus-visible {
+				outline: var(--focus-ring-width, 2px) solid var(--focus-ring-color, #fff);
+				outline-offset: var(--focus-ring-offset, 2px);
+			}
+
 			.market-wip-banner {
 				display: flex;
 				align-items: center;
@@ -2557,6 +2601,33 @@
 					align-self: stretch;
 				}
 			}
+
+			/* ── Reduced-motion: disable non-essential transitions/animations ──
+			   Honours the OS "reduce motion" setting. Decorative shimmers, card
+			   hover lifts, hero cross-fades, skeleton pulses and entry animations
+			   declared in this sheet are switched off; functional state changes
+			   (opacity reveals) collapse to instant so nothing is left invisible. */
+			@media (prefers-reduced-motion: reduce) {
+				.market-page *,
+				.market-page *::before,
+				.market-page *::after {
+					animation-duration: 0.001ms !important;
+					animation-iteration-count: 1 !important;
+					transition-duration: 0.001ms !important;
+					scroll-behavior: auto !important;
+				}
+				.market-hero-placeholder::after,
+				.market-card-avatar:hover,
+				.market-anim-card:hover,
+				.market-memory-type-card:hover,
+				.market-skill-card:hover,
+				.market-theme-pick:hover,
+				.market-theme-pick:focus-visible,
+				.market-hero-cta:hover,
+				.market-memory-cta-btn:hover {
+					transform: none !important;
+				}
+			}
 		</style>
 		<meta property="og:type" content="website" />
 		<meta property="og:title" content="Agent Marketplace · three.ws" />
@@ -2599,6 +2670,7 @@
 		</script>
 	</head>
 	<body class="market-page">
+		<a class="skip-link" href="#main-content">Skip to content</a>
 		<header><div id="nav-container"></div></header>
 		<script src="/nav.js"></script>
 
@@ -2647,7 +2719,7 @@
 			</button>
 		</aside>
 
-		<main class="market-main" id="market-main">
+		<main class="market-main" id="main-content">
 			<!-- Discovery view -->
 			<section class="market-discovery" id="market-discovery">
 				<!-- Stable, screen-reader-only page heading. The hero title below
@@ -2884,7 +2956,7 @@
 						<span class="d-avatar-fallback">▣</span>
 					</div>
 					<div class="market-detail-meta">
-						<h1 id="d-name">—</h1>
+						<h2 id="d-name">—</h2>
 						<div class="market-detail-author">
 							<button type="button" id="d-author" class="market-author-btn">—</button>
 							<span class="dot">·</span>
@@ -3382,7 +3454,7 @@
 						<!-- Right: meta + actions -->
 						<aside class="market-avatar-detail-meta">
 							<div class="market-detail-eyebrow">Community Avatar</div>
-							<h1 class="market-avatar-detail-name" id="avatar-detail-name">—</h1>
+							<h2 class="market-avatar-detail-name" id="avatar-detail-name">—</h2>
 							<p class="market-avatar-detail-author" id="avatar-detail-author"></p>
 							<p class="market-avatar-detail-desc" id="avatar-detail-desc"></p>
 							<div class="market-avatar-detail-pills" id="avatar-detail-pills"></div>
@@ -3475,7 +3547,7 @@
 								<div class="market-detail-eyebrow" id="tool-detail-eyebrow">
 									Plugin
 								</div>
-								<h1 class="tool-detail-name" id="tool-detail-name">—</h1>
+								<h2 class="tool-detail-name" id="tool-detail-name">—</h2>
 								<p class="tool-detail-id" id="tool-detail-id"></p>
 								<p class="tool-detail-author" id="tool-detail-author" hidden></p>
 							</div>
@@ -3577,7 +3649,7 @@
 								<div class="market-detail-eyebrow" id="skill-detail-eyebrow">
 									Skill
 								</div>
-								<h1 class="tool-detail-name" id="skill-detail-name">—</h1>
+								<h2 class="tool-detail-name" id="skill-detail-name">—</h2>
 								<p class="tool-detail-author" id="skill-detail-author" hidden></p>
 							</div>
 							<div class="tool-detail-price" id="skill-detail-price"></div>
@@ -3706,7 +3778,7 @@
 							</div>
 							<div class="tool-detail-hero-text">
 								<div class="market-detail-eyebrow">Animation clip</div>
-								<h1 class="tool-detail-name" id="anim-detail-name">—</h1>
+								<h2 class="tool-detail-name" id="anim-detail-name">—</h2>
 								<p class="tool-detail-id" id="anim-detail-clip"></p>
 							</div>
 						</header>
@@ -3789,7 +3861,7 @@
 							</div>
 							<div class="tool-detail-hero-text">
 								<div class="market-detail-eyebrow">ERC-8004 onchain agent</div>
-								<h1 class="tool-detail-name" id="onchain-detail-name">—</h1>
+								<h2 class="tool-detail-name" id="onchain-detail-name">—</h2>
 								<p class="tool-detail-id" id="onchain-detail-owner"></p>
 							</div>
 						</header>

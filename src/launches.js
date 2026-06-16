@@ -19,6 +19,9 @@
  */
 
 import { mountCoinStatus } from './pump/coin-status-card.js';
+import { createLogger } from './shared/log.js';
+
+const log = createLogger('launches');
 
 const PAGE_SIZE = 24;
 const ORACLE_TIER_COLOR = { prime: '#c084fc', strong: '#34d399', lean: '#fbbf24', watch: '#94a3b8', avoid: '#f87171' };
@@ -733,7 +736,7 @@ async function loadPage({ reset = false } = {}) {
 		renderFooter();
 		updateCount();
 	} catch (err) {
-		console.error('[launches] feed load failed', err);
+		log.error('feed load failed', err);
 		clearSkeletons();
 		if (state.count === 0) renderError(() => loadPage({ reset: true }));
 		else renderFooter();

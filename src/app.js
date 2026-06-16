@@ -322,28 +322,40 @@ class App {
 
 		// /a/<chainId>/<agentId> — resolve an on-chain agent to its 3D avatar.
 		if (options.onchain) {
-			this._loadOnChainAgent(options.onchain);
+			this._loadOnChainAgent(options.onchain).catch((err) => {
+				log.warn('[3d-agent] on-chain agent load failed', err);
+				this._showViewerError("Couldn't load this agent.", () => this._retryAgentLoad());
+			});
 			this._initAgentSystem();
 			return;
 		}
 
 		// Load a specific agent by ID: /#agent=<uuid> (embed mode)
 		if (options.agent) {
-			this._loadAgent(options.agent);
+			this._loadAgent(options.agent).catch((err) => {
+				log.warn('[3d-agent] agent load failed', err);
+				this._showViewerError("Couldn't load this agent.", () => this._retryAgentLoad());
+			});
 			return;
 		}
 
 		// /a/<uuid>?embed=1 — chromeless chat embed. Load the named agent;
 		// NichAgent will initialize because kiosk is false.
 		if (_chatEmbedId) {
-			this._loadAgent(_chatEmbedId);
+			this._loadAgent(_chatEmbedId).catch((err) => {
+				log.warn('[3d-agent] chat-embed agent load failed', err);
+				this._showViewerError("Couldn't load this agent.", () => this._retryAgentLoad());
+			});
 			return;
 		}
 
 		// Load a saved widget by ID: /widget#widget=<wdgt_...> (slim shell,
 		// canonical) or legacy /app#widget=<wdgt_...> (full SPA, still works).
 		if (options.widget) {
-			this._loadWidget(options.widget);
+			this._loadWidget(options.widget).catch((err) => {
+				log.warn('[3d-agent] widget load failed', err);
+				this._showViewerError("Couldn't load this widget.", () => this._retryAgentLoad());
+			});
 			this._initAgentSystem();
 			this._initWidgetBridge();
 			return;
@@ -696,18 +708,31 @@ class App {
 
 		wrap.hidden = false;
 
+		const closeMenu = ({ restoreFocus = false } = {}) => {
+			if (menu.hidden) return;
+			menu.hidden = true;
+			btn.setAttribute('aria-expanded', 'false');
+			if (restoreFocus) btn.focus();
+		};
+
 		btn.addEventListener('click', (e) => {
 			e.stopPropagation();
 			const open = menu.hidden === false;
 			menu.hidden = open;
 			btn.setAttribute('aria-expanded', String(!open));
+			// Move focus to the first menu item when opening via keyboard/click
+			// so keyboard users land inside the menu they just expanded.
+			if (!open) {
+				const first = menu.querySelector('a, button');
+				if (first) requestAnimationFrame(() => first.focus());
+			}
 		});
 
-		document.addEventListener('click', () => {
-			if (!menu.hidden) {
-				menu.hidden = true;
-				btn.setAttribute('aria-expanded', 'false');
-			}
+		document.addEventListener('click', () => closeMenu());
+
+		// Escape closes the menu and returns focus to the trigger.
+		document.addEventListener('keydown', (e) => {
+			if (e.key === 'Escape') closeMenu({ restoreFocus: true });
 		});
 
 		menu.addEventListener('click', (e) => e.stopPropagation());
@@ -1154,20 +1179,39 @@ class App {
 		if (deployLink) deployLink.href = `/deploy?agent=${agentId}`;
 		if (shareLink) shareLink.href = `/agent/${agentId}`;
 
-		const dismiss = () => {
+		// Remember what had focus so we can restore it when the dialog closes.
+		const prevFocus = document.activeElement;
+
+		const dismiss = ({ restoreFocus = false } = {}) => {
 			banner.hidden = true;
+			banner.removeEventListener('keydown', onKeydown);
 			try {
 				localStorage.setItem(key, '1');
 			} catch {}
+			if (restoreFocus && prevFocus && typeof prevFocus.focus === 'function') {
+				prevFocus.focus();
+			}
 		};
 
-		if (closeBtn) closeBtn.addEventListener('click', dismiss);
+		// Escape closes the orientation dialog and restores focus to the trigger.
+		const onKeydown = (e) => {
+			if (e.key === 'Escape') {
+				e.preventDefault();
+				dismiss({ restoreFocus: true });
+			}
+		};
+		banner.addEventListener('keydown', onKeydown);
+
+		if (closeBtn) closeBtn.addEventListener('click', () => dismiss({ restoreFocus: true }));
 		// Auto-dismiss when the user clicks any of the CTAs — they've engaged.
 		[deployLink, shareLink].forEach((el) => {
-			if (el) el.addEventListener('click', dismiss);
+			if (el) el.addEventListener('click', () => dismiss());
 		});
 
 		banner.hidden = false;
+		// Move focus into the dialog so keyboard/screen-reader users are taken
+		// to the freshly-revealed orientation message.
+		if (closeBtn) requestAnimationFrame(() => closeBtn.focus());
 	}
 
 	async _loadWidget(widgetId) {
@@ -1408,7 +1452,8 @@ class App {
 		const el = document.createElement('div');
 		el.style.cssText =
 			'position:fixed;inset:0;display:grid;place-items:center;background:#0a0a0a;color:#e0e0e0;font-family:Inter,system-ui,sans-serif;text-align:center;padding:2rem;z-index:9999';
-		el.innerHTML = `<div><h1 style="font-weight:300;margin:0 0 0.5rem">Widget unavailable</h1><p style="opacity:0.7;margin:0">${message.replace(/[<>&"]/g, '')}</p><p style="margin-top:1.5rem"><a href="/" style="color:#ffffff">Open viewer</a> · <a href="/widgets" style="color:#ffffff">Browse gallery</a></p></div>`;
+		el.setAttribute('role', 'alert');
+		el.innerHTML = `<div><h2 style="font-weight:300;margin:0 0 0.5rem">Widget unavailable</h2><p style="opacity:0.7;margin:0">${message.replace(/[<>&"]/g, '')}</p><p style="margin-top:1.5rem"><a href="/" style="color:#ffffff">Open viewer</a> · <a href="/widgets" style="color:#ffffff">Browse gallery</a></p></div>`;
 		document.body.appendChild(el);
 	}
 

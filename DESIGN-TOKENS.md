@@ -97,6 +97,25 @@ transition: transform var(--duration-fast) var(--ease-standard),
 ### Layout
 `--header-h` (3.5rem) · `--phi` (1.618).
 
+### Semantic alias layer (B12)
+Thin, intention-named synonyms that resolve *to* the primitives above (same
+sanctioned pattern as `--nxt-*` / `--nv-*` — they alias, never fork). Reach for
+these when an intention name reads clearer than the primitive:
+
+- **Colour:** `--color-bg`→`--bg-0` · `--color-surface`→`--surface-1` ·
+  `--color-text`→`--ink` · `--color-text-bright`→`--ink-bright` ·
+  `--color-text-dim`→`--ink-dim` · `--color-text-faint`→`--ink-faint` ·
+  `--color-accent`→`--accent` · `--color-border`/`--color-hairline`→`--stroke` ·
+  `--color-danger`→`--danger` · `--color-success`→`--success` ·
+  `--color-warning`→`--warn`. Because they point at the remapped primitives they
+  flip automatically under `[data-theme='light']`.
+- **Spacing (4px UI grid):** `--space-1`…`--space-8` (4/8/12/16/20/24/28/32px).
+  Complements — does not replace — the φ display scale (`--space-sm/md/lg…`).
+  Use the φ rungs for marketing rhythm; use the 4px ramp for product chrome
+  (nav/cards/forms) where dense layouts sit on a 4px grid.
+- **Radius:** `--radius-full`→`--radius-pill`.
+- **Motion:** `--dur-fast`→`--duration-fast` · `--dur-med`→`--duration-base`.
+
 ## The rule: no hardcoded values
 
 Before typing a literal, check for a token:

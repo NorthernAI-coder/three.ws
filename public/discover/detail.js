@@ -422,16 +422,23 @@ async function fetchSolanaReputation(asset, panel, dl) {
 	} catch (_) {}
 }
 
-function showError(status) {
+function showError(status, onRetry) {
 	const $ = (role) => document.querySelector(`[data-role="${role}"]`);
 	$('loading').hidden = true;
 	$('error').hidden = false;
+	const retryBtn = $('error-retry');
 	if (status === 404) {
 		$('error-title').textContent = 'Not found';
 		$('error-msg').textContent = 'This item does not exist or has been removed.';
+		// 404 is terminal — retry won't help. Offer only "Back to Discover".
+		if (retryBtn) retryBtn.hidden = true;
 	} else {
 		$('error-title').textContent = 'Something went wrong';
-		$('error-msg').textContent = 'Could not load this item. Try refreshing.';
+		$('error-msg').textContent = 'Could not load this item. Check your connection and try again.';
+		if (retryBtn && typeof onRetry === 'function') {
+			retryBtn.hidden = false;
+			retryBtn.onclick = onRetry;
+		}
 	}
 }
 
@@ -444,10 +451,17 @@ function showError(status) {
 		return;
 	}
 
-	try {
-		const item = await fetchItem(route);
-		render(item);
-	} catch (err) {
-		showError(err.status || 500);
+	async function load() {
+		const $ = (role) => document.querySelector(`[data-role="${role}"]`);
+		$('error').hidden = true;
+		$('loading').hidden = false;
+		try {
+			const item = await fetchItem(route);
+			render(item);
+		} catch (err) {
+			showError(err.status || 500, load);
+		}
 	}
+
+	load();
 })();

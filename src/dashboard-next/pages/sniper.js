@@ -354,7 +354,7 @@ function stratForm(s) {
 		<div class="sn-section-head">Trigger & Sizing</div>
 		<div class="sn-field">
 			<label>Trigger</label>
-			<select name="trigger">
+			<select name="trigger" aria-label="Trigger">
 				<option value="new_mint" ${s.trigger === 'new_mint' || (!s.trigger || (s.trigger !== 'first_claim' && s.trigger !== 'intel_confirmed')) ? 'selected' : ''}>New mint — snipe every launch</option>
 				<option value="first_claim" ${s.trigger === 'first_claim' ? 'selected' : ''}>First claim — creator claims for first time</option>
 				<option value="intel_confirmed" ${s.trigger === 'intel_confirmed' ? 'selected' : ''}>Intel confirmed — buy after Coin Intelligence verdict</option>
@@ -364,86 +364,86 @@ function stratForm(s) {
 		</div>
 		<div class="sn-field">
 			<label>Buy delay (ms)</label>
-			<input name="buy_delay_ms" type="number" min="0" max="600000" value="${s.buy_delay_ms || 0}" />
+			<input name="buy_delay_ms" type="number" min="0" max="600000" value="${s.buy_delay_ms || 0}" aria-label="Buy delay in milliseconds" />
 			<span class="sn-hint">Pause before buying. Currently ${fmtDelayMs(s.buy_delay_ms)}.</span>
 		</div>
 		<div class="sn-field">
 			<label>Daily budget (SOL)</label>
-			<input name="daily_budget_sol" type="number" min="0" step="0.001" value="${toLamSol(s.daily_budget_lamports)}" />
+			<input name="daily_budget_sol" type="number" min="0" step="0.001" value="${toLamSol(s.daily_budget_lamports)}" aria-label="Daily budget in SOL" />
 			<span class="sn-hint">Max SOL to spend per calendar day.</span>
 		</div>
 		<div class="sn-field">
 			<label>Per-trade size (SOL)</label>
-			<input name="per_trade_sol" type="number" min="0" step="0.001" value="${toLamSol(s.per_trade_lamports)}" />
+			<input name="per_trade_sol" type="number" min="0" step="0.001" value="${toLamSol(s.per_trade_lamports)}" aria-label="Per-trade size in SOL" />
 			<span class="sn-hint">SOL per snipe. Must be ≤ daily budget.</span>
 		</div>
 		<div class="sn-field">
 			<label>Max concurrent positions</label>
-			<input name="max_concurrent_positions" type="number" min="1" max="50" value="${s.max_concurrent_positions || 1}" />
+			<input name="max_concurrent_positions" type="number" min="1" max="50" value="${s.max_concurrent_positions || 1}" aria-label="Max concurrent positions" />
 		</div>
 		<div class="sn-field">
 			<label>Slippage (bps)</label>
-			<input name="slippage_bps" type="number" min="0" max="5000" value="${s.slippage_bps || 500}" />
+			<input name="slippage_bps" type="number" min="0" max="5000" value="${s.slippage_bps || 500}" aria-label="Slippage in basis points" />
 			<span class="sn-hint">100 bps = 1%.</span>
 		</div>
 
 		<div class="sn-section-head">Exit Rules</div>
 		<div class="sn-field">
 			<label>Take profit (%)</label>
-			<input name="take_profit_pct" type="number" min="1" step="1" value="${s.take_profit_pct != null ? s.take_profit_pct : ''}" placeholder="e.g. 50" />
+			<input name="take_profit_pct" type="number" min="1" step="1" value="${s.take_profit_pct != null ? s.take_profit_pct : ''}" placeholder="e.g. 50" aria-label="Take profit percent" />
 			<span class="sn-hint">Sell when up this %. Leave blank to hold.</span>
 		</div>
 		<div class="sn-field">
 			<label>Stop loss (%) *</label>
-			<input name="stop_loss_pct" type="number" min="1" max="99" step="1" value="${s.stop_loss_pct != null ? s.stop_loss_pct : 30}" required />
+			<input name="stop_loss_pct" type="number" min="1" max="99" step="1" value="${s.stop_loss_pct != null ? s.stop_loss_pct : 30}" required aria-label="Stop loss percent" />
 		</div>
 		<div class="sn-field">
 			<label>Trailing stop (%)</label>
-			<input name="trailing_stop_pct" type="number" min="1" step="1" value="${s.trailing_stop_pct != null ? s.trailing_stop_pct : ''}" placeholder="e.g. 20" />
+			<input name="trailing_stop_pct" type="number" min="1" step="1" value="${s.trailing_stop_pct != null ? s.trailing_stop_pct : ''}" placeholder="e.g. 20" aria-label="Trailing stop percent" />
 			<span class="sn-hint">Sell when peak drops by this %. Optional.</span>
 		</div>
 		<div class="sn-field">
 			<label>Max hold time (seconds)</label>
-			<input name="max_hold_seconds" type="number" min="30" max="86400" value="${s.max_hold_seconds || 1800}" />
+			<input name="max_hold_seconds" type="number" min="30" max="86400" value="${s.max_hold_seconds || 1800}" aria-label="Max hold time in seconds" />
 			<span class="sn-hint">Force-exit after this. Currently ${fmtHold(s.max_hold_seconds)}.</span>
 		</div>
 
 		<div class="sn-section-head">Entry Filters</div>
 		<div class="sn-field">
 			<label>Min market cap (USD)</label>
-			<input name="min_market_cap_usd" type="number" min="0" value="${s.min_market_cap_usd != null ? s.min_market_cap_usd : ''}" placeholder="any" />
+			<input name="min_market_cap_usd" type="number" min="0" value="${s.min_market_cap_usd != null ? s.min_market_cap_usd : ''}" placeholder="any" aria-label="Min market cap in USD" />
 		</div>
 		<div class="sn-field">
 			<label>Max market cap (USD)</label>
-			<input name="max_market_cap_usd" type="number" min="0" value="${s.max_market_cap_usd != null ? s.max_market_cap_usd : ''}" placeholder="any" />
+			<input name="max_market_cap_usd" type="number" min="0" value="${s.max_market_cap_usd != null ? s.max_market_cap_usd : ''}" placeholder="any" aria-label="Max market cap in USD" />
 		</div>
 		<div class="sn-field">
 			<label>Min creator graduated coins</label>
-			<input name="min_creator_graduated" type="number" min="0" value="${s.min_creator_graduated != null ? s.min_creator_graduated : ''}" placeholder="any" />
+			<input name="min_creator_graduated" type="number" min="0" value="${s.min_creator_graduated != null ? s.min_creator_graduated : ''}" placeholder="any" aria-label="Min creator graduated coins" />
 			<span class="sn-hint">Only launch from creators with this many graduates.</span>
 		</div>
 		<div class="sn-field">
 			<label>Max creator total launches</label>
-			<input name="max_creator_launches" type="number" min="1" value="${s.max_creator_launches != null ? s.max_creator_launches : ''}" placeholder="any" />
+			<input name="max_creator_launches" type="number" min="1" value="${s.max_creator_launches != null ? s.max_creator_launches : ''}" placeholder="any" aria-label="Max creator total launches" />
 			<span class="sn-hint">Skip serial launchers with too many coins.</span>
 		</div>
 		<div class="sn-field">
 			<label>Require social links</label>
-			<select name="require_socials">
+			<select name="require_socials" aria-label="Require social links">
 				<option value="false" ${!s.require_socials ? 'selected' : ''}>No — any launch</option>
 				<option value="true" ${s.require_socials ? 'selected' : ''}>Yes — Twitter/Telegram required</option>
 			</select>
 		</div>
 		<div class="sn-field">
 			<label>Require SOL quote</label>
-			<select name="require_sol_quote">
+			<select name="require_sol_quote" aria-label="Require SOL quote">
 				<option value="true" ${s.require_sol_quote !== false ? 'selected' : ''}>Yes (recommended)</option>
 				<option value="false" ${s.require_sol_quote === false ? 'selected' : ''}>No</option>
 			</select>
 		</div>
 		<div class="sn-field">
 			<label>Min Oracle conviction (0–100)</label>
-			<input name="min_oracle_score" type="number" step="1" min="0" max="100" value="${s.min_oracle_score != null ? s.min_oracle_score : ''}" placeholder="any" />
+			<input name="min_oracle_score" type="number" step="1" min="0" max="100" value="${s.min_oracle_score != null ? s.min_oracle_score : ''}" placeholder="any" aria-label="Min Oracle conviction score, 0 to 100" />
 			<span class="sn-hint">Skip the snipe if Oracle conviction is below this. Leave blank to snipe regardless of conviction. New mints without a score are allowed through.</span>
 		</div>
 
@@ -453,7 +453,7 @@ function stratForm(s) {
 		<div class="sn-section-head">Notifications</div>
 		<div class="sn-field sn-field-full">
 			<label>Telegram chat ID (optional)</label>
-			<input name="telegram_chat_id" type="text" inputmode="numeric" value="${s.telegram_chat_id || ''}" placeholder="e.g. 123456789" autocomplete="off" />
+			<input name="telegram_chat_id" type="text" inputmode="numeric" value="${s.telegram_chat_id || ''}" placeholder="e.g. 123456789" autocomplete="off" aria-label="Telegram chat ID (optional)" />
 			<span class="sn-hint">Get buy/sell alerts in your own Telegram chat. Message <a class="sn-link" href="https://t.me/userinfobot" target="_blank" rel="noopener">@userinfobot</a> to find your chat ID, then forward its reply here. Leave blank to use the platform ops channel.</span>
 		</div>
 
@@ -470,16 +470,16 @@ function firstClaimFields(s) {
 		<div class="sn-section-head">First-Claim Filters</div>
 		<div class="sn-field">
 			<label>Min claim size (SOL)</label>
-			<input name="min_claim_lamports_sol" type="number" min="0" step="0.001" value="${toLamSolOptional(s.min_claim_lamports)}" placeholder="any" />
+			<input name="min_claim_lamports_sol" type="number" min="0" step="0.001" value="${toLamSolOptional(s.min_claim_lamports)}" placeholder="any" aria-label="Min claim size in SOL" />
 			<span class="sn-hint">Only trigger if the creator claimed this much SOL.</span>
 		</div>
 		<div class="sn-field">
 			<label>Max claim size (SOL)</label>
-			<input name="max_claim_lamports_sol" type="number" min="0" step="0.001" value="${toLamSolOptional(s.max_claim_lamports)}" placeholder="any" />
+			<input name="max_claim_lamports_sol" type="number" min="0" step="0.001" value="${toLamSolOptional(s.max_claim_lamports)}" placeholder="any" aria-label="Max claim size in SOL" />
 		</div>
 		<div class="sn-field">
 			<label>Max claim age (seconds)</label>
-			<input name="first_claim_max_age_seconds" type="number" min="1" max="86400" value="${s.first_claim_max_age_seconds != null ? s.first_claim_max_age_seconds : ''}" placeholder="300" />
+			<input name="first_claim_max_age_seconds" type="number" min="1" max="86400" value="${s.first_claim_max_age_seconds != null ? s.first_claim_max_age_seconds : ''}" placeholder="300" aria-label="Max claim age in seconds" />
 			<span class="sn-hint">Skip if the claim tx is older than this.</span>
 		</div>`;
 }
@@ -490,29 +490,29 @@ function intelFields(s) {
 		<div class="sn-section-head">Coin Intelligence Filters</div>
 		<div class="sn-field">
 			<label>Min quality score (0–100)</label>
-			<input name="min_quality_score" type="number" step="1" min="0" max="100" value="${s.min_quality_score != null ? s.min_quality_score : ''}" placeholder="e.g. 60" />
+			<input name="min_quality_score" type="number" step="1" min="0" max="100" value="${s.min_quality_score != null ? s.min_quality_score : ''}" placeholder="e.g. 60" aria-label="Min quality score, 0 to 100" />
 			<span class="sn-hint">Overall quality composite. 0 = any, 100 = best only. Higher = fewer but cleaner entries.</span>
 		</div>
 		<div class="sn-field">
 			<label>Max bundle score (0–1)</label>
-			<input name="max_bundle_score" type="number" step="0.05" min="0" max="1" value="${s.max_bundle_score != null ? s.max_bundle_score : ''}" placeholder="e.g. 0.5" />
+			<input name="max_bundle_score" type="number" step="0.05" min="0" max="1" value="${s.max_bundle_score != null ? s.max_bundle_score : ''}" placeholder="e.g. 0.5" aria-label="Max bundle score, 0 to 1" />
 			<span class="sn-hint">Bundle likelihood from wallet graph analysis. 0 = no bundles tolerated, 1 = allow all.</span>
 		</div>
 		<div class="sn-field">
 			<label>Max top-wallet concentration (%)</label>
-			<input name="max_concentration_top1" type="number" step="1" min="0" max="100" value="${s.max_concentration_top1 != null ? s.max_concentration_top1 : ''}" placeholder="e.g. 20" />
+			<input name="max_concentration_top1" type="number" step="1" min="0" max="100" value="${s.max_concentration_top1 != null ? s.max_concentration_top1 : ''}" placeholder="e.g. 20" aria-label="Max top-wallet concentration percent" />
 			<span class="sn-hint">Skip if the single largest holder owns more than this % of supply.</span>
 		</div>
 		<div class="sn-field">
 			<label>Avoid dev dump</label>
-			<select name="avoid_dev_dump">
+			<select name="avoid_dev_dump" aria-label="Avoid dev dump">
 				<option value="true" ${s.avoid_dev_dump !== false ? 'selected' : ''}>Yes — skip if dev sold (recommended)</option>
 				<option value="false" ${s.avoid_dev_dump === false ? 'selected' : ''}>No — allow dev sells</option>
 			</select>
 		</div>
 		<div class="sn-field">
 			<label>Allowed categories (comma-separated)</label>
-			<input name="allowed_categories" type="text" value="${esc(cats)}" placeholder="e.g. meme, animal, culture (blank = allow all)" />
+			<input name="allowed_categories" type="text" value="${esc(cats)}" placeholder="e.g. meme, animal, culture (blank = allow all)" aria-label="Allowed categories, comma-separated" />
 			<span class="sn-hint">Only snipe coins classified into these categories. Leave blank to allow all.</span>
 		</div>`;
 }
@@ -744,7 +744,7 @@ async function loadTradeHistory(root, append = false) {
 					<span class="sn-chart-label">Cumulative PnL</span>
 					<span class="sn-chart-val ${pnlClass}">${totalPnl >= 0 ? '+' : ''}${fmtSol(totalPnl)}</span>
 				</div>
-				<canvas class="sn-chart-canvas" id="sn-pnl-canvas" height="90"></canvas>
+				<canvas class="sn-chart-canvas" id="sn-pnl-canvas" height="90" role="img" aria-label="Cumulative PnL line chart, ${cumPoints.length} closed trades, current ${totalPnl >= 0 ? '+' : ''}${fmtSol(totalPnl)}"></canvas>
 			</div>` : '';
 		mount.innerHTML = `
 		<div class="sn-hist">
@@ -942,23 +942,23 @@ function openArmModal(root) {
 			? '<p style="color:var(--nxt-ink-faint);font-size:13px">All your agents already have a strategy. Edit their config in the cards above.</p>'
 			: `<div class="sn-field" style="margin-bottom:16px">
 				<label>Choose agent</label>
-				<select id="sn-arm-agent">
+				<select id="sn-arm-agent" aria-label="Choose agent">
 					<option value="">— select an agent —</option>
 					${unarmed.map((a) => `<option value="${esc(a.id)}">${esc(a.name || a.id)}</option>`).join('')}
 				</select>
 			</div>
 			<div class="sn-field">
 				<label>Daily budget (SOL)</label>
-				<input id="sn-arm-budget" type="number" min="0.001" step="0.001" value="0.1" />
+				<input id="sn-arm-budget" type="number" min="0.001" step="0.001" value="0.1" aria-label="Daily budget in SOL" />
 				<span class="sn-hint">The agent will spend at most this much per day.</span>
 			</div>
 			<div class="sn-field" style="margin-top:12px">
 				<label>Per-trade size (SOL)</label>
-				<input id="sn-arm-per-trade" type="number" min="0.001" step="0.001" value="0.01" />
+				<input id="sn-arm-per-trade" type="number" min="0.001" step="0.001" value="0.01" aria-label="Per-trade size in SOL" />
 			</div>
 			<div class="sn-field" style="margin-top:12px">
 				<label>Min Oracle conviction score (0–100, blank = no filter)</label>
-				<input id="sn-arm-oracle" type="number" min="0" max="100" step="1" value="${presetScore != null ? presetScore : ''}" placeholder="e.g. 55 for strong+" />
+				<input id="sn-arm-oracle" type="number" min="0" max="100" step="1" value="${presetScore != null ? presetScore : ''}" placeholder="e.g. 55 for strong+" aria-label="Min Oracle conviction score, 0 to 100, blank for no filter" />
 				<span class="sn-hint">Only enter coins that clear this conviction threshold. Higher = fewer, higher-quality entries.</span>
 			</div>`
 		}

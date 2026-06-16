@@ -680,20 +680,53 @@ button { font: inherit; color: inherit; background: none; border: none; cursor: 
 	.dn-mobile-sheet-item {
 		transition: none !important;
 	}
+	.dn-user-menu-item,
+	.dnd-row,
+	.dnd-chip,
+	.dn-pal-item {
+		transition: none !important;
+		animation: none !important;
+	}
+	.dn-mobile-sheet.open { transition: none !important; }
 }
 
 /* ── Focus rings ──────────────────────────────────────────────────────── */
-.dn-shell :focus { outline: none; }
+/* Suppress the default ring only for mouse focus; :focus-visible below
+   restores a robust, high-contrast ring for keyboard users. Literal colour
+   fallback (#4da3ff) keeps a visible indicator even if the token layer
+   fails to load — tokens win when present. */
+.dn-shell :focus:not(:focus-visible) { outline: none; }
 .dn-shell a:focus-visible,
 .dn-shell button:focus-visible,
 .dn-shell input:focus-visible,
 .dn-shell textarea:focus-visible,
 .dn-shell select:focus-visible,
 .dn-shell [tabindex]:focus-visible,
-#dn-palette :focus-visible {
-	outline: 2px solid var(--nxt-accent);
-	outline-offset: 2px;
+.dn-shell [role='button']:focus-visible,
+.dn-shell [role='tab']:focus-visible,
+.dn-shell [role='option']:focus-visible,
+.dn-shell [role='article']:focus-visible,
+#dn-palette :focus-visible,
+[data-topbar-notifs] :focus-visible,
+[data-topbar-user-menu] :focus-visible,
+.dn-mobile-sheet :focus-visible {
+	outline: var(--focus-ring-width, 2px) solid var(--focus-ring-color, var(--nxt-accent, #4da3ff));
+	outline-offset: var(--focus-ring-offset, 2px);
 	border-radius: var(--nxt-radius-sm);
+}
+
+/* Many page modules inject their own `<style>` after this sheet and set
+   `outline: none` on bare `input:focus` / `select:focus` / `textarea:focus`
+   to lean on a border-colour change. That strips the keyboard ring. This
+   body-scoped, !important :focus-visible rule guarantees a visible indicator
+   for keyboard users regardless of those later rules, while leaving mouse
+   focus (plain :focus) to the page's own styling. */
+body.dn-body input:focus-visible,
+body.dn-body select:focus-visible,
+body.dn-body textarea:focus-visible,
+body.dn-body [contenteditable]:focus-visible {
+	outline: var(--focus-ring-width, 2px) solid var(--focus-ring-color, var(--nxt-accent, #4da3ff)) !important;
+	outline-offset: var(--focus-ring-offset, 2px) !important;
 }
 
 /* ── Skip-link ────────────────────────────────────────────────────────── */

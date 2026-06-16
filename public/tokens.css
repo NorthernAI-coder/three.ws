@@ -165,6 +165,59 @@
 	color-scheme: dark;
 }
 
+/* ════════════════════════════════════════════════════════════════════════════
+ * SEMANTIC ALIAS LAYER (B12)
+ * Thin, theme-agnostic synonyms layered ON TOP of the primitives above — the
+ * same sanctioned pattern as --nxt-* (app shell) and --nv-* (nav): every value
+ * resolves *to* a canonical token via var(); nothing here introduces a new
+ * colour, surface, or scale. They exist so page authors can reach for an
+ * intention-named token (--color-accent, --color-danger) and so common UI px
+ * values map 1:1 to a named spacing rung without re-hardcoding the literal.
+ *
+ * Because the colour aliases point at the remapped primitives (--bg-0, --ink,
+ * --accent …), they flip automatically under [data-theme='light'] with zero
+ * extra declarations — do NOT re-list them in the light block.
+ * ════════════════════════════════════════════════════════════════════════════ */
+:root {
+	/* Colour — semantic synonyms for the canonical primitives. */
+	--color-bg:         var(--bg-0);        /* deepest page background */
+	--color-surface:    var(--surface-1);   /* default raised glass fill */
+	--color-surface-2:  var(--surface-2);   /* hover / nested surface */
+	--color-text:       var(--ink);         /* default body ink */
+	--color-text-bright: var(--ink-bright); /* headings / primary labels */
+	--color-text-dim:   var(--ink-dim);     /* secondary / muted text */
+	--color-text-faint: var(--ink-faint);   /* tertiary hints / disabled */
+	--color-accent:     var(--accent);      /* brand accent (CTA fill / focus) */
+	--color-border:     var(--stroke);      /* default hairline / control border */
+	--color-border-strong: var(--stroke-strong);
+	--color-hairline:   var(--stroke);      /* divider rules */
+	--color-danger:     var(--danger);      /* destructive / error / sell */
+	--color-success:    var(--success);     /* positive / confirm / buy */
+	--color-warning:    var(--warn);        /* caution / pending */
+
+	/* Spacing — 4px UI grid (B12). Complements the phi display scale above:
+	   phi (--space-sm/md/lg…) sizes marketing rhythm; this linear ramp gives the
+	   product chrome exact 4px-multiple rungs so dense layouts (nav, cards,
+	   forms) migrate hardcoded 8/12/16/24/32px to a token WITHOUT shifting a
+	   pixel. Pick the ramp that already matches the value you're replacing. */
+	--space-1: 4px;
+	--space-2: 8px;
+	--space-3: 12px;
+	--space-4: 16px;
+	--space-5: 20px;
+	--space-6: 24px;
+	--space-7: 28px;
+	--space-8: 32px;
+
+	/* Radius — fully-rounded alias (pills/circles), completing the sm/md/lg set. */
+	--radius-full: var(--radius-pill);
+
+	/* Motion — short duration synonyms over the canonical ladder. --ease-out is
+	   already defined above; these just name the two most-reached durations. */
+	--dur-fast: var(--duration-fast); /* 140ms — controls */
+	--dur-med:  var(--duration-base); /* 220ms — panels / dropdowns */
+}
+
 /* Explicit dark — identical to :root, so toggling data-theme="dark" is a no-op
    on the palette but still drives color-scheme + the [data-theme] attribute the
    switcher reads back. Keep in lockstep with :root. */

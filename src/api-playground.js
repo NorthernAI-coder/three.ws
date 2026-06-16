@@ -168,9 +168,9 @@
 		if (!ep) return;
 		pgActive = key;
 
-		pgS.endpoints.querySelectorAll('.dev-api-row').forEach(function(r) { r.classList.remove('active'); });
+		pgS.endpoints.querySelectorAll('.dev-api-row').forEach(function(r) { r.classList.remove('active'); r.setAttribute('aria-pressed', 'false'); });
 		var row = pgS.endpoints.querySelector('[data-endpoint="' + key + '"]');
-		if (row) row.classList.add('active');
+		if (row) { row.classList.add('active'); row.setAttribute('aria-pressed', 'true'); }
 
 		pgS.empty.style.display = 'none';
 		pgS.builder.style.display = 'block';
@@ -183,7 +183,7 @@
 		(ep.params || []).forEach(function(param) {
 			var div = document.createElement('div');
 			div.className = 'pg-field';
-			div.innerHTML = '<label class="pg-field-label">' + param.label + '</label><input class="pg-input" id="pg-param-' + param.key + '" placeholder="' + param.placeholder + '" value="' + param.default + '" />';
+			div.innerHTML = '<label class="pg-field-label" for="pg-param-' + param.key + '">' + param.label + '</label><input class="pg-input" id="pg-param-' + param.key + '" placeholder="' + param.placeholder + '" value="' + param.default + '" />';
 			pgS.params.appendChild(div);
 			div.querySelector('input').addEventListener('input', function() {
 				pgS.path.value = pgResolvePath(ep);

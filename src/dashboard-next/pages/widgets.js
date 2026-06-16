@@ -607,7 +607,13 @@ function openTranscriptsModal(widget) {
 	const threadsEl = root.querySelector('[data-slot="threads"]');
 	const detailEl = root.querySelector('[data-slot="detail"]');
 
-	fetch(`/api/widgets/${encodeURIComponent(widget.id)}/transcripts`, { credentials: 'include' })
+	const loadThreads = () => {
+		threadsEl.innerHTML = `
+			<div class="dn-skeleton-line"></div>
+			<div class="dn-skeleton-line" style="width:70%"></div>
+			<div class="dn-skeleton-line" style="width:85%"></div>
+		`;
+		fetch(`/api/widgets/${encodeURIComponent(widget.id)}/transcripts`, { credentials: 'include' })
 		.then((r) => r.ok ? r.json() : Promise.reject(r.status))
 		.then((data) => {
 			const threads = data?.transcripts || data?.threads || [];
@@ -669,8 +675,17 @@ function openTranscriptsModal(widget) {
 			if (threads[0]) loadThread(threads[0].id);
 		})
 		.catch(() => {
-			threadsEl.innerHTML = `<div class="dn-wx-tx-empty" style="color:var(--nxt-danger)">Could not load transcripts.</div>`;
+			threadsEl.innerHTML = `
+				<div class="dn-wx-tx-empty" style="color:var(--nxt-danger)">Could not load transcripts.</div>
+				<div style="display:flex;justify-content:center;margin-top:12px">
+					<button class="dn-btn" data-retry-threads type="button">Retry</button>
+				</div>
+			`;
+			threadsEl.querySelector('[data-retry-threads]')?.addEventListener('click', loadThreads);
 		});
+	};
+
+	loadThreads();
 }
 
 // ── Knowledge base modal ─────────────────────────────────────────────────
@@ -705,11 +720,19 @@ function openKnowledgeModal(widget) {
 	const body = root.querySelector('[data-slot="kb-body"]');
 
 	const loadKb = () => {
+		body.innerHTML = `
+			<div class="dn-skeleton-line"></div>
+			<div class="dn-skeleton-line" style="width:75%"></div>
+		`;
 		fetch(`/api/widgets/${encodeURIComponent(widget.id)}/knowledge`, { credentials: 'include' })
 			.then((r) => r.ok ? r.json() : Promise.reject(r.status))
 			.then((data) => renderKb(data?.entries || data?.knowledge || []))
 			.catch(() => {
-				body.innerHTML = `<p style="color:var(--nxt-danger);font-size:13px">Could not load knowledge base.</p>`;
+				body.innerHTML = `
+					<p style="color:var(--nxt-danger);font-size:13px">Could not load knowledge base.</p>
+					<button class="dn-btn" data-retry-kb type="button">Retry</button>
+				`;
+				body.querySelector('[data-retry-kb]')?.addEventListener('click', loadKb);
 			});
 	};
 
@@ -731,7 +754,7 @@ function openKnowledgeModal(widget) {
 				${!entries.length ? `<div class="dn-wx-tx-empty">No knowledge entries yet.</div>` : ''}
 			</div>
 			<div class="dn-kb-add" style="margin-top:16px">
-				<textarea class="dn-input" data-slot="new-entry" rows="3" placeholder="Add a knowledge snippet…" style="width:100%;resize:vertical;font-size:13px"></textarea>
+				<textarea class="dn-input" data-slot="new-entry" rows="3" placeholder="Add a knowledge snippet…" style="width:100%;resize:vertical;font-size:13px" aria-label="New knowledge snippet"></textarea>
 				<div style="display:flex;justify-content:flex-end;margin-top:8px">
 					<button class="dn-btn primary" data-add-kb type="button">Add entry</button>
 				</div>
@@ -785,7 +808,7 @@ function openKnowledgeModal(widget) {
 				const current = entryEl?.querySelector('.dn-kb-entry-text')?.textContent || '';
 				if (!entryEl) return;
 				entryEl.innerHTML = `
-					<textarea class="dn-input" rows="3" style="width:100%;resize:vertical;font-size:13px">${esc(current)}</textarea>
+					<textarea class="dn-input" rows="3" style="width:100%;resize:vertical;font-size:13px" aria-label="Edit knowledge snippet">${esc(current)}</textarea>
 					<div style="display:flex;gap:6px;justify-content:flex-end;margin-top:6px">
 						<button class="dn-btn small" data-cancel-edit type="button">Cancel</button>
 						<button class="dn-btn small primary" data-save-edit type="button">Save</button>

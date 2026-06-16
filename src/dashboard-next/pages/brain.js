@@ -288,7 +288,7 @@ function renderPage() {
 					</div>
 
 					<div class="brn-method-body" id="brnFreeform" role="tabpanel">
-						<textarea class="brn-textarea" id="brnFreeformText" placeholder="Paste a bio, collection of tweets, LinkedIn summary, Reddit comments, or describe the personality you want...\n\nThe more context you provide, the richer the extraction." rows="8"></textarea>
+						<textarea class="brn-textarea" id="brnFreeformText" placeholder="Paste a bio, collection of tweets, LinkedIn summary, Reddit comments, or describe the personality you want...\n\nThe more context you provide, the richer the extraction." rows="8" aria-label="Source text for persona synthesis"></textarea>
 						<div class="brn-form-hint">Paste real writing samples for the most authentic extraction.</div>
 						<div class="brn-actions">
 							<button class="brn-btn brn-btn-primary" id="brnFreeformSynth" disabled>Synthesize Persona</button>
@@ -332,14 +332,14 @@ function renderPage() {
 						</div>
 						<div class="brn-pc-edit" id="brnPcEdit" style="display:none">
 							<div class="brn-form-grid">
-								<div class="brn-field"><label>Tone</label><input id="brnEditTone" /></div>
+								<div class="brn-field"><label>Tone</label><input id="brnEditTone" aria-label="Tone" /></div>
 								<div class="brn-field"><label>Style</label>
-									<select id="brnEditStyle"><option value="terse">Terse</option><option value="detailed">Detailed</option><option value="playful">Playful</option><option value="analytical">Analytical</option><option value="warm">Warm</option></select>
+									<select id="brnEditStyle" aria-label="Communication style"><option value="terse">Terse</option><option value="detailed">Detailed</option><option value="playful">Playful</option><option value="analytical">Analytical</option><option value="warm">Warm</option></select>
 								</div>
-								<div class="brn-field"><label>Vocabulary</label><input id="brnEditVocab" placeholder="Comma-separated" /></div>
-								<div class="brn-field"><label>Interests</label><input id="brnEditInterests" placeholder="Comma-separated" /></div>
-								<div class="brn-field"><label>Avoid</label><input id="brnEditDont" placeholder="Comma-separated" /></div>
-								<div class="brn-field brn-field-full"><label>Greeting</label><textarea id="brnEditGreet" rows="2"></textarea></div>
+								<div class="brn-field"><label>Vocabulary</label><input id="brnEditVocab" placeholder="Comma-separated" aria-label="Vocabulary" /></div>
+								<div class="brn-field"><label>Interests</label><input id="brnEditInterests" placeholder="Comma-separated" aria-label="Interests" /></div>
+								<div class="brn-field"><label>Avoid</label><input id="brnEditDont" placeholder="Comma-separated" aria-label="Avoid" /></div>
+								<div class="brn-field brn-field-full"><label>Greeting</label><textarea id="brnEditGreet" rows="2" aria-label="Sample greeting"></textarea></div>
 							</div>
 							<div class="brn-actions" style="justify-content:flex-start">
 								<button class="brn-btn brn-btn-primary brn-btn-sm" id="brnSaveEdit">Save Changes</button>
@@ -351,7 +351,7 @@ function renderPage() {
 							<button class="brn-btn brn-btn-primary brn-btn-sm" id="brnTestPlay">Test in Playground</button>
 							<button class="brn-btn brn-btn-ghost brn-btn-sm" id="brnResetPersona">Start Over</button>
 							<div class="brn-pc-save-wrap">
-								<select class="brn-select" id="brnAgentSelect"><option value="">Select agent…</option></select>
+								<select class="brn-select" id="brnAgentSelect" aria-label="Select agent to save persona to"><option value="">Select agent…</option></select>
 								<button class="brn-btn brn-btn-primary brn-btn-sm" id="brnSaveToAgent" disabled>Save to Agent</button>
 							</div>
 						</div>
@@ -384,7 +384,7 @@ function renderPage() {
 						<div class="brn-input-wrap">
 							<details class="brn-sys-details">
 								<summary>System prompt</summary>
-								<textarea class="brn-sys-area" id="brnSystem" placeholder="Custom system instructions…" rows="3"></textarea>
+								<textarea class="brn-sys-area" id="brnSystem" placeholder="Custom system instructions…" rows="3" aria-label="System prompt"></textarea>
 							</details>
 							<div class="brn-input-row">
 								<textarea class="brn-prompt" id="brnPrompt" placeholder="Send a message…" rows="1" aria-label="Message input"></textarea>
@@ -477,7 +477,7 @@ function renderQuestionCards() {
 		<div class="brn-q-card">
 			<span class="brn-q-num">${i + 1}</span>
 			<div class="brn-q-text">${esc(q.q)}</div>
-			<textarea class="brn-q-input" id="brnQ${i}" placeholder="${esc(q.placeholder)}" rows="2"></textarea>
+			<textarea class="brn-q-input" id="brnQ${i}" placeholder="${esc(q.placeholder)}" rows="2" aria-label="${esc(q.q)}"></textarea>
 		</div>
 	`).join('');
 	el.querySelectorAll('.brn-q-input').forEach(input => input.addEventListener('input', updateSynthBtn));
@@ -729,7 +729,7 @@ function renderPlayControls() {
 			}).join('')
 		}</div>`;
 	} else {
-		ctrl.innerHTML = `<select class="brn-select brn-focus-sel" id="brnFocusSel">${
+		ctrl.innerHTML = `<select class="brn-select brn-focus-sel" id="brnFocusSel" aria-label="Model provider">${
 			PROVIDERS.map(p => {
 				const avail = isAvailable(p.key);
 				return `<option value="${esc(p.key)}"${p.key === S.focusKey ? ' selected' : ''}${!avail ? ' disabled' : ''}>${esc(p.label)}${avail ? '' : ' (unavailable)'}</option>`;

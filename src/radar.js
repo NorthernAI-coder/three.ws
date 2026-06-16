@@ -12,6 +12,10 @@
 // "not measured", never as 0.
 // ════════════════════════════════════════════════════════════════════════════
 
+import { createLogger } from './shared/log.js';
+
+const log = createLogger('radar');
+
 const POLL_MS = 12000;
 const DEFAULT_LIMIT = 60;
 
@@ -182,7 +186,7 @@ async function fetchFeed({ silent = false } = {}) {
 		render();
 	} catch (err) {
 		if (err.name === 'AbortError') return;
-		console.error('[radar] feed fetch failed:', err.message || err);
+		log.error('feed fetch failed:', err.message || err);
 		// Keep previously rendered coins on a silent (poll) failure; only blank
 		// out to the error state when we have nothing to show.
 		if (!state.coins.length) {
@@ -734,7 +738,7 @@ async function openDrawer(mint) {
 		renderDrawerContent(panel, coin);
 	} catch (err) {
 		if (err.name === 'AbortError') return;
-		console.error('[radar] detail fetch failed:', err.message || err);
+		log.error('detail fetch failed:', err.message || err);
 		renderDrawerError(panel, mint);
 	}
 }

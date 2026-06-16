@@ -57,8 +57,72 @@
 		<script defer type="module" src="/src/app.js"></script>
 			<link rel="stylesheet" href="/nav.css" />
 			<link rel="stylesheet" href="/mobile.css" />
+		<style>
+			/* ── Accessibility: skip-link, focus rings, reduced motion ──
+			   Scoped to the agent-home surface (app.html). Uses the global
+			   focus-ring tokens from tokens.css with literal fallbacks so the
+			   ring is visible even before tokens resolve. */
+			.skip-link {
+				position: absolute;
+				top: -48px;
+				left: 8px;
+				z-index: 10000;
+				padding: 0.55rem 0.95rem;
+				background: #fff;
+				color: #000;
+				font-size: 14px;
+				font-weight: 600;
+				text-decoration: none;
+				border-radius: 6px;
+				transition: top 0.16s ease;
+			}
+			.skip-link:focus,
+			.skip-link:focus-visible {
+				top: 8px;
+				outline: var(--focus-ring-width, 2px) solid var(--focus-ring-color, #6c8cff);
+				outline-offset: var(--focus-ring-offset, 2px);
+			}
+			/* Visible focus indicator for every interactive element on this
+			   surface. :focus-visible keeps the ring off mouse clicks. */
+			main.wrap a:focus-visible,
+			main.wrap button:focus-visible,
+			main.wrap input:focus-visible,
+			main.wrap [tabindex]:focus-visible,
+			main.wrap [contenteditable]:focus-visible,
+			main.wrap summary:focus-visible,
+			.agent-home-panel a:focus-visible,
+			.agent-home-panel button:focus-visible,
+			.agent-home-panel input:focus-visible,
+			.agent-home-panel [contenteditable]:focus-visible,
+			.agent-home-panel summary:focus-visible,
+			.agent-home-show-pill:focus-visible {
+				outline: var(--focus-ring-width, 2px) solid var(--focus-ring-color, #6c8cff);
+				outline-offset: var(--focus-ring-offset, 2px);
+				border-radius: 6px;
+			}
+			@media (prefers-reduced-motion: reduce) {
+				.skip-link {
+					transition: none;
+				}
+				/* Disable non-essential animation/transition on this surface so
+				   motion-sensitive users aren't subjected to the timeline slide,
+				   wallet-nudge slide, poster crossfade, or emotion-label fades. */
+				main.wrap *,
+				main.wrap *::before,
+				main.wrap *::after,
+				.agent-home-panel *,
+				.agent-home-show-pill,
+				.agent-wallet-nudge {
+					animation-duration: 0.001ms !important;
+					animation-iteration-count: 1 !important;
+					transition-duration: 0.001ms !important;
+					scroll-behavior: auto !important;
+				}
+			}
+		</style>
 	</head>
 	<body>
+		<a class="skip-link" href="#main-content">Skip to content</a>
 		<header>
 			<h1>
 				<a href="/" aria-label="three.ws home"
@@ -75,11 +139,13 @@
 				<a href="/chat">Chat</a>
 				<a href="/docs">Docs</a>
 				<a href="/my-agents">My Agents</a>
-				<a
+				<button
+					type="button"
 					class="save-to-account-btn"
 					id="save-to-account-btn"
 					hidden
 					title="Save this model to your account"
+					aria-label="Save this model to your account"
 				>
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
@@ -98,7 +164,7 @@
 						<polyline points="7 3 7 8 15 8" />
 					</svg>
 					<span>Save to account</span>
-				</a>
+				</button>
 				<a
 					class="make-widget-btn"
 					id="make-widget-btn"
@@ -228,7 +294,7 @@
 			</nav>
 		</header>
 
-		<main class="wrap">
+		<main class="wrap" id="main-content">
 			<!-- Agent presence panel — rendered by AgentHome -->
 			<div class="agent-presence-sidebar" id="agent-presence-sidebar">
 				<div id="agent-home-container"></div>
@@ -318,6 +384,8 @@
 							width="20"
 							height="17"
 							viewBox="0 0 20 17"
+							aria-hidden="true"
+							focusable="false"
 						>
 							<path
 								d="M10 0l-5.2 4.9h3.3v5.1h3.8v-5.1h3.3l-5.2-4.9zm9.3 11.5l-3.2-2.1h-2l3.4 2.6h-3.5c-.1 0-.2.1-.2.1l-.8 2.3h-6l-.8-2.2c-.1-.1-.1-.2-.2-.2h-3.6l3.4-2.6h-2l-3.2 2.1c-.4.3-.7 1-.6 1.5l.6 3.1c.1.5.7.9 1.2.9h16.3c.6 0 1.1-.4 1.3-.9l.6-3.1c.1-.5-.2-1.2-.7-1.5z"
@@ -339,6 +407,8 @@
 						height="16"
 						viewBox="0 0 24 24"
 						fill="currentColor"
+						aria-hidden="true"
+						focusable="false"
 					>
 						<path
 							d="M9 3l1.6 4.6 4.6 1.6-4.6 1.6L9 15.4 7.4 10.8 2.8 9.2l4.6-1.6L9 3zm9 7l1.1 3.1 3.1 1.1-3.1 1.1L18 18.4l-1.1-3.1-3.1-1.1 3.1-1.1L18 10zM16.5 2.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8.8-2.2z"
@@ -358,6 +428,8 @@
 						height="16"
 						viewBox="0 0 24 24"
 						fill="currentColor"
+						aria-hidden="true"
+						focusable="false"
 					>
 						<path
 							d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"
@@ -479,6 +551,7 @@
 					class="next-drawer"
 					id="next-drawer"
 					role="dialog"
+					aria-modal="true"
 					aria-label="Viewer controls"
 					aria-hidden="true"
 				>

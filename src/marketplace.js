@@ -20,7 +20,7 @@ import {
 import { onchainBadgeHTML } from './shared/onchain-badge.js';
 import { seeInWorldHref, hasCustomAvatar } from './shared/agent-3d.js';
 import { coinChipHTML } from './shared/agent-coin.js';
-import { skeletonHTML, ensureStateKitStyles } from './shared/state-kit.js';
+import { skeletonHTML, errorStateHTML, ensureStateKitStyles } from './shared/state-kit.js';
 import { log } from './shared/log.js';
 ensureStateKitStyles();
 
@@ -357,10 +357,36 @@ async function loadCategories() {
 	if (!els.cats && !els.catChips) return;
 	try {
 		const r = await fetch(`${API}/marketplace/categories`);
+		if (!r.ok) throw new Error(`HTTP ${r.status}`);
 		const j = await r.json();
 		renderCategories(j.data);
 	} catch (err) {
 		log.error('[marketplace] categories', err);
+		renderCategoriesError();
+	}
+}
+
+// The category sidebar is secondary chrome — a failure here must never leave a
+// blank rail. Render a compact, retryable error in its place; chips collapse to
+// just "All" so the user can still browse the full catalog while categories are
+// unavailable.
+function renderCategoriesError() {
+	if (els.cats) {
+		els.cats.innerHTML = errorStateHTML({
+			title: "Categories unavailable",
+			body: "Couldn't load categories. You can still browse all agents.",
+			scope: 'categories',
+		});
+		if (!els.cats.dataset.catErrBound) {
+			els.cats.dataset.catErrBound = '1';
+			els.cats.addEventListener('click', (e) => {
+				if (e.target.closest('[data-sk-retry]')) loadCategories();
+			});
+		}
+	}
+	if (els.catChips) {
+		// Degrade chips to a single "All" pill so the row isn't left empty.
+		renderCategoryChips({ total: state.items.length, categories: [] });
 	}
 }
 
@@ -523,7 +549,7 @@ async function loadPublicAvatars() {
 		if (state.q) url.searchParams.set('q', state.q);
 		if (state.modelCategory) url.searchParams.set('category', state.modelCategory);
 		const r = await fetch(url);
-		if (!r.ok) return;
+		if (!r.ok) throw new Error(`HTTP ${r.status}`);
 		const j = await r.json();
 		const avatars = (j?.items || []).filter(
 			(it) => it.kind === 'avatar' && it.glbUrl && !isAutoNamedAvatar(it.name),
@@ -535,7 +561,28 @@ async function loadPublicAvatars() {
 		updateOnchainChipCount();
 	} catch (err) {
 		log.error('[marketplace] public avatars', err);
+		// Flip the loaded flag so renderGrid() stops showing a perpetual skeleton
+		// when avatars were the only thing the grid was waiting on. Retry is wired
+		// through bindEmptyStateActions (data-retry-scope="avatars").
+		state.publicAvatars = [];
+		state.publicAvatarsLoaded = true;
+		if (gridWouldBeEmptyWithout('avatars')) {
+			els.grid.removeAttribute('aria-busy');
+			els.grid.innerHTML = renderErrorState('avatars');
+		} else {
+			renderGrid();
+		}
 	}
+}
+
+// True when nothing else (agents, onchain, or the other surface) currently has
+// cards in the shared grid, so a failed load would leave it blank/stuck — the
+// only case where it's safe to take over the grid with an error state.
+function gridWouldBeEmptyWithout(failedScope) {
+	const haveAgents = state.items.length > 0;
+	const haveAvatars = failedScope !== 'avatars' && state.publicAvatars.length > 0;
+	const haveOnchain = failedScope !== 'onchain' && state.onchainItems.length > 0;
+	return !haveAgents && !haveAvatars && !haveOnchain;
 }
 
 // ── Onchain ERC-8004 agents (102k+ in DB) ────────────────────────────────
@@ -554,7 +601,7 @@ async function loadOnchainAgents(reset = false) {
 		if (state.q) url.searchParams.set('q', state.q);
 		if (state.onchainCursor) url.searchParams.set('cursor', state.onchainCursor);
 		const r = await fetch(url);
-		if (!r.ok) return;
+		if (!r.ok) throw new Error(`HTTP ${r.status}`);
 		const j = await r.json();
 		const items = (j?.items || []).filter((it) => it.kind === 'onchain' && it.glbUrl);
 		state.onchainItems = reset ? items : [...state.onchainItems, ...items];
@@ -564,6 +611,19 @@ async function loadOnchainAgents(reset = false) {
 		updateOnchainChipCount();
 	} catch (err) {
 		log.error('[marketplace] onchain', err);
+		// Mark loaded so the onchain tab doesn't sit on a forever-skeleton. Only
+		// commandeer the grid with an error when there's nothing else to show;
+		// otherwise leave the populated grid untouched. A pagination failure
+		// (append) keeps the rows already on screen. Retry: data-retry-scope.
+		state.onchainLoaded = true;
+		const isOnchainView = state.filter === 'onchain' || state.filter === 'all';
+		if (isOnchainView && reset && gridWouldBeEmptyWithout('onchain')) {
+			els.grid.removeAttribute('aria-busy');
+			els.grid.innerHTML = renderErrorState('onchain');
+		} else if (isOnchainView) {
+			renderGrid();
+		}
+		updateOnchainChipCount();
 	}
 }
 
@@ -625,15 +685,32 @@ async function loadTheme() {
 	renderThemeSkeleton();
 	try {
 		const r = await fetch(`${API}/marketplace/theme`);
-		if (!r.ok) return;
+		if (!r.ok) throw new Error(`HTTP ${r.status}`);
 		const j = await r.json();
 		const theme = j?.data?.theme;
-		if (!theme) return;
+		if (!theme) {
+			hideThemeStrip();
+			return;
+		}
 		state.theme = theme;
 		renderTheme();
 	} catch (err) {
 		log.error('[marketplace] theme', err);
+		hideThemeStrip();
 	}
+}
+
+// The weekly theme is an optional top-of-page strip. On failure (or an empty
+// week) hide it cleanly so the shimmer placeholder from renderThemeSkeleton()
+// never sticks on screen.
+function hideThemeStrip() {
+	const strip = $('market-theme-strip');
+	const picks = $('market-theme-picks');
+	if (picks) {
+		picks.innerHTML = '';
+		picks.hidden = true;
+	}
+	if (strip) strip.hidden = true;
 }
 
 // Show the strip with a shimmer immediately so the top of the page never pops
@@ -768,7 +845,7 @@ async function loadFeatured() {
 		url.searchParams.set('quality', 'high');
 		url.searchParams.set('limit', '12');
 		const r = await fetch(url);
-		if (!r.ok) return;
+		if (!r.ok) throw new Error(`HTTP ${r.status}`);
 		const j = await r.json();
 		const named = (j?.items || []).filter(
 			(it) =>
@@ -789,6 +866,11 @@ async function loadFeatured() {
 		startHeroAutoplay();
 	} catch (err) {
 		log.error('[marketplace] featured', err);
+		// The hero is a non-essential showcase — hide it cleanly on failure
+		// rather than risk a half-rendered stage. renderHero() hides when there
+		// are no featured items; the grid below carries the page on its own.
+		state.featured = [];
+		renderHero();
 	}
 }
 
@@ -6849,8 +6931,130 @@ function render() {
 	}
 }
 
+// ── Accessible dialog manager ──────────────────────────────────────────────
+//
+// Every overlay on this page is a `[role="dialog"]` toggled via the `hidden`
+// attribute (and, for the avatar modal, a `.show` class for the fade). The
+// individual open/close helpers are scattered, so rather than thread focus
+// logic through each one we observe the `hidden` attribute on every dialog and
+// centrally apply the WCAG keyboard contract: move focus in on open, trap Tab
+// inside, close on Escape, and restore focus to the trigger on close.
+const FOCUSABLE_SELECTOR = [
+	'a[href]',
+	'button:not([disabled])',
+	'input:not([disabled])',
+	'select:not([disabled])',
+	'textarea:not([disabled])',
+	'[tabindex]:not([tabindex="-1"])',
+].join(',');
+
+function visibleFocusables(container) {
+	return Array.from(container.querySelectorAll(FOCUSABLE_SELECTOR)).filter(
+		(el) => !el.hidden && el.offsetParent !== null && el.getClientRects().length > 0,
+	);
+}
+
+function isDialogOpen(dialog) {
+	return !dialog.hidden;
+}
+
+function setupAccessibleDialogs() {
+	const dialogs = Array.from(document.querySelectorAll('.market-page [role="dialog"]'));
+	const triggerByDialog = new WeakMap();
+
+	const closeDialog = (dialog) => {
+		// Prefer the dialog's own close affordance so its bespoke teardown
+		// (model-viewer disposal, fade-out) runs; fall back to hiding it.
+		const closeBtn = dialog.querySelector(
+			'[id$="-close"], .market-modal-close, .avatar-modal-close, .creator-modal-close, .market-lobby-close',
+		);
+		if (closeBtn) closeBtn.click();
+		else dialog.hidden = true;
+	};
+
+	const onKeydown = (dialog) => (e) => {
+		if (!isDialogOpen(dialog)) return;
+		if (e.key === 'Escape') {
+			e.preventDefault();
+			closeDialog(dialog);
+			return;
+		}
+		if (e.key !== 'Tab') return;
+		const focusables = visibleFocusables(dialog);
+		if (focusables.length === 0) {
+			e.preventDefault();
+			dialog.focus();
+			return;
+		}
+		const first = focusables[0];
+		const last = focusables[focusables.length - 1];
+		const active = document.activeElement;
+		if (e.shiftKey && (active === first || !dialog.contains(active))) {
+			e.preventDefault();
+			last.focus();
+		} else if (!e.shiftKey && active === last) {
+			e.preventDefault();
+			first.focus();
+		}
+	};
+
+	const activate = (dialog) => {
+		triggerByDialog.set(
+			dialog,
+			document.activeElement instanceof HTMLElement ? document.activeElement : null,
+		);
+		if (!dialog.hasAttribute('tabindex')) dialog.setAttribute('tabindex', '-1');
+		// Defer so any content the open() helper injects exists before we focus.
+		requestAnimationFrame(() => {
+			if (!isDialogOpen(dialog)) return;
+			const focusables = visibleFocusables(dialog);
+			const target =
+				dialog.querySelector('[data-autofocus]') ||
+				focusables.find(
+					(el) => !/close/i.test(el.id) && !el.classList.contains('market-modal-close'),
+				) ||
+				focusables[0] ||
+				dialog;
+			try {
+				target.focus({ preventScroll: true });
+			} catch {
+				dialog.focus();
+			}
+		});
+	};
+
+	const deactivate = (dialog) => {
+		const trigger = triggerByDialog.get(dialog);
+		triggerByDialog.delete(dialog);
+		if (trigger && document.body.contains(trigger)) {
+			try {
+				trigger.focus({ preventScroll: true });
+			} catch {
+				/* trigger may be gone after a re-render — no-op */
+			}
+		}
+	};
+
+	dialogs.forEach((dialog) => {
+		dialog.addEventListener('keydown', onKeydown(dialog));
+
+		let wasOpen = isDialogOpen(dialog);
+		if (wasOpen) activate(dialog);
+
+		const obs = new MutationObserver(() => {
+			const open = isDialogOpen(dialog);
+			if (open === wasOpen) return;
+			wasOpen = open;
+			if (open) activate(dialog);
+			else deactivate(dialog);
+		});
+		obs.observe(dialog, { attributes: true, attributeFilter: ['hidden'] });
+	});
+}
+
 function init() {
 	bindEvents();
+	setupAccessibleDialogs();
 	loadCategories();
 	loadList(true);
 	loadTheme();

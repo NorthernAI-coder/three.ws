@@ -96,7 +96,7 @@ const state = {
 		<div class="dn-av-filters" data-filters-mine>
 			<label class="dn-av-search">
 				<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3 3"/></svg>
-				<input type="search" placeholder="Search avatars by name…" data-q autocomplete="off" />
+				<input type="search" placeholder="Search avatars by name…" data-q autocomplete="off" aria-label="Search avatars by name" />
 			</label>
 			<div class="dn-av-chips" role="tablist" aria-label="Visibility filter">
 				${['all', ...VISIBILITIES].map((v) => `
@@ -113,7 +113,7 @@ const state = {
 		<div class="dn-av-filters" data-filters-community hidden>
 			<label class="dn-av-search">
 				<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3 3"/></svg>
-				<input type="search" placeholder="Search the community gallery…" data-cq autocomplete="off" />
+				<input type="search" placeholder="Search the community gallery…" data-cq autocomplete="off" aria-label="Search the community gallery" />
 			</label>
 			<label class="dn-av-sort">
 				<select data-csort aria-label="Sort community avatars">

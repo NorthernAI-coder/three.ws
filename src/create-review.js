@@ -688,11 +688,16 @@ async function captureAndUploadThumbnail(avatarId) {
 		reader.readAsDataURL(blob);
 	});
 
+	// Non-critical poster — never let a failed upload surface as an unhandled
+	// rejection. Callers also wrap in .catch(), but guard here so the function
+	// is self-contained and safe to call bare.
 	await fetch('/api/avatars/thumbnail', {
 		method: 'POST',
 		credentials: 'include',
 		headers: { 'content-type': 'application/json' },
 		body: JSON.stringify({ avatar_id: avatarId, png_base64: dataUrl }),
+	}).catch((err) => {
+		console.warn('[create-review] thumbnail upload failed (non-critical)', err);
 	});
 }
 

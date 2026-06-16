@@ -135,7 +135,12 @@ export async function mountLobby(canvas, avatars, options = {}) {
 	// Baked avatars use EXT_meshopt_compression, so the loader needs the
 	// matching decoder before it can parse them.
 	const loader = new GLTFLoader();
-	const decoderReady = getMeshoptDecoder().then((dec) => loader.setMeshoptDecoder(dec));
+	// Resolve regardless of outcome: if the decoder chunk fails to load we still
+	// kick off the per-slot loads (they degrade via loader.load's own error cb)
+	// rather than leaving an unhandled rejection on the cached decoder promise.
+	const decoderReady = getMeshoptDecoder()
+		.then((dec) => loader.setMeshoptDecoder(dec))
+		.catch((err) => log.warn('[lobby] meshopt decoder failed to load — baked avatars may not render', err?.message || err));
 	slots.forEach((avatar, i) => {
 		const url = avatar?.glbUrl;
 		if (!url) return;

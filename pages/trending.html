@@ -13,6 +13,14 @@
 	<meta property="og:description" content="Top 3D AI agents by real chat activity. Top conviction coins by Oracle score." />
 	<meta property="og:image" content="https://three.ws/og-image.png" />
 	<meta name="twitter:card" content="summary_large_image" />
+
+	<meta property="og:type" content="website">
+	<meta property="og:site_name" content="three.ws">
+	<meta property="og:url" content="https://three.ws/trending">
+	<meta name="twitter:title" content="Trending — Top Agents &amp; Coins on three.ws · three.ws">
+	<meta name="twitter:description" content="What’s hot on three.ws right now. Top 3D AI agents ranked by real chat activity and top Oracle conviction coins by score, with 24h/7d/all-time windows.">
+	<meta name="twitter:image" content="https://three.ws/og-image.png">
+	<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"Trending — Top Agents & Coins on three.ws","description":"What’s hot on three.ws right now. Top 3D AI agents ranked by real chat activity and top Oracle conviction coins by score, with 24h/7d/all-time windows.","url":"https://three.ws/trending","isPartOf":{"@type":"WebSite","name":"three.ws","url":"https://three.ws"}}</script>
 </head>
 <body>
 	<div id="nav-container"></div>
@@ -233,9 +241,6 @@
 	</style>
 
 	<script type="module">
-		import '/src/nav.js';
-		import '/src/footer.js';
-
 		const $ = (s) => document.querySelector(s);
 		const $$ = (s) => document.querySelectorAll(s);
 		const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) =>
@@ -386,5 +391,7 @@
 
 		loadData();
 	</script>
+	<script src="/nav.js" defer></script>
+	<script src="/footer.js" defer></script>
 </body>
 </html>

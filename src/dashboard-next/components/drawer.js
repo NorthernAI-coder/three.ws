@@ -283,11 +283,22 @@ export function mountDrawerBehavior(shellEl) {
 		renderList();
 	});
 
-	state.listEl.addEventListener('click', (e) => {
-		const row = e.target.closest('.dnd-row');
-		if (!row) return;
+	const toggleRow = (row) => {
 		const expanded = row.getAttribute('aria-expanded') === 'true';
 		row.setAttribute('aria-expanded', expanded ? 'false' : 'true');
+	};
+	state.listEl.addEventListener('click', (e) => {
+		// Let links inside the detail panel navigate normally.
+		if (e.target.closest('a')) return;
+		const row = e.target.closest('.dnd-row');
+		if (row) toggleRow(row);
+	});
+	state.listEl.addEventListener('keydown', (e) => {
+		if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
+		const row = e.target.closest('.dnd-row');
+		if (!row || e.target.closest('a')) return;
+		e.preventDefault();
+		toggleRow(row);
 	});
 
 	window.addEventListener('dn:drawer:toggled', (e) => {
@@ -590,7 +601,7 @@ function renderRow(ev) {
 	const fresh  = ev.__fresh ? '1' : '0';
 	const read   = ev.read ? '1' : '0';
 	return `
-		<div class="dnd-row" role="article" aria-expanded="false" data-id="${esc(ev.id)}" data-fresh="${fresh}" data-read="${read}">
+		<div class="dnd-row" role="button" tabindex="0" aria-expanded="false" aria-label="${esc(detail.title)} — activate to show details" data-id="${esc(ev.id)}" data-fresh="${fresh}" data-read="${read}">
 			<span class="dnd-row-icon" style="color:${colour};background:rgba(255,255,255,0.03)">${icon}</span>
 			<div class="dnd-row-body">
 				<div class="dnd-row-title">${esc(detail.title)}</div>

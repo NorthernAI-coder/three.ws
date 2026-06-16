@@ -508,7 +508,7 @@ function renderLiveConverter(tokenConfig) {
 				<label style="display:block;font-size:12.5px;color:var(--nxt-ink-dim);margin-bottom:8px">Amount in USD</label>
 				<div style="position:relative">
 					<span style="position:absolute;left:14px;top:50%;transform:translateY(-50%);font-size:15px;color:var(--nxt-ink-fade);pointer-events:none;font-family:${MONO}">$</span>
-					<input type="number" data-input="usd" value="1" min="0.01" step="0.01" style="
+					<input type="number" data-input="usd" value="1" min="0.01" step="0.01" aria-label="Amount in USD" style="
 						width:100%;box-sizing:border-box;padding:12px 14px 12px 30px;
 						background:rgba(255,255,255,0.04);border:1px solid var(--nxt-stroke);
 						border-radius:var(--nxt-radius-sm);color:var(--nxt-ink);font-size:18px;
@@ -648,7 +648,7 @@ function renderRevenueShare(stats, revenueData) {
 			<div>
 				<label style="display:block;font-size:12.5px;color:var(--nxt-ink-dim);margin-bottom:8px">Your $THREE holdings</label>
 				<div style="position:relative">
-					<input type="text" data-input="holdings" value="10,000" style="
+					<input type="text" data-input="holdings" value="10,000" aria-label="Your $THREE holdings" style="
 						width:100%;box-sizing:border-box;padding:12px 70px 12px 14px;
 						background:rgba(255,255,255,0.04);border:1px solid var(--nxt-stroke);
 						border-radius:var(--nxt-radius-sm);color:var(--nxt-ink);font-size:16px;
@@ -656,7 +656,7 @@ function renderRevenueShare(stats, revenueData) {
 					" />
 					<span style="position:absolute;right:14px;top:50%;transform:translateY(-50%);font-size:13px;color:var(--nxt-ink-fade);pointer-events:none">$THREE</span>
 				</div>
-				<input type="range" data-input="slider" min="0" max="1000000" value="10000" style="
+				<input type="range" data-input="slider" min="0" max="1000000" value="10000" aria-label="Your $THREE holdings slider" style="
 					width:100%;margin-top:12px;accent-color:#60a5fa;cursor:pointer;
 				" />
 				<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--nxt-ink-fade);margin-top:4px">

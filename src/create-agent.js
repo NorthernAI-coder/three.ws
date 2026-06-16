@@ -499,6 +499,16 @@ function renderLibrary() {
 		grid.innerHTML = note(
 			"Couldn't load your avatars. Pick a starter or upload instead — you can connect one later from the editor.",
 		);
+		const retry = document.createElement('button');
+		retry.type = 'button';
+		retry.className = 'lib-load-more';
+		retry.style = 'grid-column:1/-1;margin-top:6px;padding:6px 12px;font-size:0.75rem;opacity:0.6;cursor:pointer;background:transparent;border:1px solid rgba(255,255,255,0.2);border-radius:6px;color:inherit;transition:opacity 0.15s';
+		retry.textContent = 'Try again';
+		retry.addEventListener('click', () => {
+			libraryState = 'idle';
+			loadLibraryAvatars();
+		});
+		grid.appendChild(retry);
 		return;
 	}
 	if (!libraryAvatars.length) {

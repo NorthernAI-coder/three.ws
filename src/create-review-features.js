@@ -16,6 +16,56 @@ import { downloadAvatar } from './avatar-export.js';
 import { fbxFromBlob, downloadUrl } from './remesh-convert.js';
 import { log } from './shared/log.js';
 
+// ── Live platform stats ──────────────────────────────────────────────────────
+
+// Real, public network counts from /api/home-stats. That endpoint's contract is
+// "real numbers or { available:false }" — it never fabricates — so callers that
+// get null here must hide their metric strip rather than invent figures.
+async function fetchPlatformStats() {
+	try {
+		const res = await fetch('/api/home-stats', { headers: { accept: 'application/json' } });
+		if (!res.ok) return null;
+		const data = await res.json();
+		return data && data.available ? data : null;
+	} catch (err) {
+		log('[features] home-stats fetch failed:', err?.message || err);
+		return null;
+	}
+}
+
+// Compact human count: 1_204 → "1.2k", 2_000_000 → "2M".
+function fmtCount(n) {
+	const v = Number(n) || 0;
+	if (v >= 1_000_000) return (v / 1_000_000).toFixed(v % 1_000_000 === 0 ? 0 : 1) + 'M';
+	if (v >= 1_000) return (v / 1_000).toFixed(v % 1_000 === 0 ? 0 : 1) + 'k';
+	return String(v);
+}
+
+// Compact USD for large figures: 3_435_701 → "$3.4M", 264_453 → "$264.5K".
+function fmtUsd(n) {
+	const v = Number(n);
+	if (!Number.isFinite(v)) return null;
+	if (v >= 1_000_000) return '$' + (v / 1_000_000).toFixed(1) + 'M';
+	if (v >= 1_000) return '$' + (v / 1_000).toFixed(1) + 'K';
+	return '$' + v.toFixed(2);
+}
+
+// Token price, which can be sub-cent: 0.003435 → "$0.003435", 12.5 → "$12.50".
+function fmtPrice(n) {
+	const v = Number(n);
+	if (!Number.isFinite(v) || v <= 0) return null;
+	if (v >= 1) return '$' + v.toFixed(2);
+	// Show four significant digits below $1 so sub-cent prices stay legible.
+	return '$' + v.toPrecision(4).replace(/0+$/, '').replace(/\.$/, '');
+}
+
+// Signed 24h percent: -14.14 → "-14.1%", 8 → "+8.0%".
+function fmtPct(n) {
+	const v = Number(n);
+	if (!Number.isFinite(v)) return null;
+	return (v >= 0 ? '+' : '') + v.toFixed(1) + '%';
+}
+
 // ── Feature-preview modal ────────────────────────────────────────────────────
 
 let activeModal = null;
@@ -191,7 +241,22 @@ export async function toggleEmoteStrip({ scene, stripEl }) {
 
 	// First call: populate the chips. Subsequent calls just toggle visibility.
 	if (!emoteStripWired) {
-		await emotes.loadManifest();
+		try {
+			await emotes.loadManifest();
+		} catch (err) {
+			log.warn('[emote-strip] manifest load failed', err);
+			// Don't leave a broken empty strip with no signal — show an inline
+			// note, surface it, and bail. emoteStripWired stays false so a later
+			// open retries the load.
+			stripEl.innerHTML =
+				`<span class="emote-strip-note" style="font-size:0.72rem;color:var(--muted);padding:0 8px;white-space:nowrap">Animations couldn't load. Try again in a moment.</span>` +
+				`<button class="emote-strip-close" type="button" aria-label="Close animations">✕</button>`;
+			stripEl.querySelector('.emote-strip-close')?.addEventListener('click', () => {
+				stripEl.classList.remove('is-visible');
+			});
+			stripEl.classList.add('is-visible');
+			return;
+		}
 		const present = new Set(emotes.getAllDefs().map((d) => d.name));
 		const available = PREVIEW_EMOTES.filter((e) => present.has(e.name));
 		stripEl.innerHTML =
@@ -432,23 +497,23 @@ print(reply.json())  # {"reply": ..., "tx": "<sig>"}`,
 		<div class="fm-pricing-preview">
 			<div class="fm-pricing-head">
 				<span class="fm-pricing-title">Skill pricing</span>
-				<span class="fm-pricing-pill">CONFIGURE AFTER SAVE</span>
+				<span class="fm-pricing-pill">YOU SET THE PRICE</span>
 			</div>
 			<div class="fm-pricing-rows">
 				<div class="fm-pricing-row">
 					<span class="fm-pricing-skill">Chat</span>
-					<span class="fm-pricing-amount">$0.02 <span class="muted">USDC / call</span></span>
+					<span class="fm-pricing-amount">$— <span class="muted">USDC / call</span></span>
 				</div>
 				<div class="fm-pricing-row">
 					<span class="fm-pricing-skill">Render</span>
-					<span class="fm-pricing-amount">$0.10 <span class="muted">USDC / call</span></span>
+					<span class="fm-pricing-amount">$— <span class="muted">USDC / call</span></span>
 				</div>
 				<div class="fm-pricing-row">
 					<span class="fm-pricing-skill">Custom endpoint</span>
-					<span class="fm-pricing-amount">$0.05 <span class="muted">USDC / call</span></span>
+					<span class="fm-pricing-amount">$— <span class="muted">USDC / call</span></span>
 				</div>
 			</div>
-			<div class="fm-pricing-foot">Earnings stream into your agent's wallet, withdrawable any time.</div>
+			<div class="fm-pricing-foot">Set a per-call price for any skill after save. Earnings stream into your agent's wallet, withdrawable any time.</div>
 		</div>
 
 		<div class="fm-tabs" role="tablist" aria-label="Client language">
@@ -606,7 +671,11 @@ export default function Page() {
 	if (sourceCanvas) {
 		try {
 			sourceCanvas.toBlob((b) => {
-				if (!b) return;
+				if (!b) {
+					// Snapshot failed — don't leave the "Rendering…" spinner stuck.
+					skel.textContent = 'Preview will render here once your avatar is loaded.';
+					return;
+				}
 				shot.src = URL.createObjectURL(b);
 				shot.hidden = false;
 				skel.hidden = true;
@@ -735,64 +804,68 @@ function prettyBytes(n) {
 
 export function openReputationModal(ctx = {}) {
 	const handle = slugify(ctx.name) || 'your-agent';
-	// Sample reviews — clearly labelled as such ("EXAMPLE" pill on the card).
-	// Structure mirrors src/reputation-ui.js so the user sees the actual
-	// production shape (truncated reviewer address, stars, comment, tx link).
-	const sample = [
-		{ author: '7xK…aN4q', stars: 5, comment: 'Sharp at SQL — saved me an hour on a gnarly join.', when: '2d ago' },
-		{ author: '9mR…vT8p', stars: 5, comment: 'Voice felt natural over a 30-min call. Recommend.', when: '5d ago' },
-		{ author: 'Bcj…F2zL', stars: 4, comment: 'Solid embed, easy to drop on our docs site.', when: '1w ago' },
-	];
 
-	const reviewsHtml = sample
-		.map(
-			(r) => `
-		<div class="rep-review-item">
-			<div class="rep-review-header">
-				<span class="rep-review-author">${escapeHtml(r.author)}</span>
-				<span class="rep-stars" aria-label="${r.stars} stars">${'★'.repeat(r.stars)}${'☆'.repeat(5 - r.stars)}</span>
+	// Real network reputation: the rep card shows live, platform-wide on-chain
+	// reputation scale (signed attestations across registered agents) pulled from
+	// /api/home-stats — never fabricated reviews or invented star ratings. Numbers
+	// stream in after open; the strip collapses to a copy-only state if the DB is
+	// unreachable, so the user never sees made-up figures.
+	const body = document.createElement('div');
+	body.innerHTML = `
+		<ul class="fm-bullets">
+			<li>Every paid call is logged with a signed receipt — verifiable, non-repudiable.</li>
+			<li>Reviews carry the reviewer's own reputation weight — Sybil-resistant.</li>
+			<li>Validators can attest to capability (e.g. "ships valid SQL 9.6/10 of the time").</li>
+		</ul>
+
+		<div class="rep-card">
+			<div class="rep-card-head">
+				<div>
+					<strong>${escapeHtml(handle)}</strong>
+					<div class="muted">three.ws/@${escapeHtml(handle)}</div>
+				</div>
+				<span class="rep-sample-pill" data-rep-pill hidden>LIVE</span>
 			</div>
-			<p class="rep-comment">${escapeHtml(r.comment)}</p>
-			<div class="rep-review-footer">
-				<span class="muted">${escapeHtml(r.when)}</span>
-				<span class="rep-link">↗ tx</span>
+			<div class="rep-stats" data-rep-stats aria-busy="true">
+				<div><strong class="rep-stat-big" data-stat="attestations">—</strong><span class="muted">on-chain attestations</span></div>
+				<div><strong data-stat="onchain_agents">—</strong><span class="muted">agents with passports</span></div>
+				<div><strong data-stat="chains">—</strong><span class="muted">chains</span></div>
 			</div>
+			<p class="rep-card-foot muted" data-rep-foot>Loading live network reputation…</p>
 		</div>
-	`,
-		)
-		.join('');
+
+		<p class="fm-note">Your starting rep is empty — every paid call and review accrues to your asset, on-chain, and travels with it if you ever transfer.</p>
+	`;
 
 	openFeatureModal({
 		icon: '⭐',
 		title: 'Reputation',
 		lede: 'Signed feedback, call history, and validation events accrue to your agent — public, verifiable, portable.',
-		body: `
-			<ul class="fm-bullets">
-				<li>Every paid call is logged with a signed receipt — verifiable, non-repudiable.</li>
-				<li>Reviews carry the reviewer's own reputation weight — Sybil-resistant.</li>
-				<li>Validators can attest to capability (e.g. "ships valid SQL 9.6/10 of the time").</li>
-			</ul>
-
-			<div class="rep-card">
-				<div class="rep-card-head">
-					<div>
-						<strong>${escapeHtml(handle)}</strong>
-						<div class="muted">three.ws/@${escapeHtml(handle)}</div>
-					</div>
-					<span class="rep-sample-pill">EXAMPLE</span>
-				</div>
-				<div class="rep-stats">
-					<div><strong class="rep-stat-big">4.8</strong><span class="rep-stars">★★★★★</span><span class="muted">37 reviews</span></div>
-					<div><strong>1,204</strong><span class="muted">paid calls</span></div>
-					<div><strong>0.41 SOL</strong><span class="muted">staked on rep</span></div>
-				</div>
-				<div class="rep-reviews">${reviewsHtml}</div>
-			</div>
-
-			<p class="fm-note">Your starting rep is empty — every paid call and review accrues to your asset, on-chain, and travels with it if you ever transfer.</p>
-		`,
+		body,
 		actions: [{ label: 'Got it' }],
 		dialogClass: 'fm-dialog--wide',
+	});
+
+	fetchPlatformStats().then((stats) => {
+		const statsRow = body.querySelector('[data-rep-stats]');
+		const foot = body.querySelector('[data-rep-foot]');
+		if (!stats) {
+			// No real numbers available — drop the metric strip rather than fake it.
+			statsRow?.remove();
+			if (foot) foot.textContent = 'Reputation accrues on-chain from your first paid call and review — public and portable.';
+			return;
+		}
+		const set = (key, val) => {
+			const el = body.querySelector(`[data-stat="${key}"]`);
+			if (el) el.textContent = val;
+		};
+		set('attestations', fmtCount(stats.attestations));
+		set('onchain_agents', fmtCount(stats.onchain_agents));
+		set('chains', fmtCount(stats.chains));
+		statsRow?.setAttribute('aria-busy', 'false');
+		const pill = body.querySelector('[data-rep-pill]');
+		if (pill) pill.hidden = false;
+		if (foot) foot.textContent = `Live across the three.ws network — ${fmtCount(stats.attestations)} signed attestations and counting.`;
 	});
 }
 
@@ -920,93 +993,149 @@ export function openMocapModal() {
 // ── Token Launch modal ──────────────────────────────────────────────────────
 
 export function openTokenLaunchModal() {
+	// The KPI strip shows the LIVE $THREE market — the platform's own pump.fun
+	// token (mint FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump) — so the user sees
+	// a real launched-token dashboard, not invented figures. Pulled from
+	// /api/three-token/stats; the strip collapses if the market feed is down.
+	const body = document.createElement('div');
+	body.innerHTML = `
+		<ul class="fm-bullets">
+			<li>One-click token launch on pump.fun, tied to your agent's on-chain identity and wallet.</li>
+			<li>Vanity mint grinding — pick a custom suffix for your token's Solana address.</li>
+			<li>Live dashboard with price, holders, volume, bonding curve progress, and full trade history.</li>
+			<li>Inline trade panel on your agent's page — visitors can buy and sell without leaving.</li>
+		</ul>
+		<div class="fm-kpi-row" data-token-row aria-label="Live $THREE market" aria-busy="true">
+			<div class="fm-kpi" data-token-cell="price" hidden>
+				<span class="fm-kpi-value" data-token="price">—</span>
+				<span class="fm-kpi-label">$THREE price</span>
+			</div>
+			<div class="fm-kpi" data-token-cell="change" hidden>
+				<span class="fm-kpi-value" data-token="change">—</span>
+				<span class="fm-kpi-label">24h</span>
+			</div>
+			<div class="fm-kpi" data-token-cell="mcap" hidden>
+				<span class="fm-kpi-value" data-token="mcap">—</span>
+				<span class="fm-kpi-label">Market cap</span>
+			</div>
+			<div class="fm-kpi" data-token-cell="vol" hidden>
+				<span class="fm-kpi-value" data-token="vol">—</span>
+				<span class="fm-kpi-label">Volume 24h</span>
+			</div>
+		</div>
+		<p class="fm-note" data-token-note>Live $THREE market — a real token launched through three.ws. Your own token launches from your agent's dashboard after save, with the same live dashboard.</p>
+	`;
+
 	openFeatureModal({
 		icon: '🪙',
 		title: 'Token Launch',
 		lede: 'Your agent can launch a pump.fun token in one click — bonding curve, live stats, trade panel, all wired in.',
-		body: `
-			<ul class="fm-bullets">
-				<li>One-click token launch on pump.fun, tied to your agent's on-chain identity and wallet.</li>
-				<li>Vanity mint grinding — pick a custom suffix for your token's Solana address.</li>
-				<li>Live dashboard with price, holders, volume, bonding curve progress, and full trade history.</li>
-				<li>Inline trade panel on your agent's page — visitors can buy and sell without leaving.</li>
-			</ul>
-			<div class="fm-kpi-row" aria-label="Sample token stats">
-				<div class="fm-kpi">
-					<span class="fm-kpi-value">$0.0042</span>
-					<span class="fm-kpi-label">Price</span>
-				</div>
-				<div class="fm-kpi">
-					<span class="fm-kpi-value">847</span>
-					<span class="fm-kpi-label">Holders</span>
-				</div>
-				<div class="fm-kpi">
-					<span class="fm-kpi-value">23.4%</span>
-					<span class="fm-kpi-label">Bonding</span>
-				</div>
-				<div class="fm-kpi">
-					<span class="fm-kpi-value">$12.8K</span>
-					<span class="fm-kpi-label">Volume</span>
-				</div>
-			</div>
-			<p class="fm-note">Token launch is available from your agent's dashboard after save. Stats update in real time. Numbers above are illustrative.</p>
-		`,
+		body,
 		actions: [{ label: 'Got it' }],
 	});
+
+	fetchThreeTokenStats().then((token) => {
+		const row = body.querySelector('[data-token-row]');
+		if (!token) {
+			row?.remove();
+			const note = body.querySelector('[data-token-note]');
+			if (note) note.textContent = 'Token launch runs from your agent\'s dashboard after save — bonding curve, live price/volume/holders dashboard, and an inline trade panel, all wired in.';
+			return;
+		}
+		// Each cell only appears if its underlying value is real (e.g. holders is
+		// often null from the market source) — never a fabricated placeholder.
+		const show = (cell, key, val) => {
+			if (val == null) return;
+			const valEl = body.querySelector(`[data-token="${key}"]`);
+			const cellEl = body.querySelector(`[data-token-cell="${cell}"]`);
+			if (valEl) valEl.textContent = val;
+			if (cellEl) cellEl.hidden = false;
+		};
+		show('price', 'price', fmtPrice(token.price_usd));
+		show('change', 'change', fmtPct(token.price_change_24h));
+		show('mcap', 'mcap', fmtUsd(token.market_cap));
+		show('vol', 'vol', fmtUsd(token.volume_24h));
+		row?.setAttribute('aria-busy', 'false');
+		// If the feed returned but every field was null, drop the empty strip.
+		if (!body.querySelector('[data-token-cell]:not([hidden])')) row?.remove();
+	});
+}
+
+// Live $THREE market data from /api/three-token/stats. Returns the token block
+// or null on failure — callers must not fabricate figures when null.
+async function fetchThreeTokenStats() {
+	try {
+		const res = await fetch('/api/three-token/stats', { headers: { accept: 'application/json' } });
+		if (!res.ok) return null;
+		const data = await res.json();
+		return data && data.token ? data.token : null;
+	} catch (err) {
+		log('[features] three-token stats fetch failed:', err?.message || err);
+		return null;
+	}
 }
 
 // ── Analytics modal ─────────────────────────────────────────────────────────
 
 export function openAnalyticsModal() {
+	// KPI strip shows REAL, live platform-wide numbers from /api/home-stats — not
+	// fabricated per-agent revenue/views. The bullets describe what the user's own
+	// dashboard tracks once their agent is live; the strip collapses if the stats
+	// endpoint is unreachable so we never render invented figures.
+	const body = document.createElement('div');
+	body.innerHTML = `
+		<ul class="fm-bullets">
+			<li>Revenue dashboard: net earnings, payment count, top skills by revenue, withdrawal history.</li>
+			<li>Engagement metrics: widget views, transcript count, embed reach, and a real-time visitor activity feed.</li>
+			<li>Per-tool usage: MCP call volume, latency percentiles, success rate, and top callers.</li>
+		</ul>
+		<div class="fm-kpi-row" data-stats-row aria-label="Live platform metrics" aria-busy="true">
+			<div class="fm-kpi">
+				<span class="fm-kpi-value" data-stat="agents">—</span>
+				<span class="fm-kpi-label">Agents</span>
+			</div>
+			<div class="fm-kpi">
+				<span class="fm-kpi-value" data-stat="onchain_agents">—</span>
+				<span class="fm-kpi-label">On-chain</span>
+			</div>
+			<div class="fm-kpi">
+				<span class="fm-kpi-value" data-stat="widgets">—</span>
+				<span class="fm-kpi-label">Widgets</span>
+			</div>
+			<div class="fm-kpi">
+				<span class="fm-kpi-value" data-stat="attestations">—</span>
+				<span class="fm-kpi-label">Attestations</span>
+			</div>
+		</div>
+		<p class="fm-note" data-stats-note>Live three.ws platform metrics. Your own dashboard populates the moment your agent goes live — every API call, widget load, and voice session tracked in real time.</p>
+	`;
+
 	openFeatureModal({
 		icon: '📊',
 		title: 'Analytics',
 		lede: 'Revenue, engagement, and usage — tracked automatically from day one.',
-		body: `
-			<ul class="fm-bullets">
-				<li>Revenue dashboard: net earnings, payment count, top skills by revenue, withdrawal history.</li>
-				<li>Engagement metrics: widget views, transcript count, embed reach, and a real-time visitor activity feed.</li>
-				<li>Per-tool usage: MCP call volume, latency percentiles, success rate, and top callers.</li>
-			</ul>
-			<div class="fm-kpi-row" aria-label="Sample dashboard KPIs">
-				<div class="fm-kpi">
-					<span class="fm-kpi-value">$482</span>
-					<span class="fm-kpi-label">Revenue (30d)</span>
-				</div>
-				<div class="fm-kpi">
-					<span class="fm-kpi-value">3,291</span>
-					<span class="fm-kpi-label">Views</span>
-				</div>
-				<div class="fm-kpi">
-					<span class="fm-kpi-value">156</span>
-					<span class="fm-kpi-label">Transcripts</span>
-				</div>
-				<div class="fm-kpi">
-					<span class="fm-kpi-value">12</span>
-					<span class="fm-kpi-label">Widgets</span>
-				</div>
-			</div>
-			<div class="fm-activity-feed" aria-label="Sample activity feed">
-				<div class="fm-activity-item">
-					<span class="fm-activity-dot" style="background:var(--text)"></span>
-					<span class="fm-activity-text">Paid API call from <code>9mR…vT8p</code> — $0.05 USDC</span>
-					<span class="fm-activity-time">2m ago</span>
-				</div>
-				<div class="fm-activity-item">
-					<span class="fm-activity-dot" style="background:var(--muted)"></span>
-					<span class="fm-activity-text">Widget embed loaded on <code>docs.example.com</code></span>
-					<span class="fm-activity-time">8m ago</span>
-				</div>
-				<div class="fm-activity-item">
-					<span class="fm-activity-dot" style="background:var(--accent)"></span>
-					<span class="fm-activity-text">Voice session completed — 4m 12s, 8 turns</span>
-					<span class="fm-activity-time">23m ago</span>
-				</div>
-			</div>
-			<p class="fm-note">Your dashboard populates the moment your agent goes live — every API call, widget load, and voice session is tracked. Sample data above is illustrative.</p>
-		`,
+		body,
 		actions: [{ label: 'Got it' }],
 		dialogClass: 'fm-dialog--wide',
+	});
+
+	fetchPlatformStats().then((stats) => {
+		const row = body.querySelector('[data-stats-row]');
+		if (!stats) {
+			row?.remove();
+			const note = body.querySelector('[data-stats-note]');
+			if (note) note.textContent = 'Your dashboard populates the moment your agent goes live — every API call, widget load, and voice session is tracked in real time.';
+			return;
+		}
+		const set = (key, val) => {
+			const el = body.querySelector(`[data-stat="${key}"]`);
+			if (el) el.textContent = val;
+		};
+		set('agents', fmtCount(stats.agents));
+		set('onchain_agents', fmtCount(stats.onchain_agents));
+		set('widgets', fmtCount(stats.widgets));
+		set('attestations', fmtCount(stats.attestations));
+		row?.setAttribute('aria-busy', 'false');
 	});
 }
 

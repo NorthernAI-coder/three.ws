@@ -202,6 +202,13 @@ body.detail-page {
 	transition: background 0.15s, color 0.15s;
 }
 
+.detail-error-actions {
+	display: flex;
+	gap: 10px;
+	flex-wrap: wrap;
+	justify-content: center;
+}
+
 .detail-btn--primary {
 	background: #fff;
 	color: #000;

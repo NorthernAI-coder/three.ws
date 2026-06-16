@@ -130,7 +130,7 @@ export function mountPumpFunCard({ panel, identity, skills, memory, protocol }) 
 			<label class="pumpfun-vanity-row" title="Grind a custom mint address ending in your suffix. The three.ws 3ws prefix is always stamped first.">
 				<input type="checkbox" data-action="toggle-vanity" ${state.vanityEnabled ? 'checked' : ''} ${isGrinding || isStamped ? 'disabled' : ''}>
 				<span>Custom suffix</span>
-				<input type="text" data-action="vanity-suffix" value="${escapeAttr(state.vanitySuffix)}" maxlength="6" ${state.vanityEnabled && !isGrinding && !isStamped ? '' : 'disabled'} class="pumpfun-vanity-input">
+				<input type="text" data-action="vanity-suffix" value="${escapeAttr(state.vanitySuffix)}" maxlength="6" ${state.vanityEnabled && !isGrinding && !isStamped ? '' : 'disabled'} class="pumpfun-vanity-input" aria-label="Custom mint address suffix">
 			</label>
 			<div class="pumpfun-stamp-live" role="status" aria-live="polite" aria-atomic="false" id="pf-stamp-live">${stampLabel}</div>
 			${mintDisplay ? `<div class="pumpfun-stamp-success-mint" style="margin-bottom:4px"><div class="pf-mint-addr">${mintDisplay}</div></div>` : ''}

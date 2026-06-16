@@ -955,7 +955,7 @@ function openPersonaModal(host, agent, allAgents, avatars) {
 					<button class="dn-btn" data-action="seed-github" type="button" style="flex-shrink:0">Seed from GitHub</button>
 				</div>
 				<div style="display:grid;grid-template-columns:1fr auto;gap:8px;margin-bottom:0">
-					<input data-slot="seed-farcaster" type="text" maxlength="50" placeholder="Farcaster username or FID"
+					<input data-slot="seed-farcaster" type="text" maxlength="50" placeholder="Farcaster username or FID" aria-label="Farcaster username or FID"
 						style="padding:8px 11px;border-radius:8px;border:1px solid var(--nxt-stroke);
 						background:rgba(255,255,255,0.04);color:var(--nxt-ink);font:inherit;font-size:13px" />
 					<button class="dn-btn" data-action="seed-farcaster" type="button" style="flex-shrink:0">Seed from Farcaster</button>

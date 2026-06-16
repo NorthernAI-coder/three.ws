@@ -266,6 +266,7 @@ function renderProviderKeys(host, keyStatus) {
 						   <button class="dn-btn danger" data-action="clear-key" data-provider="${esc(provider)}" style="padding:5px 10px;font-size:12px">Remove</button>`
 						: `<input type="password" data-key-input data-provider="${esc(provider)}"
 							   placeholder="${esc(meta.placeholder)}"
+							   aria-label="${esc(meta.label)} API key"
 							   style="background:rgba(255,255,255,0.04);border:1px solid var(--nxt-stroke-strong);border-radius:6px;
 							          padding:6px 10px;color:var(--nxt-ink);font-size:12.5px;width:260px;font-family:${MONO}"
 							   autocomplete="off" spellcheck="false" />
@@ -394,7 +395,7 @@ function startEditName(host, me) {
 	const row = host.querySelector('[data-slot="name-row"]');
 	const current = me.display_name || '';
 	row.innerHTML = `
-		<input type="text" value="${esc(current)}" maxlength="60" style="
+		<input type="text" value="${esc(current)}" maxlength="60" aria-label="Display name" style="
 			background:rgba(255,255,255,0.04);
 			border:1px solid var(--nxt-stroke-strong);
 			border-radius:6px;padding:6px 10px;color:var(--nxt-ink);
@@ -443,7 +444,7 @@ function startEditUsername(host, me) {
 	const current = me.username || '';
 	row.innerHTML = `
 		<span style="color:var(--nxt-ink-fade)">@</span>
-		<input type="text" value="${esc(current)}" maxlength="30" placeholder="username"
+		<input type="text" value="${esc(current)}" maxlength="30" placeholder="username" aria-label="Username"
 			autocapitalize="off" autocomplete="off" autocorrect="off" spellcheck="false" style="
 			background:rgba(255,255,255,0.04);
 			border:1px solid var(--nxt-stroke-strong);
