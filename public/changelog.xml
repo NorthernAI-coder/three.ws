@@ -95,6 +95,14 @@
 			<description>The three.ws home page now has an Oracle section between the Pump.fun token economy block and the pay-per-call block. It explains the four-pillar conviction system (Who · How · What · Move) and renders a live mini-feed of the current top-scoring coins fetched from /api/oracle/feed — each card shows the ticker, 0–100 score, tier pill, and four color-coded pillar bars. Clicking any card opens the Oracle drawer for that coin. The live dot pulses while data is streaming.</description>
 		</item>
 		<item>
+			<title>IRL and XR: choose any of your 3D avatars from a bottom-sheet picker</title>
+			<link>https://three.ws/irl</link>
+			<guid isPermaLink="false">2026-06-16:IRL and XR: choose any of your 3D avatars from a bottom-sheet picker</guid>
+			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Both /irl and /xr now let you swap your 3D avatar without leaving the page. Tap Avatar (IRL) or Change (XR) to open a thumbnail grid of all your uploaded avatars. Selecting one hot-swaps the model in the scene instantly — camera, animations, half-body mode, and AR state all carry over. Signed-out users see a prompt to sign in; empty accounts link to the creation flow.</description>
+		</item>
+		<item>
 			<title>Leaderboard: Oracle Conviction Rankings — agents ranked by conviction win rate</title>
 			<link>https://three.ws/leaderboard</link>
 			<guid isPermaLink="false">2026-06-16:Leaderboard: Oracle Conviction Rankings — agents ranked by conviction win rate</guid>
@@ -167,12 +175,28 @@
 			<description>Wallet reputation now starts sharp instead of blank. A daily background job pulls the top-100 wallets across seven smart-money cohorts from gmgn.ai — smart degens, pump traders, KOLs, snipers, top devs — and seeds them into the platform's wallet reputation table. Wallets with fewer than five coins traded get the imported label and score; wallets the platform has already observed keep the track record it has built from watching real outcomes. Every Oracle pedigree score from this point on benefits from years of externally-verified wallet history, not just what three.ws has seen itself.</description>
 		</item>
 		<item>
+			<title>Oracle Proof ✓ tab — gallery of verified high-conviction wins</title>
+			<link>https://three.ws/oracle</link>
+			<guid isPermaLink="false">2026-06-16:Oracle Proof ✓ tab — gallery of verified high-conviction wins</guid>
+			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>New Proof ✓ tab on the Oracle page shows every coin that the Oracle called strong or prime and that subsequently delivered — graduated to Raydium or hit ≥2× ATH. Each card shows the conviction score at call time, the four pillar breakdown, and the outcome ATH multiple. Filterable by tier and time window (7d / 30d / 90d). This is the edge made visible: every number is ground-truth, on-chain verifiable.</description>
+		</item>
+		<item>
 			<title>Oracle social signal — X posts now feed into coin conviction scores</title>
 			<link>https://three.ws/oracle</link>
 			<guid isPermaLink="false">2026-06-16:Oracle social signal — X posts now feed into coin conviction scores</guid>
 			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>The Oracle's Narrative pillar now receives real-time social signal from X. When a coin's $SYMBOL is mentioned in a tweet, the post's reach and engagement — views, likes, retweets — translate into a virality boost that raises the Oracle's conviction score. KOL accounts (verified smart-money voices on X) apply a 1.5× multiplier. The POST /api/oracle/social endpoint accepts raw tweet batches from any scraper, and the three.surf chart tool ships a --push-social flag that pipes its tweet analysis directly into the Oracle after each run.</description>
+		</item>
+		<item>
+			<title>Oracle wallet drawer: trader profile and copy-trades links</title>
+			<link>https://three.ws/oracle</link>
+			<guid isPermaLink="false">2026-06-16:Oracle wallet drawer: trader profile and copy-trades links</guid>
+			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>When you open a wallet from the Oracle's Top Wallets leaderboard, the drawer now shows 'Trader profile ↗' and 'Copy trades →' links below the track record — connecting the wallet reputation system directly to copy trading. The wallet list rows also gain a hover-reveal '→' button that opens the trader profile without needing to open the drawer first.</description>
 		</item>
 		<item>
 			<title>Pump Dashboard: live Oracle conviction panel on the main trading desk</title>

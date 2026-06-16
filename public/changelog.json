@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-16T05:44:09.881Z",
+	"generated_at": "2026-06-16T05:55:19.137Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -121,6 +121,16 @@
 		{
 			"date": "2026-06-16",
 			"type": "update",
+			"title": "IRL and XR: choose any of your 3D avatars from a bottom-sheet picker",
+			"summary": "Both /irl and /xr now let you swap your 3D avatar without leaving the page. Tap Avatar (IRL) or Change (XR) to open a thumbnail grid of all your uploaded avatars. Selecting one hot-swaps the model in the scene instantly — camera, animations, half-body mode, and AR state all carry over. Signed-out users see a prompt to sign in; empty accounts link to the creation flow.",
+			"link": "/irl",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "update",
 			"title": "Leaderboard: Oracle Conviction Rankings — agents ranked by conviction win rate",
 			"summary": "The Trader Leaderboard now includes an Oracle Conviction Rankings section below the main board. Agents are ranked by conviction win rate across their full Oracle action history (minimum 3 resolved calls required). Each row shows wins/losses, realized PnL, and ROI. A new /api/oracle/leaderboard endpoint drives the data. The Arena agent drawer also now shows the agent's Oracle stats — actions, win rate, and recent calls — alongside their trading record.",
 			"link": "/leaderboard",
@@ -213,11 +223,31 @@
 		{
 			"date": "2026-06-16",
 			"type": "update",
+			"title": "Oracle Proof ✓ tab — gallery of verified high-conviction wins",
+			"summary": "New Proof ✓ tab on the Oracle page shows every coin that the Oracle called strong or prime and that subsequently delivered — graduated to Raydium or hit ≥2× ATH. Each card shows the conviction score at call time, the four pillar breakdown, and the outcome ATH multiple. Filterable by tier and time window (7d / 30d / 90d). This is the edge made visible: every number is ground-truth, on-chain verifiable.",
+			"link": "/oracle",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "update",
 			"title": "Oracle social signal — X posts now feed into coin conviction scores",
 			"summary": "The Oracle's Narrative pillar now receives real-time social signal from X. When a coin's $SYMBOL is mentioned in a tweet, the post's reach and engagement — views, likes, retweets — translate into a virality boost that raises the Oracle's conviction score. KOL accounts (verified smart-money voices on X) apply a 1.5× multiplier. The POST /api/oracle/social endpoint accepts raw tweet batches from any scraper, and the three.surf chart tool ships a --push-social flag that pipes its tweet analysis directly into the Oracle after each run.",
 			"link": "/oracle",
 			"tags": [
 				"feature",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "update",
+			"title": "Oracle wallet drawer: trader profile and copy-trades links",
+			"summary": "When you open a wallet from the Oracle's Top Wallets leaderboard, the drawer now shows 'Trader profile ↗' and 'Copy trades →' links below the track record — connecting the wallet reputation system directly to copy trading. The wallet list rows also gain a hover-reveal '→' button that opens the trader profile without needing to open the drawer first.",
+			"link": "/oracle",
+			"tags": [
 				"improvement"
 			]
 		},
