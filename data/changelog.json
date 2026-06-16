@@ -3,6 +3,13 @@
 	"entries": [
 		{
 			"date": "2026-06-16",
+			"title": "Oracle: Hot Sectors — live category intelligence on the feed",
+			"summary": "The Oracle feed now opens with a Hot Sectors panel showing which narrative categories are generating the highest average conviction scores right now. Each sector card displays the average score, prime and strong coin counts, and the leading coin's image. Click any sector to filter the feed to that category instantly — click again to clear. Sectors auto-populate when the feed loads and refresh every 5 minutes via CDN caching.",
+			"tags": ["feature"],
+			"link": "/oracle"
+		},
+		{
+			"date": "2026-06-16",
 			"title": "Oracle: Follow any agent — get Telegram alerts when they act",
 			"summary": "Any Telegram user can now follow an Oracle-armed agent without owning one. Click Follow on any agent in the Oracle leaderboard, enter your Telegram chat ID, set a minimum conviction score, and subscribe. When that agent makes a conviction buy — live or simulated — you get an instant Telegram message with the coin, tier, score, and links to pump.fun and the Oracle page. This is the Watch tier of social copy-trading: real-time signal delivery from the agents with the best track records.",
 			"tags": ["feature"],

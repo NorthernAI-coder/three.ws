@@ -133,6 +133,8 @@ function boot() {
 		const b = e.target.closest('[data-fsort]'); if (!b) return;
 		$$('#sortSeg button').forEach((x) => x.classList.toggle('on', x === b));
 		state.sort = b.dataset.fsort; syncFilterUrl(); renderFeed();
+		if (state.sort === 'hot') loadHotSectors();
+		$('#hotSectors').style.display = state.sort === 'hot' ? '' : 'none';
 	});
 	const MINT_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 	const searchEl = $('#mintSearch');
@@ -277,6 +279,7 @@ function boot() {
 	if (VALID_SORTS.has(qSort) && qSort !== 'score') { state.sort = qSort; const b = $(`#sortSeg [data-fsort="${qSort}"]`); if (b) { $$('#sortSeg button').forEach((x) => x.classList.toggle('on', x === b)); } }
 
 	loadFeed();
+	loadHotSectors();
 	openStream();
 
 	// If the page was opened with ?mint= (e.g. from a shared link or Telegram alert),
@@ -381,6 +384,49 @@ function renderFeedEmpty(kind) {
 		: { b: 'No launches clear this filter yet', p: 'Loosen the tier or score filter, or wait for the next wave — new coins are scored the moment they surface.' };
 	$('#feedGrid').innerHTML = `<div class="state" style="grid-column:1/-1"><b>${msg.b}</b>${esc(msg.p)}</div>`;
 	$('#ctFeed').textContent = '';
+}
+
+// ── hot sectors ───────────────────────────────────────────────────────────────
+async function loadHotSectors() {
+	const el = $('#hotSectors');
+	if (!el || el.dataset.loaded) return;
+	el.dataset.loaded = '1';
+
+	const { ok, data } = await api(`/api/oracle/categories?network=${NETWORK}&hours=24`);
+	const items = ok && data ? (data.items || []) : [];
+	if (!items.length) return;
+
+	el.innerHTML = items.map((c) => {
+		const initial = esc((c.best_symbol || c.category || '?')[0].toUpperCase());
+		const imgEl = c.best_image_uri
+			? `<img class="hs-img" src="${esc(c.best_image_uri)}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'hs-img',textContent:'${initial}'}))"/>`
+			: `<div class="hs-img">${initial}</div>`;
+		const primeBadge  = c.prime_count  > 0 ? `<span class="hs-badge prime">${c.prime_count} prime</span>`   : '';
+		const strongBadge = c.strong_count > 0 ? `<span class="hs-badge strong">${c.strong_count} strong</span>` : '';
+		const totalBadge  = `<span class="hs-badge">${c.total} coins</span>`;
+		return `<button class="hs-card" type="button" data-cat="${esc(c.category)}">
+			<div class="hs-head">${imgEl}<div class="hs-cat">${esc(c.category)}</div></div>
+			<div style="display:flex;align-items:baseline;gap:6px">
+				<span class="hs-avg">${Math.round(c.avg_score)}</span>
+				<span class="hs-avg-label">avg conviction</span>
+			</div>
+			<div class="hs-badges">${primeBadge}${strongBadge}${totalBadge}</div>
+		</button>`;
+	}).join('');
+
+	el.style.display = '';
+
+	el.addEventListener('click', (e) => {
+		const card = e.target.closest('.hs-card');
+		if (!card) return;
+		const cat = card.dataset.cat;
+		state.category = cat;
+		syncFilterUrl();
+		const catSel = $('#catSel');
+		if (catSel) catSel.value = cat;
+		loadFeed();
+		$$('#hotSectors .hs-card').forEach((c) => c.classList.toggle('active', c === card));
+	});
 }
 
 function pillar(kind, label, val) {
@@ -876,6 +922,55 @@ function edgeRow(r) {
 
 const _proofState = { tier: '', period: '30d', cursor: null, loading: false };
 
+// ── hot sectors ──────────────────────────────────────────────────────────────
+
+let _hotSectorsLoaded = false;
+
+async function loadHotSectors(force = false) {
+	if (_hotSectorsLoaded && !force) return;
+	_hotSectorsLoaded = true;
+	const wrap = $('#hotSectors');
+	if (!wrap) return;
+	wrap.innerHTML = Array.from({ length: 6 }, () => '<div class="hs-skel"></div>').join('');
+	try {
+		const r = await fetch(`/api/oracle/categories?network=${NETWORK}&hours=24`, { headers: { accept: 'application/json' } });
+		if (!r.ok) throw new Error('fetch failed');
+		const data = await r.json();
+		const cats = (data.categories || []).filter((c) => c.total >= 1);
+		if (!cats.length) { wrap.innerHTML = '<p style="color:var(--faint);font-size:13px">No categories with scored coins yet.</p>'; return; }
+		wrap.innerHTML = cats.map((c) => {
+			const imgSrc = c.best_image_uri ? `/api/img?url=${encodeURIComponent(c.best_image_uri)}&w=72` : null;
+			const img = imgSrc
+				? `<img class="hs-img" src="${x(imgSrc)}" alt="" loading="lazy" onerror="this.src='/api/img?seed=${x(c.category)}'">`
+				: `<div class="hs-img">${x((c.category || '?')[0].toUpperCase())}</div>`;
+			const avg = Math.round(Number(c.avg_score) || 0);
+			const prime = Number(c.prime_count) || 0;
+			const strong = Number(c.strong_count) || 0;
+			const badges = [
+				prime  > 0 ? `<span class="hs-badge prime">${prime} Prime</span>` : '',
+				strong > 0 ? `<span class="hs-badge strong">${strong} Strong</span>` : '',
+				`<span class="hs-badge">${c.total} scored</span>`,
+			].filter(Boolean).join('');
+			return `<div class="hs-card" role="button" tabindex="0" data-hs-cat="${x(c.category)}">
+				<div class="hs-head">${img}<div><div class="hs-cat">${x(c.category)}</div>${c.best_symbol ? `<div style="font-size:11px;color:var(--faint)">Best: ${x(c.best_symbol)}</div>` : ''}</div></div>
+				<div><div class="hs-avg">${avg}</div><div class="hs-avg-label">avg conviction</div></div>
+				<div class="hs-badges">${badges}</div>
+			</div>`;
+		}).join('');
+		wrap.querySelectorAll('[data-hs-cat]').forEach((el) => {
+			const activate = () => {
+				const sel = $('#catSel');
+				if (sel) { sel.value = el.dataset.hsCat; sel.dispatchEvent(new Event('change')); }
+			};
+			el.addEventListener('click', activate);
+			el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activate(); } });
+		});
+	} catch {
+		wrap.innerHTML = '<p style="color:var(--faint);font-size:13px">Could not load sectors — try again.</p>';
+		_hotSectorsLoaded = false;
+	}
+}
+
 // ── movers ──────────────────────────────────────────────────────────────────
 const _moversState = { direction: 'rising', hours: 24 };
 
@@ -961,6 +1056,54 @@ async function loadMovers(reset = false) {
 }
 
 window.oracleOpenMover = (mint) => openCoin(mint);
+
+async function loadHotSectors() {
+	const wrap = $('#hotSectors');
+	if (!wrap || wrap.dataset.loaded) return;
+	wrap.dataset.loaded = '1';
+
+	// show skeletons while loading
+	wrap.style.display = '';
+	wrap.innerHTML = Array.from({ length: 4 }, () => '<div class="hs-skel"></div>').join('');
+
+	const { ok, data } = await api(`/api/oracle/categories?network=${NETWORK}&hours=24`);
+	if (!ok || !data?.items?.length) { wrap.style.display = 'none'; return; }
+
+	wrap.innerHTML = data.items.slice(0, 8).map((c) => {
+		const imgSrc = c.best_image_uri || '';
+		const sym = esc((c.best_symbol || '?').toUpperCase());
+		const catLabel = esc(c.category.replace(/_/g, ' '));
+		const primeBadge = c.prime_count > 0 ? `<span class="hs-badge prime">${c.prime_count} prime</span>` : '';
+		const strongBadge = c.strong_count > 0 ? `<span class="hs-badge strong">${c.strong_count} strong</span>` : '';
+		const totalBadge = `<span class="hs-badge">${c.total} coins</span>`;
+		return `<div class="hs-card" role="button" tabindex="0"
+			aria-label="Filter by ${catLabel}"
+			onclick="window.__oracleFilterCat('${esc(c.category)}')"
+			onkeydown="if(event.key==='Enter'||event.key===' ')window.__oracleFilterCat('${esc(c.category)}')">
+			<div class="hs-head">
+				<div class="hs-img">${imgSrc ? `<img src="${esc(imgSrc)}" alt="" style="width:36px;height:36px;border-radius:8px;object-fit:cover" onerror="this.style.display='none'" loading="lazy" />` : sym.slice(0, 2)}</div>
+				<div><div class="hs-cat">${catLabel}</div></div>
+			</div>
+			<div><div class="hs-avg">${Math.round(c.avg_score)}</div><div class="hs-avg-label">avg score</div></div>
+			<div class="hs-badges">${primeBadge}${strongBadge}${totalBadge}</div>
+		</div>`;
+	}).join('');
+}
+
+window.__oracleFilterCat = (category) => {
+	state.category = state.category === category ? null : category;
+	const url = new URL(location.href);
+	if (state.category) url.searchParams.set('category', state.category); else url.searchParams.delete('category');
+	history.replaceState(null, '', url.toString());
+	// highlight active card
+	$$('#hotSectors .hs-card').forEach((el) => {
+		const onclick = el.getAttribute('onclick') || '';
+		const active = onclick.includes(`'${category}'`) && state.category === category;
+		el.style.borderColor = active ? 'var(--cyan)' : '';
+		el.style.background = active ? 'color-mix(in srgb, var(--cyan) 8%, var(--panel))' : '';
+	});
+	loadFeed();
+};
 
 function winCardHtml(w, idx) {
 	const tier = w.tier || 'watch';
