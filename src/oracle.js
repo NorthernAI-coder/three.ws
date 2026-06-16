@@ -89,6 +89,7 @@ const state = {
 	tier: '',
 	category: '',
 	minScore: 0,
+	sort: 'score',         // 'score' | 'new'
 	label: '',
 	feed: new Map(),       // mint -> item, preserves SSE + initial load
 	es: null,
@@ -118,6 +119,11 @@ function boot() {
 	});
 	$('#catSel').addEventListener('change', (e) => { state.category = e.target.value; loadFeed(); });
 	$('#minSel').addEventListener('change', (e) => { state.minScore = Number(e.target.value) || 0; loadFeed(); });
+	$('#sortSeg').addEventListener('click', (e) => {
+		const b = e.target.closest('[data-fsort]'); if (!b) return;
+		$$('#sortSeg button').forEach((x) => x.classList.toggle('on', x === b));
+		state.sort = b.dataset.fsort; renderFeed();
+	});
 	const MINT_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 	$('#mintSearch').addEventListener('keydown', (e) => {
 		if (e.key !== 'Enter') return;
@@ -242,7 +248,10 @@ async function loadFeed() {
 }
 
 function renderFeed() {
-	const items = [...state.feed.values()].sort((a, b) => b.score - a.score);
+	const sorter = state.sort === 'new'
+		? (a, b) => new Date(b.scored_at || 0) - new Date(a.scored_at || 0)
+		: (a, b) => b.score - a.score;
+	const items = [...state.feed.values()].sort(sorter);
 	$('#ctFeed').textContent = items.length ? items.length : '';
 	if (!items.length) return renderFeedEmpty('empty');
 	const grid = $('#feedGrid');
