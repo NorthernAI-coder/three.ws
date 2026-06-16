@@ -32,6 +32,7 @@ export const THREE_WS = {
 	website: 'https://three.ws',
 	x: 'https://x.com/trythreews',
 	xHandle: '@trythreews',
+	telegram: 'https://t.me/three_ws',
 	github: 'https://github.com/nirholas/three.ws',
 	docs: 'https://three.ws/docs',
 	ogImage: 'https://three.ws/og-image.png',
@@ -344,18 +345,25 @@ export function erc8004RegistryFields(origin = env.APP_ORIGIN) {
  * @param {string} [t.image]
  * @param {string} [t.website]      defaults to the agent page (falls back to three.ws)
  * @param {string} [t.twitter]      defaults to the three.ws X account
- * @param {string} [t.telegram]
+ * @param {string} [t.telegram]     defaults to the three.ws Telegram channel
  * @param {string} [t.agentUrl]     agent profile page
  * @param {string} [t.creatorAddress]
  * @param {string} [t.createdAt]    ISO timestamp
  */
+// Attribution suffix stamped onto every user-provided pump.fun token description.
+// Keeps the attribution short so it doesn't crowd out the user's copy.
+const THREE_WS_ATTRIBUTION = '\n\nLaunched on three.ws · 3D AI agents on-chain.';
+
 export function buildTokenMetadata(t) {
 	const tok = threeTokenLinks();
 	const website = t.website || t.agentUrl || THREE_WS.website;
 	const twitter = t.twitter || THREE_WS.x;
-	const description =
-		t.description?.trim() ||
-		`${t.name} — an autonomous agent token launched on ${THREE_WS.name}.`;
+	const telegram = t.telegram || THREE_WS.telegram;
+	const userDesc = t.description?.trim() || '';
+	const ATTR_LEN = THREE_WS_ATTRIBUTION.length;
+	const description = userDesc
+		? `${userDesc.slice(0, 500 - ATTR_LEN)}${THREE_WS_ATTRIBUTION}`
+		: `${t.name} — an autonomous agent token launched on ${THREE_WS.name}. ${THREE_WS_ATTRIBUTION.trim()}`;
 
 	const attributes = [
 		{ trait_type: 'Platform', value: THREE_WS.name },
@@ -372,7 +380,7 @@ export function buildTokenMetadata(t) {
 		createdOn: THREE_WS.website,
 		website,
 		twitter,
-		...(t.telegram ? { telegram: t.telegram } : {}),
+		telegram,
 		// Standard + brand extras (explorers/wallets read these; pump ignores them)
 		external_url: website,
 		attributes,
@@ -385,6 +393,7 @@ export function buildTokenMetadata(t) {
 			name: THREE_WS.name,
 			url: THREE_WS.website,
 			x: THREE_WS.x,
+			telegram: THREE_WS.telegram,
 			github: THREE_WS.github,
 		},
 		token: { symbol: tok.symbol, mint: tok.mint, url: tok.pumpfun },
