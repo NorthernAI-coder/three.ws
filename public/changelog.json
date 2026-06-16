@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-16T07:02:32.992Z",
+	"generated_at": "2026-06-16T07:04:29.220Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -370,6 +370,16 @@
 			"link": "/dashboard/sniper",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-16",
+			"type": "update",
+			"title": "Sniper: Cumulative PnL chart in trade history",
+			"summary": "The Sniper Strategies page now shows a cumulative PnL curve above the trade history table. Each completed trade is plotted in chronological order, so you can see at a glance how your strategy's performance has trended over time. The chart is color-coded green or red based on the net result and includes smooth bezier interpolation between trades.",
+			"link": "/dashboard/sniper",
+			"tags": [
+				"improvement"
 			]
 		},
 		{

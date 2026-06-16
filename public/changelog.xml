@@ -295,6 +295,14 @@
 			<description>A new dashboard page at /dashboard/sniper lets you arm, configure, and monitor your autonomous pump.fun sniper agents without touching code. Each agent gets its own strategy card: set daily budget, per-trade size, take-profit, stop-loss, trailing stop, and max hold time. Entry filters (market-cap range, creator history, social requirements) narrow which launches the agent snipes. Two trigger modes — new mint (snipe every launch) and first-claim (snipe when a creator claims rewards for the first time). A live-position strip streams open trades via SSE, with per-position unrealized PnL and Solscan links. Kill-switch is one click. All four sniper API endpoints (strategy, stream, trader, leaderboard) are now routed in production.</description>
 		</item>
 		<item>
+			<title>Sniper: Cumulative PnL chart in trade history</title>
+			<link>https://three.ws/dashboard/sniper</link>
+			<guid isPermaLink="false">2026-06-16:Sniper: Cumulative PnL chart in trade history</guid>
+			<pubDate>Tue, 16 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>The Sniper Strategies page now shows a cumulative PnL curve above the trade history table. Each completed trade is plotted in chronological order, so you can see at a glance how your strategy's performance has trended over time. The chart is color-coded green or red based on the net result and includes smooth bezier interpolation between trades.</description>
+		</item>
+		<item>
 			<title>Sniper: Oracle conviction gate</title>
 			<link>https://three.ws/dashboard/sniper</link>
 			<guid isPermaLink="false">2026-06-16:Sniper: Oracle conviction gate</guid>

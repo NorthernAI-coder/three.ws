@@ -153,6 +153,13 @@ const STYLE = `<style>
 .sn-hist-more:hover { color: var(--nxt-ink); }
 @media (max-width: 640px) { .sn-hist-table th.hide-mobile, .sn-hist-row td.hide-mobile { display: none; } }
 
+/* pnl chart */
+.sn-chart-wrap { padding: 14px 18px 10px; border-bottom: 1px solid var(--nxt-line); }
+.sn-chart-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; }
+.sn-chart-label { font-size: 11px; color: var(--nxt-ink-faint); text-transform: uppercase; letter-spacing: .07em; font-family: var(--nxt-mono, monospace); }
+.sn-chart-val { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; font-family: var(--nxt-mono, monospace); }
+.sn-chart-canvas { width: 100%; height: 90px; display: block; }
+
 /* new strategy cta */
 .sn-new { background: var(--nxt-panel); border: 1px dashed var(--nxt-stroke); border-radius: var(--nxt-radius); padding: 20px 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .sn-new-text { font-size: 13px; color: var(--nxt-ink-faint); max-width: 340px; }
@@ -625,6 +632,79 @@ function holdDuration(ms) {
 	return `${Math.floor(m / 60)}h ${m % 60}m`;
 }
 
+function drawPnlChart(canvas, points) {
+	if (!canvas || points.length < 2) return;
+	const dpr = window.devicePixelRatio || 1;
+	const W = canvas.offsetWidth || canvas.parentElement?.offsetWidth || 400;
+	const H = 90;
+	canvas.width = W * dpr;
+	canvas.height = H * dpr;
+	const ctx = canvas.getContext('2d');
+	ctx.scale(dpr, dpr);
+
+	const PAD = { top: 8, right: 12, bottom: 8, left: 4 };
+	const cw = W - PAD.left - PAD.right;
+	const ch = H - PAD.top - PAD.bottom;
+
+	const vals = points.map((p) => p.v);
+	const times = points.map((p) => p.t);
+	const minV = Math.min(0, ...vals);
+	const maxV = Math.max(0, ...vals);
+	const rangeV = maxV - minV || 1;
+	const minT = times[0];
+	const maxT = times[times.length - 1];
+	const rangeT = maxT - minT || 1;
+
+	const toX = (t) => PAD.left + ((t - minT) / rangeT) * cw;
+	const toY = (v) => PAD.top + ch - ((v - minV) / rangeV) * ch;
+
+	const finalVal = vals[vals.length - 1];
+	const lineColor = finalVal >= 0 ? '#34d399' : '#f87171';
+	const fillColor = finalVal >= 0 ? 'rgba(52,211,153,0.12)' : 'rgba(248,113,113,0.12)';
+
+	// zero line
+	const zeroY = toY(0);
+	ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+	ctx.lineWidth = 1;
+	ctx.setLineDash([3, 3]);
+	ctx.beginPath();
+	ctx.moveTo(PAD.left, zeroY);
+	ctx.lineTo(PAD.left + cw, zeroY);
+	ctx.stroke();
+	ctx.setLineDash([]);
+
+	// fill under curve
+	ctx.beginPath();
+	ctx.moveTo(toX(times[0]), zeroY);
+	ctx.lineTo(toX(times[0]), toY(vals[0]));
+	for (let i = 1; i < points.length; i++) {
+		const xMid = (toX(times[i - 1]) + toX(times[i])) / 2;
+		ctx.bezierCurveTo(xMid, toY(vals[i - 1]), xMid, toY(vals[i]), toX(times[i]), toY(vals[i]));
+	}
+	ctx.lineTo(toX(times[times.length - 1]), zeroY);
+	ctx.closePath();
+	ctx.fillStyle = fillColor;
+	ctx.fill();
+
+	// line
+	ctx.beginPath();
+	ctx.moveTo(toX(times[0]), toY(vals[0]));
+	for (let i = 1; i < points.length; i++) {
+		const xMid = (toX(times[i - 1]) + toX(times[i])) / 2;
+		ctx.bezierCurveTo(xMid, toY(vals[i - 1]), xMid, toY(vals[i]), toX(times[i]), toY(vals[i]));
+	}
+	ctx.strokeStyle = lineColor;
+	ctx.lineWidth = 2;
+	ctx.lineJoin = 'round';
+	ctx.stroke();
+
+	// final dot
+	ctx.beginPath();
+	ctx.arc(toX(times[times.length - 1]), toY(vals[vals.length - 1]), 3.5, 0, 2 * Math.PI);
+	ctx.fillStyle = lineColor;
+	ctx.fill();
+}
+
 let _histLoading = false;
 let _histLimit = 25;
 
@@ -644,12 +724,29 @@ async function loadTradeHistory(root, append = false) {
 			return;
 		}
 		const hasMore = trades.length >= _histLimit;
+		const sorted = [...trades].sort((a, b) => new Date(a.closed_at || 0) - new Date(b.closed_at || 0));
+		const cumPoints = [];
+		let running = 0;
+		for (const t of sorted) {
+			if (t.pnl_sol != null) { running += t.pnl_sol; cumPoints.push({ t: new Date(t.closed_at).getTime(), v: running }); }
+		}
+		const totalPnl = running;
+		const pnlClass = totalPnl > 0 ? 'sn-pos' : totalPnl < 0 ? 'sn-neg' : '';
+		const chartHtml = cumPoints.length >= 2
+			? `<div class="sn-chart-wrap">
+				<div class="sn-chart-head">
+					<span class="sn-chart-label">Cumulative PnL</span>
+					<span class="sn-chart-val ${pnlClass}">${totalPnl >= 0 ? '+' : ''}${fmtSol(totalPnl)}</span>
+				</div>
+				<canvas class="sn-chart-canvas" id="sn-pnl-canvas" height="90"></canvas>
+			</div>` : '';
 		mount.innerHTML = `
 		<div class="sn-hist">
 			<div class="sn-hist-head">
 				<h3>Trade History</h3>
 				<span style="font-size:12px;color:var(--nxt-ink-faint)">${trades.length} closed trade${trades.length !== 1 ? 's' : ''}</span>
 			</div>
+			${chartHtml}
 			<div style="overflow-x:auto">
 				<table class="sn-hist-table">
 					<thead>
@@ -668,6 +765,7 @@ async function loadTradeHistory(root, append = false) {
 			</div>
 			${hasMore ? `<button class="sn-hist-more" id="sn-hist-more">Load more</button>` : ''}
 		</div>`;
+		if (cumPoints.length >= 2) drawPnlChart(mount.querySelector('#sn-pnl-canvas'), cumPoints);
 		if (hasMore) {
 			mount.querySelector('#sn-hist-more')?.addEventListener('click', () => {
 				_histLimit += 25;
