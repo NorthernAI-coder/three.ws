@@ -577,28 +577,85 @@ if (avatarBtn) {
 	avatarBtn.addEventListener('click', () => irlAvatarPicker.open(_currentAvatarId));
 }
 
+// ── Device orientation (gyro world-lock) ──────────────────────────────────
+// When the avatar is locked in AR mode, device rotation drives the Three.js
+// camera so the avatar appears pinned to a real-world location as the user
+// physically rotates their phone — Pokémon GO style.
+let lastDevAlpha = 0, lastDevBeta = 90;
+let devOrientBaseAlpha    = null; // null = inactive
+let devOrientBaseBeta     = null;
+let devOrientBaseCamYaw   = 0;
+let devOrientBaseCamPitch = 0;
+let prefersAbsOrientation = false;
+
+function onDeviceOrientation(e) {
+	const a = e.alpha ?? 0;
+	const b = e.beta  ?? 90;
+	lastDevAlpha = a;
+	lastDevBeta  = b;
+	if (!avatarLocked || !arActive || devOrientBaseAlpha === null) return;
+	// Delta from baseline — handle 0/360 wrap on alpha
+	let dAlpha = a - devOrientBaseAlpha;
+	if (dAlpha > 180)  dAlpha -= 360;
+	if (dAlpha < -180) dAlpha += 360;
+	cameraYaw   = devOrientBaseCamYaw   + dAlpha * (Math.PI / 180);
+	cameraPitch = Math.max(PITCH_MIN, Math.min(PITCH_MAX,
+		devOrientBaseCamPitch - (b - devOrientBaseBeta) * (Math.PI / 180)));
+}
+
+// Prefer absolute (compass-referenced) over page-relative orientation
+window.addEventListener('deviceorientationabsolute', e => {
+	prefersAbsOrientation = true;
+	onDeviceOrientation(e);
+}, true);
+window.addEventListener('deviceorientation', e => {
+	if (prefersAbsOrientation) return;
+	onDeviceOrientation(e);
+}, true);
+
 // ── Avatar lock ───────────────────────────────────────────────────────────
 let avatarLocked = false;
 
-function setLocked(next) {
+async function setLocked(next) {
+	// iOS 13+ requires a user-gesture permission for DeviceOrientationEvent
+	if (next && typeof DeviceOrientationEvent?.requestPermission === 'function') {
+		try {
+			const perm = await DeviceOrientationEvent.requestPermission();
+			if (perm !== 'granted') {
+				setStatus('Motion sensor access denied', { error: true });
+				return;
+			}
+		} catch (err) {
+			log.error('[irl] orientation permission:', err);
+		}
+	}
 	avatarLocked = next;
 	if (lockBtn) {
 		lockBtn.setAttribute('aria-pressed', String(next));
 		lockBtn.classList.toggle('is-active', next);
 		lockBtn.querySelector('.irl-lock-label').textContent = next ? 'Locked' : 'Lock';
 	}
-	// In AR mode, unfreeze the camera when locked so drag-to-orbit still works
-	// around the pinned avatar. Restore the freeze on unlock.
 	if (arActive) {
 		if (next) {
+			// Capture baseline — delta orientation from here drives the camera
+			devOrientBaseAlpha    = lastDevAlpha;
+			devOrientBaseBeta     = lastDevBeta;
+			devOrientBaseCamYaw   = cameraYaw;
+			devOrientBaseCamPitch = cameraPitch;
+			// Unfreeze — gyro (or drag fallback) now moves the camera
 			arFrozenCamPos  = null;
 			arFrozenCamLook = null;
+			document.body.classList.add('is-locked');
 		} else {
+			devOrientBaseAlpha = null;
 			arFrozenCamPos  = camera.position.clone();
 			arFrozenCamLook = camLookCurrent.clone();
+			document.body.classList.remove('is-locked');
 		}
 	}
-	setStatus(next ? 'Avatar pinned — drag to orbit' : 'Avatar unpinned');
+	setStatus(next
+		? (arActive ? 'Pinned — move phone to look around' : 'Avatar pinned — drag to orbit')
+		: 'Avatar unpinned');
 }
 
 if (lockBtn) {
