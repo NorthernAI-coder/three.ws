@@ -252,22 +252,52 @@ export class DeployButton {
 	}
 
 	_renderProgress(steps, activeIdx, extra) {
-		const labels = steps.map((s, i) => {
-			const cls = i < activeIdx ? 'done' : i === activeIdx ? 'active' : 'pending';
-			return `<span class="progress-step progress-step--${cls}">${_esc(s)}</span>`;
-		});
+		// Inject keyframes once into the document head
+		if (!document.getElementById('db-progress-kf')) {
+			const style = document.createElement('style');
+			style.id = 'db-progress-kf';
+			style.textContent = `
+				@keyframes db-pulse { 0%,100%{box-shadow:0 0 0 0 rgba(99,102,241,.7)} 50%{box-shadow:0 0 0 8px rgba(99,102,241,0)} }
+				@keyframes db-spin  { to{transform:rotate(360deg)} }
+				@keyframes db-flow  { 0%{stroke-dashoffset:24} 100%{stroke-dashoffset:0} }
+			`;
+			document.head.appendChild(style);
+		}
+
 		const liveText = activeIdx < steps.length ? `${steps[activeIdx]}…` : 'Done';
+		const tiles = steps.map((s, i) => {
+			const done    = i < activeIdx;
+			const active  = i === activeIdx;
+			const pending = i > activeIdx;
+			const bg   = done ? 'rgba(99,102,241,.9)' : active ? 'rgba(99,102,241,.12)' : 'rgba(255,255,255,.04)';
+			const bord = done ? 'rgba(99,102,241,.6)' : active ? 'rgba(99,102,241,.8)' : 'rgba(255,255,255,.1)';
+			const col  = done ? '#fff' : active ? '#a5b4fc' : '#6b7280';
+			const anim = active ? 'animation:db-pulse 1.6s ease-in-out infinite' : '';
+			const icon = done
+				? `<span style="font-size:15px;line-height:1">✓</span>`
+				: active
+					? `<svg width="16" height="16" viewBox="0 0 16 16" style="animation:db-spin .9s linear infinite;flex-shrink:0"><circle cx="8" cy="8" r="6" fill="none" stroke="rgba(165,180,252,.25)" stroke-width="2"/><path d="M8 2A6 6 0 0 1 14 8" fill="none" stroke="#a5b4fc" stroke-width="2" stroke-linecap="round"/></svg>`
+					: `<span style="width:16px;height:16px;display:inline-block;border-radius:50%;background:rgba(255,255,255,.06)"></span>`;
+			return `<div style="display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:8px;background:${bg};border:1px solid ${bord};color:${col};font-size:12px;font-weight:${active ? '600' : '500'};${anim}">
+				${icon}
+				<span>${_esc(s)}</span>
+			</div>`;
+		}).join(`<svg width="2" height="14" viewBox="0 0 2 14" style="flex-shrink:0;margin:0 2px">
+			<line x1="1" y1="0" x2="1" y2="14" stroke="rgba(255,255,255,.1)" stroke-width="1.5" stroke-dasharray="4 3" style="animation:db-flow .7s linear infinite"/>
+		</svg>`);
+
 		this._root.innerHTML = `
-			<div class="deploy-progress" role="status" aria-live="polite" aria-label="Deployment progress">
-				${labels.join('<span class="progress-sep" aria-hidden="true">&#x2192;</span>')}
+			<div role="status" aria-live="polite" aria-label="Deployment progress"
+				style="display:flex;flex-direction:row;align-items:center;gap:4px;flex-wrap:wrap">
+				${tiles}
 				<span class="visually-hidden">${_esc(liveText)}</span>
 			</div>
 			<div class="deploy-progress-detail" aria-live="polite"
-				style="margin-top:6px;font-size:12px;color:#555;font-family:ui-monospace,monospace;min-height:1.2em">
+				style="margin-top:8px;font-size:11px;color:#6b7280;font-family:ui-monospace,monospace;min-height:1.2em;letter-spacing:.01em">
 				${extra?.text ? _esc(extra.text) : ''}
 			</div>
 			${extra?.cancelable ? `<button class="deploy-cancel-btn" type="button"
-				style="margin-top:4px;font-size:11px;background:none;border:1px solid #ccc;border-radius:4px;padding:2px 8px;cursor:pointer">cancel</button>` : ''}
+				style="margin-top:10px;font-size:12px;font-weight:500;background:none;border:1px solid rgba(255,255,255,.15);border-radius:6px;padding:5px 14px;cursor:pointer;color:#9ca3af;transition:border-color .15s,color .15s">Stop grinding</button>` : ''}
 		`;
 		if (extra?.onCancel) {
 			const cb = this._root.querySelector('.deploy-cancel-btn');
@@ -380,6 +410,15 @@ export class DeployButton {
 		_saveVanity(this._agent?.id, ''); // clear after successful deploy
 		this._preGroundSecretKey = null;
 		this._renderSuccessChip(this._chainId, result.txSignature, result.assetPubkey, result.vanityPrefix);
+
+		// Redirect to the cinematic reveal page after a brief success flash
+		const agentId    = this._agent.id;
+		const txSig      = result.txSignature || '';
+		const assetPk    = result.assetPubkey  || '';
+		const chain      = this._chainId;
+		setTimeout(() => {
+			window.location.href = `/mint-success?id=${encodeURIComponent(agentId)}&tx=${encodeURIComponent(txSig)}&asset=${encodeURIComponent(assetPk)}&chain=${encodeURIComponent(chain)}`;
+		}, 900);
 	}
 
 	async _startDeploy() {
@@ -602,6 +641,12 @@ export class DeployButton {
 		this._agent.contractAddress = deployment.identityRegistry;
 		this._agent.erc8004AgentId = onchainAgentId;
 		this._renderSuccessChip(chainId, tx.hash, deployment.identityRegistry);
+
+		// Redirect to the cinematic reveal page after a brief success flash
+		const agentId = this._agent.id;
+		setTimeout(() => {
+			window.location.href = `/mint-success?id=${encodeURIComponent(agentId)}&tx=${encodeURIComponent(tx.hash)}&asset=${encodeURIComponent(deployment.identityRegistry || '')}&chain=${encodeURIComponent(chainId)}`;
+		}, 900);
 	}
 
 	// ─── Error classification ──────────────────────────────────────────────

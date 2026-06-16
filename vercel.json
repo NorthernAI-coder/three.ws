@@ -590,6 +590,10 @@
 			"dest": "/leaderboard.html"
 		},
 		{
+			"src": "/mint-success/?",
+			"dest": "/mint-success.html"
+		},
+		{
 			"src": "/trades/?",
 			"dest": "/trades.html"
 		},
