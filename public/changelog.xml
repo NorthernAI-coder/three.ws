@@ -143,6 +143,14 @@
 			<description>The first time you open three.ws/irl, a quick setup card explains why each sensor matters and asks for one at a time: the camera to see your agents in the real world, motion to look around, and location to place agents and discover the ones others left nearby. Every outcome is designed — you see why we’re asking, a green check when access is granted, and if you decline you get the exact steps to switch it back on (the precise iOS Settings path on iPhone) with a Try again button, not a toast that vanishes. Sensors your device doesn’t have are handled honestly, with a note on what still works. Block something later and a one-tap ‘Enable camera’ or ‘Enable location’ chip stays in the top bar so recovery is always within reach — and turning on the camera or pinning an agent re-asks through the same clear cards instead of failing silently. Your choices are remembered, so you’re never nagged twice.</description>
 		</item>
 		<item>
+			<title>IRL world: closed a bulk location-scrape path on placed agents</title>
+			<link>https://three.ws/irl</link>
+			<guid isPermaLink="false">2026-06-17:IRL world: closed a bulk location-scrape path on placed agents</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>security</category>
+			<description>The /irl world lets you place 3D agents at real GPS spots and discover the ones near you. The 'discover nearby' feed always hid who placed each agent, but an internal bulk window-load endpoint — used only by the live realtime server to hydrate a neighborhood — was reachable from the open web, which in principle let someone download many placements' exact coordinates in one request. That endpoint is now locked to the realtime server with a shared secret, the public nearby feed is rate-limited so it can't be systematically gridded, and the maximum window size was tightened. Live discovery, your own pins, and the realtime map are unchanged.</description>
+		</item>
+		<item>
 			<title>Jump straight from an agent's profile into IRL or XR</title>
 			<link>https://three.ws/irl</link>
 			<guid isPermaLink="false">2026-06-17:Jump straight from an agent's profile into IRL or XR</guid>
