@@ -3,10 +3,18 @@
 // it bundles walk's schemas.js).
 //
 // @colyseus/schema uses delta encoding: only fields that changed since the last
-// patch ride the wire, and a late joiner receives the full current set on join
-// for free. That delta sync is exactly what makes the pin set LIVE — a placed /
-// moved / removed pin is a one-entry patch the room broadcasts to everyone in the
-// geocell, and a fresh viewer is handed the whole MapSchema on connect.
+// patch ride the wire, and a late joiner receives the full current set on join.
+// This room delta-syncs PRESENCE (the `viewers` map) and broadcasts ambient
+// REACTIONS — it does NOT sync pins. Placed agents are private by location and are
+// discovered ONLY through the per-viewer /api/irl/pins proximity read (REST), never
+// broadcast here as a roster (see IrlRoom.js, which never writes IrlState.pins).
+//
+// The IrlPin schema + IrlState.pins map below are therefore DORMANT: declared but
+// never populated by the server and never read by the client (src/irl-net.js
+// consumes viewers + reactions only). They are retained — not deleted — because
+// @colyseus/schema's binary protocol is POSITIONAL: removing IrlPin or the `pins`
+// field would shift every later field's index and break any client still connected
+// to an older deployed server mid-deploy. They cost nothing on the wire while empty.
 //
 // IMPORTANT: append-only. Field indices are positional in @colyseus/schema's
 // binary protocol — inserting in the middle shifts every later index and breaks
@@ -14,11 +22,10 @@
 
 import { Schema, MapSchema, defineTypes } from '@colyseus/schema';
 
-// One placed 3D agent anchored at a real-world GPS coordinate. Keyed in the pins
-// MapSchema by its pin id (the Neon row UUID), so a place/move/remove is a single
-// MapSchema patch. lat/lng are float64 — float32 quantizes a degree to ~1 m of
-// error, which is fine for distance but loses the precision a placement actually
-// stored, so we pay the extra bytes for an honest coordinate.
+// DORMANT (see header): a placed 3D agent's wire shape. Never populated by the
+// server — pins ride the REST proximity read, not this socket — and never read by
+// the client. Kept only to preserve the positional binary layout across deploys.
+// lat/lng are float64 to carry an honest coordinate had this ever synced.
 export class IrlPin extends Schema {
 	constructor() {
 		super();
@@ -105,9 +112,9 @@ defineTypes(IrlViewer, {
 export class IrlState extends Schema {
 	constructor() {
 		super();
-		// The set of pins in this room's 3×3 geocell window (centre cell + up to 8
-		// neighbours), keyed by pin id. This is the live, delta-synced collection
-		// the client reconciles into its scene.
+		// DORMANT (see header): retained for binary-layout stability only. The server
+		// never writes to this map and the client never reads it — pins are private by
+		// location and ride the per-viewer /api/irl/pins proximity read, not this socket.
 		this.pins = new MapSchema();
 		// The centre geocell this room instance serves (filterBy key). Seeded by the
 		// first client to land here; identical for every viewer in the instance.

@@ -10,6 +10,24 @@
 //      IS NULL) are NEVER reaped.
 //   2. Reports tied to pins that no longer exist — once the pin is gone the report
 //      trail is moot, so it's purged to keep irl_pin_reports bounded.
+//   3. Interactions (taps/views/messages/pays) whose pin is gone, and interactions
+//      older than the retention window regardless of pin state. An interaction row
+//      is a record that "device X was at coordinate Y at time T" (it snapshots the
+//      pin's lat/lng + a viewer_device), so it is exactly the location trail data
+//      minimization should not let accumulate. We cascade-delete it the moment its
+//      pin dies, and age it out at INTERACTION_RETENTION_DAYS so even a permanent
+//      (signed-in) pin's encounter trail can't grow unbounded.
+//
+// Retention window — interactions: 180 days. Rationale: long enough that an owner's
+// dashboard inbox + the earnings history a `pay` row backs stay useful across a
+// reasonable review horizon, short enough that the location trail has a hard, known
+// ceiling. The geo-bearing columns (lat/lng) duplicate the pin's own location and
+// are kept only for the lifetime of the row precisely because the row is bounded by
+// this window + the orphan cascade; we age out the raw row rather than null its
+// coordinates so nothing about a months-old encounter survives. `pay` rows age out
+// on the same clock — the durable earnings signal an owner cares about is recent,
+// and a 180-day-old settlement is already on-chain (the source of truth), so we do
+// not keep a stale geo-tagged copy of it indefinitely.
 //
 // Hidden pins are NOT deleted here: a moderation-hidden pin is queued for review +
 // owner appeal, not garbage. It's reaped only when its own expiry passes (anon) or
@@ -47,10 +65,11 @@ export default wrap(async (req, res) => {
 	// they may not exist yet. A reaper that hard-depended on them would throw
 	// `relation does not exist` and 500 the hourly cron. Probe with to_regclass
 	// and treat a missing table as "nothing to reap" rather than an error.
-	const [{ pins, reports }] = await sql`
+	const [{ pins, reports, interactions }] = await sql`
 		SELECT
-			to_regclass('public.irl_pins')        AS pins,
-			to_regclass('public.irl_pin_reports') AS reports
+			to_regclass('public.irl_pins')         AS pins,
+			to_regclass('public.irl_pin_reports')  AS reports,
+			to_regclass('public.irl_interactions') AS interactions
 	`;
 
 	// Expired anon pins, ≥ 1 day past expiry. expires_at IS NULL ⇒ permanent ⇒ kept.
@@ -76,10 +95,37 @@ export default wrap(async (req, res) => {
 			: await sql`DELETE FROM irl_pin_reports RETURNING id`;
 	}
 
+	// Interactions — the location trail. Two sweeps, both existence-guarded so a
+	// fresh DB never 500s:
+	//   a. orphaned — the pin is gone, so the encounter record is moot (mirrors the
+	//      report orphan sweep). With no pins table at all, every interaction is an
+	//      orphan, so purge them all.
+	//   b. aged-out — older than the retention window regardless of pin state, so a
+	//      permanent pin's trail can't accumulate forever.
+	// A single re-run after a clean sweep deletes nothing new (idempotent): both
+	// predicates are empty once the table holds only live, in-window rows.
+	let reapedInteractions = [];
+	if (interactions) {
+		const orphaned = pins
+			? await sql`
+				DELETE FROM irl_interactions ix
+				WHERE NOT EXISTS (SELECT 1 FROM irl_pins p WHERE p.id = ix.pin_id)
+				RETURNING ix.id
+			`
+			: await sql`DELETE FROM irl_interactions RETURNING id`;
+		const aged = await sql`
+			DELETE FROM irl_interactions
+			WHERE created_at < NOW() - INTERVAL '180 days'
+			RETURNING id
+		`;
+		reapedInteractions = [...orphaned, ...aged];
+	}
+
 	return json(res, 200, {
 		ok: true,
 		reapedPins: reapedPins.length,
 		reapedReports: reapedReports.length,
+		reapedInteractions: reapedInteractions.length,
 		ts: Date.now(),
 	});
 });

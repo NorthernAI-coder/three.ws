@@ -25,8 +25,9 @@ It is deliberately **not** a Vercel cron: hourly ticks can't snipe a launch.
 | `first-claim-watch.js` | `startFirstClaimWatch` — polls the fee-claim stream, scores first-ever claims, holds the owner-set delay, snipes via `executeBuy`. |
 | `keys.js` | `loadAgentKeypair` — decrypts the agent secret via `recoverSolanaAgentKeypair`, TTL-cached, audited. |
 | `trade-client.js` | Wraps `PumpTradeClient`; `signAndSend` assembles a v0 tx, signs with the agent keypair, broadcasts, confirms. |
-| `executor.js` | `executeBuy` / `executeSell` — every guardrail, the idempotency lock, the only place that signs. |
-| `positions.js` | `runPositionSweep` — re-quotes open positions and triggers exits. |
+| `executor.js` | `executeBuy` / `executeSell` — every guardrail, the idempotency lock, the only place that signs. Routes graduated coins through the AMM. |
+| `positions.js` | `runPositionSweep` — re-quotes open positions (curve OR AMM) and triggers exits. |
+| `amm-exit.js` | `quoteAmmSell` / `buildAmmSellInstructions` / `isGraduated` — post-graduation AMM pricing + sell build (shared with the user-driven path's pool resolution). |
 
 State lives in two tables (migrations `…20260615020000_agent_sniper.sql` +
 `…20260615030000_sniper_first_claim.sql`): `agent_sniper_strategies` (owner-armed
@@ -95,9 +96,26 @@ Arm a test agent (owned by you, wallet funded with a little SOL) by inserting a
 strategy row, then watch it score → open → exit. Flip to `SNIPER_MODE=live`
 with tiny caps to land one real trade. `Ctrl-C` drains in-flight buys and exits.
 
-## Known gap (fast-follow)
+## Graduated-position exit
 
-Bonding-curve exits only. A position that **graduates** mid-hold can't be sold on
-the curve — it's flagged `exit_reason='graduated'` and parked for the AMM-exit
-follow-up (via `buildPumpSwapInnerIx`). Short `max_hold_seconds` / take-profit
-keep most positions exiting before graduation in the meantime.
+A position whose coin **graduates** off the bonding curve mid-hold is exited
+automatically through the canonical pump AMM pool — it never parks. The
+bonding-curve sell path detects graduation (the SDK's `CoinGraduatedError`), then
+re-routes the same exit through `amm-exit.js` (`buildAmmSellInstructions`), which
+reuses the platform's pool resolution (`getAmmPoolState`) and `PumpAmmSdk`
+(`sellBaseInput`) — identical to the user-driven sell in `api/pump/[action].js`.
+The slippage-derived min-out floor is embedded on-chain, so a thin post-graduation
+pool can't sandwich the exit.
+
+`runPositionSweep` re-quotes graduated positions off the AMM (not the dead curve),
+so stop-loss / trailing / take-profit / timeout keep firing against the real
+post-graduation price, and PnL is computed against the live AMM quote. A position
+flagged `error='graduated:awaiting_amm_exit'` is re-quoted and exited on the next
+sweep — no terminal park state.
+
+To clear a backlog (or force the exit right after deploy instead of waiting for
+the next poll), run the one-shot backfill — idempotent, honors `SNIPER_MODE`:
+
+```bash
+SNIPER_MODE=simulate node scripts/sniper-backfill-graduated.mjs
+```

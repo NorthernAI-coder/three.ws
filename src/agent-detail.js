@@ -24,14 +24,12 @@ const solanaWeb3 = {
 	LAMPORTS_PER_SOL,
 	clusterApiUrl,
 };
-import { openSwapModal } from './swap-jupiter.js';
 import { onchainBadgeEl } from './shared/onchain-badge.js';
 import { mountValidationBadge } from './shared/validation-badge.js';
 import { seeInWorldHref, agentAvatarGlb } from './shared/agent-3d.js';
 import { renderError as renderAsyncError } from './shared/async-state.js';
 import { skeletonHTML } from './shared/state-kit.js';
 import { openCoinLaunch } from './shared/agent-coin.js';
-import { Modal } from './shared/modal.js';
 import { showSharePanel } from './shared/share.js';
 import { enrichAgentDetail, renderEmbed as renderAgentEmbed } from './agent-detail-market.js';
 import { log } from './shared/log.js';
@@ -741,7 +739,7 @@ function render(agent) {
 	}
 
 	document.querySelector('.ad-main').classList.remove('loading');
-	bindWalletActions(agent.isOwner);
+	bindWalletActions(agent);
 	mountOwnerBar(agent);
 	wireShareButton(agent);
 
@@ -1454,115 +1452,6 @@ function renderEmbedPolicy(p) {
 	card.style.display = '';
 }
 
-const SOL_NAME_RE = /^[a-z0-9-]{1,63}(?:\.[a-z0-9-]{1,63})*(?:\.sol)?$/i;
-const SOL_ADDR_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
-
-// In-flight resolution token — used by both the typeahead and the confirm
-// handler so the latter doesn't fire while a lookup is still pending and so a
-// stale typeahead response can't overwrite a newer one.
-function makeSnsResolver(inputEl, statusEl) {
-	let seq = 0;
-	let lastInput = '';
-	let lastResolved = null; // { name: 'foo.sol', address: 'BASE58' } | { name: null, address: 'raw' } | null
-	let pending = null;
-
-	function setStatus(kind, text) {
-		statusEl.hidden = !text;
-		statusEl.textContent = text || '';
-		statusEl.className = `ad-resolved${kind ? ` ${kind}` : ''}`;
-	}
-
-	async function lookup(name) {
-		const myId = ++seq;
-		pending = (async () => {
-			try {
-				const r = await fetch(`/api/sns?name=${encodeURIComponent(name)}`, {
-					credentials: 'include',
-				});
-				if (myId !== seq) return null; // superseded
-				if (!r.ok) {
-					const j = await r.json().catch(() => ({}));
-					setStatus('warn', j?.error_description || `lookup failed (${r.status})`);
-					lastResolved = null;
-					return null;
-				}
-				const { data } = await r.json();
-				if (myId !== seq) return null;
-				// A miss is now a 200 with `resolved: false` / `address: null`, not a 404.
-				if (!data?.address) {
-					setStatus('warn', `${name} does not resolve`);
-					lastResolved = null;
-					return null;
-				}
-				setStatus('ok', `→ ${data.address}`);
-				lastResolved = { name: data.name, address: data.address };
-				return lastResolved;
-			} catch (err) {
-				if (myId === seq) setStatus('warn', err.message || 'lookup failed');
-				return null;
-			} finally {
-				if (myId === seq) pending = null;
-			}
-		})();
-		return pending;
-	}
-
-	function onInput() {
-		const raw = inputEl.value.trim();
-		if (raw === lastInput) return;
-		lastInput = raw;
-		seq++; // invalidate any in-flight lookup
-		pending = null;
-		lastResolved = null;
-
-		if (!raw) {
-			setStatus('', '');
-			return;
-		}
-		if (SOL_ADDR_RE.test(raw)) {
-			lastResolved = { name: null, address: raw };
-			setStatus('', '');
-			return;
-		}
-		if (/\.sol$/i.test(raw) || (SOL_NAME_RE.test(raw) && !SOL_ADDR_RE.test(raw))) {
-			setStatus('loading', 'Resolving .sol…');
-			// debounce briefly so we don't fire for every keystroke
-			const myId = seq;
-			setTimeout(() => {
-				if (myId !== seq) return;
-				lookup(raw);
-			}, 300);
-			return;
-		}
-		setStatus('warn', 'Not a valid Solana address or .sol name');
-	}
-
-	async function resolveForSubmit() {
-		// If a lookup is in flight, wait for it.
-		if (pending) await pending;
-		const raw = inputEl.value.trim();
-		if (!raw) return null;
-		if (lastResolved?.address) return lastResolved.address;
-		if (SOL_ADDR_RE.test(raw)) return raw;
-		if (/\.sol$/i.test(raw) || SOL_NAME_RE.test(raw)) {
-			const r = await lookup(raw);
-			return r?.address || null;
-		}
-		return null;
-	}
-
-	function reset() {
-		seq++;
-		pending = null;
-		lastInput = '';
-		lastResolved = null;
-		setStatus('', '');
-	}
-
-	inputEl.addEventListener('input', onInput);
-	return { resolveForSubmit, reset };
-}
-
 function wireShareButton(agent) {
 	const origin   = location.origin;
 	const shareUrl = `${origin}/agent/${agent.id}/share`;
@@ -1760,149 +1649,40 @@ async function openDeployModalFromDetail(agent) {
 	}
 }
 
-function bindWalletActions(isOwner) {
-	// Receive / Withdraw / Swap act on funds the viewer controls, not the agent's
-	// on-chain wallet — there is no client-side key for the agent address. Showing
-	// them under AGENT HOLDINGS on agents the viewer doesn't own misrepresents what
-	// they do (it reads as "move the agent's SOL"). Server-side ownership is the
-	// authoritative signal: /api/agents/:id only returns user_id to the owner, which
-	// is what `isOwner` reflects. Hide the actions for everyone else; the balance and
-	// address above stay visible as read-only info.
+function bindWalletActions(agent) {
+	// AGENT HOLDINGS shows the agent's custodial Solana address + balance as
+	// read-only info for everyone. Funding, trading, paying, and withdrawing the
+	// agent's OWN custodial wallet all live in one place — the Agent Wallet hub
+	// (/agent/:id/wallet) — so this card just links there for the owner. The hub
+	// owns every wallet action; the detail page no longer re-implements them.
 	const actions = document.getElementById('ad-holdings-actions');
-	if (!isOwner) {
-		if (actions) actions.style.display = 'none';
+	if (!actions) return;
+
+	const isOwner = !!(agent?.isOwner ?? agent?.is_owner);
+	// The legacy Receive QR popover lives in the same card; the hub's Deposit tab
+	// supersedes it, so keep it hidden whether or not the user owns the agent.
+	const qrCodeContainer = document.getElementById('qr-code-container');
+	if (qrCodeContainer) qrCodeContainer.classList.add('hidden');
+
+	const agentId = agent?.id;
+	if (!isOwner || !agentId) {
+		actions.style.display = 'none';
 		return;
 	}
 
-	const receiveBtn = document.getElementById('receive-btn');
-	const withdrawBtn = document.getElementById('withdraw-btn');
-	const swapBtn = document.getElementById('swap-btn');
-	const qrCodeContainer = document.getElementById('qr-code-container');
-	const qrCodeCanvas = document.getElementById('qr-code');
-	const walletAddressSpan = document.getElementById('ad-holdings-addr');
-
-	receiveBtn.addEventListener('click', () => {
-		const walletAddress = walletAddressSpan.dataset.full;
-		if (walletAddress) {
-			qrCodeContainer.classList.toggle('hidden');
-			if (!qrCodeContainer.classList.contains('hidden')) {
-				new QRious({
-					element: qrCodeCanvas,
-					value: walletAddress,
-					size: 160,
-				});
-			}
-		}
-	});
-
-	// Build the withdraw modal using the shared Modal primitive
-	const bodyEl = document.createElement('div');
-	bodyEl.innerHTML = `
-		<div class="ad-form-group">
-			<label for="withdraw-amount">Amount (SOL)</label>
-			<input type="number" id="withdraw-amount" class="ad-input" placeholder="0.0">
-		</div>
-		<div class="ad-form-group">
-			<label for="recipient-address">Recipient address or .sol name</label>
-			<input type="text" id="recipient-address" class="ad-input"
-				placeholder="Wallet address or yourname.sol" autocomplete="off" spellcheck="false">
-			<div id="recipient-resolved" class="ad-resolved" hidden></div>
-		</div>
-	`;
-
-	const actionsEl = document.createElement('div');
-	actionsEl.innerHTML = `
-		<button id="cancel-withdraw-btn" class="ad-btn" type="button">Cancel</button>
-		<button id="confirm-withdraw-btn" class="ad-btn ad-btn-primary" type="button">Confirm Withdraw</button>
-	`;
-
-	const withdrawModal = new Modal({
-		title: 'Withdraw SOL',
-		body: bodyEl,
-		actions: actionsEl,
-	});
-
-	const withdrawAmountInput = withdrawModal.bodyEl.querySelector('#withdraw-amount');
-	const recipientAddressInput = withdrawModal.bodyEl.querySelector('#recipient-address');
-	const recipientResolvedEl = withdrawModal.bodyEl.querySelector('#recipient-resolved');
-	const cancelWithdrawBtn = withdrawModal.actionsEl.querySelector('#cancel-withdraw-btn');
-	const confirmWithdrawBtn = withdrawModal.actionsEl.querySelector('#confirm-withdraw-btn');
-	const snsResolver = makeSnsResolver(recipientAddressInput, recipientResolvedEl);
-
-	withdrawBtn.addEventListener('click', () => {
-		withdrawModal.open(withdrawBtn);
-	});
-
-	cancelWithdrawBtn.addEventListener('click', () => {
-		withdrawModal.close();
-	});
-
-	confirmWithdrawBtn.addEventListener('click', async () => {
-		if (!wallet) {
-			alert('Please connect your wallet first.');
-			return;
-		}
-
-		const amount = parseFloat(withdrawAmountInput.value);
-		const typedRecipient = recipientAddressInput.value.trim();
-
-		if (isNaN(amount) || amount <= 0) {
-			alert('Please enter a valid amount.');
-			return;
-		}
-
-		if (!typedRecipient) {
-			alert('Please enter a recipient address.');
-			return;
-		}
-
-		confirmWithdrawBtn.disabled = true;
-		try {
-			const recipientAddress = await snsResolver.resolveForSubmit();
-			if (!recipientAddress) {
-				alert(`Could not resolve "${typedRecipient}" to a Solana address.`);
-				return;
-			}
-
-			const recipientPubKey = new solanaWeb3.PublicKey(recipientAddress);
-			const transaction = new solanaWeb3.Transaction().add(
-				solanaWeb3.SystemProgram.transfer({
-					fromPubkey: wallet,
-					toPubkey: recipientPubKey,
-					lamports: amount * solanaWeb3.LAMPORTS_PER_SOL,
-				}),
-			);
-
-			transaction.feePayer = wallet;
-			const { blockhash } = await connection.getRecentBlockhash();
-			transaction.recentBlockhash = blockhash;
-
-			const provider = getProvider();
-			const signedTransaction = await provider.signTransaction(transaction);
-			const signature = await connection.sendRawTransaction(signedTransaction.serialize());
-			await connection.confirmTransaction(signature);
-
-			const displayTarget =
-				typedRecipient === recipientAddress
-					? recipientAddress
-					: `${typedRecipient} (${recipientAddress})`;
-			alert(`Withdrawal of ${amount} SOL to ${displayTarget} successful!`);
-
-			withdrawModal.close();
-			withdrawAmountInput.value = '';
-			recipientAddressInput.value = '';
-			snsResolver.reset();
-		} catch (error) {
-			log.error('Withdrawal failed:', error);
-			alert(`Withdrawal failed: ${error.message}`);
-		} finally {
-			confirmWithdrawBtn.disabled = false;
-		}
-	});
-
-	swapBtn.addEventListener('click', () => {
-		openSwapModal({ wallet, getProvider });
-	});
+	// Replace the legacy Receive/Withdraw/Swap buttons with a single entry point
+	// into the wallet hub. One wallet surface, reachable from the profile.
+	actions.innerHTML = '';
+	const manage = document.createElement('a');
+	manage.className = 'ad-btn ad-btn-primary';
+	manage.href = `/agent/${encodeURIComponent(agentId)}/wallet`;
+	manage.textContent = 'Manage wallet';
+	manage.setAttribute('aria-label', 'Open this agent’s wallet hub');
+	const deposit = document.createElement('a');
+	deposit.className = 'ad-btn';
+	deposit.href = `/agent/${encodeURIComponent(agentId)}/wallet#deposit`;
+	deposit.textContent = 'Deposit';
+	actions.append(manage, deposit);
 }
 
 function renderNotFound(id, reason) {

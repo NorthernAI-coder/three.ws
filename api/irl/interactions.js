@@ -24,6 +24,17 @@
  *   Returns newest-first, joined with the pin's avatar name + caption.
  *
  * GET /api/irl/interactions?pinId=<id>          — public count for one pin
+ *
+ * ── Retention / data-minimization (H6) ───────────────────────────────────────
+ * Each row snapshots the pin's lat/lng + a viewer_device, so it's a location trail
+ * ("device X was at coordinate Y at time T") that must not accumulate. The hourly
+ * reaper (api/cron/irl-reap.js) cascade-deletes a row the moment its pin is gone and
+ * ages out any row older than 180 days regardless of pin state, so even a permanent
+ * pin's encounter trail is bounded. The created_at index below keeps that age-out
+ * sweep index-backed. The lat/lng columns duplicate the pin's own location, but they
+ * earn their keep: the owner inbox + the SSE stream render the row WITHOUT joining
+ * back to a possibly-deleted pin, and the row is bounded by the reaper above — so we
+ * keep the geo snapshot on the (short-lived) row rather than re-deriving it on read.
  */
 
 import { cors, json, wrap, rateLimited } from '../_lib/http.js';
@@ -109,6 +120,8 @@ async function ensureTable() {
 	`;
 	await sql`CREATE INDEX IF NOT EXISTS irl_interactions_pin ON irl_interactions (pin_id, created_at DESC)`;
 	await sql`CREATE INDEX IF NOT EXISTS irl_interactions_viewer ON irl_interactions (viewer_device, pin_id, type)`;
+	// Index-backs the reaper's age-out sweep (DELETE … WHERE created_at < NOW() - 180d).
+	await sql`CREATE INDEX IF NOT EXISTS irl_interactions_created ON irl_interactions (created_at)`;
 	// Earnings columns (C4) — populated for type='pay'. amount is in the asset's
 	// atomic units; currency_mint is $THREE or USDC; payload carries the on-chain
 	// signature, network, and any structured context (geo, settlement detail).

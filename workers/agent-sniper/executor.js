@@ -261,8 +261,12 @@ export async function executeSell({ cfg, position, reason }) {
 		} catch (err) {
 			// A failed sell must NOT terminate the position — leave it 'open' so the
 			// next tick retries the exit rather than stranding the bag as 'failed'.
-			await sql`UPDATE agent_sniper_positions SET status = 'open', error = ${errCode(err)}, last_quoted_at = now() WHERE id = ${position.id}`;
-			log.warn('sell failed (will retry)', { ...tag, code: errCode(err), err: err?.message });
+			// Preserve the graduated marker so the retry stays on the AMM path instead
+			// of bouncing back through the dead curve to rediscover graduation.
+			const wasGraduated = typeof position.error === 'string' && position.error.startsWith('graduated');
+			const errState = wasGraduated ? `graduated:amm_exit_retry:${errCode(err)}` : errCode(err);
+			await sql`UPDATE agent_sniper_positions SET status = 'open', error = ${errState}, last_quoted_at = now() WHERE id = ${position.id}`;
+			log.warn('sell failed (will retry)', { ...tag, code: errCode(err), graduated: wasGraduated, err: err?.message });
 			return { status: 'retry', reason: errCode(err) };
 		}
 	});

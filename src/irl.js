@@ -58,6 +58,13 @@ import { anchorPoseToPin } from './irl/floor-anchor.js';
 import { initRoomMode } from './irl/room-mode.js';
 import { isFiniteReading, isCompassFresh, shouldUseAbsoluteYaw, resolveLockYaw, clampPitch } from './irl/sensor-fusion.js';
 import { pinBandAction } from './irl/proximity-band.js';
+import {
+	shouldCueArrival,
+	relativeBearing,
+	isFacingAgent,
+	edgeNudgePlacement,
+	nearestAgent,
+} from './irl/proximity-cue.js';
 import { loadInto } from './shared/async-state.js';
 import { openMapPlacePicker } from './irl/map-place.js';
 import { openPrivacyCenter, maybeShowFirstRunDisclosure, getDiscoveryPrecision } from './irl/privacy-center.js';
@@ -1331,8 +1338,10 @@ function onGPSPosition(pos) {
 
 	// First fix: GPS is live, so the user can place + manage pins from here.
 	if (!wasReady) revealMyPinsBtn();
-	// First fix: open the live pin stream for this location (D1). Falls back to the
-	// poll automatically if the realtime host is unreachable.
+	// First fix: start the proximity poll (the sole pin-discovery transport) and join
+	// the presence/reaction socket for this geocell. Pins are NOT streamed — they ride
+	// the ~10 s REST poll; the socket carries only live presence + ambient reactions,
+	// and the poll runs the whole session even if that socket never connects.
 	if (!wasReady) startPinSync();
 
 	// A lock was requested before the first fix — finish anchoring now that we
@@ -2711,9 +2720,9 @@ function cancelPinGLB(pin) {
 	if (pin._glbLoading) glbQueue.cancel(p => p === pin);
 }
 
-// Apply a re-skin (C6) detected by the nearby-poll diff or a D1 pin_updated push:
-// adopt the new versioned avatar_url + name and swap the rendered GLB. Cheap when
-// nothing changed (version equal) so it's safe to call for every incoming pin.
+// Apply a re-skin (C6) detected by the nearby-poll diff: adopt the new versioned
+// avatar_url + name and swap the rendered GLB. Cheap when nothing changed (version
+// equal) so it's safe to call for every incoming pin.
 function applyPinUpdate(pin, next) {
 	const nextVer = Number(next.avatar_version) || 0;
 	const prevVer = Number(pin.avatar_version) || 0;
@@ -2743,16 +2752,6 @@ function reloadPinGLB(pin) {
 	showDot(pin);
 }
 
-// Realtime hook (D1) — entry point a `pin_updated { id, avatar_url,
-// avatar_version }` event calls so co-located viewers swap a re-skinned agent's
-// GLB the instant the owner saves, without waiting for the next nearby poll. The
-// poll diff is the durable fallback; this just makes it feel instant. When Epic
-// D's geohash-room transport lands, dispatch its pin_updated payloads here.
-export function handleRealtimePinUpdate(evt) {
-	if (!evt || evt.type !== 'pin_updated' || !evt.id) return;
-	const pin = nearbyPins.find(p => p.id === evt.id);
-	if (pin) applyPinUpdate(pin, evt);
-}
 
 function updateNearbyBadge() {
 	const badge = document.getElementById('irl-nearby-badge');
@@ -4946,7 +4945,7 @@ async function saveCalibrate() {
 			throw new Error(m);
 		}
 		// Commit the corrected pose onto the live pin so it persists this session and
-		// every nearby viewer's next re-fetch picks it up (realtime push rides on D1).
+		// every nearby viewer picks it up on their next proximity re-fetch (~10 s).
 		pin.lat = _cal.lat; pin.lng = _cal.lng;
 		pin.anchor_yaw_deg = _cal.yaw; pin.heading = Math.round(_cal.yaw);
 		pin.anchor_height_m = _cal.height;
