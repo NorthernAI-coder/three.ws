@@ -76,7 +76,8 @@ export async function runClubPayoutSweep({ send = sendClubPayout } = {}) {
 			t.asset,
 			array_agg(t.id) as tip_ids,
 			sum(t.amount_atomics)::text as total_atomics,
-			count(t.*)::int as tip_count
+			count(t.*)::int as tip_count,
+			min(t.created_at) as oldest_tip
 		from club_tips t
 		join club_dancer_wallets d on d.dancer = t.dancer
 		where t.paid_at is null
@@ -109,7 +110,19 @@ export async function runClubPayoutSweep({ send = sendClubPayout } = {}) {
 				reason: 'no_wallet',
 				tip_count: tipIds.length,
 			});
-			console.warn(`[club-payouts] no ${network} wallet for dancer ${group.dancer} — skipping ${tipIds.length} tips`);
+			// A dancer who simply hasn't onboarded a payout wallet is an
+			// expected steady state — tips stay unpaid and sweep the moment a
+			// wallet is registered, so don't escalate to a warning every tick
+			// (that buries real warnings). Only warn once the oldest tip has
+			// been stuck long enough that ops should chase a wallet.
+			const oldestMs = group.oldest_tip ? new Date(group.oldest_tip).getTime() : NaN;
+			const stuckHours = Number.isFinite(oldestMs) ? (Date.now() - oldestMs) / 3_600_000 : 0;
+			const msg = `[club-payouts] no ${network} wallet for dancer ${group.dancer} — skipping ${tipIds.length} tips`;
+			if (stuckHours >= 24) {
+				console.warn(`${msg} (oldest unpaid ${Math.round(stuckHours)}h ago — register a payout wallet)`);
+			} else {
+				console.info(msg);
+			}
 			continue;
 		}
 		if (expectedAsset && group.asset && group.asset !== expectedAsset) {
