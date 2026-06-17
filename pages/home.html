@@ -999,21 +999,7 @@
 		@media (max-width: 480px) { .foot-inner { flex-direction: column; align-items: flex-start; } .foot-ca { width: 100%; justify-content: flex-start; } }
 
 		/* ── HERO LOADING ───────────────────────────────────────── */
-		.hero-stage-shimmer {
-			position: absolute; inset: 0; z-index: 1;
-			display: flex; align-items: center; justify-content: center;
-			transition: opacity 0.6s ease;
-		}
-		.hero-stage-shimmer.hidden { opacity: 0; pointer-events: none; }
-		.hero-stage-shimmer::before {
-			content: ""; width: 120px; height: 120px; border-radius: 50%;
-			background: radial-gradient(circle, rgba(255,255,255,0.06) 0%, transparent 70%);
-			animation: hero-pulse 2.4s ease-in-out infinite;
-		}
-		@keyframes hero-pulse {
-			0%, 100% { transform: scale(1); opacity: 0.5; }
-			50% { transform: scale(1.3); opacity: 1; }
-		}
+		.hero-stage agent-3d .skeleton { display: none !important; }
 		.hero-stage agent-3d {
 			position: absolute; inset: 0; display: block; width: 100%; height: 100%;
 			opacity: 0; transition: opacity 0.8s cubic-bezier(.2,.7,.3,1);
@@ -1064,7 +1050,6 @@
 		@media (prefers-reduced-motion: reduce) {
 			.reveal, .hero-text > * { opacity: 1 !important; transform: none !important; transition: none !important; }
 			.hero-stage agent-3d { opacity: 1 !important; transition: none !important; }
-			.hero-stage-shimmer { display: none !important; }
 		}
 
 		/* ── HERO ANIMATION CHIPS ────────────────────────────────── */
@@ -2475,7 +2460,6 @@
 		</div>
 	</div>
 	<div class="hero-stage" id="hero-stage">
-		<div class="hero-stage-shimmer" id="hero-shimmer"></div>
 		<div class="hero-stage-inner" id="hero-stage-inner"></div>
 		<div class="hero-chips-wrap" id="hero-chips-wrap">
 			<div class="hero-chips-label">
@@ -4931,32 +4915,28 @@
 		return el;
 	}
 	async function bootHeroAvatar() {
-		const heroInner = document.getElementById('hero-stage-inner');
-		const shimmer = document.getElementById('hero-shimmer');
+		const heroInner = document.getElementById(‘hero-stage-inner’);
 		try {
 			const r = await fetch(`${location.origin}/api/avatars/${AVATAR_ID}`);
-			if (!r.ok) throw new Error('HTTP ' + r.status);
+			if (!r.ok) throw new Error(‘HTTP ‘ + r.status);
 			const d = await r.json();
 			const glb = devProxyGlb(d.avatar?.model_url || d.avatar?.url);
-			if (!glb) throw new Error('no model url');
+			if (!glb) throw new Error(‘no model url’);
 			if (heroInner) {
-				heroInner.innerHTML = '';
+				heroInner.innerHTML = ‘’;
 				const heroEl = spawnAgent(glb);
 				heroInner.appendChild(heroEl);
 				initHeroWalk(heroEl);
 				initHeroChips(heroEl);
 			}
 		} catch (e) {
-			console.warn('[home] avatar boot failed', e);
-			// Designed fallback — never leave the hero shimmering forever on a network failure.
-			if (shimmer) shimmer.classList.add('hidden');
+			console.warn(‘[home] avatar boot failed’, e);
 			if (heroInner) {
-				heroInner.innerHTML = '<div class="hero-stage-fallback" role="status">'
-					+ '<p>The live preview couldn’t load right now.</p>'
-					+ '<button type="button" class="btn btn--sm" id="hero-retry">Retry</button></div>';
-				heroInner.querySelector('#hero-retry')?.addEventListener('click', () => {
-					if (shimmer) shimmer.classList.remove('hidden');
-					heroInner.innerHTML = '';
+				heroInner.innerHTML = ‘<div class="hero-stage-fallback" role="status">’
+					+ ‘<p>The live preview couldn’t load right now.</p>’
+					+ ‘<button type="button" class="btn btn--sm" id="hero-retry">Retry</button></div>’;
+				heroInner.querySelector(‘#hero-retry’)?.addEventListener(‘click’, () => {
+					heroInner.innerHTML = ‘’;
 					bootHeroAvatar();
 				});
 			}
@@ -5787,15 +5767,11 @@
 	// ── Hero agent loaded state ─────────────────────────────────────
 	{
 		const heroStage = document.getElementById('hero-stage');
-		const shimmer = document.getElementById('hero-shimmer');
 		if (heroStage) {
 			const checkLoaded = () => {
 				const agentEl = heroStage.querySelector('agent-3d');
 				if (!agentEl) return;
-				const markLoaded = () => {
-					agentEl.classList.add('loaded');
-					if (shimmer) shimmer.classList.add('hidden');
-				};
+				const markLoaded = () => { agentEl.classList.add('loaded'); };
 				agentEl.addEventListener('agent:ready', markLoaded, { once: true });
 				if (agentEl._viewer) markLoaded();
 			};

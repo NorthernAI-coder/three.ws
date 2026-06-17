@@ -125,7 +125,16 @@ export async function runClubPayoutSweep({ send = sendClubPayout } = {}) {
 			const stuckHours = Number.isFinite(oldestMs) ? (Date.now() - oldestMs) / 3_600_000 : 0;
 			const msg = `[club-payouts] no ${network} wallet for dancer ${group.dancer} — skipping ${tipIds.length} tips`;
 			if (stuckHours >= 24) {
-				console.warn(`${msg} (oldest unpaid ${Math.round(stuckHours)}h ago — register a payout wallet)`);
+				// Warn at most once per 24-hour period — this cron runs every 5 minutes so
+				// without the gate the same message would log ~288 times a day per dancer.
+				// Detect boundary crossing: floor(stuckHours/24) increments exactly once
+				// each day regardless of cron jitter.
+				const CRON_INTERVAL_H = 5 / 60;
+				const dayNow = Math.floor(stuckHours / 24);
+				const dayPrior = Math.floor((stuckHours - CRON_INTERVAL_H) / 24);
+				if (dayNow > dayPrior) {
+					console.warn(`${msg} (oldest unpaid ${Math.round(stuckHours)}h ago — register a payout wallet)`);
+				}
 			} else {
 				console.info(msg);
 			}

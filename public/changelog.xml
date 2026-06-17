@@ -119,6 +119,14 @@
 			<description>Your IRL Agents dashboard now has a real outfit editor. Open Change outfit on any agent you've placed and a live 3D preview loads with wardrobe controls for the exact layers that avatar has — recolour its hair, skin, and clothing, strip back to the base body and dress it up again, or stack on hats, glasses, and earrings. Because your agents are public, the new look is baked into the agent itself and pushed to its real-world pin, so every person who walks up to that spot sees the updated outfit in their camera — not just you. Save when you're happy; the avatar is re-rendered for real before it confirms, the previous look stays untouched if anything fails, and nearby viewers refresh to the new outfit within seconds. Run a seasonal look, brand your agents as staff for an event, or just keep them fresh — all without walking back to where you pinned them.</description>
 		</item>
 		<item>
+			<title>Choose who dances — avatar selector in the Pole Club</title>
+			<link>https://three.ws/club</link>
+			<guid isPermaLink="false">2026-06-17:Choose who dances — avatar selector in the Pole Club</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Every pole card now has an Avatar dropdown so you can pick which 3D avatar dances on each pole. Choose from each dancer's signature look, a set of built-in rigs, or any public avatar from the gallery — the dancer swaps to the new model live, right on stage, with no reload. Your picks are remembered per pole on your next visit. The picker locks for the few seconds a dancer is mid-routine so a swap never interrupts a paid performance, and any model the animation library can't drive falls back to the default rig automatically.</description>
+		</item>
+		<item>
 			<title>Clearer pricing on every agent's skills in the marketplace</title>
 			<link>https://three.ws/marketplace</link>
 			<guid isPermaLink="false">2026-06-17:Clearer pricing on every agent's skills in the marketplace</guid>
@@ -221,6 +229,14 @@
 			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>The marketplace now has working Free / Paid filters. &quot;Paid&quot; surfaces every agent that charges in any way — a one-time price to own it or per-call pricing on its skills — and &quot;Free&quot; shows the rest. Filtering happens on the server, so the result count and &quot;load more&quot; stay accurate no matter how many pages deep you browse, and your choice is saved in the URL so you can bookmark or share a filtered view.</description>
+		</item>
+		<item>
+			<title>Forge resilience: HuggingFace fallback now covers text→3D; club-payout log noise reduced</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-17:Forge resilience: HuggingFace fallback now covers text→3D; club-payout log noise reduced</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>When the NVIDIA NIM free lane returns a 5xx and the Replicate TRELLIS lane is also unavailable, the forge now falls through to the HuggingFace Spaces fallback for text→3D requests (using the FLUX-synthesized intermediate image) instead of returning a 429 to the user. Previously this fallback only fired for image uploads. Club-payout cron warnings for dancers with no registered wallet are now emitted at most once per 24 hours instead of every 5-minute tick.</description>
 		</item>
 		<item>
 			<title>Game-Ready export in Forge — one click to engine-ready GLB + FBX</title>
@@ -445,6 +461,14 @@
 			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>Open three.ws/irl and the agents other people have placed around you now update in real time. When anyone nearby drops a new agent, moves one, changes its outfit, or takes one down, you see it appear, shift, or vanish on your screen within about a second — no refresh, no waiting for the next scan. It works both ways: pin an agent and everyone standing near you sees it pop in too, and walk into a new area and the live view follows you to the agents there. A small status pill next to the nearby count shows whether you're getting live updates; if the realtime connection can't be reached — some networks block it — IRL automatically falls back to refreshing every few seconds and the pill reads 'Polling', still fully working, just a touch slower.</description>
+		</item>
+		<item>
+			<title>Never lose your way in — a minimap on the walk to the Pole Club</title>
+			<link>https://three.ws/club</link>
+			<guid isPermaLink="false">2026-06-17:Never lose your way in — a minimap on the walk to the Pole Club</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The walk-in to the Pole Club now has a live minimap in the top-right corner. It shows a top-down radar of the room you're in, your avatar as an arrow that points the way you're facing, and a pulsing line to the door you're headed for — so you always know which way the exit is. It re-fits to each room as you move from the alley to the gallery to the clubhouse, and the door marker turns green once you're in range to enter.</description>
 		</item>
 		<item>
 			<title>Pay an IRL agent for its services — and open its full profile — right from the card</title>

@@ -642,36 +642,32 @@
 				justify-content: center;
 				text-align: center;
 				padding: 24px;
-				background:
-					radial-gradient(120% 90% at 50% 18%, rgba(255, 59, 214, 0.14), transparent 55%),
-					radial-gradient(110% 80% at 50% 100%, rgba(74, 214, 255, 0.1), transparent 60%),
-					#050308;
+				background: #080808;
 				opacity: 1;
 				transition: opacity 0.7s ease;
 			}
 			.club-loader.is-done { opacity: 0; pointer-events: none; }
-			.club-loader-inner { max-width: 460px; width: 100%; }
+			.club-loader-inner { max-width: 420px; width: 100%; }
 			.club-loader-kicker {
-				font-size: 11px;
-				font-weight: 600;
-				letter-spacing: 0.42em;
+				font-size: 10.5px;
+				font-weight: 500;
+				letter-spacing: 0.38em;
 				text-transform: uppercase;
-				color: var(--accent-2, #4ad6ff);
-				opacity: 0.85;
-				margin-bottom: 14px;
+				color: rgba(255, 255, 255, 0.38);
+				margin-bottom: 20px;
 			}
 			.club-loader-title {
 				margin: 0;
-				font-size: clamp(40px, 11vw, 76px);
+				font-size: clamp(52px, 13vw, 88px);
 				font-weight: 800;
-				line-height: 0.96;
-				letter-spacing: -0.02em;
+				line-height: 0.92;
+				letter-spacing: -0.03em;
 				color: #fff;
-				text-shadow: 0 0 28px rgba(255, 59, 214, 0.55);
+				text-shadow: none;
 			}
 			.club-loader-title span {
 				display: block;
-				background: linear-gradient(92deg, #ff3bd6, #ff8a3b 60%, #4ad6ff);
+				background: linear-gradient(180deg, rgba(255,255,255,0.92) 0%, rgba(255,255,255,0.42) 100%);
 				-webkit-background-clip: text;
 				background-clip: text;
 				-webkit-text-fill-color: transparent;
@@ -679,31 +675,33 @@
 				text-shadow: none;
 			}
 			.club-loader-tagline {
-				margin: 16px auto 28px;
-				max-width: 360px;
-				font-size: 14px;
-				line-height: 1.5;
-				color: var(--text-2, #c2a8d8);
+				margin: 20px auto 32px;
+				max-width: 340px;
+				font-size: 13.5px;
+				line-height: 1.55;
+				color: rgba(255, 255, 255, 0.38);
+				letter-spacing: 0.01em;
 			}
 			.club-loader-track {
-				height: 4px;
+				height: 1px;
 				border-radius: 999px;
-				background: rgba(255, 255, 255, 0.08);
+				background: rgba(255, 255, 255, 0.1);
 				overflow: hidden;
 			}
 			.club-loader-bar {
 				height: 100%;
 				width: 4%;
 				border-radius: 999px;
-				background: linear-gradient(90deg, #ff3bd6, #4ad6ff);
-				box-shadow: 0 0 16px rgba(255, 59, 214, 0.8);
+				background: rgba(255, 255, 255, 0.85);
+				box-shadow: none;
 				transition: width 0.35s cubic-bezier(0.22, 1, 0.36, 1);
 			}
 			.club-loader-status {
-				margin-top: 14px;
-				font-size: 12px;
-				letter-spacing: 0.04em;
-				color: var(--text-3, #7c5d92);
+				margin-top: 16px;
+				font-size: 11px;
+				letter-spacing: 0.06em;
+				color: rgba(255, 255, 255, 0.22);
+				text-transform: uppercase;
 			}
 			@media (prefers-reduced-motion: reduce) {
 				.club-loader, .club-loader-bar { transition: none; }
@@ -780,6 +778,59 @@
 			@media (prefers-reduced-motion: reduce) {
 				.club-journey-step.is-active .cj-dot { animation: none; }
 				.club-journey { transition: opacity 0.6s ease; }
+			}
+
+			/* Minimap — top-down radar of the room you're in: your avatar, the
+			   way you're facing, and a pulsing line to the door you're headed
+			   for. Drawn each frame by src/club-entrance.js. */
+			.club-minimap {
+				position: fixed;
+				top: 70px;
+				right: 18px;
+				z-index: 9445;
+				width: 156px;
+				padding: 9px 9px 7px;
+				border-radius: 14px;
+				background: rgba(8, 5, 12, 0.6);
+				border: 1px solid rgba(255, 59, 214, 0.18);
+				backdrop-filter: blur(10px);
+				-webkit-backdrop-filter: blur(10px);
+				box-shadow: 0 10px 34px -14px rgba(0, 0, 0, 0.85);
+				pointer-events: none;
+				opacity: 0;
+				transform: translateY(-10px);
+				transition: opacity 0.6s ease, transform 0.6s ease;
+			}
+			.club-minimap.is-visible { opacity: 1; transform: translateY(0); }
+			.club-minimap-head {
+				display: flex;
+				align-items: baseline;
+				justify-content: space-between;
+				margin: 0 2px 6px;
+			}
+			.club-minimap-label {
+				font: 600 11px/1 'Inter', system-ui, sans-serif;
+				letter-spacing: 0.08em;
+				text-transform: uppercase;
+				color: #fff;
+			}
+			.club-minimap-tag {
+				font: 600 9px/1 'Inter', system-ui, sans-serif;
+				letter-spacing: 0.1em;
+				text-transform: uppercase;
+				color: var(--text-3, #7c5d92);
+			}
+			.club-minimap-canvas {
+				display: block;
+				width: 138px;
+				height: 110px;
+				border-radius: 8px;
+				background: rgba(255, 255, 255, 0.03);
+			}
+			@media (max-width: 560px) {
+				.club-minimap { top: 58px; right: 12px; width: 120px; padding: 7px 7px 5px; }
+				.club-minimap-canvas { width: 106px; height: 84px; }
+				.club-minimap-tag { display: none; }
 			}
 
 			.club-controls-hint {
@@ -1592,6 +1643,13 @@
 				<li class="club-journey-step" data-step="3"><span class="cj-dot"></span><span class="cj-label">Stage</span></li>
 			</ol>
 		</nav>
+		<div id="club-minimap" class="club-minimap" aria-hidden="true">
+			<div class="club-minimap-head">
+				<span id="club-minimap-label" class="club-minimap-label">Alley</span>
+				<span class="club-minimap-tag">You · Door</span>
+			</div>
+			<canvas id="club-minimap-canvas" class="club-minimap-canvas"></canvas>
+		</div>
 		<div id="club-controls-hint" class="club-controls-hint" role="status" aria-live="polite"></div>
 		<button id="club-door-prompt" type="button" class="club-door-prompt" aria-label="Enter the club">
 			Enter the club <kbd>E</kbd>

@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-17T19:29:05.313Z",
+	"generated_at": "2026-06-17T20:21:48.884Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -152,6 +152,16 @@
 		{
 			"date": "2026-06-17",
 			"type": "update",
+			"title": "Choose who dances — avatar selector in the Pole Club",
+			"summary": "Every pole card now has an Avatar dropdown so you can pick which 3D avatar dances on each pole. Choose from each dancer's signature look, a set of built-in rigs, or any public avatar from the gallery — the dancer swaps to the new model live, right on stage, with no reload. Your picks are remembered per pole on your next visit. The picker locks for the few seconds a dancer is mid-routine so a swap never interrupts a paid performance, and any model the animation library can't drive falls back to the default rig automatically.",
+			"link": "/club",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-17",
+			"type": "update",
 			"title": "Clearer pricing on every agent's skills in the marketplace",
 			"summary": "An agent's detail page now reads cleanly when its skills carry a price. Each skill shows a badge at a glance — green 'Free', a yellow price for paid skills, or an indigo 'Owned' once you've bought it — and when a paid skill offers a free trial or a timed access pass, those now appear as proper buttons styled to match the Purchase button, with hover, focus, and press states. The price badge and action buttons are grouped together on the right of each row instead of spreading out, so a skill with several options stays tidy and easy to scan.",
 			"link": "/marketplace",
@@ -281,6 +291,17 @@
 			"tags": [
 				"feature",
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-17",
+			"type": "update",
+			"title": "Forge resilience: HuggingFace fallback now covers text→3D; club-payout log noise reduced",
+			"summary": "When the NVIDIA NIM free lane returns a 5xx and the Replicate TRELLIS lane is also unavailable, the forge now falls through to the HuggingFace Spaces fallback for text→3D requests (using the FLUX-synthesized intermediate image) instead of returning a 429 to the user. Previously this fallback only fired for image uploads. Club-payout cron warnings for dancers with no registered wallet are now emitted at most once per 24 hours instead of every 5-minute tick.",
+			"link": null,
+			"tags": [
+				"fix",
+				"infra"
 			]
 		},
 		{
@@ -572,6 +593,16 @@
 			"tags": [
 				"feature",
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-17",
+			"type": "update",
+			"title": "Never lose your way in — a minimap on the walk to the Pole Club",
+			"summary": "The walk-in to the Pole Club now has a live minimap in the top-right corner. It shows a top-down radar of the room you're in, your avatar as an arrow that points the way you're facing, and a pulsing line to the door you're headed for — so you always know which way the exit is. It re-fits to each room as you move from the alley to the gallery to the clubhouse, and the door marker turns green once you're in range to enter.",
+			"link": "/club",
+			"tags": [
+				"feature"
 			]
 		},
 		{
