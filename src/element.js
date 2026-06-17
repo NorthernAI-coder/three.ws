@@ -452,16 +452,85 @@ const BASE_STYLE = `
 		transition: opacity 0.4s;
 		pointer-events: none;
 	}
+	/* Loading state — a skeleton avatar silhouette with a shimmer sweep fills
+	   the frame while the GLB streams in (skeletons read as "almost there",
+	   spinners read as "stuck"). Neutral tones so it composites on transparent,
+	   dark, and light hosts alike. */
 	.loading {
 		position: absolute;
-		left: 50%;
-		top: 50%;
-		transform: translate(-50%, -50%);
-		color: var(--agent-on-surface);
-		font: 14px var(--agent-chat-font);
-		background: var(--agent-surface);
-		padding: 8px 14px;
-		border-radius: 999px;
+		inset: 0;
+		display: grid;
+		place-items: stretch;
+		pointer-events: none;
+		z-index: 4;
+	}
+	.skeleton {
+		position: relative;
+		width: 100%;
+		height: 100%;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: flex-end;
+		gap: 2.5%;
+		padding-bottom: 7%;
+		box-sizing: border-box;
+		overflow: hidden;
+		-webkit-mask-image: linear-gradient(180deg, transparent, #000 16%, #000 88%, transparent);
+		mask-image: linear-gradient(180deg, transparent, #000 16%, #000 88%, transparent);
+	}
+	.skeleton-head {
+		width: 22%;
+		max-width: 88px;
+		aspect-ratio: 1;
+		border-radius: 50%;
+		background: var(--agent-skeleton, rgba(148, 148, 168, 0.18));
+	}
+	.skeleton-body {
+		width: 42%;
+		max-width: 168px;
+		height: 46%;
+		border-radius: 44% 44% 24% 24% / 26% 26% 9% 9%;
+		background: var(--agent-skeleton, rgba(148, 148, 168, 0.18));
+	}
+	.skeleton-shimmer {
+		position: absolute;
+		inset: 0;
+		background: linear-gradient(
+			100deg,
+			transparent 30%,
+			rgba(255, 255, 255, 0.13) 50%,
+			transparent 70%
+		);
+		transform: translateX(-100%);
+		animation: agent-skeleton-sweep 1.5s ease-in-out infinite;
+	}
+	@keyframes agent-skeleton-sweep {
+		to { transform: translateX(100%); }
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.skeleton-shimmer { animation: none; opacity: 0.45; transform: none; }
+	}
+	/* Static decoration fallback — a calm avatar silhouette shown when a bare
+	   (chat-less) embed's body fails to load, instead of a blank frame or a
+	   broken/empty canvas. Chat embeds get the richer .error card instead. */
+	.fallback {
+		position: absolute;
+		inset: 0;
+		display: grid;
+		place-items: center;
+		pointer-events: none;
+		z-index: 4;
+		animation: agent-err-in 0.3s ease both;
+	}
+	.fallback svg {
+		width: 38%;
+		max-width: 132px;
+		height: auto;
+		color: rgba(140, 140, 162, 0.5);
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.fallback { animation: none; }
 	}
 	.error, .agent-3d-error {
 		position: absolute;
@@ -661,6 +730,8 @@ class Agent3DElement extends HTMLElement {
 			'avatar-chat',
 			'avatar-walk',
 			'chat',
+			'clip',
+			'framing',
 		];
 	}
 
@@ -706,6 +777,10 @@ class Agent3DElement extends HTMLElement {
 		// WebGL context budget bookkeeping.
 		this._inViewport = false;
 		this._lastVisibleAt = 0;
+		// Decoration fallback + reduced-motion bookkeeping.
+		this._fallbackEl = null;
+		this._mqReduce = null;
+		this._mqReduceHandler = null;
 	}
 
 	connectedCallback() {
@@ -713,6 +788,7 @@ class Agent3DElement extends HTMLElement {
 		this._applyLayout();
 		this._setupResponsive();
 		this._observeViewport();
+		this._setupReducedMotion();
 		// Defer boot until visible unless `eager` attr is present.
 		// Skip boot entirely if no source — wait for src/manifest/body/agent-id
 		// to be set, which triggers reboot via attributeChangedCallback.
@@ -766,6 +842,7 @@ class Agent3DElement extends HTMLElement {
 		this.shadowRoot.replaceChildren();
 		// Null cached element refs so _renderShell recreates them from scratch.
 		this._loadingEl = null;
+		this._fallbackEl = null;
 		this._stageEl = null;
 		this._posterEl = null;
 		this._nameplateEl = null;
@@ -782,6 +859,44 @@ class Agent3DElement extends HTMLElement {
 
 	disconnectedCallback() {
 		this._teardown();
+		this._cleanupReducedMotion();
+	}
+
+	// prefers-reduced-motion lives at the element level (survives budget-driven
+	// teardown/reboot), so a runtime flip of the OS setting re-applies playback:
+	// a held static pose ↔ live motion, without a reload.
+	_setupReducedMotion() {
+		if (this._mqReduce || typeof window === 'undefined' || !window.matchMedia) return;
+		this._mqReduce = window.matchMedia('(prefers-reduced-motion: reduce)');
+		this._mqReduceHandler = () => {
+			if (this._mounted && this._scene && !this._isChatMode()) {
+				this._startDecorationPlayback();
+			}
+		};
+		try {
+			this._mqReduce.addEventListener('change', this._mqReduceHandler);
+		} catch {}
+	}
+
+	_cleanupReducedMotion() {
+		try {
+			if (this._mqReduce && this._mqReduceHandler) {
+				this._mqReduce.removeEventListener('change', this._mqReduceHandler);
+			}
+		} catch {}
+		this._mqReduce = null;
+		this._mqReduceHandler = null;
+	}
+
+	_prefersReducedMotion() {
+		try {
+			return (
+				this._mqReduce?.matches ??
+				window.matchMedia('(prefers-reduced-motion: reduce)').matches
+			);
+		} catch {
+			return false;
+		}
 	}
 
 	attributeChangedCallback(name, oldVal, newVal) {
@@ -811,6 +926,14 @@ class Agent3DElement extends HTMLElement {
 		}
 		if (name === 'avatar-walk' && newVal === 'off') {
 			this._stopWalkAnimation();
+		}
+		if (name === 'framing') {
+			this._viewer?.setFraming?.(newVal === 'portrait' ? 'portrait' : 'full');
+		}
+		// Re-cue decoration playback when the requested clip changes at runtime
+		// (loop-honoring + reduced-motion handled by _startDecorationPlayback).
+		if (name === 'clip' && !this._isChatMode()) {
+			this._startDecorationPlayback();
 		}
 		// Toggling `chat` at runtime flips the whole chrome — rebuild the shell.
 		if (name === 'chat') {
@@ -858,7 +981,14 @@ class Agent3DElement extends HTMLElement {
 
 		const loading = document.createElement('div');
 		loading.className = 'loading';
-		loading.textContent = 'Loading...';
+		loading.setAttribute('role', 'status');
+		loading.setAttribute('aria-label', 'Loading avatar');
+		loading.innerHTML =
+			'<div class="skeleton" aria-hidden="true">' +
+			'<span class="skeleton-head"></span>' +
+			'<span class="skeleton-body"></span>' +
+			'<span class="skeleton-shimmer"></span>' +
+			'</div>';
 		loading.hidden = true;
 		this.shadowRoot.appendChild(loading);
 		this._loadingEl = loading;
@@ -1454,6 +1584,12 @@ class Agent3DElement extends HTMLElement {
 	async _boot() {
 		if (this._booting || this._mounted) return;
 		this._renderShell();
+		// Clear any decoration fallback left by a prior failed attempt so the
+		// fresh boot's skeleton/avatar isn't drawn underneath a stale silhouette.
+		if (this._fallbackEl) {
+			this._fallbackEl.remove();
+			this._fallbackEl = null;
+		}
 		this._booting = true;
 		try {
 			this._loadingEl.hidden = false;
@@ -1530,6 +1666,7 @@ class Agent3DElement extends HTMLElement {
 			// decoration avatar. Chat agents get the full interactive viewer.
 			const viewer = new Viewer(this._stageEl, {
 				kiosk: !this._isChatMode(),
+				framing: this.getAttribute('framing') === 'portrait' ? 'portrait' : 'full',
 			});
 			this._viewer = viewer;
 			viewer._afterAnimateHooks = viewer._afterAnimateHooks || [];
@@ -1560,25 +1697,38 @@ class Agent3DElement extends HTMLElement {
 				}
 				// After the reveal tween completes, shift the orbital target upward
 				// so the avatar's upper body fills the avatar-anchor window rather
-				// than the full canvas height.
-				const _v = viewer;
-				const _nudge = () => {
-					if (_v._cameraTweenRaf) {
-						requestAnimationFrame(_nudge);
-						return;
-					}
-					if (!_v.controls || !_v.content || _v._disposed) return;
-					const box = new Box3().setFromObject(_v.content);
-					const h = box.max.y - box.min.y;
-					const mid = (box.max.y + box.min.y) / 2;
-					_v.controls.target.set(0, mid + h * 0.12, 0);
-					_v.controls.update();
-					_v.invalidate();
-				};
-				requestAnimationFrame(_nudge);
+				// than the full canvas height. Skipped under `framing="portrait"`,
+				// where setContent already places the head-to-mid-thigh crop and an
+				// extra nudge would fight it.
+				if (this.getAttribute('framing') !== 'portrait') {
+					const _v = viewer;
+					const _nudge = () => {
+						if (_v._cameraTweenRaf) {
+							requestAnimationFrame(_nudge);
+							return;
+						}
+						if (!_v.controls || !_v.content || _v._disposed) return;
+						const box = new Box3().setFromObject(_v.content);
+						const h = box.max.y - box.min.y;
+						const mid = (box.max.y + box.min.y) / 2;
+						_v.controls.target.set(0, mid + h * 0.12, 0);
+						_v.controls.update();
+						_v.invalidate();
+					};
+					requestAnimationFrame(_nudge);
+				}
 			}
 			this._scene = new SceneController(viewer);
-			if (bodyURI) this._scene.playClipByName('idle', { loop: true });
+			// Initial playback. Chat avatars idle-loop (then walk on stream); bare
+			// decoration avatars honor the `clip` attribute, the clip's manifest
+			// loop flag, and prefers-reduced-motion via _startDecorationPlayback.
+			if (bodyURI) {
+				if (this._isChatMode()) {
+					this._scene.playClipByName('idle', { loop: true });
+				} else {
+					this._startDecorationPlayback();
+				}
+			}
 
 			// Memory
 			this.dispatchEvent(
@@ -1948,9 +2098,10 @@ class Agent3DElement extends HTMLElement {
 			this._loadingEl.hidden = true;
 			// Resolve errors should already have been caught and replaced with the
 			// default-avatar manifest in _resolveManifest. Anything reaching here is
-			// a deeper boot failure — surface it in chat mode; a bare decoration
-			// avatar stays silent (no error card) and just emits the event.
-			if (this._isChatMode()) this._showError(err);
+			// a deeper boot failure (e.g. the GLB or rig failed to load): chat mode
+			// shows the error card, a bare decoration avatar paints the static
+			// silhouette/poster fallback. Both also emit agent:error below.
+			this._showError(err);
 			this.dispatchEvent(
 				new CustomEvent('agent:error', {
 					detail: { phase: 'boot', error: err },
@@ -2492,9 +2643,13 @@ class Agent3DElement extends HTMLElement {
 	}
 
 	_showError(err) {
-		// Bare avatars never paint an error card — they degrade silently to keep
-		// the decoration clean. Only chat agents surface a visible error.
-		if (!this._isChatMode()) return;
+		// Bare/decoration avatars degrade to a tasteful static silhouette (or the
+		// supplied poster) rather than a chat-style error card — clean decoration,
+		// but never a blank frame or a broken canvas. Chat agents get the card.
+		if (!this._isChatMode()) {
+			this._showDecorationFallback();
+			return;
+		}
 		const raw = (err && (err.message || String(err))) || '';
 		const isWebgl = /webgl|context/i.test(raw);
 		const title = isWebgl ? '3D preview unavailable' : "Couldn't load agent";
@@ -2825,6 +2980,114 @@ class Agent3DElement extends HTMLElement {
 	}
 	async play(name, opts) {
 		return this._scene?.playClipByName(name, opts);
+	}
+
+	/**
+	 * Play a clip with the polished embed defaults, honoring the clip's manifest
+	 * `loop` flag automatically: loop clips loop, one-shot clips play once and
+	 * settle seamlessly into idle (no hard snap at the boundary). Respects
+	 * `prefers-reduced-motion` by holding a clean static idle pose instead.
+	 *
+	 * This is the public entry point an embed should use for decorative playback
+	 * — the host page no longer has to know which clips loop.
+	 *
+	 * @param {string} name
+	 * @param {{ fade_ms?: number, userInitiated?: boolean }} [opts]
+	 *   `userInitiated` plays the motion even under prefers-reduced-motion — an
+	 *   explicit user gesture (e.g. clicking an animation pill) is allowed to
+	 *   animate; only ambient autoplay is suppressed.
+	 */
+	playClip(name, { fade_ms = 400, userInitiated = false } = {}) {
+		if (!userInitiated && this._prefersReducedMotion()) {
+			this._playStaticIdle();
+			return;
+		}
+		this._playDecorationClip(name, fade_ms);
+	}
+
+	/**
+	 * Start initial playback for a bare/decoration avatar: honor the `clip`
+	 * attribute (default idle), the clip's loop flag, and prefers-reduced-motion.
+	 */
+	_startDecorationPlayback() {
+		if (!this._scene) return;
+		if (this._prefersReducedMotion()) {
+			this._playStaticIdle();
+			return;
+		}
+		this._playDecorationClip(this.getAttribute('clip') || 'idle', 400);
+	}
+
+	/**
+	 * Play a clip, deciding loop-vs-one-shot from the animation manifest. One-shot
+	 * clips settle into idle via crossfade so a small looping thumbnail never
+	 * hard-snaps at the clip boundary.
+	 * @param {string} name
+	 * @param {number} fade_ms
+	 */
+	_playDecorationClip(name, fade_ms = 400) {
+		const am = this._viewer?.animationManager;
+		const def = (am?.getAnimationDefs?.() || []).find((d) => d?.name === name);
+		// Unknown clip (e.g. a clip baked into the GLB) → assume it loops cleanly.
+		const loops = def ? def.loop !== false : true;
+		if (loops) {
+			this._scene?.playClipByName(name, { loop: true, fade_ms });
+		} else if (am && typeof am.playOnce === 'function') {
+			am.playOnce(name, { settleTo: 'idle', fade: fade_ms / 1000 });
+		} else {
+			this._scene?.playClipByName(name, { loop: false, fade_ms });
+		}
+	}
+
+	/**
+	 * Reduced-motion path: settle into a single clean idle pose and freeze it, so
+	 * the avatar holds a natural stance with no looping motion — and the viewer's
+	 * render loop can idle (no continuous GPU/CPU cost).
+	 */
+	async _playStaticIdle() {
+		const am = this._viewer?.animationManager;
+		if (!am) {
+			this._scene?.playClipByName('idle', { loop: false, fade_ms: 0 });
+			return;
+		}
+		try {
+			await am.crossfadeTo('idle', 0);
+		} catch {}
+		// Let one frame apply the idle pose, then freeze it.
+		const freeze = () => {
+			if (this._viewer?.animationManager !== am) return; // model swapped meanwhile
+			am.freeze();
+			this._viewer?.invalidate();
+		};
+		this._viewer?.invalidate();
+		requestAnimationFrame(() => requestAnimationFrame(freeze));
+	}
+
+	/**
+	 * Tasteful static fallback for a bare/decoration avatar whose body failed to
+	 * load: keep the poster if one was supplied, otherwise paint a calm avatar
+	 * silhouette — never a blank frame or a broken canvas.
+	 */
+	_showDecorationFallback() {
+		if (this._fallbackEl) return;
+		this._loadingEl && (this._loadingEl.hidden = true);
+		// A poster already fills the frame — just make sure it stays visible.
+		if (this.getAttribute('poster') && this._posterEl) {
+			this._posterEl.style.opacity = '1';
+			return;
+		}
+		const el = document.createElement('div');
+		el.className = 'fallback';
+		el.setAttribute('role', 'img');
+		el.setAttribute('aria-label', 'Avatar preview unavailable');
+		el.innerHTML = `
+			<svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2.4"
+				stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+				<circle cx="32" cy="22" r="11"/>
+				<path d="M12 55a20 20 0 0 1 40 0"/>
+			</svg>`;
+		this.shadowRoot.appendChild(el);
+		this._fallbackEl = el;
 	}
 
 	/**

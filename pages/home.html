@@ -5850,11 +5850,16 @@
 	// ── Live feature agents ─────────────────────────────────────────
 	(function initLiveFeatures() {
 		var O = location.origin;
+		// `clip` is declarative: the <agent-3d> component honors each clip's
+		// manifest loop flag automatically — one-shots (wave) play once and settle
+		// into idle, loops (rumba/idle) loop seamlessly. No forced loop, so the old
+		// celebrate hard-snap is gone. `framing="portrait"` crops head-to-mid-thigh
+		// so the avatar fills the card instead of standing tiny-and-low.
 		var LIVE_SPOTS = [
-			{ id: 'door-create', anim: 'celebrate', loop: true, glb: O + '/avatars/michelle.glb' },
-			{ id: 'door-embed', anim: 'wave', loop: false, glb: O + '/avatars/cz.glb' },
-			{ id: 'bento-studio', anim: 'idle', loop: true, glb: null },
-			{ id: 'bento-anim', anim: 'idle', loop: true, glb: null }
+			{ id: 'door-create',  clip: 'wave',  framing: 'portrait', glb: O + '/avatars/michelle.glb' },
+			{ id: 'door-embed',   clip: 'rumba', framing: 'portrait', glb: O + '/avatars/cz.glb' },
+			{ id: 'bento-studio', clip: 'idle',  framing: 'portrait', glb: null },
+			{ id: 'bento-anim',   clip: 'idle',  framing: 'full',     glb: null }
 		];
 
 		function spawnMini(container, glb, opts) {
@@ -5866,11 +5871,13 @@
 			el.setAttribute('name-plate', 'off');
 			el.setAttribute('avatar-chat', 'off');
 			el.setAttribute('kiosk', '');
+			if (opts.clip) el.setAttribute('clip', opts.clip);
+			if (opts.framing) el.setAttribute('framing', opts.framing);
 			el.setAttribute('eager', '');
 			container.appendChild(el);
-			el.addEventListener('agent:ready', function() {
-				if (el.play) el.play(opts.anim, { loop: opts.loop !== false, fade_ms: 400 });
-			}, { once: true });
+			// The component autoplays the declared clip with the polished embed
+			// defaults (skeleton load state, loop-honoring + one-shot→idle settle,
+			// reduced-motion static pose, offscreen render pause). No ready hook.
 			return el;
 		}
 
@@ -5908,7 +5915,11 @@
 				e.preventDefault(); e.stopPropagation();
 				var clip = btn.dataset.anim;
 				var agent = document.querySelector('#bento-anim agent-3d');
-				if (agent && agent.play) agent.play(clip, { loop: clip === 'idle', fade_ms: 400 });
+				// Explicit user gesture → playClip honors the clip's loop flag,
+				// settles one-shots into idle, and is allowed to animate even under
+				// reduced motion. Fall back to play() on older bundles.
+				if (agent && agent.playClip) agent.playClip(clip, { userInitiated: true });
+				else if (agent && agent.play) agent.play(clip, { loop: clip === 'idle', fade_ms: 400 });
 				animPills.querySelectorAll('.bento-pill-btn').forEach(function(p) { p.classList.remove('active'); });
 				btn.classList.add('active');
 			});

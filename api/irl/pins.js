@@ -846,8 +846,11 @@ export default wrap(async (req, res) => {
 			? Math.min(500, Math.max(0, pose.gpsAccuracyM)) : null;
 		const altitudeM     = Number.isFinite(pose.altitudeM) ? pose.altitudeM : null;
 		// 'webxr' (A1) · 'gyro-gps' (absolute compass heading) · 'gyro-gps:rel'
-		// (page-relative heading only — A3 down-weights its cross-user bearing).
+		// (page-relative heading only — A3 down-weights its cross-user bearing) ·
+		// 'map' (L2: a point chosen on the map, not a live fix — its bearing isn't
+		// compass-trustworthy, same down-weighting as ':rel').
 		const anchorSource  = pose.source === 'webxr' ? 'webxr'
+			: pose.source === 'map' ? 'map'
 			: pose.source === 'gyro-gps:rel' ? 'gyro-gps:rel' : 'gyro-gps';
 
 		// Room frame (optional) — when the client places into a shared room it sends
@@ -923,6 +926,10 @@ export default wrap(async (req, res) => {
 		const body = req.body ?? {};
 		const { id } = body;
 		if (!id) return json(res, 400, { error: 'id required' });
+		// Reject a malformed pin id up front (covers calibrate / outfit / field-edit):
+		// the id is a server-minted UUID, so anything else is a bad request, not a
+		// row that happens not to exist.
+		if (!isValidPinId(id)) return json(res, 400, { error: 'invalid pin id' });
 
 		// ── Calibrate — a small, owner-gated pose correction (A3) ─────────────
 		// Owner-gated for both authenticated owners and the anonymous device that

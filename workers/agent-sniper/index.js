@@ -20,6 +20,16 @@ import { runPositionSweep } from './positions.js';
 import { startFirstClaimWatch } from './first-claim-watch.js';
 import { startIntelWatcher } from './intel/watcher.js';
 import { getLearnedWeights } from './intel/store.js';
+import { startHeartbeat } from './heartbeat.js';
+import { makeErrorTracker } from './error-tracker.js';
+import {
+	alertFeedSilent,
+	alertErrorSpike,
+	alertBoot,
+	alertShutdown,
+} from './alerts.js';
+
+const BOOT_AT = new Date().toISOString();
 
 // ── global buy throttle (sliding 60s window) ─────────────────────────────────
 function makeThrottle(maxPerMin) {
@@ -37,7 +47,7 @@ function makeThrottle(maxPerMin) {
 }
 
 // ── bounded buy queue (cap concurrent snipe attempts → bounded RPC) ──────────
-function makeQueue(concurrency, maxDepth) {
+function makeQueue(concurrency, maxDepth, onError) {
 	let active = 0;
 	const q = [];
 	const pump = () => {
@@ -46,7 +56,7 @@ function makeQueue(concurrency, maxDepth) {
 			active++;
 			Promise.resolve()
 				.then(job)
-				.catch((err) => log.error('buy job crashed', { err: err?.message }))
+				.catch((err) => { log.error('buy job crashed', { err: err?.message }); onError?.(err?.message); })
 				.finally(() => { active--; pump(); });
 		}
 	};
@@ -63,11 +73,21 @@ function makeQueue(concurrency, maxDepth) {
 async function main() {
 	const cfg = loadConfig();
 	log.info('boot', { network: cfg.network, mode: cfg.mode, globalKill: cfg.globalKill, pollMs: cfg.pollMs });
+	if (cfg.announceLifecycle) alertBoot({ network: cfg.network, mode: cfg.mode, globalKill: cfg.globalKill });
 
 	const throttle = makeThrottle(cfg.maxGlobalBuysPerMin);
-	const queue = makeQueue(3, 50);
+	const errors = makeErrorTracker({ threshold: cfg.errorAlertThreshold, windowMs: cfg.errorAlertWindowMs });
+	// Funnel an error into the spike tracker; alert once when a run-up crosses the
+	// threshold. Pure observability — never alters the trade path.
+	const noteError = (where, message) => {
+		const spike = errors.record(`${where}: ${message || 'error'}`);
+		if (spike) alertErrorSpike({ ...spike, network: cfg.network, mode: cfg.mode });
+	};
+	const queue = makeQueue(3, 50, (message) => noteError('buy', message));
 	let draining = false;
 	let lastEventAt = Date.now();
+	let feedConnected = false;
+	let reconnectCount = 0;
 
 	await refreshStrategies(cfg.network, 0).then(() => logStrategyLoad(cfg.network)).catch((err) =>
 		log.error('initial strategy load failed', { err: err?.message }),
@@ -75,6 +95,7 @@ async function main() {
 
 	const onEvent = ({ kind, data }) => {
 		lastEventAt = Date.now();
+		feedConnected = true; // an event is proof the subscription is live
 		if (kind !== 'mint' || draining || cfg.globalKill) return;
 		const strategies = cachedStrategies();
 		for (const strat of strategies) {
@@ -95,6 +116,7 @@ async function main() {
 
 	const abort = new AbortController();
 	let stopFeed = connectPumpFunFeed({ kind: 'mint', signal: abort.signal, onEvent });
+	feedConnected = true;
 	log.info('feed connected', {});
 
 	// Coin Intelligence Engine: observe every new coin's first seconds, classify
@@ -157,7 +179,15 @@ async function main() {
 	const positionTimer = setInterval(async () => {
 		if (sweeping || draining) return;
 		sweeping = true;
-		try { await runPositionSweep(cfg); } finally { sweeping = false; }
+		try {
+			await runPositionSweep(cfg);
+		} catch (err) {
+			log.error('position sweep failed', { err: err?.message });
+			noteError('sweep', err?.message);
+		} finally {
+			sweeping = false;
+			errors.tick(); // re-arm the spike alert once the window drains
+		}
 	}, cfg.pollMs);
 
 	// Feed watchdog: connectPumpFunFeed stops after 5 drops; if the feed goes
@@ -165,8 +195,12 @@ async function main() {
 	// silently goes deaf.
 	const watchdogTimer = setInterval(() => {
 		if (draining) return;
-		if (Date.now() - lastEventAt > cfg.feedWatchdogMs) {
-			log.warn('feed silent — re-subscribing', { silentMs: Date.now() - lastEventAt });
+		const silentMs = Date.now() - lastEventAt;
+		if (silentMs > cfg.feedWatchdogMs) {
+			feedConnected = false;
+			reconnectCount++;
+			log.warn('feed silent — re-subscribing', { silentMs, reconnects: reconnectCount });
+			alertFeedSilent({ silentMs, network: cfg.network, mode: cfg.mode });
 			try { stopFeed?.(); } catch {}
 			lastEventAt = Date.now();
 			const a2 = new AbortController();
@@ -175,13 +209,37 @@ async function main() {
 		}
 	}, Math.min(cfg.feedWatchdogMs, 60_000));
 
+	// Liveness heartbeat — upserts bot_heartbeat so /api/sniper/status and the
+	// uptime cron can see the worker is alive AND that its feed is actually live
+	// (a process that's up with a dead feed is the worst, silent failure mode).
+	const stopHeartbeat = startHeartbeat({
+		mode: cfg.mode,
+		intervalMs: cfg.heartbeatMs,
+		getMeta: () => ({
+			network: cfg.network,
+			feedConnected,
+			lastEventAgeMs: Date.now() - lastEventAt,
+			feedWatchdogMs: cfg.feedWatchdogMs,
+			strategies: cachedStrategies().length,
+			globalKill: cfg.globalKill,
+			reconnects: reconnectCount,
+			errors: errors.total,
+			lastError: errors.lastError,
+			intel: cfg.intel,
+			inFlightBuys: queue.inFlight,
+			bootAt: BOOT_AT,
+		}),
+	});
+
 	const shutdown = async (signal) => {
 		if (draining) return;
 		draining = true;
 		log.info('shutdown', { signal, inFlight: queue.inFlight });
+		if (cfg.announceLifecycle) alertShutdown({ signal, inFlight: queue.inFlight });
 		clearInterval(strategyTimer);
 		clearInterval(positionTimer);
 		clearInterval(watchdogTimer);
+		try { stopHeartbeat?.(); } catch {}
 		try { stopClaimWatch?.(); } catch {}
 		try { stopFeed?.(); } catch {}
 		try { stopIntel?.(); } catch {}
@@ -197,7 +255,10 @@ async function main() {
 	};
 	process.on('SIGINT', () => shutdown('SIGINT'));
 	process.on('SIGTERM', () => shutdown('SIGTERM'));
-	process.on('unhandledRejection', (err) => log.error('unhandledRejection', { err: err?.message }));
+	process.on('unhandledRejection', (err) => {
+		log.error('unhandledRejection', { err: err?.message });
+		noteError('unhandledRejection', err?.message);
+	});
 }
 
 main().catch((err) => {

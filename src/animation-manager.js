@@ -1,11 +1,70 @@
-import { AnimationClip, AnimationMixer, LoopRepeat, LoopOnce } from 'three';
+import { AnimationClip, AnimationMixer, LoopRepeat, LoopOnce, Quaternion, Vector3 } from 'three';
 import { canonicalizeBoneName } from './glb-canonicalize.js';
 import {
 	canonicalNodeMapFromObject,
 	canonicalRestMapFromObject,
+	hipsParentWorldQuat,
 	retargetClip,
 } from './animation-retarget.js';
 import { log } from './shared/log.js';
+
+// Past this many degrees off vertical, the rig's Hips have tipped onto their
+// back — the catastrophic "lying down" retarget failure. The bind-correction in
+// animation-retarget.js keeps every healthy rig's at-rest Hips under ~18°
+// (measured across cz + michelle × the featured clips, locked in
+// tests/animation-upright-invariant.test.js), so 45° is a generous catastrophe
+// floor that only ever trips a genuinely broken retarget, never a healthy one
+// (dance, the most hip-led clip, peaks at ~30° mid-clip but rests near 18°).
+const CATASTROPHE_TILT_DEG = 45;
+
+// Reused scratch so the guard's once-per-clip measurement allocates nothing.
+const _worldUp = new Vector3();
+const _wq = new Quaternion();
+const _UP = new Vector3(0, 1, 0);
+
+/**
+ * At-rest Hips tilt (degrees off world vertical) a retargeted clip would impose
+ * on a model — the same world-matrix reconstruction the lying-down bug was
+ * diagnosed with, but evaluated from the clip's first Hips keyframe so it costs
+ * nothing per frame. Sets the Hips bone to the clip's keyframe-0 rotation,
+ * composes world matrices, and measures the angle between the bone's world
+ * up-axis and vertical. Restores the bone afterwards so it's side-effect free.
+ * Returns null when there's nothing to measure (no Hips, no quaternion track),
+ * which callers treat as "can't assess" — never as a failure.
+ *
+ * @param {THREE.AnimationClip|null} retargetedClip clip already renamed to the rig's nodes
+ * @param {THREE.Object3D|null} model the attached rig (world matrices may be stale)
+ * @param {Map<string,string>|null} canonicalToNode canonical bone → rig node name
+ * @returns {number|null} degrees off vertical, or null
+ */
+export function measureHipsTiltDeg(retargetedClip, model, canonicalToNode) {
+	if (!retargetedClip || !model || !canonicalToNode) return null;
+	const hipsName = canonicalToNode.get('Hips');
+	if (!hipsName) return null;
+	const hips = model.getObjectByName(hipsName);
+	if (!hips) return null;
+	const qTrack = retargetedClip.tracks.find((t) => t.name === `${hipsName}.quaternion`);
+	if (!qTrack || qTrack.values.length < 4) return null;
+
+	const v = qTrack.values;
+	const restX = hips.quaternion.x;
+	const restY = hips.quaternion.y;
+	const restZ = hips.quaternion.z;
+	const restW = hips.quaternion.w;
+
+	hips.quaternion.set(v[0], v[1], v[2], v[3]);
+	hips.updateWorldMatrix(true, false);
+	hips.getWorldQuaternion(_wq);
+	_worldUp.copy(_UP).applyQuaternion(_wq);
+
+	// Restore the authored rest so the measurement leaves no trace; the mixer
+	// drives the real pose from here on.
+	hips.quaternion.set(restX, restY, restZ, restW);
+	hips.updateWorldMatrix(true, false);
+
+	const dot = Math.max(-1, Math.min(1, _worldUp.dot(_UP)));
+	return (Math.acos(dot) * 180) / Math.PI;
+}
 
 // Minimum number of canonical bones a skinned model must expose before the
 // pre-baked clip library can drive it meaningfully. The clips address tracks by
@@ -55,6 +114,21 @@ export class AnimationManager {
 		this._canonicalToNode = null;
 		/** @type {boolean} Whether the attached model's rig can play the canonical clip library. */
 		this._canonicalClipsSupported = false;
+		/** @type {{ avatarId?: string, avatarUrl?: string }} Context for the fallen-pose guard's reports. */
+		this._avatarContext = {};
+		/** @type {Set<string>} `${avatarUrl}|${clip}` keys whose fallen-pose has already been reported (debounce). */
+		this._fallenReported = new Set();
+		/** @type {Set<string>} Clip names disabled because they retargeted to a fallen pose on this rig. */
+		this._fallen = new Set();
+	}
+
+	/**
+	 * Tell the manager which avatar is attached so the fallen-pose guard can
+	 * report actionable context. Both fields are optional; url alone is enough.
+	 * @param {{ avatarId?: string, avatarUrl?: string }} ctx
+	 */
+	setAvatarContext(ctx) {
+		this._avatarContext = ctx && typeof ctx === 'object' ? { ...ctx } : {};
 	}
 
 	// ── Model binding ──────────────────────────────────────────────────────────
@@ -63,14 +137,17 @@ export class AnimationManager {
 	 * Attach to a loaded model. Call this every time a new model is loaded.
 	 * Re-creates actions for any clips that are already in memory.
 	 * @param {THREE.Object3D} model
+	 * @param {{ avatarId?: string, avatarUrl?: string }} [context] avatar id/url for the fallen-pose guard
 	 */
-	attach(model) {
+	attach(model, context) {
 		this.detach();
+		if (context) this.setAvatarContext(context);
 		this.model = model;
 		this.mixer = new AnimationMixer(model);
 		this.actions.clear();
 		this.currentAction = null;
 		this.currentName = null;
+		this._fallen.clear();
 		// Build the canonical→node map once. Every clip is retargeted through it,
 		// so the library drives ANY humanoid rig — Mixamo, VRM-via-Mixamo,
 		// CharacterStudio, Blender — not just an already-canonical Avaturn rig.
@@ -80,6 +157,9 @@ export class AnimationManager {
 		// (a Mixamo rig bakes the up-axis as a −90°X Hips rest the clips would
 		// otherwise overwrite, tipping the avatar onto its back).
 		this._canonicalRest = canonicalRestMapFromObject(model);
+		// World rotation of the Hips' parent (within the model), so root motion is
+		// re-expressed in the rig's own frame and travels the right way on any rig.
+		this._hipsParentWorldQuat = hipsParentWorldQuat(model);
 		this._canonicalClipsSupported = _modelSupportsCanonicalClips(model);
 
 		for (const [name, clip] of this.clips) {
@@ -103,8 +183,62 @@ export class AnimationManager {
 		if (!this._canonicalToNode || this._canonicalToNode.size === 0) return null;
 		const { clip: out } = retargetClip(clip, this._canonicalToNode, {
 			targetRest: this._canonicalRest,
+			hipsParentWorldQuat: this._hipsParentWorldQuat,
 		});
 		return out;
+	}
+
+	/**
+	 * Runtime "fallen pose" guard. Before an action plays, sample the at-rest Hips
+	 * world up-axis the retargeted clip would impose. If it tips past
+	 * CATASTROPHE_TILT_DEG the retarget failed (the rig would lie on its back), so
+	 * we disable that action, leave the rig in its authored bind pose — the same
+	 * fallback the viewer already prefers over a broken retarget — and report once
+	 * through the existing client-error channel with enough context to diagnose.
+	 * Sampled once per (avatar, clip), never per frame.
+	 *
+	 * @param {string} name clip name
+	 * @param {THREE.AnimationAction} action
+	 * @returns {boolean} true if the clip is safe to play; false if it was rejected
+	 */
+	_guardAgainstFallenPose(name, action) {
+		if (this._fallen.has(name)) return false;
+		const clip = action?.getClip?.();
+		const tiltDeg = measureHipsTiltDeg(clip, this.model, this._canonicalToNode);
+		if (tiltDeg == null || tiltDeg <= CATASTROPHE_TILT_DEG) return true;
+
+		// Reject: stop and disable the action, drop it so it can't be selected
+		// again, and fall back to the authored bind pose (do not play the broken
+		// clip). If it was the current action, clear playback state.
+		try {
+			action.stop();
+		} catch (e) {
+			log.warn('[AnimationManager] failed to stop fallen-pose action:', e);
+		}
+		action.enabled = false;
+		this.actions.delete(name);
+		this._fallen.add(name);
+		if (this.currentAction === action) {
+			this.currentAction = null;
+			this.currentName = null;
+		}
+
+		const avatarUrl = this._avatarContext.avatarUrl || '';
+		const avatarId = this._avatarContext.avatarId || '';
+		const dedupeKey = `${avatarId || avatarUrl}|${name}`;
+		if (!this._fallenReported.has(dedupeKey)) {
+			this._fallenReported.add(dedupeKey);
+			log.warn(
+				`[AnimationManager] "${name}" retargeted to a fallen pose (${tiltDeg.toFixed(1)}° off vertical) — falling back to bind pose`,
+			);
+			reportFallenPose({
+				avatarId,
+				avatarUrl,
+				clip: name,
+				tiltDeg: Math.round(tiltDeg * 10) / 10,
+			});
+		}
+		return false;
 	}
 
 	/** Detach, stop all actions, dispose mixer. */
@@ -117,10 +251,12 @@ export class AnimationManager {
 		this.model = null;
 		this._canonicalToNode = null;
 		this._canonicalRest = null;
+		this._hipsParentWorldQuat = null;
 		this._canonicalClipsSupported = false;
 		this.actions.clear();
 		this.currentAction = null;
 		this.currentName = null;
+		this._fallen.clear();
 	}
 
 	// ── Definitions ────────────────────────────────────────────────────────────
@@ -270,6 +406,9 @@ export class AnimationManager {
 		}
 		const action = this.actions.get(name);
 		if (!action) return;
+		// Reject a retarget that would lie the avatar on its back; fall back to the
+		// authored bind pose rather than play a fallen clip.
+		if (!this._guardAgainstFallenPose(name, action)) return;
 
 		if (this.currentAction && this.currentAction !== action) {
 			this.currentAction.fadeOut(0.01);
@@ -294,7 +433,9 @@ export class AnimationManager {
 		fade = Math.max(0, Math.min(fade, 5));
 		const ready = await this.ensureLoaded(name);
 		const action = ready ? this.actions.get(name) : null;
-		if (!action) {
+		// Reject a fallen-pose retarget the same way an unavailable clip is handled:
+		// settle into the looping fallback rather than play the broken one-shot.
+		if (!action || !this._guardAgainstFallenPose(name, action)) {
 			// One-shot unavailable on this rig — fall back to the settle clip so
 			// the avatar is never left frozen in its bind pose.
 			if (settleTo) return this.crossfadeTo(settleTo, fade);
@@ -360,6 +501,10 @@ export class AnimationManager {
 		}
 		const next = this.actions.get(name);
 		if (!next) return;
+		// Reject a fallen-pose retarget: keep the current clip (or the authored
+		// bind pose when nothing is playing) instead of crossfading onto a body
+		// that would land on its back.
+		if (!this._guardAgainstFallenPose(name, next)) return;
 
 		next.reset().play();
 		if (this.currentAction) {
@@ -430,4 +575,24 @@ function _modelSupportsCanonicalClips(model) {
 		}
 	});
 	return hasSkinnedMesh && canonical.size >= MIN_CANONICAL_BONES;
+}
+
+// Surface a fallen-pose retarget through the existing client-error pipeline
+// (public/error-reporter.js → POST /api/client-errors, logged "[client-error]").
+// That hook is a no-op on dev hosts and fails silent, exactly what we want here.
+// Guarded for Node/SSR (vitest, the apply_animation MCP tool) where neither
+// `window` nor the hook exists — the guard's logic still runs; only the report
+// is skipped.
+function reportFallenPose(context) {
+	try {
+		const hook =
+			typeof window !== 'undefined' &&
+			typeof window.reportClientError === 'function'
+				? window.reportClientError
+				: null;
+		if (!hook) return;
+		hook(new Error('fallen-pose retarget'), context);
+	} catch (e) {
+		log.warn('[AnimationManager] fallen-pose report failed:', e);
+	}
 }

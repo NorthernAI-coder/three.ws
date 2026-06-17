@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="color-scheme" content="light">
+<meta name="color-scheme" content="light dark">
 <title>x402 live demo — three.ws × IBM</title>
 <meta name="description" content="A live, self-contained x402 demo: pay $0.001 in USDC from your own wallet to call a real three.ws data API. Settled on-chain on Base or Solana. No backend, no account.">
 <meta property="og:title" content="x402 live demo — three.ws × IBM">
@@ -23,24 +23,70 @@
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 
 :root{
-  --ibm-blue:#0f62fe;
+  /* Carbon G10 (light) — defaults. Every surface token is themed so the dark
+     override below is a single, deliberate switch. */
+  --ibm-blue:#0f62fe;        /* accent: text, borders, focus rings */
+  --ibm-blue-fill:#0f62fe;   /* fills that carry white text (button, skip link) */
+  --ibm-blue-fill-hover:#0353e9;
   --ibm-blue-hover:#0353e9;
+  --ibm-link:#0f62fe;        /* AA on white (4.6:1) */
   --ibm-ink:#161616;
   --ibm-muted:#525252;       /* AA on white (7.4:1) */
   --ibm-subtle:#595959;      /* AA on white (7:1) — was #6f6f6f (3.9:1, failed) */
   --ibm-border:#e0e0e0;
   --ibm-divider:#c6c6c6;
+  --ibm-surface:#ffffff;     /* card / panel fill */
   --ibm-field:#f4f4f4;
+  --ibm-field-focus:#ffffff;
   --ibm-green:#0e7a32;       /* darkened for AA on light fills */
+  --ibm-green-ink:#0e7a32;   /* green text on light pill fills */
+  --ibm-green-fill:#defbe6;
   --ibm-red:#da1e28;
-  --ibm-amber:#8a6100;
+  --ibm-red-ink:#a2191f;     /* red text on light fills (AA) */
+  --ibm-red-fill:#fff1f1;
+  --ibm-red-edge:#ffb3b8;
+  --ibm-amber:#8a6100;       /* AA on white */
+  --ibm-amber-fill:#fcf4d6;
+  --ibm-skel-a:#e8e8e8;
+  --ibm-skel-b:#f4f4f4;
   --font-sans:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
   --font-mono:'IBM Plex Mono',ui-monospace,'SF Mono',Menlo,Consolas,monospace;
   --ease:cubic-bezier(.2,.7,.3,1);
 }
 
+/* Carbon G100 (dark) — looks deliberate when embedded in a dark IBM context.
+   Background stays transparent so the page rides the host surface in both schemes. */
+@media (prefers-color-scheme: dark){
+  :root{
+    --ibm-blue:#78a9ff;        /* accent on dark — AA as text on G100 (7.2:1) */
+    --ibm-blue-fill:#0f62fe;   /* white text stays AA (4.84:1); recognizably IBM blue */
+    --ibm-blue-fill-hover:#1f6fff;
+    --ibm-blue-hover:#a6c8ff;
+    --ibm-link:#78a9ff;        /* AA on #161616 (7.2:1) */
+    --ibm-ink:#f4f4f4;
+    --ibm-muted:#c6c6c6;       /* AA on #161616 (12:1) */
+    --ibm-subtle:#a8a8a8;      /* AA on #161616 (7.4:1) */
+    --ibm-border:#393939;
+    --ibm-divider:#525252;
+    --ibm-surface:#262626;     /* card / panel fill on dark */
+    --ibm-field:#393939;
+    --ibm-field-focus:#4c4c4c;
+    --ibm-green:#42be65;       /* used as accent edge/dot on dark */
+    --ibm-green-ink:#42be65;   /* AA on dark green fill */
+    --ibm-green-fill:#0b2818;
+    --ibm-red:#fa4d56;
+    --ibm-red-ink:#ff8389;     /* AA on dark red fill */
+    --ibm-red-fill:#2a1416;
+    --ibm-red-edge:#7f1d1d;
+    --ibm-amber:#f1c21b;       /* AA on dark */
+    --ibm-amber-fill:#2a1d10;
+    --ibm-skel-a:#333333;
+    --ibm-skel-b:#3f3f3f;
+  }
+}
+
 html,body{background:transparent;font-family:var(--font-sans);color:var(--ibm-ink);font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
-a{color:var(--ibm-blue);text-decoration:none}
+a{color:var(--ibm-link);text-decoration:none}
 a:hover{text-decoration:underline}
 .mono{font-family:var(--font-mono)}
 
@@ -48,18 +94,21 @@ a:hover{text-decoration:underline}
 :focus-visible{outline:2px solid var(--ibm-blue);outline-offset:2px}
 a:focus-visible{outline-offset:3px}
 
-.skip-link{position:absolute;left:-9999px;top:0;background:var(--ibm-blue);color:#fff;padding:10px 16px;z-index:50;font-weight:600;font-size:14px}
+.skip-link{position:absolute;left:-9999px;top:0;background:var(--ibm-blue-fill);color:#fff;padding:10px 16px;z-index:50;font-weight:600;font-size:14px}
 .skip-link:focus{left:8px;top:8px;text-decoration:none}
+
+/* Visually hidden but available to assistive tech. */
+.sr-only{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 
 .inner{max-width:880px;margin:0 auto;padding:0 16px}
 .section{padding:40px 0;border-bottom:1px solid var(--ibm-border)}
 .section:last-child{border-bottom:none}
 
 /* ── Global error banner (resilience safety net) ── */
-.err-banner{position:fixed;left:0;right:0;top:0;z-index:60;background:#fff1f1;border-bottom:1px solid #ffb3b8;color:#a2191f;font-size:13px;padding:10px 16px;display:none;align-items:center;gap:12px;justify-content:center}
+.err-banner{position:fixed;left:0;right:0;top:0;z-index:60;background:var(--ibm-red-fill);border-bottom:1px solid var(--ibm-red-edge);color:var(--ibm-red-ink);font-size:13px;padding:10px 16px;display:none;align-items:center;gap:12px;justify-content:center}
 .err-banner.show{display:flex}
-.err-banner button{background:none;border:1px solid #ffb3b8;color:#a2191f;font-family:inherit;font-size:12px;font-weight:600;padding:4px 10px;cursor:pointer}
-.err-banner button:hover{background:#ffe0e0}
+.err-banner button{background:none;border:1px solid var(--ibm-red-edge);color:var(--ibm-red-ink);font-family:inherit;font-size:12px;font-weight:600;padding:4px 10px;cursor:pointer;border-radius:2px}
+.err-banner button:hover{background:rgba(218,30,40,.12)}
 
 /* ── Hero ── */
 .hero{padding:56px 0 36px}
@@ -71,7 +120,7 @@ a:focus-visible{outline-offset:3px}
 
 /* ── How-it-works ── */
 .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--ibm-border);border:1px solid var(--ibm-border);list-style:none;margin-top:24px}
-.step{background:#fff;padding:24px 22px}
+.step{background:var(--ibm-surface);padding:24px 22px}
 .step-n{font-family:var(--font-mono);font-size:12px;color:var(--ibm-blue);font-weight:500;margin-bottom:10px}
 .step h3{font-size:15px;font-weight:600;margin-bottom:6px}
 .step p{font-size:13px;color:var(--ibm-muted);font-weight:300;line-height:1.55}
@@ -84,7 +133,7 @@ a:focus-visible{outline-offset:3px}
 .section-lead{font-size:15px;color:var(--ibm-muted);max-width:620px;margin-top:10px;font-weight:300;line-height:1.6}
 
 /* ── Demo card ── */
-.demo{border:1px solid var(--ibm-divider);margin-top:28px;background:#fff}
+.demo{border:1px solid var(--ibm-divider);margin-top:28px;background:var(--ibm-surface)}
 .demo-head{padding:22px 24px 18px;border-bottom:1px solid var(--ibm-border);display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;justify-content:space-between}
 .demo-title{font-size:20px;font-weight:600}
 .demo-title span{color:var(--ibm-blue)}
@@ -92,6 +141,8 @@ a:focus-visible{outline-offset:3px}
 .price-tag{text-align:right;flex:0 0 auto}
 .price-tag .amt{font-size:30px;font-weight:300;line-height:1;font-variant-numeric:tabular-nums}
 .price-tag .amt strong{font-weight:600;color:var(--ibm-blue)}
+.price-tag .amt.flash{animation:priceflash .42s var(--ease) 1}
+@keyframes priceflash{0%{transform:scale(1)}40%{transform:scale(1.06);opacity:.7}100%{transform:scale(1);opacity:1}}
 .price-tag .net{font-size:12px;color:var(--ibm-muted);margin-top:6px}
 
 .demo-body{padding:22px 24px}
@@ -111,7 +162,7 @@ a:focus-visible{outline-offset:3px}
 .pv-retry{margin-top:10px;background:none;border:1px solid var(--ibm-divider);color:var(--ibm-ink);font-family:var(--font-sans);font-size:12px;font-weight:500;padding:6px 12px;cursor:pointer}
 .pv-retry:hover{border-color:var(--ibm-blue);color:var(--ibm-blue)}
 /* skeleton */
-.sk{height:11px;border-radius:2px;background:linear-gradient(90deg,#e8e8e8 25%,#f4f4f4 37%,#e8e8e8 63%);background-size:400% 100%;animation:sk 1.4s ease infinite}
+.sk{display:inline-block;height:11px;border-radius:2px;background:linear-gradient(90deg,var(--ibm-skel-a) 25%,var(--ibm-skel-b) 37%,var(--ibm-skel-a) 63%);background-size:400% 100%;animation:sk 1.4s ease infinite}
 @keyframes sk{0%{background-position:100% 0}100%{background-position:0 0}}
 
 /* input row */
@@ -119,26 +170,30 @@ a:focus-visible{outline-offset:3px}
 .field-wrap{flex:1 1 240px;min-width:0}
 .field-wrap label{display:block;font-size:12px;color:var(--ibm-muted);margin-bottom:6px;font-weight:500}
 .field{width:100%;height:48px;padding:0 14px;border:none;border-bottom:1px solid var(--ibm-divider);background:var(--ibm-field);font-family:var(--font-mono);font-size:15px;color:var(--ibm-ink);letter-spacing:.04em;outline:none;transition:border-color .12s,background .12s}
-.field:focus{border-bottom:2px solid var(--ibm-blue);background:#fff}
+.field:focus{border-bottom:2px solid var(--ibm-blue);background:var(--ibm-field-focus)}
 .field[aria-invalid="true"]{border-bottom:2px solid var(--ibm-red)}
 .field-hint{font-size:11px;color:var(--ibm-subtle);margin-top:6px}
 .field-hint.err{color:var(--ibm-red)}
 
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;background:var(--ibm-blue);color:#fff;border:none;cursor:pointer;font-family:var(--font-sans);font-size:15px;font-weight:500;letter-spacing:.01em;padding:0 24px;height:48px;min-width:200px;transition:background .12s,transform .04s}
-.btn:hover:not(:disabled){background:var(--ibm-blue-hover)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;background:var(--ibm-blue-fill);color:#fff;border:none;cursor:pointer;font-family:var(--font-sans);font-size:15px;font-weight:500;letter-spacing:.01em;padding:0 24px;height:48px;min-width:200px;transition:background .12s,transform .04s,box-shadow .12s}
+.btn:hover:not(:disabled){background:var(--ibm-blue-fill-hover)}
 .btn:active:not(:disabled){transform:translateY(1px)}
-.btn:disabled{background:#c6c6c6;cursor:not-allowed}
+.btn:focus-visible{outline:2px solid var(--ibm-blue);outline-offset:2px;box-shadow:0 0 0 4px rgba(15,98,254,.25)}
+.btn:disabled{background:var(--ibm-divider);color:var(--ibm-subtle);cursor:not-allowed}
 .btn .arrow{font-size:17px;line-height:1}
 .btn .spin{width:15px;height:15px;border:2px solid rgba(255,255,255,.45);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:none}
 .btn.loading .spin{display:inline-block}
 .btn.loading .arrow{display:none}
 @media(min-width:560px){.btn{margin-left:1px}}
 
-.wallet-hint{font-size:11px;color:var(--ibm-subtle);margin-bottom:18px;line-height:1.5}
+.wallet-hint{font-size:11px;color:var(--ibm-subtle);margin-bottom:18px;line-height:1.5;transition:color .12s}
+.wallet-hint b{color:var(--ibm-ink);font-weight:600}
 .wallet-hint.offline{color:var(--ibm-amber);font-weight:500}
+.wallet-hint.detected{color:var(--ibm-green)}
+.wallet-hint.detected b{color:var(--ibm-green)}
 
 /* result panel */
-.result{border:1px solid var(--ibm-border);min-height:96px;padding:18px 20px;background:#fff;transition:border-color .15s}
+.result{border:1px solid var(--ibm-border);min-height:96px;padding:18px 20px;background:var(--ibm-surface);transition:border-color .15s}
 .result.is-empty{display:flex;align-items:center;justify-content:center;color:var(--ibm-subtle);font-size:13px;text-align:center;font-weight:300;border-style:dashed}
 .result.is-loading{border-color:var(--ibm-blue)}
 .result.is-error{border-color:var(--ibm-red)}
@@ -150,16 +205,16 @@ a:focus-visible{outline-offset:3px}
 @keyframes spin{to{transform:rotate(360deg)}}
 .r-status.err{color:var(--ibm-red)}
 .r-status.ok{color:var(--ibm-green)}
-.r-check{display:inline-flex;width:18px;height:18px;border-radius:50%;background:var(--ibm-green);color:#fff;align-items:center;justify-content:center;font-size:11px;flex:0 0 auto;animation:pop .3s var(--ease)}
+.r-check{display:inline-flex;width:18px;height:18px;border-radius:50%;background:var(--ibm-green);color:#161616;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex:0 0 auto;animation:pop .3s var(--ease)}
 @keyframes pop{0%{transform:scale(0)}60%{transform:scale(1.15)}100%{transform:scale(1)}}
 
 .r-headline{font-size:18px;font-weight:300;margin:12px 0 4px}
 .r-headline strong{font-weight:600}
 .r-reco{font-size:14px;color:var(--ibm-ink);margin-bottom:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .pill{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;padding:2px 9px;border-radius:2px}
-.pill.ok{background:#defbe6;color:var(--ibm-green)}
-.pill.warn{background:#fcf4d6;color:var(--ibm-amber)}
-.pill.bad{background:#fff1f1;color:#a2191f}
+.pill.ok{background:var(--ibm-green-fill);color:var(--ibm-green-ink)}
+.pill.warn{background:var(--ibm-amber-fill);color:var(--ibm-amber)}
+.pill.bad{background:var(--ibm-red-fill);color:var(--ibm-red-ink)}
 
 .matches{border-top:1px solid var(--ibm-border);margin-top:6px;padding-top:12px}
 .matches h4{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--ibm-subtle);margin-bottom:8px;font-weight:600}
@@ -170,8 +225,10 @@ a:focus-visible{outline-offset:3px}
 .match .m-sim{font-family:var(--font-mono);color:var(--ibm-muted);font-size:12px;flex:0 0 auto}
 
 .receipt{margin-top:14px;padding-top:12px;border-top:1px solid var(--ibm-border);display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px 20px}
+.receipt-pair{min-width:0}
 .receipt .rk{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--ibm-subtle);margin-bottom:2px}
 .receipt .rv{font-family:var(--font-mono);font-size:12px;color:var(--ibm-ink);word-break:break-all}
+.receipt .rv a{color:var(--ibm-link)}
 
 .raw{margin-top:14px}
 .raw summary{cursor:pointer;font-size:12px;color:var(--ibm-muted);font-weight:500;user-select:none}
@@ -203,16 +260,44 @@ a:focus-visible{outline-offset:3px}
 .footer-nav a:hover{color:var(--ibm-blue)}
 .footer-legal{padding-top:16px;border-top:1px solid var(--ibm-border);line-height:1.6}
 
+/* Tablet: keep the 3-up strip but let it breathe; stack the field row earlier. */
+@media(max-width:768px){
+  .section{padding:32px 0}
+  .hero{padding:44px 0 30px}
+}
+
 @media(max-width:640px){
   .steps{grid-template-columns:1fr}
-  .demo-head{flex-direction:column;align-items:flex-start}
+  .demo-head{flex-direction:column;align-items:flex-start;gap:8px}
   .price-tag{text-align:left}
   .field-row{gap:14px}
   .btn{width:100%;min-width:0}
+  .demo-head,.demo-body{padding-left:18px;padding-right:18px}
+}
+
+/* Small phones (≤360px, incl. 320px). Tighten gutters, keep mono strings contained,
+   and never let a long address/hash force a wide layout viewport (the documented iOS
+   overflow gotcha). overflow-wrap:anywhere is the belt-and-braces over word-break. */
+@media(max-width:360px){
+  .inner{padding:0 12px}
+  .demo-head,.demo-body{padding-left:14px;padding-right:14px}
+  .hero h1{font-size:clamp(26px,8vw,34px)}
+  .price-tag .amt{font-size:26px}
+  .preview-row{gap:6px}
+  .preview-row .k{min-width:72px}
+}
+.preview-row .v,.receipt .rv,.match .m-name{overflow-wrap:anywhere}
+
+/* Touch devices: every interactive control clears the 44×44 px minimum. The
+   coarse-pointer query keeps desktop sizing compact while guaranteeing mobile taps. */
+@media(pointer:coarse){
+  .pv-retry,.retry,.copy-btn,.err-banner button{min-height:44px;padding-top:10px;padding-bottom:10px}
+  .footer-nav a{display:inline-flex;align-items:center;min-height:44px}
+  .raw summary{min-height:44px;display:flex;align-items:center}
 }
 
 @media(prefers-reduced-motion:reduce){
-  *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
+  *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}
 }
 </style>
 </head>
@@ -277,12 +362,13 @@ a:focus-visible{outline-offset:3px}
     <div class="demo">
       <div class="demo-head">
         <div>
-          <div class="demo-title">three<span>.ws</span> Symbol Check</div>
+          <h3 class="demo-title">three<span>.ws</span> Symbol Check</h3>
           <div class="demo-desc">Is a ticker already taken? Returns exact and look-alike matches across symbols indexed by three.ws.</div>
         </div>
         <div class="price-tag">
-          <div class="amt" id="priceAmt">$<strong>0.001</strong></div>
-          <div class="net">USDC · per call</div>
+          <div class="amt" id="priceAmt" aria-hidden="true">$<strong>0.001</strong></div>
+          <div class="net" aria-hidden="true">USDC · per call</div>
+          <span class="sr-only" id="priceSr">Price: one tenth of a cent in USDC per call.</span>
         </div>
       </div>
 
@@ -308,10 +394,13 @@ a:focus-visible{outline-offset:3px}
         </div>
         <div class="wallet-hint" id="walletHint">On a phone? Open this page inside your <b>MetaMask</b> or <b>Phantom</b> in-app browser to pay.</div>
 
-        <!-- result -->
-        <div id="result" class="result is-empty" role="status" aria-live="polite">
+        <!-- result. The visible panel is NOT a live region (its success state
+             contains a raw-JSON block that would otherwise be read aloud in full).
+             Concise spoken updates go to #announcer instead. -->
+        <div id="result" class="result is-empty">
           Run the call to see live, on-chain-paid data appear here.
         </div>
+        <p id="announcer" class="sr-only" role="status" aria-live="polite"></p>
 
         <!-- requirements -->
         <div class="note">
@@ -399,6 +488,20 @@ a:focus-visible{outline-offset:3px}
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
     });
   }
+  function prefersReducedMotion() {
+    return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  }
+  // Replay a one-shot CSS animation class, no-op under reduced motion.
+  function flashPrice(el) {
+    if (!el || prefersReducedMotion()) return;
+    el.classList.remove('flash');
+    void el.offsetWidth; // reflow so the animation restarts on repeat changes
+    el.classList.add('flash');
+    el.addEventListener('animationend', function once() {
+      el.classList.remove('flash');
+      el.removeEventListener('animationend', once);
+    });
+  }
   function sanitizeTicker(raw) {
     return String(raw || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 32);
   }
@@ -458,9 +561,16 @@ a:focus-visible{outline-offset:3px}
     var first = nets[0];
     var decimals = (first.extra && first.extra.decimals) || 6;
 
-    $('priceAmt').innerHTML = first.amount === '1000'
+    var priceHtml = first.amount === '1000'
       ? '$<strong>0.001</strong>'
       : escapeHtml(fmtUsd(first.amount, decimals)).replace(/^\$/, '$<strong>') + '</strong>';
+    var amtEl = $('priceAmt');
+    if (amtEl.innerHTML !== priceHtml) {
+      amtEl.innerHTML = priceHtml;
+      flashPrice(amtEl);
+    }
+    var priceText = escapeHtml(fmtUsd(first.amount, decimals));
+    var srEl = $('priceSr'); if (srEl) srEl.textContent = 'Price: ' + priceText + ' USDC per call.';
 
     var label = $('pvLabel'); label.className = 'preview-label ok fresh';
     $('pvLabelText').innerHTML = '<span class="mono">HTTP 402 Payment Required</span> — the server is quoting these terms right now';
@@ -477,18 +587,30 @@ a:focus-visible{outline-offset:3px}
   }
 
   // ── 2. result states ──────────────────────────────────────────────────────
+  // Concise spoken update to the off-screen live region. Clearing first guarantees
+  // the change is detected even when the same text repeats.
+  function announce(msg) {
+    var a = $('announcer'); if (!a) return;
+    a.textContent = '';
+    // microtask defer so screen readers register the text change as new
+    window.requestAnimationFrame(function () { a.textContent = msg || ''; });
+  }
   function setResultEmpty() {
     var el = $('result'); el.className = 'result is-empty';
     el.innerHTML = 'Run the call to see live, on-chain-paid data appear here.';
+    announce('');
   }
   function setResultLoading(msg) {
     var el = $('result'); el.className = 'result is-loading';
     el.innerHTML = '<div class="r-status"><span class="spin" aria-hidden="true"></span><span>' + escapeHtml(msg || 'Waiting for your wallet…') + '</span></div>';
+    announce(msg || 'Waiting for your wallet.');
   }
   function setResultError(msg) {
+    var text = msg || 'Something went wrong.';
     var el = $('result'); el.className = 'result is-error';
-    el.innerHTML = '<div class="r-status err">✕ <span>' + escapeHtml(msg || 'Something went wrong.') + '</span></div><button class="retry" type="button" id="retryBtn">Try again</button>';
+    el.innerHTML = '<div class="r-status err"><span aria-hidden="true">✕</span> <span>' + escapeHtml(text) + '</span></div><button class="retry" type="button" id="retryBtn">Try again</button>';
     var rb = $('retryBtn'); if (rb) rb.addEventListener('click', runPayment);
+    announce('Error: ' + text);
   }
   function recoPill(result) {
     if (result.exact_collision) return '<span class="pill bad">taken</span>';
@@ -505,6 +627,12 @@ a:focus-visible{outline-offset:3px}
     html += '<div class="r-status ok"><span class="r-check" aria-hidden="true">✓</span><span>Payment settled — response delivered</span></div>';
     if (result.ticker) html += '<div class="r-headline">Ticker <strong>$' + escapeHtml(result.ticker) + '</strong></div>';
     if (result.recommendation) html += '<div class="r-reco">' + recoPill(result) + '<span>' + escapeHtml(result.recommendation) + '</span></div>';
+
+    // Concise spoken summary — never the raw-JSON wall below.
+    var spoken = 'Payment settled.';
+    if (result.ticker) spoken += ' Ticker $' + result.ticker + '.';
+    if (result.recommendation) spoken += ' ' + result.recommendation;
+    announce(spoken);
 
     var exact = Array.isArray(result.exact_matches) ? result.exact_matches : [];
     var similar = Array.isArray(result.similar) ? result.similar : [];
@@ -526,14 +654,14 @@ a:focus-visible{outline-offset:3px}
     }
 
     var explorer = explorerUrl(payment.network, payment.transaction);
-    html += '<div class="receipt">';
-    html += '<div><div class="rk">Network</div><div class="rv">' + escapeHtml(networkLabel(payment.network)) + '</div></div>';
-    html += '<div><div class="rk">Payer</div><div class="rv">' + escapeHtml(shortAddr(payment.payer)) + '</div></div>';
-    html += '<div><div class="rk">Transaction</div><div class="rv">' +
+    html += '<dl class="receipt">';
+    html += '<div class="receipt-pair"><dt class="rk">Network</dt><dd class="rv">' + escapeHtml(networkLabel(payment.network)) + '</dd></div>';
+    html += '<div class="receipt-pair"><dt class="rk">Payer</dt><dd class="rv">' + escapeHtml(shortAddr(payment.payer)) + '</dd></div>';
+    html += '<div class="receipt-pair"><dt class="rk">Transaction</dt><dd class="rv">' +
       (payment.transaction
-        ? (explorer ? '<a href="' + explorer + '" target="_blank" rel="noopener">' + escapeHtml(shortAddr(payment.transaction)) + ' ↗</a>' : escapeHtml(shortAddr(payment.transaction)))
-        : '—') + '</div></div>';
-    html += '</div>';
+        ? (explorer ? '<a href="' + explorer + '" target="_blank" rel="noopener">' + escapeHtml(shortAddr(payment.transaction)) + ' <span aria-hidden="true">↗</span><span class="sr-only"> (opens block explorer in a new tab)</span></a>' : escapeHtml(shortAddr(payment.transaction)))
+        : '—') + '</dd></div>';
+    html += '</dl>';
 
     html += '<details class="raw"><summary>View raw response &amp; settlement</summary><pre>' +
       escapeHtml(JSON.stringify({ response: result, payment: payment }, null, 2)).slice(0, 6000) + '</pre></details>';
@@ -547,7 +675,7 @@ a:focus-visible{outline-offset:3px}
     var btn = $('payBtn');
     btn.disabled = b || !navigator.onLine;
     btn.classList.toggle('loading', b);
-    btn.querySelector('.label').textContent = b ? 'Working…' : 'Pay $0.001 & run';
+    btn.querySelector('.label').textContent = b ? 'Waiting for wallet…' : 'Pay $0.001 & run';
   }
   function setTickerError(msg) {
     var f = $('ticker'); var h = $('tickerHint');
@@ -587,26 +715,55 @@ a:focus-visible{outline-offset:3px}
       setResultError((err && err.message) || 'Payment failed. Please try again.');
     }).then(function () {
       setBusy(false);
-      var t = (trigger && trigger.focus) ? trigger : $('payBtn');
-      try { t.focus(); } catch (_) {}
+      // Return focus to the trigger; if it was re-rendered out of the DOM
+      // (e.g. the retry button), fall back to the pay button so focus is never
+      // dropped to <body>.
+      var t = (trigger && trigger.focus && document.body.contains(trigger)) ? trigger : $('payBtn');
+      try { t.focus(); } catch (_) { try { $('payBtn').focus(); } catch (_2) {} }
     });
   }
 
-  // ── offline awareness ──────────────────────────────────────────────────────
-  function syncOnline() {
+  // ── wallet detection ────────────────────────────────────────────────────────
+  // On phones, window.ethereum / window.solana only exist inside a wallet's in-app
+  // browser, not in mobile Safari/Chrome. Reflect that reality in the hint so the
+  // next step is obvious. The 402 preview stays fully functional regardless.
+  function hasInjectedWallet() {
+    return !!(window.ethereum || (window.solana && window.solana.isPhantom) || window.phantom);
+  }
+  function isCoarsePointer() {
+    return !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+  }
+  function syncWalletHint() {
     var hint = $('walletHint'); var btn = $('payBtn');
     if (!navigator.onLine) {
-      hint.classList.add('offline');
+      hint.classList.remove('detected'); hint.classList.add('offline');
       hint.innerHTML = 'You are offline. Reconnect to read the live price and pay.';
       btn.disabled = true;
+      return;
+    }
+    hint.classList.remove('offline');
+    if (!inFlight) btn.disabled = false;
+    if (hasInjectedWallet()) {
+      hint.classList.add('detected');
+      hint.innerHTML = '<b>Wallet detected.</b> You can pay this call directly.';
+    } else if (isCoarsePointer()) {
+      hint.classList.remove('detected');
+      hint.innerHTML = 'No wallet in this browser. On a phone, open this page inside your <b>MetaMask</b> (Base) or <b>Phantom</b> (Solana) in-app browser to pay. You can still read the live 402 challenge above.';
     } else {
-      hint.classList.remove('offline');
-      hint.innerHTML = 'On a phone? Open this page inside your <b>MetaMask</b> or <b>Phantom</b> in-app browser to pay.';
-      if (!inFlight) btn.disabled = false;
+      hint.classList.remove('detected');
+      hint.innerHTML = 'No wallet detected. Install <b>MetaMask</b> (Base) or <b>Phantom</b> (Solana) to pay — or just read the live 402 challenge above.';
     }
   }
-  window.addEventListener('online', function () { syncOnline(); loadChallengePreview(); });
-  window.addEventListener('offline', syncOnline);
+  // Wallet extensions inject asynchronously; re-check briefly after load.
+  var walletPolls = 0;
+  function pollForWallet() {
+    syncWalletHint();
+    if (!hasInjectedWallet() && walletPolls < 8) { walletPolls++; setTimeout(pollForWallet, 350); }
+  }
+  window.addEventListener('online', function () { syncWalletHint(); loadChallengePreview(); });
+  window.addEventListener('offline', syncWalletHint);
+  // EIP-6963 announce + Phantom late-inject both surface via this event in practice.
+  window.addEventListener('eip6963:announceProvider', syncWalletHint);
 
   // ── wiring ──────────────────────────────────────────────────────────────────
   $('payBtn').addEventListener('click', runPayment);
@@ -635,7 +792,7 @@ a:focus-visible{outline-offset:3px}
     }
   });
 
-  syncOnline();
+  pollForWallet();
   loadChallengePreview();
 })();
 </script>

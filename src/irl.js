@@ -58,7 +58,8 @@ import { isFiniteReading, isCompassFresh, shouldUseAbsoluteYaw, resolveLockYaw, 
 import { pinBandAction } from './irl/proximity-band.js';
 import { loadInto } from './shared/async-state.js';
 import { openMapPlacePicker } from './irl/map-place.js';
-import { loadLeaflet } from './shared/leaflet.js';
+import { openPrivacyCenter, maybeShowFirstRunDisclosure, getDiscoveryPrecision } from './irl/privacy-center.js';
+import { loadLeaflet } from './shared/leaflet-loader.js';
 
 const AVATAR_URL_DEFAULT = '/avatars/default.glb';
 const ANIMATIONS_MANIFEST_URL = '/animations/manifest.json';
@@ -1782,14 +1783,6 @@ async function enterFloorAnchor() {
 	}
 }
 
-// Yaw (rotation about world Y), in degrees clockwise from the local −Z axis —
-// the same convention savePin stores and spawnNearbyPin reads back.
-function yawFromQuat(q) {
-	const siny = 2 * (q.w * q.y + q.z * q.x);
-	const cosy = 1 - 2 * (q.y * q.y + q.x * q.x);
-	return Math.atan2(siny, cosy) * 180 / Math.PI;
-}
-
 // Entry point for a placed floor anchor: persist it now if we have a GPS fix,
 // otherwise hold the pose until the first fix lands. The in-session XRAnchor
 // already glues the agent either way — this only governs the durable pin. `meta`
@@ -1818,20 +1811,25 @@ function onFloorAnchored(pose, meta = {}) {
 // durable GPS pin is just coordinates, so it saves the same either way.
 function persistFloorAnchor(pose, degraded = false) {
 	const { position, quaternion } = pose;
-	const mLat = 110540;
-	const mLng = 111320 * Math.cos(gpsState.lat * (Math.PI / 180));
-	const pinLat = gpsState.lat + (-position.z / mLat);
-	const pinLng = gpsState.lng + ( position.x / mLng);
-	const heading = ((Math.round(yawFromQuat(quaternion)) % 360) + 360) % 360;
+	// Pure, unit-tested conversion (src/irl/floor-anchor.js): horizontal offset →
+	// lat/lng via room-anchor's single projection, quaternion → normalised yaw.
+	const pin = anchorPoseToPin({
+		originLat: gpsState.lat,
+		originLng: gpsState.lng,
+		x: position.x,
+		y: position.y,
+		z: position.z,
+		quat: [quaternion.x, quaternion.y, quaternion.z, quaternion.w],
+	});
 
-	gpsPin = { lat: pinLat, lng: pinLng };
+	gpsPin = { lat: pin.lat, lng: pin.lng };
 	gpsModeActive = true;
 	setXrResting(placementHint(degraded));
-	savePin(pinLat, pinLng, heading, '', {
-		heightM: position.y,        // floor height relative to the eye-level session origin (negative = below)
-		yawDeg:  heading,
-		quat:    [quaternion.x, quaternion.y, quaternion.z, quaternion.w],
-		source:  'webxr',
+	savePin(pin.lat, pin.lng, pin.heading, '', {
+		heightM: pin.heightM,       // floor height relative to the eye-level session origin (negative = below)
+		yawDeg:  pin.heading,
+		quat:    pin.quat,
+		source:  pin.source,
 	}).then(result => {
 		if (result?.ok && gpsPin) {
 			gpsPin.id = result.id;
@@ -2733,13 +2731,35 @@ function relativeTime(iso) {
 	return `${Math.round(hrs / 24)}d ago`;
 }
 
+// Expiry phrasing for the My-pins meta line. Anonymous pins self-destruct on a
+// 7-day timer (a countdown, so a tester knows exactly when a forgotten test pin
+// is gone); signed-in pins are permanent. Returns { label, cls } so the row can
+// tint the chip amber when a pin is within a day of expiring.
+function relativeExpiry(iso) {
+	if (!iso) return { label: 'permanent', cls: 'is-perm' };
+	const t = new Date(iso).getTime();
+	if (!isFinite(t)) return { label: 'permanent', cls: 'is-perm' };
+	const secs = Math.round((t - Date.now()) / 1000);
+	if (secs <= 0) return { label: 'expired', cls: 'is-soon' }; // shouldn't surface — the feed filters expired
+	const days = Math.floor(secs / 86400);
+	if (days >= 1) return { label: `expires in ${days}d`, cls: days <= 1 ? 'is-soon' : '' };
+	const hrs = Math.floor(secs / 3600);
+	if (hrs >= 1) return { label: `expires in ${hrs}h`, cls: 'is-soon' };
+	const mins = Math.max(1, Math.floor(secs / 60));
+	return { label: `expires in ${mins}m`, cls: 'is-soon' };
+}
+
+// Composes the meta line — distance · age · expiry — as one line. Returns HTML:
+// the expiry segment is a styled chip, so the dynamic text pieces are escaped
+// here and renderMyPins inserts the result without re-escaping.
 function _pinMetaLine(p) {
 	const parts = [];
 	if (gpsState.ready && isFinite(p.lat) && isFinite(p.lng)) {
-		parts.push(`${Math.round(haversineMeters(gpsState.lat, gpsState.lng, p.lat, p.lng))}m away`);
+		parts.push(_escHtml(`${Math.round(haversineMeters(gpsState.lat, gpsState.lng, p.lat, p.lng))}m away`));
 	}
-	if (p.placed_at) parts.push(relativeTime(p.placed_at));
-	if (!p.expires_at) parts.push('permanent');
+	if (p.placed_at) parts.push(_escHtml(relativeTime(p.placed_at)));
+	const exp = relativeExpiry(p.expires_at);
+	parts.push(`<span class="irl-pin-exp ${exp.cls}">${_escHtml(exp.label)}</span>`);
 	return parts.join(' · ');
 }
 
@@ -2787,10 +2807,223 @@ function renderMyPins(pins, listEl) {
 		<div class="irl-pin-info">
 			<div class="irl-pin-name">${_escHtml(p.avatar_name || 'Agent')}</div>
 			${p.caption ? `<div class="irl-pin-caption">${_escHtml(p.caption)}</div>` : ''}
-			<div class="irl-pin-meta">${_escHtml(_pinMetaLine(p))}</div>
+			<div class="irl-pin-meta">${_pinMetaLine(p)}</div>
 		</div>
 		<button class="irl-pin-del" data-del="${_escHtml(p.id)}" type="button" aria-label="Delete this pin">${TRASH_SVG}</button>
 	</div>`).join('');
+}
+
+// ── My-pins overview map (lazy Leaflet) ────────────────────────────────────
+// A small dark map above the list plots every owned pin, so "where did I drop
+// things?" is answered visually. The map is a pure enhancement: the list is the
+// source of truth, and any CDN failure degrades to the list alone (Rule 9).
+let _myPinsMap = null;             // Leaflet map for the sheet, or null when down
+const _myPinsMarkers = new Map();  // pin id -> Leaflet marker
+let _myPinsMapSeq = 0;             // bumped each open/close; guards async CDN builds
+let _purgeKeydown = null;          // active confirm focus-trap handler, or null
+
+// A gold dot marker — matches the "your agent" gold used on nearby labels.
+function makeMyPinIcon(L) {
+	return L.divIcon({
+		className: 'irl-mypins-pin',
+		html: '<span class="irl-mypins-marker"></span>',
+		iconSize: [14, 14],
+		iconAnchor: [7, 7],
+	});
+}
+
+function teardownMyPinsMap() {
+	try { _myPinsMap?.remove(); } catch { /* leaflet teardown best-effort */ }
+	_myPinsMap = null;
+	_myPinsMarkers.clear();
+	const mapEl = document.getElementById('irl-mypins-map');
+	if (mapEl) { mapEl.classList.remove('is-shown'); mapEl.innerHTML = ''; }
+}
+
+function closePurgeConfirmTrap() {
+	if (_purgeKeydown) { document.removeEventListener('keydown', _purgeKeydown, true); _purgeKeydown = null; }
+}
+
+function hideMyPinsFooter() {
+	closePurgeConfirmTrap();
+	const foot = document.getElementById('irl-mypins-foot');
+	if (foot) { foot.hidden = true; foot.innerHTML = ''; }
+}
+
+// Clean slate on every open: void any in-flight CDN build, drop the old map +
+// footer, and show the map skeleton so the loading state reads as "map + rows".
+function resetMyPinsChrome() {
+	_myPinsMapSeq++;
+	teardownMyPinsMap();
+	hideMyPinsFooter();
+	const mapEl = document.getElementById('irl-mypins-map');
+	if (mapEl) {
+		mapEl.classList.add('is-shown');
+		mapEl.innerHTML = '<div class="irl-mypins-map-skel" aria-hidden="true"></div>';
+	}
+}
+
+// Tapping a marker scrolls its row into view and flashes it, so the map and list
+// stay legibly linked.
+function highlightMyPinRow(id) {
+	const list = document.getElementById('irl-mypins-list');
+	if (!list) return;
+	const sel = (typeof CSS !== 'undefined' && CSS.escape) ? CSS.escape(id) : String(id).replace(/"/g, '\\"');
+	const row = list.querySelector(`.irl-pin-row[data-pid="${sel}"]`);
+	if (!row) return;
+	row.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+	row.classList.remove('is-highlight');
+	void row.offsetWidth;              // restart the flash if already highlighted
+	row.classList.add('is-highlight');
+	setTimeout(() => row.classList.remove('is-highlight'), 1600);
+}
+
+// Re-fit the map to whatever markers remain (after a single delete). Empties → hide.
+function refitMyPinsMap() {
+	if (!_myPinsMap) return;
+	if (!_myPinsMarkers.size) { teardownMyPinsMap(); return; }
+	const lls = [...(_myPinsMarkers.values())].map(m => m.getLatLng());
+	if (lls.length === 1) _myPinsMap.setView(lls[0], 16);
+	else { try { _myPinsMap.fitBounds(lls, { padding: [28, 28], maxZoom: 17 }); } catch { /* noop */ } }
+}
+
+function removeMyPinMarker(id) {
+	const mk = _myPinsMarkers.get(id);
+	if (mk) { try { _myPinsMap?.removeLayer(mk); } catch { /* best-effort */ } }
+	_myPinsMarkers.delete(id);
+	refitMyPinsMap();
+}
+
+// Builds the Leaflet map + a marker per owned pin and fits to them. Awaits the
+// shared lazy loader; on any CDN failure or a sheet that closed mid-load, it
+// quietly drops back to the list. `_myPinsMapSeq` guards against a stale build
+// mounting after the sheet was reopened.
+async function renderMyPinsMap(pins) {
+	const seq = _myPinsMapSeq;
+	const mapEl = document.getElementById('irl-mypins-map');
+	if (!mapEl) return;
+	const geo = pins.filter(p => isFinite(+p.lat) && isFinite(+p.lng));
+	if (!geo.length) { teardownMyPinsMap(); return; }   // nothing to plot → list only
+
+	let L;
+	try { L = await loadLeaflet(); }
+	catch { if (seq === _myPinsMapSeq) teardownMyPinsMap(); return; }   // CDN blocked/offline → list only
+	if (seq !== _myPinsMapSeq || !mapEl.isConnected) return;            // sheet closed/reopened mid-load
+
+	mapEl.innerHTML = '';
+	const map = L.map(mapEl, { zoomControl: true, attributionControl: true, scrollWheelZoom: false });
+	_myPinsMap = map;
+	L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+		attribution: '© OpenStreetMap · © CARTO',
+		subdomains: 'abcd',
+		maxZoom: 19,
+	}).addTo(map);
+
+	_myPinsMarkers.clear();
+	const latlngs = [];
+	for (const p of geo) {
+		const ll = [+p.lat, +p.lng];
+		latlngs.push(ll);
+		const mk = L.marker(ll, { keyboard: false, icon: makeMyPinIcon(L), title: p.avatar_name || 'Your pin' }).addTo(map);
+		mk.on('click', () => highlightMyPinRow(p.id));
+		_myPinsMarkers.set(p.id, mk);
+	}
+	if (latlngs.length === 1) map.setView(latlngs[0], 16);
+	else map.fitBounds(latlngs, { padding: [28, 28], maxZoom: 17 });
+
+	// The sheet animates in (translateY), so the map can mount mid-transition;
+	// Leaflet must re-measure once layout settles or tiles render into a 0-size box.
+	requestAnimationFrame(() => { if (seq === _myPinsMapSeq && _myPinsMap === map) map.invalidateSize(); });
+	setTimeout(() => { if (seq === _myPinsMapSeq && _myPinsMap === map) map.invalidateSize(); }, 320);
+}
+
+// ── Bulk purge — "Remove all from this device" ─────────────────────────────
+// A footer affordance for fast cleanup after a testing session. Only shown for an
+// anonymous device with ≥1 pin; signed-in permanent pins are managed from the
+// dashboard (out of scope here), so the button is gated on _deviceToken.
+function renderPurgeFooter(count) {
+	const foot = document.getElementById('irl-mypins-foot');
+	if (!foot) return;
+	if (!_deviceToken || count < 1) { hideMyPinsFooter(); return; }
+	closePurgeConfirmTrap();
+	foot.hidden = false;
+	foot.innerHTML = `<button class="irl-mypins-purge" id="irl-mypins-purge" type="button"
+		aria-label="Remove all ${count} agent${count === 1 ? '' : 's'} you placed from this device">
+		${TRASH_SVG}<span>Remove all from this device</span>
+	</button>`;
+	foot.querySelector('#irl-mypins-purge')?.addEventListener('click', () => openPurgeConfirm(count));
+}
+
+// A designed confirm step (not window.confirm): focus-trapped between Cancel and
+// Remove, Esc cancels, default focus on Cancel (the safe choice for a destructive
+// action).
+function openPurgeConfirm(count) {
+	const foot = document.getElementById('irl-mypins-foot');
+	if (!foot) return;
+	foot.hidden = false;
+	foot.innerHTML = `<div class="irl-mypins-confirm" role="alertdialog" aria-modal="true" aria-labelledby="irl-purge-q">
+		<p class="irl-mypins-confirm-q" id="irl-purge-q">Remove all ${count} agent${count === 1 ? '' : 's'} you placed from this device? This can’t be undone.</p>
+		<div class="irl-mypins-confirm-row">
+			<button class="irl-mypins-confirm-cancel" type="button" data-cancel>Cancel</button>
+			<button class="irl-mypins-confirm-go" type="button" data-go>Remove all</button>
+		</div>
+	</div>`;
+	const cancelBtn = foot.querySelector('[data-cancel]');
+	const goBtn     = foot.querySelector('[data-go]');
+	cancelBtn?.addEventListener('click', () => closePurgeConfirm(count));
+	goBtn?.addEventListener('click', () => runPurge(goBtn, cancelBtn));
+	closePurgeConfirmTrap();
+	_purgeKeydown = (ev) => {
+		if (ev.key === 'Escape') { ev.preventDefault(); closePurgeConfirm(count); return; }
+		if (ev.key !== 'Tab') return;
+		const order = [cancelBtn, goBtn].filter(Boolean);
+		if (!order.length) return;
+		ev.preventDefault();
+		const i = order.indexOf(document.activeElement);
+		const n = order.length;
+		const next = ev.shiftKey ? (i <= 0 ? n - 1 : i - 1) : (i >= n - 1 ? 0 : i + 1);
+		order[next]?.focus();
+	};
+	document.addEventListener('keydown', _purgeKeydown, true);
+	cancelBtn?.focus();
+}
+
+function closePurgeConfirm(count) {
+	closePurgeConfirmTrap();
+	renderPurgeFooter(count);   // back to the "Remove all" button
+	document.getElementById('irl-mypins-purge')?.focus();
+}
+
+// One request deletes every pin tied to this device token; the sheet then lands
+// on the empty state. The list is read for the about-to-be-purged ids so their
+// nearby labels stop reading as "yours".
+async function runPurge(goBtn, cancelBtn) {
+	if (goBtn) { goBtn.disabled = true; goBtn.textContent = 'Removing…'; }
+	if (cancelBtn) cancelBtn.disabled = true;
+	const r = await fetch(
+		`/api/irl/pins?all=1&deviceToken=${encodeURIComponent(_deviceToken ?? '')}`,
+		{ method: 'DELETE', credentials: 'include' },
+	).catch(() => null);
+	if (!r?.ok) {
+		if (goBtn) { goBtn.disabled = false; goBtn.textContent = 'Remove all'; }
+		if (cancelBtn) cancelBtn.disabled = false;
+		setStatus('Could not remove your pins', { error: true });
+		return;
+	}
+	let deleted = 0;
+	try { deleted = (await r.json()).deleted ?? 0; } catch { /* count is best-effort */ }
+
+	closePurgeConfirmTrap();
+	// If a pin anchored in this session was among them, release the lock.
+	if (gpsPin?.id && _myPinIds.has(gpsPin.id)) setLocked(false);
+	const list = document.getElementById('irl-mypins-list');
+	if (list) for (const row of list.querySelectorAll('.irl-pin-row')) _myPinIds.delete(row.dataset.pid);
+	refreshOwnLabels();
+
+	teardownMyPinsMap();
+	hideMyPinsFooter();
+	if (list) { ensureStateKitStyles(); list.innerHTML = emptyStateHTML(MYPINS_EMPTY); }
+	setStatus(deleted > 0 ? `Removed ${deleted} pin${deleted === 1 ? '' : 's'} from this device` : 'Nothing to remove');
 }
 
 async function openMyPinsSheet() {
@@ -2798,9 +3031,11 @@ async function openMyPinsSheet() {
 	const list  = document.getElementById('irl-mypins-list');
 	if (!sheet || !list) return;
 	sheet.classList.add('is-open');
-	// Designed loading → list / empty / error(+retry), so a failed fetch surfaces
-	// an error instead of masquerading as "no pins".
-	loadInto(list, {
+	resetMyPinsChrome();   // map skeleton on, footer + any stale confirm cleared
+	// Designed loading → list / empty / error(+retry). loadInto returns the data on
+	// success or null when empty/errored; the map + purge footer ride a real,
+	// non-empty result — in the empty and error cases the list is the source of truth.
+	const pins = await loadInto(list, {
 		load: loadMyPins,
 		render: (pins, el) => renderMyPins(pins, el),
 		skeleton: { count: 3, variant: 'row' },
@@ -2808,6 +3043,20 @@ async function openMyPinsSheet() {
 		error: { title: "Couldn't load your pins", body: 'Check your connection and try again.' },
 		context: 'irl:my-pins',
 	});
+	if (pins && pins.length) {
+		renderMyPinsMap(pins);          // async; degrades to the list on any CDN failure
+		renderPurgeFooter(pins.length);
+	} else {
+		teardownMyPinsMap();            // empty/error → no map, no footer
+		hideMyPinsFooter();
+	}
+}
+
+function closeMyPinsSheet() {
+	document.getElementById('irl-mypins-sheet')?.classList.remove('is-open');
+	_myPinsMapSeq++;        // void any in-flight CDN build
+	teardownMyPinsMap();
+	hideMyPinsFooter();
 }
 
 async function deleteMyPin(id, btn) {
@@ -2823,12 +3072,20 @@ async function deleteMyPin(id, btn) {
 	}
 	// If we just deleted the avatar currently anchored in this session, clear it.
 	if (gpsPin?.id === id) setLocked(false);
+	_myPinIds.delete(id);
 
+	// Drop the row + its map marker so the overview stays honest with the list.
 	btn?.closest('.irl-pin-row')?.remove();
+	removeMyPinMarker(id);
 	const list = document.getElementById('irl-mypins-list');
-	if (list && !list.querySelector('.irl-pin-row')) {
+	const remaining = list ? list.querySelectorAll('.irl-pin-row').length : 0;
+	if (!remaining) {
 		ensureStateKitStyles();
-		list.innerHTML = emptyStateHTML(MYPINS_EMPTY);
+		if (list) list.innerHTML = emptyStateHTML(MYPINS_EMPTY);
+		teardownMyPinsMap();
+		hideMyPinsFooter();
+	} else {
+		renderPurgeFooter(remaining);   // keep the purge button's aria-count accurate
 	}
 	setStatus('Pin removed');
 }
@@ -2858,20 +3115,26 @@ function syncGhostToggle() {
 		? 'You appear as a ghost to others viewing this area. Tap to hide.'
 		: 'Only your presence count is shared. Tap to appear as a ghost to others nearby.';
 }
-document.getElementById('irl-ghost-toggle')?.addEventListener('click', () => {
-	const on = !getShareGhost();
+// Single path for flipping the presence opt-in — used by the topbar pill AND the
+// L3 privacy center, so both stay in sync (pill state, stored intent, live room).
+function applyGhost(on) {
 	setShareGhost(on);
 	syncGhostToggle();
 	// Push the change to the live room (no-op off a live socket; the next connect
 	// carries the stored intent regardless).
 	irlNet?.setGhost(on, resolveAvatarUrl(_currentAvatarId));
 	setStatus(on ? 'You now appear to others nearby' : 'You no longer appear to others');
-});
+}
+document.getElementById('irl-ghost-toggle')?.addEventListener('click', () => applyGhost(!getShareGhost()));
 syncGhostToggle();
 
-document.getElementById('irl-mypins-close')?.addEventListener('click', () => {
-	document.getElementById('irl-mypins-sheet')?.classList.remove('is-open');
+// L3 — Location & privacy center: honest disclosure + discovery precision +
+// presence opt-in + a jump into pin management, all in one designed surface.
+document.getElementById('irl-privacy-btn')?.addEventListener('click', () => {
+	openPrivacyCenter({ getGhost: getShareGhost, setGhost: applyGhost, onManagePins: openMyPinsSheet });
 });
+
+document.getElementById('irl-mypins-close')?.addEventListener('click', closeMyPinsSheet);
 
 document.getElementById('irl-mypins-list')?.addEventListener('click', (e) => {
 	const btn = e.target.closest('[data-del]');
@@ -4671,7 +4934,9 @@ window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && calibrateA
 // Permissions + first-run onboarding (E1) own the camera/motion/location prompts.
 // GPS starts only once location is granted — via first-run, a repeat-visit replay,
 // or a later chip tap — so there's no silent native location prompt on load.
-startOnboarding({ onGrant: (kind) => { if (kind === 'location') initGPS(); } });
+startOnboarding({ onGrant: (kind) => {
+	if (kind === 'location') { initGPS(); maybeShowFirstRunDisclosure(); }
+} });
 
 // Reveal My pins on load if this device already owns pins — management must
 // survive a reload (and a denied GPS prompt). The GPS-ready path reveals it too.
