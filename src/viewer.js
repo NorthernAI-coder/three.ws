@@ -1351,6 +1351,28 @@ export class Viewer {
 			hideable: true,
 		}));
 
+		// dat.GUI's OptionController change handler reads
+		// `select.options[select.selectedIndex].value` with no guard, so a `change`
+		// event fired while a dropdown sits at selectedIndex === -1 throws
+		// "Cannot read properties of undefined (reading 'value')". A user can never
+		// put a populated <select> in that state, but a programmatic deselect — an
+		// automated form fuzzer or accessibility crawler dispatching synthetic
+		// change events — can. Normalize the index in the capture phase, before
+		// dat.GUI's own bubble-phase listener runs, so the control degrades to its
+		// first option (or the event is dropped when there is nothing to select)
+		// instead of crashing the whole viewer.
+		gui.domElement.addEventListener(
+			'change',
+			(e) => {
+				const t = /** @type {HTMLSelectElement} */ (e.target);
+				if (t && t.tagName === 'SELECT' && t.selectedIndex < 0) {
+					if (t.options.length) t.selectedIndex = 0;
+					else e.stopImmediatePropagation();
+				}
+			},
+			true,
+		);
+
 		// Display controls.
 		const dispFolder = gui.addFolder('Display');
 		const envBackgroundCtrl = dispFolder.add(this.state, 'background');
