@@ -756,6 +756,10 @@
 			"dest": "/irl.html"
 		},
 		{
+			"src": "/ibm/x402-demo",
+			"dest": "/ibm/x402-demo.html"
+		},
+		{
 			"src": "/communities/?",
 			"dest": "/communities.html"
 		},
@@ -2013,6 +2017,10 @@
 		{
 			"src": "/api/sniper/leaderboard",
 			"dest": "/api/sniper/leaderboard.js"
+		},
+		{
+			"src": "/api/sniper/status",
+			"dest": "/api/sniper/status.js"
 		},
 		{
 			"src": "/api/trending",

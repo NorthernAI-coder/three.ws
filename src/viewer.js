@@ -45,6 +45,7 @@ import { addLights, removeLights } from './viewer/lights.js';
 import { getCubeMapTexture } from './viewer/environment.js';
 import { takeScreenshot, captureScreenshot } from './viewer/screenshot.js';
 import { setClips, playAllClips } from './viewer/animation.js';
+import { computeFramingExtent } from './viewer/framing.js';
 import { LightProbeGrid } from './light-probe-grid.js';
 import { AnimationManager } from './animation-manager.js';
 import { computeBoundsTree, disposeBoundsTree, acceleratedRaycast } from 'three-mesh-bvh';
@@ -58,37 +59,6 @@ BufferGeometry.prototype.disposeBoundsTree = disposeBoundsTree;
 Mesh.prototype.raycast = acceleratedRaycast;
 
 Cache.enabled = true;
-
-/**
- * Vertical framing geometry for a humanoid bounding box.
- *
- * `full` (default) frames the whole body: the look-at sits at the vertical
- * centre and the visible height is the full bounding box. `portrait` crops to
- * roughly head-to-mid-thigh so the avatar fills a wide or short card instead of
- * standing tiny-and-low in it — the read that works best for a small embedded
- * thumbnail.
- *
- * Pure (no THREE dependency) so it is unit-testable and can be shared by both
- * `setContent()` (initial framing) and `frameContent()` (re-framing on resize).
- * Both must agree or a resize would jump the camera. For `full` the result is
- * mathematically identical to the previous inline computation, so non-portrait
- * embeds are byte-for-byte unchanged.
- *
- * @param {number} bodyHeight  full bounding-box height in world units
- * @param {number} topY        world-y of the top of the head in the working frame
- * @param {'full'|'portrait'} [mode]
- * @returns {{ visH:number, baseY:number }} visible height + look-at y
- */
-export function computeFramingExtent(bodyHeight, topY, mode = 'full') {
-	if (mode === 'portrait') {
-		const PORTRAIT_FRAC = 0.62; // head → ~mid-thigh
-		const HEADROOM_FRAC = 0.04; // a little air above the crown
-		const visH = bodyHeight * PORTRAIT_FRAC;
-		const windowTop = topY + bodyHeight * HEADROOM_FRAC;
-		return { visH, baseY: windowTop - visH / 2 };
-	}
-	return { visH: bodyHeight, baseY: topY - bodyHeight / 2 };
-}
 
 /**
  * @class Viewer
@@ -896,6 +866,9 @@ export class Viewer {
 
 	load(url, rootPath, assetMap, onProgress) {
 		const baseURL = LoaderUtils.extractUrlBase(url);
+		// Remember the source URL so the animation manager's fallen-pose guard can
+		// report which avatar produced a broken retarget (passed to attach below).
+		this._sourceUrl = url;
 
 		// Load.
 		return new Promise((resolve, reject) => {
@@ -1032,7 +1005,7 @@ export class Viewer {
 		});
 
 		this.setClips(clips);
-		this.animationManager.attach(this.content);
+		this.animationManager.attach(this.content, { avatarUrl: this._sourceUrl || '' });
 		this._setupAnimationPanel();
 
 		// _panelFrac() reads offsetHeight after _setupAnimationPanel has

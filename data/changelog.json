@@ -3,6 +3,13 @@
 	"entries": [
 		{
 			"date": "2026-06-17",
+			"title": "Try x402 live — pay a tenth of a cent to call a real API from your own wallet",
+			"summary": "There's now a live, self-contained x402 demo you can try in a browser. Pay $0.001 USDC from your own wallet — MetaMask on Base or Phantom on Solana — and call a real three.ws data API. The page reads the live HTTP 402 price the server quotes, runs the paid call once your wallet signs a gasless authorization, and shows the response next to an on-chain transaction receipt you can open on Basescan or Solscan. Nothing is mocked and there's no account or backend. The same eight-line embed it runs on — one script tag from three.ws plus any button carrying a data-x402-endpoint — is copy-pasteable into any site, so a developer can add a working pay-per-call paywall in minutes. Built with IBM as the public face of the partnership and designed to host cleanly on a strict-CSP enterprise page.",
+			"tags": ["feature", "sdk"],
+			"link": "/ibm/x402-demo"
+		},
+		{
+			"date": "2026-06-17",
 			"title": "IRL: a pinned agent stays rock-steady even when your phone's compass glitches",
 			"summary": "Placing an agent in the real world leans on your phone's compass and motion sensors, and real phones hand those out badly all the time — an uncalibrated compass, a magnetic dead-zone as you walk past a fridge or a car, a dropped sensor frame. Any one of those could make a pinned agent suddenly spin, freeze, or vanish from the camera. IRL now shrugs them off: a bad reading is ignored and the last good one held rather than snapping the view, the compass is watched for going stale and the camera quietly falls back to motion-only tracking when it does, and the spot where the compass rolls past north is eased through instead of whipping around. The agent holds its place and its bearing no matter what the sensors do.",
 			"tags": ["fix"],

@@ -49,6 +49,7 @@ import {
 	MIN_COVERAGE,
 } from '../src/animation-retarget.js';
 import { FEATURED } from '../src/animation-presets.js';
+import { measureHipsTiltDeg } from '../src/animation-manager.js';
 import { loadBoneGraph, hipsTiltAcrossClip } from './_helpers/glb-bone-graph.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -301,23 +302,49 @@ describe('no-regression — cz.glb retarget is byte-for-byte the verbatim path',
 	}
 });
 
-// ── Runtime guard helper stays silent on healthy rigs ───────────────────────
+// ── Runtime guard's pure measurement (the actual shipped code) ──────────────
 
-// Mirror of the runtime guard's pure measurement in src/animation-manager.js:
-// the at-rest (keyframe 0) Hips tilt, which is what the guard samples once per
-// clip. Proves the guard's >45° threshold never fires on a healthy retarget.
-describe('runtime guard is silent on healthy rigs (at-rest Hips tilt < 45°)', () => {
+// measureHipsTiltDeg is the exact helper the runtime fallen-pose guard calls
+// once per clip in src/animation-manager.js. Exercise it directly so what the
+// guard decides on is what the corpus verifies. The guard's threshold is 45°.
+const GUARD_THRESHOLD_DEG = 45;
+
+// Retarget the way the manager does and measure with the real guard helper.
+function guardTilt(root, clipName, { withFix = true } = {}) {
+	const map = canonicalNodeMapFromObject(root);
+	const targetRest = withFix ? canonicalRestMapFromObject(root) : new Map();
+	const { clip } = retargetClip(CLIPS.get(clipName), map, { targetRest });
+	return measureHipsTiltDeg(clip, root, map);
+}
+
+describe('runtime guard (measureHipsTiltDeg) is silent on healthy rigs', () => {
 	for (const [label, file] of [
 		['cz.glb', 'cz.glb'],
 		['michelle.glb (post-fix)', 'michelle.glb'],
 	]) {
 		for (const clip of FEATURED) {
-			it(`${label} + ${clip}: at-rest tilt stays well under the 45° guard threshold`, () => {
-				const { root } = loadBoneGraph(avatar(file));
-				const scan = scanClip(root, clip);
-				expect(scan).not.toBeNull();
-				expect(scan.atKeyframe0).toBeLessThan(45);
+			it(`${label} + ${clip}: at-rest tilt stays under the ${GUARD_THRESHOLD_DEG}° guard threshold`, () => {
+				const tilt = guardTilt(loadBoneGraph(avatar(file)).root, clip);
+				expect(tilt).not.toBeNull();
+				expect(tilt).toBeLessThan(GUARD_THRESHOLD_DEG);
 			});
 		}
 	}
+});
+
+describe('runtime guard (measureHipsTiltDeg) catches a genuine fallen pose', () => {
+	it('michelle + celebrate without the fix measures > 45° (the guard would fire)', () => {
+		const tilt = guardTilt(loadBoneGraph(avatar('michelle.glb')).root, 'celebrate', {
+			withFix: false,
+		});
+		expect(tilt).not.toBeNull();
+		expect(tilt).toBeGreaterThan(GUARD_THRESHOLD_DEG);
+	});
+
+	it('returns null (can\'t assess, never a false alarm) when there is no clip', () => {
+		const { root } = loadBoneGraph(avatar('cz.glb'));
+		const map = canonicalNodeMapFromObject(root);
+		expect(measureHipsTiltDeg(null, root, map)).toBeNull();
+		expect(measureHipsTiltDeg(undefined, root, map)).toBeNull();
+	});
 });

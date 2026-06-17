@@ -147,7 +147,7 @@ export function openPrivacyCenter({ getGhost, setGhost, onManagePins } = {}) {
 				<h4>Discovery precision</h4>
 				<div class="irlpc-seg" role="group" aria-label="Discovery precision">
 					<button type="button" data-prec="precise" class="${precision === 'precise' ? 'on' : ''}" aria-pressed="${precision === 'precise'}">Precise<small>exact spot</small></button>
-					<button type="button" data-prec="approximate" class="${precision === 'approximate' ? 'on' : ''}" aria-pressed="${precision === 'approximate'}">Approximate<small>~city block</small></button>
+					<button type="button" data-prec="approximate" class="${precision === 'approximate' ? 'on' : ''}" aria-pressed="${precision === 'approximate'}">Approximate<small>~25 m area</small></button>
 				</div>
 				<div class="irlpc-note">Approximate keeps your exact position off our servers while you browse — nearby agents may resolve a little less precisely. Placement is always exactly where you choose.</div>
 			</div>

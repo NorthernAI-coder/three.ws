@@ -7,6 +7,14 @@
 		<description>What's new on three.ws — features, improvements, and releases, newest first.</description>
 		<language>en</language>
 		<item>
+			<title>x402 Live Demo (IBM × three.ws)</title>
+			<link>https://three.ws/ibm/x402-demo</link>
+			<guid isPermaLink="false">2026-06-17:x402 Live Demo (IBM × three.ws)</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>A self-contained x402 micropayment demo: pay $0.001 USDC from your own wallet — MetaMask on Base or Phantom on Solana — to call a real three.ws data API. Watch the live HTTP 402 challenge, sign a gasless authorization, and see the on-chain settlement receipt. No backend, no account; built as the public face of the IBM × three.ws partnership.</description>
+		</item>
+		<item>
 			<title>Agent profiles now show the agent's real avatar — no more stray model over the name</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-17:Agent profiles now show the agent's real avatar — no more stray model over the name</guid>

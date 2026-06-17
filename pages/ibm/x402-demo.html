@@ -374,8 +374,8 @@ a:focus-visible{outline-offset:3px}
 
       <div class="demo-body">
         <!-- live 402 preview -->
-        <div class="preview" aria-live="polite" aria-busy="true">
-          <div class="preview-label" id="pvLabel"><span class="dot"></span><span id="pvLabelText">Reading the server's 402 challenge…</span></div>
+        <div class="preview" role="region" aria-label="Live HTTP 402 payment challenge" aria-live="polite" aria-busy="true">
+          <div class="preview-label" id="pvLabel"><span class="dot" aria-hidden="true"></span><span id="pvLabelText">Reading the server's 402 challenge…</span></div>
           <div id="pvRows">
             <div class="preview-row"><span class="sk" style="width:38%"></span></div>
             <div class="preview-row"><span class="sk" style="width:54%"></span></div>
@@ -387,7 +387,7 @@ a:focus-visible{outline-offset:3px}
         <div class="field-row">
           <div class="field-wrap">
             <label for="ticker">Ticker to check</label>
-            <input id="ticker" class="field" value="GRANITE" maxlength="32" autocomplete="off" spellcheck="false" inputmode="latin" aria-describedby="tickerHint">
+            <input id="ticker" class="field" value="GRANITE" maxlength="32" autocomplete="off" spellcheck="false" autocapitalize="characters" inputmode="text" aria-describedby="tickerHint">
             <div class="field-hint" id="tickerHint">A–Z and 0–9, up to 32 characters.</div>
           </div>
           <button id="payBtn" class="btn" type="button"><span class="spin" aria-hidden="true"></span><span class="label">Pay $0.001 &amp; run</span> <span class="arrow" aria-hidden="true">→</span></button>

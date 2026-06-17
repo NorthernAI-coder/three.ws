@@ -212,6 +212,8 @@
 		.irl-share-btn:active { transform: scale(0.96); }
 		.irl-share-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 		.irl-share-btn[disabled] { opacity: 0.6; cursor: progress; }
+		/* L3 — icon-only "Location & privacy" control sits beside Share */
+		.irl-privacy-btn { padding: 6px; display: inline-flex; align-items: center; justify-content: center; margin-right: 8px; }
 
 		/* ── Joystick ────────────────────────────────────────────── */
 		#irl-joystick {
@@ -1611,6 +1613,9 @@
 		     unless the live stream is up and more than just you are here. -->
 		<span id="irl-presence-chip" class="irl-presence-chip" hidden role="status" aria-live="polite"></span>
 	</div>
+	<button class="irl-share-btn irl-privacy-btn" id="irl-privacy-btn" type="button" aria-label="Location & privacy" title="Location & privacy">
+		<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+	</button>
 	<button class="irl-share-btn" id="irl-share-btn" type="button" aria-label="Share">Share</button>
 </header>
 

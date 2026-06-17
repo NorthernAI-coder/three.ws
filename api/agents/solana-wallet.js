@@ -5,14 +5,43 @@ import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.
 import { sql } from '../_lib/db.js';
 import { cors, json, method, error, readJson, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
-import { generateSolanaAgentWallet } from '../_lib/agent-wallet.js';
+import { generateSolanaAgentWallet, recoverSolanaAgentKeypair } from '../_lib/agent-wallet.js';
 import { solanaConnection, solanaPublicConnection } from '../_lib/agent-pumpfun.js';
 import { reverseLookupAddress } from '../../src/solana/sns.js';
-import { Keypair, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
-import { webcrypto } from 'node:crypto';
+import {
+	Keypair, PublicKey, LAMPORTS_PER_SOL, SystemProgram,
+	TransactionMessage, VersionedTransaction,
+} from '@solana/web3.js';
+import {
+	getAssociatedTokenAddressSync, createTransferCheckedInstruction,
+	createAssociatedTokenAccountIdempotentInstruction, getMint,
+	TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID,
+} from '@solana/spl-token';
+import { webcrypto, randomUUID } from 'node:crypto';
 import { env } from '../_lib/env.js';
 import { recordEvent } from '../_lib/usage.js';
 import { cacheGet, cacheSet } from '../_lib/cache.js';
+import { logAudit } from '../_lib/audit.js';
+import { explorerTxUrl } from '../_lib/avatar-wallet.js';
+import {
+	validateSolanaAddress, enforceSpendLimit, SpendLimitError, lamportsToUsd,
+	getSpendLimits, setSpendLimits, listCustodyEvents, updateCustodyEvent,
+	getDailySpendUsd,
+} from '../_lib/agent-trade-guards.js';
+
+// USDC mints per cluster — the only SPL token we can price 1:1 for the spend
+// ceiling without an external quote. $THREE is the only coin; USDC is the
+// payment-rail asset, not a coin we promote.
+const USDC_MINT_BY_CLUSTER = {
+	mainnet: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+	devnet: '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU',
+};
+
+// SOL "max" headroom: keep the account rent-exempt and leave fee budget so a
+// sweep can never brick the wallet or fail on fees.
+const SOL_FEE_RESERVE_LAMPORTS = 15_000n; // ~3× a single-signature base fee
+const RENT_EXEMPT_FALLBACK_LAMPORTS = 890_880n; // getMinimumBalanceForRentExemption(0)
+const TOKEN_ACCOUNT_RENT_FALLBACK_LAMPORTS = 2_039_280n; // 165-byte SPL token account
 
 const subtle = globalThis.crypto?.subtle || webcrypto.subtle;
 const BASE58_RE = /^[1-9A-HJ-NP-Za-km-z]+$/;
@@ -430,10 +459,535 @@ async function handleWallet(req, res, id) {
 	});
 }
 
+// ── owner gate ──────────────────────────────────────────────────────────────
+// Shared loader for the owner-only custody handlers: auth → load agent → verify
+// ownership → return the custodial wallet's address + encrypted secret + meta.
+// Returns { error } (already-shaped) on any failure so callers can early-return.
+async function loadOwnedWallet(req, res, id) {
+	const auth = await resolveAuth(req);
+	if (!auth) return { error: error(res, 401, 'unauthorized', 'sign in required') };
+
+	const [row] = await sql`SELECT id, user_id, meta FROM agent_identities WHERE id = ${id} AND deleted_at IS NULL`;
+	if (!row) return { error: error(res, 404, 'not_found', 'agent not found') };
+	if (row.user_id !== auth.userId) return { error: error(res, 403, 'forbidden', 'not your agent') };
+
+	const meta = { ...(row.meta || {}) };
+	return { auth, meta, address: meta.solana_address || null, encryptedSecret: meta.encrypted_solana_secret || null };
+}
+
+// ── withdraw / sweep ──────────────────────────────────────────────────────────
+// POST /api/agents/:id/solana/withdraw   (also aliased at /api/agents/:id/wallet/withdraw)
+// Owner-authenticated. Sweeps SOL or a held SPL token from the agent's custodial
+// wallet to an owner-chosen address, signed server-side. Idempotent, governed by
+// the shared spend policy, rent + fee reserved on a SOL "max".
+async function handleWithdraw(req, res, id) {
+	if (cors(req, res, { methods: 'POST,OPTIONS', credentials: true })) return;
+	if (!method(req, res, ['POST'])) return;
+
+	const owned = await loadOwnedWallet(req, res, id);
+	if (owned.error) return;
+	const { auth, meta, address: fromAddress, encryptedSecret } = owned;
+
+	// Owner-only daily withdraw cap + per-IP burst guard.
+	const rlUser = await limits.withdrawalPerUser(auth.userId);
+	if (!rlUser.success) return rateLimited(res, rlUser);
+	const rlIp = await limits.authIp(clientIp(req));
+	if (!rlIp.success) return rateLimited(res, rlIp);
+
+	if (!fromAddress || !encryptedSecret) {
+		return error(res, 404, 'not_found', 'agent has no solana wallet to withdraw from');
+	}
+
+	let body;
+	try {
+		body = await readJson(req);
+	} catch (e) {
+		return error(res, e?.status === 415 ? 415 : 400, 'bad_request', e?.message || 'invalid request body');
+	}
+
+	const network = body.network === 'devnet' ? 'devnet' : 'mainnet';
+	const asset = typeof body.asset === 'string' && body.asset.trim() ? body.asset.trim() : 'SOL';
+	const simulate = body.simulate === true;
+	const idempotencyKey =
+		typeof body.idempotency_key === 'string' && body.idempotency_key.trim()
+			? body.idempotency_key.trim().slice(0, 128)
+			: randomUUID();
+
+	// 1. Validate destination — base58, on-curve, not the wallet itself.
+	const dest = validateSolanaAddress(body.destination);
+	if (!dest.valid) {
+		return error(res, 400, 'invalid_destination', `destination is not a valid Solana address (${dest.reason})`);
+	}
+	if (!dest.onCurve) {
+		return error(res, 400, 'invalid_destination', 'destination is a program address (off-curve) — funds sent there may be unrecoverable');
+	}
+	if (dest.base58 === fromAddress) {
+		return error(res, 400, 'invalid_destination', 'destination is the agent wallet itself');
+	}
+
+	const isMax = body.amount === 'max' || body.amount === 'MAX';
+	const amountNum = isMax ? null : Number(body.amount);
+	if (!isMax && (!Number.isFinite(amountNum) || amountNum <= 0)) {
+		return error(res, 400, 'invalid_amount', 'amount must be a positive number or "max"');
+	}
+
+	// 2. Fast-path idempotency check — a retry of a finished/in-flight withdraw.
+	{
+		const [existing] = await sql`
+			SELECT id, status, signature FROM agent_custody_events
+			WHERE agent_id = ${id} AND idempotency_key = ${idempotencyKey}
+		`;
+		if (existing) {
+			if (existing.status === 'confirmed') {
+				return json(res, 200, { data: { replayed: true, signature: existing.signature, explorer: explorerTxUrl(existing.signature, network), network } });
+			}
+			if (existing.status === 'pending') {
+				return error(res, 409, 'withdrawal_in_progress', 'a withdrawal with this id is already in flight — check the audit log before retrying', { signature: existing.signature || null });
+			}
+			return error(res, 409, 'withdrawal_failed', 'this withdrawal id already failed — retry with a fresh idempotency key', { signature: existing.signature || null });
+		}
+	}
+
+	const conn = solanaConnection(network);
+	const fromPk = new PublicKey(fromAddress);
+
+	let lamports = null;       // SOL amount being sent (lamports) — null for SPL
+	let amountRaw = null;      // SPL token base units — null for SOL
+	let decimals = 9;
+	let humanAmount = null;
+	let usdValue = null;
+	let priceNote = null;
+	let tokenProgramId = null;
+	let mintPk = null;
+	let sourceAta = null;
+	let destAta = null;
+	let destAtaExists = true;
+
+	let balanceLamports;
+	try {
+		balanceLamports = BigInt(await conn.getBalance(fromPk, 'confirmed'));
+	} catch (e) {
+		return error(res, 502, 'rpc_error', 'could not read the wallet balance — try again');
+	}
+
+	if (asset === 'SOL') {
+		let rentReserve;
+		try {
+			rentReserve = BigInt(await conn.getMinimumBalanceForRentExemption(0));
+		} catch {
+			rentReserve = RENT_EXEMPT_FALLBACK_LAMPORTS;
+		}
+		if (isMax) {
+			const spendable = balanceLamports - rentReserve - SOL_FEE_RESERVE_LAMPORTS;
+			if (spendable <= 0n) {
+				return error(res, 400, 'insufficient_balance', 'not enough SOL to withdraw after reserving rent and network fees');
+			}
+			lamports = spendable;
+		} else {
+			lamports = BigInt(Math.round(amountNum * 1e9));
+			if (lamports <= 0n) return error(res, 400, 'invalid_amount', 'amount rounds to zero lamports');
+			if (balanceLamports - lamports < rentReserve + SOL_FEE_RESERVE_LAMPORTS) {
+				return error(res, 400, 'insufficient_balance', 'amount leaves too little SOL to cover rent and network fees — lower it or use "max"');
+			}
+		}
+		humanAmount = Number(lamports) / 1e9;
+		try {
+			usdValue = await lamportsToUsd(lamports);
+		} catch {
+			usdValue = null;
+			priceNote = 'sol_price_unavailable';
+		}
+	} else {
+		// SPL token — resolve the mint, its token program, decimals, and balances.
+		const mintCheck = validateSolanaAddress(asset);
+		if (!mintCheck.valid) return error(res, 400, 'invalid_asset', 'asset must be "SOL" or a valid SPL mint address');
+		mintPk = mintCheck.pubkey;
+
+		let mintAcc;
+		try {
+			mintAcc = await conn.getAccountInfo(mintPk);
+		} catch {
+			mintAcc = null;
+		}
+		if (!mintAcc) return error(res, 400, 'invalid_asset', 'token mint not found on this network');
+		tokenProgramId = mintAcc.owner.equals(TOKEN_2022_PROGRAM_ID) ? TOKEN_2022_PROGRAM_ID : TOKEN_PROGRAM_ID;
+
+		let mintInfo;
+		try {
+			mintInfo = await getMint(conn, mintPk, 'confirmed', tokenProgramId);
+		} catch {
+			return error(res, 400, 'invalid_asset', 'could not read the token mint');
+		}
+		decimals = mintInfo.decimals;
+
+		sourceAta = getAssociatedTokenAddressSync(mintPk, fromPk, false, tokenProgramId, ASSOCIATED_TOKEN_PROGRAM_ID);
+		let tokenBalRaw;
+		try {
+			const bal = await conn.getTokenAccountBalance(sourceAta);
+			tokenBalRaw = BigInt(bal.value.amount);
+		} catch {
+			return error(res, 400, 'insufficient_balance', 'the agent holds none of this token');
+		}
+		if (tokenBalRaw <= 0n) return error(res, 400, 'insufficient_balance', 'the agent holds none of this token');
+
+		amountRaw = isMax ? tokenBalRaw : BigInt(Math.round(amountNum * 10 ** decimals));
+		if (amountRaw <= 0n) return error(res, 400, 'invalid_amount', 'amount rounds to zero token units');
+		if (amountRaw > tokenBalRaw) return error(res, 400, 'insufficient_balance', 'amount exceeds the agent token balance');
+		humanAmount = Number(amountRaw) / 10 ** decimals;
+
+		// The agent pays the network fee and (if needed) rent to open the
+		// recipient's token account. Make sure it holds enough SOL.
+		destAta = getAssociatedTokenAddressSync(mintPk, dest.pubkey, false, tokenProgramId, ASSOCIATED_TOKEN_PROGRAM_ID);
+		let destInfo;
+		try {
+			destInfo = await conn.getAccountInfo(destAta);
+		} catch {
+			destInfo = null;
+		}
+		destAtaExists = !!destInfo;
+		let ataRent = 0n;
+		if (!destAtaExists) {
+			try {
+				ataRent = BigInt(await conn.getMinimumBalanceForRentExemption(165));
+			} catch {
+				ataRent = TOKEN_ACCOUNT_RENT_FALLBACK_LAMPORTS;
+			}
+		}
+		if (balanceLamports < SOL_FEE_RESERVE_LAMPORTS + ataRent) {
+			return error(res, 400, 'insufficient_sol_for_fees', 'the agent needs a little SOL to pay the network fee' + (destAtaExists ? '' : ' and open the recipient token account'));
+		}
+
+		// Only USDC is priced 1:1 for the USD ceiling; other SPL tokens are
+		// governed by the withdraw allowlist (see agent-trade-guards.js header).
+		if (mintPk.toBase58() === USDC_MINT_BY_CLUSTER[network]) {
+			usdValue = humanAmount;
+		} else {
+			usdValue = null;
+			priceNote = 'spl_unpriced_allowlist_only';
+		}
+	}
+
+	// 3. Enforce the shared spend policy (allowlist + per-tx + daily ceiling).
+	try {
+		await enforceSpendLimit({ agentId: id, meta, category: 'withdraw', usdValue, destination: dest.base58, network });
+	} catch (e) {
+		if (e instanceof SpendLimitError) {
+			return error(res, e.status, e.code, e.message, { detail: e.detail });
+		}
+		console.error('[withdraw] spend-limit check failed', e?.message);
+		return error(res, 502, 'limit_check_failed', 'could not verify the agent spend limits — try again');
+	}
+
+	// 4. Build the (unsigned) transaction.
+	let blockhashCtx;
+	try {
+		blockhashCtx = await conn.getLatestBlockhash('confirmed');
+	} catch {
+		return error(res, 502, 'rpc_error', 'could not fetch a recent blockhash — try again');
+	}
+	const ixs = [];
+	if (asset === 'SOL') {
+		ixs.push(SystemProgram.transfer({ fromPubkey: fromPk, toPubkey: dest.pubkey, lamports: lamports }));
+	} else {
+		if (!destAtaExists) {
+			ixs.push(createAssociatedTokenAccountIdempotentInstruction(
+				fromPk, destAta, dest.pubkey, mintPk, tokenProgramId, ASSOCIATED_TOKEN_PROGRAM_ID,
+			));
+		}
+		ixs.push(createTransferCheckedInstruction(
+			sourceAta, mintPk, destAta, fromPk, amountRaw, decimals, [], tokenProgramId,
+		));
+	}
+	const message = new TransactionMessage({
+		payerKey: fromPk,
+		recentBlockhash: blockhashCtx.blockhash,
+		instructions: ixs,
+	}).compileToV0Message();
+	const vtx = new VersionedTransaction(message);
+
+	// 5. Simulate-only path — never touches the key, never sends, never records.
+	if (simulate) {
+		let sim;
+		try {
+			sim = await conn.simulateTransaction(vtx, { sigVerify: false, replaceRecentBlockhash: true });
+		} catch (e) {
+			return error(res, 502, 'simulation_failed', e?.message || 'simulation failed');
+		}
+		return json(res, 200, {
+			data: {
+				simulated: true, asset, network, destination: dest.base58,
+				amount: humanAmount, lamports: lamports != null ? String(lamports) : null,
+				amount_raw: amountRaw != null ? String(amountRaw) : null,
+				usd: usdValue, note: priceNote,
+				err: sim.value?.err ?? null, units_consumed: sim.value?.unitsConsumed ?? null,
+				logs: sim.value?.logs ?? null,
+			},
+		});
+	}
+
+	// 6. Claim the idempotency slot — this row is also the spend-ledger entry.
+	const claim = await sql`
+		INSERT INTO agent_custody_events
+			(agent_id, user_id, event_type, category, network, asset,
+			 amount_lamports, amount_raw, usd, destination, status, idempotency_key, meta)
+		VALUES (
+			${id}, ${auth.userId}, 'spend', 'withdraw', ${network}, ${asset},
+			${lamports != null ? String(lamports) : null},
+			${amountRaw != null ? String(amountRaw) : null},
+			${usdValue ?? null}, ${dest.base58}, 'pending', ${idempotencyKey},
+			${JSON.stringify({ human_amount: humanAmount, note: priceNote })}::jsonb
+		)
+		ON CONFLICT (agent_id, idempotency_key) WHERE idempotency_key IS NOT NULL DO NOTHING
+		RETURNING id
+	`;
+	if (!claim.length) {
+		// Lost the race to a concurrent identical request — defer to it.
+		return error(res, 409, 'withdrawal_in_progress', 'a withdrawal with this id is already in flight — check the audit log before retrying');
+	}
+	const claimId = claim[0].id;
+
+	// 7. Recover the key (audit-logged) and sign.
+	let keypair;
+	try {
+		keypair = await recoverSolanaAgentKeypair(encryptedSecret, {
+			agentId: id, userId: auth.userId, reason: 'withdraw',
+			meta: { asset, destination: dest.base58, network, custody_event_id: claimId },
+		});
+	} catch (e) {
+		await updateCustodyEvent(claimId, { status: 'failed', meta: { error: 'key_recover_failed' } }).catch(() => {});
+		console.error('[withdraw] key recovery failed', e?.message);
+		return error(res, 500, 'key_recover_failed', 'could not access the agent wallet key — no funds were moved');
+	}
+	vtx.sign([keypair]);
+
+	// 8. Submit + confirm. On an ambiguous confirm (timeout) re-check the chain
+	// before deciding — never mark failed if the tx may have landed.
+	let signature;
+	try {
+		signature = await conn.sendRawTransaction(vtx.serialize(), { skipPreflight: false, maxRetries: 3 });
+	} catch (e) {
+		await updateCustodyEvent(claimId, { status: 'failed', meta: { error: 'send_failed', message: e?.message?.slice(0, 200) } }).catch(() => {});
+		logAudit({ userId: auth.userId, action: 'custody.withdraw_failed', resourceId: id, meta: { asset, destination: dest.base58, reason: 'send_failed' }, req });
+		return error(res, 502, 'send_failed', 'the withdrawal could not be submitted and no funds were transferred — try again');
+	}
+
+	let confirmed = true;
+	try {
+		const r = await conn.confirmTransaction(
+			{ signature, blockhash: blockhashCtx.blockhash, lastValidBlockHeight: blockhashCtx.lastValidBlockHeight },
+			'confirmed',
+		);
+		if (r?.value?.err) confirmed = false;
+	} catch {
+		// Confirmation timed out — re-check the signature status directly.
+		try {
+			const st = await conn.getSignatureStatus(signature, { searchTransactionHistory: true });
+			const s = st?.value?.confirmationStatus;
+			confirmed = !st?.value?.err && (s === 'confirmed' || s === 'finalized');
+		} catch {
+			confirmed = false;
+		}
+	}
+
+	if (!confirmed) {
+		// Submitted but not provably confirmed. Leave the row 'pending' (NOT
+		// failed) so a same-key retry returns in_progress instead of double-
+		// sending; hand the user the signature to verify on-chain.
+		await updateCustodyEvent(claimId, { signature, meta: { confirm: 'unconfirmed' } }).catch(() => {});
+		logAudit({ userId: auth.userId, action: 'custody.withdraw_unconfirmed', resourceId: id, meta: { asset, destination: dest.base58, signature }, req });
+		return error(res, 202, 'withdrawal_unconfirmed', 'the withdrawal was submitted but not yet confirmed — check the explorer link before retrying', { signature, explorer: explorerTxUrl(signature, network) });
+	}
+
+	await updateCustodyEvent(claimId, { status: 'confirmed', signature }).catch(() => {});
+	logAudit({ userId: auth.userId, action: 'custody.withdraw', resourceId: id, meta: { asset, destination: dest.base58, amount: humanAmount, usd: usdValue, signature, network }, req });
+
+	// Invalidate the cached balance so the wallet card reflects the sweep at once.
+	await cacheSet(`sol:bal:${fromAddress}:${network}`, null, 1).catch(() => {});
+
+	// 9. Re-read balances for the response.
+	let newSol = null;
+	try {
+		newSol = (await conn.getBalance(fromPk, 'confirmed')) / 1e9;
+	} catch { /* best-effort */ }
+	let newTokenBalance = null;
+	if (asset !== 'SOL' && sourceAta) {
+		try {
+			const b = await conn.getTokenAccountBalance(sourceAta);
+			newTokenBalance = b?.value?.uiAmount ?? null;
+		} catch { /* ATA may now be empty/closed */ }
+	}
+
+	return json(res, 200, {
+		data: {
+			replayed: false,
+			signature,
+			explorer: explorerTxUrl(signature, network),
+			asset, network, destination: dest.base58,
+			amount: humanAmount,
+			lamports: lamports != null ? String(lamports) : null,
+			amount_raw: amountRaw != null ? String(amountRaw) : null,
+			usd: usdValue,
+			note: priceNote,
+			new_balance_sol: newSol,
+			new_token_balance: newTokenBalance,
+		},
+	});
+}
+
+// ── holdings ────────────────────────────────────────────────────────────────
+// GET /api/agents/:id/solana/holdings — owner-only list of withdrawable assets
+// (SOL + every SPL token the wallet holds with a non-zero balance). Powers the
+// Withdraw tab's asset picker so it only ever offers real holdings.
+async function handleHoldings(req, res, id) {
+	if (cors(req, res, { methods: 'GET,OPTIONS', credentials: true })) return;
+	if (!method(req, res, ['GET'])) return;
+
+	const owned = await loadOwnedWallet(req, res, id);
+	if (owned.error) return;
+	const { auth, address } = owned;
+
+	const rl = await limits.walletRead(auth.userId);
+	if (!rl.success) return rateLimited(res, rl);
+
+	if (!address) return error(res, 404, 'not_found', 'agent has no solana wallet');
+
+	const url = new URL(req.url, 'http://x');
+	const network = url.searchParams.get('network') === 'devnet' ? 'devnet' : 'mainnet';
+	const conn = solanaConnection(network);
+	const owner = new PublicKey(address);
+
+	let sol = null;
+	try {
+		sol = (await conn.getBalance(owner, 'confirmed')) / 1e9;
+	} catch {
+		return error(res, 502, 'rpc_error', 'could not read the wallet balance — try again');
+	}
+
+	const tokens = [];
+	const usdcMint = USDC_MINT_BY_CLUSTER[network];
+	for (const programId of [TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID]) {
+		let resp;
+		try {
+			resp = await conn.getParsedTokenAccountsByOwner(owner, { programId });
+		} catch {
+			continue; // one token program failing shouldn't blank the whole list
+		}
+		for (const { account } of resp.value) {
+			const info = account.data?.parsed?.info;
+			const amt = info?.tokenAmount;
+			if (!info || !amt || !(Number(amt.uiAmount) > 0)) continue;
+			tokens.push({
+				mint: info.mint,
+				ui_amount: amt.uiAmount,
+				amount_raw: amt.amount,
+				decimals: amt.decimals,
+				token_program: programId.toBase58(),
+				is_usdc: info.mint === usdcMint,
+			});
+		}
+	}
+	tokens.sort((a, b) => Number(b.ui_amount) - Number(a.ui_amount));
+
+	return json(res, 200, { data: { address, network, sol, tokens } });
+}
+
+// ── custody audit trail ───────────────────────────────────────────────────────
+// GET /api/agents/:id/solana/custody — owner-only feed of sensitive custody
+// events (key recovery, withdraws, spends, limit changes) for this agent wallet.
+async function handleCustody(req, res, id) {
+	if (cors(req, res, { methods: 'GET,OPTIONS', credentials: true })) return;
+	if (!method(req, res, ['GET'])) return;
+
+	const owned = await loadOwnedWallet(req, res, id);
+	if (owned.error) return;
+	const { auth } = owned;
+
+	const rl = await limits.auditLogRead(auth.userId);
+	if (!rl.success) return rateLimited(res, rl);
+
+	const url = new URL(req.url, 'http://x');
+	const limit = Math.min(200, Math.max(1, parseInt(url.searchParams.get('limit') || '50', 10) || 50));
+	const beforeRaw = url.searchParams.get('before');
+	const beforeId = beforeRaw && /^\d+$/.test(beforeRaw) ? beforeRaw : null;
+	const network = url.searchParams.get('network') === 'devnet' ? 'devnet' : url.searchParams.get('network') === 'mainnet' ? 'mainnet' : null;
+
+	const events = await listCustodyEvents(id, { limit, beforeId, network });
+	const items = events.map((e) => ({
+		id: String(e.id),
+		event_type: e.event_type,
+		category: e.category,
+		network: e.network,
+		asset: e.asset,
+		amount_lamports: e.amount_lamports != null ? String(e.amount_lamports) : null,
+		amount_raw: e.amount_raw != null ? String(e.amount_raw) : null,
+		usd: e.usd != null ? Number(e.usd) : null,
+		destination: e.destination,
+		signature: e.signature,
+		explorer: e.signature ? explorerTxUrl(e.signature, e.network) : null,
+		reason: e.reason,
+		status: e.status,
+		created_at: e.created_at,
+	}));
+	const nextCursor = items.length === limit ? items[items.length - 1].id : null;
+	return json(res, 200, { data: { items, next_cursor: nextCursor } });
+}
+
+// ── spend limits ────────────────────────────────────────────────────────────
+// GET/PUT /api/agents/:id/solana/limits — owner-only read + edit of the shared
+// per-agent spend policy. Includes today's spend so the hub can show headroom.
+async function handleLimits(req, res, id) {
+	if (cors(req, res, { methods: 'GET,PUT,OPTIONS', credentials: true })) return;
+	if (!method(req, res, ['GET', 'PUT'])) return;
+
+	const owned = await loadOwnedWallet(req, res, id);
+	if (owned.error) return;
+	const { auth, meta } = owned;
+
+	const rl = await limits.walletRead(auth.userId);
+	if (!rl.success) return rateLimited(res, rl);
+
+	const url = new URL(req.url, 'http://x');
+	const network = url.searchParams.get('network') === 'devnet' ? 'devnet' : 'mainnet';
+
+	if (req.method === 'PUT') {
+		let body;
+		try {
+			body = await readJson(req);
+		} catch (e) {
+			return error(res, e?.status === 415 ? 415 : 400, 'bad_request', e?.message || 'invalid request body');
+		}
+		// Validate allowlist entries up-front so the user gets a clear rejection
+		// instead of silent dropping inside normalizeSpendLimits.
+		if (Array.isArray(body.withdraw_allowlist)) {
+			const bad = body.withdraw_allowlist.find((a) => !validateSolanaAddress(a).valid);
+			if (bad !== undefined) return error(res, 400, 'invalid_address', `withdraw_allowlist contains an invalid Solana address: ${String(bad).slice(0, 60)}`);
+		}
+		let limitsOut;
+		try {
+			limitsOut = await setSpendLimits(id, auth.userId, body, { req });
+		} catch (e) {
+			if (e?.status) return error(res, e.status, e.code || 'error', e.message);
+			throw e;
+		}
+		const spentUsd = await getDailySpendUsd(id, network).catch(() => 0);
+		return json(res, 200, { data: { limits: limitsOut, spent_today_usd: spentUsd } });
+	}
+
+	const limitsOut = getSpendLimits(meta);
+	const spentUsd = await getDailySpendUsd(id, network).catch(() => 0);
+	return json(res, 200, { data: { limits: limitsOut, spent_today_usd: spentUsd } });
+}
+
 // ── dispatcher ────────────────────────────────────────────────────────────────
 
 export default async function handler(req, res, id, action) {
 	if (action === 'activity') return handleActivity(req, res, id);
 	if (action === 'airdrop') return handleAirdrop(req, res, id);
+	if (action === 'withdraw') return handleWithdraw(req, res, id);
+	if (action === 'holdings') return handleHoldings(req, res, id);
+	if (action === 'custody') return handleCustody(req, res, id);
+	if (action === 'limits') return handleLimits(req, res, id);
 	return handleWallet(req, res, id);
 }
+
+export { handleWithdraw };
