@@ -32,6 +32,17 @@ export class IrlPin extends Schema {
 		this.x402Endpoint = '';  // optional paid endpoint the IRL Pay button calls
 		this.agentId = '';       // three.ws agent id this pin embodies (cross-links)
 		this.placedAt = 0;       // epoch ms, for age / ordering on the client
+		// — Room frame (append-only) — shared room-relative anchoring. An agent
+		// placed in a ROOM stores its exact offset from a shared origin instead of
+		// relying on its own (noisy) GPS, so a cluster keeps its room-scale layout
+		// identical for every viewer — see src/irl/room-anchor.js. roomId === ''
+		// means a legacy standalone pin that renders from its absolute lat/lng.
+		this.roomId = '';        // groups agents into one shared local frame
+		this.relEast = 0;        // metres east of the room origin (room frame)
+		this.relNorth = 0;       // metres north of the room origin (room frame)
+		this.originLat = 0;      // room origin latitude (the cluster's GPS index)
+		this.originLng = 0;      // room origin longitude
+		this.originYawDeg = 0;   // room frame rotation vs true north (0 = aligned)
 	}
 }
 defineTypes(IrlPin, {
@@ -45,6 +56,16 @@ defineTypes(IrlPin, {
 	x402Endpoint: 'string',
 	agentId: 'string',
 	placedAt: 'float64',
+	// Append-only (room frame): new fields at the end so a still-connected older
+	// client isn't shifted off the positional binary format mid-deploy. relEast/
+	// relNorth are metres (float32 ≈ 1e-5 m resolution over a building — ample);
+	// the origin is a coordinate, so float64 like lat/lng.
+	roomId: 'string',
+	relEast: 'float32',
+	relNorth: 'float32',
+	originLat: 'float64',
+	originLng: 'float64',
+	originYawDeg: 'float32',
 });
 
 // A live viewer present in this geocell — live presence (D2). D1 declared this

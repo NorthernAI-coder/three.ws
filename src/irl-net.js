@@ -147,6 +147,14 @@ export class IrlNet {
 			x402Endpoint: pin.x402Endpoint,
 			agentId: pin.agentId,
 			placedAt: pin.placedAt,
+			// Room frame — present (roomId !== '') when the pin belongs to a shared
+			// room cluster; the renderer prefers these exact offsets over absolute GPS.
+			roomId: pin.roomId,
+			relEast: pin.relEast,
+			relNorth: pin.relNorth,
+			originLat: pin.originLat,
+			originLng: pin.originLng,
+			originYawDeg: pin.originYawDeg,
 		};
 	}
 

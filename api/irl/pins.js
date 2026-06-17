@@ -222,6 +222,20 @@ async function ensureTable() {
 	await sql`ALTER TABLE irl_pins ADD COLUMN IF NOT EXISTS avatar_manifest JSONB`;
 	await sql`ALTER TABLE irl_pins ADD COLUMN IF NOT EXISTS avatar_base_url TEXT`;
 	await sql`ALTER TABLE irl_pins ADD COLUMN IF NOT EXISTS avatar_version  INTEGER NOT NULL DEFAULT 0`;
+	// Room frame — shared room-relative anchoring. A pin in a ROOM stores its
+	// EXACT offset (rel_east_m / rel_north_m, metres) from a shared origin
+	// (origin_lat/lng/yaw) instead of relying on its own ~10 m-noisy GPS, so a
+	// cluster keeps its room-scale layout identical for every viewer and the whole
+	// room calibrates with one nudge. lat/lng stay populated (the GPS index +
+	// legacy clients); room_id NULL = a standalone pre-room pin. See
+	// src/irl/room-anchor.js for the geometry these columns feed.
+	await sql`ALTER TABLE irl_pins ADD COLUMN IF NOT EXISTS room_id        TEXT`;
+	await sql`ALTER TABLE irl_pins ADD COLUMN IF NOT EXISTS rel_east_m     DOUBLE PRECISION`;
+	await sql`ALTER TABLE irl_pins ADD COLUMN IF NOT EXISTS rel_north_m    DOUBLE PRECISION`;
+	await sql`ALTER TABLE irl_pins ADD COLUMN IF NOT EXISTS origin_lat     DOUBLE PRECISION`;
+	await sql`ALTER TABLE irl_pins ADD COLUMN IF NOT EXISTS origin_lng     DOUBLE PRECISION`;
+	await sql`ALTER TABLE irl_pins ADD COLUMN IF NOT EXISTS origin_yaw_deg DOUBLE PRECISION`;
+	await sql`CREATE INDEX IF NOT EXISTS irl_pins_room ON irl_pins (room_id) WHERE room_id IS NOT NULL AND hidden_at IS NULL`;
 	_tableReady = true;
 }
 
@@ -233,6 +247,13 @@ async function ensureTable() {
 const CAL_MAX_MOVE_M  = 5;    // ground-move ceiling, metres
 const CAL_MAX_YAW_DEG = 46;   // yaw-nudge ceiling, degrees
 const CAL_MAX_RISE_M  = 3;    // floor-height nudge ceiling, metres
+
+// ── Room frame bounds ───────────────────────────────────────────────────────
+// A room id is a short slug (the client derives one per shared-anchor cluster).
+// A relative offset is clamped to a building-scale ceiling so the render frame
+// can't be bent into a cross-map jump, while still covering any real venue.
+const ROOM_ID_RE = /^[a-z0-9-]{1,64}$/;
+const REL_MAX_M  = 500;
 
 // Smallest signed distance between two compass bearings, 0–180°.
 function circularYawDelta(a, b) {
@@ -414,6 +435,14 @@ function pinWire(row) {
 	if ('x402_endpoint' in row) w.x402Endpoint = row.x402_endpoint ?? '';
 	if ('agent_id' in row) w.agentId = row.agent_id ?? '';
 	if ('placed_at' in row) w.placedAt = row.placed_at ? Date.parse(row.placed_at) || 0 : 0;
+	// Room frame — emit camelCase so the realtime publish wire matches the schema
+	// field names IrlRoom.coerceRoom reads. Only present when the row carries them.
+	if ('room_id' in row) w.roomId = row.room_id ?? '';
+	if ('rel_east_m' in row) w.relEast = Number(row.rel_east_m) || 0;
+	if ('rel_north_m' in row) w.relNorth = Number(row.rel_north_m) || 0;
+	if ('origin_lat' in row) w.originLat = Number(row.origin_lat) || 0;
+	if ('origin_lng' in row) w.originLng = Number(row.origin_lng) || 0;
+	if ('origin_yaw_deg' in row) w.originYawDeg = Number(row.origin_yaw_deg) || 0;
 	return w;
 }
 
@@ -524,7 +553,8 @@ export default wrap(async (req, res) => {
 		}
 		const rows = await sql`
 			SELECT id, agent_id, lat, lng, heading,
-			       avatar_url, avatar_name, caption, x402_endpoint, placed_at, avatar_version
+			       avatar_url, avatar_name, caption, x402_endpoint, placed_at, avatar_version,
+			       room_id, rel_east_m, rel_north_m, origin_lat, origin_lng, origin_yaw_deg
 			FROM irl_pins
 			WHERE lat BETWEEN ${minLat} AND ${maxLat}
 			  AND lng BETWEEN ${minLng} AND ${maxLng}
@@ -560,7 +590,8 @@ export default wrap(async (req, res) => {
 			SELECT id, user_id, device_token, agent_id, lat, lng, heading,
 			       avatar_url, avatar_name, caption, x402_endpoint, placed_at, view_count,
 			       anchor_height_m, anchor_yaw_deg, anchor_quat,
-			       gps_accuracy_m, altitude_m, anchor_source, avatar_version
+			       gps_accuracy_m, altitude_m, anchor_source, avatar_version,
+			       room_id, rel_east_m, rel_north_m, origin_lat, origin_lng, origin_yaw_deg
 			FROM irl_pins
 			WHERE lat BETWEEN ${lat - latDelta} AND ${lat + latDelta}
 			  AND lng BETWEEN ${lng - lngDelta} AND ${lng + lngDelta}
@@ -592,6 +623,16 @@ export default wrap(async (req, res) => {
 				gps_accuracy_m:  r.gps_accuracy_m,
 				altitude_m:      r.altitude_m,
 				anchor_source:   r.anchor_source,
+				// Room frame — when present (room_id non-null), the viewer renders this
+				// agent from its exact offset relative to the shared origin instead of
+				// its own GPS, so the room-scale layout holds for everyone. Null on
+				// legacy standalone pins → the client falls back to lat/lng.
+				room_id:         r.room_id ?? null,
+				rel_east_m:      r.rel_east_m,
+				rel_north_m:     r.rel_north_m,
+				origin_lat:      r.origin_lat,
+				origin_lng:      r.origin_lng,
+				origin_yaw_deg:  r.origin_yaw_deg,
 				// C6 — cheap re-skin signal: the viewer diffs this against its loaded
 				// pin and swaps the GLB when it bumps. (The editable manifest/base URL
 				// stay owner-private — viewers only ever need the rendered avatar_url.)
@@ -747,12 +788,33 @@ export default wrap(async (req, res) => {
 		const anchorSource  = pose.source === 'webxr' ? 'webxr'
 			: pose.source === 'gyro-gps:rel' ? 'gyro-gps:rel' : 'gyro-gps';
 
+		// Room frame (optional) — when the client places into a shared room it sends
+		// the exact offset from the room origin. We persist origin + offset as the
+		// render-authoritative pose; lat/lng above stays the GPS index. An invalid or
+		// absent block leaves every room column NULL → a standalone pin, so old
+		// clients and single-drop placements are unaffected. (See src/irl/room-anchor.js.)
+		const room       = (body.room && typeof body.room === 'object') ? body.room : {};
+		const roomOk     = ROOM_ID_RE.test(String(room.id || '')) &&
+			Number.isFinite(room.originLat) && room.originLat >= -90  && room.originLat <= 90 &&
+			Number.isFinite(room.originLng) && room.originLng >= -180 && room.originLng <= 180 &&
+			!(room.originLat === 0 && room.originLng === 0) &&
+			Number.isFinite(room.relEast) && Number.isFinite(room.relNorth);
+		const clampRel   = (v) => Math.max(-REL_MAX_M, Math.min(REL_MAX_M, v));
+		const roomIdVal  = roomOk ? String(room.id) : null;
+		const relEastM   = roomOk ? clampRel(room.relEast)  : null;
+		const relNorthM  = roomOk ? clampRel(room.relNorth) : null;
+		const originLatV = roomOk ? room.originLat : null;
+		const originLngV = roomOk ? room.originLng : null;
+		const originYawV = roomOk && Number.isFinite(room.originYawDeg)
+			? ((room.originYawDeg % 360) + 360) % 360 : null;
+
 		const [pin] = await sql`
 			INSERT INTO irl_pins
 				(user_id, agent_id, device_token, lat, lng, heading,
 				 avatar_url, avatar_name, caption, x402_endpoint, expires_at,
 				 anchor_height_m, anchor_yaw_deg, anchor_quat,
-				 gps_accuracy_m, altitude_m, anchor_source, geocell7)
+				 gps_accuracy_m, altitude_m, anchor_source, geocell7,
+				 room_id, rel_east_m, rel_north_m, origin_lat, origin_lng, origin_yaw_deg)
 			VALUES (
 				${userId},
 				${body.agentId    ?? null},
@@ -770,7 +832,13 @@ export default wrap(async (req, res) => {
 				${gpsAccuracyM},
 				${altitudeM},
 				${anchorSource},
-				${cell7 || null}
+				${cell7 || null},
+				${roomIdVal},
+				${relEastM},
+				${relNorthM},
+				${originLatV},
+				${originLngV},
+				${originYawV}
 			)
 			RETURNING *
 		`;

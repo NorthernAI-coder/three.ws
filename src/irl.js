@@ -52,6 +52,7 @@ import { startOnboarding, ensurePermission, needsMotionGesture, setPermissionSta
 import { reserveWebGLContext, releaseWebGLContext } from './webgl-budget.js';
 import { detectTier, BUDGETS, TIER_ORDER, shiftTier } from './irl/perf-budget.js';
 import { sharedGLTFLoader, createLoadQueue } from './irl/load-queue.js';
+import { roomOriginWorld, agentWorldPosition } from './irl/room-anchor.js';
 import { loadInto } from './shared/async-state.js';
 
 const AVATAR_URL_DEFAULT = '/avatars/default.glb';
@@ -1133,6 +1134,47 @@ function pinHeightM(pin) {
 	return (Number.isFinite(h) && Math.abs(h) <= 1) ? h : 0;
 }
 
+// ── Room frame (shared room-relative anchoring) ──────────────────────────────
+// A pin placed in a ROOM carries its EXACT offset from a shared origin instead
+// of trusting its own ~10 m-noisy GPS, so a cluster keeps its room-scale layout
+// identical for every viewer — couch-agent and wall-agent stay metres apart on
+// the right sides no matter how GPS drifts. The math lives in the pure, unit-
+// tested src/irl/room-anchor.js; here we only read it. normalizeStreamPin and
+// the REST projection both deliver these as snake_case, so this reads one shape.
+function pinRoom(pin) {
+	if (!pin || !pin.room_id) return null;
+	const oLat = Number(pin.origin_lat), oLng = Number(pin.origin_lng);
+	if (!Number.isFinite(oLat) || !Number.isFinite(oLng)) return null;
+	return {
+		roomId: pin.room_id,
+		relEast: Number(pin.rel_east_m) || 0,
+		relNorth: Number(pin.rel_north_m) || 0,
+		originLat: oLat,
+		originLng: oLng,
+		originYawDeg: Number(pin.origin_yaw_deg) || 0,
+	};
+}
+
+// World position of a nearby agent in the viewer's frame. Room pins resolve
+// through their shared origin (exact relative layout); legacy standalone pins
+// fall back to their own absolute GPS. Returns {x,y,z}. Requires a GPS fix —
+// callers already gate on gpsState.ready before placing/reprojecting.
+function pinWorldPos(pin) {
+	const room = pinRoom(pin);
+	if (room) {
+		const originWorld = roomOriginWorld(gpsState.lat, gpsState.lng, room.originLat, room.originLng);
+		return agentWorldPosition({
+			originWorld,
+			relEast: room.relEast,
+			relNorth: room.relNorth,
+			heightM: pinHeightM(pin),
+			originYawDeg: room.originYawDeg,
+		});
+	}
+	const wp = gpsToWorld(pin.lat, pin.lng);
+	return { x: wp.x, y: pinHeightM(pin), z: wp.z };
+}
+
 // Low-pass the viewer's GPS origin so anchored agents don't swim as GPS jitters
 // frame-to-frame. We smooth the ORIGIN, never the pins. A fix worse than the
 // reject threshold is dropped outright; a large jump (real walk or a big
@@ -1221,8 +1263,8 @@ function onGPSPosition(pos) {
 		// The agent being calibrated is driven by the nudge gesture this frame, not
 		// by GPS — re-apply its working pose against the (possibly shifted) origin.
 		if (calibrateActive && _cal && _cal.pin === p) { applyCalToGroup(); updatePinRing(p); continue; }
-		const wp = gpsToWorld(p.lat, p.lng);
-		p.group.position.set(wp.x, pinHeightM(p), wp.z);
+		const wp = pinWorldPos(p);
+		p.group.position.set(wp.x, wp.y, wp.z);
 		p.distance_m = Math.round(Math.hypot(wp.x, wp.z));
 		updatePinRing(p);
 	}
@@ -1727,6 +1769,14 @@ function normalizeStreamPin(w) {
 		x402_endpoint: w.x402Endpoint || null,
 		agent_id: w.agentId || null,
 		placed_at: w.placedAt || null,
+		// Room frame — '' means a standalone pin, so collapse to null to match the
+		// REST projection's null and let pinRoom() treat both shapes identically.
+		room_id: w.roomId || null,
+		rel_east_m: Number.isFinite(w.relEast) ? w.relEast : null,
+		rel_north_m: Number.isFinite(w.relNorth) ? w.relNorth : null,
+		origin_lat: Number.isFinite(w.originLat) ? w.originLat : null,
+		origin_lng: Number.isFinite(w.originLng) ? w.originLng : null,
+		origin_yaw_deg: Number.isFinite(w.originYawDeg) ? w.originYawDeg : null,
 	};
 }
 
@@ -2135,10 +2185,11 @@ function updatePinRing(pin) {
 
 function spawnNearbyPin(pin) {
 	const g  = new Group();
-	const wp = gpsToWorld(pin.lat, pin.lng);
-	// Absolute stored pose (A3): floor height + compass yaw, so two devices at the
-	// same place see the agent in the same spot and bearing (see pinYawRad/pinHeightM).
-	g.position.set(wp.x, pinHeightM(pin), wp.z);
+	const wp = pinWorldPos(pin);
+	// Stored pose: a room pin resolves through its shared origin (exact relative
+	// layout for every viewer); a standalone pin uses its own absolute GPS + compass
+	// yaw. Either way two devices at the same place agree (see pinWorldPos/pinYawRad).
+	g.position.set(wp.x, wp.y, wp.z);
 	g.rotation.y = pinYawRad(pin);
 
 	// Cheap unlit "dot" — the agent's far/low-cost representation (E2). The old
@@ -4481,4 +4532,50 @@ if (import.meta.env.DEV) {
 		queue: { active: glbQueue.active, pending: glbQueue.pending },
 		reservedContexts: window.__agent3dReservedContexts,
 	});
+
+	// Lay out the canonical room scenario as ONE shared room so the room-frame
+	// render path can be verified without a phone: the viewer stands on the origin
+	// facing north (a "cup" dead ahead), an agent on the couch 3 m to the RIGHT
+	// (+X), three agents BEHIND (+Z, distinct), and nothing to the left. Each pin
+	// resolves through pinWorldPos → the shared origin, so __irlRoomCheck() can
+	// confirm the world positions land on the right sides.
+	window.__irlSeedRoom = () => {
+		const origin = { lat: 37.7749, lng: -122.4194 };
+		gpsState.lat = origin.lat; gpsState.lng = origin.lng; gpsState.ready = true;
+		const layout = [
+			{ tag: 'couch-right', relEast: 3,    relNorth: 0,    heading: 270 },
+			{ tag: 'behind-1',    relEast: -0.5, relNorth: -2.5, heading: 0   },
+			{ tag: 'behind-2',    relEast: 0.5,  relNorth: -3,   heading: 0   },
+			{ tag: 'behind-3',    relEast: 1.5,  relNorth: -3.5, heading: 0   },
+		];
+		const seeded = layout.map((l, i) => {
+			const id = `dev-room-${i}`;
+			if (nearbyPins.find(p => p.id === id)) return null;
+			const entry = {
+				id, lat: origin.lat, lng: origin.lng,
+				heading: l.heading, anchor_yaw_deg: l.heading,
+				avatar_url: AVATAR_URL_DEFAULT, avatar_name: l.tag,
+				caption: '', x402_endpoint: null,
+				room_id: 'dev-room', rel_east_m: l.relEast, rel_north_m: l.relNorth,
+				origin_lat: origin.lat, origin_lng: origin.lng, origin_yaw_deg: 0,
+				distance_m: 0, group: null, labelEl: null, glbLoaded: false,
+			};
+			nearbyPins.push(entry);
+			spawnNearbyPin(entry);
+			return entry;
+		}).filter(Boolean);
+		updateNearbyBadge();
+		log.info(`[irl] seeded ${seeded.length} room pins (couch-right, three behind)`);
+		return seeded.length;
+	};
+	// Assert the seeded room renders on the right sides (no phone needed).
+	window.__irlRoomCheck = () => nearbyPins
+		.filter(p => p.room_id === 'dev-room' && p.group)
+		.map(p => ({
+			tag: p.avatar_name,
+			x: +p.group.position.x.toFixed(2),
+			z: +p.group.position.z.toFixed(2),
+			side: p.group.position.x > 0.5 ? 'right' : p.group.position.x < -0.5 ? 'left' : 'center',
+			depth: p.group.position.z > 0.5 ? 'behind' : p.group.position.z < -0.5 ? 'ahead' : 'level',
+		}));
 }

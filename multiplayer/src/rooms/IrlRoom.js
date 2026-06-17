@@ -90,6 +90,37 @@ function coercePin(raw) {
 		x402Endpoint: str(raw.x402Endpoint ?? raw.x402_endpoint, 512),
 		agentId: str(raw.agentId ?? raw.agent_id, 64),
 		placedAt,
+		...coerceRoom(raw),
+	};
+}
+
+// Room-frame fields (append-only). Carried through realtime so a shared cluster
+// renders from its exact relative offsets, not each pin's noisy GPS. Accepts the
+// API's snake_case row (room load) or the webhook's camelCase wire (publish), and
+// clamps the offset to a building-scale ceiling so the synced state can't be bent
+// into a cross-map jump. A missing/empty roomId yields a legacy standalone pin.
+const ROOM_ID_RE = /^[a-z0-9-]{1,64}$/;
+const REL_MAX_M = 500;
+function coerceRoom(raw) {
+	const roomId = String(raw.roomId ?? raw.room_id ?? '').slice(0, 64);
+	if (!roomId || !ROOM_ID_RE.test(roomId)) {
+		return { roomId: '', relEast: 0, relNorth: 0, originLat: 0, originLng: 0, originYawDeg: 0 };
+	}
+	const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+	const clampRel = (v) => Math.max(-REL_MAX_M, Math.min(REL_MAX_M, num(v)));
+	const oLat = num(raw.originLat ?? raw.origin_lat);
+	const oLng = num(raw.originLng ?? raw.origin_lng);
+	// An invalid origin demotes the pin to standalone rather than placing a room at 0,0.
+	if (!(oLat >= -90 && oLat <= 90 && oLng >= -180 && oLng <= 180) || (oLat === 0 && oLng === 0)) {
+		return { roomId: '', relEast: 0, relNorth: 0, originLat: 0, originLng: 0, originYawDeg: 0 };
+	}
+	return {
+		roomId,
+		relEast: clampRel(raw.relEast ?? raw.rel_east_m),
+		relNorth: clampRel(raw.relNorth ?? raw.rel_north_m),
+		originLat: oLat,
+		originLng: oLng,
+		originYawDeg: ((num(raw.originYawDeg ?? raw.origin_yaw_deg) % 360) + 360) % 360,
 	};
 }
 
@@ -201,6 +232,12 @@ export class IrlRoom extends Room {
 		pin.x402Endpoint = p.x402Endpoint;
 		pin.agentId = p.agentId;
 		pin.placedAt = p.placedAt;
+		pin.roomId = p.roomId;
+		pin.relEast = p.relEast;
+		pin.relNorth = p.relNorth;
+		pin.originLat = p.originLat;
+		pin.originLng = p.originLng;
+		pin.originYawDeg = p.originYawDeg;
 		return pin;
 	}
 
@@ -249,6 +286,12 @@ export class IrlRoom extends Room {
 		pin.x402Endpoint = p.x402Endpoint;
 		pin.agentId = p.agentId;
 		pin.placedAt = p.placedAt;
+		pin.roomId = p.roomId;
+		pin.relEast = p.relEast;
+		pin.relNorth = p.relNorth;
+		pin.originLat = p.originLat;
+		pin.originLng = p.originLng;
+		pin.originYawDeg = p.originYawDeg;
 	}
 
 	// Merge only the fields actually present in a partial pin:update wire object
@@ -267,6 +310,21 @@ export class IrlRoom extends Room {
 		if (raw.caption !== undefined) pin.caption = String(raw.caption || '').slice(0, 200);
 		if (raw.x402Endpoint !== undefined) pin.x402Endpoint = String(raw.x402Endpoint || '').slice(0, 512);
 		if (raw.agentId !== undefined) pin.agentId = String(raw.agentId || '').slice(0, 64);
+		// Room-frame fields move together on a room-origin calibrate (the whole
+		// cluster shifts), so a pin:update carrying origin/rel re-merges them. Reuse
+		// the same coerce/clamp; only overwrite when the payload actually re-states
+		// a valid room (an empty/invalid room block leaves the existing frame intact).
+		if (raw.roomId !== undefined || raw.relEast !== undefined || raw.originLat !== undefined) {
+			const r = coerceRoom(raw);
+			if (r.roomId) {
+				pin.roomId = r.roomId;
+				pin.relEast = r.relEast;
+				pin.relNorth = r.relNorth;
+				pin.originLat = r.originLat;
+				pin.originLng = r.originLng;
+				pin.originYawDeg = r.originYawDeg;
+			}
+		}
 		// placedAt is immutable for a given pin; never patched.
 	}
 
