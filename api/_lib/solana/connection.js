@@ -10,9 +10,10 @@
 // safe: Solana dedupes by signature.
 //
 // Priority (per network): the caller's explicit url (if any) → Helius → Alchemy
-// → Ankr → the keyless public endpoint, always last. We never depend on the
-// public endpoint alone — it is the most aggressively rate-limited (the source of
-// the `getBalance 429` log noise).
+// → Ankr (authenticated only) → PublicNode → the keyless public endpoint, always
+// last. We never depend on the public endpoint alone — it is the most
+// aggressively rate-limited (the source of the `getBalance 429` log noise) — and
+// we never include a keyless Ankr URL, which Ankr now answers with a hard 403.
 
 import { Connection } from '@solana/web3.js';
 
@@ -87,6 +88,7 @@ function inferNetwork(url) {
 export function solanaRpcEndpoints(network = 'mainnet', url = null) {
 	const key = process.env.HELIUS_API_KEY;
 	const alch = process.env.ALCHEMY_API_KEY;
+	const ankr = process.env.ANKR_API_KEY;
 	if (network === 'devnet') {
 		return dedupe([
 			url,
@@ -101,7 +103,15 @@ export function solanaRpcEndpoints(network = 'mainnet', url = null) {
 		process.env.SOLANA_RPC_URL,
 		key && `https://mainnet.helius-rpc.com/?api-key=${key}`,
 		alch && `https://solana-mainnet.g.alchemy.com/v2/${alch}`,
-		'https://rpc.ankr.com/solana',
+		// Ankr sunset keyless access — every keyless rpc.ankr.com/<chain> now 403s
+		// ("authenticate with an API key"), so include it only in its authenticated
+		// form when ANKR_API_KEY is set. Mirrors idxRpcUrls() in api/cron/[name].js;
+		// a keyless entry here was a guaranteed 403 + cooldown log every cron tick.
+		ankr && `https://rpc.ankr.com/solana/${ankr}`,
+		// PublicNode — a keyless, un-throttled fallback (the same node mcp-server
+		// uses) so failover lands on a working endpoint instead of depending on the
+		// aggressively rate-limited public mainnet-beta endpoint alone.
+		'https://solana-rpc.publicnode.com',
 		PUBLIC_MAINNET,
 	]);
 }
