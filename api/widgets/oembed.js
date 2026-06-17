@@ -120,8 +120,7 @@ function extractWidgetId(target) {
 	const originStr = `${parsed.protocol}//${parsed.host}`;
 	const okOrigin =
 		originStr === env.APP_ORIGIN ||
-		/^https?:\/\/localhost(:\d+)?$/.test(originStr) ||
-		/^https?:\/\/3d\.irish$/.test(originStr);
+		/^https?:\/\/localhost(:\d+)?$/.test(originStr);
 	if (!okOrigin) return null;
 
 	const pathMatch = parsed.pathname.match(/^\/w\/([A-Za-z0-9_-]+)\/?$/);

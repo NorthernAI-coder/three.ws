@@ -4915,28 +4915,28 @@
 		return el;
 	}
 	async function bootHeroAvatar() {
-		const heroInner = document.getElementById(‘hero-stage-inner’);
+		const heroInner = document.getElementById('hero-stage-inner');
 		try {
 			const r = await fetch(`${location.origin}/api/avatars/${AVATAR_ID}`);
-			if (!r.ok) throw new Error(‘HTTP ‘ + r.status);
+			if (!r.ok) throw new Error('HTTP ' + r.status);
 			const d = await r.json();
 			const glb = devProxyGlb(d.avatar?.model_url || d.avatar?.url);
-			if (!glb) throw new Error(‘no model url’);
+			if (!glb) throw new Error('no model url');
 			if (heroInner) {
-				heroInner.innerHTML = ‘’;
+				heroInner.innerHTML = '';
 				const heroEl = spawnAgent(glb);
 				heroInner.appendChild(heroEl);
 				initHeroWalk(heroEl);
 				initHeroChips(heroEl);
 			}
 		} catch (e) {
-			console.warn(‘[home] avatar boot failed’, e);
+			console.warn('[home] avatar boot failed', e);
 			if (heroInner) {
-				heroInner.innerHTML = ‘<div class="hero-stage-fallback" role="status">’
-					+ ‘<p>The live preview couldn’t load right now.</p>’
-					+ ‘<button type="button" class="btn btn--sm" id="hero-retry">Retry</button></div>’;
-				heroInner.querySelector(‘#hero-retry’)?.addEventListener(‘click’, () => {
-					heroInner.innerHTML = ‘’;
+				heroInner.innerHTML = '<div class="hero-stage-fallback" role="status">'
+					+ '<p>The live preview couldn’t load right now.</p>'
+					+ '<button type="button" class="btn btn--sm" id="hero-retry">Retry</button></div>';
+				heroInner.querySelector('#hero-retry')?.addEventListener('click', () => {
+					heroInner.innerHTML = '';
 					bootHeroAvatar();
 				});
 			}

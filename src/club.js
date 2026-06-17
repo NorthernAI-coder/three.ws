@@ -423,17 +423,18 @@ document.querySelector('#club-stage')?.setAttribute('data-cam-mode', clubCam.get
 // ── Poles + spotlights ───────────────────────────────────────────────────
 const POLE_COLORS = [0xff3bd6, 0x4ad6ff, 0xff8a3b, 0x9b5dff];
 
-// Dancer registry — display names, bios, accent palette, and the gallery
-// avatar each dancer wears. `avatarId` is resolved through /api/avatars/:id at
-// boot (see resolveDancerAvatarUrl); a local `avatar` path can be used instead.
-// All three rigs are verified drivable by the clip library (CharacterStudio +
-// Unreal-mannequin rigs are now retargetable — see src/glb-canonicalize.js),
-// and attachAvatar falls back to the default rig if any ever isn't. Each dancer
-// is still tinted with her pole's accent color so the three read as a set.
+// Dancer registry — display names, bios, accent palette, and the avatar each
+// dancer wears. A local `avatar` path loads that GLB directly; an `avatarId`
+// is resolved through /api/avatars/:id at boot (see resolveDancerAvatarUrl).
+// The three are deliberately three DISTINCT, verified-drivable rigs so the
+// lineup never collapses onto one look: two rock-solid bundled rigs that are
+// guaranteed to retarget, plus Dylan from the gallery. attachAvatar still
+// falls back to the default rig if a rig ever isn't drivable, and each dancer
+// is tinted with her pole's accent color so the three read as a set.
 const DANCER_META = [
-	{ name: 'Aria', bio: 'Neon pink fire. Classical meets street.', palette: 'pink', avatarId: 'cdc245f4-36f8-4e78-a1b6-58c3b73e247f' },
+	{ name: 'Aria', bio: 'Neon pink fire. Classical meets street.', palette: 'pink', avatar: '/avatars/michelle.glb' },
 	{ name: 'Nova', bio: 'Cyan ice. Fluid and hypnotic.', palette: 'cyan', avatarId: '25195a2e-130c-4da5-8cad-8e7490d69b45' },
-	{ name: 'Blaze', bio: 'Amber heat. Power and precision.', palette: 'amber', avatarId: 'd92b292e-c2db-40cb-bf88-3e141c6b0057' },
+	{ name: 'Blaze', bio: 'Amber heat. Power and precision.', palette: 'amber', avatar: '/avatars/realistic-female.glb' },
 ];
 
 // Every dancer is scaled to this standing height (metres) so a mix of
@@ -1561,13 +1562,18 @@ const POLE_AVATARS_KEY = 'club:poleAvatars';
 
 // key → { key, name, url }. Insertion order drives the dropdown order.
 const avatarCatalog = new Map();
+// Track URLs already in the catalog so the same GLB (e.g. a dancer's own look
+// that's also a bundled rig) never appears twice — first registration wins,
+// and dancer defaults register first so each pole's own look keeps her name.
+const catalogUrls = new Set();
 // url → Promise<Object3D>, so a re-pick (or two poles sharing a look) loads once.
 const avatarTemplateCache = new Map();
 let fallbackTemplateRef = null;
 
 function registerAvatar(entry) {
-	if (!entry?.key || !entry?.url || avatarCatalog.has(entry.key)) return;
+	if (!entry?.key || !entry?.url || avatarCatalog.has(entry.key) || catalogUrls.has(entry.url)) return;
 	avatarCatalog.set(entry.key, { key: entry.key, name: entry.name || 'Avatar', url: entry.url });
+	catalogUrls.add(entry.url);
 }
 
 function escapeText(value) {

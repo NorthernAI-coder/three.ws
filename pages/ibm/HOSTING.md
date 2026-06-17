@@ -18,6 +18,25 @@ retried with an `X-PAYMENT` header, and the call settles on-chain in about a sec
 key, no account, no invoice. The page shows the live `402` challenge, runs a real paid call,
 and renders the response plus the on-chain transaction receipt.
 
+## The 3D agent layer (below the demo)
+
+Below the payment demo the page embeds three live three.ws product surfaces, all loaded at
+runtime from `https://three.ws` (still no build step, still no backend):
+
+- **A 3D AI agent** — the `<agent-3d>` web component renders a WebGL avatar that runs its own
+  brain in the browser and **reacts to the payment**: it celebrates and announces the
+  settlement the moment the visitor's `402` call clears. It lazy-boots only when scrolled into
+  view, and degrades to a calm skeleton if its script is blocked.
+- **Forge / Play / IRL rooms** — three cards that, on click, lazy-load the real
+  `three.ws/forge`, `three.ws/play`, and `three.ws/irl` surfaces inline in an `<iframe>` (each
+  with an "open full-screen" fallback). Nothing loads until the visitor asks for it.
+
+Because these load the agent runtime, an avatar GLB, the agent's model endpoint, and framed
+three.ws pages, the **Tier 2** CSP below adds `https://three.ws` to `frame-src`/`img-src` and
+`blob:` to `worker-src`. If you only want the original payment demo and not the agent layer,
+delete the `#agent` and `#rooms` `<section>`s plus the `agent-3d.js` `<script>` tag, and the
+**Tier 1** policy is all you need.
+
 ## What to upload
 
 Copy these to the same directory on the host (paths are relative, so they must stay together):
@@ -66,10 +85,16 @@ the Base button works fully.
 > `<script>`. If IBM requires nonces, add a per-response nonce to the inline `<style>` and
 > `<script>` tags instead of `'unsafe-inline'`.
 
-### Tier 2 — Full (Base + Solana / Phantom)
+> Under Tier 1 the **3D agent layer** (the agent, and the Forge/Play/IRL rooms) is also
+> blocked — it needs `frame-src`, `worker-src blob:`, and `https://three.ws` in `img-src`,
+> which Tier 1 omits. Use Tier 2 to enable it, or remove those sections (see above) to keep
+> Tier 1.
 
-The Solana path dynamic-imports `@solana/web3.js` from `esm.sh` and calls a three.ws helper.
-Add those origins:
+### Tier 2 — Full (Base + Solana, plus the 3D agent layer)
+
+The Solana path dynamic-imports `@solana/web3.js` from `esm.sh`. The agent layer adds the
+`<agent-3d>` runtime + avatar GLB + model endpoint (all `https://three.ws`), a WebGL/worker
+`blob:` context, and framed three.ws surfaces. One policy covers all of it:
 
 ```
 Content-Security-Policy:
@@ -78,7 +103,9 @@ Content-Security-Policy:
   connect-src https://three.ws https://esm.sh;
   style-src 'self' 'unsafe-inline';
   font-src 'self';
-  img-src 'self' data:;
+  img-src 'self' data: blob: https://three.ws;
+  worker-src 'self' blob:;
+  frame-src https://three.ws;
   base-uri 'self';
 ```
 
