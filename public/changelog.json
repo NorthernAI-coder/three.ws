@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-17T23:20:15.613Z",
+	"generated_at": "2026-06-17T23:26:29.150Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -933,6 +933,16 @@
 			"link": null,
 			"tags": [
 				"feature",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-17",
+			"type": "update",
+			"title": "The IBM demo's 3D agent is now a clean, bare avatar",
+			"summary": "The 3D agent on the IBM × three.ws x402 demo page is now simply an avatar on a transparent background — the chat box, on-canvas controls, and name plate are gone. It still comes alive and reacts the moment your on-chain payment settles; it just no longer carries the extra interface around it.",
+			"link": "/ibm/x402-demo",
+			"tags": [
 				"improvement"
 			]
 		},

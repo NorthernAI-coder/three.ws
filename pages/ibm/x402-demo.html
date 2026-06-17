@@ -338,14 +338,6 @@ a:focus-visible{outline-offset:3px}
 agent-3d:defined ~ .agent-skel{display:none}
 .agent-copy h3{font-size:18px;font-weight:600;margin-bottom:8px}
 .agent-copy p{font-size:14px;color:var(--ibm-muted);font-weight:300;line-height:1.65;margin-bottom:14px;max-width:48ch}
-.agent-copy .agent-state{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:500;color:var(--ibm-subtle);border:1px solid var(--ibm-border);padding:5px 12px;border-radius:2px;margin-bottom:14px}
-.agent-copy .agent-state .dot{width:7px;height:7px;border-radius:50%;background:var(--ibm-subtle);flex:0 0 auto;transition:background .2s}
-.agent-copy .agent-state.ready .dot{background:var(--ibm-green)}
-.agent-copy .agent-state.acting .dot{background:var(--ibm-blue);animation:dotpulse 1.2s var(--ease) infinite}
-.agent-copy .agent-state.err .dot{background:var(--ibm-red)}
-.agent-prompts{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
-.agent-prompt{font-size:12px;font-weight:500;color:var(--ibm-blue);background:none;border:1px solid var(--ibm-border);padding:7px 12px;cursor:pointer;border-radius:2px;font-family:inherit;transition:border-color .12s,background .12s}
-.agent-prompt:hover{border-color:var(--ibm-blue);background:var(--ibm-field)}
 
 /* ── Demo nav strip (hero) ── */
 .demo-nav{display:flex;flex-wrap:wrap;gap:8px;margin-top:26px}
@@ -379,7 +371,7 @@ agent-3d:defined ~ .agent-skel{display:none}
 .live-embed.failed .embed-load{display:none}
 .live-embed.failed .embed-err{display:flex}
 .embed-err a{font-weight:600}
-@media(pointer:coarse){.agent-prompt,.demo-nav a,.live-embed .bar-actions button,.live-embed .bar-actions a{min-height:44px}}
+@media(pointer:coarse){.demo-nav a,.live-embed .bar-actions button,.live-embed .bar-actions a{min-height:44px}}
 
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}
@@ -803,11 +795,6 @@ agent-3d:defined ~ .agent-skel{display:none}
   // no faked timing, no canned animation loop.
   var agentReady = false;
   function agentEl() { return document.getElementById('guideAgent'); }
-  function setAgentState(cls, text) {
-    var s = $('agentState'); if (!s) return;
-    s.className = 'agent-state' + (cls ? ' ' + cls : '');
-    $('agentStateText').textContent = text;
-  }
   // Fire a reaction only once the component has booted; calls before that no-op
   // safely inside the element, but gating avoids wasted work.
   function agentReact(fn) {
@@ -815,42 +802,23 @@ agent-3d:defined ~ .agent-skel{display:none}
     if (!el || !agentReady) return;
     try { fn(el); } catch (_) {}
   }
+  // The avatar is bare (no chat) — we only track when it has booted so its
+  // scripted reactions to the payment lifecycle can fire.
   function wireAgent() {
     var el = agentEl();
     if (!el) return;
-    el.addEventListener('agent:ready', function () {
-      agentReady = true;
-      setAgentState('ready', 'Agent ready — ask it anything');
-    });
-    el.addEventListener('agent:error', function () {
-      setAgentState('err', 'Agent had trouble loading');
-    });
-    // Suggestion buttons hand the question to the agent's own brain.
-    var prompts = $('agentPrompts');
-    if (prompts) prompts.addEventListener('click', function (e) {
-      var btn = e.target.closest('[data-ask]'); if (!btn) return;
-      var el2 = agentEl();
-      if (el2 && typeof el2.say === 'function') {
-        el2.say(btn.getAttribute('data-ask'));
-        setAgentState('acting', 'Agent is answering…');
-        document.getElementById('agent').scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'center' });
-      }
-    });
+    el.addEventListener('agent:ready', function () { agentReady = true; });
   }
   function agentOnWaiting() {
-    setAgentState('acting', 'Watching your wallet…');
     agentReact(function (el) { if (el.expressEmotion) el.expressEmotion('patience', 0.6); });
   }
   function agentOnSettled() {
-    setAgentState('acting', 'Settled — the agent saw it');
     agentReact(function (el) {
       if (el.expressEmotion) el.expressEmotion('celebration', 0.95);
       if (el.playEmote) el.playEmote('cheer');
     });
-    setTimeout(function () { if (agentReady) setAgentState('ready', 'Agent ready'); }, 7200);
   }
   function agentOnError() {
-    setAgentState(agentReady ? 'ready' : '', agentReady ? 'Agent ready — ask it anything' : 'Waking the agent…');
     agentReact(function (el) { if (el.expressEmotion) el.expressEmotion('concern', 0.8); });
   }
 
@@ -971,7 +939,6 @@ agent-3d:defined ~ .agent-skel{display:none}
     var el = $('result'); el.className = 'result is-empty';
     el.innerHTML = 'Run the call to see live, on-chain-paid data appear here.';
     announce('');
-    setAgentState(agentReady ? 'ready' : '', agentReady ? 'Agent ready — ask it anything' : 'Waking the agent…');
   }
   function setResultLoading(msg) {
     var el = $('result'); el.className = 'result is-loading';

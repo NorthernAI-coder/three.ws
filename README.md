@@ -1699,7 +1699,7 @@ Fifteen packages ship from this repo, all published to npm under the **`@three-w
 
 | Package | Run | What it does |
 | --- | --- | --- |
-| [`@three-ws/mcp-server`](mcp-server/) | `npx -y @three-ws/mcp-server` | 15 paid x402 tools: text/image→3D, rigging, pose, pump.fun, ERC-8004, vanity, AgenC, aixbt |
+| [`@three-ws/mcp-server`](mcp-server/) | `npx -y @three-ws/mcp-server` | 16 tools: free text→3D (`forge_free`) + 15 paid x402 — text/image→3D, rigging, pose, pump.fun, ERC-8004, vanity, AgenC, aixbt |
 | [`@three-ws/avatar-agent`](packages/avatar-agent-mcp/) | `npx -y @three-ws/avatar-agent` | Spawn a textured GLB avatar with a Solana wallet, a voice, and pump.fun launch powers |
 | [`@three-ws/avatar-mcp`](packages/threews-avatar-mcp/) | `npx -y @three-ws/avatar-mcp` | Render a live, rotatable on-chain avatar inline + a paste-anywhere embed (free) |
 | [`@three-ws/pumpfun-mcp`](packages/pumpfun-mcp/) | `npx -y @three-ws/pumpfun-mcp` | 23 free, read-only pump.fun + Solana tools — no API key |

@@ -19,14 +19,15 @@ Run `/reload-plugins` (or restart Claude Code) afterward.
 | :------ | :----------- |
 | `/three-ws-developer:scaffold-agent <Name>` | Scaffold a runnable three.ws agent wired to the SDK, MCP tools, and x402 payments. |
 | `/three-ws-developer:setup-mcp` | Configure `@three-ws/mcp-server` in Claude Desktop, Claude Code, or Cursor. Merges into your existing config. |
-| `/three-ws-developer:use-tools <tool>` | Print ready-to-run code for any of the paid MCP tools. |
+| `/three-ws-developer:use-tools <tool>` | Print ready-to-run code for any MCP tool (free or paid). |
 
 ## Bundled MCP server
 
-Installing this plugin registers the `3d-agent` MCP server (`npx -y @three-ws/mcp-server`), exposing 15 paid tools settled per-call in USDC via x402:
+Installing this plugin registers the `3d-agent` MCP server (`npx -y @three-ws/mcp-server`), exposing 16 tools — one free, and 15 paid tools settled per-call in USDC via x402:
 
 | Tool | Price | What it does |
 | :--- | :---- | :----------- |
+| `forge_free` | **Free** | Text → textured 3D GLB on the free NVIDIA NIM (TRELLIS) lane — no payment, no wallet, no API key |
 | `mesh_forge` | $0.25 | Text or image → textured 3D GLB (Granite-directed model chain) |
 | `rig_mesh` | $0.20 | Auto-rig a static GLB into an animation-ready model |
 | `text_to_avatar` | $0.15 | Text or image → textured 3D avatar GLB |
