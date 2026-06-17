@@ -405,6 +405,9 @@ function disableAR() {
 }
 
 cameraBtn.addEventListener('click', () => {
+	// Unlock the arrival-cue chime inside this real gesture (same tap that grants
+	// camera + motion), so it can play later without an autoplay-policy warning.
+	unlockArrivalAudio();
 	if (arActive) disableAR();
 	else enableAR();
 });
@@ -1996,6 +1999,191 @@ function emitPinStable(pin) {
 	}
 }
 
+// ── Proximity-arrival cue + non-map directional hint (task 03) ──────────────
+// We deleted the list and the radar on purpose: a pin's location is private and
+// you find an agent only by physically walking into its ~40 m bubble. The cost is
+// that you can be 15 m away, facing the wrong way, and never know. This is the cue
+// that fixes it — the in-world equivalent of hearing a sound nearby. When the
+// hysteresis band promotes a genuinely new agent into range (emitPinStable, task
+// 04), we fire a quiet, rate-limited burst: an optional haptic, an optional soft
+// chime, and an aria-live "look around" banner — then a soft edge glow points
+// toward the nearest in-range agent and fades the moment you turn to face it. The
+// hint reveals a *direction*, never a list or a coordinate (proximity-cue.js).
+//
+// Sound is opt-out (a persisted mute toggle) and the WebAudio context is only ever
+// resumed on the camera-start tap (unlockArrivalAudio), so there is never an
+// autoplay-policy warning. The animated glow honours prefers-reduced-motion.
+
+const CUE_MUTE_KEY = 'irl_cue_muted_v1';
+let _cueMuted = (() => { try { return localStorage.getItem(CUE_MUTE_KEY) === '1'; } catch { return false; } })();
+let _lastCueAt = null;          // ms of the last fired cue (global cooldown)
+let _audioCtx = null;           // lazily created, resumed on the camera gesture
+let _audioUnlocked = false;
+
+// Resume / create the WebAudio context inside a real user gesture so the chime is
+// never an autoplay violation. Called from the camera-start tap (the same gesture
+// that grants camera + motion), and idempotent.
+function unlockArrivalAudio() {
+	if (_audioUnlocked) { _audioCtx?.resume?.().catch(() => {}); return; }
+	const Ctx = window.AudioContext || window.webkitAudioContext;
+	if (!Ctx) return; // no WebAudio — haptic + banner still fire
+	try {
+		_audioCtx = new Ctx();
+		_audioCtx.resume?.().catch(() => {});
+		_audioUnlocked = true;
+	} catch { _audioCtx = null; }
+}
+
+// A short, quiet two-note chime — a gentle "✨" rather than a notification ping.
+// Synthesised (no asset to load/decode), gated by the mute toggle and a live,
+// unlocked context. Two sine partials with a fast attack + soft exponential decay.
+function playArrivalChime() {
+	if (_cueMuted || !_audioCtx || _audioCtx.state === 'closed') return;
+	try {
+		const ctx = _audioCtx;
+		const now = ctx.currentTime;
+		const master = ctx.createGain();
+		master.gain.setValueAtTime(0.0001, now);
+		master.gain.exponentialRampToValueAtTime(0.16, now + 0.012);
+		master.gain.exponentialRampToValueAtTime(0.0001, now + 0.9);
+		master.connect(ctx.destination);
+		// Two ascending notes (a major sixth) for a friendly, non-alarming arrival.
+		[[659.25, 0], [987.77, 0.11]].forEach(([freq, at]) => {
+			const osc = ctx.createOscillator();
+			const g = ctx.createGain();
+			osc.type = 'sine';
+			osc.frequency.setValueAtTime(freq, now + at);
+			g.gain.setValueAtTime(0.0001, now + at);
+			g.gain.exponentialRampToValueAtTime(1, now + at + 0.02);
+			g.gain.exponentialRampToValueAtTime(0.0001, now + at + 0.5);
+			osc.connect(g); g.connect(master);
+			osc.start(now + at);
+			osc.stop(now + at + 0.55);
+		});
+	} catch { /* audio is a flourish — never let it break discovery */ }
+}
+
+// Persisted mute toggle (topbar button #irl-cue-mute). Reflects state into the
+// button's aria-pressed + icon so it's an honest, accessible control.
+function setCueMuted(muted) {
+	_cueMuted = !!muted;
+	try { localStorage.setItem(CUE_MUTE_KEY, _cueMuted ? '1' : '0'); } catch {}
+	syncCueMuteButton();
+}
+function syncCueMuteButton() {
+	const btn = document.getElementById('irl-cue-mute');
+	if (!btn) return;
+	btn.setAttribute('aria-pressed', _cueMuted ? 'true' : 'false');
+	btn.classList.toggle('is-muted', _cueMuted);
+	btn.setAttribute('aria-label', _cueMuted ? 'Arrival sound off — tap to unmute' : 'Arrival sound on — tap to mute');
+	btn.title = _cueMuted ? 'Arrival sound off' : 'Arrival sound on';
+}
+
+// The transient "look around" banner. aria-live polite so a screen reader announces
+// the arrival without stealing focus; auto-dismisses, and a fresh arrival restarts
+// the timer rather than stacking banners.
+let _cueBannerTimer = null;
+function showArrivalBanner() {
+	const el = document.getElementById('irl-arrival-cue');
+	if (!el) return;
+	el.textContent = 'An agent is near — look around';
+	el.classList.add('is-visible');
+	el.hidden = false;
+	clearTimeout(_cueBannerTimer);
+	_cueBannerTimer = setTimeout(() => {
+		el.classList.remove('is-visible');
+		// Keep it in the DOM (hidden) so the next arrival re-announces cleanly.
+		setTimeout(() => { if (!el.classList.contains('is-visible')) el.hidden = true; }, 320);
+	}, 4200);
+}
+
+// Fire the full arrival cue for a freshly-in-range agent: haptic (where supported),
+// chime (unless muted), and the banner. Rate-limited by shouldCueArrival so a busy
+// corner where several agents drift in at once buzzes once, not like a slot machine.
+function fireArrivalCue() {
+	const now = Date.now();
+	if (!shouldCueArrival(now, _lastCueAt)) return;
+	_lastCueAt = now;
+	// Haptic — guarded; iOS Safari and many desktops ignore vibrate() entirely, so
+	// it's a bonus, never the cue. A short double-tap reads as "notice me".
+	try { navigator.vibrate?.([18, 40, 18]); } catch {}
+	playArrivalChime();
+	showArrivalBanner();
+}
+
+onPinStable(() => fireArrivalCue());
+
+// ── Directional nudge (non-map "that way" hint) ─────────────────────────────
+// A soft glow + arrow pinned to the screen edge pointing toward the NEAREST
+// in-range agent's current screen-relative bearing (recomputed every frame from
+// cameraYaw + the agent's world offset, so it tracks live as the user rotates). It
+// fades the instant that agent is comfortably on-screen — the visible avatar is
+// then its own cue. Never a minimap, never a distance readout: just a direction,
+// the in-world equivalent of "look over there". Honours reduced motion (the glow's
+// pulse is CSS-gated; the arrow still points, it just doesn't breathe).
+let _nudgeEl = null;
+let _nudgeArrowEl = null;
+let _nudgeVisible = false;
+// Throttle the DOM writes to ~20 Hz — the bearing changes smoothly and a full
+// per-frame style write is wasted work; CSS transitions cover the gaps.
+let _nudgeAccum = 0;
+const NUDGE_INTERVAL = 0.05;
+
+function _ensureNudgeEls() {
+	if (_nudgeEl) return;
+	_nudgeEl = document.getElementById('irl-dir-nudge');
+	_nudgeArrowEl = _nudgeEl?.querySelector('.irl-dir-nudge-arrow') ?? null;
+}
+
+// Pick the agent to point at and the camera's half-FOV, then either place + show
+// the glow toward an off-screen agent or fade it once we're facing the nearest one.
+// Reads only world offsets the scene already renders — no coordinate ever touched.
+function updateDirectionalNudge(dt) {
+	_nudgeAccum += dt;
+	if (_nudgeAccum < NUDGE_INTERVAL) return;
+	_nudgeAccum = 0;
+	_ensureNudgeEls();
+	if (!_nudgeEl) return;
+
+	// Candidates: every rendered in-range agent, measured from where we stand. The
+	// band distance (not the live AR-head distance) is the honest "how near is this
+	// agent to me" — stable as the camera pans.
+	let candidates = null;
+	for (const pin of nearbyPins) {
+		if (!pin.group) continue;
+		(candidates ??= []).push({ pin, distance: bandDistance(pin) });
+	}
+	const target = candidates && nearestAgent(candidates);
+	if (!target) { _hideNudge(); return; }
+
+	const wp = target.pin.group.position;
+	const relBearing = relativeBearing(wp.x, wp.z, cameraYaw);
+	// Half the camera's horizontal FOV (camera.fov is vertical; convert via aspect).
+	const aspect = window.innerWidth / Math.max(1, window.innerHeight);
+	const halfVFov = (camera.fov * Math.PI) / 180 / 2;
+	const halfHFov = Math.atan(Math.tan(halfVFov) * aspect);
+
+	// Already looking at the nearest agent (and it's actually drawing on-screen)? The
+	// avatar is the cue now — fade the hint.
+	if (isFacingAgent(relBearing, halfHFov) && pinOnScreen(target.pin)) { _hideNudge(); return; }
+
+	const { x, y, rotateDeg } = edgeNudgePlacement(relBearing, window.innerWidth, window.innerHeight);
+	_nudgeEl.style.transform = `translate(-50%, -50%) translate(${x}px, ${y}px)`;
+	if (_nudgeArrowEl) _nudgeArrowEl.style.transform = `rotate(${rotateDeg}deg)`;
+	if (!_nudgeVisible) {
+		_nudgeVisible = true;
+		_nudgeEl.hidden = false;
+		// Next frame so the transition runs from the hidden state.
+		requestAnimationFrame(() => { if (_nudgeVisible) _nudgeEl.classList.add('is-visible'); });
+	}
+}
+
+function _hideNudge() {
+	if (!_nudgeVisible) return;
+	_nudgeVisible = false;
+	_nudgeEl?.classList.remove('is-visible');
+}
+
 // Briefly tint a pin's floating label so a deep-linked target (?highlight= or
 // ?agent=) is easy to spot among the nearby agents. No-op for a missing pin/label.
 function flashPinLabel(pin) {
@@ -3212,6 +3400,10 @@ function applyGhost(on) {
 }
 document.getElementById('irl-ghost-toggle')?.addEventListener('click', () => applyGhost(!getShareGhost()));
 syncGhostToggle();
+
+// Arrival-cue mute toggle (task 03) — persisted; reflects state into the button.
+document.getElementById('irl-cue-mute')?.addEventListener('click', () => setCueMuted(!_cueMuted));
+syncCueMuteButton();
 
 // L3 — Location & privacy center: honest disclosure + discovery precision +
 // presence opt-in + a jump into pin management, all in one designed surface.
@@ -4671,6 +4863,9 @@ function tick() {
 	updateReactions(dt);
 	// Gentle pulse on live presence ghosts (D2) — early-outs when none are present.
 	updateGhosts(dt);
+	// Non-map directional hint (task 03): point the edge glow toward the nearest
+	// in-range agent and fade it once it's on-screen. ~20 Hz internally, no map.
+	updateDirectionalNudge(dt);
 	// Radar DOM is rebuilt at ~5 Hz, not every frame (it was a per-frame churn).
 	_radarAccum += dt;
 	if (_radarAccum >= RADAR_INTERVAL) { _radarAccum = 0; updateRadar(); }
@@ -4949,7 +5144,7 @@ async function saveCalibrate() {
 		pin.lat = _cal.lat; pin.lng = _cal.lng;
 		pin.anchor_yaw_deg = _cal.yaw; pin.heading = Math.round(_cal.yaw);
 		pin.anchor_height_m = _cal.height;
-		setStatus('Position calibrated — everyone nearby now sees it here');
+		setStatus('Position calibrated — saved here; nearby viewers update within ~10s');
 		exitCalibrate(false);
 		loadNearbyPins();
 	} catch (err) {
