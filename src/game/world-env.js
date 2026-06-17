@@ -509,6 +509,15 @@ export function createWorldEnvironment(scene, renderer, playRadius = 58, opts = 
 	// day/night cycle can move the whole atmosphere across the day; the previous
 	// texture is disposed so a long session doesn't leak canvases.
 	function applySky(top, mid, horizon, fogColor) {
+		// Transparent embed: never paint a sky backdrop so the host page shows
+		// through the canvas. The day/night cycle still calls this to retint fog,
+		// which we keep; only the opaque background is suppressed.
+		if (opts.transparent) {
+			scene.background?.dispose?.();
+			scene.background = null;
+			if (fogColor && scene.fog) scene.fog.color.set(fogColor);
+			return;
+		}
 		const tex = gradientSky(top, mid, horizon);
 		scene.background?.dispose?.();
 		scene.background = tex;

@@ -290,6 +290,12 @@ export class CoinCommunities {
 		this._last = performance.now();
 		this._lastKick = 0; // R05: timestamp of last ball:kick intent (client-side rate limit)
 
+		// Embed mode: `?bg=transparent` clears the canvas to alpha 0 and drops the
+		// graded sky + fog so the world composites onto the host page (e.g. the IBM
+		// x402 showcase) instead of sitting in its own black box. Default play is
+		// unaffected.
+		this._transparentBg = new URLSearchParams(location.search).get('bg') === 'transparent';
+
 		this._initRenderer();
 		this._initScene();
 
@@ -445,9 +451,10 @@ export class CoinCommunities {
 
 	// ---------------------------------------------------------------- render
 	_initRenderer() {
-		const r = new WebGLRenderer({ canvas: this.canvas, antialias: true });
+		const r = new WebGLRenderer({ canvas: this.canvas, antialias: true, alpha: this._transparentBg });
 		r.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 		r.setSize(window.innerWidth, window.innerHeight);
+		if (this._transparentBg) r.setClearColor(0x000000, 0);
 		r.shadowMap.enabled = true; r.shadowMap.type = PCFShadowMap;
 		r.outputColorSpace = SRGBColorSpace;
 		// ACES keeps the cool moonlight key and the bright avatars from clipping;
@@ -471,7 +478,9 @@ export class CoinCommunities {
 		// Far plane reaches the sky dome; near stays tight for close avatars.
 		this.camera = new PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 9000);
 
-		this.env = createWorldEnvironment(scene, this.renderer, WORLD_RADIUS);
+		// Transparent embed (`?bg=transparent`): the environment skips the sky
+		// backdrop so the host page shows through; ground, ring, and avatars render.
+		this.env = createWorldEnvironment(scene, this.renderer, WORLD_RADIUS, { transparent: this._transparentBg });
 
 		this.world = new Group();
 		scene.add(this.world);
