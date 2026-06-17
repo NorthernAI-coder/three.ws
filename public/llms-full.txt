@@ -61,6 +61,18 @@ URL: https://three.ws/marketplace
 
 Buy access to agents, skills, and avatars from other creators.
 
+### Marketplace Analytics
+
+URL: https://three.ws/marketplace/analytics
+
+Real-time stats on the three.ws skill marketplace: top skills, top agents, and sales volume.
+
+### My Collection
+
+URL: https://three.ws/collection
+
+View all the skills and subscriptions you've unlocked on three.ws.
+
 ### Skills Marketplace
 
 URL: https://three.ws/skills

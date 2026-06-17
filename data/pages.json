@@ -79,6 +79,22 @@
 					"added": "2026-04-29"
 				},
 				{
+					"path": "/marketplace/analytics",
+					"title": "Marketplace Analytics",
+					"description": "Real-time stats on the three.ws skill marketplace: top skills, top agents, and sales volume.",
+					"priority": 0.6,
+					"changefreq": "daily",
+					"added": "2026-06-17"
+				},
+				{
+					"path": "/collection",
+					"title": "My Collection",
+					"description": "View all the skills and subscriptions you've unlocked on three.ws.",
+					"priority": 0.5,
+					"changefreq": "weekly",
+					"added": "2026-06-17"
+				},
+				{
 					"path": "/skills",
 					"title": "Skills Marketplace",
 					"description": "Browse, search, and install agent skills \u2014 tool packs, knowledge bases, and capabilities that make AI agents smarter.",

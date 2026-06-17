@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-06-17",
+			"title": "Quieter walk-up to the Pole Club",
+			"summary": "Dropped the muffled bass loop that played in the alley on the way to the club door — it was more distracting than atmospheric. The walk-in is silent now until you pay the cover and the rope drops, when the full anthem kicks in.",
+			"tags": [
+				"improvement"
+			],
+			"link": "/club"
+		},
+		{
+			"date": "2026-06-17",
 			"title": "Switch your agent mid-walk, and a fix for the avatar that wouldn't stop",
 			"summary": "The walk-in to the Pole Club now has an Agent picker in the top-left: choose which avatar you walk in as — from a set of bundled rigs or any public avatar from the gallery — and the model swaps live, mid-stride, with no reload and without losing your place or heading. You can switch as many times as you like, in any room along the way. Also fixed: an avatar that could keep walking on its own after the window lost focus or you opened the cover-charge card — held keys are now released cleanly so she always stops when you do.",
 			"tags": [
@@ -49,8 +58,8 @@
 		},
 		{
 			"date": "2026-06-17",
-			"title": "Choose who dances — avatar selector in the Pole Club",
-			"summary": "Every pole card now has an Avatar dropdown so you can pick which 3D avatar dances on each pole. Choose from each dancer's signature look, a set of built-in rigs, or any public avatar from the gallery — the dancer swaps to the new model live, right on stage, with no reload. Your picks are remembered per pole on your next visit. The picker locks for the few seconds a dancer is mid-routine so a swap never interrupts a paid performance, and any model the animation library can't drive falls back to the default rig automatically.",
+			"title": "Choose who dances — visual avatar picker in the Pole Club",
+			"summary": "Each pole card now has a thumbnail Change-avatar button that opens a visual gallery picker — the same browse-and-tap experience as the /play avatar selector. Preview the looks as image tiles, then tap one to swap who dances on that pole: each dancer's signature look, a set of built-in rigs, or any public avatar from the community gallery. The dancer swaps to the new model live, right on stage, with no reload, and your picks are remembered per pole on your next visit. The button locks for the few seconds a dancer is mid-routine so a swap never interrupts a paid performance, and any model the animation library can't drive falls back to the default rig automatically.",
 			"tags": [
 				"feature"
 			],

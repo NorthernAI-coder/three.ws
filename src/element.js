@@ -984,6 +984,7 @@ class Agent3DElement extends HTMLElement {
 
 		const loading = document.createElement('div');
 		loading.className = 'loading';
+		loading.part = 'loading';
 		loading.setAttribute('role', 'status');
 		loading.setAttribute('aria-label', 'Loading avatar');
 		loading.innerHTML =

@@ -1532,10 +1532,10 @@ function updatePoleCardStatus(poleId, status) {
 		progressEl.style.display = status === 'performing' ? '' : 'none';
 	}
 	// Lock the avatar picker mid-routine so a swap can't interrupt a paid
-	// performance; it re-enables the moment she returns to idle. Skip while the
-	// dropdown is still loading its options (kept disabled until populated).
-	const avatarSel = cardEl.querySelector('.club-avatar-select');
-	if (avatarSel && avatarSel.value) avatarSel.disabled = status === 'performing';
+	// performance; it re-enables the moment she returns to idle. The catalog is
+	// ready by the time any performance starts, so toggling enabled is safe.
+	const avatarBtn = cardEl.querySelector('.club-avatar-btn');
+	if (avatarBtn) avatarBtn.disabled = status === 'performing';
 }
 
 function flashPoleCard(poleId) {
@@ -1548,14 +1548,15 @@ function flashPoleCard(poleId) {
 }
 
 // ── Avatar selector ──────────────────────────────────────────────────────
-// Each pole card carries an "Avatar" dropdown so a visitor can choose which
-// 3D avatar dances on that pole. The catalog is built at boot from three
-// sources, deduped by URL: each dancer's own curated look, a set of bundled
-// known-good humanoid rigs (guaranteed to load offline — Hard rule 9), and
-// public avatars from the gallery (/api/explore). Picks hot-swap the rig live
-// and persist per-pole to localStorage. Any rig the clip library can't
-// retarget falls back to the default in attachAvatar, so a pick never freezes
-// a dancer.
+// Each pole card carries a thumbnail "change avatar" button that opens a
+// visual gallery picker — the same look-and-feel as the /play avatar picker:
+// a modal grid of preview tiles you browse, then tap to swap who dances on
+// that pole. The catalog is built at boot from three sources, deduped by URL:
+// each dancer's own look, a set of bundled known-good rigs (guaranteed to load
+// offline — Hard rule 9), and public avatars from the gallery (/api/explore,
+// which carries real thumbnails). Picks hot-swap the rig live and persist
+// per-pole to localStorage. Any rig the clip library can't retarget falls back
+// to the default in attachAvatar, so a pick never freezes a dancer.
 const BUNDLED_AVATARS = [
 	{ key: 'bundled-michelle',  name: 'Michelle',  url: '/avatars/michelle.glb' },
 	{ key: 'bundled-studio',    name: 'Studio',    url: '/avatars/readyplayerme.glb' },
@@ -1563,10 +1564,13 @@ const BUNDLED_AVATARS = [
 	{ key: 'bundled-mannequin', name: 'Mannequin', url: '/avatars/mannequin.glb' },
 	{ key: 'bundled-classic',   name: 'Classic',   url: AVATAR_URL },
 ];
+// Thumbnails shipped for a few bundled rigs; the rest fall back to mono
+// initials in the tile (exactly like /play).
+const LOCAL_THUMBS = { [AVATAR_URL]: '/avatars/thumbs/default.png' };
 const GALLERY_URL = '/api/explore?source=avatar&category=avatar&only3d=1&limit=24';
 const POLE_AVATARS_KEY = 'club:poleAvatars';
 
-// key → { key, name, url }. Insertion order drives the dropdown order.
+// key → { key, name, url, thumb, starter }. Insertion order drives tile order.
 const avatarCatalog = new Map();
 // Track URLs already in the catalog so the same GLB (e.g. a dancer's own look
 // that's also a bundled rig) never appears twice — first registration wins,
@@ -1578,7 +1582,13 @@ let fallbackTemplateRef = null;
 
 function registerAvatar(entry) {
 	if (!entry?.key || !entry?.url || avatarCatalog.has(entry.key) || catalogUrls.has(entry.url)) return;
-	avatarCatalog.set(entry.key, { key: entry.key, name: entry.name || 'Avatar', url: entry.url });
+	avatarCatalog.set(entry.key, {
+		key: entry.key,
+		name: entry.name || 'Avatar',
+		url: entry.url,
+		thumb: entry.thumb || LOCAL_THUMBS[entry.url] || '',
+		starter: entry.starter === true,
+	});
 	catalogUrls.add(entry.url);
 }
 
@@ -1597,6 +1607,14 @@ function savePoleAvatar(poleId, key) {
 // The default look for a pole is that pole's own dancer; persisted only when
 // the visitor picks something else.
 function defaultAvatarKey(poleId) { return `dancer-${poleId}`; }
+// The catalog key currently applied to a pole (persisted override or default).
+function currentAvatarKey(poleId) {
+	const saved = savedPoleAvatars[poleId];
+	return saved && avatarCatalog.has(saved) ? saved : defaultAvatarKey(poleId);
+}
+function dancerNameFor(poleId) {
+	return DANCER_META[parseInt(poleId, 10) - 1]?.name || `Dancer ${poleId}`;
+}
 
 function loadAvatarTemplate(url) {
 	if (avatarTemplateCache.has(url)) return avatarTemplateCache.get(url);
@@ -1609,7 +1627,7 @@ function loadAvatarTemplate(url) {
 }
 
 // Pull public avatars from the gallery. Never throws — a failed fetch just
-// leaves the dropdown with the dancer + bundled looks.
+// leaves the picker with the dancer + bundled looks.
 async function loadGalleryAvatars() {
 	try {
 		const res = await fetch(GALLERY_URL, { headers: { accept: 'application/json' } });
@@ -1618,54 +1636,120 @@ async function loadGalleryAvatars() {
 		const items = Array.isArray(data?.items) ? data.items : [];
 		for (const it of items) {
 			if (!it?.glbUrl || it.has3d === false || it.kind !== 'avatar') continue;
-			registerAvatar({ key: `gallery-${it.avatarId}`, name: it.name || 'Avatar', url: it.glbUrl });
+			registerAvatar({ key: `gallery-${it.avatarId}`, name: it.name || 'Avatar', url: it.glbUrl, thumb: it.image || '' });
 		}
 	} catch (err) {
 		log.warn('[club] gallery avatar fetch failed', err);
 	}
 }
 
-// Fill every pole's avatar dropdown from the catalog, selecting the persisted
-// (or default) choice. Idempotent — safe to call again once the gallery lands.
-function populateAvatarSelects() {
-	const entries = [...avatarCatalog.values()];
-	if (!entries.length) return;
-	for (const pole of POLES) {
-		const select = poleCardEls.get(pole.id)?.querySelector('.club-avatar-select');
-		if (!select) continue;
-		const saved = savedPoleAvatars[pole.id];
-		const current = saved && avatarCatalog.has(saved) ? saved : defaultAvatarKey(pole.id);
-		select.innerHTML = entries
-			.map((en) => `<option value="${escapeText(en.key)}"${en.key === current ? ' selected' : ''}>${escapeText(en.name)}</option>`)
-			.join('');
-		select.disabled = false;
+// ── Per-pole thumbnail button ─────────────────────────────────────────────
+function avatarThumbHTML(entry, name, { cls = 'club-pick-mono' } = {}) {
+	const initials = escapeText((name || '?').slice(0, 2).toUpperCase());
+	if (entry?.thumb) {
+		return `<img src="${escapeText(entry.thumb)}" alt="" loading="lazy" onerror="this.remove()"/>`;
 	}
+	return `<span class="${cls}">${initials}</span>`;
 }
 
+// Reflect a pole's current avatar in its card button (chip thumbnail + name).
+function refreshAvatarButton(poleId) {
+	const card = poleCardEls.get(poleId);
+	if (!card) return;
+	const entry = avatarCatalog.get(currentAvatarKey(poleId));
+	const name = entry?.name || dancerNameFor(poleId);
+	const cur = card.querySelector('.club-avatar-cur');
+	const chip = card.querySelector('.club-avatar-chip');
+	if (cur) cur.textContent = name;
+	if (chip) chip.innerHTML = avatarThumbHTML(entry, name, { cls: 'club-avatar-initials' });
+}
+
+// ── Gallery picker modal (shared, scoped to whichever pole opened it) ──────
+const pickerEl = document.getElementById('club-picker');
+const pickGridEl = document.getElementById('club-pick-grid');
+const pickSubEl = document.getElementById('club-pick-sub');
+let pickerPoleId = null;
+
+function pickTile(a, currentKey) {
+	return `<button type="button" class="club-pick-tile${a.key === currentKey ? ' selected' : ''}" data-key="${escapeText(a.key)}" title="${escapeText(a.name)}">
+		<span class="club-pick-thumb">${avatarThumbHTML(a, a.name)}</span>
+		<span class="club-pick-name">${escapeText(a.name)}</span>
+		${a.starter ? '<span class="club-pick-badge">starter</span>' : ''}
+	</button>`;
+}
+
+function renderPickerGrid() {
+	if (!pickGridEl) return;
+	const entries = [...avatarCatalog.values()];
+	if (!entries.length) {
+		pickGridEl.innerHTML = '<div class="club-pick-loading">Loading avatars…</div>';
+		return;
+	}
+	const current = currentAvatarKey(pickerPoleId);
+	const starters = entries.filter((e) => e.starter);
+	const gallery = entries.filter((e) => !e.starter);
+	let html = starters.map((e) => pickTile(e, current)).join('');
+	if (gallery.length) {
+		html += '<div class="club-pick-sep">Community gallery</div>' + gallery.map((e) => pickTile(e, current)).join('');
+	}
+	pickGridEl.innerHTML = html;
+}
+
+function openPicker(poleId) {
+	if (!pickerEl) return;
+	pickerPoleId = poleId;
+	if (pickSubEl) pickSubEl.textContent = `Pick who dances on ${dancerNameFor(poleId)}'s pole — swaps live on stage.`;
+	renderPickerGrid();
+	pickerEl.hidden = false;
+}
+function closePicker() {
+	if (pickerEl) pickerEl.hidden = true;
+	pickerPoleId = null;
+}
+
+// Wire the modal once — the markup is static in club.html.
+if (pickerEl) {
+	document.getElementById('club-pick-close')?.addEventListener('click', closePicker);
+	document.getElementById('club-pick-backdrop')?.addEventListener('click', closePicker);
+	window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !pickerEl.hidden) closePicker(); });
+	pickGridEl?.addEventListener('click', async (e) => {
+		const tile = e.target.closest('.club-pick-tile');
+		if (!tile || pickerPoleId == null) return;
+		const key = tile.dataset.key;
+		if (key === currentAvatarKey(pickerPoleId)) { closePicker(); return; }
+		pickGridEl.querySelectorAll('.club-pick-tile').forEach((t) => t.classList.remove('selected'));
+		tile.classList.add('selected', 'busy');
+		const spinner = document.createElement('span');
+		spinner.className = 'club-pick-spinner';
+		tile.querySelector('.club-pick-thumb')?.appendChild(spinner);
+		const ok = await swapPoleAvatar(pickerPoleId, key);
+		tile.classList.remove('busy');
+		spinner.remove();
+		if (ok) {
+			closePicker();
+		} else {
+			tile.classList.add('failed');
+			setTimeout(() => tile.classList.remove('failed'), 1500);
+		}
+	});
+}
+
+// Load the chosen rig and hot-swap it onto the pole. Returns true on success.
 async function swapPoleAvatar(poleId, key) {
 	const station = stations.find((s) => s.id === poleId);
 	const entry = avatarCatalog.get(key);
-	if (!station || !entry) return;
-	const select = poleCardEls.get(poleId)?.querySelector('.club-avatar-select');
-	if (select) select.disabled = true;
-	const dancerName = DANCER_META[parseInt(poleId, 10) - 1]?.name || `Dancer ${poleId}`;
+	if (!station || !entry) return false;
 	try {
 		const template = await loadAvatarTemplate(entry.url);
 		station.swapAvatar(template, fallbackTemplateRef || template);
 		savePoleAvatar(poleId, key);
-		setStatus(`${dancerName} now wearing ${entry.name}.`, { kind: 'ok' });
+		refreshAvatarButton(poleId);
+		setStatus(`${dancerNameFor(poleId)} now wearing ${entry.name}.`, { kind: 'ok' });
+		return true;
 	} catch (err) {
 		log.warn(`[club] avatar swap failed for pole ${poleId}`, err);
 		setStatus("Couldn't load that avatar — keeping the current look.", { kind: 'error' });
-		// Roll the dropdown back to whatever the station is actually wearing.
-		if (select) {
-			const fallbackKey = savedPoleAvatars[poleId] && avatarCatalog.has(savedPoleAvatars[poleId])
-				? savedPoleAvatars[poleId]
-				: defaultAvatarKey(poleId);
-			select.value = fallbackKey;
-		}
-	} finally {
-		if (select) select.disabled = station.performing;
+		return false;
 	}
 }
 
@@ -1676,10 +1760,21 @@ async function initAvatarSelector(dancerUrls) {
 		key: defaultAvatarKey(String(i + 1)),
 		name: m.name,
 		url: dancerUrls[i] || AVATAR_URL,
+		starter: true,
 	}));
-	for (const a of BUNDLED_AVATARS) registerAvatar(a);
+	for (const a of BUNDLED_AVATARS) registerAvatar({ ...a, starter: true });
+
+	// Paint the buttons from the dancer + bundled looks immediately, then again
+	// once the gallery lands so its tiles (and any saved gallery pick) appear.
+	for (const pole of POLES) {
+		refreshAvatarButton(pole.id);
+		const btn = poleCardEls.get(pole.id)?.querySelector('.club-avatar-btn');
+		if (btn) btn.disabled = false;
+	}
+
 	await loadGalleryAvatars();
-	populateAvatarSelects();
+	for (const pole of POLES) refreshAvatarButton(pole.id);
+	if (pickerEl && !pickerEl.hidden) renderPickerGrid();
 
 	// Re-apply any look the visitor chose on a previous visit. The boot path
 	// already attached each pole's own dancer, so we only swap the overrides.
@@ -1721,13 +1816,13 @@ function renderPoles() {
 			<div class="club-pole-progress" style="display:none" role="progressbar" aria-label="Performance progress" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
 				<div class="club-pole-progress-bar" style="width:0%"></div>
 			</div>
-			<label class="club-pole-style">
-				<span class="sr-only">Avatar for ${meta.name}</span>
-				Avatar
-				<select data-pole="${pole.id}" class="club-pole-select club-avatar-select" aria-label="Avatar for pole ${pole.id}" disabled>
-					<option value="">Loading avatars…</option>
-				</select>
-			</label>
+			<button type="button" class="club-avatar-btn" data-pole="${pole.id}" aria-label="Change ${meta.name}'s avatar" disabled>
+				<span class="club-avatar-chip"><span class="club-avatar-initials">${escapeText(meta.name.slice(0, 2).toUpperCase())}</span></span>
+				<span class="club-avatar-meta">
+					<span class="club-avatar-cur">${escapeText(meta.name)}</span>
+					<span class="club-avatar-change">Change avatar</span>
+				</span>
+			</button>
 			<label class="club-pole-style">
 				<span class="sr-only">Dance style for ${meta.name}</span>
 				Style
@@ -1745,6 +1840,11 @@ function renderPoles() {
 
 	// Tap card on mobile to VIP.
 	polesPanel.addEventListener('click', (e) => {
+		const avatarBtn = e.target.closest('.club-avatar-btn');
+		if (avatarBtn) {
+			if (!avatarBtn.disabled) openPicker(avatarBtn.dataset.pole);
+			return;
+		}
 		const camBtn = e.target.closest('.club-cam-btn');
 		if (camBtn) {
 			const layout = POLES.find((p) => p.id === camBtn.dataset.pole);
@@ -1766,13 +1866,6 @@ function renderPoles() {
 			const layout = POLES.find((p) => p.id === poleId);
 			if (layout) clubCam.setVip(layout);
 		}
-	});
-
-	// Avatar dropdown → hot-swap the chosen rig onto that pole's dancer.
-	polesPanel.addEventListener('change', (e) => {
-		const select = e.target.closest('.club-avatar-select');
-		if (!select || !select.value) return;
-		swapPoleAvatar(select.dataset.pole, select.value);
 	});
 }
 

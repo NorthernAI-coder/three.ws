@@ -999,7 +999,12 @@
 		@media (max-width: 480px) { .foot-inner { flex-direction: column; align-items: flex-start; } .foot-ca { width: 100%; justify-content: flex-start; } }
 
 		/* ── HERO LOADING ───────────────────────────────────────── */
-		.hero-stage agent-3d .skeleton { display: none !important; }
+		/* Suppress the in-element skeleton silhouette on the hero — it lives in
+		   the component's shadow DOM, so a light-DOM `.skeleton` selector can't
+		   reach it; `::part(loading)` pierces the boundary. The hero fades the
+		   whole agent-3d in on `agent:ready`, so the model never appears under a
+		   stale skeleton. */
+		.hero-stage agent-3d::part(loading) { display: none !important; }
 		.hero-stage agent-3d {
 			position: absolute; inset: 0; display: block; width: 100%; height: 100%;
 			opacity: 0; transition: opacity 0.8s cubic-bezier(.2,.7,.3,1);

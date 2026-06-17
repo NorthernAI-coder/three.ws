@@ -321,6 +321,10 @@ agent-3d:defined ~ .agent-skel{display:none}
 /* ── Rooms (Forge / Play / IRL) ── */
 .rooms{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--ibm-border);border:1px solid var(--ibm-border);margin-top:28px}
 @media(max-width:760px){.rooms{grid-template-columns:1fr}}
+/* When a room is launched it takes over the whole width — these apps are built
+   for a full viewport, not a one-third column. The other tiles collapse away. */
+.rooms.has-live{grid-template-columns:1fr}
+.rooms.has-live .room:not(.is-live){display:none}
 .room{background:var(--ibm-surface);display:flex;flex-direction:column;min-height:240px}
 .room-head{padding:22px 22px 0;flex:0 0 auto}
 .room-ico{width:34px;height:34px;color:var(--ibm-blue);margin-bottom:12px}
@@ -338,10 +342,19 @@ agent-3d:defined ~ .agent-skel{display:none}
 .room-embed{display:none;position:relative;border-top:1px solid var(--ibm-border);background:var(--ibm-field)}
 .room.is-live .room-embed{display:block}
 .room.is-live .room-head,.room.is-live .room-actions{display:none}
-.room-embed iframe{display:block;width:100%;height:540px;border:0;background:var(--ibm-field)}
-.room-embed .embed-bar{display:flex;justify-content:space-between;align-items:center;padding:8px 14px;border-bottom:1px solid var(--ibm-border);font-size:12px;color:var(--ibm-subtle);font-weight:500}
+/* Full-bleed once launched: fill the section width and most of the viewport
+   height so the embedded app has room to breathe. */
+.room-embed iframe{display:block;width:100%;height:min(78vh,820px);border:0;background:var(--ibm-field)}
+.room-embed .embed-bar{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 14px;border-bottom:1px solid var(--ibm-border);font-size:12px;color:var(--ibm-subtle);font-weight:500}
+.room-embed .embed-bar .bar-url{display:inline-flex;align-items:center;gap:8px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.room-embed .embed-bar .bar-actions{display:flex;gap:8px;flex:0 0 auto}
 .room-embed .embed-bar button{background:none;border:1px solid var(--ibm-divider);color:var(--ibm-ink);font-family:inherit;font-size:12px;font-weight:500;padding:5px 10px;cursor:pointer;border-radius:2px}
 .room-embed .embed-bar button:hover{border-color:var(--ibm-blue);color:var(--ibm-blue)}
+/* True full-screen via the Fullscreen API — the app fills the whole display. */
+.room-embed:fullscreen{background:var(--ibm-surface);display:flex;flex-direction:column}
+.room-embed:fullscreen iframe{height:100%;flex:1}
+.room-embed:-webkit-full-screen{background:var(--ibm-surface)}
+.room-embed:-webkit-full-screen iframe{height:100%}
 .room-embed .embed-load{position:absolute;left:0;right:0;top:37px;bottom:0;display:flex;align-items:center;justify-content:center;gap:10px;font-size:13px;color:var(--ibm-subtle);background:var(--ibm-field)}
 .room-embed.loaded .embed-load{display:none}
 .room-embed .embed-load .spin{width:16px;height:16px;border:2px solid var(--ibm-divider);border-top-color:var(--ibm-blue);border-radius:50%;animation:spin .8s linear infinite}
@@ -355,6 +368,18 @@ agent-3d:defined ~ .agent-skel{display:none}
   *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}
 }
 </style>
+
+	<link rel="canonical" href="https://three.ws/ibm/x402-demo">
+	<meta property="og:site_name" content="three.ws">
+	<meta property="og:url" content="https://three.ws/ibm/x402-demo">
+	<meta property="og:image" content="https://three.ws/og-image.png">
+	<meta property="og:image:width" content="1200">
+	<meta property="og:image:height" content="630">
+	<meta name="twitter:card" content="summary_large_image">
+	<meta name="twitter:title" content="x402 Live Demo (IBM × three.ws) · three.ws">
+	<meta name="twitter:description" content="A self-contained x402 micropayment demo: pay $0.001 USDC from your own wallet — MetaMask on Base or Phantom on Solana — to call a real three.ws data API. Watch the live HTTP 402 challenge, sign a gasless authorization, and see the on-chain settlement receipt. No backend, no account; built as the public face of the IBM × three.ws partnership.">
+	<meta name="twitter:image" content="https://three.ws/og-image.png">
+	<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"x402 Live Demo (IBM × three.ws)","description":"A self-contained x402 micropayment demo: pay $0.001 USDC from your own wallet — MetaMask on Base or Phantom on Solana — to call a real three.ws data API. Watch the live HTTP 402 challenge, sign a gasless authorization, and see the on-chain settlement receipt. No backend, no account; built as the public face of the IBM × three.ws partnership.","url":"https://three.ws/ibm/x402-demo","isPartOf":{"@type":"WebSite","name":"three.ws","url":"https://three.ws"}}</script>
 </head>
 <body>
 
@@ -529,7 +554,7 @@ agent-3d:defined ~ .agent-skel{display:none}
           <a class="room-out" href="https://three.ws/forge" target="_blank" rel="noopener">Full page ↗</a>
         </div>
         <div class="room-embed">
-          <div class="embed-bar"><span>three.ws/forge</span><button type="button" data-close>Close</button></div>
+          <div class="embed-bar"><span class="bar-url">three.ws/forge</span><span class="bar-actions"><button type="button" data-fs>⤢ Full screen</button><a class="room-out" href="https://three.ws/forge" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;padding:5px 10px;border:1px solid var(--ibm-divider);border-radius:2px">New tab ↗</a><button type="button" data-close>Close</button></span></div>
           <div class="embed-load"><span class="spin" aria-hidden="true"></span><span>Loading Forge…</span></div>
           <div class="embed-err">Couldn't load Forge inline. <a href="https://three.ws/forge" target="_blank" rel="noopener">Open it in a new tab ↗</a></div>
         </div>
@@ -547,7 +572,7 @@ agent-3d:defined ~ .agent-skel{display:none}
           <a class="room-out" href="https://three.ws/play" target="_blank" rel="noopener">Full page ↗</a>
         </div>
         <div class="room-embed">
-          <div class="embed-bar"><span>three.ws/play</span><button type="button" data-close>Close</button></div>
+          <div class="embed-bar"><span class="bar-url">three.ws/play</span><span class="bar-actions"><button type="button" data-fs>⤢ Full screen</button><a class="room-out" href="https://three.ws/play" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;padding:5px 10px;border:1px solid var(--ibm-divider);border-radius:2px">New tab ↗</a><button type="button" data-close>Close</button></span></div>
           <div class="embed-load"><span class="spin" aria-hidden="true"></span><span>Loading Play…</span></div>
           <div class="embed-err">Couldn't load Play inline. <a href="https://three.ws/play" target="_blank" rel="noopener">Open it in a new tab ↗</a></div>
         </div>
@@ -565,7 +590,7 @@ agent-3d:defined ~ .agent-skel{display:none}
           <a class="room-out" href="https://three.ws/irl" target="_blank" rel="noopener">Full page ↗</a>
         </div>
         <div class="room-embed">
-          <div class="embed-bar"><span>three.ws/irl</span><button type="button" data-close>Close</button></div>
+          <div class="embed-bar"><span class="bar-url">three.ws/irl</span><span class="bar-actions"><button type="button" data-fs>⤢ Full screen</button><a class="room-out" href="https://three.ws/irl" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;padding:5px 10px;border:1px solid var(--ibm-divider);border-radius:2px">New tab ↗</a><button type="button" data-close>Close</button></span></div>
           <div class="embed-load"><span class="spin" aria-hidden="true"></span><span>Loading IRL…</span></div>
           <div class="embed-err">Couldn't load IRL inline — AR works best opened directly on a phone. <a href="https://three.ws/irl" target="_blank" rel="noopener">Open on your device ↗</a></div>
         </div>
@@ -762,37 +787,59 @@ agent-3d:defined ~ .agent-skel{display:none}
   // data. The iframe streams a live, framable production surface (frame-ancestors
   // is open for these routes); a load timeout falls back to an "open in tab" path.
   function wireRooms() {
+    var grid = document.querySelector('.rooms');
     var rooms = document.querySelectorAll('.room');
+    function syncHasLive() {
+      grid.classList.toggle('has-live', !!document.querySelector('.room.is-live'));
+    }
     Array.prototype.forEach.call(rooms, function (room) {
       var openBtn = room.querySelector('.room-open');
       var embed = room.querySelector('.room-embed');
       var closeBtn = room.querySelector('[data-close]');
+      var fsBtn = room.querySelector('[data-fs]');
       var loadedIframe = null, timer = null;
 
       openBtn.addEventListener('click', function () {
-        if (loadedIframe) { room.classList.add('is-live'); return; }
+        // One room at a time — collapse any other that's open.
+        Array.prototype.forEach.call(rooms, function (r) { if (r !== room) r.classList.remove('is-live'); });
         room.classList.add('is-live');
-        embed.classList.remove('failed', 'loaded');
-        var iframe = document.createElement('iframe');
-        iframe.title = room.getAttribute('data-room') + ' — three.ws';
-        iframe.loading = 'lazy';
-        iframe.setAttribute('allow', room.getAttribute('data-allow') || '');
-        iframe.setAttribute('referrerpolicy', 'no-referrer-when-downgrade');
-        iframe.addEventListener('load', function () {
-          clearTimeout(timer);
-          embed.classList.add('loaded');
-        });
-        // If the surface refuses to frame or stalls, surface the new-tab fallback.
-        timer = setTimeout(function () {
-          if (!embed.classList.contains('loaded')) embed.classList.add('failed');
-        }, 12000);
-        iframe.src = room.getAttribute('data-src');
-        embed.appendChild(iframe);
-        loadedIframe = iframe;
+        syncHasLive();
+        if (!loadedIframe) {
+          embed.classList.remove('failed', 'loaded');
+          var iframe = document.createElement('iframe');
+          iframe.title = room.getAttribute('data-room') + ' — three.ws';
+          iframe.loading = 'lazy';
+          iframe.setAttribute('allow', room.getAttribute('data-allow') || '');
+          iframe.setAttribute('allowfullscreen', '');
+          iframe.setAttribute('referrerpolicy', 'no-referrer-when-downgrade');
+          iframe.addEventListener('load', function () {
+            clearTimeout(timer);
+            embed.classList.add('loaded');
+          });
+          // If the surface refuses to frame or stalls, surface the new-tab fallback.
+          timer = setTimeout(function () {
+            if (!embed.classList.contains('loaded')) embed.classList.add('failed');
+          }, 12000);
+          iframe.src = room.getAttribute('data-src');
+          embed.appendChild(iframe);
+          loadedIframe = iframe;
+        }
+        // Bring the now full-width stage into view.
+        embed.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
+      });
+
+      if (fsBtn) fsBtn.addEventListener('click', function () {
+        var req = embed.requestFullscreen || embed.webkitRequestFullscreen;
+        if (req) { try { req.call(embed); } catch (_) {} }
+        else if (loadedIframe) { window.open(room.getAttribute('data-src'), '_blank', 'noopener'); }
       });
 
       closeBtn.addEventListener('click', function () {
+        if (document.fullscreenElement === embed && document.exitFullscreen) {
+          try { document.exitFullscreen(); } catch (_) {}
+        }
         room.classList.remove('is-live');
+        syncHasLive();
       });
     });
   }
