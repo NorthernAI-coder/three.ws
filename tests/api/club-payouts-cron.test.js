@@ -191,6 +191,44 @@ describe('runClubPayoutSweep', () => {
 		expect(settle).toBeTruthy();
 	});
 
+	it('sweeps a settled tip whose network is the CAIP-2 id (solana:…), not the bare key', async () => {
+		// Regression: a settled x402 tip stores network as the CAIP-2 chain id.
+		// The sweep must normalize it to 'solana' so the Solana wallet + sender
+		// are chosen — previously this fell through to the EVM branch and was
+		// skipped as "no wallet" even with a Solana address registered.
+		const total = (DUST_THRESHOLD_ATOMICS * 5n).toString();
+		mockState.groups = [{
+			dancer: '1',
+			display_name: 'Nyx',
+			evm_address: null, // no EVM wallet — only Solana is registered
+			solana_address: mockState.dancers[0].solana_address,
+			network: 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp',
+			asset: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+			tip_ids: ['tip-caip-1', 'tip-caip-2'],
+			total_atomics: total,
+			tip_count: 2,
+		}];
+		mockState.recountTotal = total;
+
+		const send = vi.fn().mockResolvedValue({
+			signature: 'sigCAIP', network: 'solana', amount_atomics: total,
+		});
+
+		const summary = await runClubPayoutSweep({ send });
+
+		expect(send).toHaveBeenCalledOnce();
+		expect(send.mock.calls[0][0]).toMatchObject({
+			network: 'solana',
+			recipient: mockState.dancers[0].solana_address,
+			amount: BigInt(total),
+		});
+		expect(summary.skipped).toHaveLength(0);
+		expect(summary.paid).toHaveLength(1);
+		expect(summary.paid[0]).toMatchObject({ dancer: '1', tx: 'sigCAIP' });
+		// Ledger records the normalized chain key, not the CAIP-2 blob.
+		expect(mockState.ledger[0].network).toBe('solana');
+	});
+
 	it('skips a (dancer, network) group when the recipient wallet is missing', async () => {
 		const total = (DUST_THRESHOLD_ATOMICS * 3n).toString();
 		mockState.groups = [{
