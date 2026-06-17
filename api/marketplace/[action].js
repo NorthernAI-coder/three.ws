@@ -2,7 +2,7 @@
  * Agent Marketplace API
  * ---------------------
  * GET    /api/marketplace/categories
- * GET    /api/marketplace/agents              ?category=&q=&sort=&cursor=
+ * GET    /api/marketplace/agents              ?category=&q=&sort=&cursor=&pricing=
  * POST   /api/marketplace/agents              — create a new agent
  * GET    /api/marketplace/agents/mine         — caller's own agents (auth required)
  * GET    /api/marketplace/agents/:id
@@ -420,6 +420,14 @@ async function handleList(req, res, url) {
 	const cursor = url.searchParams.get('cursor');
 	const offset = cursor ? Math.max(0, Number(cursor) || 0) : 0;
 
+	// Monetization filter. An agent counts as "paid" when it sells access in any
+	// form: a one-time asset price (asset_prices) OR per-call skill pricing
+	// (agent_skill_prices). "free" requires neither. Filtering server-side keeps
+	// pagination honest — a client-side pass would show 3-of-24 fetched rows and
+	// hide the rest of the matching agents on later pages.
+	const pricingRaw = url.searchParams.get('pricing');
+	const pricing = pricingRaw === 'paid' || pricingRaw === 'free' ? pricingRaw : null;
+
 	const orderBy =
 		sort === 'recent'
 			? sql`published_at DESC NULLS LAST, created_at DESC`
@@ -475,6 +483,17 @@ async function handleList(req, res, url) {
 			    OR ai.description ILIKE ${qLike}
 			    OR EXISTS (SELECT 1 FROM unnest(ai.tags) t WHERE t ILIKE ${qLike})
 			  )
+			  AND (
+			    ${pricing}::text IS NULL
+			    OR (${pricing} = 'paid' AND (
+			          ap.amount IS NOT NULL
+			          OR EXISTS (SELECT 1 FROM agent_skill_prices asp2
+			                     WHERE asp2.agent_id = ai.id AND asp2.is_active = true)))
+			    OR (${pricing} = 'free' AND (
+			          ap.amount IS NULL
+			          AND NOT EXISTS (SELECT 1 FROM agent_skill_prices asp2
+			                          WHERE asp2.agent_id = ai.id AND asp2.is_active = true)))
+			  )
 			ORDER BY ${orderBy}
 			LIMIT ${limit + 1}::int OFFSET ${offset}::int
 		`,
@@ -521,6 +540,17 @@ async function handleList(req, res, url) {
 					    OR ai.name ILIKE ${qLike}
 					    OR ai.description ILIKE ${qLike}
 					    OR EXISTS (SELECT 1 FROM unnest(ai.tags) t WHERE t ILIKE ${qLike})
+					  )
+					  AND (
+					    ${pricing}::text IS NULL
+					    OR (${pricing} = 'paid' AND (
+					          ap.amount IS NOT NULL
+					          OR EXISTS (SELECT 1 FROM agent_skill_prices asp2
+					                     WHERE asp2.agent_id = ai.id AND asp2.is_active = true)))
+					    OR (${pricing} = 'free' AND (
+					          ap.amount IS NULL
+					          AND NOT EXISTS (SELECT 1 FROM agent_skill_prices asp2
+					                          WHERE asp2.agent_id = ai.id AND asp2.is_active = true)))
 					  )
 					ORDER BY ${orderBy}
 					LIMIT ${limit + 1}::int OFFSET ${offset}::int

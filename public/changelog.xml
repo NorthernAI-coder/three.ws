@@ -111,6 +111,14 @@
 			<description>three.ws/irl agents now line up across phones. A placed agent renders from its own saved compass bearing and ground height instead of whichever way your phone happens to face, so two people standing in the same place see it standing in the same place, facing the same way. To keep it steady, your own GPS position is now smoothed so anchored agents stop drifting and swimming as your location jitters, and noisy fixes are ignored. Every agent now sits inside a ground ring whose size reflects the real GPS accuracy — honest about the fact that phone GPS is roughly 5–15 metres, and wider (and amber) when the signal is poor — so it never pretends to be pinpoint-perfect. And if an agent landed a little off, its owner can fine-tune it: long-press your own agent (or tap Calibrate position on its card) and drag to nudge it a few centimetres, twist with two fingers to rotate it, or step its floor height up and down. Saving the nudge updates the spot for everyone nearby. Only the owner can calibrate an agent, nudges are capped to small corrections so this can never be used to drag someone's agent across the map, and a failed save keeps your change on screen with a one-tap retry.</description>
 		</item>
 		<item>
+			<title>Filter the marketplace by Free or Paid</title>
+			<link>https://three.ws/marketplace</link>
+			<guid isPermaLink="false">2026-06-17:Filter the marketplace by Free or Paid</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The marketplace now has working Free / Paid filters. &quot;Paid&quot; surfaces every agent that charges in any way — a one-time price to own it or per-call pricing on its skills — and &quot;Free&quot; shows the rest. Filtering happens on the server, so the result count and &quot;load more&quot; stay accurate no matter how many pages deep you browse, and your choice is saved in the URL so you can bookmark or share a filtered view.</description>
+		</item>
+		<item>
 			<title>iPhone now world-locks your IRL agent — it holds its real spot as you pan and walk</title>
 			<link>https://three.ws/irl</link>
 			<guid isPermaLink="false">2026-06-17:iPhone now world-locks your IRL agent — it holds its real spot as you pan and walk</guid>
@@ -421,6 +429,14 @@
 			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>There's now a live, self-contained x402 demo you can try in a browser. Pay $0.001 USDC from your own wallet — MetaMask on Base or Phantom on Solana — and call a real three.ws data API. The page reads the live HTTP 402 price the server quotes, runs the paid call once your wallet signs a gasless authorization, and shows the response next to an on-chain transaction receipt you can open on Basescan or Solscan. Nothing is mocked and there's no account or backend. The same eight-line embed it runs on — one script tag from three.ws plus any button carrying a data-x402-endpoint — is copy-pasteable into any site, so a developer can add a working pay-per-call paywall in minutes. Built with IBM as the public face of the partnership and designed to host cleanly on a strict-CSP enterprise page.</description>
+		</item>
+		<item>
+			<title>Withdraw your agent's funds any time — plus spend limits and a full custody audit trail</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-17:Withdraw your agent's funds any time — plus spend limits and a full custody audit trail</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Your agent's Solana wallet is custodial, so we've made getting funds out and keeping them safe first-class. The Agent Wallet hub now has a working Withdraw tab: sweep all your SOL or any token the wallet holds to any address or .sol name (paste or scan a QR), with a clear review step, a confirmed explorer link, and every state designed. A small amount of SOL is always kept back on a &quot;Max&quot; sweep so the wallet can never get stuck. Withdrawals are signed on the server and are safe to retry — the same request never sends twice. A new Limits &amp; Safety section lets you set a daily spend cap, a per-transaction cap, and an allowlist of addresses funds may be withdrawn to; those limits apply to everything the agent does — trades, snipes, and payments — not just withdrawals. And an Activity log shows exactly what your custodial wallet has done: every withdrawal, automated spend, limit change, and each time the key was used to sign, with the reason. The wallet's secret key never leaves our servers, is never shown or logged, and is only ever used after we confirm you own the agent.</description>
 		</item>
 		<item>
 			<title>x402 live demo: dark theme, smoother motion, and a full accessibility pass</title>

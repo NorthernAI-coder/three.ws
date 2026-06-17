@@ -12,6 +12,8 @@ import {
 	handleRegisterConfirm,
 	handleReputation,
 	handleReputationHistory,
+	handleSkillCollectionMetadata,
+	handleSkillNftMetadata,
 	handleValidate,
 	handleValidation,
 } from './_handlers.js';
@@ -35,6 +37,8 @@ const DISPATCH = {
 	'register-confirm':  handleRegisterConfirm,
 	reputation:          handleReputation,
 	'reputation-history': handleReputationHistory,
+	'skill-collection-metadata': handleSkillCollectionMetadata,
+	'skill-nft-metadata': handleSkillNftMetadata,
 	validate:            handleValidate,
 	validation:          handleValidation,
 };

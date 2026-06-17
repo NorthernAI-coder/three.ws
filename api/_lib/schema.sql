@@ -448,6 +448,18 @@ alter table agent_identities alter column is_public set default true;
 update agent_identities set is_public = true
  where is_public = false and deleted_at is null;
 
+-- Per-agent Metaplex Core skill collection: master identifier for the agent's
+-- "skill ownership" NFTs. Populated by scripts/create-agent-collection.mjs.
+-- See api/_lib/migrations/20260617120000_agent_skill_collection.sql.
+alter table agent_identities add column if not exists skill_collection_mint       text;
+alter table agent_identities add column if not exists skill_collection_network    text;
+alter table agent_identities add column if not exists skill_collection_uri        text;
+alter table agent_identities add column if not exists skill_collection_tx         text;
+alter table agent_identities add column if not exists skill_collection_created_at timestamptz;
+create unique index if not exists agent_identities_skill_collection_mint
+    on agent_identities (skill_collection_mint)
+    where skill_collection_mint is not null;
+
 -- ── agent_memories — the agent's persistent context ──────────────────────────
 create table if not exists agent_memories (
     id          uuid primary key default gen_random_uuid(),
@@ -1337,6 +1349,8 @@ CREATE TABLE IF NOT EXISTS skill_purchases (
     valid_until      TIMESTAMPTZ,                                 -- C3 time-bounded access (time_pass)
     trial_remaining  INTEGER,                                     -- C2 trial counter
     tipped_amount    BIGINT,                                      -- A6 mismatch-as-tip
+    platform_fee_amount BIGINT NOT NULL DEFAULT 0,                -- platform fee split off on-chain (atomic units)
+    platform_fee_wallet TEXT,                                     -- treasury wallet the fee leg pays
     referrer_user_id UUID REFERENCES users(id),                   -- C6 referral attribution
     created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -1354,6 +1368,17 @@ CREATE INDEX IF NOT EXISTS skill_purchases_status_created   ON skill_purchases (
 CREATE INDEX IF NOT EXISTS skill_purchases_expires_at
     ON skill_purchases (expires_at)
     WHERE status = 'pending' AND expires_at IS NOT NULL;
+
+-- Skill-ownership NFT minted to the buyer after confirmation (perpetual on-chain
+-- receipt + license). One NFT per confirmed purchase. See migration
+-- 20260617130000_skill_nft_mints.sql and api/skills/mint.js.
+ALTER TABLE skill_purchases ADD COLUMN IF NOT EXISTS skill_nft_mint      TEXT;
+ALTER TABLE skill_purchases ADD COLUMN IF NOT EXISTS skill_nft_signature TEXT;
+ALTER TABLE skill_purchases ADD COLUMN IF NOT EXISTS skill_nft_network   TEXT;
+ALTER TABLE skill_purchases ADD COLUMN IF NOT EXISTS skill_nft_minted_at TIMESTAMPTZ;
+CREATE UNIQUE INDEX IF NOT EXISTS skill_purchases_skill_nft_mint
+    ON skill_purchases (skill_nft_mint)
+    WHERE skill_nft_mint IS NOT NULL;
 
 -- ── purchase_receipts ────────────────────────────────────────────────────────
 -- Append-only signed receipts for confirmed skill purchases. See

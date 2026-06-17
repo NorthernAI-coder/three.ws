@@ -15,7 +15,7 @@ import { parse } from '../../_lib/validate.js';
 import { randomToken } from '../../_lib/crypto.js';
 import { env } from '../../_lib/env.js';
 import { publicUrl } from '../../_lib/r2.js';
-import { buildAgentManifest, buildAgentOnchainAttributes, agentRoyaltyConfig, THREE_WS } from '../../_lib/three-brand.js';
+import { buildAgentManifest, buildAgentOnchainAttributes, agentRoyaltyConfig, skillCollectionSymbol, THREE_WS } from '../../_lib/three-brand.js';
 import {
 	getAgentCollection,
 	loadCollectionAuthorityKeypair,
@@ -759,6 +759,122 @@ export const handleCollectionMetadata = wrap(async (req, res) => {
 			network,
 		},
 		{ 'cache-control': 'public, max-age=3600', 'access-control-allow-origin': '*' },
+	);
+});
+
+// ── skill-collection-metadata ───────────────────────────────────────────────
+// Off-chain JSON for a per-agent skill NFT collection (the master identifier
+// for every "skill ownership" NFT minted to buyers of that agent's skills).
+// Pointed at by the collection's on-chain URI; see
+// scripts/create-agent-collection.mjs. Resolvable by agent id so the document
+// always reflects the agent's live name + avatar.
+
+export const handleSkillCollectionMetadata = wrap(async (req, res) => {
+	if (cors(req, res, { methods: 'GET,OPTIONS', origins: '*' })) return;
+	if (!method(req, res, ['GET'])) return;
+
+	const url = new URL(req.url, `http://${req.headers.host}`);
+	const network = url.searchParams.get('network') === 'devnet' ? 'devnet' : 'mainnet';
+	const agentId = url.searchParams.get('agent');
+	if (!agentId || !/^[0-9a-f-]{36}$/i.test(agentId)) {
+		return error(res, 400, 'validation_error', 'agent (uuid) required');
+	}
+
+	const [agent] = await sql`select name, description, avatar_id, skill_collection_mint from agent_identities where id = ${agentId} and deleted_at is null limit 1`;
+	if (!agent) return error(res, 404, 'not_found', 'agent not found');
+
+	let image = THREE_WS.ogImage;
+	if (agent.avatar_id) {
+		const [av] = await sql`select thumbnail_key from avatars where id = ${agent.avatar_id} and deleted_at is null limit 1`;
+		if (av?.thumbnail_key) image = publicUrl(av.thumbnail_key);
+	}
+
+	const name = `${agent.name} — Skills`;
+	const description =
+		`Verifiable on-chain ownership of skills offered by ${agent.name} on ${THREE_WS.name}. ` +
+		`Each NFT in this collection certifies that its holder has purchased the named skill from this agent.`;
+
+	return json(
+		res,
+		200,
+		{
+			name,
+			symbol: skillCollectionSymbol(agent.name),
+			description,
+			image,
+			external_url: `${env.APP_ORIGIN}/agents/${agentId}`,
+			properties: {
+				category: 'image',
+				files: [{ uri: image, type: 'image/png' }],
+			},
+			platform: { name: THREE_WS.name, url: THREE_WS.website, x: THREE_WS.x, github: THREE_WS.github },
+			agent_id: agentId,
+			collection_mint: agent.skill_collection_mint || null,
+			network,
+		},
+		{ 'cache-control': 'public, max-age=300', 'access-control-allow-origin': '*' },
+	);
+});
+
+// ── skill-nft-metadata ──────────────────────────────────────────────────────
+// Off-chain JSON for an individual "skill ownership" NFT minted to a buyer. The
+// asset's on-chain URI points here; see api/_lib/skill-nft.js. Resolvable by
+// (agent, skill) so the document always reflects the agent's live name + avatar.
+
+export const handleSkillNftMetadata = wrap(async (req, res) => {
+	if (cors(req, res, { methods: 'GET,OPTIONS', origins: '*' })) return;
+	if (!method(req, res, ['GET'])) return;
+
+	const url = new URL(req.url, `http://${req.headers.host}`);
+	const network = url.searchParams.get('network') === 'devnet' ? 'devnet' : 'mainnet';
+	const agentId = url.searchParams.get('agent');
+	const skill = (url.searchParams.get('skill') || '').trim().slice(0, 100);
+	if (!agentId || !/^[0-9a-f-]{36}$/i.test(agentId)) {
+		return error(res, 400, 'validation_error', 'agent (uuid) required');
+	}
+	if (!skill) return error(res, 400, 'validation_error', 'skill required');
+
+	const [agent] = await sql`select name, avatar_id, skill_collection_mint from agent_identities where id = ${agentId} and deleted_at is null limit 1`;
+	if (!agent) return error(res, 404, 'not_found', 'agent not found');
+
+	let image = THREE_WS.ogImage;
+	if (agent.avatar_id) {
+		const [av] = await sql`select thumbnail_key from avatars where id = ${agent.avatar_id} and deleted_at is null limit 1`;
+		if (av?.thumbnail_key) image = publicUrl(av.thumbnail_key);
+	}
+
+	const name = `${agent.name}: ${skill}`;
+	const description =
+		`On-chain proof of ownership and a perpetual license for the “${skill}” skill ` +
+		`offered by ${agent.name} on ${THREE_WS.name}. Holding this NFT certifies the wallet ` +
+		`purchased this skill and may invoke it.`;
+
+	return json(
+		res,
+		200,
+		{
+			name,
+			symbol: skillCollectionSymbol(agent.name),
+			description,
+			image,
+			external_url: `${env.APP_ORIGIN}/agents/${agentId}`,
+			attributes: [
+				{ trait_type: 'Type', value: 'Skill License' },
+				{ trait_type: 'Agent', value: agent.name },
+				{ trait_type: 'Skill', value: skill },
+				{ trait_type: 'Platform', value: THREE_WS.name },
+			],
+			properties: {
+				category: 'image',
+				files: [{ uri: image, type: 'image/png' }],
+			},
+			platform: { name: THREE_WS.name, url: THREE_WS.website, x: THREE_WS.x, github: THREE_WS.github },
+			agent_id: agentId,
+			skill,
+			collection_mint: agent.skill_collection_mint || null,
+			network,
+		},
+		{ 'cache-control': 'public, max-age=300', 'access-control-allow-origin': '*' },
 	);
 });
 

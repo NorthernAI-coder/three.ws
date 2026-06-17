@@ -393,6 +393,10 @@
 			"dest": "/api/agents/solana/[action]?action=collection-metadata"
 		},
 		{
+			"src": "/api/agents/solana-skill-collection-metadata",
+			"dest": "/api/agents/solana/[action]?action=skill-collection-metadata"
+		},
+		{
 			"src": "/api/agents/solana-edit",
 			"dest": "/api/agents/solana/[action]?action=edit"
 		},
