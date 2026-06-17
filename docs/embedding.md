@@ -40,7 +40,7 @@ Or load via CDN:
 <!-- 1. Load the library (pinned version + SRI) -->
 <script
   type="module"
-  src="https://three.ws/agent-3d/1.5.1/agent-3d.js"
+  src="https://three.ws/agent-3d/1.5.2/agent-3d.js"
   integrity="sha384-…"
   crossorigin="anonymous"
 ></script>
@@ -243,7 +243,7 @@ The RAF loop pauses when the element is fully off-screen and resumes on re-entry
 
 | URL | Cache | Use when |
 |-----|-------|---------|
-| `/agent-3d/1.5.1/agent-3d.js` | immutable | **Production** — pin exact bytes |
+| `/agent-3d/1.5.2/agent-3d.js` | immutable | **Production** — pin exact bytes |
 | `/agent-3d/1.5/agent-3d.js` | 5 min | Follow patch releases automatically |
 | `/agent-3d/1/agent-3d.js` | 5 min | Follow minor + patch releases |
 | `/agent-3d/latest/agent-3d.js` | 5 min | Demos and prototypes only |
@@ -582,7 +582,7 @@ Load the library script once in your app's `index.html` or root layout:
 
 ```html
 <script type="module"
-  src="https://three.ws/agent-3d/1.5.1/agent-3d.js"
+  src="https://three.ws/agent-3d/1.5.2/agent-3d.js"
   crossorigin="anonymous">
 </script>
 ```
@@ -617,7 +617,7 @@ Also add the script tag to `pages/_document.js` or your root layout:
 
 ```jsx
 <Script
-  src="https://three.ws/agent-3d/1.5.1/agent-3d.js"
+  src="https://three.ws/agent-3d/1.5.2/agent-3d.js"
   type="module"
   strategy="beforeInteractive"
 />
@@ -629,7 +629,7 @@ Use an **Embed** block with the iframe method — Webflow's custom code can load
 
 ```html
 <script type="module"
-  src="https://three.ws/agent-3d/1.5.1/agent-3d.js">
+  src="https://three.ws/agent-3d/1.5.2/agent-3d.js">
 </script>
 ```
 

@@ -165,7 +165,7 @@ The CDN bundle is served from Vercel. The URL includes the version so you can pi
 
 ```html
 <!-- Pinned to 1.5.1 — safe for production; won't break when 2.0.0 releases -->
-<script type="module" src="https://three.ws/agent-3d/1.5.1/agent-3d.js"></script>
+<script type="module" src="https://three.ws/agent-3d/1.5.2/agent-3d.js"></script>
 
 <!-- Always latest stable — convenient for development, risky for production -->
 <script type="module" src="https://three.ws/agent-3d/latest/agent-3d.js"></script>

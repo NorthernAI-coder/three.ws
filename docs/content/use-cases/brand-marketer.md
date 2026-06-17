@@ -26,7 +26,7 @@ Four real capabilities cover embodiment, reach, and trust:
 1. Lyra opens [Widget Studio](https://three.ws/studio), picks a branded avatar, and chooses the talking-agent widget. She sets instructions: *"You are Lyra-bot, the official assistant for [brand]. Answer product questions, link to pricing, stay on-brand and concise."*
 2. She copies the floating-bubble snippet and pastes it into the marketing site:
    ```html
-   <script type="module" src="https://three.ws/agent-3d/1.5.1/agent-3d.js"></script>
+   <script type="module" src="https://three.ws/agent-3d/1.5.2/agent-3d.js"></script>
    <agent-3d
      body="https://cdn.three.ws/models/brand-agent.glb"
      brain="claude-sonnet-4-6"

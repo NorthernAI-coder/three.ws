@@ -3,7 +3,7 @@
 `<agent-3d>` is a custom HTML element that ships the entire three.ws stack in a single script tag. Drop the loader, use the element — no build step, no framework required.
 
 ```html
-<script type="module" src="https://three.ws/agent-3d/1.5.1/agent-3d.js"
+<script type="module" src="https://three.ws/agent-3d/1.5.2/agent-3d.js"
         integrity="sha384-…" crossorigin="anonymous"></script>
 
 <agent-3d src="agent://base/42" style="width:400px;height:500px"></agent-3d>
@@ -808,7 +808,7 @@ Svelte handles custom elements natively. No configuration needed.
 ### Vanilla JS (ESM)
 
 ```js
-import 'https://three.ws/agent-3d/1.5.1/agent-3d.js';
+import 'https://three.ws/agent-3d/1.5.2/agent-3d.js';
 
 const el = document.querySelector('agent-3d');
 el.addEventListener('agent:ready', async () => {
@@ -887,7 +887,7 @@ Current SRI hashes are at `/agent-3d/<version>/integrity.json`. The full release
 ```html
 <script
   type="module"
-  src="https://three.ws/agent-3d/1.5.1/agent-3d.js"
+  src="https://three.ws/agent-3d/1.5.2/agent-3d.js"
   integrity="sha384-…"
   crossorigin="anonymous"
 ></script>
@@ -900,7 +900,7 @@ Current SRI hashes are at `/agent-3d/<version>/integrity.json`. The full release
 If you need to ship the element under your own brand name, call `defineElement` with a custom tag:
 
 ```js
-import { defineElement } from 'https://three.ws/agent-3d/1.5.1/agent-3d.js';
+import { defineElement } from 'https://three.ws/agent-3d/1.5.2/agent-3d.js';
 
 defineElement('my-agent');
 // <my-agent src="agent://base/42"></my-agent>
