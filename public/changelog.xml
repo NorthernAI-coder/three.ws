@@ -111,6 +111,14 @@
 			<description>Cosmetic accessories — baseball cap, beanie, cowboy hat, round frames, shades, hoop earrings, stud earrings — are now fully rendered on every avatar in the shared worlds. Each GLB is auto-fitted to the avatar's head bone so accessories track movement and animations on any rig. Wear state syncs in real time: equipping an item shows it on your head for everyone, survives avatar swaps, and persists across sessions. A new setCosmetics network call lets the client broadcast a full loadout in one shot; the server re-validates ownership before publishing, so an unowned item can never appear on a player.</description>
 		</item>
 		<item>
+			<title>Browse and walk into the club as any 3D agent</title>
+			<link>https://three.ws/club</link>
+			<guid isPermaLink="false">2026-06-17:Browse and walk into the club as any 3D agent</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The club's agent switcher now has a Browse button that opens the full directory of public 3D agents. Search them, filter by skill or on-chain status, sort by popular/newest/name, and spin each agent's avatar in a live 3D preview before you pick. Choose one and you swap into it instantly — walking up to the club as that agent — instead of being limited to the short quick-switch list.</description>
+		</item>
+		<item>
 			<title>Build mode — place, rotate, and delete props in every coin world</title>
 			<link>https://three.ws/play</link>
 			<guid isPermaLink="false">2026-06-17:Build mode — place, rotate, and delete props in every coin world</guid>
@@ -159,12 +167,28 @@
 			<description>Each pole card now has a thumbnail Change-avatar button that opens a visual gallery picker — the same browse-and-tap experience as the /play avatar selector. Preview the looks as image tiles, then tap one to swap who dances on that pole: each dancer's signature look, a set of built-in rigs, or any public avatar from the community gallery. The dancer swaps to the new model live, right on stage, with no reload, and your picks are remembered per pole on your next visit. The button locks for the few seconds a dancer is mid-routine so a swap never interrupts a paid performance, and any model the animation library can't drive falls back to the default rig automatically.</description>
 		</item>
 		<item>
+			<title>Cleaner avatar loading on embeds</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-17:Cleaner avatar loading on embeds</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>Embedded 3D agents no longer flash a grey skeleton silhouette while the avatar streams in. The frame now stays clean — showing the poster preview when one is set, or transparent until the avatar paints — so the load-in reads as polished rather than half-built.</description>
+		</item>
+		<item>
 			<title>Clearer pricing on every agent's skills in the marketplace</title>
 			<link>https://three.ws/marketplace</link>
 			<guid isPermaLink="false">2026-06-17:Clearer pricing on every agent's skills in the marketplace</guid>
 			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
 			<category>improvement</category>
 			<description>An agent's detail page now reads cleanly when its skills carry a price. Each skill shows a badge at a glance — green 'Free', a yellow price for paid skills, or an indigo 'Owned' once you've bought it — and when a paid skill offers a free trial or a timed access pass, those now appear as proper buttons styled to match the Purchase button, with hover, focus, and press states. The price badge and action buttons are grouped together on the right of each row instead of spreading out, so a skill with several options stays tidy and easy to scan.</description>
+		</item>
+		<item>
+			<title>Club door ban list now enforced</title>
+			<link>https://three.ws/club</link>
+			<guid isPermaLink="false">2026-06-17:Club door ban list now enforced</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Fixed the paid club door so the ban check actually runs. A wiring error meant the bouncer's on-chain ban lookup threw on every entry and quietly failed open, admitting wallets it should have turned away. The USDC door and the $THREE door now share one bouncer and run the real ban-and-tier check on every cover charge, so banned wallets are stopped at the rope.</description>
 		</item>
 		<item>
 			<title>Coin world builds now have ownership, caps, and anti-grief protection</title>
@@ -511,14 +535,6 @@
 			<description>When you tap an agent on three.ws/irl, its card now does real things. View profile opens that agent's full page so you can see who you just met. If the agent offers paid services, each one shows its price and a Use button: tap it, approve the payment in your wallet, and you pay in USDC on the spot — the standard x402 flow, capped at the price shown so a misconfigured service can never overcharge you. The response you paid for appears right inside the card instead of vanishing into a toast. Every state is handled: no wallet, a cancelled signature, or a service error each show a clear message and leave the button ready to try again, and each service button works on its own so paying for one never freezes the others. Completed encounters quietly notify the agent's owner, receipt and all.</description>
 		</item>
 		<item>
-			<title>Pick a 3D agent to drop into any world</title>
-			<link>https://three.ws/worlds</link>
-			<guid isPermaLink="false">2026-06-17:Pick a 3D agent to drop into any world</guid>
-			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
-			<category>feature</category>
-			<description>Added a dedicated agent picker to the worlds lobby. Tap “Browse 3D agents” to search the full directory of public agents, filter by skill or on-chain status, sort by popular/newest/name, and spin each agent's avatar in a live 3D preview before you commit. Choose one and you drop into the world wearing its avatar — no more sifting through raw avatars and accessories to find an actual agent.</description>
-		</item>
-		<item>
 			<title>Place your IRL agent on the real floor with AR anchoring</title>
 			<link>https://three.ws/irl</link>
 			<guid isPermaLink="false">2026-06-17:Place your IRL agent on the real floor with AR anchoring</guid>
@@ -607,6 +623,14 @@
 			<description>three.ws/xr now has the same one-tap Share that three.ws/irl has had: it flattens your live camera view and the 3D agent into a single photo and hands it to your phone's share sheet to post or send — or downloads it as a PNG on desktop. With the camera on, the picture shows your agent standing in your real surroundings; with it off, it shares the 3D view on its own. If a snapshot can't be captured for any reason, Share falls back to sending the page link so it's never a dead end. The Share buttons on both pages now show a brief progress state while the image is being made, and the immersive buttons give keyboard users a clear focus outline.</description>
 		</item>
 		<item>
+			<title>Simpler color picker in advanced controls</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-17:Simpler color picker in advanced controls</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>The color pickers in the viewer's advanced controls and the material editor now drop the vertical rainbow hue strip, leaving a single clean saturation-and-brightness field that fills the full picker width. Picking a color is tidier and less cluttered.</description>
+		</item>
+		<item>
 			<title>Sniper dashboard: your live positions now show real-time profit and loss and reconnect on their own</title>
 			<link>https://three.ws/dashboard/sniper</link>
 			<guid isPermaLink="false">2026-06-17:Sniper dashboard: your live positions now show real-time profit and loss and reconnect on their own</guid>
@@ -647,12 +671,12 @@
 			<description>On three.ws/irl you can now open an agent by tapping its 3D body, not only its small floating name tag. Tapping near a name also works, with a finger-sized target that meets Apple's 44-pixel minimum, so you no longer have to pixel-hunt on a phone. When two agents stand on top of each other, the one in front wins instead of a random pick. As you move, the nearest agent you can reach lights up with a soft focus ring so you can see what you'll tap before you tap it — and if you've turned on Reduce Motion, the ring stays still. Looking and panning around no longer misfires as a tap.</description>
 		</item>
 		<item>
-			<title>The IBM x402 demo grew a 3D agent that pays for itself</title>
+			<title>The IBM page became a live showcase — five three.ws demos in one place</title>
 			<link>https://three.ws/ibm/x402-demo</link>
-			<guid isPermaLink="false">2026-06-17:The IBM x402 demo grew a 3D agent that pays for itself</guid>
+			<guid isPermaLink="false">2026-06-17:The IBM page became a live showcase — five three.ws demos in one place</guid>
 			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
-			<description>The live x402 demo at three.ws/ibm/x402-demo now has a 3D AI agent below the payment card. When you run the $0.001 call, the agent watches the same on-chain settlement you do and reacts in real time — it celebrates and announces the payment the moment it clears. You can also ask it how x402 and $THREE work. Under it, three new rooms — Forge (text to 3D), Play (live worlds), and IRL (augmented reality) — load the real three.ws surfaces inline on a click, or open full-screen. Everything still loads from three.ws with no build step.</description>
+			<description>The IBM page at three.ws/ibm/x402-demo is now a full showcase of the IBM × three.ws partnership: five real, unmocked demos you can try in sequence. Pay a tenth of a cent over x402 and watch it settle on-chain; meet a 3D AI agent that pays for its own data and celebrates the moment your payment clears; then Forge (turn text into a 3D model), Play (a shared 3D world), and IRL (an agent in augmented reality) each run full-size right on the page, with a one-tap full-screen. Everything still loads from three.ws with no build step.</description>
 		</item>
 		<item>
 			<title>The Oracle's proof pages — wins, backtest, and live activity — load again</title>

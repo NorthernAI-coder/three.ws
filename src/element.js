@@ -400,49 +400,6 @@ const BASE_STYLE = `
 	.token-card-bar .fill.danger { background: linear-gradient(90deg, #f59e0b, #ef4444); }
 	.token-card .flags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
 	.token-card .flag { font: 600 9px/1 var(--agent-chat-font); letter-spacing: .04em; text-transform: uppercase; padding: 3px 6px; border-radius: 4px; background: rgba(239,68,68,.18); color: #fecaca; border: 1px solid rgba(239,68,68,.32); }
-	.input-row {
-		display: flex;
-		gap: 6px;
-		background: var(--agent-surface);
-		border-radius: 999px;
-		padding: 4px 4px 4px 14px;
-		backdrop-filter: blur(12px);
-		flex: 0 0 auto;
-	}
-	.input-row input {
-		flex: 1;
-		background: transparent;
-		border: 0;
-		color: var(--agent-on-surface);
-		font: 14px var(--agent-chat-font);
-		outline: none;
-	}
-	.input-row input:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
-	}
-	.input-row input[data-state="thinking"] {
-		opacity: 0.6;
-	}
-	.input-row[data-busy="true"] {
-		opacity: 0.75;
-	}
-	button.icon {
-		width: 36px;
-		height: 36px;
-		border-radius: 50%;
-		border: 0;
-		background: var(--agent-accent);
-		color: white;
-		cursor: pointer;
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-	}
-	button.icon.mic[data-listening="true"] { box-shadow: 0 0 0 4px var(--agent-mic-glow); }
-	button.icon.mic[data-voice-state="listening"] { box-shadow: 0 0 0 4px #22c55e; }
-	button.icon.mic[data-voice-state="thinking"]  { box-shadow: 0 0 0 4px #eab308; }
-	button.icon.mic[data-voice-state="speaking"]  { box-shadow: 0 0 0 4px #3b82f6; }
 	.poster {
 		position: absolute;
 		inset: 0;
@@ -452,64 +409,15 @@ const BASE_STYLE = `
 		transition: opacity 0.4s;
 		pointer-events: none;
 	}
-	/* Loading state — a skeleton avatar silhouette with a shimmer sweep fills
-	   the frame while the GLB streams in (skeletons read as "almost there",
-	   spinners read as "stuck"). Neutral tones so it composites on transparent,
-	   dark, and light hosts alike. */
+	/* Loading state — an invisible status region while the GLB streams in. The
+	   poster image (when supplied) fills the frame; otherwise the host sees
+	   transparent until the avatar paints. No silhouette placeholder. Kept as a
+	   non-visual role=status region for screen readers and the loading part. */
 	.loading {
 		position: absolute;
 		inset: 0;
-		display: grid;
-		place-items: stretch;
 		pointer-events: none;
 		z-index: 4;
-	}
-	.skeleton {
-		position: relative;
-		width: 100%;
-		height: 100%;
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: flex-end;
-		gap: 2.5%;
-		padding-bottom: 7%;
-		box-sizing: border-box;
-		overflow: hidden;
-		-webkit-mask-image: linear-gradient(180deg, transparent, #000 16%, #000 88%, transparent);
-		mask-image: linear-gradient(180deg, transparent, #000 16%, #000 88%, transparent);
-	}
-	.skeleton-head {
-		width: 22%;
-		max-width: 88px;
-		aspect-ratio: 1;
-		border-radius: 50%;
-		background: var(--agent-skeleton, rgba(148, 148, 168, 0.18));
-	}
-	.skeleton-body {
-		width: 42%;
-		max-width: 168px;
-		height: 46%;
-		border-radius: 44% 44% 24% 24% / 26% 26% 9% 9%;
-		background: var(--agent-skeleton, rgba(148, 148, 168, 0.18));
-	}
-	.skeleton-shimmer {
-		position: absolute;
-		inset: 0;
-		background: linear-gradient(
-			100deg,
-			transparent 30%,
-			rgba(255, 255, 255, 0.13) 50%,
-			transparent 70%
-		);
-		transform: translateX(-100%);
-		animation: agent-skeleton-sweep 1.5s ease-in-out infinite;
-	}
-	@keyframes agent-skeleton-sweep {
-		to { transform: translateX(100%); }
-	}
-	@media (prefers-reduced-motion: reduce) {
-		.skeleton-shimmer { animation: none; opacity: 0.45; transform: none; }
 	}
 	/* Static decoration fallback — a calm avatar silhouette shown when a bare
 	   (chat-less) embed's body fails to load, instead of a blank frame or a
@@ -666,6 +574,12 @@ const BASE_STYLE = `
 	/* Kiosk mode: hide dat.GUI debug controls entirely */
 	:host([kiosk]) .gui-wrap { display: none !important; }
 	:host([kiosk]) .gui-toggle { display: none !important; }
+	/* Remove the dat.GUI color-picker hue strip globally — the saturation/value
+	   field carries the picker; the vertical hue knob is suppressed in-shadow too. */
+	.dg .cr.color .selector .hue-field,
+	.dg .selector .hue-field { display: none !important; }
+	.dg .cr.color .selector .saturation-field,
+	.dg .selector .saturation-field { width: 100% !important; }
 	/* viewer mode: pure 3D canvas, no chat / input / avatar anchor / debug.
 	   Use when embedding the avatar as decoration (landing pages, launchpads). */
 	:host([viewer]) .chrome { display: none !important; }
@@ -683,7 +597,6 @@ const BASE_STYLE = `
 		gap: 8px;
 	}
 	:host([avatar-chat="off"]) .chat { flex: 1; max-height: 40%; }
-	:host([avatar-chat="off"]) .input-row { flex: 1; }
 	:host([avatar-chat="off"]) .avatar-anchor { display: none; }
 	/* Floating mode layout fixes */
 	:host([mode="floating"]) .chrome {
@@ -695,9 +608,6 @@ const BASE_STYLE = `
 	}
 	/* Section mode — constrain chat width on wide containers */
 	:host([mode="section"]) .chat {
-		max-width: 600px;
-	}
-	:host([mode="section"]) .input-row {
 		max-width: 600px;
 	}
 	/* Fullscreen mode — centre the chrome column on large monitors */
@@ -987,12 +897,6 @@ class Agent3DElement extends HTMLElement {
 		loading.part = 'loading';
 		loading.setAttribute('role', 'status');
 		loading.setAttribute('aria-label', 'Loading avatar');
-		loading.innerHTML =
-			'<div class="skeleton" aria-hidden="true">' +
-			'<span class="skeleton-head"></span>' +
-			'<span class="skeleton-body"></span>' +
-			'<span class="skeleton-shimmer"></span>' +
-			'</div>';
 		loading.hidden = true;
 		this.shadowRoot.appendChild(loading);
 		this._loadingEl = loading;
@@ -1049,30 +953,6 @@ class Agent3DElement extends HTMLElement {
 			chat.setAttribute('aria-live', 'polite');
 			chat.setAttribute('aria-label', 'Conversation');
 
-			const row = document.createElement('div');
-			row.className = 'input-row';
-			const input = document.createElement('input');
-			input.type = 'text';
-			input.placeholder = 'Say something...';
-			input.setAttribute('aria-label', 'Message to agent');
-			input.addEventListener('keydown', (e) => {
-				if (e.key === 'Enter' && input.value.trim()) {
-					const v = input.value.trim();
-					input.value = '';
-					this._onStreamChunk(); // immediate visual feedback before LLM responds
-					this.say(v);
-					input.focus();
-				}
-			});
-			const micBtn = document.createElement('button');
-			micBtn.className = 'icon mic';
-			micBtn.title = 'Push to talk';
-			micBtn.setAttribute('aria-label', 'Push to talk');
-			micBtn.innerHTML = '🎙';
-			micBtn.addEventListener('click', () => this._toggleMic());
-			row.appendChild(input);
-			row.appendChild(micBtn);
-
 			// Avatar anchor — transparent window between chat and input;
 			// the Three.js canvas shows through here. Thought bubble lives inside.
 			const avatarAnchor = document.createElement('div');
@@ -1089,11 +969,8 @@ class Agent3DElement extends HTMLElement {
 
 			chat.appendChild(avatarAnchor);
 			chrome.appendChild(chat);
-			chrome.appendChild(row);
 			this.shadowRoot.appendChild(chrome);
 			this._chatEl = chat;
-			this._inputEl = input;
-			this._micEl = micBtn;
 			this._avatarAnchorEl = avatarAnchor;
 			this._thoughtBubbleEl = thoughtBubble;
 			this._thoughtTextEl = thoughtBubble.querySelector('.text');
@@ -1589,7 +1466,7 @@ class Agent3DElement extends HTMLElement {
 		if (this._booting || this._mounted) return;
 		this._renderShell();
 		// Clear any decoration fallback left by a prior failed attempt so the
-		// fresh boot's skeleton/avatar isn't drawn underneath a stale silhouette.
+		// fresh boot's avatar isn't drawn underneath a stale silhouette.
 		if (this._fallbackEl) {
 			this._fallbackEl.remove();
 			this._fallbackEl = null;
@@ -2709,6 +2586,10 @@ class Agent3DElement extends HTMLElement {
 	}
 
 	async _toggleMic() {
+		// The mic button lives in the (now removed) input row, so this is only
+		// reachable if a future voice flow calls it directly. Bail safely when
+		// there is no mic element to reflect listening state onto.
+		if (!this._micEl) return;
 		const voiceServer = this.getAttribute('voice-server');
 		if (voiceServer) {
 			await this._toggleVoiceClient(voiceServer);

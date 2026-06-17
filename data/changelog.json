@@ -3,12 +3,38 @@
 	"entries": [
 		{
 			"date": "2026-06-17",
-			"title": "Pick a 3D agent to drop into any world",
-			"summary": "Added a dedicated agent picker to the worlds lobby. Tap “Browse 3D agents” to search the full directory of public agents, filter by skill or on-chain status, sort by popular/newest/name, and spin each agent's avatar in a live 3D preview before you commit. Choose one and you drop into the world wearing its avatar — no more sifting through raw avatars and accessories to find an actual agent.",
+			"title": "Simpler color picker in advanced controls",
+			"summary": "The color pickers in the viewer's advanced controls and the material editor now drop the vertical rainbow hue strip, leaving a single clean saturation-and-brightness field that fills the full picker width. Picking a color is tidier and less cluttered.",
+			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-17",
+			"title": "Club door ban list now enforced",
+			"summary": "Fixed the paid club door so the ban check actually runs. A wiring error meant the bouncer's on-chain ban lookup threw on every entry and quietly failed open, admitting wallets it should have turned away. The USDC door and the $THREE door now share one bouncer and run the real ban-and-tier check on every cover charge, so banned wallets are stopped at the rope.",
+			"tags": [
+				"fix",
+				"security"
+			],
+			"link": "/club"
+		},
+		{
+			"date": "2026-06-17",
+			"title": "Cleaner avatar loading on embeds",
+			"summary": "Embedded 3D agents no longer flash a grey skeleton silhouette while the avatar streams in. The frame now stays clean — showing the poster preview when one is set, or transparent until the avatar paints — so the load-in reads as polished rather than half-built.",
+			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-17",
+			"title": "Browse and walk into the club as any 3D agent",
+			"summary": "The club's agent switcher now has a Browse button that opens the full directory of public 3D agents. Search them, filter by skill or on-chain status, sort by popular/newest/name, and spin each agent's avatar in a live 3D preview before you pick. Choose one and you swap into it instantly — walking up to the club as that agent — instead of being limited to the short quick-switch list.",
 			"tags": [
 				"feature"
 			],
-			"link": "/worlds"
+			"link": "/club"
 		},
 		{
 			"date": "2026-06-17",
@@ -58,8 +84,8 @@
 		},
 		{
 			"date": "2026-06-17",
-			"title": "The IBM x402 demo grew a 3D agent that pays for itself",
-			"summary": "The live x402 demo at three.ws/ibm/x402-demo now has a 3D AI agent below the payment card. When you run the $0.001 call, the agent watches the same on-chain settlement you do and reacts in real time — it celebrates and announces the payment the moment it clears. You can also ask it how x402 and $THREE work. Under it, three new rooms — Forge (text to 3D), Play (live worlds), and IRL (augmented reality) — load the real three.ws surfaces inline on a click, or open full-screen. Everything still loads from three.ws with no build step.",
+			"title": "The IBM page became a live showcase — five three.ws demos in one place",
+			"summary": "The IBM page at three.ws/ibm/x402-demo is now a full showcase of the IBM × three.ws partnership: five real, unmocked demos you can try in sequence. Pay a tenth of a cent over x402 and watch it settle on-chain; meet a 3D AI agent that pays for its own data and celebrates the moment your payment clears; then Forge (turn text into a 3D model), Play (a shared 3D world), and IRL (an agent in augmented reality) each run full-size right on the page, with a one-tap full-screen. Everything still loads from three.ws with no build step.",
 			"tags": [
 				"feature"
 			],

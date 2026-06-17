@@ -1004,6 +1004,17 @@ header h1 .wordmark-logo {
 	border-radius: var(--radius-sm) !important;
 }
 
+/* Remove the dat.GUI color-picker hue strip globally — the saturation/value
+   field carries the picker; the vertical hue knob is suppressed everywhere. */
+.dg .cr.color .selector .hue-field,
+.dg .selector .hue-field {
+	display: none !important;
+}
+.dg .cr.color .selector .saturation-field,
+.dg .selector .saturation-field {
+	width: 100% !important;
+}
+
 @media screen and (max-width: 700px) {
 	header:not(.nav):not(:has(#nav-container)) {
 		padding: 0 1em;

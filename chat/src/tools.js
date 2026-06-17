@@ -1209,6 +1209,155 @@ return { mint, signature, metadataUri, explorer: 'https://solscan.io/tx/' + sign
 		],
 	},
 	{
+		id: 'forge-avatar',
+		name: 'Text → 3D Avatar',
+		description:
+			'Generate a real, textured 3D avatar from a text prompt, auto-rig it into an animation-ready character, and save it to your three.ws avatar library — the full text → mesh → rig → library pipeline, rendered in an orbit viewer with a skeleton toggle.',
+		schema: [
+			{
+				clientDefinition: {
+					id: 'pack-forge-avatar-001',
+					name: 'ForgeAvatar',
+					description: 'Generate a 3D avatar (GLB) from a text prompt, auto-rig it, save it to the avatar library, and render it in an orbit viewer.',
+					arguments: [
+						{ name: 'prompt', type: 'string', description: 'Single-subject avatar description, e.g. "a friendly cyberpunk fox mascot, full body". 3–1000 chars.' },
+						{ name: 'name', type: 'string', description: 'Optional name for the saved avatar (defaults to the prompt).' },
+						{ name: 'save', type: 'boolean', description: 'Save the rigged avatar to the signed-in user library (default true). Set false to only preview.' },
+					],
+					body: `const prompt = String(args.prompt || '').trim();
+if (prompt.length < 3) throw new Error('prompt required (3–1000 chars)');
+const wantSave = args.save !== false;
+const avatarName = (String(args.name || '').trim() || prompt).slice(0, 80);
+async function pollForge(jobId, tries) {
+  let state = null;
+  for (let i = 0; i < tries; i++) {
+    await new Promise((r) => setTimeout(r, 2500));
+    const poll = await fetch('/api/forge?job=' + encodeURIComponent(jobId), { credentials: 'include' });
+    if (!poll.ok) throw new Error('Forge poll failed: ' + poll.status);
+    state = await poll.json();
+    if (state.status === 'done' || state.status === 'failed') break;
+  }
+  return state;
+}
+const submit = await fetch('/api/forge', { method: 'POST', headers: {'content-type':'application/json'}, credentials: 'include', body: JSON.stringify({ prompt }) });
+if (!submit.ok) throw new Error('Forge submit failed: ' + submit.status + ' ' + await submit.text());
+const job = await submit.json();
+if (!job.job_id) throw new Error('Forge returned no job id');
+let state = await pollForge(job.job_id, 75);
+if (!state || state.status === 'failed') throw new Error('Generation failed: ' + ((state && state.error) || 'unknown error'));
+if (state.status !== 'done') throw new Error('Generation timed out after ~3 minutes — try again or open three.ws/forge');
+let glb = state.glb_url;
+if (!glb) throw new Error('Job finished without a model URL');
+let rigged = false, rigNote = '';
+try {
+  const rs = await fetch('/api/forge?action=rig', { method: 'POST', headers: {'content-type':'application/json'}, credentials: 'include', body: JSON.stringify({ glb_url: glb }) });
+  if (rs.ok) {
+    const rj = await rs.json();
+    if (rj.job_id) {
+      const rstate = await pollForge(rj.job_id, 60);
+      if (rstate && rstate.status === 'done' && rstate.glb_url) { glb = rstate.glb_url; rigged = true; }
+      else rigNote = (rstate && rstate.error) ? ('Rigging failed (' + rstate.error + ') — using the static mesh.') : 'Rigging did not finish — using the static mesh.';
+    } else rigNote = 'Rigging returned no job — using the static mesh.';
+  } else if (rs.status === 501) {
+    rigNote = 'Auto-rigging is not enabled on this deployment — using the static mesh.';
+  } else {
+    rigNote = 'Rigging unavailable (' + rs.status + ') — using the static mesh.';
+  }
+} catch (e) { rigNote = 'Rigging error — using the static mesh.'; }
+let savedUrl = '', saveNote = '';
+if (wantSave) {
+  try {
+    const resp = await fetch(glb);
+    if (!resp.ok) throw new Error('download ' + resp.status);
+    const buf = await resp.arrayBuffer();
+    const bytes = buf.byteLength;
+    const pres = await fetch('/api/avatar/presign-glb', { method: 'POST', headers: {'content-type':'application/json'}, credentials: 'include', body: JSON.stringify({ content_type: 'model/gltf-binary', bytes, filename: 'avatar.glb' }) });
+    if (pres.status === 401) { saveNote = 'Sign in to save this to your avatar library.'; }
+    else if (!pres.ok) { saveNote = 'Could not prepare storage (' + pres.status + ').'; }
+    else {
+      const presign = await pres.json();
+      const put = await fetch(presign.upload_url, { method: 'PUT', headers: {'content-type':'model/gltf-binary'}, body: buf });
+      if (!put.ok) { saveNote = 'Upload to storage failed (' + put.status + ').'; }
+      else {
+        const cr = await fetch('/api/avatars', { method: 'POST', headers: {'content-type':'application/json'}, credentials: 'include', body: JSON.stringify({ name: avatarName, storage_key: presign.storage_key, size_bytes: bytes, content_type: 'model/gltf-binary', visibility: 'unlisted', source: 'studio', source_meta: { source_prompt: prompt, rigged } }) });
+        if (cr.status === 401) { saveNote = 'Sign in to save this to your avatar library.'; }
+        else if (!cr.ok) { saveNote = 'Could not save to library (' + cr.status + ').'; }
+        else { const a = await cr.json(); const id = a && a.avatar && a.avatar.id; if (id) savedUrl = '/discover/avatar/' + id; else saveNote = 'Saved, but no id returned.'; }
+      }
+    }
+  } catch (e) { saveNote = 'Save skipped: ' + (e && e.message ? e.message : String(e)); }
+}
+const statusBits = [rigged ? 'Rigged ✓' : 'Static mesh'];
+if (rigNote) statusBits.push(rigNote);
+if (savedUrl) statusBits.push('Saved to your library ✓');
+else if (saveNote) statusBits.push(saveNote);
+const statusLine = statusBits.join(' • ');
+const links = ['<a href="' + glb + '" download="avatar.glb">Download GLB</a>'];
+if (savedUrl) links.push('<a href="' + savedUrl + '" target="_blank" rel="noopener">View in library ↗</a>');
+links.push('<a href="https://three.ws/forge?prompt=' + encodeURIComponent(prompt) + '" target="_blank" rel="noopener">Open in Forge ↗</a>');
+const linksHtml = links.join('');
+const html = \`<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+html,body{margin:0;height:100%;background:#0b0d10;color:#e5e7eb;font-family:ui-sans-serif,system-ui,sans-serif;overflow:hidden}
+#hud{position:absolute;left:12px;top:10px;font-size:13px;background:rgba(0,0,0,.4);padding:6px 10px;border-radius:8px;max-width:72%}
+#hud .sub{opacity:.72;margin-top:4px;font-size:11px}
+#bar{position:absolute;left:12px;bottom:10px;display:flex;gap:8px;font-size:12px;flex-wrap:wrap}
+#bar a{color:#e5e7eb;background:rgba(0,0,0,.4);padding:6px 10px;border-radius:8px;text-decoration:none;border:1px solid rgba(255,255,255,.15)}
+#bar a:hover{background:rgba(255,255,255,.12)}
+#tip{position:absolute;right:12px;top:10px;font-size:11px;opacity:.6;background:rgba(0,0,0,.4);padding:5px 9px;border-radius:8px}
+</style></head><body>
+<div id="hud">\${prompt.replace(/</g,'&lt;')}<div class="sub">\${statusLine.replace(/</g,'&lt;')}</div></div>
+<div id="tip"></div>
+<div id="bar">\${linksHtml}</div>
+<script type="module">
+import * as THREE from 'https://esm.sh/three@0.160.0';
+import { OrbitControls } from 'https://esm.sh/three@0.160.0/examples/jsm/controls/OrbitControls.js';
+import { GLTFLoader } from 'https://esm.sh/three@0.160.0/examples/jsm/loaders/GLTFLoader.js';
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(devicePixelRatio); renderer.setSize(innerWidth, innerHeight); renderer.setClearColor(0x0b0d10);
+document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+const cam = new THREE.PerspectiveCamera(45, innerWidth/innerHeight, 0.01, 1000); cam.position.set(0, 1.2, 3);
+const ctl = new OrbitControls(cam, renderer.domElement); ctl.enableDamping = true; ctl.autoRotate = true; ctl.autoRotateSpeed = 1.6;
+addEventListener('resize', () => { renderer.setSize(innerWidth, innerHeight); cam.aspect = innerWidth/innerHeight; cam.updateProjectionMatrix(); });
+addEventListener('pointerdown', () => { ctl.autoRotate = false; }, { once: true });
+scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+const k = new THREE.DirectionalLight(0xffffff, 1.1); k.position.set(3, 4, 5); scene.add(k);
+const gltf = await new GLTFLoader().loadAsync(\${JSON.stringify(glb)});
+const m = gltf.scene;
+const box = new THREE.Box3().setFromObject(m);
+const size = box.getSize(new THREE.Vector3()).length();
+const center = box.getCenter(new THREE.Vector3());
+m.position.sub(center); cam.position.set(0, size * 0.25, size * 1.4); ctl.target.set(0,0,0);
+scene.add(m);
+let skel = null;
+m.traverse((o) => { if (!skel && o.isSkinnedMesh && o.skeleton) { skel = new THREE.SkeletonHelper(m); skel.visible = false; scene.add(skel); } });
+const tip = document.getElementById('tip');
+if (skel) { tip.textContent = 'Press S to toggle skeleton'; addEventListener('keydown', (e) => { if ((e.key === 's' || e.key === 'S') && skel) skel.visible = !skel.visible; }); }
+else { tip.remove(); }
+function tick(){ ctl.update(); renderer.render(scene, cam); requestAnimationFrame(tick); }
+tick();
+</script></body></html>\`;
+return { contentType: 'text/html', content: html };`,
+				},
+				type: 'function',
+				function: {
+					name: 'ForgeAvatar',
+					description:
+						'Generate a real 3D AVATAR from a text prompt: forge a textured GLB, auto-rig it into an animation-ready character, save it to the signed-in user three.ws avatar library, and render it in an interactive orbit viewer (press S for the skeleton). Use whenever the user asks to make, create, or generate an AVATAR, character, or agent body from a description (use ForgeTextTo3D instead for a generic object/prop). Takes ~1–3 min. Describe ONE full-body subject with material and style. If the user is not signed in, it still returns the rigged model and notes that sign-in is needed to save.',
+					parameters: {
+						type: 'object',
+						properties: {
+							prompt: { type: 'string', description: 'Single-subject, full-body avatar description, e.g. "a friendly cyberpunk fox mascot, full body". 3–1000 characters.' },
+							name: { type: 'string', description: 'Optional name for the saved avatar. Defaults to the prompt.' },
+							save: { type: 'boolean', description: 'Whether to save the rigged avatar to the library (default true).' },
+						},
+						required: ['prompt'],
+					},
+				},
+			},
+		],
+	},
+	{
 		id: 'wallet-balances',
 		name: 'Wallet Balances',
 		description: 'Real on-chain balances for a Solana or EVM wallet with a 3D coin-stack visualization.',
