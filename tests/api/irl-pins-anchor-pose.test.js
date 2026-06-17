@@ -65,9 +65,6 @@ vi.mock('../../api/_lib/granite-guardian.js', () => ({
 	decide: vi.fn(),
 }));
 
-// Fire-and-forget realtime publish must never touch the network in a test.
-vi.mock('../../api/_lib/irl-publish.js', () => ({ publishIrlPin: vi.fn(async () => {}) }));
-
 const { default: handler } = await import('../../api/irl/pins.js');
 
 const ORIGIN = { lat: 40.7128, lng: -74.006 };

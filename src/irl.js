@@ -1139,8 +1139,8 @@ function pinHeightM(pin) {
 // of trusting its own ~10 m-noisy GPS, so a cluster keeps its room-scale layout
 // identical for every viewer — couch-agent and wall-agent stay metres apart on
 // the right sides no matter how GPS drifts. The math lives in the pure, unit-
-// tested src/irl/room-anchor.js; here we only read it. normalizeStreamPin and
-// the REST projection both deliver these as snake_case, so this reads one shape.
+// tested src/irl/room-anchor.js; here we only read it. The proximity-poll
+// projection delivers these as snake_case, the one shape this reads.
 function pinRoom(pin) {
 	if (!pin || !pin.room_id) return null;
 	const oLat = Number(pin.origin_lat), oLng = Number(pin.origin_lng);
@@ -1194,9 +1194,10 @@ function blendOrigin(prev, fix) {
 	};
 }
 
-let _lastNearbyFetch = 0;
-const NEARBY_RADIUS   = 150; // metres
-const NEARBY_INTERVAL = 15000; // ms
+// Tight "stumble upon" gate: an agent only renders once you're within ~40 m of
+// it (matches the server's hard radius cap). You discover one by physically being
+// near it with your camera up — never from a list, map, or neighbourhood feed.
+const NEARBY_RADIUS = 40; // metres
 
 function onGPSPosition(pos) {
 	const wasReady = gpsState.ready;
@@ -1273,21 +1274,11 @@ function onGPSPosition(pos) {
 	// orb holds its real-world bearing as the user walks (same treatment as pins).
 	for (const g of ghostViewers.values()) positionGhostOrb(g);
 
-	// Live transport: re-join the room when we cross into a new geocell, and
-	// reconcile the rendered set against the stream as the viewer walks (pins move
-	// into / out of the nearby radius). Not streaming and not yet polling → keep the
-	// throttled poll so the first fixes still show content before the transport
-	// settles; once the poll fallback's own timer owns refreshes, this stays quiet.
-	if (irlNet && _streamOnline) {
-		irlNet.moveTo(gpsState.lat, gpsState.lng);
-		scheduleReconcile();
-	} else if (!_pollTimer) {
-		const now = Date.now();
-		if (now - _lastNearbyFetch > NEARBY_INTERVAL) {
-			_lastNearbyFetch = now;
-			loadNearbyPins();
-		}
-	}
+	// Live presence follows the viewer into a new geocell as they walk — a no-op
+	// until they actually cross a ~1.2 km cell boundary (and while the socket is
+	// offline). Pin discovery doesn't ride this tick; it's the proximity poll's own
+	// timer (startPinPolling), scoped to a tight radius around the live position.
+	irlNet?.moveTo(gpsState.lat, gpsState.lng);
 }
 
 // Build the GPS world-anchor for the freshly locked own avatar and open the
@@ -1466,7 +1457,6 @@ function commitPin(pinLat, pinLng, headingDeg, caption, source = 'gyro-gps') {
 		if (result?.ok && gpsPin) {
 			gpsPin.id = result.id;
 			_myPinIds.add(result.id);
-			dropOwnPinFromStream(result.id); // the server echoes my pin over the stream; never double-spawn it
 			const dir = compassLabel(headingDeg);
 			setStatus(result.permanent
 				? `Pinned facing ${dir} — permanently visible to nearby users`
@@ -1659,7 +1649,6 @@ function persistFloorAnchor(pose) {
 	}).then(result => {
 		if (result?.ok && gpsPin) {
 			gpsPin.id = result.id;
-			dropOwnPinFromStream(result.id); // the server echoes my pin over the stream; never double-spawn it
 			revealMyPinsBtn();
 			setXrHint(result.permanent
 				? 'Anchored & saved — permanently visible to nearby users'
@@ -1741,49 +1730,23 @@ function removeNearbyPin(id) {
 	updateNearbyBadge();
 }
 
-// ── Realtime pin sync (D1) ──────────────────────────────────────────────────
-// Polling told you about a new / moved / removed pin only on the next 15 s cycle.
-// This streams them live: IrlNet joins the irl_world room for the viewer's geocell
-// and relays the shared pin set as pin:add / pin:update / pin:remove, which we
-// reconcile into the SAME nearbyPins the poll feeds — so the rest of the app (LOD,
-// radar, sheet, badge) never knows which transport fed it. The poll stays as a
-// real fallback for when the realtime host is unreachable.
+// ── Realtime presence + reactions (D2/D3) ───────────────────────────────────
+// IrlNet joins the irl_world room for the viewer's geocell — but ONLY for live
+// PRESENCE (who else is viewing nearby) and ambient REACTIONS. The room is NOT a
+// pin transport: a placed agent's coordinates are never broadcast as a roster.
+// Agents are discovered solely through the per-viewer proximity poll below
+// (loadNearbyPins), which the server scopes to a tight radius around our OWN
+// position — so you see another agent only by being physically near it with your
+// camera up, never from a list, map, or neighbourhood feed. The poll runs the
+// whole session once GPS is ready, independent of whether the socket connects.
 let irlNet = null;
-let _streamOnline = false;        // true only while the WS is live and owns nearbyPins
-let _pollTimer = null;            // fallback poll interval handle
-let _reconcileRaf = 0;            // coalesces a burst of stream events into one reconcile
-const streamPins = new Map();     // id → normalized snake_case pin (the room's full window)
-const POLL_FALLBACK_MS = 10000;   // fallback refresh cadence when the stream is down
-
-// Map the room's camelCase wire pin to the snake_case shape the rest of irl.js
-// already reads (spawnNearbyPin / openPinSheet / radar), so those paths are untouched.
-function normalizeStreamPin(w) {
-	return {
-		id: w.id,
-		lat: Number(w.lat),
-		lng: Number(w.lng),
-		heading: Number(w.heading) || 0,
-		avatar_url: w.avatarUrl || null,
-		avatar_name: w.avatarName || null,
-		caption: w.caption || null,
-		x402_endpoint: w.x402Endpoint || null,
-		agent_id: w.agentId || null,
-		placed_at: w.placedAt || null,
-		// Room frame — '' means a standalone pin, so collapse to null to match the
-		// REST projection's null and let pinRoom() treat both shapes identically.
-		room_id: w.roomId || null,
-		rel_east_m: Number.isFinite(w.relEast) ? w.relEast : null,
-		rel_north_m: Number.isFinite(w.relNorth) ? w.relNorth : null,
-		origin_lat: Number.isFinite(w.originLat) ? w.originLat : null,
-		origin_lng: Number.isFinite(w.originLng) ? w.originLng : null,
-		origin_yaw_deg: Number.isFinite(w.originYawDeg) ? w.originYawDeg : null,
-	};
-}
+let _streamOnline = false;        // true only while the presence/reaction socket is live
+let _pollTimer = null;            // proximity poll handle (the sole pin-discovery transport)
+const POLL_INTERVAL_MS = 10000;   // proximity refresh cadence
 
 function startPinSync() {
 	if (!gpsState.ready) return;
 	if (irlNet) irlNet.destroy();
-	streamPins.clear();
 	irlNet = new IrlNet({
 		lat: gpsState.lat, lng: gpsState.lng,
 		deviceToken: _deviceToken, agent: _currentAgentId || '',
@@ -1791,133 +1754,54 @@ function startPinSync() {
 		// when sharing; the server drops it otherwise.
 		ghost: getShareGhost(), avatar: resolveAvatarUrl(_currentAvatarId),
 	});
-	irlNet.on('pin:add',    (w) => ingestStreamPin('add', w));
-	irlNet.on('pin:update', (w) => ingestStreamPin('update', w));
-	irlNet.on('pin:remove', (w) => ingestStreamPin('remove', w));
 	irlNet.on('reaction',   (msg) => onReaction(msg));   // D3 ambient interaction reactions
 	irlNet.on('presence',   ({ count, viewers }) => updatePresence(count, viewers)); // D2
 	irlNet.on('status', ({ status }) => onNetStatus(status));
 	irlNet.connect();
 	startHeartbeat();
+	// Pins come from the proximity poll, never the socket — start it now and keep it
+	// running for the whole session regardless of presence connectivity.
+	startPinPolling();
 }
 
 function onNetStatus(status) {
 	_streamOnline = status === 'online';
-	if (status === 'online') { stopPollFallback(); setNetPill('live'); scheduleReconcile(); }
-	else if (status === 'connecting') { streamPins.clear(); setNetPill('connecting'); }
-	else if (status === 'offline') { setNetPill('connecting'); }  // mid single-retry — pins persist
-	else { startPollFallback(); setNetPill('polling'); }          // failed | unavailable | idle
-	// D2 presence is live-only: the chip + ghosts are meaningful only while the WS
-	// owns the stream. Any non-online status clears them so a stale count or frozen
-	// ghost never lingers in poll fallback / while reconnecting; online refreshes
-	// from the next presence delta.
+	if (status === 'online') setNetPill('live');
+	else if (status === 'connecting' || status === 'offline') setNetPill('connecting');
+	else setNetPill('idle');   // failed | unavailable | idle — presence off; pins still poll
+	// D2 presence (count chip + ghosts) is live-only: clear it whenever the socket
+	// isn't online so a stale count or frozen ghost never lingers. Pin discovery is
+	// unaffected — it runs on the proximity poll either way.
 	if (status !== 'online') clearPresence();
 }
 
-function ingestStreamPin(kind, wire) {
-	if (!wire || !wire.id) return;
-	if (kind === 'remove') streamPins.delete(wire.id);
-	else streamPins.set(wire.id, normalizeStreamPin(wire));
-	scheduleReconcile();
-}
-
-// Coalesce the burst of onAdd callbacks Colyseus fires on join (and any flurry of
-// deltas) into a single reconcile next frame.
-function scheduleReconcile() {
-	if (_reconcileRaf) return;
-	_reconcileRaf = requestAnimationFrame(() => { _reconcileRaf = 0; reconcileFromStream(); });
-}
-
-// Reconcile the rendered nearby set against the live stream, filtered to the nearby
-// radius — the room holds a coarse ~3 km geocell window, so the per-viewer 150 m
-// filter lives here. Spawns arrivals, refreshes changed pins, despawns pins that
-// left the radius or were removed. The placer's own live pin is never doubled.
-function reconcileFromStream() {
-	if (!_streamOnline || !gpsState.ready) return;
-	for (const known of [...nearbyPins]) {
-		const src = streamPins.get(known.id);
-		const within = src && Number.isFinite(src.lat) &&
-			haversineMeters(gpsState.lat, gpsState.lng, src.lat, src.lng) <= NEARBY_RADIUS;
-		if (!within) removeNearbyPin(known.id);
-	}
-	for (const [id, src] of streamPins) {
-		if (gpsPin?.id && id === gpsPin.id) continue;            // never my own anchored pin
-		if (!Number.isFinite(src.lat) || !Number.isFinite(src.lng)) continue;
-		const d = haversineMeters(gpsState.lat, gpsState.lng, src.lat, src.lng);
-		if (d > NEARBY_RADIUS) continue;
-		const known = nearbyPins.find((n) => n.id === id);
-		if (known) applyStreamFields(known, src);
-		else {
-			const entry = { ...src, distance_m: Math.round(d), group: null, labelEl: null, glbLoaded: false };
-			nearbyPins.push(entry);
-			spawnNearbyPin(entry);
-		}
-	}
-	updateNearbyBadge();
-}
-
-// Update a rendered pin from a stream delta: position / heading / caption / name
-// (which applyPinUpdate skips when there's no avatar version bump — the stream has
-// none), then hand off to applyPinUpdate for the avatar GLB swap (a C6 re-skin),
-// which no-ops when the URL is unchanged.
-function applyStreamFields(known, src) {
-	if (Number.isFinite(src.lat)) known.lat = src.lat;
-	if (Number.isFinite(src.lng)) known.lng = src.lng;
-	if (src.heading != null) known.heading = src.heading;
-	if (src.caption !== undefined) known.caption = src.caption;
-	if (src.x402_endpoint !== undefined) known.x402_endpoint = src.x402_endpoint;
-	// Name lives on the floating label; update it here because applyPinUpdate only
-	// reaches its name branch on an avatar change, so a rename-only edit would miss it.
-	if (src.avatar_name != null && src.avatar_name !== known.avatar_name) {
-		known.avatar_name = src.avatar_name;
-		const nameEl = known.labelEl?.querySelector('.irl-agent-label-name');
-		if (nameEl) nameEl.textContent = known.avatar_name || 'Agent';
-	}
-	if (known.group) {
-		const wp = gpsToWorld(known.lat, known.lng);
-		known.group.position.set(wp.x, pinHeightM(known), wp.z);
-		known.group.rotation.y = pinYawRad(known);
-		if ('baseYaw' in known) known.baseYaw = known.group.rotation.y;
-	}
-	applyPinUpdate(known, src);
-}
-
-// When this device places its own pin, the server echoes it back over the stream;
-// drop it so the placer never sees a duplicate of their own anchored agent.
-function dropOwnPinFromStream(id) {
-	if (!id) return;
-	streamPins.delete(id);
-	removeNearbyPin(id);
-}
-
-function startPollFallback() {
+function startPinPolling() {
 	if (_pollTimer) return;
-	loadNearbyPins();                                  // immediate refresh, don't wait a full cycle
-	_pollTimer = setInterval(loadNearbyPins, POLL_FALLBACK_MS);
+	loadNearbyPins();                                  // immediate first fetch, don't wait a cycle
+	_pollTimer = setInterval(loadNearbyPins, POLL_INTERVAL_MS);
 }
-function stopPollFallback() {
+function stopPinPolling() {
 	if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
 }
 
-// The realtime status pill in the topbar: live (green), connecting (amber pulse),
-// or polling (the fallback transport is active — still fully functional, tap to retry).
+// The presence/reaction socket status pill in the topbar: live (green — you can
+// see who else is here and their reactions), connecting (amber pulse), or hidden
+// when unavailable. Pin discovery never depends on this; it always runs via the
+// proximity poll.
 function setNetPill(state) {
 	const pill = document.getElementById('irl-net-pill');
 	if (!pill) return;
-	pill.classList.remove('is-live', 'is-connecting', 'is-polling');
+	pill.classList.remove('is-live', 'is-connecting');
 	if (state === 'live') {
 		pill.classList.add('is-live'); pill.hidden = false;
-		pill.textContent = 'Live'; pill.title = 'Live — nearby agents update in realtime';
+		pill.textContent = 'Live'; pill.title = 'Live — you can see who else is viewing nearby and their reactions in realtime';
 	} else if (state === 'connecting') {
 		pill.classList.add('is-connecting'); pill.hidden = false;
-		pill.textContent = 'Connecting'; pill.title = 'Connecting to live sync…';
-	} else if (state === 'polling') {
-		pill.classList.add('is-polling'); pill.hidden = false;
-		pill.textContent = 'Polling'; pill.title = 'Live sync unavailable — refreshing nearby agents every 10s. Tap to retry.';
+		pill.textContent = 'Connecting'; pill.title = 'Connecting to live presence…';
 	} else {
 		pill.hidden = true;
 	}
-	pill.setAttribute('aria-label', `Realtime status: ${pill.textContent || 'idle'}`);
+	pill.setAttribute('aria-label', `Live presence: ${pill.textContent || 'off'}`);
 }
 
 // ── Live viewer presence (D2) ───────────────────────────────────────────────
@@ -2068,11 +1952,40 @@ function updateGhosts(dt) {
 	}
 }
 
+// Refresh an already-rendered pin from a fresh proximity-poll row: move it if its
+// stored position / heading / room frame changed (an owner calibrate or edit),
+// relabel it on a rename, then let applyPinUpdate swap the GLB on a re-skin
+// (avatar_version bump). Repositioning uses pinWorldPos so room-anchored clusters
+// resolve through their shared origin exactly as on spawn.
+function refreshKnownPin(known, pin) {
+	let moved = false;
+	for (const k of ['lat', 'lng', 'heading', 'room_id', 'rel_east_m', 'rel_north_m',
+	                 'origin_lat', 'origin_lng', 'origin_yaw_deg']) {
+		if (pin[k] !== undefined && pin[k] !== known[k]) { known[k] = pin[k]; moved = true; }
+	}
+	if (pin.caption !== undefined) known.caption = pin.caption;
+	if (pin.x402_endpoint !== undefined) known.x402_endpoint = pin.x402_endpoint;
+	// Name lives on the floating label; update it here because applyPinUpdate only
+	// reaches its name branch on an avatar change, so a rename-only edit would miss it.
+	if (pin.avatar_name != null && pin.avatar_name !== known.avatar_name) {
+		known.avatar_name = pin.avatar_name;
+		const nameEl = known.labelEl?.querySelector('.irl-agent-label-name');
+		if (nameEl) nameEl.textContent = known.avatar_name || 'Agent';
+	}
+	if (moved && known.group) {
+		const wp = pinWorldPos(known);
+		known.group.position.set(wp.x, wp.y, wp.z);
+		known.group.rotation.y = pinYawRad(known);
+		if ('baseYaw' in known) known.baseYaw = known.group.rotation.y;
+	}
+	applyPinUpdate(known, pin);
+}
+
 async function loadNearbyPins() {
 	if (!gpsState.ready) return;
-	// While the live stream owns the nearby set, the poll is a no-op — it would fight
-	// the reconcile. It runs only as the fallback transport (see startPollFallback).
-	if (_streamOnline) return;
+	// The proximity poll is the SOLE pin-discovery transport: the server returns only
+	// the agents within a tight radius of our live position (no roster, no map), so
+	// this both finds new arrivals and drops ones we've walked away from.
 	try {
 		const r = await fetch(
 			`/api/irl/pins?lat=${gpsState.lat}&lng=${gpsState.lng}&radius=${NEARBY_RADIUS}`,
@@ -2093,14 +2006,13 @@ async function loadNearbyPins() {
 			return false;
 		});
 
-		// Spawn new arrivals; refresh any already-known pin whose owner re-skinned
-		// it (C6 remote outfit change). The nearby feed carries avatar_version, so a
-		// bumped version on a pin we already render means swap its GLB to the new
-		// (versioned, cache-busted) avatar_url — every viewer sees the new look on
-		// the next poll, the same diff D1's pin_updated push reuses in realtime.
+		// Spawn new arrivals; refresh any already-known pin. The feed carries the
+		// pin's current position (a calibrate/edit may have moved it), caption, name
+		// and avatar_version, so refreshKnownPin moves/relabels it and swaps the GLB
+		// on a C6 re-skin — the poll is the single propagation path for every change.
 		for (const pin of incoming) {
 			const known = nearbyPins.find(n => n.id === pin.id);
-			if (known) applyPinUpdate(known, pin);
+			if (known) refreshKnownPin(known, pin);
 			else {
 				const entry = { ...pin, group: null, labelEl: null, glbLoaded: false };
 				nearbyPins.push(entry);
@@ -4450,7 +4362,7 @@ loadMyPins().then(pins => { if (pins.length) revealMyPinsBtn(); }).catch(() => {
 document.getElementById('irl-net-pill')?.addEventListener('click', () => irlNet?.retry());
 // Tear down the live stream + poll on navigation away so we never leak a socket or
 // an interval across an SPA transition / tab close.
-window.addEventListener('pagehide', () => { irlNet?.destroy(); stopPollFallback(); });
+window.addEventListener('pagehide', () => { irlNet?.destroy(); stopPinPolling(); });
 
 // URL ?avatar= wins over the saved session (an explicit link is intentional);
 // otherwise fall back to whatever avatar was active last visit.

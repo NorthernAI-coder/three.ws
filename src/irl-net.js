@@ -1,18 +1,20 @@
 // Realtime client for /irl — wraps colyseus.js with a tiny event API so irl.js
-// can subscribe to live pin changes without knowing anything about Colyseus.
-// Mirrors walk-net.js in shape (status model, single-retry reconnect, no storms)
-// so the two transports read the same.
+// can subscribe to live PRESENCE and REACTIONS without knowing anything about
+// Colyseus. Mirrors walk-net.js in shape (status model, single-retry reconnect,
+// no storms) so the two transports read the same.
 //
 // What it does: joins the irl_world room for the viewer's precision-6 geocell and
-// relays the pin MapSchema as pin:add / pin:update / pin:remove events. A late
-// joiner is handed the room's full current pin set on connect (schema sync), so
-// it never misses pins placed before it arrived. When the viewer physically walks
-// into a new geocell, moveTo() re-joins the new room.
+// relays the live viewer set (presence: count + opt-in ghosts) and ambient
+// reactions. It deliberately does NOT transport pins — placed agents are private
+// by location and are discovered only through the per-viewer proximity poll in
+// irl.js, never broadcast here as a roster (see multiplayer/src/rooms/IrlRoom.js).
+// When the viewer physically walks into a new geocell, moveTo() re-joins the room.
 //
 // Graceful degradation: if no server is configured for this environment, or the
 // socket can't be reached after one retry, it settles into a distinct status
-// (`unavailable` / `failed`) so irl.js drops to the poll fallback and the HUD pill
-// says "Polling" — never a dead "reconnecting…" forever.
+// (`unavailable` / `failed`) so presence is simply hidden — pin discovery is
+// unaffected (it runs on the poll regardless), and the HUD pill hides rather than
+// looping on a dead "reconnecting…" forever.
 
 import { Client, getStateCallbacks } from 'colyseus.js';
 import { IrlState } from '../multiplayer/src/irl-schemas.js';
@@ -91,10 +93,7 @@ export class IrlNet {
 		this.error = null;
 		this._handlers = {
 			status: new Set(),
-			'pin:add': new Set(),
-			'pin:update': new Set(),
-			'pin:remove': new Set(),
-			presence: new Set(), // D2 — declared now so the event API is stable
+			presence: new Set(), // D2 — live viewer count + opt-in ghosts
 			reaction: new Set(), // D3 — ambient interaction reactions from the room
 		};
 		this._retries = 0;
@@ -133,29 +132,6 @@ export class IrlNet {
 		this.room = null;
 		try { room.removeAllListeners(); } catch {}
 		try { room.leave(); } catch {}
-	}
-
-	_pinToObj(pin) {
-		return {
-			id: pin.id,
-			lat: pin.lat,
-			lng: pin.lng,
-			heading: pin.heading,
-			avatarUrl: pin.avatarUrl,
-			avatarName: pin.avatarName,
-			caption: pin.caption,
-			x402Endpoint: pin.x402Endpoint,
-			agentId: pin.agentId,
-			placedAt: pin.placedAt,
-			// Room frame — present (roomId !== '') when the pin belongs to a shared
-			// room cluster; the renderer prefers these exact offsets over absolute GPS.
-			roomId: pin.roomId,
-			relEast: pin.relEast,
-			relNorth: pin.relNorth,
-			originLat: pin.originLat,
-			originLng: pin.originLng,
-			originYawDeg: pin.originYawDeg,
-		};
 	}
 
 	async connect() {
@@ -197,17 +173,11 @@ export class IrlNet {
 			this._retries = 0; // a clean connection resets the retry budget
 
 			// Colyseus 0.16 moved schema callbacks behind getStateCallbacks(room).
+			// NOTE: the room intentionally syncs NO pins — placed agents are never
+			// broadcast as a roster (see IrlRoom.js); they're discovered only via the
+			// per-viewer proximity poll in irl.js. This client consumes presence +
+			// reactions only.
 			const $ = getStateCallbacks(this.room);
-			const $pins = $(this.room.state)?.pins;
-			if ($pins) {
-				$pins.onAdd((pin) => {
-					this._emit('pin:add', this._pinToObj(pin));
-					$(pin).onChange(() => this._emit('pin:update', this._pinToObj(pin)));
-				});
-				$pins.onRemove((pin, id) => {
-					this._emit('pin:remove', { id: pin?.id || id });
-				});
-			}
 
 			// D2 presence — the room's `viewers` MapSchema is the live crowd. Any
 			// add / remove / per-viewer change re-derives the { count, viewers } the
