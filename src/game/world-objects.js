@@ -309,6 +309,7 @@ function beachBallMesh() {
 		new MeshStandardMaterial({ map: tex, roughness: 0.35, metalness: 0 }),
 	);
 	m.castShadow = true;
+	m.receiveShadow = true;
 	m.userData.ownGeo = true;
 	return m;
 }

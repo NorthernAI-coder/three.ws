@@ -77,19 +77,25 @@ function findHeadBone(rig) {
 	return bone;
 }
 
-// A worn prop (hat / glasses). The GLB is auto-fitted to a head-ish width so one
-// asset fits models of any height, anchored to the head bone when present (so it
-// tracks head movement) and to a height fraction otherwise. `anchor` is 'head'
-// (hats rest on the crown) or 'face' (glasses sit at eye level).
+// A worn prop (hat / glasses / earrings). The GLB is auto-fitted to a head-ish
+// width so one asset fits models of any height, anchored to the head bone when
+// present (so it tracks head movement) and to a height fraction otherwise.
+// `anchor` is 'head' (hats rest on the crown), 'face' (glasses sit at eye level),
+// or 'ear' (earrings hang at cheek/ear level, slightly below the head bone).
 const PROP_TARGET_WIDTH_M = 0.34; // ~ a human head's width
 function mountProp(rig, height, url, anchor) {
 	const holder = new Group();
 	rig.add(holder);
 	const face = anchor === 'face';
+	const ear  = anchor === 'ear';
 	const headBone = findHeadBone(rig);
-	const upOffset = (face ? 0.02 : 0.05) * height;   // above the bone origin
-	const fwdOffset = face ? 0.05 : 0;                // nudge glasses off the face
-	const fallbackY = height * (face ? 0.82 : 0.86);  // no-bone height anchor
+	// Per-anchor vertical + forward offsets from the head bone origin.
+	// ear: slightly below the head-bone centre where the ear canal sits.
+	// face: slight up + forward nudge to position on the eye line.
+	// head: higher up so hats sit on the crown, not inside the skull.
+	const upOffset  = ear ? -0.03 * height : (face ? 0.02 : 0.05) * height;
+	const fwdOffset = face ? 0.05 : 0;
+	const fallbackY = height * (ear ? 0.78 : (face ? 0.82 : 0.86));
 	const tmp = new Vector3();
 	let model = null;
 	let cancelled = false;
@@ -112,8 +118,8 @@ function mountProp(rig, height, url, anchor) {
 		model = scene.clone(true);
 		model.traverse((n) => { if (n.isMesh) { n.castShadow = true; n.receiveShadow = false; } });
 		// Fit width to the target, then anchor the prop's reference point at the
-		// holder origin: a hat rests on its base (sits on the crown); glasses centre
-		// on the eye line.
+		// holder origin. Hats rest on their base (floor at y=0); glasses and
+		// earrings centre on the Y axis so their pivot is the midpoint of the mesh.
 		const box = new Box3().setFromObject(model);
 		const size = box.getSize(new Vector3());
 		const span = Math.max(size.x, size.z) || 1;
@@ -122,7 +128,7 @@ function mountProp(rig, height, url, anchor) {
 		const c = fitted.getCenter(new Vector3());
 		model.position.x -= c.x;
 		model.position.z -= c.z;
-		model.position.y -= face ? c.y : fitted.min.y;
+		model.position.y -= (face || ear) ? c.y : fitted.min.y;
 		holder.add(model);
 		place();
 	});

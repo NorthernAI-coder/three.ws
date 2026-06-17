@@ -476,6 +476,9 @@ export class CommunityNet {
 	setCosmetics(wire) { this.cosmetics = typeof wire === 'string' ? wire : ''; this.room?.send('set-cosmetics', { cosmetics: this.cosmetics }); }
 	// Activities & economy. Server-authoritative: these only request the action; the
 	// result arrives via the profile/inv/xpgain/levelup/notice events above.
+	// R05 physics ball: send a kick intent with the impulse the server should apply.
+	// The server validates magnitude, direction, and rate before touching the ball.
+	sendBallKick(vx, vy, vz) { this.room?.send('ball:kick', { vx, vy, vz }); }
 	fish() { this.room?.send('fish'); }
 	chop() { this.room?.send('chop'); }
 	mine() { this.room?.send('mine'); }
