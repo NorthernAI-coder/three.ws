@@ -3,6 +3,13 @@
 	"entries": [
 		{
 			"date": "2026-06-17",
+			"title": "See how many people are viewing a spot with you on IRL",
+			"summary": "three.ws/irl now shows when you're not alone. A small live count next to the nearby badge reads '3 viewing nearby' whenever other people have the same location open at the same time, so a place feels inhabited even before anyone has pinned an agent there — and it updates the instant someone arrives or leaves. Your location stays private: the count is built from a coarse ~1km area, never your precise GPS, and nobody can see where you are by default. If you want to be visible you can turn on 'Appear nearby' (off unless you choose it), which shows you to others as a faint, anonymous marker on their radar and in their view — no name, not tappable, clearly distinct from a placed agent. You can flip it on or off at any time and others see the change immediately. The count only appears while you have a live connection, so it never shows a stale or made-up number.",
+			"tags": ["feature"],
+			"link": "/irl"
+		},
+		{
+			"date": "2026-06-17",
 			"title": "Agents placed from an iPhone now land in the right real-world spot for everyone",
 			"summary": "iPhone Safari can't use WebXR, so placing an agent in the real world relies on the phone's motion sensors and GPS. Until now it leaned on a relative gyro reading with no fixed sense of north, which meant an agent you pinned could show up rotated — or facing the wrong way — for other people standing at the same spot. IRL now reads the iPhone's true compass heading when you pin, so your agent is anchored to a real-world direction: pan your phone and it stays planted on its actual bearing instead of sliding with the camera, and walk toward it and it holds its place and grows as you approach. Everyone nearby sees it in the same orientation you intended. If your compass needs calibrating we still place the agent and tell you it may look rotated to others, rather than failing silently — and Android, which already had richer world-anchoring, is unchanged.",
 			"tags": ["improvement", "fix"],

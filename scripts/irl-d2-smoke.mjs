@@ -152,10 +152,13 @@ async function main() {
 		check('count is still 2 after a heartbeat', A.count() === 2);
 
 		console.log('\n6) a viewer leaving drops the count for everyone else, live');
-		await B.leave();
+		B.leave(); // fire-and-forget; we assert via A's live view, not B's ack
 		check('A sees count fall to 1 after B leaves', await waitUntil(() => A.count() === 1, LIVENESS_MS));
 	} finally {
-		await Promise.allSettled([A?.leave(), B?.leave()]);
+		// Fire client leaves without awaiting — an already-left room's leave() can
+		// stall — then kill the server. The explicit process.exit below forcibly
+		// tears down any lingering client socket handles.
+		try { A?.leave(); B?.leave(); } catch {}
 		child.kill('SIGTERM');
 	}
 
