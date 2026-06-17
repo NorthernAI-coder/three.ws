@@ -43,6 +43,7 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import nipplejs from 'nipplejs';
 import { AnimationManager } from './animation-manager.js';
 import { WebXRSession } from './ar/webxr.js';
+import { createPersistGate, placementHint } from './ar/anchor-lifecycle.js';
 import { IrlNet } from './irl-net.js';
 import { wireShareButton } from './irl/share-frame.js';
 import { log } from './shared/log.js';
@@ -1321,12 +1322,9 @@ function onGPSPosition(pos) {
 
 	// A WebXR floor anchor was placed before this first fix — persist its pin now.
 	// The XRAnchor already holds the agent in the room; this lands the durable,
-	// shareable record it couldn't save without coordinates.
-	if (_pendingXrAnchorPose) {
-		const pose = _pendingXrAnchorPose;
-		_pendingXrAnchorPose = null;
-		persistFloorAnchor(pose);
-	}
+	// shareable record it couldn't save without coordinates. gpsState.ready is true
+	// by here, so the gate drains its held pose exactly once (a no-op otherwise).
+	floorPersist.onFix(gpsState.ready);
 
 	// Move pinned avatar to its GPS-anchored world position. anchor_height_m (A2)
 	// keeps the feet on the ground plane on slopes / indoors — 0 today, but read
@@ -1592,11 +1590,40 @@ function startTick() {
 }
 
 let xrSession = null;
-// A floor anchor placed before the first GPS fix — held here and persisted the
+// A floor anchor placed before the first GPS fix is held here and persisted the
 // instant onGPSPosition() lands real coordinates (mirrors _pendingGpsLock for the
 // gyro path). The in-session XRAnchor already glues the agent; this rescues its
-// durable, shareable pin from a quick tap during GPS warm-up.
-let _pendingXrAnchorPose = null;
+// durable, shareable pin from a quick tap during GPS warm-up. The gate owns the
+// "save exactly once" guarantee: place() holds or saves, onFix() drains a held
+// pose a single time, drop() discards one abandoned on exit — so no code path can
+// double-save, skip the save, or persist a placement the user walked away from.
+const floorPersist = createPersistGate((payload) => persistFloorAnchor(payload.pose, payload.degraded));
+
+// Coordinated XR hint priority so transient lifecycle states (backgrounding,
+// tracking loss) never clobber — or get clobbered by — the placement copy.
+// Highest active state wins: paused > tracking-lost > the latest resting message
+// (searching → tap-to-place → anchored/saved). Every callback funnels through
+// here instead of calling setXrHint directly, so the displayed line is always the
+// single most important thing the user needs to know right now.
+const SEARCHING_HINT = 'Point at the floor and move your phone slowly';
+const xrHintState = { paused: false, trackingLost: false, resting: SEARCHING_HINT };
+
+function renderXrHint() {
+	if (xrHintState.paused) setXrHint('Paused — bring the app forward to keep placing');
+	else if (xrHintState.trackingLost) setXrHint('Tracking lost — move to a brighter, more textured spot');
+	else setXrHint(xrHintState.resting);
+}
+
+// Update the resting (placement-progress) line and re-render under current priority.
+function setXrResting(text) { xrHintState.resting = text; renderXrHint(); }
+
+// Reset the priority machine for a fresh session entry.
+function resetXrHint() {
+	xrHintState.paused = false;
+	xrHintState.trackingLost = false;
+	xrHintState.resting = SEARCHING_HINT;
+	renderXrHint();
+}
 
 async function detectFloorAnchorSupport() {
 	try {
@@ -1647,32 +1674,42 @@ async function enterFloorAnchor() {
 	if (xrSession) { await xrSession.end(); return; }
 	// immersive-ar owns the rear camera and the full screen; release the
 	// getUserMedia passthrough first so the two don't contend for the camera.
+	// Remember whether the user was in camera-AR so we can put them back there on
+	// exit — returning to a black/gradient view would feel like a crash.
+	const resumeAR = arActive;
 	if (arActive) disableAR();
 
 	clearXrError();
 	if (anchorBtn) anchorBtn.classList.add('is-active');
 	if (xrOverlay) xrOverlay.hidden = false;
-	setXrHint('Point at the floor and move your phone slowly');
+	resetXrHint();
 
 	try {
 		xrSession = new WebXRSession(xrViewer, {
 			domOverlayRoot: xrOverlay,
-			onHit: (has) => setXrHint(has
-				? 'Tap to place your agent on the floor'
-				: 'Point at the floor and move your phone slowly'),
-			onAnchored: (pose) => onFloorAnchored(pose),
+			onHit: (has) => setXrResting(has ? 'Tap to place your agent on the floor' : SEARCHING_HINT),
+			// Tracking loss / recovery is a transient, higher-priority overlay on the
+			// resting hint — recoverable, self-clearing, never a dead reticle.
+			onTracking: (ok) => { xrHintState.trackingLost = !ok; renderXrHint(); },
+			// Backgrounding (lock, call, app switch) pauses the session; show a
+			// resume hint and restore the resting line when foregrounded again.
+			onVisibility: (visible) => { xrHintState.paused = !visible; renderXrHint(); },
+			onAnchored: (pose, meta) => onFloorAnchored(pose, meta),
 			onEnd: () => {
 				xrSession = null;
 				// Drop any anchor still waiting on a GPS fix — the user left this
 				// placement, so don't surprise them with a pin saved after they walk
 				// away (parity with the gyro path's arActive gate).
-				_pendingXrAnchorPose = null;
+				floorPersist.drop();
 				// WebXRSession restores an opaque clear color on exit; IRL renders
 				// over the page gradient with a transparent canvas — put that back.
 				renderer.setClearColor(0x000000, 0);
 				if (!arActive) scene.background = null;
 				if (anchorBtn) anchorBtn.classList.remove('is-active');
 				if (xrOverlay) xrOverlay.hidden = true;
+				// Return the user to camera-AR if that's where they came from — same
+				// path whether they tapped Exit or the OS ended the session.
+				if (resumeAR && !arActive) enableAR();
 			},
 		});
 		await xrSession.start();
@@ -1681,6 +1718,9 @@ async function enterFloorAnchor() {
 		log.error('[irl] WebXR start failed:', err);
 		xrSession = null;
 		if (anchorBtn) anchorBtn.classList.remove('is-active');
+		// The start failed before any session existed, so onEnd never runs — restore
+		// the camera-AR the user was in directly so the entry attempt isn't one-way.
+		if (resumeAR && !arActive) enableAR();
 		showXrError(err);
 	}
 }
@@ -1695,18 +1735,21 @@ function yawFromQuat(q) {
 
 // Entry point for a placed floor anchor: persist it now if we have a GPS fix,
 // otherwise hold the pose until the first fix lands. The in-session XRAnchor
-// already glues the agent either way — this only governs the durable pin.
-function onFloorAnchored(pose) {
-	if (!gpsState.ready) {
+// already glues the agent either way — this only governs the durable pin. `meta`
+// carries the degraded flag (no real XRAnchor) so we tell the user the truth.
+function onFloorAnchored(pose, meta = {}) {
+	const degraded = meta.degraded === true;
+	// The gate decides: with a live fix it persists now; during GPS warm-up it
+	// holds the pose (degraded flag rides along) and onGPSPosition drains it once.
+	const outcome = floorPersist.place({ pose, degraded }, gpsState.ready);
+	if (outcome === 'held') {
 		// The anchor still glues the agent in-session; we just can't convert it to a
-		// GPS pin yet. Hold the pose and finish the save the moment the first fix
-		// lands (onGPSPosition) rather than dropping it — a quick tap during GPS
-		// warm-up should still persist, not vanish.
-		_pendingXrAnchorPose = pose;
-		setXrHint('Anchored here — saving this spot once your location locks in');
-		return;
+		// GPS pin yet. A quick tap during GPS warm-up should still persist, not vanish.
+		setXrResting(degraded
+			? 'Placed — saving this spot once your location locks in (may drift on this device)'
+			: 'Anchored here — saving this spot once your location locks in');
 	}
-	persistFloorAnchor(pose);
+	// outcome === 'persisted' → persistFloorAnchor set the resting hint already.
 }
 
 // Convert the anchored local-space pose to a GPS pin and persist it (A2) — the
@@ -1714,7 +1757,9 @@ function onFloorAnchored(pose) {
 // lat/lng uses the same metre-per-degree math as the gyro Pin path (local −Z =
 // north, +X = east); height + yaw + GPS-fit trust ride along in the anchor object.
 // Split out so onGPSPosition() can replay a pose captured before the first fix.
-function persistFloorAnchor(pose) {
+// `degraded` (no real XRAnchor) only changes the in-session honesty copy — the
+// durable GPS pin is just coordinates, so it saves the same either way.
+function persistFloorAnchor(pose, degraded = false) {
 	const { position, quaternion } = pose;
 	const mLat = 110540;
 	const mLng = 111320 * Math.cos(gpsState.lat * (Math.PI / 180));
@@ -1724,7 +1769,7 @@ function persistFloorAnchor(pose) {
 
 	gpsPin = { lat: pinLat, lng: pinLng };
 	gpsModeActive = true;
-	setXrHint('Anchored — walk around, it stays put');
+	setXrResting(placementHint(degraded));
 	savePin(pinLat, pinLng, heading, '', {
 		heightM: position.y,        // floor height relative to the eye-level session origin (negative = below)
 		yawDeg:  heading,
@@ -1734,12 +1779,12 @@ function persistFloorAnchor(pose) {
 		if (result?.ok && gpsPin) {
 			gpsPin.id = result.id;
 			revealMyPinsBtn();
-			setXrHint(result.permanent
+			setXrResting(result.permanent
 				? 'Anchored & saved — permanently visible to nearby users'
 				: 'Anchored & saved — nearby users can see you for 7 days');
 		} else {
 			// Surface the moderation/cap/rate reason; the in-session anchor still holds.
-			setXrHint(result?.message || 'Anchored here — couldn’t save the pin, retry on exit');
+			setXrResting(result?.message || 'Anchored here — couldn’t save the pin, retry on exit');
 		}
 	});
 }
@@ -4781,4 +4826,14 @@ if (import.meta.env.DEV) {
 	} catch (e) {
 		log.warn('[irl] mockLoc parse failed:', e?.message || e);
 	}
+
+	// ── Arrival-signal harness (task 04 → task 03 handoff) ────────────────────
+	// Record every "newly stable in-range" emission so the hysteresis no-double-fire
+	// guarantee is verifiable in a real browser: drive a GPS wobble around a pin at
+	// the boundary (the Verify recipe) and confirm __irlStableArrivals() lists each
+	// agent exactly once — never a flicker storm. Returns the recorded arrivals.
+	const _stableArrivals = [];
+	onPinStable((pin) => { _stableArrivals.push({ id: pin.id, name: pin.avatar_name, at: Date.now() }); });
+	window.__irlStableArrivals = () => _stableArrivals.slice();
+	window.__irlResetStableArrivals = () => { _stableArrivals.length = 0; return 'reset'; };
 }
