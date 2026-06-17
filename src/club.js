@@ -1292,7 +1292,11 @@ window.addEventListener('club:performance-end', () => {
 {
 	const doorPay = document.getElementById('club-door-pay');
 	doorPay?.addEventListener('click', () => {
-		audio.ensureContext().catch(() => {});
+		// Prime the context and start ambience immediately so the user hears the
+		// club music muffled through the door (outdoor effect is the default state).
+		audio.ensureContext()
+			.then(() => audio.startAmbience())
+			.catch(() => {});
 	}, { once: true });
 
 	const armOnGesture = () => {
@@ -1301,6 +1305,8 @@ window.addEventListener('club:performance-end', () => {
 		window.addEventListener('keydown', retry, { once: true });
 	};
 	window.addEventListener('club:admitted', () => {
+		// Transition audio from outdoor muffle → full indoor clarity as the door opens.
+		audio.setLocation(true);
 		// On a cached re-entry the door opens with no gesture, so the context is
 		// still locked — fall back to playing on the next interaction.
 		audio.playEntrance().catch(armOnGesture);
