@@ -183,6 +183,69 @@ describe('replicate provider — community-model 404 fallback', () => {
 	});
 });
 
+describe('replicate provider — create-prediction throttle', () => {
+	// Replicate 429s prediction CREATION when the account is over its (credit-
+	// reduced) rate limit. The window resets in seconds and no prediction was
+	// created, so the provider must back off and retry rather than fail the call.
+	it('retries a 429 throttle and succeeds once the window resets', async () => {
+		let posts = 0;
+		globalThis.fetch = vi.fn(async (url) => {
+			posts++;
+			if (posts === 1) {
+				return new Response(
+					JSON.stringify({ detail: 'Request was throttled. Your rate limit resets in ~10s.' }),
+					// retry-after: 0 keeps the test instant; the backoff math is the same.
+					{ status: 429, headers: { 'content-type': 'application/json', 'retry-after': '0' } },
+				);
+			}
+			return new Response(JSON.stringify({ id: 'pred_throttle_ok', status: 'starting' }), {
+				status: 201,
+				headers: { 'content-type': 'application/json' },
+			});
+		});
+
+		const provider = await freshProvider();
+		const job = await provider.submit({
+			mode: 'reconstruct',
+			params: { images: ['https://img/a.jpg'] },
+			sourceUrl: 'https://img/a.jpg',
+		});
+
+		expect(posts).toBe(2); // throttled once, then created
+		expect(job.extJobId).toBe('pred_throttle_ok');
+	});
+
+	it('surfaces an exhausted throttle as a retryable rate_limited error', async () => {
+		// No Retry-After header → the backoff + the surfaced hint are both parsed
+		// from the "resets in ~3s" body phrasing. Fake timers skip the real waits.
+		vi.useFakeTimers();
+		try {
+			globalThis.fetch = vi.fn(async () =>
+				new Response(
+					JSON.stringify({ detail: 'Request was throttled. Your rate limit resets in ~3s.' }),
+					{ status: 429, headers: { 'content-type': 'application/json' } },
+				),
+			);
+
+			const provider = await freshProvider();
+			const pending = provider.submit({
+				mode: 'reconstruct',
+				params: { images: ['https://img/a.jpg'] },
+				sourceUrl: 'https://img/a.jpg',
+			});
+			const assertion = expect(pending).rejects.toMatchObject({
+				code: 'rate_limited',
+				status: 429,
+				retryAfter: 3,
+			});
+			await vi.runAllTimersAsync(); // advance through the bounded backoff sleeps
+			await assertion;
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+});
+
 describe('replicate provider — GLB extraction from status', () => {
 	function stubStatus(output) {
 		globalThis.fetch = vi.fn(async () =>

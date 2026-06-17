@@ -3,6 +3,16 @@
 	"entries": [
 		{
 			"date": "2026-06-17",
+			"title": "Forge now generates on the free NVIDIA engine — faster, no throttling",
+			"summary": "Paying to turn a sentence into a 3D model — on the IBM demo and the pay-per-call Forge API — now runs on the free NVIDIA NIM (Microsoft TRELLIS) engine instead of the previous paid pipeline. That removes the \"request was throttled\" errors some forges hit, and draft prompts often finish in seconds and return the model inline with no waiting. The same quality tiers and prices apply, and if the free engine is ever busy the call automatically falls back so a paid forge never dead-ends. Building a 3D model from your own uploaded photos still uses the reconstruction engine.",
+			"tags": [
+				"improvement",
+				"fix"
+			],
+			"link": "/ibm/x402-demo"
+		},
+		{
+			"date": "2026-06-17",
 			"title": "Embeddable 3D agents now default to a clean, bare avatar",
 			"summary": "The <agent-3d> embed tag now starts as the simplest thing it can be: a plain 3D avatar on a transparent background, with no chat box, controls, or name plate unless you ask for them. Drop the tag with a body and you get just the avatar — perfect for hero sections and decorative scenes. Everything richer is opt-in: add chat for a conversation panel, set background to dark, light, or any color, and theme it with CSS variables. Binding a live agent still turns chat on automatically, and you can now force a bare avatar even for a bound agent with chat=\"off\".",
 			"tags": [
