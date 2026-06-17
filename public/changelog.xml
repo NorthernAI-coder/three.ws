@@ -439,6 +439,14 @@
 			<description>When you tip a dancer in the Pole Club, the platform batches your tips and sweeps them on-chain to the dancer's registered wallet. A mismatch in how a settled tip recorded its network meant Solana tips were being set aside as 'no wallet' even when the dancer had a Solana address on file, so they never went out. That's fixed: tips paid on Solana are now matched to the dancer's Solana wallet and swept correctly, alongside the existing Base payouts. No tip was ever lost — stuck tips remained queued and now sweep on the next cycle.</description>
 		</item>
 		<item>
+			<title>Rarest Fits button styled in the cosmetics shop</title>
+			<link>https://three.ws/play</link>
+			<guid isPermaLink="false">2026-06-17:Rarest Fits button styled in the cosmetics shop</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>The Rarest Fits leaderboard button in the cosmetics shop header now has proper hover, active, and focus states matching the rest of the shop chrome, and collapses to a compact glyph button on mobile.</description>
+		</item>
+		<item>
 			<title>Report a bad IRL pin — and guardrails that keep public spots usable</title>
 			<link>https://three.ws/irl</link>
 			<guid isPermaLink="false">2026-06-17:Report a bad IRL pin — and guardrails that keep public spots usable</guid>
