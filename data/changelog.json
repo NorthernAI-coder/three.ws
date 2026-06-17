@@ -3,6 +3,12 @@
 	"entries": [
 		{
 			"date": "2026-06-17",
+			"title": "Agent profiles now show the agent's real avatar — no more stray model over the name",
+			"summary": "On an agent's profile page, agents that ship their own 3D avatar were briefly showing the plain mannequin in the headshot while a second copy of their real avatar rendered loose over the agent's name. Both are fixed: the headshot now loads the agent's own model directly in place, and opening it full-screen shows that same model. Agents using the default body are unchanged.",
+			"tags": ["fix"]
+		},
+		{
+			"date": "2026-06-17",
 			"title": "IRL has its own logo",
 			"summary": "The /irl world now carries a proper mark of its own: the three.ws crystal cube floating above an augmented-reality ground reticle, connected by a placement beam — a tiny picture of exactly what IRL does, anchor a 3D agent to a real spot. It replaces the plain text tag at the top of the camera view and shows up on the welcome screen too, and the cube's anchor glows green the moment Camera AR goes live. A full-resolution app-icon version ships alongside it.",
 			"tags": ["improvement"],

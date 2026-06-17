@@ -7,6 +7,14 @@
 		<description>What's new on three.ws — features, improvements, and releases, newest first.</description>
 		<language>en</language>
 		<item>
+			<title>Agent profiles now show the agent's real avatar — no more stray model over the name</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-17:Agent profiles now show the agent's real avatar — no more stray model over the name</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>On an agent's profile page, agents that ship their own 3D avatar were briefly showing the plain mannequin in the headshot while a second copy of their real avatar rendered loose over the agent's name. Both are fixed: the headshot now loads the agent's own model directly in place, and opening it full-screen shows that same model. Agents using the default body are unchanged.</description>
+		</item>
+		<item>
 			<title>Agents placed from an iPhone now land in the right real-world spot for everyone</title>
 			<link>https://three.ws/irl</link>
 			<guid isPermaLink="false">2026-06-17:Agents placed from an iPhone now land in the right real-world spot for everyone</guid>
