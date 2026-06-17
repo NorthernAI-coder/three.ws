@@ -367,6 +367,14 @@
 			<description>The Sniper Strategies dashboard now streams your agents' open positions with live unrealized profit and loss — both the SOL figure and the percentage — instead of a blank value, and fills them in the moment the page loads rather than waiting for the next trade to land. The live feed shows its own connection state (Live / Reconnecting) and re-establishes itself automatically with backoff if it drops, so you always know whether you're watching real-time data. Closed-trade history now calls out your single best and worst trade, and there are one-tap links to the public leaderboard and sniper arena so your track record is easy to share.</description>
 		</item>
 		<item>
+			<title>Sniper now auto-sells coins that graduate off the bonding curve</title>
+			<link>https://three.ws/dashboard/sniper</link>
+			<guid isPermaLink="false">2026-06-17:Sniper now auto-sells coins that graduate off the bonding curve</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>When a coin your sniper holds graduates from the pump.fun bonding curve to its AMM pool, the agent used to be stuck holding it — the position sat parked and your exit rules quietly stopped working. The sniper now follows a graduated coin straight onto the AMM and keeps managing it there: stop-loss, trailing-stop, take-profit, and the hold-time limit all keep working against the real post-graduation price, and the automatic sell goes out with slippage protection. Positions that were stuck before can be cleared with a one-time backfill.</description>
+		</item>
+		<item>
 			<title>Tapping an IRL agent is now reliable — hit the body, not just the tiny label</title>
 			<link>https://three.ws/irl</link>
 			<guid isPermaLink="false">2026-06-17:Tapping an IRL agent is now reliable — hit the body, not just the tiny label</guid>
@@ -397,6 +405,14 @@
 			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>There's now a live, self-contained x402 demo you can try in a browser. Pay $0.001 USDC from your own wallet — MetaMask on Base or Phantom on Solana — and call a real three.ws data API. The page reads the live HTTP 402 price the server quotes, runs the paid call once your wallet signs a gasless authorization, and shows the response next to an on-chain transaction receipt you can open on Basescan or Solscan. Nothing is mocked and there's no account or backend. The same eight-line embed it runs on — one script tag from three.ws plus any button carrying a data-x402-endpoint — is copy-pasteable into any site, so a developer can add a working pay-per-call paywall in minutes. Built with IBM as the public face of the partnership and designed to host cleanly on a strict-CSP enterprise page.</description>
+		</item>
+		<item>
+			<title>x402 live demo: dark theme, smoother motion, and a full accessibility pass</title>
+			<link>https://three.ws/ibm/x402-demo</link>
+			<guid isPermaLink="false">2026-06-17:x402 live demo: dark theme, smoother motion, and a full accessibility pass</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>The live x402 demo got a polish pass. It now carries a complete dark theme for dark IBM contexts, refined button and loading states, and a subtle price-update animation — and every bit of motion respects your reduced-motion setting. The layout holds from 320px phones to desktop with proper touch-target sizing, detects a connected browser wallet (or, on mobile, guides you to open the page inside your wallet's in-app browser), and passes a WCAG-AA accessibility pass: semantic markup, screen-reader-friendly status announcements, visible focus rings, and full keyboard operation.</description>
 		</item>
 		<item>
 			<title>Your IRL agent dashboard now lights up the instant someone interacts</title>

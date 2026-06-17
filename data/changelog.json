@@ -3,6 +3,20 @@
 	"entries": [
 		{
 			"date": "2026-06-17",
+			"title": "Sniper now auto-sells coins that graduate off the bonding curve",
+			"summary": "When a coin your sniper holds graduates from the pump.fun bonding curve to its AMM pool, the agent used to be stuck holding it — the position sat parked and your exit rules quietly stopped working. The sniper now follows a graduated coin straight onto the AMM and keeps managing it there: stop-loss, trailing-stop, take-profit, and the hold-time limit all keep working against the real post-graduation price, and the automatic sell goes out with slippage protection. Positions that were stuck before can be cleared with a one-time backfill.",
+			"tags": ["fix"],
+			"link": "/dashboard/sniper"
+		},
+		{
+			"date": "2026-06-17",
+			"title": "x402 live demo: dark theme, smoother motion, and a full accessibility pass",
+			"summary": "The live x402 demo got a polish pass. It now carries a complete dark theme for dark IBM contexts, refined button and loading states, and a subtle price-update animation — and every bit of motion respects your reduced-motion setting. The layout holds from 320px phones to desktop with proper touch-target sizing, detects a connected browser wallet (or, on mobile, guides you to open the page inside your wallet's in-app browser), and passes a WCAG-AA accessibility pass: semantic markup, screen-reader-friendly status announcements, visible focus rings, and full keyboard operation.",
+			"tags": ["improvement"],
+			"link": "/ibm/x402-demo"
+		},
+		{
+			"date": "2026-06-17",
 			"title": "The sniper now runs as an always-on service — armed strategies fire in real time",
 			"summary": "An armed sniper strategy now has a live engine behind it. The sniper runs as a dedicated always-on worker that holds the pump.fun launch feed open continuously and acts the moment a launch matches your rules — not on a slow timer. It starts in a safe simulate mode (real scoring, zero spend) and going live is a deliberate, gated step that needs a funded agent wallet, so nothing trades real money by accident. If the launch feed ever drops, the worker reconnects on its own and pages the operators, and a public health check at /api/sniper/status reports whether it's live, reconnecting, or down — so 'is the sniper actually working right now?' is always answerable. Every safety limit you set — daily budget, per-trade size, max open positions, mandatory stop-loss, price-impact cutoff — is enforced by the running service exactly as configured.",
 			"tags": ["infra", "feature"],
