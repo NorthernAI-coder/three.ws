@@ -7,6 +7,54 @@
 		<description>What's new on three.ws — features, improvements, and releases, newest first.</description>
 		<language>en</language>
 		<item>
+			<title>Everyone at a location now sees your IRL agent in the same real spot</title>
+			<link>https://three.ws/irl</link>
+			<guid isPermaLink="false">2026-06-17:Everyone at a location now sees your IRL agent in the same real spot</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>three.ws/irl agents now line up across phones. A placed agent renders from its own saved compass bearing and ground height instead of whichever way your phone happens to face, so two people standing in the same place see it standing in the same place, facing the same way. To keep it steady, your own GPS position is now smoothed so anchored agents stop drifting and swimming as your location jitters, and noisy fixes are ignored. Every agent now sits inside a ground ring whose size reflects the real GPS accuracy — honest about the fact that phone GPS is roughly 5–15 metres, and wider (and amber) when the signal is poor — so it never pretends to be pinpoint-perfect. And if an agent landed a little off, its owner can fine-tune it: long-press your own agent (or tap Calibrate position on its card) and drag to nudge it a few centimetres, twist with two fingers to rotate it, or step its floor height up and down. Saving the nudge updates the spot for everyone nearby. Only the owner can calibrate an agent, nudges are capped to small corrections so this can never be used to drag someone's agent across the map, and a failed save keeps your change on screen with a one-tap retry.</description>
+		</item>
+		<item>
+			<title>iPhone now world-locks your IRL agent — it holds its real spot as you pan and walk</title>
+			<link>https://three.ws/irl</link>
+			<guid isPermaLink="false">2026-06-17:iPhone now world-locks your IRL agent — it holds its real spot as you pan and walk</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>iPhone Safari has no AR mode, so a placed agent used to drift with the camera. On three.ws/irl it now stays anchored to its real-world spot using the compass and GPS: pan your phone and the agent holds its real bearing instead of following the view, and walk toward it and it grows and keeps its place. Tapping Pin here saves the full placement — facing, ground height, and how good your GPS fix was — so iPhone placements match the AR-anchored version other phones see. If you pin before your location is ready, it waits for the first fix and pins precisely instead of dropping at a default spot. Permission states are designed and recoverable too: if motion or location access is off you get a clear card with the exact iOS Settings path and a Try again button, and if your phone can't read an absolute compass heading you're warned that others may see the agent rotated.</description>
+		</item>
+		<item>
+			<title>IRL agents now materialize as you walk up to them</title>
+			<link>https://three.ws/irl</link>
+			<guid isPermaLink="false">2026-06-17:IRL agents now materialize as you walk up to them</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>On three.ws/irl, a 3D agent placed further away first appears as a glowing beacon to keep things light. Previously it stayed a beacon even after you walked right up to it; now it upgrades to the full 3D avatar the moment you come within range, so approaching an agent in real life actually reveals it. Distance to each nearby agent is also recalculated live as you move instead of being frozen at the moment you arrived. Long AR sessions are smoother too: agents that leave the area now fully release their 3D model from memory instead of quietly accumulating, which keeps the camera view fast when you're somewhere busy with lots of agents coming and going.</description>
+		</item>
+		<item>
+			<title>IRL agents turn to look at you as you move around them</title>
+			<link>https://three.ws/irl</link>
+			<guid isPermaLink="false">2026-06-17:IRL agents turn to look at you as you move around them</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>On three.ws/irl, a placed 3D agent now notices the viewer. As you move your phone around it, it eases its body toward your camera and layers on a natural head turn so it appears to look right at you — the real-world version of a desktop avatar that follows your cursor. The head movement is clamped to a realistic neck range so it never over-rotates, and an avatar with no head bone falls back to a clean whole-body turn. Back away and the agent eases home to the heading it was placed at. When nobody is close it shows a subtle idle gaze drift instead of a frozen stare, and the first time you step within a few metres it gives a brief notice reaction. Motion is eased throughout and only the nearest on-screen agents are tracked each frame, so it stays smooth even with several agents around you.</description>
+		</item>
+		<item>
+			<title>Place your IRL agent on the real floor with AR anchoring</title>
+			<link>https://three.ws/irl</link>
+			<guid isPermaLink="false">2026-06-17:Place your IRL agent on the real floor with AR anchoring</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>On AR-capable phones (Android Chrome), three.ws/irl now lets you point at your actual floor through a placement ring and tap to set your agent on that exact spot. It binds to a real-world anchor, so it stays put as you walk around it instead of sliding with the camera or jittering with GPS — the world-locked placement you'd expect from a top AR app. Each placement is saved as a pin, capturing the floor height, facing, and how good your GPS fix was, so it reloads near the same place and nearby people can see it. iPhone, which doesn't support this AR mode, keeps the existing compass-based Pin here flow and simply doesn't show the floor button.</description>
+		</item>
+		<item>
+			<title>Tapping an IRL agent is now reliable — hit the body, not just the tiny label</title>
+			<link>https://three.ws/irl</link>
+			<guid isPermaLink="false">2026-06-17:Tapping an IRL agent is now reliable — hit the body, not just the tiny label</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>On three.ws/irl you can now open an agent by tapping its 3D body, not only its small floating name tag. Tapping near a name also works, with a finger-sized target that meets Apple's 44-pixel minimum, so you no longer have to pixel-hunt on a phone. When two agents stand on top of each other, the one in front wins instead of a random pick. As you move, the nearest agent you can reach lights up with a soft focus ring so you can see what you'll tap before you tap it — and if you've turned on Reduce Motion, the ring stays still. Looking and panning around no longer misfires as a tap.</description>
+		</item>
+		<item>
 			<title>Agent Activity — Oracle conviction in real time</title>
 			<link>https://three.ws/activity</link>
 			<guid isPermaLink="false">2026-06-16:Agent Activity — Oracle conviction in real time</guid>

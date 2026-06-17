@@ -196,6 +196,14 @@ export const limits = {
 	// `authIp` budget shared by on-chain buy/sell/launch actions. Iterating in
 	// the launch wizard would otherwise lock the user out of trading for 10 min.
 	pumpMetaIp: (ip) => getLimiter('pump:meta:ip', { limit: 60, window: '10 m' }).limit(ip),
+	// IRL write buckets — /irl places real 3D agents at GPS spots and logs visitor
+	// interactions, all from public (often anonymous) callers, so the write paths
+	// need their own ceilings or a script could carpet a map with pins, inflate
+	// view counts, or flood an owner's interaction inbox.
+	//   · irlPinIp     — create/edit/delete a placement (heavier; placing dozens is abuse)
+	//   · irlInteractIp — log a tap/view/message (lighter; legit viewing fans out)
+	irlPinIp: (ip) => getLimiter('irl:pin:ip', { limit: 20, window: '10 m' }).limit(ip),
+	irlInteractIp: (ip) => getLimiter('irl:interact:ip', { limit: 60, window: '1 m' }).limit(ip),
 	// Same-origin image proxy (api/img). A token-cloud view loads dozens of
 	// thumbnails at once, so the ceiling is generous — but bounded so the proxy
 	// can't be turned into an open bandwidth relay. Responses are CDN-cached.

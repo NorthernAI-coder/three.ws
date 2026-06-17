@@ -258,6 +258,7 @@
 		}
 		.irl-status.is-hidden { opacity: 0; }
 		.irl-status.is-error { color: var(--danger); }
+		.irl-status.is-warn { color: #fbbf24; }
 		.irl-status-spinner {
 			width: 13px;
 			height: 13px;
@@ -358,6 +359,87 @@
 			background: rgba(251,191,36,0.1);
 		}
 		#irl-lock-btn.is-active:hover { background: rgba(251,191,36,0.18); }
+		/* WebXR floor-anchor entry — accent it as the premium placement path */
+		#irl-anchor-btn {
+			color: #c4b5fd;
+			border-color: rgba(155,140,255,0.4);
+			background: rgba(155,140,255,0.08);
+		}
+		#irl-anchor-btn:hover:not(:disabled) {
+			color: #ddd6fe;
+			border-color: rgba(155,140,255,0.6);
+			background: rgba(155,140,255,0.16);
+		}
+		#irl-anchor-btn.is-active {
+			color: #ddd6fe;
+			border-color: rgba(155,140,255,0.7);
+			background: rgba(155,140,255,0.2);
+		}
+		/* ── WebXR floor-anchor in-session overlay (dom-overlay root) ── */
+		#irl-xr-overlay {
+			position: fixed;
+			inset: 0;
+			z-index: 60;
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: flex-start;
+			pointer-events: none; /* only the chrome inside is interactive */
+			padding: calc(env(safe-area-inset-top, 0px) + 18px) 16px 0;
+		}
+		#irl-xr-overlay[hidden] { display: none; }
+		.irl-xr-bar {
+			display: flex;
+			align-items: center;
+			gap: 12px;
+			max-width: 560px;
+			width: 100%;
+			padding: 10px 12px 10px 16px;
+			border-radius: 999px;
+			background: rgba(10,11,18,0.72);
+			border: 1px solid rgba(255,255,255,0.12);
+			backdrop-filter: blur(12px);
+			-webkit-backdrop-filter: blur(12px);
+			box-shadow: 0 6px 28px rgba(0,0,0,0.45);
+			pointer-events: auto;
+		}
+		.irl-xr-hint {
+			flex: 1;
+			margin: 0;
+			font-size: 13.5px;
+			font-weight: 600;
+			line-height: 1.35;
+			color: #e8e8ef;
+			letter-spacing: -0.01em;
+		}
+		.irl-xr-exit {
+			flex-shrink: 0;
+			display: inline-flex;
+			align-items: center;
+			gap: 6px;
+			padding: 8px 13px;
+			border-radius: 999px;
+			font: 600 12.5px/1 var(--font-body, system-ui, sans-serif);
+			color: #e8e8ef;
+			background: rgba(255,255,255,0.08);
+			border: 1px solid rgba(255,255,255,0.16);
+			cursor: pointer;
+			transition: background 0.15s ease, border-color 0.15s ease, transform 0.12s ease;
+		}
+		.irl-xr-exit:hover { background: rgba(255,255,255,0.14); border-color: rgba(255,255,255,0.28); }
+		.irl-xr-exit:active { transform: translateY(1px); }
+		.irl-xr-exit:focus-visible { outline: 2px solid rgba(255,255,255,0.5); outline-offset: 2px; }
+		.irl-xr-error {
+			pointer-events: auto;
+			margin-top: 14vh;
+			max-width: 420px;
+			width: 100%;
+			border-radius: 18px;
+			background: rgba(10,11,18,0.92);
+			border: 1px solid rgba(255,255,255,0.12);
+			box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+		}
+		.irl-xr-error[hidden] { display: none; }
 		/* Gyro pulse on lock icon when actively tracking orientation in AR */
 		body.is-ar.is-locked #irl-lock-icon {
 			animation: irl-gyro-pulse 2.5s ease-in-out infinite;
@@ -629,6 +711,42 @@
 		#irl-caption-cancel { width: 44px; height: 44px; padding: 0; border-radius: 12px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.06); color: #6b7280; font: 600 18px inherit; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.15s; }
 		#irl-caption-cancel:hover { background: rgba(255,255,255,0.12); color: #e5e7eb; }
 
+		/* Designed guidance sheet — motion permission, GPS-not-ready, etc. (A4) */
+		#irl-error-sheet {
+			position: fixed;
+			bottom: 0;
+			left: 0;
+			right: 0;
+			z-index: 24;
+			background: rgba(12,14,20,0.97);
+			border-top: 1px solid rgba(248,113,113,0.3);
+			border-radius: 18px 18px 0 0;
+			padding: 20px 22px 36px;
+			backdrop-filter: blur(22px);
+			-webkit-backdrop-filter: blur(22px);
+			transform: translateY(100%);
+			transition: transform 0.28s cubic-bezier(0.32,0.72,0,1);
+			pointer-events: none;
+		}
+		#irl-error-sheet.is-open { transform: translateY(0); pointer-events: all; }
+		#irl-error-sheet .irl-sheet-handle { margin-bottom: 14px; }
+		.irl-error-icon {
+			width: 40px; height: 40px;
+			border-radius: 12px;
+			display: flex; align-items: center; justify-content: center;
+			background: rgba(248,113,113,0.12);
+			color: var(--danger);
+			margin-bottom: 12px;
+		}
+		#irl-error-sheet h3 { font-size: 16px; font-weight: 700; color: #e5e7eb; margin: 0 0 8px; }
+		#irl-error-body { font-size: 13.5px; line-height: 1.55; color: var(--text-2); margin: 0 0 16px; }
+		.irl-error-row { display: flex; gap: 10px; }
+		#irl-error-action { flex: 1; padding: 12px 16px; border-radius: 12px; border: 1px solid rgba(96,165,250,0.4); background: rgba(96,165,250,0.16); color: #93c5fd; font: 600 14px inherit; cursor: pointer; transition: background 0.15s; }
+		#irl-error-action:hover { background: rgba(96,165,250,0.26); }
+		#irl-error-action:active { transform: scale(0.98); }
+		#irl-error-dismiss { width: 44px; height: 44px; padding: 0; border-radius: 12px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.06); color: #9ca3af; font: 600 18px inherit; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.15s; }
+		#irl-error-dismiss:hover { background: rgba(255,255,255,0.12); color: #e5e7eb; }
+
 		/* My Pins management sheet */
 		#irl-mypins-sheet {
 			position: fixed;
@@ -685,7 +803,16 @@
 			-webkit-backdrop-filter: blur(8px);
 			box-shadow: 0 0 10px rgba(136,187,255,0.15);
 			animation: irl-label-in 0.22s ease-out;
-			transition: border-color 0.2s, box-shadow 0.2s, color 0.2s;
+			transition: border-color 0.2s, box-shadow 0.2s, color 0.2s, transform 0.18s ease;
+		}
+		/* Expanded touch target (B4) — an invisible ≥44px (Apple HIG) hit area
+		   around the visible label so a finger reliably opens the agent on a
+		   phone. Paints nothing; only enlarges the element's hit region. */
+		.irl-agent-label::before {
+			content: '';
+			position: absolute;
+			inset: -12px;
+			border-radius: 16px;
 		}
 		/* Camera-aware state: agent is in the camera's view cone */
 		.irl-agent-label.is-aware {
@@ -708,52 +835,170 @@
 			border-color: rgba(251,191,36,0.9);
 			box-shadow: 0 0 20px rgba(251,191,36,0.4);
 		}
+		/* Proximity focus (B4) — the single nearest reachable on-screen agent gets
+		   a "you'll tap this" reticle: a crisp ring + subtle scale. Layered after
+		   is-aware/is-own so the focus target always reads on top, and eased via
+		   the label's transform/box-shadow transition. */
+		.irl-agent-label.is-focus {
+			border-color: rgba(136,187,255,0.95);
+			box-shadow: 0 0 0 2px rgba(136,187,255,0.55), 0 0 22px rgba(136,187,255,0.5);
+			transform: translate(-50%, -100%) scale(1.07);
+		}
+		.irl-agent-label.is-own.is-focus {
+			border-color: rgba(251,191,36,0.95);
+			box-shadow: 0 0 0 2px rgba(251,191,36,0.6), 0 0 22px rgba(251,191,36,0.5);
+		}
+		@media (prefers-reduced-motion: reduce) {
+			.irl-agent-label.is-focus { transform: translate(-50%, -100%); }
+		}
 		@keyframes irl-label-in {
 			from { opacity:0; transform: translate(-50%, -90%); }
 			to   { opacity:1; transform: translate(-50%, -100%); }
 		}
 		.irl-agent-label-name { display: block; }
 
-		/* Rich agent interaction sheet extras */
-		#irl-sheet-description {
+		/* ── Inspect card v2 ── */
+		/* Backdrop — dims the AR view behind the card so it reads as a focused dialog */
+		#irl-sheet-backdrop {
+			position: fixed;
+			inset: 0;
+			z-index: 19;
+			background: rgba(4,6,11,0.45);
+			opacity: 0;
+			pointer-events: none;
+			transition: opacity 0.28s ease;
+		}
+		#irl-sheet-backdrop.is-open { opacity: 1; pointer-events: all; }
+
+		/* Header thumbnail */
+		.irl-sheet-thumb {
+			width: 48px;
+			height: 48px;
+			border-radius: 12px;
+			object-fit: cover;
+			flex-shrink: 0;
+			background: rgba(255,255,255,0.06);
+			border: 1px solid rgba(255,255,255,0.10);
+		}
+		.irl-sheet-title-row {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			min-width: 0;
+		}
+		.irl-sheet-title-row .irl-sheet-title { flex: 0 1 auto; }
+
+		/* Tier badge (header) — score + tier word, colour-coded by tier */
+		.irl-tier-badge {
+			display: inline-flex;
+			align-items: center;
+			gap: 4px;
+			flex-shrink: 0;
+			font-size: 11.5px;
+			font-weight: 700;
+			padding: 2px 9px;
+			border-radius: 999px;
+			letter-spacing: 0.01em;
+			font-variant-numeric: tabular-nums;
+			white-space: nowrap;
+			background: rgba(255,255,255,0.08);
+			border: 1px solid rgba(255,255,255,0.16);
+			color: #e5e7eb;
+		}
+		.irl-tier-badge[data-tier="elite"]    { background: rgba(250,204,21,0.16);  border-color: rgba(250,204,21,0.45);  color: #fde047; }
+		.irl-tier-badge[data-tier="trusted"]  { background: rgba(52,211,153,0.16);  border-color: rgba(52,211,153,0.45);  color: #34d399; }
+		.irl-tier-badge[data-tier="emerging"] { background: rgba(96,165,250,0.16);  border-color: rgba(96,165,250,0.45);  color: #93c5fd; }
+		.irl-tier-badge[data-tier="new"]      { background: rgba(255,255,255,0.06);  border-color: rgba(255,255,255,0.16);  color: #9ca3af; }
+
+		/* Card body — JS-rendered state container */
+		.irl-card-body {
+			display: flex;
+			flex-direction: column;
+			gap: 12px;
+			margin-bottom: 14px;
+		}
+		.irl-card-body:empty { display: none; }
+
+		/* Skeleton tuned for the card (overrides state-kit row min-heights) */
+		.irl-card-body .tws-sk--row { padding: 6px 0; border: none; background: none; }
+
+		/* Bio */
+		.irl-card-bio {
 			font-size: 13.5px;
 			color: #9ca3af;
 			line-height: 1.55;
-			margin-bottom: 12px;
+			margin: 0;
 		}
-		.irl-sheet-skills {
+
+		/* Reputation strip */
+		.irl-rep-strip {
 			display: flex;
+			align-items: center;
+			gap: 8px;
 			flex-wrap: wrap;
+			font-size: 12.5px;
+			color: #cbd5e1;
+			font-variant-numeric: tabular-nums;
+		}
+		.irl-rep-star { color: #fbbf24; }
+		.irl-rep-strip .irl-rep-sep { color: #4b5563; }
+		.irl-rep-strip b { color: #e5e7eb; font-weight: 700; }
+		/* "New here — no on-chain reputation yet" muted chip */
+		.irl-rep-chip {
+			display: inline-flex;
+			align-items: center;
 			gap: 6px;
-			margin-bottom: 12px;
-		}
-		.irl-skill-badge {
-			font-size: 11px;
-			font-weight: 600;
-			padding: 3px 10px;
-			border-radius: 999px;
-			background: rgba(139,92,246,0.12);
-			border: 1px solid rgba(139,92,246,0.3);
-			color: #a78bfa;
-			white-space: nowrap;
-		}
-		#irl-sheet-views {
 			font-size: 12px;
-			color: #6b7280;
-			margin-bottom: 10px;
+			color: #9ca3af;
+			padding: 4px 10px;
+			border-radius: 999px;
+			background: rgba(255,255,255,0.04);
+			border: 1px dashed rgba(255,255,255,0.16);
 		}
-		/* Reputation bar */
-		.irl-sheet-rep { display: flex; align-items: center; gap: 9px; margin-bottom: 12px; }
-		.irl-rep-bar { flex: 1; height: 6px; border-radius: 3px; background: rgba(255,255,255,0.08); overflow: hidden; }
-		.irl-rep-fill { display: block; height: 100%; width: 0; border-radius: 3px; background: linear-gradient(90deg, #34d399, #88bbff); transition: width 0.5s ease; }
-		.irl-rep-text { font-size: 12px; font-weight: 600; color: #34d399; white-space: nowrap; font-variant-numeric: tabular-nums; }
+
 		/* Services list */
-		.irl-sheet-services { margin-bottom: 14px; }
-		.irl-services-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #6b7280; margin-bottom: 6px; }
-		.irl-services-list { display: flex; flex-direction: column; gap: 6px; }
-		.irl-service-row { display: flex; align-items: center; gap: 10px; font-size: 13px; }
-		.irl-service-name { color: #e5e7eb; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-		.irl-service-price { color: #34d399; font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
+		.irl-services-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #6b7280; margin-bottom: 8px; }
+		.irl-services-list { display: flex; flex-direction: column; gap: 8px; }
+		.irl-service-row {
+			display: flex;
+			align-items: center;
+			gap: 10px;
+			padding: 9px 11px;
+			border-radius: 11px;
+			background: rgba(255,255,255,0.04);
+			border: 1px solid rgba(255,255,255,0.08);
+		}
+		.irl-service-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+		.irl-service-name { color: #e5e7eb; font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+		.irl-service-desc { color: #9ca3af; font-size: 11.5px; line-height: 1.4; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+		.irl-service-price {
+			color: #34d399;
+			font-weight: 700;
+			font-size: 12.5px;
+			white-space: nowrap;
+			font-variant-numeric: tabular-nums;
+			padding: 3px 9px;
+			border-radius: 999px;
+			background: rgba(52,211,153,0.12);
+			border: 1px solid rgba(52,211,153,0.28);
+		}
+		.irl-service-use {
+			flex-shrink: 0;
+			padding: 6px 13px;
+			border-radius: 9px;
+			border: 1px solid rgba(255,255,255,0.14);
+			background: rgba(255,255,255,0.07);
+			color: #e5e7eb;
+			font: inherit;
+			font-size: 12.5px;
+			font-weight: 600;
+			cursor: pointer;
+			transition: background 0.15s, border-color 0.15s, transform 0.12s;
+		}
+		.irl-service-use:hover { background: rgba(52,211,153,0.18); border-color: rgba(52,211,153,0.4); color: #34d399; }
+		.irl-service-use:active { transform: translateY(1px); }
+		.irl-service-use:focus-visible { outline: 2px solid rgba(52,211,153,0.6); outline-offset: 2px; }
+		.irl-service-use:disabled { opacity: 0.6; cursor: default; }
 		/* Multiplayer indicator row */
 		.irl-multiplayer-note {
 			display: flex;
@@ -967,6 +1212,10 @@
 			<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.582-7 8-7s8 3 8 7"/></svg>
 			Avatar
 		</button>
+		<button class="irl-pill-btn" id="irl-anchor-btn" type="button" hidden aria-label="Place agent on the floor with AR">
+			<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/><circle cx="12" cy="12" r="4"/></svg>
+			Place on floor
+		</button>
 		<button class="irl-pill-btn" id="irl-lock-btn" type="button" aria-pressed="false" aria-label="Pin avatar in real space">
 			<svg id="irl-lock-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
 			<span class="irl-lock-label">Pin here</span>
@@ -1010,6 +1259,20 @@
 	</div>
 </footer>
 
+<!-- WebXR floor-anchor overlay (A1). Hidden until a session starts; surfaced as
+     the immersive-ar dom-overlay root so the in-session hint + exit are visible
+     over the AR view. Also the mount for the designed start-failure error card. -->
+<div id="irl-xr-overlay" hidden>
+	<div class="irl-xr-bar">
+		<p id="irl-xr-hint" class="irl-xr-hint" aria-live="polite">Point at the floor and move your phone slowly</p>
+		<button id="irl-xr-exit" type="button" class="irl-xr-exit" aria-label="Exit floor anchoring">
+			<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+			Exit
+		</button>
+	</div>
+	<div id="irl-xr-error" class="irl-xr-error" hidden></div>
+</div>
+
 <!-- Caption input panel (slides up before a pin is saved) -->
 <div id="irl-caption-panel" role="dialog" aria-modal="true" aria-label="Add a caption to your pin">
 	<div class="irl-sheet-handle" aria-hidden="true"></div>
@@ -1018,6 +1281,20 @@
 	<div class="irl-caption-row">
 		<button id="irl-caption-confirm" type="button">Pin it</button>
 		<button id="irl-caption-cancel" type="button" aria-label="Cancel">×</button>
+	</div>
+</div>
+
+<!-- Designed guidance sheet — recoverable motion/GPS permission states (A4) -->
+<div id="irl-error-sheet" role="dialog" aria-modal="true" aria-label="Action needed">
+	<div class="irl-sheet-handle" aria-hidden="true"></div>
+	<div class="irl-error-icon" aria-hidden="true">
+		<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+	</div>
+	<h3 id="irl-error-title">Action needed</h3>
+	<p id="irl-error-body"></p>
+	<div class="irl-error-row">
+		<button id="irl-error-action" type="button">Try again</button>
+		<button id="irl-error-dismiss" type="button" aria-label="Dismiss">×</button>
 	</div>
 </div>
 
@@ -1041,35 +1318,36 @@
 </div>
 
 <!-- Agent interaction bottom sheet (slides up when user taps a nearby pin label or 3D model) -->
-<div id="irl-sheet" role="dialog" aria-modal="false" aria-label="Nearby agent">
+<!-- Dimmed backdrop behind the inspect card — click to dismiss. Stays in the DOM
+     (opacity/pointer-events toggled via .is-open) so it can fade in and out. -->
+<div id="irl-sheet-backdrop"></div>
+<div id="irl-sheet" role="dialog" aria-modal="false" aria-label="Nearby agent" tabindex="-1">
 	<div class="irl-sheet-handle" aria-hidden="true"></div>
 	<div class="irl-sheet-header">
+		<img id="irl-sheet-thumb" class="irl-sheet-thumb" alt="" hidden />
 		<div class="irl-sheet-meta">
-			<div class="irl-sheet-title" id="irl-sheet-name">Agent</div>
+			<div class="irl-sheet-title-row">
+				<span class="irl-sheet-title" id="irl-sheet-name">Agent</span>
+				<span id="irl-sheet-tier" class="irl-tier-badge" hidden></span>
+			</div>
 			<div class="irl-sheet-dist" id="irl-sheet-dist"></div>
 		</div>
 		<button class="irl-sheet-close" id="irl-sheet-close" type="button" aria-label="Close">×</button>
 	</div>
 	<p id="irl-sheet-caption" hidden></p>
-	<!-- Enriched agent data (populated async from /api/irl/agent-card) -->
-	<p id="irl-sheet-description" hidden></p>
-	<div id="irl-sheet-rep" class="irl-sheet-rep" hidden>
-		<span class="irl-rep-bar" aria-hidden="true"><span id="irl-rep-fill" class="irl-rep-fill"></span></span>
-		<span id="irl-rep-text" class="irl-rep-text"></span>
-	</div>
-	<div id="irl-sheet-skills" class="irl-sheet-skills" hidden></div>
-	<div id="irl-sheet-services" class="irl-sheet-services" hidden>
-		<div class="irl-services-label">Services</div>
-		<div id="irl-services-list" class="irl-services-list"></div>
-	</div>
+	<!-- Rich card body — skeleton → bio + reputation + services | empty | error.
+	     Rendered entirely from /api/irl/agent-card by openPinSheet(). -->
+	<div id="irl-card-body" class="irl-card-body"></div>
 	<div class="irl-multiplayer-note" id="irl-sheet-multiplayer" hidden>
 		<span class="irl-multiplayer-dot"></span>
 		<span id="irl-sheet-multiplayer-text">Visible to all users at this location</span>
 	</div>
-	<p id="irl-sheet-views" hidden></p>
+	<!-- Honest GPS-accuracy line (A3) — never imply a centimetre-perfect pinpoint -->
+	<p id="irl-sheet-accuracy" class="irl-sheet-accuracy" hidden></p>
 	<div class="irl-sheet-actions">
 		<button id="irl-sheet-pay" class="irl-sheet-btn irl-sheet-btn-primary" type="button" hidden>Pay via x402</button>
-		<button id="irl-sheet-view" class="irl-sheet-btn" type="button">View agent</button>
+		<button id="irl-sheet-calibrate" class="irl-sheet-btn" type="button" hidden>Calibrate position</button>
+		<button id="irl-sheet-view" class="irl-sheet-btn" type="button">View profile</button>
 	</div>
 	<!-- Leave a message — POSTs an interaction the owner sees in their dashboard feed -->
 	<form id="irl-sheet-msg" class="irl-sheet-msg">
@@ -1091,6 +1369,80 @@
 	</div>
 	<div id="irl-agents-list"><p class="irl-agents-empty">Loading…</p></div>
 </div>
+
+<!-- ── Calibrate HUD (A3) — owner nudges a placed agent into its true spot ──── -->
+<style>
+	#irl-calibrate-panel {
+		position: fixed; left: 0; right: 0; bottom: 0; z-index: 60;
+		padding: 16px 18px calc(18px + env(safe-area-inset-bottom, 0px));
+		background: linear-gradient(180deg, rgba(13,16,24,0.96), rgba(9,11,17,0.99));
+		border-top: 1px solid rgba(255,255,255,0.10);
+		border-radius: 18px 18px 0 0;
+		box-shadow: 0 -12px 40px rgba(0,0,0,0.5);
+		transform: translateY(108%); transition: transform .28s cubic-bezier(.22,.61,.36,1);
+		max-width: 560px; margin: 0 auto;
+	}
+	#irl-calibrate-panel.is-open { transform: translateY(0); }
+	#irl-calibrate-panel .irl-sheet-handle { width: 38px; height: 4px; border-radius: 99px; background: rgba(255,255,255,0.22); margin: 0 auto 12px; }
+	.irl-cal-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 4px; }
+	.irl-cal-head h3 { margin: 0; font-size: 15.5px; font-weight: 700; color: #e8edf6; letter-spacing: -.01em; }
+	#irl-cal-readout { font: 600 12.5px/1.3 ui-monospace, SFMono-Regular, Menlo, monospace; color: #7dd3fc; margin: 2px 0 8px; }
+	#irl-cal-accuracy { margin: 0 0 12px; font-size: 12.5px; line-height: 1.5; color: #93a1b5; }
+	#irl-cal-accuracy.is-low { color: #fbbf73; }
+	.irl-cal-hint { margin: 0 0 12px; font-size: 12px; line-height: 1.5; color: #6b7686; }
+	.irl-cal-height { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+	.irl-cal-height-label { font-size: 12.5px; color: #93a1b5; flex: 1; }
+	.irl-cal-height-val { font: 600 12.5px ui-monospace, monospace; color: #cdd6e4; min-width: 56px; text-align: right; }
+	.irl-cal-step { width: 40px; height: 40px; border-radius: 11px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.06); color: #e5e7eb; font: 600 18px inherit; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background .15s, border-color .15s; }
+	.irl-cal-step:hover { background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.22); }
+	.irl-cal-step:active { transform: translateY(1px); }
+	.irl-cal-step:focus-visible { outline: 2px solid rgba(125,211,252,0.6); outline-offset: 2px; }
+	#irl-cal-error { margin-bottom: 12px; }
+	#irl-cal-error .tws-es { padding: 14px 8px 8px; }
+	.irl-cal-actions { display: flex; gap: 10px; }
+	#irl-cal-save { flex: 1; padding: 12px 16px; border-radius: 12px; border: 1px solid rgba(52,211,153,0.4); background: rgba(52,211,153,0.18); color: #34d399; font: 600 14px inherit; cursor: pointer; transition: background .15s; }
+	#irl-cal-save:hover { background: rgba(52,211,153,0.28); }
+	#irl-cal-save:disabled { opacity: .55; cursor: default; }
+	#irl-cal-save:focus-visible { outline: 2px solid rgba(52,211,153,0.6); outline-offset: 2px; }
+	#irl-cal-cancel { padding: 12px 16px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.06); color: #cbd3df; font: 600 14px inherit; cursor: pointer; transition: background .15s; }
+	#irl-cal-cancel:hover { background: rgba(255,255,255,0.12); color: #fff; }
+	#irl-cal-cancel:focus-visible { outline: 2px solid rgba(255,255,255,0.4); outline-offset: 2px; }
+	/* While calibrating, suppress the walk joystick so a drag can't grab it. */
+	body.is-calibrating #irl-joystick { display: none !important; }
+	/* Denied toast — centred, fades in/out (opacity + pointer-events via .is-open). */
+	#irl-cal-denied {
+		position: fixed; left: 50%; top: 50%; transform: translate(-50%, -46%);
+		z-index: 70; width: min(360px, calc(100vw - 40px));
+		background: rgba(12,14,21,0.97); border: 1px solid rgba(255,255,255,0.12);
+		border-radius: 16px; box-shadow: 0 16px 48px rgba(0,0,0,0.55);
+		opacity: 0; pointer-events: none; transition: opacity .2s ease, transform .2s ease;
+	}
+	#irl-cal-denied.is-open { opacity: 1; pointer-events: auto; transform: translate(-50%, -50%); }
+	/* Honest accuracy line inside the inspect sheet (A3). */
+	.irl-sheet-accuracy { margin: 0 0 12px; font-size: 12px; line-height: 1.5; color: #8a94a6; }
+	.irl-sheet-accuracy.is-low { color: #fbbf73; }
+</style>
+<div id="irl-calibrate-panel" role="dialog" aria-modal="false" aria-label="Calibrate agent position">
+	<div class="irl-sheet-handle" aria-hidden="true"></div>
+	<div class="irl-cal-head">
+		<h3 id="irl-cal-title">Calibrate position</h3>
+	</div>
+	<div id="irl-cal-readout" aria-live="polite">0.00 m N · 0.00 m E · +0° · +0 cm</div>
+	<p id="irl-cal-accuracy"></p>
+	<p class="irl-cal-hint">Drag to nudge on the ground · twist with two fingers to rotate.</p>
+	<div class="irl-cal-height">
+		<span class="irl-cal-height-label">Floor height</span>
+		<span class="irl-cal-height-val" id="irl-cal-height">+0 cm</span>
+		<button class="irl-cal-step" id="irl-cal-down" type="button" aria-label="Lower agent 5 cm">−</button>
+		<button class="irl-cal-step" id="irl-cal-up" type="button" aria-label="Raise agent 5 cm">+</button>
+	</div>
+	<div id="irl-cal-error" hidden></div>
+	<div class="irl-cal-actions">
+		<button id="irl-cal-save" type="button">Save position</button>
+		<button id="irl-cal-cancel" type="button">Cancel</button>
+	</div>
+</div>
+<div id="irl-cal-denied" role="alertdialog" aria-modal="false" aria-label="Calibration locked" hidden></div>
 
 <script type="module" src="/src/irl.js"></script>
 
