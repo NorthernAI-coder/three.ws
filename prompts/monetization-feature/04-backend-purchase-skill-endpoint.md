@@ -82,3 +82,17 @@ export default async function handler(req, res) {
 - Test the endpoint using a tool like Postman or `curl`.
 - Verify that it correctly handles cases like unauthenticated requests, already purchased skills, and skills that are not for sale.
 - Check that it returns the expected transaction details for a valid request.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "prompts/monetization-feature/04-backend-purchase-skill-endpoint.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

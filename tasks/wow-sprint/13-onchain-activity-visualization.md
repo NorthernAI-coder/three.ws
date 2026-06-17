@@ -31,3 +31,17 @@ A real-time 3D scene where:
 - `npm run dev` → `/pump-visualizer`: real trades render in 3D in real time; whales + burns distinct; HUD shows real totals.
 - Reconnect works; 60fps under load; responsive; zero console errors.
 - `npm run build` clean. Run the **completionist** subagent. Report the architecture + data flow.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "tasks/wow-sprint/13-onchain-activity-visualization.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

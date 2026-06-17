@@ -81,3 +81,17 @@ CREATE INDEX idx_user_subscriptions_user_id ON user_subscriptions(user_id);
 CREATE INDEX idx_agent_subscription_tiers_agent_id ON agent_subscription_tiers(agent_id);
 ```
 **Note:** This is a foundational schema. A real-world implementation might be more complex, potentially involving a separate `subscription_periods` table for a more detailed history, but this is a strong starting point.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "prompts/monetization/13-subscription-tiers-db-schema.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

@@ -150,3 +150,17 @@ retry succeeding) and confirm `Used ✓` + inline result. Decline the wallet
 prompt to confirm the cancel path re-enables the button. Confirm View profile
 opens the real `/agents/:id` page. Watch the network tab for the best-effort
 `POST /api/irl/interactions` (404 pre-C4 is expected and silent).
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "tasks/irl-live/B3-real-interactions-profile-pay.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

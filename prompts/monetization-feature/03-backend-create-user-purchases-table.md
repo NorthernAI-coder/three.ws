@@ -53,3 +53,17 @@ CREATE INDEX idx_user_skill_purchases_agent_id ON user_skill_purchases(agent_id)
 ## Verification
 - Run the migration and check the database for the new `user_skill_purchases` table.
 - Ensure all columns, constraints, and indexes are correctly defined.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "prompts/monetization-feature/03-backend-create-user-purchases-table.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

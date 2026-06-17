@@ -87,3 +87,17 @@ The Vercel logs for this endpoint also show `[zauth] disabled: ZAUTH_API_KEY not
 - `api/threews/subdomain.js` — static importer
 - `api/_lib/threews-sns.js` — the file with the ESM imports (primary fix target)
 - `vercel.json` — may need `externals` config (Option B only)
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "prompts/agent-fixes/fix-threews-subdomain-esm.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

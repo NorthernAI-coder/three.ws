@@ -106,3 +106,17 @@ if (canonical) canonical.href = `https://three.ws/agent/${agent.id}`;
 - Sharing `https://three.ws/agent/<id>` on Twitter shows the agent-specific card image (verify with Twitter Card Validator or by inspecting the returned HTML head)
 - No regressions in the existing agent-detail page functionality
 - No console errors
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "tasks/collectible-ux/04-og-image-dynamic.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

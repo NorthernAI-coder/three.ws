@@ -102,3 +102,17 @@ The `err.code` will be `'42P18'` if it's a type inference error, or another Post
 
 - `api/marketplace/[action].js:367–411` — `handleList`, the broken query
 - `api/billing/withdrawals/index.js` — same 42P18 pattern (see `fix-billing-withdrawals-42p18.md` for reference)
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "prompts/agent-fixes/fix-marketplace-agents-500.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

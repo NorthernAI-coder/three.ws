@@ -21,3 +21,17 @@ Creators need a clear and transparent way to track their sales and access their 
 
 3.  **Security:**
     *   Ensure the payout process is secure and that only the legitimate creator can withdraw their funds. This might involve connecting their wallet and signing a message to verify ownership.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "prompts/monetization/11-creator-payouts-dashboard.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

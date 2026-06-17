@@ -22,3 +22,17 @@ To embrace the Solana ecosystem, we should support more than just USDC. This wil
         - 2. The destination for the USDC should be a temporary account or directly to the creator/platform wallets.
         - 3. **Combine the transactions:** The full transaction sent to the user will include the Jupiter swap *and* the payment transfers. The user signs one transaction that does everything.
 - [ ] **Update the Frontend:** The "Buy" button should present the user with a choice of which token to pay with.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "tasks/monetization-feature/19-support-for-multiple-currencies.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

@@ -25,3 +25,17 @@ colors like `#2a2a3a`. Unifying cards makes the whole site feel like one product
 
 ## Verify
 - Compare a card on `/discover`, `/marketplace`, and the dashboard side by side — same radius, border, shadow, hover behavior.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "tasks/site-overhaul/B-ui-uniformity/B04-shared-card-surface-system.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

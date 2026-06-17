@@ -68,3 +68,17 @@ Amount inputs should be in human units (USDC with 6 decimal places), converted t
 2. Open agent editor as non-owner (or logged out) → tab is hidden
 3. Set a price for a skill → price persists after page reload
 4. Remove a price → skill returns to free
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "tasks/agent-monetization/08-monetization-settings-ui.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

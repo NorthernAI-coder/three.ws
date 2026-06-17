@@ -177,3 +177,17 @@ import { Mesh } from 'three'; // Mesh is already imported — just add to existi
 - Network tab shows: if compressed GLBs are present, they load successfully (meshopt decoder wired). If uncompressed, they load as before.
 - `git diff src/marketplace-lobby.js` shows only the changes described above — no unrelated modifications.
 - No TypeErrors or import errors in the browser console.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "prompts/prompt-2-lobby-performance.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

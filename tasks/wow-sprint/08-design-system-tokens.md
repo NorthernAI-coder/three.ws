@@ -31,3 +31,17 @@ Inter Tight / JetBrains Mono type stack. Promote this into a shared stylesheet.
 - Run the **completionist** subagent. Report the token set and which pages adopted it.
 
 > Land this BEFORE tasks 09, 10, 11 so they consume the tokens.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "tasks/wow-sprint/08-design-system-tokens.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

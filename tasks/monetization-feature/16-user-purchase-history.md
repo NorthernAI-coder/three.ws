@@ -20,3 +20,17 @@ Users need a way to track their spending and see which skills they've bought. Th
 - [ ] **On this page, fetch the purchase history** from the new API endpoint.
 - [ ] **Display the purchases in a clean, readable table.**
 - [ ] **For each purchase, include a link to the Solana transaction on an explorer** like Solscan or X-Ray. The transaction signature is stored in the `skill_sales` table.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "tasks/monetization-feature/16-user-purchase-history.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

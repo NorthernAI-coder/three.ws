@@ -108,3 +108,17 @@ If `maxDuration` is not set, the default is 10 seconds (hobby) or 60 seconds (Pr
 - `api/cron/[name].js:145` — `erc8004CrawlChain`
 - `api/cron/[name].js:106` — `ERC8004_FETCH_TIMEOUT_MS`
 - `vercel.json` — `maxDuration` for the cron function
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "prompts/agent-fixes/fix-erc8004-crawl-timeout.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

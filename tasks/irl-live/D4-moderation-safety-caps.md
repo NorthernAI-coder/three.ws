@@ -176,3 +176,17 @@ Hit `POST /api/irl/pins` with a blacklisted caption (422), spam to trip the rate
 limit (429), fill a test geocell past the density cap (429), then file 3 reports
 from 3 device tokens against one pin and confirm it disappears from
 `GET /api/irl/pins` and D1 emits `pin:remove`.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "tasks/irl-live/D4-moderation-safety-caps.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

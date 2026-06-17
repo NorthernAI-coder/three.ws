@@ -27,3 +27,17 @@ Use the motion tokens from task 08 (or `home.html :root`) — `--ease-out`, dura
 - Key transitions feel intentional; reduced-motion respected; 60fps.
 - No console errors. `npm run build` clean. Run the **completionist** subagent.
 - Report: the interactions added per page.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "tasks/wow-sprint/11-microinteractions-motion.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

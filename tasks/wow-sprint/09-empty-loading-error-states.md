@@ -27,3 +27,17 @@ The views that fetch real data: `pages/marketplace.html` (`src/marketplace.js`,
 - All three states designed and reachable on every audited view.
 - Verified in `npm run dev` (force each state via devtools). No console errors.
 - Run the **completionist** subagent. Report the states added per view, with screenshots described.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "tasks/wow-sprint/09-empty-loading-error-states.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

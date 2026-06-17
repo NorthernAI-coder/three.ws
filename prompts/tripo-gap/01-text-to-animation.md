@@ -175,3 +175,17 @@ In the pose/animation studio (`src/pose-studio.js` + its page, and/or the
 - Do the SMPL→skeleton conversion in the worker, not the browser.
 - Reuse `src/animation-retarget.js` — do not write a second retargeter.
 - No fake/sample motion anywhere, including tests' "happy path."
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "prompts/tripo-gap/01-text-to-animation.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

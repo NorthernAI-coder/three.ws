@@ -128,3 +128,17 @@ _circuit.openUntil = 0;
 - The threshold (3 failures → open) and window (10m × failures) are suggestions; tune to taste.
 - Do NOT add a circuit breaker to `pollPending()` — polling already-submitted jobs is cheap
   and should keep running even when new submissions are blocked.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "tasks/fix-forge-seed-circuit-breaker.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

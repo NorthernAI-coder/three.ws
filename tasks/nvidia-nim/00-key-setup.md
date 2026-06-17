@@ -33,3 +33,17 @@ In `tasks/nvidia-nim/PLAN.md`: tick the T0.1 checkbox and append a dated Worklog
 plan file with **explicit path staging** (concurrent agents share this worktree — never
 `git add -A`), re-checking `git status` and `git diff --staged` immediately before the
 commit. Never put the API key itself in any committed file.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "tasks/nvidia-nim/00-key-setup.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

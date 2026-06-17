@@ -84,3 +84,17 @@ Verify the Vercel deployment shows no more 42P18 errors for `/api/billing/withdr
 - `src/dashboard-next/pages/monetize.js:69` — the frontend caller (no change needed here)
 
 Fix this completely. After the fix, `GET /api/billing/withdrawals?limit=50` must return a valid JSON response with the `withdrawals` array for any authenticated user.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "prompts/agent-fixes/fix-billing-withdrawals-42p18.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

@@ -121,3 +121,17 @@ makes it primary:
    (repeat for `PUMPFUN_BOT_TOKEN` if the upstream requires auth).
 3. **Verify** — `pumpfun_bot_status` (always-available MCP tool) reports `configured:true,
    healthy:true`; `pumpfun-signals` then enriches claims too.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "tasks/pumpfun-launchpad-100/08-wire-pumpfun-bot-url.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

@@ -47,3 +47,17 @@ the user first. This task is research; default to producing the brief only.
 
 - Brief committed. Claims reference the actual repo contents (paths/types), not
   guesses. `git diff` self-reviewed. No push without approval.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "tasks/pumpfun-upstream/03-pump-segments-sdk-investigation.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

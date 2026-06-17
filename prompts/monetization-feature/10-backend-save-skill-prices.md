@@ -95,3 +95,17 @@ export default async function handler(req, res) {
 - Verify that the data in your `agent_skill_prices` table is updated as expected.
 - Reload the page and confirm that the prices you set are correctly displayed in the input fields.
 - Try setting a price to 0 and verify that the corresponding row is deleted from the database.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "prompts/monetization-feature/10-backend-save-skill-prices.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

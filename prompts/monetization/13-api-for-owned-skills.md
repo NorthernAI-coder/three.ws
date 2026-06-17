@@ -66,3 +66,17 @@ export default async function handler(req, res) {
 
 ## Future Improvement Note
 For true historical accuracy, the `user_skill_ownership` table should be modified to store the `amount` and `currency_mint` at the time of purchase. This prevents the user's purchase history from changing if the creator later updates the skill price. This could be its own future prompt: "Refine Purchase History for Price Accuracy."
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "prompts/monetization/13-api-for-owned-skills.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

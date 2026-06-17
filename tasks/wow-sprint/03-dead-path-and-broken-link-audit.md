@@ -25,3 +25,17 @@ All entry points in `pages/**/*.html` and `public/**/*.html` that are wired in
 - `npm run dev`: clicked through all top pages, no console errors, no dead clicks.
 - Run the **completionist** subagent on changed files.
 - Report: list of dead paths found and the resolution for each.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "tasks/wow-sprint/03-dead-path-and-broken-link-audit.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

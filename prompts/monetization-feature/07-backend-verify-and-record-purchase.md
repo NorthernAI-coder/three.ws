@@ -74,3 +74,17 @@ export default async function handler(req, res) {
 - After the transaction is confirmed, manually call the `/api/skills/verify-purchase` endpoint with the transaction signature.
 - Check your `user_skill_purchases` table to ensure the purchase was recorded correctly.
 - Test with an invalid or failed transaction signature to ensure the endpoint handles errors properly.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "prompts/monetization-feature/07-backend-verify-and-record-purchase.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

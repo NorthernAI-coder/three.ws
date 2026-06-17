@@ -80,3 +80,17 @@ async function pollForPurchaseCompletion(reference, agentId, skillName) {
 - Verify that once the transaction is confirmed on-chain, the polling stops.
 - Confirm that the UI updates automatically to show the skill as "Owned," and the "Buy" button is removed.
 - Test the timeout logic by generating a QR code but not completing the transaction.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "prompts/monetization-feature/08-ui-polling-for-purchase-completion.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

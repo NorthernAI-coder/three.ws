@@ -87,3 +87,17 @@ All under @three-ws on npm. Full list: [link to npmjs.com/org/three-ws or three.
 - Copy is grounded: no unverified claims, no fictional metrics
 - The forge pipeline was verified working before posting
 - Changelog entry added and `npm run build:pages` run
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "tasks/x-post-mcp-text-to-3d.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

@@ -112,3 +112,17 @@ curl -s https://integrate.api.nvidia.com/v1/chat/completions \
 
 Verified live across all three models, both input forms, four image sizes, JSON-mode output,
 and the 403/404/500 error paths. No scratch files committed; key only in gitignored `.env.local`.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "tasks/nvidia-nim/probes/vision.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

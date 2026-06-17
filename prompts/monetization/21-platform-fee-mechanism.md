@@ -77,3 +77,17 @@ app.post('/api/purchase/details', async (req, res) => {
 ```
 
 **Note:** This requires you to know the correct SPL Token accounts for the user, creator, and platform. You may need to use `splToken.getAssociatedTokenAddress()` to find or create them as part of the transaction logic. This can get complex, especially if an account doesn't exist yet. An alternative for SOL transfers is to use `SystemProgram.transfer`.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "prompts/monetization/21-platform-fee-mechanism.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

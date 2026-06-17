@@ -102,3 +102,17 @@ curl -s https://ai.api.nvidia.com/v1/genai/black-forest-labs/flux.1-schnell \
 
 Verified: produced a real `out.jpg`, decodes as valid JPEG 1024×1024 RGB via PIL and
 `file(1)`. Scratch files deleted.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "tasks/nvidia-nim/probes/flux.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

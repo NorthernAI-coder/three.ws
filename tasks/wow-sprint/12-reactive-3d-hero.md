@@ -37,3 +37,17 @@ faceted "$three" crystal/orb in a particle field that breathes with the market.
 - Report the data→visual mapping and why it reads as premium.
 
 > Run AFTER task 07 (home overhaul) if both are queued — they share `home.html`/hero files.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "tasks/wow-sprint/12-reactive-3d-hero.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

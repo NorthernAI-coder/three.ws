@@ -95,3 +95,17 @@ async function saveSkillPrice(agentId, skillName, amount, currency) {
 -   The "Make Free" button correctly calls the API to remove the price.
 -   The UI provides clear feedback to the user upon success or failure of the operation.
 -   Existing prices are correctly populated into the input fields when the page loads.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "prompts/monetization/05-creator-ui-for-pricing.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

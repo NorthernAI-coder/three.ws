@@ -90,3 +90,17 @@ tail) and **fails open** on timeout — a slow safety lane must never delay or b
   call. Our pre-filter does not change OpenRouter's gate, so the model stays demoted in
   `api/_lib/chat-models.js` (couldn't be live-confirmed here anyway — no `OPENROUTER_API_KEY`
   in this Codespace). Re-promote only after the OpenRouter account setting is verified.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "tasks/nvidia-nim/probes/moderation.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

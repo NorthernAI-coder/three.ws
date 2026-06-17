@@ -72,3 +72,17 @@ transaction.add(
 ## Important Considerations
 *   **Rounding:** Be mindful of potential rounding errors when calculating fees. Using integer math with basis points (BPS) is generally safer.
 *   **Associated Token Accounts:** Ensure the platform's treasury wallet has an associated token account for each currency you support. The `getOrCreateAssociatedTokenAccount` function helps with this, but the transaction to create it might need to be handled separately or signed by the platform.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "prompts/monetization/13-platform-fee-implementation.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

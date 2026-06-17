@@ -114,3 +114,17 @@ Read `src/viewer.js` fully before making changes, particularly:
 - Click the avatar — the interaction fires (if there is one). No raycasting errors.
 - `git diff src/viewer.js` shows only the three changes described: import, computeBoundsTree traversal, disposeBoundsTree traversal.
 - No other files modified.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "prompts/prompt-3-bvh-main-viewer.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

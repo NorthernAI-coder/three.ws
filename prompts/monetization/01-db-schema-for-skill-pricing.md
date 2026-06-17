@@ -82,3 +82,17 @@ CREATE UNIQUE INDEX idx_user_skill_purchases_tx_signature ON user_skill_purchase
 -   A new SQL migration file with the `CREATE TABLE` statements for `agent_skill_prices` and `user_skill_purchases` is created.
 -   The migration has been successfully applied to the development database.
 -   The schema includes primary keys, foreign keys, and indexes as specified.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "prompts/monetization/01-db-schema-for-skill-pricing.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

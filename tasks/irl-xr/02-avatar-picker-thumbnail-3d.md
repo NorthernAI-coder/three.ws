@@ -74,3 +74,17 @@ Use `IntersectionObserver` on each card's thumbnail div to trigger `render3dThum
 - 3D thumbnails load lazily as cards enter the viewport (IntersectionObserver)
 - No perceptible freeze when the picker opens (renders happen async)
 - No console errors on open/close
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "tasks/irl-xr/02-avatar-picker-thumbnail-3d.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

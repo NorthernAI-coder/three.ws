@@ -101,3 +101,17 @@ When `~/.claude/pump-deploy/launch-result.json` shows `ok: true`:
 - This bypasses the `/api/pump/launch-prep` flow because that path requires session-cookie auth that isn't available to a script. The coin lands on-chain regardless; database linking is a separate prompt.
 - Do not commit anything under `~/.claude/pump-deploy/` — those files contain secret keys and live outside the repo for a reason.
 - The vanity mint was ground for `usdc`-prefix; the public address starts with `USDC…`. Don't regenerate unless explicitly asked.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "prompts/pumpfun-usdc-deploy.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

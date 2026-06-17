@@ -190,3 +190,17 @@ needs no GPU or entitlement, and already drives the same ARKit/viseme morphs.
 - Rig inspection: parse `public/avatars/*.glb` JSON chunk, read `meshes[].extras.targetNames`.
   Probe scripts were temporary (run from `scripts/`, deleted after); no scratch files committed.
 </content>
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "tasks/nvidia-nim/probes/audio2face.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

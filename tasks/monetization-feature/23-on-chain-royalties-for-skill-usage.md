@@ -22,3 +22,17 @@ This moves towards a "pay-per-use" model, which might be more suitable for certa
 - [ ] **Consider using Solana Actions** to simplify this. The "invoke" button could be a Blink (Solana Action URL), which wallets can render and execute natively.
 
 **Note:** This is a complex, forward-looking feature. The initial focus should be on the "purchase access" model. This prompt is for planning the next stage of the platform's evolution.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "tasks/monetization-feature/23-on-chain-royalties-for-skill-usage.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

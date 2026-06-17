@@ -30,3 +30,17 @@ The existing walk page has a camera-feed AR mode stub. Upgrade it to real WebXR 
 
 ## Rules
 Complete 100%. No stubs. No fake data. Real WebXR, real hit-test, real plane detection. Wire end-to-end. If a real AR device is unavailable for testing, document the limitation clearly but implement fully.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "tasks/walk/43-walk-ar-mode-webxr.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

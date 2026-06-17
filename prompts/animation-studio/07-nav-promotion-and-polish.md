@@ -74,3 +74,17 @@ Exercise the full flow in a real browser and confirm:
 
 This is the last task. When the user approves, push to **both** remotes (`git push threeD main`
 then `git push threews main`) per CLAUDE.md. Never pull/fetch from `threeD`.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "prompts/animation-studio/07-nav-promotion-and-polish.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

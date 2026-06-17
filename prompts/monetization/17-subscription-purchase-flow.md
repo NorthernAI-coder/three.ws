@@ -29,3 +29,17 @@ This prompt builds on the subscription database schema by creating the user-faci
 
 ## Note on Recurring Payments
 True on-chain recurring payments are complex. They often require users to deposit funds into an escrow contract or use token streaming protocols. This prompt simplifies the task to focus on the initial purchase and record creation, which is the first step in any subscription system. A later, more advanced prompt would cover the on-chain automation for renewals.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "prompts/monetization/17-subscription-purchase-flow.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

@@ -24,3 +24,17 @@ As a platform facilitating payments, we have a responsibility to make it easier 
     - Include text on the earnings page reminding creators that they are responsible for their own taxes and should consult a professional.
 
 **Note:** We are not a financial services company, so we should not offer tax advice. The goal is to provide tools that make the data more accessible for creators.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "tasks/monetization-feature/25-legal-and-tax-compliance.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

@@ -38,3 +38,17 @@ When you handle user data and money, having clear, comprehensive legal documents
 4.  **Backend Check for Agreement:**
     *   Your registration API endpoint (`/api/auth/register`) should ideally accept a boolean parameter like `agreedToTerms: true`.
     *   The API should reject any registration request where this is not `true`. This creates a server-side record of the user's agreement.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "tasks/monetization-feature/18-terms-of-service-and-privacy-policy.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

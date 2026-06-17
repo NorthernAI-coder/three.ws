@@ -93,3 +93,17 @@ Also add the table definition to [api/_lib/schema.sql](../../api/_lib/schema.sql
 
 Do not build UI here. Do not wire payments here (Task 6 adds pricing on top of these rows).
 Do not push unless the user explicitly approves (then both remotes per CLAUDE.md).
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "prompts/animation-studio/03-backend-animation-clips-api.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

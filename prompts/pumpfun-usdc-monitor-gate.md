@@ -57,3 +57,17 @@ When the gate has flipped AND the deploy task has completed successfully (`~/.cl
 
 - `scripts/pump-usdc-status.mjs` makes 2 mainnet RPC calls (fetchGlobal + fetchBuyState + 1 simulateTransaction). Public RPC is fine but rate-limited; set `SOLANA_RPC_URL=…helius…` for production polling.
 - The whitelist flip is the authoritative signal. Marketing dates can slip — only trust the on-chain state.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "prompts/pumpfun-usdc-monitor-gate.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

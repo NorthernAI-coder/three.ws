@@ -148,3 +148,17 @@ to teleport an agent.
 - Attempt calibrate from a non-owner device → blocked client + 403/404 server.
 - Indoors / urban canyon: confidence ring widens, copy warns; agent still
   placed, just honestly uncertain.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "tasks/irl-live/A3-cross-user-anchor-consistency.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.
