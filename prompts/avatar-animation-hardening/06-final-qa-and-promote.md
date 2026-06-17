@@ -7,6 +7,39 @@ Tasks 1–5 fix the math, the ingest path, the regression guard, and the embed U
 the whole thing is production-ready end to end: every surface that renders an animated avatar is
 correct, polished, and free of console errors, on a representative matrix of avatars and clips.
 
+## Handoff from Task 4 (regression corpus + runtime fallen-pose guard)
+
+Shipped and committed; build on it, don't redo it:
+
+- **Regression corpus** — [tests/animation-upright-invariant.test.js](../../tests/animation-upright-invariant.test.js)
+  asserts the Hips world up-axis stays within **40°** of vertical at *every* keyframe across 4
+  rig conventions (cz Avaturn, michelle Mixamo `−90°X`, a synthetic `+90°Z`/`−90°Z`,
+  DEF-/snake_case names) × the `FEATURED` clips, plus a below-`MIN_COVERAGE` missing-bones rig.
+  **michelle + celebrate is the named regression lock** for the lying-down bug, with explicit
+  "has teeth" cases proving the verbatim (no-correction) path still falls flat (>80°). cz.glb is
+  asserted **byte-for-byte equal** to the verbatim path (the `1.7°→1.7°` no-regression invariant).
+  Runs in plain Node via a raw GLB JSON-chunk → Bone-graph reconstruction
+  ([tests/_helpers/glb-bone-graph.js](../../tests/_helpers/glb-bone-graph.js)) — no GLTFLoader,
+  no network — so it gates the Vercel build. 49 cases, all green.
+- **Runtime guard** — [src/animation-manager.js](../../src/animation-manager.js): `measureHipsTiltDeg`
+  + `_guardAgainstFallenPose` sample the at-rest Hips tilt **once per (avatar, clip)** before an
+  action plays (never per frame). Past `CATASTROPHE_TILT_DEG` (**45°**) it disables the action,
+  falls back to the authored bind pose, and reports **once** (Set-debounced) via
+  `window.reportClientError` → `/api/client-errors` with `{avatarId, avatarUrl, clip, tiltDeg}`.
+  The viewer wires avatar context at [src/viewer.js:1008](../../src/viewer.js#L1008)
+  (`attach(content, { avatarUrl })`).
+- **For your QA:** the guard must stay **silent** on every healthy avatar/clip you exercise — a
+  `[client-error] fallen-pose retarget` log line during the matrix run is a real regression, not
+  noise. To confirm the guard *fires* correctly, you don't need a broken avatar in the browser;
+  the corpus already proves the fire path (`michelle + celebrate` without the fix measures >45°).
+- **Note on the full suite:** Task 4's animation suites are green (106/106) and `typecheck` is
+  0 errors. If you see failures in `tests/api/marketplace-platform-fee.test.js` (vitest can't
+  resolve a `?cb=` dynamic import), `tests/branding.test.js` (Avaturn/Character Studio strings in
+  docs), `tests/src/usdz-pipeline.test.js` (meshopt decoder absent in Node), or `all-modules-load`
+  (unbuilt local workspace SDKs), those are **environment/build artifacts** — run the postinstall
+  ESM fixups and build the `agent-payments-sdk`/`solana-agent-sdk` workspaces, they are unrelated
+  to animation.
+
 ## What to do
 
 ### 1. Build the verification matrix
