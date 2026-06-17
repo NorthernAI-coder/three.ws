@@ -70,9 +70,13 @@ describe('buildToolResult — MCP CallToolResult envelope', () => {
 // The tool surface must be enumerable WITHOUT any payment env — tool
 // registration is secret-free; only an actual paid invocation needs a pay-to.
 describe('MCP tool surface', () => {
+	// Tools the platform offers at zero cost — exempt from the paid-price
+	// assertion below, and asserted to advertise their free-ness instead.
+	const FREE_TOOLS = new Set(['forge_free']);
+
 	it('builds every tool descriptor with a complete, unique contract', async () => {
 		const tools = await buildTools();
-		expect(tools.length).toBeGreaterThanOrEqual(15);
+		expect(tools.length).toBeGreaterThanOrEqual(16);
 
 		const names = new Set();
 		for (const t of tools) {
@@ -81,8 +85,13 @@ describe('MCP tool surface', () => {
 			expect(typeof t.title).toBe('string');
 			expect(t.title.length).toBeGreaterThan(0);
 			expect(typeof t.description).toBe('string');
-			// Every paid tool must quote its USDC price in its description.
-			expect(t.description).toMatch(/\$[0-9]/);
+			if (FREE_TOOLS.has(t.name)) {
+				// A free tool must say so plainly and must NOT quote a USDC price.
+				expect(t.description.toLowerCase()).toContain('free');
+			} else {
+				// Every paid tool must quote its USDC price in its description.
+				expect(t.description).toMatch(/\$[0-9]/);
+			}
 			expect(t.inputSchema).toBeTypeOf('object');
 			expect(t.handler).toBeTypeOf('function');
 			expect(names.has(t.name)).toBe(false);
@@ -145,7 +154,7 @@ describe('MCP tool surface', () => {
 
 		// Generation + delegation tools are writes (they create hosted artifacts
 		// or dispatch actions); everything else is a pure read.
-		const writes = ['text_to_avatar', 'mesh_forge', 'rig_mesh', 'agent_delegate_action'];
+		const writes = ['text_to_avatar', 'mesh_forge', 'forge_free', 'rig_mesh', 'agent_delegate_action'];
 		for (const [name, a] of Object.entries(byName)) {
 			expect(a.readOnlyHint, `${name}.readOnlyHint`).toBe(!writes.includes(name));
 		}

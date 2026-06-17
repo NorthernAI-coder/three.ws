@@ -303,6 +303,14 @@
 			<description>Any model you generate or upload in Forge can now be turned into a clean, engine-ready asset in one click. Pick Quad retopology (field-aligned QuadriFlow edge loops that rig and animate well) or Tri low-poly (silhouette-preserving, with the texture re-baked), set a poly budget with 5k / 15k / 50k presets, and export a textured GLB plus an FBX for Unity and Unreal together. You see the before→after poly count (e.g. 28,400 → 5,012) and can flip on a live wireframe to inspect the new topology right in the viewer. Files are served from our own CDN.</description>
 		</item>
 		<item>
+			<title>Generate a rigged 3D avatar from a text prompt in chat</title>
+			<link>https://three.ws/chat</link>
+			<guid isPermaLink="false">2026-06-17:Generate a rigged 3D avatar from a text prompt in chat</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Chat can now build a full avatar from a sentence. Ask it to &quot;make me an avatar of …&quot; and it forges a textured 3D model, auto-rigs it into an animation-ready character, saves it to your avatar library, and shows it in an orbit viewer you can spin (press S to see the skeleton). If you're not signed in it still hands back the rigged model and tells you to sign in to save. The tool is on by default in a fresh chat.</description>
+		</item>
+		<item>
 			<title>iPhone now world-locks your IRL agent — it holds its real spot as you pan and walk</title>
 			<link>https://three.ws/irl</link>
 			<guid isPermaLink="false">2026-06-17:iPhone now world-locks your IRL agent — it holds its real spot as you pan and walk</guid>
@@ -676,7 +684,7 @@
 			<guid isPermaLink="false">2026-06-17:The IBM page became a live showcase — five three.ws demos in one place</guid>
 			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
-			<description>The IBM page at three.ws/ibm/x402-demo is now a full showcase of the IBM × three.ws partnership: five real, unmocked demos you can try in sequence. Pay a tenth of a cent over x402 and watch it settle on-chain; meet a 3D AI agent that pays for its own data and celebrates the moment your payment clears; then Forge (turn text into a 3D model), Play (a shared 3D world), and IRL (an agent in augmented reality) each run full-size right on the page, with a one-tap full-screen. Everything still loads from three.ws with no build step.</description>
+			<description>The IBM page at three.ws/ibm/x402-demo is now a live showcase: five real, unmocked three.ws demos you can try in sequence. Pay a tenth of a cent over x402 and watch it settle on-chain; meet a 3D AI agent that pays for its own data and celebrates the moment your payment clears; then Forge (turn text into a 3D model), Play (a shared 3D world), and IRL (an agent in augmented reality) each run full-size right on the page, with a one-tap full-screen. Everything still loads from three.ws with no build step.</description>
 		</item>
 		<item>
 			<title>The Oracle's proof pages — wins, backtest, and live activity — load again</title>

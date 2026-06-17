@@ -68,7 +68,7 @@
 	} from './feather.js';
 	import { defaultToolSchema, agentToolSchema, pumpToolSchema, agentPaymentsToolSchema, pumpTradingToolSchema, walletToolSchema, curatedToolPacks } from './tools.js';
 	import { signMessageSolana, signMessageEVM } from './walletAuth.js';
-	import { debounce, readFileAsDataURL } from './util.js';
+	import { debounce, readFileAsDataURL, parseToolCallArguments } from './util.js';
 	import { flash, focusOnMount } from './actions';
 	import Message from './Message.svelte';
 	import { deleteSingleItem, initEncryption, sendSingleItem, syncPull, syncPush } from './sync.js';
@@ -818,16 +818,18 @@
 						const toolcall = convo.messages[i].toolcalls[ti];
 
 						try {
-							if (typeof toolcall.arguments === 'string') {
-								// Empty string = a tool that takes no arguments; treat as {} rather than a parse error.
-								toolcall.arguments = toolcall.arguments.trim()
-									? JSON.parse(toolcall.arguments)
-									: {};
-							}
-							// Otherwise arguments is already an object — leave it as-is.
+							// Normalize across providers: JSON strings, already-parsed objects,
+							// empty (no-arg) calls, and Markdown-fenced payloads all land as an object.
+							toolcall.arguments = parseToolCallArguments(toolcall.arguments);
 						} catch (err) {
+							const detail = err instanceof Error ? err.message : String(err);
+							const payload = err && err.payload != null ? String(err.payload) : '';
+							const truncated = payload.length > 500 ? payload.slice(0, 500) + '…' : payload;
+							// Fence the payload so model-emitted markdown can't break the error rendering.
+							const fenced = truncated.replace(/```/g, '`​``');
 							convo.messages[i].error =
-								'Failed to parse tool call arguments: ' + err + toolcall.arguments;
+								`The ${toolcall.name || 'tool'} call returned arguments that couldn't be read (${detail}).` +
+								(fenced ? `\n\nReceived:\n\`\`\`\n${fenced}\n\`\`\`` : '');
 							saveMessage(convo.messages[i]);
 							return;
 						}
@@ -1633,6 +1635,26 @@
 			}
 		} catch (err) {
 			console.warn('[forge-text-to-3d] bootstrap failed:', err);
+		}
+
+		// Same one-time bootstrap for the Text → 3D Avatar pack, so "make me an
+		// avatar of…" runs the full forge → rig → save-to-library pipeline on a
+		// fresh chat. Honors removal via the bootstrap flag, like the packs above.
+		try {
+			if (!localStorage.getItem('forgeAvatarPackBootstrapped')) {
+				const avatarPack = curatedToolPacks.find((p) => p.id === 'forge-avatar');
+				if (avatarPack && !$toolSchema.some((g) => g.name === avatarPack.name)) {
+					$toolSchema = [...$toolSchema, { name: avatarPack.name, schema: avatarPack.schema }];
+				}
+				if (avatarPack && convo && (convo.messages?.length ?? 0) === 0) {
+					const names = avatarPack.schema.map((t) => t.function?.name).filter(Boolean);
+					convo.tools = Array.from(new Set([...(convo.tools || []), ...names]));
+					saveConversation(convo);
+				}
+				localStorage.setItem('forgeAvatarPackBootstrapped', '1');
+			}
+		} catch (err) {
+			console.warn('[forge-avatar] bootstrap failed:', err);
 		}
 
 		// When the user installs a Local skill from the Skills modal, auto-enable

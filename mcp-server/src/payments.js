@@ -266,6 +266,35 @@ export function paid(cfg, handler) {
 }
 
 /**
+ * Wrap a tool handler as a FREE (no-payment) MCP tool callback — the
+ * counterpart to `paid()` for tools the platform offers at zero cost (the free
+ * NVIDIA NIM / Microsoft TRELLIS text→3D lane).
+ *
+ * It funnels the handler's return value through the SAME `buildToolResult`
+ * envelope every paid tool uses (text mirror + structuredContent + isError on
+ * `toolError`), so a free tool is indistinguishable from a paid one to the
+ * client EXCEPT that it never emits a 402 PaymentRequired challenge and never
+ * touches payment env: no x402 resource server, no facilitator, no pay-to
+ * address. That keeps the free lane working on a deployment that has not
+ * configured MCP_SVM_PAYMENT_ADDRESS at all.
+ *
+ * @param {object} cfg
+ * @param {string} cfg.toolName      — e.g. "forge_free" (used only in error messages)
+ * @param {object} [cfg.inputSchema] — JSON Schema for the args (parity with paid(); unused here)
+ * @param {Function} handler         — async (args, context) → result
+ * @returns {Function} MCP tool callback for McpServer.registerTool()
+ */
+export function free(cfg, handler) {
+	const { toolName } = cfg || {};
+	if (!toolName) throw new Error('free(): toolName is required');
+	if (typeof handler !== 'function') throw new Error('free(): handler must be a function');
+	return async function freeToolCallback(args, context) {
+		const result = await handler(args, context);
+		return buildToolResult(result);
+	};
+}
+
+/**
  * Build the MCP `CallToolResult` envelope from a handler's return value.
  *
  * This is the single place every paid tool's output is shaped, so all 15 tools

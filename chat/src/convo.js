@@ -1,6 +1,7 @@
 import { get } from 'svelte/store';
 import { controller, params, toolSchema, knowledgeSkills } from './stores.js';
 import { headersForFetch, providers } from './providers.js';
+import { serializeToolCallArguments } from './util.js';
 
 const KNOWLEDGE_SOFT_CAP = 60_000;
 
@@ -252,7 +253,7 @@ function messageToOpenAIFormat(msg) {
 				type: 'function',
 				function: {
 					name: t.name,
-					arguments: JSON.stringify(t.arguments),
+					arguments: serializeToolCallArguments(t.arguments),
 				},
 			};
 		});
