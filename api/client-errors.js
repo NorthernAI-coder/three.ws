@@ -56,6 +56,36 @@ function isDevOriginPage(page) {
 	);
 }
 
+// Bridge globals that mobile in-app browsers and browser extensions inject into
+// every page they wrap (Twitter/X, Chrome iOS, Firefox iOS, the Bing app, …).
+// Our code never references any of them, so a "Can't find variable: currentInset"
+// is the injected bridge script failing in the page context — not a three.ws
+// fault. Documented webview/extension globals only, matched as whole words.
+const INJECTED_GLOBALS =
+	/\b(currentInset|gCrWeb|__gCrWeb|__firefox__|_AutofillCallbackHandler|instantSearchSDKJSBridgeClearHighlight|webkitStorageInfo|bannerNight|ceCurrentVideo|isHighlightingEnabled|zaloJSV2|MyAppGetLinkProperties)\b/;
+
+// Errors that originate outside our code and are never actionable from a deploy.
+// Dropping them at the boundary keeps the prod error logs, Sentry, and ops paging
+// focused on genuine first-party faults. Clients running a freshly-cached
+// error-reporter.js already filter these locally; this is the server-side
+// backstop for the long tail of clients holding an older cached reporter.
+function isNonActionableNoise(event) {
+	if (event.type !== 'error' && event.type !== 'unhandledrejection') return false;
+	const msg = event.message || '';
+	// Cross-origin "Script error." — the browser strips every detail (stack,
+	// file, line) from an exception thrown by a script served without CORS
+	// headers, leaving nothing to act on.
+	if (/^Script error\.?$/.test(msg)) return true;
+	// AbortError — a deliberate fetch/navigation cancellation (AbortController
+	// or a superseded in-flight request), not a failure.
+	if (event.name === 'AbortError' || /\bfetch is aborted\b|\bthe operation was aborted\b/i.test(msg)) {
+		return true;
+	}
+	// A ReferenceError naming a known injected bridge global — their script, not ours.
+	if (/can't find variable:|is not defined/i.test(msg) && INJECTED_GLOBALS.test(msg)) return true;
+	return false;
+}
+
 // Map both CSP report wire formats onto our event shape:
 //   report-uri:  { "csp-report": { "violated-directive", "blocked-uri", ... } }
 //   report-to:   [ { type: "csp-violation", body: { effectiveDirective, blockedURL, ... } } ]
@@ -139,7 +169,14 @@ export default wrap(async (req, res) => {
 		ip,
 	};
 
+	let dropped = 0;
 	for (const event of events) {
+		// Third-party / injected / cancellation noise never reaches the logs,
+		// Sentry, or the ops channel — see isNonActionableNoise.
+		if (isNonActionableNoise(event)) {
+			dropped++;
+			continue;
+		}
 		// Resource load failures (a CDN blip, an offline mobile network, a
 		// third-party embed like Cloudflare Turnstile being briefly unreachable)
 		// and CSP reports (browser extensions trip these constantly) are client-side
@@ -174,5 +211,5 @@ export default wrap(async (req, res) => {
 		}
 	}
 
-	return json(res, 202, { received: events.length });
+	return json(res, 202, { received: events.length - dropped, dropped });
 });

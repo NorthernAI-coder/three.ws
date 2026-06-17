@@ -145,6 +145,70 @@ describe('api/client-errors', () => {
 		expect(logged.ip).toBe('203.0.113.7');
 	});
 
+	describe('non-actionable noise filter', () => {
+		const cases = [
+			['cross-origin "Script error."', { type: 'error', message: 'Script error.' }],
+			['cross-origin "Script error" (no period)', { type: 'error', message: 'Script error' }],
+			[
+				'AbortError by name',
+				{ type: 'unhandledrejection', name: 'AbortError', message: 'Fetch is aborted' },
+			],
+			[
+				'aborted by message',
+				{ type: 'unhandledrejection', message: 'The operation was aborted' },
+			],
+			[
+				'injected webview global (Safari)',
+				{ type: 'error', name: 'ReferenceError', message: "Can't find variable: currentInset" },
+			],
+			[
+				'injected webview global (Chrome/FF)',
+				{ type: 'error', name: 'ReferenceError', message: 'gCrWeb is not defined' },
+			],
+		];
+		for (const [label, event] of cases) {
+			it(`drops ${label} — no log, no Sentry, no page`, async () => {
+				const { status, body } = await invoke({
+					body: { page: 'https://three.ws/walk', events: [{ ts: 1, ...event }] },
+				});
+				expect(status).toBe(202);
+				expect(body.received).toBe(0);
+				expect(body.dropped).toBe(1);
+				expect(consoleError.mock.calls.filter(([tag]) => tag === '[client-error]')).toHaveLength(0);
+				expect(captureException).not.toHaveBeenCalled();
+				expect(sendOpsAlert).not.toHaveBeenCalled();
+			});
+		}
+
+		it('still reports a real ReferenceError that names one of our own variables', async () => {
+			const { body } = await invoke({
+				body: {
+					page: 'https://three.ws/walk',
+					events: [{ type: 'error', name: 'ReferenceError', message: 'renderScene is not defined', ts: 1 }],
+				},
+			});
+			expect(body.received).toBe(1);
+			expect(body.dropped).toBe(0);
+			expect(captureException).toHaveBeenCalledTimes(1);
+		});
+
+		it('drops only the noise events in a mixed batch', async () => {
+			const { body } = await invoke({
+				body: {
+					page: 'https://three.ws/walk',
+					events: [
+						errorEvent(),
+						{ type: 'error', message: 'Script error.', ts: 1 },
+						{ type: 'unhandledrejection', name: 'AbortError', message: 'Fetch is aborted', ts: 2 },
+					],
+				},
+			});
+			expect(body.received).toBe(1);
+			expect(body.dropped).toBe(2);
+			expect(consoleError.mock.calls.filter(([tag]) => tag === '[client-error]')).toHaveLength(1);
+		});
+	});
+
 	it('forwards JS errors to Sentry with the client stack, but not resource events', async () => {
 		await invoke({
 			body: {
