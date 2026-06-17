@@ -28,7 +28,7 @@ Together: your face (or your prompt) becomes a model, the model becomes a talkin
 2. They open the [Embed Editor](https://three.ws/embed-editor), pick the avatar, choose an idle animation and a transparent background, and frame it.
 3. They set a brain and personality inline, copying the snippet the editor produces:
    ```html
-   <script type="module" src="https://three.ws/agent-3d/1.5.1/agent-3d.js"></script>
+   <script type="module" src="https://three.ws/agent-3d/1.5.2/agent-3d.js"></script>
    <agent-3d
      body="https://cdn.three.ws/models/procyon-fox.glb"
      brain="claude-sonnet-4-6"

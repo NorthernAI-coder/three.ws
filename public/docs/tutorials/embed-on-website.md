@@ -46,7 +46,7 @@ The Studio offers two snippet formats. Here's what each one looks like and when 
 <!-- One-time: add to <head> -->
 <script
   type="module"
-  src="https://three.ws/agent-3d/1.5.1/agent-3d.js"
+  src="https://three.ws/agent-3d/1.5.2/agent-3d.js"
   crossorigin="anonymous"
 ></script>
 
@@ -72,7 +72,7 @@ The complete setup for a static site — no build tool, no framework, no npm.
   <!-- 1. Load the agent runtime once, in <head> -->
   <script
     type="module"
-    src="https://three.ws/agent-3d/1.5.1/agent-3d.js"
+    src="https://three.ws/agent-3d/1.5.2/agent-3d.js"
     crossorigin="anonymous"
   ></script>
 </head>
@@ -229,7 +229,7 @@ declare namespace JSX {
 ```html
 <script
   type="module"
-  src="https://three.ws/agent-3d/1.5.1/agent-3d.js"
+  src="https://three.ws/agent-3d/1.5.2/agent-3d.js"
 ></script>
 <agent-3d
   agent-id="42"
@@ -250,7 +250,7 @@ To show a floating agent on every page of your site:
 ```html
 <script
   type="module"
-  src="https://three.ws/agent-3d/1.5.1/agent-3d.js"
+  src="https://three.ws/agent-3d/1.5.2/agent-3d.js"
 ></script>
 ```
 3. In **Footer Code** (before `</body>`), add the element:
@@ -276,7 +276,7 @@ To show a floating agent on every page of your site:
 ```html
 <script
   type="module"
-  src="https://three.ws/agent-3d/1.5.1/agent-3d.js"
+  src="https://three.ws/agent-3d/1.5.2/agent-3d.js"
 ></script>
 ```
 4. Save
@@ -307,7 +307,7 @@ Add to your child theme's `functions.php`:
 
 ```php
 function add_3dagent_script() {
-    echo '<script type="module" src="https://three.ws/agent-3d/1.5.1/agent-3d.js"></script>';
+    echo '<script type="module" src="https://three.ws/agent-3d/1.5.2/agent-3d.js"></script>';
 }
 add_action('wp_head', 'add_3dagent_script');
 ```
@@ -326,7 +326,7 @@ Then add a **Custom HTML** block in the Gutenberg editor wherever you want the a
 1. Edit the page, click **Add Block**, choose **Code**
 2. Paste the complete snippet (script + element together — Squarespace Code blocks don't share scope):
 ```html
-<script type="module" src="https://three.ws/agent-3d/1.5.1/agent-3d.js"></script>
+<script type="module" src="https://three.ws/agent-3d/1.5.2/agent-3d.js"></script>
 <agent-3d
   agent-id="42"
   chain-id="8453"
@@ -341,7 +341,7 @@ Then add a **Custom HTML** block in the Gutenberg editor wherever you want the a
 1. Go to **Settings → Advanced → Code Injection**
 2. In the **Footer** field, paste:
 ```html
-<script type="module" src="https://three.ws/agent-3d/1.5.1/agent-3d.js"></script>
+<script type="module" src="https://three.ws/agent-3d/1.5.2/agent-3d.js"></script>
 <agent-3d
   agent-id="42"
   chain-id="8453"

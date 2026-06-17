@@ -52,7 +52,7 @@ const TEMPLATES = [
 ];
 
 const DEFAULT_AVATAR_SRC = '/avatars/default.glb';
-const AGENT_3D_VERSION = '1.5.1';
+const AGENT_3D_VERSION = '1.5.2';
 const AGENT_3D_HOST = 'https://three.ws';
 const DRAFT_KEY = 'launchpadStudio:draft';
 const SECRETS_KEY = 'launchpadStudio:secrets';   // { [slug]: ownerSecret }
