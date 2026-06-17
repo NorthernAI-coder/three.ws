@@ -269,6 +269,22 @@ export class AnimationManager {
 		this._animationDefs = defs;
 	}
 
+	/**
+	 * Append additional defs (e.g. user/public clips from the API) without
+	 * replacing the manifest-sourced ones. Skips defs whose name is already
+	 * registered to avoid duplicates when called multiple times.
+	 * @param {Array<{name:string, url:string, label?:string, icon?:string, loop?:boolean}>} defs
+	 */
+	appendAnimationDefs(defs) {
+		const existing = new Set(this._animationDefs.map((d) => d.name));
+		for (const def of defs) {
+			if (!existing.has(def.name)) {
+				this._animationDefs.push(def);
+				existing.add(def.name);
+			}
+		}
+	}
+
 	/** @returns {Array} */
 	getAnimationDefs() {
 		return this._animationDefs;
@@ -313,27 +329,59 @@ export class AnimationManager {
 	 * Load a single clip from a pre-baked JSON URL and register it.
 	 * Idempotent — returns the cached clip if already loaded.
 	 *
+	 * Handles two response shapes:
+	 *  - Static clip JSON:  { name, duration, tracks }  (manifest clips)
+	 *  - API clip response: { clip: { clip: { name, duration, tracks } } }
+	 *    (/api/animations/clips/:id — detected by URL containing /api/animations/)
+	 *
 	 * @param {string} name
-	 * @param {string} url  URL to a clip JSON produced by build-animations.mjs
+	 * @param {string} url  URL to a clip JSON or /api/animations/clips/:id endpoint
 	 * @param {{ loop?: boolean }} [opts]
 	 * @returns {Promise<THREE.AnimationClip>}
 	 */
 	async loadAnimation(name, url, opts = {}) {
 		if (this.clips.has(name)) return this.clips.get(name);
 
+		const isApiClip = url.includes('/api/animations/');
 		const controller = new AbortController();
-		const timeoutId = setTimeout(() => controller.abort(), 10_000);
+		const timeoutId = setTimeout(() => controller.abort(), 15_000);
 		let res;
 		try {
-			res = await fetch(url, { signal: controller.signal });
+			res = await fetch(url, {
+				signal: controller.signal,
+				credentials: isApiClip ? 'include' : 'omit',
+			});
 		} finally {
 			clearTimeout(timeoutId);
 		}
 		if (!res.ok) throw new Error(`HTTP ${res.status} loading animation ${name}`);
 		const json = await res.json();
-		const clip = AnimationClip.parse(json);
+		// API responses wrap the baked clip one level deeper.
+		const clipJson = isApiClip ? json?.clip?.clip : json;
+		if (!clipJson) throw new Error(`clip payload missing from ${url}`);
+		const clip = AnimationClip.parse(clipJson);
 		clip.name = name;
 
+		return this._registerParsedClip(name, clip, opts);
+	}
+
+	/**
+	 * Register an already-parsed AnimationClip directly without fetching a URL.
+	 * Creates an action if a model is currently attached. Idempotent.
+	 *
+	 * @param {string} name
+	 * @param {THREE.AnimationClip} clip
+	 * @param {{ loop?: boolean }} [opts]
+	 * @returns {THREE.AnimationClip}
+	 */
+	registerClipDirect(name, clip, opts = {}) {
+		if (this.clips.has(name)) return this.clips.get(name);
+		clip.name = name;
+		return this._registerParsedClip(name, clip, opts);
+	}
+
+	/** @private Shared finalization for both load paths. */
+	_registerParsedClip(name, clip, opts) {
 		this.clips.set(name, clip);
 
 		if (this.model && this.mixer) {

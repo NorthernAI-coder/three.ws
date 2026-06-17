@@ -8,8 +8,10 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import {
 	BACKENDS,
+	OUTPUTS,
 	resolveBackendId,
 	backendIsConfigured,
+	outputIsConfigured,
 	buildCatalog,
 } from '../../api/_lib/forge-tiers.js';
 
@@ -153,5 +155,66 @@ describe('forge-tiers — Hunyuan3D self-host configuration', () => {
 		process.env.GCP_RECONSTRUCTION_KEY = 'secret';
 		expect(backendIsConfigured('hunyuan3d')).toBe(true);
 		expect(buildCatalog().backends.find((b) => b.id === 'hunyuan3d').configured).toBe(true);
+	});
+});
+
+// Game-Ready is a post-generation export option (not a generation backend). It
+// must appear in the public catalog's `outputs` with honest ETA + price fields
+// so the result view can advertise it, and report configured only when the
+// remesh worker env is present.
+describe('forge-tiers — Game-Ready export output', () => {
+	const saved = {};
+	const VARS = ['GCP_REMESH_URL', 'GCP_RECONSTRUCTION_KEY'];
+	beforeEach(() => {
+		for (const v of VARS) {
+			saved[v] = process.env[v];
+			delete process.env[v];
+		}
+	});
+	afterEach(() => {
+		for (const v of VARS) {
+			if (saved[v] === undefined) delete process.env[v];
+			else process.env[v] = saved[v];
+		}
+	});
+
+	it('registers a remesh-worker-backed export with quad + tri topologies and GLB/FBX formats', () => {
+		const gr = OUTPUTS.gameready;
+		expect(gr).toBeTruthy();
+		expect(gr.topologies).toEqual(['quad', 'tri']);
+		expect(gr.formats).toEqual(['glb', 'fbx']);
+		expect(gr.requiresEnv).toEqual(['GCP_REMESH_URL', 'GCP_RECONSTRUCTION_KEY']);
+		expect(gr.baseEta).toBeGreaterThan(0);
+		expect(gr.priceUsdcAtomics).toBeGreaterThan(0);
+		expect(gr.polyPresets.length).toBeGreaterThan(0);
+	});
+
+	it('reports configured only when the remesh worker URL and key are set', () => {
+		expect(outputIsConfigured('gameready')).toBe(false);
+		process.env.GCP_REMESH_URL = 'https://remesh.example.run.app';
+		process.env.GCP_RECONSTRUCTION_KEY = 'secret';
+		expect(outputIsConfigured('gameready')).toBe(true);
+	});
+
+	it('advertises the option in the public catalog with valid ETA + cost fields', () => {
+		process.env.GCP_REMESH_URL = 'https://remesh.example.run.app';
+		process.env.GCP_RECONSTRUCTION_KEY = 'secret';
+		const cat = buildCatalog();
+		expect(Array.isArray(cat.outputs)).toBe(true);
+		const gr = cat.outputs.find((o) => o.id === 'gameready');
+		expect(gr).toBeTruthy();
+		expect(gr.label).toBe('Game-Ready');
+		expect(gr.topologies).toEqual(['quad', 'tri']);
+		expect(gr.formats).toEqual(['glb', 'fbx']);
+		expect(gr.eta_seconds).toBeGreaterThan(0);
+		expect(gr.price_usdc_atomics).toBeGreaterThan(0);
+		expect(gr.price_usdc).toMatch(/^\d+\.\d{2}$/);
+		expect(gr.poly_presets.length).toBeGreaterThan(0);
+		expect(gr.configured).toBe(true);
+	});
+
+	it('reports the catalog output as not configured when the worker env is absent', () => {
+		const gr = buildCatalog().outputs.find((o) => o.id === 'gameready');
+		expect(gr.configured).toBe(false);
 	});
 });

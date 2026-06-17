@@ -1605,15 +1605,29 @@ function boot() {
 	state.library = library;
 	library.mount();
 
-	// ── Boot: honor ?avatar= ─────────────────────────────────────────────────
-	const requestedAvatar = new URL(window.location.href).searchParams.get('avatar');
+	// ── Boot: honor ?avatar= and ?anim= ─────────────────────────────────────
+	const _params = new URL(window.location.href).searchParams;
+	const requestedAvatar = _params.get('avatar');
+	const requestedAnim = _params.get('anim');
+
 	if (requestedAvatar) {
 		loadAvatarById(requestedAvatar).catch((err) => {
 			setStatus(`${err.message} Showing the mannequin instead.`, 'error');
 			switchToMannequin();
+		}).then(() => {
+			if (requestedAnim) {
+				library.openById(requestedAnim).catch((err) => {
+					setStatus(`Could not load animation: ${err?.message || 'unknown error'}`, 'error');
+				});
+			}
 		});
 	} else {
 		setStatus('Ready. Click a body part to pose, or load an avatar.');
+		if (requestedAnim) {
+			library.openById(requestedAnim).catch((err) => {
+				setStatus(`Could not load animation: ${err?.message || 'unknown error'}`, 'error');
+			});
+		}
 	}
 }
 

@@ -3,6 +3,13 @@
 	"entries": [
 		{
 			"date": "2026-06-17",
+			"title": "Game-Ready export in Forge — one click to engine-ready GLB + FBX",
+			"summary": "Any model you generate or upload in Forge can now be turned into a clean, engine-ready asset in one click. Pick Quad retopology (field-aligned QuadriFlow edge loops that rig and animate well) or Tri low-poly (silhouette-preserving, with the texture re-baked), set a poly budget with 5k / 15k / 50k presets, and export a textured GLB plus an FBX for Unity and Unreal together. You see the before→after poly count (e.g. 28,400 → 5,012) and can flip on a live wireframe to inspect the new topology right in the viewer. Files are served from our own CDN.",
+			"tags": ["feature"],
+			"link": "/forge"
+		},
+		{
+			"date": "2026-06-17",
 			"title": "Buy a skill, get an on-chain NFT receipt in your wallet",
 			"summary": "When you purchase an agent's skill, you now receive a real NFT minted straight to your Solana wallet as proof of ownership and a perpetual license to use that skill. Each agent has its own verified on-chain collection, so the skills you buy from an agent group together in your wallet and on explorers like Solscan and Phantom — with the agent's name and avatar. The NFT is minted only after your payment is confirmed on-chain to the creator, it's tied to the wallet linked to your account so it can never be sent to a stranger, and asking again never mints a duplicate. Your purchased skills now show their NFT mint address.",
 			"tags": ["feature"],

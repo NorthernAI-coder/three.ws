@@ -1,0 +1,494 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<script>/* three.ws theme boot — no-flash */(function(){try{var m=localStorage.getItem('twx_theme');var l=m==='auto'?(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches):m==='light';document.documentElement.setAttribute('data-theme',l?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();</script>
+		<meta charset="utf-8" />
+		<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+		<title>Animation Gallery · three.ws</title>
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<meta name="description" content="Browse community-authored animations for three.ws avatars. Preview, remix, and use any public animation in the studio." />
+		<meta name="theme-color" content="#000000" />
+		<link rel="canonical" href="https://three.ws/animations" />
+
+		<meta property="og:type" content="website" />
+		<meta property="og:site_name" content="three.ws" />
+		<meta property="og:title" content="Animation Gallery · three.ws" />
+		<meta property="og:description" content="Browse community animations for three.ws avatars. Preview and use in the Animation Studio." />
+		<meta property="og:url" content="https://three.ws/animations" />
+		<meta property="og:image" content="https://three.ws/og-image.png" />
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta name="twitter:site" content="@trythreews" />
+		<meta name="twitter:title" content="Animation Gallery · three.ws" />
+		<meta name="twitter:description" content="Browse community animations for three.ws avatars." />
+		<meta name="twitter:image" content="https://three.ws/og-image.png" />
+
+		<link rel="icon" href="/favicon.ico" sizes="any" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+		<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+		<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+		<link rel="manifest" href="/site.webmanifest" />
+		<link rel="stylesheet" href="/style.css" />
+		<link rel="stylesheet" href="/nav.css" />
+		<link rel="stylesheet" href="/footer.css" />
+		<link rel="stylesheet" href="/fonts/fonts.css" />
+
+		<style>
+			:root {
+				--ag-card-w: 280px;
+				--ag-preview-h: 340px;
+			}
+
+			.ag-page {
+				min-height: 100vh;
+				background: var(--bg, #000);
+				color: var(--text, #fafafa);
+				font-family: 'Inter', system-ui, -apple-system, sans-serif;
+				-webkit-font-smoothing: antialiased;
+			}
+
+			/* ── Hero ──────────────────────────────────────────────────────── */
+			.ag-hero {
+				padding: 64px 24px 40px;
+				max-width: 900px;
+				margin: 0 auto;
+			}
+			.ag-hero-chip {
+				display: inline-flex;
+				align-items: center;
+				gap: 6px;
+				padding: 4px 10px;
+				background: rgba(255,255,255,0.06);
+				border: 1px solid rgba(255,255,255,0.1);
+				border-radius: 20px;
+				font-size: 11px;
+				color: var(--text-2, #a1a1aa);
+				letter-spacing: 0.04em;
+				text-transform: uppercase;
+				margin-bottom: 18px;
+			}
+			.ag-hero-dot {
+				width: 6px;
+				height: 6px;
+				border-radius: 50%;
+				background: #4ade80;
+				animation: ag-pulse 2.4s ease-out infinite;
+			}
+			@keyframes ag-pulse {
+				0%,100% { opacity: 1; }
+				50% { opacity: 0.35; }
+			}
+			.ag-hero h1 {
+				font-size: clamp(28px, 5vw, 44px);
+				font-weight: 700;
+				letter-spacing: -0.02em;
+				margin: 0 0 12px;
+				line-height: 1.1;
+			}
+			.ag-hero p {
+				color: var(--text-2, #a1a1aa);
+				font-size: 15px;
+				margin: 0 0 24px;
+				max-width: 520px;
+			}
+			.ag-hero-actions {
+				display: flex;
+				gap: 10px;
+				flex-wrap: wrap;
+			}
+			.ag-btn {
+				display: inline-flex;
+				align-items: center;
+				gap: 6px;
+				padding: 9px 18px;
+				border-radius: 8px;
+				font-size: 13px;
+				font-weight: 500;
+				text-decoration: none;
+				border: none;
+				cursor: pointer;
+				transition: opacity 0.15s, background 0.15s;
+			}
+			.ag-btn:focus-visible {
+				outline: 2px solid var(--focus-ring-color, #fff);
+				outline-offset: 2px;
+			}
+			.ag-btn--primary {
+				background: #fff;
+				color: #000;
+			}
+			.ag-btn--primary:hover { background: #e5e5e5; }
+			.ag-btn--secondary {
+				background: rgba(255,255,255,0.08);
+				color: var(--text, #fafafa);
+				border: 1px solid rgba(255,255,255,0.12);
+			}
+			.ag-btn--secondary:hover { background: rgba(255,255,255,0.12); }
+
+			/* ── Toolbar ──────────────────────────────────────────────────── */
+			.ag-toolbar {
+				display: flex;
+				align-items: center;
+				gap: 10px;
+				padding: 0 24px 24px;
+				max-width: 1200px;
+				margin: 0 auto;
+				flex-wrap: wrap;
+			}
+			.ag-search-wrap {
+				position: relative;
+				flex: 1;
+				min-width: 200px;
+				max-width: 360px;
+			}
+			.ag-search {
+				width: 100%;
+				padding: 9px 34px 9px 36px;
+				background: rgba(255,255,255,0.06);
+				border: 1px solid rgba(255,255,255,0.1);
+				border-radius: 8px;
+				color: var(--text, #fafafa);
+				font-size: 13px;
+				outline: none;
+				box-sizing: border-box;
+				transition: border-color 0.15s;
+			}
+			.ag-search:focus { border-color: rgba(255,255,255,0.3); }
+			.ag-search::placeholder { color: var(--text-3, #71717a); }
+			.ag-search-icon {
+				position: absolute;
+				left: 11px;
+				top: 50%;
+				transform: translateY(-50%);
+				color: var(--text-3, #71717a);
+				pointer-events: none;
+			}
+			.ag-filter-chips {
+				display: flex;
+				gap: 6px;
+				flex-wrap: wrap;
+			}
+			.ag-chip {
+				padding: 6px 12px;
+				border-radius: 20px;
+				font-size: 12px;
+				border: 1px solid rgba(255,255,255,0.1);
+				background: transparent;
+				color: var(--text-2, #a1a1aa);
+				cursor: pointer;
+				transition: background 0.15s, border-color 0.15s, color 0.15s;
+			}
+			.ag-chip:hover { background: rgba(255,255,255,0.06); color: var(--text, #fafafa); }
+			.ag-chip[aria-selected="true"] {
+				background: #fff;
+				color: #000;
+				border-color: #fff;
+			}
+			.ag-chip:focus-visible {
+				outline: 2px solid var(--focus-ring-color, #fff);
+				outline-offset: 2px;
+			}
+
+			/* ── Grid ──────────────────────────────────────────────────────── */
+			.ag-content {
+				max-width: 1200px;
+				margin: 0 auto;
+				padding: 0 24px 80px;
+			}
+			.ag-grid {
+				display: grid;
+				grid-template-columns: repeat(auto-fill, minmax(var(--ag-card-w), 1fr));
+				gap: 20px;
+			}
+
+			/* ── Card ──────────────────────────────────────────────────────── */
+			.ag-card {
+				background: rgba(255,255,255,0.03);
+				border: 1px solid rgba(255,255,255,0.08);
+				border-radius: 14px;
+				overflow: hidden;
+				display: flex;
+				flex-direction: column;
+				transition: border-color 0.2s, transform 0.2s;
+				position: relative;
+			}
+			.ag-card:hover {
+				border-color: rgba(255,255,255,0.18);
+				transform: translateY(-2px);
+			}
+			.ag-card:focus-within {
+				outline: 2px solid rgba(255,255,255,0.4);
+				outline-offset: 2px;
+			}
+
+			/* Thumbnail / preview */
+			.ag-card-preview {
+				position: relative;
+				aspect-ratio: 3/4;
+				background: rgba(255,255,255,0.04);
+				overflow: hidden;
+				cursor: pointer;
+			}
+			.ag-card-thumb {
+				width: 100%;
+				height: 100%;
+				object-fit: cover;
+				display: block;
+			}
+			.ag-card-thumb-placeholder {
+				width: 100%;
+				height: 100%;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				font-size: 48px;
+				color: rgba(255,255,255,0.15);
+			}
+			/* Hover overlay with live preview iframe */
+			.ag-card-preview-overlay {
+				position: absolute;
+				inset: 0;
+				opacity: 0;
+				transition: opacity 0.3s;
+				pointer-events: none;
+			}
+			.ag-card:hover .ag-card-preview-overlay,
+			.ag-card-preview-overlay.is-active {
+				opacity: 1;
+				pointer-events: auto;
+			}
+			.ag-card-preview-overlay iframe {
+				width: 100%;
+				height: 100%;
+				border: none;
+				display: block;
+			}
+			.ag-play-hint {
+				position: absolute;
+				inset: 0;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				background: rgba(0,0,0,0.3);
+				transition: opacity 0.2s;
+				pointer-events: none;
+			}
+			.ag-card:hover .ag-play-hint { opacity: 0; }
+			.ag-play-icon {
+				width: 40px;
+				height: 40px;
+				background: rgba(255,255,255,0.15);
+				border-radius: 50%;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				backdrop-filter: blur(6px);
+			}
+
+			/* Meta */
+			.ag-card-meta {
+				padding: 14px 16px 16px;
+				display: flex;
+				flex-direction: column;
+				gap: 8px;
+				flex: 1;
+			}
+			.ag-card-title {
+				font-size: 14px;
+				font-weight: 600;
+				color: var(--text, #fafafa);
+				margin: 0;
+				white-space: nowrap;
+				overflow: hidden;
+				text-overflow: ellipsis;
+			}
+			.ag-card-badges {
+				display: flex;
+				gap: 5px;
+				flex-wrap: wrap;
+			}
+			.ag-badge {
+				padding: 2px 7px;
+				border-radius: 4px;
+				font-size: 10px;
+				font-weight: 500;
+				letter-spacing: 0.02em;
+				text-transform: uppercase;
+				background: rgba(255,255,255,0.07);
+				color: var(--text-2, #a1a1aa);
+			}
+			.ag-badge--loop { color: #34d399; background: rgba(52,211,153,0.12); }
+			.ag-badge--once { color: #fbbf24; background: rgba(251,191,36,0.12); }
+			.ag-badge--price { color: #60a5fa; background: rgba(96,165,250,0.12); }
+			.ag-card-tags {
+				display: flex;
+				gap: 4px;
+				flex-wrap: wrap;
+			}
+			.ag-tag {
+				padding: 2px 6px;
+				border-radius: 4px;
+				font-size: 10px;
+				background: rgba(255,255,255,0.05);
+				color: var(--text-3, #71717a);
+			}
+			.ag-card-actions {
+				display: flex;
+				gap: 6px;
+				margin-top: auto;
+				padding-top: 4px;
+			}
+			.ag-card-btn {
+				flex: 1;
+				padding: 7px 10px;
+				border-radius: 7px;
+				font-size: 12px;
+				font-weight: 500;
+				text-align: center;
+				text-decoration: none;
+				border: 1px solid rgba(255,255,255,0.1);
+				background: rgba(255,255,255,0.05);
+				color: var(--text-2, #a1a1aa);
+				cursor: pointer;
+				transition: background 0.15s, color 0.15s;
+			}
+			.ag-card-btn:hover { background: rgba(255,255,255,0.1); color: var(--text, #fafafa); }
+			.ag-card-btn:focus-visible {
+				outline: 2px solid var(--focus-ring-color, #fff);
+				outline-offset: 2px;
+			}
+			.ag-card-btn--primary {
+				background: rgba(255,255,255,0.12);
+				color: var(--text, #fafafa);
+				border-color: rgba(255,255,255,0.15);
+			}
+			.ag-card-btn--primary:hover { background: rgba(255,255,255,0.2); }
+
+			/* ── Skeleton loading ──────────────────────────────────────────── */
+			.ag-skeleton-grid {
+				display: grid;
+				grid-template-columns: repeat(auto-fill, minmax(var(--ag-card-w), 1fr));
+				gap: 20px;
+			}
+			.ag-skeleton {
+				border-radius: 14px;
+				aspect-ratio: 3/5;
+				background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 75%);
+				background-size: 400% 100%;
+				animation: ag-shimmer 1.3s linear infinite;
+			}
+			@keyframes ag-shimmer {
+				0% { background-position: 100% 0; }
+				100% { background-position: -100% 0; }
+			}
+
+			/* ── Empty / error states ──────────────────────────────────────── */
+			.ag-state {
+				text-align: center;
+				padding: 80px 24px;
+			}
+			.ag-state-icon { font-size: 48px; margin-bottom: 16px; }
+			.ag-state h2 { font-size: 20px; font-weight: 600; margin: 0 0 8px; }
+			.ag-state p { color: var(--text-2, #a1a1aa); font-size: 14px; margin: 0 0 24px; }
+
+			/* ── Load more ─────────────────────────────────────────────────── */
+			.ag-load-more {
+				display: flex;
+				justify-content: center;
+				padding: 32px 0 0;
+			}
+			.ag-sentinel { height: 1px; }
+
+			/* ── Responsive ────────────────────────────────────────────────── */
+			@media (max-width: 600px) {
+				:root { --ag-card-w: 260px; }
+				.ag-hero { padding: 40px 16px 24px; }
+				.ag-toolbar, .ag-content { padding-left: 16px; padding-right: 16px; }
+				.ag-hero h1 { font-size: 28px; }
+			}
+		</style>
+	</head>
+	<body class="ag-page">
+		<header>
+			<div id="nav-container"></div>
+		</header>
+		<script src="/nav.js"></script>
+
+		<main>
+			<section class="ag-hero">
+				<div>
+					<div class="ag-hero-chip">
+						<span class="ag-hero-dot" aria-hidden="true"></span>
+						<span>Animation Gallery</span>
+					</div>
+				</div>
+				<h1>Community Animations</h1>
+				<p>Browse animations authored by the three.ws community. Preview on a live avatar, open in the Studio to remix, or apply to your own avatar.</p>
+				<div class="ag-hero-actions">
+					<a href="/pose" class="ag-btn ag-btn--primary">Open Animation Studio</a>
+					<a href="/gallery" class="ag-btn ag-btn--secondary">Avatar Gallery</a>
+				</div>
+			</section>
+
+			<div class="ag-toolbar" role="toolbar" aria-label="Filter animations">
+				<div class="ag-search-wrap">
+					<svg class="ag-search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+					<input
+						type="search"
+						class="ag-search"
+						placeholder="Search animations…"
+						aria-label="Search animations"
+						autocomplete="off"
+						data-role="search"
+					/>
+				</div>
+				<div class="ag-filter-chips" role="tablist" aria-label="Filter by type" data-role="chips">
+					<button class="ag-chip" role="tab" aria-selected="true" data-filter="">All</button>
+					<button class="ag-chip" role="tab" aria-selected="false" data-filter="loop">Loops</button>
+					<button class="ag-chip" role="tab" aria-selected="false" data-filter="once">One-shot</button>
+				</div>
+			</div>
+
+			<div class="ag-content">
+				<div data-role="loading" class="ag-skeleton-grid">
+					<div class="ag-skeleton"></div>
+					<div class="ag-skeleton"></div>
+					<div class="ag-skeleton"></div>
+					<div class="ag-skeleton"></div>
+					<div class="ag-skeleton"></div>
+					<div class="ag-skeleton"></div>
+				</div>
+				<div data-role="grid" class="ag-grid" hidden></div>
+				<div data-role="empty" class="ag-state" hidden>
+					<div class="ag-state-icon">🎬</div>
+					<h2>No animations yet</h2>
+					<p>Be the first to publish an animation. Open the Studio, author a clip, and set it to public.</p>
+					<a href="/pose" class="ag-btn ag-btn--primary">Open Studio</a>
+				</div>
+				<div data-role="empty-search" class="ag-state" hidden>
+					<div class="ag-state-icon">🔍</div>
+					<h2>No matches</h2>
+					<p data-role="empty-search-msg">No animations match your search.</p>
+					<button class="ag-btn ag-btn--secondary" data-role="clear-search">Clear search</button>
+				</div>
+				<div data-role="error" class="ag-state" hidden>
+					<div class="ag-state-icon">⚠️</div>
+					<h2>Couldn't load animations</h2>
+					<p>Check your connection and try again.</p>
+					<button class="ag-btn ag-btn--secondary" data-role="retry">Retry</button>
+				</div>
+				<div class="ag-load-more" data-role="load-more" hidden>
+					<button class="ag-btn ag-btn--secondary" data-role="load-more-btn">Load more</button>
+				</div>
+				<div class="ag-sentinel" data-role="sentinel" aria-hidden="true"></div>
+			</div>
+		</main>
+
+		<footer>
+			<div id="footer-container"></div>
+		</footer>
+		<script src="/footer.js" defer></script>
+
+		<script type="module" src="/src/animations-gallery.js"></script>
+	</body>
+</html>

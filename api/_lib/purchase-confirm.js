@@ -440,9 +440,34 @@ async function finalizeSkillConfirmation(pur, txSignature, payoutAddress, platfo
 		UPDATE skill_purchases
 		SET status = 'confirmed', tx_signature = ${txSignature}, confirmed_at = now()
 		WHERE id = ${pur.id} AND status = 'pending'
-		RETURNING id
+		RETURNING id, kind, valid_until
 	`;
 	if (updated.length > 0) {
+		// Grant skill access. Permanent purchases get a non-expiring grant;
+		// time-passes expire at their valid_until window. The skill_access_grants
+		// table is the authoritative access record; skill_purchases tracks payment.
+		const confirmedRow = updated[0];
+		const grantExpiresAt = confirmedRow.kind === 'time_pass' && confirmedRow.valid_until
+			? confirmedRow.valid_until
+			: null;
+		try {
+			await sql`
+				INSERT INTO skill_access_grants
+					(user_id, agent_id, skill_name, purchase_id, expires_at)
+				VALUES
+					(${pur.user_id}, ${pur.agent_id}, ${pur.skill}, ${pur.id}, ${grantExpiresAt})
+				ON CONFLICT (user_id, agent_id, skill_name) DO UPDATE
+					SET expires_at  = EXCLUDED.expires_at,
+					    purchase_id = EXCLUDED.purchase_id,
+					    updated_at  = now()
+			`;
+		} catch (e) {
+			// If the table doesn't exist (pre-migration) don't block payment confirm —
+			// access is still tracked via skill_purchases status = 'confirmed'.
+			if (!e?.message?.includes('does not exist')) throw e;
+			console.warn('[purchase-confirm] skill_access_grants table missing, skipping grant');
+		}
+
 		await sql`
 			INSERT INTO agent_payment_intents
 				(id, payer_user_id, agent_id, currency_mint, amount, status, expires_at,

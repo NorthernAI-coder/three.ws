@@ -338,7 +338,20 @@ export class Viewer {
 	async onGesture(payload) {
 		if (!payload || !payload.name) return;
 		const { name, loop } = payload;
-		const ready = await this.animationManager.ensureLoaded(name);
+
+		// If the name looks like an API clip id (uuid or user:<id> prefix), load it
+		// from the API before trying the manifest. This lets embeds trigger user
+		// animations by id through the same postMessage channel as built-ins.
+		let ready = await this.animationManager.ensureLoaded(name);
+		if (!ready && (name.startsWith('user:') || /^[0-9a-f-]{36}$/i.test(name))) {
+			try {
+				const clipId = name.startsWith('user:') ? name.slice(5) : name;
+				await this.playAnimationById(clipId);
+				return;
+			} catch {
+				/* fall through — clip not found or private */
+			}
+		}
 		if (!ready) return;
 
 		const action = this.animationManager.actions.get(name);
@@ -1728,6 +1741,10 @@ export class Viewer {
 			this._renderAnimButtons();
 		});
 
+		// Fetch user-owned and public animations from the API and append them
+		// to the panel alongside the built-in manifest clips.
+		this._fetchAndAppendUserAnimations();
+
 		// Stop button
 		panel.querySelector('.anim-panel__stop').addEventListener('click', () => {
 			this.animationManager.stopAll();
@@ -1739,6 +1756,71 @@ export class Viewer {
 		this.animationManager.onChange = () => {
 			this._renderAnimButtons();
 		};
+	}
+
+	/**
+	 * Fetch user-owned and public animation clips from the API and append them
+	 * to the animation panel so they appear alongside the manifest built-ins.
+	 * Non-fatal: if the API is unavailable or the user isn't signed in the panel
+	 * still shows the built-in clips.
+	 * @private
+	 */
+	async _fetchAndAppendUserAnimations() {
+		try {
+			const res = await fetch('/api/animations/clips?include_public=true&limit=100', {
+				credentials: 'include',
+			});
+			if (!res.ok) return;
+			const { items } = await res.json();
+			if (!Array.isArray(items) || items.length === 0) return;
+
+			const defs = items.map((c) => ({
+				name: `user:${c.id}`,
+				url: `/api/animations/clips/${encodeURIComponent(c.id)}?play=1`,
+				label: c.name || c.slug || 'Animation',
+				icon: c.visibility === 'public' ? '🌐' : '🔒',
+				loop: c.loop !== false,
+				source: 'user',
+			}));
+			this.animationManager.appendAnimationDefs(defs);
+			this._renderAnimButtons();
+		} catch {
+			/* Non-fatal — user clips just won't appear in the panel */
+		}
+	}
+
+	/**
+	 * Load a user or public animation clip by its API id (or slug) and play it
+	 * on the currently attached avatar. Increments play_count on the server.
+	 * Safe to call before setAnimationDefs; registers the clip directly.
+	 *
+	 * @param {string} clipId  — animation_clips.id (UUID) or slug
+	 * @returns {Promise<string>} the internal clip name used by the manager
+	 */
+	async playAnimationById(clipId) {
+		const name = `user:${clipId}`;
+		// If already registered as a def, use the normal ensureLoaded path.
+		const existing = this.animationManager.getAnimationDefs().find(
+			(d) => d.name === name || d.url?.includes(`/${encodeURIComponent(clipId)}`),
+		);
+		if (!existing) {
+			// Register the def so the manager knows how to lazy-load it.
+			this.animationManager.appendAnimationDefs([{
+				name,
+				url: `/api/animations/clips/${encodeURIComponent(clipId)}?play=1`,
+				label: 'Animation',
+				icon: '🎬',
+				loop: true,
+				source: 'user',
+			}]);
+		}
+		const ready = await this.animationManager.ensureLoaded(name);
+		if (!ready) throw new Error(`animation ${clipId} unavailable`);
+		await this.animationManager.crossfadeTo(name);
+		this.invalidate();
+		this._recomputeAnimating?.();
+		this._updateRenderLoop?.();
+		return name;
 	}
 
 	/**
