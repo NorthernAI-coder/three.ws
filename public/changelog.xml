@@ -55,6 +55,22 @@
 			<description>Your IRL Agents dashboard now has an Inbox: a live, chronological feed of everyone who met your placed agents in real life. Each entry shows what happened — a view, a tap, a message, or a payment — where it happened, and how long ago. Payments show the exact amount and link straight to the block-explorer receipt, and you can reply to anyone who left your agent a message; if they were signed in, your reply lands in their notifications. Unread counts appear on the Inbox button and on each agent's card, the feed refreshes itself every few seconds, and opening the inbox marks everything read. High-signal events (a payment or a message) also ping you in the notification bell, so you find out the moment a stranger across the city engages your agent.</description>
 		</item>
 		<item>
+			<title>Avatars from any tool animate perfectly when uploaded</title>
+			<link>https://three.ws/avatars</link>
+			<guid isPermaLink="false">2026-06-17:Avatars from any tool animate perfectly when uploaded</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>Avatars exported from Mixamo, Blender, Unreal Engine, and other tools are now canonicalized at upload time — bone names are normalized and the up-axis convention is baked out — so they animate correctly out of the box with no manual fixup. Previously, Mixamo-rigged avatars needed a runtime correction that could leave limbs in unexpected poses on some clips; now the stored model is already in the canonical form every animation clip expects.</description>
+		</item>
+		<item>
+			<title>Buy a skill, get an on-chain NFT receipt in your wallet</title>
+			<link>https://three.ws/marketplace</link>
+			<guid isPermaLink="false">2026-06-17:Buy a skill, get an on-chain NFT receipt in your wallet</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>When you purchase an agent's skill, you now receive a real NFT minted straight to your Solana wallet as proof of ownership and a perpetual license to use that skill. Each agent has its own verified on-chain collection, so the skills you buy from an agent group together in your wallet and on explorers like Solscan and Phantom — with the agent's name and avatar. The NFT is minted only after your payment is confirmed on-chain to the creator, it's tied to the wallet linked to your account so it can never be sent to a stranger, and asking again never mints a duplicate. Your purchased skills now show their NFT mint address.</description>
+		</item>
+		<item>
 			<title>Change a placed agent's outfit from your dashboard — everyone nearby sees it</title>
 			<link>https://three.ws/dashboard/irl-placements</link>
 			<guid isPermaLink="false">2026-06-17:Change a placed agent's outfit from your dashboard — everyone nearby sees it</guid>
