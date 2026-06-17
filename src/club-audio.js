@@ -240,7 +240,7 @@ export class ClubAudio {
 		gain.gain.value = this.style || this.entrance ? MUSIC_DUCK_GAIN : MUSIC_GAIN;
 		source.connect(gain).connect(this.effectsBus);
 
-		this.music = { el, source, gain, index: 0, source_errStreak: 0 };
+		this.music = { el, source, gain, index: 0, errStreak: 0 };
 
 		const srcFor = (i) => `${AUDIO_BASE}/${MUSIC_SEQUENCE[i]}.mp3`;
 		const advance = (delta) => {
@@ -255,12 +255,12 @@ export class ClubAudio {
 		// next track. If every track in the sequence fails in a row we stop
 		// advancing so one outage can't spin a hot reload loop.
 		el.addEventListener('playing', () => {
-			this.music.source_errStreak = 0;
+			this.music.errStreak = 0;
 		});
 		el.addEventListener('ended', () => advance(1));
 		el.addEventListener('error', () => {
-			this.music.source_errStreak += 1;
-			if (this.music.source_errStreak > MUSIC_SEQUENCE.length) return;
+			this.music.errStreak += 1;
+			if (this.music.errStreak > MUSIC_SEQUENCE.length) return;
 			advance(1);
 		});
 
