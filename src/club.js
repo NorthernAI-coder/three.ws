@@ -76,8 +76,9 @@ const VENUE_HDRI_URL = '/club/venue/club-hdri.hdr';
 // paid routine would crossfade to a no-op and leave the dancer frozen.
 const REQUIRED_CLIPS = new Set([
 	'idle', 'dance', 'rumba', 'silly', 'thriller', 'capoeira', 'walk',
+	'av-walk-feminine',
 ]);
-const WALK_CLIP = 'walk';
+const WALK_CLIP = 'av-walk-feminine';
 // Guaranteed-present clip every dancer can drive. Used as the failsafe routine
 // when a ticket's requested clips can't be loaded on the chosen rig, so a paid
 // tip always yields a real performance (Hard rule 9: ship a working fallback).
@@ -715,8 +716,62 @@ class PoleStation {
 
 		this.skinned = root;
 		this.anim.setAnimationDefs(animationDefs);
-		// Lazy-load — first clip request fetches its JSON on demand.
-		this.anim.play('idle');
+		// Await idle so we can detect if the fallen-pose guard rejects the
+		// retarget — in which case swap to the fallback rig rather than leave
+		// the dancer frozen in her bind pose.
+		this.anim.play('idle').then((ok) => {
+			if (ok || !fallback || fallback === template) return;
+			log.warn(`[club] dancer ${this.id} idle retarget rejected — falling back to default avatar`);
+			this.anim.detach();
+			this.rig.remove(root);
+			const fbRoot = this._buildAvatarRoot(fallback);
+			this.rig.add(fbRoot);
+			this.anim.attach(fbRoot);
+			this.skinned = fbRoot;
+			this.anim.setAnimationDefs(animationDefs);
+			this.anim.play('idle').catch(() => {});
+		}).catch(() => {});
+		// Pre-load the walk clip so the first tip's walk starts immediately
+		// without a network round-trip mid-performance.
+		this.anim.ensureLoaded(WALK_CLIP).catch(() => {});
+	}
+
+	/**
+	 * Hot-swap this dancer's avatar to a different rig at runtime. Tears down
+	 * the current mixer + rig, then re-attaches the chosen template through the
+	 * same drivable-rig verification path used at boot (attachAvatar), so an
+	 * un-retargetable pick falls back to the default rather than freezing.
+	 *
+	 * The cloned root shares geometry/materials with `template`
+	 * (SkeletonUtils.clone), so we only unparent the old root — disposing it
+	 * would corrupt the shared template other stations may reuse.
+	 *
+	 * @param {import('three').Object3D} template
+	 * @param {import('three').Object3D} [fallback]
+	 */
+	swapAvatar(template, fallback = null) {
+		// Cancel any in-flight performance: drop to idle, resolve pending
+		// render-clock sleepers so a running playSequence unblocks and exits
+		// (its isCancelled sees performing === false), and re-home the rig.
+		this.performing = false;
+		this.walkPhase = 'idle';
+		while (this._sleepers.length) this._sleepers.pop().resolve();
+		this.activeTicket = null;
+
+		this.anim?.detach();
+		if (this.skinned) {
+			this.rig.remove(this.skinned);
+			this.skinned = null;
+		}
+
+		this.rig.position.copy(this.homePos);
+		this.rig.rotation.y = this.layout.yaw;
+		this._phaseTarget = this.homePos;
+		this._spotTarget = this.spotIdleIntensity;
+		this._accentTarget = 0.4;
+		updatePoleCardStatus(this.id, 'idle');
+
+		this.attachAvatar(template, animationDefs, fallback);
 	}
 
 	get backstagePos() {
@@ -1167,8 +1222,12 @@ async function bootstrap() {
 		const tpl = avatarGltfs[i].scene;
 		tpl.traverse((n) => { if (n.isMesh) n.castShadow = true; });
 		avatarTemplates.set(url, tpl);
+		// Seed the swap cache so picking a rig we already loaded this boot is
+		// instant (no second network fetch).
+		avatarTemplateCache.set(url, Promise.resolve(tpl));
 	});
 	const fallbackTemplate = avatarTemplates.get(AVATAR_URL);
+	fallbackTemplateRef = fallbackTemplate;
 
 	const poleTemplate = poleGltf.scene;
 	const stageTemplate = stageGltf.scene;
@@ -1190,6 +1249,11 @@ async function bootstrap() {
 		// Expose for the render loop to tick.
 		if (typeof window !== 'undefined') window.__clubParticles = particles;
 	}
+
+	// Build the per-pole avatar selector (dancer looks + bundled rigs + public
+	// gallery) and restore any look the visitor picked previously. Side-effect
+	// only — doesn't block the stage being ready.
+	initAvatarSelector(dancerUrls);
 
 	// Backfill history + open the SSE channel so this tab sees other tabs'
 	// tips. Both run side-effect-only and don't block the stage being ready.
@@ -1460,6 +1524,11 @@ function updatePoleCardStatus(poleId, status) {
 	if (progressEl) {
 		progressEl.style.display = status === 'performing' ? '' : 'none';
 	}
+	// Lock the avatar picker mid-routine so a swap can't interrupt a paid
+	// performance; it re-enables the moment she returns to idle. Skip while the
+	// dropdown is still loading its options (kept disabled until populated).
+	const avatarSel = cardEl.querySelector('.club-avatar-select');
+	if (avatarSel && avatarSel.value) avatarSel.disabled = status === 'performing';
 }
 
 function flashPoleCard(poleId) {
@@ -1469,6 +1538,145 @@ function flashPoleCard(poleId) {
 	void cardEl.offsetWidth; // force reflow for re-triggering animation
 	cardEl.classList.add('is-flash');
 	cardEl.addEventListener('animationend', () => cardEl.classList.remove('is-flash'), { once: true });
+}
+
+// ── Avatar selector ──────────────────────────────────────────────────────
+// Each pole card carries an "Avatar" dropdown so a visitor can choose which
+// 3D avatar dances on that pole. The catalog is built at boot from three
+// sources, deduped by URL: each dancer's own curated look, a set of bundled
+// known-good humanoid rigs (guaranteed to load offline — Hard rule 9), and
+// public avatars from the gallery (/api/explore). Picks hot-swap the rig live
+// and persist per-pole to localStorage. Any rig the clip library can't
+// retarget falls back to the default in attachAvatar, so a pick never freezes
+// a dancer.
+const BUNDLED_AVATARS = [
+	{ key: 'bundled-michelle',  name: 'Michelle',  url: '/avatars/michelle.glb' },
+	{ key: 'bundled-studio',    name: 'Studio',    url: '/avatars/readyplayerme.glb' },
+	{ key: 'bundled-realistic', name: 'Realistic', url: '/avatars/realistic-female.glb' },
+	{ key: 'bundled-mannequin', name: 'Mannequin', url: '/avatars/mannequin.glb' },
+	{ key: 'bundled-classic',   name: 'Classic',   url: AVATAR_URL },
+];
+const GALLERY_URL = '/api/explore?source=avatar&category=avatar&only3d=1&limit=24';
+const POLE_AVATARS_KEY = 'club:poleAvatars';
+
+// key → { key, name, url }. Insertion order drives the dropdown order.
+const avatarCatalog = new Map();
+// url → Promise<Object3D>, so a re-pick (or two poles sharing a look) loads once.
+const avatarTemplateCache = new Map();
+let fallbackTemplateRef = null;
+
+function registerAvatar(entry) {
+	if (!entry?.key || !entry?.url || avatarCatalog.has(entry.key)) return;
+	avatarCatalog.set(entry.key, { key: entry.key, name: entry.name || 'Avatar', url: entry.url });
+}
+
+function escapeText(value) {
+	return String(value ?? '').replace(/[<>&"]/g, '');
+}
+
+const savedPoleAvatars = (() => {
+	try { return JSON.parse(localStorage.getItem(POLE_AVATARS_KEY) || '{}') || {}; }
+	catch { return {}; }
+})();
+function savePoleAvatar(poleId, key) {
+	savedPoleAvatars[poleId] = key;
+	try { localStorage.setItem(POLE_AVATARS_KEY, JSON.stringify(savedPoleAvatars)); } catch {}
+}
+// The default look for a pole is that pole's own dancer; persisted only when
+// the visitor picks something else.
+function defaultAvatarKey(poleId) { return `dancer-${poleId}`; }
+
+function loadAvatarTemplate(url) {
+	if (avatarTemplateCache.has(url)) return avatarTemplateCache.get(url);
+	const p = gltfLoader(renderer).loadAsync(url).then((gltf) => {
+		gltf.scene.traverse((n) => { if (n.isMesh) n.castShadow = true; });
+		return gltf.scene;
+	});
+	avatarTemplateCache.set(url, p);
+	return p;
+}
+
+// Pull public avatars from the gallery. Never throws — a failed fetch just
+// leaves the dropdown with the dancer + bundled looks.
+async function loadGalleryAvatars() {
+	try {
+		const res = await fetch(GALLERY_URL, { headers: { accept: 'application/json' } });
+		if (!res.ok) return;
+		const data = await res.json();
+		const items = Array.isArray(data?.items) ? data.items : [];
+		for (const it of items) {
+			if (!it?.glbUrl || it.has3d === false || it.kind !== 'avatar') continue;
+			registerAvatar({ key: `gallery-${it.avatarId}`, name: it.name || 'Avatar', url: it.glbUrl });
+		}
+	} catch (err) {
+		log.warn('[club] gallery avatar fetch failed', err);
+	}
+}
+
+// Fill every pole's avatar dropdown from the catalog, selecting the persisted
+// (or default) choice. Idempotent — safe to call again once the gallery lands.
+function populateAvatarSelects() {
+	const entries = [...avatarCatalog.values()];
+	if (!entries.length) return;
+	for (const pole of POLES) {
+		const select = poleCardEls.get(pole.id)?.querySelector('.club-avatar-select');
+		if (!select) continue;
+		const saved = savedPoleAvatars[pole.id];
+		const current = saved && avatarCatalog.has(saved) ? saved : defaultAvatarKey(pole.id);
+		select.innerHTML = entries
+			.map((en) => `<option value="${escapeText(en.key)}"${en.key === current ? ' selected' : ''}>${escapeText(en.name)}</option>`)
+			.join('');
+		select.disabled = false;
+	}
+}
+
+async function swapPoleAvatar(poleId, key) {
+	const station = stations.find((s) => s.id === poleId);
+	const entry = avatarCatalog.get(key);
+	if (!station || !entry) return;
+	const select = poleCardEls.get(poleId)?.querySelector('.club-avatar-select');
+	if (select) select.disabled = true;
+	const dancerName = DANCER_META[parseInt(poleId, 10) - 1]?.name || `Dancer ${poleId}`;
+	try {
+		const template = await loadAvatarTemplate(entry.url);
+		station.swapAvatar(template, fallbackTemplateRef || template);
+		savePoleAvatar(poleId, key);
+		setStatus(`${dancerName} now wearing ${entry.name}.`, { kind: 'ok' });
+	} catch (err) {
+		log.warn(`[club] avatar swap failed for pole ${poleId}`, err);
+		setStatus("Couldn't load that avatar — keeping the current look.", { kind: 'error' });
+		// Roll the dropdown back to whatever the station is actually wearing.
+		if (select) {
+			const fallbackKey = savedPoleAvatars[poleId] && avatarCatalog.has(savedPoleAvatars[poleId])
+				? savedPoleAvatars[poleId]
+				: defaultAvatarKey(poleId);
+			select.value = fallbackKey;
+		}
+	} finally {
+		if (select) select.disabled = station.performing;
+	}
+}
+
+// Build the catalog and restore persisted picks. Called from bootstrap once
+// the dancers' own avatar URLs are resolved and their boot templates cached.
+async function initAvatarSelector(dancerUrls) {
+	DANCER_META.forEach((m, i) => registerAvatar({
+		key: defaultAvatarKey(String(i + 1)),
+		name: m.name,
+		url: dancerUrls[i] || AVATAR_URL,
+	}));
+	for (const a of BUNDLED_AVATARS) registerAvatar(a);
+	await loadGalleryAvatars();
+	populateAvatarSelects();
+
+	// Re-apply any look the visitor chose on a previous visit. The boot path
+	// already attached each pole's own dancer, so we only swap the overrides.
+	for (const pole of POLES) {
+		const key = savedPoleAvatars[pole.id];
+		if (key && avatarCatalog.has(key) && key !== defaultAvatarKey(pole.id)) {
+			swapPoleAvatar(pole.id, key);
+		}
+	}
 }
 
 function renderPoles() {
@@ -1501,6 +1709,13 @@ function renderPoles() {
 			<div class="club-pole-progress" style="display:none" role="progressbar" aria-label="Performance progress" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
 				<div class="club-pole-progress-bar" style="width:0%"></div>
 			</div>
+			<label class="club-pole-style">
+				<span class="sr-only">Avatar for ${meta.name}</span>
+				Avatar
+				<select data-pole="${pole.id}" class="club-pole-select club-avatar-select" aria-label="Avatar for pole ${pole.id}" disabled>
+					<option value="">Loading avatars…</option>
+				</select>
+			</label>
 			<label class="club-pole-style">
 				<span class="sr-only">Dance style for ${meta.name}</span>
 				Style
@@ -1539,6 +1754,13 @@ function renderPoles() {
 			const layout = POLES.find((p) => p.id === poleId);
 			if (layout) clubCam.setVip(layout);
 		}
+	});
+
+	// Avatar dropdown → hot-swap the chosen rig onto that pole's dancer.
+	polesPanel.addEventListener('change', (e) => {
+		const select = e.target.closest('.club-avatar-select');
+		if (!select || !select.value) return;
+		swapPoleAvatar(select.dataset.pole, select.value);
 	});
 }
 

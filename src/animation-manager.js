@@ -365,6 +365,25 @@ export class AnimationManager {
 		return this._registerParsedClip(name, clip, opts);
 	}
 
+	/**
+	 * Register a clip from already-fetched JSON — skips all network I/O.
+	 * Useful for callers that pre-fetch clip data alongside other parallel loads
+	 * so animations are ready before the first render frame.
+	 * @param {string} name
+	 * @param {object} clipJson  Raw AnimationClip JSON (same shape as the files in /animations/clips/)
+	 * @param {{ loop?: boolean }} [opts]
+	 */
+	injectClip(name, clipJson, opts = {}) {
+		if (!clipJson || this.clips.has(name)) return;
+		try {
+			const clip = AnimationClip.parse(clipJson);
+			clip.name = name;
+			this._registerParsedClip(name, clip, opts);
+		} catch (err) {
+			log.warn(`[AnimationManager] injectClip "${name}" parse error:`, err.message);
+		}
+	}
+
 	/** @private Shared finalization for both load paths. */
 	_registerParsedClip(name, clip, opts) {
 		this.clips.set(name, clip);
@@ -429,19 +448,23 @@ export class AnimationManager {
 	 * Play a named clip immediately (hard cut, no crossfade).
 	 * Lazily loads if not yet in memory.
 	 * @param {string} name
+	 * @returns {Promise<boolean>} true if the clip started playing, false if unavailable or rejected
 	 */
 	async play(name) {
 		const ready = await this.ensureLoaded(name);
 		if (!ready) {
 			if (this._failed.has(name) || this._animationDefs.some((d) => d.name === name))
 				log.warn(`[AnimationManager] "${name}" unavailable`);
-			return;
+			return false;
 		}
+		// Re-check after async load so concurrent play() calls don't all reset
+		// the action's timeline back to 0 once the clip finally resolves.
+		if (name === this.currentName) return true;
 		const action = this.actions.get(name);
-		if (!action) return;
+		if (!action) return false;
 		// Reject a retarget that would lie the avatar on its back; fall back to the
 		// authored bind pose rather than play a fallen clip.
-		if (!this._guardAgainstFallenPose(name, action)) return;
+		if (!this._guardAgainstFallenPose(name, action)) return false;
 
 		if (this.currentAction && this.currentAction !== action) {
 			this.currentAction.fadeOut(0.01);
@@ -450,6 +473,7 @@ export class AnimationManager {
 		this.currentAction = action;
 		this.currentName = name;
 		try { this.onChange?.(name); } catch (e) { log.warn('[AnimationManager] onChange threw:', e); }
+		return true;
 	}
 
 	/**
@@ -532,6 +556,11 @@ export class AnimationManager {
 				log.warn(`[AnimationManager] "${name}" unavailable`);
 			return;
 		}
+		// Re-check after the async load: stepAvatar calls crossfadeTo every frame,
+		// so many calls queue up while the clip is fetching. The first one to resume
+		// sets currentName; all subsequent ones must exit here or they'll all try to
+		// crossfade the action to itself, zeroing out its weight and causing T-pose.
+		if (name === this.currentName) return;
 		const next = this.actions.get(name);
 		if (!next) return;
 		// Reject a fallen-pose retarget: keep the current clip (or the authored
@@ -540,7 +569,7 @@ export class AnimationManager {
 		if (!this._guardAgainstFallenPose(name, next)) return;
 
 		next.reset().play();
-		if (this.currentAction) {
+		if (this.currentAction && this.currentAction !== next) {
 			this.currentAction.crossFadeTo(next, duration, true);
 		} else {
 			next.fadeIn(duration);

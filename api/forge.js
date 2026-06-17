@@ -817,22 +817,31 @@ async function startJob(req, res) {
 				params: reconstructParams,
 			});
 		} catch (submitErr) {
-			// Image→3D free fallback chain: when the standing platform TRELLIS lane
-			// (Replicate) is over-quota or unreachable, a photo upload must never
-			// dead-end — the text→3D fallback (free NVIDIA NIM, in the outer catch)
-			// can't take photos, so image mode would otherwise have no escape. Scoped
-			// to the default trellis lane: an explicitly chosen Hunyuan3D / BYOK
-			// backend that fails surfaces its own error. Provenance reports the lane
-			// that actually ran so the downgrade stays visible.
+			// Free fallback chain when the default TRELLIS lane (Replicate) is
+			// over-quota or unreachable. Covers two modes:
+			//   • image→3D: user photos can't fall to the text NIM lane (it's
+			//     text-only), so we need a reconstruct-capable fallback here.
+			//   • text→3D via NVIDIA fallback: NIM failed first (nvidiaTried=true),
+			//     TRELLIS was the second attempt; we already have a synthesized
+			//     referenceImageUrl from textToImage(), so the same reconstruct
+			//     fallbacks apply. Without this branch the outer catch re-checks
+			//     nvidiaTried=true and skips NIM, leaving the user with a 429.
+			// Scoped to the default trellis backend only — an explicitly chosen
+			// Hunyuan3D / BYOK backend that fails surfaces its own error. Provenance
+			// always reports the lane that actually ran so any downgrade is visible.
 			const upstreamGone =
-				isImageMode && backendId === 'trellis' && isUpstreamUnavailable(submitErr);
+				backendId === 'trellis' &&
+				isUpstreamUnavailable(submitErr) &&
+				(isImageMode || referenceImageUrl != null);
 			if (!upstreamGone) throw submitErr;
+
+			const mode3d = isImageMode ? 'image→3D' : 'text→3D (via synthesized image)';
 
 			// Fallback #1 — self-hosted Hunyuan3D Cloud Run worker, when wired.
 			const hunyuanUrl = process.env.GCP_HUNYUAN3D_URL;
 			if (hunyuanUrl && process.env.GCP_RECONSTRUCTION_KEY) {
 				console.warn(
-					`[forge] platform TRELLIS lane unavailable (${submitErr?.providerStatus || submitErr?.code}); degrading image→3D to self-hosted Hunyuan3D`,
+					`[forge] platform TRELLIS lane unavailable (${submitErr?.providerStatus || submitErr?.code}); degrading ${mode3d} to self-hosted Hunyuan3D`,
 				);
 				backendId = 'hunyuan3d';
 				provider = createGcpProvider({ reconstructUrl: hunyuanUrl });
@@ -849,8 +858,9 @@ async function startJob(req, res) {
 				// Fallback #2 — free Hugging Face Spaces image→3D (gated on HF_TOKEN).
 				// It blocks and writes its own status:'done' response; if it does, the
 				// request is complete. Otherwise fall through to surface the real error.
+				// For text mode, views=[referenceImageUrl] (the FLUX-synthesized image).
 				console.warn(
-					`[forge] platform TRELLIS lane unavailable (${submitErr?.providerStatus || submitErr?.code}); trying free HuggingFace image→3D lane`,
+					`[forge] platform TRELLIS lane unavailable (${submitErr?.providerStatus || submitErr?.code}); trying free HuggingFace ${mode3d} lane`,
 				);
 				if (await runHfImageLane({ req, res, ip, imageUrls: views, prompt, aspect, tier, path })) {
 					return;

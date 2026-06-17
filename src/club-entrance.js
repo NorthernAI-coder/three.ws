@@ -63,6 +63,7 @@ const AVATAR_URL = '/avatars/default.glb';
 const MANIFEST_URL = '/animations/manifest.json';
 const PASS_KEY = 'club:pass:v1';
 const MOVE_CLIPS = new Set(['idle', 'walk']);
+const VENUE_NAMES = ['Alley', 'Gallery', 'Clubhouse']; // index-aligned with SEQUENCE, for the minimap label
 
 const ROOM_HEIGHT = 7.0; // environments normalised to this Y so the avatar reads human
 const AVATAR_HEIGHT = 1.75;
@@ -209,10 +210,14 @@ async function start(canvasEl) {
 
 	// Land in the alley + the avatar first; prefetch the rest so each place is
 	// ready the moment you walk into it. The loader bar tracks real bytes.
-	const [firstGltf, avatarGltf, manifest] = await Promise.all([
+	// Clip JSON is fetched in the same parallel batch so idle is guaranteed
+	// ready before the first render frame — no T-pose on entry.
+	const [firstGltf, avatarGltf, manifest, idleClipJson, walkClipJson] = await Promise.all([
 		loader.loadAsync(SEQUENCE[0].url, (e) => setLoaderProgress('alley', e)),
 		loader.loadAsync(AVATAR_URL, (e) => setLoaderProgress('avatar', e)),
 		fetch(MANIFEST_URL, { cache: 'force-cache' }).then((r) => (r.ok ? r.json() : [])).catch(() => []),
+		fetch('/animations/clips/idle.json', { cache: 'force-cache' }).then((r) => r.ok ? r.json() : null).catch(() => null),
+		fetch('/animations/clips/walk.json', { cache: 'force-cache' }).then((r) => r.ok ? r.json() : null).catch(() => null),
 	]);
 	const loaded = SEQUENCE.map(() => null); // index-aligned gltf cache
 	loaded[0] = firstGltf;
@@ -256,14 +261,22 @@ async function start(canvasEl) {
 
 	const anim = new AnimationManager();
 	anim.attach(avatar);
-	anim.setAnimationDefs((Array.isArray(manifest) ? manifest : []).filter((d) => MOVE_CLIPS.has(d.name)));
-	anim.play('idle').catch(() => {});
+	const moveDefs = (Array.isArray(manifest) ? manifest : []).filter((d) => MOVE_CLIPS.has(d.name));
+	anim.setAnimationDefs(moveDefs);
+	// Inject the pre-fetched clip data directly — no second network round-trip,
+	// animations are bound before the first render frame so there's no T-pose.
+	anim.injectClip('idle', idleClipJson, { loop: true });
+	anim.injectClip('walk', walkClipJson, { loop: true });
+	await anim.play('idle');
 
 	// ── Door marker — a neon frame at the end of the alley you walk up to ────
 	const doorMarker = buildDoorMarker();
 	scene.add(doorMarker.group);
 	const doorGlow = new PointLight(0xff4fd8, 0, 9, 1.6);
 	scene.add(doorGlow);
+
+	// Top-down radar so you always know which way the exit is.
+	const minimap = buildMinimap();
 
 	// ── Camera + controller state ────────────────────────────────────────────
 	let camYaw = Math.atan2(path.dir.x, path.dir.z); // start looking down the alley toward the door
@@ -280,13 +293,15 @@ async function start(canvasEl) {
 
 	placeSpawn();
 
-	// Cast straight down from above to the floor at (x, z). Starts at mid-room so
-	// it clears ceilings/awnings and returns the walkable surface height.
+	// Cast straight down from waist height to find the walkable floor.
+	// Starting from ROOM_HEIGHT * 0.6 wrongly hit sculpture tops / arch geometry
+	// in rooms like the gallery; starting from y=1.2 samples only floor-level
+	// surfaces (floor is always near y=0 after mountEnvironment normalises).
 	function sampleFloor(x, z) {
-		groundRay.set(new Vector3(x, ROOM_HEIGHT * 0.6, z), DOWN);
-		groundRay.far = ROOM_HEIGHT;
+		groundRay.set(new Vector3(x, 1.2, z), DOWN);
+		groundRay.far = 1.5; // covers y ∈ [−0.3, 1.2] — the floor band
 		const hit = groundRay.intersectObject(env.root, true)[0];
-		return hit ? hit.point.y : 0;
+		return hit ? Math.max(0, hit.point.y) : 0;
 	}
 
 	function placeSpawn() {
@@ -301,6 +316,7 @@ async function start(canvasEl) {
 		camYaw = Math.atan2(path.dir.x, path.dir.z);
 		updateCamera(1);
 		setJourneyStep(venueIndex);
+		minimap.setVenue(env.box, path.door, VENUE_NAMES[venueIndex] || 'Venue');
 	}
 
 	// ── Input ──────────────────────────────────────────────────────────────
@@ -387,6 +403,7 @@ async function start(canvasEl) {
 	showHint(true);
 	showJoystick(isTouch);
 	showJourney(true);
+	showMinimap(true);
 	setJourneyStep(venueIndex);
 
 	// Hint + prompt copy track where you are in the journey: the alley door takes
@@ -419,6 +436,7 @@ async function start(canvasEl) {
 		showPrompt(false);
 		showHint(false);
 		showJoystick(false);
+		showMinimap(false);
 		if (currentCover) {
 			// Hand off to the cover-charge card; we resume on admit (onPaid).
 			window.dispatchEvent(new CustomEvent('club:enter-door'));
@@ -445,6 +463,7 @@ async function start(canvasEl) {
 		inputEnabled = true;
 		showHint(true);
 		showJoystick(isTouch);
+		showMinimap(true);
 	});
 
 	// ── State + render loop ──────────────────────────────────────────────────
@@ -476,6 +495,7 @@ async function start(canvasEl) {
 		anim.update(dt);
 		updateCamera(dt);
 		approachAudio.update(dt);
+		if (phase === 'walk') minimap.update(rig.position, rig.rotation.y, nearDoor, now / 1000, prefersReducedMotion);
 
 		// Key light + proximity prompt follow the avatar in the alley.
 		key.position.set(rig.position.x, 5, rig.position.z + 1);
@@ -528,6 +548,7 @@ async function start(canvasEl) {
 					nearDoor = false;
 					showHint(true);
 					showJoystick(isTouch);
+					showMinimap(true);
 				}
 				break;
 			}
@@ -597,7 +618,7 @@ async function start(canvasEl) {
 		paid = true;
 		currentCover = false;
 		approachAudio.handOff(); // the anthem (src/club.js) takes the night from here
-		showPrompt(false); showHint(false); showJoystick(false);
+		showPrompt(false); showHint(false); showJoystick(false); showMinimap(false);
 		advance();
 	}
 	onAdmit = onPaid;
@@ -608,6 +629,7 @@ async function start(canvasEl) {
 		composer.setSize(window.innerWidth, window.innerHeight);
 		camera.aspect = window.innerWidth / window.innerHeight;
 		camera.updateProjectionMatrix();
+		minimap.resize();
 	}
 	window.addEventListener('resize', onResize);
 
@@ -623,7 +645,7 @@ async function start(canvasEl) {
 		composer.dispose();
 		renderer.dispose();
 		try { canvasEl.remove(); } catch {}
-		showHint(false); showJoystick(false); showPrompt(false); showJourney(false);
+		showHint(false); showJoystick(false); showPrompt(false); showJourney(false); showMinimap(false);
 	}
 }
 
@@ -632,6 +654,7 @@ function showPrompt(v) { toggle('club-door-prompt', v); }
 function showHint(v) { toggle('club-controls-hint', v); }
 function showJoystick(v) { toggle('club-joystick', v); }
 function showJourney(v) { toggle('club-journey', v); }
+function showMinimap(v) { toggle('club-minimap', v); }
 function toggle(id, v) {
 	const el = document.getElementById(id);
 	if (el) el.classList.toggle('is-visible', !!v);
@@ -767,6 +790,110 @@ function buildDoorMarker() {
 			frameMat.emissiveIntensity = (hot ? 1.0 : 0.5) + wave * 0.15;
 		},
 	};
+}
+
+// Top-down radar drawn on a 2D canvas: the room footprint, your avatar (an arrow
+// that points where you're facing), and a pulsing dashed line to the door you're
+// walking toward — so you always know which way the exit is. Pure 2D context, no
+// extra WebGL; setVenue() re-fits the view to each room, update() redraws a frame.
+function buildMinimap() {
+	const cv = document.getElementById('club-minimap-canvas');
+	const labelEl = document.getElementById('club-minimap-label');
+	if (!cv) return { setVenue() {}, update() {}, resize() {} };
+	const ctx = cv.getContext('2d');
+
+	let cssW = 0, cssH = 0, dpr = 1;
+	function resize() {
+		const r = cv.getBoundingClientRect();
+		cssW = r.width || cv.clientWidth || 138;
+		cssH = r.height || cv.clientHeight || 110;
+		dpr = Math.min(window.devicePixelRatio || 1, 2);
+		cv.width = Math.round(cssW * dpr);
+		cv.height = Math.round(cssH * dpr);
+		ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+	}
+	resize();
+
+	const PAD = 14;
+	let bounds = null; // { minX, maxX, minZ, maxZ }
+	let door = null;   // { x, z }
+
+	// World (x, z) → minimap pixel (x, y), aspect-preserving so the room reads true.
+	function project(x, z) {
+		if (!bounds) return { x: cssW / 2, y: cssH / 2 };
+		const bw = (bounds.maxX - bounds.minX) || 1;
+		const bh = (bounds.maxZ - bounds.minZ) || 1;
+		const scale = Math.min((cssW - PAD * 2) / bw, (cssH - PAD * 2) / bh);
+		const ox = (cssW - bw * scale) / 2;
+		const oy = (cssH - bh * scale) / 2;
+		return { x: ox + (x - bounds.minX) * scale, y: oy + (z - bounds.minZ) * scale, scale };
+	}
+
+	function setVenue(box, doorPos, name) {
+		bounds = { minX: box.min.x, maxX: box.max.x, minZ: box.min.z, maxZ: box.max.z };
+		door = { x: doorPos.x, z: doorPos.z };
+		if (labelEl && name) labelEl.textContent = name;
+	}
+
+	function update(pos, yaw, near, t, reduced) {
+		ctx.clearRect(0, 0, cssW, cssH);
+		if (!bounds || !door) return;
+
+		// Room footprint.
+		const a = project(bounds.minX, bounds.minZ);
+		const b = project(bounds.maxX, bounds.maxZ);
+		ctx.fillStyle = 'rgba(255, 59, 214, 0.06)';
+		ctx.strokeStyle = 'rgba(255, 59, 214, 0.28)';
+		ctx.lineWidth = 1;
+		ctx.beginPath();
+		ctx.rect(a.x, a.y, b.x - a.x, b.y - a.y);
+		ctx.fill();
+		ctx.stroke();
+
+		const me = project(pos.x, pos.z);
+		const dr = project(door.x, door.z);
+
+		// Pulsing dashed guide line from you to the door — the "go this way" cue.
+		ctx.save();
+		ctx.setLineDash([5, 5]);
+		ctx.lineDashOffset = reduced ? 0 : -(t * 14) % 10;
+		ctx.strokeStyle = near ? 'rgba(120, 255, 180, 0.85)' : 'rgba(255, 79, 216, 0.7)';
+		ctx.lineWidth = 1.5;
+		ctx.beginPath();
+		ctx.moveTo(me.x, me.y);
+		ctx.lineTo(dr.x, dr.y);
+		ctx.stroke();
+		ctx.restore();
+
+		// Door marker — glowing diamond.
+		const pulse = reduced ? 0 : (Math.sin(t * 2.4) + 1) * 0.5;
+		ctx.save();
+		ctx.translate(dr.x, dr.y);
+		ctx.rotate(Math.PI / 4);
+		ctx.fillStyle = near ? '#78ffb4' : '#ff4fd8';
+		ctx.shadowColor = ctx.fillStyle;
+		ctx.shadowBlur = 6 + pulse * 6;
+		const s = 4.5;
+		ctx.fillRect(-s, -s, s * 2, s * 2);
+		ctx.restore();
+
+		// Avatar arrow — points the way you're facing (world heading = sin/cos yaw).
+		ctx.save();
+		ctx.translate(me.x, me.y);
+		ctx.rotate(Math.atan2(Math.cos(yaw), Math.sin(yaw)));
+		ctx.fillStyle = '#ffffff';
+		ctx.shadowColor = 'rgba(255, 255, 255, 0.9)';
+		ctx.shadowBlur = 5;
+		ctx.beginPath();
+		ctx.moveTo(7, 0);
+		ctx.lineTo(-4, 4.5);
+		ctx.lineTo(-4, -4.5);
+		ctx.closePath();
+		ctx.fill();
+		ctx.restore();
+	}
+
+	return { setVenue, update, resize };
 }
 
 function scaleToHeight(obj, h) {

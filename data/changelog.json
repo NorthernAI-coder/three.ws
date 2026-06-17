@@ -3,6 +3,33 @@
 	"entries": [
 		{
 			"date": "2026-06-17",
+			"title": "Never lose your way in — a minimap on the walk to the Pole Club",
+			"summary": "The walk-in to the Pole Club now has a live minimap in the top-right corner. It shows a top-down radar of the room you're in, your avatar as an arrow that points the way you're facing, and a pulsing line to the door you're headed for — so you always know which way the exit is. It re-fits to each room as you move from the alley to the gallery to the clubhouse, and the door marker turns green once you're in range to enter.",
+			"tags": [
+				"feature"
+			],
+			"link": "/club"
+		},
+		{
+			"date": "2026-06-17",
+			"title": "Choose who dances — avatar selector in the Pole Club",
+			"summary": "Every pole card now has an Avatar dropdown so you can pick which 3D avatar dances on each pole. Choose from each dancer's signature look, a set of built-in rigs, or any public avatar from the gallery — the dancer swaps to the new model live, right on stage, with no reload. Your picks are remembered per pole on your next visit. The picker locks for the few seconds a dancer is mid-routine so a swap never interrupts a paid performance, and any model the animation library can't drive falls back to the default rig automatically.",
+			"tags": [
+				"feature"
+			],
+			"link": "/club"
+		},
+		{
+			"date": "2026-06-17",
+			"title": "Forge resilience: HuggingFace fallback now covers text→3D; club-payout log noise reduced",
+			"summary": "When the NVIDIA NIM free lane returns a 5xx and the Replicate TRELLIS lane is also unavailable, the forge now falls through to the HuggingFace Spaces fallback for text→3D requests (using the FLUX-synthesized intermediate image) instead of returning a 429 to the user. Previously this fallback only fired for image uploads. Club-payout cron warnings for dancers with no registered wallet are now emitted at most once per 24 hours instead of every 5-minute tick.",
+			"tags": [
+				"fix",
+				"infra"
+			]
+		},
+		{
+			"date": "2026-06-17",
 			"title": "Emote wheel — all 70 animations at your fingertips",
 			"summary": "Hold Q (or long-press the ⋯ button on mobile) to open the full emote wheel in any /play world. Five category arcs — Social, Dances, Flips, Combat, Poses — surface every animation in the library. Move the cursor (or left thumbstick on gamepad) to pick a category, choose a clip from the panel that slides up, then release Q to play it. The existing quick-tray keeps your top 6 one-tap emotes. All clips load lazily on first use so the initial load time is unchanged.",
 			"tags": [
