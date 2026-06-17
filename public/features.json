@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-17T21:44:13.769Z",
+	"generated_at": "2026-06-17T21:52:03.993Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -90,6 +90,26 @@
 					"title": "Marketplace",
 					"description": "Buy access to agents, skills, and avatars from other creators.",
 					"added": "2026-04-29",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/marketplace/analytics",
+					"title": "Marketplace Analytics",
+					"description": "Real-time stats on the three.ws skill marketplace: top skills, top agents, and sales volume.",
+					"added": "2026-06-17",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/collection",
+					"title": "My Collection",
+					"description": "View all the skills and subscriptions you've unlocked on three.ws.",
+					"added": "2026-06-17",
 					"auth": null,
 					"indexable": true,
 					"tags": [],

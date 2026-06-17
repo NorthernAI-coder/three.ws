@@ -53,7 +53,6 @@ import {
 } from 'postprocessing';
 import { gltfLoader } from './loaders/gltf.js';
 import { AnimationManager } from './animation-manager.js';
-import { ClubApproachAudio } from './club-entrance-audio.js';
 import { log } from './shared/log.js';
 
 const TOUR_URL = '/club/venue/tour.glb';
@@ -206,9 +205,6 @@ async function start(canvasEl) {
 	));
 	composer.addPass(new EffectPass(camera, new SMAAEffect()));
 
-	// Muffled club bass that swells as you near the door (armed on first input).
-	const approachAudio = new ClubApproachAudio();
-
 	const loader = gltfLoader(renderer);
 
 	// The journey, in order. You free-walk every one of these — no auto-walk.
@@ -348,7 +344,6 @@ async function start(canvasEl) {
 		return !!a && (a.tagName === 'SELECT' || a.tagName === 'INPUT' || a.tagName === 'TEXTAREA');
 	};
 	const onKeyDown = (e) => {
-		approachAudio.arm();
 		if (typingInForm()) return;
 		const k = e.key.toLowerCase();
 		if (k === 'e') { tryEnter(); return; }
@@ -380,7 +375,6 @@ async function start(canvasEl) {
 	const joyKnob = document.getElementById('club-joystick-knob');
 
 	const onPointerDown = (e) => {
-		approachAudio.arm();
 		if (!inputEnabled) return;
 		const leftZone = isTouch && e.clientX < window.innerWidth * 0.4;
 		if (leftZone && !joy.active) {
@@ -620,7 +614,6 @@ async function start(canvasEl) {
 		stepAvatar(ix, iz, dt);
 		anim.update(dt);
 		updateCamera(dt);
-		approachAudio.update(dt);
 		if (phase === 'walk') minimap.update(rig.position, rig.rotation.y, nearDoor, now / 1000, prefersReducedMotion);
 
 		// Key light + proximity prompt follow the avatar in the alley.
@@ -637,10 +630,8 @@ async function start(canvasEl) {
 			}
 			doorGlow.intensity = inRange ? 3.2 : 1.4;
 			doorMarker.pulse(now / 1000, inRange, prefersReducedMotion);
-			// Outside the club, the bass leaks louder the closer you get to the
-			// door, and the neon glows a touch hotter as you arrive.
+			// The neon glows a touch hotter the closer you get to the door.
 			const near = clamp(1 - d / 12, 0, 1);
-			if (currentCover) approachAudio.setProximity(near);
 			if (!prefersReducedMotion) bloomEffect.intensity = 1.2 + near * 0.7;
 		}
 
@@ -744,7 +735,6 @@ async function start(canvasEl) {
 		if (phase !== 'walk') return;
 		paid = true;
 		currentCover = false;
-		approachAudio.handOff(); // the anthem (src/club.js) takes the night from here
 		showPrompt(false); showHint(false); showJoystick(false); showMinimap(false); showAgentSwitch(false);
 		advance();
 	}
@@ -770,7 +760,6 @@ async function start(canvasEl) {
 		agentSelect?.removeEventListener('change', onAgentChange);
 		onAdmit = null;
 		try { anim.dispose?.(); } catch {}
-		try { approachAudio?.dispose(); } catch {}
 		disposeObject(scene);
 		composer.dispose();
 		renderer.dispose();
