@@ -6,6 +6,7 @@ Public history for [three.ws](https://three.ws), newest first. New pages come fr
 
 ## 2026-06-17
 
+- **Animation Studio** (`/pose`) — Pose any three.ws avatar or the built-in mannequin with FK/IK, keyframe a timeline, and preview the motion live. Export an animated GLB or clip JSON, save animations to your account, play them back across the platform, and sell them for USDC.
 - **How location works on IRL** (`/irl-privacy`) — Placed agents are private by location: they appear only to people physically standing near them, never on a map or a list. What's shared, what isn't, and how your camera, motion, and location are used.
 - **x402 Live Demo (IBM × three.ws)** (`/ibm/x402-demo`) — A self-contained x402 micropayment demo: pay $0.001 USDC from your own wallet — MetaMask on Base or Phantom on Solana — to call a real three.ws data API. Watch the live HTTP 402 challenge, sign a gasless authorization, and see the on-chain settlement receipt. No backend, no account; built as the public face of the IBM × three.ws partnership.
 - **Agent profiles now show the agent's real avatar — no more stray model over the name** — On an agent's profile page, agents that ship their own 3D avatar were briefly showing the plain mannequin in the headshot while a second copy of their real avatar rendered loose over the agent's name. Both are fixed: the headshot now loads the agent's own model directly in place, and opening it full-screen shows that same model. Agents using the default body are unchanged. `[fix]`

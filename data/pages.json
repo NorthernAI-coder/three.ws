@@ -184,6 +184,15 @@
 					"added": "2026-06-13"
 				},
 				{
+					"path": "/pose",
+					"title": "Animation Studio",
+					"description": "Pose any three.ws avatar or the built-in mannequin with FK/IK, keyframe a timeline, and preview the motion live. Export an animated GLB or clip JSON, save animations to your account, play them back across the platform, and sell them for USDC.",
+					"priority": 0.9,
+					"changefreq": "weekly",
+					"added": "2026-06-17",
+					"showcase": true
+				},
+				{
 					"path": "/validation",
 					"title": "glTF Validator",
 					"description": "Khronos-spec validator for glTF/GLB files. Paste a URL or upload a model.",
