@@ -31,6 +31,14 @@
 			<description>Your IRL Agents dashboard now has a real outfit editor. Open Change outfit on any agent you've placed and a live 3D preview loads with wardrobe controls for the exact layers that avatar has — recolour its hair, skin, and clothing, strip back to the base body and dress it up again, or stack on hats, glasses, and earrings. Because your agents are public, the new look is baked into the agent itself and pushed to its real-world pin, so every person who walks up to that spot sees the updated outfit in their camera — not just you. Save when you're happy; the avatar is re-rendered for real before it confirms, the previous look stays untouched if anything fails, and nearby viewers refresh to the new outfit within seconds. Run a seasonal look, brand your agents as staff for an event, or just keep them fresh — all without walking back to where you pinned them.</description>
 		</item>
 		<item>
+			<title>Clearer pricing on every agent's skills in the marketplace</title>
+			<link>https://three.ws/marketplace</link>
+			<guid isPermaLink="false">2026-06-17:Clearer pricing on every agent's skills in the marketplace</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>An agent's detail page now reads cleanly when its skills carry a price. Each skill shows a badge at a glance — green 'Free', a yellow price for paid skills, or an indigo 'Owned' once you've bought it — and when a paid skill offers a free trial or a timed access pass, those now appear as proper buttons styled to match the Purchase button, with hover, focus, and press states. The price badge and action buttons are grouped together on the right of each row instead of spreading out, so a skill with several options stays tidy and easy to scan.</description>
+		</item>
+		<item>
 			<title>Everyone at a location now sees your IRL agent in the same real spot</title>
 			<link>https://three.ws/irl</link>
 			<guid isPermaLink="false">2026-06-17:Everyone at a location now sees your IRL agent in the same real spot</guid>
