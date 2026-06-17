@@ -112,6 +112,8 @@ threews-launch-week-case-study.html
 debug-screenshots/
 
 # GLB optimization backups (see scripts/optimize-glb.mjs)
+# Note: GLBs themselves are committed in compressed form — the served avatar/
+# animation assets are meshopt-compressed in place by scripts/compress-glbs.mjs.
 *.glb.bak
 .secrets/
 .env.vercel

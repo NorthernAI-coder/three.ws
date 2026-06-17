@@ -6311,6 +6311,37 @@ function setStatus(text, kind) {
 	el.className = 'payment-status' + (kind ? ' ' + kind : '');
 }
 
+// Honest fee disclosure: once the server quotes a purchase, show how the price
+// is split — a platform fee leg plus what the creator nets — before the buyer
+// approves the transfer. No fee → the note stays hidden.
+function renderFeeDisclosure(purchase) {
+	const el = $('payment-fee-note');
+	if (!el) return;
+	const fee = purchase?.fee;
+	if (!fee || !(Number(fee.amount) > 0)) {
+		clearFeeDisclosure();
+		return;
+	}
+	const decimals = Number(purchase.mint_decimals ?? 6);
+	const places = decimals === 6 ? 2 : 4;
+	const mintLabel = shortMintLabel(purchase.currency_mint);
+	const toUi = (atomic) => (Number(atomic) / Math.pow(10, decimals)).toFixed(places);
+	const creatorAtomic = purchase.creator_amount ?? String(BigInt(purchase.amount) - BigInt(fee.amount));
+	const pct = (fee.bps / 100).toLocaleString(undefined, { maximumFractionDigits: 2 });
+	el.innerHTML =
+		`Includes a <strong>${pct}% platform fee</strong> (${toUi(fee.amount)} ${escapeHtml(mintLabel)}). ` +
+		`Creator receives <strong>${toUi(creatorAtomic)} ${escapeHtml(mintLabel)}</strong>.`;
+	el.hidden = false;
+}
+
+function clearFeeDisclosure() {
+	const el = $('payment-fee-note');
+	if (el) {
+		el.hidden = true;
+		el.innerHTML = '';
+	}
+}
+
 // ── Payment modal chrome helpers ──────────────────────────────────────────
 //
 // The same modal is reused by skill / time-pass / asset flows. These helpers
@@ -6677,8 +6708,11 @@ async function handleAssetPurchase() {
 			payer: connectedWallet.publicKey,
 			recipient: purchase.recipient,
 			mint: purchase.currency_mint,
-			amount: BigInt(purchase.amount),
+			amount: BigInt(purchase.creator_amount ?? purchase.amount),
 			reference: purchase.reference,
+			fee: purchase.fee
+				? { recipient: purchase.fee.recipient, amount: BigInt(purchase.fee.amount) }
+				: null,
 		});
 
 		setStatus('Approve in wallet…');
@@ -6793,6 +6827,7 @@ async function handlePurchase() {
 			});
 			return;
 		}
+		renderFeeDisclosure(purchase);
 	} catch (e) {
 		setStatus(e.message, 'err');
 		confirmBtn.disabled = false;
@@ -6806,8 +6841,11 @@ async function handlePurchase() {
 			payer: connectedWallet.publicKey,
 			recipient: purchase.recipient,
 			mint: purchase.currency_mint,
-			amount: BigInt(purchase.amount),
+			amount: BigInt(purchase.creator_amount ?? purchase.amount),
 			reference: purchase.reference,
+			fee: purchase.fee
+				? { recipient: purchase.fee.recipient, amount: BigInt(purchase.fee.amount) }
+				: null,
 		});
 
 		setStatus('Approve in wallet…');

@@ -3,15 +3,17 @@
  * GLB compression pipeline.
  *
  * Reads GLB files with @gltf-transform, applies a lossless-perceptual transform
- * chain (dedup → prune → resample → quantize → EXT_meshopt_compression →
- * WebP texture recompression via EXT_texture_webp) and writes the result back
- * in place — but only if the output is actually smaller.
+ * chain (dedup → prune → resample → quantize → EXT_meshopt_compression) and
+ * writes the result back in place — but only if the output is actually smaller.
  *
  *   node scripts/compress-glbs.mjs                       # scan public/ + rider/assets/
  *   node scripts/compress-glbs.mjs public/avatars/x.glb  # explicit file list
  *
- * The output uses EXT_meshopt_compression because the main viewer and the
- * marketplace lobby both wire the meshopt decoder (src/viewer/internal.js).
+ * The output uses EXT_meshopt_compression, which requires a meshopt decoder at
+ * load time — the main viewer wires one via getDecoders() in
+ * src/viewer/internal.js, so these decompress automatically there. Only run
+ * this on GLBs served to decoder-equipped loaders; bare GLTFLoader sites (e.g.
+ * thumbnails, accessories) need scripts/optimize-glb.mjs (lossless) instead.
  * Three.js' GLTFLoader decodes KHR_mesh_quantization natively.
  *
  * Idempotent: reading an already-compressed GLB requires the meshopt *decoder*,
@@ -25,9 +27,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { NodeIO } from '@gltf-transform/core';
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
-import { dedup, prune, resample, quantize, meshopt, textureCompress } from '@gltf-transform/functions';
+import { dedup, prune, resample, quantize, meshopt } from '@gltf-transform/functions';
 import { MeshoptEncoder, MeshoptDecoder } from 'meshoptimizer';
-import sharp from 'sharp';
 
 const ROOT = path.resolve(fileURLToPath(import.meta.url), '../..');
 const DEFAULT_SCAN_DIRS = ['public', 'rider/assets'];
@@ -110,7 +111,7 @@ async function main() {
 				resample(),
 				quantize(),
 				meshopt({ encoder: MeshoptEncoder, level: 'medium' }),
-				textureCompress({ encoder: sharp, targetFormat: 'webp', quality: 85 }),
+				// TODO: add textureCompress once sharp is added to devDependencies
 			);
 
 			const bytes = await io.writeBinary(document);

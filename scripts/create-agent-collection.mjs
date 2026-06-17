@@ -47,18 +47,20 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import { createRequire } from 'node:module';
 
 import { Keypair } from '@solana/web3.js';
 import bs58 from 'bs58';
+import { Pool, neonConfig } from '@neondatabase/serverless';
+import ws from 'ws';
 import { createUmi } from '@metaplex-foundation/umi-bundle-defaults';
 import { mplCore, createCollection, fetchCollection } from '@metaplex-foundation/mpl-core';
 import { createSignerFromKeypair, generateSigner, signerIdentity } from '@metaplex-foundation/umi';
 
 import { skillCollectionSymbol, THREE_WS } from '../api/_lib/three-brand.js';
 
-const require = createRequire(import.meta.url);
-const { Client } = require('pg');
+// Neon's Pool is pg-compatible and supports parameterized text queries — the
+// same driver scripts/apply-migrations.mjs uses for script-side DB access.
+neonConfig.webSocketConstructor = ws;
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(HERE, '..');
@@ -159,8 +161,7 @@ async function main() {
 	console.log('');
 
 	// ── Load target agents ─────────────────────────────────────────────────────
-	const db = new Client({ connectionString: databaseUrl });
-	await db.connect();
+	const db = new Pool({ connectionString: databaseUrl });
 
 	let agents;
 	try {
