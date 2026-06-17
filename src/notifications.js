@@ -72,6 +72,8 @@ const TYPE_ICON = {
 	embed:                    '🔗',
 	remix:                    '🔄',
 	reply:                    '💬',
+	irl_interaction:          '📍',
+	irl_reply:                '💬',
 };
 
 function notifLabel(n) {
@@ -100,9 +102,33 @@ function notifLabel(n) {
 			return `Someone remixed your creation`;
 		case 'reply':
 			return `New reply on your agent`;
+		case 'irl_interaction':
+			if (p.kind === 'pay') {
+				const amt = irlPayLabel(p.amount, p.currency_mint);
+				return amt ? `Your agent was paid ${amt} in person` : `Your agent was paid in person`;
+			}
+			return p.message
+				? `Someone messaged your agent in person: “${p.message}”`
+				: `Someone messaged your agent in person`;
+		case 'irl_reply':
+			return p.message ? `An agent replied: “${p.message}”` : `An agent replied to your message`;
 		default:
 			return n.type.replace(/_/g, ' ');
 	}
+}
+
+// Human "0.05 USDC" from a pay notification's atomic amount + mint. $THREE and
+// Solana/Base USDC are the only mints this platform references (each 6-decimal);
+// an unrecognized mint degrades to a bare number rather than naming a coin.
+function irlPayLabel(amount, mint) {
+	if (amount == null) return '';
+	const human = (Number(amount) / 1e6).toLocaleString('en-US', { maximumFractionDigits: 6 });
+	if (!Number.isFinite(Number(amount))) return '';
+	const m = String(mint || '').toLowerCase();
+	const label = mint === 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump' ? '$THREE'
+		: (m === 'epjfwdd5aufqssqem2qn1xzybapc8g4weggkzwytdt1v' || m === '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913') ? 'USDC'
+		: '';
+	return label ? `${human} ${label}` : human;
 }
 
 function notifLink(n) {

@@ -19,6 +19,9 @@ import { limits, clientIp } from '../_lib/rate-limit.js';
 import { WORD_BLACKLIST } from '../../src/profanity.js';
 import { guardianConfig, assess, decide } from '../_lib/granite-guardian.js';
 import { encodeGeohash } from '../_lib/geohash.js';
+import { publishIrlPin } from '../_lib/irl-publish.js';
+import { validateAppearance } from '../_lib/accessories.js';
+import { emitPinUpdated } from '../_lib/irl-realtime.js';
 
 // ── Moderation, safety & density caps (D4) ──────────────────────────────────
 // Everything below makes the public, shared IRL world safe to launch: content
@@ -41,7 +44,7 @@ const THREE_MINT = 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump';
 // Always-on hard gate: lower-case substring match against the shared slur/severe
 // list. No external dependency, fails closed and fast — the floor under the
 // smarter Guardian tier. Reused verbatim from the pump.fun feed filter.
-function hardBlocked(text) {
+export function hardBlocked(text) {
 	const t = String(text || '').toLowerCase();
 	return WORD_BLACKLIST.some((w) => t.includes(w));
 }
@@ -50,7 +53,7 @@ function hardBlocked(text) {
 // `$TICKER` cashtag that isn't $THREE, or a pump.fun-style mint address (…pump)
 // that isn't the $THREE contract. Generic by construction so no competitor is
 // ever written into source; $THREE (cashtag or contract) is explicitly allowed.
-function namesOffBrandCoin(text) {
+export function namesOffBrandCoin(text) {
 	const t = String(text || '');
 	const cashtags = t.match(/\$[A-Za-z][A-Za-z0-9]{1,9}\b/g) || [];
 	if (cashtags.some((c) => c.slice(1).toUpperCase() !== 'THREE')) return true;
@@ -112,10 +115,13 @@ const X402_ALLOWED_HOSTS = (
 	.map((h) => h.trim().toLowerCase())
 	.filter(Boolean);
 
-function safePaymentEndpoint(raw) {
-	const base = safeRemoteUrl(raw, { allowRelative: false });
+export function safePaymentEndpoint(raw) {
+	// allowRelative so a same-origin path (unambiguously first-party three.ws)
+	// passes; safeRemoteUrl still enforces https + no-private-host on absolute URLs.
+	const base = safeRemoteUrl(raw, { allowRelative: true });
 	if (!base.ok) return { ok: false };
 	if (base.value == null) return { ok: true, value: null };
+	if (base.value.startsWith('/')) return { ok: true, value: base.value };
 	let host;
 	try { host = new URL(base.value).hostname.toLowerCase(); } catch { return { ok: false }; }
 	const allowed = X402_ALLOWED_HOSTS.some((h) => host === h || host.endsWith(`.${h}`));
@@ -201,6 +207,20 @@ async function ensureTable() {
 	await sql`ALTER TABLE irl_pins ADD COLUMN IF NOT EXISTS geocell7  TEXT`;
 	await sql`ALTER TABLE irl_pins ADD COLUMN IF NOT EXISTS hidden_at TIMESTAMPTZ`;
 	await sql`CREATE INDEX IF NOT EXISTS irl_pins_geocell7 ON irl_pins (geocell7) WHERE hidden_at IS NULL`;
+	// Remote outfit change (C6) — a placed agent owns its look independent of the
+	// source avatar so an owner can re-skin it for EVERY nearby viewer.
+	//   avatar_manifest : the editable appearance — { colors, hidden, accessories }
+	//                     (the same shape the avatar studio produces).
+	//   avatar_base_url : the un-dressed GLB the manifest bakes ONTO, captured once
+	//                     on the first outfit edit. Re-baking always starts from this
+	//                     clean base so garment hides / accessories never stack across
+	//                     edits (avatar_url stays the derived, baked GLB served today).
+	//   avatar_version  : bumped on every outfit change — the cheap signal the nearby
+	//                     feed/viewer diffs to swap a re-skinned pin's GLB, and a
+	//                     cache-bust companion to the hash-keyed baked URL.
+	await sql`ALTER TABLE irl_pins ADD COLUMN IF NOT EXISTS avatar_manifest JSONB`;
+	await sql`ALTER TABLE irl_pins ADD COLUMN IF NOT EXISTS avatar_base_url TEXT`;
+	await sql`ALTER TABLE irl_pins ADD COLUMN IF NOT EXISTS avatar_version  INTEGER NOT NULL DEFAULT 0`;
 	_tableReady = true;
 }
 
@@ -286,7 +306,114 @@ async function handleCalibrate(res, { id, session, body }) {
 		WHERE id = ${id}
 		RETURNING id, lat, lng, heading, anchor_yaw_deg, anchor_height_m, gps_accuracy_m
 	`;
+	// Realtime (D1): a calibrate is a partial pin:update of position + heading, so
+	// every nearby viewer sees the corrected spot move live instead of on re-fetch.
+	void publishIrlPin('pin:update', realtimeCell(row.lat, row.lng), pinWire(row));
 	return json(res, 200, { pin: row, calibrated: true });
+}
+
+// ── Remote outfit change (C6) ───────────────────────────────────────────────
+// Re-skin a placed agent for EVERY nearby viewer. The owner sends the appearance
+// manifest ({ colors, hidden, accessories }); we validate it against the same
+// slot/preset allow-list the studio uses, bake a new GLB onto the pin's clean
+// BASE avatar (never the prior bake — so layers/accessories can't stack), store
+// it on the first-party CDN, bump avatar_version, and persist. Every nearby
+// viewer's loadNearbyPins poll then diffs the version and swaps the GLB; D1
+// (emitPinUpdated) pushes it instantly once realtime lands. A null/empty
+// manifest reverts the pin to its bare base avatar.
+async function handleOutfitChange(res, { id, session, body }) {
+	const manifest = body.avatar_manifest ?? body.avatarManifest ?? null;
+	if (manifest !== null && (typeof manifest !== 'object' || Array.isArray(manifest))) {
+		return json(res, 400, { error: 'avatar_manifest must be an object or null' });
+	}
+	// Validate shape + preset/slot allow-list BEFORE baking, so an invented slot
+	// or preset is a clean 400 and never burns a bake.
+	if (manifest) {
+		const err = validateAppearance(manifest);
+		if (err) return json(res, 400, { error: err });
+	}
+
+	// Owner-gated: only the authenticated owner re-skins their agent. (Appearance
+	// is never editable from an anonymous device token — same stance as the
+	// avatar/location edits below.)
+	const [pin] = await sql`
+		SELECT id, user_id, avatar_url, avatar_base_url, avatar_version
+		FROM irl_pins
+		WHERE id = ${id}
+	`;
+	if (!pin) return json(res, 404, { error: 'not found' });
+	if (!pin.user_id || pin.user_id !== session.id) {
+		return json(res, 403, { error: "only the owner can change this agent's outfit" });
+	}
+
+	// The base GLB the manifest dresses. Captured once (the agent as it looked
+	// before any outfit edit) so re-bakes always start from a clean model.
+	const baseUrl = pin.avatar_base_url || pin.avatar_url;
+	if (!baseUrl) return json(res, 422, { error: 'this agent has no avatar to dress' });
+
+	let newAvatarUrl = baseUrl;
+	try {
+		// Lazy import: irl-bake → bake.js pulls in sharp (native libvips). Loading
+		// it only on this path keeps every other pins route alive even where the
+		// native module can't load.
+		const { bakePinOutfit, isBakeable } = await import('../_lib/irl-bake.js');
+		if (manifest && isBakeable(manifest)) {
+			const baked = await bakePinOutfit({ pinId: id, baseUrl, manifest });
+			newAvatarUrl = baked.url;
+		}
+		// else: cleared / empty manifest → serve the bare base GLB again.
+	} catch (err) {
+		console.error('[irl/pins] outfit bake failed', { pinId: id, message: err?.message });
+		return json(res, 502, { error: 'could not bake the new outfit', detail: err?.message });
+	}
+
+	const [row] = await sql`
+		UPDATE irl_pins SET
+			avatar_manifest = ${manifest ? JSON.stringify(manifest) : null}::jsonb,
+			avatar_base_url = COALESCE(avatar_base_url, ${baseUrl}),
+			avatar_url      = ${newAvatarUrl},
+			avatar_version  = avatar_version + 1
+		WHERE id = ${id} AND user_id = ${session.id}
+		RETURNING id, lat, lng, avatar_url, avatar_manifest, avatar_version
+	`;
+	if (!row) return json(res, 404, { error: 'not found' });
+
+	// Realtime fan-out (D1) — co-located viewers swap the GLB within seconds
+	// without waiting for their next poll. No-op until D1 lands; the poll path
+	// (avatar_version diff) is the durable contract either way.
+	emitPinUpdated(row);
+
+	return json(res, 200, { pin: row });
+}
+
+// ── Realtime publish helpers (D1) ───────────────────────────────────────────
+// The irl_world room is keyed by a precision-6 geocell (~1.2 km), the coarse cell
+// every nearby viewer joins. Matches src/irl-net.js and multiplayer/src/rooms/
+// IrlRoom.js so a publish always lands in the right live room. (The committed
+// geocell7/GEOCELL_PRECISION column is the FINER precision-7 cell used for the D4
+// density cap — a different lattice; both derive from the same encoder.)
+const REALTIME_PRECISION = 6;
+function realtimeCell(lat, lng) {
+	return encodeGeohash(Number(lat), Number(lng), REALTIME_PRECISION);
+}
+
+// Build the camelCase wire object the room consumes from a DB row, including ONLY
+// the columns the row actually has. An add returns the full row (RETURNING *) so
+// every field rides; an update / calibrate returns a narrow column set, so only
+// those become a partial pin:update — the room never zeroes a field the caller
+// didn't touch.
+function pinWire(row) {
+	const w = { id: row.id };
+	if ('lat' in row) w.lat = Number(row.lat);
+	if ('lng' in row) w.lng = Number(row.lng);
+	if ('heading' in row) w.heading = Number(row.heading) || 0;
+	if ('avatar_url' in row) w.avatarUrl = row.avatar_url ?? '';
+	if ('avatar_name' in row) w.avatarName = row.avatar_name ?? '';
+	if ('caption' in row) w.caption = row.caption ?? '';
+	if ('x402_endpoint' in row) w.x402Endpoint = row.x402_endpoint ?? '';
+	if ('agent_id' in row) w.agentId = row.agent_id ?? '';
+	if ('placed_at' in row) w.placedAt = row.placed_at ? Date.parse(row.placed_at) || 0 : 0;
+	return w;
 }
 
 export default wrap(async (req, res) => {
@@ -324,12 +451,45 @@ export default wrap(async (req, res) => {
 			SELECT id, lat, lng, heading, avatar_url, avatar_name, caption, agent_id,
 			       placed_at, expires_at, view_count,
 			       anchor_height_m, anchor_yaw_deg, anchor_quat,
-			       gps_accuracy_m, altitude_m, anchor_source
+			       gps_accuracy_m, altitude_m, anchor_source,
+			       avatar_manifest, avatar_base_url, avatar_version
 			FROM irl_pins
 			WHERE user_id = ${session.id}
 			  AND hidden_at IS NULL
 			ORDER BY placed_at DESC
 			LIMIT 100
+		`;
+		return json(res, 200, { pins: rows });
+	}
+
+	// ── GET — pins in a bounding box (IRL realtime room hydration, D1) ─────────
+	// The Colyseus irl_world room loads its 3×3 geocell window on create through
+	// this box query (server-to-server). Same public projection as the nearby feed
+	// — never owner ids — but selected by an explicit lat/lng box instead of a
+	// radius, because a 3×3 precision-6 window (~3.6 km) exceeds the nearby radius
+	// cap. Reuses the existing lat/lng index; capped + size-guarded against scrapes.
+	if (req.method === 'GET' && req.query.bbox != null) {
+		const parts = String(req.query.bbox).split(',').map((s) => parseFloat(s));
+		if (parts.length !== 4 || parts.some((n) => !isFinite(n))) {
+			return json(res, 400, { error: 'bbox must be minLat,minLng,maxLat,maxLng' });
+		}
+		let [minLat, minLng, maxLat, maxLng] = parts;
+		if (minLat > maxLat) [minLat, maxLat] = [maxLat, minLat];
+		if (minLng > maxLng) [minLng, maxLng] = [maxLng, minLng];
+		// A legit 3×3 window is < ~0.05°; 1° (~111 km) is a generous abuse ceiling.
+		if ((maxLat - minLat) > 1 || (maxLng - minLng) > 1) {
+			return json(res, 400, { error: 'bbox too large' });
+		}
+		const rows = await sql`
+			SELECT id, agent_id, lat, lng, heading,
+			       avatar_url, avatar_name, caption, x402_endpoint, placed_at, avatar_version
+			FROM irl_pins
+			WHERE lat BETWEEN ${minLat} AND ${maxLat}
+			  AND lng BETWEEN ${minLng} AND ${maxLng}
+			  AND hidden_at IS NULL
+			  AND (expires_at IS NULL OR expires_at > NOW())
+			ORDER BY placed_at DESC
+			LIMIT 500
 		`;
 		return json(res, 200, { pins: rows });
 	}
@@ -358,7 +518,7 @@ export default wrap(async (req, res) => {
 			SELECT id, user_id, device_token, agent_id, lat, lng, heading,
 			       avatar_url, avatar_name, caption, x402_endpoint, placed_at, view_count,
 			       anchor_height_m, anchor_yaw_deg, anchor_quat,
-			       gps_accuracy_m, altitude_m, anchor_source
+			       gps_accuracy_m, altitude_m, anchor_source, avatar_version
 			FROM irl_pins
 			WHERE lat BETWEEN ${lat - latDelta} AND ${lat + latDelta}
 			  AND lng BETWEEN ${lng - lngDelta} AND ${lng + lngDelta}
@@ -390,6 +550,10 @@ export default wrap(async (req, res) => {
 				gps_accuracy_m:  r.gps_accuracy_m,
 				altitude_m:      r.altitude_m,
 				anchor_source:   r.anchor_source,
+				// C6 — cheap re-skin signal: the viewer diffs this against its loaded
+				// pin and swaps the GLB when it bumps. (The editable manifest/base URL
+				// stay owner-private — viewers only ever need the rendered avatar_url.)
+				avatar_version:  Number(r.avatar_version) || 0,
 				is_mine: (!!myId && r.user_id === myId) || (!!myTok && r.device_token === myTok),
 				distance_m: Math.round(haversineDist(lat, lng, r.lat, r.lng)),
 			}))
@@ -569,6 +733,11 @@ export default wrap(async (req, res) => {
 			RETURNING *
 		`;
 
+		// Realtime (D1): fan this placement to every viewer in the geocell so it
+		// appears on their screen within ~1 s, no reload. Fire-and-forget — the pin
+		// is already persisted and the poll fallback reconciles if the push drops.
+		void publishIrlPin('pin:add', realtimeCell(lat, lng), pinWire(pin));
+
 		return json(res, 201, { pin: { ...pin, permanent: expiresAt === null } });
 	}
 
@@ -595,6 +764,13 @@ export default wrap(async (req, res) => {
 
 		// Field edits (caption / avatar / location / heading / x402) require auth.
 		if (!session) return json(res, 401, { error: 'not authenticated' });
+
+		// ── Outfit change (C6) — re-skin a placed agent for all nearby viewers ──
+		// A manifest PATCH bakes a new GLB + bumps avatar_version; routed before
+		// the simple field-edit SET below because it has its own bake/persist path.
+		if ('avatar_manifest' in body || 'avatarManifest' in body) {
+			return handleOutfitChange(res, { id, session, body });
+		}
 
 		// Build update SET clause only for fields the caller provided
 		const updates = {};
@@ -653,6 +829,11 @@ export default wrap(async (req, res) => {
 			RETURNING id, caption, avatar_url, avatar_name, lat, lng, heading, x402_endpoint
 		`;
 		if (!row) return json(res, 404, { error: 'not found' });
+
+		// Realtime (D1): push the edit live to nearby viewers. pinWire carries only
+		// the RETURNING columns, so it's a partial pin:update — untouched fields stay.
+		void publishIrlPin('pin:update', realtimeCell(row.lat, row.lng), pinWire(row));
+
 		return json(res, 200, { pin: row });
 	}
 
@@ -686,12 +867,15 @@ export default wrap(async (req, res) => {
 			    (${userId}::uuid IS NOT NULL AND user_id = ${userId}::uuid)
 			    OR (device_token IS NOT NULL AND device_token = ${deviceToken ?? ''})
 			  )
-			RETURNING id
+			RETURNING id, lat, lng
 		`;
 
 		if (!result.length) {
 			return json(res, 404, { error: 'pin not found or not yours' });
 		}
+		// Realtime (D1): tell every nearby viewer to remove the pin live.
+		const gone = result[0];
+		void publishIrlPin('pin:remove', realtimeCell(gone.lat, gone.lng), { id: gone.id });
 		return json(res, 200, { ok: true });
 	}
 

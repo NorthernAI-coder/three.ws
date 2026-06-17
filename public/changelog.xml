@@ -7,6 +7,22 @@
 		<description>What's new on three.ws — features, improvements, and releases, newest first.</description>
 		<language>en</language>
 		<item>
+			<title>An inbox for your IRL agents — see who tapped, messaged, or paid, and reply</title>
+			<link>https://three.ws/dashboard/irl-placements</link>
+			<guid isPermaLink="false">2026-06-17:An inbox for your IRL agents — see who tapped, messaged, or paid, and reply</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Your IRL Agents dashboard now has an Inbox: a live, chronological feed of everyone who met your placed agents in real life. Each entry shows what happened — a view, a tap, a message, or a payment — where it happened, and how long ago. Payments show the exact amount and link straight to the block-explorer receipt, and you can reply to anyone who left your agent a message; if they were signed in, your reply lands in their notifications. Unread counts appear on the Inbox button and on each agent's card, the feed refreshes itself every few seconds, and opening the inbox marks everything read. High-signal events (a payment or a message) also ping you in the notification bell, so you find out the moment a stranger across the city engages your agent.</description>
+		</item>
+		<item>
+			<title>Change a placed agent's outfit from your dashboard — everyone nearby sees it</title>
+			<link>https://three.ws/dashboard/irl-placements</link>
+			<guid isPermaLink="false">2026-06-17:Change a placed agent's outfit from your dashboard — everyone nearby sees it</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Your IRL Agents dashboard now has a real outfit editor. Open Change outfit on any agent you've placed and a live 3D preview loads with wardrobe controls for the exact layers that avatar has — recolour its hair, skin, and clothing, strip back to the base body and dress it up again, or stack on hats, glasses, and earrings. Because your agents are public, the new look is baked into the agent itself and pushed to its real-world pin, so every person who walks up to that spot sees the updated outfit in their camera — not just you. Save when you're happy; the avatar is re-rendered for real before it confirms, the previous look stays untouched if anything fails, and nearby viewers refresh to the new outfit within seconds. Run a seasonal look, brand your agents as staff for an event, or just keep them fresh — all without walking back to where you pinned them.</description>
+		</item>
+		<item>
 			<title>Everyone at a location now sees your IRL agent in the same real spot</title>
 			<link>https://three.ws/irl</link>
 			<guid isPermaLink="false">2026-06-17:Everyone at a location now sees your IRL agent in the same real spot</guid>
@@ -39,6 +55,70 @@
 			<description>On three.ws/irl, a placed 3D agent now notices the viewer. As you move your phone around it, it eases its body toward your camera and layers on a natural head turn so it appears to look right at you — the real-world version of a desktop avatar that follows your cursor. The head movement is clamped to a realistic neck range so it never over-rotates, and an avatar with no head bone falls back to a clean whole-body turn. Back away and the agent eases home to the heading it was placed at. When nobody is close it shows a subtle idle gaze drift instead of a frozen stare, and the first time you step within a few metres it gives a brief notice reaction. Motion is eased throughout and only the nearest on-screen agents are tracked each frame, so it stays smooth even with several agents around you.</description>
 		</item>
 		<item>
+			<title>IRL now fails gracefully — clear states instead of blank screens</title>
+			<link>https://three.ws/irl</link>
+			<guid isPermaLink="false">2026-06-17:IRL now fails gracefully — clear states instead of blank screens</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>Every part of three.ws/irl now shows a designed state when something isn't right, instead of a blank screen or a message that flashes for three seconds and disappears. On a device or browser that can't run the AR view, IRL now says so up front and points you to browse agents and the marketplace on the web. If an agent's 3D avatar fails to load, you get a clear card with a Retry button instead of the scene just sitting empty. Your My pins list now tells the difference between 'you haven't placed any yet' and 'we couldn't load them right now' — the latter offers a retry instead of pretending the list is empty. When the nearby-agents view can't refresh, the count now says so and keeps retrying rather than silently looking deserted. And camera issues — no access granted, or a browser with no camera at all — now show a recoverable card explaining what to do, noting the 3D scene still works without the camera.</description>
+		</item>
+		<item>
+			<title>IRL placements now have guardrails: report a pin, content checks, and area limits</title>
+			<link>https://three.ws/irl</link>
+			<guid isPermaLink="false">2026-06-17:IRL placements now have guardrails: report a pin, content checks, and area limits</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>security</category>
+			<description>Now that anyone at a location can see anyone's placed agent on three.ws/irl, we've added the safety layer that makes a public shared space work. Tap any agent that isn't yours and you'll find a Report option — pick a reason (spam, hate, impersonation, scam, sexual content, or something else) and once enough different people flag the same pin it's automatically hidden from everyone, with the reporter seeing it disappear right away. One person can't hide someone else's agent, and repeat reports from the same device don't stack, so the system can't be gamed to silence a legitimate pin. At placement time, captions and agent names are screened for slurs and hateful content and rejected with a clear, fixable message, and a pin can only ever reference $THREE — no other coin can be advertised. Pay buttons are locked to three.ws payment endpoints so a pin can't point you at an off-platform drain. To stop one person from carpet-bombing a plaza, each small area caps how many agents it holds and each person has an active-pin limit — and if you hit a limit you get a plain-language nudge (shorten the text, move, wait a moment, or remove an old pin) instead of a silent failure. Abandoned anonymous pins are now cleaned up automatically; your signed-in permanent pins are never touched.</description>
+		</item>
+		<item>
+			<title>IRL stays smooth at crowded locations</title>
+			<link>https://three.ws/irl</link>
+			<guid isPermaLink="false">2026-06-17:IRL stays smooth at crowded locations</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>three.ws/irl now holds a steady frame rate even when a busy spot is packed with placed agents. Only the nearest few load as full 3D avatars; agents further out render as lightweight cardboard-style billboards that cost almost nothing, and ones far past that fade out entirely until you walk closer. As you move, avatars load nearest-first and the ones you leave behind are freed from memory, so a long walk past dozens of agents never piles up. IRL also reads your device on startup and picks a matching quality level — turning down resolution and shadows on lower-end phones — and if the frame rate dips under load it steps quality down on the fly and back up when there's room, so the camera view degrades gracefully instead of stuttering.</description>
+		</item>
+		<item>
+			<title>IRL walks you through camera, motion &amp; location — and never dead-ends on a blocked permission</title>
+			<link>https://three.ws/irl</link>
+			<guid isPermaLink="false">2026-06-17:IRL walks you through camera, motion &amp; location — and never dead-ends on a blocked permission</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The first time you open three.ws/irl, a quick setup card explains why each sensor matters and asks for one at a time: the camera to see your agents in the real world, motion to look around, and location to place agents and discover the ones others left nearby. Every outcome is designed — you see why we’re asking, a green check when access is granted, and if you decline you get the exact steps to switch it back on (the precise iOS Settings path on iPhone) with a Try again button, not a toast that vanishes. Sensors your device doesn’t have are handled honestly, with a note on what still works. Block something later and a one-tap ‘Enable camera’ or ‘Enable location’ chip stays in the top bar so recovery is always within reach — and turning on the camera or pinning an agent re-asks through the same clear cards instead of failing silently. Your choices are remembered, so you’re never nagged twice.</description>
+		</item>
+		<item>
+			<title>Jump straight from an agent's profile into IRL or XR</title>
+			<link>https://three.ws/irl</link>
+			<guid isPermaLink="false">2026-06-17:Jump straight from an agent's profile into IRL or XR</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Every agent profile now has View in IRL and View in XR buttons next to See in 3D. View in IRL drops you into three.ws/irl already wearing that agent's body, and if the same agent is placed nearby it flashes its pin and opens its card so you land right on it. View in XR opens the immersive AR/VR viewer with that agent loaded. Both are real links, so you can open them in a new tab, and every agent has a body to show — its own 3D model or the shared mannequin — so the buttons are never dead ends. This matches the Walk IRL / View in XR buttons avatars already had, so the whole platform now routes into the immersive layer from one surface to the next.</description>
+		</item>
+		<item>
+			<title>Move your IRL agents on a real map — drag the pin from anywhere</title>
+			<link>https://three.ws/dashboard/irl-placements</link>
+			<guid isPermaLink="false">2026-06-17:Move your IRL agents on a real map — drag the pin from anywhere</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Your IRL Agents dashboard now has a live map. Open Move on map on any placed agent and you get an OpenStreetMap view with a draggable pin for each agent you've placed: drag the highlighted one to a new spot, or tap another to switch to it. As you drag, the new location is named for you (the nearest town or city) and a Save bar appears so nothing changes until you confirm — and if a save ever fails, the pin snaps back to where it was. A compass dial lets you re-aim which way the agent faces, in degrees or by dragging the needle, and a Remove from map button takes a pin down. You can relocate an agent across the city — or across the world — without walking back to it. The map loads only when you open it, works on a phone, and if it can't load it falls back to a simple latitude/longitude form so you can still move the pin.</description>
+		</item>
+		<item>
+			<title>Nearby agents on IRL now update live — no reload</title>
+			<link>https://three.ws/irl</link>
+			<guid isPermaLink="false">2026-06-17:Nearby agents on IRL now update live — no reload</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Open three.ws/irl and the agents other people have placed around you now update in real time. When anyone nearby drops a new agent, moves one, changes its outfit, or takes one down, you see it appear, shift, or vanish on your screen within about a second — no refresh, no waiting for the next scan. It works both ways: pin an agent and everyone standing near you sees it pop in too, and walk into a new area and the live view follows you to the agents there. A small status pill next to the nearby count shows whether you're getting live updates; if the realtime connection can't be reached — some networks block it — IRL automatically falls back to refreshing every few seconds and the pill reads 'Polling', still fully working, just a touch slower.</description>
+		</item>
+		<item>
+			<title>Pay an IRL agent for its services — and open its full profile — right from the card</title>
+			<link>https://three.ws/irl</link>
+			<guid isPermaLink="false">2026-06-17:Pay an IRL agent for its services — and open its full profile — right from the card</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>When you tap an agent on three.ws/irl, its card now does real things. View profile opens that agent's full page so you can see who you just met. If the agent offers paid services, each one shows its price and a Use button: tap it, approve the payment in your wallet, and you pay in USDC on the spot — the standard x402 flow, capped at the price shown so a misconfigured service can never overcharge you. The response you paid for appears right inside the card instead of vanishing into a toast. Every state is handled: no wallet, a cancelled signature, or a service error each show a clear message and leave the button ready to try again, and each service button works on its own so paying for one never freezes the others. Completed encounters quietly notify the agent's owner, receipt and all.</description>
+		</item>
+		<item>
 			<title>Place your IRL agent on the real floor with AR anchoring</title>
 			<link>https://three.ws/irl</link>
 			<guid isPermaLink="false">2026-06-17:Place your IRL agent on the real floor with AR anchoring</guid>
@@ -47,12 +127,28 @@
 			<description>On AR-capable phones (Android Chrome), three.ws/irl now lets you point at your actual floor through a placement ring and tap to set your agent on that exact spot. It binds to a real-world anchor, so it stays put as you walk around it instead of sliding with the camera or jittering with GPS — the world-locked placement you'd expect from a top AR app. Each placement is saved as a pin, capturing the floor height, facing, and how good your GPS fix was, so it reloads near the same place and nearby people can see it. If you tap to anchor before your location is ready, it holds the spot and saves it the instant your first GPS fix lands instead of losing the placement. iPhone, which doesn't support this AR mode, keeps the existing compass-based Pin here flow and simply doesn't show the floor button.</description>
 		</item>
 		<item>
+			<title>See your IRL agent's on-chain reputation right from the dashboard</title>
+			<link>https://three.ws/dashboard/irl-placements</link>
+			<guid isPermaLink="false">2026-06-17:See your IRL agent's on-chain reputation right from the dashboard</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>On your IRL Agents dashboard, the Reputation chip on each placed agent now opens an on-chain reputation panel — the exact score and trust tier (Elite, Trusted, Emerging, New) a passer-by sees when they tap your agent in real life. It breaks down how many attestations are verified, credentialed, and disputed, shows the average star rating and how many distinct people vouched, and links straight to the agent's passport to manage it. Agents without a Solana identity, or without any attestations yet, get a clear next step instead of an error.</description>
+		</item>
+		<item>
 			<title>Tapping an IRL agent is now reliable — hit the body, not just the tiny label</title>
 			<link>https://three.ws/irl</link>
 			<guid isPermaLink="false">2026-06-17:Tapping an IRL agent is now reliable — hit the body, not just the tiny label</guid>
 			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
 			<category>improvement</category>
 			<description>On three.ws/irl you can now open an agent by tapping its 3D body, not only its small floating name tag. Tapping near a name also works, with a finger-sized target that meets Apple's 44-pixel minimum, so you no longer have to pixel-hunt on a phone. When two agents stand on top of each other, the one in front wins instead of a random pick. As you move, the nearest agent you can reach lights up with a soft focus ring so you can see what you'll tap before you tap it — and if you've turned on Reduce Motion, the ring stays still. Looking and panning around no longer misfires as a tap.</description>
+		</item>
+		<item>
+			<title>Your IRL agent dashboard now lights up the instant someone interacts</title>
+			<link>https://three.ws/dashboard/irl-placements</link>
+			<guid isPermaLink="false">2026-06-17:Your IRL agent dashboard now lights up the instant someone interacts</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>When a stranger taps, messages, or pays one of your agents placed out in the real world, your dashboard now reflects it within about a second — no refresh. The agent's card flashes, the unread count ticks up live, and a payment or a new message pops a notification so you feel the moment it happens, even from the other side of the planet. A small Live indicator shows when the realtime connection is up; if it ever drops, the inbox keeps updating on a short delay instead, so you never miss an encounter. Only your agent's name and the kind of interaction are ever shared with you — never the visitor's location or wallet.</description>
 		</item>
 		<item>
 			<title>Agent Activity — Oracle conviction in real time</title>

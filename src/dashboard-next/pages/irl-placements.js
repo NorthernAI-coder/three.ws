@@ -107,15 +107,6 @@ function statusBadge(status) {
 		+ `<span style="width:7px;height:7px;border-radius:50%;background:${s.c}"></span>${s.label}</span>`;
 }
 
-// Derive the avatar-editor (wardrobe) URL from a pin's avatar_url. IRL pins store
-// either /api/avatars/<id>/glb or /avatars/<id>... — pull the id so "Change outfit"
-// deep-links to the real wardrobe; fall back to the avatars dashboard otherwise.
-function outfitHref(pin) {
-	const url = pin.avatar_url || '';
-	const m = url.match(/\/avatars\/([^/?#]+)/) || url.match(/\/api\/avatars\/([^/?#]+)/);
-	return m ? `/avatars/${m[1]}/edit` : '/dashboard/avatars';
-}
-
 async function reverseGeocode(lat, lng) {
 	try {
 		const r = await fetch(
@@ -128,14 +119,79 @@ async function reverseGeocode(lat, lng) {
 	} catch { return null; }
 }
 
-const INTERACTION_ICON = { view: '👁', message: '💬', pay: '💸' };
+// Memoized reverse-geocode shared by the cards and the inbox modal — keeps us
+// polite to Nominatim (one lookup per ~11 m cell, not per render).
+const geoCache = new Map();
+function placeFor(lat, lng) {
+	if (lat == null || lng == null) return Promise.resolve(null);
+	const key = `${Number(lat).toFixed(4)},${Number(lng).toFixed(4)}`;
+	if (!geoCache.has(key)) geoCache.set(key, reverseGeocode(lat, lng));
+	return geoCache.get(key);
+}
+
+const INTERACTION_ICON = { view: '👁', tap: '👆', message: '💬', pay: '💸' };
+
+// Mints we can name in a pay row. $THREE + Solana USDC come from CURRENCIES;
+// Base USDC (an EVM 0x mint) is matched case-insensitively. Anything else renders
+// as a truncated mint — we never invent or substitute a coin name.
+const PAY_MINTS = {
+	'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump': { label: '$THREE', decimals: 6 },
+	'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v': { label: 'USDC',   decimals: 6 },
+	'0x833589fcd6edb6e08f4c7c32d4f71b54bda02913':   { label: 'USDC',   decimals: 6 },
+};
+function payMint(mint) {
+	if (!mint) return { label: '', decimals: 6 };
+	return PAY_MINTS[mint] || PAY_MINTS[String(mint).toLowerCase()]
+		|| { label: `${String(mint).slice(0, 4)}…${String(mint).slice(-4)}`, decimals: 6 };
+}
+// "0.05 USDC" from atomic units + the row's mint. Empty when the amount is absent.
+function payAmountLabel(ix) {
+	const m = payMint(ix.currency_mint);
+	if (ix.amount == null) return m.label;
+	const human = (Number(ix.amount) / 10 ** m.decimals).toLocaleString('en-US', { maximumFractionDigits: m.decimals });
+	return m.label ? `${human} ${m.label}` : human;
+}
+
+// Block-explorer deep link, chain inferred from signature shape / network hint
+// (mirrors api/irl/interactions.js explorerTxUrl). Solscan is the default.
+const EVM_TX_RE = /^0x[0-9a-fA-F]{64}$/;
+function explorerTxUrl(sig, network) {
+	if (!sig || typeof sig !== 'string') return null;
+	const net = String(network || '').toLowerCase();
+	if (EVM_TX_RE.test(sig) || net.includes('base') || net.includes('eip155')) return `https://basescan.org/tx/${sig}`;
+	return `https://solscan.io/tx/${sig}`;
+}
+
+// Whether a row is the owner's own reply (server-stamped, never client-trusted).
+const isOwnerReply = (ix) => ix.payload?.from === 'owner';
+// One-line "who did what", with the paid amount inlined for pays.
+function ixHeadline(ix) {
+	if (ix.type === 'pay') {
+		const amt = payAmountLabel(ix);
+		return amt ? `Someone paid ${esc(amt)}` : 'Someone paid your agent';
+	}
+	if (ix.type === 'tap')     return 'Tapped your agent';
+	if (ix.type === 'message') return isOwnerReply(ix) ? 'You replied' : 'Someone left a message';
+	return 'Someone viewed your agent';
+}
+
+const EMPTY_IX_HTML = `<div class="irl-ix-empty">No one has interacted with this agent in person yet. Share its location to get discovered.</div>`;
+
+// Compact feed row shown inside each placement card.
 function interactionLine(ix) {
-	const icon = INTERACTION_ICON[ix.type] || '•';
-	const who  = ix.type === 'message' ? 'Someone left a message' : ix.type === 'pay' ? 'Someone paid your agent' : 'Someone viewed your agent';
-	const msg  = ix.message ? `<span class="irl-ix-msg">“${esc(ix.message)}”</span>` : '';
-	return `<div class="irl-ix"><span class="irl-ix-icon" aria-hidden="true">${icon}</span>
-		<div class="irl-ix-body"><span class="irl-ix-who">${who}</span>${msg}
-		<span class="irl-ix-time">${esc(relTime(ix.created_at))}</span></div></div>`;
+	const owner   = isOwnerReply(ix);
+	const unread  = !ix.seen_at && !owner;
+	const icon    = INTERACTION_ICON[ix.type] || '•';
+	const msg     = ix.message ? `<span class="irl-ix-msg">“${esc(ix.message)}”</span>` : '';
+	const tx      = ix.type === 'pay' ? explorerTxUrl(ix.payload?.signature, ix.payload?.network) : null;
+	const txLink  = tx ? ` · <a class="irl-ix-link" href="${esc(tx)}" target="_blank" rel="noopener">View tx ↗</a>` : '';
+	// Replies are composed in the inbox surface — the card row just opens it.
+	const reply   = (ix.type === 'message' && !owner)
+		? ` · <button class="irl-ix-link" data-reply-open type="button">Reply</button>` : '';
+	return `<div class="irl-ix${owner ? ' owner' : ''}${unread ? ' unread' : ''}">
+		<span class="irl-ix-icon" aria-hidden="true">${icon}</span>
+		<div class="irl-ix-body"><span class="irl-ix-who">${ixHeadline(ix)}</span>${msg}
+		<span class="irl-ix-time">${esc(relTime(ix.created_at))}${txLink}${reply}</span></div></div>`;
 }
 
 const STYLE = `
@@ -153,7 +209,6 @@ const STYLE = `
 /* Skills chips */
 .irl-skills { display: flex; flex-wrap: wrap; gap: 6px; }
 .irl-skill { font-size: 11px; padding: 3px 9px; border-radius: 999px; background: color-mix(in srgb, #7c3aed 12%, transparent); color: #a78bfa; border: 1px solid color-mix(in srgb, #7c3aed 30%, transparent); white-space: nowrap; }
-.irl-unread-pill { font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 999px; background: color-mix(in srgb, var(--nxt-accent) 16%, transparent); color: var(--nxt-accent); border: 1px solid color-mix(in srgb, var(--nxt-accent) 32%, transparent); }
 .irl-btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: var(--nxt-radius-sm); border: 1px solid var(--nxt-stroke); background: var(--nxt-bg-2); color: var(--nxt-ink); cursor: pointer; font-size: 13px; font-weight: 600; text-decoration: none; transition: border-color .14s, transform .12s; }
 .irl-btn:hover { border-color: var(--nxt-stroke-strong); transform: translateY(-1px); }
 .irl-btn.primary { background: var(--nxt-accent); color: #061018; border-color: transparent; }
@@ -245,12 +300,17 @@ const STYLE = `
 @keyframes irl-rise { from { opacity: 0; transform: translateY(10px) scale(.99); } to { opacity: 1; transform: none; } }
 
 /* Interactions feed */
-.irl-ix { display: flex; gap: 9px; padding: 6px 0; }
+.irl-ix { display: flex; gap: 9px; padding: 6px 0; position: relative; }
+.irl-ix.unread { padding-left: 12px; }
+.irl-ix.unread::before { content: ''; position: absolute; left: 0; top: 12px; width: 6px; height: 6px; border-radius: 50%; background: var(--nxt-accent); }
+.irl-ix.owner .irl-ix-who { color: var(--nxt-accent); }
 .irl-ix-icon { font-size: 14px; line-height: 1.4; flex-shrink: 0; }
 .irl-ix-body { display: flex; flex-direction: column; gap: 1px; font-size: 13px; min-width: 0; }
 .irl-ix-who { color: var(--nxt-ink-dim); }
 .irl-ix-msg { color: var(--nxt-ink); }
-.irl-ix-time { font-size: 11px; color: var(--nxt-ink-faint); }
+.irl-ix-time { font-size: 11px; color: var(--nxt-ink-faint); display: flex; flex-wrap: wrap; gap: 2px 4px; align-items: center; }
+.irl-ix-link { background: none; border: none; padding: 0; font: inherit; font-size: 11px; color: var(--nxt-accent); cursor: pointer; text-decoration: none; }
+.irl-ix-link:hover { text-decoration: underline; }
 .irl-ix-empty { font-size: 12px; color: var(--nxt-ink-faint); }
 
 /* Caption + management */
@@ -265,19 +325,117 @@ const STYLE = `
 .irl-action.remove { color: var(--nxt-danger, #f87171); border-color: color-mix(in srgb, var(--nxt-danger, #f87171) 30%, transparent); }
 .irl-action.remove:hover { background: color-mix(in srgb, var(--nxt-danger, #f87171) 8%, transparent); }
 
-/* Location editor */
-.irl-loc-edit { border-top: 1px dashed var(--nxt-stroke); padding: 12px 16px; display: none; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
-.irl-loc-edit.open { display: flex; }
+/* ── Location map modal ──────────────────────────────────────────────────── */
+.irlmap-modal .irl-modal-body { padding: 0; }
+.irlmap { position: relative; width: 100%; height: 340px; background: var(--nxt-bg-2); z-index: 0; }
+.irlmap-canvas { position: absolute; inset: 0; }
+.irlmap-skel { position: absolute; inset: 0; z-index: 600; display: flex; align-items: center; justify-content: center; gap: 10px; background: var(--nxt-bg-2); color: var(--nxt-ink-faint); font-size: 13px; transition: opacity .3s; }
+.irlmap-skel.gone { opacity: 0; pointer-events: none; }
+.irlmap-spin { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--nxt-stroke); border-top-color: var(--nxt-accent); animation: irl-spin .8s linear infinite; }
+@keyframes irl-spin { to { transform: rotate(360deg); } }
+@media (max-width: 520px) { .irlmap { height: 280px; } }
+
+/* Leaflet dark-theme touch-ups (zoom + attribution) */
+.irlmap .leaflet-control-zoom a { background: var(--nxt-bg-1); color: var(--nxt-ink); border-color: var(--nxt-stroke); }
+.irlmap .leaflet-control-zoom a:hover { background: var(--nxt-bg-2); }
+.irlmap .leaflet-bar { border-color: var(--nxt-stroke); box-shadow: 0 1px 5px rgba(0,0,0,.5); }
+.irlmap .leaflet-control-attribution { background: rgba(8,10,16,.7); color: #99a; font-size: 10px; }
+.irlmap .leaflet-control-attribution a { color: #9cf; }
+.irlmap .leaflet-marker-icon.irlmap-pin { background: none; border: none; }
+
+/* Custom GPS markers */
+.irlmap-marker { position: relative; width: 40px; height: 40px; }
+.irlmap-dot { position: absolute; inset: 7px; border-radius: 50%; background: linear-gradient(135deg, #1a2035, #0d1018); border: 2px solid var(--nxt-ink-faint); display: flex; align-items: center; justify-content: center; overflow: hidden; font-size: 13px; box-shadow: 0 2px 6px rgba(0,0,0,.55); transition: border-color .15s, box-shadow .15s; }
+.irlmap-dot img { width: 100%; height: 100%; object-fit: cover; }
+.irlmap-marker.is-focused .irlmap-dot { border-color: var(--nxt-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--nxt-accent) 28%, transparent), 0 3px 10px rgba(0,0,0,.6); }
+.irlmap-marker:not(.is-focused) { cursor: pointer; opacity: .82; transition: opacity .15s; }
+.irlmap-marker:not(.is-focused):hover { opacity: 1; }
+.irlmap-heading { position: absolute; inset: 0; pointer-events: none; transform-origin: 50% 50%; transition: transform .1s linear; }
+.irlmap-heading i { position: absolute; top: -4px; left: 50%; margin-left: -5px; width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-bottom: 9px solid var(--nxt-ink-faint); filter: drop-shadow(0 1px 1px rgba(0,0,0,.5)); }
+.irlmap-marker.is-focused .irlmap-heading i { border-bottom-color: var(--nxt-accent); }
+
+/* Heading dial + locate controls */
+.irlmap-controls { display: flex; align-items: center; gap: 14px; padding: 12px 16px; border-top: 1px solid var(--nxt-stroke); flex-wrap: wrap; }
+.irlmap-compass { width: 58px; height: 58px; flex-shrink: 0; cursor: grab; touch-action: none; border-radius: 50%; }
+.irlmap-compass:active { cursor: grabbing; }
+.irlmap-compass:focus-visible { outline: 2px solid var(--nxt-accent); outline-offset: 2px; }
+.irlmap-compass svg { width: 100%; height: 100%; display: block; }
+.irlmap-compass .ring { fill: var(--nxt-bg-2); stroke: var(--nxt-stroke); stroke-width: 3; }
+.irlmap-compass .tick { stroke: var(--nxt-ink-faint); stroke-width: 2; }
+.irlmap-compass .lbl { fill: var(--nxt-ink-faint); font: 700 15px/1 system-ui, sans-serif; text-anchor: middle; dominant-baseline: central; }
+.irlmap-compass .lbl.n { fill: var(--nxt-accent); }
+.irlmap-compass .needle { fill: var(--nxt-accent); }
+.irlmap-headbox { display: flex; flex-direction: column; gap: 4px; }
+.irlmap-headbox > span { font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--nxt-ink-faint); }
+.irlmap-headrow { display: flex; align-items: center; gap: 8px; }
+.irlmap-headrow input { width: 72px; background: var(--nxt-bg-2); border: 1px solid var(--nxt-stroke); border-radius: 7px; color: var(--nxt-ink); padding: 6px 9px; font-size: 13px; font-family: inherit; outline: none; font-variant-numeric: tabular-nums; }
+.irlmap-headrow input:focus { border-color: var(--nxt-accent); }
+.irlmap-headrow .cmp { font-size: 14px; font-weight: 700; color: var(--nxt-ink); min-width: 30px; }
+.irlmap-controls .grow { flex: 1; }
+
+/* Save bar — appears on drag / heading change */
+.irlmap-savebar { display: none; align-items: center; gap: 10px 12px; padding: 12px 16px; border-top: 1px solid var(--nxt-stroke); background: color-mix(in srgb, var(--nxt-accent) 7%, transparent); flex-wrap: wrap; animation: irl-fade .16s ease; }
+.irlmap-savebar.open { display: flex; }
+.irlmap-savebar .lbl { flex: 1; min-width: 170px; font-size: 13px; color: var(--nxt-ink-dim); line-height: 1.45; }
+.irlmap-savebar .lbl b { color: var(--nxt-ink); }
+.irlmap-savebar .locating { opacity: .6; }
+.irlmap-savebar .err { flex-basis: 100%; font-size: 12px; color: var(--nxt-danger, #f87171); }
+
+/* Modal footer: hint + remove */
+.irlmap-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-top: 1px solid var(--nxt-stroke); flex-wrap: wrap; }
+.irlmap-hint { font-size: 12px; color: var(--nxt-ink-faint); flex: 1; min-width: 150px; }
+
+/* CDN-failure fallback — manual coordinate entry */
+.irlmap-fallback { padding: 4px 18px 18px; }
+.irlmap-fallback .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; margin-top: 14px; }
+.irlmap-fallback .fb-err { font-size: 12px; color: var(--nxt-danger, #f87171); margin-top: 10px; }
 .irl-loc-field { display: flex; flex-direction: column; gap: 4px; }
 .irl-loc-field label { font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--nxt-ink-faint); }
-.irl-loc-field input { width: 110px; background: var(--nxt-bg-2); border: 1px solid var(--nxt-stroke); border-radius: 7px; color: var(--nxt-ink); padding: 6px 9px; font-size: 13px; font-family: inherit; outline: none; font-variant-numeric: tabular-nums; }
+.irl-loc-field input { width: 120px; background: var(--nxt-bg-2); border: 1px solid var(--nxt-stroke); border-radius: 7px; color: var(--nxt-ink); padding: 7px 9px; font-size: 13px; font-family: inherit; outline: none; font-variant-numeric: tabular-nums; }
 .irl-loc-field input:focus { border-color: var(--nxt-accent); }
-.irl-loc-field.heading input { width: 78px; }
+.irl-loc-field.heading input { width: 86px; }
 
 .irl-empty { text-align: center; padding: 60px 20px; color: var(--nxt-ink-faint); }
 .irl-empty b { display: block; font-size: 16px; color: var(--nxt-ink); margin-bottom: 8px; }
 .irl-skel { height: 120px; border-radius: var(--nxt-radius); background: var(--nxt-bg-2); animation: irl-pulse 1.4s ease infinite; }
 @keyframes irl-pulse { 0%,100%{opacity:.55} 50%{opacity:1} }
+
+/* Header actions + inbox button */
+.irl-header-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+#irl-inbox-btn { position: relative; }
+.irl-inbox-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--nxt-accent); color: #061018; font-size: 11px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+
+/* Per-card unread chip */
+.irl-card-unread { font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 999px; background: color-mix(in srgb, var(--nxt-accent) 18%, transparent); color: var(--nxt-accent); border: 1px solid color-mix(in srgb, var(--nxt-accent) 34%, transparent); white-space: nowrap; flex-shrink: 0; }
+
+/* ── Inbox modal feed ─────────────────────────────────────────────────────── */
+.irl-inbox-list { display: flex; flex-direction: column; }
+.irl-inbox-row { display: flex; gap: 11px; padding: 12px 2px; border-bottom: 1px solid var(--nxt-line, var(--nxt-stroke)); position: relative; }
+.irl-inbox-row:last-child { border-bottom: none; }
+.irl-inbox-row.unread { padding-left: 14px; }
+.irl-inbox-row.unread::before { content: ''; position: absolute; left: 0; top: 17px; width: 7px; height: 7px; border-radius: 50%; background: var(--nxt-accent); }
+.irl-inbox-row.owner { padding-left: 14px; border-left: 2px solid color-mix(in srgb, var(--nxt-accent) 45%, transparent); margin-left: 2px; }
+.irl-inbox-icon { font-size: 18px; line-height: 1.3; flex-shrink: 0; }
+.irl-inbox-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.irl-inbox-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.irl-inbox-who { font-size: 14px; font-weight: 600; color: var(--nxt-ink); }
+.irl-inbox-row.owner .irl-inbox-who { color: var(--nxt-accent); }
+.irl-inbox-time { font-size: 11.5px; color: var(--nxt-ink-faint); white-space: nowrap; flex-shrink: 0; }
+.irl-inbox-msg { font-size: 13px; color: var(--nxt-ink); line-height: 1.45; }
+.irl-inbox-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: 12px; color: var(--nxt-ink-faint); }
+.irl-inbox-agent { color: var(--nxt-ink-dim); }
+.irl-inbox-place { color: var(--nxt-ink-faint); }
+.irl-inbox-action { background: none; border: none; padding: 0; font: inherit; font-size: 12px; font-weight: 600; color: var(--nxt-accent); cursor: pointer; text-decoration: none; }
+.irl-inbox-action:hover { text-decoration: underline; }
+
+/* Reply composer (inline in an inbox row) */
+.irl-reply-box { margin-top: 8px; display: flex; flex-direction: column; gap: 8px; animation: irl-fade .14s ease; }
+.irl-reply-input { width: 100%; resize: vertical; min-height: 38px; background: var(--nxt-bg-2); border: 1px solid var(--nxt-accent); border-radius: 9px; color: var(--nxt-ink); padding: 8px 10px; font: inherit; font-size: 13px; outline: none; }
+.irl-reply-actions { display: flex; align-items: center; gap: 10px; justify-content: flex-end; }
+.irl-reply-hint { flex: 1; font-size: 12px; color: var(--nxt-ink-dim); }
+.irl-reply-hint.ok { color: var(--nxt-success); }
+.irl-reply-hint.err { color: var(--nxt-danger, #f87171); }
+.irl-inbox-flash { margin: 4px 0 10px; padding: 9px 12px; border-radius: 9px; font-size: 12.5px; font-weight: 600; color: var(--nxt-success); background: color-mix(in srgb, var(--nxt-success) 10%, transparent); border: 1px solid color-mix(in srgb, var(--nxt-success) 28%, transparent); }
 </style>`;
 
 let userPos = null;
@@ -294,6 +452,20 @@ function metaLine(pin, geo) {
 	return `📍 ${loc}${dist}${dir}`;
 }
 
+// ── Live inbox state (shared by the cards, the header badge, the poll loop, and
+// the inbox modal) ──────────────────────────────────────────────────────────
+const inbox = { interactions: [], unread: 0 };
+let rootEl = null;        // the page root, for header/banner queries
+let listEl = null;        // the placement-cards container
+let pollTimer = null;
+let inboxModal = null;    // { refresh(rows), isComposing() } while the modal is open
+
+// Unread = a visitor row not yet seen. The owner's own replies are excluded —
+// they're authored, never "unread", so they must not light a badge.
+function unreadForPin(pinId, list = inbox.interactions) {
+	return list.filter((x) => x.pin_id === pinId && !x.seen_at && !isOwnerReply(x)).length;
+}
+
 function cardHtml(pin, ixList) {
 	const caption = pin.caption || '';
 	const img = pin.avatar_url
@@ -302,9 +474,8 @@ function cardHtml(pin, ixList) {
 
 	const visitors = Number(pin.view_count) || 0;
 	const pinIx = ixList.filter((x) => x.pin_id === pin.id).slice(0, 4);
-	const ixHtml = pinIx.length
-		? pinIx.map(interactionLine).join('')
-		: `<div class="irl-ix-empty">No one has interacted with this agent in person yet. Share its location to get discovered.</div>`;
+	const ixHtml = pinIx.length ? pinIx.map(interactionLine).join('') : EMPTY_IX_HTML;
+	const unread = unreadForPin(pin.id, ixList);
 
 	// Stat chips — balance & reputation fill in async (skeleton until then).
 	const agentStats = pin.agent_id ? `
@@ -320,6 +491,7 @@ function cardHtml(pin, ixList) {
 				<div class="irl-name-row" style="display:flex;align-items:center;gap:8px;min-width:0">
 					<span class="irl-name">${esc(pin.avatar_name || 'Placed agent')}</span>
 					${statusBadge(pin.status)}
+					<span class="irl-card-unread" data-card-unread title="Unread interactions"${unread ? '' : ' hidden'}>${unread} new</span>
 				</div>
 				<div class="irl-meta">
 					<span class="irl-meta-loc">${esc(metaLine(pin, null))}</span>
@@ -330,8 +502,8 @@ function cardHtml(pin, ixList) {
 
 		<div class="irl-stats">
 			${agentStats}
-			<div class="irl-stat"><span class="k">Interactions</span><span class="v">${Number(pin.interaction_count) || visitors}</span></div>
-			<div class="irl-stat"><span class="k">Last seen</span><span class="v" style="font-size:12.5px">${esc(pin.last_interaction_at ? relTime(pin.last_interaction_at) : 'No visits')}</span></div>
+			<div class="irl-stat" data-stat="interactions"><span class="k">Interactions</span><span class="v">${Number(pin.interaction_count) || visitors}</span></div>
+			<div class="irl-stat" data-stat="lastseen"><span class="k">Last seen</span><span class="v" style="font-size:12.5px">${esc(pin.last_interaction_at ? relTime(pin.last_interaction_at) : 'No visits')}</span></div>
 		</div>
 
 		<div class="irl-section" data-skills-section hidden>
@@ -354,33 +526,33 @@ function cardHtml(pin, ixList) {
 		<div class="irl-card-body">
 			<div class="irl-caption" data-caption="${esc(caption)}" title="Click to edit caption">${caption ? esc(caption) : '<span style="color:var(--nxt-ink-faint);font-style:italic">Add a caption…</span>'}</div>
 			<div class="irl-actions">
-				<a class="irl-action" href="${esc(outfitHref(pin))}" target="_blank" rel="noopener">Change outfit ↗</a>
-				<button class="irl-action" data-loc-toggle>Move / re-aim</button>
+				<button class="irl-action" data-outfit="${esc(pin.id)}">Change outfit</button>
+				<button class="irl-action" data-loc-toggle>Move on map</button>
 				<a class="irl-action" href="/irl?highlight=${esc(pin.id)}" target="_blank" rel="noopener">View in IRL ↗</a>
 				<button class="irl-action remove" data-remove="${esc(pin.id)}">Remove</button>
 			</div>
-		</div>
-
-		<div class="irl-loc-edit" data-loc-edit>
-			<div class="irl-loc-field"><label>Latitude</label><input type="number" step="0.00001" data-loc="lat" value="${esc(Number(pin.lat).toFixed(5))}" /></div>
-			<div class="irl-loc-field"><label>Longitude</label><input type="number" step="0.00001" data-loc="lng" value="${esc(Number(pin.lng).toFixed(5))}" /></div>
-			<div class="irl-loc-field heading"><label>Heading°</label><input type="number" min="0" max="359" step="1" data-loc="heading" value="${esc(Math.round(pin.heading ?? 0))}" /></div>
-			<button class="irl-action" data-loc-here>Use my location</button>
-			<button class="irl-btn primary" data-loc-save>Save location</button>
 		</div>
 	</div>`;
 }
 
 async function mount(el) {
+	rootEl = el;
 	el.innerHTML = STYLE + `<div class="irl-wrap">
 		<div class="irl-header">
-			<h2>My IRL Agents <span class="irl-unread-pill" id="irl-unread" hidden></span></h2>
-			<a class="irl-btn primary" href="/irl" id="irl-place-btn">+ Place new ↗</a>
+			<h2>My IRL Agents</h2>
+			<div class="irl-header-actions">
+				<button class="irl-btn" id="irl-inbox-btn" type="button" aria-haspopup="dialog">
+					<span aria-hidden="true">📥</span> Inbox
+					<span class="irl-inbox-badge" id="irl-inbox-badge" hidden></span>
+				</button>
+				<a class="irl-btn primary" href="/irl" id="irl-place-btn">+ Place new ↗</a>
+			</div>
 		</div>
 		<div id="irl-mp-banner"></div>
 		<div id="irl-banner"></div>
 		<div id="irl-list"></div>
 	</div>`;
+	el.querySelector('#irl-inbox-btn')?.addEventListener('click', openInboxModal);
 
 	// Multiplayer AR explainer — shown once at the top so owners understand
 	// that their placed agents are visible to ALL users who visit that location.
@@ -391,11 +563,12 @@ async function mount(el) {
 	</div>`;
 
 	const list = el.querySelector('#irl-list');
+	listEl = list;
 	list.innerHTML = skeletonHTML(3, 'row');
 
 	// Pins + interactions in parallel — interactions power both the banner and
 	// each card's IRL feed.
-	let pins, interactions = [], unread = 0;
+	let pins;
 	try {
 		const [sumData, ixData] = await Promise.all([
 			get('/api/irl/agent-summary?mine=1'),
@@ -405,8 +578,8 @@ async function mount(el) {
 		// (status, interaction_count, last_interaction_at). Normalize pin_id→id so
 		// the existing card code is unchanged.
 		pins = (sumData.agents || []).map((a) => ({ ...a, id: a.pin_id }));
-		interactions = ixData.interactions || [];
-		unread = ixData.unread || 0;
+		inbox.interactions = ixData.interactions || [];
+		inbox.unread = ixData.unread || 0;
 	} catch {
 		list.innerHTML = errorStateHTML({ title: "Couldn't load your IRL agents", body: 'Check your connection and try again.', scope: 'irl' });
 		attachRetry(list, () => mount(el));
@@ -424,32 +597,18 @@ async function mount(el) {
 		return;
 	}
 
-	// Unread banner + pill
-	const unreadEl = el.querySelector('#irl-unread');
-	if (unread > 0) {
-		unreadEl.textContent = `${unread} new`;
-		unreadEl.hidden = false;
-		el.querySelector('#irl-banner').innerHTML = `<div class="irl-feed-banner">
-			<span class="txt"><b>${unread}</b> ${unread === 1 ? 'person' : 'people'} interacted with your agents in real life.</span>
-			<button class="irl-btn" id="irl-mark-seen">Mark all seen</button>
-		</div>`;
-		el.querySelector('#irl-mark-seen')?.addEventListener('click', async (e) => {
-			e.target.disabled = true;
-			await patch('/api/irl/interactions', {}).catch(() => {});
-			unreadEl.hidden = true;
-			el.querySelector('#irl-banner').innerHTML = '';
-		});
-	}
+	renderBanner();
 
-	list.innerHTML = pins.map((p) => cardHtml(p, interactions)).join('');
+	list.innerHTML = pins.map((p) => cardHtml(p, inbox.interactions)).join('');
+	applyBadges();
 
 	// ── Async enrichment per card: balance, reputation, services, geocode ──────
 	for (const pin of pins) {
 		const card = list.querySelector(`[data-id="${pin.id}"]`);
 		if (!card) continue;
 
-		// Reverse-geocode the location label (serial, polite to Nominatim).
-		reverseGeocode(pin.lat, pin.lng).then((geo) => {
+		// Reverse-geocode the location label (cached + polite to Nominatim).
+		placeFor(pin.lat, pin.lng).then((geo) => {
 			if (geo) {
 				const locEl = card.querySelector('.irl-meta-loc');
 				if (locEl) locEl.textContent = metaLine(pin, geo);
@@ -501,6 +660,219 @@ async function mount(el) {
 	}
 
 	wireCardEvents(list, pins);
+	startPolling();
+	startLiveStream(); // D3 — upgrade the poll to instant realtime delivery
+}
+
+// ── Live header badge, per-card chips, and the "new interactions" banner ─────
+function applyBadges() {
+	const badge = rootEl?.querySelector('#irl-inbox-badge');
+	if (badge) {
+		if (inbox.unread > 0) { badge.textContent = String(inbox.unread); badge.hidden = false; }
+		else { badge.hidden = true; }
+	}
+	listEl?.querySelectorAll('.irl-card').forEach((card) => {
+		const chip = card.querySelector('[data-card-unread]');
+		if (!chip) return;
+		const n = unreadForPin(card.dataset.id);
+		if (n > 0) { chip.textContent = `${n} new`; chip.hidden = false; }
+		else { chip.hidden = true; }
+	});
+}
+
+function renderBanner() {
+	const host = rootEl?.querySelector('#irl-banner');
+	if (!host) return;
+	if (inbox.unread > 0) {
+		host.innerHTML = `<div class="irl-feed-banner">
+			<span class="txt"><b>${inbox.unread}</b> ${inbox.unread === 1 ? 'person' : 'people'} interacted with your agents in real life.</span>
+			<button class="irl-btn" data-inbox-open type="button">Open inbox →</button>
+		</div>`;
+		host.querySelector('[data-inbox-open]')?.addEventListener('click', openInboxModal);
+	} else {
+		host.innerHTML = '';
+	}
+}
+
+// Re-render one card's compact feed + its "Last seen" chip from current state.
+function refreshCardFeed(pinId) {
+	const card = listEl?.querySelector(`[data-id="${CSS.escape(pinId)}"]`);
+	if (!card) return;
+	const host = card.querySelector('[data-ix-list]');
+	if (host) {
+		const pinIx = inbox.interactions.filter((x) => x.pin_id === pinId).slice(0, 4);
+		host.innerHTML = pinIx.length ? pinIx.map(interactionLine).join('') : EMPTY_IX_HTML;
+	}
+	const last = inbox.interactions
+		.filter((x) => x.pin_id === pinId)
+		.reduce((acc, x) => Math.max(acc, new Date(x.created_at).getTime() || 0), 0);
+	const seenEl = card.querySelector('[data-stat="lastseen"] .v');
+	if (seenEl && last > 0) seenEl.textContent = relTime(new Date(last).toISOString());
+}
+
+// ── Poll loop ────────────────────────────────────────────────────────────────
+// D1/D3 will replace this with realtime push; until then a 20 s pull keeps the
+// dashboard alive. We pause in background tabs (no point burning Nominatim/Neon
+// when no one's looking) and tear down on navigation away.
+const POLL_MS = 20_000;
+function startPolling() {
+	stopPolling();
+	pollTimer = setInterval(() => {
+		if (document.visibilityState === 'visible') pollOnce();
+	}, POLL_MS);
+	window.addEventListener('pagehide', stopPolling, { once: true });
+}
+function stopPolling() {
+	if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+}
+async function pollOnce() {
+	let data;
+	try { data = await get('/api/irl/interactions?mine=1'); }
+	catch { return; } // transient — the next tick retries
+	inbox.interactions = data.interactions || [];
+	inbox.unread = data.unread || 0;
+	listEl?.querySelectorAll('.irl-card').forEach((card) => refreshCardFeed(card.dataset.id));
+	applyBadges();
+	renderBanner();
+	// Keep an open inbox current — but never yank a half-typed reply out from
+	// under the owner.
+	if (inboxModal && !inboxModal.isComposing()) inboxModal.refresh(inbox.interactions);
+}
+
+// ── D3 · realtime owner delivery ─────────────────────────────────────────────
+// The 20 s poll above is the floor that keeps the inbox alive everywhere; this
+// SSE stream (GET /api/irl/interactions-stream) makes a tap / message / pay on a
+// placed agent land in the open dashboard within ~1 s — the owner gets the
+// dopamine of "someone engaged my agent right now" even from the other side of
+// the world. Each live event triggers one authoritative pollOnce() (so unread
+// counts and the open modal stay exactly server-correct) plus an instant flash +
+// toast on the agent that was touched. EventSource auto-reconnects; if the stream
+// is unavailable (blocked, offline, no infra) the poll alone keeps the inbox
+// live, just slower — degrade the flourish, never the record.
+let liveStream = null;
+let liveNudge = null;
+
+function startLiveStream() {
+	stopLiveStream();
+	ensureLiveStyles();
+	let es;
+	try { es = new EventSource('/api/irl/interactions-stream', { withCredentials: true }); }
+	catch { return; } // EventSource unsupported → the 20 s poll still covers us
+	liveStream = es;
+	es.addEventListener('interaction', (e) => {
+		let ix; try { ix = JSON.parse(e.data); } catch { return; }
+		flashInteraction(ix);
+		// Coalesce a burst of events into a single authoritative refresh.
+		clearTimeout(liveNudge);
+		liveNudge = setTimeout(() => { if (document.visibilityState === 'visible') pollOnce(); }, 350);
+	});
+	es.addEventListener('open',  () => setLivePill('live'));
+	es.addEventListener('error', () => setLivePill('polling')); // EventSource retries on its own
+	window.addEventListener('pagehide', stopLiveStream, { once: true });
+}
+
+function stopLiveStream() {
+	if (liveStream) { try { liveStream.close(); } catch { /* already torn down */ } liveStream = null; }
+	if (liveNudge) { clearTimeout(liveNudge); liveNudge = null; }
+}
+
+// Instant per-card feedback the moment an interaction streams in: a soft accent
+// flash on the touched agent, and a toast for the high-signal events (pay /
+// message — never the chatty view/tap). Pure box-shadow/opacity, auto-cleaned.
+const IX_TOAST = {
+	pay: '💸 Someone just paid your agent',
+	message: '💬 New message from a visitor',
+	tap: '👆 Someone tapped your agent',
+	view: '👁 Someone is viewing your agent',
+};
+function flashInteraction(ix) {
+	const card = ix.pin_id && listEl?.querySelector(`[data-id="${CSS.escape(ix.pin_id)}"]`);
+	if (card) {
+		card.classList.remove('irl-flash');
+		void card.offsetWidth; // restart the animation even if one is mid-flight
+		card.classList.add('irl-flash');
+		card.addEventListener('animationend', () => card.classList.remove('irl-flash'), { once: true });
+	}
+	if (ix.type === 'pay' || ix.type === 'message') {
+		const who = ix.avatar_name ? ` · ${ix.avatar_name}` : '';
+		irlToast((IX_TOAST[ix.type] || 'New IRL interaction') + who);
+	}
+}
+
+// A "Live" / "Polling" pill in the header — green when the realtime stream is
+// connected, muted when we've fallen back to the poll. Created lazily so it never
+// depends on render order; a no-op if the header isn't present.
+function setLivePill(state) {
+	const actions = rootEl?.querySelector('.irl-header-actions');
+	if (!actions) return;
+	let pill = actions.querySelector('#irl-live-pill');
+	if (!pill) {
+		pill = document.createElement('span');
+		pill.id = 'irl-live-pill';
+		pill.className = 'irl-live-pill';
+		actions.prepend(pill);
+	}
+	const live = state === 'live';
+	pill.classList.toggle('on', live);
+	pill.innerHTML = `<i aria-hidden="true"></i>${live ? 'Live' : 'Polling'}`;
+	pill.title = live
+		? 'Connected — interactions appear the instant they happen.'
+		: 'Reconnecting — interactions still arrive, just on a short delay.';
+}
+
+// Lightweight toast scoped to this page (bottom-center, auto-dismiss, stacking).
+function irlToast(msg) {
+	let host = document.getElementById('irl-toast-host');
+	if (!host) {
+		host = document.createElement('div');
+		host.id = 'irl-toast-host';
+		host.className = 'irl-toast-host';
+		host.setAttribute('role', 'status');
+		host.setAttribute('aria-live', 'polite');
+		document.body.appendChild(host);
+	}
+	const t = document.createElement('div');
+	t.className = 'irl-toast';
+	t.textContent = msg;
+	host.appendChild(t);
+	requestAnimationFrame(() => t.classList.add('show'));
+	setTimeout(() => {
+		t.classList.remove('show');
+		t.addEventListener('transitionend', () => t.remove(), { once: true });
+	}, 4200);
+}
+
+// D3 styles injected once into <head> so we never have to edit the page's big
+// STYLE template (shared, and edited by sibling surfaces) — keeps this layer
+// self-contained. Honors prefers-reduced-motion: no animation, just the colour.
+let _liveStylesInjected = false;
+function ensureLiveStyles() {
+	if (_liveStylesInjected || document.getElementById('irl-live-styles')) return;
+	_liveStylesInjected = true;
+	const s = document.createElement('style');
+	s.id = 'irl-live-styles';
+	s.textContent = `
+		.irl-card.irl-flash { animation: irl-flash 1.25s cubic-bezier(.2,.7,.3,1); }
+		@keyframes irl-flash {
+			0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--nxt-accent) 55%, transparent); }
+			30%  { box-shadow: 0 0 0 3px color-mix(in srgb, var(--nxt-accent) 40%, transparent); }
+			100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--nxt-accent) 0%, transparent); }
+		}
+		.irl-live-pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; letter-spacing: .02em; border: 1px solid var(--nxt-stroke); color: var(--nxt-ink-faint); background: var(--nxt-bg-2); user-select: none; }
+		.irl-live-pill i { width: 6px; height: 6px; border-radius: 50%; background: var(--nxt-ink-faint); flex-shrink: 0; }
+		.irl-live-pill.on { color: var(--nxt-success); border-color: color-mix(in srgb, var(--nxt-success) 34%, transparent); background: color-mix(in srgb, var(--nxt-success) 9%, transparent); }
+		.irl-live-pill.on i { background: var(--nxt-success); animation: irl-live-ping 2s ease-out infinite; }
+		@keyframes irl-live-ping { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--nxt-success) 60%, transparent); } 70%,100% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--nxt-success) 0%, transparent); } }
+		.irl-toast-host { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 1200; display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none; }
+		.irl-toast { pointer-events: auto; max-width: min(92vw, 420px); padding: 11px 16px; border-radius: 12px; background: var(--nxt-panel, #11151f); color: var(--nxt-ink); border: 1px solid var(--nxt-stroke); box-shadow: 0 14px 40px rgba(0,0,0,.45); font-size: 13px; font-weight: 600; opacity: 0; transform: translateY(10px) scale(.98); transition: opacity .22s ease, transform .22s cubic-bezier(.2,.7,.3,1); }
+		.irl-toast.show { opacity: 1; transform: none; }
+		@media (prefers-reduced-motion: reduce) {
+			.irl-card.irl-flash { animation: none; }
+			.irl-live-pill.on i { animation: none; }
+			.irl-toast { transition: opacity .2s ease; transform: none; }
+		}
+	`;
+	document.head.appendChild(s);
 }
 
 function fillStat(card, key, value) {
@@ -543,10 +915,43 @@ function renderServices(card, services) {
 }
 
 function wireCardEvents(list, pins) {
+	// Remove a card from the DOM (after its pin is deleted server-side) and drop
+	// it from the in-memory list; fall back to the empty state when none remain.
+	function dropCard(id) {
+		list.querySelector(`[data-id="${CSS.escape(id)}"]`)?.remove();
+		const idx = pins.findIndex((p) => p.id === id);
+		if (idx >= 0) pins.splice(idx, 1);
+		if (!list.querySelector('.irl-card')) {
+			list.innerHTML = `<div class="irl-empty"><b>No placements</b>All agents removed. <a class="irl-btn" href="/irl" style="display:inline-flex;margin-top:12px">Place a new one →</a></div>`;
+		}
+	}
+
+	// Reflect a persisted relocation back into the C1 card: update the stored pin,
+	// the data-* attributes, and the visible location/heading label in place.
+	function onSaved(saved, label) {
+		const pin = pins.find((p) => p.id === saved.id);
+		if (pin) { pin.lat = saved.lat; pin.lng = saved.lng; pin.heading = saved.heading; }
+		const card = list.querySelector(`[data-id="${CSS.escape(saved.id)}"]`);
+		if (!card) return;
+		card.dataset.lat = saved.lat;
+		card.dataset.lng = saved.lng;
+		card.dataset.heading = saved.heading ?? 0;
+		const locEl = card.querySelector('.irl-meta-loc');
+		if (!locEl) return;
+		locEl.textContent = metaLine(pin || saved, label || null);
+		if (!label) placeFor(saved.lat, saved.lng).then((geo) => { if (geo) locEl.textContent = metaLine(pin || saved, geo); });
+	}
+
 	list.addEventListener('click', async (e) => {
 		const card = e.target.closest('.irl-card');
 		if (!card) return;
 		const id = card.dataset.id;
+
+		// Reply to a visitor message — composed in the dedicated inbox surface.
+		if (e.target.closest('[data-reply-open]')) {
+			openInboxModal();
+			return;
+		}
 
 		// Manage paid services (x402 skill pricing) for this agent
 		if (e.target.closest('[data-manage-services]')) {
@@ -558,6 +963,37 @@ function wireCardEvents(list, pins) {
 			return;
 		}
 
+		// Change outfit (C6) — open the in-dashboard remote outfit editor. The 3D
+		// editor (Three.js) is lazy-loaded so the dashboard's initial bundle stays
+		// light; on save it re-skins the pin for every nearby viewer.
+		const outfitBtn = e.target.closest('[data-outfit]');
+		if (outfitBtn) {
+			const pin = pins.find((p) => p.id === id);
+			if (!pin) return;
+			outfitBtn.disabled = true;
+			const prev = outfitBtn.textContent;
+			outfitBtn.textContent = 'Opening…';
+			try {
+				const { openOutfitEditor } = await import('./irl-outfit-editor.js');
+				await openOutfitEditor({
+					pin,
+					onSaved: () => {
+						// The editor mutates the shared `pin` object in place, so a re-edit
+						// re-bakes from the right base. Confirm the change on the card.
+						card.classList.remove('irl-flash'); void card.offsetWidth; card.classList.add('irl-flash');
+						card.addEventListener('animationend', () => card.classList.remove('irl-flash'), { once: true });
+						irlToast('Outfit updated — nearby viewers will see it shortly');
+					},
+				});
+			} catch {
+				irlToast("Couldn't open the outfit editor. Try again.");
+			} finally {
+				outfitBtn.disabled = false;
+				outfitBtn.textContent = prev;
+			}
+			return;
+		}
+
 		// Remove
 		const removeBtn = e.target.closest('[data-remove]');
 		if (removeBtn) {
@@ -565,61 +1001,15 @@ function wireCardEvents(list, pins) {
 			removeBtn.textContent = 'Removing…';
 			try {
 				const r = await fetch(`/api/irl/pins?id=${encodeURIComponent(id)}`, { method: 'DELETE', credentials: 'include' });
-				if (r.ok) {
-					card.remove();
-					if (!list.querySelector('.irl-card')) {
-						list.innerHTML = `<div class="irl-empty"><b>No placements</b>All agents removed. <a class="irl-btn" href="/irl" style="display:inline-flex;margin-top:12px">Place a new one →</a></div>`;
-					}
-				} else { removeBtn.disabled = false; removeBtn.textContent = 'Remove'; }
+				if (r.ok) { dropCard(id); }
+				else { removeBtn.disabled = false; removeBtn.textContent = 'Remove'; }
 			} catch { removeBtn.disabled = false; removeBtn.textContent = 'Remove'; }
 			return;
 		}
 
-		// Toggle location editor
+		// Open the relocation map — drag the pin, re-aim, or remove from anywhere.
 		if (e.target.closest('[data-loc-toggle]')) {
-			card.querySelector('[data-loc-edit]')?.classList.toggle('open');
-			return;
-		}
-
-		// "Use my location" — fill lat/lng from the browser
-		if (e.target.closest('[data-loc-here]')) {
-			const btn = e.target.closest('[data-loc-here]');
-			btn.disabled = true; btn.textContent = 'Locating…';
-			navigator.geolocation?.getCurrentPosition(
-				(p) => {
-					card.querySelector('[data-loc="lat"]').value = p.coords.latitude.toFixed(5);
-					card.querySelector('[data-loc="lng"]').value = p.coords.longitude.toFixed(5);
-					btn.disabled = false; btn.textContent = 'Use my location';
-				},
-				() => { btn.disabled = false; btn.textContent = 'Location unavailable'; },
-				{ enableHighAccuracy: true, timeout: 8000 },
-			);
-			return;
-		}
-
-		// Save location
-		if (e.target.closest('[data-loc-save]')) {
-			const btn = e.target.closest('[data-loc-save]');
-			const lat = parseFloat(card.querySelector('[data-loc="lat"]').value);
-			const lng = parseFloat(card.querySelector('[data-loc="lng"]').value);
-			const heading = parseInt(card.querySelector('[data-loc="heading"]').value, 10);
-			if (!isFinite(lat) || !isFinite(lng)) { btn.textContent = 'Invalid coordinates'; return; }
-			btn.disabled = true; btn.textContent = 'Saving…';
-			try {
-				// Omit heading when the field is blank so a blank input PRESERVES the
-				// stored bearing instead of silently re-aiming the agent to North (0°).
-				const r = await patch('/api/irl/pins', { id, lat, lng, ...(isFinite(heading) ? { heading } : {}) });
-				if (r.pin) {
-					const pin = pins.find((p) => p.id === id);
-					if (pin) { pin.lat = r.pin.lat; pin.lng = r.pin.lng; pin.heading = r.pin.heading; }
-					card.querySelector('.irl-meta-loc').textContent = metaLine(r.pin, null);
-					reverseGeocode(r.pin.lat, r.pin.lng).then((geo) => {
-						if (geo) card.querySelector('.irl-meta-loc').textContent = metaLine(r.pin, geo);
-					});
-					btn.textContent = 'Saved ✓';
-					setTimeout(() => { btn.disabled = false; btn.textContent = 'Save location'; card.querySelector('[data-loc-edit]')?.classList.remove('open'); }, 900);
-				} else { btn.disabled = false; btn.textContent = 'Save location'; }
-			} catch { btn.disabled = false; btn.textContent = 'Retry save'; }
+			openLocationMap({ pins, focusId: id, onSaved, onRemoved: dropCard });
 			return;
 		}
 
@@ -670,6 +1060,668 @@ function restoreCaption(card, caption) {
 	const editEl = card.querySelector('.irl-caption-edit');
 	const node = makeNode(`<div class="irl-caption" data-caption="${esc(caption)}" title="Click to edit caption">${caption ? esc(caption) : '<span style="color:var(--nxt-ink-faint);font-style:italic">Add a caption…</span>'}</div>`);
 	editEl?.replaceWith(node);
+}
+
+// ── Location map (Leaflet, lazy-loaded) ─────────────────────────────────────
+// A real OSM map with a draggable marker per placed agent, so the owner can
+// relocate / re-aim / remove a pin from anywhere — not just standing at the
+// spot. Leaflet (JS + CSS) is imported from a CDN only when the panel opens, so
+// the rest of the dashboard never pays for it.
+const LEAFLET_JS  = 'https://esm.sh/leaflet@1.9.4';
+const LEAFLET_CSS = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+
+// North-up compass dial; the needle <g> is rotated by the heading at runtime.
+const COMPASS_SVG = `<svg viewBox="-50 -50 100 100" aria-hidden="true">
+	<circle class="ring" cx="0" cy="0" r="45"/>
+	<line class="tick" x1="0" y1="-45" x2="0" y2="-39"/><line class="tick" x1="0" y1="45" x2="0" y2="39"/>
+	<line class="tick" x1="-45" y1="0" x2="-39" y2="0"/><line class="tick" x1="45" y1="0" x2="39" y2="0"/>
+	<text class="lbl n" x="0" y="-27">N</text><text class="lbl" x="27" y="0">E</text>
+	<text class="lbl" x="0" y="27">S</text><text class="lbl" x="-27" y="0">W</text>
+	<g class="needle" data-needle transform="rotate(0)"><polygon points="0,-30 6,6 0,1 -6,6"/></g>
+</svg>`;
+
+let _leafletCssPromise = null;
+function ensureLeafletCss() {
+	if (_leafletCssPromise) return _leafletCssPromise;
+	_leafletCssPromise = new Promise((resolve, reject) => {
+		if (document.getElementById('leaflet-css')) { resolve(); return; }
+		const link = document.createElement('link');
+		link.id = 'leaflet-css';
+		link.rel = 'stylesheet';
+		link.href = LEAFLET_CSS;
+		link.crossOrigin = '';
+		link.onload = () => resolve();
+		link.onerror = () => { link.remove(); reject(new Error('leaflet css failed to load')); };
+		document.head.appendChild(link);
+	}).catch((e) => { _leafletCssPromise = null; throw e; });
+	return _leafletCssPromise;
+}
+
+let _leafletPromise = null;
+function loadLeaflet() {
+	if (_leafletPromise) return _leafletPromise;
+	_leafletPromise = (async () => {
+		const [mod] = await Promise.all([import(/* @vite-ignore */ LEAFLET_JS), ensureLeafletCss()]);
+		const L = mod?.default || mod;
+		if (!L || typeof L.map !== 'function') throw new Error('leaflet module missing');
+		return L;
+	})().catch((e) => { _leafletPromise = null; throw e; });
+	return _leafletPromise;
+}
+
+const norm360 = (h) => ((Math.round(Number(h) || 0) % 360) + 360) % 360;
+
+// Relocation map modal. `pins` is the live page list (shared ref); `focusId` is
+// the pin opened from its C1 card; `onSaved(pin,label)` reflects a persisted move
+// back into the card; `onRemoved(id)` drops the card after a delete.
+function openLocationMap({ pins, focusId, onSaved, onRemoved }) {
+	let L = null;
+	let map = null;
+	const markers = new Map();   // id -> Leaflet marker
+	let saved   = null;          // last-persisted { lat, lng, heading } of the focus
+	let pending = null;          // current marker/dial { lat, lng, heading }
+	let pendingLabel = null;     // reverse-geocoded label for the pending position
+	let geocoding = false;
+	let geoSeq = 0;
+	let dirty = false;
+	let dragCompass = false;
+	let ui = {};
+
+	const pinById = (id) => pins.find((p) => p.id === id);
+
+	const root = makeNode(`<div class="irl-modal-root irlmap-modal">
+		<div class="irl-modal-back"></div>
+		<div class="irl-modal" role="dialog" aria-modal="true" aria-label="Move agent on the map">
+			<div class="irl-modal-head">
+				<div class="irl-modal-titles">
+					<div class="irl-modal-title">Move on map</div>
+					<div class="irl-modal-sub" data-sub>Loading map…</div>
+				</div>
+				<button class="irl-modal-x" data-close type="button" aria-label="Close">×</button>
+			</div>
+			<div class="irl-modal-body" data-body></div>
+		</div>
+	</div>`);
+	ensureStateKitStyles();
+	document.body.appendChild(root);
+	document.body.style.overflow = 'hidden';
+
+	const modalEl = root.querySelector('.irl-modal');
+	const subEl   = root.querySelector('[data-sub]');
+	const body    = root.querySelector('[data-body]');
+
+	const close = () => {
+		try { map?.remove(); } catch { /* leaflet teardown best-effort */ }
+		map = null;
+		root.remove();
+		document.body.style.overflow = '';
+		document.removeEventListener('keydown', onKey, true);
+	};
+	const onKey = (ev) => { if (ev.key === 'Escape') close(); };
+	document.addEventListener('keydown', onKey, true);
+	root.querySelector('[data-close]').addEventListener('click', close);
+	root.querySelector('.irl-modal-back').addEventListener('click', close);
+	setTimeout(() => root.querySelector('[data-close]')?.focus(), 0);
+
+	// ── Markers ────────────────────────────────────────────────────────────
+	function makeIcon(p, focused) {
+		const av = p.avatar_url
+			? `<img src="${esc(p.avatar_url)}" alt="" onerror="this.remove()" />`
+			: '📍';
+		return L.divIcon({
+			className: 'irlmap-pin',
+			html: `<div class="irlmap-marker${focused ? ' is-focused' : ''}"><div class="irlmap-dot">${av}</div><div class="irlmap-heading" style="transform:rotate(${norm360(p.heading)}deg)"><i></i></div></div>`,
+			iconSize: [40, 40],
+			iconAnchor: [20, 20],
+		});
+	}
+
+	function hideSkel() { ui.skel?.classList.add('gone'); }
+	function updateSub(p) { if (subEl) subEl.textContent = `${p.avatar_name || 'Placed agent'} · drag the pin to relocate`; }
+
+	// ── Heading (dial + input + focused marker) ──────────────────────────────
+	function setHeading(h, { user = false, fromInput = false } = {}) {
+		h = norm360(h);
+		pending.heading = h;
+		ui.needle?.setAttribute('transform', `rotate(${h})`);
+		if (ui.headCmp) ui.headCmp.textContent = compassLabel(h);
+		if (!fromInput && ui.headInput) ui.headInput.value = String(h);
+		ui.compass?.setAttribute('aria-valuenow', String(h));
+		const hd = markers.get(focusId)?.getElement()?.querySelector('.irlmap-heading');
+		if (hd) hd.style.transform = `rotate(${h}deg)`;
+		if (user) { dirty = true; refreshSaveBar(); }
+	}
+
+	// ── Save bar ─────────────────────────────────────────────────────────────
+	function refreshSaveBar() {
+		if (!ui.savebar) return;
+		const moved  = pending.lat !== saved.lat || pending.lng !== saved.lng;
+		const turned = pending.heading !== saved.heading;
+		if (!moved && !turned) { hideSaveBar(); return; }
+		const parts = [];
+		if (moved) {
+			const loc = pendingLabel || `${pending.lat.toFixed(5)}°, ${pending.lng.toFixed(5)}°`;
+			parts.push(`Move to <b>${esc(loc)}</b>${geocoding ? ' <span class="locating">(locating…)</span>' : ''}`);
+		}
+		if (turned) parts.push(`${moved ? 'facing' : 'Re-aim to'} <b>${compassLabel(pending.heading)} (${pending.heading}°)</b>`);
+		ui.saveLbl.innerHTML = parts.join(', ');
+		ui.saveErr.hidden = true; ui.saveErr.textContent = '';
+		ui.saveBtn.disabled = false; ui.saveBtn.textContent = 'Save';
+		ui.cancelBtn.textContent = 'Cancel';
+		ui.savebar.classList.add('open');
+	}
+	function hideSaveBar() { ui.savebar?.classList.remove('open'); }
+
+	// Snap the focused marker + dial back to the last persisted values.
+	function revertToSaved() {
+		markers.get(focusId)?.setLatLng([saved.lat, saved.lng]);
+		pending = { ...saved };
+		pendingLabel = null; geocoding = false; geoSeq++;   // void any in-flight geocode
+		setHeading(saved.heading, {});
+		dirty = false;
+	}
+
+	// Move the focused pin (drag end, "pin to my location"); reverse-geocode async.
+	function applyMove(lat, lng) {
+		markers.get(focusId)?.setLatLng([lat, lng]);
+		pending.lat = lat; pending.lng = lng;
+		dirty = true;
+		pendingLabel = null; geocoding = true;
+		refreshSaveBar();
+		const seq = ++geoSeq;
+		placeFor(lat, lng).then((label) => { if (seq === geoSeq) { pendingLabel = label; geocoding = false; refreshSaveBar(); } });
+	}
+
+	async function persist(lat, lng, heading, label) {
+		const r = await patch('/api/irl/pins', { id: focusId, lat, lng, ...(Number.isFinite(heading) ? { heading } : {}) });
+		if (!r?.pin) throw new Error('save failed');
+		onSaved(r.pin, label || null);
+		return r.pin;
+	}
+
+	async function doSave() {
+		ui.saveBtn.disabled = true; ui.saveBtn.textContent = 'Saving…';
+		try {
+			const pin = await persist(pending.lat, pending.lng, pending.heading, pendingLabel);
+			saved = { lat: pin.lat, lng: pin.lng, heading: norm360(pin.heading ?? pending.heading) };
+			pending = { ...saved };
+			dirty = false;
+			markers.get(focusId)?.setLatLng([saved.lat, saved.lng]);
+			setHeading(saved.heading, {});
+			ui.saveBtn.textContent = 'Saved ✓';
+			setTimeout(() => { hideSaveBar(); if (ui.saveBtn) { ui.saveBtn.disabled = false; ui.saveBtn.textContent = 'Save'; } }, 1100);
+		} catch {
+			// Snap back to the last saved position and surface the failure inline.
+			revertToSaved();
+			ui.savebar.classList.add('open');
+			ui.saveLbl.innerHTML = 'Last saved position restored.';
+			ui.saveErr.textContent = 'Couldn’t save the move. Re-drag the pin and try again.';
+			ui.saveErr.hidden = false;
+			ui.saveBtn.disabled = true; ui.saveBtn.textContent = 'Save';
+			ui.cancelBtn.textContent = 'Dismiss';
+		}
+	}
+
+	function onCancel() { revertToSaved(); hideSaveBar(); }
+
+	// ── Focus handling ───────────────────────────────────────────────────────
+	function focusInit(p) {
+		saved   = { lat: +p.lat, lng: +p.lng, heading: norm360(p.heading) };
+		pending = { ...saved };
+		dirty = false;
+		setHeading(saved.heading, {});
+		updateSub(p);
+	}
+	function focusPin(id) {
+		if (dirty) revertToSaved();
+		markers.get(focusId)?.dragging?.disable();
+		focusId = id;
+		const p = pinById(id);
+		saved   = { lat: +p.lat, lng: +p.lng, heading: norm360(p.heading) };
+		pending = { ...saved };
+		dirty = false;
+		for (const [pid, mk] of markers) mk.setIcon(makeIcon(pinById(pid), pid === focusId));
+		markers.get(id)?.dragging?.enable();
+		setHeading(saved.heading, {});
+		updateSub(p);
+		hideSaveBar();
+		map?.panTo([saved.lat, saved.lng]);
+	}
+
+	// ── Remove ───────────────────────────────────────────────────────────────
+	function restoreFoot() {
+		const foot = root.querySelector('.irlmap-foot');
+		if (!foot) return;
+		foot.innerHTML = `<span class="irlmap-hint">Drag the highlighted pin to relocate. Tap another pin to switch.</span>
+			<button class="irl-action remove" data-remove-pin type="button">Remove from map</button>`;
+		ui.removeBtn = foot.querySelector('[data-remove-pin]');
+		ui.removeBtn.addEventListener('click', onRemoveClick);
+	}
+	function onRemoveClick() {
+		const foot = root.querySelector('.irlmap-foot');
+		if (!foot) return;
+		const p = pinById(focusId) || {};
+		foot.innerHTML = `<span class="irlmap-hint">Remove <b>${esc(p.avatar_name || 'this agent')}</b> from the map? This deletes the pin.</span>
+			<span style="display:flex;gap:8px;flex-shrink:0">
+				<button class="irl-action" data-remove-keep type="button">Keep</button>
+				<button class="irl-action remove" data-remove-yes type="button">Remove</button>
+			</span>`;
+		foot.querySelector('[data-remove-keep]').addEventListener('click', restoreFoot);
+		foot.querySelector('[data-remove-yes]').addEventListener('click', doRemove);
+	}
+	async function doRemove() {
+		const yes = root.querySelector('[data-remove-yes]');
+		if (yes) { yes.disabled = true; yes.textContent = 'Removing…'; }
+		try {
+			const removedId = focusId;
+			const r = await fetch(`/api/irl/pins?id=${encodeURIComponent(removedId)}`, { method: 'DELETE', credentials: 'include' });
+			if (!r.ok) throw new Error('delete failed');
+			markers.get(removedId)?.remove();
+			markers.delete(removedId);
+			onRemoved(removedId);
+			hideSaveBar();
+			const next = markers.size ? [...markers.keys()][0] : null;
+			if (next) { restoreFoot(); focusPin(next); }
+			else { close(); }
+		} catch {
+			if (yes) { yes.disabled = false; yes.textContent = 'Remove'; }
+		}
+	}
+
+	// ── Compass dial interaction (pointer drag + keyboard) ───────────────────
+	function wireCompass() {
+		const el = ui.compass;
+		if (!el) return;
+		const applyPointer = (clientX, clientY) => {
+			const r = el.getBoundingClientRect();
+			const dx = clientX - (r.left + r.width / 2);
+			const dy = clientY - (r.top + r.height / 2);
+			if (dx === 0 && dy === 0) return;
+			setHeading((Math.atan2(dx, -dy) * 180 / Math.PI), { user: true });
+		};
+		el.addEventListener('pointerdown', (ev) => {
+			ev.preventDefault();
+			dragCompass = true;
+			try { el.setPointerCapture(ev.pointerId); } catch { /* capture optional */ }
+			applyPointer(ev.clientX, ev.clientY);
+		});
+		el.addEventListener('pointermove', (ev) => { if (dragCompass) applyPointer(ev.clientX, ev.clientY); });
+		const end = (ev) => { dragCompass = false; try { el.releasePointerCapture(ev.pointerId); } catch { /* noop */ } };
+		el.addEventListener('pointerup', end);
+		el.addEventListener('pointercancel', end);
+		el.addEventListener('keydown', (ev) => {
+			const step = ev.shiftKey ? 10 : 1;
+			let h = pending.heading;
+			if (ev.key === 'ArrowRight' || ev.key === 'ArrowUp') h += step;
+			else if (ev.key === 'ArrowLeft' || ev.key === 'ArrowDown') h -= step;
+			else if (ev.key === 'Home') h = 0;
+			else if (ev.key === 'PageUp') h += 45;
+			else if (ev.key === 'PageDown') h -= 45;
+			else return;
+			ev.preventDefault();
+			setHeading(h, { user: true });
+		});
+	}
+
+	function onLocate() {
+		const btn = ui.locateBtn;
+		if (!navigator.geolocation) { btn.textContent = 'Location unavailable'; return; }
+		btn.disabled = true; btn.textContent = 'Locating…';
+		navigator.geolocation.getCurrentPosition(
+			(pos) => {
+				btn.disabled = false; btn.textContent = 'Pin to my location';
+				map?.panTo([pos.coords.latitude, pos.coords.longitude]);
+				applyMove(pos.coords.latitude, pos.coords.longitude);
+			},
+			() => { btn.disabled = false; btn.textContent = 'Location unavailable'; },
+			{ enableHighAccuracy: true, timeout: 8000 },
+		);
+	}
+
+	// ── Map shell + build ────────────────────────────────────────────────────
+	function renderMapShell() {
+		body.innerHTML = `
+			<div class="irlmap">
+				<div class="irlmap-canvas" data-canvas></div>
+				<div class="irlmap-skel" data-skel><span class="irlmap-spin"></span> Loading map…</div>
+			</div>
+			<div class="irlmap-controls">
+				<div class="irlmap-compass" data-compass role="slider" tabindex="0" aria-label="Agent heading in degrees" aria-valuemin="0" aria-valuemax="359" aria-valuenow="0">${COMPASS_SVG}</div>
+				<div class="irlmap-headbox">
+					<span>Heading</span>
+					<div class="irlmap-headrow">
+						<input type="number" min="0" max="359" step="1" data-head-input aria-label="Heading in degrees" />
+						<span class="cmp" data-head-cmp>N</span>
+					</div>
+				</div>
+				<span class="grow"></span>
+				<button class="irl-action" data-locate type="button">Pin to my location</button>
+			</div>
+			<div class="irlmap-savebar" data-savebar>
+				<span class="lbl" data-save-lbl></span>
+				<button class="irl-action" data-save-cancel type="button">Cancel</button>
+				<button class="irl-btn primary" data-save type="button">Save</button>
+				<span class="err" data-save-err hidden></span>
+			</div>
+			<div class="irlmap-foot">
+				<span class="irlmap-hint">Drag the highlighted pin to relocate. Tap another pin to switch.</span>
+				<button class="irl-action remove" data-remove-pin type="button">Remove from map</button>
+			</div>`;
+		ui = {
+			canvas:    body.querySelector('[data-canvas]'),
+			skel:      body.querySelector('[data-skel]'),
+			compass:   body.querySelector('[data-compass]'),
+			needle:    body.querySelector('[data-needle]'),
+			headInput: body.querySelector('[data-head-input]'),
+			headCmp:   body.querySelector('[data-head-cmp]'),
+			savebar:   body.querySelector('[data-savebar]'),
+			saveLbl:   body.querySelector('[data-save-lbl]'),
+			saveErr:   body.querySelector('[data-save-err]'),
+			saveBtn:   body.querySelector('[data-save]'),
+			cancelBtn: body.querySelector('[data-save-cancel]'),
+			locateBtn: body.querySelector('[data-locate]'),
+			removeBtn: body.querySelector('[data-remove-pin]'),
+		};
+	}
+
+	function buildMap() {
+		markers.clear();
+		const p0 = pinById(focusId);
+		if (!p0) { close(); return; }
+		map = L.map(ui.canvas, { zoomControl: true, attributionControl: true }).setView([+p0.lat, +p0.lng], 16);
+		L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap contributors', maxZoom: 19 })
+			.addTo(map)
+			.on('load', hideSkel);
+
+		for (const p of pins) {
+			const mk = L.marker([+p.lat, +p.lng], { draggable: true, autoPan: true, keyboard: false, icon: makeIcon(p, p.id === focusId) }).addTo(map);
+			markers.set(p.id, mk);
+			if (p.id !== focusId) mk.dragging?.disable();
+			mk.on('dragend', () => { if (p.id === focusId) { const ll = mk.getLatLng(); applyMove(ll.lat, ll.lng); } });
+			mk.on('click', () => { if (p.id !== focusId) focusPin(p.id); });
+		}
+
+		focusInit(p0);
+		ui.saveBtn.addEventListener('click', doSave);
+		ui.cancelBtn.addEventListener('click', onCancel);
+		ui.locateBtn.addEventListener('click', onLocate);
+		ui.removeBtn.addEventListener('click', onRemoveClick);
+		ui.headInput.addEventListener('input', () => {
+			const v = parseInt(ui.headInput.value, 10);
+			if (Number.isFinite(v)) setHeading(v, { user: true, fromInput: true });
+		});
+		wireCompass();
+
+		// Leaflet measures its container; the modal animates in, so re-measure
+		// after layout (rAF) and again once the entrance animation ends. A final
+		// timer hides the skeleton in case the tile 'load' event was missed.
+		requestAnimationFrame(() => map?.invalidateSize());
+		modalEl.addEventListener('animationend', () => map?.invalidateSize(), { once: true });
+		setTimeout(() => { map?.invalidateSize(); hideSkel(); }, 1800);
+	}
+
+	// ── CDN-failure fallback: manual coordinate entry ────────────────────────
+	function renderFallback() {
+		try { map?.remove(); } catch { /* noop */ }
+		map = null;
+		const p = pinById(focusId) || {};
+		if (subEl) subEl.textContent = `${p.avatar_name || 'Placed agent'} · manual coordinates`;
+		body.innerHTML = errorStateHTML({
+			title: 'Map unavailable',
+			body: 'The map library couldn’t load (offline or blocked). You can still relocate this agent by entering coordinates below.',
+			actions: [{ label: 'Retry map', id: 'retry', primary: true }],
+		}) + `<div class="irlmap-fallback">
+			<div class="row">
+				<div class="irl-loc-field"><label>Latitude</label><input type="number" step="0.00001" data-fb="lat" value="${esc(Number(p.lat ?? 0).toFixed(5))}" /></div>
+				<div class="irl-loc-field"><label>Longitude</label><input type="number" step="0.00001" data-fb="lng" value="${esc(Number(p.lng ?? 0).toFixed(5))}" /></div>
+				<div class="irl-loc-field heading"><label>Heading°</label><input type="number" min="0" max="359" step="1" data-fb="heading" value="${esc(norm360(p.heading))}" /></div>
+				<button class="irl-action" data-fb-here type="button">Use my location</button>
+				<button class="irl-btn primary" data-fb-save type="button">Save</button>
+			</div>
+			<div class="fb-err" data-fb-err hidden></div>
+		</div>`;
+
+		body.querySelector('[data-sk-action="retry"]')?.addEventListener('click', () => { initMap(); });
+		body.querySelector('[data-fb-here]')?.addEventListener('click', (ev) => {
+			const btn = ev.currentTarget;
+			if (!navigator.geolocation) { btn.textContent = 'Location unavailable'; return; }
+			btn.disabled = true; btn.textContent = 'Locating…';
+			navigator.geolocation.getCurrentPosition(
+				(pos) => {
+					body.querySelector('[data-fb="lat"]').value = pos.coords.latitude.toFixed(5);
+					body.querySelector('[data-fb="lng"]').value = pos.coords.longitude.toFixed(5);
+					btn.disabled = false; btn.textContent = 'Use my location';
+				},
+				() => { btn.disabled = false; btn.textContent = 'Location unavailable'; },
+				{ enableHighAccuracy: true, timeout: 8000 },
+			);
+		});
+		body.querySelector('[data-fb-save]')?.addEventListener('click', async (ev) => {
+			const btn = ev.currentTarget;
+			const err = body.querySelector('[data-fb-err]');
+			const lat = parseFloat(body.querySelector('[data-fb="lat"]').value);
+			const lng = parseFloat(body.querySelector('[data-fb="lng"]').value);
+			const heading = parseInt(body.querySelector('[data-fb="heading"]').value, 10);
+			err.hidden = true;
+			if (!Number.isFinite(lat) || lat < -90 || lat > 90 || !Number.isFinite(lng) || lng < -180 || lng > 180) {
+				err.textContent = 'Enter a valid latitude (−90…90) and longitude (−180…180).'; err.hidden = false; return;
+			}
+			btn.disabled = true; btn.textContent = 'Saving…';
+			try {
+				await persist(lat, lng, Number.isFinite(heading) ? heading : undefined, null);
+				btn.textContent = 'Saved ✓';
+				setTimeout(close, 800);
+			} catch {
+				btn.disabled = false; btn.textContent = 'Retry save';
+				err.textContent = 'Couldn’t save. Check your connection and try again.'; err.hidden = false;
+			}
+		});
+	}
+
+	async function initMap() {
+		try { map?.remove(); } catch { /* noop */ }
+		map = null;
+		renderMapShell();
+		try { L = await loadLeaflet(); }
+		catch { renderFallback(); return; }
+		try { buildMap(); }
+		catch { renderFallback(); }
+	}
+
+	initMap();
+}
+
+// ── Inbox modal: the chronological feed of every IRL encounter ──────────────
+// One rich row per interaction across all of the owner's pins. Pays deep-link to
+// the block explorer; visitor messages can be replied to inline (the reply
+// notifies the visitor when they were signed in). Opening the inbox marks
+// everything read.
+function inboxRow(ix) {
+	const owner  = isOwnerReply(ix);
+	const unread = !ix.seen_at && !owner;
+	const icon   = INTERACTION_ICON[ix.type] || '•';
+	const place  = ix.avatar_name ? `“${esc(ix.avatar_name)}”` : 'Your agent';
+	const tx     = ix.type === 'pay' ? explorerTxUrl(ix.payload?.signature, ix.payload?.network) : null;
+	const txLink = tx ? `<a class="irl-inbox-action" href="${esc(tx)}" target="_blank" rel="noopener">View tx ↗</a>` : '';
+	const reply  = (ix.type === 'message' && !owner)
+		? `<button class="irl-inbox-action" data-reply="${esc(ix.id)}" type="button">Reply</button>` : '';
+	const msg    = ix.message ? `<div class="irl-inbox-msg">“${esc(ix.message)}”</div>` : '';
+	const coords = (ix.lat != null && ix.lng != null)
+		? `<span class="irl-inbox-place">@ ${esc(Number(ix.lat).toFixed(4))}, ${esc(Number(ix.lng).toFixed(4))}</span>` : '';
+	return `<div class="irl-inbox-row${owner ? ' owner' : ''}${unread ? ' unread' : ''}" data-row="${esc(ix.id)}" data-row-pin="${esc(ix.pin_id)}">
+		<span class="irl-inbox-icon" aria-hidden="true">${icon}</span>
+		<div class="irl-inbox-main">
+			<div class="irl-inbox-head"><span class="irl-inbox-who">${ixHeadline(ix)}</span><span class="irl-inbox-time">${esc(relTime(ix.created_at))}</span></div>
+			${msg}
+			<div class="irl-inbox-meta"><span class="irl-inbox-agent">${place}</span>${coords}${txLink}${reply}</div>
+		</div>
+	</div>`;
+}
+
+function openInboxModal() {
+	if (document.querySelector('.irl-modal-root[data-inbox]')) return; // single instance
+	const root = makeNode(`<div class="irl-modal-root" data-inbox>
+		<div class="irl-modal-back"></div>
+		<div class="irl-modal" role="dialog" aria-modal="true" aria-label="IRL interactions inbox">
+			<div class="irl-modal-head">
+				<div class="irl-modal-titles">
+					<div class="irl-modal-title">Inbox</div>
+					<div class="irl-modal-sub">Everyone who met your agents in real life</div>
+				</div>
+				<button class="irl-modal-x" data-close type="button" aria-label="Close">×</button>
+			</div>
+			<div class="irl-modal-body" data-body>${skeletonHTML(5, 'row')}</div>
+		</div>
+	</div>`);
+	ensureStateKitStyles();
+	document.body.appendChild(root);
+	document.body.style.overflow = 'hidden';
+
+	const body = root.querySelector('[data-body]');
+	let composingCount = 0; // open reply composers — guards close + poll refresh
+	let flash = null;       // one-shot confirmation strip shown on the next render
+
+	const close = () => {
+		root.remove();
+		document.body.style.overflow = '';
+		document.removeEventListener('keydown', onKey, true);
+		inboxModal = null;
+	};
+	const onKey = (ev) => { if (ev.key === 'Escape' && composingCount === 0) close(); };
+	document.addEventListener('keydown', onKey, true);
+	root.querySelector('[data-close]').addEventListener('click', close);
+	root.querySelector('.irl-modal-back').addEventListener('click', () => { if (composingCount === 0) close(); });
+	setTimeout(() => root.querySelector('[data-close]')?.focus(), 0);
+
+	// Exposed so the poll loop can keep an open inbox fresh (unless mid-reply).
+	inboxModal = { isComposing: () => composingCount > 0, refresh: (rows) => render(rows) };
+
+	function render(rows) {
+		composingCount = 0; // a full rebuild drops any open composer
+		const flashHtml = flash ? `<div class="irl-inbox-flash">${esc(flash)}</div>` : '';
+		flash = null;
+		if (!rows.length) {
+			body.innerHTML = flashHtml + emptyStateHTML({
+				icon: '📍',
+				title: 'No interactions yet',
+				body: 'When someone taps or pays your agent IRL, it shows up here.',
+				actions: [{ label: 'View in IRL', href: '/irl', primary: true }],
+			});
+			return;
+		}
+		body.innerHTML = flashHtml + `<div class="irl-inbox-list">${rows.map(inboxRow).join('')}</div>`;
+		// Lazy-label each unique pin's location (cached, shared with the cards).
+		const seen = new Set();
+		for (const ix of rows) {
+			if (ix.lat == null || seen.has(ix.pin_id)) continue;
+			seen.add(ix.pin_id);
+			placeFor(ix.lat, ix.lng).then((place) => {
+				if (!place) return;
+				body.querySelectorAll(`[data-row-pin="${CSS.escape(ix.pin_id)}"] .irl-inbox-place`)
+					.forEach((elp) => { elp.textContent = `@ ${place}`; });
+			});
+		}
+	}
+
+	async function load() {
+		try {
+			const data = await get('/api/irl/interactions?mine=1');
+			inbox.interactions = data.interactions || [];
+			const hadUnread = (data.unread || 0) > 0;
+			inbox.unread = data.unread || 0;
+			render(inbox.interactions); // shows unread highlights for this view
+			if (hadUnread) {
+				// Opening the inbox IS the read action. Persist it, then clear the badge,
+				// the per-card chips and the banner — but leave the modal's highlights so
+				// the owner can see what was new this visit.
+				patch('/api/irl/interactions', {}).catch(() => {});
+				inbox.interactions = inbox.interactions.map((x) => x.seen_at ? x : { ...x, seen_at: new Date().toISOString() });
+				inbox.unread = 0;
+				applyBadges();
+				renderBanner();
+			}
+		} catch {
+			body.innerHTML = errorStateHTML({
+				title: "Couldn't load your inbox",
+				body: 'Check your connection and try again.',
+				scope: 'inbox',
+			});
+			body.querySelector('[data-sk-retry]')?.addEventListener('click', () => {
+				body.innerHTML = skeletonHTML(5, 'row');
+				load();
+			});
+		}
+	}
+
+	// ── Reply composer ─────────────────────────────────────────────────────────
+	body.addEventListener('click', async (e) => {
+		const replyBtn = e.target.closest('[data-reply]');
+		if (replyBtn) return openComposer(replyBtn.dataset.reply);
+		if (e.target.closest('[data-reply-cancel]')) return closeComposer(e.target.closest('.irl-inbox-row'));
+		const sendBtn = e.target.closest('[data-reply-send]');
+		if (sendBtn) return sendReply(sendBtn);
+	});
+
+	function openComposer(ixId) {
+		const row = body.querySelector(`[data-row="${CSS.escape(ixId)}"]`);
+		if (!row || row.querySelector('.irl-reply-box')) return;
+		composingCount++;
+		const boxEl = makeNode(`<div class="irl-reply-box">
+			<textarea class="irl-reply-input" rows="2" maxlength="280" placeholder="Reply to this visitor…" aria-label="Reply to visitor"></textarea>
+			<div class="irl-reply-actions">
+				<span class="irl-reply-hint" data-reply-hint></span>
+				<button class="irl-action" data-reply-cancel type="button">Cancel</button>
+				<button class="irl-btn primary" data-reply-send="${esc(ixId)}" type="button">Send reply</button>
+			</div>
+		</div>`);
+		row.querySelector('.irl-inbox-main').appendChild(boxEl);
+		boxEl.querySelector('.irl-reply-input')?.focus();
+	}
+
+	function closeComposer(row) {
+		const boxEl = row?.querySelector('.irl-reply-box');
+		if (boxEl) { boxEl.remove(); composingCount = Math.max(0, composingCount - 1); }
+	}
+
+	async function sendReply(sendBtn) {
+		const ixId  = sendBtn.dataset.replySend;
+		const row   = body.querySelector(`[data-row="${CSS.escape(ixId)}"]`);
+		const input = row?.querySelector('.irl-reply-input');
+		const hint  = row?.querySelector('[data-reply-hint]');
+		const text  = input?.value?.trim() ?? '';
+		const ix    = inbox.interactions.find((x) => x.id === ixId);
+		if (!text || !ix) { input?.focus(); return; }
+		sendBtn.disabled = true; sendBtn.textContent = 'Sending…';
+		if (hint) { hint.className = 'irl-reply-hint'; hint.textContent = ''; }
+		try {
+			const r = await post('/api/irl/interactions', {
+				pinId: ix.pin_id, type: 'message', message: text, replyTo: ixId,
+			});
+			// Optimistically thread the reply into state; the next poll reconciles it
+			// with the server row. The flash strip carries the "did it reach them" note.
+			inbox.interactions.unshift({
+				id: r?.interaction?.id || `tmp-${ixId}-${text.length}`,
+				pin_id: ix.pin_id,
+				agent_id: ix.agent_id ?? null,
+				type: 'message',
+				message: text,
+				created_at: r?.interaction?.created_at || new Date().toISOString(),
+				seen_at: r?.interaction?.created_at || new Date().toISOString(),
+				payload: { from: 'owner' },
+				avatar_name: ix.avatar_name,
+				lat: ix.lat, lng: ix.lng,
+			});
+			flash = r?.notified ? 'Reply sent — visitor notified ✓' : 'Reply saved ✓';
+			render(inbox.interactions);
+			refreshCardFeed(ix.pin_id);
+			applyBadges();
+		} catch (err) {
+			sendBtn.disabled = false; sendBtn.textContent = 'Send reply';
+			if (hint) { hint.className = 'irl-reply-hint err'; hint.textContent = err?.message || 'Could not send'; }
+		}
+	}
+
+	load();
 }
 
 // ── Services modal: attach/price the skills this agent offers IRL ───────────

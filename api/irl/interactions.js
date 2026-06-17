@@ -149,6 +149,7 @@ export default wrap(async (req, res) => {
 			SELECT id, agent_id, lat, lng, user_id, device_token
 			FROM irl_pins
 			WHERE id = ${pinId}
+			  AND hidden_at IS NULL
 			  AND (expires_at IS NULL OR expires_at > NOW())
 			LIMIT 1
 		`;

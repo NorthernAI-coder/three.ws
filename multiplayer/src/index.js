@@ -20,11 +20,14 @@ import { WebSocketTransport } from '@colyseus/ws-transport';
 import { monitor } from '@colyseus/monitor';
 
 import { WalkRoom } from './rooms/WalkRoom.js';
+import { IrlRoom } from './rooms/IrlRoom.js';
 import { blockStore } from './block-store.js';
 import { worldPersistence } from './persistence.js';
 import { flushAllPlayers } from './playerStore.js';
 import { socialHub } from './social-hub.js';
 import { verifyNotifySignature } from './presence-token.js';
+import { irlRegistry } from './irl-registry.js';
+import { verifyIrlPublish } from './irl-publish-auth.js';
 
 const PORT = Number(process.env.PORT || 2567);
 const HOST = process.env.HOST || '0.0.0.0';
@@ -88,6 +91,27 @@ app.post('/internal/notify', express.json({ limit: '16kb' }), (req, res) => {
 		return res.status(401).json({ error: 'bad_signature' });
 	}
 	const delivered = socialHub.deliver(to, type, payload || {});
+	res.json({ delivered });
+});
+
+// IRL realtime pin publish webhook (D1). Vercel can't hold a WebSocket, so when
+// the three.ws API mutates a pin (/api/irl/pins POST/PATCH/DELETE) it fires this
+// signed webhook; we fan the change into every live geocell room whose 3×3 window
+// covers the pin's cell, where it becomes a Colyseus schema delta the viewers
+// there receive within the patch interval. HMAC-signed with the shared secret and
+// bound to the exact body + a fresh timestamp, so only the API can inject pin
+// changes and a captured request can't be replayed or tampered.
+app.post('/internal/irl-publish', express.json({ limit: '32kb' }), (req, res) => {
+	const { geocell, type, pin } = req.body || {};
+	const sig = req.headers['x-mp-signature'];
+	const ts = req.headers['x-mp-timestamp'];
+	if (typeof geocell !== 'string' || typeof type !== 'string' || !geocell || !type) {
+		return res.status(400).json({ error: 'bad_request' });
+	}
+	if (!verifyIrlPublish(geocell, type, pin || {}, ts, sig)) {
+		return res.status(401).json({ error: 'bad_signature' });
+	}
+	const delivered = irlRegistry.dispatch(geocell, type, pin || {});
 	res.json({ delivered });
 });
 
@@ -187,12 +211,18 @@ const gameServer = new Server({ transport, ...(driver && { driver }), ...(presen
 // to the shared mainland world; a missing tier is the open General world (see
 // WalkRoom.onCreate / onAuth / schemas.js).
 gameServer.define('walk_world', WalkRoom).filterBy(['coin', 'tier']);
+// The IRL realtime world (D1): one room instance per precision-6 geocell, so
+// every viewer standing in the same ~1 km cell shares a live mirror of the pins
+// there. filterBy(['geocell']) makes joinOrCreate match only rooms for the same
+// cell; the room itself mirrors a 3×3 window (centre + neighbours) so edge pins
+// inside the nearby radius are never missed (see rooms/IrlRoom.js).
+gameServer.define('irl_world', IrlRoom).filterBy(['geocell']);
 
 gameServer
 	.listen(PORT, HOST)
 	.then(() => {
 		console.log(`[multiplayer] listening on ws://${HOST}:${PORT}`);
-		console.log(`[multiplayer] rooms: walk_world`);
+		console.log(`[multiplayer] rooms: walk_world, irl_world`);
 		console.log(`[multiplayer] allowed origins: ${ALLOWED_ORIGINS.join(', ')}`);
 	})
 	.catch((err) => {

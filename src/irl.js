@@ -14,9 +14,11 @@ import {
 	Group,
 	HemisphereLight,
 	Mesh,
+	MeshBasicMaterial,
 	MeshPhysicalMaterial,
 	MeshStandardMaterial,
 	OctahedronGeometry,
+	OrthographicCamera,
 	PCFShadowMap,
 	PerspectiveCamera,
 	PlaneGeometry,
@@ -26,20 +28,31 @@ import {
 	Scene,
 	ShadowMaterial,
 	SphereGeometry,
+	Sprite,
+	SpriteMaterial,
+	SRGBColorSpace,
 	Timer,
 	TorusGeometry,
 	Vector2,
 	Vector3,
 	WebGLRenderer,
+	WebGLRenderTarget,
 } from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import nipplejs from 'nipplejs';
 import { AnimationManager } from './animation-manager.js';
 import { WebXRSession } from './ar/webxr.js';
+import { IrlNet } from './irl-net.js';
+import { wireShareButton } from './irl/share-frame.js';
 import { log } from './shared/log.js';
 import { createAvatarPicker } from './avatar-picker.js';
 import { errorStateEl, skeletonHTML, emptyStateHTML, errorStateHTML, ensureStateKitStyles, attachRetry } from './shared/state-kit.js';
+import { startOnboarding, ensurePermission, needsMotionGesture, setPermissionState } from './irl/onboarding.js';
+import { reserveWebGLContext, releaseWebGLContext } from './webgl-budget.js';
+import { detectTier, BUDGETS, TIER_ORDER, shiftTier } from './irl/perf-budget.js';
+import { sharedGLTFLoader, createLoadQueue } from './irl/load-queue.js';
+import { loadInto } from './shared/async-state.js';
 
 const AVATAR_URL_DEFAULT = '/avatars/default.glb';
 const ANIMATIONS_MANIFEST_URL = '/animations/manifest.json';
@@ -81,6 +94,11 @@ const POP_AMOUNT        = 0.04;  // peak +Y scale during the pop (1.0 → 1.04 �
 const params = new URLSearchParams(location.search);
 const avatarIdParam  = params.get('avatar')    || '';
 const highlightPinId = params.get('highlight') || '';
+// Deep-focus a specific agent's pin (from an agent profile's "View in IRL" link):
+// once that agent's pin loads nearby, flash it and open its inspect card. Fires
+// once so it doesn't re-open the sheet on every nearby refresh.
+const agentFocusId   = params.get('agent')     || '';
+let _agentFocusDone  = false;
 
 function resolveAvatarUrl(id) {
 	if (!id) return AVATAR_URL_DEFAULT;
@@ -157,6 +175,48 @@ sun.shadow.camera.bottom = -12;
 sun.shadow.bias = -0.0005;
 scene.add(sun);
 
+// ── Performance tier + render budget (E2) ───────────────────────────────────
+// IRL owns ONE long-lived WebGL context shared by every pin (all pins live in
+// this single scene). Reserve it against the page-wide budget so the homepage's
+// other renderers stay under the browser's ~16-context cap; never spawn a
+// per-pin context. Released on pagehide.
+reserveWebGLContext();
+window.addEventListener('pagehide', releaseWebGLContext, { once: true });
+
+// Pick a device class from REAL signals (cores, memory, DPR, mobile UA, GPU
+// capabilities) and hold its budget. `baseTier` is the hardware ceiling: the
+// runtime watchdog may degrade below it under load and recover back up to it,
+// but never above what the device can actually carry.
+let activeTier = detectTier(renderer);
+const baseTier = activeTier;
+let budget = BUDGETS[activeTier];
+
+// One shared GLTFLoader (Draco + meshopt) behind a nearest-first, concurrency
+// capped queue — replaces the old `new GLTFLoader()` per pin + `loadedCount < 5`
+// guard. Priority is the pin's live camera distance (set in enforceLOD).
+const glbQueue = createLoadQueue({
+	run: (pin) => sharedGLTFLoader().loadAsync(pin.avatar_url),
+	maxActive: budget.maxGLB,
+	priorityOf: (pin) => (pin._lodDist != null ? pin._lodDist : (pin.distance_m != null ? pin.distance_m : 1e9)),
+});
+
+// Apply the active tier to the renderer + load queue. Called at boot and each
+// time the watchdog steps the tier. Idempotent.
+function applyTierToRenderer() {
+	renderer.setPixelRatio(Math.min(window.devicePixelRatio, budget.pixelRatio));
+	renderer.setSize(window.innerWidth, window.innerHeight, false);
+	const wantShadow = budget.shadow > 0;
+	renderer.shadowMap.enabled = wantShadow;
+	sun.castShadow = wantShadow;
+	if (wantShadow && sun.shadow.mapSize.x !== budget.shadow) {
+		sun.shadow.mapSize.set(budget.shadow, budget.shadow);
+		// Force the shadow map to regenerate at the new resolution.
+		if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; }
+	}
+	glbQueue.setMaxActive(budget.maxGLB);
+}
+applyTierToRenderer();
+
 // ── Ground ────────────────────────────────────────────────────────────────
 const groundOpaque = new Mesh(
 	new CircleGeometry(GROUND_RADIUS, 64),
@@ -217,9 +277,20 @@ let arFrozenCamLook = null;
 
 async function enableAR() {
 	if (!navigator.mediaDevices?.getUserMedia) {
-		setStatus('Camera API not available in this browser', { error: true, sticky: true });
+		// Designed state via the shared guidance sheet, not a toast — the 3D scene
+		// still works without the camera, so say so instead of just "unavailable".
+		setPermissionState('camera', 'unsupported');
+		showErrorState({
+			title: 'Camera not available here',
+			body: 'This browser can’t open the camera, so AR passthrough is off. The 3D scene still works — or reopen IRL in Chrome or Safari.',
+		});
 		return;
 	}
+	// Permission routes through the onboarding module (E1): a denial lands on the
+	// designed card + topbar re-request chip. The granted fast-path resolves
+	// immediately so AR proceeds within the same user gesture.
+	const camPerm = await ensurePermission('camera');
+	if (camPerm !== 'granted') return;
 	setStatus('Requesting camera…', { loading: true, sticky: true });
 	try {
 		mediaStream = await navigator.mediaDevices.getUserMedia({
@@ -227,10 +298,25 @@ async function enableAR() {
 			audio: false,
 		});
 	} catch (err) {
-		const msg = err?.name === 'NotAllowedError'
-			? 'Camera permission denied — allow in browser settings'
-			: `Camera unavailable: ${err?.message ?? err}`;
-		setStatus(msg, { error: true, sticky: true });
+		// Clear the "Requesting camera…" progress toast, then surface a recoverable
+		// card (the full onboarding copy is E1's; this is the reactive recovery).
+		setStatus(null);
+		if (err?.name === 'NotAllowedError') {
+			setPermissionState('camera', 'denied');
+			showErrorState({
+				title: 'Camera access needed for AR',
+				body: 'Allow camera access in your browser settings, then tap Try again to drop your agent into the real world.',
+				actionLabel: 'Try again',
+				onAction: enableAR,
+			});
+		} else {
+			showErrorState({
+				title: 'Couldn’t start the camera',
+				body: `The camera didn’t start (${err?.message ?? err}). Close any other app using it, then tap Try again.`,
+				actionLabel: 'Try again',
+				onAction: enableAR,
+			});
+		}
 		return;
 	}
 
@@ -707,13 +793,18 @@ const irlAvatarPicker = createAvatarPicker({
 		const sp = new URLSearchParams(location.search);
 		if (id) sp.set('avatar', id); else sp.delete('avatar');
 		history.replaceState(null, '', location.pathname + (sp.toString() ? '?' + sp : ''));
+		// Pass UUID id (not the CDN url) so loadAvatar fetches metadata
+		// and captures agent_id for pin attribution (task-06). On failure show the
+		// designed overlay with a Retry that re-loads this same selection.
+		const retry = () => loadAvatar(id || url, name)
+			.then(hideOverlay)
+			.catch((err) => { log.error('[irl] avatar swap failed:', err); showAvatarLoadError(err, retry); });
 		try {
-			// Pass UUID id (not the CDN url) so loadAvatar fetches metadata
-			// and captures agent_id for pin attribution (task-06).
 			await loadAvatar(id || url, name);
+			hideOverlay();
 		} catch (err) {
 			log.error('[irl] avatar swap failed:', err);
-			setStatus(`Couldn't load avatar: ${err?.message ?? err}`, { error: true, sticky: true });
+			showAvatarLoadError(err, retry);
 		}
 	},
 });
@@ -766,16 +857,24 @@ async function setLocked(next) {
 	// A declined prompt rejects (or returns 'denied') — either way the gyro
 	// world-lock can't work, so surface the designed recovery state instead of
 	// silently locking a glued, sensor-less avatar.
-	if (next && typeof DeviceOrientationEvent?.requestPermission === 'function') {
-		let perm = 'denied';
-		try {
-			perm = await DeviceOrientationEvent.requestPermission();
-		} catch (err) {
-			log.error('[irl] orientation permission:', err);
-		}
-		if (perm !== 'granted') {
-			showMotionPermissionHelp();
-			return;
+	// Permissions for the world-lock route through the onboarding module (E1) so a
+	// denial lands on a designed recovery card + topbar chip, not a dead toast.
+	// Location (the real-world anchor) surfaces its prompt and starts the GPS watch
+	// the instant it is granted; motion (look-around) is gesture-gated on iOS.
+	let locGranted = false;
+	if (next && arActive) {
+		const locState = await ensurePermission('location');
+		locGranted = locState === 'granted';
+		if (locGranted) initGPS();
+		if (needsMotionGesture()) {
+			const motionState = await ensurePermission('motion');
+			if (motionState !== 'granted') {
+				if (lockBtn) {
+					lockBtn.setAttribute('aria-pressed', 'false');
+					lockBtn.classList.remove('is-active');
+				}
+				return;
+			}
 		}
 	}
 	avatarLocked = next;
@@ -800,9 +899,12 @@ async function setLocked(next) {
 			// dropping the agent at a default origin — locking still works locally.
 			if (gpsState.ready) {
 				anchorGpsPin();
-			} else {
+			} else if (locGranted) {
 				_pendingGpsLock = true;
 				setStatus('Waiting for location to pin precisely…', { loading: true, sticky: true });
+			} else {
+				// Location unavailable — lock the gyro view locally; no cross-user pin.
+				setStatus('Pinned to your view — enable location to anchor it for others', { warn: true });
 			}
 		} else {
 			devOrientBaseAlpha = null;
@@ -870,12 +972,32 @@ if (errorActionEl) errorActionEl.addEventListener('click', () => {
 });
 if (errorDismissEl) errorDismissEl.addEventListener('click', hideErrorState);
 
-function showMotionPermissionHelp() {
-	showErrorState({
-		title: 'Motion access needed to pin',
-		body: 'Pinning your agent in real space uses your phone’s motion & orientation sensors. Turn them on in Settings › Safari › Motion & Orientation Access, then tap Try again.',
-		actionLabel: 'Try again',
-		onAction: () => setLocked(true),
+// ── Full-screen overlay state (E4) ─────────────────────────────────────────
+// #irl-overlay is the canvas-level designed-state host (shared with the
+// capability gate in irl.html). It carries states the user can't act on through
+// a vanishing toast — chiefly a failed avatar load, which otherwise leaves a
+// blank scene with a 3-second error message. Render a retryable card instead.
+const overlayEl = document.getElementById('irl-overlay');
+
+function hideOverlay() {
+	if (overlayEl) { overlayEl.hidden = true; overlayEl.innerHTML = ''; }
+}
+
+function showAvatarLoadError(err, onRetry) {
+	if (!overlayEl) {
+		setStatus(`Couldn't load avatar: ${err?.message ?? err}`, { error: true, sticky: true });
+		return;
+	}
+	ensureStateKitStyles();
+	overlayEl.innerHTML = `<div class="irl-overlay-card">${errorStateHTML({
+		title: "Couldn't load this agent",
+		body: 'The 3D avatar failed to load. Check your connection and try again.',
+		scope: 'irl-avatar',
+	})}</div>`;
+	overlayEl.hidden = false;
+	overlayEl.querySelector('[data-sk-retry]')?.addEventListener('click', () => {
+		hideOverlay();
+		onRetry?.();
 	});
 }
 
@@ -986,6 +1108,9 @@ function onGPSPosition(pos) {
 
 	// First fix: GPS is live, so the user can place + manage pins from here.
 	if (!wasReady) revealMyPinsBtn();
+	// First fix: open the live pin stream for this location (D1). Falls back to the
+	// poll automatically if the realtime host is unreachable.
+	if (!wasReady) startPinSync();
 
 	// A lock was requested before the first fix — finish anchoring now that we
 	// have real coordinates, rather than dropping the agent at a default origin.
@@ -1012,10 +1137,11 @@ function onGPSPosition(pos) {
 	}
 
 	// Update world positions of all nearby agents. Because each agent's world
-	// position is in metres relative to the user at the origin, its live
-	// distance is simply hypot(x, z) — so recompute it every fix (the server's
-	// distance_m goes stale the moment the user moves) and lazily upgrade the
-	// glowing beacon to the real GLB the instant the user walks within range.
+	// position is in metres relative to the user at the origin, its live distance
+	// is simply hypot(x, z) — so recompute it every fix (the server's distance_m
+	// goes stale the moment the user moves). The LOD/load decision is NOT made here
+	// any more: enforceLOD() (4 Hz, from tick) owns band assignment and the queued
+	// GLB load / impostor bake / eviction off the live camera distance.
 	for (const p of nearbyPins) {
 		if (!p.group) continue;
 		// The agent being calibrated is driven by the nudge gesture this frame, not
@@ -1025,13 +1151,22 @@ function onGPSPosition(pos) {
 		p.group.position.set(wp.x, pinHeightM(p), wp.z);
 		p.distance_m = Math.round(Math.hypot(wp.x, wp.z));
 		updatePinRing(p);
-		maybeLoadPinGLB(p);
 	}
 
-	const now = Date.now();
-	if (now - _lastNearbyFetch > NEARBY_INTERVAL) {
-		_lastNearbyFetch = now;
-		loadNearbyPins();
+	// Live transport: re-join the room when we cross into a new geocell, and
+	// reconcile the rendered set against the stream as the viewer walks (pins move
+	// into / out of the nearby radius). Not streaming and not yet polling → keep the
+	// throttled poll so the first fixes still show content before the transport
+	// settles; once the poll fallback's own timer owns refreshes, this stays quiet.
+	if (irlNet && _streamOnline) {
+		irlNet.moveTo(gpsState.lat, gpsState.lng);
+		scheduleReconcile();
+	} else if (!_pollTimer) {
+		const now = Date.now();
+		if (now - _lastNearbyFetch > NEARBY_INTERVAL) {
+			_lastNearbyFetch = now;
+			loadNearbyPins();
+		}
 	}
 }
 
@@ -1065,8 +1200,11 @@ function anchorGpsPin() {
 }
 
 function onGPSError(err) {
-	// Only intervene when a placement is actively waiting on a fix — otherwise a
-	// transient watchPosition timeout shouldn't disturb a working session.
+	// A revoked location permission always surfaces a re-request chip (E1), even
+	// outside an active pin attempt.
+	if (err && err.code === err.PERMISSION_DENIED) setPermissionState('location', 'denied');
+	// Only intervene with a sheet when a placement is actively waiting on a fix —
+	// a transient watchPosition timeout shouldn't disturb a working session.
 	if (!_pendingGpsLock) return;
 	_pendingGpsLock = false;
 	const denied = err && err.code === err.PERMISSION_DENIED;
@@ -1082,6 +1220,7 @@ function onGPSError(err) {
 
 function initGPS() {
 	if (!navigator.geolocation) return;
+	if (gpsState.watchId != null) return; // idempotent — onboarding, boot, and Pin may all call
 	gpsState.watchId = navigator.geolocation.watchPosition(
 		onGPSPosition,
 		onGPSError,
@@ -1128,10 +1267,41 @@ async function savePin(lat, lng, heading = 0, caption = '', anchor = null) {
 				anchor:      anchorBody,
 			}),
 		});
-		if (!r.ok) return null;
+		if (!r.ok) {
+			// Surface the server's designed moderation/cap/rate rejection (D4) so the
+			// caller can show an actionable message instead of a silent failure.
+			let payload = {};
+			try { payload = await r.json(); } catch {}
+			return {
+				ok: false,
+				status: r.status,
+				error: payload.error || 'error',
+				message: payload.message || saveErrorFallback(payload.error),
+				retryAfter: Number.isFinite(payload.retryAfter) ? payload.retryAfter : null,
+			};
+		}
 		const data = await r.json();
-		return data.pin ? { id: data.pin.id, permanent: !!data.pin.permanent } : null;
-	} catch { return null; }
+		return data.pin
+			? { ok: true, id: data.pin.id, permanent: !!data.pin.permanent }
+			: { ok: false, error: 'error', message: saveErrorFallback() };
+	} catch {
+		return { ok: false, error: 'network', message: saveErrorFallback('network') };
+	}
+}
+
+// Human fallback for a placement rejection when the server didn't ship a message.
+// The API always sends one for D4 rejections; this covers network/parse gaps.
+function saveErrorFallback(code) {
+	switch (code) {
+		case 'content':   return 'That text isn’t allowed on a public pin. Try rewording it.';
+		case 'coin':      return 'A pin can only reference $THREE.';
+		case 'endpoint':  return 'Pay endpoints must be hosted on three.ws.';
+		case 'area_full': return 'This area already has the maximum number of agents. Try another spot.';
+		case 'pin_limit': return 'You’ve reached your active pin limit. Remove an old pin first.';
+		case 'rate':      return 'You’re placing agents too fast. Wait a moment and try again.';
+		case 'network':   return 'Couldn’t reach the server — check your connection and try again.';
+		default:          return 'Couldn’t place the agent. Try again.';
+	}
 }
 
 // ── Caption panel (pre-save) ──────────────────────────────────────────────
@@ -1169,14 +1339,21 @@ function commitPin(pinLat, pinLng, headingDeg, caption, source = 'gyro-gps') {
 	// from the live GPS fix inside savePin().
 	const anchor = { heightM: 0, yawDeg: headingDeg, source };
 	savePin(pinLat, pinLng, headingDeg, caption, anchor).then(result => {
-		if (result && gpsPin) {
+		if (result?.ok && gpsPin) {
 			gpsPin.id = result.id;
 			_myPinIds.add(result.id);
+			dropOwnPinFromStream(result.id); // the server echoes my pin over the stream; never double-spawn it
 			const dir = compassLabel(headingDeg);
 			setStatus(result.permanent
 				? `Pinned facing ${dir} — permanently visible to nearby users`
 				: `Pinned facing ${dir} — others nearby can see you for 7 days`);
 			revealMyPinsBtn();
+		} else {
+			// Rejected (content / area_full / pin_limit / rate / network) — show the
+			// designed, actionable message and release the lock so the user can fix it
+			// and retry, never a silent dead end.
+			setStatus(result?.message || saveErrorFallback(result?.error), { error: true });
+			setLocked(false);
 		}
 	});
 }
@@ -1356,14 +1533,16 @@ function persistFloorAnchor(pose) {
 		quat:    [quaternion.x, quaternion.y, quaternion.z, quaternion.w],
 		source:  'webxr',
 	}).then(result => {
-		if (result && gpsPin) {
+		if (result?.ok && gpsPin) {
 			gpsPin.id = result.id;
+			dropOwnPinFromStream(result.id); // the server echoes my pin over the stream; never double-spawn it
 			revealMyPinsBtn();
 			setXrHint(result.permanent
 				? 'Anchored & saved — permanently visible to nearby users'
 				: 'Anchored & saved — nearby users can see you for 7 days');
 		} else {
-			setXrHint('Anchored here — couldn’t save the pin, retry on exit');
+			// Surface the moderation/cap/rate reason; the in-session anchor still holds.
+			setXrHint(result?.message || 'Anchored here — couldn’t save the pin, retry on exit');
 		}
 	});
 }
@@ -1381,17 +1560,235 @@ if (xrOverlay) {
 	});
 }
 
+// Composite share — flatten the camera feed (when AR is on) under the 3D canvas
+// into one PNG and offer it through the native share sheet, desktop download, or
+// URL/clipboard fallback. Shared module so /irl and /xr never drift; the renderer
+// is built with preserveDrawingBuffer:true so the canvas reads back non-blank.
+wireShareButton($('irl-share-btn'), {
+	getCanvas: () => canvas,
+	getVideo:  () => videoEl,
+	getIsAR:   () => arActive,
+	filename:  'three-ws-irl.png',
+	title:     'IRL · three.ws',
+});
+
 // ── Nearby agents ─────────────────────────────────────────────────────────
 let nearbyPins = []; // [{ id, lat, lng, avatar_url, avatar_name, caption, x402_endpoint, distance_m, group, labelEl, glbLoaded }]
+// Set true when the last nearby fetch failed; cleared on the next good fetch, so
+// a failed refresh shows a visible indicator on the badge instead of going silent.
+let _nearbyError = false;
+
+// Briefly tint a pin's floating label so a deep-linked target (?highlight= or
+// ?agent=) is easy to spot among the nearby agents. No-op for a missing pin/label.
+function flashPinLabel(pin) {
+	const label = pin?.labelEl;
+	if (!label) return;
+	label.style.transition = 'background .2s, color .2s';
+	label.style.background = 'rgba(139,92,246,0.9)';
+	label.style.color = '#fff';
+	setTimeout(() => {
+		if (pin.labelEl) {
+			pin.labelEl.style.background = '';
+			pin.labelEl.style.color = '';
+		}
+	}, 2500);
+}
+
+// Free every GPU resource a pin holds: cancel any queued load, dispose the group
+// (geometry/materials/textures of dot, ring, model and impostor sprite) and the
+// impostor render target's framebuffer (not reached by the group traversal), then
+// drop the DOM label. The single place that knows the full E2 resource set.
+function disposePin(p) {
+	cancelPinGLB(p);
+	if (p.group)       { scene.remove(p.group); disposeObject3D(p.group); }
+	if (p._impostorRT) { p._impostorRT.dispose(); p._impostorRT = null; }
+	if (p.labelEl)     p.labelEl.remove();
+}
+
+// Drop one nearby pin from the scene now — disposing its GPU resources — instead
+// of waiting for the next loadNearbyPins() reconcile. Used when a pin is hidden by
+// a report (D4) so the reporter sees it vanish immediately.
+function removeNearbyPin(id) {
+	nearbyPins = nearbyPins.filter(p => {
+		if (p.id !== id) return true;
+		disposePin(p);
+		return false;
+	});
+	updateNearbyBadge();
+}
+
+// ── Realtime pin sync (D1) ──────────────────────────────────────────────────
+// Polling told you about a new / moved / removed pin only on the next 15 s cycle.
+// This streams them live: IrlNet joins the irl_world room for the viewer's geocell
+// and relays the shared pin set as pin:add / pin:update / pin:remove, which we
+// reconcile into the SAME nearbyPins the poll feeds — so the rest of the app (LOD,
+// radar, sheet, badge) never knows which transport fed it. The poll stays as a
+// real fallback for when the realtime host is unreachable.
+let irlNet = null;
+let _streamOnline = false;        // true only while the WS is live and owns nearbyPins
+let _pollTimer = null;            // fallback poll interval handle
+let _reconcileRaf = 0;            // coalesces a burst of stream events into one reconcile
+const streamPins = new Map();     // id → normalized snake_case pin (the room's full window)
+const POLL_FALLBACK_MS = 10000;   // fallback refresh cadence when the stream is down
+
+// Map the room's camelCase wire pin to the snake_case shape the rest of irl.js
+// already reads (spawnNearbyPin / openPinSheet / radar), so those paths are untouched.
+function normalizeStreamPin(w) {
+	return {
+		id: w.id,
+		lat: Number(w.lat),
+		lng: Number(w.lng),
+		heading: Number(w.heading) || 0,
+		avatar_url: w.avatarUrl || null,
+		avatar_name: w.avatarName || null,
+		caption: w.caption || null,
+		x402_endpoint: w.x402Endpoint || null,
+		agent_id: w.agentId || null,
+		placed_at: w.placedAt || null,
+	};
+}
+
+function startPinSync() {
+	if (!gpsState.ready) return;
+	if (irlNet) irlNet.destroy();
+	streamPins.clear();
+	irlNet = new IrlNet({
+		lat: gpsState.lat, lng: gpsState.lng,
+		deviceToken: _deviceToken, agent: _currentAgentId || '',
+	});
+	irlNet.on('pin:add',    (w) => ingestStreamPin('add', w));
+	irlNet.on('pin:update', (w) => ingestStreamPin('update', w));
+	irlNet.on('pin:remove', (w) => ingestStreamPin('remove', w));
+	irlNet.on('status', ({ status }) => onNetStatus(status));
+	irlNet.connect();
+}
+
+function onNetStatus(status) {
+	_streamOnline = status === 'online';
+	if (status === 'online') { stopPollFallback(); setNetPill('live'); scheduleReconcile(); }
+	else if (status === 'connecting') { streamPins.clear(); setNetPill('connecting'); }
+	else if (status === 'offline') { setNetPill('connecting'); }  // mid single-retry — pins persist
+	else { startPollFallback(); setNetPill('polling'); }          // failed | unavailable | idle
+}
+
+function ingestStreamPin(kind, wire) {
+	if (!wire || !wire.id) return;
+	if (kind === 'remove') streamPins.delete(wire.id);
+	else streamPins.set(wire.id, normalizeStreamPin(wire));
+	scheduleReconcile();
+}
+
+// Coalesce the burst of onAdd callbacks Colyseus fires on join (and any flurry of
+// deltas) into a single reconcile next frame.
+function scheduleReconcile() {
+	if (_reconcileRaf) return;
+	_reconcileRaf = requestAnimationFrame(() => { _reconcileRaf = 0; reconcileFromStream(); });
+}
+
+// Reconcile the rendered nearby set against the live stream, filtered to the nearby
+// radius — the room holds a coarse ~3 km geocell window, so the per-viewer 150 m
+// filter lives here. Spawns arrivals, refreshes changed pins, despawns pins that
+// left the radius or were removed. The placer's own live pin is never doubled.
+function reconcileFromStream() {
+	if (!_streamOnline || !gpsState.ready) return;
+	for (const known of [...nearbyPins]) {
+		const src = streamPins.get(known.id);
+		const within = src && Number.isFinite(src.lat) &&
+			haversineMeters(gpsState.lat, gpsState.lng, src.lat, src.lng) <= NEARBY_RADIUS;
+		if (!within) removeNearbyPin(known.id);
+	}
+	for (const [id, src] of streamPins) {
+		if (gpsPin?.id && id === gpsPin.id) continue;            // never my own anchored pin
+		if (!Number.isFinite(src.lat) || !Number.isFinite(src.lng)) continue;
+		const d = haversineMeters(gpsState.lat, gpsState.lng, src.lat, src.lng);
+		if (d > NEARBY_RADIUS) continue;
+		const known = nearbyPins.find((n) => n.id === id);
+		if (known) applyStreamFields(known, src);
+		else {
+			const entry = { ...src, distance_m: Math.round(d), group: null, labelEl: null, glbLoaded: false };
+			nearbyPins.push(entry);
+			spawnNearbyPin(entry);
+		}
+	}
+	updateNearbyBadge();
+}
+
+// Update a rendered pin from a stream delta: position / heading / caption / name
+// (which applyPinUpdate skips when there's no avatar version bump — the stream has
+// none), then hand off to applyPinUpdate for the avatar GLB swap (a C6 re-skin),
+// which no-ops when the URL is unchanged.
+function applyStreamFields(known, src) {
+	if (Number.isFinite(src.lat)) known.lat = src.lat;
+	if (Number.isFinite(src.lng)) known.lng = src.lng;
+	if (src.heading != null) known.heading = src.heading;
+	if (src.caption !== undefined) known.caption = src.caption;
+	if (src.x402_endpoint !== undefined) known.x402_endpoint = src.x402_endpoint;
+	// Name lives on the floating label; update it here because applyPinUpdate only
+	// reaches its name branch on an avatar change, so a rename-only edit would miss it.
+	if (src.avatar_name != null && src.avatar_name !== known.avatar_name) {
+		known.avatar_name = src.avatar_name;
+		const nameEl = known.labelEl?.querySelector('.irl-agent-label-name');
+		if (nameEl) nameEl.textContent = known.avatar_name || 'Agent';
+	}
+	if (known.group) {
+		const wp = gpsToWorld(known.lat, known.lng);
+		known.group.position.set(wp.x, pinHeightM(known), wp.z);
+		known.group.rotation.y = pinYawRad(known);
+		if ('baseYaw' in known) known.baseYaw = known.group.rotation.y;
+	}
+	applyPinUpdate(known, src);
+}
+
+// When this device places its own pin, the server echoes it back over the stream;
+// drop it so the placer never sees a duplicate of their own anchored agent.
+function dropOwnPinFromStream(id) {
+	if (!id) return;
+	streamPins.delete(id);
+	removeNearbyPin(id);
+}
+
+function startPollFallback() {
+	if (_pollTimer) return;
+	loadNearbyPins();                                  // immediate refresh, don't wait a full cycle
+	_pollTimer = setInterval(loadNearbyPins, POLL_FALLBACK_MS);
+}
+function stopPollFallback() {
+	if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
+}
+
+// The realtime status pill in the topbar: live (green), connecting (amber pulse),
+// or polling (the fallback transport is active — still fully functional, tap to retry).
+function setNetPill(state) {
+	const pill = document.getElementById('irl-net-pill');
+	if (!pill) return;
+	pill.classList.remove('is-live', 'is-connecting', 'is-polling');
+	if (state === 'live') {
+		pill.classList.add('is-live'); pill.hidden = false;
+		pill.textContent = 'Live'; pill.title = 'Live — nearby agents update in realtime';
+	} else if (state === 'connecting') {
+		pill.classList.add('is-connecting'); pill.hidden = false;
+		pill.textContent = 'Connecting'; pill.title = 'Connecting to live sync…';
+	} else if (state === 'polling') {
+		pill.classList.add('is-polling'); pill.hidden = false;
+		pill.textContent = 'Polling'; pill.title = 'Live sync unavailable — refreshing nearby agents every 10s. Tap to retry.';
+	} else {
+		pill.hidden = true;
+	}
+	pill.setAttribute('aria-label', `Realtime status: ${pill.textContent || 'idle'}`);
+}
 
 async function loadNearbyPins() {
 	if (!gpsState.ready) return;
+	// While the live stream owns the nearby set, the poll is a no-op — it would fight
+	// the reconcile. It runs only as the fallback transport (see startPollFallback).
+	if (_streamOnline) return;
 	try {
 		const r = await fetch(
 			`/api/irl/pins?lat=${gpsState.lat}&lng=${gpsState.lng}&radius=${NEARBY_RADIUS}`,
 		);
-		if (!r.ok) return;
+		if (!r.ok) { _nearbyError = true; updateNearbyBadge(); return; }
 		const { pins } = await r.json();
+		_nearbyError = false;
 
 		const incoming = pins.filter(p => !gpsPin?.id || p.id !== gpsPin.id);
 		const inIds    = new Set(incoming.map(p => p.id));
@@ -1401,14 +1798,19 @@ async function loadNearbyPins() {
 		// freeing geometries/materials/textures a long session leaks steadily.
 		nearbyPins = nearbyPins.filter(p => {
 			if (inIds.has(p.id)) return true;
-			if (p.group)   { scene.remove(p.group); disposeObject3D(p.group); }
-			if (p.labelEl) p.labelEl.remove();
+			disposePin(p);
 			return false;
 		});
 
-		// Spawn new arrivals
+		// Spawn new arrivals; refresh any already-known pin whose owner re-skinned
+		// it (C6 remote outfit change). The nearby feed carries avatar_version, so a
+		// bumped version on a pin we already render means swap its GLB to the new
+		// (versioned, cache-busted) avatar_url — every viewer sees the new look on
+		// the next poll, the same diff D1's pin_updated push reuses in realtime.
 		for (const pin of incoming) {
-			if (!nearbyPins.find(n => n.id === pin.id)) {
+			const known = nearbyPins.find(n => n.id === pin.id);
+			if (known) applyPinUpdate(known, pin);
+			else {
 				const entry = { ...pin, group: null, labelEl: null, glbLoaded: false };
 				nearbyPins.push(entry);
 				spawnNearbyPin(entry);
@@ -1419,20 +1821,26 @@ async function loadNearbyPins() {
 
 		// Flash pin label if ?highlight= matches
 		if (highlightPinId) {
-			const target = nearbyPins.find(p => p.id === highlightPinId);
-			if (target?.labelEl) {
-				target.labelEl.style.transition = 'background .2s, color .2s';
-				target.labelEl.style.background = 'rgba(139,92,246,0.9)';
-				target.labelEl.style.color = '#fff';
-				setTimeout(() => {
-					if (target.labelEl) {
-						target.labelEl.style.background = '';
-						target.labelEl.style.color = '';
-					}
-				}, 2500);
+			flashPinLabel(nearbyPins.find(p => p.id === highlightPinId));
+		}
+
+		// Deep-focus this agent's pin if ?agent= matches one that just loaded — flash
+		// its label and open its inspect card so an agent profile's "View in IRL"
+		// link lands the visitor right on that agent. Once only (see _agentFocusDone).
+		if (agentFocusId && !_agentFocusDone) {
+			const target = nearbyPins.find(p => String(p.agent_id) === agentFocusId);
+			if (target) {
+				_agentFocusDone = true;
+				flashPinLabel(target);
+				openPinSheet(target);
 			}
 		}
-	} catch {}
+	} catch {
+		// Don't fail silently — a busy spot that can't load looks identical to an
+		// empty one otherwise. Flag it on the badge; the 15 s poll retries.
+		_nearbyError = true;
+		updateNearbyBadge();
+	}
 }
 
 // ── Confidence ring (A3) ────────────────────────────────────────────────────
@@ -1492,17 +1900,20 @@ function spawnNearbyPin(pin) {
 	g.position.set(wp.x, pinHeightM(pin), wp.z);
 	g.rotation.y = pinYawRad(pin);
 
-	// Glowing beacon placeholder (replaced by real GLB when close)
-	const beacon = new Mesh(
-		new SphereGeometry(0.22, 24, 18),
-		new MeshPhysicalMaterial({
-			color: 0x88bbff, emissive: 0x1a44ff, emissiveIntensity: 0.9,
-			metalness: 0.1, roughness: 0.06, transmission: 0.35, thickness: 0.3,
-		}),
+	// Cheap unlit "dot" — the agent's far/low-cost representation (E2). The old
+	// placeholder was a transmission+emissive MeshPhysicalMaterial sphere with a
+	// shadow: far too expensive for a marker that's often just a distant speck and
+	// multiplied across dozens of pins. enforceLOD() promotes this to an impostor
+	// billboard, then the full skinned GLB, as the viewer approaches — and demotes
+	// back as they leave. The dot, ring and label persist for the pin's lifetime;
+	// only the model + impostor are swapped in and out.
+	const dot = new Mesh(
+		new SphereGeometry(0.18, 12, 8),
+		new MeshBasicMaterial({ color: 0x88bbff }),
 	);
-	beacon.position.y = 1.2;
-	beacon.castShadow = true;
-	g.add(beacon);
+	dot.position.y = 1.2;
+	g.add(dot);
+	pin.dotMesh = dot;
 	pin.group = g;
 	// Cache the owning pin on the group so a mesh raycast (_pinForObject) maps a
 	// hit back to its agent without scanning nearbyPins per node.
@@ -1529,9 +1940,9 @@ function spawnNearbyPin(pin) {
 	document.body.appendChild(el);
 	pin.labelEl = el;
 
-	// Load the real GLB if the user is already close; otherwise it upgrades from
-	// the beacon automatically as they approach (see maybeLoadPinGLB on GPS fix).
-	maybeLoadPinGLB(pin);
+	// No load here: enforceLOD() (4 Hz, from tick) assigns this pin a band from its
+	// live camera distance and the active budget, and drives the queued GLB load /
+	// impostor bake / eviction. The dot is visible immediately in the meantime.
 }
 
 function _escHtml(s) {
@@ -1555,77 +1966,236 @@ function disposeObject3D(root) {
 	});
 }
 
-// At most this many remote agents render their full GLB at once; the rest stay
-// lightweight glowing beacons until the user gets close. Keeps a crowded
-// location from loading a dozen rigged models simultaneously.
-const MAX_LOADED_GLB = 5;
+// ── GLB load queue, impostor bake + eviction (E2) ───────────────────────────
+//
+// Pins no longer each `new GLTFLoader()` behind a crude count gate; they go
+// through the shared, nearest-first, concurrency-capped `glbQueue`. Every GLB
+// that loads is baked ONCE into a small impostor texture, so when the agent
+// later recedes past lodNear we drop the skinned mesh (freeing geometry /
+// materials / textures) and show a ~1 draw-call billboard instead — bounded
+// memory no matter how many pins the user walks past. Re-approach re-queues the
+// full model. enforceLOD() (below) decides each pin's band and drives all this.
 
-// Load a pin's real avatar GLB once the user is within range — idempotent, so
-// it's safe to call every GPS fix. This is what turns the beacon into the agent
-// as you walk up to it.
-function maybeLoadPinGLB(pin) {
-	if (pin.glbLoaded || pin._glbLoading || !pin.avatar_url) return;
-	if (pin.distance_m >= 80) return;
-	const loadedCount = nearbyPins.filter(p => p.glbLoaded || p._glbLoading).length;
-	if (loadedCount >= MAX_LOADED_GLB) return;
-	loadPinGLB(pin);
+// Shared offscreen rig for impostor snapshots. Renders to a render target with
+// the MAIN renderer — no extra WebGL context, so the page's context budget is
+// untouched. Created lazily on the first bake.
+const IMPOSTOR_PX = 256;
+let _snapScene = null, _snapCam = null;
+function _ensureSnapRig() {
+	if (_snapScene) return;
+	_snapScene = new Scene();
+	_snapCam = new OrthographicCamera(-1, 1, 1, -1, 0.01, 100);
+	_snapScene.add(new AmbientLight(0xffffff, 0.9));
+	const key = new DirectionalLight(0xffffff, 1.25);
+	key.position.set(2, 4, 5);
+	_snapScene.add(key);
 }
 
-async function loadPinGLB(pin) {
-	pin._glbLoading = true;
-	try {
-		const gltf  = await new GLTFLoader().loadAsync(pin.avatar_url);
-		// The pin may have been removed (walked out of range) while the GLB
-		// was in flight — free the just-loaded model rather than orphaning it.
-		if (!pin.group) { disposeObject3D(gltf.scene); return; }
-		const model = gltf.scene;
-		model.traverse(n => { if (n.isMesh) n.castShadow = true; });
-		const box = new Box3().setFromObject(model);
-		model.position.y -= box.min.y;
-		// Dispose the placeholder beacon before swapping in the real model.
-		while (pin.group.children.length) {
-			const child = pin.group.children[0];
-			pin.group.remove(child);
-			disposeObject3D(child);
-		}
-		pin.group.add(model);
-		pin.glbLoaded = true;
-		// Re-apply the stored absolute pose — the GLTF swap (and the dispose loop
-		// above, which also removed the confidence ring) reset the group transform.
-		pin.group.rotation.y = pinYawRad(pin);
-		pin.group.position.y = pinHeightM(pin);
-		attachPinRing(pin);
-		updatePinRing(pin);
+const _snapBox = new Box3();
+const _snapSize = new Vector3();
+const _snapCenter = new Vector3();
+// Render `model` head-on to a fresh render target; return { rt, side, centerY }.
+// `side` is the world size of the square billboard; `centerY` its local centre so
+// the impostor's feet land where the model's did.
+function bakeImpostor(model) {
+	_ensureSnapRig();
+	_snapBox.setFromObject(model);
+	_snapBox.getSize(_snapSize);
+	_snapBox.getCenter(_snapCenter);
+	const side = (Math.max(_snapSize.x, _snapSize.y, _snapSize.z) * 1.08) || 1;
+	const half = side / 2;
+	_snapCam.left = -half; _snapCam.right = half; _snapCam.top = half; _snapCam.bottom = -half;
+	_snapCam.near = 0.01; _snapCam.far = side * 4 + 10;
+	_snapCam.position.set(_snapCenter.x, _snapCenter.y, _snapCenter.z + side * 2 + 1);
+	_snapCam.lookAt(_snapCenter.x, _snapCenter.y, _snapCenter.z);
+	_snapCam.updateProjectionMatrix();
 
-		// Cache the head/torso bone + rest pose once so the per-frame awareness
-		// step never walks the tree. baseYaw is the placed heading we ease back to
-		// when the viewer leaves; the gaze bone (head preferred, torso fallback)
-		// drives the "looks at you" turn. Agents with neither just turn whole-body.
-		pin.baseYaw = pin.group.rotation.y;
-		pin.headBone = null; pin.spineBone = null;
-		model.traverse(n => {
-			if (!n.isBone) return;
-			const nm = n.name.toLowerCase();
-			if (!pin.headBone  && /head|neck/.test(nm))         pin.headBone  = n;
-			if (!pin.spineBone && /spine|chest|torso/.test(nm)) pin.spineBone = n;
-		});
-		pin.restHeadQuat  = pin.headBone  ? pin.headBone.quaternion.clone()  : null;
-		pin.restSpineQuat = pin.spineBone ? pin.spineBone.quaternion.clone() : null;
-		pin.idleT   = 0;      // idle-drift phase clock
-		pin.noticed = false;  // has the viewer already crossed the notice radius?
-		pin.noticeT = 0;      // remaining head-slerp boost time after a notice
-		pin.popT    = -1;     // perk-up pop clock (-1 = inactive)
-	} catch {
-		// Allow a later GPS fix to retry the load (transient network/CDN blip).
-	} finally {
-		pin._glbLoading = false;
+	const rt = new WebGLRenderTarget(IMPOSTOR_PX, IMPOSTOR_PX);
+	rt.texture.colorSpace = SRGBColorSpace;
+	_snapScene.add(model);
+	const prevTarget = renderer.getRenderTarget();
+	renderer.setRenderTarget(rt);
+	renderer.clear();              // page clear colour is transparent → cutout bg
+	renderer.render(_snapScene, _snapCam);
+	renderer.setRenderTarget(prevTarget);
+	_snapScene.remove(model);
+	return { rt, side, centerY: _snapCenter.y };
+}
+
+function disposeImpostor(pin) {
+	if (pin._impostorSprite) {
+		pin.group?.remove(pin._impostorSprite);
+		pin._impostorSprite.material.dispose();
+		pin._impostorSprite = null;
 	}
+	if (pin._impostorRT) { pin._impostorRT.dispose(); pin._impostorRT = null; }
+	pin._impostorSide = 0; pin._impostorCenterY = 0;
+}
+
+function showImpostor(pin) {
+	if (!pin._impostorRT) return false;
+	if (!pin._impostorSprite) {
+		const mat = new SpriteMaterial({ map: pin._impostorRT.texture, transparent: true, depthWrite: false });
+		const sp = new Sprite(mat);
+		sp.scale.set(pin._impostorSide, pin._impostorSide, 1);
+		sp.position.y = pin._impostorCenterY;
+		sp.userData.impostor = true;
+		pin.group.add(sp);
+		pin._impostorSprite = sp;
+	}
+	pin._impostorSprite.visible = true;
+	return true;
+}
+function hideImpostor(pin) { if (pin._impostorSprite) pin._impostorSprite.visible = false; }
+function showDot(pin) { if (pin.dotMesh) pin.dotMesh.visible = true; }
+function hideDot(pin) { if (pin.dotMesh) pin.dotMesh.visible = false; }
+
+// Enqueue a pin's GLB through the shared queue. `bakeOnly` loads purely to bake
+// the impostor (the model is disposed right after) — used for mid-distance pins
+// that have never been close. Idempotent while a load is in flight.
+function requestPinGLB(pin, bakeOnly = false) {
+	if (pin.glbLoaded || pin._glbLoading || !pin.avatar_url) return;
+	if (bakeOnly && pin._impostorRT) return;   // already have a snapshot
+	pin._glbLoading = true;
+	pin._bakeOnly = bakeOnly;
+	glbQueue.request(pin)
+		.then(gltf => onPinGLBLoaded(pin, gltf))
+		.catch(() => { /* network/CDN blip or cancelled — a later LOD pass retries */ })
+		.finally(() => {
+			pin._glbLoading = false;
+			pin._bakeOnly = false;
+			// A re-skin (C6) that arrived mid-load fetched the OLD url — swap again.
+			if (pin._reloadQueued) { pin._reloadQueued = false; reloadPinGLB(pin); }
+		});
+}
+
+function onPinGLBLoaded(pin, gltf) {
+	// The pin may have been removed (walked out of the fetch radius) mid-flight.
+	if (!pin.group) { disposeObject3D(gltf.scene); return; }
+	const model = gltf.scene;
+	const castShadow = budget.shadow > 0;
+	model.traverse(n => { if (n.isMesh) { n.castShadow = castShadow; n.frustumCulled = false; } });
+	const box = new Box3().setFromObject(model);
+	model.position.y -= box.min.y;   // feet to ground
+
+	// Bake the impostor once; reused whenever this agent later recedes past lodNear.
+	if (!pin._impostorRT) {
+		try {
+			const imp = bakeImpostor(model);
+			pin._impostorRT = imp.rt; pin._impostorSide = imp.side; pin._impostorCenterY = imp.centerY;
+		} catch { /* impostor unavailable — the pin falls back to its dot */ }
+	}
+
+	// If the viewer receded past lodNear during the load (or this was a bake-only
+	// request), don't mount the skinned mesh — the impostor we just baked covers it.
+	if (pin._bakeOnly || pin._lod !== 'full') {
+		disposeObject3D(model);
+		if (pin._lod === 'impostor') { hideDot(pin); showImpostor(pin); }
+		return;
+	}
+
+	// Mount the full skinned avatar; hide the cheaper representations.
+	hideDot(pin); hideImpostor(pin);
+	pin.group.add(model);
+	pin.model = model;
+	pin.glbLoaded = true;
+	pin.group.rotation.y = pinYawRad(pin);
+	pin.group.position.y = pinHeightM(pin);
+
+	// Cache the head/torso bone + rest pose once so the per-frame awareness step
+	// (camera-aware gaze, B1) never walks the tree. baseYaw is the placed heading
+	// we ease back to; the gaze bone (head preferred, torso fallback) drives the
+	// "looks at you" turn. Agents with neither just turn whole-body.
+	pin.baseYaw = pin.group.rotation.y;
+	pin.headBone = null; pin.spineBone = null;
+	model.traverse(n => {
+		if (!n.isBone) return;
+		const nm = n.name.toLowerCase();
+		if (!pin.headBone  && /head|neck/.test(nm))         pin.headBone  = n;
+		if (!pin.spineBone && /spine|chest|torso/.test(nm)) pin.spineBone = n;
+	});
+	pin.restHeadQuat  = pin.headBone  ? pin.headBone.quaternion.clone()  : null;
+	pin.restSpineQuat = pin.spineBone ? pin.spineBone.quaternion.clone() : null;
+	pin.idleT   = 0;      // idle-drift phase clock
+	pin.noticed = false;  // has the viewer already crossed the notice radius?
+	pin.noticeT = 0;      // remaining head-slerp boost time after a notice
+	pin.popT    = -1;     // perk-up pop clock (-1 = inactive)
+}
+
+// Evict a pin's skinned GLB — dispose geometry/materials/textures and fall back to
+// the cheaper representation. The impostor snapshot + dot + ring persist, so this
+// is reversible: enforceLOD re-queues the full model on re-approach. Bounded
+// memory regardless of how many pins the user walks past.
+function evictPinGLB(pin) {
+	if (!pin.glbLoaded || !pin.model) return;
+	pin.group.remove(pin.model);
+	disposeObject3D(pin.model);
+	pin.model = null;
+	pin.glbLoaded = false;
+	pin.headBone = pin.spineBone = null;
+	pin.restHeadQuat = pin.restSpineQuat = null;
+}
+
+// Cancel a still-queued (not yet started) load when a pin is culled.
+function cancelPinGLB(pin) {
+	if (pin._glbLoading) glbQueue.cancel(p => p === pin);
+}
+
+// Apply a re-skin (C6) detected by the nearby-poll diff or a D1 pin_updated push:
+// adopt the new versioned avatar_url + name and swap the rendered GLB. Cheap when
+// nothing changed (version equal) so it's safe to call for every incoming pin.
+function applyPinUpdate(pin, next) {
+	const nextVer = Number(next.avatar_version) || 0;
+	const prevVer = Number(pin.avatar_version) || 0;
+	const urlChanged = next.avatar_url && next.avatar_url !== pin.avatar_url;
+	if (nextVer === prevVer && !urlChanged) return;
+
+	pin.avatar_version = nextVer || prevVer;
+	if (next.avatar_url) pin.avatar_url = next.avatar_url;
+	if (next.avatar_name != null && next.avatar_name !== pin.avatar_name) {
+		pin.avatar_name = next.avatar_name;
+		const nameEl = pin.labelEl?.querySelector('.irl-agent-label-name');
+		if (nameEl) nameEl.textContent = pin.avatar_name || 'Agent';
+	}
+	reloadPinGLB(pin);
+}
+
+// Swap a pin's rendered GLB to its current avatar_url after a re-skin (C6). Safe
+// whether the pin is mid-load (queues the swap for when the in-flight load
+// settles), or already showing a model/impostor. The baked impostor + mounted
+// model are of the OLD avatar, so drop both and reset the LOD band; enforceLOD
+// re-bakes and re-mounts from the new (versioned, cache-busting) url next pass.
+function reloadPinGLB(pin) {
+	if (pin._glbLoading) { pin._reloadQueued = true; return; }
+	evictPinGLB(pin);
+	disposeImpostor(pin);
+	pin._lod = null;       // force enforceLOD to re-evaluate + reload this pin
+	showDot(pin);
+}
+
+// Realtime hook (D1) — entry point a `pin_updated { id, avatar_url,
+// avatar_version }` event calls so co-located viewers swap a re-skinned agent's
+// GLB the instant the owner saves, without waiting for the next nearby poll. The
+// poll diff is the durable fallback; this just makes it feel instant. When Epic
+// D's geohash-room transport lands, dispatch its pin_updated payloads here.
+export function handleRealtimePinUpdate(evt) {
+	if (!evt || evt.type !== 'pin_updated' || !evt.id) return;
+	const pin = nearbyPins.find(p => p.id === evt.id);
+	if (pin) applyPinUpdate(pin, evt);
 }
 
 function updateNearbyBadge() {
 	const badge = document.getElementById('irl-nearby-badge');
 	if (!badge) return;
 	const n = nearbyPins.length;
+	if (_nearbyError) {
+		// Visible, not silent: the 15 s poll retries; show we know the data is stale.
+		badge.textContent = n > 0 ? `${n} nearby · refresh failed` : 'Couldn’t load nearby — retrying…';
+		badge.hidden = false;
+		badge.classList.add('is-error');
+		return;
+	}
+	badge.classList.remove('is-error');
 	badge.textContent = n > 0 ? `${n} nearby` : '';
 	badge.hidden = n === 0;
 }
@@ -1671,23 +2241,31 @@ function _pinMetaLine(p) {
 	return parts.join(' · ');
 }
 
+// Designed empty state for the My-pins sheet — shared by loadInto (sheet open)
+// and deleteMyPin (when the last pin is removed) so the copy never diverges.
+const MYPINS_EMPTY = {
+	icon: '📍',
+	title: 'No active pins yet',
+	body: 'Pin your agent to a real-world spot and it shows up here to manage.',
+};
+
+// Throws on failure (network or non-2xx) so callers can tell a real error from a
+// genuinely empty list — openMyPinsSheet routes that through loadInto's error
+// state instead of silently showing "no pins". Returns [] only when this device
+// has no token yet (nothing could have been placed).
 async function loadMyPins() {
 	if (!_deviceToken) return [];
-	try {
-		const r = await fetch(`/api/irl/pins/mine?deviceToken=${encodeURIComponent(_deviceToken)}`, {
-			credentials: 'include',
-		});
-		if (!r.ok) return [];
-		const pins = (await r.json()).pins ?? [];
-		// Track which nearby pins this device owns so the calibrate affordance (and
-		// the gold "your agent" label) light up. The server re-checks ownership on
-		// PATCH, so this is purely a client-side gate.
-		for (const p of pins) _myPinIds.add(p.id);
-		refreshOwnLabels();
-		return pins;
-	} catch {
-		return [];
-	}
+	const r = await fetch(`/api/irl/pins/mine?deviceToken=${encodeURIComponent(_deviceToken)}`, {
+		credentials: 'include',
+	});
+	if (!r.ok) throw new Error(`HTTP ${r.status}`);
+	const pins = (await r.json()).pins ?? [];
+	// Track which nearby pins this device owns so the calibrate affordance (and
+	// the gold "your agent" label) light up. The server re-checks ownership on
+	// PATCH, so this is purely a client-side gate.
+	for (const p of pins) _myPinIds.add(p.id);
+	refreshOwnLabels();
+	return pins;
 }
 
 // Re-mark already-spawned nearby labels as own once /mine resolves (the pins may
@@ -1698,13 +2276,11 @@ function refreshOwnLabels() {
 	}
 }
 
-function renderMyPins(pins) {
-	const list = document.getElementById('irl-mypins-list');
+// Renders the populated list into the sheet container. Empty/error/loading are
+// owned by loadInto in openMyPinsSheet — this only paints rows.
+function renderMyPins(pins, listEl) {
+	const list = listEl || document.getElementById('irl-mypins-list');
 	if (!list) return;
-	if (!pins.length) {
-		list.innerHTML = '<p class="irl-mypins-empty">No active pins yet — pin your agent to a real-world spot and it shows up here.</p>';
-		return;
-	}
 	list.innerHTML = pins.map(p => `<div class="irl-pin-row" data-pid="${_escHtml(p.id)}">
 		<div class="irl-pin-info">
 			<div class="irl-pin-name">${_escHtml(p.avatar_name || 'Agent')}</div>
@@ -1720,8 +2296,16 @@ async function openMyPinsSheet() {
 	const list  = document.getElementById('irl-mypins-list');
 	if (!sheet || !list) return;
 	sheet.classList.add('is-open');
-	list.innerHTML = '<p class="irl-mypins-empty">Loading…</p>';
-	renderMyPins(await loadMyPins());
+	// Designed loading → list / empty / error(+retry), so a failed fetch surfaces
+	// an error instead of masquerading as "no pins".
+	loadInto(list, {
+		load: loadMyPins,
+		render: (pins, el) => renderMyPins(pins, el),
+		skeleton: { count: 3, variant: 'row' },
+		empty: MYPINS_EMPTY,
+		error: { title: "Couldn't load your pins", body: 'Check your connection and try again.' },
+		context: 'irl:my-pins',
+	});
 }
 
 async function deleteMyPin(id, btn) {
@@ -1741,7 +2325,8 @@ async function deleteMyPin(id, btn) {
 	btn?.closest('.irl-pin-row')?.remove();
 	const list = document.getElementById('irl-mypins-list');
 	if (list && !list.querySelector('.irl-pin-row')) {
-		list.innerHTML = '<p class="irl-mypins-empty">No active pins</p>';
+		ensureStateKitStyles();
+		list.innerHTML = emptyStateHTML(MYPINS_EMPTY);
 	}
 	setStatus('Pin removed');
 }
@@ -1832,8 +2417,10 @@ function _servicesHTML(services) {
 			? `$${Number(s.price_usd).toFixed(2)} ${s.currency || 'USDC'}`
 			: 'Free';
 		const ep = s.x402_endpoint || '';
+		// Stamp price + skill + name on the button so the pay handler can bound
+		// maxPaymentUsd to exactly what's displayed and attribute the interaction.
 		const useBtn = ep
-			? `<button type="button" class="irl-service-use" data-x402="${_escHtml(ep)}">Use</button>`
+			? `<button type="button" class="irl-service-use" data-x402="${_escHtml(ep)}" data-price="${s.price_usd != null ? Number(s.price_usd) : ''}" data-skill="${_escHtml(s.skill || '')}" data-name="${_escHtml(s.name || s.skill || 'Service')}">Use</button>`
 			: '';
 		return `<div class="irl-service-row">
 			<div class="irl-service-info">
@@ -1940,62 +2527,169 @@ function closeInspectSheet() {
 	_lastFocus = null;
 }
 
-// Run an x402 payment against a service endpoint, driving button state through
-// the flow. Shared by the footer Pay button and per-service "Use" buttons.
-async function runX402Payment(endpoint, btn) {
-	if (!endpoint || !btn) return;
+// USDC on Base mainnet — the asset every hosted x402 service settles in. The
+// interactions API only records a `pay` whose currency_mint is $THREE or USDC;
+// this is the mint that backs the EVM x402 rail window.ethereum signs.
+const USDC_BASE_MINT = '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913';
+// Upper safety bound (USD) for a pin-level Pay button whose price isn't on the
+// card. The 402 challenge carries the real amount; withX402 rejects anything
+// above this, so a misconfigured endpoint can't silently over-charge.
+const PIN_PAY_CAP_USD = 5;
 
+// Best-effort interaction telemetry → C4's /api/irl/interactions
+// ({ pinId, type, deviceToken, ... }). Never blocks or breaks the UX: callers
+// swallow failures (a 404 before C4 shipped is harmless). agent_id + owner are
+// derived from the pin server-side; a `pay` is only recorded with a real
+// on-chain settlement signature + an allowed mint.
+function postInteraction(body) {
+	return fetch('/api/irl/interactions', {
+		method: 'POST',
+		credentials: 'include',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ deviceToken: _deviceToken, ...body }),
+	});
+}
+
+// Decode the x402 settlement receipt a paywall returns on a paid retry: header
+// `x-payment-response` is base64 JSON { success, transaction, network, payer }.
+// `transaction` is the on-chain signature the owner's inbox links to. Null when
+// the response carried no receipt (e.g. a free / already-granted endpoint that
+// never issued a 402).
+function decodeSettlement(resp) {
+	try {
+		const h = resp.headers.get('x-payment-response') || resp.headers.get('payment-response');
+		if (!h) return null;
+		const txt = typeof atob === 'function'
+			? decodeURIComponent(escape(atob(h)))
+			: Buffer.from(h, 'base64').toString('utf8');
+		return JSON.parse(txt);
+	} catch {
+		return null;
+	}
+}
+
+// Surface the paid service's response inside the card — the value the user paid
+// for, not just a toast. Small JSON/text only; a large body is truncated.
+function showServiceResult(label, payload) {
+	const body = document.getElementById('irl-card-body');
+	if (!body) return;
+	let text;
+	try {
+		text = typeof payload === 'string' ? payload : JSON.stringify(payload, null, 2);
+	} catch {
+		text = String(payload);
+	}
+	body.querySelector('.irl-service-result')?.remove();
+	const block = document.createElement('div');
+	block.className = 'irl-service-result';
+	const title = document.createElement('div');
+	title.className = 'irl-service-result-label';
+	title.textContent = `${label} — response`;
+	const pre = document.createElement('pre');
+	pre.textContent = text.length > 1800 ? `${text.slice(0, 1800)}…` : text;
+	block.append(title, pre);
+	body.appendChild(block);
+	block.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// Run a real x402 payment against one service endpoint and, on success, surface
+// the response inline + record a verified `pay` interaction. Drives ONLY the
+// clicked button's state, so per-service buttons stay independent. Shared by the
+// footer Pay button and each service row's "Use" button; price / skill / name
+// ride on the button's dataset so the cap binds to exactly what's displayed.
+async function runX402Payment(endpoint, btn) {
+	if (!btn) return;
+	if (!endpoint) { setStatus('This service has no endpoint yet', { error: true }); return; }
 	if (!window.ethereum) {
-		setStatus('Connect an Ethereum wallet (MetaMask) to pay via x402', { error: true });
+		setStatus('Connect a wallet (MetaMask) to pay via x402', { error: true });
 		return;
 	}
 
-	btn.disabled = true;
-	const origText = btn.textContent;
+	const sheet     = document.getElementById('irl-sheet');
+	const priceAttr = btn.dataset.price;
+	const priceUsd  = priceAttr ? Number(priceAttr) : null;
+	const skill     = btn.dataset.skill || null;
+	const label     = btn.dataset.name || sheet?.dataset.agentName || 'Service';
 
-	// Gate on an authorized wallet before signing so we can bail cleanly if the
-	// user declines, rather than letting the x402 adapter prompt mid-flow.
+	const origText = btn.textContent;
+	btn.disabled = true;
 	btn.textContent = 'Connecting…';
+
+	// Gate on an authorized wallet up front so a decline bails cleanly here rather
+	// than surfacing mid-signature inside the x402 adapter.
+	let accounts;
 	try {
-		const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-		if (!Array.isArray(accounts) || !accounts.length) {
-			setStatus('Connect your wallet to pay via x402', { error: true });
-			btn.disabled = false;
-			btn.textContent = origText;
+		accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+	} catch (err) {
+		const m = err?.message ?? String(err);
+		setStatus(/reject|denied|4001|cancel/i.test(m) ? 'Wallet connection cancelled' : `Couldn't connect wallet — ${m}`, { error: true });
+		btn.disabled = false; btn.textContent = origText;
+		return;
+	}
+	if (!Array.isArray(accounts) || !accounts.length) {
+		setStatus('Connect your wallet to pay', { error: true });
+		btn.disabled = false; btn.textContent = origText;
+		return;
+	}
+
+	btn.textContent = 'Paying…';
+	try {
+		const { withX402 } = await import('../packages/x402-fetch/dist/index.esm.js');
+		// Cap the payment at the displayed price (small epsilon for rounding); a
+		// pin-level endpoint with no shown price falls back to a fixed ceiling.
+		const maxPaymentUsd = priceUsd != null && Number.isFinite(priceUsd)
+			? Math.max(priceUsd, 0.01)
+			: PIN_PAY_CAP_USD;
+		// Capture the exact amount from the 402 challenge (authoritative even when
+		// the card showed no price) so the recorded settlement is accurate.
+		let settledUsd = priceUsd;
+		const pay = withX402(window.ethereum, {
+			maxPaymentUsd,
+			onPayment: ({ amount }) => { if (Number.isFinite(amount)) settledUsd = amount; },
+		});
+		const r = await pay(endpoint, { method: 'POST' });   // 402 → sign → retry inside
+		if (!r.ok) {
+			const detail = await r.text().catch(() => `HTTP ${r.status}`);
+			setStatus(`Service error — ${String(detail).slice(0, 140)}`, { error: true });
+			btn.disabled = false; btn.textContent = origText;
 			return;
+		}
+
+		btn.textContent = 'Used ✓';
+		btn.disabled = true;
+		setStatus('Service paid — response delivered');
+
+		// Show the response the user paid for. Hosted services wrap the upstream
+		// payload as { service, result, … }; unwrap to the inner result.
+		let result = null;
+		try {
+			result = (r.headers.get('content-type') || '').includes('json') ? await r.json() : await r.text();
+		} catch { /* empty / unreadable body — the receipt below still records the pay */ }
+		if (result != null && result !== '') {
+			const shown = result && typeof result === 'object' && 'result' in result ? result.result : result;
+			showServiceResult(label, shown);
+		}
+
+		// Record the verified pay. The interactions API requires the on-chain
+		// settlement signature, so log ONLY when the receipt carried one — never a
+		// fabricated tx. Best-effort; a failure never disrupts the user.
+		const settlement = decodeSettlement(r);
+		if (settlement?.transaction && sheet?.dataset.pinId) {
+			postInteraction({
+				pinId: sheet.dataset.pinId,
+				type: 'pay',
+				agentId: sheet.dataset.agentId || null,
+				signature: settlement.transaction,
+				currencyMint: USDC_BASE_MINT,
+				network: settlement.network || 'base',
+				amount: Number.isFinite(settledUsd) ? Math.round(settledUsd * 1e6) : null,
+				payload: { skill, payer: settlement.payer || null },
+			}).catch(() => {});
 		}
 	} catch (err) {
 		const m = err?.message ?? String(err);
-		setStatus(/reject|denied|4001/i.test(m) ? 'Wallet connection cancelled' : `Couldn't connect wallet — ${m}`, { error: true });
-		btn.disabled = false;
-		btn.textContent = origText;
-		return;
-	}
-
-	btn.textContent = 'Sending…';
-	try {
-		const { withX402 } = await import('../packages/x402-fetch/dist/index.esm.js');
-		const pay = withX402(window.ethereum, { maxPaymentUsd: 1.00 });
-		const r = await pay(endpoint, { method: 'POST' });
-		if (r.ok) {
-			setStatus('Payment sent');
-			btn.textContent = 'Paid ✓';
-			btn.disabled = true;
-		} else {
-			const msg = await r.text().catch(() => r.status);
-			setStatus(`Payment failed (${msg})`, { error: true });
-			btn.disabled = false;
-			btn.textContent = origText;
-		}
-	} catch (err) {
-		const msg = err?.message ?? String(err);
-		if (msg.includes('rejected') || msg.includes('denied')) {
-			setStatus('Payment cancelled', { error: true });
-		} else {
-			setStatus(`Payment failed — ${msg}`, { error: true });
-		}
-		btn.disabled = false;
-		btn.textContent = origText;
+		setStatus(/reject|denied|4001|cancel/i.test(m) ? 'Payment cancelled' : `Payment failed — ${m}`, { error: true });
+		btn.disabled = false; btn.textContent = origText;
 	}
 }
 
@@ -2027,6 +2721,17 @@ function openPinSheet(pin) {
 		calBtn.hidden = !own;
 		calBtn.onclick = own
 			? () => { closeInspectSheet(); enterCalibrate(pin); }
+			: null;
+	}
+
+	// Report (D4) — community moderation. Pointless on your own pin (the server
+	// no-ops owner self-reports), so it's shown only on someone else's placement.
+	const reportBtn = document.getElementById('irl-sheet-report');
+	if (reportBtn) {
+		const own = isOwnPin(pin);
+		reportBtn.hidden = own || !pin.id;
+		reportBtn.onclick = (!own && pin.id)
+			? () => openReportSheet(pin.id)
 			: null;
 	}
 
@@ -2177,6 +2882,76 @@ document.getElementById('irl-sheet-msg')?.addEventListener('submit', async (e) =
 	}
 });
 
+// ── Report flow (D4) ───────────────────────────────────────────────────────
+// A visitor flags a pin for moderation. The server de-dupes per reporter and
+// hides the pin once enough distinct people flag it — so this is a single,
+// honest action with loading / success / error states, never a dead button.
+
+let _reportPinId = null;
+
+function openReportSheet(pinId) {
+	const sheet = document.getElementById('irl-report-sheet');
+	if (!sheet || !pinId) return;
+	_reportPinId = pinId;
+	closeInspectSheet();
+	const status = document.getElementById('irl-report-status');
+	if (status) { status.hidden = true; status.classList.remove('is-error'); }
+	sheet.querySelectorAll('.irl-report-reason').forEach((b) => { b.disabled = false; });
+	sheet.classList.add('is-open');
+}
+
+function closeReportSheet() {
+	document.getElementById('irl-report-sheet')?.classList.remove('is-open');
+	_reportPinId = null;
+}
+
+document.getElementById('irl-report-close')?.addEventListener('click', closeReportSheet);
+
+document.querySelectorAll('.irl-report-reason').forEach((btn) => {
+	btn.addEventListener('click', async () => {
+		const pinId  = _reportPinId;
+		const reason = btn.dataset.reason || 'other';
+		const status = document.getElementById('irl-report-status');
+		const sheet  = document.getElementById('irl-report-sheet');
+		if (!pinId) return;
+
+		sheet?.querySelectorAll('.irl-report-reason').forEach((b) => { b.disabled = true; });
+		if (status) {
+			status.textContent = 'Sending…';
+			status.classList.remove('is-error');
+			status.hidden = false;
+		}
+		try {
+			const r = await fetch('/api/irl/report', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ pinId, reason, deviceToken: _deviceToken }),
+			});
+			if (!r.ok) throw new Error(`HTTP ${r.status}`);
+			const data = await r.json().catch(() => ({}));
+			if (status) {
+				status.textContent = data.hidden
+					? 'Thanks — enough reports came in, so this pin has been hidden.'
+					: 'Thanks, we’ll review it.';
+				status.classList.remove('is-error');
+				status.hidden = false;
+			}
+			// If it was hidden, drop it from the scene immediately rather than waiting
+			// for the next nearby re-fetch.
+			if (data.hidden) removeNearbyPin(pinId);
+			setTimeout(closeReportSheet, 1400);
+		} catch {
+			if (status) {
+				status.textContent = 'Couldn’t submit the report — try again.';
+				status.classList.add('is-error');
+				status.hidden = false;
+			}
+			// Re-enable so the failed report is retryable, never a dead end.
+			sheet?.querySelectorAll('.irl-report-reason').forEach((b) => { b.disabled = false; });
+		}
+	});
+});
+
 // ── Agent picker ──────────────────────────────────────────────────────────
 // Lists the authenticated user's agents. Selecting one loads its avatar GLB
 // into the scene and sets it as the current agent for any new pins.
@@ -2254,7 +3029,12 @@ document.getElementById('irl-agents-list')?.addEventListener('click', async (e) 
 document.getElementById('irl-sheet-view')?.addEventListener('click', () => {
 	const sheet   = document.getElementById('irl-sheet');
 	const agentId = sheet?.dataset.agentId;
+	const pinId   = sheet?.dataset.pinId;
 	const name    = sheet?.dataset.agentName || document.getElementById('irl-sheet-name')?.textContent || '';
+	// Opening the profile is active engagement — record a 'tap' (the API's
+	// active-sighting type), distinct from the passive 'view' logged on card open.
+	// Best-effort; capture pinId before closeInspectSheet and never block nav.
+	if (pinId) postInteraction({ pinId, type: 'tap', agentId: agentId || null }).catch(() => {});
 	closeInspectSheet();
 	if (agentId) {
 		window.open(`/agents/${agentId}`, '_blank', 'noopener');
@@ -2302,7 +3082,14 @@ function updateLabels() {
 	// (B4) in the same projection pass — the "you'll tap this" affordance.
 	let focusPin = null, focusDist = Infinity;
 	for (const pin of nearbyPins) {
-		if (!pin.labelEl || !pin.group) { pin._labelOnScreen = false; continue; }
+		// Skip pins with no label/group, ones culled by enforceLOD, and ones past the
+		// tier's label cap (_labelAllowed === false). This bounds the live DOM label
+		// nodes to BUDGET.label nearest-first and keeps the loop off-screen-cheap.
+		if (!pin.labelEl || !pin.group || pin._lod === 'hidden' || pin._labelAllowed === false) {
+			if (pin.labelEl) pin.labelEl.style.display = 'none';
+			pin._labelOnScreen = false;
+			continue;
+		}
 		_lblVec.set(
 			pin.group.position.x,
 			pin.group.position.y + 2.5,
@@ -2332,6 +3119,132 @@ function updateLabels() {
 		_focusPin?.labelEl?.classList.remove('is-focus');
 		focusPin?.labelEl?.classList.add('is-focus');
 		_focusPin = focusPin;
+	}
+}
+
+// ── Distance LOD + draw/label budget (E2) ───────────────────────────────────
+// Called ~4 Hz from tick(), not per frame. Sorts loaded pins nearest-first, then
+// assigns each a band — full (skinned GLB) | impostor (billboard) | dot (cheap
+// marker) | hidden (no draw, no label) — from its LIVE camera distance and the
+// active tier budget. Caps concurrent fulls (maxGLB) and simultaneous labels,
+// demoting the farthest pins first, so a crowded plaza can't blow the frame.
+const _lodList = [];
+const _lodProj = new Vector3();
+function _byLodDist(a, b) { return a._lodDist - b._lodDist; }
+
+function liveDist2D(pin) {
+	return Math.hypot(
+		camera.position.x - pin.group.position.x,
+		camera.position.z - pin.group.position.z,
+	);
+}
+// Cheap NDC bounds test so we never bake/keep impostors for agents behind the viewer.
+function pinOnScreen(pin) {
+	_lodProj.set(pin.group.position.x, pin.group.position.y + 1.2, pin.group.position.z).project(camera);
+	return _lodProj.z < 1 && Math.abs(_lodProj.x) < 1.3 && Math.abs(_lodProj.y) < 1.3;
+}
+
+let _drawEstimate = 0; // approx scene draw calls the last LOD pass projected
+
+// Pick a pin's band from its live distance, with hysteresis: each band's outer
+// (farther/cheaper) edge is sticky by LOD_HYST metres relative to the pin's
+// CURRENT band, so a pin idling right on a boundary (GPS jitter) doesn't flap
+// between loading and evicting its GLB. Getting closer promotes immediately;
+// only moving away by the margin demotes.
+const LOD_HYST = 1.5;
+function bandFor(d, cur) {
+	const nearT = budget.lodNear + (cur === 'full' ? LOD_HYST : 0);
+	const farT  = budget.lodFar  + (cur === 'full' || cur === 'impostor' ? LOD_HYST : 0);
+	const cullT = budget.cull    + (cur && cur !== 'hidden' ? LOD_HYST : 0);
+	if (d > cullT) return 'hidden';
+	if (d > farT)  return 'dot';
+	if (d > nearT) return 'impostor';
+	return 'full';
+}
+
+function enforceLOD() {
+	_lodList.length = 0;
+	for (const pin of nearbyPins) {
+		if (!pin.group) continue;
+		pin._lodDist = liveDist2D(pin);
+		_lodList.push(pin);
+	}
+	_lodList.sort(_byLodDist);
+
+	let fullBudget  = budget.maxGLB;
+	let labelBudget = budget.label;
+	// Approximate draw-call budget: base scene (ground, lights, avatar, UI) ≈ 30,
+	// each full skinned avatar ≈ 6 draws, impostor/dot ≈ 1. Demote the farthest
+	// fulls to impostors once the projection would exceed the tier ceiling.
+	let draws = 30;
+
+	for (let i = 0; i < _lodList.length; i++) {
+		const pin = _lodList[i];
+		const d = pin._lodDist;
+		let band = bandFor(d, pin._lod);
+
+		// Concurrency + draw-budget demotion: full → impostor when out of GLB slots
+		// or over the draw ceiling. Nearest-first ordering spends the budget on the
+		// agents the viewer is closest to.
+		if (band === 'full') {
+			const cost = draws + 6;
+			if (fullBudget > 0 && cost <= budget.draw) { fullBudget--; draws = cost; }
+			else band = 'impostor';
+		}
+		if (band === 'impostor' || band === 'dot') draws += 1;
+
+		pin._labelAllowed = band !== 'hidden' && labelBudget > 0;
+		if (pin._labelAllowed) labelBudget--;
+
+		applyBand(pin, band);
+	}
+	_drawEstimate = draws;
+}
+
+function applyBand(pin, band) {
+	if (pin._lod === band) {
+		// Already in this band — but an impostor still waiting on its background bake
+		// shows the dot; promote it the instant the snapshot exists.
+		if (band === 'impostor' && pin._impostorRT && !(pin._impostorSprite && pin._impostorSprite.visible)) {
+			hideDot(pin); showImpostor(pin);
+		}
+		return;
+	}
+	pin._lod = band;
+	switch (band) {
+		case 'hidden':
+			pin.group.visible = false;
+			cancelPinGLB(pin);
+			evictPinGLB(pin);
+			break;
+		case 'dot':
+			pin.group.visible = true;
+			evictPinGLB(pin);
+			hideImpostor(pin);
+			showDot(pin);
+			break;
+		case 'impostor':
+			pin.group.visible = true;
+			evictPinGLB(pin);
+			if (pin._impostorRT) { hideDot(pin); showImpostor(pin); }
+			else {
+				// No snapshot yet (never been close). Show the dot now and bake one in
+				// the background — but only for on-screen pins, so a load slot is never
+				// spent on an agent behind the viewer.
+				showDot(pin);
+				if (pinOnScreen(pin)) requestPinGLB(pin, true);
+			}
+			break;
+		case 'full':
+			pin.group.visible = true;
+			if (!pin.glbLoaded) {
+				// Show the impostor (if already baked) or the dot while the full model
+				// streams in; onPinGLBLoaded swaps to the skinned mesh on arrival.
+				if (pin._impostorRT) { hideDot(pin); showImpostor(pin); }
+				else showDot(pin);
+				requestPinGLB(pin, false);
+			}
+			break;
 	}
 }
 
@@ -2505,6 +3418,40 @@ function updateAgentAwareness(dt) {
 	}
 }
 
+// ── LOD / radar throttles + frame-time watchdog (E2) ────────────────────────
+const LOD_INTERVAL   = 0.25;   // enforceLOD at ~4 Hz — band changes don't need 60 Hz
+const RADAR_INTERVAL = 0.2;    // rebuild radar DOM at ~5 Hz, not every frame
+let _lodAccum = 0, _radarAccum = 0;
+
+// Rolling frame-time governor. If the average frame stays slow for ~2 s we step
+// the tier DOWN live (lower DPR, then shadows off, then fewer GLBs); if it runs
+// with headroom for ~4 s we step back UP, but never above the device's detected
+// `baseTier`. The app degrades visibly-gracefully instead of freezing.
+const _fps = { ema: 16, over: 0, under: 0 };
+function frameWatchdog(dt) {
+	const ms = dt * 1000;
+	_fps.ema += (ms - _fps.ema) * 0.1;
+	if (_fps.ema > 28) {            // < ~36 fps
+		_fps.over += dt; _fps.under = 0;
+		if (_fps.over > 2) { _fps.over = 0; stepTier(-1); }
+	} else if (_fps.ema < 20) {     // > ~50 fps, room to recover
+		_fps.under += dt; _fps.over = 0;
+		if (_fps.under > 4) { _fps.under = 0; stepTier(+1); }
+	} else {
+		_fps.over *= 0.5; _fps.under *= 0.5;
+	}
+}
+function stepTier(dir) {
+	const next = shiftTier(activeTier, dir);
+	// Never climb above the hardware ceiling detected at boot.
+	if (dir > 0 && TIER_ORDER.indexOf(next) > TIER_ORDER.indexOf(baseTier)) return;
+	if (next === activeTier) return;
+	activeTier = next;
+	budget = BUDGETS[activeTier];
+	applyTierToRenderer();
+	log.info(`[irl] perf tier → ${activeTier} (frame ~${_fps.ema.toFixed(0)}ms)`);
+}
+
 function tick() {
 	clock.update();
 	const dt  = Math.min(clock.getDelta(), 0.05);
@@ -2608,14 +3555,23 @@ function tick() {
 		}
 	}
 
+	// Distance LOD / draw budget (E2) — ~4 Hz. Decides each pin's band, drives the
+	// queued GLB loads, impostor bakes and evictions, and sets the per-pin label
+	// allowance. Runs before awareness so head-tracking only touches mounted models.
+	_lodAccum += dt;
+	if (_lodAccum >= LOD_INTERVAL) { _lodAccum = 0; enforceLOD(); }
+
 	// Nearby agents notice the viewer — body/head turn, idle drift, greet pop.
 	updateAgentAwareness(dt);
 
-	// Project nearby agent labels to screen space
+	// Project nearby agent labels to screen space (capped to BUDGET.label nearest).
 	updateLabels();
-	updateRadar();
+	// Radar DOM is rebuilt at ~5 Hz, not every frame (it was a per-frame churn).
+	_radarAccum += dt;
+	if (_radarAccum >= RADAR_INTERVAL) { _radarAccum = 0; updateRadar(); }
 
 	renderer.render(scene, camera);
+	frameWatchdog(dt);
 	xrViewer._rafId = requestAnimationFrame(tick);
 }
 
@@ -2955,30 +3911,99 @@ document.getElementById('irl-cal-denied')?.addEventListener('click', (e) => {
 window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && calibrateActive) exitCalibrate(true); });
 
 // ── Boot ──────────────────────────────────────────────────────────────────
-initGPS();
+// Permissions + first-run onboarding (E1) own the camera/motion/location prompts.
+// GPS starts only once location is granted — via first-run, a repeat-visit replay,
+// or a later chip tap — so there's no silent native location prompt on load.
+startOnboarding({ onGrant: (kind) => { if (kind === 'location') initGPS(); } });
 
 // Reveal My pins on load if this device already owns pins — management must
 // survive a reload (and a denied GPS prompt). The GPS-ready path reveals it too.
-loadMyPins().then(pins => { if (pins.length) revealMyPinsBtn(); });
+loadMyPins().then(pins => { if (pins.length) revealMyPinsBtn(); }).catch(() => {});
+
+// Tap the realtime pill to force a reconnect when it's in the polling fallback.
+document.getElementById('irl-net-pill')?.addEventListener('click', () => irlNet?.retry());
+// Tear down the live stream + poll on navigation away so we never leak a socket or
+// an interval across an SPA transition / tab close.
+window.addEventListener('pagehide', () => { irlNet?.destroy(); stopPollFallback(); });
 
 // URL ?avatar= wins over the saved session (an explicit link is intentional);
 // otherwise fall back to whatever avatar was active last visit.
 const _targetAvatarId = avatarIdParam || _savedSession?.avatarId || null;
-loadAvatar(_targetAvatarId)
-	.then(() => {
-		_restoreSession();
-		startTick();
-	})
-	.catch(err => {
-		log.error('[irl] avatar load failed:', err);
-		nameEl.textContent = 'Avatar';
-		setStatus(`Couldn't load avatar: ${err?.message ?? err}`, { error: true, sticky: true });
-		cameraBtn.disabled = false;
-		cameraBtn.removeAttribute('aria-busy');
-		startTick();
-	});
+
+// Start the render loop exactly once; the avatar streams in (or retries) on top
+// of it, so a failed first load never freezes the scene or double-starts the tick.
+let _tickStarted = false;
+function ensureTick() { if (!_tickStarted) { _tickStarted = true; startTick(); } }
+
+function bootAvatar() {
+	return loadAvatar(_targetAvatarId)
+		.then(() => {
+			hideOverlay();
+			_restoreSession();
+			ensureTick();
+		})
+		.catch(err => {
+			log.error('[irl] avatar load failed:', err);
+			nameEl.textContent = 'Avatar';
+			cameraBtn.disabled = false;
+			cameraBtn.removeAttribute('aria-busy');
+			ensureTick();
+			// Designed, retryable state instead of a 3-second toast over a blank scene.
+			showAvatarLoadError(err, bootAvatar);
+		});
+}
+bootAvatar();
 
 // Detect WebXR floor-anchoring support and reveal the entry once ready. iOS
 // Safari (no immersive-ar) never sees the button and stays on the gyro+GPS Pin
 // path; desktop Chrome reports false and adds no console noise.
 detectFloorAnchorSupport();
+
+// ── Dev-only perf harness (E2) ──────────────────────────────────────────────
+// Gated behind import.meta.env.DEV → tree-shaken out of production builds, so no
+// synthetic pins ever ship. Lets us verify the LOD/culling/queue budget under a
+// dense crowd: `__irlSeedPins(30)` lays 30 default-avatar pins in a grid around
+// the avatar; `__irlPerf()` reports the live tier, band counts and draw calls.
+if (import.meta.env.DEV) {
+	window.__irlSeedPins = (n = 30, spacing = 6) => {
+		const cols = Math.ceil(Math.sqrt(n));
+		for (let i = 0; i < n; i++) {
+			const id = `dev-seed-${i}`;
+			if (nearbyPins.find(p => p.id === id)) continue;
+			const entry = {
+				id, lat: 0, lng: 0,
+				avatar_url: AVATAR_URL_DEFAULT,
+				avatar_name: `Seed ${i + 1}`,
+				caption: '', x402_endpoint: null,
+				distance_m: 0, group: null, labelEl: null, glbLoaded: false,
+			};
+			nearbyPins.push(entry);
+			spawnNearbyPin(entry);
+			// Lay them in a grid around the avatar, overriding the GPS-derived spawn
+			// position so they don't stack at the origin when there's no live fix.
+			const gx = (i % cols) - cols / 2;
+			const gz = Math.floor(i / cols) - cols / 2;
+			entry.group.position.set(
+				avatarRig.position.x + gx * spacing,
+				entry.group.position.y,
+				avatarRig.position.z + gz * spacing,
+			);
+		}
+		updateNearbyBadge();
+		log.info(`[irl] seeded ${n} synthetic pins for LOD stress test`);
+		return n;
+	};
+	window.__irlPerf = () => ({
+		tier: activeTier,
+		baseTier,
+		pins: nearbyPins.length,
+		full:     nearbyPins.filter(p => p._lod === 'full').length,
+		impostor: nearbyPins.filter(p => p._lod === 'impostor').length,
+		dot:      nearbyPins.filter(p => p._lod === 'dot').length,
+		hidden:   nearbyPins.filter(p => p._lod === 'hidden').length,
+		drawsEstimate: _drawEstimate,
+		drawCalls: renderer.info.render.calls,
+		queue: { active: glbQueue.active, pending: glbQueue.pending },
+		reservedContexts: window.__agent3dReservedContexts,
+	});
+}
