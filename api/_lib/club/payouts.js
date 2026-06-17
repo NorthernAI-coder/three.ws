@@ -37,6 +37,7 @@ import { base } from 'viem/chains';
 import { evmTransport } from '../evm/rpc.js';
 
 import { env } from '../env.js';
+import { chainOf } from './chain.js';
 import { SOLANA_USDC_MINT, EVM_USDC } from '../../payments/_config.js';
 
 const SOLANA_PRIORITY_MICRO_LAMPORTS = 50_000;
@@ -166,7 +167,10 @@ export async function sendClubUsdcBase({ recipient, amount }) {
  * Dispatch helper: pick the right per-network sender for a sweep group.
  */
 export async function sendClubPayout({ network, recipient, amount }) {
-	if (network === 'solana') return sendClubUsdcSolana({ recipient, amount });
-	if (network === 'base') return sendClubUsdcBase({ recipient, amount });
+	// Accept either a bare chain key or a CAIP-2 id — the sweep already
+	// normalizes, but normalize here too so any caller is routed correctly.
+	const chain = chainOf(network);
+	if (chain === 'solana') return sendClubUsdcSolana({ recipient, amount });
+	if (chain === 'base') return sendClubUsdcBase({ recipient, amount });
 	throw new Error(`unsupported network for club sweep: ${network}`);
 }

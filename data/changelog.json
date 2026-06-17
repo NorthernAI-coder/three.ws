@@ -3,6 +3,13 @@
 	"entries": [
 		{
 			"date": "2026-06-17",
+			"title": "Pole Club dancer tips now reliably reach their Solana wallets",
+			"summary": "When you tip a dancer in the Pole Club, the platform batches your tips and sweeps them on-chain to the dancer's registered wallet. A mismatch in how a settled tip recorded its network meant Solana tips were being set aside as 'no wallet' even when the dancer had a Solana address on file, so they never went out. That's fixed: tips paid on Solana are now matched to the dancer's Solana wallet and swept correctly, alongside the existing Base payouts. No tip was ever lost — stuck tips remained queued and now sweep on the next cycle.",
+			"tags": ["fix"],
+			"link": "/club"
+		},
+		{
+			"date": "2026-06-17",
 			"title": "Connect your Solana wallet right from the marketplace",
 			"summary": "The marketplace now carries a persistent Connect Wallet control — in the sidebar on desktop, in the search bar on mobile — so you can link Phantom, Solflare, or Backpack once and arrive at any purchase already connected, instead of waiting until checkout. If you have more than one wallet installed you get a quick picker; if you have none, it points you to install one. Once connected it shows your address as a tidy pill with a menu to copy it, view the account on Solscan, or disconnect, and it quietly reconnects a previously approved wallet when you return — no extra pop-up. Connect from the header and the Buy dialog is ready to go; connect at checkout and the header updates too. It rides the same on-chain USDC purchase flow already in place, so there's nothing new to trust.",
 			"tags": ["feature"],
