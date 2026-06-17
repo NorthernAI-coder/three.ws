@@ -15,12 +15,21 @@
 
 import crypto from 'node:crypto';
 
-function secret() {
+// The shared secret this Colyseus host proves identity with — both as the
+// verifier of inbound publish webhooks AND as the bearer the room presents when
+// it hydrates pins from the internal-only bbox feed (api/irl/pins.js). Kept as
+// one resolver so the two directions can never drift. Mirrors the API-side
+// internalSecret() in api/irl/pins.js byte-for-byte.
+export function multiplayerSecret() {
 	return (
 		process.env.MULTIPLAYER_SHARED_SECRET ||
 		process.env.HOLDER_PASS_SECRET ||
 		'dev-insecure-multiplayer-secret'
 	);
+}
+
+function secret() {
+	return multiplayerSecret();
 }
 
 function timingSafeEqualStr(a, b) {

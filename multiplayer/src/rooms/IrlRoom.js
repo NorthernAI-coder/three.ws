@@ -28,6 +28,7 @@ import { Room } from '@colyseus/core';
 import { IrlPin, IrlViewer, IrlState } from '../irl-schemas.js';
 import { encodeGeohash, geohashNeighbors, decodeGeohashBounds, decodeGeohash } from '../geohash.js';
 import { irlRegistry } from '../irl-registry.js';
+import { multiplayerSecret } from '../irl-publish-auth.js';
 import {
 	isReactionType,
 	reactionAllowed,
@@ -157,7 +158,12 @@ export class IrlRoom extends Room {
 		const bbox = this._windowBounds();
 		if (!bbox) return;
 		const url = `${API_BASE}/api/irl/pins?bbox=${bbox.minLat},${bbox.minLng},${bbox.maxLat},${bbox.maxLng}`;
-		const res = await fetch(url, { headers: { accept: 'application/json' } });
+		// The bbox feed is internal-only (it would otherwise be a bulk GPS-scrape
+		// vector). Present the shared multiplayer secret so the API trusts this as
+		// server-to-server room hydration rather than a public read.
+		const res = await fetch(url, {
+			headers: { accept: 'application/json', 'x-mp-internal': multiplayerSecret() },
+		});
 		if (!res.ok) throw new Error(`HTTP ${res.status}`);
 		const body = await res.json();
 		const pins = Array.isArray(body?.pins) ? body.pins : [];
