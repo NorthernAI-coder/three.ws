@@ -1161,6 +1161,8 @@ export class CommunityUI {
 		const chat = this.chat;
 
 		this.emoteTray = el('div', { id: 'cc-emotes', role: 'toolbar', 'aria-label': 'Emotes' });
+		// Reaction bar (R04): 6 emoji that broadcast a floating sprite above the sender's avatar.
+		this.reactionBar = el('div', { id: 'cc-reactions', role: 'toolbar', 'aria-label': 'Reactions' });
 
 		// Spatial voice toggle. Off by default (no mic until the player opts in);
 		// the icon + label reflect every state (connecting / live / muted / blocked).
@@ -1185,7 +1187,7 @@ export class CommunityUI {
 
 		this.joystick = el('div', { id: 'cc-joystick' });
 
-		this.hud = el('div', { id: 'cc-hud', hidden: true }, [banner, leave, this.statusPill, this.voiceBtn, chat, this.emoteTray, hint, this.joystick]);
+		this.hud = el('div', { id: 'cc-hud', hidden: true }, [banner, leave, this.statusPill, this.voiceBtn, chat, this.emoteTray, this.reactionBar, hint, this.joystick]);
 		document.body.appendChild(this.hud);
 	}
 
@@ -1660,6 +1662,31 @@ export class CommunityUI {
 				onclick: () => this.h.onEmote(e.name),
 			}));
 		}
+	}
+
+	// Populate the reaction bar (R04). Each button sends one emoji; a short cooldown
+	// class prevents confusion when a rapid second tap is dropped by the server.
+	setReactions(list) {
+		this.reactionBar.textContent = '';
+		this._reactionBtns = [];
+		for (const r of list) {
+			const btn = el('button', {
+				class: 'cc-reaction', type: 'button',
+				title: r.label, 'aria-label': r.label,
+				text: r.emoji,
+				onclick: () => this._sendReaction(r.emoji, btn),
+			});
+			this._reactionBtns.push(btn);
+			this.reactionBar.appendChild(btn);
+		}
+	}
+
+	_sendReaction(emoji, btn) {
+		if (btn.classList.contains('cc-cooldown')) return;
+		this.h.onReaction?.(emoji);
+		// Briefly dim the button so a rapid second tap clearly can't fire.
+		btn.classList.add('cc-cooldown');
+		setTimeout(() => btn.classList.remove('cc-cooldown'), 620);
 	}
 
 	_sendChat() {

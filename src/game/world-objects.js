@@ -22,6 +22,7 @@ import {
 	Mesh, BoxGeometry, CylinderGeometry, ConeGeometry, SphereGeometry,
 	MeshStandardMaterial, MeshBasicMaterial,
 	EdgesGeometry, LineSegments, LineBasicMaterial, Color,
+	CanvasTexture, SRGBColorSpace,
 } from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { log } from '../shared/log.js';
@@ -283,6 +284,35 @@ function buildProp(type) {
 function buildPropFactory(obj) { return buildProp(obj.type); }
 KIND_FACTORIES.set('block', buildPropFactory);
 KIND_FACTORIES.set('prop', buildPropFactory);
+
+// ── Beach ball (R05) ─────────────────────────────────────────────────────────
+// Six alternating colour panels drawn onto a canvas texture, mapped onto a
+// sphere so it reads unmistakably as a beach ball from any distance. The sphere
+// radius matches the server's BALL_RADIUS (0.5 m) and the center is at origin
+// so the holder's Y position (which the server sets to radius above the ground)
+// places it flush on the ground when at rest.
+function beachBallMesh() {
+	const SIZE = 128;
+	const c = document.createElement('canvas');
+	c.width = SIZE; c.height = SIZE;
+	const ctx = c.getContext('2d');
+	const PANELS = ['#f93030', '#fff500', '#1a7dff', '#f93030', '#fff500', '#1a7dff'];
+	const w = SIZE / PANELS.length;
+	for (let i = 0; i < PANELS.length; i++) {
+		ctx.fillStyle = PANELS[i];
+		ctx.fillRect(Math.round(i * w), 0, Math.ceil(w + 0.5), SIZE);
+	}
+	const tex = new CanvasTexture(c);
+	tex.colorSpace = SRGBColorSpace;
+	const m = new Mesh(
+		new SphereGeometry(0.5, 24, 16),
+		new MeshStandardMaterial({ map: tex, roughness: 0.35, metalness: 0 }),
+	);
+	m.castShadow = true;
+	m.userData.ownGeo = true;
+	return m;
+}
+KIND_FACTORIES.set('ball', () => beachBallMesh());
 
 // Recursively dispose a node's owned resources. GLB-clone meshes (userData.shared)
 // share the cached template's geometry/materials and are skipped; procedural

@@ -153,6 +153,7 @@ export class CommunityNet {
 			objectChange: new Set(), // (obj, id) — its transform/owner changed
 			objectRemove: new Set(), // (id) — an object left the world
 			objectReject: new Set(), // ({reason}) — server refused a spawn (world/player full)
+			reaction: new Set(),    // ({id, emoji}) — a player sent a floating reaction
 		};
 		this.ping = null;        // smoothed RTT in ms, null until the first echo
 		this._pingSentAt = 0;    // perf-clock stamp of the last move awaiting an echo
@@ -284,6 +285,8 @@ export class CommunityNet {
 			// spawn (the room is full, or we've hit our per-player object cap) so the
 			// build HUD can explain why a placed prop never appeared.
 			this.room.onMessage('obj:reject', (msg) => this._emit('objectReject', msg || {}));
+			// Broadcast reactions (R04): floating emoji that rise above the sender's avatar.
+			this.room.onMessage('reaction', (msg) => this._emit('reaction', msg || {}));
 
 			const $ = getStateCallbacks(this.room);
 			const $state = $(this.room.state);
@@ -439,6 +442,7 @@ export class CommunityNet {
 	}
 
 	sendEmote(name) { this.room?.send('emote', { name }); }
+	sendReaction(emoji) { this.room?.send('reaction', { emoji }); }
 	sendChat(text) { this.room?.send('chat', { text }); }
 	// Place/break a voxel at an integer grid cell. Server-authoritative: these only
 	// request the edit; the block is added/removed locally when the server patches
@@ -465,6 +469,11 @@ export class CommunityNet {
 	// ownership, updates the player's schema `cosmetics` field (so peers re-render)
 	// and replies with a fresh profile. An unowned id is rejected with a 'notice'.
 	equipCosmetic(id) { this.room?.send('equip-cosmetic', { id }); }
+	// Broadcast a full loadout wire in one shot — mirrors how the avatar is sent.
+	// Server validates every id against the catalog and the account's owned set,
+	// drops anything invalid or unowned, and publishes the sanitized wire on the
+	// schema so all peers re-render the correct look.
+	setCosmetics(wire) { this.cosmetics = typeof wire === 'string' ? wire : ''; this.room?.send('set-cosmetics', { cosmetics: this.cosmetics }); }
 	// Activities & economy. Server-authoritative: these only request the action; the
 	// result arrives via the profile/inv/xpgain/levelup/notice events above.
 	fish() { this.room?.send('fish'); }
@@ -527,6 +536,12 @@ export class CommunityNet {
 	removeObject(id) {
 		if (!this.room || typeof id !== 'string') return;
 		this.room.send('obj:remove', { id });
+	}
+	// R05 ball kick: send an impulse intent to the server. The server validates,
+	// caps magnitude, and applies it to the authoritative ball velocity.
+	kickBall(vx, vy, vz) {
+		if (!this.room) return;
+		this.room.send('ball:kick', { vx, vy, vz });
 	}
 	// Does an object's server-assigned ownerId belong to THIS client? The server keys
 	// ownership on the verified account when signed in, else the persisted economy id,

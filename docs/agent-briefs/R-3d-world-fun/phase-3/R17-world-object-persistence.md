@@ -1,5 +1,5 @@
 # R17 — Persistence layer for world objects
-
+ 
 **Phase 3 (Sandbox building) · Depends on: R01 · Unblocks: R19**
 
 > Read [`../R00-program-overview.md`](../R00-program-overview.md) and [`CLAUDE.md`](../../../../CLAUDE.md)

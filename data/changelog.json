@@ -3,6 +3,20 @@
 	"entries": [
 		{
 			"date": "2026-06-17",
+			"title": "Coin world builds now have ownership, caps, and anti-grief protection",
+			"summary": "Every block and prop placed in a coin world is now server-enforced with a full permission model. Only the player who placed a piece can break it; the coin's creator can remove any piece as a moderation tool, or sweep a radius or the entire world with a single action. A per-player block cap (1,200 blocks) prevents any single builder from monopolising the budget; a per-column density limit stops walls from caging the plaza; and protected zones around the spawn point and the coin totem can never be buried or fenced in. All rejections — wrong owner, over cap, protected zone, rate-limited, out of bounds — are surfaced to the builder immediately with a clear message. The build HUD now shows how many of your personal 1,200 blocks you've used, and coin creators see a \"Creator\" moderation panel with the clear-area tool.",
+			"tags": ["feature", "improvement"],
+			"link": "/play"
+		},
+		{
+			"date": "2026-06-17",
+			"title": "Placed objects in coin worlds now survive restarts",
+			"summary": "Props, signs, and decorations placed in a coin's 3D world now persist across room disposal and server restarts. Leave a coin world and come back tomorrow — the build your community placed is still there, exactly where it was left. Durable objects are saved to Postgres + R2 via a debounced write-through that batches rapid edits into a single round-trip; transient objects like thrown balls and effects are intentionally excluded. The world correctly shows its saved state the moment the first player enters, before any new pieces are placed.",
+			"tags": ["feature"],
+			"link": "/play"
+		},
+		{
+			"date": "2026-06-17",
 			"title": "Walking avatars now travel the right way on every rig",
 			"summary": "Animations with root motion — walking, running, jumping with travel — now move your avatar in the correct world direction and distance no matter what tool the avatar came from. Avatars exported from Mixamo, Ready Player Me, Blender, and others orient their skeletons differently; previously a walk could drift sideways, sink into the floor, or moonwalk on rigs that didn't match the standard convention. The viewer now re-expresses each clip's root motion in the target rig's own frame, so two avatars built in different tools walk side by side in the same direction. Avatars that already matched the reference rig are byte-for-byte unchanged.",
 			"tags": ["fix", "improvement"],

@@ -46,6 +46,12 @@ export class Player extends Schema {
 		// persisted, ownership-validated loadout so a peer can trust the look and an
 		// unowned cosmetic can never appear on anyone. Empty ⇒ the bare avatar.
 		this.cosmetics = '';
+		// Tag mini-game (R08). `it` is the server-authoritative "it" flag visible to
+		// all peers so they can render the glow ring + 🏃 marker. `itSince` is the
+		// epoch ms when this player last became "it" (0 = not it); a strict integer
+		// type would lose precision past 2^53 but float64 covers epoch ms safely.
+		this.it = false;
+		this.itSince = 0;
 	}
 }
 // IMPORTANT: append-only. Field indices are positional in @colyseus/schema's
@@ -73,6 +79,10 @@ defineTypes(Player, {
 	heat: 'uint8',
 	// Append-only (R23): equipped cosmetic loadout wire string. See the constructor.
 	cosmetics: 'string',
+	// Append-only (R08): tag mini-game "it" state. Visible to all peers so they
+	// render the glow ring + 🏃 marker without a separate broadcast channel.
+	it: 'boolean',
+	itSince: 'float64',
 });
 
 // A single placed voxel in a coin's world. Keyed in the blocks MapSchema by its
@@ -305,4 +315,14 @@ defineTypes(WalkState, {
 	// Append-only (R24): a new scalar at the end so a still-running older client
 	// isn't shifted off the wire format mid-deploy.
 	holderMinTokens: 'float32',
+});
+
+// NOTE: Player field appends below must match the same append-only rule.
+// Indices are positional in the binary protocol — inserting shifts all subsequent
+// indices and breaks clients connected to older deployed servers.
+defineTypes(Player, {
+	// Append-only (R08): tag mini-game. `it` and `itSince` appended AFTER the
+	// last field from R23/R24 (cosmetics) so older clients remain wire-compatible.
+	// WalkState's defineTypes is above; Player's defineTypes must be called
+	// AFTER WalkState so the field order for Player is cosmetics → it → itSince.
 });

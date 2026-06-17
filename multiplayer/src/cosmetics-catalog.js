@@ -18,12 +18,13 @@
 // nothing here points at an asset that 404s.
 
 // Ordered so the wardrobe renders slots top-to-bottom in a sensible grooming flow.
-export const SLOTS = ['dye', 'headwear', 'eyewear', 'aura'];
+export const SLOTS = ['dye', 'headwear', 'eyewear', 'earrings', 'aura'];
 
 export const SLOT_LABELS = {
 	dye: 'Body color',
 	headwear: 'Headwear',
 	eyewear: 'Eyewear',
+	earrings: 'Earrings',
 	aura: 'Aura',
 };
 
@@ -51,6 +52,11 @@ export const COSMETICS = [
 	{ id: 'glasses-round', name: 'Round frames', slot: 'eyewear', rarity: 'common', tier: 'free', price: 0, visual: { prop: '/accessories/glasses-round.glb', anchor: 'face' }, thumb: '/accessories/thumbs/glasses-round.png' },
 	{ id: 'glasses-shades', name: 'Shades', slot: 'eyewear', rarity: 'rare', tier: 'premium', price: 350, visual: { prop: '/accessories/glasses-shades.glb', anchor: 'face' }, thumb: '/accessories/thumbs/glasses-shades.png' },
 
+	// ── Earrings (prop, anchored at ear level) ────────────────────────────────
+	{ id: 'earring-none', name: 'None', slot: 'earrings', rarity: 'common', tier: 'free', price: 0, visual: null },
+	{ id: 'earrings-hoops', name: 'Hoop Earrings', slot: 'earrings', rarity: 'common', tier: 'free', price: 0, visual: { prop: '/accessories/earrings-hoops.glb', anchor: 'ear' }, thumb: '/accessories/thumbs/earrings-hoops.png' },
+	{ id: 'earrings-studs', name: 'Stud Earrings', slot: 'earrings', rarity: 'common', tier: 'free', price: 0, visual: { prop: '/accessories/earrings-studs.glb', anchor: 'ear' }, thumb: '/accessories/thumbs/earrings-studs.png' },
+
 	// ── Aura (glowing ground ring) ────────────────────────────────────────────
 	{ id: 'aura-none', name: 'None', slot: 'aura', rarity: 'common', tier: 'free', price: 0, visual: null },
 	{ id: 'aura-gold', name: 'Golden halo', slot: 'aura', rarity: 'epic', tier: 'premium', price: 600, visual: { aura: '#e6b422' }, swatch: '#e6b422' },
@@ -70,6 +76,7 @@ export const DEFAULT_LOADOUT = Object.freeze({
 	dye: 'dye-none',
 	headwear: 'head-none',
 	eyewear: 'eye-none',
+	earrings: 'earring-none',
 	aura: 'aura-none',
 });
 
