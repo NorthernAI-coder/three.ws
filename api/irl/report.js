@@ -15,17 +15,24 @@
  *   dedup, real abuse is taken down once enough independent people flag it.
  *
  * References no coin and no third-party token; $THREE is the only coin three.ws
- * references. Realtime push of the removal to already-loaded viewers rides on D1;
- * here the next nearby re-fetch (which filters hidden_at) drops it for everyone.
+ * references. When the threshold hides a pin we publish a D1 pin:remove into its
+ * geocell room so already-loaded viewers see it vanish live; the hidden_at filter
+ * on every nearby/mine/bbox read is the durable backstop if that push ever drops.
  */
 
 import { cors, json, wrap, rateLimited } from '../_lib/http.js';
 import { sql } from '../_lib/db.js';
 import { getSessionUser } from '../_lib/auth.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
+import { publishIrlPin } from '../_lib/irl-publish.js';
+import { encodeGeohash } from '../_lib/geohash.js';
 
 // Distinct reporters required before a pin is queued out of public view.
 const REPORT_HIDE_THRESHOLD = 3;
+// The irl_world realtime room is keyed by a precision-6 geocell (~1.2 km) — match
+// REALTIME_PRECISION in api/irl/pins.js so a hide publishes into the same live room
+// the pin's add/update/delete events used.
+const REALTIME_PRECISION = 6;
 const MAX_REASON_LEN = 240;
 // Canonical reasons the UI offers; anything else collapses to 'other'. Kept as a
 // closed set so the (future) review console can triage by category.
@@ -78,7 +85,7 @@ export default wrap(async (req, res) => {
 	// The pin must exist and still be live. A 404 here is honest — you can't report
 	// a pin that isn't there (already expired, deleted, or never existed).
 	const [pin] = await sql`
-		SELECT id, user_id, device_token, hidden_at
+		SELECT id, user_id, device_token, hidden_at, lat, lng
 		FROM irl_pins
 		WHERE id = ${pinId}
 		  AND (expires_at IS NULL OR expires_at > NOW())
@@ -133,6 +140,21 @@ export default wrap(async (req, res) => {
 			RETURNING id
 		`;
 		hidden = rows.length > 0;
+		// Realtime (D1): the first reporter to cross the threshold pushes a pin:remove
+		// into the pin's geocell room, so every co-located viewer who already has it
+		// loaded sees it vanish within ~1 s — not just on their next nearby re-fetch.
+		// Guarded on the conditional UPDATE above so concurrent reports fire it once.
+		// Fire-and-forget: the hide is already persisted and the hidden_at filter on
+		// every read path is the durable contract if the push drops.
+		const plat = Number(pin.lat);
+		const plng = Number(pin.lng);
+		if (hidden && Number.isFinite(plat) && Number.isFinite(plng)) {
+			void publishIrlPin(
+				'pin:remove',
+				encodeGeohash(plat, plng, REALTIME_PRECISION),
+				{ id: pinId },
+			);
+		}
 	}
 
 	return json(res, 200, { ok: true, reports: n, hidden });

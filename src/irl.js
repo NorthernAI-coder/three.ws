@@ -1153,6 +1153,10 @@ function onGPSPosition(pos) {
 		updatePinRing(p);
 	}
 
+	// Re-anchor live presence ghosts against the shifted origin too, so a co-viewer's
+	// orb holds its real-world bearing as the user walks (same treatment as pins).
+	for (const g of ghostViewers.values()) positionGhostOrb(g);
+
 	// Live transport: re-join the room when we cross into a new geocell, and
 	// reconcile the rendered set against the stream as the viewer walks (pins move
 	// into / out of the nearby radius). Not streaming and not yet polling → keep the
@@ -1655,12 +1659,18 @@ function startPinSync() {
 	irlNet = new IrlNet({
 		lat: gpsState.lat, lng: gpsState.lng,
 		deviceToken: _deviceToken, agent: _currentAgentId || '',
+		// D2 — opt-in to being seen as a ghost (default off). Avatar only matters
+		// when sharing; the server drops it otherwise.
+		ghost: getShareGhost(), avatar: resolveAvatarUrl(_currentAvatarId),
 	});
 	irlNet.on('pin:add',    (w) => ingestStreamPin('add', w));
 	irlNet.on('pin:update', (w) => ingestStreamPin('update', w));
 	irlNet.on('pin:remove', (w) => ingestStreamPin('remove', w));
+	irlNet.on('reaction',   (msg) => onReaction(msg));   // D3 ambient interaction reactions
+	irlNet.on('presence',   ({ count, viewers }) => updatePresence(count, viewers)); // D2
 	irlNet.on('status', ({ status }) => onNetStatus(status));
 	irlNet.connect();
+	startHeartbeat();
 }
 
 function onNetStatus(status) {
@@ -1669,6 +1679,11 @@ function onNetStatus(status) {
 	else if (status === 'connecting') { streamPins.clear(); setNetPill('connecting'); }
 	else if (status === 'offline') { setNetPill('connecting'); }  // mid single-retry — pins persist
 	else { startPollFallback(); setNetPill('polling'); }          // failed | unavailable | idle
+	// D2 presence is live-only: the chip + ghosts are meaningful only while the WS
+	// owns the stream. Any non-online status clears them so a stale count or frozen
+	// ghost never lingers in poll fallback / while reconnecting; online refreshes
+	// from the next presence delta.
+	if (status !== 'online') clearPresence();
 }
 
 function ingestStreamPin(kind, wire) {
@@ -1775,6 +1790,154 @@ function setNetPill(state) {
 		pill.hidden = true;
 	}
 	pill.setAttribute('aria-label', `Realtime status: ${pill.textContent || 'idle'}`);
+}
+
+// ── Live viewer presence (D2) ───────────────────────────────────────────────
+// A pin is a static artifact; a person also looking at this spot right now is
+// social proof. Presence rides the SAME geocell room D1 opened — the server adds
+// each viewer to a `viewers` MapSchema at the cell centre + jitter (never precise
+// GPS) and Colyseus delta-broadcasts it, so we get a live "N viewing nearby"
+// count for free, plus optional ghost markers for viewers who opted to be seen.
+//
+// Privacy: you always SEE the count and others' ghosts; you only BROADCAST
+// yourself as a ghost if you opt in ("Appear to others nearby", default off,
+// stored in localStorage). Count-only presence reveals nothing beyond "someone
+// in this ~1 km cell." Presence is live-only — cleared in poll fallback / while
+// connecting (onNetStatus), never faked from the REST poll.
+const SHARE_GHOST_KEY = 'irl_share_ghost';
+function getShareGhost() {
+	try { return localStorage.getItem(SHARE_GHOST_KEY) === '1'; } catch { return false; }
+}
+function setShareGhost(on) {
+	try { localStorage.setItem(SHARE_GHOST_KEY, on ? '1' : '0'); } catch {}
+}
+
+// Compass-referenced facing we report on each heartbeat — the same absolute yaw
+// placement uses, so a shared ghost is oriented consistently for every viewer.
+function currentHeadingDeg() {
+	return ((cameraYaw * 180 / Math.PI) % 360 + 360) % 360;
+}
+
+// 15 s heartbeat: proves we're still here (the server's 30 s reaper drops silent
+// viewers) and refreshes our facing. A no-op off a live socket — presence is
+// inherently live, so we never heartbeat into the poll fallback.
+let _heartbeatTimer = null;
+const HEARTBEAT_MS = 15000;
+function startHeartbeat() {
+	stopHeartbeat();
+	_heartbeatTimer = setInterval(() => { irlNet?.heartbeat(currentHeadingDeg()); }, HEARTBEAT_MS);
+}
+function stopHeartbeat() {
+	if (_heartbeatTimer) { clearInterval(_heartbeatTimer); _heartbeatTimer = null; }
+}
+
+// Rendered ghosts (others who opted to be seen), keyed by session id. Each entry
+// carries its coarse coords + a faint scene orb. The count chip always shows the
+// true crowd size; only this bounded set is drawn.
+const ghostViewers = new Map();
+const GHOST_RENDER_CAP = 24;     // bound drawn orbs/dots; the chip still shows the real count
+const GHOST_MAX_SCENE_M = 60;    // clamp a coarse ghost to a soft nearby radius (it's approximate)
+const GHOST_HOVER_Y = 1.3;       // float the orb near head height
+let _ghostPhase = 0;             // shared gentle pulse phase
+
+// Coarse ghost → scene XZ, clamped to a comfortable radius. The position is
+// approximate by construction (cell centre + jitter), so a far cell-centre reads
+// as a soft nearby presence in roughly the right direction rather than a speck on
+// the horizon implying a precision we don't have.
+function ghostWorldXZ(g) {
+	const wp = gpsToWorld(g.glat, g.glng);
+	let x = wp.x, z = wp.z;
+	const d = Math.hypot(x, z);
+	if (d > GHOST_MAX_SCENE_M && d > 1e-3) {
+		const k = GHOST_MAX_SCENE_M / d;
+		x *= k; z *= k;
+	}
+	return { x, z };
+}
+
+// A ghost is deliberately distinct from a pin: a faint translucent orb, no name
+// label, no confidence ring, and never added to the raycast set (the tap/long-press
+// handlers only scan nearbyPins groups), so it can never be mistaken for or tapped
+// as a placed agent.
+function createGhostOrb() {
+	const orb = new Mesh(
+		new SphereGeometry(0.5, 16, 12),
+		new MeshBasicMaterial({ color: 0x9fd8ff, transparent: true, opacity: 0.28, depthWrite: false }),
+	);
+	orb.renderOrder = 4;
+	orb.userData.ghost = true; // marker; ghosts are never in the pin raycast list anyway
+	scene.add(orb);
+	return orb;
+}
+function positionGhostOrb(g) {
+	if (!g.orb || !gpsState.ready) return;
+	const { x, z } = ghostWorldXZ(g);
+	g.orb.position.set(x, GHOST_HOVER_Y, z);
+}
+function removeGhostOrb(g) {
+	if (!g.orb) return;
+	scene.remove(g.orb);
+	g.orb.geometry.dispose();
+	g.orb.material.dispose();
+	g.orb = null;
+}
+
+// Reconcile the live presence delta: update the count chip and the drawn ghost
+// set. `viewers` is already only OTHER opted-in viewers (self + count-only entries
+// filtered out in irl-net), so everything here is a renderable ghost.
+function updatePresence(count, viewers) {
+	const chip = document.getElementById('irl-presence-chip');
+	if (chip) {
+		const show = _streamOnline && count > 1; // 1 = just me; nothing social to show
+		chip.hidden = !show;
+		if (show) {
+			chip.textContent = `${count} viewing nearby`;
+			chip.setAttribute('aria-label', `${count} people viewing this location`);
+		}
+	}
+
+	const incoming = new Map();
+	for (const v of viewers) {
+		if (incoming.size >= GHOST_RENDER_CAP) break;
+		if (v && v.id) incoming.set(v.id, v);
+	}
+	// Despawn ghosts that left or stopped sharing.
+	for (const [id, g] of ghostViewers) {
+		if (!incoming.has(id)) { removeGhostOrb(g); ghostViewers.delete(id); }
+	}
+	// Spawn / refresh the rest.
+	for (const [id, v] of incoming) {
+		let g = ghostViewers.get(id);
+		if (!g) { g = { id }; ghostViewers.set(id, g); }
+		g.glat = v.glat; g.glng = v.glng; g.heading = v.heading; g.avatar = v.avatar;
+		if (!g.orb) g.orb = createGhostOrb();
+		positionGhostOrb(g);
+	}
+}
+
+// Hide the chip and drop every ghost cleanly — called whenever the live stream
+// isn't owning presence (connecting, poll fallback, offline) so a stale count or
+// frozen orb never lingers. Restored from the next presence delta on reconnect.
+function clearPresence() {
+	const chip = document.getElementById('irl-presence-chip');
+	if (chip) chip.hidden = true;
+	for (const g of ghostViewers.values()) removeGhostOrb(g);
+	ghostViewers.clear();
+}
+
+// Gentle shared pulse so ghosts read as "alive" without per-orb cost. Cheap: only
+// touches scale + opacity on the bounded ghost set, and early-outs when empty.
+function updateGhosts(dt) {
+	if (!ghostViewers.size) return;
+	_ghostPhase += dt;
+	const wave = Math.sin(_ghostPhase * 2);
+	const scale = 1 + wave * 0.08;
+	const opacity = 0.22 + (wave * 0.5 + 0.5) * 0.16; // 0.22 … 0.38
+	for (const g of ghostViewers.values()) {
+		if (!g.orb) continue;
+		g.orb.scale.setScalar(scale);
+		g.orb.material.opacity = opacity;
+	}
 }
 
 async function loadNearbyPins() {
@@ -2188,16 +2351,32 @@ function updateNearbyBadge() {
 	const badge = document.getElementById('irl-nearby-badge');
 	if (!badge) return;
 	const n = nearbyPins.length;
+	// Compute the target text/class first, then only write when it changes — the badge
+	// is aria-live, so re-setting identical content on every reconcile would spam a
+	// screen reader.
+	let text, mod;
 	if (_nearbyError) {
 		// Visible, not silent: the 15 s poll retries; show we know the data is stale.
-		badge.textContent = n > 0 ? `${n} nearby · refresh failed` : 'Couldn’t load nearby — retrying…';
-		badge.hidden = false;
-		badge.classList.add('is-error');
-		return;
+		text = n > 0 ? `${n} nearby · refresh failed` : 'Couldn’t load nearby — retrying…';
+		mod = 'is-error';
+	} else if (n > 0) {
+		text = `${n} nearby`;
+		mod = '';
+	} else if (gpsState.ready) {
+		// GPS-ready but nobody here yet — a designed empty state that invites the user
+		// to be the first, rather than hiding (which reads as "feature off").
+		text = 'No agents nearby — be the first to pin here';
+		mod = 'is-empty';
+	} else {
+		// No fix yet → nothing to say about "nearby"; stay hidden until GPS lands.
+		text = '';
+		mod = 'hidden';
 	}
-	badge.classList.remove('is-error');
-	badge.textContent = n > 0 ? `${n} nearby` : '';
-	badge.hidden = n === 0;
+	badge.classList.toggle('is-error', mod === 'is-error');
+	badge.classList.toggle('is-empty', mod === 'is-empty');
+	if (mod === 'hidden') { badge.hidden = true; return; }
+	badge.hidden = false;
+	if (badge.textContent !== text) badge.textContent = text;
 }
 
 // ── My Pins management ────────────────────────────────────────────────────
@@ -2339,6 +2518,32 @@ function revealMyPinsBtn() {
 }
 
 document.getElementById('irl-mypins-btn')?.addEventListener('click', openMyPinsSheet);
+
+// ── "Appear to others nearby" toggle (D2) ──────────────────────────────────
+// Reflects the stored opt-in on the pill (default off) and flips it live: the
+// preference persists, and setGhost() pushes it to the room so co-viewers see the
+// ghost appear / disappear without anyone reconnecting. Seeing others is always
+// on; this gates only being seen.
+function syncGhostToggle() {
+	const btn = document.getElementById('irl-ghost-toggle');
+	if (!btn) return;
+	const on = getShareGhost();
+	btn.classList.toggle('is-active', on);
+	btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+	btn.title = on
+		? 'You appear as a ghost to others viewing this area. Tap to hide.'
+		: 'Only your presence count is shared. Tap to appear as a ghost to others nearby.';
+}
+document.getElementById('irl-ghost-toggle')?.addEventListener('click', () => {
+	const on = !getShareGhost();
+	setShareGhost(on);
+	syncGhostToggle();
+	// Push the change to the live room (no-op off a live socket; the next connect
+	// carries the stored intent regardless).
+	irlNet?.setGhost(on, resolveAvatarUrl(_currentAvatarId));
+	setStatus(on ? 'You now appear to others nearby' : 'You no longer appear to others');
+});
+syncGhostToggle();
 
 document.getElementById('irl-mypins-close')?.addEventListener('click', () => {
 	document.getElementById('irl-mypins-sheet')?.classList.remove('is-open');
@@ -2592,6 +2797,32 @@ function showServiceResult(label, payload) {
 	block.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
+// Wallet-not-connected is a *state*, not a transient event: the user can't pay
+// until they have a wallet, so a 3 s toast that vanishes leaves them stuck with no
+// next step. Render a designed, persistent state-kit card into the inspect sheet
+// body (below the services it blocks) with the exact recovery path. Cleared the
+// moment a payment actually proceeds, and wiped automatically when loadAgentCard
+// re-renders the body for a different agent.
+function showWalletNeeded(body) {
+	const host = document.getElementById('irl-card-body');
+	if (!host) { setStatus(body, { error: true, sticky: true }); return; }
+	ensureStateKitStyles();
+	host.querySelector('.irl-pay-notice')?.remove();
+	const wrap = document.createElement('div');
+	wrap.className = 'irl-pay-notice';
+	wrap.innerHTML = emptyStateHTML({
+		icon: '👛',
+		title: 'Connect a wallet to pay',
+		body,
+		compact: true,
+	});
+	host.appendChild(wrap);
+	wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+function clearWalletNotice() {
+	document.getElementById('irl-card-body')?.querySelector('.irl-pay-notice')?.remove();
+}
+
 // Run a real x402 payment against one service endpoint and, on success, surface
 // the response inline + record a verified `pay` interaction. Drives ONLY the
 // clicked button's state, so per-service buttons stay independent. Shared by the
@@ -2601,7 +2832,8 @@ async function runX402Payment(endpoint, btn) {
 	if (!btn) return;
 	if (!endpoint) { setStatus('This service has no endpoint yet', { error: true }); return; }
 	if (!window.ethereum) {
-		setStatus('Connect a wallet (MetaMask) to pay via x402', { error: true });
+		// No injected wallet at all — a designed, persistent recovery state, not a toast.
+		showWalletNeeded('This browser has no wallet. Open three.ws in a wallet browser (e.g. MetaMask) or install one, then tap Use again to pay in USDC.');
 		return;
 	}
 
@@ -2627,14 +2859,18 @@ async function runX402Payment(endpoint, btn) {
 		return;
 	}
 	if (!Array.isArray(accounts) || !accounts.length) {
-		setStatus('Connect your wallet to pay', { error: true });
+		// Wallet present but locked / no account approved — designed recovery state.
+		showWalletNeeded('No wallet account is connected. Unlock your wallet and approve the connection, then tap Use again.');
 		btn.disabled = false; btn.textContent = origText;
 		return;
 	}
 
+	// A wallet is connected and we're proceeding — drop any prior "connect a wallet"
+	// notice so a resolved state doesn't linger under the now-working payment.
+	clearWalletNotice();
 	btn.textContent = 'Paying…';
 	try {
-		const { withX402 } = await import('../packages/x402-fetch/dist/index.esm.js');
+		const { withX402 } = await import('../packages/x402-fetch/src/index.js');
 		// Cap the payment at the displayed price (small epsilon for rounding); a
 		// pin-level endpoint with no shown price falls back to a fixed ceiling.
 		const maxPaymentUsd = priceUsd != null && Number.isFinite(priceUsd)
@@ -2685,6 +2921,10 @@ async function runX402Payment(endpoint, btn) {
 				amount: Number.isFinite(settledUsd) ? Math.round(settledUsd * 1e6) : null,
 				payload: { skill, payer: settlement.payer || null },
 			}).catch(() => {});
+			// D3 — high-signal: fan a "paid" reaction to co-located viewers. Only here,
+			// after a real on-chain settlement, never optimistically — so the agent's
+			// celebration (and the owner's earned event) is never a lie.
+			irlNet?.interaction({ type: 'pay', pinId: sheet.dataset.pinId, agentId: sheet.dataset.agentId || '' });
 		}
 	} catch (err) {
 		const m = err?.message ?? String(err);
@@ -2805,6 +3045,9 @@ function openPinSheet(pin) {
 			}),
 		}).catch(() => {});
 		pin.view_count = (pin.view_count ?? 0) + 1;
+		// D3 — fan an ambient reaction to co-located viewers (the REST POST above is the
+		// durable record + owner notification; this is the live flourish, no-op off-WS).
+		irlNet?.interaction({ type: 'view', pinId: pin.id, agentId: pin.agent_id ?? '' });
 	}
 
 	// Rich card: avatar bio + on-chain reputation + the agent's paid x402 services,
@@ -2865,6 +3108,8 @@ document.getElementById('irl-sheet-msg')?.addEventListener('submit', async (e) =
 		});
 		if (!r.ok) throw new Error(`HTTP ${r.status}`);
 		if (input) input.value = '';
+		// D3 — high-signal: the agent reacts to a left message for everyone nearby.
+		irlNet?.interaction({ type: 'message', pinId, agentId: sheet.dataset.agentId || '' });
 		if (status) {
 			status.textContent = 'Message delivered — the owner will see it.';
 			status.classList.remove('is-error');
@@ -3052,8 +3297,9 @@ document.getElementById('irl-sheet-pay')?.addEventListener('click', (e) => {
 function updateRadar() {
 	const radar = document.getElementById('irl-radar');
 	if (!radar || !gpsModeActive) return;
-	radar.querySelectorAll('.irl-radar-dot').forEach(d => d.remove());
+	radar.querySelectorAll('.irl-radar-dot, .irl-radar-ghost').forEach(d => d.remove());
 	const R = 60; // half of 120px radar
+	let shown = 0;
 	for (const pin of nearbyPins) {
 		if (!pin.group) continue;
 		const wx = pin.group.position.x;
@@ -3068,6 +3314,41 @@ function updateRadar() {
 		dot.title = `${pin.avatar_name || 'Agent'} · ${pin.distance_m ?? Math.round(Math.hypot(wx, wz))}m`;
 		dot.addEventListener('click', () => openPinSheet(pin));
 		radar.appendChild(dot);
+		shown++;
+	}
+	// Live presence ghosts (D2) — faint, smaller, not tappable, drawn beneath the
+	// agent dots. They sit at the orb's clamped coarse position, so they read as
+	// "someone roughly here" rather than a precise placement. Not counted in `shown`
+	// (the empty hint is about placed agents, not co-viewers).
+	for (const g of ghostViewers.values()) {
+		if (!g.orb) continue;
+		const px = R + (g.orb.position.x / NEARBY_RADIUS) * R;
+		const py = R + (-g.orb.position.z / NEARBY_RADIUS) * R;
+		if (px < 0 || px > 120 || py < 0 || py > 120) continue;
+		const gd = document.createElement('div');
+		gd.className = 'irl-radar-ghost';
+		gd.style.left = `${px}px`;
+		gd.style.top  = `${py}px`;
+		gd.title = 'Someone viewing nearby';
+		radar.appendChild(gd);
+	}
+	// Designed in-radar states (E4): a failed nearby refresh and an empty dial each
+	// get an honest centred hint instead of a blank radar that reads as "nobody here"
+	// even when the fetch broke. The hint reuses the existing 15 s poll / live stream
+	// to recover, so it clears itself on the next good update.
+	let hint = radar.querySelector('.irl-radar-hint');
+	const message = _nearbyError ? 'Can’t refresh' : (shown === 0 ? 'No agents in range' : '');
+	if (message) {
+		if (!hint) {
+			hint = document.createElement('div');
+			hint.className = 'irl-radar-hint';
+			radar.appendChild(hint);
+		}
+		hint.textContent = message;
+		hint.classList.toggle('is-error', _nearbyError);
+		hint.hidden = false;
+	} else if (hint) {
+		hint.hidden = true;
 	}
 }
 
@@ -3395,17 +3676,23 @@ function updateAgentAwareness(dt) {
 			pin.noticed = true;
 			pin.noticeT = NOTICE_BOOST_SEC; // snap the head to attention briefly
 			pin.popT    = 0;                // start the perk-up scale pop
+			pin._popAmp = 0;                // default subtle amplitude (D3 reactions set their own)
 		} else if (pin.noticed && dist > NOTICE_RADIUS_M + 1) {
 			pin.noticed = false;
 		}
 		if (pin.noticeT > 0) pin.noticeT = Math.max(0, pin.noticeT - dt);
+		// Perk-up scale pop. The greet sets the default POP_AMOUNT; a D3 reaction
+		// (playEmote) reuses this same one-shot with a bigger _popAmp so a `pay`
+		// reads as a stronger bounce than a glance — one driver, never two fighting.
 		if (pin.popT >= 0) {
 			pin.popT += dt;
+			const amp = pin._popAmp || POP_AMOUNT;
 			if (pin.popT >= POP_DURATION) {
 				pin.popT = -1;
+				pin._popAmp = 0;
 				pin.group.scale.y = 1;
 			} else {
-				pin.group.scale.y = 1 + POP_AMOUNT * Math.sin(Math.PI * pin.popT / POP_DURATION);
+				pin.group.scale.y = 1 + amp * Math.sin(Math.PI * pin.popT / POP_DURATION);
 			}
 		}
 
@@ -3415,6 +3702,112 @@ function updateAgentAwareness(dt) {
 		if (d2 > 0.001) _toAgentH.divideScalar(d2);
 		const inView = camDirHLen > 0.001 && _camDirH.dot(_toAgentH) > 0.9 && d2 < 30;
 		pin.labelEl?.classList.toggle('is-aware', inView);
+	}
+}
+
+// ── Ambient interaction reactions (D3) ──────────────────────────────────────
+// A co-located viewer tapped / paid / messaged a nearby agent; the room fanned a
+// `reaction` to everyone here (see irl-net.js + IrlRoom). We answer with the two
+// things a bystander actually sees: the agent perks up (a scale "emote" pop on its
+// loaded model) and a glyph rises off its head — 💜 for a glance, ✨ paid for a
+// settled payment, 💬 for a left message. Pure transform/opacity, GPU-only, capped
+// and auto-cleaned: never a layout reflow. A reaction whose pin scrolled out of
+// range is silently dropped — the durable record already landed over REST, so only
+// the live flourish is skipped, never the data.
+const REACTION_TTL    = 1.2;        // seconds a floating glyph lives (matches the CSS rise)
+const MAX_REACTIONS   = 14;         // concurrent floaters cap — a busy plaza can't churn the DOM
+const _reactions      = [];         // [{ pin, outer, t }]
+const _reactVec       = new Vector3(); // scratch for per-frame projection (no per-call alloc)
+
+// Glyph + optional label + style hook per reaction type. open/view share the heart.
+const REACTION_GLYPH = {
+	open:    { mark: '💜', text: '',     cls: '' },
+	view:    { mark: '💜', text: '',     cls: '' },
+	pay:     { mark: '✨', text: 'paid', cls: 'is-pay' },
+	message: { mark: '💬', text: '',     cls: 'is-msg' },
+};
+
+function onReaction(msg) {
+	const pinId = msg?.pinId;
+	const type  = msg?.type;
+	if (!pinId || !type) return;
+	const pin = nearbyPins.find((p) => p.id === pinId);
+	if (!pin?.group) return;          // out of range / not spawned → drop the flourish
+	playEmote(pin, type);
+}
+
+// The agent's gesture: a one-shot perk-up scale pop on its loaded model, reusing
+// the E2 notice-pop driver in updateAgentAwareness. pay/message get a bigger pop
+// than a glance. A pin that's only a far dot/impostor (not glbLoaded) has no model
+// to pop — the floating glyph still plays, so it's always something, never a no-op.
+function playEmote(pin, type) {
+	if (!pin?.group) return;
+	if (pin.glbLoaded) {
+		pin.popT = 0;
+		pin._popAmp = type === 'pay' ? 0.16 : type === 'message' ? 0.11 : 0.07;
+	}
+	spawnFloatingReaction(pin, type);
+}
+
+// A glyph that rises off the agent's head and fades. Two layers so positioning and
+// the flourish never fight: the OUTER is reprojected to the pin's screen point each
+// frame (updateReactions); the INNER runs the CSS rise+fade and is never touched by
+// JS. Capped + auto-removed so the DOM stays tiny even in a crowd.
+function spawnFloatingReaction(pin, type) {
+	if (!pin?.group) return;
+	const g = REACTION_GLYPH[type] || REACTION_GLYPH.open;
+
+	// Evict the oldest floater at the cap so a stampede can't grow the DOM unbounded.
+	while (_reactions.length >= MAX_REACTIONS) {
+		const old = _reactions.shift();
+		old?.outer?.remove();
+	}
+
+	const outer = document.createElement('div');
+	outer.className = 'irl-reaction';
+	outer.setAttribute('aria-hidden', 'true'); // decorative; the action it mirrors is announced elsewhere
+	const inner = document.createElement('div');
+	inner.className = `irl-reaction-burst ${g.cls}`.trim();
+	inner.innerHTML = g.text
+		? `<span class="irl-reaction-mark">${g.mark}</span><span class="irl-reaction-text">${g.text}</span>`
+		: `<span class="irl-reaction-mark">${g.mark}</span>`;
+	outer.appendChild(inner);
+	document.body.appendChild(outer);
+
+	const entry = { pin, outer, t: 0 };
+	_reactions.push(entry);
+	_projectReaction(entry); // place it now so it never flashes at (0,0) for a frame
+}
+
+// Project one reaction's anchor (just above the agent's head) to screen space and
+// move its outer wrapper there. Hidden when behind the camera. Mirrors updateLabels().
+function _projectReaction(entry) {
+	const pin = entry.pin;
+	if (!pin?.group) { entry.outer.style.display = 'none'; return; }
+	_reactVec.set(pin.group.position.x, pin.group.position.y + 2.9, pin.group.position.z);
+	_reactVec.project(camera);
+	if (_reactVec.z > 1) { entry.outer.style.display = 'none'; return; }
+	const sx = (_reactVec.x * 0.5 + 0.5) * window.innerWidth;
+	const sy = (-_reactVec.y * 0.5 + 0.5) * window.innerHeight;
+	entry.outer.style.display = 'block';
+	entry.outer.style.left = `${sx}px`;
+	entry.outer.style.top  = `${sy}px`;
+}
+
+// Advance every live floater: age it, reproject it to follow its agent, retire it
+// (DOM removed) past its TTL or once its pin left the nearby set. Called each frame.
+function updateReactions(dt) {
+	if (!_reactions.length) return;
+	for (let i = _reactions.length - 1; i >= 0; i--) {
+		const entry = _reactions[i];
+		entry.t += dt;
+		const live = entry.pin?.group && nearbyPins.includes(entry.pin);
+		if (entry.t >= REACTION_TTL || !live) {
+			entry.outer.remove();
+			_reactions.splice(i, 1);
+			continue;
+		}
+		_projectReaction(entry);
 	}
 }
 
@@ -3566,6 +3959,10 @@ function tick() {
 
 	// Project nearby agent labels to screen space (capped to BUDGET.label nearest).
 	updateLabels();
+	// Advance any live ambient interaction reactions (D3): age, reproject, retire.
+	updateReactions(dt);
+	// Gentle pulse on live presence ghosts (D2) — early-outs when none are present.
+	updateGhosts(dt);
 	// Radar DOM is rebuilt at ~5 Hz, not every frame (it was a per-frame churn).
 	_radarAccum += dt;
 	if (_radarAccum >= RADAR_INTERVAL) { _radarAccum = 0; updateRadar(); }

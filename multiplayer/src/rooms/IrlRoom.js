@@ -17,14 +17,23 @@
 // straddles a cell edge within the client's nearby radius is still present in the
 // stream; the client does the final per-viewer radius filtering.
 //
-// Presence (live viewers) is D2 — this room defines the `viewers` map but writes
-// no entries yet. Interaction reactions are D3. Moderation / caps are D4.
+// Presence (live viewers) is D2 — onJoin adds a viewer at the cell centre +
+// bounded jitter (NEVER precise GPS), heartbeats refresh it, and a reaper prunes
+// the stale ones; Colyseus delta-broadcasts the `viewers` map so every client
+// derives the "N viewing nearby" count and optional ghost markers for free.
+// Interaction reactions are D3. Moderation / caps are D4.
 
 import { Room } from '@colyseus/core';
 
-import { IrlPin, IrlState } from '../irl-schemas.js';
-import { encodeGeohash, geohashNeighbors, decodeGeohashBounds } from '../geohash.js';
+import { IrlPin, IrlViewer, IrlState } from '../irl-schemas.js';
+import { encodeGeohash, geohashNeighbors, decodeGeohashBounds, decodeGeohash } from '../geohash.js';
 import { irlRegistry } from '../irl-registry.js';
+import {
+	isReactionType,
+	reactionAllowed,
+	pruneReactionLedger,
+	REACTION_LEDGER_MAX,
+} from '../irl-reactions.js';
 
 // The three.ws API this server reads authoritative pins from. Mirrors
 // persistence.js / WalkRoom's WORLD_API_BASE — the multiplayer process has no DB
@@ -36,6 +45,23 @@ const PATCH_RATE_MS = 100;        // 10 Hz delta flush — well under the ~1 s l
 const MAX_CLIENTS = 200;          // a busy real-world spot; viewers only receive broadcasts
 const MAX_PINS = 500;             // hard ceiling on the synced set, guards the join-time sync
 const PUBLISH_TYPES = new Set(['pin:add', 'pin:update', 'pin:remove']);
+
+// ── D2 presence tuning ───────────────────────────────────────────────────────
+const HEARTBEAT_STALE_MS = 30_000; // drop a viewer this long without a heartbeat
+const REAPER_INTERVAL_MS = 10_000; // sweep cadence (≤ stale window, so a drop lands < HEARTBEAT_STALE_MS + this)
+const MAX_VIEWERS = 200;           // cap the synced presence set (matches MAX_CLIENTS)
+const GHOST_AVATAR_MAX = 1024;     // clamp a shared avatar URL, same ceiling as a pin's
+// Fraction of a cell's half-extent to jitter a viewer's marker within. < 1 keeps
+// the marker inside the cell it claims, while spreading co-located viewers apart
+// so two ghosts never stack perfectly. The jitter is set once on join and never
+// moves (a heartbeat only refreshes heading/tsServer), so a ghost holds still.
+const VIEWER_JITTER_FRAC = 0.55;
+
+// Normalize an arbitrary heading input to an integer compass bearing 0–359, or 0.
+function coerceHeading(v) {
+	const n = Number(v);
+	return Number.isFinite(n) ? ((Math.round(n) % 360) + 360) % 360 : 0;
+}
 
 // Coerce a pin from either the API's snake_case row projection (room load) or the
 // webhook's camelCase wire object (publish) into the IrlPin field set, clamped so
@@ -72,6 +98,10 @@ export class IrlRoom extends Room {
 		this.maxClients = MAX_CLIENTS;
 		this.geocell = '';
 		this.window = new Set(); // centre + neighbour cells this room mirrors
+		// D3 debounce ledger: `${sessionId} ${pinId}` → lastTs of the last open/view
+		// reaction, so a jittery tap can't spam every co-located phone (pay/message
+		// bypass this entirely). Pruned when it crosses REACTION_LEDGER_MAX.
+		this._reactionLedger = new Map();
 	}
 
 	async onCreate(options) {
@@ -82,6 +112,23 @@ export class IrlRoom extends Room {
 		this.state.geocell = this.geocell;
 		this.setPatchRate(PATCH_RATE_MS);
 		this.autoDispose = true;
+
+		// D3 — a viewer interacted with a pin in this cell. Fan an ambient `reaction`
+		// to everyone here so the agent visibly emotes for bystanders. This is the
+		// flourish only; the durable record + owner notification ride the REST
+		// `/api/irl/interactions` path, so we never write the DB here (no double count).
+		this.onMessage('interaction', (client, payload) => this._handleInteraction(client, payload));
+
+		// D2 presence — a heartbeat refreshes liveness + facing (so a backgrounded
+		// tab that stops firing is reaped), and set_ghost flips a viewer's "appear to
+		// others" opt-in live so the marker shows/hides without a reconnect.
+		this.onMessage('heartbeat', (client, payload) => this._handleHeartbeat(client, payload));
+		this.onMessage('set_ghost', (client, payload) => this._handleSetGhost(client, payload));
+
+		// Reaper: drop viewers whose last heartbeat is stale. Covers silent
+		// disconnects and backgrounded mobile tabs that never fire onLeave. The
+		// clock is owned by the room and torn down automatically on dispose.
+		this.clock.setInterval(() => this._reapStaleViewers(), REAPER_INTERVAL_MS);
 
 		// The cells this room is responsible for: its centre plus the 8 neighbours.
 		this.window = new Set([this.geocell, ...geohashNeighbors(this.geocell)].filter(Boolean));
@@ -217,18 +264,113 @@ export class IrlRoom extends Room {
 		// placedAt is immutable for a given pin; never patched.
 	}
 
+	// D3 — turn a viewer's interaction into an ambient reaction for the whole cell.
+	// Validates the type, requires a pin this room actually mirrors, debounces the
+	// noisy open/view types per (session, pin), then broadcasts a privacy-clean
+	// { pinId, type, ts } to everyone in the room (the sender included, so their own
+	// tap is driven by the same authoritative event the others see). No GPS, no
+	// wallet, no actor identity ever rides this channel.
+	_handleInteraction(client, payload) {
+		const type = typeof payload?.type === 'string' ? payload.type : '';
+		if (!isReactionType(type)) return;
+		const pinId = String(payload?.pinId || '').slice(0, 64);
+		if (!pinId || !this.state.pins.has(pinId)) return; // only react for pins we hold
+
+		const now = Date.now();
+		if (this._reactionLedger.size > REACTION_LEDGER_MAX) {
+			pruneReactionLedger(this._reactionLedger, now);
+		}
+		if (!reactionAllowed(this._reactionLedger, client.sessionId, pinId, type, now)) return;
+
+		this.broadcast('reaction', { pinId, type, ts: now }, { afterNextPatch: false });
+	}
+
 	onJoin(client, options) {
-		// Bind the join context for D2 presence (lat/lng → cell-jittered marker) and
-		// so a future moderation pass (D4) can attribute actions. D1 only reads pins,
-		// so we store it but write nothing to the synced state yet.
+		// Bind the join context: the device token (D4 moderation attribution) and the
+		// agent this viewer embodies. Nothing here ever reaches the synced state.
 		client.userData = {
 			deviceToken: typeof options?.deviceToken === 'string' ? options.deviceToken.slice(0, 80) : '',
 			agentId: typeof options?.agent === 'string' ? options.agent.slice(0, 64) : '',
 		};
+
+		// D2 presence — add this viewer to the synced map so everyone in the cell
+		// gets the live count (and, if they opted in, a ghost marker). The position
+		// is the viewer's OWN precision-6 cell centre plus bounded jitter, computed
+		// here and the raw GPS immediately discarded: the only location that leaves
+		// the server is "somewhere in this ~1 km cell." Guarded by MAX_VIEWERS so a
+		// flood can't bloat the state handed to every client.
+		if (this.state.viewers.size >= MAX_VIEWERS) return;
+		const ghost = options?.ghost === true;
+		const viewer = new IrlViewer();
+		viewer.id = client.sessionId;
+		const pos = this._coarseViewerPos(Number(options?.lat), Number(options?.lng));
+		viewer.lat = pos.lat;
+		viewer.lng = pos.lng;
+		viewer.agentId = client.userData.agentId;
+		viewer.heading = coerceHeading(options?.heading);
+		viewer.ghost = ghost;
+		// A viewer only reveals an avatar when they opted into being seen.
+		viewer.avatar = ghost && typeof options?.avatar === 'string' ? options.avatar.slice(0, GHOST_AVATAR_MAX) : '';
+		viewer.tsServer = Date.now();
+		this.state.viewers.set(client.sessionId, viewer);
+	}
+
+	onLeave(client) {
+		this.state.viewers.delete(client.sessionId);
+	}
+
+	// Heartbeat: prove the viewer is still here and refresh their facing. Updating
+	// tsServer is what keeps the reaper from dropping them; heading rides along so a
+	// shared ghost can be oriented. Never touches position — the join-time jitter is
+	// the viewer's fixed coarse spot.
+	_handleHeartbeat(client, payload) {
+		const viewer = this.state.viewers.get(client.sessionId);
+		if (!viewer) return;
+		viewer.tsServer = Date.now();
+		if (payload && payload.heading !== undefined) viewer.heading = coerceHeading(payload.heading);
+	}
+
+	// Live opt-in toggle: flip whether this viewer is rendered as a ghost for others
+	// and carry the avatar to show (cleared the moment they opt out), so "Appear to
+	// others nearby" takes effect immediately without a room rejoin.
+	_handleSetGhost(client, payload) {
+		const viewer = this.state.viewers.get(client.sessionId);
+		if (!viewer) return;
+		const ghost = payload?.ghost === true;
+		viewer.ghost = ghost;
+		viewer.avatar = ghost && typeof payload?.avatar === 'string' ? payload.avatar.slice(0, GHOST_AVATAR_MAX) : '';
+		viewer.tsServer = Date.now();
+	}
+
+	// Snap a viewer's reported GPS to their own precision-6 cell centre and add
+	// bounded jitter so the stored/broadcast coordinate is coarse by construction.
+	// Falls back to this room's centre cell when the GPS is missing/invalid, so a
+	// viewer with no fix still counts (at the cell centre) rather than at (0,0).
+	_coarseViewerPos(lat, lng) {
+		let cell = this.geocell;
+		if (Number.isFinite(lat) && Number.isFinite(lng)) {
+			const own = encodeGeohash(lat, lng, 6);
+			if (GEOCELL_RE.test(own)) cell = own;
+		}
+		const c = decodeGeohash(cell || this.geocell || '');
+		const jLat = (Math.random() * 2 - 1) * c.latErr * VIEWER_JITTER_FRAC;
+		const jLng = (Math.random() * 2 - 1) * c.lngErr * VIEWER_JITTER_FRAC;
+		return { lat: c.lat + jLat, lng: c.lng + jLng };
+	}
+
+	// Drop viewers whose last heartbeat is older than the stale window. The client
+	// heartbeats every 15 s, so a live viewer never trips this; only a silent drop
+	// (closed laptop, backgrounded tab that stopped firing) does, within one sweep.
+	_reapStaleViewers() {
+		const cutoff = Date.now() - HEARTBEAT_STALE_MS;
+		for (const [id, viewer] of this.state.viewers) {
+			if (viewer.tsServer < cutoff) this.state.viewers.delete(id);
+		}
 	}
 
 	onDispose() {
 		if (this.geocell) irlRegistry.unregister(this.geocell, this);
+		this._reactionLedger.clear();
 		console.log(`[irl_world ${this.roomId} cell=${this.geocell || 'invalid'}] disposed`);
 	}
 }

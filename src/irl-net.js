@@ -69,6 +69,8 @@ export class IrlNet {
 	 * @param {number} opts.lng viewer longitude
 	 * @param {string} [opts.deviceToken] anonymous device id (D2 presence / D4 attribution)
 	 * @param {string} [opts.agent] three.ws agent id this viewer is embodying
+	 * @param {boolean} [opts.ghost] D2 — broadcast self as a ghost marker (opt-in; default off)
+	 * @param {string} [opts.avatar] D2 — GLB url to show as this viewer's ghost (only when ghost)
 	 * @param {string} [opts.url] override server URL (otherwise resolved from meta)
 	 */
 	constructor(opts = {}) {
@@ -76,6 +78,10 @@ export class IrlNet {
 		this.lng = Number(opts.lng);
 		this.deviceToken = opts.deviceToken || '';
 		this.agent = opts.agent || '';
+		// D2 presence opt-in — "appear to others nearby". Default off: a viewer is
+		// always counted, but only broadcasts a positioned ghost when they opt in.
+		this.ghost = opts.ghost === true;
+		this.avatar = opts.avatar || '';
 		this.url = opts.url || defaultServerUrl();
 		this.geocell = encodeGeohash(this.lat, this.lng, GEOCELL_PRECISION);
 
@@ -89,11 +95,13 @@ export class IrlNet {
 			'pin:update': new Set(),
 			'pin:remove': new Set(),
 			presence: new Set(), // D2 — declared now so the event API is stable
+			reaction: new Set(), // D3 — ambient interaction reactions from the room
 		};
 		this._retries = 0;
 		this._reconnectTimer = null;
 		this._destroyed = false;
 		this._connectGen = 0;
+		this._presenceQueued = false; // coalesces a join-time burst of viewer deltas
 	}
 
 	on(event, fn) {
@@ -168,6 +176,10 @@ export class IrlNet {
 				agent: this.agent,
 				lat: this.lat,
 				lng: this.lng,
+				// D2 — opt-in to being seen. The server snaps lat/lng to the cell centre
+				// (coarse) regardless; ghost/avatar only ride when the viewer opted in.
+				ghost: this.ghost,
+				avatar: this.ghost ? this.avatar : '',
 			}, IrlState);
 			if (this._destroyed || gen !== this._connectGen) {
 				try { room.leave(); } catch {}
@@ -188,6 +200,25 @@ export class IrlNet {
 					this._emit('pin:remove', { id: pin?.id || id });
 				});
 			}
+
+			// D2 presence — the room's `viewers` MapSchema is the live crowd. Any
+			// add / remove / per-viewer change re-derives the { count, viewers } the
+			// HUD chip + ghost markers read. The join handshake fires onAdd once per
+			// existing viewer, so we coalesce the burst into a single emit next tick.
+			const $viewers = $(this.room.state)?.viewers;
+			if ($viewers) {
+				$viewers.onAdd((viewer) => {
+					$(viewer).onChange(() => this._queuePresence());
+					this._queuePresence();
+				});
+				$viewers.onRemove(() => this._queuePresence());
+			}
+
+			// D3 ambient reactions — the room broadcasts `reaction` to everyone in the
+			// geocell when a co-located viewer taps / pays / messages a pin here. It's a
+			// transient flourish (not schema state), so it rides a plain message, not a
+			// MapSchema. Payload is privacy-stripped server-side to { pinId, type, ts }.
+			this.room.onMessage('reaction', (msg) => this._emit('reaction', msg));
 
 			this.room.onLeave((code) => {
 				// A clean leave (1000) is us calling _closeRoom on destroy/moveTo — don't
@@ -238,6 +269,104 @@ export class IrlNet {
 		this.geocell = cell;
 		this._retries = 0; // a deliberate move gets a fresh connection budget
 		await this.connect(); // leave the old room, join the new one
+	}
+
+	/**
+	 * D3 — tell the room a viewer interacted with a pin, so it can fan an ambient
+	 * reaction (agent emote + floating 💜/✨) to everyone else viewing this geocell.
+	 * This is the *flourish* channel only: the durable record + owner notification
+	 * already flow over the REST `/api/irl/interactions` path, so this is fire-and-
+	 * forget and a no-op whenever the WS isn't live (poll fallback) — the record is
+	 * never lost, only the live flourish is skipped.
+	 * @param {{type:'open'|'view'|'pay'|'message', pinId:string, agentId?:string}} payload
+	 * @returns {boolean} whether the emit was actually sent over a live socket
+	 */
+	interaction(payload) {
+		if (this.status !== 'online' || !this.room) return false;
+		const type = payload?.type;
+		const pinId = payload?.pinId;
+		if (!type || !pinId) return false;
+		try {
+			this.room.send('interaction', {
+				type: String(type),
+				pinId: String(pinId),
+				agentId: payload.agentId ? String(payload.agentId) : '',
+			});
+			return true;
+		} catch (e) {
+			log.warn('[irl-net] interaction send failed:', e?.message || e);
+			return false;
+		}
+	}
+
+	/**
+	 * D2 — prove we're still viewing and report our facing. The server refreshes
+	 * this viewer's heartbeat timestamp (so the reaper keeps us) and updates the
+	 * heading a shared ghost is oriented by. No-op off a live socket; presence is
+	 * inherently live-only, so a missed heartbeat in poll fallback is correct.
+	 * @param {number} headingDeg compass bearing 0–359 the viewer is facing
+	 */
+	heartbeat(headingDeg) {
+		if (this.status !== 'online' || !this.room) return;
+		const heading = Number.isFinite(headingDeg) ? headingDeg : 0;
+		try { this.room.send('heartbeat', { heading }); } catch (e) {
+			log.warn('[irl-net] heartbeat send failed:', e?.message || e);
+		}
+	}
+
+	/**
+	 * D2 — flip the "appear to others nearby" opt-in. Stored so a later (re)connect
+	 * re-joins with the right intent, and pushed live over `set_ghost` so the marker
+	 * appears / disappears for everyone in the cell without a rejoin.
+	 * @param {boolean} ghost broadcast self as a positioned ghost
+	 * @param {string} [avatar] GLB url to show as the ghost (ignored when ghost=false)
+	 */
+	setGhost(ghost, avatar) {
+		this.ghost = ghost === true;
+		if (avatar !== undefined) this.avatar = avatar || '';
+		if (this.status !== 'online' || !this.room) return;
+		try {
+			this.room.send('set_ghost', { ghost: this.ghost, avatar: this.ghost ? this.avatar : '' });
+		} catch (e) {
+			log.warn('[irl-net] set_ghost send failed:', e?.message || e);
+		}
+	}
+
+	// Coalesce a flurry of viewer deltas (notably the per-viewer onAdd burst the
+	// join handshake fires) into one presence emit on the next microtask.
+	_queuePresence() {
+		if (this._presenceQueued || this._destroyed) return;
+		this._presenceQueued = true;
+		Promise.resolve().then(() => {
+			this._presenceQueued = false;
+			this._emitPresence();
+		});
+	}
+
+	// Derive { count, viewers } from the live MapSchema and emit it. `count` is the
+	// whole crowd (self included — the chip hides at ≤1). `viewers` is everyone
+	// ELSE who opted into a ghost, mapped to the coarse render shape; non-ghost and
+	// self entries never appear, so a marker is only ever drawn for opted-in others.
+	_emitPresence() {
+		if (this._destroyed || !this.room) return;
+		const map = this.room.state?.viewers;
+		if (!map) return;
+		const selfId = this.room.sessionId;
+		let count = 0;
+		const viewers = [];
+		map.forEach((v, id) => {
+			count++;
+			if (id === selfId || !v.ghost) return;
+			viewers.push({
+				id,
+				glat: v.lat,
+				glng: v.lng,
+				heading: v.heading,
+				avatar: v.avatar || '',
+				ghost: true,
+			});
+		});
+		this._emit('presence', { count, viewers });
 	}
 
 	/** Force a reconnect (e.g. the user tapped the offline pill). */

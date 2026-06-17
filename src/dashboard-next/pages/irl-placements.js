@@ -24,7 +24,8 @@
 
 import { mountShell } from '../shell.js';
 import { requireUser, get, post, patch, esc, relTime } from '../api.js';
-import { skeletonHTML, emptyStateHTML, errorStateHTML, ensureStateKitStyles, attachRetry } from '../../shared/state-kit.js';
+import { skeletonHTML, emptyStateHTML, errorStateHTML, ensureStateKitStyles } from '../../shared/state-kit.js';
+import { loadInto } from '../../shared/async-state.js';
 import { mountReputationPanel } from './irl-reputation.js';
 
 // ── Services / x402 skill pricing ───────────────────────────────────────────
@@ -564,28 +565,37 @@ async function mount(el) {
 
 	const list = el.querySelector('#irl-list');
 	listEl = list;
-	list.innerHTML = skeletonHTML(3, 'row');
 
-	// Pins + interactions in parallel — interactions power both the banner and
-	// each card's IRL feed.
-	let pins;
-	try {
-		const [sumData, ixData] = await Promise.all([
-			get('/api/irl/agent-summary?mine=1'),
-			get('/api/irl/interactions?mine=1').catch(() => ({ interactions: [], unread: 0 })),
-		]);
-		// agent-summary keys each row by pin_id and adds derived monitoring signals
-		// (status, interaction_count, last_interaction_at). Normalize pin_id→id so
-		// the existing card code is unchanged.
-		pins = (sumData.agents || []).map((a) => ({ ...a, id: a.pin_id }));
-		inbox.interactions = ixData.interactions || [];
-		inbox.unread = ixData.unread || 0;
-	} catch {
-		list.innerHTML = errorStateHTML({ title: "Couldn't load your IRL agents", body: 'Check your connection and try again.', scope: 'irl' });
-		attachRetry(list, () => mount(el));
-		return;
-	}
+	// One network boundary for the four designed states: loading skeleton → list /
+	// empty / error+retry. The retry button re-runs this same load. Signed-out is
+	// handled earlier by requireUser()'s redirect to /login, so it never reaches here.
+	await loadInto(list, {
+		load: async () => {
+			// Pins + interactions in parallel — interactions power both the banner and
+			// each card's IRL feed.
+			const [sumData, ixData] = await Promise.all([
+				get('/api/irl/agent-summary?mine=1'),
+				get('/api/irl/interactions?mine=1').catch(() => ({ interactions: [], unread: 0 })),
+			]);
+			inbox.interactions = ixData.interactions || [];
+			inbox.unread = ixData.unread || 0;
+			// agent-summary keys each row by pin_id and adds derived monitoring signals
+			// (status, interaction_count, last_interaction_at). Normalize pin_id→id so
+			// the existing card code is unchanged.
+			return (sumData.agents || []).map((a) => ({ ...a, id: a.pin_id }));
+		},
+		render: (pins, listC) => renderPlacements(pins, listC, el),
+		skeleton: { count: 3, variant: 'row' },
+		error: { title: "Couldn't load your IRL agents", body: 'Check your connection and try again.' },
+		errorScope: 'irl',
+		context: 'dashboard:irl-placements',
+	});
+}
 
+// Paint the populated placements — or the designed empty state — then wire the
+// live layers. Routed through loadInto's render hook (no `empty` config), so the
+// zero-pins CTA rides the same path as the populated list.
+function renderPlacements(pins, list, el) {
 	if (!pins.length) {
 		list.innerHTML = emptyStateHTML({
 			icon: '📍',
@@ -598,11 +608,18 @@ async function mount(el) {
 	}
 
 	renderBanner();
-
 	list.innerHTML = pins.map((p) => cardHtml(p, inbox.interactions)).join('');
 	applyBadges();
+	enrichCards(pins, list);
+	wireCardEvents(list, pins);
+	startPolling();
+	startLiveStream(); // D3 — upgrade the poll to instant realtime delivery
+}
 
-	// ── Async enrichment per card: balance, reputation, services, geocode ──────
+// ── Async enrichment per card: balance, reputation, services, skills, geocode ──
+// Each call is best-effort and fills its skeleton chip on resolve (or an honest
+// "—" / "Unavailable" on failure) so a slow upstream never leaves a card blank.
+function enrichCards(pins, list) {
 	for (const pin of pins) {
 		const card = list.querySelector(`[data-id="${pin.id}"]`);
 		if (!card) continue;
@@ -658,10 +675,6 @@ async function mount(el) {
 			})
 			.catch(() => fillStatError(card, 'balance'));
 	}
-
-	wireCardEvents(list, pins);
-	startPolling();
-	startLiveStream(); // D3 — upgrade the poll to instant realtime delivery
 }
 
 // ── Live header badge, per-card chips, and the "new interactions" banner ─────

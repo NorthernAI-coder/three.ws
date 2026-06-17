@@ -56,7 +56,7 @@ const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
  *
  * Tiers:  >=85 elite · >=60 trusted · >=30 emerging · else new
  */
-function deriveReputation({ fbTotal, scoreAvg, uniqueAttesters, valPassed, valFailed, tasksAccepted }) {
+export function deriveReputation({ fbTotal, scoreAvg, uniqueAttesters, valPassed, valFailed, tasksAccepted }) {
 	// 1–5 stars → 0–1 (a 1-star floor contributes nothing; a 5-star avg is full).
 	const scoreNorm = fbTotal > 0 ? clamp((scoreAvg - 1) / 4, 0, 1) : 0;
 	// log10(1+n)/log10(51): 0 attesters → 0, ~50 attesters → ~1.
