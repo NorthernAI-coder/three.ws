@@ -37,6 +37,11 @@ class FakeAudioParam {
 		this.events.push({ type: 'linearRamp', value, time });
 		return this;
 	}
+	setTargetAtTime(value, time) {
+		this.value = value;
+		this.events.push({ type: 'target', value, time });
+		return this;
+	}
 	cancelScheduledValues(time) {
 		this.events.push({ type: 'cancel', time });
 		return this;
@@ -104,20 +109,126 @@ class FakeBufferSource {
 	}
 }
 
+class FakeBiquadFilterNode {
+	constructor() {
+		this.type = '';
+		this.frequency = new FakeAudioParam(0);
+		this.Q = new FakeAudioParam(0);
+		this.gain = new FakeAudioParam(0);
+		this._connections = [];
+	}
+	connect(dest) {
+		this._connections.push(dest);
+		return dest;
+	}
+	disconnect() {
+		this._connections = [];
+	}
+}
+
+class FakeConvolverNode {
+	constructor() {
+		this.buffer = null;
+		this._connections = [];
+	}
+	connect(dest) {
+		this._connections.push(dest);
+		return dest;
+	}
+	disconnect() {
+		this._connections = [];
+	}
+}
+
+class FakeMediaElementSource {
+	constructor(el) {
+		this.mediaElement = el;
+		this._connections = [];
+	}
+	connect(dest) {
+		this._connections.push(dest);
+		return dest;
+	}
+	disconnect() {
+		this._connections = [];
+	}
+}
+
+// First play() can be told to reject (browser autoplay policy) so we can
+// exercise the gesture-retry path. `audioPlayBehavior` is reset per test.
+let audioPlayBehavior = 'resolve';
+
+class FakeAudioElement {
+	constructor() {
+		this.src = '';
+		this.preload = '';
+		this.loop = false;
+		this.paused = true;
+		this.playCount = 0;
+		this._listeners = new Map();
+	}
+	addEventListener(type, cb) {
+		if (!this._listeners.has(type)) this._listeners.set(type, []);
+		this._listeners.get(type).push(cb);
+	}
+	async play() {
+		this.playCount += 1;
+		if (audioPlayBehavior === 'reject-first' && this.playCount === 1) {
+			throw new Error('NotAllowedError: autoplay blocked');
+		}
+		this.paused = false;
+		this._emit('playing');
+	}
+	pause() {
+		this.paused = true;
+	}
+	_emit(type) {
+		for (const cb of this._listeners.get(type) || []) cb();
+	}
+}
+
 class FakeAudioContext {
 	constructor() {
 		this.currentTime = 0;
+		this.sampleRate = 44100;
 		this.destination = { _label: 'destination' };
 		this.state = 'running';
 		this.createdGains = [];
 		this.createdSources = [];
 		this.createdAnalysers = [];
+		this.createdMediaSources = [];
+		this.createdFilters = [];
+		this.createdConvolvers = [];
 		this.decodedBuffers = [];
 	}
 	createGain() {
 		const g = new FakeGainNode();
 		this.createdGains.push(g);
 		return g;
+	}
+	createMediaElementSource(el) {
+		const s = new FakeMediaElementSource(el);
+		this.createdMediaSources.push(s);
+		return s;
+	}
+	createBiquadFilter() {
+		const f = new FakeBiquadFilterNode();
+		this.createdFilters.push(f);
+		return f;
+	}
+	createConvolver() {
+		const c = new FakeConvolverNode();
+		this.createdConvolvers.push(c);
+		return c;
+	}
+	createBuffer(channels, length, rate) {
+		const data = Array.from({ length: channels }, () => new Float32Array(length));
+		return {
+			numberOfChannels: channels,
+			length,
+			sampleRate: rate,
+			getChannelData: (c) => data[c],
+		};
 	}
 	createAnalyser() {
 		const a = new FakeAnalyserNode();
@@ -150,7 +261,9 @@ beforeEach(() => {
 	originalFetch = globalThis.fetch;
 	originalLocalStorage = globalThis.localStorage;
 
-	const fakeWindow = { AudioContext: FakeAudioContext };
+	audioPlayBehavior = 'resolve';
+
+	const fakeWindow = { AudioContext: FakeAudioContext, Audio: FakeAudioElement };
 	globalThis.window = fakeWindow;
 
 	// In-memory localStorage so setMuted persistence doesn't touch disk.
@@ -225,6 +338,86 @@ describe('ClubAudio.startAmbience', () => {
 		const firstSource = audio.ambience.source;
 		await audio.startAmbience();
 		expect(audio.ambience.source).toBe(firstSource);
+	});
+});
+
+describe('ClubAudio.startMusic', () => {
+	it('streams the first track (club) through a media-element source at the music gain', async () => {
+		const audio = new ClubAudio();
+		const music = await audio.startMusic();
+
+		expect(music).toBeTruthy();
+		expect(audio.music).toBe(music);
+		// One <audio> element wired through exactly one MediaElementSource.
+		expect(audio.ctx.createdMediaSources).toHaveLength(1);
+		expect(audio.ctx.createdMediaSources[0].mediaElement).toBe(music.el);
+		// First track is club.mp3, playing, at the full bed gain.
+		expect(music.el.src.endsWith('/club/audio/club.mp3')).toBe(true);
+		expect(music.el.paused).toBe(false);
+		expect(music.gain.gain.value).toBeCloseTo(0.85, 3);
+		// Full tracks stream — they must never be decoded into a buffer.
+		expect(audio.ctx.decodedBuffers).toHaveLength(0);
+	});
+
+	it('loops the sequence club → stripper → club on each `ended`', async () => {
+		const audio = new ClubAudio();
+		await audio.startMusic();
+		const el = audio.music.el;
+
+		expect(el.src.endsWith('/club/audio/club.mp3')).toBe(true);
+
+		el._emit('ended');
+		expect(el.src.endsWith('/club/audio/im-in-love-wit-a-stripper-fast.mp3')).toBe(true);
+		expect(audio.music.index).toBe(1);
+
+		el._emit('ended');
+		expect(el.src.endsWith('/club/audio/club.mp3')).toBe(true);
+		expect(audio.music.index).toBe(0);
+	});
+
+	it('retries on the same element after an autoplay rejection (no second graph)', async () => {
+		audioPlayBehavior = 'reject-first';
+		const audio = new ClubAudio();
+
+		await expect(audio.startMusic()).rejects.toThrow();
+		// The graph is wired even though the first play() was blocked.
+		expect(audio.music).toBeTruthy();
+		const firstEl = audio.music.el;
+
+		// Second call (a user gesture) resumes the same element, not a new graph.
+		await audio.startMusic();
+		expect(audio.music.el).toBe(firstEl);
+		expect(audio.music.el.paused).toBe(false);
+		expect(audio.ctx.createdMediaSources).toHaveLength(1);
+	});
+
+	it('a tipped style loop ducks the music bed and fadeOutStyle restores it', async () => {
+		const audio = new ClubAudio();
+		await audio.startMusic();
+
+		audio.ctx.currentTime = 4;
+		await audio.fadeToStyle('rumba', 800);
+		const duckRamp = audio.music.gain.gain._lastRamp();
+		expect(duckRamp.value).toBeCloseTo(0.18, 3);
+		expect(duckRamp.time).toBeCloseTo(4.8, 3);
+
+		audio.ctx.currentTime = 10;
+		await audio.fadeOutStyle(800);
+		const restoreRamp = audio.music.gain.gain._lastRamp();
+		expect(restoreRamp.value).toBeCloseTo(0.85, 3);
+		expect(restoreRamp.time).toBeCloseTo(10.8, 3);
+	});
+
+	it('mute pauses the streaming element and unmute resumes it', async () => {
+		const audio = new ClubAudio();
+		await audio.startMusic();
+		expect(audio.music.el.paused).toBe(false);
+
+		audio.setMuted(true);
+		expect(audio.music.el.paused).toBe(true);
+
+		audio.setMuted(false);
+		expect(audio.music.el.paused).toBe(false);
 	});
 });
 

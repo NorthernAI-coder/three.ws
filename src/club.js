@@ -1292,11 +1292,10 @@ window.addEventListener('club:performance-end', () => {
 {
 	const doorPay = document.getElementById('club-door-pay');
 	doorPay?.addEventListener('click', () => {
-		// Prime the context and start ambience immediately so the user hears the
-		// club music muffled through the door (outdoor effect is the default state).
-		audio.ensureContext()
-			.then(() => audio.startAmbience())
-			.catch(() => {});
+		// The cover click is a user gesture — start the music bed now so the
+		// soundtrack is already playing (muffled through the door, since outdoor
+		// is the default effects state) before the rope drops.
+		audio.startMusic().catch(() => {});
 	}, { once: true });
 
 	const armOnGesture = () => {
@@ -1311,6 +1310,19 @@ window.addEventListener('club:performance-end', () => {
 		// still locked — fall back to playing on the next interaction.
 		audio.playEntrance().catch(armOnGesture);
 	}, { once: true });
+}
+
+// ── Club music bed ──────────────────────────────────────────────────────────
+// The two-track soundtrack — club anthem → the stripper cut → loop — is the
+// room's music, and it should start the moment the visitor lands. Browser
+// autoplay policy blocks sound until a gesture, so we latch onto the first
+// interaction anywhere on the page: walking up the alley, the cover-charge
+// click, or a tip. startMusic() is idempotent (and the door + tip flows call
+// it too), so whichever gesture lands first starts the bed and the rest no-op.
+{
+	const start = () => audio.startMusic().catch((err) => log.warn('[club] music', err));
+	window.addEventListener('pointerdown', start, { once: true });
+	window.addEventListener('keydown', start, { once: true });
 }
 
 // ── Tip flow (x402 drop-in) ──────────────────────────────────────────────
@@ -1346,7 +1358,7 @@ async function tipDancer({ dancer, dance, button }) {
 	// non-fatal — the rest of the tip flow still works without audio.
 	try {
 		await audio.ensureContext();
-		audio.startAmbience().catch((err) => log.warn('[club] startAmbience', err));
+		audio.startMusic().catch((err) => log.warn('[club] startMusic', err));
 	} catch (err) {
 		log.warn('[club] audio unavailable', err);
 	}
