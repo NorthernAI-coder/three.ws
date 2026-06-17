@@ -311,10 +311,30 @@ async function start(canvasEl) {
 	// in rooms like the gallery; starting from y=1.2 samples only floor-level
 	// surfaces (floor is always near y=0 after mountEnvironment normalises).
 	function sampleFloor(x, z) {
+		const y = rayFloor(x, z);
+		return y == null ? 0 : y;
+	}
+
+	// Raw floor height under (x, z), or null when the ray finds no surface.
+	// Origin sits above the walkable band so it samples the floor, not the
+	// avatar's own mesh; the band reaches a little below 0 for venues whose
+	// floor normalises slightly under the origin.
+	function rayFloor(x, z) {
 		groundRay.set(new Vector3(x, 1.2, z), DOWN);
 		groundRay.far = 1.5; // covers y ∈ [−0.3, 1.2] — the floor band
 		const hit = groundRay.intersectObject(env.root, true)[0];
-		return hit ? Math.max(0, hit.point.y) : 0;
+		return hit ? Math.max(0, hit.point.y) : null;
+	}
+
+	// Keep the avatar's feet planted as it walks: the floor height varies from
+	// venue to venue (and across a single floor), so re-sample under the rig
+	// each frame and ease toward it. Holding the last height on a ray miss
+	// avoids dropping the avatar to y=0 over gaps in the floor geometry.
+	function trackFloor(dt) {
+		const y = rayFloor(rig.position.x, rig.position.z);
+		if (y == null) return;
+		floorY = y;
+		rig.position.y += (floorY - rig.position.y) * (1 - Math.exp(-14 * dt));
 	}
 
 	function placeSpawn() {
@@ -612,6 +632,7 @@ async function start(canvasEl) {
 			if (joy.active) { ix += joy.nx; iz += -joy.ny; }
 		}
 		stepAvatar(ix, iz, dt);
+		trackFloor(dt);
 		anim.update(dt);
 		updateCamera(dt);
 		if (phase === 'walk') minimap.update(rig.position, rig.rotation.y, nearDoor, now / 1000, prefersReducedMotion);

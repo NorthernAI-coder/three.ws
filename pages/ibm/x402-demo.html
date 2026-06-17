@@ -318,51 +318,39 @@ agent-3d:defined ~ .agent-skel{display:none}
 .agent-prompt{font-size:12px;font-weight:500;color:var(--ibm-blue);background:none;border:1px solid var(--ibm-border);padding:7px 12px;cursor:pointer;border-radius:2px;font-family:inherit;transition:border-color .12s,background .12s}
 .agent-prompt:hover{border-color:var(--ibm-blue);background:var(--ibm-field)}
 
-/* ── Rooms (Forge / Play / IRL) ── */
-.rooms{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--ibm-border);border:1px solid var(--ibm-border);margin-top:28px}
-@media(max-width:760px){.rooms{grid-template-columns:1fr}}
-/* When a room is launched it takes over the whole width — these apps are built
-   for a full viewport, not a one-third column. The other tiles collapse away. */
-.rooms.has-live{grid-template-columns:1fr}
-.rooms.has-live .room:not(.is-live){display:none}
-.room{background:var(--ibm-surface);display:flex;flex-direction:column;min-height:240px}
-.room-head{padding:22px 22px 0;flex:0 0 auto}
-.room-ico{width:34px;height:34px;color:var(--ibm-blue);margin-bottom:12px}
-.room-ico svg{width:100%;height:100%;display:block}
-.room h3{font-size:16px;font-weight:600;margin-bottom:6px}
-.room h3 .verb{font-family:var(--font-mono);font-size:11px;color:var(--ibm-blue);font-weight:500;display:block;letter-spacing:.06em;text-transform:uppercase;margin-bottom:5px}
-.room p{font-size:13px;color:var(--ibm-muted);font-weight:300;line-height:1.55}
-.room-actions{margin-top:auto;padding:16px 22px 20px;display:flex;flex-wrap:wrap;gap:10px;align-items:center}
-.room-open{display:inline-flex;align-items:center;justify-content:center;gap:8px;background:var(--ibm-blue-fill);color:#fff;border:none;cursor:pointer;font-family:inherit;font-size:13px;font-weight:500;padding:9px 16px;transition:background .12s,transform .04s}
-.room-open:hover{background:var(--ibm-blue-fill-hover)}
-.room-open:active{transform:translateY(1px)}
-.room-out{font-size:12px;font-weight:500;color:var(--ibm-muted)}
-.room-out:hover{color:var(--ibm-blue)}
-/* Inline embed slot — hidden until launched, then fills with the live iframe. */
-.room-embed{display:none;position:relative;border-top:1px solid var(--ibm-border);background:var(--ibm-field)}
-.room.is-live .room-embed{display:block}
-.room.is-live .room-head,.room.is-live .room-actions{display:none}
-/* Full-bleed once launched: fill the section width and most of the viewport
-   height so the embedded app has room to breathe. */
-.room-embed iframe{display:block;width:100%;height:min(78vh,820px);border:0;background:var(--ibm-field)}
-.room-embed .embed-bar{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 14px;border-bottom:1px solid var(--ibm-border);font-size:12px;color:var(--ibm-subtle);font-weight:500}
-.room-embed .embed-bar .bar-url{display:inline-flex;align-items:center;gap:8px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.room-embed .embed-bar .bar-actions{display:flex;gap:8px;flex:0 0 auto}
-.room-embed .embed-bar button{background:none;border:1px solid var(--ibm-divider);color:var(--ibm-ink);font-family:inherit;font-size:12px;font-weight:500;padding:5px 10px;cursor:pointer;border-radius:2px}
-.room-embed .embed-bar button:hover{border-color:var(--ibm-blue);color:var(--ibm-blue)}
+/* ── Demo nav strip (hero) ── */
+.demo-nav{display:flex;flex-wrap:wrap;gap:8px;margin-top:26px}
+.demo-nav a{font-size:13px;font-weight:500;color:var(--ibm-ink);border:1px solid var(--ibm-border);padding:8px 14px;border-radius:2px;transition:border-color .12s,color .12s,background .12s}
+.demo-nav a:hover{border-color:var(--ibm-blue);color:var(--ibm-blue);background:var(--ibm-field);text-decoration:none}
+.demo-nav a .n{font-family:var(--font-mono);color:var(--ibm-blue);margin-right:8px;font-size:11px}
+
+/* ── Full-size live demo embed (Forge / Play / IRL) ── */
+/* Each runs at full content width and most of the viewport height — these are
+   real production apps, presented full-size, lazy-loaded as they scroll in. */
+.live-embed{border:1px solid var(--ibm-divider);background:var(--ibm-surface);margin-top:28px}
+.live-embed .embed-bar{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 16px;border-bottom:1px solid var(--ibm-border);font-size:12px;color:var(--ibm-subtle);font-weight:500}
+.live-embed .bar-url{display:inline-flex;align-items:center;gap:8px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--font-mono)}
+.live-embed .bar-url .dot{width:7px;height:7px;border-radius:50%;background:var(--ibm-amber);flex:0 0 auto;transition:background .2s}
+.live-embed.loaded .bar-url .dot{background:var(--ibm-green)}
+.live-embed.failed .bar-url .dot{background:var(--ibm-red)}
+.live-embed .bar-actions{display:flex;gap:8px;flex:0 0 auto}
+.live-embed .bar-actions button,.live-embed .bar-actions a{background:none;border:1px solid var(--ibm-divider);color:var(--ibm-ink);font-family:inherit;font-size:12px;font-weight:500;padding:6px 11px;cursor:pointer;border-radius:2px;display:inline-flex;align-items:center;gap:5px;text-decoration:none}
+.live-embed .bar-actions button:hover,.live-embed .bar-actions a:hover{border-color:var(--ibm-blue);color:var(--ibm-blue)}
+.embed-frame{position:relative;background:var(--ibm-field);height:min(78vh,820px)}
+.embed-frame iframe{display:block;width:100%;height:100%;border:0;background:var(--ibm-field)}
 /* True full-screen via the Fullscreen API — the app fills the whole display. */
-.room-embed:fullscreen{background:var(--ibm-surface);display:flex;flex-direction:column}
-.room-embed:fullscreen iframe{height:100%;flex:1}
-.room-embed:-webkit-full-screen{background:var(--ibm-surface)}
-.room-embed:-webkit-full-screen iframe{height:100%}
-.room-embed .embed-load{position:absolute;left:0;right:0;top:37px;bottom:0;display:flex;align-items:center;justify-content:center;gap:10px;font-size:13px;color:var(--ibm-subtle);background:var(--ibm-field)}
-.room-embed.loaded .embed-load{display:none}
-.room-embed .embed-load .spin{width:16px;height:16px;border:2px solid var(--ibm-divider);border-top-color:var(--ibm-blue);border-radius:50%;animation:spin .8s linear infinite}
-.room-embed .embed-err{position:absolute;left:0;right:0;top:37px;bottom:0;display:none;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:20px;text-align:center;font-size:13px;color:var(--ibm-muted);background:var(--ibm-field)}
-.room-embed.failed .embed-err{display:flex}
-.room-embed.failed .embed-load,.room-embed.failed iframe{display:none}
-.room-embed .embed-err a{font-weight:600}
-@media(pointer:coarse){.room-open,.room-embed .embed-bar button,.agent-prompt{min-height:44px}}
+.live-embed:fullscreen{display:flex;flex-direction:column;background:var(--ibm-surface)}
+.live-embed:fullscreen .embed-frame{flex:1;height:auto}
+.live-embed:-webkit-full-screen{background:var(--ibm-surface)}
+.embed-state{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;padding:24px;color:var(--ibm-subtle);font-size:14px;background:var(--ibm-field)}
+.embed-state .spin{width:18px;height:18px;border:2px solid var(--ibm-divider);border-top-color:var(--ibm-blue);border-radius:50%;animation:spin .8s linear infinite}
+.embed-state .es-hint{font-size:12px;color:var(--ibm-subtle);max-width:44ch;font-weight:300;line-height:1.55}
+.embed-err{display:none}
+.live-embed.loaded .embed-load{display:none}
+.live-embed.failed .embed-load{display:none}
+.live-embed.failed .embed-err{display:flex}
+.embed-err a{font-weight:600}
+@media(pointer:coarse){.agent-prompt,.demo-nav a,.live-embed .bar-actions button,.live-embed .bar-actions a{min-height:44px}}
 
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}
@@ -401,8 +389,16 @@ agent-3d:defined ~ .agent-skel{display:none}
       <span style="color:var(--ibm-border)" aria-hidden="true">|</span>
       <span class="mono">three.ws</span>
     </div>
-    <h1>See <strong>x402</strong> work — pay a fraction of a cent for a real API call</h1>
-    <p class="hero-sub">x402 turns the dormant HTTP <span class="mono">402 Payment Required</span> status into a payment rail. A normal request comes back with machine-readable payment terms; your wallet signs a stablecoin authorization and retries; the call settles on-chain in about a second. No keys, no account, no invoice. Try it below with your own wallet.</p>
+    <h1>A live showcase of agentic commerce, built with <strong>IBM</strong></h1>
+    <p class="hero-sub">IBM has shaped computing for over a century — and it stays at the frontier by backing what comes next. three.ws is one of those bets: a platform for on-chain micropayments and embodied AI agents. As an IBM Business Partner, we built this page to demonstrate that partnership in the open — every demo below runs against real, production three.ws systems. Nothing is mocked, nothing is a slide.</p>
+    <p class="hero-sub" style="margin-top:14px">Five things we want to show you: pay-per-call micropayments over <span class="mono">x402</span>, an autonomous 3D agent that buys its own data, text turned into a 3D model, a shared 3D world, and an agent placed in augmented reality. Try each one yourself.</p>
+    <nav class="demo-nav" aria-label="The demos on this page">
+      <a href="#demo"><span class="n">01</span>x402 payments</a>
+      <a href="#agent"><span class="n">02</span>3D agent</a>
+      <a href="#forge"><span class="n">03</span>Forge</a>
+      <a href="#play"><span class="n">04</span>Play</a>
+      <a href="#irl"><span class="n">05</span>IRL</a>
+    </nav>
   </div>
 </header>
 
@@ -435,7 +431,7 @@ agent-3d:defined ~ .agent-skel{display:none}
 <!-- ══ LIVE DEMO ══ -->
 <section class="section" id="demo" aria-labelledby="demo-h">
   <div class="inner">
-    <div class="section-tag">Live · production endpoint</div>
+    <div class="section-tag">Demo 01 · Payments</div>
     <h2 id="demo-h">Buy a <strong>data call</strong> for $0.001</h2>
     <p class="section-lead">This calls a real three.ws API — a token-symbol availability check — for one tenth of a cent in USDC, settled on Base or Solana mainnet. Nothing here is mocked: the price below is read live from the server's own 402 response.</p>
 
@@ -495,7 +491,7 @@ agent-3d:defined ~ .agent-skel{display:none}
 <!-- ══ THE AGENT ══ -->
 <section class="section" id="agent" aria-labelledby="agent-h">
   <div class="inner">
-    <div class="section-tag">The buyer, embodied</div>
+    <div class="section-tag">Demo 02 · Embodiment</div>
     <h2 id="agent-h">An <strong>agent</strong> that pays for its own data</h2>
     <p class="section-lead">Everything you just did by hand — read the price, sign, settle — an autonomous agent can do on its own. This is one of them: a 3D agent from three.ws, running its own brain in your browser. It watches the call above and reacts the moment your payment settles. Ask it how x402 works.</p>
 

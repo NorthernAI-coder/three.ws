@@ -923,6 +923,23 @@ window.addEventListener('keyup', (e) => {
 	}
 });
 
+// Clear all movement input when the window loses focus or the page is hidden
+// so keys/joystick don't get stuck on (keyup events won't fire while unfocused).
+function clearInput() {
+	input.keys.forward = 0;
+	input.keys.back = 0;
+	input.keys.left = 0;
+	input.keys.right = 0;
+	input.keys.run = false;
+	input.joy.x = 0;
+	input.joy.y = 0;
+	input.joy.active = false;
+}
+window.addEventListener('blur', clearInput);
+document.addEventListener('visibilitychange', () => {
+	if (document.visibilityState === 'hidden') clearInput();
+});
+
 // Touch devices and narrow viewports get the on-screen sticks + action
 // cluster; wide pointer-fine screens drive everything from WASD + mouse-look.
 const wantsTouchControls = (() => {

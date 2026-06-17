@@ -3,6 +3,24 @@
 	"entries": [
 		{
 			"date": "2026-06-17",
+			"title": "Pick a 3D agent to drop into any world",
+			"summary": "Added a dedicated agent picker to the worlds lobby. Tap “Browse 3D agents” to search the full directory of public agents, filter by skill or on-chain status, sort by popular/newest/name, and spin each agent's avatar in a live 3D preview before you commit. Choose one and you drop into the world wearing its avatar — no more sifting through raw avatars and accessories to find an actual agent.",
+			"tags": [
+				"feature"
+			],
+			"link": "/worlds"
+		},
+		{
+			"date": "2026-06-17",
+			"title": "Avatar feet stay planted on the floor",
+			"summary": "Fixed your avatar sinking partway through the floor in the Pole Club walk-in — most noticeable in the Clubhouse. The avatar now re-checks the ground beneath it every frame and keeps its feet on the surface as you move between rooms, instead of standing at the height it spawned at.",
+			"tags": [
+				"fix"
+			],
+			"link": "/club"
+		},
+		{
+			"date": "2026-06-17",
 			"title": "Quieter walk-up to the Pole Club",
 			"summary": "Dropped the muffled bass loop that played in the alley on the way to the club door — it was more distracting than atmospheric. The walk-in is silent now until you pay the cover and the rope drops, when the full anthem kicks in.",
 			"tags": [

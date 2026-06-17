@@ -464,6 +464,18 @@ export function initWalkPreview(container) {
 		const next = onScreen && document.visibilityState !== 'hidden';
 		if (next === running) return;
 		running = next;
+		if (!running) {
+			// Clear all input so joystick/keys don't stay stuck on when the
+			// preview scrolls out of view or the tab goes hidden.
+			input.joy.x = 0;
+			input.joy.y = 0;
+			input.joy.active = false;
+			input.keys.forward = 0;
+			input.keys.back = 0;
+			input.keys.left = 0;
+			input.keys.right = 0;
+			input.keys.run = false;
+		}
 		if (running) { clock.reset(); tick(); }
 	}
 

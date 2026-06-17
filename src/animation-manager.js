@@ -120,6 +120,8 @@ export class AnimationManager {
 		this._fallenReported = new Set();
 		/** @type {Set<string>} Clip names disabled because they retargeted to a fallen pose on this rig. */
 		this._fallen = new Set();
+		/** @type {string|null} Name of the most-recently-requested crossfade target. Used to cancel stale async requests. */
+		this._latestCrossfadeTarget = null;
 	}
 
 	/**
@@ -256,6 +258,7 @@ export class AnimationManager {
 		this.actions.clear();
 		this.currentAction = null;
 		this.currentName = null;
+		this._latestCrossfadeTarget = null;
 		this._fallen.clear();
 	}
 
@@ -539,6 +542,7 @@ export class AnimationManager {
 		if (this.currentAction) this.currentAction.paused = true;
 		this.currentAction = null;
 		this.currentName = null;
+		this._latestCrossfadeTarget = null;
 	}
 
 	/**
@@ -550,16 +554,21 @@ export class AnimationManager {
 	async crossfadeTo(name, duration = DEFAULT_CROSSFADE) {
 		duration = Math.max(0, Math.min(duration, 5));
 		if (name === this.currentName) return;
+		// Record this as the latest-requested clip before the async load so that
+		// if a newer crossfadeTo call arrives while this one is fetching, we can
+		// detect the race and abort — preventing a slow-loading walk clip from
+		// overriding an idle/dance that was applied while it was still fetching.
+		this._latestCrossfadeTarget = name;
 		const ready = await this.ensureLoaded(name);
 		if (!ready) {
 			if (this._failed.has(name) || this._animationDefs.some((d) => d.name === name))
 				log.warn(`[AnimationManager] "${name}" unavailable`);
 			return;
 		}
-		// Re-check after the async load: stepAvatar calls crossfadeTo every frame,
-		// so many calls queue up while the clip is fetching. The first one to resume
-		// sets currentName; all subsequent ones must exit here or they'll all try to
-		// crossfade the action to itself, zeroing out its weight and causing T-pose.
+		// Re-check after the async load: if a newer crossfadeTo superseded this
+		// request while the clip was fetching, discard this stale crossfade.
+		// Also catches the common case where stepAvatar queues many identical calls.
+		if (this._latestCrossfadeTarget !== name) return;
 		if (name === this.currentName) return;
 		const next = this.actions.get(name);
 		if (!next) return;

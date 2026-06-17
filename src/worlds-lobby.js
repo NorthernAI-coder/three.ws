@@ -13,6 +13,7 @@
 // path where the social layer is offline but worlds are still enterable.
 
 import { AvatarGalleryPicker } from './avatar-gallery-picker.js';
+import { AgentPicker } from './agent-picker.js';
 
 // ── tiny DOM helpers ─────────────────────────────────────────────────────────
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -182,6 +183,31 @@ function wireAvatarActions() {
 					model_url: avatar.model_url || '',
 					thumbnail_url: avatar.thumbnail_url || '',
 				});
+			},
+		});
+		picker.openModal();
+	});
+
+	// Browse deployed 3D agents — pick one and drop into the world wearing its avatar.
+	$('#wl-browse-agents')?.addEventListener('click', () => {
+		const picker = new AgentPicker({
+			title: 'Choose your 3D agent',
+			ctaLabel: 'Drop in as this agent',
+			onSelect: (agent) => {
+				picker.close();
+				const modelUrl = agent.avatar_model_url || '';
+				const thumb = agent.avatar_thumbnail_url || agent.avatar_thumbnail || '';
+				if (!modelUrl && !thumb) {
+					toast(`${agent.name || 'That agent'} has no avatar to wear yet.`, 'error');
+					return;
+				}
+				setAvatar({
+					id: agent.avatar_id || agent.id,
+					name: agent.name || 'Agent',
+					model_url: modelUrl,
+					thumbnail_url: thumb,
+				});
+				toast(`Dropping in as ${agent.name || 'agent'}.`, 'ok');
 			},
 		});
 		picker.openModal();
