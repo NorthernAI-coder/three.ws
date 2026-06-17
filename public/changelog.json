@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-17T22:34:21.137Z",
+	"generated_at": "2026-06-17T22:39:17.539Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -373,6 +373,17 @@
 			"tags": [
 				"fix",
 				"infra"
+			]
+		},
+		{
+			"date": "2026-06-17",
+			"type": "update",
+			"title": "Free text-to-3D over MCP — no payment, no key",
+			"summary": "The three.ws MCP server now ships a free tool: forge_free turns a text prompt into a textured, downloadable 3D model with zero cost — no x402 payment, no wallet, no API key. It runs on the same free NVIDIA NIM (Microsoft TRELLIS) engine the /forge web page uses for drafts, and hands back a durable GLB plus a viewer link that renders the model in the browser. Drop your Claude/Cursor agent on it, type a prompt, get a 3D avatar. The paid tools (mesh_forge, text_to_avatar, rig_mesh) remain for image input, the Granite-directed model chain, and auto-rigging.",
+			"link": null,
+			"tags": [
+				"sdk",
+				"feature"
 			]
 		},
 		{

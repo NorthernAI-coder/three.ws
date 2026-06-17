@@ -295,6 +295,14 @@
 			<description>When the NVIDIA NIM free lane returns a 5xx and the Replicate TRELLIS lane is also unavailable, the forge now falls through to the HuggingFace Spaces fallback for text→3D requests (using the FLUX-synthesized intermediate image) instead of returning a 429 to the user. Previously this fallback only fired for image uploads. Club-payout cron warnings for dancers with no registered wallet are now emitted at most once per 24 hours instead of every 5-minute tick.</description>
 		</item>
 		<item>
+			<title>Free text-to-3D over MCP — no payment, no key</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-17:Free text-to-3D over MCP — no payment, no key</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>sdk</category>
+			<description>The three.ws MCP server now ships a free tool: forge_free turns a text prompt into a textured, downloadable 3D model with zero cost — no x402 payment, no wallet, no API key. It runs on the same free NVIDIA NIM (Microsoft TRELLIS) engine the /forge web page uses for drafts, and hands back a durable GLB plus a viewer link that renders the model in the browser. Drop your Claude/Cursor agent on it, type a prompt, get a 3D avatar. The paid tools (mesh_forge, text_to_avatar, rig_mesh) remain for image input, the Granite-directed model chain, and auto-rigging.</description>
+		</item>
+		<item>
 			<title>Game-Ready export in Forge — one click to engine-ready GLB + FBX</title>
 			<link>https://three.ws/forge</link>
 			<guid isPermaLink="false">2026-06-17:Game-Ready export in Forge — one click to engine-ready GLB + FBX</guid>

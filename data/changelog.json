@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-06-17",
+			"title": "Free text-to-3D over MCP — no payment, no key",
+			"summary": "The three.ws MCP server now ships a free tool: forge_free turns a text prompt into a textured, downloadable 3D model with zero cost — no x402 payment, no wallet, no API key. It runs on the same free NVIDIA NIM (Microsoft TRELLIS) engine the /forge web page uses for drafts, and hands back a durable GLB plus a viewer link that renders the model in the browser. Drop your Claude/Cursor agent on it, type a prompt, get a 3D avatar. The paid tools (mesh_forge, text_to_avatar, rig_mesh) remain for image input, the Granite-directed model chain, and auto-rigging.",
+			"tags": [
+				"sdk",
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-17",
 			"title": "Generate a rigged 3D avatar from a text prompt in chat",
 			"summary": "Chat can now build a full avatar from a sentence. Ask it to \"make me an avatar of …\" and it forges a textured 3D model, auto-rigs it into an animation-ready character, saves it to your avatar library, and shows it in an orbit viewer you can spin (press S to see the skeleton). If you're not signed in it still hands back the rigged model and tells you to sign in to save. The tool is on by default in a fresh chat.",
 			"tags": [
