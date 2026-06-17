@@ -14,7 +14,7 @@
 // Pure module — three + the canonicalizer only — so it runs unchanged in the
 // browser (the /pose gallery) and in Node (the apply_animation MCP tool, vitest).
 
-import { AnimationClip, Vector3 } from 'three';
+import { AnimationClip, Quaternion, Vector3 } from 'three';
 import { canonicalizeBoneName } from './glb-canonicalize.js';
 
 // A clip retargets cleanly only when enough of its tracks find a home on the
@@ -22,7 +22,29 @@ import { canonicalizeBoneName } from './glb-canonicalize.js';
 // than a performance, so callers surface an actionable "can't retarget" error.
 export const MIN_COVERAGE = 0.5;
 
+// Rest (bind-pose) local rotation of each canonical bone *on the authoring rig*
+// the clips were baked against (canonical Avaturn). The library stores absolute
+// local rotations, so a clip only looks right when the target bone's rest
+// matches the authoring rest — otherwise we must replay the motion in the
+// target's own rest frame (see `bindCorrections`).
+//
+// Only Hips is listed: it's the skeleton root, the one bone that carries the
+// up-axis convention. Mixamo/FBX exports bake a +90°X on the armature node and a
+// −90°X on Hips; copying the clip's (≈identity) Hips rotation verbatim wipes that
+// −90°X out and tips the whole body onto its back. The authoring rig's Hips rest
+// is identity, so a correction of `targetHipsRest · I` re-applies whatever rest
+// the target rig needs. Limb bones aren't listed because their authoring rest is
+// avatar-specific and copying verbatim has always been the (acceptable) status
+// quo for non-Avaturn rigs; adding them would require shipping the full authoring
+// rest pose and would change limb output for every rig.
+const SOURCE_REST = new Map([['Hips', new Quaternion(0, 0, 0, 1)]]);
+
+// A quaternion within this of identity (|w| ≈ 1) is treated as no rotation, so a
+// rig that already matches the authoring convention round-trips bit-for-bit.
+const BIND_EPSILON = 1e-6;
+
 const _v = new Vector3();
+const _q = new Quaternion();
 
 /**
  * @typedef {Object} RetargetResult
@@ -78,6 +100,96 @@ export function canonicalNodeMapFromRig(rig) {
 }
 
 /**
+ * Capture each canonical bone's rest (bind-pose) local rotation by walking an
+ * Object3D graph — the companion to {@link canonicalNodeMapFromObject}, read in
+ * the same first-bone-wins order so the rest quaternion belongs to the very node
+ * a track gets renamed onto. Call while the model is in its authored bind pose
+ * (i.e. before any clip has been sampled), which is the case at attach time.
+ *
+ * @param {import('three').Object3D} root
+ * @returns {Map<string,import('three').Quaternion>}
+ */
+export function canonicalRestMapFromObject(root) {
+	const map = new Map();
+	const consider = (node) => {
+		if (!node?.name) return;
+		const canonical = canonicalizeBoneName(node.name);
+		if (canonical && !map.has(canonical)) map.set(canonical, node.quaternion.clone());
+	};
+	const skinned = [];
+	root.traverse((node) => {
+		if (node.isSkinnedMesh) skinned.push(node);
+		if (node.isBone) consider(node);
+	});
+	for (const sm of skinned) {
+		for (const bone of sm.skeleton?.bones || []) consider(bone);
+	}
+	return map;
+}
+
+/**
+ * Rest-rotation map from a GltfRig/MannequinRig, mirroring
+ * {@link canonicalNodeMapFromRig}.
+ *
+ * @param {{ getBones: () => Array<{key:string,node:import('three').Object3D}> }} rig
+ * @returns {Map<string,import('three').Quaternion>}
+ */
+export function canonicalRestMapFromRig(rig) {
+	const map = new Map();
+	for (const { key, node } of rig.getBones?.() || []) {
+		if (node && !map.has(key)) map.set(key, node.quaternion.clone());
+	}
+	return map;
+}
+
+/**
+ * Per-bone bind correction `C = targetRest · sourceRest⁻¹`. Applying `C · q` to a
+ * clip keyframe replays the source bone's deviation-from-rest in the target
+ * bone's own rest frame, so a clip authored for one rest pose drives a rig with a
+ * different one (e.g. a Mixamo rig whose Hips bakes the up-axis as −90°X). Bones
+ * whose correction is identity are omitted, so a matching rig skips the work and
+ * round-trips unchanged.
+ *
+ * @param {Map<string,import('three').Quaternion>|null} targetRest
+ * @returns {Map<string,import('three').Quaternion>}
+ */
+function bindCorrections(targetRest) {
+	const out = new Map();
+	if (!(targetRest instanceof Map)) return out;
+	for (const [canonical, sourceRest] of SOURCE_REST) {
+		const tr = targetRest.get(canonical);
+		if (!tr) continue;
+		const c = new Quaternion().multiplyQuaternions(tr, sourceRest.clone().invert());
+		if (1 - Math.abs(c.w) < BIND_EPSILON) continue; // identity → no correction
+		out.set(canonical, c);
+	}
+	return out;
+}
+
+// Pre-multiply every [x,y,z,w] keyframe of a quaternion track by `c` in place:
+// q ← c · q (deviation replayed in the target bone's rest frame).
+function premultiplyQuaternionTrack(values, c) {
+	for (let i = 0; i < values.length; i += 4) {
+		_q.set(values[i], values[i + 1], values[i + 2], values[i + 3]).premultiply(c);
+		values[i] = _q.x;
+		values[i + 1] = _q.y;
+		values[i + 2] = _q.z;
+		values[i + 3] = _q.w;
+	}
+}
+
+// Rotate every [x,y,z] keyframe of a position track by `c` in place, so root
+// motion stays aligned once the parent armature's axis convention is corrected.
+function rotateVectorTrack(values, c) {
+	for (let i = 0; i < values.length; i += 3) {
+		_v.set(values[i], values[i + 1], values[i + 2]).applyQuaternion(c);
+		values[i] = _v.x;
+		values[i + 1] = _v.y;
+		values[i + 2] = _v.z;
+	}
+}
+
+/**
  * World-space rest height of the target's hips, used to scale root translation
  * onto a differently-sized rig. Returns 0 if it can't be determined (callers
  * then skip hip scaling). Requires world matrices to be current.
@@ -117,6 +229,7 @@ function clipHipBaselineY(clip) {
 export function retargetClip(clip, canonicalToNode, opts = {}) {
 	const hipScale = Number.isFinite(opts.hipScale) && opts.hipScale > 0 ? opts.hipScale : 1;
 	const minCoverage = opts.minCoverage ?? MIN_COVERAGE;
+	const corrections = bindCorrections(opts.targetRest);
 	const total = clip.tracks.length;
 	const dropped = [];
 	const tracks = [];
@@ -134,6 +247,14 @@ export function retargetClip(clip, canonicalToNode, opts = {}) {
 		}
 		const next = track.clone();
 		next.name = `${nodeName}.${property}`;
+		// Bind correction: rotate the bone's rest convention onto the target rig
+		// so a clip authored for one rest pose doesn't flip a differently-rigged
+		// avatar (e.g. a Mixamo Hips baked at −90°X reading as "lying down").
+		const correction = corrections.get(canonical);
+		if (correction) {
+			if (property === 'quaternion') premultiplyQuaternionTrack(next.values, correction);
+			else if (property === 'position') rotateVectorTrack(next.values, correction);
+		}
 		if (hipScale !== 1 && canonical === 'Hips' && property === 'position') {
 			for (let i = 0; i < next.values.length; i++) next.values[i] *= hipScale;
 		}
@@ -161,6 +282,7 @@ export function retargetClip(clip, canonicalToNode, opts = {}) {
  */
 export function retargetClipToRig(clip, rig, opts = {}) {
 	const map = canonicalNodeMapFromRig(rig);
+	const targetRest = canonicalRestMapFromRig(rig);
 	let hipScale = 1;
 	if (opts.scaleHips !== false) {
 		const targetY = hipRestHeight(rig);
@@ -171,7 +293,7 @@ export function retargetClipToRig(clip, rig, opts = {}) {
 			hipScale = Math.min(5, Math.max(0.2, targetY / sourceY));
 		}
 	}
-	return retargetClip(clip, map, { hipScale, minCoverage: opts.minCoverage });
+	return retargetClip(clip, map, { hipScale, minCoverage: opts.minCoverage, targetRest });
 }
 
 /**
@@ -185,7 +307,8 @@ export function retargetClipToRig(clip, rig, opts = {}) {
  */
 export function retargetClipToObject(clip, root, opts = {}) {
 	const map = canonicalNodeMapFromObject(root);
-	return retargetClip(clip, map, opts);
+	const targetRest = opts.targetRest || canonicalRestMapFromObject(root);
+	return retargetClip(clip, map, { ...opts, targetRest });
 }
 
 /**
