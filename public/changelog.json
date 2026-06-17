@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-17T21:52:04.009Z",
+	"generated_at": "2026-06-17T22:12:47.201Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -105,6 +105,16 @@
 			"link": "/animations",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-17",
+			"type": "update",
+			"title": "Avatar feet stay planted on the floor",
+			"summary": "Fixed your avatar sinking partway through the floor in the Pole Club walk-in — most noticeable in the Clubhouse. The avatar now re-checks the ground beneath it every frame and keeps its feet on the surface as you move between rooms, instead of standing at the height it spawned at.",
+			"link": "/club",
+			"tags": [
+				"fix"
 			]
 		},
 		{
@@ -641,6 +651,16 @@
 			"title": "Pay an IRL agent for its services — and open its full profile — right from the card",
 			"summary": "When you tap an agent on three.ws/irl, its card now does real things. View profile opens that agent's full page so you can see who you just met. If the agent offers paid services, each one shows its price and a Use button: tap it, approve the payment in your wallet, and you pay in USDC on the spot — the standard x402 flow, capped at the price shown so a misconfigured service can never overcharge you. The response you paid for appears right inside the card instead of vanishing into a toast. Every state is handled: no wallet, a cancelled signature, or a service error each show a clear message and leave the button ready to try again, and each service button works on its own so paying for one never freezes the others. Completed encounters quietly notify the agent's owner, receipt and all.",
 			"link": "/irl",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-17",
+			"type": "update",
+			"title": "Pick a 3D agent to drop into any world",
+			"summary": "Added a dedicated agent picker to the worlds lobby. Tap “Browse 3D agents” to search the full directory of public agents, filter by skill or on-chain status, sort by popular/newest/name, and spin each agent's avatar in a live 3D preview before you commit. Choose one and you drop into the world wearing its avatar — no more sifting through raw avatars and accessories to find an actual agent.",
+			"link": "/worlds",
 			"tags": [
 				"feature"
 			]

@@ -87,6 +87,14 @@
 			<description>Saved and public animations are now playable anywhere three.ws renders an avatar. The new /animations gallery lists every public clip with live previews (hover a card to see the animation on a real avatar), one-click &quot;Open in Studio&quot; to remix any clip, and an &quot;Animate this avatar&quot; shortcut from the avatar gallery. Any page with an avatar panel now also shows your saved and community animations alongside the built-in library. Share a clip by its id — ?anim=&lt;id&gt; plays it directly in the viewer, the embed, or the Studio editor.</description>
 		</item>
 		<item>
+			<title>Avatar feet stay planted on the floor</title>
+			<link>https://three.ws/club</link>
+			<guid isPermaLink="false">2026-06-17:Avatar feet stay planted on the floor</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Fixed your avatar sinking partway through the floor in the Pole Club walk-in — most noticeable in the Clubhouse. The avatar now re-checks the ground beneath it every frame and keeps its feet on the surface as you move between rooms, instead of standing at the height it spawned at.</description>
+		</item>
+		<item>
 			<title>Avatars from any tool animate perfectly when uploaded</title>
 			<link>https://three.ws/avatars</link>
 			<guid isPermaLink="false">2026-06-17:Avatars from any tool animate perfectly when uploaded</guid>
@@ -501,6 +509,14 @@
 			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>When you tap an agent on three.ws/irl, its card now does real things. View profile opens that agent's full page so you can see who you just met. If the agent offers paid services, each one shows its price and a Use button: tap it, approve the payment in your wallet, and you pay in USDC on the spot — the standard x402 flow, capped at the price shown so a misconfigured service can never overcharge you. The response you paid for appears right inside the card instead of vanishing into a toast. Every state is handled: no wallet, a cancelled signature, or a service error each show a clear message and leave the button ready to try again, and each service button works on its own so paying for one never freezes the others. Completed encounters quietly notify the agent's owner, receipt and all.</description>
+		</item>
+		<item>
+			<title>Pick a 3D agent to drop into any world</title>
+			<link>https://three.ws/worlds</link>
+			<guid isPermaLink="false">2026-06-17:Pick a 3D agent to drop into any world</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Added a dedicated agent picker to the worlds lobby. Tap “Browse 3D agents” to search the full directory of public agents, filter by skill or on-chain status, sort by popular/newest/name, and spin each agent's avatar in a live 3D preview before you commit. Choose one and you drop into the world wearing its avatar — no more sifting through raw avatars and accessories to find an actual agent.</description>
 		</item>
 		<item>
 			<title>Place your IRL agent on the real floor with AR anchoring</title>
