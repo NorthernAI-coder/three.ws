@@ -258,7 +258,7 @@ export const OUTPUTS = Object.freeze({
 	gameready: Object.freeze({
 		id: 'gameready',
 		label: 'Game-Ready',
-		blurb: 'Clean retopology to a poly budget with PBR re-bake. Quad (QuadriFlow) or silhouette-preserving low-poly, exported as GLB + rig-aware FBX for Unity & Unreal.',
+		blurb: 'Clean retopology to a poly budget with PBR re-bake. Quad (QuadriFlow) or silhouette-preserving low-poly, exported as GLB + FBX for Unity & Unreal (source rig kept on request).',
 		topologies: Object.freeze(['quad', 'tri']),
 		formats: Object.freeze(['glb', 'fbx']),
 		// Poly-budget presets surfaced as slider stops in the UI (target faces).
