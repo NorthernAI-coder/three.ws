@@ -73,6 +73,20 @@ async function materializeReconstructAvatar({
 		? params.visibility
 		: 'private';
 
+	// Canonicalize bone names + up-axis orientation so generated avatars are
+	// stored in the canonical convention, matching user-uploaded avatars.
+	try {
+		const { canonicalizeGLBBones } = await import('../../src/glb-canonicalize.js');
+		const ab = glbBuf.buffer.slice(glbBuf.byteOffset, glbBuf.byteOffset + glbBuf.byteLength);
+		const canonical = canonicalizeGLBBones(ab);
+		if (canonical.renamed > 0 || canonical.orientationCorrected) {
+			glbBuf = Buffer.from(canonical.buffer);
+			console.log(`[reconstruct] canonicalize: renamed=${canonical.renamed} orientationCorrected=${canonical.orientationCorrected}`);
+		}
+	} catch (err) {
+		console.warn('[reconstruct] canonicalize skipped:', err?.message);
+	}
+
 	await putObject({
 		key: storageKey,
 		body: glbBuf,

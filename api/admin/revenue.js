@@ -22,14 +22,18 @@ export default wrap(async (req, res) => {
 	if (isNaN(toDate.getTime()))
 		return error(res, 400, 'validation_error', 'to must be a valid ISO-8601 date');
 
-	const [{ total_fee_collected }] = await sql`
-		SELECT COALESCE(SUM(fee_amount), 0)::bigint AS total_fee_collected
+	// Platform income is the fee split on-chain to the treasury
+	// (platform_fee_amount). Referral commission (fee_amount) is money owed to
+	// referrers, not platform income, so it is reported separately.
+	const [{ total_fee_collected, total_referral_paid }] = await sql`
+		SELECT COALESCE(SUM(platform_fee_amount), 0)::bigint AS total_fee_collected,
+		       COALESCE(SUM(fee_amount), 0)::bigint          AS total_referral_paid
 		FROM agent_revenue_events
 		WHERE created_at BETWEEN ${fromDate} AND ${toDate}
 	`;
 
 	const byCurrency = await sql`
-		SELECT currency_mint, chain, SUM(fee_amount)::bigint AS total
+		SELECT currency_mint, chain, SUM(platform_fee_amount)::bigint AS total
 		FROM agent_revenue_events
 		WHERE created_at BETWEEN ${fromDate} AND ${toDate}
 		GROUP BY currency_mint, chain
@@ -37,8 +41,8 @@ export default wrap(async (req, res) => {
 	`;
 
 	const byDay = await sql`
-		SELECT date_trunc('day', created_at)::date AS date,
-		       SUM(fee_amount)::bigint              AS fee_total
+		SELECT date_trunc('day', created_at)::date    AS date,
+		       SUM(platform_fee_amount)::bigint        AS fee_total
 		FROM agent_revenue_events
 		WHERE created_at BETWEEN ${fromDate} AND ${toDate}
 		GROUP BY 1
@@ -47,6 +51,7 @@ export default wrap(async (req, res) => {
 
 	return json(res, 200, {
 		total_fee_collected: Number(total_fee_collected),
+		total_referral_paid: Number(total_referral_paid),
 		by_currency: byCurrency.map((r) => ({
 			currency_mint: r.currency_mint,
 			chain: r.chain,

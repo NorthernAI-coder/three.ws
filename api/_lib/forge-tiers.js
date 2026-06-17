@@ -247,6 +247,37 @@ export const BACKENDS = Object.freeze({
 	}),
 });
 
+// Post-generation export options layered onto a finished model — surfaced in the
+// catalog alongside tiers/backends so the UI can advertise them on the result
+// view. Game-Ready drives the workers/remesh service (QuadriFlow quad retopology
+// or silhouette-preserving low-poly) to turn any generated or uploaded mesh into
+// an engine-ready asset, delivered as GLB + FBX. `baseEta` is wall-clock seconds
+// for a single format; `priceUsdcAtomics` is the flat retail price (6 decimals),
+// consistent with the tier pricing above.
+export const OUTPUTS = Object.freeze({
+	gameready: Object.freeze({
+		id: 'gameready',
+		label: 'Game-Ready',
+		blurb: 'Clean retopology to a poly budget with PBR re-bake. Quad (QuadriFlow) or silhouette-preserving low-poly, exported as GLB + rig-aware FBX for Unity & Unreal.',
+		topologies: Object.freeze(['quad', 'tri']),
+		formats: Object.freeze(['glb', 'fbx']),
+		// Poly-budget presets surfaced as slider stops in the UI (target faces).
+		polyPresets: Object.freeze([5_000, 15_000, 50_000]),
+		textureSizes: Object.freeze([1024, 2048]),
+		baseEta: 35,
+		priceUsdcAtomics: 100_000, // $0.10
+		requiresEnv: Object.freeze(['GCP_REMESH_URL', 'GCP_RECONSTRUCTION_KEY']),
+	}),
+});
+
+// A platform export is "live" only when its worker env is present — same rule as
+// the platform backends above.
+export function outputIsConfigured(outputId) {
+	const o = OUTPUTS[outputId];
+	if (!o) return false;
+	return o.requiresEnv.every((name) => Boolean(readEnv(name)));
+}
+
 // Standing backend chosen when the caller doesn't name one, per path. The image
 // path keeps the image-capable Replicate TRELLIS default — it accepts user
 // photos and serves every tier. The free NVIDIA NIM lane (text-only) is layered
@@ -392,6 +423,20 @@ export function buildCatalog() {
 				}));
 				return acc;
 			}, {}),
+		})),
+		// Post-generation export options (Game-Ready, …) the result view can offer.
+		outputs: Object.values(OUTPUTS).map((o) => ({
+			id: o.id,
+			label: o.label,
+			blurb: o.blurb,
+			topologies: o.topologies,
+			formats: o.formats,
+			poly_presets: o.polyPresets,
+			texture_sizes: o.textureSizes,
+			eta_seconds: o.baseEta,
+			price_usdc_atomics: o.priceUsdcAtomics,
+			price_usdc: (o.priceUsdcAtomics / 1_000_000).toFixed(2),
+			configured: outputIsConfigured(o.id),
 		})),
 	};
 }

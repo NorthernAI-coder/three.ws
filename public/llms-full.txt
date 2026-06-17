@@ -138,6 +138,12 @@ URL: https://three.ws/compose
 
 Real-time 3D scene composer: forge items from text, attach them to your avatar's skeleton bones, arrange and scale freely, then export your creation or save it as an outfit.
 
+### Animation Studio
+
+URL: https://three.ws/pose
+
+Pose any three.ws avatar or the built-in mannequin with FK/IK, keyframe a timeline, and preview the motion live. Export an animated GLB or clip JSON, save animations to your account, play them back across the platform, and sell them for USDC.
+
 ### glTF Validator
 
 URL: https://three.ws/validation

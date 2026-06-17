@@ -6491,6 +6491,7 @@ async function openTimePassFlow(agentId, skill, durationHours, btn) {
 	$('payment-price-display').textContent = `${human} ${shortMintLabel(price.currency_mint)}`;
 	const qr = $('payment-qr'); if (qr) qr.innerHTML = '';
 	setStatus('');
+	clearFeeDisclosure();
 	$('payment-modal-overlay').hidden = false;
 	updateWalletUI();
 
@@ -6561,6 +6562,7 @@ async function openPurchaseFlow(agentId, skill) {
 	if (confirmBtn) confirmBtn.textContent = 'Confirm Purchase';
 	const qr = $('payment-qr'); if (qr) qr.innerHTML = '';
 	setStatus('');
+	clearFeeDisclosure();
 	$('payment-modal-overlay').hidden = false;
 	updateWalletUI();
 }
@@ -6638,6 +6640,7 @@ function openAssetPurchaseFlow(asset) {
 
 	const qr = $('payment-qr'); if (qr) qr.innerHTML = '';
 	setStatus('');
+	clearFeeDisclosure();
 	$('payment-modal-overlay').hidden = false;
 	updateWalletUI();
 }

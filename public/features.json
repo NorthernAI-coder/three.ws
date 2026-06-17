@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-17T15:26:20.414Z",
+	"generated_at": "2026-06-17T15:32:17.387Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -221,6 +221,16 @@
 					"indexable": true,
 					"tags": [],
 					"showcase": false
+				},
+				{
+					"path": "/pose",
+					"title": "Animation Studio",
+					"description": "Pose any three.ws avatar or the built-in mannequin with FK/IK, keyframe a timeline, and preview the motion live. Export an animated GLB or clip JSON, save animations to your account, play them back across the platform, and sell them for USDC.",
+					"added": "2026-06-17",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": true
 				},
 				{
 					"path": "/validation",

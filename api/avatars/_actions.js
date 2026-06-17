@@ -127,6 +127,24 @@ const handleUpload = wrap(async (req, res) => {
 		return error(res, err.status || 402, err.code || 'plan_limit', err.message);
 	}
 
+	// Canonicalize bone names + up-axis orientation at ingest so every stored
+	// GLB shares the canonical convention. The client-body path sends already-
+	// canonical bytes (account.js canonicalizes before upload), so this is a
+	// no-op there; the source_url path fetches raw bytes that may still be
+	// Mixamo/FBX-oriented. Non-fatal: if the buffer isn't a recognised humanoid
+	// rig the canonicalizer returns it unchanged.
+	try {
+		const { canonicalizeGLBBones } = await import('../../src/glb-canonicalize.js');
+		const ab = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
+		const canonical = canonicalizeGLBBones(ab);
+		if (canonical.renamed > 0 || canonical.orientationCorrected) {
+			buffer = Buffer.from(canonical.buffer);
+			console.log(`[avatar-upload] canonicalize: renamed=${canonical.renamed} orientationCorrected=${canonical.orientationCorrected}`);
+		}
+	} catch (err) {
+		console.warn('[avatar-upload] canonicalize skipped:', err?.message);
+	}
+
 	const rawSlug = url.searchParams.get('slug');
 	const slug = rawSlug ? slugSchema.parse(rawSlug) : `draft-${Math.random().toString(36).slice(2, 8)}`;
 	const key = storageKeyFor({ userId, slug });

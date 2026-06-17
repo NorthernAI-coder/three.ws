@@ -184,7 +184,6 @@ async function main() {
 				[AGENT_ID],
 			);
 			if (rows.length === 0) {
-				await db.end();
 				fail(`Agent ${AGENT_ID} not found (or deleted).`);
 			}
 			agents = rows;
@@ -192,7 +191,6 @@ async function main() {
 
 		if (agents.length === 0) {
 			console.log('No agents need a skill collection. Nothing to do.');
-			await db.end();
 			return;
 		}
 
