@@ -8,12 +8,16 @@
  *
  * POST /api/irl/interactions
  *   { pinId, type: 'view'|'tap'|'message'|'pay', message?, deviceToken?,
- *     amount?, currencyMint?, network?, payload? }
+ *     amount?, currencyMint?, network?, payload?, replyTo? }
  *   agent_id + owner are taken from the pin, never the caller. Anonymous-friendly:
  *   viewer attribution falls back to the device token. Repeat 'view's from the
  *   same device on the same pin within VIEW_DEDUPE_MS collapse into the first one.
  *   A 'pay' must carry a valid settlement signature + a $THREE/USDC mint and is
- *   de-duped per signature. 'pay'/'message' fan out an owner notification.
+ *   de-duped per signature. A visitor 'pay'/'message' fans out an owner notification.
+ *   When the AUTHENTICATED OWNER posts a 'message', it's recorded as a reply
+ *   (payload.from='owner', auto-seen) and — if replyTo points at a signed-in
+ *   visitor's row — notifies that visitor instead of the owner. Response carries
+ *   { notified } so the dashboard can confirm the reply reached someone.
  *
  * GET /api/irl/interactions?mine=1[&unread=1]   — interactions on MY pins
  *   Owner is matched by session user OR by ?deviceToken= (anonymous placements).
@@ -48,6 +52,7 @@ const MAX_MESSAGE_LEN = 280;
 // on by the B3 settlement path, which owns the seller payout + price context.
 const EVM_TX_RE   = /^0x[0-9a-fA-F]{64}$/;
 const SOL_SIG_RE  = /^[1-9A-HJ-NP-Za-km-z]{43,88}$/;
+const UUID_RE     = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const THREE_MINT  = 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump';
 const USDC_SOLANA  = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 const USDC_BASE    = '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913';
@@ -150,12 +155,18 @@ export default wrap(async (req, res) => {
 		if (!pin) return json(res, 404, { error: 'pin not found' });
 
 		// Don't log an owner inspecting their own pin — that's not an encounter.
+		const isAuthOwner = !!(viewerUserId && pin.user_id && viewerUserId === pin.user_id);
 		const isOwner =
-			(viewerUserId && pin.user_id && viewerUserId === pin.user_id) ||
+			isAuthOwner ||
 			(viewerDevice && pin.device_token && viewerDevice === pin.device_token);
 		if (isOwner && type === 'view') {
 			return json(res, 200, { ok: true, self: true });
 		}
+		// An authenticated owner posting a `message` is a REPLY to a visitor — a
+		// first-class thread turn, not a self-encounter. It's recorded (stamped
+		// from:'owner', auto-seen so it never inflates the owner's own unread) and,
+		// when the visitor was signed in, fans a notification back to THEM.
+		const isOwnerReply = type === 'message' && isAuthOwner;
 
 		// Collapse repeat 'view's from the same device on the same pin.
 		if (type === 'view' && viewerDevice) {
@@ -172,6 +183,20 @@ export default wrap(async (req, res) => {
 		let amount = null;
 		let currencyMint = null;
 		let payload = clampPayload(body.payload);
+		// `from` / `replyTo` are never client-trusted — a visitor must not be able to
+		// forge a row that looks like an owner reply. Capture the (validated) reply
+		// target first, then strip both; the server re-stamps them only for a genuine
+		// owner reply below.
+		const replyToRaw =
+			(typeof body.replyTo === 'string' && UUID_RE.test(body.replyTo)) ? body.replyTo
+			: (typeof payload.replyTo === 'string' && UUID_RE.test(payload.replyTo)) ? payload.replyTo
+			: null;
+		delete payload.from;
+		delete payload.replyTo;
+		if (isOwnerReply) {
+			payload.from = 'owner';
+			if (replyToRaw) payload.replyTo = replyToRaw;
+		}
 		if (type === 'pay') {
 			const sig  = payload.signature ?? body.signature ?? null;
 			const mint = body.currencyMint ?? payload.currencyMint ?? null;
@@ -195,10 +220,13 @@ export default wrap(async (req, res) => {
 			if (dupe) return json(res, 200, { ok: true, deduped: true, id: dupe.id });
 		}
 
+		// An owner reply is authored by the owner, so it lands already-seen — it must
+		// never light up the owner's own unread badge. Every other row is unread.
+		const seenAt = isOwnerReply ? new Date().toISOString() : null;
 		const [row] = await sql`
 			INSERT INTO irl_interactions
 				(pin_id, agent_id, type, message, viewer_user_id, viewer_device, lat, lng,
-				 amount, currency_mint, payload)
+				 amount, currency_mint, payload, seen_at)
 			VALUES (
 				${pinId},
 				${pin.agent_id ?? null},
@@ -210,7 +238,8 @@ export default wrap(async (req, res) => {
 				${pin.lng},
 				${amount},
 				${currencyMint},
-				${JSON.stringify(payload)}::jsonb
+				${JSON.stringify(payload)}::jsonb,
+				${seenAt}
 			)
 			RETURNING id, type, created_at
 		`;
@@ -220,10 +249,31 @@ export default wrap(async (req, res) => {
 		if (type === 'view') {
 			sql`UPDATE irl_pins SET view_count = view_count + 1 WHERE id = ${pinId}`.catch(() => {});
 		}
-		// High-signal events notify the owner: in-app always (the dashboard inbox +
-		// the global nav bell), plus an optional Telegram ping for a pay. Both are
-		// fire-and-forget and no-op when the owner is anonymous or creds are absent.
-		if ((type === 'pay' || type === 'message') && pin.user_id) {
+		// Fan-out. Both arms are fire-and-forget and no-op when there's no one to
+		// reach (anonymous actor) or creds are absent.
+		let notified = false;
+		if (isOwnerReply) {
+			// The reply reaches the visitor only if they were signed in when they left
+			// the message — an anonymous device has no inbox to deliver to. The owner is
+			// never self-notified for their own reply.
+			if (replyToRaw) {
+				const [orig] = await sql`
+					SELECT viewer_user_id FROM irl_interactions
+					WHERE id = ${replyToRaw} AND pin_id = ${pinId} LIMIT 1
+				`;
+				if (orig?.viewer_user_id && orig.viewer_user_id !== pin.user_id) {
+					insertNotification(orig.viewer_user_id, 'irl_reply', {
+						pin_id: pinId,
+						agent_id: pin.agent_id ?? null,
+						message,
+						link: pin.agent_id ? `/agent/${pin.agent_id}` : undefined,
+					});
+					notified = true;
+				}
+			}
+		} else if ((type === 'pay' || type === 'message') && pin.user_id) {
+			// High-signal visitor events notify the owner: in-app always (the dashboard
+			// inbox + the global nav bell), plus an optional Telegram ping for a pay.
 			insertNotification(pin.user_id, 'irl_interaction', {
 				pin_id: pinId,
 				agent_id: pin.agent_id ?? null,
@@ -242,7 +292,7 @@ export default wrap(async (req, res) => {
 				);
 			}
 		}
-		return json(res, 201, { ok: true, interaction: row });
+		return json(res, 201, { ok: true, interaction: row, notified });
 	}
 
 	// ── GET — public count for a single pin ───────────────────────────────────

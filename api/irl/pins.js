@@ -16,6 +16,111 @@ import { cors, json, wrap, rateLimited } from '../_lib/http.js';
 import { sql } from '../_lib/db.js';
 import { getSessionUser } from '../_lib/auth.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
+import { WORD_BLACKLIST } from '../../src/profanity.js';
+import { guardianConfig, assess, decide } from '../_lib/granite-guardian.js';
+import { encodeGeohash } from '../_lib/geohash.js';
+
+// ── Moderation, safety & density caps (D4) ──────────────────────────────────
+// Everything below makes the public, shared IRL world safe to launch: content
+// gating on caption/name, a $THREE-only coin guard, an x402 endpoint allow-list,
+// per-area density caps, and per-owner active-pin caps. Each rejection returns a
+// designed error code the client surfaces as an actionable message.
+
+const CAPTION_MAX = 140;          // public caption hard length cap
+const NAME_MAX    = 40;           // avatar name hard length cap
+const GEOCELL_PRECISION = 7;      // ~153m × 153m density cell
+const MAX_PINS_PER_CELL = 40;     // density ceiling per geocell7
+const MAX_PINS_PER_OWNER_ANON   = 20;  // active pins for an anonymous device
+const MAX_PINS_PER_OWNER_SIGNED = 60;  // higher ceiling once accountable (signed in)
+
+// $THREE is the only coin three.ws references (contract below). The off-brand
+// guard is written generically — it never names a competing ticker — so this
+// codebase stays clean of other coins while still rejecting shills.
+const THREE_MINT = 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump';
+
+// Always-on hard gate: lower-case substring match against the shared slur/severe
+// list. No external dependency, fails closed and fast — the floor under the
+// smarter Guardian tier. Reused verbatim from the pump.fun feed filter.
+function hardBlocked(text) {
+	const t = String(text || '').toLowerCase();
+	return WORD_BLACKLIST.some((w) => t.includes(w));
+}
+
+// Off-brand-coin guard: reject text that shills a token other than $THREE — a
+// `$TICKER` cashtag that isn't $THREE, or a pump.fun-style mint address (…pump)
+// that isn't the $THREE contract. Generic by construction so no competitor is
+// ever written into source; $THREE (cashtag or contract) is explicitly allowed.
+function namesOffBrandCoin(text) {
+	const t = String(text || '');
+	const cashtags = t.match(/\$[A-Za-z][A-Za-z0-9]{1,9}\b/g) || [];
+	if (cashtags.some((c) => c.slice(1).toUpperCase() !== 'THREE')) return true;
+	const tokens = t.match(/\b[1-9A-HJ-NP-Za-km-z]{32,48}\b/g) || [];
+	if (tokens.some((m) => /pump$/.test(m) && m !== THREE_MINT)) return true;
+	return false;
+}
+
+// Tier-1 content decision over caption + name. Returns the offending field +
+// reason, or null when clean. Pure string work — the cheapest, most decisive gate.
+function contentReject(caption, name) {
+	if (hardBlocked(caption)) return { field: 'caption', reason: 'blocked' };
+	if (hardBlocked(name))    return { field: 'avatarName', reason: 'blocked' };
+	if (namesOffBrandCoin(caption)) return { field: 'caption', reason: 'coin' };
+	if (namesOffBrandCoin(name))    return { field: 'avatarName', reason: 'coin' };
+	return null;
+}
+
+// Tier-2 AI content risk over the free-text caption — Granite Guardian. Best-
+// effort by design (Rule 9): when watsonx isn't configured, or the classifier
+// errors/times out, we DON'T block — the always-on wordlist already caught the
+// hard cases, and a missing key must never 500 a placement. Bounded to 4s so a
+// slow upstream can't stall the POST.
+async function guardianFlags(caption) {
+	const text = String(caption || '').trim();
+	if (!text) return false;
+	const cfg = guardianConfig();
+	if (!cfg.configured) return false;
+	try {
+		const ctrl = new AbortController();
+		const timer = setTimeout(() => ctrl.abort(), 4000);
+		try {
+			const verdicts = await assess(cfg, {
+				input: text,
+				risks: ['harm', 'social_bias', 'violence', 'sexual_content'],
+				signal: ctrl.signal,
+			});
+			return decide(verdicts).decision === 'block';
+		} finally {
+			clearTimeout(timer);
+		}
+	} catch (err) {
+		console.warn('[irl/pins] guardian content check degraded:', err?.message || err);
+		return false;
+	}
+}
+
+// x402 pay-endpoint allow-list (D4). A pin's advertised "pay" target is handed to
+// every nearby viewer's Pay button, so an arbitrary external URL is a drain/scam
+// vector. On top of safeRemoteUrl's https + no-private-host checks, the host must
+// be first-party three.ws infrastructure (or an operator-extended allow-list via
+// IRL_X402_ALLOWED_HOSTS). Relative same-origin paths are always first-party.
+// Registered-agent endpoints still flow to the Pay button via the trusted
+// server-resolved agent-card path (card.x402_endpoint), which this never gates.
+const X402_ALLOWED_HOSTS = (
+	process.env.IRL_X402_ALLOWED_HOSTS || 'three.ws,www.three.ws,3d-agent.vercel.app,3d.irish'
+)
+	.split(',')
+	.map((h) => h.trim().toLowerCase())
+	.filter(Boolean);
+
+function safePaymentEndpoint(raw) {
+	const base = safeRemoteUrl(raw, { allowRelative: false });
+	if (!base.ok) return { ok: false };
+	if (base.value == null) return { ok: true, value: null };
+	let host;
+	try { host = new URL(base.value).hostname.toLowerCase(); } catch { return { ok: false }; }
+	const allowed = X402_ALLOWED_HOSTS.some((h) => host === h || host.endsWith(`.${h}`));
+	return allowed ? { ok: true, value: base.value } : { ok: false };
+}
 
 // Validate a URL that will be handed to every nearby viewer's browser — the
 // avatar GLB (→ GLTFLoader) and the x402 pay endpoint (→ Pay button). Same-origin
@@ -89,6 +194,13 @@ async function ensureTable() {
 	await sql`ALTER TABLE irl_pins ADD COLUMN IF NOT EXISTS anchor_source   TEXT`;             // 'webxr' | 'gyro-gps'
 	await sql`ALTER TABLE irl_pins ADD COLUMN IF NOT EXISTS vps_provider    TEXT`;             // reserved for visual positioning
 	await sql`ALTER TABLE irl_pins ADD COLUMN IF NOT EXISTS vps_id          TEXT`;             // reserved
+	// Moderation + density (D4). geocell7 is the ~150m density key (precision-7
+	// geohash); hidden_at marks a pin queued out of public view after enough
+	// distinct reporters — set, never deleted, so the owner can appeal and the
+	// review console can restore it.
+	await sql`ALTER TABLE irl_pins ADD COLUMN IF NOT EXISTS geocell7  TEXT`;
+	await sql`ALTER TABLE irl_pins ADD COLUMN IF NOT EXISTS hidden_at TIMESTAMPTZ`;
+	await sql`CREATE INDEX IF NOT EXISTS irl_pins_geocell7 ON irl_pins (geocell7) WHERE hidden_at IS NULL`;
 	_tableReady = true;
 }
 
@@ -196,6 +308,7 @@ export default wrap(async (req, res) => {
 			SELECT id, lat, lng, avatar_name, caption, placed_at, expires_at, view_count
 			FROM irl_pins
 			WHERE (device_token = ${deviceToken ?? ''} OR user_id = ${session?.id ?? null})
+			  AND hidden_at IS NULL
 			  AND (expires_at IS NULL OR expires_at > NOW())
 			ORDER BY placed_at DESC
 			LIMIT 20
@@ -214,6 +327,7 @@ export default wrap(async (req, res) => {
 			       gps_accuracy_m, altitude_m, anchor_source
 			FROM irl_pins
 			WHERE user_id = ${session.id}
+			  AND hidden_at IS NULL
 			ORDER BY placed_at DESC
 			LIMIT 100
 		`;
@@ -248,6 +362,7 @@ export default wrap(async (req, res) => {
 			FROM irl_pins
 			WHERE lat BETWEEN ${lat - latDelta} AND ${lat + latDelta}
 			  AND lng BETWEEN ${lng - lngDelta} AND ${lng + lngDelta}
+			  AND hidden_at IS NULL
 			  AND (expires_at IS NULL OR expires_at > NOW())
 			ORDER BY placed_at DESC
 			LIMIT 50
@@ -285,8 +400,13 @@ export default wrap(async (req, res) => {
 	}
 
 	// ── POST — create pin ─────────────────────────────────────────────────────
+	// D4 gate order, cheapest/most-decisive first: coords → content (pure string,
+	// fails closed) → URL/coin safety → rate limit (1 Redis cmd, protects the DB
+	// from a flood) → density + per-owner caps (DB counts) → insert. Each rejection
+	// carries a designed error code the client renders as an actionable message.
 	if (req.method === 'POST') {
-		const rl = await limits.irlPinIp(clientIp(req));
+		const ip = clientIp(req);
+		const rl = await limits.irlPinIp(ip);
 		if (!rl.success) return rateLimited(res, rl);
 
 		const body = req.body ?? {};
@@ -300,16 +420,103 @@ export default wrap(async (req, res) => {
 			return json(res, 400, { error: 'invalid coordinates' });
 		}
 
+		// Clamp text to its public length cap, then run the tier-1 content gate.
+		const caption    = body.caption    != null ? String(body.caption).slice(0, CAPTION_MAX)    : null;
+		const avatarName = body.avatarName != null ? String(body.avatarName).slice(0, NAME_MAX)    : null;
+		const bad = contentReject(caption, avatarName);
+		if (bad) {
+			return json(res, 422, {
+				error: 'content',
+				field: bad.field,
+				message: bad.reason === 'coin'
+					? 'A pin can only reference $THREE — the only coin on three.ws.'
+					: 'That text isn’t allowed on a public pin.',
+			});
+		}
+		// Tier-2 AI risk on the borderline caption (no-op when Guardian unconfigured).
+		if (caption && (await guardianFlags(caption))) {
+			return json(res, 422, {
+				error: 'content',
+				field: 'caption',
+				message: 'That caption was flagged by our content filter. Try rewording it.',
+			});
+		}
+
 		// Validate the URLs handed to every nearby viewer (avatar GLB + x402 pay).
 		const avatarUrlChk = safeRemoteUrl(body.avatarUrl);
 		if (!avatarUrlChk.ok) return json(res, 400, { error: 'invalid avatarUrl' });
-		const x402Chk = safeRemoteUrl(body.x402Endpoint, { allowRelative: false });
-		if (!x402Chk.ok) return json(res, 400, { error: 'invalid x402Endpoint' });
+		// x402 pay target must be a first-party / allow-listed payment host — never an
+		// arbitrary external drain (D4). Same-origin relative paths are first-party.
+		const x402Chk = safePaymentEndpoint(body.x402Endpoint);
+		if (!x402Chk.ok) {
+			return json(res, 422, {
+				error: 'endpoint',
+				field: 'x402Endpoint',
+				message: 'Pay endpoints must be hosted on three.ws.',
+			});
+		}
 		// Empty-string device token would otherwise become a shared anonymous owner.
 		const deviceToken = body.deviceToken || null;
 
 		const session   = await getSessionUser(req).catch(() => null);
 		const userId    = session?.id ?? null;
+
+		// Placement token bucket (D4) — per (device + IP), tighter than the coarse
+		// per-IP gate above. Burst (5/min) + sustained (30/h). Fails open + logs on a
+		// Redis outage (non-critical) so an infra hiccup never blocks a real placement.
+		const rateKey = `${deviceToken ?? userId ?? 'anon'}:${ip}`;
+		const [burst, hourly] = await Promise.all([
+			limits.irlPinBurst(rateKey),
+			limits.irlPinHourly(rateKey),
+		]);
+		const throttled = !burst.success ? burst : !hourly.success ? hourly : null;
+		if (throttled) {
+			const retryAfter = Math.max(1, Math.ceil((throttled.reset - Date.now()) / 1000));
+			res.setHeader?.('Retry-After', String(retryAfter));
+			return json(res, 429, {
+				error: 'rate',
+				retryAfter,
+				message: 'You’re placing agents too fast. Wait a moment and try again.',
+			});
+		}
+
+		// Density cap — one fine geocell (~150m) can hold only so many agents, so a
+		// single actor can't carpet-bomb a venue. Counts only live, non-hidden pins.
+		const cell7 = encodeGeohash(lat, lng, GEOCELL_PRECISION);
+		if (cell7) {
+			const [{ n }] = await sql`
+				SELECT count(*)::int AS n FROM irl_pins
+				WHERE geocell7 = ${cell7}
+				  AND hidden_at IS NULL
+				  AND (expires_at IS NULL OR expires_at > NOW())
+			`;
+			if (n >= MAX_PINS_PER_CELL) {
+				return json(res, 429, {
+					error: 'area_full',
+					message: 'This area already has the maximum number of agents. Try another spot.',
+				});
+			}
+		}
+
+		// Per-owner active-pin cap — a signed-in owner is accountable, so gets a
+		// higher ceiling than an anonymous device. Null-guarded so a NULL user_id or
+		// empty device token can't collide owners.
+		const ownerCap = userId ? MAX_PINS_PER_OWNER_SIGNED : MAX_PINS_PER_OWNER_ANON;
+		const [{ n: owned }] = await sql`
+			SELECT count(*)::int AS n FROM irl_pins
+			WHERE ((${userId}::uuid IS NOT NULL AND user_id = ${userId}::uuid)
+			    OR (${deviceToken}::text IS NOT NULL AND device_token = ${deviceToken}))
+			  AND hidden_at IS NULL
+			  AND (expires_at IS NULL OR expires_at > NOW())
+		`;
+		if (owned >= ownerCap) {
+			return json(res, 429, {
+				error: 'pin_limit',
+				limit: ownerCap,
+				message: 'You’ve reached your active pin limit. Remove an old pin to place a new one.',
+			});
+		}
+
 		// Authenticated users get permanent pins; anonymous expire in 7 days.
 		const expiresAt = userId ? null : new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString();
 
@@ -339,7 +546,7 @@ export default wrap(async (req, res) => {
 				(user_id, agent_id, device_token, lat, lng, heading,
 				 avatar_url, avatar_name, caption, x402_endpoint, expires_at,
 				 anchor_height_m, anchor_yaw_deg, anchor_quat,
-				 gps_accuracy_m, altitude_m, anchor_source)
+				 gps_accuracy_m, altitude_m, anchor_source, geocell7)
 			VALUES (
 				${userId},
 				${body.agentId    ?? null},
@@ -347,8 +554,8 @@ export default wrap(async (req, res) => {
 				${lat}, ${lng},
 				${parseFloat(body.heading) || 0},
 				${avatarUrlChk.value},
-				${body.avatarName  ?? null},
-				${body.caption     ?? null},
+				${avatarName},
+				${caption},
 				${x402Chk.value},
 				${expiresAt},
 				${anchorHeightM},
@@ -356,7 +563,8 @@ export default wrap(async (req, res) => {
 				${anchorQuat},
 				${gpsAccuracyM},
 				${altitudeM},
-				${anchorSource}
+				${anchorSource},
+				${cell7 || null}
 			)
 			RETURNING *
 		`;

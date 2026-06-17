@@ -204,6 +204,17 @@ export const limits = {
 	//   · irlInteractIp — log a tap/view/message (lighter; legit viewing fans out)
 	irlPinIp: (ip) => getLimiter('irl:pin:ip', { limit: 20, window: '10 m' }).limit(ip),
 	irlInteractIp: (ip) => getLimiter('irl:interact:ip', { limit: 60, window: '1 m' }).limit(ip),
+	// IRL placement token bucket (D4) — keyed per (device_token + IP), tighter than
+	// the coarse per-IP `irlPinIp` so one device can't script a rapid placement flood
+	// even from a rotating IP. Two windows: a 5/min burst guard and a 30/hour ceiling.
+	// Non-critical → a Redis outage fails open (degraded + logged once/min) so an
+	// infra hiccup never blocks a legitimate placement.
+	irlPinBurst: (key) => getLimiter('irl:pin:burst', { limit: 5, window: '1 m' }).limit(key),
+	irlPinHourly: (key) => getLimiter('irl:pin:hourly', { limit: 30, window: '1 h' }).limit(key),
+	// IRL report submissions (D4) — one report write per (device + IP) burst. The
+	// distinct-reporter dedup in api/irl/report.js is the real anti-abuse gate; this
+	// just bounds raw POST volume from one source.
+	irlReportIp: (ip) => getLimiter('irl:report:ip', { limit: 10, window: '5 m' }).limit(ip),
 	// Same-origin image proxy (api/img). A token-cloud view loads dozens of
 	// thumbnails at once, so the ceiling is generous — but bounded so the proxy
 	// can't be turned into an open bandwidth relay. Responses are CDN-cached.

@@ -39,7 +39,7 @@ import { AnimationManager } from './animation-manager.js';
 import { WebXRSession } from './ar/webxr.js';
 import { log } from './shared/log.js';
 import { createAvatarPicker } from './avatar-picker.js';
-import { errorStateEl, skeletonHTML, emptyStateHTML, errorStateHTML, ensureStateKitStyles } from './shared/state-kit.js';
+import { errorStateEl, skeletonHTML, emptyStateHTML, errorStateHTML, ensureStateKitStyles, attachRetry } from './shared/state-kit.js';
 
 const AVATAR_URL_DEFAULT = '/avatars/default.glb';
 const ANIMATIONS_MANIFEST_URL = '/animations/manifest.json';
@@ -994,6 +994,15 @@ function onGPSPosition(pos) {
 		anchorGpsPin();
 	}
 
+	// A WebXR floor anchor was placed before this first fix — persist its pin now.
+	// The XRAnchor already holds the agent in the room; this lands the durable,
+	// shareable record it couldn't save without coordinates.
+	if (_pendingXrAnchorPose) {
+		const pose = _pendingXrAnchorPose;
+		_pendingXrAnchorPose = null;
+		persistFloorAnchor(pose);
+	}
+
 	// Move pinned avatar to its GPS-anchored world position. anchor_height_m (A2)
 	// keeps the feet on the ground plane on slopes / indoors — 0 today, but read
 	// it back so future floor-corrected placements render at the right height.
@@ -1208,6 +1217,11 @@ function startTick() {
 }
 
 let xrSession = null;
+// A floor anchor placed before the first GPS fix — held here and persisted the
+// instant onGPSPosition() lands real coordinates (mirrors _pendingGpsLock for the
+// gyro path). The in-session XRAnchor already glues the agent; this rescues its
+// durable, shareable pin from a quick tap during GPS warm-up.
+let _pendingXrAnchorPose = null;
 
 async function detectFloorAnchorSupport() {
 	try {
@@ -1274,6 +1288,10 @@ async function enterFloorAnchor() {
 			onAnchored: (pose) => onFloorAnchored(pose),
 			onEnd: () => {
 				xrSession = null;
+				// Drop any anchor still waiting on a GPS fix — the user left this
+				// placement, so don't surprise them with a pin saved after they walk
+				// away (parity with the gyro path's arActive gate).
+				_pendingXrAnchorPose = null;
 				// WebXRSession restores an opaque clear color on exit; IRL renders
 				// over the page gradient with a transparent canvas — put that back.
 				renderer.setClearColor(0x000000, 0);
@@ -1300,18 +1318,29 @@ function yawFromQuat(q) {
 	return Math.atan2(siny, cosy) * 180 / Math.PI;
 }
 
-// Convert the anchored local-space pose to a GPS pin and persist it (A2). The
-// in-session XRAnchor already holds the agent; this is the durable, shareable
-// record. Horizontal offset → lat/lng uses the same metre-per-degree math as the
-// gyro Pin path (local −Z = north, +X = east); height + yaw + GPS-fit trust ride
-// along in the anchor object.
+// Entry point for a placed floor anchor: persist it now if we have a GPS fix,
+// otherwise hold the pose until the first fix lands. The in-session XRAnchor
+// already glues the agent either way — this only governs the durable pin.
 function onFloorAnchored(pose) {
-	const { position, quaternion } = pose;
 	if (!gpsState.ready) {
-		// The anchor still glues the agent in-session; we just can't save a pin yet.
-		setXrHint('Anchored here — enable location to save & share this spot');
+		// The anchor still glues the agent in-session; we just can't convert it to a
+		// GPS pin yet. Hold the pose and finish the save the moment the first fix
+		// lands (onGPSPosition) rather than dropping it — a quick tap during GPS
+		// warm-up should still persist, not vanish.
+		_pendingXrAnchorPose = pose;
+		setXrHint('Anchored here — saving this spot once your location locks in');
 		return;
 	}
+	persistFloorAnchor(pose);
+}
+
+// Convert the anchored local-space pose to a GPS pin and persist it (A2) — the
+// durable, shareable record beyond the in-session XRAnchor. Horizontal offset →
+// lat/lng uses the same metre-per-degree math as the gyro Pin path (local −Z =
+// north, +X = east); height + yaw + GPS-fit trust ride along in the anchor object.
+// Split out so onGPSPosition() can replay a pose captured before the first fix.
+function persistFloorAnchor(pose) {
+	const { position, quaternion } = pose;
 	const mLat = 110540;
 	const mLng = 111320 * Math.cos(gpsState.lat * (Math.PI / 180));
 	const pinLat = gpsState.lat + (-position.z / mLat);
@@ -1971,7 +2000,7 @@ async function runX402Payment(endpoint, btn) {
 }
 
 // ── Interaction sheet ─────────────────────────────────────────────────────
-async function openPinSheet(pin) {
+function openPinSheet(pin) {
 	const sheet = document.getElementById('irl-sheet');
 	if (!sheet) return;
 
@@ -1997,7 +2026,7 @@ async function openPinSheet(pin) {
 		const own = isOwnPin(pin);
 		calBtn.hidden = !own;
 		calBtn.onclick = own
-			? () => { sheet.classList.remove('is-open'); enterCalibrate(pin); }
+			? () => { closeInspectSheet(); enterCalibrate(pin); }
 			: null;
 	}
 
@@ -2016,19 +2045,15 @@ async function openPinSheet(pin) {
 		}
 	}
 
-	// Clear any previously loaded enriched content
-	const descEl  = document.getElementById('irl-sheet-description');
-	const skillsEl = document.getElementById('irl-sheet-skills');
-	const viewsEl  = document.getElementById('irl-sheet-views');
-	const multiEl  = document.getElementById('irl-sheet-multiplayer');
-	const repEl    = document.getElementById('irl-sheet-rep');
-	const servicesEl = document.getElementById('irl-sheet-services');
-	if (descEl)   { descEl.textContent = ''; descEl.hidden = true; }
-	if (skillsEl) { skillsEl.innerHTML = ''; skillsEl.hidden = true; }
-	if (viewsEl)  { viewsEl.hidden = true; }
-	if (multiEl)  { multiEl.hidden = true; }
-	if (repEl)    { repEl.hidden = true; }
-	if (servicesEl) { servicesEl.hidden = true; }
+	// Reset the rich-card surfaces before the fresh card resolves: hide the
+	// previous agent's thumbnail + tier badge so neither flashes while the next
+	// card loads. #irl-card-body gets its skeleton from loadAgentCard() below.
+	const multiEl = document.getElementById('irl-sheet-multiplayer');
+	const thumbEl = document.getElementById('irl-sheet-thumb');
+	const tierEl  = document.getElementById('irl-sheet-tier');
+	if (thumbEl) { thumbEl.removeAttribute('src'); thumbEl.hidden = true; }
+	if (tierEl)  { tierEl.hidden = true; tierEl.removeAttribute('data-tier'); }
+	if (multiEl) multiEl.hidden = true;
 
 	sheet.dataset.agentId   = pin.agent_id   ?? '';
 	sheet.dataset.agentName = pin.avatar_name ?? '';
@@ -2040,7 +2065,15 @@ async function openPinSheet(pin) {
 		if (msgInput)  { msgInput.value = ''; msgInput.disabled = false; }
 		if (msgStatus) { msgStatus.hidden = true; msgStatus.classList.remove('is-error'); }
 	}
+
+	// Open with a designed transition + focus management. Remember what had focus
+	// so closeInspectSheet() can restore it; fade the backdrop in alongside the
+	// sheet and move focus to the dialog so Escape and screen readers land here.
+	_activePin = pin;
+	_lastFocus = document.activeElement;
+	document.getElementById('irl-sheet-backdrop')?.classList.add('is-open');
 	sheet.classList.add('is-open');
+	try { sheet.focus({ preventScroll: true }); } catch { /* older browsers */ }
 
 	// Multiplayer note — always show since all pins are publicly visible
 	if (multiEl) {
@@ -2069,66 +2102,35 @@ async function openPinSheet(pin) {
 		pin.view_count = (pin.view_count ?? 0) + 1;
 	}
 
-	// Async: enrich with the public agent card — description, skills, reputation,
-	// and the paid services this agent offers. One cached call resolves by pin so
-	// anonymous placements still return a usable card.
-	if (pin.id) {
-		try {
-			const r = await fetch(`/api/irl/agent-card?pin=${encodeURIComponent(pin.id)}`);
-			if (r.ok) {
-				const { card } = await r.json();
-				if (card) {
-					if (card.description && descEl) {
-						descEl.textContent = card.description;
-						descEl.hidden = false;
-					}
-					if (card.skills?.length && skillsEl) {
-						skillsEl.innerHTML = card.skills.slice(0, 6).map(s =>
-							`<span class="irl-skill-badge">${_escHtml(s)}</span>`,
-						).join('');
-						skillsEl.hidden = false;
-					}
-					// Reputation — score is 0–100; show it as a bar + label.
-					const score = card.reputation?.score ?? 0;
-					if (score > 0 && repEl) {
-						const fill = document.getElementById('irl-rep-fill');
-						const text = document.getElementById('irl-rep-text');
-						if (fill) fill.style.width = `${Math.min(100, score)}%`;
-						if (text) {
-							const chats = card.reputation?.chats ?? 0;
-							text.textContent = chats > 0
-								? `Reputation ${score}/100 · ${chats} chat${chats === 1 ? '' : 's'}`
-								: `Reputation ${score}/100`;
-						}
-						repEl.hidden = false;
-					}
-					// Services the agent offers, with prices.
-					if (card.services?.length && servicesEl) {
-						const listEl = document.getElementById('irl-services-list');
-						if (listEl) {
-							listEl.innerHTML = card.services.slice(0, 6).map(s => {
-								const price = s.price_usdc != null
-									? `$${Number(s.price_usdc).toFixed(2)} ${(s.network || 'base').toUpperCase()}`
-									: 'Free';
-								return `<div class="irl-service-row"><span class="irl-service-name">${_escHtml(s.name || s.slug)}</span><span class="irl-service-price">${_escHtml(price)}</span></div>`;
-							}).join('');
-							servicesEl.hidden = false;
-						}
-					}
-					// Surface a pay button if the card resolved an x402 endpoint.
-					if (card.x402_endpoint && payBtn) {
-						payBtn.hidden = false;
-						payBtn.dataset.endpoint = card.x402_endpoint;
-					}
-				}
-			}
-		} catch {}
-	}
+	// Rich card: avatar bio + on-chain reputation + the agent's paid x402 services,
+	// from one /api/irl/agent-card aggregation call. loadAgentCard() drops a
+	// skeleton into #irl-card-body immediately, then renders the populated /
+	// empty-services / no-reputation / error+retry state, and aborts the in-flight
+	// fetch when the viewer taps a different agent so stale data never lands.
+	loadAgentCard(pin);
 }
 
-document.getElementById('irl-sheet-close')?.addEventListener('click', () => {
-	document.getElementById('irl-sheet')?.classList.remove('is-open');
+document.getElementById('irl-sheet-close')?.addEventListener('click', closeInspectSheet);
+document.getElementById('irl-sheet-backdrop')?.addEventListener('click', closeInspectSheet);
+window.addEventListener('keydown', (e) => {
+	if (e.key === 'Escape' && document.getElementById('irl-sheet')?.classList.contains('is-open')) {
+		closeInspectSheet();
+	}
 });
+
+// Per-service "Use" CTA → x402 payment; the error-state Retry re-fetches the card.
+// Both delegate off #irl-card-body so they survive every innerHTML re-render
+// (skeleton → populated / error).
+{
+	const cardBody = document.getElementById('irl-card-body');
+	if (cardBody) {
+		cardBody.addEventListener('click', (e) => {
+			const useBtn = e.target.closest('.irl-service-use[data-x402]');
+			if (useBtn) runX402Payment(useBtn.dataset.x402, useBtn);
+		});
+		attachRetry(cardBody, () => { if (_activePin) loadAgentCard(_activePin); });
+	}
+}
 
 // Leave-a-message — a visitor's note becomes a 'message' interaction in the
 // owner's IRL feed (dashboard). Pin id is stamped on the sheet by openPinSheet.
@@ -2253,7 +2255,7 @@ document.getElementById('irl-sheet-view')?.addEventListener('click', () => {
 	const sheet   = document.getElementById('irl-sheet');
 	const agentId = sheet?.dataset.agentId;
 	const name    = sheet?.dataset.agentName || document.getElementById('irl-sheet-name')?.textContent || '';
-	sheet?.classList.remove('is-open');
+	closeInspectSheet();
 	if (agentId) {
 		window.open(`/agents/${agentId}`, '_blank', 'noopener');
 	} else {
@@ -2261,64 +2263,9 @@ document.getElementById('irl-sheet-view')?.addEventListener('click', () => {
 	}
 });
 
-document.getElementById('irl-sheet-pay')?.addEventListener('click', async (e) => {
-	const btn      = e.currentTarget;
-	const endpoint = btn.dataset.endpoint;
-	if (!endpoint) return;
-
-	if (!window.ethereum) {
-		setStatus('Connect an Ethereum wallet (MetaMask) to pay via x402', { error: true });
-		return;
-	}
-
-	btn.disabled = true;
-	const origText = btn.textContent;
-
-	// Gate on an authorized wallet before signing. The x402 adapter would prompt
-	// lazily on first sign, but doing it up front gives the user a clear connect
-	// step and lets us bail cleanly (button re-enabled) if they decline.
-	btn.textContent = 'Connecting…';
-	try {
-		const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-		if (!Array.isArray(accounts) || !accounts.length) {
-			setStatus('Connect your wallet to pay via x402', { error: true });
-			btn.disabled = false;
-			btn.textContent = origText;
-			return;
-		}
-	} catch (err) {
-		const m = err?.message ?? String(err);
-		setStatus(/reject|denied|4001/i.test(m) ? 'Wallet connection cancelled' : `Couldn't connect wallet — ${m}`, { error: true });
-		btn.disabled = false;
-		btn.textContent = origText;
-		return;
-	}
-
-	btn.textContent = 'Sending…';
-	try {
-		const { withX402 } = await import('../packages/x402-fetch/dist/index.esm.js');
-		const pay = withX402(window.ethereum, { maxPaymentUsd: 1.00 });
-		const r = await pay(endpoint, { method: 'POST' });
-		if (r.ok) {
-			setStatus('Payment sent');
-			btn.textContent = 'Paid ✓';
-			btn.disabled = true;
-		} else {
-			const msg = await r.text().catch(() => r.status);
-			setStatus(`Payment failed (${msg})`, { error: true });
-			btn.disabled = false;
-			btn.textContent = origText;
-		}
-	} catch (err) {
-		const msg = err?.message ?? String(err);
-		if (msg.includes('rejected') || msg.includes('denied')) {
-			setStatus('Payment cancelled', { error: true });
-		} else {
-			setStatus(`Payment failed — ${msg}`, { error: true });
-		}
-		btn.disabled = false;
-		btn.textContent = origText;
-	}
+// Footer Pay CTA — same x402 flow as the per-service "Use" buttons.
+document.getElementById('irl-sheet-pay')?.addEventListener('click', (e) => {
+	runX402Payment(e.currentTarget.dataset.endpoint, e.currentTarget);
 });
 
 // ── Radar minimap ────────────────────────────────────────────────────────
