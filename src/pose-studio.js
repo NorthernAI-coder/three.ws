@@ -273,6 +273,12 @@ function setupScene(canvas, hudStatus) {
 		camera.updateProjectionMatrix();
 	}
 	window.addEventListener('resize', resize);
+	// The shared nav injects asynchronously and the stage flexes with the page
+	// shell, so track the canvas box directly rather than relying on window
+	// resize alone — keeps the render crisp at every breakpoint.
+	if (typeof ResizeObserver !== 'undefined') {
+		new ResizeObserver(resize).observe(canvas);
+	}
 	resize();
 
 	function setStatus(text, kind = 'info') {

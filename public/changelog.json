@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-17T12:53:57.807Z",
+	"generated_at": "2026-06-17T15:26:20.629Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -134,6 +134,17 @@
 			"title": "Everyone at a location now sees your IRL agent in the same real spot",
 			"summary": "three.ws/irl agents now line up across phones. A placed agent renders from its own saved compass bearing and ground height instead of whichever way your phone happens to face, so two people standing in the same place see it standing in the same place, facing the same way. To keep it steady, your own GPS position is now smoothed so anchored agents stop drifting and swimming as your location jitters, and noisy fixes are ignored. Every agent now sits inside a ground ring whose size reflects the real GPS accuracy — honest about the fact that phone GPS is roughly 5–15 metres, and wider (and amber) when the signal is poor — so it never pretends to be pinpoint-perfect. And if an agent landed a little off, its owner can fine-tune it: long-press your own agent (or tap Calibrate position on its card) and drag to nudge it a few centimetres, twist with two fingers to rotate it, or step its floor height up and down. Saving the nudge updates the spot for everyone nearby. Only the owner can calibrate an agent, nudges are capped to small corrections so this can never be used to drag someone's agent across the map, and a failed save keeps your change on screen with a one-tap retry.",
 			"link": "/irl",
+			"tags": [
+				"feature",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-17",
+			"type": "update",
+			"title": "Filter the marketplace by Free or Paid",
+			"summary": "The marketplace now has working Free / Paid filters. \"Paid\" surfaces every agent that charges in any way — a one-time price to own it or per-call pricing on its skills — and \"Free\" shows the rest. Filtering happens on the server, so the result count and \"load more\" stay accurate no matter how many pages deep you browse, and your choice is saved in the URL so you can bookmark or share a filtered view.",
+			"link": "/marketplace",
 			"tags": [
 				"feature",
 				"improvement"
@@ -543,6 +554,17 @@
 			"tags": [
 				"feature",
 				"sdk"
+			]
+		},
+		{
+			"date": "2026-06-17",
+			"type": "update",
+			"title": "Withdraw your agent's funds any time — plus spend limits and a full custody audit trail",
+			"summary": "Your agent's Solana wallet is custodial, so we've made getting funds out and keeping them safe first-class. The Agent Wallet hub now has a working Withdraw tab: sweep all your SOL or any token the wallet holds to any address or .sol name (paste or scan a QR), with a clear review step, a confirmed explorer link, and every state designed. A small amount of SOL is always kept back on a \"Max\" sweep so the wallet can never get stuck. Withdrawals are signed on the server and are safe to retry — the same request never sends twice. A new Limits & Safety section lets you set a daily spend cap, a per-transaction cap, and an allowlist of addresses funds may be withdrawn to; those limits apply to everything the agent does — trades, snipes, and payments — not just withdrawals. And an Activity log shows exactly what your custodial wallet has done: every withdrawal, automated spend, limit change, and each time the key was used to sign, with the reason. The wallet's secret key never leaves our servers, is never shown or logged, and is only ever used after we confirm you own the agent.",
+			"link": null,
+			"tags": [
+				"feature",
+				"security"
 			]
 		},
 		{

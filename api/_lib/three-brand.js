@@ -111,6 +111,23 @@ export function agentRoyaltyConfig(ownerAddress, basisPoints = AGENT_ROYALTY_BPS
 	return { basisPoints, creators: [{ address: ownerAddress, percentage: 100 }] };
 }
 
+/**
+ * Deterministic short symbol for an agent's skill NFT collection, derived from
+ * its name. Used identically on the off-chain collection JSON and by the create
+ * script so a wallet/explorer shows a stable ticker. Strips to uppercase
+ * alphanumerics, caps at 10 chars, falls back to 'SKILL'.
+ *
+ * @param {string} [agentName]
+ * @returns {string}
+ */
+export function skillCollectionSymbol(agentName) {
+	const cleaned = String(agentName || '')
+		.toUpperCase()
+		.replace(/[^A-Z0-9]/g, '')
+		.slice(0, 10);
+	return cleaned || 'SKILL';
+}
+
 // ── Agent identity (Metaplex Core asset) ─────────────────────────────────────
 
 /**

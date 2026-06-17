@@ -180,7 +180,10 @@ async function confirmSolanaSkill(pur, payoutAddress) {
 	const recipient = new PublicKey(payoutAddress);
 	const splToken = new PublicKey(pur.currency_mint);
 	const decimals = pur.mint_decimals ?? 6;
-	const expectedAmount = new BigNumber(pur.amount).dividedBy(new BigNumber(10).pow(decimals));
+	const pow = new BigNumber(10).pow(decimals);
+	const fullAtomics = new BigNumber(pur.amount);
+	const feeAtomics = new BigNumber(pur.platform_fee_amount || 0);
+	const feeWallet = pur.platform_fee_wallet || null;
 
 	// 1. Find the on-chain tx via reference.
 	let signatureInfo;
@@ -196,26 +199,52 @@ async function confirmSolanaSkill(pur, payoutAddress) {
 	}
 	const txSignature = signatureInfo.signature;
 
-	// 2. Strict validation.
-	try {
-		await rpc().withFallback((conn) =>
+	// 2. Strict validation. When a platform fee applies, the buyer's wallet signs
+	// ONE transaction with two legs — (price − fee) to the seller and the fee to
+	// the treasury — and we verify BOTH (the reference, proven above, is shared by
+	// the whole tx). A mobile Solana-Pay QR can't express a split, so we also
+	// accept a single full-amount transfer to the seller (no platform fee taken on
+	// that path): a buyer who paid the full price is never blocked.
+	const validateLeg = (who, amountAtomics) =>
+		rpc().withFallback((conn) =>
 			validateTransfer(
 				conn,
 				txSignature,
-				{ recipient, amount: expectedAmount, splToken, reference: refKey },
+				{ recipient: who, amount: amountAtomics.dividedBy(pow), splToken, reference: refKey },
 				{ commitment: 'confirmed' },
 			),
 		);
-	} catch (e) {
-		// Mismatch — but the transfer happened. Mark as tipped if we can pin down
-		// the actual amount that hit the seller's wallet; else mark failed.
-		const actual = await findReferencedTransferAmount(txSignature, recipient, splToken);
-		if (actual !== null)
-			return markSkillTipped(pur, txSignature, actual.toString(), e.message, payoutAddress);
-		return markSkillMismatch(pur, txSignature, e.message);
+
+	const attempts = [];
+	if (feeAtomics.gt(0) && feeWallet) {
+		attempts.push({ creator: fullAtomics.minus(feeAtomics), feeTaken: feeAtomics, feeWallet });
+	}
+	attempts.push({ creator: fullAtomics, feeTaken: new BigNumber(0), feeWallet: null });
+
+	let matched = null;
+	let lastErr = null;
+	for (const a of attempts) {
+		try {
+			await validateLeg(recipient, a.creator);
+			if (a.feeTaken.gt(0)) await validateLeg(new PublicKey(a.feeWallet), a.feeTaken);
+			matched = a;
+			break;
+		} catch (e) {
+			lastErr = e;
+		}
 	}
 
-	return finalizeSkillConfirmation(pur, txSignature, payoutAddress);
+	if (!matched) {
+		// Mismatch — but the transfer happened. Mark as tipped if we can pin down
+		// the actual amount that hit the seller's wallet; else mark failed.
+		const reason = lastErr?.message || 'on-chain transfer did not match expected';
+		const actual = await findReferencedTransferAmount(txSignature, recipient, splToken);
+		if (actual !== null)
+			return markSkillTipped(pur, txSignature, actual.toString(), reason, payoutAddress);
+		return markSkillMismatch(pur, txSignature, reason);
+	}
+
+	return finalizeSkillConfirmation(pur, txSignature, payoutAddress, matched.feeTaken.toFixed(0));
 }
 
 // EVM path: the buyer submits the settlement tx hash; verify a USDC transfer of
@@ -369,7 +398,7 @@ async function markSkillMismatch(pur, txSignature, reason) {
 // Atomic confirm + ledger writes. Identical for Solana and EVM once a valid
 // payment is proven, so both chains converge here. `txSignature` is the Solana
 // signature or the EVM tx hash.
-async function finalizeSkillConfirmation(pur, txSignature, payoutAddress) {
+async function finalizeSkillConfirmation(pur, txSignature, payoutAddress, platformFeeAtomics = '0') {
 	const intentId = `sp_${pur.id}`;
 	const updated = await sql`
 		UPDATE skill_purchases
@@ -390,21 +419,25 @@ async function finalizeSkillConfirmation(pur, txSignature, payoutAddress) {
 			ON CONFLICT (id) DO NOTHING
 		`;
 
-		// 3a. Referral commission split (C6).
+		// 3a. Split the gross: platform fee (collected on-chain by the treasury),
+		// referral commission (C6, accrued to the referrer), and the creator's net.
 		const grossAmt = BigInt(pur.amount);
+		const platformFee = (() => {
+			try { return BigInt(platformFeeAtomics || '0'); } catch { return 0n; }
+		})();
 		let referralAmt = 0n;
 		if (pur.referrer_user_id) {
 			referralAmt = (grossAmt * BigInt(referralBps())) / 10000n;
 		}
-		const netAmt = grossAmt - referralAmt;
+		const netAmt = grossAmt - platformFee - referralAmt;
 		await sql`
 			INSERT INTO agent_revenue_events
-				(agent_id, intent_id, skill, gross_amount, fee_amount, net_amount,
-				 currency_mint, chain, payer_address)
+				(agent_id, intent_id, skill, gross_amount, fee_amount, platform_fee_amount,
+				 net_amount, currency_mint, chain, payer_address)
 			VALUES
 				(${pur.agent_id}, ${intentId}, ${pur.skill},
-				 ${grossAmt.toString()}, ${referralAmt.toString()}, ${netAmt.toString()},
-				 ${pur.currency_mint}, ${pur.chain}, ${payoutAddress})
+				 ${grossAmt.toString()}, ${referralAmt.toString()}, ${platformFee.toString()},
+				 ${netAmt.toString()}, ${pur.currency_mint}, ${pur.chain}, ${payoutAddress})
 		`;
 		if (pur.referrer_user_id && referralAmt > 0n) {
 			// Track the referrer's accrued earnings. Real payout happens via the

@@ -3,6 +3,13 @@
 	"entries": [
 		{
 			"date": "2026-06-17",
+			"title": "Filter the marketplace by Free or Paid",
+			"summary": "The marketplace now has working Free / Paid filters. \"Paid\" surfaces every agent that charges in any way — a one-time price to own it or per-call pricing on its skills — and \"Free\" shows the rest. Filtering happens on the server, so the result count and \"load more\" stay accurate no matter how many pages deep you browse, and your choice is saved in the URL so you can bookmark or share a filtered view.",
+			"tags": ["feature", "improvement"],
+			"link": "/marketplace"
+		},
+		{
+			"date": "2026-06-17",
 			"title": "Withdraw your agent's funds any time — plus spend limits and a full custody audit trail",
 			"summary": "Your agent's Solana wallet is custodial, so we've made getting funds out and keeping them safe first-class. The Agent Wallet hub now has a working Withdraw tab: sweep all your SOL or any token the wallet holds to any address or .sol name (paste or scan a QR), with a clear review step, a confirmed explorer link, and every state designed. A small amount of SOL is always kept back on a \"Max\" sweep so the wallet can never get stuck. Withdrawals are signed on the server and are safe to retry — the same request never sends twice. A new Limits & Safety section lets you set a daily spend cap, a per-transaction cap, and an allowlist of addresses funds may be withdrawn to; those limits apply to everything the agent does — trades, snipes, and payments — not just withdrawals. And an Activity log shows exactly what your custodial wallet has done: every withdrawal, automated spend, limit change, and each time the key was used to sign, with the reason. The wallet's secret key never leaves our servers, is never shown or logged, and is only ever used after we confirm you own the agent.",
 			"tags": ["feature", "security"]

@@ -4,7 +4,7 @@
 		<script>/* three.ws theme boot — no-flash; runtime in /theme-switcher.js */(function(){try{var m=localStorage.getItem('twx_theme');var l=m==='auto'?(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches):m==='light';document.documentElement.setAttribute('data-theme',l?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();</script>
 		<meta charset="utf-8" />
 		<meta http-equiv="X-UA-Compatible" content="IE=edge" />
-		<title>Pose Studio · three.ws</title>
+		<title>Animation Studio · three.ws</title>
 		<meta
 			name="viewport"
 			content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
@@ -12,7 +12,7 @@
 		<meta name="author" content="nirholas" />
 		<meta
 			name="description"
-			content="Free 3D pose-reference studio. Click body parts to pose them, pick from preset poses, add floor props, export PNG."
+			content="Pose and animate any three.ws avatar in your browser. Drag joints with IK, keyframe a timeline, preview live, then export an animated GLB — save to your account and sell your animations for USDC."
 		/>
 		<meta name="theme-color" content="#0b0b0b" />
 		<link rel="icon" href="/favicon.ico" sizes="any" />
@@ -29,10 +29,10 @@
 
 		<meta property="og:type" content="website" />
 		<meta property="og:site_name" content="three.ws" />
-		<meta property="og:title" content="Pose Studio · three.ws" />
+		<meta property="og:title" content="Animation Studio · three.ws" />
 		<meta
 			property="og:description"
-			content="Free 3D pose-reference studio. Click body parts to pose them, pick from preset poses, export PNG."
+			content="Pose and animate any three.ws avatar: IK posing, a keyframe timeline, live preview, animated-GLB export, and sell your animations for USDC."
 		/>
 		<meta property="og:url" content="https://three.ws/pose" />
 	<meta property="og:image" content="https://three.ws/og-image.png" />
@@ -40,8 +40,8 @@
 	<meta property="og:image:height" content="630" />
 	<meta name="twitter:card" content="summary_large_image" />
 	<meta name="twitter:site" content="@trythreews" />
-	<meta name="twitter:title" content="Pose Studio · three.ws" />
-	<meta name="twitter:description" content="Create and save custom poses for any three.ws avatar. Export as animation clips or share with your community." />
+	<meta name="twitter:title" content="Animation Studio · three.ws" />
+	<meta name="twitter:description" content="Author animations for any three.ws avatar — IK posing, keyframe timeline, animated-GLB export. Save to your account and sell for USDC." />
 	<meta name="twitter:image" content="https://three.ws/og-image.png" />
 
 		<style>
@@ -58,13 +58,14 @@
 				--accent-2: #cccccc;
 				--danger: #f87171;
 				--ok: #ffffff;
+				--nav-h: 69px;
 			}
 			html,
 			body {
 				margin: 0;
 				padding: 0;
 				width: 100%;
-				height: 100%;
+				min-height: 100%;
 				background: var(--bg);
 				color: var(--text);
 				font-family:
@@ -73,12 +74,12 @@
 					-apple-system,
 					sans-serif;
 				-webkit-font-smoothing: antialiased;
-				overflow: hidden;
 			}
-
+			/* The studio is a focused tool: it fills the viewport beneath the
+			   shared nav, with the shared footer reachable just below the fold. */
 			#pose-app {
-				position: fixed;
-				inset: 0;
+				position: relative;
+				height: calc(100dvh - var(--nav-h));
 				display: grid;
 				grid-template-columns: 280px 1fr 320px;
 				grid-template-rows: 52px 1fr auto;
@@ -1578,15 +1579,23 @@
 					grid-template-columns: 240px 1fr 260px;
 				}
 			}
+			@media (max-width: 768px) {
+				:root {
+					--nav-h: 65px;
+				}
+			}
 			@media (max-width: 900px) {
 				#pose-app {
 					grid-template-columns: 1fr;
-					grid-template-rows: 52px 1fr auto auto;
+					grid-template-rows: 52px minmax(46vh, 1fr) auto auto;
 					grid-template-areas:
 						'top'
 						'stage'
 						'timeline'
 						'left';
+					/* Stacked panels can exceed one screen — let the page scroll. */
+					height: auto;
+					min-height: calc(100dvh - var(--nav-h));
 				}
 				#pose-right {
 					display: none;
@@ -1604,13 +1613,16 @@
 		</style>
 	</head>
 	<body>
+		<header><div id="nav-container"></div></header>
+		<script src="/nav.js"></script>
+
 		<div id="pose-app">
 			<!-- TOP BAR -->
 			<header id="pose-top">
 				<div class="brand">
 					<a href="/" title="three.ws home">three.ws</a>
 					<span>/</span>
-					<span>Pose Studio</span>
+					<span>Animation Studio</span>
 				</div>
 				<span class="sep"></span>
 
@@ -2007,6 +2019,48 @@
 			</section>
 		</div>
 
+		<footer class="h-footer-horizon">
+			<div class="h-footer-glow-line" aria-hidden="true"></div>
+			<div class="h-footer-watermark" aria-hidden="true">three.ws</div>
+			<div class="h-footer-inner">
+				<div class="h-footer-brand-col">
+					<div class="h-footer-brand">
+						<img class="wordmark-logo" src="/three.svg" alt="" aria-hidden="true" />
+						<span class="wordmark-dot" aria-hidden="true"></span>
+						<span>three.ws</span>
+					</div>
+					<p class="h-footer-tagline">Give your AI a body.</p>
+				</div>
+				<nav class="h-footer-links" aria-label="Footer">
+					<div class="h-footer-link-col">
+						<h4 class="h-footer-link-heading">Product</h4>
+						<a href="/create">Create</a>
+						<a href="/pose">Animation Studio</a>
+						<a href="/marketplace?tab=animations">Animations</a>
+						<a href="/marketplace">Marketplace</a>
+					</div>
+					<div class="h-footer-link-col">
+						<h4 class="h-footer-link-heading">Developers</h4>
+						<a href="/docs">Docs</a>
+						<a
+							href="https://github.com/nirholas/three.ws"
+							target="_blank"
+							rel="noopener"
+							>GitHub</a
+						>
+					</div>
+				</nav>
+			</div>
+			<div class="h-footer-bottom">
+				<p class="h-footer-legal">© 2026 three.ws — All rights reserved.</p>
+				<div class="h-footer-legal-links">
+					<a href="/legal/privacy">Privacy</a>
+					<a href="/legal/tos">Terms</a>
+				</div>
+			</div>
+		</footer>
+
+		<script defer src="/footer-newsletter.js"></script>
 		<script type="module" src="/src/pose-studio.js"></script>
 		<script src="/brand.js" defer></script>
 	</body>

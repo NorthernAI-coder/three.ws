@@ -55,6 +55,7 @@ export function renderSidebar(pathname) {
 					</span>
 					<span class="dn-rail-item-text">Collapse</span>
 				</button>
+				<a href="/dashboard" class="dn-rail-foot-back">← Production dashboard</a>
 			</div>
 		</aside>`;
 }

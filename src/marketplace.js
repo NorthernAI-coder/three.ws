@@ -199,6 +199,7 @@ function readRoute() {
 	const tag = (params.get('tag') || '').trim().toLowerCase().slice(0, 40) || null;
 	const q = (params.get('q') || '').trim().slice(0, 200);
 	const sort = SORT_VALUES.has(params.get('sort')) ? params.get('sort') : null;
+	const pricing = params.get('pricing') === 'paid' || params.get('pricing') === 'free' ? params.get('pricing') : null;
 	if (tab === 'tools') return { view: 'tools', tag };
 	if (tab === 'skills') return { view: 'skills', tag };
 	if (tab === 'mine') return { view: 'mine', tag };
@@ -207,7 +208,7 @@ function readRoute() {
 	if (tab === 'animations') return { view: 'animations', tag };
 	if (tab === 'memory') return { view: 'memory', tag };
 	const filter = LIST_FILTER_TABS.has(tab) ? tab : 'all';
-	return { view: 'list', filter, tag, q, sort };
+	return { view: 'list', filter, tag, q, sort, pricing };
 }
 
 // Push the current list-view filter/search/sort into the URL so back/forward
@@ -228,6 +229,7 @@ function syncFilterToUrl({ push = false } = {}) {
 	set('tab', LIST_FILTER_TABS.has(state.filter) ? state.filter : null);
 	set('q', state.q || null);
 	set('sort', state.sort && state.sort !== 'recommended' ? state.sort : null);
+	set('pricing', state.priceFilter && state.priceFilter !== 'all' ? state.priceFilter : null);
 	if (url.href === location.href) return;
 	if (push) history.pushState({}, '', url);
 	else history.replaceState({}, '', url);
@@ -477,7 +479,7 @@ function highlightActiveCat() {
 	});
 }
 
-async function loadList(reset = false) {
+async function loadList(reset = false, opts = {}) {
 	if (state.loading) return;
 	state.loading = true;
 	if (reset) {
@@ -491,6 +493,9 @@ async function loadList(reset = false) {
 		if (state.category) url.searchParams.set('category', state.category);
 		if (state.q) url.searchParams.set('q', state.q);
 		if (state.sort) url.searchParams.set('sort', state.sort);
+		// Paid/Free filter is resolved server-side so pagination stays correct.
+		if (state.priceFilter && state.priceFilter !== 'all')
+			url.searchParams.set('pricing', state.priceFilter);
 		if (state.cursor) url.searchParams.set('cursor', state.cursor);
 		const r = await fetch(url);
 		if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -509,7 +514,10 @@ async function loadList(reset = false) {
 		state.loading = false;
 	}
 
-	if (reset) {
+	// A price-only refetch (agentsOnly) reuses the avatars/onchain already in
+	// state — they're filtered client-side in renderGrid — so we skip reloading
+	// them and avoid the flicker/extra requests.
+	if (reset && !opts.agentsOnly) {
 		loadPublicAvatars();
 		loadFeatured();
 		loadOnchainAgents(true);
@@ -1087,15 +1095,18 @@ function bindFilterChips() {
 		});
 	});
 
-	// Price-filter chips (Any / Free / Paid) act orthogonally to the kind
-	// filter — toggling them just re-filters the in-memory grid without
-	// triggering a refetch.
+	// Price-filter chips (Any / Free / Paid). Agents are re-fetched server-side
+	// so paging stays correct; avatars and onchain rows are re-filtered in place
+	// (renderGrid runs inside loadList once the refetch returns).
 	const priceChips = document.querySelectorAll('#market-price-filter-chips .market-chip');
 	priceChips.forEach((chip) => {
 		chip.addEventListener('click', () => {
+			const val = chip.dataset.priceFilter || 'all';
+			if (val === state.priceFilter) return;
 			priceChips.forEach((c) => c.classList.toggle('active', c === chip));
-			state.priceFilter = chip.dataset.priceFilter || 'all';
-			renderGrid();
+			state.priceFilter = val;
+			syncFilterToUrl({ push: true });
+			loadList(true, { agentsOnly: true });
 		});
 	});
 
@@ -1164,13 +1175,15 @@ function renderGrid() {
 		onchain = onchain.filter((a) => matches(a.tags));
 	}
 
-	// Price filter (Free / Paid). Onchain agents aren't sold through this
-	// marketplace surface, so the filter only applies to agents + avatars.
+	// Price filter (Free / Paid). Agents are already filtered server-side; this
+	// pass keeps avatars (priced one-off only) and onchain in sync, and mirrors
+	// the server definition for agents so a stale/cached row never slips through.
+	// Onchain agents aren't sold through this surface, so "paid" excludes them.
 	if (state.priceFilter === 'free') {
-		agentItems = agentItems.filter((a) => !hasActivePrice(a.price));
+		agentItems = agentItems.filter((a) => !isAgentPaid(a));
 		avatars = avatars.filter((a) => !hasActivePrice(a.price));
 	} else if (state.priceFilter === 'paid') {
-		agentItems = agentItems.filter((a) => hasActivePrice(a.price));
+		agentItems = agentItems.filter((a) => isAgentPaid(a));
 		avatars = avatars.filter((a) => hasActivePrice(a.price));
 		onchain = [];
 	}
@@ -5862,6 +5875,18 @@ function hasActivePrice(price) {
 	return !!(price && Number(price.amount) > 0);
 }
 
+// An agent is "paid" when it sells access in any form: a one-time asset price
+// OR per-call skill pricing (agent_skill_prices, surfaced as has_paid_skills /
+// skill_prices). Mirrors the server-side `pricing` filter in
+// api/marketplace/[action].js so client and server agree on what "paid" means.
+function isAgentPaid(a) {
+	return (
+		hasActivePrice(a.price) ||
+		!!a.has_paid_skills ||
+		Object.keys(a.skill_prices || {}).length > 0
+	);
+}
+
 /**
  * Build a "From $X/call" badge when the agent has priced skills.
  * Returns empty string when there are no skill prices.
@@ -6904,10 +6929,18 @@ async function startQrPurchase() {
 	}
 }
 
-async function buildSplTransferWithReference({ payer, recipient, mint, amount, reference }) {
+// Build the purchase transfer. `amount` is the seller's leg (the full price when
+// no platform fee applies). When `fee` is present, a second leg moves the
+// platform fee to the treasury in the SAME transaction, so the buyer signs once
+// and both legs settle atomically — no custody, no second approval.
+async function buildSplTransferWithReference({ payer, recipient, mint, amount, reference, fee }) {
 	const { web3, spl } = await loadSolanaModules();
 	const { PublicKey, Transaction } = web3;
-	const { getAssociatedTokenAddress, createTransferInstruction } = spl;
+	const {
+		getAssociatedTokenAddress,
+		createTransferInstruction,
+		createAssociatedTokenAccountIdempotentInstruction,
+	} = spl;
 
 	const recipientKey = new PublicKey(recipient);
 	const mintKey = new PublicKey(mint);
@@ -6923,6 +6956,16 @@ async function buildSplTransferWithReference({ payer, recipient, mint, amount, r
 
 	const { blockhash } = await (await getSolanaConnection()).getLatestBlockhash('confirmed');
 	const tx = new Transaction({ feePayer: payer, recentBlockhash: blockhash }).add(ix);
+
+	if (fee && fee.amount > 0n) {
+		const feeOwner = new PublicKey(fee.recipient);
+		const feeAta = await getAssociatedTokenAddress(mintKey, feeOwner);
+		// Create the treasury's token account on first use (buyer funds the tiny
+		// rent once); idempotent so repeat purchases add nothing.
+		tx.add(createAssociatedTokenAccountIdempotentInstruction(payer, feeAta, feeOwner, mintKey));
+		tx.add(createTransferInstruction(fromAta, feeAta, payer, fee.amount));
+	}
+
 	return tx;
 }
 
@@ -6991,6 +7034,14 @@ function render() {
 			state.sort = routeSort;
 			if (els.sortSel && els.sortSel.value !== routeSort) els.sortSel.value = routeSort;
 			loadList(true);
+		}
+		const routePricing = r.pricing || 'all';
+		if (routePricing !== state.priceFilter) {
+			state.priceFilter = routePricing;
+			document.querySelectorAll('#market-price-filter-chips .market-chip').forEach((c) => {
+				c.classList.toggle('active', (c.dataset.priceFilter || 'all') === routePricing);
+			});
+			loadList(true, { agentsOnly: true });
 		}
 	}
 
@@ -7353,6 +7404,17 @@ function init() {
 	bindEvents();
 	setupAccessibleDialogs();
 	mountHeaderWallet();
+	// Seed the price filter from a deep-linked ?pricing= before the first fetch.
+	// render() runs after loadList() has already flipped state.loading, so its
+	// pricing branch would bail on the in-flight load — seeding here makes the
+	// very first request carry the right filter and keeps the chip in sync.
+	const route0 = readRoute();
+	if (route0.view === 'list' && route0.pricing) {
+		state.priceFilter = route0.pricing;
+		document.querySelectorAll('#market-price-filter-chips .market-chip').forEach((c) => {
+			c.classList.toggle('active', (c.dataset.priceFilter || 'all') === route0.pricing);
+		});
+	}
 	loadCategories();
 	loadList(true);
 	loadTheme();

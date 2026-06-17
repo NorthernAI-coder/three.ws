@@ -24,6 +24,7 @@ import { cors, error, json, method, readJson, wrap, rateLimited } from '../_lib/
 import { clientIp, limits } from '../_lib/rate-limit.js';
 import { confirmSkillPurchase, logEvent, resolvePayoutAddress } from '../_lib/purchase-confirm.js';
 import { requireCsrf } from '../_lib/csrf.js';
+import { resolveMarketplaceFee } from '../_lib/marketplace-platform-fee.js';
 
 const REFERENCE_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/; // base58 Pubkey
 
@@ -135,7 +136,8 @@ async function handleCreate(req, res) {
 	// rather than minting a new reference on every retry click.
 	const referrerUserId = await resolveReferrer(req, auth.userId);
 	const [pending] = await sql`
-		SELECT reference, amount, currency_mint, chain, expires_at
+		SELECT reference, amount, currency_mint, chain, expires_at,
+		       platform_fee_amount, platform_fee_wallet
 		FROM skill_purchases
 		WHERE user_id = ${auth.userId} AND agent_id = ${agentId} AND skill = ${skill}
 		  AND status = 'pending'
@@ -149,6 +151,15 @@ async function handleCreate(req, res) {
 	const isTimePass = effectiveDurationHours != null;
 	const purchaseAmount = isTimePass && price.time_pass_amount ? price.time_pass_amount : price.amount;
 	const purchaseKind = isTimePass ? 'time_pass' : 'purchase';
+
+	// Platform fee (Solana only — the split is one atomic SPL transfer the buyer
+	// signs). Computed once at create and persisted on the row so confirm verifies
+	// the exact split that was quoted, even if the fee config changes meanwhile.
+	const feeInfo = price.chain === 'solana'
+		? await resolveMarketplaceFee({ grossAtomics: BigInt(purchaseAmount) })
+		: null;
+	const platformFeeAmount = feeInfo ? feeInfo.feeAtomics : 0n;
+	const platformFeeWallet = feeInfo ? feeInfo.recipient.toBase58() : null;
 
 	const reference = pending?.reference ?? Keypair.generate().publicKey.toBase58();
 	const label = isTimePass
@@ -167,14 +178,17 @@ async function handleCreate(req, res) {
 		const [inserted] = await sql`
 			INSERT INTO skill_purchases (
 				user_id, agent_id, skill, status, reference,
-				amount, currency_mint, chain, expires_at, kind, referrer_user_id, valid_until
+				amount, currency_mint, chain, expires_at, kind, referrer_user_id, valid_until,
+				platform_fee_amount, platform_fee_wallet
 			)
 			VALUES (
 				${auth.userId}, ${agentId}, ${skill}, 'pending', ${reference},
 				${purchaseAmount}, ${price.currency_mint}, ${price.chain},
-				now() + interval '30 minutes', ${purchaseKind}, ${referrerUserId}, ${validUntil}
+				now() + interval '30 minutes', ${purchaseKind}, ${referrerUserId}, ${validUntil},
+				${platformFeeAmount.toString()}, ${platformFeeWallet}
 			)
-			RETURNING reference, amount, currency_mint, chain, expires_at, valid_until
+			RETURNING reference, amount, currency_mint, chain, expires_at, valid_until,
+			          platform_fee_amount, platform_fee_wallet
 		`;
 		row = inserted;
 		await logEvent(row.reference, 'created', { agent_id: agentId, skill, kind: purchaseKind });
@@ -182,11 +196,28 @@ async function handleCreate(req, res) {
 		await logEvent(pending.reference, 'create_idempotent_hit', { agent_id: agentId, skill });
 	}
 
+	// The split the buyer will sign, derived from the PERSISTED row so the
+	// quote here matches exactly what confirm verifies on-chain. `amount` is the
+	// full price the buyer pays; `creator_amount` is the seller's leg; `fee` is
+	// the platform leg to the treasury (omitted entirely when no fee applies).
+	const rowFee = BigInt(row.platform_fee_amount || 0);
+	const creatorAmount = (BigInt(row.amount) - rowFee).toString();
+	const feeBlock = rowFee > 0n && row.platform_fee_wallet
+		? {
+				fee: {
+					recipient: row.platform_fee_wallet,
+					amount: rowFee.toString(),
+					bps: Number((rowFee * 10000n) / BigInt(row.amount)),
+				},
+			}
+		: {};
+
 	return json(res, 201, {
 		data: {
 			reference: row.reference,
 			recipient: payout.address,
 			amount: String(row.amount),
+			creator_amount: creatorAmount,
 			currency_mint: row.currency_mint,
 			chain: row.chain,
 			mint_decimals: price.mint_decimals,
@@ -195,6 +226,7 @@ async function handleCreate(req, res) {
 			kind: purchaseKind,
 			label,
 			message,
+			...feeBlock,
 			...(isTimePass ? { duration_hours: effectiveDurationHours } : {}),
 			...(price.time_pass_hours ? { time_pass_hours: price.time_pass_hours, time_pass_amount: price.time_pass_amount } : {}),
 		},
@@ -242,6 +274,7 @@ async function handleConfirm(req, res, reference) {
 		SELECT sp.id, sp.user_id, sp.agent_id, sp.skill, sp.status,
 		       sp.amount, sp.currency_mint, sp.chain, sp.tx_signature,
 		       sp.expires_at, sp.referrer_user_id,
+		       sp.platform_fee_amount, sp.platform_fee_wallet,
 		       COALESCE(asp.mint_decimals, 6) AS mint_decimals
 		FROM skill_purchases sp
 		LEFT JOIN agent_skill_prices asp

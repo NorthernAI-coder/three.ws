@@ -299,6 +299,10 @@ function renderShell(glbUrl) {
 					<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7l9-4 9 4v10l-9 4-9-4V7z"/><path d="M12 3v18M3 7l9 4 9-4"/></svg>
 					View in XR
 				</a>
+				<a class="av-ar-btn" href="/pose?avatar=${encodeURIComponent(avatar.id || avatarId)}" title="Pose and animate this avatar in the Animation Studio">
+					<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+					Animate
+				</a>
 			</div>
 			<avatar-actions id="av-actions" avatar-id="${esc(avatar.id || avatarId)}" style="margin-top:14px;display:block"></avatar-actions>
 			${avatar.owner_id ? `

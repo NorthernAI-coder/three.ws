@@ -54,6 +54,12 @@ export const NAV_GROUPS = [
 				href: '/avatar-studio',
 				desc: 'Sculpt face + body from scratch → export GLB',
 			},
+			{
+				title: 'Animation Studio',
+				href: '/pose',
+				badge: 'New',
+				desc: 'Pose with IK, keyframe a timeline → animated GLB you can sell',
+			},
 		],
 	},
 	{
