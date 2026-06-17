@@ -55,6 +55,14 @@
 					"added": "2026-06-13"
 				},
 				{
+					"path": "/irl-privacy",
+					"title": "How location works on IRL",
+					"description": "Placed agents are private by location: they appear only to people physically standing near them, never on a map or a list. What's shared, what isn't, and how your camera, motion, and location are used.",
+					"priority": 0.4,
+					"changefreq": "yearly",
+					"added": "2026-06-17"
+				},
+				{
 					"path": "/marketplace",
 					"title": "Marketplace",
 					"description": "Buy access to agents, skills, and avatars from other creators.",

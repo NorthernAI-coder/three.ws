@@ -43,6 +43,12 @@ URL: https://three.ws/irl
 
 Place a 3D avatar in your real environment. Camera AR passthrough, joystick movement, and tap-to-place 3D objects on your floor.
 
+### How location works on IRL
+
+URL: https://three.ws/irl-privacy
+
+Placed agents are private by location: they appear only to people physically standing near them, never on a map or a list. What's shared, what isn't, and how your camera, motion, and location are used.
+
 ### Marketplace
 
 URL: https://three.ws/marketplace

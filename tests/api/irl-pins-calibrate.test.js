@@ -16,6 +16,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // shape regardless of call order. `pinRow` is the row the WHERE-id SELECT returns
 // (null → "not found"); the UPDATE echoes back the bound values so success-path
 // assertions see the persisted pose.
+//
+// The UPDATE binds, in order: lat, lng, anchor_yaw_deg, heading, anchor_height_m,
+// then a clearQuat boolean (anchor_quat CASE — task 02 retires the stored surface
+// quat when the owner manually re-yaws), then the WHERE id. The mock models that
+// CASE so a yaw nudge surfaces anchor_quat: null and a move/height-only nudge
+// leaves the stored quat untouched, exactly like the SQL.
 let pinRow = null;
 const sqlMock = vi.fn((strings, ...values) => {
 	const q = Array.isArray(strings) ? strings.join(' ') : String(strings);
@@ -23,13 +29,14 @@ const sqlMock = vi.fn((strings, ...values) => {
 		return Promise.resolve(pinRow ? [pinRow] : []);
 	}
 	if (/UPDATE irl_pins SET/i.test(q)) {
-		const [lat, lng, yaw, heading, height, id] = values;
+		const [lat, lng, yaw, heading, height, clearQuat, id] = values;
 		return Promise.resolve([{
 			id,
 			lat, lng,
 			heading:         heading ?? pinRow?.heading ?? null,
 			anchor_yaw_deg:  yaw     ?? pinRow?.anchor_yaw_deg ?? null,
 			anchor_height_m: height  ?? pinRow?.anchor_height_m ?? null,
+			anchor_quat:     clearQuat ? null : (pinRow?.anchor_quat ?? null),
 			gps_accuracy_m:  pinRow?.gps_accuracy_m ?? null,
 		}]);
 	}
@@ -88,6 +95,8 @@ beforeEach(() => {
 		heading: 90,
 		anchor_yaw_deg: 90,
 		anchor_height_m: 0,
+		// A WebXR placement that captured the full tap-moment surface orientation.
+		anchor_quat: [0, 0.7071, 0, 0.7071], // ≈ 90° about Y
 		gps_accuracy_m: 12,
 	};
 	sessionUser = null;

@@ -756,6 +756,10 @@
 			"dest": "/irl.html"
 		},
 		{
+			"src": "/irl-privacy/?",
+			"dest": "/irl-privacy.html"
+		},
+		{
 			"src": "/ibm/x402-demo",
 			"dest": "/ibm/x402-demo.html"
 		},

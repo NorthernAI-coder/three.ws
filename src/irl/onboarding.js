@@ -240,6 +240,7 @@ function buildShell(opts) {
 				<span class="irl-ob-badge"><svg class="irl-ob-badge-mark" viewBox="0 0 26 28" fill="none" aria-hidden="true"><path class="irl-mark-cube" d="M13 2.5 4 7v9l9 4.5 9-4.5V7Z"/><path class="irl-mark-cube" d="M13 2.5v9M4 7l9 4.5M22 7l-9 4.5"/><path class="irl-mark-beam" d="M13 20.5v1.9"/><ellipse class="irl-mark-anchor" cx="13" cy="24.3" rx="7.4" ry="1.9"/><circle class="irl-mark-dot" cx="13" cy="24.3" r="1" stroke="none"/></svg> IRL</span>
 				<h2 class="irl-ob-title">${multi ? 'Bring your agents into the real world' : 'Permission needed'}</h2>
 				<p class="irl-ob-sub">${multi ? 'Three quick permissions power the camera, look-around, and real-world pins. You stay in control.' : 'Grant access to continue — you can change this anytime.'}</p>
+				<a class="irl-ob-learn" href="/irl-privacy" target="_blank" rel="noopener">How location works <span aria-hidden="true">↗</span></a>
 			</div>
 			<div class="irl-ob-card" aria-live="polite"></div>
 			<div class="irl-ob-progress"${multi ? '' : ' hidden'} aria-hidden="true"></div>
@@ -552,6 +553,15 @@ const ONBOARD_CSS = `
 .irl-ob-badge-mark .irl-mark-dot { fill: currentColor; opacity: .8; }
 .irl-ob-title { margin: 0 0 6px; font-size: 18px; font-weight: 700; letter-spacing: -.015em; color: #f1f4fa; line-height: 1.25; }
 .irl-ob-sub { margin: 0; font-size: 13px; line-height: 1.5; color: #93a1b5; }
+.irl-ob-learn {
+	display: inline-flex; align-items: center; gap: 5px;
+	margin-top: 9px;
+	font: 500 12px/1 var(--font-body, system-ui, sans-serif);
+	color: #7dd3fc; text-decoration: none;
+	transition: color .15s;
+}
+.irl-ob-learn:hover { color: #a6dcee; }
+.irl-ob-learn:focus-visible { outline: 2px solid #7dd3fc; outline-offset: 3px; border-radius: 6px; }
 .irl-ob-card .tws-es { padding: 22px 8px 6px; }
 .irl-ob-card .tws-es-icon { color: #cdd6e4; opacity: .92; }
 .irl-ob-card .tws-es-icon--err { color: #f87171; }
