@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-06-17",
+			"title": "The IBM demo's 3D agent is now a clean, bare avatar",
+			"summary": "The 3D agent on the IBM × three.ws x402 demo page is now simply an avatar on a transparent background — the chat box, on-canvas controls, and name plate are gone. It still comes alive and reacts the moment your on-chain payment settles; it just no longer carries the extra interface around it.",
+			"tags": [
+				"improvement"
+			],
+			"link": "/ibm/x402-demo"
+		},
+		{
+			"date": "2026-06-17",
 			"title": "The Pole Club now has a real soundtrack",
 			"summary": "Walk into the Pole Club and music starts playing the moment you interact — a full-length club anthem that rolls straight into a second track and then loops back to the top, so the room is never silent. The soundtrack streams (no heavy decode) and runs through the same room acoustics as everything else: muffled like it's heard through the door while you're outside, then opening up to full clarity the instant you're admitted. A tipped dancer's track and the walk-in anthem duck the music underneath them, and the Audio toggle in the top bar silences it all.",
 			"tags": [

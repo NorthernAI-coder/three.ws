@@ -297,8 +297,9 @@ export function free(cfg, handler) {
 /**
  * Build the MCP `CallToolResult` envelope from a handler's return value.
  *
- * This is the single place every paid tool's output is shaped, so all 15 tools
- * get the same modern MCP contract for free:
+ * This is the single place every tool's output is shaped — paid (via `paid()`)
+ * and free (via `free()`) alike — so every tool gets the same modern MCP
+ * contract:
  *
  *   - `content[0].text` — the JSON (or raw string) blob. Always present, so
  *     pre-2025-06-18 clients that only read text keep working unchanged.

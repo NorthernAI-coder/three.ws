@@ -71,10 +71,11 @@ Then tell the user to restart Claude Desktop / Claude Code / Cursor for the tool
 
 ## Tools available
 
-Once configured, these 15 paid tools will be available (settled per-call in USDC via x402):
+Once configured, these 16 tools will be available — one free, and 15 paid (settled per-call in USDC via x402):
 
 | Tool | Price | What it does |
 |------|-------|--------------|
+| `forge_free` | **Free** | Text → textured 3D GLB on the free NVIDIA NIM (TRELLIS) lane — no payment, no wallet, no key |
 | `mesh_forge` | $0.25 | Text or image → textured 3D GLB |
 | `rig_mesh` | $0.20 | Auto-rig a static GLB into an animation-ready model |
 | `text_to_avatar` | $0.15 | Text or image → textured 3D avatar GLB |

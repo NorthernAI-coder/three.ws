@@ -1,5 +1,5 @@
 ---
-description: "Show ready-to-run code for calling any of the @three-ws/mcp-server paid tools. Pass a tool name: /use-tools pump_snapshot"
+description: "Show ready-to-run code for calling any @three-ws/mcp-server tool (free or paid). Pass a tool name: /use-tools forge_free"
 ---
 
 You are producing a working code example for a specific three.ws MCP tool. `$ARGUMENTS` is the tool name the user wants to use. If blank, show a menu of all tools.
@@ -8,6 +8,7 @@ You are producing a working code example for a specific three.ws MCP tool. `$ARG
 
 | Tool | Price | Input | Output |
 |------|-------|-------|--------|
+| `forge_free` | **Free** | `{ prompt: string, tier?: 'draft'\|'standard'\|'high' }` | Textured GLB `glbUrl` + viewer `preview` — free NVIDIA NIM (TRELLIS) text→3D, no payment |
 | `mesh_forge` | $0.25 | `{ prompt?: string, image_url?: string }` | Textured GLB `glbUrl`, viewer `preview`, `directedPrompt`, timing |
 | `rig_mesh` | $0.20 | `{ glb_url: string }` | `riggedGlbUrl` + pose-studio link |
 | `text_to_avatar` | $0.15 | `{ prompt?: string, image_urls?: string[] }` | Avatar GLB URL, model version, prediction id |
@@ -69,6 +70,33 @@ console.log(JSON.parse(result.content[0].text));
 
 await transport.close();
 ```
+
+### Special case: `forge_free` (no payment)
+
+`forge_free` is **free** — it never emits a 402, so it needs NO payment wrapper, NO wallet, and NO `AGENT_EVM_PRIVATE_KEY`. Generate the example on the **bare** MCP client instead of `wrapMCPClientWithPayment`:
+
+```js
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
+
+const transport = new StdioClientTransport({
+  command: 'npx',
+  args: ['-y', '@three-ws/mcp-server'],
+});
+
+const mcp = new Client({ name: 'demo', version: '1.0.0' });
+await mcp.connect(transport);
+
+// Free text → 3D — no payment, no wallet, no API key.
+const res = await mcp.callTool('forge_free', { prompt: 'a friendly round robot mascot, glossy white plastic', tier: 'draft' });
+const out = res.structuredContent ?? JSON.parse(res.content[0].text);
+console.log(out.glbUrl);   // durable GLB you can download
+console.log(out.preview);  // three.ws viewer link that renders it in the browser
+
+await transport.close();
+```
+
+Note for `forge_free`: it runs the free NVIDIA NIM (Microsoft TRELLIS) text→3D lane — the same engine `/forge` uses for drafts. Tiers `draft` (default), `standard`, and `high` are all free; higher tiers only take longer. It is text-only; for image/multi-view input or the Granite-directed chain, use `mesh_forge` (paid).
 
 Adapt the tool name, input, and any tool-specific notes (e.g., for `vanity_grinder` note that the returned secret key must be treated as a secret and stored securely; for `agent_reputation` note that `agentId` can be an EVM address and `chainId` defaults to Base).
 

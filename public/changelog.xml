@@ -727,6 +727,14 @@
 			<description>Ask the chat to make any 3D object — &quot;a brass steampunk owl, full body&quot; — and watch it build right in the conversation. The concept image appears first, a staged progress readout (reconstructing geometry → texturing → finalizing) replaces the old blank spinner, and the finished model drops into an interactive viewer with studio lighting, a soft contact shadow, and smooth auto-orbit. Download the GLB with one click, go fullscreen, recenter, or hit Rig &amp; Animate to turn the mesh into a posed, moving character. Every failure now has a designed state with a Try again and an Open in Forge path, so a slow or busy run never dead-ends. Free, no key required.</description>
 		</item>
 		<item>
+			<title>The IBM demo's 3D agent is now a clean, bare avatar</title>
+			<link>https://three.ws/ibm/x402-demo</link>
+			<guid isPermaLink="false">2026-06-17:The IBM demo's 3D agent is now a clean, bare avatar</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>The 3D agent on the IBM × three.ws x402 demo page is now simply an avatar on a transparent background — the chat box, on-canvas controls, and name plate are gone. It still comes alive and reacts the moment your on-chain payment settles; it just no longer carries the extra interface around it.</description>
+		</item>
+		<item>
 			<title>The IBM page became a live showcase — five three.ws demos in one place</title>
 			<link>https://three.ws/ibm/x402-demo</link>
 			<guid isPermaLink="false">2026-06-17:The IBM page became a live showcase — five three.ws demos in one place</guid>
