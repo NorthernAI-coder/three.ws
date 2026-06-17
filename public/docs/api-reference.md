@@ -954,7 +954,7 @@ Each asset has its own SIWX grant key: the endpoint passes a `resourceUrlBuilder
 
 ### Browser drop-in modal: "Sign in with wallet"
 
-The drop-in modal at `https://3d.irish/x402.js` speaks SIWX automatically — no merchant code changes. The same `<button data-x402-endpoint="…">` and `window.X402.pay({…})` keep working.
+The drop-in modal at `https://three.ws/x402.js` speaks SIWX automatically — no merchant code changes. The same `<button data-x402-endpoint="…">` and `window.X402.pay({…})` keep working.
 
 When the 402 body carries the `sign-in-with-x` extension and the visitor has a matching wallet (Phantom for Solana, any `window.ethereum` wallet for EVM), the modal leads with a **Sign in with wallet** primary button and demotes paying to a secondary action:
 
