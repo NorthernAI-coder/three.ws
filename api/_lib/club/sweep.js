@@ -10,6 +10,7 @@ import { randomUUID } from 'node:crypto';
 
 import { sql } from '../db.js';
 import { sendClubPayout } from './payouts.js';
+import { chainOf } from './chain.js';
 import { SOLANA_USDC_MINT, EVM_USDC } from '../../payments/_config.js';
 
 // Below this total (per dancer × network), don't sweep — the fee dwarfs the
@@ -97,7 +98,12 @@ export async function runClubPayoutSweep({ send = sendClubPayout } = {}) {
 	let totalSent = 0n;
 
 	for (const group of groups) {
-		const network = String(group.network);
+		// Collapse the stored CAIP-2 network ('solana:5eykt4…' / 'eip155:8453'
+		// from a settled x402 tip) or bare chain key ('solana' / 'base' from a
+		// bypass ticket) to the chain the senders + wallet columns are keyed on.
+		// Without this every settled Solana tip falls through to the EVM branch
+		// below and is skipped as "no wallet" even with a Solana address set.
+		const network = chainOf(group.network);
 		const recipient = network === 'solana' ? group.solana_address : group.evm_address;
 		const tipIds = group.tip_ids;
 		const totalAtomics = BigInt(group.total_atomics);

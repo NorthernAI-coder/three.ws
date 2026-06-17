@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-17T06:03:34.818Z",
+	"generated_at": "2026-06-17T06:41:43.516Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -222,6 +222,16 @@
 			"link": "/irl",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-17",
+			"type": "update",
+			"title": "Pole Club dancer tips now reliably reach their Solana wallets",
+			"summary": "When you tip a dancer in the Pole Club, the platform batches your tips and sweeps them on-chain to the dancer's registered wallet. A mismatch in how a settled tip recorded its network meant Solana tips were being set aside as 'no wallet' even when the dancer had a Solana address on file, so they never went out. That's fixed: tips paid on Solana are now matched to the dancer's Solana wallet and swept correctly, alongside the existing Base payouts. No tip was ever lost — stuck tips remained queued and now sweep on the next cycle.",
+			"link": "/club",
+			"tags": [
+				"fix"
 			]
 		},
 		{

@@ -175,6 +175,14 @@
 			<description>On AR-capable phones (Android Chrome), three.ws/irl now lets you point at your actual floor through a placement ring and tap to set your agent on that exact spot. It binds to a real-world anchor, so it stays put as you walk around it instead of sliding with the camera or jittering with GPS — the world-locked placement you'd expect from a top AR app. Each placement is saved as a pin, capturing the floor height, facing, and how good your GPS fix was, so it reloads near the same place and nearby people can see it. If you tap to anchor before your location is ready, it holds the spot and saves it the instant your first GPS fix lands instead of losing the placement. iPhone, which doesn't support this AR mode, keeps the existing compass-based Pin here flow and simply doesn't show the floor button.</description>
 		</item>
 		<item>
+			<title>Pole Club dancer tips now reliably reach their Solana wallets</title>
+			<link>https://three.ws/club</link>
+			<guid isPermaLink="false">2026-06-17:Pole Club dancer tips now reliably reach their Solana wallets</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>When you tip a dancer in the Pole Club, the platform batches your tips and sweeps them on-chain to the dancer's registered wallet. A mismatch in how a settled tip recorded its network meant Solana tips were being set aside as 'no wallet' even when the dancer had a Solana address on file, so they never went out. That's fixed: tips paid on Solana are now matched to the dancer's Solana wallet and swept correctly, alongside the existing Base payouts. No tip was ever lost — stuck tips remained queued and now sweep on the next cycle.</description>
+		</item>
+		<item>
 			<title>Report a bad IRL pin — and guardrails that keep public spots usable</title>
 			<link>https://three.ws/irl</link>
 			<guid isPermaLink="false">2026-06-17:Report a bad IRL pin — and guardrails that keep public spots usable</guid>
