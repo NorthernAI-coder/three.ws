@@ -18,6 +18,8 @@ beforeAll(() => {
 		X402_PAY_TO_BASE: '0x0000000000000000000000000000000000000001',
 		X402_ASSET_ADDRESS_BASE: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
 		REPLICATE_API_TOKEN: 'test-token',
+		// Signs the forge poll token the NVIDIA async path hands back.
+		JWT_SECRET: 'test-jwt-secret-for-forge-job-tokens',
 	});
 });
 
@@ -37,10 +39,15 @@ vi.mock('../../api/_lib/x402-spec.js', async (importActual) => {
 vi.mock('../../api/_mcp3d/text-to-image.js', () => ({
 	textToImage: vi.fn(async () => ({ imageUrl: 'https://cdn.example/ref.png', model: 'flux', predictionId: 'p1' })),
 }));
+// Hoisted so a test can force the reconstruct submit to throw a throttle. The
+// shared `submit` mock defaults to a queued job; mockRejectedValueOnce lets the
+// 429 path exercise the endpoint's retryable rate-limit response.
+const replicateMock = vi.hoisted(() => {
+	const submit = vi.fn(async () => ({ extJobId: 'abcd1234efgh5678ij', jobId: 'abcd1234efgh5678ij', eta: 60 }));
+	return { submit, createRegenProvider: vi.fn(() => ({ submit })) };
+});
 vi.mock('../../api/_providers/replicate.js', () => ({
-	createRegenProvider: () => ({
-		submit: vi.fn(async () => ({ extJobId: 'abcd1234efgh5678ij', jobId: 'abcd1234efgh5678ij', eta: 60 })),
-	}),
+	createRegenProvider: replicateMock.createRegenProvider,
 }));
 
 // Free NVIDIA NIM TRELLIS lane — the primary text→3D engine. Hoisted so each test
@@ -146,11 +153,75 @@ describe('POST /api/x402/forge — validation', () => {
 	});
 });
 
-describe('POST /api/x402/forge — paid generation', () => {
-	it('submits a job and returns a free poll_url after payment', async () => {
+describe('POST /api/x402/forge — free NVIDIA NIM text lane', () => {
+	it('routes a paid text prompt through the free NVIDIA lane and hands back a poll token (async)', async () => {
+		// NVCF accepted the job for async processing — returns a request id to poll.
+		nvidiaMock.createNvidiaProvider.mockReturnValueOnce({
+			textTo3d: vi.fn(async () => ({ kind: 'text-to-3d', taskId: 'nvcf-req-abc123' })),
+		});
 		const res = makeRes();
 		await handler(
-			makeReq({ headers: { 'x-payment': 'stub-payment-proof' }, body: { prompt: 'a brass steampunk owl', tier: 'standard' } }),
+			makeReq({ headers: { 'x-payment': 'pay-nvidia-async' }, body: { prompt: 'a brass steampunk owl', tier: 'high' } }),
+			res,
+		);
+		expect(res.statusCode).toBe(200);
+		const body = JSON.parse(res.body);
+		expect(body.backend).toBe('nvidia');
+		expect(body.mode).toBe('text_to_3d');
+		expect(body.status).toBe('queued');
+		// The poll token is a signed forge token (f1.*) so the free poll endpoint
+		// routes the status check back to the NIM provider.
+		expect(body.job_id.startsWith('f1.')).toBe(true);
+		expect(body.poll_url).toBe('/api/forge?job=' + encodeURIComponent(body.job_id));
+		expect(body.price_usdc).toBe('0.50');
+		expect(res.headers['x-payment-response']).toBe('stub-payment-response');
+	});
+
+	it('returns the finished GLB inline when the NIM lane completes synchronously', async () => {
+		nvidiaMock.createNvidiaProvider.mockReturnValueOnce({
+			textTo3d: vi.fn(async () => ({
+				kind: 'text-to-3d',
+				taskId: null,
+				resultGlbUrl: 'https://cdn.three.ws/forge/nvidia/abc.glb',
+			})),
+		});
+		const res = makeRes();
+		await handler(
+			makeReq({ headers: { 'x-payment': 'pay-nvidia-sync' }, body: { prompt: 'a tiny red dragon', tier: 'draft' } }),
+			res,
+		);
+		expect(res.statusCode).toBe(200);
+		const body = JSON.parse(res.body);
+		expect(body.backend).toBe('nvidia');
+		expect(body.status).toBe('done');
+		expect(body.glb_url).toBe('https://cdn.three.ws/forge/nvidia/abc.glb');
+		expect(body.job_id).toBeNull();
+		// Settlement still ran — the buyer paid and received a model.
+		expect(res.headers['x-payment-response']).toBe('stub-payment-response');
+	});
+
+	it('degrades to the FLUX→TRELLIS reconstruct lane when the NIM lane is unavailable', async () => {
+		// Default nvidiaMock throws (no key) → submitGeneration falls back to Replicate.
+		const res = makeRes();
+		await handler(
+			makeReq({ headers: { 'x-payment': 'pay-fallback-trellis' }, body: { prompt: 'a brass owl', tier: 'standard' } }),
+			res,
+		);
+		expect(res.statusCode).toBe(200);
+		const body = JSON.parse(res.body);
+		expect(body.backend).toBe('trellis');
+		expect(body.job_id).toBe('abcd1234efgh5678ij');
+		expect(body.poll_url).toBe('/api/forge?job=abcd1234efgh5678ij');
+	});
+});
+
+describe('POST /api/x402/forge — paid generation', () => {
+	it('submits a job and returns a free poll_url after payment (Replicate reconstruct fallback)', async () => {
+		// NVIDIA unconfigured here (default mock throws), so this exercises the
+		// reconstruct lane — the engine for image→3D and the text fallback.
+		const res = makeRes();
+		await handler(
+			makeReq({ headers: { 'x-payment': 'pay-paid-standard' }, body: { prompt: 'a brass steampunk owl', tier: 'standard' } }),
 			res,
 		);
 		expect(res.statusCode).toBe(200);
@@ -170,5 +241,28 @@ describe('POST /api/x402/forge — paid generation', () => {
 		await handler(makeReq({ headers: { 'x-payment': 'stub-payment-proof' }, body: {} }), res);
 		expect(res.statusCode).toBe(400);
 		expect(JSON.parse(res.body).error).toBe('missing_input');
+	});
+
+	it('answers a generator throttle with 429 + Retry-After and does not settle', async () => {
+		replicateMock.submit.mockRejectedValueOnce(
+			Object.assign(new Error('Request was throttled. Your rate limit resets in ~10s.'), {
+				code: 'rate_limited',
+				status: 429,
+				retryAfter: 10,
+			}),
+		);
+		// Force the reconstruct lane (NVIDIA already throws by default → falls through).
+		const res = makeRes();
+		await handler(
+			makeReq({ headers: { 'x-payment': 'stub-payment-proof' }, body: { prompt: 'a brass steampunk owl' } }),
+			res,
+		);
+		expect(res.statusCode).toBe(429);
+		const body = JSON.parse(res.body);
+		expect(body.error).toBe('rate_limited');
+		expect(body.retry_after).toBe(10);
+		expect(res.headers['retry-after']).toBe('10');
+		// Submit failed before settle → no settlement receipt was emitted.
+		expect(res.headers['x-payment-response']).toBeUndefined();
 	});
 });

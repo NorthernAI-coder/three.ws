@@ -244,7 +244,7 @@
 			<guid isPermaLink="false">2026-06-17:Embeddable 3D agents now default to a clean, bare avatar</guid>
 			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
 			<category>sdk</category>
-			<description>The &lt;agent-3d&gt; embed tag now starts as the simplest thing it can be: a plain 3D avatar on a transparent background, with no chat box, text input, microphone, or name plate unless you ask for them. Drop the tag with a body and you get just the avatar — perfect for hero sections and decorative scenes. Everything richer is opt-in: add chat for a conversation panel, set background to dark, light, or any color, and theme it with CSS variables. Binding a live agent still turns chat on automatically, and you can now force a bare avatar even for a bound agent with chat=&quot;off&quot;.</description>
+			<description>The &lt;agent-3d&gt; embed tag now starts as the simplest thing it can be: a plain 3D avatar on a transparent background, with no chat box, controls, or name plate unless you ask for them. Drop the tag with a body and you get just the avatar — perfect for hero sections and decorative scenes. Everything richer is opt-in: add chat for a conversation panel, set background to dark, light, or any color, and theme it with CSS variables. Binding a live agent still turns chat on automatically, and you can now force a bare avatar even for a bound agent with chat=&quot;off&quot;.</description>
 		</item>
 		<item>
 			<title>Embedded avatars: polished loading, seamless looping, and smarter framing</title>
@@ -293,6 +293,14 @@
 			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>The marketplace now has working Free / Paid filters. &quot;Paid&quot; surfaces every agent that charges in any way — a one-time price to own it or per-call pricing on its skills — and &quot;Free&quot; shows the rest. Filtering happens on the server, so the result count and &quot;load more&quot; stay accurate no matter how many pages deep you browse, and your choice is saved in the URL so you can bookmark or share a filtered view.</description>
+		</item>
+		<item>
+			<title>Forge now generates on the free NVIDIA engine — faster, no throttling</title>
+			<link>https://three.ws/ibm/x402-demo</link>
+			<guid isPermaLink="false">2026-06-17:Forge now generates on the free NVIDIA engine — faster, no throttling</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>Paying to turn a sentence into a 3D model — on the IBM demo and the pay-per-call Forge API — now runs on the free NVIDIA NIM (Microsoft TRELLIS) engine instead of the previous paid pipeline. That removes the &quot;request was throttled&quot; errors some forges hit, and draft prompts often finish in seconds and return the model inline with no waiting. The same quality tiers and prices apply, and if the free engine is ever busy the call automatically falls back so a paid forge never dead-ends. Building a 3D model from your own uploaded photos still uses the reconstruction engine.</description>
 		</item>
 		<item>
 			<title>Forge resilience: HuggingFace fallback now covers text→3D; club-payout log noise reduced</title>

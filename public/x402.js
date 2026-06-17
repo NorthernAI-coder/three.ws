@@ -1103,8 +1103,10 @@ class CheckoutModal {
 		}
 	}
 
-	async executePaid(xPayment) {
-		this.renderProgress('verify', { text: 'Calling merchant endpoint…' });
+	async executePaid(xPayment, attempt = 0) {
+		this.renderProgress('verify', {
+			text: attempt ? 'Retrying after upstream throttle…' : 'Calling merchant endpoint…',
+		});
 		try {
 			const res = await fetch(this.opts.endpoint, {
 				method: this.opts.method || 'GET',
@@ -1128,6 +1130,16 @@ class CheckoutModal {
 				result = text;
 			}
 			if (!res.ok) {
+				// A 429 here is a transient upstream throttle (e.g. the generator's
+				// create-prediction rate limit). The payment is signed but NOT yet
+				// settled — the merchant runs the work before settling — so the same
+				// X-PAYMENT can be safely re-sent once the window resets, with no risk
+				// of a double charge. Auto-retry a couple of times, respecting the
+				// server's Retry-After, before surfacing the manual "Try again".
+				if (res.status === 429 && attempt < MAX_THROTTLE_RETRIES) {
+					await this.waitForThrottle(retryAfterSeconds(res, result));
+					return this.executePaid(xPayment, attempt + 1);
+				}
 				const msg = (result && typeof result === 'object' && (result.error_description || result.error)) || `HTTP ${res.status}`;
 				throw new Error(msg);
 			}
@@ -1143,6 +1155,19 @@ class CheckoutModal {
 			}
 			this.renderError('verify', friendlyError(err));
 		}
+	}
+
+	// Hold the verify step on a live countdown while an upstream throttle resets,
+	// then return so the caller re-sends the same signed payment. The reservation
+	// is deliberately left intact — this is the same payment, not a new one — so
+	// no rollback runs between attempts.
+	async waitForThrottle(seconds) {
+		const total = Math.max(1, Math.min(30, Math.round(seconds) || 6));
+		for (let left = total; left > 0; left--) {
+			this.renderProgress('verify', { text: `Generator is busy — retrying in ${left}s…` });
+			await new Promise((r) => setTimeout(r, 1000));
+		}
+		this.renderProgress('verify', { text: 'Retrying…' });
 	}
 
 	async runSiwxEvm(chain) {
@@ -1308,6 +1333,21 @@ function headersToObject(headers) {
 	const out = {};
 	headers.forEach((v, k) => (out[k] = v));
 	return out;
+}
+
+// How many times executePaid silently re-sends a signed payment after a 429
+// throttle before falling back to the manual "Try again". The payment isn't
+// settled until the merchant call succeeds, so re-sending can't double-charge.
+const MAX_THROTTLE_RETRIES = 2;
+
+// Seconds to wait before re-sending after a 429. Prefers the standard
+// Retry-After header, then the body's `retry_after` hint, then a sane default.
+function retryAfterSeconds(res, result, fallback = 6) {
+	const header = Number.parseInt(res.headers.get('retry-after') || '', 10);
+	if (Number.isFinite(header) && header > 0) return header;
+	const body = result && typeof result === 'object' ? Number(result.retry_after) : NaN;
+	if (Number.isFinite(body) && body > 0) return body;
+	return fallback;
 }
 
 function friendlyError(err) {
