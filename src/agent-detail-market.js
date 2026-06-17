@@ -149,29 +149,30 @@ async function reloadPurchases(agentId) {
 
 // ── 3D avatar ────────────────────────────────────────────────────────────────
 
-function render3DAvatar(a) {
+export function render3DAvatar(a) {
 	if (!a.avatar_glb_url) return;
-	const img = $('ad-avatar');
-	if (!img || img.dataset.mv === '1') return;
 
-	const mv = document.createElement('model-viewer');
-	mv.id = 'ad-avatar-3d';
-	mv.className = 'ad-hero-avatar ad-hero-avatar-3d';
-	mv.setAttribute('src', a.avatar_glb_url);
-	mv.setAttribute('alt', a.name || 'Agent avatar');
-	mv.setAttribute('auto-rotate', '');
-	mv.setAttribute('rotation-per-second', '20deg');
-	mv.setAttribute('interaction-prompt', 'none');
-	mv.setAttribute('camera-controls', '');
-	mv.setAttribute('disable-zoom', '');
-	mv.setAttribute('disable-pan', '');
-	mv.setAttribute('exposure', '1');
-	mv.setAttribute('shadow-intensity', '0.4');
-	mv.setAttribute('tone-mapping', 'aces');
-	mv.setAttribute('loading', 'eager');
-	if (a.thumbnail_url) mv.setAttribute('poster', a.thumbnail_url);
-	img.dataset.mv = '1';
-	img.replaceWith(mv);
+	// The hero and the fullscreen modal already host <model-viewer> elements,
+	// seeded with the base mannequin during the first render. Swap their source
+	// to the agent's own GLB in place. An older revision built a fresh viewer
+	// here and replaced the flat <img> fallback with it — but the markup now
+	// ships a dedicated <model-viewer id="ad-avatar-3d">, so that path duplicated
+	// the id and stacked a second, unsized 240×280 canvas below the avatar wrap,
+	// bleeding the model over the agent's name. Updating in place keeps a single
+	// viewer with its intended hero behaviour (auto-rotate, click-to-expand).
+	const setSrc = (mv, alt) => {
+		if (!mv || mv.getAttribute('src') === a.avatar_glb_url) return;
+		mv.setAttribute('src', a.avatar_glb_url);
+		mv.setAttribute('alt', alt);
+		if (a.thumbnail_url) mv.setAttribute('poster', a.thumbnail_url);
+	};
+	setSrc($('ad-avatar-3d'), a.name || 'Agent avatar');
+	setSrc($('ad-avatar-modal-3d'), `${a.name || 'Agent'} avatar — fullscreen`);
+
+	// The flat <img> only surfaces if the GLB fails to load; keep it hidden while
+	// the model is authoritative.
+	const img = $('ad-avatar');
+	if (img) img.style.display = 'none';
 }
 
 // Upgrade the always-present "See in 3D" link once the marketplace record (with

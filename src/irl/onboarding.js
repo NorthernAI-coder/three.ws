@@ -237,7 +237,7 @@ function buildShell(opts) {
 		<div class="irl-ob-scrim"></div>
 		<div class="irl-ob-panel" role="document">
 			<div class="irl-ob-head">
-				<span class="irl-ob-badge"><span class="irl-ob-badge-dot"></span> IRL</span>
+				<span class="irl-ob-badge"><svg class="irl-ob-badge-mark" viewBox="0 0 26 28" fill="none" aria-hidden="true"><path class="irl-mark-cube" d="M13 2.5 4 7v9l9 4.5 9-4.5V7Z"/><path class="irl-mark-cube" d="M13 2.5v9M4 7l9 4.5M22 7l-9 4.5"/><path class="irl-mark-beam" d="M13 20.5v1.9"/><ellipse class="irl-mark-anchor" cx="13" cy="24.3" rx="7.4" ry="1.9"/><circle class="irl-mark-dot" cx="13" cy="24.3" r="1" stroke="none"/></svg> IRL</span>
 				<h2 class="irl-ob-title">${multi ? 'Bring your agents into the real world' : 'Permission needed'}</h2>
 				<p class="irl-ob-sub">${multi ? 'Three quick permissions power the camera, look-around, and real-world pins. You stay in control.' : 'Grant access to continue — you can change this anytime.'}</p>
 			</div>
@@ -542,7 +542,14 @@ const ONBOARD_CSS = `
 	border: 1px solid rgba(125,211,252,0.28);
 	border-radius: 999px; padding: 5px 10px; margin-bottom: 12px;
 }
-.irl-ob-badge-dot { width: 6px; height: 6px; border-radius: 50%; background: #7dd3fc; box-shadow: 0 0 8px #7dd3fc; }
+.irl-ob-badge-mark {
+	width: 15px; height: 16px; flex-shrink: 0; overflow: visible;
+	stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round;
+}
+.irl-ob-badge-mark .irl-mark-cube { opacity: .95; }
+.irl-ob-badge-mark .irl-mark-beam { opacity: .45; }
+.irl-ob-badge-mark .irl-mark-anchor { opacity: .6; }
+.irl-ob-badge-mark .irl-mark-dot { fill: currentColor; opacity: .8; }
 .irl-ob-title { margin: 0 0 6px; font-size: 18px; font-weight: 700; letter-spacing: -.015em; color: #f1f4fa; line-height: 1.25; }
 .irl-ob-sub { margin: 0; font-size: 13px; line-height: 1.5; color: #93a1b5; }
 .irl-ob-card .tws-es { padding: 22px 8px 6px; }

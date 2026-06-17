@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-17T08:27:45.049Z",
+	"generated_at": "2026-06-17T11:04:20.491Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -133,6 +133,16 @@
 		{
 			"date": "2026-06-17",
 			"type": "update",
+			"title": "IRL has its own logo",
+			"summary": "The /irl world now carries a proper mark of its own: the three.ws crystal cube floating above an augmented-reality ground reticle, connected by a placement beam — a tiny picture of exactly what IRL does, anchor a 3D agent to a real spot. It replaces the plain text tag at the top of the camera view and shows up on the welcome screen too, and the cube's anchor glows green the moment Camera AR goes live. A full-resolution app-icon version ships alongside it.",
+			"link": "/irl",
+			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-17",
+			"type": "update",
 			"title": "IRL never shows a blank screen — every state is now designed",
 			"summary": "Every corner of three.ws/irl now tells you what's going on instead of leaving a blank space. The radar minimap reads 'No agents in range' when an area is quiet, and 'Can't refresh' if the nearby feed briefly drops — then recovers on its own. The nearby count, when GPS is live but nobody's pinned around you yet, invites you to be the first to drop an agent there rather than simply disappearing. Tap an agent's Pay or Use button without a wallet connected and you now get a clear, lasting card explaining how to connect one — instead of a message that flashes away before you can read it. And your IRL Placements dashboard now has a proper loading skeleton, a friendly empty state when you haven't placed anything, and a retry button if the list can't load — never a spinner that hangs or a void.",
 			"link": "/irl",
@@ -193,6 +203,26 @@
 			"tags": [
 				"security",
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-17",
+			"type": "update",
+			"title": "IRL: extra guards so your location never leaks into our logs",
+			"summary": "Two privacy hardening passes on the /irl world. First, when you look for nearby agents your device sends its position in the request — if that request ever hit a server error, your exact coordinates and your device's anonymous token could have been written into our internal error logs and alerts. We now scrub location and device tokens out of anything that gets logged, so a hiccup can never spill where you are. Second, the coordinates the 'nearby' feed hands back are now rounded to roughly a metre instead of full satellite precision: still exact enough to see an agent as you walk up to it, but no longer carrying a pinpoint-precise reading that could fingerprint a spot. Placing and discovering agents works exactly as before.",
+			"link": "/irl",
+			"tags": [
+				"security"
+			]
+		},
+		{
+			"date": "2026-06-17",
+			"type": "update",
+			"title": "IRL: pinned agents now stay put in your room instead of following the camera",
+			"summary": "When you turned on Camera AR and tapped Pin here, the agent was supposed to stay anchored to a real spot so you'd only see it by pointing your phone at it — but unless a precise GPS fix had already landed (or if location was off), it stayed glued to the center of the screen and panned around with you. The world-lock that rotates the view with your phone only ran in full GPS mode; without it the camera silently fell back to an orbit that kept the agent centered. Pinning now world-locks immediately using your phone's motion sensors: the agent holds the exact spot where you placed it, the view rotates as you turn, and it slides off-screen and back as you pan — with no wait for GPS. When a location fix does arrive it upgrades to the shared, cross-user anchor as before.",
+			"link": "/irl",
+			"tags": [
+				"fix"
 			]
 		},
 		{

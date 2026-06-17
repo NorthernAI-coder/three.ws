@@ -253,6 +253,7 @@ scene.add(avatarRig);
 const camDesired     = new Vector3();
 const camLookTarget  = new Vector3();
 const camLookCurrent = new Vector3();
+const lockForward    = new Vector3(); // scratch — derives lock yaw/pitch at pin time
 let cameraYaw   = 0;
 let cameraPitch = 0.05;
 const PITCH_MIN = -0.5;
@@ -275,6 +276,10 @@ let arActive        = false;
 let mediaStream     = null;
 let arFrozenCamPos  = null;
 let arFrozenCamLook = null;
+// Pivot for the local (no-GPS) gyro world-lock: once set, the camera holds this
+// fixed point and only rotates with the phone, so a pinned avatar stays anchored
+// in the room and is only visible when the camera points at it. null = inactive.
+let gyroLockCamPos  = null;
 
 async function enableAR() {
 	if (!navigator.mediaDevices?.getUserMedia) {
@@ -380,6 +385,7 @@ function disableAR() {
 	sun.intensity = 1.4;
 	arFrozenCamPos  = null;
 	arFrozenCamLook = null;
+	gyroLockCamPos  = null;
 	setStatus('Camera off');
 }
 
@@ -864,12 +870,17 @@ function onDeviceOrientation(e) {
 	if (compass !== null) { lastCompassHeading = compass; prefersAbsOrientation = true; }
 	else if (hasAbsoluteEventStream) { prefersAbsOrientation = true; }
 	if (!avatarLocked || !arActive || devOrientBaseAlpha === null) return;
-	if (lastCompassHeading !== null) {
-		// Absolute frame (iOS compass): yaw tracks the real bearing, so panning the
-		// phone leaves the avatar planted on its real-world direction for everyone.
+	if (lastCompassHeading !== null && gpsModeActive) {
+		// Absolute frame (iOS compass + a GPS world-anchor): yaw tracks the real
+		// bearing, so panning the phone leaves the avatar planted on its real-world
+		// direction for everyone. Only meaningful once a GPS pin gives the scene an
+		// absolute origin — a local-only lock (below) must stay relative or the
+		// avatar would jump off-frame to its compass bearing the instant it locks.
 		cameraYaw = compassToYaw(lastCompassHeading);
 	} else {
-		// Page-relative fallback: integrate alpha deltas from the lock baseline.
+		// Page-relative fallback (no compass) AND local no-GPS lock: integrate alpha
+		// deltas from the lock baseline so the view rotates with the phone while the
+		// avatar holds the exact spot it was pinned at.
 		let dAlpha = a - devOrientBaseAlpha;
 		if (dAlpha > 180)  dAlpha -= 360;
 		if (dAlpha < -180) dAlpha += 360;
@@ -954,6 +965,18 @@ async function setLocked(next) {
 	}
 	if (arActive) {
 		if (next) {
+			// Pin the camera pivot to its current spot. From here the camera only
+			// *rotates* with the phone (gyro), so the avatar stays planted in the room
+			// instead of orbiting with the view. Derive the lock yaw/pitch from where
+			// the camera is actually looking right now so the lock is seamless (no
+			// jump) wherever the avatar happens to sit on screen.
+			gyroLockCamPos = camera.position.clone();
+			// Read the camera's true facing (the frozen-AR branch points it with
+			// lookAt, so camLookCurrent can be stale — getWorldDirection never is).
+			const fwd = camera.getWorldDirection(lockForward);
+			cameraYaw   = Math.atan2(fwd.x, -fwd.z);
+			cameraPitch = Math.max(PITCH_MIN, Math.min(PITCH_MAX,
+				Math.asin(Math.max(-1, Math.min(1, -fwd.y)))));
 			// Capture baseline orientation — gyro deltas from here drive the camera
 			// on the page-relative fallback path. The pitch baseline is used by both
 			// paths; the yaw baseline only by the delta fallback.
@@ -961,10 +984,11 @@ async function setLocked(next) {
 			devOrientBaseBeta     = lastDevBeta;
 			devOrientBaseCamYaw   = cameraYaw;
 			devOrientBaseCamPitch = cameraPitch;
-			// iOS compass available: snap the very first locked frame to the true
-			// bearing so the view is north-aligned before the next orientation event
-			// (which keeps it live). No-op on page-relative devices.
-			if (lastCompassHeading !== null) cameraYaw = compassToYaw(lastCompassHeading);
+			// iOS compass + a live GPS fix: snap the first locked frame to the true
+			// bearing so the scene is north-aligned before the next orientation event.
+			// A local-only lock (no GPS yet) stays on the seamless relative yaw above,
+			// otherwise the avatar would snap off-frame to its absolute bearing.
+			if (gpsState.ready && lastCompassHeading !== null) cameraYaw = compassToYaw(lastCompassHeading);
 			arFrozenCamPos  = null;
 			arFrozenCamLook = null;
 			document.body.classList.add('is-locked');
@@ -983,6 +1007,7 @@ async function setLocked(next) {
 			}
 		} else {
 			devOrientBaseAlpha = null;
+			gyroLockCamPos  = null;
 			_pendingGpsLock = false;
 			arFrozenCamPos  = camera.position.clone();
 			arFrozenCamLook = camLookCurrent.clone();
@@ -3953,6 +3978,22 @@ function tick() {
 		// only rotates the camera (gyro cameraYaw/Pitch), leaving the avatar on its
 		// real-world bearing. Net effect matches WebXR (A1) without any WebXR.
 		camera.position.set(0, EYE_HEIGHT, 0);
+		camera.rotation.order = 'YXZ';
+		camera.rotation.y = cameraYaw;
+		camera.rotation.x = -cameraPitch;
+		camera.rotation.z = 0;
+		camLookCurrent.set(
+			Math.sin(cameraYaw) * Math.cos(cameraPitch),
+			Math.sin(-cameraPitch),
+			-Math.cos(cameraYaw) * Math.cos(cameraPitch),
+		).add(camera.position);
+	} else if (avatarLocked && arActive && gyroLockCamPos) {
+		// Local gyro world-lock (A4 without a GPS anchor — location off, no fix yet,
+		// or a compass-only device). The camera holds the captured pivot and only
+		// rotates with the phone, so the pinned avatar stays where it was placed and
+		// is only visible when the camera points at it. Identical rotation math to
+		// the GPS branch above, minus the absolute world origin.
+		camera.position.copy(gyroLockCamPos);
 		camera.rotation.order = 'YXZ';
 		camera.rotation.y = cameraYaw;
 		camera.rotation.x = -cameraPitch;

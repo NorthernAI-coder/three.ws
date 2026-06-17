@@ -40,6 +40,45 @@ export function error(res, status, code, message, extra = {}) {
 	return json(res, status, { error: code, error_description: message, ...extra });
 }
 
+// Query params that can carry a user's real-world position or a bearer-style
+// device credential. These must never reach a log line, Sentry event, or ops
+// alert — all off-box sinks — so they are stripped from any request URL we log.
+// Matched on the lower-cased key so camelCase / snake_case variants are covered.
+const SENSITIVE_QUERY_KEYS = new Set([
+	'lat', 'lng', 'latitude', 'longitude', 'll', 'coords', 'coord',
+	'originlat', 'originlng', 'origin_lat', 'origin_lng',
+	'devicetoken', 'device_token', 'token',
+]);
+
+// Reduce a request URL to a log-safe form: keep the path and any benign params,
+// but redact values that reveal a location or a credential. A geolocated read
+// such as /api/irl/pins?lat=…&lng=…&deviceToken=… would otherwise spill the
+// caller's exact position AND their device token into console / Sentry / Telegram
+// on any 5xx — so every place req.url flows to a log sink routes through here.
+export function redactUrl(rawUrl) {
+	const url = String(rawUrl ?? '');
+	const qIdx = url.indexOf('?');
+	if (qIdx < 0) return url;
+	const path = url.slice(0, qIdx);
+	let params;
+	try {
+		params = new URLSearchParams(url.slice(qIdx + 1));
+	} catch {
+		// Unparseable query → don't risk logging the raw (possibly sensitive) tail.
+		return `${path}?REDACTED`;
+	}
+	let touched = false;
+	for (const key of [...params.keys()]) {
+		if (SENSITIVE_QUERY_KEYS.has(key.toLowerCase())) {
+			params.set(key, 'REDACTED');
+			touched = true;
+		}
+	}
+	if (!touched) return url;
+	const qs = params.toString();
+	return qs ? `${path}?${qs}` : path;
+}
+
 // Short, URL-safe correlation id for tying a sanitized 5xx response back to the
 // full server-side log line. Not security-sensitive — just needs to be unique.
 function correlationId() {
@@ -230,10 +269,12 @@ export function wrap(handler) {
 		} catch (err) {
 			const status = err.status || 500;
 			if (status >= 500) {
+				// Redact coordinates / device tokens so a 5xx on a geolocated read never
+				// spills the caller's position or credential to an off-box sink.
 				console.error('[api] unhandled', err);
-				captureException(err, { url: req.url, method: req.method });
-				sendOpsAlert(`unhandled 5xx in ${req.method} ${req.url}`, err?.message || String(err), {
-					signature: `unhandled:${req.url}:${err?.message}`,
+				captureException(err, { url: redactUrl(req.url), method: req.method });
+				sendOpsAlert(`unhandled 5xx in ${req.method} ${redactUrl(req.url)}`, err?.message || String(err), {
+					signature: `unhandled:${redactUrl(req.url)}:${err?.message}`,
 				});
 			}
 			if (!res.headersSent && !res.writableEnded) {
