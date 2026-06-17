@@ -348,6 +348,7 @@ function renderCard(a) {
 	const viewerUrl = glbUrl ? `/app#model=${encodeURIComponent(glbUrl)}` : '#';
 	const detailUrl = `/avatars/${a.id}`;
 	const studioUrl = `/studio?avatar=${encodeURIComponent(a.id)}`;
+	const animateUrl = `/pose?avatar=${encodeURIComponent(a.id)}`;
 
 	const thumbSrc = a.thumbnail_url || `/api/avatars/${encodeURIComponent(a.id)}/og`;
 	const altText = a.alt_text || a.name || 'Avatar';
@@ -411,7 +412,8 @@ function renderCard(a) {
 								data-glb-url="${escapeAttr(glbUrl)}"
 								data-name="${escapeAttr(a.name || 'Accessory')}"
 								data-thumb="${escapeAttr(a.thumbnail_url || '')}">Equip</button>`
-						: `<a class="gallery-card-btn gallery-card-btn--primary" href="${escapeAttr(studioUrl)}" title="Use in Widget Studio">Use</a>`
+						: `<a class="gallery-card-btn gallery-card-btn--primary" href="${escapeAttr(studioUrl)}" title="Use in Widget Studio">Use</a>
+						   <a class="gallery-card-btn gallery-card-btn--ghost" href="${escapeAttr(animateUrl)}" title="Animate this avatar in the Animation Studio">Animate</a>`
 					}
 				</div>
 			</div>

@@ -21,6 +21,7 @@ import { sql } from '../../_lib/db.js';
 import { authenticateBearer, extractBearer, getSessionUser } from '../../_lib/auth.js';
 import { cors, error, json, method, wrap, rateLimited } from '../../_lib/http.js';
 import { clientIp, limits } from '../../_lib/rate-limit.js';
+import { getSkillPrices } from '../../_lib/skill-price-cache.js';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -51,11 +52,7 @@ export default wrap(async (req, res) => {
 	const auth = await resolveAuth(req).catch(() => null);
 
 	const [priceRows, purchasedRows] = await Promise.all([
-		sql`
-			SELECT skill, currency_mint, chain, amount, mint_decimals, trial_uses, time_pass_hours, time_pass_amount
-			FROM agent_skill_prices
-			WHERE agent_id = ${id} AND is_active = true
-		`,
+		getSkillPrices(id),
 		auth
 			? sql`
 				SELECT skill FROM skill_purchases

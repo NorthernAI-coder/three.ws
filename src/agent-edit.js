@@ -1144,12 +1144,7 @@ $('plan-save-btn')?.addEventListener('click', async () => {
   }
 });
 
-// Load plans when monetization tab is first activated
-document.addEventListener('tabchange', (e) => {
-  if (e.detail?.tab === 'monetization' && !plansLoaded) loadSubscriptionPlans();
-});
-// Also load on init if already on monetization tab
-if (!document.querySelector('#panel-monetization[hidden]')) loadSubscriptionPlans();
+// Plans are loaded lazily via TAB_LOADERS['monetization'] when the tab activates.
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Voice tab
@@ -2566,6 +2561,7 @@ const TAB_LOADERS = {
   embed: ensureEmbedTab,
   widgets: ensureWidgetsTab,
   studio: ensureStudioTab,
+  monetization: () => { if (!plansLoaded) loadSubscriptionPlans(); },
 };
 
 function activateTab(tabId) {

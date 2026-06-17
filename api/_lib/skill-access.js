@@ -22,6 +22,17 @@ export async function hasSkillAccess(userId, agentId, skill) {
 
 	if (!userId) return { paid: true, owned: false, price, reason: 'not_purchased' };
 
+	// Agent-level subscription grants access to all paid skills on this agent.
+	const [activeSub] = await sql`
+		SELECT id FROM user_agent_subscriptions
+		WHERE user_id = ${userId}
+		  AND agent_id = ${agentId}
+		  AND status = 'active'
+		  AND current_period_ends_at > now()
+		LIMIT 1
+	`.catch(() => []);
+	if (activeSub) return { paid: true, owned: true, price, via_subscription: true };
+
 	const [purchase] = await sql`
 		SELECT status, valid_until, trial_remaining
 		FROM skill_purchases
@@ -66,4 +77,13 @@ export async function consumeTrialUse(userId, agentId, skill) {
 		RETURNING trial_remaining
 	`;
 	return row?.trial_remaining ?? null;
+}
+
+// Fire-and-forget usage log. Never awaited on the hot path — failures are
+// swallowed so they cannot impact the caller's response latency or error state.
+export function logSkillUsage({ userId, agentId, skillName, status = 'success', executionTimeMs = null }) {
+	sql`
+		INSERT INTO skill_usage_logs (user_id, agent_id, skill_name, status, execution_time_ms)
+		VALUES (${userId ?? null}, ${agentId}, ${skillName}, ${status}, ${executionTimeMs})
+	`.catch((err) => console.error('[skill-usage-log]', err?.message));
 }
