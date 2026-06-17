@@ -79,6 +79,14 @@
 			<description>The one-line embed is cleaner by default. A plain &lt;agent-3d&gt; tag now ships only the 3D avatar on a transparent background — no chat box, no input bar, no debug color picker, no name-plate. That makes it perfect for dropping a living avatar onto a landing page, hero section, or card without any extra UI to hide. When you want the full talking agent, add the new chat attribute: &lt;agent-3d chat body=&quot;...&quot;&gt;. Published agents you embed by agent-id, manifest, or an agent:// link still chat automatically — they carry their own brain and persona — so existing agent embeds are unchanged. The reference docs and examples were updated to match.</description>
 		</item>
 		<item>
+			<title>Embedded avatars: polished loading, seamless looping, and smarter framing</title>
+			<link>https://three.ws/embed</link>
+			<guid isPermaLink="false">2026-06-17:Embedded avatars: polished loading, seamless looping, and smarter framing</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>The live 3D avatars dotted around the site — the ones in the home-page feature cards and anywhere an &lt;agent-3d&gt; embed appears — now feel intentional from the first frame. Each one fades in behind a soft skeleton placeholder while its model streams, instead of popping in cold. Animations no longer hard-snap: a one-shot gesture like a wave plays once and settles smoothly back into an idle stance rather than jumping at the loop boundary. A new framing option crops the avatar to head-to-mid-thigh so it fills its card instead of standing tiny and low. If a body ever fails to load, you get a tasteful silhouette rather than a blank or broken box. Avatars pause themselves when scrolled off-screen to save battery, and anyone who's asked their device to reduce motion gets a calm, held pose instead of looping animation.</description>
+		</item>
+		<item>
 			<title>Everyone at a location now sees your IRL agent in the same real spot</title>
 			<link>https://three.ws/irl</link>
 			<guid isPermaLink="false">2026-06-17:Everyone at a location now sees your IRL agent in the same real spot</guid>
@@ -207,12 +215,36 @@
 			<description>Two privacy hardening passes on the /irl world. First, when you look for nearby agents your device sends its position in the request — if that request ever hit a server error, your exact coordinates and your device's anonymous token could have been written into our internal error logs and alerts. We now scrub location and device tokens out of anything that gets logged, so a hiccup can never spill where you are. Second, the coordinates the 'nearby' feed hands back are now rounded to roughly a metre instead of full satellite precision: still exact enough to see an agent as you walk up to it, but no longer carrying a pinpoint-precise reading that could fingerprint a spot. Placing and discovering agents works exactly as before.</description>
 		</item>
 		<item>
+			<title>IRL: new Location &amp; privacy controls — see what's shared, and dial it down</title>
+			<link>https://three.ws/irl</link>
+			<guid isPermaLink="false">2026-06-17:IRL: new Location &amp; privacy controls — see what's shared, and dial it down</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>IRL now has a Location &amp; privacy panel, reachable from the top bar, that explains in plain language what a placed agent actually shares: it's visible only to someone physically within about 60 metres of it, never on a map or a browsable list, and never tied to your account — and pins you place without signing in disappear after 7 days. From the same panel you can switch discovery to Approximate, which rounds the position your phone sends while it looks for nearby agents so your exact spot never leaves the device; toggle whether you appear to others nearby; and jump straight to managing or removing the agents you've placed. The first time you grant location, a short one-time note walks you through the same facts.</description>
+		</item>
+		<item>
 			<title>IRL: pinned agents now stay put in your room instead of following the camera</title>
 			<link>https://three.ws/irl</link>
 			<guid isPermaLink="false">2026-06-17:IRL: pinned agents now stay put in your room instead of following the camera</guid>
 			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>When you turned on Camera AR and tapped Pin here, the agent was supposed to stay anchored to a real spot so you'd only see it by pointing your phone at it — but unless a precise GPS fix had already landed (or if location was off), it stayed glued to the center of the screen and panned around with you. The world-lock that rotates the view with your phone only ran in full GPS mode; without it the camera silently fell back to an orbit that kept the agent centered. Pinning now world-locks immediately using your phone's motion sensors: the agent holds the exact spot where you placed it, the view rotates as you turn, and it slides off-screen and back as you pan — with no wait for GPS. When a location fix does arrive it upgrades to the shared, cross-user anchor as before.</description>
+		</item>
+		<item>
+			<title>IRL: place an agent at a spot you pick on a map — not your exact location</title>
+			<link>https://three.ws/irl</link>
+			<guid isPermaLink="false">2026-06-17:IRL: place an agent at a spot you pick on a map — not your exact location</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>You no longer have to stand somewhere to leave an agent there. Tap &quot;Place on map&quot; in IRL and choose any point — search a place by name or drag the pin — and your agent is placed exactly there. It's the privacy-friendly way to drop an agent at a café, a plaza, or an event without writing your real standing position into the public feed, and it works even before you grant location. The picker is a real map with search and a draggable marker, and every state — loading, no results, a map that won't load — is handled, so you always know where your agent will land before you confirm.</description>
+		</item>
+		<item>
+			<title>IRL: see every agent you've placed on a map and wipe them all in one tap</title>
+			<link>https://three.ws/irl</link>
+			<guid isPermaLink="false">2026-06-17:IRL: see every agent you've placed on a map and wipe them all in one tap</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>The 'My pins' panel in /irl is now a real management surface. A small map at the top plots every agent you've placed, so you can see at a glance where you dropped things — tap any marker and it jumps to that agent's row in the list. Each row now shows exactly when it disappears: a countdown like 'expires in 6d' for pins placed without an account (they self-delete after a week), or 'permanent' once you're signed in. And a single 'Remove all from this device' button — with a clear confirm step — wipes every agent you placed from this device in one go, so cleaning up after trying things out takes one tap instead of deleting them one by one. If the map can't load it quietly falls back to the list, which always works.</description>
 		</item>
 		<item>
 			<title>Jump straight from an agent's profile into IRL or XR</title>
@@ -349,6 +381,14 @@
 			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>The conviction Oracle's evidence views had stopped responding: the Wins gallery, the accuracy Backtest, and the global Activity feed were all erroring instead of returning data, and the live activity feed failed on every request. The cause was in how those queries were assembled — optional filters (time window, tier, agent) weren't being stitched into the database query correctly, so the database rejected them. All three views now build their filters cleanly and return the Oracle's track record, hit-rate, and real-time agent actions as intended.</description>
+		</item>
+		<item>
+			<title>Try x402 live — pay a tenth of a cent to call a real API from your own wallet</title>
+			<link>https://three.ws/ibm/x402-demo</link>
+			<guid isPermaLink="false">2026-06-17:Try x402 live — pay a tenth of a cent to call a real API from your own wallet</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>There's now a live, self-contained x402 demo you can try in a browser. Pay $0.001 USDC from your own wallet — MetaMask on Base or Phantom on Solana — and call a real three.ws data API. The page reads the live HTTP 402 price the server quotes, runs the paid call once your wallet signs a gasless authorization, and shows the response next to an on-chain transaction receipt you can open on Basescan or Solscan. Nothing is mocked and there's no account or backend. The same eight-line embed it runs on — one script tag from three.ws plus any button carrying a data-x402-endpoint — is copy-pasteable into any site, so a developer can add a working pay-per-call paywall in minutes. Built with IBM as the public face of the partnership and designed to host cleanly on a strict-CSP enterprise page.</description>
 		</item>
 		<item>
 			<title>Your IRL agent dashboard now lights up the instant someone interacts</title>
