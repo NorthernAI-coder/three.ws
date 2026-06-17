@@ -3,6 +3,13 @@
 	"entries": [
 		{
 			"date": "2026-06-17",
+			"title": "IRL world: closed a bulk location-scrape path on placed agents",
+			"summary": "The /irl world lets you place 3D agents at real GPS spots and discover the ones near you. The 'discover nearby' feed always hid who placed each agent, but an internal bulk window-load endpoint — used only by the live realtime server to hydrate a neighborhood — was reachable from the open web, which in principle let someone download many placements' exact coordinates in one request. That endpoint is now locked to the realtime server with a shared secret, the public nearby feed is rate-limited so it can't be systematically gridded, and the maximum window size was tightened. Live discovery, your own pins, and the realtime map are unchanged.",
+			"tags": ["security"],
+			"link": "/irl"
+		},
+		{
+			"date": "2026-06-17",
 			"title": "Drop in <agent-3d> and you get just the avatar — chat is now opt-in",
 			"summary": "The one-line embed is cleaner by default. A plain <agent-3d> tag now ships only the 3D avatar on a transparent background — no chat box, no input bar, no debug color picker, no name-plate. That makes it perfect for dropping a living avatar onto a landing page, hero section, or card without any extra UI to hide. When you want the full talking agent, add the new chat attribute: <agent-3d chat body=\"...\">. Published agents you embed by agent-id, manifest, or an agent:// link still chat automatically — they carry their own brain and persona — so existing agent embeds are unchanged. The reference docs and examples were updated to match.",
 			"tags": ["feature", "sdk"],
