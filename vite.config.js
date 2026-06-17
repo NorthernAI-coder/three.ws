@@ -1428,6 +1428,49 @@ support: resolve(__dirname, 'pages/support.html'),
 			},
 		},
 		{
+			// The IBM × three.ws x402 demo (pages/ibm/x402-demo.html) is a hand-
+			// authored, self-contained partner artifact — inline CSS+JS, self-hosted
+			// fonts under pages/ibm/fonts/, absolute three.ws URLs. It ships to IBM to
+			// host on a foreign origin under a strict CSP, so it must stay byte-for-byte
+			// identical wherever it's served. We therefore copy it VERBATIM to dist/ibm/
+			// instead of registering it as a Rollup input: a Vite input would minify the
+			// HTML, hash the relative ./fonts/ URLs (so they no longer travel with the
+			// file), and inject the site's analytics / error-reporter / three-guard
+			// scripts via the transformIndexHtml plugins above — each of which diverges
+			// the preview from the standalone file and pulls in origins the page's
+			// `script-src 'self' three.ws` CSP forbids. The .md hosting guide is
+			// source-only and excluded from the copy.
+			name: 'copy-ibm-x402-demo',
+			configureServer(server) {
+				const dir = resolve(__dirname, 'pages/ibm');
+				const MIME = { '.html': 'text/html; charset=utf-8', '.woff2': 'font/woff2' };
+				server.middlewares.use((req, res, next) => {
+					const path = (req.url || '').split('?')[0];
+					let rel = null;
+					if (path === '/ibm/x402-demo' || path === '/ibm/x402-demo.html')
+						rel = 'x402-demo.html';
+					else if (path.startsWith('/ibm/fonts/'))
+						rel = 'fonts/' + path.slice('/ibm/fonts/'.length);
+					if (!rel) return next();
+					const file = resolve(dir, rel);
+					// Path-traversal guard: never serve outside pages/ibm/.
+					if (!file.startsWith(dir + '/') || !existsSync(file) || !statSync(file).isFile())
+						return next();
+					res.setHeader('Content-Type', MIME[extname(file)] || 'application/octet-stream');
+					createReadStream(file).pipe(res);
+				});
+			},
+			closeBundle() {
+				const src = resolve(__dirname, 'pages/ibm');
+				if (!existsSync(src)) return;
+				// Ship the page + its fonts; the hosting guide stays in source.
+				cpSync(src, resolve(__dirname, 'dist/ibm'), {
+					recursive: true,
+					filter: (s) => !s.endsWith('.md'),
+				});
+			},
+		},
+		{
 			// Several static pages (dashboard, vanity-wallet, …) import ESM
 			// directly from `/src/*.js`. Vite's dev server serves these from
 			// the project root, but production needs them under dist/. Mirror

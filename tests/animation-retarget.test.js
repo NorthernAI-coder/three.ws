@@ -26,6 +26,7 @@ import {
 import {
 	canonicalNodeMapFromObject,
 	canonicalRestMapFromObject,
+	hipsParentWorldQuat,
 	retargetClip,
 	retargetClipToObject,
 	scaleClipSpeed,
@@ -226,6 +227,57 @@ describe('bind-rotation correction', () => {
 		const hipsP = r.tracks.find((t) => t.name === 'Hips.position');
 		// (0,1,0) rotated → (0,0,−1), then ×2 → (0,0,−2).
 		expect(hipsP.values[2]).toBeCloseTo(-2, 5);
+	});
+});
+
+describe('root-motion correction', () => {
+	// A rig whose Hips sit under a tilted armature (the Mixamo +90°X pattern, or
+	// any non-standard up-axis). Root motion authored in world-Y-up must be
+	// re-expressed in this frame so the body still travels the right way.
+	function makeRigWithTiltedArmature(tilt) {
+		const root = new Object3D();
+		const armature = new Object3D();
+		armature.name = 'Armature';
+		armature.quaternion.copy(tilt);
+		root.add(armature);
+		const bones = ['Hips', 'Spine', 'LeftArm', 'RightArm', 'Head'].map((n) => {
+			const b = new Bone();
+			b.name = n;
+			return b;
+		});
+		armature.add(bones[0]);
+		for (let i = 1; i < bones.length; i++) bones[0].add(bones[i]);
+		const mesh = new SkinnedMesh(new BufferGeometry());
+		mesh.bind(new Skeleton(bones));
+		root.add(mesh);
+		return root;
+	}
+
+	it('rotates the hip-position track by the inverse of the hips-parent world frame', () => {
+		const clip = makeCanonicalClip(); // Hips.position keyframe (0,1,0)
+		const tilt = new Quaternion().setFromAxisAngle({ x: 1, y: 0, z: 0 }, Math.PI / 2); // +90°X
+		const rig = makeRigWithTiltedArmature(tilt);
+		const map = canonicalNodeMapFromObject(rig);
+		const targetRest = canonicalRestMapFromObject(rig);
+		const hpq = hipsParentWorldQuat(rig);
+		expect(hpq).not.toBeNull();
+		const r = retargetClip(clip, map, { hipScale: 1, targetRest, hipsParentWorldQuat: hpq }).clip;
+		const pos = r.tracks.find((t) => t.name.endsWith('.position'));
+		// Parent is +90°X → position rotated by −90°X: (0,1,0) → (0,0,−1).
+		expect(pos.values[0]).toBeCloseTo(0, 5);
+		expect(pos.values[1]).toBeCloseTo(0, 5);
+		expect(pos.values[2]).toBeCloseTo(-1, 5);
+	});
+
+	it('leaves the hip-position track untouched when the hips-parent frame is identity', () => {
+		const clip = makeCanonicalClip();
+		const rig = makeRigWithTiltedArmature(new Quaternion()); // identity armature
+		const map = canonicalNodeMapFromObject(rig);
+		const targetRest = canonicalRestMapFromObject(rig);
+		const hpq = hipsParentWorldQuat(rig);
+		const r = retargetClip(clip, map, { hipScale: 1, targetRest, hipsParentWorldQuat: hpq }).clip;
+		const pos = r.tracks.find((t) => t.name.endsWith('.position'));
+		expect(Array.from(pos.values)).toEqual([0, 1, 0, 0, 1.1, 0]);
 	});
 });
 

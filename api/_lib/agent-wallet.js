@@ -515,6 +515,20 @@ export async function recoverSolanaAgentKeypair(encryptedSecret, audit = null) {
 			status: 'ok',
 			meta: { address: kp.publicKey.toBase58(), ...(audit.meta || {}) },
 		});
+		// Mirror into the owner-viewable custody trail so every decrypt of a
+		// custodial key is traceable with its reason, alongside withdraws and
+		// limit changes. Fire-and-forget — never block or fail the signing path.
+		import('./agent-trade-guards.js')
+			.then(({ recordCustodyEvent }) =>
+				recordCustodyEvent({
+					agentId: audit.agentId,
+					userId: audit.userId ?? null,
+					eventType: 'key_recover',
+					reason: audit.reason || 'sign',
+					meta: { address: kp.publicKey.toBase58(), ...(audit.meta || {}) },
+				}),
+			)
+			.catch(() => {});
 	}
 	return kp;
 }

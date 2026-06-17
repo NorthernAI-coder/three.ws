@@ -1279,6 +1279,23 @@ const NEARBY_RADIUS = 40; // metres
 // roster to 60 m, so this discovers nothing the user couldn't already stumble upon.
 const NEARBY_READ_RADIUS = 60; // metres — matches api/irl/pins.js Math.min(60, …)
 
+// L4 — Approximate discovery. The origin we SEND to the nearby read. In precise
+// mode it's the live fix; in approximate mode we snap to a ~25 m grid so our
+// exact position never leaves the device while browsing. 25 m is the largest cell
+// that still keeps every agent inside the 40 m display band returned by the 60 m
+// read (worst-case snap offset ≈ 17.7 m; 40 + 17.7 < 60). Rendering + the
+// ENTER/EXIT band always measure against the TRUE gpsState, so coarsening changes
+// only WHICH pins come back, never where they draw.
+function discoveryOrigin() {
+	if (getDiscoveryPrecision() !== 'approximate') return { lat: gpsState.lat, lng: gpsState.lng };
+	const latCell = 25 / 110540;
+	const lngCell = 25 / ((111320 * Math.cos(gpsState.lat * Math.PI / 180)) || 1);
+	return {
+		lat: Math.round(gpsState.lat / latCell) * latCell,
+		lng: Math.round(gpsState.lng / lngCell) * lngCell,
+	};
+}
+
 // Honour the OS "reduce motion" setting for the spawn/despawn transitions below —
 // scale in/out for everyone else, instant for users who asked for less animation.
 function prefersReducedMotion() {
@@ -2231,9 +2248,10 @@ async function loadNearbyPins() {
 	// the wider read (NEARBY_READ_RADIUS = the 60 m cap) so an agent on the discovery
 	// edge stays stably returned, then apply the asymmetric ENTER/EXIT band + despawn
 	// debounce CLIENT-side (pinBandAction) so consumer GPS jitter can't pop it in and out.
+	const _o = discoveryOrigin();
 	try {
 		const r = await fetch(
-			`/api/irl/pins?lat=${gpsState.lat}&lng=${gpsState.lng}&radius=${NEARBY_READ_RADIUS}`,
+			`/api/irl/pins?lat=${_o.lat}&lng=${_o.lng}&radius=${NEARBY_READ_RADIUS}`,
 		);
 		if (!r.ok) { _nearbyError = true; updateNearbyBadge(); return; }
 		const { pins } = await r.json();

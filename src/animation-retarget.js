@@ -192,6 +192,56 @@ function rotateVectorTrack(values, c) {
 	}
 }
 
+// Rotation to apply to the Hips position (root-motion) track. The clip authors
+// hip translation in the authoring rig's hips-parent frame, whose world rotation
+// is identity (cz's armature has none). To preserve world motion on the target,
+// rotate by the inverse of the target's hips-parent world rotation. When the
+// caller can't supply that (a bare retargetClip call), fall back to the Hips
+// bone correction — exact for any rig whose hips are upright at bind, i.e. every
+// real humanoid. Returns null when no rotation is needed.
+function hipPositionCorrection(hipsParentWorldQuat, corrections) {
+	if (hipsParentWorldQuat) {
+		const q = hipsParentWorldQuat.isQuaternion
+			? hipsParentWorldQuat.clone()
+			: new Quaternion(
+					hipsParentWorldQuat[0],
+					hipsParentWorldQuat[1],
+					hipsParentWorldQuat[2],
+					hipsParentWorldQuat[3],
+				);
+		q.invert();
+		return 1 - Math.abs(q.w) < BIND_EPSILON ? null : q;
+	}
+	return corrections.get('Hips') || null;
+}
+
+/**
+ * World rotation of the target Hips' parent, measured *within the model* (i.e.
+ * relative to `root`, so a placement rotation the viewer applies to the whole
+ * avatar is excluded). Inverting it lets {@link retargetClip} re-express a clip's
+ * authored hip translation in the target's hips-parent frame, so root motion
+ * travels the same world direction on a Mixamo `+90°X` armature, an RPM rig, etc.
+ * Requires the graph's local rotations to be at bind pose (true at attach time).
+ *
+ * @param {import('three').Object3D} root
+ * @returns {import('three').Quaternion|null}
+ */
+export function hipsParentWorldQuat(root) {
+	let hips = null;
+	root.traverse((n) => {
+		if (!hips && n.isBone && n.name && canonicalizeBoneName(n.name) === 'Hips') hips = n;
+	});
+	if (!hips) {
+		root.traverse((n) => {
+			if (!hips && n.name && canonicalizeBoneName(n.name) === 'Hips') hips = n;
+		});
+	}
+	if (!hips || !hips.parent) return null;
+	const q = new Quaternion();
+	for (let n = hips.parent; n && n !== root; n = n.parent) q.premultiply(n.quaternion);
+	return q;
+}
+
 /**
  * World-space rest height of the target's hips, used to scale root translation
  * onto a differently-sized rig. Returns 0 if it can't be determined (callers
@@ -233,6 +283,7 @@ export function retargetClip(clip, canonicalToNode, opts = {}) {
 	const hipScale = Number.isFinite(opts.hipScale) && opts.hipScale > 0 ? opts.hipScale : 1;
 	const minCoverage = opts.minCoverage ?? MIN_COVERAGE;
 	const corrections = bindCorrections(opts.targetRest);
+	const hipsPosCorrection = hipPositionCorrection(opts.hipsParentWorldQuat, corrections);
 	const total = clip.tracks.length;
 	const dropped = [];
 	const tracks = [];
@@ -250,16 +301,21 @@ export function retargetClip(clip, canonicalToNode, opts = {}) {
 		}
 		const next = track.clone();
 		next.name = `${nodeName}.${property}`;
-		// Bind correction: rotate the bone's rest convention onto the target rig
-		// so a clip authored for one rest pose doesn't flip a differently-rigged
-		// avatar (e.g. a Mixamo Hips baked at −90°X reading as "lying down").
-		const correction = corrections.get(canonical);
-		if (correction) {
-			if (property === 'quaternion') premultiplyQuaternionTrack(next.values, correction);
-			else if (property === 'position') rotateVectorTrack(next.values, correction);
-		}
-		if (hipScale !== 1 && canonical === 'Hips' && property === 'position') {
-			for (let i = 0; i < next.values.length; i++) next.values[i] *= hipScale;
+		if (property === 'quaternion') {
+			// Bind correction: replay the clip's deviation-from-rest in the target
+			// bone's own rest frame, so a clip authored for one rest pose (cz's
+			// A-pose) drives a differently-rigged avatar (a Mixamo T-pose, or a Hips
+			// baked at −90°X that would otherwise read as "lying down").
+			const correction = corrections.get(canonical);
+			if (correction) premultiplyQuaternionTrack(next.values, correction);
+		} else if (property === 'position' && canonical === 'Hips') {
+			// Root motion: the clip authors hip translation in the authoring rig's
+			// world-Y-up frame; re-express it in the target's hips-parent frame so it
+			// travels the same world direction on any rig, then scale for height.
+			if (hipsPosCorrection) rotateVectorTrack(next.values, hipsPosCorrection);
+			if (hipScale !== 1) {
+				for (let i = 0; i < next.values.length; i++) next.values[i] *= hipScale;
+			}
 		}
 		tracks.push(next);
 	}
@@ -296,7 +352,20 @@ export function retargetClipToRig(clip, rig, opts = {}) {
 			hipScale = Math.min(5, Math.max(0.2, targetY / sourceY));
 		}
 	}
-	return retargetClip(clip, map, { hipScale, minCoverage: opts.minCoverage, targetRest });
+	// Walk the hips' ancestor chain to the top so root motion is corrected for the
+	// rig's axis convention (the rig is posed at origin, so within-model == world).
+	let hipsParent = null;
+	const hipsNode = rig.getNode?.('Hips');
+	if (hipsNode?.parent) {
+		hipsParent = new Quaternion();
+		for (let n = hipsNode.parent; n; n = n.parent) hipsParent.premultiply(n.quaternion);
+	}
+	return retargetClip(clip, map, {
+		hipScale,
+		minCoverage: opts.minCoverage,
+		targetRest,
+		hipsParentWorldQuat: hipsParent,
+	});
 }
 
 /**
@@ -311,7 +380,8 @@ export function retargetClipToRig(clip, rig, opts = {}) {
 export function retargetClipToObject(clip, root, opts = {}) {
 	const map = canonicalNodeMapFromObject(root);
 	const targetRest = opts.targetRest || canonicalRestMapFromObject(root);
-	return retargetClip(clip, map, { ...opts, targetRest });
+	const hipsParentWorld = opts.hipsParentWorldQuat || hipsParentWorldQuat(root);
+	return retargetClip(clip, map, { ...opts, targetRest, hipsParentWorldQuat: hipsParentWorld });
 }
 
 /**

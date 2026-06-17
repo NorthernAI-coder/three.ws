@@ -614,6 +614,14 @@ export default wrap(async (req, res) => {
 	// feed and no realtime broadcast of pins: the radius is hard-capped small, the
 	// caller's own lat/lng is required, and the read is IP rate-limited above so a
 	// scripted grid-sweep can't reconstruct the map.
+	//
+	// PRIVACY CONTRACT (L4): the caller's own lat/lng are used ONLY to run the
+	// proximity query and are NEVER logged. A proximity READ is not persisted —
+	// the only stored coordinates are the deliberate placements in irl_pins; the
+	// rate-limit counter keys on IP, not position. Do not add any console log of
+	// req.query / lat / lng on this path. Privacy-minded clients additionally
+	// coarsen the origin they send (see discoveryOrigin() in src/irl.js), so the
+	// exact device position need never reach the server at all.
 	if (req.method === 'GET') {
 		const lat    = parseFloat(req.query.lat);
 		const lng    = parseFloat(req.query.lng);

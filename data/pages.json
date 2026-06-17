@@ -609,6 +609,14 @@
 					"added": "2026-05-25"
 				},
 				{
+					"path": "/ibm/x402-demo",
+					"title": "x402 Live Demo (IBM × three.ws)",
+					"description": "A self-contained x402 micropayment demo: pay $0.001 USDC from your own wallet — MetaMask on Base or Phantom on Solana — to call a real three.ws data API. Watch the live HTTP 402 challenge, sign a gasless authorization, and see the on-chain settlement receipt. No backend, no account; built as the public face of the IBM × three.ws partnership.",
+					"priority": 0.7,
+					"changefreq": "monthly",
+					"added": "2026-06-17"
+				},
+				{
 					"path": "/lookup",
 					"title": "Agent Lookup",
 					"description": "Resolve any three.ws agent by Solana mint, agent ID, avatar ID, or slug \u2014 renders its interactive 3D avatar alongside its on-chain identity (collection, owner, agent wallet, Active/x402 status, Metaplex/Solscan/Magic Eden links).",
