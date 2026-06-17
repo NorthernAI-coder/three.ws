@@ -2,7 +2,8 @@
 //
 //   node scripts/irl-d2-smoke.mjs
 //
-// Where irl-d1-smoke proves pin liveness, this proves the PRESENCE contract end-
+// Pins are never carried over the realtime room — they're discovered only by the
+// per-viewer proximity read. This proves the PRESENCE contract end-
 // to-end: it boots the REAL multiplayer server (the same multiplayer/src/index.js
 // prod runs, with the irl_world room wired exactly as deployed), connects two
 // colyseus.js clients to one geocell room, and asserts the spec's acceptance

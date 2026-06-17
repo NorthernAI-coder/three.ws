@@ -90,6 +90,56 @@ describe('anchorPoseToPin', () => {
 	});
 });
 
+// ── Render-back yaw precision (irl-floor-anchor task 02) ─────────────────────
+// The viewer derives facing from the stored anchor_quat (full float) rather than
+// the rounded anchor_yaw_deg, so a non-axis placement reloads at the EXACT tap
+// angle for every viewer. These tests pin that the float survives the persist →
+// render-back round-trip — the justification for keeping anchor_quat a live column
+// instead of a dead field. pinYawRad in src/irl.js applies this same
+// yawDegFromQuat(...pin.anchor_quat) on the read path.
+describe('anchor_quat precision survives the persist → render-back round-trip', () => {
+	// What the renderer does with a stored pin: read yaw straight off anchor_quat,
+	// normalised to [0,360) exactly as pinYawRad / spawnNearbyPin reads it back.
+	const renderBackYaw = (quat) => (((yawDegFromQuat(...quat) % 360) + 360) % 360);
+
+	it('a fractional, non-axis yaw (137.4°) reloads within <0.5°', () => {
+		const TAP = 137.4; // deliberately off every cardinal AND not a whole degree
+		const pin = anchorPoseToPin({
+			originLat: ORIGIN.lat, originLng: ORIGIN.lng,
+			x: 0, y: 0, z: 0, quat: yawQuat(TAP),
+		});
+		// The render-back source (anchor_quat) keeps the fractional angle…
+		expect(Math.abs(renderBackYaw(pin.quat) - TAP)).toBeLessThan(0.5);
+		// …while the rounded heading column has already discarded the .4° tail. This
+		// gap is the whole reason render-back prefers the quat.
+		expect(pin.heading).toBe(137);
+		expect(Math.abs(pin.heading - TAP)).toBeGreaterThan(0.3);
+	});
+
+	it('a fine sweep of off-axis tap angles each reload within <0.5°', () => {
+		for (const TAP of [12.7, 47.6, 99.1, 137.4, 211.95, 268.3, 314.85, 359.6]) {
+			const pin = anchorPoseToPin({
+				originLat: ORIGIN.lat, originLng: ORIGIN.lng,
+				x: 0, y: 0, z: 0, quat: yawQuat(TAP),
+			});
+			const back = renderBackYaw(pin.quat);
+			// Compare on the circle so 359.6° vs 0.x° wraps cleanly.
+			const delta = Math.min(Math.abs(back - TAP), 360 - Math.abs(back - TAP));
+			expect(delta).toBeLessThan(0.5);
+		}
+	});
+
+	it('the quat-derived yaw beats the integer column for a sub-degree placement', () => {
+		// Two taps that the integer anchor_yaw_deg cannot tell apart (both round to
+		// 90°) stay distinct through the quat — proving the column carries real signal.
+		const a = anchorPoseToPin({ originLat: ORIGIN.lat, originLng: ORIGIN.lng, x: 0, y: 0, z: 0, quat: yawQuat(90.3) });
+		const b = anchorPoseToPin({ originLat: ORIGIN.lat, originLng: ORIGIN.lng, x: 0, y: 0, z: 0, quat: yawQuat(89.7) });
+		expect(a.heading).toBe(b.heading); // 90 === 90 — the rounded column collapses them
+		expect(renderBackYaw(a.quat)).not.toBe(renderBackYaw(b.quat)); // the quat does not
+		expect(renderBackYaw(a.quat) - renderBackYaw(b.quat)).toBeCloseTo(0.6, 5);
+	});
+});
+
 describe('round-trip property: anchorPoseToPin then geoToLocal is identity', () => {
 	it('survives within 1e-6 for assorted offsets', () => {
 		for (const [x, z] of [[0, 0], [2, -3], [-4, 1], [12, 12], [-7.5, -2.25], [0.1, -0.1]]) {

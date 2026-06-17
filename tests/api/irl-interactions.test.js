@@ -248,6 +248,65 @@ describe('POST — messages + owner replies', () => {
 	});
 });
 
+describe('POST — payload serialization boundary (no uncaught 500)', () => {
+	it('400s a circular payload instead of crashing the INSERT', async () => {
+		// clampPayload collapses a circular blob to {} during its size check, so a
+		// circular `payload` alone can't reach the INSERT. The residual risk this
+		// guards is a value that survives clampPayload but later fails to serialize —
+		// exercised here by smuggling a circular reference past clampPayload via a
+		// toJSON() that returns a bounded object during the clamp but throws when the
+		// row is finally serialized.
+		let clampPass = true;
+		const hostile = {
+			toJSON() {
+				if (clampPass) { clampPass = false; return { ok: 1 }; }
+				throw new TypeError('Converting circular structure to JSON');
+			},
+		};
+		const { res, body } = await post({ pinId: 'pin-1', type: 'tap', payload: hostile, deviceToken: 'dev-A' });
+		expect(res.statusCode).toBe(400);
+		expect(body.error).toMatch(/serializable/i);
+		expect(lastInsert).toBeNull(); // no row written when serialization fails
+	});
+
+	it('records a normal payload object as serialized JSONB', async () => {
+		const { res } = await post({ pinId: 'pin-1', type: 'tap', payload: { note: 'hi' }, deviceToken: 'dev-A' });
+		expect(res.statusCode).toBe(201);
+		// values[10] is the serialized payload text the INSERT binds to the ::jsonb cast.
+		expect(typeof lastInsert.values[10]).toBe('string');
+		expect(JSON.parse(lastInsert.values[10])).toMatchObject({ note: 'hi' });
+	});
+});
+
+describe('POST — view_count increment is logged, not swallowed', () => {
+	it('logs a failed counter bump with context but still 201s the view', async () => {
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		// Reject only the view_count UPDATE; the pin lookup + INSERT still resolve.
+		sqlMock.mockImplementation((strings, ...values) => {
+			const q = Array.isArray(strings) ? strings.join(' ') : String(strings);
+			if (/UPDATE irl_pins SET view_count/i.test(q)) return Promise.reject(new Error('db down'));
+			if (/FROM irl_pins[\s\S]*WHERE id =/i.test(q)) return Promise.resolve([pinRow]);
+			if (/SELECT id FROM irl_interactions[\s\S]*type = 'view'/i.test(q)) return Promise.resolve([]);
+			if (/INSERT INTO irl_interactions/i.test(q)) {
+				lastInsert = { values };
+				return Promise.resolve([{ id: 'ix-new', type: values[2], created_at: 'now' }]);
+			}
+			return Promise.resolve([]);
+		});
+		const { res } = await post({ pinId: 'pin-1', type: 'view', deviceToken: 'dev-fresh' });
+		expect(res.statusCode).toBe(201);
+		// The rejection is async fire-and-forget — let the microtask queue drain.
+		await Promise.resolve();
+		await Promise.resolve();
+		expect(warn).toHaveBeenCalledWith(
+			'[irl/interactions] view_count increment failed',
+			expect.objectContaining({ pinId: 'pin-1', reason: 'db down' }),
+		);
+		warn.mockRestore();
+		sqlMock.mockClear();
+	});
+});
+
 describe('GET ?mine=1 + PATCH', () => {
 	it('GET requires a session or deviceToken', async () => {
 		const { res } = await call('GET', { query: { mine: '1' } });

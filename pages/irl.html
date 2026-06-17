@@ -5,9 +5,12 @@
 	<meta charset="utf-8" />
 	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
 	<meta name="theme-color" content="#000000" />
-	<!-- Realtime pin sync (D1) — the IRL world runs as a room on the same Colyseus
-	     host as /walk. Lets nearby pins stream live; absent/unreachable it falls back
-	     to polling automatically (see src/irl-net.js). -->
+	<!-- Live presence + reactions room — the IRL world runs as a room on the same
+	     Colyseus host as /walk. It carries an anonymous "viewing nearby" count and
+	     opt-in ghost markers ONLY; placed agents are never synced here. Agents are
+	     private by location and discovered solely through the per-viewer proximity
+	     read in api/irl/pins.js. Absent/unreachable, presence is simply hidden and
+	     discovery still works via the proximity poll (see src/irl-net.js). -->
 	<meta name="irl-server" content="wss://three-ws-multiplayer-93741856042.us-central1.run.app" />
 	<title>IRL · three.ws</title>
 	<meta name="description" content="Walk a 3D avatar in your real space. Camera AR passthrough, joystick movement, tap-to-place objects." />
@@ -214,6 +217,13 @@
 		.irl-share-btn[disabled] { opacity: 0.6; cursor: progress; }
 		/* L3 — icon-only "Location & privacy" control sits beside Share */
 		.irl-privacy-btn { padding: 6px; display: inline-flex; align-items: center; justify-content: center; margin-right: 8px; }
+		/* Task 03 — icon-only arrival-cue mute toggle (sound on/off icon swap) */
+		.irl-cue-mute { padding: 6px; display: inline-flex; align-items: center; justify-content: center; margin-right: 8px; }
+		.irl-cue-mute .irl-cue-off { display: none; }
+		.irl-cue-mute.is-muted .irl-cue-on { display: none; }
+		.irl-cue-mute.is-muted .irl-cue-off { display: inline; }
+		.irl-cue-mute.is-muted { color: var(--text-3); }
+		.irl-cue-mute[aria-pressed="false"] { color: var(--green); border-color: rgba(74,222,128,0.32); }
 
 		/* ── Joystick ────────────────────────────────────────────── */
 		#irl-joystick {
@@ -689,6 +699,101 @@
 		}
 		@media (prefers-reduced-motion: reduce) {
 			.irl-presence-chip::before { animation: none; }
+		}
+
+		/* ── Proximity-arrival cue (task 03) ─────────────────────── */
+		/* Transient "look around" banner — appears centred near the top, below the
+		   topbar, when a new agent enters your bubble. Glassy, quiet, auto-dismisses. */
+		.irl-arrival-cue {
+			position: fixed;
+			top: calc(env(safe-area-inset-top, 0px) + 64px);
+			left: 50%;
+			z-index: 46;
+			max-width: min(92vw, 360px);
+			padding: 9px 16px;
+			border-radius: 999px;
+			font-size: 13px;
+			font-weight: 600;
+			letter-spacing: 0.01em;
+			text-align: center;
+			color: #eaf4ff;
+			background: rgba(18,26,40,0.82);
+			border: 1px solid rgba(120,170,255,0.42);
+			box-shadow: 0 6px 24px rgba(0,0,0,0.45), 0 0 18px rgba(120,170,255,0.18);
+			-webkit-backdrop-filter: blur(10px);
+			backdrop-filter: blur(10px);
+			pointer-events: none;
+			opacity: 0;
+			transform: translate(-50%, -10px);
+			transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+		}
+		.irl-arrival-cue[hidden] { display: none; }
+		.irl-arrival-cue.is-visible {
+			opacity: 1;
+			transform: translate(-50%, 0);
+		}
+		.irl-arrival-cue::before {
+			content: '';
+			display: inline-block;
+			width: 7px;
+			height: 7px;
+			margin-right: 8px;
+			border-radius: 50%;
+			background: #8ec5ff;
+			box-shadow: 0 0 8px #8ec5ff;
+			vertical-align: middle;
+			animation: irl-cue-ping 1.4s ease-out infinite;
+		}
+		@keyframes irl-cue-ping {
+			0% { transform: scale(0.7); opacity: 1; }
+			70%, 100% { transform: scale(1.6); opacity: 0; }
+		}
+
+		/* Non-map directional hint — a soft glow + arrow riding the screen edge,
+		   positioned via JS transform toward the nearest agent's bearing. The wrapper
+		   is centred on the computed edge point (translate(-50%,-50%) + the JS offset);
+		   the inner arrow rotates to aim along the bearing. */
+		.irl-dir-nudge {
+			position: fixed;
+			top: 0;
+			left: 0;
+			z-index: 12;
+			width: 64px;
+			height: 64px;
+			pointer-events: none;
+			opacity: 0;
+			transition: opacity 0.35s ease;
+			will-change: transform, opacity;
+		}
+		.irl-dir-nudge[hidden] { display: none; }
+		.irl-dir-nudge.is-visible { opacity: 1; }
+		.irl-dir-nudge-glow {
+			position: absolute;
+			inset: 0;
+			border-radius: 50%;
+			background: radial-gradient(circle, rgba(140,197,255,0.55) 0%, rgba(140,197,255,0.18) 45%, transparent 72%);
+			animation: irl-nudge-breathe 1.8s ease-in-out infinite;
+		}
+		.irl-dir-nudge-arrow {
+			position: absolute;
+			inset: 0;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			color: #d6ecff;
+			filter: drop-shadow(0 0 6px rgba(140,197,255,0.85));
+			transition: transform 0.18s ease-out;
+		}
+		@keyframes irl-nudge-breathe {
+			0%, 100% { transform: scale(0.86); opacity: 0.7; }
+			50% { transform: scale(1.08); opacity: 1; }
+		}
+		@media (prefers-reduced-motion: reduce) {
+			.irl-arrival-cue { transition: opacity 0.001s; }
+			.irl-arrival-cue::before { animation: none; }
+			.irl-dir-nudge-glow { animation: none; opacity: 0.9; }
+			.irl-dir-nudge-arrow { transition: none; }
+			.irl-dir-nudge { transition: opacity 0.001s; }
 		}
 
 		/* Radar minimap */
@@ -1613,11 +1718,32 @@
 		     unless the live stream is up and more than just you are here. -->
 		<span id="irl-presence-chip" class="irl-presence-chip" hidden role="status" aria-live="polite"></span>
 	</div>
+	<button class="irl-share-btn irl-cue-mute" id="irl-cue-mute" type="button" aria-pressed="false" aria-label="Arrival sound on — tap to mute" title="Arrival sound on">
+		<svg class="irl-cue-on" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a9 9 0 0 1 0 14"/></svg>
+		<svg class="irl-cue-off" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4z"/><line x1="22" y1="9" x2="16" y2="15"/><line x1="16" y1="9" x2="22" y2="15"/></svg>
+	</button>
 	<button class="irl-share-btn irl-privacy-btn" id="irl-privacy-btn" type="button" aria-label="Location & privacy" title="Location & privacy">
 		<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
 	</button>
 	<button class="irl-share-btn" id="irl-share-btn" type="button" aria-label="Share">Share</button>
 </header>
+
+<!-- Proximity-arrival cue (task 03): a transient "look around" banner when a new
+     agent enters your ~40 m bubble. aria-live polite so a screen reader announces
+     the arrival without stealing focus. Filled + shown by src/irl.js. -->
+<div id="irl-arrival-cue" class="irl-arrival-cue" role="status" aria-live="polite" hidden></div>
+
+<!-- Non-map directional hint (task 03): a soft edge glow + arrow pointing toward
+     the nearest in-range agent's bearing, recomputed as the device rotates and
+     faded once that agent is on-screen. A *direction*, never a map or a distance.
+     aria-hidden — the banner above is the accessible announcement; this is purely
+     a visual nudge that tracks live camera motion. -->
+<div id="irl-dir-nudge" class="irl-dir-nudge" aria-hidden="true" hidden>
+	<span class="irl-dir-nudge-glow"></span>
+	<span class="irl-dir-nudge-arrow">
+		<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5"/><path d="m6 11 6-6 6 6"/></svg>
+	</span>
+</div>
 
 <!-- E1 permission re-request chips — a denied sensor leaves a one-tap recovery
      chip here; src/irl/onboarding.js shows/hides this strip and renders into it. -->

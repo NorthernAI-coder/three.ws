@@ -21,6 +21,9 @@ import { WORD_BLACKLIST } from '../../src/profanity.js';
 import { guardianConfig, assess, decide } from '../_lib/granite-guardian.js';
 import { encodeGeohash } from '../_lib/geohash.js';
 import { validateAppearance } from '../_lib/accessories.js';
+import { cacheGet, cacheSet } from '../_lib/cache.js';
+import { sendOpsAlert } from '../_lib/alerts.js';
+import { sha256 } from '../_lib/crypto.js';
 
 // ── Moderation, safety & density caps (D4) ──────────────────────────────────
 // Everything below makes the public, shared IRL world safe to launch: content
@@ -262,6 +265,76 @@ async function limitOrFailOpen(name, fn, ...args) {
 	}
 }
 
+// The PUBLIC nearby read fails CLOSED (H7). This read is the only surface that ever
+// reveals another agent's location, so its degradation path is a privacy boundary,
+// not a convenience one: if the limiter that bounds it can't make a decision, we
+// must NOT open an unmetered scrape window. Unlike the write paths above (which the
+// DB density/owner caps still bound when the limiter is blind), an unmetered read is
+// exactly the bulk-harvest hole the rate limit exists to close. So on a limiter
+// throw we return a retryable `rate_limiter_unavailable` verdict — surfaced to the
+// client as a 429 "temporarily unavailable, retrying" — rather than allowing the
+// read. The backing bucket (limits.publicIp) is an in-memory `local` limiter that
+// never touches Redis, so in practice it never throws; this guard makes the
+// fail-closed guarantee explicit and asserted rather than incidental.
+async function limitFailClosedRead(name, fn, ...args) {
+	try {
+		return await fn(...args);
+	} catch (err) {
+		const last = _rlWarnedAt.get(name) || 0;
+		const now = Date.now();
+		if (now - last >= RL_WARN_COOLDOWN_MS) {
+			_rlWarnedAt.set(name, now);
+			console.warn(`[irl/pins] read limiter "${name}" failed — failing CLOSED (deny):`, err?.message || err);
+		}
+		return { success: false, reason: 'rate_limiter_unavailable', reset: Date.now() + 60_000 };
+	}
+}
+
+// ── Sweep anomaly detection (H7) ─────────────────────────────────────────────
+// A real /irl user stays in ~1 geocell: they poll the same spot every ~10 s. A
+// scraper reading many DISTINCT cells in a short window is sweep-shaped, even if
+// each individual cell stays under the per-minute rate limit (a slow, methodical
+// grid never trips a burst counter). We track the set of distinct geocells a caller
+// reads within SWEEP_WINDOW_S in the shared cache (short TTL, capped) and fire ONE
+// deduped, COORDINATE-FREE ops alert when the count crosses SWEEP_CELL_THRESHOLD.
+//
+// Privacy discipline (mirrors redactUrl): the cache key and the alert carry only a
+// SHA-256 hash of the caller IP and the distinct-cell COUNT — never a coordinate,
+// never a raw IP, never a geocell value. The whole path is best-effort and wrapped
+// so it can never delay or fail the read it observes.
+const SWEEP_WINDOW_S = 120;       // rolling observation window
+const SWEEP_CELL_THRESHOLD = 12;  // distinct cells in the window that looks like a grid sweep
+const SWEEP_CELLS_TRACKED_MAX = 64; // cap the stored set so one caller can't bloat a cache entry
+
+export async function recordCellRead(ip, cell) {
+	if (!ip || !cell) return;
+	try {
+		const ipHash = (await sha256(ip)).slice(0, 16);
+		const key = `irl:sweep:${ipHash}`;
+		const prev = (await cacheGet(key)) || { cells: [], alerted: false };
+		const cells = Array.isArray(prev.cells) ? prev.cells : [];
+		if (!cells.includes(cell)) {
+			if (cells.length < SWEEP_CELLS_TRACKED_MAX) cells.push(cell);
+		}
+		const distinct = cells.length;
+		let alerted = prev.alerted === true;
+		if (distinct >= SWEEP_CELL_THRESHOLD && !alerted) {
+			alerted = true; // latch so we alert once per window, not every cell after the threshold
+			// Coordinate-free, IP-hash only. Deduped by the hash so a sustained sweep
+			// from one caller is one alert per dedup window, not a flood.
+			sendOpsAlert(
+				'IRL sweep suspected',
+				`A single caller read ${distinct}+ distinct geocells from the /irl nearby feed within ${SWEEP_WINDOW_S}s (ip_hash ${ipHash}). Possible bulk location-harvest attempt; no coordinates logged.`,
+				{ signature: `irl-sweep:${ipHash}` },
+			).catch(() => {});
+		}
+		// Refresh the rolling window on every read so an active sweep keeps the entry warm.
+		await cacheSet(key, { cells, alerted }, SWEEP_WINDOW_S);
+	} catch {
+		/* best-effort telemetry — never block or fail the read */
+	}
+}
+
 let _tableReady = false;
 async function ensureTable() {
 	if (_tableReady) return;
@@ -449,17 +522,25 @@ async function handleCalibrate(res, { id, session, body }) {
 	// Persist. heading stays in sync with anchor_yaw_deg so legacy clients (which
 	// only read `heading`) still render the corrected bearing.
 	const headingToStore = newYaw != null ? Math.round(newYaw) : null;
+	// A manual yaw recalibration SUPERSEDES the captured surface orientation. The
+	// render-back path (pinYawRad, irl-floor-anchor task 02) prefers anchor_quat over
+	// anchor_yaw_deg for exact facing, so a stale quat would silently override the
+	// owner's nudge — the correction would never show. Clear anchor_quat whenever the
+	// owner sets a new yaw, retiring the now-wrong capture so anchor_yaw_deg is the
+	// authoritative source again. A height-only / move-only calibrate keeps the quat.
+	const clearQuat = newYaw != null;
 	const [row] = await sql`
 		UPDATE irl_pins SET
 			lat             = ${newLat},
 			lng             = ${newLng},
 			anchor_yaw_deg  = COALESCE(${newYaw}, anchor_yaw_deg),
 			heading         = COALESCE(${headingToStore}, heading),
-			anchor_height_m = COALESCE(${newHeight}, anchor_height_m)
+			anchor_height_m = COALESCE(${newHeight}, anchor_height_m),
+			anchor_quat     = CASE WHEN ${clearQuat} THEN NULL ELSE anchor_quat END
 		WHERE id = ${id}
 		  AND hidden_at IS NULL
 		  AND (expires_at IS NULL OR expires_at > NOW())
-		RETURNING id, lat, lng, heading, anchor_yaw_deg, anchor_height_m, gps_accuracy_m
+		RETURNING id, lat, lng, heading, anchor_yaw_deg, anchor_height_m, anchor_quat, gps_accuracy_m
 	`;
 	// A lapse between the SELECT above and this write (e.g. expiry / a reaping cron)
 	// leaves no row — surface that as not-found instead of returning { pin: null }.
@@ -557,9 +638,12 @@ export default wrap(async (req, res) => {
 	// Every public GET read (the nearby feed + my-pins) is IP rate-limited so the
 	// tight proximity feed can't be systematically gridded into a bulk location
 	// scrape. A legit viewer polls nearby every ~10 s (≈6/min) — well under the
-	// 60/min public ceiling — while a scripted sweep trips it fast.
+	// 60/min public ceiling — while a scripted sweep trips it fast. This read FAILS
+	// CLOSED (H7): if the limiter can't decide, we deny with a retryable
+	// `rate_limiter_unavailable` rather than open an unmetered scrape window — an
+	// unbounded location read is the exact hole the limit exists to close.
 	if (req.method === 'GET') {
-		const rl = await limitOrFailOpen('publicIp', limits.publicIp, clientIp(req));
+		const rl = await limitFailClosedRead('publicIp', limits.publicIp, clientIp(req));
 		if (!rl.success) return rateLimited(res, rl);
 	}
 
@@ -719,6 +803,13 @@ export default wrap(async (req, res) => {
 			}))
 			.filter(r => r.distance_m <= radius)
 			.sort((a, b) => a.distance_m - b.distance_m);
+
+		// Sweep anomaly detection (H7): record which geocell this caller just read.
+		// Reading many DISTINCT cells in a short window is sweep-shaped even when each
+		// cell stays under the rate limit; this fires a deduped, coordinate-free ops
+		// alert past the threshold. Best-effort and fire-and-forget — never awaited
+		// into the response path, never carries a coordinate.
+		recordCellRead(clientIp(req), encodeGeohash(lat, lng, GEOCELL_PRECISION));
 
 		return json(res, 200, { pins });
 	}

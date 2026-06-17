@@ -465,11 +465,11 @@ async function handleWallet(req, res, id) {
 // Returns { error } (already-shaped) on any failure so callers can early-return.
 async function loadOwnedWallet(req, res, id) {
 	const auth = await resolveAuth(req);
-	if (!auth) return { error: error(res, 401, 'unauthorized', 'sign in required') };
+	if (!auth) { error(res, 401, 'unauthorized', 'sign in required'); return { error: true }; }
 
 	const [row] = await sql`SELECT id, user_id, meta FROM agent_identities WHERE id = ${id} AND deleted_at IS NULL`;
-	if (!row) return { error: error(res, 404, 'not_found', 'agent not found') };
-	if (row.user_id !== auth.userId) return { error: error(res, 403, 'forbidden', 'not your agent') };
+	if (!row) { error(res, 404, 'not_found', 'agent not found'); return { error: true }; }
+	if (row.user_id !== auth.userId) { error(res, 403, 'forbidden', 'not your agent'); return { error: true }; }
 
 	const meta = { ...(row.meta || {}) };
 	return { auth, meta, address: meta.solana_address || null, encryptedSecret: meta.encrypted_solana_secret || null };

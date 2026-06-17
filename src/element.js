@@ -556,6 +556,9 @@ const BASE_STYLE = `
 		from { opacity: 0; transform: translateY(6px); }
 		to   { opacity: 1; transform: none; }
 	}
+	@media (prefers-reduced-motion: reduce) {
+		.error-card { animation: none; }
+	}
 	.error-icon {
 		width: 36px;
 		height: 36px;
