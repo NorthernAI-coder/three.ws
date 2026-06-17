@@ -436,15 +436,25 @@ export default wrap(async (req, res) => {
 	// Path: /api/irl/pins/mine?deviceToken=…  — lets a visitor browse and manage
 	// the pins they placed from this device even after a reload, without login.
 	if (req.method === 'GET' && req.url?.includes('/mine')) {
-		const deviceToken = req.query.deviceToken;
-		const session     = await getSessionUser(req).catch(() => null);
-		if (!deviceToken && !session) {
+		const session  = await getSessionUser(req).catch(() => null);
+		// Null-guard both identifiers BEFORE the query: an empty/missing device token
+		// or a NULL session id must never become a clause that matches another
+		// owner's pins. (A bare `device_token = ''` would otherwise leak every
+		// legacy NULL/empty-token anonymous pin — and its lat/lng — to any caller.)
+		const ownerId  = session?.id ?? null;
+		const ownerDev = (typeof req.query.deviceToken === 'string' && req.query.deviceToken.length)
+			? req.query.deviceToken : null;
+		if (!ownerDev && !ownerId) {
 			return json(res, 400, { error: 'deviceToken required' });
 		}
+		// INVARIANT: coordinates leave here ONLY for the caller's OWN pins —
+		// strictly scoped to their session id or the device token they hold. Each
+		// arm is null-guarded so a missing identifier can never widen the match.
 		const rows = await sql`
 			SELECT id, lat, lng, avatar_name, caption, placed_at, expires_at, view_count
 			FROM irl_pins
-			WHERE (device_token = ${deviceToken ?? ''} OR user_id = ${session?.id ?? null})
+			WHERE ((${ownerId}::uuid IS NOT NULL AND user_id = ${ownerId}::uuid)
+			    OR (${ownerDev}::text IS NOT NULL AND device_token = ${ownerDev}))
 			  AND hidden_at IS NULL
 			  AND (expires_at IS NULL OR expires_at > NOW())
 			ORDER BY placed_at DESC
