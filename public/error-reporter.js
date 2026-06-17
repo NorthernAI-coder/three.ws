@@ -88,6 +88,14 @@
 	// only ever occur off a dev build; on the off chance a preview surfaces one,
 	// it is tooling noise, never a product fault.
 	const IGNORED_DEV_TOOLING = /\/@vite\/client|\/@react-refresh|vite\/dist\/client/;
+	// Bridge globals that mobile in-app browsers and browser extensions inject
+	// into every page they wrap (Twitter/X, Chrome iOS, Firefox iOS, the Bing
+	// app, …). Our code references none of them, so a "Can't find variable:
+	// currentInset" is their injected script failing in the page context, not a
+	// three.ws fault. Documented webview/extension globals only, whole-word.
+	const INJECTED_GLOBALS =
+		/\b(currentInset|gCrWeb|__gCrWeb|__firefox__|_AutofillCallbackHandler|instantSearchSDKJSBridgeClearHighlight|webkitStorageInfo|bannerNight|ceCurrentVideo|isHighlightingEnabled|zaloJSV2|MyAppGetLinkProperties)\b/;
+	const INJECTED_GLOBAL_ERROR = /can't find variable:|is not defined/i;
 
 	const truncate = (value, max) => {
 		if (typeof value !== 'string' || !value) return undefined;
@@ -165,6 +173,26 @@
 			return true;
 		}
 		if (report.message && IGNORED_MESSAGES.includes(report.message)) return true;
+		// Cross-origin "Script error." — the browser strips stack/file/line from an
+		// exception thrown by a script served without CORS headers, so there is
+		// nothing actionable in it. (Same-origin faults always carry a real message.)
+		if (report.message && /^Script error\.?$/.test(report.message)) return true;
+		// AbortError — a deliberate fetch/navigation cancellation (AbortController
+		// or a superseded in-flight request), never a fault.
+		if (
+			report.name === 'AbortError' ||
+			(report.message && /\bfetch is aborted\b|\bthe operation was aborted\b/i.test(report.message))
+		) {
+			return true;
+		}
+		// A ReferenceError naming a known injected webview/extension bridge global.
+		if (
+			report.message &&
+			INJECTED_GLOBAL_ERROR.test(report.message) &&
+			INJECTED_GLOBALS.test(report.message)
+		) {
+			return true;
+		}
 		// Internal failures of a third-party CDN library (identified by the script
 		// they originate from, via either the error's source or its stack) are not
 		// actionable from our code.
