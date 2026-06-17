@@ -383,6 +383,14 @@
 			<description>The conviction Oracle's evidence views had stopped responding: the Wins gallery, the accuracy Backtest, and the global Activity feed were all erroring instead of returning data, and the live activity feed failed on every request. The cause was in how those queries were assembled — optional filters (time window, tier, agent) weren't being stitched into the database query correctly, so the database rejected them. All three views now build their filters cleanly and return the Oracle's track record, hit-rate, and real-time agent actions as intended.</description>
 		</item>
 		<item>
+			<title>The sniper now runs as an always-on service — armed strategies fire in real time</title>
+			<link>https://three.ws/dashboard/sniper</link>
+			<guid isPermaLink="false">2026-06-17:The sniper now runs as an always-on service — armed strategies fire in real time</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>infra</category>
+			<description>An armed sniper strategy now has a live engine behind it. The sniper runs as a dedicated always-on worker that holds the pump.fun launch feed open continuously and acts the moment a launch matches your rules — not on a slow timer. It starts in a safe simulate mode (real scoring, zero spend) and going live is a deliberate, gated step that needs a funded agent wallet, so nothing trades real money by accident. If the launch feed ever drops, the worker reconnects on its own and pages the operators, and a public health check at /api/sniper/status reports whether it's live, reconnecting, or down — so 'is the sniper actually working right now?' is always answerable. Every safety limit you set — daily budget, per-trade size, max open positions, mandatory stop-loss, price-impact cutoff — is enforced by the running service exactly as configured.</description>
+		</item>
+		<item>
 			<title>Try x402 live — pay a tenth of a cent to call a real API from your own wallet</title>
 			<link>https://three.ws/ibm/x402-demo</link>
 			<guid isPermaLink="false">2026-06-17:Try x402 live — pay a tenth of a cent to call a real API from your own wallet</guid>
