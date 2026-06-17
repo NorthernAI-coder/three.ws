@@ -26,7 +26,7 @@ import { mountShell } from '../shell.js';
 import { requireUser, get, post, patch, esc, relTime } from '../api.js';
 import { skeletonHTML, emptyStateHTML, errorStateHTML, ensureStateKitStyles } from '../../shared/state-kit.js';
 import { loadInto } from '../../shared/async-state.js';
-import { loadLeaflet } from '../../shared/leaflet.js';
+import { loadLeaflet } from '../../shared/leaflet-loader.js';
 import { mountReputationPanel } from './irl-reputation.js';
 
 // ── Services / x402 skill pricing ───────────────────────────────────────────

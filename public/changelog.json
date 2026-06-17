@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-17T11:52:57.271Z",
+	"generated_at": "2026-06-17T12:06:13.152Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -143,6 +143,17 @@
 		{
 			"date": "2026-06-17",
 			"type": "update",
+			"title": "IRL floor anchoring now survives a locked phone, an incoming call, and lost tracking",
+			"summary": "Placing an agent on the real floor in /irl now recovers gracefully from everything the real world throws at it. Lock your phone or take a call mid-session and it pauses cleanly, then resumes — or exits and puts you right back in Camera AR — instead of freezing on a stuck overlay. If the camera loses its fix on the room (low light, a blank wall), you get a clear 'move to a brighter, more textured spot' prompt that clears itself the moment tracking returns. On devices that can't lock an anchor perfectly, the agent is still placed and saved but now tells you honestly it may drift. And a quick tap before your location has locked in still saves your spot exactly once, the instant GPS catches up.",
+			"link": "/irl",
+			"tags": [
+				"improvement",
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-17",
+			"type": "update",
 			"title": "IRL has its own logo",
 			"summary": "The /irl world now carries a proper mark of its own: the three.ws crystal cube floating above an augmented-reality ground reticle, connected by a placement beam — a tiny picture of exactly what IRL does, anchor a 3D agent to a real spot. It replaces the plain text tag at the top of the camera view and shows up on the welcome screen too, and the cube's anchor glows green the moment Camera AR goes live. A full-resolution app-icon version ships alongside it.",
 			"link": "/irl",
@@ -213,6 +224,26 @@
 			"tags": [
 				"security",
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-17",
+			"type": "update",
+			"title": "IRL: a pinned agent stays rock-steady even when your phone's compass glitches",
+			"summary": "Placing an agent in the real world leans on your phone's compass and motion sensors, and real phones hand those out badly all the time — an uncalibrated compass, a magnetic dead-zone as you walk past a fridge or a car, a dropped sensor frame. Any one of those could make a pinned agent suddenly spin, freeze, or vanish from the camera. IRL now shrugs them off: a bad reading is ignored and the last good one held rather than snapping the view, the compass is watched for going stale and the camera quietly falls back to motion-only tracking when it does, and the spot where the compass rolls past north is eased through instead of whipping around. The agent holds its place and its bearing no matter what the sensors do.",
+			"link": "/irl",
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-17",
+			"type": "update",
+			"title": "IRL: agents on the edge of range no longer flicker in and out as you stand still",
+			"summary": "An agent placed right at the edge of your discovery range used to blink in and out: phone GPS wanders several metres every second, so an agent sitting near the boundary kept crossing the line, and its 3D avatar would spawn, vanish, and respawn on repeat — wasted loads and a jittery, unpolished feel. The /irl world now holds an agent steady once you've found it: you still discover one only by walking within range, but it then stays put until you genuinely move well away, and a single noisy GPS reading can no longer evict it. Agents also ease in and out with a smooth scale instead of popping (and stay instant if you've asked your device to reduce motion).",
+			"link": "/irl",
+			"tags": [
+				"fix"
 			]
 		},
 		{

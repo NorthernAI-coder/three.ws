@@ -66,6 +66,16 @@ export function loadConfig() {
 		feedWatchdogMs: Math.max(30_000, num('SNIPER_FEED_WATCHDOG_MS', 180_000)),
 		// Confirmation timeout for a broadcast trade.
 		confirmTimeoutMs: Math.max(15_000, num('SNIPER_CONFIRM_TIMEOUT_MS', 60_000)),
+		// ── liveness + alerting ──────────────────────────────────────────────────
+		// How often the worker upserts its bot_heartbeat row. /api/sniper/status
+		// (and /status) read this to answer "is the sniper alive?" without SSH.
+		heartbeatMs: Math.max(10_000, num('SNIPER_HEARTBEAT_MS', 30_000)),
+		// Executor/RPC errors within this sliding window that trip an ops alert.
+		errorAlertThreshold: Math.max(1, num('SNIPER_ERROR_ALERT_THRESHOLD', 5)),
+		errorAlertWindowMs: Math.max(60_000, num('SNIPER_ERROR_ALERT_WINDOW_MS', 600_000)),
+		// Announce boot/shutdown to the ops channel (a deploy that never comes back
+		// up is otherwise silent). Disable in noisy dev with SNIPER_ANNOUNCE=0.
+		announceLifecycle: bool('SNIPER_ANNOUNCE', true),
 		// ── first-claim trigger ─────────────────────────────────────────────────
 		// How often to poll the on-chain fee-claim stream for first-ever claims.
 		claimPollMs: Math.max(10_000, num('SNIPER_CLAIM_POLL_MS', 30_000)),
