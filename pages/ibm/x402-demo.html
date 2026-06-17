@@ -243,6 +243,35 @@ a:focus-visible{outline-offset:3px}
 .note p{font-size:13px;color:var(--ibm-muted);line-height:1.6;font-weight:300}
 .note p b{color:var(--ibm-ink);font-weight:600}
 
+/* ── Forge demo (Demo 03): tier selector, model viewer, result actions ── */
+.tier-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px}
+.tier{flex:1 1 150px;min-width:0;text-align:left;background:var(--ibm-field);border:1px solid var(--ibm-divider);border-bottom:2px solid var(--ibm-divider);padding:12px 14px;cursor:pointer;font-family:var(--font-sans);color:var(--ibm-ink);transition:border-color .12s,background .12s,transform .04s;border-radius:2px}
+.tier:hover{border-color:var(--ibm-blue);background:var(--ibm-field-focus)}
+.tier:active{transform:translateY(1px)}
+.tier:focus-visible{outline:2px solid var(--ibm-blue);outline-offset:2px}
+.tier[aria-checked="true"]{border-color:var(--ibm-blue);border-bottom-color:var(--ibm-blue);background:var(--ibm-field-focus)}
+.tier .t-name{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.tier .t-tier{font-size:14px;font-weight:600;text-transform:capitalize}
+.tier .t-price{font-family:var(--font-mono);font-size:13px;color:var(--ibm-blue);font-variant-numeric:tabular-nums}
+.tier .t-blurb{font-size:11px;color:var(--ibm-muted);margin-top:4px;line-height:1.45;font-weight:300}
+.tier .t-eta{font-size:11px;color:var(--ibm-subtle);margin-top:6px;font-family:var(--font-mono)}
+
+.mv-wrap{margin:12px 0 6px;border:1px solid var(--ibm-border);background:var(--ibm-field);position:relative;border-radius:2px;overflow:hidden}
+.mv-wrap model-viewer{display:block;width:100%;height:min(56vh,440px);background:radial-gradient(circle at 50% 30%,#1c2530,#0c1116 70%)}
+.mv-wrap .mv-progress{position:absolute;left:0;bottom:0;height:2px;background:var(--ibm-blue);width:0;transition:width .2s linear}
+
+.r-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+.r-btn{display:inline-flex;align-items:center;gap:7px;background:var(--ibm-blue-fill);color:#fff;border:none;cursor:pointer;font-family:var(--font-sans);font-size:13px;font-weight:500;padding:10px 16px;border-radius:2px;text-decoration:none;transition:background .12s,transform .04s}
+.r-btn:hover{background:var(--ibm-blue-fill-hover)}
+.r-btn:active{transform:translateY(1px)}
+.r-btn.ghost{background:none;border:1px solid var(--ibm-divider);color:var(--ibm-ink)}
+.r-btn.ghost:hover{border-color:var(--ibm-blue);color:var(--ibm-blue)}
+.r-btn:focus-visible{outline:2px solid var(--ibm-blue);outline-offset:2px}
+
+.forge-foot{font-size:13px;color:var(--ibm-muted);margin-top:18px;font-weight:300}
+.forge-foot a{font-weight:500}
+@media(pointer:coarse){.tier,.r-btn{min-height:44px}}
+
 /* embed snippet */
 .embed-block{background:#161616;color:#e0e0e0;border:1px solid #393939;padding:18px 20px;overflow:auto;margin-top:24px;font-family:var(--font-mono);font-size:13px;line-height:1.6;white-space:pre}
 .embed-block .c-tag{color:#82cfff}
@@ -368,10 +397,12 @@ agent-3d:defined ~ .agent-skel{display:none}
 	<meta name="twitter:description" content="A self-contained x402 micropayment demo: pay $0.001 USDC from your own wallet — MetaMask or Phantom on Solana — to call a real three.ws data API. Watch the live HTTP 402 challenge, sign a gasless authorization, and see the on-chain settlement receipt. No backend, no account; built as the public face of the IBM × three.ws partnership.">
 	<meta name="twitter:image" content="https://three.ws/og-image.png">
 	<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"x402 Live Demo (IBM × three.ws)","description":"A self-contained x402 micropayment demo: pay $0.001 USDC from your own wallet — MetaMask or Phantom on Solana — to call a real three.ws data API. Watch the live HTTP 402 challenge, sign a gasless authorization, and see the on-chain settlement receipt. No backend, no account; built as the public face of the IBM × three.ws partnership.","url":"https://three.ws/ibm/x402-demo","isPartOf":{"@type":"WebSite","name":"three.ws","url":"https://three.ws"}}</script>
+	<!-- model-viewer renders the GLB returned by the paid Forge demo (Demo 03) -->
+	<script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"></script>
 </head>
 <body>
 
-<a href="#demo" class="skip-link">Skip to the demo</a>
+<a href="#forge" class="skip-link">Skip to the demos</a>
 
 <div class="err-banner" id="errBanner" role="alert">
   <span id="errBannerText">Something went wrong.</span>
@@ -391,11 +422,11 @@ agent-3d:defined ~ .agent-skel{display:none}
     </div>
     <h1>A live showcase of agentic commerce, built with <strong>IBM</strong></h1>
     <p class="hero-sub">IBM has shaped computing for over a century — and it stays at the frontier by backing what comes next. three.ws is one of those bets: a platform for on-chain micropayments and embodied AI agents. As an IBM Business Partner, we built this page to demonstrate that partnership in the open — every demo below runs against real, production three.ws systems. Nothing is mocked, nothing is a slide.</p>
-    <p class="hero-sub" style="margin-top:14px">Five things we want to show you: pay-per-call micropayments over <span class="mono">x402</span>, an autonomous 3D agent that buys its own data, text turned into a 3D model, a shared 3D world, and an agent placed in augmented reality. Try each one yourself.</p>
+    <p class="hero-sub" style="margin-top:14px">Five things we want to show you: pay a few cents to turn text into a 3D model, pay-per-call micropayments over <span class="mono">x402</span>, an autonomous 3D agent that buys its own data, a shared 3D world, and an agent placed in augmented reality. Try each one yourself — both demos settle real USDC from your own wallet.</p>
     <nav class="demo-nav" aria-label="The demos on this page">
-      <a href="#demo"><span class="n">01</span>x402 payments</a>
-      <a href="#agent"><span class="n">02</span>3D agent</a>
-      <a href="#forge"><span class="n">03</span>Forge</a>
+      <a href="#forge"><span class="n">01</span>Forge</a>
+      <a href="#demo"><span class="n">02</span>x402 payments</a>
+      <a href="#agent"><span class="n">03</span>3D agent</a>
       <a href="#play"><span class="n">04</span>Play</a>
       <a href="#irl"><span class="n">05</span>IRL</a>
     </nav>
@@ -403,6 +434,85 @@ agent-3d:defined ~ .agent-skel{display:none}
 </header>
 
 <main>
+<!-- ══ DEMO 01 · FORGE (paid x402 prompt→3D) ══ -->
+<section class="section" id="forge" aria-labelledby="forge-h">
+  <div class="inner">
+    <div class="section-tag">Demo 01 · Creation</div>
+    <h2 id="forge-h">Forge a <strong>3D model</strong> from a sentence</h2>
+    <p class="section-lead">This pays the same x402 rail as the demo below — one USDC micropayment runs a real text→3D pipeline (FLUX→TRELLIS) and hands back a textured GLB you can orbit and download. The price below is read live from the server's own 402 response.</p>
+
+    <div class="demo">
+      <div class="demo-head">
+        <div>
+          <h3 class="demo-title">three<span>.ws</span> Forge</h3>
+          <div class="demo-desc">Describe one object; pay; get back a textured, downloadable 3D model. Runs FLUX→TRELLIS (text→image→mesh) — the same pipeline that builds the bodies our agents wear.</div>
+        </div>
+        <div class="price-tag">
+          <div class="amt" id="fgPriceAmt" aria-hidden="true">$<strong>0.05</strong></div>
+          <div class="net" aria-hidden="true">USDC · per model</div>
+          <span class="sr-only" id="fgPriceSr">Price: five cents in USDC per generation.</span>
+        </div>
+      </div>
+
+      <div class="demo-body">
+        <!-- live 402 preview -->
+        <div class="preview" id="fgPreview" role="region" aria-label="Live HTTP 402 payment challenge" aria-live="polite" aria-busy="true">
+          <div class="preview-label" id="fgPvLabel"><span class="dot" aria-hidden="true"></span><span id="fgPvLabelText">Reading the server's 402 challenge…</span></div>
+          <div id="fgPvRows">
+            <div class="preview-row"><span class="sk" style="width:38%"></span></div>
+            <div class="preview-row"><span class="sk" style="width:54%"></span></div>
+            <div class="preview-row"><span class="sk" style="width:46%"></span></div>
+          </div>
+        </div>
+
+        <!-- quality tier -->
+        <div class="tier-row" id="fgTiers" role="radiogroup" aria-label="Generation quality tier">
+          <button class="tier" type="button" role="radio" aria-checked="true" data-tier="draft">
+            <span class="t-name"><span class="t-tier">Draft</span><span class="t-price" data-price>$0.05</span></span>
+            <span class="t-blurb">Fast preview geometry. Best to try the flow.</span>
+            <span class="t-eta" data-eta>~40s</span>
+          </button>
+          <button class="tier" type="button" role="radio" aria-checked="false" data-tier="standard">
+            <span class="t-name"><span class="t-tier">Standard</span><span class="t-price" data-price>$0.15</span></span>
+            <span class="t-blurb">Balanced detail. The default for most assets.</span>
+            <span class="t-eta" data-eta>~60s</span>
+          </button>
+          <button class="tier" type="button" role="radio" aria-checked="false" data-tier="high">
+            <span class="t-name"><span class="t-tier">High</span><span class="t-price" data-price>$0.50</span></span>
+            <span class="t-blurb">Maximum geometry + PBR textures. Slower.</span>
+            <span class="t-eta" data-eta>~130s</span>
+          </button>
+        </div>
+
+        <!-- input -->
+        <div class="field-row">
+          <div class="field-wrap">
+            <label for="fgPrompt">Describe the object</label>
+            <input id="fgPrompt" class="field" value="a brass steampunk owl, full body" maxlength="1000" autocomplete="off" spellcheck="true" inputmode="text" aria-describedby="fgPromptHint">
+            <div class="field-hint" id="fgPromptHint">One subject works best — describe it in a sentence.</div>
+          </div>
+          <button id="fgBtn" class="btn" type="button"><span class="spin" aria-hidden="true"></span><span class="label">Pay $0.05 &amp; forge</span> <span class="arrow" aria-hidden="true">→</span></button>
+        </div>
+        <div class="wallet-hint" id="fgWalletHint">On a phone? Open this page inside your <b>MetaMask</b> or <b>Phantom</b> in-app browser to pay.</div>
+
+        <!-- result. Not a live region (its success state holds a raw-JSON block);
+             concise spoken updates go to #fgAnnouncer instead. -->
+        <div id="fgResult" class="result is-empty">
+          Forge a model to see it appear here — orbit it, then download the GLB.
+        </div>
+        <p id="fgAnnouncer" class="sr-only" role="status" aria-live="polite"></p>
+
+        <!-- requirements -->
+        <div class="note">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+          <p>You'll need a browser wallet — <b>MetaMask</b> or <b>Phantom</b> (for Solana) — holding the model's price in <b>USDC</b> on mainnet. Payment is a gasless signature; the network fee is sponsored by the facilitator. Generation runs after the payment verifies and takes roughly a minute. No wallet? Use the <a href="https://three.ws/forge" target="_blank" rel="noopener">free Forge tool</a> instead.</p>
+        </div>
+      </div>
+    </div>
+    <p class="forge-foot">Want image→3D, auto-rigging, AR preview and the full gallery? <a href="https://three.ws/forge" target="_blank" rel="noopener">Open the full Forge tool ↗</a></p>
+  </div>
+</section>
+
 <!-- ══ HOW IT WORKS ══ -->
 <section class="section" aria-labelledby="how-h">
   <div class="inner">
@@ -431,7 +541,7 @@ agent-3d:defined ~ .agent-skel{display:none}
 <!-- ══ LIVE DEMO ══ -->
 <section class="section" id="demo" aria-labelledby="demo-h">
   <div class="inner">
-    <div class="section-tag">Demo 01 · Payments</div>
+    <div class="section-tag">Demo 02 · Payments</div>
     <h2 id="demo-h">Buy a <strong>data call</strong> for $0.001</h2>
     <p class="section-lead">This calls a real three.ws API — a token-symbol availability check — for one tenth of a cent in USDC, settled on Solana mainnet. The price below is read live from the server's own 402 response.</p>
 
@@ -491,7 +601,7 @@ agent-3d:defined ~ .agent-skel{display:none}
 <!-- ══ THE AGENT ══ -->
 <section class="section" id="agent" aria-labelledby="agent-h">
   <div class="inner">
-    <div class="section-tag">Demo 02 · Embodiment</div>
+    <div class="section-tag">Demo 03 · Embodiment</div>
     <h2 id="agent-h">An <strong>agent</strong> that pays for its own data</h2>
     <p class="section-lead">Everything you just did by hand — read the price, sign, settle — an autonomous agent can do on its own. This is one of them: a 3D agent from three.ws, running its own brain in your browser. It watches the call above and reacts the moment your payment settles. Ask it how x402 works.</p>
 
@@ -525,28 +635,6 @@ agent-3d:defined ~ .agent-skel{display:none}
           <button class="agent-prompt" type="button" data-ask="What is the $THREE token and what is it for?">What is $THREE?</button>
           <button class="agent-prompt" type="button" data-ask="How could an autonomous agent pay for an API call by itself?">Agents paying agents?</button>
         </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ══ DEMO 03 · FORGE ══ -->
-<section class="section" id="forge" aria-labelledby="forge-h">
-  <div class="inner">
-    <div class="section-tag">Demo 03 · Creation</div>
-    <h2 id="forge-h">Forge — describe it, get a <strong>3D model</strong></h2>
-    <p class="section-lead">Type a sentence and Forge runs a real generation pipeline that returns a textured, downloadable GLB — one you can orbit, rig, inspect in AR, and drop onto any agent. The bodies our agents wear start here. The live tool is below; describe something and watch it build.</p>
-    <div class="live-embed" data-src="https://three.ws/forge" data-allow="clipboard-write; xr-spatial-tracking; fullscreen; accelerometer; gyroscope" data-label="Forge — three.ws">
-      <div class="embed-bar">
-        <span class="bar-url"><span class="dot" aria-hidden="true"></span>three.ws/forge</span>
-        <span class="bar-actions">
-          <button type="button" data-fs>⤢ Full screen</button>
-          <a href="https://three.ws/forge" target="_blank" rel="noopener">New tab ↗</a>
-        </span>
-      </div>
-      <div class="embed-frame">
-        <div class="embed-load embed-state"><span class="spin" aria-hidden="true"></span><span>Loading the live Forge tool…</span></div>
-        <div class="embed-err embed-state">Forge couldn't load inline here. <span class="es-hint"><a href="https://three.ws/forge" target="_blank" rel="noopener">Open it in a new tab ↗</a></span></div>
       </div>
     </div>
   </div>
@@ -1096,6 +1184,333 @@ agent-3d:defined ~ .agent-skel{display:none}
   wireAgent();
   wireLiveEmbeds();
   pollForWallet();
+  loadChallengePreview();
+})();
+</script>
+
+<!-- Demo 01 · Forge — paid x402 prompt→3D. Pays POST /api/x402/forge, then polls
+     the free GET /api/forge?job=<id> for the finished GLB and orbits it inline. -->
+<script type="module">
+(function () {
+  'use strict';
+
+  var FORGE_ENDPOINT = 'https://three.ws/api/x402/forge';
+  var POLL_ENDPOINT = 'https://three.ws/api/forge';
+  // Per-tier atomic USDC prices (6 decimals) — refreshed live from the 402
+  // challenge, but seeded so the UI is correct before the first fetch resolves.
+  var TIER_ATOMIC = { draft: 50000, standard: 150000, high: 500000 };
+  var TIER_ETA = { draft: 40, standard: 60, high: 130 };
+
+  var $ = function (id) { return document.getElementById(id); };
+  if (!$('fgBtn')) return; // section not present — nothing to wire
+
+  var selectedTier = 'draft';
+  var inFlight = false;
+  var pollTimer = null;
+  var genTimer = null;
+
+  function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function prefersReducedMotion() {
+    return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  }
+  function flashPrice(el) {
+    if (!el || prefersReducedMotion()) return;
+    el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
+    el.addEventListener('animationend', function once() { el.classList.remove('flash'); el.removeEventListener('animationend', once); });
+  }
+  function shortAddr(a) {
+    if (!a) return '—'; a = String(a);
+    return a.length > 16 ? a.slice(0, 6) + '…' + a.slice(-4) : a;
+  }
+  function networkLabel(net) {
+    if (!net) return '—';
+    if (net.indexOf('solana') === 0) return 'Solana';
+    if (net === 'eip155:8453') return 'Base';
+    if (net.indexOf('eip155:') === 0) return 'EVM ' + net.split(':')[1];
+    return net;
+  }
+  function explorerUrl(net, tx) {
+    if (!tx || !net) return null;
+    if (net.indexOf('solana') === 0) return 'https://solscan.io/tx/' + tx;
+    if (net === 'eip155:8453') return 'https://basescan.org/tx/' + tx;
+    return null;
+  }
+  function fmtUsd(atomics, decimals) {
+    var n = Number(atomics) / Math.pow(10, decimals || 6);
+    if (!isFinite(n)) return '$0';
+    if (n < 0.01) return '$' + n.toFixed(6).replace(/0+$/, '').replace(/\.$/, '');
+    return '$' + n.toFixed(2);
+  }
+  function priceLabel(tier) { return fmtUsd(TIER_ATOMIC[tier] || 50000, 6); }
+  function announce(msg) {
+    var a = $('fgAnnouncer'); if (!a) return;
+    a.textContent = '';
+    window.requestAnimationFrame(function () { a.textContent = msg || ''; });
+  }
+
+  function sanitizePrompt(raw) { return String(raw || '').replace(/\s+/g, ' ').trim().slice(0, 1000); }
+  function setPromptError(msg) {
+    var f = $('fgPrompt'), h = $('fgPromptHint');
+    if (msg) { f.setAttribute('aria-invalid', 'true'); h.className = 'field-hint err'; h.textContent = msg; }
+    else { f.removeAttribute('aria-invalid'); h.className = 'field-hint'; h.textContent = 'One subject works best — describe it in a sentence.'; }
+  }
+  function setBusy(b, label) {
+    inFlight = b;
+    var btn = $('fgBtn');
+    btn.disabled = b || !navigator.onLine;
+    btn.classList.toggle('loading', b);
+    btn.querySelector('.label').textContent = b ? (label || 'Working…') : ('Pay ' + priceLabel(selectedTier) + ' & forge');
+  }
+
+  // ── price tag + button reflect the selected tier ─────────────────────────
+  function syncTierUi() {
+    var amt = $('fgPriceAmt');
+    var html = escapeHtml(priceLabel(selectedTier)).replace(/^\$/, '$<strong>') + '</strong>';
+    if (amt.innerHTML !== html) { amt.innerHTML = html; flashPrice(amt); }
+    var sr = $('fgPriceSr'); if (sr) sr.textContent = 'Price: ' + priceLabel(selectedTier) + ' USDC per generation.';
+    if (!inFlight) $('fgBtn').querySelector('.label').textContent = 'Pay ' + priceLabel(selectedTier) + ' & forge';
+  }
+
+  // ── tier prices from the public catalog (authoritative) ──────────────────
+  function loadCatalog() {
+    fetch(FORGE_ENDPOINT, { method: 'GET' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) {
+        var list = d && d.pricing_usdc;
+        if (!Array.isArray(list)) return;
+        list.forEach(function (t) {
+          var atomic = Math.round(Number(t.price_usdc) * 1e6);
+          if (t.tier && isFinite(atomic) && atomic > 0) TIER_ATOMIC[t.tier] = atomic;
+        });
+        document.querySelectorAll('#fgTiers .tier').forEach(function (btn) {
+          var tier = btn.getAttribute('data-tier');
+          var el = btn.querySelector('[data-price]');
+          if (el && TIER_ATOMIC[tier]) el.textContent = fmtUsd(TIER_ATOMIC[tier], 6);
+        });
+        syncTierUi();
+      })
+      .catch(function () {});
+  }
+
+  // ── live 402 challenge preview for the selected tier ─────────────────────
+  function loadChallengePreview() {
+    var preview = $('fgPreview');
+    if (preview) preview.setAttribute('aria-busy', 'true');
+    var prompt = sanitizePrompt($('fgPrompt').value) || 'a brass steampunk owl, full body';
+    fetch(FORGE_ENDPOINT, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ prompt: prompt, tier: selectedTier, aspect_ratio: '1:1' })
+    })
+      .then(function (res) {
+        if (res.status !== 402 && res.status !== 401) throw new Error('expected 402, got ' + res.status);
+        return res.json().catch(function () { return null; });
+      })
+      .then(function (body) {
+        var accepts = (body && body.accepts) || [];
+        if (!accepts.length) throw new Error('no payment terms in challenge');
+        renderChallengePreview(accepts);
+      })
+      .catch(function (err) {
+        var label = $('fgPvLabel'); label.className = 'preview-label err';
+        $('fgPvLabelText').textContent = 'Could not reach the endpoint (' + err.message + ').';
+        $('fgPvRows').innerHTML = '<button class="pv-retry" type="button" id="fgPvRetry">Retry</button>';
+        var r = $('fgPvRetry'); if (r) r.addEventListener('click', loadChallengePreview);
+      })
+      .then(function () { if (preview) preview.setAttribute('aria-busy', 'false'); });
+  }
+
+  function renderChallengePreview(accepts) {
+    var byNet = {};
+    accepts.forEach(function (a) { if (a && a.network && !byNet[a.network]) byNet[a.network] = a; });
+    var nets = Object.keys(byNet).map(function (k) { return byNet[k]; });
+    var first = nets[0];
+    var decimals = (first.extra && first.extra.decimals) || 6;
+
+    var atomic = Number(first.amount);
+    if (isFinite(atomic) && atomic > 0) { TIER_ATOMIC[selectedTier] = atomic; syncTierUi(); }
+
+    var label = $('fgPvLabel'); label.className = 'preview-label ok fresh';
+    $('fgPvLabelText').innerHTML = '<span class="mono">HTTP 402 Payment Required</span> — the server is quoting these terms right now';
+
+    var rows = '';
+    rows += '<div class="preview-row"><span class="k">price</span><span class="v">' + escapeHtml(fmtUsd(first.amount, decimals)) + ' USDC · ' + escapeHtml(selectedTier) + '</span></div>';
+    var badges = nets.map(function (a) { return '<span class="badge">' + escapeHtml(networkLabel(a.network)) + '</span>'; }).join('');
+    rows += '<div class="preview-row"><span class="k">networks</span><span class="v">' + badges + '</span></div>';
+    nets.forEach(function (a) {
+      rows += '<div class="preview-row"><span class="k">pay&nbsp;to</span><span class="v">' + escapeHtml(shortAddr(a.payTo)) + ' <span style="color:var(--ibm-subtle)">(' + escapeHtml(networkLabel(a.network)) + ')</span></span></div>';
+    });
+    rows += '<div class="preview-row"><span class="k">returns</span><span class="v">a job token → poll for the finished GLB</span></div>';
+    $('fgPvRows').innerHTML = rows;
+  }
+
+  // ── result states ─────────────────────────────────────────────────────────
+  function setResultEmpty() {
+    var el = $('fgResult'); el.className = 'result is-empty';
+    el.innerHTML = 'Forge a model to see it appear here — orbit it, then download the GLB.';
+    announce('');
+  }
+  function setResultLoading(msg) {
+    var el = $('fgResult'); el.className = 'result is-loading';
+    el.innerHTML = '<div class="r-status"><span class="spin" aria-hidden="true"></span><span>' + escapeHtml(msg) + '</span></div>';
+    announce(msg);
+  }
+  function setResultError(msg) {
+    var text = msg || 'Something went wrong.';
+    var el = $('fgResult'); el.className = 'result is-error';
+    el.innerHTML = '<div class="r-status err"><span aria-hidden="true">✕</span> <span>' + escapeHtml(text) + '</span></div><button class="retry" type="button" id="fgRetry">Try again</button>';
+    var rb = $('fgRetry'); if (rb) rb.addEventListener('click', runForge);
+    announce('Error: ' + text);
+  }
+  function setResultGenerating(payment, etaSec, startTs) {
+    var el = $('fgResult'); el.className = 'result is-loading';
+    el.innerHTML =
+      '<div class="r-status"><span class="spin" aria-hidden="true"></span><span id="fgGenText">Payment settled — forging your model…</span></div>' +
+      '<div class="mv-wrap"><div style="height:min(56vh,440px);display:flex;align-items:center;justify-content:center;color:var(--ibm-subtle);font-size:13px">Generating geometry…</div><div class="mv-progress" id="fgProg"></div></div>';
+    announce('Payment settled. Forging your 3D model — about ' + etaSec + ' seconds.');
+    clearInterval(genTimer);
+    genTimer = setInterval(function () {
+      var elapsed = Math.round((Date.now() - startTs) / 1000);
+      var prog = Math.min(0.95, elapsed / (etaSec * 1.4));
+      var bar = $('fgProg'); if (bar) bar.style.width = (prog * 100).toFixed(1) + '%';
+      var t = $('fgGenText'); if (t) t.textContent = 'Payment settled — forging your model… ' + elapsed + 's';
+    }, 1000);
+  }
+  function setResultDone(glbUrl, payment, meta) {
+    clearInterval(genTimer);
+    var el = $('fgResult'); el.className = 'result is-done';
+    var explorer = explorerUrl(payment.network, payment.transaction);
+    var safeGlb = escapeHtml(glbUrl);
+
+    var html = '';
+    html += '<div class="r-status ok"><span class="r-check" aria-hidden="true">✓</span><span>Payment settled — model forged</span></div>';
+    html += '<div class="mv-wrap"><model-viewer src="' + safeGlb + '" alt="The 3D model you just forged" camera-controls auto-rotate rotation-per-second="18deg" interaction-prompt="none" shadow-intensity="0.7" shadow-softness="0.8" environment-image="neutral" exposure="1" camera-orbit="0deg 80deg auto" loading="eager"></model-viewer></div>';
+    html += '<div class="r-actions">' +
+      '<a class="r-btn" href="' + safeGlb + '" download target="_blank" rel="noopener">Download GLB</a>' +
+      '<a class="r-btn ghost" href="https://three.ws/forge" target="_blank" rel="noopener">Rig &amp; refine in Forge ↗</a>' +
+      '</div>';
+
+    html += '<dl class="receipt">';
+    html += '<div class="receipt-pair"><dt class="rk">Tier</dt><dd class="rv">' + escapeHtml((meta && meta.tier) || selectedTier) + '</dd></div>';
+    html += '<div class="receipt-pair"><dt class="rk">Network</dt><dd class="rv">' + escapeHtml(networkLabel(payment.network)) + '</dd></div>';
+    html += '<div class="receipt-pair"><dt class="rk">Payer</dt><dd class="rv">' + escapeHtml(shortAddr(payment.payer)) + '</dd></div>';
+    html += '<div class="receipt-pair"><dt class="rk">Transaction</dt><dd class="rv">' +
+      (payment.transaction
+        ? (explorer ? '<a href="' + explorer + '" target="_blank" rel="noopener">' + escapeHtml(shortAddr(payment.transaction)) + ' <span aria-hidden="true">↗</span></a>' : escapeHtml(shortAddr(payment.transaction)))
+        : '—') + '</dd></div>';
+    html += '</dl>';
+
+    html += '<details class="raw"><summary>View raw response &amp; settlement</summary><pre>' +
+      escapeHtml(JSON.stringify({ glb_url: glbUrl, job: meta, payment: payment }, null, 2)).slice(0, 6000) + '</pre></details>';
+
+    el.innerHTML = html;
+    announce('Your 3D model is ready. Orbit it above or download the GLB.');
+  }
+
+  // ── poll the free status endpoint until the GLB is ready ─────────────────
+  function pollForge(jobId, payment, etaSec) {
+    var startTs = Date.now();
+    var tries = 0;
+    var maxTries = 150; // ~6.5 min at 2.6s
+    setResultGenerating(payment, etaSec, startTs);
+    (function tick() {
+      fetch(POLL_ENDPOINT + '?job=' + encodeURIComponent(jobId), { method: 'GET' })
+        .then(function (r) { return r.json().catch(function () { return null; }); })
+        .then(function (d) {
+          if (!d) throw new Error('empty');
+          if (d.status === 'done' && d.glb_url) { setResultDone(d.glb_url, payment, d); return; }
+          if (d.status === 'failed') { clearInterval(genTimer); setResultError(d.error || 'Generation failed. Your payment settled — try the full Forge tool.'); return; }
+          tries++;
+          if (tries >= maxTries) { clearInterval(genTimer); setResultError('Still working after several minutes — your payment settled. Track it in the full Forge tool.'); return; }
+          pollTimer = setTimeout(tick, 2600);
+        })
+        .catch(function () {
+          tries++;
+          if (tries >= maxTries) { clearInterval(genTimer); setResultError('Lost contact while generating — your payment settled. Track it in the full Forge tool.'); return; }
+          pollTimer = setTimeout(tick, 2600);
+        });
+    })();
+  }
+
+  // ── pay → generate ───────────────────────────────────────────────────────
+  function runForge() {
+    if (inFlight) return;
+    if (!navigator.onLine) { setResultError('You appear to be offline. Reconnect and try again.'); return; }
+
+    var prompt = sanitizePrompt($('fgPrompt').value);
+    if (prompt.length < 3) { setPromptError('Describe an object — at least a few characters.'); $('fgPrompt').focus(); return; }
+    setPromptError(null);
+    $('fgPrompt').value = prompt;
+
+    if (!window.X402 || typeof window.X402.pay !== 'function') {
+      setResultError('Payment widget is still loading — give it a second and try again.');
+      return;
+    }
+
+    var tier = selectedTier;
+    var trigger = document.activeElement;
+    setBusy(true, 'Waiting for wallet…');
+    setResultLoading('Waiting for your wallet… approve the ' + priceLabel(tier) + ' USDC payment to start the generation.');
+
+    window.X402.pay({
+      endpoint: FORGE_ENDPOINT,
+      method: 'POST',
+      body: { prompt: prompt, tier: tier, aspect_ratio: '1:1' },
+      merchant: 'three.ws',
+      action: 'Forge: ' + prompt.slice(0, 48),
+      caps: { maxPerCall: (TIER_ATOMIC[tier] || 500000) }
+    }).then(function (out) {
+      if (!out || !out.ok) { setResultError('The payment did not complete. Please try again.'); return; }
+      var job = out.result || {};
+      var payment = out.payment || {};
+      // The paid route may finish synchronously on some backends.
+      if (job.status === 'done' && job.glb_url) { setResultDone(job.glb_url, payment, job); return; }
+      var jobId = job.job_id;
+      if (!jobId) { setResultError('Payment settled, but no job token came back. Try the full Forge tool.'); return; }
+      var eta = Number(job.eta_seconds) || TIER_ETA[tier] || 60;
+      pollForge(jobId, payment, eta);
+    }).catch(function (err) {
+      if (err && err.code === 'cancelled') { setResultEmpty(); return; }
+      setResultError((err && err.message) || 'Payment failed. Please try again.');
+    }).then(function () {
+      setBusy(false);
+      var t = (trigger && trigger.focus && document.body.contains(trigger)) ? trigger : $('fgBtn');
+      try { t.focus(); } catch (_) { try { $('fgBtn').focus(); } catch (_2) {} }
+    });
+  }
+
+  // ── tier selection ─────────────────────────────────────────────────────────
+  function selectTier(tier) {
+    if (tier === selectedTier || !TIER_ATOMIC[tier]) return;
+    selectedTier = tier;
+    document.querySelectorAll('#fgTiers .tier').forEach(function (btn) {
+      btn.setAttribute('aria-checked', btn.getAttribute('data-tier') === tier ? 'true' : 'false');
+    });
+    syncTierUi();
+    loadChallengePreview();
+  }
+
+  // ── wiring ──────────────────────────────────────────────────────────────────
+  document.querySelectorAll('#fgTiers .tier').forEach(function (btn) {
+    btn.addEventListener('click', function () { selectTier(btn.getAttribute('data-tier')); });
+  });
+  $('fgBtn').addEventListener('click', runForge);
+  $('fgPrompt').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); runForge(); } });
+  var pvTimer;
+  $('fgPrompt').addEventListener('input', function () {
+    setPromptError(null);
+    clearTimeout(pvTimer);
+    pvTimer = setTimeout(loadChallengePreview, 600);
+  });
+  window.addEventListener('online', function () { setBusy(inFlight); loadChallengePreview(); });
+  window.addEventListener('offline', function () { setBusy(inFlight); });
+
+  syncTierUi();
+  loadCatalog();
   loadChallengePreview();
 })();
 </script>

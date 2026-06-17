@@ -4,7 +4,7 @@
 
 <h1 align="center">@three-ws/mcp-server</h1>
 
-<p align="center"><strong>Paid x402 MCP tools from three.ws — text/image→3D, avatars, rigging, agent reputation, and more. Settled per call in USDC.</strong></p>
+<p align="center"><strong>MCP tools from three.ws — free text→3D plus paid text/image→3D, avatars, rigging, agent reputation, and more. Paid calls settled per call in USDC.</strong></p>
 
 <p align="center">
   <a href="https://www.npmjs.com/package/@three-ws/mcp-server"><img alt="npm" src="https://img.shields.io/npm/v/@three-ws/mcp-server?logo=npm&color=cb3837"></a>
@@ -26,7 +26,7 @@
 
 ---
 
-> Fifteen paid MCP tools from [three.ws](https://three.ws) — text/image→3D mesh generation, 3D avatars, GLB auto-rigging, pose seeds, pump.fun snapshots, ERC-8004 agent reputation, ENS/SNS resolution, agent-to-agent delegation, token sentiment, AgenC coordination reads, aixbt market intel, and a Solana vanity grinder. Each call is settled in USDC via the [x402](https://x402.org) payment protocol on Solana mainnet (`exact` scheme). No subscription, no API key — pay per call, and failed calls never bill the caller.
+> Sixteen MCP tools from [three.ws](https://three.ws) — **one free** (`forge_free`: text prompt → 3D GLB on the free NVIDIA NIM / Microsoft TRELLIS lane, no payment and no API key) and fifteen paid: text/image→3D mesh generation, 3D avatars, GLB auto-rigging, pose seeds, pump.fun snapshots, ERC-8004 agent reputation, ENS/SNS resolution, agent-to-agent delegation, token sentiment, AgenC coordination reads, aixbt market intel, and a Solana vanity grinder. Paid calls are settled in USDC via the [x402](https://x402.org) payment protocol on Solana mainnet (`exact` scheme). No subscription, no API key — pay per call, and failed calls never bill the caller.
 
 ---
 
@@ -64,12 +64,13 @@ Restart Claude Desktop. All tools appear immediately — no install step require
 
 ## Tools
 
-Every tool quotes a fixed USDC price and settles `exact` on Solana mainnet. Prices below come straight from each tool's source. Every tool also declares MCP tool annotations (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`) so clients can scope confirmation prompts correctly — none of these tools are destructive.
+Most tools quote a fixed USDC price and settle `exact` on Solana mainnet (prices below come straight from each tool's source); **`forge_free` is free** — no payment, no wallet, no API key. Every tool also declares MCP tool annotations (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`) so clients can scope confirmation prompts correctly — none of these tools are destructive.
 
 ### 3D generation
 
 | Tool             | Price  | What it returns                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| ---------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| ---------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `forge_free`     | **Free** | Textured 3D GLB from a **text prompt — at zero cost**. Drives the three.ws `/api/forge` pipeline on the free NVIDIA NIM (Microsoft TRELLIS) text→3D lane — the same engine the [`/forge`](https://three.ws/forge) web page uses for prompt drafts. No x402 payment, no wallet, no API key. Pick tier `draft` (fast, default), `standard`, or `high` — all free. Returns the durable `glbUrl`, a three.ws viewer `preview` link, the `tier`, and the `backend` that actually ran. Text-only; for image/multi-view input or the Granite-directed chain use `mesh_forge`. Feed the `glbUrl` to `rig_mesh` to animate it. |
 | `mesh_forge`     | $0.25  | Textured 3D GLB from a **text prompt or a reference image**. Text mode runs a chain of specialist models — an IBM Granite "prompt director" rewrites the prompt into an optimized single-subject 3D spec, FLUX renders a reference image, and Microsoft TRELLIS / Tencent Hunyuan3D reconstruct the mesh. Image mode (`image_url`) reconstructs directly. Returns the durable `glbUrl`, a three.ws viewer `preview`, the `directedPrompt`, and timing. |
 | `rig_mesh`       | $0.20  | Auto-rig a static GLB into an animation-ready model — humanoid skeleton + per-vertex skin weights via VAST-AI UniRig. Takes a `glb_url` (e.g. `mesh_forge`'s output), returns the `riggedGlbUrl` and a three.ws pose-studio link.                                                                                                                                                                                                                      |
 | `text_to_avatar` | $0.15  | Textured 3D GLB avatar from a text prompt or reference image URLs, driving Replicate (Hunyuan-3D 3.1 by default). Returns the GLB URL, model version, prediction id, and timing.                                                                                                                                                                                                                                                                       |
@@ -133,6 +134,9 @@ Then replace `"command": "npx", "args": ["-y", "@three-ws/mcp-server"]` with `"c
 | `X402_FACILITATOR_TOKEN_SOLANA` | unset                                 | Bearer token for the Solana facilitator, if required                                                               |
 | `X402_FEE_PAYER_SOLANA`         | three.ws default                      | Fee payer for the settlement transaction                                                                           |
 | `MCP_VANITY_PRICE_USD`          | `$0.05`                               | Flat price for `vanity_grinder`                                                                                    |
+| `FORGE_FREE_API_BASE`           | `https://three.ws`                    | three.ws origin the free `forge_free` tool calls (`/api/forge`)                                                    |
+| `FORGE_FREE_TIMEOUT_MS`         | `180000`                              | `forge_free` poll budget before it returns a resumable `timeout`                                                   |
+| `FORGE_FREE_POLL_MS`            | `3000`                                | `forge_free` poll interval while a queued job runs                                                                 |
 | `MCP_POSE_PREVIEW_BASE`         | `https://three.ws/pose`               | Base URL for `get_pose_seed` preview links                                                                         |
 | `MCP_AGENT_REP_RPC_<chainId>`   | public RPC                            | Per-chain RPC override for `agent_reputation` (tried before the failover set)                                      |
 | `MCP_AGENT_REP_LOG_WINDOW`      | `200000`                              | Block window for `agent_reputation` event scan                                                                     |
@@ -186,6 +190,15 @@ const paid = wrapMCPClientWithPayment(mcp, x402, { autoPayment: true });
 const result = await paid.callTool('get_pose_seed', { prompt: 'warrior stance' });
 // Prefer MCP structured output; fall back to the text mirror for older servers.
 console.log(result.structuredContent ?? JSON.parse(result.content[0].text));
+```
+
+`forge_free` needs no payer — it never emits a 402 — so you can call it on the **bare** MCP client (the one before `wrapMCPClientWithPayment`):
+
+```js
+// Free text → 3D — no wallet, no payment, no API key.
+const free = await mcp.callTool('forge_free', { prompt: 'a glossy white robot mascot', tier: 'draft' });
+const out = free.structuredContent ?? JSON.parse(free.content[0].text);
+console.log(out.glbUrl, out.preview); // durable GLB + in-browser viewer link
 ```
 
 ---
