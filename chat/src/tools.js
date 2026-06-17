@@ -1254,7 +1254,7 @@ if (wantSave) {
     if (sv.status === 401) { saveNote = 'Sign in to save this to your avatar library.'; }
     else if (!sv.ok) {
       let m = '';
-      try { m = (await sv.json()).message || ''; } catch (_) {}
+      try { const j = await sv.json(); m = j.error_description || j.message || j.error || ''; } catch (_) {}
       saveNote = 'Could not save to library' + (m ? (': ' + m) : (' (' + sv.status + ')')) + '.';
     } else {
       const a = await sv.json();
