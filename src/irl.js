@@ -1121,6 +1121,11 @@ if (!_deviceToken) {
 }
 
 const gpsState = { lat: null, lng: null, ready: false, watchId: null, accuracy: null, altitude: null };
+// DEV-only simulated-location guard (L1). Always false in production — the mock
+// machinery that flips it lives entirely inside an `import.meta.env.DEV` block and
+// is tree-shaken out, leaving this as an inert, always-false check. When set, the
+// real geolocation watch is suppressed so no real coordinate is ever read.
+let _mockLocation = false;
 let gpsPin = null;        // { lat, lng, id?, heightM } — the user's own anchored pin
 let gpsModeActive = false;
 // True when the user locked before the first GPS fix landed: onGPSPosition()
@@ -1359,6 +1364,7 @@ function onGPSError(err) {
 }
 
 function initGPS() {
+	if (_mockLocation) return;             // DEV simulated location active — never attach the real watch
 	if (!navigator.geolocation) return;
 	if (gpsState.watchId != null) return; // idempotent — onboarding, boot, and Pin may all call
 	gpsState.watchId = navigator.geolocation.watchPosition(
