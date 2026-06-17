@@ -338,7 +338,8 @@ export async function handleGetOne(req, res, id) {
 			                   jsonb_build_object(
 			                     'amount', sp.amount,
 			                     'currency_mint', sp.currency_mint,
-			                     'chain', sp.chain
+			                     'chain', sp.chain,
+			                     'trial_uses', sp.trial_uses
 			                   )
 			                 )
 			            FROM agent_skill_prices sp
