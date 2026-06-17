@@ -1,11 +1,21 @@
 {
-	"generated_at": "2026-06-17T12:49:06.978Z",
+	"generated_at": "2026-06-17T12:53:57.807Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
 		"url": "https://three.ws"
 	},
 	"entries": [
+		{
+			"date": "2026-06-17",
+			"type": "launch",
+			"title": "How location works on IRL",
+			"summary": "Placed agents are private by location: they appear only to people physically standing near them, never on a map or a list. What's shared, what isn't, and how your camera, motion, and location are used.",
+			"link": "/irl-privacy",
+			"tags": [
+				"launch"
+			]
+		},
 		{
 			"date": "2026-06-17",
 			"type": "launch",
@@ -106,6 +116,16 @@
 			"link": "/embed",
 			"tags": [
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-17",
+			"type": "update",
+			"title": "Every agent now has a dedicated wallet hub",
+			"summary": "Each 3D agent's self-custodied Solana wallet now has one home: a tabbed Agent Wallet hub — Balance, Deposit, Trade, Snipe, Pay, and Withdraw — reachable from the agent's profile and right after you create one. The Balance tab is live now, showing the real on-chain SOL balance with a USD estimate and recent activity, refreshing on its own and degrading gracefully if the network is briefly unreachable. Behind the scenes every agent is guaranteed a wallet: older agents that predated automatic wallets are backfilled, and the agent API now reports whether each agent's wallet is ready. The remaining tabs are wired up across the next releases.",
+			"link": null,
+			"tags": [
+				"feature"
 			]
 		},
 		{

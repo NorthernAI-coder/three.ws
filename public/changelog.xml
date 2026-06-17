@@ -7,6 +7,14 @@
 		<description>What's new on three.ws — features, improvements, and releases, newest first.</description>
 		<language>en</language>
 		<item>
+			<title>How location works on IRL</title>
+			<link>https://three.ws/irl-privacy</link>
+			<guid isPermaLink="false">2026-06-17:How location works on IRL</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>Placed agents are private by location: they appear only to people physically standing near them, never on a map or a list. What's shared, what isn't, and how your camera, motion, and location are used.</description>
+		</item>
+		<item>
 			<title>x402 Live Demo (IBM × three.ws)</title>
 			<link>https://three.ws/ibm/x402-demo</link>
 			<guid isPermaLink="false">2026-06-17:x402 Live Demo (IBM × three.ws)</guid>
@@ -85,6 +93,14 @@
 			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
 			<category>improvement</category>
 			<description>The live 3D avatars dotted around the site — the ones in the home-page feature cards and anywhere an &lt;agent-3d&gt; embed appears — now feel intentional from the first frame. Each one fades in behind a soft skeleton placeholder while its model streams, instead of popping in cold. Animations no longer hard-snap: a one-shot gesture like a wave plays once and settles smoothly back into an idle stance rather than jumping at the loop boundary. A new framing option crops the avatar to head-to-mid-thigh so it fills its card instead of standing tiny and low. If a body ever fails to load, you get a tasteful silhouette rather than a blank or broken box. Avatars pause themselves when scrolled off-screen to save battery, and anyone who's asked their device to reduce motion gets a calm, held pose instead of looping animation.</description>
+		</item>
+		<item>
+			<title>Every agent now has a dedicated wallet hub</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-17:Every agent now has a dedicated wallet hub</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Each 3D agent's self-custodied Solana wallet now has one home: a tabbed Agent Wallet hub — Balance, Deposit, Trade, Snipe, Pay, and Withdraw — reachable from the agent's profile and right after you create one. The Balance tab is live now, showing the real on-chain SOL balance with a USD estimate and recent activity, refreshing on its own and degrading gracefully if the network is briefly unreachable. Behind the scenes every agent is guaranteed a wallet: older agents that predated automatic wallets are backfilled, and the agent API now reports whether each agent's wallet is ready. The remaining tabs are wired up across the next releases.</description>
 		</item>
 		<item>
 			<title>Everyone at a location now sees your IRL agent in the same real spot</title>

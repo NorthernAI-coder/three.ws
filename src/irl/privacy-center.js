@@ -80,6 +80,11 @@ function ensureStyles() {
 .irlpc-done{width:100%;appearance:none;background:#4f7cff;color:#fff;border:none;border-radius:11px;
   font:600 14px system-ui,sans-serif;padding:13px;cursor:pointer;transition:background .15s}
 .irlpc-done:hover{background:#3d6af0}
+.irlpc-learn{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:11px;
+  font:500 12.5px/1 system-ui,sans-serif;color:#7ec8e3;text-decoration:none;transition:color .15s}
+.irlpc-learn:hover{color:#a6dcee}
+.irlpc-learn:focus-visible{outline:2px solid #4f7cff;outline-offset:3px;border-radius:6px}
+.irlpc-learn .ar{font-size:14px}
 /* First-run disclosure reuses the sheet shell with a tighter body */
 .irlpc-discl .irlpc-sec{border-top:none}
 `;
@@ -166,7 +171,10 @@ export function openPrivacyCenter({ getGhost, setGhost, onManagePins } = {}) {
 					<span>Manage &amp; remove agents you’ve placed</span><span class="ar">→</span>
 				</button>
 			</div>
-			<div class="irlpc-foot"><button class="irlpc-done" type="button" data-close>Done</button></div>`;
+			<div class="irlpc-foot">
+				<button class="irlpc-done" type="button" data-close>Done</button>
+				<a class="irlpc-learn" href="/irl-privacy" target="_blank" rel="noopener">How location works <span class="ar" aria-hidden="true">↗</span></a>
+			</div>`;
 
 		sheet.querySelectorAll('[data-close]').forEach((b) => b.addEventListener('click', close));
 
@@ -216,7 +224,10 @@ export function maybeShowFirstRunDisclosure() {
 				<button class="irlpc-x" type="button" data-close aria-label="Close">×</button>
 			</div>
 			<div class="irlpc-sec">${factsHTML()}</div>
-			<div class="irlpc-foot"><button class="irlpc-done" type="button" data-close>Got it</button></div>`;
+			<div class="irlpc-foot">
+				<button class="irlpc-done" type="button" data-close>Got it</button>
+				<a class="irlpc-learn" href="/irl-privacy" target="_blank" rel="noopener">Learn more <span class="ar" aria-hidden="true">↗</span></a>
+			</div>`;
 		sheet.querySelectorAll('[data-close]').forEach((b) => b.addEventListener('click', close));
 		setTimeout(() => sheet.querySelector('.irlpc-done')?.focus(), 60);
 	}, { extraClass: 'irlpc-discl' });

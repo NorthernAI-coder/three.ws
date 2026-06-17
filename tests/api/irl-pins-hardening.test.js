@@ -1,10 +1,11 @@
 // /api/irl/pins — production hardening (tasks 11 / 12 / 13).
 //
 // These tests cover the backend-resilience + security-validation surface added to
-// api/irl/pins.js: radius + pin-id validation, the rate-limiter fail-open wrapper,
-// the Guardian degraded-state cache, the x402 allow-list parse, ownership + expiry
-// on calibrate/outfit/delete, and the no-internal-detail outfit-bake error. The
-// DB / auth / limiter / baker are mocked so the suite runs offline in Node.
+// api/irl/pins.js: radius + pin-id validation, the limiter degradation policy (the
+// public read fails CLOSED per H7; writes fail open), the Guardian degraded-state
+// cache, the x402 allow-list parse, ownership + expiry on calibrate/outfit/delete,
+// and the no-internal-detail outfit-bake error. The DB / auth / limiter / baker are
+// mocked so the suite runs offline in Node.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
@@ -335,17 +336,25 @@ describe('DELETE /api/irl/pins?all=1 — bulk device purge', () => {
 	});
 });
 
-// ── Rate-limiter fail-open (task 12) ─────────────────────────────────────────
-describe('rate limiter fail-open', () => {
-	it('a throwing limiter does not 500 a GET — the request is allowed', async () => {
+// ── Rate-limiter degradation: read fails CLOSED, writes fail OPEN (task 12 + H7) ─
+describe('rate limiter degradation', () => {
+	it('a throwing limiter FAILS CLOSED on the public GET read — 429, never an unmetered scrape (H7)', async () => {
 		limiterThrows = true;
-		const { res } = await get({ query: { lat: '40.7128', lng: '-74.006', radius: '40' } });
-		// Fail-open: the read proceeds to a normal 200, never a 500 from the limiter.
-		expect(res.statusCode).toBe(200);
+		const { res, body } = await get({ query: { lat: '40.7128', lng: '-74.006', radius: '40' } });
+		// The nearby read is the ONLY surface that reveals another agent's location, so a
+		// limiter it can't evaluate must DENY (retryable), never open an unmetered read.
+		expect(res.statusCode).toBe(429);
+		expect(body.reason).toBe('rate_limiter_unavailable');
+		// Denied before any location data left the DB — the pin SELECT never ran.
+		const ranSelect = sqlMock.mock.calls.some(([s]) =>
+			/lat BETWEEN/i.test(Array.isArray(s) ? s.join(' ') : String(s)));
+		expect(ranSelect).toBe(false);
 	});
-	it('a throwing limiter does not 500 a DELETE — ownership is still enforced', async () => {
+	it('a throwing limiter does not 500 a DELETE — write fails open, ownership still enforced (task 12)', async () => {
 		limiterThrows = true;
 		const { res } = await del({ id: UUID, deviceToken: 'device-A' });
+		// Writes are bounded by the DB density/owner caps even when the limiter is blind,
+		// so an infra hiccup must never block a legitimate placement/removal.
 		expect(res.statusCode).toBe(200);
 	});
 });

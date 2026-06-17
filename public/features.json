@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-17T12:37:32.782Z",
+	"generated_at": "2026-06-17T12:53:57.342Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -60,6 +60,16 @@
 					"title": "IRL",
 					"description": "Place a 3D avatar in your real environment. Camera AR passthrough, joystick movement, and tap-to-place 3D objects on your floor.",
 					"added": "2026-06-13",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/irl-privacy",
+					"title": "How location works on IRL",
+					"description": "Placed agents are private by location: they appear only to people physically standing near them, never on a map or a list. What's shared, what isn't, and how your camera, motion, and location are used.",
+					"added": "2026-06-17",
 					"auth": null,
 					"indexable": true,
 					"tags": [],

@@ -91,12 +91,33 @@ function explorerTxUrl(sig, network) {
 }
 // Bound an untrusted payload object so a caller can't store an arbitrarily large
 // blob in the JSONB column. Non-objects and oversized payloads collapse to {}.
+// A circular / unserializable blob throws inside JSON.stringify and collapses to
+// {} too — the first line of defense against a 500 on the INSERT below.
 function clampPayload(obj) {
 	if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return {};
 	try {
 		return JSON.stringify(obj).length <= 2000 ? obj : {};
 	} catch {
 		return {};
+	}
+}
+
+// Serialize the payload destined for the JSONB column, treating any failure as a
+// caller fault (400) rather than letting it bubble into an uncaught 500. The base
+// object has already survived clampPayload's serialize check, but it is mutated
+// afterward (from/replyTo/signature/network) and `pay` spreads in caller-derived
+// values — so a BigInt amount, a circular self-reference, or a toJSON() that
+// throws would otherwise reach this point and crash the request. Returning the
+// JSON text (or null on failure) keeps the failure at the boundary, with context.
+function serializePayload(payload) {
+	try {
+		return JSON.stringify(payload);
+	} catch (err) {
+		console.warn('[irl/interactions] payload not serializable, rejecting', {
+			endpoint: 'POST /api/irl/interactions',
+			reason: err?.message || String(err),
+		});
+		return null;
 	}
 }
 
@@ -237,6 +258,12 @@ export default wrap(async (req, res) => {
 		// An owner reply is authored by the owner, so it lands already-seen — it must
 		// never light up the owner's own unread badge. Every other row is unread.
 		const seenAt = isOwnerReply ? new Date().toISOString() : null;
+		// Serialize at the boundary so an unserializable payload is a clean 400, never
+		// an uncaught 500 inside the INSERT's `::jsonb` cast.
+		const payloadJson = serializePayload(payload);
+		if (payloadJson === null) {
+			return json(res, 400, { error: 'payload is not serializable' });
+		}
 		const [row] = await sql`
 			INSERT INTO irl_interactions
 				(pin_id, agent_id, type, message, viewer_user_id, viewer_device, lat, lng,
@@ -252,7 +279,7 @@ export default wrap(async (req, res) => {
 				${pin.lng},
 				${amount},
 				${currencyMint},
-				${JSON.stringify(payload)}::jsonb,
+				${payloadJson}::jsonb,
 				${seenAt}
 			)
 			RETURNING id, type, created_at
@@ -261,7 +288,16 @@ export default wrap(async (req, res) => {
 		// (or any non-view) must not inflate it (the owner already sees those as feed
 		// rows). Owner-self views and same-device repeats already returned above.
 		if (type === 'view') {
-			sql`UPDATE irl_pins SET view_count = view_count + 1 WHERE id = ${pinId}`.catch(() => {});
+			// Best-effort: the row is already written, so a failed counter bump must not
+			// fail the request — but it must not vanish either. Log it with context so a
+			// systematically-stuck "Visitors" metric is diagnosable from the ops logs.
+			sql`UPDATE irl_pins SET view_count = view_count + 1 WHERE id = ${pinId}`.catch((err) => {
+				console.warn('[irl/interactions] view_count increment failed', {
+					endpoint: 'POST /api/irl/interactions',
+					pinId,
+					reason: err?.message || String(err),
+				});
+			});
 		}
 		// Fan-out. Both arms are fire-and-forget and no-op when there's no one to
 		// reach (anonymous actor) or creds are absent.

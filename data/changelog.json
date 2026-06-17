@@ -3,6 +3,18 @@
 	"entries": [
 		{
 			"date": "2026-06-17",
+			"title": "Withdraw your agent's funds any time — plus spend limits and a full custody audit trail",
+			"summary": "Your agent's Solana wallet is custodial, so we've made getting funds out and keeping them safe first-class. The Agent Wallet hub now has a working Withdraw tab: sweep all your SOL or any token the wallet holds to any address or .sol name (paste or scan a QR), with a clear review step, a confirmed explorer link, and every state designed. A small amount of SOL is always kept back on a \"Max\" sweep so the wallet can never get stuck. Withdrawals are signed on the server and are safe to retry — the same request never sends twice. A new Limits & Safety section lets you set a daily spend cap, a per-transaction cap, and an allowlist of addresses funds may be withdrawn to; those limits apply to everything the agent does — trades, snipes, and payments — not just withdrawals. And an Activity log shows exactly what your custodial wallet has done: every withdrawal, automated spend, limit change, and each time the key was used to sign, with the reason. The wallet's secret key never leaves our servers, is never shown or logged, and is only ever used after we confirm you own the agent.",
+			"tags": ["feature", "security"]
+		},
+		{
+			"date": "2026-06-17",
+			"title": "Every agent now has a dedicated wallet hub",
+			"summary": "Each 3D agent's self-custodied Solana wallet now has one home: a tabbed Agent Wallet hub — Balance, Deposit, Trade, Snipe, Pay, and Withdraw — reachable from the agent's profile and right after you create one. The Balance tab is live now, showing the real on-chain SOL balance with a USD estimate and recent activity, refreshing on its own and degrading gracefully if the network is briefly unreachable. Behind the scenes every agent is guaranteed a wallet: older agents that predated automatic wallets are backfilled, and the agent API now reports whether each agent's wallet is ready. The remaining tabs are wired up across the next releases.",
+			"tags": ["feature"]
+		},
+		{
+			"date": "2026-06-17",
 			"title": "Sniper now auto-sells coins that graduate off the bonding curve",
 			"summary": "When a coin your sniper holds graduates from the pump.fun bonding curve to its AMM pool, the agent used to be stuck holding it — the position sat parked and your exit rules quietly stopped working. The sniper now follows a graduated coin straight onto the AMM and keeps managing it there: stop-loss, trailing-stop, take-profit, and the hold-time limit all keep working against the real post-graduation price, and the automatic sell goes out with slippage protection. Positions that were stuck before can be cleared with a one-time backfill.",
 			"tags": ["fix"],
