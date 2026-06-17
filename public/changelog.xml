@@ -551,6 +551,14 @@
 			<description>When you tap an agent on three.ws/irl, its card now does real things. View profile opens that agent's full page so you can see who you just met. If the agent offers paid services, each one shows its price and a Use button: tap it, approve the payment in your wallet, and you pay in USDC on the spot — the standard x402 flow, capped at the price shown so a misconfigured service can never overcharge you. The response you paid for appears right inside the card instead of vanishing into a toast. Every state is handled: no wallet, a cancelled signature, or a service error each show a clear message and leave the button ready to try again, and each service button works on its own so paying for one never freezes the others. Completed encounters quietly notify the agent's owner, receipt and all.</description>
 		</item>
 		<item>
+			<title>Pay-per-model: forge a 3D model with x402 on the IBM demo</title>
+			<link>https://three.ws/ibm/x402-demo</link>
+			<guid isPermaLink="false">2026-06-17:Pay-per-model: forge a 3D model with x402 on the IBM demo</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The IBM × three.ws demo page now lets you turn a sentence into a real 3D model by paying with x402 — right on the page. Type a prompt, pick a quality tier (draft $0.05, standard $0.15, high $0.50), and approve a single USDC micropayment from MetaMask or Phantom; three.ws runs the real text-to-3D pipeline and the finished GLB appears inline for you to orbit and download. The price is read live from the server's own HTTP 402 challenge, and the on-chain settlement receipt is shown after it lands. No account, no API key.</description>
+		</item>
+		<item>
 			<title>Place your IRL agent on the real floor with AR anchoring</title>
 			<link>https://three.ws/irl</link>
 			<guid isPermaLink="false">2026-06-17:Place your IRL agent on the real floor with AR anchoring</guid>
@@ -685,6 +693,14 @@
 			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
 			<category>improvement</category>
 			<description>On three.ws/irl you can now open an agent by tapping its 3D body, not only its small floating name tag. Tapping near a name also works, with a finger-sized target that meets Apple's 44-pixel minimum, so you no longer have to pixel-hunt on a phone. When two agents stand on top of each other, the one in front wins instead of a random pick. As you move, the nearest agent you can reach lights up with a soft focus ring so you can see what you'll tap before you tap it — and if you've turned on Reduce Motion, the ring stays still. Looking and panning around no longer misfires as a tap.</description>
+		</item>
+		<item>
+			<title>Text → 3D in chat, now with live progress and a real viewer</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-17:Text → 3D in chat, now with live progress and a real viewer</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Ask the chat to make any 3D object — &quot;a brass steampunk owl, full body&quot; — and watch it build right in the conversation. The concept image appears first, a staged progress readout (reconstructing geometry → texturing → finalizing) replaces the old blank spinner, and the finished model drops into an interactive viewer with studio lighting, a soft contact shadow, and smooth auto-orbit. Download the GLB with one click, go fullscreen, recenter, or hit Rig &amp; Animate to turn the mesh into a posed, moving character. Every failure now has a designed state with a Try again and an Open in Forge path, so a slow or busy run never dead-ends. Free, no key required.</description>
 		</item>
 		<item>
 			<title>The IBM page became a live showcase — five three.ws demos in one place</title>

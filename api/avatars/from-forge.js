@@ -42,10 +42,11 @@ const VISIBILITIES = new Set(['public', 'unlisted', 'private']);
 
 async function resolveAuth(req) {
 	const session = await getSessionUser(req);
-	if (session) return { userId: session.id ?? session.userId, source: 'session' };
+	if (session) return { userId: session.id, source: 'session' };
 	const bearer = await authenticateBearer(extractBearer(req));
-	if (bearer && hasScope(bearer, 'avatars:write')) return bearer;
-	return null;
+	if (!bearer) return null;
+	if (!hasScope(bearer.scope, 'avatars:write')) return null;
+	return bearer;
 }
 
 export default wrap(async (req, res) => {
@@ -110,7 +111,9 @@ export default wrap(async (req, res) => {
 	if (!isValidGlbHeader(buf)) {
 		return error(res, 422, 'invalid_glb', 'that URL did not return a valid binary glTF (.glb)');
 	}
-	const info = inspectGlb(buf);
+	// inspectGlb does a deeper parse and can still return null on a header-valid
+	// but malformed GLB — fall back to an empty meta object so a save never 500s.
+	const info = inspectGlb(buf) || {};
 
 	// Durable copy under the caller's own storage namespace, then register it.
 	const slug = `studio-${Math.random().toString(36).slice(2, 8)}`;
