@@ -1,6 +1,10 @@
 import { AnimationClip, AnimationMixer, LoopRepeat, LoopOnce } from 'three';
 import { canonicalizeBoneName } from './glb-canonicalize.js';
-import { canonicalNodeMapFromObject, retargetClip } from './animation-retarget.js';
+import {
+	canonicalNodeMapFromObject,
+	canonicalRestMapFromObject,
+	retargetClip,
+} from './animation-retarget.js';
 import { log } from './shared/log.js';
 
 // Minimum number of canonical bones a skinned model must expose before the
@@ -71,6 +75,11 @@ export class AnimationManager {
 		// so the library drives ANY humanoid rig — Mixamo, VRM-via-Mixamo,
 		// CharacterStudio, Blender — not just an already-canonical Avaturn rig.
 		this._canonicalToNode = canonicalNodeMapFromObject(model);
+		// Captured here, while the model is still in its authored bind pose, so
+		// the retargeter can re-express each clip in the rig's own rest frame
+		// (a Mixamo rig bakes the up-axis as a −90°X Hips rest the clips would
+		// otherwise overwrite, tipping the avatar onto its back).
+		this._canonicalRest = canonicalRestMapFromObject(model);
 		this._canonicalClipsSupported = _modelSupportsCanonicalClips(model);
 
 		for (const [name, clip] of this.clips) {
@@ -92,7 +101,9 @@ export class AnimationManager {
 	 */
 	_retarget(clip) {
 		if (!this._canonicalToNode || this._canonicalToNode.size === 0) return null;
-		const { clip: out } = retargetClip(clip, this._canonicalToNode);
+		const { clip: out } = retargetClip(clip, this._canonicalToNode, {
+			targetRest: this._canonicalRest,
+		});
 		return out;
 	}
 
@@ -105,6 +116,7 @@ export class AnimationManager {
 		}
 		this.model = null;
 		this._canonicalToNode = null;
+		this._canonicalRest = null;
 		this._canonicalClipsSupported = false;
 		this.actions.clear();
 		this.currentAction = null;

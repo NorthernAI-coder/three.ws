@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-17T07:22:22.805Z",
+	"generated_at": "2026-06-17T08:20:44.960Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -187,11 +187,12 @@
 		{
 			"date": "2026-06-17",
 			"type": "update",
-			"title": "IRL world: closed a bulk location-scrape path on placed agents",
-			"summary": "The /irl world lets you place 3D agents at real GPS spots and discover the ones near you. The 'discover nearby' feed always hid who placed each agent, but an internal bulk window-load endpoint — used only by the live realtime server to hydrate a neighborhood — was reachable from the open web, which in principle let someone download many placements' exact coordinates in one request. That endpoint is now locked to the realtime server with a shared secret, the public nearby feed is rate-limited so it can't be systematically gridded, and the maximum window size was tightened. Live discovery, your own pins, and the realtime map are unchanged.",
+			"title": "IRL world: placed agents are private by location — discovered only in person",
+			"summary": "We changed how the /irl world reveals where agents are placed, for safety. There is no list, map, or feed of agent locations anywhere: an agent's spot is shared with your device only when you are physically within a short distance of it, so you come across one by walking up and pointing your camera — never by browsing locations from afar. The live realtime server no longer broadcasts a neighborhood's placements to everyone connected; it now carries only presence (how many people are viewing nearby) and ambient reactions, both kept coarse and anonymous. The 'nearby' read is hard-capped to a tight radius and rate-limited so it can't be swept to rebuild a map. Placing agents and the multiplayer presence layer keep working as before.",
 			"link": "/irl",
 			"tags": [
-				"security"
+				"security",
+				"improvement"
 			]
 		},
 		{
