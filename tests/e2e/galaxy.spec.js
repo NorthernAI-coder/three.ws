@@ -171,7 +171,15 @@ async function gotoGalaxy(page, { mode = 'success', path = '/ibm/galaxy', expect
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
-test.describe('IBM Agent Galaxy', () => {
+// reason: the IBM-branded galaxy page (pages/ibm/galaxy.html → src/ibm-galaxy.js,
+// route /ibm/galaxy, endpoint /api/ibm/galaxy, body.dataset.galaxyState markers)
+// was deleted in the concurrent site overhaul (commits 7af4f0b3 "delete IBM pages",
+// 2d34e80f "Site overhaul", 9664ef4b "Wire orphaned pages into router"). The galaxy
+// product now lives at top-level /galaxy via src/galaxy.js fetching /api/galaxy with
+// a different response shape and no galaxyState dataset — none of the locators or
+// the fixture below match it. Skipped (not deleted) until the new /galaxy page's
+// router wiring stabilizes and this spec is rewritten against src/galaxy.js.
+test.describe.skip('IBM Agent Galaxy', () => {
 	// Throw on any real uncaught page error. Vite's HMR websocket emits a
 	// "WebSocket closed without opened." error in headless Codespace environments
 	// (the HMR client targets the :3000 forwarded domain, not the test port) —

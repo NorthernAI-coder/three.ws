@@ -1188,10 +1188,14 @@ async function openPinSheet(pin) {
 	const skillsEl = document.getElementById('irl-sheet-skills');
 	const viewsEl  = document.getElementById('irl-sheet-views');
 	const multiEl  = document.getElementById('irl-sheet-multiplayer');
+	const repEl    = document.getElementById('irl-sheet-rep');
+	const servicesEl = document.getElementById('irl-sheet-services');
 	if (descEl)   { descEl.textContent = ''; descEl.hidden = true; }
 	if (skillsEl) { skillsEl.innerHTML = ''; skillsEl.hidden = true; }
 	if (viewsEl)  { viewsEl.hidden = true; }
 	if (multiEl)  { multiEl.hidden = true; }
+	if (repEl)    { repEl.hidden = true; }
+	if (servicesEl) { servicesEl.hidden = true; }
 
 	sheet.dataset.agentId   = pin.agent_id   ?? '';
 	sheet.dataset.agentName = pin.avatar_name ?? '';
@@ -1232,22 +1236,57 @@ async function openPinSheet(pin) {
 		pin.view_count = (pin.view_count ?? 0) + 1;
 	}
 
-	// Async: enrich with full agent profile data
-	if (pin.agent_id) {
+	// Async: enrich with the public agent card — description, skills, reputation,
+	// and the paid services this agent offers. One cached call resolves by pin so
+	// anonymous placements still return a usable card.
+	if (pin.id) {
 		try {
-			const r = await fetch(`/api/agents/${encodeURIComponent(pin.agent_id)}`);
+			const r = await fetch(`/api/irl/agent-card?pin=${encodeURIComponent(pin.id)}`);
 			if (r.ok) {
-				const data = await r.json();
-				const agent = data.agent ?? data;
-				if (agent.description && descEl) {
-					descEl.textContent = agent.description;
-					descEl.hidden = false;
-				}
-				if (agent.skills?.length && skillsEl) {
-					skillsEl.innerHTML = agent.skills.slice(0, 6).map(s =>
-						`<span class="irl-skill-badge">${_escHtml(s)}</span>`,
-					).join('');
-					skillsEl.hidden = false;
+				const { card } = await r.json();
+				if (card) {
+					if (card.description && descEl) {
+						descEl.textContent = card.description;
+						descEl.hidden = false;
+					}
+					if (card.skills?.length && skillsEl) {
+						skillsEl.innerHTML = card.skills.slice(0, 6).map(s =>
+							`<span class="irl-skill-badge">${_escHtml(s)}</span>`,
+						).join('');
+						skillsEl.hidden = false;
+					}
+					// Reputation — score is 0–100; show it as a bar + label.
+					const score = card.reputation?.score ?? 0;
+					if (score > 0 && repEl) {
+						const fill = document.getElementById('irl-rep-fill');
+						const text = document.getElementById('irl-rep-text');
+						if (fill) fill.style.width = `${Math.min(100, score)}%`;
+						if (text) {
+							const chats = card.reputation?.chats ?? 0;
+							text.textContent = chats > 0
+								? `Reputation ${score}/100 · ${chats} chat${chats === 1 ? '' : 's'}`
+								: `Reputation ${score}/100`;
+						}
+						repEl.hidden = false;
+					}
+					// Services the agent offers, with prices.
+					if (card.services?.length && servicesEl) {
+						const listEl = document.getElementById('irl-services-list');
+						if (listEl) {
+							listEl.innerHTML = card.services.slice(0, 6).map(s => {
+								const price = s.price_usdc != null
+									? `$${Number(s.price_usdc).toFixed(2)} ${(s.network || 'base').toUpperCase()}`
+									: 'Free';
+								return `<div class="irl-service-row"><span class="irl-service-name">${_escHtml(s.name || s.slug)}</span><span class="irl-service-price">${_escHtml(price)}</span></div>`;
+							}).join('');
+							servicesEl.hidden = false;
+						}
+					}
+					// Surface a pay button if the card resolved an x402 endpoint.
+					if (card.x402_endpoint && payBtn) {
+						payBtn.hidden = false;
+						payBtn.dataset.endpoint = card.x402_endpoint;
+					}
 				}
 			}
 		} catch {}

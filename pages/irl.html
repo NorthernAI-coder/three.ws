@@ -742,6 +742,18 @@
 			color: #6b7280;
 			margin-bottom: 10px;
 		}
+		/* Reputation bar */
+		.irl-sheet-rep { display: flex; align-items: center; gap: 9px; margin-bottom: 12px; }
+		.irl-rep-bar { flex: 1; height: 6px; border-radius: 3px; background: rgba(255,255,255,0.08); overflow: hidden; }
+		.irl-rep-fill { display: block; height: 100%; width: 0; border-radius: 3px; background: linear-gradient(90deg, #34d399, #88bbff); transition: width 0.5s ease; }
+		.irl-rep-text { font-size: 12px; font-weight: 600; color: #34d399; white-space: nowrap; font-variant-numeric: tabular-nums; }
+		/* Services list */
+		.irl-sheet-services { margin-bottom: 14px; }
+		.irl-services-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #6b7280; margin-bottom: 6px; }
+		.irl-services-list { display: flex; flex-direction: column; gap: 6px; }
+		.irl-service-row { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+		.irl-service-name { color: #e5e7eb; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+		.irl-service-price { color: #34d399; font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
 		/* Multiplayer indicator row */
 		.irl-multiplayer-note {
 			display: flex;
@@ -1039,9 +1051,17 @@
 		<button class="irl-sheet-close" id="irl-sheet-close" type="button" aria-label="Close">×</button>
 	</div>
 	<p id="irl-sheet-caption" hidden></p>
-	<!-- Enriched agent data (populated async from /api/agents/:id) -->
+	<!-- Enriched agent data (populated async from /api/irl/agent-card) -->
 	<p id="irl-sheet-description" hidden></p>
+	<div id="irl-sheet-rep" class="irl-sheet-rep" hidden>
+		<span class="irl-rep-bar" aria-hidden="true"><span id="irl-rep-fill" class="irl-rep-fill"></span></span>
+		<span id="irl-rep-text" class="irl-rep-text"></span>
+	</div>
 	<div id="irl-sheet-skills" class="irl-sheet-skills" hidden></div>
+	<div id="irl-sheet-services" class="irl-sheet-services" hidden>
+		<div class="irl-services-label">Services</div>
+		<div id="irl-services-list" class="irl-services-list"></div>
+	</div>
 	<div class="irl-multiplayer-note" id="irl-sheet-multiplayer" hidden>
 		<span class="irl-multiplayer-dot"></span>
 		<span id="irl-sheet-multiplayer-text">Visible to all users at this location</span>
