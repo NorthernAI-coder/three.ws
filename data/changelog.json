@@ -3,8 +3,22 @@
 	"entries": [
 		{
 			"date": "2026-06-17",
+			"title": "Dance floor in /play worlds",
+			"summary": "A synchronized dance floor pad now appears in /play worlds, near the coin totem. Step onto the glowing circular stage and a 🪩 Dance button appears in your HUD. Press it to arm — when the server's 4-second beat tick fires, everyone armed on the floor crossfades to the same dance clip at the same moment. Leave the floor or press again to stop. The pad features animated emissive tiles and pulsing coloured lights that react to every beat.",
+			"tags": ["feature"],
+			"link": "/play"
+		},
+		{
+			"date": "2026-06-17",
+			"title": "Kickable beach ball in every /play world",
+			"summary": "A shared beach ball now spawns at the centre of every /play world. Walk into it to kick it — the server runs authoritative physics with gravity, friction, and boundary bounces, so all players see the same trajectory in sync. The ball auto-respawns at world centre if it rolls out of bounds.",
+			"tags": ["feature"],
+			"link": "/play"
+		},
+		{
+			"date": "2026-06-17",
 			"title": "Rarest Fits button styled in the cosmetics shop",
-			"summary": "The "Rarest Fits" leaderboard button in the shop header now has full hover, active, and focus states matching the rest of the shop chrome, and collapses to a glyph-only button on mobile so the header doesn't overflow.",
+			"summary": "The Rarest Fits leaderboard button in the cosmetics shop header now has proper hover, active, and focus states matching the rest of the shop chrome, and collapses to a compact glyph button on mobile.",
 			"tags": ["improvement"],
 			"link": "/play"
 		},
