@@ -166,8 +166,16 @@ const SOLANA_PUBLIC_RPC = {
 	devnet: 'https://api.devnet.solana.com',
 };
 
-async function buildSolanaTx({ rpc, walletAddress, name, metadataUri, attributes, collectionAddr }) {
-	const umi = createUmi(rpc).use(mplCore());
+async function buildSolanaTx({ rpc, network, walletAddress, name, metadataUri, attributes, collectionAddr }) {
+	// Build through the multi-endpoint failover Connection rather than handing
+	// umi a bare URL. umi's createUmi accepts a web3.js Connection directly, so
+	// every RPC the build needs — chiefly getLatestBlockhash — rotates across the
+	// configured endpoint → Helius → Alchemy → Ankr → public chain. The public
+	// mainnet-beta endpoint alone returns 429 "max usage reached" under load,
+	// which previously 500'd every prep; with failover a rate-limited lane is
+	// parked and the next provider serves the blockhash.
+	const connection = solanaConnection({ url: rpc, network, commitment: 'confirmed' });
+	const umi = createUmi(connection).use(mplCore());
 	const ownerPk = umiPublicKey(walletAddress);
 	const assetSigner = generateSigner(umi);
 	umi.use(signerIdentity(createNoopSigner(ownerPk)));
@@ -202,7 +210,12 @@ async function buildSolanaTx({ rpc, walletAddress, name, metadataUri, attributes
 
 function isRpcAuthError(err) {
 	const msg = err?.message || '';
-	return msg.includes('401') || msg.includes('Unauthorized') || msg.includes('invalid api key');
+	return msg.includes('401') || msg.includes('403') || msg.includes('Unauthorized') || msg.includes('invalid api key');
+}
+
+function isRpcRateLimited(err) {
+	const msg = err?.message || '';
+	return msg.includes('429') || /max usage reached|-32429|rate.?limit|too many requests|endpoints (failed|exhausted)/i.test(msg);
 }
 
 async function prepSolana({ cluster, metadataUri, walletAddress, name, attributes }) {
@@ -223,10 +236,16 @@ async function prepSolana({ cluster, metadataUri, walletAddress, name, attribute
 		}
 	}
 
+	// buildSolanaTx routes through solanaConnection(), which already rotates the
+	// configured RPC → Helius → Alchemy → Ankr → public endpoint and parks any
+	// lane that 429s/401s. A single build call therefore exhausts every provider
+	// before failing — no manual public-endpoint retry needed. We only translate
+	// the terminal error into an actionable, correctly-classified status.
 	let assetSigner, txBytes;
 	try {
 		({ assetSigner, txBytes } = await buildSolanaTx({
 			rpc: configuredRpc,
+			network: cluster,
 			walletAddress,
 			name,
 			metadataUri,
@@ -234,46 +253,25 @@ async function prepSolana({ cluster, metadataUri, walletAddress, name, attribute
 			collectionAddr,
 		}));
 	} catch (err) {
-		// If the configured RPC rejects with an auth error AND it's not already the
-		// public endpoint, fall back to the public endpoint once.
-		const isUsingPublic = configuredRpc === SOLANA_PUBLIC_RPC[cluster];
-		if (!isRpcAuthError(err) || isUsingPublic) {
-			if (isRpcAuthError(err)) {
-				// Public RPC also returned auth error — Solana's public endpoints now
-				// require an API key. Surface a clear operator-facing message.
-				const e = new Error(
-					'Solana RPC rejected the request with an auth error. ' +
-						'Set SOLANA_RPC_URL (mainnet) or SOLANA_RPC_URL_DEVNET (devnet) ' +
-						'to a valid RPC endpoint with an API key.',
-				);
-				e.code = 'rpc_auth_failed';
-				throw e;
-			}
-			throw err;
+		if (isRpcRateLimited(err)) {
+			const e = new Error(
+				'Every Solana RPC endpoint is rate-limited right now. Configure a dedicated ' +
+					'keyed endpoint (HELIUS_API_KEY / ALCHEMY_API_KEY or SOLANA_RPC_URL) so minting ' +
+					'is not throttled by the shared public RPC, then retry.',
+			);
+			e.code = 'rpc_rate_limited';
+			throw e;
 		}
-
-		console.warn('[onchain/prep] configured Solana RPC auth failed, retrying with public RPC');
-		try {
-			({ assetSigner, txBytes } = await buildSolanaTx({
-				rpc: SOLANA_PUBLIC_RPC[cluster],
-				walletAddress,
-				name,
-				metadataUri,
-				attributes,
-				collectionAddr,
-			}));
-		} catch (fallbackErr) {
-			if (isRpcAuthError(fallbackErr)) {
-				const e = new Error(
-					'Solana RPC rejected the request with an auth error. ' +
-						'Set SOLANA_RPC_URL (mainnet) or SOLANA_RPC_URL_DEVNET (devnet) ' +
-						'to a valid RPC endpoint with an API key.',
-				);
-				e.code = 'rpc_auth_failed';
-				throw e;
-			}
-			throw fallbackErr;
+		if (isRpcAuthError(err)) {
+			const e = new Error(
+				'Solana RPC rejected every configured endpoint with an auth error. ' +
+					'Set SOLANA_RPC_URL (mainnet) or SOLANA_RPC_URL_DEVNET (devnet) — or a valid ' +
+					'HELIUS_API_KEY / ALCHEMY_API_KEY — to a working keyed endpoint.',
+			);
+			e.code = 'rpc_auth_failed';
+			throw e;
 		}
+		throw err;
 	}
 
 	return {
@@ -353,6 +351,10 @@ async function handlePrep(req, res) {
 			});
 		}
 	} catch (e) {
+		if (e.code === 'rpc_rate_limited') {
+			res.setHeader('Retry-After', '15');
+			return error(res, 503, 'rpc_rate_limited', e.message);
+		}
 		if (e.code === 'rpc_auth_failed') {
 			return error(res, 503, 'rpc_unavailable', e.message);
 		}
