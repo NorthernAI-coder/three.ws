@@ -1976,6 +1976,10 @@ class App {
 						if (available.length > 0) {
 							viewer.setAnimationDefs(available);
 						}
+						// Play API animation even when the manifest is absent.
+						if (_animParam && /^[0-9a-f-]{36}$/i.test(_animParam)) {
+							viewer.playAnimationById(_animParam).catch(() => {});
+						}
 					})
 					.catch(() => {});
 			});

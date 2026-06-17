@@ -31,6 +31,12 @@ URL: https://three.ws/gallery
 
 Every public 3D avatar in the system, browsable as a grid.
 
+### Animation Gallery
+
+URL: https://three.ws/animations
+
+Browse and preview public animations authored by the three.ws community. Apply any clip to your avatar in the Animation Studio.
+
 ### Walk
 
 URL: https://three.ws/walk

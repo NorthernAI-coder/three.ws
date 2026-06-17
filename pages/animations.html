@@ -118,12 +118,14 @@
 				color: #000;
 			}
 			.ag-btn--primary:hover { background: #e5e5e5; }
+			.ag-btn--primary:active { background: #ccc; }
 			.ag-btn--secondary {
 				background: rgba(255,255,255,0.08);
 				color: var(--text, #fafafa);
 				border: 1px solid rgba(255,255,255,0.12);
 			}
 			.ag-btn--secondary:hover { background: rgba(255,255,255,0.12); }
+			.ag-btn--secondary:active { background: rgba(255,255,255,0.18); }
 
 			/* ── Toolbar ──────────────────────────────────────────────────── */
 			.ag-toolbar {
@@ -179,11 +181,13 @@
 				transition: background 0.15s, border-color 0.15s, color 0.15s;
 			}
 			.ag-chip:hover { background: rgba(255,255,255,0.06); color: var(--text, #fafafa); }
+			.ag-chip:active { background: rgba(255,255,255,0.12); }
 			.ag-chip[aria-selected="true"] {
 				background: #fff;
 				color: #000;
 				border-color: #fff;
 			}
+			.ag-chip[aria-selected="true"]:active { background: #ccc; }
 			.ag-chip:focus-visible {
 				outline: 2px solid var(--focus-ring-color, #fff);
 				outline-offset: 2px;
@@ -353,6 +357,7 @@
 				transition: background 0.15s, color 0.15s;
 			}
 			.ag-card-btn:hover { background: rgba(255,255,255,0.1); color: var(--text, #fafafa); }
+			.ag-card-btn:active { background: rgba(255,255,255,0.16); }
 			.ag-card-btn:focus-visible {
 				outline: 2px solid var(--focus-ring-color, #fff);
 				outline-offset: 2px;
@@ -363,6 +368,7 @@
 				border-color: rgba(255,255,255,0.15);
 			}
 			.ag-card-btn--primary:hover { background: rgba(255,255,255,0.2); }
+			.ag-card-btn--primary:active { background: rgba(255,255,255,0.28); }
 
 			/* ── Skeleton loading ──────────────────────────────────────────── */
 			.ag-skeleton-grid {

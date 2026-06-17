@@ -39,6 +39,14 @@
 					"added": "2026-05-13"
 				},
 				{
+					"path": "/animations",
+					"title": "Animation Gallery",
+					"description": "Browse and preview public animations authored by the three.ws community. Apply any clip to your avatar in the Animation Studio.",
+					"priority": 0.8,
+					"changefreq": "daily",
+					"added": "2026-06-17"
+				},
+				{
 					"path": "/walk",
 					"title": "Walk",
 					"description": "Drive a 3D avatar around with a joystick or WASD \u2014 toggle the back camera for AR-style passthrough.",

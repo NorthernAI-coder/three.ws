@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-17T15:57:44.255Z",
+	"generated_at": "2026-06-17T17:15:06.741Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -40,6 +40,16 @@
 					"title": "Avatar Gallery",
 					"description": "Every public 3D avatar in the system, browsable as a grid.",
 					"added": "2026-05-13",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/animations",
+					"title": "Animation Gallery",
+					"description": "Browse and preview public animations authored by the three.ws community. Apply any clip to your avatar in the Animation Studio.",
+					"added": "2026-06-17",
 					"auth": null,
 					"indexable": true,
 					"tags": [],

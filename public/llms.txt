@@ -14,6 +14,7 @@ Entry points into the product.
 - [Home](https://three.ws/): Landing page. 3D AI agents that think on IBM watsonx.ai (Granite) — the pitch, live agent demos, and the front door to every flow.
 - [Discover](https://three.ws/discover): On-chain agent directory (ERC-8004 + Solana). Browse, search, and inspect every registered agent.
 - [Avatar Gallery](https://three.ws/gallery): Every public 3D avatar in the system, browsable as a grid.
+- [Animation Gallery](https://three.ws/animations): Browse and preview public animations authored by the three.ws community. Apply any clip to your avatar in the Animation Studio.
 - [Walk](https://three.ws/walk): Drive a 3D avatar around with a joystick or WASD — toggle the back camera for AR-style passthrough.
 - [IRL](https://three.ws/irl): Place a 3D avatar in your real environment. Camera AR passthrough, joystick movement, and tap-to-place 3D objects on your floor.
 - [How location works on IRL](https://three.ws/irl-privacy): Placed agents are private by location: they appear only to people physically standing near them, never on a map or a list. What's shared, what isn't, and how your camera, motion, and location are used.
