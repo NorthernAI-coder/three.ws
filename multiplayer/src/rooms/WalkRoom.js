@@ -104,6 +104,24 @@ const SERVER_OBJECT_OWNER = 'server'; // ownerId sentinel: room-owned, no client
 // (R17). Everything else is a durable build piece saved per coin world.
 const TRANSIENT_OBJECT_KINDS = new Set(['ball', 'projectile', 'confetti', 'fx', 'spark', 'pickup']);
 const OBJ_ID_RE = /^[A-Za-z0-9_-]{1,48}$/;
+
+// ── R05 Physics ball ──────────────────────────────────────────────────────────
+// One server-owned beach ball per room. The server integrates physics each tick
+// and streams position via the objects schema; clients send `ball:kick` intents
+// and the server validates + applies them.
+const BALL_ID = 'ball_0';
+const BALL_RADIUS = 0.5;          // physical radius (m)
+const BALL_SPAWN_Y = BALL_RADIUS; // resting height above ground
+const BALL_GRAVITY = 12;          // m/s² downward
+const BALL_FRICTION = 0.97;       // per-tick horizontal speed multiplier (20 Hz → ~54%/s remaining)
+const BALL_GROUND_BOUNCE = 0.52;  // vertical restitution on ground hit
+const BALL_WALL_BOUNCE = 0.68;    // restitution on world-edge bounce
+const BALL_TICK_MS = 50;          // physics at 20 Hz
+const BALL_MAX_IMPULSE = 18;      // max kick speed (m/s)
+const BALL_BOUNCE_RADIUS = 55;    // m — bounce off plaza edge; respawn past +5 m beyond
+const BALL_KICK_PER_SEC = 3;      // max kick intents per client per second
+const BALL_SETTLE_SPEED = 0.08;   // m/s — below this horizontal speed, zero it out
+
 // Composite pieces (walls, stairs, doors) place several cells at once through the
 // place-batch channel. A single stamp is capped at this many cells, and stamps
 // are rate-limited separately from single edits, so a crafted client can't smuggle
@@ -140,6 +158,16 @@ const WORLD_API_BASE = (process.env.WORLD_API_BASE || 'https://three.ws').replac
 // the run speed (4 m/s) a legitimate delta is ~0.27 m. We allow generous
 // headroom for packet timing jitter.
 const MAX_STEP_M = 1.2;
+
+// Tag mini-game (R08). Server-authoritative proximity: a tag is only valid when
+// the "it" player's authoritative server position is within TAG_RANGE_M of a
+// target. TAG_IMMUNITY_MS prevents the just-untagged player from being immediately
+// re-tagged. TAG_MIN_PLAYERS is the threshold to start/continue the game.
+// TAG_LB_INTERVAL_MS refreshes leaderboard time values for all clients periodically.
+const TAG_RANGE_M = 2.0;
+const TAG_IMMUNITY_MS = 2000;
+const TAG_MIN_PLAYERS = 2;
+const TAG_LB_INTERVAL_MS = 8000;
 
 // Legacy disc radius — still used as the fallback drop clamp when a driver steps
 // out of a vehicle (vehicles carry their own VEHICLE_WORLD_RADIUS_M bound).
@@ -179,7 +207,7 @@ const COOK_COOLDOWN_MS = 900;    // pace between fish on the fire
 // Per-action rate ceilings (messages/sec/client) — a flooding client is dropped.
 // vsync rides at the same 15Hz the move netcode uses; allow 2× for jitter, like
 // MOVES_PER_SEC_LIMIT. enter/exit are deliberate, rare actions.
-const ACTION_RATES = { fish: 6, consume: 6, equip: 30, chop: 6, mine: 6, cook: 8, vsync: PATCH_RATE_HZ * 2, venter: 4, vexit: 4, quest: 8, questInteract: 6 };
+const ACTION_RATES = { fish: 6, consume: 6, equip: 30, chop: 6, mine: 6, cook: 8, vsync: PATCH_RATE_HZ * 2, venter: 4, vexit: 4, quest: 8, questInteract: 6, clear: 2 };
 
 // Spatial voice signaling. The room only relays SDP/ICE between two peers (the
 // audio itself flows peer-to-peer over WebRTC), so the cap just has to clear a
@@ -313,6 +341,10 @@ export class WalkRoom extends Room {
 		this.maxClients = MAX_CLIENTS_PER_ROOM;
 		this._moveCounters = new Map(); // sessionId → { windowStart, count }
 		this._chatCooldowns = new Map();
+		this._kickCounters = new Map(); // R05: sessionId → { windowStart, count } for ball:kick rate limit
+		// R05 ball physics (server-authoritative). Velocity lives here (off-schema);
+		// position is written directly onto the WorldObject each tick and auto-broadcast.
+		this._ballVx = 0; this._ballVy = 0; this._ballVz = 0;
 		// Off-schema economy: sessionId → runtime profile (pack/purse/skills + the
 		// stable persistence id + per-action cooldowns). Never synced to peers.
 		this.econ = new Map();
@@ -413,7 +445,15 @@ export class WalkRoom extends Room {
 		this.onMessage('obj:spawn', (client, payload) => this._handleObjSpawn(client, payload));
 		this.onMessage('obj:update', (client, payload) => this._handleObjUpdate(client, payload));
 		this.onMessage('obj:remove', (client, payload) => this._handleObjRemove(client, payload));
+		// R05 physics ball: client sends kick intent with impulse; server validates,
+		// applies velocity, and integrates physics on its own tick. Clients never move
+		// the ball directly — ownerId is 'server', blocking obj:update from them.
+		this.onMessage('ball:kick', (client, payload) => this._handleBallKick(client, payload));
+		// Broadcast reactions (R04): a client sends an emoji; the server rate-limits
+		// and rebroadcasts to all clients in the room (including the sender).
+		this.onMessage('reaction', (client, payload) => this._handleReaction(client, payload));
 		this._emoteCooldowns = new Map();
+		this._reactionCooldowns = new Map();
 		this._editCounters = new Map(); // sessionId → { windowStart, count }
 		this._batchCounters = new Map(); // sessionId → { windowStart, count } for composite stamps
 		this._voiceCounters = new Map(); // sessionId → { windowStart, count }
@@ -467,6 +507,12 @@ export class WalkRoom extends Room {
 		// room is created); persistence of parked vehicles is a later concern.
 		this._seedVehicles();
 
+		// R05: spawn the shared beach ball at world centre and start its physics tick.
+		// Server-owned (ownerId = SERVER_OBJECT_OWNER) so no client can move or remove
+		// it via the generic obj:update / obj:remove channels.
+		this._spawnBall();
+		this.clock.setInterval(() => this._tickBall(), BALL_TICK_MS);
+
 		// Resolve this coin's on-chain creator so the build-permission layer can grant
 		// the creator world-wide moderation (delete any piece, clear an area). Fetched
 		// once, off the hot path; a failure just leaves the world without a creator
@@ -493,6 +539,22 @@ export class WalkRoom extends Room {
 				}
 			}, 60_000);
 		}
+
+		// Tag mini-game (R08): refresh the leaderboard time values for all clients
+		// periodically so the displayed "time as it" increments visibly even without
+		// a tag event. Only fires when the game is active (an "it" player exists).
+		this.clock.setInterval(() => {
+			if (this._itPlayer()) this._broadcastTagState();
+		}, TAG_LB_INTERVAL_MS);
+
+		// Dance floor beat — every 4 s, aligned across all clients in the room so
+		// avatars standing on the disco pad start the same crossfade at the same
+		// wall-clock moment. Clip rotates through the four dance animations.
+		const DANCE_FLOOR_CLIPS = ['av-dance-shuffle', 'av-rap-dance', 'av-headbang', 'dance'];
+		let _beatIdx = 0;
+		this.clock.setInterval(() => {
+			this.broadcast('floor:beat', { clip: DANCE_FLOOR_CLIPS[_beatIdx++ % DANCE_FLOOR_CLIPS.length] });
+		}, 4000);
 	}
 
 	async onJoin(client, options) {
@@ -574,6 +636,15 @@ export class WalkRoom extends Room {
 			},
 			this.state.coin || 'mainland',
 		);
+
+		// Tag mini-game (R08): register this session and start the game if we now
+		// have enough players. This runs AFTER the hydratePlayer await so the player
+		// is confirmed still present. Uses a random initial assignment so the first
+		// player to join isn't always "it" on arrival.
+		this._tagTime.set(client.sessionId, { timeMs: 0, becameIt: null });
+		if (this.state.players.size >= TAG_MIN_PLAYERS && !this._itPlayer()) {
+			this._assignIt(this._randomTagPlayer(null));
+		}
 	}
 
 	onLeave(client) {
@@ -605,9 +676,11 @@ export class WalkRoom extends Room {
 		this._editCounters?.delete(client.sessionId);
 		this._batchCounters?.delete(client.sessionId);
 		this._emoteCooldowns?.delete(client.sessionId);
+		this._reactionCooldowns?.delete(client.sessionId);
 		this._voiceCounters?.delete(client.sessionId);
 		this._objCounters?.delete(client.sessionId);
 		this._actionCounters.delete(client.sessionId);
+		this._kickCounters?.delete(client.sessionId);
 		console.log(
 			`[walk_world ${this.roomId}] -leave ${client.sessionId} (n=${this.state.players.size})`,
 		);
@@ -723,6 +796,19 @@ export class WalkRoom extends Room {
 		this._emoteCooldowns.set(client.sessionId, now);
 		player.emote = name;
 		player.emoteTs = now;
+	}
+
+	_handleReaction(client, payload) {
+		const player = this.state.players.get(client.sessionId);
+		if (!player) return;
+		const ALLOWED = ['🎉', '😂', '🔥', '❤️', '👏', '🤔'];
+		const emoji = typeof payload?.emoji === 'string' ? payload.emoji.trim() : '';
+		if (!ALLOWED.includes(emoji)) return;
+		const now = Date.now();
+		const last = this._reactionCooldowns.get(client.sessionId) || 0;
+		if (now - last < 500) return;
+		this._reactionCooldowns.set(client.sessionId, now);
+		this.broadcast('reaction', { id: client.sessionId, emoji });
 	}
 
 	_handleChat(client, payload) {

@@ -57,6 +57,18 @@ import { PlaySystems } from './play-systems.js';
 import { PlayOnboard } from './play-onboard.js';
 import { log } from '../shared/log.js';
 
+// Reaction bar (R04): the 6 emoji available to all players.
+const REACTIONS = [
+	{ emoji: '🎉', label: 'Celebrate' },
+	{ emoji: '😂', label: 'Laugh' },
+	{ emoji: '🔥', label: 'Fire' },
+	{ emoji: '❤️', label: 'Love' },
+	{ emoji: '👏', label: 'Clap' },
+	{ emoji: '🤔', label: 'Think' },
+];
+// Confetti palette: monochrome-ish whites + very faint warm/cool accents.
+const CONFETTI_COLORS = ['#ffffff', '#e8e8e8', '#fff8e1', '#e3f2fd', '#f3e5f5', '#e8f5e9'];
+
 const WORLD_RADIUS = 58; // a touch inside the server's 60m clamp
 const MOVE_SPEED = 4.2;
 const RUN_SPEED = 8.0; // hold Shift to sprint
@@ -246,6 +258,7 @@ export class CoinCommunities {
 			onLeave: () => this.leave(),
 			onChat: (t) => this._sendChat(t),
 			onEmote: (n) => this._emote(n),
+			onReaction: (emoji) => this.net?.sendReaction(emoji),
 			onSearch: (q) => this._searchCoins(q),
 			onRetry: () => this.net?.retry(),
 			// Resolve the picked value (avatar id, gallery pick, URL) to a loadable,
@@ -677,6 +690,7 @@ export class CoinCommunities {
 		} catch { /* non-fatal */ }
 		await loadManifest();
 		this.ui.setEmotes(getEmoteDefs().map((d) => ({ name: d.name, icon: d.icon || '🙂', label: d.label })));
+		this.ui.setReactions(REACTIONS);
 
 		// Re-theme the environment for this specific community: a distinct biome,
 		// palette, and flora derived deterministically from the coin's mint, so
@@ -852,6 +866,7 @@ export class CoinCommunities {
 		this.net.on('change', (p, id) => this._onChange(p, id));
 		this.net.on('remove', (id) => this._onRemove(id));
 		this.net.on('chat', (m) => this._onChat(m));
+		this.net.on('reaction', (m) => this._onReaction(m));
 		this.net.on('ping', (ms) => this.ui.setPing(ms));
 		this.net.on('blockAdd', (key, t) => { const [x, y, z] = parseKey(key); this.voxels?.setBlock(x, y, z, t); this._syncBudget(); });
 		this.net.on('blockChange', (key, t) => { const [x, y, z] = parseKey(key); this.voxels?.setBlock(x, y, z, t); });
@@ -1231,6 +1246,69 @@ export class CoinCommunities {
 	}
 	_sendChat(text) { this.net?.sendChat(text); }
 	_emote(name) { this.net?.sendEmote(name); playEmoteClip(this.localAnim, name, this.motion); }
+
+	// ── Reactions (R04) ──────────────────────────────────────────────────────
+	// The server broadcasts a validated 'reaction' to all clients in the room,
+	// including the sender, so every client runs this once per event.
+	_onReaction({ id, emoji }) {
+		let pos, height;
+		if (id === this.net?.sessionId) {
+			pos = this.localPos;
+			height = this.localHeight || 1.7;
+		} else {
+			const r = this.remotes.get(id);
+			if (!r) return;
+			pos = r.rig.position;
+			height = r.height;
+		}
+		this._spawnReactionSprite(pos, height, emoji);
+		if (emoji === '🎉') this._spawnConfetti(pos, height);
+	}
+
+	_spawnReactionSprite(pos, height, emoji) {
+		if (!this.camera || !this.renderer) return;
+		const w = this.renderer.domElement.clientWidth;
+		const h = this.renderer.domElement.clientHeight;
+		const v = new Vector3(pos.x, pos.y + height + 0.55, pos.z).project(this.camera);
+		if (v.z > 1 || v.z < -1) return; // avatar behind camera
+		const sx = (v.x * 0.5 + 0.5) * w;
+		const sy = (-v.y * 0.5 + 0.5) * h;
+		const sprite = document.createElement('div');
+		sprite.className = 'cc-reaction-sprite';
+		sprite.textContent = emoji;
+		sprite.style.left = sx + 'px';
+		sprite.style.top = sy + 'px';
+		document.body.appendChild(sprite);
+		const remove = () => sprite.isConnected && sprite.remove();
+		sprite.addEventListener('animationend', remove, { once: true });
+		setTimeout(remove, 1400);
+	}
+
+	_spawnConfetti(pos, height) {
+		if (!this.camera || !this.renderer) return;
+		const w = this.renderer.domElement.clientWidth;
+		const h = this.renderer.domElement.clientHeight;
+		const v = new Vector3(pos.x, pos.y + height + 0.55, pos.z).project(this.camera);
+		if (v.z > 1 || v.z < -1) return;
+		const sx = (v.x * 0.5 + 0.5) * w;
+		const sy = (-v.y * 0.5 + 0.5) * h;
+		const COLORS = CONFETTI_COLORS;
+		for (let i = 0; i < 18; i++) {
+			const p = document.createElement('div');
+			p.className = 'cc-confetti';
+			const angle = (Math.PI * 2 * i) / 18 - Math.PI / 2;
+			const spread = 38 + Math.random() * 44;
+			const tx = Math.cos(angle) * spread;
+			const ty = Math.sin(angle) * spread - 30; // bias upward
+			const dur = 0.7 + Math.random() * 0.5;
+			p.style.cssText = `left:${sx}px;top:${sy}px;background:${COLORS[i % COLORS.length]};` +
+				`--tx:${tx.toFixed(1)}px;--ty:${ty.toFixed(1)}px;--dur:${dur.toFixed(2)}s;`;
+			document.body.appendChild(p);
+			const remove = () => p.isConnected && p.remove();
+			p.addEventListener('animationend', remove, { once: true });
+			setTimeout(remove, (dur + 0.1) * 1000);
+		}
+	}
 
 	// ── Cosmetics live preview (R21) ──────────────────────────────────────────
 	// The shop previews a catalog item on YOUR OWN avatar before any purchase.

@@ -34,6 +34,7 @@ _gltf.setDRACOLoader(_draco);
 export const dracoLoader = _draco;
 let _animDefs = null; // cached manifest defs (locomotion + emotes)
 let _emoteDefs = null;
+let _allEmoteDefs = null; // all non-locomotion emotes for the wheel
 
 // Fetch the animation manifest once and cache the locomotion + emote clip defs.
 // Idempotent: safe to await from multiple scenes.
@@ -46,14 +47,20 @@ export async function loadManifest() {
 	} catch { /* fall through to locomotion-only */ }
 	const byName = (n) => manifest.find((d) => d.name === n);
 	const loco = [byName(CLIP_IDLE), byName(CLIP_WALK)].filter(Boolean);
-	const emotes = manifest.filter((d) => d.name !== CLIP_IDLE && d.name !== CLIP_WALK).slice(0, 6);
-	_emoteDefs = emotes;
-	_animDefs = [...loco, ...emotes];
+	const allEmotes = manifest.filter((d) => d.name !== CLIP_IDLE && d.name !== CLIP_WALK);
+	_emoteDefs = allEmotes.slice(0, 6); // quick tray
+	_allEmoteDefs = allEmotes;          // full wheel
+	_animDefs = [...loco, ...allEmotes]; // register all for lazy loading
 }
 
 // The emote clip defs loaded by loadManifest() (empty until it resolves).
 export function getEmoteDefs() {
 	return _emoteDefs || [];
+}
+
+// All non-locomotion emote defs — powers the full emote wheel.
+export function getAllEmoteDefs() {
+	return _allEmoteDefs || [];
 }
 
 // The locomotion clip defs (idle + walk) loaded by loadManifest(). Lets other
