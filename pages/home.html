@@ -215,25 +215,6 @@
 		.hero-stage agent-3d {
 			position: absolute; inset: 0; display: block; width: 100%; height: 100%;
 		}
-		.stage-marker {
-			position: absolute; top: 24px; left: 24px; z-index: 5;
-			display: flex; align-items: center; gap: 10px;
-			font-family: var(--font-mono); font-size: 10.5px;
-			letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-3);
-		}
-		.stage-marker::before {
-			content: ""; width: 6px; height: 6px; border-radius: 50%;
-			background: var(--green); box-shadow: 0 0 6px var(--green);
-			animation: pulse-green 2.4s ease-in-out infinite;
-		}
-		.stage-meta {
-			position: absolute; bottom: 24px; right: 28px; z-index: 5;
-			text-align: right; font-family: var(--font-mono); font-size: 10.5px;
-			letter-spacing: 0.14em; text-transform: uppercase;
-			color: var(--text-3); line-height: 1.6;
-		}
-		.stage-meta span { display: block; }
-		.stage-meta span:first-child { color: var(--text-3); }
 		.hero-stage-inner {
 			position: absolute; inset: 0;
 			transform-style: preserve-3d;
@@ -248,95 +229,6 @@
 		}
 		.hero-stage-fallback p {
 			margin: 0; color: var(--text-3); font-size: 13.5px; max-width: 240px;
-		}
-
-		/* ── LIVE $THREE SIGNAL ──────────────────────────────────── */
-		/* A real, self-refreshing market signal pulled from
-		   /api/three-token/stats. Sits directly under the hero so the
-		   first thing a holder sees is live proof the token is trading. */
-		.three-signal {
-			display: flex; align-items: center; gap: 0;
-			border-top: 1px solid var(--hairline);
-			background: var(--surface-0);
-			color: var(--text-2); text-decoration: none;
-			font-family: var(--font-mono);
-			overflow-x: auto; scrollbar-width: none;
-			scroll-snap-type: x proximity;
-		}
-		.three-signal::-webkit-scrollbar { display: none; }
-		.three-signal-inner {
-			display: flex; align-items: stretch;
-			max-width: 1280px; margin: 0 auto; width: 100%;
-			padding: 0 32px; min-width: max-content;
-		}
-		@media (max-width: 720px) { .three-signal-inner { padding: 0 20px; } }
-		.ts-cell {
-			display: flex; flex-direction: column; gap: 5px;
-			padding: 16px 26px; position: relative;
-			scroll-snap-align: start; white-space: nowrap;
-		}
-		.ts-cell + .ts-cell::before {
-			content: ""; position: absolute; left: 0; top: 50%;
-			transform: translateY(-50%); width: 1px; height: 26px;
-			background: var(--hairline);
-		}
-		.ts-cell--brand { padding-left: 0; }
-		.ts-k {
-			font-size: 9.5px; letter-spacing: 0.18em; text-transform: uppercase;
-			color: var(--text-3); display: inline-flex; align-items: center; gap: 7px;
-		}
-		.ts-k .ts-live-dot {
-			width: 6px; height: 6px; border-radius: 50%;
-			background: var(--green); box-shadow: 0 0 6px var(--green);
-			animation: pulse-green 2.4s ease-in-out infinite;
-		}
-		.ts-v {
-			font-size: 16px; letter-spacing: -0.01em; color: var(--text);
-			font-weight: 600; font-variant-numeric: tabular-nums;
-			display: inline-flex; align-items: baseline; gap: 8px;
-		}
-		.ts-cell--brand .ts-v {
-			font-family: var(--font-display); letter-spacing: 0.01em;
-		}
-		.ts-chg { font-size: 12.5px; font-weight: 600; font-variant-numeric: tabular-nums; }
-		.ts-chg--up { color: var(--success); }
-		.ts-chg--down { color: var(--danger); }
-		.ts-chg--flat { color: var(--text-3); }
-		/* Loading skeleton: a shimmering bar where each value will land. */
-		.three-signal[data-state="loading"] .ts-v { color: transparent; }
-		.three-signal[data-state="loading"] .ts-v::after {
-			content: ""; position: absolute; bottom: 16px;
-			width: 64px; height: 15px; border-radius: 5px;
-			background: linear-gradient(90deg, var(--surface-2) 25%, var(--surface-3) 37%, var(--surface-2) 63%);
-			background-size: 400% 100%; animation: ts-shimmer 1.4s ease infinite;
-		}
-		.three-signal[data-state="loading"] .ts-cell--brand .ts-v::after { width: 88px; }
-		@keyframes ts-shimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
-		.three-signal .ts-cta {
-			margin-left: auto; align-self: center; padding-right: 0;
-			display: inline-flex; align-items: center; gap: 8px;
-			font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
-			color: var(--text-3); transition: color 0.15s;
-		}
-		.three-signal .ts-cta .ts-arrow { transition: transform 0.18s; }
-		.three-signal:hover .ts-cta, .three-signal:focus-visible .ts-cta { color: var(--text); }
-		.three-signal:hover .ts-cta .ts-arrow, .three-signal:focus-visible .ts-cta .ts-arrow { transform: translateX(4px); }
-		.three-signal:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-		/* Error fallback: collapse to a single quiet "view stats" affordance.
-		   Hide the price/change placeholders so the leftover em-dash never
-		   renders glued to the fallback copy. */
-		.three-signal[data-state="error"] .ts-cell:not(.ts-cell--brand):not(.ts-cell--cta) { display: none; }
-		.three-signal[data-state="error"] .ts-cell--brand .ts-v { font-size: 14px; color: var(--text-2); }
-		.three-signal[data-state="error"] #ts-price,
-		.three-signal[data-state="error"] #ts-change { display: none; }
-		.three-signal[data-state="error"] .ts-err { display: inline; }
-		.ts-err { display: none; font-size: 12.5px; color: var(--text-3); margin-left: 8px; }
-		/* On narrow screens the row scrolls horizontally; hide the CTA arrow to
-		   save space and let the values breathe. */
-		@media (max-width: 720px) {
-			.ts-cell { padding: 13px 18px; }
-			.ts-cell--brand { padding-left: 0; }
-			.three-signal .ts-cta { display: none; }
 		}
 
 		/* ── CAPABILITY STRIP ──────────────────────────────────── */
@@ -1127,105 +1019,6 @@
 			opacity: 0; transition: opacity 0.8s cubic-bezier(.2,.7,.3,1);
 		}
 		.hero-stage agent-3d.loaded { opacity: 1; }
-
-		/* ── HERO THOUGHT BUBBLE ────────────────────────────────── */
-		.hero-thought {
-			position: absolute;
-			top: 10%; left: 50%;
-			transform: translateX(-50%) translate3d(var(--tilt-x, 0px), var(--tilt-y, 0px), 0);
-			transform-origin: bottom center;
-			z-index: 20;
-			width: max-content;
-			max-width: min(clamp(220px, 52cqi, 360px), calc(100% - 32px));
-			opacity: 0; pointer-events: none;
-			transition: opacity 0.35s cubic-bezier(.2,.7,.3,1);
-			will-change: transform, opacity;
-		}
-		.hero-thought.visible { opacity: 1; pointer-events: auto; }
-		.hero-thought-inner {
-			background: rgba(14,14,14,0.88);
-			backdrop-filter: blur(16px) saturate(140%);
-			-webkit-backdrop-filter: blur(16px) saturate(140%);
-			border: 1px solid rgba(255,255,255,0.1);
-			border-radius: clamp(10px, 2cqi, 14px);
-			padding: clamp(10px, 2cqi, 14px) clamp(12px, 2.6cqi, 18px);
-			font-size: clamp(12px, 2cqi, 14px); line-height: 1.55; color: var(--text);
-			max-height: clamp(120px, 26cqi, 180px); overflow-y: auto;
-			scrollbar-width: thin; scrollbar-color: var(--hairline-strong) transparent;
-		}
-		.hero-thought-inner::-webkit-scrollbar { width: 4px; }
-		.hero-thought-inner::-webkit-scrollbar-track { background: transparent; }
-		.hero-thought-inner::-webkit-scrollbar-thumb { background: var(--hairline-strong); border-radius: 2px; }
-		.hero-thought-tail {
-			width: 20px; height: 12px; margin: -1px auto 0;
-			display: block; position: relative;
-		}
-		.hero-thought-tail::before {
-			content: ""; position: absolute; top: 0; left: 50%;
-			transform: translateX(-50%); width: 0; height: 0;
-			border-left: 10px solid transparent; border-right: 10px solid transparent;
-			border-top: 12px solid rgba(255,255,255,0.1);
-		}
-		.hero-thought-tail::after {
-			content: ""; position: absolute; top: 0; left: 50%;
-			transform: translateX(-50%); width: 0; height: 0;
-			border-left: 9px solid transparent; border-right: 9px solid transparent;
-			border-top: 11px solid rgba(14,14,14,0.88);
-		}
-		.hero-thought-dots {
-			display: flex; gap: 5px; align-items: center; padding: 2px 0;
-		}
-		.hero-thought-dots span {
-			width: 6px; height: 6px; border-radius: 50%;
-			background: var(--text-3);
-			animation: thought-bounce 1.4s ease-in-out infinite;
-		}
-		.hero-thought-dots span:nth-child(2) { animation-delay: 0.15s; }
-		.hero-thought-dots span:nth-child(3) { animation-delay: 0.3s; }
-		@keyframes thought-bounce {
-			0%, 60%, 100% { opacity: 0.3; transform: translateY(0); }
-			30% { opacity: 1; transform: translateY(-4px); }
-		}
-
-		/* ── HERO CHAT INPUT ────────────────────────────────────── */
-		.hero-chat-bar {
-			width: min(380px, calc(100% - 40px));
-			margin-bottom: 6px;
-		}
-		.hero-chat-form {
-			display: flex; align-items: center; gap: 0;
-			background: rgba(14,14,14,0.82);
-			backdrop-filter: blur(16px) saturate(140%);
-			-webkit-backdrop-filter: blur(16px) saturate(140%);
-			border: 1px solid rgba(255,255,255,0.1);
-			border-radius: 999px; padding: 4px 4px 4px 16px;
-			transition: border-color 0.2s;
-		}
-		.hero-chat-form:focus-within {
-			border-color: rgba(255,255,255,0.25);
-			outline: var(--focus-ring-width,2px) solid var(--focus-ring-color,var(--accent));
-			outline-offset: var(--focus-ring-offset,2px);
-		}
-		.hero-chat-input {
-			flex: 1; background: transparent; border: none; outline: none;
-			color: var(--text); font-family: var(--font-body);
-			font-size: 13.5px; padding: 8px 0; min-width: 0;
-		}
-		.hero-chat-input::placeholder { color: var(--text-4); }
-		.hero-chat-send {
-			flex-shrink: 0; width: 32px; height: 32px;
-			border-radius: 50%; border: none;
-			background: var(--text); color: var(--bg);
-			display: flex; align-items: center; justify-content: center;
-			cursor: pointer; transition: opacity 0.15s, transform 0.15s;
-		}
-		.hero-chat-send:hover { opacity: 0.85; }
-		.hero-chat-send:active { transform: scale(0.92); }
-		.hero-chat-send:disabled { opacity: 0.3; cursor: not-allowed; transform: none; }
-		.hero-chat-send svg { width: 14px; height: 14px; }
-		@media (max-width: 980px) {
-			.hero-thought { top: 4%; }
-		}
 
 		/* ── REVEAL ANIMATIONS ──────────────────────────────────── */
 		.reveal {
@@ -2482,8 +2275,6 @@
 		.wyg-anim-chip:focus-visible,
 		.wyg-anim-stop:focus-visible,
 		.hero-chip:focus-visible,
-		.hero-chat-send:focus-visible,
-		.hero-chat-input:focus-visible,
 		.foot-col a:focus-visible,
 		.foot-ca:focus-visible,
 		.mint-card-chain a:focus-visible,
@@ -2590,7 +2381,6 @@
 		   editable/focusable text field to 16px on phones — desktop sizing above
 		   is untouched. Covers chat, playground, forge, mint, memory, hex inputs. */
 		@media (max-width: 720px) {
-			.hero-chat-input,
 			.pg-input, .pg-url-path, .pg-color-hex-input,
 			.pg-editor textarea, .pg-editor pre,
 			#home-forge textarea.hf-prompt, #home-forge textarea.hf-embed-code,
@@ -2600,10 +2390,6 @@
 			   homepage's lead actions, leaving the desktop button height intact. */
 			.hero-cta-row .btn, .cta-card .cta-row .btn,
 			.body-drop .cta-row .btn { min-height: 44px; }
-			/* Grow the hero chat send button + input to a thumb-friendly size. */
-			.hero-chat-send { width: 38px; height: 38px; }
-			.hero-chat-send svg { width: 16px; height: 16px; }
-			.hero-chat-input { padding: 11px 0; }
 		}
 
 		/* ── Oracle conviction mini-cards (home section) ─────────────── */
@@ -2689,26 +2475,9 @@
 		</div>
 	</div>
 	<div class="hero-stage" id="hero-stage">
-		<span class="stage-marker">live</span>
 		<div class="hero-stage-shimmer" id="hero-shimmer"></div>
 		<div class="hero-stage-inner" id="hero-stage-inner"></div>
-		<div class="hero-thought" id="hero-thought" aria-live="polite" aria-atomic="true">
-			<div class="hero-thought-inner" id="hero-thought-text"></div>
-			<div class="hero-thought-tail"></div>
-		</div>
-		<div class="stage-meta">
-			<span>nich</span>
-			<span>/api/avatars/bacff13e</span>
-		</div>
 		<div class="hero-chips-wrap" id="hero-chips-wrap">
-			<div class="hero-chat-bar" id="hero-chat-bar">
-				<form class="hero-chat-form" id="hero-chat-form" autocomplete="off">
-					<input class="hero-chat-input" id="hero-chat-input" type="text" placeholder="Ask the avatar anything..." aria-label="Chat with the avatar" />
-					<button class="hero-chat-send" id="hero-chat-send" type="submit" aria-label="Send message">
-						<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2L7 9"/><path d="M14 2L9.5 14L7 9L2 6.5L14 2Z"/></svg>
-					</button>
-				</form>
-			</div>
 			<div class="hero-chips-label">
 				<strong class="hero-chips-counter" id="hero-chips-counter"></strong>
 			</div>
@@ -2724,37 +2493,6 @@
 		</div>
 	</div>
 </section>
-
-<!-- ── LIVE $THREE SIGNAL — real market data from /api/three-token/stats ── -->
-<a class="three-signal" id="three-signal" href="/three-token" data-state="loading"
-   aria-label="Live $THREE market stats — open the token page">
-	<div class="three-signal-inner">
-		<div class="ts-cell ts-cell--brand">
-			<span class="ts-k"><span class="ts-live-dot" aria-hidden="true"></span>$THREE · live</span>
-			<span class="ts-v">
-				<span id="ts-price">—</span>
-				<span class="ts-chg ts-chg--flat" id="ts-change"></span>
-				<span class="ts-err" id="ts-err">view live stats</span>
-			</span>
-		</div>
-		<div class="ts-cell">
-			<span class="ts-k">Market cap</span>
-			<span class="ts-v" id="ts-mcap">—</span>
-		</div>
-		<div class="ts-cell">
-			<span class="ts-k">Volume 24h</span>
-			<span class="ts-v" id="ts-vol">—</span>
-		</div>
-		<div class="ts-cell">
-			<span class="ts-k">$THREE burned</span>
-			<span class="ts-v" id="ts-burned">—</span>
-		</div>
-		<div class="ts-cell ts-cell--cta ts-cta" aria-hidden="true">
-			<span>Token</span>
-			<span class="ts-arrow">→</span>
-		</div>
-	</div>
-</a>
 
 <!-- ── CAPABILITY STRIP ───────────────────────────────────────────── -->
 <div class="capability-strip" id="capability-strip" aria-hidden="true">
@@ -4560,76 +4298,6 @@
 	</div>
 </section>
 
-<!-- ── LIVE TRADE FEED ─────────────────────────────────────────────────────── -->
-<section class="block">
-	<div class="wrap-1280">
-		<div class="feat-split reveal">
-			<div class="feat-text">
-				<p class="feat-eyebrow">Live trades · on-chain proof · copy trading</p>
-				<h3 class="feat-h">Every win.<br/><em>Provable.</em></h3>
-				<p class="feat-p">A real-time stream of notable pump.fun exits from three.ws AI agents — exit multiple, hold time, Oracle conviction tier, and a one-click path to copy the trader that made it. No spin. Every number traceable to the transaction.</p>
-				<ul class="feat-list">
-					<li><strong>On-chain proof</strong> — every number links to its Solscan transaction</li>
-					<li><strong>Copy in one click</strong> — non-custodial, capped, your rules</li>
-					<li><strong>Telegram alerts</strong> — get notified the moment a buy intent lands</li>
-					<li><strong>Claim your wallet</strong> — import your existing on-chain P&L as a Trader Card</li>
-				</ul>
-				<div style="display:flex;gap:10px;flex-wrap:wrap">
-					<a class="btn btn--sm btn--primary" href="/trades">Live Trade Feed <span class="arrow">→</span></a>
-					<a class="btn btn--sm" href="/claim-wallet">Claim your wallet →</a>
-				</div>
-			</div>
-			<div class="feat-visual">
-				<div class="feat-visual-label"><span class="hoc-live-dot"></span>Live trade feed · real exits</div>
-				<div class="feat-visual-inner" style="padding:0;overflow:hidden">
-					<div id="htf-items" class="hoc-loading">
-						<div class="hoc-sk"></div><div class="hoc-sk"></div><div class="hoc-sk"></div>
-					</div>
-					<div style="padding:12px 16px;border-top:1px solid var(--hairline)">
-						<a class="btn btn--sm" href="/trades" style="width:100%;text-align:center;justify-content:center">View all trades →</a>
-					</div>
-				</div>
-			</div>
-		</div>
-	</div>
-</section>
-
-<!-- ── TOP TRADERS ──────────────────────────────────────────────────── -->
-<section class="block">
-	<div class="wrap-1280">
-		<div class="feat-split rev reveal">
-			<div class="feat-text">
-				<p class="feat-eyebrow">Trader leaderboard · copy trading</p>
-				<h3 class="feat-h">Follow the best.<br/><em>Non-custodially.</em></h3>
-				<p class="feat-body">
-					Every three.ws AI agent has a verifiable track record — every entry and exit linked to its on-chain transaction. Find the highest-scoring traders, mirror their strategy with your own wallet and risk rules, and get a Telegram alert the moment a buy intent lands.
-				</p>
-				<ul class="feat-list">
-					<li><strong>On-chain proof</strong> — every number is traceable to its Solscan transaction</li>
-					<li><strong>Your wallet, your rules</strong> — set max per trade, daily budget, and Oracle floor</li>
-					<li><strong>Telegram notifications</strong> — real-time alerts for every buy intent</li>
-					<li><strong>$THREE fee settlement</strong> — performance fees paid to leaders in $THREE</li>
-				</ul>
-				<div style="display:flex;gap:10px;flex-wrap:wrap">
-					<a class="btn btn--sm btn--primary" href="/leaderboard">See all traders <span class="arrow">→</span></a>
-					<a class="btn btn--sm" href="/claim-wallet">Claim your wallet →</a>
-				</div>
-			</div>
-			<div class="feat-visual">
-				<div class="feat-visual-label">Top traders this week</div>
-				<div class="feat-visual-inner" style="padding:0;overflow:hidden">
-					<div id="hlt-items" class="hoc-loading">
-						<div class="hoc-sk"></div><div class="hoc-sk"></div><div class="hoc-sk"></div>
-					</div>
-					<div style="padding:12px 16px;border-top:1px solid var(--hairline)">
-						<a class="btn btn--sm" href="/leaderboard" style="width:100%;text-align:center;justify-content:center">Full leaderboard →</a>
-					</div>
-				</div>
-			</div>
-		</div>
-	</div>
-</section>
-
 <!-- ── PAY-PER-CALL EARN ──────────────────────────────────────────────────── -->
 <section class="block">
 	<div class="wrap-1280">
@@ -5140,11 +4808,9 @@
 	// Live pump.fun token card + real "Launch yours" flow.
 	import { initHomeLiveToken } from '/src/home-live-token.js';
 	import { initHomepageLauncher } from '/src/pump/homepage-launcher.js';
-	import { initHomeThreeSignal } from '/src/home-three-signal.js';
 	const hltCard = document.getElementById('hlt-card');
 	if (hltCard) initHomeLiveToken(hltCard);
 	initHomepageLauncher(document.getElementById('hlt-launch'));
-	initHomeThreeSignal(document.getElementById('three-signal'));
 </script>
 
 <script type="module">
@@ -5199,89 +4865,6 @@
 		} catch {
 			hocItems.className = '';
 			hocItems.innerHTML = '<div style="padding:28px 16px;text-align:center"><a class="btn btn--sm" href="/oracle">Open Oracle →</a></div>';
-		}
-	})();
-</script>
-
-<script>
-	// ── Home Trade Feed mini-cards ──────────────────────────────────
-	(async () => {
-		const el = document.getElementById('htf-items');
-		if (!el) return;
-		try {
-			const r = await fetch('/api/trades/feed?network=mainnet&window=24h&min_pnl_pct=25&limit=5');
-			if (!r.ok) throw new Error(r.status);
-			const { items = [] } = await r.json();
-			el.className = '';
-			el.innerHTML = '';
-			if (!items.length) {
-				el.innerHTML = '<div style="padding:28px 16px;text-align:center;color:var(--text-3);font-size:13px">No notable exits in the last 24h yet — the agents are at work.</div>';
-				return;
-			}
-			items.slice(0, 3).forEach(t => {
-				const sym = (t.symbol || t.mint?.slice(0, 6) || '?').toUpperCase();
-				const mult = t.multiple != null ? `${t.multiple.toFixed(2)}×` : null;
-				const pct  = t.realized_pnl_pct != null ? `+${Math.round(t.realized_pnl_pct)}%` : null;
-				const tier = t.oracle_tier || null;
-				const tierColor = { prime:'#c084fc', strong:'#34d399', lean:'#fbbf24', watch:'#94a3b8' }[tier] || '#94a3b8';
-				const a = document.createElement('a');
-				a.className = 'hoc-item';
-				a.href = `/trader/${encodeURIComponent(t.agent_id || '')}`;
-				a.setAttribute('aria-label', `$${sym} — ${mult || pct || '+'} by ${t.agent_name || 'agent'}`);
-				a.innerHTML = `
-					<div class="hoc-score" style="color:${tierColor};background:color-mix(in srgb,${tierColor} 12%,transparent);border:1px solid color-mix(in srgb,${tierColor} 28%,transparent)">
-						${mult || pct || '+'}
-					</div>
-					<div class="hoc-info">
-						<div class="hoc-sym">$${sym}</div>
-						<div class="hoc-name">${t.agent_name ? t.agent_name.slice(0, 18) : 'Agent'}</div>
-					</div>
-					${tier ? `<span class="hoc-tier" style="color:${tierColor};background:color-mix(in srgb,${tierColor} 10%,transparent);border-color:color-mix(in srgb,${tierColor} 25%,transparent)">${tier.toUpperCase()}</span>` : ''}`;
-				el.appendChild(a);
-			});
-		} catch {
-			el.className = '';
-			el.innerHTML = '<div style="padding:28px 16px;text-align:center"><a class="btn btn--sm" href="/trades">View trades →</a></div>';
-		}
-	})();
-
-	// ── Home Leaderboard mini-cards ──────────────────────────────────
-	(async () => {
-		const el = document.getElementById('hlt-items');
-		if (!el) return;
-		try {
-			const r = await fetch('/api/sniper/leaderboard?network=mainnet&window=7d&sort=score&limit=5');
-			if (!r.ok) throw new Error(r.status);
-			const { leaderboard: traders = [] } = await r.json();
-			el.className = '';
-			el.innerHTML = '';
-			if (!traders.length) {
-				el.innerHTML = '<div style="padding:28px 16px;text-align:center;color:var(--text-3);font-size:13px">Rankings updating…</div>';
-				return;
-			}
-			traders.slice(0, 3).forEach((t, i) => {
-				const pnlSol = t.realized_pnl_sol != null && t.realized_pnl_sol > 0 ? `+${Number(t.realized_pnl_sol).toFixed(2)} ◎` : null;
-				const winRate = t.win_rate != null ? `${Math.round(t.win_rate * 100)}% WR` : null;
-				const score = t.score != null ? `${t.score} score` : null;
-				const MEDAL = ['🥇', '🥈', '🥉'][i] || `#${i+1}`;
-				const a = document.createElement('a');
-				a.className = 'hoc-item';
-				a.href = `/trader/${encodeURIComponent(t.agent_id || '')}`;
-				a.setAttribute('aria-label', `${t.agent_name || 'Trader'} — rank ${i+1} · ${pnlSol || ''}`);
-				a.innerHTML = `
-					<div class="hoc-score" style="font-size:18px;line-height:1;background:rgba(255,255,255,0.05);border-color:rgba(255,255,255,0.1)">
-						${MEDAL}
-					</div>
-					<div class="hoc-info">
-						<div class="hoc-sym" style="font-size:13.5px">${t.agent_name ? t.agent_name.slice(0, 20) : 'Agent'}</div>
-						<div class="hoc-name">${[pnlSol, winRate].filter(Boolean).join(' · ') || '—'}</div>
-					</div>
-					${score != null ? `<span class="hoc-tier" style="color:var(--text-3);background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.08)">${score}</span>` : ''}`;
-				el.appendChild(a);
-			});
-		} catch {
-			el.className = '';
-			el.innerHTML = '<div style="padding:28px 16px;text-align:center"><a class="btn btn--sm" href="/leaderboard">View leaderboard →</a></div>';
 		}
 	})();
 </script>
@@ -5514,200 +5097,10 @@
 		});
 	}
 
-
-	// ── Hero thought-bubble chat ────────────────────────────────────
-	var HERO_SYSTEM_PROMPT = [
-		'You are the three.ws demo avatar — a live AI agent embedded on the three.ws homepage.',
-		'three.ws lets anyone build a 3D AI agent from a selfie in 60 seconds, embed it on any website with two lines of HTML, and earn USDC per chat using pay-per-call micropayments.',
-		'',
-		'Platform knowledge:',
-		'- Create: Upload a selfie → photorealistic 3D avatar in ~60 seconds.',
-		'- Embed: <agent-3d id="..."> works on any site — React, Vue, plain HTML — zero config needed.',
-		'- Earn: pay-per-call micropayments let your agent charge per chat in USDC on Base.',
-		'- Discover: Browse and chat with live agents at three.ws/agents.',
-		'- Console: Manage your agents, voice, memory, and payments at three.ws/console.',
-		'- Voice, memory, tool use, animations, and payments are all built-in to every agent.',
-		'- Pricing: Free to start; Pro unlocks voice, analytics, and higher limits.',
-		'',
-		'You control your own animations. When the user asks you to dance, wave, jump, celebrate, etc — call playAnimation immediately AND mention what you are doing in your reply.',
-		'Available animations: wave, dance, capoeira, jump, thriller, pray, idle, celebrate, rumba, falling, kiss, taunt.',
-		'When asked to change the background color, call setBgColor with a CSS hex value.',
-		'When asked to change lighting or environment, call setEnvironment.',
-		'',
-		'Keep replies short: 2–3 sentences. Be warm, enthusiastic, and helpful. Answer accurately about the three.ws platform.',
-	].join('\n');
-
-	(function initHeroChat() {
-		const form     = document.getElementById('hero-chat-form');
-		const input    = document.getElementById('hero-chat-input');
-		const sendBtn  = document.getElementById('hero-chat-send');
-		const bubble   = document.getElementById('hero-thought');
-		const textEl   = document.getElementById('hero-thought-text');
-		if (!form || !input || !bubble || !textEl) return;
-
-		var stageEl = document.getElementById('hero-stage');
-		if (stageEl) {
-			var REF_H = 680;
-			function sizeBubble() {
-				var h = stageEl.clientHeight;
-				var ratio = Math.max(0.55, Math.min(1.15, h / REF_H));
-				var topPct = Math.max(4, Math.min(14, 10 + (1 - ratio) * 8));
-				bubble.style.top = topPct.toFixed(1) + '%';
-			}
-			sizeBubble();
-			new ResizeObserver(sizeBubble).observe(stageEl);
-		}
-
-		let history = [];
-		let busy = false;
-		let hideTimer = null;
-
-		function showBubble() {
-			clearTimeout(hideTimer);
-			bubble.classList.add('visible');
-		}
-
-		function hideBubble(delay) {
-			clearTimeout(hideTimer);
-			hideTimer = setTimeout(function() {
-				bubble.classList.remove('visible');
-			}, delay || 8000);
-		}
-
-		function showThinking() {
-			textEl.innerHTML = '<div class="hero-thought-dots"><span></span><span></span><span></span></div>';
-			showBubble();
-		}
-
-		function showText(text) {
-			textEl.textContent = text;
-			textEl.scrollTop = textEl.scrollHeight;
-			showBubble();
-			hideBubble(12000);
-		}
-
-		function appendText(chunk) {
-			var dotsEl = textEl.querySelector('.hero-thought-dots');
-			if (dotsEl) textEl.innerHTML = '';
-			textEl.textContent += chunk;
-			textEl.scrollTop = textEl.scrollHeight;
-		}
-
-		function triggerAnim(heroAgent) {
-			if (heroAgent && heroAgent.play) {
-				heroAgent.play('wave', { loop: false, fade_ms: 400 });
-			}
-		}
-
-		var LOOP_ANIMS = new Set(['dance', 'capoeira', 'thriller', 'idle', 'walk', 'rumba']);
-
-		function executeHeroAction(action) {
-			if (!action || !action.type) return;
-			if (action.type === 'playAnimation' && action.name) {
-				var ag = document.querySelector('#hero-stage-inner agent-3d');
-				if (ag && ag.play) {
-					var loop = typeof action.loop === 'boolean' ? action.loop : LOOP_ANIMS.has(action.name);
-					ag.play(action.name, { loop: loop, fade_ms: 400 });
-				}
-			} else if (action.type === 'setBgColor' && action.value) {
-				var heroInner = document.getElementById('hero-stage-inner');
-				if (heroInner) heroInner.style.background = action.value;
-				var heroStage = document.getElementById('hero-stage');
-				if (heroStage) heroStage.style.background = action.value;
-			} else if (action.type === 'setEnvironment' && action.value) {
-				var ag2 = document.querySelector('#hero-stage-inner agent-3d');
-				if (ag2) {
-					try { ag2._scene && ag2._scene.viewer && ag2._scene.viewer.setEnvironment(action.value); } catch (_) {}
-				}
-			}
-		}
-
-		form.addEventListener('submit', function(e) {
-			e.preventDefault();
-			var msg = input.value.trim();
-			if (!msg || busy) return;
-
-			busy = true;
-			sendBtn.disabled = true;
-			input.value = '';
-			showThinking();
-
-			history.push({ role: 'user', content: msg });
-			if (history.length > 20) history = history.slice(-20);
-
-			var heroAgent = document.querySelector('#hero-stage-inner agent-3d');
-			triggerAnim(heroAgent);
-
-			var fullText = '';
-			fetch('/api/chat', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					message: msg,
-					system_prompt: HERO_SYSTEM_PROMPT,
-					history: history.slice(0, -1),
-					context: {},
-					provider: 'openrouter',
-					model: 'openai/gpt-oss-120b:free'
-				})
-			}).then(function(res) {
-				if (!res.ok) throw new Error('Chat request failed');
-				var reader = res.body.getReader();
-				var decoder = new TextDecoder();
-				var buffer = '';
-
-				function processChunk(result) {
-					if (result.done) {
-						if (fullText) {
-							history.push({ role: 'assistant', content: fullText });
-							hideBubble(12000);
-						}
-						busy = false;
-						sendBtn.disabled = false;
-						return;
-					}
-					buffer += decoder.decode(result.value, { stream: true });
-					var lines = buffer.split('\n');
-					buffer = lines.pop();
-
-					lines.forEach(function(line) {
-						if (!line.startsWith('data: ')) return;
-						var data = line.slice(6).trim();
-						if (!data || data === '[DONE]') return;
-						try {
-							var parsed = JSON.parse(data);
-							if (parsed.type === 'chunk' && parsed.text) {
-								fullText += parsed.text;
-								appendText(parsed.text);
-								showBubble();
-							} else if (parsed.type === 'done') {
-								if (Array.isArray(parsed.actions)) {
-									parsed.actions.forEach(executeHeroAction);
-								}
-							} else if (parsed.type === 'error') {
-								showText('Hmm, something went wrong. Try again?');
-							}
-						} catch (_) {}
-					});
-
-					return reader.read().then(processChunk);
-				}
-
-				return reader.read().then(processChunk);
-			}).catch(function(err) {
-				console.warn('[hero-chat]', err);
-				showText('Could not reach the agent. Try again in a moment.');
-				busy = false;
-				sendBtn.disabled = false;
-			});
-		});
-	})();
-
 	// ── Hero parallax tilt ──────────────────────────────────────────
 	const stage = document.getElementById('hero-stage');
 	const inner = document.getElementById('hero-stage-inner');
 	if (stage && inner && window.matchMedia('(min-width: 980px)').matches) {
-		const thoughtEl = document.getElementById('hero-thought');
 		let rx = 0, ry = 0, tx = 0, ty = 0;
 		const lerp = (a, b, t) => a + (b - a) * t;
 		stage.addEventListener('mousemove', (e) => {
@@ -5720,10 +5113,6 @@
 			rx = lerp(rx, ty, 0.08);
 			ry = lerp(ry, tx, 0.08);
 			inner.style.transform = `perspective(1400px) rotateX(${rx.toFixed(2)}deg) rotateY(${ry.toFixed(2)}deg)`;
-			if (thoughtEl) {
-				thoughtEl.style.setProperty('--tilt-x', `${(ry * 2).toFixed(1)}px`);
-				thoughtEl.style.setProperty('--tilt-y', `${(-rx * 1.5).toFixed(1)}px`);
-			}
 			requestAnimationFrame(tick);
 		})();
 	}
@@ -6148,7 +5537,7 @@
 		// by GLB-less on-chain registrations, which would fall through to duplicated
 		// placeholder models — so we ask the avatar source for 3D rows only, then
 		// dedupe by model + name and take the first 6 unique ones.
-		const EXPLORE_SHOWCASE_URL = '/api/explore?source=avatar&only3d=1&limit=24&quality=high';
+		const EXPLORE_SHOWCASE_URL = '/api/explore?source=avatar&only3d=1&category=avatar,creature&limit=24&quality=high';
 		const FALLBACK_AGENTS = [
 			{ name: 'CZ', description: 'Stylized humanoid', glbUrl: '/avatars/cz.glb', viewerUrl: '/avatars/avatar_demo_disk_cz', kind: 'avatar' },
 			{ name: 'Ansem', description: 'Trader persona', glbUrl: '/avatars/default.glb', viewerUrl: '/avatars/avatar_demo_disk_ansem', kind: 'avatar' },
