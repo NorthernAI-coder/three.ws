@@ -26,8 +26,8 @@
  * what a "tap → pay this service" card should surface.
  *
  *   { agent:      { id, name, bio, thumbnail_url, profile_url },
- *     reputation: { asset, score, tier, attestation_count, unique_attesters,
- *                   tasks_accepted, available },
+ *     reputation: { asset, network, score, tier, attestation_count,
+ *                   unique_attesters, tasks_accepted, available },
  *     services:   [{ skill, name, description, price_usd, currency, chain,
  *                    x402_endpoint }],
  *     x402_endpoint }
@@ -145,10 +145,10 @@ async function buildCard(agentId, fallback = {}) {
 	} else {
 		try {
 			const rep = await fetchReputation(asset, network);
-			reputation = { asset, available: true, ...rep };
+			reputation = { asset, network, available: true, ...rep };
 		} catch (err) {
 			console.warn('[irl/agent-card] reputation query failed, degrading:', err?.message);
-			reputation = { asset, available: false, degraded: true };
+			reputation = { asset, network, available: false, degraded: true };
 		}
 	}
 

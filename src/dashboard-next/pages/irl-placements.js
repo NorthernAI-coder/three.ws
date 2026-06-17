@@ -25,6 +25,7 @@
 import { mountShell } from '../shell.js';
 import { requireUser, get, post, patch, esc, relTime } from '../api.js';
 import { skeletonHTML, emptyStateHTML, errorStateHTML, ensureStateKitStyles, attachRetry } from '../../shared/state-kit.js';
+import { mountReputationPanel } from './irl-reputation.js';
 
 // ── Services / x402 skill pricing ───────────────────────────────────────────
 // Canonical prices live in agent_skill_prices and feed the x402 manifest +
@@ -51,11 +52,21 @@ function toAtomic(display, decimals) {
 	return Math.round(Number(display) * 10 ** decimals);
 }
 // Integer atomic units → human price string (maximumFractionDigits drops any
-// trailing zeros, so 50000 @ 6dp → "0.05", 1000000 @ 6dp → "1").
+// trailing zeros, so 50000 @ 6dp → "0.05", 1000000 @ 6dp → "1"). Grouped with
+// thousands separators for display — $THREE is cheap, so per-call prices can run
+// to thousands of units and "1,500 $THREE" reads better than "1500 $THREE".
 function fromAtomic(amount, decimals) {
 	const n = Number(amount) / 10 ** decimals;
 	if (!Number.isFinite(n)) return '0';
 	return n.toLocaleString('en-US', { maximumFractionDigits: decimals });
+}
+// Same conversion WITHOUT grouping separators — for prefilling a <input
+// type="number">, which silently blanks on a value containing commas. So a
+// 1,500-unit price stays editable instead of vanishing when the owner taps Edit.
+function fromAtomicInput(amount, decimals) {
+	const n = Number(amount) / 10 ** decimals;
+	if (!Number.isFinite(n)) return '0';
+	return n.toLocaleString('en-US', { maximumFractionDigits: decimals, useGrouping: false });
 }
 
 function haversineDist(lat1, lng1, lat2, lng2) {
@@ -454,6 +465,11 @@ async function mount(el) {
 				const card2 = data?.card;
 				if (!card2) { fillStatError(card, 'reputation'); fillStatError(card, 'services'); return; }
 				fillStat(card, 'reputation', String(card2.reputation?.score ?? 0));
+				// C3 — turn the Reputation chip into the open/close affordance for an
+				// on-chain reputation panel: the same score/tier the public B2 tap
+				// card shows, plus a verified/credentialed/disputed breakdown lazily
+				// loaded from /api/agents/solana-reputation when the owner opens it.
+				mountReputationPanel(card, { reputation: card2.reputation, agentId: pin.agent_id, pinId: pin.id });
 				const svc = card2.services || [];
 				fillStat(card, 'services', String(svc.length));
 				renderServices(card, svc);
@@ -791,7 +807,7 @@ function openServicesModal(agentId, agentName) {
 		const cur = currencyForMint(p.currency_mint);
 		const actions = row.querySelector('[data-actions]');
 		actions.innerHTML = `
-			<input class="irl-pr-input" type="number" min="0" step="any" value="${esc(fromAtomic(p.amount, cur.decimals))}" aria-label="New price in ${esc(cur.label)}" />
+			<input class="irl-pr-input" type="number" min="0" step="any" value="${esc(fromAtomicInput(p.amount, cur.decimals))}" aria-label="New price in ${esc(cur.label)}" />
 			<span class="irl-pr-cur">${esc(cur.label)}</span>
 			<button class="irl-link-btn" data-save-edit="${esc(skill)}" type="button">Save</button>
 			<button class="irl-link-btn" data-cancel-edit type="button">Cancel</button>`;
