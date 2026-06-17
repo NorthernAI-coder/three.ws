@@ -29,6 +29,7 @@ const API = '/api/trades/feed';
 const REFRESH_MS = 30_000;
 
 const $ = (sel, root = document) => root.querySelector(sel);
+const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 
 const state = {
 	window:  '24h',
@@ -48,7 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	$('#tfWinSeg').addEventListener('click', (e) => {
 		const b = e.target.closest('[data-win]');
 		if (!b) return;
-		$('#tfWinSeg button').forEach((x) => x.classList.toggle('on', x === b));
+		$$('#tfWinSeg button').forEach((x) => x.classList.toggle('on', x === b));
 		state.window = b.dataset.win;
 		state.cursor = null;
 		writeUrl();
@@ -135,7 +136,7 @@ function applyStateToControls() {
 	$('#tfMinPnl').value = String(state.minPnl);
 	$('#tfNetwork').value = state.network;
 	// sync seg buttons
-	$('#tfWinSeg button').forEach((b) => b.classList.toggle('on', b.dataset.win === state.window));
+	$$('#tfWinSeg button').forEach((b) => b.classList.toggle('on', b.dataset.win === state.window));
 }
 
 // ── Fetch + render ────────────────────────────────────────────────────────────
