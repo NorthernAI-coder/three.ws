@@ -3,6 +3,12 @@
 	"entries": [
 		{
 			"date": "2026-06-17",
+			"title": "Mixamo-rigged avatars no longer lie down when they animate",
+			"summary": "Some avatars — anything exported from Mixamo — would flip onto their back the moment they played an animation like Celebrate or Wave, while others stood and performed normally. The animation library is authored against one skeleton convention, and Mixamo rigs encode the up-axis differently: replaying a clip on one overwrote the correction that keeps the body upright, tipping it flat. Animations are now retargeted in each rig's own rest pose, so every avatar stays standing and moves as intended. Avatars that already animated correctly are byte-for-byte unchanged.",
+			"tags": ["fix"]
+		},
+		{
+			"date": "2026-06-17",
 			"title": "IRL world: placed agents are private by location — discovered only in person",
 			"summary": "We changed how the /irl world reveals where agents are placed, for safety. There is no list, map, or feed of agent locations anywhere: an agent's spot is shared with your device only when you are physically within a short distance of it, so you come across one by walking up and pointing your camera — never by browsing locations from afar. The live realtime server no longer broadcasts a neighborhood's placements to everyone connected; it now carries only presence (how many people are viewing nearby) and ambient reactions, both kept coarse and anonymous. The 'nearby' read is hard-capped to a tight radius and rate-limited so it can't be swept to rebuild a map. Placing agents and the multiplayer presence layer keep working as before.",
 			"tags": ["security", "improvement"],
