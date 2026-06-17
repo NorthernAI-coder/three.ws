@@ -3,6 +3,13 @@
 	"entries": [
 		{
 			"date": "2026-06-16",
+			"title": "IRL: multiplayer AR, camera-aware agents, agent switcher, and owner dashboard",
+			"summary": "three.ws/irl is now a shared augmented reality space. Any 3D AI agent pinned to a GPS location is visible to every user who walks by with their camera open — no account required to see others' agents. Agents now track the camera: as you physically move or point your phone, nearby agents slowly rotate to face you (like the classic mouse-hover billboard trick, but in real life). When they're in your camera's view cone their name tag pulses green. Tap any 3D agent model directly — or its floating label — to open a rich profile card showing their description, skills, visit count, and a Pay button if they accept x402. A new My Agents panel lets you switch which of your AI agents is placed at a location. Your own pinned agent shows a gold label so it's visually distinct from others nearby. The IRL Dashboard now shows live wallet balances (ETH/USDC/SOL), skill badges, recent encounter logs (who viewed, messaged, or paid your agent IRL), a remote location update tool (move your pin without visiting the physical spot), and an outfit swap to change the 3D model shown there.",
+			"tags": ["feature"],
+			"link": "/irl"
+		},
+		{
+			"date": "2026-06-16",
 			"title": "Fixed a batch of nav links that used to dead-end on a 404",
 			"summary": "Swept the whole site for pages that were linked from the menus or built but never wired into the production router. Trending, Activity, Radar, Smart Money, Coin Intelligence, the Scene Composer, the create-flow \"your avatar is ready\" step, and the post-deploy success screen all used to 404 in production even though they were finished — they now open correctly. Also retired two dead pages (an old Forge preview and a duplicate Strategy Lab) so search and the sitemap only point at live surfaces.",
 			"tags": [

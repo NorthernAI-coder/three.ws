@@ -58,6 +58,7 @@ const CAM_OFFSET         = new Vector3(0, 1.85, 3.6);
 const CAM_LOOK_OFFSET    = new Vector3(0, 1.1, 0);
 const SPAWN_DURATION     = 0.38; // seconds for placed object scale-up
 const TAP_THRESHOLD      = 10;   // px — beyond this it's a drag, not a tap
+const NEARBY_FACE_LERP   = 0.025; // speed at which nearby agents rotate to face camera
 
 // ── URL params ────────────────────────────────────────────────────────────
 const params = new URLSearchParams(location.search);
@@ -72,6 +73,11 @@ function resolveAvatarUrl(id) {
 
 // ── DOM refs ──────────────────────────────────────────────────────────────
 const $  = (id) => document.getElementById(id);
+// Pre-allocated vectors used in tick() camera-awareness detection (avoids GC churn)
+const _camWorldDir = new Vector3();
+const _camDirH     = new Vector3();
+const _toAgentH    = new Vector3();
+
 const canvas      = $('irl-canvas');
 const videoEl     = $('irl-camera');
 const joystickEl  = $('irl-joystick');
@@ -451,7 +457,6 @@ let tapDownX = 0, tapDownY = 0;
 
 canvas.addEventListener('pointerdown', e => { tapDownX = e.clientX; tapDownY = e.clientY; });
 canvas.addEventListener('pointerup', e => {
-	if (!placeModeActive) return;
 	if (Math.hypot(e.clientX - tapDownX, e.clientY - tapDownY) > TAP_THRESHOLD) return;
 
 	pointerNDC.set(
@@ -459,20 +464,44 @@ canvas.addEventListener('pointerup', e => {
 		-(e.clientY / window.innerHeight) * 2 + 1,
 	);
 	raycaster.setFromCamera(pointerNDC, camera);
-	const hits = raycaster.intersectObject(rayPlane);
-	if (!hits.length) return;
 
-	const def  = OBJ_DEFS[selectedType];
-	if (!def) return;
-	const mesh = def.create();
-	mesh.position.x = hits[0].point.x;
-	mesh.position.z = hits[0].point.z;
-	mesh.scale.setScalar(0.001);
-	scene.add(mesh);
-	placedObjects.push({ mesh, spawnT: 0, type: selectedType });
-	clearBtn.hidden = false;
-	_saveSession();
+	if (placeModeActive) {
+		// ── Place mode: drop an object on the ground ─────────────────────
+		const hits = raycaster.intersectObject(rayPlane);
+		if (!hits.length) return;
+		const def = OBJ_DEFS[selectedType];
+		if (!def) return;
+		const mesh = def.create();
+		mesh.position.x = hits[0].point.x;
+		mesh.position.z = hits[0].point.z;
+		mesh.scale.setScalar(0.001);
+		scene.add(mesh);
+		placedObjects.push({ mesh, spawnT: 0, type: selectedType });
+		clearBtn.hidden = false;
+		_saveSession();
+	} else {
+		// ── Tap on a nearby agent's 3D model ─────────────────────────────
+		const agentGroups = nearbyPins.map(p => p.group).filter(Boolean);
+		if (agentGroups.length) {
+			const hits = raycaster.intersectObjects(agentGroups, true);
+			if (hits.length) {
+				// Traverse up the scene graph to find which pin owns the hit mesh
+				const pin = _pinForObject(hits[0].object);
+				if (pin) { openPinSheet(pin); return; }
+			}
+		}
+	}
 });
+
+function _pinForObject(obj) {
+	let node = obj;
+	while (node) {
+		const found = nearbyPins.find(p => p.group === node);
+		if (found) return found;
+		node = node.parent;
+	}
+	return null;
+}
 
 // ── Joystick ──────────────────────────────────────────────────────────────
 const input = {
@@ -968,11 +997,15 @@ function spawnNearbyPin(pin) {
 	pin.group = g;
 	scene.add(g);
 
-	// Floating HTML name label
+	// Floating HTML name label — gold border if this is the owner's own pin
 	const el = document.createElement('div');
 	el.className   = 'irl-agent-label';
+	// Mark own pin (matched by device_token on anonymous OR user_id on authenticated)
+	if (pin.device_token === _deviceToken || (gpsPin?.id && pin.id === gpsPin.id)) {
+		el.classList.add('is-own');
+	}
 	el.style.display = 'none';
-	el.innerHTML   = `<span class="irl-agent-label-name">${_escHtml(pin.avatar_name || 'Agent')}</span>`;
+	el.innerHTML = `<span class="irl-agent-label-name">${_escHtml(pin.avatar_name || 'Agent')}</span>`;
 	el.addEventListener('click', () => openPinSheet(pin));
 	document.body.appendChild(el);
 	pin.labelEl = el;
@@ -1132,26 +1165,216 @@ document.getElementById('irl-mypins-list')?.addEventListener('click', (e) => {
 });
 
 // ── Interaction sheet ─────────────────────────────────────────────────────
-function openPinSheet(pin) {
+async function openPinSheet(pin) {
 	const sheet = document.getElementById('irl-sheet');
 	if (!sheet) return;
-	document.getElementById('irl-sheet-name').textContent    = pin.avatar_name || 'Agent';
-	document.getElementById('irl-sheet-dist').textContent    = `${pin.distance_m ?? '?'}m away`;
+
+	// Populate basic fields immediately so the sheet opens without delay
+	document.getElementById('irl-sheet-name').textContent = pin.avatar_name || 'Agent';
+	const distEl = document.getElementById('irl-sheet-dist');
+	if (distEl) distEl.textContent = pin.distance_m != null ? `${pin.distance_m}m away` : '';
+
 	const cap = document.getElementById('irl-sheet-caption');
-	cap.textContent = pin.caption || '';
-	cap.hidden = !pin.caption;
+	if (cap) { cap.textContent = pin.caption || ''; cap.hidden = !pin.caption; }
+
 	const payBtn = document.getElementById('irl-sheet-pay');
 	if (payBtn) {
 		payBtn.hidden = !pin.x402_endpoint;
 		payBtn.dataset.endpoint = pin.x402_endpoint ?? '';
 	}
+
+	// Clear any previously loaded enriched content
+	const descEl  = document.getElementById('irl-sheet-description');
+	const skillsEl = document.getElementById('irl-sheet-skills');
+	const viewsEl  = document.getElementById('irl-sheet-views');
+	const multiEl  = document.getElementById('irl-sheet-multiplayer');
+	if (descEl)   { descEl.textContent = ''; descEl.hidden = true; }
+	if (skillsEl) { skillsEl.innerHTML = ''; skillsEl.hidden = true; }
+	if (viewsEl)  { viewsEl.hidden = true; }
+	if (multiEl)  { multiEl.hidden = true; }
+
 	sheet.dataset.agentId   = pin.agent_id   ?? '';
 	sheet.dataset.agentName = pin.avatar_name ?? '';
+	sheet.dataset.pinId     = pin.id ?? '';
+	// Reset the message composer for this agent
+	{
+		const msgInput  = document.getElementById('irl-msg-input');
+		const msgStatus = document.getElementById('irl-sheet-status');
+		if (msgInput)  { msgInput.value = ''; msgInput.disabled = false; }
+		if (msgStatus) { msgStatus.hidden = true; msgStatus.classList.remove('is-error'); }
+	}
 	sheet.classList.add('is-open');
+
+	// Multiplayer note — always show since all pins are publicly visible
+	if (multiEl) {
+		const multiText = document.getElementById('irl-sheet-multiplayer-text');
+		if (multiText) {
+			const viewDesc = pin.view_count > 0
+				? `Seen by ${pin.view_count} visitor${pin.view_count !== 1 ? 's' : ''} · visible to all users nearby`
+				: 'Visible to all users at this location';
+			multiText.textContent = viewDesc;
+		}
+		multiEl.hidden = false;
+	}
+
+	// Log the view interaction (fire-and-forget, best-effort)
+	if (pin.id) {
+		fetch('/api/irl/interactions', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+				pinId: pin.id,
+				type: 'view',
+				deviceToken: _deviceToken,
+				agentId: pin.agent_id ?? null,
+			}),
+		}).catch(() => {});
+		pin.view_count = (pin.view_count ?? 0) + 1;
+	}
+
+	// Async: enrich with full agent profile data
+	if (pin.agent_id) {
+		try {
+			const r = await fetch(`/api/agents/${encodeURIComponent(pin.agent_id)}`);
+			if (r.ok) {
+				const data = await r.json();
+				const agent = data.agent ?? data;
+				if (agent.description && descEl) {
+					descEl.textContent = agent.description;
+					descEl.hidden = false;
+				}
+				if (agent.skills?.length && skillsEl) {
+					skillsEl.innerHTML = agent.skills.slice(0, 6).map(s =>
+						`<span class="irl-skill-badge">${_escHtml(s)}</span>`,
+					).join('');
+					skillsEl.hidden = false;
+				}
+			}
+		} catch {}
+	}
 }
 
 document.getElementById('irl-sheet-close')?.addEventListener('click', () => {
 	document.getElementById('irl-sheet')?.classList.remove('is-open');
+});
+
+// Leave-a-message — a visitor's note becomes a 'message' interaction in the
+// owner's IRL feed (dashboard). Pin id is stamped on the sheet by openPinSheet.
+document.getElementById('irl-sheet-msg')?.addEventListener('submit', async (e) => {
+	e.preventDefault();
+	const sheet  = document.getElementById('irl-sheet');
+	const input  = document.getElementById('irl-msg-input');
+	const sendBtn = document.getElementById('irl-msg-send');
+	const status = document.getElementById('irl-sheet-status');
+	const pinId  = sheet?.dataset.pinId;
+	const text   = (input?.value ?? '').trim();
+	if (!pinId || !text) return;
+
+	if (sendBtn) sendBtn.disabled = true;
+	if (input)   input.disabled = true;
+	try {
+		const r = await fetch('/api/irl/interactions', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+				pinId,
+				type: 'message',
+				message: text,
+				deviceToken: _deviceToken,
+				agentId: sheet.dataset.agentId || null,
+			}),
+		});
+		if (!r.ok) throw new Error(`HTTP ${r.status}`);
+		if (input) input.value = '';
+		if (status) {
+			status.textContent = 'Message delivered — the owner will see it.';
+			status.classList.remove('is-error');
+			status.hidden = false;
+		}
+	} catch {
+		if (status) {
+			status.textContent = "Couldn't send — try again.";
+			status.classList.add('is-error');
+			status.hidden = false;
+		}
+	} finally {
+		if (sendBtn) sendBtn.disabled = false;
+		if (input)   input.disabled = false;
+	}
+});
+
+// ── Agent picker ──────────────────────────────────────────────────────────
+// Lists the authenticated user's agents. Selecting one loads its avatar GLB
+// into the scene and sets it as the current agent for any new pins.
+
+async function openAgentPicker() {
+	const sheet = document.getElementById('irl-agents-sheet');
+	const list  = document.getElementById('irl-agents-list');
+	if (!sheet || !list) return;
+	sheet.classList.add('is-open');
+	list.innerHTML = '<p class="irl-agents-empty">Loading…</p>';
+
+	let agents = [];
+	try {
+		const r = await fetch('/api/agents', { credentials: 'include' });
+		if (!r.ok) throw new Error('not_auth');
+		const data = await r.json();
+		agents = data.agents ?? [];
+	} catch {
+		list.innerHTML = '<p class="irl-agents-empty">Sign in to switch agents. <a href="/login">Log in →</a></p>';
+		return;
+	}
+
+	if (!agents.length) {
+		list.innerHTML = '<p class="irl-agents-empty">No agents yet. <a href="/create">Create your first agent →</a></p>';
+		return;
+	}
+
+	list.innerHTML = agents.map(a => `
+		<div class="irl-agent-row${_currentAgentId === a.id ? ' is-active' : ''}"
+		     data-agent-id="${_escHtml(a.id)}"
+		     data-avatar-id="${_escHtml(a.avatar_id ?? '')}"
+		     data-avatar-url="${_escHtml(a.avatar_model_url ?? '')}"
+		     data-name="${_escHtml(a.name)}">
+			<div class="irl-agent-thumb">
+				${a.avatar_thumbnail_url
+					? `<img src="${_escHtml(a.avatar_thumbnail_url)}" alt="" loading="lazy">`
+					: '🤖'}
+			</div>
+			<div class="irl-agent-row-info">
+				<div class="irl-agent-row-name">${_escHtml(a.name)}</div>
+				${a.description ? `<div class="irl-agent-row-desc">${_escHtml(a.description.slice(0, 90))}</div>` : ''}
+			</div>
+			${_currentAgentId === a.id ? '<span class="irl-agent-row-check">✓</span>' : ''}
+		</div>
+	`).join('');
+}
+
+document.getElementById('irl-agents-btn')?.addEventListener('click', openAgentPicker);
+document.getElementById('irl-agents-close')?.addEventListener('click', () => {
+	document.getElementById('irl-agents-sheet')?.classList.remove('is-open');
+});
+
+document.getElementById('irl-agents-list')?.addEventListener('click', async (e) => {
+	const row = e.target.closest('.irl-agent-row[data-agent-id]');
+	if (!row) return;
+	const agentId   = row.dataset.agentId;
+	const avatarId  = row.dataset.avatarId;
+	const avatarUrl = row.dataset.avatarUrl;
+	const name      = row.dataset.name;
+	document.getElementById('irl-agents-sheet')?.classList.remove('is-open');
+	_currentAgentId = agentId;
+	// Update URL so a share link carries the chosen agent's avatar
+	const sp = new URLSearchParams(location.search);
+	if (avatarId) sp.set('avatar', avatarId); else sp.delete('avatar');
+	history.replaceState(null, '', location.pathname + (sp.toString() ? '?' + sp : ''));
+	try {
+		await loadAvatar(avatarId || avatarUrl || null, name || null);
+		setStatus(`Switched to ${name}`);
+	} catch (err) {
+		log.error('[irl] agent switch failed:', err);
+		setStatus(`Couldn't load agent: ${err?.message ?? err}`, { error: true });
+	}
 });
 
 document.getElementById('irl-sheet-view')?.addEventListener('click', () => {
@@ -1394,6 +1617,39 @@ function tick() {
 	// Project nearby agent labels to screen space
 	updateLabels();
 	updateRadar();
+
+	// ── Camera-aware agents: each nearby agent slowly faces the camera ────────
+	// This creates the "mouse hover" effect the user knows from 2D — but in 3D:
+	// agents turn toward whoever is looking at them via gyro/camera rotation.
+	camera.getWorldDirection(_camWorldDir);
+	_camDirH.set(_camWorldDir.x, 0, _camWorldDir.z);
+	const camDirHLen = _camDirH.length();
+	if (camDirHLen > 0.001) _camDirH.divideScalar(camDirHLen);
+
+	for (const pin of nearbyPins) {
+		if (!pin.glbLoaded || !pin.group) continue;
+
+		// Rotate the agent on Y-axis to face the camera (horizontal only so feet
+		// stay on the ground). Uses the same lerpAngle used for the player avatar.
+		const dx = camera.position.x - pin.group.position.x;
+		const dz = camera.position.z - pin.group.position.z;
+		const targetYaw = Math.atan2(dx, dz);
+		pin.group.rotation.y = lerpAngle(pin.group.rotation.y, targetYaw, NEARBY_FACE_LERP);
+
+		// "Awareness" detection: is the camera currently aimed at this agent?
+		// Dot product between camera forward vector and camera→agent vector.
+		_toAgentH.set(
+			pin.group.position.x - camera.position.x,
+			0,
+			pin.group.position.z - camera.position.z,
+		);
+		const dist2D = _toAgentH.length();
+		if (dist2D > 0.001) _toAgentH.divideScalar(dist2D);
+		const dot = _camDirH.dot(_toAgentH);
+		// Within ~25° of camera center (dot > 0.9) and within 30 m → aware
+		const inView = camDirHLen > 0.001 && dot > 0.9 && dist2D < 30;
+		pin.labelEl?.classList.toggle('is-aware', inView);
+	}
 
 	renderer.render(scene, camera);
 	requestAnimationFrame(tick);

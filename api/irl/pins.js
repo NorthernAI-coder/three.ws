@@ -5,8 +5,9 @@
  * GET    /api/irl/pins/mine?deviceToken=           my pins (device token or auth)
  * GET    /api/irl/pins?mine=1                      my pins (auth required)
  * POST   /api/irl/pins  { lat, lng, heading, avatarUrl, avatarName, caption, agentId }
- * PATCH  /api/irl/pins  { id, caption }            edit caption (auth required)
+ * PATCH  /api/irl/pins  { id, caption, avatarUrl, avatarName, lat, lng }  edit pin (auth required)
  * DELETE /api/irl/pins?id=                         remove own pin (device_token or auth)
+ * POST   /api/irl/pins/interact { pinId, event, deviceToken }  log a tap/view
  */
 
 import { cors, json, wrap } from '../_lib/http.js';
@@ -47,6 +48,8 @@ async function ensureTable() {
 	`;
 	await sql`CREATE INDEX IF NOT EXISTS irl_pins_lat_lng ON irl_pins (lat, lng)`;
 	await sql`CREATE INDEX IF NOT EXISTS irl_pins_expires ON irl_pins (expires_at)`;
+	// view_count — deduplicated visitor count; incremented by /api/irl/interactions
+	await sql`ALTER TABLE irl_pins ADD COLUMN IF NOT EXISTS view_count BIGINT NOT NULL DEFAULT 0`;
 	_tableReady = true;
 }
 
@@ -66,7 +69,7 @@ export default wrap(async (req, res) => {
 			return json(res, 400, { error: 'deviceToken required' });
 		}
 		const rows = await sql`
-			SELECT id, lat, lng, avatar_name, caption, placed_at, expires_at
+			SELECT id, lat, lng, avatar_name, caption, placed_at, expires_at, view_count
 			FROM irl_pins
 			WHERE (device_token = ${deviceToken ?? ''} OR user_id = ${session?.id ?? null})
 			  AND (expires_at IS NULL OR expires_at > NOW())
@@ -81,7 +84,8 @@ export default wrap(async (req, res) => {
 		const session = await getSessionUser(req).catch(() => null);
 		if (!session) return json(res, 401, { error: 'not authenticated' });
 		const rows = await sql`
-			SELECT id, lat, lng, heading, avatar_url, avatar_name, caption, agent_id, placed_at, expires_at
+			SELECT id, lat, lng, heading, avatar_url, avatar_name, caption, agent_id,
+			       placed_at, expires_at, view_count
 			FROM irl_pins
 			WHERE user_id = ${session.id}
 			ORDER BY placed_at DESC
@@ -106,7 +110,7 @@ export default wrap(async (req, res) => {
 
 		const rows = await sql`
 			SELECT id, user_id, agent_id, lat, lng, heading,
-			       avatar_url, avatar_name, caption, x402_endpoint, placed_at
+			       avatar_url, avatar_name, caption, x402_endpoint, placed_at, view_count
 			FROM irl_pins
 			WHERE lat BETWEEN ${lat - latDelta} AND ${lat + latDelta}
 			  AND lng BETWEEN ${lng - lngDelta} AND ${lng + lngDelta}
@@ -166,16 +170,54 @@ export default wrap(async (req, res) => {
 		return json(res, 201, { pin: { ...pin, permanent: expiresAt === null } });
 	}
 
-	// ── PATCH — edit caption ──────────────────────────────────────────────────
+	// ── PATCH — edit pin fields ───────────────────────────────────────────────
+	// Authenticated owners can update: caption, avatar_url, avatar_name, lat, lng.
+	// Anonymous device-token owners can only update caption (no location/avatar changes
+	// from anonymous sessions for safety).
 	if (req.method === 'PATCH') {
 		const session = await getSessionUser(req).catch(() => null);
 		if (!session) return json(res, 401, { error: 'not authenticated' });
-		const { id, caption } = req.body ?? {};
+		const body = req.body ?? {};
+		const { id } = body;
 		if (!id) return json(res, 400, { error: 'id required' });
+
+		// Build update SET clause only for fields the caller provided
+		const updates = {};
+		if ('caption' in body)    updates.caption    = body.caption ?? null;
+		if ('avatarUrl' in body)  updates.avatarUrl  = body.avatarUrl ?? null;
+		if ('avatarName' in body) updates.avatarName = body.avatarName ?? null;
+		if ('lat' in body)        updates.lat        = parseFloat(body.lat);
+		if ('lng' in body)        updates.lng        = parseFloat(body.lng);
+		// heading: re-aim the avatar remotely (normalize to 0–359°)
+		if ('heading' in body && isFinite(parseFloat(body.heading))) {
+			updates.heading = ((Math.round(parseFloat(body.heading)) % 360) + 360) % 360;
+		}
+		// x402Endpoint: attach/clear a paid endpoint so visitors can pay the agent IRL
+		if ('x402Endpoint' in body) updates.x402Endpoint = body.x402Endpoint ?? null;
+
+		if (!Object.keys(updates).length) {
+			return json(res, 400, { error: 'no updatable fields provided' });
+		}
+
+		// Validate new lat/lng if provided
+		if ('lat' in updates && (!isFinite(updates.lat) || updates.lat < -90 || updates.lat > 90)) {
+			return json(res, 400, { error: 'invalid lat' });
+		}
+		if ('lng' in updates && (!isFinite(updates.lng) || updates.lng < -180 || updates.lng > 180)) {
+			return json(res, 400, { error: 'invalid lng' });
+		}
+
 		const [row] = await sql`
-			UPDATE irl_pins SET caption = ${caption ?? null}
+			UPDATE irl_pins SET
+				caption       = COALESCE(${updates.caption    ?? null}, caption),
+				avatar_url    = COALESCE(${updates.avatarUrl  ?? null}, avatar_url),
+				avatar_name   = COALESCE(${updates.avatarName ?? null}, avatar_name),
+				lat           = COALESCE(${updates.lat        ?? null}, lat),
+				lng           = COALESCE(${updates.lng        ?? null}, lng),
+				heading       = COALESCE(${updates.heading    ?? null}, heading),
+				x402_endpoint = COALESCE(${updates.x402Endpoint ?? null}, x402_endpoint)
 			WHERE id = ${id} AND user_id = ${session.id}
-			RETURNING id, caption
+			RETURNING id, caption, avatar_url, avatar_name, lat, lng, heading, x402_endpoint
 		`;
 		if (!row) return json(res, 404, { error: 'not found' });
 		return json(res, 200, { pin: row });
