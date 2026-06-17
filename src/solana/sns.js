@@ -18,7 +18,23 @@ const DEFAULT_RPC_URL =
 		? `${window.location.origin}/api/solana-rpc`
 		: 'https://three.ws/api/solana-rpc');
 
-function makeConnection() {
+async function makeConnection() {
+	// On the server, route SNS lookups through the failover Connection: a raw
+	// Connection on the keyless public RPC 429s under shared load and triggers
+	// web3.js's "Server responded with 429 … Retrying after 500ms" backoff loop
+	// (the source of the /api/sns retry noise in the logs). The failover
+	// Connection rotates the public endpoint → Ankr → keyed providers and fails
+	// fast instead of retry-looping a rate-limited lane. In the browser,
+	// DEFAULT_RPC_URL is our same-origin /api/solana-rpc proxy, which already
+	// fails over server-side, so a plain Connection is correct there.
+	if (typeof window === 'undefined') {
+		try {
+			const { solanaConnection } = await import('../../api/_lib/solana/connection.js');
+			return solanaConnection({ url: DEFAULT_RPC_URL, network: 'mainnet', commitment: 'confirmed' });
+		} catch {
+			/* fall back to a plain Connection if the failover helper can't load */
+		}
+	}
 	return new Connection(DEFAULT_RPC_URL, 'confirmed');
 }
 
@@ -34,7 +50,7 @@ function stripSol(name) {
 export async function resolveSnsName(name) {
 	try {
 		const { resolve } = await import('@bonfida/spl-name-service');
-		const pk = await resolve(makeConnection(), stripSol(name));
+		const pk = await resolve(await makeConnection(), stripSol(name));
 		return pk.toBase58();
 	} catch {
 		return null;
@@ -50,7 +66,7 @@ export async function reverseLookupAddress(addr) {
 	try {
 		const { getFavoriteDomain } = await import('@bonfida/spl-name-service');
 		const owner = new PublicKey(addr);
-		const { reverse } = await getFavoriteDomain(makeConnection(), owner);
+		const { reverse } = await getFavoriteDomain(await makeConnection(), owner);
 		return reverse.endsWith('.sol') ? reverse : `${reverse}.sol`;
 	} catch {
 		return null;

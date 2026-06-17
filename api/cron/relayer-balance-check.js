@@ -49,8 +49,15 @@ export default wrap(async (req, res) => {
 	if (!requireCron(req, res)) return;
 
 	const rpcUrl = process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com';
-	const { Connection, PublicKey } = await import('@solana/web3.js');
-	const connection = new Connection(rpcUrl, 'confirmed');
+	const { PublicKey } = await import('@solana/web3.js');
+	const { solanaConnection } = await import('../_lib/solana/connection.js');
+	// Use the failover Connection rather than a raw one: a bare Connection on the
+	// keyless public endpoint 429s under shared load and triggers web3.js's
+	// internal "Server responded with 429 … Retrying after 500ms" backoff loop
+	// (visible in the logs as repeated retries on this 6-hourly cron). The
+	// failover Connection rotates the public endpoint → Ankr → keyed providers and
+	// fails fast instead of retry-looping a rate-limited lane.
+	const connection = solanaConnection({ url: rpcUrl, network: 'mainnet', commitment: 'confirmed' });
 
 	const checked = [];
 	const low = [];
