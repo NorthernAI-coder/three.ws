@@ -141,7 +141,7 @@ export async function buildAvatar(rig, url, anim) {
 // Play a one-shot emote clip on a rig's AnimationManager, then return to the
 // locomotion clip. No-op if the emote isn't in the loaded manifest.
 export async function playEmoteClip(anim, name, motion) {
-	const def = getEmoteDefs().find((d) => d.name === name);
+	const def = (_allEmoteDefs || _emoteDefs || []).find((d) => d.name === name);
 	if (!def) return;
 	try {
 		if (!anim.clips?.has?.(name)) await anim.loadAnimation(name, def.url, { loop: false });

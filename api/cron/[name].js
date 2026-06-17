@@ -109,6 +109,7 @@ const HANDLERS = {
 	'club-payouts': handleClubPayouts,
 	'siwx-gc': handleSiwxGc,
 	'unstoppable-tick': handleUnstoppableTick,
+	'cosmetic-splits-sweep': handleCosmeticSplitsSweep,
 };
 
 export default wrap(async (req, res) => {
@@ -3844,4 +3845,32 @@ async function handleUnstoppableTick(req, res) {
 		console.error('[unstoppable-tick]', err?.message || err);
 		return json(res, 200, { ok: false, error: err?.message || 'tick failed' });
 	}
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// cosmetic-splits-sweep — retry pending/failed cosmetic creator payouts
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// When a cosmetic is sold inside a coin's /play world, the creator's USDC cut
+// is paid on-chain immediately (best-effort). Any row that didn't land —
+// because the treasury wasn't funded, a transient RPC hiccup, or a slow ATA
+// creation — stays 'pending' or 'failed'. This cron retries those rows in
+// settlement-time order, bounded per run so a large backlog can't stall the
+// function. Runs hourly; each cycle processes at most 25 rows.
+
+async function handleCosmeticSplitsSweep(req, res) {
+	if (cors(req, res, { methods: 'GET,POST,OPTIONS' })) return;
+	if (!method(req, res, ['GET', 'POST'])) return;
+
+	if (!requireCron(req, res)) return;
+
+	const { sweepPendingCreatorPayouts } = await import('../_lib/cosmetics-economy.js');
+	let result;
+	try {
+		result = await sweepPendingCreatorPayouts({ limit: 25 });
+	} catch (err) {
+		console.error('[cosmetic-splits-sweep] sweep failed:', err?.message || err);
+		return json(res, 200, { ok: false, swept: 0, error: err?.message || 'sweep failed' });
+	}
+	return json(res, 200, { ok: true, ...result });
 }

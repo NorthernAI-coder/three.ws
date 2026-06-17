@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-17T19:21:48.097Z",
+	"generated_at": "2026-06-17T19:29:05.313Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -193,6 +193,26 @@
 		{
 			"date": "2026-06-17",
 			"type": "update",
+			"title": "Creator revenue splits — earn USDC when your coin's cosmetics sell",
+			"summary": "When a player buys a premium avatar cosmetic inside one of your coin's /play worlds, a configurable share of the settled USDC is paid out to your wallet on-chain — no simulated balance, a real Solana transfer. Default split is 50 %; creators can sign a message to adjust their share (up to 90 %). The Monetize dashboard now includes a Creator Earnings panel showing lifetime + 30-day totals, per-cosmetic breakdown, and payout status with on-chain tx links. A new Rarest Fits leaderboard in the shop overlay ranks the scarcest cosmetics, top collectors by rarity-weighted flex score, and top earning creators.",
+			"link": "/play",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-17",
+			"type": "update",
+			"title": "Dance floor in /play worlds",
+			"summary": "A synchronized dance floor pad now appears in /play worlds, near the coin totem. Step onto the glowing circular stage and a 🪩 Dance button appears in your HUD. Press it to arm — when the server's 4-second beat tick fires, everyone armed on the floor crossfades to the same dance clip at the same moment. Leave the floor or press again to stop. The pad features animated emissive tiles and pulsing coloured lights that react to every beat.",
+			"link": "/play",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-17",
+			"type": "update",
 			"title": "Drop in <agent-3d> and you get just the avatar — chat is now opt-in",
 			"summary": "The one-line embed is cleaner by default. A plain <agent-3d> tag now ships only the 3D avatar on a transparent background — no chat box, no input bar, no debug color picker, no name-plate. That makes it perfect for dropping a living avatar onto a landing page, hero section, or card without any extra UI to hide. When you want the full talking agent, add the new chat attribute: <agent-3d chat body=\"...\">. Published agents you embed by agent-id, manifest, or an agent:// link still chat automatically — they carry their own brain and persona — so existing agent embeds are unchanged. The reference docs and examples were updated to match.",
 			"link": "/docs/web-component",
@@ -216,6 +236,16 @@
 			"type": "update",
 			"title": "Emoji reactions now float above avatars in every coin world",
 			"summary": "Tap any of the 6 reaction buttons (🎉 😂 🔥 ❤️ 👏 🤔) to broadcast a floating emoji that rises above your avatar for everyone in the room to see. The 🎉 reaction also triggers a small confetti burst. Reactions are server-rate-limited so the world stays readable when multiple people react at once; the button dims briefly after each tap to signal that the next one is queued. Keyboard- and screen-reader-accessible; works on touch and desktop.",
+			"link": "/play",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-17",
+			"type": "update",
+			"title": "Emote wheel — all 70 animations at your fingertips",
+			"summary": "Hold Q (or long-press the ⋯ button on mobile) to open the full emote wheel in any /play world. Five category arcs — Social, Dances, Flips, Combat, Poses — surface every animation in the library. Move the cursor (or left thumbstick on gamepad) to pick a category, choose a clip from the panel that slides up, then release Q to play it. The existing quick-tray keeps your top 6 one-tap emotes. All clips load lazily on first use so the initial load time is unchanged.",
 			"link": "/play",
 			"tags": [
 				"feature"
@@ -475,6 +505,16 @@
 		{
 			"date": "2026-06-17",
 			"type": "update",
+			"title": "Kickable beach ball in every /play world",
+			"summary": "A shared beach ball now spawns at the centre of every /play world. Walk into it to kick it — the server runs authoritative physics with gravity, friction, and boundary bounces, so all players see the same trajectory in sync. The ball auto-respawns at world centre if it rolls out of bounds.",
+			"link": "/play",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-17",
+			"type": "update",
 			"title": "Live trade feed: the time-window filters work on first load",
 			"summary": "On the Live Trade Feed, the 1h / 24h / 7d window buttons threw an error as the page set up its controls, which could leave the feed stuck before it finished loading. The control-syncing code was treating a group of buttons as a single element. It now handles the whole group, so the window and min-PnL filters initialize and switch cleanly every time.",
 			"link": "/trades",
@@ -509,6 +549,16 @@
 			"title": "Move your IRL agents on a real map — drag the pin from anywhere",
 			"summary": "Your IRL Agents dashboard now has a live map. Open Move on map on any placed agent and you get an OpenStreetMap view with a draggable pin for each agent you've placed: drag the highlighted one to a new spot, or tap another to switch to it. As you drag, the new location is named for you (the nearest town or city) and a Save bar appears so nothing changes until you confirm — and if a save ever fails, the pin snaps back to where it was. A compass dial lets you re-aim which way the agent faces, in degrees or by dragging the needle, and a Remove from map button takes a pin down. You can relocate an agent across the city — or across the world — without walking back to it. The map loads only when you open it, works on a phone, and if it can't load it falls back to a simple latitude/longitude form so you can still move the pin.",
 			"link": "/dashboard/irl-placements",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-17",
+			"type": "update",
+			"title": "My Cosmetics — owned-item wardrobe with cross-world equip persistence",
+			"summary": "A new 'My Fits' wardrobe panel in the /play HUD lists every cosmetic you own (free items + premium unlocks), grouped by slot. Click any item to equip it — the change is validated server-side, written to your account, reflected instantly on your avatar, and visible to other players in the room. Equipped looks persist across sessions and carry automatically into every world (/play and /walk). Purchasing a cosmetic from the shop now equips it durably too, not just as a temporary preview.",
+			"link": "/play",
 			"tags": [
 				"feature"
 			]
@@ -645,6 +695,16 @@
 			"link": "/dashboard/sniper",
 			"tags": [
 				"fix"
+			]
+		},
+		{
+			"date": "2026-06-17",
+			"type": "update",
+			"title": "Tag mini-game in /play worlds",
+			"summary": "Server-authoritative tag comes to every /play world. When two or more players are in the same room, a random player becomes 'it'. Walk close to another player and tag transfers — the server validates proximity on authoritative positions so no client can cheat. The tagged player gets a red glow ring under their avatar and a 🏃 IT label above their head, visible to everyone. A 'YOU'RE IT!' alert flashes on your screen the moment you're tagged, and a 2-second immunity window prevents instant re-tagging. The tag HUD (bottom-right) shows who's currently 'it' and a live leaderboard of cumulative time-as-it for the session.",
+			"link": "/play",
+			"tags": [
+				"feature"
 			]
 		},
 		{

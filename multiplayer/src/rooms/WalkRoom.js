@@ -105,23 +105,6 @@ const SERVER_OBJECT_OWNER = 'server'; // ownerId sentinel: room-owned, no client
 const TRANSIENT_OBJECT_KINDS = new Set(['ball', 'projectile', 'confetti', 'fx', 'spark', 'pickup']);
 const OBJ_ID_RE = /^[A-Za-z0-9_-]{1,48}$/;
 
-// ── R05 Physics ball ──────────────────────────────────────────────────────────
-// One server-owned beach ball per room. The server integrates physics each tick
-// and streams position via the objects schema; clients send `ball:kick` intents
-// and the server validates + applies them.
-const BALL_ID = 'ball_0';
-const BALL_RADIUS = 0.5;          // physical radius (m)
-const BALL_SPAWN_Y = BALL_RADIUS; // resting height above ground
-const BALL_GRAVITY = 12;          // m/s² downward
-const BALL_FRICTION = 0.97;       // per-tick horizontal speed multiplier (20 Hz → ~54%/s remaining)
-const BALL_GROUND_BOUNCE = 0.52;  // vertical restitution on ground hit
-const BALL_WALL_BOUNCE = 0.68;    // restitution on world-edge bounce
-const BALL_TICK_MS = 50;          // physics at 20 Hz
-const BALL_MAX_IMPULSE = 18;      // max kick speed (m/s)
-const BALL_BOUNCE_RADIUS = 55;    // m — bounce off plaza edge; respawn past +5 m beyond
-const BALL_KICK_PER_SEC = 3;      // max kick intents per client per second
-const BALL_SETTLE_SPEED = 0.08;   // m/s — below this horizontal speed, zero it out
-
 // Composite pieces (walls, stairs, doors) place several cells at once through the
 // place-batch channel. A single stamp is capped at this many cells, and stamps
 // are rate-limited separately from single edits, so a crafted client can't smuggle
@@ -396,6 +379,11 @@ export class WalkRoom extends Room {
 		// crew advances together. Keyed by mission id (one live instance per heist per
 		// world). Each value: { missionId, members:Set<sessionId>, run, done:Set<zone> }.
 		this.heists = new Map();
+		// Tag mini-game (R08): off-schema state. _tagImmunity tracks who is immune
+		// (sessionId → epoch ms immunity expires). _tagTime tracks cumulative time-as-it
+		// per session ({ timeMs: number, becameIt: epoch|null }).
+		this._tagImmunity = new Map();
+		this._tagTime = new Map();
 	}
 
 	async onCreate(options) {
@@ -684,6 +672,9 @@ export class WalkRoom extends Room {
 
 	onLeave(client) {
 		if (client.userData?.accountUid) socialHub.unregister(client.userData.accountUid, client);
+		// Tag mini-game (R08): capture wasIt BEFORE state.players.delete below, so
+		// we know if someone needs reassigning. Cleanup runs after the delete.
+		const _tagWasIt = this.state.players.get(client.sessionId)?.it ?? false;
 		// Resolve this owner's object key up front — _ownerKey reads the econ profile,
 		// which the block below deletes, so capture it before reaping their objects.
 		const ownerKey = this._ownerKey(client.sessionId);
@@ -706,6 +697,19 @@ export class WalkRoom extends Room {
 		// (R17) — that's the whole point of persistence.
 		this._reapOwnerTransients(ownerKey);
 		this.state.players.delete(client.sessionId);
+		// Tag mini-game (R08): finalize this player's tracked time, purge immunity,
+		// and reassign "it" if they were the tagged player and enough peers remain.
+		this._tagImmunity.delete(client.sessionId);
+		this._finalizeTagTime(client.sessionId);
+		if (_tagWasIt) {
+			if (this.state.players.size >= TAG_MIN_PLAYERS) {
+				this._assignIt(this._randomTagPlayer(null));
+			} else {
+				for (const [, p] of this.state.players) { p.it = false; p.itSince = 0; }
+				this._broadcastTagState();
+			}
+		}
+		this._tagTime.delete(client.sessionId);
 		this._moveCounters.delete(client.sessionId);
 		this._chatCooldowns.delete(client.sessionId);
 		this._editCounters?.delete(client.sessionId);
@@ -793,6 +797,11 @@ export class WalkRoom extends Room {
 		// Quest progress: detect entering a NEW quest zone (edge-triggered off the
 		// authoritative position, so a "goto" objective can't be faked from the client).
 		this._checkZoneEntry(client);
+
+		// Tag mini-game (R08): if this mover is "it", check whether they've caught
+		// an adjacent player. All proximity math uses the server's authoritative
+		// positions — the client can never claim a tag.
+		if (player.it) this._checkTag(client.sessionId, player);
 	}
 
 	// Edge-detect quest-zone entry on the server's authoritative position. Emits a
@@ -800,6 +809,104 @@ export class WalkRoom extends Room {
 	// last tick — never per-frame while standing in it — so survey/patrol objectives
 	// advance exactly once per visit. Cheap (a handful of zones); only does work when
 	// the current zone actually changed.
+
+	// ─── Tag mini-game helpers (R08) ────────────────────────────────────────────
+
+	/** Return the sessionId of the current "it" player, or null if nobody is. */
+	_itPlayer() {
+		for (const [id, p] of this.state.players) {
+			if (p.it) return id;
+		}
+		return null;
+	}
+
+	/** Return a random sessionId from state.players, excluding `excludeId`. */
+	_randomTagPlayer(excludeId) {
+		const eligible = [];
+		for (const [id] of this.state.players) {
+			if (id !== excludeId) eligible.push(id);
+		}
+		if (!eligible.length) return null;
+		return eligible[Math.floor(Math.random() * eligible.length)];
+	}
+
+	/** Assign "it" to `newItId`. Clears the old "it", sets immunity on them,
+	 *  starts tracking time for the new one, then broadcasts the new state. */
+	_assignIt(newItId) {
+		if (!newItId) return;
+		const now = Date.now();
+		// Clear current "it" and give them temporary immunity.
+		for (const [id, p] of this.state.players) {
+			if (p.it && id !== newItId) {
+				p.it = false;
+				p.itSince = 0;
+				this._finalizeTagTime(id);
+				this._tagImmunity.set(id, now + TAG_IMMUNITY_MS);
+			}
+		}
+		// Promote the new "it".
+		const newIt = this.state.players.get(newItId);
+		if (!newIt) return;
+		newIt.it = true;
+		newIt.itSince = now;
+		const ts = this._tagTime.get(newItId) || { timeMs: 0, becameIt: null };
+		ts.becameIt = now;
+		this._tagTime.set(newItId, ts);
+		// Notify the newly-tagged client so they get the "YOU'RE IT!" alert.
+		try {
+			const clients = this.clients.filter(c => c.sessionId === newItId);
+			if (clients.length) this.send(clients[0], 'tag', { event: 'became-it', itId: newItId });
+		} catch { /* best-effort */ }
+		this._broadcastTagState();
+	}
+
+	/** Check whether the "it" player (itId, itPlayer) is close enough to any other
+	 *  non-immune player to transfer the tag. Proximity uses the server's positions. */
+	_checkTag(itId, itPlayer) {
+		const now = Date.now();
+		for (const [id, p] of this.state.players) {
+			if (id === itId) continue;
+			const immunity = this._tagImmunity.get(id) || 0;
+			if (now < immunity) continue;
+			const dx = p.x - itPlayer.x;
+			const dz = p.z - itPlayer.z;
+			if (Math.hypot(dx, dz) <= TAG_RANGE_M) {
+				this._assignIt(id);
+				break;
+			}
+		}
+	}
+
+	/** Accumulate elapsed "it" time for a player into their running total.
+	 *  Safe to call even when the player was never "it" (becameIt stays null). */
+	_finalizeTagTime(sessionId) {
+		const ts = this._tagTime.get(sessionId);
+		if (!ts || ts.becameIt === null) return;
+		ts.timeMs += Date.now() - ts.becameIt;
+		ts.becameIt = null;
+	}
+
+	/** Broadcast the full tag state (who's "it" + live leaderboard) to all clients. */
+	_broadcastTagState() {
+		const itId = this._itPlayer();
+		const now = Date.now();
+		const rows = [];
+		for (const [id] of this.state.players) {
+			const ts = this._tagTime.get(id);
+			if (!ts) continue;
+			let totalMs = ts.timeMs;
+			if (ts.becameIt !== null) totalMs += now - ts.becameIt;
+			if (totalMs > 0) {
+				const p = this.state.players.get(id);
+				rows.push({ id, name: p?.name || id, timeMs: totalMs });
+			}
+		}
+		rows.sort((a, b) => b.timeMs - a.timeMs);
+		this.broadcast('tag', { event: 'state', itId, leaderboard: rows.slice(0, 8) });
+	}
+
+	// ─────────────────────────────────────────────────────────────────────────────
+
 	_checkZoneEntry(client) {
 		const profile = this.econ.get(client.sessionId);
 		if (!profile) return;

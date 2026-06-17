@@ -317,12 +317,3 @@ defineTypes(WalkState, {
 	holderMinTokens: 'float32',
 });
 
-// NOTE: Player field appends below must match the same append-only rule.
-// Indices are positional in the binary protocol — inserting shifts all subsequent
-// indices and breaks clients connected to older deployed servers.
-defineTypes(Player, {
-	// Append-only (R08): tag mini-game. `it` and `itSince` appended AFTER the
-	// last field from R23/R24 (cosmetics) so older clients remain wire-compatible.
-	// WalkState's defineTypes is above; Player's defineTypes must be called
-	// AFTER WalkState so the field order for Player is cosmetics → it → itSince.
-});

@@ -151,6 +151,22 @@
 			<description>The marketplace now carries a persistent Connect Wallet control — in the sidebar on desktop, in the search bar on mobile — so you can link Phantom, Solflare, or Backpack once and arrive at any purchase already connected, instead of waiting until checkout. If you have more than one wallet installed you get a quick picker; if you have none, it points you to install one. Once connected it shows your address as a tidy pill with a menu to copy it, view the account on Solscan, or disconnect, and it quietly reconnects a previously approved wallet when you return — no extra pop-up. Connect from the header and the Buy dialog is ready to go; connect at checkout and the header updates too. It rides the same on-chain USDC purchase flow already in place, so there's nothing new to trust.</description>
 		</item>
 		<item>
+			<title>Creator revenue splits — earn USDC when your coin's cosmetics sell</title>
+			<link>https://three.ws/play</link>
+			<guid isPermaLink="false">2026-06-17:Creator revenue splits — earn USDC when your coin's cosmetics sell</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>When a player buys a premium avatar cosmetic inside one of your coin's /play worlds, a configurable share of the settled USDC is paid out to your wallet on-chain — no simulated balance, a real Solana transfer. Default split is 50 %; creators can sign a message to adjust their share (up to 90 %). The Monetize dashboard now includes a Creator Earnings panel showing lifetime + 30-day totals, per-cosmetic breakdown, and payout status with on-chain tx links. A new Rarest Fits leaderboard in the shop overlay ranks the scarcest cosmetics, top collectors by rarity-weighted flex score, and top earning creators.</description>
+		</item>
+		<item>
+			<title>Dance floor in /play worlds</title>
+			<link>https://three.ws/play</link>
+			<guid isPermaLink="false">2026-06-17:Dance floor in /play worlds</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>A synchronized dance floor pad now appears in /play worlds, near the coin totem. Step onto the glowing circular stage and a 🪩 Dance button appears in your HUD. Press it to arm — when the server's 4-second beat tick fires, everyone armed on the floor crossfades to the same dance clip at the same moment. Leave the floor or press again to stop. The pad features animated emissive tiles and pulsing coloured lights that react to every beat.</description>
+		</item>
+		<item>
 			<title>Drop in &lt;agent-3d&gt; and you get just the avatar — chat is now opt-in</title>
 			<link>https://three.ws/docs/web-component</link>
 			<guid isPermaLink="false">2026-06-17:Drop in &lt;agent-3d&gt; and you get just the avatar — chat is now opt-in</guid>
@@ -173,6 +189,14 @@
 			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>Tap any of the 6 reaction buttons (🎉 😂 🔥 ❤️ 👏 🤔) to broadcast a floating emoji that rises above your avatar for everyone in the room to see. The 🎉 reaction also triggers a small confetti burst. Reactions are server-rate-limited so the world stays readable when multiple people react at once; the button dims briefly after each tap to signal that the next one is queued. Keyboard- and screen-reader-accessible; works on touch and desktop.</description>
+		</item>
+		<item>
+			<title>Emote wheel — all 70 animations at your fingertips</title>
+			<link>https://three.ws/play</link>
+			<guid isPermaLink="false">2026-06-17:Emote wheel — all 70 animations at your fingertips</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Hold Q (or long-press the ⋯ button on mobile) to open the full emote wheel in any /play world. Five category arcs — Social, Dances, Flips, Combat, Poses — surface every animation in the library. Move the cursor (or left thumbstick on gamepad) to pick a category, choose a clip from the panel that slides up, then release Q to play it. The existing quick-tray keeps your top 6 one-tap emotes. All clips load lazily on first use so the initial load time is unchanged.</description>
 		</item>
 		<item>
 			<title>Every agent now has a dedicated wallet hub</title>
@@ -367,6 +391,14 @@
 			<description>Every agent profile now has View in IRL and View in XR buttons next to See in 3D. View in IRL drops you into three.ws/irl already wearing that agent's body, and if the same agent is placed nearby it flashes its pin and opens its card so you land right on it. View in XR opens the immersive AR/VR viewer with that agent loaded. Both are real links, so you can open them in a new tab, and every agent has a body to show — its own 3D model or the shared mannequin — so the buttons are never dead ends. This matches the Walk IRL / View in XR buttons avatars already had, so the whole platform now routes into the immersive layer from one surface to the next.</description>
 		</item>
 		<item>
+			<title>Kickable beach ball in every /play world</title>
+			<link>https://three.ws/play</link>
+			<guid isPermaLink="false">2026-06-17:Kickable beach ball in every /play world</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>A shared beach ball now spawns at the centre of every /play world. Walk into it to kick it — the server runs authoritative physics with gravity, friction, and boundary bounces, so all players see the same trajectory in sync. The ball auto-respawns at world centre if it rolls out of bounds.</description>
+		</item>
+		<item>
 			<title>Live trade feed: the time-window filters work on first load</title>
 			<link>https://three.ws/trades</link>
 			<guid isPermaLink="false">2026-06-17:Live trade feed: the time-window filters work on first load</guid>
@@ -397,6 +429,14 @@
 			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>Your IRL Agents dashboard now has a live map. Open Move on map on any placed agent and you get an OpenStreetMap view with a draggable pin for each agent you've placed: drag the highlighted one to a new spot, or tap another to switch to it. As you drag, the new location is named for you (the nearest town or city) and a Save bar appears so nothing changes until you confirm — and if a save ever fails, the pin snaps back to where it was. A compass dial lets you re-aim which way the agent faces, in degrees or by dragging the needle, and a Remove from map button takes a pin down. You can relocate an agent across the city — or across the world — without walking back to it. The map loads only when you open it, works on a phone, and if it can't load it falls back to a simple latitude/longitude form so you can still move the pin.</description>
+		</item>
+		<item>
+			<title>My Cosmetics — owned-item wardrobe with cross-world equip persistence</title>
+			<link>https://three.ws/play</link>
+			<guid isPermaLink="false">2026-06-17:My Cosmetics — owned-item wardrobe with cross-world equip persistence</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>A new 'My Fits' wardrobe panel in the /play HUD lists every cosmetic you own (free items + premium unlocks), grouped by slot. Click any item to equip it — the change is validated server-side, written to your account, reflected instantly on your avatar, and visible to other players in the room. Equipped looks persist across sessions and carry automatically into every world (/play and /walk). Purchasing a cosmetic from the shop now equips it durably too, not just as a temporary preview.</description>
 		</item>
 		<item>
 			<title>Nearby agents on IRL now update live — no reload</title>
@@ -501,6 +541,14 @@
 			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>When a coin your sniper holds graduates from the pump.fun bonding curve to its AMM pool, the agent used to be stuck holding it — the position sat parked and your exit rules quietly stopped working. The sniper now follows a graduated coin straight onto the AMM and keeps managing it there: stop-loss, trailing-stop, take-profit, and the hold-time limit all keep working against the real post-graduation price, and the automatic sell goes out with slippage protection. Positions that were stuck before can be cleared with a one-time backfill.</description>
+		</item>
+		<item>
+			<title>Tag mini-game in /play worlds</title>
+			<link>https://three.ws/play</link>
+			<guid isPermaLink="false">2026-06-17:Tag mini-game in /play worlds</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Server-authoritative tag comes to every /play world. When two or more players are in the same room, a random player becomes 'it'. Walk close to another player and tag transfers — the server validates proximity on authoritative positions so no client can cheat. The tagged player gets a red glow ring under their avatar and a 🏃 IT label above their head, visible to everyone. A 'YOU'RE IT!' alert flashes on your screen the moment you're tagged, and a 2-second immunity window prevents instant re-tagging. The tag HUD (bottom-right) shows who's currently 'it' and a live leaderboard of cumulative time-as-it for the session.</description>
 		</item>
 		<item>
 			<title>Tapping an IRL agent is now reliable — hit the body, not just the tiny label</title>
