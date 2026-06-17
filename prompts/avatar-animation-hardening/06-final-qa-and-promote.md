@@ -40,6 +40,45 @@ Shipped and committed; build on it, don't redo it:
   ESM fixups and build the `agent-payments-sdk`/`solana-agent-sdk` workspaces, they are unrelated
   to animation.
 
+## Handoff from Task 2 (root-motion correctness across rig conventions)
+
+Shipped and committed; build on it, don't redo it:
+
+- **The fix is the parent-frame hip-position correction**, already in
+  [src/animation-retarget.js](../../src/animation-retarget.js): `hipPositionCorrection` rotates the
+  `Hips.position` (root-motion) track by the **inverse of the target Hips-parent rest world
+  rotation** (`hipsParentWorldQuat`), not by the Hips *bone* correction. This makes per-frame
+  world-space root displacement equal the authoring displacement (scaled for height) on **any**
+  parent-axis convention — the old bone-correction approach was exact only on the standard Mixamo
+  `+90°X/−90°X` split. Rotation and uniform `hipScale` compose (rotate first, then scale). The
+  runtime wires it through `AnimationManager.attach` → `_hipsParentWorldQuat` →
+  [src/animation-manager.js:182](../../src/animation-manager.js#L182)`._retarget`.
+- **Locomotion cross-rig coverage** lives in the new `cross-rig locomotion invariants (real GLB)`
+  block in [tests/animation-retarget.test.js](../../tests/animation-retarget.test.js). It runs the
+  production retargeter against the real `cz.glb` + `michelle.glb` (via the shared
+  [tests/_helpers/glb-bone-graph.js](../../tests/_helpers/glb-bone-graph.js)) plus two synthetic
+  conventions — a compound **non-±90° armature** (`tilted`) and a 30° **yaw** (`yawed`) — and
+  asserts, for a travelling walk (`av-walk-crouching`) and jump (`jumpdown2`): net world travel
+  **direction** matches the authored direction on every rig (no sideways drift), the **vertical
+  fraction** of travel is preserved (no sinking/floating), and the in-place clips
+  (`idle`/`celebrate`/the in-place featured `walk`/`jump`) acquire **~zero** net XZ travel. The
+  `tilted` rig is the discriminator: its Hips bone-correction is identity, so only the parent-frame
+  correction can recover the right motion — reverting the fix fails 7 cases there (proven). cz.glb
+  is locked **byte-for-byte** to the verbatim path.
+- **The featured `walk`/`jump` clips are authored in-place** (≈0 net XZ) — they walk/jump on the
+  spot; that is correct, not a drift bug. To *see* root-motion travel in a browser, pick a library
+  clip that actually translates (e.g. `av-walk-crouching`, `jumpdown2`, `farm-holding-walk`,
+  `goalkeeper`). On `/walk` the **game** drives locomotion, so the clip's own root motion is
+  in-place there by design; `/pose` plays the clip's authored root motion directly.
+- **For your QA:** load a *travelling* clip on `michelle.glb` and `cz.glb` in `/pose` side by side
+  and confirm both bodies advance in the **same** world direction and stay planted on the ground
+  (no sinking/moonwalk). `scripts/verify-walk-rigs.mjs` is a headless cross-rig smoke check: it
+  mounts the real `<agent-3d>` element (Viewer → AnimationManager → retargeter) on `michelle.glb`
+  and `cz.glb`, plays a clip, and asserts each loads, renders the Hips **upright** (< 30° off
+  vertical — the lying-down regression), and logs zero console errors. Needs the DEV server
+  (`node scripts/verify-walk-rigs.mjs http://localhost:3000 walk`). Verified: michelle 6.2° / cz
+  2.4° on walk, michelle 6.1° / cz 2.4° on jump, 0 console errors.
+
 ## What to do
 
 ### 1. Build the verification matrix

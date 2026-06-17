@@ -26,7 +26,6 @@ import {
 	Object3D,
 	Quaternion,
 	Vector3,
-	Matrix4,
 	Euler,
 } from 'three';
 import {
@@ -39,6 +38,8 @@ import {
 	MIN_COVERAGE,
 } from '../src/animation-retarget.js';
 import { CANONICAL_REST } from '../src/animation-canonical-rest.js';
+import { canonicalizeBoneName } from '../src/glb-canonicalize.js';
+import { loadBoneGraph } from './_helpers/glb-bone-graph.js';
 
 // Build a SkinnedMesh-rooted skeleton from a list of bone names so
 // canonicalNodeMapFromObject finds it the way it would in a real GLB.
@@ -323,5 +324,173 @@ describe('scaleClipSpeed', () => {
 		const origDur = clip.duration;
 		scaleClipSpeed(clip, 2);
 		expect(clip.duration).toBe(origDur);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// Cross-rig locomotion invariants, validated against the real shipped GLB rigs
+// (cz.glb, michelle.glb) plus two synthetic conventions, using a raw GLB parse
+// and world-matrix composition — no GLTFLoader, no browser, fully deterministic.
+//
+// What this guards: root motion lives in the Hips' *parent* local frame, so to
+// preserve world-space travel the retargeter rotates the hip-position track by
+// the inverse of the target Hips-parent rest rotation (animation-retarget.js →
+// hipPositionCorrection). The earlier, narrower fix rotated by the Hips *bone*
+// correction, which is exact only on the standard Mixamo +90°X/−90°X split. The
+// `tilted` rig below carries a compound, non-±90° armature rotation while its
+// Hips sit at the authoring rest (so the Hips bone correction is identity): only
+// the parent-frame correction can recover the right world direction, so a
+// regression to the bone-correction approach makes the direction/verticality
+// assertions fail there.
+// ---------------------------------------------------------------------------
+describe('cross-rig locomotion invariants (real GLB)', () => {
+	const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+	const clipPath = (n) => path.join(REPO, 'public/animations/clips', `${n}.json`);
+	const glbPath = (n) => path.join(REPO, 'public/avatars', `${n}.glb`);
+
+	// Real GLB rigs are reconstructed with the shared bone-graph helper
+	// (tests/_helpers/glb-bone-graph.js) — the same raw-JSON-chunk parse +
+	// SkinnedMesh/Skeleton reconstruction the upright-invariant corpus uses, so
+	// production's canonical readers see these rigs exactly as a GLTFLoader scene.
+	const realRig = (name) => loadBoneGraph(glbPath(name)).root;
+
+	// A synthetic rig: every canonical bone at the authoring rest (so per-bone
+	// limb corrections are identity), parented under an armature carrying an
+	// arbitrary rest rotation. This isolates the hip-position correction — the
+	// armature rotation is the *only* thing the root motion must compensate for.
+	function buildSyntheticRig(armatureQuat) {
+		const root = new Object3D();
+		const armature = new Object3D();
+		armature.name = 'Armature';
+		armature.quaternion.copy(armatureQuat);
+		root.add(armature);
+		const names = Object.keys(CANONICAL_REST);
+		const byName = {};
+		for (const nm of names) {
+			const b = new Bone();
+			b.name = nm;
+			b.quaternion.fromArray(CANONICAL_REST[nm]);
+			byName[nm] = b;
+		}
+		byName.Hips.position.set(0, 1, 0); // a plausible rest hip height
+		armature.add(byName.Hips);
+		for (const nm of names) if (nm !== 'Hips') byName.Hips.add(byName[nm]);
+		const mesh = new SkinnedMesh(new BufferGeometry());
+		mesh.bind(new Skeleton(names.map((n) => byName[n])));
+		root.add(mesh);
+		root.updateMatrixWorld(true);
+		return root;
+	}
+
+	function loadClip(name) {
+		const clip = AnimationClip.parse(JSON.parse(fs.readFileSync(clipPath(name), 'utf8')));
+		clip.name = name;
+		return clip;
+	}
+
+	function findHips(root) {
+		let hips = null;
+		root.traverse((n) => {
+			if (!hips && n.isBone && canonicalizeBoneName(n.name || '') === 'Hips') hips = n;
+		});
+		return hips;
+	}
+
+	// Net world-space hip displacement over a retargeted clip, expressed in
+	// hip-heights (dividing out the rig's overall scale so rigs authored in metres
+	// and in centimetres are directly comparable). Composes the real world matrix
+	// of the Hips' parent — the frame the position track binds into — so this is
+	// what the avatar actually does on screen, not a re-derivation of the maths.
+	function worldHipNet(root, clip) {
+		const hips = findHips(root);
+		root.updateMatrixWorld(true);
+		const restHeight = Math.abs(new Vector3().setFromMatrixPosition(hips.matrixWorld).y) || 1;
+		const parentWorld = hips.parent.matrixWorld.clone();
+		const { clip: out, coverage } = retargetClipToObject(clip, root, { minCoverage: 0 });
+		expect(coverage).toBeGreaterThan(MIN_COVERAGE); // the rig really animates
+		const track = out.tracks.find((t) => t.name === `${hips.name}.position`);
+		const v = track.values;
+		const last = v.length - 3;
+		const p0 = new Vector3(v[0], v[1], v[2]).applyMatrix4(parentWorld);
+		const pN = new Vector3(v[last], v[last + 1], v[last + 2]).applyMatrix4(parentWorld);
+		return pN.sub(p0).divideScalar(restHeight);
+	}
+
+	// Authored net displacement straight from the clip (the authoring rig is
+	// world-Y-up, so this *is* the intended world direction every rig must match).
+	function authoredNet(clip) {
+		const t = clip.tracks.find(
+			(tr) => tr.name.endsWith('.position') && canonicalizeBoneName(tr.name.split('.')[0]) === 'Hips',
+		);
+		const v = t.values;
+		const last = v.length - 3;
+		return new Vector3(v[last] - v[0], v[last + 1] - v[1], v[last + 2] - v[2]);
+	}
+
+	// Four conventions: cz (authoring rig, identity armature), michelle (Mixamo
+	// +90°X armature / −90°X Hips), and two synthetics — a compound non-±90°
+	// armature and a pure 30° yaw (an upright RPM-style placement rotation).
+	const rigs = {
+		cz: realRig('cz'),
+		michelle: realRig('michelle'),
+		tilted: buildSyntheticRig(
+			new Quaternion().setFromEuler(
+				new Euler((25 * Math.PI) / 180, (40 * Math.PI) / 180, (15 * Math.PI) / 180, 'XYZ'),
+			),
+		),
+		yawed: buildSyntheticRig(new Quaternion().setFromAxisAngle(new Vector3(0, 1, 0), Math.PI / 6)),
+	};
+	const rigNames = Object.keys(rigs);
+
+	// Clips that actually travel (the in-place featured walk/jump have ~zero net
+	// translation, so a non-trivial library clip is used to test direction).
+	const WALK = 'av-walk-crouching'; // pure forward (+Z), flat ground
+	const JUMP = 'jumpdown2'; // forward + downward arc
+
+	describe.each([WALK, JUMP])('%s travels the authored world direction on every rig', (name) => {
+		const clip = loadClip(name);
+		const authored = authoredNet(clip);
+		const authoredDir = authored.clone().normalize();
+
+		it.each(rigNames)('direction matches on %s (no sideways drift)', (rigName) => {
+			const world = worldHipNet(rigs[rigName], clip);
+			// World travel must point the same way as the authored travel: a unit-dot
+			// near 1 means the heading is preserved and nothing leaked sideways.
+			expect(world.clone().normalize().dot(authoredDir)).toBeGreaterThan(0.999);
+		});
+
+		it.each(rigNames)('verticality matches on %s (no sinking / floating)', (rigName) => {
+			const world = worldHipNet(rigs[rigName], clip);
+			const worldVertFrac = world.y / world.length();
+			const authoredVertFrac = authored.y / authored.length();
+			// The share of travel that is vertical is preserved, so a forward walk
+			// stays on the ground and a jump arcs by exactly its authored amount —
+			// horizontal motion never bleeds into the up axis (or vice-versa).
+			expect(Math.abs(worldVertFrac - authoredVertFrac)).toBeLessThan(0.02);
+		});
+	});
+
+	// In-place performances must not acquire net horizontal travel on any rig.
+	describe.each(['idle', 'celebrate', 'walk', 'jump'])('%s stays in place on every rig', (name) => {
+		const clip = loadClip(name);
+
+		it.each(rigNames)('net XZ travel is ~zero on %s', (rigName) => {
+			const world = worldHipNet(rigs[rigName], clip);
+			expect(Math.hypot(world.x, world.z)).toBeLessThan(0.01);
+		});
+	});
+
+	it('cz.glb output is byte-for-byte identical to the verbatim (uncorrected) clip', () => {
+		// cz is the authoring rig: identity armature, identity Hips rest. Every
+		// correction collapses to identity, so the retarget must be a no-op — the
+		// absolute no-regression bar for the whole initiative.
+		const clip = loadClip(WALK);
+		const corrected = retargetClipToObject(clip, rigs.cz, { minCoverage: 0 }).clip;
+		const map = canonicalNodeMapFromObject(rigs.cz);
+		const verbatim = retargetClip(clip, map, { hipScale: 1, minCoverage: 0 }).clip;
+		const byName = new Map(verbatim.tracks.map((t) => [t.name, t]));
+		for (const t of corrected.tracks) {
+			expect(Array.from(t.values)).toEqual(Array.from(byName.get(t.name).values));
+		}
 	});
 });
