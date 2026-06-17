@@ -9,7 +9,15 @@
 <agent-3d src="agent://base/42" style="width:400px;height:500px"></agent-3d>
 ```
 
-All four layout modes, voice I/O, the LLM brain, persistent memory, and an extensible skill system are built in. Every feature is opt-in — a bare `<agent-3d body="./avatar.glb">` renders a silent 3D viewer with no API key and no external calls beyond the GLB itself.
+All four layout modes, voice I/O, the LLM brain, persistent memory, and an extensible skill system are built in. Every feature is opt-in — and so is the chat UI. A plain `<agent-3d body="./avatar.glb">` renders **just the avatar** on a transparent background: no chat, no input bar, no debug GUI, no name-plate, no API key, no external calls beyond the GLB itself.
+
+Add the `chat` attribute to turn it into a full conversational agent. A bound published agent — `agent-id`, `manifest`, or `src="agent://…"` — implies `chat` automatically, since it carries a brain and persona of its own:
+
+```html
+<agent-3d body="./avatar.glb"></agent-3d>            <!-- just the avatar -->
+<agent-3d chat body="./avatar.glb"></agent-3d>       <!-- avatar + chat -->
+<agent-3d src="agent://base/42"></agent-3d>          <!-- published agent: chats -->
+```
 
 ---
 
@@ -17,7 +25,7 @@ All four layout modes, voice I/O, the LLM brain, persistent memory, and an exten
 
 The element is designed to be zero-overhead until it is needed.
 
-1. **Element added to DOM** — `connectedCallback` fires. Shadow DOM shell (canvas container, chat chrome, poster, loading indicator) is rendered immediately.
+1. **Element added to DOM** — `connectedCallback` fires. Shadow DOM shell (canvas container, poster, loading indicator — plus the chat chrome when in chat mode) is rendered immediately.
 2. **IntersectionObserver** starts watching the element. Nothing else happens until at least one pixel is visible in the viewport. Add the `eager` attribute to skip this and boot immediately on connection.
 3. **Manifest resolved** — the element reads its source attributes (`src`, `agent-id`, `manifest`, or `body`) in priority order and fetches or constructs an agent manifest. See [Source attributes](#source-attributes) for the priority chain.
 4. **Embed policy checked** — if the manifest maps to a backend agent ID, the element fetches the agent's embed policy and refuses to continue if the current origin is not permitted.
@@ -123,7 +131,8 @@ Using `body` with no manifest creates an ad-hoc agent. Its name, instructions, a
 | Attribute | Description |
 |-----------|-------------|
 | `eager` | Boot immediately on DOM connection, bypassing the IntersectionObserver lazy-load. |
-| `kiosk` | Hides all UI chrome: chat input, mic button, validator panel, editor links. Use for display contexts where end users should not interact. |
+| `chat` | Adds the conversational UI (chat log, input row, mic, thought bubble, name-plate) to the bare avatar. A bound `agent-id`/`manifest`/`src="agent://…"` enables this automatically. |
+| `kiosk` | Forces the bare avatar — hides all chat/control/debug chrome even on a bound agent. Use for signage and display contexts. (A plain `<agent-3d>` is already bare.) |
 | `debug` | Overlays scene graph stats, tool-call log, and memory inspector in the shadow DOM. |
 | `name-plate` | Controls the name overlay. Set to `"off"` to hide it. |
 

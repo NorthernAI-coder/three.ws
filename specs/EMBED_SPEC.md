@@ -29,6 +29,36 @@ That's the full install for 95% of users. Everything below is optional.
 When multiple are set, priority is `src` > `agent-id` > `manifest` > `body`.
 All on-chain forms resolve through [`src/erc8004/resolver.js`](../src/erc8004/resolver.js).
 
+### Chrome — bare avatar (default) vs chat agent
+
+A plain `<agent-3d>` ships **just the avatar**: the transparent 3D canvas and
+nothing else — no chat, no input bar, no debug GUI, no name-plate. This is the
+default so the one-liner drops a clean embodied avatar onto any page.
+
+The conversational chrome (chat log, input row, mic, thought bubble,
+name-plate) is **opt-in**:
+
+| Attribute  | Effect                                                                                          |
+| ---------- | ---------------------------------------------------------------------------------------------- |
+| `chat`     | Adds the full conversational UI. The documented way to turn a bare avatar into a chat agent.   |
+| `agent-id` | Implies `chat` — a bound published agent carries a brain + persona, so it talks by default.     |
+| `manifest` | Implies `chat` — same reasoning as `agent-id`.                                                  |
+| `kiosk`    | Forces bare even when an `agent-id`/`manifest` is bound (render a bound agent as decoration).   |
+| `viewer`   | Forces bare; alias intended for pure decoration (landing pages, launchpads).                    |
+
+```html
+<!-- just the avatar -->
+<agent-3d body="ipfs://bafy.../cz.glb"></agent-3d>
+
+<!-- avatar + chat -->
+<agent-3d chat body="ipfs://bafy.../cz.glb" instructions="You are a friendly guide."></agent-3d>
+
+<!-- a published agent — chats by default -->
+<agent-3d agent-id="42" chain-id="8453"></agent-3d>
+```
+
+`chat` may be toggled at runtime; the element rebuilds its chrome in place.
+
 ### Body / scene
 
 | Attribute         | Type                       | Default     | Notes                             |
@@ -93,7 +123,8 @@ All on-chain forms resolve through [`src/erc8004/resolver.js`](../src/erc8004/re
 
 ### Integrated Avatar Chat
 
-The default `avatar-chat` mode provides a rich, embodied interaction:
+When chat is enabled (`chat`, or a bound `agent-id`/`manifest`), the `avatar-chat`
+layout provides a rich, embodied interaction:
 - **Walk Animation**: The avatar walks in place while the LLM is thinking or streaming text, and also when the chat is scrolled.
 - **Thought Bubble**: A status bubble appears above the avatar's head, showing "Thinking..." or the live stream of tokens.
 - **Interactive Scene**: Empty space around the avatar remains interactive (orbit/zoom/pan) even while chat is visible.
@@ -117,11 +148,15 @@ The canonical embed shape is `<agent-3d chain-id="8453" agent-id="42">` — the 
 
 ### Dev / debug
 
-| Attribute | Notes                                                 |
-| --------- | ----------------------------------------------------- |
-| `kiosk`   | hides all UI chrome (validator, controls, chat)       |
-| `debug`   | overlays scene graph, tool-call log, memory inspector |
-| `editor`  | mounts the embed editor instead of the live agent     |
+| Attribute | Notes                                                                          |
+| --------- | ------------------------------------------------------------------------------ |
+| `kiosk`   | forces the bare avatar — hides all chrome (chat, controls, debug GUI, plate)    |
+| `debug`   | overlays scene graph, tool-call log, memory inspector                          |
+| `editor`  | mounts the embed editor instead of the live agent                              |
+
+Note: the debug GUI and axes gizmo are already hidden on every bare avatar (the
+default), so `kiosk` is only needed to force bare on an `agent-id`/`manifest`
+binding that would otherwise chat. See "Chrome" above.
 
 ## Modes
 
@@ -173,7 +208,7 @@ Takes over the viewport with a close button. Useful for mobile.
 
 ## Avatar-in-Chat Mode
 
-By default, `<agent-3d>` uses a vertical chat layout where the 3D avatar is visible as a conversation participant through a transparent window between the message history and the input bar. While the LLM generates a response, the avatar:
+In chat mode (`chat`, or a bound `agent-id`/`manifest`), `<agent-3d>` uses a vertical chat layout where the 3D avatar is visible as a conversation participant through a transparent window between the message history and the input bar. While the LLM generates a response, the avatar:
 
 - **Walks** in place (synchronized to token streaming)
 - **Displays a thought bubble** above its head showing the streaming text
