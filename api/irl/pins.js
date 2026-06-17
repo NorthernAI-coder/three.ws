@@ -145,7 +145,7 @@ async function guardianFlags(caption) {
 // every legit first-party pay target). A valid host token is a bare hostname
 // (letters/digits/dots/hyphens, no scheme/path/port), so a fat-fingered
 // "https://x" entry is dropped instead of poisoning the match.
-const X402_DEFAULT_HOSTS = ['three.ws', 'www.three.ws', '3d-agent.vercel.app', '3d.irish'];
+const X402_DEFAULT_HOSTS = ['three.ws', 'www.three.ws', '3d-agent.vercel.app', 'three.ws'];
 const X402_HOST_RE = /^[a-z0-9.-]+$/;
 
 // Parse + validate the configured allow-list. Returns ONLY well-formed bare

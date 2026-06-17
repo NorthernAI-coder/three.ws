@@ -2,7 +2,7 @@
 //
 // Merchants add one line to their site:
 //
-//   <script type="module" src="https://3d.irish/x402.js"></script>
+//   <script type="module" src="https://three.ws/x402.js"></script>
 //
 // Then any element with `data-x402-endpoint` opens a payment modal on click:
 //
@@ -681,7 +681,7 @@ class CheckoutModal {
 				<div class="x402-body" data-body></div>
 				<div class="x402-foot">
 					<span class="x402-secure">x402 · onchain settled</span>
-					<a href="https://3d.irish" target="_blank" rel="noopener">Powered by 3d.irish</a>
+					<a href="https://three.ws" target="_blank" rel="noopener">Powered by three.ws</a>
 				</div>
 			</div>
 		`;
