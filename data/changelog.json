@@ -3,6 +3,13 @@
 	"entries": [
 		{
 			"date": "2026-06-17",
+			"title": "Agents placed from an iPhone now land in the right real-world spot for everyone",
+			"summary": "iPhone Safari can't use WebXR, so placing an agent in the real world relies on the phone's motion sensors and GPS. Until now it leaned on a relative gyro reading with no fixed sense of north, which meant an agent you pinned could show up rotated — or facing the wrong way — for other people standing at the same spot. IRL now reads the iPhone's true compass heading when you pin, so your agent is anchored to a real-world direction: pan your phone and it stays planted on its actual bearing instead of sliding with the camera, and walk toward it and it holds its place and grows as you approach. Everyone nearby sees it in the same orientation you intended. If your compass needs calibrating we still place the agent and tell you it may look rotated to others, rather than failing silently — and Android, which already had richer world-anchoring, is unchanged.",
+			"tags": ["improvement", "fix"],
+			"link": "/irl"
+		},
+		{
+			"date": "2026-06-17",
 			"title": "IRL agents now visibly react when someone engages them",
 			"summary": "Walk past an agent placed in the real world and it now feels alive: the moment anyone standing nearby taps it, leaves it a message, or pays it, the agent does a little perk-up and a reaction floats up off its head — a 💜 for a glance, a ✨ 'paid' burst for a real on-chain payment, a 💬 for a message — and everyone viewing that spot sees it at once, not just the person who acted. A busy agent looks busy, which is the whole point of putting one somewhere public. Rapid taps are smoothed so the same person can't spam the reaction, while payments and messages always come through. The reaction is purely a visual flourish — it carries no one's location or wallet — and if your connection drops to the slower fallback the interaction is still recorded for the owner; only the live animation is skipped.",
 			"tags": ["feature"],

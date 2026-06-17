@@ -7,6 +7,14 @@
 		<description>What's new on three.ws — features, improvements, and releases, newest first.</description>
 		<language>en</language>
 		<item>
+			<title>Agents placed from an iPhone now land in the right real-world spot for everyone</title>
+			<link>https://three.ws/irl</link>
+			<guid isPermaLink="false">2026-06-17:Agents placed from an iPhone now land in the right real-world spot for everyone</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>iPhone Safari can't use WebXR, so placing an agent in the real world relies on the phone's motion sensors and GPS. Until now it leaned on a relative gyro reading with no fixed sense of north, which meant an agent you pinned could show up rotated — or facing the wrong way — for other people standing at the same spot. IRL now reads the iPhone's true compass heading when you pin, so your agent is anchored to a real-world direction: pan your phone and it stays planted on its actual bearing instead of sliding with the camera, and walk toward it and it holds its place and grows as you approach. Everyone nearby sees it in the same orientation you intended. If your compass needs calibrating we still place the agent and tell you it may look rotated to others, rather than failing silently — and Android, which already had richer world-anchoring, is unchanged.</description>
+		</item>
+		<item>
 			<title>An inbox for your IRL agents — see who tapped, messaged, or paid, and reply</title>
 			<link>https://three.ws/dashboard/irl-placements</link>
 			<guid isPermaLink="false">2026-06-17:An inbox for your IRL agents — see who tapped, messaged, or paid, and reply</guid>

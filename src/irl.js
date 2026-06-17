@@ -817,37 +817,102 @@ if (avatarBtn) {
 // When the avatar is locked in AR mode, device rotation drives the Three.js
 // camera so the avatar appears pinned to a real-world location as the user
 // physically rotates their phone — Pokémon GO style.
+//
+// Heading frame (A4). iOS Safari has no WebXR and never fires
+// `deviceorientationabsolute`; its `alpha` is page-relative (arbitrary zero), so
+// a delta-only yaw is consistent for THIS device but lands every placement at a
+// different absolute bearing — breaking cross-user reconciliation (A3). iOS does
+// expose a true magnetic-north bearing via `event.webkitCompassHeading`, so when
+// it's present we drive yaw from it absolutely: the scene becomes north-aligned
+// (−Z = north, matching gpsToWorld), the avatar holds its real-world bearing for
+// every viewer, and the stored pose is a genuine compass heading. Page-relative
+// devices keep the delta fallback and are tagged `:rel` for A3 down-weighting.
 let lastDevAlpha = 0, lastDevBeta = 90;
 let devOrientBaseAlpha    = null; // null = inactive
 let devOrientBaseBeta     = null;
 let devOrientBaseCamYaw   = 0;
 let devOrientBaseCamPitch = 0;
-let prefersAbsOrientation = false;
+let prefersAbsOrientation = false;  // true once a north-referenced bearing is seen (source tagging)
+let hasAbsoluteEventStream = false; // true if the dedicated deviceorientationabsolute event fires (Android)
+let lastCompassHeading = null;      // iOS true compass bearing (deg, 0=N clockwise); null = none/uncalibrated
+
+// iOS Safari's magnetic-north bearing. A negative webkitCompassAccuracy means the
+// magnetometer isn't calibrated yet — treat that as no absolute reference rather
+// than trusting a garbage heading. Returns null when no usable compass is present.
+function readCompassHeading(e) {
+	const h = e.webkitCompassHeading;
+	if (typeof h !== 'number' || !Number.isFinite(h)) return null;
+	const acc = e.webkitCompassAccuracy;
+	if (typeof acc === 'number' && acc < 0) return null;
+	return ((h % 360) + 360) % 360;
+}
+
+// THREE.js Y-rotation maps to a clockwise-from-north bearing as renderedBearing =
+// (−cameraYaw); to point the rendered camera at compass bearing H we set
+// cameraYaw = −H (verified against three's quaternion). Portrait AR assumed.
+function compassToYaw(headingDeg) {
+	return -headingDeg * (Math.PI / 180);
+}
 
 function onDeviceOrientation(e) {
 	const a = e.alpha ?? 0;
 	const b = e.beta  ?? 90;
 	lastDevAlpha = a;
 	lastDevBeta  = b;
+	const compass = readCompassHeading(e);
+	if (compass !== null) { lastCompassHeading = compass; prefersAbsOrientation = true; }
+	else if (hasAbsoluteEventStream) { prefersAbsOrientation = true; }
 	if (!avatarLocked || !arActive || devOrientBaseAlpha === null) return;
-	// Delta from baseline — handle 0/360 wrap on alpha
-	let dAlpha = a - devOrientBaseAlpha;
-	if (dAlpha > 180)  dAlpha -= 360;
-	if (dAlpha < -180) dAlpha += 360;
-	cameraYaw   = devOrientBaseCamYaw   + dAlpha * (Math.PI / 180);
+	if (lastCompassHeading !== null) {
+		// Absolute frame (iOS compass): yaw tracks the real bearing, so panning the
+		// phone leaves the avatar planted on its real-world direction for everyone.
+		cameraYaw = compassToYaw(lastCompassHeading);
+	} else {
+		// Page-relative fallback: integrate alpha deltas from the lock baseline.
+		let dAlpha = a - devOrientBaseAlpha;
+		if (dAlpha > 180)  dAlpha -= 360;
+		if (dAlpha < -180) dAlpha += 360;
+		cameraYaw = devOrientBaseCamYaw + dAlpha * (Math.PI / 180);
+	}
 	cameraPitch = Math.max(PITCH_MIN, Math.min(PITCH_MAX,
 		devOrientBaseCamPitch - (b - devOrientBaseBeta) * (Math.PI / 180)));
 }
 
-// Prefer absolute (compass-referenced) over page-relative orientation
+// Two orientation streams: Android's dedicated absolute event (north-referenced
+// alpha) owns updates when present; iOS only fires the plain event, which is where
+// webkitCompassHeading rides — so the relative listener gates on the *stream*
+// existing, never on prefersAbsOrientation (which a compass reading now also sets,
+// and which would otherwise silence iOS after the first event).
 window.addEventListener('deviceorientationabsolute', e => {
-	prefersAbsOrientation = true;
+	hasAbsoluteEventStream = true;
 	onDeviceOrientation(e);
 }, true);
 window.addEventListener('deviceorientation', e => {
-	if (prefersAbsOrientation) return;
+	if (hasAbsoluteEventStream) return;
 	onDeviceOrientation(e);
 }, true);
+
+// iOS only starts firing orientation events once motion access is granted, and the
+// compass rides those events — so a lock that anchors synchronously right after the
+// grant would store a stale page-relative bearing. Wait briefly for the first
+// compass sample so the persisted pose is the real heading. Resolves in a frame on
+// iOS; resolves immediately on devices that don't expose a compass (no wait).
+function waitForCompass(ms = 1200) {
+	if (lastCompassHeading !== null || !needsMotionGesture()) return Promise.resolve();
+	return new Promise((resolve) => {
+		let done = false;
+		const finish = () => {
+			if (done) return;
+			done = true;
+			clearTimeout(to);
+			window.removeEventListener('deviceorientation', onEvt, true);
+			resolve();
+		};
+		const onEvt = () => { if (lastCompassHeading !== null) finish(); };
+		const to = setTimeout(finish, ms);
+		window.addEventListener('deviceorientation', onEvt, true);
+	});
+}
 
 // ── Avatar lock ───────────────────────────────────────────────────────────
 let avatarLocked = false;
@@ -875,6 +940,9 @@ async function setLocked(next) {
 				}
 				return;
 			}
+			// Let the first compass sample land before we capture the bearing, so the
+			// stored pose is the real heading rather than a page-relative placeholder.
+			await waitForCompass();
 		}
 	}
 	avatarLocked = next;
@@ -886,10 +954,16 @@ async function setLocked(next) {
 	if (arActive) {
 		if (next) {
 			// Capture baseline orientation — gyro deltas from here drive the camera
+			// on the page-relative fallback path. The pitch baseline is used by both
+			// paths; the yaw baseline only by the delta fallback.
 			devOrientBaseAlpha    = lastDevAlpha;
 			devOrientBaseBeta     = lastDevBeta;
 			devOrientBaseCamYaw   = cameraYaw;
 			devOrientBaseCamPitch = cameraPitch;
+			// iOS compass available: snap the very first locked frame to the true
+			// bearing so the view is north-aligned before the next orientation event
+			// (which keeps it live). No-op on page-relative devices.
+			if (lastCompassHeading !== null) cameraYaw = compassToYaw(lastCompassHeading);
 			arFrozenCamPos  = null;
 			arFrozenCamLook = null;
 			document.body.classList.add('is-locked');
@@ -1185,6 +1259,10 @@ function anchorGpsPin() {
 	const pinLng = gpsState.lng + ( avatarRig.position.x / mLng);
 	gpsModeActive = true;
 	document.body.classList.add('gps-mode');
+	// On iOS the live compass is the authoritative bearing — re-derive cameraYaw from
+	// the freshest reading so the stored heading is north-anchored even when this runs
+	// between orientation events (notably the deferred first-GPS-fix path).
+	if (lastCompassHeading !== null) cameraYaw = compassToYaw(lastCompassHeading);
 	const headingDeg = ((cameraYaw * 180 / Math.PI) % 360 + 360) % 360;
 	// Snap the avatar to face the heading we're about to store so it matches how
 	// nearby users will see it — spawnNearbyPin() rotates foreign avatars with the
