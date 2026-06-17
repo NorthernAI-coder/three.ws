@@ -365,21 +365,6 @@ export class AnimationManager {
 		return this._registerParsedClip(name, clip, opts);
 	}
 
-	/**
-	 * Register an already-parsed AnimationClip directly without fetching a URL.
-	 * Creates an action if a model is currently attached. Idempotent.
-	 *
-	 * @param {string} name
-	 * @param {THREE.AnimationClip} clip
-	 * @param {{ loop?: boolean }} [opts]
-	 * @returns {THREE.AnimationClip}
-	 */
-	registerClipDirect(name, clip, opts = {}) {
-		if (this.clips.has(name)) return this.clips.get(name);
-		clip.name = name;
-		return this._registerParsedClip(name, clip, opts);
-	}
-
 	/** @private Shared finalization for both load paths. */
 	_registerParsedClip(name, clip, opts) {
 		this.clips.set(name, clip);

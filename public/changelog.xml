@@ -7,6 +7,14 @@
 		<description>What's new on three.ws — features, improvements, and releases, newest first.</description>
 		<language>en</language>
 		<item>
+			<title>Animation Gallery</title>
+			<link>https://three.ws/animations</link>
+			<guid isPermaLink="false">2026-06-17:Animation Gallery</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>Browse and preview public animations authored by the three.ws community. Apply any clip to your avatar in the Animation Studio.</description>
+		</item>
+		<item>
 			<title>Animation Studio</title>
 			<link>https://three.ws/pose</link>
 			<guid isPermaLink="false">2026-06-17:Animation Studio</guid>
@@ -53,6 +61,14 @@
 			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>Your IRL Agents dashboard now has an Inbox: a live, chronological feed of everyone who met your placed agents in real life. Each entry shows what happened — a view, a tap, a message, or a payment — where it happened, and how long ago. Payments show the exact amount and link straight to the block-explorer receipt, and you can reply to anyone who left your agent a message; if they were signed in, your reply lands in their notifications. Unread counts appear on the Inbox button and on each agent's card, the feed refreshes itself every few seconds, and opening the inbox marks everything read. High-signal events (a payment or a message) also ping you in the notification bell, so you find out the moment a stranger across the city engages your agent.</description>
+		</item>
+		<item>
+			<title>Animation Gallery — browse, preview, and remix community animations</title>
+			<link>https://three.ws/animations</link>
+			<guid isPermaLink="false">2026-06-17:Animation Gallery — browse, preview, and remix community animations</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Saved and public animations are now playable anywhere three.ws renders an avatar. The new /animations gallery lists every public clip with live previews (hover a card to see the animation on a real avatar), one-click &quot;Open in Studio&quot; to remix any clip, and an &quot;Animate this avatar&quot; shortcut from the avatar gallery. Any page with an avatar panel now also shows your saved and community animations alongside the built-in library. Share a clip by its id — ?anim=&lt;id&gt; plays it directly in the viewer, the embed, or the Studio editor.</description>
 		</item>
 		<item>
 			<title>Avatars from any tool animate perfectly when uploaded</title>
@@ -461,6 +477,14 @@
 			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>There's now a live, self-contained x402 demo you can try in a browser. Pay $0.001 USDC from your own wallet — MetaMask on Base or Phantom on Solana — and call a real three.ws data API. The page reads the live HTTP 402 price the server quotes, runs the paid call once your wallet signs a gasless authorization, and shows the response next to an on-chain transaction receipt you can open on Basescan or Solscan. Nothing is mocked and there's no account or backend. The same eight-line embed it runs on — one script tag from three.ws plus any button carrying a data-x402-endpoint — is copy-pasteable into any site, so a developer can add a working pay-per-call paywall in minutes. Built with IBM as the public face of the partnership and designed to host cleanly on a strict-CSP enterprise page.</description>
+		</item>
+		<item>
+			<title>Walking avatars now travel the right way on every rig</title>
+			<link>https://three.ws/walk</link>
+			<guid isPermaLink="false">2026-06-17:Walking avatars now travel the right way on every rig</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Animations with root motion — walking, running, jumping with travel — now move your avatar in the correct world direction and distance no matter what tool the avatar came from. Avatars exported from Mixamo, Ready Player Me, Blender, and others orient their skeletons differently; previously a walk could drift sideways, sink into the floor, or moonwalk on rigs that didn't match the standard convention. The viewer now re-expresses each clip's root motion in the target rig's own frame, so two avatars built in different tools walk side by side in the same direction. Avatars that already matched the reference rig are byte-for-byte unchanged.</description>
 		</item>
 		<item>
 			<title>Withdraw your agent's funds any time — plus spend limits and a full custody audit trail</title>
