@@ -5931,13 +5931,22 @@ async function connectWalletProvider(providerKey) {
 		name: entry.name,
 		publicKey: typeof pubKey === 'string' ? new web3.PublicKey(pubKey) : pubKey,
 	};
-	updateWalletUI();
+	bindProviderEvents(provider, entry.name);
+	notifyWalletChanged();
 }
 
 function disconnectWallet() {
 	try { connectedWallet?.provider?.disconnect?.(); } catch {}
 	connectedWallet = null;
+	notifyWalletChanged();
+}
+
+// Single fan-out for every wallet state transition. Keeps the in-modal
+// purchase UI (`updateWalletUI`) and the persistent header control
+// (`renderHeaderWallet`) reading from the same `connectedWallet` source.
+function notifyWalletChanged() {
 	updateWalletUI();
+	renderHeaderWallet();
 }
 
 function updateWalletUI() {
@@ -5990,6 +5999,284 @@ function updateWalletUI() {
 	}
 	$('payment-show-qr')?.addEventListener('click', startQrPurchase);
 	if (confirmBtn) confirmBtn.disabled = true;
+}
+
+// ── Persistent header wallet control ───────────────────────────────────────
+//
+// Surfaces the wallet connection in the marketplace chrome (sidebar on
+// desktop, topbar on mobile) so a buyer can connect once and reach any Buy
+// action already-connected. Every `[data-wallet-connect]` slot renders from
+// the shared `connectedWallet`, so connecting in either the header or the
+// purchase modal updates both. Uses the real injected providers — Phantom,
+// Solflare, Backpack — same as the purchase flow; no separate wallet lib.
+
+const WALLET_EXPLORER = 'https://solscan.io/account/';
+const _walletEventsBound = new WeakSet();
+
+function walletInstallUrl(key) {
+	if (key === 'solflare') return 'https://solflare.com';
+	if (key === 'backpack') return 'https://backpack.app';
+	return 'https://phantom.app';
+}
+
+function shortWalletAddress(pk) {
+	return `${pk.slice(0, 4)}…${pk.slice(-4)}`;
+}
+
+function renderHeaderWallet() {
+	const slots = document.querySelectorAll('[data-wallet-connect]');
+	slots.forEach((slot) => {
+		const btn = document.createElement('button');
+		btn.type = 'button';
+		btn.className = 'mkt-wallet-btn';
+		btn.setAttribute('aria-haspopup', 'menu');
+		btn.setAttribute('aria-expanded', 'false');
+
+		if (connectedWallet) {
+			const pk = connectedWallet.publicKey.toBase58();
+			btn.classList.add('is-connected');
+			btn.innerHTML =
+				'<span class="mkt-wallet-dot" aria-hidden="true"></span>' +
+				`<span class="mkt-wallet-label">${escapeHtml(shortWalletAddress(pk))}</span>` +
+				'<span class="mkt-wallet-caret" aria-hidden="true">▾</span>';
+			btn.setAttribute(
+				'aria-label',
+				`${connectedWallet.name} wallet connected, ${pk}. Open wallet menu`,
+			);
+			btn.addEventListener('click', () => openConnectedWalletMenu(btn));
+		} else {
+			btn.innerHTML =
+				'<span class="mkt-wallet-ico" aria-hidden="true">◎</span>' +
+				'<span class="mkt-wallet-label">Connect Wallet</span>';
+			btn.setAttribute('aria-label', 'Connect a Solana wallet');
+			btn.addEventListener('click', () => onHeaderConnectClick(btn));
+		}
+
+		slot.replaceChildren(btn);
+	});
+}
+
+async function onHeaderConnectClick(btn) {
+	// Detect at click time — extensions can inject after page load.
+	const available = listAvailableWallets();
+	if (available.length === 1) {
+		await headerConnectWallet(available[0].key, btn);
+		return;
+	}
+	if (available.length > 1) {
+		openWalletMenu(
+			btn,
+			available.map((w) => ({
+				label: `Connect ${w.name}`,
+				onClick: () => headerConnectWallet(w.key, btn),
+			})),
+		);
+		return;
+	}
+	// No injected wallet — offer install links.
+	openWalletMenu(
+		btn,
+		WALLET_PROVIDERS.map((p) => ({
+			label: `Install ${p.name} ↗`,
+			href: walletInstallUrl(p.key),
+		})),
+	);
+}
+
+async function headerConnectWallet(key, btn) {
+	closeWalletMenu();
+	const label = btn.querySelector('.mkt-wallet-label');
+	const prev = label?.textContent;
+	if (label) label.textContent = 'Connecting…';
+	btn.classList.add('is-busy');
+	btn.disabled = true;
+	try {
+		// Sets connectedWallet then notifyWalletChanged() re-renders every slot.
+		await connectWalletProvider(key);
+	} catch (e) {
+		btn.disabled = false;
+		btn.classList.remove('is-busy');
+		if (label) label.textContent = prev || 'Connect Wallet';
+		const rejected = e?.code === 4001 || /reject|cancel/i.test(e?.message || '');
+		flashWalletBubble(btn, rejected ? 'Connection cancelled.' : e?.message || 'Could not connect wallet.', 'err');
+	}
+}
+
+function openConnectedWalletMenu(btn) {
+	if (!connectedWallet) return;
+	const pk = connectedWallet.publicKey.toBase58();
+	openWalletMenu(btn, [
+		{ label: 'Copy address', onClick: () => copyWalletAddress(pk, btn) },
+		{ label: 'View on Solscan ↗', href: WALLET_EXPLORER + pk },
+		{ label: 'Disconnect', danger: true, onClick: () => disconnectWallet() },
+	]);
+}
+
+async function copyWalletAddress(pk, btn) {
+	closeWalletMenu();
+	try {
+		await navigator.clipboard.writeText(pk);
+		flashWalletBubble(btn, 'Address copied', 'ok');
+	} catch {
+		flashWalletBubble(btn, 'Copy failed', 'err');
+	}
+}
+
+// Keep the header in sync when the user disconnects or switches accounts from
+// the wallet extension itself (not just via our UI). Bound once per provider.
+function bindProviderEvents(provider, name) {
+	if (!provider?.on || _walletEventsBound.has(provider)) return;
+	_walletEventsBound.add(provider);
+	provider.on('disconnect', () => {
+		if (connectedWallet?.provider === provider) {
+			connectedWallet = null;
+			notifyWalletChanged();
+		}
+	});
+	provider.on('accountChanged', async (pubKey) => {
+		if (connectedWallet?.provider !== provider) return;
+		if (!pubKey) {
+			connectedWallet = null;
+			notifyWalletChanged();
+			return;
+		}
+		const { web3 } = await loadSolanaModules();
+		connectedWallet = {
+			provider,
+			name,
+			publicKey: typeof pubKey === 'string' ? new web3.PublicKey(pubKey) : pubKey,
+		};
+		notifyWalletChanged();
+	});
+}
+
+// Silently restore a previously-authorized session on load — no popup. Phantom
+// & friends resolve connect({ onlyIfTrusted:true }) only when already trusted.
+async function eagerReconnectWallet() {
+	if (connectedWallet) return;
+	for (const entry of WALLET_PROVIDERS) {
+		const provider = entry.detect();
+		if (!provider?.connect) continue;
+		try {
+			const resp = await provider.connect({ onlyIfTrusted: true });
+			const pubKey = resp?.publicKey ?? provider.publicKey;
+			if (!pubKey) continue;
+			const { web3 } = await loadSolanaModules();
+			connectedWallet = {
+				provider,
+				name: entry.name,
+				publicKey: typeof pubKey === 'string' ? new web3.PublicKey(pubKey) : pubKey,
+			};
+			bindProviderEvents(provider, entry.name);
+			notifyWalletChanged();
+			return;
+		} catch {
+			// Not trusted for this origin — try the next provider silently.
+		}
+	}
+}
+
+function mountHeaderWallet() {
+	if (!document.querySelector('[data-wallet-connect]')) return;
+	renderHeaderWallet();
+	eagerReconnectWallet();
+}
+
+// ── Header wallet dropdown / feedback primitives ───────────────────────────
+//
+// A single body-mounted, viewport-clamped popover anchored to the wallet
+// button (so the sidebar/topbar can't clip it). Closes on outside-click,
+// Escape, scroll, or resize.
+
+let _walletMenuEl = null;
+let _walletMenuAnchor = null;
+
+function openWalletMenu(anchor, items) {
+	closeWalletMenu();
+	const menu = document.createElement('div');
+	menu.className = 'mkt-wallet-menu';
+	menu.setAttribute('role', 'menu');
+	for (const item of items) {
+		let el;
+		if (item.href) {
+			el = document.createElement('a');
+			el.href = item.href;
+			el.target = '_blank';
+			el.rel = 'noopener';
+		} else {
+			el = document.createElement('button');
+			el.type = 'button';
+			el.addEventListener('click', () => item.onClick?.());
+		}
+		el.className = 'mkt-wallet-menu-item' + (item.danger ? ' danger' : '');
+		el.setAttribute('role', 'menuitem');
+		el.textContent = item.label;
+		menu.appendChild(el);
+	}
+	document.body.appendChild(menu);
+	positionFloating(menu, anchor);
+	anchor.setAttribute('aria-expanded', 'true');
+	_walletMenuEl = menu;
+	_walletMenuAnchor = anchor;
+	requestAnimationFrame(() => menu.querySelector('.mkt-wallet-menu-item')?.focus());
+	// Defer binding so the click that opened the menu doesn't immediately close it.
+	setTimeout(() => {
+		document.addEventListener('click', onWalletMenuOutside, true);
+		document.addEventListener('keydown', onWalletMenuKeydown, true);
+		window.addEventListener('resize', closeWalletMenu);
+		window.addEventListener('scroll', closeWalletMenu, true);
+	}, 0);
+}
+
+function closeWalletMenu() {
+	_walletMenuAnchor?.setAttribute('aria-expanded', 'false');
+	_walletMenuEl?.remove();
+	_walletMenuEl = null;
+	_walletMenuAnchor = null;
+	document.removeEventListener('click', onWalletMenuOutside, true);
+	document.removeEventListener('keydown', onWalletMenuKeydown, true);
+	window.removeEventListener('resize', closeWalletMenu);
+	window.removeEventListener('scroll', closeWalletMenu, true);
+}
+
+function onWalletMenuOutside(e) {
+	if (!_walletMenuEl) return;
+	if (_walletMenuEl.contains(e.target)) return;
+	if (_walletMenuAnchor?.contains(e.target)) return;
+	closeWalletMenu();
+}
+
+function onWalletMenuKeydown(e) {
+	if (e.key === 'Escape') {
+		const anchor = _walletMenuAnchor;
+		closeWalletMenu();
+		anchor?.focus();
+	}
+}
+
+function positionFloating(el, anchor) {
+	const r = anchor.getBoundingClientRect();
+	const w = el.offsetWidth || 200;
+	let left = r.left;
+	if (left + w > window.innerWidth - 8) left = Math.max(8, r.right - w);
+	el.style.top = `${Math.round(r.bottom + 6)}px`;
+	el.style.left = `${Math.round(left)}px`;
+}
+
+let _walletBubbleTimer;
+function flashWalletBubble(anchor, text, kind) {
+	const bubble = document.createElement('div');
+	bubble.className = 'mkt-wallet-bubble' + (kind ? ` ${kind}` : '');
+	bubble.setAttribute('role', 'status');
+	bubble.textContent = text;
+	document.body.appendChild(bubble);
+	positionFloating(bubble, anchor);
+	requestAnimationFrame(() => bubble.classList.add('show'));
+	clearTimeout(_walletBubbleTimer);
+	_walletBubbleTimer = setTimeout(() => {
+		bubble.classList.remove('show');
+		setTimeout(() => bubble.remove(), 250);
+	}, 2600);
 }
 
 function setStatus(text, kind) {
@@ -7065,6 +7352,7 @@ function setupAccessibleDialogs() {
 function init() {
 	bindEvents();
 	setupAccessibleDialogs();
+	mountHeaderWallet();
 	loadCategories();
 	loadList(true);
 	loadTheme();

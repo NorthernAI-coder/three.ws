@@ -2679,6 +2679,10 @@
 				<img src="/three.svg" alt="three.ws" />
 				<span>Community</span>
 			</a>
+			<!-- Persistent Solana wallet connect. Shares the same connectedWallet
+			     state as the in-modal purchase flow, so connecting here arrives
+			     pre-connected at any Buy action. Rendered by src/marketplace.js. -->
+			<div class="mkt-wallet-slot mkt-wallet-slot--sidebar" data-wallet-connect></div>
 			<nav class="market-nav">
 				<a href="/" data-nav="home"><span class="ico">⌂</span> <span>Home</span></a>
 				<a href="/marketplace" data-nav="agent" class="active"
@@ -2811,6 +2815,9 @@
 						autocomplete="off"
 						aria-label="Search agents and avatars"
 					/>
+					<!-- Mobile-only wallet connect: the sidebar (its desktop home)
+					     is hidden under 980px, so surface the same control here. -->
+					<div class="mkt-wallet-slot mkt-wallet-slot--topbar" data-wallet-connect></div>
 					<div
 						class="market-filter-chips"
 						id="market-filter-chips"
