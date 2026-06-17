@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-17T23:07:55.647Z",
+	"generated_at": "2026-06-17T23:11:44.772Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -717,6 +717,17 @@
 			"link": "/club",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-17",
+			"type": "update",
+			"title": "Paid Forge rides out a busy generator instead of failing",
+			"summary": "When you pay to forge a 3D model and the generator is momentarily busy, the checkout no longer dead-ends on a \"request was throttled\" error. It now waits out the brief cooldown and retries automatically — you see a short \"retrying in Ns\" countdown right in the payment panel — and your USDC is never taken when generation can't run, so a throttle costs you nothing. This covers building a model from your own uploaded photos too, which always uses the reconstruction engine.",
+			"link": "/ibm/x402-demo",
+			"tags": [
+				"fix",
+				"improvement"
 			]
 		},
 		{

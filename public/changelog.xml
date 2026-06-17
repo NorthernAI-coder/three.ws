@@ -559,6 +559,14 @@
 			<description>The walk-in to the Pole Club now has a live minimap in the top-right corner. It shows a top-down radar of the room you're in, your avatar as an arrow that points the way you're facing, and a pulsing line to the door you're headed for — so you always know which way the exit is. It re-fits to each room as you move from the alley to the gallery to the clubhouse, and the door marker turns green once you're in range to enter.</description>
 		</item>
 		<item>
+			<title>Paid Forge rides out a busy generator instead of failing</title>
+			<link>https://three.ws/ibm/x402-demo</link>
+			<guid isPermaLink="false">2026-06-17:Paid Forge rides out a busy generator instead of failing</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>When you pay to forge a 3D model and the generator is momentarily busy, the checkout no longer dead-ends on a &quot;request was throttled&quot; error. It now waits out the brief cooldown and retries automatically — you see a short &quot;retrying in Ns&quot; countdown right in the payment panel — and your USDC is never taken when generation can't run, so a throttle costs you nothing. This covers building a model from your own uploaded photos too, which always uses the reconstruction engine.</description>
+		</item>
+		<item>
 			<title>Pay an IRL agent for its services — and open its full profile — right from the card</title>
 			<link>https://three.ws/irl</link>
 			<guid isPermaLink="false">2026-06-17:Pay an IRL agent for its services — and open its full profile — right from the card</guid>

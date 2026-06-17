@@ -3,6 +3,16 @@
 	"entries": [
 		{
 			"date": "2026-06-17",
+			"title": "Paid Forge rides out a busy generator instead of failing",
+			"summary": "When you pay to forge a 3D model and the generator is momentarily busy, the checkout no longer dead-ends on a \"request was throttled\" error. It now waits out the brief cooldown and retries automatically — you see a short \"retrying in Ns\" countdown right in the payment panel — and your USDC is never taken when generation can't run, so a throttle costs you nothing. This covers building a model from your own uploaded photos too, which always uses the reconstruction engine.",
+			"tags": [
+				"fix",
+				"improvement"
+			],
+			"link": "/ibm/x402-demo"
+		},
+		{
+			"date": "2026-06-17",
 			"title": "Forge now generates on the free NVIDIA engine — faster, no throttling",
 			"summary": "Paying to turn a sentence into a 3D model — on the IBM demo and the pay-per-call Forge API — now runs on the free NVIDIA NIM (Microsoft TRELLIS) engine instead of the previous paid pipeline. That removes the \"request was throttled\" errors some forges hit, and draft prompts often finish in seconds and return the model inline with no waiting. The same quality tiers and prices apply, and if the free engine is ever busy the call automatically falls back so a paid forge never dead-ends. Building a 3D model from your own uploaded photos still uses the reconstruction engine.",
 			"tags": [

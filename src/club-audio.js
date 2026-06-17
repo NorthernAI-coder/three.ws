@@ -25,11 +25,24 @@ const MASTER_GAIN = 0.75;
 // Walk-in anthem — plays once, full-volume, the moment the rope drops.
 const ENTRANCE_GAIN = 0.9;
 
+// ── Music bed ────────────────────────────────────────────────────────────────
+// Full-length tracks are the club's soundtrack. Unlike the short synth loops
+// (which decodeAudioData into memory), these stream through an <audio> element
+// piped into the graph via createMediaElementSource — a 30 MB+ song never gets
+// fully decoded into a Float32 buffer. The element loops the sequence below in
+// order, forever: club anthem → the stripper cut → back to the top.
+const MUSIC_SEQUENCE = ['club', 'im-in-love-wit-a-stripper-fast'];
+const MUSIC_GAIN = 0.85;
+// Ducked level while a tipped dancer's style loop or the walk-in anthem plays
+// over the top, so the foreground track stays clearly audible.
+const MUSIC_DUCK_GAIN = 0.18;
+
 export class ClubAudio {
 	constructor() {
 		this.ctx = null;
 		this.master = null;
 		this.ambience = null; // { source, gain }
+		this.music = null; // { el, source, gain, index } — looping full-track bed
 		this.style = null; // { name, source, gain }
 		this.entrance = null; // { source, gain } — one-shot walk-in anthem
 		this._entrancePlayed = false;
@@ -182,6 +195,91 @@ export class ClubAudio {
 		this.ambience = this._makeLayer(buf, AMBIENCE_GAIN);
 	}
 
+	// Start the full-length music bed and loop MUSIC_SEQUENCE forever
+	// (club anthem → the stripper cut → back to the top). The track streams
+	// through an <audio> element wired into the effects chain, so it picks up
+	// the outdoor-muffle → indoor-clarity transition and the master mute for
+	// free, and a 30 MB song never gets decoded into a Float32 buffer.
+	//
+	// Browser autoplay policy blocks the first play() until a user gesture, so
+	// this rejects in that case — the caller catches it and retries on the next
+	// interaction. `this.music` is wired up before the play attempt, so the
+	// retry resumes the same element instead of building a second graph.
+	async startMusic() {
+		await this.ensureContext();
+		if (this.ctx.state === 'suspended') {
+			try {
+				await this.ctx.resume();
+			} catch {}
+		}
+
+		// Already wired — just make sure it's actually playing. Covers the
+		// autoplay-blocked retry and a tab switch that paused the element.
+		if (this.music) {
+			await this.music.el.play();
+			return this.music;
+		}
+
+		const AudioCtor =
+			typeof window !== 'undefined' && window.Audio
+				? window.Audio
+				: typeof Audio !== 'undefined'
+					? Audio
+					: null;
+		if (!AudioCtor) throw new Error('HTMLAudioElement unavailable');
+
+		// One element, one MediaElementSource — the Web Audio API forbids a
+		// second source node on the same element, so we swap `.src` between
+		// tracks on `ended` rather than creating a node per track.
+		const el = new AudioCtor();
+		el.preload = 'auto';
+		el.loop = false;
+		const source = this.ctx.createMediaElementSource(el);
+		const gain = this.ctx.createGain();
+		// Start ducked if a foreground layer is already playing over the bed.
+		gain.gain.value = this.style || this.entrance ? MUSIC_DUCK_GAIN : MUSIC_GAIN;
+		source.connect(gain).connect(this.effectsBus);
+
+		this.music = { el, source, gain, index: 0, source_errStreak: 0 };
+
+		const srcFor = (i) => `${AUDIO_BASE}/${MUSIC_SEQUENCE[i]}.mp3`;
+		const advance = (delta) => {
+			const len = MUSIC_SEQUENCE.length;
+			this.music.index = (((this.music.index + delta) % len) + len) % len;
+			el.src = srcFor(this.music.index);
+			el.play().catch(() => {});
+			this._announceTrack(MUSIC_SEQUENCE[this.music.index]);
+		};
+
+		// A clean playthrough resets the failure streak; an error skips to the
+		// next track. If every track in the sequence fails in a row we stop
+		// advancing so one outage can't spin a hot reload loop.
+		el.addEventListener('playing', () => {
+			this.music.source_errStreak = 0;
+		});
+		el.addEventListener('ended', () => advance(1));
+		el.addEventListener('error', () => {
+			this.music.source_errStreak += 1;
+			if (this.music.source_errStreak > MUSIC_SEQUENCE.length) return;
+			advance(1);
+		});
+
+		// Kick off track 0. Keep this explicit (not via advance) so the first
+		// play() rejection propagates to the caller's gesture-retry arming.
+		el.src = srcFor(0);
+		this._announceTrack(MUSIC_SEQUENCE[0]);
+		await el.play();
+		return this.music;
+	}
+
+	_announceTrack(name) {
+		if (this._onStatus) {
+			try {
+				this._onStatus(name);
+			} catch {}
+		}
+	}
+
 	async fadeToStyle(name, durationMs = 800) {
 		if (!name) return;
 		await this.ensureContext();
@@ -207,11 +305,7 @@ export class ClubAudio {
 		layer.gain.gain.linearRampToValueAtTime(STYLE_GAIN, end);
 		this.style = { name, ...layer };
 
-		if (this.ambience) {
-			this.ambience.gain.gain.cancelScheduledValues(now);
-			this.ambience.gain.gain.setValueAtTime(this.ambience.gain.gain.value, now);
-			this.ambience.gain.gain.linearRampToValueAtTime(AMBIENCE_DUCK_GAIN, end);
-		}
+		this._duckBeds(durationMs);
 
 		if (this._onStatus) {
 			try {
@@ -223,18 +317,12 @@ export class ClubAudio {
 
 	async fadeOutStyle(durationMs = 800) {
 		if (!this.ctx) return;
-		const now = this.ctx.currentTime;
-		const end = now + Math.max(0.05, durationMs / 1000);
 
 		if (this.style) {
 			this._fadeOutLayer(this.style, durationMs);
 			this.style = null;
 		}
-		if (this.ambience) {
-			this.ambience.gain.gain.cancelScheduledValues(now);
-			this.ambience.gain.gain.setValueAtTime(this.ambience.gain.gain.value, now);
-			this.ambience.gain.gain.linearRampToValueAtTime(AMBIENCE_GAIN, end);
-		}
+		this._restoreBeds(durationMs);
 	}
 
 	// One-shot walk-in anthem: the moment the bouncer admits the wallet we
@@ -269,25 +357,15 @@ export class ClubAudio {
 		g.gain.value = gain;
 		source.connect(g).connect(this.effectsBus);
 
-		const now = this.ctx.currentTime;
-		// Duck ambience under the anthem if it's already running.
-		if (this.ambience) {
-			this.ambience.gain.gain.cancelScheduledValues(now);
-			this.ambience.gain.gain.setValueAtTime(this.ambience.gain.gain.value, now);
-			this.ambience.gain.gain.linearRampToValueAtTime(AMBIENCE_DUCK_GAIN, now + 0.4);
-		}
+		// Duck the music beds under the anthem if either is already running.
+		this._duckBeds(400);
 
 		source.onended = () => {
 			try {
 				source.disconnect();
 			} catch {}
-			// Bring ambience back up if it's still around when the anthem ends.
-			if (this.ambience && this.ctx) {
-				const t = this.ctx.currentTime;
-				this.ambience.gain.gain.cancelScheduledValues(t);
-				this.ambience.gain.gain.setValueAtTime(this.ambience.gain.gain.value, t);
-				this.ambience.gain.gain.linearRampToValueAtTime(AMBIENCE_GAIN, t + 1.2);
-			}
+			// Bring the beds back up when the anthem ends.
+			this._restoreBeds(1200);
 			this.entrance = null;
 		};
 		source.start();
@@ -348,6 +426,30 @@ export class ClubAudio {
 		}
 	}
 
+	// Ramp a single GainNode to `target`, gliding from its current value so the
+	// fade is click-free even mid-ramp.
+	_rampGain(gainNode, target, durationMs) {
+		if (!gainNode || !this.ctx) return;
+		const now = this.ctx.currentTime;
+		const end = now + Math.max(0.05, durationMs / 1000);
+		gainNode.gain.cancelScheduledValues(now);
+		gainNode.gain.setValueAtTime(gainNode.gain.value, now);
+		gainNode.gain.linearRampToValueAtTime(target, end);
+	}
+
+	// Duck both music beds — the synth ambience loop and the full-track music —
+	// under a foreground layer (a tipped style loop or the walk-in anthem).
+	_duckBeds(durationMs = 400) {
+		this._rampGain(this.ambience?.gain, AMBIENCE_DUCK_GAIN, durationMs);
+		this._rampGain(this.music?.gain, MUSIC_DUCK_GAIN, durationMs);
+	}
+
+	// Bring the music beds back up to their resting level.
+	_restoreBeds(durationMs = 800) {
+		this._rampGain(this.ambience?.gain, AMBIENCE_GAIN, durationMs);
+		this._rampGain(this.music?.gain, MUSIC_GAIN, durationMs);
+	}
+
 	_fadeOutLayer(layer, durationMs) {
 		const now = this.ctx.currentTime;
 		const end = now + Math.max(0.05, durationMs / 1000);
@@ -377,6 +479,14 @@ export class ClubAudio {
 		const muted = !!v;
 		this.muted = muted;
 		this._writeMutedPref(muted);
+		// Pause/resume the streaming music element so muting actually halts the
+		// download instead of just zeroing its gain; position is preserved.
+		if (this.music?.el) {
+			try {
+				if (muted) this.music.el.pause();
+				else this.music.el.play().catch(() => {});
+			} catch {}
+		}
 		if (!this.ctx || !this.master) return;
 		const target = muted ? 0 : MASTER_GAIN;
 		const now = this.ctx.currentTime;
@@ -424,6 +534,8 @@ export function styleAudioFor(dance) {
 export const TRACK_LABELS = Object.freeze({
 	ambience: 'Crowd ambience',
 	entrance: 'Walk-in anthem',
+	club: 'Club anthem',
+	'im-in-love-wit-a-stripper-fast': 'In Love With a Stripper',
 	rumba: 'Rumba mix',
 	silly: 'Silly mix',
 	thriller: 'Thriller mix',

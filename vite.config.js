@@ -580,6 +580,50 @@ support: resolve(__dirname, 'pages/support.html'),
 			globals: { Buffer: true, process: true, global: true },
 			protocolImports: true,
 		}),
+		// Dev only: serve the <agent-3d> custom-element bundle from the locally
+		// built dist-lib/ and rewrite pages' absolute CDN loader to a same-origin
+		// path. The homepage and other surfaces hardcode
+		// https://three.ws/agent-3d/latest/agent-3d.js, which on localhost loads
+		// the separately-deployed (and possibly stale) CDN bundle instead of the
+		// local build — so element.js changes never showed up in dev. This makes
+		// dev reflect the local lib. No effect on production builds (apply:'serve').
+		{
+			name: 'dev-local-agent-3d',
+			apply: 'serve',
+			configureServer(server) {
+				const libFiles = {
+					js: resolve(__dirname, 'dist-lib/agent-3d.js'),
+					'umd.cjs': resolve(__dirname, 'dist-lib/agent-3d.umd.cjs'),
+				};
+				server.middlewares.use((req, res, next) => {
+					const path = (req.url || '').split('?')[0];
+					const m = /^\/agent-3d\/[^/]+\/agent-3d\.(js|umd\.cjs)$/.exec(path);
+					if (!m) return next();
+					const file = libFiles[m[1]];
+					if (!file || !existsSync(file)) {
+						res.statusCode = 503;
+						res.setHeader('content-type', 'text/plain; charset=utf-8');
+						return res.end('agent-3d dev bundle missing — run `npm run build:lib`');
+					}
+					res.setHeader('content-type', 'text/javascript; charset=utf-8');
+					res.setHeader('cache-control', 'no-cache');
+					res.setHeader('access-control-allow-origin', '*');
+					return res.end(readFileSync(file));
+				});
+			},
+			transformIndexHtml: {
+				order: 'pre',
+				handler(html) {
+					// Only the real loader <script src="…"></script> is rewritten;
+					// the copy-paste snippet strings keep the absolute URL embedders
+					// need (their escaped `\n`/`<\/script>` don't match this pattern).
+					return html.replace(
+						/(<script\b[^>]*\bsrc=")https:\/\/three\.ws(\/agent-3d\/[^"]+\/agent-3d\.js"\s*)><\/script>/g,
+						'$1$2></script>',
+					);
+				},
+			},
+		},
 		{
 			name: 'vercel-rewrites',
 			configureServer(server) {
