@@ -745,7 +745,10 @@ class Agent3DElement extends HTMLElement {
 	_isChatMode() {
 		if (this.hasAttribute('chat')) return true;
 		if (this.hasAttribute('kiosk') || this.hasAttribute('viewer')) return false;
-		return this.hasAttribute('agent-id') || this.hasAttribute('manifest');
+		if (this.hasAttribute('agent-id') || this.hasAttribute('manifest')) return true;
+		// An `src` pointing at a published agent (the `agent://` scheme) is a
+		// bound agent too — it chats. A plain GLB/HTTPS/IPFS `src` is just a body.
+		return /^agent:\/\//i.test(this.getAttribute('src') || '');
 	}
 
 	// Reflect the resolved chrome mode onto the host as a read-only `data-bare`
