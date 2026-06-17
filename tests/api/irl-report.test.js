@@ -40,13 +40,6 @@ vi.mock('../../api/_lib/rate-limit.js', () => ({
 	clientIp: () => '127.0.0.1',
 }));
 
-// D1 realtime fan-out — spied so we can prove a threshold hide pushes a live
-// pin:remove into the pin's geocell room (and that a sub-threshold report does not).
-const publishIrlPin = vi.fn(async () => ({ delivered: false }));
-vi.mock('../../api/_lib/irl-publish.js', () => ({
-	publishIrlPin: (...a) => publishIrlPin(...a),
-}));
-
 const { default: handler } = await import('../../api/irl/report.js');
 
 function makeRes() {
@@ -69,7 +62,6 @@ async function report(body) {
 
 beforeEach(() => {
 	sqlMock.mockClear();
-	publishIrlPin.mockClear();
 	pinRow = { id: 'pin-1', user_id: null, device_token: 'owner-dev', hidden_at: null, lat: 40.7128, lng: -74.006 };
 	distinctReporters = 1;
 	hideUpdated = true;
@@ -107,29 +99,11 @@ describe('POST /api/irl/report', () => {
 		expect(body.hidden).toBe(true);
 	});
 
-	it('emits a D1 pin:remove into the geocell room when the threshold hides a pin', async () => {
-		distinctReporters = 3;
-		await report({ pinId: 'pin-1', reason: 'harassment', deviceToken: 'dev-Z' });
-		expect(publishIrlPin).toHaveBeenCalledTimes(1);
-		const [type, geocell, payload] = publishIrlPin.mock.calls[0];
-		expect(type).toBe('pin:remove');
-		expect(typeof geocell).toBe('string');
-		expect(geocell.length).toBeGreaterThan(0);
-		expect(payload).toEqual({ id: 'pin-1' });
-	});
-
-	it('does NOT emit a pin:remove for a sub-threshold report', async () => {
-		distinctReporters = 1;
-		await report({ pinId: 'pin-1', reason: 'spam', deviceToken: 'dev-X' });
-		expect(publishIrlPin).not.toHaveBeenCalled();
-	});
-
-	it('does NOT re-emit pin:remove when the guarded hide UPDATE flips nothing (race)', async () => {
+	it('reports the pin as not hidden when the guarded hide UPDATE flips nothing (race)', async () => {
 		distinctReporters = 3;
 		hideUpdated = false; // a concurrent report already set hidden_at
 		const { body } = await report({ pinId: 'pin-1', reason: 'scam', deviceToken: 'dev-W' });
 		expect(body.hidden).toBe(false);
-		expect(publishIrlPin).not.toHaveBeenCalled();
 	});
 
 	it('a single reporter cannot hide a pin (one distinct token, threshold not met)', async () => {

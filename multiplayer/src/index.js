@@ -26,8 +26,6 @@ import { worldPersistence } from './persistence.js';
 import { flushAllPlayers } from './playerStore.js';
 import { socialHub } from './social-hub.js';
 import { verifyNotifySignature } from './presence-token.js';
-import { irlRegistry } from './irl-registry.js';
-import { verifyIrlPublish } from './irl-publish-auth.js';
 
 const PORT = Number(process.env.PORT || 2567);
 const HOST = process.env.HOST || '0.0.0.0';
@@ -94,26 +92,11 @@ app.post('/internal/notify', express.json({ limit: '16kb' }), (req, res) => {
 	res.json({ delivered });
 });
 
-// IRL realtime pin publish webhook (D1). Vercel can't hold a WebSocket, so when
-// the three.ws API mutates a pin (/api/irl/pins POST/PATCH/DELETE) it fires this
-// signed webhook; we fan the change into every live geocell room whose 3×3 window
-// covers the pin's cell, where it becomes a Colyseus schema delta the viewers
-// there receive within the patch interval. HMAC-signed with the shared secret and
-// bound to the exact body + a fresh timestamp, so only the API can inject pin
-// changes and a captured request can't be replayed or tampered.
-app.post('/internal/irl-publish', express.json({ limit: '32kb' }), (req, res) => {
-	const { geocell, type, pin } = req.body || {};
-	const sig = req.headers['x-mp-signature'];
-	const ts = req.headers['x-mp-timestamp'];
-	if (typeof geocell !== 'string' || typeof type !== 'string' || !geocell || !type) {
-		return res.status(400).json({ error: 'bad_request' });
-	}
-	if (!verifyIrlPublish(geocell, type, pin || {}, ts, sig)) {
-		return res.status(401).json({ error: 'bad_signature' });
-	}
-	const delivered = irlRegistry.dispatch(geocell, type, pin || {});
-	res.json({ delivered });
-});
+// The IRL world (irl_world) is a presence + reaction room only — it is NOT a pin
+// transport. Placed agents are private by location and reach a viewer solely via
+// the per-viewer /api/irl/pins proximity read when they are physically near one,
+// so there is no pin-publish webhook here: nothing fans pin coordinates into a
+// room to be broadcast to every client. See rooms/IrlRoom.js.
 
 // Admin monitor UI — exposes live room/client state, so it must NOT be open to
 // the world in production. Mount it only when protected by basic-auth creds

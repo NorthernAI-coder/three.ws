@@ -1,7 +1,7 @@
 /**
  * IRL GPS Pins — place 3D agents at real-world GPS coordinates.
  *
- * GET    /api/irl/pins?lat=&lng=&radius=150        nearby pins (public)
+ * GET    /api/irl/pins?lat=&lng=&radius=40         nearby pins (public, tight proximity)
  * GET    /api/irl/pins/mine?deviceToken=           my pins (device token or auth)
  * GET    /api/irl/pins?mine=1                      my pins (auth required)
  * POST   /api/irl/pins  { lat, lng, heading, avatarUrl, avatarName, caption, agentId }
@@ -12,7 +12,6 @@
  * POST   /api/irl/pins/interact { pinId, event, deviceToken }  log a tap/view
  */
 
-import { timingSafeEqual } from 'node:crypto';
 import { cors, json, wrap, rateLimited } from '../_lib/http.js';
 import { sql } from '../_lib/db.js';
 import { getSessionUser } from '../_lib/auth.js';
@@ -20,9 +19,7 @@ import { limits, clientIp } from '../_lib/rate-limit.js';
 import { WORD_BLACKLIST } from '../../src/profanity.js';
 import { guardianConfig, assess, decide } from '../_lib/granite-guardian.js';
 import { encodeGeohash } from '../_lib/geohash.js';
-import { publishIrlPin } from '../_lib/irl-publish.js';
 import { validateAppearance } from '../_lib/accessories.js';
-import { emitPinUpdated } from '../_lib/irl-realtime.js';
 
 // ── Moderation, safety & density caps (D4) ──────────────────────────────────
 // Everything below makes the public, shared IRL world safe to launch: content
@@ -328,9 +325,8 @@ async function handleCalibrate(res, { id, session, body }) {
 		WHERE id = ${id}
 		RETURNING id, lat, lng, heading, anchor_yaw_deg, anchor_height_m, gps_accuracy_m
 	`;
-	// Realtime (D1): a calibrate is a partial pin:update of position + heading, so
-	// every nearby viewer sees the corrected spot move live instead of on re-fetch.
-	void publishIrlPin('pin:update', realtimeCell(row.lat, row.lng), pinWire(row));
+	// The corrected spot reaches nearby viewers on their next proximity poll — pin
+	// positions are never broadcast as a roster, only read by someone standing near it.
 	return json(res, 200, { pin: row, calibrated: true });
 }
 
@@ -340,9 +336,8 @@ async function handleCalibrate(res, { id, session, body }) {
 // slot/preset allow-list the studio uses, bake a new GLB onto the pin's clean
 // BASE avatar (never the prior bake — so layers/accessories can't stack), store
 // it on the first-party CDN, bump avatar_version, and persist. Every nearby
-// viewer's loadNearbyPins poll then diffs the version and swaps the GLB; D1
-// (emitPinUpdated) pushes it instantly once realtime lands. A null/empty
-// manifest reverts the pin to its bare base avatar.
+// viewer's loadNearbyPins poll then diffs the version and swaps the GLB. A
+// null/empty manifest reverts the pin to its bare base avatar.
 async function handleOutfitChange(res, { id, session, body }) {
 	const manifest = body.avatar_manifest ?? body.avatarManifest ?? null;
 	if (manifest !== null && (typeof manifest !== 'object' || Array.isArray(manifest))) {
@@ -400,74 +395,10 @@ async function handleOutfitChange(res, { id, session, body }) {
 	`;
 	if (!row) return json(res, 404, { error: 'not found' });
 
-	// Realtime fan-out (D1) — co-located viewers swap the GLB within seconds
-	// without waiting for their next poll. No-op until D1 lands; the poll path
-	// (avatar_version diff) is the durable contract either way.
-	emitPinUpdated(row);
-
+	// The re-skin reaches co-located viewers on their next proximity poll, which
+	// diffs avatar_version and swaps the GLB. There is no realtime fan-out: a pin's
+	// data only travels to a viewer who is physically near it.
 	return json(res, 200, { pin: row });
-}
-
-// ── Realtime publish helpers (D1) ───────────────────────────────────────────
-// The irl_world room is keyed by a precision-6 geocell (~1.2 km), the coarse cell
-// every nearby viewer joins. Matches src/irl-net.js and multiplayer/src/rooms/
-// IrlRoom.js so a publish always lands in the right live room. (The committed
-// geocell7/GEOCELL_PRECISION column is the FINER precision-7 cell used for the D4
-// density cap — a different lattice; both derive from the same encoder.)
-const REALTIME_PRECISION = 6;
-function realtimeCell(lat, lng) {
-	return encodeGeohash(Number(lat), Number(lng), REALTIME_PRECISION);
-}
-
-// Build the camelCase wire object the room consumes from a DB row, including ONLY
-// the columns the row actually has. An add returns the full row (RETURNING *) so
-// every field rides; an update / calibrate returns a narrow column set, so only
-// those become a partial pin:update — the room never zeroes a field the caller
-// didn't touch.
-function pinWire(row) {
-	const w = { id: row.id };
-	if ('lat' in row) w.lat = Number(row.lat);
-	if ('lng' in row) w.lng = Number(row.lng);
-	if ('heading' in row) w.heading = Number(row.heading) || 0;
-	if ('avatar_url' in row) w.avatarUrl = row.avatar_url ?? '';
-	if ('avatar_name' in row) w.avatarName = row.avatar_name ?? '';
-	if ('caption' in row) w.caption = row.caption ?? '';
-	if ('x402_endpoint' in row) w.x402Endpoint = row.x402_endpoint ?? '';
-	if ('agent_id' in row) w.agentId = row.agent_id ?? '';
-	if ('placed_at' in row) w.placedAt = row.placed_at ? Date.parse(row.placed_at) || 0 : 0;
-	// Room frame — emit camelCase so the realtime publish wire matches the schema
-	// field names IrlRoom.coerceRoom reads. Only present when the row carries them.
-	if ('room_id' in row) w.roomId = row.room_id ?? '';
-	if ('rel_east_m' in row) w.relEast = Number(row.rel_east_m) || 0;
-	if ('rel_north_m' in row) w.relNorth = Number(row.rel_north_m) || 0;
-	if ('origin_lat' in row) w.originLat = Number(row.origin_lat) || 0;
-	if ('origin_lng' in row) w.originLng = Number(row.origin_lng) || 0;
-	if ('origin_yaw_deg' in row) w.originYawDeg = Number(row.origin_yaw_deg) || 0;
-	return w;
-}
-
-// ── Internal hydration auth (bulk location-scrape guard) ────────────────────
-// The bbox feed is server-to-server only: the Colyseus irl_world room loads its
-// 3×3 geocell window through it on room create. Unlike the nearby feed (capped
-// at a 500 m radius / 50 pins), bbox returns up to 500 pins over a multi-km box,
-// so an OPEN bbox endpoint would let anyone grid the planet and bulk-download
-// every placement's exact GPS. Gate it on the same shared multiplayer secret the
-// publish webhook already uses; the only caller is IrlRoom, which sends the
-// header. Secret resolution is kept byte-for-byte in sync with
-// multiplayer/src/irl-publish-auth.js (multiplayerSecret).
-function internalSecret() {
-	return (
-		process.env.MULTIPLAYER_SHARED_SECRET ||
-		process.env.HOLDER_PASS_SECRET ||
-		'dev-insecure-multiplayer-secret'
-	);
-}
-function internalRequestOk(req) {
-	const provided = req.headers?.['x-mp-internal'];
-	if (typeof provided !== 'string' || !provided) return false;
-	const a = Buffer.from(provided);
-	const b = Buffer.from(internalSecret());
-	return a.length === b.length && timingSafeEqual(a, b);
 }
 
 export default wrap(async (req, res) => {
@@ -476,12 +407,11 @@ export default wrap(async (req, res) => {
 
 	await ensureTable();
 
-	// Public GET reads (the nearby feed + my-pins) are IP rate-limited so the
-	// precise-coordinate feed can't be systematically gridded into a bulk location
-	// scrape. A legit viewer polls nearby every ~15 s (≈4/min) — well under the
-	// 60/min public ceiling — while a scripted sweep trips it fast. The bbox
-	// hydration path is excluded here: it's gated separately as internal-only.
-	if (req.method === 'GET' && req.query.bbox == null) {
+	// Every public GET read (the nearby feed + my-pins) is IP rate-limited so the
+	// tight proximity feed can't be systematically gridded into a bulk location
+	// scrape. A legit viewer polls nearby every ~10 s (≈6/min) — well under the
+	// 60/min public ceiling — while a scripted sweep trips it fast.
+	if (req.method === 'GET') {
 		const rl = await limits.publicIp(clientIp(req));
 		if (!rl.success) return rateLimited(res, rl);
 	}
@@ -526,51 +456,21 @@ export default wrap(async (req, res) => {
 		return json(res, 200, { pins: rows });
 	}
 
-	// ── GET — pins in a bounding box (IRL realtime room hydration, D1) ─────────
-	// The Colyseus irl_world room loads its 3×3 geocell window on create through
-	// this box query (server-to-server). Same public projection as the nearby feed
-	// — never owner ids — but selected by an explicit lat/lng box instead of a
-	// radius, because a 3×3 precision-6 window (~3.6 km) exceeds the nearby radius
-	// cap. Reuses the existing lat/lng index; capped + size-guarded against scrapes.
-	if (req.method === 'GET' && req.query.bbox != null) {
-		// Internal-only: a valid shared-secret header proves this is the Colyseus
-		// room hydrating its window, not a public scraper. Without it, refuse — the
-		// public nearby feed (radius-capped) is the only location read the open web
-		// gets. 403 (not 401) so a scanner learns nothing about credentials.
-		if (!internalRequestOk(req)) return json(res, 403, { error: 'forbidden' });
-
-		const parts = String(req.query.bbox).split(',').map((s) => parseFloat(s));
-		if (parts.length !== 4 || parts.some((n) => !isFinite(n))) {
-			return json(res, 400, { error: 'bbox must be minLat,minLng,maxLat,maxLng' });
-		}
-		let [minLat, minLng, maxLat, maxLng] = parts;
-		if (minLat > maxLat) [minLat, maxLat] = [maxLat, minLat];
-		if (minLng > maxLng) [minLng, maxLng] = [maxLng, minLng];
-		// A legit 3×3 precision-6 window is ~0.03°; 0.2° (~22 km) is a generous
-		// ceiling that still rejects a wide-area harvest even from an internal caller.
-		if ((maxLat - minLat) > 0.2 || (maxLng - minLng) > 0.2) {
-			return json(res, 400, { error: 'bbox too large' });
-		}
-		const rows = await sql`
-			SELECT id, agent_id, lat, lng, heading,
-			       avatar_url, avatar_name, caption, x402_endpoint, placed_at, avatar_version,
-			       room_id, rel_east_m, rel_north_m, origin_lat, origin_lng, origin_yaw_deg
-			FROM irl_pins
-			WHERE lat BETWEEN ${minLat} AND ${maxLat}
-			  AND lng BETWEEN ${minLng} AND ${maxLng}
-			  AND hidden_at IS NULL
-			  AND (expires_at IS NULL OR expires_at > NOW())
-			ORDER BY placed_at DESC
-			LIMIT 500
-		`;
-		return json(res, 200, { pins: rows });
-	}
-
-	// ── GET — nearby pins ─────────────────────────────────────────────────────
+	// ── GET — nearby pins (the ONLY way another agent's location is revealed) ──
+	// A placed agent is private by location: its coordinates reach a viewer only
+	// through this read, and only when that viewer is physically within a tight
+	// radius of it — so an agent is "stumbled upon" in AR by someone standing near
+	// it, never handed out as a browseable roster/map. There is no bbox/window
+	// feed and no realtime broadcast of pins: the radius is hard-capped small, the
+	// caller's own lat/lng is required, and the read is IP rate-limited above so a
+	// scripted grid-sweep can't reconstruct the map.
 	if (req.method === 'GET') {
 		const lat    = parseFloat(req.query.lat);
 		const lng    = parseFloat(req.query.lng);
-		const radius = Math.min(500, Math.max(10, parseFloat(req.query.radius ?? '150')));
+		// Tight proximity gate: default 40 m, hard-capped at 60 m. Large enough to
+		// render an agent as you walk up and point your camera at its spot, small
+		// enough that one read only ever exposes the handful right where you stand.
+		const radius = Math.min(60, Math.max(10, parseFloat(req.query.radius ?? '40')));
 
 		if (!isFinite(lat) || !isFinite(lng)) {
 			return json(res, 400, { error: 'lat and lng are required' });
@@ -843,11 +743,9 @@ export default wrap(async (req, res) => {
 			RETURNING *
 		`;
 
-		// Realtime (D1): fan this placement to every viewer in the geocell so it
-		// appears on their screen within ~1 s, no reload. Fire-and-forget — the pin
-		// is already persisted and the poll fallback reconciles if the push drops.
-		void publishIrlPin('pin:add', realtimeCell(lat, lng), pinWire(pin));
-
+		// No realtime fan-out: a new placement is never broadcast as a roster. It
+		// surfaces to a viewer only on their next proximity poll, and only once they
+		// are physically within the nearby radius of where it was dropped.
 		return json(res, 201, { pin: { ...pin, permanent: expiresAt === null } });
 	}
 
@@ -940,10 +838,8 @@ export default wrap(async (req, res) => {
 		`;
 		if (!row) return json(res, 404, { error: 'not found' });
 
-		// Realtime (D1): push the edit live to nearby viewers. pinWire carries only
-		// the RETURNING columns, so it's a partial pin:update — untouched fields stay.
-		void publishIrlPin('pin:update', realtimeCell(row.lat, row.lng), pinWire(row));
-
+		// The edit reaches nearby viewers on their next proximity poll — never as a
+		// broadcast. A pin's fields only travel to someone physically near it.
 		return json(res, 200, { pin: row });
 	}
 
@@ -983,9 +879,8 @@ export default wrap(async (req, res) => {
 		if (!result.length) {
 			return json(res, 404, { error: 'pin not found or not yours' });
 		}
-		// Realtime (D1): tell every nearby viewer to remove the pin live.
-		const gone = result[0];
-		void publishIrlPin('pin:remove', realtimeCell(gone.lat, gone.lng), { id: gone.id });
+		// A removed pin simply stops appearing in nearby viewers' next proximity
+		// poll; there is no realtime remove broadcast to fan out.
 		return json(res, 200, { ok: true });
 	}
 

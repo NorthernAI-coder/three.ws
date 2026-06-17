@@ -9,10 +9,9 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-// Hoisted spies so the vi.mock factories (which hoist above imports) can close
-// over them. bakeSpy stands in for the real GLB bake+upload; emitSpy for the D1
-// fan-out hook.
-const { bakeSpy, emitSpy } = vi.hoisted(() => ({ bakeSpy: vi.fn(), emitSpy: vi.fn() }));
+// Hoisted spy so the vi.mock factory (which hoists above imports) can close over
+// it. bakeSpy stands in for the real GLB bake+upload.
+const { bakeSpy } = vi.hoisted(() => ({ bakeSpy: vi.fn() }));
 
 // Content-addressed SQL mock: ensureTable DDL → []; the WHERE-id SELECT returns
 // the current pin (null → not found); the outfit UPDATE echoes the new look with
@@ -62,8 +61,6 @@ vi.mock('../../api/_lib/irl-bake.js', () => ({
 	)),
 }));
 
-vi.mock('../../api/_lib/irl-realtime.js', () => ({ emitPinUpdated: (...a) => emitSpy(...a) }));
-
 const { default: handler } = await import('../../api/irl/pins.js');
 
 const BAKED_URL = 'https://three.ws/cdn/irl/pins/pin-1/abc1234567890def.glb';
@@ -98,7 +95,6 @@ beforeEach(() => {
 	sqlMock.mockClear();
 	bakeSpy.mockReset();
 	bakeSpy.mockResolvedValue({ url: BAKED_URL });
-	emitSpy.mockReset();
 	pinRow = {
 		id: 'pin-1',
 		user_id: 'owner-uuid',
@@ -167,9 +163,6 @@ describe('PATCH /api/irl/pins outfit — owner re-skin persists for everyone', (
 		expect(body.pin.avatar_url).toBe(BAKED_URL);
 		expect(body.pin.avatar_version).toBe(1);
 		expect(body.pin.avatar_manifest).toEqual(manifest);
-		// Realtime fan-out fired with the persisted row.
-		expect(emitSpy).toHaveBeenCalledTimes(1);
-		expect(emitSpy.mock.calls[0][0]).toMatchObject({ id: 'pin-1', avatar_url: BAKED_URL, avatar_version: 1 });
 	});
 
 	it('re-bakes from the stored base on a later edit (never stacks on the prior bake)', async () => {
@@ -191,7 +184,6 @@ describe('PATCH /api/irl/pins outfit — owner re-skin persists for everyone', (
 		expect(bakeSpy).not.toHaveBeenCalled();        // nothing bakeable → skip the bake
 		expect(body.pin.avatar_url).toBe('/api/avatars/av-1/glb'); // served base again
 		expect(body.pin.avatar_version).toBe(1);       // still a versioned change
-		expect(emitSpy).toHaveBeenCalledTimes(1);
 	});
 
 	it('502s and does not persist when the bake throws', async () => {
@@ -200,6 +192,5 @@ describe('PATCH /api/irl/pins outfit — owner re-skin persists for everyone', (
 		expect(res.statusCode).toBe(502);
 		expect(body.error).toMatch(/could not bake/i);
 		expect(ranOutfitUpdate()).toBe(false);
-		expect(emitSpy).not.toHaveBeenCalled();
 	});
 });

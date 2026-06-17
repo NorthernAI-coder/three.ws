@@ -60,9 +60,12 @@ vi.mock('../../api/_lib/rate-limit.js', () => ({
 vi.mock('../../api/_lib/granite-guardian.js', () => ({
 	guardianConfig: () => ({ configured: false }), assess: vi.fn(), decide: vi.fn(),
 }));
-vi.mock('../../api/_lib/irl-publish.js', () => ({ publishIrlPin: vi.fn(async () => {}) }));
 
-const { default: handler } = await import('../../api/irl/pins.js');
+// Import the handler fresh per test (after resetModules) so this file's db.js
+// mock deterministically backs the handler even when another pins.js-importing
+// test ran first in the same worker — otherwise a leaked sibling mock (which
+// doesn't echo the room columns) makes these assertions flake. See beforeEach.
+let handler;
 
 const ORIGIN = { lat: 40.7128, lng: -74.006 };
 
@@ -96,7 +99,11 @@ const room = (over = {}) => ({
 	originYawDeg: 0, relEast: 2, relNorth: 1, ...over,
 });
 
-beforeEach(() => { sqlMock.mockClear(); sessionUser = null; nearbyRow = null; });
+beforeEach(async () => {
+	sqlMock.mockClear(); sessionUser = null; nearbyRow = null;
+	vi.resetModules(); // drop any pins.js a prior file cached under its own db.js mock
+	({ default: handler } = await import('../../api/irl/pins.js'));
+});
 
 describe('POST /api/irl/pins — room frame persistence', () => {
 	it('stores room id + exact offset + origin when the client places into a room', async () => {

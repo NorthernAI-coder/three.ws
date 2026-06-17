@@ -24,15 +24,9 @@ import { cors, json, wrap, rateLimited } from '../_lib/http.js';
 import { sql } from '../_lib/db.js';
 import { getSessionUser } from '../_lib/auth.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
-import { publishIrlPin } from '../_lib/irl-publish.js';
-import { encodeGeohash } from '../_lib/geohash.js';
 
 // Distinct reporters required before a pin is queued out of public view.
 const REPORT_HIDE_THRESHOLD = 3;
-// The irl_world realtime room is keyed by a precision-6 geocell (~1.2 km) — match
-// REALTIME_PRECISION in api/irl/pins.js so a hide publishes into the same live room
-// the pin's add/update/delete events used.
-const REALTIME_PRECISION = 6;
 const MAX_REASON_LEN = 240;
 // Canonical reasons the UI offers; anything else collapses to 'other'. Kept as a
 // closed set so the (future) review console can triage by category.
@@ -140,21 +134,10 @@ export default wrap(async (req, res) => {
 			RETURNING id
 		`;
 		hidden = rows.length > 0;
-		// Realtime (D1): the first reporter to cross the threshold pushes a pin:remove
-		// into the pin's geocell room, so every co-located viewer who already has it
-		// loaded sees it vanish within ~1 s — not just on their next nearby re-fetch.
-		// Guarded on the conditional UPDATE above so concurrent reports fire it once.
-		// Fire-and-forget: the hide is already persisted and the hidden_at filter on
-		// every read path is the durable contract if the push drops.
-		const plat = Number(pin.lat);
-		const plng = Number(pin.lng);
-		if (hidden && Number.isFinite(plat) && Number.isFinite(plng)) {
-			void publishIrlPin(
-				'pin:remove',
-				encodeGeohash(plat, plng, REALTIME_PRECISION),
-				{ id: pinId },
-			);
-		}
+		// Once hidden, the pin stops appearing in every read path (all are filtered
+		// on hidden_at IS NULL), so a co-located viewer drops it on their next
+		// proximity poll. There is no realtime remove broadcast — a pin's location
+		// is never fanned out to a room, so neither is its removal.
 	}
 
 	return json(res, 200, { ok: true, reports: n, hidden });
