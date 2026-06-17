@@ -320,6 +320,7 @@ const appConfig = {
 				'embed-walk': resolve(__dirname, 'pages/embed-walk.html'),
 				'agent-embed': resolve(__dirname, 'pages/agent-embed.html'),
 				'agent-detail': resolve(__dirname, 'pages/agent-detail.html'),
+				'agent-wallet': resolve(__dirname, 'pages/agent-wallet.html'),
 				launches: resolve(__dirname, 'pages/launches.html'),
 				'launch-detail': resolve(__dirname, 'pages/launch-detail.html'),
 				watchlist: resolve(__dirname, 'pages/watchlist.html'),
@@ -1017,6 +1018,10 @@ support: resolve(__dirname, 'pages/support.html'),
 					// `[^/.]+` (no dot) mirrors vercel.json's `/agents/([^/.]+)` so
 					// static assets like /agents/boot.js fall through to public/
 					// instead of being served the agent-detail HTML shell.
+					// /agent/:id/wallet and /agents/:id/wallet → Agent Wallet hub
+					// (must precede the /agent/:id and /agents/:id catch-alls below).
+					else if (!filePath && /^\/agents?\/[^/.]+\/wallet\/?$/.test(path))
+						filePath = resolve(root, 'pages/agent-wallet.html');
 					else if (!filePath && /^\/agents\/[^/.]+\/?$/.test(path))
 						filePath = resolve(root, 'pages/agent-detail.html');
 					else if (!filePath && /^\/agent\/[^/]+\/edit$/.test(path))

@@ -54,6 +54,8 @@ import { reserveWebGLContext, releaseWebGLContext } from './webgl-budget.js';
 import { detectTier, BUDGETS, TIER_ORDER, shiftTier } from './irl/perf-budget.js';
 import { sharedGLTFLoader, createLoadQueue } from './irl/load-queue.js';
 import { roomOriginWorld, agentWorldPosition } from './irl/room-anchor.js';
+import { anchorPoseToPin } from './irl/floor-anchor.js';
+import { initRoomMode } from './irl/room-mode.js';
 import { isFiniteReading, isCompassFresh, shouldUseAbsoluteYaw, resolveLockYaw, clampPitch } from './irl/sensor-fusion.js';
 import { pinBandAction } from './irl/proximity-band.js';
 import { loadInto } from './shared/async-state.js';
@@ -1506,6 +1508,72 @@ async function savePin(lat, lng, heading = 0, caption = '', anchor = null) {
 		return data.pin
 			? { ok: true, id: data.pin.id, permanent: !!data.pin.permanent }
 			: { ok: false, error: 'error', message: saveErrorFallback() };
+	} catch {
+		return { ok: false, error: 'network', message: saveErrorFallback('network') };
+	}
+}
+
+// Place an agent into a shared ROOM (Epic R / R1). The room-mode UI hands us a
+// computed body { lat, lng, heading, room:{…}, absolute } from room-session.js;
+// we attach the device's identity + avatar + A2 anchor pose, POST it (the room
+// block rides through to api/irl/pins.js), and on success spawn it immediately so
+// it renders world-locked at once via the room frame (pinWorldPos). Returns the
+// same { ok, id, message } shape the UI surfaces.
+async function placeRoomAgent(body) {
+	try {
+		const room = body?.room;
+		if (!room || !room.id) return { ok: false, message: 'Could not anchor the room — try again.' };
+		const heading = ((Math.round(body.heading) % 360) + 360) % 360;
+		const source = body.absolute ? 'gyro-gps' : 'gyro-gps:rel';
+		const r = await fetch('/api/irl/pins', {
+			method: 'POST',
+			credentials: 'include',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+				lat: body.lat, lng: body.lng, heading,
+				caption: null,
+				avatarUrl: resolveAvatarUrl(_currentAvatarId),
+				avatarName: nameEl.textContent,
+				deviceToken: _deviceToken,
+				agentId: _currentAgentId || null,
+				anchor: { heightM: 0, yawDeg: heading, gpsAccuracyM: gpsState.accuracy, altitudeM: gpsState.altitude, source },
+				room: {
+					id: room.id,
+					originLat: room.originLat, originLng: room.originLng,
+					originYawDeg: room.originYawDeg || 0,
+					relEast: room.relEast, relNorth: room.relNorth,
+				},
+			}),
+		});
+		if (!r.ok) {
+			let payload = {};
+			try { payload = await r.json(); } catch {}
+			return { ok: false, status: r.status, error: payload.error || 'error', message: payload.message || saveErrorFallback(payload.error) };
+		}
+		const data = await r.json();
+		if (!data.pin) return { ok: false, message: saveErrorFallback() };
+
+		// Spawn locally so the just-placed agent is world-locked immediately, without
+		// waiting for the next proximity poll. snake_case shape incl. the room frame,
+		// matching the nearby projection so pinRoom()/pinWorldPos() render it correctly.
+		const pin = {
+			id: data.pin.id,
+			lat: body.lat, lng: body.lng,
+			heading, anchor_yaw_deg: heading, anchor_height_m: 0,
+			room_id: room.id, rel_east_m: room.relEast, rel_north_m: room.relNorth,
+			origin_lat: room.originLat, origin_lng: room.originLng, origin_yaw_deg: room.originYawDeg || 0,
+			avatar_url: resolveAvatarUrl(_currentAvatarId), avatar_name: nameEl.textContent,
+			caption: '', x402_endpoint: null, agent_id: _currentAgentId || null,
+			distance_m: 0, group: null, labelEl: null, glbLoaded: false,
+		};
+		if (!nearbyPins.find(p => p.id === pin.id)) {
+			_myPinIds.add(pin.id);
+			nearbyPins.push(pin);
+			spawnNearbyPin(pin);
+			updateNearbyBadge();
+			revealMyPinsBtn();
+		}
+		return { ok: true, id: pin.id };
 	} catch {
 		return { ok: false, error: 'network', message: saveErrorFallback('network') };
 	}
@@ -4998,6 +5066,35 @@ bootAvatar();
 // Safari (no immersive-ar) never sees the button and stays on the gyro+GPS Pin
 // path; desktop Chrome reports false and adds no console noise.
 detectFloorAnchorSupport();
+
+// ── Room authoring mode (Epic R / R1) — "place agents around me" ────────────
+// Self-contained UI lives in src/irl/room-mode.js (its own DOM + styles); we
+// supply the live pose, AR/permission readiness, and the placement (network +
+// scene spawn) it calls back into. Rooms are delivered to other viewers by the
+// REST proximity read — there is no realtime pin push to wire here.
+initRoomMode({
+	controlRow: document.querySelector('.irl-secondary-row'),
+	getFix: () => ({ lat: gpsState.lat, lng: gpsState.lng, ready: gpsState.ready, accuracy: gpsState.accuracy }),
+	getHeading: () => ({
+		// Prefer the iOS true-compass bearing; otherwise derive from the camera yaw
+		// (which onDeviceOrientation north-anchors when an absolute stream exists).
+		deg: lastCompassHeading != null
+			? lastCompassHeading
+			: ((-(cameraYaw * 180 / Math.PI)) % 360 + 360) % 360,
+		absolute: !!prefersAbsOrientation,
+	}),
+	ensureReady: async () => {
+		try {
+			if (!arActive) await enableAR();
+			initGPS();
+			ensurePermission('motion').catch(() => {});
+			ensurePermission('location').catch(() => {});
+		} catch { /* honest disabled states in the HUD cover a denied permission */ }
+		return arActive;
+	},
+	placeRoomAgent,
+	status: (m, o) => setStatus(m, o),
+});
 
 // ── Dev-only perf harness (E2) ──────────────────────────────────────────────
 // Gated behind import.meta.env.DEV → tree-shaken out of production builds, so no

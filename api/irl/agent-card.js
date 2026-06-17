@@ -79,8 +79,16 @@ export function deriveReputation({ fbTotal, scoreAvg, uniqueAttesters, valPassed
 
 /**
  * Fetch the on-chain reputation aggregates for an agent's Solana asset in a
- * single round-trip. Returns null on any failure (missing tables, RPC, etc.) so
- * the caller can degrade to { available:false } without failing the card.
+ * single round-trip, then derive a tier/score.
+ *
+ * Failure contract (the card must never 500): a *query* failure — most commonly
+ * a fresh / mid-migration DB where `solana_attestations` does not exist yet, but
+ * also RPC/connection errors — REJECTS so the caller can mark the card
+ * `{ available:false, degraded:true }` (we genuinely couldn't read reputation).
+ * A *successful* read that yields no row (driver edge / partial result) is NOT a
+ * failure: it means "no attestations", so we derive from zeros and the card
+ * shows an available, freshly-scored agent rather than throwing on
+ * `undefined.fb_total`.
  */
 async function fetchReputation(asset, network) {
 	const [row] = await sql`
@@ -108,13 +116,19 @@ async function fetchReputation(asset, network) {
 			   FROM solana_attestations
 			  WHERE agent_asset = ${asset} AND network = ${network}) AS tasks_accepted
 	`;
+	// The coalesce'd subselects guarantee exactly one row from real Postgres; an
+	// undefined row only arises from a driver/partial edge. Treat it as "no
+	// attestations" (zeros) so a successful-but-empty read never throws a
+	// TypeError that the caller would mislabel as a degraded query failure.
+	const r = row || {};
+	const toInt = (v) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
 	return deriveReputation({
-		fbTotal: row.fb_total,
-		scoreAvg: row.score_avg,
-		uniqueAttesters: row.unique_attesters,
-		valPassed: row.val_passed,
-		valFailed: row.val_failed,
-		tasksAccepted: row.tasks_accepted,
+		fbTotal: toInt(r.fb_total),
+		scoreAvg: toInt(r.score_avg),
+		uniqueAttesters: toInt(r.unique_attesters),
+		valPassed: toInt(r.val_passed),
+		valFailed: toInt(r.val_failed),
+		tasksAccepted: toInt(r.tasks_accepted),
 	});
 }
 

@@ -2458,6 +2458,10 @@
 			"dest": "/agent-embed.html"
 		},
 		{
+			"src": "/agent/([^/]+)/wallet/?",
+			"dest": "/agent-wallet.html"
+		},
+		{
 			"src": "/agent/index.html",
 			"dest": "/agent/index.html"
 		},
@@ -2873,6 +2877,10 @@
 		{
 			"src": "/agents/",
 			"dest": "/agents/index.html"
+		},
+		{
+			"src": "/agents/[^/.]+/wallet/?",
+			"dest": "/agent-wallet.html"
 		},
 		{
 			"src": "/agents/([^/.]+)",

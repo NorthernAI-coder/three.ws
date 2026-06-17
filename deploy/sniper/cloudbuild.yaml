@@ -1,0 +1,38 @@
+# Cloud Build — builds and pushes the agent-sniper image to Artifact Registry.
+#
+# IMPORTANT: unlike the world image, this one builds from the REPO ROOT as
+# context. The sniper Dockerfile (workers/agent-sniper/Dockerfile) copies
+# `api/`, the `agent-payments-sdk/` workspace, and `workers/agent-sniper/` — it
+# is not self-contained in its own directory.
+#
+# Run manually from the repo root:
+#   gcloud builds submit --config deploy/sniper/cloudbuild.yaml .
+#
+# Or end to end (build → push → deploy → verify):
+#   node scripts/deploy-sniper.mjs
+
+substitutions:
+  _REGION: us-central1
+  _REPO: workers
+  _IMAGE: agent-sniper
+
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -t
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE}:$SHORT_SHA
+      - -t
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE}:latest
+      - -f
+      - workers/agent-sniper/Dockerfile
+      - .
+    timeout: 1200s
+
+images:
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE}:$SHORT_SHA
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE}:latest
+
+options:
+  machineType: E2_HIGHCPU_8
+  logging: CLOUD_LOGGING_ONLY

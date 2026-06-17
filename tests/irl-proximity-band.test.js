@@ -18,21 +18,26 @@ import {
 // Mirror of how loadNearbyPins() threads the per-pin debounce counter: feed a series
 // of (distance, listed) polls through the band and collect the actions, carrying the
 // rendered flag + oobPolls forward exactly as the real reconcile loop does. Returns
-// the action sequence plus whether the pin was ever disposed.
+// the action sequence, whether the pin was ever disposed, and how many "newly stable
+// in-range" arrival signals fired — loadNearbyPins() calls emitPinStable(entry) on
+// exactly the 'spawn' action, so arrivals === the count of 'spawn's. Task 03's
+// proximity-arrival cue consumes that signal, so this count IS its no-double-fire
+// guarantee under GPS-edge jitter.
 function runPolls(initialRendered, polls, opts) {
 	let rendered = initialRendered;
 	let oobPolls = 0;
 	const actions = [];
+	let arrivals = 0;
 	for (const { distance, listed = true } of polls) {
 		const action = pinBandAction({ distance, rendered, listed, oobPolls }, opts);
 		actions.push(action);
-		if (action === 'spawn') { rendered = true; oobPolls = 0; }
+		if (action === 'spawn') { rendered = true; oobPolls = 0; arrivals += 1; }
 		else if (action === 'keep') { oobPolls = 0; }
 		else if (action === 'wait') { oobPolls += 1; }
 		else if (action === 'drop') { rendered = false; oobPolls = 0; }
 		// 'ignore' leaves an unrendered pin unrendered
 	}
-	return { actions, disposed: actions.includes('drop') };
+	return { actions, disposed: actions.includes('drop'), arrivals };
 }
 
 describe('band constants', () => {
@@ -144,5 +149,61 @@ describe('options override the band', () => {
 			{ distance: 35 }, { distance: 35 }, { distance: 35 },
 		], opts);
 		expect(actions).toEqual(['wait', 'wait', 'drop']);
+	});
+});
+
+// The "newly stable in-range" signal task 03 consumes. loadNearbyPins() fires
+// emitPinStable(entry) on exactly the band's 'spawn' action — so arrival count ==
+// 'spawn' count. These tests pin the contract the arrival cue depends on: one
+// signal per genuine arrival, ZERO during edge jitter, and a fresh signal only
+// after a genuine departure + return.
+describe('newly-stable-in-range arrival signal (→ task 03)', () => {
+	it('fires exactly once when a pin first crosses the enter gate', () => {
+		// Approach from outside: ignored beyond enter, one arrival on the gate cross,
+		// then steady keeps that must not re-fire.
+		const { arrivals, actions } = runPolls(false, [
+			{ distance: 50 }, // ignore — outside enter, not discovered by drifting near
+			{ distance: 38 }, // spawn  — crossed the 40 m gate → ONE arrival
+			{ distance: 36 }, // keep
+			{ distance: 41 }, // keep   — inside exit (55), still rendered
+		]);
+		expect(actions).toEqual(['ignore', 'spawn', 'keep', 'keep']);
+		expect(arrivals).toBe(1);
+	});
+
+	it('does NOT fire while a steady pin jitters ±10 m at the 40 m edge', () => {
+		// The headline bug, viewed from the cue's seat: a pin physically at 40 m with
+		// noisy fixes is one arrival on first discovery and then pure keeps — the cue
+		// must never re-buzz the user on every wobble.
+		const first = runPolls(false, [{ distance: 39 }]); // discovered once
+		expect(first.arrivals).toBe(1);
+		const noisy = [40, 50, 31, 47, 38, 49, 30, 45, 42, 50, 33, 48]
+			.map(distance => ({ distance, listed: true }));
+		const after = runPolls(true, noisy); // already rendered → all keeps
+		expect(after.arrivals).toBe(0);
+		expect(after.actions.every(a => a === 'keep')).toBe(true);
+	});
+
+	it('re-fires only after a genuine departure and return', () => {
+		// Walk in (arrival), walk away past exit until debounce drops it, then walk
+		// back in — that second discovery is a real, separate arrival and SHOULD fire.
+		const { arrivals, actions } = runPolls(false, [
+			{ distance: 35 },                 // spawn  → arrival 1
+			{ distance: 60 },                 // wait
+			{ distance: 65 },                 // drop   (gone)
+			{ distance: 65, listed: false },  // ignore (not listed, not rendered)
+			{ distance: 30 },                 // spawn  → arrival 2 (genuine return)
+		]);
+		expect(actions).toEqual(['spawn', 'wait', 'drop', 'ignore', 'spawn']);
+		expect(arrivals).toBe(2);
+	});
+
+	it('does not fire for a pin that merely refreshed in place', () => {
+		// A rendered pin getting fresh server rows every poll (rename/calibrate) stays
+		// 'keep' — refreshKnownPin handles the data, the band emits nothing.
+		const { arrivals } = runPolls(true, [
+			{ distance: 12 }, { distance: 13 }, { distance: 11 }, { distance: 14 },
+		]);
+		expect(arrivals).toBe(0);
 	});
 });

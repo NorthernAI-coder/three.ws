@@ -54,7 +54,13 @@ export async function getDailySpend(agentId, network) {
 	return BigInt(r?.spent ?? '0');
 }
 
-/** Open positions across all agents — the position-loop work set. */
+/**
+ * Open positions across all agents — the position-loop work set.
+ *
+ * Graduated positions (error LIKE 'graduated%') are INCLUDED: the sweep
+ * re-quotes them off the AMM pool and exits them there, so they no longer park
+ * indefinitely. The sweep reads `error` to pick the venue (AMM vs curve).
+ */
 export async function getOpenPositions(network) {
 	return sql`
 		SELECT p.*, s.take_profit_pct, s.stop_loss_pct, s.trailing_stop_pct,
@@ -64,7 +70,6 @@ export async function getOpenPositions(network) {
 		JOIN agent_sniper_strategies s ON s.id = p.strategy_id
 		WHERE p.network = ${network}
 		  AND p.status = 'open'
-		  AND (p.error IS NULL OR p.error NOT LIKE 'graduated%')
 		ORDER BY p.opened_at ASC
 		LIMIT 200
 	`;

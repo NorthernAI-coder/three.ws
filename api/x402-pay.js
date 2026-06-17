@@ -47,6 +47,7 @@ import { sql } from './_lib/db.js';
 import { logger } from './_lib/usage.js';
 import { getSessionUser, authenticateBearer, extractBearer } from './_lib/auth.js';
 import { recoverSolanaAgentKeypair } from './_lib/agent-wallet.js';
+import { enforceSpendLimit, SpendLimitError, recordSpend } from './_lib/agent-trade-guards.js';
 
 const log = logger('x402-pay');
 
@@ -184,11 +185,14 @@ async function loadAgentKeypairForUser(agentId, userId) {
 	if (!row) return null;
 	const enc = row.meta?.encrypted_solana_secret;
 	if (!enc) return null;
-	return recoverSolanaAgentKeypair(enc, {
+	const keypair = await recoverSolanaAgentKeypair(enc, {
 		agentId,
 		userId,
 		reason: 'x402_pay_tool_call',
 	});
+	// Carry the agent meta so the caller can enforce + record against the shared
+	// per-agent spend policy without a second DB round-trip.
+	return { keypair, meta: row.meta || {} };
 }
 
 async function getAgentsForUser(userId) {
@@ -409,13 +413,35 @@ function sseSend(res, event, data) {
 	res.write(`data: ${JSON.stringify(data)}\n\n`);
 }
 
-async function runFlow({ tool, args, emit, buyer: buyerOverride, resourceUrl }) {
+async function runFlow({ tool, args, emit, buyer: buyerOverride, resourceUrl, spendGuard = null }) {
 	const buyer = buyerOverride ?? loadAgentKeypair();
 	const conn = solanaConnection({ url: SOLANA_RPC, commitment: 'confirmed' });
 
 	const requirements = paymentRequirements();
 	const accept = requirements.find((r) => r.network === NETWORK_SOLANA_MAINNET);
 	if (!accept) throw Object.assign(new Error('no_solana_accept_configured'), { status: 500 });
+
+	// Per-agent spend policy — enforced BEFORE any payment is built/signed so a
+	// breach moves no funds. USDC is dollar-denominated (6 decimals), so the
+	// payment amount converts straight to the USD ceiling unit.
+	const spendUsd = Number(accept.amount) / 1e6;
+	if (spendGuard) {
+		try {
+			await enforceSpendLimit({
+				agentId: spendGuard.agentId,
+				meta: spendGuard.meta,
+				category: 'x402',
+				usdValue: spendUsd,
+				destination: accept.payTo,
+				network: spendGuard.network || 'mainnet',
+			});
+		} catch (e) {
+			if (e instanceof SpendLimitError) {
+				throw Object.assign(new Error(e.message), { status: e.status, code: e.code, detail: e.detail });
+			}
+			throw e;
+		}
+	}
 
 	const t0 = Date.now();
 	emit('challenge', { network: accept.network, amount: accept.amount, payTo: accept.payTo });
@@ -471,6 +497,22 @@ async function runFlow({ tool, args, emit, buyer: buyerOverride, resourceUrl }) 
 	void recordFeedEntry(feedEntry).catch((err) => {
 		log.warn('feed_record_failed', { tx: settled.transaction, message: err?.message });
 	});
+	// Record the agent's x402 spend into the shared custody ledger so it counts
+	// toward the per-agent daily ceiling and shows in the custody audit trail.
+	if (spendGuard) {
+		void recordSpend({
+			agentId: spendGuard.agentId,
+			userId: spendGuard.userId,
+			category: 'x402',
+			network: spendGuard.network || 'mainnet',
+			asset: 'USDC',
+			usd: spendUsd,
+			destination: accept.payTo,
+			signature: settled.transaction || null,
+			status: settled.transaction ? 'confirmed' : 'ok',
+			meta: { tool },
+		}).catch((err) => log.warn('x402_spend_record_failed', { message: err?.message }));
+	}
 	if (settled.transaction) {
 		void persistCall(settled.transaction, {
 			...feedEntry,
@@ -608,12 +650,15 @@ export default wrap(async (req, res) => {
 
 	// Resolve payer: agent wallet (agentId + authed) or shared showcase wallet.
 	let buyer;
+	let spendGuard = null;
 	if (input.agentId) {
 		const auth = await requireAuth(req);
 		if (!auth) return json(res, 401, { error: 'authentication_required' });
-		const kp = await loadAgentKeypairForUser(String(input.agentId), auth.userId);
-		if (!kp) return json(res, 403, { error: 'agent_not_found_or_no_solana_wallet' });
-		buyer = kp;
+		const loaded = await loadAgentKeypairForUser(String(input.agentId), auth.userId);
+		if (!loaded) return json(res, 403, { error: 'agent_not_found_or_no_solana_wallet' });
+		buyer = loaded.keypair;
+		// Per-agent spend policy applies to x402 just like trade/snipe/withdraw.
+		spendGuard = { agentId: String(input.agentId), userId: auth.userId, meta: loaded.meta, network: 'mainnet' };
 	} else {
 		try {
 			buyer = loadAgentKeypair();
@@ -631,7 +676,7 @@ export default wrap(async (req, res) => {
 		sseInit(res);
 		const emit = (ev, data) => sseSend(res, ev, data);
 		try {
-			await runFlow({ tool, args, emit, buyer, resourceUrl });
+			await runFlow({ tool, args, emit, buyer, resourceUrl, spendGuard });
 		} catch (err) {
 			emit('error', payErrorEnvelope(err));
 		} finally {
@@ -647,7 +692,7 @@ export default wrap(async (req, res) => {
 		if (ev === 'result') final = data;
 	};
 	try {
-		await runFlow({ tool, args, emit, buyer, resourceUrl });
+		await runFlow({ tool, args, emit, buyer, resourceUrl, spendGuard });
 	} catch (err) {
 		return json(res, payErrorStatus(err), payErrorEnvelope(err));
 	}
