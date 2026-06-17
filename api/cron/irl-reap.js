@@ -41,20 +41,40 @@ export default wrap(async (req, res) => {
 	if (!method(req, res, ['GET'])) return;
 	if (!requireCron(req, res)) return;
 
-	// Expired anon pins, ≥ 1 day past expiry. expires_at IS NULL ⇒ permanent ⇒ kept.
-	const reapedPins = await sql`
-		DELETE FROM irl_pins
-		WHERE expires_at IS NOT NULL
-		  AND expires_at < NOW() - INTERVAL '1 day'
-		RETURNING id
+	// Both tables are created lazily by their write endpoints (irl_pins by
+	// api/irl/pins.js, irl_pin_reports by api/irl/report.js), so on a fresh
+	// deployment — or before the first pin is placed / first report is filed —
+	// they may not exist yet. A reaper that hard-depended on them would throw
+	// `relation does not exist` and 500 the hourly cron. Probe with to_regclass
+	// and treat a missing table as "nothing to reap" rather than an error.
+	const [{ pins, reports }] = await sql`
+		SELECT
+			to_regclass('public.irl_pins')        AS pins,
+			to_regclass('public.irl_pin_reports') AS reports
 	`;
 
-	// Orphaned reports — their pin is gone, so the trail is moot.
-	const reapedReports = await sql`
-		DELETE FROM irl_pin_reports r
-		WHERE NOT EXISTS (SELECT 1 FROM irl_pins p WHERE p.id = r.pin_id)
-		RETURNING r.id
-	`;
+	// Expired anon pins, ≥ 1 day past expiry. expires_at IS NULL ⇒ permanent ⇒ kept.
+	const reapedPins = pins
+		? await sql`
+			DELETE FROM irl_pins
+			WHERE expires_at IS NOT NULL
+			  AND expires_at < NOW() - INTERVAL '1 day'
+			RETURNING id
+		`
+		: [];
+
+	// Orphaned reports — their pin is gone, so the trail is moot. If the pins
+	// table itself is absent, every report is an orphan, so purge them all.
+	let reapedReports = [];
+	if (reports) {
+		reapedReports = pins
+			? await sql`
+				DELETE FROM irl_pin_reports r
+				WHERE NOT EXISTS (SELECT 1 FROM irl_pins p WHERE p.id = r.pin_id)
+				RETURNING r.id
+			`
+			: await sql`DELETE FROM irl_pin_reports RETURNING id`;
+	}
 
 	return json(res, 200, {
 		ok: true,
