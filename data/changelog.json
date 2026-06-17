@@ -3,6 +3,20 @@
 	"entries": [
 		{
 			"date": "2026-06-17",
+			"title": "Connect your Solana wallet right from the marketplace",
+			"summary": "The marketplace now carries a persistent Connect Wallet control — in the sidebar on desktop, in the search bar on mobile — so you can link Phantom, Solflare, or Backpack once and arrive at any purchase already connected, instead of waiting until checkout. If you have more than one wallet installed you get a quick picker; if you have none, it points you to install one. Once connected it shows your address as a tidy pill with a menu to copy it, view the account on Solscan, or disconnect, and it quietly reconnects a previously approved wallet when you return — no extra pop-up. Connect from the header and the Buy dialog is ready to go; connect at checkout and the header updates too. It rides the same on-chain USDC purchase flow already in place, so there's nothing new to trust.",
+			"tags": ["feature"],
+			"link": "/marketplace"
+		},
+		{
+			"date": "2026-06-17",
+			"title": "Connect your Solana wallet right from the app header",
+			"summary": "The main app now has a Connect Wallet button in the top bar — the first step toward buying an agent's paid skills. Click it and your Solana wallet (Phantom, or the built-in wallet on Solana Mobile / Seeker) prompts you to connect; once you do, the button shows your address shortened to something like '7xKq…9fPa' with a green tick so you can see at a glance that you're connected. If you've connected before, it reconnects silently on load, and if you don't have a wallet yet it points you to Phantom. No wallet, no signature, and nothing on-chain happens just from connecting — it only lets the platform know which wallet to use when you choose to pay.",
+			"tags": ["feature"],
+			"link": "/app"
+		},
+		{
+			"date": "2026-06-17",
 			"title": "Clearer pricing on every agent's skills in the marketplace",
 			"summary": "An agent's detail page now reads cleanly when its skills carry a price. Each skill shows a badge at a glance — green 'Free', a yellow price for paid skills, or an indigo 'Owned' once you've bought it — and when a paid skill offers a free trial or a timed access pass, those now appear as proper buttons styled to match the Purchase button, with hover, focus, and press states. The price badge and action buttons are grouped together on the right of each row instead of spreading out, so a skill with several options stays tidy and easy to scan.",
 			"tags": ["improvement"],

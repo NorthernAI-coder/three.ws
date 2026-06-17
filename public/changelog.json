@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-17T05:46:02.240Z",
+	"generated_at": "2026-06-17T06:00:37.268Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -45,6 +45,26 @@
 			"link": "/marketplace",
 			"tags": [
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-17",
+			"type": "update",
+			"title": "Connect your Solana wallet right from the app header",
+			"summary": "The main app now has a Connect Wallet button in the top bar — the first step toward buying an agent's paid skills. Click it and your Solana wallet (Phantom, or the built-in wallet on Solana Mobile / Seeker) prompts you to connect; once you do, the button shows your address shortened to something like '7xKq…9fРa' with a green tick so you can see at a glance that you're connected. If you've connected before, it reconnects silently on load, and if you don't have a wallet yet it points you to Phantom. No wallet, no signature, and nothing on-chain happens just from connecting — it only lets the platform know which wallet to use when you choose to pay.",
+			"link": "/app",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-17",
+			"type": "update",
+			"title": "Connect your Solana wallet right from the marketplace",
+			"summary": "The marketplace now carries a persistent Connect Wallet control — in the sidebar on desktop, in the search bar on mobile — so you can link Phantom, Solflare, or Backpack once and arrive at any purchase already connected, instead of waiting until checkout. If you have more than one wallet installed you get a quick picker; if you have none, it points you to install one. Once connected it shows your address as a tidy pill with a menu to copy it, view the account on Solscan, or disconnect, and it quietly reconnects a previously approved wallet when you return — no extra pop-up. Connect from the header and the Buy dialog is ready to go; connect at checkout and the header updates too. It rides the same on-chain USDC purchase flow already in place, so there's nothing new to trust.",
+			"link": "/marketplace",
+			"tags": [
+				"feature"
 			]
 		},
 		{
