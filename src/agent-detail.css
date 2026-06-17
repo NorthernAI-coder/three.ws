@@ -153,9 +153,18 @@ a {
 	cursor: pointer;
 	display: inline-flex;
 	align-items: center;
+	transition: border-color 0.15s, transform 0.1s;
 }
 .ad-btn:hover {
 	border-color: var(--ad-line-2);
+}
+.ad-btn:active {
+	border-color: var(--ad-line-2);
+	transform: translateY(1px);
+}
+.ad-btn:focus-visible {
+	outline: 2px solid var(--ad-cyan);
+	outline-offset: 2px;
 }
 .ad-btn-primary {
 	background: #fff;

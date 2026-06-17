@@ -183,9 +183,12 @@
 			font-family: inherit;
 			cursor: pointer;
 			padding: 6px 14px;
-			transition: border-color 0.15s, color 0.15s;
+			transition: border-color 0.15s, color 0.15s, transform 0.1s;
 		}
 		.irl-share-btn:hover { border-color: var(--text-3); color: var(--text); }
+		.irl-share-btn:active { transform: scale(0.96); }
+		.irl-share-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+		.irl-share-btn[disabled] { opacity: 0.6; cursor: progress; }
 
 		/* ── Joystick ────────────────────────────────────────────── */
 		#irl-joystick {
@@ -391,6 +394,17 @@
 			background: rgba(251,191,36,0.1);
 		}
 		#irl-lock-btn.is-active:hover { background: rgba(251,191,36,0.18); }
+		/* D2 "Appear nearby" presence toggle — only relevant in GPS mode (where
+		   presence is live), so it's hidden until then. Blue active state matches the
+		   ghost orbs / presence chip. */
+		#irl-ghost-toggle { display: none; }
+		body.gps-mode #irl-ghost-toggle { display: inline-flex; }
+		#irl-ghost-toggle.is-active {
+			color: #8ec5ff;
+			border-color: rgba(120,170,255,0.5);
+			background: rgba(120,170,255,0.12);
+		}
+		#irl-ghost-toggle.is-active:hover { background: rgba(120,170,255,0.2); }
 		/* WebXR floor-anchor entry — accent it as the premium placement path */
 		#irl-anchor-btn {
 			color: #c4b5fd;
@@ -554,6 +568,13 @@
 			background: rgba(251,191,36,0.12);
 			border-color: rgba(251,191,36,0.38);
 		}
+		/* Designed empty invite (E4) — GPS is live but nobody's pinned here yet.
+		   Muted vs. the green "N nearby" so it reads as a prompt, not an alert. */
+		#irl-nearby-badge.is-empty {
+			color: #9aa6b2;
+			background: rgba(148,163,184,0.12);
+			border-color: rgba(148,163,184,0.3);
+		}
 
 		/* Realtime status pill (D1) — sits beside the nearby badge: live (green),
 		   connecting (amber pulse), or polling (the fallback transport, tap to retry). */
@@ -608,6 +629,43 @@
 			.irl-net-pill.is-connecting::before { animation: none; }
 		}
 
+		/* Live viewer presence chip (D2) — "N viewing nearby" with a softly pulsing
+		   dot. Blue, to match the ghost orbs and read as social/live, distinct from
+		   the green nearby-agents badge. */
+		.irl-presence-chip {
+			display: inline-flex;
+			align-items: center;
+			gap: 5px;
+			margin-left: 6px;
+			font-size: 10px;
+			font-weight: 700;
+			letter-spacing: 0.04em;
+			color: #8ec5ff;
+			background: rgba(120,170,255,0.12);
+			border: 1px solid rgba(120,170,255,0.38);
+			border-radius: 999px;
+			padding: 2px 8px 2px 7px;
+			white-space: nowrap;
+		}
+		.irl-presence-chip[hidden] { display: none; }
+		.irl-presence-chip::before {
+			content: '';
+			width: 6px;
+			height: 6px;
+			border-radius: 50%;
+			background: currentColor;
+			box-shadow: 0 0 6px currentColor;
+			flex-shrink: 0;
+			animation: irl-presence-pulse 1.8s ease-in-out infinite;
+		}
+		@keyframes irl-presence-pulse {
+			0%, 100% { opacity: 1; transform: scale(1); }
+			50% { opacity: 0.4; transform: scale(0.78); }
+		}
+		@media (prefers-reduced-motion: reduce) {
+			.irl-presence-chip::before { animation: none; }
+		}
+
 		/* Radar minimap */
 		#irl-radar {
 			position: fixed;
@@ -636,6 +694,18 @@
 			cursor: pointer;
 			box-shadow: 0 0 6px rgba(136,187,255,0.6);
 		}
+		/* Live presence ghost (D2) — smaller, fainter, hollow, and not interactive,
+		   so a co-viewer's approximate position never reads as a placed agent. */
+		.irl-radar-ghost {
+			position: absolute;
+			width: 7px;
+			height: 7px;
+			border-radius: 50%;
+			background: rgba(159,216,255,0.22);
+			border: 1px solid rgba(159,216,255,0.6);
+			transform: translate(-50%, -50%);
+			pointer-events: none;
+		}
 		.irl-radar-self {
 			position: absolute;
 			top: 50%; left: 50%;
@@ -656,6 +726,24 @@
 		.irl-radar-s { bottom: 4px; left: 50%; transform: translateX(-50%); }
 		.irl-radar-e { right: 5px; top: 50%; transform: translateY(-50%); }
 		.irl-radar-w { left: 5px; top: 50%; transform: translateY(-50%); }
+		/* Designed empty / error hint inside the radar (E4) — centred under the self
+		   dot so a broken refresh or an empty area never reads as a blank dial. */
+		.irl-radar-hint {
+			position: absolute;
+			left: 50%;
+			top: 62%;
+			transform: translateX(-50%);
+			max-width: 92px;
+			text-align: center;
+			font-size: 8.5px;
+			font-weight: 600;
+			line-height: 1.25;
+			letter-spacing: 0.02em;
+			color: rgba(255,255,255,0.5);
+			pointer-events: none;
+		}
+		.irl-radar-hint[hidden] { display: none; }
+		.irl-radar-hint.is-error { color: #fbbf24; }
 
 		/* Agent interaction bottom sheet */
 		#irl-sheet {
@@ -948,6 +1036,70 @@
 		}
 		.irl-agent-label-name { display: block; }
 
+		/* Ambient interaction reactions (D3) — a glyph rises off an agent's head when
+		   a co-located viewer taps / pays / messages it. Two layers: the OUTER is
+		   reprojected to the agent's screen point each frame by irl.js; the INNER runs
+		   the rise+fade. Pure transform/opacity (GPU), never interactive, auto-removed. */
+		.irl-reaction {
+			position: fixed;
+			transform: translate(-50%, -100%);
+			pointer-events: none;
+			z-index: 8; /* just above name labels (7), below the inspect sheet (19) */
+			will-change: transform;
+		}
+		.irl-reaction-burst {
+			display: flex;
+			align-items: center;
+			gap: 5px;
+			padding: 4px 9px;
+			border-radius: 999px;
+			font-size: 13px;
+			font-weight: 700;
+			line-height: 1;
+			white-space: nowrap;
+			color: #f5d0fe;
+			background: rgba(139,92,246,0.28);
+			border: 1px solid rgba(167,139,250,0.55);
+			box-shadow: 0 0 14px rgba(139,92,246,0.4);
+			backdrop-filter: blur(6px);
+			-webkit-backdrop-filter: blur(6px);
+			will-change: transform, opacity;
+			animation: irl-reaction-rise 1.2s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+		}
+		.irl-reaction-burst.is-pay {
+			color: #fde68a;
+			background: rgba(251,191,36,0.26);
+			border-color: rgba(251,191,36,0.62);
+			box-shadow: 0 0 16px rgba(251,191,36,0.5);
+		}
+		.irl-reaction-burst.is-msg {
+			color: #a5f3fc;
+			background: rgba(34,211,238,0.22);
+			border-color: rgba(34,211,238,0.55);
+			box-shadow: 0 0 14px rgba(34,211,238,0.4);
+		}
+		.irl-reaction-mark { font-size: 15px; }
+		.irl-reaction-text { letter-spacing: 0.02em; }
+		@keyframes irl-reaction-rise {
+			0%   { opacity: 0; transform: translateY(8px)  scale(0.6); }
+			16%  { opacity: 1; transform: translateY(0)    scale(1.12); }
+			32%  { opacity: 1; transform: translateY(-6px) scale(1); }
+			100% { opacity: 0; transform: translateY(-44px) scale(0.96); }
+		}
+		/* Reduced motion: keep the acknowledgement, drop the travel — a gentle fade in
+		   place so the flourish never becomes vestibular motion. */
+		@media (prefers-reduced-motion: reduce) {
+			.irl-reaction-burst {
+				animation: irl-reaction-fade 1.2s ease-out forwards;
+			}
+			@keyframes irl-reaction-fade {
+				0%   { opacity: 0; transform: scale(0.9); }
+				16%  { opacity: 1; transform: scale(1); }
+				70%  { opacity: 1; transform: scale(1); }
+				100% { opacity: 0; transform: scale(1); }
+			}
+		}
+
 		/* ── Inspect card v2 ── */
 		/* Backdrop — dims the AR view behind the card so it reads as a focused dialog */
 		#irl-sheet-backdrop {
@@ -1121,6 +1273,17 @@
 		@keyframes irl-result-in {
 			from { opacity: 0; transform: translateY(4px); }
 			to   { opacity: 1; transform: none; }
+		}
+		/* Wallet-needed notice (E4) — a designed, persistent state-kit card shown when
+		   a Pay/Use tap has no connected wallet. Sits below the services it gates. */
+		.irl-pay-notice {
+			margin-top: 12px;
+			padding-top: 6px;
+			border-top: 1px solid rgba(255,255,255,0.08);
+			animation: irl-result-in 0.25s ease;
+		}
+		@media (prefers-reduced-motion: reduce) {
+			.irl-pay-notice { animation: none; }
 		}
 		/* Multiplayer indicator row */
 		.irl-multiplayer-note {
@@ -1361,6 +1524,9 @@
 		</span>
 		<span id="irl-nearby-badge" hidden aria-live="polite"></span>
 		<span id="irl-net-pill" class="irl-net-pill" hidden role="status" aria-live="polite"></span>
+		<!-- D2 live viewer presence — "N viewing nearby" with a pulsing dot. Hidden
+		     unless the live stream is up and more than just you are here. -->
+		<span id="irl-presence-chip" class="irl-presence-chip" hidden role="status" aria-live="polite"></span>
 	</div>
 	<button class="irl-share-btn" id="irl-share-btn" type="button" aria-label="Share">Share</button>
 </header>
@@ -1422,6 +1588,12 @@
 		<button class="irl-pill-btn" id="irl-mypins-btn" type="button" aria-label="My active pins">
 			<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
 			My pins
+		</button>
+		<!-- D2 — opt in to appearing as a ghost to other live viewers (default off).
+		     Only shown in GPS mode, where presence is live. -->
+		<button class="irl-pill-btn" id="irl-ghost-toggle" type="button" aria-pressed="false" aria-label="Appear to others viewing nearby">
+			<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
+			Appear nearby
 		</button>
 	</div>
 

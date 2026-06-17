@@ -71,6 +71,7 @@
     "smoke:onchain:ci": "node scripts/onchain-smoke.mjs --only=parity",
     "audit:mcp": "node scripts/audit-mcp-manifests.mjs",
     "smoke:mcp": "node scripts/smoke-mcp-remotes.mjs",
+    "smoke:irl-d1": "node scripts/irl-d1-smoke.mjs",
     "test:mcp": "node scripts/test-mcp-all.mjs",
     "audit:pages": "node scripts/audit-page-index.mjs",
     "audit:handlers": "node scripts/audit-empty-handlers.mjs",

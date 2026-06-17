@@ -3,6 +3,41 @@
 	"entries": [
 		{
 			"date": "2026-06-17",
+			"title": "IRL agents now visibly react when someone engages them",
+			"summary": "Walk past an agent placed in the real world and it now feels alive: the moment anyone standing nearby taps it, leaves it a message, or pays it, the agent does a little perk-up and a reaction floats up off its head — a 💜 for a glance, a ✨ 'paid' burst for a real on-chain payment, a 💬 for a message — and everyone viewing that spot sees it at once, not just the person who acted. A busy agent looks busy, which is the whole point of putting one somewhere public. Rapid taps are smoothed so the same person can't spam the reaction, while payments and messages always come through. The reaction is purely a visual flourish — it carries no one's location or wallet — and if your connection drops to the slower fallback the interaction is still recorded for the owner; only the live animation is skipped.",
+			"tags": ["feature"],
+			"link": "/irl"
+		},
+		{
+			"date": "2026-06-17",
+			"title": "IRL never shows a blank screen — every state is now designed",
+			"summary": "Every corner of three.ws/irl now tells you what's going on instead of leaving a blank space. The radar minimap reads 'No agents in range' when an area is quiet, and 'Can't refresh' if the nearby feed briefly drops — then recovers on its own. The nearby count, when GPS is live but nobody's pinned around you yet, invites you to be the first to drop an agent there rather than simply disappearing. Tap an agent's Pay or Use button without a wallet connected and you now get a clear, lasting card explaining how to connect one — instead of a message that flashes away before you can read it. And your IRL Placements dashboard now has a proper loading skeleton, a friendly empty state when you haven't placed anything, and a retry button if the list can't load — never a spinner that hangs or a void.",
+			"tags": ["improvement"],
+			"link": "/irl"
+		},
+		{
+			"date": "2026-06-17",
+			"title": "See a placed agent's on-chain reputation from your dashboard",
+			"summary": "Your IRL Placements dashboard now shows each placed agent's on-chain reputation — the exact score and trust tier a passer-by sees when they tap it in the real world, so you know what the public sees. Tap an agent's Reputation chip to open a panel with its 0–100 score and tier (New, Emerging, Trusted, Elite), a star rating, and a breakdown of how many attestations are verified, credentialed, or disputed. A small 30-day trend line shows whether its reputation is climbing. Agents that haven't earned any attestations yet get a clear prompt to share them rather than an empty number, and a 'Manage on passport' link takes you to where you add or dispute attestations. If the reputation service is unreachable the panel offers a retry instead of failing silently.",
+			"tags": ["feature", "improvement"],
+			"link": "/dashboard/irl-placements"
+		},
+		{
+			"date": "2026-06-17",
+			"title": "Report a bad IRL pin — and guardrails that keep public spots usable",
+			"summary": "Now that anyone standing at a location sees the agents others placed there, three.ws/irl has the moderation it needs to stay clean. Tap any agent that isn't yours and a new Report option lets you flag it for spam, hate or harassment, impersonation, a scam, sexual content, or anything else — with a clear sending, thanks, and try-again state, never a dead button. Reports are counted per person, so one account can't bury a pin it dislikes; once enough different people flag the same agent it's hidden from everyone — and if you're nearby when that happens it vanishes from your view within about a second rather than lingering until the next scan. Placing agents is now protected too: captions and names with slurs are refused, a pin can only ever reference $THREE, the only coin on three.ws, and its pay button can only point at three.ws — never an outside link. A single busy block holds a sensible maximum of agents and each person has an active-pin limit, so no one can carpet-bomb a plaza or spam placements, and every refusal tells you exactly what to do. Abandoned anonymous pins are cleaned up automatically while the agents you're signed in for stay put.",
+			"tags": ["feature", "security"],
+			"link": "/irl"
+		},
+		{
+			"date": "2026-06-17",
+			"title": "Share a photo straight from the XR viewer",
+			"summary": "three.ws/xr now has the same one-tap Share that three.ws/irl has had: it flattens your live camera view and the 3D agent into a single photo and hands it to your phone's share sheet to post or send — or downloads it as a PNG on desktop. With the camera on, the picture shows your agent standing in your real surroundings; with it off, it shares the 3D view on its own. If a snapshot can't be captured for any reason, Share falls back to sending the page link so it's never a dead end. The Share buttons on both pages now show a brief progress state while the image is being made, and the immersive buttons give keyboard users a clear focus outline.",
+			"tags": ["feature", "improvement"],
+			"link": "/xr"
+		},
+		{
+			"date": "2026-06-17",
 			"title": "Nearby agents on IRL now update live — no reload",
 			"summary": "Open three.ws/irl and the agents other people have placed around you now update in real time. When anyone nearby drops a new agent, moves one, changes its outfit, or takes one down, you see it appear, shift, or vanish on your screen within about a second — no refresh, no waiting for the next scan. It works both ways: pin an agent and everyone standing near you sees it pop in too, and walk into a new area and the live view follows you to the agents there. A small status pill next to the nearby count shows whether you're getting live updates; if the realtime connection can't be reached — some networks block it — IRL automatically falls back to refreshing every few seconds and the pill reads 'Polling', still fully working, just a touch slower.",
 			"tags": ["feature", "improvement"],

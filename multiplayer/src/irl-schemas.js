@@ -47,17 +47,25 @@ defineTypes(IrlPin, {
 	placedAt: 'float64',
 });
 
-// A live viewer present in this geocell — the seed of D2 (presence / ghost
-// viewers). Declared now so D2 only has to POPULATE the map, never alter the
-// schema mid-deploy (which the append-only rule would otherwise complicate). D1
-// leaves `viewers` empty; the room defines it but writes no entries yet.
+// A live viewer present in this geocell — live presence (D2). D1 declared this
+// schema and left the map empty; D2 POPULATES it (IrlRoom.onJoin / heartbeat /
+// reaper) so the count and ghost markers are pure MapSchema deltas — no new
+// transport. lat/lng are ALWAYS the viewer's geocell centre + bounded jitter,
+// never their precise GPS: the only location a viewer reveals is "somewhere in
+// this ~1 km cell." The new D2 fields are appended (heading/avatar/ghost/
+// tsServer) so an older still-connected client isn't shifted off the wire format.
 export class IrlViewer extends Schema {
 	constructor() {
 		super();
-		this.id = '';            // session id
+		this.id = '';            // ephemeral session id (NOT the device token)
 		this.lat = 0;            // cell-centre + bounded jitter (privacy — never precise GPS)
 		this.lng = 0;
 		this.agentId = '';       // the agent this viewer is embodying, if any
+		// — D2 (append-only) —
+		this.heading = 0;        // optional compass facing 0–359°, for ghost orientation
+		this.avatar = '';        // GLB url — '' unless the viewer opted to share a ghost
+		this.ghost = false;      // false = counted only; true = render a marker for this viewer
+		this.tsServer = 0;       // server epoch ms of the last heartbeat (drives the reaper)
 	}
 }
 defineTypes(IrlViewer, {
@@ -65,6 +73,12 @@ defineTypes(IrlViewer, {
 	lat: 'float64',
 	lng: 'float64',
 	agentId: 'string',
+	// Append-only (D2): keep new fields at the end so a still-connected older
+	// client isn't shifted off the positional binary format mid-deploy.
+	heading: 'float32',
+	avatar: 'string',
+	ghost: 'boolean',
+	tsServer: 'float64',
 });
 
 export class IrlState extends Schema {
@@ -77,7 +91,8 @@ export class IrlState extends Schema {
 		// The centre geocell this room instance serves (filterBy key). Seeded by the
 		// first client to land here; identical for every viewer in the instance.
 		this.geocell = '';
-		// Live viewers in this cell (D2). Empty in D1 — see IrlViewer above.
+		// Live viewers present in this cell (D2), keyed by session id. Populated by
+		// IrlRoom on join/heartbeat and pruned by its reaper — see IrlViewer above.
 		this.viewers = new MapSchema();
 	}
 }

@@ -132,6 +132,7 @@ export function mountReputationPanel(card, { reputation, agentId, pinId } = {}) 
 			}
 
 			body.innerHTML = panelHtml(reputation, fb);
+			loadTrend(body, asset, network, reputation);
 		} catch {
 			body.innerHTML = errorStateHTML({
 				title: 'Couldn’t load reputation',
@@ -173,7 +174,51 @@ function panelHtml(rep, fb) {
 					<span class="irl-rep-chip ${disputed ? 'bad' : ''}">${disputed} disputed</span>
 				</div>
 			</div>
-		</div>`;
+		</div>
+		<div class="irl-rep-trend" data-rep-trend hidden></div>`;
+}
+
+// History sparkline — optional, loaded after the panel paints. Stays silent on
+// any failure (incl. 404 / sparse data): the trend is a bonus, never a blocker,
+// so it must not surface an error or shift layout when there's nothing to draw.
+async function loadTrend(body, asset, network, rep) {
+	const slot = body?.querySelector('[data-rep-trend]');
+	if (!slot) return;
+	try {
+		const r = await fetch(
+			`/api/agents/solana-reputation-history?asset=${encodeURIComponent(asset)}&network=${encodeURIComponent(network)}&days=30`,
+		);
+		if (!r.ok) return;
+		const { series } = await r.json();
+		if (!Array.isArray(series) || series.length < 2) return; // need ≥2 points to draw a line
+		slot.innerHTML = sparklineHtml(series, tierMeta(rep?.tier || 'new').color);
+		slot.hidden = false;
+	} catch { /* trend is optional — never surface an error */ }
+}
+
+// Tiny inline-SVG sparkline of the daily reputation score (1–5 band) over the
+// trailing window. Stretches to the card width (preserveAspectRatio none) with a
+// non-scaling stroke so the line stays crisp; a faint area fill reads as trend at
+// a glance. A flat series renders as a centered line rather than a floor-hugging one.
+function sparklineHtml(series, color) {
+	const W = 220, H = 34, pad = 4;
+	const scores = series.map((p) => Number(p.score) || 0);
+	const n = scores.length;
+	const min = Math.min(...scores), max = Math.max(...scores);
+	const flat = max === min;
+	const px = (i) => +((i / (n - 1)) * (W - pad * 2) + pad).toFixed(1);
+	const py = (s) => flat ? H / 2 : +(H - pad - ((s - min) / (max - min)) * (H - pad * 2)).toFixed(1);
+	const line = scores.map((s, i) => `${px(i)},${py(s)}`).join(' ');
+	const area = `${pad},${H} ${line} ${W - pad},${H}`;
+	const first = scores[0], last = scores[n - 1];
+	const trend = last > first ? 'trending up' : last < first ? 'trending down' : 'steady';
+	const label = `Reputation trend over the last ${n} days: ${trend}; latest score ${last.toFixed(1)} of 5`;
+	return `<svg class="irl-rep-spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"
+			role="img" aria-label="${label}" style="--spark:${color}">
+			<polygon class="irl-rep-spark-area" points="${area}" />
+			<polyline class="irl-rep-spark-line" points="${line}" />
+		</svg>
+		<span class="irl-rep-spark-cap">${n}-day trend · latest ★ ${last.toFixed(1)}</span>`;
 }
 
 const REP_CSS = `
@@ -209,6 +254,11 @@ const REP_CSS = `
 .irl-rep-chip.ok { color: var(--nxt-success, #4ade80); border-color: color-mix(in srgb, var(--nxt-success, #4ade80) 30%, transparent); }
 .irl-rep-chip.cred { color: #a78bfa; border-color: color-mix(in srgb, #a78bfa 30%, transparent); }
 .irl-rep-chip.bad { color: var(--nxt-danger, #f87171); border-color: color-mix(in srgb, var(--nxt-danger, #f87171) 30%, transparent); }
+.irl-rep-trend { margin-top: 12px; display: flex; flex-direction: column; gap: 3px; animation: irl-rep-in .2s ease both; }
+.irl-rep-spark { width: 100%; height: 34px; display: block; overflow: visible; }
+.irl-rep-spark-line { fill: none; stroke: var(--spark, var(--nxt-accent, #4ea1ff)); stroke-width: 1.6; vector-effect: non-scaling-stroke; stroke-linejoin: round; stroke-linecap: round; }
+.irl-rep-spark-area { fill: var(--spark, var(--nxt-accent, #4ea1ff)); opacity: .1; }
+.irl-rep-spark-cap { font-size: 10px; text-transform: uppercase; letter-spacing: .04em; color: var(--nxt-ink-faint, #8a8f98); }
 .irl-stat--btn { cursor: pointer; transition: border-color .12s, background .12s; }
 .irl-stat--btn:hover { border-color: var(--nxt-stroke-strong, rgba(255,255,255,.25)); }
 .irl-stat--btn:focus-visible { outline: 2px solid var(--nxt-accent, #4ea1ff); outline-offset: 2px; }
