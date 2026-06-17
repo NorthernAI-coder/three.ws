@@ -143,6 +143,14 @@
 			<description>The marketplace now has working Free / Paid filters. &quot;Paid&quot; surfaces every agent that charges in any way — a one-time price to own it or per-call pricing on its skills — and &quot;Free&quot; shows the rest. Filtering happens on the server, so the result count and &quot;load more&quot; stay accurate no matter how many pages deep you browse, and your choice is saved in the URL so you can bookmark or share a filtered view.</description>
 		</item>
 		<item>
+			<title>Game-Ready export in Forge — one click to engine-ready GLB + FBX</title>
+			<link>https://three.ws/forge</link>
+			<guid isPermaLink="false">2026-06-17:Game-Ready export in Forge — one click to engine-ready GLB + FBX</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Any model you generate or upload in Forge can now be turned into a clean, engine-ready asset in one click. Pick Quad retopology (field-aligned QuadriFlow edge loops that rig and animate well) or Tri low-poly (silhouette-preserving, with the texture re-baked), set a poly budget with 5k / 15k / 50k presets, and export a textured GLB plus an FBX for Unity and Unreal together. You see the before→after poly count (e.g. 28,400 → 5,012) and can flip on a live wireframe to inspect the new topology right in the viewer. Files are served from our own CDN.</description>
+		</item>
+		<item>
 			<title>iPhone now world-locks your IRL agent — it holds its real spot as you pan and walk</title>
 			<link>https://three.ws/irl</link>
 			<guid isPermaLink="false">2026-06-17:iPhone now world-locks your IRL agent — it holds its real spot as you pan and walk</guid>

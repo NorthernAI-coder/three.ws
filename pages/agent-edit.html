@@ -1256,6 +1256,47 @@
 						aria-live="polite"
 					></span>
 				</div>
+
+				<!-- Subscription Plans -->
+				<div class="form-group" style="margin-top: 2rem; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 1.5rem;">
+					<label class="form-label">Subscription Plans</label>
+					<p class="note" style="font-size: 0.764rem; color: rgba(255,255,255,0.4); margin-top: -0.5rem; margin-bottom: 1rem;">Offer recurring access to your agent's skills. Subscribers pay a fixed USDC amount monthly or weekly. Up to 3 active plans.</p>
+					<div id="subscription-plans-list" style="display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 0.75rem;">
+						<div class="muted">Loading plans…</div>
+					</div>
+					<button class="btn-ghost" id="show-create-plan-btn" style="align-self: flex-start;">+ New Plan</button>
+				</div>
+
+				<!-- Plan editor (hidden until triggered) -->
+				<div id="plan-editor" style="display:none; margin-top: 1rem; padding: 1rem; border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; background: rgba(255,255,255,0.03);">
+					<input type="hidden" id="plan-editor-id">
+					<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 0.75rem;">
+						<div class="form-group" style="margin: 0;">
+							<label class="form-label" style="font-size: 0.764rem;" for="plan-name-input">Plan Name</label>
+							<input class="form-input" id="plan-name-input" type="text" placeholder="e.g. Pro" maxlength="80">
+						</div>
+						<div class="form-group" style="margin: 0;">
+							<label class="form-label" style="font-size: 0.764rem;" for="plan-interval-input">Billing</label>
+							<select class="form-input" id="plan-interval-input">
+								<option value="monthly">Monthly</option>
+								<option value="weekly">Weekly</option>
+							</select>
+						</div>
+					</div>
+					<div class="form-group" style="margin-bottom: 0.75rem;">
+						<label class="form-label" style="font-size: 0.764rem;" for="plan-price-input">Price (USD)</label>
+						<input class="form-input" id="plan-price-input" type="number" min="0.99" max="999" step="0.01" placeholder="9.99" style="max-width: 140px;">
+					</div>
+					<div class="form-group" style="margin-bottom: 0.75rem;">
+						<label class="form-label" style="font-size: 0.764rem;" for="plan-perks-input">Perks (one per line)</label>
+						<textarea class="form-textarea" id="plan-perks-input" rows="3" placeholder="Unlimited API calls&#10;Priority queue&#10;Early access to new skills" style="font-size: 0.764rem;"></textarea>
+					</div>
+					<div style="display: flex; gap: 0.5rem; align-items: center;">
+						<button class="btn-primary" id="plan-save-btn" style="font-size: 0.764rem; padding: 0.4rem 0.9rem;">Save Plan</button>
+						<button class="btn-ghost" id="plan-cancel-btn" style="font-size: 0.764rem; padding: 0.4rem 0.9rem;">Cancel</button>
+						<span class="form-status" id="plan-status" role="status" aria-live="polite" style="font-size: 0.764rem;"></span>
+					</div>
+				</div>
 			</section>
 
 			<!-- Autopilot tab -->

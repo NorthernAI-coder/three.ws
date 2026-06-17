@@ -420,6 +420,16 @@ export class PoseLibrary {
 		this.api.setStatus(`Opened “${full.name}” — ${full.editor_doc ? 'keyframes restored' : 'rebuilt from clip'}.`);
 	}
 
+	/**
+	 * Open a saved animation by its API id into the timeline editor.
+	 * Used by the ?anim= URL param boot path so linking directly to an animation
+	 * drops it straight into the editor without opening the library drawer.
+	 * @param {string} id  animation_clips.id (UUID)
+	 */
+	async openById(id) {
+		return this._open({ id });
+	}
+
 	_editMeta(clip, ev) {
 		const overlay = this._overlay();
 		const nameInput = el('input', { class: 'pl-input', type: 'text', maxlength: '120', value: clip.name, 'aria-label': 'Name' });

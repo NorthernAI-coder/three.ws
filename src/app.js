@@ -1928,6 +1928,9 @@ class App {
 		}
 		if (!hasSkeleton) return;
 
+		// Check for ?anim= URL param: play a specific animation (manifest name or API id)
+		const _animParam = new URLSearchParams(location.search).get('anim');
+
 		// Fetch the animation manifest
 		fetch('/animations/manifest.json')
 			.then((r) => {
@@ -1937,6 +1940,15 @@ class App {
 			.then((manifest) => {
 				if (Array.isArray(manifest) && manifest.length > 0) {
 					viewer.setAnimationDefs(manifest);
+					if (_animParam) {
+						// API id (UUID) → load from API; manifest name → normal path
+						const isApiId = /^[0-9a-f-]{36}$/i.test(_animParam);
+						if (isApiId) {
+							viewer.playAnimationById(_animParam).catch(() => {});
+						} else {
+							viewer.animationManager.crossfadeTo(_animParam).catch(() => {});
+						}
+					}
 				}
 			})
 			.catch(() => {

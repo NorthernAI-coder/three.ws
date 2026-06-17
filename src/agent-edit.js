@@ -1029,6 +1029,129 @@ $('autopilot-save').addEventListener('click', async () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Subscription Plans (Monetization tab)
+// ─────────────────────────────────────────────────────────────────────────────
+
+let plansLoaded = false;
+
+function escHtml(s) {
+  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+async function loadSubscriptionPlans() {
+  const list = $('subscription-plans-list');
+  if (!list) return;
+  try {
+    const r = await apiFetch(`${API_BASE}/subscriptions/plans?agent_id=${encodeURIComponent(agentId)}`, { credentials: 'include' });
+    const j = await r.json().catch(() => ({}));
+    const plans = j.plans || [];
+    plansLoaded = true;
+    renderPlansList(plans);
+  } catch (err) {
+    const list2 = $('subscription-plans-list');
+    if (list2) list2.innerHTML = `<span class="muted">Could not load plans.</span>`;
+  }
+}
+
+function renderPlansList(plans) {
+  const list = $('subscription-plans-list');
+  if (!list) return;
+  if (!plans.length) {
+    list.innerHTML = `<span class="muted" style="font-size:0.764rem;">No plans yet — create one below.</span>`;
+    return;
+  }
+  list.innerHTML = plans.map(p => `
+    <div class="plan-row" style="display:flex; align-items:center; justify-content:space-between; padding:0.5rem 0.75rem; border:1px solid rgba(255,255,255,0.08); border-radius:6px; background:rgba(255,255,255,0.02);">
+      <div>
+        <span style="font-weight:600; font-size:0.875rem;">${escHtml(p.name)}</span>
+        <span style="color:rgba(255,255,255,0.45); font-size:0.764rem; margin-left:0.5rem;">$${Number(p.price_usd).toFixed(2)} / ${p.interval}</span>
+        ${p.perks?.length ? `<div style="font-size:0.7rem; color:rgba(255,255,255,0.35); margin-top:0.15rem;">${escHtml(p.perks.join(' · '))}</div>` : ''}
+      </div>
+      <div style="display:flex; gap:0.4rem;">
+        <button class="btn-ghost" style="font-size:0.7rem; padding:0.25rem 0.6rem;" onclick="openPlanEditor(${JSON.stringify(p).replace(/"/g, '&quot;')})">Edit</button>
+        <button class="btn-ghost danger" style="font-size:0.7rem; padding:0.25rem 0.6rem;" onclick="deletePlan('${p.id}')">Delete</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+window.openPlanEditor = function openPlanEditor(plan) {
+  const editor = $('plan-editor');
+  if (!editor) return;
+  $('plan-editor-id').value = plan?.id ?? '';
+  $('plan-name-input').value = plan?.name ?? '';
+  $('plan-price-input').value = plan?.price_usd ?? '';
+  $('plan-interval-input').value = plan?.interval ?? 'monthly';
+  $('plan-perks-input').value = (plan?.perks ?? []).join('\n');
+  $('plan-status').textContent = '';
+  editor.style.display = 'block';
+  $('show-create-plan-btn').style.display = 'none';
+  $('plan-name-input').focus();
+};
+
+window.deletePlan = async function deletePlan(planId) {
+  if (!confirm('Delete this plan? Subscribers will keep access until their period ends.')) return;
+  try {
+    const r = await apiFetch(`${API_BASE}/subscriptions/plans/${planId}`, { method: 'DELETE', credentials: 'include' });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    loadSubscriptionPlans();
+  } catch (err) {
+    alert(`Error deleting plan: ${err.message}`);
+  }
+};
+
+$('show-create-plan-btn')?.addEventListener('click', () => {
+  openPlanEditor(null);
+});
+
+$('plan-cancel-btn')?.addEventListener('click', () => {
+  $('plan-editor').style.display = 'none';
+  $('show-create-plan-btn').style.display = '';
+});
+
+$('plan-save-btn')?.addEventListener('click', async () => {
+  const status = $('plan-status');
+  const planId = $('plan-editor-id').value.trim();
+  const name = $('plan-name-input').value.trim();
+  const price_usd = parseFloat($('plan-price-input').value);
+  const interval = $('plan-interval-input').value;
+  const perks = $('plan-perks-input').value.split('\n').map(s => s.trim()).filter(Boolean);
+
+  if (!name) { status.textContent = 'Name is required.'; status.className = 'form-status err'; return; }
+  if (!price_usd || price_usd < 0.99) { status.textContent = 'Price must be at least $0.99.'; status.className = 'form-status err'; return; }
+
+  status.textContent = 'Saving…'; status.className = 'form-status';
+  try {
+    const payload = { name, price_usd, interval, perks, agent_id: agentId };
+    const url = planId ? `${API_BASE}/subscriptions/plans/${planId}` : `${API_BASE}/subscriptions/plans`;
+    const r = await apiFetch(url, {
+      method: planId ? 'PATCH' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(planId ? { name, price_usd, interval, perks } : payload),
+    });
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
+      throw new Error(j.error_description || j.error || `HTTP ${r.status}`);
+    }
+    $('plan-editor').style.display = 'none';
+    $('show-create-plan-btn').style.display = '';
+    status.textContent = '';
+    loadSubscriptionPlans();
+  } catch (err) {
+    status.textContent = `Error: ${err.message}`;
+    status.className = 'form-status err';
+  }
+});
+
+// Load plans when monetization tab is first activated
+document.addEventListener('tabchange', (e) => {
+  if (e.detail?.tab === 'monetization' && !plansLoaded) loadSubscriptionPlans();
+});
+// Also load on init if already on monetization tab
+if (!document.querySelector('#panel-monetization[hidden]')) loadSubscriptionPlans();
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Voice tab
 // ─────────────────────────────────────────────────────────────────────────────
 

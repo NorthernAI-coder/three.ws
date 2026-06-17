@@ -166,9 +166,16 @@ async function main() {
 		log.warn('[avatar-embed] animation manifest load failed', err?.message);
 	}
 
-	const startAnim = params.get('animation') || params.get('pose');
+	// ?animation= / ?anim= — supports both manifest clip names and API clip ids/slugs.
+	const startAnim = params.get('animation') || params.get('anim') || params.get('pose');
 	if (startAnim) {
-		animMgr.crossfadeTo(startAnim, 0.3).catch(() => {});
+		const isApiId = /^[0-9a-f-]{36}$/i.test(startAnim) || startAnim.startsWith('user:');
+		if (isApiId) {
+			viewer.playAnimationById(startAnim.startsWith('user:') ? startAnim.slice(5) : startAnim)
+				.catch(() => animMgr.crossfadeTo('idle', 0.3).catch(() => {}));
+		} else {
+			animMgr.crossfadeTo(startAnim, 0.3).catch(() => {});
+		}
 	}
 
 	const pickerEnabled = params.get('animPicker') !== '0' && !overlayMode && !hideChrome;

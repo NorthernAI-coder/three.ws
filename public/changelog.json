@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-17T15:37:08.858Z",
+	"generated_at": "2026-06-17T15:57:44.274Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -179,6 +179,16 @@
 			"tags": [
 				"feature",
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-17",
+			"type": "update",
+			"title": "Game-Ready export in Forge — one click to engine-ready GLB + FBX",
+			"summary": "Any model you generate or upload in Forge can now be turned into a clean, engine-ready asset in one click. Pick Quad retopology (field-aligned QuadriFlow edge loops that rig and animate well) or Tri low-poly (silhouette-preserving, with the texture re-baked), set a poly budget with 5k / 15k / 50k presets, and export a textured GLB plus an FBX for Unity and Unreal together. You see the before→after poly count (e.g. 28,400 → 5,012) and can flip on a live wireframe to inspect the new topology right in the viewer. Files are served from our own CDN.",
+			"link": "/forge",
+			"tags": [
+				"feature"
 			]
 		},
 		{
