@@ -30,7 +30,7 @@ import {
 	HOTBAR_SIZE,
 } from '../economy.js';
 import {
-	serializeLoadout, getCosmetic, canWear,
+	serializeLoadout, getCosmetic, canWear, DEFAULT_LOADOUT,
 } from '../cosmetics-catalog.js';
 import {
 	itemLabel, fishCatchChance, fishDoubleChance,
@@ -129,6 +129,38 @@ const BALL_SETTLE_SPEED = 0.08;   // m/s — below this horizontal speed, zero i
 // client, with headroom so appending a larger piece there doesn't desync.
 const MAX_BATCH_CELLS = 32;
 const BATCHES_PER_SEC_LIMIT = 4;
+
+// ── R05: server-authoritative beach ball physics ──────────────────────────────
+// One ball per room, kind:'ball', ownerId:'server'. Clients send 'ball:kick' with
+// an impulse vector; the server validates + caps it, then integrates position each
+// physics tick and streams updates through the objects map via the schema delta.
+//
+//   ball:kick  { vx, vy, vz }
+//       Any joined player, BALL_KICKS_PER_SEC rate limit. The server caps impulse
+//       magnitude and ensures a minimum upward component, then adds it to the
+//       authoritative velocity. Ball id is fixed (BALL_ID) — one per room.
+//
+// Velocity kept in _ballVx/y/z server vars, written to the WorldObject schema
+// each tick. A settled ball (speed < BALL_IDLE_SPEED_SQ on ground) skips
+// integration to avoid micro-drift and unnecessary Colyseus patches.
+const BALL_ID = 'ball_0';
+const BALL_RADIUS = 0.5;
+const BALL_TICK_MS = 1000 / 20;      // 20 Hz physics
+const BALL_GRAVITY = 9.8;
+const BALL_BOUNCE = 0.55;            // vertical energy retained on ground bounce
+const BALL_WALL_BOUNCE = 0.80;       // energy retained on world-edge bounce
+const BALL_ROLLING_FRICTION = 2.0;   // per-second horizontal speed decay on ground
+const BALL_AIR_DRAG = 0.12;          // per-second speed decay while airborne
+const BALL_MAX_IMPULSE = 12;         // m/s — cap on a single client kick
+const BALL_POST_KICK_CAP = 18;       // m/s — absolute total velocity cap post-kick
+const BALL_MIN_UPY = 0.8;            // minimum upward component on any kick
+const BALL_WORLD_RADIUS = 54;        // keep inside the visible arena
+const BALL_SPAWN_X = 0;
+const BALL_SPAWN_Y = BALL_RADIUS;
+const BALL_SPAWN_Z = 5;
+const BALL_OOB_Y = -10;              // respawn below this y
+const BALL_IDLE_SPEED_SQ = 0.04;     // (m/s)^2 — skip integration when settled
+const BALL_KICKS_PER_SEC = 3;
 
 // --- Build permissions & anti-grief (R19) ---------------------------------
 // The per-world MAX_BLOCKS budget above protects the room; these caps protect it
@@ -425,6 +457,9 @@ export class WalkRoom extends Room {
 		// validates ownership, persists the loadout to the account, re-publishes it on
 		// the schema so peers re-render, and echoes the owner a fresh profile.
 		this.onMessage('equip-cosmetic', (client, payload) => this._handleEquipCosmetic(client, payload));
+		// Full-loadout broadcast (R03): replaces the player's entire equipped state in
+		// one shot, re-validated against ownership — mirrors how `avatar` is sent.
+		this.onMessage('set-cosmetics', (client, payload) => this._handleSetCosmetics(client, payload));
 		this.onMessage('profileReq', (client) => this._sendProfile(client));
 		// Quests, jobs & heists (W05, off-schema). The board, accepting/abandoning a
 		// mission, and acting at a quest object all flow through here; the server is the
@@ -1024,6 +1059,28 @@ export class WalkRoom extends Room {
 		this._persistEcon(client.sessionId);
 	}
 
+	// Replace the player's entire equipped loadout in one shot (R03). The wire
+	// is re-validated against the catalog and account ownership before applying —
+	// any unknown id, any id in the wrong slot, and any unowned premium id are
+	// silently dropped to the slot default. This is the full-loadout counterpart to
+	// equip-cosmetic (which changes one slot); the schema update and persist follow
+	// the same path so peers always re-render the authoritative look.
+	_handleSetCosmetics(client, payload) {
+		const profile = this.econ.get(client.sessionId);
+		if (!profile) return;
+		if (!this._actionOk(client.sessionId, 'equip')) return;
+		const wire = typeof payload?.cosmetics === 'string' ? payload.cosmetics.slice(0, 256) : '';
+		if (!profile.cosmetics) profile.cosmetics = { owned: [], equipped: {} };
+		// Reset every slot to its bare default, then merge the requested ids.
+		// Ownership is re-checked per id so a tampered wire can never put an
+		// unowned cosmetic on a player.
+		profile.cosmetics.equipped = { ...DEFAULT_LOADOUT };
+		this._applyJoinCosmetics(profile, wire);
+		const player = this.state.players.get(client.sessionId);
+		if (player) player.cosmetics = serializeLoadout(profile.cosmetics.equipped);
+		this._persistEcon(client.sessionId);
+	}
+
 	// Select a hotbar slot (what the player is "holding"). -1 clears the hand.
 	_handleEquip(client, payload) {
 		const profile = this.econ.get(client.sessionId);
@@ -1503,6 +1560,7 @@ export class WalkRoom extends Room {
 		if (wasPersistent) this._persistObjects();
 	}
 
+
 	// Per-client token bucket for obj:* ops, mirroring the edit limiter.
 	_objOk(sessionId) {
 		const now = Date.now();
@@ -1770,5 +1828,151 @@ export class WalkRoom extends Room {
 		}
 		bucket.count++;
 		return bucket.count <= MOVES_PER_SEC_LIMIT;
+	}
+
+	// ── R05: beach ball physics ──────────────────────────────────────────────────
+
+	// Spawn (or reset) the room's single server-owned ball at world centre.
+	// Called on room create and on respawn (out-of-bounds or fallen through floor).
+	_spawnBall() {
+		const existing = this.state.objects.get(BALL_ID);
+		if (existing) {
+			existing.x = BALL_SPAWN_X; existing.y = BALL_SPAWN_Y; existing.z = BALL_SPAWN_Z;
+			existing.vx = 0; existing.vy = 0; existing.vz = 0;
+			existing.ts = Date.now();
+		} else {
+			const ball = new WorldObject();
+			ball.id = BALL_ID;
+			ball.kind = 'ball';
+			ball.type = 'beach';
+			ball.ownerId = SERVER_OBJECT_OWNER;
+			ball.x = BALL_SPAWN_X; ball.y = BALL_SPAWN_Y; ball.z = BALL_SPAWN_Z;
+			ball.vx = 0; ball.vy = 0; ball.vz = 0;
+			ball.yaw = 0; ball.scale = 1;
+			ball.ts = Date.now();
+			this.state.objects.set(BALL_ID, ball);
+		}
+		this._ballVx = 0; this._ballVy = 0; this._ballVz = 0;
+	}
+
+	// Physics tick at 20 Hz. Integrates gravity, rolling friction, ground bounce,
+	// and world-edge reflection. Writes position+velocity into the schema so
+	// Colyseus broadcasts only the delta. Settled balls skip integration.
+	_tickBall() {
+		const ball = this.state.objects.get(BALL_ID);
+		if (!ball) { this._spawnBall(); return; }
+
+		// Respawn if out of bounds
+		const rSq = ball.x * ball.x + ball.z * ball.z;
+		if (ball.y < BALL_OOB_Y || rSq > (BALL_WORLD_RADIUS + 6) * (BALL_WORLD_RADIUS + 6)) {
+			console.log(`[walk_world ${this.roomId}] ball out of bounds — respawning`);
+			this._spawnBall();
+			return;
+		}
+
+		// Skip integration when settled on the ground
+		const speedSq = this._ballVx * this._ballVx + this._ballVy * this._ballVy + this._ballVz * this._ballVz;
+		const onGround = ball.y <= BALL_RADIUS + 0.02;
+		if (speedSq < BALL_IDLE_SPEED_SQ && onGround) return;
+
+		const dt = BALL_TICK_MS / 1000;
+
+		// Gravity
+		this._ballVy -= BALL_GRAVITY * dt;
+
+		// Drag / rolling friction
+		if (onGround) {
+			const fric = 1 - BALL_ROLLING_FRICTION * dt;
+			this._ballVx *= fric;
+			this._ballVz *= fric;
+		} else {
+			const drag = 1 - BALL_AIR_DRAG * dt;
+			this._ballVx *= drag;
+			this._ballVz *= drag;
+		}
+
+		// Integrate position
+		ball.x += this._ballVx * dt;
+		ball.y += this._ballVy * dt;
+		ball.z += this._ballVz * dt;
+
+		// Ground bounce
+		if (ball.y < BALL_RADIUS) {
+			ball.y = BALL_RADIUS;
+			if (this._ballVy < 0) {
+				this._ballVy = -this._ballVy * BALL_BOUNCE;
+				// Kill micro-bounces so the ball settles cleanly
+				if (Math.abs(this._ballVy) < 0.3) this._ballVy = 0;
+			}
+		}
+
+		// World-edge reflection (radial normal bounce)
+		const r = Math.sqrt(rSq);
+		if (r > BALL_WORLD_RADIUS) {
+			const k = BALL_WORLD_RADIUS / r;
+			ball.x *= k; ball.z *= k;
+			const nx = ball.x / BALL_WORLD_RADIUS;
+			const nz = ball.z / BALL_WORLD_RADIUS;
+			const dot = this._ballVx * nx + this._ballVz * nz;
+			if (dot > 0) {
+				this._ballVx = (this._ballVx - 2 * dot * nx) * BALL_WALL_BOUNCE;
+				this._ballVz = (this._ballVz - 2 * dot * nz) * BALL_WALL_BOUNCE;
+			}
+		}
+
+		// Write velocity into schema so clients can extrapolate between updates
+		ball.vx = this._ballVx;
+		ball.vy = this._ballVy;
+		ball.vz = this._ballVz;
+		ball.ts = Date.now();
+	}
+
+	// Handle a kick intent from a client. Server validates and caps the impulse,
+	// then applies it to the authoritative ball velocity. Never trusts the client's
+	// raw values — only direction + a capped magnitude survive.
+	_handleBallKick(client, payload) {
+		if (!this.state.players.has(client.sessionId)) return;
+		if (!this._kickOk(client.sessionId)) return;
+		if (!payload || typeof payload !== 'object') return;
+		const ball = this.state.objects.get(BALL_ID);
+		if (!ball) return;
+
+		let { vx, vy, vz } = payload;
+		if (!Number.isFinite(vx) || !Number.isFinite(vy) || !Number.isFinite(vz)) return;
+
+		// Cap impulse magnitude
+		const mag = Math.hypot(vx, vy, vz);
+		if (mag > BALL_MAX_IMPULSE) {
+			const k = BALL_MAX_IMPULSE / mag;
+			vx *= k; vy *= k; vz *= k;
+		} else if (mag < 0.1) {
+			return; // reject zero-length impulse
+		}
+
+		// Ensure a meaningful upward component so the ball always lifts off the ground
+		if (vy < BALL_MIN_UPY) vy = BALL_MIN_UPY;
+
+		this._ballVx += vx;
+		this._ballVy += vy;
+		this._ballVz += vz;
+
+		// Absolute cap on total velocity post-kick to prevent launch exploits
+		const totalMag = Math.hypot(this._ballVx, this._ballVy, this._ballVz);
+		if (totalMag > BALL_POST_KICK_CAP) {
+			const k = BALL_POST_KICK_CAP / totalMag;
+			this._ballVx *= k; this._ballVy *= k; this._ballVz *= k;
+		}
+	}
+
+	// Per-client sliding-window rate limit for ball:kick messages.
+	_kickOk(sessionId) {
+		const now = Date.now();
+		let bucket = this._kickCounters.get(sessionId);
+		if (!bucket || now - bucket.windowStart > 1000) {
+			bucket = { windowStart: now, count: 0 };
+			this._kickCounters.set(sessionId, bucket);
+		}
+		bucket.count++;
+		return bucket.count <= BALL_KICKS_PER_SEC;
 	}
 }

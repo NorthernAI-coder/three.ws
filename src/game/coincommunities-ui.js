@@ -1182,12 +1182,23 @@ export class CommunityUI {
 			this.voiceLabel,
 		]);
 
+		// Dance floor button — hidden until the player steps onto the pad.
+		this.danceBtnLabel = el('span', { class: 'cc-dance-label', text: 'Dance' });
+		this.danceBtn = el('button', {
+			class: 'cc-dance-btn', type: 'button', hidden: true,
+			'aria-label': 'Dance on the floor', title: 'Sync-dance with everyone on the floor',
+			onclick: () => this.h.onDance?.(),
+		}, [
+			el('span', { class: 'cc-dance-ico', 'aria-hidden': 'true', text: '🪩' }),
+			this.danceBtnLabel,
+		]);
+
 		const hint = el('div', { id: 'cc-hint', html:
 			'<kbd>W A S D</kbd> / drag-joystick to move · <kbd>drag</kbd> to look · scroll zoom · <kbd>Enter</kbd> chat' });
 
 		this.joystick = el('div', { id: 'cc-joystick' });
 
-		this.hud = el('div', { id: 'cc-hud', hidden: true }, [banner, leave, this.statusPill, this.voiceBtn, chat, this.emoteTray, this.reactionBar, hint, this.joystick]);
+		this.hud = el('div', { id: 'cc-hud', hidden: true }, [banner, leave, this.statusPill, this.voiceBtn, this.danceBtn, chat, this.emoteTray, this.reactionBar, hint, this.joystick]);
 		document.body.appendChild(this.hud);
 	}
 
@@ -1568,7 +1579,6 @@ export class CommunityUI {
 	}
 
 	closeFeatured() {
-		this._featuredOpen = false;
 		if (this._featuredKeydown) { document.removeEventListener('keydown', this._featuredKeydown); this._featuredKeydown = null; }
 		if (this.featuredPanel) { this.featuredPanel.remove(); this.featuredPanel = null; }
 		this.h.onFeaturedClosed?.();

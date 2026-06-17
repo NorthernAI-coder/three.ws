@@ -3,6 +3,41 @@
 	"entries": [
 		{
 			"date": "2026-06-17",
+			"title": "Rarest Fits button styled in the cosmetics shop",
+			"summary": "The "Rarest Fits" leaderboard button in the shop header now has full hover, active, and focus states matching the rest of the shop chrome, and collapses to a glyph-only button on mobile so the header doesn't overflow.",
+			"tags": ["improvement"],
+			"link": "/play"
+		},
+		{
+			"date": "2026-06-17",
+			"title": "Build structures, snap blocks, and share your coin world creation",
+			"summary": "The /play building layer now ships a full structures system: blocks snap to a 1.5m grid and rotation locks to quarter-turns so pieces always line up. A structures toolbar above the block hotbar gives you one-click composite pieces — Wall (4×3), Floor (4×4), Stairs (4-step), and Doorway — that stamp a whole shape at once with a live rotatable footprint preview. Large builds stay smooth because every block type is drawn as a single instanced mesh regardless of how many you place. The share button captures an offscreen screenshot of your build, lets you name it, copy a deep link, download the image, or publish it to this coin's featured builds — a new per-world gallery (with loading skeleton, empty, and error states) that links every shared creation back into the world so others can drop straight in.",
+			"tags": ["feature", "improvement"],
+			"link": "/play"
+		},
+		{
+			"date": "2026-06-17",
+			"title": "Avatars now wear hats, glasses, and earrings in every coin world",
+			"summary": "Cosmetic accessories — baseball cap, beanie, cowboy hat, round frames, shades, hoop earrings, stud earrings — are now fully rendered on every avatar in the shared worlds. Each GLB is auto-fitted to the avatar's head bone so accessories track movement and animations on any rig. Wear state syncs in real time: equipping an item shows it on your head for everyone, survives avatar swaps, and persists across sessions. A new setCosmetics network call lets the client broadcast a full loadout in one shot; the server re-validates ownership before publishing, so an unowned item can never appear on a player.",
+			"tags": ["feature"],
+			"link": "/play"
+		},
+		{
+			"date": "2026-06-17",
+			"title": "Emoji reactions now float above avatars in every coin world",
+			"summary": "Tap any of the 6 reaction buttons (🎉 😂 🔥 ❤️ 👏 🤔) to broadcast a floating emoji that rises above your avatar for everyone in the room to see. The 🎉 reaction also triggers a small confetti burst. Reactions are server-rate-limited so the world stays readable when multiple people react at once; the button dims briefly after each tap to signal that the next one is queued. Keyboard- and screen-reader-accessible; works on touch and desktop.",
+			"tags": ["feature"],
+			"link": "/play"
+		},
+		{
+			"date": "2026-06-17",
+			"title": "Build mode — place, rotate, and delete props in every coin world",
+			"summary": "Every /play coin world now has a build mode for free-standing props. Press B (or tap the ⛏ button) to open the prop palette: pick from 12 hand-crafted primitives (crate, barrel, planter, lamp, bench, pillar, arch, ramp, sign, crystal, stage, pole) or browse thousands of community gallery models that stream in as you scroll. A translucent ghost preview snaps to the floor grid under your cursor so you always know exactly where a prop will land — green when the placement is valid, red when it's outside the world radius. Press R to quarter-turn the ghost before committing. Click or tap to place; right-click or hold to remove a prop you placed. Props appear for everyone instantly through the shared object channel and survive server restarts.",
+			"tags": ["feature"],
+			"link": "/play"
+		},
+		{
+			"date": "2026-06-17",
 			"title": "Coin world builds now have ownership, caps, and anti-grief protection",
 			"summary": "Every block and prop placed in a coin world is now server-enforced with a full permission model. Only the player who placed a piece can break it; the coin's creator can remove any piece as a moderation tool, or sweep a radius or the entire world with a single action. A per-player block cap (1,200 blocks) prevents any single builder from monopolising the budget; a per-column density limit stops walls from caging the plaza; and protected zones around the spawn point and the coin totem can never be buried or fenced in. All rejections — wrong owner, over cap, protected zone, rate-limited, out of bounds — are surfaced to the builder immediately with a clear message. The build HUD now shows how many of your personal 1,200 blocks you've used, and coin creators see a \"Creator\" moderation panel with the clear-area tool.",
 			"tags": ["feature", "improvement"],

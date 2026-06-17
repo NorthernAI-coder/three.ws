@@ -16,6 +16,7 @@ import {
 	Mesh, MeshStandardMaterial, MeshBasicMaterial, CircleGeometry,
 	CylinderGeometry, PlaneGeometry,
 	CanvasTexture, TextureLoader, DoubleSide,
+	PointLight,
 	Raycaster, Vector2, WebGLRenderTarget,
 } from 'three';
 
@@ -284,6 +285,7 @@ export class CoinCommunities {
 			onShareBuild: () => this._shareBuild(),
 			onOpenFeatured: () => this._openFeatured(),
 			onPublishBuild: (meta) => this._publishBuild(meta),
+			onDance: () => this._triggerDance(),
 			onFeaturedClosed: () => { this._featuredOpen = false; },
 		});
 
@@ -444,6 +446,7 @@ export class CoinCommunities {
 		this._chartScreen?.update(dt);
 		this._oracleRibbon?.update(dt);
 		this._reactor?.update(dt);
+		this._tickDanceFloor(dt);
 	}
 
 	// Central coin totem — the community's banner in 3D.
@@ -705,6 +708,7 @@ export class CoinCommunities {
 		// Build the coin's world + local avatar.
 		this._buildTotem(coin);
 		this._buildScreen(coin);
+		this._buildDanceFloor();
 		// The market reactor turns the live trade tape into world behaviour: buys
 		// ripple green and kick the boundary ring, sells ripple red, volume spins
 		// the totem, the rolling % drives the weather, and whales detonate a beam
@@ -881,6 +885,7 @@ export class CoinCommunities {
 		});
 		// Durability flag for this world's build — drives the HUD "Saved" badge.
 		this.net.on('persistent', (durable) => { if (this.net?.status === 'online') this.buildHud.setPersistent(durable); });
+		this.net.on('floor:beat', (msg) => this._onFloorBeat(msg));
 
 		// Game systems (economy + activities). The server streams this player's own
 		// pack/purse/skills here; PlaySystems renders the HUD, ponds, and cast visual,
@@ -1184,6 +1189,10 @@ export class CoinCommunities {
 		}
 		if (this._chartScreen) { this._chartScreen.dispose(); this._chartScreen = null; }
 		if (this._oracleRibbon) { this._oracleRibbon.dispose(); this._oracleRibbon = null; }
+		if (this._danceFloor) { this.world.remove(this._danceFloor); this._danceFloor = null; }
+		this._floorLights = null; this._floorTiles = null; this._floorCenterMat = null;
+		this._danceFloorPos = null; this._onFloor = false; this._wantsDance = false;
+		this.ui.setOnFloor(false);
 		if (this._reactor) { this._reactor.dispose(); this._reactor = null; }
 		if (this.voxels) { this.voxels.dispose(); this.voxels = null; }
 		if (this.worldObjects) { this.worldObjects.dispose(); this.worldObjects = null; }
@@ -1438,6 +1447,137 @@ export class CoinCommunities {
 			};
 			document.addEventListener('visibilitychange', clear);
 			window.addEventListener('focus', clear);
+		}
+	}
+
+	// ── Dance floor (R06) ───────────────────────────────────────────────────────
+	// A circular emissive pad placed beside the coin totem. Eight coloured tile
+	// dots and four coloured point lights pulse on the server's floor:beat tick.
+	// Standing inside the pad enables the Dance button; pressing it toggles the
+	// "wants to dance" flag so the next beat crossfades this avatar (and everyone
+	// else on the floor who pressed Dance) to the same clip simultaneously.
+
+	_buildDanceFloor() {
+		const CX = 14, CZ = -10; // world-space pad centre (right of totem)
+		const R = 4;              // pad radius in metres
+
+		const g = new Group();
+		g.position.set(CX, 0, CZ);
+
+		// Rim disc — slightly larger, defines the pad boundary with a subtle glow.
+		const rimMat = new MeshStandardMaterial({ color: 0x0a0a14, emissive: 0x180840, emissiveIntensity: 0.55, roughness: 0.3, metalness: 0.7 });
+		const rim = new Mesh(new CircleGeometry(R + 0.18, 48), rimMat);
+		rim.rotation.x = -Math.PI / 2;
+		g.add(rim);
+
+		// Base pad — dark polished surface.
+		const baseMat = new MeshStandardMaterial({ color: 0x0d0d1c, emissive: 0x100828, emissiveIntensity: 0.28, roughness: 0.2, metalness: 0.85 });
+		const base = new Mesh(new CircleGeometry(R, 48), baseMat);
+		base.rotation.x = -Math.PI / 2;
+		base.position.y = 0.005;
+		base.receiveShadow = true;
+		g.add(base);
+
+		// 8 emissive tile dots at r = 2.5m, each a distinct hue.
+		const TILE_COLS = [0xff44cc, 0x44aaff, 0xffdd22, 0x44ffcc, 0xff6633, 0x88ff44, 0xaa44ff, 0x22ddff];
+		this._floorTiles = [];
+		for (let i = 0; i < 8; i++) {
+			const angle = (i / 8) * Math.PI * 2;
+			const mat = new MeshStandardMaterial({ color: TILE_COLS[i], emissive: TILE_COLS[i], emissiveIntensity: 0.45, roughness: 0.1, metalness: 0.88 });
+			const tile = new Mesh(new CircleGeometry(0.38, 20), mat);
+			tile.rotation.x = -Math.PI / 2;
+			tile.position.set(Math.cos(angle) * 2.5, 0.01, Math.sin(angle) * 2.5);
+			g.add(tile);
+			this._floorTiles.push({ mat, idx: i });
+		}
+
+		// Centre disc — pure white / violet, most dramatic on beat.
+		const centerMat = new MeshStandardMaterial({ color: 0xffffff, emissive: 0xaa55ff, emissiveIntensity: 0.65, roughness: 0.06, metalness: 0.96 });
+		const center = new Mesh(new CircleGeometry(0.55, 32), centerMat);
+		center.rotation.x = -Math.PI / 2;
+		center.position.y = 0.012;
+		g.add(center);
+		this._floorCenterMat = centerMat;
+
+		// 4 coloured point lights above the pad corners — pink / cyan / yellow / mint.
+		const LIGHT_COLS = [0xff44cc, 0x44aaff, 0xffdd22, 0x44ffcc];
+		this._floorLights = [];
+		for (let i = 0; i < 4; i++) {
+			const angle = (i / 4) * Math.PI * 2 + Math.PI / 4;
+			const light = new PointLight(LIGHT_COLS[i], 0.5, 14);
+			light.position.set(Math.cos(angle) * 3.3, 2.6, Math.sin(angle) * 3.3);
+			g.add(light);
+			this._floorLights.push(light);
+		}
+
+		this.world.add(g);
+		this._danceFloor = g;
+		this._danceFloorPos = { x: CX, z: CZ };
+		this._floorRadius = R;
+		this._beatT = 999; // no visual pulse until the first beat arrives
+		this._onFloor = false;
+		this._wantsDance = false;
+		this._danceClip = 'av-dance-shuffle';
+	}
+
+	// Animate the dance floor each frame: exponential decay from the beat,
+	// staggered across tiles to produce a ripple effect outward from centre.
+	_tickDanceFloor(dt) {
+		if (!this._danceFloor) return;
+		this._beatT = (this._beatT ?? 999) + dt;
+		const t = this._beatT;
+		const pulse = t < 2 ? Math.exp(-t * 2.6) : 0;
+
+		for (const tile of this._floorTiles) {
+			const off = (tile.idx / this._floorTiles.length) * 0.28;
+			const tp = t > off ? Math.exp(-(t - off) * 3.4) : 0;
+			tile.mat.emissiveIntensity = 0.28 + tp * 1.0;
+		}
+		if (this._floorCenterMat) this._floorCenterMat.emissiveIntensity = 0.5 + pulse * 1.4;
+		for (const l of this._floorLights) l.intensity = 0.5 + pulse * 2.8;
+	}
+
+	// Per-tick: check whether the local player stepped onto / off the pad and
+	// update the UI button accordingly.
+	_checkFloorOccupancy() {
+		if (!this._danceFloorPos) return;
+		const dx = this.localPos.x - this._danceFloorPos.x;
+		const dz = this.localPos.z - this._danceFloorPos.z;
+		const onFloor = Math.hypot(dx, dz) <= this._floorRadius;
+		if (onFloor === this._onFloor) return;
+		this._onFloor = onFloor;
+		this.ui.setOnFloor(onFloor);
+		if (!onFloor && this._wantsDance) {
+			this._wantsDance = false;
+			this.ui.setDancing(false);
+		}
+	}
+
+	// Server beat tick: reset the visual pulse and, for players who pressed
+	// Dance, crossfade to this beat's clip in lockstep with all other clients.
+	_onFloorBeat(msg) {
+		this._beatT = 0;
+		if (!this._onFloor || !this._wantsDance) return;
+		const clip = msg?.clip || 'av-dance-shuffle';
+		this._danceClip = clip;
+		// Local avatar: start the clip now, aligned to the server beat.
+		playEmoteClip(this.localAnim, clip, this.motion);
+		// Broadcast so peers see us dancing — 2-second emote cooldown in WalkRoom
+		// is well under the 4-second beat interval, so this always lands.
+		this.net?.sendEmote(clip);
+	}
+
+	// Toggle "wants to dance" when the button is pressed. An immediate preview
+	// kick plays the current clip so the player sees something happen right away;
+	// subsequent beats keep re-aligning everyone in lockstep.
+	_triggerDance() {
+		if (!this._onFloor) return;
+		this._wantsDance = !this._wantsDance;
+		this.ui.setDancing(this._wantsDance);
+		if (this._wantsDance) {
+			const clip = this._danceClip || 'av-dance-shuffle';
+			playEmoteClip(this.localAnim, clip, this.motion);
+			this.net?.sendEmote(clip);
 		}
 	}
 
@@ -2244,6 +2384,7 @@ export class CoinCommunities {
 
 		if (this.phase === 'world') {
 			this._stepLocal(dt);
+			this._checkFloorOccupancy();
 			this.localAnim?.update(dt);
 			this.localCosmetics?.tick(dt);
 			for (const [, r] of this.remotes) r.tick(dt);
