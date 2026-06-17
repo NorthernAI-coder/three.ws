@@ -3,6 +3,34 @@
 	"entries": [
 		{
 			"date": "2026-06-17",
+			"title": "Drop in <agent-3d> and you get just the avatar — chat is now opt-in",
+			"summary": "The one-line embed is cleaner by default. A plain <agent-3d> tag now ships only the 3D avatar on a transparent background — no chat box, no input bar, no debug color picker, no name-plate. That makes it perfect for dropping a living avatar onto a landing page, hero section, or card without any extra UI to hide. When you want the full talking agent, add the new chat attribute: <agent-3d chat body=\"...\">. Published agents you embed by agent-id, manifest, or an agent:// link still chat automatically — they carry their own brain and persona — so existing agent embeds are unchanged. The reference docs and examples were updated to match.",
+			"tags": ["feature", "sdk"],
+			"link": "/docs/web-component"
+		},
+		{
+			"date": "2026-06-17",
+			"title": "The Oracle's proof pages — wins, backtest, and live activity — load again",
+			"summary": "The conviction Oracle's evidence views had stopped responding: the Wins gallery, the accuracy Backtest, and the global Activity feed were all erroring instead of returning data, and the live activity feed failed on every request. The cause was in how those queries were assembled — optional filters (time window, tier, agent) weren't being stitched into the database query correctly, so the database rejected them. All three views now build their filters cleanly and return the Oracle's track record, hit-rate, and real-time agent actions as intended.",
+			"tags": ["fix"],
+			"link": "/oracle"
+		},
+		{
+			"date": "2026-06-17",
+			"title": "Live trade feed: the time-window filters work on first load",
+			"summary": "On the Live Trade Feed, the 1h / 24h / 7d window buttons threw an error as the page set up its controls, which could leave the feed stuck before it finished loading. The control-syncing code was treating a group of buttons as a single element. It now handles the whole group, so the window and min-PnL filters initialize and switch cleanly every time.",
+			"tags": ["fix"],
+			"link": "/trades"
+		},
+		{
+			"date": "2026-06-17",
+			"title": "Minting an agent's on-chain collectible is reliable under load",
+			"summary": "Preparing an agent's on-chain mint sometimes failed when the shared public Solana RPC was rate-limited — the request to fetch a recent blockhash came back 'too many requests' and the whole prep errored out. Minting now builds the transaction through the same multi-endpoint failover the rest of the platform uses, rotating to a healthy Solana provider instead of giving up, so a busy public endpoint no longer blocks a mint. Solana name (.sol) lookups and the signer-balance watchdog were moved onto the same resilient connection.",
+			"tags": ["fix", "improvement"],
+			"link": "/create"
+		},
+		{
+			"date": "2026-06-17",
 			"title": "Pole Club dancer tips now reliably reach their Solana wallets",
 			"summary": "When you tip a dancer in the Pole Club, the platform batches your tips and sweeps them on-chain to the dancer's registered wallet. A mismatch in how a settled tip recorded its network meant Solana tips were being set aside as 'no wallet' even when the dancer had a Solana address on file, so they never went out. That's fixed: tips paid on Solana are now matched to the dancer's Solana wallet and swept correctly, alongside the existing Base payouts. No tip was ever lost — stuck tips remained queued and now sweep on the next cycle.",
 			"tags": ["fix"],

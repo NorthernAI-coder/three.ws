@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-17T06:41:43.516Z",
+	"generated_at": "2026-06-17T07:03:15.846Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -65,6 +65,17 @@
 			"link": "/marketplace",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-17",
+			"type": "update",
+			"title": "Drop in <agent-3d> and you get just the avatar — chat is now opt-in",
+			"summary": "The one-line embed is cleaner by default. A plain <agent-3d> tag now ships only the 3D avatar on a transparent background — no chat box, no input bar, no debug color picker, no name-plate. That makes it perfect for dropping a living avatar onto a landing page, hero section, or card without any extra UI to hide. When you want the full talking agent, add the new chat attribute: <agent-3d chat body=\"...\">. Published agents you embed by agent-id, manifest, or an agent:// link still chat automatically — they carry their own brain and persona — so existing agent embeds are unchanged. The reference docs and examples were updated to match.",
+			"link": "/docs/web-component",
+			"tags": [
+				"feature",
+				"sdk"
 			]
 		},
 		{
@@ -186,6 +197,27 @@
 		{
 			"date": "2026-06-17",
 			"type": "update",
+			"title": "Live trade feed: the time-window filters work on first load",
+			"summary": "On the Live Trade Feed, the 1h / 24h / 7d window buttons threw an error as the page set up its controls, which could leave the feed stuck before it finished loading. The control-syncing code was treating a group of buttons as a single element. It now handles the whole group, so the window and min-PnL filters initialize and switch cleanly every time.",
+			"link": "/trades",
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-17",
+			"type": "update",
+			"title": "Minting an agent's on-chain collectible is reliable under load",
+			"summary": "Preparing an agent's on-chain mint sometimes failed when the shared public Solana RPC was rate-limited — the request to fetch a recent blockhash came back 'too many requests' and the whole prep errored out. Minting now builds the transaction through the same multi-endpoint failover the rest of the platform uses, rotating to a healthy Solana provider instead of giving up, so a busy public endpoint no longer blocks a mint. Solana name (.sol) lookups and the signer-balance watchdog were moved onto the same resilient connection.",
+			"link": "/create",
+			"tags": [
+				"fix",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-17",
+			"type": "update",
 			"title": "Move your IRL agents on a real map — drag the pin from anywhere",
 			"summary": "Your IRL Agents dashboard now has a live map. Open Move on map on any placed agent and you get an OpenStreetMap view with a draggable pin for each agent you've placed: drag the highlighted one to a new spot, or tap another to switch to it. As you drag, the new location is named for you (the nearest town or city) and a Save bar appears so nothing changes until you confirm — and if a save ever fails, the pin snaps back to where it was. A compass dial lets you re-aim which way the agent faces, in degrees or by dragging the needle, and a Remove from map button takes a pin down. You can relocate an agent across the city — or across the world — without walking back to it. The map loads only when you open it, works on a phone, and if it can't load it falls back to a simple latitude/longitude form so you can still move the pin.",
 			"link": "/dashboard/irl-placements",
@@ -295,6 +327,16 @@
 			"link": "/irl",
 			"tags": [
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-17",
+			"type": "update",
+			"title": "The Oracle's proof pages — wins, backtest, and live activity — load again",
+			"summary": "The conviction Oracle's evidence views had stopped responding: the Wins gallery, the accuracy Backtest, and the global Activity feed were all erroring instead of returning data, and the live activity feed failed on every request. The cause was in how those queries were assembled — optional filters (time window, tier, agent) weren't being stitched into the database query correctly, so the database rejected them. All three views now build their filters cleanly and return the Oracle's track record, hit-rate, and real-time agent actions as intended.",
+			"link": "/oracle",
+			"tags": [
+				"fix"
 			]
 		},
 		{
