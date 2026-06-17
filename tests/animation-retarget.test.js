@@ -31,6 +31,7 @@ import {
 	scaleClipSpeed,
 	MIN_COVERAGE,
 } from '../src/animation-retarget.js';
+import { CANONICAL_REST } from '../src/animation-canonical-rest.js';
 
 // Build a SkinnedMesh-rooted skeleton from a list of bone names so
 // canonicalNodeMapFromObject finds it the way it would in a real GLB.
@@ -153,61 +154,76 @@ describe('retargetClip', () => {
 });
 
 describe('bind-rotation correction', () => {
-	// Mixamo/FBX rigs bake the up-axis as a −90°X rest on Hips (with a +90°X on
-	// the armature parent). A clip authored for an identity-Hips rest would wipe
-	// that out and tip the avatar onto its back; the correction re-applies it.
-	const HIPS_MINUS_90X = new Quaternion().setFromAxisAngle({ x: 1, y: 0, z: 0 }, -Math.PI / 2);
+	// A −90°X rest, the up-axis convention Mixamo/FBX bakes onto Hips.
+	const MINUS_90X = new Quaternion().setFromAxisAngle({ x: 1, y: 0, z: 0 }, -Math.PI / 2);
 
-	it('round-trips a clip unchanged when the rig already matches the authoring rest', () => {
+	// Pose a synthetic rig in the canonical authoring rest (cz's rest pose), so it
+	// matches the convention the clip library was baked against.
+	function applyAuthoringRest(rig, names) {
+		for (const n of names) {
+			const b = rig.getObjectByName(n);
+			if (b && CANONICAL_REST[n]) b.quaternion.fromArray(CANONICAL_REST[n]);
+		}
+	}
+
+	it('round-trips byte-for-byte when the rig matches the canonical authoring rest', () => {
 		const clip = makeCanonicalClip();
-		const rig = makeRig(CANONICAL_RIG); // every bone at identity rest
+		const rig = makeRig(CANONICAL_RIG);
+		applyAuthoringRest(rig, CANONICAL_RIG);
 		const map = canonicalNodeMapFromObject(rig);
 		const targetRest = canonicalRestMapFromObject(rig);
-		const r = retargetClip(clip, map, { hipScale: 1, targetRest });
-		const hipsQ = r.clip.tracks.find((t) => t.name === 'Hips.quaternion');
-		expect(Array.from(hipsQ.values)).toEqual([0, 0, 0, 1, 0, 0, 0, 1]);
+		const corrected = retargetClip(clip, map, { hipScale: 1, targetRest }).clip;
+		const verbatim = retargetClip(clip, map, { hipScale: 1 }).clip; // no targetRest → no correction
+		// Every correction is identity (target rest == authoring rest) → skipped.
+		corrected.tracks.forEach((t, i) => {
+			expect(Array.from(t.values)).toEqual(Array.from(verbatim.tracks[i].values));
+		});
 	});
 
-	it('re-applies a −90°X Hips rest the clip would otherwise overwrite', () => {
-		const clip = makeCanonicalClip(); // Hips.quaternion is identity at every key
+	it('re-applies a Hips up-axis rest the clip would otherwise overwrite (stays upright)', () => {
+		const clip = makeCanonicalClip(); // Hips.quaternion identity at every key
 		const rig = makeRig(CANONICAL_RIG);
-		rig.getObjectByName('Hips').quaternion.copy(HIPS_MINUS_90X);
+		applyAuthoringRest(rig, CANONICAL_RIG);
+		// Bake a Mixamo-style −90°X onto Hips: Tr = (−90X)·Sr ⇒ C = Tr·Sr⁻¹ = −90X.
+		const sr = new Quaternion().fromArray(CANONICAL_REST.Hips);
+		rig.getObjectByName('Hips').quaternion.copy(MINUS_90X.clone().multiply(sr));
 		const map = canonicalNodeMapFromObject(rig);
 		const targetRest = canonicalRestMapFromObject(rig);
-		const r = retargetClip(clip, map, { hipScale: 1, targetRest });
+		const r = retargetClip(clip, map, { hipScale: 1, targetRest }).clip;
 
-		// C · identity = C = the rig's Hips rest, so the body stands upright.
-		const hipsQ = r.clip.tracks.find((t) => t.name === 'Hips.quaternion');
-		expect(hipsQ.values[0]).toBeCloseTo(HIPS_MINUS_90X.x, 5);
-		expect(hipsQ.values[3]).toBeCloseTo(HIPS_MINUS_90X.w, 5);
+		// C · identity = C = −90X exactly, restoring the rig's upright convention.
+		const hipsQ = r.tracks.find((t) => t.name === 'Hips.quaternion');
+		expect(hipsQ.values[0]).toBeCloseTo(MINUS_90X.x, 5);
+		expect(hipsQ.values[3]).toBeCloseTo(MINUS_90X.w, 5);
 
-		// Root-motion keyframes are rotated by the same correction: (0,1,0) → (0,0,−1).
-		const hipsP = r.clip.tracks.find((t) => t.name === 'Hips.position');
-		expect(hipsP.values[0]).toBeCloseTo(0, 5);
-		expect(hipsP.values[1]).toBeCloseTo(0, 5);
+		// Root-motion keyframes rotate by the same correction: (0,1,0) → (0,0,−1).
+		const hipsP = r.tracks.find((t) => t.name === 'Hips.position');
 		expect(hipsP.values[2]).toBeCloseTo(-1, 5);
 	});
 
-	it('leaves limb bones verbatim even when the rig gives them a non-identity rest', () => {
+	it('corrects limb bones too — a T-pose (identity) arm rest is not copied verbatim', () => {
 		const clip = makeCanonicalClip();
-		const rig = makeRig(CANONICAL_RIG);
-		rig.getObjectByName('LeftArm').quaternion.copy(HIPS_MINUS_90X);
+		const rig = makeRig(CANONICAL_RIG); // identity rests ≠ cz's A-pose authoring rest
 		const map = canonicalNodeMapFromObject(rig);
 		const targetRest = canonicalRestMapFromObject(rig);
-		const r = retargetClip(clip, map, { hipScale: 1, targetRest });
-		const armQ = r.clip.tracks.find((t) => t.name === 'LeftArm.quaternion');
-		// Only Hips carries the up-axis convention; limbs are copied as authored.
-		expect(Array.from(armQ.values)).toEqual([0, 0, 0, 1, 0, 0, 0, 1]);
+		const corrected = retargetClip(clip, map, { hipScale: 1, targetRest }).clip;
+		const verbatim = retargetClip(clip, map, { hipScale: 1 }).clip;
+		const armC = corrected.tracks.find((t) => t.name === 'LeftArm.quaternion');
+		const armV = verbatim.tracks.find((t) => t.name === 'LeftArm.quaternion');
+		// cz rests its arms in an A-pose, so an identity-rest arm gets a real correction.
+		expect(Array.from(armC.values)).not.toEqual(Array.from(armV.values));
 	});
 
-	it('hip scaling and rotation compose: position is both rotated and scaled', () => {
+	it('hip scaling and rotation compose on the position track', () => {
 		const clip = makeCanonicalClip();
 		const rig = makeRig(CANONICAL_RIG);
-		rig.getObjectByName('Hips').quaternion.copy(HIPS_MINUS_90X);
+		applyAuthoringRest(rig, CANONICAL_RIG);
+		const sr = new Quaternion().fromArray(CANONICAL_REST.Hips);
+		rig.getObjectByName('Hips').quaternion.copy(MINUS_90X.clone().multiply(sr));
 		const map = canonicalNodeMapFromObject(rig);
 		const targetRest = canonicalRestMapFromObject(rig);
-		const r = retargetClip(clip, map, { hipScale: 2, targetRest });
-		const hipsP = r.clip.tracks.find((t) => t.name === 'Hips.position');
+		const r = retargetClip(clip, map, { hipScale: 2, targetRest }).clip;
+		const hipsP = r.tracks.find((t) => t.name === 'Hips.position');
 		// (0,1,0) rotated → (0,0,−1), then ×2 → (0,0,−2).
 		expect(hipsP.values[2]).toBeCloseTo(-2, 5);
 	});

@@ -63,6 +63,7 @@ generic pump.fun trade path are the only exception and must never be promoted.
 
 | # | Gap | Evidence |
 |---|-----|----------|
+| 00 | **`schema.sql` never declares the `meta`/`skills` columns every wallet write targets**, and indexes `wallet_address` before that column is added — a fresh DB 500s on the first provision and breaks task 01's backfill | `api/_lib/schema.sql:401-415` (no `meta`/`skills`), `:419-423` (index before `ADD`); `meta` only appears via `migrations/2026-04-29-onchain-unified.sql` which assumes it exists |
 | 01 | No single "agent wallet" product surface; legacy agents predating auto-provision may have no wallet; no guaranteed `walletReady` invariant | `api/agents.js:150,258`; no backfill migration |
 | 02 | Funding UX is owner-only on agent-detail; no onboarding deposit panel (QR + `solana:` deep-link + live "funds received" confirmation) reachable right after creation | `src/agent-detail.js:1771` (`bindWalletActions(isOwner)`); `pages/create-agent.html:1493` success screen has no fund step |
 | 03 | No authenticated endpoint to trade pump.fun **from the agent's own wallet**; only the sniper worker signs from it | `api/pump/[action].js` buy path is user-signed (`:524` verify-after-sign); guardrails live only inside `workers/agent-sniper/executor.js:51` |
@@ -82,6 +83,7 @@ re-check `git status` before committing.
 
 | #  | Task                                                              | Wave | Blocks   |
 | -- | ----------------------------------------------------------------- | ---- | -------- |
+| 00 | Schema baseline: declare `meta`/`skills` columns + fix index order| 0    | 01       |
 | 01 | Agent-wallet foundation: `walletReady` invariant + backfill + hub | 1    | 02,04,06 |
 | 02 | Public/onboarding deposit panel (QR + copy + deep-link + live)    | 1    | 10       |
 | 03 | Authenticated "trade from agent wallet" endpoint + shared guards  | 1    | 04       |
@@ -94,7 +96,7 @@ re-check `git status` before committing.
 | 10 | End-to-end devnet smoke harness + Definition-of-Done sweep        | 3    | —        |
 
 ```
-01 ─┬─→ 02 ─┐
+00 ─→ 01 ─┬─→ 02 ─┐
     ├─→ 03 ─→ 04 ─┤
     └─→ 06 ←─ 05 ─┼─→ 10 (e2e + DoD sweep)
 07 ── independent  │

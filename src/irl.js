@@ -53,6 +53,8 @@ import { reserveWebGLContext, releaseWebGLContext } from './webgl-budget.js';
 import { detectTier, BUDGETS, TIER_ORDER, shiftTier } from './irl/perf-budget.js';
 import { sharedGLTFLoader, createLoadQueue } from './irl/load-queue.js';
 import { roomOriginWorld, agentWorldPosition } from './irl/room-anchor.js';
+import { isFiniteReading, isCompassFresh, shouldUseAbsoluteYaw, resolveLockYaw, clampPitch } from './irl/sensor-fusion.js';
+import { pinBandAction } from './irl/proximity-band.js';
 import { loadInto } from './shared/async-state.js';
 
 const AVATAR_URL_DEFAULT = '/avatars/default.glb';
@@ -842,6 +844,8 @@ let devOrientBaseCamPitch = 0;
 let prefersAbsOrientation = false;  // true once a north-referenced bearing is seen (source tagging)
 let hasAbsoluteEventStream = false; // true if the dedicated deviceorientationabsolute event fires (Android)
 let lastCompassHeading = null;      // iOS true compass bearing (deg, 0=N clockwise); null = none/uncalibrated
+let lastCompassAt = 0;              // performance.now() of the last finite compass sample; 0 = never seen
+let lockYawMode = 'relative';       // last frame's yaw path ('absolute'|'relative') for a seamless handoff
 
 // iOS Safari's magnetic-north bearing. A negative webkitCompassAccuracy means the
 // magnetometer isn't calibrated yet — treat that as no absolute reference rather
@@ -862,32 +866,65 @@ function compassToYaw(headingDeg) {
 }
 
 function onDeviceOrientation(e) {
-	const a = e.alpha ?? 0;
-	const b = e.beta  ?? 90;
-	lastDevAlpha = a;
-	lastDevBeta  = b;
-	const compass = readCompassHeading(e);
-	if (compass !== null) { lastCompassHeading = compass; prefersAbsOrientation = true; }
-	else if (hasAbsoluteEventStream) { prefersAbsOrientation = true; }
-	if (!avatarLocked || !arActive || devOrientBaseAlpha === null) return;
-	if (lastCompassHeading !== null && gpsModeActive) {
-		// Absolute frame (iOS compass + a GPS world-anchor): yaw tracks the real
-		// bearing, so panning the phone leaves the avatar planted on its real-world
-		// direction for everyone. Only meaningful once a GPS pin gives the scene an
-		// absolute origin — a local-only lock (below) must stay relative or the
-		// avatar would jump off-frame to its compass bearing the instant it locks.
-		cameraYaw = compassToYaw(lastCompassHeading);
-	} else {
-		// Page-relative fallback (no compass) AND local no-GPS lock: integrate alpha
-		// deltas from the lock baseline so the view rotates with the phone while the
-		// avatar holds the exact spot it was pinned at.
-		let dAlpha = a - devOrientBaseAlpha;
-		if (dAlpha > 180)  dAlpha -= 360;
-		if (dAlpha < -180) dAlpha += 360;
-		cameraYaw = devOrientBaseCamYaw + dAlpha * (Math.PI / 180);
+	// Hold the last valid reading when a frame delivers null/undefined/NaN. The old
+	// `?? 0` / `?? 90` only caught null/undefined and let NaN through into the delta
+	// math (→ a NaN quaternion → the avatar vanishes); and substituting 0/90 yanks
+	// the yaw to page-north and slams the pitch to the horizon. A held value simply
+	// pauses the view for one bad frame until the sensor recovers.
+	if (isFiniteReading(e.alpha, e.beta)) {
+		lastDevAlpha = e.alpha;
+		lastDevBeta  = e.beta;
 	}
-	cameraPitch = Math.max(PITCH_MIN, Math.min(PITCH_MAX,
-		devOrientBaseCamPitch - (b - devOrientBaseBeta) * (Math.PI / 180)));
+	const a = lastDevAlpha;
+	const b = lastDevBeta;
+	const compass = readCompassHeading(e);
+	if (compass !== null) {
+		lastCompassHeading = compass;
+		lastCompassAt = performance.now();
+		prefersAbsOrientation = true;
+	} else if (hasAbsoluteEventStream) {
+		prefersAbsOrientation = true;
+	}
+	if (!avatarLocked || !arActive || devOrientBaseAlpha === null) return;
+
+	// A stale compass (uncalibrated, or walked into a magnetic dead-zone) keeps its
+	// last heading forever — detect that and fall back to the relative gyro path
+	// instead of steering by a dead bearing.
+	const compassFresh = isCompassFresh(lastCompassAt, performance.now());
+	const useAbsolute = shouldUseAbsoluteYaw({ gpsModeActive, compassHeading: lastCompassHeading, compassFresh });
+
+	// On an absolute→relative handoff (the compass just went stale), re-baseline the
+	// relative integrator to the current pose so it continues from where the absolute
+	// path left off rather than snapping back to the lock-time baseline.
+	if (lockYawMode === 'absolute' && !useAbsolute) {
+		devOrientBaseAlpha  = a;
+		devOrientBaseCamYaw = cameraYaw;
+	}
+
+	// Absolute path: yaw eases toward the true bearing along the shortest arc (so a
+	// 359°→1° turn is a ~2° move, never a spin) — only meaningful once a GPS pin
+	// gives the scene an absolute origin. Relative path: integrate alpha deltas from
+	// the lock baseline so the view rotates with the phone while the avatar holds the
+	// exact spot it was pinned at.
+	const nextYaw = resolveLockYaw({
+		useAbsolute,
+		prevYaw: cameraYaw,
+		alpha: a,
+		baseAlpha: devOrientBaseAlpha,
+		baseYaw: devOrientBaseCamYaw,
+		compassHeading: lastCompassHeading,
+	});
+	lockYawMode = useAbsolute ? 'absolute' : 'relative';
+
+	const nextPitch = clampPitch(
+		devOrientBaseCamPitch - (b - devOrientBaseBeta) * (Math.PI / 180),
+		PITCH_MIN, PITCH_MAX);
+
+	// Final backstop: never write a non-finite value to the camera. The helpers
+	// guarantee this given finite inputs, but a corrupted baseline must never spin
+	// or freeze the view — hold the prior frame instead.
+	if (Number.isFinite(nextYaw))   cameraYaw   = nextYaw;
+	if (Number.isFinite(nextPitch)) cameraPitch = nextPitch;
 }
 
 // Two orientation streams: Android's dedicated absolute event (north-referenced
@@ -1009,6 +1046,7 @@ async function setLocked(next) {
 			devOrientBaseAlpha = null;
 			gyroLockCamPos  = null;
 			_pendingGpsLock = false;
+			lockYawMode     = 'relative';
 			arFrozenCamPos  = camera.position.clone();
 			arFrozenCamLook = camLookCurrent.clone();
 			document.body.classList.remove('is-locked');
@@ -1225,9 +1263,24 @@ function blendOrigin(prev, fix) {
 }
 
 // Tight "stumble upon" gate: an agent only renders once you're within ~40 m of
-// it (matches the server's hard radius cap). You discover one by physically being
-// near it with your camera up — never from a list, map, or neighbourhood feed.
+// it. You discover one by physically being near it with your camera up — never from
+// a list, map, or neighbourhood feed. This is the band's ENTER threshold; a rendered
+// pin is then held out to EXIT_RADIUS_M (proximity-band.js) so edge GPS jitter can't
+// pop it in and out.
 const NEARBY_RADIUS = 40; // metres
+// Ask the server for the wider read (its hard 60 m cap), NOT the tight discovery
+// radius. A wider set keeps an edge agent stably returned so it can't blink in/out as
+// GPS jitters; loadNearbyPins() then trims that coarse set to the asymmetric band
+// locally (pinBandAction). Never widen past the cap — the server still gates the
+// roster to 60 m, so this discovers nothing the user couldn't already stumble upon.
+const NEARBY_READ_RADIUS = 60; // metres — matches api/irl/pins.js Math.min(60, …)
+
+// Honour the OS "reduce motion" setting for the spawn/despawn transitions below —
+// scale in/out for everyone else, instant for users who asked for less animation.
+function prefersReducedMotion() {
+	return typeof matchMedia === 'function'
+		&& matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
 
 function onGPSPosition(pos) {
 	const wasReady = gpsState.ready;
@@ -1722,6 +1775,33 @@ let nearbyPins = []; // [{ id, lat, lng, avatar_url, avatar_name, caption, x402_
 // a failed refresh shows a visible indicator on the badge instead of going silent.
 let _nearbyError = false;
 
+// ── "Newly stable in-range" signal (task 04 → task 03) ──────────────────────
+// The hysteresis band (proximity-band.js) makes membership steady: a pin only
+// joins `nearbyPins` once it has genuinely crossed the tight ENTER gate, and it
+// can't leave until it's been out-of-band for DROP_POLLS *consecutive* polls. So
+// the single moment the band promotes a pin from not-rendered → the stable set
+// (the band's 'spawn' action below) is exactly one clean, debounced arrival — it
+// never re-fires while a steady agent jitters at the edge, because a rendered pin
+// is never re-spawned. Task 03's proximity-arrival cue consumes this: it gets one
+// callback per agent the viewer has genuinely walked up to, never a flicker storm.
+//
+// A subscriber registry (not a single hook) so other surfaces can listen too
+// without fighting over one slot; emission is fire-and-forget and never lets a
+// listener throw into the membership reconcile. Subscribing returns an unsubscribe.
+const _pinStableListeners = new Set();
+function onPinStable(listener) {
+	if (typeof listener !== 'function') return () => {};
+	_pinStableListeners.add(listener);
+	return () => { _pinStableListeners.delete(listener); };
+}
+function emitPinStable(pin) {
+	if (!_pinStableListeners.size) return;
+	for (const listener of _pinStableListeners) {
+		try { listener(pin); }
+		catch (err) { log.error('[irl] pin-stable listener failed:', err); }
+	}
+}
+
 // Briefly tint a pin's floating label so a deep-linked target (?highlight= or
 // ?agent=) is easy to spot among the nearby agents. No-op for a missing pin/label.
 function flashPinLabel(pin) {
@@ -1759,6 +1839,28 @@ function removeNearbyPin(id) {
 		return false;
 	});
 	updateNearbyBadge();
+}
+
+// ── Animated spawn / despawn (membership transitions) ───────────────────────
+// A pin that genuinely arrives or leaves should ease in/out, never pop — even a
+// legitimate exit looks like a glitch as a hard cut. Spawn grows the group from 0→1
+// (cubic ease-out, set in spawnNearbyPin + advanced in tick); despawn shrinks it
+// 1→0 here, then disposes. Both honour prefers-reduced-motion (instant). These are
+// purely visual: the pin is already gone from `nearbyPins` (membership) before it
+// fades, so the band logic, labels and LOD never touch a leaving avatar.
+const DESPAWN_DURATION = 0.32; // seconds for the despawn shrink
+const _despawningPins = [];    // pins fading out before disposePin
+
+// Begin an animated despawn for a pin the band has evicted. The caller has already
+// removed it from `nearbyPins`; we cancel any in-flight GLB (it's leaving), hide its
+// 2D label immediately (a frozen HTML label can't shrink with the 3D group), then
+// either dispose at once (reduced motion / no group) or queue the fade.
+function despawnNearbyPin(p) {
+	if (p.labelEl) p.labelEl.style.display = 'none';
+	if (prefersReducedMotion() || !p.group) { disposePin(p); return; }
+	cancelPinGLB(p);
+	p._despawnT = 0;
+	_despawningPins.push(p);
 }
 
 // ── Realtime presence + reactions (D2/D3) ───────────────────────────────────
@@ -2012,43 +2114,79 @@ function refreshKnownPin(known, pin) {
 	applyPinUpdate(known, pin);
 }
 
+// Ground-plane distance (m) from the viewer to a pin, computed locally from the
+// SMOOTHED origin via pinWorldPos — stable even when the server's coarse set jitters
+// at the edge, and valid before a pin has a group (a fresh server row). This is what
+// the membership band measures, NOT the live camera distance (which tracks AR head
+// movement); membership is "how far is this agent from where I'm standing".
+function bandDistance(pin) {
+	const wp = pinWorldPos(pin);
+	return Math.hypot(wp.x, wp.z);
+}
+
 async function loadNearbyPins() {
 	if (!gpsState.ready) return;
-	// The proximity poll is the SOLE pin-discovery transport: the server returns only
-	// the agents within a tight radius of our live position (no roster, no map), so
-	// this both finds new arrivals and drops ones we've walked away from.
+	// The proximity poll is the SOLE pin-discovery transport: the server returns the
+	// agents within a tight radius of our live position (no roster, no map). We ask for
+	// the wider read (NEARBY_READ_RADIUS = the 60 m cap) so an agent on the discovery
+	// edge stays stably returned, then apply the asymmetric ENTER/EXIT band + despawn
+	// debounce CLIENT-side (pinBandAction) so consumer GPS jitter can't pop it in and out.
 	try {
 		const r = await fetch(
-			`/api/irl/pins?lat=${gpsState.lat}&lng=${gpsState.lng}&radius=${NEARBY_RADIUS}`,
+			`/api/irl/pins?lat=${gpsState.lat}&lng=${gpsState.lng}&radius=${NEARBY_READ_RADIUS}`,
 		);
 		if (!r.ok) { _nearbyError = true; updateNearbyBadge(); return; }
 		const { pins } = await r.json();
 		_nearbyError = false;
 
-		const incoming = pins.filter(p => !gpsPin?.id || p.id !== gpsPin.id);
-		const inIds    = new Set(incoming.map(p => p.id));
+		const incoming     = pins.filter(p => !gpsPin?.id || p.id !== gpsPin.id);
+		const incomingById = new Map(incoming.map(p => [p.id, p]));
 
-		// Remove disappeared pins — dispose their GPU resources, don't just
-		// detach. At a busy location agents come and go constantly; without
-		// freeing geometries/materials/textures a long session leaks steadily.
-		nearbyPins = nearbyPins.filter(p => {
-			if (inIds.has(p.id)) return true;
-			disposePin(p);
-			return false;
-		});
+		// 1) Reconcile already-rendered pins through the hysteresis band. Refresh each
+		//    from its fresh server row FIRST (a calibrate/edit may have moved it) so the
+		//    band distance is measured against the current position, then keep / debounce
+		//    / drop. A pin is out-of-band when it's beyond EXIT_RADIUS_M *or* the server
+		//    no longer lists it (deleted, hidden, or walked far past the cap); either way
+		//    it must stay out-of-band for DROP_POLLS consecutive polls before disposal, so
+		//    a single bad fix or inconsistent reply never evicts a steady agent. Despawn
+		//    is animated (despawnNearbyPin); disposal frees every GPU resource it held.
+		const survivors = [];
+		for (const p of nearbyPins) {
+			const row = incomingById.get(p.id);
+			if (row) refreshKnownPin(p, row);
+			const action = pinBandAction({
+				distance: bandDistance(p),
+				rendered: true,
+				listed:   !!row,
+				oobPolls: p._oobPolls || 0,
+			}, { enter: NEARBY_RADIUS });
+			if (action === 'keep')      { p._oobPolls = 0; survivors.push(p); }
+			else if (action === 'wait') { p._oobPolls = (p._oobPolls || 0) + 1; survivors.push(p); }
+			else                        { despawnNearbyPin(p); } // 'drop'
+		}
+		nearbyPins = survivors;
 
-		// Spawn new arrivals; refresh any already-known pin. The feed carries the
-		// pin's current position (a calibrate/edit may have moved it), caption, name
-		// and avatar_version, so refreshKnownPin moves/relabels it and swaps the GLB
-		// on a C6 re-skin — the poll is the single propagation path for every change.
+		// 2) Spawn genuinely new arrivals — only those that have crossed the tight ENTER
+		//    gate. A server row sitting in the 40–55 m band we've never rendered stays
+		//    'ignore'd: you DISCOVER an agent by getting within the enter radius, never by
+		//    drifting near its outer edge. Each new pin starts the spawn-in scale (once).
 		for (const pin of incoming) {
-			const known = nearbyPins.find(n => n.id === pin.id);
-			if (known) refreshKnownPin(known, pin);
-			else {
-				const entry = { ...pin, group: null, labelEl: null, glbLoaded: false };
-				nearbyPins.push(entry);
-				spawnNearbyPin(entry);
-			}
+			if (nearbyPins.some(n => n.id === pin.id)) continue;
+			const entry = { ...pin, group: null, labelEl: null, glbLoaded: false, _oobPolls: 0 };
+			const action = pinBandAction({
+				distance: bandDistance(entry),
+				rendered: false,
+				listed:   true,
+				oobPolls: 0,
+			}, { enter: NEARBY_RADIUS });
+			if (action !== 'spawn') continue;
+			nearbyPins.push(entry);
+			spawnNearbyPin(entry);
+			// Clean, debounced "newly stable in-range" signal: the band only reaches
+			// 'spawn' for a pin that has genuinely crossed the ENTER gate and isn't
+			// already rendered, so this fires exactly once per real arrival — never on
+			// the GPS-edge jitter the hysteresis absorbs. Task 03's arrival cue listens.
+			emitPinStable(entry);
 		}
 
 		updateNearbyBadge();
@@ -2154,6 +2292,17 @@ function spawnNearbyPin(pin) {
 	// hit back to its agent without scanning nearbyPins per node.
 	g.userData.pin = pin;
 	scene.add(g);
+
+	// Spawn-in transition (membership): a freshly discovered agent eases up from
+	// nothing rather than popping into the scene. tick() advances _spawnT and scales
+	// the whole group (dot/impostor/full all ride it) with a cubic ease-out. Reduced
+	// motion lands it at full size immediately. See despawnNearbyPin for the exit.
+	if (prefersReducedMotion()) {
+		pin._spawnT = SPAWN_DURATION;
+	} else {
+		pin._spawnT = 0;
+		g.scale.setScalar(0.01);
+	}
 
 	// Confidence ring (A3) — a ground footprint sized to the real GPS uncertainty
 	// so users see the true precision instead of being misled into thinking it's
@@ -4036,6 +4185,26 @@ function tick() {
 		}
 	}
 
+	// Membership transitions (task 04): ease a freshly discovered agent up from
+	// nothing (scale 0 → 1, cubic ease-out), and shrink an evicted one to nothing
+	// before disposing it. Both run far from the viewer (spawn at the ~40 m enter
+	// edge, despawn past ~55 m), so they never collide with the close-range greet pop
+	// that drives scale.y. Reduced-motion skips straight to the end state.
+	for (const pin of nearbyPins) {
+		if (pin.group && pin._spawnT < SPAWN_DURATION) {
+			pin._spawnT += dt;
+			const t = Math.min(1, pin._spawnT / SPAWN_DURATION);
+			pin.group.scale.setScalar(1 - Math.pow(1 - t, 3));
+		}
+	}
+	for (let i = _despawningPins.length - 1; i >= 0; i--) {
+		const pin = _despawningPins[i];
+		pin._despawnT += dt;
+		const t = Math.min(1, pin._despawnT / DESPAWN_DURATION);
+		if (pin.group) pin.group.scale.setScalar(Math.max(0.001, (1 - t) * (1 - t)));
+		if (t >= 1) { disposePin(pin); _despawningPins.splice(i, 1); }
+	}
+
 	// Distance LOD / draw budget (E2) — ~4 Hz. Decides each pin's band, drives the
 	// queued GLB loads, impostor bakes and evictions, and sets the per-pin label
 	// allowance. Runs before awareness so head-tracking only touches mounted models.
@@ -4537,4 +4706,79 @@ if (import.meta.env.DEV) {
 			side: p.group.position.x > 0.5 ? 'right' : p.group.position.x < -0.5 ? 'left' : 'center',
 			depth: p.group.position.z > 0.5 ? 'behind' : p.group.position.z < -0.5 ? 'ahead' : 'level',
 		}));
+
+	// ── Simulated location (L1) ─────────────────────────────────────────────
+	// Run the REAL place/discover flow at any chosen coordinate without touching
+	// the device GPS. This is the only safe way to test on a phone (iOS Safari
+	// can't spoof location) and the only way to test a LAN dev build at all
+	// (geolocation is blocked on non-secure origins). Boot with
+	// `?mockLoc=lat,lng[&mockAcc=8]`, or call `__irlMockLocation(lat,lng)` /
+	// `__irlMockLocation(null)` from the console. A persistent badge makes a fake
+	// fix impossible to mistake for a real one.
+	let _mockBadge = null;
+	function showMockBadge(lat, lng) {
+		if (!_mockBadge) {
+			_mockBadge = document.createElement('div');
+			_mockBadge.id = 'irl-mock-badge';
+			_mockBadge.setAttribute('role', 'status');
+			_mockBadge.style.cssText = [
+				'position:fixed', 'top:8px', 'left:50%', 'transform:translateX(-50%)',
+				'z-index:99999', 'pointer-events:none',
+				'padding:5px 11px', 'border-radius:999px',
+				'background:rgba(20,16,4,.92)', 'border:1px solid #f0b400', 'color:#ffd45e',
+				'font:600 11px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace',
+				'letter-spacing:.04em', 'box-shadow:0 2px 10px rgba(0,0,0,.5)', 'white-space:nowrap',
+			].join(';');
+			document.body.appendChild(_mockBadge);
+		}
+		_mockBadge.textContent = `📍 SIMULATED LOCATION · ${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+		_mockBadge.style.display = '';
+	}
+	function hideMockBadge() { if (_mockBadge) _mockBadge.style.display = 'none'; }
+
+	// Seed a synthetic fix through the REAL onGPSPosition path (forcing the
+	// first-fix seed branch so the mock lands exactly, with no low-pass blend),
+	// after stopping any live watch so a real coordinate is never read.
+	function applyMockFix(lat, lng, accuracy = 10) {
+		if (gpsState.watchId != null) { navigator.geolocation.clearWatch(gpsState.watchId); gpsState.watchId = null; }
+		_mockLocation = true;
+		gpsState.ready = false; // force the exact-seed branch
+		onGPSPosition({ coords: { latitude: lat, longitude: lng, accuracy, altitude: null } });
+		showMockBadge(lat, lng);
+	}
+
+	window.__irlMockLocation = (lat, lng, acc = 10) => {
+		if (lat == null) {
+			_mockLocation = false;
+			hideMockBadge();
+			initGPS(); // resume the real watch
+			log.info('[irl] simulated location cleared — resuming real GPS');
+			return 'cleared';
+		}
+		if (!Number.isFinite(lat) || !Number.isFinite(lng) ||
+			lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+			return 'usage: __irlMockLocation(lat, lng[, accuracyM]) — lat∈[-90,90], lng∈[-180,180]; null to clear';
+		}
+		applyMockFix(lat, lng, Number.isFinite(acc) ? acc : 10);
+		log.info(`[irl] simulated location set → ${lat}, ${lng}`);
+		return { mocked: { lat, lng, acc } };
+	};
+
+	// Boot-time URL param. Malformed input warns and falls through to real GPS.
+	try {
+		const params = new URLSearchParams(location.search);
+		const mp = params.get('mockLoc');
+		if (mp) {
+			const [a, b] = mp.split(',').map((s) => parseFloat(s.trim()));
+			const acc = parseFloat(params.get('mockAcc'));
+			if (Number.isFinite(a) && Number.isFinite(b) && a >= -90 && a <= 90 && b >= -180 && b <= 180) {
+				applyMockFix(a, b, Number.isFinite(acc) ? acc : 10);
+				log.info(`[irl] ?mockLoc → simulated location ${a}, ${b}`);
+			} else {
+				log.warn(`[irl] ignoring malformed ?mockLoc="${mp}" — expected "lat,lng"`);
+			}
+		}
+	} catch (e) {
+		log.warn('[irl] mockLoc parse failed:', e?.message || e);
+	}
 }
