@@ -709,6 +709,65 @@ header h1 .wordmark-logo {
 	display: none;
 }
 
+/* Connect Wallet — Solana wallet entry point in the app header. Bound by
+   src/wallet.js (initWalletButton); swaps its label for the truncated address
+   and gains .is-connected once a wallet connects. */
+.nav-connect-wallet {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-2xs);
+	padding: 0.35rem 0.7rem;
+	font-family: var(--font-body);
+	font-size: var(--text-sm);
+	font-weight: var(--weight-medium);
+	letter-spacing: -0.005em;
+	color: var(--ink);
+	background: var(--surface-1);
+	border: 1px solid var(--stroke);
+	border-radius: var(--radius-md);
+	cursor: pointer;
+	white-space: nowrap;
+	-webkit-app-region: no-drag;
+	transition:
+		color var(--duration-fast) var(--ease-standard),
+		background var(--duration-fast) var(--ease-standard),
+		border-color var(--duration-fast) var(--ease-standard);
+}
+
+.nav-connect-wallet svg {
+	width: 14px;
+	height: 14px;
+	flex-shrink: 0;
+	opacity: 0.8;
+}
+
+.nav-connect-wallet:hover {
+	color: var(--ink-bright);
+	background: var(--surface-2);
+	border-color: var(--stroke-strong);
+}
+
+.nav-connect-wallet:active {
+	transform: translateY(0.5px);
+}
+
+.nav-connect-wallet:focus-visible {
+	outline: var(--focus-ring-width) solid var(--focus-ring-color);
+	outline-offset: var(--focus-ring-offset);
+}
+
+.nav-connect-wallet.is-connected {
+	color: var(--ink-bright);
+	background: var(--badge-success-bg);
+	border-color: var(--badge-success-border);
+	font-variant-numeric: tabular-nums;
+}
+
+.nav-connect-wallet.is-connected svg {
+	color: var(--success);
+	opacity: 1;
+}
+
 .nav-user-wrap {
 	position: relative;
 }

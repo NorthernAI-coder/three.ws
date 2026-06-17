@@ -53,7 +53,23 @@ async function onConnectWallet() {
 export function updateWalletState(address) {
 	const btn = document.getElementById('connect-wallet-btn');
 	if (btn) {
-		btn.textContent = address ? `${address.slice(0, 4)}...${address.slice(-4)}` : 'Connect Wallet';
+		const short = address ? `${address.slice(0, 4)}...${address.slice(-4)}` : 'Connect Wallet';
+		// Buttons that wrap their text in a [data-wallet-label] span keep their
+		// icon/markup intact across state changes; plain-text buttons (e.g. the
+		// pump dashboard) fall back to replacing textContent.
+		const label = btn.querySelector('[data-wallet-label]');
+		if (label) label.textContent = short;
+		else btn.textContent = short;
+		btn.classList.toggle('is-connected', Boolean(address));
+		if (address) {
+			btn.title = `Connected: ${address}`;
+			btn.setAttribute('aria-label', `Solana wallet connected: ${address}`);
+			btn.dataset.address = address;
+		} else {
+			btn.title = 'Connect your Solana wallet';
+			btn.setAttribute('aria-label', 'Connect your Solana wallet');
+			delete btn.dataset.address;
+		}
 	}
 	// Broadcast so consumers (dashboards, balance panels) can react to connect /
 	// disconnect without reaching into window.solana directly. Fires for both the
