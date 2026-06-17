@@ -68,12 +68,19 @@ export default wrap(async (req, res) => {
 	const sourceFilter = url.searchParams.get('source') || 'all';
 	const quality = url.searchParams.get('quality') === 'all' ? 'all' : 'high';
 
-	// model_category filter — null means 'all categories'
-	const categoryFilter = url.searchParams.get('category') || null;
+	// model_category filter — null means 'all categories'. Accepts a single
+	// category or a comma-separated list (e.g. category=avatar,creature) so a
+	// caller can scope a feed to character-like models without dropping creatures.
 	const VALID_CATEGORIES = new Set(['avatar', 'accessory', 'item', 'scene', 'creature', 'vehicle', 'other']);
-	if (categoryFilter && !VALID_CATEGORIES.has(categoryFilter)) {
-		return error(res, 400, 'validation_error', 'unknown category');
+	const categoryFilterList = (url.searchParams.get('category') || '')
+		.split(',')
+		.map((c) => c.trim())
+		.filter(Boolean);
+	const invalidCategory = categoryFilterList.find((c) => !VALID_CATEGORIES.has(c));
+	if (invalidCategory) {
+		return error(res, 400, 'validation_error', `unknown category: ${invalidCategory}`);
 	}
+	const categoryFilter = categoryFilterList.length ? categoryFilterList : null;
 
 	const cursorDate = cursor ? new Date(cursor) : null;
 	if (cursor && isNaN(cursorDate?.getTime())) {
@@ -130,7 +137,7 @@ export default wrap(async (req, res) => {
 		       coalesce(a.name,'') ILIKE ${'%' + q + '%'}
 		    OR coalesce(a.description,'') ILIKE ${'%' + q + '%'}
 		  ))
-		  AND (${categoryFilter}::text IS NULL OR a.model_category = ${categoryFilter})
+		  AND (${categoryFilter}::text[] IS NULL OR a.model_category = ANY(${categoryFilter}::text[]))
 		  AND (${cursorDate ? cursorDate.toISOString() : null}::timestamptz IS NULL OR a.created_at < ${cursorDate ? cursorDate.toISOString() : null}::timestamptz)
 		ORDER BY coalesce(a.featured, false) DESC, a.created_at DESC
 		LIMIT ${(limit + 1) * 3}
@@ -273,7 +280,7 @@ export default wrap(async (req, res) => {
 			);
 		}
 		if (categoryFilter) {
-			matching = matching.filter((a) => (a.modelCategory || 'avatar') === categoryFilter);
+			matching = matching.filter((a) => categoryFilter.includes(a.modelCategory || 'avatar'));
 		}
 		avatarItems.push(...matching);
 	}
