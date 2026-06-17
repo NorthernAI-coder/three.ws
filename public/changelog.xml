@@ -55,6 +55,14 @@
 			<description>The marketplace now carries a persistent Connect Wallet control — in the sidebar on desktop, in the search bar on mobile — so you can link Phantom, Solflare, or Backpack once and arrive at any purchase already connected, instead of waiting until checkout. If you have more than one wallet installed you get a quick picker; if you have none, it points you to install one. Once connected it shows your address as a tidy pill with a menu to copy it, view the account on Solscan, or disconnect, and it quietly reconnects a previously approved wallet when you return — no extra pop-up. Connect from the header and the Buy dialog is ready to go; connect at checkout and the header updates too. It rides the same on-chain USDC purchase flow already in place, so there's nothing new to trust.</description>
 		</item>
 		<item>
+			<title>Drop in &lt;agent-3d&gt; and you get just the avatar — chat is now opt-in</title>
+			<link>https://three.ws/docs/web-component</link>
+			<guid isPermaLink="false">2026-06-17:Drop in &lt;agent-3d&gt; and you get just the avatar — chat is now opt-in</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The one-line embed is cleaner by default. A plain &lt;agent-3d&gt; tag now ships only the 3D avatar on a transparent background — no chat box, no input bar, no debug color picker, no name-plate. That makes it perfect for dropping a living avatar onto a landing page, hero section, or card without any extra UI to hide. When you want the full talking agent, add the new chat attribute: &lt;agent-3d chat body=&quot;...&quot;&gt;. Published agents you embed by agent-id, manifest, or an agent:// link still chat automatically — they carry their own brain and persona — so existing agent embeds are unchanged. The reference docs and examples were updated to match.</description>
+		</item>
+		<item>
 			<title>Everyone at a location now sees your IRL agent in the same real spot</title>
 			<link>https://three.ws/irl</link>
 			<guid isPermaLink="false">2026-06-17:Everyone at a location now sees your IRL agent in the same real spot</guid>
@@ -143,6 +151,22 @@
 			<description>Every agent profile now has View in IRL and View in XR buttons next to See in 3D. View in IRL drops you into three.ws/irl already wearing that agent's body, and if the same agent is placed nearby it flashes its pin and opens its card so you land right on it. View in XR opens the immersive AR/VR viewer with that agent loaded. Both are real links, so you can open them in a new tab, and every agent has a body to show — its own 3D model or the shared mannequin — so the buttons are never dead ends. This matches the Walk IRL / View in XR buttons avatars already had, so the whole platform now routes into the immersive layer from one surface to the next.</description>
 		</item>
 		<item>
+			<title>Live trade feed: the time-window filters work on first load</title>
+			<link>https://three.ws/trades</link>
+			<guid isPermaLink="false">2026-06-17:Live trade feed: the time-window filters work on first load</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>On the Live Trade Feed, the 1h / 24h / 7d window buttons threw an error as the page set up its controls, which could leave the feed stuck before it finished loading. The control-syncing code was treating a group of buttons as a single element. It now handles the whole group, so the window and min-PnL filters initialize and switch cleanly every time.</description>
+		</item>
+		<item>
+			<title>Minting an agent's on-chain collectible is reliable under load</title>
+			<link>https://three.ws/create</link>
+			<guid isPermaLink="false">2026-06-17:Minting an agent's on-chain collectible is reliable under load</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Preparing an agent's on-chain mint sometimes failed when the shared public Solana RPC was rate-limited — the request to fetch a recent blockhash came back 'too many requests' and the whole prep errored out. Minting now builds the transaction through the same multi-endpoint failover the rest of the platform uses, rotating to a healthy Solana provider instead of giving up, so a busy public endpoint no longer blocks a mint. Solana name (.sol) lookups and the signer-balance watchdog were moved onto the same resilient connection.</description>
+		</item>
+		<item>
 			<title>Move your IRL agents on a real map — drag the pin from anywhere</title>
 			<link>https://three.ws/dashboard/irl-placements</link>
 			<guid isPermaLink="false">2026-06-17:Move your IRL agents on a real map — drag the pin from anywhere</guid>
@@ -229,6 +253,14 @@
 			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
 			<category>improvement</category>
 			<description>On three.ws/irl you can now open an agent by tapping its 3D body, not only its small floating name tag. Tapping near a name also works, with a finger-sized target that meets Apple's 44-pixel minimum, so you no longer have to pixel-hunt on a phone. When two agents stand on top of each other, the one in front wins instead of a random pick. As you move, the nearest agent you can reach lights up with a soft focus ring so you can see what you'll tap before you tap it — and if you've turned on Reduce Motion, the ring stays still. Looking and panning around no longer misfires as a tap.</description>
+		</item>
+		<item>
+			<title>The Oracle's proof pages — wins, backtest, and live activity — load again</title>
+			<link>https://three.ws/oracle</link>
+			<guid isPermaLink="false">2026-06-17:The Oracle's proof pages — wins, backtest, and live activity — load again</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>The conviction Oracle's evidence views had stopped responding: the Wins gallery, the accuracy Backtest, and the global Activity feed were all erroring instead of returning data, and the live activity feed failed on every request. The cause was in how those queries were assembled — optional filters (time window, tier, agent) weren't being stitched into the database query correctly, so the database rejected them. All three views now build their filters cleanly and return the Oracle's track record, hit-rate, and real-time agent actions as intended.</description>
 		</item>
 		<item>
 			<title>Your IRL agent dashboard now lights up the instant someone interacts</title>
