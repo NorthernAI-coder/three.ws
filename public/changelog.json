@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-17T12:09:48.286Z",
+	"generated_at": "2026-06-17T12:17:39.896Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -96,6 +96,16 @@
 			"tags": [
 				"feature",
 				"sdk"
+			]
+		},
+		{
+			"date": "2026-06-17",
+			"type": "update",
+			"title": "Embedded avatars: polished loading, seamless looping, and smarter framing",
+			"summary": "The live 3D avatars dotted around the site — the ones in the home-page feature cards and anywhere an <agent-3d> embed appears — now feel intentional from the first frame. Each one fades in behind a soft skeleton placeholder while its model streams, instead of popping in cold. Animations no longer hard-snap: a one-shot gesture like a wave plays once and settles smoothly back into an idle stance rather than jumping at the loop boundary. A new framing option crops the avatar to head-to-mid-thigh so it fills its card instead of standing tiny and low. If a body ever fails to load, you get a tasteful silhouette rather than a blank or broken box. Avatars pause themselves when scrolled off-screen to save battery, and anyone who's asked their device to reduce motion gets a calm, held pose instead of looping animation.",
+			"link": "/embed",
+			"tags": [
+				"improvement"
 			]
 		},
 		{
@@ -269,11 +279,43 @@
 		{
 			"date": "2026-06-17",
 			"type": "update",
+			"title": "IRL: new Location & privacy controls — see what's shared, and dial it down",
+			"summary": "IRL now has a Location & privacy panel, reachable from the top bar, that explains in plain language what a placed agent actually shares: it's visible only to someone physically within about 60 metres of it, never on a map or a browsable list, and never tied to your account — and pins you place without signing in disappear after 7 days. From the same panel you can switch discovery to Approximate, which rounds the position your phone sends while it looks for nearby agents so your exact spot never leaves the device; toggle whether you appear to others nearby; and jump straight to managing or removing the agents you've placed. The first time you grant location, a short one-time note walks you through the same facts.",
+			"link": "/irl",
+			"tags": [
+				"feature",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-17",
+			"type": "update",
 			"title": "IRL: pinned agents now stay put in your room instead of following the camera",
 			"summary": "When you turned on Camera AR and tapped Pin here, the agent was supposed to stay anchored to a real spot so you'd only see it by pointing your phone at it — but unless a precise GPS fix had already landed (or if location was off), it stayed glued to the center of the screen and panned around with you. The world-lock that rotates the view with your phone only ran in full GPS mode; without it the camera silently fell back to an orbit that kept the agent centered. Pinning now world-locks immediately using your phone's motion sensors: the agent holds the exact spot where you placed it, the view rotates as you turn, and it slides off-screen and back as you pan — with no wait for GPS. When a location fix does arrive it upgrades to the shared, cross-user anchor as before.",
 			"link": "/irl",
 			"tags": [
 				"fix"
+			]
+		},
+		{
+			"date": "2026-06-17",
+			"type": "update",
+			"title": "IRL: place an agent at a spot you pick on a map — not your exact location",
+			"summary": "You no longer have to stand somewhere to leave an agent there. Tap \"Place on map\" in IRL and choose any point — search a place by name or drag the pin — and your agent is placed exactly there. It's the privacy-friendly way to drop an agent at a café, a plaza, or an event without writing your real standing position into the public feed, and it works even before you grant location. The picker is a real map with search and a draggable marker, and every state — loading, no results, a map that won't load — is handled, so you always know where your agent will land before you confirm.",
+			"link": "/irl",
+			"tags": [
+				"feature",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-17",
+			"type": "update",
+			"title": "IRL: see every agent you've placed on a map and wipe them all in one tap",
+			"summary": "The 'My pins' panel in /irl is now a real management surface. A small map at the top plots every agent you've placed, so you can see at a glance where you dropped things — tap any marker and it jumps to that agent's row in the list. Each row now shows exactly when it disappears: a countdown like 'expires in 6d' for pins placed without an account (they self-delete after a week), or 'permanent' once you're signed in. And a single 'Remove all from this device' button — with a clear confirm step — wipes every agent you placed from this device in one go, so cleaning up after trying things out takes one tap instead of deleting them one by one. If the map can't load it quietly falls back to the list, which always works.",
+			"link": "/irl",
+			"tags": [
+				"improvement"
 			]
 		},
 		{
@@ -449,6 +491,17 @@
 			"link": "/oracle",
 			"tags": [
 				"fix"
+			]
+		},
+		{
+			"date": "2026-06-17",
+			"type": "update",
+			"title": "Try x402 live — pay a tenth of a cent to call a real API from your own wallet",
+			"summary": "There's now a live, self-contained x402 demo you can try in a browser. Pay $0.001 USDC from your own wallet — MetaMask on Base or Phantom on Solana — and call a real three.ws data API. The page reads the live HTTP 402 price the server quotes, runs the paid call once your wallet signs a gasless authorization, and shows the response next to an on-chain transaction receipt you can open on Basescan or Solscan. Nothing is mocked and there's no account or backend. The same eight-line embed it runs on — one script tag from three.ws plus any button carrying a data-x402-endpoint — is copy-pasteable into any site, so a developer can add a working pay-per-call paywall in minutes. Built with IBM as the public face of the partnership and designed to host cleanly on a strict-CSP enterprise page.",
+			"link": "/ibm/x402-demo",
+			"tags": [
+				"feature",
+				"sdk"
 			]
 		},
 		{

@@ -755,7 +755,7 @@ async function loadTradeHistory(root, append = false) {
 		const best = pnls.length ? Math.max(...pnls) : null;
 		const worst = pnls.length ? Math.min(...pnls) : null;
 		const bestWorst = pnls.length
-			? `<span class="sn-pos">Best +${fmtSol(best).trim()}</span> · <span class="${worst < 0 ? 'sn-neg' : ''}">Worst ${worst >= 0 ? '+' : ''}${fmtSol(worst).trim()}</span>`
+			? `<span class="${best >= 0 ? 'sn-pos' : 'sn-neg'}">Best ${best >= 0 ? '+' : ''}${fmtSol(best).trim()}</span> · <span class="${worst >= 0 ? 'sn-pos' : 'sn-neg'}">Worst ${worst >= 0 ? '+' : ''}${fmtSol(worst).trim()}</span>`
 			: '';
 		const chartHtml = cumPoints.length >= 2
 			? `<div class="sn-chart-wrap">
