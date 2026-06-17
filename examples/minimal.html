@@ -62,23 +62,27 @@
 			<div class="two-col">
 				<div class="card">
 					<h2>Inline embed</h2>
-					<p>The agent below is embedded inline, flowing with the page content.</p>
+					<p>
+						A plain <code>&lt;agent-3d&gt;</code> is just the avatar. Add the
+						<code>chat</code> attribute to give it the conversational UI.
+					</p>
 					<agent-3d
+						chat
 						body="/avatars/cz.glb"
 						instructions="You are a friendly 3D guide."
 						width="100%"
 						height="320px"
-						brain="claude-opus-4-6"
+						brain="claude-opus-4-8"
 					></agent-3d>
 				</div>
 				<div class="card">
 					<h2>The snippet</h2>
 					<pre>
-&lt;agent-3d
-  body="/avatars/cz.glb"
-  width="100%"
-  height="320px"
-&gt;&lt;/agent-3d&gt;</pre
+&lt;!-- just the avatar --&gt;
+&lt;agent-3d body="/avatars/cz.glb"&gt;&lt;/agent-3d&gt;
+
+&lt;!-- avatar + chat --&gt;
+&lt;agent-3d chat body="/avatars/cz.glb"&gt;&lt;/agent-3d&gt;</pre
 					>
 				</div>
 			</div>
@@ -86,8 +90,9 @@
 			<p>Floating bubble in the corner ↘ — like a chatbot, but embodied.</p>
 		</main>
 
-		<!-- Floating bubble — bottom-right of the viewport -->
+		<!-- Floating bubble — bottom-right of the viewport. `chat` makes it a talkative greeter. -->
 		<agent-3d
+			chat
 			body="/avatars/cz.glb"
 			instructions="You are a cheerful 3D greeter. Wave when users say hi."
 			mode="floating"

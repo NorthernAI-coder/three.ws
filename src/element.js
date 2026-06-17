@@ -585,6 +585,12 @@ const BASE_STYLE = `
 		background: rgba(255,255,255,0.3);
 	}
 	:host([mode="floating"]) .drag-handle { display: block; }
+	/* Bare avatar (the default) — reflected as data-bare by _reflectChromeState().
+	   Hide the dat.GUI debug panel (incl. its color-picker hue strip) and the
+	   axes gizmo so a plain <agent-3d> is the avatar and nothing else. */
+	:host([data-bare]) .gui-wrap { display: none !important; }
+	:host([data-bare]) .gui-toggle { display: none !important; }
+	:host([data-bare]) .axes { display: none !important; }
 	/* Kiosk mode: hide dat.GUI debug controls entirely */
 	:host([kiosk]) .gui-wrap { display: none !important; }
 	:host([kiosk]) .gui-toggle { display: none !important; }
@@ -654,6 +660,7 @@ class Agent3DElement extends HTMLElement {
 			'tracked-mint',
 			'avatar-chat',
 			'avatar-walk',
+			'chat',
 		];
 	}
 
@@ -722,6 +729,54 @@ class Agent3DElement extends HTMLElement {
 		);
 	}
 
+	// Chrome policy — the single source of truth for "is this a full chat agent
+	// or just a bare avatar?". Default is BARE: a plain <agent-3d> (or one given
+	// only a `body`/`src`) ships the transparent 3D avatar and nothing else — no
+	// chat, no input, no debug GUI, no name-plate.
+	//
+	// The conversational chrome is opt-in, switched on by either:
+	//   • the explicit `chat` attribute — the documented opt-in field, or
+	//   • binding to a published agent identity (`agent-id` / `manifest`), which
+	//     inherently carries a brain + persona, so it talks by default.
+	//
+	// `kiosk` / `viewer` remain explicit "force bare" escapes that win over the
+	// agent-binding heuristic, for embeds that want a bound agent rendered as
+	// pure decoration.
+	_isChatMode() {
+		if (this.hasAttribute('chat')) return true;
+		if (this.hasAttribute('kiosk') || this.hasAttribute('viewer')) return false;
+		return this.hasAttribute('agent-id') || this.hasAttribute('manifest');
+	}
+
+	// Reflect the resolved chrome mode onto the host as a read-only `data-bare`
+	// marker. CSS keys the debug-GUI/axes hiding off it, so the default bare
+	// avatar shows no controls even though it carries no `kiosk`/`viewer` attr.
+	_reflectChromeState() {
+		this.toggleAttribute('data-bare', !this._isChatMode());
+	}
+
+	// Tear down and rebuild the entire shadow shell, then reboot. Used when the
+	// chat↔bare mode flips at runtime, since the two modes render different
+	// chrome and _renderShell is otherwise idempotent.
+	_rebuildShell() {
+		this._teardown();
+		this.shadowRoot.replaceChildren();
+		// Null cached element refs so _renderShell recreates them from scratch.
+		this._loadingEl = null;
+		this._stageEl = null;
+		this._posterEl = null;
+		this._nameplateEl = null;
+		this._chatEl = null;
+		this._inputEl = null;
+		this._micEl = null;
+		this._avatarAnchorEl = null;
+		this._thoughtBubbleEl = null;
+		this._thoughtTextEl = null;
+		this._renderShell();
+		this._applyLayout();
+		if (this._hasSource()) this._boot();
+	}
+
 	disconnectedCallback() {
 		this._teardown();
 	}
@@ -754,14 +809,31 @@ class Agent3DElement extends HTMLElement {
 		if (name === 'avatar-walk' && newVal === 'off') {
 			this._stopWalkAnimation();
 		}
+		// Toggling `chat` at runtime flips the whole chrome — rebuild the shell.
+		if (name === 'chat') {
+			this._rebuildShell();
+			return;
+		}
 		if (['src', 'manifest', 'body', 'agent-id', 'avatar-id'].includes(name)) {
-			// Source change — reboot
-			this._teardown();
-			this._boot();
+			// Source change — reboot. If the change also crosses the chat↔bare
+			// boundary (e.g. an `agent-id`/`manifest` was added or removed), the
+			// shell builds different chrome, so do a full rebuild instead.
+			const wantsChat = this._isChatMode();
+			const hasChrome = !!this._chatEl;
+			if (wantsChat !== hasChrome) {
+				this._rebuildShell();
+			} else {
+				this._teardown();
+				this._boot();
+			}
 		}
 	}
 
 	_renderShell() {
+		// Reflect the resolved chrome mode onto the host so CSS can hide the
+		// debug GUI / axes for bare avatars (the default). Runs before the
+		// idempotency guard so a runtime mode flip always re-reflects.
+		this._reflectChromeState();
 		if (this._loadingEl) return;
 		const style = document.createElement('style');
 		style.textContent = BASE_STYLE;
@@ -824,8 +896,10 @@ class Agent3DElement extends HTMLElement {
 		this.shadowRoot.appendChild(pillDrag);
 		this._pillDrag = pillDrag;
 
-		// Chat + input chrome (omitted in kiosk mode)
-		if (!this.hasAttribute('kiosk')) {
+		// Chat + input chrome — built only in chat mode. A bare avatar (the
+		// default) never builds it, so there is no chat box, input row, mic, or
+		// thought bubble: just the transparent 3D canvas.
+		if (this._isChatMode()) {
 			const chrome = document.createElement('div');
 			chrome.className = 'chrome';
 			chrome.part = 'chrome';
@@ -1448,16 +1522,20 @@ class Agent3DElement extends HTMLElement {
 			this.dispatchEvent(
 				new CustomEvent('agent:load-progress', { detail: { phase: 'body', pct: 0.45 } }),
 			);
+			// Bare avatars run the viewer in kiosk mode: GUI closed, camera snapped
+			// (no fly-in), and a lower DPR cap — the right profile for a lightweight
+			// decoration avatar. Chat agents get the full interactive viewer.
 			const viewer = new Viewer(this._stageEl, {
-				kiosk: this.hasAttribute('kiosk'),
+				kiosk: !this._isChatMode(),
 			});
 			this._viewer = viewer;
 			viewer._afterAnimateHooks = viewer._afterAnimateHooks || [];
 			viewer._afterAnimateHooks.push(() => this._updateBubblePosition());
 			// Apply the embed surface attributes (`background`, `name-plate`) now
 			// that the viewer exists. They are also re-applied on attribute change.
+			// A bare avatar carries no name-plate unless the embedder asks for one.
 			this._applyBackground();
-			this._setNamePlateText(manifest.name || '');
+			this._setNamePlateText(this._isChatMode() ? manifest.name || '' : '');
 			this._applyNamePlate();
 			// Fetch animation defs before viewer.load so _setupAnimationPanel
 			// can preload idle+walk during the model load.
@@ -1867,8 +1945,9 @@ class Agent3DElement extends HTMLElement {
 			this._loadingEl.hidden = true;
 			// Resolve errors should already have been caught and replaced with the
 			// default-avatar manifest in _resolveManifest. Anything reaching here is
-			// a deeper boot failure — surface it (unless we're a tiny kiosk tile).
-			if (!this.hasAttribute('kiosk')) this._showError(err);
+			// a deeper boot failure — surface it in chat mode; a bare decoration
+			// avatar stays silent (no error card) and just emits the event.
+			if (this._isChatMode()) this._showError(err);
 			this.dispatchEvent(
 				new CustomEvent('agent:error', {
 					detail: { phase: 'boot', error: err },
@@ -2410,7 +2489,9 @@ class Agent3DElement extends HTMLElement {
 	}
 
 	_showError(err) {
-		if (this.hasAttribute('kiosk')) return;
+		// Bare avatars never paint an error card — they degrade silently to keep
+		// the decoration clean. Only chat agents surface a visible error.
+		if (!this._isChatMode()) return;
 		const raw = (err && (err.message || String(err))) || '';
 		const isWebgl = /webgl|context/i.test(raw);
 		const title = isWebgl ? '3D preview unavailable' : "Couldn't load agent";
@@ -2440,7 +2521,9 @@ class Agent3DElement extends HTMLElement {
 
 	_fail(code, message) {
 		this._loadingEl.hidden = true;
-		if (this.hasAttribute('kiosk')) {
+		// Bare avatars report policy failures through the event only, with no
+		// visible error banner. Chat agents also render a banner below.
+		if (!this._isChatMode()) {
 			this.dispatchEvent(
 				new CustomEvent('agent:error', {
 					detail: { phase: 'policy', error: { code, message } },

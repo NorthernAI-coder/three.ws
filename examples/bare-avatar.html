@@ -23,8 +23,9 @@
 		</style>
 	</head>
 	<body>
-		<!-- JUST the avatar. kiosk = no chat/input/debug GUI; name-plate=off = no label; transparent by default. -->
-		<agent-3d kiosk name-plate="off" body="/avatars/cz.glb" width="420px" height="560px"></agent-3d>
+		<!-- JUST the avatar — the default. No chat, no input, no debug GUI, no name-plate,
+		     transparent background. Add the `chat` attribute to opt into the conversational UI. -->
+		<agent-3d body="/avatars/cz.glb" width="420px" height="560px"></agent-3d>
 
 		<script type="module" src="../src/element.js"></script>
 	</body>
