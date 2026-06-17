@@ -35,7 +35,7 @@
     canvas.height = Math.round(H * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     refreshRect();
-    if (initialized) { layoutAllText(); buildTunnel(); }
+    if (initialized && !reduceMotion) { layoutAllText(); buildTunnel(); }
   }
   const ro = new ResizeObserver(resize);
   ro.observe(container);
@@ -55,9 +55,10 @@
 
   // Refresh the cached canvas rect so pointer handlers don't force a layout
   // read (getBoundingClientRect) on every mousemove/touchmove — a classic
-  // source of input-handler jank. Updated on resize and scroll only.
+  // source of input-handler jank. Refreshed on resize and once per animation
+  // frame (see frame()); pointer events only fire while the canvas is in view,
+  // which is exactly when the frame loop is running, so the cache stays fresh.
   function refreshRect() { rectCache = canvas.getBoundingClientRect(); }
-  window.addEventListener('scroll', refreshRect, { passive: true });
 
   function toLocal(clientX, clientY) {
     const r = rectCache;
@@ -571,6 +572,10 @@
   // visible. Start out paused — the IntersectionObserver below kicks the loop
   // off when the section scrolls into view, so a below-the-fold dragon never
   // burns main-thread time during the initial page load.
+  //
+  // This section is a page-lifetime singleton (it lives permanently in the
+  // homepage markup and is never unmounted), so the observers and the
+  // visibilitychange listener below are intentionally not torn down.
   let inView = false;
   let tabVisible = !document.hidden;
 
@@ -593,6 +598,7 @@
 
   function frame(now) {
     if (!inView || !tabVisible) { animId = null; return; }
+    refreshRect();
     const dt = Math.min((now - lastT) / 1000, 0.05);
     lastT = now; time += dt; autoPilotT += dt;
 
@@ -620,7 +626,7 @@
   }
 
   // Draw a single settled frame so the section never shows a blank canvas
-  // before the loop starts (or, under reduced-motion, ever runs).
+  // before the (in-view) loop starts.
   function renderStatic() {
     const em = effectiveMouse();
     ctx.save();
@@ -632,15 +638,21 @@
     ctx.restore();
   }
 
-  // Init
+  // Init. Under reduced-motion the canvas is display:none (see home.html), so
+  // skip the geometry build and all painting entirely — the dragon is purely
+  // decorative and never shown to those users.
   resize();
-  layoutAllText();
-  buildTunnel();
-  rebuildDragon();
-  initialized = true;
-  document.fonts.ready.then(() => { layoutAllText(); if (!animId) renderStatic(); });
-  renderStatic();
-  // maybeStart is a no-op until the section is in view (and the tab visible),
-  // and under reduced-motion the static frame above is all we ever paint.
+  if (!reduceMotion) {
+    layoutAllText();
+    buildTunnel();
+    rebuildDragon();
+    initialized = true;
+    document.fonts.ready.then(() => { layoutAllText(); if (!animId) renderStatic(); });
+    renderStatic();
+  } else {
+    initialized = true;
+  }
+  // maybeStart is a no-op under reduced-motion and until the section scrolls
+  // into view with the tab visible.
   maybeStart();
 })();

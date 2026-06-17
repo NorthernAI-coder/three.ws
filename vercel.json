@@ -169,6 +169,12 @@
 		"api/irl/pins.js": {
 			"maxDuration": 15
 		},
+		"api/irl/interactions.js": {
+			"maxDuration": 15
+		},
+		"api/irl/agent-card.js": {
+			"maxDuration": 15
+		},
 		"api/**/*.js": {
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 30
@@ -1942,6 +1948,14 @@
 		{
 			"src": "/api/irl/pins",
 			"dest": "/api/irl/pins.js"
+		},
+		{
+			"src": "/api/irl/interactions",
+			"dest": "/api/irl/interactions.js"
+		},
+		{
+			"src": "/api/irl/agent-card",
+			"dest": "/api/irl/agent-card.js"
 		},
 		{
 			"src": "/api/copy/executions",

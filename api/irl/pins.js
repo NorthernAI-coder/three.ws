@@ -192,7 +192,7 @@ export default wrap(async (req, res) => {
 		if ('heading' in body && isFinite(parseFloat(body.heading))) {
 			updates.heading = ((Math.round(parseFloat(body.heading)) % 360) + 360) % 360;
 		}
-		// x402Endpoint: attach/clear a paid endpoint so visitors can pay the agent IRL
+		// x402Endpoint: attach or update a paid endpoint so visitors can pay the agent IRL
 		if ('x402Endpoint' in body) updates.x402Endpoint = body.x402Endpoint ?? null;
 
 		if (!Object.keys(updates).length) {
