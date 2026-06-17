@@ -10,6 +10,7 @@ import { log } from './log.js';
 import { getTradeCtx } from './trade-client.js';
 import { getOpenPositions } from './strategy-store.js';
 import { executeSell } from './executor.js';
+import { quoteAmmSell } from './amm-exit.js';
 
 function pct(n) {
 	const x = Number(n);
@@ -41,28 +42,14 @@ async function tickPosition(cfg, pos) {
 		return;
 	}
 
-	const ctx = await getTradeCtx(cfg.network);
-	const mintPk = new ctx.web3.PublicKey(pos.mint);
-	const baseAmount = new ctx.BN(BigInt(pos.base_amount).toString());
+	const baseAmount = new (await getTradeCtx(cfg.network)).BN(BigInt(pos.base_amount).toString());
 	const slippagePct = (pos.slippage_bps ?? 500) / 100;
+	const graduated = typeof pos.error === 'string' && pos.error.startsWith('graduated');
 
-	let value;
-	try {
-		const quote = await ctx.client.quoteForSell({ mint: mintPk, baseAmount, slippagePct });
-		value = Number(quote.expectedQuoteOut.toString());
-	} catch (err) {
-		if (err?.name === 'CoinGraduatedError') {
-			await sql`
-				UPDATE agent_sniper_positions
-				SET error = 'graduated:awaiting_amm_exit', exit_reason = 'graduated', last_quoted_at = now()
-				WHERE id = ${pos.id}
-			`;
-			log.warn('position graduated — needs AMM exit', { agent: pos.agent_id, mint: pos.mint });
-			return;
-		}
-		log.warn('position re-quote failed', { mint: pos.mint, err: err?.message });
-		return;
-	}
+	const value = graduated
+		? await requoteGraduated(cfg, pos, baseAmount, slippagePct)
+		: await requoteCurve(cfg, pos, baseAmount, slippagePct);
+	if (value == null) return; // transient quote failure — try again next sweep
 
 	const prevPeak = Number(pos.peak_value_lamports || pos.entry_quote_lamports || 0);
 	const peak = Math.max(prevPeak, value);
@@ -74,6 +61,49 @@ async function tickPosition(cfg, pos) {
 
 	const reason = decideExit(pos, value, peak);
 	if (reason) await executeSell({ cfg, position: pos, reason });
+}
+
+// Re-quote a still-on-curve position off the bonding curve. On graduation, flag
+// the position once so the NEXT sweep re-quotes it off the AMM (and executeSell
+// routes the exit there) — never park it. Returns null on a transient failure.
+async function requoteCurve(cfg, pos, baseAmount, slippagePct) {
+	const ctx = await getTradeCtx(cfg.network);
+	const mintPk = new ctx.web3.PublicKey(pos.mint);
+	try {
+		const quote = await ctx.client.quoteForSell({ mint: mintPk, baseAmount, slippagePct });
+		return Number(quote.expectedQuoteOut.toString());
+	} catch (err) {
+		if (err?.name === 'CoinGraduatedError') {
+			await sql`
+				UPDATE agent_sniper_positions
+				SET error = 'graduated:awaiting_amm_exit', last_quoted_at = now()
+				WHERE id = ${pos.id} AND status = 'open'
+			`;
+			// Flag in-memory too so a same-tick executeSell takes the AMM branch
+			// directly instead of re-hitting the dead curve.
+			pos.error = 'graduated:awaiting_amm_exit';
+			log.info('position graduated — switching to AMM exit', { agent: pos.agent_id, mint: pos.mint });
+			// Quote off the AMM on the same tick so exit triggers fire immediately.
+			return await requoteGraduated(cfg, pos, baseAmount, slippagePct);
+		}
+		log.warn('position re-quote failed', { mint: pos.mint, err: err?.message });
+		return null;
+	}
+}
+
+// Re-quote a graduated position off the canonical AMM pool. Same exit math, real
+// post-graduation price. Returns null on a transient failure (pool not yet
+// readable, RPC hiccup) so the position holds and retries rather than mis-exiting.
+async function requoteGraduated(cfg, pos, baseAmount, slippagePct) {
+	try {
+		const { expectedQuoteOut } = await quoteAmmSell({
+			network: cfg.network, mint: pos.mint, baseAmount, slippagePct,
+		});
+		return Number(expectedQuoteOut);
+	} catch (err) {
+		log.warn('amm re-quote failed', { mint: pos.mint, code: err?.code, err: err?.message });
+		return null;
+	}
 }
 
 /** Run one sweep over all open positions. Errors on one position never abort the rest. */

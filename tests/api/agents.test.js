@@ -155,6 +155,72 @@ describe('GET /api/agents — list', () => {
 		expect(status).toBe(200);
 		expect(body.agents).toEqual([]);
 	});
+
+	it('exposes walletReady + public solana_address (never the secret)', async () => {
+		authState.session = { id: 'user-1' };
+		const SOL = 'So11111111111111111111111111111111111111112';
+		sqlState.queue.push([
+			{
+				id: 'agent-w',
+				user_id: 'user-1',
+				name: 'Walleted',
+				skills: [],
+				meta: { solana_address: SOL, encrypted_solana_secret: 'ZW5jcnlwdGVk' },
+				created_at: '2024-01-01T00:00:00Z',
+			},
+		]);
+
+		const { status, body } = await invoke({ method: 'GET', url: '/api/agents' });
+		expect(status).toBe(200);
+		const a = body.agents[0];
+		expect(a.solana_address).toBe(SOL);
+		expect(a.walletReady).toBe(true);
+		expect(a.wallet_ready).toBe(true);
+		// The encrypted secret must never reach the client.
+		expect(a.meta.encrypted_solana_secret).toBeUndefined();
+		expect(JSON.stringify(a)).not.toMatch(/encrypted_solana_secret/);
+	});
+
+	it('reports walletReady=false and null solana_address for a legacy wallet-less agent', async () => {
+		authState.session = { id: 'user-1' };
+		sqlState.queue.push([
+			{
+				id: 'agent-legacy',
+				user_id: 'user-1',
+				name: 'Legacy',
+				skills: [],
+				meta: {},
+				created_at: '2024-01-01T00:00:00Z',
+			},
+		]);
+
+		const { status, body } = await invoke({ method: 'GET', url: '/api/agents' });
+		expect(status).toBe(200);
+		const a = body.agents[0];
+		expect(a.solana_address).toBeNull();
+		expect(a.walletReady).toBe(false);
+	});
+
+	it('reports walletReady=false when the address is present but the secret is missing', async () => {
+		authState.session = { id: 'user-1' };
+		const SOL = 'So11111111111111111111111111111111111111112';
+		sqlState.queue.push([
+			{
+				id: 'agent-half',
+				user_id: 'user-1',
+				name: 'Half',
+				skills: [],
+				meta: { solana_address: SOL }, // no encrypted_solana_secret
+				created_at: '2024-01-01T00:00:00Z',
+			},
+		]);
+
+		const { status, body } = await invoke({ method: 'GET', url: '/api/agents' });
+		expect(status).toBe(200);
+		const a = body.agents[0];
+		expect(a.solana_address).toBe(SOL);
+		expect(a.walletReady).toBe(false);
+	});
 });
 
 describe('GET /api/agents/me — identity bootstrap', () => {

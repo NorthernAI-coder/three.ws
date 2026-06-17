@@ -323,7 +323,7 @@ describe('DELETE /api/irl/pins?all=1 — bulk device purge', () => {
 	it('400s a bulk delete with no device token and never runs the delete', async () => {
 		const { res, body } = await del({ all: '1' });
 		expect(res.statusCode).toBe(400);
-		expect(body.error).toMatch(/device token/i);
+		expect(body.error).toMatch(/device.?token/i);
 		expect(deleteQueries()).toHaveLength(0);
 	});
 

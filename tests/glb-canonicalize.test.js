@@ -8,9 +8,11 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { Matrix4, Quaternion, Vector3 } from 'three';
 import {
 	canonicalizeBoneName,
 	canonicalizeJointNodes,
+	canonicalizeArmatureOrientation,
 	canonicalizeGLBBones,
 	CANONICAL_BONES,
 } from '../src/glb-canonicalize.js';
@@ -351,5 +353,92 @@ describe('canonicalizeGLBBones (full GLB rewrite)', () => {
 		expect(dv.getUint32(8, true)).toBe(buffer.byteLength);
 		const jLen = dv.getUint32(12, true);
 		expect(20 + jLen).toBe(buffer.byteLength);
+	});
+});
+
+describe('canonicalizeArmatureOrientation', () => {
+	const P90 = [Math.sin(Math.PI / 4), 0, 0, Math.cos(Math.PI / 4)]; // +90°X
+	const M90 = [-Math.sin(Math.PI / 4), 0, 0, Math.cos(Math.PI / 4)]; // −90°X
+
+	// Mixamo-shaped rig: armature(+90°X, uniform scale) → Hips(−90°X) → Spine → Head,
+	// plus a sibling mesh node under the armature. Net bind pose is upright.
+	function tiltedRigJson(armRot, hipsRot) {
+		return {
+			asset: { version: '2.0' },
+			nodes: [
+				{ name: 'Armature', rotation: armRot, scale: [0.01, 0.01, 0.01], children: [1, 4] },
+				{ name: 'mixamorig:Hips', rotation: hipsRot, translation: [0, 100, 0], children: [2] },
+				{ name: 'mixamorig:Spine', translation: [0, 10, 0], children: [3] },
+				{ name: 'mixamorig:Head', translation: [0, 20, 0] },
+				{ name: 'Ch03' },
+			],
+			skins: [{ joints: [1, 2, 3] }],
+			scenes: [{ nodes: [0] }],
+			scene: 0,
+		};
+	}
+
+	function jointWorld(json, idx) {
+		const parentOf = new Map();
+		json.nodes.forEach((n, i) => {
+			if (Array.isArray(n.children)) for (const c of n.children) parentOf.set(c, i);
+		});
+		const local = (n) => {
+			const t = new Vector3();
+			const r = new Quaternion();
+			const s = new Vector3(1, 1, 1);
+			if (n.translation) t.fromArray(n.translation);
+			if (n.rotation) r.fromArray(n.rotation);
+			if (n.scale) s.fromArray(n.scale);
+			return new Matrix4().compose(t, r, s);
+		};
+		const w = (i) => {
+			const p = parentOf.get(i);
+			const m = local(json.nodes[i]);
+			return p == null ? m : w(p).clone().multiply(m);
+		};
+		return w(idx);
+	}
+
+	it('folds a Mixamo +90/−90 split to an axis-aligned rig, losslessly', () => {
+		const json = tiltedRigJson(P90.slice(), M90.slice());
+		const hipsBefore = jointWorld(json, 1).elements.slice();
+		const headBefore = jointWorld(json, 3).elements.slice();
+
+		const res = canonicalizeArmatureOrientation(json);
+		expect(res.corrected).toBe(true);
+		expect(res.hipsIdentity).toBe(true);
+
+		// Both the armature and the (counter-rotated) Hips are now identity.
+		expect(json.nodes[0].rotation).toEqual([0, 0, 0, 1]);
+		json.nodes[1].rotation.forEach((v, i) => expect(v).toBeCloseTo([0, 0, 0, 1][i], 6));
+
+		// World matrices of the bones are preserved → the skinned mesh is unchanged.
+		jointWorld(json, 1).elements.forEach((v, i) => expect(v).toBeCloseTo(hipsBefore[i], 4));
+		jointWorld(json, 3).elements.forEach((v, i) => expect(v).toBeCloseTo(headBefore[i], 4));
+	});
+
+	it('is a no-op when the armature is already axis-aligned', () => {
+		const json = tiltedRigJson([0, 0, 0, 1], [0, 0, 0, 1]);
+		const res = canonicalizeArmatureOrientation(json);
+		expect(res.corrected).toBe(false);
+	});
+
+	it('refuses to fold a non-uniform-scale armature (rotation would not commute)', () => {
+		const json = tiltedRigJson(P90.slice(), M90.slice());
+		json.nodes[0].scale = [0.01, 0.02, 0.01];
+		const res = canonicalizeArmatureOrientation(json);
+		expect(res.corrected).toBe(false);
+		expect(json.nodes[0].rotation).toEqual(P90); // untouched
+	});
+
+	it('canonicalizeGLBBones reports orientationCorrected and produces a valid GLB', () => {
+		const glb = buildGLB(tiltedRigJson(P90.slice(), M90.slice()), new Uint8Array([1, 2, 3, 4]));
+		const res = canonicalizeGLBBones(glb);
+		expect(res.orientationCorrected).toBe(true);
+		expect(res.renamed).toBeGreaterThan(0); // mixamorig: names also canonicalized
+		const dv = new DataView(res.buffer);
+		expect(dv.getUint32(0, true)).toBe(GLB_MAGIC);
+		expect(dv.getUint32(8, true)).toBe(res.buffer.byteLength);
 	});
 });

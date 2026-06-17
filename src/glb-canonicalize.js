@@ -20,8 +20,16 @@
 // rewrites the GLB JSON chunk in-place and repacks the binary container so
 // the result is a valid GLB that swaps in 1:1 at the same R2 storage key.
 
+import { Matrix4, Quaternion, Vector3 } from 'three';
+
 const GLB_MAGIC      = 0x46546c67; // 'glTF' little-endian
 const CHUNK_TYPE_JSON = 0x4e4f534a; // 'JSON'
+
+// Quaternion is "axis-aligned enough" / scale is "uniform enough" below this.
+const ORIENT_EPS = 1e-5;
+// Joint world-matrix elements must match within this before/after the fold, or
+// the fold is reverted (it would have altered the mesh).
+const ORIENT_WORLD_EPS = 1e-4;
 
 // Canonical humanoid bone set. Mirrors the rig used by scripts/build-animations.mjs
 // (cz.glb / Avaturn reference rig) — every animation clip in /public/animations/clips
@@ -146,6 +154,147 @@ export function canonicalizeJointNodes(json) {
 	return { renamed, samples };
 }
 
+// Local TRS → Matrix4 for a glTF node.
+function nodeLocalMatrix(node) {
+	const t = new Vector3();
+	const r = new Quaternion();
+	const s = new Vector3(1, 1, 1);
+	if (node.translation) t.fromArray(node.translation);
+	if (node.rotation) r.fromArray(node.rotation);
+	if (node.scale) s.fromArray(node.scale);
+	return new Matrix4().compose(t, r, s);
+}
+
+// World matrices for a set of node indices, each walked to its scene root.
+function worldMatricesFor(json, indices, parentOf) {
+	const local = json.nodes.map(nodeLocalMatrix);
+	const cache = new Map();
+	const world = (idx) => {
+		if (cache.has(idx)) return cache.get(idx);
+		const p = parentOf.get(idx);
+		const m = p == null ? local[idx].clone() : world(p).clone().multiply(local[idx]);
+		cache.set(idx, m);
+		return m;
+	};
+	const out = new Map();
+	for (const idx of indices) out.set(idx, world(idx));
+	return out;
+}
+
+/**
+ * Fold a Mixamo/FBX up-axis bake out of the rig. Mixamo exports put a +90°X on
+ * the armature node and a −90°X on Hips; the net is upright, but a clip authored
+ * for an identity-Hips rig overwrites the −90°X and tips the body over (the
+ * "lying down" bug). The runtime retargeter (animation-retarget.js) corrects for
+ * this on the fly, but normalizing at ingest means stored avatars are already
+ * axis-aligned and need no correction.
+ *
+ * The fold pushes the armature's rotation down into each child (rotating its
+ * translation, pre-multiplying its rotation) and zeroes the armature's rotation.
+ * Bone *world* matrices are preserved exactly — provided the armature's scale is
+ * uniform, so rotation commutes with it — which means the skinned mesh and its
+ * inverse-bind matrices (in the untouched BIN chunk) still resolve to the same
+ * bind pose. A counter-rotated Hips collapses to identity. Verified by comparing
+ * world matrices before/after; reverts on any mismatch. Mutates `json` in place.
+ *
+ * @param {object} json parsed glTF JSON
+ * @returns {{ corrected: boolean, hipsIdentity?: boolean }}
+ */
+export function canonicalizeArmatureOrientation(json) {
+	if (!json || !Array.isArray(json.nodes) || !Array.isArray(json.skins)) {
+		return { corrected: false };
+	}
+	const parentOf = new Map();
+	json.nodes.forEach((n, i) => {
+		if (Array.isArray(n.children)) for (const c of n.children) parentOf.set(c, i);
+	});
+	const jointIdx = new Set();
+	for (const skin of json.skins) {
+		if (Array.isArray(skin.joints)) for (const j of skin.joints) jointIdx.add(j);
+	}
+	if (jointIdx.size === 0) return { corrected: false };
+
+	let hips = -1;
+	for (const idx of jointIdx) {
+		const n = json.nodes[idx];
+		if (n && typeof n.name === 'string' && canonicalizeBoneName(n.name) === 'Hips') {
+			hips = idx;
+			break;
+		}
+	}
+	if (hips < 0) return { corrected: false };
+	const pIdx = parentOf.get(hips);
+	if (pIdx == null) return { corrected: false };
+	const parent = json.nodes[pIdx];
+
+	const r = new Quaternion();
+	if (parent.rotation) r.fromArray(parent.rotation);
+	if (1 - Math.abs(r.w) < ORIENT_EPS) return { corrected: false }; // already axis-aligned
+
+	// Rotation only commutes with the parent's scale when that scale is uniform.
+	const s = parent.scale;
+	if (s && (Math.abs(s[0] - s[1]) > ORIENT_EPS || Math.abs(s[1] - s[2]) > ORIENT_EPS)) {
+		return { corrected: false };
+	}
+
+	const children = Array.isArray(parent.children) ? parent.children : [];
+	if (children.length === 0) return { corrected: false };
+
+	// Snapshot the children (for revert) and all affected world matrices (to verify
+	// the fold didn't move anything the mesh depends on).
+	const checkSet = new Set([...jointIdx, ...children]);
+	const before = worldMatricesFor(json, checkSet, parentOf);
+	const snapshot = children.map((c) => ({
+		idx: c,
+		translation: json.nodes[c].translation ? json.nodes[c].translation.slice() : null,
+		rotation: json.nodes[c].rotation ? json.nodes[c].rotation.slice() : null,
+	}));
+	const parentRotBefore = parent.rotation ? parent.rotation.slice() : null;
+
+	for (const c of children) {
+		const node = json.nodes[c];
+		const t = new Vector3();
+		if (node.translation) t.fromArray(node.translation);
+		t.applyQuaternion(r);
+		node.translation = [t.x, t.y, t.z];
+		const cr = new Quaternion();
+		if (node.rotation) cr.fromArray(node.rotation);
+		cr.premultiply(r);
+		node.rotation = [cr.x, cr.y, cr.z, cr.w];
+	}
+	parent.rotation = [0, 0, 0, 1];
+
+	const after = worldMatricesFor(json, checkSet, parentOf);
+	let ok = true;
+	for (const idx of checkSet) {
+		const a = before.get(idx).elements;
+		const b = after.get(idx).elements;
+		for (let k = 0; k < 16; k++) {
+			if (Math.abs(a[k] - b[k]) > ORIENT_WORLD_EPS) {
+				ok = false;
+				break;
+			}
+		}
+		if (!ok) break;
+	}
+	if (!ok) {
+		for (const snap of snapshot) {
+			const node = json.nodes[snap.idx];
+			if (snap.translation) node.translation = snap.translation;
+			else delete node.translation;
+			if (snap.rotation) node.rotation = snap.rotation;
+			else delete node.rotation;
+		}
+		if (parentRotBefore) parent.rotation = parentRotBefore;
+		else delete parent.rotation;
+		return { corrected: false };
+	}
+
+	const hipsQ = new Quaternion();
+	if (json.nodes[hips].rotation) hipsQ.fromArray(json.nodes[hips].rotation);
+	return { corrected: true, hipsIdentity: 1 - Math.abs(hipsQ.w) < ORIENT_EPS };
+}
+
 /**
  * Canonicalize joint bone names in a GLB ArrayBuffer. Returns a new buffer
  * with renamed nodes (and the count of bones rewritten); the original buffer
@@ -187,8 +336,9 @@ export function canonicalizeGLBBones(arrayBuffer) {
 	}
 
 	const { renamed, samples } = canonicalizeJointNodes(json);
-	if (renamed === 0) {
-		return { buffer: arrayBuffer, renamed: 0, samples: [] };
+	const orientation = canonicalizeArmatureOrientation(json);
+	if (renamed === 0 && !orientation.corrected) {
+		return { buffer: arrayBuffer, renamed: 0, samples: [], orientationCorrected: false };
 	}
 
 	// Repack. Chunk 1 (BIN) is optional — preserve it verbatim if present.
@@ -231,5 +381,5 @@ export function canonicalizeGLBBones(arrayBuffer) {
 		outU8.set(binBytes, binOffset + 8);
 	}
 
-	return { buffer: out, renamed, samples };
+	return { buffer: out, renamed, samples, orientationCorrected: orientation.corrected };
 }

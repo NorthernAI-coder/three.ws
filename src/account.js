@@ -153,7 +153,7 @@ export async function saveRemoteGlbToAccount(source, meta = {}, opts = {}) {
 			const { canonicalizeGLBBones } = await import('./glb-canonicalize.js');
 			const buf = await blob.arrayBuffer();
 			const result = canonicalizeGLBBones(buf);
-			if (result.renamed > 0) {
+			if (result.renamed > 0 || result.orientationCorrected) {
 				blob = new Blob([result.buffer], { type: 'model/gltf-binary' });
 				retargetedBoneCount = result.renamed;
 			}
