@@ -282,6 +282,10 @@ export class PoseLibrary {
 				el('button', { class: 'pl-close', type: 'button', 'aria-label': 'Close library', onclick: () => overlay.remove() }, ['✕']),
 			]),
 			list,
+			el('footer', { class: 'pl-drawer-foot' }, [
+				el('a', { class: 'pose-btn', href: '/marketplace?tab=animations' }, ['Browse the animation marketplace →']),
+				el('a', { class: 'pose-btn', href: '/marketplace?tab=earn' }, ['Your sales & earnings']),
+			]),
 		]);
 
 		const select = (tab) => {

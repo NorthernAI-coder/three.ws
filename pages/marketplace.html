@@ -1830,6 +1830,18 @@
 				color: #fde047;
 			}
 
+			.payment-fee-note {
+				font-size: 12px;
+				color: rgba(255, 255, 255, 0.6);
+				line-height: 1.5;
+				padding: 10px 0 0;
+			}
+
+			.payment-fee-note strong {
+				color: rgba(255, 255, 255, 0.85);
+				font-weight: 600;
+			}
+
 			.payment-wallet-area {
 				margin: 20px 0;
 				padding: 16px;
@@ -4443,6 +4455,8 @@
 						<span>Total</span>
 						<strong id="payment-price-display"></strong>
 					</div>
+
+					<div class="payment-fee-note" id="payment-fee-note" hidden></div>
 
 					<div class="payment-wallet-area" id="payment-wallet-area">
 						<!-- Wallet connection status and button will be rendered here by JS -->
