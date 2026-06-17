@@ -42,7 +42,6 @@ function fmtDelayMs(ms) {
 }
 
 function pumpUrl(mint) { return `https://pump.fun/coin/${encodeURIComponent(mint)}`; }
-function solscanTx(sig) { return `https://solscan.io/tx/${sig}`; }
 
 // ── Styles ───────────────────────────────────────────────────────────────────
 
@@ -224,7 +223,7 @@ async function refresh(root) {
 
 	root.innerHTML = render();
 	wireEvents(root);
-	startSse(root);
+	startSse();
 	loadTradeHistory(root);
 
 	// Auto-open arm modal when arriving from Strategy Lab with a preset
@@ -752,6 +751,12 @@ async function loadTradeHistory(root, append = false) {
 		}
 		const totalPnl = running;
 		const pnlClass = totalPnl > 0 ? 'sn-pos' : totalPnl < 0 ? 'sn-neg' : '';
+		const pnls = trades.map((t) => t.pnl_sol).filter((v) => v != null);
+		const best = pnls.length ? Math.max(...pnls) : null;
+		const worst = pnls.length ? Math.min(...pnls) : null;
+		const bestWorst = pnls.length
+			? `<span class="sn-pos">Best +${fmtSol(best).trim()}</span> · <span class="${worst < 0 ? 'sn-neg' : ''}">Worst ${worst >= 0 ? '+' : ''}${fmtSol(worst).trim()}</span>`
+			: '';
 		const chartHtml = cumPoints.length >= 2
 			? `<div class="sn-chart-wrap">
 				<div class="sn-chart-head">
@@ -764,7 +769,7 @@ async function loadTradeHistory(root, append = false) {
 		<div class="sn-hist">
 			<div class="sn-hist-head">
 				<h3>Trade History</h3>
-				<span style="font-size:12px;color:var(--nxt-ink-faint)">${trades.length} closed trade${trades.length !== 1 ? 's' : ''}</span>
+				<span style="font-size:12px;color:var(--nxt-ink-faint)">${trades.length} closed trade${trades.length !== 1 ? 's' : ''}${bestWorst ? ` · ${bestWorst}` : ''}</span>
 			</div>
 			${chartHtml}
 			<div style="overflow-x:auto">
@@ -1019,59 +1024,122 @@ function openArmModal(root) {
 
 // ── SSE live positions ────────────────────────────────────────────────────────
 
-function startSse(root) {
-	if (_sseSource) { _sseSource.close(); _sseSource = null; }
-	if (!_strategies.length) {
-		renderPositions([]);
-		return;
-	}
+// The /api/sniper/stream SSE is network-global and capped at 90s per connection,
+// and the worker is a separate process — so we (a) seed the owner's open positions
+// from the leaderboard snapshot on load, (b) filter the live stream down to the
+// caller's own agents, and (c) drive an explicit backoff reconnect with a visible
+// connection state instead of relying on the browser's silent auto-retry.
 
+function ownedAgentIds() {
+	return new Set(_strategies.map((s) => s.agent_id));
+}
+
+function setConn(state, label) {
+	const dot = document.querySelector('.sn-live-dot');
+	const txt = document.getElementById('sn-conn-status');
+	if (dot) dot.className = `sn-live-dot ${state}`;
+	if (txt) txt.textContent = label;
+}
+
+// Normalize the SSE event shape and the leaderboard snapshot shape into one
+// render shape. SSE gives entry_sol/current_sol/pnl_sol/pnl_pct/buy_url/at;
+// leaderboard gives entry_sol/current_sol/unrealized_pct/buy_url/at.
+function normPos(p) {
+	const entry = p.entry_sol != null ? Number(p.entry_sol) : null;
+	const current = p.current_sol != null ? Number(p.current_sol) : entry;
+	const pnlSol = entry != null && current != null
+		? current - entry
+		: (p.pnl_sol != null ? Number(p.pnl_sol) : null);
+	const pnlPct = p.pnl_pct != null ? Number(p.pnl_pct)
+		: p.unrealized_pct != null ? Number(p.unrealized_pct)
+		: (entry ? ((current - entry) / entry) * 100 : null);
+	return {
+		id: p.id,
+		agent_id: p.agent_id,
+		agent_name: p.agent_name,
+		mint: p.mint,
+		symbol: p.symbol || p.name,
+		status: p.status || 'open',
+		entry_sol: entry,
+		current_sol: current,
+		unrealized_pnl_sol: pnlSol,
+		unrealized_pct: pnlPct,
+		buy_url: p.buy_url || null,
+		opened_at: p.at || p.opened_at || null,
+	};
+}
+
+function renderOwnedPositions() {
+	const owned = ownedAgentIds();
+	const list = [..._positionsMap.values()]
+		.filter((p) => owned.has(p.agent_id) && ['opening', 'open'].includes(p.status))
+		.sort((a, b) => new Date(b.opened_at || 0) - new Date(a.opened_at || 0));
+	renderPositions(list);
+}
+
+async function seedPositions() {
+	try {
+		const data = await get('/api/sniper/leaderboard?network=mainnet');
+		const owned = ownedAgentIds();
+		for (const p of (data.positions || [])) {
+			if (owned.has(p.agent_id)) _positionsMap.set(p.id, normPos(p));
+		}
+	} catch { /* non-fatal — the live stream will populate */ }
+	renderOwnedPositions();
+}
+
+function stopSse() {
+	if (_sseSource) { try { _sseSource.close(); } catch {} _sseSource = null; }
+	if (_sseTimer) { clearTimeout(_sseTimer); _sseTimer = null; }
+}
+
+function startSse() {
+	stopSse();
+	_positionsMap = new Map();
+	if (!_strategies.length) { renderPositions([]); return; }
+	setConn('connecting', 'Connecting…');
+	seedPositions();
+	connectSse();
+}
+
+function connectSse() {
 	const src = new EventSource('/api/sniper/stream?network=mainnet');
 	_sseSource = src;
 
-	// Build initial snapshot from 'open' event, then update on 'buy'/'update'/'sell'.
-	const positions = new Map();
-
-	src.addEventListener('open', (e) => {
+	const ingest = (e) => {
 		try {
-			const data = JSON.parse(e.data);
-			if (Array.isArray(data)) {
-				for (const p of data) positions.set(p.id, p);
-				renderPositions([...positions.values()].filter((p) => ['opening', 'open'].includes(p.status)));
-			}
+			const p = normPos(JSON.parse(e.data));
+			_positionsMap.set(p.id, { ...(_positionsMap.get(p.id) || {}), ...p });
+			renderOwnedPositions();
 		} catch {}
-	});
+	};
 
-	src.addEventListener('buy', (e) => {
-		try {
-			const p = JSON.parse(e.data);
-			positions.set(p.id, p);
-			renderPositions([...positions.values()].filter((p) => ['opening', 'open'].includes(p.status)));
-		} catch {}
-	});
-
-	src.addEventListener('update', (e) => {
-		try {
-			const p = JSON.parse(e.data);
-			positions.set(p.id, { ...(positions.get(p.id) || {}), ...p });
-			renderPositions([...positions.values()].filter((p) => ['opening', 'open'].includes(p.status)));
-		} catch {}
-	});
-
-	src.addEventListener('sell', (e) => {
-		try {
-			const p = JSON.parse(e.data);
-			positions.set(p.id, p);
-			renderPositions([...positions.values()].filter((pos) => ['opening', 'open'].includes(pos.status)));
-		} catch {}
-	});
+	src.addEventListener('open', () => { _sseRetry = 0; setConn('live', 'Live'); });
+	src.addEventListener('buy', ingest);
+	src.addEventListener('update', ingest);
+	src.addEventListener('sell', ingest);
+	// Server signals end-of-stream (90s duration cap) with a 'close' event; reconnect.
+	src.addEventListener('close', () => { try { src.close(); } catch {} scheduleReconnect(); });
 
 	src.onerror = () => {
-		const el = document.getElementById('sn-positions');
-		if (el && !el.querySelector('.sn-pos-row')) {
-			el.innerHTML = '<p class="sn-empty">Live feed offline — positions update on next refresh.</p>';
-		}
+		// Take control of retry ourselves (close → backoff) so the state is visible
+		// and the server's duration cap doesn't read as a permanent outage.
+		try { src.close(); } catch {}
+		if (_sseSource === src) _sseSource = null;
+		scheduleReconnect();
 	};
+}
+
+function scheduleReconnect() {
+	if (!_strategies.length || _sseTimer) return;
+	if (!document.getElementById('sn-positions')) return; // page navigated away
+	_sseRetry = Math.min(_sseRetry + 1, 6);
+	const delay = Math.min(1000 * 2 ** (_sseRetry - 1), 30000);
+	setConn('reconnecting', `Reconnecting in ${Math.round(delay / 1000)}s…`);
+	_sseTimer = setTimeout(() => {
+		_sseTimer = null;
+		if (document.getElementById('sn-positions')) connectSse();
+	}, delay);
 }
 
 // ── Toast ─────────────────────────────────────────────────────────────────────
