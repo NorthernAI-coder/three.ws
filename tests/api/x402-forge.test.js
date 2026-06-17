@@ -43,6 +43,20 @@ vi.mock('../../api/_providers/replicate.js', () => ({
 	}),
 }));
 
+// Free NVIDIA NIM TRELLIS lane — the primary text→3D engine. Hoisted so each test
+// controls it: by default createNvidiaProvider THROWS (no NVIDIA_API_KEY), which
+// exercises the never-dead-end degrade to the Replicate reconstruct lane. The
+// NVIDIA-path tests override it per-call with mockReturnValueOnce.
+const nvidiaMock = vi.hoisted(() => ({
+	createNvidiaProvider: vi.fn(() => {
+		throw Object.assign(new Error('NVIDIA_API_KEY is required for the nvidia (TRELLIS) provider'), {
+			code: 'missing_key',
+			status: 503,
+		});
+	}),
+}));
+vi.mock('../../api/_providers/nvidia.js', () => nvidiaMock);
+
 // Rate limiter: deterministic success, no Upstash dependency.
 vi.mock('../../api/_lib/rate-limit.js', async (importActual) => {
 	const actual = await importActual();

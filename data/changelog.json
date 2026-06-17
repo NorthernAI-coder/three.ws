@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-06-17",
+			"title": "Embeddable 3D agents now default to a clean, bare avatar",
+			"summary": "The <agent-3d> embed tag now starts as the simplest thing it can be: a plain 3D avatar on a transparent background, with no chat box, controls, or name plate unless you ask for them. Drop the tag with a body and you get just the avatar — perfect for hero sections and decorative scenes. Everything richer is opt-in: add chat for a conversation panel, set background to dark, light, or any color, and theme it with CSS variables. Binding a live agent still turns chat on automatically, and you can now force a bare avatar even for a bound agent with chat=\"off\".",
+			"tags": [
+				"sdk",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-17",
 			"title": "Text → 3D in chat, now with live progress and a real viewer",
 			"summary": "Ask the chat to make any 3D object — \"a brass steampunk owl, full body\" — and watch it build right in the conversation. The concept image appears first, a staged progress readout (reconstructing geometry → texturing → finalizing) replaces the old blank spinner, and the finished model drops into an interactive viewer with studio lighting, a soft contact shadow, and smooth auto-orbit. Download the GLB with one click, go fullscreen, recenter, or hit Rig & Animate to turn the mesh into a posed, moving character. Every failure now has a designed state with a Try again and an Open in Forge path, so a slow or busy run never dead-ends. Free, no key required.",
 			"tags": [

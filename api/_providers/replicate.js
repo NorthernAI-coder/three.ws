@@ -255,6 +255,65 @@ function extractGlbUrl(output) {
 	return null;
 }
 
+// Replicate throttles prediction CREATION (not polling) with HTTP 429. The cap
+// tightens hard when the account balance is under $5: Replicate drops the
+// create-prediction limit to ~6/min with a burst of 1, so a single forge (one
+// reconstruct create) can be throttled by any other in-flight create on the
+// account even though the window resets within seconds. A 429 means the
+// prediction was never created, so retrying is safe — no duplicate job, and a
+// paid caller has not settled yet (submit runs before settle). We honor
+// Retry-After, fall back to the "resets in ~Ns" hint Replicate puts in the body,
+// and cap each wait so a paid request still settles inside its authorization
+// window (x402 maxTimeoutSeconds: 60).
+const THROTTLE_MAX_ATTEMPTS = 3;
+const THROTTLE_MAX_WAIT_MS = 12_000;
+const THROTTLE_DEFAULT_WAIT_MS = 2_000;
+
+function sleep(ms) {
+	return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// Backoff (ms) before retrying a throttled create. Prefers the standard
+// Retry-After header (seconds); falls back to the "resets in ~Ns" phrasing in
+// the throttle body; otherwise a short sane default. Capped so one slow reset
+// can't blow the settlement window.
+function throttleDelayMs(response, data) {
+	const header = response?.headers?.get?.('retry-after');
+	const fromHeader = header ? Number.parseInt(header, 10) : NaN;
+	if (Number.isFinite(fromHeader) && fromHeader >= 0) {
+		return Math.min(fromHeader * 1000, THROTTLE_MAX_WAIT_MS);
+	}
+	const detail = typeof data?.detail === 'string' ? data.detail : '';
+	const m = /resets? in ~?(\d+)\s*s/i.exec(detail);
+	if (m) return Math.min(Number.parseInt(m[1], 10) * 1000, THROTTLE_MAX_WAIT_MS);
+	return THROTTLE_DEFAULT_WAIT_MS;
+}
+
+// POST a prediction-create request, transparently retrying a 429 throttle with a
+// bounded backoff. A network failure surfaces as `provider_unreachable`; the
+// final response (ok, a 404 for the version-resolve fallback, or an exhausted
+// 429) is returned for the caller to interpret. Both create sites in submit()
+// route through this so the throttle resilience is uniform.
+async function createPrediction(endpoint, body, authHeaders) {
+	let last = null;
+	for (let attempt = 0; attempt < THROTTLE_MAX_ATTEMPTS; attempt++) {
+		let response;
+		try {
+			response = await fetch(endpoint, { method: 'POST', headers: authHeaders, body });
+		} catch (err) {
+			throw Object.assign(new Error(`replicate submit failed: ${err?.message}`), {
+				code: 'provider_unreachable',
+				status: 502,
+			});
+		}
+		const data = await response.json().catch(() => ({}));
+		if (response.status !== 429) return { response, data };
+		last = { response, data };
+		if (attempt < THROTTLE_MAX_ATTEMPTS - 1) await sleep(throttleDelayMs(response, data));
+	}
+	return last;
+}
+
 // `apiToken` overrides the platform REPLICATE_API_TOKEN — passed by the forge
 // BYOK lane so a user can run the same reconstruction models on their own
 // Replicate account. When omitted the provider uses the platform token.
@@ -371,21 +430,7 @@ export function createRegenProvider({ apiToken } = {}) {
 				);
 			}
 
-			let response;
-			try {
-				response = await fetch(endpoint, {
-					method: 'POST',
-					headers: authHeaders,
-					body,
-				});
-			} catch (err) {
-				throw Object.assign(new Error(`replicate submit failed: ${err?.message}`), {
-					code: 'provider_unreachable',
-					status: 502,
-				});
-			}
-
-			let data = await response.json().catch(() => ({}));
+			let { response, data } = await createPrediction(endpoint, body, authHeaders);
 
 			// Community models 404 on the unversioned model-level endpoint even
 			// though the model exists — resolve the latest published version and
@@ -393,22 +438,31 @@ export function createRegenProvider({ apiToken } = {}) {
 			if (response.status === 404 && slugMatch && !isVersionHash) {
 				const [, owner, name, pinnedVersion] = slugMatch;
 				const version = pinnedVersion || (await resolveLatestVersion(owner, name, authHeaders));
-				try {
-					response = await fetch(`${REPLICATE_BASE}/predictions`, {
-						method: 'POST',
-						headers: authHeaders,
-						body: JSON.stringify({ ...requestBody, version }),
-					});
-				} catch (err) {
-					throw Object.assign(new Error(`replicate submit failed: ${err?.message}`), {
-						code: 'provider_unreachable',
-						status: 502,
-					});
-				}
-				data = await response.json().catch(() => ({}));
+				({ response, data } = await createPrediction(
+					`${REPLICATE_BASE}/predictions`,
+					JSON.stringify({ ...requestBody, version }),
+					authHeaders,
+				));
 			}
 
 			if (!response.ok) {
+				// A 429 that survives the bounded retry is a real throttle the caller
+				// can act on — classify it as a retryable rate limit (mirrors
+				// text-to-image.js) so the paid forge endpoint returns 429 + a
+				// Retry-After hint instead of a blind 502, and never settles a
+				// payment it can't fulfill.
+				if (response.status === 429) {
+					const message =
+						data?.detail ||
+						data?.title ||
+						'Replicate is throttling new generations (low account credit or rate limit) — retry shortly.';
+					throw Object.assign(new Error(message), {
+						code: 'rate_limited',
+						status: 429,
+						providerStatus: 429,
+						retryAfter: Math.ceil(throttleDelayMs(response, data) / 1000),
+					});
+				}
 				throw Object.assign(
 					new Error(data?.detail || data?.title || `replicate returned ${response.status}`),
 					{ code: 'provider_error', status: 502, providerStatus: response.status },

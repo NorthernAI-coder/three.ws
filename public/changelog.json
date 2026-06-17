@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-17T22:46:11.205Z",
+	"generated_at": "2026-06-17T22:52:45.827Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -300,6 +300,17 @@
 			"tags": [
 				"feature",
 				"sdk"
+			]
+		},
+		{
+			"date": "2026-06-17",
+			"type": "update",
+			"title": "Embeddable 3D agents now default to a clean, bare avatar",
+			"summary": "The <agent-3d> embed tag now starts as the simplest thing it can be: a plain 3D avatar on a transparent background, with no chat box, text input, microphone, or name plate unless you ask for them. Drop the tag with a body and you get just the avatar — perfect for hero sections and decorative scenes. Everything richer is opt-in: add chat for a conversation panel, set background to dark, light, or any color, and theme it with CSS variables. Binding a live agent still turns chat on automatically, and you can now force a bare avatar even for a bound agent with chat=\"off\".",
+			"link": null,
+			"tags": [
+				"sdk",
+				"improvement"
 			]
 		},
 		{
