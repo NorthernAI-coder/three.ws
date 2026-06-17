@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-17T20:21:48.884Z",
+	"generated_at": "2026-06-17T21:40:08.142Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -648,6 +648,16 @@
 		{
 			"date": "2026-06-17",
 			"type": "update",
+			"title": "Pole Club dancers are three distinct avatars again",
+			"summary": "The three dancers in the Pole Club had collapsed onto a single look. Each pole is now pinned to its own verified, distinct 3D rig — including Dylan from the gallery — so the lineup reads as three different dancers again. You can still swap any pole to a different avatar with the new per-pole Avatar picker.",
+			"link": "/club",
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-17",
+			"type": "update",
 			"title": "Rarest Fits button styled in the cosmetics shop",
 			"summary": "The Rarest Fits leaderboard button in the cosmetics shop header now has proper hover, active, and focus states matching the rest of the shop chrome, and collapses to a compact glyph button on mobile.",
 			"link": "/play",
@@ -746,6 +756,16 @@
 			"link": "/irl",
 			"tags": [
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-17",
+			"type": "update",
+			"title": "The IBM x402 demo grew a 3D agent that pays for itself",
+			"summary": "The live x402 demo at three.ws/ibm/x402-demo now has a 3D AI agent below the payment card. When you run the $0.001 call, the agent watches the same on-chain settlement you do and reacts in real time — it celebrates and announces the payment the moment it clears. You can also ask it how x402 and $THREE work. Under it, three new rooms — Forge (text to 3D), Play (live worlds), and IRL (augmented reality) — load the real three.ws surfaces inline on a click, or open full-screen. Everything still loads from three.ws with no build step.",
+			"link": "/ibm/x402-demo",
+			"tags": [
+				"feature"
 			]
 		},
 		{

@@ -296,6 +296,61 @@ a:focus-visible{outline-offset:3px}
   .raw summary{min-height:44px;display:flex;align-items:center}
 }
 
+/* ── 3D agent layer ── */
+.agent-grid{display:grid;grid-template-columns:1fr;gap:28px;margin-top:28px;align-items:start}
+@media(min-width:760px){.agent-grid{grid-template-columns:minmax(0,360px) 1fr;gap:36px}}
+.agent-stage{position:relative;border:1px solid var(--ibm-divider);background:var(--ibm-field);min-height:420px;overflow:hidden}
+.agent-stage agent-3d{display:block;width:100%;height:460px}
+/* Skeleton silhouette shown until the web component upgrades + boots. The booted
+   agent paints over it; if the script never loads, this stays as a calm fallback. */
+.agent-skel{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:3%;padding-bottom:8%;pointer-events:none}
+.agent-skel .s-head{width:22%;max-width:84px;aspect-ratio:1;border-radius:50%;background:linear-gradient(90deg,var(--ibm-skel-a) 25%,var(--ibm-skel-b) 37%,var(--ibm-skel-a) 63%);background-size:400% 100%;animation:sk 1.6s ease infinite}
+.agent-skel .s-body{width:42%;max-width:160px;height:44%;border-radius:44% 44% 24% 24%/26% 26% 9% 9%;background:linear-gradient(90deg,var(--ibm-skel-a) 25%,var(--ibm-skel-b) 37%,var(--ibm-skel-a) 63%);background-size:400% 100%;animation:sk 1.6s ease infinite}
+agent-3d:defined ~ .agent-skel{display:none}
+.agent-copy h3{font-size:18px;font-weight:600;margin-bottom:8px}
+.agent-copy p{font-size:14px;color:var(--ibm-muted);font-weight:300;line-height:1.65;margin-bottom:14px;max-width:48ch}
+.agent-copy .agent-state{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:500;color:var(--ibm-subtle);border:1px solid var(--ibm-border);padding:5px 12px;border-radius:2px;margin-bottom:14px}
+.agent-copy .agent-state .dot{width:7px;height:7px;border-radius:50%;background:var(--ibm-subtle);flex:0 0 auto;transition:background .2s}
+.agent-copy .agent-state.ready .dot{background:var(--ibm-green)}
+.agent-copy .agent-state.acting .dot{background:var(--ibm-blue);animation:dotpulse 1.2s var(--ease) infinite}
+.agent-copy .agent-state.err .dot{background:var(--ibm-red)}
+.agent-prompts{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+.agent-prompt{font-size:12px;font-weight:500;color:var(--ibm-blue);background:none;border:1px solid var(--ibm-border);padding:7px 12px;cursor:pointer;border-radius:2px;font-family:inherit;transition:border-color .12s,background .12s}
+.agent-prompt:hover{border-color:var(--ibm-blue);background:var(--ibm-field)}
+
+/* ── Rooms (Forge / Play / IRL) ── */
+.rooms{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--ibm-border);border:1px solid var(--ibm-border);margin-top:28px}
+@media(max-width:760px){.rooms{grid-template-columns:1fr}}
+.room{background:var(--ibm-surface);display:flex;flex-direction:column;min-height:240px}
+.room-head{padding:22px 22px 0;flex:0 0 auto}
+.room-ico{width:34px;height:34px;color:var(--ibm-blue);margin-bottom:12px}
+.room-ico svg{width:100%;height:100%;display:block}
+.room h3{font-size:16px;font-weight:600;margin-bottom:6px}
+.room h3 .verb{font-family:var(--font-mono);font-size:11px;color:var(--ibm-blue);font-weight:500;display:block;letter-spacing:.06em;text-transform:uppercase;margin-bottom:5px}
+.room p{font-size:13px;color:var(--ibm-muted);font-weight:300;line-height:1.55}
+.room-actions{margin-top:auto;padding:16px 22px 20px;display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.room-open{display:inline-flex;align-items:center;justify-content:center;gap:8px;background:var(--ibm-blue-fill);color:#fff;border:none;cursor:pointer;font-family:inherit;font-size:13px;font-weight:500;padding:9px 16px;transition:background .12s,transform .04s}
+.room-open:hover{background:var(--ibm-blue-fill-hover)}
+.room-open:active{transform:translateY(1px)}
+.room-out{font-size:12px;font-weight:500;color:var(--ibm-muted)}
+.room-out:hover{color:var(--ibm-blue)}
+/* Inline embed slot — hidden until launched, then fills with the live iframe. */
+.room-embed{display:none;position:relative;border-top:1px solid var(--ibm-border);background:var(--ibm-field)}
+.room.is-live .room-embed{display:block}
+.room.is-live .room-head,.room.is-live .room-actions{display:none}
+.room-embed iframe{display:block;width:100%;height:540px;border:0;background:var(--ibm-field)}
+.room-embed .embed-bar{display:flex;justify-content:space-between;align-items:center;padding:8px 14px;border-bottom:1px solid var(--ibm-border);font-size:12px;color:var(--ibm-subtle);font-weight:500}
+.room-embed .embed-bar button{background:none;border:1px solid var(--ibm-divider);color:var(--ibm-ink);font-family:inherit;font-size:12px;font-weight:500;padding:5px 10px;cursor:pointer;border-radius:2px}
+.room-embed .embed-bar button:hover{border-color:var(--ibm-blue);color:var(--ibm-blue)}
+.room-embed .embed-load{position:absolute;left:0;right:0;top:37px;bottom:0;display:flex;align-items:center;justify-content:center;gap:10px;font-size:13px;color:var(--ibm-subtle);background:var(--ibm-field)}
+.room-embed.loaded .embed-load{display:none}
+.room-embed .embed-load .spin{width:16px;height:16px;border:2px solid var(--ibm-divider);border-top-color:var(--ibm-blue);border-radius:50%;animation:spin .8s linear infinite}
+.room-embed .embed-err{position:absolute;left:0;right:0;top:37px;bottom:0;display:none;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:20px;text-align:center;font-size:13px;color:var(--ibm-muted);background:var(--ibm-field)}
+.room-embed.failed .embed-err{display:flex}
+.room-embed.failed .embed-load,.room-embed.failed iframe{display:none}
+.room-embed .embed-err a{font-weight:600}
+@media(pointer:coarse){.room-open,.room-embed .embed-bar button,.agent-prompt{min-height:44px}}
+
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}
 }
@@ -412,6 +467,113 @@ a:focus-visible{outline-offset:3px}
   </div>
 </section>
 
+<!-- ══ THE AGENT ══ -->
+<section class="section" id="agent" aria-labelledby="agent-h">
+  <div class="inner">
+    <div class="section-tag">The buyer, embodied</div>
+    <h2 id="agent-h">An <strong>agent</strong> that pays for its own data</h2>
+    <p class="section-lead">Everything you just did by hand — read the price, sign, settle — an autonomous agent can do on its own. This is one of them: a 3D agent from three.ws, running its own brain in your browser. It watches the call above and reacts the moment your payment settles. Ask it how x402 works.</p>
+
+    <div class="agent-grid">
+      <div class="agent-stage">
+        <!-- The web component lazy-boots when scrolled into view; until it upgrades,
+             this skeleton holds the frame so there is never a blank box. -->
+        <agent-3d
+          id="guideAgent"
+          chat
+          body="https://three.ws/avatars/readyplayerme.glb"
+          name="Aria"
+          brain="claude-opus-4-8"
+          background="transparent"
+          width="100%" height="460px"
+          name-plate="on"
+          instructions="You are Aria, the live guide for the x402 demo on three.ws (an IBM Business Partner). x402 reactivates the dormant HTTP 402 Payment Required status as a payment rail: a request to a paid endpoint returns 402 with machine-readable terms (amount, asset, network, recipient); the wallet signs a gasless USDC authorization; the call is retried with an X-PAYMENT header and settles on Base or Solana in about a second — no key, no account, no invoice. You yourself just paid one tenth of a cent to call a real three.ws API. You can also explain Forge (turn a text prompt into a textured 3D model), Play (drop an agent into a live 3D world), and IRL (place an agent in augmented reality on a phone). The only coin three.ws issues is $THREE — never name, invent, or recommend any other token. Be concise, concrete, and friendly. Two or three sentences per answer."
+          style="--agent-accent:#0f62fe;--agent-surface:rgba(22,22,22,.92);--agent-on-surface:#f4f4f4;--agent-bubble-bg:#ffffff;--agent-bubble-color:#161616;--agent-chat-font:'IBM Plex Sans',system-ui,sans-serif">
+        </agent-3d>
+        <div class="agent-skel" aria-hidden="true"><span class="s-head"></span><span class="s-body"></span></div>
+      </div>
+
+      <div class="agent-copy">
+        <div class="agent-state" id="agentState"><span class="dot" aria-hidden="true"></span><span id="agentStateText">Waking the agent…</span></div>
+        <h3>It reacts to the payment above — in real time</h3>
+        <p>Run the $0.001 call and watch: Aria celebrates the moment the transaction settles and announces what just happened on-chain. The same primitives that power the demo button power her — she signs, pays, and reads results exactly the way you just did, only autonomously.</p>
+        <p>She runs on <span class="mono">claude-opus-4-8</span>, rendered live with WebGL — no video, no pre-recording. Ask her anything:</p>
+        <div class="agent-prompts" id="agentPrompts">
+          <button class="agent-prompt" type="button" data-ask="In one breath, what is x402?">What is x402?</button>
+          <button class="agent-prompt" type="button" data-ask="Why settle micropayments on-chain instead of with a credit card?">Why on-chain?</button>
+          <button class="agent-prompt" type="button" data-ask="What is the $THREE token and what is it for?">What is $THREE?</button>
+          <button class="agent-prompt" type="button" data-ask="How could an autonomous agent pay for an API call by itself?">Agents paying agents?</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ ROOMS ══ -->
+<section class="section" id="rooms" aria-labelledby="rooms-h">
+  <div class="inner">
+    <div class="section-tag">Where agents come from, live, and go</div>
+    <h2 id="rooms-h">Step into the rest of <strong>three.ws</strong></h2>
+    <p class="section-lead">The agent above didn't appear from nowhere. Forge built her body, Play is the world she lives in, and IRL puts her in the room with you. Each one is a real, production three.ws surface — load it right here, or open it full-screen.</p>
+
+    <div class="rooms">
+      <!-- FORGE -->
+      <div class="room" data-room="forge" data-src="https://three.ws/forge" data-allow="clipboard-write; xr-spatial-tracking; fullscreen">
+        <div class="room-head">
+          <div class="room-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7"/><path d="M12 11v10"/></svg></div>
+          <h3><span class="verb">Forge · Text → 3D</span>Describe it, get a model</h3>
+          <p>Type a prompt and Forge returns a textured, downloadable GLB you can orbit, rig, and drop into any agent — bodies like Aria's start here.</p>
+        </div>
+        <div class="room-actions">
+          <button class="room-open" type="button">Open inline →</button>
+          <a class="room-out" href="https://three.ws/forge" target="_blank" rel="noopener">Full page ↗</a>
+        </div>
+        <div class="room-embed">
+          <div class="embed-bar"><span>three.ws/forge</span><button type="button" data-close>Close</button></div>
+          <div class="embed-load"><span class="spin" aria-hidden="true"></span><span>Loading Forge…</span></div>
+          <div class="embed-err">Couldn't load Forge inline. <a href="https://three.ws/forge" target="_blank" rel="noopener">Open it in a new tab ↗</a></div>
+        </div>
+      </div>
+
+      <!-- PLAY -->
+      <div class="room" data-room="play" data-src="https://three.ws/play" data-allow="fullscreen; gamepad; xr-spatial-tracking; autoplay">
+        <div class="room-head">
+          <div class="room-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="6" width="20" height="12" rx="6"/><path d="M7 12h4M9 10v4"/><circle cx="16" cy="11" r="1"/><circle cx="18.5" cy="13.5" r="1"/></svg></div>
+          <h3><span class="verb">Play · Live worlds</span>Drop an agent into a world</h3>
+          <p>A multiplayer 3D space where agents and visitors share the same room — walk, wave, and watch them react to live on-chain activity.</p>
+        </div>
+        <div class="room-actions">
+          <button class="room-open" type="button">Open inline →</button>
+          <a class="room-out" href="https://three.ws/play" target="_blank" rel="noopener">Full page ↗</a>
+        </div>
+        <div class="room-embed">
+          <div class="embed-bar"><span>three.ws/play</span><button type="button" data-close>Close</button></div>
+          <div class="embed-load"><span class="spin" aria-hidden="true"></span><span>Loading Play…</span></div>
+          <div class="embed-err">Couldn't load Play inline. <a href="https://three.ws/play" target="_blank" rel="noopener">Open it in a new tab ↗</a></div>
+        </div>
+      </div>
+
+      <!-- IRL -->
+      <div class="room" data-room="irl" data-src="https://three.ws/irl" data-allow="camera; gyroscope; accelerometer; magnetometer; xr-spatial-tracking; fullscreen">
+        <div class="room-head">
+          <div class="room-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 9l9-6 9 6v6l-9 6-9-6V9z"/><path d="M12 3v18M3 9l9 6 9-6"/></svg></div>
+          <h3><span class="verb">IRL · Augmented reality</span>Put an agent in the room</h3>
+          <p>Anchor a 3D agent to real space and view it through your phone's camera. Best on a mobile device — scan the QR or open IRL on your phone.</p>
+        </div>
+        <div class="room-actions">
+          <button class="room-open" type="button">Open inline →</button>
+          <a class="room-out" href="https://three.ws/irl" target="_blank" rel="noopener">Full page ↗</a>
+        </div>
+        <div class="room-embed">
+          <div class="embed-bar"><span>three.ws/irl</span><button type="button" data-close>Close</button></div>
+          <div class="embed-load"><span class="spin" aria-hidden="true"></span><span>Loading IRL…</span></div>
+          <div class="embed-err">Couldn't load IRL inline — AR works best opened directly on a phone. <a href="https://three.ws/irl" target="_blank" rel="noopener">Open on your device ↗</a></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- ══ EMBED ══ -->
 <section class="section" aria-labelledby="embed-h">
   <div class="inner">
@@ -441,6 +603,9 @@ a:focus-visible{outline-offset:3px}
       <a href="https://three.ws/docs/x402" target="_blank" rel="noopener">x402 Protocol</a>
       <a href="https://three.ws/docs/ibm-x402" target="_blank" rel="noopener">IBM × x402 Docs</a>
       <a href="https://three.ws/bazaar" target="_blank" rel="noopener">Endpoint Bazaar</a>
+      <a href="https://three.ws/forge" target="_blank" rel="noopener">Forge</a>
+      <a href="https://three.ws/play" target="_blank" rel="noopener">Play</a>
+      <a href="https://three.ws/irl" target="_blank" rel="noopener">IRL</a>
       <a href="https://three.ws/changelog" target="_blank" rel="noopener">Changelog</a>
     </nav>
     <div class="footer-legal">
@@ -451,6 +616,8 @@ a:focus-visible{outline-offset:3px}
 
 <!-- x402 drop-in payment modal (Phantom/MetaMask wallet flow + 402 retry) -->
 <script type="module" src="https://three.ws/x402.js"></script>
+<!-- <agent-3d> web component — the whole 3D agent framework in one tag. Lazy-boots when scrolled into view. -->
+<script type="module" src="https://three.ws/agent-3d/latest/agent-3d.js"></script>
 
 <script>
 (function () {
@@ -530,6 +697,106 @@ a:focus-visible{outline-offset:3px}
     return null;
   }
 
+  // ── 3D agent layer ────────────────────────────────────────────────────────
+  // The <agent-3d> element exposes scripted, LLM-free reactions (expressEmotion,
+  // playEmote, wave, notify). We drive those from the real payment lifecycle so
+  // the agent visibly responds to the same on-chain events the demo renders —
+  // no faked timing, no canned animation loop.
+  var agentReady = false;
+  function agentEl() { return document.getElementById('guideAgent'); }
+  function setAgentState(cls, text) {
+    var s = $('agentState'); if (!s) return;
+    s.className = 'agent-state' + (cls ? ' ' + cls : '');
+    $('agentStateText').textContent = text;
+  }
+  // Fire a reaction only once the component has booted; calls before that no-op
+  // safely inside the element, but gating avoids wasted work.
+  function agentReact(fn) {
+    var el = agentEl();
+    if (!el || !agentReady) return;
+    try { fn(el); } catch (_) {}
+  }
+  function wireAgent() {
+    var el = agentEl();
+    if (!el) return;
+    el.addEventListener('agent:ready', function () {
+      agentReady = true;
+      setAgentState('ready', 'Agent ready — ask it anything');
+    });
+    el.addEventListener('agent:error', function () {
+      setAgentState('err', 'Agent had trouble loading');
+    });
+    // Suggestion buttons hand the question to the agent's own brain.
+    var prompts = $('agentPrompts');
+    if (prompts) prompts.addEventListener('click', function (e) {
+      var btn = e.target.closest('[data-ask]'); if (!btn) return;
+      var el2 = agentEl();
+      if (el2 && typeof el2.say === 'function') {
+        el2.say(btn.getAttribute('data-ask'));
+        setAgentState('acting', 'Agent is answering…');
+        document.getElementById('agent').scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'center' });
+      }
+    });
+  }
+  function agentOnWaiting() {
+    setAgentState('acting', 'Watching your wallet…');
+    agentReact(function (el) { if (el.expressEmotion) el.expressEmotion('patience', 0.6); });
+  }
+  function agentOnSettled(out) {
+    var net = networkLabel((out.payment || {}).network);
+    setAgentState('acting', 'Settled — the agent saw it');
+    agentReact(function (el) {
+      if (el.expressEmotion) el.expressEmotion('celebration', 0.95);
+      if (el.playEmote) el.playEmote('cheer');
+      if (el.notify) el.notify('Settled on ' + net + ' — I just paid $0.001 for that call myself.', { priority: 'normal', duration: 7000 });
+    });
+    setTimeout(function () { if (agentReady) setAgentState('ready', 'Agent ready — ask it anything'); }, 7200);
+  }
+  function agentOnError() {
+    setAgentState(agentReady ? 'ready' : '', agentReady ? 'Agent ready — ask it anything' : 'Waking the agent…');
+    agentReact(function (el) { if (el.expressEmotion) el.expressEmotion('concern', 0.8); });
+  }
+
+  // ── rooms: lazy-load real three.ws surfaces inline on demand ───────────────
+  // Nothing loads until the visitor clicks — keeps the page light and respects
+  // data. The iframe streams a live, framable production surface (frame-ancestors
+  // is open for these routes); a load timeout falls back to an "open in tab" path.
+  function wireRooms() {
+    var rooms = document.querySelectorAll('.room');
+    Array.prototype.forEach.call(rooms, function (room) {
+      var openBtn = room.querySelector('.room-open');
+      var embed = room.querySelector('.room-embed');
+      var closeBtn = room.querySelector('[data-close]');
+      var loadedIframe = null, timer = null;
+
+      openBtn.addEventListener('click', function () {
+        if (loadedIframe) { room.classList.add('is-live'); return; }
+        room.classList.add('is-live');
+        embed.classList.remove('failed', 'loaded');
+        var iframe = document.createElement('iframe');
+        iframe.title = room.getAttribute('data-room') + ' — three.ws';
+        iframe.loading = 'lazy';
+        iframe.setAttribute('allow', room.getAttribute('data-allow') || '');
+        iframe.setAttribute('referrerpolicy', 'no-referrer-when-downgrade');
+        iframe.addEventListener('load', function () {
+          clearTimeout(timer);
+          embed.classList.add('loaded');
+        });
+        // If the surface refuses to frame or stalls, surface the new-tab fallback.
+        timer = setTimeout(function () {
+          if (!embed.classList.contains('loaded')) embed.classList.add('failed');
+        }, 12000);
+        iframe.src = room.getAttribute('data-src');
+        embed.appendChild(iframe);
+        loadedIframe = iframe;
+      });
+
+      closeBtn.addEventListener('click', function () {
+        room.classList.remove('is-live');
+      });
+    });
+  }
+
   // ── 1. live 402 challenge preview ─────────────────────────────────────────
   function loadChallengePreview() {
     var ticker = sanitizeTicker($('ticker').value) || 'GRANITE';
@@ -599,11 +866,13 @@ a:focus-visible{outline-offset:3px}
     var el = $('result'); el.className = 'result is-empty';
     el.innerHTML = 'Run the call to see live, on-chain-paid data appear here.';
     announce('');
+    setAgentState(agentReady ? 'ready' : '', agentReady ? 'Agent ready — ask it anything' : 'Waking the agent…');
   }
   function setResultLoading(msg) {
     var el = $('result'); el.className = 'result is-loading';
     el.innerHTML = '<div class="r-status"><span class="spin" aria-hidden="true"></span><span>' + escapeHtml(msg || 'Waiting for your wallet…') + '</span></div>';
     announce(msg || 'Waiting for your wallet.');
+    agentOnWaiting();
   }
   function setResultError(msg) {
     var text = msg || 'Something went wrong.';
@@ -611,6 +880,7 @@ a:focus-visible{outline-offset:3px}
     el.innerHTML = '<div class="r-status err"><span aria-hidden="true">✕</span> <span>' + escapeHtml(text) + '</span></div><button class="retry" type="button" id="retryBtn">Try again</button>';
     var rb = $('retryBtn'); if (rb) rb.addEventListener('click', runPayment);
     announce('Error: ' + text);
+    agentOnError();
   }
   function recoPill(result) {
     if (result.exact_collision) return '<span class="pill bad">taken</span>';
@@ -622,6 +892,7 @@ a:focus-visible{outline-offset:3px}
     var result = out.result || {};
     var payment = out.payment || {};
     var el = $('result'); el.className = 'result is-done';
+    agentOnSettled(out);
 
     var html = '';
     html += '<div class="r-status ok"><span class="r-check" aria-hidden="true">✓</span><span>Payment settled — response delivered</span></div>';
@@ -792,6 +1063,8 @@ a:focus-visible{outline-offset:3px}
     }
   });
 
+  wireAgent();
+  wireRooms();
   pollForWallet();
   loadChallengePreview();
 })();

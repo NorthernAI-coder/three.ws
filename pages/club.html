@@ -780,6 +780,62 @@
 				.club-journey { transition: opacity 0.6s ease; }
 			}
 
+			/* Agent switcher — pick which avatar you walk in as, swappable live at
+			   any point in the journey. Top-left, clear of the journey nav and the
+			   minimap. Toggled with the other walk-in UI by src/club-entrance.js. */
+			.club-agent-switch {
+				position: fixed;
+				top: 18px;
+				left: 18px;
+				z-index: 9445;
+				display: flex;
+				align-items: center;
+				gap: 9px;
+				padding: 7px 10px 7px 13px;
+				border-radius: 999px;
+				background: rgba(8, 5, 12, 0.6);
+				border: 1px solid rgba(255, 59, 214, 0.18);
+				backdrop-filter: blur(10px);
+				-webkit-backdrop-filter: blur(10px);
+				box-shadow: 0 10px 34px -14px rgba(0, 0, 0, 0.85);
+				pointer-events: none;
+				opacity: 0;
+				transform: translateY(-10px);
+				transition: opacity 0.6s ease, transform 0.6s ease;
+			}
+			.club-agent-switch.is-visible { opacity: 1; transform: translateY(0); pointer-events: auto; }
+			.club-agent-label {
+				font: 600 11px/1 'Inter', system-ui, sans-serif;
+				letter-spacing: 0.08em;
+				text-transform: uppercase;
+				color: var(--text-3, #7c5d92);
+			}
+			.club-agent-select {
+				appearance: none;
+				-webkit-appearance: none;
+				max-width: 168px;
+				padding: 5px 28px 5px 11px;
+				border-radius: 999px;
+				border: 1px solid rgba(255, 255, 255, 0.14);
+				background:
+					url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23ff7fe0' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat right 11px center,
+					rgba(255, 255, 255, 0.06);
+				color: #fff;
+				font: 600 12px/1 'Inter', system-ui, sans-serif;
+				cursor: pointer;
+				text-overflow: ellipsis;
+				transition: border-color 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+			}
+			.club-agent-select:hover { border-color: rgba(255, 59, 214, 0.5); }
+			.club-agent-select:focus-visible { outline: none; border-color: #ff3bd6; box-shadow: 0 0 0 3px rgba(255, 59, 214, 0.25); }
+			.club-agent-select:disabled { opacity: 0.55; cursor: progress; }
+			.club-agent-select option { background: #120a18; color: #fff; }
+			@media (max-width: 560px) {
+				.club-agent-switch { top: 14px; left: 12px; padding: 6px 9px 6px 11px; gap: 7px; }
+				.club-agent-label { display: none; }
+				.club-agent-select { max-width: 132px; font-size: 11px; }
+			}
+
 			/* Minimap — top-down radar of the room you're in: your avatar, the
 			   way you're facing, and a pulsing line to the door you're headed
 			   for. Drawn each frame by src/club-entrance.js. */
@@ -1643,6 +1699,12 @@
 				<li class="club-journey-step" data-step="3"><span class="cj-dot"></span><span class="cj-label">Stage</span></li>
 			</ol>
 		</nav>
+		<div id="club-agent-switch" class="club-agent-switch">
+			<span class="club-agent-label">Agent</span>
+			<select id="club-agent-select" class="club-agent-select" aria-label="Choose which agent you walk as">
+				<option value="">Loading…</option>
+			</select>
+		</div>
 		<div id="club-minimap" class="club-minimap" aria-hidden="true">
 			<div class="club-minimap-head">
 				<span id="club-minimap-label" class="club-minimap-label">Alley</span>

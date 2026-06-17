@@ -65,6 +65,20 @@ const PASS_KEY = 'club:pass:v1';
 const MOVE_CLIPS = new Set(['idle', 'walk']);
 const VENUE_NAMES = ['Alley', 'Gallery', 'Clubhouse']; // index-aligned with SEQUENCE, for the minimap label
 
+// The agent switcher's catalog: bundled, known-good humanoid rigs that ship with
+// the app (so the dropdown always has options offline — Hard rule 9), plus public
+// avatars pulled from the gallery at runtime. Deduped by URL. Any rig the clip
+// library can't drive falls back to its bind pose in the AnimationManager, so a
+// pick never freezes the walk.
+const BUNDLED_AGENTS = [
+	{ key: 'default', name: 'Aria', url: AVATAR_URL },
+	{ key: 'michelle', name: 'Michelle', url: '/avatars/michelle.glb' },
+	{ key: 'realistic-female', name: 'Realistic', url: '/avatars/realistic-female.glb' },
+	{ key: 'studio', name: 'Studio', url: '/avatars/readyplayerme.glb' },
+	{ key: 'mannequin', name: 'Mannequin', url: '/avatars/mannequin.glb' },
+];
+const AGENT_GALLERY_URL = '/api/explore?source=avatar&category=avatar&only3d=1&limit=24';
+
 const ROOM_HEIGHT = 7.0; // environments normalised to this Y so the avatar reads human
 const AVATAR_HEIGHT = 1.75;
 const MOVE_SPEED = 2.6; // metres / second
@@ -252,7 +266,10 @@ async function start(canvasEl) {
 	}
 
 	// ── Avatar ─────────────────────────────────────────────────────────────
-	const avatar = avatarGltf.scene;
+	// `avatar` is the swappable child of the rig — the agent switcher (below)
+	// hot-swaps it live without disturbing the rig's position/heading.
+	let avatar = avatarGltf.scene;
+	let currentAvatarUrl = AVATAR_URL;
 	scaleToHeight(avatar, AVATAR_HEIGHT);
 	placeOnFloor(avatar);
 	const rig = new Group(); // yaw the rig; the model sits at the rig origin
@@ -260,7 +277,7 @@ async function start(canvasEl) {
 	scene.add(rig);
 
 	const anim = new AnimationManager();
-	anim.attach(avatar);
+	anim.attach(avatar, { avatarUrl: AVATAR_URL });
 	const moveDefs = (Array.isArray(manifest) ? manifest : []).filter((d) => MOVE_CLIPS.has(d.name));
 	anim.setAnimationDefs(moveDefs);
 	// Inject the pre-fetched clip data directly — no second network round-trip,
@@ -324,8 +341,15 @@ async function start(canvasEl) {
 	const joy = { active: false, id: null, ox: 0, oy: 0, nx: 0, ny: 0 };
 	const look = { id: null, x: 0, y: 0, moved: false };
 
+	// Drop any held movement while a form control (the agent switcher) has focus,
+	// so arrow keys page its options instead of walking the avatar.
+	const typingInForm = () => {
+		const a = document.activeElement;
+		return !!a && (a.tagName === 'SELECT' || a.tagName === 'INPUT' || a.tagName === 'TEXTAREA');
+	};
 	const onKeyDown = (e) => {
 		approachAudio.arm();
+		if (typingInForm()) return;
 		const k = e.key.toLowerCase();
 		if (k === 'e') { tryEnter(); return; }
 		if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) {
@@ -334,8 +358,21 @@ async function start(canvasEl) {
 		}
 	};
 	const onKeyUp = (e) => keys.delete(e.key.toLowerCase());
+	// A held key whose keyup lands on another window (alt-tab, focus loss) would
+	// otherwise stick "down" forever and walk the avatar on its own. Releasing
+	// everything on blur / tab-hide is the fix.
+	const releaseControls = () => {
+		keys.clear();
+		joy.active = false; joy.id = null; joy.nx = 0; joy.ny = 0;
+		if (joyBase) joyBase.classList.remove('is-active');
+		if (joyKnob) joyKnob.style.transform = 'translate(0,0)';
+	};
+	const onBlur = () => releaseControls();
+	const onVisibility = () => { if (document.hidden) releaseControls(); };
 	window.addEventListener('keydown', onKeyDown);
 	window.addEventListener('keyup', onKeyUp);
+	window.addEventListener('blur', onBlur);
+	document.addEventListener('visibilitychange', onVisibility);
 
 	// Pointer: a drag on the left third of the screen drives the joystick (touch
 	// only); anything else orbits the camera.
@@ -406,6 +443,92 @@ async function start(canvasEl) {
 	showMinimap(true);
 	setJourneyStep(venueIndex);
 
+	// ── Agent switcher ───────────────────────────────────────────────────────
+	// Pick which avatar you walk as, live, at any point in the journey. Bundled
+	// rigs are offered immediately; public gallery avatars stream in and append.
+	const agentSelect = document.getElementById('club-agent-select');
+	let swappingAgent = false;
+
+	function setupAgentSwitch() {
+		if (!agentSelect) return;
+		renderAgentOptions(BUNDLED_AGENTS);
+		agentSelect.value = currentAvatarUrl;
+		agentSelect.addEventListener('change', onAgentChange);
+		loadGalleryAgents();
+	}
+
+	// Build/refresh the <option> list, keeping the active rig selected. Deduped by
+	// URL so a gallery avatar that matches a bundled one isn't listed twice.
+	function renderAgentOptions(list) {
+		if (!agentSelect) return;
+		const seen = new Set();
+		const opts = [];
+		for (const a of list) {
+			if (!a?.url || seen.has(a.url)) continue;
+			seen.add(a.url);
+			const o = document.createElement('option');
+			o.value = a.url;
+			o.textContent = a.name || 'Agent';
+			opts.push(o);
+		}
+		agentSelect.replaceChildren(...opts);
+		agentSelect.value = currentAvatarUrl;
+	}
+
+	let agentList = [...BUNDLED_AGENTS];
+	async function loadGalleryAgents() {
+		try {
+			const res = await fetch(AGENT_GALLERY_URL, { headers: { accept: 'application/json' } });
+			if (!res.ok) return;
+			const data = await res.json();
+			const items = Array.isArray(data?.items) ? data.items : [];
+			const extra = items
+				.filter((it) => it?.glbUrl && it.has3d !== false && it.kind === 'avatar')
+				.map((it) => ({ key: `gallery-${it.avatarId}`, name: it.name || 'Avatar', url: it.glbUrl }));
+			if (!extra.length) return;
+			agentList = [...BUNDLED_AGENTS, ...extra];
+			renderAgentOptions(agentList);
+		} catch (err) {
+			log.warn('[club-entrance] gallery agents fetch failed', err);
+		}
+	}
+
+	async function onAgentChange() {
+		const url = agentSelect.value;
+		if (!url || url === currentAvatarUrl || swappingAgent) {
+			agentSelect.value = currentAvatarUrl;
+			return;
+		}
+		swappingAgent = true;
+		agentSelect.disabled = true;
+		const movingNow = anim.currentName === 'walk';
+		try {
+			const gltf = await loader.loadAsync(url);
+			const next = gltf.scene;
+			scaleToHeight(next, AVATAR_HEIGHT);
+			placeOnFloor(next);
+			// Swap the rig's child — position, heading and camera are untouched.
+			rig.remove(avatar);
+			disposeObject(avatar);
+			avatar = next;
+			rig.add(avatar);
+			// Rebind the clip library to the new rig (idle/walk are already in memory)
+			// and resume whatever the avatar was doing so there's no T-pose flash.
+			anim.attach(avatar, { avatarUrl: url });
+			await anim.play(movingNow ? 'walk' : 'idle');
+			currentAvatarUrl = url;
+		} catch (err) {
+			log.warn('[club-entrance] agent swap failed', err);
+			agentSelect.value = currentAvatarUrl; // keep the working rig selected
+		} finally {
+			swappingAgent = false;
+			agentSelect.disabled = false;
+		}
+	}
+
+	setupAgentSwitch();
+	showAgentSwitch(true);
+
 	// Hint + prompt copy track where you are in the journey: the alley door takes
 	// the cover, the final place opens the stage, the rest just lead onward.
 	const isFinalVenue = () => venueIndex >= SEQUENCE.length - 1;
@@ -433,10 +556,12 @@ async function start(canvasEl) {
 	function tryEnter() {
 		if (!inputEnabled || !nearDoor) return;
 		inputEnabled = false;
+		releaseControls();
 		showPrompt(false);
 		showHint(false);
 		showJoystick(false);
 		showMinimap(false);
+		showAgentSwitch(false);
 		if (currentCover) {
 			// Hand off to the cover-charge card; we resume on admit (onPaid).
 			window.dispatchEvent(new CustomEvent('club:enter-door'));
@@ -464,6 +589,7 @@ async function start(canvasEl) {
 		showHint(true);
 		showJoystick(isTouch);
 		showMinimap(true);
+		showAgentSwitch(true);
 	});
 
 	// ── State + render loop ──────────────────────────────────────────────────
@@ -549,6 +675,7 @@ async function start(canvasEl) {
 					showHint(true);
 					showJoystick(isTouch);
 					showMinimap(true);
+					showAgentSwitch(true);
 				}
 				break;
 			}
@@ -618,7 +745,7 @@ async function start(canvasEl) {
 		paid = true;
 		currentCover = false;
 		approachAudio.handOff(); // the anthem (src/club.js) takes the night from here
-		showPrompt(false); showHint(false); showJoystick(false); showMinimap(false);
+		showPrompt(false); showHint(false); showJoystick(false); showMinimap(false); showAgentSwitch(false);
 		advance();
 	}
 	onAdmit = onPaid;
@@ -638,6 +765,9 @@ async function start(canvasEl) {
 		window.removeEventListener('resize', onResize);
 		window.removeEventListener('keydown', onKeyDown);
 		window.removeEventListener('keyup', onKeyUp);
+		window.removeEventListener('blur', onBlur);
+		document.removeEventListener('visibilitychange', onVisibility);
+		agentSelect?.removeEventListener('change', onAgentChange);
 		onAdmit = null;
 		try { anim.dispose?.(); } catch {}
 		try { approachAudio?.dispose(); } catch {}
@@ -645,7 +775,7 @@ async function start(canvasEl) {
 		composer.dispose();
 		renderer.dispose();
 		try { canvasEl.remove(); } catch {}
-		showHint(false); showJoystick(false); showPrompt(false); showJourney(false); showMinimap(false);
+		showHint(false); showJoystick(false); showPrompt(false); showJourney(false); showMinimap(false); showAgentSwitch(false);
 	}
 }
 
@@ -655,6 +785,7 @@ function showHint(v) { toggle('club-controls-hint', v); }
 function showJoystick(v) { toggle('club-joystick', v); }
 function showJourney(v) { toggle('club-journey', v); }
 function showMinimap(v) { toggle('club-minimap', v); }
+function showAgentSwitch(v) { toggle('club-agent-switch', v); }
 function toggle(id, v) {
 	const el = document.getElementById(id);
 	if (el) el.classList.toggle('is-visible', !!v);
@@ -897,12 +1028,12 @@ function buildMinimap() {
 }
 
 function scaleToHeight(obj, h) {
-	const b = new Box3().setFromObject(obj);
+	const b = new Box3().setFromObject(obj, true);
 	const cur = b.max.y - b.min.y || 1;
 	obj.scale.multiplyScalar(h / cur);
 }
 function placeOnFloor(obj) {
-	const b = new Box3().setFromObject(obj);
+	const b = new Box3().setFromObject(obj, true);
 	obj.position.y -= b.min.y;
 }
 

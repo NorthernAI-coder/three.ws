@@ -3,6 +3,33 @@
 	"entries": [
 		{
 			"date": "2026-06-17",
+			"title": "Chat tool calls no longer break on certain models",
+			"summary": "Some models (like GPT OSS 120B) return tool-call arguments as a ready-made object instead of streamed text. Chat assumed text and mangled it into \"[object Object]\", so tools such as ForgeTextTo3D failed with a JSON parse error. Chat now handles both formats, and a tool that takes no arguments no longer errors either — so generating a model from a prompt works across every model.",
+			"tags": [
+				"fix"
+			],
+			"link": "/chat"
+		},
+		{
+			"date": "2026-06-17",
+			"title": "Pole Club dancers are three distinct avatars again",
+			"summary": "The three dancers in the Pole Club had collapsed onto a single look. Each pole is now pinned to its own verified, distinct 3D rig — including Dylan from the gallery — so the lineup reads as three different dancers again. You can still swap any pole to a different avatar with the new per-pole Avatar picker.",
+			"tags": [
+				"fix"
+			],
+			"link": "/club"
+		},
+		{
+			"date": "2026-06-17",
+			"title": "The IBM x402 demo grew a 3D agent that pays for itself",
+			"summary": "The live x402 demo at three.ws/ibm/x402-demo now has a 3D AI agent below the payment card. When you run the $0.001 call, the agent watches the same on-chain settlement you do and reacts in real time — it celebrates and announces the payment the moment it clears. You can also ask it how x402 and $THREE work. Under it, three new rooms — Forge (text to 3D), Play (live worlds), and IRL (augmented reality) — load the real three.ws surfaces inline on a click, or open full-screen. Everything still loads from three.ws with no build step.",
+			"tags": [
+				"feature"
+			],
+			"link": "/ibm/x402-demo"
+		},
+		{
+			"date": "2026-06-17",
 			"title": "Never lose your way in — a minimap on the walk to the Pole Club",
 			"summary": "The walk-in to the Pole Club now has a live minimap in the top-right corner. It shows a top-down radar of the room you're in, your avatar as an arrow that points the way you're facing, and a pulsing line to the door you're headed for — so you always know which way the exit is. It re-fits to each room as you move from the alley to the gallery to the clubhouse, and the door marker turns green once you're in range to enter.",
 			"tags": [

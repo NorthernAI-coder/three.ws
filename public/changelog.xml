@@ -503,6 +503,14 @@
 			<description>When you tip a dancer in the Pole Club, the platform batches your tips and sweeps them on-chain to the dancer's registered wallet. A mismatch in how a settled tip recorded its network meant Solana tips were being set aside as 'no wallet' even when the dancer had a Solana address on file, so they never went out. That's fixed: tips paid on Solana are now matched to the dancer's Solana wallet and swept correctly, alongside the existing Base payouts. No tip was ever lost — stuck tips remained queued and now sweep on the next cycle.</description>
 		</item>
 		<item>
+			<title>Pole Club dancers are three distinct avatars again</title>
+			<link>https://three.ws/club</link>
+			<guid isPermaLink="false">2026-06-17:Pole Club dancers are three distinct avatars again</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>The three dancers in the Pole Club had collapsed onto a single look. Each pole is now pinned to its own verified, distinct 3D rig — including Dylan from the gallery — so the lineup reads as three different dancers again. You can still swap any pole to a different avatar with the new per-pole Avatar picker.</description>
+		</item>
+		<item>
 			<title>Rarest Fits button styled in the cosmetics shop</title>
 			<link>https://three.ws/play</link>
 			<guid isPermaLink="false">2026-06-17:Rarest Fits button styled in the cosmetics shop</guid>
@@ -581,6 +589,14 @@
 			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
 			<category>improvement</category>
 			<description>On three.ws/irl you can now open an agent by tapping its 3D body, not only its small floating name tag. Tapping near a name also works, with a finger-sized target that meets Apple's 44-pixel minimum, so you no longer have to pixel-hunt on a phone. When two agents stand on top of each other, the one in front wins instead of a random pick. As you move, the nearest agent you can reach lights up with a soft focus ring so you can see what you'll tap before you tap it — and if you've turned on Reduce Motion, the ring stays still. Looking and panning around no longer misfires as a tap.</description>
+		</item>
+		<item>
+			<title>The IBM x402 demo grew a 3D agent that pays for itself</title>
+			<link>https://three.ws/ibm/x402-demo</link>
+			<guid isPermaLink="false">2026-06-17:The IBM x402 demo grew a 3D agent that pays for itself</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The live x402 demo at three.ws/ibm/x402-demo now has a 3D AI agent below the payment card. When you run the $0.001 call, the agent watches the same on-chain settlement you do and reacts in real time — it celebrates and announces the payment the moment it clears. You can also ask it how x402 and $THREE work. Under it, three new rooms — Forge (text to 3D), Play (live worlds), and IRL (augmented reality) — load the real three.ws surfaces inline on a click, or open full-screen. Everything still loads from three.ws with no build step.</description>
 		</item>
 		<item>
 			<title>The Oracle's proof pages — wins, backtest, and live activity — load again</title>
