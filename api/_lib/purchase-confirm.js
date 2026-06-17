@@ -150,6 +150,31 @@ async function findReferencedTransferAmount(txSignature, recipient, splTokenMint
 	return null;
 }
 
+// Verify the platform-fee leg: the treasury's token account for `splTokenMint`
+// must have increased by at least `minAtomics` in this transaction. The fee leg
+// carries no Solana-Pay reference of its own (the reference rides the seller
+// leg, which validateTransfer checks), so we confirm it by the same balance-
+// delta technique @solana/pay uses — matched on the parsed token balance's
+// `owner`, which is robust to versioned txs and ATA addressing.
+async function feeLegSatisfied(txSignature, feeWallet, splTokenMint, minAtomics) {
+	if (minAtomics <= 0n) return true;
+	const tx = await rpc().withFallback((conn) =>
+		conn.getParsedTransaction(txSignature, {
+			commitment: 'confirmed',
+			maxSupportedTransactionVersion: 0,
+		}),
+	);
+	if (!tx || tx.meta?.err) return false;
+
+	const mintStr = splTokenMint.toBase58();
+	const matches = (b) => b && b.mint === mintStr && b.owner === feeWallet;
+	const pre = tx.meta.preTokenBalances?.find(matches);
+	const post = tx.meta.postTokenBalances?.find(matches);
+	const preAmt = BigInt(pre?.uiTokenAmount?.amount ?? '0');
+	const postAmt = BigInt(post?.uiTokenAmount?.amount ?? '0');
+	return postAmt - preAmt >= minAtomics;
+}
+
 /**
  * Run confirm for a single skill_purchases row.
  * @param {object} pur — the row, must include id, user_id, agent_id, skill,
@@ -225,8 +250,19 @@ async function confirmSolanaSkill(pur, payoutAddress) {
 	let lastErr = null;
 	for (const a of attempts) {
 		try {
+			// Seller leg: reference-bound, checked by @solana/pay (verifies the
+			// reference rides the FINAL instruction and the seller received ≥ leg).
 			await validateLeg(recipient, a.creator);
-			if (a.feeTaken.gt(0)) await validateLeg(new PublicKey(a.feeWallet), a.feeTaken);
+			// Fee leg: balance-delta on the treasury's token account.
+			if (a.feeTaken.gt(0)) {
+				const ok = await feeLegSatisfied(
+					txSignature,
+					a.feeWallet,
+					splToken,
+					BigInt(a.feeTaken.toFixed(0)),
+				);
+				if (!ok) throw new Error('platform fee leg missing or short');
+			}
 			matched = a;
 			break;
 		} catch (e) {

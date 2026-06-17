@@ -6990,14 +6990,13 @@ async function buildSplTransferWithReference({ payer, recipient, mint, amount, r
 	const fromAta = await getAssociatedTokenAddress(mintKey, payer);
 	const toAta = await getAssociatedTokenAddress(mintKey, recipientKey);
 
-	const ix = createTransferInstruction(fromAta, toAta, payer, amount);
-	// Solana Pay: append the reference as a readonly, non-signer key so the
-	// server can later locate this tx via getSignaturesForAddress(reference).
-	ix.keys.push({ pubkey: referenceKey, isSigner: false, isWritable: false });
-
 	const { blockhash } = await (await getSolanaConnection()).getLatestBlockhash('confirmed');
-	const tx = new Transaction({ feePayer: payer, recentBlockhash: blockhash }).add(ix);
+	const tx = new Transaction({ feePayer: payer, recentBlockhash: blockhash });
 
+	// Fee leg first (when present): the platform fee to the treasury. The seller
+	// leg goes LAST and carries the Solana-Pay reference — @solana/pay's
+	// validateTransfer only inspects the FINAL instruction for the reference
+	// binding, so the referenced transfer must be the last one in the tx.
 	if (fee && fee.amount > 0n) {
 		const feeOwner = new PublicKey(fee.recipient);
 		const feeAta = await getAssociatedTokenAddress(mintKey, feeOwner);
@@ -7006,6 +7005,12 @@ async function buildSplTransferWithReference({ payer, recipient, mint, amount, r
 		tx.add(createAssociatedTokenAccountIdempotentInstruction(payer, feeAta, feeOwner, mintKey));
 		tx.add(createTransferInstruction(fromAta, feeAta, payer, fee.amount));
 	}
+
+	const ix = createTransferInstruction(fromAta, toAta, payer, amount);
+	// Solana Pay: append the reference as a readonly, non-signer key so the
+	// server can later locate this tx via getSignaturesForAddress(reference).
+	ix.keys.push({ pubkey: referenceKey, isSigner: false, isWritable: false });
+	tx.add(ix);
 
 	return tx;
 }
