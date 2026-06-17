@@ -11,6 +11,10 @@ import { loadAgentKeypair } from './keys.js';
 import { getTradeCtx, signAndSend } from './trade-client.js';
 import { countOpenPositions, getDailySpend } from './strategy-store.js';
 import { notifyBuy, notifySell } from '../../api/_lib/sniper/notify.js';
+import {
+	getSpendLimits, enforceSpendLimit, SpendLimitError, recordSpend, lamportsToUsd,
+} from '../../api/_lib/agent-trade-guards.js';
+import { buildAmmSellInstructions } from './amm-exit.js';
 
 // Fee + rent headroom we keep above the trade size so a buy doesn't fail for
 // lack of lamports to pay fees / open the token ATA.
@@ -39,6 +43,50 @@ function bn(ctx, v) {
 	return new ctx.BN(BigInt(v).toString());
 }
 
+// ── shared per-agent spend policy ────────────────────────────────────────────
+// Bridges the sniper to the same ceiling that governs withdraw / x402 / trade
+// (api/_lib/agent-trade-guards.js). Returns { blocked, reason }. Never throws:
+// the sniper's own lamports caps stay the hard backstop, so a pricing or DB
+// hiccup here degrades to "allow" rather than stalling the trader.
+async function enforceSharedSpendPolicy(agentId, network, perTradeLamports) {
+	try {
+		const [row] = await sql`SELECT meta FROM agent_identities WHERE id = ${agentId} AND deleted_at IS NULL`;
+		const limits = getSpendLimits(row?.meta);
+		// No USD ceiling set → nothing to price or enforce; skip the price call.
+		if (limits.daily_usd == null && limits.per_tx_usd == null) return { blocked: false };
+		let usdValue = null;
+		try {
+			usdValue = await lamportsToUsd(perTradeLamports);
+		} catch {
+			// Can't price the SOL spend right now — don't block (lamports caps hold).
+			return { blocked: false };
+		}
+		await enforceSpendLimit({ agentId, limits, category: 'snipe', usdValue, network });
+		return { blocked: false };
+	} catch (err) {
+		if (err instanceof SpendLimitError) return { blocked: true, reason: 'spend_limit' };
+		log.warn?.('spend_policy_check_failed', { agent: agentId, message: err?.message });
+		return { blocked: false };
+	}
+}
+
+// Record a confirmed/simulated snipe buy into the shared custody ledger so it
+// counts toward the per-agent daily ceiling and shows in the audit trail.
+// Fire-and-forget — prices the SOL spend best-effort, never blocks the trade.
+function recordSnipeSpend({ agentId, userId, network, lamports, signature, mode, mint }) {
+	(async () => {
+		let usd = null;
+		try { usd = await lamportsToUsd(lamports); } catch { usd = null; }
+		await recordSpend({
+			agentId, userId, category: 'snipe', network, asset: 'SOL',
+			amountLamports: lamports, usd,
+			signature: signature && signature !== 'SIMULATED' ? signature : null,
+			status: mode === 'live' ? 'confirmed' : 'ok',
+			meta: { mint, mode },
+		});
+	})().catch((err) => log.warn?.('snipe_spend_record_failed', { agent: agentId, message: err?.message }));
+}
+
 /**
  * Attempt to snipe `mint` for `strat`. All checks short-circuit before any tx.
  * @returns {Promise<{ status: string, reason?: string, sig?: string }>}
@@ -58,6 +106,14 @@ export async function executeBuy({ cfg, strat, mint, throttle }) {
 		// 3. daily budget cap
 		const spent = await getDailySpend(strat.agent_id, cfg.network);
 		if (spent + perTrade > BigInt(strat.daily_budget_lamports)) return skip(tag, 'daily_budget');
+
+		// 3b. shared per-agent spend policy (the same ceiling that governs
+		// withdraw / x402 / trade). Opt-in: only priced + enforced when the owner
+		// has actually set a USD ceiling, so the hot snipe path stays price-call-
+		// free otherwise. Pricing/DB hiccups never block — the lamports caps above
+		// remain the hard backstop.
+		const policy = await enforceSharedSpendPolicy(strat.agent_id, cfg.network, perTrade);
+		if (policy.blocked) return skip(tag, policy.reason);
 
 		// 4. idempotency lock — claim the (agent,mint,network) slot BEFORE the tx.
 		const claimed = await sql`
@@ -125,6 +181,7 @@ export async function executeBuy({ cfg, strat, mint, throttle }) {
 			`;
 			log.trade('buy', { ...tag, mode: cfg.mode, sig, sol: lamportsToSol(perTrade), base: baseAmount.toString(), impact: Number(quote.priceImpactPct).toFixed(2) });
 			notifyBuy({ agentName: strat.agent_name || strat.agent_id, symbol: mint.symbol, mint: mint.mint, solSpent: lamportsToSol(perTrade), mode: cfg.mode, sig, chatId: strat.telegram_chat_id || null });
+			recordSnipeSpend({ agentId: strat.agent_id, userId: strat.user_id, network: cfg.network, lamports: perTrade, signature: sig, mode: cfg.mode, mint: mint.mint });
 			return { status: 'open', sig };
 		} catch (err) {
 			return await fail(posId, tag, errCode(err), err);
@@ -153,19 +210,35 @@ export async function executeSell({ cfg, position, reason }) {
 
 			let expectedOut;
 			let built;
-			try {
-				const quote = await ctx.client.quoteForSell({ mint: mintPk, baseAmount, slippagePct });
-				expectedOut = BigInt(quote.expectedQuoteOut.toString());
-				built = await ctx.client.buildSellInstructions({ mint: mintPk, user: keypair.publicKey, baseAmount, slippagePct });
-			} catch (err) {
-				if (err?.name === 'CoinGraduatedError') return await markGraduated(position.id, tag);
-				throw err;
+			let venue = 'bonding_curve';
+
+			// A position already flagged graduated skips the dead curve and goes
+			// straight to the AMM — no point re-quoting a curve we know is complete.
+			const preGraduated = typeof position.error === 'string' && position.error.startsWith('graduated');
+			if (preGraduated) {
+				built = await buildGraduatedSell({ cfg, position, keypair, baseAmount, slippagePct });
+				expectedOut = built.expectedQuoteOut;
+				venue = 'amm';
+			} else {
+				try {
+					const quote = await ctx.client.quoteForSell({ mint: mintPk, baseAmount, slippagePct });
+					expectedOut = BigInt(quote.expectedQuoteOut.toString());
+					built = await ctx.client.buildSellInstructions({ mint: mintPk, user: keypair.publicKey, baseAmount, slippagePct });
+				} catch (err) {
+					// Graduation is the one "failure" that isn't one: the curve is
+					// complete, so route the same exit through the AMM pool instead of
+					// parking the bag. Any other error propagates to the retry handler.
+					if (err?.name !== 'CoinGraduatedError') throw err;
+					built = await buildGraduatedSell({ cfg, position, keypair, baseAmount, slippagePct });
+					expectedOut = built.expectedQuoteOut;
+					venue = 'amm';
+				}
 			}
 
 			let sig = 'SIMULATED';
 			if (cfg.mode === 'live') {
 				sig = await signAndSend(ctx, keypair, built.instructions, cfg.confirmTimeoutMs);
-			} else {
+			} else if (venue === 'bonding_curve') {
 				expectedOut = BigInt(built.expectedQuoteOut.toString());
 			}
 
@@ -178,12 +251,13 @@ export async function executeSell({ cfg, position, reason }) {
 					exit_quote_lamports = ${expectedOut.toString()},
 					realized_pnl_lamports = ${pnl.toString()},
 					realized_pnl_pct = ${pnlPct},
+					error = ${null},
 					closed_at = now()
 				WHERE id = ${position.id}
 			`;
-			log.trade('sell', { ...tag, mode: cfg.mode, sig, pnl_sol: lamportsToSol(pnl), pnl_pct: pnlPct.toFixed(1) });
+			log.trade('sell', { ...tag, venue, mode: cfg.mode, sig, pnl_sol: lamportsToSol(pnl), pnl_pct: pnlPct.toFixed(1) });
 			notifySell({ agentName: position.agent_name || position.agent_id, symbol: position.symbol, mint: position.mint, pnlSol: lamportsToSol(pnl), pnlPct, exitReason: reason, mode: cfg.mode, sig, chatId: position.telegram_chat_id || null });
-			return { status: 'closed', sig, pnl: pnl.toString() };
+			return { status: 'closed', sig, pnl: pnl.toString(), venue };
 		} catch (err) {
 			// A failed sell must NOT terminate the position — leave it 'open' so the
 			// next tick retries the exit rather than stranding the bag as 'failed'.
@@ -194,16 +268,20 @@ export async function executeSell({ cfg, position, reason }) {
 	});
 }
 
-async function markGraduated(posId, tag) {
-	// Bonding-curve sell is impossible post-graduation. Flag for the AMM-exit
-	// fast-follow and stop re-quoting (getOpenPositions excludes 'graduated%').
-	await sql`
-		UPDATE agent_sniper_positions
-		SET error = 'graduated:awaiting_amm_exit', exit_reason = 'graduated', last_quoted_at = now()
-		WHERE id = ${posId}
-	`;
-	log.warn('position graduated — needs AMM exit', tag);
-	return { status: 'graduated' };
+// Build the AMM sell for a graduated position. Reuses the platform's pool
+// resolution + PumpAmmSdk (api/pump/[action].js parity) so the exit prices off
+// the live pool, with the slippage-derived min-out floor embedded on-chain. In
+// `simulate` mode the instructions are still built (proving the path works) but
+// never broadcast — expectedQuoteOut becomes the paper fill.
+async function buildGraduatedSell({ cfg, position, keypair, baseAmount, slippagePct }) {
+	const { instructions, expectedQuoteOut } = await buildAmmSellInstructions({
+		network: cfg.network,
+		mint: position.mint,
+		user: keypair.publicKey,
+		baseAmount,
+		slippagePct,
+	});
+	return { instructions, expectedQuoteOut };
 }
 
 function skip(tag, reason) {

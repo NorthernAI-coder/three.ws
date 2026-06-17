@@ -5,6 +5,10 @@ protocol: a visitor pays **$0.001 USDC** from their own wallet to call a real th
 API, settled on-chain on Base or Solana. This guide is everything the IBM web team needs to
 host it.
 
+> **Reference deployment:** a byte-for-byte copy of this exact file runs at
+> <https://three.ws/ibm/x402-demo>. Compare your hosted copy against it, or link to it
+> directly if you'd rather not self-host.
+
 ## What it demonstrates (one paragraph)
 
 x402 reactivates the dormant HTTP `402 Payment Required` status as a payment rail. A normal
@@ -100,6 +104,30 @@ first, or link out to the standalone page.
 three.ws serves the API and widget with `Access-Control-Allow-Origin: *` and exposes the x402
 payment headers, so calls from `live.ibm.com` work cross-origin with no extra configuration on
 either side.
+
+## Embed the pay button anywhere else
+
+The whole flow is one drop-in script plus any element carrying a `data-x402-endpoint`. The
+same eight lines that power the demo work standalone — drop them into a blog post, a docs
+page, or a product page to add a working pay-per-call paywall with no framework, build step,
+or SDK:
+
+```html
+<script type="module" src="https://three.ws/x402.js"></script>
+
+<button
+  data-x402-endpoint="https://three.ws/api/x402/symbol-availability?ticker=GRANITE"
+  data-x402-merchant="three.ws"
+  data-x402-action="Check symbol">
+  Pay $0.001 & run
+</button>
+```
+
+On click the script reads the endpoint's `402` challenge, opens the visitor's wallet for a
+gasless USDC authorization, retries the call, and dispatches `x402:result` / `x402:error`
+events with the response and on-chain receipt. Point `data-x402-endpoint` at any three.ws
+x402 GET endpoint (browse them in the [Bazaar](https://three.ws/bazaar)) to charge for a
+different call. The same Tier 1 / Tier 2 CSP guidance above applies to the host page.
 
 ## Note on branding
 

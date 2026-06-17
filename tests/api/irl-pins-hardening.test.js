@@ -141,15 +141,21 @@ beforeEach(() => {
 
 // ── Pure helpers ─────────────────────────────────────────────────────────────
 describe('isValidPinId', () => {
-	it('accepts a canonical UUID and rejects garbage / oversized ids', () => {
+	it('accepts a canonical UUID + conservative opaque ids', () => {
 		expect(isValidPinId(UUID)).toBe(true);
-		expect(isValidPinId('not-a-uuid')).toBe(false);
+		expect(isValidPinId('pin-1')).toBe(true);   // url/path-safe opaque id
+		expect(isValidPinId('del_1')).toBe(true);
+	});
+	it('rejects empty / non-string / oversized / dangerous-shaped ids', () => {
 		expect(isValidPinId('')).toBe(false);
 		expect(isValidPinId(null)).toBe(false);
 		expect(isValidPinId(123)).toBe(false);
-		expect(isValidPinId('x'.repeat(5000))).toBe(false);
+		expect(isValidPinId('x'.repeat(5000))).toBe(false);  // oversized
+		expect(isValidPinId('has space')).toBe(false);       // whitespace
+		expect(isValidPinId('a/b')).toBe(false);             // path separator
 		// SQL-injection-shaped id is rejected at the boundary (defense in depth).
 		expect(isValidPinId("1' OR '1'='1")).toBe(false);
+		expect(isValidPinId('drop;--')).toBe(false);
 	});
 });
 
@@ -208,7 +214,7 @@ describe('GET /api/irl/pins — radius validation', () => {
 // ── Pin-id validation on mutations (task 13) ─────────────────────────────────
 describe('PATCH /api/irl/pins — pin-id validation', () => {
 	it('400s a malformed id before any auth or DB work', async () => {
-		const { res, body } = await patch({ id: 'garbage', calibrate: { lat: 40.7128, lng: -74.006 } });
+		const { res, body } = await patch({ id: "bad id'", calibrate: { lat: 40.7128, lng: -74.006 } });
 		expect(res.statusCode).toBe(400);
 		expect(body.error).toMatch(/invalid pin id/i);
 		const ranSelect = sqlMock.mock.calls.some(([s]) =>
@@ -219,7 +225,7 @@ describe('PATCH /api/irl/pins — pin-id validation', () => {
 
 describe('DELETE /api/irl/pins — pin-id validation', () => {
 	it('400s a malformed id before the delete query', async () => {
-		const { res, body } = await del({ id: 'garbage', deviceToken: 'device-A' });
+		const { res, body } = await del({ id: "bad id'", deviceToken: 'device-A' });
 		expect(res.statusCode).toBe(400);
 		expect(body.error).toMatch(/invalid pin id/i);
 		const ranDelete = sqlMock.mock.calls.some(([s]) =>
@@ -286,6 +292,46 @@ describe('delete — expiry-guarded WHERE', () => {
 		const { res, body } = await del({ id: UUID, deviceToken: 'device-A' });
 		expect(res.statusCode).toBe(404);
 		expect(body.error).toMatch(/not found|not yours/i);
+	});
+});
+
+// ── Bulk purge (L5 — Remove all from this device) ────────────────────────────
+describe('DELETE /api/irl/pins?all=1 — bulk device purge', () => {
+	const deleteQueries = () => sqlMock.mock.calls
+		.map(([s]) => (Array.isArray(s) ? s.join(' ') : String(s)))
+		.filter((q) => /DELETE FROM irl_pins/i.test(q));
+
+	it('purges every pin for the device token and returns the count', async () => {
+		deleteResult = [{ id: 'a' }, { id: 'b' }, { id: 'c' }];
+		const { res, body } = await del({ all: '1', deviceToken: 'device-A' });
+		expect(res.statusCode).toBe(200);
+		expect(body).toEqual({ ok: true, deleted: 3 });
+	});
+
+	it('scopes the purge to the device token only — strict IS NOT NULL guard, never by id', async () => {
+		await del({ all: '1', deviceToken: 'device-A' });
+		const q = deleteQueries().pop();
+		expect(q).toBeTruthy();
+		expect(q).toMatch(/device_token IS NOT NULL/i);
+		expect(q).not.toMatch(/WHERE id =/i);
+		// the bound parameter is exactly the caller's device token (no NULL/empty match)
+		const call = sqlMock.mock.calls.find(([s]) =>
+			/DELETE FROM irl_pins/i.test(Array.isArray(s) ? s.join(' ') : String(s)));
+		expect(call.slice(1)).toContain('device-A');
+	});
+
+	it('400s a bulk delete with no device token and never runs the delete', async () => {
+		const { res, body } = await del({ all: '1' });
+		expect(res.statusCode).toBe(400);
+		expect(body.error).toMatch(/device token/i);
+		expect(deleteQueries()).toHaveLength(0);
+	});
+
+	it('leaves the single-id delete path unchanged (id-scoped WHERE)', async () => {
+		const { res, body } = await del({ id: UUID, deviceToken: 'device-A' });
+		expect(res.statusCode).toBe(200);
+		expect(body.ok).toBe(true);
+		expect(deleteQueries().pop()).toMatch(/WHERE id =/i);
 	});
 });
 

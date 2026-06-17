@@ -17,22 +17,32 @@ import { deriveReputation } from '../../api/irl/agent-card.js';
 
 // ── Mutable fixtures the sql router reads, reset per test ──────────────────────
 let agentRow = null;     // agent_identities row (null → agent 404)
+let agentThrows = false; // simulate a missing agent_identities table (query rejects)
 let repAgg = null;       // reputation aggregate row
 let repThrows = false;   // simulate a reputation-query failure (must degrade, not 500)
+let repEmpty = false;    // simulate a successful-but-rowless reputation read ([] result)
 let serviceRows = [];    // agent_paid_services rows
+let servicesThrow = false; // simulate a missing agent_paid_services table (query rejects)
 let pinRow = null;       // irl_pins row when resolving by ?pin=
 
 // One tagged-template sql mock that routes by the query text, mirroring the real
 // fan-out in buildCard(): agent SELECT, reputation WITH fb/val, services SELECT.
 const sqlMock = vi.fn((strings) => {
 	const q = Array.isArray(strings) ? strings.join(' ') : String(strings);
-	if (/FROM agent_identities/i.test(q)) return Promise.resolve(agentRow ? [agentRow] : []);
+	if (/FROM agent_identities/i.test(q)) {
+		if (agentThrows) return Promise.reject(new Error('relation "agent_identities" does not exist'));
+		return Promise.resolve(agentRow ? [agentRow] : []);
+	}
 	if (/FROM irl_pins/i.test(q)) return Promise.resolve(pinRow ? [pinRow] : []);
 	if (/solana_attestations[\s\S]*threews\.feedback/i.test(q)) {
 		if (repThrows) return Promise.reject(new Error('rep table unavailable'));
+		if (repEmpty) return Promise.resolve([]);   // successful read, zero rows
 		return Promise.resolve([repAgg]);
 	}
-	if (/FROM agent_paid_services/i.test(q)) return Promise.resolve(serviceRows);
+	if (/FROM agent_paid_services/i.test(q)) {
+		if (servicesThrow) return Promise.reject(new Error('relation "agent_paid_services" does not exist'));
+		return Promise.resolve(serviceRows);
+	}
 	return Promise.resolve([]);
 });
 // The handler uses `.catch(() => [])` on the agent + services queries, so the mock
@@ -78,7 +88,10 @@ beforeEach(() => {
 		avatar_thumbnail_key: 'thumbs/atlas.png', avatar_visibility: 'public',
 	};
 	repAgg = { fb_total: 20, score_avg: 4.6, unique_attesters: 9, val_passed: 3, val_failed: 0, tasks_accepted: 14 };
+	agentThrows = false;
 	repThrows = false;
+	repEmpty = false;
+	servicesThrow = false;
 	serviceRows = [
 		{ slug: 'route-plan', name: 'Route planning', description: 'Plan a multi-stop trip', price_atomics: '50000', network: 'base' },
 		{ slug: 'weather', name: 'Weather brief', description: null, price_atomics: '10000', network: 'base' },
@@ -149,6 +162,64 @@ describe('GET /api/irl/agent-card — merged payload', () => {
 		expect(body.card.reputation.available).toBe(false);
 		expect(body.card.reputation.degraded).toBe(true);
 		expect(body.card.services).toHaveLength(2); // the menu is unaffected
+	});
+
+	it('never 500s when the reputation table is missing on a fresh DB (degrades, no leak)', async () => {
+		// A fresh / mid-migration DB rejects the solana_attestations read. The card
+		// must come back 200 with reputation degraded — not a 500 / stack trace.
+		repThrows = true;
+		const { res, body } = await getCard('agent_id=agent-1');
+		expect(res.statusCode).toBe(200);
+		expect(body.error).toBeUndefined();
+		expect(body.card.reputation).toMatchObject({ available: false, degraded: true });
+		expect(body.card.reputation.asset).toBe('THREEsynthetic1111111111111111111111111111');
+	});
+
+	it('treats a successful-but-rowless reputation read as zero, not a 500 (undefined-row guard)', async () => {
+		// The coalesce'd aggregate normally returns one row; a driver/partial edge
+		// could yield []. buildCard must not throw on row.fb_total — it derives from
+		// zeros and the card is available with a fresh score, never degraded/500.
+		repEmpty = true;
+		const { res, body } = await getCard('agent_id=agent-1');
+		expect(res.statusCode).toBe(200);
+		expect(body.error).toBeUndefined();
+		expect(body.card.reputation.available).toBe(true);
+		expect(body.card.reputation.degraded).toBeUndefined();
+		expect(body.card.reputation.score).toBe(0);
+		expect(body.card.reputation.tier).toBe('new');
+		expect(body.card.reputation.attestation_count).toBe(0);
+		expect(body.card.services).toHaveLength(2);
+	});
+
+	it('coerces null aggregate columns to zero rather than NaN/throwing', async () => {
+		// score_avg etc. can come back null from coalesce-less driver paths; the
+		// derivation must still produce a finite score, not NaN.
+		repAgg = { fb_total: null, score_avg: null, unique_attesters: null, val_passed: null, val_failed: null, tasks_accepted: null };
+		const { res, body } = await getCard('agent_id=agent-1');
+		expect(res.statusCode).toBe(200);
+		expect(body.card.reputation.available).toBe(true);
+		expect(Number.isFinite(body.card.reputation.score)).toBe(true);
+		expect(body.card.reputation.score).toBe(0);
+		expect(body.card.reputation.unique_attesters).toBe(0);
+	});
+
+	it('survives a fresh DB where agent_identities itself is missing (no 500)', async () => {
+		// The agent query .catch(() => []) → no agent → genuine 404 for an explicit
+		// agent_id, never an uncaught 500 / stack trace.
+		agentThrows = true;
+		const { res, body } = await getCard('agent_id=agent-1');
+		expect(res.statusCode).toBe(404);
+		expect(body.error).toBe('not_found');
+	});
+
+	it('survives a fresh DB where agent_paid_services is missing — empty menu, no 500', async () => {
+		// The services query .catch(() => []) → empty menu; reputation + agent still render.
+		servicesThrow = true;
+		const { res, body } = await getCard('agent_id=agent-1');
+		expect(res.statusCode).toBe(200);
+		expect(body.error).toBeUndefined();
+		expect(body.card.services).toEqual([]);
+		expect(body.card.agent.name).toBe('Atlas');
 	});
 
 	it('shows no-reputation (available:false) for an agent with no on-chain asset, never a number', async () => {

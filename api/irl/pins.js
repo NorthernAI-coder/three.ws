@@ -356,9 +356,16 @@ const REL_MAX_M  = 500;
 // reaches the DB query or a log line. The SQL is already parameterized (this is
 // not the injection guard) — it's input hygiene + defense in depth, and it lets a
 // "not a pin id" request fail fast with a clear message instead of a confusing 404.
-const PIN_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+//
+// A real id is a 36-char UUID; we accept that exactly, plus a conservative
+// opaque-id fallback (1–64 chars, URL/path-safe alphabet only) so the guard is
+// about REJECTING the dangerous shapes — control chars, whitespace, quotes,
+// SQL-injection text, multi-KB blobs — rather than over-fitting to one format.
+const PIN_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const PIN_ID_SAFE_RE = /^[A-Za-z0-9_-]{1,64}$/;
 export function isValidPinId(id) {
-	return typeof id === 'string' && PIN_ID_RE.test(id);
+	if (typeof id !== 'string' || !id) return false;
+	return PIN_UUID_RE.test(id) || PIN_ID_SAFE_RE.test(id);
 }
 
 // Smallest signed distance between two compass bearings, 0–180°.

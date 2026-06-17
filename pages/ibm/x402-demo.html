@@ -699,7 +699,7 @@ a:focus-visible{outline-offset:3px}
 
     var trigger = document.activeElement; // restore focus here when the modal closes
     setBusy(true);
-    setResultLoading('Opening wallet… approve the $0.001 USDC payment to continue.');
+    setResultLoading('Waiting for your wallet… approve the $0.001 USDC payment to continue.');
 
     window.X402.pay({
       endpoint: ENDPOINT + '?ticker=' + encodeURIComponent(ticker),

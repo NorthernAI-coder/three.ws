@@ -1088,6 +1088,11 @@ function succeed(agent) {
 	const open = $('success-open');
 	open.href = agent.home_url || `/agent/${agent.id}`;
 	$('success-edit').href = `/agent/${agent.id}/edit`;
+	// Lead the user straight into funding the agent's new self-custodied wallet —
+	// the Deposit tab of the wallet hub (QR + copy + live confirmation lands here
+	// via the epic's task 02).
+	const fund = $('success-fund');
+	if (fund) fund.href = `/agent/${agent.id}/wallet#deposit`;
 
 	// Show the 3D body if it's publicly readable.
 	const modelUrl = agent.avatar_model_url;
