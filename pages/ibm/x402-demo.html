@@ -603,38 +603,27 @@ agent-3d:defined ~ .agent-skel{display:none}
   <div class="inner">
     <div class="section-tag">Demo 03 · Embodiment</div>
     <h2 id="agent-h">An <strong>agent</strong> that pays for its own data</h2>
-    <p class="section-lead">Everything you just did by hand — read the price, sign, settle — an autonomous agent can do on its own. This is one of them: a 3D agent from three.ws, running its own brain in your browser. It watches the call above and reacts the moment your payment settles. Ask it how x402 works.</p>
+    <p class="section-lead">Everything you just did by hand — read the price, sign, settle — an autonomous agent can do on its own. This is one of them: a 3D agent from three.ws, rendered live in your browser. It watches the call above and reacts the moment your payment settles.</p>
 
     <div class="agent-grid">
       <div class="agent-stage">
-        <!-- The web component lazy-boots when scrolled into view; until it upgrades,
-             this skeleton holds the frame so there is never a blank box. -->
+        <!-- A bare, transparent 3D avatar — no chat, no debug controls, no name-plate.
+             A plain <agent-3d> given only a `body` is bare by default; it renders the
+             avatar and nothing else. The web component lazy-boots when scrolled into
+             view; until it upgrades, this skeleton holds the frame so the box is never blank. -->
         <agent-3d
           id="guideAgent"
-          chat
           body="https://three.ws/avatars/readyplayerme.glb"
-          name="Aria"
-          brain="claude-opus-4-8"
           background="transparent"
-          width="100%" height="460px"
-          name-plate="on"
-          instructions="You are Aria, the live guide for the x402 demo on three.ws (an IBM Business Partner). x402 reactivates the dormant HTTP 402 Payment Required status as a payment rail: a request to a paid endpoint returns 402 with machine-readable terms (amount, asset, network, recipient); the wallet signs a gasless USDC authorization; the call is retried with an X-PAYMENT header and settles on Solana in about a second — no key, no account, no invoice. You yourself just paid one tenth of a cent to call a real three.ws API. You can also explain Forge (turn a text prompt into a textured 3D model), Play (drop an agent into a live 3D world), and IRL (place an agent in augmented reality on a phone). The only coin three.ws issues is $THREE — never name, invent, or recommend any other token. Be concise, concrete, and friendly. Two or three sentences per answer."
-          style="--agent-accent:#0f62fe;--agent-surface:rgba(22,22,22,.92);--agent-on-surface:#f4f4f4;--agent-bubble-bg:#ffffff;--agent-bubble-color:#161616;--agent-chat-font:'IBM Plex Sans',system-ui,sans-serif">
+          width="100%" height="460px">
         </agent-3d>
         <div class="agent-skel" aria-hidden="true"><span class="s-head"></span><span class="s-body"></span></div>
       </div>
 
       <div class="agent-copy">
-        <div class="agent-state" id="agentState"><span class="dot" aria-hidden="true"></span><span id="agentStateText">Waking the agent…</span></div>
         <h3>It reacts to the payment above — in real time</h3>
-        <p>Run the $0.001 call and watch: Aria celebrates the moment the transaction settles and announces what just happened on-chain. The same primitives that power the demo button power her — she signs, pays, and reads results exactly the way you just did, only autonomously.</p>
-        <p>She runs on <span class="mono">claude-opus-4-8</span>, rendered live with WebGL — no video, no pre-recording. Ask her anything:</p>
-        <div class="agent-prompts" id="agentPrompts">
-          <button class="agent-prompt" type="button" data-ask="In one breath, what is x402?">What is x402?</button>
-          <button class="agent-prompt" type="button" data-ask="Why settle micropayments on-chain instead of with a credit card?">Why on-chain?</button>
-          <button class="agent-prompt" type="button" data-ask="What is the $THREE token and what is it for?">What is $THREE?</button>
-          <button class="agent-prompt" type="button" data-ask="How could an autonomous agent pay for an API call by itself?">Agents paying agents?</button>
-        </div>
+        <p>Run the $0.001 call and watch: the agent celebrates the moment the transaction settles. The same primitives that power the demo button power it — it signs, pays, and reads results exactly the way you just did, only autonomously.</p>
+        <p>Rendered live in the browser with WebGL — no video, no pre-recording.</p>
       </div>
     </div>
   </div>
@@ -852,15 +841,13 @@ agent-3d:defined ~ .agent-skel{display:none}
     setAgentState('acting', 'Watching your wallet…');
     agentReact(function (el) { if (el.expressEmotion) el.expressEmotion('patience', 0.6); });
   }
-  function agentOnSettled(out) {
-    var net = networkLabel((out.payment || {}).network);
+  function agentOnSettled() {
     setAgentState('acting', 'Settled — the agent saw it');
     agentReact(function (el) {
       if (el.expressEmotion) el.expressEmotion('celebration', 0.95);
       if (el.playEmote) el.playEmote('cheer');
-      if (el.notify) el.notify('Settled on ' + net + ' — I just paid $0.001 for that call myself.', { priority: 'normal', duration: 7000 });
     });
-    setTimeout(function () { if (agentReady) setAgentState('ready', 'Agent ready — ask it anything'); }, 7200);
+    setTimeout(function () { if (agentReady) setAgentState('ready', 'Agent ready'); }, 7200);
   }
   function agentOnError() {
     setAgentState(agentReady ? 'ready' : '', agentReady ? 'Agent ready — ask it anything' : 'Waking the agent…');
