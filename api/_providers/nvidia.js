@@ -75,12 +75,22 @@ function enhanceTrellisPrompt(raw) {
 	return text.slice(0, maxBase) + TRELLIS_STYLE_SUFFIX;
 }
 
+// NVCF pexec hands off long jobs to async polling: the gateway holds the invoke
+// connection open for at most NVCF-POLL-SECONDS waiting for a synchronous
+// completion, then returns 202 + NVCF-REQID so we poll. WITHOUT this header the
+// gateway held the connection until our own AbortSignal fired ("operation aborted
+// due to timeout") and the request id was lost with the aborted socket — so a
+// merely-slow generation surfaced as a hard "nvidia unreachable" and the whole
+// free text→3D lane fell over. Capping the synchronous window at 30 s converts
+// "slow" into a normal queued+poll job (the path the 202 branch already handles)
+// while still completing fast draft jobs (~12–13 s) inline.
+const NVCF_POLL_SECONDS = 30;
+
 // Per-request timeouts so a hung upstream never stalls a serverless function.
 // A completed poll streams the full GLB (can be several MB), so it gets longer.
-// Submit must cover a SYNCHRONOUS draft completion: the probe clocked ~12–13 s
-// in isolation, but under real NVCF load TRELLIS routinely runs longer and was
-// aborting at 30 s ("operation aborted due to timeout"). 45 s leaves headroom
-// and still returns well inside the forge function's budget.
+// Submit only needs to outlast the NVCF-POLL-SECONDS synchronous window (30 s)
+// plus transfer/handshake slack — at 45 s the gateway has already returned its
+// 202 long before this backstop fires.
 const SUBMIT_TIMEOUT_MS = 45_000;
 const POLL_TIMEOUT_MS = 60_000;
 
@@ -242,7 +252,14 @@ export function createNvidiaProvider() {
 	}
 
 	const authHeader = { authorization: `Bearer ${apiKey}` };
-	const invokeHeaders = { ...authHeader, accept: 'application/json', 'content-type': 'application/json' };
+	const invokeHeaders = {
+		...authHeader,
+		accept: 'application/json',
+		'content-type': 'application/json',
+		// Bound the gateway's synchronous hold so a slow job becomes a pollable 202
+		// instead of timing out our socket and losing the request id (see above).
+		'nvcf-poll-seconds': String(NVCF_POLL_SECONDS),
+	};
 	const pollHeaders = { ...authHeader, accept: 'application/json' };
 
 	// Decode a base64 GLB and store it in R2, returning a durable public URL —
