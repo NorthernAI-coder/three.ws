@@ -3,6 +3,13 @@
 	"entries": [
 		{
 			"date": "2026-06-17",
+			"title": "Sniper dashboard: your live positions now show real-time profit and loss and reconnect on their own",
+			"summary": "The Sniper Strategies dashboard now streams your agents' open positions with live unrealized profit and loss — both the SOL figure and the percentage — instead of a blank value, and fills them in the moment the page loads rather than waiting for the next trade to land. The live feed shows its own connection state (Live / Reconnecting) and re-establishes itself automatically with backoff if it drops, so you always know whether you're watching real-time data. Closed-trade history now calls out your single best and worst trade, and there are one-tap links to the public leaderboard and sniper arena so your track record is easy to share.",
+			"tags": ["feature"],
+			"link": "/dashboard/sniper"
+		},
+		{
+			"date": "2026-06-17",
 			"title": "Agent profiles now show the agent's real avatar — no more stray model over the name",
 			"summary": "On an agent's profile page, agents that ship their own 3D avatar were briefly showing the plain mannequin in the headshot while a second copy of their real avatar rendered loose over the agent's name. Both are fixed: the headshot now loads the agent's own model directly in place, and opening it full-screen shows that same model. Agents using the default body are unchanged.",
 			"tags": ["fix"]

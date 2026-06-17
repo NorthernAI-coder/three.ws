@@ -624,9 +624,27 @@ function requireScopeForMutation(auth, res, requiredScope) {
 	return null;
 }
 
+// A base58 string in the 32–44 char range is a syntactically valid Solana
+// pubkey. Cheap structural check (no @solana/web3.js import on the hot GET path)
+// — the canonical strict parse lives in ensureAgentWallet().
+const SOLANA_ADDRESS_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+
 function decorate(row, isOwner = true) {
 	// Strip encrypted secrets from meta — never expose to the client.
 	const meta = { ...(row.meta || {}) };
+	// `walletReady` is computed from the secret BEFORE it is stripped: an agent
+	// is wallet-ready only when it has both a valid public address and a
+	// recoverable (encrypted) signing key. The UI gates "preparing wallet…" vs
+	// the live hub on this; the secret itself is never emitted.
+	const solanaAddress =
+		typeof meta.solana_address === 'string' && SOLANA_ADDRESS_RE.test(meta.solana_address)
+			? meta.solana_address
+			: null;
+	const walletReady = Boolean(
+		solanaAddress &&
+			typeof meta.encrypted_solana_secret === 'string' &&
+			meta.encrypted_solana_secret.length > 0,
+	);
 	delete meta.encrypted_wallet_key;
 	delete meta.encrypted_solana_secret;
 
@@ -676,6 +694,14 @@ function decorate(row, isOwner = true) {
 		onchain,
 		token,
 		payments,
+		// Public on-chain identity: the agent's Solana receive address (the same
+		// value GET /api/agents/:id/solana serves anonymously) plus whether a
+		// signing wallet is fully provisioned. Lets any surface render the wallet
+		// hub (deposit is read-only-safe) without a second round-trip. The secret
+		// is never exposed — only this public address + the readiness boolean.
+		solana_address: solanaAddress,
+		wallet_ready: walletReady,
+		walletReady,
 		is_registered: Boolean(row.erc8004_agent_id) || !!onchain,
 		// Whether the requesting session owns this agent. Owner-only write paths
 		// (action log, memory sync) gate on this so public viewers don't fire

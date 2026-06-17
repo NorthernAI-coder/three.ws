@@ -60,6 +60,37 @@ Mesh.prototype.raycast = acceleratedRaycast;
 Cache.enabled = true;
 
 /**
+ * Vertical framing geometry for a humanoid bounding box.
+ *
+ * `full` (default) frames the whole body: the look-at sits at the vertical
+ * centre and the visible height is the full bounding box. `portrait` crops to
+ * roughly head-to-mid-thigh so the avatar fills a wide or short card instead of
+ * standing tiny-and-low in it — the read that works best for a small embedded
+ * thumbnail.
+ *
+ * Pure (no THREE dependency) so it is unit-testable and can be shared by both
+ * `setContent()` (initial framing) and `frameContent()` (re-framing on resize).
+ * Both must agree or a resize would jump the camera. For `full` the result is
+ * mathematically identical to the previous inline computation, so non-portrait
+ * embeds are byte-for-byte unchanged.
+ *
+ * @param {number} bodyHeight  full bounding-box height in world units
+ * @param {number} topY        world-y of the top of the head in the working frame
+ * @param {'full'|'portrait'} [mode]
+ * @returns {{ visH:number, baseY:number }} visible height + look-at y
+ */
+export function computeFramingExtent(bodyHeight, topY, mode = 'full') {
+	if (mode === 'portrait') {
+		const PORTRAIT_FRAC = 0.62; // head → ~mid-thigh
+		const HEADROOM_FRAC = 0.04; // a little air above the crown
+		const visH = bodyHeight * PORTRAIT_FRAC;
+		const windowTop = topY + bodyHeight * HEADROOM_FRAC;
+		return { visH, baseY: windowTop - visH / 2 };
+	}
+	return { visH: bodyHeight, baseY: topY - bodyHeight / 2 };
+}
+
+/**
  * @class Viewer
  *
  * @param {Element} el
@@ -464,14 +495,19 @@ export class Viewer {
 		const PAD_V = 1.25;
 		const PAD_H = 1.15;
 
-		const extentV = (bbSize.y / 2) * PAD_V / usableFrac;
+		// `portrait` framing crops to head-to-mid-thigh so the avatar fills the
+		// frame in a wide/short card; `full` is unchanged (baseY == bbCenter.y).
+		const framingMode = this.options?.framing === 'portrait' ? 'portrait' : 'full';
+		const { visH, baseY } = computeFramingExtent(bbSize.y, box.max.y, framingMode);
+
+		const extentV = (visH / 2) * PAD_V / usableFrac;
 		const distV = extentV / Math.tan(vFovRad / 2);
 		const distH = (bbSize.x / 2) * PAD_H / Math.tan(hFovRad / 2);
 		const dist = Math.max(distV, distH);
 
-		// Center look-at on the usable area: with no panel focusY = bbCenter.y;
+		// Center look-at on the usable area: with no panel focusY = baseY;
 		// with a bottom panel, shift down so the avatar rises into the upper area.
-		const focusY = bbCenter.y - extentV * panelFrac;
+		const focusY = baseY - extentV * panelFrac;
 		const target = new Vector3(bbCenter.x, focusY, bbCenter.z);
 		const pos = new Vector3(bbCenter.x + dist * 0.12, focusY, bbCenter.z + dist);
 
@@ -483,6 +519,20 @@ export class Viewer {
 			this.controls.update();
 			this.invalidate();
 		}
+	}
+
+	/**
+	 * Switch the framing mode ('full' | 'portrait') at runtime and re-frame.
+	 * Used by the <agent-3d> `framing` attribute so an embed can opt into the
+	 * head-to-mid-thigh crop without reloading the model.
+	 * @param {'full'|'portrait'} mode
+	 */
+	setFraming(mode) {
+		const next = mode === 'portrait' ? 'portrait' : 'full';
+		if (!this.options) this.options = {};
+		if (this.options.framing === next) return;
+		this.options.framing = next;
+		if (this.content) this.frameContent({ animate: true });
 	}
 
 	/** Fraction of canvas height occupied by the animation panel (0 when no panel). */
@@ -1001,16 +1051,21 @@ export class Viewer {
 		const PAD_V = 1.25;
 		const PAD_H = 1.15;
 
-		const extentV = (bbSize.y / 2) * PAD_V / usableFrac;
+		// Model has been recentered so the body spans [-bbSize.y/2, +bbSize.y/2]
+		// and the crown is at +bbSize.y/2. `portrait` crops to head-to-mid-thigh;
+		// `full` reduces to the original full-body framing (baseY == 0).
+		const framingMode = this.options?.framing === 'portrait' ? 'portrait' : 'full';
+		const { visH, baseY } = computeFramingExtent(bbSize.y, bbSize.y / 2, framingMode);
+
+		const extentV = (visH / 2) * PAD_V / usableFrac;
 		const distV = extentV / Math.tan(vFovRad / 2);
 		const distH = (bbSize.x / 2) * PAD_H / Math.tan(hFovRad / 2);
 		const dist = Math.max(distV, distH);
 
-		// Model has been recentered so bbCenter is at world origin (see
-		// setContent above). Center the look-at on the usable area: with no
-		// panel focusY=0; with a bottom panel shift down so the avatar rises
-		// into the usable upper portion of the canvas.
-		const focusY = -extentV * panelFrac;
+		// Center the look-at on the usable area: with no panel focusY=baseY;
+		// with a bottom panel shift down so the avatar rises into the usable
+		// upper portion of the canvas.
+		const focusY = baseY - extentV * panelFrac;
 
 		// Final framed camera (the position the user should end up at).
 		// Avatar sits dead-centered front-on by default — no lateral offset.

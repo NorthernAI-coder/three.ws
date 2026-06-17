@@ -9,6 +9,7 @@
  * PATCH  /api/irl/pins  { id, deviceToken, calibrate:{ lat, lng, anchorYawDeg, anchorHeightM } }
  *                                                  owner-gated, bounds-checked pose nudge (A3)
  * DELETE /api/irl/pins?id=                         remove own pin (device_token or auth)
+ * DELETE /api/irl/pins?all=1&deviceToken=          purge every pin from this device → { deleted }
  * POST   /api/irl/pins/interact { pinId, event, deviceToken }  log a tap/view
  */
 
@@ -73,27 +74,55 @@ function contentReject(caption, name) {
 // Tier-2 AI content risk over the free-text caption — Granite Guardian. Best-
 // effort by design (Rule 9): when watsonx isn't configured, or the classifier
 // errors/times out, we DON'T block — the always-on wordlist already caught the
-// hard cases, and a missing key must never 500 a placement. Bounded to 4s so a
-// slow upstream can't stall the POST.
+// hard cases, and a missing key must never 500 a placement.
+//
+// Resilience (task 12): a dead moderation upstream would otherwise cost EVERY
+// placement its full timeout. Once a check fails, we cache the "degraded" state
+// for ~60s and skip the upstream entirely during that window — so one failure
+// doesn't make the next minute of placements each wait the timeout. The per-
+// request timeout is tight (2s) so even the first failure after recovery can't
+// stall the POST. Both failure modes fail OPEN (allow the placement) with a log.
+const GUARDIAN_TIMEOUT_MS    = 2000;   // tight per-request bound on the upstream
+const GUARDIAN_DEGRADE_MS    = 60_000; // skip-upstream window after a failure
+let _guardianDegradedUntil   = 0;      // epoch-ms; >now ⇒ short-circuit to allow
+
+// Exposed for tests + the cron-style recovery path: report whether the Guardian
+// short-circuit is currently engaged, and clear it (e.g. after a probe succeeds).
+export function guardianDegraded(now = Date.now()) {
+	return _guardianDegradedUntil > now;
+}
+export function resetGuardianDegraded() {
+	_guardianDegradedUntil = 0;
+}
+
 async function guardianFlags(caption) {
 	const text = String(caption || '').trim();
 	if (!text) return false;
 	const cfg = guardianConfig();
 	if (!cfg.configured) return false;
+	// Short-circuit while the upstream is known-degraded: no network call, so the
+	// caption is allowed immediately rather than paying the timeout again.
+	if (guardianDegraded()) return false;
 	try {
 		const ctrl = new AbortController();
-		const timer = setTimeout(() => ctrl.abort(), 4000);
+		const timer = setTimeout(() => ctrl.abort(), GUARDIAN_TIMEOUT_MS);
 		try {
 			const verdicts = await assess(cfg, {
 				input: text,
 				risks: ['harm', 'social_bias', 'violence', 'sexual_content'],
 				signal: ctrl.signal,
 			});
+			// A clean pass clears any lingering degraded window — the upstream is back.
+			_guardianDegradedUntil = 0;
 			return decide(verdicts).decision === 'block';
 		} finally {
 			clearTimeout(timer);
 		}
 	} catch (err) {
+		// Open the degraded window so the next ~60s of placements skip the upstream
+		// instead of each eating the timeout. Fail open (allow) — the hard wordlist
+		// already ran, and a moderation outage must never 500 or stall a placement.
+		_guardianDegradedUntil = Date.now() + GUARDIAN_DEGRADE_MS;
 		console.warn('[irl/pins] guardian content check degraded:', err?.message || err);
 		return false;
 	}
@@ -106,12 +135,38 @@ async function guardianFlags(caption) {
 // IRL_X402_ALLOWED_HOSTS). Relative same-origin paths are always first-party.
 // Registered-agent endpoints still flow to the Pay button via the trusted
 // server-resolved agent-card path (card.x402_endpoint), which this never gates.
-const X402_ALLOWED_HOSTS = (
-	process.env.IRL_X402_ALLOWED_HOSTS || 'three.ws,www.three.ws,3d-agent.vercel.app,3d.irish'
-)
-	.split(',')
-	.map((h) => h.trim().toLowerCase())
-	.filter(Boolean);
+// Built-in first-party hosts — the floor under any operator override. The
+// allow-list is NEVER empty: an unset/blank/malformed IRL_X402_ALLOWED_HOSTS
+// falls back to these defaults rather than producing an empty list (which would
+// reject every absolute endpoint — fail-safe, but it would also silently break
+// every legit first-party pay target). A valid host token is a bare hostname
+// (letters/digits/dots/hyphens, no scheme/path/port), so a fat-fingered
+// "https://x" entry is dropped instead of poisoning the match.
+const X402_DEFAULT_HOSTS = ['three.ws', 'www.three.ws', '3d-agent.vercel.app', '3d.irish'];
+const X402_HOST_RE = /^[a-z0-9.-]+$/;
+
+// Parse + validate the configured allow-list. Returns ONLY well-formed bare
+// hostnames; when an operator override is set but yields no valid host, we log
+// once and fall back to the built-in first-party hosts so a misconfig can never
+// silently disable first-party pay targets nor accept an external one.
+function parseAllowedHosts(raw) {
+	const configured = String(raw ?? '').trim();
+	const parsed = configured
+		.split(',')
+		.map((h) => h.trim().toLowerCase())
+		.filter((h) => h && X402_HOST_RE.test(h));
+	if (configured && !parsed.length) {
+		console.warn(
+			'[irl/pins] IRL_X402_ALLOWED_HOSTS is set but parsed to no valid host; ' +
+				'falling back to built-in first-party hosts. External x402 endpoints ' +
+				'are only accepted for first-party / allow-listed hosts.',
+		);
+	}
+	// Always return a non-empty set: configured-valid hosts, else the defaults.
+	return parsed.length ? parsed : X402_DEFAULT_HOSTS.slice();
+}
+
+const X402_ALLOWED_HOSTS = parseAllowedHosts(process.env.IRL_X402_ALLOWED_HOSTS);
 
 export function safePaymentEndpoint(raw) {
 	// allowRelative so a same-origin path (unambiguously first-party three.ws)
@@ -122,6 +177,9 @@ export function safePaymentEndpoint(raw) {
 	if (base.value.startsWith('/')) return { ok: true, value: base.value };
 	let host;
 	try { host = new URL(base.value).hostname.toLowerCase(); } catch { return { ok: false }; }
+	// Empty allow-list (defensive — parseAllowedHosts never returns one) must
+	// reject every absolute host: fail safe, never silently accept an external one.
+	if (!X402_ALLOWED_HOSTS.length) return { ok: false };
 	const allowed = X402_ALLOWED_HOSTS.some((h) => host === h || host.endsWith(`.${h}`));
 	return allowed ? { ok: true, value: base.value } : { ok: false };
 }
@@ -177,6 +235,31 @@ function haversineDist(lat1, lng1, lat2, lng2) {
 		Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
 		Math.sin(dLng / 2) ** 2;
 	return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+// Rate-limit calls fail OPEN here (task 12). The shared limiter already degrades
+// internally for these non-critical buckets, but a Redis client can still reject
+// (or the limiter object can throw synchronously) — and an unhandled rejection
+// inside the handler would 500 the whole request. These write paths are bounded
+// by the DB caps (density / per-owner / report dedupe) downstream, so a limiter
+// outage should never block a legitimate placement: we log once and allow.
+// `name` ties the warning to the bucket; the cooldown keeps an outage that hits
+// every request from itself flooding the logs.
+const _rlWarnedAt = new Map();
+const RL_WARN_COOLDOWN_MS = 60_000;
+async function limitOrFailOpen(name, fn, ...args) {
+	try {
+		return await fn(...args);
+	} catch (err) {
+		const last = _rlWarnedAt.get(name) || 0;
+		const now = Date.now();
+		if (now - last >= RL_WARN_COOLDOWN_MS) {
+			_rlWarnedAt.set(name, now);
+			console.warn(`[irl/pins] rate limiter "${name}" failed, allowing request (fail-open):`, err?.message || err);
+		}
+		// Allow: a synthetic success verdict so the caller proceeds unthrottled.
+		return { success: true, reason: 'rate_limiter_degraded' };
+	}
 }
 
 let _tableReady = false;
@@ -268,11 +351,34 @@ const CAL_MAX_RISE_M  = 3;    // floor-height nudge ceiling, metres
 const ROOM_ID_RE = /^[a-z0-9-]{1,64}$/;
 const REL_MAX_M  = 500;
 
+// Pin ids are server-minted UUIDs (gen_random_uuid()). Validate the format at the
+// top of every mutation path so an oversized / garbage id is a clean 400 and never
+// reaches the DB query or a log line. The SQL is already parameterized (this is
+// not the injection guard) — it's input hygiene + defense in depth, and it lets a
+// "not a pin id" request fail fast with a clear message instead of a confusing 404.
+const PIN_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export function isValidPinId(id) {
+	return typeof id === 'string' && PIN_ID_RE.test(id);
+}
+
 // Smallest signed distance between two compass bearings, 0–180°.
 function circularYawDelta(a, b) {
 	let d = ((a - b) % 360 + 360) % 360;
 	if (d > 180) d -= 360;
 	return Math.abs(d);
+}
+
+// A pin is gone from the public world once it has expired (anonymous pins lapse
+// after 7 days) or been moderation-hidden. Owner-gated mutations (calibrate /
+// outfit / delete) must refuse to touch such a row — re-saving a pose or re-skin
+// onto a pin no nearby viewer can see is a silent no-op the owner would mistake
+// for success (task 13). `expires_at` NULL = a permanent (signed-in) pin.
+export function isExpiredOrHidden(pin, now = Date.now()) {
+	if (!pin) return false;
+	if (pin.hidden_at != null) return true;
+	if (pin.expires_at == null) return false;
+	const t = new Date(pin.expires_at).getTime();
+	return Number.isFinite(t) && t <= now;
 }
 
 // Owner-gated, bounds-checked pose correction. Mutates the A2 pose columns so the
@@ -283,7 +389,8 @@ async function handleCalibrate(res, { id, session, body }) {
 	const cal = (body.calibrate && typeof body.calibrate === 'object') ? body.calibrate : {};
 
 	const [pin] = await sql`
-		SELECT id, user_id, device_token, lat, lng, heading, anchor_yaw_deg, anchor_height_m
+		SELECT id, user_id, device_token, lat, lng, heading, anchor_yaw_deg, anchor_height_m,
+		       expires_at, hidden_at
 		FROM irl_pins
 		WHERE id = ${id}
 	`;
@@ -295,6 +402,10 @@ async function handleCalibrate(res, { id, session, body }) {
 		(!!session?.id && !!pin.user_id && pin.user_id === session.id) ||
 		(!!pin.device_token && !!body.deviceToken && pin.device_token === body.deviceToken);
 	if (!owns) return json(res, 403, { error: 'only the owner can calibrate this agent' });
+
+	// An expired / moderation-hidden pin is gone from the public world — refuse to
+	// mutate it rather than re-saving a pose nobody will ever see (task 13).
+	if (isExpiredOrHidden(pin)) return json(res, 404, { error: 'not found' });
 
 	// New ground position — required, validated, range-checked.
 	const newLat = parseFloat(cal.lat);
@@ -339,8 +450,13 @@ async function handleCalibrate(res, { id, session, body }) {
 			heading         = COALESCE(${headingToStore}, heading),
 			anchor_height_m = COALESCE(${newHeight}, anchor_height_m)
 		WHERE id = ${id}
+		  AND hidden_at IS NULL
+		  AND (expires_at IS NULL OR expires_at > NOW())
 		RETURNING id, lat, lng, heading, anchor_yaw_deg, anchor_height_m, gps_accuracy_m
 	`;
+	// A lapse between the SELECT above and this write (e.g. expiry / a reaping cron)
+	// leaves no row — surface that as not-found instead of returning { pin: null }.
+	if (!row) return json(res, 404, { error: 'not found' });
 	// The corrected spot reaches nearby viewers on their next proximity poll — pin
 	// positions are never broadcast as a roster, only read by someone standing near it.
 	return json(res, 200, { pin: row, calibrated: true });
@@ -370,7 +486,7 @@ async function handleOutfitChange(res, { id, session, body }) {
 	// is never editable from an anonymous device token — same stance as the
 	// avatar/location edits below.)
 	const [pin] = await sql`
-		SELECT id, user_id, avatar_url, avatar_base_url, avatar_version
+		SELECT id, user_id, avatar_url, avatar_base_url, avatar_version, expires_at, hidden_at
 		FROM irl_pins
 		WHERE id = ${id}
 	`;
@@ -378,6 +494,9 @@ async function handleOutfitChange(res, { id, session, body }) {
 	if (!pin.user_id || pin.user_id !== session.id) {
 		return json(res, 403, { error: "only the owner can change this agent's outfit" });
 	}
+	// An expired / moderation-hidden pin is gone from the public world — refuse to
+	// burn a bake re-skinning a row no nearby viewer can see (task 13).
+	if (isExpiredOrHidden(pin)) return json(res, 404, { error: 'not found' });
 
 	// The base GLB the manifest dresses. Captured once (the agent as it looked
 	// before any outfit edit) so re-bakes always start from a clean model.
@@ -396,8 +515,11 @@ async function handleOutfitChange(res, { id, session, body }) {
 		}
 		// else: cleared / empty manifest → serve the bare base GLB again.
 	} catch (err) {
+		// Log the full detail server-side; NEVER echo err.message to the client — a
+		// bake/upstream error can carry filesystem paths, R2/CDN URLs, or libvips
+		// internals. The client gets a generic, actionable message only (task 13).
 		console.error('[irl/pins] outfit bake failed', { pinId: id, message: err?.message });
-		return json(res, 502, { error: 'could not bake the new outfit', detail: err?.message });
+		return json(res, 502, { error: 'could not bake the new outfit' });
 	}
 
 	const [row] = await sql`
@@ -407,6 +529,8 @@ async function handleOutfitChange(res, { id, session, body }) {
 			avatar_url      = ${newAvatarUrl},
 			avatar_version  = avatar_version + 1
 		WHERE id = ${id} AND user_id = ${session.id}
+		  AND hidden_at IS NULL
+		  AND (expires_at IS NULL OR expires_at > NOW())
 		RETURNING id, lat, lng, avatar_url, avatar_manifest, avatar_version
 	`;
 	if (!row) return json(res, 404, { error: 'not found' });
@@ -428,7 +552,7 @@ export default wrap(async (req, res) => {
 	// scrape. A legit viewer polls nearby every ~10 s (≈6/min) — well under the
 	// 60/min public ceiling — while a scripted sweep trips it fast.
 	if (req.method === 'GET') {
-		const rl = await limits.publicIp(clientIp(req));
+		const rl = await limitOrFailOpen('publicIp', limits.publicIp, clientIp(req));
 		if (!rl.success) return rateLimited(res, rl);
 	}
 
@@ -496,7 +620,15 @@ export default wrap(async (req, res) => {
 		// Tight proximity gate: default 40 m, hard-capped at 60 m. Large enough to
 		// render an agent as you walk up and point your camera at its spot, small
 		// enough that one read only ever exposes the handful right where you stand.
-		const radius = Math.min(60, Math.max(10, parseFloat(req.query.radius ?? '40')));
+		// A missing radius defaults to 40; a PRESENT but non-finite radius (e.g.
+		// ?radius=abc) is rejected — clamping NaN would silently yield NaN deltas and
+		// an always-empty feed, masking a malformed request behind a 200.
+		const rawRadius = req.query.radius;
+		const parsedRadius = rawRadius == null || rawRadius === '' ? 40 : parseFloat(rawRadius);
+		if (!Number.isFinite(parsedRadius)) {
+			return json(res, 400, { error: 'invalid radius' });
+		}
+		const radius = Math.min(60, Math.max(10, parsedRadius));
 
 		if (!isFinite(lat) || !isFinite(lng)) {
 			return json(res, 400, { error: 'lat and lng are required' });
@@ -583,7 +715,7 @@ export default wrap(async (req, res) => {
 	// carries a designed error code the client renders as an actionable message.
 	if (req.method === 'POST') {
 		const ip = clientIp(req);
-		const rl = await limits.irlPinIp(ip);
+		const rl = await limitOrFailOpen('irlPinIp', limits.irlPinIp, ip);
 		if (!rl.success) return rateLimited(res, rl);
 
 		const body = req.body ?? {};
@@ -643,8 +775,8 @@ export default wrap(async (req, res) => {
 		// Redis outage (non-critical) so an infra hiccup never blocks a real placement.
 		const rateKey = `${deviceToken ?? userId ?? 'anon'}:${ip}`;
 		const [burst, hourly] = await Promise.all([
-			limits.irlPinBurst(rateKey),
-			limits.irlPinHourly(rateKey),
+			limitOrFailOpen('irlPinBurst', limits.irlPinBurst, rateKey),
+			limitOrFailOpen('irlPinHourly', limits.irlPinHourly, rateKey),
 		]);
 		const throttled = !burst.success ? burst : !hourly.success ? hourly : null;
 		if (throttled) {
@@ -784,7 +916,7 @@ export default wrap(async (req, res) => {
 	// Anonymous device-token owners can only update caption (no location/avatar changes
 	// from anonymous sessions for safety).
 	if (req.method === 'PATCH') {
-		const rl = await limits.irlPinIp(clientIp(req));
+		const rl = await limitOrFailOpen('irlPinIp', limits.irlPinIp, clientIp(req));
 		if (!rl.success) return rateLimited(res, rl);
 
 		const session = await getSessionUser(req).catch(() => null);
@@ -875,13 +1007,33 @@ export default wrap(async (req, res) => {
 
 	// ── DELETE — remove own pin ───────────────────────────────────────────────
 	if (req.method === 'DELETE') {
-		const rl = await limits.irlPinIp(clientIp(req));
+		const rl = await limitOrFailOpen('irlPinIp', limits.irlPinIp, clientIp(req));
 		if (!rl.success) return rateLimited(res, rl);
 
 		const id          = req.query.id;
 		const deviceToken = req.query.deviceToken ?? req.body?.deviceToken;
+		const purgeAll    = req.query.all === '1' || req.query.all === 'true';
+
+		// ── Bulk purge — every pin from this device token, in one round-trip ──────
+		// Strictly scoped to a non-empty device token: the `IS NOT NULL` guard means
+		// a NULL/empty token matches nothing, so this can only ever delete the
+		// caller's own anonymous pins — never another device's, never a NULL-token
+		// row. Auth-only callers manage their permanent pins from the dashboard, so
+		// this branch requires a device token.
+		if (purgeAll) {
+			if (!deviceToken) return json(res, 400, { error: 'deviceToken required for bulk delete' });
+			const rows = await sql`
+				DELETE FROM irl_pins
+				WHERE device_token IS NOT NULL AND device_token = ${deviceToken}
+				RETURNING id
+			`;
+			return json(res, 200, { ok: true, deleted: rows.length });
+		}
 
 		if (!id) return json(res, 400, { error: 'id required' });
+		// A delete id is a server-minted UUID — reject a malformed one before it
+		// reaches the query or a log line.
+		if (!isValidPinId(id)) return json(res, 400, { error: 'invalid pin id' });
 
 		const session = await getSessionUser(req).catch(() => null);
 		const userId  = session?.id ?? null;
@@ -899,6 +1051,7 @@ export default wrap(async (req, res) => {
 		const result = await sql`
 			DELETE FROM irl_pins
 			WHERE id = ${id}
+			  AND (expires_at IS NULL OR expires_at > NOW())
 			  AND (
 			    (${userId}::uuid IS NOT NULL AND user_id = ${userId}::uuid)
 			    OR (device_token IS NOT NULL AND device_token = ${deviceToken ?? ''})

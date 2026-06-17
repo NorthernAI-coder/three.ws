@@ -408,6 +408,91 @@ export async function getSolanaAddressBalances(address, cluster = 'mainnet') {
 	return { sol, usdc };
 }
 
+// Validate a string is a syntactically valid Solana (base58, 32-byte) address.
+// A truthy meta.solana_address that does not parse is treated as missing so the
+// wallet is re-provisioned rather than handed downstream to crash a PublicKey().
+async function isValidSolanaAddress(address) {
+	if (typeof address !== 'string' || address.length < 32 || address.length > 44) return false;
+	if (!/^[1-9A-HJ-NP-Za-km-z]+$/.test(address)) return false;
+	try {
+		const { PublicKey } = await import('@solana/web3.js');
+		// Constructing throws on a malformed (non-32-byte) base58 string.
+		// eslint-disable-next-line no-new
+		new PublicKey(address);
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+/**
+ * Idempotently guarantee an agent has a usable custodial Solana wallet.
+ *
+ * This is THE single entry point every wallet-touching endpoint (deposit, trade,
+ * x402 pay, withdraw) must call before assuming `meta.solana_address` /
+ * `meta.encrypted_solana_secret` exist. It:
+ *   1. loads the agent row,
+ *   2. returns the existing wallet if both the address is a valid Solana key and
+ *      a recoverable encrypted secret is present ({ created: false }),
+ *   3. otherwise generates + persists a fresh keypair via the canonical
+ *      generateSolanaAgentWallet() and audit-logs the lazy provision
+ *      ({ created: true }).
+ *
+ * A row whose address fails to parse, or whose secret is missing, is repaired —
+ * never handed downstream to throw inside a PublicKey() / signing call. The
+ * secret never leaves the server and is never returned, logged, or put in an
+ * error message.
+ *
+ * @param {string} agentId
+ * @param {string|null} [userId] — owner, for the audit trail (optional)
+ * @param {{ reason?: string }} [opts]
+ * @returns {Promise<{ address: string, created: boolean }>}
+ */
+export async function ensureAgentWallet(agentId, userId = null, opts = {}) {
+	if (!agentId) throw new Error('agentId required');
+	const { sql } = await import('./db.js');
+	const [row] = await sql`
+		select id, user_id, meta from agent_identities
+		where id = ${agentId} and deleted_at is null
+		limit 1
+	`;
+	if (!row) throw new Error('agent not found');
+
+	const meta = { ...(row.meta || {}) };
+	const hasValidAddress = await isValidSolanaAddress(meta.solana_address);
+	const hasSecret = typeof meta.encrypted_solana_secret === 'string' && meta.encrypted_solana_secret.length > 0;
+	if (hasValidAddress && hasSecret) {
+		return { address: meta.solana_address, created: false };
+	}
+
+	const sol = await generateSolanaAgentWallet();
+	const nextMeta = {
+		...meta,
+		solana_address: sol.address,
+		encrypted_solana_secret: sol.encrypted_secret,
+		solana_wallet_source: meta.solana_wallet_source || 'lazy_provision',
+	};
+	await sql`update agent_identities set meta = ${JSON.stringify(nextMeta)}::jsonb where id = ${agentId}`;
+
+	// Audit the lazy provision: custodial keys are real funds, every mint must be
+	// traceable. Fire-and-forget — telemetry must never block the wallet path.
+	// The address is public; the secret is never recorded.
+	try {
+		const { recordEvent } = await import('./usage.js');
+		recordEvent({
+			userId: userId ?? row.user_id ?? null,
+			agentId,
+			kind: 'solana_wallet_provision',
+			tool: opts.reason || 'ensure',
+			status: 'ok',
+			meta: { address: sol.address, source: 'lazy_provision', repaired: hasValidAddress !== hasSecret },
+		});
+	} catch {
+		/* audit best-effort */
+	}
+	return { address: sol.address, created: true };
+}
+
 /**
  * Recover a Solana Keypair from its encrypted form.
  * Only call this when the agent needs to sign a transaction.
