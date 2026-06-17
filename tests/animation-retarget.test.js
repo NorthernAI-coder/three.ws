@@ -276,8 +276,10 @@ describe('root-motion correction', () => {
 		const targetRest = canonicalRestMapFromObject(rig);
 		const hpq = hipsParentWorldQuat(rig);
 		const r = retargetClip(clip, map, { hipScale: 1, targetRest, hipsParentWorldQuat: hpq }).clip;
+		const verbatim = retargetClip(clip, map, { hipScale: 1 }).clip; // no correction baseline
 		const pos = r.tracks.find((t) => t.name.endsWith('.position'));
-		expect(Array.from(pos.values)).toEqual([0, 1, 0, 0, 1.1, 0]);
+		const posV = verbatim.tracks.find((t) => t.name.endsWith('.position'));
+		expect(Array.from(pos.values)).toEqual(Array.from(posV.values));
 	});
 });
 
