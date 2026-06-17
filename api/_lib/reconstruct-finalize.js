@@ -81,7 +81,6 @@ async function materializeReconstructAvatar({
 		const canonical = canonicalizeGLBBones(ab);
 		if (canonical.renamed > 0 || canonical.orientationCorrected) {
 			glbBuf = Buffer.from(canonical.buffer);
-			console.log(`[reconstruct] canonicalize: renamed=${canonical.renamed} orientationCorrected=${canonical.orientationCorrected}`);
 		}
 	} catch (err) {
 		console.warn('[reconstruct] canonicalize skipped:', err?.message);

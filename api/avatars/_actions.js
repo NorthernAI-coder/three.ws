@@ -139,7 +139,6 @@ const handleUpload = wrap(async (req, res) => {
 		const canonical = canonicalizeGLBBones(ab);
 		if (canonical.renamed > 0 || canonical.orientationCorrected) {
 			buffer = Buffer.from(canonical.buffer);
-			console.log(`[avatar-upload] canonicalize: renamed=${canonical.renamed} orientationCorrected=${canonical.orientationCorrected}`);
 		}
 	} catch (err) {
 		console.warn('[avatar-upload] canonicalize skipped:', err?.message);

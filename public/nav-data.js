@@ -79,6 +79,7 @@ export const NAV_GROUPS = [
 			{ title: 'Agents Index', href: '/agents', desc: 'Browse every registered agent' },
 			{ title: 'Marketplace', href: '/marketplace', desc: 'Buy, sell & remix agents' },
 			{ title: 'Avatar Gallery', href: '/gallery', desc: 'Every public 3D avatar' },
+			{ title: 'Animation Gallery', href: '/animations', desc: 'Community animations for avatars' },
 			{
 				title: 'Worlds',
 				href: '/play',
