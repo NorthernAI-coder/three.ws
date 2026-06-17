@@ -119,6 +119,14 @@
 			<description>Your IRL Agents dashboard now has a real outfit editor. Open Change outfit on any agent you've placed and a live 3D preview loads with wardrobe controls for the exact layers that avatar has — recolour its hair, skin, and clothing, strip back to the base body and dress it up again, or stack on hats, glasses, and earrings. Because your agents are public, the new look is baked into the agent itself and pushed to its real-world pin, so every person who walks up to that spot sees the updated outfit in their camera — not just you. Save when you're happy; the avatar is re-rendered for real before it confirms, the previous look stays untouched if anything fails, and nearby viewers refresh to the new outfit within seconds. Run a seasonal look, brand your agents as staff for an event, or just keep them fresh — all without walking back to where you pinned them.</description>
 		</item>
 		<item>
+			<title>Chat tool calls no longer break on certain models</title>
+			<link>https://three.ws/chat</link>
+			<guid isPermaLink="false">2026-06-17:Chat tool calls no longer break on certain models</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Some models (like GPT OSS 120B) return tool-call arguments as a ready-made object instead of streamed text. Chat assumed text and mangled it into &quot;[object Object]&quot;, so tools such as ForgeTextTo3D failed with a JSON parse error. Chat now handles both formats, and a tool that takes no arguments no longer errors either — so generating a model from a prompt works across every model.</description>
+		</item>
+		<item>
 			<title>Choose who dances — avatar selector in the Pole Club</title>
 			<link>https://three.ws/club</link>
 			<guid isPermaLink="false">2026-06-17:Choose who dances — avatar selector in the Pole Club</guid>
@@ -573,6 +581,14 @@
 			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>When a coin your sniper holds graduates from the pump.fun bonding curve to its AMM pool, the agent used to be stuck holding it — the position sat parked and your exit rules quietly stopped working. The sniper now follows a graduated coin straight onto the AMM and keeps managing it there: stop-loss, trailing-stop, take-profit, and the hold-time limit all keep working against the real post-graduation price, and the automatic sell goes out with slippage protection. Positions that were stuck before can be cleared with a one-time backfill.</description>
+		</item>
+		<item>
+			<title>Switch your agent mid-walk, and a fix for the avatar that wouldn't stop</title>
+			<link>https://three.ws/club</link>
+			<guid isPermaLink="false">2026-06-17:Switch your agent mid-walk, and a fix for the avatar that wouldn't stop</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The walk-in to the Pole Club now has an Agent picker in the top-left: choose which avatar you walk in as — from a set of bundled rigs or any public avatar from the gallery — and the model swaps live, mid-stride, with no reload and without losing your place or heading. You can switch as many times as you like, in any room along the way. Also fixed: an avatar that could keep walking on its own after the window lost focus or you opened the cover-charge card — held keys are now released cleanly so she always stops when you do.</description>
 		</item>
 		<item>
 			<title>Tag mini-game in /play worlds</title>

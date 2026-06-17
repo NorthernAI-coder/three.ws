@@ -72,6 +72,55 @@ export class ClubAudio {
 		this.master.connect(this.analyser);
 		this._peakBuf = new Uint8Array(this.analyser.frequencyBinCount);
 
+		// ── Outdoor / indoor effects chain ────────────────────────────────────
+		// All audio layers connect to effectsBus instead of master directly.
+		// Outdoor (default): heavy bass shelf, aggressive lowpass muffle,
+		// long sparse reverb — sounds like the club heard through the door.
+		// Indoor: open spectrum, tight room reverb, natural bass.
+		this.effectsBus = this.ctx.createGain();
+		this.effectsBus.gain.value = 1.0;
+
+		this._fx = {};
+
+		this._fx.bass = this.ctx.createBiquadFilter();
+		this._fx.bass.type = 'lowshelf';
+		this._fx.bass.frequency.value = 90;
+		this._fx.bass.gain.value = 18;
+
+		this._fx.lowpass = this.ctx.createBiquadFilter();
+		this._fx.lowpass.type = 'lowpass';
+		this._fx.lowpass.frequency.value = 420;
+		this._fx.lowpass.Q.value = 1.0;
+
+		this._fx.dry = this.ctx.createGain();
+		this._fx.dry.gain.value = 0.22;
+
+		// Outdoor reverb: 5s, sparse early reflections off building exterior
+		this._fx.outdoorConv = this.ctx.createConvolver();
+		this._fx.outdoorConv.buffer = this._buildIR(5.0, 1.0, 0.32);
+		this._fx.outdoorWet = this.ctx.createGain();
+		this._fx.outdoorWet.gain.value = 0.85;
+
+		// Indoor reverb: 1.5s, dense club room reverb
+		this._fx.indoorConv = this.ctx.createConvolver();
+		this._fx.indoorConv.buffer = this._buildIR(1.5, 2.8, 1.0);
+		this._fx.indoorWet = this.ctx.createGain();
+		this._fx.indoorWet.gain.value = 0.0;
+
+		// effectsBus → bass → lowpass → dry ──────────────────────────→ master
+		//                             → outdoorConv → outdoorWet ──────→ master
+		//                             → indoorConv  → indoorWet  ──────→ master
+		this.effectsBus.connect(this._fx.bass);
+		this._fx.bass.connect(this._fx.lowpass);
+		this._fx.lowpass.connect(this._fx.dry);
+		this._fx.lowpass.connect(this._fx.outdoorConv);
+		this._fx.lowpass.connect(this._fx.indoorConv);
+		this._fx.dry.connect(this.master);
+		this._fx.outdoorConv.connect(this._fx.outdoorWet);
+		this._fx.outdoorWet.connect(this.master);
+		this._fx.indoorConv.connect(this._fx.indoorWet);
+		this._fx.indoorWet.connect(this.master);
+
 		if (this.ctx.state === 'suspended') {
 			try {
 				await this.ctx.resume();
@@ -119,7 +168,7 @@ export class ClubAudio {
 		source.loop = true;
 		const gain = this.ctx.createGain();
 		gain.gain.value = initialGain;
-		source.connect(gain).connect(this.master);
+		source.connect(gain).connect(this.effectsBus);
 		source.start();
 		return { source, gain };
 	}
@@ -218,7 +267,7 @@ export class ClubAudio {
 		source.loop = false;
 		const g = this.ctx.createGain();
 		g.gain.value = gain;
-		source.connect(g).connect(this.master);
+		source.connect(g).connect(this.effectsBus);
 
 		const now = this.ctx.currentTime;
 		// Duck ambience under the anthem if it's already running.
@@ -250,6 +299,53 @@ export class ClubAudio {
 			} catch {}
 		}
 		return this.entrance;
+	}
+
+	// Synthetic impulse response for the convolver reverb.
+	// outdoor: sparse early reflections (low density), slow decay — building exterior
+	// indoor: dense full-room reverb, fast decay — club interior
+	_buildIR(duration, decay, density) {
+		const rate = this.ctx.sampleRate;
+		const len = Math.floor(rate * duration);
+		const buf = this.ctx.createBuffer(2, len, rate);
+		for (let c = 0; c < 2; c++) {
+			const ch = buf.getChannelData(c);
+			for (let i = 0; i < len; i++) {
+				const r =
+					density >= 1
+						? Math.random() * 2 - 1
+						: Math.random() < density
+							? Math.random() * 2 - 1
+							: 0;
+				ch[i] = r * Math.pow(1 - i / len, decay);
+			}
+		}
+		return buf;
+	}
+
+	// Crossfade the effects chain between outdoor (heavy muffle + bass + long reverb)
+	// and indoor (full spectrum + tight room reverb). Call with isInside=false when
+	// the user is at the door; isInside=true on club:admitted.
+	setLocation(isInside) {
+		if (!this.ctx || !this._fx) return;
+		const t = this.ctx.currentTime;
+		const tc = 0.9; // exponential time constant — fully settled in ~2s
+
+		if (isInside) {
+			this._fx.lowpass.frequency.setTargetAtTime(17000, t, tc);
+			this._fx.lowpass.Q.setTargetAtTime(0.5, t, tc);
+			this._fx.bass.gain.setTargetAtTime(9, t, tc);
+			this._fx.dry.gain.setTargetAtTime(0.65, t, tc);
+			this._fx.outdoorWet.gain.setTargetAtTime(0.0, t, tc);
+			this._fx.indoorWet.gain.setTargetAtTime(0.28, t, tc);
+		} else {
+			this._fx.lowpass.frequency.setTargetAtTime(420, t, tc);
+			this._fx.lowpass.Q.setTargetAtTime(1.0, t, tc);
+			this._fx.bass.gain.setTargetAtTime(18, t, tc);
+			this._fx.dry.gain.setTargetAtTime(0.22, t, tc);
+			this._fx.outdoorWet.gain.setTargetAtTime(0.85, t, tc);
+			this._fx.indoorWet.gain.setTargetAtTime(0.0, t, tc);
+		}
 	}
 
 	_fadeOutLayer(layer, durationMs) {

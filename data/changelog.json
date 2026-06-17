@@ -3,6 +3,16 @@
 	"entries": [
 		{
 			"date": "2026-06-17",
+			"title": "Switch your agent mid-walk, and a fix for the avatar that wouldn't stop",
+			"summary": "The walk-in to the Pole Club now has an Agent picker in the top-left: choose which avatar you walk in as — from a set of bundled rigs or any public avatar from the gallery — and the model swaps live, mid-stride, with no reload and without losing your place or heading. You can switch as many times as you like, in any room along the way. Also fixed: an avatar that could keep walking on its own after the window lost focus or you opened the cover-charge card — held keys are now released cleanly so she always stops when you do.",
+			"tags": [
+				"feature",
+				"fix"
+			],
+			"link": "/club"
+		},
+		{
+			"date": "2026-06-17",
 			"title": "Chat tool calls no longer break on certain models",
 			"summary": "Some models (like GPT OSS 120B) return tool-call arguments as a ready-made object instead of streamed text. Chat assumed text and mangled it into \"[object Object]\", so tools such as ForgeTextTo3D failed with a JSON parse error. Chat now handles both formats, and a tool that takes no arguments no longer errors either — so generating a model from a prompt works across every model.",
 			"tags": [
