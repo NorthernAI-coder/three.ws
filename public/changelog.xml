@@ -743,6 +743,14 @@
 			<description>The conviction Oracle's evidence views had stopped responding: the Wins gallery, the accuracy Backtest, and the global Activity feed were all erroring instead of returning data, and the live activity feed failed on every request. The cause was in how those queries were assembled — optional filters (time window, tier, agent) weren't being stitched into the database query correctly, so the database rejected them. All three views now build their filters cleanly and return the Oracle's track record, hit-rate, and real-time agent actions as intended.</description>
 		</item>
 		<item>
+			<title>The Pole Club now has a real soundtrack</title>
+			<link>https://three.ws/club</link>
+			<guid isPermaLink="false">2026-06-17:The Pole Club now has a real soundtrack</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Walk into the Pole Club and music starts playing the moment you interact — a full-length club anthem that rolls straight into a second track and then loops back to the top, so the room is never silent. The soundtrack streams (no heavy decode) and runs through the same room acoustics as everything else: muffled like it's heard through the door while you're outside, then opening up to full clarity the instant you're admitted. A tipped dancer's track and the walk-in anthem duck the music underneath them, and the Audio toggle in the top bar silences it all.</description>
+		</item>
+		<item>
 			<title>The sniper now runs as an always-on service — armed strategies fire in real time</title>
 			<link>https://three.ws/dashboard/sniper</link>
 			<guid isPermaLink="false">2026-06-17:The sniper now runs as an always-on service — armed strategies fire in real time</guid>
