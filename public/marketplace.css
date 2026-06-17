@@ -1359,6 +1359,14 @@ body.market-page > header {
 	background-color: rgba(253, 224, 71, 0.1);
 }
 
+/* Owned: ties to the indigo purchase brand so a bought skill reads as
+   "you have access" — distinct from the teal Free and yellow paid badges. */
+.price-owned {
+	color: #c7d2fe;
+	background-color: rgba(79, 70, 229, 0.18);
+	border: 1px solid rgba(79, 70, 229, 0.4);
+}
+
 .paid-badge {
 	background: #fef3c7;
 	color: #92400e;
@@ -1418,6 +1426,74 @@ body.market-page > header {
 
 .purchase-btn:hover {
 	background-color: #4338ca;
+}
+
+/* Groups the price badge + action buttons on the right of a .skill-row's
+   space-between layout, so multiple buttons stay together instead of
+   scattering across the row. Children keep their own margin-left spacing. */
+.skill-actions {
+	display: inline-flex;
+	align-items: center;
+	flex-shrink: 0;
+}
+
+/* Try-free trial — a ghost button in the Free/teal palette so it reads as the
+   no-cost path next to the primary indigo Purchase button. */
+.trial-btn,
+.time-pass-btn {
+	margin-left: var(--space-xs);
+	padding: var(--space-2xs) var(--space-sm);
+	border-radius: var(--radius-sm);
+	cursor: pointer;
+	font-size: 12px;
+	font-weight: 600;
+	transition:
+		background-color 0.2s,
+		border-color 0.2s,
+		color 0.2s;
+}
+
+.trial-btn {
+	background-color: transparent;
+	color: #a7f3d0;
+	border: 1px solid rgba(74, 222, 128, 0.4);
+}
+
+.trial-btn:hover {
+	background-color: rgba(74, 222, 128, 0.12);
+	border-color: rgba(74, 222, 128, 0.65);
+}
+
+/* Time-pass — an alternate indigo purchase, outlined rather than filled so it
+   reads as secondary to the solid Purchase button. */
+.time-pass-btn {
+	background-color: rgba(79, 70, 229, 0.14);
+	color: #c7d2fe;
+	border: 1px solid rgba(79, 70, 229, 0.5);
+}
+
+.time-pass-btn:hover {
+	background-color: rgba(79, 70, 229, 0.28);
+	border-color: rgba(79, 70, 229, 0.7);
+}
+
+/* In-flight: both buttons set disabled while their request runs ("Starting
+   trial…" / "Preparing…"). Dim and lock the cursor so the wait reads as busy,
+   not broken. */
+.trial-btn:disabled,
+.time-pass-btn:disabled {
+	opacity: 0.55;
+	cursor: progress;
+}
+
+.trial-btn:disabled:hover {
+	background-color: transparent;
+	border-color: rgba(74, 222, 128, 0.4);
+}
+
+.time-pass-btn:disabled:hover {
+	background-color: rgba(79, 70, 229, 0.14);
+	border-color: rgba(79, 70, 229, 0.5);
 }
 
 /* ── Skill rows ──────────────────────────────────────────────────────── */
@@ -4317,6 +4393,8 @@ body.market-page > header {
 .market-tool-detail .btn-secondary:focus-visible,
 .tool-detail-pills button.tag-pill:focus-visible,
 .purchase-btn:focus-visible,
+.trial-btn:focus-visible,
+.time-pass-btn:focus-visible,
 .skill-btn.purchase:focus-visible,
 .market-fork:focus-visible,
 .related-card:focus-visible,
@@ -4348,6 +4426,8 @@ body.market-page > header {
 .market-avatar-detail-cta:active,
 .tool-detail-cta:active,
 .purchase-btn:active,
+.trial-btn:active,
+.time-pass-btn:active,
 .skill-btn.purchase:active,
 .plugin-add-url-btn:active,
 .plugin-install-btn:active,

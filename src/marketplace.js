@@ -4791,6 +4791,16 @@ function renderDetail(a, bookmarked) {
 
 	const skillPrices = a.skill_prices || {};
 
+	// The detail API returns the authoritative list of skills the signed-in user
+	// has already unlocked for THIS agent (api/marketplace/[action].js →
+	// purchased_skills, sourced from the confirmed skill_purchases table). Fold it
+	// into the shared set so the "Owned" badge is correct even when the global
+	// /users/me/purchased-skills fetch hasn't run or is stale — e.g. immediately
+	// after a purchase, or a bearer/SSO session with no localStorage auth hint.
+	if (Array.isArray(a.purchased_skills)) {
+		for (const owned of a.purchased_skills) purchasedSkills.add(`${a.id}:${owned}`);
+	}
+
 	$('d-skills').innerHTML = skillsArr.length
 		? skillsArr.map((s) => {
 				const name = typeof s === 'string' ? s : (s.name || '');
@@ -4822,7 +4832,7 @@ function renderDetail(a, bookmarked) {
 
 				return `<div class="skill-row">
 									<span class="skill-name">${escapeHtml(name)}</span>
-									${badge}
+									<span class="skill-actions">${badge}</span>
 							</div>`;
 		}).join('')
 		: '<div>This Agent has no skills defined.</div>';

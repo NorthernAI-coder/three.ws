@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-17T04:39:14.546Z",
+	"generated_at": "2026-06-17T05:46:02.240Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -35,6 +35,16 @@
 			"link": "/dashboard/irl-placements",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-17",
+			"type": "update",
+			"title": "Clearer pricing on every agent's skills in the marketplace",
+			"summary": "An agent's detail page now reads cleanly when its skills carry a price. Each skill shows a badge at a glance — green 'Free', a yellow price for paid skills, or an indigo 'Owned' once you've bought it — and when a paid skill offers a free trial or a timed access pass, those now appear as proper buttons styled to match the Purchase button, with hover, focus, and press states. The price badge and action buttons are grouped together on the right of each row instead of spreading out, so a skill with several options stays tidy and easy to scan.",
+			"link": "/marketplace",
+			"tags": [
+				"improvement"
 			]
 		},
 		{

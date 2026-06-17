@@ -3,6 +3,13 @@
 	"entries": [
 		{
 			"date": "2026-06-17",
+			"title": "Clearer pricing on every agent's skills in the marketplace",
+			"summary": "An agent's detail page now reads cleanly when its skills carry a price. Each skill shows a badge at a glance — green 'Free', a yellow price for paid skills, or an indigo 'Owned' once you've bought it — and when a paid skill offers a free trial or a timed access pass, those now appear as proper buttons styled to match the Purchase button, with hover, focus, and press states. The price badge and action buttons are grouped together on the right of each row instead of spreading out, so a skill with several options stays tidy and easy to scan.",
+			"tags": ["improvement"],
+			"link": "/marketplace"
+		},
+		{
+			"date": "2026-06-17",
 			"title": "See how many people are viewing a spot with you on IRL",
 			"summary": "three.ws/irl now shows when you're not alone. A small live count next to the nearby badge reads '3 viewing nearby' whenever other people have the same location open at the same time, so a place feels inhabited even before anyone has pinned an agent there — and it updates the instant someone arrives or leaves. Your location stays private: the count is built from a coarse ~1km area, never your precise GPS, and nobody can see where you are by default. If you want to be visible you can turn on 'Appear nearby' (off unless you choose it), which shows you to others as a faint, anonymous marker on their radar and in their view — no name, not tappable, clearly distinct from a placed agent. You can flip it on or off at any time and others see the change immediately. The count only appears while you have a live connection, so it never shows a stale or made-up number.",
 			"tags": ["feature"],
