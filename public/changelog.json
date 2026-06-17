@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-17T22:12:47.201Z",
+	"generated_at": "2026-06-17T22:29:45.437Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -141,6 +141,16 @@
 		{
 			"date": "2026-06-17",
 			"type": "update",
+			"title": "Browse and walk into the club as any 3D agent",
+			"summary": "The club's agent switcher now has a Browse button that opens the full directory of public 3D agents. Search them, filter by skill or on-chain status, sort by popular/newest/name, and spin each agent's avatar in a live 3D preview before you pick. Choose one and you swap into it instantly — walking up to the club as that agent — instead of being limited to the short quick-switch list.",
+			"link": "/club",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-17",
+			"type": "update",
 			"title": "Build mode — place, rotate, and delete props in every coin world",
 			"summary": "Every /play coin world now has a build mode for free-standing props. Press B (or tap the ⛏ button) to open the prop palette: pick from 12 hand-crafted primitives (crate, barrel, planter, lamp, bench, pillar, arch, ramp, sign, crystal, stage, pole) or browse thousands of community gallery models that stream in as you scroll. A translucent ghost preview snaps to the floor grid under your cursor so you always know exactly where a prop will land — green when the placement is valid, red when it's outside the world radius. Press R to quarter-turn the ghost before committing. Click or tap to place; right-click or hold to remove a prop you placed. Props appear for everyone instantly through the shared object channel and survive server restarts.",
 			"link": "/play",
@@ -202,11 +212,32 @@
 		{
 			"date": "2026-06-17",
 			"type": "update",
+			"title": "Cleaner avatar loading on embeds",
+			"summary": "Embedded 3D agents no longer flash a grey skeleton silhouette while the avatar streams in. The frame now stays clean — showing the poster preview when one is set, or transparent until the avatar paints — so the load-in reads as polished rather than half-built.",
+			"link": null,
+			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-17",
+			"type": "update",
 			"title": "Clearer pricing on every agent's skills in the marketplace",
 			"summary": "An agent's detail page now reads cleanly when its skills carry a price. Each skill shows a badge at a glance — green 'Free', a yellow price for paid skills, or an indigo 'Owned' once you've bought it — and when a paid skill offers a free trial or a timed access pass, those now appear as proper buttons styled to match the Purchase button, with hover, focus, and press states. The price badge and action buttons are grouped together on the right of each row instead of spreading out, so a skill with several options stays tidy and easy to scan.",
 			"link": "/marketplace",
 			"tags": [
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-17",
+			"type": "update",
+			"title": "Club door ban list now enforced",
+			"summary": "Fixed the paid club door so the ban check actually runs. A wiring error meant the bouncer's on-chain ban lookup threw on every entry and quietly failed open, admitting wallets it should have turned away. The USDC door and the $THREE door now share one bouncer and run the real ban-and-tier check on every cover charge, so banned wallets are stopped at the rope.",
+			"link": "/club",
+			"tags": [
+				"fix",
+				"security"
 			]
 		},
 		{
@@ -658,16 +689,6 @@
 		{
 			"date": "2026-06-17",
 			"type": "update",
-			"title": "Pick a 3D agent to drop into any world",
-			"summary": "Added a dedicated agent picker to the worlds lobby. Tap “Browse 3D agents” to search the full directory of public agents, filter by skill or on-chain status, sort by popular/newest/name, and spin each agent's avatar in a live 3D preview before you commit. Choose one and you drop into the world wearing its avatar — no more sifting through raw avatars and accessories to find an actual agent.",
-			"link": "/worlds",
-			"tags": [
-				"feature"
-			]
-		},
-		{
-			"date": "2026-06-17",
-			"type": "update",
 			"title": "Place your IRL agent on the real floor with AR anchoring",
 			"summary": "On AR-capable phones (Android Chrome), three.ws/irl now lets you point at your actual floor through a placement ring and tap to set your agent on that exact spot. It binds to a real-world anchor, so it stays put as you walk around it instead of sliding with the camera or jittering with GPS — the world-locked placement you'd expect from a top AR app. Each placement is saved as a pin, capturing the floor height, facing, and how good your GPS fix was, so it reloads near the same place and nearby people can see it. If you tap to anchor before your location is ready, it holds the spot and saves it the instant your first GPS fix lands instead of losing the placement. iPhone, which doesn't support this AR mode, keeps the existing compass-based Pin here flow and simply doesn't show the floor button.",
 			"link": "/irl",
@@ -781,6 +802,16 @@
 		{
 			"date": "2026-06-17",
 			"type": "update",
+			"title": "Simpler color picker in advanced controls",
+			"summary": "The color pickers in the viewer's advanced controls and the material editor now drop the vertical rainbow hue strip, leaving a single clean saturation-and-brightness field that fills the full picker width. Picking a color is tidier and less cluttered.",
+			"link": null,
+			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-17",
+			"type": "update",
 			"title": "Sniper dashboard: your live positions now show real-time profit and loss and reconnect on their own",
 			"summary": "The Sniper Strategies dashboard now streams your agents' open positions with live unrealized profit and loss — both the SOL figure and the percentage — instead of a blank value, and fills them in the moment the page loads rather than waiting for the next trade to land. The live feed shows its own connection state (Live / Reconnecting) and re-establishes itself automatically with backoff if it drops, so you always know whether you're watching real-time data. Closed-trade history now calls out your single best and worst trade, and there are one-tap links to the public leaderboard and sniper arena so your track record is easy to share.",
 			"link": "/dashboard/sniper",
@@ -832,8 +863,8 @@
 		{
 			"date": "2026-06-17",
 			"type": "update",
-			"title": "The IBM x402 demo grew a 3D agent that pays for itself",
-			"summary": "The live x402 demo at three.ws/ibm/x402-demo now has a 3D AI agent below the payment card. When you run the $0.001 call, the agent watches the same on-chain settlement you do and reacts in real time — it celebrates and announces the payment the moment it clears. You can also ask it how x402 and $THREE work. Under it, three new rooms — Forge (text to 3D), Play (live worlds), and IRL (augmented reality) — load the real three.ws surfaces inline on a click, or open full-screen. Everything still loads from three.ws with no build step.",
+			"title": "The IBM page became a live showcase — five three.ws demos in one place",
+			"summary": "The IBM page at three.ws/ibm/x402-demo is now a full showcase of the IBM × three.ws partnership: five real, unmocked demos you can try in sequence. Pay a tenth of a cent over x402 and watch it settle on-chain; meet a 3D AI agent that pays for its own data and celebrates the moment your payment clears; then Forge (turn text into a 3D model), Play (a shared 3D world), and IRL (an agent in augmented reality) each run full-size right on the page, with a one-tap full-screen. Everything still loads from three.ws with no build step.",
 			"link": "/ibm/x402-demo",
 			"tags": [
 				"feature"

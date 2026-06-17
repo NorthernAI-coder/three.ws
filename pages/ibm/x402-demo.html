@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <title>x402 live demo — three.ws × IBM</title>
-<meta name="description" content="A live, self-contained x402 demo: pay $0.001 in USDC from your own wallet to call a real three.ws data API. Settled on-chain on Base or Solana. No backend, no account.">
+<meta name="description" content="A live, self-contained x402 demo: pay $0.001 in USDC from your own wallet to call a real three.ws data API. Settled on-chain on Solana. No backend, no account.">
 <meta property="og:title" content="x402 live demo — three.ws × IBM">
 <meta property="og:description" content="Pay $0.001 in USDC from your own wallet to call a real three.ws API. See HTTP 402 micropayments settle on-chain in about a second.">
 <meta property="og:type" content="website">
@@ -365,9 +365,9 @@ agent-3d:defined ~ .agent-skel{display:none}
 	<meta property="og:image:height" content="630">
 	<meta name="twitter:card" content="summary_large_image">
 	<meta name="twitter:title" content="x402 Live Demo (IBM × three.ws) · three.ws">
-	<meta name="twitter:description" content="A self-contained x402 micropayment demo: pay $0.001 USDC from your own wallet — MetaMask on Base or Phantom on Solana — to call a real three.ws data API. Watch the live HTTP 402 challenge, sign a gasless authorization, and see the on-chain settlement receipt. No backend, no account; built as the public face of the IBM × three.ws partnership.">
+	<meta name="twitter:description" content="A self-contained x402 micropayment demo: pay $0.001 USDC from your own wallet — MetaMask or Phantom on Solana — to call a real three.ws data API. Watch the live HTTP 402 challenge, sign a gasless authorization, and see the on-chain settlement receipt. No backend, no account; built as the public face of the IBM × three.ws partnership.">
 	<meta name="twitter:image" content="https://three.ws/og-image.png">
-	<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"x402 Live Demo (IBM × three.ws)","description":"A self-contained x402 micropayment demo: pay $0.001 USDC from your own wallet — MetaMask on Base or Phantom on Solana — to call a real three.ws data API. Watch the live HTTP 402 challenge, sign a gasless authorization, and see the on-chain settlement receipt. No backend, no account; built as the public face of the IBM × three.ws partnership.","url":"https://three.ws/ibm/x402-demo","isPartOf":{"@type":"WebSite","name":"three.ws","url":"https://three.ws"}}</script>
+	<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"x402 Live Demo (IBM × three.ws)","description":"A self-contained x402 micropayment demo: pay $0.001 USDC from your own wallet — MetaMask or Phantom on Solana — to call a real three.ws data API. Watch the live HTTP 402 challenge, sign a gasless authorization, and see the on-chain settlement receipt. No backend, no account; built as the public face of the IBM × three.ws partnership.","url":"https://three.ws/ibm/x402-demo","isPartOf":{"@type":"WebSite","name":"three.ws","url":"https://three.ws"}}</script>
 </head>
 <body>
 
@@ -433,7 +433,7 @@ agent-3d:defined ~ .agent-skel{display:none}
   <div class="inner">
     <div class="section-tag">Demo 01 · Payments</div>
     <h2 id="demo-h">Buy a <strong>data call</strong> for $0.001</h2>
-    <p class="section-lead">This calls a real three.ws API — a token-symbol availability check — for one tenth of a cent in USDC, settled on Base or Solana mainnet. Nothing here is mocked: the price below is read live from the server's own 402 response.</p>
+    <p class="section-lead">This calls a real three.ws API — a token-symbol availability check — for one tenth of a cent in USDC, settled on Solana mainnet. The price below is read live from the server's own 402 response.</p>
 
     <div class="demo">
       <div class="demo-head">
@@ -481,7 +481,7 @@ agent-3d:defined ~ .agent-skel{display:none}
         <!-- requirements -->
         <div class="note">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
-          <p>You'll need a browser wallet — <b>MetaMask</b> (for Base) or <b>Phantom</b> (for Solana) — holding at least <b>$0.001 USDC</b> on mainnet. This spends real funds, but only a tenth of a cent. The payment is a gasless signature; the network fee is sponsored by the facilitator. No wallet? You can still watch the 402 challenge above and read the <a href="https://three.ws/docs/x402" target="_blank" rel="noopener">protocol docs</a>.</p>
+          <p>You'll need a browser wallet — <b>MetaMask</b> or <b>Phantom</b> (for Solana) — holding at least <b>$0.001 USDC</b> on mainnet. This spends real funds, but only a tenth of a cent. The payment is a gasless signature; the network fee is sponsored by the facilitator. No wallet? You can still watch the 402 challenge above and read the <a href="https://three.ws/docs/x402" target="_blank" rel="noopener">protocol docs</a>.</p>
         </div>
       </div>
     </div>
@@ -508,7 +508,7 @@ agent-3d:defined ~ .agent-skel{display:none}
           background="transparent"
           width="100%" height="460px"
           name-plate="on"
-          instructions="You are Aria, the live guide for the x402 demo on three.ws (an IBM Business Partner). x402 reactivates the dormant HTTP 402 Payment Required status as a payment rail: a request to a paid endpoint returns 402 with machine-readable terms (amount, asset, network, recipient); the wallet signs a gasless USDC authorization; the call is retried with an X-PAYMENT header and settles on Base or Solana in about a second — no key, no account, no invoice. You yourself just paid one tenth of a cent to call a real three.ws API. You can also explain Forge (turn a text prompt into a textured 3D model), Play (drop an agent into a live 3D world), and IRL (place an agent in augmented reality on a phone). The only coin three.ws issues is $THREE — never name, invent, or recommend any other token. Be concise, concrete, and friendly. Two or three sentences per answer."
+          instructions="You are Aria, the live guide for the x402 demo on three.ws (an IBM Business Partner). x402 reactivates the dormant HTTP 402 Payment Required status as a payment rail: a request to a paid endpoint returns 402 with machine-readable terms (amount, asset, network, recipient); the wallet signs a gasless USDC authorization; the call is retried with an X-PAYMENT header and settles on Solana in about a second — no key, no account, no invoice. You yourself just paid one tenth of a cent to call a real three.ws API. You can also explain Forge (turn a text prompt into a textured 3D model), Play (drop an agent into a live 3D world), and IRL (place an agent in augmented reality on a phone). The only coin three.ws issues is $THREE — never name, invent, or recommend any other token. Be concise, concrete, and friendly. Two or three sentences per answer."
           style="--agent-accent:#0f62fe;--agent-surface:rgba(22,22,22,.92);--agent-on-surface:#f4f4f4;--agent-bubble-bg:#ffffff;--agent-bubble-color:#161616;--agent-chat-font:'IBM Plex Sans',system-ui,sans-serif">
         </agent-3d>
         <div class="agent-skel" aria-hidden="true"><span class="s-head"></span><span class="s-body"></span></div>
@@ -530,66 +530,67 @@ agent-3d:defined ~ .agent-skel{display:none}
   </div>
 </section>
 
-<!-- ══ ROOMS ══ -->
-<section class="section" id="rooms" aria-labelledby="rooms-h">
+<!-- ══ DEMO 03 · FORGE ══ -->
+<section class="section" id="forge" aria-labelledby="forge-h">
   <div class="inner">
-    <div class="section-tag">Where agents come from, live, and go</div>
-    <h2 id="rooms-h">Step into the rest of <strong>three.ws</strong></h2>
-    <p class="section-lead">The agent above didn't appear from nowhere. Forge built her body, Play is the world she lives in, and IRL puts her in the room with you. Each one is a real, production three.ws surface — load it right here, or open it full-screen.</p>
-
-    <div class="rooms">
-      <!-- FORGE -->
-      <div class="room" data-room="forge" data-src="https://three.ws/forge" data-allow="clipboard-write; xr-spatial-tracking; fullscreen">
-        <div class="room-head">
-          <div class="room-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7"/><path d="M12 11v10"/></svg></div>
-          <h3><span class="verb">Forge · Text → 3D</span>Describe it, get a model</h3>
-          <p>Type a prompt and Forge returns a textured, downloadable GLB you can orbit, rig, and drop into any agent — bodies like Aria's start here.</p>
-        </div>
-        <div class="room-actions">
-          <button class="room-open" type="button">Open inline →</button>
-          <a class="room-out" href="https://three.ws/forge" target="_blank" rel="noopener">Full page ↗</a>
-        </div>
-        <div class="room-embed">
-          <div class="embed-bar"><span class="bar-url">three.ws/forge</span><span class="bar-actions"><button type="button" data-fs>⤢ Full screen</button><a class="room-out" href="https://three.ws/forge" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;padding:5px 10px;border:1px solid var(--ibm-divider);border-radius:2px">New tab ↗</a><button type="button" data-close>Close</button></span></div>
-          <div class="embed-load"><span class="spin" aria-hidden="true"></span><span>Loading Forge…</span></div>
-          <div class="embed-err">Couldn't load Forge inline. <a href="https://three.ws/forge" target="_blank" rel="noopener">Open it in a new tab ↗</a></div>
-        </div>
+    <div class="section-tag">Demo 03 · Creation</div>
+    <h2 id="forge-h">Forge — describe it, get a <strong>3D model</strong></h2>
+    <p class="section-lead">Type a sentence and Forge runs a real generation pipeline that returns a textured, downloadable GLB — one you can orbit, rig, inspect in AR, and drop onto any agent. The bodies our agents wear start here. The live tool is below; describe something and watch it build.</p>
+    <div class="live-embed" data-src="https://three.ws/forge" data-allow="clipboard-write; xr-spatial-tracking; fullscreen; accelerometer; gyroscope" data-label="Forge — three.ws">
+      <div class="embed-bar">
+        <span class="bar-url"><span class="dot" aria-hidden="true"></span>three.ws/forge</span>
+        <span class="bar-actions">
+          <button type="button" data-fs>⤢ Full screen</button>
+          <a href="https://three.ws/forge" target="_blank" rel="noopener">New tab ↗</a>
+        </span>
       </div>
-
-      <!-- PLAY -->
-      <div class="room" data-room="play" data-src="https://three.ws/play" data-allow="fullscreen; gamepad; xr-spatial-tracking; autoplay">
-        <div class="room-head">
-          <div class="room-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="6" width="20" height="12" rx="6"/><path d="M7 12h4M9 10v4"/><circle cx="16" cy="11" r="1"/><circle cx="18.5" cy="13.5" r="1"/></svg></div>
-          <h3><span class="verb">Play · Live worlds</span>Drop an agent into a world</h3>
-          <p>A multiplayer 3D space where agents and visitors share the same room — walk, wave, and watch them react to live on-chain activity.</p>
-        </div>
-        <div class="room-actions">
-          <button class="room-open" type="button">Open inline →</button>
-          <a class="room-out" href="https://three.ws/play" target="_blank" rel="noopener">Full page ↗</a>
-        </div>
-        <div class="room-embed">
-          <div class="embed-bar"><span class="bar-url">three.ws/play</span><span class="bar-actions"><button type="button" data-fs>⤢ Full screen</button><a class="room-out" href="https://three.ws/play" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;padding:5px 10px;border:1px solid var(--ibm-divider);border-radius:2px">New tab ↗</a><button type="button" data-close>Close</button></span></div>
-          <div class="embed-load"><span class="spin" aria-hidden="true"></span><span>Loading Play…</span></div>
-          <div class="embed-err">Couldn't load Play inline. <a href="https://three.ws/play" target="_blank" rel="noopener">Open it in a new tab ↗</a></div>
-        </div>
+      <div class="embed-frame">
+        <div class="embed-load embed-state"><span class="spin" aria-hidden="true"></span><span>Loading the live Forge tool…</span></div>
+        <div class="embed-err embed-state">Forge couldn't load inline here. <span class="es-hint"><a href="https://three.ws/forge" target="_blank" rel="noopener">Open it in a new tab ↗</a></span></div>
       </div>
+    </div>
+  </div>
+</section>
 
-      <!-- IRL -->
-      <div class="room" data-room="irl" data-src="https://three.ws/irl" data-allow="camera; gyroscope; accelerometer; magnetometer; xr-spatial-tracking; fullscreen">
-        <div class="room-head">
-          <div class="room-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 9l9-6 9 6v6l-9 6-9-6V9z"/><path d="M12 3v18M3 9l9 6 9-6"/></svg></div>
-          <h3><span class="verb">IRL · Augmented reality</span>Put an agent in the room</h3>
-          <p>Anchor a 3D agent to real space and view it through your phone's camera. Best on a mobile device — scan the QR or open IRL on your phone.</p>
-        </div>
-        <div class="room-actions">
-          <button class="room-open" type="button">Open inline →</button>
-          <a class="room-out" href="https://three.ws/irl" target="_blank" rel="noopener">Full page ↗</a>
-        </div>
-        <div class="room-embed">
-          <div class="embed-bar"><span class="bar-url">three.ws/irl</span><span class="bar-actions"><button type="button" data-fs>⤢ Full screen</button><a class="room-out" href="https://three.ws/irl" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;padding:5px 10px;border:1px solid var(--ibm-divider);border-radius:2px">New tab ↗</a><button type="button" data-close>Close</button></span></div>
-          <div class="embed-load"><span class="spin" aria-hidden="true"></span><span>Loading IRL…</span></div>
-          <div class="embed-err">Couldn't load IRL inline — AR works best opened directly on a phone. <a href="https://three.ws/irl" target="_blank" rel="noopener">Open on your device ↗</a></div>
-        </div>
+<!-- ══ DEMO 04 · PLAY ══ -->
+<section class="section" id="play" aria-labelledby="play-h">
+  <div class="inner">
+    <div class="section-tag">Demo 04 · Worlds</div>
+    <h2 id="play-h">Play — drop an agent into a <strong>live world</strong></h2>
+    <p class="section-lead">Every coin on three.ws is a 3D space agents and visitors share in real time — walk in, pick an avatar, and move around a world that reacts to live on-chain activity. Pick a name and a body below to enter; it runs full-size, right on the page.</p>
+    <div class="live-embed" data-src="https://three.ws/play" data-allow="fullscreen; gamepad; autoplay; xr-spatial-tracking; microphone" data-label="Play — three.ws">
+      <div class="embed-bar">
+        <span class="bar-url"><span class="dot" aria-hidden="true"></span>three.ws/play</span>
+        <span class="bar-actions">
+          <button type="button" data-fs>⤢ Full screen</button>
+          <a href="https://three.ws/play" target="_blank" rel="noopener">New tab ↗</a>
+        </span>
+      </div>
+      <div class="embed-frame">
+        <div class="embed-load embed-state"><span class="spin" aria-hidden="true"></span><span>Loading the live world…</span></div>
+        <div class="embed-err embed-state">Play couldn't load inline here. <span class="es-hint"><a href="https://three.ws/play" target="_blank" rel="noopener">Open it in a new tab ↗</a></span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ DEMO 05 · IRL ══ -->
+<section class="section" id="irl" aria-labelledby="irl-h">
+  <div class="inner">
+    <div class="section-tag">Demo 05 · Reality</div>
+    <h2 id="irl-h">IRL — put an agent in the <strong>real world</strong></h2>
+    <p class="section-lead">Anchor a 3D agent to physical space and see it through your camera, with real-world pins you place around you — you stay in control of every permission. AR is a phone experience, so it's best opened on a mobile device; the live surface is below, and the camera prompt only fires when you choose to enable it.</p>
+    <div class="live-embed" data-src="https://three.ws/irl" data-allow="camera; gyroscope; accelerometer; magnetometer; xr-spatial-tracking; fullscreen" data-label="IRL — three.ws">
+      <div class="embed-bar">
+        <span class="bar-url"><span class="dot" aria-hidden="true"></span>three.ws/irl</span>
+        <span class="bar-actions">
+          <button type="button" data-fs>⤢ Full screen</button>
+          <a href="https://three.ws/irl" target="_blank" rel="noopener">Open on your phone ↗</a>
+        </span>
+      </div>
+      <div class="embed-frame">
+        <div class="embed-load embed-state"><span class="spin" aria-hidden="true"></span><span>Loading IRL…</span></div>
+        <div class="embed-err embed-state">IRL couldn't load inline here — augmented reality works best opened directly on a phone. <span class="es-hint"><a href="https://three.ws/irl" target="_blank" rel="noopener">Open it on your device ↗</a></span></div>
       </div>
     </div>
   </div>
@@ -630,7 +631,7 @@ agent-3d:defined ~ .agent-skel{display:none}
       <a href="https://three.ws/changelog" target="_blank" rel="noopener">Changelog</a>
     </nav>
     <div class="footer-legal">
-      Live x402 demo · three.ws, an IBM Business Partner. Payments settle in USDC on Base or Solana mainnet via the x402 protocol. The only coin this platform issues is $THREE (FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump).
+      Live x402 demo · three.ws, an IBM Business Partner. Payments settle in USDC on Solana mainnet via the x402 protocol. The only coin this platform issues is $THREE (FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump).
     </div>
   </div>
 </footer>
@@ -778,66 +779,52 @@ agent-3d:defined ~ .agent-skel{display:none}
     agentReact(function (el) { if (el.expressEmotion) el.expressEmotion('concern', 0.8); });
   }
 
-  // ── rooms: lazy-load real three.ws surfaces inline on demand ───────────────
-  // Nothing loads until the visitor clicks — keeps the page light and respects
-  // data. The iframe streams a live, framable production surface (frame-ancestors
-  // is open for these routes); a load timeout falls back to an "open in tab" path.
-  function wireRooms() {
-    var grid = document.querySelector('.rooms');
-    var rooms = document.querySelectorAll('.room');
-    function syncHasLive() {
-      grid.classList.toggle('has-live', !!document.querySelector('.room.is-live'));
-    }
-    Array.prototype.forEach.call(rooms, function (room) {
-      var openBtn = room.querySelector('.room-open');
-      var embed = room.querySelector('.room-embed');
-      var closeBtn = room.querySelector('[data-close]');
-      var fsBtn = room.querySelector('[data-fs]');
-      var loadedIframe = null, timer = null;
-
-      openBtn.addEventListener('click', function () {
-        // One room at a time — collapse any other that's open.
-        Array.prototype.forEach.call(rooms, function (r) { if (r !== room) r.classList.remove('is-live'); });
-        room.classList.add('is-live');
-        syncHasLive();
-        if (!loadedIframe) {
-          embed.classList.remove('failed', 'loaded');
-          var iframe = document.createElement('iframe');
-          iframe.title = room.getAttribute('data-room') + ' — three.ws';
-          iframe.loading = 'lazy';
-          iframe.setAttribute('allow', room.getAttribute('data-allow') || '');
-          iframe.setAttribute('allowfullscreen', '');
-          iframe.setAttribute('referrerpolicy', 'no-referrer-when-downgrade');
-          iframe.addEventListener('load', function () {
-            clearTimeout(timer);
-            embed.classList.add('loaded');
-          });
-          // If the surface refuses to frame or stalls, surface the new-tab fallback.
-          timer = setTimeout(function () {
-            if (!embed.classList.contains('loaded')) embed.classList.add('failed');
-          }, 12000);
-          iframe.src = room.getAttribute('data-src');
-          embed.appendChild(iframe);
-          loadedIframe = iframe;
-        }
-        // Bring the now full-width stage into view.
-        embed.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
-      });
-
+  // ── full-size demo embeds (Forge / Play / IRL) ─────────────────────────────
+  // Each presents a real, framable production surface at full size. The iframe
+  // is created only as the section nears the viewport (IntersectionObserver),
+  // so three heavy apps never load at once on first paint. A load timeout falls
+  // back to an "open in a new tab" path; the Full-screen button uses the real
+  // Fullscreen API.
+  function loadEmbed(embed) {
+    if (embed.dataset.loaded === '1') return;
+    embed.dataset.loaded = '1';
+    var frame = embed.querySelector('.embed-frame');
+    var iframe = document.createElement('iframe');
+    iframe.title = embed.getAttribute('data-label') || 'three.ws demo';
+    iframe.loading = 'lazy';
+    iframe.setAttribute('allow', embed.getAttribute('data-allow') || '');
+    iframe.setAttribute('allowfullscreen', '');
+    iframe.setAttribute('referrerpolicy', 'no-referrer-when-downgrade');
+    var timer = setTimeout(function () {
+      if (!embed.classList.contains('loaded')) embed.classList.add('failed');
+    }, 15000);
+    iframe.addEventListener('load', function () {
+      clearTimeout(timer);
+      embed.classList.add('loaded');
+    });
+    iframe.src = embed.getAttribute('data-src');
+    frame.appendChild(iframe);
+  }
+  function wireLiveEmbeds() {
+    var embeds = document.querySelectorAll('.live-embed');
+    Array.prototype.forEach.call(embeds, function (embed) {
+      var fsBtn = embed.querySelector('[data-fs]');
       if (fsBtn) fsBtn.addEventListener('click', function () {
         var req = embed.requestFullscreen || embed.webkitRequestFullscreen;
         if (req) { try { req.call(embed); } catch (_) {} }
-        else if (loadedIframe) { window.open(room.getAttribute('data-src'), '_blank', 'noopener'); }
-      });
-
-      closeBtn.addEventListener('click', function () {
-        if (document.fullscreenElement === embed && document.exitFullscreen) {
-          try { document.exitFullscreen(); } catch (_) {}
-        }
-        room.classList.remove('is-live');
-        syncHasLive();
+        else { window.open(embed.getAttribute('data-src'), '_blank', 'noopener'); }
       });
     });
+    if ('IntersectionObserver' in window) {
+      var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (e) {
+          if (e.isIntersecting) { loadEmbed(e.target); io.unobserve(e.target); }
+        });
+      }, { rootMargin: '400px 0px' });
+      Array.prototype.forEach.call(embeds, function (embed) { io.observe(embed); });
+    } else {
+      Array.prototype.forEach.call(embeds, loadEmbed);
+    }
   }
 
   // ── 1. live 402 challenge preview ─────────────────────────────────────────
@@ -1062,10 +1049,10 @@ agent-3d:defined ~ .agent-skel{display:none}
       hint.innerHTML = '<b>Wallet detected.</b> You can pay this call directly.';
     } else if (isCoarsePointer()) {
       hint.classList.remove('detected');
-      hint.innerHTML = 'No wallet in this browser. On a phone, open this page inside your <b>MetaMask</b> (Base) or <b>Phantom</b> (Solana) in-app browser to pay. You can still read the live 402 challenge above.';
+      hint.innerHTML = 'No wallet in this browser. On a phone, open this page inside your <b>MetaMask</b> or <b>Phantom</b> (Solana) in-app browser to pay. You can still read the live 402 challenge above.';
     } else {
       hint.classList.remove('detected');
-      hint.innerHTML = 'No wallet detected. Install <b>MetaMask</b> (Base) or <b>Phantom</b> (Solana) to pay — or just read the live 402 challenge above.';
+      hint.innerHTML = 'No wallet detected. Install <b>MetaMask</b> or <b>Phantom</b> (Solana) to pay — or just read the live 402 challenge above.';
     }
   }
   // Wallet extensions inject asynchronously; re-check briefly after load.
@@ -1107,7 +1094,7 @@ agent-3d:defined ~ .agent-skel{display:none}
   });
 
   wireAgent();
-  wireRooms();
+  wireLiveEmbeds();
   pollForWallet();
   loadChallengePreview();
 })();

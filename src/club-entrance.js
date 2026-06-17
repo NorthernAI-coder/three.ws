@@ -461,14 +461,48 @@ async function start(canvasEl) {
 	// Pick which avatar you walk as, live, at any point in the journey. Bundled
 	// rigs are offered immediately; public gallery avatars stream in and append.
 	const agentSelect = document.getElementById('club-agent-select');
+	const agentBrowseBtn = document.getElementById('club-agent-browse');
 	let swappingAgent = false;
 
 	function setupAgentSwitch() {
-		if (!agentSelect) return;
-		renderAgentOptions(BUNDLED_AGENTS);
-		agentSelect.value = currentAvatarUrl;
-		agentSelect.addEventListener('change', onAgentChange);
-		loadGalleryAgents();
+		if (agentSelect) {
+			renderAgentOptions(BUNDLED_AGENTS);
+			agentSelect.value = currentAvatarUrl;
+			agentSelect.addEventListener('change', onAgentChange);
+			loadGalleryAgents();
+		}
+		if (agentBrowseBtn) agentBrowseBtn.addEventListener('click', onBrowseAgents);
+	}
+
+	// Open the full 3D-agent directory in a modal and walk in as the chosen one.
+	// The picker module is lazy-loaded so the heavy club scene boots without it.
+	async function onBrowseAgents() {
+		if (swappingAgent) return;
+		let openAgentPicker;
+		try {
+			({ openAgentPicker } = await import('./agent-picker.js'));
+		} catch (err) {
+			log.warn('[club-entrance] agent picker failed to load', err);
+			return;
+		}
+		releaseControls();
+		const agent = await openAgentPicker({
+			title: 'Choose your 3D agent',
+			ctaLabel: 'Walk in as this agent',
+		});
+		if (!agent) return;
+		const url = agent.avatar_model_url || '';
+		if (!url) {
+			log.warn('[club-entrance] picked agent has no wearable avatar', agent.id);
+			return;
+		}
+		// Register the pick in the quick-switch dropdown (deduped) so it can be
+		// re-selected without reopening the modal, then swap onto it live.
+		if (!agentList.some((a) => a.url === url)) {
+			agentList = [...agentList, { key: `agent-${agent.id}`, name: agent.name || 'Agent', url }];
+			renderAgentOptions(agentList);
+		}
+		await swapAvatarTo(url);
 	}
 
 	// Build/refresh the <option> list, keeping the active rig selected. Deduped by
@@ -509,34 +543,44 @@ async function start(canvasEl) {
 
 	async function onAgentChange() {
 		const url = agentSelect.value;
-		if (!url || url === currentAvatarUrl || swappingAgent) {
+		if (!url || url === currentAvatarUrl) {
 			agentSelect.value = currentAvatarUrl;
 			return;
 		}
+		await swapAvatarTo(url);
+	}
+
+	// Swap the player's rig to `url` live — position, heading and camera untouched,
+	// the clip library rebound so there's no T-pose flash. Shared by the quick
+	// dropdown and the agent-picker modal. Returns true on a successful swap.
+	async function swapAvatarTo(url) {
+		if (!url || url === currentAvatarUrl || swappingAgent) return false;
 		swappingAgent = true;
-		agentSelect.disabled = true;
+		if (agentSelect) agentSelect.disabled = true;
+		if (agentBrowseBtn) agentBrowseBtn.disabled = true;
 		const movingNow = anim.currentName === 'walk';
 		try {
 			const gltf = await loader.loadAsync(url);
 			const next = gltf.scene;
 			scaleToHeight(next, AVATAR_HEIGHT);
 			placeOnFloor(next);
-			// Swap the rig's child — position, heading and camera are untouched.
 			rig.remove(avatar);
 			disposeObject(avatar);
 			avatar = next;
 			rig.add(avatar);
-			// Rebind the clip library to the new rig (idle/walk are already in memory)
-			// and resume whatever the avatar was doing so there's no T-pose flash.
 			anim.attach(avatar, { avatarUrl: url });
 			await anim.play(movingNow ? 'walk' : 'idle');
 			currentAvatarUrl = url;
+			if (agentSelect) agentSelect.value = url;
+			return true;
 		} catch (err) {
 			log.warn('[club-entrance] agent swap failed', err);
-			agentSelect.value = currentAvatarUrl; // keep the working rig selected
+			if (agentSelect) agentSelect.value = currentAvatarUrl; // keep the working rig selected
+			return false;
 		} finally {
 			swappingAgent = false;
-			agentSelect.disabled = false;
+			if (agentSelect) agentSelect.disabled = false;
+			if (agentBrowseBtn) agentBrowseBtn.disabled = false;
 		}
 	}
 
@@ -779,6 +823,7 @@ async function start(canvasEl) {
 		window.removeEventListener('blur', onBlur);
 		document.removeEventListener('visibilitychange', onVisibility);
 		agentSelect?.removeEventListener('change', onAgentChange);
+		agentBrowseBtn?.removeEventListener('click', onBrowseAgents);
 		onAdmit = null;
 		try { anim.dispose?.(); } catch {}
 		disposeObject(scene);

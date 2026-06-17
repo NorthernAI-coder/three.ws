@@ -427,14 +427,14 @@ const POLE_COLORS = [0xff3bd6, 0x4ad6ff, 0xff8a3b, 0x9b5dff];
 // dancer wears. A local `avatar` path loads that GLB directly; an `avatarId`
 // is resolved through /api/avatars/:id at boot (see resolveDancerAvatarUrl).
 // The three are deliberately three DISTINCT, verified-drivable rigs so the
-// lineup never collapses onto one look: two rock-solid bundled rigs that are
-// guaranteed to retarget, plus Dylan from the gallery. attachAvatar still
-// falls back to the default rig if a rig ever isn't drivable, and each dancer
-// is tinted with her pole's accent color so the three read as a set.
+// lineup never collapses onto one look: Dylan and Michelle (the two swapped in),
+// plus one kept original gallery rig. attachAvatar still falls back to the default
+// rig if a rig ever isn't drivable, and each dancer is tinted with her pole's
+// accent color so the three read as a set.
 const DANCER_META = [
-	{ name: 'Aria', bio: 'Neon pink fire. Classical meets street.', palette: 'pink', avatar: '/avatars/michelle.glb' },
-	{ name: 'Nova', bio: 'Cyan ice. Fluid and hypnotic.', palette: 'cyan', avatarId: '25195a2e-130c-4da5-8cad-8e7490d69b45' },
-	{ name: 'Blaze', bio: 'Amber heat. Power and precision.', palette: 'amber', avatar: '/avatars/realistic-female.glb' },
+	{ name: 'Aria', bio: 'Neon pink fire. Classical meets street.', palette: 'pink', avatarId: '25195a2e-130c-4da5-8cad-8e7490d69b45' },
+	{ name: 'Nova', bio: 'Cyan ice. Fluid and hypnotic.', palette: 'cyan', avatar: '/avatars/michelle.glb' },
+	{ name: 'Blaze', bio: 'Amber heat. Power and precision.', palette: 'amber', avatarId: 'd92b292e-c2db-40cb-bf88-3e141c6b0057' },
 ];
 
 // Every dancer is scaled to this standing height (metres) so a mix of

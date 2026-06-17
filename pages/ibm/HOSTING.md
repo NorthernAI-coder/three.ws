@@ -9,32 +9,40 @@ host it.
 > <https://three.ws/ibm/x402-demo>. Compare your hosted copy against it, or link to it
 > directly if you'd rather not self-host.
 
-## What it demonstrates (one paragraph)
+## What it demonstrates
 
-x402 reactivates the dormant HTTP `402 Payment Required` status as a payment rail. A normal
-request to a paid endpoint returns `402` with machine-readable terms (amount, asset, network,
-recipient). The visitor's wallet signs a gasless stablecoin authorization, the request is
-retried with an `X-PAYMENT` header, and the call settles on-chain in about a second — no API
-key, no account, no invoice. The page shows the live `402` challenge, runs a real paid call,
-and renders the response plus the on-chain transaction receipt.
+The page is a **live showcase of the IBM × three.ws partnership** — five real, unmocked demos
+presented in sequence, each running against production three.ws systems. The hero frames the
+partnership and the lineup; everything below is interactive.
 
-## The 3D agent layer (below the demo)
+**Demo 01 · x402 payments.** x402 reactivates the dormant HTTP `402 Payment Required` status as
+a payment rail. A normal request to a paid endpoint returns `402` with machine-readable terms
+(amount, asset, network, recipient). The visitor's wallet signs a gasless stablecoin
+authorization, the request is retried with an `X-PAYMENT` header, and the call settles on-chain
+in about a second — no API key, no account, no invoice. The page shows the live `402`
+challenge, runs a real paid call, and renders the response plus the on-chain receipt.
 
-Below the payment demo the page embeds three live three.ws product surfaces, all loaded at
-runtime from `https://three.ws` (still no build step, still no backend):
+## The 3D agent layer (Demos 02–05)
 
-- **A 3D AI agent** — the `<agent-3d>` web component renders a WebGL avatar that runs its own
-  brain in the browser and **reacts to the payment**: it celebrates and announces the
+Below the payment demo the page embeds four more live three.ws surfaces, all loaded at runtime
+from `https://three.ws` (still no build step, still no backend):
+
+- **Demo 02 · A 3D AI agent** — the `<agent-3d>` web component renders a WebGL avatar that runs
+  its own brain in the browser and **reacts to the payment**: it celebrates and announces the
   settlement the moment the visitor's `402` call clears. It lazy-boots only when scrolled into
   view, and degrades to a calm skeleton if its script is blocked.
-- **Forge / Play / IRL rooms** — three cards that, on click, lazy-load the real
-  `three.ws/forge`, `three.ws/play`, and `three.ws/irl` surfaces inline in an `<iframe>` (each
-  with an "open full-screen" fallback). Nothing loads until the visitor asks for it.
+- **Demos 03–05 · Forge / Play / IRL** — each is its own full-size section (Creation, Worlds,
+  Reality) with an explanation and the real `three.ws/forge`, `three.ws/play`, and
+  `three.ws/irl` surface embedded full-width in an `<iframe>`. They lazy-load as each section
+  nears the viewport (so three heavy apps never load at once), and each has a one-tap
+  **Full screen** button plus a **new-tab** fallback. IRL is AR, so it's best on a phone and
+  only prompts for the camera when the visitor chooses to enable it.
 
 Because these load the agent runtime, an avatar GLB, the agent's model endpoint, and framed
 three.ws pages, the **Tier 2** CSP below adds `https://three.ws` to `frame-src`/`img-src` and
-`blob:` to `worker-src`. If you only want the original payment demo and not the agent layer,
-delete the `#agent` and `#rooms` `<section>`s plus the `agent-3d.js` `<script>` tag, and the
+`blob:` to `worker-src`. If you only want Demo 01 (the payment demo) and not the agent layer,
+delete the `#agent`, `#forge`, `#play`, and `#irl` `<section>`s plus the `agent-3d.js`
+`<script>` tag, and the
 **Tier 1** policy is all you need.
 
 ## What to upload

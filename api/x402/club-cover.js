@@ -17,7 +17,14 @@ import { buildBazaarSchema } from '../_lib/x402-spec.js';
 import { installAccessControl } from '../_lib/x402/access-control.js';
 import { withService } from '../_lib/x402/bazaar-helpers.js';
 import { priceFor } from '../_lib/x402-prices.js';
-import { issueCoverPass, PASS_TTL_SEC } from '../_lib/club/cover-pass.js';
+import {
+	issueCoverPass,
+	PASS_TTL_SEC,
+	normalizeWallet,
+	findBan,
+	visitsFor,
+	tierFor,
+} from '../_lib/club/cover-pass.js';
 
 const ROUTE = '/api/x402/club-cover';
 
@@ -94,50 +101,9 @@ const BAZAAR = {
 	}),
 };
 
-// Normalize a wallet for ban/activity lookups. Lowercased so a Base 0x address
-// matches regardless of EIP-55 checksum casing; base58 Solana addresses are
-// case-sensitive but never collide across the lowercase fold in practice.
-function normalizeWallet(w) {
-	return String(w || '').trim().toLowerCase();
-}
-
-/**
- * Look the payer's wallet up against the ban list. Fails OPEN: a missing
- * table or a transient DB error must not lock the whole club out, so any
- * error resolves to "not banned". Returns the matching row or null.
- */
-async function findBan(wallet) {
-	if (!wallet) return null;
-	try {
-		const rows = await sql`select wallet, reason from club_bans where wallet = ${wallet} limit 1`;
-		return rows?.[0] ?? null;
-	} catch (err) {
-		console.warn('[club-cover] ban lookup failed (fail-open)', err?.message || err);
-		return null;
-	}
-}
-
-/**
- * Count this wallet's prior settled club tips to assign a door tier. Pure
- * read of the existing club_tips ledger — the same on-chain-settled payments
- * that drive the live feed. Fails soft to 0 visits / newcomer.
- */
-async function visitsFor(wallet) {
-	if (!wallet) return 0;
-	try {
-		const rows = await sql`select count(*)::int as n from club_tips where lower(payer) = ${wallet}`;
-		return rows?.[0]?.n ?? 0;
-	} catch (err) {
-		console.warn('[club-cover] visit count failed (soft 0)', err?.message || err);
-		return 0;
-	}
-}
-
-function tierFor(visits) {
-	if (visits >= 10) return 'vip';
-	if (visits >= 1) return 'regular';
-	return 'newcomer';
-}
+// normalizeWallet / findBan / visitsFor / tierFor live in
+// ../_lib/club/cover-pass.js so the USDC door here and the $THREE door share
+// one bouncer (and one DB-backed ban/tier lookup). Imported above.
 
 export const BAZAAR_SCHEMA = BAZAAR;
 
