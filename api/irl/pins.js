@@ -12,6 +12,7 @@
  * POST   /api/irl/pins/interact { pinId, event, deviceToken }  log a tap/view
  */
 
+import { timingSafeEqual } from 'node:crypto';
 import { cors, json, wrap, rateLimited } from '../_lib/http.js';
 import { sql } from '../_lib/db.js';
 import { getSessionUser } from '../_lib/auth.js';
@@ -416,11 +417,45 @@ function pinWire(row) {
 	return w;
 }
 
+// ── Internal hydration auth (bulk location-scrape guard) ────────────────────
+// The bbox feed is server-to-server only: the Colyseus irl_world room loads its
+// 3×3 geocell window through it on room create. Unlike the nearby feed (capped
+// at a 500 m radius / 50 pins), bbox returns up to 500 pins over a multi-km box,
+// so an OPEN bbox endpoint would let anyone grid the planet and bulk-download
+// every placement's exact GPS. Gate it on the same shared multiplayer secret the
+// publish webhook already uses; the only caller is IrlRoom, which sends the
+// header. Secret resolution is kept byte-for-byte in sync with
+// multiplayer/src/irl-publish-auth.js (multiplayerSecret).
+function internalSecret() {
+	return (
+		process.env.MULTIPLAYER_SHARED_SECRET ||
+		process.env.HOLDER_PASS_SECRET ||
+		'dev-insecure-multiplayer-secret'
+	);
+}
+function internalRequestOk(req) {
+	const provided = req.headers?.['x-mp-internal'];
+	if (typeof provided !== 'string' || !provided) return false;
+	const a = Buffer.from(provided);
+	const b = Buffer.from(internalSecret());
+	return a.length === b.length && timingSafeEqual(a, b);
+}
+
 export default wrap(async (req, res) => {
 	cors(req, res, { methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'] });
 	if (req.method === 'OPTIONS') return res.end();
 
 	await ensureTable();
+
+	// Public GET reads (the nearby feed + my-pins) are IP rate-limited so the
+	// precise-coordinate feed can't be systematically gridded into a bulk location
+	// scrape. A legit viewer polls nearby every ~15 s (≈4/min) — well under the
+	// 60/min public ceiling — while a scripted sweep trips it fast. The bbox
+	// hydration path is excluded here: it's gated separately as internal-only.
+	if (req.method === 'GET' && req.query.bbox == null) {
+		const rl = await limits.publicIp(clientIp(req));
+		if (!rl.success) return rateLimited(res, rl);
+	}
 
 	// ── GET — my pins by device token (anonymous) or session (auth) ──────────
 	// Path: /api/irl/pins/mine?deviceToken=…  — lets a visitor browse and manage
@@ -469,6 +504,12 @@ export default wrap(async (req, res) => {
 	// radius, because a 3×3 precision-6 window (~3.6 km) exceeds the nearby radius
 	// cap. Reuses the existing lat/lng index; capped + size-guarded against scrapes.
 	if (req.method === 'GET' && req.query.bbox != null) {
+		// Internal-only: a valid shared-secret header proves this is the Colyseus
+		// room hydrating its window, not a public scraper. Without it, refuse — the
+		// public nearby feed (radius-capped) is the only location read the open web
+		// gets. 403 (not 401) so a scanner learns nothing about credentials.
+		if (!internalRequestOk(req)) return json(res, 403, { error: 'forbidden' });
+
 		const parts = String(req.query.bbox).split(',').map((s) => parseFloat(s));
 		if (parts.length !== 4 || parts.some((n) => !isFinite(n))) {
 			return json(res, 400, { error: 'bbox must be minLat,minLng,maxLat,maxLng' });
@@ -476,8 +517,9 @@ export default wrap(async (req, res) => {
 		let [minLat, minLng, maxLat, maxLng] = parts;
 		if (minLat > maxLat) [minLat, maxLat] = [maxLat, minLat];
 		if (minLng > maxLng) [minLng, maxLng] = [maxLng, minLng];
-		// A legit 3×3 window is < ~0.05°; 1° (~111 km) is a generous abuse ceiling.
-		if ((maxLat - minLat) > 1 || (maxLng - minLng) > 1) {
+		// A legit 3×3 precision-6 window is ~0.03°; 0.2° (~22 km) is a generous
+		// ceiling that still rejects a wide-area harvest even from an internal caller.
+		if ((maxLat - minLat) > 0.2 || (maxLng - minLng) > 0.2) {
 			return json(res, 400, { error: 'bbox too large' });
 		}
 		const rows = await sql`
