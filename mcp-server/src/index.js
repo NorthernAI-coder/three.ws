@@ -33,6 +33,7 @@ import { buildAgentReputationTool } from './tools/agent-reputation.js';
 import { buildVanityGrinderTool } from './tools/vanity-grinder.js';
 import { buildTextToAvatarTool } from './tools/text-to-avatar.js';
 import { buildMeshForgeTool } from './tools/mesh-forge.js';
+import { buildForgeFreeTool } from './tools/forge-free.js';
 import { buildRigMeshTool } from './tools/rig-mesh.js';
 import { buildSentimentPulseTool } from './tools/sentiment-pulse.js';
 import { buildEnsSnsResolveTool } from './tools/ens-sns-resolve.js';
@@ -44,9 +45,12 @@ import { buildAixbtIntelTool } from './tools/aixbt-intel.js';
 import { buildAixbtProjectsTool } from './tools/aixbt-projects.js';
 
 const SERVER_INSTRUCTIONS =
-	'Paid x402 MCP tools from three.ws. Each tool quotes its USDC price in its description. ' +
-	'Tool calls without an x402 payment payload in _meta return a PaymentRequired structuredContent ' +
-	'(v2 MCP transport spec). Tools cover: 3D avatar generation (text_to_avatar), ' +
+	'MCP tools from three.ws. Most are paid: each quotes its USDC price in its description, and a call ' +
+	'without an x402 payment payload in _meta returns a PaymentRequired structuredContent (v2 MCP ' +
+	'transport spec). ONE tool is free and needs no payment, wallet, or API key: forge_free generates a ' +
+	'textured 3D GLB from a text prompt on the free NVIDIA NIM (Microsoft TRELLIS) lane and returns a ' +
+	'GLB URL + three.ws viewer link — use it for zero-cost text→3D. ' +
+	'Tools cover: free text→3D generation (forge_free), 3D avatar generation (text_to_avatar), ' +
 	'text/image-to-3D mesh generation via a Granite-directed model chain (mesh_forge), ' +
 	'auto-rigging a GLB into an animation-ready model (rig_mesh), ' +
 	'ENS + SNS name resolution ' +
@@ -70,6 +74,7 @@ const { version: PKG_VERSION } = createRequire(import.meta.url)('../package.json
 const TOOL_BUILDERS = [
 	buildTextToAvatarTool,
 	buildMeshForgeTool,
+	buildForgeFreeTool,
 	buildRigMeshTool,
 	buildEnsSnsResolveTool,
 	buildAgentDelegateActionTool,

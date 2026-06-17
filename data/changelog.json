@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-06-17",
+			"title": "Generate a rigged 3D avatar from a text prompt in chat",
+			"summary": "Chat can now build a full avatar from a sentence. Ask it to \"make me an avatar of …\" and it forges a textured 3D model, auto-rigs it into an animation-ready character, saves it to your avatar library, and shows it in an orbit viewer you can spin (press S to see the skeleton). If you're not signed in it still hands back the rigged model and tells you to sign in to save. The tool is on by default in a fresh chat.",
+			"tags": [
+				"feature"
+			],
+			"link": "/chat"
+		},
+		{
+			"date": "2026-06-17",
 			"title": "Simpler color picker in advanced controls",
 			"summary": "The color pickers in the viewer's advanced controls and the material editor now drop the vertical rainbow hue strip, leaving a single clean saturation-and-brightness field that fills the full picker width. Picking a color is tidier and less cluttered.",
 			"tags": [
@@ -85,7 +94,7 @@
 		{
 			"date": "2026-06-17",
 			"title": "The IBM page became a live showcase — five three.ws demos in one place",
-			"summary": "The IBM page at three.ws/ibm/x402-demo is now a full showcase of the IBM × three.ws partnership: five real, unmocked demos you can try in sequence. Pay a tenth of a cent over x402 and watch it settle on-chain; meet a 3D AI agent that pays for its own data and celebrates the moment your payment clears; then Forge (turn text into a 3D model), Play (a shared 3D world), and IRL (an agent in augmented reality) each run full-size right on the page, with a one-tap full-screen. Everything still loads from three.ws with no build step.",
+			"summary": "The IBM page at three.ws/ibm/x402-demo is now a live showcase: five real, unmocked three.ws demos you can try in sequence. Pay a tenth of a cent over x402 and watch it settle on-chain; meet a 3D AI agent that pays for its own data and celebrates the moment your payment clears; then Forge (turn text into a 3D model), Play (a shared 3D world), and IRL (an agent in augmented reality) each run full-size right on the page, with a one-tap full-screen. Everything still loads from three.ws with no build step.",
 			"tags": [
 				"feature"
 			],

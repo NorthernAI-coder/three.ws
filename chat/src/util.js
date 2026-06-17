@@ -97,3 +97,75 @@ export function debounce(func, wait) {
 		timers.set(id, timer);
 	};
 }
+
+/**
+ * Strip a Markdown code fence (```json … ``` or ``` … ```) that some models
+ * wrap around tool-call arguments, returning the inner payload.
+ *
+ * @param {string} text
+ * @returns {string}
+ */
+function stripCodeFence(text) {
+	const fenced = text.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?```$/i);
+	return fenced ? fenced[1] : text;
+}
+
+/**
+ * Normalize a tool call's `arguments` into a plain object, tolerating the
+ * range of shapes real model providers emit:
+ *   - a JSON string (the OpenAI streaming default)
+ *   - an already-parsed object (e.g. GPT OSS 120B sends the object in one chunk)
+ *   - an empty / whitespace-only string (a tool that takes no arguments)
+ *   - a JSON payload wrapped in a Markdown ```json code fence
+ *
+ * @param {unknown} raw
+ * @returns {Record<string, any>} the parsed arguments object
+ * @throws {Error} with a clean, user-readable message when the payload is
+ *   genuinely unparseable. The raw payload is attached as `err.payload`.
+ */
+export function parseToolCallArguments(raw) {
+	// Already an object (and not null) — providers that hand back parsed args.
+	if (raw !== null && typeof raw === 'object') {
+		return raw;
+	}
+
+	if (typeof raw !== 'string') {
+		// null / undefined / number — treat as "no arguments".
+		return {};
+	}
+
+	const trimmed = stripCodeFence(raw.trim()).trim();
+	if (trimmed === '') {
+		return {};
+	}
+
+	try {
+		const parsed = JSON.parse(trimmed);
+		// A bare JSON scalar (e.g. `"foo"` or `5`) isn't a valid arguments object.
+		if (parsed === null || typeof parsed !== 'object') {
+			throw new Error('arguments did not decode to an object');
+		}
+		return parsed;
+	} catch (err) {
+		const message = err instanceof Error ? err.message : String(err);
+		const wrapped = new Error(message);
+		// @ts-ignore — attach the offending payload for diagnostics/UI.
+		wrapped.payload = raw;
+		throw wrapped;
+	}
+}
+
+/**
+ * Serialize a tool call's `arguments` back into the JSON string the OpenAI
+ * Chat Completions API expects, without double-encoding a value that is
+ * already a string (which can happen if a prior parse failed mid-turn).
+ *
+ * @param {unknown} args
+ * @returns {string}
+ */
+export function serializeToolCallArguments(args) {
+	if (typeof args === 'string') {
+		return args;
+	}
+	return JSON.stringify(args ?? {});
+}
