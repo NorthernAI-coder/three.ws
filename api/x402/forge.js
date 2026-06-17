@@ -5,9 +5,14 @@
 // USDC with no account, key, or signup — cataloged by the CDP x402 Bazaar.
 //
 // One payment buys one generation. After verifying payment the server submits the
-// real Forge job (FLUX→TRELLIS image pipeline — text→image→mesh, or image→mesh
-// from supplied reference views), then settles. The response hands back a job
-// token the buyer polls for FREE on the existing provider-aware endpoint:
+// real Forge job, then settles. Text→3D runs on the FREE NVIDIA NIM TRELLIS lane
+// (native text→mesh, zero vendor cost) as the primary engine for every tier; if
+// that lane is unconfigured or unavailable it degrades to the FLUX→TRELLIS
+// reconstruct lane so a paid call never dead-ends. Image→3D (caller-supplied
+// reference views) always reconstructs — NVIDIA's hosted preview is text-only.
+// The response hands back a job token the buyer polls for FREE on the existing
+// provider-aware endpoint, OR — when the free lane completes inside the submit
+// window (typical for draft) — the finished GLB url inline with status:"done":
 //   GET /api/forge?job=<job_id>   → { status, glb_url, ... }
 //
 // Pricing is per-tier and lives in one place (api/_lib/forge-tiers.js): draft
@@ -54,6 +59,8 @@ import { withService } from '../_lib/x402/bazaar-helpers.js';
 import { assertSafePublicUrl } from '../_lib/ssrf-guard.js';
 import { textToImage } from '../_mcp3d/text-to-image.js';
 import { createRegenProvider } from '../_providers/replicate.js';
+import { createNvidiaProvider } from '../_providers/nvidia.js';
+import { encodeJobToken } from '../_lib/forge-job-token.js';
 import {
 	TIER_IDS,
 	DEFAULT_TIER,
@@ -72,15 +79,18 @@ const routeConfig = { path: ROUTE, method: 'POST', requiredScope: REQUIRED_SCOPE
 const VALID_ASPECT = new Set(['1:1', '4:3', '3:4', '16:9', '9:16']);
 const HTTP_URL_RE = /^https:\/\/[^\s]+$/i;
 const MAX_VIEWS = 4;
-const BACKEND = 'trellis'; // the platform image pipeline this paid route serves
+// The reconstruct lane: serves image→3D (NVIDIA's hosted preview can't take user
+// photos) and the text→3D fallback when the free NVIDIA NIM lane is unavailable.
+const BACKEND = 'trellis';
 
 const ROUTE_DESCRIPTION =
 	'three.ws Forge — pay-per-call text→3D and image→3D. Submit a prompt (or up ' +
 	'to four reference views of one object) and get back a job token; poll it for ' +
-	'free at GET /api/forge?job=<id> for the finished GLB. Runs the FLUX→TRELLIS ' +
-	'pipeline (text→image→mesh, or image→mesh). Priced per quality tier in USDC ' +
-	'($0.05 draft / $0.15 standard / $0.50 high). Pay autonomously on Base or ' +
-	'Solana mainnet — no API key, no account.';
+	'free at GET /api/forge?job=<id> for the finished GLB (draft prompts often ' +
+	'finish inline and return the GLB url with status:"done"). Text→3D runs on the ' +
+	'free NVIDIA NIM TRELLIS lane (native text→mesh); image→3D reconstructs via ' +
+	'TRELLIS. Priced per quality tier in USDC ($0.05 draft / $0.15 standard / ' +
+	'$0.50 high). Pay autonomously on Base or Solana mainnet — no API key, no account.';
 
 const INPUT_EXAMPLE = {
 	prompt: 'a brass steampunk owl, full body',
@@ -111,24 +121,37 @@ const INPUT_SCHEMA = {
 };
 
 const OUTPUT_EXAMPLE = {
-	job_id: 'abc123def4567890',
+	job_id: 'f1.eyJwIjoibnZpZGlhIn0.sig',
 	status: 'queued',
-	poll_url: '/api/forge?job=abc123def4567890',
+	poll_url: '/api/forge?job=f1.eyJwIjoibnZpZGlhIn0.sig',
 	mode: 'text_to_3d',
 	tier: 'standard',
-	backend: 'trellis',
-	eta_seconds: 60,
+	backend: 'nvidia',
+	eta_seconds: 22,
 	price_usdc: '0.15',
 };
 
 const OUTPUT_SCHEMA = {
 	$schema: 'https://json-schema.org/draft/2020-12/schema',
 	type: 'object',
-	required: ['job_id', 'status', 'poll_url'],
+	// `status` is the only guaranteed field: a queued job carries job_id + poll_url,
+	// while a job that completes inside the submit window (the free NVIDIA NIM lane,
+	// typical for draft) carries glb_url with status:"done" and a null job_id.
+	required: ['status'],
 	properties: {
-		job_id: { type: 'string', description: 'Poll this on GET /api/forge?job=<id>.' },
-		status: { type: 'string' },
-		poll_url: { type: 'string', description: 'Free, provider-aware status endpoint.' },
+		job_id: {
+			type: ['string', 'null'],
+			description: 'Poll this on GET /api/forge?job=<id>. Null when the model finished inline.',
+		},
+		status: { type: 'string', description: '"queued" (poll it) or "done" (glb_url is ready).' },
+		poll_url: {
+			type: ['string', 'null'],
+			description: 'Free, provider-aware status endpoint. Null on inline completion.',
+		},
+		glb_url: {
+			type: 'string',
+			description: 'The finished GLB — present only when status is "done".',
+		},
 		mode: { type: 'string', enum: ['text_to_3d', 'image_to_3d'] },
 		tier: { type: 'string' },
 		backend: { type: 'string' },
@@ -181,12 +204,81 @@ function buildRequirements(resourceUrl, priceAtomics) {
 	return out;
 }
 
-// Submit the real generation job and return its poll token. Reuses the same
-// text-to-image + reconstruction libs the free endpoint uses, so there is one
-// source of truth for the pipeline; the token is the upstream prediction id,
-// pollable on GET /api/forge?job=. Throws on any submit failure so the caller
-// can avoid settling payment.
+// Submit the real generation job and return its poll token (or the finished GLB
+// when the lane completes inline). Text→3D runs on the free NVIDIA NIM TRELLIS
+// lane first; if that lane is unconfigured or unavailable it degrades to the
+// FLUX→TRELLIS reconstruct lane so a paid call never dead-ends. Image→3D always
+// reconstructs (NVIDIA's hosted preview is text-only). Throws on any submit
+// failure so the caller can avoid settling payment.
 async function submitGeneration({ prompt, imageUrls, isImageMode, aspect, tier }) {
+	// Text prompts → the free NVIDIA NIM TRELLIS lane first (zero vendor cost).
+	if (!isImageMode) {
+		const viaNvidia = await submitTextViaNvidia({ prompt, tier });
+		if (viaNvidia) return viaNvidia;
+		// NIM unconfigured / unreachable / over capacity — fall through to the
+		// FLUX→TRELLIS reconstruct lane so the paid call still produces a model.
+	}
+	return submitViaReconstruct({ prompt, imageUrls, isImageMode, aspect, tier });
+}
+
+// Free NVIDIA NIM native text→3D. Returns the finished/queued response shape, or
+// null when the lane is unavailable so submitGeneration can fall back. Never
+// throws: a free-lane hiccup must degrade, not fail the whole paid call.
+async function submitTextViaNvidia({ prompt, tier }) {
+	let provider;
+	try {
+		provider = createNvidiaProvider();
+	} catch (err) {
+		console.warn(`[x402/forge] free NVIDIA NIM lane unavailable: ${err?.message || err}`);
+		return null;
+	}
+
+	let submitted;
+	try {
+		submitted = await provider.textTo3d({ prompt, tier });
+	} catch (err) {
+		console.warn(`[x402/forge] free NVIDIA NIM text→3D failed: ${err?.message || err}`);
+		return null;
+	}
+
+	const backend = 'nvidia';
+	const base = {
+		mode: 'text_to_3d',
+		tier: resolveTier(tier).id,
+		backend,
+		eta_seconds: estimateEtaSeconds({ backendId: backend, tier }),
+		price_usdc: priceUsdcForTier(tier),
+	};
+
+	// Synchronous completion: NVCF already persisted the GLB to R2 inside the
+	// submit window (typical for draft). Hand back the durable url directly — the
+	// buyer's client renders it without polling.
+	if (submitted?.resultGlbUrl) {
+		return { job_id: null, status: 'done', poll_url: null, glb_url: submitted.resultGlbUrl, ...base };
+	}
+
+	// Async: wrap the NVCF request id in a signed forge token so the free poll
+	// endpoint routes the status check back to the NIM provider.
+	if (submitted?.taskId) {
+		const token = encodeJobToken({ provider: 'nvidia', kind: submitted.kind, taskId: submitted.taskId });
+		return {
+			job_id: token,
+			status: 'queued',
+			poll_url: `/api/forge?job=${encodeURIComponent(token)}`,
+			...base,
+		};
+	}
+
+	// Neither a url nor a task id came back — treat as unavailable and fall back.
+	console.warn('[x402/forge] NVIDIA NIM returned neither a GLB nor a task id; falling back');
+	return null;
+}
+
+// FLUX→TRELLIS reconstruct lane: synthesize a reference image from the prompt
+// (text fallback) or take the caller's reference views (image→3D), then
+// reconstruct to a mesh on Replicate TRELLIS. The token is the upstream
+// prediction id, pollable on GET /api/forge?job=.
+async function submitViaReconstruct({ prompt, imageUrls, isImageMode, aspect, tier }) {
 	let provider;
 	try {
 		provider = createRegenProvider();
@@ -234,6 +326,28 @@ async function submitGeneration({ prompt, imageUrls, isImageMode, aspect, tier }
 		eta_seconds: estimateEtaSeconds({ backendId: BACKEND, tier }),
 		price_usdc: priceUsdcForTier(tier),
 	};
+}
+
+// Map a submitGeneration failure onto the right HTTP response. A provider 429 is
+// a transient throttle (Replicate's create-prediction limit, tightest when the
+// account runs low on credit). Because submit runs BEFORE settle, the payment
+// was never taken — so we answer 429 with a Retry-After hint and say so plainly,
+// rather than burying it as a generic 5xx the buyer can't reason about.
+function respondGenerationError(res, err) {
+	if (err?.status === 429 || err?.code === 'rate_limited') {
+		const retryAfter =
+			Number.isFinite(err?.retryAfter) && err.retryAfter > 0 ? Math.ceil(err.retryAfter) : 5;
+		res.setHeader('retry-after', String(retryAfter));
+		return error(
+			res,
+			429,
+			'rate_limited',
+			err?.message ||
+				'Generation is briefly throttled upstream — your payment was not taken. Retry shortly.',
+			{ retry_after: retryAfter },
+		);
+	}
+	return error(res, err?.status || 502, err?.code || 'generation_failed', err?.message);
 }
 
 // GET — free price/usage discovery. No payment, no generation.
@@ -323,7 +437,7 @@ export default wrap(async (req, res) => {
 		try {
 			result = await submitGeneration(parsed);
 		} catch (err) {
-			return error(res, err.status || 500, err.code || 'internal_error', err.message);
+			return respondGenerationError(res, err);
 		}
 		if (acResult.headers)
 			for (const [k, v] of Object.entries(acResult.headers)) res.setHeader(k, v);
@@ -378,7 +492,7 @@ export default wrap(async (req, res) => {
 	try {
 		result = await submitGeneration(parsed);
 	} catch (err) {
-		return error(res, err.status || 502, err.code || 'generation_failed', err.message);
+		return respondGenerationError(res, err);
 	}
 
 	let settled;

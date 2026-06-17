@@ -239,6 +239,14 @@
 			<description>The one-line embed is cleaner by default. A plain &lt;agent-3d&gt; tag now ships only the 3D avatar on a transparent background — no chat box, no input bar, no debug color picker, no name-plate. That makes it perfect for dropping a living avatar onto a landing page, hero section, or card without any extra UI to hide. When you want the full talking agent, add the new chat attribute: &lt;agent-3d chat body=&quot;...&quot;&gt;. Published agents you embed by agent-id, manifest, or an agent:// link still chat automatically — they carry their own brain and persona — so existing agent embeds are unchanged. The reference docs and examples were updated to match.</description>
 		</item>
 		<item>
+			<title>Embeddable 3D agents now default to a clean, bare avatar</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-17:Embeddable 3D agents now default to a clean, bare avatar</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>sdk</category>
+			<description>The &lt;agent-3d&gt; embed tag now starts as the simplest thing it can be: a plain 3D avatar on a transparent background, with no chat box, text input, microphone, or name plate unless you ask for them. Drop the tag with a body and you get just the avatar — perfect for hero sections and decorative scenes. Everything richer is opt-in: add chat for a conversation panel, set background to dark, light, or any color, and theme it with CSS variables. Binding a live agent still turns chat on automatically, and you can now force a bare avatar even for a bound agent with chat=&quot;off&quot;.</description>
+		</item>
+		<item>
 			<title>Embedded avatars: polished loading, seamless looping, and smarter framing</title>
 			<link>https://three.ws/embed</link>
 			<guid isPermaLink="false">2026-06-17:Embedded avatars: polished loading, seamless looping, and smarter framing</guid>

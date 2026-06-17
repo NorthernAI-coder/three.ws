@@ -419,27 +419,6 @@ const BASE_STYLE = `
 		pointer-events: none;
 		z-index: 4;
 	}
-	/* Static decoration fallback — a calm avatar silhouette shown when a bare
-	   (chat-less) embed's body fails to load, instead of a blank frame or a
-	   broken/empty canvas. Chat embeds get the richer .error card instead. */
-	.fallback {
-		position: absolute;
-		inset: 0;
-		display: grid;
-		place-items: center;
-		pointer-events: none;
-		z-index: 4;
-		animation: agent-err-in 0.3s ease both;
-	}
-	.fallback svg {
-		width: 38%;
-		max-width: 132px;
-		height: auto;
-		color: rgba(140, 140, 162, 0.5);
-	}
-	@media (prefers-reduced-motion: reduce) {
-		.fallback { animation: none; }
-	}
 	.error, .agent-3d-error {
 		position: absolute;
 		inset: 16px;
@@ -690,8 +669,7 @@ class Agent3DElement extends HTMLElement {
 		// WebGL context budget bookkeeping.
 		this._inViewport = false;
 		this._lastVisibleAt = 0;
-		// Decoration fallback + reduced-motion bookkeeping.
-		this._fallbackEl = null;
+		// Reduced-motion bookkeeping.
 		this._mqReduce = null;
 		this._mqReduceHandler = null;
 	}
@@ -732,7 +710,13 @@ class Agent3DElement extends HTMLElement {
 	// agent-binding heuristic, for embeds that want a bound agent rendered as
 	// pure decoration.
 	_isChatMode() {
-		if (this.hasAttribute('chat')) return true;
+		// Explicit `chat` always wins, in both directions. `chat` / `chat="on"`
+		// forces the chat shell; `chat="off"` (or false/0/no) forces a bare
+		// avatar even for a bound agent — the explicit opt-out so the minimal
+		// transparent avatar is reachable for every kind of source.
+		if (this.hasAttribute('chat')) {
+			return !/^(off|false|0|no)$/i.test((this.getAttribute('chat') || '').trim());
+		}
 		if (this.hasAttribute('kiosk') || this.hasAttribute('viewer')) return false;
 		if (this.hasAttribute('agent-id') || this.hasAttribute('manifest')) return true;
 		// An `src` pointing at a published agent (the `agent://` scheme) is a
@@ -755,7 +739,6 @@ class Agent3DElement extends HTMLElement {
 		this.shadowRoot.replaceChildren();
 		// Null cached element refs so _renderShell recreates them from scratch.
 		this._loadingEl = null;
-		this._fallbackEl = null;
 		this._stageEl = null;
 		this._posterEl = null;
 		this._nameplateEl = null;
@@ -1465,12 +1448,6 @@ class Agent3DElement extends HTMLElement {
 	async _boot() {
 		if (this._booting || this._mounted) return;
 		this._renderShell();
-		// Clear any decoration fallback left by a prior failed attempt so the
-		// fresh boot's avatar isn't drawn underneath a stale silhouette.
-		if (this._fallbackEl) {
-			this._fallbackEl.remove();
-			this._fallbackEl = null;
-		}
 		this._booting = true;
 		try {
 			this._loadingEl.hidden = false;
@@ -1980,8 +1957,8 @@ class Agent3DElement extends HTMLElement {
 			// Resolve errors should already have been caught and replaced with the
 			// default-avatar manifest in _resolveManifest. Anything reaching here is
 			// a deeper boot failure (e.g. the GLB or rig failed to load): chat mode
-			// shows the error card, a bare decoration avatar paints the static
-			// silhouette/poster fallback. Both also emit agent:error below.
+			// shows the error card, a bare decoration avatar shows its poster (or
+			// stays transparent). Both also emit agent:error below.
 			this._showError(err);
 			this.dispatchEvent(
 				new CustomEvent('agent:error', {
@@ -2524,9 +2501,9 @@ class Agent3DElement extends HTMLElement {
 	}
 
 	_showError(err) {
-		// Bare/decoration avatars degrade to a tasteful static silhouette (or the
-		// supplied poster) rather than a chat-style error card — clean decoration,
-		// but never a blank frame or a broken canvas. Chat agents get the card.
+		// Bare/decoration avatars degrade to the supplied poster (or stay
+		// transparent) rather than a chat-style error card — clean decoration,
+		// never a broken canvas. Chat agents get the card.
 		if (!this._isChatMode()) {
 			this._showDecorationFallback();
 			return;
@@ -2949,30 +2926,18 @@ class Agent3DElement extends HTMLElement {
 	}
 
 	/**
-	 * Tasteful static fallback for a bare/decoration avatar whose body failed to
-	 * load: keep the poster if one was supplied, otherwise paint a calm avatar
-	 * silhouette — never a blank frame or a broken canvas.
+	 * Quiet fallback for a bare/decoration avatar whose body failed to load:
+	 * keep the poster if one was supplied, otherwise leave the frame transparent
+	 * so it blends into the host page — never a placeholder silhouette.
 	 */
 	_showDecorationFallback() {
-		if (this._fallbackEl) return;
 		this._loadingEl && (this._loadingEl.hidden = true);
-		// A poster already fills the frame — just make sure it stays visible.
+		// A bare (chat-less) embed that can't paint stays transparent so it
+		// blends into the host page — unless a poster was supplied, in which
+		// case it stays visible as the decoration. No silhouette placeholder.
 		if (this.getAttribute('poster') && this._posterEl) {
 			this._posterEl.style.opacity = '1';
-			return;
 		}
-		const el = document.createElement('div');
-		el.className = 'fallback';
-		el.setAttribute('role', 'img');
-		el.setAttribute('aria-label', 'Avatar preview unavailable');
-		el.innerHTML = `
-			<svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2.4"
-				stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-				<circle cx="32" cy="22" r="11"/>
-				<path d="M12 55a20 20 0 0 1 40 0"/>
-			</svg>`;
-		this.shadowRoot.appendChild(el);
-		this._fallbackEl = el;
 	}
 
 	/**
