@@ -22,3 +22,17 @@ that holders can mint/export — gated by their on-chain holdings. Shareable = g
 - `npm run dev`: leaderboard renders real holders; connected holder sees rank/tier; badge generates + exports only when holding $three.
 - All states designed; zero console errors; responsive. `npm run build` clean.
 - Run the **completionist** subagent. Report the gating logic and data sources.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "tasks/wow-sprint/15-holder-leaderboard-and-badges.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

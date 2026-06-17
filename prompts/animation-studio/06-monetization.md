@@ -90,3 +90,17 @@ Read these before writing:
 Reuse the existing x402 facilitator/settlement rails and payout config — never mock a payment, a
 settlement, or an on-chain tx. Do not push unless the user explicitly approves (then both remotes
 per CLAUDE.md).
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "prompts/animation-studio/06-monetization.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

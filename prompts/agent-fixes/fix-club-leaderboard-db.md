@@ -89,3 +89,17 @@ Confirm no 500 errors appear in Vercel logs after deploy.
 
 - `api/club/leaderboard.js` — the endpoint handler
 - `api/_lib/migrations/` — where the fix migration must go if schema changes are needed
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "prompts/agent-fixes/fix-club-leaderboard-db.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

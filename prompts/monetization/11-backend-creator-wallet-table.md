@@ -52,3 +52,17 @@ EXECUTE PROCEDURE set_updated_at_timestamp();
 
 ## Note on Data Integrity
 By setting `user_id` as the primary key, we ensure that each user can only have one payout wallet entry. When they want to change their wallet, we will perform an `UPDATE` operation on their existing row rather than inserting a new one.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "prompts/monetization/11-backend-creator-wallet-table.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

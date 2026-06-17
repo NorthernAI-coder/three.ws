@@ -152,3 +152,17 @@ referenced anywhere.
 - Lock before first GPS fix → "Waiting for location…", then auto-pins on fix.
 - Confirm the saved row has `anchor_source='gyro-gps'` and a real
   `gps_accuracy_m`.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "tasks/irl-live/A4-ios-gyro-anchor-fallback.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

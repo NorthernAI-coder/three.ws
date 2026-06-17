@@ -30,3 +30,17 @@ Run `npm run dev` (port 3000) and exercise these routes in a real browser:
 - Report: before/after console inventory per route.
 
 > Note: this task edits `home.html` / hero code. If running task 07 or 12 in parallel, run this one AFTER them.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "tasks/wow-sprint/04-console-errors-cleanup.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

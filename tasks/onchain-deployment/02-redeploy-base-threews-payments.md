@@ -83,3 +83,17 @@ recorded, and every config/env reference pointing at it.
 - DEPLOYMENTS.md Base row shows the real address + tx link, no warning.
 - x402 Base payment routing is correct and documented.
 - An x402 paid call on Base settles to the intended recipient (verify with task 10).
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "tasks/onchain-deployment/02-redeploy-base-threews-payments.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

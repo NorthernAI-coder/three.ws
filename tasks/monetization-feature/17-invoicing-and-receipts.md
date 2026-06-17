@@ -26,3 +26,17 @@ For accounting and record-keeping, users should be able to get a receipt for the
     - Add a "View Receipt" link or button to each entry in the history table.
 - [ ] **Create an API endpoint to fetch a single receipt** (e.g., `GET /api/receipts/:id`).
 - [ ] **When a user clicks "View Receipt", display the receipt details** in a clean, printable format.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "tasks/monetization-feature/17-invoicing-and-receipts.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

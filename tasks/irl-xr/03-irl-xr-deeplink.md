@@ -61,3 +61,17 @@ In the avatar gallery / explore page, each avatar card on hover (or long-press o
 - Clicking either navigates to the correct URL with `?avatar=<id>`
 - The destination pages load the correct avatar immediately (this already works — the param handling is in place)
 - No console errors
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "tasks/irl-xr/03-irl-xr-deeplink.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

@@ -20,3 +20,17 @@ This is a critical part of the monetization feature. The system needs to check f
     *   Also, check if the skill is free by looking at the `agent_skill_prices` table.
     *   If the skill is free or if the user owns it, allow the request to proceed.
     *   If the skill is paid and the user does not own it, return a `403 Forbidden` or `402 Payment Required` error.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "prompts/monetization/10-access-control-for-skills.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

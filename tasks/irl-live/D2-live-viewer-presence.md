@@ -135,3 +135,17 @@ joiner sees the current crowd immediately and the wire cost is tiny.
 `npm run dev:walk-all`, open `/irl` on two profiles at the same mocked GPS,
 confirm the count, toggle ghost on/off on one and confirm the marker
 appears/disappears on the other, then close one tab and watch the reaper drop it.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "tasks/irl-live/D2-live-viewer-presence.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

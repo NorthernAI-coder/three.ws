@@ -23,3 +23,17 @@ Now that we can store subscription prices, we need to enforce access based on wh
     - On the agent detail page, if a user owns a subscription, show "Subscribed" and the expiry date instead of a "Buy" button.
     - If a subscription is expired, show a "Renew" button.
 - [ ] **Implement the renewal logic.** The "Renew" button should trigger the same purchase flow, which will update the `expires_at` date.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "tasks/monetization-feature/11-subscription-based-skills-access-logic.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

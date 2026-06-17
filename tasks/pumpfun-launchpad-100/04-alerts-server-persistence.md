@@ -54,3 +54,17 @@ between a toy and a tool.
 - [ ] Mark `tasks/pump-dashboard-real-apis/12-alerts-server-persist.md` done with a pointer here.
 - [ ] Changelog entry (tag: `feature`): "Pump dashboard alerts now run server-side — fire across
       devices even with the tab closed, with webhook and Telegram delivery."
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "tasks/pumpfun-launchpad-100/04-alerts-server-persistence.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

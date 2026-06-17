@@ -24,3 +24,17 @@ when colors match. The phi-ratio `--space-*` scale exists but is almost never us
 
 ## Verify
 - Inspect spacing/radius on 4 surfaces in DevTools — values resolve to tokens, not arbitrary px.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "tasks/site-overhaul/B-ui-uniformity/B09-spacing-and-radius.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

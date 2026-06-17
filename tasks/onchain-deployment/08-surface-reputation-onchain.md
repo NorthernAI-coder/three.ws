@@ -63,3 +63,17 @@ submit feedback from the profile.
 - Self-review / out-of-range / double-review are blocked with clear UX before the tx.
 - No console errors; works without a wallet for read-only viewing.
 - Changelog entry (tag: feature).
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "tasks/onchain-deployment/08-surface-reputation-onchain.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

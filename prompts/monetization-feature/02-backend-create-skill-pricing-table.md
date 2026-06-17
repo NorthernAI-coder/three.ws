@@ -53,3 +53,17 @@ CREATE INDEX idx_agent_skill_prices_agent_id ON agent_skill_prices(agent_id);
 ## Verification
 - After running the migration, connect to your database and verify that the `agent_skill_prices` table exists with the correct schema.
 - You can try inserting a sample record to ensure it works as expected.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "prompts/monetization-feature/02-backend-create-skill-pricing-table.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

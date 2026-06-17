@@ -26,3 +26,17 @@ tokens, x402, mcp, keys, …) and three overlapping implementations.
 
 ## Verify
 - Enumerate the old tabs and confirm each is reachable in the new IA; the duplicate trees redirect to the canonical one.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "tasks/site-overhaul/E-improve-features/E06-dashboard-ia-cleanup.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

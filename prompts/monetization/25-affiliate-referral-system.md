@@ -50,3 +50,17 @@ Instead of complex on-chain three-way splits, the backend will:
 3.  Have a separate, offline or batch process to periodically pay out the "pending" commissions to the referrers. This is much easier to manage than multi-recipient on-chain transactions for every purchase.
 
 This approach provides a robust foundation for a powerful growth engine, turning your users into a distributed sales force.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "prompts/monetization/25-affiliate-referral-system.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

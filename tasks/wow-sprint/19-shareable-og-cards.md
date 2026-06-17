@@ -23,3 +23,17 @@ distribution flywheel for $three.
 - `npm run dev`: hitting the OG endpoint returns a correct 1200×630 image with real data for each entity type; core pages emit correct meta tags; in-app share produces a real shareable image.
 - Zero console errors. `npm run build` clean. Run the **completionist** subagent.
 - Report: entity types covered, the generation method, and caching strategy.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "tasks/wow-sprint/19-shareable-og-cards.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

@@ -67,3 +67,17 @@ When the row is confirmed in `pump_agent_mints`:
 - This prompt is independent of `pumpfun-usdc-deploy.md` — they communicate only through `~/.claude/pump-deploy/launch-result.json` on disk. Either prompt can be re-run idempotently.
 - If no agent exists yet, the user should create one first via the `/studio` UI on three.ws, then return here.
 - For the inaugural USDC coin, the user wanted the agent named "USDC" too. If a matching agent doesn't already exist, ask the user to create one with name="USDC" before linking — but never auto-create on their behalf (that's a UI flow).
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "prompts/pumpfun-usdc-link-agent.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

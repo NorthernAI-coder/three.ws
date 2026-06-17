@@ -68,3 +68,17 @@ Mainnet execution. This is a devnet correctness proof.
   migration is applied. The **live broadcast + DB assertions are blocked only by devnet funding**
   (public airdrop 429; devnet USDC needs the Circle faucet) — re-run with a premium devnet RPC key
   or pre-funded keypair to complete the live legs.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "tasks/pumpfun-launchpad-100/07-devnet-smoke-trade.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

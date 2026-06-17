@@ -18,3 +18,17 @@ Social proof is a powerful factor in purchasing decisions. Reviews and ratings w
     *   On the agent detail page, display the average rating for each skill.
     *   Add a section where users can read all reviews for a skill.
     *   Allow users who have purchased a skill to submit a review.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "prompts/monetization/22-user-reviews-for-skills.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

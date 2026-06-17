@@ -103,3 +103,17 @@ All items in [`README.md`](README.md) → "Definition of Done", plus:
 - Token launch (pump.fun coin launch stays REST-only for now).
 - Cross-chain bridging. Changing the custody model. Fiat on-ramp (the `fund`
   skill covers that).
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "tasks/mcp-agent-selfsufficiency/05-wallet-provision-and-monetize.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

@@ -67,3 +67,17 @@ manifest, and the `.well-known` document populated with the resulting registrati
   `model.sha256` matches the pinned GLB.
 - Visiting the platform agent profile renders the on-chain badge.
 - Changelog entry (tag: feature/infra).
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "tasks/onchain-deployment/04-register-threews-self-erc8004.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

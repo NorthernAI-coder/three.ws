@@ -85,3 +85,17 @@ async function getAgentWithSkillPrices(agentId) {
 -   The `skill_prices` object contains an entry for each priced skill with its `amount` and `currency_mint`.
 -   If an agent has no priced skills, `skill_prices` should be an empty object `{}`.
 -   The endpoint continues to function correctly for agents with no skills or no priced skills.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "prompts/monetization/02-display-priced-skills-api.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

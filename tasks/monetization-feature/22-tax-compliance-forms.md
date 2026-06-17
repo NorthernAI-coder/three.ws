@@ -43,3 +43,17 @@ When you pay creators, you may be required by law to report their earnings to ta
 4.  User clicks a "Begin Verification" button, which launches the Stripe Identity flow.
 5.  User completes the form in the secure modal.
 6.  Stripe sends a webhook to your backend, and the user's status is updated to `verified`. The banner on the earnings page disappears.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "tasks/monetization-feature/22-tax-compliance-forms.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

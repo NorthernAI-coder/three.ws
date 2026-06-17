@@ -34,3 +34,17 @@ Let the user hold a button (push-to-talk) and have a real voice conversation wit
 
 ## Rules
 Complete 100%. No stubs. No fake data. Real APIs throughout — Whisper, the chat backend, the TTS endpoint. Verify in a real browser with mic permission.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "tasks/walk/16-walk-voice-chat.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

@@ -67,3 +67,17 @@ In `loadNearbyPins()` the `entry` spread already carries `pin.heading` since the
 - [ ] `spawnNearbyPin` sets `group.rotation.y` from `pin.heading`
 - [ ] No console errors, no unreachable states
 - [ ] Changelog entry NOT required (internal UX refinement of a feature shipped same day)
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "tasks/irl/01-caption-and-heading.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

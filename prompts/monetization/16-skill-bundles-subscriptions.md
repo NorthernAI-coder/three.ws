@@ -22,3 +22,17 @@ This is an advanced monetization feature that provides more value to users and m
 
 3.  **Implement Recurring Payments:**
     *   For subscriptions, you will need a system to handle recurring payments. This is complex on a blockchain and might require a service like Streamflow or a custom smart contract.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "prompts/monetization/16-skill-bundles-subscriptions.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

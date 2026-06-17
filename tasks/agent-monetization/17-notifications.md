@@ -92,3 +92,17 @@ If `SENDGRID_API_KEY` or an SMTP env var is configured, also send an email. Make
 2. Click bell → dropdown shows "Atlas received payment: 0.95 USDC for answer-question"
 3. Click "Mark all read" → badge clears
 4. Withdrawal completes → "Withdrawal of 1.00 USDC sent" notification appears
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "tasks/agent-monetization/17-notifications.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

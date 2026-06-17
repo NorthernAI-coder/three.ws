@@ -41,3 +41,17 @@ Validation that only checks syntax gives false confidence.
 - [ ] No false positives on currently-working strategies.
 - [ ] `npm test` passes; add cases for each rejection class.
 - [ ] Changelog entry (tag: `improvement`) if the strategy UI surfaces the new errors.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "tasks/pumpfun-launchpad-100/06-strategy-validate-semantic.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

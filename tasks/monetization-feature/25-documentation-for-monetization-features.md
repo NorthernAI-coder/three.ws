@@ -41,3 +41,17 @@ Good documentation is a product feature in itself. For monetization, it's especi
     *   Have someone unfamiliar with the features read the documentation to check for clarity.
     *   Ensure all links are correct.
     *   Publish the documentation and link to it from relevant places in your application UI (e.g., a "Read the Docs" link on the API keys page).
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "tasks/monetization-feature/25-documentation-for-monetization-features.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

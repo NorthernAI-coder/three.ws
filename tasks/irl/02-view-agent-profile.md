@@ -69,3 +69,17 @@ If the agents page reads from query string (`/agents?id=`), adjust the URL accor
 - [ ] Click handler uses `agent_id` if present, falls back to name search
 - [ ] Target URL format verified against how the rest of the site links to agent profiles
 - [ ] No console errors
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "tasks/irl/02-view-agent-profile.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

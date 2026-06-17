@@ -144,3 +144,17 @@ before building T2.1.
   Key-failure tests need a fresh process.
 - **Observed latency (Codespace → grpc.nvcf.nvidia.com):** ~370–430 ms for a
   short phrase, ~1.3–2.1 s for a full sentence (4.5 s audio), per-call.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "tasks/nvidia-nim/probes/tts.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

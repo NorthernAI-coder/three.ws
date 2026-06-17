@@ -141,3 +141,17 @@ shipped, target that public surface instead and skip this step.)
 - Respect ComfyUI caching semantics.
 - If you add external auth, use the existing key system; never ship an open
   generation endpoint.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "prompts/tripo-gap/03-blender-comfyui-plugins.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

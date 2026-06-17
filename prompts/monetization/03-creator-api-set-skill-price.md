@@ -93,3 +93,17 @@ app.post('/api/creator/agents/:agentId/skills/price', async (req, res) => {
 -   The endpoint correctly verifies that the user owns the agent before making changes.
 -   The endpoint can successfully create, update, and delete entries in the `agent_skill_prices` table based on the request body.
 -   Appropriate error responses (`400`, `403`, `500`) are returned in failure cases.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "prompts/monetization/03-creator-api-set-skill-price.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.
