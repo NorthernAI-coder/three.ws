@@ -172,10 +172,16 @@
 		"api/irl/interactions.js": {
 			"maxDuration": 15
 		},
+		"api/irl/interactions-stream.js": {
+			"maxDuration": 300
+		},
 		"api/irl/agent-summary.js": {
 			"maxDuration": 15
 		},
 		"api/irl/agent-card.js": {
+			"maxDuration": 15
+		},
+		"api/irl/report.js": {
 			"maxDuration": 15
 		},
 		"api/**/*.js": {
@@ -1953,6 +1959,10 @@
 			"dest": "/api/irl/pins.js"
 		},
 		{
+			"src": "/api/irl/interactions-stream",
+			"dest": "/api/irl/interactions-stream.js"
+		},
+		{
 			"src": "/api/irl/interactions",
 			"dest": "/api/irl/interactions.js"
 		},
@@ -1963,6 +1973,10 @@
 		{
 			"src": "/api/irl/agent-card",
 			"dest": "/api/irl/agent-card.js"
+		},
+		{
+			"src": "/api/irl/report",
+			"dest": "/api/irl/report.js"
 		},
 		{
 			"src": "/api/copy/executions",
@@ -3527,6 +3541,10 @@
 		{
 			"path": "/api/cron/audit-log-cleanup",
 			"schedule": "0 4 * * *"
+		},
+		{
+			"path": "/api/cron/irl-reap",
+			"schedule": "17 * * * *"
 		},
 		{
 			"path": "/api/cron/expire-pending-purchases",

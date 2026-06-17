@@ -23,6 +23,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { AnimationManager } from './animation-manager.js';
 import { WebXRSession } from './ar/webxr.js';
+import { wireShareButton } from './irl/share-frame.js';
 import { canUseQuickLook } from './ar/quick-look.js';
 import { canUseSceneViewer, openSceneViewer } from './ar/scene-viewer.js';
 import { log } from './shared/log.js';
@@ -535,6 +536,17 @@ if (changeAvatarBtn) {
 
 	// Body toggle: start on full body
 	fullBtn.classList.add('active');
+
+	// Composite share — same module /irl uses, so the two surfaces never drift.
+	// Flattens the camera passthrough (when AR is on) under the 3D canvas into one
+	// PNG; renderer is built with preserveDrawingBuffer:true for a non-blank readback.
+	wireShareButton(document.getElementById('xr-share-btn'), {
+		getCanvas: () => canvas,
+		getVideo:  () => videoEl,
+		getIsAR:   () => arCameraActive,
+		filename:  'three-ws-xr.png',
+		title:     'XR · three.ws',
+	});
 
 	await _detectARMode();
 })();

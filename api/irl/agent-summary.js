@@ -8,9 +8,13 @@
  *
  * Returns { agents: [ {
  *   pin_id, agent_id, lat, lng, heading, caption, avatar_url, avatar_name,
+ *   avatar_manifest, avatar_base_url, avatar_version,
  *   placed_at, expires_at, view_count, agent_name, solana_address,
  *   interaction_count, last_interaction_at, status
  * } ] }
+ *
+ * avatar_manifest/avatar_base_url/avatar_version (C6) let the dashboard open the
+ * remote Outfit editor seeded with the pin's current look and detect re-skins.
  *
  * `status` is derived: 'expired' (expires_at passed) · 'online' (an interaction
  * touched the pin in the last 5 min — proxy until D1/C4 write last_seen_at) ·
@@ -45,6 +49,7 @@ export default wrap(async (req, res) => {
 		? await sql`
 			SELECT p.id AS pin_id, p.agent_id, p.lat, p.lng, p.heading, p.caption,
 			       p.avatar_url, p.avatar_name, p.placed_at, p.expires_at, p.view_count,
+			       p.avatar_manifest, p.avatar_base_url, p.avatar_version,
 			       a.name AS agent_name,
 			       a.meta->>'solana_address' AS solana_address,
 			       COALESCE(ix.total, 0)::int AS interaction_count,
@@ -61,6 +66,7 @@ export default wrap(async (req, res) => {
 		: await sql`
 			SELECT p.id AS pin_id, p.agent_id, p.lat, p.lng, p.heading, p.caption,
 			       p.avatar_url, p.avatar_name, p.placed_at, p.expires_at, p.view_count,
+			       p.avatar_manifest, p.avatar_base_url, p.avatar_version,
 			       a.name AS agent_name,
 			       a.meta->>'solana_address' AS solana_address,
 			       0 AS interaction_count,

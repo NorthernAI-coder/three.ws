@@ -86,3 +86,64 @@ export function decodeGeohash(geohash) {
 		lngErr: (b.lngMax - b.lngMin) / 2,
 	};
 }
+
+// ── Neighbour expansion ──────────────────────────────────────────────────────
+// Standard base32 borrow tables for stepping a geohash one cell N/S/E/W. The two
+// rows in each entry are for even- vs odd-length geohashes (the bit interleave
+// alternates lat/lng parity by cell length). This is the canonical geohash-js
+// adjacency algorithm — it handles wrap-around at the ±180° antimeridian and the
+// poles by recursively carrying into the parent cell.
+const ADJ_NEIGHBORS = {
+	n: ['p0r21436x8zb9dcf5h7kjnmqesgutwvy', 'bc01fg45238967deuvhjyznpkmstqrwx'],
+	s: ['14365h7k9dcfesgujnmqp0r2twvyx8zb', '238967debc01fg45kmstqrwxuvhjyznp'],
+	e: ['bc01fg45238967deuvhjyznpkmstqrwx', 'p0r21436x8zb9dcf5h7kjnmqesgutwvy'],
+	w: ['238967debc01fg45kmstqrwxuvhjyznp', '14365h7k9dcfesgujnmqp0r2twvyx8zb'],
+};
+const ADJ_BORDERS = {
+	n: ['prxz', 'bcfguvyz'],
+	s: ['028b', '0145hjnp'],
+	e: ['bcfguvyz', 'prxz'],
+	w: ['0145hjnp', '028b'],
+};
+
+/**
+ * The geohash one cell away from `geohash` in compass direction `dir`
+ * ('n' | 's' | 'e' | 'w'). Returns '' for empty/invalid input.
+ */
+export function geohashAdjacent(geohash, dir) {
+	const gh = String(geohash || '').toLowerCase();
+	const d = String(dir || '').toLowerCase();
+	if (!gh || !ADJ_NEIGHBORS[d]) return '';
+	const lastCh = gh.slice(-1);
+	let parent = gh.slice(0, -1);
+	const type = gh.length % 2; // 0 → even-length, 1 → odd-length
+	// On a border cell the step carries into the parent first (wrap-around).
+	if (ADJ_BORDERS[d][type].indexOf(lastCh) !== -1 && parent !== '') {
+		parent = geohashAdjacent(parent, d);
+	}
+	const idx = ADJ_NEIGHBORS[d][type].indexOf(lastCh);
+	if (idx < 0) return ''; // stray char that isn't in the base32 alphabet
+	return parent + BASE32[idx];
+}
+
+/**
+ * The up-to-8 geohash cells surrounding `geohash` (4 edges + 4 corners), so a
+ * viewer near a cell edge still sees pins that straddle the boundary inside the
+ * nearby radius. De-duplicated; never includes the centre cell itself.
+ * @returns {string[]}
+ */
+export function geohashNeighbors(geohash) {
+	const gh = String(geohash || '').toLowerCase();
+	if (!gh) return [];
+	const n = geohashAdjacent(gh, 'n');
+	const s = geohashAdjacent(gh, 's');
+	const e = geohashAdjacent(gh, 'e');
+	const w = geohashAdjacent(gh, 'w');
+	const cells = [
+		n, s, e, w,
+		geohashAdjacent(n, 'e'), geohashAdjacent(n, 'w'),
+		geohashAdjacent(s, 'e'), geohashAdjacent(s, 'w'),
+	];
+	// De-dupe and drop empties / the centre (degenerate near the poles).
+	return [...new Set(cells)].filter((c) => c && c !== gh);
+}

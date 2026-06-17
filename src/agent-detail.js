@@ -94,6 +94,26 @@ function shortAddr(s, head = 4, tail = 4) {
 	return `${str.slice(0, head)}…${str.slice(-tail)}`;
 }
 
+// Deep-link this agent into /irl. Prefer the avatar id (resolveAvatarUrl reads it
+// directly); fall back to the always-real GLB (custom or mannequin) so the body
+// is never missing. `agent=` lets /irl pre-focus this agent's pin + inspect card.
+function irlHref(agent) {
+	const av = agent?.avatar_id || agentAvatarGlb(agent); // agentAvatarGlb never returns empty
+	const sp = new URLSearchParams();
+	if (av) sp.set('avatar', av);
+	if (agent?.id) sp.set('agent', agent.id);
+	const q = sp.toString();
+	return q ? `/irl?${q}` : '/irl';
+}
+
+// Deep-link into /xr. Its resolver takes an avatar id (a raw GLB URL would 404 and
+// fall back to the default body), so pass the id when present, else let /xr load
+// its default — the link is always live either way.
+function xrHref(agent) {
+	const id = agent?.avatar_id;
+	return id ? `/xr?avatar=${encodeURIComponent(id)}` : '/xr';
+}
+
 function el(tag, props = {}, children = []) {
 	const node = document.createElement(tag);
 	for (const [k, v] of Object.entries(props)) {
@@ -427,6 +447,15 @@ function render(agent) {
 	// richer custom GLB if the agent ships one.
 	const see3d = $('ad-see-3d');
 	if (see3d) see3d.href = seeInWorldHref(agent);
+
+	// "View in IRL" / "View in XR" drop this agent's body into the immersive layer
+	// with the pin pre-focused. Every agent has a resolvable body — its own avatar
+	// id, or the always-real mannequin GLB — so both links are never dead (same
+	// invariant the world link relies on above).
+	const irlLink = $('ad-irl-link');
+	if (irlLink) irlLink.href = irlHref(agent);
+	const xrLink = $('ad-xr-link');
+	if (xrLink) xrLink.href = xrHref(agent);
 
 	// View switcher: flip this agent between its detail, 3D world, and embed
 	// presentations. Every agent has a 3D body (custom GLB or mannequin).

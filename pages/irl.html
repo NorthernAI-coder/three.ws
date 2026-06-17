@@ -5,6 +5,10 @@
 	<meta charset="utf-8" />
 	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
 	<meta name="theme-color" content="#000000" />
+	<!-- Realtime pin sync (D1) — the IRL world runs as a room on the same Colyseus
+	     host as /walk. Lets nearby pins stream live; absent/unreachable it falls back
+	     to polling automatically (see src/irl-net.js). -->
+	<meta name="irl-server" content="wss://three-ws-multiplayer-93741856042.us-central1.run.app" />
 	<title>IRL · three.ws</title>
 	<meta name="description" content="Walk a 3D avatar in your real space. Camera AR passthrough, joystick movement, tap-to-place objects." />
 	<meta property="og:type" content="website" />
@@ -271,6 +275,34 @@
 		.irl-status-spinner.hidden { display: none; }
 		@keyframes irl-spin { to { transform: rotate(360deg); } }
 
+		/* E4 — full-screen designed-state host above the canvas. Used for the
+		   unsupported-device state (rendered before irl.js loads) and the
+		   avatar-load-failure Retry card. Sits below the bottom sheets (z 50–70)
+		   so a sheet can still open over it, but above the canvas/topbar. */
+		#irl-overlay {
+			position: fixed;
+			inset: 0;
+			z-index: 45;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			padding: 24px;
+			background: radial-gradient(120% 120% at 50% 30%, rgba(13,16,24,0.82), rgba(7,9,14,0.96));
+			backdrop-filter: blur(3px);
+			-webkit-backdrop-filter: blur(3px);
+			animation: irl-overlay-in 0.22s ease;
+		}
+		#irl-overlay[hidden] { display: none; }
+		#irl-overlay .irl-overlay-card {
+			width: min(420px, 100%);
+			background: rgba(15,18,27,0.9);
+			border: 1px solid rgba(255,255,255,0.10);
+			border-radius: 18px;
+			box-shadow: 0 24px 64px rgba(0,0,0,0.5);
+		}
+		@keyframes irl-overlay-in { from { opacity: 0; } to { opacity: 1; } }
+		@media (prefers-reduced-motion: reduce) { #irl-overlay { animation: none; } }
+
 		/* Hero camera button */
 		#irl-camera-btn {
 			width: 100%;
@@ -516,6 +548,65 @@
 			white-space: nowrap;
 		}
 		#irl-nearby-badge[hidden] { display: none; }
+		/* Refresh-failed indicator (E4) — the nearby poll couldn't reach the server. */
+		#irl-nearby-badge.is-error {
+			color: #fbbf24;
+			background: rgba(251,191,36,0.12);
+			border-color: rgba(251,191,36,0.38);
+		}
+
+		/* Realtime status pill (D1) — sits beside the nearby badge: live (green),
+		   connecting (amber pulse), or polling (the fallback transport, tap to retry). */
+		.irl-net-pill {
+			display: inline-flex;
+			align-items: center;
+			gap: 4px;
+			margin-left: 6px;
+			font-size: 10px;
+			font-weight: 700;
+			letter-spacing: 0.04em;
+			border-radius: 999px;
+			padding: 2px 8px 2px 7px;
+			white-space: nowrap;
+			border: 1px solid transparent;
+			cursor: default;
+			-webkit-user-select: none;
+			user-select: none;
+		}
+		.irl-net-pill[hidden] { display: none; }
+		.irl-net-pill::before {
+			content: '';
+			width: 6px;
+			height: 6px;
+			border-radius: 50%;
+			background: currentColor;
+			flex-shrink: 0;
+		}
+		.irl-net-pill.is-live {
+			color: var(--green);
+			background: rgba(74,222,128,0.12);
+			border-color: rgba(74,222,128,0.35);
+		}
+		.irl-net-pill.is-live::before { box-shadow: 0 0 6px currentColor; }
+		.irl-net-pill.is-connecting {
+			color: #fbbf24;
+			background: rgba(251,191,36,0.12);
+			border-color: rgba(251,191,36,0.38);
+		}
+		.irl-net-pill.is-connecting::before { animation: irl-net-pulse 1.1s ease-in-out infinite; }
+		.irl-net-pill.is-polling {
+			color: #9aa6b2;
+			background: rgba(148,163,184,0.12);
+			border-color: rgba(148,163,184,0.3);
+			cursor: pointer;
+		}
+		@keyframes irl-net-pulse {
+			0%, 100% { opacity: 1; }
+			50% { opacity: 0.35; }
+		}
+		@media (prefers-reduced-motion: reduce) {
+			.irl-net-pill.is-connecting::before { animation: none; }
+		}
 
 		/* Radar minimap */
 		#irl-radar {
@@ -999,6 +1090,38 @@
 		.irl-service-use:active { transform: translateY(1px); }
 		.irl-service-use:focus-visible { outline: 2px solid rgba(52,211,153,0.6); outline-offset: 2px; }
 		.irl-service-use:disabled { opacity: 0.6; cursor: default; }
+		/* Paid-service response, rendered inline after an x402 settlement */
+		.irl-service-result {
+			margin-top: 12px;
+			padding: 10px 12px;
+			border-radius: 10px;
+			background: rgba(52,211,153,0.07);
+			border: 1px solid rgba(52,211,153,0.22);
+			animation: irl-result-in 0.25s ease;
+		}
+		.irl-service-result-label {
+			font-size: 11px;
+			text-transform: uppercase;
+			letter-spacing: 0.05em;
+			color: #34d399;
+			font-weight: 600;
+			margin-bottom: 6px;
+		}
+		.irl-service-result pre {
+			margin: 0;
+			font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+			font-size: 12px;
+			line-height: 1.5;
+			color: #d1d5db;
+			white-space: pre-wrap;
+			word-break: break-word;
+			max-height: 220px;
+			overflow: auto;
+		}
+		@keyframes irl-result-in {
+			from { opacity: 0; transform: translateY(4px); }
+			to   { opacity: 1; transform: none; }
+		}
 		/* Multiplayer indicator row */
 		.irl-multiplayer-note {
 			display: flex;
@@ -1042,6 +1165,64 @@
 		.irl-msg-send:disabled { opacity: 0.5; cursor: default; }
 		.irl-sheet-status { margin-top: 10px; font-size: 12.5px; color: #34d399; }
 		.irl-sheet-status.is-error { color: #f87171; }
+
+		/* Report affordance (D4) — deliberately low-prominence; it's a safety tool,
+		   not a primary action. Sits under the message composer. */
+		.irl-sheet-report {
+			display: block;
+			margin: 14px auto 0;
+			padding: 6px 10px;
+			background: none;
+			border: none;
+			color: #6b7280;
+			font-size: 12px;
+			cursor: pointer;
+			border-radius: 8px;
+			transition: color 0.15s, background 0.15s;
+		}
+		.irl-sheet-report:hover { color: #f87171; background: rgba(248,113,113,0.08); }
+		.irl-sheet-report:focus-visible { outline: 2px solid rgba(248,113,113,0.6); outline-offset: 2px; }
+
+		/* Report reason sheet */
+		#irl-report-sheet {
+			position: fixed;
+			bottom: 0;
+			left: 0;
+			right: 0;
+			z-index: 23;
+			background: rgba(12,14,20,0.98);
+			border-top: 1px solid rgba(255,255,255,0.10);
+			border-radius: 18px 18px 0 0;
+			padding: 20px 22px 36px;
+			backdrop-filter: blur(22px);
+			-webkit-backdrop-filter: blur(22px);
+			transform: translateY(100%);
+			transition: transform 0.28s cubic-bezier(0.32,0.72,0,1);
+			pointer-events: none;
+			max-height: 72vh;
+			overflow-y: auto;
+		}
+		#irl-report-sheet.is-open { transform: translateY(0); pointer-events: all; }
+		#irl-report-sheet .irl-sheet-handle { margin-bottom: 14px; }
+		.irl-report-header { display: flex; align-items: center; justify-content: space-between; }
+		.irl-report-header h3 { font-size: 16px; font-weight: 700; color: #e5e7eb; margin: 0; }
+		.irl-report-sub { font-size: 12.5px; color: #9ca3af; margin: 8px 0 16px; line-height: 1.5; }
+		.irl-report-reasons { display: flex; flex-direction: column; gap: 8px; }
+		.irl-report-reason {
+			text-align: left;
+			padding: 13px 14px;
+			border-radius: 12px;
+			border: 1px solid rgba(255,255,255,0.08);
+			background: rgba(255,255,255,0.03);
+			color: #e5e7eb;
+			font-size: 14px;
+			cursor: pointer;
+			transition: border-color 0.15s, background 0.15s, transform 0.05s;
+		}
+		.irl-report-reason:hover { border-color: rgba(248,113,113,0.5); background: rgba(248,113,113,0.08); }
+		.irl-report-reason:active { transform: scale(0.99); }
+		.irl-report-reason:focus-visible { outline: 2px solid rgba(248,113,113,0.6); outline-offset: 2px; }
+		.irl-report-reason:disabled { opacity: 0.5; cursor: default; }
 
 		/* Agent picker sheet */
 		#irl-agents-sheet {
@@ -1162,6 +1343,11 @@
 <!-- Three.js canvas -->
 <canvas id="irl-canvas"></canvas>
 
+<!-- Full-screen designed-state host (E4): unsupported-device state (filled by the
+     capability gate below before irl.js loads) and avatar-load-failure Retry card
+     (filled by irl.js). Empty + hidden until a full-screen state is needed. -->
+<div id="irl-overlay" hidden role="alertdialog" aria-modal="true" aria-label="IRL status"></div>
+
 <!-- Top bar -->
 <header class="irl-topbar">
 	<a class="irl-back" id="irl-back-link" href="/walk">
@@ -1174,9 +1360,14 @@
 			IRL
 		</span>
 		<span id="irl-nearby-badge" hidden aria-live="polite"></span>
+		<span id="irl-net-pill" class="irl-net-pill" hidden role="status" aria-live="polite"></span>
 	</div>
 	<button class="irl-share-btn" id="irl-share-btn" type="button" aria-label="Share">Share</button>
 </header>
+
+<!-- E1 permission re-request chips — a denied sensor leaves a one-tap recovery
+     chip here; src/irl/onboarding.js shows/hides this strip and renders into it. -->
+<div id="irl-perm-chips" class="irl-perm-chips" hidden aria-label="Permissions needing attention"></div>
 
 <!-- Joystick zone -->
 <div id="irl-joystick"></div>
@@ -1356,6 +1547,27 @@
 		<button id="irl-msg-send" class="irl-msg-send" type="submit">Send</button>
 	</form>
 	<div id="irl-sheet-status" class="irl-sheet-status" role="status" hidden></div>
+	<!-- Report — community moderation (D4). Hidden on your own pins. Opens a reason sheet. -->
+	<button id="irl-sheet-report" class="irl-sheet-report" type="button" hidden>Report this pin</button>
+</div>
+
+<!-- Report reason sheet (D4) — choose why, POST /api/irl/report, threshold-hide server-side -->
+<div id="irl-report-sheet" role="dialog" aria-modal="true" aria-label="Report this pin">
+	<div class="irl-sheet-handle" aria-hidden="true"></div>
+	<div class="irl-report-header">
+		<h3>Report this pin</h3>
+		<button class="irl-sheet-close" id="irl-report-close" type="button" aria-label="Close">×</button>
+	</div>
+	<p class="irl-report-sub">Tell us what’s wrong. Reports are reviewed; a pin is hidden once enough people flag it.</p>
+	<div class="irl-report-reasons" role="group" aria-label="Reason">
+		<button class="irl-report-reason" type="button" data-reason="spam">Spam or advertising</button>
+		<button class="irl-report-reason" type="button" data-reason="harassment">Hate or harassment</button>
+		<button class="irl-report-reason" type="button" data-reason="impersonation">Impersonation</button>
+		<button class="irl-report-reason" type="button" data-reason="scam">Scam or off-brand coin</button>
+		<button class="irl-report-reason" type="button" data-reason="sexual">Sexual content</button>
+		<button class="irl-report-reason" type="button" data-reason="other">Something else</button>
+	</div>
+	<div id="irl-report-status" class="irl-sheet-status" role="status" hidden></div>
 </div>
 
 <!-- Agent picker sheet — lists authenticated user's agents to switch which one is placed -->
@@ -1444,69 +1656,47 @@
 </div>
 <div id="irl-cal-denied" role="alertdialog" aria-modal="false" aria-label="Calibration locked" hidden></div>
 
-<script type="module" src="/src/irl.js"></script>
+<!-- E1 first-run permission + onboarding overlay. Cards (prompt / granted /
+     denied-with-recovery / unsupported) are rendered by src/irl/onboarding.js. -->
+<div id="irl-onboard" class="irl-onboard" hidden role="dialog" aria-modal="true" aria-label="Set up IRL"></div>
 
-<script>
-document.getElementById('irl-share-btn').addEventListener('click', async () => {
-	const btn = document.getElementById('irl-share-btn');
-	const origText = btn.textContent;
-
-	// Capture the current frame from the Three.js canvas (+ camera feed if in AR)
-	async function captureFrame() {
-		const irl = document.getElementById('irl-canvas');
-		if (!irl) return null;
-		const w = irl.width; const h = irl.height;
-		if (!w || !h) return null;
-		const out = document.createElement('canvas');
-		out.width = w; out.height = h;
-		const ctx2 = out.getContext('2d');
-		const vid = document.getElementById('irl-camera');
-		if (document.body.classList.contains('is-ar') && vid && !vid.paused) {
-			try { ctx2.drawImage(vid, 0, 0, w, h); } catch {}
-		}
-		try { ctx2.drawImage(irl, 0, 0); } catch {}
-		return new Promise(res => out.toBlob(res, 'image/png'));
+<!-- E4 capability gate — IRL renders 3D agents with WebGL; without it irl.js's
+     renderer throws at import time and leaves a blank canvas. Detect support first
+     and boot the AR module only when WebGL is real; otherwise render a designed
+     "unsupported device" state into #irl-overlay and never load the heavy module
+     (so no thrown context error reaches the console). -->
+<script type="module">
+	function webglSupported() {
+		try {
+			const c = document.createElement('canvas');
+			return !!(window.WebGLRenderingContext &&
+				(c.getContext('webgl') || c.getContext('experimental-webgl')));
+		} catch { return false; }
 	}
 
-	btn.disabled = true;
-	btn.textContent = '…';
-
-	try {
-		const blob = await captureFrame();
-		if (blob) {
-			const file = new File([blob], 'three-ws-irl.png', { type: 'image/png' });
-			if (navigator.share && navigator.canShare?.({ files: [file] })) {
-				await navigator.share({ title: 'IRL · three.ws', files: [file] });
-				btn.textContent = 'Shared!';
-				setTimeout(() => { btn.textContent = origText; btn.disabled = false; }, 2000);
-				return;
-			}
-			// Download on desktop
-			const objUrl = URL.createObjectURL(blob);
-			const a = document.createElement('a');
-			a.href = objUrl; a.download = 'three-ws-irl.png';
-			a.click();
-			setTimeout(() => URL.revokeObjectURL(objUrl), 4000);
-			btn.textContent = 'Saved!';
-			setTimeout(() => { btn.textContent = origText; btn.disabled = false; }, 2000);
-			return;
-		}
-	} catch {}
-
-	// Fallback: share / copy URL
-	const url = location.href;
-	if (navigator.share) {
-		try { await navigator.share({ title: 'IRL · three.ws', url }); btn.textContent = 'Shared!'; setTimeout(() => { btn.textContent = origText; btn.disabled = false; }, 2000); return; } catch {}
+	if (webglSupported()) {
+		import('/src/irl.js');
+	} else {
+		import('/src/shared/state-kit.js').then(({ emptyStateHTML, ensureStateKitStyles }) => {
+			ensureStateKitStyles();
+			const host = document.getElementById('irl-overlay');
+			if (!host) return;
+			const nameEl = document.getElementById('irl-avatar-name');
+			if (nameEl) nameEl.textContent = 'IRL unavailable';
+			const subEl = document.getElementById('irl-subtitle');
+			if (subEl) subEl.textContent = 'This device can’t render the AR view';
+			host.innerHTML = '<div class="irl-overlay-card">' + emptyStateHTML({
+				icon: '🛰️',
+				title: 'This device can’t run IRL AR',
+				body: 'IRL places 3D agents in your space using WebGL, which isn’t available in this browser. You can still browse agents and services on the web — or reopen IRL in an up-to-date Chrome, Safari, or Edge.',
+				actions: [
+					{ label: 'Browse agents', href: '/agents', primary: true },
+					{ label: 'Open the marketplace', href: '/marketplace' },
+				],
+			}) + '</div>';
+			host.hidden = false;
+		}).catch(() => {});
 	}
-	try {
-		await navigator.clipboard.writeText(url);
-		btn.textContent = 'Copied!';
-	} catch {
-		btn.textContent = origText;
-	}
-	btn.disabled = false;
-	setTimeout(() => { if (btn.textContent !== origText) { btn.textContent = origText; } }, 1800);
-});
 </script>
 </body>
 </html>
