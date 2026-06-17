@@ -1143,17 +1143,6 @@ model-viewer.ad-hero-avatar {
    Tokens mirror :root above; monochrome surface, no chroma accents.
 ─────────────────────────────────────────────────────────────────────────── */
 
-/* 3D avatar in the hero — match the static avatar footprint. */
-.ad-hero-avatar-3d {
-	width: 120px;
-	height: 120px;
-	border-radius: 16px;
-	background: var(--ad-bg-2);
-	border: 1px solid var(--ad-line);
-	--poster-color: transparent;
-	overflow: hidden;
-}
-
 /* Hero metadata row */
 .ad-market-meta {
 	display: flex;

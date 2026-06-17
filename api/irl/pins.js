@@ -151,6 +151,22 @@ function safeRemoteUrl(raw, { allowRelative = true } = {}) {
 	return { ok: true, value: u.toString() };
 }
 
+// Coarsen a coordinate before it leaves the server in the PUBLIC nearby feed.
+// A phone GPS fix is accurate to ~5 m, so the sub-millimetre tail of a float64
+// degree is both useless for AR placement and a privacy hazard: an exact
+// 9-decimal reading is precise enough to fingerprint one device/fix and exposes
+// more than "an agent stands roughly here." 5 decimals ≈ 1.1 m — finer than GPS
+// error, ample to render the agent as you walk up — and the room frame
+// (rel_east_m / rel_north_m) still carries the exact intra-room layout untouched.
+// Distance is computed from the RAW coordinates before rounding, so proximity
+// filtering and the surfaced distance_m stay accurate.
+const PUBLIC_COORD_DP = 5;
+function roundCoord(v) {
+	if (typeof v !== 'number' || !Number.isFinite(v)) return v;
+	const f = 10 ** PUBLIC_COORD_DP;
+	return Math.round(v * f) / f;
+}
+
 // Haversine distance in meters between two GPS points
 function haversineDist(lat1, lng1, lat2, lng2) {
 	const R = 6371000;
@@ -508,8 +524,10 @@ export default wrap(async (req, res) => {
 			.map(r => ({
 				id:             r.id,
 				agent_id:       r.agent_id,
-				lat:            r.lat,
-				lng:            r.lng,
+				// Coarsened to ~1.1 m (PUBLIC_COORD_DP) — strips false precision a
+				// co-located reader could harvest while staying finer than GPS error.
+				lat:            roundCoord(r.lat),
+				lng:            roundCoord(r.lng),
 				heading:        r.heading,
 				avatar_url:     r.avatar_url,
 				avatar_name:    r.avatar_name,
@@ -530,8 +548,10 @@ export default wrap(async (req, res) => {
 				room_id:         r.room_id ?? null,
 				rel_east_m:      r.rel_east_m,
 				rel_north_m:     r.rel_north_m,
-				origin_lat:      r.origin_lat,
-				origin_lng:      r.origin_lng,
+				// The room origin is a GPS index too — coarsen it like lat/lng; the
+				// exact intra-room layout rides the relative offsets above, not the origin.
+				origin_lat:      roundCoord(r.origin_lat),
+				origin_lng:      roundCoord(r.origin_lng),
 				origin_yaw_deg:  r.origin_yaw_deg,
 				// C6 — cheap re-skin signal: the viewer diffs this against its loaded
 				// pin and swaps the GLB when it bumps. (The editable manifest/base URL

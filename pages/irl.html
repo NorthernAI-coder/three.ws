@@ -173,6 +173,29 @@
 			50%       { opacity: 0.5; transform: scale(0.7); }
 		}
 
+		/* IRL logo mark — the three.ws crystal cube anchored to an AR ground
+		   reticle. Drawn in currentColor so it inherits the badge ink (white),
+		   and re-tinted green when AR is live to echo the status dot. */
+		.irl-badge-mark {
+			width: 16px;
+			height: 17px;
+			flex-shrink: 0;
+			margin-right: 1px;
+			overflow: visible;
+			stroke: currentColor;
+			stroke-width: 1.5;
+			stroke-linecap: round;
+			stroke-linejoin: round;
+		}
+		.irl-badge-mark .irl-mark-cube   { opacity: 0.95; }
+		.irl-badge-mark .irl-mark-beam   { opacity: 0.45; }
+		.irl-badge-mark .irl-mark-anchor { opacity: 0.6; transition: stroke 0.3s, opacity 0.3s; }
+		.irl-badge-mark .irl-mark-dot    { fill: currentColor; opacity: 0.75; transition: fill 0.3s, opacity 0.3s; }
+		.irl-badge-word { line-height: 1; }
+		/* AR live: the ground anchor lights up green, the same signal as the dot */
+		body.is-ar .irl-badge-mark .irl-mark-anchor { stroke: var(--green); opacity: 0.95; }
+		body.is-ar .irl-badge-mark .irl-mark-dot { fill: var(--green); opacity: 1; }
+
 		.irl-share-btn {
 			background: transparent;
 			border: 1px solid var(--border);
@@ -1518,9 +1541,16 @@
 		Back
 	</a>
 	<div class="irl-topbar-center">
-		<span class="irl-badge">
+		<span class="irl-badge" role="img" aria-label="three.ws IRL — augmented reality">
+			<svg class="irl-badge-mark" viewBox="0 0 26 28" fill="none" aria-hidden="true">
+				<path class="irl-mark-cube" d="M13 2.5 4 7v9l9 4.5 9-4.5V7Z"/>
+				<path class="irl-mark-cube" d="M13 2.5v9M4 7l9 4.5M22 7l-9 4.5"/>
+				<path class="irl-mark-beam" d="M13 20.5v1.9"/>
+				<ellipse class="irl-mark-anchor" cx="13" cy="24.3" rx="7.4" ry="1.9"/>
+				<circle class="irl-mark-dot" cx="13" cy="24.3" r="1" stroke="none"/>
+			</svg>
+			<span class="irl-badge-word">IRL</span>
 			<span class="irl-badge-dot"></span>
-			IRL
 		</span>
 		<span id="irl-nearby-badge" hidden aria-live="polite"></span>
 		<span id="irl-net-pill" class="irl-net-pill" hidden role="status" aria-live="polite"></span>

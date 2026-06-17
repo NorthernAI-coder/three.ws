@@ -172,4 +172,33 @@ describe('GET /api/irl/pins — room frame projection', () => {
 		expect(p.user_id).toBeUndefined();
 		expect(p.device_token).toBeUndefined();
 	});
+
+	it('coarsens outbound coordinates to ~1.1 m so the public feed carries no false precision', async () => {
+		// A pin stored at full float64 precision (sub-millimetre tail).
+		const preciseLat = 40.71280123456;
+		const preciseLng = -74.00609987654;
+		nearbyRow = {
+			id: 'pin-precise', user_id: 'owner-uuid', device_token: 'device-A', agent_id: null,
+			lat: preciseLat, lng: preciseLng, heading: 0,
+			avatar_url: '/a.glb', avatar_name: 'Scout', caption: '', x402_endpoint: null,
+			placed_at: '2026-06-17T00:00:00Z', view_count: 0,
+			anchor_height_m: null, anchor_yaw_deg: 0, anchor_quat: null,
+			gps_accuracy_m: 10, altitude_m: null, anchor_source: 'gyro-gps', avatar_version: 0,
+			room_id: 'living-room-7', rel_east_m: 2, rel_north_m: 1,
+			origin_lat: preciseLat, origin_lng: preciseLng, origin_yaw_deg: 0,
+		};
+		const { body } = await getNearby({ lat: String(preciseLat), lng: String(preciseLng), radius: '60' });
+		const p = body.pins[0];
+		// Rounded to 5 decimals (PUBLIC_COORD_DP) — the sub-mm tail is gone.
+		expect(p.lat).toBe(40.7128);
+		expect(p.lng).toBe(-74.0061);
+		expect(p.origin_lat).toBe(40.7128);
+		expect(p.origin_lng).toBe(-74.0061);
+		// The exact stored values must NOT leave the server.
+		expect(p.lat).not.toBe(preciseLat);
+		expect(p.lng).not.toBe(preciseLng);
+		// The room's exact intra-room layout (relative offsets) is untouched.
+		expect(p.rel_east_m).toBe(2);
+		expect(p.rel_north_m).toBe(1);
+	});
 });
