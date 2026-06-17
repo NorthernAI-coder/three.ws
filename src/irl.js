@@ -54,7 +54,7 @@ import { reserveWebGLContext, releaseWebGLContext } from './webgl-budget.js';
 import { detectTier, BUDGETS, TIER_ORDER, shiftTier } from './irl/perf-budget.js';
 import { sharedGLTFLoader, createLoadQueue } from './irl/load-queue.js';
 import { roomOriginWorld, agentWorldPosition } from './irl/room-anchor.js';
-import { anchorPoseToPin } from './irl/floor-anchor.js';
+import { anchorPoseToPin, yawDegFromQuat } from './irl/floor-anchor.js';
 import { initRoomMode } from './irl/room-mode.js';
 import { isFiniteReading, isCompassFresh, shouldUseAbsoluteYaw, resolveLockYaw, clampPitch } from './irl/sensor-fusion.js';
 import { pinBandAction } from './irl/proximity-band.js';
@@ -1204,8 +1204,31 @@ function gpsToWorld(agentLat, agentLng) {
 // geodetic (lat/lng) frame, the agent lands in the same bearing and floor spot
 // for everyone. anchor_yaw_deg / anchor_height_m fall back to the legacy
 // `heading` / ground plane when a pin predates the A2 pose columns.
+//
+// Yaw source priority (irl-floor-anchor task 02): when a WebXR placement stored
+// the full tap-moment surface quaternion (anchor_quat = [x,y,z,w], float), derive
+// yaw from it for exact facing — anchor_yaw_deg is that same angle rounded to a
+// whole degree by the persist path, so a 47.6° placement reloads as 47.6° instead
+// of snapping to 48°. Gyro/legacy pins carry no quat, so they keep falling back to
+// the rounded anchor_yaw_deg, then to the legacy `heading` — fallback intact.
+//
+// Pitch/roll from the quat are DELIBERATELY DROPPED here: a standing humanoid is
+// kept upright (yaw-only). Tilting an avatar to match a sloped surface looks broken,
+// not realistic; true surface tilt is reserved for a future non-humanoid prop mode
+// behind an explicit flag (see task 02, "Out of scope"). So we read only the yaw
+// component of anchor_quat and apply it about world-Y via setFromAxisAngle(upY, …).
+function pinQuatYawDeg(pin) {
+	const q = pin.anchor_quat;
+	// Guard the JSONB shape the API returns ([x,y,z,w] of finite numbers); a
+	// malformed/partial value falls through to the rounded yaw rather than NaN.
+	if (!Array.isArray(q) || q.length !== 4) return null;
+	if (!q.every(n => Number.isFinite(n))) return null;
+	return yawDegFromQuat(q[0], q[1], q[2], q[3]);
+}
 function pinYawRad(pin) {
-	const deg = Number.isFinite(pin.anchor_yaw_deg) ? pin.anchor_yaw_deg
+	const quatYaw = pinQuatYawDeg(pin);
+	const deg = quatYaw != null ? quatYaw
+		: Number.isFinite(pin.anchor_yaw_deg) ? pin.anchor_yaw_deg
 		: (pin.heading != null ? pin.heading : 0);
 	return -(deg * Math.PI / 180);
 }
@@ -5144,6 +5167,11 @@ async function saveCalibrate() {
 		pin.lat = _cal.lat; pin.lng = _cal.lng;
 		pin.anchor_yaw_deg = _cal.yaw; pin.heading = Math.round(_cal.yaw);
 		pin.anchor_height_m = _cal.height;
+		// The manual yaw nudge supersedes the captured surface quaternion; drop it so
+		// pinYawRad (task 02) reads the corrected anchor_yaw_deg, matching the server
+		// (handleCalibrate clears anchor_quat on a yaw change). Without this the live
+		// pin would keep rendering the pre-nudge facing until the next re-fetch.
+		pin.anchor_quat = null;
 		setStatus('Position calibrated — saved here; nearby viewers update within ~10s');
 		exitCalibrate(false);
 		loadNearbyPins();

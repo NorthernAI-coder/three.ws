@@ -57,8 +57,6 @@ const assert = (cond, label, extra = '') => {
 	if (!cond) failures++;
 };
 
-const browser = await chromium.launch();
-
 async function inspect(page, id) {
 	return page.evaluate((id) => {
 		const el = document.getElementById(id);
@@ -80,6 +78,8 @@ async function inspect(page, id) {
 	}, id);
 }
 
+const browser = await chromium.launch();
+try {
 // ── 1. Normal motion context: framing, loading, error, loop-honoring ──────────
 {
 	const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
@@ -152,9 +152,12 @@ async function inspect(page, id) {
 	assert(loop?.currentActionNull === true, 'reduced-motion: avatar holds a static pose (no active looping action)', `currentActionNull=${loop?.currentActionNull}`);
 	await ctx.close();
 }
-
-await browser.close();
-rmSync(TMP, { force: true });
+} finally {
+	// Always clean up the throwaway page + browser, even if an assertion threw,
+	// so a non-gitignored scratch file is never left behind in public/.
+	await browser.close().catch(() => {});
+	rmSync(TMP, { force: true });
+}
 
 log(`\n${failures === 0 ? '✅ ALL CHECKS PASSED' : `❌ ${failures} CHECK(S) FAILED`}`);
 process.exit(failures === 0 ? 0 : 1);

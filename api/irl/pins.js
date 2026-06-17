@@ -522,17 +522,25 @@ async function handleCalibrate(res, { id, session, body }) {
 	// Persist. heading stays in sync with anchor_yaw_deg so legacy clients (which
 	// only read `heading`) still render the corrected bearing.
 	const headingToStore = newYaw != null ? Math.round(newYaw) : null;
+	// A manual yaw recalibration SUPERSEDES the captured surface orientation. The
+	// render-back path (pinYawRad, irl-floor-anchor task 02) prefers anchor_quat over
+	// anchor_yaw_deg for exact facing, so a stale quat would silently override the
+	// owner's nudge — the correction would never show. Clear anchor_quat whenever the
+	// owner sets a new yaw, retiring the now-wrong capture so anchor_yaw_deg is the
+	// authoritative source again. A height-only / move-only calibrate keeps the quat.
+	const clearQuat = newYaw != null;
 	const [row] = await sql`
 		UPDATE irl_pins SET
 			lat             = ${newLat},
 			lng             = ${newLng},
 			anchor_yaw_deg  = COALESCE(${newYaw}, anchor_yaw_deg),
 			heading         = COALESCE(${headingToStore}, heading),
-			anchor_height_m = COALESCE(${newHeight}, anchor_height_m)
+			anchor_height_m = COALESCE(${newHeight}, anchor_height_m),
+			anchor_quat     = CASE WHEN ${clearQuat} THEN NULL ELSE anchor_quat END
 		WHERE id = ${id}
 		  AND hidden_at IS NULL
 		  AND (expires_at IS NULL OR expires_at > NOW())
-		RETURNING id, lat, lng, heading, anchor_yaw_deg, anchor_height_m, gps_accuracy_m
+		RETURNING id, lat, lng, heading, anchor_yaw_deg, anchor_height_m, anchor_quat, gps_accuracy_m
 	`;
 	// A lapse between the SELECT above and this write (e.g. expiry / a reaping cron)
 	// leaves no row — surface that as not-found instead of returning { pin: null }.
