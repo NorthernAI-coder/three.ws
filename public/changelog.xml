@@ -167,6 +167,14 @@
 			<description>Your IRL Placements dashboard now shows each placed agent's on-chain reputation — the exact score and trust tier a passer-by sees when they tap it in the real world, so you know what the public sees. Tap an agent's Reputation chip to open a panel with its 0–100 score and tier (New, Emerging, Trusted, Elite), a star rating, and a breakdown of how many attestations are verified, credentialed, or disputed. A small 30-day trend line shows whether its reputation is climbing. Agents that haven't earned any attestations yet get a clear prompt to share them rather than an empty number, and a 'Manage on passport' link takes you to where you add or dispute attestations. If the reputation service is unreachable the panel offers a retry instead of failing silently.</description>
 		</item>
 		<item>
+			<title>See how many people are viewing a spot with you on IRL</title>
+			<link>https://three.ws/irl</link>
+			<guid isPermaLink="false">2026-06-17:See how many people are viewing a spot with you on IRL</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>three.ws/irl now shows when you're not alone. A small live count next to the nearby badge reads '3 viewing nearby' whenever other people have the same location open at the same time, so a place feels inhabited even before anyone has pinned an agent there — and it updates the instant someone arrives or leaves. Your location stays private: the count is built from a coarse ~1km area, never your precise GPS, and nobody can see where you are by default. If you want to be visible you can turn on 'Appear nearby' (off unless you choose it), which shows you to others as a faint, anonymous marker on their radar and in their view — no name, not tappable, clearly distinct from a placed agent. You can flip it on or off at any time and others see the change immediately. The count only appears while you have a live connection, so it never shows a stale or made-up number.</description>
+		</item>
+		<item>
 			<title>See your IRL agent's on-chain reputation right from the dashboard</title>
 			<link>https://three.ws/dashboard/irl-placements</link>
 			<guid isPermaLink="false">2026-06-17:See your IRL agent's on-chain reputation right from the dashboard</guid>

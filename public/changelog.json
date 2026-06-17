@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-17T04:29:58.009Z",
+	"generated_at": "2026-06-17T04:39:14.546Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -214,6 +214,16 @@
 			"tags": [
 				"feature",
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-17",
+			"type": "update",
+			"title": "See how many people are viewing a spot with you on IRL",
+			"summary": "three.ws/irl now shows when you're not alone. A small live count next to the nearby badge reads '3 viewing nearby' whenever other people have the same location open at the same time, so a place feels inhabited even before anyone has pinned an agent there — and it updates the instant someone arrives or leaves. Your location stays private: the count is built from a coarse ~1km area, never your precise GPS, and nobody can see where you are by default. If you want to be visible you can turn on 'Appear nearby' (off unless you choose it), which shows you to others as a faint, anonymous marker on their radar and in their view — no name, not tappable, clearly distinct from a placed agent. You can flip it on or off at any time and others see the change immediately. The count only appears while you have a live connection, so it never shows a stale or made-up number.",
+			"link": "/irl",
+			"tags": [
+				"feature"
 			]
 		},
 		{
