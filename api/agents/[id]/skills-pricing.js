@@ -2,6 +2,7 @@ import { sql } from '../../_lib/db.js';
 import { getSessionUser, authenticateBearer, extractBearer } from '../../_lib/auth.js';
 import { cors, json, method, readJson, wrap, error } from '../../_lib/http.js';
 import { requireCsrf } from '../../_lib/csrf.js';
+import { invalidateSkillPriceCache } from '../../_lib/skill-price-cache.js';
 import { z } from 'zod';
 
 const priceSchema = z.object({
@@ -93,6 +94,7 @@ async function handlePut(req, res, agentId) {
 	];
 
 	await sql.transaction(statements);
+	invalidateSkillPriceCache(agentId);
 
 	return json(res, 200, { ok: true });
 }

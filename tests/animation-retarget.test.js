@@ -11,6 +11,9 @@
  *   - hip translation scaling and speed resampling are applied.
  */
 
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, it, expect } from 'vitest';
 import {
 	Bone,
@@ -22,6 +25,9 @@ import {
 	AnimationClip,
 	Object3D,
 	Quaternion,
+	Vector3,
+	Matrix4,
+	Euler,
 } from 'three';
 import {
 	canonicalNodeMapFromObject,

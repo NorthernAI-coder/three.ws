@@ -13,6 +13,7 @@ import { authenticateBearer, extractBearer, getSessionUser } from '../../_lib/au
 import { cors, error, json, method, readJson, wrap, rateLimited } from '../../_lib/http.js';
 import { clientIp, limits } from '../../_lib/rate-limit.js';
 import { requireCsrf } from '../../_lib/csrf.js';
+import { invalidateSkillPriceCache } from '../../_lib/skill-price-cache.js';
 import { z } from 'zod';
 
 const upsertSchema = z.object({
@@ -88,6 +89,7 @@ export default wrap(async (req, res) => {
 				is_active     = true,
 				updated_at    = now()
 		`;
+		invalidateSkillPriceCache(agentId);
 		return json(res, 200, { data: { ok: true } });
 	}
 
@@ -109,6 +111,7 @@ export default wrap(async (req, res) => {
 			RETURNING agent_id
 		`;
 		if (r.length === 0) return error(res, 404, 'not_found', 'no existing price for this skill');
+		invalidateSkillPriceCache(agentId);
 		return json(res, 200, { data: { ok: true } });
 	}
 
@@ -122,5 +125,6 @@ export default wrap(async (req, res) => {
 		SET is_active = false, updated_at = now()
 		WHERE agent_id = ${agentId} AND skill = ${parsed.data.skill}
 	`;
+	invalidateSkillPriceCache(agentId);
 	return json(res, 200, { data: { ok: true } });
 });

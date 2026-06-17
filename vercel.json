@@ -1494,6 +1494,22 @@
 			"dest": "/api/dashboard/prefs"
 		},
 		{
+			"src": "/api/marketplace/analytics",
+			"dest": "/api/marketplace/analytics"
+		},
+		{
+			"src": "/api/marketplace/skill-reviews",
+			"dest": "/api/marketplace/skill-reviews"
+		},
+		{
+			"src": "/api/users/me/credits",
+			"dest": "/api/users/me/credits"
+		},
+		{
+			"src": "/api/users/me/transaction-history",
+			"dest": "/api/users/me/transaction-history"
+		},
+		{
 			"src": "/api/marketplace/theme",
 			"dest": "/api/marketplace/[action]?action=theme"
 		},
@@ -1556,6 +1572,22 @@
 		{
 			"src": "/status/",
 			"dest": "/status.html"
+		},
+		{
+			"src": "/collection",
+			"dest": "/pages/collection.html"
+		},
+		{
+			"src": "/collection/",
+			"dest": "/pages/collection.html"
+		},
+		{
+			"src": "/marketplace/analytics",
+			"dest": "/pages/marketplace-analytics.html"
+		},
+		{
+			"src": "/marketplace/analytics/",
+			"dest": "/pages/marketplace-analytics.html"
 		},
 		{
 			"src": "/marketplace",

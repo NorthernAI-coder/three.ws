@@ -12,7 +12,7 @@
  */
 
 import { readFileSync } from 'node:fs';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
 import { Matrix4, Quaternion, Vector3 } from 'three';
 import {
 	canonicalizeBoneName,
@@ -68,7 +68,7 @@ function buildGLB(jsonObj, bin = null) {
 
 // Re-parse the JSON chunk out of a GLB ArrayBuffer.
 function readGLBJson(ab) {
-	const dv = new DataView(ab);
+	const dv  = new DataView(ab);
 	const jLen = dv.getUint32(12, true);
 	const jsonBytes = new Uint8Array(ab, 20, jLen);
 	return JSON.parse(new TextDecoder().decode(jsonBytes).replace(/\s+$/, ''));
@@ -487,12 +487,6 @@ function glbToAB(buf) {
 	return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
 }
 
-function readGlbJson(ab) {
-	const dv = new DataView(ab);
-	const jLen = dv.getUint32(12, true);
-	return JSON.parse(new TextDecoder().decode(new Uint8Array(ab, 20, jLen)).replace(/\s+$/, ''));
-}
-
 describe('real-fixture: cz.glb (reference canonical rig)', () => {
 	it('is a no-op — buffer returned by reference (idempotent)', () => {
 		const buf = readFileSync('public/avatars/cz.glb');
@@ -506,23 +500,24 @@ describe('real-fixture: cz.glb (reference canonical rig)', () => {
 });
 
 describe('real-fixture: michelle.glb (Mixamo rig normalization)', () => {
-	let ab, res, beforeW, afterJson, afterW;
+	// Shared fixture computed once in beforeAll; each it() reads from these.
+	let ab, res, beforeW, afterJson;
 
-	it('canonicalizes: bones renamed and orientation corrected', () => {
+	beforeAll(() => {
 		const buf = readFileSync('public/avatars/michelle.glb');
-		ab  = glbToAB(buf);
-		const beforeJson = readGlbJson(ab);
-		beforeW = jointWorldMatrices(beforeJson);
-
+		ab = glbToAB(buf);
+		beforeW = jointWorldMatrices(readGLBJson(ab));
 		res = canonicalizeGLBBones(ab);
-		expect(res.renamed).toBeGreaterThan(0);     // mixamorig: prefix stripped
-		expect(res.orientationCorrected).toBe(true); // +90/−90 fold applied
-		expect(res.buffer).not.toBe(ab);             // new buffer produced
+		afterJson = readGLBJson(res.buffer);
+	});
+
+	it('bones renamed and orientation corrected', () => {
+		expect(res.renamed).toBeGreaterThan(0);      // mixamorig: prefix stripped
+		expect(res.orientationCorrected).toBe(true);  // +90/−90 fold applied
+		expect(res.buffer).not.toBe(ab);              // new buffer produced
 	});
 
 	it('Hips rest is near identity after normalization', () => {
-		if (!res) return; // guard if prior test skipped
-		afterJson = readGlbJson(res.buffer);
 		const hipsIdx = afterJson.nodes.findIndex((n) => n.name === 'Hips');
 		expect(hipsIdx).toBeGreaterThanOrEqual(0);
 		const hipsRot = afterJson.nodes[hipsIdx].rotation || [0, 0, 0, 1];
@@ -531,9 +526,7 @@ describe('real-fixture: michelle.glb (Mixamo rig normalization)', () => {
 	});
 
 	it('joint world matrices are preserved — appearance is lossless', () => {
-		if (!res || !beforeW) return;
-		afterJson = afterJson || readGlbJson(res.buffer);
-		afterW = jointWorldMatrices(afterJson);
+		const afterW = jointWorldMatrices(afterJson);
 		const EPS = 1e-3; // 1 mm in typical avatar units
 		for (const [idx, bEls] of beforeW) {
 			const aEls = afterW.get(idx);
@@ -545,8 +538,6 @@ describe('real-fixture: michelle.glb (Mixamo rig normalization)', () => {
 	});
 
 	it('all joint names are canonical after normalization', () => {
-		if (!res) return;
-		afterJson = afterJson || readGlbJson(res.buffer);
 		const joints = new Set();
 		for (const sk of afterJson.skins || []) for (const j of sk.joints || []) joints.add(j);
 		const nonCanon = [...joints].map((j) => afterJson.nodes[j].name)
