@@ -295,6 +295,14 @@
 			<description>three.ws/xr now has the same one-tap Share that three.ws/irl has had: it flattens your live camera view and the 3D agent into a single photo and hands it to your phone's share sheet to post or send — or downloads it as a PNG on desktop. With the camera on, the picture shows your agent standing in your real surroundings; with it off, it shares the 3D view on its own. If a snapshot can't be captured for any reason, Share falls back to sending the page link so it's never a dead end. The Share buttons on both pages now show a brief progress state while the image is being made, and the immersive buttons give keyboard users a clear focus outline.</description>
 		</item>
 		<item>
+			<title>Sniper dashboard: your live positions now show real-time profit and loss and reconnect on their own</title>
+			<link>https://three.ws/dashboard/sniper</link>
+			<guid isPermaLink="false">2026-06-17:Sniper dashboard: your live positions now show real-time profit and loss and reconnect on their own</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The Sniper Strategies dashboard now streams your agents' open positions with live unrealized profit and loss — both the SOL figure and the percentage — instead of a blank value, and fills them in the moment the page loads rather than waiting for the next trade to land. The live feed shows its own connection state (Live / Reconnecting) and re-establishes itself automatically with backoff if it drops, so you always know whether you're watching real-time data. Closed-trade history now calls out your single best and worst trade, and there are one-tap links to the public leaderboard and sniper arena so your track record is easy to share.</description>
+		</item>
+		<item>
 			<title>Tapping an IRL agent is now reliable — hit the body, not just the tiny label</title>
 			<link>https://three.ws/irl</link>
 			<guid isPermaLink="false">2026-06-17:Tapping an IRL agent is now reliable — hit the body, not just the tiny label</guid>

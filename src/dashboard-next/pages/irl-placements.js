@@ -26,6 +26,7 @@ import { mountShell } from '../shell.js';
 import { requireUser, get, post, patch, esc, relTime } from '../api.js';
 import { skeletonHTML, emptyStateHTML, errorStateHTML, ensureStateKitStyles } from '../../shared/state-kit.js';
 import { loadInto } from '../../shared/async-state.js';
+import { loadLeaflet } from '../../shared/leaflet.js';
 import { mountReputationPanel } from './irl-reputation.js';
 
 // ── Services / x402 skill pricing ───────────────────────────────────────────
@@ -1078,10 +1079,8 @@ function restoreCaption(card, caption) {
 // ── Location map (Leaflet, lazy-loaded) ─────────────────────────────────────
 // A real OSM map with a draggable marker per placed agent, so the owner can
 // relocate / re-aim / remove a pin from anywhere — not just standing at the
-// spot. Leaflet (JS + CSS) is imported from a CDN only when the panel opens, so
-// the rest of the dashboard never pays for it.
-const LEAFLET_JS  = 'https://esm.sh/leaflet@1.9.4';
-const LEAFLET_CSS = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+// spot. The lazy CDN loader is shared with the /irl My-pins overview (one
+// source, one promise cache, one graceful-failure contract).
 
 // North-up compass dial; the needle <g> is rotated by the heading at runtime.
 const COMPASS_SVG = `<svg viewBox="-50 -50 100 100" aria-hidden="true">
@@ -1092,35 +1091,6 @@ const COMPASS_SVG = `<svg viewBox="-50 -50 100 100" aria-hidden="true">
 	<text class="lbl" x="0" y="27">S</text><text class="lbl" x="-27" y="0">W</text>
 	<g class="needle" data-needle transform="rotate(0)"><polygon points="0,-30 6,6 0,1 -6,6"/></g>
 </svg>`;
-
-let _leafletCssPromise = null;
-function ensureLeafletCss() {
-	if (_leafletCssPromise) return _leafletCssPromise;
-	_leafletCssPromise = new Promise((resolve, reject) => {
-		if (document.getElementById('leaflet-css')) { resolve(); return; }
-		const link = document.createElement('link');
-		link.id = 'leaflet-css';
-		link.rel = 'stylesheet';
-		link.href = LEAFLET_CSS;
-		link.crossOrigin = '';
-		link.onload = () => resolve();
-		link.onerror = () => { link.remove(); reject(new Error('leaflet css failed to load')); };
-		document.head.appendChild(link);
-	}).catch((e) => { _leafletCssPromise = null; throw e; });
-	return _leafletCssPromise;
-}
-
-let _leafletPromise = null;
-function loadLeaflet() {
-	if (_leafletPromise) return _leafletPromise;
-	_leafletPromise = (async () => {
-		const [mod] = await Promise.all([import(/* @vite-ignore */ LEAFLET_JS), ensureLeafletCss()]);
-		const L = mod?.default || mod;
-		if (!L || typeof L.map !== 'function') throw new Error('leaflet module missing');
-		return L;
-	})().catch((e) => { _leafletPromise = null; throw e; });
-	return _leafletPromise;
-}
 
 const norm360 = (h) => ((Math.round(Number(h) || 0) % 360) + 360) % 360;
 

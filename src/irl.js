@@ -57,6 +57,8 @@ import { roomOriginWorld, agentWorldPosition } from './irl/room-anchor.js';
 import { isFiniteReading, isCompassFresh, shouldUseAbsoluteYaw, resolveLockYaw, clampPitch } from './irl/sensor-fusion.js';
 import { pinBandAction } from './irl/proximity-band.js';
 import { loadInto } from './shared/async-state.js';
+import { openMapPlacePicker } from './irl/map-place.js';
+import { loadLeaflet } from './shared/leaflet.js';
 
 const AVATAR_URL_DEFAULT = '/avatars/default.glb';
 const ANIMATIONS_MANIFEST_URL = '/animations/manifest.json';
@@ -1438,16 +1440,21 @@ async function savePin(lat, lng, heading = 0, caption = '', anchor = null) {
 		// altitude always come from the live fix; heightM / yawDeg / quat / source
 		// come from the placement mode (gyro-gps today, webxr later).
 		const a = anchor || {};
+		// 'webxr' (A1) · 'gyro-gps' (absolute compass) · 'gyro-gps:rel' (page-relative
+		// heading — A3 down-weights its cross-user bearing) · 'map' (L2: a point chosen
+		// on the map, NOT a live fix at that spot — so it carries no GPS accuracy/altitude
+		// and its bearing isn't compass-trustworthy).
+		const src = a.source === 'webxr' ? 'webxr'
+			: a.source === 'map' ? 'map'
+			: a.source === 'gyro-gps:rel' ? 'gyro-gps:rel' : 'gyro-gps';
 		const anchorBody = {
 			heightM:      Number.isFinite(a.heightM) ? a.heightM : null,
 			yawDeg:       Number.isFinite(a.yawDeg)  ? a.yawDeg  : ((Math.round(heading) % 360) + 360) % 360,
 			quat:         Array.isArray(a.quat) ? a.quat : null,
-			gpsAccuracyM: gpsState.accuracy,
-			altitudeM:    gpsState.altitude,
-			// 'webxr' (A1) · 'gyro-gps' (absolute compass) · 'gyro-gps:rel'
-			// (page-relative heading — A3 down-weights its cross-user bearing).
-			source:       a.source === 'webxr' ? 'webxr'
-				: a.source === 'gyro-gps:rel' ? 'gyro-gps:rel' : 'gyro-gps',
+			// accuracy / altitude describe the live fix; a map placement has neither.
+			gpsAccuracyM: src === 'map' ? null : gpsState.accuracy,
+			altitudeM:    src === 'map' ? null : gpsState.altitude,
+			source:       src,
 		};
 		const r = await fetch('/api/irl/pins', {
 			method: 'POST',
@@ -1552,6 +1559,56 @@ function commitPin(pinLat, pinLng, headingDeg, caption, source = 'gyro-gps') {
 			setLocked(false);
 		}
 	});
+}
+
+// ── Place on the map (L2) ──────────────────────────────────────────────────
+//
+// A privacy-first, remote alternative to "Pin here": instead of writing the
+// user's exact standing GPS, they choose a spot on a map and the agent is placed
+// there. This path NEVER engages the local AR lock (no gpsPin, no gps-mode) — the
+// agent isn't in front of you, it's dropped at the chosen coordinate and surfaces
+// to anyone who walks near that spot (and to you here if you happen to be close).
+function startMapPlacement() {
+	const start = gpsState.ready ? { lat: gpsState.lat, lng: gpsState.lng } : null;
+	openMapPlacePicker({
+		start,
+		onConfirm: ({ lat, lng, label }) => openCaptionForMapPin(lat, lng, label),
+	});
+}
+
+// Optional caption step for a map-placed pin. Reuses the caption panel UI but
+// routes confirm/cancel to the remote commit — cancel just closes (there is no AR
+// lock to release, unlike the gyro/GPS caption flow).
+function openCaptionForMapPin(lat, lng, label) {
+	if (!captionPanel) { commitMapPin(lat, lng, '', label); return; }
+	captionInput.value = '';
+	captionPanel.classList.add('is-open');
+	setTimeout(() => captionInput.focus(), 300);
+	captionConfirm.onclick = () => {
+		captionPanel.classList.remove('is-open');
+		commitMapPin(lat, lng, captionInput.value.trim(), label);
+	};
+	captionCancel.onclick = () => { captionPanel.classList.remove('is-open'); };
+}
+
+async function commitMapPin(lat, lng, caption, label) {
+	setStatus('Placing agent…', { loading: true, sticky: true });
+	// source:'map' → the server records a non-GPS, non-compass placement; savePin
+	// nulls the GPS accuracy/altitude for it. heading 0 (no live bearing to store).
+	const result = await savePin(lat, lng, 0, caption, { heightM: 0, yawDeg: 0, source: 'map' });
+	if (result?.ok) {
+		_myPinIds.add(result.id);
+		const where = label ? ` at ${label}` : '';
+		setStatus(result.permanent
+			? `Agent placed${where} — permanently visible to people nearby that spot`
+			: `Agent placed${where} — visible to people nearby for 7 days`);
+		revealMyPinsBtn();
+		// If the chosen spot happens to be near the viewer, surface it immediately
+		// instead of waiting for the next proximity poll.
+		if (gpsState.ready) loadNearbyPins();
+	} else {
+		setStatus(result?.message || saveErrorFallback(result?.error), { error: true });
+	}
 }
 
 // ── WebXR floor anchor (A1) ────────────────────────────────────────────────
@@ -2784,6 +2841,7 @@ function revealMyPinsBtn() {
 }
 
 document.getElementById('irl-mypins-btn')?.addEventListener('click', openMyPinsSheet);
+document.getElementById('irl-mapplace-btn')?.addEventListener('click', startMapPlacement);
 
 // ── "Appear to others nearby" toggle (D2) ──────────────────────────────────
 // Reflects the stored opt-in on the pill (default off) and flips it live: the

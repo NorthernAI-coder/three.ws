@@ -281,6 +281,69 @@ export class AnimationManager {
 	}
 
 	/**
+	 * Play a one-shot clip exactly once, then settle into a looping clip
+	 * (`idle` by default) with a crossfade — instead of clamping and freezing on
+	 * the final frame, which reads as a hard snap on a looping thumbnail. This is
+	 * the seamless path for manifest clips whose `loop` field is false
+	 * (`celebrate`, `wave`, …). Lazily loads both the one-shot and the settle clip.
+	 *
+	 * @param {string} name
+	 * @param {{ settleTo?: string|null, fade?: number }} [opts]
+	 */
+	async playOnce(name, { settleTo = 'idle', fade = DEFAULT_CROSSFADE } = {}) {
+		fade = Math.max(0, Math.min(fade, 5));
+		const ready = await this.ensureLoaded(name);
+		const action = ready ? this.actions.get(name) : null;
+		if (!action) {
+			// One-shot unavailable on this rig — fall back to the settle clip so
+			// the avatar is never left frozen in its bind pose.
+			if (settleTo) return this.crossfadeTo(settleTo, fade);
+			return;
+		}
+
+		action.reset();
+		action.setLoop(LoopOnce, 1);
+		// Hold the final frame until the settle crossfade picks it up — without
+		// this the action would snap back to frame 0 the instant it completes.
+		action.clampWhenFinished = true;
+		action.play();
+		if (this.currentAction && this.currentAction !== action) {
+			this.currentAction.crossFadeTo(action, fade, true);
+		} else {
+			action.fadeIn(fade);
+		}
+		this.currentAction = action;
+		this.currentName = name;
+
+		if (settleTo && this.mixer) {
+			const onFinished = (e) => {
+				if (e.action !== action) return;
+				this.mixer.removeEventListener('finished', onFinished);
+				// Only settle if nothing else took over the avatar meanwhile.
+				if (this.currentAction === action) this.crossfadeTo(settleTo, fade);
+			};
+			this.mixer.addEventListener('finished', onFinished);
+		}
+		try { this.onChange?.(name); } catch (e) { log.warn('[AnimationManager] onChange threw:', e); }
+	}
+
+	/**
+	 * Freeze the active clip on its current pose and release it as the active
+	 * action so the host viewer's render loop can settle (it stops scheduling
+	 * frames once nothing is animating). The paused action keeps applying its
+	 * held pose whenever the mixer does tick again (e.g. on scroll-back-in), so
+	 * the avatar shows a clean static pose rather than a T-pose.
+	 *
+	 * Used for `prefers-reduced-motion`: a calm held pose with no looping motion
+	 * and no continuous GPU/CPU cost.
+	 */
+	freeze() {
+		if (this.currentAction) this.currentAction.paused = true;
+		this.currentAction = null;
+		this.currentName = null;
+	}
+
+	/**
 	 * Crossfade from the current clip to a named clip.
 	 * Lazily loads if not yet in memory.
 	 * @param {string} name

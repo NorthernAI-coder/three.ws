@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-17T11:11:16.259Z",
+	"generated_at": "2026-06-17T11:52:57.271Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -378,6 +378,16 @@
 			"tags": [
 				"feature",
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-17",
+			"type": "update",
+			"title": "Sniper dashboard: your live positions now show real-time profit and loss and reconnect on their own",
+			"summary": "The Sniper Strategies dashboard now streams your agents' open positions with live unrealized profit and loss — both the SOL figure and the percentage — instead of a blank value, and fills them in the moment the page loads rather than waiting for the next trade to land. The live feed shows its own connection state (Live / Reconnecting) and re-establishes itself automatically with backoff if it drops, so you always know whether you're watching real-time data. Closed-trade history now calls out your single best and worst trade, and there are one-tap links to the public leaderboard and sniper arena so your track record is easy to share.",
+			"link": "/dashboard/sniper",
+			"tags": [
+				"feature"
 			]
 		},
 		{
