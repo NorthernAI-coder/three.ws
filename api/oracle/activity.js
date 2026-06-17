@@ -94,8 +94,11 @@ export default wrap(async (req, res) => {
 
 	const items = rows.map(shapeRow);
 
-	// Summary counts for the header KPIs
-	const [summary] = await sql`
+	// Summary counts for the header KPIs. `.then(r => r[0])` already unwraps the
+	// single aggregate row, so assign it directly — array-destructuring a plain
+	// row object (or the null/undefined the catch/empty-result yields) throws
+	// "(intermediate value) is not iterable" and 500s the endpoint.
+	const summary = await sql`
 		select
 			count(*)                                             as total,
 			count(*) filter (where mode = 'live')               as live_count,
