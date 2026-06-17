@@ -20,6 +20,63 @@ import { log } from '../shared/log.js';
 // Degrees shown on the rotate button for each quarter-turn step (0–3).
 const ROT_DEG = ['0°', '90°', '180°', '270°'];
 
+// ── Emote wheel (R09) ────────────────────────────────────────────────────────
+// Category definitions: clip names → buckets. Angles are CSS/SVG standard
+// (0 = right, CW), with the first category centred at the 12 o'clock position
+// (−90°). Any manifest clip not matched here falls through to 'social'.
+const _EW_CATS = [
+	{
+		id: 'social', label: 'Social', icon: '👋', angle: -90,
+		names: new Set(['wave','celebrate','angry','kiss','pray','reaction','av-cheering',
+			'av-joy','av-call-me','av-brag-claps','sitclap','sitlaugh','taunt',
+			'xbot-agree','xbot-head-shake','facepalm','av-celebrating','av-chest-bump']),
+	},
+	{
+		id: 'dances', label: 'Dances', icon: '💃', angle: -18,
+		names: new Set(['dance','rumba','silly','thriller','capoeira','av-boxer-dance',
+			'av-dance-shuffle','av-headbang','av-banging-tunes','av-conductor',
+			'av-rap-dance','michelle-samba-dance','av-listening-music','av-vtubing']),
+	},
+	{
+		id: 'flips', label: 'Flips', icon: '🤸', angle: 54,
+		names: new Set(['av-back-flip','av-gymnastics-aerial','av-superhero-jump',
+			'jump','falling','dying','defeated','standup','falltolanding']),
+	},
+	{
+		id: 'combat', label: 'Combat', icon: '🥊', angle: 126,
+		names: new Set(['av-muay-thai','av-arm-flex','av-flexing-arm','dodge','stepback',
+			'shoved','header','coverstand','goalkeeper','av-push-block','av-stand-crouch-stand']),
+	},
+	{
+		id: 'poses', label: 'Poses', icon: '🧍', angle: 198,
+		names: new Set(['av-waiting','av-chilling','av-smoking','av-leaning-wall','av-spy',
+			'downdog','xbot-sad-pose','xbot-sneak-pose','lookdown','covereyes',
+			'av-idle-breath','idle','av-idle-anim','av-idle-male','av-idle-female']),
+	},
+];
+
+// Distribute a flat emote-def array into the 5 category buckets.
+function _ewCategorize(allDefs) {
+	const buckets = _EW_CATS.map((c) => ({ ...c, clips: [] }));
+	const fallback = buckets[0]; // 'social' is the catch-all
+	for (const def of allDefs) {
+		const b = buckets.find((c) => c.names.has(def.name)) || fallback;
+		b.clips.push(def);
+	}
+	return buckets;
+}
+
+// Build an SVG donut-sector path centred at (cx,cy) with inner/outer radii,
+// spanning from startDeg to endDeg (standard math angles, degrees).
+function _ewSectorPath(cx, cy, ir, or_, s, e) {
+	const r = (d) => (d * Math.PI) / 180;
+	const px = (a, rad) => cx + rad * Math.cos(r(a));
+	const py = (a, rad) => cy + rad * Math.sin(r(a));
+	const lg = (e - s > 180) ? 1 : 0;
+	return `M${px(s,ir)} ${py(s,ir)} L${px(s,or_)} ${py(s,or_)} A${or_} ${or_} 0 ${lg} 1 ${px(e,or_)} ${py(e,or_)} L${px(e,ir)} ${py(e,ir)} A${ir} ${ir} 0 ${lg} 0 ${px(s,ir)} ${py(s,ir)} Z`;
+}
+// ── end emote wheel helpers ──────────────────────────────────────────────────
+
 function el(tag, props = {}, kids = []) {
 	const n = document.createElement(tag);
 	for (const [k, v] of Object.entries(props)) {
@@ -1094,6 +1151,12 @@ export class CommunityUI {
 			'aria-label': 'Open cosmetics shop',
 			onclick: () => this.h.onShop?.(),
 		}, [el('span', { class: 'cc-shop-btn-ico', 'aria-hidden': 'true', text: '🛍️' }), el('span', { class: 'cc-shop-btn-text', text: 'Shop' })]);
+		// Open the "My Cosmetics" wardrobe — equip owned items, persists across worlds.
+		this.wardrobeBtn = el('button', {
+			class: 'cc-wardrobe-btn', type: 'button', title: 'My Cosmetics — equip your owned looks',
+			'aria-label': 'Open my cosmetics wardrobe',
+			onclick: () => this.h.onWardrobe?.(),
+		}, [el('span', { class: 'cc-wardrobe-btn-ico', 'aria-hidden': 'true', text: '👗' }), el('span', { class: 'cc-wardrobe-btn-text', text: 'My Fits' })]);
 		const banner = el('div', { class: 'cc-coin-banner' }, [
 			this.coinImg,
 			el('div', { class: 'cc-coin-info' }, [
@@ -1104,6 +1167,7 @@ export class CommunityUI {
 					this.tierBadge,
 				]),
 			]),
+			this.wardrobeBtn,
 			this.shopBtn,
 			this.gateBtn,
 			this.buyBtn,
@@ -1194,12 +1258,74 @@ export class CommunityUI {
 		]);
 
 		const hint = el('div', { id: 'cc-hint', html:
-			'<kbd>W A S D</kbd> / drag-joystick to move · <kbd>drag</kbd> to look · scroll zoom · <kbd>Enter</kbd> chat' });
+			'<kbd>W A S D</kbd> / drag-joystick to move · <kbd>drag</kbd> to look · scroll zoom · <kbd>Enter</kbd> chat · <kbd>Q</kbd> emotes' });
 
 		this.joystick = el('div', { id: 'cc-joystick' });
 
+		this._buildTagHud();
 		this.hud = el('div', { id: 'cc-hud', hidden: true }, [banner, leave, this.statusPill, this.voiceBtn, this.danceBtn, chat, this.emoteTray, this.reactionBar, hint, this.joystick]);
 		document.body.appendChild(this.hud);
+	}
+
+	// ── Tag mini-game HUD (R08) ───────────────────────────────────────────────
+
+	_buildTagHud() {
+		// "Who's IT" strip at bottom-right, only shown when game is active (≥2 players).
+		this._tagItName = el('span', { class: 'cc-tag-name' });
+		this._tagLeaderboard = el('div', { class: 'cc-tag-leaderboard' });
+		this._tagHud = el('div', { id: 'cc-tag-hud', hidden: true }, [
+			el('div', { class: 'cc-tag-who' }, [
+				el('span', { class: 'cc-tag-label', text: '🏃 IT: ' }),
+				this._tagItName,
+			]),
+			this._tagLeaderboard,
+		]);
+		document.body.appendChild(this._tagHud);
+		// Flash overlay shown when YOU become it.
+		this._tagAlert = el('div', { id: 'cc-tag-alert', text: "YOU'RE IT! 🏃", 'aria-live': 'assertive' });
+		document.body.appendChild(this._tagAlert);
+	}
+
+	/** Called on each 'tag:state' broadcast. `localId` lets us highlight our own row. */
+	setTagState({ itId, leaderboard, localId }) {
+		if (!itId) {
+			this._tagHud.hidden = true;
+			return;
+		}
+		this._tagHud.hidden = false;
+		// Find the current it player's name from the leaderboard (or fall back to id).
+		const itRow = leaderboard.find(r => r.id === itId);
+		this._tagItName.textContent = itRow ? itRow.name : (itId.slice(0, 6) + '…');
+		// Rebuild leaderboard rows.
+		this._tagLeaderboard.innerHTML = '';
+		for (const row of leaderboard) {
+			const isMe = row.id === localId;
+			const secs = Math.floor(row.timeMs / 1000);
+			const t = secs >= 60 ? `${Math.floor(secs/60)}m ${secs%60}s` : `${secs}s`;
+			this._tagLeaderboard.appendChild(
+				el('div', { class: `cc-tag-row${isMe ? ' cc-tag-me' : ''}` }, [
+					el('span', { class: 'cc-tag-row-name', text: row.name }),
+					el('span', { class: 'cc-tag-row-time', text: t }),
+				]),
+			);
+		}
+	}
+
+	/** Flash the "YOU'RE IT!" alert for 2.5 s then fade. */
+	showYoureIt() {
+		const a = this._tagAlert;
+		a.classList.remove('cc-tag-alert--show');
+		// Force reflow so removing and re-adding the class restarts the animation.
+		void a.offsetWidth;
+		a.classList.add('cc-tag-alert--show');
+		clearTimeout(this._tagAlertTimer);
+		this._tagAlertTimer = setTimeout(() => a.classList.remove('cc-tag-alert--show'), 2500);
+	}
+
+	/** Hide the tag HUD (called on leave). */
+	hideTagHud() {
+		if (this._tagHud) this._tagHud.hidden = true;
+		if (this._tagAlert) this._tagAlert.classList.remove('cc-tag-alert--show');
 	}
 
 	// ---------------------------------------------------------------- build structures (R20)
@@ -1661,6 +1787,21 @@ export class CommunityUI {
 	// Pulse the mic button while the local player is actually speaking.
 	setMicSpeaking(on) { this.voiceBtn?.classList.toggle('cc-voice-speaking', !!on); }
 
+	// Show or hide the dance floor button (called when player steps on / off the pad).
+	setOnFloor(on) {
+		if (!this.danceBtn) return;
+		this.danceBtn.hidden = !on;
+		if (!on) this.setDancing(false);
+	}
+
+	// Toggle the button's armed state (lit = will dance on next beat).
+	setDancing(on) {
+		if (!this.danceBtn) return;
+		this.danceBtn.classList.toggle('cc-on', !!on);
+		this.danceBtnLabel.textContent = on ? 'Ready ✓' : 'Dance';
+		this.danceBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
+	}
+
 	setEmotes(list) {
 		this.emoteTray.textContent = '';
 		for (const e of list) {
@@ -1672,6 +1813,221 @@ export class CommunityUI {
 				onclick: () => this.h.onEmote(e.name),
 			}));
 		}
+		// Wheel launcher — opens the full radial emote wheel.
+		this.wheelBtn = el('button', {
+			class: 'cc-emote cc-emote-wheel-btn', type: 'button',
+			'aria-label': 'All emotes — open emote wheel (hold Q)',
+			title: 'All emotes (hold Q)',
+			text: '⋯',
+			onclick: () => this.openEmoteWheel(),
+		});
+		this.emoteTray.appendChild(this.wheelBtn);
+	}
+
+	// ---------------------------------------------------------------- emote wheel (R09)
+
+	// Store the full manifest list; the wheel is built lazily on first open.
+	setAllEmotes(allDefs) {
+		this._ewAllDefs = allDefs || [];
+	}
+
+	// Open the radial emote wheel. No-ops if already open or manifest not ready.
+	openEmoteWheel() {
+		if (this._ewOpen) return;
+		if (!this._ewAllDefs?.length) return;
+		if (!this._ewEl) this._buildEmoteWheelDom(_ewCategorize(this._ewAllDefs));
+		this._ewOpen = true;
+		this._ewSelectedEmote = null;
+		this._ewActiveCat = null;
+		this._ewUpdateCenter(null, null);
+		for (const p of this._ewClipPanels) p.hidden = true;
+		for (const b of this._ewCatBtns) b.classList.remove('cc-on');
+		for (const s of this._ewEl.querySelectorAll('.cc-ew-sector')) s.classList.remove('cc-ew-sector-active');
+		this._ewEl.hidden = false;
+		document.addEventListener('pointermove', this._ewPointerMoveH, { passive: true });
+		document.addEventListener('keydown', this._ewKeydownH, true);
+		requestAnimationFrame(() => this._ewEl?.classList.add('cc-on'));
+		this._ewCatBtns[0]?.focus();
+	}
+
+	// Close the wheel. Pass play=true to emit the currently selected emote.
+	closeEmoteWheel(play = false) {
+		if (!this._ewOpen) return;
+		this._ewOpen = false;
+		if (play && this._ewSelectedEmote) this.h.onEmote(this._ewSelectedEmote);
+		document.removeEventListener('pointermove', this._ewPointerMoveH);
+		document.removeEventListener('keydown', this._ewKeydownH, true);
+		if (this._ewEl) {
+			this._ewEl.classList.remove('cc-on');
+			const done = () => { if (this._ewEl) this._ewEl.hidden = true; };
+			this._ewEl.addEventListener('transitionend', done, { once: true });
+			setTimeout(done, 260);
+		}
+		this.wheelBtn?.focus();
+	}
+
+	get emoteWheelOpen() { return !!this._ewOpen; }
+
+	_buildEmoteWheelDom(categories) {
+		this._ewCategories = categories;
+		const RING_R = 112; // px: distance from center to category label
+		const SVG_SIZE = 300; const OUTER_R = 148; const INNER_R = 54;
+		const cxy = SVG_SIZE / 2;
+
+		// SVG background arcs — one donut sector per category (68° each).
+		const svgNS = 'http://www.w3.org/2000/svg';
+		const svg = document.createElementNS(svgNS, 'svg');
+		svg.setAttribute('viewBox', `0 0 ${SVG_SIZE} ${SVG_SIZE}`);
+		svg.setAttribute('class', 'cc-ew-sectors');
+		svg.setAttribute('aria-hidden', 'true');
+		categories.forEach((cat, i) => {
+			const path = document.createElementNS(svgNS, 'path');
+			path.setAttribute('d', _ewSectorPath(cxy, cxy, INNER_R, OUTER_R, cat.angle - 34, cat.angle + 34));
+			path.setAttribute('class', `cc-ew-sector cc-ew-s-${cat.id}`);
+			path.dataset.idx = i;
+			svg.appendChild(path);
+		});
+
+		// Category buttons positioned at their angles using CSS custom properties.
+		this._ewCatBtns = categories.map((cat, i) => {
+			const rad = (cat.angle * Math.PI) / 180;
+			return el('button', {
+				class: 'cc-ew-cat-btn',
+				type: 'button',
+				'aria-label': `${cat.label} emotes`,
+				title: cat.label,
+				'data-idx': i,
+				style: `--ew-x:${Math.round(Math.cos(rad) * RING_R)}px;--ew-y:${Math.round(Math.sin(rad) * RING_R)}px`,
+				onmouseenter: () => this._ewSetCat(i),
+				onfocus: () => this._ewSetCat(i),
+			}, [
+				el('span', { class: 'cc-ew-cat-ico', 'aria-hidden': 'true', text: cat.icon }),
+				el('span', { class: 'cc-ew-cat-lbl', text: cat.label }),
+			]);
+		});
+
+		// Center label — updated on hover / keyboard navigation.
+		this._ewCenterEl = el('div', {
+			class: 'cc-ew-center', 'aria-live': 'polite', 'aria-atomic': 'true',
+		}, [
+			el('span', { class: 'cc-ew-center-ico' }),
+			el('span', { class: 'cc-ew-center-txt', text: 'Move to select' }),
+		]);
+
+		// Per-category clip grids — one panel per category, shown for the active one.
+		this._ewClipPanels = categories.map((cat) => {
+			const segs = cat.clips.map((d) =>
+				el('button', {
+					class: 'cc-ew-seg',
+					type: 'button',
+					'aria-label': d.label || d.name,
+					title: d.label || d.name,
+					'data-emote': d.name,
+					onmouseenter: () => this._ewSetEmote(d),
+					onfocus: () => this._ewSetEmote(d),
+					onclick: () => { this._ewSetEmote(d); this.closeEmoteWheel(true); },
+				}, [
+					el('span', { class: 'cc-ew-seg-ico', 'aria-hidden': 'true', text: d.icon || '🙂' }),
+					el('span', { class: 'cc-ew-seg-lbl', text: d.label || d.name }),
+				])
+			);
+			return el('div', {
+				class: 'cc-ew-clips', role: 'group', 'aria-label': `${cat.label} emotes`, hidden: true,
+			}, segs);
+		});
+
+		// Close button accessible without keyboard or mouse movement.
+		const closeBtn = el('button', {
+			class: 'cc-ew-close', type: 'button', 'aria-label': 'Close emote wheel',
+			onclick: () => this.closeEmoteWheel(false),
+		}, ['✕']);
+
+		const ring = el('div', {
+			class: 'cc-ew-ring', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Emote wheel',
+		}, [svg, ...this._ewCatBtns, this._ewCenterEl, ...this._ewClipPanels, closeBtn]);
+		this._ewRing = ring;
+
+		// Bound handlers stored for later removeEventListener calls.
+		this._ewPointerMoveH = (e) => this._ewPointerMove(e);
+		this._ewKeydownH = (e) => {
+			if (e.key === 'Escape') { e.stopPropagation(); this.closeEmoteWheel(false); return; }
+			if ((e.key === 'Enter' || e.key === ' ') && this._ewSelectedEmote) {
+				e.preventDefault(); this.closeEmoteWheel(true); return;
+			}
+			if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); this._ewNavigate(-1); }
+			if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); this._ewNavigate(1); }
+		};
+
+		this._ewEl = el('div', { id: 'cc-emote-wheel', hidden: true }, [
+			el('div', { class: 'cc-ew-bg', 'aria-hidden': 'true', onclick: () => this.closeEmoteWheel(false) }),
+			ring,
+		]);
+		document.body.appendChild(this._ewEl);
+	}
+
+	_ewPointerMove(e) {
+		if (!this._ewOpen || !this._ewRing) return;
+		const rect = this._ewRing.getBoundingClientRect();
+		const dx = e.clientX - (rect.left + rect.width / 2);
+		const dy = e.clientY - (rect.top + rect.height / 2);
+		if (Math.sqrt(dx * dx + dy * dy) < 44) return; // dead zone — no jitter at center
+		const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+		let best = 0; let bestD = Infinity;
+		for (let i = 0; i < this._ewCategories.length; i++) {
+			const diff = Math.abs(((angle - this._ewCategories[i].angle) % 360 + 540) % 360 - 180);
+			if (diff < bestD) { bestD = diff; best = i; }
+		}
+		if (this._ewActiveCat !== best) this._ewSetCat(best);
+	}
+
+	_ewSetCat(idx) {
+		if (this._ewActiveCat === idx) return;
+		this._ewActiveCat = idx;
+		this._ewSelectedEmote = null;
+		for (let i = 0; i < this._ewCatBtns.length; i++) this._ewCatBtns[i].classList.toggle('cc-on', i === idx);
+		for (let i = 0; i < this._ewClipPanels.length; i++) this._ewClipPanels[i].hidden = i !== idx;
+		this._ewEl.querySelectorAll('.cc-ew-sector').forEach((p, pi) => p.classList.toggle('cc-ew-sector-active', pi === idx));
+		const cat = this._ewCategories[idx];
+		this._ewUpdateCenter(cat.icon, cat.label);
+	}
+
+	_ewSetEmote(def) {
+		this._ewSelectedEmote = def.name;
+		this._ewUpdateCenter(def.icon || '🙂', def.label || def.name);
+		for (const b of this._ewEl.querySelectorAll('.cc-ew-seg')) b.classList.toggle('cc-on', b.dataset.emote === def.name);
+	}
+
+	_ewUpdateCenter(ico, txt) {
+		if (!this._ewCenterEl) return;
+		this._ewCenterEl.querySelector('.cc-ew-center-ico').textContent = ico ?? '';
+		this._ewCenterEl.querySelector('.cc-ew-center-txt').textContent = txt ?? 'Move to select';
+	}
+
+	_ewNavigate(dir) {
+		if (this._ewActiveCat == null) { this._ewSetCat(0); return; }
+		const panel = this._ewClipPanels[this._ewActiveCat];
+		const clips = panel ? [...panel.querySelectorAll('.cc-ew-seg')] : [];
+		if (!clips.length) return;
+		const cur = clips.findIndex((b) => b.dataset.emote === this._ewSelectedEmote);
+		const next = clips[((cur < 0 ? 0 : cur) + dir + clips.length) % clips.length];
+		next.focus();
+		const def = this._ewAllDefs?.find((d) => d.name === next.dataset.emote);
+		if (def) this._ewSetEmote(def);
+	}
+
+	// Called from coincommunities.js _loop for gamepad thumbstick support.
+	ewGamepadTick(stickX, stickY, btnPlay) {
+		if (!this._ewOpen) return;
+		if (Math.hypot(stickX, stickY) > 0.35) {
+			const angle = (Math.atan2(stickY, stickX) * 180) / Math.PI;
+			let best = 0; let bestD = Infinity;
+			for (let i = 0; i < this._ewCategories.length; i++) {
+				const diff = Math.abs(((angle - this._ewCategories[i].angle) % 360 + 540) % 360 - 180);
+				if (diff < bestD) { bestD = diff; best = i; }
+			}
+			if (this._ewActiveCat !== best) this._ewSetCat(best);
+		}
+		if (btnPlay && this._ewSelectedEmote) this.closeEmoteWheel(true);
 	}
 
 	// Populate the reaction bar (R04). Each button sends one emoji; a short cooldown

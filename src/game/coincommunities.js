@@ -13,7 +13,7 @@
 import {
 	Scene, WebGLRenderer, PerspectiveCamera, Group, Vector3, PCFShadowMap, SRGBColorSpace,
 	ACESFilmicToneMapping,
-	Mesh, MeshStandardMaterial, MeshBasicMaterial, CircleGeometry,
+	Mesh, MeshStandardMaterial, MeshBasicMaterial, CircleGeometry, RingGeometry,
 	CylinderGeometry, PlaneGeometry,
 	CanvasTexture, TextureLoader, DoubleSide,
 	PointLight,
@@ -34,7 +34,7 @@ import {
 import { WorldObjects, PropGhost, PROP_CATALOG, DEFAULT_PROP, propDef } from './world-objects.js';
 import { normalizeGatewayURL } from '../ipfs.js';
 import {
-	loadManifest, getEmoteDefs, resolveAvatarUrl, buildAvatar, playEmoteClip,
+	loadManifest, getEmoteDefs, getAllEmoteDefs, resolveAvatarUrl, buildAvatar, playEmoteClip,
 	CLIP_IDLE, CLIP_WALK,
 } from './avatar-rig.js';
 import { GUEST_SENTINEL, uploadPendingGuestAvatar, getPlayCosmetics, setPlayCosmetics } from './play-handoff.js';
@@ -42,6 +42,7 @@ import { applyLoadout } from './cosmetics-loadout.js';
 import { serializeLoadout } from '../../multiplayer/src/cosmetics-catalog.js';
 import { AccessoryManager } from '../agent-accessories.js';
 import { CosmeticsShop } from './cosmetics-shop.js';
+import { CosmeticsWardrobe } from './cosmetics-wardrobe.js';
 import { HOME_TOWN, isHomeTown } from './home-town.js';
 import { AgentCommerce } from './agent-commerce.js';
 import { ThreeIntelKiosk } from './three-intel-kiosk.js';
@@ -134,6 +135,9 @@ class RemotePlayer {
 		// re-applied whenever they change their fit (apply()).
 		this._cosWire = player.cosmetics || '';
 		this.setAvatar(player.avatar);
+		// Tag mini-game (R08): red glow ring + 🏃 label for the "it" player.
+		this.isIt = !!player.it;
+		if (this.isIt) { this._addGlowRing(); this._addItLabel(); }
 	}
 	setAvatar(url) {
 		if (url === this._avatarUrl) return;
@@ -170,6 +174,40 @@ class RemotePlayer {
 		try { this.cosmetics?.dispose(); } catch {}
 		this.cosmetics = applyLoadout(this.rig, this.height, next);
 	}
+	_addGlowRing() {
+		if (this._glowRing) return;
+		const geo = new RingGeometry(0.5, 0.75, 32);
+		const mat = new MeshBasicMaterial({ color: 0xff2222, transparent: true, opacity: 0.72, depthWrite: false });
+		this._glowRing = new Mesh(geo, mat);
+		this._glowRing.rotation.x = -Math.PI / 2;
+		this._glowRing.position.y = 0.02;
+		this.rig.add(this._glowRing);
+	}
+	_removeGlowRing() {
+		if (!this._glowRing) return;
+		this.rig.remove(this._glowRing);
+		this._glowRing.geometry.dispose();
+		this._glowRing.material.dispose();
+		this._glowRing = null;
+	}
+	_addItLabel() {
+		if (this._itLabel) return;
+		this._itLabel = document.createElement('div');
+		this._itLabel.className = 'cc-it-marker';
+		this._itLabel.textContent = '🏃 IT';
+		document.body.appendChild(this._itLabel);
+	}
+	_removeItLabel() {
+		if (!this._itLabel) return;
+		this._itLabel.remove();
+		this._itLabel = null;
+	}
+	_updateItMarker(isIt) {
+		if (!!isIt === this.isIt) return;
+		this.isIt = !!isIt;
+		if (this.isIt) { this._addGlowRing(); this._addItLabel(); }
+		else { this._removeGlowRing(); this._removeItLabel(); }
+	}
 	apply(player) {
 		this.targetX = player.x; this.targetY = player.y; this.targetZ = player.z; this.targetYaw = player.yaw;
 		if (player.name) this.label.textContent = player.name;
@@ -180,6 +218,7 @@ class RemotePlayer {
 		}
 		if (player.avatar !== this._avatarUrl) this.setAvatar(player.avatar);
 		if (player.cosmetics !== undefined && player.cosmetics !== this._cosWire) this.applyCosmetics(player.cosmetics);
+		if (player.it !== undefined) this._updateItMarker(player.it);
 		if (player.motion !== this.motion) {
 			this.motion = player.motion;
 			this.anim.crossfadeTo(this.motion === 'walk' || this.motion === 'run' ? CLIP_WALK : CLIP_IDLE, 0.18);
@@ -221,6 +260,8 @@ class RemotePlayer {
 	dispose() {
 		this._disposed = true;
 		try { this.cosmetics?.dispose(); } catch {}
+		this._removeGlowRing();
+		this._removeItLabel();
 		this.scene.remove(this.rig);
 		this.label.remove();
 		this.bubble?.remove();
@@ -247,6 +288,7 @@ export class CoinCommunities {
 		this.grounded = true;   // false while airborne
 		this._dragging = false; this._lastPtr = null;
 		this._last = performance.now();
+		this._lastKick = 0; // R05: timestamp of last ball:kick intent (client-side rate limit)
 
 		this._initRenderer();
 		this._initScene();
@@ -272,6 +314,7 @@ export class CoinCommunities {
 			onRename: (name) => this._rename(name),
 			onBuy: () => this._openBuy(),
 			onShop: () => this._toggleShop(),
+			onWardrobe: () => this._toggleWardrobe(),
 			// Creator-only (R24): set/clear the token threshold for the Holders world.
 			onConfigureGate: () => this._configureGate(),
 			onVoiceToggle: () => this._toggleVoice(),
@@ -693,6 +736,7 @@ export class CoinCommunities {
 		} catch { /* non-fatal */ }
 		await loadManifest();
 		this.ui.setEmotes(getEmoteDefs().map((d) => ({ name: d.name, icon: d.icon || '🙂', label: d.label })));
+		this.ui.setAllEmotes(getAllEmoteDefs().map((d) => ({ name: d.name, icon: d.icon || '🙂', label: d.label })));
 		this.ui.setReactions(REACTIONS);
 
 		// Re-theme the environment for this specific community: a distinct biome,
@@ -871,6 +915,7 @@ export class CoinCommunities {
 		this.net.on('remove', (id) => this._onRemove(id));
 		this.net.on('chat', (m) => this._onChat(m));
 		this.net.on('reaction', (m) => this._onReaction(m));
+		this.net.on('tag', (msg) => this._onTagMessage(msg)); // R08 tag mini-game
 		this.net.on('ping', (ms) => this.ui.setPing(ms));
 		this.net.on('blockAdd', (key, t) => { const [x, y, z] = parseKey(key); this.voxels?.setBlock(x, y, z, t); this._syncBudget(); });
 		this.net.on('blockChange', (key, t) => { const [x, y, z] = parseKey(key); this.voxels?.setBlock(x, y, z, t); });
@@ -1174,8 +1219,9 @@ export class CoinCommunities {
 		if (this.intelKiosk) { this.intelKiosk.dispose(); this.intelKiosk = null; }
 		if (this.worldLife) { this.worldLife.dispose(); this.worldLife = null; }
 		if (this._onboard) { this._onboard.dispose(); this._onboard = null; }
-		// Close the shop and drop the rig binding — the next world rebuilds both.
+		// Close the shop + wardrobe and drop the rig binding — the next world rebuilds both.
 		if (this._shop?.isOpen()) this._shop.close();
+		if (this._wardrobe?.isOpen()) this._wardrobe.close();
 		this._accessoryMgr = null;
 		this._previewPresetId = null; this._previewLayers = false; this._previewItem = null;
 		for (const [, r] of this.remotes) r.dispose();
@@ -1218,6 +1264,10 @@ export class CoinCommunities {
 		this.ui.closeFeatured();
 		try { this.localCosmetics?.dispose(); } catch {}
 		this.localCosmetics = null; this._localCosWire = null;
+		// Tag mini-game (R08): remove local glow ring + label on world exit.
+		this._removeLocalGlowRing();
+		this._removeLocalItLabel();
+		this._localIsIt = false;
 		if (this.localRig) { this.scene.remove(this.localRig); this.localRig = null; }
 		if (this._nipple) { this._nipple.destroy(); this._nipple = null; }
 		this.phase = 'lobby';
@@ -1255,6 +1305,52 @@ export class CoinCommunities {
 	}
 	_sendChat(text) { this.net?.sendChat(text); }
 	_emote(name) { this.net?.sendEmote(name); playEmoteClip(this.localAnim, name, this.motion); }
+
+	// ── Tag mini-game (R08) ─────────────────────────────────────────────────────
+
+	_onTagMessage(msg) {
+		if (!msg || !msg.event) return;
+		if (msg.event === 'became-it') {
+			this.ui.showYoureIt();
+		} else if (msg.event === 'state') {
+			const localId = this.net?.sessionId;
+			this.ui.setTagState({ itId: msg.itId, leaderboard: msg.leaderboard || [], localId });
+		}
+	}
+	_updateLocalItMarker(isIt) {
+		if (!!isIt === !!this._localIsIt) return;
+		this._localIsIt = !!isIt;
+		if (this._localIsIt) { this._addLocalGlowRing(); this._addLocalItLabel(); }
+		else { this._removeLocalGlowRing(); this._removeLocalItLabel(); }
+	}
+	_addLocalGlowRing() {
+		if (this._localGlowRing || !this.localRig) return;
+		const geo = new RingGeometry(0.5, 0.75, 32);
+		const mat = new MeshBasicMaterial({ color: 0xff2222, transparent: true, opacity: 0.72, depthWrite: false });
+		this._localGlowRing = new Mesh(geo, mat);
+		this._localGlowRing.rotation.x = -Math.PI / 2;
+		this._localGlowRing.position.y = 0.02;
+		this.localRig.add(this._localGlowRing);
+	}
+	_removeLocalGlowRing() {
+		if (!this._localGlowRing) return;
+		this.localRig?.remove(this._localGlowRing);
+		this._localGlowRing.geometry.dispose();
+		this._localGlowRing.material.dispose();
+		this._localGlowRing = null;
+	}
+	_addLocalItLabel() {
+		if (this._localItLabel) return;
+		this._localItLabel = document.createElement('div');
+		this._localItLabel.className = 'cc-it-marker cc-it-marker--local';
+		this._localItLabel.textContent = "🏃 YOU'RE IT!";
+		document.body.appendChild(this._localItLabel);
+	}
+	_removeLocalItLabel() {
+		if (!this._localItLabel) return;
+		this._localItLabel.remove();
+		this._localItLabel = null;
+	}
 
 	// ── Reactions (R04) ──────────────────────────────────────────────────────
 	// The server broadcasts a validated 'reaction' to all clients in the room,
@@ -1381,16 +1477,37 @@ export class CoinCommunities {
 				coinMint: this.coin?.mint || '',
 				onPreview: (item) => this.equipCosmeticPreview(item),
 				onEndPreview: () => this.unequipCosmeticPreview(),
-				// A premium item was just bought (R22) — now owned for this account.
-				// Equip it live so the buyer immediately sees what they unlocked
-				// (durable cross-world equip persistence lands in R23).
-				onPurchased: (item) => { this.equipCosmeticPreview(item); },
+				// A premium item was just bought (R22) — permanently equip it so the
+				// buyer immediately sees their new look AND it persists across worlds
+				// (R23 durable equip: server validates, writes to account, echoes a
+				// fresh profile which re-renders the wardrobe and local avatar).
+				onPurchased: (item) => { this._equipCosmeticDurable(item.id); },
 			});
 		}
 		// The shop is built once and reused across worlds, so refresh the coin tie
 		// each open — a sale always credits the world the player is currently in.
 		this._shop.h.coinMint = this.coin?.mint || '';
 		this._shop.toggle();
+	}
+
+	// Open/close the "My Cosmetics" wardrobe panel (R23). Lazy-built on first open;
+	// each profile echo from the server keeps it fresh so the equipped state always
+	// reflects the server-authoritative result.
+	_toggleWardrobe() {
+		if (!this._wardrobe) {
+			this._wardrobe = new CosmeticsWardrobe({
+				onEquip: (id) => { this._equipCosmeticDurable(id); },
+				onShop: () => { this._wardrobe?.close(); this._toggleShop(); },
+			});
+		}
+		this._wardrobe.toggle();
+	}
+
+	// Equip `id` durably: send to the server (authoritative validation + persistence)
+	// so the fit survives logout, world switches, and is visible to peers immediately.
+	// The server echoes a fresh profile which updates the wardrobe and local avatar.
+	_equipCosmeticDurable(id) {
+		if (this.net) this.net.equipCosmetic(id);
 	}
 
 	// Revert the active preview, leaving the avatar exactly as it was.
@@ -1429,6 +1546,9 @@ export class CoinCommunities {
 		if (!equipped || typeof equipped !== 'object') return;
 		setPlayCosmetics(equipped);
 		this._applyLocalCosmetics(equipped);
+		// Relay the full cosmetics snapshot to the wardrobe panel (if open) so
+		// it reflects owned + equipped state without a separate API call.
+		this._wardrobe?.setProfile(snap);
 	}
 
 	// Surface unread chat in the tab title when the page is backgrounded, so a
@@ -1662,6 +1782,18 @@ export class CoinCommunities {
 					this.playSystems?.castFish();
 					return;
 				}
+				// Q — hold to open the emote wheel, release to play the selected clip.
+				// Ignore auto-repeat (held key fires many keydowns) and build mode.
+				if (k === 'q' && !this.buildHud.active && !e.repeat) {
+					e.preventDefault();
+					this._ewHeld = false;
+					clearTimeout(this._ewHoldTimer);
+					this._ewHoldTimer = setTimeout(() => {
+						this._ewHeld = true;
+						this.ui.openEmoteWheel();
+					}, 340);
+					return;
+				}
 				// 1–6 select a hotbar slot when not building.
 				if (!this.buildHud.active && k.length === 1 && k >= '1' && k <= '6') {
 					e.preventDefault();
@@ -1671,7 +1803,15 @@ export class CoinCommunities {
 			}
 			this.keys.add(k);
 		});
-		window.addEventListener('keyup', (e) => this.keys.delete(e.key.toLowerCase()));
+		window.addEventListener('keyup', (e) => {
+			const k = e.key.toLowerCase();
+			// Q release: if the wheel opened via hold, close it and play the selected clip.
+			if (k === 'q' && this.phase === 'world') {
+				clearTimeout(this._ewHoldTimer);
+				if (this._ewHeld) { this._ewHeld = false; this.ui.closeEmoteWheel(true); }
+			}
+			this.keys.delete(k);
+		});
 		this.canvas.addEventListener('pointerdown', (e) => {
 			this._dragging = true; this._lastPtr = { x: e.clientX, y: e.clientY };
 			this._downPtr = { x: e.clientX, y: e.clientY };
@@ -2396,6 +2536,11 @@ export class CoinCommunities {
 			this.intelKiosk?.tick(dt);
 			if (this.worldLife) { this.worldLife.setRealPeers(this.remotes.size); this.worldLife.tick(dt); }
 			if (this.net) this.net.sendMove({ x: this.localPos.x, y: this.localPos.y, z: this.localPos.z, yaw: this.localYaw, motion: this.motion });
+			// Gamepad: left stick steers the emote wheel; south button (0) plays selected.
+			const gp = navigator.getGamepads?.()[0];
+			if (gp && this.ui.emoteWheelOpen) {
+				this.ui.ewGamepadTick(gp.axes[0] ?? 0, gp.axes[1] ?? 0, gp.buttons[0]?.pressed ?? false);
+			}
 		}
 		this._tickEnv(dt);
 		this._updateCamera();
@@ -2454,6 +2599,38 @@ export class CoinCommunities {
 			this.localAnim.setSpeed(this.motion === 'run' ? RUN_TIMESCALE : 1);
 		}
 		if (this.localRig) { this.localRig.position.copy(this.localPos); this.localRig.rotation.y = this.localYaw; }
+		this._checkBallKick();
+	}
+
+	// R05: detect when the local player walks into the physics ball and send a kick
+	// intent. The impulse is derived from the player's current heading and speed so
+	// walking fast hits harder than ambling into it. The server is authoritative:
+	// it validates magnitude, clamps the total speed, and integrates the physics.
+	_checkBallKick() {
+		if (!this.net || !this.worldObjects || this.motion === 'idle') return;
+		const now = performance.now();
+		if (now - this._lastKick < 320) return; // ~3 kicks/sec, matching server limit
+
+		// Locate the ball by kind (there is exactly one per room).
+		let ballEntry = null;
+		for (const [, e] of this.worldObjects.entries) {
+			if (e.kind === 'ball') { ballEntry = e; break; }
+		}
+		if (!ballEntry) return;
+
+		const dx = ballEntry.tx - this.localPos.x;
+		const dz = ballEntry.tz - this.localPos.z;
+		if (Math.hypot(dx, dz) > 1.4) return; // not within kick range
+
+		// Impulse: player's forward direction scaled by movement speed.
+		const speed = this.motion === 'run' ? RUN_SPEED : MOVE_SPEED;
+		const STRENGTH = Math.min(speed * 1.8, 14);
+		const vx = Math.sin(this.localYaw) * STRENGTH;
+		const vy = 3.2; // always pop the ball upward
+		const vz = Math.cos(this.localYaw) * STRENGTH;
+
+		this._lastKick = now;
+		this.net.sendBallKick(vx, vy, vz);
 	}
 
 	// Feed the voice engine each frame: where the listener is (local avatar),
@@ -2498,8 +2675,10 @@ export class CoinCommunities {
 		for (const [, r] of this.remotes) {
 			place(r.label, r.rig.position, r.height + 0.2);
 			if (r.bubble) place(r.bubble, r.rig.position, r.height + 0.7);
+			if (r._itLabel) place(r._itLabel, r.rig.position, r.height + 0.65);
 		}
 		if (this._localBubble && this.localRig) place(this._localBubble, this.localPos, (this.localHeight || 1.7) + 0.7);
+		if (this._localItLabel && this.localRig) place(this._localItLabel, this.localPos, (this.localHeight || 1.7) + 0.65);
 	}
 
 	_onResize() {

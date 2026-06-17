@@ -154,6 +154,7 @@ export class CommunityNet {
 			objectRemove: new Set(), // (id) — an object left the world
 			objectReject: new Set(), // ({reason}) — server refused a spawn (world/player full)
 			reaction: new Set(),    // ({id, emoji}) — a player sent a floating reaction
+			tag: new Set(),         // ({event, itId, leaderboard}) — tag mini-game state (R08)
 		};
 		this.ping = null;        // smoothed RTT in ms, null until the first echo
 		this._pingSentAt = 0;    // perf-clock stamp of the last move awaiting an echo
@@ -287,6 +288,7 @@ export class CommunityNet {
 			this.room.onMessage('obj:reject', (msg) => this._emit('objectReject', msg || {}));
 			// Broadcast reactions (R04): floating emoji that rise above the sender's avatar.
 			this.room.onMessage('reaction', (msg) => this._emit('reaction', msg || {}));
+			this.room.onMessage('tag', (msg) => this._emit('tag', msg || {})); // R08 tag mini-game
 
 			const $ = getStateCallbacks(this.room);
 			const $state = $(this.room.state);
@@ -539,12 +541,6 @@ export class CommunityNet {
 	removeObject(id) {
 		if (!this.room || typeof id !== 'string') return;
 		this.room.send('obj:remove', { id });
-	}
-	// R05 ball kick: send an impulse intent to the server. The server validates,
-	// caps magnitude, and applies it to the authoritative ball velocity.
-	kickBall(vx, vy, vz) {
-		if (!this.room) return;
-		this.room.send('ball:kick', { vx, vy, vz });
 	}
 	// Does an object's server-assigned ownerId belong to THIS client? The server keys
 	// ownership on the verified account when signed in, else the persisted economy id,
