@@ -114,7 +114,11 @@ const STYLE = `<style>
 .sn-live { background: var(--nxt-panel); border: 1px solid var(--nxt-stroke); border-radius: var(--nxt-radius); }
 .sn-live-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid var(--nxt-line); }
 .sn-live-title { font-size: 14px; font-weight: 600; display: flex; gap: 8px; align-items: center; }
-.sn-live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--nxt-success); animation: sn-pulse 2s ease infinite; }
+.sn-live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--nxt-success); animation: sn-pulse 2s ease infinite; flex-shrink: 0; }
+.sn-live-dot.connecting, .sn-live-dot.reconnecting { background: var(--nxt-warn, #f59e0b); }
+.sn-live-dot.offline { background: var(--nxt-danger, #f87171); animation: none; }
+.sn-conn-status { font-size: 11px; font-weight: 500; color: var(--nxt-ink-faint); letter-spacing: .02em; }
+.sn-live-links { display: flex; gap: 8px; align-items: center; }
 @keyframes sn-pulse { 0%,100% { opacity: 1 } 50% { opacity: .35 } }
 .sn-pos-list { padding: 0; }
 .sn-pos-row { display: grid; grid-template-columns: 1fr auto auto auto; gap: 10px; align-items: center; padding: 11px 16px; border-bottom: 1px solid var(--nxt-line); }
@@ -204,9 +208,11 @@ const STYLE = `<style>
 // ── Main render ───────────────────────────────────────────────────────────────
 
 let _strategies = [];
-let _positions = [];
 let _agents = [];
 let _sseSource = null;
+let _sseTimer = null;
+let _sseRetry = 0;
+let _positionsMap = new Map();
 
 async function refresh(root) {
 	const [stratData, agentData] = await Promise.all([
@@ -520,13 +526,18 @@ function intelFields(s) {
 // ── Live positions ────────────────────────────────────────────────────────────
 
 function livePositionsSection() {
+	const ghostBtn = 'font-size:12px;padding:5px 12px;border-radius:var(--nxt-radius-sm);border:1px solid var(--nxt-stroke);text-decoration:none;color:var(--nxt-ink);';
 	return `<div class="sn-live">
 		<div class="sn-live-head">
 			<div class="sn-live-title">
-				<span class="sn-live-dot"></span>
-				Live Positions
+				<span class="sn-live-dot connecting"></span>
+				Your Live Positions
+				<span class="sn-conn-status" id="sn-conn-status" role="status" aria-live="polite">Connecting…</span>
 			</div>
-			<a class="sn-btn ghost" style="font-size:12px;padding:5px 12px;border-radius:var(--nxt-radius-sm);border:1px solid var(--nxt-stroke);text-decoration:none;color:var(--nxt-ink);" href="/play/arena" target="_blank" rel="noopener">Sniper Arena ↗</a>
+			<div class="sn-live-links">
+				<a class="sn-btn ghost" style="${ghostBtn}" href="/leaderboard" target="_blank" rel="noopener">Leaderboard ↗</a>
+				<a class="sn-btn ghost" style="${ghostBtn}" href="/play/arena" target="_blank" rel="noopener">Sniper Arena ↗</a>
+			</div>
 		</div>
 		<div id="sn-positions" class="sn-pos-list">
 			<p class="sn-empty">Connecting…</p>
@@ -546,16 +557,19 @@ function renderPositions(positions) {
 }
 
 function posRow(p) {
-	const pnlSol = p.unrealized_pnl_sol != null ? p.unrealized_pnl_sol : null;
-	const pnlStr = pnlSol != null ? `<span class="${clr(pnlSol)}">${fmtSol(pnlSol)}</span>` : '—';
-	const link = p.entry_buy_sig && p.entry_buy_sig !== 'SIMULATED'
-		? `<a class="sn-pos-link" href="${solscanTx(p.entry_buy_sig)}" target="_blank" rel="noopener">Solscan ↗</a>`
+	const pnlSol = p.unrealized_pnl_sol;
+	const pnlPct = p.unrealized_pct;
+	const pnlStr = pnlSol != null
+		? `<span class="${clr(pnlSol)}">${pnlSol >= 0 ? '+' : ''}${fmtSol(pnlSol)}${pnlPct != null ? ` · ${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(1)}%` : ''}</span>`
+		: '—';
+	const link = p.buy_url
+		? `<a class="sn-pos-link" href="${esc(p.buy_url)}" target="_blank" rel="noopener">Solscan ↗</a>`
 		: p.mint ? `<a class="sn-pos-link" href="${pumpUrl(p.mint)}" target="_blank" rel="noopener">pump.fun ↗</a>` : '';
 	const mintAttr = p.mint ? ` data-oracle-mint="${esc(p.mint)}"` : '';
 	return `<div class="sn-pos-row"${mintAttr}>
 		<div class="sn-pos-info">
 			<div class="sn-pos-sym">${esc(p.symbol || p.mint?.slice(0, 8) || '—')}</div>
-			<div class="sn-pos-sub">${esc(p.agent_name || '')} · opened ${relTime(p.opened_at)}</div>
+			<div class="sn-pos-sub">${esc(p.agent_name || '')}${p.opened_at ? ` · opened ${relTime(p.opened_at)}` : ''}</div>
 		</div>
 		<div class="sn-pos-pnl">${pnlStr}</div>
 		<span class="sn-pos-oracle"></span>

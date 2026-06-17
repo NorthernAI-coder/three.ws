@@ -16,6 +16,7 @@
 
 import { AnimationClip, Quaternion, Vector3 } from 'three';
 import { canonicalizeBoneName } from './glb-canonicalize.js';
+import { CANONICAL_REST } from './animation-canonical-rest.js';
 
 // A clip retargets cleanly only when enough of its tracks find a home on the
 // target rig. Below this the motion would read as a few twitching joints rather
@@ -23,21 +24,23 @@ import { canonicalizeBoneName } from './glb-canonicalize.js';
 export const MIN_COVERAGE = 0.5;
 
 // Rest (bind-pose) local rotation of each canonical bone *on the authoring rig*
-// the clips were baked against (canonical Avaturn). The library stores absolute
-// local rotations, so a clip only looks right when the target bone's rest
-// matches the authoring rest — otherwise we must replay the motion in the
-// target's own rest frame (see `bindCorrections`).
+// the clips were baked against (the Avaturn-rigged public/avatars/cz.glb). The
+// library stores absolute local rotations, so a clip only looks right when the
+// target bone's rest matches the authoring rest — otherwise we must replay the
+// motion in the target's own rest frame (see `bindCorrections`).
 //
-// Only Hips is listed: it's the skeleton root, the one bone that carries the
-// up-axis convention. Mixamo/FBX exports bake a +90°X on the armature node and a
-// −90°X on Hips; copying the clip's (≈identity) Hips rotation verbatim wipes that
-// −90°X out and tips the whole body onto its back. The authoring rig's Hips rest
-// is identity, so a correction of `targetHipsRest · I` re-applies whatever rest
-// the target rig needs. Limb bones aren't listed because their authoring rest is
-// avatar-specific and copying verbatim has always been the (acceptable) status
-// quo for non-Avaturn rigs; adding them would require shipping the full authoring
-// rest pose and would change limb output for every rig.
-const SOURCE_REST = new Map([['Hips', new Quaternion(0, 0, 0, 1)]]);
+// The full skeleton is covered (generated from cz.glb into
+// animation-canonical-rest.js), not just Hips. Hips carries the up-axis
+// convention — Mixamo/FBX bake a +90°X on the armature and a −90°X on Hips, and
+// copying the clip's Hips rotation verbatim wipes that out and tips the body onto
+// its back. The limb bones carry the pose convention — cz rests in an A-pose,
+// Mixamo in a T-pose — so without per-limb correction an upright avatar still
+// plays clips with the arms/legs in the wrong frame. Because the values are cz's
+// own rest, retargeting back onto cz yields an identity correction per bone
+// (skipped below), so a matching rig round-trips byte-for-byte.
+const SOURCE_REST = new Map(
+	Object.entries(CANONICAL_REST).map(([bone, q]) => [bone, new Quaternion(q[0], q[1], q[2], q[3])]),
+);
 
 // A quaternion within this of identity (|w| ≈ 1) is treated as no rotation, so a
 // rig that already matches the authoring convention round-trips bit-for-bit.

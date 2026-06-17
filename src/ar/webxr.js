@@ -10,6 +10,8 @@
 
 import { Matrix4, Mesh, MeshBasicMaterial, Quaternion, RingGeometry, Vector3 } from 'three';
 
+import { isXrVisible, nextTrackingState, TRACKING_LOSS_FRAMES } from './anchor-lifecycle.js';
+
 const LOWER_BODY_FRAGMENTS = [
 	'upleg', 'leg', 'thigh', 'knee', 'shin', 'calf',
 	'foot', 'toe', 'ankle',
@@ -38,23 +40,36 @@ export class WebXRSession {
 	 * @param {Function} [opts.onEnd]      Called after the XR session ends + restores.
 	 * @param {boolean}  [opts.halfBody]   Collapse lower-body bones (demo mode).
 	 * @param {Function} [opts.onAnchored] Called once on first tap with the anchored
-	 *   local-space pose `{ position: Vector3, quaternion: Quaternion }` for persistence.
+	 *   local-space pose `{ position: Vector3, quaternion: Quaternion }` and a
+	 *   `{ degraded }` flag (degraded = no real XRAnchor; placement may drift).
 	 * @param {Function} [opts.onHit]      Called with `true`/`false` as the hit-test
 	 *   reticle gains/loses a surface — drives the "point at the floor" searching state.
+	 * @param {Function} [opts.onTracking] Called with `true`/`false` as the device
+	 *   regains/loses its fix on the room — drives the "move to a brighter spot" hint.
+	 * @param {Function} [opts.onVisibility] Called with `true`/`false` as the session
+	 *   is foregrounded/backgrounded (lock, incoming call, app switch).
 	 * @param {Element}  [opts.domOverlayRoot] Element to surface as the WebXR
 	 *   `dom-overlay` root (in-session hint + exit affordance). Optional.
 	 */
-	constructor(viewer, { onEnd, halfBody = false, onAnchored, onHit, domOverlayRoot } = {}) {
+	constructor(viewer, { onEnd, halfBody = false, onAnchored, onHit, onTracking, onVisibility, domOverlayRoot } = {}) {
 		this._viewer = viewer;
 		this._halfBody = halfBody;
 		this._onEnd = onEnd;
 		this._onAnchored = onAnchored;
 		this._onHit = onHit;
+		this._onTracking = onTracking;
+		this._onVisibility = onVisibility;
 		this._domOverlayRoot = domOverlayRoot ?? null;
 		this._session = null;
 		this._hitTestSource = null;
 		this._localSpace = null;
 		this._anchored = false;
+		/** Tracking-health state machine (transition-only "lost"/"recovered"). */
+		this._trackingState = { misses: 0, lost: false };
+		/** True while the session is backgrounded/blurred — skips non-essential work. */
+		this._paused = false;
+		/** Idempotency latch so an OS-initiated end and our own end() can't double-clean. */
+		this._ended = false;
 		/** @type {XRAnchor|null} Real world anchor created on tap (feature-detected). */
 		this._anchor = null;
 		/** @type {XRHitTestResult|null} Most recent hit, used to create the anchor. */
@@ -72,6 +87,7 @@ export class WebXRSession {
 		this._halfBodyBones = [];
 		this._handleEnd = this._handleEnd.bind(this);
 		this._handleSelect = this._handleSelect.bind(this);
+		this._handleVisibilityChange = this._handleVisibilityChange.bind(this);
 	}
 
 	static async isSupported() {
@@ -103,9 +119,18 @@ export class WebXRSession {
 
 		const session = await navigator.xr.requestSession('immersive-ar', sessionInit);
 		this._session = session;
+		// Fresh session: clear the lifecycle latches a prior run may have left set.
+		this._ended = false;
+		this._paused = false;
+		this._trackingState = { misses: 0, lost: false };
+		// An OS-initiated end (user locks the phone, takes a call, swipes the app
+		// away) fires 'end' just like our exit button — both land in _handleEnd, so
+		// restoration is identical and idempotent no matter who ended the session.
 		session.addEventListener('end', this._handleEnd);
 		// 'select' fires on controller trigger or screen tap
 		session.addEventListener('select', this._handleSelect);
+		// Backgrounding/blurring pauses non-essential work and surfaces a resume hint.
+		session.addEventListener('visibilitychange', this._handleVisibilityChange);
 
 		await renderer.xr.setSession(session);
 
@@ -147,6 +172,26 @@ export class WebXRSession {
 
 		const dt = viewer.prevTime ? (time - viewer.prevTime) / 1000 : 0.016;
 		viewer.prevTime = time;
+
+		// Paused (app backgrounded, incoming call, screen locked): hold the agent
+		// still and skip animation, hit-testing, and tracking checks so nothing
+		// drifts or burns cycles. Submit a frame so the compositor stays happy, then
+		// wait for visibilitychange → resume. No work, no console noise.
+		if (this._paused) {
+			renderer.render(viewer.scene, viewer.activeCamera);
+			return;
+		}
+
+		// Tracking health: a frame with no viewer pose means the device has lost its
+		// fix on the room (low light, blank wall, fast motion). Run it through the
+		// transition-only state machine so the host hears "lost"/"recovered" once,
+		// not every frame, and hide the reticle the moment we're lost.
+		if (frame && this._localSpace) {
+			const hasPose = !!frame.getViewerPose(this._localSpace);
+			const t = nextTrackingState(this._trackingState, hasPose, TRACKING_LOSS_FRAMES);
+			this._trackingState = t.state;
+			if (t.changed) this._setTracking(!t.lost);
+		}
 
 		if (viewer.mixer) viewer.mixer.update(dt);
 		viewer.animationManager.update(dt);
@@ -217,7 +262,10 @@ export class WebXRSession {
 			// the feature — fall back to the frozen tap pose rather than failing.
 			this._anchor = null;
 		}
-		this._onAnchored?.(anchorPose);
+		// Disclose a degraded placement: with no real XRAnchor the agent is frozen
+		// at the tap pose and may drift. We still persist the pin; we just stop
+		// pretending it's rock-solid so the host can say so honestly.
+		this._onAnchored?.(anchorPose, { degraded: this._anchor === null });
 	}
 
 	// Build the floor reticle: a flat ring whose geometry is pre-rotated into the
@@ -250,6 +298,23 @@ export class WebXRSession {
 		this._onHit?.(has);
 	}
 
+	// Tracking lost/recovered. On loss, hide the reticle so the user never taps a
+	// stale one; the host surfaces a recoverable "move to a brighter spot" hint.
+	_setTracking(ok) {
+		if (!ok && this._reticle) this._reticle.visible = false;
+		this._onTracking?.(ok);
+	}
+
+	// Foreground/background transition. Pause non-essential work while hidden and
+	// hand the host a hint; resume cleanly when foregrounded. An OS that ends the
+	// session instead of merely hiding it lands in _handleEnd, not here.
+	_handleVisibilityChange() {
+		const visible = isXrVisible(this._session?.visibilityState);
+		this._paused = !visible;
+		if (!visible && this._reticle) this._reticle.visible = false;
+		this._onVisibility?.(visible);
+	}
+
 	// Decompose the captured tap-moment hit matrix into a local-space pose the host
 	// converts to a GPS pin (metres from the session origin → lat/lng + floor height).
 	_readAnchorPose() {
@@ -275,8 +340,17 @@ export class WebXRSession {
 	}
 
 	_handleEnd() {
+		// Idempotent: the 'end' event and a direct end() can both reach here, and an
+		// OS-initiated end must restore exactly once — same path as the exit button.
+		if (this._ended) return;
+		this._ended = true;
+
 		const viewer = this._viewer;
 		const renderer = viewer.renderer;
+
+		// Stop listening before tearing down so a late visibilitychange during
+		// teardown can't re-pause a session that's already gone.
+		this._session?.removeEventListener('visibilitychange', this._handleVisibilityChange);
 
 		renderer.setAnimationLoop(null);
 		renderer.xr.enabled = false;
@@ -293,6 +367,8 @@ export class WebXRSession {
 		this._anchor = null;
 		this._latestHit = null;
 		this._hasHit = false;
+		this._paused = false;
+		this._trackingState = { misses: 0, lost: false };
 
 		// Restore background
 		viewer.scene.background = this._savedBg;

@@ -3,62 +3,79 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light">
 <title>x402 live demo — three.ws × IBM</title>
 <meta name="description" content="A live, self-contained x402 demo: pay $0.001 in USDC from your own wallet to call a real three.ws data API. Settled on-chain on Base or Solana. No backend, no account.">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<meta property="og:title" content="x402 live demo — three.ws × IBM">
+<meta property="og:description" content="Pay $0.001 in USDC from your own wallet to call a real three.ws API. See HTTP 402 micropayments settle on-chain in about a second.">
+<meta property="og:type" content="website">
 <style>
+/* ─── Self-hosted IBM Plex (latin subset) — no third-party font CDN, so a
+   strict `font-src 'self'` CSP on the host page won't break typography.
+   Files travel with this page under ./fonts/. ─────────────────────────────── */
+@font-face{font-family:'IBM Plex Sans';font-style:normal;font-weight:300;font-display:swap;src:url('./fonts/IBMPlexSans-300.woff2') format('woff2')}
+@font-face{font-family:'IBM Plex Sans';font-style:normal;font-weight:400;font-display:swap;src:url('./fonts/IBMPlexSans-400.woff2') format('woff2')}
+@font-face{font-family:'IBM Plex Sans';font-style:normal;font-weight:500;font-display:swap;src:url('./fonts/IBMPlexSans-500.woff2') format('woff2')}
+@font-face{font-family:'IBM Plex Sans';font-style:normal;font-weight:600;font-display:swap;src:url('./fonts/IBMPlexSans-600.woff2') format('woff2')}
+@font-face{font-family:'IBM Plex Mono';font-style:normal;font-weight:400;font-display:swap;src:url('./fonts/IBMPlexMono-400.woff2') format('woff2')}
+@font-face{font-family:'IBM Plex Mono';font-style:normal;font-weight:500;font-display:swap;src:url('./fonts/IBMPlexMono-500.woff2') format('woff2')}
+
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 
 :root{
   --ibm-blue:#0f62fe;
   --ibm-blue-hover:#0353e9;
   --ibm-ink:#161616;
-  --ibm-muted:#525252;
-  --ibm-subtle:#6f6f6f;
+  --ibm-muted:#525252;       /* AA on white (7.4:1) */
+  --ibm-subtle:#595959;      /* AA on white (7:1) — was #6f6f6f (3.9:1, failed) */
   --ibm-border:#e0e0e0;
   --ibm-divider:#c6c6c6;
   --ibm-field:#f4f4f4;
-  --ibm-green:#198038;
+  --ibm-green:#0e7a32;       /* darkened for AA on light fills */
   --ibm-red:#da1e28;
-  --ibm-amber:#8e6a00;
+  --ibm-amber:#8a6100;
+  --font-sans:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  --font-mono:'IBM Plex Mono',ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+  --ease:cubic-bezier(.2,.7,.3,1);
 }
 
-html,body{
-  background:transparent;
-  font-family:'IBM Plex Sans',sans-serif;
-  color:var(--ibm-ink);
-  font-size:16px;line-height:1.5;
-  -webkit-font-smoothing:antialiased;
-}
+html,body{background:transparent;font-family:var(--font-sans);color:var(--ibm-ink);font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
 a{color:var(--ibm-blue);text-decoration:none}
 a:hover{text-decoration:underline}
-.mono{font-family:'IBM Plex Mono',monospace}
+.mono{font-family:var(--font-mono)}
+
+/* Visible focus everywhere — never rely on the UA default the reset removes. */
+:focus-visible{outline:2px solid var(--ibm-blue);outline-offset:2px}
+a:focus-visible{outline-offset:3px}
+
+.skip-link{position:absolute;left:-9999px;top:0;background:var(--ibm-blue);color:#fff;padding:10px 16px;z-index:50;font-weight:600;font-size:14px}
+.skip-link:focus{left:8px;top:8px;text-decoration:none}
 
 .inner{max-width:880px;margin:0 auto;padding:0 16px}
 .section{padding:40px 0;border-bottom:1px solid var(--ibm-border)}
 .section:last-child{border-bottom:none}
 
+/* ── Global error banner (resilience safety net) ── */
+.err-banner{position:fixed;left:0;right:0;top:0;z-index:60;background:#fff1f1;border-bottom:1px solid #ffb3b8;color:#a2191f;font-size:13px;padding:10px 16px;display:none;align-items:center;gap:12px;justify-content:center}
+.err-banner.show{display:flex}
+.err-banner button{background:none;border:1px solid #ffb3b8;color:#a2191f;font-family:inherit;font-size:12px;font-weight:600;padding:4px 10px;cursor:pointer}
+.err-banner button:hover{background:#ffe0e0}
+
 /* ── Hero ── */
 .hero{padding:56px 0 36px}
-.partner-label{
-  display:inline-flex;align-items:center;gap:12px;
-  border:1px solid var(--ibm-border);padding:6px 14px;
-  font-size:12px;letter-spacing:.08em;text-transform:uppercase;
-  color:var(--ibm-muted);margin-bottom:28px;
-}
+.partner-label{display:inline-flex;align-items:center;gap:12px;border:1px solid var(--ibm-border);padding:6px 14px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--ibm-muted);margin-bottom:28px}
+.ibm-mark{font-family:var(--font-sans);font-weight:600;font-size:13px;letter-spacing:.02em;color:#fff;background:#0530ad;padding:3px 8px;line-height:1}
 .hero h1{font-size:clamp(30px,5vw,46px);font-weight:300;line-height:1.1;margin-bottom:18px;max-width:680px}
 .hero h1 strong{font-weight:600}
 .hero-sub{font-size:18px;color:var(--ibm-muted);max-width:620px;font-weight:300;line-height:1.6}
 
-/* ── How-it-works strip ── */
-.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--ibm-border);border:1px solid var(--ibm-border)}
+/* ── How-it-works ── */
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--ibm-border);border:1px solid var(--ibm-border);list-style:none;margin-top:24px}
 .step{background:#fff;padding:24px 22px}
-.step-n{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--ibm-blue);font-weight:500;margin-bottom:10px}
+.step-n{font-family:var(--font-mono);font-size:12px;color:var(--ibm-blue);font-weight:500;margin-bottom:10px}
 .step h3{font-size:15px;font-weight:600;margin-bottom:6px}
 .step p{font-size:13px;color:var(--ibm-muted);font-weight:300;line-height:1.55}
-.step code{font-family:'IBM Plex Mono',monospace;font-size:12px;background:var(--ibm-field);padding:1px 5px;color:var(--ibm-ink)}
+.step code{font-family:var(--font-mono);font-size:12px;background:var(--ibm-field);padding:1px 5px;color:var(--ibm-ink);word-break:break-word}
 
 /* ── Section heads ── */
 .section-tag{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--ibm-blue);margin-bottom:8px;font-weight:500}
@@ -80,96 +97,101 @@ a:hover{text-decoration:underline}
 .demo-body{padding:22px 24px}
 
 /* 402 preview */
-.preview{
-  border:1px solid var(--ibm-border);background:var(--ibm-field);
-  padding:14px 16px;margin-bottom:22px;font-family:'IBM Plex Mono',monospace;font-size:12px;
-}
-.preview-label{font-family:'IBM Plex Sans',sans-serif;font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--ibm-subtle);margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.preview{border:1px solid var(--ibm-border);background:var(--ibm-field);padding:14px 16px;margin-bottom:22px;font-family:var(--font-mono);font-size:12px}
+.preview-label{font-family:var(--font-sans);font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--ibm-subtle);margin-bottom:10px;display:flex;align-items:center;gap:8px}
 .preview-label .dot{width:7px;height:7px;border-radius:50%;background:var(--ibm-subtle);flex:0 0 auto}
 .preview-label.ok .dot{background:var(--ibm-green)}
+.preview-label.ok.fresh .dot{animation:dotpulse 1.2s var(--ease) 1}
 .preview-label.err .dot{background:var(--ibm-red)}
+@keyframes dotpulse{0%{box-shadow:0 0 0 0 rgba(14,122,50,.5)}100%{box-shadow:0 0 0 9px rgba(14,122,50,0)}}
 .preview-row{display:flex;gap:12px;padding:3px 0;flex-wrap:wrap}
 .preview-row .k{color:var(--ibm-subtle);min-width:84px}
 .preview-row .v{color:var(--ibm-ink);word-break:break-all}
-.badge{display:inline-block;font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:500;padding:1px 8px;border:1px solid var(--ibm-divider);margin-right:6px;border-radius:2px}
+.badge{display:inline-block;font-family:var(--font-sans);font-size:11px;font-weight:500;padding:1px 8px;border:1px solid var(--ibm-divider);margin-right:6px;border-radius:2px}
+.pv-retry{margin-top:10px;background:none;border:1px solid var(--ibm-divider);color:var(--ibm-ink);font-family:var(--font-sans);font-size:12px;font-weight:500;padding:6px 12px;cursor:pointer}
+.pv-retry:hover{border-color:var(--ibm-blue);color:var(--ibm-blue)}
+/* skeleton */
+.sk{height:11px;border-radius:2px;background:linear-gradient(90deg,#e8e8e8 25%,#f4f4f4 37%,#e8e8e8 63%);background-size:400% 100%;animation:sk 1.4s ease infinite}
+@keyframes sk{0%{background-position:100% 0}100%{background-position:0 0}}
 
 /* input row */
-.field-row{display:flex;gap:0;flex-wrap:wrap;align-items:stretch;margin-bottom:18px}
+.field-row{display:flex;gap:0;flex-wrap:wrap;align-items:flex-end;margin-bottom:10px}
 .field-wrap{flex:1 1 240px;min-width:0}
 .field-wrap label{display:block;font-size:12px;color:var(--ibm-muted);margin-bottom:6px;font-weight:500}
-.field{
-  width:100%;height:48px;padding:0 14px;border:none;border-bottom:1px solid var(--ibm-divider);
-  background:var(--ibm-field);font-family:'IBM Plex Mono',monospace;font-size:15px;color:var(--ibm-ink);
-  letter-spacing:.04em;outline:none;transition:border-color .12s,background .12s;
-}
+.field{width:100%;height:48px;padding:0 14px;border:none;border-bottom:1px solid var(--ibm-divider);background:var(--ibm-field);font-family:var(--font-mono);font-size:15px;color:var(--ibm-ink);letter-spacing:.04em;outline:none;transition:border-color .12s,background .12s}
 .field:focus{border-bottom:2px solid var(--ibm-blue);background:#fff}
+.field[aria-invalid="true"]{border-bottom:2px solid var(--ibm-red)}
 .field-hint{font-size:11px;color:var(--ibm-subtle);margin-top:6px}
+.field-hint.err{color:var(--ibm-red)}
 
-.btn{
-  display:inline-flex;align-items:center;justify-content:center;gap:10px;
-  background:var(--ibm-blue);color:#fff;border:none;cursor:pointer;
-  font-family:'IBM Plex Sans',sans-serif;font-size:15px;font-weight:500;letter-spacing:.01em;
-  padding:0 24px;height:48px;min-width:200px;align-self:flex-end;
-  transition:background .12s,transform .04s;
-}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;background:var(--ibm-blue);color:#fff;border:none;cursor:pointer;font-family:var(--font-sans);font-size:15px;font-weight:500;letter-spacing:.01em;padding:0 24px;height:48px;min-width:200px;transition:background .12s,transform .04s}
 .btn:hover:not(:disabled){background:var(--ibm-blue-hover)}
 .btn:active:not(:disabled){transform:translateY(1px)}
 .btn:disabled{background:#c6c6c6;cursor:not-allowed}
 .btn .arrow{font-size:17px;line-height:1}
+.btn .spin{width:15px;height:15px;border:2px solid rgba(255,255,255,.45);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:none}
+.btn.loading .spin{display:inline-block}
+.btn.loading .arrow{display:none}
 @media(min-width:560px){.btn{margin-left:1px}}
+
+.wallet-hint{font-size:11px;color:var(--ibm-subtle);margin-bottom:18px;line-height:1.5}
+.wallet-hint.offline{color:var(--ibm-amber);font-weight:500}
 
 /* result panel */
 .result{border:1px solid var(--ibm-border);min-height:96px;padding:18px 20px;background:#fff;transition:border-color .15s}
 .result.is-empty{display:flex;align-items:center;justify-content:center;color:var(--ibm-subtle);font-size:13px;text-align:center;font-weight:300;border-style:dashed}
 .result.is-loading{border-color:var(--ibm-blue)}
 .result.is-error{border-color:var(--ibm-red)}
-.result.is-done{border-color:var(--ibm-green)}
+.result.is-done{border-color:var(--ibm-green);animation:reveal .28s var(--ease)}
+@keyframes reveal{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 
-.r-status{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:500;margin-bottom:0}
+.r-status{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:500}
 .r-status .spin{width:14px;height:14px;border:2px solid var(--ibm-divider);border-top-color:var(--ibm-blue);border-radius:50%;animation:spin .8s linear infinite;flex:0 0 auto}
 @keyframes spin{to{transform:rotate(360deg)}}
 .r-status.err{color:var(--ibm-red)}
+.r-status.ok{color:var(--ibm-green)}
+.r-check{display:inline-flex;width:18px;height:18px;border-radius:50%;background:var(--ibm-green);color:#fff;align-items:center;justify-content:center;font-size:11px;flex:0 0 auto;animation:pop .3s var(--ease)}
+@keyframes pop{0%{transform:scale(0)}60%{transform:scale(1.15)}100%{transform:scale(1)}}
 
-.r-headline{font-size:18px;font-weight:300;margin:2px 0 4px}
+.r-headline{font-size:18px;font-weight:300;margin:12px 0 4px}
 .r-headline strong{font-weight:600}
 .r-reco{font-size:14px;color:var(--ibm-ink);margin-bottom:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .pill{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;padding:2px 9px;border-radius:2px}
 .pill.ok{background:#defbe6;color:var(--ibm-green)}
-.pill.warn{background:#fff8e1;color:var(--ibm-amber)}
-.pill.bad{background:#fff1f1;color:var(--ibm-red)}
+.pill.warn{background:#fcf4d6;color:var(--ibm-amber)}
+.pill.bad{background:#fff1f1;color:#a2191f}
 
 .matches{border-top:1px solid var(--ibm-border);margin-top:6px;padding-top:12px}
 .matches h4{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--ibm-subtle);margin-bottom:8px;font-weight:600}
 .match{display:flex;justify-content:space-between;gap:12px;padding:5px 0;font-size:13px;border-bottom:1px solid var(--ibm-field)}
 .match:last-child{border-bottom:none}
-.match .m-name{color:var(--ibm-ink)}
+.match .m-name{color:var(--ibm-ink);min-width:0;word-break:break-word}
 .match .m-name b{font-weight:600}
-.match .m-sim{font-family:'IBM Plex Mono',monospace;color:var(--ibm-muted);font-size:12px;flex:0 0 auto}
+.match .m-sim{font-family:var(--font-mono);color:var(--ibm-muted);font-size:12px;flex:0 0 auto}
 
 .receipt{margin-top:14px;padding-top:12px;border-top:1px solid var(--ibm-border);display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px 20px}
 .receipt .rk{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--ibm-subtle);margin-bottom:2px}
-.receipt .rv{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--ibm-ink);word-break:break-all}
+.receipt .rv{font-family:var(--font-mono);font-size:12px;color:var(--ibm-ink);word-break:break-all}
 
 .raw{margin-top:14px}
 .raw summary{cursor:pointer;font-size:12px;color:var(--ibm-muted);font-weight:500;user-select:none}
 .raw summary:hover{color:var(--ibm-blue)}
-.raw pre{margin-top:10px;background:#161616;color:#e0e0e0;padding:14px 16px;overflow:auto;max-height:300px;font-family:'IBM Plex Mono',monospace;font-size:12px;line-height:1.5}
+.raw pre{margin-top:10px;background:#161616;color:#e0e0e0;padding:14px 16px;overflow:auto;max-height:300px;font-family:var(--font-mono);font-size:12px;line-height:1.5}
 
 .retry{margin-top:14px;background:none;border:1px solid var(--ibm-divider);color:var(--ibm-ink);padding:9px 16px;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;transition:border-color .12s,color .12s}
 .retry:hover{border-color:var(--ibm-blue);color:var(--ibm-blue)}
 
-/* requirements note */
 .note{display:flex;gap:14px;margin-top:22px;padding:16px 18px;border:1px solid var(--ibm-border);background:var(--ibm-field)}
 .note svg{flex:0 0 auto;width:20px;height:20px;color:var(--ibm-blue);margin-top:1px}
 .note p{font-size:13px;color:var(--ibm-muted);line-height:1.6;font-weight:300}
 .note p b{color:var(--ibm-ink);font-weight:600}
 
 /* embed snippet */
-.embed-block{background:#161616;color:#e0e0e0;border:1px solid #393939;padding:18px 20px;overflow:auto;margin-top:24px;font-family:'IBM Plex Mono',monospace;font-size:13px;line-height:1.6}
+.embed-block{background:#161616;color:#e0e0e0;border:1px solid #393939;padding:18px 20px;overflow:auto;margin-top:24px;font-family:var(--font-mono);font-size:13px;line-height:1.6;white-space:pre}
 .embed-block .c-tag{color:#82cfff}
 .embed-block .c-attr{color:#a6c8ff}
 .embed-block .c-str{color:#a7f0ba}
-.embed-block .c-com{color:#8d8d8d}
+.embed-block .c-com{color:#a8a8a8}
 .copy-row{display:flex;justify-content:flex-end;margin-top:10px}
 .copy-btn{background:none;border:1px solid var(--ibm-divider);color:var(--ibm-muted);font-family:inherit;font-size:12px;font-weight:500;padding:7px 14px;cursor:pointer;transition:border-color .12s,color .12s}
 .copy-btn:hover{border-color:var(--ibm-blue);color:var(--ibm-blue)}
@@ -185,56 +207,71 @@ a:hover{text-decoration:underline}
   .steps{grid-template-columns:1fr}
   .demo-head{flex-direction:column;align-items:flex-start}
   .price-tag{text-align:left}
-  .btn{width:100%;align-self:stretch}
+  .field-row{gap:14px}
+  .btn{width:100%;min-width:0}
+}
+
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
 }
 </style>
 </head>
 <body>
 
+<a href="#demo" class="skip-link">Skip to the demo</a>
+
+<div class="err-banner" id="errBanner" role="alert">
+  <span id="errBannerText">Something went wrong.</span>
+  <button type="button" id="errBannerClose">Dismiss</button>
+</div>
+
 <!-- ══ HERO ══ -->
-<div class="hero">
+<header class="hero">
   <div class="inner">
     <div class="partner-label">
-      <svg width="40" height="16" viewBox="0 0 48 19" fill="none" aria-hidden="true"><rect width="48" height="19" fill="#1F70C1"/><text x="4" y="14" font-family="Arial" font-size="11" font-weight="700" fill="white">IBM</text></svg>
+      <!-- IBM brand: neutral wordmark lockup. Confirm exact mark + "Business Partner"
+           usage rights with IBM before public launch (see task 08 / HOSTING.md). -->
+      <span class="ibm-mark">IBM</span>
       <span>Business Partner</span>
-      <span style="color:var(--ibm-border)">|</span>
+      <span style="color:var(--ibm-border)" aria-hidden="true">|</span>
       <span class="mono">three.ws</span>
     </div>
     <h1>See <strong>x402</strong> work — pay a fraction of a cent for a real API call</h1>
     <p class="hero-sub">x402 turns the dormant HTTP <span class="mono">402 Payment Required</span> status into a payment rail. A normal request comes back with machine-readable payment terms; your wallet signs a stablecoin authorization and retries; the call settles on-chain in about a second. No keys, no account, no invoice. Try it below with your own wallet.</p>
   </div>
-</div>
+</header>
 
+<main>
 <!-- ══ HOW IT WORKS ══ -->
-<div class="section">
+<section class="section" aria-labelledby="how-h">
   <div class="inner">
     <div class="section-tag">The protocol in three moves</div>
-    <h2>How <strong>x402</strong> works</h2>
-    <div class="steps" style="margin-top:24px">
-      <div class="step">
+    <h2 id="how-h">How <strong>x402</strong> works</h2>
+    <ol class="steps">
+      <li class="step">
         <div class="step-n">01 · REQUEST</div>
         <h3>You ask normally</h3>
         <p>A plain <code>GET</code> to a paid endpoint — no payment attached yet.</p>
-      </div>
-      <div class="step">
+      </li>
+      <li class="step">
         <div class="step-n">02 · 402 CHALLENGE</div>
         <h3>Server quotes a price</h3>
         <p>It replies <code>402</code> with exactly what it wants: amount, asset, network, and the address to pay.</p>
-      </div>
-      <div class="step">
+      </li>
+      <li class="step">
         <div class="step-n">03 · PAY &amp; RETRY</div>
         <h3>Wallet signs, call settles</h3>
         <p>You sign a gasless USDC authorization, resend with an <code>X-PAYMENT</code> header, and get your data.</p>
-      </div>
-    </div>
+      </li>
+    </ol>
   </div>
-</div>
+</section>
 
 <!-- ══ LIVE DEMO ══ -->
-<div class="section">
+<section class="section" id="demo" aria-labelledby="demo-h">
   <div class="inner">
     <div class="section-tag">Live · production endpoint</div>
-    <h2>Buy a <strong>data call</strong> for $0.001</h2>
+    <h2 id="demo-h">Buy a <strong>data call</strong> for $0.001</h2>
     <p class="section-lead">This calls a real three.ws API — a token-symbol availability check — for one tenth of a cent in USDC, settled on Base or Solana mainnet. Nothing here is mocked: the price below is read live from the server's own 402 response.</p>
 
     <div class="demo">
@@ -251,20 +288,25 @@ a:hover{text-decoration:underline}
 
       <div class="demo-body">
         <!-- live 402 preview -->
-        <div class="preview" aria-live="polite">
+        <div class="preview" aria-live="polite" aria-busy="true">
           <div class="preview-label" id="pvLabel"><span class="dot"></span><span id="pvLabelText">Reading the server's 402 challenge…</span></div>
-          <div id="pvRows"></div>
+          <div id="pvRows">
+            <div class="preview-row"><span class="sk" style="width:38%"></span></div>
+            <div class="preview-row"><span class="sk" style="width:54%"></span></div>
+            <div class="preview-row"><span class="sk" style="width:46%"></span></div>
+          </div>
         </div>
 
         <!-- input -->
         <div class="field-row">
           <div class="field-wrap">
             <label for="ticker">Ticker to check</label>
-            <input id="ticker" class="field" value="GRANITE" maxlength="32" autocomplete="off" spellcheck="false" aria-describedby="tickerHint">
+            <input id="ticker" class="field" value="GRANITE" maxlength="32" autocomplete="off" spellcheck="false" inputmode="latin" aria-describedby="tickerHint">
             <div class="field-hint" id="tickerHint">A–Z and 0–9, up to 32 characters.</div>
           </div>
-          <button id="payBtn" class="btn">Pay $0.001 &amp; run <span class="arrow">→</span></button>
+          <button id="payBtn" class="btn" type="button"><span class="spin" aria-hidden="true"></span><span class="label">Pay $0.001 &amp; run</span> <span class="arrow" aria-hidden="true">→</span></button>
         </div>
+        <div class="wallet-hint" id="walletHint">On a phone? Open this page inside your <b>MetaMask</b> or <b>Phantom</b> in-app browser to pay.</div>
 
         <!-- result -->
         <div id="result" class="result is-empty" role="status" aria-live="polite">
@@ -274,18 +316,18 @@ a:hover{text-decoration:underline}
         <!-- requirements -->
         <div class="note">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
-          <p>You'll need a browser wallet — <b>MetaMask</b> (for Base) or <b>Phantom</b> (for Solana) — holding at least <b>$0.001 USDC</b> on mainnet. This spends real funds, but only a tenth of a cent. The payment is a gasless signature; the network fee is sponsored. Don't have a wallet? You can still watch the 402 challenge above and read the <a href="https://three.ws/docs/x402" target="_blank" rel="noopener">protocol docs</a>.</p>
+          <p>You'll need a browser wallet — <b>MetaMask</b> (for Base) or <b>Phantom</b> (for Solana) — holding at least <b>$0.001 USDC</b> on mainnet. This spends real funds, but only a tenth of a cent. The payment is a gasless signature; the network fee is sponsored by the facilitator. No wallet? You can still watch the 402 challenge above and read the <a href="https://three.ws/docs/x402" target="_blank" rel="noopener">protocol docs</a>.</p>
         </div>
       </div>
     </div>
   </div>
-</div>
+</section>
 
 <!-- ══ EMBED ══ -->
-<div class="section">
+<section class="section" aria-labelledby="embed-h">
   <div class="inner">
     <div class="section-tag">For developers</div>
-    <h2>Add a paywall in <strong>eight lines</strong></h2>
+    <h2 id="embed-h">Add a paywall in <strong>eight lines</strong></h2>
     <p class="section-lead">The button above is powered by one drop-in script. Any element with a <span class="mono">data-x402-endpoint</span> opens the wallet flow on click — no framework, no build step, no SDK.</p>
     <div class="embed-block" id="embedCode"><span class="c-com">&lt;!-- one script tag, served from three.ws --&gt;</span>
 <span class="c-tag">&lt;script</span> <span class="c-attr">type</span>=<span class="c-str">"module"</span> <span class="c-attr">src</span>=<span class="c-str">"https://three.ws/x402.js"</span><span class="c-tag">&gt;&lt;/script&gt;</span>
@@ -297,14 +339,15 @@ a:hover{text-decoration:underline}
   <span class="c-attr">data-x402-action</span>=<span class="c-str">"Check symbol"</span><span class="c-tag">&gt;</span>
   Pay $0.001 &amp; run
 <span class="c-tag">&lt;/button&gt;</span></div>
-    <div class="copy-row"><button class="copy-btn" id="copyBtn">Copy snippet</button></div>
+    <div class="copy-row"><button class="copy-btn" id="copyBtn" type="button">Copy snippet</button></div>
   </div>
-</div>
+</section>
+</main>
 
 <!-- ══ FOOTER ══ -->
-<div class="footer">
+<footer class="footer">
   <div class="inner">
-    <nav class="footer-nav">
+    <nav class="footer-nav" aria-label="Footer">
       <a href="https://three.ws" target="_blank" rel="noopener">Platform</a>
       <a href="https://three.ws/docs/x402" target="_blank" rel="noopener">x402 Protocol</a>
       <a href="https://three.ws/docs/ibm-x402" target="_blank" rel="noopener">IBM × x402 Docs</a>
@@ -315,7 +358,7 @@ a:hover{text-decoration:underline}
       Live x402 demo · three.ws, an IBM Business Partner. Payments settle in USDC on Base or Solana mainnet via the x402 protocol. The only coin this platform issues is $THREE (FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump).
     </div>
   </div>
-</div>
+</footer>
 
 <!-- x402 drop-in payment modal (Phantom/MetaMask wallet flow + 402 retry) -->
 <script type="module" src="https://three.ws/x402.js"></script>
@@ -325,13 +368,31 @@ a:hover{text-decoration:underline}
   'use strict';
 
   // The paid endpoint this demo calls. Swap to any three.ws x402 GET endpoint
-  // (e.g. /api/x402/skill-marketplace) and the page adapts automatically.
+  // and the price tag + 402 preview adapt automatically (the result renderer is
+  // shaped for symbol-availability — update renderResultDone if you change it).
   var ENDPOINT = 'https://three.ws/api/x402/symbol-availability';
   // Per-call spend ceiling (micro-USD) handed to the widget as a safety rail:
   // $0.01, so a $0.001 call always clears but a misconfigured price can't drain.
   var MAX_PER_CALL_MICRO_USD = 10000;
 
   var $ = function (id) { return document.getElementById(id); };
+  var inFlight = false;
+
+  // ── global resilience net ────────────────────────────────────────────────
+  function showBanner(msg) {
+    var b = $('errBanner'); if (!b) return;
+    $('errBannerText').textContent = msg || 'Something went wrong. Reload the page if it persists.';
+    b.classList.add('show');
+  }
+  window.addEventListener('error', function (e) {
+    // Ignore benign ResizeObserver noise; surface anything real, non-fatally.
+    if (e && e.message && /ResizeObserver/.test(e.message)) return;
+    showBanner('A script error occurred. The demo may be degraded — reload to recover.');
+  });
+  window.addEventListener('unhandledrejection', function () {
+    showBanner('A background request failed. Check your connection and try again.');
+  });
+  $('errBannerClose').addEventListener('click', function () { $('errBanner').classList.remove('show'); });
 
   function escapeHtml(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -343,15 +404,17 @@ a:hover{text-decoration:underline}
   }
   function shortAddr(a) {
     if (!a) return '—';
+    a = String(a);
     return a.length > 16 ? a.slice(0, 6) + '…' + a.slice(-4) : a;
   }
   function fmtUsd(atomics, decimals) {
     var n = Number(atomics) / Math.pow(10, decimals == null ? 6 : decimals);
+    if (!isFinite(n)) return '$—';
     if (n < 0.01) return '$' + n.toFixed(6).replace(/0+$/, '').replace(/\.$/, '');
     return '$' + n.toFixed(2);
   }
   function networkLabel(net) {
-    if (!net) return net;
+    if (!net) return '—';
     if (net.indexOf('solana') === 0) return 'Solana';
     if (net === 'eip155:8453') return 'Base';
     if (net.indexOf('eip155:') === 0) return 'EVM ' + net.split(':')[1];
@@ -364,48 +427,42 @@ a:hover{text-decoration:underline}
     return null;
   }
 
-  // ── 1. Read the live 402 challenge so visitors see the real, current terms ──
+  // ── 1. live 402 challenge preview ─────────────────────────────────────────
   function loadChallengePreview() {
     var ticker = sanitizeTicker($('ticker').value) || 'GRANITE';
+    var preview = document.querySelector('.preview');
+    if (preview) preview.setAttribute('aria-busy', 'true');
     fetch(ENDPOINT + '?ticker=' + encodeURIComponent(ticker), { method: 'GET' })
       .then(function (res) {
-        // Standard x402: 402 with the envelope in the body (and PAYMENT-REQUIRED header).
-        if (res.status !== 402 && res.status !== 401) {
-          throw new Error('Expected 402, got ' + res.status);
-        }
+        if (res.status !== 402 && res.status !== 401) throw new Error('expected 402, got ' + res.status);
         return res.json().catch(function () { return null; });
       })
       .then(function (body) {
         var accepts = (body && body.accepts) || [];
-        if (!accepts.length) throw new Error('No payment terms in challenge');
+        if (!accepts.length) throw new Error('no payment terms in challenge');
         renderChallengePreview(accepts);
       })
       .catch(function (err) {
         var label = $('pvLabel'); label.className = 'preview-label err';
-        $('pvLabelText').textContent = 'Could not reach the endpoint (' + err.message + '). The demo still works once it is back.';
-        $('pvRows').innerHTML = '';
-      });
+        $('pvLabelText').textContent = 'Could not reach the endpoint (' + err.message + ').';
+        $('pvRows').innerHTML = '<button class="pv-retry" type="button" id="pvRetry">Retry</button>';
+        var r = $('pvRetry'); if (r) r.addEventListener('click', loadChallengePreview);
+      })
+      .then(function () { if (preview) preview.setAttribute('aria-busy', 'false'); });
   }
 
   function renderChallengePreview(accepts) {
-    // Dedupe to one entry per network (the server advertises a Permit2 sibling
-    // on Base that the browser modal doesn't use — collapse it for clarity).
     var byNet = {};
-    accepts.forEach(function (a) {
-      var key = a.network;
-      if (!byNet[key] || (a.extra && a.extra.assetTransferMethod === 'permit2' && byNet[key].extra && byNet[key].extra.assetTransferMethod === 'permit2')) {
-        if (!byNet[key]) byNet[key] = a;
-      }
-    });
+    accepts.forEach(function (a) { if (a && a.network && !byNet[a.network]) byNet[a.network] = a; });
     var nets = Object.keys(byNet).map(function (k) { return byNet[k]; });
     var first = nets[0];
     var decimals = (first.extra && first.extra.decimals) || 6;
 
     $('priceAmt').innerHTML = first.amount === '1000'
       ? '$<strong>0.001</strong>'
-      : fmtUsd(first.amount, decimals).replace(/^\$/, '$<strong>') + '</strong>';
+      : escapeHtml(fmtUsd(first.amount, decimals)).replace(/^\$/, '$<strong>') + '</strong>';
 
-    var label = $('pvLabel'); label.className = 'preview-label ok';
+    var label = $('pvLabel'); label.className = 'preview-label ok fresh';
     $('pvLabelText').innerHTML = '<span class="mono">HTTP 402 Payment Required</span> — the server is quoting these terms right now';
 
     var rows = '';
@@ -419,46 +476,38 @@ a:hover{text-decoration:underline}
     $('pvRows').innerHTML = rows;
   }
 
-  // ── 2. Result rendering states ───────────────────────────────────────────
+  // ── 2. result states ──────────────────────────────────────────────────────
   function setResultEmpty() {
-    var el = $('result');
-    el.className = 'result is-empty';
+    var el = $('result'); el.className = 'result is-empty';
     el.innerHTML = 'Run the call to see live, on-chain-paid data appear here.';
   }
   function setResultLoading(msg) {
-    var el = $('result');
-    el.className = 'result is-loading';
-    el.innerHTML = '<div class="r-status"><span class="spin"></span><span>' + escapeHtml(msg || 'Waiting for your wallet…') + '</span></div>';
+    var el = $('result'); el.className = 'result is-loading';
+    el.innerHTML = '<div class="r-status"><span class="spin" aria-hidden="true"></span><span>' + escapeHtml(msg || 'Waiting for your wallet…') + '</span></div>';
   }
   function setResultError(msg) {
-    var el = $('result');
-    el.className = 'result is-error';
-    el.innerHTML =
-      '<div class="r-status err">✕ <span>' + escapeHtml(msg || 'Something went wrong.') + '</span></div>' +
-      '<button class="retry" id="retryBtn">Try again</button>';
+    var el = $('result'); el.className = 'result is-error';
+    el.innerHTML = '<div class="r-status err">✕ <span>' + escapeHtml(msg || 'Something went wrong.') + '</span></div><button class="retry" type="button" id="retryBtn">Try again</button>';
     var rb = $('retryBtn'); if (rb) rb.addEventListener('click', runPayment);
   }
-
   function recoPill(result) {
     if (result.exact_collision) return '<span class="pill bad">taken</span>';
     var sim = result.similar && result.similar[0];
-    if (sim && sim.similarity >= 0.8) return '<span class="pill warn">close match</span>';
+    if (sim && Number(sim.similarity) >= 0.8) return '<span class="pill warn">close match</span>';
     return '<span class="pill ok">available</span>';
   }
-
   function setResultDone(out) {
     var result = out.result || {};
     var payment = out.payment || {};
-    var el = $('result');
-    el.className = 'result is-done';
+    var el = $('result'); el.className = 'result is-done';
 
     var html = '';
-    html += '<div class="r-status" style="color:var(--ibm-green)">✓ <span>Payment settled — response delivered</span></div>';
-    html += '<div class="r-headline" style="margin-top:12px">Ticker <strong>$' + escapeHtml(result.ticker || '') + '</strong></div>';
-    html += '<div class="r-reco">' + recoPill(result) + '<span>' + escapeHtml(result.recommendation || '') + '</span></div>';
+    html += '<div class="r-status ok"><span class="r-check" aria-hidden="true">✓</span><span>Payment settled — response delivered</span></div>';
+    if (result.ticker) html += '<div class="r-headline">Ticker <strong>$' + escapeHtml(result.ticker) + '</strong></div>';
+    if (result.recommendation) html += '<div class="r-reco">' + recoPill(result) + '<span>' + escapeHtml(result.recommendation) + '</span></div>';
 
-    var exact = result.exact_matches || [];
-    var similar = result.similar || [];
+    var exact = Array.isArray(result.exact_matches) ? result.exact_matches : [];
+    var similar = Array.isArray(result.similar) ? result.similar : [];
     if (exact.length || similar.length) {
       html += '<div class="matches">';
       if (exact.length) {
@@ -476,33 +525,43 @@ a:hover{text-decoration:underline}
       html += '</div>';
     }
 
-    // on-chain receipt
     var explorer = explorerUrl(payment.network, payment.transaction);
     html += '<div class="receipt">';
-    html += '<div><div class="rk">Network</div><div class="rv">' + escapeHtml(networkLabel(payment.network) || '—') + '</div></div>';
+    html += '<div><div class="rk">Network</div><div class="rv">' + escapeHtml(networkLabel(payment.network)) + '</div></div>';
     html += '<div><div class="rk">Payer</div><div class="rv">' + escapeHtml(shortAddr(payment.payer)) + '</div></div>';
     html += '<div><div class="rk">Transaction</div><div class="rv">' +
       (payment.transaction
         ? (explorer ? '<a href="' + explorer + '" target="_blank" rel="noopener">' + escapeHtml(shortAddr(payment.transaction)) + ' ↗</a>' : escapeHtml(shortAddr(payment.transaction)))
-        : '—') +
-      '</div></div>';
+        : '—') + '</div></div>';
     html += '</div>';
 
-    // raw payload for the curious
     html += '<details class="raw"><summary>View raw response &amp; settlement</summary><pre>' +
-      escapeHtml(JSON.stringify({ response: result, payment: payment }, null, 2)).slice(0, 6000) +
-      '</pre></details>';
+      escapeHtml(JSON.stringify({ response: result, payment: payment }, null, 2)).slice(0, 6000) + '</pre></details>';
 
     el.innerHTML = html;
   }
 
-  // ── 3. Drive the payment via the drop-in widget ──────────────────────────
+  // ── 3. payment ────────────────────────────────────────────────────────────
+  function setBusy(b) {
+    inFlight = b;
+    var btn = $('payBtn');
+    btn.disabled = b || !navigator.onLine;
+    btn.classList.toggle('loading', b);
+    btn.querySelector('.label').textContent = b ? 'Working…' : 'Pay $0.001 & run';
+  }
+  function setTickerError(msg) {
+    var f = $('ticker'); var h = $('tickerHint');
+    if (msg) { f.setAttribute('aria-invalid', 'true'); h.className = 'field-hint err'; h.textContent = msg; }
+    else { f.removeAttribute('aria-invalid'); h.className = 'field-hint'; h.textContent = 'A–Z and 0–9, up to 32 characters.'; }
+  }
+
   function runPayment() {
+    if (inFlight) return; // double-click guard
+    if (!navigator.onLine) { setResultError('You appear to be offline. Reconnect and try again.'); return; }
+
     var ticker = sanitizeTicker($('ticker').value);
-    if (!ticker) {
-      setResultError('Enter a ticker (A–Z, 0–9) to check.');
-      return;
-    }
+    if (!ticker) { setTickerError('Enter a ticker (A–Z, 0–9) to check.'); $('ticker').focus(); return; }
+    setTickerError(null);
     $('ticker').value = ticker;
 
     if (!window.X402 || typeof window.X402.pay !== 'function') {
@@ -510,11 +569,12 @@ a:hover{text-decoration:underline}
       return;
     }
 
+    var trigger = document.activeElement; // restore focus here when the modal closes
+    setBusy(true);
     setResultLoading('Opening wallet… approve the $0.001 USDC payment to continue.');
-    var endpoint = ENDPOINT + '?ticker=' + encodeURIComponent(ticker);
 
     window.X402.pay({
-      endpoint: endpoint,
+      endpoint: ENDPOINT + '?ticker=' + encodeURIComponent(ticker),
       method: 'GET',
       merchant: 'three.ws',
       action: 'Check $' + ticker + ' availability',
@@ -524,16 +584,36 @@ a:hover{text-decoration:underline}
       else setResultError('The call did not complete. Please try again.');
     }).catch(function (err) {
       if (err && err.code === 'cancelled') { setResultEmpty(); return; }
-      setResultError((err && err.message) || 'Payment failed.');
+      setResultError((err && err.message) || 'Payment failed. Please try again.');
+    }).then(function () {
+      setBusy(false);
+      var t = (trigger && trigger.focus) ? trigger : $('payBtn');
+      try { t.focus(); } catch (_) {}
     });
   }
 
-  // ── wiring ───────────────────────────────────────────────────────────────
+  // ── offline awareness ──────────────────────────────────────────────────────
+  function syncOnline() {
+    var hint = $('walletHint'); var btn = $('payBtn');
+    if (!navigator.onLine) {
+      hint.classList.add('offline');
+      hint.innerHTML = 'You are offline. Reconnect to read the live price and pay.';
+      btn.disabled = true;
+    } else {
+      hint.classList.remove('offline');
+      hint.innerHTML = 'On a phone? Open this page inside your <b>MetaMask</b> or <b>Phantom</b> in-app browser to pay.';
+      if (!inFlight) btn.disabled = false;
+    }
+  }
+  window.addEventListener('online', function () { syncOnline(); loadChallengePreview(); });
+  window.addEventListener('offline', syncOnline);
+
+  // ── wiring ──────────────────────────────────────────────────────────────────
   $('payBtn').addEventListener('click', runPayment);
-  $('ticker').addEventListener('keydown', function (e) { if (e.key === 'Enter') runPayment(); });
-  // Refresh the live 402 preview when the ticker changes (debounced).
+  $('ticker').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); runPayment(); } });
   var pvTimer;
   $('ticker').addEventListener('input', function () {
+    setTickerError(null);
     clearTimeout(pvTimer);
     pvTimer = setTimeout(loadChallengePreview, 400);
   });
@@ -547,16 +627,15 @@ a:hover{text-decoration:underline}
       '  data-x402-action="Check symbol">\n' +
       '  Pay $0.001 & run\n' +
       '</button>';
-    navigator.clipboard.writeText(snippet).then(function () {
-      var b = $('copyBtn'); var t = b.textContent;
-      b.textContent = 'Copied ✓';
-      setTimeout(function () { b.textContent = t; }, 1600);
-    }).catch(function () {
-      var b = $('copyBtn'); b.textContent = 'Copy failed';
-      setTimeout(function () { b.textContent = 'Copy snippet'; }, 1600);
-    });
+    var done = function (label) { var b = $('copyBtn'); b.textContent = label; setTimeout(function () { b.textContent = 'Copy snippet'; }, 1600); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(snippet).then(function () { done('Copied ✓'); }, function () { done('Copy failed — select manually'); });
+    } else {
+      done('Select the code above to copy');
+    }
   });
 
+  syncOnline();
   loadChallengePreview();
 })();
 </script>
