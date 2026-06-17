@@ -3,6 +3,25 @@
 	"entries": [
 		{
 			"date": "2026-06-17",
+			"title": "Text → 3D in chat, now with live progress and a real viewer",
+			"summary": "Ask the chat to make any 3D object — \"a brass steampunk owl, full body\" — and watch it build right in the conversation. The concept image appears first, a staged progress readout (reconstructing geometry → texturing → finalizing) replaces the old blank spinner, and the finished model drops into an interactive viewer with studio lighting, a soft contact shadow, and smooth auto-orbit. Download the GLB with one click, go fullscreen, recenter, or hit Rig & Animate to turn the mesh into a posed, moving character. Every failure now has a designed state with a Try again and an Open in Forge path, so a slow or busy run never dead-ends. Free, no key required.",
+			"tags": [
+				"feature",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-17",
+			"title": "Pay-per-model: forge a 3D model with x402 on the IBM demo",
+			"summary": "The IBM × three.ws demo page now lets you turn a sentence into a real 3D model by paying with x402 — right on the page. Type a prompt, pick a quality tier (draft $0.05, standard $0.15, high $0.50), and approve a single USDC micropayment from MetaMask or Phantom; three.ws runs the real text-to-3D pipeline and the finished GLB appears inline for you to orbit and download. The price is read live from the server's own HTTP 402 challenge, and the on-chain settlement receipt is shown after it lands. No account, no API key.",
+			"tags": [
+				"feature",
+				"improvement"
+			],
+			"link": "/ibm/x402-demo"
+		},
+		{
+			"date": "2026-06-17",
 			"title": "Free text-to-3D over MCP — no payment, no key",
 			"summary": "The three.ws MCP server now ships a free tool: forge_free turns a text prompt into a textured, downloadable 3D model with zero cost — no x402 payment, no wallet, no API key. It runs on the same free NVIDIA NIM (Microsoft TRELLIS) engine the /forge web page uses for drafts, and hands back a durable GLB plus a viewer link that renders the model in the browser. Drop your Claude/Cursor agent on it, type a prompt, get a 3D avatar. The paid tools (mesh_forge, text_to_avatar, rig_mesh) remain for image input, the Granite-directed model chain, and auto-rigging.",
 			"tags": [

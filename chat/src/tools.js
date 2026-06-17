@@ -1247,23 +1247,20 @@ try {
 let savedUrl = '', saveNote = '';
 if (wantSave) {
   try {
-    const resp = await fetch(glb);
-    if (!resp.ok) throw new Error('download ' + resp.status);
-    const buf = await resp.arrayBuffer();
-    const bytes = buf.byteLength;
-    const pres = await fetch('/api/avatar/presign-glb', { method: 'POST', headers: {'content-type':'application/json'}, credentials: 'include', body: JSON.stringify({ content_type: 'model/gltf-binary', bytes, filename: 'avatar.glb' }) });
-    if (pres.status === 401) { saveNote = 'Sign in to save this to your avatar library.'; }
-    else if (!pres.ok) { saveNote = 'Could not prepare storage (' + pres.status + ').'; }
-    else {
-      const presign = await pres.json();
-      const put = await fetch(presign.upload_url, { method: 'PUT', headers: {'content-type':'model/gltf-binary'}, body: buf });
-      if (!put.ok) { saveNote = 'Upload to storage failed (' + put.status + ').'; }
-      else {
-        const cr = await fetch('/api/avatars', { method: 'POST', headers: {'content-type':'application/json'}, credentials: 'include', body: JSON.stringify({ name: avatarName, storage_key: presign.storage_key, size_bytes: bytes, content_type: 'model/gltf-binary', visibility: 'unlisted', source: 'studio', source_meta: { source_prompt: prompt, rigged } }) });
-        if (cr.status === 401) { saveNote = 'Sign in to save this to your avatar library.'; }
-        else if (!cr.ok) { saveNote = 'Could not save to library (' + cr.status + ').'; }
-        else { const a = await cr.json(); const id = a && a.avatar && a.avatar.id; if (id) savedUrl = '/discover/avatar/' + id; else saveNote = 'Saved, but no id returned.'; }
-      }
+    // Server-side save: the API fetches the GLB itself, so there is no
+    // cross-origin read, no browser upload cap, and the avatar is provisioned
+    // with an agent + wallet exactly like a normal upload.
+    const sv = await fetch('/api/avatars/from-forge', { method: 'POST', headers: {'content-type':'application/json'}, credentials: 'include', body: JSON.stringify({ glb_url: glb, name: avatarName, source_prompt: prompt, rigged }) });
+    if (sv.status === 401) { saveNote = 'Sign in to save this to your avatar library.'; }
+    else if (!sv.ok) {
+      let m = '';
+      try { m = (await sv.json()).message || ''; } catch (_) {}
+      saveNote = 'Could not save to library' + (m ? (': ' + m) : (' (' + sv.status + ')')) + '.';
+    } else {
+      const a = await sv.json();
+      const id = a && a.avatar && a.avatar.id;
+      if (id) savedUrl = a.view_url || ('/discover/avatar/' + id);
+      else saveNote = 'Saved, but no id was returned.';
     }
   } catch (e) { saveNote = 'Save skipped: ' + (e && e.message ? e.message : String(e)); }
 }
@@ -1317,7 +1314,8 @@ else { tip.remove(); }
 function tick(){ ctl.update(); renderer.render(scene, cam); requestAnimationFrame(tick); }
 tick();
 </script></body></html>\`;
-return { contentType: 'text/html', content: html };`,
+const summary = 'Avatar "' + avatarName + '" generated' + (rigged ? ' and auto-rigged' : ' (static mesh)') + '. ' + (savedUrl ? ('Saved to the avatar library: ' + savedUrl) : (saveNote || 'Not saved.'));
+return { contentType: 'text/html', content: html, summary };`,
 				},
 				type: 'function',
 				function: {

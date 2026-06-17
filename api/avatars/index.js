@@ -11,7 +11,6 @@ import { provisionAvatarAgent } from '../_lib/avatar-agent.js';
 import { cors, json, method, readJson, wrap, error } from '../_lib/http.js';
 import { parse, createAvatarBody } from '../_lib/validate.js';
 import { recordEvent } from '../_lib/usage.js';
-import { defaultStorageMode } from '../_lib/storage-mode.js';
 import { dispatchWebhooks } from '../_lib/webhook-dispatch.js';
 import { z } from 'zod';
 

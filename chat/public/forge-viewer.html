@@ -724,9 +724,11 @@
 			}
 
 			async function fetchGlb(url) {
-				// Same-origin/CORS-friendly fetch so we can show real load errors and
-				// reuse the blob for a reliable download. Falls back to direct URL.
-				const res = await fetch(url, { credentials: 'include' });
+				// Durable GLB URLs are public CDN assets that commonly answer with a
+				// wildcard CORS header — an anonymous fetch (no credentials) is the only
+				// one such a server accepts, and it lets us reuse the blob for a reliable
+				// named download. Falls back to a direct loader fetch on failure.
+				const res = await fetch(url, { mode: 'cors', credentials: 'omit' });
 				if (!res.ok) throw new Error('Model fetch failed (' + res.status + ')');
 				const blob = await res.blob();
 				return URL.createObjectURL(blob);
