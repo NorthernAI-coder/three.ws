@@ -457,6 +457,14 @@
 			"dest": "/api/agents/[id]/skill-access?id=$1"
 		},
 		{
+			"src": "/api/agents/([^/]+)/tiers/([^/]+)",
+			"dest": "/api/agents/[id]/tiers?id=$1&tier_id=$2"
+		},
+		{
+			"src": "/api/agents/([^/]+)/tiers",
+			"dest": "/api/agents/[id]/tiers?id=$1"
+		},
+		{
 			"src": "/api/billing/receipts",
 			"dest": "/api/billing/receipts"
 		},
@@ -2558,6 +2566,10 @@
 		{
 			"src": "/widgets/(.*)",
 			"dest": "/widgets-gallery/$1"
+		},
+		{
+			"src": "/animations/?",
+			"dest": "/animations.html"
 		},
 		{
 			"src": "/gallery",

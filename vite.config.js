@@ -393,6 +393,7 @@ const appConfig = {
 				'play-arena': resolve(__dirname, 'pages/play/arena.html'),
 				'smart-money': resolve(__dirname, 'pages/smart-money.html'),
 				pose: resolve(__dirname, 'pages/pose.html'),
+				animations: resolve(__dirname, 'pages/animations.html'),
 				club: resolve(__dirname, 'pages/club.html'),
 				skills: resolve(__dirname, 'pages/skills.html'),
 				'agenc-embodied': resolve(__dirname, 'pages/agenc/embodied.html'),
