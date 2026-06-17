@@ -44,7 +44,7 @@
 			<guid isPermaLink="false">2026-06-17:Connect your Solana wallet right from the app header</guid>
 			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
-			<description>The main app now has a Connect Wallet button in the top bar — the first step toward buying an agent's paid skills. Click it and your Solana wallet (Phantom, or the built-in wallet on Solana Mobile / Seeker) prompts you to connect; once you do, the button shows your address shortened to something like '7xKq…9fРa' with a green tick so you can see at a glance that you're connected. If you've connected before, it reconnects silently on load, and if you don't have a wallet yet it points you to Phantom. No wallet, no signature, and nothing on-chain happens just from connecting — it only lets the platform know which wallet to use when you choose to pay.</description>
+			<description>The main app now has a Connect Wallet button in the top bar — the first step toward buying an agent's paid skills. Click it and your Solana wallet (Phantom, or the built-in wallet on Solana Mobile / Seeker) prompts you to connect; once you do, the button shows your address shortened to something like '7xKq…9fPa' with a green tick so you can see at a glance that you're connected. If you've connected before, it reconnects silently on load, and if you don't have a wallet yet it points you to Phantom. No wallet, no signature, and nothing on-chain happens just from connecting — it only lets the platform know which wallet to use when you choose to pay.</description>
 		</item>
 		<item>
 			<title>Connect your Solana wallet right from the marketplace</title>
