@@ -6,13 +6,41 @@
  * GET    /api/irl/pins?mine=1                      my pins (auth required)
  * POST   /api/irl/pins  { lat, lng, heading, avatarUrl, avatarName, caption, agentId }
  * PATCH  /api/irl/pins  { id, caption, avatarUrl, avatarName, lat, lng }  edit pin (auth required)
+ * PATCH  /api/irl/pins  { id, deviceToken, calibrate:{ lat, lng, anchorYawDeg, anchorHeightM } }
+ *                                                  owner-gated, bounds-checked pose nudge (A3)
  * DELETE /api/irl/pins?id=                         remove own pin (device_token or auth)
  * POST   /api/irl/pins/interact { pinId, event, deviceToken }  log a tap/view
  */
 
-import { cors, json, wrap } from '../_lib/http.js';
+import { cors, json, wrap, rateLimited } from '../_lib/http.js';
 import { sql } from '../_lib/db.js';
 import { getSessionUser } from '../_lib/auth.js';
+import { limits, clientIp } from '../_lib/rate-limit.js';
+
+// Validate a URL that will be handed to every nearby viewer's browser — the
+// avatar GLB (→ GLTFLoader) and the x402 pay endpoint (→ Pay button). Same-origin
+// relative paths (avatars live under /api/avatars/…) are always allowed; absolute
+// URLs must be https and must not point at localhost / private / loopback hosts,
+// so a placement can't aim other users' devices at an internal or attacker host.
+// Returns { ok: true, value } or { ok: false }. `value` is the normalized string.
+function safeRemoteUrl(raw, { allowRelative = true } = {}) {
+	if (raw == null || raw === '') return { ok: true, value: null };
+	const v = String(raw).trim();
+	if (!v) return { ok: true, value: null };
+	if (allowRelative && v.startsWith('/') && !v.startsWith('//')) return { ok: true, value: v };
+	let u;
+	try { u = new URL(v); } catch { return { ok: false }; }
+	if (u.protocol !== 'https:') return { ok: false };
+	if (u.username || u.password) return { ok: false };
+	const host = u.hostname.toLowerCase();
+	if (
+		host === 'localhost' || host.endsWith('.local') || host.endsWith('.internal') ||
+		host === '0.0.0.0' || host === '::1' ||
+		/^127\./.test(host) || /^10\./.test(host) || /^192\.168\./.test(host) ||
+		/^169\.254\./.test(host) || /^172\.(1[6-9]|2\d|3[01])\./.test(host)
+	) return { ok: false };
+	return { ok: true, value: u.toString() };
+}
 
 // Haversine distance in meters between two GPS points
 function haversineDist(lat1, lng1, lat2, lng2) {
@@ -50,7 +78,103 @@ async function ensureTable() {
 	await sql`CREATE INDEX IF NOT EXISTS irl_pins_expires ON irl_pins (expires_at)`;
 	// view_count — deduplicated visitor count; incremented by /api/irl/interactions
 	await sql`ALTER TABLE irl_pins ADD COLUMN IF NOT EXISTS view_count BIGINT NOT NULL DEFAULT 0`;
+	// Anchor pose — added 2026-06 for IRL-Live world anchoring (A2). Persisting the
+	// full pose (floor height, orientation, GPS-fix trust) is the prerequisite for
+	// WebXR anchors (A1), shared-spot reconciliation (A3), and gyro-lock replay (A4).
+	await sql`ALTER TABLE irl_pins ADD COLUMN IF NOT EXISTS anchor_height_m DOUBLE PRECISION`;
+	await sql`ALTER TABLE irl_pins ADD COLUMN IF NOT EXISTS anchor_yaw_deg  DOUBLE PRECISION`;
+	await sql`ALTER TABLE irl_pins ADD COLUMN IF NOT EXISTS anchor_quat     JSONB`;            // [x,y,z,w], optional richer orientation
+	await sql`ALTER TABLE irl_pins ADD COLUMN IF NOT EXISTS gps_accuracy_m  DOUBLE PRECISION`;
+	await sql`ALTER TABLE irl_pins ADD COLUMN IF NOT EXISTS altitude_m      DOUBLE PRECISION`;
+	await sql`ALTER TABLE irl_pins ADD COLUMN IF NOT EXISTS anchor_source   TEXT`;             // 'webxr' | 'gyro-gps'
+	await sql`ALTER TABLE irl_pins ADD COLUMN IF NOT EXISTS vps_provider    TEXT`;             // reserved for visual positioning
+	await sql`ALTER TABLE irl_pins ADD COLUMN IF NOT EXISTS vps_id          TEXT`;             // reserved
 	_tableReady = true;
+}
+
+// ── Calibration bounds (A3) ─────────────────────────────────────────────────
+// A nudge is a fine-tune, never a teleport. The client clamps to ±3 m / ±45°;
+// the server re-validates with a small margin so a corrected pose can never be
+// abused to move someone's agent across the map. Diagonal of a 3 m N + 3 m E
+// drag is ~4.24 m, so 5 m is the tightest ceiling that never rejects a legit nudge.
+const CAL_MAX_MOVE_M  = 5;    // ground-move ceiling, metres
+const CAL_MAX_YAW_DEG = 46;   // yaw-nudge ceiling, degrees
+const CAL_MAX_RISE_M  = 3;    // floor-height nudge ceiling, metres
+
+// Smallest signed distance between two compass bearings, 0–180°.
+function circularYawDelta(a, b) {
+	let d = ((a - b) % 360 + 360) % 360;
+	if (d > 180) d -= 360;
+	return Math.abs(d);
+}
+
+// Owner-gated, bounds-checked pose correction. Mutates the A2 pose columns so the
+// re-fetch every nearby viewer already runs picks up the corrected spot. (Pushing
+// the correction to already-loaded viewers in realtime rides on D1; a re-fetch
+// suffices here.) Calibration touches no coin and no third-party token.
+async function handleCalibrate(res, { id, session, body }) {
+	const cal = (body.calibrate && typeof body.calibrate === 'object') ? body.calibrate : {};
+
+	const [pin] = await sql`
+		SELECT id, user_id, device_token, lat, lng, heading, anchor_yaw_deg, anchor_height_m
+		FROM irl_pins
+		WHERE id = ${id}
+	`;
+	if (!pin) return json(res, 404, { error: 'not found' });
+
+	// Ownership: the authenticated owner (user_id) or the anonymous device that
+	// placed it (device_token). Anything else is denied — never silently allowed.
+	const owns =
+		(!!session?.id && !!pin.user_id && pin.user_id === session.id) ||
+		(!!pin.device_token && !!body.deviceToken && pin.device_token === body.deviceToken);
+	if (!owns) return json(res, 403, { error: 'only the owner can calibrate this agent' });
+
+	// New ground position — required, validated, range-checked.
+	const newLat = parseFloat(cal.lat);
+	const newLng = parseFloat(cal.lng);
+	if (!isFinite(newLat) || newLat < -90 || newLat > 90 ||
+		!isFinite(newLng) || newLng < -180 || newLng > 180) {
+		return json(res, 400, { error: 'invalid calibrate coordinates' });
+	}
+	const moved = haversineDist(pin.lat, pin.lng, newLat, newLng);
+	if (moved > CAL_MAX_MOVE_M) {
+		return json(res, 422, { error: 'calibration move too large', max_m: CAL_MAX_MOVE_M });
+	}
+
+	// New yaw — optional; bounded against the stored bearing.
+	let newYaw = null;
+	if (Number.isFinite(cal.anchorYawDeg)) {
+		newYaw = ((cal.anchorYawDeg % 360) + 360) % 360;
+		const storedYaw = Number.isFinite(pin.anchor_yaw_deg) ? pin.anchor_yaw_deg : (pin.heading ?? 0);
+		if (circularYawDelta(newYaw, storedYaw) > CAL_MAX_YAW_DEG) {
+			return json(res, 422, { error: 'calibration rotation too large', max_deg: CAL_MAX_YAW_DEG });
+		}
+	}
+
+	// New floor height — optional; bounded against the stored height.
+	let newHeight = null;
+	if (Number.isFinite(cal.anchorHeightM)) {
+		newHeight = cal.anchorHeightM;
+		const baseH = Number.isFinite(pin.anchor_height_m) ? pin.anchor_height_m : 0;
+		if (Math.abs(newHeight - baseH) > CAL_MAX_RISE_M || Math.abs(newHeight) > 50) {
+			return json(res, 422, { error: 'calibration height too large', max_m: CAL_MAX_RISE_M });
+		}
+	}
+
+	// Persist. heading stays in sync with anchor_yaw_deg so legacy clients (which
+	// only read `heading`) still render the corrected bearing.
+	const headingToStore = newYaw != null ? Math.round(newYaw) : null;
+	const [row] = await sql`
+		UPDATE irl_pins SET
+			lat             = ${newLat},
+			lng             = ${newLng},
+			anchor_yaw_deg  = COALESCE(${newYaw}, anchor_yaw_deg),
+			heading         = COALESCE(${headingToStore}, heading),
+			anchor_height_m = COALESCE(${newHeight}, anchor_height_m)
+		WHERE id = ${id}
+		RETURNING id, lat, lng, heading, anchor_yaw_deg, anchor_height_m, gps_accuracy_m
+	`;
+	return json(res, 200, { pin: row, calibrated: true });
 }
 
 export default wrap(async (req, res) => {
@@ -85,7 +209,9 @@ export default wrap(async (req, res) => {
 		if (!session) return json(res, 401, { error: 'not authenticated' });
 		const rows = await sql`
 			SELECT id, lat, lng, heading, avatar_url, avatar_name, caption, agent_id,
-			       placed_at, expires_at, view_count
+			       placed_at, expires_at, view_count,
+			       anchor_height_m, anchor_yaw_deg, anchor_quat,
+			       gps_accuracy_m, altitude_m, anchor_source
 			FROM irl_pins
 			WHERE user_id = ${session.id}
 			ORDER BY placed_at DESC
@@ -108,9 +234,17 @@ export default wrap(async (req, res) => {
 		const latDelta = radius / 110540;
 		const lngDelta = radius / (111320 * Math.cos(lat * Math.PI / 180));
 
+		// Resolve the caller so we can tell them which nearby pins are THEIRS without
+		// ever exposing other people's owner identifiers.
+		const session = await getSessionUser(req).catch(() => null);
+		const myId    = session?.id ?? null;
+		const myTok   = req.query.deviceToken || null;
+
 		const rows = await sql`
-			SELECT id, user_id, agent_id, lat, lng, heading,
-			       avatar_url, avatar_name, caption, x402_endpoint, placed_at, view_count
+			SELECT id, user_id, device_token, agent_id, lat, lng, heading,
+			       avatar_url, avatar_name, caption, x402_endpoint, placed_at, view_count,
+			       anchor_height_m, anchor_yaw_deg, anchor_quat,
+			       gps_accuracy_m, altitude_m, anchor_source
 			FROM irl_pins
 			WHERE lat BETWEEN ${lat - latDelta} AND ${lat + latDelta}
 			  AND lng BETWEEN ${lng - lngDelta} AND ${lng + lngDelta}
@@ -119,9 +253,29 @@ export default wrap(async (req, res) => {
 			LIMIT 50
 		`;
 
+		// Explicit allow-list projection: NEVER return user_id or device_token in the
+		// public feed (a stable owner UUID + precise coords is a deanonymization /
+		// location-tracking vector). Surface only an is_mine boolean computed here.
 		const pins = rows
 			.map(r => ({
-				...r,
+				id:             r.id,
+				agent_id:       r.agent_id,
+				lat:            r.lat,
+				lng:            r.lng,
+				heading:        r.heading,
+				avatar_url:     r.avatar_url,
+				avatar_name:    r.avatar_name,
+				caption:        r.caption,
+				x402_endpoint:  r.x402_endpoint,
+				placed_at:      r.placed_at,
+				view_count:     r.view_count,
+				anchor_height_m: r.anchor_height_m,
+				anchor_yaw_deg:  r.anchor_yaw_deg,
+				anchor_quat:     r.anchor_quat,
+				gps_accuracy_m:  r.gps_accuracy_m,
+				altitude_m:      r.altitude_m,
+				anchor_source:   r.anchor_source,
+				is_mine: (!!myId && r.user_id === myId) || (!!myTok && r.device_token === myTok),
 				distance_m: Math.round(haversineDist(lat, lng, r.lat, r.lng)),
 			}))
 			.filter(r => r.distance_m <= radius)
@@ -132,6 +286,9 @@ export default wrap(async (req, res) => {
 
 	// ── POST — create pin ─────────────────────────────────────────────────────
 	if (req.method === 'POST') {
+		const rl = await limits.irlPinIp(clientIp(req));
+		if (!rl.success) return rateLimited(res, rl);
+
 		const body = req.body ?? {};
 		const lat  = parseFloat(body.lat);
 		const lng  = parseFloat(body.lng);
@@ -143,26 +300,63 @@ export default wrap(async (req, res) => {
 			return json(res, 400, { error: 'invalid coordinates' });
 		}
 
+		// Validate the URLs handed to every nearby viewer (avatar GLB + x402 pay).
+		const avatarUrlChk = safeRemoteUrl(body.avatarUrl);
+		if (!avatarUrlChk.ok) return json(res, 400, { error: 'invalid avatarUrl' });
+		const x402Chk = safeRemoteUrl(body.x402Endpoint, { allowRelative: false });
+		if (!x402Chk.ok) return json(res, 400, { error: 'invalid x402Endpoint' });
+		// Empty-string device token would otherwise become a shared anonymous owner.
+		const deviceToken = body.deviceToken || null;
+
 		const session   = await getSessionUser(req).catch(() => null);
 		const userId    = session?.id ?? null;
 		// Authenticated users get permanent pins; anonymous expire in 7 days.
 		const expiresAt = userId ? null : new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString();
 
+		// Anchor pose (A2) — optional, back-compat: old clients send no `anchor`,
+		// every pose column inserts NULL. New clients send a reproducible pose so
+		// later sessions / other users can reconstruct where the agent stands.
+		const pose          = (body.anchor && typeof body.anchor === 'object') ? body.anchor : {};
+		// Reject absurd floor height (> ±50 m above/below eye) to NULL, not noise.
+		const anchorHeightM = Number.isFinite(pose.heightM) && Math.abs(pose.heightM) <= 50
+			? pose.heightM : null;
+		const anchorYawDeg  = Number.isFinite(pose.yawDeg)
+			? ((pose.yawDeg % 360) + 360) % 360 : null;
+		const anchorQuat    = Array.isArray(pose.quat) && pose.quat.length === 4 &&
+			pose.quat.every(Number.isFinite)
+			? JSON.stringify(pose.quat) : null;
+		// Clamp GPS accuracy to a sane 0–500 m range (a worse fix is meaningless here).
+		const gpsAccuracyM  = Number.isFinite(pose.gpsAccuracyM)
+			? Math.min(500, Math.max(0, pose.gpsAccuracyM)) : null;
+		const altitudeM     = Number.isFinite(pose.altitudeM) ? pose.altitudeM : null;
+		// 'webxr' (A1) · 'gyro-gps' (absolute compass heading) · 'gyro-gps:rel'
+		// (page-relative heading only — A3 down-weights its cross-user bearing).
+		const anchorSource  = pose.source === 'webxr' ? 'webxr'
+			: pose.source === 'gyro-gps:rel' ? 'gyro-gps:rel' : 'gyro-gps';
+
 		const [pin] = await sql`
 			INSERT INTO irl_pins
 				(user_id, agent_id, device_token, lat, lng, heading,
-				 avatar_url, avatar_name, caption, x402_endpoint, expires_at)
+				 avatar_url, avatar_name, caption, x402_endpoint, expires_at,
+				 anchor_height_m, anchor_yaw_deg, anchor_quat,
+				 gps_accuracy_m, altitude_m, anchor_source)
 			VALUES (
 				${userId},
 				${body.agentId    ?? null},
-				${body.deviceToken ?? null},
+				${deviceToken},
 				${lat}, ${lng},
 				${parseFloat(body.heading) || 0},
-				${body.avatarUrl   ?? null},
+				${avatarUrlChk.value},
 				${body.avatarName  ?? null},
 				${body.caption     ?? null},
-				${body.x402Endpoint ?? null},
-				${expiresAt}
+				${x402Chk.value},
+				${expiresAt},
+				${anchorHeightM},
+				${anchorYawDeg},
+				${anchorQuat},
+				${gpsAccuracyM},
+				${altitudeM},
+				${anchorSource}
 			)
 			RETURNING *
 		`;
@@ -175,11 +369,24 @@ export default wrap(async (req, res) => {
 	// Anonymous device-token owners can only update caption (no location/avatar changes
 	// from anonymous sessions for safety).
 	if (req.method === 'PATCH') {
+		const rl = await limits.irlPinIp(clientIp(req));
+		if (!rl.success) return rateLimited(res, rl);
+
 		const session = await getSessionUser(req).catch(() => null);
-		if (!session) return json(res, 401, { error: 'not authenticated' });
 		const body = req.body ?? {};
 		const { id } = body;
 		if (!id) return json(res, 400, { error: 'id required' });
+
+		// ── Calibrate — a small, owner-gated pose correction (A3) ─────────────
+		// Owner-gated for both authenticated owners and the anonymous device that
+		// placed the pin, so it routes BEFORE the auth gate below; ownership and
+		// nudge bounds are enforced inside handleCalibrate.
+		if (body.calibrate && typeof body.calibrate === 'object') {
+			return handleCalibrate(res, { id, session, body });
+		}
+
+		// Field edits (caption / avatar / location / heading / x402) require auth.
+		if (!session) return json(res, 401, { error: 'not authenticated' });
 
 		// Build update SET clause only for fields the caller provided
 		const updates = {};
@@ -207,15 +414,33 @@ export default wrap(async (req, res) => {
 			return json(res, 400, { error: 'invalid lng' });
 		}
 
+		// Validate URL fields if the caller is changing them (relative avatar URLs ok).
+		if ('avatarUrl' in updates) {
+			const c = safeRemoteUrl(updates.avatarUrl);
+			if (!c.ok) return json(res, 400, { error: 'invalid avatarUrl' });
+			updates.avatarUrl = c.value;
+		}
+		if ('x402Endpoint' in updates) {
+			const c = safeRemoteUrl(updates.x402Endpoint, { allowRelative: false });
+			if (!c.ok) return json(res, 400, { error: 'invalid x402Endpoint' });
+			updates.x402Endpoint = c.value;
+		}
+
+		// Present-flag each text field so an explicit clear (null) actually writes
+		// NULL. COALESCE treats null as "no change", silently dropping a clear and
+		// desyncing the dashboard (which optimistically cleared the field) from the
+		// row every nearby viewer fetches. lat/lng/heading keep COALESCE since 0 is a
+		// valid value there and they are never "cleared".
+		const has = (k) => k in updates;
 		const [row] = await sql`
 			UPDATE irl_pins SET
-				caption       = COALESCE(${updates.caption    ?? null}, caption),
-				avatar_url    = COALESCE(${updates.avatarUrl  ?? null}, avatar_url),
-				avatar_name   = COALESCE(${updates.avatarName ?? null}, avatar_name),
-				lat           = COALESCE(${updates.lat        ?? null}, lat),
-				lng           = COALESCE(${updates.lng        ?? null}, lng),
-				heading       = COALESCE(${updates.heading    ?? null}, heading),
-				x402_endpoint = COALESCE(${updates.x402Endpoint ?? null}, x402_endpoint)
+				caption       = CASE WHEN ${has('caption')}      THEN ${updates.caption      ?? null}::text ELSE caption       END,
+				avatar_url    = CASE WHEN ${has('avatarUrl')}    THEN ${updates.avatarUrl    ?? null}::text ELSE avatar_url    END,
+				avatar_name   = CASE WHEN ${has('avatarName')}   THEN ${updates.avatarName   ?? null}::text ELSE avatar_name   END,
+				x402_endpoint = CASE WHEN ${has('x402Endpoint')} THEN ${updates.x402Endpoint ?? null}::text ELSE x402_endpoint END,
+				lat           = COALESCE(${updates.lat     ?? null}, lat),
+				lng           = COALESCE(${updates.lng     ?? null}, lng),
+				heading       = COALESCE(${updates.heading ?? null}, heading)
 			WHERE id = ${id} AND user_id = ${session.id}
 			RETURNING id, caption, avatar_url, avatar_name, lat, lng, heading, x402_endpoint
 		`;
@@ -225,6 +450,9 @@ export default wrap(async (req, res) => {
 
 	// ── DELETE — remove own pin ───────────────────────────────────────────────
 	if (req.method === 'DELETE') {
+		const rl = await limits.irlPinIp(clientIp(req));
+		if (!rl.success) return rateLimited(res, rl);
+
 		const id          = req.query.id;
 		const deviceToken = req.query.deviceToken ?? req.body?.deviceToken;
 
@@ -233,14 +461,22 @@ export default wrap(async (req, res) => {
 		const session = await getSessionUser(req).catch(() => null);
 		const userId  = session?.id ?? null;
 
-		// Allow deletion by device_token (anonymous) or user_id (authenticated)
+		// Must prove ownership: an authenticated user_id OR the placing device_token.
+		// (A bare anonymous caller with neither must not be able to delete anything.)
+		if (!userId && !deviceToken) {
+			return json(res, 401, { error: 'authentication or device token required' });
+		}
+
+		// Match strictly by owner. Each branch is null-guarded so a NULL user_id or a
+		// NULL/empty device_token can NEVER match a row — closing the prior
+		// `device_token IS NULL AND $userId IS NULL` clause that let an anonymous
+		// caller delete every pin whose device_token happened to be NULL.
 		const result = await sql`
 			DELETE FROM irl_pins
 			WHERE id = ${id}
 			  AND (
-			    device_token = ${deviceToken ?? ''}
-			    OR user_id = ${userId}
-			    OR (device_token IS NULL AND ${userId} IS NULL)
+			    (${userId}::uuid IS NOT NULL AND user_id = ${userId}::uuid)
+			    OR (device_token IS NOT NULL AND device_token = ${deviceToken ?? ''})
 			  )
 			RETURNING id
 		`;

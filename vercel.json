@@ -172,6 +172,9 @@
 		"api/irl/interactions.js": {
 			"maxDuration": 15
 		},
+		"api/irl/agent-summary.js": {
+			"maxDuration": 15
+		},
 		"api/irl/agent-card.js": {
 			"maxDuration": 15
 		},
@@ -1952,6 +1955,10 @@
 		{
 			"src": "/api/irl/interactions",
 			"dest": "/api/irl/interactions.js"
+		},
+		{
+			"src": "/api/irl/agent-summary",
+			"dest": "/api/irl/agent-summary.js"
 		},
 		{
 			"src": "/api/irl/agent-card",

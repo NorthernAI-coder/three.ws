@@ -23,7 +23,40 @@
 //   DELETE /api/irl/pins?id=<id>                 → { ok: true }
 
 import { mountShell } from '../shell.js';
-import { requireUser, get, patch, esc, relTime } from '../api.js';
+import { requireUser, get, post, patch, esc, relTime } from '../api.js';
+import { skeletonHTML, emptyStateHTML, errorStateHTML, ensureStateKitStyles, attachRetry } from '../../shared/state-kit.js';
+
+// ── Services / x402 skill pricing ───────────────────────────────────────────
+// Canonical prices live in agent_skill_prices and feed the x402 manifest +
+// priceFor() (api/agents/x402/[action].js). The owner attaches a skill the
+// agent exposes and sets a per-call price; a passer-by then pays for it IRL.
+
+// Solana mint validity — matches api/agent-skill-price.js:14. Base-chain USDC is
+// a 0x EVM address that fails this, so IRL skill pricing is Solana-mint only.
+const BASE58_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+
+// The only currencies offered — the platform coin and Solana USDC. Both are
+// 6-decimal SPL mints, so the displayed price (e.g. 0.05) converts to atomic
+// units with 10**6. Never a third token.
+const CURRENCIES = [
+	{ key: 'three', label: '$THREE', mint: 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump', decimals: 6, chain: 'solana' },
+	{ key: 'usdc',  label: 'USDC',   mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', decimals: 6, chain: 'solana' },
+];
+function currencyForMint(mint) {
+	return CURRENCIES.find((c) => c.mint === mint)
+		|| { label: `${String(mint).slice(0, 4)}…${String(mint).slice(-4)}`, mint, decimals: 6, chain: 'solana' };
+}
+// Displayed decimal → integer atomic units (what the API stores).
+function toAtomic(display, decimals) {
+	return Math.round(Number(display) * 10 ** decimals);
+}
+// Integer atomic units → human price string (maximumFractionDigits drops any
+// trailing zeros, so 50000 @ 6dp → "0.05", 1000000 @ 6dp → "1").
+function fromAtomic(amount, decimals) {
+	const n = Number(amount) / 10 ** decimals;
+	if (!Number.isFinite(n)) return '0';
+	return n.toLocaleString('en-US', { maximumFractionDigits: decimals });
+}
 
 function haversineDist(lat1, lng1, lat2, lng2) {
 	const R = 6371000;
@@ -48,6 +81,19 @@ function expiryLabel(expiresAt) {
 	const days = Math.floor(ms / 86400000);
 	const hrs  = Math.floor((ms % 86400000) / 3600000);
 	return `<span class="irl-badge expiring">Expires in ${days}d ${hrs}h</span>`;
+}
+
+// Live status pill from the agent-summary-derived status. Self-contained
+// (inline token colours) so it has no external CSS dependency.
+const STATUS_META = {
+	online:  { c: 'var(--nxt-success, #4ade80)', label: 'Online' },
+	visible: { c: 'var(--nxt-warn, #fbbf24)',    label: 'Visible' },
+	expired: { c: 'var(--nxt-ink-faint, #555)',  label: 'Expired' },
+};
+function statusBadge(status) {
+	const s = STATUS_META[status] || STATUS_META.visible;
+	return `<span class="irl-status-pill" title="${s.label}" style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:${s.c};flex-shrink:0">`
+		+ `<span style="width:7px;height:7px;border-radius:50%;background:${s.c}"></span>${s.label}</span>`;
 }
 
 // Derive the avatar-editor (wardrobe) URL from a pin's avatar_url. IRL pins store
@@ -137,6 +183,56 @@ const STYLE = `
 .irl-svc-price { color: var(--nxt-success); font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .irl-svc-empty { font-size: 12px; color: var(--nxt-ink-faint); }
 
+/* Inline link-style button (matches section-label affordances) */
+.irl-link-btn { background: none; border: none; padding: 0; cursor: pointer; color: var(--nxt-accent); font: inherit; font-size: 12px; font-weight: 600; }
+.irl-link-btn:hover { text-decoration: underline; }
+.irl-link-btn:disabled { opacity: .6; cursor: default; text-decoration: none; }
+.irl-link-btn.danger { color: var(--nxt-danger, #f87171); }
+
+/* ── Services management modal ─────────────────────────────────────────────── */
+.irl-modal-root { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 16px; }
+.irl-modal-back { position: absolute; inset: 0; background: rgba(0,0,0,.62); backdrop-filter: blur(2px); animation: irl-fade .16s ease; }
+.irl-modal { position: relative; width: min(560px, 100%); max-height: min(86vh, 760px); display: flex; flex-direction: column; background: var(--nxt-panel, var(--nxt-bg-1)); border: 1px solid var(--nxt-stroke); border-radius: var(--nxt-radius); box-shadow: 0 24px 64px rgba(0,0,0,.5); animation: irl-rise .2s cubic-bezier(.2,.7,.3,1); overflow: hidden; }
+.irl-modal-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 16px 18px; border-bottom: 1px solid var(--nxt-stroke); }
+.irl-modal-title { font-size: 16px; font-weight: 700; color: var(--nxt-ink); }
+.irl-modal-sub { font-size: 12px; color: var(--nxt-ink-faint); margin-top: 2px; }
+.irl-modal-x { background: none; border: none; color: var(--nxt-ink-faint); font-size: 22px; line-height: 1; cursor: pointer; padding: 0 4px; border-radius: 8px; transition: color .14s; }
+.irl-modal-x:hover, .irl-modal-x:focus-visible { color: var(--nxt-ink); outline: none; }
+.irl-modal-body { padding: 6px 18px 18px; overflow-y: auto; }
+.irl-svc-sec { padding-top: 14px; }
+.irl-svc-sec-h { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--nxt-ink-faint); margin-bottom: 10px; }
+.irl-svc-count { color: var(--nxt-ink-dim); }
+
+/* Priced-service rows */
+.irl-pr-row { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: center; padding: 11px 13px; border-radius: 10px; border: 1px solid var(--nxt-stroke); background: var(--nxt-bg-2); margin-bottom: 8px; transition: border-color .2s, background .2s; }
+.irl-pr-row.paused { opacity: .72; }
+.irl-pr-row.saved { border-color: color-mix(in srgb, var(--nxt-success) 60%, transparent); background: color-mix(in srgb, var(--nxt-success) 9%, var(--nxt-bg-2)); }
+.irl-pr-name { font-size: 14px; font-weight: 600; color: var(--nxt-ink); display: flex; align-items: center; gap: 8px; }
+.irl-pr-tag { font-size: 10px; text-transform: uppercase; letter-spacing: .04em; padding: 1px 6px; border-radius: 999px; background: var(--nxt-bg-1); border: 1px solid var(--nxt-stroke); color: var(--nxt-ink-faint); font-weight: 600; }
+.irl-pr-meta { font-size: 12px; color: var(--nxt-ink-faint); margin-top: 2px; }
+.irl-pr-price { color: var(--nxt-success); font-weight: 700; font-variant-numeric: tabular-nums; }
+.irl-pr-actions { grid-column: 2; grid-row: 1 / span 2; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: flex-end; }
+.irl-pr-input { width: 84px; padding: 5px 8px; border-radius: 8px; border: 1px solid var(--nxt-stroke); background: var(--nxt-bg-1); color: var(--nxt-ink); font: inherit; font-size: 13px; }
+.irl-pr-input:focus-visible { outline: none; border-color: var(--nxt-accent); }
+.irl-pr-cur { font-size: 12px; color: var(--nxt-ink-faint); }
+.irl-pr-confirm { font-size: 12px; color: var(--nxt-ink-dim); }
+.irl-pr-err { grid-column: 1 / -1; font-size: 12px; color: var(--nxt-danger, #f87171); }
+
+/* Add-service form */
+.irl-add-form { display: flex; flex-direction: column; gap: 12px; }
+.irl-add-grid { display: grid; grid-template-columns: 1.3fr .9fr .9fr; gap: 10px; }
+.irl-add-field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.irl-add-field > span { font-size: 11px; color: var(--nxt-ink-faint); text-transform: uppercase; letter-spacing: .04em; }
+.irl-add-field select, .irl-add-field input { padding: 9px 10px; border-radius: 9px; border: 1px solid var(--nxt-stroke); background: var(--nxt-bg-2); color: var(--nxt-ink); font: inherit; font-size: 13px; width: 100%; }
+.irl-add-field select:focus-visible, .irl-add-field input:focus-visible { outline: none; border-color: var(--nxt-accent); }
+.irl-add-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.irl-add-hint { font-size: 11px; color: var(--nxt-ink-faint); }
+.irl-add-err { font-size: 12px; color: var(--nxt-danger, #f87171); }
+@media (max-width: 520px) { .irl-add-grid { grid-template-columns: 1fr 1fr; } .irl-add-field:first-child { grid-column: 1 / -1; } }
+
+@keyframes irl-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes irl-rise { from { opacity: 0; transform: translateY(10px) scale(.99); } to { opacity: 1; transform: none; } }
+
 /* Interactions feed */
 .irl-ix { display: flex; gap: 9px; padding: 6px 0; }
 .irl-ix-icon { font-size: 14px; line-height: 1.4; flex-shrink: 0; }
@@ -210,7 +306,10 @@ function cardHtml(pin, ixList) {
 		<div class="irl-card-head">
 			${img}
 			<div class="irl-info">
-				<div class="irl-name">${esc(pin.avatar_name || 'Placed agent')}</div>
+				<div class="irl-name-row" style="display:flex;align-items:center;gap:8px;min-width:0">
+					<span class="irl-name">${esc(pin.avatar_name || 'Placed agent')}</span>
+					${statusBadge(pin.status)}
+				</div>
 				<div class="irl-meta">
 					<span class="irl-meta-loc">${esc(metaLine(pin, null))}</span>
 					${expiryLabel(pin.expires_at)}
@@ -220,11 +319,14 @@ function cardHtml(pin, ixList) {
 
 		<div class="irl-stats">
 			${agentStats}
-			<div class="irl-stat"><span class="k">Visitors</span><span class="v">${visitors}</span></div>
+			<div class="irl-stat"><span class="k">Interactions</span><span class="v">${Number(pin.interaction_count) || visitors}</span></div>
+			<div class="irl-stat"><span class="k">Last seen</span><span class="v" style="font-size:12.5px">${esc(pin.last_interaction_at ? relTime(pin.last_interaction_at) : 'No visits')}</span></div>
 		</div>
 
 		<div class="irl-section" data-skills-section hidden>
-			<div class="irl-section-label">Skills</div>
+			<div class="irl-section-label">Skills
+				<button class="irl-link-btn" data-manage-services type="button">Manage prices →</button>
+			</div>
 			<div class="irl-skills" data-skills-list></div>
 		</div>
 
@@ -278,31 +380,35 @@ async function mount(el) {
 	</div>`;
 
 	const list = el.querySelector('#irl-list');
-	list.innerHTML = Array.from({ length: 3 }, () => `<div class="irl-skel"></div>`).join('');
+	list.innerHTML = skeletonHTML(3, 'row');
 
 	// Pins + interactions in parallel — interactions power both the banner and
 	// each card's IRL feed.
 	let pins, interactions = [], unread = 0;
 	try {
-		const [pinsData, ixData] = await Promise.all([
-			get('/api/irl/pins?mine=1'),
+		const [sumData, ixData] = await Promise.all([
+			get('/api/irl/agent-summary?mine=1'),
 			get('/api/irl/interactions?mine=1').catch(() => ({ interactions: [], unread: 0 })),
 		]);
-		pins = pinsData.pins || [];
+		// agent-summary keys each row by pin_id and adds derived monitoring signals
+		// (status, interaction_count, last_interaction_at). Normalize pin_id→id so
+		// the existing card code is unchanged.
+		pins = (sumData.agents || []).map((a) => ({ ...a, id: a.pin_id }));
 		interactions = ixData.interactions || [];
 		unread = ixData.unread || 0;
 	} catch {
-		list.innerHTML = `<div class="irl-empty"><b>Failed to load placements</b>Try refreshing the page.</div>`;
+		list.innerHTML = errorStateHTML({ title: "Couldn't load your IRL agents", body: 'Check your connection and try again.', scope: 'irl' });
+		attachRetry(list, () => mount(el));
 		return;
 	}
 
 	if (!pins.length) {
-		list.innerHTML = `<div class="irl-empty">
-			<b>No agents placed yet</b>
-			Open IRL, enable your camera, and pin an agent to a real-world spot — it becomes visible to everyone who visits that location.
-			<br><br>
-			<a class="irl-btn primary" href="/irl">Open IRL →</a>
-		</div>`;
+		list.innerHTML = emptyStateHTML({
+			icon: '📍',
+			title: 'No agents placed yet',
+			body: 'Open IRL, enable your camera, and pin an agent to a real-world spot — it becomes visible to everyone who visits that location.',
+			actions: [{ label: 'Open IRL', href: '/irl', primary: true }],
+		});
 		el.querySelector('#irl-place-btn').textContent = '+ Place agent ↗';
 		return;
 	}
@@ -363,11 +469,16 @@ async function mount(el) {
 			})
 			.catch(() => {});
 
-		// Live wallet balance.
-		fetch(`/api/agents/${encodeURIComponent(pin.agent_id)}/solana`)
+		// Live wallet balance. The authenticated owner path returns { data: { sol,
+		// lamports, balance_error } } (no `balance` field — that only exists on the
+		// public-read shape), so read `sol` and surface RPC throttling explicitly
+		// instead of silently rendering "—" for every owned agent.
+		fetch(`/api/agents/${encodeURIComponent(pin.agent_id)}/solana`, { credentials: 'include' })
 			.then((r) => (r.ok ? r.json() : null))
 			.then((data) => {
-				const bal = data?.data?.balance;
+				const d = data?.data || data || {};
+				if (d.balance_error) { fillStat(card, 'balance', 'Unavailable'); return; }
+				const bal = d.balance ?? d.sol;
 				fillStat(card, 'balance', bal == null ? '—' : `◎${Number(bal).toFixed(2)}`);
 			})
 			.catch(() => fillStatError(card, 'balance'));
@@ -407,8 +518,11 @@ function renderServices(card, services) {
 		return;
 	}
 	listEl.innerHTML = services.map((s) => {
-		const price = s.price_usdc != null ? `$${Number(s.price_usdc).toFixed(2)} ${(s.network || 'base').toUpperCase()}` : 'Free';
-		return `<div class="irl-svc"><span class="irl-svc-name">${esc(s.name || s.slug)}</span><span class="irl-svc-price">${esc(price)}</span></div>`;
+		// agent-card v2 shape: services carry price_usd + chain + skill (was price_usdc/network/slug).
+		const priceVal = s.price_usd ?? s.price_usdc;
+		const chain = s.chain || s.network || 'base';
+		const price = priceVal != null ? `$${Number(priceVal).toFixed(2)} ${String(chain).toUpperCase()}` : 'Free';
+		return `<div class="irl-svc"><span class="irl-svc-name">${esc(s.name || s.skill || s.slug)}</span><span class="irl-svc-price">${esc(price)}</span></div>`;
 	}).join('');
 }
 
@@ -417,6 +531,16 @@ function wireCardEvents(list, pins) {
 		const card = e.target.closest('.irl-card');
 		if (!card) return;
 		const id = card.dataset.id;
+
+		// Manage paid services (x402 skill pricing) for this agent
+		if (e.target.closest('[data-manage-services]')) {
+			const agentId = card.dataset.agent;
+			if (agentId) {
+				const name = card.querySelector('.irl-name')?.textContent?.trim() || 'agent';
+				openServicesModal(agentId, name);
+			}
+			return;
+		}
 
 		// Remove
 		const removeBtn = e.target.closest('[data-remove]');
@@ -466,7 +590,9 @@ function wireCardEvents(list, pins) {
 			if (!isFinite(lat) || !isFinite(lng)) { btn.textContent = 'Invalid coordinates'; return; }
 			btn.disabled = true; btn.textContent = 'Saving…';
 			try {
-				const r = await patch('/api/irl/pins', { id, lat, lng, heading: isFinite(heading) ? heading : 0 });
+				// Omit heading when the field is blank so a blank input PRESERVES the
+				// stored bearing instead of silently re-aiming the agent to North (0°).
+				const r = await patch('/api/irl/pins', { id, lat, lng, ...(isFinite(heading) ? { heading } : {}) });
 				if (r.pin) {
 					const pin = pins.find((p) => p.id === id);
 					if (pin) { pin.lat = r.pin.lat; pin.lng = r.pin.lng; pin.heading = r.pin.heading; }
@@ -528,6 +654,358 @@ function restoreCaption(card, caption) {
 	const editEl = card.querySelector('.irl-caption-edit');
 	const node = makeNode(`<div class="irl-caption" data-caption="${esc(caption)}" title="Click to edit caption">${caption ? esc(caption) : '<span style="color:var(--nxt-ink-faint);font-style:italic">Add a caption…</span>'}</div>`);
 	editEl?.replaceWith(node);
+}
+
+// ── Services modal: attach/price the skills this agent offers IRL ───────────
+function openServicesModal(agentId, agentName) {
+	const root = makeNode(`<div class="irl-modal-root">
+		<div class="irl-modal-back"></div>
+		<div class="irl-modal" role="dialog" aria-modal="true" aria-label="Manage paid services">
+			<div class="irl-modal-head">
+				<div class="irl-modal-titles">
+					<div class="irl-modal-title">Paid services</div>
+					<div class="irl-modal-sub">${esc(agentName)} · pay-per-call via x402</div>
+				</div>
+				<button class="irl-modal-x" data-close type="button" aria-label="Close">×</button>
+			</div>
+			<div class="irl-modal-body" data-body>${skeletonHTML(3, 'row')}</div>
+		</div>
+	</div>`);
+	ensureStateKitStyles();
+	document.body.appendChild(root);
+	document.body.style.overflow = 'hidden';
+
+	const body = root.querySelector('[data-body]');
+	const close = () => {
+		root.remove();
+		document.body.style.overflow = '';
+		document.removeEventListener('keydown', onKey, true);
+	};
+	const onKey = (ev) => { if (ev.key === 'Escape') close(); };
+	document.addEventListener('keydown', onKey, true);
+	root.querySelector('[data-close]').addEventListener('click', close);
+	root.querySelector('.irl-modal-back').addEventListener('click', close);
+	setTimeout(() => root.querySelector('[data-close]')?.focus(), 0);
+
+	// state.prices: active (+ in-session paused) agent_skill_prices rows.
+	// state.skills: skills the agent actually exposes — the only priceable set.
+	// state.catalog: best-effort slug→marketplace-skill metadata (name/suggested).
+	const state = { prices: [], skills: [], catalog: {} };
+
+	async function load() {
+		try {
+			const [pricing, agentResp] = await Promise.all([
+				get(`/api/agents/${encodeURIComponent(agentId)}/skills-pricing`),
+				get(`/api/agents/${encodeURIComponent(agentId)}`),
+			]);
+			state.prices = (pricing?.prices || []).map((p) => ({ ...p }));
+			state.skills = Array.isArray(agentResp?.agent?.skills) ? agentResp.agent.skills : [];
+			try {
+				const sk = await get('/api/skills?installed=true');
+				const arr = Array.isArray(sk) ? sk : (sk?.skills || sk?.data?.skills || []);
+				for (const s of arr) if (s?.slug) state.catalog[s.slug] = s;
+			} catch { /* metadata is optional — raw skill names still work */ }
+			renderShell();
+		} catch {
+			body.innerHTML = errorStateHTML({
+				title: "Couldn't load services",
+				body: 'Check your connection and try again.',
+			});
+			body.querySelector('[data-sk-retry]')?.addEventListener('click', () => {
+				body.innerHTML = skeletonHTML(3, 'row');
+				load();
+			});
+		}
+	}
+
+	function renderShell() {
+		body.innerHTML = `
+			<section class="irl-svc-sec">
+				<div class="irl-svc-sec-h">Active services <span class="irl-svc-count" data-count></span></div>
+				<div data-active></div>
+			</section>
+			<section class="irl-svc-sec">
+				<div class="irl-svc-sec-h">Add a service</div>
+				<div data-add></div>
+			</section>`;
+		renderActive();
+		renderAdd();
+	}
+
+	function skillName(slug) { return state.catalog[slug]?.name || slug; }
+
+	function renderActive() {
+		const host = body.querySelector('[data-active]');
+		const countEl = body.querySelector('[data-count]');
+		if (countEl) countEl.textContent = state.prices.length ? `· ${state.prices.length}` : '';
+		if (!host) return;
+		if (!state.prices.length) {
+			host.innerHTML = emptyStateHTML({
+				compact: true,
+				title: 'No paid services yet',
+				body: 'Attach a skill below and set a per-call price so visitors can pay this agent in person.',
+			});
+			return;
+		}
+		host.innerHTML = state.prices.map(rowHtml).join('');
+	}
+
+	function rowHtml(p) {
+		const cur = currencyForMint(p.currency_mint);
+		const human = fromAtomic(p.amount, cur.decimals);
+		const paused = !!p._paused;
+		const free = Number(p.amount) === 0;
+		const priceText = free ? 'Free' : `${human} ${esc(cur.label)}`;
+		return `<div class="irl-pr-row${paused ? ' paused' : ''}" data-row="${esc(p.skill)}">
+			<div class="irl-pr-main">
+				<div class="irl-pr-name">${esc(skillName(p.skill))}${paused ? '<span class="irl-pr-tag">paused</span>' : ''}</div>
+				<div class="irl-pr-meta"><span class="irl-pr-price">${priceText}</span> · ${esc(cur.label)} on ${esc(p.chain || 'solana')}</div>
+			</div>
+			<div class="irl-pr-actions" data-actions>
+				<button class="irl-link-btn" data-edit="${esc(p.skill)}" type="button">Edit price</button>
+				${paused
+					? `<button class="irl-link-btn" data-resume="${esc(p.skill)}" type="button">Resume</button>`
+					: `<button class="irl-link-btn" data-pause="${esc(p.skill)}" type="button">Pause</button>`}
+				<button class="irl-link-btn danger" data-remove-svc="${esc(p.skill)}" type="button">Remove</button>
+			</div>
+			<div class="irl-pr-err" data-row-err hidden></div>
+		</div>`;
+	}
+
+	function rowEl(skill) { return body.querySelector(`[data-row="${CSS.escape(skill)}"]`); }
+	function rowError(skill, msg) {
+		const e = rowEl(skill)?.querySelector('[data-row-err]');
+		if (e) { e.textContent = msg; e.hidden = !msg; }
+	}
+	function pulse(skill) {
+		const r = rowEl(skill);
+		if (!r) return;
+		r.classList.remove('saved'); void r.offsetWidth; r.classList.add('saved');
+	}
+
+	// Enter inline edit mode for a row's price.
+	function beginEdit(skill) {
+		const p = state.prices.find((x) => x.skill === skill);
+		const row = rowEl(skill);
+		if (!p || !row) return;
+		const cur = currencyForMint(p.currency_mint);
+		const actions = row.querySelector('[data-actions]');
+		actions.innerHTML = `
+			<input class="irl-pr-input" type="number" min="0" step="any" value="${esc(fromAtomic(p.amount, cur.decimals))}" aria-label="New price in ${esc(cur.label)}" />
+			<span class="irl-pr-cur">${esc(cur.label)}</span>
+			<button class="irl-link-btn" data-save-edit="${esc(skill)}" type="button">Save</button>
+			<button class="irl-link-btn" data-cancel-edit type="button">Cancel</button>`;
+		actions.querySelector('.irl-pr-input')?.focus();
+	}
+
+	// Write a price (atomic) for a skill via the canonical single-skill upsert.
+	async function writePrice(skill, atomic, mint, chain) {
+		return post(`/api/agent-skill-price?agentId=${encodeURIComponent(agentId)}`, {
+			skill, amount: atomic, currency_mint: mint, chain,
+		});
+	}
+
+	function renderAdd() {
+		const host = body.querySelector('[data-add]');
+		if (!host) return;
+		const priced = new Set(state.prices.map((p) => p.skill));
+		const available = state.skills.filter((s) => !priced.has(s));
+
+		if (!state.skills.length) {
+			host.innerHTML = emptyStateHTML({
+				compact: true,
+				title: 'This agent exposes no skills',
+				body: 'Give the agent skills first, then price them here as paid services.',
+			});
+			return;
+		}
+		if (!available.length) {
+			host.innerHTML = emptyStateHTML({
+				compact: true,
+				title: 'Every exposed skill is priced',
+				body: 'Edit or pause a service above to change it.',
+			});
+			return;
+		}
+
+		const opts = available.map((s) => `<option value="${esc(s)}">${esc(skillName(s))}</option>`).join('');
+		const curOpts = CURRENCIES.map((c, i) => `<option value="${i}">${esc(c.label)}</option>`).join('');
+		host.innerHTML = `<form class="irl-add-form" data-add-form>
+			<div class="irl-add-grid">
+				<label class="irl-add-field">
+					<span>Skill</span>
+					<select data-f="skill">${opts}</select>
+				</label>
+				<label class="irl-add-field">
+					<span>Price / call</span>
+					<input data-f="amount" type="number" min="0" step="any" placeholder="0.05" inputmode="decimal" />
+				</label>
+				<label class="irl-add-field">
+					<span>Currency</span>
+					<select data-f="currency">${curOpts}</select>
+				</label>
+			</div>
+			<div class="irl-add-row">
+				<span class="irl-add-hint">0 = free / deactivated. Stored on-chain as atomic units.</span>
+				<button class="irl-btn primary" data-add-submit type="submit">Add service</button>
+			</div>
+			<div class="irl-add-err" data-add-err hidden></div>
+		</form>`;
+
+		// Prefill a suggested price from the marketplace catalog when present.
+		const form = host.querySelector('[data-add-form]');
+		const skillSel = form.querySelector('[data-f="skill"]');
+		const amountInput = form.querySelector('[data-f="amount"]');
+		const syncSuggested = () => {
+			const meta = state.catalog[skillSel.value];
+			const sugg = meta && Number(meta.price_per_call_usd) > 0 ? Number(meta.price_per_call_usd) : null;
+			amountInput.placeholder = sugg != null ? String(sugg) : '0.05';
+		};
+		skillSel.addEventListener('change', syncSuggested);
+		syncSuggested();
+	}
+
+	function addError(msg) {
+		const e = body.querySelector('[data-add-err]');
+		if (e) { e.textContent = msg; e.hidden = !msg; }
+	}
+
+	// ── Delegated actions ────────────────────────────────────────────────────
+	body.addEventListener('submit', async (e) => {
+		if (!e.target.closest('[data-add-form]')) return;
+		e.preventDefault();
+		const form = e.target;
+		const skill = form.querySelector('[data-f="skill"]').value;
+		const amountRaw = form.querySelector('[data-f="amount"]').value;
+		const cur = CURRENCIES[Number(form.querySelector('[data-f="currency"]').value)] || CURRENCIES[0];
+
+		addError('');
+		if (!skill) return addError('Pick a skill');
+		const amount = Number(amountRaw);
+		if (!(amount >= 0)) return addError('Price must be ≥ 0');
+		if (!BASE58_RE.test(cur.mint)) return addError('Invalid mint');
+		if (!state.skills.includes(skill)) return addError("This agent doesn't expose that skill");
+
+		const atomic = toAtomic(amount, cur.decimals);
+		const btn = form.querySelector('[data-add-submit]');
+		btn.disabled = true; btn.textContent = 'Adding…';
+		try {
+			await writePrice(skill, atomic, cur.mint, cur.chain);
+			// amount=0 deactivates server-side; only list it when it's a live price.
+			const existing = state.prices.find((p) => p.skill === skill);
+			if (atomic > 0) {
+				if (existing) Object.assign(existing, { amount: atomic, currency_mint: cur.mint, chain: cur.chain, _paused: false });
+				else state.prices.push({ skill, amount: atomic, currency_mint: cur.mint, chain: cur.chain });
+			}
+			renderActive(); renderAdd();
+			if (atomic > 0) pulse(skill);
+		} catch (err) {
+			btn.disabled = false; btn.textContent = 'Add service';
+			addError(err?.status === 403 ? 'Not your agent' : (err?.message || 'Could not save'));
+		}
+	});
+
+	body.addEventListener('click', async (e) => {
+		// Edit price
+		const editBtn = e.target.closest('[data-edit]');
+		if (editBtn) return beginEdit(editBtn.dataset.edit);
+
+		// Cancel edit
+		if (e.target.closest('[data-cancel-edit]')) return renderActive();
+
+		// Save edited price
+		const saveBtn = e.target.closest('[data-save-edit]');
+		if (saveBtn) {
+			const skill = saveBtn.dataset.saveEdit;
+			const p = state.prices.find((x) => x.skill === skill);
+			const input = rowEl(skill)?.querySelector('.irl-pr-input');
+			if (!p || !input) return;
+			const cur = currencyForMint(p.currency_mint);
+			const amount = Number(input.value);
+			rowError(skill, '');
+			if (!(amount >= 0)) return rowError(skill, 'Price must be ≥ 0');
+			const atomic = toAtomic(amount, cur.decimals);
+			saveBtn.disabled = true; saveBtn.textContent = 'Saving…';
+			try {
+				await writePrice(skill, atomic, p.currency_mint, p.chain || cur.chain);
+				if (atomic === 0) { state.prices = state.prices.filter((x) => x.skill !== skill); }
+				else { p.amount = atomic; p._paused = false; }
+				renderActive(); renderAdd();
+				if (atomic > 0) pulse(skill);
+			} catch (err) {
+				saveBtn.disabled = false; saveBtn.textContent = 'Save';
+				rowError(skill, err?.message || 'Could not save');
+			}
+			return;
+		}
+
+		// Pause (deactivate, keep amount for in-session resume)
+		const pauseBtn = e.target.closest('[data-pause]');
+		if (pauseBtn) {
+			const skill = pauseBtn.dataset.pause;
+			const p = state.prices.find((x) => x.skill === skill);
+			if (!p) return;
+			pauseBtn.disabled = true; pauseBtn.textContent = 'Pausing…';
+			try {
+				await writePrice(skill, 0, p.currency_mint, p.chain || 'solana');
+				p._paused = true;
+				renderActive();
+			} catch (err) {
+				pauseBtn.disabled = false; pauseBtn.textContent = 'Pause';
+				rowError(skill, err?.message || 'Could not pause');
+			}
+			return;
+		}
+
+		// Resume (re-assert the retained price)
+		const resumeBtn = e.target.closest('[data-resume]');
+		if (resumeBtn) {
+			const skill = resumeBtn.dataset.resume;
+			const p = state.prices.find((x) => x.skill === skill);
+			if (!p) return;
+			const cur = currencyForMint(p.currency_mint);
+			resumeBtn.disabled = true; resumeBtn.textContent = 'Resuming…';
+			try {
+				await writePrice(skill, Number(p.amount) || 0, p.currency_mint, p.chain || cur.chain);
+				p._paused = false;
+				renderActive();
+				pulse(skill);
+			} catch (err) {
+				resumeBtn.disabled = false; resumeBtn.textContent = 'Resume';
+				rowError(skill, err?.message || 'Could not resume');
+			}
+			return;
+		}
+
+		// Remove — inline confirm, then deactivate
+		const removeBtn = e.target.closest('[data-remove-svc]');
+		if (removeBtn) {
+			const skill = removeBtn.dataset.removeSvc;
+			const actions = rowEl(skill)?.querySelector('[data-actions]');
+			if (!actions) return;
+			actions.innerHTML = `<span class="irl-pr-confirm">Remove this service?</span>
+				<button class="irl-link-btn" data-cancel-edit type="button">Keep</button>
+				<button class="irl-link-btn danger" data-remove-yes="${esc(skill)}" type="button">Remove</button>`;
+			return;
+		}
+		const removeYes = e.target.closest('[data-remove-yes]');
+		if (removeYes) {
+			const skill = removeYes.dataset.removeYes;
+			const p = state.prices.find((x) => x.skill === skill);
+			if (!p) return;
+			removeYes.disabled = true; removeYes.textContent = 'Removing…';
+			try {
+				await writePrice(skill, 0, p.currency_mint, p.chain || 'solana');
+				state.prices = state.prices.filter((x) => x.skill !== skill);
+				renderActive(); renderAdd();
+			} catch (err) {
+				removeYes.disabled = false; removeYes.textContent = 'Remove';
+				rowError(skill, err?.message || 'Could not remove');
+			}
+		}
+	});
+
+	load();
 }
 
 (async function boot() {
