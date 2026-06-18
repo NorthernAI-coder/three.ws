@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-18T09:26:45.826Z",
+	"generated_at": "2026-06-18T09:47:48.090Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -383,6 +383,17 @@
 		{
 			"date": "2026-06-18",
 			"type": "update",
+			"title": "The x402 demo we built with IBM now runs under a locked-down security policy",
+			"summary": "The live x402 demo we made with IBM was hardened so it can be hosted on a strict corporate site. It no longer pulls fonts or the 3D model viewer from Google's CDN — both now ship with the page from three.ws — so it loads cleanly under a strict Content-Security-Policy and even inside an iframe, with no blocked requests. Paying with MetaMask on Base needs nothing but three.ws; if a locked-down host blocks the small library the Solana path loads, the page now says so plainly and the Base button keeps working. The 3D viewer also loads only once you actually forge a model, so the page opens lighter. We published the exact policy and hosting steps for IBM's web team.",
+			"link": "/ibm/x402-demo",
+			"tags": [
+				"improvement",
+				"security"
+			]
+		},
+		{
+			"date": "2026-06-18",
+			"type": "update",
 			"title": "Tip a dancer for a Pole Twerk and she works the pole",
 			"summary": "The Club stage has a new headline move: Pole Twerk, now the default style on every pole. Tip a dancer for it and instead of facing the crowd like the other styles, she turns into the pole and works it with her back to the room — a real pole-dancer twerk, not a free-floor one — set to its own track. Pick it (or any other style) from the dropdown on each pole before you tip; all the existing dances are still there.",
 			"link": "/club",
@@ -449,6 +460,27 @@
 			"link": "/chat",
 			"tags": [
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-18",
+			"type": "update",
+			"title": "Your agent can now pay for paid APIs from its own wallet",
+			"summary": "The wallet's new Pay tab lets your agent buy from the x402 marketplace in USDC straight from its own Solana wallet — never a shared platform account. Search the bazaar for a paid service (or paste an endpoint), see the live price and exactly what you're buying before you commit, then pay; you watch the payment get built, signed by the agent, and settled on-chain, and get the receipt with a transaction link. Every payment is checked against the agent's own spend limits first, and if the wallet is short on USDC it tells you and sends you to fund it instead of failing mid-pay. A running Payment activity list shows what the agent paid for, to whom, and when. Whenever an agent is in context, payments always come from that agent's wallet.",
+			"link": "/agents",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-18",
+			"type": "update",
+			"title": "Your agent can now trade from its own wallet — with real guardrails",
+			"summary": "Fund your agent's wallet and let it buy and sell pump.fun coins straight from that wallet, signed for you on the server — no wallet popup per trade. Every trade runs through the same safety checks the auto-sniper uses, now shared as one rulebook so they can never drift apart: a per-trade size cap, a rolling daily spend budget, a price-impact circuit breaker, a fee-and-rent cushion so a buy never bricks the wallet, and a kill switch to pause all trading instantly. Set those limits per agent under Limits & Safety. If a trade would cross a limit you get a clear, specific reason back instead of a failure — and a retried request can never double-spend. Graduated coins route through the AMM automatically, and every trade lands in one unified history alongside your sniper's.",
+			"link": "/agents",
+			"tags": [
+				"feature",
+				"security"
 			]
 		},
 		{

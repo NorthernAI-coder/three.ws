@@ -26,7 +26,7 @@ import { explorerTxUrl } from '../_lib/avatar-wallet.js';
 import {
 	validateSolanaAddress, enforceSpendLimit, SpendLimitError, lamportsToUsd,
 	getSpendLimits, setSpendLimits, listCustodyEvents, updateCustodyEvent,
-	getDailySpendUsd,
+	getDailySpendUsd, getTradeLimits, setTradeLimits, getDailySpendLamports,
 } from '../_lib/agent-trade-guards.js';
 
 // USDC mints per cluster — the only SPL token we can price 1:1 for the spend
@@ -975,20 +975,31 @@ async function handleLimits(req, res, id) {
 			const bad = body.withdraw_allowlist.find((a) => !validateSolanaAddress(a).valid);
 			if (bad !== undefined) return error(res, 400, 'invalid_address', `withdraw_allowlist contains an invalid Solana address: ${String(bad).slice(0, 60)}`);
 		}
-		let limitsOut;
+		// The USD spend policy and the lamports-denominated trade policy share this
+		// owner surface. A PUT may patch either or both: a `trade_limits` object
+		// updates the discretionary-trade caps (per-trade SOL, daily budget, breaker,
+		// kill switch); the top-level USD/allowlist keys update the spend policy.
+		const wantsSpend = ['daily_usd', 'per_tx_usd', 'withdraw_allowlist'].some((k) => k in body);
+		let limitsOut = getSpendLimits(meta);
+		let tradeLimitsOut = getTradeLimits(meta);
 		try {
-			limitsOut = await setSpendLimits(id, auth.userId, body, { req });
+			if (wantsSpend) limitsOut = await setSpendLimits(id, auth.userId, body, { req });
+			if (body.trade_limits && typeof body.trade_limits === 'object') {
+				tradeLimitsOut = await setTradeLimits(id, auth.userId, body.trade_limits, { req });
+			}
 		} catch (e) {
 			if (e?.status) return error(res, e.status, e.code || 'error', e.message);
 			throw e;
 		}
 		const spentUsd = await getDailySpendUsd(id, network).catch(() => 0);
-		return json(res, 200, { data: { limits: limitsOut, spent_today_usd: spentUsd } });
+		const spentLamports = await getDailySpendLamports(id, network).catch(() => 0n);
+		return json(res, 200, { data: { limits: limitsOut, trade_limits: tradeLimitsOut, spent_today_usd: spentUsd, spent_today_sol: Number(spentLamports) / 1e9 } });
 	}
 
 	const limitsOut = getSpendLimits(meta);
 	const spentUsd = await getDailySpendUsd(id, network).catch(() => 0);
-	return json(res, 200, { data: { limits: limitsOut, spent_today_usd: spentUsd } });
+	const spentLamports = await getDailySpendLamports(id, network).catch(() => 0n);
+	return json(res, 200, { data: { limits: limitsOut, trade_limits: getTradeLimits(meta), spent_today_usd: spentUsd, spent_today_sol: Number(spentLamports) / 1e9 } });
 }
 
 // ── dispatcher ────────────────────────────────────────────────────────────────

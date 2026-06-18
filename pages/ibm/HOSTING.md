@@ -40,12 +40,12 @@ from `https://three.ws` (still no build step, still no backend):
   settlement the moment the visitor's `402` call clears. It lazy-boots only when scrolled into
   view, and degrades to a calm skeleton if its script is blocked.
 
-Because these load the agent runtime, an avatar GLB, the agent's model endpoint, and framed
-three.ws pages, the **Tier 2** CSP below adds `https://three.ws` to `frame-src`/`img-src` and
-`blob:` to `worker-src`. If you only want the x402 payment demo and not the 3D/agent layer,
-delete the `#forge`, `#agent`, `#play`, and `#irl` `<section>`s plus the `agent-3d.js`
-`<script>` tag, and the
-**Tier 1** policy is all you need.
+Because these load the agent runtime, an avatar GLB, a WebGL/WASM context, `blob:` workers, and
+framed three.ws pages, the 3D layer needs the more permissive **Tier 2** CSP below (each added
+directive is explained in the table there). The Forge viewer's `<model-viewer>` is self-hosted
+(see *What to upload*) so it stays a same-origin script. If you only want the x402 payment demo
+and not the 3D/agent layer, delete the `#forge`, `#agent`, `#play`, and `#irl` `<section>`s plus
+the `agent-3d.js` `<script>` tag, and the **Tier 1** policy is all you need.
 
 ## What to upload
 
@@ -61,21 +61,36 @@ fonts/
   IBMPlexMono-400.woff2
   IBMPlexMono-500.woff2
 vendor/
-  model-viewer.min.js
+  model-viewer.min.js     (~0.9 MB; the 3D viewer, self-hosted so no Google CDN is needed)
 ```
+
+Optional, **at the site root** (`live.ibm.com/three.svg`):
+
+```
+three.svg                 (the three.ws watermark the 3D agent overlays on snapshot exports)
+```
+
+The 3D agent fetches `/three.svg` from the origin root. If it's absent the agent still renders
+perfectly — you'll just see one harmless `Failed to load watermark` console message and snapshot
+exports won't carry the mark. Upload `three.svg` to the site root to remove that message. (On the
+three.ws reference deployment this already resolves, so the message only appears on a foreign host
+that hasn't placed the file.)
 
 Everything else (the payment widget, the API, the explorer links) is loaded at runtime from
 `https://three.ws` and the public chain explorers. There is **no build step** and **no
 backend** to deploy. IBM Plex is self-hosted from `fonts/` so the page needs no third-party
 font CDN, and the `<model-viewer>` web component (used by the Forge demo to display the
 generated 3D model) is self-hosted from `vendor/` — it loads as a same-origin
-(`script-src 'self'`) ES module, so no third-party script CDN is required either. Keep
-`vendor/` next to the HTML; the file references it as `./vendor/model-viewer.min.js`.
+(`script-src 'self'`) ES module, lazily and only after a model is forged, so no third-party
+script CDN is required and a page view that never forges never pays its weight. Keep `vendor/`
+next to the HTML; the file references it as `./vendor/model-viewer.min.js`.
 
 ## Content-Security-Policy
 
 The page runs under **the host's CSP**. Pick one tier. (If `live.ibm.com` sends no CSP, the
-page works as-is; these are for hardened hosts.)
+page works as-is; these are for hardened hosts.) Both tiers below were verified in a real
+Chromium, served from a non-three.ws origin with the CSP enforced as a response header — both
+top-level and inside a cross-origin iframe — with **zero CSP violations** and no page errors.
 
 ### Tier 1 — Strict (Base / MetaMask only, recommended default)
 
@@ -93,29 +108,40 @@ Content-Security-Policy:
   base-uri 'self';
 ```
 
-Under this policy the Solana button will fail gracefully (its dependencies are blocked) while
-the Base button works fully.
+> `'unsafe-inline'` covers the page's inline `<style>` and the two small inline bootstrap
+> `<script>` blocks. If IBM requires nonces, drop `'unsafe-inline'` and add a per-response
+> nonce to the inline `<style>` and `<script>` tags instead.
 
-> `'unsafe-inline'` covers the page's inline `<style>` and the small inline bootstrap
-> `<script>`. If IBM requires nonces, add a per-response nonce to the inline `<style>` and
-> `<script>` tags instead of `'unsafe-inline'`.
+Under this policy the Base button works fully; the Solana button fails gracefully — its `esm.sh`
+dependency is blocked — with a clear message that steers the visitor to the Base path. The page
+degrades, it never throws.
 
 > Under Tier 1 the **3D agent layer** (the agent, and the Forge/Play/IRL rooms) is also
-> blocked — it needs `frame-src`, `worker-src blob:`, and `https://three.ws` in `img-src`,
-> which Tier 1 omits. Use Tier 2 to enable it, or remove those sections (see above) to keep
-> Tier 1.
+> blocked — it needs `frame-src`, `worker-src blob:`, `connect-src blob:`,
+> `script-src 'wasm-unsafe-eval'`, and `https://esm.sh`, which Tier 1 omits. Use Tier 2 to
+> enable it, or remove those sections (see above) to keep Tier 1.
 
 ### Tier 2 — Full (Base + Solana, plus the 3D agent layer)
 
-The Solana path dynamic-imports `@solana/web3.js` from `esm.sh`. The agent layer adds the
-`<agent-3d>` runtime + avatar GLB + model endpoint (all `https://three.ws`), a WebGL/worker
-`blob:` context, and framed three.ws surfaces. One policy covers all of it:
+This enables every demo. Each addition over Tier 1 is load-bearing — verified by removing it
+and observing the resulting violation in a real browser:
+
+| Directive | Why it's needed |
+|-----------|-----------------|
+| `script-src … https://esm.sh` | the Solana path dynamic-imports `@solana/web3.js` |
+| `script-src … 'wasm-unsafe-eval'` | the agent/avatar instantiate a WebAssembly module |
+| `connect-src 'self'` | the agent fetches its `/three.svg` watermark from the host origin |
+| `connect-src … blob:` | the agent and model-viewer read geometry/textures via `blob:` URLs |
+| `connect-src … https://esm.sh` | fetching the Solana library bundle |
+| `img-src … blob: https://three.ws` | WebGL textures (`blob:`) and three.ws imagery |
+| `worker-src 'self' blob:` | model-viewer and the agent spawn `blob:` workers |
+| `frame-src https://three.ws` | the Forge / Play / IRL `<iframe>`s |
 
 ```
 Content-Security-Policy:
   default-src 'none';
-  script-src 'self' https://three.ws https://esm.sh 'unsafe-inline';
-  connect-src https://three.ws https://esm.sh;
+  script-src 'self' https://three.ws https://esm.sh 'unsafe-inline' 'wasm-unsafe-eval';
+  connect-src 'self' blob: https://three.ws https://esm.sh;
   style-src 'self' 'unsafe-inline';
   font-src 'self';
   img-src 'self' data: blob: https://three.ws;
@@ -123,6 +149,14 @@ Content-Security-Policy:
   frame-src https://three.ws;
   base-uri 'self';
 ```
+
+> The framed surfaces (`three.ws/play`, `three.ws/irl`, `three.ws/forge`) are separate
+> documents governed by **three.ws's own** CSP — anything *they* load (chain RPCs, IPFS
+> gateways, market data) is three.ws's concern, not the host page's. The host CSP only needs to
+> permit framing them (`frame-src https://three.ws`). One known cross-origin item: the embedded
+> `three.ws/irl` AR surface currently logs an internal `setMeshoptDecoder…` avatar message from
+> inside its own iframe; it is three.ws app behavior, independent of the host page and unaffected
+> by either CSP tier.
 
 ## Visitor requirements
 
@@ -136,10 +170,18 @@ Content-Security-Policy:
 ## Top-level page vs. iframe
 
 Host it as a **top-level page** for best results: browser wallet extensions inject reliably
-into top-level documents, and the payment modal has full screen real estate. It can be
-embedded in an `<iframe>`, but some browsers restrict wallet-extension injection into
-cross-origin iframes — if you must iframe it, test the wallet flow in your target browsers
-first, or link out to the standalone page.
+into top-level documents, and the payment modal has full screen real estate. The page was
+verified to load and run inside a **cross-origin iframe** as well — it sends no
+`X-Frame-Options` and sets no restrictive `frame-ancestors`, so framing is not blocked, and the
+demo (live 402 preview, widget, agent) renders in-frame. The one caveat is the wallet step:
+**some browsers restrict wallet-extension injection into cross-origin iframes**, so the wallet
+prompt may not appear in-frame in every browser. If you must iframe it, test the wallet flow in
+your target browsers first, or link out to the standalone page.
+
+A short console note: while reading the live payment challenge the demo intentionally
+`fetch()`es endpoints that return HTTP `402`/`401`; browsers log every non-2xx fetch, so one or
+two `responded with a status of 402` lines are expected — that is the protocol working, not a
+fault. The page's own logic raises no errors under either CSP tier.
 
 ## Cross-origin (already handled)
 

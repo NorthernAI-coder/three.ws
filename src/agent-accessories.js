@@ -8,6 +8,7 @@
 // The Empathy Layer's morph loop only iterates its own _morphTarget dict, so
 // outfit morphs set here are never clobbered by emotion blending.
 
+import { Box3, Group, Quaternion, Vector3 } from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { resolveURI } from './ipfs.js';
 import { collectSlotTargets } from './avatar-wardrobe.js';
@@ -179,7 +180,14 @@ export class AccessoryManager {
 			return;
 		}
 
-		const obj = gltf.scene;
+		// Anchored props (currently eyewear) get a placement pass that recentres,
+		// auto-fits and offsets the asset to the right facial landmark — source
+		// GLBs vary (some authored at the head-bone origin, some lying flat), so a
+		// raw bone.add() lands them inside the cheeks. Props without an anchor keep
+		// the legacy raw attach (hats/earrings already bake their offset into the GLB).
+		const obj = preset.anchor
+			? _placeAnchoredProp(gltf.scene, bone, this.viewer?.content, preset.anchor)
+			: gltf.scene;
 		bone.add(obj);
 		this._applied.set(preset.id, { preset, object: obj });
 		this.viewer?.invalidate?.();
@@ -233,6 +241,72 @@ function _findBone(model, boneName) {
 		if (canon === target || n.name === boneName) found = n;
 	});
 	return found;
+}
+
+// Placement ratios are expressed against the avatar's overall height so the same
+// numbers work whether the loaded GLB is a ~1.8 m ReadyPlayerMe body or a custom
+// avatar normalised to a different scale. Calibrated for the 'face' (eyewear)
+// anchor: width ≈ a human face, lifted from the head-bone origin to the eye line
+// and pushed forward to the front of the face.
+const FACE_WIDTH_RATIO = 0.083; // ~0.15 m at 1.8 m tall
+const FACE_UP_RATIO = 0.033; // head-bone origin → eye line
+const FACE_FWD_RATIO = 0.044; // head-bone origin → face front
+const DEFAULT_HEIGHT_M = 1.8;
+
+/**
+ * Recentre, auto-fit and offset an accessory GLB so it sits on the correct facial
+ * landmark, then return it wrapped in a holder whose transform is expressed in the
+ * bone's local space (the caller parents the holder to the bone). The holder is
+ * kept world-upright and world-scaled regardless of the bone's own frame, so the
+ * prop tracks head movement without inheriting bone rotation/scale skew.
+ *
+ * @param {import('three').Object3D} scene  loaded GLB scene (mutated in place)
+ * @param {import('three').Bone} bone       attach bone (already resolved)
+ * @param {import('three').Object3D|null} root  avatar root, for height estimation
+ * @param {'face'} anchor
+ * @returns {import('three').Group}
+ */
+function _placeAnchoredProp(scene, bone, root, anchor) {
+	if (root) root.updateMatrixWorld(true);
+	const height = root
+		? new Box3().setFromObject(root).getSize(new Vector3()).y || DEFAULT_HEIGHT_M
+		: DEFAULT_HEIGHT_M;
+
+	const model = scene;
+
+	// 1. Fit width so any source asset matches this avatar's face.
+	let box = new Box3().setFromObject(model);
+	let size = box.getSize(new Vector3());
+	const span = Math.max(size.x, size.z) || 1;
+	model.scale.setScalar((FACE_WIDTH_RATIO * height) / span);
+
+	// 2. Stand up props authored lying flat (e.g. shades modelled in the XZ plane).
+	box = new Box3().setFromObject(model);
+	size = box.getSize(new Vector3());
+	if (size.y < size.x * 0.3) {
+		model.rotateX(-Math.PI / 2);
+	}
+
+	// 3. Recentre the mesh on its own midpoint so the holder origin is its pivot.
+	box = new Box3().setFromObject(model);
+	const center = box.getCenter(new Vector3());
+	model.position.sub(center);
+
+	const holder = new Group();
+	holder.add(model);
+
+	// 4. Offset from the head-bone origin to the eye line, in world axes, then map
+	//    into the bone's local frame and cancel the bone's rotation + scale so the
+	//    prop renders upright at true scale.
+	const target = bone
+		.getWorldPosition(new Vector3())
+		.add(new Vector3(0, FACE_UP_RATIO * height, FACE_FWD_RATIO * height));
+	holder.position.copy(bone.worldToLocal(target));
+	holder.quaternion.copy(bone.getWorldQuaternion(new Quaternion()).invert());
+	const boneScale = bone.getWorldScale(new Vector3());
+	holder.scale.set(1 / (boneScale.x || 1), 1 / (boneScale.y || 1), 1 / (boneScale.z || 1));
+
+	return holder;
 }
 
 /**
