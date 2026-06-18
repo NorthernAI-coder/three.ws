@@ -20,6 +20,20 @@ Three things are deliberately kept distinct, and the docs say so plainly:
 
 Do not describe the connector or the public demos as an official IBM release or partnership deliverable. Do describe the platform integration as built on IBM watsonx.ai.
 
+### Partnership updates
+
+- **2026-06-18 — Co-marketing ramp-up.** Following a meeting on Monday (2026-06-15) and two separate IBM meetings today — one on the development side, one on the marketing side — three.ws and IBM are ramping up co-marketing. What's coming: more co-promotion on X from IBM, a dedicated three.ws page on the IBM domain, and a live IBM Community event (below). The dedicated page is not yet live and the partnership work lives on the IBM platform — distinct from the community-built public showcase under `/ibm/*`. Do not link to the page or present it as public until IBM ships it.
+
+### Upcoming event
+
+**Building 3D AI Agents Live: From Prompt to Embeddable Agent in Minutes** — a live-build technical session in IBM's [Global AI & Data Science](https://community.ibm.com/community/user/events/event-description?CalendarEventKey=2767712c-6efd-47dc-aaeb-019ec4126e27&CommunityKey=f1c2cf2b-28bf-4b68-8570-b239473dcbbc) community, featuring a special guest from IBM.
+
+- **When:** 2026-06-23, 6:00–7:00 PM MT
+- **Where:** [IBM Community — Global AI & Data Science](https://community.ibm.com/community/user/events/event-description?CalendarEventKey=2767712c-6efd-47dc-aaeb-019ec4126e27&CommunityKey=f1c2cf2b-28bf-4b68-8570-b239473dcbbc)
+- **Contact:** nich@three.ws
+
+The three.ws engineering team builds and ships a 3D, interactive, fully embeddable AI agent from a single text prompt, live: generate the agent from a prompt, embed it into any site as simply as a video, and wire it to real tools and data so it can take action — plus a look at the architecture behind frictionless deployment at scale. For developers, product builders, designers, and anyone exploring the next interface for AI beyond the chat box.
+
 ### Press & coverage
 
 Outside coverage of three.ws and its work on IBM watsonx.ai. These are third-party press and syndicated releases — link to them as coverage, and keep the distinctions above intact when you cite them. Do not let a headline upgrade the careful framing on this page.
