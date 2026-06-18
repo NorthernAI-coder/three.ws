@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-06-18",
+			"title": "Pay the Club cover and your avatar celebrates on the way in",
+			"summary": "When you walk up to the Pole Club door and pay the cover charge, your avatar now throws a quick celebration dance the instant the USDC settles — right as the velvet rope drops — before strolling inside. It's the same beat the dancers get when you tip them, now yours for making it past the bouncer. The celebration is skipped automatically if you've turned on reduced motion, so entry stays instant either way.",
+			"tags": [
+				"feature"
+			],
+			"link": "/club"
+		},
+		{
+			"date": "2026-06-18",
 			"title": "Your agent and its answer now sit together in chat",
 			"summary": "When an agent replied with a 3D avatar — especially while it was thinking or forging several models at once — the avatar used to float off on its own with a big empty gap, while the reasoning note and the tool buttons drifted down beside its feet. The agent now stands next to its own response: the avatar is framed tighter so it fills its space instead of hovering in the void, and its thinking note and tool calls line up with it as one tidy block. It reads as a single reply whether you're in the normal view or have a tool's details open in the side panel.",
 			"tags": [

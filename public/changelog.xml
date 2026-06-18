@@ -71,6 +71,14 @@
 			<description>Don't hold $THREE yet but want a High-quality model? You can now pay in $THREE for a single High generation instead. Pick High in Forge, choose &quot;Pay&quot; on the holder panel, and a clean payment flow prices it in $THREE, takes one wallet approval, verifies it on-chain, and runs your generation automatically. The platform now genuinely accepts $THREE for compute. One payment buys exactly one High generation, and if a generation fails before it runs your payment stays usable — you're never charged for a model you didn't get. Draft and Standard remain free, and holders still generate High straight away.</description>
 		</item>
 		<item>
+			<title>Pay the Club cover and your avatar celebrates on the way in</title>
+			<link>https://three.ws/club</link>
+			<guid isPermaLink="false">2026-06-18:Pay the Club cover and your avatar celebrates on the way in</guid>
+			<pubDate>Thu, 18 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>When you walk up to the Pole Club door and pay the cover charge, your avatar now throws a quick celebration dance the instant the USDC settles — right as the velvet rope drops — before strolling inside. It's the same beat the dancers get when you tip them, now yours for making it past the bouncer. The celebration is skipped automatically if you've turned on reduced motion, so entry stays instant either way.</description>
+		</item>
+		<item>
 			<title>Platform revenue now buys back $THREE onchain — and you can watch it</title>
 			<link>https://three.ws/three-token</link>
 			<guid isPermaLink="false">2026-06-18:Platform revenue now buys back $THREE onchain — and you can watch it</guid>

@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-18T05:03:49.103Z",
+	"generated_at": "2026-06-18T06:08:02.682Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -84,6 +84,16 @@
 			"title": "Pay $THREE per High generation — no holding required",
 			"summary": "Don't hold $THREE yet but want a High-quality model? You can now pay in $THREE for a single High generation instead. Pick High in Forge, choose \"Pay\" on the holder panel, and a clean payment flow prices it in $THREE, takes one wallet approval, verifies it on-chain, and runs your generation automatically. The platform now genuinely accepts $THREE for compute. One payment buys exactly one High generation, and if a generation fails before it runs your payment stays usable — you're never charged for a model you didn't get. Draft and Standard remain free, and holders still generate High straight away.",
 			"link": "/forge",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-18",
+			"type": "update",
+			"title": "Pay the Club cover and your avatar celebrates on the way in",
+			"summary": "When you walk up to the Pole Club door and pay the cover charge, your avatar now throws a quick celebration dance the instant the USDC settles — right as the velvet rope drops — before strolling inside. It's the same beat the dancers get when you tip them, now yours for making it past the bouncer. The celebration is skipped automatically if you've turned on reduced motion, so entry stays instant either way.",
+			"link": "/club",
 			"tags": [
 				"feature"
 			]
