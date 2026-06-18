@@ -95,6 +95,14 @@
 			<description>Tap “🙏 Pray” on the homepage hero and the avatar finishes the prayer and rises straight into a walk — one smooth motion instead of snapping back to a standing idle at the end of the clip. After the walk plays out, the avatar eases back into its gentle idle-and-stroll rhythm. The other one-tap emotes (wave, dance, jump, and the rest) also return to that ambient motion now instead of freezing on their last frame.</description>
 		</item>
 		<item>
+			<title>Tipping a dancer goes straight to the wallet now</title>
+			<link>https://three.ws/club</link>
+			<guid isPermaLink="false">2026-06-18:Tipping a dancer goes straight to the wallet now</guid>
+			<pubDate>Thu, 18 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>Tapping Tip in the Pole Club used to open a three-step “Before you go on-chain” explainer first, and dismissing it cancelled the tip entirely — so first-time visitors couldn't pay without sitting through the wizard. That gate is gone. Tip now opens the wallet-and-amount checkout directly, where you pick Phantom or a browser wallet, see the exact USDC amount, and approve with one signature. The checkout already shows everything the explainer did, so there's no reason to stack a lecture in front of a fraction-of-a-cent tip.</description>
+		</item>
+		<item>
 			<title>Token swaps now confirm success or failure clearly</title>
 			<link>https://three.ws/three-token</link>
 			<guid isPermaLink="false">2026-06-18:Token swaps now confirm success or failure clearly</guid>

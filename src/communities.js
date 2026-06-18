@@ -450,7 +450,9 @@ async function loadCoinMarket(mint) {
 		const data = await r.json();
 		if (_coinProfileMint !== mint) return;
 
-		const usd = data?.price?.usdPrice;
+		// Graduated coins carry no bonding-curve price object; their live DEX price
+		// arrives under graduatedPrice instead. Prefer the curve price, fall back.
+		const usd = data?.price?.usdPrice ?? data?.graduatedPrice?.priceUsd;
 		const priceEl = $('cp-stat-price');
 		if (priceEl && usd) priceEl.textContent = fmtPrice(usd) || priceEl.textContent;
 

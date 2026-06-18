@@ -275,9 +275,8 @@ export class AgentTokenWidget {
 		this._curve = null;
 		this._mobileStrip = null;
 		this._poll = null;
+		this._balPoll = null;       // fast balances-only poll (near-realtime vaults)
 		this._destroyed = false;
-		this._wsUnsubs = [];        // realtime onAccountChange subscriptions
-		this._wsConn = null;
 		injectStyles();
 	}
 
@@ -286,68 +285,29 @@ export class AgentTokenWidget {
 		this.mount.innerHTML = `<div class="atok"><div class="atok-empty">Loading $AGENT…</div></div>`;
 		await this._refresh();
 		if (this.token) {
-			// Polling is the fallback. Real-time vault subscription kicks in via
-			// _ensureRealtime() and shrinks the polling interval to a long beat
-			// (60s) used only for stats/feed/quote that lack account-subscriptions.
+			// Two HTTP polls, both through the same-origin /api/solana-rpc proxy:
+			//   • a 60s full refresh (stats, quote, feed, reputation), and
+			//   • a 15s balances-only poll for near-realtime vault updates.
+			// The vault refresh was previously an onAccountChange subscription, but
+			// web3.js derives its websocket endpoint from the HTTP URL — yielding
+			// wss://<origin>/api/solana-rpc, an HTTP-only serverless proxy that can
+			// never upgrade. That connection never delivered an event and
+			// storm-reconnected forever in the background. Polling the proxy is
+			// reliable, rate-limit friendly, and silent.
 			this._poll = setInterval(() => this._refresh().catch(() => {}), 60_000);
-			this._ensureRealtime().catch(() => {});
+			this._balPoll = setInterval(() => {
+				if (typeof document !== 'undefined' && document.hidden) return;
+				this._refreshBalancesOnly().catch(() => {});
+			}, 15_000);
 		}
 	}
 
 	destroy() {
 		this._destroyed = true;
 		if (this._poll) clearInterval(this._poll);
-		this._teardownRealtime();
+		if (this._balPoll) clearInterval(this._balPoll);
 		if (this._curve) { this._curve.destroy(); this._curve = null; }
 		if (this._mobileStrip?.parentNode) this._mobileStrip.parentNode.removeChild(this._mobileStrip);
-	}
-
-	async _ensureRealtime() {
-		if (!this.token || !this.balances) return;
-		if (this._wsUnsubs.length) return; // already subscribed
-		try {
-			const [{ Connection, PublicKey }] = await Promise.all([import('@solana/web3.js')]);
-			// Route through our same-origin proxy. Public mainnet RPC 403s most
-			// browser origins. NOTE: WS subscriptions still go direct to the
-			// derived ws:// URL; proxying WS is a separate concern.
-			const rpcOrigin = window.location?.origin || 'https://three.ws';
-			const url =
-				this.token.network === 'devnet'
-					? `${rpcOrigin}/api/solana-rpc?net=devnet`
-					: `${rpcOrigin}/api/solana-rpc`;
-			const conn = new Connection(url, 'confirmed');
-			this._wsConn = conn;
-			const subscribe = (addr, name) => {
-				if (!addr) return;
-				try {
-					const id = conn.onAccountChange(
-						new PublicKey(addr),
-						() => this._refreshBalancesOnly().catch(() => {}),
-						'confirmed',
-					);
-					this._wsUnsubs.push({ id, conn });
-				} catch {
-					/* ignore subscription failures, polling fallback covers it */
-				}
-			};
-			subscribe(this.balances.payment?.address, 'payment');
-			subscribe(this.balances.buyback?.address, 'buyback');
-			subscribe(this.balances.withdraw?.address, 'withdraw');
-		} catch {
-			/* RPC may not support websocket; polling continues */
-		}
-	}
-
-	_teardownRealtime() {
-		for (const sub of this._wsUnsubs) {
-			try {
-				sub.conn.removeAccountChangeListener(sub.id);
-			} catch {
-				/* swallow */
-			}
-		}
-		this._wsUnsubs = [];
-		this._wsConn = null;
 	}
 
 	async _refreshBalancesOnly() {
@@ -412,7 +372,6 @@ export class AgentTokenWidget {
 			this.feed = feedRes.data || [];
 			this.reputation = repRes || null;
 			this._renderLive();
-			this._ensureRealtime().catch(() => {});
 		} catch (e) {
 			this._renderError(e.message);
 		}

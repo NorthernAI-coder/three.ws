@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-06-18",
+			"title": "Tipping a dancer goes straight to the wallet now",
+			"summary": "Tapping Tip in the Pole Club used to open a three-step “Before you go on-chain” explainer first, and dismissing it cancelled the tip entirely — so first-time visitors couldn't pay without sitting through the wizard. That gate is gone. Tip now opens the wallet-and-amount checkout directly, where you pick Phantom or a browser wallet, see the exact USDC amount, and approve with one signature. The checkout already shows everything the explainer did, so there's no reason to stack a lecture in front of a fraction-of-a-cent tip.",
+			"tags": [
+				"improvement"
+			],
+			"link": "/club"
+		},
+		{
+			"date": "2026-06-18",
 			"title": "Token swaps now confirm success or failure clearly",
 			"summary": "When you buy $THREE (or swap any pair) from the swap window, it now tells you exactly how it went. After you approve in your wallet, a banner shows it submitting and confirming on-chain, then resolves to a clear result: a green “Swap confirmed” with the amount you received and a Solscan link, a red on-chain failure with the reason (and a hint to widen slippage when that's the cause), or a “still confirming” notice with a link if the network is slow. Previously a swap could land successfully but the window sat on “Confirming…” indefinitely with no confirmation — because it was waiting on a live socket the swap proxy doesn't carry. It now polls the chain directly and gives you a definite answer in seconds.",
 			"tags": [
