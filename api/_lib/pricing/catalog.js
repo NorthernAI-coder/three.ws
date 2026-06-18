@@ -111,6 +111,12 @@ export const CATALOG = Object.freeze({
 		policy: POLICY.CONSUMPTION,
 		usd: 0.1,
 	},
+	'intel.deep': {
+		label: 'Intel — per-token Deep Report',
+		category: 'data',
+		policy: POLICY.CONSUMPTION,
+		usd: 0.1,
+	},
 
 	// ── Scarcity & collectibles — POLICY.SCARCITY (price often per-call) ─────────
 	'name.auction': {
