@@ -5,6 +5,7 @@
 import { sql } from '../_lib/db.js';
 import { getSessionUser } from '../_lib/auth.js';
 import { cors, method, wrap, error, readJson, json } from '../_lib/http.js';
+import { requireCsrf } from '../_lib/csrf.js';
 import { MAX_TWEET_LEN } from '../_lib/x-post.js';
 
 export default wrap(async (req, res) => {
@@ -26,6 +27,7 @@ export default wrap(async (req, res) => {
 	}
 
 	if (req.method === 'DELETE') {
+		if (!(await requireCsrf(req, res, user.id))) return;
 		const url = new URL(req.url, 'http://x');
 		const id = url.searchParams.get('id');
 		if (!id) return error(res, 400, 'validation_error', 'id required');
@@ -39,6 +41,7 @@ export default wrap(async (req, res) => {
 	}
 
 	// POST
+	if (!(await requireCsrf(req, res, user.id))) return;
 	const body = await readJson(req);
 	const text = typeof body?.text === 'string' ? body.text.trim() : '';
 	const scheduledAt = typeof body?.scheduled_at === 'string' ? body.scheduled_at : '';

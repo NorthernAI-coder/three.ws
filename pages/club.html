@@ -1598,10 +1598,14 @@
 					height: 85vh;
 					height: 85dvh;
 					/* Slide the bulk of the panel below the fold; only the
-					   handle + the "Poles" section peek above. Bumped to
-					   include both the safe-area inset and the iOS bottom
-					   bar so the tip buttons stay reachable. */
-					transform: translateY(calc(85dvh - 240px));
+					   handle + the "Poles" section peek above. The panel grows
+					   by env(safe-area-inset-bottom) (padding-bottom below), so
+					   the collapsed offset must subtract that same inset —
+					   otherwise on a notched phone the home-indicator gutter
+					   shoves the peeking tip buttons under the rounded corner.
+					   240px keeps the Poles section visible above the fold. */
+					--club-sheet-peek: 240px;
+					transform: translateY(calc(85dvh - var(--club-sheet-peek) + env(safe-area-inset-bottom, 0px)));
 					transition: transform 0.28s cubic-bezier(0.2, 0.7, 0.2, 1);
 					box-shadow: 0 -12px 32px rgba(0, 0, 0, 0.55);
 					z-index: 12;
@@ -1658,12 +1662,14 @@
 					font-size: 13px;
 				}
 				.club-pole-select {
-					min-height: 36px;
+					min-height: 44px;
 					font-size: 14px;
 				}
+				/* Leaderboard window pills are interactive — give them the full
+				   44px touch target even though their label text is small. */
 				.club-lb-tab {
-					min-height: 36px;
-					padding: 6px 12px;
+					min-height: 44px;
+					padding: 8px 14px;
 				}
 				/* The canvas owns all pointer gestures (orbit + pinch). */
 				#club-canvas { touch-action: none; }
@@ -1680,8 +1686,9 @@
 					color: var(--text-3);
 					letter-spacing: 0.1em;
 					text-transform: uppercase;
-					min-height: 36px;
+					min-height: 44px;
 				}
+				.club-lb-retry { min-height: 44px; }
 				.club-lb-details > summary::after {
 					content: '▾';
 					font-size: 14px;
@@ -1720,6 +1727,11 @@
 			.club-avatar-btn:active { transform: translateY(1px); }
 			.club-avatar-btn:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
 			.club-avatar-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+			.club-avatar-btn.needs-reselect {
+				border-color: rgba(245, 166, 35, 0.55);
+				background: rgba(245, 166, 35, 0.08);
+			}
+			.club-avatar-btn.needs-reselect .club-avatar-change { color: #f5a623; }
 			.club-avatar-chip {
 				flex: none;
 				width: 34px;

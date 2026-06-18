@@ -3,6 +3,16 @@
 	"entries": [
 		{
 			"date": "2026-06-18",
+			"title": "Avatar viewer, lipsync tools, sign-in and account polish from a labs & account audit",
+			"summary": "A page-by-page audit of the labs, avatar tools and account pages turned up rough edges we’ve now smoothed. The standalone Avatar Artifact viewer works on phones — it has a back link to three.ws, links out to Playground, Labs and Agents, a loading state, a designed message if the 3D runtime can’t load, and you can steer the avatar with touch or the arrow keys, not just a mouse. The mic lipsync demo now shows a clear, recoverable message when the microphone is blocked, missing or busy instead of a bare pop-up, and the TTS lipsync demo shows a retry banner if speech generation fails. Sign-in and sign-up no longer leave you on the form after a connection blip, redirect cleanly so Back doesn’t return you to a login screen you already passed, and signup now bounces you onward if you’re already signed in. Forgot-password tells you if your request didn’t reach us instead of always saying it was sent. The Playground rejects oversized or wrong-type model uploads with friendly guidance, the account page’s delegation panel now opens a working console to have one of your agents answer a prompt, and the reputation explorer clearly flags when reviews are written to a test network.",
+			"tags": [
+				"improvement",
+				"fix"
+			],
+			"link": "/labs"
+		},
+		{
+			"date": "2026-06-18",
 			"title": "Agent lookup now matches the rest of the site and links straight to the agent’s page",
 			"summary": "The agent lookup tool used to render as a stark white page that ignored your light/dark theme and had no site navigation or footer. It now uses the same chrome and theme tokens as every other page, so it looks on-brand in both modes. More importantly, when a lookup resolves an agent it now shows a prominent “Open agent page” button that takes you to that agent’s profile on three.ws — so resolving an agent no longer dead-ends on external explorer links. Copy buttons also tell you if a copy fails instead of staying silent.",
 			"tags": [

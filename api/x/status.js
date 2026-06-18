@@ -4,6 +4,7 @@
 import { sql } from '../_lib/db.js';
 import { getSessionUser } from '../_lib/auth.js';
 import { cors, method, wrap, error, json } from '../_lib/http.js';
+import { requireCsrf } from '../_lib/csrf.js';
 import { getUserTier } from '../_lib/x-post.js';
 
 export default wrap(async (req, res) => {
@@ -14,6 +15,7 @@ export default wrap(async (req, res) => {
 	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
 
 	if (req.method === 'DELETE') {
+		if (!(await requireCsrf(req, res, user.id))) return;
 		await sql`
 			update social_connections
 			set disconnected_at = now(), updated_at = now()

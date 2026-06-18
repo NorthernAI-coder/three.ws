@@ -189,7 +189,10 @@ function maybeFire(mint, symbol, newTier, oldTier) {
 	const body  = `Oracle scored this coin ${newTier} on three.ws`;
 	try {
 		const n = new Notification(title, { body, icon: '/favicon-32x32.png', tag: mint });
-		n.onclick = () => { window.focus(); window.open(`/oracle?mint=${mint}`, '_blank'); n.close(); };
+		// Navigate the watchlist tab itself rather than spawning an orphaned new
+		// tab — keeps the browser Back button as a reliable return path to the
+		// watchlist once the user is done reading the Oracle breakdown.
+		n.onclick = () => { window.focus(); location.href = `/oracle?mint=${encodeURIComponent(mint)}`; n.close(); };
 	} catch { /* Notification blocked mid-flight */ }
 }
 

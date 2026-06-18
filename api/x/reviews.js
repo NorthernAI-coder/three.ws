@@ -6,6 +6,7 @@
 import { sql } from '../_lib/db.js';
 import { getSessionUser } from '../_lib/auth.js';
 import { cors, method, wrap, error, readJson, json } from '../_lib/http.js';
+import { requireCsrf } from '../_lib/csrf.js';
 import { publishTweet, XPostError } from '../_lib/x-post.js';
 
 export default wrap(async (req, res) => {
@@ -25,6 +26,10 @@ export default wrap(async (req, res) => {
 		`;
 		return json(res, 200, { reviews: rows });
 	}
+
+	// PATCH (approve/edit/reject) and DELETE (reject) are state-changing — gate
+	// them behind CSRF before touching the review.
+	if (!(await requireCsrf(req, res, user.id))) return;
 
 	const url = new URL(req.url, 'http://x');
 	const id = url.searchParams.get('id');

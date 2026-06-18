@@ -13,6 +13,8 @@
 // into a lean, UI-friendly shape. The normalizers are pure so they unit-test
 // without the network.
 
+import { clampInt } from './http-params.js';
+
 const REST_BASE = 'https://livestream-api.pump.fun';
 const PROGRAM_ID = 'goGzNYTYkSEe4hUqz6dPmY5uf3CTt36AQAoujXDrKiV';
 const WSOL_MINT = 'So11111111111111111111111111111111111111112';
@@ -55,7 +57,7 @@ async function pumpGoGet(path) {
 }
 
 function clampLimit(limit, fallback = 30) {
-	return Math.min(Math.max(parseInt(limit, 10) || fallback, 1), MAX_LIMIT);
+	return clampInt(limit, { max: MAX_LIMIT, fallback });
 }
 
 // USD for a reward leg from the parallel rewardLegsUsd array (only when priced).

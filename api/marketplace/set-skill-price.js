@@ -7,6 +7,7 @@
 import { sql } from '../_lib/db.js';
 import { authenticateBearer, extractBearer, getSessionUser } from '../_lib/auth.js';
 import { cors, error, json, method, readJson, wrap, rateLimited } from '../_lib/http.js';
+import { requireCsrf } from '../_lib/csrf.js';
 import { clientIp, limits } from '../_lib/rate-limit.js';
 import { invalidateSkillPriceCache } from '../_lib/skill-price-cache.js';
 import { z } from 'zod';
@@ -21,9 +22,9 @@ const bodySchema = z.object({
 
 async function resolveAuth(req) {
 	const session = await getSessionUser(req);
-	if (session) return { userId: session.id };
+	if (session) return { userId: session.id, fromSession: true };
 	const bearer = await authenticateBearer(extractBearer(req));
-	if (bearer) return { userId: bearer.userId };
+	if (bearer) return { userId: bearer.userId, fromSession: false };
 	return null;
 }
 
@@ -33,6 +34,9 @@ export default wrap(async (req, res) => {
 
 	const auth = await resolveAuth(req);
 	if (!auth) return error(res, 401, 'unauthorized', 'sign in required');
+
+	// Session-cookie writes need CSRF; bearer-token callers are exempt.
+	if (auth.fromSession && !(await requireCsrf(req, res, auth.userId))) return;
 
 	const rl = await limits.authIp(clientIp(req));
 	if (!rl.success) return rateLimited(res, rl);

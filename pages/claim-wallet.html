@@ -96,6 +96,17 @@
 		.cw-cta-btn.secondary { background: none; border: 1px solid var(--line); color: var(--muted); }
 		.cw-cta-btn.secondary:hover { border-color: var(--cyan); color: var(--cyan); }
 		.cw-cta-claimed { background: color-mix(in srgb, var(--up) 6%, var(--panel)); border-color: color-mix(in srgb, var(--up) 30%, var(--line)); }
+		.cw-cta-claimed h3 { display: inline-flex; align-items: center; gap: 8px; }
+		.cw-cta-claimed h3::before { content: "✓"; font: 700 13px/1 var(--mono); color: var(--up); width: 22px; height: 22px; display: grid; place-items: center; border-radius: 50%; background: color-mix(in srgb, var(--up) 16%, transparent); border: 1px solid color-mix(in srgb, var(--up) 40%, transparent); }
+
+		/* claim button (signed-in, not-yet-linked state) */
+		.cw-cta-btn[disabled] { opacity: .55; cursor: progress; }
+		.cw-cta-btn.danger { background: color-mix(in srgb, var(--dn) 14%, transparent); border: 1px solid color-mix(in srgb, var(--dn) 45%, transparent); color: var(--dn); }
+		.cw-cta-btn.danger:hover { background: color-mix(in srgb, var(--dn) 22%, transparent); }
+		.cw-claim-msg { font: 600 12px/1.5 var(--mono); margin-top: 12px; }
+		.cw-claim-msg.err { color: var(--dn); }
+		.cw-claim-msg.ok { color: var(--up); }
+		.cw-claim-hint { font: 400 11px/1.5 var(--sans); color: var(--faint); margin: 10px 0 0; }
 
 		/* not-found state */
 		.cw-notfound { margin-top: 40px; text-align: center; padding: 48px 20px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); }

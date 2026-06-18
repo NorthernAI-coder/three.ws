@@ -781,11 +781,11 @@ function openDelegationConsole(host, preselectAgentId) {
 			<form data-deleg-form style="margin-top:14px;border:1px solid var(--nxt-stroke);border-radius:var(--nxt-radius-sm);padding:16px;display:flex;flex-direction:column;gap:12px">
 				<div style="display:flex;flex-direction:column;gap:6px">
 					<label style="font-size:11.5px;color:var(--nxt-ink-fade);text-transform:uppercase;letter-spacing:0.04em">Delegate to</label>
-					<select data-deleg-agent class="dn-input" style="width:100%">${options}</select>
+					<select data-deleg-agent style="width:100%;background:rgba(255,255,255,0.04);border:1px solid var(--nxt-stroke-strong);border-radius:6px;padding:8px 10px;color:var(--nxt-ink);font-size:13.5px;font-family:inherit">${options}</select>
 				</div>
 				<div style="display:flex;flex-direction:column;gap:6px">
 					<label style="font-size:11.5px;color:var(--nxt-ink-fade);text-transform:uppercase;letter-spacing:0.04em">Message</label>
-					<textarea data-deleg-message class="dn-input" rows="3" maxlength="8000" placeholder="What should this agent answer on your behalf?" style="width:100%;resize:vertical;font-family:inherit"></textarea>
+					<textarea data-deleg-message rows="3" maxlength="8000" placeholder="What should this agent answer on your behalf?" style="width:100%;resize:vertical;background:rgba(255,255,255,0.04);border:1px solid var(--nxt-stroke-strong);border-radius:6px;padding:8px 10px;color:var(--nxt-ink);font-size:13.5px;font-family:inherit;line-height:1.55"></textarea>
 				</div>
 				<div style="display:flex;gap:10px;align-items:center">
 					<button class="dn-btn primary" type="submit" data-deleg-run>Run delegation</button>
