@@ -517,9 +517,13 @@ export const limits = {
 		getLimiter('brain:chat:ip', { limit: 20, window: '1 m', critical: true }).limit(ip),
 	// X (Twitter) memory seeding: 1 seed per agent per 6 hours.
 	xSeed: (agentId) => getLimiter('memory:seed:x', { limit: 1, window: '6 h' }).limit(agentId),
-	// Withdrawal requests: 5 per user per day to prevent spam.
+	// Withdrawal requests: 5 per user per day. This is the daily cap on the only
+	// owner-initiated path that sweeps real funds out of custody, so it is critical
+	// — a missing Redis in prod must fail closed rather than fall back to the
+	// per-instance map (uncapped across serverless fan-out) and silently uncap
+	// custodial withdrawals.
 	withdrawalPerUser: (userId) =>
-		getLimiter('withdrawal:user', { limit: 5, window: '1 d' }).limit(userId),
+		getLimiter('withdrawal:user', { limit: 5, window: '1 d', critical: true }).limit(userId),
 	// Per-user audit-log reads — the page polls on mount + "load older". 120/min
 	// per user is generous for browse but discourages scraping the full year.
 	// local: per-user browse/poll of one's own audit log — no side effects, no

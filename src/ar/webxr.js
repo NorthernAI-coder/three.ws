@@ -187,6 +187,13 @@ export class WebXRSession {
 		const viewerSpace = await session.requestReferenceSpace('viewer');
 		this._hitTestSource = await session.requestHitTestSource({ space: viewerSpace });
 
+		// Real-world occlusion: only stand up the depth path when the live session
+		// actually negotiated `depth-sensing`. On every other device this stays null
+		// and the tick never touches depth — identical pre-occlusion behavior.
+		this._depthOcclusion = DepthOcclusion.sessionHasDepth(session)
+			? new DepthOcclusion(renderer, viewer.scene)
+			: null;
+
 		// Re-read the OS motion preference per session so a mid-use settings change
 		// is honoured on the next entry; gates the reticle pulse and confirm beat.
 		this._reducedMotion = _prefersReducedMotion();
@@ -304,8 +311,20 @@ export class WebXRSession {
 			if (pose && viewer.content) {
 				const p = pose.transform.position;
 				viewer.content.position.set(p.x, p.y, p.z);
+				if (this._shadow) this._shadow.position.set(p.x, p.y, p.z);
 			}
 		}
+
+		// Reticle look (searching ↔ locked) + the one-shot confirm pulse-out ring.
+		// Both read existing state into reused buffers, so no per-frame allocation.
+		this._updateReticleVisual(time, dt);
+		this._updatePulse(dt);
+
+		// Attach the real-world occluder the first frame depth data is ready; a
+		// no-op (single boolean check) on every frame after, and never present at
+		// all when the session has no depth-sensing. Must run before the render so
+		// the depth buffer holds real-world depth when the agent is rasterized.
+		this._depthOcclusion?.update();
 
 		renderer.render(viewer.scene, viewer.activeCamera);
 	}
@@ -319,7 +338,14 @@ export class WebXRSession {
 		// Capture the tap-moment pose now — before the anchor's own drift correction
 		// nudges it — so the persisted GPS pin matches where the user actually tapped.
 		const anchorPose = this._readAnchorPose();
+		// The commit beat: a one-shot pulse-out ring from the tap point + a short
+		// haptic tick. The reticle retires (the spot is taken); the contact shadow
+		// stays to keep the agent grounded. Reduced motion drops the visual pulse but
+		// keeps the haptic — the confirmation still lands, just calmly.
+		this._fireConfirmPulse();
+		try { navigator.vibrate?.(15); } catch {}
 		if (this._reticle) this._reticle.visible = false;
+		if (this._shadow) this._shadow.visible = true;
 		this._setHit(false);
 		try {
 			this._anchor = (await this._latestHit.createAnchor?.()) ?? null;
@@ -428,6 +454,9 @@ export class WebXRSession {
 			this._hitTestSource = null;
 		}
 		this._disposeReticle();
+		// Detach + free the depth occluder (no-op when it was never attached).
+		this._depthOcclusion?.dispose();
+		this._depthOcclusion = null;
 		this._session = null;
 		this._anchored = false;
 		this._anchor = null;
