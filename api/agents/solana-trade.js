@@ -30,6 +30,9 @@ import { logAudit } from '../_lib/audit.js';
 import { explorerTxUrl } from '../_lib/avatar-wallet.js';
 import {
 	enforceSpendLimit, SpendLimitError, getSpendLimits, updateCustodyEvent, lamportsToUsd,
+	getTradeLimits, getDailySpendLamports,
+	checkKillSwitch, checkPerTradeCap, checkDailyBudgetLamports, checkSolHeadroom, checkPriceImpact,
+	SOL_FEE_HEADROOM_LAMPORTS,
 } from '../_lib/agent-trade-guards.js';
 import {
 	slippagePercentFromBps, resolveCustodialQuote, resolveTokenProgramForMintOwner,
@@ -42,13 +45,15 @@ const LAMPORTS_PER_SOL = 1_000_000_000;
 const BASE58_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-// Fee + rent headroom kept above a buy so it never fails for lack of lamports to
-// pay fees / open the token ATA. Mirrors the sniper's SOL_HEADROOM_LAMPORTS.
-const SOL_HEADROOM_LAMPORTS = 3_000_000n; // ~0.003 SOL
+// The SOL fee/rent headroom, the price-impact breaker, the per-trade cap, the
+// daily budget, and the kill switch all live in the shared guardrail module
+// (api/_lib/agent-trade-guards.js) — the SAME predicates the sniper executor and
+// the flat /api/agents/:id/trade endpoint call, so the "is this trade allowed"
+// math has exactly one home and can't drift between paths. This handler resolves
+// the per-agent limits from meta.trade_limits and hands the live numbers to those
+// predicates; the breaker ceiling, per-trade cap, and daily budget are all
+// owner-configurable there.
 const DEFAULT_SLIPPAGE_BPS = 300; // 3% — discretionary default; owner can change
-// Hard price-impact circuit breaker. A trade above this is refused with an
-// actionable reason; the UI also warns the owner well before this ceiling.
-const MAX_PRICE_IMPACT_PCT = 25;
 
 async function resolveAuth(req) {
 	const session = await getSessionUser(req);
@@ -296,25 +301,62 @@ export async function handleTrade(req, res, id) {
 	} catch { usdValue = null; }
 
 	const limitsCfg = getSpendLimits(meta);
+	const tradeLimits = getTradeLimits(meta);
 
-	// 2. Guard preview — does this trade breach the shared spend policy or impact
-	//    breaker? Surfaced on both preview (as a warning) and execute (as a hard
-	//    rejection). Only a BUY is an outbound spend; a sell brings SOL in.
+	// 2. Guards — the SAME shared predicates the sniper + flat /trade endpoint use,
+	//    fed the per-agent meta.trade_limits. Surfaced on preview (as a warning) and
+	//    on execute (as a hard rejection). The kill switch + price-impact breaker
+	//    apply both directions; the SOL caps gate only a BUY (a sell brings SOL in).
+	//    Each carries its own 4xx status so the execute path returns the right code.
 	let guardWarning = null;
-	if (side === 'buy') {
-		try {
-			await enforceSpendLimit({ agentId: id, limits: limitsCfg, category: 'trade', usdValue, network });
-		} catch (e) {
-			if (e instanceof SpendLimitError) guardWarning = { code: e.code, message: e.message, detail: e.detail };
-			else throw e;
+
+	const killed = checkKillSwitch(tradeLimits.kill_switch);
+	if (killed) {
+		guardWarning = { status: 403, code: 'trading_paused', message: 'Trading is paused for this agent. Re-enable discretionary trading under Limits & Safety to continue.', detail: {} };
+	}
+
+	if (!guardWarning && side === 'buy') {
+		const lamportsIn = BigInt(quote.inAtomics);
+
+		// Per-trade SOL cap.
+		const capLamports = tradeLimits.per_trade_sol == null ? null : BigInt(Math.floor(tradeLimits.per_trade_sol * LAMPORTS_PER_SOL));
+		const cap = checkPerTradeCap(lamportsIn, capLamports);
+		if (cap) {
+			guardWarning = { status: 422, code: 'per_trade_cap', message: `This buy of ◎${lamportsToSol(lamportsIn).toFixed(4)} is over the per-trade cap of ◎${tradeLimits.per_trade_sol}. Lower it or raise the cap under Limits & Safety.`, detail: cap.detail };
+		}
+
+		// Rolling daily SOL budget (shared with the sniper — one wallet, one budget).
+		if (!guardWarning && tradeLimits.daily_budget_sol != null) {
+			const budgetLamports = BigInt(Math.floor(tradeLimits.daily_budget_sol * LAMPORTS_PER_SOL));
+			const spent = await getDailySpendLamports(id, network);
+			const budget = checkDailyBudgetLamports(spent, lamportsIn, budgetLamports);
+			if (budget) {
+				guardWarning = { status: 422, code: 'daily_budget', message: `This buy would bring today's spend to ◎${lamportsToSol(spent + lamportsIn).toFixed(4)}, over the ◎${tradeLimits.daily_budget_sol} daily budget.`, detail: budget.detail };
+			}
+		}
+
+		// Cross-path USD ceiling (shared with withdraw / x402 / snipe).
+		if (!guardWarning) {
+			try {
+				await enforceSpendLimit({ agentId: id, limits: limitsCfg, category: 'trade', usdValue, network });
+			} catch (e) {
+				if (e instanceof SpendLimitError) guardWarning = { status: e.status, code: e.code, message: e.message, detail: e.detail };
+				else throw e;
+			}
 		}
 	}
-	if (quote.priceImpactPct > MAX_PRICE_IMPACT_PCT && !guardWarning) {
-		guardWarning = {
-			code: 'price_impact_too_high',
-			message: `Price impact is ${quote.priceImpactPct.toFixed(1)}%, above the ${MAX_PRICE_IMPACT_PCT}% safety limit. Reduce the size or pick a deeper market.`,
-			detail: { price_impact_pct: quote.priceImpactPct, max_price_impact_pct: MAX_PRICE_IMPACT_PCT },
-		};
+
+	// Price-impact circuit breaker — both directions, owner-configurable ceiling.
+	if (!guardWarning) {
+		const impact = checkPriceImpact(quote.priceImpactPct, tradeLimits.max_price_impact_pct);
+		if (impact) {
+			guardWarning = {
+				status: 422,
+				code: 'price_impact_too_high',
+				message: `Price impact is ${quote.priceImpactPct.toFixed(1)}%, above the ${tradeLimits.max_price_impact_pct}% safety limit. Reduce the size or pick a deeper market.`,
+				detail: { price_impact_pct: quote.priceImpactPct, max_price_impact_pct: tradeLimits.max_price_impact_pct },
+			};
+		}
 	}
 
 	// SOL fee/headroom + balance check (real on-chain balance).
@@ -327,13 +369,15 @@ export async function handleTrade(req, res, id) {
 	}
 	let fundsWarning = null;
 	if (walletLamports != null) {
-		const needed = side === 'buy' ? BigInt(quote.inAtomics) + SOL_HEADROOM_LAMPORTS : SOL_HEADROOM_LAMPORTS;
-		if (walletLamports < needed) {
+		const spendLamports = side === 'buy' ? BigInt(quote.inAtomics) : 0n;
+		const head = checkSolHeadroom(walletLamports, spendLamports, SOL_FEE_HEADROOM_LAMPORTS);
+		if (head) {
+			const needed = spendLamports + SOL_FEE_HEADROOM_LAMPORTS;
 			fundsWarning = {
 				code: side === 'buy' ? 'insufficient_sol' : 'insufficient_sol_for_fees',
 				message: side === 'buy'
 					? `This buy needs ◎${lamportsToSol(needed).toFixed(4)} (incl. fees) but the wallet holds ◎${lamportsToSol(walletLamports).toFixed(4)}. Fund the wallet to continue.`
-					: `Selling needs ~◎${lamportsToSol(SOL_HEADROOM_LAMPORTS).toFixed(4)} for network fees but the wallet holds ◎${lamportsToSol(walletLamports).toFixed(4)}.`,
+					: `Selling needs ~◎${lamportsToSol(SOL_FEE_HEADROOM_LAMPORTS).toFixed(4)} for network fees but the wallet holds ◎${lamportsToSol(walletLamports).toFixed(4)}.`,
 				detail: { needed_lamports: needed.toString(), balance_lamports: walletLamports.toString() },
 			};
 		}
