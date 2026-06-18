@@ -65,8 +65,68 @@ export function isXrVisible(visibilityState) {
  */
 export function placementHint(degraded) {
 	return degraded
-		? 'Placed — this device can’t lock it perfectly, so it may drift a little'
-		: 'Anchored — walk around, it stays put';
+		? 'Placed — it may drift a little on this device'
+		: 'Placed — walk around, it stays put';
+}
+
+// ── Reticle look (task 04: searching ↔ locked) ────────────────────────────────
+// The floor reticle reads as two states: dim + breathing while it hunts for a
+// surface, bright + full with a filled centre once it locks. The mapping from the
+// eased lock amount (and a breathing phase) to concrete scale/opacity/dot/colour
+// values lives here as a pure function so the *look* is unit-tested rather than
+// eyeballed on a phone — `src/ar/webxr.js` only feeds it inputs and pushes the
+// results onto Three.js materials. Writes into a caller-owned `out` object so the
+// render loop reuses one buffer and adds zero per-frame allocations.
+
+function _clamp01(n) {
+	return n < 0 ? 0 : n > 1 ? 1 : n;
+}
+
+/**
+ * @param {{scale:number,opacity:number,dot:number,colorMix:number}} out  Reused buffer.
+ * @param {number} hit      Eased 0→1 lock amount (0 = searching, 1 = locked).
+ * @param {number} breathe  0→1 searching pulse phase (ignored when reduced).
+ * @param {boolean} reduced prefers-reduced-motion: flatten to calm static values.
+ * @returns {{scale:number,opacity:number,dot:number,colorMix:number}} `out`.
+ */
+export function reticleVisual(out, hit, breathe = 0, reduced = false) {
+	const h = _clamp01(hit);
+	const b = reduced ? 0 : _clamp01(breathe);
+	// Searching: smaller + dimmer, gently breathing. Reduced motion holds a calm
+	// mid value with no pulse. Locked values are the same regardless of motion pref.
+	const searchScale = reduced ? 0.94 : 0.86 + b * 0.10;
+	const searchOpacity = reduced ? 0.5 : 0.34 + b * 0.18;
+	out.scale = searchScale + (1 - searchScale) * h;       // → 1.0 at full lock
+	out.opacity = searchOpacity + (0.96 - searchOpacity) * h;
+	out.dot = h;            // inner dot fills in as the surface locks
+	out.colorMix = h;       // dim purple → bright lock colour
+	return out;
+}
+
+// ── Confirm pulse (task 04: the commit beat) ──────────────────────────────────
+// On a successful anchor a single ring expands and fades out from the tap point —
+// the visible half of the confirm beat (the haptic + ✓ copy are the other halves).
+// One-shot, eased, allocation-free: advance a caller-owned state object each frame
+// until `done`.
+
+/** Duration of the confirm pulse-out ring, in seconds. */
+export const RETICLE_PULSE_SECONDS = 0.55;
+
+/**
+ * @param {{t:number,scale:number,opacity:number,done:boolean}} out  Reused state.
+ * @param {number} dt        Seconds since the last frame.
+ * @param {number} [duration=RETICLE_PULSE_SECONDS]
+ * @returns {{t:number,scale:number,opacity:number,done:boolean}} `out`.
+ */
+export function advancePulse(out, dt, duration = RETICLE_PULSE_SECONDS) {
+	const next = out.t + dt;
+	const k = next >= duration ? 1 : next / duration;
+	const eased = 1 - (1 - k) * (1 - k);   // ease-out
+	out.t = next;
+	out.scale = 1 + eased * 2;             // 1 → 3×
+	out.opacity = 0.85 * (1 - k);          // 0.85 → 0
+	out.done = next >= duration;
+	return out;
 }
 
 // ── Pre-GPS replay gate ──────────────────────────────────────────────────────

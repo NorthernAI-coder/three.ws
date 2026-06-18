@@ -1367,6 +1367,25 @@ body.market-page > header {
 	border: 1px solid rgba(79, 70, 229, 0.4);
 }
 
+/* Loading: shown while the detail API resolves skill prices, so paid agents
+   don't flash a wrong "Free" badge on the optimistic cached render. Neutral
+   grey with a gentle pulse signals "fetching" without implying a price tier. */
+.price-loading {
+	color: #9ca3af;
+	background-color: rgba(156, 163, 175, 0.12);
+	letter-spacing: 1px;
+	animation: price-badge-pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes price-badge-pulse {
+	0%, 100% { opacity: 1; }
+	50% { opacity: 0.4; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.price-loading { animation: none; }
+}
+
 .paid-badge {
 	background: #fef3c7;
 	color: #92400e;

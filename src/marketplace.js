@@ -4590,12 +4590,14 @@ async function loadDetail(id) {
 		const r = await fetch(`${API}/marketplace/agents/${id}`, { credentials: 'include' });
 		if (!r.ok) {
 			if (!cached) showDetailState(r.status === 404 ? 'notfound' : 'error', { id });
+			else resolveSkillsLoading(cached);
 			return;
 		}
 		const j = await r.json();
 		const agent = j?.data?.agent;
 		if (!agent) {
 			if (!cached) showDetailState('notfound', { id });
+			else resolveSkillsLoading(cached);
 			return;
 		}
 		detailState = { agent, bookmarked: !!agent.bookmarked };
@@ -4616,7 +4618,18 @@ async function loadDetail(id) {
 	} catch (err) {
 		log.error('[marketplace] detail load', err);
 		if (!cached) showDetailState('error', { id });
+		else resolveSkillsLoading(cached);
 	}
+}
+
+// When the detail fetch fails but a cached card is already on screen, the
+// optimistic render may be showing pulsing "loading" price badges that would
+// otherwise spin forever. Re-render the skills out of the loading state using
+// whatever prices the cached item carries (none → Free) so the view settles.
+function resolveSkillsLoading(cached) {
+	const caps = cached.capabilities || {};
+	const skillsArr = Array.isArray(caps.skills) ? caps.skills : cached.skills || [];
+	renderSkills(skillsArr, cached, cached.skill_prices || {});
 }
 
 // ── Avatar deep-link detail ───────────────────────────────────────────────
@@ -4959,6 +4972,57 @@ function hideDetailState() {
 	if (overlay) overlay.hidden = true;
 }
 
+// Renders the skill rows in the detail view's Capabilities tab. `skillPrices`
+// is the authoritative per-skill price map from the detail API. Pass `null` to
+// render the loading state — pulsing placeholder badges shown while the detail
+// fetch resolves, so paid agents don't flash "Free" on the optimistic render.
+function renderSkills(skillsArr, a, skillPrices) {
+	const el = $('d-skills');
+	if (!el) return;
+
+	const isLoading = skillPrices == null;
+
+	el.innerHTML = skillsArr.length
+		? skillsArr.map((s) => {
+				const name = typeof s === 'string' ? s : (s.name || '');
+				const purchaseKey = `${a.id}:${name}`;
+
+				let badge;
+				if (purchasedSkills.has(purchaseKey)) {
+					badge = `<span class="price-badge price-owned">✓ Owned</span>`;
+				} else if (isLoading) {
+					badge = `<span class="price-badge price-loading" aria-label="Loading price" aria-busy="true">···</span>`;
+				} else {
+					const price = skillPrices[name];
+					if (price) {
+						const priceInUSDC = (price.amount / 1e6).toFixed(2);
+						const trialUses = price.trial_uses || 0;
+						const trialBtn = trialUses > 0
+							? `<button class="trial-btn" data-skill-name="${escapeHtml(name)}" data-agent-id="${a.id}" data-trial-uses="${trialUses}">Try free (${trialUses} left)</button>`
+							: '';
+						const hasTimePass = price.time_pass_hours && price.time_pass_amount;
+						const timePassBtn = hasTimePass
+							? (() => {
+									const tpHuman = (Number(price.time_pass_amount) / 1e6).toFixed(2);
+									return `<button class="time-pass-btn" data-skill-name="${escapeHtml(name)}" data-agent-id="${a.id}" data-duration="${price.time_pass_hours}" data-amount="${price.time_pass_amount}">Get ${price.time_pass_hours}h access (${tpHuman} USDC)</button>`;
+								})()
+							: '';
+						badge = `<span class="price-badge price-paid">${priceInUSDC} USDC</span>` +
+							`<button class="purchase-btn" data-skill-name="${escapeHtml(name)}" data-agent-id="${a.id}">Purchase</button>` +
+							trialBtn + timePassBtn;
+					} else {
+						badge = `<span class="price-badge price-free">Free</span>`;
+					}
+				}
+
+				return `<div class="skill-row">
+									<span class="skill-name">${escapeHtml(name)}</span>
+									<span class="skill-actions">${badge}</span>
+							</div>`;
+		}).join('')
+		: '<div>This Agent has no skills defined.</div>';
+}
+
 function renderDetail(a, bookmarked) {
 	hideDetailState();
 	const author = a.author_name || a.author || 'Anonymous';
@@ -5015,8 +5079,6 @@ function renderDetail(a, bookmarked) {
 	$('d-skills-count').textContent = skillsArr.length;
 	$('d-library-count').textContent = libraryArr.length;
 
-	const skillPrices = a.skill_prices || {};
-
 	// The detail API returns the authoritative list of skills the signed-in user
 	// has already unlocked for THIS agent (api/marketplace/[action].js →
 	// purchased_skills, sourced from the confirmed skill_purchases table). Fold it
@@ -5027,41 +5089,19 @@ function renderDetail(a, bookmarked) {
 		for (const owned of a.purchased_skills) purchasedSkills.add(`${a.id}:${owned}`);
 	}
 
-	$('d-skills').innerHTML = skillsArr.length
-		? skillsArr.map((s) => {
-				const name = typeof s === 'string' ? s : (s.name || '');
-				const price = skillPrices[name];
-				const purchaseKey = `${a.id}:${name}`;
+	// skill_prices is only populated by the detail API. On the optimistic
+	// cached-card render (state.items carries skills + has_paid_skills but not
+	// the price map) it's absent — show pulsing loading badges for agents known
+	// to sell skills instead of incorrectly flashing "Free", then swap in real
+	// prices when the detail fetch resolves. Agents with no paid skills render
+	// immediately with no jump.
+	const skillPrices = a.skill_prices
+		? a.skill_prices
+		: a.has_paid_skills
+			? null
+			: {};
 
-				let badge;
-				if (purchasedSkills.has(purchaseKey)) {
-					badge = `<span class="price-badge price-owned">✓ Owned</span>`;
-				} else if (price) {
-					const priceInUSDC = (price.amount / 1e6).toFixed(2);
-					const trialUses = price.trial_uses || 0;
-					const trialBtn = trialUses > 0
-						? `<button class="trial-btn" data-skill-name="${escapeHtml(name)}" data-agent-id="${a.id}" data-trial-uses="${trialUses}">Try free (${trialUses} left)</button>`
-						: '';
-					const hasTimePass = price.time_pass_hours && price.time_pass_amount;
-					const timePassBtn = hasTimePass
-						? (() => {
-								const tpHuman = (Number(price.time_pass_amount) / 1e6).toFixed(2);
-								return `<button class="time-pass-btn" data-skill-name="${escapeHtml(name)}" data-agent-id="${a.id}" data-duration="${price.time_pass_hours}" data-amount="${price.time_pass_amount}">Get ${price.time_pass_hours}h access (${tpHuman} USDC)</button>`;
-							})()
-						: '';
-					badge = `<span class="price-badge price-paid">${priceInUSDC} USDC</span>` +
-						`<button class="purchase-btn" data-skill-name="${escapeHtml(name)}" data-agent-id="${a.id}">Purchase</button>` +
-						trialBtn + timePassBtn;
-				} else {
-					badge = `<span class="price-badge price-free">Free</span>`;
-				}
-
-				return `<div class="skill-row">
-									<span class="skill-name">${escapeHtml(name)}</span>
-									<span class="skill-actions">${badge}</span>
-							</div>`;
-		}).join('')
-		: '<div>This Agent has no skills defined.</div>';
+	renderSkills(skillsArr, a, skillPrices);
 
 	$('d-library').innerHTML = libraryArr.length
 		? libraryArr
