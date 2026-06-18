@@ -7,6 +7,14 @@
 		<description>What's new on three.ws — features, improvements, and releases, newest first.</description>
 		<language>en</language>
 		<item>
+			<title>Bundle specific skills into your subscription plans</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-18:Bundle specific skills into your subscription plans</guid>
+			<pubDate>Thu, 18 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>When you create or edit a subscription plan in the agent editor's Monetization tab, you can now tick exactly which of your agent's skills the plan includes. Subscribers to that plan get unlimited access to those skills for the life of their subscription, and the plan list shows what each plan bundles at a glance — so you can offer a focused starter plan and a fuller pro plan side by side.</description>
+		</item>
+		<item>
 			<title>Coin community worlds no longer get stuck on “Connecting…”</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-18:Coin community worlds no longer get stuck on “Connecting…”</guid>
@@ -31,12 +39,28 @@
 			<description>When you drop the &lt;agent-3d&gt; tag onto a page hosted somewhere other than three.ws, the avatar's gestures — waving, celebrating, thinking — silently failed to load: the animation clips were being requested from the host page's own domain instead of from three.ws, so each one came back as a 404. The component now resolves its animation library against three.ws no matter where it's embedded, so an agent reacts and emotes correctly on partner pages, live demos, and any third-party site.</description>
 		</item>
 		<item>
+			<title>Faster marketplace — agent pages load skill prices from cache</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-18:Faster marketplace — agent pages load skill prices from cache</guid>
+			<pubDate>Thu, 18 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>Agent and marketplace pages now feel snappier. A creator's skill prices are cached for an hour and shared across our servers instead of being re-read from the database on every single page view, so opening an agent, browsing the marketplace, or checking what a skill costs returns faster — especially for popular agents. The cache stays honest: the moment a creator changes a price the old value is cleared everywhere, so you always see the current price, and a purchase is still quoted against the exact price at checkout time.</description>
+		</item>
+		<item>
 			<title>Forge checkout no longer dead-ends when generation is briefly busy</title>
 			<link>https://three.ws/forge</link>
 			<guid isPermaLink="false">2026-06-18:Forge checkout no longer dead-ends when generation is briefly busy</guid>
 			<pubDate>Thu, 18 Jun 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>When the 3D generator was momentarily rate-limited mid-checkout, Forge could show a raw technical error and look like the payment had failed for good. Now a brief upstream slowdown shows a clear message — your payment was not taken, and the generation retries in a few seconds — and the checkout auto-retries on its own before ever asking you to try again. Your payment only settles once the model is actually produced, so a busy moment never costs you anything.</description>
+		</item>
+		<item>
+			<title>Gasless checkout — buy skills and assets with no SOL in your wallet</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-18:Gasless checkout — buy skills and assets with no SOL in your wallet</guid>
+			<pubDate>Thu, 18 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Buying a skill, time-pass, or whole asset no longer requires you to hold SOL for the network fee. When your Solana wallet is connected, three.ws now sponsors the transaction fee: the platform builds and pre-signs the payment, and your wallet only adds your own approval. You still pay the USDC price (and sellers still receive their split), but the tiny gas fee is on us — one fewer thing to top up before you check out. If sponsorship is ever unavailable, checkout falls back to the normal pay-your-own-gas flow automatically, so a purchase never gets blocked.</description>
 		</item>
 		<item>
 			<title>Graduated coins show a live price on agent and community cards</title>
@@ -63,12 +87,44 @@
 			<description>Submitting or updating a star rating on an agent's profile was quietly failing for signed-in users — the form said “Save failed” no matter what, because the security token that protects the save was being read incorrectly and never attached. Reviews now save on the first try. Signed-out visitors who tap Submit get a clear “Sign in to leave a review” prompt instead of a dead button, and agent profiles no longer log errors for agents that have no on-chain trading record — the track-record card simply stays hidden.</description>
 		</item>
 		<item>
+			<title>Manage an agent's subscription tiers straight from the API</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-18:Manage an agent's subscription tiers straight from the API</guid>
+			<pubDate>Thu, 18 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>An agent's subscription tiers can now be read and managed directly over the API at /api/agents/:id/tiers — list the tiers on an agent, create one, update its price, billing interval, perks, or bundled skills, and retire one when it's no longer offered. Retiring a tier is always a safe deactivation rather than a hard delete: subscribers already on it keep access until their current period ends, and the response tells you how many are still active, so a tier change never cuts off a paying fan mid-cycle. Only the agent's owner can make changes, and the public listing shows just the active tiers.</description>
+		</item>
+		<item>
 			<title>New guide: how avatars and animations actually work (FBX, GLB, JSON)</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-18:New guide: how avatars and animations actually work (FBX, GLB, JSON)</guid>
 			<pubDate>Thu, 18 Jun 2026 12:00:00 GMT</pubDate>
 			<category>docs</category>
 			<description>There's now a full explainer for the 3D pipeline behind every avatar on the site — what FBX, GLB, and animation-clip files each do, how they convert into one another, and how a single dance can play on any character. It also documents the new one-command tool that turns an animated FBX avatar into a web-ready GLB, and the chain that generates a model from a text prompt, rigs it, animates it, and exports it. Useful if you're bringing your own avatar or building on the platform.</description>
+		</item>
+		<item>
+			<title>Own your skills on-chain — verifiable skill-license NFTs</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-18:Own your skills on-chain — verifiable skill-license NFTs</guid>
+			<pubDate>Thu, 18 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Buying a skill can now mint you a real on-chain access key: a 1-of-1 NFT that lands in your own Solana wallet, plus a matching license record anyone can read back to prove you own that skill — no need to trust our database. It's a new Solana program (built with Anchor) where each license is tied to your wallet, the agent, and the specific skill, and a license can be cleanly burned (to dispose or transfer) or revoked on a refund. The platform can verify access straight from the chain at /api/skills/license-onchain, giving true, portable ownership of what you've bought.</description>
+		</item>
+		<item>
+			<title>Paid skills are now properly gated — and your purchase always lets you in</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-18:Paid skills are now properly gated — and your purchase always lets you in</guid>
+			<pubDate>Thu, 18 Jun 2026 12:00:00 GMT</pubDate>
+			<category>security</category>
+			<description>Every paid skill is now access-checked on the server before it runs, so a creator's work can't be used by someone who hasn't paid for it. The flip side matters just as much: if you already bought the skill, hold an active subscription, or have a creator tier that bundles it, you run it straight away with no second charge — subscription tiers now correctly unlock exactly the skills they include. Free trials are spent only as a last resort, never when a purchase or subscription already covers you. If you try a skill you don't have, you get a clear prompt to pick it up from the marketplace instead of a dead end.</description>
+		</item>
+		<item>
+			<title>Pause and reopen your agent's subscription plans</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-18:Pause and reopen your agent's subscription plans</guid>
+			<pubDate>Thu, 18 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Managing subscription plans in the agent editor's Monetization tab just got fuller control. Each plan now has an Active toggle: switch one off to hide it from new subscribers (existing members keep access until their period ends), then reopen it whenever you like — paused plans no longer disappear from view. You can also change a plan's billing cycle between weekly and monthly when editing it. Up to three active plans per creator.</description>
 		</item>
 		<item>
 			<title>Pay $THREE per High generation — no holding required</title>
@@ -119,6 +175,22 @@
 			<description>On the Pole Club stage, tapping “Change avatar” and picking a new look sometimes did nothing — the dancer quietly snapped back to the default. Two fixes: a pick made right after the room loads is no longer overwritten by the room's own startup, and any avatar whose rig can't be animated is now clearly flagged “can’t dance” and skipped — the dancer keeps her current look and a message says why, instead of silently failing. Picks that work apply instantly and stay put.</description>
 		</item>
 		<item>
+			<title>See every skill you've bought and sold in one Transactions tab</title>
+			<link>https://three.ws/dashboard/transactions</link>
+			<guid isPermaLink="false">2026-06-18:See every skill you've bought and sold in one Transactions tab</guid>
+			<pubDate>Thu, 18 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The dashboard now has a Transactions page that lays out your full payment history in one place: every skill you've purchased from other agents and every sale your own agents have made, newest first. Each row shows the date, whether it was a purchase or a sale, the skill and agent involved, the USDC amount (sellers see their take-home net of the platform fee), and a link straight to the transaction on Solscan or Basescan. Filter by purchases or sales, and download the whole thing as a CSV for your records or taxes.</description>
+		</item>
+		<item>
+			<title>Steadier token prices and 3D generation when a provider is busy</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-18:Steadier token prices and 3D generation when a provider is busy</guid>
+			<pubDate>Thu, 18 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Live bonding-curve prices, market caps, and trade quotes now stay accurate even when a Solana data provider hits its rate limit: the platform transparently rotates to a healthy provider and parks the busy one, instead of repeatedly retrying a maxed-out endpoint and showing stale numbers. The free text-to-3D forge also rides out a cold or briefly-unavailable generation node by retrying once before falling back, so a momentary upstream hiccup no longer turns into a failed generation.</description>
+		</item>
+		<item>
 			<title>The $THREE page now shows a live price chart</title>
 			<link>https://three.ws/three-token</link>
 			<guid isPermaLink="false">2026-06-18:The $THREE page now shows a live price chart</guid>
@@ -157,6 +229,14 @@
 			<pubDate>Thu, 18 Jun 2026 12:00:00 GMT</pubDate>
 			<category>improvement</category>
 			<description>Tap “🙏 Pray” on the homepage hero and the avatar finishes the prayer and rises straight into a walk — one smooth motion instead of snapping back to a standing idle at the end of the clip. After the walk plays out, the avatar eases back into its gentle idle-and-stroll rhythm. The other one-tap emotes (wave, dance, jump, and the rest) also return to that ambient motion now instead of freezing on their last frame.</description>
+		</item>
+		<item>
+			<title>Tip a dancer for a Pole Twerk and she works the pole</title>
+			<link>https://three.ws/club</link>
+			<guid isPermaLink="false">2026-06-18:Tip a dancer for a Pole Twerk and she works the pole</guid>
+			<pubDate>Thu, 18 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The Club stage has a new headline move: Pole Twerk, now the default style on every pole. Tip a dancer for it and instead of facing the crowd like the other styles, she turns into the pole and works it with her back to the room — a real pole-dancer twerk, not a free-floor one — set to its own track. Pick it (or any other style) from the dropdown on each pole before you tip; all the existing dances are still there.</description>
 		</item>
 		<item>
 			<title>Tipping a dancer goes straight to the wallet now</title>

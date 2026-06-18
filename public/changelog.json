@@ -1,11 +1,22 @@
 {
-	"generated_at": "2026-06-18T07:01:53.628Z",
+	"generated_at": "2026-06-18T07:40:04.896Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
 		"url": "https://three.ws"
 	},
 	"entries": [
+		{
+			"date": "2026-06-18",
+			"type": "update",
+			"title": "Bundle specific skills into your subscription plans",
+			"summary": "When you create or edit a subscription plan in the agent editor's Monetization tab, you can now tick exactly which of your agent's skills the plan includes. Subscribers to that plan get unlimited access to those skills for the life of their subscription, and the plan list shows what each plan bundles at a glance — so you can offer a focused starter plan and a fuller pro plan side by side.",
+			"link": null,
+			"tags": [
+				"feature",
+				"improvement"
+			]
+		},
 		{
 			"date": "2026-06-18",
 			"type": "update",
@@ -40,11 +51,33 @@
 		{
 			"date": "2026-06-18",
 			"type": "update",
+			"title": "Faster marketplace — agent pages load skill prices from cache",
+			"summary": "Agent and marketplace pages now feel snappier. A creator's skill prices are cached for an hour and shared across our servers instead of being re-read from the database on every single page view, so opening an agent, browsing the marketplace, or checking what a skill costs returns faster — especially for popular agents. The cache stays honest: the moment a creator changes a price the old value is cleared everywhere, so you always see the current price, and a purchase is still quoted against the exact price at checkout time.",
+			"link": null,
+			"tags": [
+				"improvement",
+				"infra"
+			]
+		},
+		{
+			"date": "2026-06-18",
+			"type": "update",
 			"title": "Forge checkout no longer dead-ends when generation is briefly busy",
 			"summary": "When the 3D generator was momentarily rate-limited mid-checkout, Forge could show a raw technical error and look like the payment had failed for good. Now a brief upstream slowdown shows a clear message — your payment was not taken, and the generation retries in a few seconds — and the checkout auto-retries on its own before ever asking you to try again. Your payment only settles once the model is actually produced, so a busy moment never costs you anything.",
 			"link": "/forge",
 			"tags": [
 				"fix"
+			]
+		},
+		{
+			"date": "2026-06-18",
+			"type": "update",
+			"title": "Gasless checkout — buy skills and assets with no SOL in your wallet",
+			"summary": "Buying a skill, time-pass, or whole asset no longer requires you to hold SOL for the network fee. When your Solana wallet is connected, three.ws now sponsors the transaction fee: the platform builds and pre-signs the payment, and your wallet only adds your own approval. You still pay the USDC price (and sellers still receive their split), but the tiny gas fee is on us — one fewer thing to top up before you check out. If sponsorship is ever unavailable, checkout falls back to the normal pay-your-own-gas flow automatically, so a purchase never gets blocked.",
+			"link": null,
+			"tags": [
+				"feature",
+				"improvement"
 			]
 		},
 		{
@@ -81,11 +114,55 @@
 		{
 			"date": "2026-06-18",
 			"type": "update",
+			"title": "Manage an agent's subscription tiers straight from the API",
+			"summary": "An agent's subscription tiers can now be read and managed directly over the API at /api/agents/:id/tiers — list the tiers on an agent, create one, update its price, billing interval, perks, or bundled skills, and retire one when it's no longer offered. Retiring a tier is always a safe deactivation rather than a hard delete: subscribers already on it keep access until their current period ends, and the response tells you how many are still active, so a tier change never cuts off a paying fan mid-cycle. Only the agent's owner can make changes, and the public listing shows just the active tiers.",
+			"link": null,
+			"tags": [
+				"feature",
+				"sdk"
+			]
+		},
+		{
+			"date": "2026-06-18",
+			"type": "update",
 			"title": "New guide: how avatars and animations actually work (FBX, GLB, JSON)",
 			"summary": "There's now a full explainer for the 3D pipeline behind every avatar on the site — what FBX, GLB, and animation-clip files each do, how they convert into one another, and how a single dance can play on any character. It also documents the new one-command tool that turns an animated FBX avatar into a web-ready GLB, and the chain that generates a model from a text prompt, rigs it, animates it, and exports it. Useful if you're bringing your own avatar or building on the platform.",
 			"link": null,
 			"tags": [
 				"docs"
+			]
+		},
+		{
+			"date": "2026-06-18",
+			"type": "update",
+			"title": "Own your skills on-chain — verifiable skill-license NFTs",
+			"summary": "Buying a skill can now mint you a real on-chain access key: a 1-of-1 NFT that lands in your own Solana wallet, plus a matching license record anyone can read back to prove you own that skill — no need to trust our database. It's a new Solana program (built with Anchor) where each license is tied to your wallet, the agent, and the specific skill, and a license can be cleanly burned (to dispose or transfer) or revoked on a refund. The platform can verify access straight from the chain at /api/skills/license-onchain, giving true, portable ownership of what you've bought.",
+			"link": null,
+			"tags": [
+				"feature",
+				"sdk"
+			]
+		},
+		{
+			"date": "2026-06-18",
+			"type": "update",
+			"title": "Paid skills are now properly gated — and your purchase always lets you in",
+			"summary": "Every paid skill is now access-checked on the server before it runs, so a creator's work can't be used by someone who hasn't paid for it. The flip side matters just as much: if you already bought the skill, hold an active subscription, or have a creator tier that bundles it, you run it straight away with no second charge — subscription tiers now correctly unlock exactly the skills they include. Free trials are spent only as a last resort, never when a purchase or subscription already covers you. If you try a skill you don't have, you get a clear prompt to pick it up from the marketplace instead of a dead end.",
+			"link": null,
+			"tags": [
+				"security",
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-18",
+			"type": "update",
+			"title": "Pause and reopen your agent's subscription plans",
+			"summary": "Managing subscription plans in the agent editor's Monetization tab just got fuller control. Each plan now has an Active toggle: switch one off to hide it from new subscribers (existing members keep access until their period ends), then reopen it whenever you like — paused plans no longer disappear from view. You can also change a plan's billing cycle between weekly and monthly when editing it. Up to three active plans per creator.",
+			"link": null,
+			"tags": [
+				"feature",
+				"improvement"
 			]
 		},
 		{
@@ -152,6 +229,27 @@
 		{
 			"date": "2026-06-18",
 			"type": "update",
+			"title": "See every skill you've bought and sold in one Transactions tab",
+			"summary": "The dashboard now has a Transactions page that lays out your full payment history in one place: every skill you've purchased from other agents and every sale your own agents have made, newest first. Each row shows the date, whether it was a purchase or a sale, the skill and agent involved, the USDC amount (sellers see their take-home net of the platform fee), and a link straight to the transaction on Solscan or Basescan. Filter by purchases or sales, and download the whole thing as a CSV for your records or taxes.",
+			"link": "/dashboard/transactions",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-18",
+			"type": "update",
+			"title": "Steadier token prices and 3D generation when a provider is busy",
+			"summary": "Live bonding-curve prices, market caps, and trade quotes now stay accurate even when a Solana data provider hits its rate limit: the platform transparently rotates to a healthy provider and parks the busy one, instead of repeatedly retrying a maxed-out endpoint and showing stale numbers. The free text-to-3D forge also rides out a cold or briefly-unavailable generation node by retrying once before falling back, so a momentary upstream hiccup no longer turns into a failed generation.",
+			"link": null,
+			"tags": [
+				"fix",
+				"infra"
+			]
+		},
+		{
+			"date": "2026-06-18",
+			"type": "update",
 			"title": "The $THREE page now shows a live price chart",
 			"summary": "$THREE graduated long ago, so the token page no longer has a bonding curve to climb — but the page still showed a “No active bonding curve” placeholder where the chart should be. That dead space is now a real, live price chart: an area chart with a volume panel underneath, pulling actual trade history (Birdeye with a GeckoTerminal fallback) and refreshing every 30 seconds. Switch between 5m, 15m, 1H, 4H, and 1D timeframes, and read the price and percentage move over the window you're viewing — green when it's up, red when it's down. Buy $THREE and the live trade tape sit right alongside it, unchanged.",
 			"link": "/three-token",
@@ -197,6 +295,16 @@
 			"link": null,
 			"tags": [
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-18",
+			"type": "update",
+			"title": "Tip a dancer for a Pole Twerk and she works the pole",
+			"summary": "The Club stage has a new headline move: Pole Twerk, now the default style on every pole. Tip a dancer for it and instead of facing the crowd like the other styles, she turns into the pole and works it with her back to the room — a real pole-dancer twerk, not a free-floor one — set to its own track. Pick it (or any other style) from the dropdown on each pole before you tip; all the existing dances are still there.",
+			"link": "/club",
+			"tags": [
+				"feature"
 			]
 		},
 		{
