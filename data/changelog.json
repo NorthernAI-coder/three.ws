@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-06-18",
+			"title": "Gift a skill to anyone — pay once, they get the access",
+			"summary": "Buying a skill on an agent page now has a Gift option. Tick \"Gift this skill to someone,\" enter the recipient's username or wallet address, and we confirm exactly who you're sending it to before you pay. You approve the same single USDC payment from your wallet (gas still on us), and the moment it settles on-chain the skill lands in the recipient's library — not yours — with a notification telling them who it's from; you get a delivery confirmation too. It works for permanent unlocks and timed access passes, and if the person already owns the skill we tell you up front so you never pay for nothing.",
+			"tags": [
+				"feature"
+			],
+			"link": "/marketplace"
+		},
+		{
+			"date": "2026-06-18",
 			"title": "Forge always reaches for a free 3D engine first",
 			"summary": "Text-to-3D and image-to-3D generation now exhaust the free engines before any paid one. A prompt is rendered on the free NVIDIA lane; if that's busy, the reference image is reconstructed into a mesh on a free engine too — the platform only reaches for a paid engine as a genuine last resort. And if every engine is briefly out of reach, you now get an honest \"temporarily unavailable, try again shortly\" instead of a confusing technical billing message. Same Forge, fewer dead ends, no surprise costs.",
 			"tags": [
