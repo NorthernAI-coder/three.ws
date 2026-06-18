@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-18T09:21:16.302Z",
+	"generated_at": "2026-06-18T09:26:45.826Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -57,6 +57,17 @@
 			"tags": [
 				"improvement",
 				"infra"
+			]
+		},
+		{
+			"date": "2026-06-18",
+			"type": "update",
+			"title": "Floor placement now works on iPhone — and holds up in the real world",
+			"summary": "Placing your agent on the floor in AR got a big reach-and-reliability upgrade. It now works on iPhone too, through Apple's AR Quick Look, so you're no longer Android-only. Your agent is correctly hidden when something real — a couch, a wall, a person — passes in front of it, so it reads as actually being in the room. It reloads facing the exact direction you placed it, not rounded to the nearest few degrees, so you and anyone nearby see it the same way. And it now holds up to real life: if a call comes in, you lock your phone, or tracking briefly drops in low light, the session pauses and recovers cleanly, your agent stays anchored where you tapped, and your saved spot is written exactly once — never lost, never duplicated. On devices that can't lock a hardware anchor, we tell you honestly that it may drift rather than pretending it's rock-solid.",
+			"link": "/irl",
+			"tags": [
+				"feature",
+				"improvement"
 			]
 		},
 		{
@@ -355,6 +366,17 @@
 			"summary": "Tap “🙏 Pray” on the homepage hero and the avatar finishes the prayer and rises straight into a walk — one smooth motion instead of snapping back to a standing idle at the end of the clip. After the walk plays out, the avatar eases back into its gentle idle-and-stroll rhythm. The other one-tap emotes (wave, dance, jump, and the rest) also return to that ambient motion now instead of freezing on their last frame.",
 			"link": null,
 			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-18",
+			"type": "update",
+			"title": "The Pole Club walk-in is full of people now",
+			"summary": "Walking up to the Pole Club, you used to move through the alley, the gallery, and the clubhouse completely alone. Now every room is full: each one is populated with a live crowd built from our avatars — the bundled looks plus public avatars from the gallery — grounded on the floor and moving for real. Near the entrance they lean, chill, and idle; deeper in, more of them are dancing, so the energy builds as you get closer to the stage. The crowd lines your route instead of blocking it, and the head-count scales to your device so it stays smooth on phones and goes big on desktop.",
+			"link": "/club",
+			"tags": [
+				"feature",
 				"improvement"
 			]
 		},

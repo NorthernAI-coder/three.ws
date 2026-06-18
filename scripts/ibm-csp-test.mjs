@@ -34,12 +34,11 @@ const TIER1 = oneLine(`
 
 const TIER2 = oneLine(`
   default-src 'none';
-  script-src 'self' https://three.ws https://esm.sh 'unsafe-inline';
-  connect-src https://three.ws https://assets.three.ws https://esm.sh;
+  script-src 'self' https://three.ws https://esm.sh 'unsafe-inline' 'wasm-unsafe-eval';
+  connect-src 'self' blob: https://three.ws https://esm.sh;
   style-src 'self' 'unsafe-inline';
   font-src 'self';
-  img-src 'self' data: blob: https://three.ws https://assets.three.ws;
-  media-src 'self' blob: https://three.ws https://assets.three.ws;
+  img-src 'self' data: blob: https://three.ws;
   worker-src 'self' blob:;
   frame-src https://three.ws;
   base-uri 'self';
@@ -128,14 +127,18 @@ async function scrollThrough(page) {
 }
 
 function report(name, rec, { expectClean = true } = {}) {
-  const errs = rec.console.filter((c) => c.type === 'error').map((c) => c.text);
+  const allErrs = rec.console.filter((c) => c.type === 'error').map((c) => c.text);
+  // The demo INTENTIONALLY fetch()es the live 402/401 challenge to render it; Chromium
+  // logs every non-2xx fetch to the console. These are expected protocol reads, not faults.
+  const expected = allErrs.filter((e) => /the server responded with a status of 40[12]\b/.test(e));
+  const errs = allErrs.filter((e) => !expected.includes(e));
   const warns = rec.console.filter((c) => c.type === 'warning').map((c) => c.text);
   // Network failures to three.ws RPC endpoints the agent probes are not page bugs
   // unless they are CSP-blocked; flag only blocked/refused ones distinctly.
   const cspCount = rec.csp.length;
   console.log(`\n──────── ${name} ────────`);
   console.log(`origins touched: ${[...rec.origins].sort().join('  ')}`);
-  console.log(`console errors: ${errs.length} | warnings: ${warns.length} | CSP violations: ${cspCount} | pageerrors: ${rec.errors.length}`);
+  console.log(`real console errors: ${errs.length} | expected 402/401 reads: ${expected.length} | warnings: ${warns.length} | CSP violations: ${cspCount} | pageerrors: ${rec.errors.length}`);
   if (cspCount) { console.log('  CSP VIOLATIONS:'); rec.csp.slice(0, 40).forEach((c) => console.log('   • ' + c.slice(0, 200))); }
   if (errs.length) { console.log('  ERRORS:'); errs.slice(0, 30).forEach((e) => console.log('   • ' + e.slice(0, 200))); }
   if (rec.errors.length) { console.log('  PAGEERRORS:'); rec.errors.slice(0, 20).forEach((e) => console.log('   • ' + e.slice(0, 200))); }
@@ -212,10 +215,13 @@ async function main() {
   await run('2. Tier 2 (full) / full page / top-level', {
     url: `http://127.0.0.1:${PORT_HOST}/x402-demo.html`, csp: TIER2,
     postCheck: async (page, rec) => {
+      // model-viewer is lazy now — it is NOT expected to be defined until a model is
+      // forged (validated standalone in scenario 6). Here we confirm the rest is clean.
       const mvDefined = await page.evaluate(() => !!customElements.get('model-viewer'));
       const fontReq = rec.requests.some((u) => /\/fonts\/IBMPlex/.test(u));
+      const wmOk = !rec.console.some((c) => /watermark/i.test(c.text));
       const x402 = await page.evaluate(() => !!(window.X402 && typeof window.X402.pay === 'function'));
-      console.log(`  checks: model-viewer defined=${mvDefined} | self-host font fetched=${fontReq} | window.X402.pay=${x402}`);
+      console.log(`  checks: model-viewer lazy(undef at idle)=${!mvDefined} | self-host font fetched=${fontReq} | no watermark error=${wmOk} | window.X402.pay=${x402}`);
     },
   });
 

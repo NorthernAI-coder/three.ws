@@ -245,6 +245,7 @@ a:focus-visible{outline-offset:3px}
 .note svg{flex:0 0 auto;width:20px;height:20px;color:var(--ibm-blue);margin-top:1px}
 .note p{font-size:13px;color:var(--ibm-muted);line-height:1.6;font-weight:300}
 .note p b{color:var(--ibm-ink);font-weight:600}
+.note-aside{display:block;margin-top:8px;padding-top:8px;border-top:1px solid var(--ibm-border);color:var(--ibm-subtle);font-size:12px}
 
 /* ── Forge demo (Demo 03): tier selector, model viewer, result actions ── */
 .tier-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px}
@@ -594,7 +595,7 @@ agent-3d:defined ~ .agent-skel{display:none}
         <!-- requirements -->
         <div class="note">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
-          <p>You'll need a browser wallet — <b>MetaMask</b> (Base) or <b>Phantom</b> (Solana) — holding at least <b>$0.001 USDC</b> on mainnet. This spends <b>real USDC</b> — one tenth of a cent — from your own wallet. The payment itself is a gasless signature: the network fee is sponsored by the x402 facilitator, so it isn't added to your cost (it isn't zero, just not yours to pay). No wallet? You can still watch the live 402 challenge above and read the <a href="https://three.ws/docs/x402" target="_blank" rel="noopener">protocol docs</a>.</p>
+          <p>You'll need a browser wallet — <b>MetaMask</b> (Base) or <b>Phantom</b> (Solana) — holding at least <b>$0.001 USDC</b> on mainnet. This spends <b>real USDC</b> — one tenth of a cent — from your own wallet. The payment itself is a gasless signature: the network fee is sponsored by the x402 facilitator, so it isn't added to your cost (it isn't zero, just not yours to pay). No wallet? You can still watch the live 402 challenge above and read the <a href="https://three.ws/docs/x402" target="_blank" rel="noopener">protocol docs</a>. <span class="note-aside">Paying with <b>MetaMask</b> on Base is fully self-contained — it talks only to three.ws. Paying with <b>Phantom</b> on Solana additionally loads a small library from <span class="mono">esm.sh</span>; if a strict host security policy blocks it, the Solana button reports it clearly and the Base path keeps working.</span></p>
         </div>
       </div>
     </div>
@@ -869,8 +870,10 @@ agent-3d:defined ~ .agent-skel{display:none}
     var iframe = document.createElement('iframe');
     iframe.title = embed.getAttribute('data-label') || 'three.ws demo';
     iframe.loading = 'lazy';
+    // `data-allow` already carries `fullscreen`, which is the modern Permissions-Policy
+    // way to grant it; adding the legacy `allowfullscreen` attribute too just makes the
+    // browser warn that `allow` takes precedence, so we rely on `allow` alone.
     iframe.setAttribute('allow', embed.getAttribute('data-allow') || '');
-    iframe.setAttribute('allowfullscreen', '');
     iframe.setAttribute('referrerpolicy', 'no-referrer-when-downgrade');
     var timer = setTimeout(function () {
       if (!embed.classList.contains('loaded')) embed.classList.add('failed');
@@ -1221,6 +1224,28 @@ agent-3d:defined ~ .agent-skel{display:none}
   // Networks the live 402 challenge is quoting, for specific error guidance.
   var quotedNetworks = '';
 
+  // model-viewer is heavy (~955 KB, bundles its own Three.js) and only needed once
+  // a model has actually been forged. Load it lazily, self-hosted from ./vendor/, so
+  // a page view that never forges pays nothing for it and its Three.js never co-exists
+  // with the agent's at idle. Injected <model-viewer> elements upgrade automatically
+  // once the module defines the custom element; a blocked/failed load never wedges the
+  // result UI (the GLB download link still works).
+  var _mvLoading = null;
+  function ensureModelViewer() {
+    if (_mvLoading) return _mvLoading;
+    _mvLoading = new Promise(function (resolve) {
+      if (window.customElements && customElements.get('model-viewer')) { resolve(); return; }
+      var s = document.createElement('script');
+      s.type = 'module';
+      s.src = './vendor/model-viewer.min.js';
+      s.addEventListener('error', resolve);
+      document.head.appendChild(s);
+      if (window.customElements) customElements.whenDefined('model-viewer').then(resolve, resolve);
+      else resolve();
+    });
+    return _mvLoading;
+  }
+
   function escapeHtml(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
@@ -1398,6 +1423,7 @@ agent-3d:defined ~ .agent-skel{display:none}
     announce('Error: ' + text + (tip ? ' ' + tip : ''));
   }
   function setResultGenerating(payment, etaSec, startTs) {
+    ensureModelViewer(); // warm the viewer during the generation wait so the result paints instantly
     var el = $('fgResult'); el.className = 'result is-loading';
     el.innerHTML =
       '<div class="r-status"><span class="spin" aria-hidden="true"></span><span id="fgGenText">Payment settled — forging your model…</span></div>' +
@@ -1413,6 +1439,7 @@ agent-3d:defined ~ .agent-skel{display:none}
   }
   function setResultDone(glbUrl, payment, meta) {
     clearInterval(genTimer);
+    ensureModelViewer(); // covers the synchronous-finish path where generation never streamed
     var el = $('fgResult'); el.className = 'result is-done';
     var explorer = explorerUrl(payment.network, payment.transaction);
     var safeGlb = escapeHtml(glbUrl);

@@ -132,6 +132,8 @@ export function mountAgentWalletHub({ mount, agent, initialTab, onNetworkChange 
 			if (typeof fn === 'function') networkListeners.add(fn);
 			return () => networkListeners.delete(fn);
 		},
+		// Lets a tab hand off to another (e.g. Trade → Deposit on insufficient funds).
+		openTab: (id) => openTab(id),
 		escapeHtml,
 		shortAddress,
 		copyToClipboard,

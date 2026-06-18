@@ -48,6 +48,8 @@ import { logger } from './_lib/usage.js';
 import { getSessionUser, authenticateBearer, extractBearer } from './_lib/auth.js';
 import { recoverSolanaAgentKeypair } from './_lib/agent-wallet.js';
 import { enforceSpendLimit, SpendLimitError, recordSpend } from './_lib/agent-trade-guards.js';
+import { validatePublicUrl, resolvePublicHost, pinnedAgent, SsrfError } from './_lib/ssrf.js';
+import { BUILDER_CODE } from './_lib/x402-builder-code.js';
 
 const log = logger('x402-pay');
 
@@ -175,6 +177,19 @@ async function requireAuth(req) {
 		log.warn('require_auth_failed', { message: err?.message });
 	}
 	return null;
+}
+
+// Decide which wallet signs an x402 payment. An agent context — an `agentId`
+// on the request, which the wallet hub always sends and any authenticated owner
+// call carries — ALWAYS pays from that agent's own custodial wallet. The shared
+// platform wallet (X402_AGENT_SOLANA_SECRET_BASE58) is an explicit fallback for
+// platform-level/demo calls that carry no agent context. The handler logs that
+// fallback so a regression where an agent call drops its agentId is visible in
+// the logs instead of silently spending the shared wallet on the agent's behalf.
+export function resolvePayerRouting(input) {
+	const agentId = input && input.agentId ? String(input.agentId) : '';
+	if (agentId) return { mode: 'agent', agentId };
+	return { mode: 'platform' };
 }
 
 async function loadAgentKeypairForUser(agentId, userId) {
@@ -374,6 +389,278 @@ async function buildSolanaPaymentPayload({ accept, buyer, conn, resourceUrl }) {
 	};
 }
 
+// ── External x402 endpoint pay (wallet hub "Pay" tab) ─────────────────────
+// Pays an ARBITRARY x402 endpoint discovered via the bazaar from the agent's
+// own Solana wallet. Distinct from runFlow (which pays the platform's own MCP):
+// here the 402 challenge, payTo, asset and feePayer all come from the external
+// resource server, and that server — not us — verifies + settles. We only build
+// and sign the SPL transfer with the agent key and present it as X-PAYMENT.
+
+const EXTERNAL_FETCH_TIMEOUT_MS = 30_000;
+
+// SSRF-guarded one-shot fetch of an untrusted URL: https-only (http in dev),
+// DNS resolved + checked against the private-range blocklist, the socket pinned
+// to the validated addresses (closes the DNS-rebinding TOCTOU), redirects never
+// followed into an internal target. Returns { status, ok, headers, text }.
+// Throws SsrfError on a blocked target.
+async function guardedFetch(rawUrl, { method = 'GET', headers = {}, body } = {}) {
+	const url = validatePublicUrl(rawUrl);
+	const addrs = await resolvePublicHost(url.hostname);
+	const agent = pinnedAgent(url.hostname, addrs);
+	const controller = new AbortController();
+	const timer = setTimeout(() => controller.abort(), EXTERNAL_FETCH_TIMEOUT_MS);
+	try {
+		const res = await fetch(url, {
+			method,
+			redirect: 'manual',
+			signal: controller.signal,
+			dispatcher: agent,
+			headers: {
+				'user-agent': '3d-agent-x402/1.0 (+https://three.ws/)',
+				accept: 'application/json, text/plain;q=0.8, */*;q=0.5',
+				...(body != null ? { 'content-type': 'application/json' } : {}),
+				...headers,
+			},
+			...(body != null
+				? { body: typeof body === 'string' ? body : JSON.stringify(body) }
+				: {}),
+		});
+		const text = await res.text();
+		return { status: res.status, ok: res.ok, headers: res.headers, text };
+	} finally {
+		clearTimeout(timer);
+		await agent.close().catch(() => {});
+	}
+}
+
+function safeJsonParse(text) {
+	if (typeof text !== 'string' || !text) return null;
+	try {
+		return JSON.parse(text);
+	} catch {
+		return null;
+	}
+}
+
+function b64decodeJson(s) {
+	if (!s) return null;
+	try {
+		return JSON.parse(Buffer.from(String(s), 'base64').toString('utf8'));
+	} catch {
+		return null;
+	}
+}
+
+// Probe an external x402 endpoint for its payment requirements WITHOUT paying.
+// Returns the parsed 402 challenge + the Solana accept (the only network an
+// agent wallet can pay), { free: true } when the endpoint served a result
+// without a 402, or { unsupported: true, networks } when it has no Solana accept.
+async function probeExternalRequirements({ url, method, body }) {
+	let res;
+	try {
+		res = await guardedFetch(url, { method, body });
+	} catch (err) {
+		if (err instanceof SsrfError) {
+			throw Object.assign(new Error('that endpoint is not a reachable public https URL'), {
+				status: 400,
+				code: 'blocked_url',
+			});
+		}
+		throw Object.assign(
+			new Error(`could not reach the service: ${err?.message || 'network error'}`),
+			{ status: 502, code: 'endpoint_unreachable' },
+		);
+	}
+	if (res.status !== 402) {
+		// The endpoint returned without challenging for payment — nothing to pay.
+		return { free: true, status: res.status, result: safeJsonParse(res.text) ?? res.text };
+	}
+	const challenge = safeJsonParse(res.text) || b64decodeJson(res.headers.get('payment-required'));
+	if (!challenge || !Array.isArray(challenge.accepts)) {
+		throw Object.assign(new Error('the service returned an unreadable payment challenge'), {
+			status: 502,
+			code: 'invalid_challenge',
+		});
+	}
+	const solAccept = challenge.accepts.find(
+		(a) => typeof a?.network === 'string' && a.network.startsWith('solana'),
+	);
+	if (!solAccept) {
+		const networks = [...new Set(challenge.accepts.map((a) => a?.network).filter(Boolean))];
+		return { unsupported: true, networks, challenge };
+	}
+	const resource =
+		challenge.resource && typeof challenge.resource === 'object'
+			? challenge.resource
+			: { url: typeof challenge.resource === 'string' ? challenge.resource : url };
+	return { challenge, accept: solAccept, resource };
+}
+
+// Echo the builder-code app tag the challenge declared so the external server's
+// on-chain attribution is honoured (mirrors x402-buyer-fetch.ensureBuilderCodeEcho).
+function echoBuilderCode(challenge, paymentPayload) {
+	const declaredA = challenge?.extensions?.[BUILDER_CODE]?.info?.a;
+	if (!declaredA) return paymentPayload;
+	const existing = paymentPayload.extensions || {};
+	const block = { ...(existing[BUILDER_CODE] || {}), a: declaredA };
+	if (env.X402_BUILDER_CODE_WALLET && !block.w) block.w = env.X402_BUILDER_CODE_WALLET;
+	paymentPayload.extensions = { ...existing, [BUILDER_CODE]: block };
+	return paymentPayload;
+}
+
+// Summarize the resource a probe surfaced for the SSE 'challenge'/'result' events
+// and the spend ledger — never trust raw fields into innerHTML on the client.
+function resourceSummary(probe, fallbackUrl) {
+	const r = probe.resource || {};
+	return {
+		url: r.url || fallbackUrl,
+		description: typeof r.description === 'string' ? r.description : null,
+		serviceName: typeof r.serviceName === 'string' ? r.serviceName : null,
+	};
+}
+
+// Run the full external-endpoint pay flow, emitting the same SSE event vocabulary
+// the internal flow uses (challenge → built → settled → result) so the client can
+// render one progress timeline. `buyer` is the agent's recovered keypair.
+async function runExternalFlow({ url, method, body, emit, buyer, spendGuard, serviceLabel }) {
+	const conn = solanaConnection({ url: SOLANA_RPC, commitment: 'confirmed' });
+
+	const probe = await probeExternalRequirements({ url, method, body });
+	if (probe.free) {
+		emit('result', { ok: true, free: true, result: probe.result, payment: null });
+		return;
+	}
+	if (probe.unsupported) {
+		throw Object.assign(
+			new Error('this service does not accept Solana USDC — agent wallets pay in Solana USDC'),
+			{ status: 422, code: 'no_solana_accept', detail: { networks: probe.networks } },
+		);
+	}
+	const accept = probe.accept;
+	if (!accept.extra?.feePayer) {
+		throw Object.assign(
+			new Error('the service did not advertise a Solana fee payer, so it cannot be paid from here'),
+			{ status: 422, code: 'missing_fee_payer' },
+		);
+	}
+	const resource = resourceSummary(probe, url);
+	const spendUsd = Number(accept.amount) / 1e6;
+	const t0 = Date.now();
+	emit('challenge', {
+		network: accept.network,
+		amount: accept.amount,
+		asset: accept.asset,
+		payTo: accept.payTo,
+		price_usdc: spendUsd,
+		resource,
+	});
+
+	// Per-agent spend policy — enforced BEFORE the payment is built/signed so a
+	// breach moves no funds.
+	if (spendGuard) {
+		try {
+			await enforceSpendLimit({
+				agentId: spendGuard.agentId,
+				meta: spendGuard.meta,
+				category: 'x402',
+				usdValue: spendUsd,
+				destination: accept.payTo,
+				network: 'mainnet',
+			});
+		} catch (e) {
+			if (e instanceof SpendLimitError) {
+				throw Object.assign(new Error(e.message), { status: e.status, code: e.code, detail: e.detail });
+			}
+			throw e;
+		}
+	}
+
+	const paymentPayload = await buildSolanaPaymentPayload({
+		accept,
+		buyer,
+		conn,
+		resourceUrl: resource.url,
+	});
+	echoBuilderCode(probe.challenge, paymentPayload);
+	const tBuilt = Date.now();
+	emit('built', { build_ms: tBuilt - t0 });
+
+	const xPayment = Buffer.from(JSON.stringify(paymentPayload)).toString('base64');
+	let paid;
+	try {
+		paid = await guardedFetch(url, { method, body, headers: { 'X-PAYMENT': xPayment } });
+	} catch (err) {
+		// The signed payment went out but we never saw the response — the chain
+		// state is unknown, so do NOT promise the wallet was untouched.
+		throw Object.assign(
+			new Error('the payment was submitted but its status could not be confirmed — check the wallet activity before retrying'),
+			{ status: 502, code: 'settle_uncertain', cause: err },
+		);
+	}
+	const paidJson = safeJsonParse(paid.text) ?? paid.text;
+	if (!paid.ok) {
+		if (paid.status === 402) {
+			throw Object.assign(
+				new Error('the service rejected the payment before settlement; no funds were transferred'),
+				{ status: 402, code: 'payment_required', detail: typeof paidJson === 'object' ? paidJson : null },
+			);
+		}
+		throw Object.assign(
+			new Error(`the service returned an error after payment (HTTP ${paid.status}); check the wallet activity before retrying`),
+			{ status: 502, code: 'settle_uncertain', detail: typeof paidJson === 'object' ? paidJson : null },
+		);
+	}
+	const settled = b64decodeJson(paid.headers.get('x-payment-response'));
+	const tx = settled?.transaction || null;
+	const payer = settled?.payer || buyer.publicKey.toBase58();
+	const tSettled = Date.now();
+	emit('settled', {
+		settle_ms: tSettled - tBuilt,
+		tx,
+		network: settled?.network || accept.network,
+		payer,
+		explorer: tx ? `https://solscan.io/tx/${tx}` : null,
+	});
+
+	// Record the agent's x402 spend into the shared custody ledger so it counts
+	// toward the per-agent daily ceiling and shows in the wallet's payment activity.
+	if (spendGuard) {
+		void recordSpend({
+			agentId: spendGuard.agentId,
+			userId: spendGuard.userId,
+			category: 'x402',
+			network: 'mainnet',
+			asset: 'USDC',
+			usd: spendUsd,
+			destination: accept.payTo,
+			signature: tx,
+			status: tx ? 'confirmed' : 'ok',
+			meta: {
+				url,
+				service: serviceLabel || resource.serviceName || null,
+				resource: resource.url,
+			},
+		}).catch((err) => log.warn('x402_external_spend_record_failed', { message: err?.message }));
+	}
+
+	emit('result', {
+		ok: true,
+		result: paidJson,
+		payment: {
+			network: settled?.network || accept.network,
+			payer,
+			payTo: accept.payTo,
+			asset: accept.asset,
+			amount: accept.amount,
+			tx,
+			explorer: tx ? `https://solscan.io/tx/${tx}` : null,
+		},
+		receipt: settled,
+		resource,
+		durations: { build_ms: tBuilt - t0, settle_ms: tSettled - tBuilt, total_ms: tSettled - t0 },
+	});
+}
+
 async function getAgentBalance() {
 	const buyer = loadAgentKeypair();
 	const conn = solanaConnection({ url: SOLANA_RPC, commitment: 'confirmed' });
@@ -562,8 +849,10 @@ function payErrorEnvelope(err) {
 	let error_description;
 	if (code === 'facilitator_unreachable' || code === 'facilitator_error' || code === 'settle_failed') {
 		error_description = 'Payment could not be completed and no funds were transferred from the agent wallet. Please try again.';
-	} else if (code === 'facilitator_bad_response') {
-		error_description = 'Payment status could not be confirmed. Check the payment feed before retrying to avoid paying twice.';
+	} else if (code === 'facilitator_bad_response' || code === 'settle_uncertain') {
+		error_description = 'Payment status could not be confirmed. Check the payment activity before retrying to avoid paying twice.';
+	} else if (code === 'no_solana_accept' || code === 'missing_fee_payer' || code === 'endpoint_unreachable' || code === 'invalid_challenge' || code === 'blocked_url') {
+		error_description = 'No payment was attempted, so no funds were transferred from the agent wallet.';
 	} else if (code === 'invalid_payment' || code === 'payment_required' || code === 'builder_code_tampered') {
 		error_description = 'The payment was rejected before settlement; no funds were transferred.';
 	}
@@ -584,6 +873,117 @@ function payErrorStatus(err) {
 	if (Number.isInteger(err?.status)) return err.status;
 	if (err?.mcpError) return 502;
 	return 500;
+}
+
+// Pay an arbitrary external x402 endpoint from the owner's agent wallet. This is
+// the money core behind the wallet hub Pay tab. Owner-authenticated + ownership-
+// gated; the agent key is decrypted server-side via recoverSolanaAgentKeypair
+// (audit-logged) and never leaves the server. Two modes:
+//   { preview: true } — probe requirements only (no funds moved, no key signs).
+//   default           — full pay; SSE-streams progress when the client asks.
+async function handleExternalPay(req, res, input, ip) {
+	const auth = await requireAuth(req);
+	if (!auth) return json(res, 401, { error: 'authentication_required' });
+	const agentId = input.agentId ? String(input.agentId) : '';
+	if (!agentId) {
+		// An external pay with no agent context would have no wallet to pay from —
+		// never silently reach for the shared platform wallet here.
+		log.warn('external_pay_missing_agent', { ip });
+		return json(res, 400, {
+			error: 'agent_required',
+			error_description: 'paying a service requires an agent context',
+		});
+	}
+
+	const loaded = await loadAgentKeypairForUser(agentId, auth.userId);
+	if (!loaded) return json(res, 403, { error: 'agent_not_found_or_no_solana_wallet' });
+
+	const method =
+		typeof input.method === 'string' && /^(GET|POST|PUT|PATCH|DELETE)$/i.test(input.method)
+			? input.method.toUpperCase()
+			: 'GET';
+	const body = input.body != null ? input.body : undefined;
+
+	// Preview: surface the live price + what's being bought before the owner
+	// confirms. Moves no funds.
+	if (input.preview === true) {
+		try {
+			const probe = await probeExternalRequirements({ url: input.url, method, body });
+			if (probe.free) {
+				return json(res, 200, { ok: true, requires_payment: false, status: probe.status });
+			}
+			if (probe.unsupported) {
+				return json(res, 200, {
+					ok: true,
+					requires_payment: true,
+					payable: false,
+					code: 'no_solana_accept',
+					networks: probe.networks,
+				});
+			}
+			const accept = probe.accept;
+			const resource = resourceSummary(probe, input.url);
+			return json(res, 200, {
+				ok: true,
+				requires_payment: true,
+				payable: !!accept.extra?.feePayer,
+				...(accept.extra?.feePayer ? {} : { code: 'missing_fee_payer' }),
+				network: accept.network,
+				amount: accept.amount,
+				asset: accept.asset,
+				payTo: accept.payTo,
+				price_usdc: Number(accept.amount) / 1e6,
+				resource,
+				method,
+			});
+		} catch (err) {
+			return json(res, payErrorStatus(err), payErrorEnvelope(err));
+		}
+	}
+
+	const spendGuard = { agentId, userId: auth.userId, meta: loaded.meta, network: 'mainnet' };
+	const wantsStream =
+		(req.headers.accept || '').includes('text/event-stream') || input.stream === true;
+
+	if (wantsStream) {
+		sseInit(res);
+		const emit = (ev, data) => sseSend(res, ev, data);
+		try {
+			await runExternalFlow({
+				url: input.url,
+				method,
+				body,
+				emit,
+				buyer: loaded.keypair,
+				spendGuard,
+				serviceLabel: typeof input.service_label === 'string' ? input.service_label : null,
+			});
+		} catch (err) {
+			emit('error', payErrorEnvelope(err));
+		} finally {
+			res.end();
+		}
+		return;
+	}
+
+	let final = null;
+	const emit = (ev, data) => {
+		if (ev === 'result') final = data;
+	};
+	try {
+		await runExternalFlow({
+			url: input.url,
+			method,
+			body,
+			emit,
+			buyer: loaded.keypair,
+			spendGuard,
+			serviceLabel: typeof input.service_label === 'string' ? input.service_label : null,
+		});
+	} catch (err) {
+		return json(res, payErrorStatus(err), payErrorEnvelope(err));
+	}
+	return json(res, 200, final);
 }
 
 export default wrap(async (req, res) => {
@@ -642,24 +1042,38 @@ export default wrap(async (req, res) => {
 	}
 
 	const input = await readJson(req, 50_000);
+
+	// External x402 endpoint pay (wallet hub Pay tab): a target `url` means an
+	// arbitrary bazaar service paid from the agent's OWN wallet — never the shared
+	// platform wallet. Owner-authenticated, per-agent spend policy enforced.
+	if (typeof input.url === 'string' && input.url) {
+		return handleExternalPay(req, res, input, ip);
+	}
+
 	const tool = String(input.tool || '');
 	const args = input.args && typeof input.args === 'object' ? input.args : {};
 	if (!ALLOWED_TOOLS.has(tool)) {
 		return json(res, 400, { error: 'invalid_tool', allowed: [...ALLOWED_TOOLS] });
 	}
 
-	// Resolve payer: agent wallet (agentId + authed) or shared showcase wallet.
+	// Resolve payer. An agent context (agentId) ALWAYS pays from that agent's own
+	// wallet; the shared showcase wallet is the explicit, logged fallback for
+	// platform/demo calls with no agent context (see resolvePayerRouting).
+	const routing = resolvePayerRouting(input);
 	let buyer;
 	let spendGuard = null;
-	if (input.agentId) {
+	if (routing.mode === 'agent') {
 		const auth = await requireAuth(req);
 		if (!auth) return json(res, 401, { error: 'authentication_required' });
-		const loaded = await loadAgentKeypairForUser(String(input.agentId), auth.userId);
+		const loaded = await loadAgentKeypairForUser(routing.agentId, auth.userId);
 		if (!loaded) return json(res, 403, { error: 'agent_not_found_or_no_solana_wallet' });
 		buyer = loaded.keypair;
 		// Per-agent spend policy applies to x402 just like trade/snipe/withdraw.
-		spendGuard = { agentId: String(input.agentId), userId: auth.userId, meta: loaded.meta, network: 'mainnet' };
+		spendGuard = { agentId: routing.agentId, userId: auth.userId, meta: loaded.meta, network: 'mainnet' };
 	} else {
+		// No agent context — fall back to the shared platform wallet, but log it so
+		// a regression that drops agentId off an agent call is visible, not silent.
+		log.warn('platform_wallet_fallback', { tool, reason: 'no_agent_context', ip });
 		try {
 			buyer = loadAgentKeypair();
 		} catch (err) {

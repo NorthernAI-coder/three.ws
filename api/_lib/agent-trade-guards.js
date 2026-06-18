@@ -546,7 +546,10 @@ export async function recordSpend(e) {
  * Read the agent's recent custody events for the owner-facing audit feed.
  * Cursor is the `id` of the last row seen (descending, so strictly-less-than).
  */
-export async function listCustodyEvents(agentId, { limit = 50, beforeId = null, network = null } = {}) {
+export async function listCustodyEvents(
+	agentId,
+	{ limit = 50, beforeId = null, network = null, category = null } = {},
+) {
 	const lim = Math.min(200, Math.max(1, Number(limit) || 50));
 	const rows = await sql`
 		SELECT id, event_type, category, network, asset, amount_lamports, amount_raw,
@@ -554,6 +557,7 @@ export async function listCustodyEvents(agentId, { limit = 50, beforeId = null, 
 		FROM agent_custody_events
 		WHERE agent_id = ${agentId}
 		  AND (${network}::text IS NULL OR network = ${network})
+		  AND (${category}::text IS NULL OR category = ${category})
 		  AND (${beforeId}::bigint IS NULL OR id < ${beforeId})
 		ORDER BY id DESC
 		LIMIT ${lim}
