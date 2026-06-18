@@ -874,7 +874,7 @@ export class TraitModelsGroup{
       return decalGroup.map((c)=>c?.collection).flat().filter((c)=>!!c);
     }
 
-    getTraitByIndex(lockFilter = true){
+    getTraitByIndex(index, lockFilter = true){
       const collection = this.getCollection(lockFilter)
       return collection[index];
     }

@@ -83,6 +83,7 @@ export async function getVRMBlobData(model, avatar, options){
 
 // returns a promise with the parsed data
 async function getGLBData(model, options){
+  const {optimized = true} = options;
   if (optimized){
     const finalModel = await getOptimizedGLB(model, options)
     return parseGLB(finalModel); 

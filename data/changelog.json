@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-06-18",
+			"title": "Avatar Studio no longer crashes on NFT-gated traits, wallet checks, or VRM0 models",
+			"summary": "An audit of Avatar Studio turned up six places where it would throw and stop instead of working: checking whether a trait is NFT-locked, verifying that your wallet owns a required collection, connecting an Ethereum or Polygon wallet, and loading older VRM0 avatars all hit undefined-variable errors. All six are fixed, so locked-trait checks, wallet-ownership gating, EVM wallet connect, and VRM0 model loading now run cleanly.",
+			"tags": [
+				"fix"
+			],
+			"link": "/create/studio"
+		},
+		{
+			"date": "2026-06-18",
 			"title": "Glasses now sit on your avatar's eyes, not through its cheeks",
 			"summary": "In Avatar Studio, glasses and shades used to clip into the face — sitting low across the cheeks instead of on the eyes. Eyewear is now placed properly on the eye line, auto-sized to fit any avatar, and shades that were modelled lying flat are stood upright so they read as sunglasses. Hats and earrings are unchanged.",
 			"tags": [

@@ -5,7 +5,7 @@ class KtxDecoder {
         this.libktx = null;
         if (context !== undefined)
         {
-            if (externalKtxlib === undefined && LIBKTX !== undefined)
+            if (externalKtxlib === undefined && typeof LIBKTX !== 'undefined')
             {
                 externalKtxlib = LIBKTX;
             }
