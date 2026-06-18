@@ -314,11 +314,6 @@ function injectStyles() {
 	.ta-why { display:block; font-size:12px; color:var(--muted-2); margin-top:3px; line-height:1.45; }
 	.ta-row-status { display:flex; align-items:center; gap:10px; flex-shrink:0; }
 	.ta-ppu { font-size:12px; color:var(--muted-2); white-space:nowrap; font-variant-numeric:tabular-nums; }
-	.ta-open { font-size:12px; font-weight:700; color:var(--blue,#7cc4ff); text-decoration:none; white-space:nowrap;
-		padding:5px 10px; border-radius:999px; border:1px solid rgba(124,196,255,.28); background:rgba(124,196,255,.08);
-		transition:background .15s ease; }
-	.ta-open:hover { background:rgba(124,196,255,.16); }
-	.ta-open:focus-visible { outline:2px solid var(--blue,#7cc4ff); outline-offset:2px; }
 	.ta-pill { display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:700; border-radius:999px;
 		padding:5px 11px; white-space:nowrap; }
 	.ta-pill--ok { color:var(--green); background:rgba(110,231,168,.1); border:1px solid rgba(110,231,168,.26); }
@@ -840,24 +835,11 @@ function accessRowHTML(f) {
 			? `<span class="ta-why">${esc(f.why)}</span>`
 			: '';
 	const cls = !enforced ? ' ta-row--planned' : ok ? ' ta-row--ok' : '';
-	// A live, reachable surface gets an "Open" link so an unlocked perk is one click
-	// from being used — the matrix isn't just a status board, it's a launchpad.
-	const open =
-		enforced && ok && FEATURE_LINKS[f.feature]
-			? `<a class="ta-open" href="${esc(FEATURE_LINKS[f.feature])}">Open →</a>`
-			: '';
 	return `<li class="ta-row${cls}">
 		<div class="ta-row-info"><span class="ta-row-label">${esc(f.label)}</span>${sub}</div>
-		<div class="ta-row-status">${pill}${ppu}${open}</div>
+		<div class="ta-row-status">${pill}${ppu}</div>
 	</li>`;
 }
-
-// Gated features that point at a real, usable surface. When a holder has unlocked
-// one, the access matrix links straight to it.
-const FEATURE_LINKS = Object.freeze({
-	'forge.high': '/forge',
-	'intel.terminal': '/three-intel',
-});
 
 // The populated matrix: a current-tier chip + how many ENFORCED features it unlocks
 // (planned perks are counted separately, never as "unlocked"), then one real list row

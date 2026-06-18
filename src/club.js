@@ -699,32 +699,20 @@ class PoleStation {
 	 * @param {Array} animationDefs
 	 * @param {import('three').Object3D} [fallback]
 	 */
-	async attachAvatar(template, animationDefs, fallback = null) {
-		// Each attach claims a generation token. The idle retarget is async, so a
-		// later attach (a user avatar swap, say) may begin before this one's
-		// fallback resolves — without this guard, the boot rig's late fallen-pose
-		// fallback would detach the new rig and slam the default back on, silently
-		// undoing the user's pick. A stale attach bails before mutating the scene.
-		const gen = (this._attachGen = (this._attachGen || 0) + 1);
-		const isStale = () => this._attachGen !== gen;
-
+	attachAvatar(template, animationDefs, fallback = null) {
 		this.anim = new AnimationManager();
 
 		let root = this._buildAvatarRoot(template);
 		this.rig.add(root);
 		this.anim.attach(root);
 
-		const canFallback = !!fallback && fallback !== template;
-		let usedFallback = false;
-
-		if (!this.anim.supportsCanonicalClips() && canFallback) {
+		if (!this.anim.supportsCanonicalClips() && fallback && fallback !== template) {
 			log.warn(`[club] dancer ${this.id} rig not drivable — falling back to default avatar`);
 			this.anim.detach();
 			this.rig.remove(root);
 			root = this._buildAvatarRoot(fallback);
 			this.rig.add(root);
 			this.anim.attach(root);
-			usedFallback = true;
 		}
 
 		this.skinned = root;
@@ -732,10 +720,8 @@ class PoleStation {
 		// Await idle so we can detect if the fallen-pose guard rejects the
 		// retarget — in which case swap to the fallback rig rather than leave
 		// the dancer frozen in her bind pose.
-		const ok = await this.anim.play('idle').catch(() => false);
-		if (isStale()) return { ok: ok || usedFallback, usedFallback, stale: true };
-
-		if (!ok && canFallback && !usedFallback) {
+		this.anim.play('idle').then((ok) => {
+			if (ok || !fallback || fallback === template) return;
 			log.warn(`[club] dancer ${this.id} idle retarget rejected — falling back to default avatar`);
 			this.anim.detach();
 			this.rig.remove(root);
@@ -744,15 +730,11 @@ class PoleStation {
 			this.anim.attach(fbRoot);
 			this.skinned = fbRoot;
 			this.anim.setAnimationDefs(animationDefs);
-			await this.anim.play('idle').catch(() => {});
-			if (isStale()) return { ok: true, usedFallback: true, stale: true };
-			usedFallback = true;
-		}
-
+			this.anim.play('idle').catch(() => {});
+		}).catch(() => {});
 		// Pre-load the walk clip so the first tip's walk starts immediately
 		// without a network round-trip mid-performance.
 		this.anim.ensureLoaded(WALK_CLIP).catch(() => {});
-		return { ok: ok || usedFallback, usedFallback, stale: false };
 	}
 
 	/**
@@ -767,9 +749,6 @@ class PoleStation {
 	 *
 	 * @param {import('three').Object3D} template
 	 * @param {import('three').Object3D} [fallback]
-	 * @returns {Promise<{ ok: boolean, usedFallback: boolean, stale: boolean }>}
-	 *   `usedFallback` true when the chosen rig couldn't be driven and the default
-	 *   was substituted; `stale` true when a newer swap superseded this one.
 	 */
 	swapAvatar(template, fallback = null) {
 		// Cancel any in-flight performance: drop to idle, resolve pending
@@ -793,7 +772,7 @@ class PoleStation {
 		this._accentTarget = 0.4;
 		updatePoleCardStatus(this.id, 'idle');
 
-		return this.attachAvatar(template, animationDefs, fallback);
+		this.attachAvatar(template, animationDefs, fallback);
 	}
 
 	get backstagePos() {
@@ -1608,12 +1587,6 @@ const catalogUrls = new Set();
 // url → Promise<Object3D>, so a re-pick (or two poles sharing a look) loads once.
 const avatarTemplateCache = new Map();
 let fallbackTemplateRef = null;
-// Catalog keys discovered at swap time to be un-driveable by the clip library:
-// their rig can't be retargeted, so the dancer would freeze (or show a mismatched
-// default). We learn this lazily — a GLB's drivability isn't knowable until it's
-// loaded and an idle clip is retargeted onto it — then dim the tile so the same
-// dead pick isn't offered again this session.
-const undanceableAvatars = new Set();
 
 function registerAvatar(entry) {
 	if (!entry?.key || !entry?.url || avatarCatalog.has(entry.key) || catalogUrls.has(entry.url)) return;
@@ -1706,37 +1679,11 @@ const pickSubEl = document.getElementById('club-pick-sub');
 let pickerPoleId = null;
 
 function pickTile(a, currentKey) {
-	const dead = undanceableAvatars.has(a.key);
-	const cls = `club-pick-tile${a.key === currentKey ? ' selected' : ''}${dead ? ' undanceable' : ''}`;
-	const title = dead ? `${a.name} — this rig can't dance` : a.name;
-	const badge = dead
-		? '<span class="club-pick-badge is-dead">can’t dance</span>'
-		: (a.starter ? '<span class="club-pick-badge">starter</span>' : '');
-	return `<button type="button" class="${cls}" data-key="${escapeText(a.key)}"${dead ? ' aria-disabled="true"' : ''} title="${escapeText(title)}">
+	return `<button type="button" class="club-pick-tile${a.key === currentKey ? ' selected' : ''}" data-key="${escapeText(a.key)}" title="${escapeText(a.name)}">
 		<span class="club-pick-thumb">${avatarThumbHTML(a, a.name)}</span>
 		<span class="club-pick-name">${escapeText(a.name)}</span>
-		${badge}
+		${a.starter ? '<span class="club-pick-badge">starter</span>' : ''}
 	</button>`;
-}
-
-// Dim a tile in place once its rig is found un-driveable, without a full
-// re-render (which would lose any in-flight spinner on a sibling tile).
-function markTileUndanceable(key) {
-	const tile = pickGridEl?.querySelector(`.club-pick-tile[data-key="${CSS.escape(key)}"]`);
-	if (!tile) return;
-	tile.classList.add('undanceable');
-	tile.classList.remove('selected');
-	tile.setAttribute('aria-disabled', 'true');
-	const entry = avatarCatalog.get(key);
-	if (entry) tile.title = `${entry.name} — this rig can't dance`;
-	let badge = tile.querySelector('.club-pick-badge');
-	if (!badge) {
-		badge = document.createElement('span');
-		badge.className = 'club-pick-badge';
-		tile.appendChild(badge);
-	}
-	badge.textContent = 'can’t dance';
-	badge.classList.add('is-dead');
 }
 
 function renderPickerGrid() {
@@ -1777,13 +1724,6 @@ if (pickerEl) {
 		const tile = e.target.closest('.club-pick-tile');
 		if (!tile || pickerPoleId == null) return;
 		const key = tile.dataset.key;
-		// A rig already known to be un-driveable: don't swap to a frozen pose —
-		// say why and leave her on her current look.
-		if (undanceableAvatars.has(key)) {
-			const name = avatarCatalog.get(key)?.name || 'That avatar';
-			setStatus(`${name} isn't rigged to dance — pick another.`, { kind: 'warn' });
-			return;
-		}
 		if (key === currentAvatarKey(pickerPoleId)) { closePicker(); return; }
 		pickGridEl.querySelectorAll('.club-pick-tile').forEach((t) => t.classList.remove('selected'));
 		tile.classList.add('selected', 'busy');
@@ -1795,55 +1735,21 @@ if (pickerEl) {
 		spinner.remove();
 		if (ok) {
 			closePicker();
-		} else if (!undanceableAvatars.has(key)) {
-			// Transient load failure — flash and let them retry. A dead rig is
-			// already dimmed by swapPoleAvatar, so don't also flash that case.
+		} else {
 			tile.classList.add('failed');
 			setTimeout(() => tile.classList.remove('failed'), 1500);
 		}
 	});
 }
 
-// Re-apply a known-good look to a pole without the discovery/feedback wrapper —
-// used to restore the previous avatar after a dead pick so the stage stays
-// exactly as it was rather than stranding her on a mismatched default.
-async function restorePoleAvatar(poleId, key) {
-	const station = stations.find((s) => s.id === poleId);
-	const entry = avatarCatalog.get(key);
-	if (!station || !entry) return;
-	try {
-		const template = await loadAvatarTemplate(entry.url);
-		await station.swapAvatar(template, fallbackTemplateRef || template);
-	} catch (err) {
-		log.warn(`[club] avatar restore failed for pole ${poleId}`, err);
-	}
-}
-
-// Load the chosen rig and hot-swap it onto the pole. Returns true only when the
-// chosen rig actually took and is dancing; false when it couldn't load, couldn't
-// be driven by the clip library (prior look restored), or was superseded by a
-// newer pick.
+// Load the chosen rig and hot-swap it onto the pole. Returns true on success.
 async function swapPoleAvatar(poleId, key) {
 	const station = stations.find((s) => s.id === poleId);
 	const entry = avatarCatalog.get(key);
 	if (!station || !entry) return false;
-	const prevKey = currentAvatarKey(poleId);
 	try {
 		const template = await loadAvatarTemplate(entry.url);
-		const res = await station.swapAvatar(template, fallbackTemplateRef || template);
-		// A newer pick already claimed the stage — let it own the outcome.
-		if (res?.stale) return false;
-		if (res?.usedFallback) {
-			// The chosen rig isn't retargetable, so it would stand frozen and the
-			// default was substituted. Don't pretend it worked: mark it dead,
-			// restore the prior working look, and explain.
-			undanceableAvatars.add(key);
-			markTileUndanceable(key);
-			if (prevKey !== key) await restorePoleAvatar(poleId, prevKey);
-			const keptName = avatarCatalog.get(prevKey)?.name || dancerNameFor(poleId);
-			setStatus(`${entry.name} isn't rigged to dance — kept ${keptName}.`, { kind: 'warn' });
-			return false;
-		}
+		station.swapAvatar(template, fallbackTemplateRef || template);
 		savePoleAvatar(poleId, key);
 		refreshAvatarButton(poleId);
 		setStatus(`${dancerNameFor(poleId)} now wearing ${entry.name}.`, { kind: 'ok' });

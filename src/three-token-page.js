@@ -204,11 +204,6 @@ function boot() {
 			</div>
 			<button class="tk-ca" data-ca title="Copy contract address">${esc(shortAddr(THREE_MINT))} · copy</button>
 		</div>
-		<a class="tk-utility" href="/three-intel" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;text-decoration:none;margin:4px 0 2px;padding:14px 16px;border-radius:14px;border:1px solid rgba(138,123,255,.28);background:linear-gradient(180deg,rgba(138,123,255,.12),rgba(138,123,255,.04))">
-			<span style="font-size:18px" aria-hidden="true">🛰️</span>
-			<span style="flex:1;min-width:200px;color:#cdd2dd;font-size:13.5px;line-height:1.5"><b style="color:#b9b0ff">New · $THREE Intel</b> — hold $THREE to unlock a live on-chain intelligence terminal, or spend it for a per-token Deep Report. The token's first real utility surface.</span>
-			<span style="font-weight:700;color:#b9b0ff;font-size:13px;white-space:nowrap">Open terminal →</span>
-		</a>
 		<div class="tk-stats" data-stats>
 			${Array.from({ length: 4 }, () => `<div class="tk-stat"><div class="tk-skel" style="height:48px"></div></div>`).join('')}
 		</div>
@@ -229,7 +224,6 @@ function boot() {
 			</div>
 		</div>
 		<div class="tk-foot">
-			<a href="/three-intel">🛰️ Intel Terminal</a>
 			<a href="/dashboard/holders">🏆 Holder leaderboard</a>
 			<a href="/three-live">⚡ Protocol Pulse (live 3D)</a>
 			<a href="/dashboard/three-token">📊 $THREE dashboard</a>
