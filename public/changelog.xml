@@ -7,6 +7,14 @@
 		<description>What's new on three.ws — features, improvements, and releases, newest first.</description>
 		<language>en</language>
 		<item>
+			<title>Avatar Studio no longer crashes on NFT-gated traits, wallet checks, or VRM0 models</title>
+			<link>https://three.ws/create/studio</link>
+			<guid isPermaLink="false">2026-06-18:Avatar Studio no longer crashes on NFT-gated traits, wallet checks, or VRM0 models</guid>
+			<pubDate>Thu, 18 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>An audit of Avatar Studio turned up six places where it would throw and stop instead of working: checking whether a trait is NFT-locked, verifying that your wallet owns a required collection, connecting an Ethereum or Polygon wallet, and loading older VRM0 avatars all hit undefined-variable errors. All six are fixed, so locked-trait checks, wallet-ownership gating, EVM wallet connect, and VRM0 model loading now run cleanly.</description>
+		</item>
+		<item>
 			<title>Bundle specific skills into your subscription plans</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-18:Bundle specific skills into your subscription plans</guid>

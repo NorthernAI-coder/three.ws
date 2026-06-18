@@ -11,26 +11,26 @@ contain work that is still open.
 
 ## Open
 
-### 1. `character-studio/` — 192 pre-existing lint findings (added 2026-06-11)
+### 1. `character-studio/` — pre-existing lint debt (added 2026-06-11)
 
 **Context:** The eslint 8→10 upgrade migrated character-studio to flat config
-(`character-studio/eslint.config.mjs`). Lint now runs correctly under eslint 10
-and surfaces 192 pre-existing findings across 48 files in the vendored
-CharacterStudio fork (118 `no-unused-vars`, 16 `no-undef`,
+(`character-studio/eslint.config.mjs`). Lint surfaces pre-existing findings
+across the vendored CharacterStudio fork (118 `no-unused-vars`,
 17 `no-async-promise-executor`, plus smaller buckets). These all predate the
-upgrade — the previous `.eslintrc.json` + eslint 8 setup reported the same core
-findings, so `npm run lint:js` was already red.
+upgrade.
 
-**Real-bug candidates among the `no-undef` hits** (each references an
-identifier that doesn't exist in scope, so the code path throws at runtime):
-`src/library/manifestDataManager.js` (`testWallet`, `identifier`,
-`traitOption`, `traitType`), `src/library/mint-utils.js` (`connection`,
-`ethereum`), `src/library/vrmManager.js` (`addChildAtFirst`),
-`src/library/walletCollections.js` (`network`),
-`src/library/download-utils.js` (`optimized`),
-`src/library/CharacterManifestData.js` (`index`). The `anifest` typos in
-`src/pages/Wallet.jsx` were fixed in the upgrade commit.
+**Runtime `no-undef` bugs — FIXED 2026-06-18** (see
+[docs/internal/AUDIT-2026-06-18.md](docs/internal/AUDIT-2026-06-18.md)). Six
+bare-identifier references that threw `ReferenceError` the moment their code
+path ran are now corrected:
+`manifestDataManager.js:67,70` (`testWallet` → `isNFTLocked()`),
+`mint-utils.js:292` (`ethereum` → `'ethereum'`),
+`vrmManager.js` (`addChildAtFirst` now imported from `./utils`),
+`walletCollections.js:58` (`network` → `chainName`),
+`CharacterManifestData.js:877` (`getTraitByIndex` now takes `index`).
+The `connection` and `download-utils` `optimized` candidates were verified as
+false positives (locally declared / object property keys).
 
-**Status:** ⏳ **OPEN** — fix the `no-undef` bugs path-by-path with the
-surrounding feature exercised in a browser; then burn down `no-unused-vars`
-mechanically.
+**Status:** ⏳ **OPEN** — only the cosmetic burndown remains: clear
+`no-unused-vars` and `no-async-promise-executor` mechanically, file by file.
+No known runtime bugs remain in the fork.

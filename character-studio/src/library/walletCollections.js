@@ -55,7 +55,7 @@ export class WalletCollections {
             ? Promise.resolve(testWallet)
             : connectWallet(chainName);
 
-        return walletPromise.then(wallet => ownsCollection(wallet, network, collectionName));
+        return walletPromise.then(wallet => ownsCollection(wallet, chainName, collectionName));
     }
 
     /**

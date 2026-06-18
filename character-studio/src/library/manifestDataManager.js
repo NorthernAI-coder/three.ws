@@ -64,10 +64,10 @@ export class ManifestDataManager{
     }
 
     isManifestByIndexNFTLocked(index){
-      return  this.manifestDataCollection[index]?.isNFTLocked(testWallet);
+      return  this.manifestDataCollection[index]?.isNFTLocked();
     }
     isManifestByIdentifierNFTLocked(identifier){
-      return  this.manifestDataByIdentifier[identifier]?.isNFTLocked(testWallet);
+      return  this.manifestDataByIdentifier[identifier]?.isNFTLocked();
     }
     
     clearManifests(){
@@ -235,7 +235,7 @@ export class ManifestDataManager{
       if (optionalIdentifier != null){
         const manifestData = this.manifestDataByIdentifier[optionalIdentifier];
         if (manifestData != null){
-          return manifestData[identifier]?.getTraitOptionById(traitID);
+          return manifestData.getTraitOptionById(traitID);
         }
         else{
           console.warn(`No manifest data with name ${optionalIdentifier} was found.`)
@@ -243,7 +243,7 @@ export class ManifestDataManager{
         }
       }
       else{
-        traitOption = null
+        let traitOption = null
         this.manifestDataCollection.forEach(manifestData => {
           if (traitOption == null)
             traitOption = manifestData.getTraitOptionById(traitID);
@@ -396,7 +396,7 @@ export class ManifestDataManager{
       if (optionalIdentifier != null){
         const manifestData = this.manifestDataByIdentifier[optionalIdentifier];
         if (manifestData != null){
-          return manifestData.getModelTraits(traitType);
+          return manifestData.getModelTraits(groupTraitID);
         }
         else{
           console.warn(`No manifest data with name ${optionalIdentifier} was found.`)

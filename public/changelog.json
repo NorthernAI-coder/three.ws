@@ -1,11 +1,21 @@
 {
-	"generated_at": "2026-06-18T10:14:26.500Z",
+	"generated_at": "2026-06-18T22:54:38.919Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
 		"url": "https://three.ws"
 	},
 	"entries": [
+		{
+			"date": "2026-06-18",
+			"type": "update",
+			"title": "Avatar Studio no longer crashes on NFT-gated traits, wallet checks, or VRM0 models",
+			"summary": "An audit of Avatar Studio turned up six places where it would throw and stop instead of working: checking whether a trait is NFT-locked, verifying that your wallet owns a required collection, connecting an Ethereum or Polygon wallet, and loading older VRM0 avatars all hit undefined-variable errors. All six are fixed, so locked-trait checks, wallet-ownership gating, EVM wallet connect, and VRM0 model loading now run cleanly.",
+			"link": "/create/studio",
+			"tags": [
+				"fix"
+			]
+		},
 		{
 			"date": "2026-06-18",
 			"type": "update",

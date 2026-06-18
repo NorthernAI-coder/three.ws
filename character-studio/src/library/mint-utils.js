@@ -153,8 +153,9 @@ async function signAndSendTransaction(base64Transaction) {
       return;
   }
 
+  let connection;
   try {
-      const connection = new Connection(rpcUrl);
+      connection = new Connection(rpcUrl);
 
       // Decode Base64 transaction to Uint8Array
       const transactionBytes = Uint8Array.from(atob(base64Transaction), (c) => c.charCodeAt(0));
@@ -289,7 +290,7 @@ export function connectWallet(network) {
             ethereum: '0x1', // Ethereum Mainnet
             polygon: '0x89', // Polygon Mainnet
           };
-          const targetChain = network.toLowerCase() == ethereum ? chainIdMap.ethereum : chainIdMap.polygon;
+          const targetChain = network.toLowerCase() === 'ethereum' ? chainIdMap.ethereum : chainIdMap.polygon;
 
           await window.ethereum.request({
               method: 'wallet_switchEthereumChain',

@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { VRMSpringBoneCollider } from "@pixiv/three-vrm";
-import { disposeVRM, renameVRMBones, addModelData } from "./utils";
+import { disposeVRM, renameVRMBones, addModelData, addChildAtFirst } from "./utils";
 import { getNodesWithColliders, saveVRMCollidersToUserData, renameMorphTargets } from "./load-utils";
 
 /**
