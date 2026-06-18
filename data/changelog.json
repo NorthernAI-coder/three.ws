@@ -3,6 +3,24 @@
 	"entries": [
 		{
 			"date": "2026-06-18",
+			"title": "Placing an agent on the floor feels solid now",
+			"summary": "The AR \"place on floor\" moment got a polish pass. The targeting ring now clearly reads as searching versus locked-and-ready, your agent casts a soft contact shadow so it sits on the ground instead of hovering, and the instant you tap to place it you get a confident pulse, a short haptic buzz, and a ✓ — so you know it took. The on-screen guidance was reworded to walk you through it (find the floor → aim → placed → saved) and is announced for screen readers. Everything respects Reduce Motion and stays readable over both bright and dark floors.",
+			"tags": [
+				"improvement"
+			],
+			"link": "/irl"
+		},
+		{
+			"date": "2026-06-18",
+			"title": "Place your agent on the floor — now on iPhone too",
+			"summary": "\"Place on floor\" is no longer Android-only. On iPhone and iPad the button now opens Apple's AR viewer and drops your agent onto a real floor surface in your room, using the same model you see in 3D — no app to install. Android keeps its live in-camera placement that turns into a shareable pin nearby people can find. On iOS the in-room view is for you; to leave that shareable pin, tap Pin here, and the app now tells you exactly what each device does instead of just hiding the button. Devices with no AR at all still get honest compass + GPS pinning.",
+			"tags": [
+				"feature"
+			],
+			"link": "/irl"
+		},
+		{
+			"date": "2026-06-18",
 			"title": "Your AR agent now hides behind real-world objects",
 			"summary": "Place an agent in your room with the AR button and it now lives in the space instead of floating on top of the camera feed. Walk a chair, a doorway, or your own hand between your phone and the agent and the agent is correctly hidden behind it — the single biggest \"is this really in my room?\" upgrade. It uses your phone's depth sensor on devices that have one (recent Android Chrome); on every other device AR works exactly as before, with no change and nothing to turn on.",
 			"tags": [

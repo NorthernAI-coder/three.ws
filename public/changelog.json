@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-18T09:14:06.495Z",
+	"generated_at": "2026-06-18T09:21:16.302Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -204,6 +204,26 @@
 			"link": "/club",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-18",
+			"type": "update",
+			"title": "Place your agent on the floor — now on iPhone too",
+			"summary": "\"Place on floor\" is no longer Android-only. On iPhone and iPad the button now opens Apple's AR viewer and drops your agent onto a real floor surface in your room, using the same model you see in 3D — no app to install. Android keeps its live in-camera placement that turns into a shareable pin nearby people can find. On iOS the in-room view is for you; to leave that shareable pin, tap Pin here, and the app now tells you exactly what each device does instead of just hiding the button. Devices with no AR at all still get honest compass + GPS pinning.",
+			"link": "/irl",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-18",
+			"type": "update",
+			"title": "Placing an agent on the floor feels solid now",
+			"summary": "The AR \"place on floor\" moment got a polish pass. The targeting ring now clearly reads as searching versus locked-and-ready, your agent casts a soft contact shadow so it sits on the ground instead of hovering, and the instant you tap to place it you get a confident pulse, a short haptic buzz, and a ✓ — so you know it took. The on-screen guidance was reworded to walk you through it (find the floor → aim → placed → saved) and is announced for screen readers. Everything respects Reduce Motion and stays readable over both bright and dark floors.",
+			"link": "/irl",
+			"tags": [
+				"improvement"
 			]
 		},
 		{

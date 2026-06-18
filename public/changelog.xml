@@ -159,6 +159,22 @@
 			<description>When you walk up to the Pole Club door and pay the cover charge, your avatar now breaks into a dance the instant the USDC settles — right as the velvet rope drops — before strolling inside. It's your own moment in the spotlight for making it past the bouncer, the same way the dancers move when you tip them. The dance is skipped automatically if you've turned on reduced motion, so entry stays instant either way.</description>
 		</item>
 		<item>
+			<title>Place your agent on the floor — now on iPhone too</title>
+			<link>https://three.ws/irl</link>
+			<guid isPermaLink="false">2026-06-18:Place your agent on the floor — now on iPhone too</guid>
+			<pubDate>Thu, 18 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>&quot;Place on floor&quot; is no longer Android-only. On iPhone and iPad the button now opens Apple's AR viewer and drops your agent onto a real floor surface in your room, using the same model you see in 3D — no app to install. Android keeps its live in-camera placement that turns into a shareable pin nearby people can find. On iOS the in-room view is for you; to leave that shareable pin, tap Pin here, and the app now tells you exactly what each device does instead of just hiding the button. Devices with no AR at all still get honest compass + GPS pinning.</description>
+		</item>
+		<item>
+			<title>Placing an agent on the floor feels solid now</title>
+			<link>https://three.ws/irl</link>
+			<guid isPermaLink="false">2026-06-18:Placing an agent on the floor feels solid now</guid>
+			<pubDate>Thu, 18 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>The AR &quot;place on floor&quot; moment got a polish pass. The targeting ring now clearly reads as searching versus locked-and-ready, your agent casts a soft contact shadow so it sits on the ground instead of hovering, and the instant you tap to place it you get a confident pulse, a short haptic buzz, and a ✓ — so you know it took. The on-screen guidance was reworded to walk you through it (find the floor → aim → placed → saved) and is announced for screen readers. Everything respects Reduce Motion and stays readable over both bright and dark floors.</description>
+		</item>
+		<item>
 			<title>Platform revenue now buys back $THREE onchain — and you can watch it</title>
 			<link>https://three.ws/three-token</link>
 			<guid isPermaLink="false">2026-06-18:Platform revenue now buys back $THREE onchain — and you can watch it</guid>

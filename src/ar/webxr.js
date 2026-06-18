@@ -296,8 +296,12 @@ export class WebXRSession {
 				// has been seen, hold it at the last spot in the dim "searching" look
 				// (driven by _hitAmount → 0) so re-acquiring reads as calm, not broken.
 				// Only the very first sweep — before any hit — shows no reticle at all.
-				if (this._reticle) this._reticle.visible = this._hadHit;
-				if (this._shadow) this._shadow.visible = this._hadHit;
+				// But never resurrect it while tracking is lost: _setTracking hid it this
+				// same tick precisely so the user can't tap a stale reticle, and the hit
+				// block must not undo that. Dropout-tolerance applies only when tracked.
+				const keep = this._hadHit && !this._trackingState.lost;
+				if (this._reticle) this._reticle.visible = keep;
+				if (this._shadow) this._shadow.visible = keep;
 				this._setHit(false);
 			}
 		}

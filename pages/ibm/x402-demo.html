@@ -318,7 +318,7 @@ a:focus-visible{outline-offset:3px}
   .preview-row{gap:6px}
   .preview-row .k{min-width:72px}
 }
-.preview-row .v,.receipt .rv,.match .m-name{overflow-wrap:anywhere}
+.preview-row .v,.receipt .rv,.match .m-name,.footer-legal{overflow-wrap:anywhere}
 
 /* Touch devices: every interactive control clears the 44×44 px minimum. The
    coarse-pointer query keeps desktop sizing compact while guaranteeing mobile taps. */
@@ -396,8 +396,10 @@ agent-3d:defined ~ .agent-skel{display:none}
 	     Self-hosted (travels with this file under ./vendor/) so the page needs no
 	     third-party script CDN — a strict `script-src 'self'` host won't block it.
 	     The forged GLBs are uncompressed glTF with embedded textures, so model-viewer
-	     loads no external Draco/KTX2 decoder; its only fetch is the GLB from three.ws. -->
-	<script type="module" src="./vendor/model-viewer.min.js"></script>
+	     loads no external Draco/KTX2 decoder; its only fetch is the GLB from three.ws.
+	     It is loaded lazily (see ensureModelViewer below) only after a model is forged,
+	     so the 955 KB bundle never costs a page view that doesn't use it, and its bundled
+	     Three.js doesn't co-exist with the agent's at idle. -->
 </head>
 <body>
 
