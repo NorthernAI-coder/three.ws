@@ -54,6 +54,13 @@ export const SOLANA_SIGNERS = [
 		network: 'mainnet',
 	},
 	{
+		name: 'three-buyback',
+		env: 'THREE_BUYBACK_SECRET_KEY_B64',
+		minSol: 0.05,
+		purpose: 'holds platform USDC revenue; pays gas for the run-three-buyback cron (market-buy $THREE → treasury)',
+		network: 'mainnet',
+	},
+	{
 		name: 'club-treasury',
 		env: 'CLUB_SOLANA_TREASURY_SECRET_KEY_B64',
 		minSol: 0.05,
