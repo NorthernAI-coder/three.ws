@@ -14,6 +14,7 @@ import {
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { AnimationManager } from '../animation-manager.js';
+import { getMeshoptDecoder } from '../viewer/internal.js';
 import { GUEST_SENTINEL, resolveGuestAvatar } from './play-handoff.js';
 import { log } from '../shared/log.js';
 
@@ -30,8 +31,20 @@ const _draco = new DRACOLoader();
 _draco.setDecoderPath('/three/draco/gltf/');
 const _gltf = new GLTFLoader();
 _gltf.setDRACOLoader(_draco);
-// Exported so other loaders (avatar-thumb) share one decoder module + cache.
+// Many avatar GLBs — including the platform's own /avatars/default.glb — ship
+// with EXT_meshopt_compression. Without the meshopt decoder, GLTFLoader throws
+// "setMeshoptDecoder must be called before loading compressed files" on the very
+// first bufferView and every avatar silently falls back to a capsule stand-in.
+// Wire the shared, memoized decoder once and gate loads on it (see meshoptReady)
+// so the first avatar parses too. getMeshoptDecoder lazy-imports the small
+// meshopt module and is shared with the rest of the app (footer-bot, viewer).
+const meshoptReady = getMeshoptDecoder()
+	.then((decoder) => { _gltf.setMeshoptDecoder(decoder); return decoder; })
+	.catch((e) => { log.warn('[avatar-rig] meshopt decoder unavailable:', e?.message); return null; });
+// Exported so other loaders (avatar-thumb, boot-avatar) share one decoder module
+// + cache and can wire it onto their own GLTFLoader instances.
 export const dracoLoader = _draco;
+export { meshoptReady };
 let _animDefs = null; // cached manifest defs (locomotion + emotes)
 let _emoteDefs = null;
 let _allEmoteDefs = null; // all non-locomotion emotes for the wheel
@@ -113,6 +126,7 @@ function headAnchorHeight(box) {
 // user their model didn't load instead of silently swapping it.
 export async function buildAvatar(rig, url, anim) {
 	try {
+		await meshoptReady; // ensure meshopt-compressed GLBs (incl. the default) parse
 		const gltf = await _gltf.loadAsync(url);
 		const model = gltf.scene;
 		model.traverse((n) => { if (n.isMesh) { n.castShadow = true; n.receiveShadow = false; } });

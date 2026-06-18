@@ -440,9 +440,25 @@
 /* ---- Responsive: tuck the HUD in on small screens ---- */
 @media (max-width: 560px) {
 	.ps-gold { top: 70px; left: 10px; }
-	.ps-rail { top: auto; bottom: 150px; transform: none; right: 10px; }
-	.ps-hotbar { bottom: 70px; gap: 4px; padding: 5px; }
-	.ps-slot { width: 40px; height: 40px; }
-	.ps-action { bottom: 126px; }
+	/* The bottom-left corner belongs to the movement joystick (#cc-joystick:
+	   left 16px, bottom 20px, 104px tall → occupies up to ~124px from the bottom).
+	   The hotbar is centred and wide, so at phone widths its left slots used to sit
+	   on top of the joystick — and because #ps-hud (z 23) paints above #cc-hud
+	   (z 20, the joystick's stacking context), those slots won the touch hit-test
+	   and swallowed every drag. The avatar couldn't be moved at all. Lift the hotbar
+	   into a clear band above the joystick and the bottom-right emote/reaction stack
+	   (which tops out at ~138px), and let it scroll horizontally so it never
+	   overflows a narrow screen. */
+	.ps-hotbar {
+		bottom: 150px; gap: 4px; padding: 5px;
+		left: 50%; transform: translateX(-50%);
+		max-width: calc(100vw - 20px); overflow-x: auto; scrollbar-width: none;
+	}
+	.ps-hotbar::-webkit-scrollbar { display: none; }
+	.ps-slot { width: 40px; height: 40px; flex: 0 0 auto; }
+	/* Contextual action button and tool rail ride above the lifted hotbar so the
+	   bottom-left joystick zone stays completely clear. */
+	.ps-action { bottom: 208px; }
+	.ps-rail { top: auto; bottom: 232px; transform: none; right: 10px; }
 	.ps-panel { right: 10px; left: 10px; width: auto; max-width: none; }
 }

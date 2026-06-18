@@ -12,14 +12,17 @@ import {
 } from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { AnimationManager } from '../animation-manager.js';
-import { loadManifest, getLocomotionDefs, CLIP_IDLE, dracoLoader } from './avatar-rig.js';
+import { loadManifest, getLocomotionDefs, CLIP_IDLE, dracoLoader, meshoptReady } from './avatar-rig.js';
 import { log } from '../shared/log.js';
 
 const SIZE = 160; // square render target, downscaled by the chip's CSS box
 
-// Share the rig's Draco-enabled loader so compressed avatar GLBs preview too.
+// Share the rig's Draco-enabled loader so compressed avatar GLBs preview too,
+// plus the shared meshopt decoder so EXT_meshopt_compression GLBs (incl. the
+// default avatar) preview instead of throwing.
 const _loader = new GLTFLoader();
 _loader.setDRACOLoader(dracoLoader);
+meshoptReady.then((decoder) => { if (decoder) _loader.setMeshoptDecoder(decoder); });
 const _cache = new Map(); // url -> Promise<string|null> (PNG data URL)
 let _renderer = null;
 let _scene = null;
@@ -64,6 +67,7 @@ export function renderAvatarThumb(url) {
 
 async function _snapshot(url) {
 	if (!ensureRenderer()) return null;
+	await meshoptReady; // ensure the decoder is wired before the first parse
 	const gltf = await _loader.loadAsync(url);
 	const model = gltf.scene;
 	model.traverse((n) => { if (n.isMesh) n.frustumCulled = false; });

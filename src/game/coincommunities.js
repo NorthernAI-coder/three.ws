@@ -451,7 +451,19 @@ export class CoinCommunities {
 
 	// ---------------------------------------------------------------- render
 	_initRenderer() {
-		const r = new WebGLRenderer({ canvas: this.canvas, antialias: true, alpha: this._transparentBg });
+		let r;
+		try {
+			r = new WebGLRenderer({ canvas: this.canvas, antialias: true, alpha: this._transparentBg });
+		} catch (err) {
+			// WebGL context creation fails on blocklisted GPUs, machines with
+			// hardware acceleration disabled, and some in-app/embedded browsers.
+			// Tag the failure so the boot guard can show a recovery message instead
+			// of leaving the player on a dead loader — boot-avatar.js already
+			// degrades gracefully, and the main scene must too.
+			const e = new Error('WebGL unavailable: ' + (err?.message || err));
+			e.code = 'NO_WEBGL';
+			throw e;
+		}
 		r.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 		r.setSize(window.innerWidth, window.innerHeight);
 		if (this._transparentBg) r.setClearColor(0x000000, 0);
@@ -2697,8 +2709,71 @@ export class CoinCommunities {
 	}
 }
 
+// Swap the boot loader for an actionable error state. The scene constructor
+// builds the renderer, scene, and HUD synchronously, so any failure there (most
+// often WebGL being unavailable) would otherwise leave the player staring at a
+// loader that never resolves. This replaces the spinner with a clear message and
+// a recovery path instead of a dead screen.
+function renderBootError(err) {
+	log.error('[coincommunities] boot failed:', err);
+	const noWebGL = err?.code === 'NO_WEBGL' || /webgl|context/i.test(err?.message || '');
+
+	let overlay = document.getElementById('kx-loading');
+	if (!overlay) {
+		overlay = document.createElement('div');
+		overlay.id = 'kx-loading';
+		document.body.appendChild(overlay);
+	}
+	overlay.classList.remove('kx-hidden');
+	overlay.replaceChildren();
+
+	// The boot avatar's render loop targets a canvas we're about to remove — stop
+	// it so it doesn't tick against a detached element.
+	try { window.__ccBootAvatar?.dispose?.(); } catch { /* best-effort teardown */ }
+
+	const card = document.createElement('div');
+	card.className = 'kx-loading-card kx-boot-error';
+	card.setAttribute('role', 'alert');
+
+	const mark = document.createElement('div');
+	mark.className = 'kx-loading-mark';
+	mark.textContent = noWebGL ? 'WebGL unavailable' : 'Couldn’t load the world';
+	card.appendChild(mark);
+
+	const msg = document.createElement('p');
+	msg.className = 'kx-boot-error-msg';
+	msg.textContent = noWebGL
+		? 'Your browser couldn’t start 3D graphics. Turn on hardware acceleration (or WebGL) and reload — on most browsers it’s under Settings › System.'
+		: 'Something went wrong starting Coin Communities. Reload to try again — if it keeps happening, your browser may be out of date.';
+	card.appendChild(msg);
+
+	const actions = document.createElement('div');
+	actions.className = 'kx-boot-error-actions';
+
+	const retry = document.createElement('button');
+	retry.type = 'button';
+	retry.className = 'kx-boot-error-btn';
+	retry.textContent = 'Try again';
+	retry.addEventListener('click', () => location.reload());
+	actions.appendChild(retry);
+
+	const home = document.createElement('a');
+	home.className = 'kx-boot-error-link';
+	home.href = '/';
+	home.textContent = 'Back to three.ws';
+	actions.appendChild(home);
+
+	card.appendChild(actions);
+	overlay.appendChild(card);
+	retry.focus();
+}
+
 const canvas = document.getElementById('kx-canvas') || document.getElementById('cc-canvas');
 if (canvas) {
-	const game = new CoinCommunities(canvas);
-	if (typeof window !== 'undefined') window.__CC__ = game;
+	try {
+		const game = new CoinCommunities(canvas);
+		if (typeof window !== 'undefined') window.__CC__ = game;
+	} catch (err) {
+		renderBootError(err);
+	}
 }

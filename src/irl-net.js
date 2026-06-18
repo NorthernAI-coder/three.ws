@@ -18,6 +18,7 @@
 
 import { Client, getStateCallbacks } from 'colyseus.js';
 import { IrlState } from '../multiplayer/src/irl-schemas.js';
+import { joinRoomWithTimeout } from './shared/colyseus-connect.js';
 import { encodeGeohash } from '../multiplayer/src/geohash.js';
 import { log } from './shared/log.js';
 
@@ -154,7 +155,11 @@ export class IrlNet {
 			this.client = new Client(this.url);
 			// `geocell` is the server's filterBy key (matchmaking): every viewer in the
 			// same precision-6 cell joins one room instance.
-			const room = await this.client.joinOrCreate(ROOM_NAME, {
+			// Hard timeout on the join: a hung handshake would otherwise strand us in
+			// 'connecting' forever — joinOrCreate has no timeout. On timeout this throws
+			// and the catch below schedules a reconnect (then settles into 'unavailable',
+			// where irl.js falls back to the proximity poll).
+			const room = await joinRoomWithTimeout(this.client, ROOM_NAME, {
 				geocell: this.geocell,
 				deviceToken: this.deviceToken,
 				agent: this.agent,

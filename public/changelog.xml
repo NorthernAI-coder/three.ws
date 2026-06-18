@@ -7,6 +7,14 @@
 		<description>What's new on three.ws — features, improvements, and releases, newest first.</description>
 		<language>en</language>
 		<item>
+			<title>Coin community worlds no longer get stuck on “Connecting…”</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-18:Coin community worlds no longer get stuck on “Connecting…”</guid>
+			<pubDate>Thu, 18 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Opening a coin community world could occasionally hang on “Connecting…” forever — you'd see only yourself, with chat, voice, and shared building all stalled and no way to recover short of a reload. It happened when the game server accepted the connection but never finished the join handshake, for instance while a server instance was waking from idle. The connection now has a firm time limit: if the handshake doesn't complete in time it retries on its own, and if the server stays unreachable it drops you cleanly into single-player so you can still explore and build locally — with the status pill tappable to reconnect. The same safeguard covers the open /walk world and the IRL map.</description>
+		</item>
+		<item>
 			<title>Connect a wallet and your $THREE tier is recognized — no account needed</title>
 			<link>https://three.ws/forge</link>
 			<guid isPermaLink="false">2026-06-18:Connect a wallet and your $THREE tier is recognized — no account needed</guid>
@@ -37,6 +45,14 @@
 			<pubDate>Thu, 18 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>Don't hold $THREE yet but want a High-quality model? You can now pay in $THREE for a single High generation instead. Pick High in Forge, choose &quot;Pay&quot; on the holder panel, and a clean payment flow prices it in $THREE, takes one wallet approval, verifies it on-chain, and runs your generation automatically. The platform now genuinely accepts $THREE for compute. One payment buys exactly one High generation, and if a generation fails before it runs your payment stays usable — you're never charged for a model you didn't get. Draft and Standard remain free, and holders still generate High straight away.</description>
+		</item>
+		<item>
+			<title>The 3D agent on the homepage moves again instead of standing frozen</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-18:The 3D agent on the homepage moves again instead of standing frozen</guid>
+			<pubDate>Thu, 18 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>The live avatar in the homepage hero had stopped animating — it loaded but stood in a stiff arms-out pose, and the Wave, Dance, and Pray buttons did nothing. The viewer only renders frames while something is moving to save your battery, and a recent change meant that starting an animation no longer woke the renderer back up once it had gone idle, so the avatar was stuck on its first frame. The renderer is now nudged awake the instant any animation starts, so the homepage agent idles, walks, and responds to the move buttons as intended.</description>
 		</item>
 		<item>
 			<title>The animated 3D bot in the site footer renders again</title>
