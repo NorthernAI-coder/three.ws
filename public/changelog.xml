@@ -47,6 +47,14 @@
 			<description>Don't hold $THREE yet but want a High-quality model? You can now pay in $THREE for a single High generation instead. Pick High in Forge, choose &quot;Pay&quot; on the holder panel, and a clean payment flow prices it in $THREE, takes one wallet approval, verifies it on-chain, and runs your generation automatically. The platform now genuinely accepts $THREE for compute. One payment buys exactly one High generation, and if a generation fails before it runs your payment stays usable — you're never charged for a model you didn't get. Draft and Standard remain free, and holders still generate High straight away.</description>
 		</item>
 		<item>
+			<title>Play loads reliably in private windows and embeds, and explains itself if 3D can't start</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-18:Play loads reliably in private windows and embeds, and explains itself if 3D can't start</guid>
+			<pubDate>Thu, 18 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Two ways Play could fail silently are fixed. First: if your browser couldn't start 3D graphics — hardware acceleration switched off, an older device, or some in-app browsers — Play used to sit on the loading screen forever with no explanation. It now shows a clear recovery card that tells you what happened and how to fix it, with a one-tap “Try again”. Second: opening Play in a private/incognito window, or where it's embedded inside another page, could stop it loading at all because the browser blocks saved settings there. Play now treats blocked storage gracefully — it falls back to a default name and avatar and loads normally instead of breaking.</description>
+		</item>
+		<item>
 			<title>The 3D agent on the homepage moves again instead of standing frozen</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-18:The 3D agent on the homepage moves again instead of standing frozen</guid>

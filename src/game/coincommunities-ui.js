@@ -17,6 +17,13 @@ import { COMPOSITE_PIECES } from './build-voxels.js';
 import { PROP_CATALOG, GALLERY_PROP_PREFIX, registerGalleryProp } from './world-objects.js';
 import { log } from '../shared/log.js';
 
+// localStorage throws in private mode and in third-party iframe contexts where
+// storage is blocked (the `?bg=transparent` embed). Guard every access so a
+// blocked store degrades to defaults instead of throwing while the HUD builds —
+// same contract as play-onboard.js / play-intro.js / play-handoff.js.
+function lsGet(k) { try { return localStorage.getItem(k); } catch { return null; } }
+function lsSet(k, v) { try { localStorage.setItem(k, v); } catch { /* storage disabled */ } }
+
 // Degrees shown on the rotate button for each quarter-turn step (0–3).
 const ROT_DEG = ['0°', '90°', '180°', '270°'];
 
@@ -132,7 +139,7 @@ export class CommunityUI {
 		this.searching = false;
 		this._searchSeq = 0;       // guards against out-of-order async search responses
 		this._searchTimer = null;
-		this.avatar = localStorage.getItem('cc-avatar') || DEFAULT_AVATAR;
+		this.avatar = lsGet('cc-avatar') || DEFAULT_AVATAR;
 		this._buildLobby();
 		this._buildHud();
 		this._buildStructures();
@@ -149,7 +156,7 @@ export class CommunityUI {
 		this.nameInput = el('input', {
 			type: 'text', maxlength: '24', class: 'cc-name-input', id: 'cc-name-input',
 			placeholder: 'Pick a name', 'aria-label': 'Your display name',
-			value: localStorage.getItem('cc-name') || '',
+			value: lsGet('cc-name') || '',
 			onchange: () => this._commitName(),
 			onkeydown: (e) => { if (e.key === 'Enter') { this._commitName(); this.nameInput.blur(); } e.stopPropagation(); },
 		});
@@ -741,7 +748,7 @@ export class CommunityUI {
 
 	_setAvatar(url, fromCustom) {
 		this.avatar = url || DEFAULT_AVATAR;
-		localStorage.setItem('cc-avatar', this.avatar);
+		lsSet('cc-avatar', this.avatar);
 		for (const chip of this.presetRow.children) chip.classList.toggle('cc-on', chip._url === this.avatar);
 		if (!fromCustom) this.customInput.value = (this.avatar === DEFAULT_AVATAR || !/^https?:|^\//.test(this.avatar)) ? '' : this.avatar;
 		this.h.onAvatarChange?.(this.avatar);
@@ -1219,7 +1226,7 @@ export class CommunityUI {
 		this.chat = el('div', { id: 'cc-chat' }, [head, this.chatBody]);
 		// Default: collapsed on touch (small screens), open on desktop — unless the
 		// user has expressed a preference before.
-		const stored = localStorage.getItem('cc-chat-min');
+		const stored = lsGet('cc-chat-min');
 		this._unread = 0;
 		this.toggleChat(stored != null ? stored === '1' : matchMedia('(pointer: coarse)').matches);
 		const chat = this.chat;
@@ -2132,7 +2139,7 @@ export class CommunityUI {
 	/** Persist the typed display name and, if connected, broadcast it live. */
 	_commitName() {
 		const name = this.nameInput.value.trim().slice(0, 24);
-		if (name) localStorage.setItem('cc-name', name);
+		if (name) lsSet('cc-name', name);
 		this.h.onRename?.(name);
 	}
 
@@ -2185,7 +2192,7 @@ export class CommunityUI {
 		this.chat.classList.toggle('cc-min', this._chatMin);
 		this.chatChevron.textContent = this._chatMin ? '▴' : '▾';
 		this.chat.setAttribute('aria-expanded', String(!this._chatMin));
-		localStorage.setItem('cc-chat-min', this._chatMin ? '1' : '0');
+		lsSet('cc-chat-min', this._chatMin ? '1' : '0');
 		if (!this._chatMin) {
 			this._unread = 0;
 			this.chatUnread.hidden = true;
