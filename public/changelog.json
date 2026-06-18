@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-18T01:18:31.096Z",
+	"generated_at": "2026-06-18T01:41:59.073Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -14,6 +14,16 @@
 			"link": "/forge",
 			"tags": [
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-18",
+			"type": "update",
+			"title": "Forge checkout no longer dead-ends when generation is briefly busy",
+			"summary": "When the 3D generator was momentarily rate-limited mid-checkout, Forge could show a raw technical error and look like the payment had failed for good. Now a brief upstream slowdown shows a clear message — your payment was not taken, and the generation retries in a few seconds — and the checkout auto-retries on its own before ever asking you to try again. Your payment only settles once the model is actually produced, so a busy moment never costs you anything.",
+			"link": "/forge",
+			"tags": [
+				"fix"
 			]
 		},
 		{
@@ -34,6 +44,16 @@
 			"link": "/forge",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-18",
+			"type": "update",
+			"title": "The animated 3D bot in the site footer renders again",
+			"summary": "The little animated 3D robot that sits in the footer across the site — and on the sign-in page — had gone missing, leaving an empty space. The model files it loads are compressed, but the footer loader wasn't set up to unpack that format, so it failed before the bot could appear. The decoder is now wired in, so the bot loads and spins as intended everywhere the footer shows.",
+			"link": null,
+			"tags": [
+				"fix"
 			]
 		},
 		{

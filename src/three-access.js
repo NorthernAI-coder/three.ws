@@ -299,7 +299,14 @@ export async function mountTierBadge(target) {
 		t.held_usd > 0
 			? ` · $${Number(t.held_usd).toLocaleString('en-US', { maximumFractionDigits: 0 })} held`
 			: '';
-	el.innerHTML = `<a class="tg-badge tg-tier-${escapeHtml(t.id)}" href="${ECONOMY_URL}#tiers" title="Your $THREE holder tier — what it unlocks${held}">◆ ${escapeHtml(t.label)}</a>`;
+	// Icon + label are separate spans so the nav can collapse the chip to just the ◆ on
+	// the tightest viewports (≤520px) without losing the link or its accessible name.
+	el.innerHTML =
+		`<a class="tg-badge tg-tier-${escapeHtml(t.id)}" href="${ECONOMY_URL}#tiers" ` +
+		`aria-label="Your $THREE tier: ${escapeHtml(t.label)}" ` +
+		`title="Your $THREE holder tier — what it unlocks${held}">` +
+		`<span class="tg-tier-mark" aria-hidden="true">◆</span>` +
+		`<span class="tg-tier-label">${escapeHtml(t.label)}</span></a>`;
 }
 
 // ── Inline lock chip (beside a gated control) ─────────────────────────────────

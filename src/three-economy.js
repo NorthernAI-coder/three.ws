@@ -800,9 +800,10 @@ function accessSignedOutHTML() {
 	return `<div class="ta-empty">
 		<div class="ta-empty-mark" aria-hidden="true">◆</div>
 		<h3 class="ta-empty-title">See what your $THREE unlocks</h3>
-		<p class="ta-empty-sub">We resolve your holder tier from your on-chain $THREE. Sign in to see your unlocks here — or get $THREE first.</p>
+		<p class="ta-empty-sub">We resolve your holder tier from your on-chain $THREE. Connect a wallet to see your unlocks instantly — no account needed — or sign in to link one.</p>
 		<div class="ta-empty-cta">
-			<button class="ec-btn primary" id="ec-access-signin" type="button">Sign in</button>
+			<button class="ec-btn primary" id="ec-access-connect" type="button">Connect wallet</button>
+			<button class="ec-btn" id="ec-access-signin" type="button">Sign in</button>
 			<a class="ec-btn" href="/three-token">Get $THREE</a>
 		</div>
 	</div>`;
@@ -882,6 +883,10 @@ function shell() {
 			<a class="ec-pill" href="/"><span class="dot"></span>three.ws</a>
 			<a class="ec-pill" href="/three-token">$THREE price ↗</a>
 		</div>
+		<!-- Hidden global connect button: initWalletButton() wires it; the "Connect wallet"
+		     CTAs in the ladder + access panel trigger it. The wallet-aware data layer then
+		     re-reads on wallet:changed and highlights the held tier. -->
+		<button id="connect-wallet-btn" type="button" hidden aria-hidden="true" tabindex="-1"><span data-wallet-label>Connect wallet</span></button>
 
 		<header class="ec-hero ec-reveal">
 			<span class="ec-badge">◆ $THREE · the only coin · zero burns</span>
@@ -1332,6 +1337,12 @@ function loadAccess() {
 // matrix (and refreshes the ladder's "You" chip + the pricing discount); a cancelled
 // or failed sign-in restores the button and shows an inline, recoverable message.
 function wireAccessActions() {
+	// Connect a wallet (no account) to reveal the live matrix — drives the same global
+	// connect button as the ladder; wallet:changed then re-reads and re-renders this panel.
+	const connect = document.getElementById('ec-access-connect');
+	if (connect) {
+		connect.addEventListener('click', () => document.getElementById('connect-wallet-btn')?.click());
+	}
 	const signin = document.getElementById('ec-access-signin');
 	if (!signin) return;
 	signin.addEventListener('click', async () => {
@@ -1375,6 +1386,12 @@ function init() {
 	const root = document.createElement('main');
 	root.innerHTML = shell();
 	document.body.appendChild(root);
+
+	// Wire the global wallet connect (hidden #connect-wallet-btn) and auto-connect a
+	// trusted wallet, so a returning holder's tier highlights with no click. The
+	// "Connect wallet" CTAs route through this same button; on connect, wallet:changed
+	// (already bound in load()) re-reads the wallet-aware matrix and re-highlights.
+	initWalletButton();
 
 	// The Flow: start it, and pause when offscreen to save battery/CPU.
 	const canvas = document.getElementById('ec-flow');

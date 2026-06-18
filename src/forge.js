@@ -5,6 +5,7 @@ import { stampGlbAttribution } from './shared/glb-attribution.js';
 import { primeTierPass, attachTierPass, getTierPass, getAccess, onGate } from './three-access.js';
 import { renderLock, lockStateFromAccess } from './three-lock.js';
 import { payForHighGeneration } from './forge-pay.js';
+import { initWalletButton, getConnectedWalletAddress } from './wallet.js';
 ensureStateKitStyles();
 //
 // Drives /api/forge. Three paths share one polling loop:
@@ -101,6 +102,10 @@ const els = {
 	byokHint: document.getElementById('byok-hint'),
 	providerKey: document.getElementById('provider-key'),
 	estimate: document.getElementById('estimate'),
+	// Holder free-quota perk line + the Forge-local wallet-connect chip (Part A).
+	perkRow: document.getElementById('forge-perk-row'),
+	perkLine: document.getElementById('forge-perk-line'),
+	connectBtn: document.getElementById('connect-wallet-btn'),
 };
 
 let aspectRatio = '1:1';
@@ -731,6 +736,36 @@ async function reflectHighButtonAccess() {
 	if (access?.eligible) primeTierPass();
 }
 
+// $THREE holder free-generation multiplier by tier level — mirrors api/_lib/three-tier.js
+// (rateMultiplier), which the free lane applies to a holder's quota via the tier pass.
+const FREE_MULT_BY_LEVEL = { 1: 2, 2: 3, 3: 5, 4: 10 };
+
+// The quiet holder line under Generate (Part A): a holder sees their active free-quota
+// multiplier; everyone else sees a non-blocking upsell plus a reachable wallet-connect so
+// a holder who hasn't connected can reveal their perk. Reads the shared, wallet-aware
+// access matrix — never nags, never blocks the free base lane.
+async function updatePerkLine() {
+	if (!els.perkRow || !els.perkLine) return;
+	const data = await getAccess();
+	const level = Number(data?.tier?.level) || 0;
+	const connected = Boolean(getConnectedWalletAddress());
+	els.perkRow.hidden = false;
+	if (level >= 1) {
+		const mult = FREE_MULT_BY_LEVEL[level] || 1;
+		els.perkLine.dataset.state = 'perk';
+		els.perkLine.innerHTML =
+			'<span class="fq-perk-ico" aria-hidden="true">⚡</span> Holder perk: ' +
+			`<strong>${mult}× free quota</strong> · <a href="/three#tiers">your $THREE tier</a>`;
+		if (els.connectBtn) els.connectBtn.hidden = true;
+	} else {
+		els.perkLine.dataset.state = 'upsell';
+		els.perkLine.innerHTML =
+			'<a href="/three#tiers">Hold $THREE for up to 10× free generations →</a>';
+		// Offer connect only when there's no wallet in hand to read a tier from.
+		if (els.connectBtn) els.connectBtn.hidden = connected;
+	}
+}
+
 // Render the honest time/cost/poly estimate for the current engine + tier from
 // the catalog. No fabricated numbers — everything comes from /api/forge?catalog.
 function updateEstimate() {
@@ -1197,9 +1232,11 @@ async function startJob({ prompt, imageUrls, skipValidation, payment }) {
 	// pass and AWAIT it so forgeHeaders attaches a fresh, RPC-free proof on this very
 	// request. An eligible holder then clears the server gate even if a live on-chain read
 	// would hiccup, and even when they submit faster than the background primeTierPass()
-	// could finish. No-op for anonymous callers (no linked wallet → no pass), for the free
-	// tiers, and for BYOK High (server-exempt — no pass needed).
-	if (highTierNeedsPass()) await getTierPass();
+	// could finish. An eligible *connected* wallet (no signed-in account) signs once here to
+	// prove ownership — interactive only when eligible so a non-holder is never popped a
+	// signature; a signed-in holder still mints silently via their session. No-op for
+	// anonymous callers, the free tiers, and BYOK High (server-exempt — no pass needed).
+	if (highTierNeedsPass()) await getTierPass({ interactive: Boolean(_highAccess?.eligible) });
 
 	const res = await fetch('/api/forge', {
 		method: 'POST',
@@ -2389,6 +2426,17 @@ loadCatalog();
 // Surface the $THREE holder gate on the High control up front (pill + note),
 // independent of the catalog so the affordance lands even on older deploys.
 reflectHighButtonAccess();
+
+// Forge-local wallet connect (Part A): wire the connect chip + auto-connect a trusted
+// wallet so a connected holder's High unlock + free-quota perk surface with no reload.
+// Re-read the gate + perk line whenever the wallet connects or disconnects.
+initWalletButton();
+updatePerkLine();
+window.addEventListener('wallet:changed', () => {
+	reflectHighButtonAccess();
+	if (selectedTier === 'high') reflectHighAccess('high');
+	updatePerkLine();
+});
 
 // Surface any previously forged models for this browser on load.
 loadGallery().then(() => {

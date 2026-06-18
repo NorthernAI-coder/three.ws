@@ -452,16 +452,24 @@ export function createRegenProvider({ apiToken } = {}) {
 				// Retry-After hint instead of a blind 502, and never settles a
 				// payment it can't fulfill.
 				if (response.status === 429) {
-					const message =
-						data?.detail ||
-						data?.title ||
-						'Replicate is throttling new generations (low account credit or rate limit) — retry shortly.';
-					throw Object.assign(new Error(message), {
-						code: 'rate_limited',
-						status: 429,
-						providerStatus: 429,
-						retryAfter: Math.ceil(throttleDelayMs(response, data) / 1000),
-					});
+					// Replicate's throttle `detail` names the account's credit balance and
+					// raw rate-limit numbers ("…less than $5.0 in credit…"). That's internal
+					// infra state — never surface it to the buyer. Keep the real detail for
+					// server logs (and on the error for callers that want it), hand the
+					// caller a clean, retryable message, and still derive the backoff from
+					// the raw body via throttleDelayMs.
+					const providerDetail = data?.detail || data?.title || '';
+					if (providerDetail) console.warn(`[replicate] create-prediction throttled: ${providerDetail}`);
+					throw Object.assign(
+						new Error('3D generation is briefly busy upstream — please retry in a few seconds.'),
+						{
+							code: 'rate_limited',
+							status: 429,
+							providerStatus: 429,
+							providerDetail,
+							retryAfter: Math.ceil(throttleDelayMs(response, data) / 1000),
+						},
+					);
 				}
 				throw Object.assign(
 					new Error(data?.detail || data?.title || `replicate returned ${response.status}`),

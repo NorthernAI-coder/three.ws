@@ -215,6 +215,41 @@ describe('textToImage — Vertex → Replicate fallback', () => {
 		await expect(textToImage('a red teapot')).rejects.toThrow('vertex broke');
 	});
 
+	it('classifies a Replicate 429 as rate_limited without leaking the account credit balance', async () => {
+		// The production incident: a low-credit Replicate account throttles
+		// prediction creation and its `detail` names the balance. We must parse the
+		// reset hint for backoff and keep the raw detail for logs (providerDetail),
+		// but the surfaced message must be clean — no credit numbers, no $ amounts.
+		process.env.REPLICATE_API_TOKEN = 'r8_test_token';
+		const RAW_DETAIL =
+			'Request was throttled. Your rate limit for creating predictions is reduced to 6 requests ' +
+			'per minute with a burst of 1 requests while you have less than $5.0 in credit. ' +
+			'Your rate limit resets in ~10s.';
+		stubFetch([
+			[
+				'api.replicate.com',
+				() =>
+					new Response(JSON.stringify({ detail: RAW_DETAIL }), {
+						status: 429,
+						headers: { 'content-type': 'application/json' },
+					}),
+			],
+		]);
+		vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+		const textToImage = await freshTextToImage();
+		const caught = await textToImage('a red teapot').then(
+			() => null,
+			(e) => e,
+		);
+		expect(caught).toBeTruthy();
+		expect(caught.code).toBe('rate_limited');
+		expect(caught.retryAfter).toBe(10); // parsed from "resets in ~10s"
+		expect(caught.providerDetail).toBe(RAW_DETAIL); // retained for server logs
+		expect(caught.message).toBe('Image generation is briefly busy upstream — please retry in a few seconds.');
+		expect(caught.message).not.toMatch(/credit|\$5|throttl|rate limit/i);
+	});
+
 	it('persists a Vertex data: URI to object storage and returns the https URL', async () => {
 		process.env.GOOGLE_CLOUD_PROJECT = 'demo-project';
 		vertexState.configured = true;

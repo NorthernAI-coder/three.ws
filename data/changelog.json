@@ -3,6 +3,23 @@
 	"entries": [
 		{
 			"date": "2026-06-18",
+			"title": "Forge checkout no longer dead-ends when generation is briefly busy",
+			"summary": "When the 3D generator was momentarily rate-limited mid-checkout, Forge could show a raw technical error and look like the payment had failed for good. Now a brief upstream slowdown shows a clear message — your payment was not taken, and the generation retries in a few seconds — and the checkout auto-retries on its own before ever asking you to try again. Your payment only settles once the model is actually produced, so a busy moment never costs you anything.",
+			"tags": [
+				"fix"
+			],
+			"link": "/forge"
+		},
+		{
+			"date": "2026-06-18",
+			"title": "The animated 3D bot in the site footer renders again",
+			"summary": "The little animated 3D robot that sits in the footer across the site — and on the sign-in page — had gone missing, leaving an empty space. The model files it loads are compressed, but the footer loader wasn't set up to unpack that format, so it failed before the bot could appear. The decoder is now wired in, so the bot loads and spins as intended everywhere the footer shows.",
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-18",
 			"title": "Connect a wallet and your $THREE tier is recognized — no account needed",
 			"summary": "You no longer need a three.ws account to be seen as a $THREE holder. Connect your Solana wallet and the site reads your tier straight from your on-chain holdings: the holder chip in the top bar shows your live tier (◆ Bronze, Silver, Gold…) and holder features like High-quality generation on Forge unlock from the connected wallet alone. When a feature needs proof the wallet is yours, you approve a single free signature that moves no funds. Switch or disconnect a wallet and your tier updates instantly, no reload. Signed-in accounts keep working exactly as before.",
 			"tags": [
