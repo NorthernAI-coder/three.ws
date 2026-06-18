@@ -86,7 +86,7 @@ function toast(msg) {
 		main.innerHTML = `
 			<div style="margin-bottom:6px">
 				<div style="display:flex;align-items:center;gap:12px;margin-bottom:4px">
-					<div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#fff 0%,#888 100%);display:grid;place-items:center;font-weight:800;font-size:15px;color:#000;flex-shrink:0">$3</div>
+					<div style="width:36px;height:36px;border-radius:10px;background:#111116;border:1px solid #232329;display:grid;place-items:center;flex-shrink:0;overflow:hidden"><img src="/favicon.svg" alt="three.ws" width="26" height="26" style="display:block" /></div>
 					<div>
 						<h1 class="dn-h1" style="margin:0">$THREE</h1>
 						<p class="dn-h1-sub" style="margin:0">The protocol token powering the three.ws agent economy</p>

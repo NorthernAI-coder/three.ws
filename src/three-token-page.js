@@ -54,7 +54,8 @@ function injectStyles() {
 	a { color:inherit; }
 	.tk-wrap { max-width:1080px; margin:0 auto; padding:24px 18px 64px; }
 	.tk-head { display:flex; align-items:center; gap:14px; margin-bottom:4px; }
-	.tk-logo { width:46px; height:46px; border-radius:12px; background:linear-gradient(135deg,#fff,#888); display:grid; place-items:center; font-weight:800; color:#000; font-size:18px; flex-shrink:0; }
+	.tk-logo { width:46px; height:46px; border-radius:12px; background:#111116; border:1px solid #232329; display:grid; place-items:center; flex-shrink:0; overflow:hidden; }
+	.tk-logo img { width:32px; height:32px; display:block; }
 	.tk-title { font-size:26px; font-weight:800; margin:0; letter-spacing:-0.02em; }
 	.tk-sub { margin:0; color:#9a9aa3; font-size:13px; }
 	.tk-ca { font-family:ui-monospace,Menlo,monospace; font-size:11.5px; color:#8a8a93; cursor:pointer; border:1px solid #232329; border-radius:8px; padding:3px 8px; background:none; }
@@ -196,7 +197,7 @@ function boot() {
 	wrap.className = 'tk-wrap';
 	wrap.innerHTML = `
 		<div class="tk-head">
-			<div class="tk-logo">$3</div>
+			<div class="tk-logo"><img src="/favicon.svg" alt="three.ws" width="32" height="32" /></div>
 			<div style="flex:1;min-width:0">
 				<h1 class="tk-title">$THREE</h1>
 				<p class="tk-sub">The protocol token powering the three.ws agent economy</p>

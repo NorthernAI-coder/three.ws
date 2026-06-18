@@ -138,13 +138,18 @@ export class PlayOnboard {
 		if (this._overlay) return;
 		this._step = 0;
 
+		// Non-modal coach card, not a blocking modal. The dimmed backdrop is purely
+		// visual (pointer-events:none in CSS) so the movement joystick and look-drag
+		// stay live behind it — a first-time touch player can start walking the
+		// instant the world loads instead of facing a dead joystick under the intro.
+		// `po-onboarding` on <body> lifts the joystick crisp above the backdrop.
 		const overlay = mk('div', {
 			id: 'po-overlay',
 			role: 'dialog',
-			'aria-modal': 'true',
 			'aria-label': 'Welcome to this world',
 		});
 		document.body.appendChild(overlay);
+		document.body.classList.add('po-onboarding');
 		this._overlay = overlay;
 		this._renderSlide();
 
@@ -241,6 +246,7 @@ export class PlayOnboard {
 		const overlay = this._overlay;
 		if (!overlay) return;
 		overlay.classList.remove('po-show');
+		document.body.classList.remove('po-onboarding');
 		setTimeout(() => overlay.remove(), 250);
 		this._overlay = null;
 		if (this._keyFn) { document.removeEventListener('keydown', this._keyFn); this._keyFn = null; }
@@ -339,17 +345,28 @@ export class PlayOnboard {
 		s.textContent = `
 /* ── PlayOnboard ─────────────────────────────────────────────────────────── */
 
-/* First-join overlay */
+/* First-join overlay — a non-blocking coach card. The dimmed/blurred backdrop is
+   visual only: pointer-events:none lets the movement joystick, look-drag, and
+   world taps stay live behind it, so a first-time touch player can move the
+   moment the world loads instead of hitting a dead joystick under the intro.
+   Only the card itself (.po-card) re-enables pointer input. */
 #po-overlay {
   position: fixed; inset: 0; z-index: 45;
   display: flex; align-items: center; justify-content: center; padding: 20px;
   background: rgba(4,4,5,0.74); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
   opacity: 0; transition: opacity 0.22s ease;
+  pointer-events: none;
 }
 #po-overlay.po-show { opacity: 1; }
 
+/* Keep the joystick above the backdrop while the intro is up so it reads crisp
+   (not blurred) and is obviously usable — it sits bottom-left, clear of the
+   centered card. Scoped to onboarding so default stacking is untouched. */
+body.po-onboarding #cc-joystick { z-index: 60; }
+
 .po-card {
   position: relative;
+  pointer-events: auto;
   width: min(440px, calc(100vw - 32px));
   background: var(--cc-panel-solid, #0c0c0e);
   border: 1px solid var(--cc-edge, rgba(255,255,255,0.12));
@@ -537,6 +554,7 @@ export class PlayOnboard {
 	dispose() {
 		this._disposed = true;
 		clearTimeout(this._showTimer);
+		document.body.classList.remove('po-onboarding');
 		if (this._keyFn) { document.removeEventListener('keydown', this._keyFn); this._keyFn = null; }
 		if (this._overlay) { this._overlay.remove(); this._overlay = null; }
 		if (this._helpPanel) { this._helpPanel.remove(); this._helpPanel = null; }

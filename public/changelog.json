@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-18T02:14:39.580Z",
+	"generated_at": "2026-06-18T02:23:59.485Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -102,6 +102,26 @@
 			"title": "The disco dance floor in coin worlds works again",
 			"summary": "Every coin world has a disco pad beside the totem that pulses to a shared beat and crossfades dancers in lockstep. A wiring gap meant the world tried to listen for a beat the connection didn't know about, which threw an error the moment you entered and left the pad dark. The beat is now delivered properly: step onto the pad, hit Dance, and you and everyone else standing on it move to the same animation on the same beat, with the floor and lights pulsing in time.",
 			"link": "/play",
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-18",
+			"type": "update",
+			"title": "The homepage avatar now prays, then walks",
+			"summary": "Tap “🙏 Pray” on the homepage hero and the avatar finishes the prayer and rises straight into a walk — one smooth motion instead of snapping back to a standing idle at the end of the clip. After the walk plays out, the avatar eases back into its gentle idle-and-stroll rhythm. The other one-tap emotes (wave, dance, jump, and the rest) also return to that ambient motion now instead of freezing on their last frame.",
+			"link": null,
+			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-18",
+			"type": "update",
+			"title": "Token swaps now confirm success or failure clearly",
+			"summary": "When you buy $THREE (or swap any pair) from the swap window, it now tells you exactly how it went. After you approve in your wallet, a banner shows it submitting and confirming on-chain, then resolves to a clear result: a green “Swap confirmed” with the amount you received and a Solscan link, a red on-chain failure with the reason (and a hint to widen slippage when that's the cause), or a “still confirming” notice with a link if the network is slow. Previously a swap could land successfully but the window sat on “Confirming…” indefinitely with no confirmation — because it was waiting on a live socket the swap proxy doesn't carry. It now polls the chain directly and gives you a definite answer in seconds.",
+			"link": "/three-token",
 			"tags": [
 				"fix"
 			]

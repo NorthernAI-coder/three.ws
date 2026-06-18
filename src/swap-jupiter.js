@@ -52,6 +52,7 @@ let _styleInjected = false;
 let _ctx = null;      // Current open call's context: { wallet, getProvider, inputToken, outputToken, ... }
 let _quoteSeq = 0;
 let _quote = null;    // Last successful quote response from Jupiter.
+let _phase = 'idle';  // 'idle' while quoting/swapping, 'done' once a swap has settled (button becomes Close).
 
 const STYLE = `
 .sj-overlay {
@@ -165,8 +166,26 @@ const STYLE = `
 .sj-slippage { width: 90px; }
 
 .sj-status { margin-top: 12px; font-size: 12px; min-height: 16px; }
-.sj-status.sj-err { color: #ef4444; }
-.sj-status.sj-ok { color: #10b981; }
+.sj-status.sj-ok,
+.sj-status.sj-err,
+.sj-status.sj-pending {
+	margin-top: 14px;
+	padding: 10px 12px;
+	border-radius: 8px;
+	line-height: 1.45;
+}
+.sj-status.sj-err     { color: #ef4444; background: rgba(239,68,68,0.07);  border: 1px solid rgba(239,68,68,0.22); }
+.sj-status.sj-ok      { color: #10b981; background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.25); }
+.sj-status.sj-pending { color: #f59e0b; background: rgba(245,158,11,0.07); border: 1px solid rgba(245,158,11,0.22); }
+.sj-status strong { font-weight: 600; }
+.sj-status .sj-status-title { display: flex; align-items: center; gap: 6px; font-weight: 600; }
+.sj-status .sj-status-sub { display: block; margin-top: 4px; opacity: 0.92; }
+.sj-status .sj-spin {
+	display: inline-block; width: 11px; height: 11px;
+	border: 2px solid currentColor; border-right-color: transparent;
+	border-radius: 50%; animation: sj-spin 0.7s linear infinite;
+}
+@keyframes sj-spin { to { transform: rotate(360deg); } }
 .sj-status a { color: inherit; text-decoration: underline; }
 
 .sj-btn {
@@ -393,6 +412,7 @@ function debouncedQuote() {
 }
 
 function onAmountInput() {
+	_phase = 'idle'; // Editing the amount starts a new swap; drop any settled state.
 	const v = $('sj-from-amount').value;
 	if (!v || Number(v) <= 0) {
 		$('sj-to-amount').value = '';
@@ -406,6 +426,7 @@ function onAmountInput() {
 
 async function fetchQuote() {
 	if (!_ctx) return;
+	_phase = 'idle'; // A new quote means a new swap; the button is no longer "Close".
 	const amountStr = $('sj-from-amount').value;
 	const baseUnits = toBaseUnits(amountStr, _ctx.inputToken.decimals);
 	if (!baseUnits || baseUnits === '0') return;
@@ -691,7 +712,69 @@ function findToken(mint) {
 
 // ── Swap execution ─────────────────────────────────────────────────────────
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Build a Solscan tx link node, reused across status states.
+function solscanLink(href) {
+	return el('a', { href, target: '_blank', rel: 'noopener', text: 'View on Solscan ↗' });
+}
+
+// Render a two-line status banner: a bold title (optionally with a leading
+// node like a checkmark or spinner) and a sub-line (e.g. the explorer link).
+function statusBanner(title, sub, lead) {
+	const titleRow = el('span', { class: 'sj-status-title' });
+	if (lead) titleRow.append(lead);
+	titleRow.append(typeof title === 'string' ? document.createTextNode(title) : title);
+	const node = el('span', {}, titleRow);
+	if (sub) node.append(el('span', { class: 'sj-status-sub' }, sub));
+	return node;
+}
+
+// Turn an on-chain error object into a human-readable line. Jupiter slippage
+// failures surface as a Custom instruction error; show the raw shape so the
+// user (and support) can see exactly what the chain rejected.
+function describeChainError(err) {
+	if (!err) return 'unknown error';
+	if (typeof err === 'string') return err;
+	if (err.InstructionError) {
+		const detail = err.InstructionError[1];
+		if (detail && typeof detail === 'object' && 'Custom' in detail) {
+			return `instruction error (custom code ${detail.Custom}) — often slippage; widen tolerance and retry`;
+		}
+		return `instruction error: ${JSON.stringify(detail)}`;
+	}
+	try { return JSON.stringify(err); } catch { return 'transaction error'; }
+}
+
+// Poll signature status over plain HTTP (getSignatureStatuses is allowlisted by
+// the /api/solana-rpc proxy). We deliberately do NOT use connection.confirm-
+// Transaction here: it relies on a WebSocket signatureSubscribe the proxy can't
+// serve, so it hangs until block height expires. Polling gives a definitive
+// confirmed / failed / timeout verdict in seconds.
+async function pollSwapConfirmation(connection, sig, { timeoutMs = 60_000, intervalMs = 1500 } = {}) {
+	const deadline = Date.now() + timeoutMs;
+	while (Date.now() < deadline) {
+		let value = null;
+		try {
+			const resp = await connection.getSignatureStatuses([sig], { searchTransactionHistory: false });
+			value = resp?.value?.[0] || null;
+		} catch (err) {
+			log.warn('[swap-jupiter] status poll error', err);
+		}
+		if (value) {
+			if (value.err) return { state: 'failed', err: value.err };
+			if (value.confirmationStatus === 'confirmed' || value.confirmationStatus === 'finalized') {
+				return { state: 'confirmed', confirmationStatus: value.confirmationStatus };
+			}
+		}
+		await sleep(intervalMs);
+	}
+	return { state: 'timeout' };
+}
+
 async function executeSwap() {
+	// After a settled swap the primary button becomes a "Close" action.
+	if (_phase === 'done') { closeSwap(); return; }
 	if (!_ctx || !_quote) return;
 	const btn = $('sj-confirm');
 	btn.disabled = true;
@@ -739,6 +822,10 @@ async function executeSwap() {
 		btn.textContent = 'Submitting…';
 		setStatus('Submitting transaction…');
 
+		// Snapshot the expected output for the success line before any reset.
+		const outSym = _ctx.outputToken.symbol;
+		const outAmount = $('sj-to-amount').value;
+
 		const connection = new Connection(SWAP_RPC, 'confirmed');
 		const sig = await connection.sendRawTransaction(signed.serialize(), {
 			skipPreflight: false,
@@ -746,38 +833,49 @@ async function executeSwap() {
 		});
 
 		const explorerLink = `https://solscan.io/tx/${sig}`;
-		setStatus(el('span', {},
-			'Submitted. ',
-			el('a', { href: explorerLink, target: '_blank', rel: 'noopener', text: 'View on Solscan ↗' }),
-		), 'sj-ok');
 
-		// Confirm (non-blocking for UX — show signature first).
+		// Show a live "confirming" banner with a spinner, then poll over HTTP for
+		// a definitive verdict (the proxy can't serve the WebSocket that
+		// confirmTransaction needs, so we never call it).
 		btn.textContent = 'Confirming…';
-		try {
-			const latest = await connection.getLatestBlockhash('confirmed');
-			await connection.confirmTransaction(
-				{ signature: sig, blockhash: latest.blockhash, lastValidBlockHeight: latest.lastValidBlockHeight },
-				'confirmed',
-			);
-			setStatus(el('span', {},
-				'Swap confirmed. ',
-				el('a', { href: explorerLink, target: '_blank', rel: 'noopener', text: 'View on Solscan ↗' }),
-			), 'sj-ok');
-			btn.textContent = 'Done';
-		} catch (confErr) {
-			setStatus(el('span', {},
-				'Submitted, awaiting confirmation. ',
-				el('a', { href: explorerLink, target: '_blank', rel: 'noopener', text: 'View on Solscan ↗' }),
-			), 'sj-ok');
-			log.warn('[swap-jupiter] confirm failed', confErr);
-			btn.textContent = 'Swap again';
-			btn.disabled = false;
-		}
+		setStatus(statusBanner('Submitted — confirming on-chain…', solscanLink(explorerLink),
+			el('span', { class: 'sj-spin', 'aria-hidden': 'true' })), 'sj-pending');
 
-		refreshBalance();
+		const result = await pollSwapConfirmation(connection, sig);
+
+		if (result.state === 'confirmed') {
+			const received = outAmount ? ` — received ~${outAmount} ${outSym}` : '';
+			setStatus(statusBanner(`Swap confirmed${received}`, solscanLink(explorerLink), '✓'), 'sj-ok');
+			btn.textContent = 'Close';
+			btn.disabled = false;
+			_phase = 'done';
+			refreshBalance();
+		} else if (result.state === 'failed') {
+			setStatus(statusBanner(
+				'Swap failed on-chain',
+				el('span', {}, `${describeChainError(result.err)} · `, solscanLink(explorerLink)),
+				'✕',
+			), 'sj-err');
+			btn.disabled = false;
+			btn.textContent = `Swap ${_ctx.inputToken.symbol} → ${_ctx.outputToken.symbol}`;
+		} else {
+			// Timed out waiting — the tx may still land. Point the user at Solscan
+			// for the final word rather than leaving them on a dead spinner.
+			setStatus(statusBanner(
+				'Still confirming — taking longer than usual',
+				el('span', {}, 'Your swap was submitted. Check the final status: ', solscanLink(explorerLink)),
+			), 'sj-pending');
+			btn.textContent = 'Close';
+			btn.disabled = false;
+			_phase = 'done';
+			refreshBalance();
+		}
 	} catch (err) {
 		log.error('[swap-jupiter] swap failed', err);
-		setStatus(`Swap failed: ${err.message}`, 'sj-err');
+		const friendly = /user rejected|rejected the request|declined/i.test(err.message || '')
+			? 'You declined the transaction in your wallet.'
+			: err.message;
+		setStatus(statusBanner('Swap failed', friendly, '✕'), 'sj-err');
 		btn.disabled = false;
 		btn.textContent = `Swap ${_ctx.inputToken.symbol} → ${_ctx.outputToken.symbol}`;
 	}
@@ -807,6 +905,7 @@ export function openSwapModal({ wallet, getProvider, defaultInputMint, defaultOu
 
 	_ctx = { wallet, getProvider, inputToken, outputToken };
 	_quote = null;
+	_phase = 'idle';
 
 	setTokenUI('from', inputToken);
 	setTokenUI('to',   outputToken);

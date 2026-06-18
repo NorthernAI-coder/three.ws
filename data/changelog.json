@@ -3,6 +3,23 @@
 	"entries": [
 		{
 			"date": "2026-06-18",
+			"title": "Token swaps now confirm success or failure clearly",
+			"summary": "When you buy $THREE (or swap any pair) from the swap window, it now tells you exactly how it went. After you approve in your wallet, a banner shows it submitting and confirming on-chain, then resolves to a clear result: a green “Swap confirmed” with the amount you received and a Solscan link, a red on-chain failure with the reason (and a hint to widen slippage when that's the cause), or a “still confirming” notice with a link if the network is slow. Previously a swap could land successfully but the window sat on “Confirming…” indefinitely with no confirmation — because it was waiting on a live socket the swap proxy doesn't carry. It now polls the chain directly and gives you a definite answer in seconds.",
+			"tags": [
+				"fix"
+			],
+			"link": "/three-token"
+		},
+		{
+			"date": "2026-06-18",
+			"title": "The homepage avatar now prays, then walks",
+			"summary": "Tap “🙏 Pray” on the homepage hero and the avatar finishes the prayer and rises straight into a walk — one smooth motion instead of snapping back to a standing idle at the end of the clip. After the walk plays out, the avatar eases back into its gentle idle-and-stroll rhythm. The other one-tap emotes (wave, dance, jump, and the rest) also return to that ambient motion now instead of freezing on their last frame.",
+			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-18",
 			"title": "Play is movable on phones again — and avatars load instead of a placeholder",
 			"summary": "Two fixes for Play. On phones, the item hotbar had drifted on top of the on-screen movement joystick in the bottom-left corner, so taps meant to steer the stick landed on the hotbar instead and your character wouldn't move at all — with no keyboard to fall back on, you were stuck. The hotbar now sits in a clear band above the joystick, leaving the whole stick tappable. Separately, every avatar — yours, other players', and the loading-screen preview — had started appearing as a plain capsule stand-in because the app was missing the decoder for the compression format the avatars ship in; that decoder is now wired in, so real, animated avatars load everywhere in Play again.",
 			"tags": [
