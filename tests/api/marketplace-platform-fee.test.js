@@ -4,9 +4,15 @@
 // activates only when both a rate and a treasury wallet are configured, splits
 // the price correctly, and is clamped to a sane ceiling.
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
-const FRESH = () => import(`../../api/_lib/marketplace-platform-fee.js?cb=${Math.random()}`);
+// Re-import the module fresh each time so its module-level recipient cache does
+// not leak env-derived state between cases. vi.resetModules() clears the module
+// registry; the static import path keeps it statically analyzable for Vite.
+const FRESH = async () => {
+	vi.resetModules();
+	return import('../../api/_lib/marketplace-platform-fee.js');
+};
 
 const ENV_KEYS = [
 	'MARKETPLACE_PLATFORM_FEE_BPS',
