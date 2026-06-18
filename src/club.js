@@ -1342,15 +1342,11 @@ async function tipDancer({ dancer, dance, button }) {
 		return;
 	}
 
-	// A tip is a real on-chain micro-payment. First-timers get the wallet/USDC
-	// explainer + guided setup before the payment modal; returning users pass
-	// straight through. Lazy-loaded so the club only pays for it on first tip.
-	try {
-		const { ensureOnchainPrimer } = await import('./shared/onchain-primer.js');
-		if (!(await ensureOnchainPrimer({ action: 'tip' }))) return;
-	} catch (err) {
-		log.warn('[club] onchain primer unavailable', err);
-	}
+	// A tip is a real on-chain micro-payment, but X402.pay's checkout owns the
+	// entire money flow — wallet connect (Phantom/EVM), USDC, and the amount the
+	// user confirms before signing. A $0.001 tip should never sit behind a
+	// three-step explainer that re-teaches what the checkout already shows, so
+	// there's no pre-gate here: click Tip → the wallet/amount modal opens.
 
 	// First click on a Tip button is the user gesture browsers require to
 	// unlock AudioContext. Do this BEFORE opening the wallet modal so the
