@@ -3,24 +3,6 @@
 	"entries": [
 		{
 			"date": "2026-06-18",
-			"title": "Chat avatar no longer kneels to pray on every new chat",
-			"summary": "The 3D avatar in chat used to drop to its knees and play a praying animation each time a new conversation loaded — and again whenever it got curious mid-chat. That jarring entrance is gone. The avatar now stays calmly in its idle pose and shows attention through subtle gaze and facial expression instead of a full-body kneel.",
-			"tags": [
-				"fix",
-				"improvement"
-			]
-		},
-		{
-			"date": "2026-06-18",
-			"title": "$THREE Intel — the token's first real on-chain intelligence terminal",
-			"summary": "A new page at /three-intel turns $THREE from a chart-and-buy token into a working tool. It's a live on-chain intelligence terminal: a real-time feed of newly observed Solana coins with derived signals (bundle vs organic launch, top-wallet concentration, sniping, fresh-wallet farming, risk flags) and a one-word verdict on each — powered by the three.ws Coin Intelligence Engine, live market data, and on-chain sentiment. Holding $THREE (Bronze tier and up) unlocks the feed live; everyone else sees the same signals on a 30-minute delay, so the hold is a real edge, not a paywall. A free Token Scanner reads any mint's signals, market, and sentiment on demand. And spending $THREE buys a per-token Deep Report — a synthesized dossier with a scored read, risk and organic-strength gauges, wallet distribution, and key findings — paid once on-chain, single-use, and saved so a retry never charges twice. This is the start of making the only coin actually do things.",
-			"tags": [
-				"feature"
-			],
-			"link": "/three-intel"
-		},
-		{
-			"date": "2026-06-18",
 			"title": "Graduated coins show a live price on agent and community cards",
 			"summary": "The bonding-curve card — the compact one on agent profiles, community coin pages, and embeddable widgets — used to go blank with a “No active bonding curve” message the moment a coin graduated to a DEX. Now it reads the coin's live on-chain price instead, marks it “Graduated” at 100%, and shows a real market cap, so $THREE and any other migrated coin display a refreshing price rather than empty space. Those cards also stopped opening a background websocket that could never connect — it had been silently retrying and logging errors on every load. Vault balances now refresh by polling directly and update within seconds.",
 			"tags": [
