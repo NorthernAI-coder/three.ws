@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-06-18",
+			"title": "Pole Club avatar swaps now actually stick",
+			"summary": "On the Pole Club stage, tapping “Change avatar” and picking a new look sometimes did nothing — the dancer quietly snapped back to the default. Two fixes: a pick made right after the room loads is no longer overwritten by the room's own startup, and any avatar whose rig can't be animated is now clearly flagged “can’t dance” and skipped — the dancer keeps her current look and a message says why, instead of silently failing. Picks that work apply instantly and stay put.",
+			"tags": [
+				"fix"
+			],
+			"link": "/club"
+		},
+		{
+			"date": "2026-06-18",
 			"title": "Graduated coins show a live price on agent and community cards",
 			"summary": "The bonding-curve card — the compact one on agent profiles, community coin pages, and embeddable widgets — used to go blank with a “No active bonding curve” message the moment a coin graduated to a DEX. Now it reads the coin's live on-chain price instead, marks it “Graduated” at 100%, and shows a real market cap, so $THREE and any other migrated coin display a refreshing price rather than empty space. Those cards also stopped opening a background websocket that could never connect — it had been silently retrying and logging errors on every load. Vault balances now refresh by polling directly and update within seconds.",
 			"tags": [

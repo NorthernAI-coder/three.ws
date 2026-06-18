@@ -195,14 +195,3 @@ export async function requireFeatureAccess(req, res, featureId, opts = {}) {
 	});
 	return { ok: false };
 }
-
-/**
- * Resolve the caller's verified $THREE holder level WITHOUT gating — for surfaces
- * that serve every caller but vary the response by tier (e.g. the Intel Terminal
- * feed: live for holders, delayed for everyone else). Same pass-first → session →
- * anonymous resolution as the gate; never throws, never writes a response.
- * @returns {Promise<{ level:number, wallet:string|null, usd:number|null, source:string, hasUser:boolean, hasWallet:boolean }>}
- */
-export async function resolveCallerLevel(req, res, body = null) {
-	return resolveCaller(req, res, body);
-}
