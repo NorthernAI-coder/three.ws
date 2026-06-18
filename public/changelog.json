@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-18T04:45:54.243Z",
+	"generated_at": "2026-06-18T05:03:49.103Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -86,6 +86,17 @@
 			"link": "/forge",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-18",
+			"type": "update",
+			"title": "Platform revenue now buys back $THREE onchain — and you can watch it",
+			"summary": "The $THREE page has a new Programmatic buybacks panel that turns the protocol's economy into something you can verify, not just read about. Platform revenue is converted into $THREE bought on the open market and routed straight into the treasury — onchain, on a schedule, with every buy recorded against its Solscan receipt. This creates steady buy pressure for holders without ever burning supply. The panel shows how much revenue has been earned and what share of it has already been deployed into buybacks, so the link between the platform earning money and that money supporting $THREE is fully transparent.",
+			"link": "/three-token",
+			"tags": [
+				"feature",
+				"infra"
 			]
 		},
 		{
@@ -181,6 +192,16 @@
 		{
 			"date": "2026-06-18",
 			"type": "update",
+			"title": "Tipping a dancer in the Club is now one tap",
+			"summary": "In the Pole Club, paying a dancer used to pop an extra step that made you pick your wallet before anything happened — annoying when you just want to tip and watch her dance, and worse when tipping pole after pole. Now, when a single wallet is detected, hitting Tip goes straight to the signature: approve the $0.001 USDC and she takes the pole. The same shortcut applies to the cover charge at the door. If you have more than one wallet installed you still get to choose, and the free re-entry option for returning guests is untouched.",
+			"link": "/club",
+			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-18",
+			"type": "update",
 			"title": "Token swaps now confirm success or failure clearly",
 			"summary": "When you buy $THREE (or swap any pair) from the swap window, it now tells you exactly how it went. After you approve in your wallet, a banner shows it submitting and confirming on-chain, then resolves to a clear result: a green “Swap confirmed” with the amount you received and a Solscan link, a red on-chain failure with the reason (and a hint to widen slippage when that's the cause), or a “still confirming” notice with a link if the network is slow. Previously a swap could land successfully but the window sat on “Confirming…” indefinitely with no confirmation — because it was waiting on a live socket the swap proxy doesn't carry. It now polls the chain directly and gives you a definite answer in seconds.",
 			"link": "/three-token",
@@ -206,6 +227,16 @@
 			"link": "/forge",
 			"tags": [
 				"feature",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-18",
+			"type": "update",
+			"title": "Your agent and its answer now sit together in chat",
+			"summary": "When an agent replied with a 3D avatar — especially while it was thinking or forging several models at once — the avatar used to float off on its own with a big empty gap, while the reasoning note and the tool buttons drifted down beside its feet. The agent now stands next to its own response: the avatar is framed tighter so it fills its space instead of hovering in the void, and its thinking note and tool calls line up with it as one tidy block. It reads as a single reply whether you're in the normal view or have a tool's details open in the side panel.",
+			"link": "/chat",
+			"tags": [
 				"improvement"
 			]
 		},

@@ -659,6 +659,10 @@ class CheckoutModal {
 		this.accept = null;
 		this.challenge = null;
 		this.disposed = false;
+		// One-shot guard for opts.autoConnect: we only auto-open the wallet on the
+		// first connect render, so an error that drops the user back to this step
+		// shows the manual picker instead of re-launching the wallet in a loop.
+		this.autoConnectTried = false;
 	}
 
 	mount() {
@@ -760,6 +764,20 @@ class CheckoutModal {
 				this.renderSiwxChoice({ siwxSolana, siwxEvm });
 				return;
 			}
+		}
+
+		// autoConnect (opt-in via opts.autoConnect): when the caller knows the
+		// user is wallet-ready and shouldn't have to pick, skip the picker and go
+		// straight to the signature — but only when exactly one supported wallet
+		// is actually detected. Zero wallets (must install) or two (must choose)
+		// still fall through to the picker, as does the SIWX "you haven't paid"
+		// fallback, which needs to explain itself. One-shot via autoConnectTried.
+		if (this.opts.autoConnect && !this.autoConnectTried && !this.siwxFallbackNotice) {
+			this.autoConnectTried = true;
+			const solanaViable = !!(solanaAccept && phantomDetected);
+			const evmViable = !!(evmAccept && evmDetected);
+			if (solanaViable && !evmViable) { this.runSolana(solanaAccept); return; }
+			if (evmViable && !solanaViable) { this.runEvm(evmAccept); return; }
 		}
 
 		const buttons = [];

@@ -290,7 +290,9 @@
 		<div
 			class="{message.role === 'user'
 				? 'bg-paper-deep text-ink rounded-2xl px-4 py-3 max-w-[78%] relative'
-				: 'relative flex w-full gap-x-3.5 items-end'}"
+				: hasLogo && isLatestAssistant
+					? 'relative flex w-full gap-x-3.5 items-center'
+					: 'relative flex w-full gap-x-3.5 items-end'}"
 		>
 			{#if message.role !== 'user'}
 			<div class="relative shrink-0 flex flex-col items-center">
@@ -320,10 +322,13 @@
 					}
 				}}
 				class="shrink-0 rounded-md md:rounded-[6px] {message.role === 'assistant' && hasLogo && isLatestAssistant
-					? 'flex w-[140px] h-[280px]'
+					? 'flex w-[132px] h-[224px]'
 					: 'flex h-8 w-8 md:h-9 md:w-9'}"
 			>
 				{#if message.role === 'assistant' && hasLogo && isLatestAssistant}
+					<!-- The figure is framed with ~30% headroom; render the canvas taller than
+					     its window and pull it up so the empty headroom is cropped, keeping the
+					     figure large without the avatar floating in dead space. -->
 					<span bind:this={agentSlotEl} class="w-full h-full overflow-hidden inline-block shrink-0 rounded-[inherit] will-change-transform" style="opacity:0;">
 						<!-- svelte-ignore custom-element-no-implicit-ns -->
 						<agent-3d
@@ -334,12 +339,12 @@
 									? { 'agent-id': message.agent.id }
 									: { src: '/avatars/cz.glb' })}
 							mode="inline"
-							width="140"
+							width="132"
 							height="280"
 							background="transparent"
 							kiosk
 							name-plate="off"
-							style="width:100%;height:100%;display:block;"
+							style="width:132px;height:280px;display:block;margin-top:-46px;"
 						></agent-3d>
 					</span>
 				{:else}

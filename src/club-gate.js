@@ -74,6 +74,9 @@ async function payCover(root, { payBtn, msgEl, tierEl }) {
 			method: 'GET',
 			merchant: 'three.ws Pole Club',
 			action: 'Cover charge — enter the club',
+			// Skip the checkout's wallet-picker when one wallet is detected — the
+			// SIWX free-re-entry choice and the install/pick cases still surface.
+			autoConnect: true,
 		});
 		const pass = out?.result;
 		if (!pass?.ok) throw new Error(pass?.error || 'cover did not settle');
