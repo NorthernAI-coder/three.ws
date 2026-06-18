@@ -26,6 +26,11 @@ const NON_CURVE_MINTS = new Set([
 	'So11111111111111111111111111111111111111112', // wrapped SOL
 ]);
 
+// pump.fun mints a fixed total supply of exactly 1B tokens, the whole of which
+// is sold through the curve and then seeded into the AMM pool on graduation. For
+// these tokens fully-diluted value therefore equals market cap.
+const PUMP_TOTAL_SUPPLY = 1_000_000_000;
+
 // Every pump.fun mint keypair is ground to end in the literal suffix "pump". A
 // mint that does not end in "pump" (or that is a known settlement token) has no
 // bonding curve and never will — so we can reject it without touching RPC.
@@ -97,6 +102,35 @@ export default wrap(async (req, res) => {
 	});
 
 	if (!result.curve) {
+		// No on-chain bonding curve account. Two cases to disambiguate:
+		//   1. Graduated coin — the curve account is closed once a coin migrates
+		//      to its AMM pool, but the token still trades with a live DEX price.
+		//      Fall back to Jupiter and return a 200 "graduated" view so callers
+		//      render the real price instead of a dead 404. (Our own $THREE lives
+		//      here post-migration.)
+		//   2. A mint that never had a curve — Jupiter has nothing either, so the
+		//      404 stands and the client's stop-on-404 path fires as before.
+		const graduatedPrice = await jupiterPriceFallback(mint);
+		if (graduatedPrice) {
+			// pump.fun mints a fixed 1B supply entirely into the curve/pool, so
+			// fully-diluted value equals market cap. Compute it once here so every
+			// consumer gets a meaningful market cap without re-deriving supply.
+			const marketCapUsd = graduatedPrice.priceUsd * PUMP_TOTAL_SUPPLY;
+			return json(
+				res,
+				200,
+				{
+					mint,
+					network,
+					curve: null,
+					graduated: true,
+					price: null,
+					graduation: { isGraduated: true, progressBps: 10_000 },
+					graduatedPrice: { ...graduatedPrice, marketCapUsd },
+				},
+				{ 'cache-control': 'public, max-age=15, s-maxage=30, stale-while-revalidate=60' },
+			);
+		}
 		return error(res, 404, 'no_curve', 'no bonding curve found for that mint');
 	}
 

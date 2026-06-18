@@ -155,6 +155,31 @@ export function areaPathFor(progress, samples = CURVE_SAMPLES, vb = VB) {
  * @param {number|null} solUsd  SOL price in USD, or null when unavailable.
  */
 export function computeView(data, solUsd = null) {
+	// Graduated coin whose on-chain curve account is gone (closed on migration to
+	// the AMM). There's no curve to chart, but the token still has a real DEX
+	// price — render a 100% "Graduated" state with that live price rather than the
+	// empty "no curve" card. The endpoint enriches market cap from fixed supply.
+	if (data && data.graduated && !data.curve) {
+		const gp = data.graduatedPrice || {};
+		const priceUsd = Number(gp.priceUsd);
+		const marketCapUsd = Number(gp.marketCapUsd);
+		const hasUsd = Number.isFinite(priceUsd) && priceUsd > 0;
+		return {
+			status: 'graduated',
+			progress: 1,
+			progressPct: 100,
+			marketCapSol: 0,
+			marketCapUsd: Number.isFinite(marketCapUsd) && marketCapUsd > 0 ? marketCapUsd : null,
+			raisedSol: null, // the raise completed and the curve closed — N/A now
+			raisedUsd: null,
+			priceSol: 0,
+			priceUsd: hasUsd ? priceUsd : null,
+			isMayhem: false,
+			network: data.network === 'devnet' ? 'devnet' : 'mainnet',
+			mint: data.mint || '',
+			hasUsd,
+		};
+	}
 	if (!data || !data.curve) {
 		return { status: 'empty', progress: 0, hasUsd: false };
 	}
@@ -488,12 +513,15 @@ export function mountBondingCurve(rootEl, opts = {}) {
 		setText(els.status, v.status === 'graduated' ? 'Graduated' : 'Bonding');
 
 		if (v.hasUsd) {
-			setText(els.mc, fmtUsd(v.marketCapUsd));
-			setText(els.raised, `${fmtSol(v.raisedSol)} · ${fmtUsd(v.raisedUsd)}`);
+			setText(els.mc, v.marketCapUsd == null ? '—' : fmtUsd(v.marketCapUsd));
+			setText(
+				els.raised,
+				v.raisedSol == null ? '—' : `${fmtSol(v.raisedSol)} · ${fmtUsd(v.raisedUsd)}`,
+			);
 			setText(els.price, fmtPrice(v.priceUsd, { usd: true }));
 		} else {
 			setText(els.mc, fmtSol(v.marketCapSol));
-			setText(els.raised, fmtSol(v.raisedSol));
+			setText(els.raised, v.raisedSol == null ? '—' : fmtSol(v.raisedSol));
 			setText(els.price, fmtPrice(v.priceSol));
 		}
 		animateTo(v.progress);
