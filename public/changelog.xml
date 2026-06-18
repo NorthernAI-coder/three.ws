@@ -63,6 +63,14 @@
 			<description>Submitting or updating a star rating on an agent's profile was quietly failing for signed-in users — the form said “Save failed” no matter what, because the security token that protects the save was being read incorrectly and never attached. Reviews now save on the first try. Signed-out visitors who tap Submit get a clear “Sign in to leave a review” prompt instead of a dead button, and agent profiles no longer log errors for agents that have no on-chain trading record — the track-record card simply stays hidden.</description>
 		</item>
 		<item>
+			<title>New guide: how avatars and animations actually work (FBX, GLB, JSON)</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-18:New guide: how avatars and animations actually work (FBX, GLB, JSON)</guid>
+			<pubDate>Thu, 18 Jun 2026 12:00:00 GMT</pubDate>
+			<category>docs</category>
+			<description>There's now a full explainer for the 3D pipeline behind every avatar on the site — what FBX, GLB, and animation-clip files each do, how they convert into one another, and how a single dance can play on any character. It also documents the new one-command tool that turns an animated FBX avatar into a web-ready GLB, and the chain that generates a model from a text prompt, rigs it, animates it, and exports it. Useful if you're bringing your own avatar or building on the platform.</description>
+		</item>
+		<item>
 			<title>Pay $THREE per High generation — no holding required</title>
 			<link>https://three.ws/forge</link>
 			<guid isPermaLink="false">2026-06-18:Pay $THREE per High generation — no holding required</guid>
@@ -71,12 +79,12 @@
 			<description>Don't hold $THREE yet but want a High-quality model? You can now pay in $THREE for a single High generation instead. Pick High in Forge, choose &quot;Pay&quot; on the holder panel, and a clean payment flow prices it in $THREE, takes one wallet approval, verifies it on-chain, and runs your generation automatically. The platform now genuinely accepts $THREE for compute. One payment buys exactly one High generation, and if a generation fails before it runs your payment stays usable — you're never charged for a model you didn't get. Draft and Standard remain free, and holders still generate High straight away.</description>
 		</item>
 		<item>
-			<title>Pay the Club cover and your avatar celebrates on the way in</title>
+			<title>Pay the Club cover and your avatar dances on the way in</title>
 			<link>https://three.ws/club</link>
-			<guid isPermaLink="false">2026-06-18:Pay the Club cover and your avatar celebrates on the way in</guid>
+			<guid isPermaLink="false">2026-06-18:Pay the Club cover and your avatar dances on the way in</guid>
 			<pubDate>Thu, 18 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
-			<description>When you walk up to the Pole Club door and pay the cover charge, your avatar now throws a quick celebration dance the instant the USDC settles — right as the velvet rope drops — before strolling inside. It's the same beat the dancers get when you tip them, now yours for making it past the bouncer. The celebration is skipped automatically if you've turned on reduced motion, so entry stays instant either way.</description>
+			<description>When you walk up to the Pole Club door and pay the cover charge, your avatar now breaks into a dance the instant the USDC settles — right as the velvet rope drops — before strolling inside. It's your own moment in the spotlight for making it past the bouncer, the same way the dancers move when you tip them. The dance is skipped automatically if you've turned on reduced motion, so entry stays instant either way.</description>
 		</item>
 		<item>
 			<title>Platform revenue now buys back $THREE onchain — and you can watch it</title>

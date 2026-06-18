@@ -273,6 +273,14 @@
     "loop": true
   },
   {
+    "name": "twerk",
+    "source": "DancingTwerk.fbx",
+    "label": "Dancing Twerk",
+    "icon": "💃",
+    "loop": true,
+    "trim": 5
+  },
+  {
     "name": "celebrate",
     "source": "Joyful Jump.fbx",
     "label": "Celebrate",

@@ -19,7 +19,8 @@ bottom.
 | Avatar builder (full app) | [character-studio/](character-studio) | Fork of [m3-org/CharacterStudio](https://github.com/M3-org/CharacterStudio), MIT, see [character-studio/LICENSE](character-studio/LICENSE) | Web-first character creator |
 | Scene Studio (3D scene editor) | [src/scene-studio/](src/scene-studio) `→ /scene` | Vendored [mrdoob/three.js](https://github.com/mrdoob/three.js) r184 editor, MIT, see [src/scene-studio/vendor/README.md](src/scene-studio/vendor/README.md) | Import GLBs, compose scenes, edit materials/lights, export |
 | Embed examples | [examples/](examples) | In-repo | `embed-test.html`, `web-component.html`, `two-agents.html`, `minimal.html` |
-| Animation pipeline | [public/animations/](public/animations) + [scripts/build-animations.mjs](scripts/build-animations.mjs) | In-repo | Mixamo source FBX + GLB retargeting pipeline |
+| Animation pipeline | [public/animations/](public/animations) + [scripts/build-animations.mjs](scripts/build-animations.mjs) | In-repo | Mixamo source FBX + GLB retargeting pipeline · see [docs/3d-asset-pipeline.md](docs/3d-asset-pipeline.md) |
+| FBX → GLB conversion | [scripts/fbx-to-glb.mjs](scripts/fbx-to-glb.mjs) | In-repo | Skinned/animated FBX → GLB (FBX2glTF), `npm run convert:fbx` |
 | Avatar schema | [packages/avatar-schema/](packages/avatar-schema) | Published as `@three-ws/avatar-schema` | JSON Schema for on-chain avatar manifests |
 | Integration demos | [multiplayer/](multiplayer), [examples/coach-leo/](examples/coach-leo) | In-repo | Multiplayer and VR demos |
 | Avatar service backend | [api/](api) + [workers/](workers) | In-repo | Vercel functions + Cloudflare workers |

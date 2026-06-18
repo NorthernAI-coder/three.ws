@@ -266,6 +266,13 @@
 		"loop": true
 	},
 	{
+		"name": "twerk",
+		"url": "/animations/clips/twerk.json",
+		"label": "Dancing Twerk",
+		"icon": "\ud83d\udc83",
+		"loop": true
+	},
+	{
 		"name": "celebrate",
 		"url": "/animations/clips/celebrate.json",
 		"label": "Celebrate",

@@ -27,10 +27,11 @@ const ROUTE = '/api/x402/dance-tip';
 const DESCRIPTION =
 	'three.ws club stage — tip a dancer to perform one routine on the 3D ' +
 	'stage. Pay $0.001 USDC per performance. Pick a dancer slot (1-4) and a ' +
-	'dance style (free-floor: rumba, silly, thriller, capoeira, hiphop; ' +
-	'choreographed routines: spin, climb, combo). The settled call returns a ' +
-	'performance ticket the /club page consumes to spawn the dancer and play ' +
-	'the routine — sequence styles chain multiple clips back-to-back.';
+	'dance style (free-floor: rumba, silly, thriller, capoeira, hiphop; pole ' +
+	'work: twerk; choreographed routines: spin, climb, combo). The settled ' +
+	'call returns a performance ticket the /club page consumes to spawn the ' +
+	'dancer and play the routine — sequence styles chain multiple clips ' +
+	'back-to-back, and pole styles turn her into the pole.';
 
 // `track` names map to /public/club/audio/<track>.{ogg,mp3} loops the /club
 // page crossfades to when the dance starts. The client picks whichever format
@@ -42,6 +43,14 @@ export const STYLES = Object.freeze({
 	silly:    { clip: 'silly',    label: 'Silly',    loop: true, durationSec: 10, track: 'silly' },
 	thriller: { clip: 'thriller', label: 'Thriller', loop: true, durationSec: 14, track: 'thriller' },
 	capoeira: { clip: 'capoeira', label: 'Capoeira', loop: true, durationSec: 12, track: 'capoeira' },
+
+	// Pole work — `pole: true` tells the /club stage to turn the dancer into the
+	// pole and dance against it (back to the crowd) rather than facing out like
+	// the free-floor styles. The twerk loops on the pole for the full duration.
+	twerk: {
+		clip: 'twerk', label: 'Pole Twerk', loop: true, durationSec: 12,
+		track: 'im-in-love-wit-a-stripper-fast', pole: true,
+	},
 
 	// Choreographed routines — sequences chain multiple clips back-to-back at
 	// PoleStation playback time (the feature free-floor styles lack). Every clip
@@ -140,10 +149,16 @@ const OUTPUT_SCHEMA = {
 		clip: { type: 'string' },
 		label: { type: 'string' },
 		loop: { type: 'boolean' },
+		pole: {
+			type: 'boolean',
+			description:
+				'Present and true for pole styles (twerk). Tells the /club stage to ' +
+				'turn the dancer into the pole, back to the crowd, instead of facing out.',
+		},
 		durationSec: { type: 'integer', minimum: 1, maximum: 60 },
 		track: {
 			type: 'string',
-			enum: ['rumba', 'silly', 'thriller', 'capoeira', 'hiphop', 'pole'],
+			enum: ['rumba', 'silly', 'thriller', 'capoeira', 'hiphop', 'pole', 'im-in-love-wit-a-stripper-fast'],
 			description: 'Audio loop name — /public/club/audio/<track>.{ogg,mp3}.',
 		},
 		sequence: {
@@ -210,6 +225,7 @@ export function pickStyle(name) {
 		track: style.track,
 		clip: firstClip,
 		loop: style.loop ?? false,
+		pole: style.pole ?? false,
 		sequence: style.sequence,
 	};
 }
@@ -251,6 +267,7 @@ export function buildTicket({ dancer, style, now = new Date(), payer = null, req
 		amountAtomics: requirement?.amount ?? null,
 		asset:   requirement?.asset ?? null,
 	};
+	if (style.pole) ticket.pole = true;
 	if (style.sequence) ticket.sequence = style.sequence;
 	return ticket;
 }
