@@ -392,8 +392,12 @@ agent-3d:defined ~ .agent-skel{display:none}
 	<meta name="twitter:description" content="A self-contained x402 micropayment demo: pay $0.001 USDC from your own wallet — MetaMask or Phantom on Solana — to call a real three.ws data API. Watch the live HTTP 402 challenge, sign a gasless authorization, and see the on-chain settlement receipt. No backend, no account; built as the public face of the IBM × three.ws partnership.">
 	<meta name="twitter:image" content="https://three.ws/og-image.png">
 	<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"x402 Live Demo (IBM × three.ws)","description":"A self-contained x402 micropayment demo: pay $0.001 USDC from your own wallet — MetaMask or Phantom on Solana — to call a real three.ws data API. Watch the live HTTP 402 challenge, sign a gasless authorization, and see the on-chain settlement receipt. No backend, no account; built as the public face of the IBM × three.ws partnership.","url":"https://three.ws/ibm/x402-demo","isPartOf":{"@type":"WebSite","name":"three.ws","url":"https://three.ws"}}</script>
-	<!-- model-viewer renders the GLB returned by the paid Forge demo (Demo 03) -->
-	<script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"></script>
+	<!-- model-viewer renders the GLB returned by the paid Forge demo (Demo 01).
+	     Self-hosted (travels with this file under ./vendor/) so the page needs no
+	     third-party script CDN — a strict `script-src 'self'` host won't block it.
+	     The forged GLBs are uncompressed glTF with embedded textures, so model-viewer
+	     loads no external Draco/KTX2 decoder; its only fetch is the GLB from three.ws. -->
+	<script type="module" src="./vendor/model-viewer.min.js"></script>
 </head>
 <body>
 
@@ -1038,7 +1042,7 @@ agent-3d:defined ~ .agent-skel{display:none}
       if (similar.length) {
         html += '<h4' + (exact.length ? ' style="margin-top:12px"' : '') + '>Look-alike symbols</h4>';
         similar.forEach(function (m) {
-          html += '<div class="match"><span class="m-name"><b>' + escapeHtml(m.ticker) + '</b> · ' + escapeHtml(m.name || '') + '</span><span class="m-sim">sim ' + escapeHtml(String(m.similarity)) + '</span></div>';
+          html += '<div class="match"><span class="m-name"><b>' + escapeHtml(m.ticker) + '</b> · ' + escapeHtml(m.name || '') + '</span><span class="m-sim">sim ' + escapeHtml(m.similarity == null ? '—' : String(m.similarity)) + '</span></div>';
         });
       }
       html += '</div>';

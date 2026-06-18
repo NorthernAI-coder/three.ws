@@ -8,9 +8,24 @@
 // The live AR button on the main viewer enters XR with the full body, exactly
 // as it did before the half-body work was added.
 
-import { Matrix4, Mesh, MeshBasicMaterial, Quaternion, RingGeometry, Vector3 } from 'three';
+import {
+	CanvasTexture, CircleGeometry, Color, Group, Matrix4, Mesh, MeshBasicMaterial,
+	PlaneGeometry, Quaternion, RingGeometry, Vector3,
+} from 'three';
 
-import { isXrVisible, nextTrackingState, TRACKING_LOSS_FRAMES } from './anchor-lifecycle.js';
+import {
+	advancePulse, isXrVisible, nextTrackingState, reticleVisual, TRACKING_LOSS_FRAMES,
+} from './anchor-lifecycle.js';
+
+/** prefers-reduced-motion: calm, static reticle/confirm states when set. */
+function _prefersReducedMotion() {
+	try {
+		return typeof window !== 'undefined'
+			&& !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+	} catch {
+		return false;
+	}
+}
 
 const LOWER_BODY_FRAGMENTS = [
 	'upleg', 'leg', 'thigh', 'knee', 'shin', 'calf',
@@ -77,8 +92,31 @@ export class WebXRSession {
 		/** Tap-moment hit pose, captured for persistence the instant the user taps. */
 		this._latestHitMatrix = new Matrix4();
 		this._hasHit = false;
-		/** @type {import('three').Mesh|null} Ring reticle tracking the floor. */
+		/** True once any surface has been found — keeps the reticle visible (dim,
+		 * "searching") through brief hit dropouts instead of flickering off. */
+		this._hadHit = false;
+		/** @type {import('three').Group|null} Reticle group (ring + inner dot). */
 		this._reticle = null;
+		/** @type {import('three').Mesh|null} */
+		this._reticleRing = null;
+		/** @type {import('three').Mesh|null} Inner dot that fills in on lock. */
+		this._reticleDot = null;
+		/** @type {import('three').Mesh|null} One-shot confirm "pulse-out" ring. */
+		this._pulseRing = null;
+		/** @type {import('three').Mesh|null} Soft contact shadow grounding the avatar. */
+		this._shadow = null;
+		/** @type {import('three').CanvasTexture|null} Radial-gradient shadow map. */
+		this._shadowTex = null;
+		/** Eased 0→1 reticle lock amount (searching → locked); lerped each frame. */
+		this._hitAmount = 0;
+		/** Reused reticle-visual buffer — no per-frame allocation. */
+		this._rv = { scale: 1, opacity: 0.9, dot: 0, colorMix: 0 };
+		/** Reused confirm-pulse state; `active` gates the one-shot animation. */
+		this._pulse = { t: 0, scale: 1, opacity: 0, done: false, active: false };
+		/** Searching/locked reticle colours, lerped into the ring material in place. */
+		this._dimColor = new Color(0x7a6cf0);
+		this._lockColor = new Color(0xc4b5fd);
+		this._reducedMotion = false;
 		this._userPosition = new Vector3();
 		this._savedBg = null;
 		this._savedPos = null;
@@ -138,9 +176,19 @@ export class WebXRSession {
 		const viewerSpace = await session.requestReferenceSpace('viewer');
 		this._hitTestSource = await session.requestHitTestSource({ space: viewerSpace });
 
+		// Re-read the OS motion preference per session so a mid-use settings change
+		// is honoured on the next entry; gates the reticle pulse and confirm beat.
+		this._reducedMotion = _prefersReducedMotion();
+		this._hadHit = false;
+		this._hitAmount = 0;
+		this._pulse.active = false;
+
 		// Floor reticle — a thin ring laid flat (geometry rotated into the XZ plane
 		// so the hit pose's up-normal keeps it on the surface). Hidden until a hit.
+		// A soft contact shadow grounds the avatar; a pulse ring fires on commit.
 		this._buildReticle();
+		this._buildShadow();
+		this._buildPulseRing();
 
 		// Transparent background — device camera provides the pass-through
 		this._savedBg = viewer.scene.background;
@@ -213,6 +261,7 @@ export class WebXRSession {
 			if (pose) {
 				this._latestHit = hits[0];
 				this._latestHitMatrix.fromArray(pose.transform.matrix);
+				this._hadHit = true;
 				if (this._reticle) {
 					this._reticle.visible = true;
 					this._reticle.position.setFromMatrixPosition(this._latestHitMatrix);
