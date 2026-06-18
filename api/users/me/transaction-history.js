@@ -9,7 +9,10 @@
  *   ?limit=50    — number of rows (max 200, default 50)
  *   ?offset=0    — pagination offset
  *
- * Each row includes a `role` field ('buyer' or 'seller') and a Solscan link.
+ * Each row includes a `role` field ('buyer' or 'seller'), a decimals-aware
+ * `amount_display` (the amount that actually settled — for 'tipped' rows that is
+ * the on-chain amount, not the original quote), the seller's `net_display`
+ * (gross minus platform fee), and an `explorer_url` to the block explorer.
  */
 
 import { sql } from '../../_lib/db.js';
@@ -57,14 +60,17 @@ export default wrap(async (req, res) => {
 			sp.status,
 			sp.kind,
 			sp.amount,
+			sp.tipped_amount,
 			sp.platform_fee_amount,
+			sp.mint_decimals,
 			sp.currency_mint,
 			sp.chain,
 			sp.tx_signature,
+			sp.skill_nft_mint,
 			sp.confirmed_at,
 			sp.created_at,
-			ai.name      AS agent_name,
-			ai.handle    AS agent_handle,
+			ai.name              AS agent_name,
+			ai.profile_image_url AS agent_thumbnail,
 			'buyer'::text AS role
 		FROM skill_purchases sp
 		LEFT JOIN agent_identities ai ON ai.id = sp.agent_id
@@ -83,14 +89,17 @@ export default wrap(async (req, res) => {
 			sp.status,
 			sp.kind,
 			sp.amount,
+			sp.tipped_amount,
 			sp.platform_fee_amount,
+			sp.mint_decimals,
 			sp.currency_mint,
 			sp.chain,
 			sp.tx_signature,
+			sp.skill_nft_mint,
 			sp.confirmed_at,
 			sp.created_at,
-			ai.name      AS agent_name,
-			ai.handle    AS agent_handle,
+			ai.name              AS agent_name,
+			ai.profile_image_url AS agent_thumbnail,
 			'seller'::text AS role
 		FROM skill_purchases sp
 		JOIN agent_identities ai ON ai.id = sp.agent_id AND ai.user_id = ${userId}
@@ -115,14 +124,31 @@ export default wrap(async (req, res) => {
 		if (!seen.has(key)) { seen.add(key); deduped.push(row); }
 	}
 
-	const transactions = deduped.slice(0, limit).map((row) => ({
-		...row,
-		amount_display:      (Number(row.amount) / 1e6).toFixed(2),
-		platform_fee_display: row.platform_fee_amount
-			? (Number(row.platform_fee_amount) / 1e6).toFixed(2)
-			: null,
-		explorer_url: txLink(row.chain, row.tx_signature),
-	}));
+	const toUnits = (atomics, decimals) => {
+		const n = Number(atomics);
+		if (!Number.isFinite(n)) return '0.00';
+		return (n / 10 ** decimals).toFixed(2);
+	};
+
+	const transactions = deduped.slice(0, limit).map((row) => {
+		const decimals = Number(row.mint_decimals ?? 6) || 6;
+		// 'tipped' rows settled for a different amount than the quote — report what
+		// actually moved on-chain, not the original ask. Everything else uses amount.
+		const settledAtomics = row.status === 'tipped' && row.tipped_amount != null
+			? row.tipped_amount
+			: row.amount;
+		const feeAtomics = Number(row.platform_fee_amount) || 0;
+		// Seller take-home = gross minus the platform fee collected on-chain.
+		const netAtomics = Math.max(0, (Number(settledAtomics) || 0) - feeAtomics);
+		return {
+			...row,
+			amount_atomics:       String(settledAtomics ?? '0'),
+			amount_display:       toUnits(settledAtomics, decimals),
+			platform_fee_display: feeAtomics ? toUnits(feeAtomics, decimals) : null,
+			net_display:          row.role === 'seller' ? toUnits(netAtomics, decimals) : null,
+			explorer_url:         txLink(row.chain, row.tx_signature),
+		};
+	});
 
 	return json(res, 200, { transactions, count: transactions.length }, { 'cache-control': 'private, max-age=30' });
 });
