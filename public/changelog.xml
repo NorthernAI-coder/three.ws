@@ -199,6 +199,14 @@
 			<description>The dashboard now has a Transactions page that lays out your full payment history in one place: every skill you've purchased from other agents and every sale your own agents have made, newest first. Each row shows the date, whether it was a purchase or a sale, the skill and agent involved, the USDC amount (sellers see their take-home net of the platform fee), and a link straight to the transaction on Solscan or Basescan. Filter by purchases or sales, and download the whole thing as a CSV for your records or taxes.</description>
 		</item>
 		<item>
+			<title>Skill prices fade in smoothly on agent pages</title>
+			<link>https://three.ws/marketplace</link>
+			<guid isPermaLink="false">2026-06-18:Skill prices fade in smoothly on agent pages</guid>
+			<pubDate>Thu, 18 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>Opening an agent from the marketplace now shows its page instantly, and any skill that charges per call displays a gently pulsing placeholder while we confirm the exact price — instead of briefly flashing &quot;Free&quot; and then snapping to a dollar amount. The real price, Purchase button, and any free-trial or time-pass options slot in the moment they load. Agents with no paid skills still render their prices immediately with no flicker.</description>
+		</item>
+		<item>
 			<title>Steadier token prices and 3D generation when a provider is busy</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-18:Steadier token prices and 3D generation when a provider is busy</guid>
