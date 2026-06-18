@@ -2,7 +2,7 @@
 // helpers are mocked at module-boundary so the test runs purely against the
 // validation + response layer — no real RPC traffic.
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 vi.mock('../../api/_lib/solana/sdk-bridge.js', () => ({
 	getBondingCurveState: vi.fn(),
@@ -61,6 +61,17 @@ function getJson(res) { return JSON.parse(res._body); }
 
 describe('GET /api/pump/curve', () => {
 	beforeEach(() => { vi.clearAllMocks(); });
+	afterEach(() => { vi.restoreAllMocks(); });
+
+	// Stub the Jupiter price fallback the handler reaches for when a curve is
+	// absent. usd == null => Jupiter has no price (dead/never-launched mint);
+	// a number => a graduated coin still trading on a DEX.
+	function stubJupiter(usd) {
+		vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+			ok: true,
+			json: async () => (usd == null ? {} : { [CURVE_MINT]: { usdPrice: usd } }),
+		});
+	}
 
 	it('400 when mint missing', async () => {
 		const res = makeRes();
@@ -86,14 +97,35 @@ describe('GET /api/pump/curve', () => {
 		expect(res.getHeader('cache-control')).toMatch(/s-maxage=300/);
 	});
 
-	it('404 when no bonding curve found for a real pump mint', async () => {
+	it('404 when no bonding curve and no DEX price (dead/never-launched mint)', async () => {
 		getBondingCurveState.mockResolvedValueOnce(null);
 		getTokenPrice.mockResolvedValueOnce(null);
 		getGraduationProgress.mockResolvedValueOnce(null);
+		stubJupiter(null); // Jupiter has nothing either
 		const res = makeRes();
 		await curveHandler(makeReq({ url: `/api/pump/curve?mint=${CURVE_MINT}` }), res);
 		expect(res.statusCode).toBe(404);
 		expect(getJson(res).error).toBe('no_curve');
+	});
+
+	it('200 graduated view when the curve is gone but a DEX price exists', async () => {
+		// Graduated coin: the on-chain curve account is closed, but the token still
+		// trades on its AMM — surface the live price instead of a dead 404.
+		getBondingCurveState.mockResolvedValueOnce(null);
+		getTokenPrice.mockResolvedValueOnce(null);
+		getGraduationProgress.mockResolvedValueOnce(null);
+		stubJupiter(0.0033878);
+		const res = makeRes();
+		await curveHandler(makeReq({ url: `/api/pump/curve?mint=${CURVE_MINT}` }), res);
+		expect(res.statusCode).toBe(200);
+		const body = getJson(res);
+		expect(body.curve).toBeNull();
+		expect(body.graduated).toBe(true);
+		expect(body.graduation.isGraduated).toBe(true);
+		expect(body.graduation.progressBps).toBe(10_000);
+		expect(body.graduatedPrice.priceUsd).toBe(0.0033878);
+		// Fixed 1B supply => market cap == FDV.
+		expect(body.graduatedPrice.marketCapUsd).toBeCloseTo(0.0033878 * 1_000_000_000, 3);
 	});
 
 	it('200 with curve, price, graduation', async () => {

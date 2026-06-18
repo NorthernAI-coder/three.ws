@@ -51,6 +51,13 @@ export const GATED_FEATURES = Object.freeze({
 		why: 'The High tier spends real GPU/vendor budget — holders fund it by holding, not draining.',
 		payPerUse: 'forge.high',
 	}),
+	'intel.terminal': Object.freeze({
+		minLevel: 1,
+		enforced: true, // gated in api/three-intel/[action].js (the `feed` action serves live vs delayed by tier)
+		label: 'Live Intel Terminal — real-time on-chain signal feed',
+		why: 'Live, unthrottled on-chain intelligence is a held perk; non-holders see the same feed on a delay.',
+		payPerUse: null, // the feed is hold-only; the per-token Deep Report (intel.deep) is the pay-per-use unit
+	}),
 	'worlds.private': Object.freeze({
 		minLevel: 2,
 		enforced: false,

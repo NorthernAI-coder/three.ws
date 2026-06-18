@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-18T02:58:11.699Z",
+	"generated_at": "2026-06-18T03:00:36.961Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -33,6 +33,17 @@
 			"summary": "When the 3D generator was momentarily rate-limited mid-checkout, Forge could show a raw technical error and look like the payment had failed for good. Now a brief upstream slowdown shows a clear message — your payment was not taken, and the generation retries in a few seconds — and the checkout auto-retries on its own before ever asking you to try again. Your payment only settles once the model is actually produced, so a busy moment never costs you anything.",
 			"link": "/forge",
 			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-18",
+			"type": "update",
+			"title": "Graduated coins show a live price on agent and community cards",
+			"summary": "The bonding-curve card — the compact one on agent profiles, community coin pages, and embeddable widgets — used to go blank with a “No active bonding curve” message the moment a coin graduated to a DEX. Now it reads the coin's live on-chain price instead, marks it “Graduated” at 100%, and shows a real market cap, so $THREE and any other migrated coin display a refreshing price rather than empty space. Those cards also stopped opening a background websocket that could never connect — it had been silently retrying and logging errors on every load. Vault balances now refresh by polling directly and update within seconds.",
+			"link": null,
+			"tags": [
+				"improvement",
 				"fix"
 			]
 		},
@@ -74,6 +85,16 @@
 			"link": null,
 			"tags": [
 				"fix"
+			]
+		},
+		{
+			"date": "2026-06-18",
+			"type": "update",
+			"title": "The $THREE page now shows a live price chart",
+			"summary": "$THREE graduated long ago, so the token page no longer has a bonding curve to climb — but the page still showed a “No active bonding curve” placeholder where the chart should be. That dead space is now a real, live price chart: an area chart with a volume panel underneath, pulling actual trade history (Birdeye with a GeckoTerminal fallback) and refreshing every 30 seconds. Switch between 5m, 15m, 1H, 4H, and 1D timeframes, and read the price and percentage move over the window you're viewing — green when it's up, red when it's down. Buy $THREE and the live trade tape sit right alongside it, unchanged.",
+			"link": "/three-token",
+			"tags": [
+				"improvement"
 			]
 		},
 		{

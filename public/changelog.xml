@@ -31,6 +31,14 @@
 			<description>When the 3D generator was momentarily rate-limited mid-checkout, Forge could show a raw technical error and look like the payment had failed for good. Now a brief upstream slowdown shows a clear message — your payment was not taken, and the generation retries in a few seconds — and the checkout auto-retries on its own before ever asking you to try again. Your payment only settles once the model is actually produced, so a busy moment never costs you anything.</description>
 		</item>
 		<item>
+			<title>Graduated coins show a live price on agent and community cards</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-18:Graduated coins show a live price on agent and community cards</guid>
+			<pubDate>Thu, 18 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>The bonding-curve card — the compact one on agent profiles, community coin pages, and embeddable widgets — used to go blank with a “No active bonding curve” message the moment a coin graduated to a DEX. Now it reads the coin's live on-chain price instead, marks it “Graduated” at 100%, and shows a real market cap, so $THREE and any other migrated coin display a refreshing price rather than empty space. Those cards also stopped opening a background websocket that could never connect — it had been silently retrying and logging errors on every load. Vault balances now refresh by polling directly and update within seconds.</description>
+		</item>
+		<item>
 			<title>Holding $THREE now unlocks a premium feature</title>
 			<link>https://three.ws/three</link>
 			<guid isPermaLink="false">2026-06-18:Holding $THREE now unlocks a premium feature</guid>
@@ -61,6 +69,14 @@
 			<pubDate>Thu, 18 Jun 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>Two ways Play could fail silently are fixed. First: if your browser couldn't start 3D graphics — hardware acceleration switched off, an older device, or some in-app browsers — Play used to sit on the loading screen forever with no explanation. It now shows a clear recovery card that tells you what happened and how to fix it, with a one-tap “Try again”. Second: opening Play in a private/incognito window, or where it's embedded inside another page, could stop it loading at all because the browser blocks saved settings there. Play now treats blocked storage gracefully — it falls back to a default name and avatar and loads normally instead of breaking.</description>
+		</item>
+		<item>
+			<title>The $THREE page now shows a live price chart</title>
+			<link>https://three.ws/three-token</link>
+			<guid isPermaLink="false">2026-06-18:The $THREE page now shows a live price chart</guid>
+			<pubDate>Thu, 18 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>$THREE graduated long ago, so the token page no longer has a bonding curve to climb — but the page still showed a “No active bonding curve” placeholder where the chart should be. That dead space is now a real, live price chart: an area chart with a volume panel underneath, pulling actual trade history (Birdeye with a GeckoTerminal fallback) and refreshing every 30 seconds. Switch between 5m, 15m, 1H, 4H, and 1D timeframes, and read the price and percentage move over the window you're viewing — green when it's up, red when it's down. Buy $THREE and the live trade tape sit right alongside it, unchanged.</description>
 		</item>
 		<item>
 			<title>The 3D agent on the homepage moves again instead of standing frozen</title>
