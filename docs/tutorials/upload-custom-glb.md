@@ -110,14 +110,23 @@ If there are errors, they almost always fall into the four buckets in Step 4.
 
 Mixamo's "Download" button gives you FBX. The runtime wants GLB. The conversion is a one-line command.
 
-The most reliable tool is [gltf-transform](https://gltf-transform.dev), a Node-based CLI maintained as part of the glTF ecosystem.
+If you're working inside the repo, use the built-in converter — it's backed by FBX2glTF and preserves the skeleton, skin weights, animation, and textures, then prints a summary so you can confirm the rig survived:
+
+```bash
+# One character FBX with its baked-in animation → public/avatars/<name>.glb:
+npm run convert:fbx -- your-character.fbx
+
+# Make it web-ready (lossless geometry + WebP textures, typically ~90% smaller):
+npm run optimize:glb -- public/avatars/your-character.glb
+```
+
+> **Don't draco-compress for this runtime.** The site's `GLTFLoader` is not wired with a Draco decoder, so a Draco-compressed GLB silently fails to load. `optimize:glb` deliberately stays within plain glTF 2.0 and uses WebP textures instead. See [docs/3d-asset-pipeline.md](../3d-asset-pipeline.md) for the full format and pipeline reference.
+
+Outside the repo, [gltf-transform](https://gltf-transform.dev) is a Node-based CLI maintained as part of the glTF ecosystem that also handles the conversion:
 
 ```bash
 # One character FBX with one baked-in animation:
 npx @gltf-transform/cli@latest fbx2glb your-character.fbx your-character.glb
-
-# Apply draco compression to bring the file size down:
-npx @gltf-transform/cli@latest draco your-character.glb your-character-draco.glb
 ```
 
 If you downloaded several animations separately (idle, talk, wave as standalone FBXs), merge them into a single GLB with named clips:

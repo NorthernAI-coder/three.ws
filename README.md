@@ -549,7 +549,11 @@ The architecture above is the bird's-eye view; each load-bearing surface has a d
 | [specs/VALIDATORS.md](specs/VALIDATORS.md)                   | Validator attestation rules — what gets signed, who can sign, how to read attestations.                          |
 | [specs/SECURITY.md](specs/SECURITY.md)                       | Threat model, trust boundaries, and the hardening checklist for production deployments.                          |
 
-Longer-form architecture and how-to documentation lives under [docs/](docs/): [docs/architecture.md](docs/architecture.md), [docs/agent-system.md](docs/agent-system.md), [docs/animations.md](docs/animations.md), [docs/web-component.md](docs/web-component.md), [docs/api-reference.md](docs/api-reference.md), [docs/mcp.md](docs/mcp.md), [docs/permissions.md](docs/permissions.md), [docs/security.md](docs/security.md), [docs/smart-contracts.md](docs/smart-contracts.md), and more.
+Longer-form architecture and how-to documentation lives under [docs/](docs/): [docs/architecture.md](docs/architecture.md), [docs/agent-system.md](docs/agent-system.md), [docs/3d-asset-pipeline.md](docs/3d-asset-pipeline.md), [docs/animations.md](docs/animations.md), [docs/web-component.md](docs/web-component.md), [docs/api-reference.md](docs/api-reference.md), [docs/mcp.md](docs/mcp.md), [docs/permissions.md](docs/permissions.md), [docs/security.md](docs/security.md), [docs/smart-contracts.md](docs/smart-contracts.md), and more.
+
+### 3D asset pipeline — FBX, GLB, JSON
+
+Every avatar the site renders is a **GLB** (binary glTF 2.0 — the body, rig, and textures in one file); every shared gesture and dance is a format-light **clip JSON** (a serialized `THREE.AnimationClip` — motion only, retargeted onto any rig at runtime); and both originate as **FBX** source from Mixamo or a DCC tool. Two conversions come off one FBX — `npm run convert:fbx` for a full character GLB, `npm run build:animations` for a reusable library clip — then `npm run optimize:glb` makes it web-ready (~90% smaller). The full explainer, format specs, runtime modules, and the generate→rig→animate→export capability chain are in **[docs/3d-asset-pipeline.md](docs/3d-asset-pipeline.md)**.
 
 ---
 

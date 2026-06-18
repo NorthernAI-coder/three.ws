@@ -1,5 +1,7 @@
 # Animations
 
+> For how FBX, GLB, and clip JSON relate — the formats, the conversions, and the full generate→rig→animate→export chain — see **[docs/3d-asset-pipeline.md](3d-asset-pipeline.md)**. This page is the runtime registry and agent-slot reference.
+
 The full machine-readable registry is at [`public/animations/registry.json`](../public/animations/registry.json). Read it first before touching anything animation-related — it catalogues every animation asset in the project, which pipeline owns it, and its current status.
 
 ## Collections

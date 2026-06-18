@@ -76,7 +76,7 @@ const VENUE_HDRI_URL = '/club/venue/club-hdri.hdr';
 // paid routine would crossfade to a no-op and leave the dancer frozen.
 const REQUIRED_CLIPS = new Set([
 	'idle', 'dance', 'rumba', 'silly', 'thriller', 'capoeira', 'walk',
-	'av-walk-feminine',
+	'av-walk-feminine', 'twerk',
 ]);
 const WALK_CLIP = 'av-walk-feminine';
 // Guaranteed-present clip every dancer can drive. Used as the failsafe routine
@@ -955,11 +955,12 @@ class PoleStation {
 				this.rig.rotation.y += angleDelta(this.rig.rotation.y, targetYaw) * Math.min(1, dt * 6);
 			}
 		} else if (this.walkPhase === 'dancing') {
-			// Keep dancer facing the camera (yaw lerp to original pole yaw).
+			// Free-floor styles face the crowd; pole styles (twerk) turn into the
+			// pole and work it with their back to the room, like a pole dancer.
 			// End-of-dance is driven by the playSequence loop in _arriveAtPole,
 			// not a wall-clock deadline — that way each sequence step lasts
 			// exactly its declared duration in render-loop time.
-			const targetYaw = this.layout.yaw;
+			const targetYaw = this.activeTicket?.pole ? this.layout.yaw + Math.PI : this.layout.yaw;
 			this.rig.rotation.y += angleDelta(this.rig.rotation.y, targetYaw) * Math.min(1, dt * 3);
 		} else {
 			// idle at the pole — face the crowd.
@@ -1502,6 +1503,7 @@ function setAutoFollow(on) {
 
 // ── Side panel — render pole controls ────────────────────────────────────
 const DANCES = [
+	{ key: 'twerk',    label: 'Pole Twerk' },
 	{ key: 'rumba',    label: 'Rumba' },
 	{ key: 'silly',    label: 'Silly' },
 	{ key: 'thriller', label: 'Thriller' },

@@ -85,9 +85,15 @@ const HIPS_POSITION_SCALE = 0.01;
 
 async function loadGLB(path) {
 	const { GLTFLoader } = await import('three/examples/jsm/loaders/GLTFLoader.js');
+	// The reference rig (cz.glb) and several GLB clip sources are Meshopt-
+	// compressed; without a decoder GLTFLoader throws "setMeshoptDecoder must be
+	// called before loading compressed files". Same decoder the runtime viewer
+	// registers (src/viewer/internal.js).
+	const { MeshoptDecoder } = await import('three/examples/jsm/libs/meshopt_decoder.module.js');
 	const buf = readFileSync(path);
 	const ab = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
 	const loader = new GLTFLoader();
+	loader.setMeshoptDecoder(MeshoptDecoder);
 	return new Promise((res, rej) => loader.parse(ab, '', res, rej));
 }
 
@@ -143,6 +149,34 @@ function retargetClip(clip, avaturnBones, { scaleHips = true } = {}) {
 	const out = clip.clone();
 	out.tracks = newTracks;
 	return { clip: out, matched: newTracks.length, total: clip.tracks.length, dropped };
+}
+
+/**
+ * Trim a clip to its first `maxSec` seconds in place. Used for long looping
+ * source dances (a 15s Mixamo twerk loop) where we only ever play a short beat:
+ * shipping the full clip is dead weight (~5× the bytes) the browser downloads
+ * and parses for motion no one sees. Keyframes past the cutoff are dropped and
+ * the duration is pinned so a play-once finishes exactly at the cut.
+ *
+ * @param {import('three').AnimationClip} clip
+ * @param {number} maxSec
+ */
+function trimClip(clip, maxSec) {
+	if (!(maxSec > 0) || clip.duration <= maxSec) return clip;
+	for (const track of clip.tracks) {
+		const valueSize = track.values.length / track.times.length;
+		let keep = track.times.length;
+		for (let i = 0; i < track.times.length; i++) {
+			if (track.times[i] > maxSec) { keep = i; break; }
+		}
+		if (keep < 1) keep = 1; // never strip a track to zero keyframes
+		if (keep < track.times.length) {
+			track.times = track.times.slice(0, keep);
+			track.values = track.values.slice(0, keep * valueSize);
+		}
+	}
+	clip.duration = maxSec;
+	return clip;
 }
 
 /**
@@ -236,6 +270,7 @@ async function main() {
 				continue;
 			}
 			clip.name = def.name;
+			if (def.trim) trimClip(clip, def.trim);
 			const json = await serializeClip(clip);
 			const text = JSON.stringify(json);
 			writeFileSync(outPath, text);

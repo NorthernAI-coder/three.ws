@@ -62,11 +62,11 @@ const AVATAR_URL = '/avatars/default.glb';
 const MANIFEST_URL = '/animations/manifest.json';
 const PASS_KEY = 'club:pass:v1';
 const MOVE_CLIPS = new Set(['idle', 'walk']);
-// One-shot the avatar plays the instant the cover charge settles — a fist-in-
-// the-air beat before it walks past the velvet rope. Lazy-loaded from the
+// The dance the avatar breaks into the instant the cover charge settles — a
+// twerk on the spot before it walks past the velvet rope. Lazy-loaded from the
 // manifest on first admit (most visitors never pay a cover the same session as
 // a reload, so there's no point bundling it with idle/walk up front).
-const CELEBRATE_CLIP = 'celebrate';
+const ADMIT_DANCE_CLIP = 'twerk';
 const VENUE_NAMES = ['Alley', 'Gallery', 'Clubhouse']; // index-aligned with SEQUENCE, for the minimap label
 
 // The agent switcher's catalog: bundled, known-good humanoid rigs that ship with
@@ -280,7 +280,7 @@ async function start(canvasEl) {
 	const anim = new AnimationManager();
 	anim.attach(avatar, { avatarUrl: AVATAR_URL });
 	const sceneDefs = (Array.isArray(manifest) ? manifest : [])
-		.filter((d) => MOVE_CLIPS.has(d.name) || d.name === CELEBRATE_CLIP);
+		.filter((d) => MOVE_CLIPS.has(d.name) || d.name === ADMIT_DANCE_CLIP);
 	anim.setAnimationDefs(sceneDefs);
 	// Inject the pre-fetched clip data directly — no second network round-trip,
 	// animations are bound before the first render frame so there's no T-pose.
@@ -661,9 +661,9 @@ async function start(canvasEl) {
 	let phaseStart = performance.now();
 	let raf = 0;
 	let last = performance.now();
-	// True only while the admission celebration one-shot is playing. Freezes the
-	// movement clip so the per-frame idle/walk crossfade in stepAvatar can't
-	// stomp the celebrate clip the instant it starts.
+	// True only while the admission dance is playing. Freezes the movement clip
+	// so the per-frame idle/walk crossfade in stepAvatar can't stomp the twerk
+	// the instant it starts.
 	let celebrating = false;
 
 	function setPhase(p) { phase = p; phaseStart = performance.now(); }
@@ -807,10 +807,9 @@ async function start(canvasEl) {
 		camera.lookAt(target);
 	}
 
-	// Cover settled — the door is now just a doorway. The avatar throws a quick
-	// celebration dance the moment the USDC lands, then keeps walking: fade out
-	// the alley and into the next place. (Input is already disabled from
-	// tryEnter.)
+	// Cover settled — the door is now just a doorway. The avatar breaks into a
+	// twerk the moment the USDC lands, then keeps walking: fade out the alley and
+	// into the next place. (Input is already disabled from tryEnter.)
 	async function onPaid() {
 		if (phase !== 'walk') return;
 		paid = true;
@@ -822,14 +821,15 @@ async function start(canvasEl) {
 	onAdmit = onPaid;
 	if (admitted) onPaid();
 
-	// Play the admission dance once and resolve when it finishes, so the walk-in
-	// fade picks up cleanly off the last frame. Skipped silently when motion is
-	// reduced or the active rig can't be driven by the canonical clip library
-	// (the dance would be a no-op) — in both cases we advance straight away. A
-	// hard cap backstops a 'finished' event the mixer never fires (a clip that
-	// failed to retarget), so a paying visitor is never stranded outside.
+	// Play the admission twerk once (the 5s built clip) and resolve when it
+	// finishes, so the walk-in fade picks up cleanly off the last frame. Skipped
+	// silently when motion is reduced or the active rig can't be driven by the
+	// canonical clip library (the dance would be a no-op) — in both cases we
+	// advance straight away. A hard cap (longer than the clip) backstops a
+	// 'finished' event the mixer never fires (a clip that failed to retarget), so
+	// a paying visitor is never stranded outside.
 	function celebrateAdmission() {
-		if (prefersReducedMotion || !anim.supportsCanonicalClips() || !anim.canPlay(CELEBRATE_CLIP)) {
+		if (prefersReducedMotion || !anim.supportsCanonicalClips() || !anim.canPlay(ADMIT_DANCE_CLIP)) {
 			return Promise.resolve();
 		}
 		return new Promise((resolve) => {
@@ -843,12 +843,12 @@ async function start(canvasEl) {
 				resolve();
 			};
 			const onFinished = () => finish();
-			const cap = setTimeout(finish, 5000);
+			const cap = setTimeout(finish, 7000);
 			try { anim.mixer?.addEventListener('finished', onFinished); } catch {}
 			celebrating = true;
-			// settleTo:null — hold the final celebrate pose under the fade-out
-			// instead of snapping back to idle right before the alley dissolves.
-			anim.playOnce(CELEBRATE_CLIP, { settleTo: null, fade: 0.2 }).catch(finish);
+			// settleTo:null — hold the final twerk pose under the fade-out instead
+			// of snapping back to idle right before the alley dissolves.
+			anim.playOnce(ADMIT_DANCE_CLIP, { settleTo: null, fade: 0.2 }).catch(finish);
 		});
 	}
 

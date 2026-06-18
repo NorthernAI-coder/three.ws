@@ -64,7 +64,7 @@ describe('STYLES — registry', () => {
 	// `idle`/`walk` are stage transitions, not danceable styles, so they're not
 	// valid routine clips.
 	it('only references clips that exist in the deployed animation manifest', () => {
-		const PERFORMABLE = new Set(['dance', 'rumba', 'silly', 'thriller', 'capoeira']);
+		const PERFORMABLE = new Set(['dance', 'rumba', 'silly', 'thriller', 'capoeira', 'twerk']);
 		for (const [key, style] of Object.entries(STYLES)) {
 			const clips = style.sequence ? style.sequence.map((s) => s.clip) : [style.clip];
 			for (const clip of clips) {
