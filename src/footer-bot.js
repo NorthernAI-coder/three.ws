@@ -11,6 +11,7 @@ import {
 	AnimationMixer,
 } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { getMeshoptDecoder } from './viewer/internal.js';
 import { reserveWebGLContext } from './webgl-budget.js';
 
 // The footer bot is purely decorative. Every failure mode here — no mount
@@ -81,14 +82,37 @@ import { reserveWebGLContext } from './webgl-budget.js';
 		}
 	}
 
+	// Both bot assets ship with EXT_meshopt_compression, so the loader must have
+	// the meshopt decoder wired before it can parse a single bufferView —
+	// otherwise GLTFLoader throws "setMeshoptDecoder must be called before loading
+	// compressed files". One loader, built once; getMeshoptDecoder is memoized and
+	// shared with the rest of the app, and pulls only the small meshopt module
+	// (no draco/KTX2 — these assets use neither).
+	let _loaderPromise = null;
+	function getLoader() {
+		if (!_loaderPromise) {
+			_loaderPromise = getMeshoptDecoder().then((decoder) => {
+				const loader = new GLTFLoader();
+				loader.setMeshoptDecoder(decoder);
+				return loader;
+			});
+		}
+		return _loaderPromise;
+	}
+
 	function loadBot(index = 0, retried = false) {
 		if (index >= BOT_ASSETS.length) return; // every source exhausted — leave the canvas empty
 		const url = BOT_ASSETS[index];
-		new GLTFLoader().load(url, mountBot, undefined, () => {
-			// Retry the same source once (transient fetch failures usually clear),
-			// then advance to the next fallback asset.
-			if (!retried) loadBot(index, true);
-			else loadBot(index + 1, false);
+		getLoader().then((loader) => {
+			loader.load(url, mountBot, undefined, () => {
+				// Retry the same source once (transient fetch failures usually clear),
+				// then advance to the next fallback asset.
+				if (!retried) loadBot(index, true);
+				else loadBot(index + 1, false);
+			});
+		}).catch(() => {
+			// Decoder module import failed (offline / blocked CDN). Decorative — leave
+			// the canvas empty rather than surface an uncaught rejection.
 		});
 	}
 
