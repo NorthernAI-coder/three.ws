@@ -999,6 +999,54 @@ function renderTiers() {
 	if (!el) return;
 	const td = _tierData?.ladder?.length ? _tierData : { ladder: DEFAULT_LADDER, tier: null, next: null };
 	el.innerHTML = tiersHTML(td, _accessFeatures);
+	wireTierConnect();
+}
+
+// Wire the "Connect wallet to see your tier" button the ladder renders when no tier is
+// resolved yet. It drives the global wallet connect (initWalletButton wired the hidden
+// #connect-wallet-btn in init); a successful connect fires wallet:changed, which re-reads
+// the wallet-aware matrix and re-highlights the held tier — no reload, no extra fetch.
+function wireTierConnect() {
+	const btn = document.getElementById('ec-tier-connect');
+	if (!btn || btn.dataset.wired) return;
+	btn.dataset.wired = '1';
+	btn.addEventListener('click', () => document.getElementById('connect-wallet-btn')?.click());
+}
+
+// Highlight the connected wallet's held tier on the ladder when there's no signed-in
+// session to own it. We synthesize the { tier, held_usd, next } shape loadTier would
+// produce, deriving the held→next progress from the known ladder thresholds + the
+// wallet's held USD — no extra fetch. Reverts to the baseline ladder on disconnect.
+function applyTierFromAccess(data) {
+	if (!data || data.signed_in) return; // a signed-in session: loadTier stays authoritative
+	if (data.wallet_linked && data.tier) {
+		const level = Number(data.tier.level) || 0;
+		const held = Number(data.tier.held_usd) || 0;
+		const ladder = _tierData?.ladder?.length ? _tierData.ladder : DEFAULT_LADDER;
+		const cur = ladder.find((t) => t.level === level) || ladder[0];
+		const next = ladder.find((t) => t.level === level + 1) || null;
+		_tierData = {
+			ladder,
+			tier: { level, id: data.tier.id, label: data.tier.label, discount_bps: cur.discount_bps || 0 },
+			held_usd: held,
+			next: next ? { ...next, usd_to_go: Math.max(0, (next.min_usd || 0) - held) } : null,
+		};
+		DISCOUNT_BPS = cur.discount_bps || 0;
+		_synthTier = true;
+		repriceSelected();
+	} else if (_synthTier) {
+		// Wallet disconnected → drop the synthesized highlight, restore the baseline ladder.
+		_tierData = null;
+		DISCOUNT_BPS = 0;
+		_synthTier = false;
+		repriceSelected();
+	}
+}
+
+// Re-run the selected pricing-explorer row so its tier discount reflects the latest tier.
+function repriceSelected() {
+	const sel = document.querySelector('.ec-px-item.sel');
+	if (sel) sel.click();
 }
 
 function discountedUsd(usd) {
@@ -1253,21 +1301,31 @@ function loadTier() {
 // the rest of /three (including the always-on ladder above) is unaffected.
 function loadAccess() {
 	const el = document.getElementById('ec-access');
-	return getJSON(`${API}/access`)
-		.then((data) => {
-			// The matrix feeds both the per-tier Live/Planned perks above and the
-			// personal panel below — one call, two surfaces. Features come back for
-			// anonymous callers too (all locked), so the ladder enriches regardless.
-			_accessFeatures = Array.isArray(data?.features) ? data.features : null;
-			renderTiers();
-			if (el) {
-				el.innerHTML = data?.signed_in ? accessMatrixHTML(data) : accessSignedOutHTML();
-				wireAccessActions();
-			}
-		})
-		.catch(() => {
+	// Wallet-aware read via the shared data layer: a connected wallet (?wallet=) is
+	// threaded in automatically, so this reflects the wallet in hand — not just the
+	// session. Returns null on failure (never throws); fresh so a wallet change isn't
+	// served a stale matrix.
+	return getAccess(undefined, { fresh: true }).then((data) => {
+		if (!data) {
 			if (el) el.innerHTML = '<div class="ec-err">Your access is temporarily unavailable.</div>';
-		});
+			return;
+		}
+		// The matrix feeds both the per-tier Live/Planned perks above and the personal
+		// panel below — one call, two surfaces. Features come back for anonymous callers
+		// too (all locked), so the ladder enriches regardless.
+		_accessFeatures = Array.isArray(data.features) ? data.features : null;
+		// Highlight the connected wallet's held tier on the ladder (loadTier owns the
+		// highlight for signed-in users — see applyTierFromAccess).
+		applyTierFromAccess(data);
+		renderTiers();
+		if (el) {
+			// "Known" = a real identity resolved: a signed-in account OR a connected wallet.
+			// Either way show the live matrix; otherwise the connect / sign-in empty state.
+			const known = Boolean(data.signed_in || data.wallet_linked);
+			el.innerHTML = known ? accessMatrixHTML(data) : accessSignedOutHTML();
+			wireAccessActions();
+		}
+	});
 }
 
 // Wire the empty-state Sign in button. On success the new session yields the live

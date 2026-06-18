@@ -44,8 +44,7 @@ IBM also flagged three resources, independent of the hosting choice:
 **Pick Option 1 and use our own platform as the canonical home.** Reasoning:
 
 - **We own the audience.** three.ws already has a live community surface at
-  [three.ws/community](https://three.ws/community), plus $THREE holders on
-  Telegram, X ([@trythreews](https://x.com/trythreews)), and the public
+  [three.ws/community](https://three.ws/community), plus $THREE holders on X ([@trythreews](https://x.com/trythreews)), and the public
   [changelog](https://three.ws/changelog). Routing the group through Meetup/Luma/
   LinkedIn would hand our community and its traffic to a third party. Self-hosting
   keeps the hub on-brand and one click from the product.
@@ -76,7 +75,7 @@ sitemap and changelog automatically.
 - [ ] (Recommended) Build the dedicated `/community/ibm` landing and register it in
       [`data/pages.json`](../../data/pages.json); run `npm run build:pages`.
 - [ ] Submit the next event(s) to IBM's event listings (link in Ben's email).
-- [ ] File the User Group Benefits Application (link in Ben's email).
+- [ ] File the User Group Benefits Application (link in email).
 - [ ] Add a recurring reminder for the Leaders & Liaisons call if we want to attend.
 - [ ] Once IBM confirms the directory entry is live, add a row to
       [`docs/listings.md`](../listings.md) and a holder-readable
