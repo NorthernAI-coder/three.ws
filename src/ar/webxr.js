@@ -360,27 +360,174 @@ export class WebXRSession {
 		this._onAnchored?.(anchorPose, { degraded: this._anchor === null });
 	}
 
-	// Build the floor reticle: a flat ring whose geometry is pre-rotated into the
-	// XZ plane so the hit pose (Y = surface normal) lays it on the surface.
+	// Build the floor reticle: a flat ring + an inner dot, both pre-rotated into the
+	// XZ plane so the hit pose (Y = surface normal) lays them on the surface. The
+	// group is oriented to the hit each frame; _updateReticleVisual animates the
+	// searching↔locked look (dim/breathing → bright/filled) off the eased lock
+	// amount, so this only establishes geometry — no per-frame branching here.
 	_buildReticle() {
-		const geo = new RingGeometry(0.08, 0.11, 36).rotateX(-Math.PI / 2);
+		const group = new Group();
+		group.renderOrder = 999; // draw over the passthrough + agent
+		group.visible = false;
+
+		const ringGeo = new RingGeometry(0.08, 0.11, 40).rotateX(-Math.PI / 2);
+		const ringMat = new MeshBasicMaterial({
+			color: this._dimColor.clone(), transparent: true, opacity: 0.6, depthTest: false,
+		});
+		const ring = new Mesh(ringGeo, ringMat);
+		ring.renderOrder = 999;
+
+		// Inner dot: invisible while searching, fades in as the surface locks so
+		// "ready to place" reads at a glance. Lifted a hair so it never z-fights the
+		// ring on the exact same plane.
+		const dotGeo = new CircleGeometry(0.032, 32).rotateX(-Math.PI / 2).translate(0, 0.001, 0);
+		const dotMat = new MeshBasicMaterial({
+			color: this._lockColor.clone(), transparent: true, opacity: 0, depthTest: false,
+		});
+		const dot = new Mesh(dotGeo, dotMat);
+		dot.renderOrder = 1000;
+
+		group.add(ring, dot);
+		this._reticle = group;
+		this._reticleRing = ring;
+		this._reticleDot = dot;
+		this._viewer.scene.add(group);
+	}
+
+	// Soft contact shadow — a single transparent plane with a radial-gradient map
+	// (no real shadow map). Grounds the avatar so it sits *on* the floor instead of
+	// floating; follows the reticle pre-tap and the anchor after. Lifted a few mm
+	// along the surface normal so it never z-fights the real floor that the depth
+	// occluder stamps — which also makes it correctly hidden by closer real geometry.
+	_buildShadow() {
+		const size = 128;
+		let tex = null;
+		try {
+			const cnv = document.createElement('canvas');
+			cnv.width = cnv.height = size;
+			const ctx = cnv.getContext('2d');
+			const g = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+			g.addColorStop(0, 'rgba(0,0,0,0.42)');
+			g.addColorStop(0.55, 'rgba(0,0,0,0.20)');
+			g.addColorStop(1, 'rgba(0,0,0,0)');
+			ctx.fillStyle = g;
+			ctx.fillRect(0, 0, size, size);
+			tex = new CanvasTexture(cnv);
+		} catch {
+			tex = null; // no DOM canvas (shouldn't happen in-session) → tinted disc fallback
+		}
+		const geo = new PlaneGeometry(0.6, 0.6).rotateX(-Math.PI / 2).translate(0, 0.004, 0);
 		const mat = new MeshBasicMaterial({
-			color: 0x9b8cff, transparent: true, opacity: 0.9, depthTest: false,
+			map: tex, color: tex ? 0xffffff : 0x000000, transparent: true,
+			opacity: 0.9, depthWrite: false,
+		});
+		const mesh = new Mesh(geo, mat);
+		mesh.renderOrder = 1; // beneath the reticle, above the passthrough
+		mesh.visible = false;
+		this._shadow = mesh;
+		this._shadowTex = tex;
+		this._viewer.scene.add(mesh);
+	}
+
+	// One-shot "pulse-out" ring fired on a successful anchor (the visible half of
+	// the confirm beat). Separate from the reticle so it can keep animating after
+	// the reticle retires. Hidden until _fireConfirmPulse arms it.
+	_buildPulseRing() {
+		const geo = new RingGeometry(0.10, 0.13, 40).rotateX(-Math.PI / 2);
+		const mat = new MeshBasicMaterial({
+			color: this._lockColor.clone(), transparent: true, opacity: 0, depthTest: false,
 		});
 		const ring = new Mesh(geo, mat);
-		ring.renderOrder = 999; // draw over the passthrough + agent
-		ring.matrixAutoUpdate = true;
+		ring.renderOrder = 1001; // above the reticle
 		ring.visible = false;
-		this._reticle = ring;
+		this._pulseRing = ring;
 		this._viewer.scene.add(ring);
+	}
+
+	// Lay the contact shadow flat on a hit (or anchor) pose and reveal it.
+	_placeShadow(matrix) {
+		if (!this._shadow) return;
+		this._shadow.position.setFromMatrixPosition(matrix);
+		this._shadow.quaternion.setFromRotationMatrix(matrix);
+		this._shadow.visible = true;
+	}
+
+	// Arm the confirm pulse at the tap point. Reduced motion skips the visual beat
+	// (the haptic + ✓ copy still confirm); otherwise the ring expands and fades via
+	// _updatePulse. No allocation — the pulse state object is reused.
+	_fireConfirmPulse() {
+		if (this._reducedMotion || !this._pulseRing) return;
+		this._pulseRing.position.setFromMatrixPosition(this._latestHitMatrix);
+		this._pulseRing.quaternion.setFromRotationMatrix(this._latestHitMatrix);
+		this._pulse.t = 0;
+		this._pulse.active = true;
+		this._pulseRing.visible = true;
+	}
+
+	// Per-frame reticle look. Eases the lock amount toward the live hit state and
+	// maps it (+ a slow breathing phase) to scale/opacity/dot/colour via the pure,
+	// unit-tested reticleVisual(). Writes straight onto materials with a reused
+	// buffer and in-place colour lerp — zero per-frame allocation.
+	_updateReticleVisual(time, dt) {
+		const group = this._reticle;
+		if (!group || !group.visible) return;
+		const target = this._hasHit ? 1 : 0;
+		// Snap toward lock a touch faster than it relaxes toward searching, so the
+		// "locked" beat feels crisp while losing the surface feels gentle.
+		const rate = Math.min(1, dt * (target > this._hitAmount ? 16 : 9));
+		this._hitAmount += (target - this._hitAmount) * rate;
+		const breathe = this._reducedMotion ? 0 : Math.sin(time * 0.0019) * 0.5 + 0.5;
+		reticleVisual(this._rv, this._hitAmount, breathe, this._reducedMotion);
+		group.scale.setScalar(this._rv.scale);
+		const ringMat = this._reticleRing.material;
+		ringMat.opacity = this._rv.opacity;
+		ringMat.color.lerpColors(this._dimColor, this._lockColor, this._rv.colorMix);
+		this._reticleDot.material.opacity = this._rv.dot * 0.95;
+	}
+
+	// Advance the one-shot confirm pulse, if armed. Expands + fades the ring via the
+	// pure advancePulse(), then retires it. No-op (and no allocation) once done.
+	_updatePulse(dt) {
+		if (!this._pulse.active || !this._pulseRing) return;
+		advancePulse(this._pulse, dt);
+		this._pulseRing.scale.setScalar(this._pulse.scale);
+		this._pulseRing.material.opacity = this._pulse.opacity;
+		if (this._pulse.done) {
+			this._pulse.active = false;
+			this._pulseRing.visible = false;
+		}
 	}
 
 	_disposeReticle() {
 		if (!this._reticle) return;
 		this._viewer.scene.remove(this._reticle);
-		this._reticle.geometry?.dispose();
-		this._reticle.material?.dispose();
+		for (const child of [this._reticleRing, this._reticleDot]) {
+			child?.geometry?.dispose();
+			child?.material?.dispose();
+		}
 		this._reticle = null;
+		this._reticleRing = null;
+		this._reticleDot = null;
+	}
+
+	_disposeShadow() {
+		if (this._shadow) {
+			this._viewer.scene.remove(this._shadow);
+			this._shadow.geometry?.dispose();
+			this._shadow.material?.dispose();
+			this._shadow = null;
+		}
+		this._shadowTex?.dispose();
+		this._shadowTex = null;
+	}
+
+	_disposePulseRing() {
+		if (!this._pulseRing) return;
+		this._viewer.scene.remove(this._pulseRing);
+		this._pulseRing.geometry?.dispose();
+		this._pulseRing.material?.dispose();
+		this._pulseRing = null;
+		this._pulse.active = false;
 	}
 
 	// Notify the host only on transitions (searching ↔ surface found), not per frame.
@@ -390,10 +537,14 @@ export class WebXRSession {
 		this._onHit?.(has);
 	}
 
-	// Tracking lost/recovered. On loss, hide the reticle so the user never taps a
-	// stale one; the host surfaces a recoverable "move to a brighter spot" hint.
+	// Tracking lost/recovered. On loss, hide the reticle (and its contact shadow)
+	// so the user never taps a stale one; the host surfaces a recoverable "move to a
+	// brighter spot" hint. A returning surface re-shows both on the next hit frame.
 	_setTracking(ok) {
-		if (!ok && this._reticle) this._reticle.visible = false;
+		if (!ok) {
+			if (this._reticle) this._reticle.visible = false;
+			if (!this._anchored && this._shadow) this._shadow.visible = false;
+		}
 		this._onTracking?.(ok);
 	}
 
@@ -403,7 +554,10 @@ export class WebXRSession {
 	_handleVisibilityChange() {
 		const visible = isXrVisible(this._session?.visibilityState);
 		this._paused = !visible;
-		if (!visible && this._reticle) this._reticle.visible = false;
+		if (!visible) {
+			if (this._reticle) this._reticle.visible = false;
+			if (!this._anchored && this._shadow) this._shadow.visible = false;
+		}
 		this._onVisibility?.(visible);
 	}
 
@@ -454,6 +608,8 @@ export class WebXRSession {
 			this._hitTestSource = null;
 		}
 		this._disposeReticle();
+		this._disposeShadow();
+		this._disposePulseRing();
 		// Detach + free the depth occluder (no-op when it was never attached).
 		this._depthOcclusion?.dispose();
 		this._depthOcclusion = null;
@@ -462,6 +618,8 @@ export class WebXRSession {
 		this._anchor = null;
 		this._latestHit = null;
 		this._hasHit = false;
+		this._hadHit = false;
+		this._hitAmount = 0;
 		this._paused = false;
 		this._trackingState = { misses: 0, lost: false };
 

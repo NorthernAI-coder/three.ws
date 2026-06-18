@@ -13,12 +13,10 @@ import { countOpenPositions, getDailySpend } from './strategy-store.js';
 import { notifyBuy, notifySell } from '../../api/_lib/sniper/notify.js';
 import {
 	getSpendLimits, enforceSpendLimit, SpendLimitError, recordSpend, lamportsToUsd,
+	checkConcurrency, checkDailyBudgetLamports, checkSolHeadroom, checkPriceImpact,
+	SOL_FEE_HEADROOM_LAMPORTS,
 } from '../../api/_lib/agent-trade-guards.js';
 import { buildAmmSellInstructions } from './amm-exit.js';
-
-// Fee + rent headroom we keep above the trade size so a buy doesn't fail for
-// lack of lamports to pay fees / open the token ATA.
-const SOL_HEADROOM_LAMPORTS = 3_000_000n; // ~0.003 SOL
 
 // ── per-agent serialization ────────────────────────────────────────────────
 // Single-worker assumption: a per-agent in-process lock makes the budget +
@@ -101,11 +99,13 @@ export async function executeBuy({ cfg, strat, mint, throttle }) {
 
 		// 2. concurrency cap
 		const open = await countOpenPositions(strat.agent_id, cfg.network);
-		if (open >= strat.max_concurrent_positions) return skip(tag, 'max_positions');
+		const concurrency = checkConcurrency(open, strat.max_concurrent_positions);
+		if (concurrency) return skip(tag, concurrency.reason);
 
 		// 3. daily budget cap
 		const spent = await getDailySpend(strat.agent_id, cfg.network);
-		if (spent + perTrade > BigInt(strat.daily_budget_lamports)) return skip(tag, 'daily_budget');
+		const budget = checkDailyBudgetLamports(spent, perTrade, BigInt(strat.daily_budget_lamports));
+		if (budget) return skip(tag, budget.reason);
 
 		// 3b. shared per-agent spend policy (the same ceiling that governs
 		// withdraw / x402 / trade). Opt-in: only priced + enforced when the owner
@@ -138,9 +138,8 @@ export async function executeBuy({ cfg, strat, mint, throttle }) {
 
 			const ctx = await getTradeCtx(cfg.network);
 			const lamports = BigInt(await ctx.connection.getBalance(keypair.publicKey, 'confirmed'));
-			if (lamports < perTrade + SOL_HEADROOM_LAMPORTS) {
-				return await fail(posId, tag, 'insufficient_sol');
-			}
+			const headroom = checkSolHeadroom(lamports, perTrade, SOL_FEE_HEADROOM_LAMPORTS);
+			if (headroom) return await fail(posId, tag, headroom.reason);
 
 			const mintPk = new ctx.web3.PublicKey(mint.mint);
 			const slippagePct = strat.slippage_bps / 100;
@@ -150,9 +149,8 @@ export async function executeBuy({ cfg, strat, mint, throttle }) {
 			if (strat.require_sol_quote && !quote.quoteMint.equals(ctx.web3.PublicKey.default) && quote.quoteMint.toBase58() !== 'So11111111111111111111111111111111111111112') {
 				return await fail(posId, tag, 'quote_not_sol');
 			}
-			if (Number(quote.priceImpactPct) > Number(strat.max_price_impact_pct)) {
-				return await fail(posId, tag, 'price_impact');
-			}
+			const impact = checkPriceImpact(Number(quote.priceImpactPct), Number(strat.max_price_impact_pct));
+			if (impact) return await fail(posId, tag, impact.reason);
 
 			// 7. build + (live) broadcast
 			const built = await ctx.client.buildBuyInstructions({

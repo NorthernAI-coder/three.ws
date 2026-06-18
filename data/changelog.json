@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-06-18",
+			"title": "Your AR agent now hides behind real-world objects",
+			"summary": "Place an agent in your room with the AR button and it now lives in the space instead of floating on top of the camera feed. Walk a chair, a doorway, or your own hand between your phone and the agent and the agent is correctly hidden behind it — the single biggest \"is this really in my room?\" upgrade. It uses your phone's depth sensor on devices that have one (recent Android Chrome); on every other device AR works exactly as before, with no change and nothing to turn on.",
+			"tags": [
+				"feature"
+			],
+			"link": "/features/ar"
+		},
+		{
+			"date": "2026-06-18",
 			"title": "Skill prices fade in smoothly on agent pages",
 			"summary": "Opening an agent from the marketplace now shows its page instantly, and any skill that charges per call displays a gently pulsing placeholder while we confirm the exact price — instead of briefly flashing \"Free\" and then snapping to a dollar amount. The real price, Purchase button, and any free-trial or time-pass options slot in the moment they load. Agents with no paid skills still render their prices immediately with no flicker.",
 			"tags": [

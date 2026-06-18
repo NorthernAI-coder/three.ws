@@ -43,6 +43,8 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import nipplejs from 'nipplejs';
 import { AnimationManager } from './animation-manager.js';
 import { WebXRSession } from './ar/webxr.js';
+import { resolvePlacementCapability } from './ar/placement-capability.js';
+import { openQuickLook } from './ar/quick-look.js';
 import { createPersistGate, placementHint } from './ar/anchor-lifecycle.js';
 import { IrlNet } from './irl-net.js';
 import { wireShareButton } from './irl/share-frame.js';
@@ -146,6 +148,7 @@ const avatarBtn      = $('irl-avatar-btn');
 const lockBtn        = $('irl-lock-btn');
 const anchorBtn      = $('irl-anchor-btn');     // WebXR "Place on floor" — revealed only when supported
 const xrOverlay      = $('irl-xr-overlay');     // WebXR dom-overlay root (in-session hint + exit + error)
+const xrBarEl        = $('irl-xr-bar');         // hint+exit pill; .is-anchored reveals the ✓ confirm
 const xrHintEl       = $('irl-xr-hint');
 const xrExitBtn      = $('irl-xr-exit');
 
@@ -735,6 +738,15 @@ const animMgr = new AnimationManager();
 let avatar = null, avatarYaw = 0, avatarLean = 0, currentMotion = 'idle';
 let _currentAvatarId = null;
 let _currentAgentId  = null;
+// iOS AR Quick Look (capability 'quicklook'): the GLB actually loaded for the
+// current avatar, the server-hosted USDZ companion (if the record carries one),
+// and a lazily generated USDZ blob URL when it doesn't. The generated URL is
+// cached by source GLB and revoked whenever the avatar changes so we never leak
+// object URLs or hand Quick Look a stale model.
+let _currentGlbUrl   = null;
+let _currentUsdzUrl  = null;
+let _usdzObjectUrl   = null;
+let _usdzObjectUrlFor = null;
 
 function _clearAvatar() {
 	if (avatar) {
@@ -752,6 +764,12 @@ async function loadAvatar(idOrUrl, nameOverride) {
 	let avatarName = nameOverride || 'Your Avatar';
 	let glbUrl     = resolveAvatarUrl(typeof idOrUrl === 'string' && /^https?:\/\/|^\//.test(idOrUrl) ? idOrUrl : id);
 
+	// New avatar invalidates any USDZ we prepared for the previous one: forget the
+	// server companion and revoke a generated blob URL so iOS Quick Look never
+	// opens the wrong agent and we don't leak object URLs across avatar switches.
+	_currentUsdzUrl = null;
+	if (_usdzObjectUrl) { URL.revokeObjectURL(_usdzObjectUrl); _usdzObjectUrl = null; _usdzObjectUrlFor = null; }
+
 	// Fetch metadata only when id is a DB UUID (not already a URL)
 	_currentAgentId = null;
 	if (id && !/^https?:\/\//.test(id) && !id.startsWith('/')) {
@@ -762,9 +780,15 @@ async function loadAvatar(idOrUrl, nameOverride) {
 				if (meta?.name && !nameOverride) avatarName = meta.name;
 				if (meta?.url)  glbUrl = meta.url;
 				if (meta?.agent_id) _currentAgentId = meta.agent_id;
+				// Server-hosted USDZ companion (presign-usdz pipeline) → iOS Quick Look
+				// opens it directly, no client-side conversion needed.
+				if (meta?.usdz_url) _currentUsdzUrl = meta.usdz_url;
 			}
 		} catch {}
 	}
+	// Remember the GLB we're actually loading so the iOS path can convert it to a
+	// USDZ on demand when the record has no hosted companion.
+	_currentGlbUrl = glbUrl;
 
 	nameEl.textContent = avatarName;
 	document.title     = `${avatarName} IRL · three.ws`;
@@ -1779,38 +1803,56 @@ const floorPersist = createPersistGate((payload) => persistFloorAnchor(payload.p
 
 // Coordinated XR hint priority so transient lifecycle states (backgrounding,
 // tracking loss) never clobber — or get clobbered by — the placement copy.
-// Highest active state wins: paused > tracking-lost > the latest resting message
-// (searching → tap-to-place → anchored/saved). Every callback funnels through
-// here instead of calling setXrHint directly, so the displayed line is always the
-// single most important thing the user needs to know right now.
-const SEARCHING_HINT = 'Point at the floor and move your phone slowly';
+// Highest active state wins: paused > tracking-lost > the latest resting message,
+// which walks the placement arc searching → aiming → placed → saved. Every callback
+// funnels through here instead of calling setXrHint directly, so the displayed line
+// is always the single most important thing the user needs to know right now.
+const SEARCHING_HINT = 'Sweep your phone slowly to find the floor';
 const xrHintState = { paused: false, trackingLost: false, resting: SEARCHING_HINT };
 
 function renderXrHint() {
 	if (xrHintState.paused) setXrHint('Paused — bring the app forward to keep placing');
-	else if (xrHintState.trackingLost) setXrHint('Tracking lost — move to a brighter, more textured spot');
+	else if (xrHintState.trackingLost) setXrHint('Lost the room — move to a brighter, more textured spot');
 	else setXrHint(xrHintState.resting);
 }
 
 // Update the resting (placement-progress) line and re-render under current priority.
 function setXrResting(text) { xrHintState.resting = text; renderXrHint(); }
 
-// Reset the priority machine for a fresh session entry.
+// Reveal/clear the ✓ confirm affordance on the hint pill (paired with the in-scene
+// pulse + haptic from WebXRSession). Idempotent; safe when the bar is absent.
+function setXrConfirmed(on) { if (xrBarEl) xrBarEl.classList.toggle('is-anchored', !!on); }
+
+// Reset the priority machine (and the confirm ✓) for a fresh session entry.
 function resetXrHint() {
 	xrHintState.paused = false;
 	xrHintState.trackingLost = false;
 	xrHintState.resting = SEARCHING_HINT;
+	setXrConfirmed(false);
 	renderXrHint();
 }
 
+// The placement path this device can deliver, resolved once on load. Drives both
+// the button's visibility/label and which entry handler its click runs.
+let _placementCapability = 'pin';
+
 async function detectFloorAnchorSupport() {
 	try {
-		if (!(await WebXRSession.isSupported())) return; // iOS Safari / desktop → Pin path only
-		if (anchorBtn) anchorBtn.hidden = false;
+		_placementCapability = await resolvePlacementCapability();
 	} catch {
-		// No navigator.xr or a thrown support check → leave the entry hidden; the
-		// Pin button (A4 gyro+GPS) remains the anchor path. No console noise.
+		_placementCapability = 'pin';
 	}
+	if (!anchorBtn) return;
+	// No AR surface (older Android, desktop, locked-down WebView) → keep the button
+	// hidden; the Pin button (A4 gyro+GPS) remains the placement, exactly as before.
+	if (_placementCapability === 'pin') return;
+	// 'Place on floor' is the same label everywhere (one mental model); only the
+	// accessible description differs, since iOS opens the system AR viewer (Quick
+	// Look) rather than placing inside our canvas.
+	anchorBtn.setAttribute('aria-label', _placementCapability === 'quicklook'
+		? 'View your agent on the floor in AR (iOS Quick Look)'
+		: 'Place agent on the floor with AR');
+	anchorBtn.hidden = false;
 }
 
 function setXrHint(text) {
@@ -1865,7 +1907,7 @@ async function enterFloorAnchor() {
 	try {
 		xrSession = new WebXRSession(xrViewer, {
 			domOverlayRoot: xrOverlay,
-			onHit: (has) => setXrResting(has ? 'Tap to place your agent on the floor' : SEARCHING_HINT),
+			onHit: (has) => setXrResting(has ? 'Looks good — tap to place your agent' : SEARCHING_HINT),
 			// Tracking loss / recovery is a transient, higher-priority overlay on the
 			// resting hint — recoverable, self-clearing, never a dead reticle.
 			onTracking: (ok) => { xrHintState.trackingLost = !ok; renderXrHint(); },
@@ -1891,7 +1933,7 @@ async function enterFloorAnchor() {
 			},
 		});
 		await xrSession.start();
-		setStatus('Floor anchoring on — point at the floor, then tap to place');
+		setStatus('Floor anchoring on — find the floor, then tap to place your agent');
 	} catch (err) {
 		log.error('[irl] WebXR start failed:', err);
 		xrSession = null;
@@ -1909,6 +1951,10 @@ async function enterFloorAnchor() {
 // carries the degraded flag (no real XRAnchor) so we tell the user the truth.
 function onFloorAnchored(pose, meta = {}) {
 	const degraded = meta.degraded === true;
+	// The DOM half of the confirm beat: light the ✓ on the hint pill the instant the
+	// tap takes (the in-scene pulse + haptic fire from WebXRSession). It rides every
+	// downstream copy change until the session resets.
+	setXrConfirmed(true);
 	// The gate decides: with a live fix it persists now; during GPS warm-up it
 	// holds the pose (degraded flag rides along) and onGPSPosition drains it once.
 	const outcome = floorPersist.place({ pose, degraded }, gpsState.ready);
@@ -1917,7 +1963,7 @@ function onFloorAnchored(pose, meta = {}) {
 		// GPS pin yet. A quick tap during GPS warm-up should still persist, not vanish.
 		setXrResting(degraded
 			? 'Placed — saving this spot once your location locks in (may drift on this device)'
-			: 'Anchored here — saving this spot once your location locks in');
+			: 'Placed — saving this spot the moment your location locks in');
 	}
 	// outcome === 'persisted' → persistFloorAnchor set the resting hint already.
 }
@@ -1955,16 +2001,64 @@ function persistFloorAnchor(pose, degraded = false) {
 			gpsPin.id = result.id;
 			revealMyPinsBtn();
 			setXrResting(result.permanent
-				? 'Anchored & saved — permanently visible to nearby users'
-				: 'Anchored & saved — nearby users can see you for 7 days');
+				? 'Saved — your agent is here for everyone nearby'
+				: 'Saved — people nearby can see your agent for 7 days');
 		} else {
 			// Surface the moderation/cap/rate reason; the in-session anchor still holds.
-			setXrResting(result?.message || 'Anchored here — couldn’t save the pin, retry on exit');
+			setXrResting(result?.message || 'Placed — couldn’t save the pin yet, retry on exit');
 		}
 	});
 }
 
-if (anchorBtn) anchorBtn.addEventListener('click', enterFloorAnchor);
+// ── iOS AR Quick Look (capability 'quicklook') ─────────────────────────────
+//
+// ARKit Quick Look needs a USDZ. Prefer the server-hosted companion the avatar
+// record carries (presign-usdz pipeline); otherwise convert the GLB we already
+// loaded for this avatar to USDZ in-browser (src/usdz-pipeline.js → three's
+// USDZExporter), cache the blob URL by source GLB, and reuse it for the session.
+// The same client-side export model-viewer ships, so a blob: URL drives Quick
+// Look on modern Safari. Real conversion, real model — never a hidden button.
+async function resolveQuickLookUrl() {
+	if (_currentUsdzUrl) return _currentUsdzUrl;
+	const glbUrl = _currentGlbUrl || resolveAvatarUrl(_currentAvatarId);
+	if (_usdzObjectUrl && _usdzObjectUrlFor === glbUrl) return _usdzObjectUrl;
+	const res = await fetch(glbUrl);
+	if (!res.ok) throw new Error(`GLB fetch failed: ${res.status}`);
+	const { glbBlobToUsdzBlob } = await import('./usdz-pipeline.js');
+	const usdzBlob = await glbBlobToUsdzBlob(await res.blob());
+	if (_usdzObjectUrl) URL.revokeObjectURL(_usdzObjectUrl);
+	_usdzObjectUrl = URL.createObjectURL(usdzBlob);
+	_usdzObjectUrlFor = glbUrl;
+	return _usdzObjectUrl;
+}
+
+async function enterQuickLookPlacement() {
+	if (anchorBtn) { anchorBtn.classList.add('is-active'); anchorBtn.disabled = true; }
+	setStatus('Preparing your agent for AR…', { loading: true, sticky: true });
+	try {
+		const usdzUrl = await resolveQuickLookUrl();
+		openQuickLook(usdzUrl);
+		// Quick Look is a separate system viewer — it places-and-views the agent on
+		// your real floor but can't hand a pose back to our canvas, so the durable,
+		// shareable pin still comes from the Pin path. State that, no silent gap.
+		setStatus('Opening AR — point at your floor to place your agent. To leave a shareable pin nearby people can find, tap Pin here.', { sticky: true });
+	} catch (err) {
+		log.error('[irl] Quick Look prep failed:', err);
+		setStatus('Couldn’t prepare AR for this agent — use Pin here for compass + GPS placement instead.', { error: true, sticky: true });
+	} finally {
+		if (anchorBtn) { anchorBtn.classList.remove('is-active'); anchorBtn.disabled = false; }
+	}
+}
+
+// One button, capability-routed: iOS opens AR Quick Look; WebXR devices enter the
+// in-canvas hit-test session. ('pin' devices never reach here — the button stays
+// hidden and the Pin path is the placement.)
+function enterFloorPlacement() {
+	if (_placementCapability === 'quicklook') return enterQuickLookPlacement();
+	return enterFloorAnchor();
+}
+
+if (anchorBtn) anchorBtn.addEventListener('click', enterFloorPlacement);
 if (xrExitBtn) xrExitBtn.addEventListener('click', () => { xrSession?.end(); });
 // Taps on the overlay chrome (hint, exit, error actions) must not also fire the
 // XR 'select' that places an anchor.

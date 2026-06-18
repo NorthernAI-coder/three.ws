@@ -492,6 +492,44 @@
 			line-height: 1.35;
 			color: #e8e8ef;
 			letter-spacing: -0.01em;
+			/* Readable over a live camera feed on both bright and dark floors: the
+			   dark pill already scrims the text; this shadow keeps thin strokes legible
+			   if the translucent pill happens to sit over a white surface. */
+			text-shadow: 0 1px 2px rgba(0,0,0,0.55);
+		}
+		/* ✓ confirm affordance — revealed on .irl-xr-bar.is-anchored the instant the
+		   anchor takes (paired with the in-scene pulse + haptic). Collapsed to zero
+		   width while idle so it never reserves space in the pill. */
+		.irl-xr-check {
+			flex-shrink: 0;
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			width: 0;
+			height: 22px;
+			border-radius: 999px;
+			background: rgba(52,211,153,0.18);
+			color: #6ee7b7;
+			overflow: hidden;
+			opacity: 0;
+			transform: scale(0.6);
+			transition: opacity 0.18s ease, transform 0.18s cubic-bezier(0.2,1.4,0.4,1);
+		}
+		.irl-xr-bar.is-anchored .irl-xr-check {
+			width: 22px;
+			margin-right: 2px;
+			opacity: 1;
+			transform: scale(1);
+			animation: irl-xr-check-pop 0.42s cubic-bezier(0.2,1.4,0.4,1);
+		}
+		@keyframes irl-xr-check-pop {
+			0%   { transform: scale(0.4); }
+			60%  { transform: scale(1.18); }
+			100% { transform: scale(1); }
+		}
+		@media (prefers-reduced-motion: reduce) {
+			.irl-xr-check { transition: opacity 0.12s linear; transform: none; }
+			.irl-xr-bar.is-anchored .irl-xr-check { transform: none; animation: none; }
 		}
 		.irl-xr-exit {
 			flex-shrink: 0;
@@ -1844,8 +1882,9 @@
      the immersive-ar dom-overlay root so the in-session hint + exit are visible
      over the AR view. Also the mount for the designed start-failure error card. -->
 <div id="irl-xr-overlay" hidden>
-	<div class="irl-xr-bar">
-		<p id="irl-xr-hint" class="irl-xr-hint" aria-live="polite">Point at the floor and move your phone slowly</p>
+	<div class="irl-xr-bar" id="irl-xr-bar">
+		<span id="irl-xr-check" class="irl-xr-check" aria-hidden="true"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+		<p id="irl-xr-hint" class="irl-xr-hint" aria-live="polite">Sweep your phone slowly to find the floor</p>
 		<button id="irl-xr-exit" type="button" class="irl-xr-exit" aria-label="Exit floor anchoring">
 			<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
 			Exit

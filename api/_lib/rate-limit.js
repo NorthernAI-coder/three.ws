@@ -524,6 +524,14 @@ export const limits = {
 	// custodial withdrawals.
 	withdrawalPerUser: (userId) =>
 		getLimiter('withdrawal:user', { limit: 5, window: '1 d', critical: true }).limit(userId),
+	// Discretionary agent-wallet trades: server-signed buys/sells from the agent's
+	// custodial wallet (POST /api/agents/:id/trade). Each one moves real funds and
+	// decrypts a custodial key, so it gets its own per-user write budget separate
+	// from the strict per-IP `authIp` ceiling — 30/min lets an owner actively trade
+	// while still capping a runaway client or a hijacked session. Critical so a
+	// Redis outage fails closed rather than uncapping custodial spends.
+	tradePerUser: (userId) =>
+		getLimiter('agent-trade:user', { limit: 30, window: '1 m', critical: true }).limit(userId),
 	// Per-user audit-log reads — the page polls on mount + "load older". 120/min
 	// per user is generous for browse but discourages scraping the full year.
 	// local: per-user browse/poll of one's own audit log — no side effects, no

@@ -89,13 +89,13 @@ describe('hit → tap → anchored (the happy path)', () => {
 
 	it('moves the reticle and content onto the hit, then anchors on tap', async () => {
 		const onAnchored = vi.fn();
-		const { renderer, viewer, xrSession } = await mount({ onAnchored });
+		const { renderer, viewer, session, xrSession } = await mount({ onAnchored });
 
 		const matrix = hitMatrix({ x: 1, y: -1.5, z: -2, yawDeg: 30 });
 		renderer.tick(16, hitFrame(matrix));
 
-		// Reticle and content track the hit pose before the tap.
-		const reticle = viewer.scene.children.find((c) => c.type === 'Mesh');
+		// Reticle (a ring+dot Group) and content track the hit pose before the tap.
+		const reticle = session._reticle;
 		expect(reticle.visible).toBe(true);
 		expect(reticle.position.toArray()).toEqual([1, -1.5, -2]);
 		expect(viewer.content.position.toArray()).toEqual([1, -1.5, -2]);
@@ -173,10 +173,12 @@ describe('end() / OS-initiated end — restoration is idempotent', () => {
 	it('restores the viewer and tears down exactly once, however the session ends', async () => {
 		const onEnd = vi.fn();
 		// Give content a non-trivial pre-AR transform, THEN start so it's captured.
-		const { renderer, viewer, session, xrSession } = await mount({ onEnd }, { start: false });
+		const rig = await mount({ onEnd }, { start: false });
+		const { renderer, viewer, session } = rig;
 		viewer.content.position.set(5, 6, 7);
 		viewer.content.rotation.set(0, 0.5, 0);
 		await session.start();
+		const xrSession = rig.xrSession; // the device handed one out only after start()
 
 		// A hit moves content during the session…
 		renderer.tick(16, hitFrame(hitMatrix({ x: 9, z: -9 })));
@@ -193,8 +195,10 @@ describe('end() / OS-initiated end — restoration is idempotent', () => {
 		// Content restored to the pre-AR transform captured at start.
 		expect(viewer.content.position.toArray()).toEqual([5, 6, 7]);
 		expect(viewer.content.rotation.y).toBeCloseTo(0.5, 6);
-		// The reticle Mesh was disposed and removed from the scene.
-		expect(viewer.scene.children.some((c) => c.type === 'Mesh')).toBe(false);
+		// Reticle, contact shadow and pulse ring were all disposed and removed —
+		// only the host's own content group is left in the scene.
+		expect(session._reticle).toBeNull();
+		expect(viewer.scene.children).toEqual([viewer.content]);
 		// The visibilitychange listener was removed before teardown.
 		expect(xrSession.listenerCount('visibilitychange')).toBe(0);
 
@@ -236,9 +240,9 @@ describe('tracking loss — fires once, on the transition only', () => {
 	});
 
 	it('hides the reticle on tracking loss so the user never taps a stale one', async () => {
-		const { renderer, viewer } = await mount({});
+		const { renderer, session } = await mount({});
 		renderer.tick(0, hitFrame(hitMatrix({ z: -1 })));
-		const reticle = viewer.scene.children.find((c) => c.type === 'Mesh');
+		const reticle = session._reticle;
 		expect(reticle.visible).toBe(true);
 		for (let i = 1; i <= TRACKING_LOSS_FRAMES; i++) renderer.tick(i, lostFrame());
 		expect(reticle.visible).toBe(false);

@@ -4,6 +4,9 @@
  * /api/agents/:id/solana          — agent's Solana wallet (address + balance, provision)
  * /api/agents/:id/solana/activity — recent on-chain signatures for the wallet
  * /api/agents/:id/solana/airdrop  — devnet airdrop (1 SOL)
+ * /api/agents/:id/trade           — owner-only: buy/sell a pump.fun token from the agent's custodial wallet
+ * /api/agents/:id/trade/quote     — owner-only: preview expected out, price impact, fees, guard verdict
+ * /api/agents/:id/trade/limits    — owner-only: read/update the per-agent discretionary trade limits
  * /api/agents/:id/sns             — list owned .sol domains and attach one as the agent's SNS id
  * /api/agents/:id/actions         — paginated signed action log
  * /api/agents/:id/animations      — owner-only: replace meta.animations
@@ -57,6 +60,11 @@ export default wrap(async function handler(req, res) {
 
 	if (sub === 'solana') {
 		const mod = await import('./solana-wallet.js');
+		return mod.default(req, res, id, action);
+	}
+
+	if (sub === 'trade') {
+		const mod = await import('./agent-trade.js');
 		return mod.default(req, res, id, action);
 	}
 

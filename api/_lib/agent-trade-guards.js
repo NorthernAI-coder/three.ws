@@ -34,10 +34,39 @@ const BASE58_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 
 const MAX_ALLOWLIST = 50;
 
+// Fee + rent headroom kept above a buy so it never fails for lack of lamports to
+// pay the network fee / open the token ATA. The single source of truth for the
+// SOL-headroom floor — both the sniper executor and the discretionary
+// agent-wallet trade endpoint import this rather than redefining it.
+export const SOL_FEE_HEADROOM_LAMPORTS = 3_000_000n; // ~0.003 SOL
+
 export const SPEND_LIMIT_DEFAULTS = Object.freeze({
 	daily_usd: null,
 	per_tx_usd: null,
 	withdraw_allowlist: [],
+});
+
+// Per-agent discretionary-trade policy (lamports-denominated), stored at
+// agent_identities.meta.trade_limits. Distinct from meta.spend_limits (the
+// cross-path USD ceiling): these are the SOL-budget + circuit-breaker knobs that
+// govern the agent's own buys, mirroring the sniper's per-strategy caps so the
+// discretionary path is held to the same standard. All opt-in — a null cap means
+// "no lamports ceiling" and the trade is still governed by the USD spend policy
+// and the wallet balance.
+//
+//   per_trade_sol         max SOL spent on any single buy (null = uncapped)
+//   daily_budget_sol      rolling-24h SOL buy budget across trade + snipe (null = uncapped)
+//   max_price_impact_pct  circuit breaker — reject a buy/sell over this impact
+//   max_slippage_bps      ceiling on the client-supplied slippage
+//   max_concurrent        max open discretionary positions (null = unlimited)
+//   kill_switch           when true, every discretionary trade is rejected
+export const TRADE_LIMIT_DEFAULTS = Object.freeze({
+	per_trade_sol: null,
+	daily_budget_sol: null,
+	max_price_impact_pct: 15,
+	max_slippage_bps: 1000,
+	max_concurrent: null,
+	kill_switch: false,
 });
 
 /**
@@ -161,6 +190,217 @@ export async function lamportsToUsd(lamports) {
 	const price = await solUsdPrice();
 	return (Number(lamports) / 1e9) * price;
 }
+
+// ── discretionary trade limits ────────────────────────────────────────────────
+
+function clampNum(v, def, { min = 0, max = Infinity, round = false } = {}) {
+	const n = Number(v);
+	if (!Number.isFinite(n) || n < min) return def;
+	const c = Math.min(max, n);
+	return round ? Math.round(c) : c;
+}
+
+/** Coerce arbitrary input into a clean, bounded trade-limit object. */
+export function normalizeTradeLimits(raw) {
+	const r = raw && typeof raw === 'object' ? raw : {};
+	return {
+		per_trade_sol: numOrNull(r.per_trade_sol),
+		daily_budget_sol: numOrNull(r.daily_budget_sol),
+		max_price_impact_pct: clampNum(r.max_price_impact_pct, TRADE_LIMIT_DEFAULTS.max_price_impact_pct, { max: 100 }),
+		max_slippage_bps: clampNum(r.max_slippage_bps, TRADE_LIMIT_DEFAULTS.max_slippage_bps, { max: 10000, round: true }),
+		max_concurrent: r.max_concurrent == null ? null : clampNum(r.max_concurrent, null, { min: 1, max: 10000, round: true }),
+		kill_switch: r.kill_switch === true,
+		updated_at: typeof r.updated_at === 'string' ? r.updated_at : null,
+	};
+}
+
+/** Read the effective discretionary trade limits off an agent's meta blob. */
+export function getTradeLimits(meta) {
+	return normalizeTradeLimits(meta?.trade_limits);
+}
+
+/**
+ * Persist a trade-limit patch onto the agent (owner-only). Only the keys present
+ * in `patch` change; the rest are preserved. Writes a custody audit event and a
+ * platform audit-log row. Returns the new normalized limits.
+ */
+export async function setTradeLimits(agentId, userId, patch, { req = null } = {}) {
+	const [row] = await sql`
+		SELECT id, user_id, meta FROM agent_identities
+		WHERE id = ${agentId} AND deleted_at IS NULL
+	`;
+	if (!row) throw Object.assign(new Error('agent not found'), { status: 404, code: 'not_found' });
+	if (row.user_id !== userId) throw Object.assign(new Error('not your agent'), { status: 403, code: 'forbidden' });
+
+	const prev = getTradeLimits(row.meta);
+	const p = patch && typeof patch === 'object' ? patch : {};
+	const next = normalizeTradeLimits({
+		per_trade_sol: 'per_trade_sol' in p ? p.per_trade_sol : prev.per_trade_sol,
+		daily_budget_sol: 'daily_budget_sol' in p ? p.daily_budget_sol : prev.daily_budget_sol,
+		max_price_impact_pct: 'max_price_impact_pct' in p ? p.max_price_impact_pct : prev.max_price_impact_pct,
+		max_slippage_bps: 'max_slippage_bps' in p ? p.max_slippage_bps : prev.max_slippage_bps,
+		max_concurrent: 'max_concurrent' in p ? p.max_concurrent : prev.max_concurrent,
+		kill_switch: 'kill_switch' in p ? p.kill_switch : prev.kill_switch,
+	});
+	next.updated_at = new Date().toISOString();
+
+	const meta = { ...(row.meta || {}), trade_limits: next };
+	await sql`UPDATE agent_identities SET meta = ${JSON.stringify(meta)}::jsonb WHERE id = ${agentId}`;
+
+	await recordCustodyEvent({
+		agentId,
+		userId,
+		eventType: 'limit_change',
+		reason: 'trade_limits_updated',
+		meta: { prev, next },
+	}).catch((e) => console.warn('[custody] trade limit_change record failed', e?.message));
+	logAudit({ userId, action: 'custody.trade_limit_change', resourceId: agentId, meta: { prev, next }, req });
+
+	return next;
+}
+
+// ── trade guard predicates ────────────────────────────────────────────────────
+// Each returns null when the trade is allowed, or a structured
+// { reason, detail } when blocked. These are the single source of truth for the
+// "is this trade allowed" comparisons — the sniper executor and the discretionary
+// agent-wallet trade endpoint both call them instead of inlining the math, so a
+// cap or breaker can never drift between the two paths. Pure + synchronous: the
+// caller fetches the live numbers (open count, daily spend, wallet balance,
+// quote) and hands them in.
+
+/** Discretionary trading paused for this agent. */
+export function checkKillSwitch(killed) {
+	return killed ? { reason: 'kill_switch', detail: {} } : null;
+}
+
+/** Open-position concurrency ceiling. Blocked when openCount >= maxConcurrent. */
+export function checkConcurrency(openCount, maxConcurrent) {
+	if (maxConcurrent == null) return null;
+	if (Number(openCount) >= Number(maxConcurrent)) {
+		return { reason: 'max_positions', detail: { open: Number(openCount), max: Number(maxConcurrent) } };
+	}
+	return null;
+}
+
+/** Per-trade spend cap (lamports). Blocked when amount > cap. */
+export function checkPerTradeCap(amountLamports, capLamports) {
+	if (capLamports == null) return null;
+	const amt = BigInt(amountLamports);
+	const cap = BigInt(capLamports);
+	if (amt > cap) {
+		return { reason: 'per_trade_cap', detail: { amount_lamports: amt.toString(), cap_lamports: cap.toString() } };
+	}
+	return null;
+}
+
+/** Rolling daily budget (lamports). Blocked when spent + amount > budget. */
+export function checkDailyBudgetLamports(spentLamports, amountLamports, budgetLamports) {
+	if (budgetLamports == null) return null;
+	const spent = BigInt(spentLamports);
+	const amt = BigInt(amountLamports);
+	const budget = BigInt(budgetLamports);
+	if (spent + amt > budget) {
+		return {
+			reason: 'daily_budget',
+			detail: { spent_lamports: spent.toString(), amount_lamports: amt.toString(), budget_lamports: budget.toString() },
+		};
+	}
+	return null;
+}
+
+/** Wallet must cover the spend plus a fee/rent headroom. Blocked when short. */
+export function checkSolHeadroom(walletLamports, spendLamports, headroomLamports = SOL_FEE_HEADROOM_LAMPORTS) {
+	const wallet = BigInt(walletLamports);
+	const spend = BigInt(spendLamports);
+	const head = BigInt(headroomLamports);
+	if (wallet < spend + head) {
+		return {
+			reason: 'insufficient_sol',
+			detail: { wallet_lamports: wallet.toString(), required_lamports: (spend + head).toString() },
+		};
+	}
+	return null;
+}
+
+/** Price-impact circuit breaker. Blocked when impact > max. */
+export function checkPriceImpact(priceImpactPct, maxPct) {
+	if (maxPct == null) return null;
+	if (Number(priceImpactPct) > Number(maxPct)) {
+		return { reason: 'price_impact', detail: { impact_pct: Number(priceImpactPct), max_pct: Number(maxPct) } };
+	}
+	return null;
+}
+
+/** Lamports spent (buys) by an agent over the trailing window — the trade +
+ *  snipe SOL outflow that backs the discretionary daily budget. One wallet, one
+ *  budget: a buy from the sniper and a buy from the trade endpoint both count. */
+export async function getDailySpendLamports(agentId, network = 'mainnet', windowHours = 24) {
+	const [row] = await sql`
+		SELECT COALESCE(SUM(amount_lamports), 0)::text AS lamports
+		FROM agent_custody_events
+		WHERE agent_id = ${agentId}
+		  AND network = ${network}
+		  AND event_type = 'spend'
+		  AND status IN ('ok', 'pending', 'confirmed')
+		  AND amount_lamports IS NOT NULL
+		  AND created_at > now() - (${windowHours} || ' hours')::interval
+	`;
+	return BigInt(row?.lamports ?? '0');
+}
+
+const LAMPORTS_PER_SOL = 1_000_000_000n;
+
+function lamportsToSolStr(lamports, dp = 4) {
+	const n = Number(BigInt(lamports)) / 1e9;
+	return n.toFixed(dp).replace(/\.?0+$/, '') || '0';
+}
+
+// Map a guard-predicate reason → an HTTP status + a plain-language, actionable
+// message for the boundary. A guard rejection is always a 4xx with the reason and
+// the numbers behind it — never a 500, never an exception that escapes.
+const GUARD_RESPONSE = {
+	kill_switch: {
+		status: 403,
+		message: () => 'Trading is paused for this agent. Re-enable discretionary trading under Limits & Safety to continue.',
+	},
+	per_trade_cap: {
+		status: 422,
+		message: (d) => `This trade of ${lamportsToSolStr(d.amount_lamports)} SOL is over the per-trade cap of ${lamportsToSolStr(d.cap_lamports)} SOL. Lower the amount or raise the cap under Limits & Safety.`,
+	},
+	daily_budget: {
+		status: 422,
+		message: (d) => `This trade would bring today's spend to ${lamportsToSolStr(BigInt(d.spent_lamports) + BigInt(d.amount_lamports))} SOL, over the daily budget of ${lamportsToSolStr(d.budget_lamports)} SOL. Wait for the window to roll over or raise the budget.`,
+	},
+	max_positions: {
+		status: 409,
+		message: (d) => `This agent already holds ${d.open} open ${d.open === 1 ? 'trade' : 'trades'} (max ${d.max}). Close one before opening another.`,
+	},
+	insufficient_sol: {
+		status: 400,
+		message: (d) => `The agent wallet needs about ${lamportsToSolStr(d.required_lamports)} SOL (including network fees) but holds ${lamportsToSolStr(d.wallet_lamports)}. Fund the wallet and retry.`,
+	},
+	price_impact: {
+		status: 422,
+		message: (d) => `Price impact is ${Number(d.impact_pct).toFixed(2)}% — above the ${Number(d.max_pct).toFixed(2)}% safety breaker. Lower the trade size or raise the impact limit under Limits & Safety.`,
+	},
+};
+
+/**
+ * Turn a guard-predicate result into a boundary-ready 4xx response shape.
+ * @param {{ reason: string, detail?: object }} blocked
+ * @returns {{ status: number, code: string, message: string, detail: object }}
+ */
+export function tradeGuardResponse(blocked) {
+	const entry = GUARD_RESPONSE[blocked.reason] || { status: 422, message: () => `Trade rejected: ${blocked.reason}` };
+	return {
+		status: entry.status,
+		code: blocked.reason,
+		message: entry.message(blocked.detail || {}),
+		detail: blocked.detail || {},
+	};
+}
+
+export { LAMPORTS_PER_SOL };
 
 /**
  * Sum the USD-equivalent of an agent's outbound spends over the trailing window.

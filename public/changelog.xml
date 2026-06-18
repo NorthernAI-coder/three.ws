@@ -319,6 +319,14 @@
 			<description>When an agent replied with a 3D avatar — especially while it was thinking or forging several models at once — the avatar used to float off on its own with a big empty gap, while the reasoning note and the tool buttons drifted down beside its feet. The agent now stands next to its own response: the avatar is framed tighter so it fills its space instead of hovering in the void, and its thinking note and tool calls line up with it as one tidy block. It reads as a single reply whether you're in the normal view or have a tool's details open in the side panel.</description>
 		</item>
 		<item>
+			<title>Your AR agent now hides behind real-world objects</title>
+			<link>https://three.ws/features/ar</link>
+			<guid isPermaLink="false">2026-06-18:Your AR agent now hides behind real-world objects</guid>
+			<pubDate>Thu, 18 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Place an agent in your room with the AR button and it now lives in the space instead of floating on top of the camera feed. Walk a chair, a doorway, or your own hand between your phone and the agent and the agent is correctly hidden behind it — the single biggest &quot;is this really in my room?&quot; upgrade. It uses your phone's depth sensor on devices that have one (recent Android Chrome); on every other device AR works exactly as before, with no change and nothing to turn on.</description>
+		</item>
+		<item>
 			<title>Animation Gallery</title>
 			<link>https://three.ws/animations</link>
 			<guid isPermaLink="false">2026-06-17:Animation Gallery</guid>
