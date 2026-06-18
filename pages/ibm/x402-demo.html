@@ -237,6 +237,9 @@ a:focus-visible{outline-offset:3px}
 
 .retry{margin-top:14px;background:none;border:1px solid var(--ibm-divider);color:var(--ibm-ink);padding:9px 16px;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;transition:border-color .12s,color .12s}
 .retry:hover{border-color:var(--ibm-blue);color:var(--ibm-blue)}
+/* Actionable, plain-language guidance under an error (top up / reconnect). */
+.r-tip{font-size:13px;color:var(--ibm-muted);margin:8px 0 0;line-height:1.5;font-weight:300}
+.r-status.err span:last-child{word-break:break-word;min-width:0}
 
 .note{display:flex;gap:14px;margin-top:22px;padding:16px 18px;border:1px solid var(--ibm-border);background:var(--ibm-field)}
 .note svg{flex:0 0 auto;width:20px;height:20px;color:var(--ibm-blue);margin-top:1px}
@@ -724,22 +727,45 @@ agent-3d:defined ~ .agent-skel{display:none}
 
   var $ = function (id) { return document.getElementById(id); };
   var inFlight = false;
+  // Networks the live 402 challenge is currently quoting (e.g. "Base or Solana").
+  // Used to make error guidance specific — "top up USDC on <network>".
+  var quotedNetworks = '';
 
   // ── global resilience net ────────────────────────────────────────────────
+  // Last-ditch catch for an unexpected throw or rejected promise, so a visitor
+  // sees a calm, dismissible notice instead of a half-rendered panel. It is
+  // deliberately conservative: this page also loads a lazy-booting 3D agent,
+  // <model-viewer>, and cross-origin embeds, all of which own their own failure
+  // UI. Their noise (and opaque cross-origin "Script error." with no detail, or
+  // aborted fetches) must never raise an alarming banner on an IBM property.
+  // Shows once; the close button re-arms it.
+  var bannerShown = false;
   function showBanner(msg) {
-    var b = $('errBanner'); if (!b) return;
+    var b = $('errBanner'); if (!b || bannerShown) return;
+    bannerShown = true;
     $('errBannerText').textContent = msg || 'Something went wrong. Reload the page if it persists.';
     b.classList.add('show');
   }
+  // Noise, or failures owned by a third-party module that renders its own state.
+  var BENIGN_ERR = /ResizeObserver|^Script error\.?$|model-viewer|agent-3d|esm\.sh|WebGL|webgl|\.glb\b|Loading chunk|importing a module|dynamically imported|AbortError|The operation was aborted|NetworkError when attempting/i;
+  function isBenignReason(reason) {
+    if (reason == null) return true;                         // no detail → not actionable
+    if (reason.name === 'AbortError' || reason.code === 'cancelled') return true;
+    var text = reason.message ? reason.message : String(reason);
+    return BENIGN_ERR.test(text);
+  }
   window.addEventListener('error', function (e) {
-    // Ignore benign ResizeObserver noise; surface anything real, non-fatally.
-    if (e && e.message && /ResizeObserver/.test(e.message)) return;
+    // No message → opaque cross-origin error (carries nothing actionable); skip.
+    if (!e || !e.message || BENIGN_ERR.test(e.message)) return;
     showBanner('A script error occurred. The demo may be degraded — reload to recover.');
   });
-  window.addEventListener('unhandledrejection', function () {
-    showBanner('A background request failed. Check your connection and try again.');
+  window.addEventListener('unhandledrejection', function (e) {
+    if (isBenignReason(e && e.reason)) return;
+    showBanner('A background request failed. Check your connection, then retry below.');
   });
-  $('errBannerClose').addEventListener('click', function () { $('errBanner').classList.remove('show'); });
+  $('errBannerClose').addEventListener('click', function () {
+    $('errBanner').classList.remove('show'); bannerShown = false;
+  });
 
   function escapeHtml(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -887,8 +913,13 @@ agent-3d:defined ~ .agent-skel{display:none}
       })
       .catch(function (err) {
         var label = $('pvLabel'); label.className = 'preview-label err';
-        $('pvLabelText').textContent = 'Could not reach the endpoint (' + err.message + ').';
-        $('pvRows').innerHTML = '<button class="pv-retry" type="button" id="pvRetry">Retry</button>';
+        $('pvLabelText').textContent = navigator.onLine
+          ? "Couldn't read the live price just now — the payment button still works."
+          : "You're offline — the live price will load when you reconnect.";
+        var detail = escapeHtml(String((err && err.message) || 'request failed')).slice(0, 120);
+        $('pvRows').innerHTML =
+          '<div class="preview-row"><span class="v" style="color:var(--ibm-subtle)">' + detail + '</span></div>' +
+          '<button class="pv-retry" type="button" id="pvRetry">Retry</button>';
         var r = $('pvRetry'); if (r) r.addEventListener('click', loadChallengePreview);
       })
       .then(function () { if (preview) preview.setAttribute('aria-busy', 'false'); });
@@ -900,6 +931,7 @@ agent-3d:defined ~ .agent-skel{display:none}
     var nets = Object.keys(byNet).map(function (k) { return byNet[k]; });
     var first = nets[0];
     var decimals = (first.extra && first.extra.decimals) || 6;
+    quotedNetworks = nets.map(function (a) { return networkLabel(a.network); }).join(' or ');
 
     var priceHtml = first.amount === '1000'
       ? '$<strong>0.001</strong>'
@@ -946,12 +978,28 @@ agent-3d:defined ~ .agent-skel{display:none}
     announce(msg || 'Waiting for your wallet.');
     agentOnWaiting();
   }
+  // Turn a (sometimes cryptic) wallet/facilitator/network message into one line
+  // of plain-language next-step guidance. Empty string when the message already
+  // speaks for itself.
+  function payGuidance(msg) {
+    var m = String(msg || '').toLowerCase();
+    if (/insufficient|not enough|exceeds balance|transfer amount exceeds|enough usdc|enough funds|low balance/.test(m)) {
+      return 'Top up USDC on ' + (quotedNetworks || 'your wallet network') + ', then try again.';
+    }
+    if (/offline|failed to fetch|networkerror|connection|timeout|timed out|could not reach/.test(m)) {
+      return 'Check your connection, then try again.';
+    }
+    return '';
+  }
   function setResultError(msg) {
     var text = msg || 'Something went wrong.';
+    var tip = payGuidance(text);
     var el = $('result'); el.className = 'result is-error';
-    el.innerHTML = '<div class="r-status err"><span aria-hidden="true">✕</span> <span>' + escapeHtml(text) + '</span></div><button class="retry" type="button" id="retryBtn">Try again</button>';
+    el.innerHTML = '<div class="r-status err"><span aria-hidden="true">✕</span> <span>' + escapeHtml(text) + '</span></div>' +
+      (tip ? '<p class="r-tip">' + escapeHtml(tip) + '</p>' : '') +
+      '<button class="retry" type="button" id="retryBtn">Try again</button>';
     var rb = $('retryBtn'); if (rb) rb.addEventListener('click', runPayment);
-    announce('Error: ' + text);
+    announce('Error: ' + text + (tip ? ' ' + tip : ''));
     agentOnError();
   }
   function recoPill(result) {
@@ -1162,6 +1210,8 @@ agent-3d:defined ~ .agent-skel{display:none}
   var inFlight = false;
   var pollTimer = null;
   var genTimer = null;
+  // Networks the live 402 challenge is quoting, for specific error guidance.
+  var quotedNetworks = '';
 
   function escapeHtml(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -1271,8 +1321,13 @@ agent-3d:defined ~ .agent-skel{display:none}
       })
       .catch(function (err) {
         var label = $('fgPvLabel'); label.className = 'preview-label err';
-        $('fgPvLabelText').textContent = 'Could not reach the endpoint (' + err.message + ').';
-        $('fgPvRows').innerHTML = '<button class="pv-retry" type="button" id="fgPvRetry">Retry</button>';
+        $('fgPvLabelText').textContent = navigator.onLine
+          ? "Couldn't read the live price just now — the forge button still works."
+          : "You're offline — the live price will load when you reconnect.";
+        var detail = escapeHtml(String((err && err.message) || 'request failed')).slice(0, 120);
+        $('fgPvRows').innerHTML =
+          '<div class="preview-row"><span class="v" style="color:var(--ibm-subtle)">' + detail + '</span></div>' +
+          '<button class="pv-retry" type="button" id="fgPvRetry">Retry</button>';
         var r = $('fgPvRetry'); if (r) r.addEventListener('click', loadChallengePreview);
       })
       .then(function () { if (preview) preview.setAttribute('aria-busy', 'false'); });
@@ -1284,6 +1339,7 @@ agent-3d:defined ~ .agent-skel{display:none}
     var nets = Object.keys(byNet).map(function (k) { return byNet[k]; });
     var first = nets[0];
     var decimals = (first.extra && first.extra.decimals) || 6;
+    quotedNetworks = nets.map(function (a) { return networkLabel(a.network); }).join(' or ');
 
     var atomic = Number(first.amount);
     if (isFinite(atomic) && atomic > 0) { TIER_ATOMIC[selectedTier] = atomic; syncTierUi(); }
@@ -1313,12 +1369,25 @@ agent-3d:defined ~ .agent-skel{display:none}
     el.innerHTML = '<div class="r-status"><span class="spin" aria-hidden="true"></span><span>' + escapeHtml(msg) + '</span></div>';
     announce(msg);
   }
+  function payGuidance(msg) {
+    var m = String(msg || '').toLowerCase();
+    if (/insufficient|not enough|exceeds balance|transfer amount exceeds|enough usdc|enough funds|low balance/.test(m)) {
+      return 'Top up USDC on ' + (quotedNetworks || 'your wallet network') + ', then try again.';
+    }
+    if (/offline|failed to fetch|networkerror|connection|timeout|timed out|could not reach|lost contact/.test(m)) {
+      return 'Check your connection, then try again.';
+    }
+    return '';
+  }
   function setResultError(msg) {
     var text = msg || 'Something went wrong.';
+    var tip = payGuidance(text);
     var el = $('fgResult'); el.className = 'result is-error';
-    el.innerHTML = '<div class="r-status err"><span aria-hidden="true">✕</span> <span>' + escapeHtml(text) + '</span></div><button class="retry" type="button" id="fgRetry">Try again</button>';
+    el.innerHTML = '<div class="r-status err"><span aria-hidden="true">✕</span> <span>' + escapeHtml(text) + '</span></div>' +
+      (tip ? '<p class="r-tip">' + escapeHtml(tip) + '</p>' : '') +
+      '<button class="retry" type="button" id="fgRetry">Try again</button>';
     var rb = $('fgRetry'); if (rb) rb.addEventListener('click', runForge);
-    announce('Error: ' + text);
+    announce('Error: ' + text + (tip ? ' ' + tip : ''));
   }
   function setResultGenerating(payment, etaSec, startTs) {
     var el = $('fgResult'); el.className = 'result is-loading';
