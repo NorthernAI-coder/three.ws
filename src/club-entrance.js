@@ -53,6 +53,8 @@ import {
 } from 'postprocessing';
 import { gltfLoader } from './loaders/gltf.js';
 import { AnimationManager } from './animation-manager.js';
+import { ClubCrowd } from './club-crowd.js';
+import { detectProfile, PROFILES } from './club-perf.js';
 import { log } from './shared/log.js';
 
 const TOUR_URL = '/club/venue/tour.glb';
@@ -288,6 +290,25 @@ async function start(canvasEl) {
 	anim.injectClip('walk', walkClipJson, { loop: true });
 	await anim.play('idle');
 
+	// ── Crowd — populate every environment with our avatars ──
+	// You don't walk an empty set: each room fills with the full platform roster
+	// (bundled rigs + public gallery), grounded and dancing/idling clear of your
+	// path. Sized to the device's crowd budget; degrades to nothing if it can't
+	// load. Re-populated on every venue swap via refreshCrowd().
+	const crowdProfile = PROFILES[detectProfile()] || PROFILES.medium;
+	const crowd = new ClubCrowd({
+		renderer,
+		scene,
+		manifest,
+		max: crowdProfile.crowdInstances,
+		bundled: BUNDLED_AGENTS,
+	});
+	crowd.load(); // background fetch of roster + clip data; mount() awaits it
+	const refreshCrowd = () => {
+		if (!env) return;
+		crowd.mount({ envRoot: env.root, bounds: env.bounds, path, roomIndex: venueIndex });
+	};
+
 	// ── Door marker — a neon frame at the end of the alley you walk up to ────
 	const doorMarker = buildDoorMarker();
 	scene.add(doorMarker.group);
@@ -311,6 +332,7 @@ async function start(canvasEl) {
 	const camRay = new Raycaster();
 
 	placeSpawn();
+	refreshCrowd(); // populate the opening room (alley)
 
 	// Cast straight down from waist height to find the walkable floor.
 	// Starting from ROOM_HEIGHT * 0.6 wrongly hit sculpture tops / arch geometry
@@ -688,6 +710,7 @@ async function start(canvasEl) {
 		stepAvatar(ix, iz, dt);
 		trackFloor(dt);
 		anim.update(dt);
+		crowd.update(dt);
 		updateCamera(dt);
 		if (phase === 'walk') minimap.update(rig.position, rig.rotation.y, nearDoor, now / 1000, prefersReducedMotion);
 
@@ -720,6 +743,7 @@ async function start(canvasEl) {
 					if (next && next !== 'error') {
 						mountVenue(venueIndex + 1);
 						placeSpawn();
+						refreshCrowd(); // fill the next room with the roster
 						setHint();
 						setPhase('swapIn');
 					} else if (next === 'error') {
@@ -872,6 +896,7 @@ async function start(canvasEl) {
 		agentBrowseBtn?.removeEventListener('click', onBrowseAgents);
 		onAdmit = null;
 		try { anim.dispose?.(); } catch {}
+		try { crowd.dispose(); } catch {}
 		disposeObject(scene);
 		composer.dispose();
 		renderer.dispose();

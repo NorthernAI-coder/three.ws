@@ -842,11 +842,17 @@ async function handleHoldings(req, res, id) {
 	if (cors(req, res, { methods: 'GET,OPTIONS', credentials: true })) return;
 	if (!method(req, res, ['GET'])) return;
 
-	const owned = await loadOwnedWallet(req, res, id);
-	if (owned.error) return;
-	const { auth, address } = owned;
+	// Token balances are public on-chain data, so the holdings list is readable by
+	// owner and visitor alike (the wallet hub's Trade tab shows a read-only holdings
+	// view to visitors). Only the owner ever gets management actions, which live on
+	// other endpoints. The owner path is unchanged; visitors get an IP-keyed read.
+	const auth = await resolveAuth(req);
+	const [row] = await sql`SELECT id, user_id, meta FROM agent_identities WHERE id = ${id} AND deleted_at IS NULL`;
+	if (!row) return error(res, 404, 'not_found', 'agent not found');
+	const isOwner = !!(auth && row.user_id === auth.userId);
+	const address = row.meta?.solana_address || null;
 
-	const rl = await limits.walletRead(auth.userId);
+	const rl = await limits.walletRead(isOwner ? auth.userId : clientIp(req));
 	if (!rl.success) return rateLimited(res, rl);
 
 	if (!address) return error(res, 404, 'not_found', 'agent has no solana wallet');
@@ -888,7 +894,7 @@ async function handleHoldings(req, res, id) {
 	}
 	tokens.sort((a, b) => Number(b.ui_amount) - Number(a.ui_amount));
 
-	return json(res, 200, { data: { address, network, sol, tokens } });
+	return json(res, 200, { data: { address, network, sol, tokens, is_owner: isOwner } });
 }
 
 // ── custody audit trail ───────────────────────────────────────────────────────
@@ -910,8 +916,12 @@ async function handleCustody(req, res, id) {
 	const beforeRaw = url.searchParams.get('before');
 	const beforeId = beforeRaw && /^\d+$/.test(beforeRaw) ? beforeRaw : null;
 	const network = url.searchParams.get('network') === 'devnet' ? 'devnet' : url.searchParams.get('network') === 'mainnet' ? 'mainnet' : null;
+	// Optional category filter (e.g. 'x402') so a caller can read just the spends
+	// of one kind — the Pay tab reads its own x402 payment activity this way.
+	const categoryRaw = url.searchParams.get('category');
+	const category = categoryRaw && /^[a-z0-9_]{1,32}$/i.test(categoryRaw) ? categoryRaw : null;
 
-	const events = await listCustodyEvents(id, { limit, beforeId, network });
+	const events = await listCustodyEvents(id, { limit, beforeId, network, category });
 	const items = events.map((e) => ({
 		id: String(e.id),
 		event_type: e.event_type,
@@ -927,6 +937,9 @@ async function handleCustody(req, res, id) {
 		reason: e.reason,
 		status: e.status,
 		created_at: e.created_at,
+		// meta carries the x402 service/url + resource for the payment activity
+		// row; this endpoint is ownership-gated so it's owner-only data already.
+		meta: e.meta && typeof e.meta === 'object' ? e.meta : null,
 	}));
 	const nextCursor = items.length === limit ? items[items.length - 1].id : null;
 	return json(res, 200, { data: { items, next_cursor: nextCursor } });
@@ -987,6 +1000,14 @@ export default async function handler(req, res, id, action) {
 	if (action === 'holdings') return handleHoldings(req, res, id);
 	if (action === 'custody') return handleCustody(req, res, id);
 	if (action === 'limits') return handleLimits(req, res, id);
+	if (action === 'trade') {
+		const mod = await import('./solana-trade.js');
+		return mod.handleTrade(req, res, id);
+	}
+	if (action === 'trade-history') {
+		const mod = await import('./solana-trade.js');
+		return mod.handleTradeHistory(req, res, id);
+	}
 	return handleWallet(req, res, id);
 }
 

@@ -120,6 +120,103 @@ export async function requestAgentSolanaAirdrop(agentId) {
 	return json.data;
 }
 
+// ── discretionary trading (agent-wallet pump.fun buy/sell) ────────────────────
+
+/** Structured trade error: carries the endpoint's machine code + recovery detail. */
+export class TradeError extends Error {
+	constructor(message, { code = 'error', status = 0, detail = null } = {}) {
+		super(message);
+		this.name = 'TradeError';
+		this.code = code;
+		this.status = status;
+		this.detail = detail;
+	}
+}
+
+async function postTrade(agentId, body) {
+	const url = `/api/agents/${encodeURIComponent(agentId)}/solana/trade`;
+	let resp;
+	try {
+		resp = await fetch(url, {
+			method: 'POST',
+			credentials: 'include',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(body),
+		});
+	} catch {
+		throw new TradeError('Network unreachable — check your connection and try again.', { code: 'network_error' });
+	}
+	const json = await resp.json().catch(() => ({}));
+	// The API error envelope is { error: <code>, error_description: <message>, ...detail }.
+	// A 202 "submitted but unconfirmed" is a 2xx that still carries that envelope, so
+	// treat any payload with no `data` and an `error` code as a non-final outcome.
+	const hasError = !resp.ok || (json && json.error != null && json.data == null);
+	if (hasError) {
+		const code = typeof json.error === 'string' ? json.error : json?.error?.code || 'error';
+		const message =
+			json?.error_description ||
+			(typeof json.error === 'object' ? json.error?.message : null) ||
+			`Trade failed (${resp.status})`;
+		const detail = { ...json };
+		delete detail.error;
+		delete detail.error_description;
+		throw new TradeError(message, { code, status: resp.status, detail });
+	}
+	return json.data;
+}
+
+/**
+ * Live, non-binding quote for a discretionary trade. Returns expected output,
+ * price impact, minimum received, fee context, the wallet's SOL balance, and any
+ * guard/funds warning the confirm step should surface BEFORE the owner submits.
+ *
+ * @param {object} p
+ * @param {string} p.agentId
+ * @param {'buy'|'sell'} p.side
+ * @param {string} p.mint
+ * @param {number} [p.solAmount]        SOL to spend (buy)
+ * @param {string} [p.tokenAmountRaw]   token base units to sell (sell)
+ * @param {number} p.slippageBps
+ * @param {string} p.network
+ */
+export function previewAgentTrade({ agentId, side, mint, solAmount, tokenAmountRaw, slippageBps, network }) {
+	return postTrade(agentId, {
+		preview: true, side, mint, network, slippage_bps: slippageBps,
+		...(side === 'buy' ? { sol_amount: solAmount } : { token_amount_raw: tokenAmountRaw }),
+	});
+}
+
+/**
+ * Execute a discretionary trade from the agent's own wallet. Idempotent: pass a
+ * stable `idempotencyKey` so a retry of the same intent never double-spends.
+ * Resolves with { signature, explorer, new_balance_sol, … } once confirmed.
+ */
+export function executeAgentTrade({ agentId, side, mint, solAmount, tokenAmountRaw, slippageBps, network, idempotencyKey }) {
+	return postTrade(agentId, {
+		side, mint, network, slippage_bps: slippageBps, idempotency_key: idempotencyKey,
+		...(side === 'buy' ? { sol_amount: solAmount } : { token_amount_raw: tokenAmountRaw }),
+	});
+}
+
+/** Token holdings for the agent wallet (owner or visitor — balances are public). */
+export async function fetchAgentHoldings(agentId, network = 'mainnet') {
+	const url = `/api/agents/${encodeURIComponent(agentId)}/solana/holdings?network=${encodeURIComponent(network)}`;
+	const resp = await fetch(url, { credentials: 'include' });
+	const json = await resp.json().catch(() => ({}));
+	if (!resp.ok) throw new Error(json?.error?.message || `holdings fetch failed (${resp.status})`);
+	return json.data;
+}
+
+/** Unified trade history (discretionary + sniper), newest first. Owner-only. */
+export async function fetchAgentTradeHistory(agentId, network = 'mainnet', limit = 40) {
+	const url = `/api/agents/${encodeURIComponent(agentId)}/solana/trade-history?network=${encodeURIComponent(network)}&limit=${limit}`;
+	const resp = await fetch(url, { credentials: 'include' });
+	if (resp.status === 401 || resp.status === 403) return { items: [], forbidden: true };
+	const json = await resp.json().catch(() => ({}));
+	if (!resp.ok) throw new Error(json?.error?.message || `history fetch failed (${resp.status})`);
+	return json.data;
+}
+
 // ── UI card ─────────────────────────────────────────────────────────────────
 
 const STYLE = `

@@ -1380,6 +1380,13 @@ function friendlyError(err) {
 	if (/throttl|rate.?limit|too many requests|less than \$|in credit|\b429\b/i.test(msg)) {
 		return 'The service is briefly busy and your payment was not taken — retry in a few seconds.';
 	}
+	// The Solana and EVM-sign-in paths dynamic-import a library from esm.sh. A strict
+	// host Content-Security-Policy (or esm.sh being unreachable) blocks that import and
+	// the raw "Failed to fetch dynamically imported module" is opaque. The Base/EIP-3009
+	// payment path has no such dependency, so steer the buyer there.
+	if (/dynamically imported module|esm\.sh|module script failed/i.test(msg)) {
+		return 'A component this wallet path needs (loaded from esm.sh) was blocked — often by a strict host security policy. Pay with MetaMask on Base instead; it needs no third-party code.';
+	}
 	return msg.slice(0, 240);
 }
 
