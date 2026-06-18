@@ -597,8 +597,8 @@ async function mountJoystick() {
 		zone.style.display = 'block';
 		const stick = nipplejs.create({ zone, mode: 'static', position: { left: '60px', bottom: '70px' }, color: 'rgba(110,231,255,0.6)', size: 110 });
 		stick.on('move', (_e, d) => {
-			const f = (d.force || 0);
-			const a = d.angle?.radian ?? 0;
+			const f = (d?.force || 0);
+			const a = d?.angle?.radian ?? 0;
 			world.setJoystick(Math.cos(a) * Math.min(1, f), Math.sin(a) * Math.min(1, f));
 		});
 		stick.on('end', () => world.setJoystick(0, 0));

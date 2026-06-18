@@ -13,6 +13,13 @@
 // scarcity=violet — so the same value is recognizable in the flow, the stats, and
 // the catalog. Motion is purposeful and fully reduced-motion aware.
 
+// Holder access reads go through the shared, wallet-aware data layer (three-access.js)
+// so a connected wallet's tier surfaces here exactly as it does in the nav chip and
+// Forge — one source of truth, no independent fetch. Wallet connect reuses the global
+// connect button (initWalletButton wires the hidden #connect-wallet-btn this page mounts).
+import { getAccess } from './three-access.js';
+import { initWalletButton } from './wallet.js';
+
 const API = '/api/three';
 const MINT = 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump';
 const REDUCED_MOTION =
@@ -280,6 +287,8 @@ function injectStyles() {
 	.ec-progress .fill { height:100%; border-radius:999px; background:linear-gradient(90deg,var(--green),#a8f0c8);
 		width:0; transition:width 1s var(--ease); }
 	.ec-progress .lbl { display:flex; justify-content:space-between; font-size:12.5px; color:var(--muted); margin-top:9px; }
+	.ec-tier-connect { margin-top:18px; }
+	.ec-tier-connect .ec-muted { margin:10px 0 0; font-size:12.5px; line-height:1.55; max-width:520px; }
 
 	/* Your access (personal feature matrix) */
 	.ta-panel { border:1px solid var(--line); border-radius:16px; overflow:hidden;
@@ -774,7 +783,13 @@ function tiersHTML(tierData, features) {
 			if (f) f.style.width = `${pct}%`;
 		}, 80);
 	} else if (cur == null) {
-		progress = `<p class="ec-muted" style="margin-top:18px;font-size:13px">Sign in and link a Solana wallet to see your tier and track progress to the next one.</p>`;
+		// No resolved tier yet (no connected wallet, no session). Offer the lowest-friction
+		// path — connect a wallet and read the tier straight from on-chain $THREE. The
+		// button is wired in wireTierConnect() after every render.
+		progress = `<div class="ec-tier-connect">
+			<button class="ec-btn primary" id="ec-tier-connect" type="button">Connect wallet to see your tier</button>
+			<p class="ec-muted">Reads your tier straight from your on-chain $THREE — no account needed. Or sign in below to link a wallet and track progress.</p>
+		</div>`;
 	}
 	return `<div class="ec-tiers">${cards}</div>${progress}`;
 }
@@ -972,6 +987,7 @@ let DISCOUNT_BPS = 0; // current holder's tier discount
 let _accessBound = false; // wallet:changed listener attached once
 let _tierData = null; // last /api/three/tier payload (ladder + current tier + progress)
 let _accessFeatures = null; // last gated-feature matrix from /api/three/access (Live/Planned)
+let _synthTier = false; // true when _tierData was synthesized from a connected wallet (no session)
 
 // Render the holder-tier ladder from whatever we know so far: the ladder + current
 // tier from /api/three/tier, and the live gated-feature matrix from /api/three/access
