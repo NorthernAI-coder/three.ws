@@ -145,6 +145,32 @@
 			integrity="sha384-sr9b4Ux0WhAUGclJ0ym0FSY2zSOMmNSn0bP/SA0e6bNCrpn/5W3QL8mm+LdlQMKw"
 			crossorigin="anonymous"
 		></script>
+		<script>
+			// Optimistic auth probe so the reviews widget can prompt sign-in on
+			// submit instead of firing a csrf/POST round-trip the server would
+			// only 401. /api/auth/me answers 200 with { user: null } for guests,
+			// so this adds no console noise. Authoritative answer dispatched via
+			// the three-ws:auth-resolved event for any late listeners.
+			window.__authed = null;
+			fetch('/api/auth/me', { credentials: 'include' })
+				.then((r) => (r.ok ? r.json() : null))
+				.then((data) => {
+					window.__authed = !!(data && data.user);
+					document.dispatchEvent(
+						new CustomEvent('three-ws:auth-resolved', {
+							detail: { authed: window.__authed, user: data?.user || null },
+						}),
+					);
+				})
+				.catch(() => {
+					window.__authed = false;
+					document.dispatchEvent(
+						new CustomEvent('three-ws:auth-resolved', {
+							detail: { authed: false, user: null },
+						}),
+					);
+				});
+		</script>
 	</head>
 	<body>
 		<header><div id="nav-container"></div></header>

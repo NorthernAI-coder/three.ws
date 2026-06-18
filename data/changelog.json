@@ -3,6 +3,14 @@
 	"entries": [
 		{
 			"date": "2026-06-18",
+			"title": "Leaving a review on an agent profile works again",
+			"summary": "Submitting or updating a star rating on an agent's profile was quietly failing for signed-in users — the form said “Save failed” no matter what, because the security token that protects the save was being read incorrectly and never attached. Reviews now save on the first try. Signed-out visitors who tap Submit get a clear “Sign in to leave a review” prompt instead of a dead button, and agent profiles no longer log errors for agents that have no on-chain trading record — the track-record card simply stays hidden.",
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-18",
 			"title": "Pole Club avatar swaps now actually stick",
 			"summary": "On the Pole Club stage, tapping “Change avatar” and picking a new look sometimes did nothing — the dancer quietly snapped back to the default. Two fixes: a pick made right after the room loads is no longer overwritten by the room's own startup, and any avatar whose rig can't be animated is now clearly flagged “can’t dance” and skipped — the dancer keeps her current look and a message says why, instead of silently failing. Picks that work apply instantly and stay put.",
 			"tags": [

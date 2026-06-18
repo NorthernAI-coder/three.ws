@@ -47,6 +47,14 @@
 			<description>$THREE gets its first hard utility: High-quality 3D generation on Forge — the 200k-polygon, PBR-textured tier — is now reserved for $THREE holders. Reach the Bronze holder tier (the entry tier) by holding $THREE and the High tier unlocks automatically, with no payment step. Draft and Standard generation stay free forever, and bring-your-own-key generation is unaffected. Sign in, link your Solana wallet, and the economy page shows your live holder tier and exactly what it unlocks.</description>
 		</item>
 		<item>
+			<title>Leaving a review on an agent profile works again</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-18:Leaving a review on an agent profile works again</guid>
+			<pubDate>Thu, 18 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Submitting or updating a star rating on an agent's profile was quietly failing for signed-in users — the form said “Save failed” no matter what, because the security token that protects the save was being read incorrectly and never attached. Reviews now save on the first try. Signed-out visitors who tap Submit get a clear “Sign in to leave a review” prompt instead of a dead button, and agent profiles no longer log errors for agents that have no on-chain trading record — the track-record card simply stays hidden.</description>
+		</item>
+		<item>
 			<title>Pay $THREE per High generation — no holding required</title>
 			<link>https://three.ws/forge</link>
 			<guid isPermaLink="false">2026-06-18:Pay $THREE per High generation — no holding required</guid>

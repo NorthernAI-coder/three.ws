@@ -9,6 +9,11 @@
  * trading: followers can see exactly which conviction calls were made and how
  * they resolved before choosing to mirror a leader.
  *
+ * An agent with no oracle activity returns 200 with an empty summary
+ * (summary.total === 0), not a 404 — "no track record yet" is a valid state the
+ * widget hides, and most agents never trade through the oracle. Only a malformed
+ * agent_id is a 400.
+ *
  * Cache: 60s public CDN (the data changes only when the settle-loop runs).
  */
 
@@ -37,16 +42,17 @@ export default async function handleAgentStats(req, res) {
 		return json(res, 400, { error: 'invalid_agent_id', message: 'agent_id must be a UUID' });
 	}
 
-	// Load agent name so callers don't need a separate /api/agents fetch.
-	const [agentRow] = await sql`
-		select name, description, image_url from agent_identities where id = ${agentId}
-	`.catch(() => []);
-
-	if (!agentRow) {
-		return json(res, 404, { error: 'agent_not_found', message: 'No agent with that ID' });
-	}
-
-	const [summary, actions] = await Promise.all([
+	// The track record lives in oracle_watch_actions, keyed by agent_id alone.
+	// The agent_identities row only enriches the response with a name/avatar so
+	// callers don't need a separate /api/agents fetch. Most agents never trade
+	// through the oracle, so a missing identity row is the common case — not an
+	// error: return an empty record (summary.total === 0) and let the caller hide
+	// the widget rather than 404'ing every agent page. All three reads are
+	// independent, so run them concurrently.
+	const [agentRow, summary, actions] = await Promise.all([
+		sql`select name, description, image_url from agent_identities where id = ${agentId}`
+			.then((rows) => rows[0] || null)
+			.catch(() => null),
 		actionsSummary(agentId, network),
 		recentActions(agentId, network, limit),
 	]);
@@ -68,9 +74,9 @@ export default async function handleAgentStats(req, res) {
 	return json(res, 200, {
 		agent: {
 			id: agentId,
-			name: agentRow.name,
-			description: agentRow.description || null,
-			image_url: agentRow.image_url || null,
+			name: agentRow?.name || null,
+			description: agentRow?.description || null,
+			image_url: agentRow?.image_url || null,
 		},
 		network,
 		summary,
