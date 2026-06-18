@@ -27,12 +27,12 @@ import { CC_AVATAR_KEY } from './game/play-handoff.js';
 // ── config ──────────────────────────────────────────────────────────────────
 
 const params = new URLSearchParams(location.search);
-// The agent-wallet bridge (scripts/agent-wallet-x402-bridge.mjs) holds a signing
-// key in the developer's terminal session, so it only ever runs locally — there
-// is no hosted production equivalent. Default to the local bridge in dev (or when
-// the host is literal localhost); in production stay empty so we surface the
-// designed "bridge offline" banner instead of hammering a dead 127.0.0.1 socket.
-function defaultBridgeUrl() {
+// The local bridge (scripts/agent-wallet-x402-bridge.mjs) holds a signing key in
+// a developer's terminal, so it only runs on localhost. In production we use the
+// hosted bridge (api/agent-wallet-bridge) which signs with the platform-held
+// payer wallet — gated behind sign-in + spending caps — so real visitors can pay
+// too. Prefer an explicit ?bridge= override, then a local dev bridge, else hosted.
+function localBridgeUrl() {
 	const explicit = params.get('bridge');
 	if (explicit) return explicit.replace(/\/$/, '');
 	let isDev = false;
@@ -41,7 +41,13 @@ function defaultBridgeUrl() {
 	const isLocalHost = host === 'localhost' || host === '127.0.0.1';
 	return isDev || isLocalHost ? 'http://127.0.0.1:4402' : '';
 }
-const BRIDGE_URL = defaultBridgeUrl();
+const LOCAL_BRIDGE = localBridgeUrl();
+const HOSTED = !LOCAL_BRIDGE;
+const BRIDGE_BASE = LOCAL_BRIDGE || '/api/agent-wallet-bridge';
+const BRIDGE_URL = BRIDGE_BASE; // always set — hosted in prod, local in dev
+const statusUrl = () => (HOSTED ? `${BRIDGE_BASE}?status=1` : `${BRIDGE_BASE}/status`);
+const quoteUrl = (qs) => (HOSTED ? `${BRIDGE_BASE}?quote=1&${qs}` : `${BRIDGE_BASE}/quote?${qs}`);
+const payUrl = () => (HOSTED ? `${BRIDGE_BASE}?pay=1` : `${BRIDGE_BASE}/pay`);
 // The paid endpoint the avatar buys from. three.ws prod by default so the
 // payment settles against the live facilitator even from local dev.
 const ENDPOINT = params.get('endpoint') || 'https://three.ws/api/x402/crypto-intel';
@@ -496,7 +502,11 @@ renderStages();
 function renderError() {
 	const el = $('flowError');
 	if (!live.error) { el.classList.remove('show'); return; }
-	el.innerHTML = `<div class="b-head">Payment failed — no funds moved</div>${escapeHtml(live.error.message)}`;
+	if (live.error.needsAuth) {
+		el.innerHTML = `<div class="b-head">Sign in to pay</div>${escapeHtml(live.error.message)} <a href="/login" style="color:var(--acc);text-decoration:underline">Sign in →</a>`;
+	} else {
+		el.innerHTML = `<div class="b-head">Payment failed — no funds moved</div>${escapeHtml(live.error.message)}`;
+	}
 	el.classList.add('show');
 }
 function escapeHtml(s) {
@@ -543,19 +553,8 @@ function updatePayButton() {
 // ── bridge client ───────────────────────────────────────────────────────────
 
 async function refreshStatus() {
-	if (!BRIDGE_URL) {
-		// Production / no local bridge configured: skip the doomed socket and go
-		// straight to the offline banner that explains how to run the bridge.
-		live.bridge = 'offline';
-		$('bridgeOffline').classList.add('show');
-		$('lowBalance').classList.remove('show');
-		$('wBal').innerHTML = '—<small>USD</small>';
-		updatePayButton();
-		renderStages();
-		return;
-	}
 	try {
-		const r = await fetch(`${BRIDGE_URL}/status`, { signal: AbortSignal.timeout(4000) });
+		const r = await fetch(statusUrl(), { signal: AbortSignal.timeout(8000) });
 		if (!r.ok) throw new Error('HTTP ' + r.status);
 		const data = await r.json();
 		live.bridge = 'online';
@@ -580,9 +579,8 @@ async function refreshStatus() {
 
 async function loadQuote() {
 	try {
-		if (!BRIDGE_URL) throw new Error('no local bridge');
 		const qs = new URLSearchParams({ endpoint: ENDPOINT, method: 'POST', body: JSON.stringify({ topic: activeTopic }) });
-		const r = await fetch(`${BRIDGE_URL}/quote?${qs}`, { signal: AbortSignal.timeout(8000) });
+		const r = await fetch(quoteUrl(qs.toString()), { signal: AbortSignal.timeout(8000) });
 		if (!r.ok) throw new Error('HTTP ' + r.status);
 		const q = await r.json();
 		if (!q.ok) throw new Error(q.error || 'quote failed');
@@ -622,11 +620,20 @@ async function pay() {
 	await walkTo(PAY_SPOT);
 
 	try {
-		const res = await fetch(`${BRIDGE_URL}/pay`, {
+		const res = await fetch(payUrl(), {
 			method: 'POST',
 			headers: { 'content-type': 'application/json', accept: 'text/event-stream' },
 			body: JSON.stringify({ endpoint: ENDPOINT, method: 'POST', body: { topic: activeTopic } }),
 		});
+		if (res.status === 401) {
+			// Hosted bridge: real spend needs a signed-in session.
+			live.error = { stage: 'challenge', message: 'Sign in to let your agent wallet make a real payment.', needsAuth: true };
+			throw new Error('auth required');
+		}
+		if (res.status === 429) {
+			live.error = { stage: 'challenge', message: 'Too many payment attempts — try again in a moment.' };
+			throw new Error('rate limited');
+		}
 		if (!res.ok || !res.body) throw new Error(`bridge /pay failed: HTTP ${res.status}`);
 		const reader = res.body.getReader();
 		const decoder = new TextDecoder();
@@ -648,7 +655,8 @@ async function pay() {
 			throw new Error('payment stream ended without a settlement');
 		}
 	} catch (err) {
-		live.error = { stage: live.stage || 'challenge', message: err.message };
+		// Keep a more specific error (e.g. needs-auth / rate-limited) if one was set.
+		if (!live.error) live.error = { stage: live.stage || 'challenge', message: err.message };
 	} finally {
 		live.paying = false;
 	}

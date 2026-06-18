@@ -28,7 +28,8 @@ import {
 
 import { sql } from '../_lib/db.js';
 import { authenticateBearer, extractBearer, getSessionUser } from '../_lib/auth.js';
-import { cors, error, json, method, readJson, wrap, rateLimited } from '../_lib/http.js';
+import { cors, error, json, method, readJson, wrap, rateLimited, respondError } from '../_lib/http.js';
+import { requireCsrf } from '../_lib/csrf.js';
 import { clientIp, limits } from '../_lib/rate-limit.js';
 import { recoverSolanaAgentKeypair } from '../_lib/agent-wallet.js';
 import { confirmSkillPurchase, resolvePayoutAddress, logEvent } from '../_lib/purchase-confirm.js';
@@ -45,9 +46,9 @@ const bodySchema = z.object({
 
 async function resolveAuth(req) {
 	const session = await getSessionUser(req);
-	if (session) return { userId: session.id };
+	if (session) return { userId: session.id, fromSession: true };
 	const bearer = await authenticateBearer(extractBearer(req));
-	if (bearer) return { userId: bearer.userId };
+	if (bearer) return { userId: bearer.userId, fromSession: false };
 	return null;
 }
 
@@ -61,6 +62,9 @@ export default wrap(async (req, res) => {
 
 	const auth = await resolveAuth(req);
 	if (!auth) return error(res, 401, 'unauthorized', 'sign in required');
+
+	// Session-cookie writes need CSRF; bearer-token callers are exempt.
+	if (auth.fromSession && !(await requireCsrf(req, res, auth.userId))) return;
 
 	// Per-IP rate limit (coarse gate)
 	const rlIp = await limits.authIp(clientIp(req));
@@ -182,7 +186,7 @@ export default wrap(async (req, res) => {
 			meta: { seller_agent_id, skill, is_self_dealing: isSelfDealing },
 		});
 	} catch (e) {
-		return error(res, 500, 'wallet_decrypt_failed', `could not load buyer keypair: ${e.message}`);
+		return respondError(res, 500, 'wallet_decrypt_failed', e);
 	}
 
 	// Resolve seller payout wallet
@@ -277,7 +281,7 @@ export default wrap(async (req, res) => {
 		`;
 		await logEvent(pur.id, 'tx_send_failed', { error: e.message }).catch(() => {});
 		log('purchase_as_agent.tx_failed', { purchase_id: pur.id, error: e.message, buyer_agent_id });
-		return error(res, 502, 'tx_send_failed', `failed to submit transaction: ${e.message}`);
+		return respondError(res, 502, 'tx_send_failed', e);
 	}
 
 	// Validate on-chain + record revenue + emit notifications via canonical lib

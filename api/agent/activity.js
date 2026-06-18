@@ -8,6 +8,7 @@
 // Address + parsed transactions); no mocks, no sample feed.
 
 import { cors, json, method, wrap } from '../_lib/http.js';
+import { clampInt } from '../_lib/http-params.js';
 import {
 	avatarWalletConfig,
 	getConnection,
@@ -75,7 +76,7 @@ export default wrap(async (req, res) => {
 	// Graceful no-op for the poller when the wallet isn't set up yet.
 	if (!cfg.configured) return json(res, 200, { configured: false, transfers: [] });
 
-	const limit = Math.min(Math.max(parseInt(req.query?.limit, 10) || 10, 1), 25);
+	const limit = clampInt(req.query?.limit, { max: 25, fallback: 10 });
 	const connection = getConnection(cfg.rpcUrl);
 	const owner = new PublicKey(cfg.address);
 

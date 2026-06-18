@@ -6,6 +6,7 @@
 import { sql } from '../_lib/db.js';
 import { getSessionUser } from '../_lib/auth.js';
 import { cors, method, wrap, error, readJson, json } from '../_lib/http.js';
+import { requireCsrf } from '../_lib/csrf.js';
 
 const VALID_KINDS = new Set(['daily_persona', 'weekly_digest', 'price_milestone', 'payment_received']);
 
@@ -53,6 +54,7 @@ export default wrap(async (req, res) => {
 	}
 
 	if (req.method === 'POST') {
+		if (!(await requireCsrf(req, res, user.id))) return;
 		const body = await readJson(req);
 		const kind = body?.kind;
 		if (!VALID_KINDS.has(kind)) return error(res, 400, 'validation_error', `kind must be one of: ${[...VALID_KINDS].join(', ')}`);
@@ -72,6 +74,7 @@ export default wrap(async (req, res) => {
 	if (!id) return error(res, 400, 'validation_error', 'id required');
 
 	if (req.method === 'PATCH') {
+		if (!(await requireCsrf(req, res, user.id))) return;
 		const body = await readJson(req);
 		const existing = (await sql`select kind, config from x_triggers where id = ${id} and user_id = ${user.id} limit 1`)[0];
 		if (!existing) return error(res, 404, 'not_found', 'trigger not found');
@@ -96,6 +99,7 @@ export default wrap(async (req, res) => {
 	}
 
 	// DELETE
+	if (!(await requireCsrf(req, res, user.id))) return;
 	const result = await sql`delete from x_triggers where id = ${id} and user_id = ${user.id} returning id`;
 	if (!result.length) return error(res, 404, 'not_found', 'trigger not found');
 	return json(res, 200, { deleted: id });

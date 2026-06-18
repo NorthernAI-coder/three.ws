@@ -12,6 +12,7 @@
 // must not surface as a 5xx on a paid response that already settled on-chain.
 
 import { sql } from '../db.js';
+import { clampInt } from '../http-params.js';
 
 import { extractReceiptPayload } from '@x402/extensions';
 
@@ -69,7 +70,7 @@ export function recordReceipt({ resourceUrl, signedReceipt, settled }) {
 export async function listReceiptsForPayer({ payer, sinceUnix, limit }) {
 	const normPayer = normalisePayer(payer);
 	if (!normPayer) return [];
-	const clampedLimit = Math.min(Math.max(parseInt(limit, 10) || 50, 1), 200);
+	const clampedLimit = clampInt(limit, { max: 200, fallback: 50 });
 	const sinceDate =
 		sinceUnix && Number.isFinite(Number(sinceUnix))
 			? new Date(Number(sinceUnix) * 1000)

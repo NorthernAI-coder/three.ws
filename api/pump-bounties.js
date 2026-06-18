@@ -8,13 +8,14 @@
 import { cors, json, error, wrap, method } from './_lib/http.js';
 import { cacheGet, cacheSet } from './_lib/cache.js';
 import { listBounties, PumpGoError } from './_lib/pump-go.js';
+import { clampInt } from './_lib/http-params.js';
 
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'GET,OPTIONS' })) return;
 	if (!method(req, res, ['GET'])) return;
 
 	const url = new URL(req.url, 'http://localhost');
-	const limit = Math.min(Math.max(parseInt(url.searchParams.get('limit') || '30', 10), 1), 50);
+	const limit = clampInt(url.searchParams.get('limit'), { max: 50, fallback: 30 });
 	const cursor = url.searchParams.get('cursor') || null;
 	const status = url.searchParams.get('status') || null;
 

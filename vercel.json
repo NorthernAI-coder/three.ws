@@ -3489,6 +3489,16 @@
 			"dest": "/a-me.html"
 		},
 		{
+			"src": "/a-embed",
+			"headers": {
+				"content-security-policy": "frame-ancestors *; base-uri 'self'; object-src 'none'; report-uri /api/client-errors",
+				"x-content-type-options": "nosniff",
+				"referrer-policy": "strict-origin-when-cross-origin",
+				"permissions-policy": "microphone=(self), camera=(self), xr-spatial-tracking=*"
+			},
+			"dest": "/a-embed.html"
+		},
+		{
 			"src": "/a/(\\d+)/(\\d+)/embed",
 			"headers": {
 				"content-security-policy": "frame-ancestors *; base-uri 'self'; object-src 'none'; report-uri /api/client-errors",

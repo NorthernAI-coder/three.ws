@@ -20,6 +20,30 @@ async function getSession() {
 	return _session;
 }
 
+// The signed-in user's linked Solana wallets — the source of truth for whether
+// a wallet is *actually* claimed. A claim is a SIWS-verified `user_wallets`
+// row (chain_type=solana); we read it back here rather than trusting an
+// optimistic "you're signed in, so it's claimed" assumption.
+let _linkedWallets = null;
+async function getLinkedSolanaWallets({ force = false } = {}) {
+	if (_linkedWallets !== null && !force) return _linkedWallets;
+	try {
+		const r = await fetch('/api/auth/wallets', { credentials: 'include' });
+		if (!r.ok) { _linkedWallets = []; return _linkedWallets; }
+		const { wallets } = await r.json();
+		_linkedWallets = (wallets || [])
+			.filter((w) => (w.chain_type || '').toLowerCase() === 'solana')
+			.map((w) => w.address);
+	} catch { _linkedWallets = []; }
+	return _linkedWallets;
+}
+
+// Solana base58 is case-sensitive; compare addresses exactly.
+async function isWalletClaimed(wallet) {
+	const linked = await getLinkedSolanaWallets();
+	return linked.includes(wallet);
+}
+
 function esc(s) {
 	return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
@@ -106,9 +130,15 @@ async function preview(wallet) {
 	}
 
 	const session = await getSession();
-	result.innerHTML = cardHtml(data, !!session);
+	const signedIn = !!session?.user;
+	const claimed = signedIn ? await isWalletClaimed(wallet) : false;
 
-	// Wire share button (only present when signed in)
+	result.innerHTML = cardHtml(data, { signedIn, claimed });
+	wireCtaActions(result, data, wallet);
+}
+
+// Wire the share + claim buttons for whichever CTA was rendered.
+function wireCtaActions(result, data, wallet) {
 	const shareBtn = result.querySelector('#cwShare');
 	if (shareBtn) {
 		const traderUrl = `${location.origin}/trader/${encodeURIComponent(wallet)}`;
@@ -124,6 +154,136 @@ async function preview(wallet) {
 			}
 		});
 	}
+
+	const claimBtn = result.querySelector('#cwClaim');
+	if (claimBtn) {
+		claimBtn.addEventListener('click', () => claimWallet(wallet, result, data));
+	}
+}
+
+// ── Real claim: link the wallet to the signed-in account via SIWS ───────────────
+// Claiming a wallet means proving you control its keypair. We drive the same
+// signature-verified link flow the dashboard uses:
+//   POST /api/auth/wallets/nonce-solana → sign the message → POST link-solana.
+// On success the wallet becomes a `user_wallets` row owned by the session user,
+// and /api/auth/wallets reflects it — i.e. the round-trip is real, not optimistic.
+
+function detectSolanaProvider() {
+	if (typeof window === 'undefined') return null;
+	return window.phantom?.solana || window.solana || window.backpack || window.solflare || null;
+}
+
+function setClaimMsg(result, text, tone = '') {
+	let el = result.querySelector('#cwClaimMsg');
+	if (!el) {
+		const cta = result.querySelector('.cw-cta');
+		if (!cta) return;
+		el = document.createElement('p');
+		el.id = 'cwClaimMsg';
+		cta.appendChild(el);
+	}
+	el.className = `cw-claim-msg ${tone}`;
+	el.textContent = text;
+}
+
+async function performLink({ message, signature, takeover }) {
+	const body = { message, signature };
+	if (takeover) body.takeover = true;
+	const res = await fetch('/api/auth/wallets/link-solana', {
+		method: 'POST',
+		credentials: 'include',
+		headers: { 'content-type': 'application/json' },
+		body: JSON.stringify(body),
+	});
+	const data = await res.json().catch(() => ({}));
+	return { res, data };
+}
+
+async function claimWallet(wallet, result, previewData) {
+	const btn = result.querySelector('#cwClaim');
+	if (!btn) return;
+
+	const provider = detectSolanaProvider();
+	if (!provider) {
+		setClaimMsg(result, 'No Solana wallet detected. Install Phantom, Backpack, or Solflare to claim — they prove you control this keypair.', 'err');
+		return;
+	}
+
+	btn.disabled = true;
+	const restore = btn.textContent;
+	btn.textContent = 'Connect wallet…';
+	setClaimMsg(result, '', '');
+
+	try {
+		if (!provider.isConnected) await provider.connect();
+		const connected = provider.publicKey?.toBase58?.() || provider.publicKey?.toString?.();
+		if (!connected) throw new Error('Could not read your wallet public key.');
+
+		// You can only claim the wallet you actually control. If the connected
+		// keypair doesn't match the previewed address, say so plainly.
+		if (connected !== wallet) {
+			setClaimMsg(result, `Your connected wallet (${shortAddr(connected)}) isn't this one. Switch to ${shortAddr(wallet)} in your wallet, then claim again.`, 'err');
+			btn.disabled = false;
+			btn.textContent = restore;
+			return;
+		}
+
+		btn.textContent = 'Requesting message…';
+		const nonceRes = await fetch('/api/auth/wallets/nonce-solana', {
+			method: 'POST',
+			credentials: 'include',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ address: wallet, chainId: 'mainnet' }),
+		});
+		const nonceData = await nonceRes.json().catch(() => ({}));
+		if (!nonceRes.ok) throw new Error(nonceData.error_description || nonceData.message || 'Could not start the claim.');
+
+		btn.textContent = 'Sign to claim…';
+		let sigBase64;
+		try {
+			const msgBytes = new TextEncoder().encode(nonceData.message);
+			const { signature } = await provider.signMessage(msgBytes, 'utf8');
+			sigBase64 = btoa(String.fromCharCode(...signature));
+		} catch (err) {
+			if (err?.code === 4001 || /reject|cancel/i.test(err?.message || '')) {
+				setClaimMsg(result, 'Signature cancelled — claim again whenever you’re ready.', 'err');
+			} else {
+				setClaimMsg(result, err?.message || 'Could not sign the claim message.', 'err');
+			}
+			btn.disabled = false;
+			btn.textContent = restore;
+			return;
+		}
+
+		btn.textContent = 'Claiming…';
+		let { res, data } = await performLink({ message: nonceData.message, signature: sigBase64 });
+
+		// Already linked to another account. The signature already proved you
+		// control the keypair, so offer an explicit takeover.
+		if (res.status === 409 && (data.error === 'address_in_use' || data.code === 'address_in_use')) {
+			const confirmed = window.confirm('This wallet is currently claimed by another three.ws account. Your signature proves you control it — move it to this account?');
+			if (!confirmed) {
+				setClaimMsg(result, 'Claim cancelled — this wallet stays on its current account.', 'err');
+				btn.disabled = false;
+				btn.textContent = restore;
+				return;
+			}
+			btn.textContent = 'Transferring…';
+			({ res, data } = await performLink({ message: nonceData.message, signature: sigBase64, takeover: true }));
+		}
+
+		if (!res.ok) throw new Error(data.error_description || data.message || `Claim failed (HTTP ${res.status}).`);
+
+		// Real success: re-read linked wallets and re-render in the claimed state.
+		await getLinkedSolanaWallets({ force: true });
+		result.innerHTML = cardHtml(previewData, { signedIn: true, claimed: true });
+		wireCtaActions(result, previewData, wallet);
+		setClaimMsg(result, data.transferred ? 'Moved to your account — your Trader Card is live.' : 'Claimed — your Trader Card is live.', 'ok');
+	} catch (err) {
+		setClaimMsg(result, err?.message || 'Could not claim this wallet. Try again.', 'err');
+		btn.disabled = false;
+		btn.textContent = restore;
+	}
 }
 
 // ── Card HTML ─────────────────────────────────────────────────────────────────
@@ -138,7 +298,8 @@ const LABEL_COPY = {
 	unproven:    'Unproven',
 };
 
-function cardHtml({ wallet, profile, coins, summary }, isSignedIn = false) {
+function cardHtml({ wallet, profile, coins, summary }, state = {}) {
+	const { signedIn = false, claimed = false } = state;
 	const label   = profile?.label || 'unproven';
 	const labelTxt = LABEL_COPY[label] || label;
 	const shortW   = shortAddr(wallet);
@@ -183,17 +344,34 @@ function cardHtml({ wallet, profile, coins, summary }, isSignedIn = false) {
 	const loginUrl = `/login?next=${encodeURIComponent(`/claim-wallet?wallet=${encodeURIComponent(wallet)}`)}`;
 	const traderUrl = `/trader/${encodeURIComponent(wallet)}`;
 
-	const ctaHtml = isSignedIn
-		? `<div class="cw-cta cw-cta-claimed">
+	let ctaHtml;
+	if (claimed) {
+		// Verified-claimed: the wallet is a SIWS-linked row on this account.
+		ctaHtml = `<div class="cw-cta cw-cta-claimed">
 			<h3>Your Trader Card is live</h3>
-			<p>Share your track record publicly. Anyone can follow your trades and copy your entries
-			   from their own wallet — you earn a performance fee when they profit.</p>
+			<p>This wallet is verified and linked to your account. Share your track record publicly —
+			   anyone can follow your trades and copy your entries from their own wallet, and you earn
+			   a performance fee when they profit.</p>
 			<div class="cw-cta-btns">
 				<a href="${esc(traderUrl)}" class="cw-cta-btn primary">View your Trader Card →</a>
 				<button type="button" class="cw-cta-btn secondary" id="cwShare">Share ↗</button>
 			</div>
-		   </div>`
-		: `<div class="cw-cta">
+		   </div>`;
+	} else if (signedIn) {
+		// Signed in but not yet linked — offer the real, signature-verified claim.
+		ctaHtml = `<div class="cw-cta">
+			<h3>This is your track record — claim it</h3>
+			<p>Sign a message with this wallet to prove you control it and publish it as your official
+			   three.ws Trader Card. Your history becomes provable, shareable, and open for followers
+			   to copy — and you earn a performance fee on their profits.</p>
+			<div class="cw-cta-btns">
+				<button type="button" class="cw-cta-btn primary" id="cwClaim">Claim this wallet →</button>
+				<a href="${esc(traderUrl)}" class="cw-cta-btn secondary">Preview the public card</a>
+			</div>
+			<p class="cw-claim-hint">You’ll sign a free, gasless message in Phantom, Backpack, or Solflare — no transaction, no approval to spend.</p>
+		   </div>`;
+	} else {
+		ctaHtml = `<div class="cw-cta">
 			<h3>This is your track record — own it</h3>
 			<p>Sign in to publish this as your official three.ws Trader Card. Your history becomes provable,
 			   shareable, and open for followers to copy — and you earn a performance fee on their profits.</p>
@@ -202,6 +380,7 @@ function cardHtml({ wallet, profile, coins, summary }, isSignedIn = false) {
 				<a href="/leaderboard" class="cw-cta-btn secondary">See the leaderboard</a>
 			</div>
 		   </div>`;
+	}
 
 	return `<div class="cw-card">
 		<div class="cw-card-head">

@@ -1908,6 +1908,16 @@ function markAvatarReselect(poleId, message) {
 	setStatus(message, { kind: 'warn' });
 }
 
+// Clear the re-select prompt once a look loads successfully.
+function clearAvatarReselect(poleId) {
+	const btn = poleCardEls.get(poleId)?.querySelector('.club-avatar-btn');
+	if (!btn || !btn.classList.contains('needs-reselect')) return;
+	btn.classList.remove('needs-reselect');
+	btn.removeAttribute('title');
+	const change = btn.querySelector('.club-avatar-change');
+	if (change) change.textContent = 'Change avatar';
+}
+
 function renderPoles() {
 	if (!polesPanel) return;
 	polesPanel.innerHTML = '';

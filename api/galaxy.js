@@ -20,6 +20,7 @@
 
 import { sql } from './_lib/db.js';
 import { cors, json, method, readJson, wrap, error, rateLimited } from './_lib/http.js';
+import { clampInt } from './_lib/http-params.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 import { publicUrl } from './_lib/r2.js';
 import { watsonxConfig, watsonxEmbed, watsonxChatComplete } from './_lib/watsonx.js';
@@ -82,7 +83,7 @@ export default wrap(async (req, res) => {
 async function handleGalaxy(req, res, cfg) {
 	const url = new URL(req.url, 'http://x');
 	const refresh = url.searchParams.get('refresh') === '1';
-	const limit = Math.min(Math.max(parseInt(url.searchParams.get('limit') || '600', 10), 1), 1200);
+	const limit = clampInt(url.searchParams.get('limit'), { max: 1200, fallback: 600 });
 
 	await ensureSnapshotTable();
 
@@ -178,7 +179,7 @@ async function handleSearch(req, res, cfg) {
 	const query = String(body.query || '').trim().slice(0, 200);
 	if (!query) return error(res, 400, 'validation_error', 'query is required');
 
-	const topK = Math.min(Math.max(parseInt(body.limit, 10) || 12, 1), 30);
+	const topK = clampInt(body.limit, { max: 30, fallback: 12 });
 
 	// Embed the query with the same Granite model the agents were embedded with, so
 	// query and agent vectors share a space.

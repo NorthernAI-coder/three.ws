@@ -10,6 +10,7 @@
 
 import { sql } from './_lib/db.js';
 import { cors, json, method, wrap, rateLimited } from './_lib/http.js';
+import { clampInt } from './_lib/http-params.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 import { publicUrl } from './_lib/r2.js';
 
@@ -21,7 +22,7 @@ export default wrap(async (req, res) => {
 	if (!rl.success) return rateLimited(res, rl);
 
 	const url = new URL(req.url, 'http://x');
-	const limit = Math.min(Math.max(parseInt(url.searchParams.get('limit') || '24', 10), 1), 60);
+	const limit = clampInt(url.searchParams.get('limit'), { max: 60, fallback: 24 });
 	const cursor = url.searchParams.get('cursor') || null;
 	const q = (url.searchParams.get('q') || '').trim().slice(0, 80);
 	const sort = url.searchParams.get('sort') === 'chats' ? 'chats' : 'new';

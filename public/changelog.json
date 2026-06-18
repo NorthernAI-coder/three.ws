@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-18T23:14:18.214Z",
+	"generated_at": "2026-06-18T23:25:57.581Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -23,6 +23,17 @@
 			"summary": "An audit of Avatar Studio turned up twelve places where it would throw and stop instead of working: checking whether a trait is NFT-locked, looking up traits and model parts, verifying that your wallet owns a required collection, connecting an Ethereum or Polygon wallet, exporting a GLB, recovering from a failed Solana transaction, decoding KTX2 textures, and loading older VRM0 avatars all hit undefined-variable errors. All twelve are fixed, so trait selection, wallet-ownership gating, EVM wallet connect, model export, and VRM0 loading now run cleanly.",
 			"link": "/create/studio",
 			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-18",
+			"type": "update",
+			"title": "Avatar viewer, lipsync tools, sign-in and account polish from a labs & account audit",
+			"summary": "A page-by-page audit of the labs, avatar tools and account pages turned up rough edges we’ve now smoothed. The standalone Avatar Artifact viewer works on phones — it has a back link to three.ws, links out to Playground, Labs and Agents, a loading state, a designed message if the 3D runtime can’t load, and you can steer the avatar with touch or the arrow keys, not just a mouse. The mic lipsync demo now shows a clear, recoverable message when the microphone is blocked, missing or busy instead of a bare pop-up, and the TTS lipsync demo shows a retry banner if speech generation fails. Sign-in and sign-up no longer leave you on the form after a connection blip, redirect cleanly so Back doesn’t return you to a login screen you already passed, and signup now bounces you onward if you’re already signed in. Forgot-password tells you if your request didn’t reach us instead of always saying it was sent. The Playground rejects oversized or wrong-type model uploads with friendly guidance, the account page’s delegation panel now opens a working console to have one of your agents answer a prompt, and the reputation explorer clearly flags when reviews are written to a test network.",
+			"link": "/labs",
+			"tags": [
+				"improvement",
 				"fix"
 			]
 		},

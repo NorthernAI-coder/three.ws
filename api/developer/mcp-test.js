@@ -16,6 +16,7 @@
 import { sql } from '../_lib/db.js';
 import { getSessionUser } from '../_lib/auth.js';
 import { cors, json, method, readJson, wrap, error, rateLimited } from '../_lib/http.js';
+import { requireCsrf } from '../_lib/csrf.js';
 import { limits } from '../_lib/rate-limit.js';
 import { dispatch } from '../_mcp/dispatch.js';
 
@@ -31,8 +32,10 @@ export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'POST,OPTIONS', credentials: true })) return;
 	if (!method(req, res, ['POST'])) return;
 
-	const user = await getSessionUser(req);
+	const user = await getSessionUser(req, res);
 	if (!user) return error(res, 401, 'unauthorized', 'sign in to test MCP');
+
+	if (!(await requireCsrf(req, res, user.id))) return;
 
 	const rl = await limits.mcpUser(user.id);
 	if (!rl.success) return rateLimited(res, rl);

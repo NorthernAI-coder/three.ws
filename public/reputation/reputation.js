@@ -32,6 +32,7 @@ const EAS_CHAINS = {
 	},
 	84532: {
 		name: 'Base Sepolia',
+		testnet: true,
 		graphql: 'https://base-sepolia.easscan.org/graphql',
 		contract: '0x4200000000000000000000000000000000000021',
 		easscan: 'https://base-sepolia.easscan.org',
@@ -355,9 +356,10 @@ function mountSubmitForm(container, { recipientAddress, chainId }) {
 			<div class="rep-submit-header">
 				<div>
 					<h3 class="rep-submit-title">Write a review</h3>
-					<p class="rep-submit-sub">Signed on-chain · permanently public · ${esc(writeChain.name)}</p>
+					<p class="rep-submit-sub">Signed on-chain · permanently public · ${esc(writeChain.name)}${writeChain.testnet ? ' <span class="rep-testnet-tag">testnet</span>' : ''}</p>
 				</div>
 			</div>
+			${writeChain.testnet ? `<div class="rep-testnet-notice" role="note">Reviews are written to <strong>${esc(writeChain.name)}</strong> — a free test network. They're real, signed attestations for trying the flow, not mainnet reputation.</div>` : ''}
 
 			<div id="rep-wallet-area">
 				<button class="rep-connect-btn" id="rep-connect-btn">
@@ -395,7 +397,7 @@ function mountSubmitForm(container, { recipientAddress, chainId }) {
 				</button>
 				<p class="rep-submit-note">
 					Requires ~0.001 ${esc(writeChain.name)} ETH for gas.
-					${writeChain.name === 'Base Sepolia' ? `Get free testnet ETH at <a href="https://www.alchemy.com/faucets/base-sepolia" target="_blank" rel="noopener">Alchemy faucet</a>.` : ''}
+					${writeChain.testnet ? `Get free testnet ETH at <a href="https://www.alchemy.com/faucets/base-sepolia" target="_blank" rel="noopener">Alchemy faucet</a>.` : ''}
 				</p>
 			</div>
 		</div>

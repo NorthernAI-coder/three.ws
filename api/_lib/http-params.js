@@ -17,7 +17,7 @@
 export function clampInt(raw, { min = 1, max, fallback }) {
   if (!Number.isFinite(max)) throw new TypeError('clampInt: `max` is required and must be finite');
   if (!Number.isFinite(fallback)) throw new TypeError('clampInt: `fallback` is required and must be finite');
-  const parsed = typeof raw === 'number' ? raw : parseInt(raw, 10);
+  const parsed = typeof raw === 'number' ? Math.trunc(raw) : parseInt(raw, 10);
   const base = Number.isFinite(parsed) ? parsed : fallback;
   return Math.min(Math.max(base, min), max);
 }
