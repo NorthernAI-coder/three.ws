@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-06-18",
+			"title": "Glasses now sit on your avatar's eyes, not through its cheeks",
+			"summary": "In Avatar Studio, glasses and shades used to clip into the face — sitting low across the cheeks instead of on the eyes. Eyewear is now placed properly on the eye line, auto-sized to fit any avatar, and shades that were modelled lying flat are stood upright so they read as sunglasses. Hats and earrings are unchanged.",
+			"tags": [
+				"fix"
+			],
+			"link": "/create/studio"
+		},
+		{
+			"date": "2026-06-18",
 			"title": "Your agent can now pay for paid APIs from its own wallet",
 			"summary": "The wallet's new Pay tab lets your agent buy from the x402 marketplace in USDC straight from its own Solana wallet — never a shared platform account. Search the bazaar for a paid service (or paste an endpoint), see the live price and exactly what you're buying before you commit, then pay; you watch the payment get built, signed by the agent, and settled on-chain, and get the receipt with a transaction link. Every payment is checked against the agent's own spend limits first, and if the wallet is short on USDC it tells you and sends you to fund it instead of failing mid-pay. A running Payment activity list shows what the agent paid for, to whom, and when. Whenever an agent is in context, payments always come from that agent's wallet.",
 			"tags": [
