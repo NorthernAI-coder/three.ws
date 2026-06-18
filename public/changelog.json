@@ -1,11 +1,21 @@
 {
-	"generated_at": "2026-06-18T01:41:59.073Z",
+	"generated_at": "2026-06-18T01:57:16.378Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
 		"url": "https://three.ws"
 	},
 	"entries": [
+		{
+			"date": "2026-06-18",
+			"type": "update",
+			"title": "Coin community worlds no longer get stuck on “Connecting…”",
+			"summary": "Opening a coin community world could occasionally hang on “Connecting…” forever — you'd see only yourself, with chat, voice, and shared building all stalled and no way to recover short of a reload. It happened when the game server accepted the connection but never finished the join handshake, for instance while a server instance was waking from idle. The connection now has a firm time limit: if the handshake doesn't complete in time it retries on its own, and if the server stays unreachable it drops you cleanly into single-player so you can still explore and build locally — with the status pill tappable to reconnect. The same safeguard covers the open /walk world and the IRL map.",
+			"link": null,
+			"tags": [
+				"fix"
+			]
+		},
 		{
 			"date": "2026-06-18",
 			"type": "update",
@@ -44,6 +54,16 @@
 			"link": "/forge",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-18",
+			"type": "update",
+			"title": "The 3D agent on the homepage moves again instead of standing frozen",
+			"summary": "The live avatar in the homepage hero had stopped animating — it loaded but stood in a stiff arms-out pose, and the Wave, Dance, and Pray buttons did nothing. The viewer only renders frames while something is moving to save your battery, and a recent change meant that starting an animation no longer woke the renderer back up once it had gone idle, so the avatar was stuck on its first frame. The renderer is now nudged awake the instant any animation starts, so the homepage agent idles, walks, and responds to the move buttons as intended.",
+			"link": null,
+			"tags": [
+				"fix"
 			]
 		},
 		{

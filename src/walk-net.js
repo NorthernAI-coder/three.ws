@@ -15,6 +15,7 @@
 import { Client, getStateCallbacks } from 'colyseus.js';
 import { WalkState } from '../multiplayer/src/schemas.js';
 import { log } from './shared/log.js';
+import { joinRoomWithTimeout } from './shared/colyseus-connect.js';
 
 const ROOM_NAME = 'walk_world';
 const SEND_HZ = 15;
@@ -172,7 +173,11 @@ export class WalkNet {
 			// same coin mint join one room instance. `coin`/`coinName`/… seed that
 			// room's identity the first time it's created. Empty coin → mainland.
 			const presence = this.getPresence ? await this.getPresence().catch(() => null) : null;
-			const room = await this.client.joinOrCreate(ROOM_NAME, {
+			// Hard timeout on the join: a hung handshake (cold-start server, proxy
+			// holding the WS upgrade) would otherwise strand us in 'connecting'
+			// forever — joinOrCreate has no timeout. On timeout this throws and the
+			// catch below schedules a reconnect.
+			const room = await joinRoomWithTimeout(this.client, ROOM_NAME, {
 				name: this.name,
 				avatar: this.avatar,
 				agent: this.agent,

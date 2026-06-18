@@ -130,6 +130,32 @@ html[data-bg="transparent"] #cc-lobby {
 	.kx-boot-bar span { animation: none; width: 100%; transform: none; opacity: 0.5; }
 	.kx-boot-stage.kx-boot-noavatar .kx-boot-fallback { animation: none; }
 }
+/* Boot failure (most often no WebGL): the spinner is swapped for this card so a
+   player never gets stranded on a loader that can't resolve. */
+.kx-boot-error { max-width: 360px; gap: 14px; padding: 0 24px; }
+.kx-boot-error .kx-loading-mark { color: var(--cc-text); animation: none; opacity: 1; }
+.kx-boot-error-msg {
+	margin: 0; color: var(--cc-dim); font-size: 13px; line-height: 1.55;
+	letter-spacing: 0.01em; text-wrap: balance;
+}
+.kx-boot-error-actions { display: flex; align-items: center; gap: 16px; margin-top: 6px; }
+.kx-boot-error-btn {
+	appearance: none; cursor: pointer; font: inherit;
+	background: var(--cc-accent); color: var(--cc-ink);
+	border: 0; border-radius: var(--cc-radius);
+	padding: 9px 18px; font-size: 13px; font-weight: 700; letter-spacing: 0.02em;
+	transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease;
+}
+.kx-boot-error-btn:hover { box-shadow: var(--cc-glow); transform: translateY(-1px); }
+.kx-boot-error-btn:active { transform: translateY(0); opacity: 0.9; }
+.kx-boot-error-btn:focus-visible { outline: 2px solid var(--cc-edge-hi); outline-offset: 2px; }
+.kx-boot-error-link {
+	color: var(--cc-dim); font-size: 13px; text-decoration: none;
+	border-bottom: 1px solid var(--cc-edge-soft); padding-bottom: 1px;
+	transition: color 0.12s ease, border-color 0.12s ease;
+}
+.kx-boot-error-link:hover { color: var(--cc-text); border-color: var(--cc-edge-hi); }
+.kx-boot-error-link:focus-visible { outline: 2px solid var(--cc-edge-hi); outline-offset: 2px; border-radius: 1px; }
 
 /* ---------------- lobby ---------------- */
 #cc-lobby {

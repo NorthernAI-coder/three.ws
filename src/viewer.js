@@ -82,6 +82,17 @@ export class Viewer {
 		// External animation system (Mixamo-style)
 		this.animationManager = new AnimationManager();
 		this._animPanelEl = null;
+		// Restart the on-demand render loop whenever an external clip starts.
+		// crossfadeTo/play set currentAction asynchronously and hold no viewer
+		// reference, so onChange is the only signal that a new action is live —
+		// without invalidating here, a clip started after the load-reveal frames
+		// settle would never tick the mixer and the avatar would freeze in its
+		// bind pose (T-pose). Wired at construction so it survives kiosk mode,
+		// where _setupAnimationPanel (and its own onChange) is skipped.
+		this.animationManager.onChange = () => {
+			if (this._animPanelEl) this._renderAnimButtons();
+			this.invalidate();
+		};
 
 		this.state = {
 			environment:
@@ -1752,10 +1763,9 @@ export class Viewer {
 			this.invalidate();
 		});
 
-		// Listen for changes from AnimationManager
-		this.animationManager.onChange = () => {
-			this._renderAnimButtons();
-		};
+		// onChange (render panel buttons + invalidate the render loop) is wired
+		// once in the constructor so it also runs in kiosk mode, where this panel
+		// setup is skipped entirely.
 	}
 
 	/**

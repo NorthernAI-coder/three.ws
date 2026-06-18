@@ -12,6 +12,7 @@
 import { Client, getStateCallbacks } from 'colyseus.js';
 import { WalkState } from '../../multiplayer/src/schemas.js';
 import { log } from '../shared/log.js';
+import { joinRoomWithTimeout } from '../shared/colyseus-connect.js';
 
 const ROOM_NAME = 'walk_world';
 const RECONNECT_BASE_MS = 3000;
@@ -250,7 +251,11 @@ export class CommunityNet {
 				options.holderPass = this.holderPass;
 				options.holderMinUsd = this.holderMinUsd;
 			}
-			const room = await this.client.joinOrCreate(ROOM_NAME, options, WalkState);
+			// Hard timeout on the join: a hung handshake (Cloud Run cold start, wedged
+			// room, proxy holding the upgrade) would otherwise strand us in 'connecting'
+			// forever — joinOrCreate has no timeout of its own. On timeout this throws
+			// 'connect_timeout', falling through to the catch → reconnect with backoff.
+			const room = await joinRoomWithTimeout(this.client, ROOM_NAME, options, WalkState);
 			if (this._destroyed || gen !== this._connectGen) {
 				try { room.leave(); } catch {}
 				return;

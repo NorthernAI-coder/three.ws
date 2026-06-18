@@ -23,7 +23,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { AnimationManager } from '../animation-manager.js';
 import {
 	AVATAR_DEFAULT, loadManifest, getLocomotionDefs, CLIP_IDLE,
-	resolveAvatarUrl, dracoLoader,
+	resolveAvatarUrl, dracoLoader, meshoptReady,
 } from './avatar-rig.js';
 import { getRequestedAvatar } from './play-handoff.js';
 import { log } from '../shared/log.js';
@@ -69,12 +69,14 @@ function boot() {
 	// agent's GLB via a "See in 3D" link) if present, otherwise the one the player
 	// chose (persisted in cc-avatar by the lobby / a create→play handoff) — not a
 	// generic default, so the first character they see while the scene loads is the
-	// right one. DRACO is wired in
-	// because most avatar GLBs are compressed. Falls back to the default on any
-	// resolve/load failure so a broken pick never wedges the loader.
+	// right one. DRACO and meshopt are both wired in because most avatar GLBs are
+	// compressed (the default avatar uses EXT_meshopt_compression). Falls back to
+	// the default on any resolve/load failure so a broken pick never wedges the loader.
 	const loader = new GLTFLoader();
 	loader.setDRACOLoader(dracoLoader);
-	resolveAvatarUrl(getRequestedAvatar())
+	meshoptReady
+		.then((decoder) => { if (decoder) loader.setMeshoptDecoder(decoder); })
+		.then(() => resolveAvatarUrl(getRequestedAvatar()))
 		.then((chosen) => loader.loadAsync(chosen).catch(() => loader.loadAsync(AVATAR_DEFAULT)))
 		.then(async (gltf) => {
 		if (!alive) return;
