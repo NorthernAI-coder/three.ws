@@ -95,7 +95,20 @@ function injectStyles() {
 	@keyframes tkSh { from { background-position:200% 0; } to { background-position:-200% 0; } }
 	.tk-foot { display:flex; gap:18px; flex-wrap:wrap; margin-top:26px; font-size:13px; }
 	.tk-foot a { color:#9a9aa3; text-decoration:none; } .tk-foot a:hover { color:#fff; }
-	@media (prefers-reduced-motion: reduce){ .tk-trade.in { animation:none; } .tk-skel { animation:none; } }
+	.tk-bb { margin-top:18px; }
+	.tk-bb-lead { color:#9a9aa3; font-size:13px; margin:0 0 14px; line-height:1.5; }
+	.tk-bb-empty { color:#b8b8c0; font-size:14px; line-height:1.6; }
+	.tk-bb-empty strong { color:#f5f5f7; }
+	.tk-bb-empty span { display:block; color:#7d7d86; font-size:13px; margin-top:6px; }
+	.tk-bb-head { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:14px; }
+	.tk-bb-k { font-size:11px; text-transform:uppercase; letter-spacing:0.06em; color:#7d7d86; margin-bottom:4px; }
+	.tk-bb-v { font-size:20px; font-weight:700; font-family:ui-monospace,Menlo,monospace; }
+	.tk-bb-bar { height:8px; border-radius:6px; background:#1d1d24; overflow:hidden; }
+	.tk-bb-bar span { display:block; height:100%; background:linear-gradient(90deg,#4ade80,#22d3ee); border-radius:6px; transition:width .6s ease; }
+	.tk-bb-foot { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-top:10px; font-size:12.5px; color:#7d7d86; }
+	.tk-bb-foot a { color:#7CC4FF; text-decoration:none; } .tk-bb-foot a:hover { text-decoration:underline; }
+	@media (max-width:560px){ .tk-bb-head { grid-template-columns:1fr; gap:8px; } }
+	@media (prefers-reduced-motion: reduce){ .tk-trade.in { animation:none; } .tk-skel { animation:none; } .tk-bb-bar span { transition:none; } }
 	`;
 	const el = document.createElement('style');
 	el.textContent = css;
@@ -118,6 +131,38 @@ function renderHeaderStats(token) {
 			${s.sub ? `<div style="font-size:12px;margin-top:3px;color:${up ? '#4ade80' : '#f87171'}">${s.sub} 24h</div>` : ''}
 		</div>`;
 	}).join('');
+}
+
+// ── programmatic buybacks (revenue → $THREE → treasury) ──────────────────────
+function renderBuyback(bb) {
+	if (!bb) return `<div class="tk-empty" style="padding:24px 0">Couldn’t load buyback data.</div>`;
+	const revenue = fmtUsd(bb.revenue_usd);
+	const lead = `Platform revenue is programmatically converted into $THREE buy pressure and routed to the treasury — onchain, on a schedule. No burn: supply is never destroyed.`;
+	if (!bb.runs) {
+		return `
+			<p class="tk-bb-lead">${lead}</p>
+			<div class="tk-bb-empty">
+				<strong>${revenue}</strong> in platform revenue earned so far.
+				<span>Buybacks begin once the treasury deploys revenue onchain — every run will appear here with its Solscan receipt.</span>
+			</div>`;
+	}
+	const pct = Math.max(0, Math.min(100, Number(bb.deployed_pct) || 0));
+	const last = bb.last_run;
+	const lastDate = last?.at ? new Date(last.at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : null;
+	return `
+		<p class="tk-bb-lead">${lead}</p>
+		<div class="tk-bb-head">
+			<div><div class="tk-bb-k">Revenue earned</div><div class="tk-bb-v">${revenue}</div></div>
+			<div><div class="tk-bb-k">Deployed to buybacks</div><div class="tk-bb-v">${fmtUsd(bb.deployed_usd)}</div></div>
+			<div><div class="tk-bb-k">$THREE bought</div><div class="tk-bb-v">${fmtNum(bb.three_bought)}</div></div>
+		</div>
+		<div class="tk-bb-bar" role="progressbar" aria-valuenow="${pct.toFixed(0)}" aria-valuemin="0" aria-valuemax="100" aria-label="Share of revenue deployed to buybacks">
+			<span style="width:${pct}%"></span>
+		</div>
+		<div class="tk-bb-foot">
+			<span>${pct.toFixed(1)}% of revenue → onchain buy pressure · ${fmtNum(bb.runs)} run${bb.runs === 1 ? '' : 's'}</span>
+			${last?.signature ? `<a href="https://solscan.io/tx/${esc(last.signature)}" target="_blank" rel="noopener">Last buyback${lastDate ? ` · ${lastDate}` : ''} ↗</a>` : ''}
+		</div>`;
 }
 
 // ── live trade tape via SSE (reconnecting) ───────────────────────────────────
@@ -223,6 +268,10 @@ function boot() {
 				</div>
 			</div>
 		</div>
+		<div class="tk-card tk-bb">
+			<h2>Programmatic buybacks</h2>
+			<div data-buyback><div class="tk-skel" style="height:96px"></div></div>
+		</div>
 		<div class="tk-foot">
 			<a href="/dashboard/holders">🏆 Holder leaderboard</a>
 			<a href="/three-live">⚡ Protocol Pulse (live 3D)</a>
@@ -260,6 +309,13 @@ function boot() {
 
 	// Live trade tape.
 	startTradeTape(wrap.querySelector('[data-tape]'), wrap.querySelector('[data-tape-status]'));
+
+	// Programmatic buyback panel — real figures from the protocol stats endpoint.
+	const bbEl = wrap.querySelector('[data-buyback]');
+	fetch('/api/three-token/stats', { headers: { accept: 'application/json' } })
+		.then((r) => (r.ok ? r.json() : Promise.reject(new Error(`stats ${r.status}`))))
+		.then((d) => { bbEl.innerHTML = renderBuyback(d.buyback); })
+		.catch(() => { bbEl.innerHTML = renderBuyback(null); });
 }
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);

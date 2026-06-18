@@ -25,17 +25,21 @@ import {
 
 import { sql } from '../db.js';
 import { getConnection, solanaPubkey } from '../pump.js';
-import { SOLANA_USDC_MINT } from '../payments/_config.js';
+import { SOLANA_USDC_MINT } from '../../payments/_config.js';
 import { TOKEN_MINT, TOKEN_DECIMALS } from './config.js';
 import { treasuryWallet, treasuryWalletOrNull } from './config.js';
+import {
+	computeSpend,
+	deployedPct,
+	envSlippageBps,
+	envUsd,
+	usdcAtomicsToUsd as usdcToUsd,
+	atomicsToTokens,
+} from './buyback-math.js';
 
 const JUP_QUOTE_URL = 'https://lite-api.jup.ag/swap/v1/quote';
 const JUP_SWAP_URL = 'https://lite-api.jup.ag/swap/v1/swap';
 const MEMO_PROGRAM_ID = 'MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr';
-
-const USDC_DECIMALS = 6;
-const USDC_ATOMICS = 10n ** BigInt(USDC_DECIMALS);
-const THREE_ATOMICS = 10n ** BigInt(TOKEN_DECIMALS);
 
 // ── policy knobs (env, with safe defaults) ──────────────────────────────────
 
@@ -44,28 +48,19 @@ export function isEnabled() {
 	return ['1', 'true', 'yes', 'on'].includes(String(process.env.THREE_BUYBACK_ENABLED || '').toLowerCase());
 }
 
-function positiveEnvUsd(key, fallback) {
-	const raw = process.env[key];
-	if (raw === undefined || String(raw).trim() === '') return fallback;
-	const n = Number(raw);
-	return Number.isFinite(n) && n > 0 ? n : fallback;
-}
-
 /** Max USD a single run may deploy — bounds a runaway/over-funded sweep. */
 export function maxUsdPerRun() {
-	return positiveEnvUsd('THREE_BUYBACK_MAX_USD', 250);
+	return envUsd(process.env.THREE_BUYBACK_MAX_USD, 250);
 }
 
 /** Below this, a run is skipped so dust doesn't pay more in fees than it buys. */
 export function minUsdPerRun() {
-	return positiveEnvUsd('THREE_BUYBACK_MIN_USD', 10);
+	return envUsd(process.env.THREE_BUYBACK_MIN_USD, 10);
 }
 
 /** Jupiter slippage tolerance in basis points (default 3%). */
 export function slippageBps() {
-	const raw = process.env.THREE_BUYBACK_SLIPPAGE_BPS;
-	const n = Number(raw);
-	return Number.isFinite(n) && n > 0 && n <= 5000 ? Math.round(n) : 300;
+	return envSlippageBps(process.env.THREE_BUYBACK_SLIPPAGE_BPS, 300);
 }
 
 /** Load the buyback signer (base64 of 64 secret-key bytes). Null when unset. */
@@ -85,8 +80,8 @@ export async function loadBuybackSigner() {
 
 // ── helpers ─────────────────────────────────────────────────────────────────
 
-const usd = (atomics) => Number(BigInt(atomics)) / Number(USDC_ATOMICS);
-const threeTokens = (atomics) => Number(BigInt(atomics)) / Number(THREE_ATOMICS);
+const usd = (atomics) => usdcToUsd(atomics);
+const threeTokens = (atomics) => atomicsToTokens(atomics, TOKEN_DECIMALS);
 
 /** SPL balance of `owner` for `mint`, in atomics. Missing ATA → 0n (never throws). */
 async function splBalanceAtomics(connection, ownerPk, mintPk) {
@@ -152,20 +147,22 @@ async function jupiterSwapTx(quote, userPublicKey) {
  * @returns {Promise<object>} { ok, reason?, spendUsdcAtomics, walletUsdcAtomics, quote?, expectedThreeAtomics?, priceUsd? }
  */
 export async function planBuyback(signerPubkey) {
+	// Fail BEFORE spending if the treasury sink is unconfigured — otherwise a buy
+	// could succeed with nowhere policy-correct to route the bought $THREE.
+	if (!treasuryWalletOrNull()) {
+		return { ok: false, reason: 'treasury_unavailable', walletUsdcAtomics: 0n, spendUsdcAtomics: 0n };
+	}
+
 	const connection = getConnection({ network: 'mainnet' });
 	const walletUsdc = await splBalanceAtomics(connection, solanaPubkey(signerPubkey), solanaPubkey(SOLANA_USDC_MINT));
 
-	const capAtomics = BigInt(Math.floor(maxUsdPerRun() * Number(USDC_ATOMICS)));
-	const minAtomics = BigInt(Math.floor(minUsdPerRun() * Number(USDC_ATOMICS)));
-	const spend = walletUsdc > capAtomics ? capAtomics : walletUsdc;
+	const { spendAtomics: spend, reason } = computeSpend(walletUsdc, {
+		maxUsd: maxUsdPerRun(),
+		minUsd: minUsdPerRun(),
+	});
 
-	if (spend < minAtomics) {
-		return {
-			ok: false,
-			reason: walletUsdc === 0n ? 'empty' : 'below_threshold',
-			walletUsdcAtomics: walletUsdc,
-			spendUsdcAtomics: 0n,
-		};
+	if (reason !== 'ok') {
+		return { ok: false, reason, walletUsdcAtomics: walletUsdc, spendUsdcAtomics: 0n };
 	}
 
 	const quote = await jupiterQuote(spend);
@@ -286,13 +283,26 @@ export async function sweepStrandedThree(signer) {
 
 // ── accounting / public stats ────────────────────────────────────────────────
 
+// Resilient query: a public read path must degrade to a sane default whether the
+// query rejects (table missing) OR sql throws synchronously (env unconfigured).
+async function safeQuery(run, fallback) {
+	try {
+		return await run();
+	} catch {
+		return fallback;
+	}
+}
+
 /** Lifetime platform USDC fee revenue (atomics, 6dp) — the "earned" figure. */
 export async function revenueFeeAtomicsToDate() {
-	const rows = await sql`
-		select coalesce(sum(fee_amount), 0)::bigint as total
-		from agent_revenue_events
-		where currency_mint = ${SOLANA_USDC_MINT} and chain = 'solana'
-	`.catch(() => [{ total: 0 }]);
+	const rows = await safeQuery(
+		() => sql`
+			select coalesce(sum(fee_amount), 0)::bigint as total
+			from agent_revenue_events
+			where currency_mint = ${SOLANA_USDC_MINT} and chain = 'solana'
+		`,
+		[{ total: 0 }],
+	);
 	return BigInt(rows[0]?.total ?? 0);
 }
 
@@ -302,21 +312,27 @@ export async function revenueFeeAtomicsToDate() {
  */
 export async function buybackStats() {
 	const [agg, lastRow, revenueAtomics] = await Promise.all([
-		sql`
-			select
-				coalesce(sum(usdc_spent_atomics), 0)::bigint   as usdc_spent,
-				coalesce(sum(three_bought_atomics), 0)::bigint as three_bought,
-				count(*)::int                                   as runs
-			from three_buyback_runs
-			where status = 'confirmed'
-		`.catch(() => [{ usdc_spent: 0, three_bought: 0, runs: 0 }]),
-		sql`
-			select status, usdc_spent_atomics, three_bought_atomics, price_usd, buy_signature, created_at
-			from three_buyback_runs
-			where status = 'confirmed'
-			order by created_at desc
-			limit 1
-		`.catch(() => []),
+		safeQuery(
+			() => sql`
+				select
+					coalesce(sum(usdc_spent_atomics), 0)::bigint   as usdc_spent,
+					coalesce(sum(three_bought_atomics), 0)::bigint as three_bought,
+					count(*)::int                                   as runs
+				from three_buyback_runs
+				where status = 'confirmed'
+			`,
+			[{ usdc_spent: 0, three_bought: 0, runs: 0 }],
+		),
+		safeQuery(
+			() => sql`
+				select status, usdc_spent_atomics, three_bought_atomics, price_usd, buy_signature, created_at
+				from three_buyback_runs
+				where status = 'confirmed'
+				order by created_at desc
+				limit 1
+			`,
+			[],
+		),
 		revenueFeeAtomicsToDate(),
 	]);
 
@@ -331,7 +347,7 @@ export async function buybackStats() {
 		revenue_usd: revenueUsd,
 		deployed_usd: deployedUsd,
 		// Share of platform revenue already converted to onchain buy pressure.
-		deployed_pct: revenueUsd > 0 ? Math.min(100, (deployedUsd / revenueUsd) * 100) : 0,
+		deployed_pct: deployedPct(deployedUsd, revenueUsd),
 		three_bought: threeTokens(threeBought),
 		runs: agg[0]?.runs ?? 0,
 		last_run: last

@@ -3,6 +3,34 @@
 	"entries": [
 		{
 			"date": "2026-06-18",
+			"title": "Your agent and its answer now sit together in chat",
+			"summary": "When an agent replied with a 3D avatar — especially while it was thinking or forging several models at once — the avatar used to float off on its own with a big empty gap, while the reasoning note and the tool buttons drifted down beside its feet. The agent now stands next to its own response: the avatar is framed tighter so it fills its space instead of hovering in the void, and its thinking note and tool calls line up with it as one tidy block. It reads as a single reply whether you're in the normal view or have a tool's details open in the side panel.",
+			"tags": [
+				"improvement"
+			],
+			"link": "/chat"
+		},
+		{
+			"date": "2026-06-18",
+			"title": "Tipping a dancer in the Club is now one tap",
+			"summary": "In the Pole Club, paying a dancer used to pop an extra step that made you pick your wallet before anything happened — annoying when you just want to tip and watch her dance, and worse when tipping pole after pole. Now, when a single wallet is detected, hitting Tip goes straight to the signature: approve the $0.001 USDC and she takes the pole. The same shortcut applies to the cover charge at the door. If you have more than one wallet installed you still get to choose, and the free re-entry option for returning guests is untouched.",
+			"tags": [
+				"improvement"
+			],
+			"link": "/club"
+		},
+		{
+			"date": "2026-06-18",
+			"title": "Platform revenue now buys back $THREE onchain — and you can watch it",
+			"summary": "The $THREE page has a new Programmatic buybacks panel that turns the protocol's economy into something you can verify, not just read about. Platform revenue is converted into $THREE bought on the open market and routed straight into the treasury — onchain, on a schedule, with every buy recorded against its Solscan receipt. This creates steady buy pressure for holders without ever burning supply. The panel shows how much revenue has been earned and what share of it has already been deployed into buybacks, so the link between the platform earning money and that money supporting $THREE is fully transparent.",
+			"tags": [
+				"feature",
+				"infra"
+			],
+			"link": "/three-token"
+		},
+		{
+			"date": "2026-06-18",
 			"title": "Embedded 3D agents animate on any site, not just three.ws",
 			"summary": "When you drop the <agent-3d> tag onto a page hosted somewhere other than three.ws, the avatar's gestures — waving, celebrating, thinking — silently failed to load: the animation clips were being requested from the host page's own domain instead of from three.ws, so each one came back as a 404. The component now resolves its animation library against three.ws no matter where it's embedded, so an agent reacts and emotes correctly on partner pages, live demos, and any third-party site.",
 			"tags": [

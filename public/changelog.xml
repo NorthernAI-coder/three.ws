@@ -71,6 +71,14 @@
 			<description>Don't hold $THREE yet but want a High-quality model? You can now pay in $THREE for a single High generation instead. Pick High in Forge, choose &quot;Pay&quot; on the holder panel, and a clean payment flow prices it in $THREE, takes one wallet approval, verifies it on-chain, and runs your generation automatically. The platform now genuinely accepts $THREE for compute. One payment buys exactly one High generation, and if a generation fails before it runs your payment stays usable — you're never charged for a model you didn't get. Draft and Standard remain free, and holders still generate High straight away.</description>
 		</item>
 		<item>
+			<title>Platform revenue now buys back $THREE onchain — and you can watch it</title>
+			<link>https://three.ws/three-token</link>
+			<guid isPermaLink="false">2026-06-18:Platform revenue now buys back $THREE onchain — and you can watch it</guid>
+			<pubDate>Thu, 18 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The $THREE page has a new Programmatic buybacks panel that turns the protocol's economy into something you can verify, not just read about. Platform revenue is converted into $THREE bought on the open market and routed straight into the treasury — onchain, on a schedule, with every buy recorded against its Solscan receipt. This creates steady buy pressure for holders without ever burning supply. The panel shows how much revenue has been earned and what share of it has already been deployed into buybacks, so the link between the platform earning money and that money supporting $THREE is fully transparent.</description>
+		</item>
+		<item>
 			<title>Play is movable on phones again — and avatars load instead of a placeholder</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-18:Play is movable on phones again — and avatars load instead of a placeholder</guid>
@@ -143,6 +151,14 @@
 			<description>Tapping Tip in the Pole Club used to open a three-step “Before you go on-chain” explainer first, and dismissing it cancelled the tip entirely — so first-time visitors couldn't pay without sitting through the wizard. That gate is gone. Tip now opens the wallet-and-amount checkout directly, where you pick Phantom or a browser wallet, see the exact USDC amount, and approve with one signature. The checkout already shows everything the explainer did, so there's no reason to stack a lecture in front of a fraction-of-a-cent tip.</description>
 		</item>
 		<item>
+			<title>Tipping a dancer in the Club is now one tap</title>
+			<link>https://three.ws/club</link>
+			<guid isPermaLink="false">2026-06-18:Tipping a dancer in the Club is now one tap</guid>
+			<pubDate>Thu, 18 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>In the Pole Club, paying a dancer used to pop an extra step that made you pick your wallet before anything happened — annoying when you just want to tip and watch her dance, and worse when tipping pole after pole. Now, when a single wallet is detected, hitting Tip goes straight to the signature: approve the $0.001 USDC and she takes the pole. The same shortcut applies to the cover charge at the door. If you have more than one wallet installed you still get to choose, and the free re-entry option for returning guests is untouched.</description>
+		</item>
+		<item>
 			<title>Token swaps now confirm success or failure clearly</title>
 			<link>https://three.ws/three-token</link>
 			<guid isPermaLink="false">2026-06-18:Token swaps now confirm success or failure clearly</guid>
@@ -165,6 +181,14 @@
 			<pubDate>Thu, 18 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>Holding $THREE is now visible everywhere you are. A holder chip in the top bar shows your live tier (◆ Bronze, Silver, Gold…) on every page and links to the full tier breakdown. On Forge, choosing the High quality tier now shows a clear, designed panel instead of a silent block: holders see an &quot;Unlocked&quot; badge and generate straight away, while everyone else gets a &quot;Get $THREE&quot; path, the exact reason (sign in, link a wallet, or hold more), and a one-tap switch back to free Draft or Standard — no dead ends and no raw errors.</description>
+		</item>
+		<item>
+			<title>Your agent and its answer now sit together in chat</title>
+			<link>https://three.ws/chat</link>
+			<guid isPermaLink="false">2026-06-18:Your agent and its answer now sit together in chat</guid>
+			<pubDate>Thu, 18 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>When an agent replied with a 3D avatar — especially while it was thinking or forging several models at once — the avatar used to float off on its own with a big empty gap, while the reasoning note and the tool buttons drifted down beside its feet. The agent now stands next to its own response: the avatar is framed tighter so it fills its space instead of hovering in the void, and its thinking note and tool calls line up with it as one tidy block. It reads as a single reply whether you're in the normal view or have a tool's details open in the side panel.</description>
 		</item>
 		<item>
 			<title>Animation Gallery</title>

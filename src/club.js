@@ -1346,7 +1346,10 @@ async function tipDancer({ dancer, dance, button }) {
 	// entire money flow — wallet connect (Phantom/EVM), USDC, and the amount the
 	// user confirms before signing. A $0.001 tip should never sit behind a
 	// three-step explainer that re-teaches what the checkout already shows, so
-	// there's no pre-gate here: click Tip → the wallet/amount modal opens.
+	// there's no pre-gate here. With autoConnect the checkout also skips its own
+	// wallet-picker step when a single wallet is detected: click Tip → the wallet
+	// signs straight away. Rapid tipping shouldn't mean re-picking a wallet each
+	// time.
 
 	// First click on a Tip button is the user gesture browsers require to
 	// unlock AudioContext. Do this BEFORE opening the wallet modal so the
@@ -1371,6 +1374,7 @@ async function tipDancer({ dancer, dance, button }) {
 			method: 'GET',
 			merchant: 'three.ws Pole Club',
 			action: `Tip Dancer ${dancer} — ${dance}`,
+			autoConnect: true,
 		});
 		const ticket = out?.result;
 		if (!ticket?.ok) {

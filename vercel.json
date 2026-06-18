@@ -3610,6 +3610,10 @@
 			"schedule": "30 * * * *"
 		},
 		{
+			"path": "/api/cron/run-three-buyback",
+			"schedule": "0 6 * * *"
+		},
+		{
 			"path": "/api/cron/audit-log-cleanup",
 			"schedule": "0 4 * * *"
 		},

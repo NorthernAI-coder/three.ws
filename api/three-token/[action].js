@@ -21,6 +21,7 @@ import { cors, error, json, method, wrap } from '../_lib/http.js';
 import { TOKEN_MINT as THREE_MINT } from '../_lib/token/config.js';
 import { fetchTokenMarketData } from '../_lib/market/token-market.js';
 import { fetchHolderBalances } from '../_lib/coin/holders.js';
+import { buybackStats } from '../_lib/token/buyback.js';
 
 // Truncate a base58 wallet for display: "FeMb…Jpump".
 function shortWallet(addr) {
@@ -99,9 +100,12 @@ export default wrap(async (req, res) => {
 	const action = parts[2];
 
 	if (action === 'stats') {
-		const [market, platform] = await Promise.all([
+		const [market, platform, buyback] = await Promise.all([
 			fetchTokenMarketData(THREE_MINT).catch(() => null),
 			fetchPlatformMetrics(),
+			// Programmatic buyback summary (revenue → $THREE bought into treasury).
+			// Resilient: returns zeros before the first run / migration.
+			buybackStats().catch(() => null),
 		]);
 
 		return json(
@@ -127,6 +131,16 @@ export default wrap(async (req, res) => {
 					total_payments: platform.total_payments,
 					revenue_share_pool_pct: REVENUE_SHARE_POOL_PCT,
 					agent_deploy_burn: AGENT_DEPLOY_BURN,
+				},
+				// Revenue converted to onchain buy pressure — programmatic, no burn.
+				buyback: buyback ?? {
+					enabled: false,
+					revenue_usd: 0,
+					deployed_usd: 0,
+					deployed_pct: 0,
+					three_bought: 0,
+					runs: 0,
+					last_run: null,
 				},
 			},
 			// Edge-cache the public stats at the CDN so most page loads never reach
