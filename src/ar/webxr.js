@@ -16,6 +16,7 @@ import {
 import {
 	advancePulse, isXrVisible, nextTrackingState, reticleVisual, TRACKING_LOSS_FRAMES,
 } from './anchor-lifecycle.js';
+import { DepthOcclusion } from './depth-occlusion.js';
 
 /** prefers-reduced-motion: calm, static reticle/confirm states when set. */
 function _prefersReducedMotion() {
@@ -87,6 +88,9 @@ export class WebXRSession {
 		this._ended = false;
 		/** @type {XRAnchor|null} Real world anchor created on tap (feature-detected). */
 		this._anchor = null;
+		/** @type {DepthOcclusion|null} Real-world occluder; null unless the session
+		 * negotiated depth-sensing (feature-detected after start). */
+		this._depthOcclusion = null;
 		/** @type {XRHitTestResult|null} Most recent hit, used to create the anchor. */
 		this._latestHit = null;
 		/** Tap-moment hit pose, captured for persistence the instant the user taps. */
@@ -146,9 +150,16 @@ export class WebXRSession {
 		// `anchors` lets us bind the agent to a real XRAnchor (no drift); it is
 		// optional so devices without it still run on hit-test-follow. `dom-overlay`
 		// surfaces the in-session hint + exit affordance when a root is supplied.
+		// `depth-sensing` (optional) unlocks real-world occlusion — the agent hides
+		// behind couches/doorways/people; we prefer the gpu-optimized luminance-alpha
+		// path three.js can turn into an occluder, and degrade silently otherwise.
 		const sessionInit = {
 			requiredFeatures: ['hit-test'],
-			optionalFeatures: ['anchors', 'local-floor'],
+			optionalFeatures: ['anchors', 'local-floor', 'depth-sensing'],
+			depthSensing: {
+				usagePreference: ['gpu-optimized', 'cpu-optimized'],
+				dataFormatPreference: ['luminance-alpha', 'float32'],
+			},
 		};
 		if (this._domOverlayRoot) {
 			sessionInit.optionalFeatures.push('dom-overlay');
@@ -267,13 +278,19 @@ export class WebXRSession {
 					this._reticle.position.setFromMatrixPosition(this._latestHitMatrix);
 					this._reticle.quaternion.setFromRotationMatrix(this._latestHitMatrix);
 				}
+				this._placeShadow(this._latestHitMatrix);
 				if (viewer.content) {
 					viewer.content.position.setFromMatrixPosition(this._latestHitMatrix);
 				}
 				this._setHit(true);
 			} else {
 				this._latestHit = null;
-				if (this._reticle) this._reticle.visible = false;
+				// Don't blink the reticle off on a one-frame hit dropout: once a surface
+				// has been seen, hold it at the last spot in the dim "searching" look
+				// (driven by _hitAmount → 0) so re-acquiring reads as calm, not broken.
+				// Only the very first sweep — before any hit — shows no reticle at all.
+				if (this._reticle) this._reticle.visible = this._hadHit;
+				if (this._shadow) this._shadow.visible = this._hadHit;
 				this._setHit(false);
 			}
 		}
