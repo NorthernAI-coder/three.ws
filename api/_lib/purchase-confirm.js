@@ -541,13 +541,15 @@ async function finalizeSkillConfirmation(pur, txSignature, payoutAddress, platfo
 				getUserDisplay(pur.user_id),
 				getUserDisplay(beneficiaryId),
 			]);
+			// No tx_signature here on purpose: the recipient didn't pay, so the
+			// notification links to the agent page (where they can use the skill)
+			// rather than an on-chain payment they have nothing to do with.
 			await insertNotification(beneficiaryId, 'skill_gift_received', {
 				agent_id: pur.agent_id,
 				skill: pur.skill,
 				from: gifterName,
 				from_user_id: pur.user_id,
 				currency_mint: pur.currency_mint,
-				tx_signature: txSignature,
 				purchase_id: pur.id,
 			});
 			await insertNotification(pur.user_id, 'skill_gift_sent', {

@@ -62,6 +62,8 @@ function tryAcquireFetchLock() {
 const TYPE_ICON = {
 	skill_purchased:          '💵',
 	skill_purchase_confirmed: '✅',
+	skill_gift_received:      '🎁',
+	skill_gift_sent:          '🎁',
 	asset_purchased:          '💵',
 	asset_purchase_confirmed: '✅',
 	asset_payment_mismatch:   '⚠️',
@@ -83,6 +85,14 @@ function notifLabel(n) {
 			return `Payment received for skill "${p.skill || 'unknown'}"`;
 		case 'skill_purchase_confirmed':
 			return `Your purchase of "${p.skill || 'unknown'}" is confirmed`;
+		case 'skill_gift_received':
+			return p.from
+				? `${p.from} gifted you the skill "${p.skill || 'unknown'}"`
+				: `You received the skill "${p.skill || 'unknown'}" as a gift`;
+		case 'skill_gift_sent':
+			return p.to
+				? `Your gift of "${p.skill || 'unknown'}" was delivered to ${p.to}`
+				: `Your gift of "${p.skill || 'unknown'}" was delivered`;
 		case 'asset_purchased':
 			return `Someone purchased your ${p.item_type || 'asset'}`;
 		case 'asset_purchase_confirmed':
