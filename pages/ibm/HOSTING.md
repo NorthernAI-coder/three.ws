@@ -60,12 +60,17 @@ fonts/
   IBMPlexSans-600.woff2
   IBMPlexMono-400.woff2
   IBMPlexMono-500.woff2
+vendor/
+  model-viewer.min.js
 ```
 
 Everything else (the payment widget, the API, the explorer links) is loaded at runtime from
 `https://three.ws` and the public chain explorers. There is **no build step** and **no
 backend** to deploy. IBM Plex is self-hosted from `fonts/` so the page needs no third-party
-font CDN.
+font CDN, and the `<model-viewer>` web component (used by the Forge demo to display the
+generated 3D model) is self-hosted from `vendor/` — it loads as a same-origin
+(`script-src 'self'`) ES module, so no third-party script CDN is required either. Keep
+`vendor/` next to the HTML; the file references it as `./vendor/model-viewer.min.js`.
 
 ## Content-Security-Policy
 
@@ -141,6 +146,17 @@ first, or link out to the standalone page.
 three.ws serves the API and widget with `Access-Control-Allow-Origin: *` and exposes the x402
 payment headers, so calls from `live.ibm.com` work cross-origin with no extra configuration on
 either side.
+
+## Telemetry & privacy
+
+The page sends **no analytics, no tracking, and no error telemetry**. It carries no
+third-party tag, no pixel, and no first-party beacon — nothing phones home about your
+visitors. The only network traffic it generates is the documented set of three.ws calls (the
+widget, the paid API, the agent runtime and demo embeds), the visitor's own wallet RPC, and
+the public chain explorers they click through to. No wallet address, no payment detail, and no
+personal data is ever collected by the page or forwarded to three.ws beyond what the x402
+payment itself requires on-chain. This keeps the artifact clean for an enterprise security
+review and lets it run under the strict Tier 1 CSP above without a single blocked request.
 
 ## Embed the pay button anywhere else
 
