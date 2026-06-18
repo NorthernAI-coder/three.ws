@@ -1540,7 +1540,25 @@ class Agent3DElement extends HTMLElement {
 			const _animBase = _scriptOrigin || window.location.origin;
 			try {
 				const _animRes = await fetch(`${_animBase}/animations/manifest.json`);
-				if (_animRes.ok) viewer.setAnimationDefs(await _animRes.json());
+				if (_animRes.ok) {
+					const _defs = await _animRes.json();
+					// Clip URLs in the manifest are root-relative (`/animations/clips/x.json`).
+					// Fetched verbatim they resolve against the *host page* origin, so when
+					// <agent-3d> is embedded cross-origin (e.g. on a partner's domain) every
+					// clip 404s. Rebase each onto the bundle's own origin — where the clips
+					// actually live, co-located with the manifest we just loaded — so gestures
+					// play anywhere the tag is dropped in.
+					if (Array.isArray(_defs)) {
+						for (const _d of _defs) {
+							if (_d && typeof _d.url === 'string') {
+								try {
+									_d.url = new URL(_d.url, _animBase).href;
+								} catch {}
+							}
+						}
+					}
+					viewer.setAnimationDefs(_defs);
+				}
 			} catch {}
 
 			const bodyURI = resolveURI(manifest.body?.uri);

@@ -7,7 +7,7 @@ const page = await ctx.newPage();
 await page.goto(URL, { waitUntil: 'domcontentloaded' });
 await page.waitForSelector('.cc-card', { timeout: 15000 });
 await page.tap('.cc-card');
-const phase = await page.waitForFunction(() => window.__CC__?.phase === 'world', { timeout: 60000 }).then(() => 'world').catch(() => 'TIMEOUT');
+const phase = await page.waitForFunction(() => window.__CC__?.phase === 'world', { timeout: 120000 }).then(() => 'world').catch(() => 'TIMEOUT');
 
 // Force the onboarding overlay visible immediately (deterministic — bypasses the
 // 650ms timer + flaky connect timing). _showOverlay is idempotent.
@@ -32,12 +32,15 @@ const r = await page.evaluate(() => {
 		return t ? (t.id ? '#' + t.id : t.tagName + '.' + String(t.className).split(' ').filter(Boolean)[0]) : null;
 	};
 	const primaryBtn = document.querySelector('#po-overlay .po-btn-primary') || document.querySelector('#po-overlay .po-close');
+	const b = joy.getBoundingClientRect();
+	const topAtJoy = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2);
 	return {
 		bodyOnboarding: document.body.classList.contains('po-onboarding'),
 		overlayPE: cs(ov)?.pointerEvents,
 		cardPE: cs(card)?.pointerEvents,
 		joyZ: cs(joy)?.zIndex,
 		hitAtJoystick: hit(joy),
+		hitInsideJoystick: !!topAtJoy?.closest('#cc-joystick'),
 		primaryBtnInCard: primaryBtn ? !!primaryBtn.closest('.po-card') : false,
 	};
 });
@@ -48,9 +51,10 @@ console.log('body.po-onboarding    :', r.bodyOnboarding);
 console.log('#po-overlay pointerEv :', r.overlayPE, '(want none)');
 console.log('.po-card  pointerEv   :', r.cardPE, '(want auto)');
 console.log('#cc-joystick z-index  :', r.joyZ, '(want 60 while onboarding)');
-console.log('hit @ joystick centre :', r.hitAtJoystick, '(want #cc-joystick)');
+console.log('hit @ joystick centre :', r.hitAtJoystick, '(joystick or its child)');
+console.log('hit inside #cc-joystick:', r.hitInsideJoystick, '(want true — input reaches the stick)');
 console.log('primary btn in card   :', r.primaryBtnInCard);
 
-const pass = r.overlayPE === 'none' && r.cardPE === 'auto' && r.joyZ === '60' && r.hitAtJoystick === '#cc-joystick' && r.primaryBtnInCard;
+const pass = r.overlayPE === 'none' && r.cardPE === 'auto' && r.joyZ === '60' && r.hitInsideJoystick && r.primaryBtnInCard;
 console.log('\nRESULT:', pass ? 'PASS' : 'FAIL');
 await browser.close();

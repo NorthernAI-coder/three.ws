@@ -16,6 +16,7 @@
  *   pumpfun-signals               → handlePumpfunSignals
  *   pumpfun-graduations-sync      → handlePumpfunGraduationsSync
  *   run-buyback                   → handleRunBuyback
+ *   run-three-buyback             → handleRunThreeBuyback
  *   run-dca                       → handleRunDca
  *   run-distribute-payments       → handleRunDistributePayments
  *   run-subscriptions             → handleRunSubscriptions
@@ -90,6 +91,7 @@ const HANDLERS = {
 	'pumpfun-signals': handlePumpfunSignals,
 	'pumpfun-graduations-sync': handlePumpfunGraduationsSync,
 	'run-buyback': handleRunBuyback,
+	'run-three-buyback': handleRunThreeBuyback,
 	'run-dca': handleRunDca,
 	'run-distribute-payments': handleRunDistributePayments,
 	'run-subscriptions': handleRunSubscriptions,
@@ -1773,6 +1775,155 @@ async function handleRunBuyback(req, res) {
 	}
 
 	return json(res, 200, { ok: true, processed: results.length, results });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// run-three-buyback — programmatic $THREE buyback (revenue → buy → treasury)
+//
+// Converts accumulated platform USDC revenue into onchain buy pressure: market-buy
+// $THREE on Jupiter and route the bought tokens into the treasury. This is the
+// documented economy policy ("the treasury funds buybacks … buy pressure without
+// deflation", api/_lib/token/config.js) made programmatic, onchain, and publicly
+// auditable. NO platform burn — supply is never destroyed by this lane.
+//
+// Every run records a row in three_buyback_runs (never a silent no-op). Execution
+// is gated by THREE_BUYBACK_ENABLED + THREE_BUYBACK_SECRET_KEY_B64; `?dry_run=1`
+// sizes + quotes the buy without signing, so the wiring is verifiable before a
+// single dollar moves.
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function handleRunThreeBuyback(req, res) {
+	if (cors(req, res, { methods: 'GET,POST,OPTIONS', origins: '*' })) return;
+	if (!method(req, res, ['GET', 'POST'])) return;
+	if (!requireCron(req, res)) return;
+
+	const bb = await import('../_lib/token/buyback.js');
+	const dryRunRaw = String(req.query?.dry_run ?? '').toLowerCase();
+	const dryRun = dryRunRaw === '1' || dryRunRaw === 'true';
+	const slippage = bb.slippageBps();
+	const revenueAtomics = await bb.revenueFeeAtomicsToDate();
+	const revStr = revenueAtomics.toString();
+
+	// Execution gate: a scheduled run is a recorded no-op until an operator funds
+	// the wallet and opts in. A dry run is always allowed (it never signs).
+	if (!dryRun && !bb.isEnabled()) {
+		const [run] = await sql`
+			insert into three_buyback_runs (status, reason, revenue_fee_atomics)
+			values ('skipped', 'disabled', ${revStr}) returning id
+		`;
+		return json(res, 200, { ok: true, status: 'skipped', reason: 'disabled', run_id: run.id });
+	}
+
+	const signer = await bb.loadBuybackSigner();
+	if (!signer) {
+		const [run] = await sql`
+			insert into three_buyback_runs (status, reason, revenue_fee_atomics)
+			values ('skipped', 'not_configured', ${revStr}) returning id
+		`;
+		return json(res, 200, {
+			ok: true,
+			status: 'skipped',
+			reason: 'not_configured',
+			run_id: run.id,
+			message: 'set THREE_BUYBACK_SECRET_KEY_B64 and fund the wallet with USDC to enable buybacks',
+		});
+	}
+
+	// Self-heal a prior partial run (bought $THREE that never reached the treasury)
+	// before sizing a new buy. Non-fatal: the main flow sweeps to treasury anyway.
+	let recoverSig = null;
+	if (!dryRun) {
+		try {
+			recoverSig = await bb.sweepStrandedThree(signer);
+		} catch {
+			recoverSig = null;
+		}
+	}
+
+	let plan;
+	try {
+		plan = await bb.planBuyback(signer.publicKey.toBase58());
+	} catch (e) {
+		const code = e.code || 'plan_failed';
+		const [run] = await sql`
+			insert into three_buyback_runs (status, reason, revenue_fee_atomics, error)
+			values ('failed', ${code}, ${revStr}, ${e.message || String(e)}) returning id
+		`;
+		return json(res, 200, { ok: false, status: 'failed', reason: code, error: e.message, run_id: run.id });
+	}
+
+	if (!plan.ok) {
+		const [run] = await sql`
+			insert into three_buyback_runs (status, reason, revenue_fee_atomics, usdc_spent_atomics)
+			values ('skipped', ${plan.reason}, ${revStr}, 0) returning id
+		`;
+		return json(res, 200, {
+			ok: true,
+			status: 'skipped',
+			reason: plan.reason,
+			run_id: run.id,
+			wallet_usdc: bb.usdcAtomicsToUsd(plan.walletUsdcAtomics),
+		});
+	}
+
+	if (dryRun) {
+		const [run] = await sql`
+			insert into three_buyback_runs
+				(status, revenue_fee_atomics, usdc_spent_atomics, three_bought_atomics, price_usd, slippage_bps)
+			values
+				('dry_run', ${revStr}, ${plan.spendUsdcAtomics.toString()}, ${plan.expectedThreeAtomics.toString()}, ${plan.priceUsd}, ${slippage})
+			returning id
+		`;
+		return json(res, 200, {
+			ok: true,
+			status: 'dry_run',
+			run_id: run.id,
+			usdc_to_spend: bb.usdcAtomicsToUsd(plan.spendUsdcAtomics),
+			expected_three: bb.threeAtomicsToTokens(plan.expectedThreeAtomics),
+			price_usd: plan.priceUsd,
+			slippage_bps: slippage,
+		});
+	}
+
+	try {
+		const receipt = await bb.executeBuyback(signer, plan);
+		const [run] = await sql`
+			insert into three_buyback_runs
+				(status, revenue_fee_atomics, usdc_spent_atomics, three_bought_atomics, price_usd, slippage_bps, buy_signature, sweep_signature, treasury_wallet)
+			values
+				('confirmed', ${revStr}, ${plan.spendUsdcAtomics.toString()}, ${receipt.boughtAtomics.toString()}, ${receipt.priceUsd}, ${slippage}, ${receipt.buySignature}, ${receipt.sweepSignature}, ${receipt.treasury})
+			returning id
+		`;
+		return json(res, 200, {
+			ok: true,
+			status: 'confirmed',
+			run_id: run.id,
+			recover_signature: recoverSig,
+			buy_signature: receipt.buySignature,
+			sweep_signature: receipt.sweepSignature,
+			usdc_spent: bb.usdcAtomicsToUsd(plan.spendUsdcAtomics),
+			three_bought: bb.threeAtomicsToTokens(receipt.boughtAtomics),
+			price_usd: receipt.priceUsd,
+		});
+	} catch (e) {
+		const code = e.code || 'swap_failed';
+		const status = e.status === 'pending' ? 'pending' : 'failed';
+		const [run] = await sql`
+			insert into three_buyback_runs
+				(status, reason, revenue_fee_atomics, usdc_spent_atomics, three_bought_atomics, price_usd, slippage_bps, buy_signature, sweep_signature, error)
+			values
+				(${status}, ${code}, ${revStr}, ${plan.spendUsdcAtomics.toString()}, ${(e.boughtAtomics ?? 0n).toString()}, ${plan.priceUsd}, ${slippage}, ${e.buySignature ?? null}, ${e.sweepSignature ?? null}, ${e.message || String(e)})
+			returning id
+		`;
+		return json(res, 200, {
+			ok: false,
+			status,
+			reason: code,
+			error: e.message,
+			run_id: run.id,
+			buy_signature: e.buySignature ?? null,
+		});
+	}
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
