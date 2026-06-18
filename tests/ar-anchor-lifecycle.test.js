@@ -21,6 +21,9 @@ import {
 	isXrVisible,
 	placementHint,
 	createPersistGate,
+	reticleVisual,
+	advancePulse,
+	RETICLE_PULSE_SECONDS,
 } from '../src/ar/anchor-lifecycle.js';
 
 describe('nextTrackingState — transition-only tracking loss', () => {
@@ -203,5 +206,98 @@ describe('createPersistGate — the durable pin saves EXACTLY once', () => {
 		gate.onFix(true);
 		expect(persist).toHaveBeenCalledWith(payload);
 		expect(persist.mock.calls[0][0].degraded).toBe(true);
+	});
+});
+
+describe('reticleVisual — searching ↔ locked look', () => {
+	const buf = () => ({ scale: 0, opacity: 0, dot: 0, colorMix: 0 });
+
+	it('locked (hit = 1) is full size, bright, dot filled, fully colour-shifted', () => {
+		const v = reticleVisual(buf(), 1, 0, false);
+		expect(v.scale).toBeCloseTo(1, 5);
+		expect(v.opacity).toBeCloseTo(0.96, 5);
+		expect(v.dot).toBe(1);
+		expect(v.colorMix).toBe(1);
+	});
+
+	it('searching (hit = 0) is smaller, dimmer, dotless, un-shifted', () => {
+		const v = reticleVisual(buf(), 0, 0, false);
+		expect(v.scale).toBeLessThan(0.9);
+		expect(v.opacity).toBeLessThan(0.5);
+		expect(v.dot).toBe(0);
+		expect(v.colorMix).toBe(0);
+	});
+
+	it('the breathing phase only modulates the searching look, never overshoots lock', () => {
+		const calm = reticleVisual(buf(), 0, 0, false);
+		const peak = reticleVisual(buf(), 0, 1, false);
+		expect(peak.scale).toBeGreaterThan(calm.scale);
+		expect(peak.opacity).toBeGreaterThan(calm.opacity);
+		// Even at the top of the breath, searching stays below the locked values.
+		expect(peak.scale).toBeLessThanOrEqual(1);
+		expect(peak.opacity).toBeLessThan(0.96);
+	});
+
+	it('reduced motion flattens the breath to one calm static value', () => {
+		const a = reticleVisual(buf(), 0, 0, true);
+		const b = reticleVisual(buf(), 0, 1, true);   // breathe ignored when reduced
+		expect(a).toEqual(b);
+		expect(a.scale).toBeCloseTo(0.94, 5);
+		expect(a.opacity).toBeCloseTo(0.5, 5);
+	});
+
+	it('clamps out-of-range hit and breathe instead of extrapolating', () => {
+		const over = reticleVisual(buf(), 5, 9, false);
+		expect(over.scale).toBeCloseTo(1, 5);
+		expect(over.dot).toBe(1);
+		const under = reticleVisual(buf(), -3, -2, false);
+		expect(under.dot).toBe(0);
+		expect(under.colorMix).toBe(0);
+	});
+
+	it('writes into the caller-owned buffer and returns it (no per-frame allocation)', () => {
+		const out = buf();
+		const ret = reticleVisual(out, 0.5, 0.5, false);
+		expect(ret).toBe(out);
+	});
+});
+
+describe('advancePulse — one-shot confirm ring', () => {
+	const buf = () => ({ t: 0, scale: 1, opacity: 0, done: false });
+
+	it('starts expanding and fading from the tap point', () => {
+		const p = advancePulse(buf(), 0.1);
+		expect(p.t).toBeCloseTo(0.1, 5);
+		expect(p.scale).toBeGreaterThan(1);
+		expect(p.opacity).toBeLessThan(0.85);
+		expect(p.opacity).toBeGreaterThan(0);
+		expect(p.done).toBe(false);
+	});
+
+	it('completes at the full duration: max scale, zero opacity, done', () => {
+		const p = advancePulse(buf(), RETICLE_PULSE_SECONDS);
+		expect(p.scale).toBeCloseTo(3, 5);
+		expect(p.opacity).toBeCloseTo(0, 5);
+		expect(p.done).toBe(true);
+	});
+
+	it('expands monotonically and fades monotonically across the run', () => {
+		const p = buf();
+		let prevScale = 0;
+		let prevOpacity = 1;
+		for (let i = 0; i < 6; i++) {
+			advancePulse(p, RETICLE_PULSE_SECONDS / 6);
+			expect(p.scale).toBeGreaterThanOrEqual(prevScale);
+			expect(p.opacity).toBeLessThanOrEqual(prevOpacity);
+			prevScale = p.scale;
+			prevOpacity = p.opacity;
+		}
+		expect(p.done).toBe(true);
+	});
+
+	it('mutates the caller-owned state and returns it (reused buffer, no allocation)', () => {
+		const out = buf();
+		const ret = advancePulse(out, 0.05);
+		expect(ret).toBe(out);
 	});
 });
