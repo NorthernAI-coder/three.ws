@@ -112,13 +112,18 @@ vi.mock('@pump-fun/pump-sdk', () => {
 const { handleTrade } = await import('../api/agents/solana-trade.js');
 
 // ── fake req/res ──────────────────────────────────────────────────────────────
+// Streams the JSON body through the same on('data')/on('end') path readJson uses.
 function makeReq(body, { method = 'POST', query = '' } = {}) {
+	const buf = Buffer.from(JSON.stringify(body || {}));
 	return {
 		method,
 		url: `/api/agents/${AGENT_ID}/solana/trade${query}`,
 		headers: { host: 'x', 'content-type': 'application/json' },
-		body,
-		on() {}, // readJson tolerates a pre-parsed .body
+		on(evt, cb) {
+			if (evt === 'data') queueMicrotask(() => cb(buf));
+			if (evt === 'end') queueMicrotask(() => cb());
+		},
+		destroy() {},
 	};
 }
 function makeRes() {
@@ -127,8 +132,11 @@ function makeRes() {
 		setHeader(k, v) { this.headers[k.toLowerCase()] = v; },
 		getHeader(k) { return this.headers[k.toLowerCase()]; },
 		status(c) { this.statusCode = c; return this; },
-		json(o) { this.body = o; this.ended = true; return this; },
-		end(d) { if (d && !this.body) { try { this.body = JSON.parse(d); } catch { this.body = d; } } this.ended = true; return this; },
+		// http.js json()/error() set res.statusCode then call res.end(<json string>).
+		end(d) {
+			if (d != null && this.body == null) { try { this.body = JSON.parse(d); } catch { this.body = d; } }
+			this.ended = true; return this;
+		},
 	};
 }
 
