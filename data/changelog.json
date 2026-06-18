@@ -3,6 +3,14 @@
 	"entries": [
 		{
 			"date": "2026-06-18",
+			"title": "Play is movable on phones again — and avatars load instead of a placeholder",
+			"summary": "Two fixes for Play. On phones, the item hotbar had drifted on top of the on-screen movement joystick in the bottom-left corner, so taps meant to steer the stick landed on the hotbar instead and your character wouldn't move at all — with no keyboard to fall back on, you were stuck. The hotbar now sits in a clear band above the joystick, leaving the whole stick tappable. Separately, every avatar — yours, other players', and the loading-screen preview — had started appearing as a plain capsule stand-in because the app was missing the decoder for the compression format the avatars ship in; that decoder is now wired in, so real, animated avatars load everywhere in Play again.",
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-18",
 			"title": "Play loads reliably in private windows and embeds, and explains itself if 3D can't start",
 			"summary": "Two ways Play could fail silently are fixed. First: if your browser couldn't start 3D graphics — hardware acceleration switched off, an older device, or some in-app browsers — Play used to sit on the loading screen forever with no explanation. It now shows a clear recovery card that tells you what happened and how to fix it, with a one-tap “Try again”. Second: opening Play in a private/incognito window, or where it's embedded inside another page, could stop it loading at all because the browser blocks saved settings there. Play now treats blocked storage gracefully — it falls back to a default name and avatar and loads normally instead of breaking.",
 			"tags": [

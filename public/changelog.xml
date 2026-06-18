@@ -47,6 +47,14 @@
 			<description>Don't hold $THREE yet but want a High-quality model? You can now pay in $THREE for a single High generation instead. Pick High in Forge, choose &quot;Pay&quot; on the holder panel, and a clean payment flow prices it in $THREE, takes one wallet approval, verifies it on-chain, and runs your generation automatically. The platform now genuinely accepts $THREE for compute. One payment buys exactly one High generation, and if a generation fails before it runs your payment stays usable — you're never charged for a model you didn't get. Draft and Standard remain free, and holders still generate High straight away.</description>
 		</item>
 		<item>
+			<title>Play is movable on phones again — and avatars load instead of a placeholder</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-18:Play is movable on phones again — and avatars load instead of a placeholder</guid>
+			<pubDate>Thu, 18 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Two fixes for Play. On phones, the item hotbar had drifted on top of the on-screen movement joystick in the bottom-left corner, so taps meant to steer the stick landed on the hotbar instead and your character wouldn't move at all — with no keyboard to fall back on, you were stuck. The hotbar now sits in a clear band above the joystick, leaving the whole stick tappable. Separately, every avatar — yours, other players', and the loading-screen preview — had started appearing as a plain capsule stand-in because the app was missing the decoder for the compression format the avatars ship in; that decoder is now wired in, so real, animated avatars load everywhere in Play again.</description>
+		</item>
+		<item>
 			<title>Play loads reliably in private windows and embeds, and explains itself if 3D can't start</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-18:Play loads reliably in private windows and embeds, and explains itself if 3D can't start</guid>
