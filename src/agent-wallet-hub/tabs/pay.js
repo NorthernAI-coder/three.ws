@@ -128,6 +128,9 @@ registerWalletTab({
 			searched: false,
 			services: [],
 			searchError: null,
+			pasteOpen: false,
+			pasteUrl: '',
+			pasteError: null,
 			selected: null, // { url, method, serviceName, description, bodyText, hasBody }
 			previewing: false,
 			preview: null,
@@ -186,7 +189,18 @@ registerWalletTab({
 					<button class="awh-btn awh-btn--primary" type="submit">Search</button>
 				</form>
 				<p class="awh-pay-hint">Browse Solana-payable services, or
-					<a href="#" data-act="paste">paste an endpoint URL</a>.</p>
+					<a href="#" data-act="paste" aria-expanded="${state.pasteOpen ? 'true' : 'false'}">${state.pasteOpen ? 'hide URL entry' : 'paste an endpoint URL'}</a>.</p>
+				${
+					state.pasteOpen
+						? `<form class="awh-pay-search" data-form="paste" autocomplete="off" style="margin-top:8px">
+								<input class="awh-pay-input" data-input="url" type="url" inputmode="url"
+									placeholder="https://api.example.com/paid-endpoint"
+									aria-label="x402 endpoint URL" value="${escapeHtml(state.pasteUrl)}" />
+								<button class="awh-btn awh-btn--primary" type="submit">Continue</button>
+							</form>
+							${state.pasteError ? `<div class="awh-pay-err">${escapeHtml(state.pasteError)}</div>` : ''}`
+						: ''
+				}
 				<div data-host="results">${renderResultsInner()}</div>
 			`;
 			const input = host.querySelector('[data-input="query"]');
@@ -195,6 +209,13 @@ registerWalletTab({
 				clearTimeout(debounceTimer);
 				debounceTimer = setTimeout(() => runSearch(), SEARCH_DEBOUNCE_MS);
 			});
+			const urlInput = host.querySelector('[data-input="url"]');
+			if (urlInput) {
+				urlInput.addEventListener('input', () => {
+					state.pasteUrl = urlInput.value;
+				});
+				urlInput.focus();
+			}
 		}
 
 		function renderResultsInner() {
@@ -272,6 +293,25 @@ registerWalletTab({
 			resetPayState();
 			renderMain();
 			runPreview();
+		}
+
+		function submitPastedUrl() {
+			const raw = (state.pasteUrl || '').trim();
+			let url;
+			try {
+				url = new URL(raw);
+			} catch {
+				state.pasteError = 'Enter a full URL, e.g. https://api.example.com/endpoint';
+				renderMain();
+				return;
+			}
+			if (url.protocol !== 'https:' && url.protocol !== 'http:') {
+				state.pasteError = 'Only http(s) endpoints can be paid.';
+				renderMain();
+				return;
+			}
+			state.pasteError = null;
+			selectFromUrl(url.href);
 		}
 
 		function selectFromUrl(url) {
@@ -558,10 +598,14 @@ registerWalletTab({
 
 		// ── delegated interactions ──────────────────────────────────────────────
 		panel.addEventListener('submit', (e) => {
-			if (e.target?.dataset?.form === 'search') {
+			const form = e.target?.dataset?.form;
+			if (form === 'search') {
 				e.preventDefault();
 				clearTimeout(debounceTimer);
 				runSearch();
+			} else if (form === 'paste') {
+				e.preventDefault();
+				submitPastedUrl();
 			}
 		});
 
@@ -574,8 +618,9 @@ registerWalletTab({
 				if (svc) selectFromService(svc);
 			} else if (act === 'paste') {
 				e.preventDefault();
-				const url = window.prompt('Paste the x402 endpoint URL to pay:');
-				if (url && url.trim()) selectFromUrl(url.trim());
+				state.pasteOpen = !state.pasteOpen;
+				state.pasteError = null;
+				renderMain();
 			} else if (act === 'back') {
 				backToServices();
 			} else if (act === 'retry-preview') {
