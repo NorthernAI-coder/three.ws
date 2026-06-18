@@ -9,8 +9,23 @@ import { parse, isUuid } from '../../_lib/validate.js';
 import { emit402, verifyPaid, consumeIntent, manifestOnly } from '../../_lib/x402.js';
 import { calculateFee } from '../../_lib/fee.js';
 import { insertNotification } from '../../_lib/notify.js';
+import { hasSkillAccess, consumeTrialUse, logSkillUsage } from '../../_lib/skill-access.js';
 
 const HANDLERS = { echo: async (args) => ({ ok: true, echoed: args }) };
+
+// Run a skill either via a registered server handler or by delegating to the
+// in-process skill-runtime. The skill name on the agent is treated as a
+// "<skill>.<tool>" qualifier; a bare call defaults the tool to the skill name —
+// the runtime surfaces a descriptive error if there's no matching export.
+async function executeSkill(agent, body, caller, signerAddress) {
+	if (HANDLERS[body.skill]) {
+		return HANDLERS[body.skill](body.args, { agent, caller });
+	}
+	const { makeRuntime } = await import('../../_lib/skill-runtime.js');
+	const runtime = makeRuntime({ agentId: agent.id, signerAddress });
+	const tool = typeof body.args?._tool === 'string' ? body.args._tool : body.skill;
+	return runtime.invoke(`${body.skill}.${tool}`, body.args);
+}
 
 // C1 — x402 bridge: prices come from the canonical agent_skill_prices table
 // first (the marketplace's source of truth), with the legacy meta.skill_prices
@@ -35,9 +50,9 @@ async function priceFor(agent, skill) {
 
 async function resolveAuth(req) {
 	const session = await getSessionUser(req);
-	if (session) return { userId: session.id };
+	if (session) return { userId: session.id, kind: 'session' };
 	const bearer = await authenticateBearer(extractBearer(req));
-	if (bearer) return { userId: bearer.userId, scope: bearer.scope };
+	if (bearer) return { userId: bearer.userId, scope: bearer.scope, kind: 'bearer' };
 	return null;
 }
 
@@ -83,6 +98,55 @@ async function handleInvoke(req, res) {
 	if (!price) {
 		return error(res, 409, 'no_payments', `skill "${body.skill}" is not priced on this agent`);
 	}
+
+	// Access-control gate. For skills carrying a canonical agent_skill_prices
+	// entry (access.paid), a buyer who already purchased the skill or holds a
+	// subscription/trial covering it executes WITHOUT a fresh x402 charge —
+	// double-billing someone who already paid would be theft. Legacy meta-priced
+	// skills (no canonical price row) report paid:false and fall through to the
+	// pay-per-call x402 path below unchanged.
+	const access = await hasSkillAccess(auth.userId, agent.id, body.skill);
+	if (access.paid && access.owned) {
+		const startedAt = Date.now();
+		const result = await executeSkill(agent, body, auth, null);
+		if (access.trial) {
+			await consumeTrialUse(auth.userId, agent.id, body.skill).catch(() => {});
+		}
+		logSkillUsage({
+			userId: auth.userId,
+			agentId: agent.id,
+			skillName: body.skill,
+			status: result?.ok === false ? 'failure' : 'success',
+			executionTimeMs: Date.now() - startedAt,
+		});
+		return json(res, 200, {
+			ok: true,
+			access: access.via_subscription ? 'subscription' : access.trial ? 'trial' : 'purchase',
+			...(access.trial
+				? { trial_remaining: Math.max(0, (access.trial_remaining ?? 1) - 1) }
+				: {}),
+			result,
+		});
+	}
+
+	// Priced but unowned. A human session caller (cookie auth) cannot construct an
+	// x402 payment, so a 402 pay-per-call challenge — meant for autonomous agents —
+	// is a dead end for them. Send them to the marketplace with a 403 instead.
+	if (access.paid && auth.kind === 'session') {
+		return error(
+			res,
+			403,
+			'skill_access_denied',
+			'You do not have access to this skill. Please purchase it from the marketplace.',
+			{
+				agent_id: agent.id,
+				skill: body.skill,
+				reason: access.reason || 'not_purchased',
+				price: { amount: price.amount, currency: price.currency, chain: price.chain ?? 'solana' },
+			},
+		);
+	}
+
 	const paid = await verifyPaid(req, {
 		agentId: agent.id,
 		skill: body.skill,
@@ -124,22 +188,7 @@ async function handleInvoke(req, res) {
 	// Execute the skill BEFORE consuming the payment intent: if the handler
 	// throws, wrap() returns the error with the intent untouched, so the buyer's
 	// payment still covers a retry instead of being burned on a failed call.
-	let result;
-	if (handlerExists) {
-		result = await HANDLERS[body.skill](body.args, { agent, caller: auth });
-	} else {
-		// Delegate to the in-process skill-runtime. The skill name on the agent
-		// is treated as a "<skill>.<tool>" qualifier; if the caller passed bare
-		// args (no tool), default to the skill name as the tool too — runtime
-		// will surface a descriptive error if there's no matching export.
-		const { makeRuntime } = await import('../../_lib/skill-runtime.js');
-		const runtime = makeRuntime({
-			agentId: agent.id,
-			signerAddress: paid.payerAddress || null,
-		});
-		const tool = typeof body.args?._tool === 'string' ? body.args._tool : body.skill;
-		result = await runtime.invoke(`${body.skill}.${tool}`, body.args);
-	}
+	const result = await executeSkill(agent, body, auth, paid.payerAddress || null);
 
 	await consumeIntent(paid.intentId);
 	const gross = parseInt(paid.amount, 10);

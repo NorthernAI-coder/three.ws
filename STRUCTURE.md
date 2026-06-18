@@ -25,6 +25,8 @@ bottom.
 | Integration demos | [multiplayer/](multiplayer), [examples/coach-leo/](examples/coach-leo) | In-repo | Multiplayer and VR demos |
 | Avatar service backend | [api/](api) + [workers/](workers) | In-repo | Vercel functions + Cloudflare workers |
 | On-chain identity | [contracts/](contracts) | In-repo | Foundry-based on-chain agent identity, ERC-8004 |
+| On-chain skill licenses | [contracts/skill-license/](contracts/skill-license) `→ /api/skills/license-onchain` | In-repo | Anchor program: each purchased skill = a 1/1 SPL NFT + `SkillLicense` PDA, a trustless alternative to DB-backed access checks. Backend: [api/_lib/skill-license-onchain.js](api/_lib/skill-license-onchain.js) |
+| On-chain agent invocation | [contracts/agent-invocation/](contracts/agent-invocation) | In-repo | Anchor program: verifiable agent-to-agent skill invocation events. SDK: [agent-protocol-sdk/](agent-protocol-sdk) |
 | Cross-chain SDKs | [sdk/](sdk), [solana-agent-sdk/](solana-agent-sdk), [agent-payments-sdk/](agent-payments-sdk), [agent-protocol-sdk/](agent-protocol-sdk) | Published | Cross-chain agent SDKs |
 | MCP integration | [mcp-server/](mcp-server), [mcp-bridge/](mcp-bridge) | Published as `@three-ws/mcp-server` | Model Context Protocol surface |
 | SNS naming + pay-by-name | [api/sns.js](api/sns.js), [api/sns-subdomain.js](api/sns-subdomain.js), [api/threews/subdomain.js](api/threews/subdomain.js), [api/x402/pay-by-name.js](api/x402/pay-by-name.js), [src/solana/sns-subdomain.js](src/solana/sns-subdomain.js), [pages/threews-claim.html](pages/threews-claim.html) | In-repo | `*.threews.sol` subdomain mint, x402 payments addressed by name. Env: `THREEWS_SOL_PARENT_SECRET_BASE58`. See [SNS_PARTNERSHIP_PROPOSAL.md](docs/internal/SNS_PARTNERSHIP_PROPOSAL.md) |

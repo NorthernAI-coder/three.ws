@@ -46,6 +46,7 @@ import {
 	resolveBackendId,
 	estimateEtaSeconds,
 	estimateCredits,
+	preferFreeReconstruct,
 	buildCatalog,
 } from './_lib/forge-tiers.js';
 import { resolveProviderKey } from './_lib/forge-provider-key.js';
@@ -194,6 +195,19 @@ function isUpstreamUnavailable(err) {
 	);
 }
 
+// A leaked paid-account billing/credit message from the platform's OWN vendor
+// (e.g. Replicate "You have insufficient credit to run this model… purchase
+// credit") is internal infra state — surfacing it to the user is both useless
+// (they can't fund our account) and a billing-state leak. Detect it so the
+// boundary can answer with an honest, generic "temporarily unavailable" instead.
+// BYOK callers are excluded at the call site: a credit message about THEIR OWN
+// account is actionable, so it's surfaced verbatim.
+function isPaidCreditFailure(err) {
+	if (err?.providerStatus === 402) return true;
+	const text = `${err?.message || ''} ${err?.providerDetail || ''}`.toLowerCase();
+	return /insufficient credit|purchase credit|account\/billing|out of credit|not enough credit/.test(text);
+}
+
 // Free NVIDIA NIM TRELLIS text→3D lane, extracted so it serves two callers:
 //   1. the draft default (backendId === 'nvidia'), and
 //   2. the never-dead-end fallback the paid image-intermediate TRELLIS lane
@@ -303,7 +317,23 @@ async function runNvidiaTextLane({ req, res, ip, prompt, aspect, tier, path }) {
 // this returns status:'done' synchronously like the NVIDIA sync branch — no
 // poll handle to route. Returns true once a 200 is written, false when the lane
 // is unavailable so the caller can surface its own error.
-async function runHfImageLane({ req, res, ip, imageUrls, prompt, aspect, tier, path }) {
+async function runHfImageLane({
+	req,
+	res,
+	ip,
+	imageUrls,
+	prompt,
+	aspect,
+	tier,
+	path,
+	// Text→3D feeds this lane a FLUX-synthesized reference view, so provenance must
+	// be able to report text_to_3d (+ the synthesis model) rather than always
+	// image_to_3d. Defaults keep the original image→3D behavior for callers that
+	// pass user photos.
+	mode = 'image_to_3d',
+	previewImageUrl = null,
+	textToImageModel = null,
+}) {
 	let provider;
 	try {
 		const mod = await import('./_providers/huggingface.js');
@@ -333,16 +363,18 @@ async function runHfImageLane({ req, res, ip, imageUrls, prompt, aspect, tier, p
 	}
 
 	const backendId = 'huggingface';
+	const isImageMode = mode === 'image_to_3d';
+	const preview = previewImageUrl || imageUrls[0];
 	const clientKey = clientKeyFrom(req);
 	const syntheticJob = randomUUID().replace(/-/g, '');
 	const creationId = await createCreation({
 		clientKey,
 		ipHash: hashIp(ip),
-		prompt: prompt || 'image-to-3d',
+		prompt: prompt || (isImageMode ? 'image-to-3d' : ''),
 		aspect,
-		previewImageUrl: imageUrls[0],
+		previewImageUrl: preview,
 		replicateJobId: syntheticJob,
-		textToImageModel: null,
+		textToImageModel: isImageMode ? null : textToImageModel,
 		viewsRequested: imageUrls.length,
 		viewsUsed: imageUrls.length,
 		multiview: imageUrls.length > 1,
@@ -363,13 +395,14 @@ async function runHfImageLane({ req, res, ip, imageUrls, prompt, aspect, tier, p
 		status: 'done',
 		glb_url: durable?.glbUrl ?? resultGlbUrl,
 		durable: Boolean(durable),
-		mode: 'image_to_3d',
+		mode,
 		path,
 		tier: tier.id,
 		backend: backendId,
 		prompt: prompt || null,
-		preview_image_url: imageUrls[0],
-		reference_image_urls: [imageUrls[0]],
+		preview_image_url: preview,
+		reference_image_urls: isImageMode ? [imageUrls[0]] : [preview],
+		text_to_image_model: isImageMode ? null : textToImageModel,
 		eta_seconds: estimateEtaSeconds({ backendId, tier }),
 		estimated_credits: estimateCredits({ backendId, path, tier }),
 	});
@@ -880,6 +913,35 @@ async function startJob(req, res) {
 			views = [referenceImageUrl];
 		}
 
+		// Free-first: exhaust the free reconstruct lane (HuggingFace Spaces) BEFORE
+		// the paid Replicate default, so a forge call never spends on — or dead-ends
+		// against — the paid account while a free lane can serve it. We already hold
+		// the reference views (uploaded, or FLUX-synthesized above), so the free lane
+		// reconstructs from exactly what Replicate would have. Scoped to the default
+		// trellis lane: an explicitly chosen Hunyuan3D / Replicate-BYOK backend is
+		// honored as picked. When the free lane is unavailable (no HF_TOKEN) or it
+		// fails, we fall through to Replicate, which keeps its own fallback chain.
+		// Reversible via FORGE_PREFER_FREE=false. Provenance reports backend:huggingface
+		// so the chosen lane is never silent.
+		if (preferFreeReconstruct() && backendId === 'trellis') {
+			if (
+				await runHfImageLane({
+					req,
+					res,
+					ip,
+					imageUrls: views,
+					prompt,
+					aspect,
+					tier,
+					path,
+					mode: isImageMode ? 'image_to_3d' : 'text_to_3d',
+					previewImageUrl: referenceImageUrl,
+					textToImageModel,
+				})
+			)
+				return;
+		}
+
 		// Only poly-aware backends (Hunyuan3D self-host) accept a target budget;
 		// TRELLIS validates its input schema and would 422 on an unknown field, so
 		// the tier rides along as the recorded provenance only.
@@ -943,7 +1005,21 @@ async function startJob(req, res) {
 				console.warn(
 					`[forge] platform TRELLIS lane unavailable (${submitErr?.providerStatus || submitErr?.code}); trying free HuggingFace ${mode3d} lane`,
 				);
-				if (await runHfImageLane({ req, res, ip, imageUrls: views, prompt, aspect, tier, path })) {
+				if (
+					await runHfImageLane({
+						req,
+						res,
+						ip,
+						imageUrls: views,
+						prompt,
+						aspect,
+						tier,
+						path,
+						mode: isImageMode ? 'image_to_3d' : 'text_to_3d',
+						previewImageUrl: referenceImageUrl,
+						textToImageModel,
+					})
+				) {
 					return;
 				}
 				throw submitErr;
@@ -1016,7 +1092,10 @@ async function startJob(req, res) {
 				message: err.message || 'The provider rejected this API key.',
 			});
 		}
-		if (err?.code === 'insufficient_credits') {
+		if (err?.code === 'insufficient_credits' && BACKENDS[backendId]?.byok) {
+			// BYOK lane: the message names the CALLER'S own provider account, which
+			// they can act on — surface it. The platform's own paid lane falls through
+			// to the sanitized "temporarily unavailable" state below.
 			return json(res, 402, {
 				error: 'insufficient_credits',
 				message: err.message || 'The provider account is out of credits.',
@@ -1052,6 +1131,22 @@ async function startJob(req, res) {
 				error: 'rate_limited',
 				message: 'The 3D generator is busy right now. Try again in a few seconds.',
 				retry_after: retryAfter,
+			});
+		}
+		// Free lanes are exhausted and the only remaining lane was the platform's
+		// PAID vendor account, which is out of credit. The vendor's raw "buy credit"
+		// message is our internal billing state and is useless to the user — answer
+		// with an honest, generic unavailable state instead of leaking it. (BYOK lanes
+		// kept their actionable account message via the insufficient_credits branch.)
+		if (!BACKENDS[backendId]?.byok && isPaidCreditFailure(err)) {
+			console.warn(
+				`[forge] paid reconstruct lane out of credit and no free lane available: ${err?.message || err}`,
+			);
+			res.setHeader('retry-after', '30');
+			return json(res, 503, {
+				error: 'generation_unavailable',
+				message: 'Free 3D generation is temporarily unavailable. Please try again shortly.',
+				retry_after: 30,
 			});
 		}
 		return json(res, 502, {

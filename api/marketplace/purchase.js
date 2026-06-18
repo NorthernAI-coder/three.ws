@@ -16,15 +16,18 @@
  * Routed via vercel.json rewrites — see project root.
  */
 
-import { Keypair } from '@solana/web3.js';
-
 import { sql } from '../_lib/db.js';
 import { authenticateBearer, extractBearer, getSessionUser } from '../_lib/auth.js';
 import { cors, error, json, method, readJson, wrap, rateLimited } from '../_lib/http.js';
 import { clientIp, limits } from '../_lib/rate-limit.js';
-import { confirmSkillPurchase, logEvent, resolvePayoutAddress } from '../_lib/purchase-confirm.js';
+import { logEvent } from '../_lib/purchase-confirm.js';
 import { requireCsrf } from '../_lib/csrf.js';
-import { resolveMarketplaceFee } from '../_lib/marketplace-platform-fee.js';
+import { MonetizationService } from '../_lib/services/MonetizationService.js';
+import { solanaConnection } from '../_lib/solana/connection.js';
+import { buildGaslessPurchaseTx } from '../_lib/solana/gasless-tx.js';
+import { resolveRecipient } from '../_lib/resolve-recipient.js';
+
+const SOLANA_RPC = process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com';
 
 const REFERENCE_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/; // base58 Pubkey
 
@@ -81,156 +84,83 @@ async function handleCreate(req, res) {
 	if (!agentId || !skill) {
 		return error(res, 400, 'validation_error', 'agent_id and skill required');
 	}
+	// Optional: when the browser wallet is already connected it passes its
+	// pubkey so we can return a platform-sponsored (gasless) transaction.
+	const buyerPublicKey =
+		typeof body?.buyer_public_key === 'string' && REFERENCE_RE.test(body.buyer_public_key)
+			? body.buyer_public_key
+			: null;
 
-	// Look up the active price for this skill on this agent.
-	const [price] = await sql`
-		SELECT amount, currency_mint, chain, mint_decimals, trial_uses, time_pass_hours, time_pass_amount
-		FROM agent_skill_prices
-		WHERE agent_id = ${agentId} AND skill = ${skill} AND is_active = true
-	`;
-	if (!price) return error(res, 404, 'not_found', 'this skill is not for sale');
-
-	// Resolve the agent owner's payout wallet for the relevant chain.
-	const [payout] = await sql`
-		SELECT pw.address
-		FROM agent_identities a
-		JOIN agent_payout_wallets pw
-		  ON pw.user_id = a.user_id
-		 AND pw.chain = ${price.chain}
-		 AND (pw.agent_id = a.id OR pw.is_default = true)
-		WHERE a.id = ${agentId} AND a.deleted_at IS NULL
-		ORDER BY (pw.agent_id IS NOT NULL) DESC, pw.is_default DESC, pw.created_at ASC
-		LIMIT 1
-	`;
-	if (!payout?.address) {
-		return error(res, 412, 'creator_wallet_missing', 'agent owner has not configured a payout wallet');
-	}
-
-	// Already-owned short-circuit: any active access (confirmed purchase, live trial,
-	// unexpired time-pass) returns the existing row so the buyer doesn't pay twice.
-	const [existing] = await sql`
-		SELECT reference, status, tx_signature, confirmed_at, valid_until, trial_remaining, kind
-		FROM skill_purchases
-		WHERE user_id = ${auth.userId} AND agent_id = ${agentId} AND skill = ${skill}
-		  AND status IN ('confirmed', 'trial')
-		  AND (valid_until IS NULL OR valid_until > now())
-		ORDER BY (status = 'confirmed') DESC, confirmed_at DESC NULLS LAST
-		LIMIT 1
-	`;
-	if (existing) {
-		return json(res, 200, {
-			data: {
-				already_owned: true,
-				reference: existing.reference,
-				status: existing.status,
-				tx_signature: existing.tx_signature,
-				confirmed_at: existing.confirmed_at,
-				valid_until: existing.valid_until,
-				trial_remaining: existing.trial_remaining,
-				kind: existing.kind,
-			},
-		});
-	}
-
-	// Idempotent create (A4): reuse a fresh pending row for the same (user, agent, skill)
-	// rather than minting a new reference on every retry click.
+	// Referrer is resolved from the request (querystring / account link) and
+	// attributed only when a brand-new pending row is created.
 	const referrerUserId = await resolveReferrer(req, auth.userId);
-	const [pending] = await sql`
-		SELECT reference, amount, currency_mint, chain, expires_at,
-		       platform_fee_amount, platform_fee_wallet
-		FROM skill_purchases
-		WHERE user_id = ${auth.userId} AND agent_id = ${agentId} AND skill = ${skill}
-		  AND status = 'pending'
-		  AND expires_at > now()
-		ORDER BY created_at DESC
-		LIMIT 1
-	`;
-	// Determine if this is a time-pass purchase. Prefer explicitly passed duration_hours,
-	// then fall back to the skill's time_pass_hours if set.
-	const effectiveDurationHours = durationHours ?? (price.time_pass_hours || null);
-	const isTimePass = effectiveDurationHours != null;
-	const purchaseAmount = isTimePass && price.time_pass_amount ? price.time_pass_amount : price.amount;
-	const purchaseKind = isTimePass ? 'time_pass' : 'purchase';
 
-	// Platform fee (Solana only — the split is one atomic SPL transfer the buyer
-	// signs). Computed once at create and persisted on the row so confirm verifies
-	// the exact split that was quoted, even if the fee config changes meanwhile.
-	const feeInfo = price.chain === 'solana'
-		? await resolveMarketplaceFee({ grossAtomics: BigInt(purchaseAmount) })
-		: null;
-	const platformFeeAmount = feeInfo ? feeInfo.feeAtomics : 0n;
-	const platformFeeWallet = feeInfo ? feeInfo.recipient.toBase58() : null;
-
-	const reference = pending?.reference ?? Keypair.generate().publicKey.toBase58();
-	const label = isTimePass
-		? `${effectiveDurationHours}h Access: ${skill.slice(0, 30)}`
-		: `Skill: ${skill.slice(0, 40)}`;
-	const message = isTimePass
-		? `Get ${effectiveDurationHours}-hour access to '${skill}'`
-		: `Unlock '${skill}' for this agent`;
-
-	let row = pending;
-	if (!pending) {
-		const validUntil = isTimePass
-			? sql`now() + (${effectiveDurationHours} || ' hours')::interval`
-			: sql`null`;
-
-		const [inserted] = await sql`
-			INSERT INTO skill_purchases (
-				user_id, agent_id, skill, status, reference,
-				amount, currency_mint, chain, expires_at, kind, referrer_user_id, valid_until,
-				platform_fee_amount, platform_fee_wallet
-			)
-			VALUES (
-				${auth.userId}, ${agentId}, ${skill}, 'pending', ${reference},
-				${purchaseAmount}, ${price.currency_mint}, ${price.chain},
-				now() + interval '30 minutes', ${purchaseKind}, ${referrerUserId}, ${validUntil},
-				${platformFeeAmount.toString()}, ${platformFeeWallet}
-			)
-			RETURNING reference, amount, currency_mint, chain, expires_at, valid_until,
-			          platform_fee_amount, platform_fee_wallet
-		`;
-		row = inserted;
-		await logEvent(row.reference, 'created', { agent_id: agentId, skill, kind: purchaseKind });
-	} else {
-		await logEvent(pending.reference, 'create_idempotent_hit', { agent_id: agentId, skill });
+	// Gifting: the buyer may target another user by username / wallet / id. We
+	// resolve it to a real account here (never trusting a raw id from the client),
+	// so the service only ever sees a validated recipient user id. An unresolvable
+	// recipient fails the whole checkout — better than silently buying for self.
+	const recipientRaw = body?.recipient ?? body?.recipient_id ?? null;
+	let recipientUserId = null;
+	if (recipientRaw != null && String(recipientRaw).trim() !== '') {
+		const recipient = await resolveRecipient(String(recipientRaw));
+		if (!recipient) {
+			return error(res, 400, 'recipient_not_found', 'no user matches that username or wallet');
+		}
+		if (recipient.id === auth.userId) {
+			return error(res, 400, 'cannot_gift_self', 'you already own purchases you make for yourself');
+		}
+		recipientUserId = recipient.id;
 	}
 
-	// The split the buyer will sign, derived from the PERSISTED row so the
-	// quote here matches exactly what confirm verifies on-chain. `amount` is the
-	// full price the buyer pays; `creator_amount` is the seller's leg; `fee` is
-	// the platform leg to the treasury (omitted entirely when no fee applies).
-	const rowFee = BigInt(row.platform_fee_amount || 0);
-	const creatorAmount = (BigInt(row.amount) - rowFee).toString();
-	const feeBlock = rowFee > 0n && row.platform_fee_wallet
-		? {
-				fee: {
-					recipient: row.platform_fee_wallet,
-					amount: rowFee.toString(),
-					bps: Number((rowFee * 10000n) / BigInt(row.amount)),
-				},
-			}
-		: {};
+	// The service owns the purchase quote: price lookup, payout resolution,
+	// already-owned short-circuit, idempotent pending reuse, fee split, and the
+	// persisted skill_purchases row. The handler stays at the HTTP + transport
+	// layer (gasless sponsorship) on top of that quote.
+	const service = new MonetizationService(auth);
+	let result;
+	try {
+		result = await service.preparePurchaseTransaction(agentId, skill, { durationHours, referrerUserId, recipientUserId });
+	} catch (e) {
+		if (e.status) return error(res, e.status, e.code, e.message);
+		throw e;
+	}
 
-	return json(res, 201, {
-		data: {
-			reference: row.reference,
-			recipient: payout.address,
-			amount: String(row.amount),
-			creator_amount: creatorAmount,
-			currency_mint: row.currency_mint,
-			chain: row.chain,
-			mint_decimals: price.mint_decimals,
-			expires_at: row.expires_at,
-			valid_until: row.valid_until,
-			kind: purchaseKind,
-			label,
-			message,
-			...feeBlock,
-			...(isTimePass ? { duration_hours: effectiveDurationHours } : {}),
-			...(price.time_pass_hours ? { time_pass_hours: price.time_pass_hours, time_pass_amount: price.time_pass_amount } : {}),
-		},
-	});
+	if (result.already_owned) return json(res, 200, { data: result });
+
+	const { already_owned, ...quote } = result;
+
+	// Gasless checkout: when the buyer's wallet is connected and this is a Solana
+	// purchase, the platform builds the SPL transfer as a fee-payer-sponsored
+	// VersionedTransaction and pre-signs it. The buyer adds only their authority
+	// signature in the wallet — no SOL required. Falls back to a buyer-pays
+	// transaction (transaction = null) when no payer is configured or for the
+	// mobile QR path. The split here matches exactly what confirm verifies.
+	let gaslessBlock = {};
+	if (buyerPublicKey && quote.chain === 'solana') {
+		try {
+			const connection = solanaConnection({ url: SOLANA_RPC, commitment: 'confirmed' });
+			const prepared = await buildGaslessPurchaseTx({
+				connection,
+				buyerPublicKey,
+				recipient: quote.recipient,
+				mint: quote.currency_mint,
+				creatorAtomics: BigInt(quote.creator_amount),
+				reference: quote.reference,
+				decimals: quote.mint_decimals,
+				platformFeeAtomics: quote.fee ? BigInt(quote.fee.amount) : 0n,
+				platformFeeWallet: quote.fee?.recipient ?? null,
+			});
+			if (prepared) {
+				gaslessBlock = { transaction: prepared.transaction, gasless: true, fee_payer: prepared.feePayer };
+			}
+		} catch (e) {
+			// Never block checkout on the sponsorship optimization — the buyer can
+			// still build and pay for the transaction themselves.
+			await logEvent(quote.reference, 'gasless_prepare_failed', { reason: e?.message });
+		}
+	}
+
+	return json(res, 201, { data: { ...quote, ...gaslessBlock } });
 }
 
 // ── Status ─────────────────────────────────────────────────────────────────
@@ -270,34 +200,21 @@ async function handleConfirm(req, res, reference) {
 	const rl = await limits.authIp(clientIp(req));
 	if (!rl.success) return rateLimited(res, rl);
 
-	const [pur] = await sql`
-		SELECT sp.id, sp.user_id, sp.agent_id, sp.skill, sp.status,
-		       sp.amount, sp.currency_mint, sp.chain, sp.tx_signature,
-		       sp.expires_at, sp.referrer_user_id,
-		       sp.platform_fee_amount, sp.platform_fee_wallet,
-		       COALESCE(asp.mint_decimals, 6) AS mint_decimals
-		FROM skill_purchases sp
-		LEFT JOIN agent_skill_prices asp
-		       ON asp.agent_id = sp.agent_id AND asp.skill = sp.skill
-		WHERE sp.reference = ${reference} AND sp.user_id = ${auth.userId}
-	`;
-	if (!pur) return error(res, 404, 'not_found', 'purchase not found');
-	if (pur.status === 'confirmed') {
-		return json(res, 200, { data: { status: 'confirmed', tx_signature: pur.tx_signature } });
-	}
-	if (pur.status === 'expired' || (pur.expires_at && new Date(pur.expires_at) < new Date())) {
-		return error(res, 410, 'purchase_expired', 'this pending purchase expired; please start a new one');
-	}
 	// EVM purchases settle by a tx hash the buyer submits in the confirm body;
-	// Solana scans the chain by reference and needs no body.
-	let txHash = null;
-	if (pur.chain !== 'solana') {
-		const body = await readJson(req).catch(() => null);
-		txHash = body?.tx_hash || body?.txHash || null;
-		if (!txHash) return error(res, 400, 'tx_hash_required', 'tx_hash is required to confirm an EVM purchase');
+	// Solana scans the chain by reference and ignores it. Read it
+	// unconditionally — the service enforces "EVM requires a tx_hash".
+	const body = await readJson(req).catch(() => null);
+	const txHash = body?.tx_hash || body?.txHash || null;
+
+	const service = new MonetizationService(auth);
+	let result;
+	try {
+		result = await service.confirmPurchase(reference, { txHash });
+	} catch (e) {
+		if (e.status) return error(res, e.status, e.code, e.message);
+		throw e;
 	}
 
-	const result = await confirmSkillPurchase({ ...pur, reference }, { txHash });
 	if (result.status === 'pending') {
 		return json(res, 200, { data: { status: 'pending' } });
 	}

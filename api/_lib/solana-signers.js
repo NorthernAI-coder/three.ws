@@ -76,6 +76,14 @@ export const SOLANA_SIGNERS = [
 		network: 'mainnet',
 	},
 	{
+		name: 'marketplace-payer',
+		env: 'MARKETPLACE_PAYER_KEYPAIR',
+		fallbackEnv: 'PLATFORM_TREASURY_KEYPAIR',
+		minSol: 0.05,
+		purpose: 'sponsors network fees for gasless skill/asset checkout (fee-payer on prepared VersionedTransactions)',
+		network: 'mainnet',
+	},
+	{
 		name: 'a2a-payer',
 		env: 'A2A_PAYER_SOLANA_SECRET',
 		fallbackEnv: 'A2A_PAYER_SOLANA_PRIVATE_KEY',

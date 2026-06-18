@@ -33,6 +33,20 @@ function isMissingAccount(err) {
 	return /account does not exist|has no data|could not find/i.test(String(err));
 }
 
+// Transient RPC *infrastructure* failures — provider rate-limit/quota (429,
+// -32429 "max usage reached"), gateway 5xx, or a network blip. These are not
+// code faults and are already handled upstream: the RpcFallback connection
+// rotates off the throttled provider at the fetch layer (logging a single
+// "[solana-rpc] … cooling" line) and the curve/quote endpoints fall back to a
+// Jupiter price. Re-warning on every swallowed 429 here is what turned one
+// quota-exhausted provider into thousands of duplicate "[sdk-bridge] … 429"
+// lines. Stay quiet for these; genuine parse/programming errors still warn.
+function isTransientRpc(err) {
+	return /\b(429|500|502|503|504)\b|-32429|max usage reached|rate.?limit|quota|exhausted|timed?\s*out|fetch failed|socket hang up|ECONNRESET|ETIMEDOUT|ECONNREFUSED|EAI_AGAIN|all solana rpc endpoints failed|all rpc endpoints exhausted/i.test(
+		String(err && err.message ? err.message : err),
+	);
+}
+
 async function fetchState(connection, mint) {
 	const { OnlinePumpSdk } = await loadSdk();
 	const sdk = new OnlinePumpSdk(connection);
@@ -57,7 +71,7 @@ export async function getTokenPrice(connection, mint) {
 		const { global, feeConfig, bondingCurve, mintSupply } = await fetchState(connection, pk);
 		return sdkGetTokenPrice({ global, feeConfig, mintSupply, bondingCurve });
 	} catch (err) {
-		if (!err?.graduated && !isMissingAccount(err)) {
+		if (!err?.graduated && !isMissingAccount(err) && !isTransientRpc(err)) {
 			console.warn('[sdk-bridge] getTokenPrice failed: %s', String(err).slice(0, 120));
 		}
 		return null;
@@ -75,7 +89,7 @@ export async function getGraduationProgress(connection, mint) {
 		]);
 		return sdkGetGrad(global, bondingCurve);
 	} catch (err) {
-		if (!isMissingAccount(err)) {
+		if (!isMissingAccount(err) && !isTransientRpc(err)) {
 			console.warn('[sdk-bridge] getGraduationProgress failed: %s', String(err).slice(0, 120));
 		}
 		return null;
@@ -96,7 +110,7 @@ export async function getBuyQuote(connection, mint, solAmount) {
 		const impact = calculateBuyPriceImpact({ global, feeConfig, mintSupply, bondingCurve, solAmount: amount });
 		return { tokens, priceImpact: impact.impactBps / 100 };
 	} catch (err) {
-		if (!isMissingAccount(err)) {
+		if (!isMissingAccount(err) && !isTransientRpc(err)) {
 			console.warn('[sdk-bridge] getBuyQuote failed: %s', String(err).slice(0, 120));
 		}
 		return null;
@@ -117,7 +131,7 @@ export async function getSellQuote(connection, mint, tokenAmount) {
 		const impact = calculateSellPriceImpact({ global, feeConfig, mintSupply, bondingCurve, tokenAmount: amount });
 		return { sol, priceImpact: impact.impactBps / 100 };
 	} catch (err) {
-		if (!isMissingAccount(err)) {
+		if (!isMissingAccount(err) && !isTransientRpc(err)) {
 			console.warn('[sdk-bridge] getSellQuote failed: %s', String(err).slice(0, 120));
 		}
 		return null;
@@ -141,7 +155,7 @@ export async function getBondingCurveState(connection, mint) {
 			isMayhemMode: Boolean(bc.isMayhemMode),
 		};
 	} catch (err) {
-		if (!isMissingAccount(err)) {
+		if (!isMissingAccount(err) && !isTransientRpc(err)) {
 			console.warn('[sdk-bridge] getBondingCurveState failed: %s', String(err).slice(0, 120));
 		}
 		return null;

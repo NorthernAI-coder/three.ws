@@ -23,6 +23,7 @@ import { cors, error, json, method, readJson, wrap, rateLimited } from '../_lib/
 import { publicUrl } from '../_lib/r2.js';
 import { clientIp, limits } from '../_lib/rate-limit.js';
 import { markProviderCooldown, AUTH_COOLDOWN_SECONDS } from '../_lib/provider-health.js';
+import { getSkillPrices, skillPriceMap } from '../_lib/skill-price-cache.js';
 import { z } from 'zod';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -653,17 +654,50 @@ async function handleDetail(req, res, id) {
 		return error(res, 404, 'not_found', 'agent not found');
 	}
 
-	const [priceRows, purchasedRows] = await Promise.all([
-		sql`
-			SELECT skill, currency_mint, chain, amount, mint_decimals, trial_uses, time_pass_hours, time_pass_amount
-			FROM agent_skill_prices
-			WHERE agent_id = ${id} AND is_active = true
-		`,
+	// Skill prices via the shared cache (1h TTL, invalidated on price edits) so
+	// the marketplace detail page — the highest-traffic priced read — serves
+	// warm agents without re-querying agent_skill_prices on every view.
+	// Missing-table tolerance: subscription_plans / creator_subscriptions ship
+	// behind a migration. If a deploy hasn't applied them yet, treat them as
+	// "no tiers" rather than 500-ing the whole agent detail.
+	const tolerateMissing = async (run) => {
+		try {
+			return await run();
+		} catch (err) {
+			if (err.code === '42P01') return [];
+			throw err;
+		}
+	};
+
+	const [priceRows, purchasedRows, tierRows, subRows] = await Promise.all([
+		getSkillPrices(id),
 		auth
 			? sql`
 				SELECT skill FROM skill_purchases
 				WHERE user_id = ${auth.userId} AND agent_id = ${id} AND status = 'confirmed'
 			`
+			: Promise.resolve([]),
+		// Active subscription tiers configured for this agent, cheapest first.
+		tolerateMissing(() => sql`
+			SELECT id, name, price_usd, interval, perks, included_skills
+			FROM subscription_plans
+			WHERE agent_id = ${id} AND active = true
+			ORDER BY price_usd ASC
+		`),
+		// The signed-in viewer's active subscription to this agent (if any), so
+		// the UI can mark the current tier and offer management instead of a
+		// duplicate sign-up.
+		auth
+			? tolerateMissing(() => sql`
+				SELECT cs.id, cs.plan_id, cs.status, cs.current_period_end
+				FROM creator_subscriptions cs
+				JOIN subscription_plans sp ON sp.id = cs.plan_id
+				WHERE cs.subscriber_user_id = ${auth.userId}
+				  AND sp.agent_id = ${id}
+				  AND cs.status = 'active'
+				ORDER BY cs.current_period_end DESC
+				LIMIT 1
+			`)
 			: Promise.resolve([]),
 	]);
 
@@ -674,27 +708,52 @@ async function handleDetail(req, res, id) {
 		bookmarked = !!b;
 	}
 
-	const skill_prices = Object.fromEntries(
-		priceRows.map((p) => [
-			p.skill,
-			{
-				amount: p.amount,
-				currency_mint: p.currency_mint,
-				chain: p.chain,
-				mint_decimals: p.mint_decimals ?? 6,
-				trial_uses: p.trial_uses ?? 0,
-				time_pass_hours: p.time_pass_hours ?? null,
-				time_pass_amount: p.time_pass_amount ?? null,
-			},
-		]),
-	);
+	const skill_prices = skillPriceMap(priceRows);
 	const purchased_skills = purchasedRows.map((r) => r.skill);
+
+	const subscription_tiers = tierRows.map((t) => ({
+		id: t.id,
+		name: t.name,
+		// numeric(8,2) comes back as a string from postgres — normalise to a
+		// number so the client doesn't have to guess the shape.
+		price_usd: Number(t.price_usd),
+		interval: t.interval,
+		perks: Array.isArray(t.perks) ? t.perks : [],
+		included_skills: Array.isArray(t.included_skills) ? t.included_skills : [],
+	}));
+	const user_subscription = subRows[0]
+		? {
+				id: subRows[0].id,
+				plan_id: subRows[0].plan_id,
+				status: subRows[0].status,
+				current_period_end: subRows[0].current_period_end,
+			}
+		: null;
+
+	// The payload carries viewer-specific state (bookmarked, purchased_skills,
+	// user_subscription). Only the anonymous shape is safe for a shared cache —
+	// authenticated reads must stay private so one viewer's state never lands
+	// in another's response.
+	const cacheControl = auth
+		? 'private, max-age=0, must-revalidate'
+		: 'public, max-age=15';
 
 	return json(
 		res,
 		200,
-		{ data: { agent: { ...toDetail(row), skill_prices, bookmarked, purchased_skills } } },
-		{ 'cache-control': 'public, max-age=15' },
+		{
+			data: {
+				agent: {
+					...toDetail(row),
+					skill_prices,
+					bookmarked,
+					purchased_skills,
+					subscription_tiers,
+					user_subscription,
+				},
+			},
+		},
+		{ 'cache-control': cacheControl },
 	);
 }
 

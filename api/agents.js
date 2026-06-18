@@ -21,6 +21,7 @@ import { checkIdentityIntegrity } from './_lib/identity-integrity.js';
 import { publicUrl } from './_lib/r2.js';
 import { pingIndexNow } from './_lib/indexnow.js';
 import { publishFeedEvent } from './_lib/feed.js';
+import { getSkillPrices, skillPriceMap } from './_lib/skill-price-cache.js';
 import { env } from './_lib/env.js';
 import { z } from 'zod';
 
@@ -321,37 +322,24 @@ export async function handleGetOne(req, res, id) {
 		const rl = await limits.publicIp(clientIp(req));
 		if (!rl.success) return rateLimited(res, rl);
 
-		// Single roundtrip: pull skill_prices as a JSON-aggregated subquery
-		// instead of a follow-up SELECT. Saves a second DB hop per GET on
-		// /api/agents/:id (was the dominant cost on cached pages where
-		// healStaleAvatarId is a no-op).
 		const [row] = await sql`
 			SELECT i.*,
 			       u.display_name as author_name,
 			       u.avatar_url   as author_avatar,
 			       a.storage_key  AS avatar_storage_key,
 			       a.thumbnail_key AS avatar_thumbnail_key,
-			       a.visibility   AS avatar_visibility,
-			       COALESCE(
-			         (SELECT jsonb_object_agg(
-			                   sp.skill,
-			                   jsonb_build_object(
-			                     'amount', sp.amount,
-			                     'currency_mint', sp.currency_mint,
-			                     'chain', sp.chain,
-			                     'trial_uses', sp.trial_uses
-			                   )
-			                 )
-			            FROM agent_skill_prices sp
-			           WHERE sp.agent_id = i.id AND sp.is_active = true),
-			         '{}'::jsonb
-			       ) AS skill_prices
+			       a.visibility   AS avatar_visibility
 			FROM agent_identities i
 			LEFT JOIN users u   ON i.user_id = u.id
 			LEFT JOIN avatars a ON a.id = i.avatar_id AND a.deleted_at IS NULL
 			WHERE i.id = ${id} AND i.deleted_at IS NULL
 		`;
 		if (!row) return error(res, 404, 'not_found', 'agent not found');
+
+		// Skill prices come from the cache (1h TTL, invalidated on price edits)
+		// rather than an inline subquery, so the dominant repeat read on this hot
+		// path never touches agent_skill_prices once the agent is warm.
+		row.skill_prices = skillPriceMap(await getSkillPrices(id));
 
 		await healStaleAvatarId(row);
 

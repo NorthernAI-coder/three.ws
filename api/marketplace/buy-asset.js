@@ -26,11 +26,14 @@ import { cors, error, json, method, readJson, wrap, rateLimited } from '../_lib/
 import { clientIp, limits } from '../_lib/rate-limit.js';
 import { requireCsrf } from '../_lib/csrf.js';
 import { rpcFallbackFromEnv } from '../_lib/solana/rpc-fallback.js';
+import { solanaConnection } from '../_lib/solana/connection.js';
+import { buildGaslessPurchaseTx } from '../_lib/solana/gasless-tx.js';
 import { insertNotification } from '../_lib/notify.js';
 import { verifyEvmUsdcPayment, evmChainId } from '../_lib/evm-payment-verify.js';
 
 const REFERENCE_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 const ITEM_TYPES = ['avatar', 'agent', 'plugin'];
+const SOLANA_RPC = process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com';
 
 let _rpc;
 function rpc() {
@@ -116,6 +119,11 @@ async function handleCreate(req, res) {
 	if (!ITEM_TYPES.includes(itemType) || !itemId) {
 		return error(res, 400, 'validation_error', 'item_type and item_id required');
 	}
+	// Optional connected-wallet pubkey → platform-sponsored (gasless) transaction.
+	const buyerPublicKey =
+		typeof body?.buyer_public_key === 'string' && REFERENCE_RE.test(body.buyer_public_key)
+			? body.buyer_public_key
+			: null;
 
 	const [price] = await sql`
 		SELECT amount, currency_mint, chain, mint_decimals, owner_user_id
@@ -183,6 +191,31 @@ async function handleCreate(req, res) {
 		row = inserted;
 	}
 
+	// Gasless checkout: sponsor the network fee with a pre-signed
+	// VersionedTransaction when the buyer's Solana wallet is connected. A whole
+	// asset is a single full-amount transfer to the seller (no platform fee leg).
+	let gaslessBlock = {};
+	if (buyerPublicKey && row.chain === 'solana') {
+		try {
+			const connection = solanaConnection({ url: SOLANA_RPC, commitment: 'confirmed' });
+			const prepared = await buildGaslessPurchaseTx({
+				connection,
+				buyerPublicKey,
+				recipient: payoutAddress,
+				mint: row.currency_mint,
+				creatorAtomics: BigInt(row.amount),
+				reference: row.reference,
+				decimals: price.mint_decimals,
+			});
+			if (prepared) {
+				gaslessBlock = { transaction: prepared.transaction, gasless: true, fee_payer: prepared.feePayer };
+			}
+		} catch (e) {
+			// Sponsorship is best-effort — the buyer can still pay for the tx.
+			console.warn('[buy-asset] gasless prepare failed:', e?.message);
+		}
+	}
+
 	return json(res, 201, {
 		data: {
 			reference: row.reference,
@@ -196,6 +229,7 @@ async function handleCreate(req, res) {
 			message,
 			item_type: itemType,
 			item_id: itemId,
+			...gaslessBlock,
 		},
 	});
 }

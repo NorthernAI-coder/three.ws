@@ -270,6 +270,8 @@ describe('Revenue Attribution', () => {
 		sqlState.queue.push([agent]);
 		// priceFor: agent_skill_prices lookup → no explicit price, falls back to meta
 		sqlState.queue.push([]);
+		// hasSkillAccess: echo has no canonical agent_skill_prices row → paid:false, x402 path
+		sqlState.queue.push([]);
 		// verifyPaid: intent is paid, amount matches default_price
 		sqlState.queue.push([
 			{
@@ -311,6 +313,7 @@ describe('Revenue Attribution', () => {
 
 		sqlState.queue.push([agent]); // agent lookup
 		sqlState.queue.push([]); // priceFor: agent_skill_prices → no row, use meta
+		sqlState.queue.push([]); // hasSkillAccess: no canonical price → paid:false, x402 path
 
 		const { status } = await invoke(x402Handler, {
 			method: 'POST',
@@ -330,6 +333,7 @@ describe('Revenue Attribution', () => {
 		// First invoke: intent is paid → succeeds
 		sqlState.queue.push([agent]);
 		sqlState.queue.push([]); // priceFor: agent_skill_prices → no row, use meta
+		sqlState.queue.push([]); // hasSkillAccess: no canonical price → paid:false, x402 path
 		sqlState.queue.push([{
 			id: intentId,
 			agent_id: agent.id,
@@ -352,6 +356,7 @@ describe('Revenue Attribution', () => {
 		// Second invoke: intent is consumed → verifyPaid finds no 'paid' row → 402
 		sqlState.queue.push([agent]);
 		sqlState.queue.push([]); // priceFor: agent_skill_prices → no row, use meta
+		sqlState.queue.push([]); // hasSkillAccess: no canonical price → paid:false, x402 path
 		sqlState.queue.push([]); // empty result: no 'paid' intent → verifyPaid returns null
 
 		const { status: second } = await invoke(x402Handler, {

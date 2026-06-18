@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-18T07:40:04.896Z",
+	"generated_at": "2026-06-18T08:03:07.735Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -57,6 +57,17 @@
 			"tags": [
 				"improvement",
 				"infra"
+			]
+		},
+		{
+			"date": "2026-06-18",
+			"type": "update",
+			"title": "Forge always reaches for a free 3D engine first",
+			"summary": "Text-to-3D and image-to-3D generation now exhaust the free engines before any paid one. A prompt is rendered on the free NVIDIA lane; if that's busy, the reference image is reconstructed into a mesh on a free engine too — the platform only reaches for a paid engine as a genuine last resort. And if every engine is briefly out of reach, you now get an honest \"temporarily unavailable, try again shortly\" instead of a confusing technical billing message. Same Forge, fewer dead ends, no surprise costs.",
+			"link": "/forge",
+			"tags": [
+				"improvement",
+				"fix"
 			]
 		},
 		{
@@ -245,6 +256,16 @@
 			"tags": [
 				"fix",
 				"infra"
+			]
+		},
+		{
+			"date": "2026-06-18",
+			"type": "update",
+			"title": "Subscribe to an agent in one click — pay once, unlock every paid skill",
+			"summary": "Agent pages now show the creator's subscription tiers right under skills & pricing, each with a Subscribe button. Pick a tier, confirm the price and billing cycle in the checkout, and approve a single USDC payment in your wallet — the platform covers the network fee, so you don't need any SOL. Once the payment confirms on-chain your subscription goes live instantly and unlocks all of that agent's paid skills for the period; the page marks tiers you're already on so you never pay twice. Built on the same verified on-chain settlement as one-off skill purchases.",
+			"link": "/marketplace",
+			"tags": [
+				"feature"
 			]
 		},
 		{

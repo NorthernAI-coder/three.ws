@@ -27,6 +27,7 @@ inventory, the watchdog, the scripts, the cron registration) is done and shipped
 | coin-treasury | `COIN_TREASURY_SECRET_KEY_B64` | mainnet | base64 (64 bytes) | 0.05 | lottery / reflection distribution txs for launched coins |
 | club-treasury | `CLUB_SOLANA_TREASURY_SECRET_KEY_B64` | mainnet | base64 (64 bytes) | 0.05 | USDC tip-sweep transfers + recipient ATA rent (club-payouts) |
 | platform-treasury | `PLATFORM_TREASURY_KEYPAIR` (`TREASURY_KEYPAIR`) | mainnet | base58 / JSON | 0.05 | SPL withdrawal gas (process-withdrawals cron) |
+| marketplace-payer | `MARKETPLACE_PAYER_KEYPAIR` (`PLATFORM_TREASURY_KEYPAIR`) | mainnet | base64 / base58 / JSON | 0.05 | sponsors network fees for **gasless** skill/asset checkout (fee-payer on prepared VersionedTransactions) |
 | a2a-payer | `A2A_PAYER_SOLANA_SECRET` (`A2A_PAYER_SOLANA_PRIVATE_KEY`) | mainnet | base58 | 0.02 | co-signs SPL TransferChecked for A2A mandate settlements |
 | collection-authority | `SOLANA_AGENT_COLLECTION_AUTHORITY_KEY` | mainnet + devnet | base58 | 0.02 | creates/manages the three.ws agent NFT collection |
 

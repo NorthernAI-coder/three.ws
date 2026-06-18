@@ -45,6 +45,17 @@ vi.mock('../../api/_lib/rate-limit.js', () => ({
 // null, but mock it so the test never depends on R2 env config.
 vi.mock('../../api/_lib/r2.js', () => ({ publicUrl: (k) => (k ? `https://cdn.test/${k}` : null) }));
 
+// Force the skill-price cache to always miss → every detail read re-queries the
+// (mocked) DB. Without this, the module-level cache would carry case 1's prices
+// into case 2 (these cases reuse one AGENT_ID with different active prices), so
+// the cache mock is what keeps each case isolated. The caching/invalidation
+// behaviour itself is covered directly in skill-price-cache.test.js.
+vi.mock('../../api/_lib/cache.js', () => ({
+	cacheGet: vi.fn(async () => null),
+	cacheSet: vi.fn(async () => {}),
+	cacheDel: vi.fn(async () => {}),
+}));
+
 const { default: router } = await import('../../api/marketplace/[action].js');
 
 // $THREE — the only coin this platform references.

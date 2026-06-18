@@ -1411,6 +1411,171 @@ body.market-page > header {
 	flex-shrink: 0;
 }
 
+/* ── Subscription tiers (agent detail) ───────────────────────────────────── */
+
+.d-subs-head {
+	margin-bottom: var(--space-md);
+}
+.d-subs-head h3 {
+	margin: 0;
+}
+.d-subs-sub {
+	margin: var(--space-2xs) 0 0;
+	font-size: 13px;
+	color: var(--ink-dim);
+}
+.tiers-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+	gap: var(--space-md);
+}
+.tier-card {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	border: 1px solid var(--stroke);
+	border-radius: var(--radius-md);
+	background: var(--surface-1);
+	padding: var(--space-lg) var(--space-md) var(--space-md);
+	transition:
+		border-color 0.18s ease,
+		transform 0.18s ease,
+		box-shadow 0.18s ease;
+}
+.tier-card:hover {
+	border-color: var(--stroke-strong);
+	transform: translateY(-2px);
+}
+.tier-card.subscribed {
+	border-color: var(--success);
+	box-shadow: 0 0 0 1px var(--success) inset, 0 8px 28px rgba(74, 222, 128, 0.12);
+}
+.tier-badge {
+	position: absolute;
+	top: calc(-1 * var(--space-sm));
+	left: 50%;
+	transform: translateX(-50%);
+	padding: 2px var(--space-sm);
+	border-radius: 999px;
+	background: var(--success);
+	color: #04130a;
+	font-size: 10px;
+	font-weight: 700;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+	white-space: nowrap;
+}
+.tier-name {
+	font-size: 16px;
+	font-weight: 600;
+	color: var(--ink);
+}
+.tier-price {
+	margin: var(--space-2xs) 0 var(--space-sm);
+	font-family: var(--font-display);
+	font-size: 26px;
+	font-weight: 700;
+	color: var(--ink);
+	line-height: 1.1;
+}
+.tier-interval {
+	margin-left: 4px;
+	font-family: var(--font-mono);
+	font-size: 12px;
+	font-weight: 500;
+	color: var(--ink-dim);
+}
+.tier-skills {
+	margin-bottom: var(--space-sm);
+	font-size: 12px;
+	font-weight: 600;
+	color: var(--success);
+}
+.tier-perks {
+	margin: 0 0 var(--space-md);
+	padding: 0;
+	list-style: none;
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2xs);
+}
+.tier-perks li {
+	position: relative;
+	padding-left: 18px;
+	font-size: 13px;
+	color: var(--ink-dim);
+	line-height: 1.4;
+}
+.tier-perks li::before {
+	content: '✓';
+	position: absolute;
+	left: 0;
+	top: 0;
+	color: var(--success);
+	font-weight: 700;
+}
+.tier-perks-empty {
+	margin: 0 0 var(--space-md);
+	flex: 1;
+	font-size: 13px;
+	color: var(--ink-dim);
+}
+.tier-btn {
+	margin-top: auto;
+	width: 100%;
+	padding: var(--space-sm) var(--space-md);
+	border-radius: var(--radius-md);
+	border: 1px solid var(--stroke-strong);
+	background: var(--surface-2);
+	color: var(--ink);
+	font-size: 14px;
+	font-weight: 600;
+	cursor: pointer;
+	transition:
+		background 0.18s ease,
+		border-color 0.18s ease,
+		opacity 0.18s ease;
+}
+.tier-btn:hover:not(:disabled) {
+	border-color: var(--stroke-strong);
+	background: var(--surface-1);
+}
+.tier-btn.primary {
+	background: #fafafa;
+	border-color: #fafafa;
+	color: #000;
+}
+.tier-btn.primary:hover:not(:disabled) {
+	background: #fff;
+	border-color: #fff;
+}
+.tier-btn.current {
+	background: transparent;
+	border-color: var(--success);
+	color: var(--success);
+}
+.tier-btn:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+.tier-btn:focus-visible {
+	outline: var(--focus-ring-width, 2px) solid var(--focus-ring-color, var(--accent));
+	outline-offset: var(--focus-ring-offset, 2px);
+}
+.d-subs-status {
+	margin: var(--space-md) 0 0;
+	min-height: 1em;
+	font-size: 13px;
+	color: var(--ink-dim);
+}
+.d-subs-status.err {
+	color: var(--danger);
+}
+.d-subs-status.ok {
+	color: var(--success);
+}
+
 .purchase-btn {
 	margin-left: var(--space-xs);
 	padding: var(--space-2xs) var(--space-sm);

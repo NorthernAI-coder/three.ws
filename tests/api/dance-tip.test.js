@@ -248,6 +248,50 @@ describe('buildTicket', () => {
 		expect(ticket.amountAtomics).toBe(null);
 		expect(ticket.asset).toBe(null);
 	});
+
+	it('flags pole styles so the stage turns the dancer into the pole', () => {
+		const ticket = buildTicket({
+			dancer: '1',
+			style: pickStyle('twerk'),
+			ticketId: 'tkt-4',
+		});
+		expect(ticket.dance).toBe('twerk');
+		expect(ticket.clip).toBe('twerk');
+		expect(ticket.pole).toBe(true);
+		// Single-clip pole style — no choreographed chain.
+		expect(ticket.sequence).toBeUndefined();
+	});
+
+	it('omits the pole flag entirely for free-floor styles', () => {
+		const ticket = buildTicket({
+			dancer: '1',
+			style: pickStyle('rumba'),
+			ticketId: 'tkt-5',
+		});
+		expect(ticket.pole).toBeUndefined();
+	});
+});
+
+describe('twerk — pole style', () => {
+	it('is a single-clip, looping pole style on a real manifest clip', () => {
+		const style = STYLES.twerk;
+		expect(style).toBeTruthy();
+		expect(style.clip).toBe('twerk');
+		expect(style.loop).toBe(true);
+		expect(style.pole).toBe(true);
+		expect(style.sequence).toBeUndefined();
+	});
+
+	it('pickStyle surfaces the pole flag', () => {
+		expect(pickStyle('twerk').pole).toBe(true);
+		// Free-floor + sequence styles report pole: false.
+		expect(pickStyle('rumba').pole).toBe(false);
+		expect(pickStyle('spin').pole).toBe(false);
+	});
+
+	it('is advertised in the input `dance` enum', () => {
+		expect(JSON.stringify(BAZAAR_SCHEMA.schema)).toContain('"twerk"');
+	});
 });
 
 describe('Bazaar discovery schema', () => {

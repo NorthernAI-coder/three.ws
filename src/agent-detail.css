@@ -1416,6 +1416,114 @@ model-viewer.ad-hero-avatar {
 	margin-top: 14px;
 }
 
+/* ── Subscription tiers ────────────────────────────────────────────────── */
+.ad-bullet-violet {
+	background: #a78bfa;
+}
+.ad-tiers-sub {
+	font-size: 13px;
+	color: var(--ad-muted);
+	margin: 0 0 14px;
+}
+.ad-tiers-body {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+	gap: 12px;
+}
+.ad-tier {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	padding: 14px;
+	border: 1px solid var(--ad-line-2);
+	border-radius: 12px;
+	background: var(--ad-bg-2);
+	transition:
+		border-color 0.15s,
+		transform 0.15s;
+}
+.ad-tier:hover {
+	border-color: rgba(167, 139, 250, 0.5);
+	transform: translateY(-1px);
+}
+.ad-tier-head {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 8px;
+}
+.ad-tier-name {
+	font-size: 14px;
+	font-weight: 600;
+	color: var(--ad-text);
+}
+.ad-tier-price {
+	font-size: 18px;
+	font-weight: 700;
+	color: var(--ad-text);
+	white-space: nowrap;
+}
+.ad-tier-cycle {
+	font-size: 12px;
+	font-weight: 500;
+	color: var(--ad-muted);
+}
+.ad-tier-perks {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+.ad-tier-perks li {
+	position: relative;
+	padding-left: 18px;
+	font-size: 12.5px;
+	color: var(--ad-muted);
+	line-height: 1.4;
+}
+.ad-tier-perks li::before {
+	content: "✓";
+	position: absolute;
+	left: 0;
+	color: #a78bfa;
+	font-weight: 700;
+}
+.ad-tier-foot {
+	margin-top: auto;
+}
+.ad-tier-btn {
+	width: 100%;
+	padding: 8px 12px;
+	border-radius: 9px;
+	border: 1px solid transparent;
+	background: #a78bfa;
+	color: #14101f;
+	font: inherit;
+	font-size: 13px;
+	font-weight: 700;
+	cursor: pointer;
+	transition:
+		background 0.15s,
+		transform 0.1s;
+}
+.ad-tier-btn:hover {
+	background: #b9a4fb;
+}
+.ad-tier-btn:active {
+	transform: translateY(1px);
+}
+.ad-tier-btn:focus-visible {
+	outline: 2px solid #c4b5fd;
+	outline-offset: 2px;
+}
+.ad-tier-note {
+	font-size: 12px;
+	color: var(--ad-muted);
+	font-style: italic;
+}
+
 /* ── Sale / ownership panel ────────────────────────────────────────────── */
 .ad-sale-eyebrow {
 	font-size: 12px;
@@ -1866,6 +1974,11 @@ model-viewer.ad-hero-avatar {
 .payment-modal-badge.warn {
 	background: rgba(245, 165, 36, 0.08);
 	border-color: rgba(245, 165, 36, 0.25);
+	color: var(--ad-text);
+}
+.payment-modal-badge.info {
+	background: rgba(87, 199, 255, 0.08);
+	border-color: rgba(87, 199, 255, 0.25);
 	color: var(--ad-text);
 }
 #payment-modal-lede {

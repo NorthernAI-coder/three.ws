@@ -30,6 +30,7 @@ import {
 	openPurchaseFlow,
 	openTrialFlow,
 	openTimePassFlow,
+	openSubscribeFlow,
 	openAssetPurchaseFlow,
 	formatAssetPrice,
 	apiPostWithCsrf,
@@ -109,6 +110,7 @@ export async function enrichAgentDetail(baseAgent) {
 	renderHeroActions(baseAgent, market);
 	renderSalePanel(baseAgent, market);
 	renderPricing(market);
+	renderSubscriptionTiers(market).catch((e) => log.warn('[agent-detail-market] tiers', e?.message));
 	renderEmbed(market);
 	startPreviewSession(market);
 	const preview = $('ad-preview-card');
@@ -142,6 +144,7 @@ async function reloadPurchases(agentId) {
 		purchasedSkills.clear();
 		(fresh.purchased_skills || []).forEach((s) => purchasedSkills.add(s));
 		renderPricing(fresh);
+		renderSubscriptionTiers(fresh).catch(() => {});
 	} catch (e) {
 		log.warn('[agent-detail-market] reloadPurchases failed:', e.message);
 	}
@@ -551,6 +554,105 @@ function bindPurchaseDelegation() {
 			const duration = Number(target.dataset.duration);
 			if (duration) openTimePassFlow(agentId, skillName, duration, target).catch((err) => log.error('[agent-detail-market] time-pass', err));
 		}
+	});
+}
+
+// ── Subscription tiers ─────────────────────────────────────────────────────────
+
+let marketTiers = [];
+let subscribedPlanIds = new Set();
+
+async function renderSubscriptionTiers(a) {
+	const card = $('ad-tiers-card');
+	const body = $('ad-tiers-body');
+	const sub = $('ad-tiers-sub');
+	if (!card || !body) return;
+
+	let tiers = [];
+	try {
+		const r = await fetch(`${API}/agents/${encodeURIComponent(a.id)}/tiers`, { credentials: 'include' });
+		if (r.ok) {
+			const j = await r.json();
+			tiers = Array.isArray(j.tiers) ? j.tiers : [];
+		}
+	} catch (e) {
+		log.warn('[agent-detail-market] tiers fetch failed:', e.message);
+	}
+
+	if (!tiers.length) { card.hidden = true; return; }
+	marketTiers = tiers;
+	card.hidden = false;
+
+	// Highlight tiers the signed-in user already subscribes to.
+	subscribedPlanIds = await fetchActiveSubscriptionIds();
+
+	if (sub) {
+		sub.textContent = isOwner
+			? 'Subscribers get access to all of this agent’s paid skills.'
+			: 'Subscribe for full access to this agent’s paid skills.';
+		sub.hidden = false;
+	}
+
+	body.innerHTML = tiers
+		.map((t) => {
+			const cycle = t.interval === 'weekly' ? 'week' : 'month';
+			const price = Number(t.price_usd).toFixed(2);
+			const perks = Array.isArray(t.perks) ? t.perks.filter(Boolean) : [];
+			const perksHtml = perks.length
+				? `<ul class="ad-tier-perks">${perks.map((p) => `<li>${escapeHtml(p)}</li>`).join('')}</ul>`
+				: '';
+			let action;
+			if (isOwner) {
+				action = `<span class="ad-tier-note">Your tier</span>`;
+			} else if (subscribedPlanIds.has(t.id)) {
+				action = `<span class="ad-price-badge owned">✓ Subscribed</span>`;
+			} else {
+				action = `<button class="ad-tier-btn ad-subscribe-btn" data-tier-id="${escapeHtml(t.id)}" data-agent-id="${escapeHtml(a.id)}">Subscribe</button>`;
+			}
+			return `
+				<div class="ad-tier">
+					<div class="ad-tier-head">
+						<span class="ad-tier-name">${escapeHtml(t.name)}</span>
+						<span class="ad-tier-price">$${escapeHtml(price)}<span class="ad-tier-cycle">/${cycle}</span></span>
+					</div>
+					${perksHtml}
+					<div class="ad-tier-foot">${action}</div>
+				</div>`;
+		})
+		.join('');
+
+	bindTierDelegation();
+}
+
+// Active subscription plan_ids for the signed-in user (empty when anonymous).
+async function fetchActiveSubscriptionIds() {
+	try {
+		const r = await fetch(`${API}/subscriptions/mine`, { credentials: 'include' });
+		if (!r.ok) return new Set();
+		const j = await r.json();
+		return new Set(
+			(j.subscriptions || []).filter((s) => s.status === 'active').map((s) => s.plan_id),
+		);
+	} catch {
+		return new Set();
+	}
+}
+
+let tierDelegationBound = false;
+function bindTierDelegation() {
+	if (tierDelegationBound) return;
+	tierDelegationBound = true;
+	const body = $('ad-tiers-body');
+	if (!body) return;
+	body.addEventListener('click', (e) => {
+		const btn = e.target.closest?.('.ad-subscribe-btn');
+		if (!btn) return;
+		const tierId = btn.dataset.tierId;
+		const agentId = btn.dataset.agentId;
+		if (!tierId || !agentId) return;
+		const tier = marketTiers.find((t) => t.id === tierId);
+		if (!tier) return;
+		openSubscribeFlow(agentId, tier).catch((err) => log.error('[agent-detail-market] subscribe', err));
 	});
 }
 

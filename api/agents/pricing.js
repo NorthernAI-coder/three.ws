@@ -8,6 +8,7 @@ import { sql } from '../_lib/db.js';
 import { authenticateBearer, extractBearer, getSessionUser } from '../_lib/auth.js';
 import { cors, error, json, method, readJson, wrap, rateLimited } from '../_lib/http.js';
 import { clientIp, limits } from '../_lib/rate-limit.js';
+import { invalidateSkillPriceCache } from '../_lib/skill-price-cache.js';
 import { z } from 'zod';
 
 const bodySchema = z.object({
@@ -75,5 +76,6 @@ export default wrap(async (req, res) => {
 		`;
 	}
 
+	await invalidateSkillPriceCache(agentId);
 	return json(res, 200, { data: { ok: true } });
 });

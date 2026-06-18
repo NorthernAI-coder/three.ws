@@ -1,8 +1,7 @@
-import { sql } from '../../_lib/db.js';
 import { getSessionUser, authenticateBearer, extractBearer } from '../../_lib/auth.js';
 import { cors, json, method, readJson, wrap, error } from '../../_lib/http.js';
 import { requireCsrf } from '../../_lib/csrf.js';
-import { invalidateSkillPriceCache } from '../../_lib/skill-price-cache.js';
+import { MonetizationService } from '../../_lib/services/MonetizationService.js';
 import { z } from 'zod';
 
 const priceSchema = z.object({
@@ -32,28 +31,27 @@ export default wrap(async (req, res) => {
 	// CSRF on state-changing session-cookie requests; bearer tokens are exempt.
 	if (req.method === 'PUT' && !(await requireCsrf(req, res, auth.userId))) return;
 
-	const [agent] = await sql`
-		SELECT id, user_id FROM agent_identities WHERE id = ${id} AND deleted_at IS NULL
-	`;
-	if (!agent) return error(res, 404, 'not_found', 'agent not found');
-	if (agent.user_id !== auth.userId) return error(res, 403, 'forbidden', 'not your agent');
+	const service = new MonetizationService(auth);
 
-	if (req.method === 'GET') return handleGet(req, res, id);
-	if (req.method === 'PUT') return handlePut(req, res, id);
+	// Ownership gates both reads and writes on this owner-only surface.
+	try {
+		await service.assertOwnership(id);
+	} catch (e) {
+		return error(res, e.status || 500, e.code || 'error', e.message);
+	}
+
+	if (req.method === 'GET') return handleGet(req, res, service, id);
+	if (req.method === 'PUT') return handlePut(req, res, service, id);
 
 	return method(req, res, ['GET', 'PUT']);
 });
 
-async function handleGet(req, res, agentId) {
-	const prices = await sql`
-		SELECT skill, amount, currency_mint, chain
-		FROM agent_skill_prices
-		WHERE agent_id = ${agentId} AND is_active = true
-	`;
+async function handleGet(req, res, service, agentId) {
+	const prices = await service.getSkillPricesForAgent(agentId);
 	return json(res, 200, { prices });
 }
 
-async function handlePut(req, res, agentId) {
+async function handlePut(req, res, service, agentId) {
 	const body = await readJson(req);
 	const parsed = pricingUpdateSchema.safeParse(body);
 	if (!parsed.success) {
@@ -61,40 +59,9 @@ async function handlePut(req, res, agentId) {
 		return error(res, 400, 'validation_error', msg);
 	}
 
-	const { prices } = parsed.data;
-
-	// Neon's serverless driver runs a transaction as an ARRAY of queries in a
-	// single round-trip — not the interactive `async (tx) => {}` callback of
-	// node-postgres (which throws "transaction() expects an array of queries, or
-	// a function returning an array of queries"). Every statement is known up
-	// front, so we build the array and pass it. Atomic: the deactivate + all
-	// upserts commit together or not at all.
-	const statements = [
-		// Deactivate all existing prices for this agent…
-		sql`UPDATE agent_skill_prices SET is_active = false WHERE agent_id = ${agentId}`,
-		// …then (re)assert the submitted set as the active prices.
-		...prices.map(
-			(p) => sql`
-				INSERT INTO agent_skill_prices
-					(agent_id, skill, amount, currency_mint, chain, is_active, trial_uses, time_pass_hours, time_pass_amount)
-				VALUES
-					(${agentId}, ${p.skill}, ${p.amount}, ${p.currency_mint}, ${p.chain}, true,
-					 ${p.trial_uses ?? 0}, ${p.time_pass_hours ?? null}, ${p.time_pass_amount ?? null})
-				ON CONFLICT (agent_id, skill) DO UPDATE SET
-					amount = EXCLUDED.amount,
-					currency_mint = EXCLUDED.currency_mint,
-					chain = EXCLUDED.chain,
-					is_active = true,
-					trial_uses = EXCLUDED.trial_uses,
-					time_pass_hours = EXCLUDED.time_pass_hours,
-					time_pass_amount = EXCLUDED.time_pass_amount,
-					updated_at = now()
-			`,
-		),
-	];
-
-	await sql.transaction(statements);
-	invalidateSkillPriceCache(agentId);
+	// Ownership already asserted above — the service performs the atomic
+	// deactivate-then-upsert and invalidates the price cache.
+	await service.setSkillPrices(agentId, parsed.data.prices, { skipOwnershipCheck: true });
 
 	return json(res, 200, { ok: true });
 }

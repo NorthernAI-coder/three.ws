@@ -12,7 +12,12 @@
 //     burn through fallbacks).
 
 import { Connection } from '@solana/web3.js';
-import { solanaRpcEndpoints, isEndpointCooling, markEndpointCooldown } from './connection.js';
+import {
+	solanaRpcEndpoints,
+	isEndpointCooling,
+	markEndpointCooldown,
+	makeRotatingFetch,
+} from './connection.js';
 
 const MAX_CONSECUTIVE_FAILS = 3;
 const COOLDOWN_MS = 60_000;
@@ -78,6 +83,18 @@ export class RpcFallback {
 				// instead of web3.js running its 500/1000/2000/4000ms backoff loop
 				// ("Server responded with 429 … Retrying after Nms") on a dead lane.
 				disableRetryOnRateLimit: true,
+				// Rotate across the WHOLE endpoint set at the fetch layer, sharing the
+				// process-wide cooldown map. This is essential for call sites whose fn
+				// swallows the RPC error instead of rethrowing it: the sdk-bridge
+				// curve/quote reads return null on a 429 rather than throwing, so the
+				// withFallback() loop below would never observe a failure, never
+				// rotate, never mark a cooldown — and re-hammer a quota-dead provider
+				// (Helius -32429 "max usage reached") on every single poll. That was
+				// the source of the "[sdk-bridge] … 429" storm. With the rotating
+				// fetch the dead endpoint is skipped BEFORE the SDK call runs and is
+				// parked in cooldown, so the read transparently lands on a healthy
+				// provider and subsequent polls skip the dead lane outright.
+				...(this.urls.length > 1 ? { fetch: makeRotatingFetch(this.urls) } : {}),
 			});
 		}
 		return this.connections[this.currentIndex];

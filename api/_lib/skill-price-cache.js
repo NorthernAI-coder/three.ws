@@ -1,60 +1,78 @@
-// In-memory cache for agent skill prices.
+// Cache for agent skill prices — Upstash Redis (shared) with in-memory fallback.
 //
-// Skill prices are read on every purchase flow, agent embed load, and
-// marketplace detail fetch. They change infrequently (creator-initiated
-// updates), so caching them for a short window cuts DB round-trips without
-// ever serving stale prices for meaningful durations.
+// Skill prices are read on every purchase flow, agent embed load, marketplace
+// detail fetch, and agent-detail GET. They change only when a creator edits
+// them, so caching them takes a DB round-trip off all of those hot read paths.
 //
-// TTL: 2 minutes per agent. Writes (set-price, bulk-pricing) must call
-// invalidateSkillPriceCache(agentId) so the next read reflects the update.
+// Backed by the shared cache adapter (_lib/cache.js): Upstash Redis when it is
+// configured, an in-memory Map otherwise (dev + tests need no extra config).
+// Using the shared adapter — instead of a process-local Map — is what makes
+// invalidation correct on Vercel: a price edit handled by one serverless
+// instance issues a Redis DEL that every other warm instance observes on its
+// next read. A per-instance Map cannot do that; it can only clear the one
+// instance that handled the write, leaving every other instance to serve stale
+// prices until its own TTL lapses. The adapter's short read-memo additionally
+// collapses bursts of identical reads into a single Redis round-trip.
 //
-// Vercel serverless: each function instance has its own heap, so cache
-// entries only persist for the lifetime of that warm instance. There is no
-// cross-instance coordination — an update invalidates the local instance's
-// entry only. In the worst case a stale instance serves old prices for up
-// to TTL seconds. This is acceptable: prices don't change mid-purchase (the
-// purchase flow persists the quoted price on the skill_purchases row at
-// create time and confirms against that snapshot, not the live price).
+// TTL: 1 hour. Writes to agent_skill_prices MUST call
+// invalidateSkillPriceCache(agentId) so a change is reflected immediately
+// rather than after the TTL. A brief stale window can never overcharge a buyer:
+// the purchase flow snapshots the quoted price onto the skill_purchases row at
+// create time and confirms against that snapshot, not the live price.
 
 import { sql } from './db.js';
+import { cacheGet, cacheSet, cacheDel } from './cache.js';
 
-const CACHE_TTL_MS = 2 * 60 * 1000; // 2 minutes
+const TTL_SECONDS = 60 * 60; // 1 hour
+const KEY_PREFIX = 'skill-prices:v1:';
 
-const _cache = new Map(); // agentId → { rows, ts }
+function keyFor(agentId) {
+	return `${KEY_PREFIX}${agentId}`;
+}
 
-/**
- * Fetch active skill prices for an agent, using the cache.
- * @param {string} agentId
- * @returns {Promise<Array<{ skill, amount, currency_mint, chain, mint_decimals,
- *                           trial_uses, time_pass_hours, time_pass_amount }>>}
- */
-export async function getSkillPrices(agentId) {
-	const cached = _cache.get(agentId);
-	if (cached && Date.now() - cached.ts < CACHE_TTL_MS) {
-		return cached.rows;
-	}
-	const rows = await sql`
+async function loadFromDb(agentId) {
+	return sql`
 		SELECT skill, amount, currency_mint, chain, mint_decimals,
 		       trial_uses, time_pass_hours, time_pass_amount
 		FROM agent_skill_prices
 		WHERE agent_id = ${agentId} AND is_active = true
 	`;
-	_cache.set(agentId, { rows, ts: Date.now() });
+}
+
+/**
+ * Active skill prices for an agent, served from the cache when warm and read
+ * through to the database (then cached for 1 hour) on a miss. A cache backend
+ * failure degrades to a direct DB read — it never fails the caller.
+ * @param {string} agentId
+ * @returns {Promise<Array<{ skill, amount, currency_mint, chain, mint_decimals,
+ *                           trial_uses, time_pass_hours, time_pass_amount }>>}
+ */
+export async function getSkillPrices(agentId) {
+	const key = keyFor(agentId);
+	const cached = await cacheGet(key).catch(() => null);
+	if (Array.isArray(cached)) return cached;
+
+	const rows = await loadFromDb(agentId);
+	// Write-through is best-effort: a cache hiccup must not fail the read.
+	await cacheSet(key, rows, TTL_SECONDS).catch(() => {});
 	return rows;
 }
 
 /**
  * Invalidate the cached prices for an agent. Call after any write to
- * agent_skill_prices for this agent.
+ * agent_skill_prices for this agent. Async because the backing DEL may hit
+ * Redis — await it so the response is returned only once the entry is cleared
+ * (and, with Redis, cleared for every instance).
  * @param {string} agentId
+ * @returns {Promise<void>}
  */
-export function invalidateSkillPriceCache(agentId) {
-	_cache.delete(agentId);
+export async function invalidateSkillPriceCache(agentId) {
+	await cacheDel(keyFor(agentId)).catch(() => {});
 }
 
 /**
- * Fetch ONE active price row for (agentId, skill). Uses the agent's full
- * price cache so a warm agent hit only costs a Map lookup.
+ * Fetch ONE active price row for (agentId, skill). Uses the agent's full price
+ * cache so a warm agent hit costs no extra DB round-trip.
  * @param {string} agentId
  * @param {string} skill
  * @returns {Promise<object|null>}
@@ -62,4 +80,30 @@ export function invalidateSkillPriceCache(agentId) {
 export async function getSkillPrice(agentId, skill) {
 	const rows = await getSkillPrices(agentId);
 	return rows.find((r) => r.skill === skill) ?? null;
+}
+
+/**
+ * Fold active price rows into the `skill_prices` map that agent-detail,
+ * marketplace-detail, and skill-access surfaces return: keyed by skill name,
+ * each value carrying the atomic amount, currency, chain, and the dimensions the
+ * purchase UI needs. Missing optional columns default deterministically so the
+ * shape is identical whether a row carries them or not.
+ * @param {Array<object>} rows
+ * @returns {Record<string, { amount, currency_mint, chain, mint_decimals,
+ *                            trial_uses, time_pass_hours, time_pass_amount }>}
+ */
+export function skillPriceMap(rows) {
+	const map = {};
+	for (const p of rows || []) {
+		map[p.skill] = {
+			amount: p.amount,
+			currency_mint: p.currency_mint,
+			chain: p.chain,
+			mint_decimals: p.mint_decimals ?? 6,
+			trial_uses: p.trial_uses ?? 0,
+			time_pass_hours: p.time_pass_hours ?? null,
+			time_pass_amount: p.time_pass_amount ?? null,
+		};
+	}
+	return map;
 }

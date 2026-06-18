@@ -70,6 +70,19 @@ const MODAL_HTML = `
 				<span>Total</span>
 				<strong id="payment-price-display"></strong>
 			</div>
+			<div class="payment-gift" id="payment-gift-area" hidden>
+				<label class="payment-gift-toggle">
+					<input type="checkbox" id="payment-gift-toggle-input" />
+					<span class="payment-gift-toggle-text"><span aria-hidden="true">🎁</span> Gift this skill to someone</span>
+				</label>
+				<div class="payment-gift-recipient" id="payment-gift-recipient" hidden>
+					<input type="text" id="payment-gift-input" class="payment-gift-input"
+						placeholder="Recipient username or wallet address"
+						autocomplete="off" autocapitalize="off" spellcheck="false"
+						aria-label="Recipient username or wallet address" />
+					<div class="payment-gift-status" id="payment-gift-status" role="status" aria-live="polite"></div>
+				</div>
+			</div>
 			<div class="payment-wallet-area" id="payment-wallet-area"></div>
 			<button class="btn-primary payment-confirm-btn" id="payment-confirm-btn" disabled>Confirm purchase</button>
 			<div class="payment-qr" id="payment-qr" aria-live="polite"></div>
@@ -90,6 +103,8 @@ function ensureModal() {
 	}
 	$('payment-modal-close')?.addEventListener('click', closePaymentModal);
 	$('payment-confirm-btn')?.addEventListener('click', handlePurchase);
+	$('payment-gift-toggle-input')?.addEventListener('change', onGiftToggle);
+	$('payment-gift-input')?.addEventListener('input', onGiftInput);
 	$('payment-modal-overlay')?.addEventListener('click', (e) => {
 		if (e.target.id === 'payment-modal-overlay') closePaymentModal();
 	});
@@ -189,6 +204,131 @@ function renderPaymentVerifyAgain({ txid, message, retryFn }) {
 	status.querySelector('[data-retry-close]')?.addEventListener('click', closePaymentModal);
 }
 
+// ── Gift recipient ──────────────────────────────────────────────────────────
+//
+// Skill purchases can be bought for another user. When the gift toggle is on we
+// resolve the typed username / wallet to a real account via /api/users/lookup
+// (debounced), gate the confirm button on a valid recipient, and send the
+// resolved user id to the server, which re-resolves and records it as the
+// purchase's recipient.
+
+let giftState = { enabled: false, active: false, recipient: null, resolving: false, seq: 0 };
+let giftLookupTimer = null;
+
+function setGiftStatus(text, kind) {
+	const el = $('payment-gift-status');
+	if (!el) return;
+	el.textContent = text || '';
+	el.className = 'payment-gift-status' + (kind ? ' ' + kind : '');
+}
+
+function giftLabel(recipient) {
+	if (!recipient) return 'They';
+	if (recipient.username) return '@' + recipient.username;
+	return recipient.display_name || 'They';
+}
+
+// The active gift recipient at confirm time, or null for a self-purchase.
+function activeGiftRecipient() {
+	return giftState.active && giftState.recipient ? giftState.recipient : null;
+}
+
+// Single source of truth for whether the confirm button is clickable. All modes
+// require a connected wallet; skill gifting additionally requires a resolved,
+// non-self recipient.
+function refreshConfirmEnabled() {
+	const btn = $('payment-confirm-btn');
+	if (!btn) return;
+	let enabled = !!connectedWallet;
+	if (giftState.active && (!giftState.recipient || giftState.resolving)) enabled = false;
+	btn.disabled = !enabled;
+}
+
+// Reset + show/hide the gift controls. Enabled only for skill flows; assets and
+// subscriptions pass enabled:false so the section stays hidden.
+function setupGiftUI({ enabled }) {
+	clearTimeout(giftLookupTimer);
+	giftState = { enabled, active: false, recipient: null, resolving: false, seq: giftState.seq + 1 };
+	const area = $('payment-gift-area');
+	const toggle = $('payment-gift-toggle-input');
+	const recip = $('payment-gift-recipient');
+	const input = $('payment-gift-input');
+	if (toggle) toggle.checked = false;
+	if (input) input.value = '';
+	if (recip) recip.hidden = true;
+	if (area) area.hidden = !enabled;
+	setGiftStatus('');
+}
+
+function onGiftToggle() {
+	const toggle = $('payment-gift-toggle-input');
+	const recip = $('payment-gift-recipient');
+	const input = $('payment-gift-input');
+	giftState.active = !!toggle?.checked;
+	giftState.recipient = null;
+	giftState.resolving = false;
+	giftState.seq++;
+	clearTimeout(giftLookupTimer);
+	if (recip) recip.hidden = !giftState.active;
+	setGiftStatus('');
+	if (giftState.active) {
+		if (input) input.value = '';
+		input?.focus();
+	}
+	refreshConfirmEnabled();
+}
+
+function onGiftInput() {
+	const q = ($('payment-gift-input')?.value || '').trim();
+	giftState.recipient = null;
+	clearTimeout(giftLookupTimer);
+	const seq = ++giftState.seq;
+	if (!q) {
+		giftState.resolving = false;
+		setGiftStatus('');
+		refreshConfirmEnabled();
+		return;
+	}
+	giftState.resolving = true;
+	setGiftStatus('Looking up…');
+	refreshConfirmEnabled();
+	giftLookupTimer = setTimeout(() => resolveGiftRecipient(q, seq), 400);
+}
+
+async function resolveGiftRecipient(q, seq) {
+	let resp, j;
+	try {
+		resp = await fetch(`/api/users/lookup?q=${encodeURIComponent(q)}`, { credentials: 'include' });
+		j = await resp.json().catch(() => ({}));
+	} catch {
+		if (seq !== giftState.seq) return;
+		giftState.resolving = false;
+		giftState.recipient = null;
+		setGiftStatus('Lookup failed — check your connection.', 'err');
+		refreshConfirmEnabled();
+		return;
+	}
+	if (seq !== giftState.seq) return; // a newer keystroke superseded this lookup
+	giftState.resolving = false;
+	if (!resp.ok) {
+		giftState.recipient = null;
+		if (resp.status === 404) setGiftStatus('No user found with that username or wallet.', 'err');
+		else if (resp.status === 401) setGiftStatus('Sign in to send a gift.', 'err');
+		else setGiftStatus(j?.error_description || 'Lookup failed.', 'err');
+		refreshConfirmEnabled();
+		return;
+	}
+	const user = j?.data;
+	if (!user || user.is_self) {
+		giftState.recipient = null;
+		setGiftStatus("That's your own account — pick someone else to gift to.", 'err');
+	} else {
+		giftState.recipient = user;
+		setGiftStatus(`🎁 Gifting to ${giftLabel(user)}`, 'ok');
+	}
+	refreshConfirmEnabled();
+}
+
 function closePaymentModal() {
 	const overlay = $('payment-modal-overlay');
 	if (overlay) overlay.hidden = true;
@@ -206,7 +346,9 @@ function closePaymentModal() {
 	if (success) { success.hidden = true; success.innerHTML = ''; }
 	setPaymentBadge('');
 	setStatus('');
+	setupGiftUI({ enabled: false });
 	pendingAssetPurchase = null;
+	pendingSubscription = null;
 }
 
 // ── Wallet plumbing ─────────────────────────────────────────────────────────
@@ -265,7 +407,6 @@ function disconnectWallet() {
 
 function updateWalletUI() {
 	const walletArea = $('payment-wallet-area');
-	const confirmBtn = $('payment-confirm-btn');
 	if (!walletArea) return;
 
 	if (connectedWallet) {
@@ -274,7 +415,7 @@ function updateWalletUI() {
 			<p>Connected via <strong>${escapeHtml(connectedWallet.name)}</strong>: ${pk.slice(0, 4)}…${pk.slice(-4)}</p>
 			<button class="btn-secondary" id="payment-disconnect-btn">Disconnect</button>`;
 		$('payment-disconnect-btn').addEventListener('click', disconnectWallet);
-		if (confirmBtn) confirmBtn.disabled = false;
+		refreshConfirmEnabled();
 		return;
 	}
 
@@ -308,7 +449,7 @@ function updateWalletUI() {
 		});
 	}
 	$('payment-show-qr')?.addEventListener('click', startQrPurchase);
-	if (confirmBtn) confirmBtn.disabled = true;
+	refreshConfirmEnabled();
 }
 
 // ── CSRF ────────────────────────────────────────────────────────────────────
@@ -353,11 +494,62 @@ async function buildSplTransferWithReference({ payer, recipient, mint, amount, r
 	return tx;
 }
 
+function base64ToBytes(b64) {
+	const bin = atob(b64);
+	const bytes = new Uint8Array(bin.length);
+	for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+	return bytes;
+}
+
+// Sign + send a platform-prepared, gasless VersionedTransaction. The platform
+// payer is the fee-payer and has already partially signed it server-side, so
+// the wallet only adds the buyer's authority signature — the buyer needs no SOL.
+async function signAndSendPreparedTx(base64Tx) {
+	const { web3 } = await loadSolanaModules();
+	const tx = web3.VersionedTransaction.deserialize(base64ToBytes(base64Tx));
+	const provider = connectedWallet.provider;
+	if (typeof provider.signAndSendTransaction === 'function') {
+		const result = await provider.signAndSendTransaction(tx);
+		return result?.signature ?? result;
+	}
+	if (typeof provider.signTransaction === 'function') {
+		const signed = await provider.signTransaction(tx);
+		return (await getSolanaConnection()).sendRawTransaction(signed.serialize());
+	}
+	throw new Error('Your wallet cannot sign this transaction.');
+}
+
+// Submit the purchase. Prefers the server-prepared gasless transaction (fee
+// sponsored by three.ws); falls back to a buyer-pays transfer built client-side
+// when no sponsorship is available. Returns the on-chain signature.
+async function sendPurchaseTransaction(purchase) {
+	if (purchase.transaction) return signAndSendPreparedTx(purchase.transaction);
+
+	const tx = await buildSplTransferWithReference({
+		payer: connectedWallet.publicKey,
+		recipient: purchase.recipient,
+		mint: purchase.currency_mint,
+		amount: BigInt(purchase.amount),
+		reference: purchase.reference,
+	});
+	const provider = connectedWallet.provider;
+	if (typeof provider.signAndSendTransaction === 'function') {
+		const result = await provider.signAndSendTransaction(tx);
+		return result?.signature ?? result;
+	}
+	return provider.sendTransaction(tx, await getSolanaConnection());
+}
+
 // ── Server purchase records ─────────────────────────────────────────────────
 
-async function createPendingPurchase(agentId, skill, durationHours = null) {
+async function createPendingPurchase(agentId, skill, durationHours = null, buyerPublicKey = null, recipient = null) {
 	const body = { agent_id: agentId, skill };
 	if (durationHours) body.duration_hours = durationHours;
+	// Hand the server our wallet pubkey so it can return a gasless, pre-signed
+	// transaction (network fee sponsored by the platform).
+	if (buyerPublicKey) body.buyer_public_key = buyerPublicKey;
+	// Gift: the resolved recipient's user id; the server re-resolves + validates.
+	if (recipient) body.recipient = recipient;
 	const r = await apiPostWithCsrf('/api/marketplace/purchase', body);
 	const j = await r.json();
 	if (!r.ok) throw new Error(j.error_description || j.error || 'Failed to create purchase');
@@ -403,6 +595,7 @@ export async function openPurchaseFlow(agentId, skill) {
 	if (confirmBtn) confirmBtn.textContent = 'Confirm purchase';
 	const qr = $('payment-qr'); if (qr) qr.innerHTML = '';
 	setStatus('');
+	setupGiftUI({ enabled: true });
 	$('payment-modal-overlay').hidden = false;
 	updateWalletUI();
 }
@@ -431,6 +624,7 @@ export async function openTimePassFlow(agentId, skill, durationHours, btn) {
 	$('payment-price-display').textContent = `${human} ${shortMintLabel(price.currency_mint)}`;
 	const qr = $('payment-qr'); if (qr) qr.innerHTML = '';
 	setStatus('');
+	setupGiftUI({ enabled: true });
 	$('payment-modal-overlay').hidden = false;
 	updateWalletUI();
 
@@ -497,12 +691,15 @@ export function openAssetPurchaseFlow(asset) {
 
 	const qr = $('payment-qr'); if (qr) qr.innerHTML = '';
 	setStatus('');
+	setupGiftUI({ enabled: false });
 	$('payment-modal-overlay').hidden = false;
 	updateWalletUI();
 }
 
-async function createPendingAssetPurchase(itemType, itemId) {
-	const r = await apiPostWithCsrf('/api/marketplace/buy-asset', { item_type: itemType, item_id: itemId });
+async function createPendingAssetPurchase(itemType, itemId, buyerPublicKey = null) {
+	const body = { item_type: itemType, item_id: itemId };
+	if (buyerPublicKey) body.buyer_public_key = buyerPublicKey;
+	const r = await apiPostWithCsrf('/api/marketplace/buy-asset', body);
 	const j = await r.json();
 	if (!r.ok) throw new Error(j.error_description || j.error || 'Failed to create purchase');
 	return j.data;
@@ -534,6 +731,7 @@ function assetViewTarget(asset) {
 async function handlePurchase() {
 	const confirmBtn = $('payment-confirm-btn');
 	if (confirmBtn?.dataset.mode === 'asset') return handleAssetPurchase();
+	if (confirmBtn?.dataset.mode === 'subscription') return handleSubscription();
 	if (!connectedWallet) { setStatus('Connect a wallet first.', 'err'); return; }
 	const agent = cfg.getAgent();
 	if (!agent) return;
@@ -544,9 +742,23 @@ async function handlePurchase() {
 	const agentId = agent.id;
 	const skill = $('payment-skill-name').textContent;
 	const durationHours = confirmBtn.dataset.durationHours ? Number(confirmBtn.dataset.durationHours) : null;
+	// Snapshot the gift recipient at click time so a late keystroke can't change
+	// who the in-flight purchase is for.
+	const giftRecipient = activeGiftRecipient();
 
 	const onUnlocked = async () => {
 		await cfg.onPurchased(agentId);
+		if (giftRecipient) {
+			renderPaymentSuccess({
+				title: 'Gift sent 🎁',
+				message: durationHours
+					? `${giftLabel(giftRecipient)} now has ${durationHours}h access to ${skill} on ${agent.name}. We've let them know.`
+					: `${giftLabel(giftRecipient)} now has access to ${skill} on ${agent.name}. We've let them know.`,
+				primaryHref: null,
+				secondaryLabel: 'Done',
+			});
+			return;
+		}
 		renderPaymentSuccess({
 			title: durationHours ? `${durationHours}h access unlocked` : 'Skill unlocked',
 			message: durationHours
@@ -559,12 +771,14 @@ async function handlePurchase() {
 
 	let purchase;
 	try {
-		purchase = await createPendingPurchase(agentId, skill, durationHours);
+		purchase = await createPendingPurchase(agentId, skill, durationHours, connectedWallet.publicKey.toBase58(), giftRecipient?.id || null);
 		if (purchase.already_owned) {
 			await cfg.onPurchased(agentId);
 			renderPaymentSuccess({
-				title: 'Already unlocked',
-				message: `You already have access to ${skill}.`,
+				title: giftRecipient ? 'Already owned' : 'Already unlocked',
+				message: giftRecipient
+					? `${giftLabel(giftRecipient)} already has access to ${skill}, so there's nothing to gift.`
+					: `You already have access to ${skill}.`,
 				primaryHref: null,
 				secondaryLabel: 'Continue',
 			});
@@ -578,22 +792,8 @@ async function handlePurchase() {
 
 	let txid;
 	try {
-		setStatus('Building transfer…');
-		const tx = await buildSplTransferWithReference({
-			payer: connectedWallet.publicKey,
-			recipient: purchase.recipient,
-			mint: purchase.currency_mint,
-			amount: BigInt(purchase.amount),
-			reference: purchase.reference,
-		});
-
-		setStatus('Approve in wallet…');
-		if (typeof connectedWallet.provider.signAndSendTransaction === 'function') {
-			const result = await connectedWallet.provider.signAndSendTransaction(tx);
-			txid = result?.signature ?? result;
-		} else {
-			txid = await connectedWallet.provider.sendTransaction(tx, await getSolanaConnection());
-		}
+		setStatus(purchase.gasless ? 'Approve in wallet — gas is on us…' : 'Approve in wallet…');
+		txid = await sendPurchaseTransaction(purchase);
 
 		setStatus('Waiting for on-chain confirmation…');
 		await (await getSolanaConnection()).confirmTransaction(txid, 'confirmed');
@@ -643,7 +843,7 @@ async function handleAssetPurchase() {
 
 	let purchase;
 	try {
-		purchase = await createPendingAssetPurchase(asset.item_type, asset.item_id);
+		purchase = await createPendingAssetPurchase(asset.item_type, asset.item_id, connectedWallet.publicKey.toBase58());
 		if (purchase.already_owned) {
 			const target = assetViewTarget(asset);
 			renderPaymentSuccess({
@@ -662,22 +862,8 @@ async function handleAssetPurchase() {
 
 	let txid;
 	try {
-		setStatus('Building transfer…');
-		const tx = await buildSplTransferWithReference({
-			payer: connectedWallet.publicKey,
-			recipient: purchase.recipient,
-			mint: purchase.currency_mint,
-			amount: BigInt(purchase.amount),
-			reference: purchase.reference,
-		});
-
-		setStatus('Approve in wallet…');
-		if (typeof connectedWallet.provider.signAndSendTransaction === 'function') {
-			const result = await connectedWallet.provider.signAndSendTransaction(tx);
-			txid = result?.signature ?? result;
-		} else {
-			txid = await connectedWallet.provider.sendTransaction(tx, await getSolanaConnection());
-		}
+		setStatus(purchase.gasless ? 'Approve in wallet — gas is on us…' : 'Approve in wallet…');
+		txid = await sendPurchaseTransaction(purchase);
 
 		setStatus('Waiting for on-chain confirmation…');
 		await (await getSolanaConnection()).confirmTransaction(txid, 'confirmed');
@@ -732,22 +918,187 @@ async function handleAssetPurchase() {
 	}
 }
 
+// ── Subscription (agent tier) ───────────────────────────────────────────────
+//
+// Unlike skills/assets — where the browser builds a single-leg transfer — the
+// subscription server returns a fully-built VersionedTransaction (creator + fee
+// split, platform pre-signed as fee-payer for gasless UX). The wallet just adds
+// the buyer's signature and broadcasts; we then activate via /verify.
+
+let pendingSubscription = null;
+
+/**
+ * Open the confirmation modal for subscribing to an agent tier.
+ * @param {string} agentId
+ * @param {{ id: string, name: string, price_usd: number, interval: string, perks?: string[] }} tier
+ */
+export async function openSubscribeFlow(agentId, tier) {
+	ensureModal();
+	const agent = cfg.getAgent();
+	if (!agent || agent.id !== agentId) { alert('Agent not loaded; refresh and try again.'); return; }
+	if (!tier?.id) { alert('Tier unavailable; refresh and try again.'); return; }
+
+	pendingSubscription = { agentId, tier };
+	const cycle = tier.interval === 'weekly' ? 'week' : 'month';
+	const price = Number(tier.price_usd);
+
+	setPaymentTitle('Subscribe');
+	setPaymentLede('You are starting a subscription to this tier:');
+	setPaymentFromLabel('tier on');
+	setPaymentBadge(
+		`<span class="payment-modal-badge-icon" aria-hidden="true">↻</span><span>Recurring ${cycle}ly billing. The first ${cycle} is charged now; you can cancel anytime.</span>`,
+		'info',
+	);
+	$('payment-skill-name').textContent = tier.name;
+	$('payment-agent-name').textContent = agent.name;
+	$('payment-price-display').textContent = `$${price.toFixed(2)} / ${cycle}`;
+
+	const confirmBtn = $('payment-confirm-btn');
+	if (confirmBtn) {
+		confirmBtn.dataset.mode = 'subscription';
+		confirmBtn.textContent = `Subscribe · $${price.toFixed(2)}/${cycle === 'week' ? 'wk' : 'mo'}`;
+		confirmBtn.hidden = false;
+	}
+	const qr = $('payment-qr'); if (qr) qr.innerHTML = '';
+	setStatus('');
+	setupGiftUI({ enabled: false });
+	$('payment-modal-overlay').hidden = false;
+	updateWalletUI();
+}
+
+async function createSubscriptionCheckout(tierId, buyerPublicKey) {
+	const r = await apiPostWithCsrf('/api/subscriptions/subscribe', { tierId, buyerPublicKey });
+	const j = await r.json().catch(() => ({}));
+	if (!r.ok) {
+		if (j.error === 'already_subscribed') throw new Error('You already have an active subscription to this tier.');
+		if (j.error === 'creator_wallet_missing') throw new Error('This creator has not set up a payout wallet yet.');
+		if (r.status === 401) { location.href = `/login?next=${encodeURIComponent(location.pathname)}`; throw new Error('Sign in to subscribe.'); }
+		throw new Error(j.error_description || j.error || 'Failed to start subscription');
+	}
+	return j.data;
+}
+
+// Sign + broadcast a server-built base64 VersionedTransaction with the connected
+// wallet, returning the tx signature.
+async function signAndSendServerTx(base64) {
+	const { web3 } = await loadSolanaModules();
+	const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+	const vtx = web3.VersionedTransaction.deserialize(bytes);
+	const provider = connectedWallet.provider;
+	if (typeof provider.signAndSendTransaction === 'function') {
+		const result = await provider.signAndSendTransaction(vtx);
+		return result?.signature ?? result;
+	}
+	const signed = await provider.signTransaction(vtx);
+	return (await getSolanaConnection()).sendRawTransaction(signed.serialize());
+}
+
+async function pollSubscriptionVerify(tierId, signature, windowMs = 60_000) {
+	const deadline = Date.now() + windowMs;
+	while (Date.now() < deadline) {
+		const r = await apiPostWithCsrf('/api/subscriptions/verify', { tierId, transactionSignature: signature });
+		const j = await r.json().catch(() => ({}));
+		if (r.ok && j.data?.success) return true;
+		if (r.ok && j.data?.status === 'pending') { await new Promise((res) => setTimeout(res, 2500)); continue; }
+		if (r.status === 410) throw new Error('Checkout expired. Please start the subscription again.');
+		if (r.status === 409) throw new Error(j.error_description || 'On-chain transfer did not match the quoted amount.');
+		throw new Error(j.error_description || j.error || 'Could not activate subscription');
+	}
+	return false;
+}
+
+async function handleSubscription() {
+	const confirmBtn = $('payment-confirm-btn');
+	const ctx = pendingSubscription;
+	if (!ctx) { setStatus('No tier selected.', 'err'); return; }
+	if (!connectedWallet) { setStatus('Connect a wallet first.', 'err'); return; }
+
+	const { agentId, tier } = ctx;
+	const agent = cfg.getAgent();
+	const cycle = tier.interval === 'weekly' ? 'week' : 'month';
+	confirmBtn.disabled = true;
+
+	const succeed = () => {
+		cfg.onPurchased(agentId).catch(() => {});
+		renderPaymentSuccess({
+			title: `Subscribed to ${tier.name}`,
+			message: `You now have access to ${agent?.name || 'this agent'}'s paid skills. Billed every ${cycle}.`,
+			primaryHref: null,
+			secondaryLabel: 'Done',
+		});
+	};
+
+	let checkout;
+	try {
+		setStatus('Preparing subscription…');
+		checkout = await createSubscriptionCheckout(tier.id, connectedWallet.publicKey.toBase58());
+	} catch (e) {
+		setStatus(e.message, 'err');
+		confirmBtn.disabled = false;
+		return;
+	}
+
+	let txid;
+	try {
+		setStatus('Approve in wallet…');
+		txid = await signAndSendServerTx(checkout.transaction);
+
+		setStatus('Waiting for on-chain confirmation…');
+		await (await getSolanaConnection()).confirmTransaction(txid, 'confirmed');
+
+		setStatus('Activating subscription…');
+		const ok = await pollSubscriptionVerify(tier.id, txid, 60_000);
+		if (!ok) {
+			renderPaymentVerifyAgain({
+				txid,
+				message: "Payment is on-chain but the server hasn't seen it yet. Re-verify below.",
+				retryFn: async () => {
+					const ok2 = await pollSubscriptionVerify(tier.id, txid, 60_000);
+					if (!ok2) throw new Error('Still not confirmed — wait a few seconds and try again.');
+					succeed();
+				},
+			});
+			return;
+		}
+		succeed();
+	} catch (e) {
+		log.error('[skill-purchase] subscription failed', e);
+		if (txid) {
+			renderPaymentVerifyAgain({
+				txid,
+				message: e.message || 'Payment sent but activation failed — re-verify below.',
+				retryFn: async () => {
+					const ok2 = await pollSubscriptionVerify(tier.id, txid, 60_000);
+					if (!ok2) throw new Error('Still not confirmed — wait a few seconds and try again.');
+					succeed();
+				},
+			});
+			return;
+		}
+		setStatus(e.message || 'Subscription failed', 'err');
+		confirmBtn.disabled = false;
+	}
+}
+
 // Mobile-wallet path: render a Solana Pay QR. Buyer scans + signs on phone.
 async function startQrPurchase() {
 	const agent = cfg.getAgent();
 	if (!agent) return;
 	const agentId = agent.id;
 	const skill = $('payment-skill-name').textContent;
+	const giftRecipient = activeGiftRecipient();
 
 	setStatus('Creating purchase…');
 	let purchase;
 	try {
-		purchase = await createPendingPurchase(agentId, skill);
+		purchase = await createPendingPurchase(agentId, skill, null, null, giftRecipient?.id || null);
 		if (purchase.already_owned) {
 			await cfg.onPurchased(agentId);
 			renderPaymentSuccess({
-				title: 'Already unlocked',
-				message: `You already have access to ${skill}.`,
+				title: giftRecipient ? 'Already owned' : 'Already unlocked',
+				message: giftRecipient
+					? `${giftLabel(giftRecipient)} already has access to ${skill}, so there's nothing to gift.`
+					: `You already have access to ${skill}.`,
 				primaryHref: null,
 				secondaryLabel: 'Continue',
 			});
@@ -775,16 +1126,22 @@ async function startQrPurchase() {
 		await (QRCode.default ?? QRCode).toCanvas(document.getElementById('payment-qr-canvas'), url.toString(), { width: 240 });
 	}
 
-	setStatus('Waiting for payment on your phone…');
-	const ok = await pollConfirm(purchase.reference, 300_000);
-	if (ok) {
+	const qrSuccess = async () => {
 		await cfg.onPurchased(agentId);
 		renderPaymentSuccess({
-			title: 'Skill unlocked',
-			message: `${skill} is now part of your library on ${agent.name}.`,
+			title: giftRecipient ? 'Gift sent 🎁' : 'Skill unlocked',
+			message: giftRecipient
+				? `${giftLabel(giftRecipient)} now has access to ${skill} on ${agent.name}. We've let them know.`
+				: `${skill} is now part of your library on ${agent.name}.`,
 			primaryHref: null,
 			secondaryLabel: 'Done',
 		});
+	};
+
+	setStatus('Waiting for payment on your phone…');
+	const ok = await pollConfirm(purchase.reference, 300_000);
+	if (ok) {
+		await qrSuccess();
 	} else {
 		renderPaymentVerifyAgain({
 			txid: null,
@@ -792,13 +1149,7 @@ async function startQrPurchase() {
 			retryFn: async () => {
 				const ok2 = await pollConfirm(purchase.reference, 60_000);
 				if (!ok2) throw new Error('Still no confirmation — give it another minute.');
-				await cfg.onPurchased(agentId);
-				renderPaymentSuccess({
-					title: 'Skill unlocked',
-					message: `${skill} is now part of your library on ${agent.name}.`,
-					primaryHref: null,
-					secondaryLabel: 'Done',
-				});
+				await qrSuccess();
 			},
 		});
 	}

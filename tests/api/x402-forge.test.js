@@ -64,6 +64,20 @@ const nvidiaMock = vi.hoisted(() => ({
 }));
 vi.mock('../../api/_providers/nvidia.js', () => nvidiaMock);
 
+// Free HuggingFace Spaces reconstruct lane — the free-first alternative to the
+// paid Replicate reconstruct. Default: UNAVAILABLE (createRegenProvider throws, as
+// the real provider does without HF_TOKEN), so the existing reconstruct-fallback
+// tests still reach Replicate. The free-first test overrides it per-call.
+const hfMock = vi.hoisted(() => ({
+	createRegenProvider: vi.fn(() => {
+		throw Object.assign(new Error('HF_TOKEN env var is required for the huggingface provider'), {
+			code: 'provider_unconfigured',
+			status: 501,
+		});
+	}),
+}));
+vi.mock('../../api/_providers/huggingface.js', () => hfMock);
+
 // Rate limiter: deterministic success, no Upstash dependency.
 vi.mock('../../api/_lib/rate-limit.js', async (importActual) => {
 	const actual = await importActual();
@@ -234,6 +248,62 @@ describe('POST /api/x402/forge — paid generation', () => {
 		expect(body.price_usdc).toBe('0.15');
 		// Settlement ran (the x-payment-response header is set).
 		expect(res.headers['x-payment-response']).toBe('stub-payment-response');
+	});
+
+	it('prefers the FREE HuggingFace lane over the paid Replicate reconstruct when available', async () => {
+		// NVIDIA NIM unavailable (default throws) → reconstruct step. HF is live this
+		// call, so it must be chosen BEFORE Replicate — the paid lane is never touched.
+		hfMock.createRegenProvider.mockReturnValueOnce({
+			submit: vi.fn(async () => ({ extJobId: 'hf-packed-job' })),
+			status: vi.fn(async () => ({ status: 'done', resultGlbUrl: 'https://hf.example/out.glb' })),
+		});
+		replicateMock.submit.mockClear();
+		// persistRemoteGlb fetches the GLB to copy it to R2; reject so it fail-softs to
+		// the HF url without a real network call.
+		const fetchSpy = vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('no network in test'));
+		try {
+			const res = makeRes();
+			await handler(
+				makeReq({ headers: { 'x-payment': 'pay-free-hf' }, body: { prompt: 'a brass owl', tier: 'standard' } }),
+				res,
+			);
+			expect(res.statusCode).toBe(200);
+			const body = JSON.parse(res.body);
+			expect(body.backend).toBe('huggingface');
+			expect(body.status).toBe('done');
+			expect(body.glb_url).toBeTruthy();
+			// Free was chosen first — the paid Replicate reconstruct was never invoked.
+			expect(replicateMock.submit).not.toHaveBeenCalled();
+			// The buyer still paid + received a model (settlement ran).
+			expect(res.headers['x-payment-response']).toBe('stub-payment-response');
+		} finally {
+			fetchSpy.mockRestore();
+		}
+	});
+
+	it('sanitizes a paid-lane "insufficient credit" failure into a clean unavailable state (no leak, no settle)', async () => {
+		// NVIDIA unavailable, HF unavailable (default), Replicate out of credit: the
+		// raw vendor billing message must never reach the buyer, and submit-before-
+		// settle means the payment was not taken.
+		replicateMock.submit.mockRejectedValueOnce(
+			Object.assign(
+				new Error(
+					'You have insufficient credit to run this model. Go to https://replicate.com/account/billing#billing to purchase credit.',
+				),
+				{ code: 'provider_error', status: 502, providerStatus: 402 },
+			),
+		);
+		const res = makeRes();
+		await handler(
+			makeReq({ headers: { 'x-payment': 'pay-broke-replicate' }, body: { prompt: 'a brass owl', tier: 'standard' } }),
+			res,
+		);
+		expect(res.statusCode).toBe(503);
+		const body = JSON.parse(res.body);
+		expect(body.error).toBe('generation_unavailable');
+		expect(body.error_description).not.toMatch(/credit|replicate|billing|insufficient/i);
+		// Submit failed before settle → no settlement receipt was emitted.
+		expect(res.headers['x-payment-response']).toBeUndefined();
 	});
 
 	it('rejects a paid request that carries no actual input', async () => {

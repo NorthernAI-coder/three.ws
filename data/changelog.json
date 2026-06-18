@@ -3,6 +3,25 @@
 	"entries": [
 		{
 			"date": "2026-06-18",
+			"title": "Forge always reaches for a free 3D engine first",
+			"summary": "Text-to-3D and image-to-3D generation now exhaust the free engines before any paid one. A prompt is rendered on the free NVIDIA lane; if that's busy, the reference image is reconstructed into a mesh on a free engine too — the platform only reaches for a paid engine as a genuine last resort. And if every engine is briefly out of reach, you now get an honest \"temporarily unavailable, try again shortly\" instead of a confusing technical billing message. Same Forge, fewer dead ends, no surprise costs.",
+			"tags": [
+				"improvement",
+				"fix"
+			],
+			"link": "/forge"
+		},
+		{
+			"date": "2026-06-18",
+			"title": "Subscribe to an agent in one click — pay once, unlock every paid skill",
+			"summary": "Agent pages now show the creator's subscription tiers right under skills & pricing, each with a Subscribe button. Pick a tier, confirm the price and billing cycle in the checkout, and approve a single USDC payment in your wallet — the platform covers the network fee, so you don't need any SOL. Once the payment confirms on-chain your subscription goes live instantly and unlocks all of that agent's paid skills for the period; the page marks tiers you're already on so you never pay twice. Built on the same verified on-chain settlement as one-off skill purchases.",
+			"tags": [
+				"feature"
+			],
+			"link": "/marketplace"
+		},
+		{
+			"date": "2026-06-18",
 			"title": "Faster marketplace — agent pages load skill prices from cache",
 			"summary": "Agent and marketplace pages now feel snappier. A creator's skill prices are cached for an hour and shared across our servers instead of being re-read from the database on every single page view, so opening an agent, browsing the marketplace, or checking what a skill costs returns faster — especially for popular agents. The cache stays honest: the moment a creator changes a price the old value is cleared everywhere, so you always see the current price, and a purchase is still quoted against the exact price at checkout time.",
 			"tags": [
