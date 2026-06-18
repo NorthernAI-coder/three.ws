@@ -262,7 +262,8 @@ const appConfig = {
 				entryFileNames: (chunk) =>
 					chunk.name === 'footer-bot' ||
 					chunk.name === 'walk-companion' ||
-					chunk.name === 'notifications'
+					chunk.name === 'notifications' ||
+					chunk.name === 'nav-tier-badge'
 						? `${chunk.name}.js`
 						: 'assets/[name]-[hash].js',
 			},
@@ -270,6 +271,7 @@ const appConfig = {
 				'footer-bot': resolve(__dirname, 'src/footer-bot.js'),
 				'walk-companion': resolve(__dirname, 'src/walk-companion.js'),
 				notifications: resolve(__dirname, 'src/notifications.js'),
+				'nav-tier-badge': resolve(__dirname, 'src/nav-tier-badge.js'),
 				app: resolve(__dirname, 'pages/app.html'),
 				'app-demo': resolve(__dirname, 'pages/app-demo.html'),
 				'app-next': resolve(__dirname, 'pages/app-next.html'),
@@ -1192,6 +1194,12 @@ support: resolve(__dirname, 'pages/support.html'),
 					// /notifications.js — nav.js loads this module for the per-user inbox.
 					if (path === '/notifications.js') {
 						req.url = '/src/notifications.js';
+						return next();
+					}
+					// /nav-tier-badge.js — nav.js loads this module for the $THREE
+					// holder tier chip (built to a stable, unhashed name in prod).
+					if (path === '/nav-tier-badge.js') {
+						req.url = '/src/nav-tier-badge.js';
 						return next();
 					}
 					// Avatar Studio (rebranded Character Studio fork) — serve the

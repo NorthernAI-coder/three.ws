@@ -89,6 +89,17 @@
 .nav-end .console:hover { border-color: var(--nv-text); background: rgba(255,255,255,0.04); }
 .nav-end [hidden] { display: none; }
 
+/* $THREE holder tier chip. The chip's own look (pill, tier colours) is injected
+   by src/three-access.js (.tg-badge / .tg-tier-*), but `.nav-end a` would override
+   its colour + padding at higher specificity — so restate the tier palette here,
+   scoped above `.nav-end a`, to let the chip read true. */
+.nav-end .nav-tier-badge:not([hidden]) { display: inline-flex; align-items: center; margin: 0 2px; }
+.nav-end .nav-tier-badge a { padding: 5px 11px; font-weight: 600; color: #6ee7a8; }
+.nav-end .nav-tier-badge a:hover { color: #8af0c0; }
+.nav-end .nav-tier-badge a.tg-tier-silver { color: #cfd6e4; }
+.nav-end .nav-tier-badge a.tg-tier-gold,
+.nav-end .nav-tier-badge a.tg-tier-genesis { color: #f5c451; }
+
 /* Global search button — opens the Cmd-K command palette */
 .nav-search-btn {
 	display: inline-flex; align-items: center; gap: 6px;

@@ -7,6 +7,30 @@
 		<description>What's new on three.ws — features, improvements, and releases, newest first.</description>
 		<language>en</language>
 		<item>
+			<title>Holding $THREE now unlocks a premium feature</title>
+			<link>https://three.ws/three</link>
+			<guid isPermaLink="false">2026-06-18:Holding $THREE now unlocks a premium feature</guid>
+			<pubDate>Thu, 18 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>$THREE gets its first hard utility: High-quality 3D generation on Forge — the 200k-polygon, PBR-textured tier — is now reserved for $THREE holders. Reach the Bronze holder tier (the entry tier) by holding $THREE and the High tier unlocks automatically, with no payment step. Draft and Standard generation stay free forever, and bring-your-own-key generation is unaffected. Sign in, link your Solana wallet, and the economy page shows your live holder tier and exactly what it unlocks.</description>
+		</item>
+		<item>
+			<title>Pay $THREE per High generation — no holding required</title>
+			<link>https://three.ws/forge</link>
+			<guid isPermaLink="false">2026-06-18:Pay $THREE per High generation — no holding required</guid>
+			<pubDate>Thu, 18 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Don't hold $THREE yet but want a High-quality model? You can now pay in $THREE for a single High generation instead. Pick High in Forge, choose &quot;Pay&quot; on the holder panel, and a clean payment flow prices it in $THREE, takes one wallet approval, verifies it on-chain, and runs your generation automatically. The platform now genuinely accepts $THREE for compute. One payment buys exactly one High generation, and if a generation fails before it runs your payment stays usable — you're never charged for a model you didn't get. Draft and Standard remain free, and holders still generate High straight away.</description>
+		</item>
+		<item>
+			<title>Your $THREE holder tier now shows across the site</title>
+			<link>https://three.ws/forge</link>
+			<guid isPermaLink="false">2026-06-18:Your $THREE holder tier now shows across the site</guid>
+			<pubDate>Thu, 18 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Holding $THREE is now visible everywhere you are. A holder chip in the top bar shows your live tier (◆ Bronze, Silver, Gold…) on every page and links to the full tier breakdown. On Forge, choosing the High quality tier now shows a clear, designed panel instead of a silent block: holders see an &quot;Unlocked&quot; badge and generate straight away, while everyone else gets a &quot;Get $THREE&quot; path, the exact reason (sign in, link a wallet, or hold more), and a one-tap switch back to free Draft or Standard — no dead ends and no raw errors.</description>
+		</item>
+		<item>
 			<title>Animation Gallery</title>
 			<link>https://three.ws/animations</link>
 			<guid isPermaLink="false">2026-06-17:Animation Gallery</guid>
@@ -749,6 +773,14 @@
 			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>The conviction Oracle's evidence views had stopped responding: the Wins gallery, the accuracy Backtest, and the global Activity feed were all erroring instead of returning data, and the live activity feed failed on every request. The cause was in how those queries were assembled — optional filters (time window, tier, agent) weren't being stitched into the database query correctly, so the database rejected them. All three views now build their filters cleanly and return the Oracle's track record, hit-rate, and real-time agent actions as intended.</description>
+		</item>
+		<item>
+			<title>The Play world embed on the IBM demo is now transparent</title>
+			<link>https://three.ws/ibm/x402-demo</link>
+			<guid isPermaLink="false">2026-06-17:The Play world embed on the IBM demo is now transparent</guid>
+			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>The embedded Coin Communities world on the IBM × three.ws x402 demo no longer sits in its own black box. Open it with a transparent background and the world composites straight onto the host page — the lobby and 3D scene render without the opaque dark fill behind them, so the embed blends into the demo instead of cutting a hard rectangle out of it. Regular Play at three.ws/play is unchanged.</description>
 		</item>
 		<item>
 			<title>The Pole Club now has a real soundtrack</title>

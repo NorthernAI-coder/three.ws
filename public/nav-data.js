@@ -76,6 +76,12 @@ export const NAV_GROUPS = [
 				href: '/what-is',
 				desc: 'Plain-English intro + real use-cases — start here',
 			},
+			{
+				title: 'The $THREE Economy',
+				href: '/three',
+				badge: 'New',
+				desc: 'Holder tiers, live pricing & rewards — and what holding $THREE unlocks',
+			},
 			{ title: 'Agents Index', href: '/agents', desc: 'Browse every registered agent' },
 			{ title: 'Marketplace', href: '/marketplace', desc: 'Buy, sell & remix agents' },
 			{ title: 'Avatar Gallery', href: '/gallery', desc: 'Every public 3D avatar' },

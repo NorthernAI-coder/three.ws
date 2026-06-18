@@ -62,6 +62,13 @@ import {
 import { constantTimeEquals } from './_lib/crypto.js';
 import { env as _env } from './_lib/env.js';
 import { verifyTierPass, TIERS } from './_lib/three-tier.js';
+import { requireFeatureAccess } from './_lib/require-three.js';
+import { priceForAction } from './_lib/pricing/catalog.js';
+import {
+	assertForgePayment,
+	redeemForgePayment,
+	releaseForgePayment,
+} from './_lib/forge-high-payment.js';
 
 // Holder perk (Lever 2): a presented, verified $THREE tier pass lifts the free
 // generation ceiling by that tier's multiplier. The pass is pure-HMAC verifiable
@@ -398,6 +405,12 @@ async function startJob(req, res) {
 	// last-resort fallback when Replicate is down).
 	let nvidiaTried = false;
 
+	// Pay-per-use (Token Utility — consumption lever): set to { paymentId, refId,
+	// settledAt, redeemed? } once a non-holder's settled $THREE payment is accepted
+	// in lieu of holding. The payment is validated at the gate, claimed atomically
+	// just before dispatch, and released if the generation fails before delivery.
+	let paidHigh = null;
+
 	// The geometry path is BYOK-only — no free model does native text→geometry.
 	// So when the caller didn't explicitly pick a backend and has no key for the
 	// default geometry engine, transparently serve the free image lane (NVIDIA
@@ -410,6 +423,50 @@ async function startJob(req, res) {
 		if (defaultByok && !(await resolveProviderKey(req, body, defaultByok))) {
 			path = 'image';
 			backendId = resolveBackendId({ path, tier, userImages: isImageMode });
+		}
+	}
+
+	// $THREE hold-to-access gate (Token Utility v1) — the High tier (200k poly +
+	// PBR) spends real GPU/vendor budget on a PLATFORM-keyed backend, so it's the
+	// first real $THREE-gated feature: reserved for holders (Bronze+, $25 hold) or
+	// a presented tier pass, otherwise a hold-or-pay 402. BYOK backends are exempt
+	// (the caller pays their own vendor key — key-gated, not hold-gated). Draft and
+	// Standard are never gated, and internal cron seed jobs bypass it entirely.
+	// requireFeatureAccess writes the 402 (three_hold_required) itself and returns
+	// { ok:false }; on a holder it writes nothing and lets the job proceed.
+	if (tier.id === 'high' && BACKENDS[backendId]?.byok === false && !isInternalSeedRequest(req)) {
+		// Consumption lever: a non-holder may present a settled $THREE payment
+		// (payment_id + the client nonce it was bound to) to satisfy the gate per
+		// generation instead of holding. Validate it read-only here; the single-use
+		// claim is taken atomically just before dispatch (see paidHigh below). A
+		// missing/invalid proof falls through to the normal hold-or-pay 402.
+		const paymentId = typeof body?.payment_id === 'string' ? body.payment_id.trim() : '';
+		const refId = typeof body?.ref_id === 'string' ? body.ref_id.trim() : '';
+		if (paymentId && refId) {
+			try {
+				const proof = await assertForgePayment({ paymentId, refId });
+				paidHigh = { paymentId, refId, settledAt: proof.payment.settledAt };
+			} catch (err) {
+				// A presented-but-invalid proof is a designed, recoverable state: the
+				// client can pay again (pay_per_use) or hold. Carry the price so the UI
+				// can re-offer Pay without another round-trip.
+				let usd = null;
+				try {
+					usd = Number(priceForAction('forge.high').usd) || null;
+				} catch {
+					usd = null;
+				}
+				return json(res, err.status || 402, {
+					error: err.code || 'payment_invalid',
+					feature: 'forge.high',
+					get_three_url: '/three',
+					pay_per_use: usd ? { action: 'forge.high', usd } : null,
+					message: err.message || 'That $THREE payment could not be verified.',
+				});
+			}
+		} else {
+			const gate = await requireFeatureAccess(req, res, 'forge.high', { body });
+			if (!gate.ok) return; // 402 three_hold_required already sent
 		}
 	}
 
@@ -519,6 +576,30 @@ async function startJob(req, res) {
 	}
 
 	try {
+		// Pay-per-use: claim the settled $THREE payment now — immediately before any
+		// provider work, so every cheap failure above (rate limit, moderation, bad
+		// input) left the payment reusable. The atomic claim (payment_id PRIMARY KEY)
+		// is the single-use source of truth: a concurrent retry of the same payment
+		// loses the race and is told the payment is already used. If anything below
+		// fails before a model is delivered, the finally releases the claim.
+		if (paidHigh && !paidHigh.redeemed) {
+			const claim = await redeemForgePayment({
+				paymentId: paidHigh.paymentId,
+				refId: paidHigh.refId,
+				settledAt: paidHigh.settledAt,
+			});
+			if (!claim.redeemed) {
+				return json(res, 409, {
+					error: 'payment_already_used',
+					feature: 'forge.high',
+					get_three_url: '/three',
+					message:
+						'This payment has already been used for a generation. Pay again to generate another High model.',
+				});
+			}
+			paidHigh.redeemed = true;
+		}
+
 		// ── Sketch path (TripoSG-scribble, self-host) ───────────────────────────
 		// The drawing + prompt go straight to the TripoSG worker's scribble
 		// pipeline. Geometry only — no synthesized intermediate view, no textures;
@@ -977,6 +1058,14 @@ async function startJob(req, res) {
 			error: 'generation_failed',
 			message: err?.message || 'The generator could not start this job.',
 		});
+	} finally {
+		// A claimed pay-per-use payment that did NOT deliver a model — any non-2xx
+		// exit (validation 4xx, unconfigured 5xx, provider failure) — is released so
+		// the settled $THREE payment stays reusable on retry. A successful job (200)
+		// keeps the claim, so one payment can never buy a second generation.
+		if (paidHigh?.redeemed && res.statusCode >= 400) {
+			await releaseForgePayment({ paymentId: paidHigh.paymentId }).catch(() => {});
+		}
 	}
 }
 

@@ -262,14 +262,66 @@ function injectStyles() {
 	.ec-tier .tn { font-size:17px; font-weight:780; }
 	.ec-tier .tm { color:var(--muted); font-size:12.5px; margin:3px 0 14px; }
 	.ec-tier ul { list-style:none; margin:0; padding:0; }
-	.ec-tier li { font-size:12.5px; color:#c9c9d2; padding:5px 0 5px 19px; position:relative; }
+	.ec-tier li { font-size:12.5px; color:#c9c9d2; padding:5px 0 5px 19px; position:relative;
+		display:flex; align-items:flex-start; gap:8px; }
 	.ec-tier li::before { content:''; position:absolute; left:3px; top:11px; width:6px; height:6px; border-radius:50%;
 		background:var(--green); }
+	.ec-tier li .pk-label { flex:1; min-width:0; line-height:1.4; }
+	.ec-tier li.is-planned { color:var(--muted); }
+	.ec-tier li.is-planned::before { background:var(--muted-2); }
+	.ec-tier li.pk-free { padding-left:0; }
+	.ec-tier li.pk-free::before { display:none; }
+	.pk-tag { flex-shrink:0; margin-top:1px; font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.05em;
+		padding:2px 7px; border-radius:999px; line-height:1.55; }
+	.pk-tag.pk-live { color:var(--green); background:rgba(110,231,168,.13); }
+	.pk-tag.pk-planned { color:var(--muted); background:rgba(139,139,150,.14); }
 	.ec-progress { margin:20px 0 0; }
 	.ec-progress .bar { height:8px; border-radius:999px; background:var(--line); overflow:hidden; }
 	.ec-progress .fill { height:100%; border-radius:999px; background:linear-gradient(90deg,var(--green),#a8f0c8);
 		width:0; transition:width 1s var(--ease); }
 	.ec-progress .lbl { display:flex; justify-content:space-between; font-size:12.5px; color:var(--muted); margin-top:9px; }
+
+	/* Your access (personal feature matrix) */
+	.ta-panel { border:1px solid var(--line); border-radius:16px; overflow:hidden;
+		background:linear-gradient(180deg,var(--panel),var(--panel-2)); }
+	.ta-head { display:flex; align-items:center; gap:12px; flex-wrap:wrap; padding:18px 20px; border-bottom:1px solid var(--line); }
+	.ta-tier { display:inline-flex; align-items:center; gap:7px; font-size:14px; font-weight:740; color:var(--muted);
+		border:1px solid var(--line-2); background:var(--panel); border-radius:999px; padding:7px 13px; }
+	.ta-tier.t-member { color:#a7a7b2; }
+	.ta-tier.t-bronze { color:#d8a06a; border-color:rgba(216,160,106,.34); background:rgba(216,160,106,.08); }
+	.ta-tier.t-silver { color:#cfd6e4; border-color:rgba(207,214,228,.3); background:rgba(207,214,228,.06); }
+	.ta-tier.t-gold { color:var(--gold); border-color:rgba(245,196,81,.34); background:rgba(245,196,81,.08); }
+	.ta-tier.t-genesis { color:var(--violet); border-color:rgba(196,168,255,.34); background:rgba(196,168,255,.08); }
+	.ta-held { font-size:13px; color:var(--muted); font-variant-numeric:tabular-nums; }
+	.ta-count { margin-left:auto; font-size:12px; color:var(--muted-2); font-variant-numeric:tabular-nums; }
+	.ta-note { margin:0; padding:11px 20px; font-size:12.5px; color:#f0d488; background:rgba(245,196,81,.06);
+		border-bottom:1px solid var(--line); }
+	.ta-rows { list-style:none; margin:0; padding:0; }
+	.ta-row { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:15px 20px;
+		border-top:1px solid var(--line); }
+	.ta-row:first-child { border-top:none; }
+	.ta-row-info { min-width:0; }
+	.ta-row-label { display:block; font-size:14px; }
+	.ta-why { display:block; font-size:12px; color:var(--muted-2); margin-top:3px; line-height:1.45; }
+	.ta-row-status { display:flex; align-items:center; gap:10px; flex-shrink:0; }
+	.ta-ppu { font-size:12px; color:var(--muted-2); white-space:nowrap; font-variant-numeric:tabular-nums; }
+	.ta-pill { display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:700; border-radius:999px;
+		padding:5px 11px; white-space:nowrap; }
+	.ta-pill--ok { color:var(--green); background:rgba(110,231,168,.1); border:1px solid rgba(110,231,168,.26); }
+	.ta-pill--lock { color:#f0d488; background:rgba(245,196,81,.09); border:1px solid rgba(245,196,81,.22); }
+	.ta-pill--soon { color:var(--muted); background:rgba(139,139,150,.12); border:1px solid rgba(139,139,150,.24); }
+	.ta-row--planned .ta-row-label { color:var(--muted); }
+	.ta-empty { border:1px dashed var(--line-2); border-radius:16px; padding:34px 24px; text-align:center;
+		background:linear-gradient(180deg,var(--panel),var(--panel-2)); }
+	.ta-empty-mark { font-size:30px; color:var(--green); filter:drop-shadow(0 0 12px rgba(110,231,168,.4)); margin-bottom:8px; }
+	.ta-empty-title { font-size:18px; font-weight:760; margin:0 0 6px; }
+	.ta-empty-sub { font-size:13.5px; color:var(--muted); margin:0 auto 18px; max-width:420px; line-height:1.55; }
+	.ta-empty-cta { display:flex; gap:11px; justify-content:center; flex-wrap:wrap; }
+	.ta-msg { font-size:12.5px; color:#ff9b9b; margin:12px 0 0; }
+	@media (max-width:560px){
+		.ta-row{ flex-direction:column; align-items:flex-start; gap:9px; }
+		.ta-count{ margin-left:0; }
+	}
 
 	/* Pricing explorer */
 	.ec-px { display:grid; gap:16px; grid-template-columns:1fr 1fr; }
@@ -651,18 +703,59 @@ function reflectedHTML(stats) {
 	</div>`;
 }
 
-function tiersHTML(tierData) {
+// One perk line for a tier card, tagged with whether the perk is enforced ("Live")
+// or merely registered ("Planned") — so the ladder never claims an unwired feature
+// is available today.
+function perkLi(label, enforced) {
+	const tag = enforced
+		? '<span class="pk-tag pk-live">Live</span>'
+		: '<span class="pk-tag pk-planned">Planned</span>';
+	return `<li class="${enforced ? 'is-live' : 'is-planned'}"><span class="pk-label">${esc(label)}</span>${tag}</li>`;
+}
+
+// A tier's perk list, driven from the LIVE gated-feature matrix (api/three/access)
+// grouped by the level that unlocks each feature: the holder fee discount (enforced
+// at charge time) leads every paying tier, then each feature it unlocks, marked Live
+// or Planned. `byLevel` is null until the matrix loads — until then we show the
+// tier's own static copy so the ladder is never empty.
+function tierPerksHTML(t, byLevel) {
+	if (!byLevel) {
+		return (t.perks || []).slice(0, 4).map((p) => `<li><span class="pk-label">${esc(p)}</span></li>`).join('');
+	}
+	const items = [];
+	if (t.discount_bps > 0) {
+		items.push(perkLi(`${(t.discount_bps / 100).toFixed(0)}% off all $THREE compute`, true));
+	}
+	for (const f of byLevel[t.level] || []) {
+		items.push(perkLi(f.label, f.enforced !== false));
+	}
+	if (!items.length) {
+		items.push('<li class="pk-free"><span class="pk-label">Everything free-forever — create, discover, embed, social, basic worlds</span></li>');
+	}
+	return items.join('');
+}
+
+function tiersHTML(tierData, features) {
 	const ladder = tierData?.ladder || [];
 	const cur = tierData?.tier?.level ?? null;
+	// Group the live gated-feature matrix by the tier level that unlocks each feature,
+	// so every tier card lists exactly what holding to it unlocks. Null until loaded.
+	let byLevel = null;
+	if (Array.isArray(features)) {
+		byLevel = {};
+		for (const f of features) {
+			const lvl = Number(f?.required?.level);
+			if (Number.isFinite(lvl)) (byLevel[lvl] ||= []).push(f);
+		}
+	}
 	const cards = ladder
 		.map((t) => {
 			const is = t.level === cur;
-			const perks = (t.perks || []).slice(0, 4).map((p) => `<li>${esc(p)}</li>`).join('');
 			return `<div class="ec-tier${is ? ' cur' : ''}">
 				${is ? '<span class="you">You</span>' : ''}
 				<div class="tn">${esc(t.label)}</div>
-				<div class="tm">${t.min_usd > 0 ? `Hold ${fmtUsd(t.min_usd)}+` : 'Free — everyone'}${t.discount_bps > 0 ? ` · ${(t.discount_bps / 100).toFixed(0)}% off` : ''}</div>
-				<ul>${perks}</ul>
+				<div class="tm">${t.min_usd > 0 ? `Hold ${fmtUsd(t.min_usd)}+` : 'Free — everyone'}</div>
+				<ul>${tierPerksHTML(t, byLevel)}</ul>
 			</div>`;
 		})
 		.join('');
@@ -684,6 +777,78 @@ function tiersHTML(tierData) {
 		progress = `<p class="ec-muted" style="margin-top:18px;font-size:13px">Sign in and link a Solana wallet to see your tier and track progress to the next one.</p>`;
 	}
 	return `<div class="ec-tiers">${cards}</div>${progress}`;
+}
+
+// The signed-out / no-session empty state for the personal access panel — honest and
+// actionable (Sign in to resolve a tier, or Get $THREE first), never a dead void.
+function accessSignedOutHTML() {
+	return `<div class="ta-empty">
+		<div class="ta-empty-mark" aria-hidden="true">◆</div>
+		<h3 class="ta-empty-title">See what your $THREE unlocks</h3>
+		<p class="ta-empty-sub">We resolve your holder tier from your on-chain $THREE. Sign in to see your unlocks here — or get $THREE first.</p>
+		<div class="ta-empty-cta">
+			<button class="ec-btn primary" id="ec-access-signin" type="button">Sign in</button>
+			<a class="ec-btn" href="/three-token">Get $THREE</a>
+		</div>
+	</div>`;
+}
+
+// One feature row: label, a status pill, and (when relevant) a sub-line. A feature
+// that isn't enforced yet reads "Planned" — never "Unlocked" — even for a holder who
+// is over the bar, so the panel never promises a perk the platform can't yet deliver.
+// An enforced, locked perk shows the why + a pay-per-use escape hatch when one exists.
+function accessRowHTML(f) {
+	const enforced = f.enforced !== false;
+	const ok = Boolean(f.eligible);
+	const required = f.required?.label || 'a higher tier';
+	let pill;
+	if (!enforced) {
+		pill = '<span class="ta-pill ta-pill--soon">Planned</span>';
+	} else if (ok) {
+		pill = '<span class="ta-pill ta-pill--ok">Unlocked ✓</span>';
+	} else {
+		pill = `<span class="ta-pill ta-pill--lock">Hold to ${esc(required)}</span>`;
+	}
+	const ppu =
+		enforced && !ok && f.pay_per_use && Number(f.pay_per_use.usd) > 0
+			? `<span class="ta-ppu">or ${esc(fmtUsd(f.pay_per_use.usd))} / use</span>`
+			: '';
+	const sub = !enforced
+		? `<span class="ta-why">Unlocks at ${esc(required)} when it ships.</span>`
+		: !ok && f.why
+			? `<span class="ta-why">${esc(f.why)}</span>`
+			: '';
+	const cls = !enforced ? ' ta-row--planned' : ok ? ' ta-row--ok' : '';
+	return `<li class="ta-row${cls}">
+		<div class="ta-row-info"><span class="ta-row-label">${esc(f.label)}</span>${sub}</div>
+		<div class="ta-row-status">${pill}${ppu}</div>
+	</li>`;
+}
+
+// The populated matrix: a current-tier chip + how many ENFORCED features it unlocks
+// (planned perks are counted separately, never as "unlocked"), then one real list row
+// per gated feature. A signed-in user with no linked wallet is read as Member and told
+// (once) how to fix it, rather than silently shown an all-locked grid.
+function accessMatrixHTML(data) {
+	const tier = data.tier || { id: 'member', label: 'Member', held_usd: 0 };
+	const features = Array.isArray(data.features) ? data.features : [];
+	const live = features.filter((f) => f.enforced !== false);
+	const unlocked = live.filter((f) => f.eligible).length;
+	const planned = features.length - live.length;
+	const held = Number(tier.held_usd) > 0 ? `<span class="ta-held">${esc(fmtUsd(tier.held_usd))} held</span>` : '';
+	const note =
+		data.signed_in && !data.wallet_linked
+			? `<p class="ta-note">Link a Solana wallet to read your real $THREE — you're seeing the Member view.</p>`
+			: '';
+	return `<div class="ta-panel">
+		<div class="ta-head">
+			<span class="ta-tier t-${esc(tier.id)}">◆ ${esc(tier.label)}</span>
+			${held}
+			<span class="ta-count">${unlocked} of ${live.length} unlocked${planned > 0 ? ` · ${planned} planned` : ''}</span>
+		</div>
+		${note}
+		<ul class="ta-rows" role="list">${features.map(accessRowHTML).join('')}</ul>
+	</div>`;
 }
 
 function catalogGroups(actions) {
@@ -762,6 +927,13 @@ function shell() {
 			<div id="ec-tiers"><div class="ec-tiers">${'<div class="ec-tier ec-skel" style="height:170px"></div>'.repeat(5)}</div></div>
 		</section>
 
+		<section class="ec-section ec-reveal" id="access">
+			<p class="ec-htitle">Your access</p>
+			<h2 class="ec-h2">What your $THREE unlocks</h2>
+			<p class="ec-desc">Your tier, resolved live from your on-chain $THREE — and exactly which holder features it unlocks for you right now.</p>
+			<div id="ec-access">${'<div class="ec-skel" style="height:62px;margin-bottom:9px;border-radius:12px"></div>'.repeat(4)}</div>
+		</section>
+
 		<section class="ec-section ec-reveal" id="pricing">
 			<p class="ec-htitle">What you pay for</p>
 			<h2 class="ec-h2">Pricing explorer</h2>
@@ -797,6 +969,21 @@ function shell() {
 
 let LIVE_PRICE = 0; // $THREE/USD, fetched once for conversions
 let DISCOUNT_BPS = 0; // current holder's tier discount
+let _accessBound = false; // wallet:changed listener attached once
+let _tierData = null; // last /api/three/tier payload (ladder + current tier + progress)
+let _accessFeatures = null; // last gated-feature matrix from /api/three/access (Live/Planned)
+
+// Render the holder-tier ladder from whatever we know so far: the ladder + current
+// tier from /api/three/tier, and the live gated-feature matrix from /api/three/access
+// (which supplies each tier's Live/Planned perks). Either source may arrive first or
+// be absent (signed-out / failed call); we fall back to the static ladder so the
+// section is never empty. Called by both loaders as their data lands.
+function renderTiers() {
+	const el = document.getElementById('ec-tiers');
+	if (!el) return;
+	const td = _tierData?.ladder?.length ? _tierData : { ladder: DEFAULT_LADDER, tier: null, next: null };
+	el.innerHTML = tiersHTML(td, _accessFeatures);
+}
 
 function discountedUsd(usd) {
 	if (!(usd > 0) || DISCOUNT_BPS <= 0) return usd;
@@ -1009,14 +1196,33 @@ async function load(root) {
 
 	// The tier ladder is always-on info content, so render the baseline immediately
 	// (never an empty/error box), then enhance with the holder's live "current" tier
-	// + progress when the authed call succeeds. A signed-out or failed call simply
-	// leaves the informative ladder in place.
-	const tiersEl = document.getElementById('ec-tiers');
-	if (tiersEl) tiersEl.innerHTML = tiersHTML({ ladder: DEFAULT_LADDER, tier: null, next: null });
-	getJSON(`${API}/tier`)
+	// + progress (loadTier) and each tier's Live/Planned perks (loadAccess) as they
+	// land. A signed-out or failed call simply leaves the informative ladder in place.
+	renderTiers();
+	loadTier();
+
+	// Personal "Your access" panel: what THIS visitor's $THREE unlocks right now. Renders
+	// the signed-out empty state for anonymous viewers and the live feature matrix for a
+	// holder session, and re-fetches whenever a Solana wallet connects/disconnects so the
+	// panel stays truthful without a reload.
+	loadAccess();
+	if (!_accessBound) {
+		_accessBound = true;
+		addEventListener('wallet:changed', () => loadAccess());
+	}
+
+	wireNameStudio(root);
+}
+
+// Fetch + render the holder tier ladder and apply the tier discount to the pricing
+// explorer. Reusable so a fresh sign-in can refresh it without a full reload. The
+// baseline ladder is already on screen, so any failure simply leaves it in place.
+function loadTier() {
+	return getJSON(`${API}/tier`)
 		.then((t) => {
 			DISCOUNT_BPS = Number(t?.tier?.discount_bps) || 0;
-			if (tiersEl && t?.ladder?.length) tiersEl.innerHTML = tiersHTML(t);
+			if (t?.ladder?.length) _tierData = t;
+			renderTiers();
 			// Re-render the price detail now that the discount is known.
 			const sel = document.querySelector('.ec-px-item.sel');
 			if (sel) sel.click();
@@ -1024,8 +1230,59 @@ async function load(root) {
 		.catch(() => {
 			/* keep the baseline ladder — it's informative without auth */
 		});
+}
 
-	wireNameStudio(root);
+// Render the personal access panel from /api/three/access. Anonymous → empty state;
+// signed-in → the live feature matrix. Degrades to its own error box on failure, so
+// the rest of /three (including the always-on ladder above) is unaffected.
+function loadAccess() {
+	const el = document.getElementById('ec-access');
+	return getJSON(`${API}/access`)
+		.then((data) => {
+			// The matrix feeds both the per-tier Live/Planned perks above and the
+			// personal panel below — one call, two surfaces. Features come back for
+			// anonymous callers too (all locked), so the ladder enriches regardless.
+			_accessFeatures = Array.isArray(data?.features) ? data.features : null;
+			renderTiers();
+			if (el) {
+				el.innerHTML = data?.signed_in ? accessMatrixHTML(data) : accessSignedOutHTML();
+				wireAccessActions();
+			}
+		})
+		.catch(() => {
+			if (el) el.innerHTML = '<div class="ec-err">Your access is temporarily unavailable.</div>';
+		});
+}
+
+// Wire the empty-state Sign in button. On success the new session yields the live
+// matrix (and refreshes the ladder's "You" chip + the pricing discount); a cancelled
+// or failed sign-in restores the button and shows an inline, recoverable message.
+function wireAccessActions() {
+	const signin = document.getElementById('ec-access-signin');
+	if (!signin) return;
+	signin.addEventListener('click', async () => {
+		const label = signin.textContent;
+		signin.disabled = true;
+		signin.textContent = 'Signing in…';
+		try {
+			const { signInWithWallet } = await import('./wallet-auth.js');
+			await signInWithWallet();
+			await loadAccess();
+			loadTier();
+		} catch {
+			signin.disabled = false;
+			signin.textContent = label;
+			const cta = signin.closest('.ta-empty-cta');
+			if (cta && !document.getElementById('ec-access-msg')) {
+				const msg = document.createElement('p');
+				msg.id = 'ec-access-msg';
+				msg.className = 'ta-msg';
+				msg.setAttribute('role', 'alert');
+				msg.textContent = 'Sign-in was cancelled or failed. Try again.';
+				cta.insertAdjacentElement('afterend', msg);
+			}
+		}
+	});
 }
 
 // Static ladder shape so a signed-out visitor still sees the tiers (the live
