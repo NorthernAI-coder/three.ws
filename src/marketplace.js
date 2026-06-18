@@ -1721,6 +1721,216 @@ function renderDetailPricingSummary(agent) {
 	overview.insertAdjacentElement('afterend', strip);
 }
 
+// ── Subscription tiers ────────────────────────────────────────────────────
+//
+// Renders the creator's recurring plans on the agent detail page. The detail
+// API (api/marketplace/[action].js → handleDetail) returns active tiers in
+// `agent.subscription_tiers` and the viewer's active plan in
+// `agent.user_subscription`. The current plan is highlighted and switched to a
+// "Manage subscription" action; the other tiers are disabled while subscribed
+// so a viewer can't accidentally stack two plans on one agent.
+function renderSubscriptionTiers(agent) {
+	const section = $('subscription-tiers-section');
+	const grid = $('tiers-grid');
+	if (!section || !grid) return;
+
+	const status = $('d-subs-status');
+	if (status) {
+		status.textContent = '';
+		status.className = 'd-subs-status';
+	}
+
+	const tiers = Array.isArray(agent.subscription_tiers) ? agent.subscription_tiers : [];
+	if (!tiers.length) {
+		section.hidden = true;
+		grid.innerHTML = '';
+		return;
+	}
+	section.hidden = false;
+
+	const userSub = agent.user_subscription || null;
+	const isOwner = !!(currentUserId && agent.author_id && currentUserId === agent.author_id);
+
+	const sub = $('d-subs-sub');
+	if (sub) {
+		sub.textContent = isOwner
+			? 'These are the plans subscribers see. Edit them from the agent editor.'
+			: userSub
+				? 'You are subscribed — manage your plan below.'
+				: 'Back this creator with a recurring plan and unlock everything it includes.';
+	}
+
+	grid.innerHTML = tiers
+		.map((tier) => {
+			const isCurrent = !!(userSub && userSub.plan_id === tier.id);
+			const subscribedElsewhere = !!(userSub && !isCurrent);
+			const intervalLabel = tier.interval === 'weekly' ? 'week' : 'month';
+			const price = Number(tier.price_usd || 0).toFixed(2);
+			const perks = Array.isArray(tier.perks) ? tier.perks.filter(Boolean) : [];
+			const skillCount = Array.isArray(tier.included_skills) ? tier.included_skills.length : 0;
+
+			const perksHtml = perks.length
+				? `<ul class="tier-perks">${perks.map((p) => `<li>${escapeHtml(p)}</li>`).join('')}</ul>`
+				: '<p class="tier-perks-empty">Recurring support for this creator.</p>';
+
+			const skillLine = skillCount
+				? `<div class="tier-skills">Unlocks ${skillCount} included skill${skillCount === 1 ? '' : 's'}</div>`
+				: '';
+
+			let btn;
+			if (isOwner) {
+				btn = '<button class="tier-btn" type="button" disabled>Your plan</button>';
+			} else if (isCurrent) {
+				btn = `<button class="tier-btn current" type="button" data-sub-manage="${escapeHtml(userSub.id)}">Manage subscription</button>`;
+			} else if (subscribedElsewhere) {
+				btn = '<button class="tier-btn" type="button" disabled title="Cancel your current plan to switch tiers">Subscribe</button>';
+			} else {
+				btn = `<button class="tier-btn primary" type="button" data-sub-plan="${escapeHtml(tier.id)}">Subscribe</button>`;
+			}
+
+			return `<div class="tier-card${isCurrent ? ' subscribed' : ''}" role="listitem">
+					${isCurrent ? '<div class="tier-badge">Current plan</div>' : ''}
+					<div class="tier-name">${escapeHtml(tier.name)}</div>
+					<div class="tier-price">$${escapeHtml(price)}<span class="tier-interval">/ ${intervalLabel}</span></div>
+					${skillLine}
+					${perksHtml}
+					${btn}
+				</div>`;
+		})
+		.join('');
+}
+
+async function initiateSubscription(planId, btn) {
+	if (!currentUserId) {
+		location.href = `/login?next=${encodeURIComponent(location.pathname + location.search)}`;
+		return;
+	}
+	if (!detailState?.agent) return;
+	const agent = detailState.agent;
+	const tier = (agent.subscription_tiers || []).find((t) => t.id === planId);
+	if (!tier) return;
+
+	const intervalLabel = tier.interval === 'weekly' ? 'week' : 'month';
+	const price = Number(tier.price_usd || 0).toFixed(2);
+	const status = $('d-subs-status');
+
+	const confirmed = window.confirm(
+		`Subscribe to "${tier.name}" for $${price} per ${intervalLabel}? You'll pay in USDC each ${intervalLabel} and can cancel anytime.`,
+	);
+	if (!confirmed) return;
+
+	if (btn) {
+		btn.disabled = true;
+		btn.textContent = 'Subscribing…';
+	}
+	if (status) {
+		status.textContent = '';
+		status.className = 'd-subs-status';
+	}
+
+	try {
+		const r = await apiPostWithCsrf('/api/subscriptions', { plan_id: planId });
+		const j = await r.json().catch(() => ({}));
+		if (!r.ok) {
+			const msg = j.error_description || j.error || 'Could not start subscription. Try again.';
+			if (status) {
+				status.textContent = msg;
+				status.className = 'd-subs-status err';
+			}
+			if (btn) {
+				btn.disabled = false;
+				btn.textContent = 'Subscribe';
+			}
+			return;
+		}
+
+		const payUrl = j?.payment?.payUrl || null;
+		// Refresh detail so the tier flips to "Current plan" and the others lock.
+		await loadDetail(agent.id);
+
+		// Reuse the polished payment success card for the confirmation + the
+		// real first-payment link (server builds an x402 checkout intent).
+		const overlay = $('payment-modal-overlay');
+		if (overlay) overlay.hidden = false;
+		renderPaymentSuccess({
+			title: 'Subscription started',
+			message: payUrl
+				? `You're subscribed to ${tier.name}. Complete your first ${intervalLabel}'s payment to activate every perk.`
+				: `You're subscribed to ${tier.name}.`,
+			primaryHref: payUrl,
+			primaryLabel: payUrl ? 'Complete payment' : null,
+			secondaryLabel: 'Done',
+		});
+	} catch (err) {
+		if (status) {
+			status.textContent = err.message || 'Network error — try again.';
+			status.className = 'd-subs-status err';
+		}
+		if (btn) {
+			btn.disabled = false;
+			btn.textContent = 'Subscribe';
+		}
+	}
+}
+
+async function manageSubscription(subId, btn) {
+	if (!detailState?.agent) return;
+	const agent = detailState.agent;
+	const tier = (agent.subscription_tiers || []).find(
+		(t) => t.id === agent.user_subscription?.plan_id,
+	);
+	const tierName = tier?.name || 'this plan';
+	const status = $('d-subs-status');
+
+	const confirmed = window.confirm(
+		`Cancel your subscription to "${tierName}"? Access to its perks ends right away and you won't be billed again.`,
+	);
+	if (!confirmed) return;
+
+	if (btn) {
+		btn.disabled = true;
+		btn.textContent = 'Cancelling…';
+	}
+
+	try {
+		const token = await getCsrfToken();
+		_csrf = null;
+		const r = await fetch(`/api/subscriptions/${encodeURIComponent(subId)}`, {
+			method: 'DELETE',
+			headers: { 'X-CSRF-Token': token },
+			credentials: 'include',
+		});
+		const j = await r.json().catch(() => ({}));
+		if (!r.ok) {
+			const msg = j.error_description || j.error || 'Could not cancel. Try again.';
+			if (status) {
+				status.textContent = msg;
+				status.className = 'd-subs-status err';
+			}
+			if (btn) {
+				btn.disabled = false;
+				btn.textContent = 'Manage subscription';
+			}
+			return;
+		}
+		await loadDetail(agent.id);
+		const after = $('d-subs-status');
+		if (after) {
+			after.textContent = `Your subscription to ${tierName} has been cancelled.`;
+			after.className = 'd-subs-status ok';
+		}
+	} catch (err) {
+		if (status) {
+			status.textContent = err.message || 'Network error — try again.';
+			status.className = 'd-subs-status err';
+		}
+		if (btn) {
+			btn.disabled = false;
+			btn.textContent = 'Manage subscription';
+		}
+	}
+}
+
 // editor, non-owner with active price sees a Buy button. Free agents for
 // non-owners get nothing.
 function renderAgentSalePanel(agent) {
@@ -4780,6 +4990,9 @@ function renderDetail(a, bookmarked) {
 	// Render pricing summary if agent has skill prices
 	renderDetailPricingSummary(a);
 
+	// Recurring subscription plans (cards + current-plan state)
+	renderSubscriptionTiers(a);
+
 	renderAgentSalePanel(a);
 	$('d-profile').textContent = a.system_prompt || a.prompt || '(No profile yet.)';
 	startPreviewSession(a);
@@ -5505,6 +5718,16 @@ function bindEvents() {
 			const agentId = e.target.dataset.agentId;
 			const duration = Number(e.target.dataset.duration);
 			if (agentId && skillName && duration) openTimePassFlow(agentId, skillName, duration, e.target).catch((err) => log.error('[marketplace] time-pass flow', err));
+		}
+		const subPlanBtn = e.target.closest('[data-sub-plan]');
+		if (subPlanBtn) {
+			initiateSubscription(subPlanBtn.dataset.subPlan, subPlanBtn).catch((err) => log.error('[marketplace] subscribe flow', err));
+			return;
+		}
+		const subManageBtn = e.target.closest('[data-sub-manage]');
+		if (subManageBtn) {
+			manageSubscription(subManageBtn.dataset.subManage, subManageBtn).catch((err) => log.error('[marketplace] manage subscription', err));
+			return;
 		}
 	});
 

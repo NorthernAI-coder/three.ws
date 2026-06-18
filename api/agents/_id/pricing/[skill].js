@@ -5,6 +5,7 @@ import { cors, json, method, readJson, wrap, error, rateLimited } from '../../..
 import { parse } from '../../../_lib/validate.js';
 import { limits, clientIp } from '../../../_lib/rate-limit.js';
 import { requireCsrf } from '../../../_lib/csrf.js';
+import { invalidateSkillPriceCache } from '../../../_lib/skill-price-cache.js';
 
 // First char must be alphanumeric; rest may include hyphens; total 1–64 chars.
 const SKILL_RE = /^[a-zA-Z0-9][a-zA-Z0-9-]{0,63}$/;
@@ -79,6 +80,7 @@ export default wrap(async (req, res) => {
 			FROM agent_skill_prices WHERE agent_id = ${id} AND skill = ${skill}
 		`;
 
+		await invalidateSkillPriceCache(id);
 		return json(res, existing ? 200 : 201, row);
 	}
 
@@ -95,5 +97,6 @@ export default wrap(async (req, res) => {
 		`;
 	}
 
+	await invalidateSkillPriceCache(id);
 	return json(res, 200, { deleted: true });
 });

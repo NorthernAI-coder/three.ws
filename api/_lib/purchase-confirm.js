@@ -96,6 +96,9 @@ async function emitReceipt(purchase, txSignature, payoutAddress, kind) {
 		purchase_id: purchase.id,
 		reference: purchase.reference,
 		user_id: purchase.user_id,
+		...(purchase.recipient_user_id && purchase.recipient_user_id !== purchase.user_id
+			? { recipient_user_id: purchase.recipient_user_id }
+			: {}),
 		agent_id: purchase.agent_id,
 		skill: purchase.skill,
 		amount: String(purchase.amount),
@@ -443,9 +446,13 @@ async function finalizeSkillConfirmation(pur, txSignature, payoutAddress, platfo
 		RETURNING id, kind, valid_until
 	`;
 	if (updated.length > 0) {
-		// Grant skill access. Permanent purchases get a non-expiring grant;
-		// time-passes expire at their valid_until window. The skill_access_grants
-		// table is the authoritative access record; skill_purchases tracks payment.
+		// Grant skill access to the BENEFICIARY. For a gift that's the recipient
+		// (recipient_user_id); for a normal purchase it's the payer (user_id).
+		// Permanent purchases get a non-expiring grant; time-passes expire at their
+		// valid_until window. skill_access_grants is the authoritative access
+		// record; skill_purchases tracks payment.
+		const beneficiaryId = pur.recipient_user_id || pur.user_id;
+		const isGift = !!pur.recipient_user_id && pur.recipient_user_id !== pur.user_id;
 		const confirmedRow = updated[0];
 		const grantExpiresAt = confirmedRow.kind === 'time_pass' && confirmedRow.valid_until
 			? confirmedRow.valid_until
@@ -455,7 +462,7 @@ async function finalizeSkillConfirmation(pur, txSignature, payoutAddress, platfo
 				INSERT INTO skill_access_grants
 					(user_id, agent_id, skill_name, purchase_id, expires_at)
 				VALUES
-					(${pur.user_id}, ${pur.agent_id}, ${pur.skill}, ${pur.id}, ${grantExpiresAt})
+					(${beneficiaryId}, ${pur.agent_id}, ${pur.skill}, ${pur.id}, ${grantExpiresAt})
 				ON CONFLICT (user_id, agent_id, skill_name) DO UPDATE
 					SET expires_at  = EXCLUDED.expires_at,
 					    purchase_id = EXCLUDED.purchase_id,
@@ -524,16 +531,45 @@ async function finalizeSkillConfirmation(pur, txSignature, payoutAddress, platfo
 				currency_mint: pur.currency_mint,
 				tx_signature: txSignature,
 				purchase_id: pur.id,
+				gift: isGift,
 			});
 		}
-		await insertNotification(pur.user_id, 'skill_purchase_confirmed', {
-			agent_id: pur.agent_id,
-			skill: pur.skill,
-			amount: grossAmt.toString(),
-			currency_mint: pur.currency_mint,
-			tx_signature: txSignature,
-			purchase_id: pur.id,
-		});
+		if (isGift) {
+			// Tell the recipient they were gifted access, and confirm delivery to
+			// the buyer. Names are best-effort, resolved from public profile fields.
+			const [gifterName, recipientName] = await Promise.all([
+				getUserDisplay(pur.user_id),
+				getUserDisplay(beneficiaryId),
+			]);
+			await insertNotification(beneficiaryId, 'skill_gift_received', {
+				agent_id: pur.agent_id,
+				skill: pur.skill,
+				from: gifterName,
+				from_user_id: pur.user_id,
+				currency_mint: pur.currency_mint,
+				tx_signature: txSignature,
+				purchase_id: pur.id,
+			});
+			await insertNotification(pur.user_id, 'skill_gift_sent', {
+				agent_id: pur.agent_id,
+				skill: pur.skill,
+				to: recipientName,
+				to_user_id: beneficiaryId,
+				amount: grossAmt.toString(),
+				currency_mint: pur.currency_mint,
+				tx_signature: txSignature,
+				purchase_id: pur.id,
+			});
+		} else {
+			await insertNotification(pur.user_id, 'skill_purchase_confirmed', {
+				agent_id: pur.agent_id,
+				skill: pur.skill,
+				amount: grossAmt.toString(),
+				currency_mint: pur.currency_mint,
+				tx_signature: txSignature,
+				purchase_id: pur.id,
+			});
+		}
 		if (pur.referrer_user_id && referralAmt > 0n) {
 			await insertNotification(pur.referrer_user_id, 'referral_earned', {
 				skill: pur.skill,
@@ -550,4 +586,16 @@ async function finalizeSkillConfirmation(pur, txSignature, payoutAddress, platfo
 async function getSellerUserId(agentId) {
 	const [row] = await sql`SELECT user_id FROM agent_identities WHERE id = ${agentId}`;
 	return row?.user_id ?? null;
+}
+
+// Best-effort friendly label for a user (gift notifications). Username first,
+// then display name, then a short id — never the email.
+async function getUserDisplay(userId) {
+	if (!userId) return null;
+	try {
+		const [row] = await sql`SELECT username, display_name FROM users WHERE id = ${userId}`;
+		return row?.username || row?.display_name || `user ${String(userId).slice(0, 8)}`;
+	} catch {
+		return null;
+	}
 }

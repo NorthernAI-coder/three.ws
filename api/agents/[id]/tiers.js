@@ -4,7 +4,8 @@
  * Routes (vercel.json rewrites map /api/agents/:id/tiers → this file):
  *   GET    /api/agents/:id/tiers             list active tiers for agent (public)
  *   POST   /api/agents/:id/tiers             create tier (auth, agent owner)
- *   PATCH  /api/agents/:id/tiers/:tierId     update tier (auth, agent owner)
+ *   PUT    /api/agents/:id/tiers/:tierId     update tier (auth, agent owner)
+ *   PATCH  /api/agents/:id/tiers/:tierId     update tier (alias of PUT)
  *   DELETE /api/agents/:id/tiers/:tierId     deactivate tier (auth, agent owner)
  *
  * Tiers are stored in the `subscription_plans` table scoped by agent_id.
@@ -26,6 +27,7 @@ const createSchema = z.object({
 	price_usd: z.number().min(0.99).max(999),
 	interval:  z.enum(['weekly', 'monthly']).default('monthly'),
 	perks:     z.array(z.string().trim().max(120)).max(10).default([]),
+	included_skills: z.array(z.string().trim().min(1).max(120)).max(50).default([]),
 });
 
 const patchSchema = z.object({
@@ -33,11 +35,12 @@ const patchSchema = z.object({
 	price_usd: z.number().min(0.99).max(999).optional(),
 	interval:  z.enum(['weekly', 'monthly']).optional(),
 	perks:     z.array(z.string().trim().max(120)).max(10).optional(),
+	included_skills: z.array(z.string().trim().min(1).max(120)).max(50).optional(),
 	active:    z.boolean().optional(),
 });
 
 export default wrap(async (req, res) => {
-	if (cors(req, res, { methods: 'GET,POST,PATCH,DELETE,OPTIONS', credentials: true })) return;
+	if (cors(req, res, { methods: 'GET,POST,PUT,PATCH,DELETE,OPTIONS', credentials: true })) return;
 
 	const url = new URL(req.url, 'http://x');
 	// Path: /api/agents/:agentId/tiers or /api/agents/:agentId/tiers/:tierId
@@ -50,7 +53,7 @@ export default wrap(async (req, res) => {
 
 	if (req.method === 'GET') return handleList(req, res, agentId);
 	if (req.method === 'POST' && !tierId) return handleCreate(req, res, agentId);
-	if (req.method === 'PATCH' && tierId) return handlePatch(req, res, agentId, tierId);
+	if ((req.method === 'PUT' || req.method === 'PATCH') && tierId) return handleUpdate(req, res, agentId, tierId);
 	if (req.method === 'DELETE' && tierId) return handleDelete(req, res, agentId, tierId);
 
 	return error(res, 405, 'method_not_allowed', 'method not allowed');
@@ -77,7 +80,7 @@ async function handleList(req, res, agentId) {
 	if (!rl.success) return rateLimited(res, rl);
 
 	const rows = await sql`
-		SELECT id, name, price_usd, interval, perks, active, created_at
+		SELECT id, name, price_usd, interval, perks, included_skills, active, created_at
 		FROM subscription_plans
 		WHERE agent_id = ${agentId} AND active = true
 		ORDER BY price_usd ASC
@@ -109,18 +112,18 @@ async function handleCreate(req, res, agentId) {
 
 	const [tier] = await sql`
 		INSERT INTO subscription_plans
-			(creator_id, agent_id, name, price_usd, interval, perks)
+			(creator_id, agent_id, name, price_usd, interval, perks, included_skills)
 		VALUES
-			(${user.id}, ${agentId}, ${body.name}, ${body.price_usd}, ${body.interval}, ${body.perks})
-		RETURNING id, name, price_usd, interval, perks, active, created_at
+			(${user.id}, ${agentId}, ${body.name}, ${body.price_usd}, ${body.interval}, ${body.perks}, ${body.included_skills})
+		RETURNING id, name, price_usd, interval, perks, included_skills, active, created_at
 	`;
 	return json(res, 201, { tier });
 }
 
-// ── Update ────────────────────────────────────────────────────────────────────
+// ── Update (PUT / PATCH) ──────────────────────────────────────────────────────
 
-async function handlePatch(req, res, agentId, tierId) {
-	if (!method(req, res, ['PATCH'])) return;
+async function handleUpdate(req, res, agentId, tierId) {
+	if (!method(req, res, ['PUT', 'PATCH'])) return;
 	const user = await requireAgentOwner(req, res, agentId);
 	if (!user) return;
 
@@ -140,6 +143,7 @@ async function handlePatch(req, res, agentId, tierId) {
 	if (body.price_usd !== undefined) { params.push(body.price_usd); setFrags.push(`price_usd = $${params.length}`); }
 	if (body.interval !== undefined)  { params.push(body.interval);  setFrags.push(`interval = $${params.length}`); }
 	if (body.perks !== undefined)     { params.push(body.perks);     setFrags.push(`perks = $${params.length}`); }
+	if (body.included_skills !== undefined) { params.push(body.included_skills); setFrags.push(`included_skills = $${params.length}`); }
 	if (body.active !== undefined)    { params.push(body.active);    setFrags.push(`active = $${params.length}`); }
 	if (setFrags.length === 0) return error(res, 400, 'validation_error', 'nothing to update');
 
@@ -149,7 +153,7 @@ async function handlePatch(req, res, agentId, tierId) {
 	const [tier] = await sql(
 		`UPDATE subscription_plans SET ${setFrags.join(', ')}
 		 WHERE id = $${tidIdx} AND creator_id = $${uidIdx}
-		 RETURNING id, name, price_usd, interval, perks, active, created_at`,
+		 RETURNING id, name, price_usd, interval, perks, included_skills, active, created_at`,
 		params,
 	);
 	return json(res, 200, { tier });

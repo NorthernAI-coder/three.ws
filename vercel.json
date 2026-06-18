@@ -2442,6 +2442,10 @@
 			"dest": "/api/users/referral-claim.js"
 		},
 		{
+			"src": "/api/users/lookup",
+			"dest": "/api/users/lookup.js"
+		},
+		{
 			"src": "/api/threews/subdomain",
 			"dest": "/api/threews/subdomain.js"
 		},
@@ -2888,6 +2892,14 @@
 		{
 			"src": "/api/subscriptions/plans(/.*)?",
 			"dest": "/api/subscriptions/plans.js"
+		},
+		{
+			"src": "/api/subscriptions/subscribe",
+			"dest": "/api/subscriptions/subscribe.js"
+		},
+		{
+			"src": "/api/subscriptions/verify",
+			"dest": "/api/subscriptions/verify.js"
 		},
 		{
 			"src": "/api/subscriptions(/.*)?",

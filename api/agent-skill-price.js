@@ -9,6 +9,7 @@ import { authenticateBearer, extractBearer, getSessionUser } from './_lib/auth.j
 import { cors, error, json, method, readJson, wrap, rateLimited } from './_lib/http.js';
 import { requireCsrf } from './_lib/csrf.js';
 import { clientIp, limits } from './_lib/rate-limit.js';
+import { invalidateSkillPriceCache } from './_lib/skill-price-cache.js';
 import { z } from 'zod';
 
 const BASE58_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
@@ -84,5 +85,6 @@ export default wrap(async (req, res) => {
 		`;
 	}
 
+	await invalidateSkillPriceCache(agentId);
 	return json(res, 200, { data: { ok: true } });
 });

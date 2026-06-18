@@ -1947,6 +1947,11 @@
 				border-color: rgba(253, 224, 71, 0.3);
 				color: #fde68a;
 			}
+			.payment-modal-badge.info {
+				background: rgba(87, 199, 255, 0.08);
+				border-color: rgba(87, 199, 255, 0.3);
+				color: #bfe6ff;
+			}
 
 			/* Persistent post-purchase success card. Replaces the modal body so
 			   the user sees what they bought + a one-click path to use it,
@@ -3044,6 +3049,29 @@
 								<h3>What can you do with this Agent?</h3>
 								<p id="d-overview">—</p>
 							</div>
+
+							<!-- Subscription tiers — recurring plans the creator
+							     offers. Populated by renderSubscriptionTiers(); the
+							     section stays hidden when the agent has no active
+							     plans so the overview never shows an empty shell. -->
+							<section
+								class="market-card d-subs-card"
+								id="subscription-tiers-section"
+								aria-label="Subscription plans"
+								hidden
+							>
+								<div class="d-subs-head">
+									<h3>Subscribe for exclusive perks</h3>
+									<p class="d-subs-sub" id="d-subs-sub"></p>
+								</div>
+								<div class="tiers-grid" id="tiers-grid" role="list"></div>
+								<p
+									class="d-subs-status"
+									id="d-subs-status"
+									role="status"
+									aria-live="polite"
+								></p>
+							</section>
 
 							<!-- Ratings & reviews -->
 							<section

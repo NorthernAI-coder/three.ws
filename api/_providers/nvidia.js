@@ -94,6 +94,18 @@ const NVCF_POLL_SECONDS = 30;
 const SUBMIT_TIMEOUT_MS = 45_000;
 const POLL_TIMEOUT_MS = 60_000;
 
+// NVCF can answer a cold model — or a momentary capacity/routing blip at the
+// gateway — with a transient 502/503/504, or drop the socket before a worker is
+// warm. None of these is terminal: a single short retry usually lands once the
+// model spins up, which keeps the FREE lane from dead-ending straight to the
+// (often equally throttled) paid Replicate lane and surfacing to the user as a
+// hard 502. Bounded to one retry so a genuinely-down upstream still fails over
+// fast rather than burning the whole serverless budget on a dead provider.
+const GATEWAY_RETRY_STATUSES = new Set([502, 503, 504]);
+const MAX_INVOKE_ATTEMPTS = 2;
+const INVOKE_RETRY_DELAY_MS = 1_500;
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 // Sampling steps per quality tier, clamped to TRELLIS's accepted 10–50 window.
 // More steps = finer geometry/texture at higher latency; draft stays cheap so
 // the free lane returns a usable preview fast.
@@ -279,63 +291,92 @@ export function createNvidiaProvider() {
 	// generation completed synchronously (200) or { done:false, reqId } when NVCF
 	// accepted it for async processing (202). Throws normalized provider errors.
 	async function postInvoke(body, extraHeaders) {
-		let res;
-		try {
-			res = await fetch(TRELLIS_INVOKE_URL, {
-				method: 'POST',
-				headers: { ...invokeHeaders, ...extraHeaders },
-				body: JSON.stringify(body),
-				signal: AbortSignal.timeout(SUBMIT_TIMEOUT_MS),
-			});
-		} catch (err) {
-			throw Object.assign(new Error(`nvidia unreachable: ${err?.message}`), {
-				code: 'provider_unreachable',
-				status: 502,
-			});
-		}
-
-		if (res.status === 202) {
-			const reqId = res.headers.get('nvcf-reqid');
-			if (!reqId) {
-				throw Object.assign(new Error('NVCF accepted the job but returned no NVCF-REQID'), {
-					code: 'provider_error',
+		let lastErr = null;
+		for (let attempt = 1; attempt <= MAX_INVOKE_ATTEMPTS; attempt++) {
+			let res;
+			try {
+				res = await fetch(TRELLIS_INVOKE_URL, {
+					method: 'POST',
+					headers: { ...invokeHeaders, ...extraHeaders },
+					body: JSON.stringify(body),
+					signal: AbortSignal.timeout(SUBMIT_TIMEOUT_MS),
+				});
+			} catch (err) {
+				// Socket abort / DNS blip — transient. Retry once before giving up so a
+				// single dropped connection doesn't fail the whole free lane.
+				lastErr = Object.assign(new Error(`nvidia unreachable: ${err?.message}`), {
+					code: 'provider_unreachable',
 					status: 502,
 				});
-			}
-			return { done: false, reqId };
-		}
-
-		if (res.ok) {
-			// NVCF sometimes returns 200 (instead of 202) with { artifacts: [] } and
-			// an NVCF-REQID header when routing to async processing. Read the header
-			// before consuming the body so we can fall through to the poll path.
-			const reqId = res.headers.get('nvcf-reqid');
-			const { base64, diag } = await extractGlbBase64(res);
-			if (!base64) {
-				if (reqId) {
-					// Async job on 200 — same path as 202.
-					return { done: false, reqId };
+				if (attempt < MAX_INVOKE_ATTEMPTS) {
+					await sleep(INVOKE_RETRY_DELAY_MS);
+					continue;
 				}
-				console.warn('[nvidia] sync 200 but no GLB artifact — %s', diag);
-				throw Object.assign(new Error('TRELLIS completed but returned no GLB artifact'), {
-					code: 'provider_error',
-					status: 502,
-				});
+				throw lastErr;
 			}
-			return { done: true, glbBase64: base64 };
-		}
 
-		let detail = '';
-		try {
-			const d = await res.json();
-			detail = d?.detail || d?.message || d?.title || '';
-			// TRELLIS 422s carry `detail` as an array of validation objects — keep
-			// it human-readable rather than collapsing to "[object Object]".
-			if (detail && typeof detail !== 'string') detail = JSON.stringify(detail);
-		} catch {
-			detail = await res.text().catch(() => '');
+			if (res.status === 202) {
+				const reqId = res.headers.get('nvcf-reqid');
+				if (!reqId) {
+					throw Object.assign(new Error('NVCF accepted the job but returned no NVCF-REQID'), {
+						code: 'provider_error',
+						status: 502,
+					});
+				}
+				return { done: false, reqId };
+			}
+
+			if (res.ok) {
+				// NVCF sometimes returns 200 (instead of 202) with { artifacts: [] } and
+				// an NVCF-REQID header when routing to async processing. Read the header
+				// before consuming the body so we can fall through to the poll path.
+				const reqId = res.headers.get('nvcf-reqid');
+				const { base64, diag } = await extractGlbBase64(res);
+				if (!base64) {
+					if (reqId) {
+						// Async job on 200 — same path as 202.
+						return { done: false, reqId };
+					}
+					console.warn('[nvidia] sync 200 but no GLB artifact — %s', diag);
+					throw Object.assign(new Error('TRELLIS completed but returned no GLB artifact'), {
+						code: 'provider_error',
+						status: 502,
+					});
+				}
+				return { done: true, glbBase64: base64 };
+			}
+
+			// Transient gateway status — the model is likely cold-starting or a node
+			// is momentarily unavailable. Drain the body so the socket frees, then
+			// retry once; everything else (auth, quota, 4xx, 429) is terminal here and
+			// surfaced as a normalized provider error the forge layer routes around.
+			if (GATEWAY_RETRY_STATUSES.has(res.status) && attempt < MAX_INVOKE_ATTEMPTS) {
+				await res.text().catch(() => {});
+				lastErr = providerError(res.status, undefined, res.headers.get('retry-after'));
+				await sleep(INVOKE_RETRY_DELAY_MS);
+				continue;
+			}
+
+			let detail = '';
+			try {
+				const d = await res.json();
+				detail = d?.detail || d?.message || d?.title || '';
+				// TRELLIS 422s carry `detail` as an array of validation objects — keep
+				// it human-readable rather than collapsing to "[object Object]".
+				if (detail && typeof detail !== 'string') detail = JSON.stringify(detail);
+			} catch {
+				detail = await res.text().catch(() => '');
+			}
+			throw providerError(res.status, detail || undefined, res.headers.get('retry-after'));
 		}
-		throw providerError(res.status, detail || undefined, res.headers.get('retry-after'));
+		// Exhausted retries on a transient status/throw without a terminal verdict.
+		throw (
+			lastErr ||
+			Object.assign(new Error('nvidia invoke failed after retries'), {
+				code: 'provider_error',
+				status: 502,
+			})
+		);
 	}
 
 	// Finish a submission: persist immediately on synchronous completion,

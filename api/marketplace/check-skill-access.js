@@ -3,10 +3,10 @@
  * Returns { has_access: boolean } for the authenticated caller.
  */
 
-import { sql } from '../_lib/db.js';
 import { authenticateBearer, extractBearer, getSessionUser } from '../_lib/auth.js';
 import { cors, error, json, method, wrap, rateLimited } from '../_lib/http.js';
 import { clientIp, limits } from '../_lib/rate-limit.js';
+import { MonetizationService } from '../_lib/services/MonetizationService.js';
 
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'GET,OPTIONS', credentials: true })) return;
@@ -27,11 +27,7 @@ export default wrap(async (req, res) => {
 		return error(res, 400, 'validation_error', 'agent_id and skill required');
 	}
 
-	const [row] = await sql`
-		SELECT 1 AS x FROM skill_purchases
-		WHERE user_id = ${userId} AND agent_id = ${agentId}
-		  AND skill = ${skill} AND status = 'confirmed'
-		LIMIT 1
-	`;
-	return json(res, 200, { data: { has_access: !!row } });
+	const service = new MonetizationService(userId);
+	const { has_access } = await service.checkSkillOwnership(agentId, skill);
+	return json(res, 200, { data: { has_access } });
 });

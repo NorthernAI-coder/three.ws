@@ -340,6 +340,20 @@ function readEnv(name) {
 	return null;
 }
 
+// Free-first reconstruct ordering. When ON (the default), the forge prefers the
+// free reconstruct lane (HuggingFace Spaces) over the paid Replicate default
+// BEFORE it ever submits to the paid account — so a generation never spends on,
+// nor dead-ends against, the paid lane while a free lane can serve it. The native
+// free NVIDIA NIM text→3D lane is always tried first regardless; this governs the
+// reconstruct step (image→3D, and the text→3D fallback after NIM). Reversible:
+// set FORGE_PREFER_FREE=false to restore the fast paid-default ordering once the
+// paid account is funded. Defaults ON because the platform's stance is free-first.
+export function preferFreeReconstruct() {
+	const v = readEnv('FORGE_PREFER_FREE');
+	if (v == null || v === '') return true;
+	return !/^(0|false|off|no)$/i.test(String(v).trim());
+}
+
 // A platform backend is "live" only when its required env is present. BYOK
 // backends are always selectable — liveness depends on the caller's key, which
 // is resolved per-request, not here.

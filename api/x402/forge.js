@@ -68,6 +68,7 @@ import {
 	priceAtomicsForTier,
 	priceUsdcForTier,
 	estimateEtaSeconds,
+	preferFreeReconstruct,
 	buildCatalog,
 } from '../_lib/forge-tiers.js';
 
@@ -216,9 +217,96 @@ async function submitGeneration({ prompt, imageUrls, isImageMode, aspect, tier }
 		const viaNvidia = await submitTextViaNvidia({ prompt, tier });
 		if (viaNvidia) return viaNvidia;
 		// NIM unconfigured / unreachable / over capacity — fall through to the
-		// FLUX→TRELLIS reconstruct lane so the paid call still produces a model.
+		// reconstruct lanes so the paid call still produces a model.
+	}
+	// Free-first: prefer the free HuggingFace Spaces reconstruct lane BEFORE the
+	// paid Replicate default, so a paid call never spends on — or dead-ends against
+	// — the paid account while a free lane can serve it. Reversible via
+	// FORGE_PREFER_FREE=false. Returns null when the lane is unavailable (no
+	// HF_TOKEN) or it fails, so the call falls through to the Replicate reconstruct.
+	if (preferFreeReconstruct()) {
+		const viaHf = await submitViaHuggingFace({ prompt, imageUrls, isImageMode, aspect, tier });
+		if (viaHf) return viaHf;
 	}
 	return submitViaReconstruct({ prompt, imageUrls, isImageMode, aspect, tier });
+}
+
+// Free HuggingFace Spaces reconstruct lane — the free-first alternative to the
+// paid Replicate reconstruct. Text→3D synthesizes a reference view first (free
+// NVIDIA FLUX where configured); image→3D reconstructs the caller's views
+// directly. HF blocks until the GLB is ready, so completion is synchronous — we
+// persist the result to R2 (the Space file URL is ephemeral) and hand back a
+// durable url with status:"done". Returns null when the lane is unavailable / it
+// fails, so submitGeneration falls through to Replicate. Never throws: a free-lane
+// hiccup must degrade, not fail the whole paid call.
+async function submitViaHuggingFace({ prompt, imageUrls, isImageMode, aspect, tier }) {
+	let provider;
+	try {
+		const mod = await import('../_providers/huggingface.js');
+		provider = mod.createRegenProvider();
+	} catch (err) {
+		console.warn(`[x402/forge] free HuggingFace lane unavailable: ${err?.message || err}`);
+		return null;
+	}
+
+	try {
+		let referenceImageUrl;
+		let views;
+		if (isImageMode) {
+			// Caller-supplied views are fetched by the upstream Space — SSRF-guard
+			// them before forwarding, same as the reconstruct lane.
+			for (const u of imageUrls) await assertSafePublicUrl(u);
+			views = imageUrls;
+			referenceImageUrl = imageUrls[0];
+		} else {
+			const synthesized = await textToImage(prompt, { aspectRatio: aspect });
+			referenceImageUrl = synthesized.imageUrl;
+			views = [referenceImageUrl];
+		}
+
+		const submitted = await provider.submit({
+			mode: 'reconstruct',
+			sourceUrl: referenceImageUrl,
+			params: { images: views, prompt: prompt || undefined },
+		});
+		const finished = await provider.status(submitted.extJobId);
+		const glbUrl = finished?.resultGlbUrl;
+		if (!glbUrl) throw new Error('HuggingFace returned no GLB');
+
+		const backend = 'huggingface';
+		return {
+			job_id: null,
+			status: 'done',
+			poll_url: null,
+			glb_url: (await persistRemoteGlb(glbUrl)) || glbUrl,
+			mode: isImageMode ? 'image_to_3d' : 'text_to_3d',
+			tier: resolveTier(tier).id,
+			backend,
+			eta_seconds: estimateEtaSeconds({ backendId: BACKEND, tier }),
+			price_usdc: priceUsdcForTier(tier),
+		};
+	} catch (err) {
+		console.warn(`[x402/forge] free HuggingFace lane failed: ${err?.message || err}`);
+		return null;
+	}
+}
+
+// Copy a generated GLB into R2 so the buyer's url survives the Space's ephemeral
+// file storage; fail-soft (returns null) so the caller can hand back the raw HF
+// url rather than fail a delivered generation over a copy hiccup.
+async function persistRemoteGlb(url) {
+	try {
+		const res = await fetch(url, { signal: AbortSignal.timeout(60_000) });
+		if (!res.ok) return null;
+		const buf = Buffer.from(await res.arrayBuffer());
+		if (!buf.length) return null;
+		const { putObject, publicUrl } = await import('../_lib/r2.js');
+		const key = `forge/huggingface/${globalThis.crypto.randomUUID()}.glb`;
+		await putObject({ key, body: buf, contentType: 'model/gltf-binary' });
+		return publicUrl(key);
+	} catch {
+		return null;
+	}
 }
 
 // Free NVIDIA NIM native text→3D. Returns the finished/queued response shape, or
@@ -350,7 +438,32 @@ function respondGenerationError(res, err) {
 			{ retry_after: retryAfter },
 		);
 	}
+	// The only reconstruct lane left was the platform's PAID vendor account and it
+	// is out of credit. The vendor's raw "buy credit" message is our internal
+	// billing state — never relay it to the buyer. Submit runs before settle, so
+	// the payment was not taken; say so and answer with an honest unavailable state.
+	if (isPaidCreditFailure(err)) {
+		console.warn(`[x402/forge] paid reconstruct lane out of credit, no free lane: ${err?.message || err}`);
+		res.setHeader('retry-after', '30');
+		return error(
+			res,
+			503,
+			'generation_unavailable',
+			'Free 3D generation is temporarily unavailable and your payment was not taken — please retry shortly.',
+			{ retry_after: 30 },
+		);
+	}
 	return error(res, err?.status || 502, err?.code || 'generation_failed', err?.message);
+}
+
+// A leaked paid-account billing/credit message from the platform's own vendor
+// (e.g. Replicate "insufficient credit to run this model… purchase credit") is
+// internal infra state, never shown to the buyer. The x402 forge lane is always
+// platform-keyed (no BYOK), so any credit failure here is ours to absorb.
+function isPaidCreditFailure(err) {
+	if (err?.providerStatus === 402) return true;
+	const text = `${err?.message || ''} ${err?.providerDetail || ''}`.toLowerCase();
+	return /insufficient credit|purchase credit|account\/billing|out of credit|not enough credit/.test(text);
 }
 
 // GET — free price/usage discovery. No payment, no generation.

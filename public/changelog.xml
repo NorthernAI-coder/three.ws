@@ -47,6 +47,14 @@
 			<description>Agent and marketplace pages now feel snappier. A creator's skill prices are cached for an hour and shared across our servers instead of being re-read from the database on every single page view, so opening an agent, browsing the marketplace, or checking what a skill costs returns faster — especially for popular agents. The cache stays honest: the moment a creator changes a price the old value is cleared everywhere, so you always see the current price, and a purchase is still quoted against the exact price at checkout time.</description>
 		</item>
 		<item>
+			<title>Forge always reaches for a free 3D engine first</title>
+			<link>https://three.ws/forge</link>
+			<guid isPermaLink="false">2026-06-18:Forge always reaches for a free 3D engine first</guid>
+			<pubDate>Thu, 18 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>Text-to-3D and image-to-3D generation now exhaust the free engines before any paid one. A prompt is rendered on the free NVIDIA lane; if that's busy, the reference image is reconstructed into a mesh on a free engine too — the platform only reaches for a paid engine as a genuine last resort. And if every engine is briefly out of reach, you now get an honest &quot;temporarily unavailable, try again shortly&quot; instead of a confusing technical billing message. Same Forge, fewer dead ends, no surprise costs.</description>
+		</item>
+		<item>
 			<title>Forge checkout no longer dead-ends when generation is briefly busy</title>
 			<link>https://three.ws/forge</link>
 			<guid isPermaLink="false">2026-06-18:Forge checkout no longer dead-ends when generation is briefly busy</guid>
@@ -189,6 +197,14 @@
 			<pubDate>Thu, 18 Jun 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>Live bonding-curve prices, market caps, and trade quotes now stay accurate even when a Solana data provider hits its rate limit: the platform transparently rotates to a healthy provider and parks the busy one, instead of repeatedly retrying a maxed-out endpoint and showing stale numbers. The free text-to-3D forge also rides out a cold or briefly-unavailable generation node by retrying once before falling back, so a momentary upstream hiccup no longer turns into a failed generation.</description>
+		</item>
+		<item>
+			<title>Subscribe to an agent in one click — pay once, unlock every paid skill</title>
+			<link>https://three.ws/marketplace</link>
+			<guid isPermaLink="false">2026-06-18:Subscribe to an agent in one click — pay once, unlock every paid skill</guid>
+			<pubDate>Thu, 18 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Agent pages now show the creator's subscription tiers right under skills &amp; pricing, each with a Subscribe button. Pick a tier, confirm the price and billing cycle in the checkout, and approve a single USDC payment in your wallet — the platform covers the network fee, so you don't need any SOL. Once the payment confirms on-chain your subscription goes live instantly and unlocks all of that agent's paid skills for the period; the page marks tiers you're already on so you never pay twice. Built on the same verified on-chain settlement as one-off skill purchases.</description>
 		</item>
 		<item>
 			<title>The $THREE page now shows a live price chart</title>

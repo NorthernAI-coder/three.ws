@@ -21,7 +21,7 @@ import { sql } from '../../_lib/db.js';
 import { authenticateBearer, extractBearer, getSessionUser } from '../../_lib/auth.js';
 import { cors, error, json, method, wrap, rateLimited } from '../../_lib/http.js';
 import { clientIp, limits } from '../../_lib/rate-limit.js';
-import { getSkillPrices } from '../../_lib/skill-price-cache.js';
+import { getSkillPrices, skillPriceMap } from '../../_lib/skill-price-cache.js';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -61,20 +61,7 @@ export default wrap(async (req, res) => {
 			: Promise.resolve([]),
 	]);
 
-	const skill_prices = Object.fromEntries(
-		priceRows.map((p) => [
-			p.skill,
-			{
-				amount: p.amount,
-				currency_mint: p.currency_mint,
-				chain: p.chain,
-				mint_decimals: p.mint_decimals ?? 6,
-				trial_uses: p.trial_uses ?? 0,
-				time_pass_hours: p.time_pass_hours ?? null,
-				time_pass_amount: p.time_pass_amount ?? null,
-			},
-		]),
-	);
+	const skill_prices = skillPriceMap(priceRows);
 	const purchased_skills = purchasedRows.map((r) => r.skill);
 
 	return json(

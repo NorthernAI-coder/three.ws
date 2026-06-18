@@ -10,11 +10,14 @@ import { sql } from '../_lib/db.js';
 import { authenticateBearer, extractBearer, getSessionUser } from '../_lib/auth.js';
 import { cors, error, json, method, readJson, wrap, rateLimited } from '../_lib/http.js';
 import { clientIp, limits } from '../_lib/rate-limit.js';
+import { resolveRecipient } from '../_lib/resolve-recipient.js';
 import { z } from 'zod';
 
 const bodySchema = z.object({
 	agentId:   z.string().uuid(),
 	skillName: z.string().trim().min(1).max(100),
+	// Optional gift target: username, wallet address, or user id.
+	recipient: z.string().trim().min(1).max(120).optional(),
 });
 
 async function resolveAuth(req) {
@@ -41,7 +44,19 @@ export default wrap(async (req, res) => {
 		return error(res, 400, 'validation_error', parsed.error.issues[0]?.message || 'validation error');
 	}
 
-	const { agentId, skillName } = parsed.data;
+	const { agentId, skillName, recipient: recipientRaw } = parsed.data;
+
+	// Optional gift target. The payer stays in user_id; recipient_user_id is the
+	// beneficiary who receives access. Resolve server-side so a raw id is never
+	// trusted from the client.
+	let recipientUserId = null;
+	if (recipientRaw) {
+		const recipient = await resolveRecipient(recipientRaw);
+		if (!recipient) return error(res, 400, 'recipient_not_found', 'no user matches that username or wallet');
+		if (recipient.id === auth.userId) return error(res, 400, 'cannot_gift_self', 'you already own purchases you make for yourself');
+		recipientUserId = recipient.id;
+	}
+	const beneficiaryId = recipientUserId ?? auth.userId;
 
 	// Fetch active price
 	const [price] = await sql`
@@ -71,24 +86,29 @@ export default wrap(async (req, res) => {
 	}
 	if (!recipient) return error(res, 412, 'creator_wallet_missing', 'agent owner has not configured a payout wallet');
 
-	// Already purchased?
+	// Already purchased by the beneficiary? (the recipient for a gift, else self)
 	const [existing] = await sql`
 		SELECT reference, status FROM skill_purchases
-		WHERE user_id = ${auth.userId} AND agent_id = ${agentId} AND skill = ${skillName}
+		WHERE COALESCE(recipient_user_id, user_id) = ${beneficiaryId}
+		  AND agent_id = ${agentId} AND skill = ${skillName}
 		  AND status = 'confirmed'
 		LIMIT 1
 	`;
 	if (existing) {
-		return json(res, 200, { data: { already_owned: true, reference: existing.reference } });
+		return json(res, 200, {
+			data: recipientUserId
+				? { already_owned: true, recipient_owns: true }
+				: { already_owned: true, reference: existing.reference },
+		});
 	}
 
 	// Mint a Solana Pay reference keypair
 	const reference = Keypair.generate().publicKey.toBase58();
 
 	const [row] = await sql`
-		INSERT INTO skill_purchases (user_id, agent_id, skill, status, reference, amount, currency_mint, chain)
+		INSERT INTO skill_purchases (user_id, agent_id, skill, status, reference, amount, currency_mint, chain, recipient_user_id)
 		VALUES (${auth.userId}, ${agentId}, ${skillName}, 'pending', ${reference},
-		        ${price.amount}, ${price.currency_mint}, ${price.chain})
+		        ${price.amount}, ${price.currency_mint}, ${price.chain}, ${recipientUserId})
 		RETURNING reference, amount, currency_mint, chain
 	`;
 
