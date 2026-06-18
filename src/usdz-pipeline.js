@@ -15,6 +15,7 @@ import { conformanceReport } from './runtime/arkit52.js';
 import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 import { USDZExporter } from 'three/addons/exporters/USDZExporter.js';
 import { MeshStandardMaterial, Color, DoubleSide } from 'three';
+import { getDecoders } from './viewer/internal.js';
 
 // Bone-name fragments that mark the lower body. Matched case-insensitively
 // after stripping the standard prefixes (mixamorig:, CC_Base_, Armature|).
@@ -39,6 +40,13 @@ function _isLowerBody(name) {
 
 async function _loadGlbBlob(blob) {
 	const loader = new GLTFLoader();
+	// Avatars baked through the server pipeline ship as EXT_meshopt_compression,
+	// and uploaded GLBs may use KHR_draco_mesh_compression. Without these
+	// decoders GLTFLoader throws "setMeshoptDecoder must be called before loading
+	// compressed files" (or the Draco equivalent) and the whole export fails.
+	const { dracoLoader, meshoptDecoder } = await getDecoders();
+	loader.setMeshoptDecoder(meshoptDecoder);
+	loader.setDRACOLoader(dracoLoader);
 	const arrayBuf = await blob.arrayBuffer();
 	return new Promise((resolve, reject) => {
 		loader.parse(arrayBuf, '', resolve, reject);

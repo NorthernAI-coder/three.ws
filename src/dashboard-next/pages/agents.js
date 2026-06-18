@@ -701,7 +701,7 @@ function openCreateModal(host, agents, avatars) {
 			const thumbEl = overlay.querySelector('[data-slot="avatar-thumb"]');
 			const labelEl = overlay.querySelector('[data-slot="avatar-label"]');
 			if (picked.thumbnail_url) {
-				thumbEl.innerHTML = `<img src="${esc(picked.thumbnail_url)}" style="width:100%;height:100%;object-fit:cover" />`;
+				thumbEl.innerHTML = `<img src="${esc(picked.thumbnail_url)}" alt="${esc(picked.name || picked.id || 'Avatar')}" style="width:100%;height:100%;object-fit:cover" />`;
 			}
 			labelEl.textContent = picked.name || picked.id;
 		}
@@ -788,7 +788,7 @@ function openEditModal(host, agent, avatars, allAgents) {
 						${(() => {
 							const av = avatars.find((x) => x.id === currentAvatarId);
 							return av?.thumbnail_url
-								? `<img src="${esc(av.thumbnail_url)}" style="width:100%;height:100%;object-fit:cover" />`
+								? `<img src="${esc(av.thumbnail_url)}" alt="${esc(av.name || av.id || 'Avatar')}" style="width:100%;height:100%;object-fit:cover" />`
 								: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" style="color:var(--nxt-ink-dim)"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4.5 4.5-7 8-7s6.5 2.5 8 7"/></svg>`;
 						})()}
 					</span>
@@ -840,7 +840,7 @@ function openEditModal(host, agent, avatars, allAgents) {
 			const thumbEl = overlay.querySelector('[data-slot="avatar-thumb"]');
 			const labelEl = overlay.querySelector('[data-slot="avatar-label"]');
 			if (picked.thumbnail_url) {
-				thumbEl.innerHTML = `<img src="${esc(picked.thumbnail_url)}" style="width:100%;height:100%;object-fit:cover" />`;
+				thumbEl.innerHTML = `<img src="${esc(picked.thumbnail_url)}" alt="${esc(picked.name || picked.id || 'Avatar')}" style="width:100%;height:100%;object-fit:cover" />`;
 			}
 			labelEl.textContent = picked.name || picked.id;
 		}

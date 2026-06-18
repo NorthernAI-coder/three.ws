@@ -15,6 +15,10 @@ const ACTION_LABELS = {
 	synthesize: 'Synthesize',
 };
 
+// The agent charges a $0.01 base fee and spends up to the budget on downstream
+// calls, so a budget below the base fee can't fund a single paid step.
+const MIN_BUDGET_USD = 0.01;
+
 export function init() {
 	const taskInput = document.getElementById('task-input');
 	const runBtn = document.getElementById('run-btn');
@@ -22,13 +26,38 @@ export function init() {
 	const budgetDisplay = document.getElementById('budget-display');
 	const resultPanel = document.getElementById('result-panel');
 	const chipRow = document.getElementById('chip-row');
+	const runHint = document.getElementById('run-hint');
 
 	if (!taskInput || !runBtn || !resultPanel) return;
+
+	// Gate the CTA on a non-empty task and a fundable budget. Distinct hints
+	// tell the user exactly which precondition is unmet before they pay.
+	function refreshGate() {
+		const task = taskInput.value.trim();
+		const budget = parseFloat(budgetSlider.value);
+		let reason = '';
+
+		if (!task) {
+			reason = 'Describe a task to run.';
+		} else if (!(budget >= MIN_BUDGET_USD)) {
+			reason = `Raise the budget to at least $${MIN_BUDGET_USD.toFixed(2)} — the agent can't fund a paid call below that.`;
+		}
+
+		runBtn.disabled = !!reason;
+		if (runHint) {
+			runHint.textContent = reason;
+			runHint.classList.toggle('warn', !!reason);
+		}
+		return !reason;
+	}
 
 	// Budget slider
 	budgetSlider.addEventListener('input', () => {
 		budgetDisplay.textContent = `$${parseFloat(budgetSlider.value).toFixed(2)}`;
+		refreshGate();
 	});
+
+	taskInput.addEventListener('input', refreshGate);
 
 	// Example task chips
 	chipRow.addEventListener('click', (e) => {
@@ -36,17 +65,18 @@ export function init() {
 		if (!chip) return;
 		taskInput.value = chip.dataset.task || '';
 		taskInput.focus();
+		refreshGate();
 	});
 
 	// Form submit
 	runBtn.addEventListener('click', () => {
-		const task = taskInput.value.trim();
-		if (!task) {
+		if (!refreshGate()) {
 			taskInput.focus();
 			return;
 		}
+		const task = taskInput.value.trim();
 		const maxCostUsd = parseFloat(budgetSlider.value) || 0.5;
-		runTask({ task, maxCostUsd, resultPanel, runBtn });
+		runTask({ task, maxCostUsd, resultPanel, runBtn, refreshGate });
 	});
 
 	taskInput.addEventListener('keydown', (e) => {
@@ -54,9 +84,12 @@ export function init() {
 			runBtn.click();
 		}
 	});
+
+	// Establish the initial gate state (empty task → disabled, hint shown).
+	refreshGate();
 }
 
-async function runTask({ task, maxCostUsd, resultPanel, runBtn }) {
+async function runTask({ task, maxCostUsd, resultPanel, runBtn, refreshGate }) {
 	runBtn.disabled = true;
 	runBtn.textContent = 'Running…';
 
@@ -76,9 +109,24 @@ async function runTask({ task, maxCostUsd, resultPanel, runBtn }) {
 			return;
 		}
 
+		if (res.status === 400) {
+			const body = await res.json().catch(() => ({}));
+			showError(
+				resultPanel,
+				body.error || body.message || 'That task or budget was rejected. Adjust your inputs and try again.',
+			);
+			return;
+		}
+
 		if (!res.ok) {
 			const body = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
-			showError(resultPanel, body.error || body.message || `HTTP ${res.status}`);
+			const isServer = res.status >= 500;
+			showError(
+				resultPanel,
+				body.error || body.message || (isServer
+					? 'The agent service is temporarily unavailable. Please try again in a moment.'
+					: `Request failed (HTTP ${res.status}).`),
+			);
 			return;
 		}
 
@@ -87,9 +135,11 @@ async function runTask({ task, maxCostUsd, resultPanel, runBtn }) {
 		showError(resultPanel, err.message || 'Network error — please try again');
 		return;
 	} finally {
-		runBtn.disabled = false;
 		runBtn.innerHTML =
 			'<svg width="14" height="14" fill="none" viewBox="0 0 14 14"><path d="M3 2l9 5-9 5V2z" fill="currentColor"/></svg> Run Task';
+		// Re-evaluate preconditions so the CTA only re-enables when valid.
+		if (typeof refreshGate === 'function') refreshGate();
+		else runBtn.disabled = false;
 	}
 
 	renderResults(resultPanel, data, task);
@@ -109,22 +159,43 @@ function showError(panel, message) {
 	panel.innerHTML = `
 		<div class="error-card">
 			<p>${escHtml(message)}</p>
-			<button class="btn" onclick="location.reload()">Retry</button>
+			<button class="btn" type="button" id="error-retry">Run again</button>
 		</div>
 	`;
+	const retry = panel.querySelector('#error-retry');
+	if (retry) {
+		retry.addEventListener('click', () => {
+			// Keep the user's task and budget; just re-trigger the run.
+			const runBtn = document.getElementById('run-btn');
+			if (runBtn && !runBtn.disabled) runBtn.click();
+			else document.getElementById('task-input')?.focus();
+		});
+	}
 }
 
 function showPaywallPrompt(panel, body, paymentRequiredHeader) {
-	const reqParam = paymentRequiredHeader
-		? encodeURIComponent(paymentRequiredHeader)
-		: '';
-	const paywallUrl = reqParam ? `/paywall.html?req=${reqParam}&return=${encodeURIComponent(location.pathname)}` : '/paywall.html';
+	// The payment challenge can arrive in the `payment-required` header or, on
+	// proxies that strip it, inside the 402 JSON body. Fall back to the body
+	// (and finally to a bare paywall) so the Pay button always works.
+	const challenge = paymentRequiredHeader
+		|| body?.paymentRequired
+		|| body?.payment_required
+		|| (body?.accepts ? JSON.stringify(body) : '');
+
+	const reqParam = challenge ? encodeURIComponent(challenge) : '';
+	const ret = encodeURIComponent(location.pathname);
+	const paywallUrl = reqParam
+		? `/paywall.html?req=${reqParam}&return=${ret}`
+		: `/paywall.html?return=${ret}`;
+
+	const detail = body?.error || body?.message
+		|| 'This endpoint costs USDC on Base or Solana. Use a wallet to pay and unlock the result.';
 
 	panel.innerHTML = `
 		<div class="error-card" style="border-color: rgba(255,180,0,0.3)">
 			<p style="color:#e6a820">Payment required to use the Endpoint Shopper agent.</p>
 			<p style="color:var(--text-3); font-size:13.5px; margin:0 0 14px">
-				This endpoint costs USDC on Base or Solana. Use a wallet to pay and unlock the result.
+				${escHtml(detail)}
 			</p>
 			<a class="btn primary" href="${paywallUrl}">Pay with Wallet</a>
 		</div>

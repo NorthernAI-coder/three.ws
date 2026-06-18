@@ -911,11 +911,23 @@
 				const navType = performance.getEntriesByType('navigation')[0]?.type;
 				if (navType !== 'back_forward') {
 					fetch('/api/auth/me', { credentials: 'include' })
-						.then((r) => (r.ok ? r.json() : null))
+						.then((r) => {
+							if (r.ok) return r.json();
+							// 401 = not signed in: expected, stay on the form silently.
+							if (r.status === 401) return null;
+							throw new Error('session-check-failed');
+						})
 						.then((data) => {
 							if (data?.user) location.replace(next);
 						})
-						.catch(() => {});
+						.catch(() => {
+							// Network/transport failure while checking an existing
+							// session — tell the user rather than silently showing a
+							// blank form they may already be signed in behind.
+							err.textContent =
+								"Couldn't verify your session — check your connection. You can still sign in below.";
+							err.style.display = 'block';
+						});
 				}
 
 				// ── Submit ──
@@ -968,8 +980,16 @@
 						} catch {
 							/* ignore */
 						}
-						window.__avatarCelebrate?.();
-						setTimeout(() => { location.href = next; }, 2000);
+						btn.textContent = 'Signed in — redirecting…';
+						// Tie the redirect to the celebration animation's own length
+						// (one dance cycle) instead of an arbitrary fixed timer, and
+						// use replace() so Back never lands the user on the login form
+						// again after they're authenticated.
+						const danceMs = window.__avatarCelebrate?.() || 1200;
+						setTimeout(
+							() => location.replace(next),
+							Math.min(Math.max(danceMs, 700), 1800),
+						);
 					} catch (e2) {
 						setFieldError(passwordInput, passwordErr, e2.message);
 						btn.disabled = false;
@@ -1085,6 +1105,10 @@
 			window.__avatarCelebrate = function () {
 				agent.faceFront();
 				agent.play('dance', { loop: true });
+				// Report one dance-cycle length (ms) so the redirect can wait for a
+				// natural beat of the animation rather than a hard-coded delay.
+				const cycle = agent.clip('dance');
+				return cycle ? cycle * 1000 : 0;
 			};
 		</script>
 		<script src="/brand.js" defer></script>

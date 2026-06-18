@@ -18,6 +18,25 @@ function escapeHtml(s) {
 	return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 }
 
+function hasPrice(p) {
+	const v = p.medianPriceAtomic;
+	return typeof v === 'number' && Number.isFinite(v) && v >= 0;
+}
+
+// Sort by median price, keeping price-less providers grouped at the end in both
+// directions (a missing price is "unknown", never the best or worst value).
+function sortByPrice(list, dir) {
+	return [...list].sort((a, b) => {
+		const aHas = hasPrice(a);
+		const bHas = hasPrice(b);
+		if (aHas !== bHas) return aHas ? -1 : 1; // priced first, unpriced last
+		if (!aHas) return b.serviceCount - a.serviceCount; // stable tie-break
+		return dir === 'asc'
+			? a.medianPriceAtomic - b.medianPriceAtomic
+			: b.medianPriceAtomic - a.medianPriceAtomic;
+	});
+}
+
 function shortNet(n) {
 	if (!n) return '';
 	if (n.startsWith('eip155:8453')) return 'base';
@@ -29,16 +48,21 @@ function shortNet(n) {
 	return n;
 }
 
-function renderSkeleton(count = 6) {
+function skeletonCards(count = 6) {
 	const frag = document.createDocumentFragment();
 	for (let i = 0; i < count; i++) {
 		const sk = document.createElement('div');
 		sk.className = 'skeleton sk-card';
 		frag.appendChild(sk);
 	}
+	return frag;
+}
+
+// Profile mode replaces the whole root; directory mode fills its own #dgrid.
+function renderSkeleton(count = 6) {
 	const g = document.createElement('div');
 	g.className = 'grid';
-	g.appendChild(frag);
+	g.appendChild(skeletonCards(count));
 	root.replaceChildren(g);
 }
 
@@ -67,17 +91,36 @@ async function loadDirectory() {
 	const qEl = $('#q');
 	const sortEl = $('#sort');
 
-	renderSkeleton();
+	// Fill the directory's own grid with skeletons — do NOT replaceChildren on
+	// root here, or the dgrid/dempty refs detach and an error never replaces the
+	// skeleton cards.
+	dgrid.replaceChildren(skeletonCards());
 	try {
-		const r = await fetch('/api/bazaar/providers?limit=500');
+		const r = await fetch('/api/bazaar/providers?limit=500', {
+			signal: AbortSignal.timeout(20000),
+		});
 		const data = await r.json();
 		if (!r.ok) throw new Error(data?.error_description || data?.error || `HTTP ${r.status}`);
 		state.directory = data.providers || [];
 	} catch (e) {
+		const timedOut = e?.name === 'TimeoutError';
+		const network = e instanceof TypeError;
+		const title = timedOut
+			? 'Request timed out'
+			: network ? "Couldn't reach the provider directory" : 'Failed to load providers';
+		const sub = timedOut
+			? 'The directory took too long to respond.'
+			: network ? 'Check your connection and try again.' : escapeHtml(e?.message || String(e));
 		dgrid.innerHTML = '';
+		countEl.textContent = '0';
 		dempty.hidden = false;
 		dempty.className = 'err';
-		dempty.textContent = `Failed to load providers: ${e?.message || e}`;
+		dempty.innerHTML = `
+			<div class="err-title">${title}</div>
+			<div>${sub}</div>
+			<button type="button" class="retry-btn">Retry</button>
+		`;
+		dempty.querySelector('.retry-btn').addEventListener('click', loadDirectory);
 		return;
 	}
 
@@ -85,11 +128,14 @@ async function loadDirectory() {
 		const q = state.q.trim().toLowerCase();
 		let list = state.directory.filter((p) => !q || p.host.toLowerCase().includes(q) || (p.topTags || []).some((t) => t.toLowerCase().includes(q)));
 		switch (state.sort) {
+			// Providers with no median price carry no comparable price signal, so
+			// they always sink to the bottom of both price sorts rather than
+			// masquerading as the cheapest (0) or most expensive.
 			case 'price-low':
-				list = list.sort((a, b) => (a.medianPriceAtomic ?? Infinity) - (b.medianPriceAtomic ?? Infinity));
+				list = sortByPrice(list, 'asc');
 				break;
 			case 'price-high':
-				list = list.sort((a, b) => (b.medianPriceAtomic ?? -1) - (a.medianPriceAtomic ?? -1));
+				list = sortByPrice(list, 'desc');
 				break;
 			case 'networks':
 				list = list.sort((a, b) => (b.networks?.length || 0) - (a.networks?.length || 0));

@@ -55,7 +55,7 @@ import { z } from 'zod';
 import { Keypair, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { sql } from '../_lib/db.js';
 import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.js';
-import { cors, json, method, readJson, wrap, error, rateLimited } from '../_lib/http.js';
+import { cors, json, method, readJson, wrap, error, rateLimited, respondError } from '../_lib/http.js';
 import { putObject, publicUrl as r2PublicUrl } from '../_lib/r2.js';
 import { env } from '../_lib/env.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
@@ -269,8 +269,9 @@ async function handleBalances(req, res) {
 			},
 		});
 	} catch (err) {
-		// Most common: agent not yet bound to mint → PDA missing.
-		return error(res, 502, 'pump_agent_error', err.message || 'pump-agent SDK error');
+		// Most common: agent not yet bound to mint → PDA missing. Sanitize the 5xx —
+		// web3.js network errors embed the keyed Helius RPC URL in err.message.
+		return respondError(res, 502, 'pump_agent_error', err);
 	}
 }
 
@@ -1814,7 +1815,7 @@ async function handleLaunchAgent(req, res) {
 	} catch (err) {
 		console.error('[pump/launch-agent] send failed', err);
 		await releaseSpend(reservation.reservationId);
-		return error(res, 502, 'rpc_error', err?.message || 'transaction failed');
+		return respondError(res, 502, 'rpc_error', err);
 	}
 
 	const mintAddr = mint.toBase58();
@@ -3114,7 +3115,7 @@ async function handleStrategyBacktest(req, res) {
 	try {
 		mints = await resolveStrategyMints(rt.invoke, body.strategy, body.mints, body.limit);
 	} catch (e) {
-		return error(res, 502, 'upstream_error', e.message);
+		return respondError(res, 502, 'upstream_error', e);
 	}
 	if (!mints.length) return error(res, 422, 'no_candidates', 'no mints to backtest');
 
@@ -4648,7 +4649,7 @@ async function handleCollectCreatorFeeAgent(req, res) {
 			explorer: `https://solscan.io/tx/${signature}${body.network === 'devnet' ? '?cluster=devnet' : ''}`,
 		});
 	} catch (e) {
-		return error(res, e.status || 502, e.code || 'rpc_error', e.message || 'collect failed');
+		return respondError(res, e.status || 502, e.code || 'rpc_error', e);
 	}
 }
 
@@ -4694,7 +4695,7 @@ async function handleDistributeCreatorFeesAgent(req, res) {
 			explorer: `https://solscan.io/tx/${signature}${body.network === 'devnet' ? '?cluster=devnet' : ''}`,
 		});
 	} catch (e) {
-		return error(res, e.status || 502, e.code || 'rpc_error', e.message || 'distribute failed');
+		return respondError(res, e.status || 502, e.code || 'rpc_error', e);
 	}
 }
 
@@ -4901,7 +4902,7 @@ async function handleGithubResolve(req, res) {
 			type: j.type || 'User',
 		});
 	} catch (e) {
-		return error(res, 502, 'github_error', e.message || 'github lookup failed');
+		return respondError(res, 502, 'github_error', e);
 	}
 }
 

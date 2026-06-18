@@ -19,17 +19,17 @@ across the vendored CharacterStudio fork (118 `no-unused-vars`,
 17 `no-async-promise-executor`, plus smaller buckets). These all predate the
 upgrade.
 
-**Runtime `no-undef` bugs — FIXED 2026-06-18** (see
-[docs/internal/AUDIT-2026-06-18.md](docs/internal/AUDIT-2026-06-18.md)). Six
-bare-identifier references that threw `ReferenceError` the moment their code
-path ran are now corrected:
-`manifestDataManager.js:67,70` (`testWallet` → `isNFTLocked()`),
-`mint-utils.js:292` (`ethereum` → `'ethereum'`),
-`vrmManager.js` (`addChildAtFirst` now imported from `./utils`),
-`walletCollections.js:58` (`network` → `chainName`),
-`CharacterManifestData.js:877` (`getTraitByIndex` now takes `index`).
-The `connection` and `download-utils` `optimized` candidates were verified as
-false positives (locally declared / object property keys).
+**Runtime `no-undef` bugs — FIXED 2026-06-18** (full table in
+[docs/internal/AUDIT-2026-06-18.md](docs/internal/AUDIT-2026-06-18.md)). Twelve
+references that threw `ReferenceError` the moment their code path ran are now
+corrected, verified by a clean `no-undef`-only eslint sweep over
+`character-studio/src` (zero runtime no-undef remaining):
+`manifestDataManager.js` (`testWallet` ×2, `identifier`, undeclared `traitOption`,
+`traitType`), `mint-utils.js` (`ethereum` literal + `connection` `try`/`catch`
+scope leak), `vrmManager.js` (`addChildAtFirst` import), `walletCollections.js`
+(`network` → `chainName`), `download-utils.js` (missing `optimized` destructure),
+`CharacterManifestData.js` (`getTraitByIndex` now takes `index`), `ktx.js`
+(`typeof LIBKTX` guard + `/* global */` directive).
 
 **Status:** ⏳ **OPEN** — only the cosmetic burndown remains: clear
 `no-unused-vars` and `no-async-promise-executor` mechanically, file by file.

@@ -15,7 +15,6 @@ import { readStorageMode, storageModeSchema, defaultStorageMode } from '../../_l
 import { getAvatar, resolveAvatarUrl } from '../../_lib/avatars.js';
 import { r2, publicUrl } from '../../_lib/r2.js';
 import { env } from '../../_lib/env.js';
-import { DEMO_AVATARS } from '../../_lib/demo-avatars.js';
 
 const PINATA_ENDPOINT = 'https://api.pinata.cloud/pinning/pinFileToIPFS';
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -32,9 +31,9 @@ export default wrap(async (req, res) => {
 	if (typeof action === 'string' && /\.glb$/i.test(action)) action = 'glb';
 	// Every sub-action below ends up querying `WHERE id = $1` against a uuid
 	// column. A malformed id leaks Postgres 22P02 to the caller as a 500;
-	// short-circuit with a clean 404 unless it's a demo-fixture id.
+	// short-circuit with a clean 404.
 	const id = req.query?.id;
-	if (id && !UUID_RE.test(id) && !String(id).startsWith('avatar_demo_')) {
+	if (id && !UUID_RE.test(id)) {
 		return error(res, 404, 'not_found', 'avatar not found');
 	}
 	switch (action) {
@@ -64,8 +63,7 @@ export default wrap(async (req, res) => {
 // ── agents (public agents wearing this avatar) ────────────────────────────
 // GET /api/avatars/:id/agents
 // Returns up to 12 public agents (is_public = true) whose avatar_id matches.
-// Public endpoint, rate-limited by IP. Demo avatars never have wearers (they
-// are seeded fixtures), so we short-circuit with an empty list.
+// Public endpoint, rate-limited by IP.
 
 async function handleAgentsByAvatar(req, res) {
 	if (cors(req, res, { methods: 'GET,OPTIONS' })) return;
@@ -76,10 +74,6 @@ async function handleAgentsByAvatar(req, res) {
 
 	const rl = await limits.publicIp(clientIp(req));
 	if (!rl.success) return rateLimited(res, rl);
-
-	if (String(id).startsWith('avatar_demo_')) {
-		return json(res, 200, { agents: [] });
-	}
 
 	const rows = await sql`
 		SELECT i.id, i.name, i.description, i.profile_image_url, i.created_at,
@@ -521,7 +515,7 @@ async function resolveVersionsAuth(req) {
 // ── thumbnail ──────────────────────────────────────────────────────────────
 // GET /api/avatars/:id/thumbnail — 302 to the avatar's R2-hosted PNG poster.
 // Public/unlisted avatars: anyone. Private: owner (session or bearer) only.
-// Demo avatars: redirect to the bundled demo image. No thumbnail → 404.
+// No thumbnail → 404.
 
 async function handleThumbnail(req, res) {
 	if (cors(req, res, { methods: 'GET,OPTIONS', credentials: true })) return;
@@ -529,12 +523,6 @@ async function handleThumbnail(req, res) {
 
 	const id = req.query?.id || new URL(req.url, 'http://x').pathname.split('/').filter(Boolean)[2];
 	if (!id) return error(res, 400, 'invalid_request', 'avatar id required');
-
-	if (id.startsWith('avatar_demo_')) {
-		const demo = DEMO_AVATARS.find((a) => a.avatarId === id);
-		if (!demo?.image) return error(res, 404, 'not_found', 'demo avatar has no thumbnail');
-		return redirect(res, demo.image);
-	}
 
 	const [row] = await sql`
 		SELECT id, owner_id, visibility, thumbnail_key
@@ -575,7 +563,6 @@ function redirect(res, url) {
 // Permission rules mirror handleThumbnail:
 //   • public + unlisted: anyone
 //   • private:           owner only (session or bearer with avatars:read)
-//   • demo avatars:      302 to the bundled GLB url
 async function handleGlb(req, res) {
 	// Reply with CORS for all origins. Browsers also need the preflight,
 	// which the shared `cors()` helper doesn't open up to wildcard origins,
@@ -592,14 +579,6 @@ async function handleGlb(req, res) {
 
 	const id = req.query?.id || new URL(req.url, 'http://x').pathname.split('/').filter(Boolean)[2];
 	if (!id) return error(res, 400, 'invalid_request', 'avatar id required');
-
-	if (String(id).startsWith('avatar_demo_')) {
-		const demo = DEMO_AVATARS.find((a) => a.avatarId === id);
-		if (!demo?.glbUrl) return error(res, 404, 'not_found', 'demo avatar has no glb');
-		// Demo avatars live in /public so the redirect target is same-origin
-		// and already CORS-clean.
-		return redirect(res, demo.glbUrl);
-	}
 
 	const avatar = await getAvatar({ id, requesterId: null });
 	if (!avatar) return error(res, 404, 'not_found', 'avatar not found');

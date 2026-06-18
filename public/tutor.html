@@ -37,6 +37,7 @@
 			display: flex;
 			flex-direction: column;
 			min-height: 100vh;
+			min-height: 100dvh;
 		}
 		a { color: var(--accent-2); }
 
@@ -100,6 +101,13 @@
 		.msg.user .bubble { background: var(--user); border-color: #363636; max-width: 86%; }
 		.msg.tutor .bubble { background: var(--surface); }
 		.msg.error .bubble { background: #2a1620; border-color: #5a2a3a; color: #ffb4c4; }
+		.msg.notice .bubble { background: #1c1a26; border-color: #3a3550; color: var(--text-dim); }
+		.notice-retry {
+			display: inline-block; margin-top: 10px; background: transparent; color: var(--accent-2);
+			border: 1px solid var(--border); border-radius: 8px; padding: 6px 12px; font: inherit;
+			font-size: 13px; font-weight: 600; cursor: pointer; transition: border-color .15s, color .15s;
+		}
+		.notice-retry:hover { border-color: var(--accent); color: var(--text); }
 
 		.kp { margin: 12px 0 0; padding: 12px 14px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; }
 		.kp h4 { margin: 0 0 8px; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--text-faint); }
@@ -122,6 +130,13 @@
 		form.composer {
 			position: sticky; bottom: 0; padding: 14px 0 22px;
 			background: linear-gradient(transparent, var(--bg) 22%);
+			/* On mobile, the soft keyboard can overlay a sticky bottom bar without
+			   shrinking the layout viewport. --kb-offset (set from the VisualViewport
+			   API in tutor.js) lifts the composer above the keyboard when focused. */
+			transform: translateY(calc(-1 * var(--kb-offset, 0px)));
+			transition: transform .18s ease;
+			padding-bottom: calc(22px + env(safe-area-inset-bottom, 0px));
+			will-change: transform;
 		}
 		.composer-inner {
 			display: flex; gap: 10px; align-items: flex-end;
@@ -134,6 +149,9 @@
 			font: inherit; font-size: 15px; line-height: 1.5; max-height: 180px; padding: 6px 0;
 		}
 		.controls { display: flex; align-items: center; gap: 8px; }
+		.q-count { font-family: var(--mono); font-size: 11px; color: var(--text-faint); min-width: 62px; text-align: right; font-variant-numeric: tabular-nums; transition: color .15s; }
+		.q-count.warn { color: #f1c21b; }
+		.q-count.max { color: #fa4d56; }
 		select#level {
 			background: var(--surface-2); color: var(--text-dim); border: 1px solid var(--border);
 			border-radius: 9px; padding: 8px 10px; font-size: 12.5px; outline: none;
@@ -211,8 +229,9 @@
 
 		<form class="composer" id="composer" autocomplete="off">
 			<div class="composer-inner">
-				<textarea id="q" rows="1" placeholder="Ask your question…" aria-label="Your question"></textarea>
+				<textarea id="q" rows="1" maxlength="2000" placeholder="Ask your question…" aria-label="Your question" aria-describedby="q-count"></textarea>
 				<div class="controls">
+					<span class="q-count" id="q-count" aria-live="polite" aria-label="Characters used">0 / 2000</span>
 					<select id="level" aria-label="Expertise level" title="Target expertise level">
 						<option value="beginner">Beginner</option>
 						<option value="intermediate" selected>Intermediate</option>

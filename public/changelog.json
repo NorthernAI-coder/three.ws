@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-18T22:54:38.919Z",
+	"generated_at": "2026-06-18T23:14:18.214Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -9,8 +9,18 @@
 		{
 			"date": "2026-06-18",
 			"type": "update",
-			"title": "Avatar Studio no longer crashes on NFT-gated traits, wallet checks, or VRM0 models",
-			"summary": "An audit of Avatar Studio turned up six places where it would throw and stop instead of working: checking whether a trait is NFT-locked, verifying that your wallet owns a required collection, connecting an Ethereum or Polygon wallet, and loading older VRM0 avatars all hit undefined-variable errors. All six are fixed, so locked-trait checks, wallet-ownership gating, EVM wallet connect, and VRM0 model loading now run cleanly.",
+			"title": "Agent lookup now matches the rest of the site and links straight to the agent’s page",
+			"summary": "The agent lookup tool used to render as a stark white page that ignored your light/dark theme and had no site navigation or footer. It now uses the same chrome and theme tokens as every other page, so it looks on-brand in both modes. More importantly, when a lookup resolves an agent it now shows a prominent “Open agent page” button that takes you to that agent’s profile on three.ws — so resolving an agent no longer dead-ends on external explorer links. Copy buttons also tell you if a copy fails instead of staying silent.",
+			"link": "/lookup",
+			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-18",
+			"type": "update",
+			"title": "Avatar Studio no longer crashes on NFT-gated traits, wallet checks, exports, or VRM0 models",
+			"summary": "An audit of Avatar Studio turned up twelve places where it would throw and stop instead of working: checking whether a trait is NFT-locked, looking up traits and model parts, verifying that your wallet owns a required collection, connecting an Ethereum or Polygon wallet, exporting a GLB, recovering from a failed Solana transaction, decoding KTX2 textures, and loading older VRM0 avatars all hit undefined-variable errors. All twelve are fixed, so trait selection, wallet-ownership gating, EVM wallet connect, model export, and VRM0 loading now run cleanly.",
 			"link": "/create/studio",
 			"tags": [
 				"fix"
@@ -135,6 +145,16 @@
 		{
 			"date": "2026-06-18",
 			"type": "update",
+			"title": "GMGN smart-money feed: click the status pill to reconnect, clearer custom-avatar errors",
+			"summary": "On the GMGN smart-money page you can now click the connection-status pill to reconnect to the live feed immediately instead of waiting out the automatic retry. The feed sidebar no longer shows a move cursor that did nothing, and pasting a bad custom-avatar URL now shows an inline message right under the field (and checks the link points to a .glb, .gltf, or .vrm model) instead of a browser pop-up.",
+			"link": "/gmgn",
+			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-18",
+			"type": "update",
 			"title": "Graduated coins show a live price on agent and community cards",
 			"summary": "The bonding-curve card — the compact one on agent profiles, community coin pages, and embeddable widgets — used to go blank with a “No active bonding curve” message the moment a coin graduated to a DEX. Now it reads the coin's live on-chain price instead, marks it “Graduated” at 100%, and shows a real market cap, so $THREE and any other migrated coin display a refreshing price rather than empty space. Those cards also stopped opening a background websocket that could never connect — it had been silently retrying and logging errors on every load. Vault balances now refresh by polling directly and update within seconds.",
 			"link": null,
@@ -151,6 +171,17 @@
 			"link": "/three",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-18",
+			"type": "update",
+			"title": "Launch pages — accurate guidance, direct agent links, and a launcher loop",
+			"summary": "Tightened the launch and 3D-coin pages. The launcher's empty state now matches what you actually see beside it (an agent picker on /launch, an avatar gallery in the studio) instead of mismatched 'pick an avatar' copy. 'Agent page' links from a launched or existing token now go straight to the canonical agent page with no redirect hop. The Launches feed gained a clear 'Launch a coin' call-to-action, and the 3D coin viewer's empty/error states now point you to the real coin feed (/launches) rather than the demo, with a 'Launch your own' link added to its HUD. Coin logos that fail on one IPFS gateway now retry a second gateway before falling back to a plain disc.",
+			"link": "/launches",
+			"tags": [
+				"improvement",
+				"fix"
 			]
 		},
 		{
@@ -295,6 +326,17 @@
 			"summary": "On the Pole Club stage, tapping “Change avatar” and picking a new look sometimes did nothing — the dancer quietly snapped back to the default. Two fixes: a pick made right after the room loads is no longer overwritten by the room's own startup, and any avatar whose rig can't be animated is now clearly flagged “can’t dance” and skipped — the dancer keeps her current look and a message says why, instead of silently failing. Picks that work apply instantly and stay put.",
 			"link": "/club",
 			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-18",
+			"type": "update",
+			"title": "Security and display fixes from a full page-by-page audit",
+			"summary": "We audited every page on three.ws and fixed what we found. The Characters page now safely escapes character names, descriptions, token symbols and images, so a maliciously-named character can no longer run code in your browser. The homepage showcase only ever shows real public avatars now — if the live feed is quiet it falls back to its Browse and Create links instead of placeholder demo agents. Marketplace Analytics no longer flashes raw template text while loading and shows a clear retry message if its data can't be reached. We also fixed dead IBM-suite links on the Features page.",
+			"link": "/characters",
+			"tags": [
+				"security",
 				"fix"
 			]
 		},

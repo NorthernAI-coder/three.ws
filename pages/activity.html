@@ -189,9 +189,24 @@
 		.ac-empty h3 { font-family: var(--font-display, sans-serif); font-size: 17px; margin: 12px 0 7px; }
 		.ac-empty p { color: var(--ac-muted); font-size: 13px; max-width: 480px; margin: 0 auto; line-height: 1.55; }
 
-		.ac-load-more { display: block; width: 100%; margin-top: 10px; background: var(--ac-panel2); border: 1px solid var(--ac-border); border-radius: 10px; padding: 11px; font: inherit; font-size: 13px; color: var(--ac-muted); cursor: pointer; transition: color .14s, border-color .14s; }
-		.ac-load-more:hover { color: var(--ac-text); border-color: var(--ac-border2); }
-		.ac-load-more:disabled { opacity: .5; cursor: default; }
+		.ac-load-more { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; margin-top: 10px; background: var(--ac-panel2); border: 1px solid var(--ac-border); border-radius: 10px; padding: 11px; font: inherit; font-size: 13px; color: var(--ac-muted); cursor: pointer; transition: color .14s, border-color .14s; }
+		.ac-load-more:hover:not(:disabled) { color: var(--ac-text); border-color: var(--ac-border2); }
+		.ac-load-more:disabled { opacity: .6; cursor: progress; }
+		.ac-spin { width: 13px; height: 13px; border-radius: 50%; border: 2px solid rgba(255,255,255,.18); border-top-color: var(--ac-accent); animation: acSpin .7s linear infinite; flex-shrink: 0; }
+		@keyframes acSpin { to { transform: rotate(360deg); } }
+
+		/* error / retry */
+		.ac-error-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 16px; }
+		.ac-retry-btn { display: inline-flex; align-items: center; gap: 7px; background: rgba(139,92,246,.16); border: 1px solid rgba(139,92,246,.4); color: #fff; border-radius: 10px; padding: 9px 16px; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; transition: background .14s, border-color .14s; }
+		.ac-retry-btn:hover:not(:disabled) { background: rgba(139,92,246,.28); border-color: rgba(139,92,246,.6); }
+		.ac-retry-btn:disabled { opacity: .6; cursor: progress; }
+
+		/* stale-data banner */
+		.ac-stale { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; padding: 9px 13px; border-radius: 10px; font-size: 12.5px; background: rgba(251,191,36,.1); border: 1px solid rgba(251,191,36,.32); color: var(--ac-warn); animation: acIn .25s ease both; }
+		.ac-stale .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ac-warn); flex-shrink: 0; }
+		.ac-stale .ac-stale-text { flex: 1; min-width: 0; color: #f3d58a; }
+		.ac-stale .ac-retry-btn { background: rgba(251,191,36,.14); border-color: rgba(251,191,36,.4); padding: 5px 11px; font-size: 12px; color: var(--ac-warn); }
+		.ac-stale .ac-retry-btn:hover:not(:disabled) { background: rgba(251,191,36,.24); border-color: rgba(251,191,36,.6); }
 
 		.ac-refresh { font-size: 11px; color: var(--ac-faint); margin-left: auto; }
 
@@ -248,8 +263,14 @@
 			<span class="ac-refresh" id="ac-refresh-note"></span>
 		</div>
 
-		<div class="ac-feed" id="ac-feed"></div>
-		<button class="ac-load-more" id="ac-load-more" hidden>Load more</button>
+		<div class="ac-stale" id="ac-stale" role="status" hidden>
+			<span class="dot" aria-hidden="true"></span>
+			<span class="ac-stale-text" id="ac-stale-text"></span>
+			<button class="ac-retry-btn" id="ac-stale-retry" type="button">↻ Refresh</button>
+		</div>
+
+		<div class="ac-feed" id="ac-feed" role="feed" aria-busy="false"></div>
+		<button class="ac-load-more" id="ac-load-more" hidden><span class="ac-load-more-label">Load more</span></button>
 	</main>
 
 	<script src="/brand.js" defer></script>
@@ -292,8 +313,13 @@
 			const verb = outcome === 'win' ? 'closed ↑' : outcome === 'loss' ? 'closed ↓' : outcome === 'flat' ? 'closed' : 'entered';
 			const convScore = item.conviction != null ? ` · ${item.conviction}` : '';
 
-			return `<div class="ac-row oc-${outcome}" data-id="${esc(item.id)}" data-agent="${esc(item.agent_id)}">
-				<span class="outcome-edge"></span>
+			const outcomeWord = { win: 'won', loss: 'lost', flat: 'closed flat', open: 'open position' }[outcome] || outcome;
+			const symLabel = (item.symbol || item.mint.slice(0, 6)).toUpperCase();
+			const pnlLabel = pnl != null ? `, P&L ${sign(pnl)}${sol(pnl)}` : '';
+			const rowLabel = `${item.agent_name || 'Agent'} ${verb.replace(/[↑↓]/g, '').trim()} $${symLabel} — ${outcomeWord}${pnlLabel}`;
+
+			return `<div class="ac-row oc-${outcome}" data-id="${esc(item.id)}" data-agent="${esc(item.agent_id)}" role="article" aria-label="${esc(rowLabel)}">
+				<span class="outcome-edge" aria-hidden="true"></span>
 				<img class="ac-av" src="${esc(av)}" alt="" onerror="${imgErr}" loading="lazy" />
 				<div class="ac-body">
 					<div class="ac-headline">
@@ -332,14 +358,37 @@
 			</div>`).join('');
 		}
 
-		const state = { tier: '', mode: '', outcome: '', cursor: null, loading: false, items: [] };
+		const state = { tier: '', mode: '', outcome: '', cursor: null, loading: false, items: [], lastSuccess: null, stale: false };
 		const feed = document.getElementById('ac-feed');
 		const loadMoreBtn = document.getElementById('ac-load-more');
+		const loadMoreLabel = loadMoreBtn.querySelector('.ac-load-more-label');
+		const staleBar = document.getElementById('ac-stale');
+		const staleText = document.getElementById('ac-stale-text');
+		const staleRetry = document.getElementById('ac-stale-retry');
+
+		function showStale(msg) {
+			state.stale = true;
+			staleText.textContent = msg;
+			staleBar.hidden = false;
+		}
+		function clearStale() {
+			state.stale = false;
+			staleBar.hidden = true;
+		}
 
 		async function load(reset = false) {
 			if (state.loading) return;
 			state.loading = true;
+			feed.setAttribute('aria-busy', 'true');
 			if (reset) { state.items = []; state.cursor = null; feed.innerHTML = skeletons(); }
+			else if (!loadMoreBtn.hidden) {
+				loadMoreBtn.disabled = true;
+				loadMoreBtn.setAttribute('aria-busy', 'true');
+				loadMoreLabel.textContent = 'Loading…';
+				if (!loadMoreBtn.querySelector('.ac-spin')) {
+					loadMoreBtn.insertAdjacentHTML('afterbegin', '<span class="ac-spin" aria-hidden="true"></span>');
+				}
+			}
 
 			const url = new URL(API, location.origin);
 			url.searchParams.set('network', 'mainnet');
@@ -373,21 +422,43 @@
 
 				state.cursor = data.next_before || null;
 				loadMoreBtn.hidden = !state.cursor;
-				loadMoreBtn.disabled = false;
 
 				// KPIs
 				if (data.summary) renderKpis(data.summary);
 
+				// Success — data is fresh again.
+				state.lastSuccess = Date.now();
+				clearStale();
+
 			} catch (e) {
-				if (reset) {
+				if (reset && !state.items.length) {
+					// Hard failure with nothing to show — full error state + retry.
+					loadMoreBtn.hidden = true;
 					feed.innerHTML = `<div class="ac-empty">
 						<div class="icon">⚠️</div>
 						<h3>Couldn't load activity</h3>
 						<p>${esc(e.message)}</p>
+						<div class="ac-error-actions">
+							<button class="ac-retry-btn" id="ac-error-retry" type="button">↻ Try again</button>
+						</div>
 					</div>`;
+					const btn = document.getElementById('ac-error-retry');
+					if (btn) btn.addEventListener('click', () => { btn.disabled = true; load(true); });
+				} else {
+					// We still have data on screen — flag it as stale rather than blanking it.
+					const since = state.lastSuccess
+						? `last updated ${ago(new Date(state.lastSuccess).toISOString())}`
+						: 'showing earlier data';
+					showStale(`Couldn't refresh — ${since}. ${e.message}`);
 				}
 			} finally {
 				state.loading = false;
+				feed.setAttribute('aria-busy', 'false');
+				loadMoreBtn.removeAttribute('aria-busy');
+				const spin = loadMoreBtn.querySelector('.ac-spin');
+				if (spin) spin.remove();
+				loadMoreLabel.textContent = 'Load more';
+				loadMoreBtn.disabled = false;
 			}
 		}
 
@@ -428,6 +499,11 @@
 
 		loadMoreBtn.addEventListener('click', () => { loadMoreBtn.disabled = true; load(false); });
 
+		staleRetry.addEventListener('click', () => {
+			staleRetry.disabled = true;
+			load(true).finally(() => { staleRetry.disabled = false; });
+		});
+
 		// ── SSE — real-time updates ──────────────────────────────────────────
 		const note = document.getElementById('ac-refresh-note');
 		const seenIds = new Set();
@@ -445,6 +521,9 @@
 			es.addEventListener('hello', () => {
 				sseActive = true;
 				note.textContent = '⚡ Live';
+				// Stream is healthy again — data on screen is current.
+				state.lastSuccess = Date.now();
+				if (state.stale && !state.cursor) clearStale();
 			});
 
 			es.addEventListener('action', (e) => {

@@ -137,6 +137,9 @@ async function build({ name, description, agentId, meta, avatar, ownerFallback }
 	return {
 		name: name || null,
 		description: description || '',
+		// On-platform identity: the canonical agent profile lives at
+		// /agents/:id. Null for bare on-chain assets that aren't three.ws agents.
+		agentId: agentId || null,
 		genesisRank: await genesisRankFor(agentId),
 		modelUrl,
 		imageUrl,
@@ -318,6 +321,7 @@ export default wrap(async (req, res) => {
 		return json(res, 200, {
 			name: null,
 			description: '',
+			agentId: null,
 			genesisRank: null,
 			modelUrl: null,
 			imageUrl: null,

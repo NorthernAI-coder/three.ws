@@ -123,6 +123,16 @@ function ipfsToHttp(url) {
 	return url;
 }
 
+// If a gateway URL fails, the content is usually still pinned elsewhere — retry
+// the same CID on a second gateway before degrading. Returns null when the URL
+// isn't a known gateway URL (nothing useful to retry).
+function altIpfsGateway(url) {
+	if (typeof url !== 'string') return null;
+	if (url.includes('ipfs.io/ipfs/')) return url.replace('ipfs.io/ipfs/', 'cloudflare-ipfs.com/ipfs/');
+	if (url.includes('cloudflare-ipfs.com/ipfs/')) return url.replace('cloudflare-ipfs.com/ipfs/', 'ipfs.io/ipfs/');
+	return null;
+}
+
 function numOrNull(v) {
 	const n = Number(v);
 	return Number.isFinite(n) ? n : null;
@@ -231,18 +241,24 @@ function buildCoin(snapshot) {
 	if (snapshot.image) {
 		const loader = new TextureLoader();
 		loader.setCrossOrigin('anonymous');
-		loader.load(
-			snapshot.image,
-			(tex) => {
-				tex.colorSpace = SRGBColorSpace;
-				const lit = new MeshStandardMaterial({ map: tex, metalness: 0.3, roughness: 0.55 });
-				coin.material = [rim, lit, lit];
-			},
-			undefined,
-			() => {
-				// Texture failed — keep the tinted disc; not an error worth blocking on.
-			},
-		);
+
+		const applyTexture = (tex) => {
+			tex.colorSpace = SRGBColorSpace;
+			const lit = new MeshStandardMaterial({ map: tex, metalness: 0.3, roughness: 0.55 });
+			coin.material = [rim, lit, lit];
+		};
+
+		const loadFrom = (src, allowRetry) => {
+			loader.load(src, applyTexture, undefined, () => {
+				// The primary gateway dropped the logo. The CID is usually pinned on
+				// other gateways too, so retry once on an alternate before degrading
+				// to the tinted disc.
+				const alt = allowRetry ? altIpfsGateway(src) : null;
+				if (alt) loadFrom(alt, false);
+			});
+		};
+
+		loadFrom(snapshot.image, true);
 	}
 }
 
@@ -416,6 +432,7 @@ function renderHud(s) {
 			<a class="hud-link" href="https://pump.fun/coin/${encodeURIComponent(s.mint)}" target="_blank" rel="noopener">pump.fun ↗</a>
 			<a class="hud-link" href="/launches">All launches →</a>
 			${s.mint ? `<a class="hud-link" href="/communities/${encodeURIComponent(s.mint)}">3D world →</a>` : ''}
+			<a class="hud-link" href="/launch">Launch your own →</a>
 		</div>`;
 
 	if (s.mint) {
@@ -438,7 +455,7 @@ function compact(n) {
 async function main() {
 	if (!mint) {
 		setStatus('empty', 'No token specified', 'Add ?mint=<address> to view a token in 3D.', {
-			href: '/demo/coin',
+			href: '/launches',
 			label: 'Browse coins',
 		});
 		return;
@@ -450,7 +467,7 @@ async function main() {
 		snapshot = await loadSnapshot();
 	} catch (err) {
 		setStatus('error', "Couldn't load this token", err.message, {
-			href: '/demo/coin',
+			href: '/launches',
 			label: 'Browse coins',
 		});
 		return;
@@ -458,7 +475,7 @@ async function main() {
 
 	if (snapshot.name === 'Unknown token' && !snapshot.image && !snapshot.holders.length) {
 		setStatus('error', 'Token not found', `No on-chain data for ${mint}.`, {
-			href: '/demo/coin',
+			href: '/launches',
 			label: 'Browse coins',
 		});
 		return;

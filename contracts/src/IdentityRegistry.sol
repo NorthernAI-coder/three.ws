@@ -82,6 +82,7 @@ contract IdentityRegistry is ERC721Enumerable, EIP712, ReentrancyGuard {
     error ZeroDeposit();
     error InsufficientAgentBalance();
     error DirectTransferRejected();
+    error EthTransferFailed();
 
     // ---------------------------------------------------------------------
     // Constructor
@@ -243,7 +244,8 @@ contract IdentityRegistry is ERC721Enumerable, EIP712, ReentrancyGuard {
         if (ownerOf(agentId) != msg.sender) revert NotAgentOwner();
         if (agentBalance[agentId] < amountWei) revert InsufficientAgentBalance();
         agentBalance[agentId] -= amountWei;
-        recipient.transfer(amountWei);
+        (bool ok, ) = recipient.call{value: amountWei}("");
+        if (!ok) revert EthTransferFailed();
         emit AgentWithdrawal(agentId, recipient, amountWei);
     }
 
@@ -271,7 +273,8 @@ contract IdentityRegistry is ERC721Enumerable, EIP712, ReentrancyGuard {
         if (agentBalance[agentId] < amountWei) revert InsufficientAgentBalance();
         spendAllowance[agentId][msg.sender] -= amountWei;
         agentBalance[agentId] -= amountWei;
-        recipient.transfer(amountWei);
+        (bool ok, ) = recipient.call{value: amountWei}("");
+        if (!ok) revert EthTransferFailed();
         emit AgentPayment(agentId, msg.sender, recipient, amountWei, memo);
     }
 

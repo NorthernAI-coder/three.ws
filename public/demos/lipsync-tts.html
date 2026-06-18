@@ -40,6 +40,22 @@
 			.log .ok { color: #3dc1ff; }
 			.log .err { color: #ff8a8a; }
 			.log .info { color: #9ad4ff; }
+			.tts-error {
+				background: rgba(255, 86, 86, 0.08); border: 1px solid rgba(255, 86, 86, 0.3);
+				color: #ffb4b4; border-radius: 9px; padding: 11px 13px; font-size: 13px;
+				line-height: 1.5; display: flex; align-items: center; gap: 10px; justify-content: space-between;
+			}
+			.tts-error[hidden] { display: none; }
+			.tts-error span { flex: 1; }
+			.tts-error strong { color: #fff; font-weight: 600; }
+			.tts-error .retry {
+				flex: 0 0 auto; cursor: pointer; font: inherit; font-weight: 600; color: #0a0a0a;
+				background: #ff8a8a; border: 0; border-radius: 7px; padding: 7px 13px;
+				transition: filter 0.16s ease, transform 0.16s ease;
+			}
+			.tts-error .retry:hover { filter: brightness(1.08); }
+			.tts-error .retry:active { transform: translateY(1px); }
+			.tts-error .retry:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 		</style>
 	
 	<meta property="og:type" content="website">
@@ -105,6 +121,8 @@
 						<button id="speak" style="flex:1">Speak</button>
 						<button id="stop" class="secondary" disabled>Stop</button>
 					</div>
+
+					<div id="tts-error" class="tts-error" role="alert" aria-live="assertive" hidden></div>
 
 					<div>
 						<label>Visemes (live)</label>
@@ -252,11 +270,27 @@
 
 			const speakBtn = $('speak');
 			const stopBtn = $('stop');
+			const ttsErr = $('tts-error');
+
+			function clearTtsError() { ttsErr.hidden = true; ttsErr.innerHTML = ''; }
+			// Persistent, actionable error banner with one-click retry — survives
+			// after the log scrolls and tells the user how to recover.
+			function showTtsError(title, detail) {
+				ttsErr.innerHTML = `<span><strong>${title}</strong> ${detail}</span>`;
+				const btn = document.createElement('button');
+				btn.type = 'button';
+				btn.className = 'retry';
+				btn.textContent = 'Retry';
+				btn.addEventListener('click', () => speak());
+				ttsErr.appendChild(btn);
+				ttsErr.hidden = false;
+			}
 
 			async function speak() {
 				const text = $('text').value.trim();
 				if (!text) { log('err', 'Enter text first.'); return; }
 
+				clearTtsError();
 				speakBtn.disabled = true;
 				stopBtn.disabled = false;
 				log('info', `Requesting TTS · voice=${$('voice').value} speed=${$('speed').value}`);
@@ -275,6 +309,10 @@
 					});
 				} catch (err) {
 					log('err', `TTS request failed: ${err.message}`);
+					showTtsError(
+						'Couldn’t reach the TTS service.',
+						'Check your connection and try again.',
+					);
 					speakBtn.disabled = false;
 					stopBtn.disabled = true;
 					return;
@@ -283,6 +321,15 @@
 				if (!res.ok) {
 					const txt = await res.text().catch(() => '');
 					log('err', `TTS error · HTTP ${res.status} · ${txt.slice(0, 200)}`);
+					const detail =
+						res.status === 429
+							? 'Rate limit reached — wait a moment and retry.'
+							: res.status >= 500
+								? 'The speech service hit an error. Try again in a moment.'
+								: res.status === 400
+									? 'The request was rejected — try shorter or different text.'
+									: `HTTP ${res.status}.`;
+					showTtsError('Speech generation failed.', detail);
 					speakBtn.disabled = false;
 					stopBtn.disabled = true;
 					return;
@@ -314,6 +361,7 @@
 					speakBtn.disabled = false;
 					stopBtn.disabled = true;
 					log('err', 'Audio playback error.');
+					showTtsError('Playback failed.', 'The generated audio couldn’t be played. Try again.');
 				});
 
 				lipsync.connectAudio(audioEl);
@@ -322,6 +370,10 @@
 					await audioEl.play();
 				} catch (err) {
 					log('err', `Playback blocked: ${err.message}`);
+					showTtsError(
+						'Playback was blocked.',
+						'Your browser needs a click to play audio — press Retry to try again.',
+					);
 					speakBtn.disabled = false;
 					stopBtn.disabled = true;
 				}

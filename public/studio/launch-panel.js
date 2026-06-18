@@ -406,8 +406,13 @@ function injectCss() {
 
 const DEMO_ID = '__demo__';
 
-export function mountLaunchPanel(container, { getAvatar, getUser, getPreviewViewer } = {}) {
+export function mountLaunchPanel(container, { getAvatar, getUser, getPreviewViewer, context } = {}) {
 	injectCss();
+
+	// The left-column UI differs by mount: on /launch it's an agent picker, in the
+	// studio / avatar page it's an avatar gallery. The empty-state CTA must point
+	// at whatever the user actually sees beside the panel.
+	const onLaunchPage = context === 'launch';
 
 	let av = null;
 
@@ -1232,8 +1237,8 @@ export function mountLaunchPanel(container, { getAvatar, getUser, getPreviewView
 		const baseCost = PUMP_BASE_COST.toFixed(3);
 		container.innerHTML = `<div class="lp">
 			<div class="lp-guide">
-				<p class="lp-guide-h">Launch a token for your avatar</p>
-				<p class="lp-guide-sub">This mints a <b style="color:rgba(255,255,255,.78);font-weight:500">memecoin on pump.fun</b> tied to the avatar you pick. Other people can buy your coin; if you pick an <em>Agent</em> coin, revenue from your agent's paid endpoints buys back and burns the token on-chain.</p>
+				<p class="lp-guide-h">Launch a token for your ${onLaunchPage ? 'agent' : 'avatar'}</p>
+				<p class="lp-guide-sub">This mints a <b style="color:rgba(255,255,255,.78);font-weight:500">memecoin on pump.fun</b> tied to the ${onLaunchPage ? 'agent' : 'avatar'} you pick. Other people can buy your coin; if you pick an <em>Agent</em> coin, revenue from your agent's paid endpoints buys back and burns the token on-chain.</p>
 
 				<div class="lp-guide-steps">
 					<div class="lp-guide-step">
@@ -1267,7 +1272,9 @@ export function mountLaunchPanel(container, { getAvatar, getUser, getPreviewView
 					<span><b style="color:rgba(255,255,255,.78);font-weight:500">Cost:</b> ~${baseCost} SOL covers the mint &amp; pump.fun fee. Anything you add as an <em>initial buy</em> seeds the bonding curve and credits coins to your wallet. No on-chain action happens until you click <b style="color:rgba(255,255,255,.78);font-weight:500">Launch</b> and sign.</span>
 				</div>
 
-				<a class="lp-guide-cta" href="/dashboard/avatars" target="_blank" rel="noopener">Pick or upload an avatar to begin →</a>
+				${onLaunchPage
+					? `<a class="lp-guide-cta" href="/create-agent">Pick an agent on the left, or create one →</a>`
+					: `<a class="lp-guide-cta" href="/dashboard/avatars" target="_blank" rel="noopener">Pick or upload an avatar to begin →</a>`}
 
 				<div class="lp-guide-links">
 					<a href="/gallery" target="_blank" rel="noopener">Browse community gallery</a>
@@ -1324,7 +1331,7 @@ export function mountLaunchPanel(container, { getAvatar, getUser, getPreviewView
 				<a class="lp-ex-link" href="${esc(PUMP_URL(m.mint))}" target="_blank" rel="noopener">pump.fun ↗</a>
 				<a class="lp-ex-link" href="https://solscan.io/token/${esc(m.mint)}" target="_blank" rel="noopener">Solscan ↗</a>
 				${s.resolvedAgentId || av?.agent_id
-					? `<a class="lp-ex-link" href="/agent/${esc(s.resolvedAgentId || av.agent_id)}">Agent page ↗</a>`
+					? `<a class="lp-ex-link" href="/agents/${esc(s.resolvedAgentId || av.agent_id)}">Agent page ↗</a>`
 					: ''}
 			</div>
 			<div id="lp-fees"></div>
@@ -1703,7 +1710,7 @@ export function mountLaunchPanel(container, { getAvatar, getUser, getPreviewView
 			<div class="lp-ok-links">
 				<a class="lp-ext" href="${esc(PUMP_URL(mint))}" target="_blank" rel="noopener">pump.fun ↗</a>
 				<a class="lp-ext" href="https://solscan.io/token/${esc(mint)}" target="_blank" rel="noopener">Solscan ↗</a>
-				${agentId ? `<a class="lp-ext" href="/agent/${esc(agentId)}">Agent page ↗</a>` : ''}
+				${agentId ? `<a class="lp-ext" href="/agents/${esc(agentId)}">Agent page ↗</a>` : ''}
 			</div>
 			<button class="lp-share" id="lp-share">📋 Copy launch announcement</button>
 			<button class="lp-again" id="lp-again">Launch another token</button>

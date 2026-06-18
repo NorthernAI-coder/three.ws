@@ -32,6 +32,16 @@ const STAGE_DEFS = [
 	{ id: 'done',       label: 'Confirmed',     narration: 'Confirmed on-chain. Intel delivered.' },
 ];
 
+// Terminal failure stage — rendered alongside the flow stages but hidden until
+// a payment errors out, times out, or is rejected. It always reflects the final
+// failure reason so the viewer sees exactly where the exchange stopped.
+const ERROR_STAGE = { id: 'failed', label: 'Failed', narration: 'Payment did not complete. No funds were moved.' };
+
+// How long a single x402-pay request may run before we abort it and surface a
+// timeout. The full challenge→settle flow is fast; 30s covers a slow facilitator
+// or RPC without leaving the viewer staring at a hung "Paying…" button.
+const PAY_TIMEOUT_MS = 30000;
+
 // Agent scripts — lines spoken at each stage of the exchange.
 const LINES = {
 	A: {
@@ -130,13 +140,37 @@ function sayB(text) {
 
 // ── Payment stages ────────────────────────────────────────────────────────────
 function renderStages() {
-	els.stages.innerHTML = STAGE_DEFS.map((s) =>
-		`<div class="stage" id="stage-${s.id}">` +
+	const stageEl = (s, extra = '') =>
+		`<div class="stage${extra}" id="stage-${s.id}">` +
 		`<span class="si" aria-hidden="true"></span>` +
 		`<span>${s.label}</span>` +
 		`<span class="sval" id="sval-${s.id}"></span>` +
-		`</div>`,
-	).join('');
+		`</div>`;
+	// Flow stages, then the terminal failure stage (hidden until a payment fails).
+	els.stages.innerHTML =
+		STAGE_DEFS.map((s) => stageEl(s)).join('') +
+		stageEl(ERROR_STAGE, ' stage-terminal');
+	hideErrorStage();
+}
+
+// The terminal failure stage is only meaningful when something went wrong, so it
+// stays out of the flow until showErrorStage() promotes it.
+function showErrorStage(reason) {
+	const el = $(`stage-${ERROR_STAGE.id}`);
+	if (!el) return;
+	el.hidden = false;
+	el.className = 'stage stage-terminal error';
+	const sv = $(`sval-${ERROR_STAGE.id}`);
+	if (sv) sv.textContent = reason ? `· ${reason}` : '';
+}
+
+function hideErrorStage() {
+	const el = $(`stage-${ERROR_STAGE.id}`);
+	if (!el) return;
+	el.hidden = true;
+	el.className = 'stage stage-terminal';
+	const sv = $(`sval-${ERROR_STAGE.id}`);
+	if (sv) sv.textContent = '';
 }
 
 function setStage(id, state, val = '') {
@@ -149,6 +183,7 @@ function setStage(id, state, val = '') {
 
 function resetStages() {
 	for (const s of STAGE_DEFS) setStage(s.id, '');
+	hideErrorStage();
 	els.receipt.classList.remove('show');
 }
 
@@ -303,6 +338,11 @@ async function doPurchase() {
 	let activeStage = 'challenge';
 	let errored     = false;
 
+	// Abort the request if the whole flow stalls past the timeout. The timer is
+	// cleared the moment the stream finishes (success or thrown error).
+	const ctrl = new AbortController();
+	const timeoutId = setTimeout(() => ctrl.abort(), PAY_TIMEOUT_MS);
+
 	try {
 		const res = await fetch('/api/x402-pay', {
 			method: 'POST',
@@ -313,6 +353,7 @@ async function doPurchase() {
 				endpoint: '/api/x402/crypto-intel',
 				body: { topic: activeTopic },
 			}),
+			signal: ctrl.signal,
 		});
 
 		if (!res.ok || !res.body) {
@@ -391,33 +432,60 @@ async function doPurchase() {
 
 		renderReceipt(settled, intel);
 
+		// Send focus to the receipt so keyboard + screen-reader users land on the
+		// just-confirmed result instead of staying on the pay button.
+		focusReceipt();
+
 	} catch (err) {
-		if (!errored) setStage(activeStage, 'error', 'failed');
+		// A timeout surfaces as an AbortError — translate it into a clear reason.
+		const timedOut = err?.name === 'AbortError';
+		const reason = timedOut
+			? `No response in ${Math.round(PAY_TIMEOUT_MS / 1000)}s`
+			: (err.message || 'Payment failed');
+
+		// Mark whichever stage was in flight as errored (unless the stream already
+		// did), then promote the terminal failure stage with the reason.
+		if (!errored) setStage(activeStage, 'error', timedOut ? 'timed out' : 'failed');
+		showErrorStage(reason);
+
 		sayA(LINES.A.error);
 		sayB(LINES.B.error);
 		gestureA('idle');
 
-		const msg = escHtml(err.message || 'Payment failed. No funds moved.');
+		const headline = timedOut
+			? 'Payment timed out — no funds moved'
+			: 'Payment failed — no funds moved';
+		const body = timedOut
+			? 'The payment service did not respond in time. No USDC left the wallet. Pick a topic and try again.'
+			: escHtml(reason);
 		els.receipt.innerHTML =
 			`<div style="background:rgba(255,79,106,.06);border:1px solid rgba(255,79,106,.22);border-radius:10px;padding:12px 14px;">` +
 			`<div style="display:flex;align-items:center;gap:7px;font-weight:700;color:var(--red);font-size:13px;margin-bottom:5px;">` +
 			`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>` +
-			`Payment failed — no funds moved` +
+			`${escHtml(headline)}` +
 			`</div>` +
-			`<div style="font-size:12.5px;color:var(--muted);">${msg} ` +
+			`<div style="font-size:12.5px;color:var(--muted);">${body} ` +
 			`<a href="/pay" style="color:var(--usdc-lt);text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">Learn about x402 →</a>` +
 			`</div>` +
 			`</div>`;
 		els.receipt.classList.add('show');
+		focusReceipt();
 
 		// Reset narration to empty state so the viewer knows they can retry.
 		showEmptyState();
 	} finally {
+		clearTimeout(timeoutId);
 		busy = false;
 		els.payBtn.classList.remove('busy');
 		els.payBtn.disabled = false;
 		els.payLabel.textContent = 'Buy intel — $0.01 USDC';
 	}
+}
+
+// Move keyboard focus to the receipt panel without scrolling the page out from
+// under the viewer's eye on the result. The panel is tabindex=-1 in the markup.
+function focusReceipt() {
+	try { els.receipt.focus({ preventScroll: false }); } catch { /* focus unsupported */ }
 }
 
 // ── SSE reader (same pattern as /pay demo) ────────────────────────────────────

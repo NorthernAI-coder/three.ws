@@ -19,7 +19,6 @@ import { limits } from '../_lib/rate-limit.js';
 import { recordEvent } from '../_lib/usage.js';
 import { z } from 'zod';
 import { avatarVisibility, avatarAppearance, parse } from '../_lib/validate.js';
-import { DEMO_AVATARS } from '../_lib/demo-avatars.js';
 import { dispatchWebhooks } from '../_lib/webhook-dispatch.js';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -66,45 +65,16 @@ export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'GET,PATCH,DELETE,OPTIONS', credentials: true })) return;
 	if (!method(req, res, ['GET', 'PATCH', 'DELETE'])) return;
 
-	// Guard the DB call: an id that isn't a uuid and isn't a known demo slug
-	// would otherwise hit Postgres as `WHERE id = $1`, which raises 22P02 and
-	// leaks the raw error code to the caller. Return a clean 404 instead.
-	if (!UUID_RE.test(id) && !id.startsWith('avatar_demo_')) {
+	// Guard the DB call: an id that isn't a uuid would otherwise hit Postgres as
+	// `WHERE id = $1`, which raises 22P02 and leaks the raw error code to the
+	// caller. Return a clean 404 instead.
+	if (!UUID_RE.test(id)) {
 		return error(res, 404, 'not_found', 'avatar not found');
 	}
 
 	const auth = await resolveAuth(req);
 
 	if (req.method === 'GET') {
-		// Demo avatars (avatar_demo_*) are seeded fixtures, not DB rows.
-		// Resolve them from DEMO_AVATARS so the detail page works for them too.
-		if (id.startsWith('avatar_demo_')) {
-			const demo = DEMO_AVATARS.find((a) => a.avatarId === id);
-			if (!demo) return error(res, 404, 'not_found', 'avatar not found');
-			return json(res, 200, {
-				avatar: {
-					id: demo.avatarId,
-					slug: demo.slug,
-					name: demo.name,
-					description: demo.description,
-					tags: demo.tags,
-					visibility: 'public',
-					source: 'demo',
-					storage_key: null,
-					size_bytes: null,
-					content_type: 'model/gltf-binary',
-					created_at: demo.createdAt,
-					updated_at: demo.createdAt,
-					thumbnail_url: demo.image,
-					model_url: demo.glbUrl,
-					url: demo.glbUrl,
-					cdn: true,
-					attribution: demo.attribution || null,
-					author: demo.author || null,
-					demo: true,
-				},
-			});
-		}
 		const avatar = await getAvatar({ id, requesterId: auth?.userId });
 		if (!avatar) return error(res, 404, 'not_found', 'avatar not found');
 		const urlInfo = await resolveAvatarUrl(avatar);

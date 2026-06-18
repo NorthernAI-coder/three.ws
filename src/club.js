@@ -274,9 +274,31 @@ async function loadInitialTips({ attempt = 0 } = {}) {
 	}
 }
 
-// Subscribe to the SSE channel. Reconnects with linear backoff after an
-// error; after 3 consecutive failures shows a "live updates paused" badge.
-// The badge clears as soon as the next connection succeeds.
+// Backfill tips after an SSE reconnect: fetch recent history and render any
+// rows the dedup cache hasn't seen, so a gap during the outage is closed. New
+// rows flash as live; already-seen rows are dropped by rememberTicketId.
+async function backfillTips() {
+	try {
+		const r = await fetch(TIPS_HISTORY_URL, { cache: 'no-store' });
+		if (!r.ok) return;
+		const data = await r.json();
+		const tips = Array.isArray(data?.tips) ? data.tips : [];
+		// Oldest-first so sequential prepend leaves newest on top.
+		for (const t of tips.slice().reverse()) {
+			renderTipRow(t, { live: true });
+		}
+	} catch (err) {
+		log.warn('[club] tip backfill failed', err);
+	}
+}
+
+// Subscribe to the SSE channel. Reconnects with exponential backoff + jitter
+// after an error; after 3 consecutive failures shows a "live updates paused"
+// badge. On every successful (re)connection it backfills from the tips REST
+// endpoint so any tips that landed while the socket was down still appear — the
+// per-ticket dedup in renderTipRow keeps backfill from duplicating live rows.
+const SSE_BASE_DELAY_MS = 1000;   // first retry ~1s
+const SSE_MAX_DELAY_MS  = 30000;  // cap backoff at 30s during a long outage
 function subscribeTipStream() {
 	if (typeof window.EventSource !== 'function') {
 		setFeedStatus('Live updates paused', 'paused');
@@ -286,6 +308,9 @@ function subscribeTipStream() {
 	let consecutiveFailures = 0;
 	let reconnectTimer = 0;
 	let closedByUser = false;
+	// First open is a cold start (initial history already loaded separately);
+	// only reconnections trigger a gap-filling backfill.
+	let reconnecting = false;
 
 	const open = () => {
 		if (closedByUser) return;
@@ -299,6 +324,11 @@ function subscribeTipStream() {
 		es.addEventListener('hello', () => {
 			consecutiveFailures = 0;
 			setFeedStatus(null);
+			// Pull anything missed while the socket was down. Dedup makes this safe.
+			if (reconnecting) {
+				reconnecting = false;
+				backfillTips();
+			}
 		});
 		es.addEventListener('tip', (e) => {
 			try {
@@ -315,6 +345,7 @@ function subscribeTipStream() {
 			// advances predictably and the badge timing is honest.
 			try { es?.close(); } catch {}
 			es = null;
+			reconnecting = true;
 			consecutiveFailures += 1;
 			if (consecutiveFailures >= 3) {
 				setFeedStatus('Live updates paused', 'paused');
@@ -326,9 +357,10 @@ function subscribeTipStream() {
 	const scheduleReconnect = () => {
 		if (closedByUser) return;
 		clearTimeout(reconnectTimer);
-		// 1.5 s, 3 s, 6 s, capped — fast enough to recover from a momentary
-		// blip without hammering the endpoint during a longer outage.
-		const delay = Math.min(1500 * Math.max(1, consecutiveFailures), 6000);
+		// Exponential backoff: 1s, 2s, 4s, 8s… capped at 30s, with full jitter so
+		// many reconnecting clients don't thunder the endpoint in lockstep.
+		const exp = Math.min(SSE_BASE_DELAY_MS * 2 ** (consecutiveFailures - 1), SSE_MAX_DELAY_MS);
+		const delay = Math.round(exp / 2 + Math.random() * (exp / 2));
 		reconnectTimer = setTimeout(open, delay);
 	};
 
@@ -1326,6 +1358,47 @@ window.addEventListener('club:performance-end', () => {
 	window.addEventListener('keydown', start, { once: true });
 }
 
+// ── x402 readiness gate ──────────────────────────────────────────────────
+// The x402 widget (public/x402.js) sets window.X402 synchronously when its
+// module finishes evaluating, but module load order and a failed/blocked script
+// mean we can't assume it's there. Poll briefly for window.X402.pay; resolve the
+// moment it appears (typically immediately on the first check).
+function whenX402Ready(cb) {
+	if (window.X402?.pay) { cb(); return; }
+	let waited = 0;
+	const POLL_MS = 100;
+	const MAX_WAIT_MS = 15000;
+	const id = setInterval(() => {
+		waited += POLL_MS;
+		if (window.X402?.pay) {
+			clearInterval(id);
+			cb();
+		} else if (waited >= MAX_WAIT_MS) {
+			clearInterval(id);
+			// Widget never loaded — leave tip buttons disabled and tell the user.
+			onTipButtonsUnavailable();
+		}
+	}, POLL_MS);
+}
+
+function enableTipButtons() {
+	for (const card of poleCardEls.values()) {
+		const btn = card.querySelector('.club-tip-btn');
+		if (!btn) continue;
+		btn.disabled = false;
+		btn.removeAttribute('aria-disabled');
+		btn.removeAttribute('title');
+	}
+}
+
+function onTipButtonsUnavailable() {
+	for (const card of poleCardEls.values()) {
+		const btn = card.querySelector('.club-tip-btn');
+		if (btn) btn.title = 'Payment widget unavailable — reload to try again';
+	}
+	setStatus('Payment widget failed to load — reload the page to tip.', { kind: 'error' });
+}
+
 // ── Tip flow (x402 drop-in) ──────────────────────────────────────────────
 async function tipDancer({ dancer, dance, button }) {
 	if (!window.X402?.pay) {
@@ -1618,6 +1691,12 @@ function savePoleAvatar(poleId, key) {
 	savedPoleAvatars[poleId] = key;
 	try { localStorage.setItem(POLE_AVATARS_KEY, JSON.stringify(savedPoleAvatars)); } catch {}
 }
+// Drop a pole's persisted override (used when a saved look no longer resolves)
+// so the next load doesn't keep retrying a dead avatar.
+function forgetPoleAvatar(poleId) {
+	delete savedPoleAvatars[poleId];
+	try { localStorage.setItem(POLE_AVATARS_KEY, JSON.stringify(savedPoleAvatars)); } catch {}
+}
 // The default look for a pole is that pole's own dancer; persisted only when
 // the visitor picks something else.
 function defaultAvatarKey(poleId) { return `dancer-${poleId}`; }
@@ -1758,6 +1837,7 @@ async function swapPoleAvatar(poleId, key) {
 		station.swapAvatar(template, fallbackTemplateRef || template);
 		savePoleAvatar(poleId, key);
 		refreshAvatarButton(poleId);
+		clearAvatarReselect(poleId);
 		setStatus(`${dancerNameFor(poleId)} now wearing ${entry.name}.`, { kind: 'ok' });
 		return true;
 	} catch (err) {
@@ -1792,12 +1872,40 @@ async function initAvatarSelector(dancerUrls) {
 
 	// Re-apply any look the visitor chose on a previous visit. The boot path
 	// already attached each pole's own dancer, so we only swap the overrides.
+	// If a saved look no longer resolves (gallery 404, removed avatar, network
+	// timeout), don't silently leave the visitor with the default — flag the
+	// pole so they're prompted to re-pick instead of wondering why their look
+	// reverted.
 	for (const pole of POLES) {
 		const key = savedPoleAvatars[pole.id];
-		if (key && avatarCatalog.has(key) && key !== defaultAvatarKey(pole.id)) {
-			swapPoleAvatar(pole.id, key);
+		if (!key || key === defaultAvatarKey(pole.id)) continue;
+
+		if (!avatarCatalog.has(key)) {
+			// The saved avatar isn't in the catalog anymore — clear it and prompt.
+			forgetPoleAvatar(pole.id);
+			markAvatarReselect(pole.id, `${dancerNameFor(pole.id)}'s saved look is no longer available — pick a new one.`);
+			continue;
+		}
+
+		const ok = await swapPoleAvatar(pole.id, key);
+		if (!ok) {
+			markAvatarReselect(pole.id, `Couldn't restore ${dancerNameFor(pole.id)}'s saved look — tap to choose again.`);
 		}
 	}
+}
+
+// Flag a pole's avatar button so the visitor knows the saved look didn't load
+// and can re-select. Non-destructive: the default rig is already on stage, so
+// the dancer keeps performing while the prompt stands.
+function markAvatarReselect(poleId, message) {
+	const btn = poleCardEls.get(poleId)?.querySelector('.club-avatar-btn');
+	if (btn) {
+		btn.classList.add('needs-reselect');
+		btn.title = message;
+		const change = btn.querySelector('.club-avatar-change');
+		if (change) change.textContent = 'Re-select avatar';
+	}
+	setStatus(message, { kind: 'warn' });
 }
 
 function renderPoles() {
@@ -1844,13 +1952,18 @@ function renderPoles() {
 					${DANCES.map((d) => `<option value="${d.key}">${d.label}</option>`).join('')}
 				</select>
 			</label>
-			<button type="button" class="club-tip-btn" data-dancer="${pole.id}" aria-label="Tip ${meta.name} $0.001 USDC">
+			<button type="button" class="club-tip-btn" data-dancer="${pole.id}" aria-label="Tip ${meta.name} $0.001 USDC" disabled aria-disabled="true" title="Connecting payment widget…">
 				Tip $0.001
 			</button>
 		`;
 		polesPanel.appendChild(card);
 		poleCardEls.set(pole.id, card);
 	}
+
+	// Tip buttons stay disabled until the x402 payment widget is live, so a tap
+	// can't fall through to a missing window.X402.pay. enableTipButtons() flips
+	// them on the moment the widget is ready (see whenX402Ready below).
+	whenX402Ready(enableTipButtons);
 
 	// Tap card on mobile to VIP.
 	polesPanel.addEventListener('click', (e) => {
@@ -2087,18 +2200,55 @@ async function fetchLeaderboard() {
 			headers: { accept: 'application/json' },
 			cache: 'no-store',
 		});
-		if (!res.ok) throw new Error(`HTTP ${res.status}`);
+		// Distinguish a server-side failure (5xx/4xx) from a transport failure
+		// (fetch reject, caught below) so the user sees the right recovery hint.
+		if (!res.ok) {
+			const e = new Error(`HTTP ${res.status}`);
+			e.kind = res.status >= 500 ? 'down' : 'server';
+			throw e;
+		}
 		const body = await res.json();
 		renderLeaderboard(body.rows || []);
 	} catch (err) {
 		log.error('[club] leaderboard fetch failed', err);
-		// Don't blow away an already-rendered table on a transient hiccup.
+		// A rejected fetch (offline / DNS / CORS) surfaces as a TypeError.
+		const kind = err?.kind || (err instanceof TypeError ? 'network' : 'down');
+		// Don't blow away an already-rendered table on a transient hiccup —
+		// stale-but-real data beats an error wall.
 		if (!lbRowsEl.querySelector('.club-lb-row')) {
-			lbRowsEl.innerHTML = '<div class="club-lb-empty">Leaderboard unavailable.</div>';
+			renderLeaderboardError(kind);
 		}
 	} finally {
 		lbInflight = false;
 	}
+}
+
+// Leaderboard error states, distinguished by failure mode, each with an action.
+function renderLeaderboardError(kind) {
+	if (!lbRowsEl) return;
+	const copy = {
+		network: {
+			msg: "You're offline — the leaderboard couldn't load.",
+			cta: 'Retry',
+		},
+		down: {
+			msg: 'The leaderboard is temporarily unavailable.',
+			cta: 'Try again',
+		},
+		server: {
+			msg: "Couldn't load the leaderboard.",
+			cta: 'Retry',
+		},
+	}[kind] || { msg: "Couldn't load the leaderboard.", cta: 'Retry' };
+	lbRowsEl.innerHTML =
+		`<div class="club-lb-empty club-lb-error">` +
+		`<span>${copy.msg}</span>` +
+		`<button type="button" class="club-lb-retry">${copy.cta}</button>` +
+		`</div>`;
+	lbRowsEl.querySelector('.club-lb-retry')?.addEventListener('click', () => {
+		lbRowsEl.innerHTML = '<div class="club-lb-empty">Loading leaderboard…</div>';
+		fetchLeaderboard();
+	});
 }
 
 function renderLeaderboard(rows) {

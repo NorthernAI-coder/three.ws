@@ -627,6 +627,7 @@
 		<script type="module">
 			import * as THREE from 'three';
 			import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+			import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 
 			const canvas = document.getElementById('avatar-canvas');
 			const tierCards = [...document.querySelectorAll('.pricing-tier-card')];
@@ -851,7 +852,12 @@
 
 			const CLIPS = ['idle', 'walk', 'wave', 'av-celebrating', 'av-brag-claps'];
 
-			new GLTFLoader().load('/avatars/cz.glb', (gltf) => {
+			// cz.glb ships with EXT_meshopt_compression — the decoder must be wired
+			// before the loader can parse a single bufferView, otherwise GLTFLoader
+			// throws "setMeshoptDecoder must be called before loading compressed files".
+			const gltfLoader = new GLTFLoader();
+			gltfLoader.setMeshoptDecoder(MeshoptDecoder);
+			gltfLoader.load('/avatars/cz.glb', (gltf) => {
 				avatar = gltf.scene;
 				avatar.traverse((n) => {
 					if (!rootBone && /^(Hips|Root|mixamorig:?Hips)$/i.test(n.name)) rootBone = n;

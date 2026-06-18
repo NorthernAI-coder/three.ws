@@ -51,6 +51,31 @@
 				padding: 12px; font-family: ui-monospace, monospace; font-size: 12px;
 				color: #8a8d98; line-height: 1.6;
 			}
+			.mic-status {
+				border-radius: 9px; padding: 12px 14px; font-size: 13px; line-height: 1.55;
+				display: flex; flex-direction: column; gap: 8px;
+			}
+			.mic-status[hidden] { display: none; }
+			.mic-status.error {
+				background: rgba(255, 86, 86, 0.08);
+				border: 1px solid rgba(255, 86, 86, 0.3);
+				color: #ffb4b4;
+			}
+			.mic-status.info {
+				background: rgba(61, 193, 255, 0.07);
+				border: 1px solid rgba(61, 193, 255, 0.25);
+				color: #aee3ff;
+			}
+			.mic-status strong { color: #fff; font-weight: 600; }
+			.mic-status .retry {
+				align-self: flex-start; cursor: pointer; font: inherit; font-weight: 600;
+				color: #fff; background: rgba(255, 255, 255, 0.08);
+				border: 1px solid rgba(255, 255, 255, 0.18); border-radius: 7px;
+				padding: 6px 12px; transition: background 0.16s ease, transform 0.16s ease;
+			}
+			.mic-status .retry:hover { background: rgba(255, 255, 255, 0.16); }
+			.mic-status .retry:active { transform: translateY(1px); }
+			.mic-status .retry:focus-visible { outline: 2px solid #3dc1ff; outline-offset: 2px; }
 		</style>
 	
 	<meta property="og:type" content="website">
@@ -83,6 +108,8 @@
 				<div class="panel">
 					<button id="start">Start mic</button>
 					<button id="stop" class="secondary" disabled>Stop</button>
+
+					<div id="mic-status" class="mic-status" role="status" aria-live="polite" hidden></div>
 
 					<div class="meter" id="meter">
 						<div class="bar"></div><div class="bar"></div><div class="bar"></div>
@@ -198,8 +225,41 @@
 			}
 			tick();
 
+			// ── Mic status (designed permission / device states) ───────────
+			const micStatus = $('mic-status');
+			function clearMicStatus() {
+				micStatus.hidden = true;
+				micStatus.className = 'mic-status';
+				micStatus.innerHTML = '';
+			}
+			function showMicStatus(kind, title, body, retry) {
+				micStatus.className = `mic-status ${kind}`;
+				micStatus.innerHTML = `<span><strong>${title}</strong> ${body}</span>`;
+				if (retry) {
+					const btn = document.createElement('button');
+					btn.type = 'button';
+					btn.className = 'retry';
+					btn.textContent = 'Try again';
+					btn.addEventListener('click', () => $('start').click());
+					micStatus.appendChild(btn);
+				}
+				micStatus.hidden = false;
+			}
+
 			// ── Mic wiring ─────────────────────────────────────────────────
 			$('start').addEventListener('click', async () => {
+				clearMicStatus();
+				// No mic API at all (insecure origin / unsupported browser).
+				if (!navigator.mediaDevices?.getUserMedia) {
+					showMicStatus(
+						'error',
+						'Microphone not available.',
+						'Your browser blocks mic capture here — this demo needs a secure (https) context and a browser with Web Audio support.',
+						false,
+					);
+					return;
+				}
+				$('start').disabled = true;
 				try {
 					stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 					const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -213,14 +273,50 @@
 					analyser = new LipSyncAnalyser();
 					analyser.connect(an);
 
-					$('start').disabled = true;
 					$('stop').disabled = false;
 				} catch (err) {
-					alert('mic access failed: ' + err.message);
+					$('start').disabled = false;
+					// Map the DOMException to a designed, actionable state.
+					switch (err?.name) {
+						case 'NotAllowedError':
+						case 'SecurityError':
+							showMicStatus(
+								'error',
+								'Microphone blocked.',
+								'Access was denied. Click the mic icon in your browser’s address bar, allow access for three.ws, then try again.',
+								true,
+							);
+							break;
+						case 'NotFoundError':
+						case 'OverconstrainedError':
+							showMicStatus(
+								'error',
+								'No microphone found.',
+								'Connect a microphone or check your system input settings, then try again.',
+								true,
+							);
+							break;
+						case 'NotReadableError':
+							showMicStatus(
+								'error',
+								'Microphone is busy.',
+								'Another app is using your mic. Close it (e.g. a call or recorder) and try again.',
+								true,
+							);
+							break;
+						default:
+							showMicStatus(
+								'error',
+								'Couldn’t start the microphone.',
+								err?.message || 'An unexpected error occurred. Try again.',
+								true,
+							);
+					}
 				}
 			});
 
 			$('stop').addEventListener('click', () => {
+				clearMicStatus();
 				if (analyser) { analyser.disconnect(); analyser = null; }
 				if (stream) { stream.getTracks().forEach((t) => t.stop()); stream = null; }
 				$('start').disabled = false;

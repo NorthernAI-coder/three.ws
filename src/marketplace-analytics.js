@@ -107,8 +107,13 @@ async function load() {
 	const errorEl = document.getElementById('an-error');
 	const canvas = document.getElementById('volume-chart');
 
-	const res = await fetch('/api/marketplace/analytics');
-	if (!res.ok) {
+	let res;
+	try {
+		res = await fetch('/api/marketplace/analytics');
+	} catch {
+		res = null;
+	}
+	if (!res || !res.ok) {
 		errorEl.textContent = 'Failed to load analytics. Please refresh.';
 		errorEl.hidden = false;
 		statsGrid.innerHTML = '';
@@ -179,4 +184,14 @@ async function load() {
 	}
 }
 
-load();
+load().catch(() => {
+	const errorEl = document.getElementById('an-error');
+	if (errorEl) {
+		errorEl.textContent = 'Failed to load analytics. Please refresh.';
+		errorEl.hidden = false;
+	}
+	['stats-grid', 'top-skills-list', 'top-agents-list'].forEach((id) => {
+		const el = document.getElementById(id);
+		if (el) el.innerHTML = '';
+	});
+});

@@ -31,6 +31,14 @@ export default wrap(async (req, res) => {
 		return error(res, 400, 'bad_request', 'chain must be solana or evm');
 	}
 	if (!sig) return error(res, 400, 'bad_request', 'sig required');
+	// Validate the signature shape before forwarding to a keyed upstream so a
+	// malformed value is rejected here, not bounced through Helius/Alchemy.
+	if (chain === 'solana' && !/^[1-9A-HJ-NP-Za-km-z]{64,96}$/.test(sig)) {
+		return error(res, 400, 'bad_request', 'sig must be a base58 transaction signature');
+	}
+	if (chain === 'evm' && !/^0x[0-9a-fA-F]{64}$/.test(sig)) {
+		return error(res, 400, 'bad_request', 'sig must be a 0x-prefixed 32-byte tx hash');
+	}
 
 	let txData;
 
@@ -44,8 +52,8 @@ export default wrap(async (req, res) => {
 			},
 		);
 		if (!resp.ok) {
-			const txt = await resp.text();
-			return error(res, 502, 'upstream_error', `Helius error ${resp.status}: ${txt}`);
+			console.error('[tx/explain] Helius error', resp.status, await resp.text().catch(() => ''));
+			return error(res, 502, 'upstream_error', 'transaction lookup failed upstream');
 		}
 		const data = await resp.json();
 		if (!Array.isArray(data) || data.length === 0) {
@@ -80,7 +88,8 @@ export default wrap(async (req, res) => {
 		const [txJson, receiptJson] = await Promise.all([txResp.json(), receiptResp.json()]);
 
 		if (txJson.error) {
-			return error(res, 502, 'upstream_error', txJson.error.message || 'RPC error');
+			console.error('[tx/explain] Alchemy RPC error', txJson.error?.message);
+			return error(res, 502, 'upstream_error', 'transaction lookup failed upstream');
 		}
 		if (!txJson.result) {
 			return error(res, 404, 'not_found', 'Transaction not found');

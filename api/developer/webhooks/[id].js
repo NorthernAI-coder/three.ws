@@ -4,6 +4,7 @@
 
 import { cors, error, json, method, readJson, wrap } from '../../_lib/http.js';
 import { getSessionUser } from '../../_lib/auth.js';
+import { requireCsrf } from '../../_lib/csrf.js';
 import { sql } from '../../_lib/db.js';
 import { EVENT_TYPES } from '../../_lib/webhook-dispatch.js';
 import { assertPublicHttpsUrl } from '../../_lib/ssrf.js';
@@ -39,6 +40,8 @@ export default wrap(async function handler(req, res) {
 	}
 
 	if (req.method === 'PATCH') {
+		if (!(await requireCsrf(req, res, user.id))) return;
+
 		let body;
 		try {
 			body = await readJson(req, 5000);
@@ -100,6 +103,8 @@ export default wrap(async function handler(req, res) {
 	}
 
 	if (req.method === 'DELETE') {
+		if (!(await requireCsrf(req, res, user.id))) return;
+
 		await sql`delete from developer_webhooks where id = ${id} and user_id = ${user.id}`;
 		return json(res, 200, { deleted: true });
 	}

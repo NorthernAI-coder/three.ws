@@ -109,13 +109,10 @@ async function serveLiveCohorts(req, res, { mint, agentToken }) {
 	try {
 		set = await liveHolderSet({ mint, network });
 	} catch (e) {
-		// Helius unconfigured / RPC blip — typed, not a 500.
-		return error(
-			res,
-			503,
-			'holders_unavailable',
-			e?.message || 'holder data is temporarily unavailable',
-		);
+		// Helius unconfigured / RPC blip — typed, not a 500. Never echo e.message:
+		// web3.js/Helius errors embed the keyed RPC URL (…helius-rpc.com/?api-key=…).
+		console.error('[coin/cohorts] live holder set failed', e?.message);
+		return error(res, 503, 'holders_unavailable', 'holder data is temporarily unavailable');
 	}
 
 	// ── Overview: definitions + counts + concentration (public) ──────────────

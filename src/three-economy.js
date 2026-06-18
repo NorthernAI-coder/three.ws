@@ -897,8 +897,8 @@ function shell() {
 				<div class="hs-lbl">returned to holders &amp; counting · 0 burned</div>
 			</div>
 			<div class="ec-cta">
-				<a class="ec-btn primary" href="/three-token">Get $THREE</a>
-				<a class="ec-btn" href="#tiers">See holder tiers</a>
+				<a class="ec-btn primary" href="/three-token" aria-label="Get $THREE — open the token page to buy">Get $THREE</a>
+				<a class="ec-btn" href="#tiers" aria-label="Jump to the holder tiers section below">See holder tiers</a>
 			</div>
 		</header>
 
@@ -1197,47 +1197,89 @@ async function load(root) {
 		.catch(() => {});
 
 	// Stats drive the flow viz, the stat band, on-chain wallets, reflections + projector.
-	getJSON(`${API}/stats`)
-		.then((s) => {
-			const band = document.getElementById('ec-stats');
-			if (band) {
-				band.innerHTML = statCards(s)
-					.map(
-						(c) =>
-							`<div class="ec-stat" style="--accent:${c.accent}"><div class="v" style="--accent:${c.accent}"><span data-roll>0</span>${c.sym ? '<span class="sym">$THREE</span>' : ''}</div><div class="k">${esc(c.k)}</div></div>`,
-					)
-					.join('');
-				const cards = statCards(s);
-				band.querySelectorAll('[data-roll]').forEach((el, i) => {
-					rollup(el, cards[i].v, cards[i].sym ? fmtCompact : (n) => Math.round(n).toLocaleString('en-US'));
-				});
-			}
-			// Hero north-star metric: total $THREE returned to holders.
-			const heroEl = document.querySelector('#ec-hero-stat [data-roll]');
-			if (heroEl) {
-				const dec = s?.token?.decimals ?? 6;
-				rollup(heroEl, atomicsToTokens(s?.reflected?.total_atomics ?? '0', dec), fmtCompact, 1400);
-			}
-			const oc = document.getElementById('ec-onchain');
-			if (oc) oc.innerHTML = onchainHTML(s);
-			const rf = document.getElementById('ec-reflected');
-			if (rf) {
-				rf.innerHTML = reflectedHTML(s);
-				wireProjector(s);
-			}
-			// Trust stamp: when the data is from and where it comes from.
-			const stamp = document.getElementById('ec-stamp');
-			if (stamp) {
-				const when = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-				stamp.textContent = `Updated ${when} · source: Solana RPC + settle ledger`;
-			}
-			if (window._ecFlow) window._ecFlow.seed(s);
-		})
-		.catch(() => {
-			setErr('ec-stats', 'Economy stats are temporarily unavailable.');
-			setErr('ec-onchain', 'On-chain data is temporarily unavailable.');
-			setErr('ec-reflected', 'Reflection history is temporarily unavailable.');
-		});
+	// Wrapped so a failed first load renders a designed "live figures unavailable" notice
+	// with a working Retry — never a silent page stuck on "—" placeholders.
+	function renderStats(s) {
+		const band = document.getElementById('ec-stats');
+		if (band) {
+			band.innerHTML = statCards(s)
+				.map(
+					(c) =>
+						`<div class="ec-stat" style="--accent:${c.accent}"><div class="v" style="--accent:${c.accent}"><span data-roll>0</span>${c.sym ? '<span class="sym">$THREE</span>' : ''}</div><div class="k">${esc(c.k)}</div></div>`,
+				)
+				.join('');
+			const cards = statCards(s);
+			band.querySelectorAll('[data-roll]').forEach((el, i) => {
+				rollup(el, cards[i].v, cards[i].sym ? fmtCompact : (n) => Math.round(n).toLocaleString('en-US'));
+			});
+		}
+		// Hero north-star metric: total $THREE returned to holders.
+		const heroEl = document.querySelector('#ec-hero-stat [data-roll]');
+		if (heroEl) {
+			const dec = s?.token?.decimals ?? 6;
+			rollup(heroEl, atomicsToTokens(s?.reflected?.total_atomics ?? '0', dec), fmtCompact, 1400);
+		}
+		const oc = document.getElementById('ec-onchain');
+		if (oc) oc.innerHTML = onchainHTML(s);
+		const rf = document.getElementById('ec-reflected');
+		if (rf) {
+			rf.innerHTML = reflectedHTML(s);
+			wireProjector(s);
+		}
+		// Trust stamp: when the data is from and where it comes from.
+		const stamp = document.getElementById('ec-stamp');
+		if (stamp) {
+			const when = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+			stamp.textContent = `Updated ${when} · source: Solana RPC + settle ledger`;
+		}
+		if (window._ecFlow) window._ecFlow.seed(s);
+	}
+
+	function renderStatsError() {
+		// One honest, recoverable notice across the stats band, on-chain wallets and
+		// reflection sections — plus the hero stat + stamp, which would otherwise sit
+		// silently on their "0"/"Loading…" placeholders forever.
+		const band = document.getElementById('ec-stats');
+		if (band) {
+			band.innerHTML = `<div class="ec-err" style="grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap">
+				<span>Live figures are temporarily unavailable. The economy is unchanged — this is a read hiccup.</span>
+				<button class="ec-btn" id="ec-stats-retry" type="button" aria-label="Retry loading live economy figures">Retry</button>
+			</div>`;
+		}
+		const heroStat = document.getElementById('ec-hero-stat');
+		if (heroStat) {
+			const num = heroStat.querySelector('[data-roll]');
+			if (num) num.textContent = '—';
+			const lbl = heroStat.querySelector('.hs-lbl');
+			if (lbl) lbl.textContent = 'live total unavailable — retrying';
+		}
+		const stamp = document.getElementById('ec-stamp');
+		if (stamp) stamp.textContent = 'Live figures unavailable — couldn\'t reach Solana RPC + settle ledger.';
+		setErr('ec-onchain', 'On-chain data is temporarily unavailable.');
+		setErr('ec-reflected', 'Reflection history is temporarily unavailable.');
+		const retry = document.getElementById('ec-stats-retry');
+		if (retry) {
+			retry.addEventListener('click', () => {
+				retry.disabled = true;
+				retry.textContent = 'Retrying…';
+				// Restore skeletons so the retry reads as a real reload, not a frozen error.
+				const b = document.getElementById('ec-stats');
+				if (b) b.innerHTML = '<div class="ec-stat ec-skel" style="height:96px"></div>'.repeat(5);
+				const oc = document.getElementById('ec-onchain');
+				if (oc) oc.innerHTML = '<div class="ec-wallets">' + '<div class="ec-wallet ec-skel" style="height:108px"></div>'.repeat(2) + '</div>';
+				const rf = document.getElementById('ec-reflected');
+				if (rf) rf.innerHTML = '<div class="ec-card ec-skel" style="height:200px"></div><div class="ec-card ec-skel" style="height:200px"></div>';
+				const stamp2 = document.getElementById('ec-stamp');
+				if (stamp2) stamp2.textContent = 'Loading live figures…';
+				loadStats();
+			});
+		}
+	}
+
+	function loadStats() {
+		return getJSON(`${API}/stats`).then(renderStats).catch(renderStatsError);
+	}
+	loadStats();
 
 	getJSON(`${API}/catalog`)
 		.then((c) => {

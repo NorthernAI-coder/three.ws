@@ -16,7 +16,6 @@ import { sql } from './_lib/db.js';
 import { cors, method, wrap } from './_lib/http.js';
 import { CHAIN_BY_ID, tokenExplorerUrl, addressExplorerUrl } from './_lib/erc8004-chains.js';
 import { publicUrl } from './_lib/r2.js';
-import { DEMO_AVATARS } from './_lib/demo-avatars.js';
 import { env } from './_lib/env.js';
 
 export default wrap(async (req, res) => {
@@ -117,57 +116,51 @@ export default wrap(async (req, res) => {
 	} else if (kind === 'avatar') {
 		if (!id) return sendShell(res, origin, null, null, null);
 
-		// Demo avatar
-		const demo = DEMO_AVATARS.find((a) => String(a.avatarId) === String(id));
-		if (demo) {
-			item = demo;
-		} else {
-			const rows = await sql`
-				SELECT a.id, a.slug, a.name, a.description, a.storage_key, a.thumbnail_key,
-				       a.tags, a.created_at, a.source,
-				       coalesce(a.featured, false) AS featured,
-				       coalesce(a.view_count, 0)   AS view_count,
-				       u.username        AS owner_username,
-				       u.display_name    AS owner_display_name,
-				       u.wallet_address  AS owner_wallet
-				FROM avatars a
-				LEFT JOIN users u ON u.id = a.owner_id AND u.deleted_at IS NULL
-				WHERE a.deleted_at IS NULL AND a.visibility = 'public' AND a.id = ${id}
-				LIMIT 1
-			`.catch(() => []);
+		const rows = await sql`
+			SELECT a.id, a.slug, a.name, a.description, a.storage_key, a.thumbnail_key,
+			       a.tags, a.created_at, a.source,
+			       coalesce(a.featured, false) AS featured,
+			       coalesce(a.view_count, 0)   AS view_count,
+			       u.username        AS owner_username,
+			       u.display_name    AS owner_display_name,
+			       u.wallet_address  AS owner_wallet
+			FROM avatars a
+			LEFT JOIN users u ON u.id = a.owner_id AND u.deleted_at IS NULL
+			WHERE a.deleted_at IS NULL AND a.visibility = 'public' AND a.id = ${id}
+			LIMIT 1
+		`.catch(() => []);
 
-			if (rows.length) {
-				const r = rows[0];
-				const glb = publicUrl(r.storage_key);
-				const handle = r.owner_username
-					? `@${r.owner_username}`
-					: r.owner_wallet
-						? shortAddr(r.owner_wallet)
-						: null;
-				item = {
-					kind: 'avatar',
-					avatarId: r.id,
-					slug: r.slug,
-					name: r.name,
-					description: r.description || '',
-					image: r.thumbnail_key ? publicUrl(r.thumbnail_key) : null,
-					glbUrl: glb,
-					has3d: true,
-					tags: r.tags || [],
-					source: r.source || null,
-					featured: r.featured === true || r.featured === 't',
-					viewCount: Number(r.view_count) || 0,
-					createdAt: r.created_at,
-					viewerUrl: `/app#model=${encodeURIComponent(glb)}`,
-					author: handle
-						? {
-							handle,
-							displayName: r.owner_display_name || r.owner_username || handle,
-							profileUrl: r.owner_username ? `/u/${r.owner_username}` : null,
-						}
-						: null,
-				};
-			}
+		if (rows.length) {
+			const r = rows[0];
+			const glb = publicUrl(r.storage_key);
+			const handle = r.owner_username
+				? `@${r.owner_username}`
+				: r.owner_wallet
+					? shortAddr(r.owner_wallet)
+					: null;
+			item = {
+				kind: 'avatar',
+				avatarId: r.id,
+				slug: r.slug,
+				name: r.name,
+				description: r.description || '',
+				image: r.thumbnail_key ? publicUrl(r.thumbnail_key) : null,
+				glbUrl: glb,
+				has3d: true,
+				tags: r.tags || [],
+				source: r.source || null,
+				featured: r.featured === true || r.featured === 't',
+				viewCount: Number(r.view_count) || 0,
+				createdAt: r.created_at,
+				viewerUrl: `/app#model=${encodeURIComponent(glb)}`,
+				author: handle
+					? {
+						handle,
+						displayName: r.owner_display_name || r.owner_username || handle,
+						profileUrl: r.owner_username ? `/u/${r.owner_username}` : null,
+					}
+					: null,
+			};
 		}
 
 		if (item) {

@@ -11,7 +11,6 @@ import { cors, json, method, wrap, error, rateLimited } from './_lib/http.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 import { CHAIN_BY_ID, tokenExplorerUrl, addressExplorerUrl } from './_lib/erc8004-chains.js';
 import { publicUrl } from './_lib/r2.js';
-import { DEMO_AVATARS } from './_lib/demo-avatars.js';
 
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'GET,OPTIONS', origins: '*' })) return;
@@ -75,10 +74,6 @@ export default wrap(async (req, res) => {
 	}
 
 	if (kind === 'avatar') {
-		// Check demo avatars first (no DB entry)
-		const demo = DEMO_AVATARS.find((a) => String(a.avatarId) === String(id));
-		if (demo) return json(res, 200, { item: demo });
-
 		const rows = await sql`
 			SELECT a.id, a.slug, a.name, a.description, a.storage_key, a.thumbnail_key,
 			       a.tags, a.created_at, a.source,

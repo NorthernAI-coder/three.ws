@@ -21,6 +21,22 @@ function formatUsd(n) {
 	return '$' + Number(n).toFixed(2);
 }
 
+function escHtml(s) {
+	return String(s ?? '')
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+		.replace(/"/g, '&quot;')
+		.replace(/'/g, '&#39;');
+}
+
+// Only allow http(s) image URLs; anything else (javascript:, data:, etc.) is
+// dropped so a hostile image_url can't smuggle script into the src attribute.
+function safeUrl(u) {
+	const s = String(u ?? '').trim();
+	return /^https?:\/\//i.test(s) ? escHtml(s) : '';
+}
+
 function avatarPlaceholder(name) {
 	const letter = (name || '?')[0].toUpperCase();
 	const hue = [...(name || 'X')].reduce((acc, c) => acc + c.charCodeAt(0), 0) % 360;
@@ -29,14 +45,16 @@ function avatarPlaceholder(name) {
 
 function cardHtml(ch) {
 	const { letter, color } = avatarPlaceholder(ch.name);
-	const avatarEl = ch.image_url
-		? `<img class="chs-card-avatar" src="${ch.image_url}" alt="${ch.name}"
+	const name = escHtml(ch.name);
+	const imgSrc = safeUrl(ch.image_url);
+	const avatarEl = imgSrc
+		? `<img class="chs-card-avatar" src="${imgSrc}" alt="${name}"
 		        onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"  />
 		   <div class="chs-card-avatar-ph" style="display:none;background:${color}">${letter}</div>`
 		: `<div class="chs-card-avatar-ph" style="background:${color}">${letter}</div>`;
 
 	const creator = ch.author_name
-		? `<div class="chs-card-creator">by @${ch.author_name.toLowerCase().replace(/\s+/g, '')}</div>`
+		? `<div class="chs-card-creator">by @${escHtml(ch.author_name.toLowerCase().replace(/\s+/g, ''))}</div>`
 		: '';
 
 	let tokenHtml = '';
@@ -49,7 +67,7 @@ function cardHtml(ch) {
 		tokenHtml = `
 			<div class="chs-card-token">
 				<div class="chs-card-token-left">
-					<span class="chs-card-token-symbol">$${ch.token.symbol}</span>
+					<span class="chs-card-token-symbol">$${escHtml(ch.token.symbol)}</span>
 					${price ? `<span class="chs-card-token-price">${price}</span>` : ''}
 				</div>
 				${changeEl}
@@ -67,15 +85,15 @@ function cardHtml(ch) {
 		</div>`;
 
 	return `
-		<a class="chs-card" href="/character/${ch.id}">
+		<a class="chs-card" href="/character/${encodeURIComponent(ch.id)}">
 			<div class="chs-card-top">
 				${avatarEl}
 				<div class="chs-card-info">
-					<div class="chs-card-name">${ch.name}</div>
+					<div class="chs-card-name">${name}</div>
 					${creator}
 				</div>
 			</div>
-			${ch.description ? `<p class="chs-card-desc">${ch.description}</p>` : ''}
+			${ch.description ? `<p class="chs-card-desc">${escHtml(ch.description)}</p>` : ''}
 			${statsHtml}
 			${tokenHtml}
 		</a>`;

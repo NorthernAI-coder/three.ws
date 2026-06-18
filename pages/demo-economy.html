@@ -63,6 +63,15 @@
 		.brand .sep { color: var(--muted); }
 		.brand .page { color: var(--muted); font-size: 13px; }
 		.pills { display: flex; gap: 7px; }
+		.topnav { display: flex; gap: 4px; margin-left: 14px; }
+		.topnav a {
+			color: var(--muted); text-decoration: none; font-size: 12px; font-weight: 600;
+			padding: 5px 10px; border-radius: 7px; border: 1px solid transparent;
+			transition: color .15s, border-color .15s, background .15s;
+		}
+		.topnav a:hover { color: var(--text); border-color: var(--border); background: rgba(255,255,255,0.04); }
+		.topnav a:focus-visible { outline: 2px solid var(--nova); outline-offset: 2px; }
+		@media (max-width: 680px) { .topnav { display: none; } }
 		.pill {
 			display: inline-flex; align-items: center; gap: 6px;
 			padding: 4px 11px; border-radius: 99px; font-size: 11px; font-weight: 700;
@@ -159,9 +168,34 @@
 			letter-spacing: 0.04em; border: 1px solid var(--border); color: var(--muted);
 		}
 
+		/* Mobile sheet toggle — hidden on desktop */
+		#sheet-toggle {
+			display: none;
+			margin-left: 8px;
+			padding: 7px 12px; border-radius: 8px;
+			background: transparent; color: var(--text);
+			border: 1px solid var(--border);
+			font: 600 12px -apple-system,system-ui,sans-serif; cursor: pointer;
+			transition: background .15s, border-color .15s;
+		}
+		#sheet-toggle:hover { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.18); }
+		#sheet-toggle:focus-visible { outline: 2px solid var(--nova); outline-offset: 2px; }
+
 		@media (max-width: 680px) {
 			#root { grid-template-columns: 1fr; grid-template-areas: "top" "canvas" "bot"; }
-			#sidebar { display: none; }
+			/* The payment proof is the point of the demo — keep it reachable on
+			   mobile as a slide-up sheet instead of hiding it outright. */
+			#sidebar {
+				position: fixed; left: 0; right: 0; bottom: 44px; z-index: 20;
+				max-height: 64vh;
+				transform: translateY(calc(100% + 44px));
+				transition: transform .28s cubic-bezier(.2,.7,.2,1);
+				border-left: none; border-top: 1px solid var(--border);
+				border-radius: 14px 14px 0 0;
+				box-shadow: 0 -14px 34px rgba(0,0,0,0.55);
+			}
+			#sidebar.open { transform: translateY(0); }
+			#sheet-toggle { display: inline-flex; align-items: center; }
 		}
 	</style>
 
@@ -180,6 +214,11 @@
 			<span class="pill nova"><span class="dot"></span>NOVA · payer</span>
 			<span class="pill oracle"><span class="dot"></span>ORACLE · provider</span>
 		</div>
+		<nav class="topnav">
+			<a href="/agents">Agents</a>
+			<a href="/launches">Launches</a>
+		</nav>
+		<button id="sheet-toggle" type="button" aria-label="Show payment details" aria-expanded="false">Details</button>
 		<button id="run-btn" type="button"><span id="run-label">Run demo</span></button>
 	</header>
 
@@ -224,7 +263,7 @@
 	<footer id="botbar">
 		<span id="status">Ready — click Run demo</span>
 		<span style="color:var(--muted)">·</span>
-		<span style="color:var(--muted)">Real Solana infrastructure · x402 protocol · live bazaar</span>
+		<span id="botline" style="color:var(--muted)">Real Solana infrastructure · x402 protocol</span>
 		<div class="chips">
 			<span class="chip">x402</span>
 			<span class="chip">Solana</span>
@@ -243,6 +282,17 @@ const runLabel = document.getElementById('run-label');
 const stepsEl = document.getElementById('steps');
 const stepsWrap = document.getElementById('steps-wrap');
 const statusEl = document.getElementById('status');
+const botLineEl = document.getElementById('botline');
+
+// Reflect the actual run mode in the bottom bar instead of always claiming a
+// live on-chain bazaar/transfer. Anonymous visitors run the simulated path.
+let bazaarOk = true;
+function updateBotLine(simulated) {
+	const bazaar = bazaarOk ? ' · live x402 bazaar' : ' · bazaar offline';
+	botLineEl.textContent = simulated
+		? 'Simulated payment — sign in to run a live on-chain transfer' + bazaar
+		: 'Live on-chain transfer · Solana mainnet' + bazaar;
+}
 
 // ── Scene init ─────────────────────────────────────────────────────────────
 let world = null;
@@ -286,6 +336,8 @@ function runDemo() {
 	runLabel.textContent = 'Running…';
 	stepsEl.innerHTML = '';
 	statusEl.textContent = 'Starting demo…';
+	bazaarOk = true;
+	botLineEl.textContent = 'Real Solana infrastructure · x402 protocol';
 
 	// Reset
 	document.getElementById('pay-card').classList.remove('show');
@@ -337,7 +389,8 @@ function runDemo() {
 
 	es.addEventListener('bazaar', e => {
 		const d = JSON.parse(e.data);
-		world?.tv?.setServices(d.services);
+		world?.tv?.setServices(d);
+		bazaarOk = d.bazaarAvailable !== false;
 	});
 
 	es.addEventListener('wallet', e => {
@@ -351,14 +404,16 @@ function runDemo() {
 		document.getElementById('pay-empty').style.display = 'none';
 		document.getElementById('pay-card').classList.add('show');
 		document.getElementById('py-amt').textContent =
-			d.amount_sol + ' SOL' + (d.amount_usd ? ' (' + d.amount_usd + ')' : '');
+			(d.amount_sol ? d.amount_sol + ' SOL' : '—') + (d.amount_usd ? ' (' + d.amount_usd + ')' : '');
 		if (d.simulated) document.getElementById('py-sim-row').style.display = '';
 		const sigEl = document.getElementById('py-sig');
-		if (d.simulated) {
-			sigEl.innerHTML = `<span style="color:var(--muted)">${esc(d.signature.slice(0,16))}…</span>`;
-		} else {
+		if (d.signature) {
 			sigEl.innerHTML = `<a href="${esc(d.explorer_url)}" target="_blank" rel="noopener">${esc(d.signature.slice(0,12))}… ↗</a>`;
+		} else {
+			sigEl.innerHTML = `<span style="color:var(--muted)">no on-chain tx — simulated</span>`;
 		}
+		updateBotLine(d.simulated);
+		openSheetOnMobile();
 	});
 
 	es.addEventListener('content', e => {
@@ -382,6 +437,19 @@ function runDemo() {
 }
 
 runBtn.addEventListener('click', runDemo);
+
+// Mobile sheet — surface the payment proof instead of hiding it on small screens.
+const sheetToggle = document.getElementById('sheet-toggle');
+const sidebarEl = document.getElementById('sidebar');
+function setSheet(open) {
+	sidebarEl.classList.toggle('open', open);
+	sheetToggle.setAttribute('aria-expanded', String(open));
+	sheetToggle.textContent = open ? 'Hide' : 'Details';
+}
+sheetToggle.addEventListener('click', () => setSheet(!sidebarEl.classList.contains('open')));
+function openSheetOnMobile() {
+	if (window.matchMedia('(max-width: 680px)').matches) setSheet(true);
+}
 </script>
 </body>
 </html>

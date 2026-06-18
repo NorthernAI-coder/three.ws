@@ -63,48 +63,39 @@ async function fetchMarketBriefing() {
 	}
 }
 
+// The service NOVA actually buys from ORACLE: three.ws's own live Solana market
+// briefing, delivered by fetchMarketBriefing() below. This is the real product
+// the demo transacts — not a fabricated listing — so it is always present.
+const THREEWS_BRIEFING_SERVICE = {
+	name: 'Solana market briefing (live)',
+	resource: 'https://three.ws/api/demo-economy',
+	price: '0.001 SOL',
+	network: 'solana',
+};
+
 // ── Bazaar service discovery ─────────────────────────────────────────────────
+// Returns the real three.ws briefing service (always) plus any live listings
+// pulled from the Coinbase x402 bazaar. If the bazaar is unreachable we say so
+// honestly via bazaarAvailable:false — we never invent competitor listings.
 async function discoverServices() {
 	try {
 		const bazaar = new Bazaar();
 		const { resources } = await bazaar.search({ query: 'crypto market data', maxItems: 20 });
-		const top = resources.slice(0, 4).map((r) => ({
-			name: r.description?.slice(0, 60) || r.resource?.split('/').pop() || 'Service',
-			resource: r.resource,
-			price: r.formattedPrice || r.price || '—',
-			network: r.network || 'base',
-		}));
-		if (top.length) return top;
+		const listings = (resources || [])
+			.map((r) => ({
+				name: r.description?.slice(0, 60) || r.resource?.split('/').pop() || 'Service',
+				resource: r.resource,
+				price: r.formattedPrice || r.price || '—',
+				network: r.network || 'base',
+			}))
+			.filter((s) => s.resource && s.resource !== THREEWS_BRIEFING_SERVICE.resource)
+			.slice(0, 3);
+		return { services: [THREEWS_BRIEFING_SERVICE, ...listings], bazaarAvailable: true };
 	} catch {
-		/* fall through to demo data */
+		// Live bazaar unreachable — degrade to an explicit "unavailable" signal.
+		// The demo still transacts the real three.ws briefing service.
+		return { services: [THREEWS_BRIEFING_SERVICE], bazaarAvailable: false };
 	}
-	// Demo services (shown when bazaar is unreachable)
-	return [
-		{
-			name: 'Solana market briefing (live)',
-			resource: 'https://three.ws/api/demo-economy',
-			price: '0.001 SOL',
-			network: 'solana',
-		},
-		{
-			name: 'Token price oracle',
-			resource: 'https://three.ws/api/agents/x402/price',
-			price: '0.50 USDC',
-			network: 'base',
-		},
-		{
-			name: 'On-chain sentiment feed',
-			resource: 'https://three.ws/api/sentiment',
-			price: '0.25 USDC',
-			network: 'base',
-		},
-		{
-			name: 'Pump.fun trending coins',
-			resource: 'https://three.ws/api/pump/trending',
-			price: '0.10 USDC',
-			network: 'solana',
-		},
-	];
 }
 
 // ── SSE helpers ───────────────────────────────────────────────────────────────
@@ -151,6 +142,7 @@ export default wrap(async (req, res) => {
 	res.flushHeaders?.();
 
 	const pace = 900; // ms between narration beats
+	const DEMO_LAMPORTS = 1000; // 0.000001 SOL — ~$0.0002, trivially cheap
 
 	try {
 		// ── Step 1: Agents ready ─────────────────────────────────────────────
@@ -163,17 +155,18 @@ export default wrap(async (req, res) => {
 		await sleep(pace);
 
 		// ── Step 2: Browse x402 bazaar ───────────────────────────────────────
+		const { services, bazaarAvailable } = await discoverServices();
 		sseWrite(res, 'step', {
 			id: 'browsing_bazaar',
 			label: 'Browsing x402 bazaar',
-			detail: 'NOVA is discovering available services on the Coinbase x402 network',
+			detail: bazaarAvailable
+				? 'NOVA is discovering available services on the Coinbase x402 network'
+				: 'Live bazaar unavailable — NOVA falls back to the three.ws briefing service',
 			icon: '🔍',
 		});
-
-		const services = await discoverServices();
 		await sleep(pace * 0.7);
 
-		sseWrite(res, 'bazaar', { services });
+		sseWrite(res, 'bazaar', { services, bazaarAvailable });
 		await sleep(pace);
 
 		// ── Step 3: Service selected ─────────────────────────────────────────
@@ -226,7 +219,6 @@ export default wrap(async (req, res) => {
 					const connection = getConnection(cfg.rpcUrl);
 					const keypair = loadAvatarKeypair(process.env.AVATAR_WALLET_SECRET);
 					const sender = keypair.publicKey.toBase58();
-					const DEMO_LAMPORTS = 1000; // 0.000001 SOL — ~$0.0002, trivially cheap
 					const { lamports: balBefore } = await getSolBalance(
 						connection,
 						keypair.publicKey,
@@ -272,12 +264,15 @@ export default wrap(async (req, res) => {
 
 		if (sim) {
 			// Explicit simulation: no fabricated signature, explorer link, addresses,
-			// or balances. The client renders this as "simulated / not configured".
+			// or balances. We do surface the intended transfer amount (a real
+			// constant, not invented tx data) so the panel isn't blank.
 			payment = {
 				simulated: true,
 				reason: simReason,
 				signature: null,
 				explorer_url: null,
+				amount_sol: (DEMO_LAMPORTS / 1e9).toFixed(6),
+				amount_usd: '~$0.0002',
 			};
 			sseWrite(res, 'wallet', {
 				configured: false,

@@ -54,6 +54,17 @@
 			* {
 				box-sizing: border-box;
 			}
+			.sr-only {
+				position: absolute;
+				width: 1px;
+				height: 1px;
+				padding: 0;
+				margin: -1px;
+				overflow: hidden;
+				clip: rect(0, 0, 0, 0);
+				white-space: nowrap;
+				border: 0;
+			}
 			html,
 			body {
 				margin: 0;
@@ -92,6 +103,18 @@
 				.wrap-1280 {
 					padding-left: 20px;
 					padding-right: 20px;
+				}
+			}
+			@media (max-width: 480px) {
+				.wrap-1280 {
+					padding-left: 14px;
+					padding-right: 14px;
+				}
+				.form-card {
+					padding: 20px 16px;
+				}
+				.hero {
+					padding: 56px 0 40px;
 				}
 			}
 
@@ -925,9 +948,18 @@
 						maxlength="1000"
 					></textarea>
 
-					<div>
-						<div class="form-label" style="margin-top: 20px">Strictness</div>
-						<div class="strictness-row">
+					<fieldset
+						style="border: 0; padding: 0; margin: 0; min-width: 0"
+						aria-describedby="strictness-help"
+					>
+						<legend class="form-label" style="margin-top: 20px; float: none">
+							Strictness
+						</legend>
+						<span id="strictness-help" class="sr-only">
+							How demanding the verdict should be: Low accepts weaker evidence, High
+							requires strong corroboration.
+						</span>
+						<div class="strictness-row" role="radiogroup" aria-label="Strictness">
 							<div class="strictness-option">
 								<input type="radio" id="s-low" name="strictness" value="low" />
 								<label for="s-low">Low</label>
@@ -947,12 +979,27 @@
 								<label for="s-high">High</label>
 							</div>
 						</div>
-					</div>
+					</fieldset>
 
 					<div class="form-actions">
-						<button id="check-btn" class="btn primary">Check This Fact</button>
-						<div id="loading-status" class="loading-status">Searching sources...</div>
-						<span id="char-counter" class="char-counter">0 / 1000</span>
+						<button id="check-btn" class="btn primary" aria-busy="false">
+							Check This Fact
+						</button>
+						<div
+							id="loading-status"
+							class="loading-status"
+							role="status"
+							aria-live="polite"
+						>
+							Searching sources...
+						</div>
+						<span
+							id="char-counter"
+							class="char-counter"
+							aria-live="polite"
+							aria-label="Characters used"
+							>0 / 1000</span
+						>
 					</div>
 				</div>
 
@@ -1038,7 +1085,7 @@
 				</div>
 
 				<!-- Error -->
-				<div id="error-panel" class="error-panel">
+				<div id="error-panel" class="error-panel" role="alert" aria-live="assertive">
 					<div class="error-card">
 						<div class="error-title">Something went wrong</div>
 						<div class="error-msg" id="error-msg">An unexpected error occurred.</div>
@@ -1050,7 +1097,13 @@
 				</div>
 
 				<!-- Result panel -->
-				<div id="result-panel" class="result-panel">
+				<div
+					id="result-panel"
+					class="result-panel"
+					role="region"
+					aria-label="Fact-check result"
+					aria-live="polite"
+				>
 					<!-- Verdict -->
 					<div id="verdict-banner" class="verdict-banner">
 						<span id="verdict-label" class="verdict-label"></span>

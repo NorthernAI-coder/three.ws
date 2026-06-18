@@ -216,7 +216,7 @@
 		<!-- Live trade ticker -->
 		<aside class="pl-overlay pl-ticker" id="pl-ticker">
 			<div class="head">Live trades <span class="live">live</span></div>
-			<ol id="pl-ticker-list">
+			<ol id="pl-ticker-list" role="list">
 				<li class="empty" id="pl-ticker-empty">Live trades will appear here.</li>
 			</ol>
 		</aside>
@@ -555,6 +555,11 @@
 				const d = await r.json();
 				const tk = d.token || {}; const pr = d.protocol || {};
 				statsFailures = 0;
+				// Recover from a prior stats-error badge once figures load again. Don't stomp
+				// the live/quiet badge the trade stream owns — only clear the error state.
+				if (heroEl.dataset.state === 'error') {
+					setHero(recentTrades.length ? 'live' : 'connecting', recentTrades.length ? '$THREE · live' : '$THREE · connecting…');
+				}
 				if (tk.price_usd != null) priceEl.textContent = fmtUsd(tk.price_usd);
 				const chg = Number(tk.price_change_24h);
 				if (Number.isFinite(chg)) {
@@ -575,7 +580,12 @@
 				}
 			} catch (err) {
 				statsFailures++;
-				if (statsFailures >= 2) showToast('Live stats unavailable — retrying…');
+				// Badge the error on the FIRST failure for fast feedback: the hero dot turns
+				// red and the status line says so, then keep retrying on the poll interval.
+				// Only flip the badge if a live trade stream isn't already proving the chain
+				// is reachable; in that case the stats endpoint alone hiccupped.
+				if (heroEl.dataset.state !== 'live') setHero('error', '$THREE · stats unavailable');
+				showToast(statsFailures >= 2 ? 'Live stats still unavailable — retrying…' : 'Live stats unavailable — retrying…');
 			}
 		}
 

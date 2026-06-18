@@ -17,8 +17,30 @@ import { log } from './shared/log.js';
 const COVER_ENDPOINT = '/api/x402/club-cover';
 const PASS_KEY = 'club:pass:v1';
 
+// Hard client-side ceiling on a cached pass, independent of the server's
+// expiresAt. Even if the cover endpoint ever returns a long-lived (or missing)
+// expiry, a device never re-enters free for more than one night. The shorter of
+// {server expiresAt, issuedAt + this} wins.
+const MAX_PASS_AGE_MS = 24 * 60 * 60 * 1000;
+
 const door = document.getElementById('club-door');
 if (door) initDoor(door);
+
+// Logout / wallet switch invalidates the cached cover pass — it is bound to the
+// paying wallet, so a disconnect or a different wallet must pay cover again.
+// `wallet:changed` fires with detail.address === null on disconnect.
+window.addEventListener('wallet:changed', (e) => {
+	const addr = e?.detail && Object.prototype.hasOwnProperty.call(e.detail, 'address')
+		? e.detail.address
+		: undefined;
+	// Clear on an explicit disconnect (null) or a wallet switch (different addr).
+	if (addr === null || (addr && addr !== readPassWallet())) clearPass();
+});
+
+function readPassWallet() {
+	try { return JSON.parse(localStorage.getItem(PASS_KEY) || 'null')?.wallet || null; }
+	catch { return null; }
+}
 
 function initDoor(root) {
 	const payBtn = root.querySelector('#club-door-pay');
@@ -155,13 +177,33 @@ function welcomeFor(pass) {
 }
 
 // ── Local pass cache (per device, until the pass expires) ─────────────────
+// A cached pass is valid only while BOTH the server's expiresAt and the local
+// 24h ceiling (issuedAt + MAX_PASS_AGE_MS) are still in the future. A pass with
+// no usable timestamp is discarded rather than trusted forever.
 function readPass() {
 	try {
 		const raw = localStorage.getItem(PASS_KEY);
 		if (!raw) return null;
 		const pass = JSON.parse(raw);
-		if (!pass?.expiresAt || Date.parse(pass.expiresAt) <= Date.now()) {
-			localStorage.removeItem(PASS_KEY);
+		const now = Date.now();
+
+		const serverExpiry = pass?.expiresAt ? Date.parse(pass.expiresAt) : NaN;
+		const issuedAt = pass?.issuedAt ? Date.parse(pass.issuedAt) : NaN;
+		const localExpiry = Number.isFinite(issuedAt) ? issuedAt + MAX_PASS_AGE_MS : NaN;
+
+		// Need at least one valid expiry boundary; otherwise the pass is untrusted.
+		if (!Number.isFinite(serverExpiry) && !Number.isFinite(localExpiry)) {
+			clearPass();
+			return null;
+		}
+
+		// Earliest of the available boundaries is the effective expiry.
+		const effectiveExpiry = Math.min(
+			Number.isFinite(serverExpiry) ? serverExpiry : Infinity,
+			Number.isFinite(localExpiry) ? localExpiry : Infinity,
+		);
+		if (effectiveExpiry <= now) {
+			clearPass();
 			return null;
 		}
 		return pass;
@@ -177,8 +219,17 @@ function writePass(pass) {
 			tier: pass.tier,
 			visits: pass.visits,
 			expiresAt: pass.expiresAt,
+			// Bind the cache to the paying wallet so a wallet switch invalidates it.
+			wallet: pass.payer || null,
+			// Stamp the moment of caching so the 24h client ceiling is enforceable
+			// even when the server omits or over-extends expiresAt.
+			issuedAt: new Date().toISOString(),
 		}));
 	} catch {}
+}
+
+function clearPass() {
+	try { localStorage.removeItem(PASS_KEY); } catch {}
 }
 
 function wait(ms) {

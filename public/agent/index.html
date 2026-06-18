@@ -753,6 +753,44 @@
 				border-radius: 50%;
 				animation: mp-spin 0.7s linear infinite;
 			}
+
+			/* ── Narrow screens: tighten the hero/identity + embed columns so the
+			   standalone agent page is explicitly designed for phones, not just
+			   left to degrade. ── */
+			@media (max-width: 640px) {
+				.agent-page-header {
+					padding: 0.764rem 1rem;
+					gap: 0.618rem;
+				}
+				.agent-page-hero {
+					margin: 2rem auto 1.5rem;
+				}
+				.agent-page-title {
+					font-size: 1.382rem;
+				}
+				.agent-page-card-wrap,
+				.agent-embed-hint,
+				.agent-skills-full {
+					max-width: 100%;
+					padding-left: 1rem;
+					padding-right: 1rem;
+				}
+				.agent-page-card-wrap .agent-home-timeline {
+					max-height: 260px;
+				}
+				.agent-skills-grid {
+					grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+				}
+				.agent-embed-code {
+					font-size: 0.58rem;
+				}
+			}
+
+			@media (max-width: 380px) {
+				.agent-embed-tabs {
+					flex-wrap: wrap;
+				}
+			}
 		</style>
 	</head>
 	<body>

@@ -36,6 +36,9 @@ export default [
 			'agent-payments-sdk/**',
 			// Generated output
 			'data/_generated/**',
+			// Saved Workflow-DSL scripts (top-level await/return + injected
+			// runtime globals like agent()/log() — not standalone ES modules).
+			'scripts/wf-*.mjs',
 			// Bundled/minified build artifacts
 			'**/*.min.js',
 			'public/embed-sdk.js',

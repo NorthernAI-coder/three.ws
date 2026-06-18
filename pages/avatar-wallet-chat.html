@@ -142,6 +142,68 @@
 			#wallet .copy:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 			#wallet .copy.done { color: var(--ok); border-color: var(--ok); }
 
+			/* ── Fund-your-wallet hint (shown when SOL balance is too low to
+			   cover an autonomous send, before the user attempts one) ──── */
+			#fund-hint {
+				position: absolute;
+				left: 14px; right: 14px;
+				top: 70px;
+				display: none;
+				align-items: flex-start;
+				gap: 11px;
+				padding: 13px 14px;
+				background: rgba(12, 11, 22, 0.74);
+				backdrop-filter: blur(14px);
+				-webkit-backdrop-filter: blur(14px);
+				border: 1px solid rgba(255, 184, 92, 0.42);
+				border-radius: 14px;
+				box-shadow: var(--shadow);
+				z-index: 3;
+				animation: rise 0.25s ease both;
+			}
+			#fund-hint.show { display: flex; }
+			#fund-hint .fh-ic {
+				flex: none;
+				width: 30px; height: 30px;
+				display: grid; place-items: center;
+				border-radius: 9px;
+				background: rgba(255, 184, 92, 0.16);
+				color: #ffc97a;
+			}
+			#fund-hint .fh-ic svg { width: 16px; height: 16px; }
+			#fund-hint .fh-body { min-width: 0; flex: 1 1 auto; }
+			#fund-hint .fh-title { font-size: 13px; font-weight: 700; color: var(--text); }
+			#fund-hint .fh-sub { margin-top: 2px; font-size: 12px; line-height: 1.45; color: var(--text-dim); }
+			#fund-hint .fh-addr-row {
+				margin-top: 9px;
+				display: flex; align-items: center; gap: 7px;
+			}
+			#fund-hint .fh-addr {
+				flex: 1 1 auto; min-width: 0;
+				font-size: 12px;
+				font-variant-numeric: tabular-nums;
+				color: var(--text);
+				background: var(--panel);
+				border: 1px solid var(--panel-border);
+				border-radius: 8px;
+				padding: 6px 9px;
+				overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+			}
+			#fund-hint .fh-copy {
+				flex: none;
+				border: 1px solid var(--panel-border);
+				background: transparent;
+				color: var(--text-dim);
+				border-radius: 8px;
+				padding: 6px 8px;
+				cursor: pointer;
+				line-height: 0;
+				transition: background 0.15s, color 0.15s, border-color 0.15s;
+			}
+			#fund-hint .fh-copy:hover { background: var(--panel); color: var(--text); border-color: var(--accent); }
+			#fund-hint .fh-copy:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+			#fund-hint .fh-copy.done { color: var(--ok); border-color: var(--ok); }
+
 			/* ── Chat ───────────────────────────────────────────────────── */
 			#chat {
 				flex: 0 0 46%;
@@ -365,6 +427,21 @@
 						<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
 					</button>
 				</div>
+				<div id="fund-hint" role="status">
+					<span class="fh-ic" aria-hidden="true">
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="13" rx="2"/><path d="M2 10h20"/><path d="M7 15h2"/></svg>
+					</span>
+					<div class="fh-body">
+						<div class="fh-title" id="fund-title">Fund your avatar's wallet</div>
+						<div class="fh-sub" id="fund-sub">It can't send SOL until there's a balance to send from. Send some SOL to the address below and it'll be ready.</div>
+						<div class="fh-addr-row">
+							<span class="fh-addr" id="fund-addr" title="Avatar wallet address">—</span>
+							<button class="fh-copy" id="fund-copy" title="Copy address" aria-label="Copy wallet address to fund">
+								<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+							</button>
+						</div>
+					</div>
+				</div>
 			</div>
 
 			<section id="chat" aria-label="Chat with the avatar">
@@ -413,6 +490,8 @@
 			avatarFrame.src = `/avatar-embed.html?${aq.toString()}`;
 
 			let avatarReady = false;
+			let avatarFlushed = false;
+			let avatarReadyTimer = null;
 			const avatarQueue = [];
 			function toAvatar(msg) {
 				if (avatarReady) avatarFrame.contentWindow?.postMessage(msg, avatarOrigin);
@@ -421,25 +500,26 @@
 			function avatarSpeak(text) { if (text) toAvatar({ type: 'v1.avatar.speak', text: String(text).slice(0, 600) }); }
 			function avatarGesture(name) { toAvatar({ type: 'v1.avatar.animation', name }); }
 
+			// Flush the queued speech/gestures at most once — whether the real
+			// 'ready' signal arrives or the resilience timeout fires first.
+			function flushAvatarQueue() {
+				if (avatarFlushed) return;
+				avatarFlushed = true;
+				avatarReady = true;
+				clearTimeout(avatarReadyTimer);
+				while (avatarQueue.length) avatarFrame.contentWindow?.postMessage(avatarQueue.shift(), avatarOrigin);
+			}
+
 			window.addEventListener('message', (e) => {
 				if (e.source !== avatarFrame.contentWindow) return;
-				const t = e.data?.type;
-				if (t === 'v1.avatar.ready') {
-					avatarReady = true;
-					while (avatarQueue.length) avatarFrame.contentWindow?.postMessage(avatarQueue.shift(), avatarOrigin);
-				}
+				if (e.data?.type === 'v1.avatar.ready') flushAvatarQueue();
 			});
 			avatarFrame.addEventListener('load', () => {
 				avatarFrame.contentWindow?.postMessage({ type: 'v1.avatar.hello' }, avatarOrigin);
 				// Resilience: if the avatar never signals ready (e.g. a slow rig),
 				// flush queued speech/gestures best-effort after a grace period so
 				// the avatar still reacts instead of going silent forever.
-				setTimeout(() => {
-					if (!avatarReady) {
-						avatarReady = true;
-						while (avatarQueue.length) avatarFrame.contentWindow?.postMessage(avatarQueue.shift(), avatarOrigin);
-					}
-				}, 5000);
+				avatarReadyTimer = setTimeout(flushAvatarQueue, 5000);
 			});
 
 			// ── Wallet chip ───────────────────────────────────────────────
@@ -469,7 +549,48 @@
 				el('bal-usd').textContent = wallet.usd != null ? `$${wallet.usd.toFixed(2)}` : '';
 				el('addr-short').textContent = short(wallet.address);
 				el('addr-link').href = wallet.explorer;
+				renderFundHint();
 			}
+
+			// First-class "fund your wallet" state — shown BEFORE a send is attempted
+			// whenever the live balance can't cover the smallest demo payout plus the
+			// network fee. Uses the real on-chain SOL balance from /api/agent/wallet.
+			const FEE_BUFFER_SOL = 0.0001; // signature fee + rent headroom
+			function renderFundHint() {
+				const hint = el('fund-hint');
+				if (!hint || !wallet) return;
+				const sol = Number(wallet.sol) || 0;
+				const price = Number(wallet.solPriceUsd) || 0;
+				// Smallest send the avatar offers is $1; need that in SOL + a fee buffer.
+				const minSendUsd = 1;
+				const needSol = (price > 0 ? minSendUsd / price : 0) + FEE_BUFFER_SOL;
+				const underfunded = sol <= 0 || (price > 0 && sol < needSol);
+				if (!underfunded) {
+					hint.classList.remove('show');
+					return;
+				}
+				const title = el('fund-title');
+				const sub = el('fund-sub');
+				if (sol <= 0) {
+					title.textContent = 'Fund your avatar’s wallet';
+					sub.textContent = "It can't send SOL until there's a balance to send from. Send some SOL to the address below and it'll be ready.";
+				} else {
+					title.textContent = 'Low balance';
+					sub.textContent = `Only ${fmtSol(sol)} SOL—not enough to cover a $1 send plus fees. Top it up at the address below.`;
+				}
+				el('fund-addr').textContent = wallet.address || '—';
+				hint.classList.add('show');
+			}
+
+			el('fund-copy').addEventListener('click', async () => {
+				if (!wallet?.address) return;
+				try {
+					await navigator.clipboard.writeText(wallet.address);
+					const b = el('fund-copy');
+					b.classList.add('done');
+					setTimeout(() => b.classList.remove('done'), 1200);
+				} catch { /* clipboard blocked */ }
+			});
 			el('copy-btn').addEventListener('click', async () => {
 				if (!wallet?.address) return;
 				try {
@@ -580,7 +701,7 @@
 				chip.className = 'gov-chip';
 				chip.innerHTML =
 					'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>' +
-					`<span>Send held by <a href="/ibm/trust-layer" target="_blank" rel="noopener">IBM Granite Guardian</a> — ${escapeHtml(reason)}.</span>`;
+					`<span>Send held by <a href="/ibm/x402-demo" target="_blank" rel="noopener">IBM Granite Guardian</a> — ${escapeHtml(reason)}.</span>`;
 				log.appendChild(chip);
 				log.scrollTop = log.scrollHeight;
 			}
@@ -654,57 +775,65 @@
 				} finally {
 					busy = false;
 					sendBtn.disabled = false;
-// Receive detection: the avatar notices when SOL lands in its own wallet
-					// (a tip from you) and reacts in real time — the "receiving" half of the
-					// round-trip. Real on-chain data via /api/agent/activity; the first poll
-					// seeds the seen-set so only NEW arrivals trigger a reaction.
-					const seenSigs = new Set();
-					let activitySeeded = false;
-					function receiveCard(t) {
-						clearEmpty();
-						const card = document.createElement('div');
-						card.className = 'pay ok recv';
-						const from = t.counterparty ? short(t.counterparty) : 'someone';
-						card.innerHTML =
-							'<div class="head"><span class="ic">↓</span> Received SOL</div>' +
-							'<div class="amt">' + fmtSol(t.sol) + ' SOL</div>' +
-							'<div class="sub">' + (t.usd != null ? '≈ $' + t.usd.toFixed(2) + ' · ' : '') + 'from ' + from + '</div>' +
-							'<div class="status"><span class="pip"></span><span class="label">Confirmed on-chain</span></div>';
-						const a = document.createElement('a');
-						a.className = 'sig';
-						a.href = t.explorer; a.target = '_blank'; a.rel = 'noopener';
-						a.textContent = '↗ ' + short(t.signature);
-						card.appendChild(a);
-						log.appendChild(card);
-						log.scrollTop = log.scrollHeight;
-					}
-					async function pollActivity() {
-						try {
-							const r = await fetch('/api/agent/activity?limit=12', { headers: { accept: 'application/json' } });
-							if (!r.ok) return;
-							const data = await r.json();
-							const transfers = data.transfers || [];
-							if (!activitySeeded) {
-								transfers.forEach((t) => seenSigs.add(t.signature));
-								activitySeeded = true;
-								return;
-							}
-							for (const t of [...transfers].reverse()) {
-								if (seenSigs.has(t.signature)) continue;
-								seenSigs.add(t.signature);
-								if (t.direction !== 'in') continue;
-								receiveCard(t);
-								toast('Received ' + fmtSol(t.sol) + ' SOL' + (t.usd != null ? ' ($' + t.usd.toFixed(2) + ')' : ''));
-								avatarSpeak('I just received ' + fmtSol(t.sol) + ' SOL' + (t.usd != null ? ', about $' + t.usd.toFixed(2) : '') + ' — thank you!');
-								avatarGesture('celebrate');
-								refreshWallet();
-							}
-						} catch (e) { /* transient RPC/network blip — next tick retries */ }
-					}
-					pollActivity();
-					setInterval(pollActivity, 9000);
-										input.focus();
+					input.focus();
 				}
+			}
+
+			// ── Receive detection ─────────────────────────────────────────
+			// The avatar notices when SOL lands in its own wallet (a tip from you)
+			// and reacts in real time — the "receiving" half of the round-trip.
+			// Real on-chain data via /api/agent/activity; the first poll seeds the
+			// seen-set so only NEW arrivals trigger a reaction. Defined once at page
+			// boot with a single interval — never per message — so concurrent
+			// pollers can't accumulate.
+			const seenSigs = new Set();
+			let activitySeeded = false;
+			let activityTimer = null;
+			function receiveCard(t) {
+				clearEmpty();
+				const card = document.createElement('div');
+				card.className = 'pay ok recv';
+				const from = t.counterparty ? short(t.counterparty) : 'someone';
+				card.innerHTML =
+					'<div class="head"><span class="ic">↓</span> Received SOL</div>' +
+					'<div class="amt">' + fmtSol(t.sol) + ' SOL</div>' +
+					'<div class="sub">' + (t.usd != null ? '≈ $' + t.usd.toFixed(2) + ' · ' : '') + 'from ' + from + '</div>' +
+					'<div class="status"><span class="pip"></span><span class="label">Confirmed on-chain</span></div>';
+				const a = document.createElement('a');
+				a.className = 'sig';
+				a.href = t.explorer; a.target = '_blank'; a.rel = 'noopener';
+				a.textContent = '↗ ' + short(t.signature);
+				card.appendChild(a);
+				log.appendChild(card);
+				log.scrollTop = log.scrollHeight;
+			}
+			async function pollActivity() {
+				try {
+					const r = await fetch('/api/agent/activity?limit=12', { headers: { accept: 'application/json' } });
+					if (!r.ok) return;
+					const data = await r.json();
+					const transfers = data.transfers || [];
+					if (!activitySeeded) {
+						transfers.forEach((t) => seenSigs.add(t.signature));
+						activitySeeded = true;
+						return;
+					}
+					for (const t of [...transfers].reverse()) {
+						if (seenSigs.has(t.signature)) continue;
+						seenSigs.add(t.signature);
+						if (t.direction !== 'in') continue;
+						receiveCard(t);
+						toast('Received ' + fmtSol(t.sol) + ' SOL' + (t.usd != null ? ' ($' + t.usd.toFixed(2) + ')' : ''));
+						avatarSpeak('I just received ' + fmtSol(t.sol) + ' SOL' + (t.usd != null ? ', about $' + t.usd.toFixed(2) : '') + ' — thank you!');
+						avatarGesture('celebrate');
+						refreshWallet();
+					}
+				} catch (e) { /* transient RPC/network blip — next tick retries */ }
+			}
+			function startActivityPoller() {
+				if (activityTimer) return; // exactly one interval, ever
+				pollActivity();
+				activityTimer = setInterval(pollActivity, 9000);
 			}
 
 			el('composer').addEventListener('submit', (e) => { e.preventDefault(); ask(input.value); });
@@ -728,6 +857,7 @@
 			// ── Boot ──────────────────────────────────────────────────────
 			refreshWallet();
 			setInterval(refreshWallet, 20000);
+			startActivityPoller();
 			input.focus();
 		</script>
 	</body>

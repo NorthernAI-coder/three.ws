@@ -97,6 +97,26 @@
 		.mode-switch { display: inline-flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
 		.mode-switch button { border: none; background: #fff; border-radius: 0; padding: .4rem .7rem; }
 		.mode-switch button.active { background: #111; color: #fff; }
+
+		.modal-backdrop {
+			position: fixed; inset: 0; z-index: 100;
+			display: flex; align-items: center; justify-content: center;
+			padding: 1rem; background: rgba(15, 15, 15, .55);
+			opacity: 0; transition: opacity .14s ease;
+		}
+		.modal-backdrop.open { opacity: 1; }
+		.modal {
+			background: #fff; border: 1px solid var(--border); border-radius: 12px;
+			width: 100%; max-width: 440px; padding: 1.25rem 1.35rem;
+			box-shadow: 0 18px 48px rgba(0, 0, 0, .28);
+			transform: translateY(8px) scale(.985); transition: transform .14s ease;
+		}
+		.modal-backdrop.open .modal { transform: none; }
+		.modal h3 { margin: 0 0 .5rem; font-size: 1.05rem; }
+		.modal p { margin: 0 0 .65rem; color: var(--muted); line-height: 1.5; }
+		.modal p strong { color: var(--bad-fg); }
+		.modal .modal-actions { display: flex; gap: .5rem; justify-content: flex-end; margin-top: 1.1rem; }
+		.modal button:focus-visible { outline: 2px solid var(--info-fg); outline-offset: 2px; }
 	</style>
 
 	<meta name="description" content="Build DCA and subscription strategies that trade on-chain on your behalf.">
@@ -204,6 +224,18 @@
 		<div id="portfolio"><p class="muted">Pick an agent above to load on-chain holdings.</p></div>
 	</section>
 
+	<!-- ── Confirm modal (Stop & sell all) ─────────────────────────────────── -->
+	<div id="confirmModal" class="modal-backdrop" hidden>
+		<div class="modal" role="dialog" aria-modal="true" aria-labelledby="confirmTitle" aria-describedby="confirmBody">
+			<h3 id="confirmTitle">Stop &amp; sell all?</h3>
+			<p id="confirmBody"></p>
+			<div class="modal-actions">
+				<button id="confirmCancel" type="button">Cancel</button>
+				<button id="confirmAccept" type="button" class="danger">Stop &amp; sell all</button>
+			</div>
+		</div>
+	</div>
+
 <script type="module">
 	const PRESETS = {
 		momentum: {
@@ -245,6 +277,66 @@
 	const metrics = $('metrics'), resultPanel = $('resultPanel'), liveDot = $('liveDot');
 	const agentSel = $('agentSel'), netSel = $('netSel'), provisionBtn = $('provisionBtn');
 	const walletInfo = $('walletInfo'), walletStatus = $('walletStatus');
+
+	// ── Accessible confirm dialog ─────────────────────────────────────────
+	// Promise<boolean>: resolves true on confirm, false on cancel/Escape/backdrop.
+	// Focus trap, Escape-to-cancel, focus restored to the trigger on close.
+	function confirmDialog({ body, confirmLabel = 'Confirm' }) {
+		const backdrop = $('confirmModal');
+		const bodyEl = $('confirmBody');
+		const accept = $('confirmAccept');
+		const cancel = $('confirmCancel');
+		bodyEl.innerHTML = body;
+		accept.textContent = confirmLabel;
+		const lastFocused = document.activeElement;
+
+		return new Promise((resolve) => {
+			const focusable = [cancel, accept];
+
+			function close(result) {
+				backdrop.classList.remove('open');
+				backdrop.removeEventListener('keydown', onKeydown, true);
+				backdrop.removeEventListener('pointerdown', onBackdrop);
+				accept.removeEventListener('click', onAccept);
+				cancel.removeEventListener('click', onCancel);
+				const finish = () => {
+					backdrop.hidden = true;
+					backdrop.removeEventListener('transitionend', finish);
+					if (lastFocused && typeof lastFocused.focus === 'function') lastFocused.focus();
+					resolve(result);
+				};
+				// Allow the fade-out transition to play, then hide.
+				backdrop.addEventListener('transitionend', finish);
+				setTimeout(finish, 200); // fallback if transitionend never fires
+			}
+			const onAccept = () => close(true);
+			const onCancel = () => close(false);
+			const onBackdrop = (e) => { if (e.target === backdrop) close(false); };
+			function onKeydown(e) {
+				if (e.key === 'Escape') { e.preventDefault(); close(false); return; }
+				if (e.key === 'Tab') {
+					// Trap focus within the two buttons.
+					e.preventDefault();
+					const idx = focusable.indexOf(document.activeElement);
+					const next = e.shiftKey
+						? focusable[(idx - 1 + focusable.length) % focusable.length]
+						: focusable[(idx + 1) % focusable.length];
+					next.focus();
+				}
+			}
+
+			accept.addEventListener('click', onAccept);
+			cancel.addEventListener('click', onCancel);
+			backdrop.addEventListener('pointerdown', onBackdrop);
+			backdrop.addEventListener('keydown', onKeydown, true);
+
+			backdrop.hidden = false;
+			// Force reflow so the opacity/transform transition runs from the closed state.
+			void backdrop.offsetWidth;
+			backdrop.classList.add('open');
+			cancel.focus(); // default focus on the non-destructive action
+		});
+	}
 
 	let mode = 'simulate';
 	let activeRun = null;
@@ -547,7 +639,12 @@
 		const id = agentSel.value;
 		if (!id) { setStatus('Select an agent first.', 'bad'); return; }
 		const net = netSel.value;
-		if (!confirm(`STOP all activity and SELL every position on ${net}?\n\nThis aborts any running strategy and sells 100% of every SPL holding the wallet owns.`)) return;
+		const netLabel = net === 'mainnet' ? 'mainnet' : 'devnet';
+		const ok = await confirmDialog({
+			body: `<strong>This stops all activity and sells every position on ${netLabel}.</strong> Any running strategy is aborted and 100% of every SPL holding the wallet owns is sold. This cannot be undone.`,
+			confirmLabel: 'Stop & sell all',
+		});
+		if (!ok) return;
 		// Abort any running stream first.
 		activeRun?.abort();
 		pushLog('error', '■ STOP — closing all positions');

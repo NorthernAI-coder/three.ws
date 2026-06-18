@@ -269,24 +269,30 @@ export function wrap(handler) {
 		} catch (err) {
 			const status = err.status || 500;
 			if (status >= 500) {
+				const ref = correlationId();
 				// Redact coordinates / device tokens so a 5xx on a geolocated read never
 				// spills the caller's position or credential to an off-box sink.
-				console.error('[api] unhandled', err);
-				captureException(err, { url: redactUrl(req.url), method: req.method });
-				sendOpsAlert(`unhandled 5xx in ${req.method} ${redactUrl(req.url)}`, err?.message || String(err), {
+				console.error(`[api] unhandled [ref ${ref}]`, err);
+				captureException(err, { ref, url: redactUrl(req.url), method: req.method });
+				sendOpsAlert(`unhandled 5xx in ${req.method} ${redactUrl(req.url)}`, `${err?.message || String(err)}\nref ${ref}`, {
 					signature: `unhandled:${redactUrl(req.url)}:${err?.message}`,
 				});
-			}
-			if (!res.headersSent && !res.writableEnded) {
+				// Never echo a raw upstream message in a 5xx body — Solana/web3.js
+				// network errors embed the keyed RPC URL (…helius-rpc.com/?api-key=…),
+				// so err.message would leak HELIUS_API_KEY to the client. Hand back a
+				// sanitized envelope keyed to the same ref we just logged.
+				if (!res.headersSent && !res.writableEnded) {
+					json(res, status, {
+						error: err.code || 'internal_error',
+						error_description: `internal error — quote ref ${ref} to support`,
+						ref,
+					});
+				}
+			} else if (!res.headersSent && !res.writableEnded) {
 				if (err.code === 'validation_error' && Array.isArray(err.issues)) {
 					validationError(res, err);
 				} else {
-					error(
-						res,
-						status,
-						err.code || (status >= 500 ? 'internal_error' : 'bad_request'),
-						err.message || 'error',
-					);
+					error(res, status, err.code || 'bad_request', err.message || 'error');
 				}
 			}
 		}

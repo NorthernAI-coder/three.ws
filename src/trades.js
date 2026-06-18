@@ -46,14 +46,68 @@ document.addEventListener('DOMContentLoaded', () => {
 	readUrl();
 	applyStateToControls();
 
-	$('#tfWinSeg').addEventListener('click', (e) => {
-		const b = e.target.closest('[data-win]');
-		if (!b) return;
-		$$('#tfWinSeg button').forEach((x) => x.classList.toggle('on', x === b));
-		state.window = b.dataset.win;
+	const winSeg = $('#tfWinSeg');
+
+	// Activate a time-window tab: sync visual state, ARIA, roving tabindex,
+	// then reload the feed. Shared by pointer + keyboard activation.
+	function selectWindowTab(btn, { focus = false } = {}) {
+		if (!btn) return;
+		$$('#tfWinSeg button').forEach((x) => {
+			const on = x === btn;
+			x.classList.toggle('on', on);
+			x.setAttribute('aria-selected', on ? 'true' : 'false');
+			x.tabIndex = on ? 0 : -1;
+		});
+		if (focus) btn.focus();
+		if (state.window === btn.dataset.win) return;
+		state.window = btn.dataset.win;
 		state.cursor = null;
 		writeUrl();
 		load(true);
+	}
+
+	winSeg.addEventListener('click', (e) => {
+		const b = e.target.closest('[data-win]');
+		if (!b) return;
+		selectWindowTab(b);
+	});
+
+	// WAI-ARIA tablist keyboard support: roving focus with Left/Right/Home/End,
+	// explicit activation on Enter/Space.
+	winSeg.addEventListener('keydown', (e) => {
+		const current = e.target.closest('[data-win]');
+		if (!current) return;
+		const tabs = $$('#tfWinSeg button');
+		const i = tabs.indexOf(current);
+		if (i === -1) return;
+
+		let next = null;
+		switch (e.key) {
+			case 'ArrowRight':
+			case 'ArrowDown':
+				next = tabs[(i + 1) % tabs.length];
+				break;
+			case 'ArrowLeft':
+			case 'ArrowUp':
+				next = tabs[(i - 1 + tabs.length) % tabs.length];
+				break;
+			case 'Home':
+				next = tabs[0];
+				break;
+			case 'End':
+				next = tabs[tabs.length - 1];
+				break;
+			case 'Enter':
+			case ' ':
+			case 'Spacebar':
+				e.preventDefault();
+				selectWindowTab(current);
+				return;
+			default:
+				return;
+		}
+		e.preventDefault();
+		selectWindowTab(next, { focus: true });
 	});
 
 	$('#tfMinPnl').addEventListener('change', () => {
@@ -131,12 +185,15 @@ function writeUrl() {
 }
 
 function applyStateToControls() {
-	$(`#tfWinSeg button[data-win="${state.window}"]`)?.classList.add('on');
-	$('#tfWinSeg button[data-win="24h"]')?.classList.toggle('on', state.window === '24h');
 	$('#tfMinPnl').value = String(state.minPnl);
 	$('#tfNetwork').value = state.network;
-	// sync seg buttons
-	$$('#tfWinSeg button').forEach((b) => b.classList.toggle('on', b.dataset.win === state.window));
+	// sync seg buttons — visual state, ARIA selection, and roving tabindex
+	$$('#tfWinSeg button').forEach((b) => {
+		const on = b.dataset.win === state.window;
+		b.classList.toggle('on', on);
+		b.setAttribute('aria-selected', on ? 'true' : 'false');
+		b.tabIndex = on ? 0 : -1;
+	});
 }
 
 // ── Fetch + render ────────────────────────────────────────────────────────────

@@ -1157,15 +1157,32 @@ agent-3d:defined ~ .agent-skel{display:none}
     }
   }
   // Wallet extensions inject asynchronously; re-check briefly after load.
+  // Two detection paths run in parallel and either one ends the wait:
+  //   1. A short backoff poll for the injected globals (Phantom/legacy MetaMask).
+  //   2. The EIP-6963 announce protocol — registered UP FRONT (below), before the
+  //      first poll, and kicked with a requestProvider so compliant wallets reply
+  //      immediately rather than only after our first 350ms tick.
   var walletPolls = 0;
+  var walletPollTimer = null;
   function pollForWallet() {
     syncWalletHint();
-    if (!hasInjectedWallet() && walletPolls < 8) { walletPolls++; setTimeout(pollForWallet, 350); }
+    // Resolve immediately the instant a wallet appears — don't keep polling.
+    if (hasInjectedWallet()) { walletPolls = 8; return; }
+    if (walletPolls < 8) { walletPolls++; walletPollTimer = setTimeout(pollForWallet, 350); }
+  }
+  function onWalletDetected() {
+    // A wallet announced or injected mid-poll: reflect it and stop the backoff.
+    if (walletPollTimer) { clearTimeout(walletPollTimer); walletPollTimer = null; }
+    walletPolls = 8;
+    syncWalletHint();
   }
   window.addEventListener('online', function () { syncWalletHint(); loadChallengePreview(); });
   window.addEventListener('offline', syncWalletHint);
   // EIP-6963 announce + Phantom late-inject both surface via this event in practice.
-  window.addEventListener('eip6963:announceProvider', syncWalletHint);
+  // Registered before polling starts so an early announcement is never missed, and
+  // we proactively request announcements so wallets reply without waiting for a tick.
+  window.addEventListener('eip6963:announceProvider', onWalletDetected);
+  try { window.dispatchEvent(new Event('eip6963:requestProvider')); } catch (_) {}
 
   // ── wiring ──────────────────────────────────────────────────────────────────
   $('payBtn').addEventListener('click', runPayment);
@@ -1422,6 +1439,23 @@ agent-3d:defined ~ .agent-skel{display:none}
     var rb = $('fgRetry'); if (rb) rb.addEventListener('click', runForge);
     announce('Error: ' + text + (tip ? ' ' + tip : ''));
   }
+  // The paid generation has settled but is taking longer than this inline demo can
+  // wait. Rather than leave the visitor stranded, hand them the job in the full Forge
+  // tool (the same backend, with a durable job view) so they can collect the result.
+  function setResultStillWorking(msg, jobId) {
+    var text = msg || 'Still working — your payment settled.';
+    var forgeUrl = 'https://three.ws/forge' + (jobId ? '?job=' + encodeURIComponent(jobId) : '');
+    var el = $('fgResult'); el.className = 'result is-error';
+    el.innerHTML =
+      '<div class="r-status err"><span aria-hidden="true">⏳</span> <span>' + escapeHtml(text) + '</span></div>' +
+      '<p class="r-tip">Your payment went through and the model is still generating. Open it in the full Forge tool to watch it finish and download the GLB — your job is waiting there.</p>' +
+      '<div class="r-actions">' +
+      '<a class="r-btn" href="' + escapeHtml(forgeUrl) + '" target="_blank" rel="noopener">Continue in Forge ↗</a>' +
+      '<button class="r-btn ghost" type="button" id="fgRetry">Try again</button>' +
+      '</div>';
+    var rb = $('fgRetry'); if (rb) rb.addEventListener('click', runForge);
+    announce(text + ' Continue in the full Forge tool to collect your model.');
+  }
   function setResultGenerating(payment, etaSec, startTs) {
     ensureModelViewer(); // warm the viewer during the generation wait so the result paints instantly
     var el = $('fgResult'); el.className = 'result is-loading';
@@ -1437,15 +1471,37 @@ agent-3d:defined ~ .agent-skel{display:none}
       var t = $('fgGenText'); if (t) t.textContent = 'Payment settled — forging your model… ' + elapsed + 's';
     }, 1000);
   }
+  function mvAvailable() {
+    return !!(window.customElements && customElements.get('model-viewer'));
+  }
   function setResultDone(glbUrl, payment, meta) {
     clearInterval(genTimer);
-    ensureModelViewer(); // covers the synchronous-finish path where generation never streamed
     var el = $('fgResult'); el.className = 'result is-done';
     var explorer = explorerUrl(payment.network, payment.transaction);
     var safeGlb = escapeHtml(glbUrl);
 
     var html = '';
     html += '<div class="r-status ok"><span class="r-check" aria-hidden="true">✓</span><span>Payment settled — model forged</span></div>';
+    // The viewer is optional polish. If model-viewer never loaded (blocked script,
+    // failed CDN-free fetch, unsupported engine) we don't render a dead <model-viewer>
+    // that sits empty forever — we show the GLB as a downloadable file with a note.
+    // ensureModelViewer() resolves whether or not the element upgrades, so by the time
+    // its promise settles we can make an honest decision and re-render in place.
+    ensureModelViewer().then(function () {
+      // Element upgraded (or will upgrade in place) → leave the live viewer alone.
+      if (mvAvailable()) return;
+      // The module never defined the custom element. Swap the inert <model-viewer>
+      // for an explicit download fallback so the user always gets their model.
+      var mv = el.querySelector('.mv-wrap');
+      if (mv) {
+        mv.innerHTML =
+          '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:28px 18px;text-align:center;color:var(--ibm-subtle);font-size:13px;font-weight:300">' +
+          '<span>The 3D viewer couldn’t load here — your model is ready as a downloadable file.</span>' +
+          '<a class="r-btn" href="' + safeGlb + '" download target="_blank" rel="noopener">Download GLB</a>' +
+          '</div>';
+        announce('The 3D viewer could not load, but your model is ready to download.');
+      }
+    });
     html += '<div class="mv-wrap"><model-viewer src="' + safeGlb + '" alt="The 3D model you just forged" camera-controls auto-rotate rotation-per-second="18deg" interaction-prompt="none" shadow-intensity="0.7" shadow-softness="0.8" environment-image="neutral" exposure="1" camera-orbit="0deg 80deg auto" loading="eager"></model-viewer></div>';
     html += '<div class="r-actions">' +
       '<a class="r-btn" href="' + safeGlb + '" download target="_blank" rel="noopener">Download GLB</a>' +
@@ -1483,12 +1539,12 @@ agent-3d:defined ~ .agent-skel{display:none}
           if (d.status === 'done' && d.glb_url) { setResultDone(d.glb_url, payment, d); return; }
           if (d.status === 'failed') { clearInterval(genTimer); setResultError(d.error || 'Generation failed. Your payment settled — try the full Forge tool.'); return; }
           tries++;
-          if (tries >= maxTries) { clearInterval(genTimer); setResultError('Still working after several minutes — your payment settled. Track it in the full Forge tool.'); return; }
+          if (tries >= maxTries) { clearInterval(genTimer); setResultStillWorking('Still working after several minutes — your payment settled.', jobId); return; }
           pollTimer = setTimeout(tick, 2600);
         })
         .catch(function () {
           tries++;
-          if (tries >= maxTries) { clearInterval(genTimer); setResultError('Lost contact while generating — your payment settled. Track it in the full Forge tool.'); return; }
+          if (tries >= maxTries) { clearInterval(genTimer); setResultStillWorking('Lost contact while generating — your payment settled.', jobId); return; }
           pollTimer = setTimeout(tick, 2600);
         });
     })();

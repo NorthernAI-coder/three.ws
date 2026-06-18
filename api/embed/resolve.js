@@ -18,7 +18,6 @@ import { cors, method, wrap, error, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { CHAIN_BY_ID } from '../_lib/erc8004-chains.js';
 import { publicUrl } from '../_lib/r2.js';
-import { DEMO_AVATARS } from '../_lib/demo-avatars.js';
 
 const ONCHAIN_RE = /^(?:eip155:)?(\d{1,9})[:/](\d{1,12})$/;
 const AVATAR_RE = /^avatar:([a-zA-Z0-9_-]{3,64})$/;
@@ -68,21 +67,6 @@ export default wrap(async (req, res) => {
 	const avatar = id.match(AVATAR_RE);
 	if (avatar) {
 		const avatarId = avatar[1];
-		const demo = DEMO_AVATARS.find((a) => String(a.avatarId) === String(avatarId));
-		if (demo) {
-			return embedJson(res, {
-				kind: 'avatar',
-				id: `avatar:${demo.avatarId}`,
-				name: demo.name,
-				description: demo.description || '',
-				glbUrl: demo.glbUrl || null,
-				poster: demo.image || null,
-				has3d: true,
-				x402: false,
-				passportUrl: `/avatars/${demo.avatarId}`,
-			});
-		}
-
 		// avatars.id is a uuid column — a non-UUID id here raises Postgres 22P02
 		// (invalid input syntax) and surfaces as a 500. Treat it as not-found.
 		if (!UUID_RE.test(avatarId)) return error(res, 404, 'not_found', 'avatar not found');

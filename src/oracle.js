@@ -163,8 +163,9 @@ function boot() {
 		const TCOL = { prime: '#c084fc', strong: '#34d399', lean: '#fbbf24', watch: '#94a3b8', avoid: '#f87171' };
 		_searchDrop.innerHTML = items.map((it) => {
 			const col = TCOL[it.tier] || '#94a3b8';
-			return `<button class="ms-item" data-mint="${esc(it.mint)}" type="button">
-				<span class="ms-sym">${esc(it.symbol || it.name || it.mint.slice(0, 8))}</span>
+			const label = it.symbol || it.name || it.mint.slice(0, 8);
+			return `<button class="ms-item" data-mint="${esc(it.mint)}" type="button" aria-label="View ${esc(label)} conviction">
+				<span class="ms-sym">${esc(label)}</span>
 				<span class="ms-tier" style="color:${col}">${esc(it.tier || '')}${it.score != null ? ` ${it.score}` : ''}</span>
 			</button>`;
 		}).join('');
@@ -339,7 +340,14 @@ async function loadGraph() {
 		graphHandle = mountOracleGraph(canvas, labels);
 		graphHandle.loadCoins(coins);
 	} catch (err) {
-		if (stateEl) stateEl.textContent = `Graph failed to load: ${err.message}`;
+		if (stateEl) {
+			stateEl.innerHTML = `<div class="state" style="padding:0"><b>Graph failed to load</b>${esc(err.message || 'The conviction data could not be reached. This is usually temporary.')}<div style="margin-top:14px"><button class="btn" type="button" id="ogRetry">Retry now</button></div></div>`;
+			$('#ogRetry')?.addEventListener('click', () => {
+				canvas.dataset.loaded = '';
+				stateEl.textContent = '';
+				loadGraph();
+			});
+		}
 	}
 }
 
@@ -385,11 +393,36 @@ function renderFeed() {
 }
 
 function renderFeedEmpty(kind) {
-	const msg = kind === 'warming'
-		? { b: 'Oracle is warming up', p: 'The conviction engine ships with its backend — once the ingestion augmentor is live it scores every new pump.fun launch in real time. Check back shortly.' }
-		: { b: 'No launches clear this filter yet', p: 'Loosen the tier or score filter, or wait for the next wave — new coins are scored the moment they surface.' };
-	$('#feedGrid').innerHTML = `<div class="state" style="grid-column:1/-1"><b>${msg.b}</b>${esc(msg.p)}</div>`;
+	const grid = $('#feedGrid');
 	$('#ctFeed').textContent = '';
+
+	if (kind === 'warming') {
+		grid.innerHTML = `<div class="state" style="grid-column:1/-1"><b>Oracle is warming up</b>The conviction engine ships with its backend — once the ingestion augmentor is live it scores every new pump.fun launch in real time. Check back shortly.</div>`;
+		return;
+	}
+
+	// kind === 'empty' — the feed loaded, but nothing rendered. Distinguish
+	// "no scored coins anywhere yet" from "your filters excluded everything".
+	const hasFilters = !!(state.tier || state.category || state.minScore);
+	if (!hasFilters) {
+		grid.innerHTML = `<div class="state" style="grid-column:1/-1"><b>No launches scored yet</b>Oracle hasn't surfaced any conviction-scored coins in this window. New launches are scored the moment they hit pump.fun — they'll appear here automatically, no reload needed.</div>`;
+		return;
+	}
+
+	grid.innerHTML = `<div class="state" style="grid-column:1/-1"><b>No launches clear your filters</b>There are scored coins, but none pass your current tier, narrative, or minimum-score filters. Loosen them to see more.<div style="margin-top:14px"><button class="btn" type="button" id="feedReset">Reset filters</button></div></div>`;
+	$('#feedReset')?.addEventListener('click', resetFeedFilters);
+}
+
+function resetFeedFilters() {
+	state.tier = '';
+	state.category = '';
+	state.minScore = 0;
+	$$('#tierSeg button').forEach((x) => x.classList.toggle('on', x.dataset.tier === ''));
+	const catSel = $('#catSel'); if (catSel) catSel.value = '';
+	const minSel = $('#minSel'); if (minSel) minSel.value = '0';
+	$$('#hotSectors .hs-card').forEach((c) => c.classList.remove('active'));
+	syncFilterUrl();
+	loadFeed();
 }
 
 // ── hot sectors ───────────────────────────────────────────────────────────────
@@ -458,6 +491,8 @@ function coinCard(it, watched = new Set()) {
 	const btn = document.createElement('button');
 	btn.className = `coin ${tierClass(it.tier)}`;
 	btn.dataset.mint = it.mint;
+	btn.type = 'button';
+	btn.setAttribute('aria-label', `View ${it.symbol || it.name || it.mint.slice(0, 8)} conviction — score ${it.score}, ${it.tier || 'unrated'} tier`);
 	btn.innerHTML = `
 		<div class="coin-top">
 			${it.image_uri
@@ -580,9 +615,23 @@ async function loadWallets() {
 	if (state.label) q.set('label', state.label);
 	const { ok, data } = await api(`/api/oracle/wallet?${q}`);
 	wrap.dataset.loaded = '1';
-	if (!ok || !data || !(data.items || []).length) {
-		wrap.innerHTML = `<div class="state"><b>No wallets ranked yet</b>The reputation graph fills in as coins resolve to outcomes. Once the brain has judged enough launches, the proven money surfaces here.</div>`;
+	if (!ok) {
+		wrap.innerHTML = `<div class="state"><b>Could not reach the reputation graph</b>The wallet leaderboard did not respond — this is usually temporary. The engine or network may be momentarily unavailable.<div style="margin-top:14px"><button class="btn" type="button" id="walletRetry">Retry now</button></div></div>`;
 		$('#ctWallets').textContent = '';
+		$('#walletRetry')?.addEventListener('click', () => loadWallets());
+		return;
+	}
+	if (!data || !(data.items || []).length) {
+		const filtered = !!state.label;
+		wrap.innerHTML = filtered
+			? `<div class="state"><b>No wallets match this label</b>No wallets carry the <b>${esc(state.label.replace('_', ' '))}</b> label yet. Switch back to <b>All</b> to see every ranked wallet.<div style="margin-top:14px"><button class="btn" type="button" id="walletReset">Show all wallets</button></div></div>`
+			: `<div class="state"><b>No wallets ranked yet</b>The reputation graph fills in as coins resolve to outcomes. Once the brain has judged enough launches, the proven money surfaces here.</div>`;
+		$('#ctWallets').textContent = '';
+		$('#walletReset')?.addEventListener('click', () => {
+			state.label = '';
+			$$('#labelSeg button').forEach((x) => x.classList.toggle('on', x.dataset.label === ''));
+			loadWallets();
+		});
 		return;
 	}
 	$('#ctWallets').textContent = data.items.length;
@@ -817,7 +866,7 @@ function afSkeletons(n) {
 
 function afTableHtml(items) {
 	return `<div class="af-outer"><table class="af-table"><thead><tr>
-		<th>Agent</th><th>Coin</th><th>Tier</th><th>Score</th><th>Size ◎</th><th>Mode</th><th>Outcome</th><th>PnL ◎</th><th>When</th>
+		<th scope="col">Agent</th><th scope="col">Coin</th><th scope="col">Tier</th><th scope="col">Score</th><th scope="col">Size ◎</th><th scope="col">Mode</th><th scope="col">Outcome</th><th scope="col">PnL ◎</th><th scope="col">When</th>
 	</tr></thead><tbody>${items.map(afRow).join('')}</tbody></table></div>`;
 }
 
@@ -1209,6 +1258,7 @@ function renderDrawer(d) {
 			<a class="dr-act" href="${pumpUrl(c.mint)}" target="_blank" rel="noopener">pump.fun ↗</a>
 			<a class="dr-act" href="${solscan(c.mint)}" target="_blank" rel="noopener">solscan ↗</a>
 			<a class="dr-act" href="/launches/${esc(c.mint)}" target="_blank" rel="noopener">Details ↗</a>
+			<a class="dr-act" href="/coin3d?mint=${encodeURIComponent(c.mint)}" target="_blank" rel="noopener" title="Open the full 3D coin profile">View in 3D ↗</a>
 			<button class="dr-act dr-watch" id="drWatch" data-mint="${esc(c.mint)}" type="button" aria-pressed="${watchedMints().has(c.mint)}">${watchedMints().has(c.mint) ? '★ Watching' : '☆ Watch'}</button>
 			<button class="dr-act" id="drCopyMint" type="button" title="Copy mint address" data-mint="${esc(c.mint)}">Copy mint</button>
 			<button class="dr-act" id="drCopyLink" type="button" title="Copy shareable link" data-link="${esc(coinShareUrl(c.mint))}">Copy link</button>
@@ -1756,8 +1806,8 @@ async function loadActions(agentId) {
 		<div class="act-wrap">
 			<table class="act-table">
 				<thead><tr>
-					<th>Coin</th><th>Tier</th><th>Conv.</th>
-					<th>Size</th><th>Outcome</th><th>PnL</th><th>When</th>
+					<th scope="col">Coin</th><th scope="col">Tier</th><th scope="col">Conv.</th>
+					<th scope="col">Size</th><th scope="col">Outcome</th><th scope="col">PnL</th><th scope="col">When</th>
 				</tr></thead>
 				<tbody>${rows}</tbody>
 			</table>

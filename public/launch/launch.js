@@ -174,6 +174,7 @@ export function mountLaunchCoin(root) {
 	launchPanel = mountLaunchPanel(panelEl, {
 		getAvatar: () => currentAvatar(),
 		getUser: () => state.user,
+		context: 'launch',
 	});
 
 	(async function boot() {
