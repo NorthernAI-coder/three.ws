@@ -55,7 +55,7 @@ function tierFor(pctOfSupply) {
 		main.innerHTML = `
 			<div style="margin-bottom:6px">
 				<div style="display:flex;align-items:center;gap:12px;margin-bottom:4px">
-					<div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#fff 0%,#888 100%);display:grid;place-items:center;font-weight:800;font-size:15px;color:#000;flex-shrink:0">$3</div>
+					<div style="width:36px;height:36px;border-radius:10px;background:#111116;border:1px solid #232329;display:grid;place-items:center;flex-shrink:0;overflow:hidden"><img src="/favicon.svg" alt="three.ws" width="26" height="26" style="display:block" /></div>
 					<div>
 						<h1 class="dn-h1" style="margin:0">$THREE Holders</h1>
 						<p class="dn-h1-sub" style="margin:0">The on-chain holder leaderboard for the protocol token</p>
@@ -239,7 +239,7 @@ function badgeSvg(pos, token) {
 			<text x="36" y="276" fill="#ffffff" font-size="14" opacity="0.55">${esc(wallet)}</text>
 			<text x="430" y="276" fill="#ffffff" font-size="14" opacity="0.55">three.ws/holders</text>
 			<circle cx="540" cy="64" r="26" fill="none" stroke="${tier.accent}" stroke-opacity="0.6"/>
-			<text x="540" y="71" fill="#ffffff" font-size="22" font-weight="800" text-anchor="middle">$3</text>
+			<text x="540" y="71" fill="#ffffff" font-size="22" font-weight="800" text-anchor="middle">3</text>
 		</g>
 	</svg>`;
 }

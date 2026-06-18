@@ -87,6 +87,22 @@
 			<description>Every coin world has a disco pad beside the totem that pulses to a shared beat and crossfades dancers in lockstep. A wiring gap meant the world tried to listen for a beat the connection didn't know about, which threw an error the moment you entered and left the pad dark. The beat is now delivered properly: step onto the pad, hit Dance, and you and everyone else standing on it move to the same animation on the same beat, with the floor and lights pulsing in time.</description>
 		</item>
 		<item>
+			<title>The homepage avatar now prays, then walks</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-18:The homepage avatar now prays, then walks</guid>
+			<pubDate>Thu, 18 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>Tap “🙏 Pray” on the homepage hero and the avatar finishes the prayer and rises straight into a walk — one smooth motion instead of snapping back to a standing idle at the end of the clip. After the walk plays out, the avatar eases back into its gentle idle-and-stroll rhythm. The other one-tap emotes (wave, dance, jump, and the rest) also return to that ambient motion now instead of freezing on their last frame.</description>
+		</item>
+		<item>
+			<title>Token swaps now confirm success or failure clearly</title>
+			<link>https://three.ws/three-token</link>
+			<guid isPermaLink="false">2026-06-18:Token swaps now confirm success or failure clearly</guid>
+			<pubDate>Thu, 18 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>When you buy $THREE (or swap any pair) from the swap window, it now tells you exactly how it went. After you approve in your wallet, a banner shows it submitting and confirming on-chain, then resolves to a clear result: a green “Swap confirmed” with the amount you received and a Solscan link, a red on-chain failure with the reason (and a hint to widen slippage when that's the cause), or a “still confirming” notice with a link if the network is slow. Previously a swap could land successfully but the window sat on “Confirming…” indefinitely with no confirmation — because it was waiting on a live socket the swap proxy doesn't carry. It now polls the chain directly and gives you a definite answer in seconds.</description>
+		</item>
+		<item>
 			<title>Your $THREE holder tier now shows across the site</title>
 			<link>https://three.ws/forge</link>
 			<guid isPermaLink="false">2026-06-18:Your $THREE holder tier now shows across the site</guid>
