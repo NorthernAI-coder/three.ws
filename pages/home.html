@@ -5021,17 +5021,29 @@
 		const WALK_CLIP = 'av-walk-feminine';
 		const IDLE_CLIP = 'idle';
 		let active = true;
+		let running = false;
 
+		// Ambient idle↔walk loop. Re-entrancy guarded so a second call (visibility
+		// flip, or an emote handing the avatar back) never spins up parallel timers.
 		async function walkCycle() {
-			await new Promise(r => setTimeout(r, 2000));
-			if (!active || _heroChipActive) return;
-			heroAgent.play?.(WALK_CLIP, { loop: true, fade_ms: 400 });
-			await new Promise(r => setTimeout(r, 5000));
-			if (!active || _heroChipActive) return;
-			heroAgent.play?.(IDLE_CLIP, { loop: true, fade_ms: 600 });
-			await new Promise(r => setTimeout(r, 3000));
-			walkCycle();
+			if (running) return;
+			running = true;
+			try {
+				while (active && !_heroChipActive) {
+					await new Promise(r => setTimeout(r, 2000));
+					if (!active || _heroChipActive) break;
+					heroAgent.play?.(WALK_CLIP, { loop: true, fade_ms: 400 });
+					await new Promise(r => setTimeout(r, 5000));
+					if (!active || _heroChipActive) break;
+					heroAgent.play?.(IDLE_CLIP, { loop: true, fade_ms: 600 });
+					await new Promise(r => setTimeout(r, 3000));
+				}
+			} finally {
+				running = false;
+			}
 		}
+		// Expose the cycle so the chip handler can hand the avatar back to its rhythm.
+		heroAgent._heroAmbient = walkCycle;
 
 		heroAgent.addEventListener('agent:ready', walkCycle, { once: true });
 		if (heroAgent._viewer) walkCycle();
@@ -5040,6 +5052,23 @@
 			active = !document.hidden;
 			if (active && !_heroChipActive) walkCycle();
 		});
+	}
+
+	// Pray → walk: finish the prayer one-shot, then rise straight into a looping
+	// walk via a single crossfade — no snap back to idle at the clip boundary.
+	function playPrayToWalk(heroAgent) {
+		const am = heroAgent?._viewer?.animationManager;
+		if (am && typeof am.playOnce === 'function') {
+			am.playOnce('pray', { settleTo: 'av-walk-feminine', fade: 0.45 });
+			return;
+		}
+		// Animation manager not reachable yet: play the one-shot, then walk once it
+		// ends (pray clip ≈ 6.87s).
+		heroAgent.play?.('pray', { loop: false, fade_ms: 400 });
+		clearTimeout(heroAgent._prayWalkTimer);
+		heroAgent._prayWalkTimer = setTimeout(() => {
+			heroAgent.play?.('av-walk-feminine', { loop: true, fade_ms: 450 });
+		}, 6900);
 	}
 
 	// ── Hero animation chips ─────────────────────────────────────────
@@ -5069,16 +5098,23 @@
 			btn.dataset.active = 'true';
 
 			_heroChipActive = true;
-			heroAgent.play?.(clip, { loop: false, fade_ms: 400 });
+			if (clip === 'pray') {
+				playPrayToWalk(heroAgent);
+			} else {
+				heroAgent.play?.(clip, { loop: false, fade_ms: 400 });
+			}
 
 			moveCount += 1;
 			if (counter) counter.innerHTML = `<strong>${moveCount}</strong> ${moveCount === 1 ? 'move' : 'moves'}`;
 
+			// Pray runs ~6.9s then walks; hold the chip-active window longer so the
+			// walk reads before the ambient idle↔walk rhythm takes back over.
 			clearTimeout(chipsEl._resumeTimer);
 			chipsEl._resumeTimer = setTimeout(() => {
 				_heroChipActive = false;
 				delete btn.dataset.active;
-			}, 6000);
+				heroAgent._heroAmbient?.();
+			}, clip === 'pray' ? 11000 : 6000);
 		});
 	}
 
