@@ -22,12 +22,16 @@ const planSchema = z.object({
 	price_usd: z.number().min(0.99).max(999),
 	interval: z.enum(['weekly', 'monthly']).default('monthly'),
 	perks: z.array(z.string().trim().max(120)).max(10).default([]),
+	included_skills: z.array(z.string().trim().min(1).max(120)).max(50).default([]),
+	active: z.boolean().default(true),
 });
 
 const patchSchema = z.object({
 	name: z.string().trim().min(2).max(80).optional(),
 	price_usd: z.number().min(0.99).max(999).optional(),
+	interval: z.enum(['weekly', 'monthly']).optional(),
 	perks: z.array(z.string().trim().max(120)).max(10).optional(),
+	included_skills: z.array(z.string().trim().min(1).max(120)).max(50).optional(),
 	active: z.boolean().optional(),
 });
 
@@ -68,22 +72,45 @@ async function handleList(req, res) {
 		return error(res, 400, 'validation_error', 'agent_id must be a valid UUID');
 	}
 
+	// Public callers only ever see active plans. The owner may pass
+	// include_inactive=1 to also receive deactivated plans (so the edit UI can
+	// surface and reactivate them). We confirm ownership before honouring it.
+	const wantsInactive = ['1', 'true'].includes(params.get('include_inactive') || '');
+	let includeInactive = false;
+	if (wantsInactive) {
+		const user = await getSessionUser(req);
+		if (user) {
+			if (agentId) {
+				const [owned] = await sql`
+					SELECT id FROM agent_identities
+					WHERE id = ${agentId} AND user_id = ${user.id} AND deleted_at IS NULL
+				`;
+				includeInactive = !!owned;
+			} else {
+				includeInactive = creatorId === user.id;
+			}
+		}
+	}
+
 	let rows;
 	if (agentId) {
 		// Look up all plans belonging to this agent's creator (agent_id is public).
+		// Active plans first, then most-recent drafts, so the owner's list reads top-down.
 		rows = await sql`
-			SELECT sp.id, sp.creator_id, sp.agent_id, sp.name, sp.price_usd, sp.interval, sp.perks, sp.active, sp.created_at
+			SELECT sp.id, sp.creator_id, sp.agent_id, sp.name, sp.price_usd, sp.interval, sp.perks, sp.included_skills, sp.active, sp.created_at
 			FROM subscription_plans sp
 			JOIN agent_identities ai ON ai.user_id = sp.creator_id
-			WHERE ai.id = ${agentId} AND ai.deleted_at IS NULL AND sp.active = true
-			ORDER BY sp.created_at ASC
+			WHERE ai.id = ${agentId} AND ai.deleted_at IS NULL
+			  AND (${includeInactive} OR sp.active = true)
+			ORDER BY sp.active DESC, sp.created_at ASC
 		`;
 	} else {
 		rows = await sql`
-			SELECT id, creator_id, agent_id, name, price_usd, interval, perks, active, created_at
+			SELECT id, creator_id, agent_id, name, price_usd, interval, perks, included_skills, active, created_at
 			FROM subscription_plans
-			WHERE creator_id = ${creatorId} AND active = true
-			ORDER BY created_at ASC
+			WHERE creator_id = ${creatorId}
+			  AND (${includeInactive} OR active = true)
+			ORDER BY active DESC, created_at ASC
 		`;
 	}
 	return json(res, 200, { plans: rows });
@@ -104,12 +131,15 @@ async function handleCreate(req, res) {
 
 	const body = parse(planSchema, await readJson(req));
 
-	// Enforce max 3 active plans per creator.
-	const [{ count }] = await sql`
-		SELECT count(*)::int AS count FROM subscription_plans
-		WHERE creator_id = ${user.id} AND active = true
-	`;
-	if (count >= 3) return error(res, 409, 'conflict', 'maximum 3 active plans per creator');
+	// Enforce max 3 active plans per creator — only counts toward the cap if the
+	// new plan is being created active. Drafts (active=false) don't consume a slot.
+	if (body.active) {
+		const [{ count }] = await sql`
+			SELECT count(*)::int AS count FROM subscription_plans
+			WHERE creator_id = ${user.id} AND active = true
+		`;
+		if (count >= 3) return error(res, 409, 'conflict', 'maximum 3 active plans per creator');
+	}
 
 	// Verify agent_id belongs to creator if provided.
 	if (body.agent_id) {
@@ -121,10 +151,10 @@ async function handleCreate(req, res) {
 	}
 
 	const [plan] = await sql`
-		INSERT INTO subscription_plans (creator_id, agent_id, name, price_usd, interval, perks)
+		INSERT INTO subscription_plans (creator_id, agent_id, name, price_usd, interval, perks, included_skills, active)
 		VALUES (${user.id}, ${body.agent_id ?? null}, ${body.name}, ${body.price_usd},
-		        ${body.interval}, ${body.perks})
-		RETURNING id, creator_id, agent_id, name, price_usd, interval, perks, active, created_at
+		        ${body.interval}, ${body.perks}, ${body.included_skills}, ${body.active})
+		RETURNING id, creator_id, agent_id, name, price_usd, interval, perks, included_skills, active, created_at
 	`;
 	return json(res, 201, { plan });
 }
@@ -140,9 +170,20 @@ async function handlePatch(req, res, planId) {
 	const body = parse(patchSchema, await readJson(req));
 
 	const [existing] = await sql`
-		SELECT id FROM subscription_plans WHERE id = ${planId} AND creator_id = ${user.id}
+		SELECT id, active FROM subscription_plans WHERE id = ${planId} AND creator_id = ${user.id}
 	`;
 	if (!existing) return error(res, 404, 'not_found', 'plan not found');
+
+	// Reactivating a plan must respect the max-3-active cap (the create path
+	// enforces the same invariant). Already-active plans toggling other fields
+	// don't re-check, and deactivating is always allowed.
+	if (body.active === true && existing.active === false) {
+		const [{ count }] = await sql`
+			SELECT count(*)::int AS count FROM subscription_plans
+			WHERE creator_id = ${user.id} AND active = true AND id <> ${planId}
+		`;
+		if (count >= 3) return error(res, 409, 'conflict', 'maximum 3 active plans per creator');
+	}
 
 	const setFrags = [];
 	const params = [];
@@ -154,9 +195,17 @@ async function handlePatch(req, res, planId) {
 		params.push(body.price_usd);
 		setFrags.push(`price_usd = $${params.length}`);
 	}
+	if (body.interval !== undefined) {
+		params.push(body.interval);
+		setFrags.push(`interval = $${params.length}`);
+	}
 	if (body.perks !== undefined) {
 		params.push(body.perks);
 		setFrags.push(`perks = $${params.length}`);
+	}
+	if (body.included_skills !== undefined) {
+		params.push(body.included_skills);
+		setFrags.push(`included_skills = $${params.length}`);
 	}
 	if (body.active !== undefined) {
 		params.push(body.active);
@@ -175,7 +224,7 @@ async function handlePatch(req, res, planId) {
 		UPDATE subscription_plans
 		SET ${setFrags.join(', ')}
 		WHERE id = $${planIdIdx} AND creator_id = $${userIdIdx}
-		RETURNING id, creator_id, agent_id, name, price_usd, interval, perks, active, created_at
+		RETURNING id, creator_id, agent_id, name, price_usd, interval, perks, included_skills, active, created_at
 	`,
 		params,
 	);

@@ -1141,6 +1141,7 @@ create table if not exists subscription_plans (
     price_usd    numeric(8,2) not null check (price_usd >= 0.99),
     interval     text        not null default 'monthly' check (interval in ('weekly','monthly')),
     perks        text[],
+    included_skills text[]   not null default '{}',
     active       boolean     not null default true,
     created_at   timestamptz not null default now()
 );

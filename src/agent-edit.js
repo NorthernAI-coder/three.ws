@@ -1042,7 +1042,7 @@ async function loadSubscriptionPlans() {
   const list = $('subscription-plans-list');
   if (!list) return;
   try {
-    const r = await apiFetch(`${API_BASE}/subscriptions/plans?agent_id=${encodeURIComponent(agentId)}`, { credentials: 'include' });
+    const r = await apiFetch(`${API_BASE}/subscriptions/plans?agent_id=${encodeURIComponent(agentId)}&include_inactive=1`, { credentials: 'include' });
     const j = await r.json().catch(() => ({}));
     const plans = j.plans || [];
     plansLoaded = true;
@@ -1060,19 +1060,52 @@ function renderPlansList(plans) {
     list.innerHTML = `<span class="muted" style="font-size:0.764rem;">No plans yet — create one below.</span>`;
     return;
   }
-  list.innerHTML = plans.map(p => `
-    <div class="plan-row" style="display:flex; align-items:center; justify-content:space-between; padding:0.5rem 0.75rem; border:1px solid rgba(255,255,255,0.08); border-radius:6px; background:rgba(255,255,255,0.02);">
+  list.innerHTML = plans.map(p => {
+    const isActive = p.active !== false;
+    const planJson = JSON.stringify(p).replace(/"/g, '&quot;');
+    const action = isActive
+      ? `<button class="btn-ghost danger" style="font-size:0.7rem; padding:0.25rem 0.6rem;" onclick="deletePlan('${p.id}')">Deactivate</button>`
+      : `<button class="btn-ghost" style="font-size:0.7rem; padding:0.25rem 0.6rem; color:#86efac; border-color:rgba(134,239,172,0.4);" onclick="reactivatePlan('${p.id}')">Reactivate</button>`;
+    return `
+    <div class="plan-row" style="display:flex; align-items:center; justify-content:space-between; padding:0.5rem 0.75rem; border:1px solid rgba(255,255,255,${isActive ? '0.08' : '0.05'}); border-radius:6px; background:rgba(255,255,255,0.02); opacity:${isActive ? '1' : '0.6'};">
       <div>
         <span style="font-weight:600; font-size:0.875rem;">${escHtml(p.name)}</span>
         <span style="color:rgba(255,255,255,0.45); font-size:0.764rem; margin-left:0.5rem;">$${Number(p.price_usd).toFixed(2)} / ${p.interval}</span>
+        ${isActive ? '' : `<span style="font-size:0.6rem; text-transform:uppercase; letter-spacing:0.05em; color:rgba(255,255,255,0.5); background:rgba(255,255,255,0.08); padding:0.1rem 0.4rem; border-radius:4px; margin-left:0.5rem;">Inactive</span>`}
         ${p.perks?.length ? `<div style="font-size:0.7rem; color:rgba(255,255,255,0.35); margin-top:0.15rem;">${escHtml(p.perks.join(' · '))}</div>` : ''}
+        ${p.included_skills?.length ? `<div style="font-size:0.7rem; color:rgba(164,240,188,0.65); margin-top:0.15rem;">Includes ${p.included_skills.length} skill${p.included_skills.length === 1 ? '' : 's'}: ${escHtml(p.included_skills.join(' · '))}</div>` : ''}
       </div>
       <div style="display:flex; gap:0.4rem;">
-        <button class="btn-ghost" style="font-size:0.7rem; padding:0.25rem 0.6rem;" onclick="openPlanEditor(${JSON.stringify(p).replace(/"/g, '&quot;')})">Edit</button>
-        <button class="btn-ghost danger" style="font-size:0.7rem; padding:0.25rem 0.6rem;" onclick="deletePlan('${p.id}')">Delete</button>
+        <button class="btn-ghost" style="font-size:0.7rem; padding:0.25rem 0.6rem;" onclick="openPlanEditor(${planJson})">Edit</button>
+        ${action}
       </div>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
+}
+
+// Skill names available on this agent (skills may be strings or {name} objects).
+function planSkillNames() {
+  return (agentData.skills || [])
+    .map((s) => (typeof s === 'string' ? s : s?.name))
+    .filter(Boolean);
+}
+
+// Render the agent's skills as a checklist inside the plan editor, pre-checking
+// the ones already bundled into the plan being edited.
+function renderPlanSkillsChecklist(selected = []) {
+  const host = $('plan-skills-checklist');
+  if (!host) return;
+  const selectedSet = new Set(selected);
+  const names = planSkillNames();
+  if (!names.length) {
+    host.innerHTML = `<span class="plan-skills-empty">This agent has no skills yet. Add skills in the Skills tab to bundle them into a plan.</span>`;
+    return;
+  }
+  host.innerHTML = names.map((name) => `
+    <label class="plan-skill-check">
+      <input type="checkbox" value="${escHtml(name)}" ${selectedSet.has(name) ? 'checked' : ''}>
+      <span>${escHtml(name)}</span>
+    </label>`).join('');
 }
 
 window.openPlanEditor = function openPlanEditor(plan) {
@@ -1083,6 +1116,8 @@ window.openPlanEditor = function openPlanEditor(plan) {
   $('plan-price-input').value = plan?.price_usd ?? '';
   $('plan-interval-input').value = plan?.interval ?? 'monthly';
   $('plan-perks-input').value = (plan?.perks ?? []).join('\n');
+  $('plan-active-input').checked = plan?.active !== false;
+  renderPlanSkillsChecklist(plan?.included_skills ?? []);
   $('plan-status').textContent = '';
   editor.style.display = 'block';
   $('show-create-plan-btn').style.display = 'none';
@@ -1090,13 +1125,31 @@ window.openPlanEditor = function openPlanEditor(plan) {
 };
 
 window.deletePlan = async function deletePlan(planId) {
-  if (!confirm('Delete this plan? Subscribers will keep access until their period ends.')) return;
+  if (!confirm('Deactivate this plan? It will be hidden from new subscribers; existing subscribers keep access until their period ends. You can reactivate it later.')) return;
   try {
     const r = await apiFetch(`${API_BASE}/subscriptions/plans/${planId}`, { method: 'DELETE', credentials: 'include' });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     loadSubscriptionPlans();
   } catch (err) {
-    alert(`Error deleting plan: ${err.message}`);
+    alert(`Error deactivating plan: ${err.message}`);
+  }
+};
+
+window.reactivatePlan = async function reactivatePlan(planId) {
+  try {
+    const r = await apiFetch(`${API_BASE}/subscriptions/plans/${planId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ active: true }),
+    });
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
+      throw new Error(j.error_description || j.error || `HTTP ${r.status}`);
+    }
+    loadSubscriptionPlans();
+  } catch (err) {
+    alert(`Could not reactivate plan: ${err.message}`);
   }
 };
 
@@ -1116,19 +1169,25 @@ $('plan-save-btn')?.addEventListener('click', async () => {
   const price_usd = parseFloat($('plan-price-input').value);
   const interval = $('plan-interval-input').value;
   const perks = $('plan-perks-input').value.split('\n').map(s => s.trim()).filter(Boolean);
+  const active = $('plan-active-input').checked;
+  const included_skills = Array.from(
+    document.querySelectorAll('#plan-skills-checklist input[type="checkbox"]:checked'),
+  ).map((cb) => cb.value);
 
   if (!name) { status.textContent = 'Name is required.'; status.className = 'form-status err'; return; }
   if (!price_usd || price_usd < 0.99) { status.textContent = 'Price must be at least $0.99.'; status.className = 'form-status err'; return; }
 
   status.textContent = 'Saving…'; status.className = 'form-status';
   try {
-    const payload = { name, price_usd, interval, perks, agent_id: agentId };
     const url = planId ? `${API_BASE}/subscriptions/plans/${planId}` : `${API_BASE}/subscriptions/plans`;
+    const body = planId
+      ? { name, price_usd, interval, perks, included_skills, active }
+      : { name, price_usd, interval, perks, included_skills, active, agent_id: agentId };
     const r = await apiFetch(url, {
       method: planId ? 'PATCH' : 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify(planId ? { name, price_usd, interval, perks } : payload),
+      body: JSON.stringify(body),
     });
     if (!r.ok) {
       const j = await r.json().catch(() => ({}));
