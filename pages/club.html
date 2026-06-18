@@ -1817,6 +1817,9 @@
 			.club-pick-tile.selected { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(255, 59, 214, 0.3); }
 			.club-pick-tile.busy { opacity: 0.6; pointer-events: none; }
 			.club-pick-tile.failed { border-color: var(--danger); }
+			.club-pick-tile.undanceable { opacity: 0.4; cursor: not-allowed; filter: grayscale(0.7); }
+			.club-pick-tile.undanceable:hover { transform: none; border-color: var(--border); background: transparent; }
+			.club-pick-tile.undanceable .club-pick-name { text-decoration: line-through; }
 			.club-pick-thumb {
 				aspect-ratio: 1;
 				border-radius: 9px;
@@ -1840,6 +1843,7 @@
 				background: rgba(255, 59, 214, 0.18);
 				color: var(--accent);
 			}
+			.club-pick-badge.is-dead { background: rgba(255, 90, 90, 0.16); color: var(--danger); }
 			.club-pick-spinner {
 				position: absolute;
 				inset: 0;

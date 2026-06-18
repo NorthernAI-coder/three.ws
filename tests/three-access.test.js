@@ -28,6 +28,7 @@ const WALLET = 'So11111111111111111111111111111111111111112';
 // silent change to the registry (a shifted threshold, a dropped feature) fails here.
 const MIN_LEVEL = {
 	'forge.high': 1,
+	'intel.terminal': 1,
 	'worlds.private': 2,
 	'mcp.priority': 2,
 	'worlds.branded': 3,
@@ -36,6 +37,7 @@ const MIN_LEVEL = {
 };
 const REQUIRED_TIER_ID = {
 	'forge.high': 'bronze',
+	'intel.terminal': 'bronze',
 	'worlds.private': 'silver',
 	'mcp.priority': 'silver',
 	'worlds.branded': 'gold',
@@ -44,18 +46,21 @@ const REQUIRED_TIER_ID = {
 };
 const PAY_PER_USE = {
 	'forge.high': 'forge.high',
+	'intel.terminal': null,
 	'worlds.private': null,
 	'mcp.priority': null,
 	'worlds.branded': null,
 	'drops.early': null,
 	'names.first_dibs': 'name.auction',
 };
-// Only forge.high is WIRED today (the High-tier Forge gate). The rest are planned —
-// registered so the UI can show them, but not yet enforced anywhere. /three reads
-// this flag to mark each perk "Live" vs "Planned"; pinning it here makes flipping a
-// feature to enforced a deliberate, tested change rather than a silent one.
+// forge.high and intel.terminal are WIRED today (the High-tier Forge gate and the
+// Intel Terminal feed). The rest are planned — registered so the UI can show them,
+// but not yet enforced anywhere. /three reads this flag to mark each perk "Live" vs
+// "Planned"; pinning it here makes flipping a feature to enforced a deliberate,
+// tested change rather than a silent one.
 const ENFORCED = {
 	'forge.high': true,
+	'intel.terminal': true,
 	'worlds.private': false,
 	'mcp.priority': false,
 	'worlds.branded': false,
@@ -79,7 +84,7 @@ beforeEach(() => {
 });
 
 describe('registry shape', () => {
-	it('exposes exactly the six gated features and is deeply frozen', () => {
+	it('exposes exactly the seven gated features and is deeply frozen', () => {
 		expect(listGatedFeatures().sort()).toEqual(FEATURE_IDS.slice().sort());
 		expect(Object.isFrozen(GATED_FEATURES)).toBe(true);
 		for (const id of FEATURE_IDS) {
@@ -102,9 +107,9 @@ describe('registry shape', () => {
 		}
 	});
 
-	it('marks only forge.high enforced today — the rest are planned', () => {
+	it('marks forge.high and intel.terminal enforced today — the rest are planned', () => {
 		const enforced = FEATURE_IDS.filter((id) => GATED_FEATURES[id].enforced);
-		expect(enforced).toEqual(['forge.high']);
+		expect(enforced.sort()).toEqual(['forge.high', 'intel.terminal']);
 	});
 
 	it('references no coin other than $THREE in its copy', () => {

@@ -22,7 +22,12 @@ export const DEFAULT_ANIMATION_MAP = {
 	wave: 'reaction',
 	nod: 'reaction',
 	shake: 'angry',
-	think: 'pray',
+	// Thinking/curiosity is a calm state, not a full-body action. The previous
+	// 'pray' clip knelt the avatar to the ground, which read as the character
+	// being dropped in (and praying) every time it loaded — the first-encounter
+	// curiosity burst fires this slot on every fresh mount. Map it to a no-op
+	// idle so curiosity is conveyed by gaze + facial morphs, never a kneel.
+	think: 'idle',
 	celebrate: 'celebrate',
 	concern: 'defeated',
 	bow: 'sitclap',
