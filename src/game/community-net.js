@@ -155,6 +155,7 @@ export class CommunityNet {
 			objectReject: new Set(), // ({reason}) — server refused a spawn (world/player full)
 			reaction: new Set(),    // ({id, emoji}) — a player sent a floating reaction
 			tag: new Set(),         // ({event, itId, leaderboard}) — tag mini-game state (R08)
+			floorBeat: new Set(),   // ({clip}) — disco-pad beat tick (R06): pulses the floor + aligns standing dancers
 		};
 		this.ping = null;        // smoothed RTT in ms, null until the first echo
 		this._pingSentAt = 0;    // perf-clock stamp of the last move awaiting an echo
@@ -289,6 +290,11 @@ export class CommunityNet {
 			// Broadcast reactions (R04): floating emoji that rise above the sender's avatar.
 			this.room.onMessage('reaction', (msg) => this._emit('reaction', msg || {}));
 			this.room.onMessage('tag', (msg) => this._emit('tag', msg || {})); // R08 tag mini-game
+			// Dance floor (R06): the room broadcasts a beat every 4s so every client
+			// pulses the disco pad and crossfades standing dancers to the same clip in
+			// lockstep. The server message keeps its colon namespace; we normalize it to
+			// a camelCase event like the other namespaced messages above.
+			this.room.onMessage('floor:beat', (msg) => this._emit('floorBeat', msg || {}));
 
 			const $ = getStateCallbacks(this.room);
 			const $state = $(this.room.state);

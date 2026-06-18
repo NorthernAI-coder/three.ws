@@ -939,7 +939,7 @@ export class CoinCommunities {
 		});
 		// Durability flag for this world's build — drives the HUD "Saved" badge.
 		this.net.on('persistent', (durable) => { if (this.net?.status === 'online') this.buildHud.setPersistent(durable); });
-		this.net.on('floor:beat', (msg) => this._onFloorBeat(msg));
+		this.net.on('floorBeat', (msg) => this._onFloorBeat(msg));
 
 		// Game systems (economy + activities). The server streams this player's own
 		// pack/purse/skills here; PlaySystems renders the HUD, ponds, and cast visual,

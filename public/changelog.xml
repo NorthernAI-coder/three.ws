@@ -7,6 +7,14 @@
 		<description>What's new on three.ws — features, improvements, and releases, newest first.</description>
 		<language>en</language>
 		<item>
+			<title>Connect a wallet and your $THREE tier is recognized — no account needed</title>
+			<link>https://three.ws/forge</link>
+			<guid isPermaLink="false">2026-06-18:Connect a wallet and your $THREE tier is recognized — no account needed</guid>
+			<pubDate>Thu, 18 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>You no longer need a three.ws account to be seen as a $THREE holder. Connect your Solana wallet and the site reads your tier straight from your on-chain holdings: the holder chip in the top bar shows your live tier (◆ Bronze, Silver, Gold…) and holder features like High-quality generation on Forge unlock from the connected wallet alone. When a feature needs proof the wallet is yours, you approve a single free signature that moves no funds. Switch or disconnect a wallet and your tier updates instantly, no reload. Signed-in accounts keep working exactly as before.</description>
+		</item>
+		<item>
 			<title>Holding $THREE now unlocks a premium feature</title>
 			<link>https://three.ws/three</link>
 			<guid isPermaLink="false">2026-06-18:Holding $THREE now unlocks a premium feature</guid>
@@ -21,6 +29,14 @@
 			<pubDate>Thu, 18 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>Don't hold $THREE yet but want a High-quality model? You can now pay in $THREE for a single High generation instead. Pick High in Forge, choose &quot;Pay&quot; on the holder panel, and a clean payment flow prices it in $THREE, takes one wallet approval, verifies it on-chain, and runs your generation automatically. The platform now genuinely accepts $THREE for compute. One payment buys exactly one High generation, and if a generation fails before it runs your payment stays usable — you're never charged for a model you didn't get. Draft and Standard remain free, and holders still generate High straight away.</description>
+		</item>
+		<item>
+			<title>The disco dance floor in coin worlds works again</title>
+			<link>https://three.ws/play</link>
+			<guid isPermaLink="false">2026-06-18:The disco dance floor in coin worlds works again</guid>
+			<pubDate>Thu, 18 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Every coin world has a disco pad beside the totem that pulses to a shared beat and crossfades dancers in lockstep. A wiring gap meant the world tried to listen for a beat the connection didn't know about, which threw an error the moment you entered and left the pad dark. The beat is now delivered properly: step onto the pad, hit Dance, and you and everyone else standing on it move to the same animation on the same beat, with the floor and lights pulsing in time.</description>
 		</item>
 		<item>
 			<title>Your $THREE holder tier now shows across the site</title>

@@ -1,11 +1,21 @@
 {
-	"generated_at": "2026-06-18T01:05:47.110Z",
+	"generated_at": "2026-06-18T01:18:31.096Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
 		"url": "https://three.ws"
 	},
 	"entries": [
+		{
+			"date": "2026-06-18",
+			"type": "update",
+			"title": "Connect a wallet and your $THREE tier is recognized — no account needed",
+			"summary": "You no longer need a three.ws account to be seen as a $THREE holder. Connect your Solana wallet and the site reads your tier straight from your on-chain holdings: the holder chip in the top bar shows your live tier (◆ Bronze, Silver, Gold…) and holder features like High-quality generation on Forge unlock from the connected wallet alone. When a feature needs proof the wallet is yours, you approve a single free signature that moves no funds. Switch or disconnect a wallet and your tier updates instantly, no reload. Signed-in accounts keep working exactly as before.",
+			"link": "/forge",
+			"tags": [
+				"improvement"
+			]
+		},
 		{
 			"date": "2026-06-18",
 			"type": "update",
@@ -24,6 +34,16 @@
 			"link": "/forge",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-18",
+			"type": "update",
+			"title": "The disco dance floor in coin worlds works again",
+			"summary": "Every coin world has a disco pad beside the totem that pulses to a shared beat and crossfades dancers in lockstep. A wiring gap meant the world tried to listen for a beat the connection didn't know about, which threw an error the moment you entered and left the pad dark. The beat is now delivered properly: step onto the pad, hit Dance, and you and everyone else standing on it move to the same animation on the same beat, with the floor and lights pulsing in time.",
+			"link": "/play",
+			"tags": [
+				"fix"
 			]
 		},
 		{
