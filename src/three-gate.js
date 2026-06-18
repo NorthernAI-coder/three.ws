@@ -73,7 +73,9 @@ async function acquireThree() {
 		(typeof window !== 'undefined' && (window.solana || window.phantom?.solana)) || null;
 	if (provider && (provider.isPhantom || provider.isThreeWs)) {
 		try {
-			const resp = provider.publicKey ? { publicKey: provider.publicKey } : await provider.connect();
+			const resp = provider.publicKey
+				? { publicKey: provider.publicKey }
+				: await provider.connect();
 			const wallet = resp?.publicKey?.toString?.();
 			if (wallet) {
 				const mod = await import('./swap-jupiter.js').catch(() => null);
@@ -248,8 +250,10 @@ class ThreeGate extends HTMLElement {
 		const tone = tierTone(required.id);
 		const heldUsd = Number(held.usd) || 0;
 		const reqMin = Number(required.min_usd) || 0;
-		const pct = reqMin > 0 ? Math.max(0, Math.min(100, Math.round((heldUsd / reqMin) * 100))) : 100;
-		const pay = access.pay_per_use && access.pay_per_use.usd != null ? access.pay_per_use : null;
+		const pct =
+			reqMin > 0 ? Math.max(0, Math.min(100, Math.round((heldUsd / reqMin) * 100))) : 100;
+		const pay =
+			access.pay_per_use && access.pay_per_use.usd != null ? access.pay_per_use : null;
 
 		const secondary =
 			reason === 'sign_in'

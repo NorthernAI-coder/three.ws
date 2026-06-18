@@ -27,7 +27,7 @@ let _stylesInjected = false;
 function escapeHtml(s) {
 	return String(s ?? '').replace(
 		/[&<>"']/g,
-		(c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]),
+		(c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c],
 	);
 }
 
@@ -74,9 +74,16 @@ function classifyError(err) {
 		};
 	}
 	if (/reject|denied|cancel|declin|user.*reject/i.test(msg)) {
-		return { title: 'Payment cancelled', detail: 'You dismissed the wallet request — no $THREE was spent.', cta: { label: 'Try again', retry: true } };
+		return {
+			title: 'Payment cancelled',
+			detail: 'You dismissed the wallet request — no $THREE was spent.',
+			cta: { label: 'Try again', retry: true },
+		};
 	}
-	if (code === 'insufficient_funds' || /insufficient|0x1\b|not enough|debit|exceeds.*balance/i.test(msg)) {
+	if (
+		code === 'insufficient_funds' ||
+		/insufficient|0x1\b|not enough|debit|exceeds.*balance/i.test(msg)
+	) {
 		return {
 			title: 'Not enough $THREE',
 			detail: "Your wallet doesn't hold enough $THREE for this generation.",
@@ -84,15 +91,26 @@ function classifyError(err) {
 		};
 	}
 	if (code === 'price_unavailable') {
-		return { title: 'Price feed unavailable', detail: 'We couldn’t price $THREE just now. Try again in a moment.', cta: { label: 'Try again', retry: true } };
+		return {
+			title: 'Price feed unavailable',
+			detail: 'We couldn’t price $THREE just now. Try again in a moment.',
+			cta: { label: 'Try again', retry: true },
+		};
 	}
 	if (code === 'already_settled') {
-		return { title: 'Already paid', detail: 'This payment already settled — retry your generation.', cta: { label: 'Try again', retry: true } };
+		return {
+			title: 'Already paid',
+			detail: 'This payment already settled — retry your generation.',
+			cta: { label: 'Try again', retry: true },
+		};
 	}
 	// Settlement / verification or any other transient failure.
 	return {
 		title: 'Payment didn’t go through',
-		detail: msg && msg.length < 160 ? msg : 'Something interrupted the payment. Try again — no $THREE is spent unless it settles.',
+		detail:
+			msg && msg.length < 160
+				? msg
+				: 'Something interrupted the payment. Try again — no $THREE is spent unless it settles.',
 		cta: { label: 'Try again', retry: true },
 	};
 }
@@ -164,9 +182,13 @@ export function payForHighGeneration({ usd }) {
 				);
 			}
 			if (info.cta?.retry) {
-				buttons.push(`<button type="button" class="fpay-btn fpay-btn--primary" data-fpay-retry>${escapeHtml(info.cta.label)}</button>`);
+				buttons.push(
+					`<button type="button" class="fpay-btn fpay-btn--primary" data-fpay-retry>${escapeHtml(info.cta.label)}</button>`,
+				);
 			}
-			buttons.push(`<button type="button" class="fpay-btn fpay-btn--ghost" data-fpay-cancel>Close</button>`);
+			buttons.push(
+				`<button type="button" class="fpay-btn fpay-btn--ghost" data-fpay-cancel>Close</button>`,
+			);
 			actionsEl.innerHTML = buttons.join('');
 			actionsEl.querySelector('[data-fpay-retry]')?.addEventListener('click', startPayment);
 			actionsEl.querySelector('[data-fpay-cancel]').addEventListener('click', close);
@@ -181,10 +203,13 @@ export function payForHighGeneration({ usd }) {
 					usd,
 					refType: 'forge',
 					refId,
-					onStatus: (phase) => showStatus(PHASE_COPY[phase] || 'Working…', { busy: true }),
+					onStatus: (phase) =>
+						showStatus(PHASE_COPY[phase] || 'Working…', { busy: true }),
 				});
 				if (!result?.ok || !result.payment_id) {
-					throw Object.assign(new Error('Payment could not be verified.'), { code: 'verification_failed' });
+					throw Object.assign(new Error('Payment could not be verified.'), {
+						code: 'verification_failed',
+					});
 				}
 				settled = true;
 				statusEl.className = 'fpay-status fpay-status--ok';

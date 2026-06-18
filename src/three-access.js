@@ -2,16 +2,23 @@
 //
 // One module any page imports to make the hold-to-access lever real in the UI:
 //   • getAccess(feature?)   — GET /api/three/access (the gated-feature matrix or
-//                             a single feature), short-cached.
-//   • getTierPass()         — POST /api/three/tier-pass, cached until ~1 min before
+//                             a single feature), short-cached. Reads the connected
+//                             wallet (?wallet=) when one is connected, else the session.
+//   • getTierPass(opts?)    — mint/reuse the tier pass, cached until ~1 min before
 //                             expiry; the portable, RPC-free proof of holder tier.
+//                             A connected wallet mints by signing a fresh message
+//                             ({ interactive:true } only — never a surprise popup);
+//                             a session user mints silently. The portable, RPC-free
+//                             proof of holder tier.
 //   • tierPassHeader()      — the cached pass string for the x-three-tier-pass
 //                             header (sync; null when none), so a gated request can
 //                             attach an eligible holder's entitlement with no await.
 //   • attachTierPass(h)     — adds that header to a headers object when a pass is
 //                             cached; no-op + returns it unchanged otherwise.
 //   • primeTierPass()       — fetch the pass in the background (fire-and-forget).
-//   • mountTierBadge(el)    — render the signed-in holder's tier chip (Bronze+).
+//   • mountTierBadge(el)    — render the holder's tier chip (Bronze+), for a
+//                             signed-in account OR a connected wallet; re-renders
+//                             itself on wallet:changed.
 //   • onGate(payload)       — open the upsell from a 402 three_hold_required body
 //                             (the intent-named entry; showThreeGate is the impl).
 //   • showThreeGate(gate)   — the upsell modal: Get $THREE + what you hold vs. need.
@@ -20,18 +27,73 @@
 // Everything degrades to a safe locked/anonymous state on any network failure —
 // the UI never throws and the server stays the only authority on eligibility.
 
+import { getConnectedWallet, getConnectedWalletAddress } from './wallet.js';
+
 const ACCESS_TTL_MS = 30_000;
-let _matrix = { at: 0, data: null };
-let _tierPass = null; // { pass, tier, exp(ms) }
+// The matrix cache is keyed by identity (the connected wallet, or null for the
+// session) so a wallet connect/disconnect/switch never serves the previous
+// identity's access.
+let _matrix = { at: 0, data: null, wallet: undefined };
+let _tierPass = null; // { pass, tier, exp(ms), wallet } — wallet is the identity it was minted for (null = session)
+let _tierPassInFlight = null; // de-dupe concurrent mints onto one network/signature round-trip
 let _stylesInjected = false;
 
 const ECONOMY_URL = '/three';
+
+// The connected Solana wallet address (Phantom on web, the Seeker TWA wallet on
+// mobile), or null when none is connected — in which case every read falls back to
+// the session identity. Seeded on import and kept current by the wallet:changed
+// listener below. Reading is best-effort: a wallet module hiccup degrades to session.
+function readConnectedWallet() {
+	try {
+		return getConnectedWalletAddress() || null;
+	} catch {
+		return null;
+	}
+}
+let _walletAddr = readConnectedWallet();
+
+// A wallet connect/disconnect/switch changes who the caller is, so the cached access
+// matrix and tier pass are now for the wrong identity. Drop both and re-track the
+// address so the next read reflects the wallet in hand. Registered at import time —
+// before any mountTierBadge() call — so it always runs ahead of the per-badge
+// re-render listeners those mounts add: they then read an already-invalidated cache
+// and fetch fresh for the new identity.
+if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+	window.addEventListener('wallet:changed', (e) => {
+		const next =
+			e?.detail && Object.prototype.hasOwnProperty.call(e.detail, 'address')
+				? e.detail.address || null
+				: readConnectedWallet();
+		if (next === _walletAddr) return;
+		_walletAddr = next;
+		_matrix = { at: 0, data: null, wallet: undefined };
+		_tierPass = null;
+		_tierPassInFlight = null;
+	});
+}
 
 function escapeHtml(s) {
 	return String(s ?? '').replace(
 		/[&<>"']/g,
 		(c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c],
 	);
+}
+
+// The canonical message a connected wallet signs to mint a tier pass without an
+// account. MUST stay byte-identical to the server validator (checkTierPassMessage in
+// api/three/[action].js — it requires the 'three.ws' domain, the wallet, and a fresh
+// `Issued At:`) and to tests/three-tier-public.test.js: the server reconstructs and
+// verifies the signature over these exact bytes, so any drift breaks every mint.
+function buildTierPassMessage(wallet, issuedAt) {
+	return [
+		'three.ws — verify wallet to unlock $THREE holder perks.',
+		'',
+		`Wallet: ${wallet}`,
+		`Issued At: ${issuedAt}`,
+		'',
+		'Signing is free and does not move funds.',
+	].join('\n');
 }
 
 // base64url → JSON (the tier-pass payload is the part before the first '.').
@@ -56,17 +118,28 @@ function decodePassExpMs(pass) {
  * Feature shape: { signed_in, wallet_linked, tier, access:{…} }
  */
 export async function getAccess(feature, { fresh = false } = {}) {
-	if (!fresh && !feature && _matrix.data && Date.now() - _matrix.at < ACCESS_TTL_MS) {
+	const wallet = _walletAddr;
+	if (
+		!fresh &&
+		!feature &&
+		_matrix.data &&
+		_matrix.wallet === wallet &&
+		Date.now() - _matrix.at < ACCESS_TTL_MS
+	) {
 		return _matrix.data;
 	}
-	const url = feature
-		? `/api/three/access?feature=${encodeURIComponent(feature)}`
-		: '/api/three/access';
+	// A connected wallet reads its own on-chain tier via ?wallet=; with no wallet the
+	// request carries only the session cookie and the server reads the linked account.
+	const params = new URLSearchParams();
+	if (feature) params.set('feature', feature);
+	if (wallet) params.set('wallet', wallet);
+	const qs = params.toString();
+	const url = qs ? `/api/three/access?${qs}` : '/api/three/access';
 	try {
 		const r = await fetch(url, { credentials: 'include' });
 		if (!r.ok) return null;
 		const data = await r.json();
-		if (!feature) _matrix = { at: Date.now(), data };
+		if (!feature) _matrix = { at: Date.now(), data, wallet };
 		return data;
 	} catch {
 		return null;
@@ -75,23 +148,83 @@ export async function getAccess(feature, { fresh = false } = {}) {
 
 /**
  * Mint (or reuse) the signed $THREE tier pass. Cached until ~1 min before expiry.
- * Returns null when the user is anonymous / has no linked wallet (401/403) or on
- * any failure — the caller simply proceeds with no pass attached.
+ * Split by identity:
+ *   • A connected wallet mints via the signature path — sign a fresh, domain-bound
+ *     message and POST { wallet, message, signature }. The wallet popup only fires on
+ *     an INTERACTIVE call (a user gesture); a background `primeTierPass()` for a
+ *     connected wallet returns the cached pass or null, never a surprise prompt.
+ *   • No connected wallet → the session POST (silent), unchanged for signed-in users.
+ * Concurrent mints de-dupe onto one in-flight promise. Returns null when the caller
+ * is anonymous / has no linked wallet (the endpoint 401/403s) or on any failure —
+ * the caller simply proceeds with no pass attached.
+ * @param {{ interactive?: boolean }} [opts]
  */
-export async function getTierPass() {
+export async function getTierPass({ interactive = false } = {}) {
 	const now = Date.now();
-	if (_tierPass && _tierPass.exp - 60_000 > now) return _tierPass;
+	const wallet = _walletAddr;
+
+	// Serve a still-valid pass, but only if it was minted for the identity in hand
+	// (a wallet change clears it — this is the belt-and-suspenders check).
+	if (_tierPass && _tierPass.wallet === wallet && _tierPass.exp - 60_000 > now) {
+		return _tierPass;
+	}
+
+	// A connected wallet must sign to mint — do that only on an interactive call so a
+	// background prime never pops the wallet's signature dialog.
+	if (wallet && !interactive) return null;
+
+	// De-dupe concurrent mints (e.g. an interactive Generate click racing a prime).
+	if (_tierPassInFlight) return _tierPassInFlight;
+	_tierPassInFlight = (wallet ? mintWalletTierPass(wallet) : mintSessionTierPass()).finally(() => {
+		_tierPassInFlight = null;
+	});
+	return _tierPassInFlight;
+}
+
+// Mint a pass for a connected wallet by signing the canonical message. Never throws;
+// degrades to null on a declined signature, a disconnect mid-flight, or a rejected
+// POST. Only adopts the result as the live cache when the connected identity hasn't
+// changed mid-mint, so a wallet switch can't leave a stale pass on the header.
+async function mintWalletTierPass(wallet) {
+	try {
+		const provider = getConnectedWallet();
+		if (!provider?.signMessage) return null;
+		const message = buildTierPassMessage(wallet, new Date().toISOString());
+		const encoded = new TextEncoder().encode(message);
+		const signed = await provider.signMessage(encoded, 'utf8');
+		const sigBytes = signed?.signature ?? signed;
+		const bs58 = (await import('bs58')).default;
+		const signature = bs58.encode(sigBytes);
+		const r = await fetch('/api/three/tier-pass', {
+			method: 'POST',
+			credentials: 'include',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ wallet, message, signature }),
+		});
+		if (!r.ok) return null;
+		const data = await r.json().catch(() => null);
+		if (!data?.pass) return null;
+		const expMs = decodePassExpMs(data.pass) || Date.now() + 9 * 60_000;
+		const entry = { pass: data.pass, tier: data.tier || null, exp: expMs, wallet };
+		if (_walletAddr === wallet) _tierPass = entry;
+		return entry;
+	} catch {
+		return null;
+	}
+}
+
+// Mint a pass for the signed-in session (no body → getSessionUser server-side). The
+// original v1 path, kept byte-for-byte so signed-in users are unaffected.
+async function mintSessionTierPass() {
 	try {
 		const r = await fetch('/api/three/tier-pass', { method: 'POST', credentials: 'include' });
-		if (!r.ok) {
-			_tierPass = null;
-			return null;
-		}
-		const data = await r.json();
+		if (!r.ok) return null;
+		const data = await r.json().catch(() => null);
 		if (!data?.pass) return null;
-		const expMs = decodePassExpMs(data.pass) || now + 9 * 60_000;
-		_tierPass = { pass: data.pass, tier: data.tier || null, exp: expMs };
-		return _tierPass;
+		const expMs = decodePassExpMs(data.pass) || Date.now() + 9 * 60_000;
+		const entry = { pass: data.pass, tier: data.tier || null, exp: expMs, wallet: null };
+		if (_walletAddr === null) _tierPass = entry;
+		return entry;
 	} catch {
 		return null;
 	}
@@ -115,23 +248,47 @@ export function attachTierPass(headers = {}) {
 	return headers;
 }
 
-/** Fetch the pass in the background so it's ready when a gated request fires. */
+/**
+ * Fetch the pass in the background so it's ready when a gated request fires. Always
+ * non-interactive: a signed-in session mints silently, while a connected wallet is
+ * left for the next interactive getTierPass({ interactive:true }) so priming never
+ * pops the wallet's signature dialog.
+ */
 export function primeTierPass() {
 	getTierPass();
 }
 
 // ── Tier badge ─────────────────────────────────────────────────────────────────
 
-/** Render the signed-in user's tier chip into `target`. Hides it for anonymous users. */
+// Bind the wallet:changed re-render once per element so repeat mounts don't stack
+// listeners. WeakSet lets a removed element be GC'd without leaking.
+const _badgeBound = typeof WeakSet !== 'undefined' ? new WeakSet() : null;
+
+/**
+ * Render the holder's tier chip into `target` — for a signed-in account OR a
+ * connected wallet. Hides it for anonymous visitors and non-holders. Re-renders
+ * itself on wallet:changed so a freshly-connected holder sees their tier (and a
+ * disconnect clears it) without a reload.
+ */
 export async function mountTierBadge(target) {
 	const el = typeof target === 'string' ? document.querySelector(target) : target;
 	if (!el) return;
 	injectStyles();
+	// The module-level wallet:changed listener has already invalidated the matrix by
+	// the time this per-element listener fires, so the re-mount's getAccess() fetches
+	// fresh for the new identity.
+	if (_badgeBound && typeof window !== 'undefined' && !_badgeBound.has(el)) {
+		_badgeBound.add(el);
+		window.addEventListener('wallet:changed', () => {
+			mountTierBadge(el);
+		});
+	}
 	const data = await getAccess();
-	// Show the chip only for an actual holder (Bronze+). Anonymous visitors and
-	// signed-in non-holders (Member, level 0) hold no $THREE, so the green holder
-	// chip would read as a false signal — they get the upsell on /three instead.
-	if (!data || !data.signed_in || !data.tier || (Number(data.tier.level) || 0) < 1) {
+	// Show the chip for any real holder (Bronze+) — whether the tier was resolved from
+	// a signed-in account or a connected wallet's on-chain holdings, the tier is real.
+	// Anonymous visitors and non-holders (Member, level 0) hold no $THREE, so the green
+	// holder chip would read as a false signal — they get the upsell on /three instead.
+	if (!data || !data.tier || (Number(data.tier.level) || 0) < 1) {
 		el.hidden = true;
 		el.innerHTML = '';
 		return;

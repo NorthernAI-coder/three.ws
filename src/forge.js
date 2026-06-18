@@ -2,7 +2,7 @@
 import { skeletonHTML, errorStateHTML, ensureStateKitStyles } from './shared/state-kit.js';
 import { showSharePanel } from './shared/share.js';
 import { stampGlbAttribution } from './shared/glb-attribution.js';
-import { primeTierPass, attachTierPass, getAccess, onGate } from './three-access.js';
+import { primeTierPass, attachTierPass, getTierPass, getAccess, onGate } from './three-access.js';
 import { renderLock, lockStateFromAccess } from './three-lock.js';
 import { payForHighGeneration } from './forge-pay.js';
 ensureStateKitStyles();
@@ -541,6 +541,10 @@ function selectEngine(btn, silent) {
 	updateByokRow();
 	updateAspectVisibility();
 	if (!silent) updateEstimate();
+	// The engine decides whether High is $THREE-gated (platform) or exempt (BYOK), so
+	// re-evaluate the lock whenever the engine changes under High. Reuses the cached
+	// access verdict — no extra round-trip, no loading flash.
+	if (selectedTier === 'high') reflectHighAccess('high', { silent: true });
 }
 
 // Show the key field only for BYOK engines, with provider-specific hint + link.
@@ -581,6 +585,15 @@ let _accessHost = null;
 let highLocked = false; // true → High is selected but the holder isn't eligible
 let _highAccess = null; // last resolved forge.high access payload (for the gate modal)
 
+// The only combination the server actually $THREE-gates: High tier on a PLATFORM-keyed
+// backend. BYOK engines run on the caller's own vendor key, so the server exempts BYOK
+// High (key-gated, not hold-gated) — and so must the client, or a non-holder with their
+// own Meshy/Tripo/Rodin key would be wrongly blocked from High. Draft/Standard are never
+// gated. Every client gate check keys on this, so the lock can never engage outside it.
+function highTierNeedsPass() {
+	return selectedTier === 'high' && !selectedEngine.byok;
+}
+
 function accessHost() {
 	if (_accessHost || !els.tier) return _accessHost;
 	const host = document.createElement('div');
@@ -596,7 +609,7 @@ function accessHost() {
 // not mid-job (setBusy owns the busy label).
 function applyHighGate() {
 	if (!els.generate || els.generate.dataset.busy === '1') return;
-	const locked = selectedTier === 'high' && highLocked;
+	const locked = highTierNeedsPass() && highLocked;
 	els.generate.disabled = locked;
 	els.generate.classList.toggle('is-gated', locked);
 	if (els.generateLabel) {
@@ -604,7 +617,7 @@ function applyHighGate() {
 	}
 }
 
-async function reflectHighAccess(tierId) {
+async function reflectHighAccess(tierId, { silent = false } = {}) {
 	const host = accessHost();
 	if (!host) return;
 	if (tierId !== 'high') {
@@ -616,13 +629,29 @@ async function reflectHighAccess(tierId) {
 		applyHighGate();
 		return;
 	}
-	// High is selected — the full in-place lock panel takes over, so the small
-	// persistent hint stands down to avoid stacking two "holder feature" notes.
+	// High on a BYOK engine is server-exempt (the caller's own vendor key pays), so it's
+	// never $THREE-gated here either: clear any lock, drop the holder note, and let the
+	// BYOK key flow take over. This is the path that keeps BYOK High byte-for-byte free.
+	if (!highTierNeedsPass()) {
+		highLocked = false;
+		renderLock(host, { clear: true });
+		if (els.holderNote) els.holderNote.hidden = true;
+		applyHighGate();
+		return;
+	}
+	// Platform-keyed High — the real $THREE gate. The in-place lock panel takes over, so
+	// the small persistent hint stands down to avoid stacking two "holder feature" notes.
 	if (els.holderNote) els.holderNote.hidden = true;
-	renderLock(host, { loading: true });
-	const data = await getAccess('forge.high');
-	if (selectedTier !== 'high') return; // user moved on while we fetched
-	const access = data?.access || null;
+	// Re-evaluating after an engine switch (silent) reuses the last resolved verdict so
+	// the panel doesn't flash a loading state for a check we already made.
+	let access = silent && _highAccess ? _highAccess : null;
+	if (!access) {
+		renderLock(host, { loading: true });
+		const data = await getAccess('forge.high');
+		// User moved off High, or switched to a BYOK engine, while we fetched.
+		if (!highTierNeedsPass()) return;
+		access = data?.access || null;
+	}
 	if (!access) {
 		// Access read failed — show a retry, but don't lock (fail open; the server
 		// enforces and a real holder isn't trapped behind a transient hiccup).
@@ -1163,6 +1192,14 @@ async function startJob({ prompt, imageUrls, skipValidation, payment }) {
 		body.payment_id = payment.paymentId;
 		body.ref_id = payment.refId;
 	}
+
+	// Platform-keyed High is the $THREE-gated combination — mint/refresh the holder's tier
+	// pass and AWAIT it so forgeHeaders attaches a fresh, RPC-free proof on this very
+	// request. An eligible holder then clears the server gate even if a live on-chain read
+	// would hiccup, and even when they submit faster than the background primeTierPass()
+	// could finish. No-op for anonymous callers (no linked wallet → no pass), for the free
+	// tiers, and for BYOK High (server-exempt — no pass needed).
+	if (highTierNeedsPass()) await getTierPass();
 
 	const res = await fetch('/api/forge', {
 		method: 'POST',
@@ -1998,10 +2035,11 @@ function collectComposerCfg() {
 }
 
 function submit() {
-	// High is a $THREE holder perk. The Generate button is disabled when locked,
-	// but a keyboard submit (⌘↵) can still reach here — open the upsell (with the
-	// working Pay-per-use path) instead of firing a request the server will gate.
-	if (selectedTier === 'high' && highLocked) {
+	// Platform-keyed High is a $THREE holder perk. The Generate button is disabled
+	// when locked, but a keyboard submit (⌘↵) can still reach here — open the upsell
+	// (with the working Pay-per-use path) instead of firing a request the server will
+	// gate. BYOK High is exempt, so highTierNeedsPass() lets it through untouched.
+	if (highTierNeedsPass() && highLocked) {
 		if (_highAccess) onGate(_highAccess, gateOpts());
 		else reflectHighAccess('high');
 		return;
@@ -2165,10 +2203,22 @@ els.refineLocally?.addEventListener('click', () => {
 // Refine — re-run the same prompt/views one quality tier higher. Bumping the
 // tier syncs the selector (and the tier's default engine), then replays the
 // stored job, so the higher-fidelity model lands in the same viewer.
-els.refine?.addEventListener('click', () => {
+els.refine?.addEventListener('click', async () => {
 	const next = nextTierAfter(currentResultTier);
 	if (!next || !lastJob) return;
 	selectTier(next);
+	// Refining into platform-keyed High runs the same $THREE pre-flight as selecting
+	// it: resolve the holder's eligibility first and open the upsell instead of firing
+	// a job the server would 402. BYOK High is exempt (highTierNeedsPass() is false);
+	// a transient access failure leaves highLocked false so the request proceeds and
+	// the server stays the authority.
+	if (highTierNeedsPass()) {
+		await reflectHighAccess('high', { silent: true });
+		if (highLocked) {
+			if (_highAccess) onGate(_highAccess, gateOpts());
+			return;
+		}
+	}
 	run(lastJob);
 });
 
