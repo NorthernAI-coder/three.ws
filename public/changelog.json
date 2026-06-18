@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-18T08:58:12.479Z",
+	"generated_at": "2026-06-18T09:08:58.430Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -255,6 +255,16 @@
 			"link": "/dashboard/transactions",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-18",
+			"type": "update",
+			"title": "Skill prices fade in smoothly on agent pages",
+			"summary": "Opening an agent from the marketplace now shows its page instantly, and any skill that charges per call displays a gently pulsing placeholder while we confirm the exact price — instead of briefly flashing \"Free\" and then snapping to a dollar amount. The real price, Purchase button, and any free-trial or time-pass options slot in the moment they load. Agents with no paid skills still render their prices immediately with no flicker.",
+			"link": "/marketplace",
+			"tags": [
+				"improvement"
 			]
 		},
 		{
