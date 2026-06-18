@@ -1,15 +1,13 @@
 // Public $THREE coin page (/three-token).
 //
 // The canonical, trustworthy page for the protocol token: a live price header,
-// a real OHLCV price chart, a streaming trade tape, and a one-click buy.
-// $THREE graduated long ago, so there is no bonding curve to show — the left
-// card is a live price chart (real Birdeye → GeckoTerminal OHLCV via
-// /api/pump/price-history) instead.
+// the real bonding-curve chart, a streaming trade tape, and a one-click buy.
 // Reuses the shared $THREE store (single source of truth) for the header, the
-// SSE trade stream, and the Jupiter swap modal — no bespoke data plumbing, no
-// mock data.
+// bonding-curve widget, the SSE trade stream, and the Jupiter swap modal — no
+// bespoke data plumbing, no mock data.
 
 import { createThreeTokenData, THREE_MINT } from './pump/three-token-data.js';
+import { mountBondingCurve } from './widgets/bonding-curve.js';
 import { openSwapModal } from './swap-jupiter.js';
 
 const SOL_MINT = 'So11111111111111111111111111111111111111112';
@@ -37,14 +35,6 @@ const fmtPct = (n) => {
 	if (!Number.isFinite(v)) return '';
 	const s = v >= 0 ? '+' : '';
 	return `${s}${v.toFixed(2)}%`;
-};
-// Per-token price — sub-cent values shown with significant digits, never "1e-7".
-const fmtPrice = (n) => {
-	const v = Number(n);
-	if (!Number.isFinite(v) || v <= 0) return '$—';
-	if (v >= 1) return `$${v.toFixed(4)}`;
-	if (v >= 0.01) return `$${v.toFixed(5)}`;
-	return `$${v.toFixed(12).replace(/0+$/, '').replace(/\.$/, '')}`;
 };
 const shortAddr = (a) => { const s = String(a || ''); return s.length > 9 ? `${s.slice(0, 4)}…${s.slice(-4)}` : s; };
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -103,22 +93,6 @@ function injectStyles() {
 	.tk-empty { text-align:center; color:#7d7d86; font-size:13px; padding:40px 0; }
 	.tk-skel { background:linear-gradient(90deg,#16161c,#1d1d24,#16161c); background-size:200% 100%; animation:tkSh 1.4s infinite; border-radius:10px; }
 	@keyframes tkSh { from { background-position:200% 0; } to { background-position:-200% 0; } }
-	.tk-chart-bar { display:inline-flex; gap:4px; }
-	.tk-int { appearance:none; background:none; border:1px solid #232329; color:#8a8a93; border-radius:7px; padding:3px 9px; font-size:11px; font-weight:600; cursor:pointer; transition:color .15s,border-color .15s,background .15s; text-transform:none; letter-spacing:0; }
-	.tk-int:hover { color:#fff; border-color:#3a3a42; }
-	.tk-int.active { color:#000; background:#f5f5f7; border-color:#f5f5f7; }
-	.tk-int:focus-visible { outline:2px solid #7CC4FF; outline-offset:2px; }
-	.tk-chart-canvas { min-height:264px; }
-	.tk-chart-readout { display:flex; align-items:baseline; gap:10px; margin:0 0 8px; }
-	.tk-chart-price { font-size:21px; font-weight:700; font-family:ui-monospace,Menlo,monospace; }
-	.tk-chart-change { font-size:13px; font-weight:600; font-variant-numeric:tabular-nums; }
-	.tk-chart-win { font-size:11px; color:#7d7d86; margin-left:auto; text-transform:uppercase; letter-spacing:0.05em; }
-	.tk-chart-svg { width:100%; height:240px; display:block; }
-	.tk-chart-svg.up { color:#4ade80; } .tk-chart-svg.dn { color:#f87171; }
-	.tk-vol.up { fill:rgba(74,222,128,0.38); } .tk-vol.dn { fill:rgba(248,113,113,0.38); }
-	.tk-vol-divider { stroke:rgba(255,255,255,0.06); stroke-width:1; }
-	.tk-retry { appearance:none; background:#1a1a20; border:1px solid #2a2a32; color:#fff; border-radius:8px; padding:5px 12px; font-size:12px; font-weight:600; cursor:pointer; margin-left:8px; transition:background .15s; }
-	.tk-retry:hover { background:#23232b; }
 	.tk-foot { display:flex; gap:18px; flex-wrap:wrap; margin-top:26px; font-size:13px; }
 	.tk-foot a { color:#9a9aa3; text-decoration:none; } .tk-foot a:hover { color:#fff; }
 	@media (prefers-reduced-motion: reduce){ .tk-trade.in { animation:none; } .tk-skel { animation:none; } }
@@ -198,123 +172,6 @@ function startTradeTape(tapeEl, statusEl) {
 	return () => { stopped = true; clearTimeout(retry); es?.close(); };
 }
 
-// ── live price chart (real OHLCV; $THREE graduated, so no bonding curve) ─────
-// Intervals + the window each one looks back over. Mirrors the launch-detail
-// chart so the two surfaces feel like one product.
-const CHART_INTERVALS = [['5m', '5m'], ['15m', '15m'], ['1H', '1h'], ['4H', '4h'], ['1D', '1d']];
-const CHART_WINDOW_HOURS = { '5m': 12, '15m': 36, '1h': 96, '4h': 480, '1d': 2160 };
-
-function windowLabel(interval) {
-	const hrs = CHART_WINDOW_HOURS[interval] || 36;
-	return hrs % 24 === 0 ? `past ${hrs / 24}d` : `past ${hrs}h`;
-}
-
-// Pure SVG area chart with a volume panel. points: [{t,o,h,l,c,v}] ascending.
-// Theme-aware via currentColor (green when the window is up, red when down).
-function buildChartSvg(points) {
-	const w = 720, h = 240, volH = 40, priceH = h - volH;
-	const pad = { t: 14, r: 6, b: 4, l: 6 };
-	const closes = points.map((p) => p.c);
-	const min = Math.min(...closes);
-	const max = Math.max(...closes);
-	const span = max - min || max || 1;
-	const maxVol = Math.max(...points.map((p) => p.v || 0)) || 1;
-	const innerW = w - pad.l - pad.r;
-	const innerH = priceH - pad.t - pad.b;
-	const x = (i) => pad.l + (i / Math.max(1, points.length - 1)) * innerW;
-	const y = (v) => pad.t + innerH - ((v - min) / span) * innerH;
-
-	const up = points.length > 1 && closes[closes.length - 1] >= closes[0];
-	const line = points.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)} ${y(p.c).toFixed(1)}`).join(' ');
-	const area = `${line} L${x(points.length - 1).toFixed(1)} ${(priceH - pad.b).toFixed(1)} L${x(0).toFixed(1)} ${(priceH - pad.b).toFixed(1)} Z`;
-
-	const barW = Math.max(1, (innerW / points.length) * 0.62);
-	const bars = points.map((p, i) => {
-		const barH = Math.max(1, ((p.v || 0) / maxVol) * (volH - 6));
-		return `<rect x="${(x(i) - barW / 2).toFixed(1)}" y="${(h - barH - 2).toFixed(1)}" width="${barW.toFixed(1)}" height="${barH.toFixed(1)}" rx="1" class="tk-vol ${p.c >= p.o ? 'up' : 'dn'}"/>`;
-	}).join('');
-
-	return `<svg class="tk-chart-svg ${up ? 'up' : 'dn'}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" role="img" aria-label="$THREE price history chart">
-		<defs><linearGradient id="tkChartGrad" x1="0" y1="0" x2="0" y2="1">
-			<stop offset="0%" stop-color="currentColor" stop-opacity="0.26"/>
-			<stop offset="100%" stop-color="currentColor" stop-opacity="0"/>
-		</linearGradient></defs>
-		${bars}
-		<line x1="${pad.l}" y1="${priceH}" x2="${w - pad.r}" y2="${priceH}" class="tk-vol-divider"/>
-		<path d="${area}" fill="url(#tkChartGrad)" stroke="none"/>
-		<path d="${line}" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
-	</svg>`;
-}
-
-// Mount the chart into a card already holding [data-intervals] + [data-chart-canvas].
-function mountPriceChart(card, { mint }) {
-	const barEl = card.querySelector('[data-intervals]');
-	const canvas = card.querySelector('[data-chart-canvas]');
-	let interval = '15m';
-	let loaded = false;
-	let destroyed = false;
-
-	const paintBar = () => {
-		barEl.innerHTML = CHART_INTERVALS.map(([label, value]) =>
-			`<button class="tk-int${value === interval ? ' active' : ''}" type="button" role="tab" aria-selected="${value === interval}" data-int="${value}">${esc(label)}</button>`,
-		).join('');
-	};
-
-	async function load() {
-		if (destroyed) return;
-		const to = Math.floor(Date.now() / 1000);
-		const from = to - (CHART_WINDOW_HOURS[interval] || 36) * 3600;
-		// Only blank to a skeleton on the first paint / interval switch — a live
-		// 30s refresh swaps the SVG in place without a flash.
-		if (!loaded) canvas.innerHTML = `<div class="tk-skel" style="height:264px"></div>`;
-		try {
-			const r = await fetch(`/api/pump/price-history?mint=${encodeURIComponent(mint)}&interval=${interval}&from=${from}&to=${to}`);
-			if (!r.ok) throw new Error(`HTTP ${r.status}`);
-			const body = await r.json();
-			if (destroyed) return;
-			const pts = (body.data || []).filter((p) => Number.isFinite(p.c));
-			if (pts.length < 2) {
-				loaded = false;
-				canvas.innerHTML = `<div class="tk-empty" style="padding:80px 0">Not enough trade history at this interval yet.</div>`;
-				return;
-			}
-			const first = pts[0].c;
-			const last = pts[pts.length - 1].c;
-			const changePct = first ? ((last - first) / first) * 100 : 0;
-			const upColor = changePct >= 0 ? '#4ade80' : '#f87171';
-			canvas.innerHTML = `
-				<div class="tk-chart-readout">
-					<span class="tk-chart-price">${fmtPrice(last)}</span>
-					<span class="tk-chart-change" style="color:${upColor}">${fmtPct(changePct)}</span>
-					<span class="tk-chart-win">${windowLabel(interval)}</span>
-				</div>
-				${buildChartSvg(pts)}`;
-			loaded = true;
-		} catch {
-			if (destroyed) return;
-			loaded = false;
-			canvas.innerHTML = `<div class="tk-empty" style="padding:64px 0">Price history is unavailable right now. <button class="tk-retry" type="button" data-retry>Retry</button></div>`;
-		}
-	}
-
-	barEl.addEventListener('click', (e) => {
-		const btn = e.target.closest('[data-int]');
-		if (!btn) return;
-		const next = btn.getAttribute('data-int');
-		if (next === interval) return;
-		interval = next;
-		loaded = false;
-		paintBar();
-		load();
-	});
-	canvas.addEventListener('click', (e) => { if (e.target.closest('[data-retry]')) load(); });
-
-	paintBar();
-	load();
-	const timer = setInterval(load, 30_000);
-	return { destroy() { destroyed = true; clearInterval(timer); } };
-}
-
 // ── buy flow: Phantom → in-page swap, else pump.fun ─────────────────────────
 async function buyThree() {
 	const provider = window.solana || window.phantom?.solana;
@@ -357,8 +214,8 @@ function boot() {
 		</div>
 		<div class="tk-grid">
 			<div class="tk-card">
-				<h2 style="display:flex;align-items:center;justify-content:space-between;gap:8px">Price <span class="tk-chart-bar" data-intervals></span></h2>
-				<div class="tk-chart-canvas" data-chart-canvas></div>
+				<h2>Bonding curve</h2>
+				<div data-curve></div>
 				<div class="tk-buy">
 					<button class="tk-btn primary" data-buy>Buy $THREE</button>
 					<a class="tk-btn" href="${PUMP_URL}" target="_blank" rel="noopener">View on pump.fun ↗</a>
@@ -395,8 +252,8 @@ function boot() {
 	// Buy
 	wrap.querySelector('[data-buy]').addEventListener('click', () => { buyThree().catch(() => window.open(PUMP_URL, '_blank', 'noopener')); });
 
-	// Price chart — real OHLCV for the (graduated) $THREE mint, refreshed live.
-	mountPriceChart(wrap.querySelector('.tk-card'), { mint: THREE_MINT });
+	// Bonding curve — real on-chain reads for the $THREE mint.
+	mountBondingCurve(wrap.querySelector('[data-curve]'), { mint: THREE_MINT, network: 'mainnet', showUsd: true, refreshMs: 15_000 });
 
 	// Header stats from the shared store (price/mcap/volume/holders).
 	const statsEl = wrap.querySelector('[data-stats]');
