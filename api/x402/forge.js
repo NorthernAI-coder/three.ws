@@ -338,12 +338,15 @@ function respondGenerationError(res, err) {
 		const retryAfter =
 			Number.isFinite(err?.retryAfter) && err.retryAfter > 0 ? Math.ceil(err.retryAfter) : 5;
 		res.setHeader('retry-after', String(retryAfter));
+		// Own the buyer-facing copy here rather than echoing err.message: the
+		// upstream throttle text can name the generator account's internal credit
+		// balance, and only this payment boundary can truthfully promise the
+		// payment wasn't taken (submit runs before settle).
 		return error(
 			res,
 			429,
 			'rate_limited',
-			err?.message ||
-				'Generation is briefly throttled upstream — your payment was not taken. Retry shortly.',
+			'Generation is briefly busy and your payment was not taken — retry in a few seconds.',
 			{ retry_after: retryAfter },
 		);
 	}

@@ -1354,6 +1354,14 @@ function friendlyError(err) {
 	const msg = err?.shortMessage || err?.message || String(err);
 	// Trim ethers/viem long stacks, Phantom's RPC-error verbosity.
 	if (/user rejected|user denied|reject/i.test(msg)) return 'cancelled in wallet';
+	// Upstream throttles (e.g. a generator's create-prediction rate limit) often
+	// arrive as raw provider text that names the merchant's internal billing or
+	// credit state. Never relay that to the buyer: the payment isn't settled until
+	// the merchant call succeeds, so a clean, retryable message is both safer and
+	// more accurate than echoing the upstream's account internals.
+	if (/throttl|rate.?limit|too many requests|less than \$|in credit|\b429\b/i.test(msg)) {
+		return 'The service is briefly busy and your payment was not taken — retry in a few seconds.';
+	}
 	return msg.slice(0, 240);
 }
 

@@ -262,6 +262,13 @@ describe('POST /api/x402/forge — paid generation', () => {
 		expect(body.error).toBe('rate_limited');
 		expect(body.retry_after).toBe(10);
 		expect(res.headers['retry-after']).toBe('10');
+		// The buyer sees the endpoint's own clean, payment-aware copy — never the
+		// upstream throttle text (which can name the generator account's internal
+		// credit balance). The mock threw "Request was throttled. …rate limit…".
+		expect(body.error_description).toBe(
+			'Generation is briefly busy and your payment was not taken — retry in a few seconds.',
+		);
+		expect(body.error_description).not.toMatch(/throttl|rate limit|credit|\$5/i);
 		// Submit failed before settle → no settlement receipt was emitted.
 		expect(res.headers['x-payment-response']).toBeUndefined();
 	});

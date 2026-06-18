@@ -269,17 +269,27 @@ export async function textToImage(prompt, { aspectRatio = '1:1' } = {}) {
 
 	const data = await res.json().catch(() => ({}));
 	if (!res.ok) {
-		const message = data?.detail || data?.title || `text-to-image returned ${res.status}`;
+		const detail = data?.detail || data?.title || '';
 		// Replicate throttles prediction creation (notably when account credit is
 		// low). Surface it as a retryable rate limit, not a generic failure, so the
-		// caller can return 429 + retry hint instead of a hard 5xx.
+		// caller can return 429 + retry hint instead of a hard 5xx. The throttle
+		// `detail` names the account's credit balance ("…less than $5.0 in credit…")
+		// — parse its reset hint for backoff and log it, but never relay that
+		// internal state to the buyer.
 		if (res.status === 429) {
-			throw Object.assign(new Error(message), {
-				code: 'rate_limited',
-				retryAfter: parseRetryAfter(res.headers, message),
-			});
+			if (detail) console.warn(`[text-to-image] replicate throttled: ${detail}`);
+			throw Object.assign(
+				new Error('Image generation is briefly busy upstream — please retry in a few seconds.'),
+				{
+					code: 'rate_limited',
+					providerDetail: detail,
+					retryAfter: parseRetryAfter(res.headers, detail),
+				},
+			);
 		}
-		throw Object.assign(new Error(message), { providerStatus: res.status });
+		throw Object.assign(new Error(detail || `text-to-image returned ${res.status}`), {
+			providerStatus: res.status,
+		});
 	}
 
 	// With `Prefer: wait` the prediction usually completes inline. If Replicate

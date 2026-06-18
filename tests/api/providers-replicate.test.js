@@ -215,31 +215,48 @@ describe('replicate provider — create-prediction throttle', () => {
 		expect(job.extJobId).toBe('pred_throttle_ok');
 	});
 
-	it('surfaces an exhausted throttle as a retryable rate_limited error', async () => {
+	it('surfaces an exhausted throttle as a retryable rate_limited error without leaking billing state', async () => {
 		// No Retry-After header → the backoff + the surfaced hint are both parsed
 		// from the "resets in ~3s" body phrasing. Fake timers skip the real waits.
+		// The raw `detail` names the account credit balance (the production incident):
+		// keep it for logs/providerDetail, but never let it become the surfaced message.
+		const RAW_DETAIL =
+			'Request was throttled. Your rate limit for creating predictions is reduced to 6 requests ' +
+			'per minute with a burst of 1 requests while you have less than $5.0 in credit. ' +
+			'Your rate limit resets in ~3s.';
 		vi.useFakeTimers();
+		vi.spyOn(console, 'warn').mockImplementation(() => {});
 		try {
 			globalThis.fetch = vi.fn(async () =>
-				new Response(
-					JSON.stringify({ detail: 'Request was throttled. Your rate limit resets in ~3s.' }),
-					{ status: 429, headers: { 'content-type': 'application/json' } },
-				),
+				new Response(JSON.stringify({ detail: RAW_DETAIL }), {
+					status: 429,
+					headers: { 'content-type': 'application/json' },
+				}),
 			);
 
 			const provider = await freshProvider();
-			const pending = provider.submit({
-				mode: 'reconstruct',
-				params: { images: ['https://img/a.jpg'] },
-				sourceUrl: 'https://img/a.jpg',
-			});
+			let caught;
+			const pending = provider
+				.submit({
+					mode: 'reconstruct',
+					params: { images: ['https://img/a.jpg'] },
+					sourceUrl: 'https://img/a.jpg',
+				})
+				.catch((e) => {
+					caught = e;
+					throw e;
+				});
 			const assertion = expect(pending).rejects.toMatchObject({
 				code: 'rate_limited',
 				status: 429,
 				retryAfter: 3,
+				providerDetail: RAW_DETAIL, // retained for server logs
 			});
 			await vi.runAllTimersAsync(); // advance through the bounded backoff sleeps
 			await assertion;
+			// The surfaced message is clean — no provider name, credit balance, or raw limits.
+			expect(caught.message).toBe('3D generation is briefly busy upstream — please retry in a few seconds.');
+			expect(caught.message).not.toMatch(/credit|\$5|throttl|rate limit|replicate/i);
 		} finally {
 			vi.useRealTimers();
 		}

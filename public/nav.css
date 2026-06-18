@@ -99,6 +99,12 @@
 .nav-end .nav-tier-badge a.tg-tier-silver { color: #cfd6e4; }
 .nav-end .nav-tier-badge a.tg-tier-gold,
 .nav-end .nav-tier-badge a.tg-tier-genesis { color: #f5c451; }
+/* Collapse the chip to just the ◆ on the tightest viewports — the link's aria-label
+   keeps the tier reachable and announced; no layout regression at any breakpoint. */
+@media (max-width: 520px) {
+	.nav-end .nav-tier-badge .tg-tier-label { display: none; }
+	.nav-end .nav-tier-badge a { padding: 5px 8px; }
+}
 
 /* Global search button — opens the Cmd-K command palette */
 .nav-search-btn {
