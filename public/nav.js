@@ -53,6 +53,17 @@ function loadNotificationsInbox() {
 	document.head.appendChild(s);
 }
 
+// Load the $THREE holder tier chip. Must run after nav HTML is injected because
+// the module mounts onto #nav-tier-badge in nav.html. Self-hides for anonymous
+// visitors and non-holders, so it's safe to load unconditionally.
+function loadHolderBadge() {
+	if (document.querySelector('script[src="/nav-tier-badge.js"]')) return;
+	const s = document.createElement('script');
+	s.type = 'module';
+	s.src = '/nav-tier-badge.js';
+	document.head.appendChild(s);
+}
+
 // Load the site-wide feature-discovery layer (public/feature-discovery.js):
 // "New" badges, "have you tried…" prompts and contextual cross-links. Loaded
 // after the glossary so it can reuse that tooltip primitive. Self-mounting +
@@ -98,6 +109,7 @@ function boot() {
 			renderMenus(navContainer, navData);
 			initNav(navContainer);
 			loadNotificationsInbox();
+			loadHolderBadge();
 		})
 		.catch((err) => console.error('nav: failed to load shared navigation', err));
 }

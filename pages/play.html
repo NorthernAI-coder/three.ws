@@ -2,6 +2,7 @@
 <html lang="en">
 	<head>
 		<script>/* three.ws theme boot — no-flash; runtime in /theme-switcher.js */(function(){try{var m=localStorage.getItem('twx_theme');var l=m==='auto'?(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches):m==='light';document.documentElement.setAttribute('data-theme',l?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();</script>
+		<script>/* embed bg — ?bg=transparent composites the world onto the host page (e.g. the IBM x402 showcase) instead of a black box. Set before first paint so there is no dark flash. */(function(){try{if(new URLSearchParams(location.search).get('bg')==='transparent')document.documentElement.setAttribute('data-bg','transparent');}catch(e){}})();</script>
 		<meta charset="utf-8" />
 		<title>Play · Coin Communities — three.ws</title>
 		<meta

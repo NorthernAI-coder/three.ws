@@ -2,6 +2,9 @@
 import { skeletonHTML, errorStateHTML, ensureStateKitStyles } from './shared/state-kit.js';
 import { showSharePanel } from './shared/share.js';
 import { stampGlbAttribution } from './shared/glb-attribution.js';
+import { primeTierPass, attachTierPass, getAccess, onGate } from './three-access.js';
+import { renderLock, lockStateFromAccess } from './three-lock.js';
+import { payForHighGeneration } from './forge-pay.js';
 ensureStateKitStyles();
 //
 // Drives /api/forge. Three paths share one polling loop:
@@ -89,6 +92,9 @@ const els = {
 	creationsCount: document.getElementById('creations-count'),
 	// Quality tier + generation engine + BYOK key.
 	tier: document.getElementById('tier'),
+	// Persistent inline hint under the Quality row — advertises that High is a
+	// $THREE holder feature (toggled locked/unlocked by the live access read).
+	holderNote: document.getElementById('fq-holder-note'),
 	engine: document.getElementById('engine'),
 	byokRow: document.getElementById('byok-row'),
 	byokLabel: document.getElementById('byok-label'),
@@ -321,8 +327,13 @@ function stopElapsed() {
 }
 
 function setBusy(busy) {
+	els.generate.dataset.busy = busy ? '1' : '0';
 	els.generate.disabled = busy;
 	els.generateLabel.textContent = busy ? 'Forging…' : 'Generate';
+	// When returning to idle, re-assert the High-tier $THREE gate (if active) so a
+	// finished/cancelled job doesn't leave the Generate button enabled for a tier
+	// the user can't use.
+	if (!busy) applyHighGate();
 }
 
 function sleep(ms) {
@@ -556,6 +567,139 @@ function selectTier(tierId) {
 	// Tier changes can move the default engine (draft prefers the free lane).
 	updateEngineAvailability();
 	updateEstimate();
+	reflectHighAccess(tierId);
+}
+
+// The High tier is a $THREE holder perk (gated server-side). When the user picks
+// it, surface their access up front — a frosted lock with a Get $THREE path for
+// non-holders (and the Generate button disabled for High), an "Unlocked" ribbon
+// for holders (pass primed so their request clears the gate without a round-trip
+// stall). Draft and Standard clear the lock (they're free, never gated). Degrades
+// safely: if the access read fails we show a retry but DON'T trap the user — the
+// server stays the final authority and a 403 falls back to the upsell modal.
+let _accessHost = null;
+let highLocked = false; // true → High is selected but the holder isn't eligible
+let _highAccess = null; // last resolved forge.high access payload (for the gate modal)
+
+function accessHost() {
+	if (_accessHost || !els.tier) return _accessHost;
+	const host = document.createElement('div');
+	host.className = 'fq-access';
+	host.hidden = true;
+	(els.estimate || els.tier).insertAdjacentElement('afterend', host);
+	_accessHost = host;
+	return host;
+}
+
+// Reflect the High-tier gate onto the Generate button: disabled + relabelled
+// while High is selected and the user is ineligible. Only touches the button when
+// not mid-job (setBusy owns the busy label).
+function applyHighGate() {
+	if (!els.generate || els.generate.dataset.busy === '1') return;
+	const locked = selectedTier === 'high' && highLocked;
+	els.generate.disabled = locked;
+	els.generate.classList.toggle('is-gated', locked);
+	if (els.generateLabel) {
+		els.generateLabel.textContent = locked ? 'Hold $THREE for High' : 'Generate';
+	}
+}
+
+async function reflectHighAccess(tierId) {
+	const host = accessHost();
+	if (!host) return;
+	if (tierId !== 'high') {
+		highLocked = false;
+		_highAccess = null;
+		renderLock(host, { clear: true });
+		// High isn't selected — let the persistent hint advertise it again.
+		if (els.holderNote) els.holderNote.hidden = false;
+		applyHighGate();
+		return;
+	}
+	// High is selected — the full in-place lock panel takes over, so the small
+	// persistent hint stands down to avoid stacking two "holder feature" notes.
+	if (els.holderNote) els.holderNote.hidden = true;
+	renderLock(host, { loading: true });
+	const data = await getAccess('forge.high');
+	if (selectedTier !== 'high') return; // user moved on while we fetched
+	const access = data?.access || null;
+	if (!access) {
+		// Access read failed — show a retry, but don't lock (fail open; the server
+		// enforces and a real holder isn't trapped behind a transient hiccup).
+		_highAccess = null;
+		highLocked = false;
+		renderLock(host, { error: true, onRetry: () => reflectHighAccess('high') });
+		applyHighGate();
+		return;
+	}
+	_highAccess = access;
+	highLocked = !access.eligible;
+	renderLock(
+		host,
+		lockStateFromAccess(access, {
+			getThreeUrl: '/three',
+			onUseFree: () => selectTier('standard'),
+			useFreeLabel: 'Use Standard (free)',
+			// Working Pay-per-use CTA: pay $THREE for one High generation in place.
+			onPayPerUse: (pay) => payThenGenerate(pay),
+		}),
+	);
+	applyHighGate();
+	// Keep the persistent button pill + note in sync with the fresh verdict.
+	applyHighAffordances(access);
+	if (access.eligible) primeTierPass();
+}
+
+// Small lock glyph for the High-tier button pill. Stroke = currentColor so it
+// tracks the pill's locked (gold) / unlocked (green) tone.
+const TIER_LOCK_SVG =
+	'<svg class="tier-lock-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>';
+
+// Paint the persistent High-tier affordances — the lock pill on the High button
+// and the inline holder note under the Quality row — from a single-feature access
+// payload (the `.access` from getAccess('forge.high'), or a 403 gate body, which
+// both carry `eligible`/`required`/`held`). Holders get the quiet unlocked
+// treatment; everyone else (and the null/unknown case) keeps the $THREE lock so
+// High reads as the premium lane before it's ever selected. Purely cosmetic — the
+// server stays the only authority on eligibility.
+function applyHighAffordances(access) {
+	const eligible = Boolean(access?.eligible);
+	const state = eligible ? 'unlocked' : 'locked';
+	const btn = els.tier?.querySelector('button[data-tier="high"]');
+	if (btn) {
+		btn.dataset.access = state;
+		btn.setAttribute(
+			'aria-label',
+			eligible ? 'High quality — unlocked, you hold $THREE' : 'High quality — $THREE holder feature',
+		);
+		const pill = btn.querySelector('.tier-lock');
+		if (pill) {
+			pill.dataset.state = state;
+			pill.title = eligible ? 'Unlocked — you hold $THREE' : 'High quality is a $THREE holder feature';
+			pill.innerHTML = eligible
+				? '<span class="tier-lock-ico" aria-hidden="true">✓</span><span class="tier-lock-txt">$THREE</span>'
+				: `${TIER_LOCK_SVG}<span class="tier-lock-txt">$THREE</span>`;
+		}
+	}
+	const note = els.holderNote;
+	if (note) {
+		note.dataset.state = state;
+		note.innerHTML = eligible
+			? '<span class="fq-holder-ico" aria-hidden="true">◆</span> High quality is unlocked — you hold <a href="/three">$THREE</a>.'
+			: '<span class="fq-holder-ico" aria-hidden="true">◆</span> High quality is a <a href="/three">$THREE holder</a> feature — hold to unlock, or pay per generation.';
+	}
+}
+
+// One-time read on load: reflect the viewer's forge.high access onto the High
+// button pill + the inline note so the holder gate is legible before the tier is
+// even selected. Seeds the gate cache and primes the tier pass for real holders so
+// their first High submit clears the server gate without an RPC stall.
+async function reflectHighButtonAccess() {
+	const data = await getAccess('forge.high');
+	const access = data?.access || null;
+	if (access) _highAccess = access;
+	applyHighAffordances(access);
+	if (access?.eligible) primeTierPass();
 }
 
 // Render the honest time/cost/poly estimate for the current engine + tier from
@@ -998,10 +1142,14 @@ function firstPreviewUrl() {
 function forgeHeaders(extra) {
 	const h = { ...CLIENT_HEADERS, ...extra };
 	if (providerKey) h['x-forge-provider-key'] = providerKey;
+	// Carry the holder's $THREE tier pass so an eligible holder clears the High-tier
+	// gate (and gets their free-lane multiplier). No-op for anonymous users — the
+	// request simply proceeds at the base entitlement.
+	attachTierPass(h);
 	return h;
 }
 
-async function startJob({ prompt, imageUrls, skipValidation }) {
+async function startJob({ prompt, imageUrls, skipValidation, payment }) {
 	const base = { path: selectedEngine.path, tier: selectedTier, backend: selectedEngine.backend };
 	const body =
 		Array.isArray(imageUrls) && imageUrls.length
@@ -1009,6 +1157,12 @@ async function startJob({ prompt, imageUrls, skipValidation }) {
 			: { prompt, aspect_ratio: aspectRatio, ...base };
 	// Caller already saw the vision warning and chose to proceed (Consumer 1).
 	if (skipValidation) body.skip_validation = true;
+	// Pay-per-use proof: a non-holder who paid $THREE for this High generation
+	// presents the settled payment so the server's gate is satisfied per use.
+	if (payment?.paymentId && payment?.refId) {
+		body.payment_id = payment.paymentId;
+		body.ref_id = payment.refId;
+	}
 
 	const res = await fetch('/api/forge', {
 		method: 'POST',
@@ -1065,6 +1219,34 @@ async function startJob({ prompt, imageUrls, skipValidation }) {
 		e.kind = 'rate_limited';
 		e.retryAfter = secs;
 		e.unavailable = unavailable;
+		throw e;
+	}
+	// High-tier hold-to-access gate ($THREE) — a hold-OR-pay 402 (three_hold_required).
+	// Recoverable: the user can hold $THREE (Get $THREE) or drop to Draft/Standard.
+	// Carries the full gate payload (held vs required, usd_to_go, acquire, pay_per_use)
+	// straight to the upsell modal.
+	if (res.status === 402 && data.error === 'three_hold_required') {
+		const e = new Error(data.message || 'High-quality generation is a $THREE holder perk.');
+		e.kind = 'hold_required';
+		e.gate = data;
+		throw e;
+	}
+	// Pay-per-use proof was rejected (bad/expired payment) or already spent — both
+	// recoverable by paying again. payment_invalid/expired re-offer Pay; an already
+	// used payment also clears the stale proof so a retry doesn't replay it.
+	if (
+		res.status === 402 &&
+		(data.error === 'payment_invalid' || data.error === 'payment_expired')
+	) {
+		const e = new Error(data.message || 'That $THREE payment could not be verified.');
+		e.kind = 'payment_invalid';
+		e.gate = data;
+		throw e;
+	}
+	if (res.status === 409 && data.error === 'payment_already_used') {
+		const e = new Error(data.message || 'That payment was already used. Pay again to generate.');
+		e.kind = 'payment_used';
+		e.gate = data;
 		throw e;
 	}
 	if (!res.ok) {
@@ -1647,6 +1829,10 @@ async function run(cfg) {
 		const done = job.status === 'done' && job.glb_url ? job : await pollUntilDone(job.job_id);
 		if (pollAbort || !done) return; // cancelled
 
+		// A pay-per-use proof is single-use and now redeemed on the server — drop it
+		// so a later Retry/Refine of this job never replays a spent payment.
+		if (lastJob) delete lastJob.payment;
+
 		if (done.creation_id) currentCreationId = done.creation_id;
 		setStep('mesh', 'done');
 		setStep('finish', 'done');
@@ -1706,6 +1892,41 @@ async function run(cfg) {
 			showRateLimited({ retryAfter: err.retryAfter, unavailable: err.unavailable });
 			return;
 		}
+		// High-tier $THREE gate: open the designed upsell (Get $THREE / what you hold
+		// vs. need — plus the working Pay-per-use CTA) and reset to the idle composer
+		// so the user can switch tier, hold, or pay.
+		if (err.kind === 'hold_required') {
+			stopElapsed();
+			showState('empty');
+			// Reflect the server's verdict back onto the composer (lock the High
+			// option + the button pill/note) before opening the upsell, so the gate is
+			// felt in place too — not only in the modal.
+			highLocked = true;
+			_highAccess = err.gate || _highAccess;
+			applyHighGate();
+			applyHighAffordances(err.gate);
+			onGate(err.gate, gateOpts());
+			return;
+		}
+		// A presented pay-per-use proof was already spent — drop the stale payment so
+		// Retry doesn't replay it, and re-open the pay flow for a fresh generation.
+		if (err.kind === 'payment_used') {
+			stopElapsed();
+			if (lastJob) delete lastJob.payment;
+			showState('empty');
+			showError(err.message || 'That payment was already used. Pay again to generate.');
+			return;
+		}
+		// The proof was rejected (bad/expired) before any model — drop it and surface
+		// the gate's Pay-per-use path again so the user can pay cleanly.
+		if (err.kind === 'payment_invalid') {
+			stopElapsed();
+			if (lastJob) delete lastJob.payment;
+			showState('empty');
+			if (err.gate) onGate(err.gate, gateOpts());
+			else showError(err.message || 'That $THREE payment could not be verified.');
+			return;
+		}
 		showError(
 			err.message ||
 				'Something went wrong. Try a simpler, single-subject prompt or cleaner photos.',
@@ -1715,15 +1936,18 @@ async function run(cfg) {
 	}
 }
 
-function submit() {
+// Gather + validate the active mode's composer inputs into a run cfg, or null
+// when something's missing (focusing/flagging the offending field as a side
+// effect, exactly as submit always has). Shared by the Generate button and the
+// pay-per-use path so both build the job identically.
+function collectComposerCfg() {
 	if (mode === 'text') {
 		const prompt = els.prompt.value.trim();
 		if (prompt.length < 3) {
 			els.prompt.focus();
-			return;
+			return null;
 		}
-		run({ prompt, imageUrls: [] });
-		return;
+		return { prompt, imageUrls: [] };
 	}
 
 	// Sketch mode — one drawing + a required prompt naming what it depicts.
@@ -1733,14 +1957,14 @@ function submit() {
 			setTimeout(() => {
 				if (!els.generate.disabled) els.generateLabel.textContent = 'Generate';
 			}, 1600);
-			return;
+			return null;
 		}
 		if (sketch.state !== 'uploaded' || !sketch.url) {
 			const slot = sketchSlotEl();
 			slot?.focus();
 			slot?.classList.add('drop-target');
 			setTimeout(() => slot?.classList.remove('drop-target'), 600);
-			return;
+			return null;
 		}
 		const prompt = els.sketchPrompt.value.trim();
 		if (prompt.length < 3) {
@@ -1749,10 +1973,9 @@ function submit() {
 			els.sketchPrompt.setAttribute('aria-invalid', 'true');
 			if (els.sketchReqTag) els.sketchReqTag.dataset.missing = 'true';
 			els.sketchPrompt.focus();
-			return;
+			return null;
 		}
-		run({ prompt, imageUrls: [sketch.url] });
-		return;
+		return { prompt, imageUrls: [sketch.url] };
 	}
 
 	// Image / multi-view mode.
@@ -1761,7 +1984,7 @@ function submit() {
 		setTimeout(() => {
 			if (!els.generate.disabled) els.generateLabel.textContent = 'Generate';
 		}, 1600);
-		return;
+		return null;
 	}
 	const urls = uploadedUrls();
 	if (urls.length === 0) {
@@ -1769,9 +1992,47 @@ function submit() {
 		first?.focus();
 		first?.classList.add('drop-target');
 		setTimeout(() => first?.classList.remove('drop-target'), 600);
+		return null;
+	}
+	return { prompt: els.imagePrompt.value.trim(), imageUrls: urls };
+}
+
+function submit() {
+	// High is a $THREE holder perk. The Generate button is disabled when locked,
+	// but a keyboard submit (⌘↵) can still reach here — open the upsell (with the
+	// working Pay-per-use path) instead of firing a request the server will gate.
+	if (selectedTier === 'high' && highLocked) {
+		if (_highAccess) onGate(_highAccess, gateOpts());
+		else reflectHighAccess('high');
 		return;
 	}
-	run({ prompt: els.imagePrompt.value.trim(), imageUrls: urls });
+	const cfg = collectComposerCfg();
+	if (cfg) run(cfg);
+}
+
+// Options handed to the gate modal / in-place lock so their "Pay per generation"
+// CTA actually works: pay $THREE for one High generation, then run the current
+// composer inputs with the settled proof attached.
+function gateOpts() {
+	return { onPayPerUse: (pay) => payThenGenerate(pay) };
+}
+
+// The consumption lever, end to end: price comes from the gate's pay_per_use (or
+// the resolved access), the user pays $THREE through the designed modal, and the
+// generation re-fires immediately with { paymentId, refId } so the server's gate
+// is satisfied per use. No-op if the composer inputs are incomplete (the field is
+// focused) or the user cancels the payment.
+async function payThenGenerate(pay) {
+	const usd = Number(pay?.usd) || Number(_highAccess?.pay_per_use?.usd) || 0;
+	if (!(usd > 0)) return;
+	const cfg = collectComposerCfg();
+	if (!cfg) return;
+	// Ensure the job runs at High (the tier the payment buys) even if the click
+	// came from the in-place lock before any submit.
+	if (selectedTier !== 'high') selectTier('high');
+	const result = await payForHighGeneration({ usd });
+	if (!result?.ok) return; // cancelled or failed — the modal explained why
+	run({ ...cfg, payment: { paymentId: result.paymentId, refId: result.refId } });
 }
 
 // Wiring ----------------------------------------------------------------------
@@ -2074,6 +2335,10 @@ document.addEventListener('forge:open-creation', (e) => {
 // Build the quality/engine controls from the live catalog (tiers, backends,
 // cost/time matrix). Falls back silently to the defaults if it can't load.
 loadCatalog();
+
+// Surface the $THREE holder gate on the High control up front (pill + note),
+// independent of the catalog so the affordance lands even on older deploys.
+reflectHighButtonAccess();
 
 // Surface any previously forged models for this browser on load.
 loadGallery().then(() => {

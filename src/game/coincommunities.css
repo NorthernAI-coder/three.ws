@@ -34,6 +34,18 @@ html, body {
 	font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 	-webkit-font-smoothing: antialiased; overscroll-behavior: none;
 }
+/* Transparent embed: `?bg=transparent` (set on <html> by the play.html boot script)
+   drops every opaque page-level fill so the world composites onto the host page —
+   e.g. the IBM x402 showcase — instead of sitting in its own black box. The WebGL
+   canvas + sky are cleared engine-side (see coincommunities.js); these clear the
+   HTML/CSS layers above it. Lobby content panels keep their own fills. */
+html[data-bg="transparent"], html[data-bg="transparent"] body { background: transparent; }
+html[data-bg="transparent"] #kx-loading, html[data-bg="transparent"] #cc-loading { background: transparent; }
+html[data-bg="transparent"] #cc-lobby {
+	background:
+		radial-gradient(1000px 560px at 82% -12%, rgba(255, 255, 255, 0.06), transparent 60%),
+		radial-gradient(820px 520px at 6% 112%, rgba(255, 255, 255, 0.045), transparent 60%);
+}
 #kx-canvas, #cc-canvas {
 	position: fixed; inset: 0; width: 100%; height: 100%; display: block;
 	touch-action: none; cursor: grab;
