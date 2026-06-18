@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-18T01:57:16.378Z",
+	"generated_at": "2026-06-18T02:07:16.130Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -54,6 +54,16 @@
 			"link": "/forge",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-18",
+			"type": "update",
+			"title": "Play loads reliably in private windows and embeds, and explains itself if 3D can't start",
+			"summary": "Two ways Play could fail silently are fixed. First: if your browser couldn't start 3D graphics — hardware acceleration switched off, an older device, or some in-app browsers — Play used to sit on the loading screen forever with no explanation. It now shows a clear recovery card that tells you what happened and how to fix it, with a one-tap “Try again”. Second: opening Play in a private/incognito window, or where it's embedded inside another page, could stop it loading at all because the browser blocks saved settings there. Play now treats blocked storage gracefully — it falls back to a default name and avatar and loads normally instead of breaking.",
+			"link": null,
+			"tags": [
+				"fix"
 			]
 		},
 		{

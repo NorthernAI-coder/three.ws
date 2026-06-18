@@ -59,6 +59,14 @@ import { PlaySystems } from './play-systems.js';
 import { PlayOnboard } from './play-onboard.js';
 import { log } from '../shared/log.js';
 
+// localStorage throws in private mode and in third-party iframe contexts where
+// storage is blocked — exactly the `?bg=transparent` embed case (e.g. the IBM
+// x402 showcase). Guard every access so a blocked store degrades to defaults
+// instead of throwing mid-boot. Same contract as the lsGet/lsSet helpers in
+// play-onboard.js / play-intro.js / play-handoff.js.
+function lsGet(k) { try { return localStorage.getItem(k); } catch { return null; } }
+function lsSet(k, v) { try { localStorage.setItem(k, v); } catch { /* storage disabled */ } }
+
 // Reaction bar (R04): the 6 emoji available to all players.
 const REACTIONS = [
 	{ emoji: '🎉', label: 'Celebrate' },
@@ -844,10 +852,10 @@ export class CoinCommunities {
 		// they left it blank, and reflect that id back into the field so it's theirs.
 		let name = this.ui.getName();
 		if (!name) {
-			name = localStorage.getItem('cc-name') || ('guest-' + Math.random().toString(36).slice(2, 6));
+			name = lsGet('cc-name') || ('guest-' + Math.random().toString(36).slice(2, 6));
 			this.ui.setName(name);
 		}
-		localStorage.setItem('cc-name', name);
+		lsSet('cc-name', name);
 		// Fresh voxel build layer for this coin. The server is authoritative: it
 		// streams the persisted build in on join and every live edit after, so the
 		// geometry is driven entirely by these block events (local clicks only send).
@@ -1725,7 +1733,7 @@ export class CoinCommunities {
 	// Live rename: persist and broadcast so peers' nameplates update instantly.
 	_rename(name) {
 		const clean = (name || '').trim().slice(0, 24);
-		if (clean) localStorage.setItem('cc-name', clean);
+		if (clean) lsSet('cc-name', clean);
 		if (this.net && clean) this.net.rename(clean);
 	}
 
