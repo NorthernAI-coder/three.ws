@@ -91,6 +91,14 @@ const REQUIRED = [
 	['skill_purchases', 'tipped_amount'],
 	['skill_purchases', 'referrer_user_id'],
 	['agent_skill_prices', 'mint_decimals'],
+	// skill_access_grants (20260618000000_skill_access_grants.sql) — the access
+	// record finalizeSkillConfirmation() writes on payment confirm.
+	['skill_access_grants', 'user_id'],
+	['skill_access_grants', 'agent_id'],
+	['skill_access_grants', 'skill_name'],
+	['skill_access_grants', 'purchase_id'],
+	['skill_access_grants', 'expires_at'],
+	['skill_access_grants', 'uses_left'],
 	// purchase_receipts
 	['purchase_receipts', 'purchase_id'],
 	['purchase_receipts', 'receipt_json'],
