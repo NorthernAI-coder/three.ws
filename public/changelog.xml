@@ -7,6 +7,30 @@
 		<description>What's new on three.ws — features, improvements, and releases, newest first.</description>
 		<language>en</language>
 		<item>
+			<title>$THREE Intel · Live on-chain intelligence</title>
+			<link>https://three.ws/three-intel</link>
+			<guid isPermaLink="false">2026-06-18:$THREE Intel · Live on-chain intelligence</guid>
+			<pubDate>Thu, 18 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>The first real utility surface for $THREE beyond price and chart: a live on-chain signal terminal powered by the Coin Intelligence Engine, live market data, and sentiment. Hold $THREE to unlock the live feed and holder narrative layer; spend $THREE for a synthesized per-token Deep Report — risk, organic-strength, distribution, and a scored read.</description>
+		</item>
+		<item>
+			<title>$THREE Intel — the token's first real on-chain intelligence terminal</title>
+			<link>https://three.ws/three-intel</link>
+			<guid isPermaLink="false">2026-06-18:$THREE Intel — the token's first real on-chain intelligence terminal</guid>
+			<pubDate>Thu, 18 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>A new page at /three-intel turns $THREE from a chart-and-buy token into a working tool. It's a live on-chain intelligence terminal: a real-time feed of newly observed Solana coins with derived signals (bundle vs organic launch, top-wallet concentration, sniping, fresh-wallet farming, risk flags) and a one-word verdict on each — powered by the three.ws Coin Intelligence Engine, live market data, and on-chain sentiment. Holding $THREE (Bronze tier and up) unlocks the feed live; everyone else sees the same signals on a 30-minute delay, so the hold is a real edge, not a paywall. A free Token Scanner reads any mint's signals, market, and sentiment on demand. And spending $THREE buys a per-token Deep Report — a synthesized dossier with a scored read, risk and organic-strength gauges, wallet distribution, and key findings — paid once on-chain, single-use, and saved so a retry never charges twice. This is the start of making the only coin actually do things.</description>
+		</item>
+		<item>
+			<title>Chat avatar no longer kneels to pray on every new chat</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-18:Chat avatar no longer kneels to pray on every new chat</guid>
+			<pubDate>Thu, 18 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>The 3D avatar in chat used to drop to its knees and play a praying animation each time a new conversation loaded — and again whenever it got curious mid-chat. That jarring entrance is gone. The avatar now stays calmly in its idle pose and shows attention through subtle gaze and facial expression instead of a full-body kneel.</description>
+		</item>
+		<item>
 			<title>Coin community worlds no longer get stuck on “Connecting…”</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-18:Coin community worlds no longer get stuck on “Connecting…”</guid>

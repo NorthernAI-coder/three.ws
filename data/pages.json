@@ -710,6 +710,14 @@
 					"added": "2026-06-15"
 				},
 				{
+					"path": "/three-intel",
+					"title": "$THREE Intel \u00b7 Live on-chain intelligence",
+					"description": "The first real utility surface for $THREE beyond price and chart: a live on-chain signal terminal powered by the Coin Intelligence Engine, live market data, and sentiment. Hold $THREE to unlock the live feed and holder narrative layer; spend $THREE for a synthesized per-token Deep Report \u2014 risk, organic-strength, distribution, and a scored read.",
+					"priority": 0.8,
+					"changefreq": "always",
+					"added": "2026-06-18"
+				},
+				{
 					"path": "/fact-checker",
 					"title": "Fact Checker",
 					"description": "Pay $0.10 per claim. The agent searches across authoritative sources, pays per retrieval via x402, and returns a verdict with cited evidence and a signed attestation.",

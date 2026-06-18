@@ -588,6 +588,10 @@
 			"dest": "/three-token.html"
 		},
 		{
+			"src": "/three-intel/?",
+			"dest": "/three-intel.html"
+		},
+		{
 			"src": "/three/?",
 			"dest": "/three.html"
 		},
