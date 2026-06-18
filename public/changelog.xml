@@ -295,6 +295,14 @@
 			<description>Walking up to the Pole Club, you used to move through the alley, the gallery, and the clubhouse completely alone. Now every room is full: each one is populated with a live crowd built from our avatars — the bundled looks plus public avatars from the gallery — grounded on the floor and moving for real. Near the entrance they lean, chill, and idle; deeper in, more of them are dancing, so the energy builds as you get closer to the stage. The crowd lines your route instead of blocking it, and the head-count scales to your device so it stays smooth on phones and goes big on desktop.</description>
 		</item>
 		<item>
+			<title>The x402 demo we built with IBM now runs under a locked-down security policy</title>
+			<link>https://three.ws/ibm/x402-demo</link>
+			<guid isPermaLink="false">2026-06-18:The x402 demo we built with IBM now runs under a locked-down security policy</guid>
+			<pubDate>Thu, 18 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>The live x402 demo we made with IBM was hardened so it can be hosted on a strict corporate site. It no longer pulls fonts or the 3D model viewer from Google's CDN — both now ship with the page from three.ws — so it loads cleanly under a strict Content-Security-Policy and even inside an iframe, with no blocked requests. Paying with MetaMask on Base needs nothing but three.ws; if a locked-down host blocks the small library the Solana path loads, the page now says so plainly and the Base button keeps working. The 3D viewer also loads only once you actually forge a model, so the page opens lighter. We published the exact policy and hosting steps for IBM's web team.</description>
+		</item>
+		<item>
 			<title>Tip a dancer for a Pole Twerk and she works the pole</title>
 			<link>https://three.ws/club</link>
 			<guid isPermaLink="false">2026-06-18:Tip a dancer for a Pole Twerk and she works the pole</guid>
@@ -349,6 +357,22 @@
 			<pubDate>Thu, 18 Jun 2026 12:00:00 GMT</pubDate>
 			<category>improvement</category>
 			<description>When an agent replied with a 3D avatar — especially while it was thinking or forging several models at once — the avatar used to float off on its own with a big empty gap, while the reasoning note and the tool buttons drifted down beside its feet. The agent now stands next to its own response: the avatar is framed tighter so it fills its space instead of hovering in the void, and its thinking note and tool calls line up with it as one tidy block. It reads as a single reply whether you're in the normal view or have a tool's details open in the side panel.</description>
+		</item>
+		<item>
+			<title>Your agent can now pay for paid APIs from its own wallet</title>
+			<link>https://three.ws/agents</link>
+			<guid isPermaLink="false">2026-06-18:Your agent can now pay for paid APIs from its own wallet</guid>
+			<pubDate>Thu, 18 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The wallet's new Pay tab lets your agent buy from the x402 marketplace in USDC straight from its own Solana wallet — never a shared platform account. Search the bazaar for a paid service (or paste an endpoint), see the live price and exactly what you're buying before you commit, then pay; you watch the payment get built, signed by the agent, and settled on-chain, and get the receipt with a transaction link. Every payment is checked against the agent's own spend limits first, and if the wallet is short on USDC it tells you and sends you to fund it instead of failing mid-pay. A running Payment activity list shows what the agent paid for, to whom, and when. Whenever an agent is in context, payments always come from that agent's wallet.</description>
+		</item>
+		<item>
+			<title>Your agent can now trade from its own wallet — with real guardrails</title>
+			<link>https://three.ws/agents</link>
+			<guid isPermaLink="false">2026-06-18:Your agent can now trade from its own wallet — with real guardrails</guid>
+			<pubDate>Thu, 18 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Fund your agent's wallet and let it buy and sell pump.fun coins straight from that wallet, signed for you on the server — no wallet popup per trade. Every trade runs through the same safety checks the auto-sniper uses, now shared as one rulebook so they can never drift apart: a per-trade size cap, a rolling daily spend budget, a price-impact circuit breaker, a fee-and-rent cushion so a buy never bricks the wallet, and a kill switch to pause all trading instantly. Set those limits per agent under Limits &amp; Safety. If a trade would cross a limit you get a clear, specific reason back instead of a failure — and a retried request can never double-spend. Graduated coins route through the AMM automatically, and every trade lands in one unified history alongside your sniper's.</description>
 		</item>
 		<item>
 			<title>Your AR agent now hides behind real-world objects</title>

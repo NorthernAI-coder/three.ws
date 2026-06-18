@@ -24,7 +24,7 @@ import { sql } from '../_lib/db.js';
 import { cors, json, method, error, readJson, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { ensureAgentWallet, recoverSolanaAgentKeypair } from '../_lib/agent-wallet.js';
-import { getConnection, getPumpTradeClient } from '../_lib/pump.js';
+import { getPumpTradeClient } from '../_lib/pump.js';
 import { buildAmmSellInstructions, quoteAmmSell } from '../../workers/agent-sniper/amm-exit.js';
 import { logAudit } from '../_lib/audit.js';
 import { explorerTxUrl } from '../_lib/avatar-wallet.js';
@@ -36,11 +36,11 @@ import {
 import { randomUUID } from 'node:crypto';
 import {
 	validateSolanaAddress, enforceSpendLimit, SpendLimitError, lamportsToUsd,
-	getSpendLimits, getTradeLimits, setTradeLimits, getDailySpendLamports,
-	recordCustodyEvent, updateCustodyEvent,
+	getTradeLimits, setTradeLimits, getDailySpendLamports,
+	updateCustodyEvent,
 	checkKillSwitch, checkConcurrency, checkPerTradeCap, checkDailyBudgetLamports,
 	checkSolHeadroom, checkPriceImpact, tradeGuardResponse,
-	SOL_FEE_HEADROOM_LAMPORTS, LAMPORTS_PER_SOL, TRADE_LIMIT_DEFAULTS,
+	SOL_FEE_HEADROOM_LAMPORTS, TRADE_LIMIT_DEFAULTS,
 } from '../_lib/agent-trade-guards.js';
 
 const WSOL_MINT = 'So11111111111111111111111111111111111111112';

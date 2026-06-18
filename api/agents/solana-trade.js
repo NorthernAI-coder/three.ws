@@ -43,7 +43,6 @@ import { getAmmPoolState } from '../_lib/pump.js';
 
 const LAMPORTS_PER_SOL = 1_000_000_000;
 const BASE58_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // The SOL fee/rent headroom, the price-impact breaker, the per-trade cap, the
 // daily budget, and the kill switch all live in the shared guardrail module
@@ -411,8 +410,7 @@ export async function handleTrade(req, res, id) {
 		return error(res, 402, fundsWarning.code, fundsWarning.message, fundsWarning.detail);
 	}
 	if (guardWarning) {
-		const status = guardWarning.code === 'price_impact_too_high' ? 422 : 403;
-		return error(res, status, guardWarning.code, guardWarning.message, guardWarning.detail);
+		return error(res, guardWarning.status || 403, guardWarning.code, guardWarning.message, guardWarning.detail);
 	}
 
 	// Idempotency key — required for execute so a retry can't double-spend.

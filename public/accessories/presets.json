@@ -50,6 +50,7 @@
 		"name": "Round Glasses",
 		"glbUrl": "/accessories/glasses-round.glb",
 		"attachBone": "Head",
+		"anchor": "face",
 		"thumbnail": "/accessories/thumbs/glasses-round.png"
 	},
 	{
@@ -58,6 +59,7 @@
 		"name": "Shades",
 		"glbUrl": "/accessories/glasses-shades.glb",
 		"attachBone": "Head",
+		"anchor": "face",
 		"thumbnail": "/accessories/thumbs/glasses-shades.png"
 	},
 	{
