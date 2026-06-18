@@ -17,12 +17,162 @@
 				padding: 0;
 				box-sizing: border-box;
 			}
+			:root {
+				--ink: #eaf0ff;
+				--muted: #8b94b8;
+				--accent: #6699ff;
+			}
+			html,
+			body {
+				height: 100%;
+			}
 			body {
 				background: #080808;
 				overflow: hidden;
+				font-family:
+					-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial,
+					sans-serif;
+				color: var(--ink);
 			}
 			canvas {
 				display: block;
+				touch-action: none; /* we own the gesture for parallax */
+			}
+
+			/* ── Chrome overlay: keeps the viewer from being a dead-end ── */
+			.chrome {
+				position: fixed;
+				inset: 0;
+				pointer-events: none;
+				z-index: 10;
+				display: flex;
+				flex-direction: column;
+				justify-content: space-between;
+			}
+			.bar {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				gap: 12px;
+				padding: 14px 18px;
+				background: linear-gradient(180deg, rgba(8, 8, 12, 0.7), rgba(8, 8, 12, 0));
+			}
+			.bar.bottom {
+				background: linear-gradient(0deg, rgba(8, 8, 12, 0.7), rgba(8, 8, 12, 0));
+			}
+			.chrome a {
+				pointer-events: auto;
+				color: var(--ink);
+				text-decoration: none;
+				font-size: 14px;
+				font-weight: 600;
+				letter-spacing: 0.01em;
+				display: inline-flex;
+				align-items: center;
+				gap: 7px;
+				padding: 8px 12px;
+				border-radius: 10px;
+				border: 1px solid rgba(255, 255, 255, 0.08);
+				background: rgba(255, 255, 255, 0.04);
+				transition:
+					background 0.18s ease,
+					border-color 0.18s ease,
+					transform 0.18s ease;
+			}
+			.chrome a:hover {
+				background: rgba(255, 255, 255, 0.1);
+				border-color: rgba(255, 255, 255, 0.18);
+			}
+			.chrome a:active {
+				transform: translateY(1px);
+			}
+			.chrome a:focus-visible {
+				outline: 2px solid var(--accent);
+				outline-offset: 2px;
+			}
+			.brand {
+				font-weight: 700;
+			}
+			.brand .dot {
+				color: var(--accent);
+			}
+			.foot-links {
+				display: flex;
+				gap: 8px;
+				flex-wrap: wrap;
+			}
+			.hint {
+				pointer-events: none;
+				color: var(--muted);
+				font-size: 12px;
+			}
+
+			/* ── Loading + error states ── */
+			.overlay {
+				position: fixed;
+				inset: 0;
+				z-index: 20;
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				justify-content: center;
+				gap: 16px;
+				text-align: center;
+				padding: 24px;
+				background: #080808;
+				transition: opacity 0.4s ease;
+			}
+			.overlay[hidden] {
+				display: none;
+			}
+			.overlay.fade {
+				opacity: 0;
+				pointer-events: none;
+			}
+			.spinner {
+				width: 38px;
+				height: 38px;
+				border-radius: 50%;
+				border: 3px solid rgba(102, 153, 255, 0.18);
+				border-top-color: var(--accent);
+				animation: spin 0.9s linear infinite;
+			}
+			@keyframes spin {
+				to {
+					transform: rotate(360deg);
+				}
+			}
+			.overlay p {
+				color: var(--muted);
+				font-size: 14px;
+				max-width: 30ch;
+				line-height: 1.5;
+			}
+			.overlay h2 {
+				font-size: 18px;
+				font-weight: 700;
+			}
+			@media (prefers-reduced-motion: reduce) {
+				.spinner {
+					animation-duration: 2.4s;
+				}
+			}
+
+			/* ── Mobile adaptation ── */
+			@media (max-width: 640px) {
+				.bar {
+					padding: 11px 12px;
+				}
+				.chrome a {
+					font-size: 13px;
+					padding: 7px 10px;
+				}
+				.hint {
+					display: none;
+				}
+				.foot-links a:nth-child(n + 3) {
+					display: none; /* keep the bottom bar to two primary links on phones */
+				}
 			}
 		</style>
 
@@ -61,23 +211,90 @@
 		</script>
 	</head>
 	<body>
+		<!-- Persistent chrome so the standalone viewer is never a dead-end -->
+		<div class="chrome" aria-hidden="false">
+			<div class="bar top">
+				<a href="/" aria-label="Back to three.ws home">
+					<span aria-hidden="true">←</span>
+					<span class="brand">three<span class="dot">.</span>ws</span>
+				</a>
+				<span class="hint">Move your cursor · drag on touch · arrow keys</span>
+			</div>
+			<div class="bar bottom">
+				<span class="hint">Avatar Artifact — a live Three.js portrait</span>
+				<nav class="foot-links" aria-label="Explore three.ws">
+					<a href="/playground">Playground</a>
+					<a href="/labs">Labs</a>
+					<a href="/agents">Agents</a>
+				</nav>
+			</div>
+		</div>
+
+		<!-- Loading state while the Three.js runtime + scene resolve -->
+		<div class="overlay" id="loading">
+			<div class="spinner" role="status" aria-label="Loading avatar"></div>
+			<p>Summoning the avatar…</p>
+		</div>
+
+		<!-- Designed failure state if the 3D runtime can't load -->
+		<div class="overlay" id="error" hidden>
+			<h2>Couldn’t load the 3D viewer</h2>
+			<p>
+				The graphics runtime failed to load — this usually means a network
+				hiccup or a browser without WebGL.
+			</p>
+			<div class="foot-links">
+				<a href="javascript:location.reload()">Retry</a>
+				<a href="/">Back to three.ws</a>
+			</div>
+		</div>
+
+		<script>
+			// Show the designed error state if the CDN runtime never arrives,
+			// rather than leaving a blank canvas behind.
+			window.__avatarArtifactFailed = function () {
+				document.getElementById('loading')?.setAttribute('hidden', '');
+				document.getElementById('error')?.removeAttribute('hidden');
+			};
+		</script>
 		<script
 			src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"
 			integrity="sha384-CI3ELBVUz9XQO+97x6nwMDPosPR5XvsxW2ua7N1Xeygeh1IxtgqtCkGfQY9WWdHu"
 			crossorigin="anonymous"
+			onerror="window.__avatarArtifactFailed()"
 		></script>
 		<script>
-			const W = window.innerWidth,
-				H = window.innerHeight;
-			const scene = new THREE.Scene();
+			// WebGL / runtime guard: if Three.js didn't load or WebGL is
+			// unavailable, surface the designed error state instead of throwing.
+			if (!window.THREE) {
+				window.__avatarArtifactFailed();
+			} else {
+				const W = window.innerWidth,
+					H = window.innerHeight;
+				const scene = new THREE.Scene();
 			const camera = new THREE.PerspectiveCamera(42, W / H, 0.1, 100);
 			camera.position.set(0, 1.6, 4.2);
 			camera.lookAt(0, 1.6, 0);
 
-			const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+			// Coarse pointer (phones/tablets) → lighter render: fewer DPR samples
+			// and no shadow pass, so the canvas stays smooth on mobile GPUs.
+			const isCoarse =
+				window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+
+			let renderer;
+			try {
+				renderer = new THREE.WebGLRenderer({
+					antialias: !isCoarse,
+					alpha: true,
+				});
+			} catch {
+				// No WebGL context available — show the designed error state.
+				window.__avatarArtifactFailed();
+				throw new Error('webgl-unavailable');
+			}
 			renderer.setSize(W, H);
-			renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-			renderer.shadowMap.enabled = true;
+			renderer.setPixelRatio(Math.min(devicePixelRatio, isCoarse ? 1.5 : 2));
+			renderer.shadowMap.enabled = !isCoarse;
 			document.body.appendChild(renderer.domElement);
 
 			// Lights
@@ -307,11 +524,64 @@
 			const pts = new THREE.Points(pGeo, pMat);
 			scene.add(pts);
 
-			// ─── Mouse tracking ───────────────────────────────────────────────────────────
+			// ─── Input tracking (mouse · touch · keyboard) ──────────────────────────────────
+			// The avatar's gaze follows a single normalized look-target so every
+			// input modality drives the same code path.
 			const mouse = { x: 0, y: 0 };
+			let keyTarget = null; // when set, keyboard overrides pointer
+
+			function aim(clientX, clientY) {
+				mouse.x = (clientX / window.innerWidth - 0.5) * 2;
+				mouse.y = (clientY / window.innerHeight - 0.5) * 2;
+			}
+
 			window.addEventListener('mousemove', (e) => {
-				mouse.x = (e.clientX / window.innerWidth - 0.5) * 2;
-				mouse.y = (e.clientY / window.innerHeight - 0.5) * 2;
+				keyTarget = null;
+				aim(e.clientX, e.clientY);
+			});
+
+			// Touch: track a finger drag so the portrait is interactive on phones.
+			window.addEventListener(
+				'touchmove',
+				(e) => {
+					const tch = e.touches && e.touches[0];
+					if (!tch) return;
+					keyTarget = null;
+					aim(tch.clientX, tch.clientY);
+				},
+				{ passive: true },
+			);
+
+			// Keyboard: arrow keys / WASD nudge the gaze, so the viewer is usable
+			// without a pointer and remains keyboard-accessible.
+			const canvasEl = renderer.domElement;
+			canvasEl.tabIndex = 0;
+			canvasEl.setAttribute('role', 'img');
+			canvasEl.setAttribute(
+				'aria-label',
+				'Interactive 3D avatar portrait that follows your cursor, touch, or arrow keys',
+			);
+			const KEY_STEP = 0.25;
+			window.addEventListener('keydown', (e) => {
+				const k = e.key.toLowerCase();
+				const map = {
+					arrowleft: [-1, 0],
+					a: [-1, 0],
+					arrowright: [1, 0],
+					d: [1, 0],
+					arrowup: [0, -1],
+					w: [0, -1],
+					arrowdown: [0, 1],
+					s: [0, 1],
+				};
+				const v = map[k];
+				if (!v) return;
+				e.preventDefault();
+				if (!keyTarget) keyTarget = { x: mouse.x, y: mouse.y };
+				keyTarget.x = Math.max(-1, Math.min(1, keyTarget.x + v[0] * KEY_STEP));
+				keyTarget.y = Math.max(-1, Math.min(1, keyTarget.y + v[1] * KEY_STEP));
+				mouse.x = keyTarget.x;
+				mouse.y = keyTarget.y;
 			});
 
 			// ─── Animate ──────────────────────────────────────────────────────────────────
@@ -384,16 +654,32 @@
 				pts.rotation.y += 0.0006;
 
 				renderer.render(scene, camera);
+
+				// Fade out the loading overlay once the first frame is on screen.
+				if (!firstFramePainted) {
+					firstFramePainted = true;
+					const loading = document.getElementById('loading');
+					if (loading) {
+						loading.classList.add('fade');
+						setTimeout(() => loading.setAttribute('hidden', ''), 450);
+					}
+				}
 			}
+			let firstFramePainted = false;
 			animate();
 
-			window.addEventListener('resize', () => {
+			// Keep the canvas matched to the viewport (handles orientation changes
+			// and mobile browser-chrome resize, not just desktop window drags).
+			function onResize() {
 				const w = window.innerWidth,
 					h = window.innerHeight;
 				camera.aspect = w / h;
 				camera.updateProjectionMatrix();
 				renderer.setSize(w, h);
-			});
+			}
+			window.addEventListener('resize', onResize);
+			window.addEventListener('orientationchange', onResize);
+			}
 		</script>
 	</body>
 </html>

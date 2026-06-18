@@ -5559,12 +5559,6 @@
 		// placeholder models — so we ask the avatar source for 3D rows only, then
 		// dedupe by model + name and take the first 6 unique ones.
 		const EXPLORE_SHOWCASE_URL = '/api/explore?source=avatar&only3d=1&category=avatar,creature&limit=24&quality=high';
-		const FALLBACK_AGENTS = [
-			{ name: 'CZ', description: 'Stylized humanoid', glbUrl: '/avatars/cz.glb', viewerUrl: '/avatars/avatar_demo_disk_cz', kind: 'avatar' },
-			{ name: 'Ansem', description: 'Trader persona', glbUrl: '/avatars/default.glb', viewerUrl: '/avatars/avatar_demo_disk_ansem', kind: 'avatar' },
-			{ name: 'Saga', description: 'Expressive robot rig', glbUrl: '/animations/robotexpressive.glb', viewerUrl: '/avatars/avatar_demo_disk_saga', kind: 'avatar' },
-			{ name: 'Boss Vernington', description: 'Soldier rig with locomotion', glbUrl: '/animations/soldier.glb', viewerUrl: '/avatars/avatar_demo_disk_boss', kind: 'avatar' },
-		];
 		const grid = document.getElementById('showcase-3d-grid');
 		if (!grid) return;
 
@@ -5708,10 +5702,13 @@
 				.then(function (data) {
 					var items = Array.isArray(data.items) ? data.items : [];
 					var agentItems = dedupeAgents(items.filter(function (it) { return it.glbUrl || it.avatarId; })).slice(0, 6);
-					renderShowcase(agentItems.length >= 3 ? agentItems : FALLBACK_AGENTS);
+					// Real avatars only. If the feed is thin or empty the grid
+					// degrades to its two CTA cards (Browse all / Make your own) —
+					// never to fabricated demo agents.
+					renderShowcase(agentItems);
 				})
 				.catch(function () {
-					renderShowcase(FALLBACK_AGENTS);
+					renderShowcase([]);
 				});
 		}, { rootMargin: '200px' });
 		showcaseObs.observe(grid);

@@ -208,6 +208,10 @@
 		.stage.done .si::after { content:"✓"; font-size:9px; color:#000; font-weight:900; }
 		.stage.error { color:var(--red); }
 		.stage.error .si { border-color:var(--red); }
+		.stage[hidden] { display:none; }
+		.stage.stage-terminal.error .si { background:var(--red); border-color:var(--red); box-shadow:0 0 8px var(--red); }
+		.stage.stage-terminal.error .si::after { content:"!"; font-size:10px; color:#fff; font-weight:900; line-height:1; }
+		.stage.stage-terminal.error .sval { color:var(--red); }
 		.stage .sval { font-size:10.5px; color:var(--faint); font-variant-numeric:tabular-nums; }
 		.stage.done .sval { color:var(--green); }
 		@keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:.5; } }
@@ -219,6 +223,8 @@
 			animation:rise .3s ease;
 		}
 		.receipt.show { display:block; }
+		.receipt:focus { outline:none; }
+		.receipt:focus-visible { outline:2px solid var(--sol-lt); outline-offset:3px; }
 		@keyframes rise { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
 		.receipt .r-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:9px; }
 		.receipt .r-badge { font-size:12px; font-weight:700; color:var(--green); display:flex; align-items:center; gap:6px; }
@@ -299,7 +305,7 @@
 				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
 				x402 demo
 			</a>
-			<a class="tb-btn" href="/ibm/trust-layer" title="IBM Granite Guardian Trust Layer">
+			<a class="tb-btn" href="/x402" title="x402 — the payment trust layer behind these settlements">
 				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
 				Trust Layer
 			</a>
@@ -339,11 +345,11 @@
 		</div>
 
 		<div id="narration" role="status" aria-live="polite" aria-atomic="false"></div>
-		<div id="walletState" role="alert"></div>
+		<div id="walletState" role="status" aria-live="polite" aria-atomic="true"></div>
 
 		<div class="stages" id="stages" aria-label="Payment stages" aria-live="polite"></div>
 
-		<div class="receipt" id="receipt" aria-live="polite"></div>
+		<div class="receipt" id="receipt" aria-live="polite" tabindex="-1" aria-label="Payment receipt"></div>
 	</section>
 
 </div>

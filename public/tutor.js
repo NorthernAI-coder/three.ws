@@ -17,6 +17,7 @@ const qEl = $('q');
 const levelEl = $('level');
 const sendBtn = $('send');
 const endBtn = $('end-btn');
+const qCount = $('q-count');
 const tabAmount = $('tab-amount');
 const tabCount = $('tab-count');
 const scrim = $('scrim');
@@ -56,6 +57,28 @@ function setTab(totalAtomics, count) {
 	endBtn.disabled = count === 0;
 }
 
+// The paywall helper (/x402.js) and this module both load async with no ordering
+// guarantee, so an early ask can race ahead of window.X402.pay being defined.
+// Wait briefly for it before treating its absence as a real load failure.
+function x402Ready() {
+	return !!(window.X402 && typeof window.X402.pay === 'function');
+}
+function waitForX402(timeoutMs = 6000) {
+	if (x402Ready()) return Promise.resolve(true);
+	return new Promise((resolve) => {
+		const start = Date.now();
+		const timer = setInterval(() => {
+			if (x402Ready()) {
+				clearInterval(timer);
+				resolve(true);
+			} else if (Date.now() - start >= timeoutMs) {
+				clearInterval(timer);
+				resolve(false);
+			}
+		}, 120);
+	});
+}
+
 // ── rendering ──────────────────────────────────────────────────────────────────
 
 function addUser(text) {
@@ -89,7 +112,7 @@ function addTutor(result) {
 		const fu = el('div', 'followup');
 		fu.innerHTML = 'Next: ';
 		const b = el('button', null, escapeHtml(result.followUp));
-		b.addEventListener('click', () => { qEl.value = result.followUp; qEl.focus(); autosize(); });
+		b.addEventListener('click', () => { qEl.value = result.followUp; qEl.focus(); autosize(); updateCount(); });
 		fu.append(b);
 		bubble.append(fu);
 	}
@@ -135,10 +158,16 @@ async function ask(question) {
 	addUser(text);
 	qEl.value = '';
 	autosize();
+	updateCount();
 
 	try {
-		if (!window.X402 || typeof window.X402.pay !== 'function') {
-			throw new Error('Payment library failed to load. Refresh and try again.');
+		if (!x402Ready()) {
+			// Give the async-loading paywall helper a short grace window before we
+			// declare it failed — the first question often beats /x402.js finishing.
+			const ready = await waitForX402();
+			if (!ready) {
+				throw new Error('Payment library failed to load. Refresh and try again.');
+			}
 		}
 		const out = await window.X402.pay({
 			endpoint: TUTOR_ENDPOINT,
@@ -221,28 +250,78 @@ function renderInvoice(inv) {
 
 // ── session resume ─────────────────────────────────────────────────────────────
 
-async function resume() {
-	try {
-		const r = await fetch(`${SESSION_ENDPOINT}?sessionId=${encodeURIComponent(sessionId)}`);
-		if (!r.ok) return;
-		const s = await r.json();
-		if (s.status === 'closed' || !s.lineItems || !s.lineItems.length) return;
-		for (const li of s.lineItems) addHistory(li.question, li.costUsd);
-		setTab(s.totalAtomics, s.questionCount);
-		scrollDown();
-	} catch {
-		// Resume is best-effort.
+function addNotice(text, retry) {
+	clearEmpty();
+	const m = el('div', 'msg notice');
+	m.append(el('div', 'who', 'Session'));
+	const bubble = el('div', 'bubble');
+	bubble.append(el('div', null, escapeHtml(text)));
+	if (retry) {
+		const b = el('button', 'notice-retry', 'Try again');
+		b.addEventListener('click', () => { m.remove(); retry(); });
+		bubble.append(b);
 	}
+	m.append(bubble);
+	thread.append(m);
+}
+
+async function resume() {
+	// Only attempt a resume when there is a real prior session to restore — a
+	// freshly-minted id (no server record yet) legitimately returns nothing and
+	// must stay silent. A genuine fetch/HTTP failure, by contrast, is surfaced so
+	// the user isn't left staring at a blank thread wondering where their history went.
+	let r;
+	try {
+		r = await fetch(`${SESSION_ENDPOINT}?sessionId=${encodeURIComponent(sessionId)}`);
+	} catch {
+		addNotice(
+			'Couldn’t reach your previous session — your history may be temporarily unavailable. You can still ask new questions.',
+			resume,
+		);
+		return;
+	}
+	// A 5xx/4xx from the session store is a genuine failure worth surfacing. (An
+	// unknown id is NOT an error here — the endpoint returns 200 with no line items,
+	// handled silently below.)
+	if (!r.ok) {
+		addNotice(
+			'Your previous session is temporarily unavailable (server error). You can still ask new questions.',
+			resume,
+		);
+		return;
+	}
+	let s;
+	try {
+		s = await r.json();
+	} catch {
+		addNotice(
+			'Your previous session couldn’t be read back. You can still ask new questions.',
+			resume,
+		);
+		return;
+	}
+	if (s.status === 'closed' || !s.lineItems || !s.lineItems.length) return;
+	for (const li of s.lineItems) addHistory(li.question, li.costUsd);
+	setTab(s.totalAtomics, s.questionCount);
+	scrollDown();
 }
 
 // ── wiring ───────────────────────────────────────────────────────────────────
 
+const Q_MAX = Number(qEl.getAttribute('maxlength')) || 2000;
 function autosize() {
 	qEl.style.height = 'auto';
 	qEl.style.height = Math.min(qEl.scrollHeight, 180) + 'px';
 }
+function updateCount() {
+	if (!qCount) return;
+	const len = qEl.value.length;
+	qCount.textContent = `${len} / ${Q_MAX}`;
+	qCount.classList.toggle('warn', len >= Q_MAX * 0.9 && len < Q_MAX);
+	qCount.classList.toggle('max', len >= Q_MAX);
+}
 
-qEl.addEventListener('input', autosize);
+qEl.addEventListener('input', () => { autosize(); updateCount(); });
 qEl.addEventListener('keydown', (e) => {
 	if (e.key === 'Enter' && !e.shiftKey) {
 		e.preventDefault();
@@ -261,5 +340,37 @@ endBtn.addEventListener('click', endSession);
 $('invoice-close').addEventListener('click', () => scrim.classList.remove('open'));
 scrim.addEventListener('click', (e) => { if (e.target === scrim) scrim.classList.remove('open'); });
 
+// ── mobile soft-keyboard: keep the composer above the keyboard ──────────────────
+// When the on-screen keyboard opens, some mobile browsers overlay it on top of the
+// layout viewport without resizing it, hiding a sticky bottom composer. The
+// VisualViewport API reports the actually-visible region; we lift the composer by
+// the difference so it stays in view, and keep the caret scrolled into view.
+(function initKeyboardAware() {
+	const vv = window.visualViewport;
+	if (!vv) return; // older browsers: sticky positioning is the graceful fallback
+	let raf = 0;
+	function apply() {
+		raf = 0;
+		// How much of the layout viewport is hidden below the visual viewport —
+		// i.e. the keyboard's height when open, 0 when closed.
+		const hidden = Math.max(0, window.innerHeight - (vv.height + vv.offsetTop));
+		document.documentElement.style.setProperty('--kb-offset', hidden > 60 ? `${hidden}px` : '0px');
+	}
+	function schedule() {
+		if (!raf) raf = requestAnimationFrame(apply);
+	}
+	vv.addEventListener('resize', schedule);
+	vv.addEventListener('scroll', schedule);
+	qEl.addEventListener('focus', () => {
+		schedule();
+		// Let the keyboard settle, then bring the caret into view.
+		setTimeout(() => qEl.scrollIntoView({ block: 'nearest' }), 250);
+	});
+	qEl.addEventListener('blur', () => {
+		document.documentElement.style.setProperty('--kb-offset', '0px');
+	});
+})();
+
 resume();
+updateCount();
 qEl.focus();

@@ -81,6 +81,7 @@
 		.btn:active { transform: translateY(0) scale(.97); }
 		.btn.primary { background: linear-gradient(135deg, color-mix(in srgb, var(--cyan) 22%, var(--panel)), color-mix(in srgb, var(--violet) 22%, var(--panel))); border-color: color-mix(in srgb, var(--cyan) 40%, var(--line)); color: #fff; }
 		.btn svg { width: 16px; height: 16px; }
+		@media (max-width: 560px) { .arena-nav .nav-lbl { display: none; } .arena-nav { padding: 9px 11px; } }
 
 		/* ── side panels ─────────────────────────────────── */
 		.panel { position: fixed; z-index: 5; width: 326px; max-width: calc(100vw - 28px);
@@ -109,6 +110,8 @@
 		.row:hover { background: rgba(255,255,255,0.04); }
 		.r-rank { font: 600 12px/1 var(--mono); color: var(--faint); }
 		.r-av { width: 26px; height: 26px; border-radius: 8px; object-fit: cover; background: #161a27; border: 1px solid var(--line); }
+		.r-av-fb { display: grid; place-items: center; font: 700 12px/1 var(--mono); color: var(--faint);
+			background: radial-gradient(120% 100% at 50% 0%, #1b2233, #0d1018); }
 		.r-name { font-size: 13px; font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 		.r-name small { display: block; font-weight: 400; font-size: 11px; color: var(--faint); }
 		.r-pnl { font: 700 13px/1 var(--mono); }
@@ -133,6 +136,9 @@
 		.empty { padding: 26px 18px; text-align: center; color: var(--muted); font-size: 13px; }
 		.empty b { color: var(--ink); display: block; margin-bottom: 5px; }
 		.empty .btn { margin-top: 12px; }
+		.empty.reconnecting { color: var(--down); }
+		.empty.reconnecting::before { content: ''; display: inline-block; width: 7px; height: 7px; margin-right: 7px; border-radius: 50%;
+			background: var(--down); vertical-align: middle; animation: pulse 1.8s infinite; }
 
 		/* big-win banner */
 		.banner { position: fixed; left: 50%; bottom: 26px; transform: translate(-50%, 24px); z-index: 7;
@@ -294,6 +300,10 @@
 	<div class="bar">
 		<a class="brand" href="/play"><img src="/favicon.ico" alt="" />three.ws <small>/ arena</small></a>
 		<span class="pill live" id="liveDot"><i></i> <span>connecting…</span></span>
+		<a class="btn arena-nav" href="/agents">
+			<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7" cy="6.5" r="2.6"/><path d="M2.5 16a4.5 4.5 0 0 1 9 0"/><circle cx="14.5" cy="7.5" r="2.1"/><path d="M13 13.2a4 4 0 0 1 4.5 2.8"/></svg>
+			<span class="nav-lbl">All agents</span>
+		</a>
 		<div class="spacer"></div>
 		<button class="btn primary" id="pickBtn">
 			<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="6.5" r="3.2"/><path d="M4 17a6 6 0 0 1 12 0"/></svg>

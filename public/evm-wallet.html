@@ -54,7 +54,7 @@
 		.meter .seg { flex: 1; height: 7px; border-radius: 4px; background: #2a2a2a; transition: background .15s; }
 		.lit-1, .lit-2, .lit-3 { background: #4caf50 !important; }
 		.lit-4, .lit-5 { background: #fb8c00 !important; }
-		.lit-6, .lit-7, .lit-8, .lit-9, .lit-10 { background: #d32f2f !important; }
+		.lit-6 { background: #d32f2f !important; }
 
 		.row { display: flex; justify-content: space-between; align-items: center; margin-top: .55rem; font-size: .85rem; color: var(--muted); }
 
@@ -237,7 +237,6 @@
 	</main>
 
 	<script type="module">
-		import { Wallet } from 'ethers';
 		import { grindEoaVanity } from '/src/eth/vanity/eoa-grinder.js';
 		import {
 			validatePattern, estimateAttempts, formatTimeEstimate,
@@ -476,6 +475,10 @@
 				startPreviewLoop();
 			} finally {
 				controls = null;
+				// Belt-and-suspenders: the decorative scan-line interval is
+				// normally cleared in endGrindUI, but clear it here too so it
+				// can never leak if an error is thrown before endGrindUI runs.
+				if (scanLoop) { clearInterval(scanLoop); scanLoop = null; }
 			}
 		});
 
@@ -526,7 +529,7 @@
 					<div class="export">
 						<h4>Raw private key</h4>
 						<p class="sub">For a quick MetaMask <em>Import account → Private Key</em>. Anyone with this string controls the wallet — never paste it into a website or share it.</p>
-						<div class="out-row"><span class="v pk-blur" id="pk-text">${esc(result.privateKey)}</span></div>
+						<div class="out-row"><span class="v pk-blur" id="pk-text"></span></div>
 						<div class="actions" style="margin-top:.5rem">
 							<button id="pk-reveal" class="btn" type="button">Reveal</button>
 							<button id="pk-copy" class="btn" type="button">Copy private key</button>
@@ -539,8 +542,26 @@
 						Download the encrypted keystore or copy the private key before you navigate away — once this tab closes, the key is gone.
 						Anyone with the key (or keystore + password) can spend funds at this address.
 					</div>
+
+					<div class="export">
+						<h4>Use this wallet with an agent</h4>
+						<p class="sub">
+							This is a self-custody EOA — three.ws never receives the private key, so there's no server-side handoff to assign it. Keep custody yourself:
+						</p>
+						<ol style="margin:.2rem 0 .6rem;padding-left:1.15rem;font-size:.8rem;color:var(--muted);line-height:1.6">
+							<li>Import the keystore (or private key) above into <strong>MetaMask</strong>, Rabby, or Coinbase Wallet.</li>
+							<li>Link that wallet to your account from <a href="/dashboard/wallets" style="color:#a78bfa">Dashboard → Wallets</a> so your agents can reference it.</li>
+						</ol>
+						<div class="actions" style="margin-top:.2rem">
+							<a class="btn primary" href="/dashboard/wallets" style="flex:none;text-decoration:none">Open wallet dashboard →</a>
+						</div>
+					</div>
 				</div>
 			`;
+
+			// Inject the raw private key as text, not markup — keep the secret
+			// out of any HTML string template entirely.
+			$('pk-text').textContent = result.privateKey;
 
 			// Keystore encryption (scrypt is intentionally slow — show progress).
 			$('ks-download').addEventListener('click', async () => {
@@ -553,6 +574,10 @@
 				btn.disabled = true;
 				$('ks-status').innerHTML = `<div class="ok" id="ks-prog">Encrypting… 0%</div>`;
 				try {
+					// Lazy-load ethers only when the user actually exports a
+					// keystore — the grinder itself runs on lean @noble crypto,
+					// so the page never pulls ethers on initial load.
+					const { Wallet } = await import('ethers');
 					const wallet = new Wallet(result.privateKey);
 					const json = await wallet.encrypt(pass, (pct) => {
 						const el = $('ks-prog');

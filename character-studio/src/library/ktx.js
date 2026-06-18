@@ -1,3 +1,4 @@
+/* global LIBKTX -- optional external Khronos KTX (emscripten) global, loaded as a separate script; guarded by `typeof` before use */
 class KtxDecoder {
 
     constructor (context, externalKtxlib) {

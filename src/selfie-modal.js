@@ -107,7 +107,7 @@ class SelfieModal {
 				<div class="sfm-stage" data-sfm-stage>
 					<video class="sfm-video" data-sfm-video autoplay playsinline muted></video>
 					<canvas class="sfm-canvas" data-sfm-canvas></canvas>
-					<img class="sfm-preview-img" data-sfm-preview hidden />
+					<img class="sfm-preview-img" data-sfm-preview alt="Captured selfie preview" hidden />
 					<div class="sfm-badges" data-sfm-badges></div>
 					<div class="sfm-hint" data-sfm-hint>Loading face mesh...</div>
 				</div>

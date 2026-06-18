@@ -48,6 +48,18 @@
 	.toolbar {
 		margin: 18px 0;
 		display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+		/* Keep the search + sort controls reachable through long listings. */
+		position: sticky;
+		top: 0;
+		z-index: 20;
+		padding: 12px 0;
+		background: color-mix(in srgb, var(--bg) 88%, transparent);
+		backdrop-filter: blur(10px);
+		-webkit-backdrop-filter: blur(10px);
+		border-bottom: 1px solid var(--border);
+	}
+	@supports not (background: color-mix(in srgb, red, blue)) {
+		.toolbar { background: var(--bg); }
 	}
 	.toolbar input[type=search] {
 		flex: 1 1 280px;
@@ -282,7 +294,21 @@
 		border-radius: 12px;
 		margin-bottom: 56px;
 	}
-	.err { color: #fecaca; border-color: rgba(248,113,113,0.3); }
+	.err { color: #fecaca; border-color: rgba(248,113,113,0.3); border-style: solid; }
+	.err .err-title { font-weight: 600; margin-bottom: 6px; color: #fecaca; }
+	.err .retry-btn {
+		margin-top: 16px;
+		background: var(--accent-blue);
+		color: #0b0b0b;
+		border: none;
+		padding: 9px 18px;
+		font-size: 13px;
+		border-radius: 8px;
+		cursor: pointer;
+		font-weight: 600;
+	}
+	.err .retry-btn:hover { filter: brightness(1.1); }
+	.err .retry-btn:focus-visible { outline: 2px solid var(--accent-blue); outline-offset: 2px; }
 
 	.skeleton {
 		background: linear-gradient(90deg, var(--panel) 25%, var(--panel-2) 50%, var(--panel) 75%);

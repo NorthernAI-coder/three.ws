@@ -19,6 +19,7 @@ import { evmFallbackProvider } from '../_lib/evm/rpc.js';
 import { sql } from '../_lib/db.js';
 import { getSessionUser, authenticateBearer, extractBearer, hasScope } from '../_lib/auth.js';
 import { cors, json, method, readJson, wrap, error, rateLimited } from '../_lib/http.js';
+import { requireCsrf } from '../_lib/csrf.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { parse } from '../_lib/validate.js';
 import { env } from '../_lib/env.js';
@@ -107,6 +108,8 @@ async function handleGrant(req, res) {
 
 	const user = await getSessionUser(req, res);
 	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
+
+	if (!(await requireCsrf(req, res, user.id))) return;
 
 	const rl = await limits.permissionsGrant(user.id);
 	if (!rl.success) return rateLimited(res, rl);
@@ -1002,6 +1005,8 @@ async function handleRevoke(req, res) {
 
 	const user = await getSessionUser(req, res);
 	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
+
+	if (!(await requireCsrf(req, res, user.id))) return;
 
 	const rl = await limits.permissionsRevoke(user.id);
 	if (!rl.success) return rateLimited(res, rl);

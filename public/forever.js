@@ -43,6 +43,7 @@ const els = {
 	shareX: $('shareX'),
 	copyLink: $('copyLink'),
 	inscribeAnother: $('inscribeAnother'),
+	feeEstimate: $('feeEstimate'),
 };
 
 const STATE_LABEL = {
@@ -64,8 +65,47 @@ function updateCounters() {
 	els.message.style.height = 'auto';
 	els.message.style.height = Math.min(els.message.scrollHeight, 360) + 'px';
 }
-els.message.addEventListener('input', updateCounters);
+// ── live fee estimate ───────────────────────────────────────────
+// A taproot text inscription pays for two transactions: the commit and the
+// reveal. The reveal carries the inscription in its witness, which gets the
+// 4x SegWit weight discount. These constants approximate the vsize so the user
+// sees the BTC cost — and can confirm they have funds — before committing to a
+// real on-chain charge. The authoritative amount still comes from the order.
+const COMMIT_VBYTES = 154; // 1-in / 2-out P2TR commit tx
+const REVEAL_OVERHEAD_VBYTES = 160; // reveal tx minus the inscription witness
+const POSTAGE_SATS = 546; // dust output that carries the inscribed sat
+const SERVICE_BUFFER = 1.12; // OrdinalsBot service + mining-fee headroom
+
+function estimateInscriptionSats(messageBytes, feeRate) {
+	if (!Number.isFinite(messageBytes) || !Number.isFinite(feeRate) || feeRate <= 0) {
+		return null;
+	}
+	// Inscription witness bytes get the /4 weight discount.
+	const witnessVbytes = Math.ceil(messageBytes / 4) + 60; // +60 for envelope opcodes
+	const totalVbytes = COMMIT_VBYTES + REVEAL_OVERHEAD_VBYTES + witnessVbytes;
+	const minerSats = totalVbytes * feeRate;
+	return Math.ceil((minerSats + POSTAGE_SATS) * SERVICE_BUFFER);
+}
+
+function renderFeeEstimate() {
+	if (!els.feeEstimate) return;
+	const bytes = new TextEncoder().encode(els.message.value).length;
+	const feeRate = Number(els.feeRate.value);
+	const sats = estimateInscriptionSats(bytes, feeRate);
+	if (!sats) {
+		els.feeEstimate.textContent = 'paid in BTC · settled in ~1 block';
+		return;
+	}
+	const btc = sats / 1e8;
+	const usd = BTC_USD ? ` · ≈ $${(btc * BTC_USD).toLocaleString(undefined, { maximumFractionDigits: 2 })}` : '';
+	els.feeEstimate.textContent =
+		`est. ~${sats.toLocaleString()} sats (${btc.toFixed(8)} BTC)${usd} · have funds ready before you commit`;
+}
+
+els.message.addEventListener('input', () => { updateCounters(); renderFeeEstimate(); });
+els.feeRate.addEventListener('change', renderFeeEstimate);
 updateCounters();
+renderFeeEstimate();
 
 // ── btc/usd price (single fetch, best-effort) ───────────────────
 let BTC_USD = null;
@@ -75,7 +115,10 @@ async function fetchBtcPrice() {
 		if (!r.ok) return;
 		const d = await r.json();
 		const p = d?.bitcoin?.usd;
-		if (typeof p === 'number') BTC_USD = p;
+		if (typeof p === 'number') {
+			BTC_USD = p;
+			renderFeeEstimate();
+		}
 	} catch {
 		// Price is decoration; not required for the flow.
 	}
@@ -115,6 +158,23 @@ function showError(msg) {
 function clearError() {
 	els.errorBanner.classList.remove('show');
 	els.errorBanner.textContent = '';
+}
+
+// ── link enable/disable ────────────────────────────────────────
+// Action links (open-in-wallet, mempool) ship inert with no href so they can't
+// navigate to "#". Once a valid target exists we set the href and clear the
+// inert styling; if it's missing we keep them disabled.
+function setLinkActive(el, href) {
+	if (!el) return;
+	if (href) {
+		el.href = href;
+		el.classList.remove('is-pending');
+		el.removeAttribute('aria-disabled');
+	} else {
+		el.removeAttribute('href');
+		el.classList.add('is-pending');
+		el.setAttribute('aria-disabled', 'true');
+	}
 }
 
 // ── view switching ─────────────────────────────────────────────
@@ -163,6 +223,22 @@ els.inscribeBtn.addEventListener('click', async () => {
 	}
 	const receiveAddress = els.receive.value.trim() || undefined;
 	const feeRate = Number(els.feeRate.value);
+
+	// Funds gate: an inscription is a real, non-refundable BTC charge paid from
+	// the user's own wallet. Surface the estimated cost and require explicit
+	// confirmation that they hold enough BTC before we create the order.
+	const estSats = estimateInscriptionSats(bytes, feeRate);
+	if (estSats) {
+		const estBtc = (estSats / 1e8).toFixed(8);
+		const estUsd = BTC_USD ? ` (≈ $${((estSats / 1e8) * BTC_USD).toLocaleString(undefined, { maximumFractionDigits: 2 })})` : '';
+		const ok = window.confirm(
+			`This inscription will cost approximately ${estSats.toLocaleString()} sats — ${estBtc} BTC${estUsd}, ` +
+			`paid from your own Bitcoin wallet at ${feeRate} sats/vB.\n\n` +
+			`Make sure that wallet holds enough BTC to cover the charge plus network fees. ` +
+			`The payment is final once broadcast.\n\nContinue?`,
+		);
+		if (!ok) return;
+	}
 
 	els.inscribeBtn.disabled = true;
 	els.inscribeBtn.innerHTML =
@@ -224,8 +300,8 @@ async function onOrderCreated(data, message) {
 		label: 'three.ws · forever',
 	});
 	renderQR(bip21);
-	els.openWallet.href = bip21;
-	els.mempoolLink.href = `https://mempool.space/address/${c.address}`;
+	setLinkActive(els.openWallet, c.address ? bip21 : null);
+	setLinkActive(els.mempoolLink, c.address ? `https://mempool.space/address/${c.address}` : null);
 	setStatePill('waiting-payment');
 
 	show('pay');
@@ -281,13 +357,13 @@ async function onInscribed(d) {
 
 	els.winMessage.textContent = currentOrder.message;
 	els.winInscriptionLink.textContent = insc.id;
-	els.winInscriptionLink.href = inscriptionUrl;
+	setLinkActive(els.winInscriptionLink, inscriptionUrl);
 	if (txUrl) {
 		els.winTxLink.textContent = insc.revealTxid || 'view tx';
-		els.winTxLink.href = txUrl;
+		setLinkActive(els.winTxLink, txUrl);
 	} else {
 		els.winTxLink.textContent = '—';
-		els.winTxLink.removeAttribute('href');
+		setLinkActive(els.winTxLink, null);
 	}
 	els.winReceive.textContent = currentOrder.receiveAddress;
 
@@ -382,8 +458,8 @@ document.querySelectorAll('.copy[data-copy]').forEach((btn) => {
 					els.payAddress.textContent = d.charge.address;
 					const bip21 = buildBip21({ address: d.charge.address, amountBtc, label: 'three.ws · forever' });
 					renderQR(bip21);
-					els.openWallet.href = bip21;
-					els.mempoolLink.href = `https://mempool.space/address/${d.charge.address}`;
+					setLinkActive(els.openWallet, bip21);
+					setLinkActive(els.mempoolLink, `https://mempool.space/address/${d.charge.address}`);
 				}
 				setStatePill(d.state || 'waiting-payment');
 				startPolling();

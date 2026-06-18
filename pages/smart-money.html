@@ -104,19 +104,41 @@
 
 		/* wallet leaderboard */
 		.lwrap { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; box-shadow: var(--shadow); }
-		.lhead, .lrow { display: grid; grid-template-columns: 38px 1fr 92px 78px 92px; gap: 10px; align-items: center; padding: 12px 16px; }
-		.lhead { font: 600 10.5px/1 var(--mono); text-transform: uppercase; letter-spacing: .08em; color: var(--faint); border-bottom: 1px solid var(--line); }
-		.lrow { border-bottom: 1px solid var(--line); width: 100%; background: none; border-left: 0; border-right: 0; border-top: 0; text-align: left; transition: background .16s; }
-		.lrow:last-child { border-bottom: none; }
-		.lrow:hover { background: rgba(255,255,255,0.04); }
-		.lrank { font: 700 14px/1 var(--mono); color: var(--faint); }
+		.ltable { width: 100%; border-collapse: collapse; }
+		.ltable thead th { font: 600 10.5px/1 var(--mono); text-transform: uppercase; letter-spacing: .08em; color: var(--faint);
+			border-bottom: 1px solid var(--line); padding: 12px 16px; text-align: left; background: none; }
+		.ltable th.colhide, .ltable td.lstat { text-align: right; }
+		.ltable th.lscore-h, .ltable td.lscore { text-align: right; }
+		.lrow { width: 100%; transition: background .16s; cursor: pointer; }
+		.lrow td { border-bottom: 1px solid var(--line); padding: 12px 16px; vertical-align: middle; }
+		.lrow:last-child td { border-bottom: none; }
+		.lrow:hover td { background: rgba(255,255,255,0.04); }
+		.lrow:focus-visible { outline: 2px solid var(--cyan); outline-offset: -2px; }
+		.lrank { font: 700 14px/1 var(--mono); color: var(--faint); width: 38px; }
 		.lrank.top { color: var(--gold); }
 		.lw { min-width: 0; display: flex; align-items: center; gap: 9px; }
 		.lw-addr { font: 600 13px/1 var(--mono); overflow: hidden; text-overflow: ellipsis; }
-		.lscore { font: 800 16px/1 var(--mono); text-align: right; }
-		.lstat { font: 600 13px/1 var(--mono); text-align: right; color: var(--muted); }
+		.lscore { font: 800 16px/1 var(--mono); }
+		.lstat { font: 600 13px/1 var(--mono); color: var(--muted); }
 		.lstat b { color: var(--ink); }
-		.colhide { text-align: right; }
+		.lstat .lstat-k { display: none; }
+
+		/* stale / reconnecting badge — shown when a background refresh fails while data is on screen */
+		.stale-bar { display: none; align-items: center; gap: 12px; flex-wrap: wrap; margin: 0 0 14px;
+			padding: 10px 14px; border-radius: var(--r-sm); border: 1px solid color-mix(in srgb, var(--gold) 40%, var(--line));
+			background: color-mix(in srgb, var(--gold) 10%, transparent); color: var(--gold);
+			font: 600 12.5px/1.4 var(--mono); animation: fade .3s; }
+		.stale-bar.on { display: flex; }
+		.stale-bar i { width: 8px; height: 8px; border-radius: 50%; background: var(--gold); flex-shrink: 0;
+			box-shadow: 0 0 0 0 rgba(251,191,36,.6); animation: pulse-gold 1.6s infinite; }
+		@keyframes pulse-gold { 0%{box-shadow:0 0 0 0 rgba(251,191,36,.5)} 70%{box-shadow:0 0 0 6px rgba(251,191,36,0)} 100%{box-shadow:0 0 0 0 rgba(251,191,36,0)} }
+		.stale-bar span { color: color-mix(in srgb, var(--gold) 70%, var(--ink)); }
+		.stale-bar .stale-retry { margin-left: auto; padding: 6px 13px; border-radius: 999px;
+			border: 1px solid color-mix(in srgb, var(--gold) 50%, var(--line)); background: rgba(0,0,0,0.2);
+			color: var(--gold); font: 600 12px/1 var(--mono); transition: transform .12s, border-color .18s; }
+		.stale-bar .stale-retry:hover { transform: translateY(-1px); border-color: var(--gold); }
+		.stale-bar .stale-retry:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+		.stale-bar .stale-retry[aria-busy="true"] { opacity: .6; pointer-events: none; }
 
 		/* drawer */
 		.drawer { position: fixed; inset: 0; z-index: 30; display: none; }
@@ -156,9 +178,26 @@
 		.foot b { color: var(--muted); }
 
 		@media (max-width: 620px) {
-			.lhead, .lrow { grid-template-columns: 30px 1fr 70px 70px; }
-			.colhide { display: none; }
+			.ltable th.colhide, .ltable td.colhide { display: none; }
+			.ltable thead th, .lrow td { padding: 12px 12px; }
+			.lrank { width: 30px; }
 			.dr-panel { width: 100vw; }
+		}
+		/* ≤400px: stack each wallet into a single readable column (no squeezed numeric cells) */
+		@media (max-width: 400px) {
+			.ltable, .ltable thead, .ltable tbody, .ltable tr, .ltable td { display: block; }
+			.ltable thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+			.lrow { border-bottom: 1px solid var(--line); padding: 14px 16px; }
+			.lrow:last-child { border-bottom: none; }
+			.lrow td { border-bottom: none; padding: 3px 0; text-align: left; }
+			.lrow:hover td { background: none; }
+			.lrow:hover { background: rgba(255,255,255,0.04); }
+			.lrank { display: inline-block; width: auto; margin-right: 8px; }
+			.ltable td.colhide { display: block; }
+			.lstat { text-align: left; color: var(--muted); }
+			.lstat .lstat-k { display: inline; color: var(--faint); margin-right: 6px; }
+			.lscore { text-align: left; }
+			.ltable td.lscore::before { content: 'Score '; color: var(--faint); font: 600 11px/1 var(--mono); }
 		}
 		@media (prefers-reduced-motion: reduce) { * { animation-duration: .01ms !important; } }
 
@@ -200,16 +239,30 @@
 			<button class="tab" data-view="wallets">Top wallets <span class="ct" id="ctWallets"></span></button>
 		</nav>
 
+		<div class="stale-bar" id="staleBar" role="status" aria-live="polite" hidden>
+			<i aria-hidden="true"></i>
+			<div>Reconnecting to the radar — <span id="staleDetail">showing the last data we received, which may be stale.</span></div>
+			<button class="stale-retry" id="staleRetry" type="button">Retry now</button>
+		</div>
+
 		<section class="view on" id="view-feed">
 			<div class="grid" id="feedGrid"></div>
 		</section>
 
 		<section class="view" id="view-wallets">
 			<div class="lwrap">
-				<div class="lhead">
-					<div>#</div><div>Wallet</div><div class="colhide">Win rate</div><div class="colhide">Record</div><div style="text-align:right">Score</div>
-				</div>
-				<div id="walletList"></div>
+				<table class="ltable" aria-label="Top pump.fun wallets by reputation score">
+					<thead>
+						<tr>
+							<th scope="col" class="lrank-h">#</th>
+							<th scope="col">Wallet</th>
+							<th scope="col" class="colhide">Win rate</th>
+							<th scope="col" class="colhide">Record</th>
+							<th scope="col" class="lscore-h">Score</th>
+						</tr>
+					</thead>
+					<tbody id="walletList"></tbody>
+				</table>
 			</div>
 		</section>
 
@@ -253,6 +306,29 @@
 		}
 
 		let timer = null;
+		let hasData = false;          // true once we've rendered at least one good payload
+		let staleSince = 0;           // timestamp of the first failure in the current stale streak
+		let staleFails = 0;           // consecutive failed refreshes while data is on screen
+
+		function showStale() {
+			const bar = $('staleBar');
+			if (!staleSince) staleSince = Date.now();
+			const mins = Math.floor((Date.now() - staleSince) / 60000);
+			const last = $('stUpdated').textContent;
+			let detail = mins >= 1
+				? `last good update was ${last || '—'} (${mins} min ago) — data may be stale.`
+				: `showing the last data we received (updated ${last || '—'}), which may be stale.`;
+			if (staleFails >= 3) detail = `couldn't reach the radar after ${staleFails} attempts — ${detail}`;
+			$('staleDetail').textContent = detail;
+			bar.hidden = false;
+			bar.classList.add('on');
+		}
+		function clearStale() {
+			staleSince = 0; staleFails = 0;
+			const bar = $('staleBar');
+			bar.classList.remove('on');
+			bar.hidden = true;
+		}
 
 		async function getJSON(url) {
 			const r = await fetch(url, { headers: { accept: 'application/json' } });
@@ -324,24 +400,30 @@
 		}
 
 		function walletRow(w, i) {
-			return `<button class="lrow" data-wallet="${esc(w.wallet)}">
-				<div class="lrank ${i < 3 ? 'top' : ''}">${i + 1}</div>
-				<div class="lw"><span class="nlabel lb-${w.label}">${labelText[w.label] || w.label}</span><span class="lw-addr">${short(w.wallet)}</span></div>
-				<div class="lstat colhide">${Math.round(w.win_rate)}%</div>
-				<div class="lstat colhide"><b>${w.wins}</b>/${w.coins_judged}</div>
-				<div class="lscore ${scoreClass(w.smart_money_score)}">${Math.round(w.smart_money_score)}</div>
-			</button>`;
+			return `<tr class="lrow" data-wallet="${esc(w.wallet)}" tabindex="0" role="button" aria-label="Wallet ${short(w.wallet)}, rank ${i + 1}, score ${Math.round(w.smart_money_score)}. Open details.">
+				<td class="lrank ${i < 3 ? 'top' : ''}">${i + 1}</td>
+				<td><div class="lw"><span class="nlabel lb-${w.label}">${labelText[w.label] || w.label}</span><span class="lw-addr">${short(w.wallet)}</span></div></td>
+				<td class="lstat colhide"><span class="lstat-k">Win rate</span>${Math.round(w.win_rate)}%</td>
+				<td class="lstat colhide"><span class="lstat-k">Record</span><b>${w.wins}</b>/${w.coins_judged}</td>
+				<td class="lscore ${scoreClass(w.smart_money_score)}">${Math.round(w.smart_money_score)}</td>
+			</tr>`;
 		}
 
 		function renderWallets(wallets) {
 			const list = $('walletList');
 			$('ctWallets').textContent = wallets.length ? `(${wallets.length})` : '';
 			if (!wallets.length) {
-				list.innerHTML = `<div class="state"><b>No wallets ranked yet.</b>The graph is still accumulating verdicts. Wallets appear here once they have a few judged coins on record.</div>`;
+				list.innerHTML = `<tr><td colspan="5"><div class="state"><b>No wallets ranked yet.</b>The graph is still accumulating verdicts. Wallets appear here once they have a few judged coins on record.</div></td></tr>`;
 				return;
 			}
 			list.innerHTML = wallets.map(walletRow).join('');
-			list.querySelectorAll('.lrow').forEach((el) => el.addEventListener('click', () => openWallet(el.dataset.wallet)));
+			list.querySelectorAll('.lrow').forEach((el) => {
+				const open = () => openWallet(el.dataset.wallet);
+				el.addEventListener('click', open);
+				el.addEventListener('keydown', (e) => {
+					if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
+				});
+			});
 		}
 
 		const TIER_COLOR = { prime: '#c084fc', strong: '#34d399', lean: '#fbbf24', watch: '#94a3b8', avoid: '#f87171' };
@@ -465,11 +547,34 @@
 				$('stRanked').textContent = (board.wallets || []).length;
 				$('stCoins').textContent = (feed.coins || []).length;
 				$('stUpdated').textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+				hasData = true;
+				clearStale();
 			} catch (e) {
-				$('feedGrid').innerHTML = `<div class="state" style="grid-column:1/-1"><b>Couldn't reach the radar.</b>${esc(e.message)}<button class="btn primary" id="retry">Retry</button></div>`;
-				const r = $('retry'); if (r) r.addEventListener('click', refresh);
+				// If we've never had data, this is a hard cold-start error: blank to the
+				// recoverable error state. If data is already on screen, keep it and surface
+				// a visible "reconnecting / may be stale" badge instead of silently going stale.
+				if (!hasData) {
+					$('feedGrid').innerHTML = `<div class="state" style="grid-column:1/-1"><b>Couldn't reach the radar.</b>${esc(e.message)}<button class="btn primary" id="retry">Retry</button></div>`;
+					const r = $('retry'); if (r) r.addEventListener('click', refresh);
+				} else {
+					staleFails++;
+					showStale();
+				}
 			}
 		}
+
+		async function manualRetry() {
+			const btn = $('staleRetry');
+			btn.setAttribute('aria-busy', 'true');
+			const prev = btn.textContent;
+			btn.textContent = 'Reconnecting…';
+			try { await refresh(); }
+			finally {
+				btn.removeAttribute('aria-busy');
+				btn.textContent = prev;
+			}
+		}
+		$('staleRetry').addEventListener('click', manualRetry);
 
 		// initial skeletons
 		$('feedGrid').innerHTML = Array.from({ length: 6 }, () => '<div class="skel"></div>').join('');

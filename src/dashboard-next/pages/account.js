@@ -157,9 +157,10 @@ async function copyToClipboard(text) {
 						<div class="dn-panel-title">Delegation</div>
 						<div class="dn-panel-sub" style="margin:0">Let one of your agents answer on behalf of another, or hand off to a partner agent.</div>
 					</div>
-					<a class="dn-btn" href="#delegation">Open delegation console →</a>
+					<button class="dn-btn" type="button" data-action="open-delegation-console">Open delegation console →</button>
 				</div>
 				<div data-slot="delegation"><div class="dn-skeleton" style="height:80px"></div></div>
+				<div data-slot="delegation-console" hidden></div>
 			</section>
 
 			<section class="dn-panel" data-section="actions">
@@ -195,7 +196,24 @@ async function copyToClipboard(text) {
 
 	const wallets = await loadWallets(walletsHost);
 	renderSns(snsHost, wallets);
-	loadDelegations(delegationHost);
+
+	const delegationConsoleHost = main.querySelector('[data-slot="delegation-console"]');
+	const delegationSection = main.querySelector('#delegation');
+	await loadDelegations(delegationHost, delegationConsoleHost);
+
+	// "Open delegation console →" (section header) and per-agent "Configure →"
+	// both open the real console below the table — no more dead self-anchors.
+	delegationSection.addEventListener('click', (e) => {
+		const opener = e.target.closest('[data-action="open-delegation-console"]');
+		const configure = e.target.closest('[data-action="configure-delegation"]');
+		if (!opener && !configure) return;
+		e.preventDefault();
+		openDelegationConsole(
+			delegationConsoleHost,
+			configure ? configure.getAttribute('data-agent-id') : null,
+		);
+	});
+
 	loadActions(actionsHost);
 
 	main.querySelector('[data-action="export-csv"]').addEventListener('click', async (e) => {
@@ -691,10 +709,16 @@ async function renderSns(host, wallets) {
 
 // ── Delegation ────────────────────────────────────────────────────────────
 
-async function loadDelegations(host) {
+// Agents available as delegation targets — captured on load so the console can
+// build its picker without a second fetch.
+let delegationAgents = [];
+
+async function loadDelegations(host, consoleHost) {
 	try {
 		const r = await get('/api/agents');
 		const agents = Array.isArray(r?.agents) ? r.agents : [];
+		delegationAgents = agents;
+		if (consoleHost) consoleHost.hidden = true;
 		if (agents.length === 0) {
 			host.innerHTML = `
 				<div class="dn-empty" style="padding:32px 24px">
@@ -715,7 +739,7 @@ async function loadDelegations(host) {
 					${a.wallet_address ? `<span style="font-family:${MONO}">${esc(truncMid(a.wallet_address, 6, 6))}</span>` : '<span style="color:var(--nxt-ink-fade)">no delegate</span>'}
 				</td>
 				<td style="padding:11px 12px;text-align:right">
-					<a class="dn-btn ghost" href="#delegation" style="padding:5px 10px;font-size:12px">Configure →</a>
+					<button class="dn-btn ghost" type="button" data-action="configure-delegation" data-agent-id="${esc(a.id)}" style="padding:5px 10px;font-size:12px">Configure →</button>
 				</td>
 			</tr>
 		`).join('');
@@ -736,6 +760,102 @@ async function loadDelegations(host) {
 		`;
 	} catch (err) {
 		host.innerHTML = `<div class="dn-empty" style="padding:24px 16px"><h3>Couldn't load agents</h3><p>${esc(err?.message || 'Try again in a moment.')}</p></div>`;
+	}
+}
+
+// ── Delegation console ──────────────────────────────────────────────────────
+// Real, working delegation: pick one of your agents, send it a prompt, and the
+// platform runs a live LLM turn AS that agent (POST /api/agent-delegate) and
+// streams the answer back here. Replaces the old dead `#delegation` anchors.
+
+function openDelegationConsole(host, preselectAgentId) {
+	if (!host) return;
+	if (host.dataset.built !== '1') {
+		const options = delegationAgents
+			.map(
+				(a) =>
+					`<option value="${esc(a.id)}">${esc(a.name || a.display_name || 'Unnamed agent')}</option>`,
+			)
+			.join('');
+		host.innerHTML = `
+			<form data-deleg-form style="margin-top:14px;border:1px solid var(--nxt-stroke);border-radius:var(--nxt-radius-sm);padding:16px;display:flex;flex-direction:column;gap:12px">
+				<div style="display:flex;flex-direction:column;gap:6px">
+					<label style="font-size:11.5px;color:var(--nxt-ink-fade);text-transform:uppercase;letter-spacing:0.04em">Delegate to</label>
+					<select data-deleg-agent class="dn-input" style="width:100%">${options}</select>
+				</div>
+				<div style="display:flex;flex-direction:column;gap:6px">
+					<label style="font-size:11.5px;color:var(--nxt-ink-fade);text-transform:uppercase;letter-spacing:0.04em">Message</label>
+					<textarea data-deleg-message class="dn-input" rows="3" maxlength="8000" placeholder="What should this agent answer on your behalf?" style="width:100%;resize:vertical;font-family:inherit"></textarea>
+				</div>
+				<div style="display:flex;gap:10px;align-items:center">
+					<button class="dn-btn primary" type="submit" data-deleg-run>Run delegation</button>
+					<button class="dn-btn ghost" type="button" data-deleg-close>Close</button>
+				</div>
+				<div data-deleg-result></div>
+			</form>`;
+		const form = host.querySelector('[data-deleg-form]');
+		form.addEventListener('submit', (e) => {
+			e.preventDefault();
+			runDelegation(host);
+		});
+		host.querySelector('[data-deleg-close]').addEventListener('click', () => {
+			host.hidden = true;
+		});
+		host.dataset.built = '1';
+	}
+
+	host.hidden = false;
+	const select = host.querySelector('[data-deleg-agent]');
+	if (preselectAgentId && select) select.value = preselectAgentId;
+	host.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+	host.querySelector('[data-deleg-message]')?.focus();
+}
+
+async function runDelegation(host) {
+	const select = host.querySelector('[data-deleg-agent]');
+	const messageEl = host.querySelector('[data-deleg-message]');
+	const runBtn = host.querySelector('[data-deleg-run]');
+	const result = host.querySelector('[data-deleg-result]');
+	const toAgentId = select?.value;
+	const message = (messageEl?.value || '').trim();
+
+	if (!toAgentId) {
+		result.innerHTML = `<div style="color:var(--nxt-danger,#ff8a8a);font-size:13px">Pick an agent to delegate to.</div>`;
+		return;
+	}
+	if (!message) {
+		result.innerHTML = `<div style="color:var(--nxt-danger,#ff8a8a);font-size:13px">Enter a message for the agent to answer.</div>`;
+		messageEl?.focus();
+		return;
+	}
+
+	runBtn.disabled = true;
+	runBtn.textContent = 'Running…';
+	result.innerHTML = `<div class="dn-skeleton" style="height:64px"></div>`;
+	try {
+		const out = await post('/api/agent-delegate', { toAgentId, message });
+		result.innerHTML = `
+			<div style="border:1px solid var(--nxt-stroke);border-radius:var(--nxt-radius-sm);padding:13px;background:rgba(255,255,255,0.02)">
+				<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+					<span style="font-size:11.5px;color:var(--nxt-ink-fade);text-transform:uppercase;letter-spacing:0.04em">Response</span>
+					${out?.model ? `<span class="dn-tag" style="font-family:${MONO};font-size:11px">${esc(out.model)}</span>` : ''}
+				</div>
+				<div style="font-size:13.5px;color:var(--nxt-ink);line-height:1.6;white-space:pre-wrap">${esc(out?.response || '(empty response)')}</div>
+			</div>`;
+	} catch (err) {
+		const status = err?.status;
+		const msg =
+			status === 429
+				? 'Delegation rate limit reached — wait a moment and try again.'
+				: status === 404
+					? 'That agent could not be found. Pick another.'
+					: status === 503
+						? 'Delegation is temporarily unavailable. Try again shortly.'
+						: err?.message || 'Delegation failed. Try again.';
+		result.innerHTML = `<div style="border:1px solid rgba(255,86,86,0.3);background:rgba(255,86,86,0.08);color:#ffb4b4;border-radius:var(--nxt-radius-sm);padding:12px;font-size:13px;line-height:1.5">${esc(msg)}</div>`;
+	} finally {
+		runBtn.disabled = false;
+		runBtn.textContent = 'Run delegation';
 	}
 }
 

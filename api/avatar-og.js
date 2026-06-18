@@ -21,7 +21,6 @@
 
 import { sql } from './_lib/db.js';
 import { getAvatar } from './_lib/avatars.js';
-import { DEMO_AVATARS } from './_lib/demo-avatars.js';
 import { cors, wrap } from './_lib/http.js';
 import { publicUrl, putObject, isLegacyOgThumbnailKey } from './_lib/r2.js';
 import { renderGlbToPng } from './_lib/render-glb.js';
@@ -54,23 +53,6 @@ export default wrap(async (req, res) => {
 		return sendCardSvg(res, 404, CACHE_CARD_404, {
 			name: 'Avatar not found',
 			description: '',
-		});
-	}
-
-	// Demo fixtures live in DEMO_AVATARS, not the DB.
-	if (avatarId.startsWith('avatar_demo_')) {
-		const demo = DEMO_AVATARS.find((a) => a.avatarId === avatarId);
-		if (!demo) {
-			return sendCardSvg(res, 404, CACHE_CARD_404, {
-				name: 'Avatar not found',
-				description: '',
-			});
-		}
-		return sendCardSvg(res, 200, CACHE_CARD_OK, {
-			name: demo.name,
-			description: demo.description,
-			attribution: demo.attribution?.displayName,
-			tags: demo.tags || [],
 		});
 	}
 

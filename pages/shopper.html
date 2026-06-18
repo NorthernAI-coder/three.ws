@@ -38,6 +38,9 @@
 		body { font-size: 15.5px; line-height: 1.55; min-height: 100vh; overflow-x: hidden; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
 		a { color: inherit; text-decoration: none; }
 		button { font-family: inherit; cursor: pointer; }
+		a:focus-visible, button:focus-visible, textarea:focus-visible, input:focus-visible {
+			outline: 2px solid var(--text); outline-offset: 3px; border-radius: 4px;
+		}
 		::selection { background: var(--text); color: var(--bg); }
 		.wrap { max-width: 1280px; margin: 0 auto; padding-left: 32px; padding-right: 32px; }
 		@media (max-width: 720px) { .wrap { padding-left: 20px; padding-right: 20px; } }
@@ -229,6 +232,13 @@
 		}
 
 		.run-btn-row { margin-top: 20px; }
+		.run-hint {
+			margin: 10px 0 0; min-height: 0;
+			font-size: 12.5px; line-height: 1.45;
+			color: var(--text-3);
+		}
+		.run-hint.warn { color: #e6a820; }
+		.run-hint:empty { display: none; }
 
 		/* ── EXECUTION PANEL ─────────────────────────────────────── */
 		.result-panel { min-height: 120px; }
@@ -370,6 +380,21 @@
 			font-size: 14px;
 		}
 		.empty-state svg { opacity: 0.3; margin-bottom: 16px; }
+		.empty-tips {
+			list-style: none; margin: 20px auto 0; padding: 0;
+			max-width: 340px; text-align: left;
+			display: flex; flex-direction: column; gap: 10px;
+		}
+		.empty-tips li {
+			position: relative; padding-left: 20px;
+			font-size: 12.5px; line-height: 1.5; color: var(--text-3);
+		}
+		.empty-tips li::before {
+			content: ""; position: absolute; left: 4px; top: 8px;
+			width: 5px; height: 5px; border-radius: 50%;
+			background: var(--text-4);
+		}
+		.empty-tips strong { color: var(--text-2); font-weight: 500; }
 
 		/* 402 badge */
 		.badge-402 {
@@ -408,12 +433,12 @@
 		</a>
 		<div class="nav-main">
 			<a href="/">Explore</a>
-			<a href="/pages/shopper.html" class="active">Endpoint Shopper</a>
-			<a href="/pages/marketplace.html">Marketplace</a>
-			<a href="/pages/fact-checker.html">Fact Checker</a>
+			<a href="/shopper" class="active">Endpoint Shopper</a>
+			<a href="/marketplace">Marketplace</a>
+			<a href="/fact-checker">Fact Checker</a>
 		</div>
 		<div class="nav-end">
-			<a href="/pages/app-next.html" class="console">Dashboard</a>
+			<a href="/app-next" class="console">Dashboard</a>
 		</div>
 	</div>
 </nav>
@@ -465,10 +490,11 @@
 				</div>
 
 				<div class="run-btn-row">
-					<button id="run-btn" class="btn primary">
+					<button id="run-btn" class="btn primary" type="button" aria-describedby="run-hint">
 						<svg width="14" height="14" fill="none" viewBox="0 0 14 14"><path d="M3 2l9 5-9 5V2z" fill="currentColor"/></svg>
 						Run Task
 					</button>
+					<p id="run-hint" class="run-hint" role="status" aria-live="polite"></p>
 				</div>
 			</div>
 
@@ -477,6 +503,11 @@
 				<div class="empty-state" id="empty-state">
 					<svg width="40" height="40" fill="none" viewBox="0 0 40 40"><circle cx="20" cy="20" r="18" stroke="currentColor" stroke-width="1.5"/><path d="M14 20h12M20 14v12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
 					<div>Enter a task and click <strong>Run Task</strong> to begin</div>
+					<ul class="empty-tips">
+						<li>Set a <strong>max budget</strong> — the agent never spends past it on downstream calls.</li>
+						<li>Running costs USDC: you'll pay once with a Base or Solana wallet when prompted.</li>
+						<li>Try an example chip above to see the discover → plan → call → synthesize flow.</li>
+					</ul>
 				</div>
 			</div>
 

@@ -248,7 +248,59 @@ const els = {
   cfgClose:     document.getElementById('cfgClose'),
 };
 
-els.cfgClose.addEventListener('click', () => els.notConfigured.classList.add('hidden'));
+// ── Config overlay focus management ─────────────────────────────────────────
+// The overlay is a modal dialog over a 3D canvas (OrbitControls). Keyboard users
+// need: focus moved into it on open, Tab trapped inside it, Escape to dismiss, and
+// focus returned to the trigger on close — otherwise Tab silently escapes to the
+// canvas and the overlay reads as a dead end.
+let cfgLastFocus = null;
+
+function cfgFocusable() {
+  return [...els.notConfigured.querySelectorAll('a[href], button:not([disabled])')].filter(
+    (el) => el.offsetParent !== null,
+  );
+}
+
+function openConfigOverlay() {
+  cfgLastFocus = document.activeElement;
+  els.notConfigured.classList.remove('hidden');
+  // Move focus to the dismiss control so keyboard users land inside the dialog.
+  requestAnimationFrame(() => els.cfgClose?.focus());
+}
+
+function closeConfigOverlay() {
+  if (els.notConfigured.classList.contains('hidden')) return;
+  els.notConfigured.classList.add('hidden');
+  // Return focus somewhere sensible so the user keeps their place: the original
+  // trigger if it's still focusable, else the run button, else the topic select
+  // (the run button is disabled when unconfigured and can't take focus).
+  const candidates = [cfgLastFocus, els.startBtn, els.topicSelect].filter(
+    (el) => el && document.contains(el) && !el.disabled,
+  );
+  candidates[0]?.focus?.();
+}
+
+els.notConfigured.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    e.preventDefault();
+    closeConfigOverlay();
+    return;
+  }
+  if (e.key !== 'Tab') return;
+  const focusable = cfgFocusable();
+  if (!focusable.length) return;
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  if (e.shiftKey && document.activeElement === first) {
+    e.preventDefault();
+    last.focus();
+  } else if (!e.shiftKey && document.activeElement === last) {
+    e.preventDefault();
+    first.focus();
+  }
+});
+
+els.cfgClose.addEventListener('click', closeConfigOverlay);
 
 // ── Label & bubble positioning ──────────────────────────────────────────────
 function project(v3) {
@@ -519,7 +571,7 @@ async function checkConfig() {
     if (!r.ok) return;
     const d = await r.json();
     if (!d.configured) {
-      els.notConfigured.classList.remove('hidden');
+      openConfigOverlay();
       els.startBtn.disabled = true;
     } else {
       if (d.buyer?.address)  els.buyerAddr.textContent  = fmt(d.buyer.address);

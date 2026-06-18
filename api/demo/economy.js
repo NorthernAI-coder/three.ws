@@ -158,9 +158,12 @@ export default wrap(async (req, res) => {
 	await delay(900);
 
 	// Phase 2: payment
+	let paid = false;
+	let demoMode = false;
 	if (!cfgB.configured || !cfgA.configured) {
+		demoMode = true;
 		emit(res, 'demo_mode', {
-			text: 'Running in demo mode — set AGENT_B_WALLET_SECRET to enable real on-chain payments.',
+			text: 'Demo mode — live data only, no real on-chain payment (agent wallets not configured).',
 		});
 	} else {
 		emit(res, 'paying', {
@@ -176,6 +179,9 @@ export default wrap(async (req, res) => {
 			const needed = TRADE_SOL * LAMPORTS_PER_SOL + 15_000;
 			if (bal.lamports < needed) {
 				emit(res, 'error', {
+					code: 'underfunded',
+					fundAddress: cfgB.address,
+					explorerUrl: explorerAccountUrl(cfgB.address, 'solana'),
 					text: `Trader wallet underfunded (${bal.sol.toFixed(5)} SOL). Fund ${cfgB.address} and retry.`,
 				});
 				res.end();
@@ -190,6 +196,7 @@ export default wrap(async (req, res) => {
 				memo: 'three.ws agent-economy: data purchase',
 			});
 
+			paid = true;
 			emit(res, 'paid', {
 				agent: 'B',
 				signature: sig,
@@ -234,7 +241,11 @@ export default wrap(async (req, res) => {
 	emit(res, 'done', {
 		markets,
 		tradeSol: TRADE_SOL,
-		text: 'Trade complete. Data delivered, payment settled on-chain.',
+		paid,
+		demo: demoMode,
+		text: paid
+			? 'Trade complete. Data delivered, payment settled on-chain.'
+			: 'Demo complete. Live data delivered — no real payment occurred.',
 	});
 
 	res.end();

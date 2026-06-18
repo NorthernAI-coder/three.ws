@@ -96,6 +96,37 @@
 			#pd-market-chart {
 				cursor: crosshair;
 			}
+			/* Recoverable feed-error banner (WS dead-feed + channel-feed failure) */
+			.pd-feed-error {
+				margin: 0.75rem;
+				padding: 0.9rem 1rem;
+				border: 1px solid rgba(248, 113, 113, 0.45);
+				border-radius: 10px;
+				background: rgba(248, 113, 113, 0.09);
+				display: flex;
+				flex-direction: column;
+				align-items: flex-start;
+				gap: 0.5rem;
+			}
+			.pd-feed-error-title {
+				font-family: var(--font-display);
+				font-size: 0.82rem;
+				font-weight: 600;
+				letter-spacing: 0.02em;
+				color: var(--danger);
+			}
+			.pd-feed-error-msg {
+				font-size: 0.8rem;
+				line-height: 1.45;
+				color: var(--ink-dim);
+			}
+			.pd-feed-error .pd-btn {
+				margin-top: 0.15rem;
+			}
+			/* RPC-failure flag on the network panel's RPC sub-line */
+			.pd-stat-sub.is-danger {
+				color: var(--danger);
+			}
 			/* Oracle conviction panel */
 			.pd-oracle-live-dot {
 				display: inline-block; width: 7px; height: 7px; border-radius: 50%;
@@ -1842,6 +1873,67 @@
 
 			// ── Navigation ───────────────────────────────────────────────
 
+			// All on-chain JSON-RPC POSTs go through here so failures are surfaced
+			// (logged + reflected in the network panel's RPC line) instead of being
+			// silently swallowed at each call site. Throws on transport/HTTP/RPC
+			// errors so callers can decide how to recover.
+			let _rpcErrorClearTimer = null;
+			function markRpcError(detail) {
+				const sub = $('pd-stat-rpc-sub');
+				if (sub) {
+					sub.textContent = 'RPC error · ' + detail;
+					sub.classList.add('is-danger');
+				}
+				const dot = $('pd-sol-dot');
+				if (dot) dot.className = 'pd-dot is-err';
+				// The next network-stats refresh rewrites this line; clear the error
+				// styling after a beat in case that refresh is also down so the panel
+				// doesn't get stuck red.
+				if (_rpcErrorClearTimer) clearTimeout(_rpcErrorClearTimer);
+				_rpcErrorClearTimer = setTimeout(() => {
+					if (sub) sub.classList.remove('is-danger');
+				}, 8000);
+			}
+			function markRpcOk() {
+				const sub = $('pd-stat-rpc-sub');
+				if (sub) sub.classList.remove('is-danger');
+			}
+
+			async function rpcCall(rpcBody, { id = 1 } = {}) {
+				let resp;
+				try {
+					resp = await fetch(state.rpcUrl, {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({ jsonrpc: '2.0', id, ...rpcBody }),
+					});
+				} catch (e) {
+					console.warn('[pump-dashboard] RPC transport error:', e?.message || e);
+					markRpcError('unreachable');
+					throw new Error('RPC unreachable');
+				}
+				if (!resp.ok) {
+					console.warn('[pump-dashboard] RPC HTTP', resp.status, 'from', state.rpcUrl);
+					markRpcError('HTTP ' + resp.status);
+					throw new Error('RPC HTTP ' + resp.status);
+				}
+				let data;
+				try {
+					data = await resp.json();
+				} catch {
+					markRpcError('bad response');
+					throw new Error('RPC returned non-JSON');
+				}
+				if (data && data.error) {
+					const msg = data.error.message || 'RPC error';
+					console.warn('[pump-dashboard] RPC error:', msg);
+					markRpcError(String(msg).slice(0, 40));
+					throw new Error(msg);
+				}
+				markRpcOk();
+				return data;
+			}
+
 			function navigateTo(page) {
 				state.currentPage = page;
 				// Keep the URL shareable: every cockpit page is deep-linkable via its #hash.
@@ -1964,14 +2056,27 @@
 				return (words[0][0] + words[words.length - 1][0]).toUpperCase();
 			}
 
+			// Initials tile rendered locally — used as the no-avatar default and as
+			// the onerror fallback when a remote avatar_url 404s or times out.
+			function featuredInitialsTile(name) {
+				return `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:2.2rem;font-weight:700;color:var(--accent);background:linear-gradient(135deg,var(--surface-1),#161616)">${escapeHtml(initialsOf(name))}</div>`;
+			}
+
 			function renderFeaturedAvatar(agent) {
 				const slot = $('pd-featured-avatar');
 				if (!slot) return;
 				if (agent.avatar_url) {
-					slot.innerHTML = `<img src="${escapeHtml(agent.avatar_url)}" alt="${escapeHtml(agent.display_name || 'Agent')} avatar" style="width:100%;height:100%;object-fit:cover" loading="lazy" />`;
+					slot.innerHTML = `<img alt="${escapeHtml(agent.display_name || 'Agent')} avatar" style="width:100%;height:100%;object-fit:cover" loading="lazy" />`;
+					const img = slot.querySelector('img');
+					// Swap to the local initials tile if the remote avatar fails to
+					// load — never leave a broken-image icon in the card.
+					img.addEventListener('error', () => {
+						slot.innerHTML = featuredInitialsTile(agent.display_name);
+					});
+					img.src = agent.avatar_url;
 				} else {
 					// Never a stock placeholder — render the agent's initials.
-					slot.innerHTML = `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:2.2rem;font-weight:700;color:var(--accent);background:linear-gradient(135deg,var(--surface-1),#161616)">${escapeHtml(initialsOf(agent.display_name))}</div>`;
+					slot.innerHTML = featuredInitialsTile(agent.display_name);
 				}
 			}
 
@@ -1991,6 +2096,7 @@
 						nameEl.textContent = 'No agents available yet';
 						descEl.textContent =
 							'Be the first — create a 3D agent and it can be featured here.';
+						linkEl.onclick = null;
 						linkEl.textContent = 'Create agent';
 						linkEl.href = '/create';
 						if (statsEl) statsEl.hidden = true;
@@ -2002,6 +2108,7 @@
 					const { data: agent } = await resp.json();
 					nameEl.textContent = agent.display_name || 'Untitled agent';
 					descEl.textContent = agent.bio || 'A featured 3D agent on three.ws.';
+					linkEl.onclick = null;
 					linkEl.textContent = 'View profile';
 					linkEl.href = agent.detail_url || '/agent/' + agent.id;
 					if (statsEl) {
@@ -2019,8 +2126,24 @@
 				} catch {
 					nameEl.textContent = 'Couldn’t load featured agent';
 					descEl.textContent =
-						'Try refreshing, or check connectivity in the Configuration tab.';
+						'The featured agent feed didn’t respond. Check connectivity in the Configuration tab, or retry.';
 					if (statsEl) statsEl.hidden = true;
+					const slot = $('pd-featured-avatar');
+					if (slot) {
+						slot.innerHTML =
+							`<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:var(--ink-dim);font-size:0.8rem;text-align:center;padding:0.5rem">Unavailable</div>`;
+					}
+					// Turn the primary CTA into a retry so the card is recoverable
+					// without a full page reload.
+					if (linkEl) {
+						linkEl.textContent = 'Retry';
+						linkEl.href = '#dashboard';
+						linkEl.onclick = (e) => {
+							e.preventDefault();
+							linkEl.onclick = null;
+							loadFeaturedAgent();
+						};
+					}
 				}
 			}
 
@@ -2070,7 +2193,49 @@
 				}
 			}
 
-			function renderWalletHoldings(address, data) {
+			// Deterministic, locally-drawn token-logo fallback (no external avatar
+				// service). Produces a disc colored from the seed with the token's
+				// leading character, returned as a data URI so a broken remote logo
+				// can swap to it via onerror without another network request.
+				const _tokenLogoFallbackCache = new Map();
+				function tokenLogoFallback(seed, label) {
+					const key = (seed || label || '?') + '|' + (label || '');
+					const cached = _tokenLogoFallbackCache.get(key);
+					if (cached) return cached;
+					const size = 36; // 2× the 18px CSS box for crisp HiDPI
+					const canvas = document.createElement('canvas');
+					canvas.width = size;
+					canvas.height = size;
+					const ctx = canvas.getContext('2d');
+					let uri = '';
+					if (ctx) {
+						let hash = 0;
+						const s = String(seed || label || '?');
+						for (let i = 0; i < s.length; i++)
+							hash = (hash * 31 + s.charCodeAt(i)) >>> 0;
+						const hue = hash % 360;
+						ctx.fillStyle = 'hsl(' + hue + ' 58% 32%)';
+						ctx.beginPath();
+						ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+						ctx.fill();
+						const ch =
+							String(label || seed || '?')
+								.replace(/^\$/, '')
+								.trim()
+								.charAt(0)
+								.toUpperCase() || '?';
+						ctx.fillStyle = 'hsl(' + hue + ' 70% 88%)';
+						ctx.font = '600 18px system-ui, sans-serif';
+						ctx.textAlign = 'center';
+						ctx.textBaseline = 'middle';
+						ctx.fillText(ch, size / 2, size / 2 + 1);
+						uri = canvas.toDataURL('image/png');
+					}
+					_tokenLogoFallbackCache.set(key, uri);
+					return uri;
+				}
+
+				function renderWalletHoldings(address, data) {
 				const holdings = $('pd-wallet-holdings');
 				const native = data.native || {};
 				const solAmount = Number(native.amount || 0);
@@ -2101,7 +2266,14 @@
 									.map(
 										(t) => `
 									<tr>
-										<td>${t.logo ? `<img class="pd-token-logo" src="${escapeHtml(t.logo)}" alt="" />` : ''}<span class="pd-mono">${escapeHtml(t.symbol || shortAddr(t.mint || ''))}</span></td>
+										<td>${(() => {
+											const fallback = tokenLogoFallback(t.mint || t.symbol, t.symbol);
+											const src = t.logo || fallback;
+											// onerror swaps a broken remote logo to the local
+											// data-URI fallback exactly once (guarded so a failing
+											// fallback can't loop).
+											return `<img class="pd-token-logo" src="${escapeHtml(src)}" alt="" loading="lazy" data-fallback="${escapeHtml(fallback)}" onerror="if(this.dataset.fallback&amp;&amp;this.src!==this.dataset.fallback){this.src=this.dataset.fallback}else{this.remove()}" />`;
+										})()}<span class="pd-mono">${escapeHtml(t.symbol || shortAddr(t.mint || ''))}</span></td>
 										<td style="text-align:right" class="pd-mono">${t.amount.toLocaleString(undefined, { maximumFractionDigits: 4 })}</td>
 										<td style="text-align:right" class="pd-mono">${t.usd > 0 ? '$' + t.usd.toLocaleString(undefined, { maximumFractionDigits: 2 }) : '—'}</td>
 									</tr>
@@ -2326,13 +2498,57 @@
 
 			// ── Channel feed (pre-populate Live Feed on load) ────────────
 
+			function clearChannelFeedError() {
+				const banner = $('pd-channel-feed-error');
+				if (banner) banner.remove();
+			}
+
+			// Surfaces a recoverable error in the dashboard feed preview when the
+			// channel-feed preload fails — otherwise the panel hangs on
+			// "Waiting for the realtime feed…" with no way to recover before the
+			// live WebSocket happens to deliver its first event.
+			function showChannelFeedError() {
+				const dashFeed = $('pd-dashboard-feed');
+				if (!dashFeed) return;
+				// If live events have already painted, don't cover them with an error.
+				if (dashFeed.querySelector('.pd-feed-item')) return;
+				clearChannelFeedError();
+				const banner = document.createElement('div');
+				banner.className = 'pd-feed-error';
+				banner.id = 'pd-channel-feed-error';
+				banner.setAttribute('role', 'alert');
+				banner.innerHTML =
+					'<div class="pd-feed-error-title">Couldn’t load recent activity</div>' +
+					'<div class="pd-feed-error-msg">The activity feed didn’t respond. Live events will still stream in over the WebSocket once it connects.</div>';
+				const btn = document.createElement('button');
+				btn.type = 'button';
+				btn.className = 'pd-btn pd-btn-sm';
+				btn.textContent = 'Retry';
+				btn.addEventListener('click', () => {
+					btn.disabled = true;
+					btn.textContent = 'Retrying…';
+					preloadChannelFeed();
+				});
+				banner.appendChild(btn);
+				const empty = dashFeed.querySelector('.pd-empty');
+				if (empty) empty.remove();
+				dashFeed.prepend(banner);
+			}
+
 			async function preloadChannelFeed() {
 				try {
 					const r = await fetch('/api/pump/channel-feed?limit=40');
-					if (!r.ok) return;
+					if (!r.ok) {
+						showChannelFeedError();
+						return;
+					}
 					const data = await r.json();
 					const items = data.events || data.items || data;
-					if (!Array.isArray(items)) return;
+					if (!Array.isArray(items)) {
+						showChannelFeedError();
+						return;
+					}
+					clearChannelFeedError();
 					items
 						.slice()
 						.reverse()
@@ -2354,14 +2570,80 @@
 							});
 						});
 				} catch {
-					/* preload is best-effort */
+					showChannelFeedError();
 				}
 			}
 
 			// ── WebSocket (PumpPortal realtime) ──────────────────────────
 
+			// Exponential backoff with a hard cap. After MAX_RECONNECT_ATTEMPTS
+			// consecutive failures we stop auto-retrying and surface a permanent
+			// "feed stopped" state with a manual Reconnect button — otherwise a
+			// sustained PumpPortal outage spins the page forever with no signal.
+			const WS_BASE_BACKOFF_MS = 2000;
+			const WS_MAX_BACKOFF_MS = 60000;
+			const WS_MAX_RECONNECT_ATTEMPTS = 8;
+			let wsReconnectAttempts = 0;
+			let wsReconnectTimer = null;
+			// Set while we are intentionally tearing the socket down (manual
+			// reconnect / unload) so the onclose handler doesn't schedule a retry
+			// on top of the fresh connection we're about to open.
+			let wsClosingForReconnect = false;
+
+			function clearWsDeadState() {
+				const banner = $('pd-ws-dead-banner');
+				if (banner) banner.remove();
+			}
+
+			// Renders the permanent dead-feed indicator into both feed panels
+			// (dashboard preview + live feed) with a manual Reconnect control.
+			function showWsDeadState() {
+				const wsDot = $('pd-ws-dot');
+				const wsLabel = $('pd-ws-status');
+				if (wsDot) wsDot.className = 'pd-dot is-err';
+				if (wsLabel) wsLabel.textContent = 'WS: feed stopped';
+
+				clearWsDeadState();
+				const banner = document.createElement('div');
+				banner.className = 'pd-feed-error';
+				banner.id = 'pd-ws-dead-banner';
+				banner.setAttribute('role', 'alert');
+				banner.innerHTML =
+					'<div class="pd-feed-error-title">Realtime feed stopped</div>' +
+					'<div class="pd-feed-error-msg">Could not reach the pump.fun stream after ' +
+					WS_MAX_RECONNECT_ATTEMPTS +
+					' attempts. PumpPortal may be temporarily down.</div>';
+				const btn = document.createElement('button');
+				btn.type = 'button';
+				btn.className = 'pd-btn pd-btn-sm';
+				btn.textContent = 'Reconnect';
+				btn.addEventListener('click', () => {
+					wsReconnectAttempts = 0;
+					clearWsDeadState();
+					connectWebSocket();
+				});
+				banner.appendChild(btn);
+
+				// Prefer the live-feed page panel; mirror into the dashboard preview.
+				const liveFeed = $('pd-live-feed');
+				const dashFeed = $('pd-dashboard-feed');
+				if (liveFeed) {
+					const liveEmpty = liveFeed.querySelector('.pd-empty');
+					if (liveEmpty && !liveFeed.querySelector('.pd-feed-item')) liveEmpty.remove();
+					liveFeed.prepend(banner);
+				} else if (dashFeed) {
+					dashFeed.prepend(banner);
+				}
+			}
+
 			function connectWebSocket() {
+				if (wsReconnectTimer) {
+					clearTimeout(wsReconnectTimer);
+					wsReconnectTimer = null;
+				}
+				clearWsDeadState();
 				if (state.ws) {
+					wsClosingForReconnect = true;
 					try {
 						state.ws.close();
 					} catch {}
@@ -2370,11 +2652,30 @@
 				const wsDot = $('pd-ws-dot');
 				const wsLabel = $('pd-ws-status');
 				wsDot.className = 'pd-dot is-warm';
-				wsLabel.textContent = 'WS: connecting…';
+				wsLabel.textContent =
+					wsReconnectAttempts > 0 ? 'WS: reconnecting…' : 'WS: connecting…';
+
+				const scheduleReconnect = () => {
+					if (wsReconnectAttempts >= WS_MAX_RECONNECT_ATTEMPTS) {
+						showWsDeadState();
+						return;
+					}
+					const delay = Math.min(
+						WS_BASE_BACKOFF_MS * 2 ** wsReconnectAttempts,
+						WS_MAX_BACKOFF_MS,
+					);
+					wsReconnectAttempts++;
+					wsDot.className = 'pd-dot is-err';
+					wsLabel.textContent = `WS: retry in ${Math.round(delay / 1000)}s`;
+					wsReconnectTimer = setTimeout(connectWebSocket, delay);
+				};
 
 				try {
+					wsClosingForReconnect = false;
 					state.ws = new WebSocket(state.wsUrl);
 					state.ws.onopen = () => {
+						wsReconnectAttempts = 0;
+						clearWsDeadState();
 						wsDot.className = 'pd-dot is-on';
 						wsLabel.textContent = 'WS: connected';
 						if (/pumpportal\.fun/.test(state.wsUrl)) {
@@ -2394,18 +2695,20 @@
 						}
 					};
 					state.ws.onclose = () => {
-						wsDot.className = 'pd-dot';
-						wsLabel.textContent = 'WS: reconnecting…';
-						setTimeout(connectWebSocket, 3000);
+						if (wsClosingForReconnect) {
+							wsClosingForReconnect = false;
+							return;
+						}
+						scheduleReconnect();
 					};
 					state.ws.onerror = () => {
+						console.warn('[pump-dashboard] WebSocket error on', state.wsUrl);
+						// onclose fires next and drives the backoff; just reflect the dot.
 						wsDot.className = 'pd-dot is-err';
-						wsLabel.textContent = 'WS: error';
 					};
-				} catch {
-					wsDot.className = 'pd-dot is-err';
-					wsLabel.textContent = 'WS: error';
-					setTimeout(connectWebSocket, 5000);
+				} catch (e) {
+					console.warn('[pump-dashboard] WebSocket construct failed:', e?.message || e);
+					scheduleReconnect();
 				}
 			}
 
@@ -2469,6 +2772,11 @@
 				if (!feed) return;
 				const empty = feed.querySelector('.pd-empty');
 				if (empty) empty.remove();
+				// A live event arriving clears any recoverable error banners — the
+				// feed is demonstrably working again.
+				if (feedId === 'pd-dashboard-feed') clearChannelFeedError();
+				const deadBanner = feed.querySelector('#pd-ws-dead-banner');
+				if (deadBanner) deadBanner.remove();
 
 				const div = document.createElement('div');
 				div.className = 'pd-feed-item';
@@ -3339,30 +3647,22 @@
 				}
 				$('pd-scanner-results').hidden = true;
 				try {
-					const [scanResp, holdersResp] = await Promise.all([
-						fetch(state.rpcUrl, {
-							method: 'POST',
-							headers: { 'Content-Type': 'application/json' },
-							body: JSON.stringify({
-								jsonrpc: '2.0',
-								id: 1,
+					const [scanData, holdersData] = await Promise.all([
+						rpcCall(
+							{
 								method: 'getAccountInfo',
 								params: [mint, { encoding: 'jsonParsed' }],
-							}),
-						}),
-						fetch(state.rpcUrl, {
-							method: 'POST',
-							headers: { 'Content-Type': 'application/json' },
-							body: JSON.stringify({
-								jsonrpc: '2.0',
-								id: 2,
+							},
+							{ id: 1 },
+						),
+						rpcCall(
+							{
 								method: 'getTokenLargestAccounts',
 								params: [mint],
-							}),
-						}),
+							},
+							{ id: 2 },
+						),
 					]);
-					const scanData = await scanResp.json();
-					const holdersData = await holdersResp.json();
 					const account = scanData.result?.value;
 					if (!account) {
 						toast('Token not found on-chain', 'error');
@@ -3431,12 +3731,8 @@
 
 					let isPump = false;
 					try {
-						const bcResp = await fetch(state.rpcUrl, {
-							method: 'POST',
-							headers: { 'Content-Type': 'application/json' },
-							body: JSON.stringify({
-								jsonrpc: '2.0',
-								id: 3,
+						const bcData = await rpcCall(
+							{
 								method: 'getProgramAccounts',
 								params: [
 									'6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P',
@@ -3445,12 +3741,13 @@
 										dataSlice: { offset: 0, length: 1 },
 									},
 								],
-							}),
-						});
-						const bcData = await bcResp.json();
+							},
+							{ id: 3 },
+						);
 						isPump = bcData.result && bcData.result.length > 0;
 					} catch {
-						/* skip */
+						// Optional enrichment; rpcCall already logged + flagged. The
+						// core scan still completes without the pump-curve check.
 					}
 
 					if (isPump) {
@@ -3859,6 +4156,9 @@
 				localStorage.setItem('pumpbot-rpc-url', state.rpcUrl);
 				$('pd-api-endpoint-display').textContent = state.apiUrl;
 				connectApi();
+				// A manual save is an explicit retry — reset the backoff so the new
+				// endpoint gets a full attempt and any dead-feed banner is cleared.
+				wsReconnectAttempts = 0;
 				connectWebSocket();
 				toast('Configuration saved — testing connections', 'success');
 
@@ -4333,24 +4633,18 @@
 			async function getMintDecimals(mint) {
 				if (mint in _decimalsCache) return _decimalsCache[mint];
 				try {
-					const r = await fetch(state.rpcUrl, {
-						method: 'POST',
-						headers: { 'Content-Type': 'application/json' },
-						body: JSON.stringify({
-							jsonrpc: '2.0',
-							id: 1,
-							method: 'getAccountInfo',
-							params: [mint, { encoding: 'jsonParsed' }],
-						}),
+					const d = await rpcCall({
+						method: 'getAccountInfo',
+						params: [mint, { encoding: 'jsonParsed' }],
 					});
-					const d = await r.json();
 					const dec = d.result?.value?.data?.parsed?.info?.decimals;
 					if (typeof dec === 'number') {
 						_decimalsCache[mint] = dec;
 						return dec;
 					}
 				} catch {
-					/* fall through */
+					// rpcCall already logged + flagged the network panel; fall back to
+					// the SPL default so revenue math still renders.
 				}
 				return 6;
 			}

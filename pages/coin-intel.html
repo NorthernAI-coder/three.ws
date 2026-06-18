@@ -201,7 +201,10 @@
 		.ci-scrim { position: fixed; inset: 0; background: rgba(0,0,0,0.55); opacity: 0; pointer-events: none; transition: opacity .25s; z-index: 90; backdrop-filter: blur(2px); }
 		.ci-scrim.is-open { opacity: 1; pointer-events: auto; }
 		.ci-drawer {
-			position: fixed; top: 0; right: 0; bottom: 0; width: 460px; max-width: 94vw;
+			position: fixed; top: 0; right: 0; bottom: 0;
+			/* Comfortable on standard screens, scales up on ultra-wide without
+			   sprawling, and stays edge-to-edge-safe on narrow viewports. */
+			width: clamp(360px, 34vw, 560px); max-width: 94vw;
 			background: var(--ci-panel); border-left: 1px solid var(--ci-border); z-index: 91;
 			transform: translateX(100%); transition: transform .3s cubic-bezier(.2,.8,.2,1);
 			overflow-y: auto; backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);

@@ -176,12 +176,16 @@ function arenaPositions(n) {
 let es = null;
 function connectStream() {
 	es = new EventSource(`/api/sniper/stream?network=${NETWORK}`);
-	es.addEventListener('open', () => setLive(true));
+	es.addEventListener('open', () => { setLive(true); refreshTapeEmpty(); });
 	es.addEventListener('buy', (m) => safe(() => onBuy(JSON.parse(m.data))));
 	es.addEventListener('sell', (m) => safe(() => onSell(JSON.parse(m.data))));
-	es.addEventListener('update', () => {});
-	es.onerror = () => { setLive(false); try { es.close(); } catch { /* already closed */ } setTimeout(connectStream, 2500); };
+	// A bare 'update' nudge means standings shifted (open P&L, rank, new agent)
+	// without a discrete buy/sell — refresh the board, debounced so a burst of
+	// nudges collapses into one fetch.
+	es.addEventListener('update', () => { clearTimeout(_boardDebounce); _boardDebounce = setTimeout(loadBoardOnly, 1200); });
+	es.onerror = () => { setLive(false); refreshTapeEmpty(); try { es.close(); } catch { /* already closed */ } setTimeout(connectStream, 2500); };
 }
+let _boardDebounce = null;
 const safe = (fn) => { try { fn(); } catch { /* one bad frame never breaks the stream */ } };
 
 function onBuy(p) {
@@ -436,10 +440,15 @@ function renderBoard(rows) {
 	body.innerHTML = rows.slice(0, 12).map((r) => {
 		const wr = r.closed ? Math.round((r.wins / r.closed) * 100) : 0;
 		const up = (r.realized_pnl_sol ?? 0) >= 0;
+		const name = r.agent_name || 'Agent';
+		const initial = esc((name.trim()[0] || '?').toUpperCase());
+		// On a broken avatar, swap the <img> for a mono-initial tile that fills the
+		// same 26px column — no orphaned gap in the grid.
+		const onerr = `this.outerHTML='<span class=&quot;r-av r-av-fb&quot;>${initial}</span>'`;
 		return `<button class="row no-orbit" data-id="${esc(r.agent_id)}">
 			<span class="r-rank">${r.rank}</span>
-			<img class="r-av" src="${esc(r.image || '/avatars/thumbs/default.png')}" alt="" onerror="this.style.visibility='hidden'"/>
-			<span class="r-name">${esc(r.agent_name || 'Agent')}<small>${r.open_positions} open · ${r.closed ? wr + '% win' : 'new'}</small></span>
+			<img class="r-av" src="${esc(r.image || '/avatars/thumbs/default.png')}" alt="" onerror="${onerr}"/>
+			<span class="r-name">${esc(name)}<small>${r.open_positions} open · ${r.closed ? wr + '% win' : 'new'}</small></span>
 			<span class="r-pnl ${up ? 'up' : 'down'}">${fmtSol(r.realized_pnl_sol)}</span>
 		</button>`;
 	}).join('');
@@ -493,10 +502,23 @@ function bigWinBanner(p) {
 
 // ── status / states ─────────────────────────────────────────────────────────────
 
+let _streamLive = false;
 function setLive(on) {
+	_streamLive = on;
 	const dot = $('liveDot');
 	dot.classList.toggle('on', on);
 	dot.querySelector('span').textContent = on ? 'live' : 'reconnecting…';
+}
+
+// Keep the live-tape empty state honest: when no trade has streamed yet, the copy
+// must distinguish "stream up, awaiting the next trade" from "stream down,
+// reconnecting". Once a real trade lands, pushTape() removes the placeholder for
+// good and this is a no-op.
+function refreshTapeEmpty() {
+	const ph = $('tapeEmpty');
+	if (!ph) return;
+	ph.textContent = _streamLive ? 'Waiting for the next trade…' : 'Reconnecting to trade stream…';
+	ph.classList.toggle('reconnecting', !_streamLive);
 }
 function setLoading(text) {
 	const el = $('loading');
@@ -520,11 +542,48 @@ function mountControls() {
 }
 
 let pickerLoaded = false;
+let pickerReturnFocus = null;
 function openPicker() {
-	$('picker').classList.add('open');
+	const picker = $('picker');
+	if (picker.classList.contains('open')) return;
+	pickerReturnFocus = document.activeElement;
+	picker.classList.add('open');
+	picker.addEventListener('keydown', trapPickerFocus);
 	if (!pickerLoaded) { pickerLoaded = true; renderPicker(); }
+	// Move focus into the dialog — first selectable tile if present, else the
+	// close button — so keyboard users land inside the modal, not behind it.
+	requestAnimationFrame(() => {
+		const first = $('pickGrid')?.querySelector('.pick-tile') || $('pickClose');
+		first?.focus();
+	});
 }
-function closePicker() { $('picker').classList.remove('open'); }
+function closePicker() {
+	const picker = $('picker');
+	if (!picker.classList.contains('open')) return;
+	picker.classList.remove('open');
+	picker.removeEventListener('keydown', trapPickerFocus);
+	// Restore focus to whatever opened the picker (the avatar button / empty CTA).
+	if (pickerReturnFocus && document.contains(pickerReturnFocus)) pickerReturnFocus.focus();
+	pickerReturnFocus = null;
+}
+
+// Trap Tab / Shift+Tab inside the open dialog so focus can't escape behind it.
+function trapPickerFocus(e) {
+	if (e.key !== 'Tab') return;
+	const modal = $('picker').querySelector('.pick-modal');
+	const focusables = modal.querySelectorAll(
+		'button:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])'
+	);
+	if (!focusables.length) return;
+	const first = focusables[0];
+	const last = focusables[focusables.length - 1];
+	const active = document.activeElement;
+	if (e.shiftKey && (active === first || !modal.contains(active))) {
+		e.preventDefault(); last.focus();
+	} else if (!e.shiftKey && active === last) {
+		e.preventDefault(); first.focus();
+	}
+}
 
 async function renderPicker() {
 	const grid = $('pickGrid');

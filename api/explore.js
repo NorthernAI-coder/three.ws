@@ -29,7 +29,6 @@ import { cors, json, method, wrap, error, rateLimited } from './_lib/http.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 import { CHAIN_BY_ID, tokenExplorerUrl, addressExplorerUrl } from './_lib/erc8004-chains.js';
 import { publicUrl, isLegacyOgThumbnailKey } from './_lib/r2.js';
-import { DEMO_AVATARS } from './_lib/demo-avatars.js';
 
 // A stored thumbnail_key only resolves to a real image when it's a relative R2
 // key. Legacy poisoned keys (absolute, origin-pointing `*_og.png`) 404, so drop
@@ -267,24 +266,6 @@ export default wrap(async (req, res) => {
 	// Cap to requested limit after filtering (we overfetch above).
 	if (avatarItems.length > limit + 1) avatarItems = avatarItems.slice(0, limit + 1);
 
-	// Inject demo avatars on the first page when the source allows avatars.
-	// Filter by query and/or category if set so search/filter still feel correct.
-	if (includeAvatars && !cursorDate) {
-		const qLower = q.toLowerCase();
-		let matching = DEMO_AVATARS;
-		if (q) {
-			matching = matching.filter(
-				(a) =>
-					a.name.toLowerCase().includes(qLower) ||
-					a.description.toLowerCase().includes(qLower),
-			);
-		}
-		if (categoryFilter) {
-			matching = matching.filter((a) => categoryFilter.includes(a.modelCategory || 'avatar'));
-		}
-		avatarItems.push(...matching);
-	}
-
 	const merged = [...onchainItems, ...solanaItems, ...avatarItems].sort(
 		(a, b) => new Date(b.sortDate).getTime() - new Date(a.sortDate).getTime(),
 	);
@@ -306,7 +287,7 @@ export default wrap(async (req, res) => {
 		SELECT count(*)::text as total FROM agent_identities
 		WHERE deleted_at IS NULL AND meta->>'chain_type' = 'solana' AND meta->>'network' = 'mainnet'
 	`;
-	const avatarCount = Number(avatarTotal) + DEMO_AVATARS.length;
+	const avatarCount = Number(avatarTotal);
 	const solCount = Number(solanaTotal);
 	const allTotal = Number(onchainTotal) + solCount + avatarCount;
 	const threeDTotal = Number(onchain3d) + avatarCount;

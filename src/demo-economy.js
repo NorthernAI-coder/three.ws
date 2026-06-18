@@ -301,8 +301,12 @@ function drawIdle(ctx, W, H, t) {
 	ctx.restore();
 }
 
-function drawBazaar(ctx, W, H, services, t) {
-	if (!services) return;
+function drawBazaar(ctx, W, H, data, t) {
+	if (!data) return;
+	// Accept either a bare array (legacy) or { services, bazaarAvailable }.
+	const list = Array.isArray(data) ? data : (data.services || []);
+	const bazaarAvailable = Array.isArray(data) ? true : data.bazaarAvailable !== false;
+	if (!list.length) return;
 	ctx.save();
 	ctx.textAlign = 'left';
 
@@ -310,9 +314,14 @@ function drawBazaar(ctx, W, H, services, t) {
 	ctx.fillStyle = '#4e8cff';
 	ctx.font = 'bold 38px -apple-system,system-ui,sans-serif';
 	ctx.fillText('x402 Bazaar', 60, 70);
-	ctx.fillStyle = 'rgba(255,255,255,0.3)';
+	ctx.fillStyle = bazaarAvailable ? 'rgba(255,255,255,0.3)' : 'rgba(240,160,48,0.65)';
 	ctx.font = '26px -apple-system,system-ui,sans-serif';
-	ctx.fillText('Available services · Coinbase network', 60, 110);
+	ctx.fillText(
+		bazaarAvailable
+			? 'Available services · Coinbase network'
+			: 'Live bazaar unavailable · showing the three.ws service',
+		60, 110,
+	);
 
 	// Divider
 	ctx.strokeStyle = 'rgba(78,140,255,0.3)';
@@ -324,7 +333,7 @@ function drawBazaar(ctx, W, H, services, t) {
 
 	// Service rows
 	const rowH = 110;
-	(services || []).slice(0, 4).forEach((svc, i) => {
+	list.slice(0, 4).forEach((svc, i) => {
 		const y = 160 + i * rowH;
 		const highlight = i === 0 && Math.sin(t * 3) > 0;
 

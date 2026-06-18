@@ -206,6 +206,49 @@
       cursor: pointer; transition: background 0.18s;
     }
     .cfg-close:hover { background: rgba(69,137,255,0.25); }
+    .cfg-close:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+    /* ── Read-only walkthrough (honest, static description) ─────────────── */
+    .cfg-card { max-height: 88vh; overflow-y: auto; }
+    .cfg-walkthrough {
+      margin-top: 18px; padding: 16px 18px; border: 1px solid var(--border);
+      border-radius: 10px; background: rgba(8,189,186,0.04);
+    }
+    .cfg-wh-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+    .cfg-wh-badge {
+      font-family: var(--mono); font-size: 0.64rem; letter-spacing: 0.06em; text-transform: uppercase;
+      color: var(--teal); background: rgba(8,189,186,0.12); border: 1px solid rgba(8,189,186,0.3);
+      padding: 3px 9px; border-radius: 20px;
+    }
+    .cfg-wh-note { font-size: 0.72rem; color: var(--muted); }
+    .cfg-steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 9px; }
+    .cfg-steps li { font-size: 0.82rem; line-height: 1.55; color: var(--text); }
+    .cfg-steps li b { color: var(--blue); font-weight: 600; }
+
+    .cfg-links { display: flex; flex-wrap: wrap; gap: 10px 16px; margin-top: 18px; }
+    .cfg-link {
+      font-size: 0.8rem; color: var(--teal); text-decoration: none;
+      border-bottom: 1px solid transparent; transition: border-color 0.16s, color 0.16s;
+    }
+    .cfg-link:hover { color: #2fe3df; border-bottom-color: rgba(8,189,186,0.5); }
+    .cfg-link:focus-visible { outline: 2px solid var(--teal); outline-offset: 3px; border-radius: 3px; }
+
+    /* ── Header related-surface links ──────────────────────────────────── */
+    .header-links { display: flex; gap: 4px; align-items: center; margin-left: 8px; }
+    .header-links a {
+      font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.02em;
+      color: var(--muted); text-decoration: none; padding: 4px 10px; border-radius: 20px;
+      border: 1px solid transparent;
+      transition: color 0.16s, border-color 0.16s, background 0.16s, transform 0.1s;
+    }
+    .header-links a:hover { color: var(--text); border-color: rgba(8,189,186,0.4); background: rgba(8,189,186,0.08); }
+    .header-links a:active { transform: scale(0.96); }
+    .header-links a:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+    @media (max-width: 560px) {
+      .header-links { gap: 2px; margin-left: 4px; }
+      .header-links a { padding: 4px 7px; font-size: 0.6rem; }
+      #header { padding: 12px 14px; gap: 8px; }
+    }
   </style>
 
 	<link rel="canonical" href="https://three.ws/agent-trade">
@@ -219,6 +262,11 @@
     <a href="/"><span>three</span>.ws</a>
     <div class="hbadge hbadge-x402">x402</div>
     <div class="hbadge hbadge-sol">Solana</div>
+    <nav class="header-links" aria-label="Related surfaces">
+      <a href="/agent-economy">Agent economy</a>
+      <a href="/three-live">$THREE live</a>
+      <a href="/x402">x402</a>
+    </nav>
     <div id="hright">
       <div id="liveDot"></div>
       <div id="networkBadge">mainnet</div>
@@ -264,10 +312,26 @@
   <div id="toast"></div>
 
   <!-- Not-configured overlay -->
-  <div id="notConfigured" class="hidden">
-    <div class="cfg-card">
-      <h2>Fund two Solana wallets</h2>
-      <p>Generate keypairs, set these env vars, and fund each wallet with a small amount of SOL to run the live agent-to-agent trade demo.</p>
+  <div id="notConfigured" class="hidden" role="dialog" aria-modal="true" aria-labelledby="cfgTitle" aria-describedby="cfgDesc">
+    <div class="cfg-card" role="document">
+      <h2 id="cfgTitle">Live demo not yet configured</h2>
+      <p id="cfgDesc">This page runs a <strong>real</strong> agent-to-agent payment: two AI agents settle a tiny SOL transaction on-chain via the x402 protocol. To go live it needs two funded Solana keypairs set as environment variables on the deployment. Until then, here's exactly what the demo does — step by step — and how to enable it.</p>
+
+      <div class="cfg-walkthrough">
+        <div class="cfg-wh-head">
+          <span class="cfg-wh-badge">Read-only walkthrough</span>
+          <span class="cfg-wh-note">A description of the live flow — not a running trade.</span>
+        </div>
+        <ol class="cfg-steps">
+          <li><b>Request.</b> The buyer agent (Nexus) asks the seller agent (Oracle) for a market analysis.</li>
+          <li><b>402 challenge.</b> Oracle replies with HTTP 402 Payment Required and an x402 manifest: price in SOL, recipient, network, and memo.</li>
+          <li><b>Pay.</b> Nexus signs and broadcasts a real SOL transfer on Solana to satisfy the challenge.</li>
+          <li><b>Confirm.</b> The network confirms the transaction; the signature is shown and links to Solscan.</li>
+          <li><b>Deliver.</b> Oracle verifies payment, runs the analysis through a real model, and returns the result.</li>
+        </ol>
+      </div>
+
+      <p class="cfg-gen" style="margin-top:18px">To enable the live demo, set these on the deployment and fund each wallet with a small amount of SOL:</p>
       <div class="env-block">
         <div><span class="env-c"># Buyer agent (Nexus)</span></div>
         <div><span class="env-k">AGENT_BUYER_SECRET</span>=&lt;base58-secret-key&gt;</div>
@@ -282,9 +346,18 @@
         Generate a keypair:<br>
         <code>node -e "const {Keypair}=require('@solana/web3.js'),bs58=require('bs58');const k=Keypair.generate();console.log('secret:',bs58.encode(k.secretKey),'addr:',k.publicKey.toString())"</code>
       </p>
+
+      <div class="cfg-links">
+        <a class="cfg-link" href="/x402">x402 payments &amp; setup ↗</a>
+        <a class="cfg-link" href="/docs">Read the docs ↗</a>
+        <a class="cfg-link" href="/agent-economy">The agent economy ↗</a>
+        <a class="cfg-link" href="/three-live">$THREE live ↗</a>
+      </div>
+
       <button class="cfg-close" id="cfgClose">Dismiss (demo scene still visible)</button>
     </div>
   </div>
+
 
   <script type="module" src="/src/agent-trade.js"></script>
 </body>

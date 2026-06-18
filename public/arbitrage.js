@@ -69,6 +69,7 @@ function renderGrid() {
 	if (opps.length === 0) {
 		els.grid.innerHTML = '';
 		els.empty.hidden = false;
+		els.empty.className = 'empty';
 		els.empty.textContent = state.all.length
 			? 'No matches. Clear the filter or search.'
 			: 'No arbitrage opportunities right now. Check back as facilitators add listings.';
@@ -178,11 +179,25 @@ async function payCheapest(o, btn) {
 		window.location.href = `/bazaar?q=${encodeURIComponent(o.capability)}`;
 		return;
 	}
+	const orig = btn.textContent;
 	if (!window.X402 || typeof window.X402.pay !== 'function') {
-		await loadX402();
+		btn.disabled = true;
+		btn.textContent = 'Loading payment modal…';
+		try {
+			await loadX402();
+		} catch {
+			// /x402.js 404'd or failed to evaluate — surface it instead of no-op.
+			btn.textContent = 'Payment modal failed to load';
+			setTimeout(() => { btn.disabled = false; btn.textContent = orig; }, 4000);
+			return;
+		}
+		if (!window.X402 || typeof window.X402.pay !== 'function') {
+			btn.textContent = 'Payment modal failed to load';
+			setTimeout(() => { btn.disabled = false; btn.textContent = orig; }, 4000);
+			return;
+		}
 	}
 	btn.disabled = true;
-	const orig = btn.textContent;
 	btn.textContent = 'Opening modal…';
 	try {
 		const out = await window.X402.pay({
@@ -214,7 +229,12 @@ function loadX402() {
 		s.type = 'module';
 		s.src = '/x402.js';
 		s.onload = () => resolve();
-		s.onerror = (e) => reject(e);
+		s.onerror = (e) => {
+			// Drop the cached promise so a later click can retry the load.
+			_x402Loaded = null;
+			s.remove();
+			reject(e);
+		};
 		document.head.appendChild(s);
 	});
 	return _x402Loaded;
@@ -223,17 +243,34 @@ function loadX402() {
 async function load() {
 	renderSkeleton();
 	try {
-		const r = await fetch('/api/bazaar/arbitrage?minSpreadPct=0&limit=200');
+		// Bound the request so a hung facilitator can't leave the skeletons up
+		// forever. AbortSignal.timeout rejects with a TimeoutError after 20s.
+		const r = await fetch('/api/bazaar/arbitrage?minSpreadPct=0&limit=200', {
+			signal: AbortSignal.timeout(20000),
+		});
 		const data = await r.json();
 		if (!r.ok) throw new Error(data?.error_description || data?.error || `HTTP ${r.status}`);
 		state.all = data.opportunities || [];
 		els.updated.textContent = relativeTime(data.updatedAt);
 		renderGrid();
 	} catch (e) {
+		const timedOut = e?.name === 'TimeoutError';
+		const network = e instanceof TypeError;
+		const title = timedOut
+			? 'Request timed out'
+			: network ? "Couldn't reach the arbitrage feed" : 'Failed to load arbitrage';
+		const sub = timedOut
+			? 'The facilitator feed took too long to respond.'
+			: network ? 'Check your connection and try again.' : escapeHtml(e?.message || String(e));
 		els.grid.innerHTML = '';
 		els.empty.hidden = false;
 		els.empty.className = 'err';
-		els.empty.textContent = `Failed to load arbitrage: ${e?.message || e}`;
+		els.empty.innerHTML = `
+			<div class="err-title">${title}</div>
+			<div>${sub}</div>
+			<button type="button" class="retry-btn">Retry</button>
+		`;
+		els.empty.querySelector('.retry-btn').addEventListener('click', load);
 	}
 }
 

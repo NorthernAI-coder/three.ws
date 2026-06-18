@@ -23,6 +23,7 @@ const els = {
 	sources: $('#sources'),
 	results: $('#results'),
 	empty: $('#empty'),
+	tryLive: $('#try-live'),
 	modal: $('#details-modal'),
 	modalTitle: $('#dm-title'),
 	modalBody: $('#dm-body'),
@@ -193,9 +194,31 @@ function renderLoading(query) {
 }
 
 function renderError(e) {
+	// Replace the spinner and any prior cards so a network failure can never
+	// leave the loading state stuck.
 	els.count.textContent = '0';
+	els.qlabel.textContent = '';
+	els.sources.textContent = '';
+	els.results.innerHTML = '';
+	// fetch() rejects with a TypeError on offline / DNS / CORS failures — those
+	// never reach `r.ok`, so call them out as a connection problem distinctly
+	// from an HTTP/API error.
+	const isNetwork = e instanceof TypeError;
+	const title = isNetwork ? "Couldn't reach the catalog" : 'Failed to load services';
+	const sub = isNetwork
+		? 'Check your connection and try again.'
+		: escape(e?.message || String(e));
 	els.empty.hidden = false;
-	els.empty.textContent = `Failed to load: ${e?.message || e}`;
+	els.empty.className = 'empty state-err';
+	els.empty.innerHTML = `
+		<div class="empty-title">${title}</div>
+		<div class="empty-sub">${sub}</div>
+		<button type="button" class="retry-btn">Retry</button>
+	`;
+	els.empty.querySelector('.retry-btn').addEventListener('click', () => {
+		els.empty.className = 'empty';
+		load();
+	});
 }
 
 function renderResults(items, query, sources, errors) {
@@ -205,6 +228,7 @@ function renderResults(items, query, sources, errors) {
 	if (items.length === 0) {
 		els.results.innerHTML = '';
 		els.empty.hidden = false;
+		els.empty.className = 'empty';
 		els.empty.textContent = 'No matching services. Try fewer filters or a different query.';
 		return;
 	}
@@ -357,6 +381,21 @@ function prettyTitle(it) {
 	}
 }
 
+// Polite screen-reader announcement for async "Try it" outcomes.
+function announce(msg) {
+	if (!els.tryLive) return;
+	els.tryLive.textContent = '';
+	// Force the live region to re-fire even when the text repeats.
+	requestAnimationFrame(() => { els.tryLive.textContent = msg; });
+}
+
+// The pay flow depends on the drop-in modal in /x402.js. If that script 404s
+// or fails to evaluate, window.X402 is never defined — feature-detect it so the
+// button explains the problem instead of silently no-opping.
+function x402Available() {
+	return !!(window.X402 && typeof window.X402.pay === 'function');
+}
+
 async function onTry(cardEl, it, btn) {
 	if (it.type === 'mcp') {
 		// MCP tools require a JSON-RPC tools/call envelope, which the drop-in modal
@@ -365,9 +404,17 @@ async function onTry(cardEl, it, btn) {
 		return;
 	}
 	const receipt = cardEl.querySelector('[data-role=receipt]');
+	if (!x402Available()) {
+		receipt.hidden = false;
+		receipt.className = 'receipt err';
+		receipt.textContent = 'Payment module failed to load (x402.js). Reload the page to retry.';
+		announce('Payment module unavailable. Reload the page to try a paid call.');
+		return;
+	}
 	receipt.hidden = false;
 	receipt.className = 'receipt';
 	receipt.textContent = 'Opening x402 payment modal…';
+	announce(`Opening payment for ${it.serviceName || prettyTitle(it)}.`);
 	btn.disabled = true;
 	try {
 		const opts = {
@@ -386,16 +433,20 @@ async function onTry(cardEl, it, btn) {
 		if (out?.ok) {
 			receipt.className = 'receipt ok';
 			receipt.innerHTML = renderReceipt(out);
+			announce(`Payment succeeded for ${it.serviceName || prettyTitle(it)}.`);
 		} else {
 			receipt.className = 'receipt err';
 			receipt.textContent = `Failed: ${out?.error || 'unknown error'}`;
+			announce(`Payment failed: ${out?.error || 'unknown error'}.`);
 		}
 	} catch (e) {
 		if (e?.code === 'cancelled') {
 			receipt.hidden = true;
+			announce('Payment cancelled.');
 		} else {
 			receipt.className = 'receipt err';
 			receipt.textContent = `Error: ${e?.message || e}`;
+			announce(`Payment error: ${e?.message || e}.`);
 		}
 	} finally {
 		btn.disabled = false;

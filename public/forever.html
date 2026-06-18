@@ -248,7 +248,7 @@
 	}
 	.cta {
 		flex: 1;
-		min-width: 240px;
+		min-width: min(240px, 100%);
 		display: inline-flex;
 		justify-content: center;
 		align-items: center;
@@ -269,6 +269,13 @@
 	.cta:hover { transform: translateY(-1px); box-shadow: 0 18px 60px -10px var(--btc-glow); background: #ffa84d; }
 	.cta:active { transform: translateY(0); }
 	.cta:disabled { opacity: 0.55; cursor: not-allowed; transform: none; box-shadow: none; }
+	.cta:focus-visible, .btn:focus-visible, .share-x:focus-visible,
+	.composer-frame textarea:focus-visible, .options input:focus-visible,
+	.options select:focus-visible, .copy:focus-visible {
+		outline: 2px solid var(--btc); outline-offset: 3px;
+	}
+	/* Action/explorer links stay inert until JS sets a real href. */
+	.is-pending { opacity: 0.5; cursor: not-allowed; pointer-events: none; }
 	.cta svg { width: 18px; height: 18px; }
 	.subnote {
 		font-family: var(--mono);
@@ -573,7 +580,7 @@
 <div id="nav-container"></div>
 <script src="/nav.js"></script>
 
-<main>
+<main aria-live="polite">
 
 <!-- ── compose view ──────────────────────────────────────────── -->
 <section id="view-compose" class="view fade-in">
@@ -614,14 +621,14 @@
 		</div>
 
 		<div class="cta-row">
-			<button id="inscribeBtn" class="cta" type="button">
+			<button id="inscribeBtn" class="cta" type="button" aria-describedby="feeEstimate">
 				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg>
 				Inscribe forever
 			</button>
-			<span class="subnote">paid in BTC · settled in ~1 block</span>
+			<span class="subnote" id="feeEstimate" role="status" aria-live="polite">paid in BTC · settled in ~1 block</span>
 		</div>
 
-		<div id="errorBanner" class="error-banner"></div>
+		<div id="errorBanner" class="error-banner" role="alert" aria-live="assertive"></div>
 	</div>
 </section>
 
@@ -661,8 +668,8 @@
 			</div>
 
 			<div class="pay-actions">
-				<a id="openWallet" class="btn primary" href="#">Open in wallet</a>
-				<a id="mempoolLink" class="btn" target="_blank" rel="noopener" href="#">View on mempool ↗</a>
+				<a id="openWallet" class="btn primary is-pending" role="button" aria-disabled="true">Open in wallet</a>
+				<a id="mempoolLink" class="btn is-pending" target="_blank" rel="noopener" aria-disabled="true">View on mempool ↗</a>
 				<button id="cancelPay" class="btn" type="button">Cancel</button>
 			</div>
 		</div>
@@ -677,8 +684,8 @@
 	<h2>It's forever now.</h2>
 	<div class="win-message" id="winMessage">—</div>
 	<div class="win-card">
-		<div class="row"><span class="k">Inscription</span><span class="v"><a id="winInscriptionLink" href="#" target="_blank" rel="noopener">—</a></span></div>
-		<div class="row"><span class="k">Reveal tx</span><span class="v"><a id="winTxLink" href="#" target="_blank" rel="noopener">—</a></span></div>
+		<div class="row"><span class="k">Inscription</span><span class="v"><a id="winInscriptionLink" class="is-pending" target="_blank" rel="noopener" aria-disabled="true">—</a></span></div>
+		<div class="row"><span class="k">Reveal tx</span><span class="v"><a id="winTxLink" class="is-pending" target="_blank" rel="noopener" aria-disabled="true">—</a></span></div>
 		<div class="row"><span class="k">Receive</span><span class="v" id="winReceive">—</span></div>
 		<div class="row"><span class="k">Network</span><span class="v">Bitcoin mainnet</span></div>
 	</div>

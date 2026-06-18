@@ -38,7 +38,9 @@
 		.dot.connecting { background: #fbbf24; }
 		.dot.down { background: #f87171; }
 		@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
-		.status-pill { font-size: 11px; color: var(--muted); display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px; border: 1px solid var(--border); border-radius: 999px; background: transparent; cursor: default; }
+		.status-pill { font-size: 11px; color: var(--muted); display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px; border: 1px solid var(--border); border-radius: 999px; background: transparent; cursor: pointer; transition: background 0.15s, border-color 0.15s, color 0.15s; }
+		.status-pill:hover { background: #1a1a1a; border-color: #2e2e2e; color: #eee; }
+		.status-pill:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 		.pf-filterbar .ctl { margin-left: auto; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; row-gap: 6px; }
 		.pf-filterbar label { font-size: 12px; color: var(--muted); display: inline-flex; align-items: center; gap: 6px; }
 		.pf-filterbar input[type="number"], .pf-filterbar select, .pf-filterbar button { background: #161616; color: #eee; border: 1px solid #2a2a2a; border-radius: 6px; padding: 5px 9px; font-size: 12px; }
@@ -68,7 +70,10 @@
 		.pf-tab:hover { color: #eee; }
 		.pf-tab[aria-selected="true"] { color: #eee; border-bottom-color: var(--accent); }
 		.pf-tab .badge { display: inline-block; margin-left: 6px; font-size: 10px; color: var(--muted); }
-		.pf-toolbar { display: flex; gap: 8px; align-items: center; padding: 12px 18px; border-bottom: 1px solid var(--border); }
+		.pf-toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 12px 18px; border-bottom: 1px solid var(--border); }
+		.pf-toolbar .custom-msg { flex-basis: 100%; font-size: 11px; color: #f87171; min-height: 0; margin: -2px 0 0; transition: min-height 0.15s; }
+		.pf-toolbar .custom-msg:empty { display: none; }
+		.pf-toolbar .custom-row input.invalid { border-color: #f87171; }
 		.pf-toolbar input[type="search"] { flex: 1; background: #161616; color: #eee; border: 1px solid #2a2a2a; border-radius: 6px; padding: 7px 10px; font-size: 13px; }
 		.pf-toolbar input[type="search"]:focus { outline: none; border-color: var(--accent); }
 		.pf-toolbar .custom-row { display: flex; gap: 6px; align-items: center; }
@@ -112,7 +117,7 @@
 
 		/* Feed sidebar */
 		#side { display: flex; flex-direction: column; border-left: 1px solid var(--border); background: var(--panel); overflow: hidden; min-width: 260px; max-width: 480px; resize: horizontal; }
-		.side-header { display: flex; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--border); background: #101010; cursor: move; user-select: none; gap: 8px; }
+		.side-header { display: flex; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--border); background: #101010; user-select: none; gap: 8px; }
 		.side-title { font-size: 13px; font-weight: 600; flex: 1; }
 		.side-control-btn { background: transparent; border: 0; color: var(--muted); cursor: pointer; font-size: 16px; line-height: 1; padding: 2px 6px; border-radius: 3px; }
 		.side-control-btn:hover { background: #1f1f1f; color: #eee; }
@@ -177,7 +182,7 @@
 			<span class="dot connecting" id="status-dot" aria-label="Connecting"></span>
 			GMGN Smart Money
 		</h1>
-		<button class="status-pill" id="status-pill" type="button" title="Connection status">
+		<button class="status-pill" id="status-pill" type="button" title="Reconnect to the live feed now" aria-label="Connection status — click to reconnect">
 			<span id="status-text">Connecting…</span>
 		</button>
 		<div class="ctl">
@@ -250,9 +255,10 @@
 			<div class="pf-toolbar">
 				<input type="search" id="picker-search" placeholder="Search avatars…" aria-label="Search" />
 				<div class="custom-row">
-					<input type="url" id="picker-custom-url" placeholder="Paste .glb / .gltf / .vrm URL" aria-label="Custom avatar URL" />
+					<input type="url" id="picker-custom-url" placeholder="Paste .glb / .gltf / .vrm URL" aria-label="Custom avatar URL" aria-describedby="picker-custom-msg" />
 					<button type="button" id="picker-custom-go">Use</button>
 				</div>
+				<p class="custom-msg" id="picker-custom-msg" role="alert" aria-live="polite"></p>
 			</div>
 			<div class="pf-content">
 				<div class="pf-body" id="picker-body"></div>
@@ -668,6 +674,11 @@
 			connect();
 		});
 
+		$('status-pill').addEventListener('click', () => {
+			if (_reconnectTimer) { clearTimeout(_reconnectTimer); _reconnectTimer = null; }
+			connect();
+		});
+
 		// ── Avatar picker ────────────────────────────────────────────────────────
 		const DEFAULT_AVATARS = [
 			{ url: '/avatars/cz.glb', name: 'CZ', sub: 'Default narrator', emoji: '🟡' },
@@ -726,12 +737,38 @@
 		});
 		$('picker-custom-go').addEventListener('click', useCustomUrl);
 		$('picker-custom-url').addEventListener('keydown', (e) => { if (e.key === 'Enter') useCustomUrl(); });
+		// Clear the inline error as soon as the user edits the field again.
+		$('picker-custom-url').addEventListener('input', () => clearCustomMsg());
+
+		function clearCustomMsg() {
+			$('picker-custom-msg').textContent = '';
+			$('picker-custom-url').classList.remove('invalid');
+		}
 
 		function useCustomUrl() {
-			const v = $('picker-custom-url').value.trim();
-			if (!v) return;
-			try { new URL(v, location.href); } catch { alert('Invalid URL.'); return; }
-			$('picker-custom-url').value = '';
+			const input = $('picker-custom-url');
+			const v = input.value.trim();
+			if (!v) {
+				$('picker-custom-msg').textContent = 'Paste a model URL first.';
+				input.classList.add('invalid');
+				input.focus();
+				return;
+			}
+			let url;
+			try { url = new URL(v, location.href); } catch {
+				$('picker-custom-msg').textContent = "That doesn't look like a valid URL.";
+				input.classList.add('invalid');
+				input.focus();
+				return;
+			}
+			if (!/\.(glb|gltf|vrm)(\?|#|$)/i.test(url.pathname + url.search)) {
+				$('picker-custom-msg').textContent = 'Link must point to a .glb, .gltf, or .vrm model.';
+				input.classList.add('invalid');
+				input.focus();
+				return;
+			}
+			clearCustomMsg();
+			input.value = '';
 			setAvatar(v, v.split('/').pop().replace(/\.[^.]+$/, ''), 'Custom');
 			closePicker();
 		}

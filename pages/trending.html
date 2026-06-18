@@ -57,7 +57,12 @@
 					<li class="tr-skeleton"></li>
 				</ol>
 				<div class="tr-empty" id="agentEmpty" hidden>No trending agents yet — check back soon.</div>
-				<div class="tr-error" id="agentError" hidden>Failed to load agents. <button class="tr-retry" id="agentRetry">Retry</button></div>
+				<div class="tr-error" id="agentError" role="alert" hidden>
+					<span class="tr-error-icon" aria-hidden="true">⚠️</span>
+					<span class="tr-error-title">Couldn't load trending agents</span>
+					<span class="tr-error-sub">Check your connection and try again.</span>
+					<button class="tr-retry" id="agentRetry" type="button">↻ Retry</button>
+				</div>
 			</section>
 
 			<section class="tr-section" id="sec-coins" aria-label="Top conviction coins">
@@ -73,7 +78,12 @@
 					<li class="tr-skeleton"></li>
 				</ol>
 				<div class="tr-empty" id="coinEmpty" hidden>No scored coins in the last 36 hours.</div>
-				<div class="tr-error" id="coinError" hidden>Failed to load coins. <button class="tr-retry" id="coinRetry">Retry</button></div>
+				<div class="tr-error" id="coinError" role="alert" hidden>
+					<span class="tr-error-icon" aria-hidden="true">⚠️</span>
+					<span class="tr-error-title">Couldn't load conviction coins</span>
+					<span class="tr-error-sub">Check your connection and try again.</span>
+					<button class="tr-retry" id="coinRetry" type="button">↻ Retry</button>
+				</div>
 			</section>
 		</div>
 
@@ -221,10 +231,26 @@
 			padding: 40px 20px; text-align: center;
 			font-size: 14px; color: #6b7280;
 		}
-		.tr-retry {
-			margin-left: 8px; color: #6366f1; background: none; border: none; cursor: pointer;
-			font-size: 14px; text-decoration: underline;
+		.tr-error {
+			display: flex; flex-direction: column; align-items: center; gap: 14px;
+			padding: 36px 24px; border: 1px solid rgba(248,113,113,.28);
+			background: rgba(248,113,113,.05); border-radius: 12px;
 		}
+		.tr-error-icon { font-size: 26px; opacity: .85; line-height: 1; }
+		.tr-error-title { font-size: 14px; font-weight: 600; color: #e5e7eb; }
+		.tr-error-sub { font-size: 12.5px; color: #6b7280; }
+		.tr-retry {
+			display: inline-flex; align-items: center; gap: 7px;
+			padding: 9px 18px; border-radius: 10px; cursor: pointer;
+			font-size: 13px; font-weight: 600;
+			color: #c7d2fe; background: rgba(99,102,241,.18);
+			border: 1px solid rgba(99,102,241,.45);
+			transition: background .15s, border-color .15s, color .15s;
+		}
+		.tr-retry:hover:not(:disabled) { background: rgba(99,102,241,.3); border-color: rgba(99,102,241,.7); color: #e0e7ff; }
+		.tr-retry:disabled { opacity: .6; cursor: progress; }
+		.tr-retry-spin { width: 13px; height: 13px; border-radius: 50%; border: 2px solid rgba(199,210,254,.3); border-top-color: #c7d2fe; animation: tr-spin .7s linear infinite; }
+		@keyframes tr-spin { to { transform: rotate(360deg); } }
 
 		.tr-footnote {
 			margin-top: 32px;
@@ -274,8 +300,14 @@
 		});
 
 		// ── Retry buttons ───────────────────────────────────────────────────
-		$('#agentRetry').addEventListener('click', loadData);
-		$('#coinRetry').addEventListener('click', loadData);
+		function retry(btn) {
+			btn.disabled = true;
+			const prev = btn.innerHTML;
+			btn.innerHTML = '<span class="tr-retry-spin" aria-hidden="true"></span>Retrying…';
+			loadData().finally(() => { btn.disabled = false; btn.innerHTML = prev; });
+		}
+		$('#agentRetry').addEventListener('click', (e) => retry(e.currentTarget));
+		$('#coinRetry').addEventListener('click', (e) => retry(e.currentTarget));
 
 		// ── Tier pill ───────────────────────────────────────────────────────
 		function tierPill(tier) {
@@ -286,6 +318,15 @@
 		// ── Compact number ──────────────────────────────────────────────────
 		const compact = new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 });
 		function fmt(n) { return n == null ? '—' : compact.format(Number(n)); }
+
+		// ── Safe link target ────────────────────────────────────────────────
+		// API-supplied URLs can be null/empty/malformed. Accept only same-origin
+		// absolute paths; otherwise fall back to a route built from known fields.
+		function safeHref(raw, fallback) {
+			const v = typeof raw === 'string' ? raw.trim() : '';
+			if (v && (v.startsWith('/') || /^https?:\/\//i.test(v))) return v;
+			return fallback || null;
+		}
 
 		// ── Render agents ───────────────────────────────────────────────────
 		function renderAgents(agents) {
@@ -305,8 +346,15 @@
 					: esc(initial);
 				const onchainBadge = a.is_onchain ? '<span class="tr-onchain">◈ on-chain</span>' : '';
 				const rankCls = a.rank <= 3 ? ` tr-rank-${a.rank}` : '';
+				const name = a.name || 'Unnamed agent';
+				const fallback = a.id != null ? `/agents/${encodeURIComponent(a.id)}` : null;
+				const href = safeHref(a.agent_url, fallback);
+				const tag = href ? 'a' : 'div';
+				const attrs = href
+					? ` href="${esc(href)}" aria-label="Rank ${a.rank}: ${esc(name)}, ${esc(fmt(count))} chats"`
+					: ` role="group" aria-label="Rank ${a.rank}: ${esc(name)}, ${esc(fmt(count))} chats (no profile available)"`;
 				return `<li>
-					<a class="tr-row" href="${esc(a.agent_url)}">
+					<${tag} class="tr-row"${attrs}>
 						<span class="tr-rank${rankCls}">${a.rank}</span>
 						<span class="tr-av">${avHtml}</span>
 						<span class="tr-body">
@@ -317,7 +365,7 @@
 							<span class="tr-metric">${fmt(count)}</span>
 							<span class="tr-metric-label">chats</span>
 						</span>
-					</a>
+					</${tag}>
 				</li>`;
 			}).join('');
 		}
@@ -334,9 +382,17 @@
 
 			list.innerHTML = coins.map(c => {
 				const sym = (c.symbol || '?').slice(0, 5);
+				const symFull = c.symbol || 'coin';
 				const rankCls = c.rank <= 3 ? ` tr-rank-${c.rank}` : '';
+				const fallback = c.mint ? `/oracle?mint=${encodeURIComponent(c.mint)}` : null;
+				const href = safeHref(c.coin_url, fallback);
+				const tag = href ? 'a' : 'div';
+				const label = `Rank ${c.rank}: $${symFull}, Oracle score ${c.score} of 100`;
+				const attrs = href
+					? ` href="${esc(href)}" aria-label="${esc(label)}"`
+					: ` role="group" aria-label="${esc(label)} (no detail page available)"`;
 				return `<li>
-					<a class="tr-row" href="${esc(c.coin_url)}">
+					<${tag} class="tr-row"${attrs}>
 						<span class="tr-rank${rankCls}">${c.rank}</span>
 						<span class="tr-coin-badge">$${esc(sym)}</span>
 						<span class="tr-body">
@@ -347,7 +403,7 @@
 							<span class="tr-metric">${c.score}</span>
 							<span class="tr-metric-label">/100 score</span>
 						</span>
-					</a>
+					</${tag}>
 				</li>`;
 			}).join('');
 		}

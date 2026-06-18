@@ -107,9 +107,14 @@
 
 	.grid {
 		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+		grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
 		gap: 14px;
 		padding-bottom: 56px;
+	}
+	/* Below ~340px, min() prevents the 300px track from overflowing the viewport
+	   and forcing a horizontal scroll — collapse to a single fluid column. */
+	@media (max-width: 360px) {
+		.grid { grid-template-columns: 1fr; }
 	}
 	.arb {
 		background: var(--panel);
@@ -282,7 +287,21 @@
 		border-radius: 12px;
 		margin-bottom: 56px;
 	}
-	.err { color: #fecaca; border-color: rgba(248,113,113,0.3); }
+	.err { color: #fecaca; border-color: rgba(248,113,113,0.3); border-style: solid; }
+	.err .err-title { font-weight: 600; margin-bottom: 6px; }
+	.err .retry-btn {
+		margin-top: 16px;
+		background: rgba(74,222,128,0.12);
+		color: #4ade80;
+		border: 1px solid rgba(74,222,128,0.4);
+		padding: 8px 18px;
+		font-size: 13px;
+		border-radius: 8px;
+		cursor: pointer;
+		font-weight: 600;
+	}
+	.err .retry-btn:hover { background: rgba(74,222,128,0.2); }
+	.err .retry-btn:focus-visible { outline: 2px solid #4ade80; outline-offset: 2px; }
 
 	.spinner {
 		display: inline-block;

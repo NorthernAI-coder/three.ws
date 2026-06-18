@@ -1095,8 +1095,18 @@ async function runPhantomPayment(call, displayLabel) {
 
     // 2. Connect Phantom + prepare unsigned tx
     setStep('built', 'active', 'connecting Phantom…');
-    const connectResp = await provider.connect();
-    const buyerAddress = connectResp.publicKey.toString();
+    // The provider existed at render time, but the user may have locked or
+    // disconnected the wallet since. Distinguish that from "no wallet installed"
+    // (handled at the top of this function) so the message is actionable.
+    let connectResp;
+    try {
+      connectResp = await provider.connect();
+    } catch (connectErr) {
+      if (connectErr?.code === 4001) throw new Error('Connection request rejected in Phantom. Approve it to pay.');
+      throw new Error('Phantom is locked or disconnected. Unlock the extension and try again.');
+    }
+    const buyerAddress = connectResp?.publicKey?.toString();
+    if (!buyerAddress) throw new Error('Phantom returned no account. Unlock the wallet and reconnect.');
 
     const prepRes = await fetch('/api/x402-checkout?action=prepare', {
       method: 'POST',
@@ -1210,7 +1220,14 @@ async function refreshPhantomBalance(address) {
       if (info) usdcAmount += Number(info.uiAmount || 0);
     }
     if (balLabel) balLabel.textContent = `${usdcAmount.toFixed(3)} USDC · Solana`;
-  } catch { /* non-critical — label already shows address */ }
+  } catch (err) {
+    // Surface the failure inline rather than silently leaving a stale label.
+    console.warn('[pay] Phantom balance read failed:', err?.message || err);
+    if (balLabel) {
+      balLabel.textContent = `couldn't read balance · ${address.slice(0,4)}…${address.slice(-4)}`;
+      balLabel.title = 'Solana RPC balance lookup failed — payments still work.';
+    }
+  }
 }
 
 // ---- MetaMask / Base (EIP-3009) inline payment --------------------------
@@ -1693,29 +1710,36 @@ async function* sseEvents(response) {
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buf = '';
-  while (true) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    buf += decoder.decode(value, { stream: true });
-    let idx;
-    while ((idx = buf.indexOf('\n\n')) >= 0) {
-      const block = buf.slice(0, idx);
-      buf = buf.slice(idx + 2);
-      let event = 'message';
-      const dataLines = [];
-      for (const line of block.split('\n')) {
-        if (line.startsWith('event:')) event = line.slice(6).trim();
-        else if (line.startsWith('data:')) dataLines.push(line.slice(5).trim());
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      let idx;
+      while ((idx = buf.indexOf('\n\n')) >= 0) {
+        const block = buf.slice(0, idx);
+        buf = buf.slice(idx + 2);
+        let event = 'message';
+        const dataLines = [];
+        for (const line of block.split('\n')) {
+          if (line.startsWith('event:')) event = line.slice(6).trim();
+          else if (line.startsWith('data:')) dataLines.push(line.slice(5).trim());
+        }
+        if (!dataLines.length) continue;
+        let data = null;
+        try {
+          data = JSON.parse(dataLines.join('\n'));
+        } catch (err) {
+          console.warn('[pay] SSE JSON parse failed:', err?.message || err);
+        }
+        yield { event, data };
       }
-      if (!dataLines.length) continue;
-      let data = null;
-      try {
-        data = JSON.parse(dataLines.join('\n'));
-      } catch (err) {
-        console.warn('[pay] SSE JSON parse failed:', err?.message || err);
-      }
-      yield { event, data };
     }
+  } finally {
+    // Always release the lock and tear down the underlying stream, even if the
+    // consumer breaks early or the facilitator closes the connection mid-block.
+    try { await reader.cancel(); } catch { /* already closed */ }
+    try { reader.releaseLock(); } catch { /* lock already released */ }
   }
 }
 
@@ -1740,11 +1764,18 @@ async function run(call, displayLabel) {
   let final = null, errored = false;
   let activeId = 'challenge';
 
+  // Tear down the SSE connection if the stream errors, the tab unloads, or the
+  // consumer exits early — otherwise the half-read reader leaks a held socket.
+  const ctrl = new AbortController();
+  const onUnload = () => ctrl.abort();
+  window.addEventListener('pagehide', onUnload, { once: true });
+
   try {
     const res = await fetch('/api/x402-pay', {
       method: 'POST',
       headers: { 'content-type': 'application/json', accept: 'text/event-stream' },
       body: JSON.stringify(selectedAgent ? { ...call, agentId: selectedAgent.id } : call),
+      signal: ctrl.signal,
     });
     if (!res.ok || !res.body) {
       const text = await res.text();
@@ -1788,9 +1819,15 @@ async function run(call, displayLabel) {
     refreshBalance();
     refreshFeed();
   } catch (err) {
-    setStep(activeId, 'error', String(err.message || err));
-    addMsg('agent', `<div class="err">Network error: ${escape(String(err.message || err))}</div>`);
+    if (err?.name !== 'AbortError') {
+      setStep(activeId, 'error', String(err.message || err));
+      addMsg('agent', `<div class="err">Network error: ${escape(String(err.message || err))}</div>`);
+    }
   } finally {
+    // Abort the request/stream so the reader is never left half-read and remove
+    // the unload guard regardless of how the flow exited.
+    ctrl.abort();
+    window.removeEventListener('pagehide', onUnload);
     const elapsed = Math.round(performance.now() - t0);
     document.title = `${elapsed}ms · three.ws · pay-per-call`;
     sendBtn.disabled = false;
@@ -1947,6 +1984,7 @@ promptEl.focus();
 const BSC_CHAIN_HEX = '0x38'; // 56
 const BSC_USDC      = '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d';
 const BSC_PAYMENTS  = '0x00000000381f09742a30a5a49975514AeC1B72Cc';
+const BSC_RPC       = 'https://bsc-dataseed.binance.org';
 const PRICE         = 1000n; // $0.001 USDC (6 decimals)
 
 const $b = (id) => document.getElementById(id);
@@ -2045,15 +2083,52 @@ function logStep(html, kind = 'info') {
   return div;
 }
 
+// Poll the public BSC RPC over HTTP so we can read a Retry-After header when the
+// node rate-limits us. Returns { receipt, retryAfterMs } — retryAfterMs is the
+// server-suggested backoff (null when none). Falls back to the wallet provider
+// (which can't surface headers) if the direct RPC is unreachable.
+async function fetchReceipt(txHash) {
+  try {
+    const res = await fetch(BSC_RPC, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_getTransactionReceipt', params: [txHash] }),
+    });
+    const ra = res.headers.get('retry-after');
+    let retryAfterMs = null;
+    if (ra) {
+      const secs = Number(ra);
+      retryAfterMs = Number.isFinite(secs) ? secs * 1000 : Math.max(0, new Date(ra).getTime() - Date.now());
+      if (!Number.isFinite(retryAfterMs)) retryAfterMs = null;
+    }
+    if (res.status === 429 || res.status >= 500) return { receipt: null, retryAfterMs };
+    const json = await res.json();
+    return { receipt: json?.result || null, retryAfterMs };
+  } catch {
+    // Direct RPC unreachable — use the connected wallet's provider instead.
+    const receipt = await eth('eth_getTransactionReceipt', [txHash]);
+    return { receipt, retryAfterMs: null };
+  }
+}
+
 async function waitForReceipt(txHash, timeoutMs = 60000) {
   const started = Date.now();
+  let delay = 1500;            // initial poll interval
+  const maxDelay = 12000;      // cap so we still poll a few times near the end
   while (Date.now() - started < timeoutMs) {
-    const rcpt = await eth('eth_getTransactionReceipt', [txHash]);
-    if (rcpt) {
-      if (rcpt.status !== '0x1') throw new Error(`tx ${txHash} reverted on-chain`);
-      return rcpt;
+    const { receipt, retryAfterMs } = await fetchReceipt(txHash);
+    if (receipt) {
+      if (receipt.status !== '0x1') throw new Error(`tx ${txHash} reverted on-chain`);
+      return receipt;
     }
-    await new Promise((r) => setTimeout(r, 1500));
+    // Honor a server-supplied Retry-After; otherwise apply exponential backoff
+    // with light jitter so we don't hammer the node in lockstep.
+    const remaining = timeoutMs - (Date.now() - started);
+    let wait = retryAfterMs != null ? retryAfterMs : delay + Math.floor(Math.random() * 300);
+    wait = Math.min(wait, Math.max(0, remaining));
+    if (wait <= 0) break;
+    await new Promise((r) => setTimeout(r, wait));
+    if (retryAfterMs == null) delay = Math.min(delay * 2, maxDelay);
   }
   throw new Error(`tx ${txHash} did not confirm within ${timeoutMs / 1000}s — check BscScan.`);
 }

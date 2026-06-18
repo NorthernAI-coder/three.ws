@@ -10,6 +10,7 @@
 import { log } from './shared/log.js';
 const STATUS_ENDPOINT = '/api/agents/unstoppable-status';
 const POLL_INTERVAL_MS = 60_000;
+const MAX_BACKOFF_MS = 300_000; // 5 minutes
 const LOCALSTORAGE_KEY = 'unstoppable_last_reading';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -187,7 +188,7 @@ function renderActivityFeed(activities) {
 	}).join('');
 }
 
-function renderFull(data, { fromCache = false } = {}) {
+function renderFull(data, { fromCache = false, savedAt = null } = {}) {
 	const treasury = data.treasury || {};
 	const atomics = treasury.balance_usdc_atomics || 0;
 
@@ -200,7 +201,10 @@ function renderFull(data, { fromCache = false } = {}) {
 	const updatedEl = document.getElementById('heroUpdated');
 	if (updatedEl) {
 		if (fromCache) {
-			updatedEl.textContent = 'Showing cached data — live data costs $0.01 per query';
+			const age = savedAt ? relativeTime(savedAt) : '';
+			updatedEl.innerHTML = age
+				? `Showing cached data <span class="cache-age">(cached ${escapeHtml(age)})</span> — live data costs $0.01 per query`
+				: 'Showing cached data — live data costs $0.01 per query';
 		} else {
 			updatedEl.textContent = 'Updated ' + relativeTime(new Date().toISOString());
 		}
@@ -227,6 +231,34 @@ function renderPaymentRequired(challenge) {
 
 	const updatedEl = document.getElementById('heroUpdated');
 	if (updatedEl) updatedEl.textContent = 'Payment required for live data';
+
+	setDonateLocked(true, priceUsdc);
+}
+
+// Toggle the donate button between its default fund state and the "unlock live
+// data" state shown when the status endpoint returns 402 and we're on cache.
+function setDonateLocked(locked, priceUsdc = '0.01') {
+	const btn = document.getElementById('donateBtn');
+	const label = document.getElementById('donateLabel');
+	if (!btn) return;
+	const price = `$${parseFloat(priceUsdc).toFixed(2)}`;
+	if (locked) {
+		btn.textContent = `Unlock live data — ${price}`;
+		btn.classList.remove('primary');
+		btn.classList.add('unlock');
+		btn.setAttribute('aria-label', `Pay ${price} USDC to unlock live data`);
+		if (label) {
+			label.textContent = "You're viewing cached data. Pay to unlock the agent's live treasury, runway, and activity.";
+		}
+	} else {
+		btn.textContent = 'Donate $0.01';
+		btn.classList.remove('unlock');
+		btn.classList.add('primary');
+		btn.setAttribute('aria-label', 'Donate $0.01 USDC to fund the agent');
+		if (label) {
+			label.textContent = "Keep it alive — donate $0.01 USDC to extend the agent's runway and unlock the live view.";
+		}
+	}
 }
 
 function escapeHtml(str) {
@@ -250,7 +282,7 @@ async function fetchStatus() {
 		});
 	} catch (err) {
 		log.warn('[unstoppable-dashboard] fetch error:', err.message);
-		return null;
+		return { ok: false, transient: true };
 	}
 
 	if (response.status === 200) {
@@ -269,10 +301,23 @@ async function fetchStatus() {
 		return { ok: false, status: 402, challenge };
 	}
 
+	// 5xx (and any other unexpected status) is a transient server fault — the
+	// caller backs the poll interval off so we stop hammering a degraded API.
 	log.warn('[unstoppable-dashboard] unexpected status:', response.status);
-	return null;
+	return { ok: false, transient: true, status: response.status };
 }
 
+function showCachedOrEmpty() {
+	const cached = loadFromCache();
+	if (cached?.data) {
+		renderFull(cached.data, { fromCache: true, savedAt: cached.savedAt });
+		return true;
+	}
+	return false;
+}
+
+// Returns true when the poll succeeded (200 or a clean 402) so the scheduler
+// can reset its backoff; false on transient server/network faults.
 async function poll() {
 	const result = await fetchStatus();
 
@@ -280,7 +325,8 @@ async function poll() {
 		renderFull(result.data);
 		const notice = document.getElementById('paymentNotice');
 		if (notice) notice.style.display = 'none';
-		return;
+		setDonateLocked(false);
+		return true;
 	}
 
 	if (result?.status === 402) {
@@ -288,7 +334,7 @@ async function poll() {
 		// Show cached data if available.
 		const cached = loadFromCache();
 		if (cached?.data) {
-			renderFull(cached.data, { fromCache: true });
+			renderFull(cached.data, { fromCache: true, savedAt: cached.savedAt });
 		} else {
 			// No cache — show zeroed state.
 			const el = document.getElementById('balanceDisplay');
@@ -298,14 +344,13 @@ async function poll() {
 			const card = document.getElementById('reflectionCard');
 			if (card) card.innerHTML = '<div class="reflection-text" style="color: var(--text-3); font-style: italic;">Pay to unlock live reflections.</div>';
 		}
-		return;
+		// A clean 402 is a successful poll — reset the cadence to 60s.
+		return true;
 	}
 
-	// Network or server error — try to show cache.
-	const cached = loadFromCache();
-	if (cached?.data) {
-		renderFull(cached.data, { fromCache: true });
-	}
+	// Network or server error — keep showing cache and signal backoff.
+	showCachedOrEmpty();
+	return false;
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
@@ -322,8 +367,10 @@ async function donate() {
 	}
 
 	const btn = document.getElementById('donateBtn');
+	const retry = document.getElementById('donateRetry');
 	try {
 		if (btn) btn.disabled = true;
+		if (retry) retry.classList.remove('show');
 		const out = await X402.pay({
 			endpoint: STATUS_ENDPOINT,
 			method: 'GET',
@@ -336,6 +383,7 @@ async function donate() {
 		if (out.result && typeof out.result === 'object') {
 			renderFull(out.result);
 			saveToCache(out.result);
+			setDonateLocked(false);
 			const notice = document.getElementById('paymentNotice');
 			if (notice) notice.style.display = 'none';
 		} else {
@@ -344,9 +392,37 @@ async function donate() {
 	} catch (err) {
 		if (err?.code === 'cancelled') return; // donor dismissed the checkout
 		showToast('Payment failed: ' + String(err?.message || 'unknown error').slice(0, 80));
+		// Keep the button live and surface a top-up path — the most common
+		// failure here is an under-funded wallet, which a top-up + retry fixes.
+		if (retry) retry.classList.add('show');
 	} finally {
+		// Re-enable so the donor can retry immediately after topping up.
 		if (btn) btn.disabled = false;
 	}
+}
+
+// Self-scheduling poll loop with exponential backoff. On a healthy poll
+// (200 or a clean 402) the cadence stays at 60s; on a transient 5xx/network
+// fault the delay doubles up to a 5-minute cap so we stop hammering a
+// degraded API, then snaps back to 60s the moment a poll succeeds.
+let currentDelayMs = POLL_INTERVAL_MS;
+let pollTimer = null;
+
+async function scheduledPoll() {
+	let healthy = false;
+	try {
+		healthy = await poll();
+	} catch (err) {
+		log.warn('[unstoppable-dashboard] poll threw:', err?.message);
+	}
+
+	if (healthy) {
+		currentDelayMs = POLL_INTERVAL_MS;
+	} else {
+		currentDelayMs = Math.min(currentDelayMs * 2, MAX_BACKOFF_MS);
+	}
+
+	pollTimer = setTimeout(scheduledPoll, currentDelayMs);
 }
 
 export function init() {
@@ -356,12 +432,12 @@ export function init() {
 	// Show cached data immediately while we fetch.
 	const cached = loadFromCache();
 	if (cached?.data) {
-		renderFull(cached.data, { fromCache: true });
+		renderFull(cached.data, { fromCache: true, savedAt: cached.savedAt });
 	}
 
-	// First poll immediately, then on interval.
-	poll();
-	setInterval(poll, POLL_INTERVAL_MS);
+	// First poll immediately, then schedule with adaptive backoff.
+	if (pollTimer) clearTimeout(pollTimer);
+	scheduledPoll();
 
 	// Update relative timestamps every 30s without re-fetching.
 	setInterval(() => {

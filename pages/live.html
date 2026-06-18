@@ -76,8 +76,14 @@
 			letter-spacing: 0.04em;
 			transform: translate(-50%, 0);
 			white-space: nowrap;
-			pointer-events: none;
+			pointer-events: auto;
+			color: var(--text);
+			text-decoration: none;
+			cursor: pointer;
+			transition: border-color .15s, background .15s;
 		}
+		.agent-tag:hover { border-color: var(--alpha); background: rgba(78,140,255,0.12); }
+		.agent-tag:focus-visible { outline: 2px solid var(--alpha); outline-offset: 2px; }
 		.agent-tag .dot {
 			width: 6px; height: 6px; border-radius: 50%;
 		}
@@ -146,6 +152,31 @@
 		#trade-btn:hover:not(:disabled) { opacity: .85; border-color: rgba(255,255,255,0.5); }
 		#trade-btn:active:not(:disabled) { transform: scale(.97); }
 		#trade-btn:disabled { opacity: .35; cursor: not-allowed; }
+
+		/* Notice — designed fund / not-configured state */
+		#notice {
+			width: 100%;
+			background: rgba(250,77,86,0.08);
+			border: 1px solid rgba(250,77,86,0.4);
+			border-radius: 12px;
+			padding: 11px 14px;
+			backdrop-filter: blur(14px);
+			font-size: 12px;
+			line-height: 1.5;
+			color: var(--text);
+		}
+		#notice.warn { background: rgba(240,160,48,0.09); border-color: rgba(240,160,48,0.42); }
+		#notice .nt-title { font-weight: 700; display: block; margin-bottom: 3px; }
+		#notice .nt-row { display: flex; align-items: center; gap: 8px; margin-top: 7px; flex-wrap: wrap; }
+		#notice .nt-addr { font-family: ui-monospace, monospace; font-size: 11px; color: var(--muted); word-break: break-all; }
+		#notice button, #notice a.nt-act {
+			padding: 5px 11px; border-radius: 8px; cursor: pointer;
+			border: 1px solid var(--border-hi); background: rgba(255,255,255,0.06);
+			color: var(--text); font: 600 11px var(--font); text-decoration: none;
+			transition: background .15s, border-color .15s;
+		}
+		#notice button:hover, #notice a.nt-act:hover { background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.4); }
+		#notice button:focus-visible, #notice a.nt-act:focus-visible { outline: 2px solid var(--alpha); outline-offset: 2px; }
 
 		/* Event log */
 		#log {
@@ -235,13 +266,13 @@
 <iframe id="iframe-oracle" class="agent-iframe" title="Agent Oracle" allow="autoplay"></iframe>
 <iframe id="iframe-trader" class="agent-iframe" title="Agent Trader" allow="autoplay"></iframe>
 
-<!-- Name tags -->
-<div id="tag-oracle" class="agent-tag" style="display:none">
+<!-- Name tags (link to the agent directory) -->
+<a id="tag-oracle" class="agent-tag" href="/agents" title="Browse three.ws agents" style="display:none">
 	<span class="dot"></span>Oracle · Seller
-</div>
-<div id="tag-trader" class="agent-tag" style="display:none">
+</a>
+<a id="tag-trader" class="agent-tag" href="/agents" title="Browse three.ws agents" style="display:none">
 	<span class="dot"></span>Trader · Buyer
-</div>
+</a>
 
 <!-- Balances -->
 <div id="bal-oracle" class="agent-balance" style="display:none">—</div>
@@ -256,6 +287,7 @@
 
 <!-- HUD -->
 <div id="hud">
+	<div id="notice" role="status" aria-live="polite"></div>
 	<button id="trade-btn">▶ &nbsp;Agent Trader pays Oracle for Solana market data</button>
 	<div id="log"><div class="log-entry"><span class="ev">READY</span><span>Agents online. Press the button to initiate a live on-chain trade.</span></div></div>
 </div>
@@ -389,6 +421,33 @@ function addLog(ev, text, opts = {}) {
 	logEl.scrollTop = logEl.scrollHeight;
 }
 
+// ── Notice (designed fund / not-configured / unavailable state) ────────────
+const noticeEl = document.getElementById('notice');
+function clearNotice() { noticeEl.style.display = 'none'; noticeEl.innerHTML = ''; noticeEl.classList.remove('warn'); }
+function showFundNotice(addr, explorerUrl) {
+	noticeEl.classList.add('warn');
+	noticeEl.innerHTML = `
+		<span class="nt-title">⚠ Trader wallet needs funding</span>
+		Fund the Trader wallet with a little SOL, then run the trade again.
+		<div class="nt-row">
+			<span class="nt-addr">${addr}</span>
+			<button type="button" id="nt-copy">Copy address</button>
+			${explorerUrl ? `<a class="nt-act" href="${explorerUrl}" target="_blank" rel="noopener">View on explorer ↗</a>` : ''}
+			<button type="button" id="nt-retry">Retry trade</button>
+		</div>`;
+	noticeEl.style.display = 'block';
+	document.getElementById('nt-copy')?.addEventListener('click', async (ev) => {
+		try { await navigator.clipboard.writeText(addr); ev.target.textContent = 'Copied'; setTimeout(() => { ev.target.textContent = 'Copy address'; }, 1400); }
+		catch { ev.target.textContent = 'Copy failed'; }
+	});
+	document.getElementById('nt-retry')?.addEventListener('click', () => { clearNotice(); runTrade(); });
+}
+function showInfoNotice(title, body) {
+	noticeEl.classList.remove('warn');
+	noticeEl.innerHTML = `<span class="nt-title">${title}</span>${body}`;
+	noticeEl.style.display = 'block';
+}
+
 // ── Wallet status ─────────────────────────────────────────────────────────
 const walletsEl = document.getElementById('wallets');
 function renderWalletChip(label, data, color) {
@@ -415,27 +474,45 @@ function renderWalletChip(label, data, color) {
 	}
 }
 
+function renderUnconfiguredChip(label, color) {
+	const id = `chip-${label.toLowerCase()}`;
+	let chip = document.getElementById(id);
+	if (!chip) {
+		chip = document.createElement('div');
+		chip.id = id;
+		chip.className = 'wallet-chip';
+		walletsEl.appendChild(chip);
+	}
+	chip.innerHTML = `
+		<span class="dot" style="background:${color};opacity:.4"></span>
+		<span>${label}</span>
+		<span class="addr">wallet not configured</span>`;
+}
+
 async function refreshStatus() {
 	try {
 		const r = await fetch('/api/demo/economy?status=1');
 		if (!r.ok) return;
 		const { agentA, agentB } = await r.json();
 		if (agentA?.configured) renderWalletChip('Oracle', agentA, '#888888');
+		else renderUnconfiguredChip('Oracle', '#888888');
 		if (agentB?.configured) renderWalletChip('Trader', agentB, '#4e8cff');
+		else renderUnconfiguredChip('Trader', '#4e8cff');
 	} catch {}
 }
 
 // ── LLM speech helper ─────────────────────────────────────────────────────
-async function llmSay(prompt, persona) {
+async function llmSay(prompt, persona, fallback = '') {
 	try {
 		const r = await fetch('/api/chat', {
 			method: 'POST',
 			headers: { 'content-type': 'application/json' },
 			body: JSON.stringify({ message: prompt, systemPrompt: persona, stream: false }),
 		});
+		if (!r.ok) return fallback;
 		const d = await r.json();
-		return d.reply || d.content || d.text || '';
-	} catch { return ''; }
+		return d.reply || d.content || d.text || fallback;
+	} catch { return fallback; }
 }
 
 const ORACLE_SYS = 'You are Agent Oracle, a 3D AI agent selling live Solana market intelligence on three.ws. You have your own on-chain wallet. Be crisp and confident — 1-2 sentences. Never say you are an AI.';
@@ -444,16 +521,21 @@ const TRADER_SYS = 'You are Agent Trader, a 3D AI agent buying live market data 
 // ── Main trade sequence ───────────────────────────────────────────────────
 const tradeBtn = document.getElementById('trade-btn');
 let running = false;
+let demoMode = false;
+let gotEvent = false;
 
 async function runTrade() {
 	if (running) return;
 	running = true;
+	demoMode = false;
+	gotEvent = false;
+	clearNotice();
 	tradeBtn.disabled = true;
 	tradeBtn.textContent = '⏳  Trade in progress…';
 
 	// Trader initiates
 	waveTrader();
-	const traderLine1 = await llmSay('You want to buy real-time Solana market intelligence from Agent Oracle. Say you are initiating the trade in 1 sentence.', TRADER_SYS);
+	const traderLine1 = await llmSay('You want to buy real-time Solana market intelligence from Agent Oracle. Say you are initiating the trade in 1 sentence.', TRADER_SYS, 'Initiating a purchase from Oracle — preparing payment now.');
 	if (traderLine1) { setBubble('speech-trader', traderLine1); speakTrader(traderLine1); }
 	addLog('INIT', 'Trader agent initiating purchase from Oracle…');
 
@@ -463,13 +545,18 @@ async function runTrade() {
 	const evtSource = new EventSource('/api/demo/economy?trade=1');
 
 	evtSource.addEventListener('thinking', (e) => {
+		gotEvent = true;
 		const d = JSON.parse(e.data);
 		addLog('THINK', d.text);
 	});
 
 	evtSource.addEventListener('demo_mode', (e) => {
+		gotEvent = true;
+		demoMode = true;
 		const d = JSON.parse(e.data);
 		addLog('DEMO', d.text);
+		setBubble('speech-trader', 'No real payment in demo mode — showing live data only.');
+		speakTrader('No real payment in demo mode — showing live data only.');
 		waveOracle();
 	});
 
@@ -477,7 +564,7 @@ async function runTrade() {
 		const d = JSON.parse(e.data);
 		addLog('PAY', d.text);
 		fireBeam(true);   // B → A payment beam
-		const line = await llmSay('You are about to send SOL to Agent Oracle as payment. React in 1 sentence.', TRADER_SYS);
+		const line = await llmSay('You are about to send SOL to Agent Oracle as payment. React in 1 sentence.', TRADER_SYS, 'Locking in the SOL transfer to Oracle now.');
 		if (line) { setBubble('speech-trader', line); speakTrader(line); }
 	});
 
@@ -487,7 +574,7 @@ async function runTrade() {
 		triggerFlash();
 		flashAgent('A');
 		refreshStatus();
-		const line = await llmSay('You just received SOL payment from Agent Trader. React with excitement in 1 sentence.', ORACLE_SYS);
+		const line = await llmSay('You just received SOL payment from Agent Trader. React with excitement in 1 sentence.', ORACLE_SYS, 'Payment received — pulling the latest signals now.');
 		if (line) { setBubble('speech-oracle', line); speakOracle(line); }
 		waveOracle();
 	});
@@ -502,18 +589,33 @@ async function runTrade() {
 		addLog('DELIVER', d.text);
 		drawTvData(d.markets);
 		fireBeam(false);  // A → B data beam
-		const line = await llmSay(`You just delivered ${d.markets?.length || ''} live Solana market signals to Trader. Say it confidently in 1 sentence.`, ORACLE_SYS);
+		const line = await llmSay(`You just delivered ${d.markets?.length || ''} live Solana market signals to Trader. Say it confidently in 1 sentence.`, ORACLE_SYS, 'Fresh Solana market signals delivered — straight from the chain.');
 		if (line) { setBubble('speech-oracle', line); speakOracle(line); }
-		const line2 = await llmSay('You just received live Solana market intelligence from Agent Oracle. React in 1 sentence.', TRADER_SYS);
+		const line2 = await llmSay('You just received live Solana market intelligence from Agent Oracle. React in 1 sentence.', TRADER_SYS, 'Got the intel — reading the market now.');
 		if (line2) { setBubble('speech-trader', line2); speakTrader(line2); }
 		waveTrader();
 	});
 
 	evtSource.addEventListener('error', (e) => {
-		try {
-			const d = JSON.parse(e.data);
-			addLog('ERROR', d.text);
-		} catch {
+		// SSE 'error' fires for both server-emitted error events (with data) and
+		// native transport failures (no data — e.g. the 401 anon visitors hit).
+		if (e?.data) {
+			try {
+				const d = JSON.parse(e.data);
+				addLog('ERROR', d.text);
+				if (d.code === 'underfunded' && d.fundAddress) {
+					showFundNotice(d.fundAddress, d.explorerUrl);
+				}
+			} catch {
+				addLog('ERROR', 'Stream interrupted');
+			}
+		} else if (!gotEvent) {
+			// Never received a single server beat → the live trade couldn't start.
+			// The trade stream requires a signed-in session.
+			addLog('ERROR', 'Could not start the live trade.');
+			showInfoNotice('Sign in to run a live on-chain trade',
+				'The agent-economy trade settles real SOL on Solana, so it needs a signed-in session. <a class="nt-act" href="/login" style="margin-left:6px">Sign in ↗</a>');
+		} else {
 			addLog('ERROR', 'Stream interrupted');
 		}
 		evtSource.close();
@@ -521,8 +623,14 @@ async function runTrade() {
 	});
 
 	evtSource.addEventListener('done', (e) => {
+		gotEvent = true;
 		const d = JSON.parse(e.data);
-		addLog('DONE', `Trade complete. ${d.markets?.length || 0} signals delivered, ${d.tradeSol} SOL settled on-chain.`);
+		const n = d.markets?.length || 0;
+		if (d.paid) {
+			addLog('DONE', `Trade complete. ${n} signals delivered, ${d.tradeSol} SOL settled on-chain.`);
+		} else {
+			addLog('DONE', `Demo complete. ${n} live signals delivered — no real payment occurred.`);
+		}
 		evtSource.close();
 		finishTrade();
 		refreshStatus();
@@ -548,11 +656,11 @@ setInterval(refreshStatus, 10000);
 
 // Greetings
 setTimeout(async () => {
-	const g = await llmSay('Introduce yourself in 1 sentence. You are Agent Oracle, a live 3D AI agent selling Solana market data on three.ws.', ORACLE_SYS);
+	const g = await llmSay('Introduce yourself in 1 sentence. You are Agent Oracle, a live 3D AI agent selling Solana market data on three.ws.', ORACLE_SYS, "I'm Oracle — live Solana market intelligence, settled on-chain.");
 	if (g) { setBubble('speech-oracle', g); speakOracle(g); }
 }, 3000);
 setTimeout(async () => {
-	const g = await llmSay('Introduce yourself in 1 sentence. You are Agent Trader, a live 3D AI agent that buys market intelligence on-chain on three.ws.', TRADER_SYS);
+	const g = await llmSay('Introduce yourself in 1 sentence. You are Agent Trader, a live 3D AI agent that buys market intelligence on-chain on three.ws.', TRADER_SYS, "I'm Trader — I buy live market data on-chain, fast.");
 	if (g) { setBubble('speech-trader', g); speakTrader(g); }
 }, 5500);
 </script>

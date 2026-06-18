@@ -559,6 +559,54 @@
 			padding: 18px 8px;
 		}
 
+		/* ── WebGL-unavailable fallback ─────────────────
+		   No usable 3D context → the legend becomes the primary, full-height list
+		   surface and a banner explains why. Never a blank canvas. */
+		.vz-fallback {
+			top: calc(var(--header-h, 3.5rem) + 56px);
+			left: 50%;
+			transform: translateX(-50%);
+			max-width: min(620px, calc(100vw - 32px));
+			display: flex;
+			align-items: flex-start;
+			gap: 10px;
+			background: rgba(20, 12, 8, 0.92);
+			border: 1px solid rgba(245, 158, 11, 0.4);
+			border-radius: 10px;
+			padding: 12px 14px;
+			color: var(--vz-text);
+			font-size: 12.5px;
+			line-height: 1.45;
+			box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+		}
+		.vz-fallback .icon { color: #f59e0b; font-size: 16px; line-height: 1.2; flex-shrink: 0; }
+		.vz-fallback .body b { color: #fcd34d; }
+		.vz-fallback button {
+			margin-top: 8px;
+			background: transparent;
+			border: 1px solid var(--vz-border);
+			color: var(--vz-text);
+			border-radius: 6px;
+			padding: 5px 10px;
+			font: inherit;
+			font-size: 11px;
+			cursor: pointer;
+		}
+		.vz-fallback button:hover { background: var(--accent-soft); }
+		body.vz-no-webgl #vz-canvas-host { display: none; }
+		body.vz-no-webgl .vz-intro { display: none; }
+		body.vz-no-webgl .vz-ramp { display: none; }
+		body.vz-no-webgl .vz-legend {
+			top: calc(var(--header-h, 3.5rem) + 132px);
+			bottom: 16px;
+			left: 50%;
+			transform: translateX(-50%);
+			width: min(620px, calc(100vw - 32px));
+			max-height: none;
+		}
+		body.vz-no-webgl .vz-legend li { padding: 8px 6px; }
+		body.vz-no-webgl .vz-legend li .thumb { width: 26px; height: 26px; }
+
 		/* ── Market-cap tier key (bottom-right) ───────── */
 		.vz-ramp {
 			bottom: 16px;
@@ -753,6 +801,14 @@
 			<div class="label">Loading market</div>
 		</div>
 
+		<div class="vz-overlay vz-fallback" id="vz-fallback" role="status" hidden>
+			<span class="icon" aria-hidden="true">⚠</span>
+			<div class="body">
+				<div id="vz-fallback-text"><b>3D view unavailable.</b> Your device or browser doesn't support WebGL, so we're showing the live pump.fun feed as a list below. All data is real-time.</div>
+				<button type="button" id="vz-fallback-retry">Try 3D again</button>
+			</div>
+		</div>
+
 		<aside class="vz-overlay vz-legend" id="vz-legend" hidden>
 			<div class="head">Top 20 by Market Cap</div>
 			<ol id="vz-legend-list"></ol>
@@ -820,6 +876,13 @@
 		const MAX_TOKEN_R = 6.0;
 		const REFRESH_INTERVAL_MS = 60_000;
 		const STATS_INTERVAL_MS = 5_000;
+		// SSE reconnect with exponential backoff. The server cycles the stream every
+		// ~90s (a normal `close` that does NOT count as a failure); only connections
+		// that never opened count toward the cap. After FEED_MAX_RECONNECT_ATTEMPTS
+		// consecutive failures we stop auto-retrying and surface a manual Reconnect.
+		const FEED_BASE_BACKOFF_MS = 1_500;
+		const FEED_MAX_BACKOFF_MS = 60_000;
+		const FEED_MAX_RECONNECT_ATTEMPTS = 8;
 		const LABEL_COUNT = 3;            // always-on 3D labels for top-N
 		const FLASH_DURATION_MS = 1800;   // diff-flash on refresh (trending mode)
 		const FEED_CAP = 60;              // max simultaneous spheres in feed mode
@@ -886,29 +949,96 @@
 		// Start far out so we can fly in once data arrives.
 		camera.position.set(0, 14, 180);
 
-		const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-		renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-		renderer.outputColorSpace = THREE.SRGBColorSpace;
-		renderer.toneMapping = THREE.ACESFilmicToneMapping;
-		renderer.toneMappingExposure = 1.05;
-		host.appendChild(renderer.domElement);
+		// ── WebGL capability check ────────────────────────────────────
+		// Low-end / locked-down / software-blocked devices can lack a usable WebGL
+		// context. Detect it up front; if the renderer can't be created we fall back
+		// to a pure-DOM list view (the legend, un-capped) rather than leaving a blank
+		// canvas. `webglOK` gates every GPU touchpoint below.
+		function detectWebGL() {
+			try {
+				const test = document.createElement('canvas');
+				const gl = test.getContext('webgl2') || test.getContext('webgl') || test.getContext('experimental-webgl');
+				if (!gl || typeof gl.getParameter !== 'function') return false;
+				if (gl.isContextLost && gl.isContextLost()) return false;
+				return true;
+			} catch { return false; }
+		}
 
-		// Post-processing — bloom gives emissive (live red, accent purple) cinematic glow.
-		const composer = new EffectComposer(renderer);
-		composer.addPass(new RenderPass(scene, camera));
-		const bloomPass = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.85, 0.55, 0.18);
-		composer.addPass(bloomPass);
-		composer.addPass(new OutputPass());
+		let webglOK = detectWebGL();
+		let renderer = null, composer = null, bloomPass = null, controls = null;
 
-		const controls = new OrbitControls(camera, renderer.domElement);
-		controls.enableDamping = true;
-		controls.dampingFactor = 0.06;
-		controls.rotateSpeed = 0.6;
-		controls.zoomSpeed = 0.7;
-		controls.minDistance = 8;
-		controls.maxDistance = 160;
-		controls.autoRotate = true;
-		controls.autoRotateSpeed = 0.35;
+		if (webglOK) {
+			try {
+				renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+				renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+				renderer.outputColorSpace = THREE.SRGBColorSpace;
+				renderer.toneMapping = THREE.ACESFilmicToneMapping;
+				renderer.toneMappingExposure = 1.05;
+				host.appendChild(renderer.domElement);
+
+				// Post-processing — bloom gives emissive (live red, accent purple) cinematic glow.
+				composer = new EffectComposer(renderer);
+				composer.addPass(new RenderPass(scene, camera));
+				bloomPass = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.85, 0.55, 0.18);
+				composer.addPass(bloomPass);
+				composer.addPass(new OutputPass());
+
+				controls = new OrbitControls(camera, renderer.domElement);
+				controls.enableDamping = true;
+				controls.dampingFactor = 0.06;
+				controls.rotateSpeed = 0.6;
+				controls.zoomSpeed = 0.7;
+				controls.minDistance = 8;
+				controls.maxDistance = 160;
+				controls.autoRotate = true;
+				controls.autoRotateSpeed = 0.35;
+
+				// A context lost after creation (driver reset, mobile GPU recycle) would
+				// otherwise freeze on the last frame — fall back to the list view.
+				renderer.domElement.addEventListener('webglcontextlost', (ev) => {
+					ev.preventDefault();
+					enterListFallback('Your browser dropped the 3D rendering context. Showing the live list instead.');
+				}, false);
+			} catch (err) {
+				console.warn('[pump-visualizer] WebGL renderer init failed, using list fallback:', err?.message || err);
+				webglOK = false;
+				renderer = composer = bloomPass = controls = null;
+			}
+		}
+
+		// Switch the page into the pure-DOM list view. Idempotent — safe to call at
+		// startup (no WebGL) or after a runtime context loss. Tears down any live
+		// renderer, surfaces the explanatory banner, and lets the legend become the
+		// primary, full-height list driven by the same real-time feed.
+		let _listFallbackActive = false;
+		function enterListFallback(message) {
+			webglOK = false;
+			if (renderer) {
+				try { renderer.forceContextLoss?.(); } catch {}
+				try { renderer.dispose(); } catch {}
+				try { renderer.domElement.remove(); } catch {}
+				renderer = composer = bloomPass = controls = null;
+			}
+			document.body.classList.add('vz-no-webgl');
+			const banner = document.getElementById('vz-fallback');
+			if (banner) {
+				if (message) {
+					const txt = document.getElementById('vz-fallback-text');
+					if (txt) txt.innerHTML = `<b>3D view unavailable.</b> ${message}`;
+				}
+				banner.hidden = false;
+			}
+			// Make sure the intro overlay can never sit on top of the list.
+			try { introEl?.classList.add('is-hidden'); } catch {}
+			if (_listFallbackActive) return;
+			_listFallbackActive = true;
+			// Reveal the controls the WebGL path would unveil on first frame. The
+			// intro overlay is hidden above; the feed's first event still calls
+			// revealVisualizer() to finish removing it.
+			try { controlsEl.hidden = false; } catch {}
+			// Re-render whatever data we already have into the list.
+			try { applyFilterAndRender(); } catch {}
+		}
 
 		// Lights
 		scene.add(new THREE.AmbientLight(0xffffff, 0.55));
@@ -1012,6 +1142,36 @@
 			let h = 0;
 			for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
 			return Math.abs(h);
+		}
+
+		// Local, dependency-free avatar for <img> elements (detail panel, legend
+		// thumbs). Renders the same tinted symbol badge as fallbackTexture() so
+		// avatars never depend on an external service that may be blocked.
+		const _avatarCache = new Map();
+		function localAvatarDataURL(symbol, seedMint) {
+			const key = (seedMint || symbol || 'pump').toLowerCase();
+			const cached = _avatarCache.get(key);
+			if (cached) return cached;
+			const size = 128;
+			const c = document.createElement('canvas');
+			c.width = size; c.height = size;
+			const ctx = c.getContext('2d');
+			const hue = hashStr(key) % 360;
+			const grad = ctx.createRadialGradient(size / 2, size / 2, size / 8, size / 2, size / 2, size / 2);
+			grad.addColorStop(0, `hsl(${hue}, 70%, 55%)`);
+			grad.addColorStop(1, `hsl(${(hue + 40) % 360}, 70%, 25%)`);
+			ctx.fillStyle = grad;
+			ctx.fillRect(0, 0, size, size);
+			ctx.fillStyle = '#fff';
+			ctx.font = 'bold 48px "Space Grotesk", system-ui, sans-serif';
+			ctx.textAlign = 'center';
+			ctx.textBaseline = 'middle';
+			const label = ((symbol || '?').slice(0, 4)).toUpperCase();
+			ctx.fillText(label, size / 2, size / 2 + 3);
+			const url = c.toDataURL('image/png');
+			if (_avatarCache.size > 200) _avatarCache.clear();
+			_avatarCache.set(key, url);
+			return url;
 		}
 
 		function loadTokenTexture(url, fallback) {
@@ -1135,6 +1295,7 @@
 		}
 
 		function placeTokens(tokens) {
+			if (!webglOK) return; // list-view fallback renders from state.all via the legend
 			// Snapshot previous mcaps so the new entries can compute a delta.
 			tokenMeshes.forEach((entry) => {
 				const m = Number(entry.data?.usd_market_cap) || 0;
@@ -1277,29 +1438,33 @@
 		let hovered = null;
 		let selected = null;
 
-		renderer.domElement.addEventListener('pointermove', (ev) => {
-			const rect = renderer.domElement.getBoundingClientRect();
-			pointer.x = ((ev.clientX - rect.left) / rect.width) * 2 - 1;
-			pointer.y = -((ev.clientY - rect.top) / rect.height) * 2 + 1;
-			tooltip.style.left = ev.clientX + 'px';
-			tooltip.style.top = ev.clientY + 'px';
-		});
-
-		// Click vs drag detection — OrbitControls swallows drags but we still
-		// want to suppress clicks that came from a long mouse-down or movement.
+		// Pointer interaction is only meaningful when there's a 3D canvas. Without
+		// WebGL the list-view fallback drives navigation via legend clicks instead.
 		let pressStart = null;
-		renderer.domElement.addEventListener('pointerdown', (ev) => {
-			pressStart = { x: ev.clientX, y: ev.clientY, t: Date.now() };
-		});
-		renderer.domElement.addEventListener('pointerup', (ev) => {
-			if (!pressStart) return;
-			const dx = ev.clientX - pressStart.x;
-			const dy = ev.clientY - pressStart.y;
-			const dt = Date.now() - pressStart.t;
-			pressStart = null;
-			if (Math.hypot(dx, dy) > 6 || dt > 350) return;
-			handleClick();
-		});
+		if (renderer) {
+			renderer.domElement.addEventListener('pointermove', (ev) => {
+				const rect = renderer.domElement.getBoundingClientRect();
+				pointer.x = ((ev.clientX - rect.left) / rect.width) * 2 - 1;
+				pointer.y = -((ev.clientY - rect.top) / rect.height) * 2 + 1;
+				tooltip.style.left = ev.clientX + 'px';
+				tooltip.style.top = ev.clientY + 'px';
+			});
+
+			// Click vs drag detection — OrbitControls swallows drags but we still
+			// want to suppress clicks that came from a long mouse-down or movement.
+			renderer.domElement.addEventListener('pointerdown', (ev) => {
+				pressStart = { x: ev.clientX, y: ev.clientY, t: Date.now() };
+			});
+			renderer.domElement.addEventListener('pointerup', (ev) => {
+				if (!pressStart) return;
+				const dx = ev.clientX - pressStart.x;
+				const dy = ev.clientY - pressStart.y;
+				const dt = Date.now() - pressStart.t;
+				pressStart = null;
+				if (Math.hypot(dx, dy) > 6 || dt > 350) return;
+				handleClick();
+			});
+		}
 
 		function visibleMeshes() {
 			return tokenMeshes.filter((t) => t.visible).map((t) => t.mesh);
@@ -1313,14 +1478,26 @@
 			selectToken(data);
 		}
 
+		// A pump.fun mint is a base58 string (no 0/O/I/l). Guard navigation so a
+		// missing/empty/malformed mint never produces a broken /coin3d?mint= URL.
+		function isValidMint(mint) {
+			return typeof mint === 'string' && /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(mint.trim());
+		}
+		function openCoin3d(mint) {
+			if (!isValidMint(mint)) return false;
+			window.location.href = `/coin3d?mint=${encodeURIComponent(mint.trim())}`;
+			return true;
+		}
+
 		// Double-click drills straight into the full 3D coin page (same tab).
-		renderer.domElement.addEventListener('dblclick', () => {
-			raycaster.setFromCamera(pointer, camera);
-			const hits = raycaster.intersectObjects(visibleMeshes(), false);
-			if (!hits.length) return;
-			const mint = hits[0].object.userData.token?.mint;
-			if (mint) window.location.href = `/coin3d?mint=${encodeURIComponent(mint)}`;
-		});
+		if (renderer) {
+			renderer.domElement.addEventListener('dblclick', () => {
+				raycaster.setFromCamera(pointer, camera);
+				const hits = raycaster.intersectObjects(visibleMeshes(), false);
+				if (!hits.length) return;
+				openCoin3d(hits[0].object.userData.token?.mint);
+			});
+		}
 
 		function setHovered(entry) {
 			if (hovered === entry) return;
@@ -1343,15 +1520,22 @@
 
 		function selectToken(token) {
 			const entry = tokenMeshes.find((t) => t.data.mint === token.mint);
-			if (!entry) return;
-			if (selected && selected !== entry) {
-				selected.ring.material.opacity = selected.isLive ? 0.45 : 0;
-				selected.ring.material.color.set(selected.isLive ? liveGlowHex(selected.data) : 0x8b5cf6);
+			// In the list-view fallback there are no meshes — still open the detail
+			// panel and highlight the legend row so selection works without WebGL.
+			if (entry) {
+				if (selected && selected !== entry) {
+					selected.ring.material.opacity = selected.isLive ? 0.45 : 0;
+					selected.ring.material.color.set(selected.isLive ? liveGlowHex(selected.data) : 0x8b5cf6);
+				}
+				selected = entry;
+				selected.ring.material.color.set(0x34d399);
+				selected.ring.material.opacity = 1;
+			} else if (!webglOK) {
+				selected = null;
+			} else {
+				return;
 			}
-			selected = entry;
-			selected.ring.material.color.set(0x34d399);
-			selected.ring.material.opacity = 1;
-			controls.autoRotate = false;
+			if (controls) controls.autoRotate = false;
 			renderDetail(token);
 			highlightLegend(token.mint);
 		}
@@ -1364,7 +1548,7 @@
 			}
 			detailEl.classList.remove('is-open');
 			detailEl.setAttribute('aria-hidden', 'true');
-			controls.autoRotate = true;
+			if (controls) controls.autoRotate = true;
 			highlightLegend(null);
 		}
 
@@ -1393,7 +1577,7 @@
 		// ── detail panel rendering ───────────────────────────────────
 		function renderDetail(token) {
 			const avatar = document.getElementById('vz-detail-avatar');
-			const fallbackAvatar = `https://api.dicebear.com/7.x/shapes/svg?seed=${encodeURIComponent(token.mint || token.symbol || 'x')}`;
+			const fallbackAvatar = localAvatarDataURL(token.symbol, token.mint || token.symbol);
 			avatar.src = proxiedImg(token.image_uri, token.mint || token.symbol) || fallbackAvatar;
 			avatar.onerror = () => { avatar.onerror = null; avatar.src = fallbackAvatar; };
 
@@ -1429,7 +1613,9 @@
 				// it settles through the same-origin RPC proxy. Lazy-loaded on click so
 				// the heavy Solana/pump SDKs never weigh down the visualizer bundle.
 				linksEl.appendChild(buyButtonNode(token));
-				linksEl.appendChild(linkNode(`/coin3d?mint=${encodeURIComponent(token.mint)}`, 'Open in 3D →', { internal: true }));
+				if (isValidMint(token.mint)) {
+					linksEl.appendChild(linkNode(`/coin3d?mint=${encodeURIComponent(token.mint.trim())}`, 'Open in 3D →', { internal: true }));
+				}
 				linksEl.appendChild(linkNode(`https://pump.fun/coin/${token.mint}`, 'Pump.fun ↗'));
 				linksEl.appendChild(linkNode(`https://solscan.io/token/${token.mint}`, 'Solscan ↗'));
 			}
@@ -1480,15 +1666,32 @@
 			}
 		}
 
-		const _oracleCache = new Map();
+		// Bounded conviction cache — entries expire after ORACLE_TTL_MS (so a coin's
+		// conviction can refresh over a long session) and the Map is capped at
+		// ORACLE_CACHE_MAX (oldest evicted first) so it never creeps unbounded.
+		const ORACLE_TTL_MS = 5 * 60 * 1000;
+		const ORACLE_CACHE_MAX = 500;
+		const _oracleCache = new Map(); // mint → { value, expires }
 		async function fetchOracleConviction(mint) {
-			if (_oracleCache.has(mint)) return _oracleCache.get(mint);
+			const now = Date.now();
+			const hit = _oracleCache.get(mint);
+			if (hit && hit.expires > now) {
+				// Refresh LRU position so frequently-viewed coins survive eviction.
+				_oracleCache.delete(mint);
+				_oracleCache.set(mint, hit);
+				return hit.value;
+			}
+			if (hit) _oracleCache.delete(mint);
 			try {
 				const r = await fetch(`/api/oracle/coin?mint=${encodeURIComponent(mint)}&network=mainnet`);
 				if (!r.ok) return null;
 				const d = await r.json();
 				const cv = d?.conviction ? { score: d.conviction.score, tier: d.conviction.tier } : null;
-				_oracleCache.set(mint, cv);
+				_oracleCache.set(mint, { value: cv, expires: now + ORACLE_TTL_MS });
+				if (_oracleCache.size > ORACLE_CACHE_MAX) {
+					const oldest = _oracleCache.keys().next().value;
+					if (oldest !== undefined) _oracleCache.delete(oldest);
+				}
 				return cv;
 			} catch { return null; }
 		}
@@ -1591,7 +1794,10 @@
 			legendList.innerHTML = '';
 			legendEl.classList.toggle('is-empty', tokens.length === 0);
 			const isFeed = state.mode === 'feed' || state.mode === 'migrations';
-			tokens.slice(0, 20).forEach((token, i) => {
+			// The 3D overlay legend stays compact (top 20); the list-view fallback is
+			// the primary surface and renders everything it's handed.
+			const cap = webglOK ? 20 : tokens.length;
+			tokens.slice(0, cap).forEach((token, i) => {
 				const li = document.createElement('li');
 				li.dataset.mint = token.mint || '';
 				if (token.is_currently_live) li.classList.add('is-live');
@@ -1611,8 +1817,9 @@
 				thumb.alt = '';
 				thumb.loading = 'lazy';
 				thumb.referrerPolicy = 'no-referrer';
-				thumb.src = proxiedImg(token.image_uri, token.mint || token.symbol) || `https://api.dicebear.com/7.x/shapes/svg?seed=${encodeURIComponent(token.mint || token.symbol || 'x')}`;
-				thumb.onerror = () => { thumb.onerror = null; thumb.src = `https://api.dicebear.com/7.x/shapes/svg?seed=${encodeURIComponent(token.mint || 'x')}`; };
+				const thumbFallback = localAvatarDataURL(token.symbol, token.mint || token.symbol);
+				thumb.src = proxiedImg(token.image_uri, token.mint || token.symbol) || thumbFallback;
+				thumb.onerror = () => { thumb.onerror = null; thumb.src = thumbFallback; };
 
 				const name = document.createElement('span');
 				name.className = 'name';
@@ -1902,18 +2109,30 @@
 
 		// ── resize ───────────────────────────────────────────────────
 		function resize() {
+			if (!renderer || !composer) return; // nothing to size in list-view fallback
 			const w = host.clientWidth || window.innerWidth;
 			const h = host.clientHeight || window.innerHeight;
 			renderer.setSize(w, h, false);
 			composer.setSize(w, h);
 			composer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-			bloomPass.setSize(w, h);
+			if (bloomPass) bloomPass.setSize(w, h);
 			camera.aspect = w / h;
 			camera.updateProjectionMatrix();
 		}
 		window.addEventListener('resize', resize);
+		// Respond to container resizes (sidebar toggles, devtools docking, CSS
+		// breakpoint reflows) without requiring a reload. rAF-coalesced so a burst
+		// of observer callbacks triggers a single renderer/camera update.
+		let _resizeRaf = 0;
+		if (typeof ResizeObserver !== 'undefined') {
+			const ro = new ResizeObserver(() => {
+				if (_resizeRaf) return;
+				_resizeRaf = requestAnimationFrame(() => { _resizeRaf = 0; resize(); });
+			});
+			ro.observe(host);
+		}
 		resize();
-		animate();
+		if (webglOK) animate();
 
 		// ── state, filtering, sorting ────────────────────────────────
 		const state = {
@@ -1928,9 +2147,21 @@
 				statsTimer: null,
 				mintsPerMin: 0,
 				gradsPerHour: 0,
-				seen: new Set(),
+				seen: new Map(), // mint → last-seen epoch ms; TTL-bounded (see appendFeedToken)
+				everOpened: false,        // ever had a healthy SSE connection
+				reconnectAttempts: 0,     // consecutive failed reconnects (reset on open)
+				dead: false,              // permanent dead-feed state after the cap
 			},
 		};
+
+		// A mint may legitimately re-appear in the firehose much later (e.g. a
+		// graduation event for a token whose mint we saw days ago). Rather than an
+		// arbitrary "drop oldest" Set that lets *recent* tokens re-enter and confuse
+		// the viewer, we key by last-seen time: a mint is only re-admitted once it
+		// has aged past FEED_SEEN_TTL_MS, and the dedupe Map self-prunes expired
+		// entries so it stays bounded without re-admitting fresh ones.
+		const FEED_SEEN_TTL_MS = 30 * 60 * 1000;
+		const FEED_SEEN_MAX = 8192;
 
 		function sortTokens(tokens, mode) {
 			const arr = tokens.slice();
@@ -1962,11 +2193,14 @@
 		}
 
 		function applyFilterAndRender() {
+			// The list-view fallback is the primary surface, so it shows a deeper feed
+			// (the 3D scene caps the legend to keep the overlay compact).
+			const streamCap = webglOK ? 20 : 80;
 			if (state.mode === 'feed' || state.mode === 'migrations') {
 				// In stream modes `state.all` is already newest-first; no re-sort.
 				const filtered = filterTokens(state.all, state.query);
 				applyVisibility(filtered.map((t) => t.mint));
-				renderLegend(filtered.slice(0, 20));
+				renderLegend(filtered.slice(0, streamCap));
 				return;
 			}
 			const sorted = sortTokens(state.all, state.sortMode);
@@ -2094,13 +2328,34 @@
 		}
 
 		function appendFeedToken(token) {
-			if (!token.mint || state.feed.seen.has(token.mint)) return;
-			state.feed.seen.add(token.mint);
-			if (state.feed.seen.size > 4096) {
-				// Bound the dedupe set; oldest forgotten mints can re-enter the scene,
-				// which is acceptable for a firehose visualizer.
-				const it = state.feed.seen.values();
-				for (let i = 0; i < 1024; i++) state.feed.seen.delete(it.next().value);
+			if (!token.mint) return;
+			const now = Date.now();
+			const lastSeen = state.feed.seen.get(token.mint);
+			if (lastSeen != null && now - lastSeen < FEED_SEEN_TTL_MS) {
+				// Still within the dedupe window — refresh recency and skip the dupe.
+				state.feed.seen.set(token.mint, now);
+				return;
+			}
+			// New mint, or one that has aged past the TTL → admit and mark recency.
+			state.feed.seen.set(token.mint, now);
+			// Prune entries older than the TTL; only fall back to evicting the very
+			// oldest if the Map is still over the hard cap after expiry pruning.
+			if (state.feed.seen.size > FEED_SEEN_MAX) {
+				for (const [mint, ts] of state.feed.seen) {
+					if (now - ts >= FEED_SEEN_TTL_MS) state.feed.seen.delete(mint);
+				}
+				while (state.feed.seen.size > FEED_SEEN_MAX) {
+					const oldest = state.feed.seen.keys().next().value;
+					if (oldest === undefined) break;
+					state.feed.seen.delete(oldest);
+				}
+			}
+			// List-view fallback: keep the data flowing into state.all (and the
+			// legend) but skip all GPU mesh allocation.
+			if (!webglOK) {
+				state.all.unshift(token);
+				if (state.all.length > FEED_CAP * 2) state.all.length = FEED_CAP * 2;
+				return;
 			}
 			const p = randomShellPoint();
 			const shellR = SPHERE_RADIUS * (0.80 + Math.random() * 0.22);
@@ -2187,14 +2442,21 @@
 
 		function connectFeed() {
 			disconnectFeed();
+			state.feed.dead = false;
+			hideFeedDeadState();
 			const kind = state.feed.kind;
 			const url = kind === 'graduation' ? MIGRATIONS_FEED_API : LIVE_FEED_API;
 			const eventName = kind === 'graduation' ? 'graduation' : 'mint';
 			const normalize = kind === 'graduation' ? normalizeFeedGraduation : normalizeFeedMint;
 			const es = new EventSource(url);
 			state.feed.es = es;
+			// Did *this* connection ever open? A clean 90s server cycle (opened then
+			// closed) is healthy and must not count toward the failure cap.
+			let thisOpened = false;
 			es.addEventListener('open', () => {
+				thisOpened = true;
 				state.feed.everOpened = true;
+				state.feed.reconnectAttempts = 0; // healthy connection clears backoff
 				if (firstLoad) revealVisualizer();
 				statusEl.dataset.state = 'ready';
 				updateStats();
@@ -2212,9 +2474,9 @@
 				if (firstLoad) revealVisualizer();
 			});
 			// Server keeps SSE open for 90s then sends `close` — we reconnect.
-			es.addEventListener('close', () => scheduleFeedReconnect());
+			es.addEventListener('close', () => scheduleFeedReconnect(thisOpened));
 			es.addEventListener('error', () => {
-				if (es.readyState === EventSource.CLOSED) scheduleFeedReconnect();
+				if (es.readyState === EventSource.CLOSED) scheduleFeedReconnect(thisOpened);
 				// Don't surface "unreachable" once we've had a working connection —
 				// transient reconnects are normal (server cycles every 90s).
 				else if (!state.feed.everOpened) {
@@ -2230,10 +2492,65 @@
 			state.feed.retryTimer = null;
 		}
 
-		function scheduleFeedReconnect() {
+		// Exponential backoff with a hard cap on both the delay and the attempt
+		// count. A connection that opened cleanly (the normal 90s cycle) reconnects
+		// immediately and resets backoff; only never-opened failures escalate the
+		// delay, and after the cap we enter a permanent dead-feed state.
+		function scheduleFeedReconnect(connectionWasHealthy) {
 			if (state.mode !== 'feed' && state.mode !== 'migrations') return;
 			clearTimeout(state.feed.retryTimer);
-			state.feed.retryTimer = setTimeout(connectFeed, 1200);
+			if (connectionWasHealthy) {
+				// Healthy cycle → quick reconnect, no penalty.
+				state.feed.reconnectAttempts = 0;
+				state.feed.retryTimer = setTimeout(connectFeed, FEED_BASE_BACKOFF_MS);
+				return;
+			}
+			if (state.feed.reconnectAttempts >= FEED_MAX_RECONNECT_ATTEMPTS) {
+				enterFeedDeadState();
+				return;
+			}
+			const delay = Math.min(
+				FEED_BASE_BACKOFF_MS * 2 ** state.feed.reconnectAttempts,
+				FEED_MAX_BACKOFF_MS,
+			);
+			state.feed.reconnectAttempts++;
+			statusEl.dataset.state = 'error';
+			statusText.textContent = `Feed unreachable · retrying in ${Math.round(delay / 1000)}s (${state.feed.reconnectAttempts}/${FEED_MAX_RECONNECT_ATTEMPTS})`;
+			state.feed.retryTimer = setTimeout(connectFeed, delay);
+		}
+
+		// Permanent dead-feed state: stop auto-retrying and offer a manual Reconnect.
+		function enterFeedDeadState() {
+			disconnectFeed();
+			state.feed.dead = true;
+			statusEl.dataset.state = 'error';
+			statusText.textContent = 'Live feed offline';
+			errorMessage.textContent = 'Could not reach the pump.fun firehose after several attempts. PumpPortal may be temporarily down.';
+			const retry = document.getElementById('vz-error-retry');
+			if (retry) retry.textContent = 'Reconnect';
+			const heading = errorEl.querySelector('h3');
+			if (heading) heading.textContent = 'Live feed offline';
+			errorEl.hidden = false;
+		}
+
+		// Clear a previously-raised dead-feed error box and restore the trending
+		// error copy, so a fresh connect attempt starts from a clean slate.
+		function hideFeedDeadState() {
+			if (errorEl.hidden) return;
+			errorEl.hidden = true;
+			const heading = errorEl.querySelector('h3');
+			if (heading) heading.textContent = 'Could not load trending tokens';
+			const retry = document.getElementById('vz-error-retry');
+			if (retry) retry.textContent = 'Retry';
+		}
+
+		// Manual reconnect from the dead-feed state — reset the backoff and retry.
+		// connectFeed() clears the dead-feed error box via hideFeedDeadState().
+		function manualReconnectFeed() {
+			state.feed.reconnectAttempts = 0;
+			statusEl.dataset.state = 'loading';
+			statusText.textContent = 'Reconnecting to pump.fun firehose…';
+			connectFeed();
 		}
 
 		async function tickFeedStats() {
@@ -2268,6 +2585,9 @@
 			refreshBtn.disabled = true;
 			errorEl.hidden = true;
 			clearAllTokens();
+			state.feed.everOpened = false;
+			state.feed.reconnectAttempts = 0;
+			state.feed.dead = false;
 			legendHeadEl.textContent = 'Latest mints';
 			statusEl.dataset.state = firstLoad ? 'loading' : 'ready';
 			statusText.textContent = firstLoad ? 'Connecting to pump.fun firehose…' : 'pump.fun firehose · live mints';
@@ -2308,6 +2628,9 @@
 			refreshBtn.disabled = true;
 			errorEl.hidden = true;
 			clearAllTokens();
+			state.feed.everOpened = false;
+			state.feed.reconnectAttempts = 0;
+			state.feed.dead = false;
 			legendHeadEl.textContent = 'Latest migrations';
 			statusEl.dataset.state = firstLoad ? 'loading' : 'ready';
 			statusText.textContent = firstLoad ? 'Connecting to pump.fun firehose…' : 'pump.fun firehose · live migrations';
@@ -2325,9 +2648,15 @@
 			statusEl.dataset.mode = 'trending';
 			modeBtns.forEach((b) => b.classList.toggle('is-active', b.dataset.mode === 'trending'));
 			disconnectFeed();
+			state.feed.dead = false;
 			clearInterval(state.feed.statsTimer);
 			state.feed.statsTimer = null;
 			clearAllTokens();
+			// Restore the trending error copy in case a dead-feed state edited it.
+			const heading = errorEl.querySelector('h3');
+			if (heading) heading.textContent = 'Could not load trending tokens';
+			const retry = document.getElementById('vz-error-retry');
+			if (retry) retry.textContent = 'Retry';
 			legendHeadEl.textContent = 'Top 20 by Market Cap';
 			loadData();
 		}
@@ -2450,7 +2779,15 @@
 			clearSelection();
 			loadData();
 		});
-		errorRetry.addEventListener('click', () => loadData());
+		// The error box is shared: in trending mode "Retry" reloads the snapshot; in
+		// a live-stream dead-feed state it manually reconnects the SSE firehose.
+		errorRetry.addEventListener('click', () => {
+			if ((state.mode === 'feed' || state.mode === 'migrations') && state.feed.dead) {
+				manualReconnectFeed();
+			} else {
+				loadData();
+			}
+		});
 
 		// Pause auto-refresh / live feed when tab is hidden; resume on focus.
 		document.addEventListener('visibilitychange', () => {
@@ -2499,6 +2836,16 @@
 				host.appendChild(row);
 			});
 		})();
+
+		// "Try 3D again" reloads the page so WebGL init runs fresh — the most
+		// reliable way to recover a usable context after a software-block lifts or a
+		// GPU reset clears.
+		const fallbackRetryBtn = document.getElementById('vz-fallback-retry');
+		if (fallbackRetryBtn) fallbackRetryBtn.addEventListener('click', () => window.location.reload());
+
+		// If WebGL never came up, switch to the list view before booting the feed so
+		// the very first event renders into the legend instead of a blank canvas.
+		if (!webglOK) enterListFallback();
 
 		// Boot in live-firehose mode.
 		enterFeedMode();

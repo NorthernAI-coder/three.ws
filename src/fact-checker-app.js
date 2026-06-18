@@ -32,7 +32,10 @@ function showOnly(panelId) {
 function setLoading(active) {
 	const btn = el('check-btn');
 	const status = el('loading-status');
-	if (btn) btn.disabled = active;
+	if (btn) {
+		btn.disabled = active;
+		btn.setAttribute('aria-busy', String(active));
+	}
 	if (status) status.classList.toggle('active', active);
 }
 
@@ -152,31 +155,35 @@ function renderResult(data) {
 // ── 402 Payment required ──────────────────────────────────────────────────────
 
 function renderPaymentRequired(responseData) {
-	const descEl = el('payment-desc');
-	if (descEl) {
-		const price = responseData?.priceUsdc || '$0.10';
-		descEl.textContent = `This endpoint costs ${price} per check. Connect your wallet to pay with USDC on Base or Solana.`;
+	// Parse the per-network prices from the live 402 challenge. We never fall back
+	// to a hardcoded number: if the challenge can't be read, the UI says so plainly
+	// rather than quoting a possibly-stale price.
+	const accepts = Array.isArray(responseData?.accepts) ? responseData.accepts : [];
+	const baseEl = el('payment-price-base');
+	const solEl = el('payment-price-sol');
+	const UNAVAILABLE = 'price unavailable';
+
+	let basePrice = null;
+	let solPrice = null;
+	for (const acc of accepts) {
+		const atomics = parseInt(acc?.amount || '0', 10);
+		if (!Number.isFinite(atomics) || atomics <= 0) continue;
+		const usdc = `$${(atomics / 1_000_000).toFixed(2)}`;
+		if (acc.network?.includes('8453') || acc.network === 'base') basePrice = usdc;
+		if (acc.network?.includes('solana') || acc.network?.includes('5eykt')) solPrice = usdc;
 	}
 
-	// Try to extract price from 402 body.
-	try {
-		const accepts = responseData?.accepts || [];
-		for (const acc of accepts) {
-			const atomics = parseInt(acc.amount || '0', 10);
-			if (atomics > 0) {
-				const usdc = (atomics / 1_000_000).toFixed(2);
-				if (acc.network?.includes('8453') || acc.network === 'base') {
-					const el2 = el('payment-price-base');
-					if (el2) el2.textContent = `$${usdc}`;
-				}
-				if (acc.network?.includes('solana') || acc.network?.includes('5eykt')) {
-					const el2 = el('payment-price-sol');
-					if (el2) el2.textContent = `$${usdc}`;
-				}
-			}
-		}
-	} catch {
-		// Best-effort.
+	if (baseEl) baseEl.textContent = basePrice || UNAVAILABLE;
+	if (solEl) solEl.textContent = solPrice || UNAVAILABLE;
+
+	// A single authoritative price for the description: prefer the server's own
+	// priceUsdc, else the lowest network quote we parsed, else admit it's unknown.
+	const descEl = el('payment-desc');
+	if (descEl) {
+		const headline = responseData?.priceUsdc || basePrice || solPrice;
+		descEl.textContent = headline
+			? `This endpoint costs ${headline} per check. Connect your wallet to pay with USDC on Base or Solana.`
+			: 'This endpoint requires a USDC payment per check, but the live price could not be read just now. Connect your wallet to pay with USDC on Base or Solana — the exact amount is confirmed in your wallet before you sign.';
 	}
 
 	showOnly('payment-panel');
@@ -186,7 +193,7 @@ function renderPaymentRequired(responseData) {
 
 async function runCheck(claim, strictness) {
 	setLoading(true);
-	updateLoadingStatus('Submitting claim...');
+	updateLoadingStatus('Checking — searching sources and weighing evidence…');
 	showOnly('skeleton');
 
 	try {
@@ -215,7 +222,7 @@ async function runCheck(claim, strictness) {
 				errBody = null;
 			}
 			showError(
-				errBody?.error || errBody?.message || `HTTP ${res.status} error`,
+				errBody?.error || errBody?.message || friendlyHttpError(res.status),
 				errBody?.code || `http_${res.status}`,
 			);
 			return;
@@ -254,33 +261,30 @@ function updateCharCounter(len) {
 
 // ── Loading status text ───────────────────────────────────────────────────────
 
-const LOADING_STAGES = [
-	'Generating search queries...',
-	'Searching web sources...',
-	'Analyzing evidence...',
-	'Computing verdict...',
-];
-let loadingStageIdx = 0;
-let loadingInterval = null;
-
+// The /api/x402/fact-check endpoint returns a single JSON response — it does not
+// stream per-stage progress. So we show one honest indicator for the whole wait
+// rather than inventing timed "stages" that bear no relation to the backend.
 function updateLoadingStatus(text) {
 	const el2 = el('loading-status');
 	if (!el2) return;
-	if (!text) {
-		clearInterval(loadingInterval);
-		loadingInterval = null;
-		el2.textContent = '';
-		return;
-	}
-	el2.textContent = text;
-	if (text === 'Submitting claim...') {
-		// Cycle through stages automatically.
-		loadingStageIdx = 0;
-		clearInterval(loadingInterval);
-		loadingInterval = setInterval(() => {
-			loadingStageIdx = (loadingStageIdx + 1) % LOADING_STAGES.length;
-			el2.textContent = LOADING_STAGES[loadingStageIdx];
-		}, 2000);
+	el2.textContent = text || '';
+}
+
+// ── HTTP status → friendly copy ────────────────────────────────────────────────
+
+function friendlyHttpError(status) {
+	switch (status) {
+		case 429:
+			return 'Too many checks right now. Wait a moment and try again.';
+		case 500:
+			return 'The fact-checker hit an internal error. Please try again.';
+		case 502:
+		case 503:
+			return 'The fact-checker is temporarily unavailable. Please try again in a few seconds.';
+		case 504:
+			return 'The check took too long to respond. Please try again.';
+		default:
+			return `The request failed (HTTP ${status}). Please try again.`;
 	}
 }
 

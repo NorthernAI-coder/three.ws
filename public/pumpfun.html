@@ -127,6 +127,7 @@
 		.pf-status { padding: 32px 16px; text-align: center; color: var(--muted); font-size: 13px; }
 		.pf-status .cta { display: inline-block; margin-top: 10px; padding: 8px 14px; background: var(--accent); color: #fff; border-radius: 6px; font-size: 13px; }
 		.pf-status .cta:hover { filter: brightness(1.1); text-decoration: none; }
+		.pf-status button.cta { border: 0; cursor: pointer; font: inherit; line-height: 1.55; }
 		.pf-loadmore { display: block; margin: 16px auto 0; background: #171717; color: #eee; border: 1px solid #2b2b2b; border-radius: 6px; padding: 8px 16px; font-size: 13px; cursor: pointer; }
 		.pf-loadmore:hover { background: #212121; }
 		.pf-loadmore[disabled] { opacity: 0.5; cursor: wait; }
@@ -176,7 +177,7 @@
 		#anim-chips { display: flex; gap: 6px; flex-wrap: wrap; padding: 8px 12px;
 			border-top: 1px solid var(--border); background: rgba(20,20,28,0.85);
 			backdrop-filter: blur(6px); max-height: 96px; overflow-y: auto; }
-		#anim-chips:empty::before { content: 'loading animations…'; color: var(--muted); font-size: 11px; }
+		#anim-chips[aria-busy="true"]::before { content: 'loading animations…'; color: var(--muted); font-size: 11px; align-self: center; }
 		.anim-chip { background: #171717; color: #ddd; border: 1px solid #2b2b2b;
 			border-radius: 999px; padding: 4px 10px; font-size: 12px; cursor: pointer;
 			transition: background 0.15s, border-color 0.15s, transform 0.1s; user-select: none; }
@@ -184,6 +185,28 @@
 		.anim-chip:active { transform: scale(0.96); }
 		.anim-chip[data-active="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
 		.anim-chip[disabled] { opacity: 0.5; cursor: wait; }
+		#anim-loop-toggle { display: inline-flex; align-items: center; gap: 5px; background: #171717;
+			color: #ddd; border: 1px solid #2b2b2b; border-radius: 999px; padding: 4px 11px; font-size: 12px;
+			cursor: pointer; transition: background 0.15s, border-color 0.15s, transform 0.1s; user-select: none;
+			margin-right: 4px; flex: 0 0 auto; }
+		#anim-loop-toggle:hover { background: #212121; border-color: #3b3b3b; }
+		#anim-loop-toggle:active { transform: scale(0.96); }
+		#anim-loop-toggle:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--accent); }
+		#anim-loop-toggle[hidden] { display: none; }
+		#anim-loop-toggle .lt-glyph { font-size: 11px; line-height: 1; }
+		#stage-error { position: absolute; inset: 0; z-index: 3; display: none; flex-direction: column;
+			align-items: center; justify-content: center; gap: 14px; padding: 24px; text-align: center;
+			background: radial-gradient(ellipse at 50% 60%, rgba(20,20,20,0.96) 0%, rgba(8,8,8,0.98) 70%);
+			backdrop-filter: blur(2px); }
+		#stage-error[data-visible="true"] { display: flex; animation: fade-in 0.2s ease; }
+		#stage-error .se-title { font-size: 16px; font-weight: 700; color: #fff; }
+		#stage-error .se-msg { font-size: 13px; color: var(--muted); max-width: 420px; line-height: 1.5; }
+		#stage-error .se-retry { background: var(--accent); color: #fff; border: 0; border-radius: 8px;
+			padding: 9px 18px; font-size: 13px; font-weight: 600; cursor: pointer; transition: filter 0.15s, transform 0.1s; }
+		#stage-error .se-retry:hover { filter: brightness(1.1); }
+		#stage-error .se-retry:active { transform: scale(0.97); }
+		#stage-error .se-retry:focus-visible { outline: none; box-shadow: 0 0 0 2px #fff; }
+		#stage-error .se-retry[disabled] { opacity: 0.6; cursor: wait; }
 		@media (min-width: 721px) {
 			#side {
 				position: relative;
@@ -427,7 +450,16 @@
 				<div id="stage-title" aria-live="polite"></div>
 				<div id="stage-caption" aria-live="polite"></div>
 			</div>
-			<div id="anim-chips" role="group" aria-label="Trigger animation"></div>
+			<div id="stage-error" role="alert" aria-live="assertive">
+				<div class="se-title">Avatar failed to load</div>
+				<div class="se-msg" id="stage-error-msg">The 3D model couldn't be loaded. Check your connection or try a different avatar.</div>
+				<button type="button" class="se-retry" id="stage-error-retry">Retry</button>
+			</div>
+			<div id="anim-chips" role="group" aria-label="Trigger animation" aria-busy="true">
+				<button type="button" id="anim-loop-toggle" aria-pressed="true" title="Pause or resume the looping animation" hidden>
+					<span class="lt-glyph" aria-hidden="true">⏸</span><span class="lt-label">Pause</span>
+				</button>
+			</div>
 		</div>
 		<aside id="side">
 			<div class="side-header" id="side-header">
@@ -725,17 +757,52 @@
 			}
 		}
 
+		// A valid persisted config is a plain object whose `emotions` and
+		// `actions` (when present) are plain objects mapping string→string.
+		// Anything else is corrupt and gets discarded so we boot from defaults.
+		function isPlainStringMap(v) {
+			if (v == null) return true; // absent is fine — treated as {}
+			if (typeof v !== 'object' || Array.isArray(v)) return false;
+			return Object.values(v).every((x) => typeof x === 'string');
+		}
+		function sanitizeActions(v) {
+			// actions map: key → { emotion?: string, tts?: string }
+			if (v == null) return true;
+			if (typeof v !== 'object' || Array.isArray(v)) return false;
+			return Object.values(v).every((entry) =>
+				entry && typeof entry === 'object' && !Array.isArray(entry) &&
+				Object.values(entry).every((x) => typeof x === 'string'));
+		}
+
 		function loadConfig() {
+			let saved;
 			try {
-				const saved = localStorage.getItem('pumpfun-agent-config');
-				if (saved) {
-					const parsed = JSON.parse(saved);
-					if (parsed.emotions) config.settings.emotions = parsed.emotions;
-					if (parsed.actions) config.settings.actions = parsed.actions;
-				}
+				saved = localStorage.getItem('pumpfun-agent-config');
 			} catch (err) {
-				console.error('Failed to load config', err);
+				console.error('Failed to read config from storage', err);
+				return;
 			}
+			if (!saved) return;
+
+			let parsed;
+			try {
+				parsed = JSON.parse(saved);
+			} catch (err) {
+				console.warn('Discarding corrupt agent config (unparseable)', err);
+				try { localStorage.removeItem('pumpfun-agent-config'); } catch {}
+				return;
+			}
+
+			const ok = parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+				&& isPlainStringMap(parsed.emotions) && sanitizeActions(parsed.actions);
+			if (!ok) {
+				console.warn('Discarding corrupt agent config (bad shape), falling back to defaults');
+				try { localStorage.removeItem('pumpfun-agent-config'); } catch {}
+				return;
+			}
+
+			if (parsed.emotions) config.settings.emotions = parsed.emotions;
+			if (parsed.actions) config.settings.actions = parsed.actions;
 		}
 
 		$('config-save-btn').addEventListener('click', saveConfig);
@@ -793,6 +860,7 @@
 			query: '',
 			loaded: { defaults: true, community: false, mine: false },
 			loading: { community: false, mine: false },
+			error: { community: null, mine: null },
 			data: { defaults: DEFAULT_AVATARS.map((a) => ({ ...a, _kind: 'default' })), community: [], mine: [] },
 			cursor: { community: null, mine: null },
 			hasMore: { community: false, mine: false },
@@ -866,6 +934,7 @@
 		async function ensureLoaded(tab) {
 			if (tab === 'defaults' || picker.loaded[tab] || picker.loading[tab]) return;
 			picker.loading[tab] = true;
+			picker.error[tab] = null;
 			renderPickerBody();
 			try {
 				if (tab === 'community') {
@@ -907,6 +976,7 @@
 				picker.loaded[tab] = true;
 			} catch (err) {
 				console.warn('[picker] load failed', tab, err);
+				picker.error[tab] = err?.message || 'load failed';
 			} finally {
 				picker.loading[tab] = false;
 				renderPickerBody();
@@ -960,7 +1030,36 @@
 				return;
 			}
 			if (picker.loading[tab] && !picker.data[tab].length) {
-				body.innerHTML = `<div class="pf-status">Loading…</div>`;
+				const grid = document.createElement('div');
+				grid.className = 'pf-grid';
+				grid.setAttribute('aria-busy', 'true');
+				grid.setAttribute('aria-label', 'Loading avatars');
+				for (let i = 0; i < 8; i++) {
+					const sk = document.createElement('div');
+					sk.className = 'pf-skeleton';
+					grid.appendChild(sk);
+				}
+				body.appendChild(grid);
+				return;
+			}
+
+			if (picker.error[tab] && !picker.data[tab].length) {
+				const wrap = document.createElement('div');
+				wrap.className = 'pf-status';
+				wrap.setAttribute('role', 'alert');
+				wrap.innerHTML = `Couldn't load ${tab === 'mine' ? 'your' : 'community'} avatars.
+					<div class="sub" style="font-size:11px;margin-top:4px;color:var(--muted)">${escapeHtml(picker.error[tab])}</div>`;
+				const retry = document.createElement('button');
+				retry.type = 'button';
+				retry.className = 'cta';
+				retry.textContent = 'Retry';
+				retry.addEventListener('click', () => {
+					picker.loaded[tab] = false;
+					picker.error[tab] = null;
+					ensureLoaded(tab);
+				});
+				wrap.appendChild(retry);
+				body.appendChild(wrap);
 				return;
 			}
 
@@ -1043,6 +1142,10 @@
 
 		let animations = [];
 		let es = null, esTries = 0, esBackoff = 1000, esClosed = false;
+		let esOpenTimer = null;          // fires if a connection never reaches OPEN
+		let esConsecutiveFails = 0;      // consecutive failed connection attempts
+		const ES_OPEN_TIMEOUT_MS = 12000; // force-close a stuck CONNECTING socket after this
+		const ES_FAILS_BEFORE_ERROR = 4;  // surface a manual-retry error state after this many
 		let queue = [], queueTimer = null, queuePaused = false;
 		let replayQueue = [];
 		let firstClaims = { data: [], el: $('first-claims'), refreshing: false, ts: 0 };
@@ -1073,13 +1176,57 @@
 		// the previous iframe-based agent embed which expected ?id=<agentId> and
 		// silently rendered nothing when only ?src=<glb> was supplied.
 		const viewer = iframe; // alias kept so existing variable name still reads
-		function loadAgent() { viewer.src = params.avatar; }
+		const loopToggle = $('anim-loop-toggle');
+		const stageError = $('stage-error');
+		const stageErrorMsg = $('stage-error-msg');
+		let loopActive = true;           // user's pause/play preference for the auto-loop
+		let loopAnimName = null;         // the animation currently used as the idle loop
+		let oneShotPlaying = false;      // a one-shot chip animation is in flight
+
+		function loadAgent() {
+			stageError.dataset.visible = 'false';
+			oneShotPlaying = false;
+			$('anim-chips').setAttribute('aria-busy', 'true');
+			viewer.src = params.avatar;
+		}
 		loadAgent();
 
+		function startLoop() {
+			if (!loopAnimName) return;
+			try {
+				viewer.animationName = loopAnimName;
+				viewer.play({ repetitions: Infinity });
+			} catch {}
+		}
+
+		function syncLoopToggle() {
+			const hasLoop = !!loopAnimName;
+			loopToggle.hidden = !hasLoop;
+			if (!hasLoop) return;
+			loopToggle.setAttribute('aria-pressed', String(loopActive));
+			loopToggle.querySelector('.lt-glyph').textContent = loopActive ? '⏸' : '▶';
+			loopToggle.querySelector('.lt-label').textContent = loopActive ? 'Pause' : 'Play';
+			loopToggle.title = loopActive ? 'Pause the looping animation' : 'Resume the looping animation';
+		}
+
+		loopToggle.addEventListener('click', () => {
+			if (!loopAnimName) return;
+			loopActive = !loopActive;
+			if (loopActive) {
+				if (!oneShotPlaying) startLoop();
+			} else {
+				try { viewer.pause(); } catch {}
+			}
+			syncLoopToggle();
+		});
+
 		viewer.addEventListener('load', () => {
+			stageError.dataset.visible = 'false';
 			animations = viewer.availableAnimations || [];
 			const chips = $('anim-chips');
-			chips.innerHTML = '';
+			chips.setAttribute('aria-busy', 'false');
+			// Clear only the dynamically-added chips; keep the persistent loop toggle.
+			chips.querySelectorAll('.anim-chip, .empty').forEach((el) => el.remove());
 			animations.forEach((anim) => {
 				const btn = document.createElement('button');
 				btn.type = 'button';
@@ -1088,24 +1235,59 @@
 				btn.addEventListener('click', () => playAnim(anim));
 				chips.appendChild(btn);
 			});
-			if (!animations.length) chips.innerHTML = '<span class="empty" style="padding:0">no animations on this avatar</span>';
-			// Auto-play the first available animation so the avatar isn't a T-pose
-			if (animations.length) { viewer.animationName = animations[0]; viewer.play({ repetitions: Infinity }); }
+			if (!animations.length) {
+				const empty = document.createElement('span');
+				empty.className = 'empty';
+				empty.style.padding = '0';
+				empty.textContent = 'no animations on this avatar';
+				chips.appendChild(empty);
+			}
+			// Auto-play the first available animation so the avatar isn't a T-pose.
+			loopAnimName = animations.length ? animations[0] : null;
+			oneShotPlaying = false;
+			if (loopAnimName && loopActive) startLoop();
+			syncLoopToggle();
 			if (config.modal.dataset.open === 'true') renderConfigBody();
 		});
 		viewer.addEventListener('error', (e) => {
 			console.warn('[agent] model load error', e?.detail || e);
-			$('anim-chips').innerHTML = '<span class="empty" style="padding:0;color:var(--danger)">avatar failed to load</span>';
+			$('anim-chips').setAttribute('aria-busy', 'false');
+			loopAnimName = null;
+			syncLoopToggle();
+			stageErrorMsg.textContent = 'The 3D model at ' + shortenUrl(params.avatar) +
+				" couldn't be loaded. Check your connection, then retry — or pick a different avatar.";
+			stageError.dataset.visible = 'true';
+		});
+
+		// When a one-shot reaction animation finishes, fall back to the idle loop
+		// if the user hasn't paused it — so the avatar never freezes mid-pose.
+		viewer.addEventListener('finished', () => {
+			if (!oneShotPlaying) return;
+			oneShotPlaying = false;
+			if (loopActive) startLoop();
+		});
+
+		$('stage-error-retry').addEventListener('click', (e) => {
+			const btn = e.currentTarget;
+			btn.disabled = true;
+			const orig = btn.textContent;
+			btn.textContent = 'Retrying…';
+			stageError.dataset.visible = 'false';
+			// Force model-viewer to re-fetch even if the URL is unchanged.
+			viewer.src = '';
+			requestAnimationFrame(() => { loadAgent(); });
+			setTimeout(() => { btn.disabled = false; btn.textContent = orig; }, 1500);
 		});
 
 		function playAnim(name) {
 			if (!viewer.availableAnimations?.includes(name)) return false;
 			try {
+				oneShotPlaying = true;
 				viewer.animationName = name;
 				viewer.currentTime = 0;
 				viewer.play({ repetitions: 1 });
 				return true;
-			} catch { return false; }
+			} catch { oneShotPlaying = false; return false; }
 		}
 
 		// ── Web Speech narration (replaces iframe-side TTS) ──────────────────
@@ -1246,10 +1428,36 @@
 			return { ...ev, type, timestamp };
 		}
 
+		// Tear down the current socket and any pending open-timeout. Safe to call
+		// repeatedly; never throws.
+		function teardownEs() {
+			if (esOpenTimer) { clearTimeout(esOpenTimer); esOpenTimer = null; }
+			if (es) { try { es.close(); } catch {} es = null; }
+		}
+
+		// A connection attempt failed (or stalled). Either escalate to a manual
+		// retry state once we've burned through the auto-retry budget, or schedule
+		// the next backoff reconnect.
+		function scheduleReconnect(reason) {
+			if (esClosed) return;
+			teardownEs();
+			esConsecutiveFails++;
+			if (esConsecutiveFails >= ES_FAILS_BEFORE_ERROR) {
+				// Stop hammering — surface a recoverable error the user can retry.
+				console.warn(`[sse] giving up after ${esConsecutiveFails} attempts (${reason}); awaiting manual retry`);
+				setStatus('down', 'offline — retry');
+				return;
+			}
+			console.log(`[sse] ${reason}; reconnect in ${esBackoff / 1000}s (fail ${esConsecutiveFails})`);
+			setStatus('down', 'reconnecting…');
+			setTimeout(connect, esBackoff);
+			esBackoff = Math.min(esBackoff * 1.5, 15000);
+		}
+
 		function connect() {
 			esTries++;
 			setStatus('connecting', `connecting (try ${esTries})…`);
-			if (es) { try { es.close(); } catch {} es = null; }
+			teardownEs();
 
 			const endpoint = new URL('/api/agents/pumpfun-feed', location.href);
 			endpoint.searchParams.set('kind', params.kind || 'all');
@@ -1260,9 +1468,23 @@
 			if (params.whale) endpoint.searchParams.set('whale', String(params.whale));
 
 			es = new EventSource(endpoint.href, { withCredentials: true });
+			const thisEs = es;
+
+			// A stuck CONNECTING socket never fires 'open' or 'error' on some
+			// proxies/networks — the feed would hang blank forever. Force the
+			// issue: if we don't reach OPEN within the budget, treat it as a
+			// failed attempt and reconnect (or escalate to manual retry).
+			esOpenTimer = setTimeout(() => {
+				esOpenTimer = null;
+				if (esClosed || es !== thisEs) return;
+				if (es.readyState !== EventSource.OPEN) scheduleReconnect('connect timeout');
+			}, ES_OPEN_TIMEOUT_MS);
+
 			es.addEventListener('open', () => {
+				if (esOpenTimer) { clearTimeout(esOpenTimer); esOpenTimer = null; }
 				esTries = 0;
 				esBackoff = 1000;
+				esConsecutiveFails = 0;
 				setStatus('live', 'live');
 			});
 			const ingest = (sseType) => (msg) => {
@@ -1274,18 +1496,15 @@
 			es.addEventListener('graduation', ingest('graduation'));
 			es.addEventListener('ping', () => {});
 			es.addEventListener('close', () => {
-				if (esClosed) return;
-				try { es.close(); } catch {}
-				setTimeout(connect, 250);
+				if (esClosed || es !== thisEs) return;
+				scheduleReconnect('server closed');
 			});
 			es.onerror = () => {
-				if (esClosed || !es) return;
+				if (esClosed || es !== thisEs) return;
 				if (es.readyState === EventSource.CLOSED) {
-					console.log(`[sse] disconnected, reconnect in ${esBackoff/1000}s`);
-					setStatus('down', 'offline');
-					setTimeout(connect, esBackoff);
-					esBackoff = Math.min(esBackoff * 1.5, 15000);
+					scheduleReconnect('disconnected');
 				} else {
+					// Still CONNECTING — the open-timeout above is our backstop.
 					setStatus('connecting', 'reconnecting…');
 				}
 			};
@@ -1401,6 +1620,8 @@
 				esClosed = false;
 				esTries = 0;
 				esBackoff = 1000;
+				esConsecutiveFails = 0;
+				teardownEs();
 				connect();
 			}
 		});
@@ -1659,11 +1880,29 @@
 				heliusPill.el.dataset.count = '';
 			}, 1200);
 		}
+		// Build a clean, shareable URL: keep only the public presentation params
+		// (filters, mood, narration, avatar) and drop transient/private ones such
+		// as `asset` (a specific agent pubkey the viewer pasted) and `mint` (a
+		// personal in-session search filter) so we never over-share.
+		const SHARE_PARAM_KEYS = [
+			'kind', 'minTier', 'network', 'narrate', 'announceMints',
+			'mood', 'avatar', 'mcMin', 'mcMax', 'minBuy', 'whale',
+		];
+		function buildShareUrl() {
+			const src = new URL(location.href);
+			const out = new URL(location.origin + location.pathname);
+			for (const key of SHARE_PARAM_KEYS) {
+				const v = src.searchParams.get(key);
+				if (v != null && v !== '') out.searchParams.set(key, v);
+			}
+			return out.href;
+		}
+
 		function copyShareLink() {
 			const btn = $('ctl-share');
 			const label = $('ctl-share-label');
 			const orig = label.textContent;
-			navigator.clipboard.writeText(location.href).then(() => {
+			navigator.clipboard.writeText(buildShareUrl()).then(() => {
 				label.textContent = 'Copied!';
 				btn.dataset.flash = 'true';
 				setTimeout(() => {

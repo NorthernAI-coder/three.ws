@@ -23,6 +23,34 @@ const $ = (sel, root = document) => root.querySelector(sel);
 const state = { network: 'mainnet', window: '30d', sort: 'score', verified: false };
 let timer = null;
 let firstLoad = true;
+let staleBadgeEl = null;
+
+// Stale / reconnecting indicator — surfaced when a background refresh fails
+// while a previously-loaded board is still on screen, so holders know the
+// numbers may be momentarily out of date instead of silently trusting them.
+function ensureStaleBadge() {
+	if (staleBadgeEl) return staleBadgeEl;
+	const board = $('.lb-board');
+	if (!board) return null;
+	const badge = document.createElement('div');
+	badge.className = 'lb-stale-badge';
+	badge.hidden = true;
+	badge.setAttribute('role', 'status');
+	badge.setAttribute('aria-live', 'polite');
+	badge.innerHTML = '<span class="lb-stale-dot" aria-hidden="true"></span><span class="lb-stale-text">Reconnecting — showing last known standings</span>';
+	board.parentNode.insertBefore(badge, board);
+	staleBadgeEl = badge;
+	return badge;
+}
+
+function showStale() {
+	const badge = ensureStaleBadge();
+	if (badge) badge.hidden = false;
+}
+
+function clearStale() {
+	if (staleBadgeEl) staleBadgeEl.hidden = true;
+}
 
 // --- URL <-> state -----------------------------------------------------------
 function readUrl() {
@@ -62,8 +90,15 @@ function rowMarkup(r) {
 	const dd = r.max_drawdown_pct > 0
 		? `<span class="lb-neg">−${r.max_drawdown_pct.toFixed(1)}%</span>` : '<span class="lb-muted">0%</span>';
 	const scoreBar = Math.max(4, Math.min(100, r.score));
+	const rowLabel = [
+		`Rank ${r.rank}`,
+		r.agent_name || 'Unnamed agent',
+		r.wallet ? `wallet ${shortAddr(r.wallet)}` : '',
+		`score ${r.score}`,
+		`realized P&L ${fmtSol(r.realized_pnl_sol)}`,
+	].filter(Boolean).join(', ');
 	return `
-		<a class="lb-row" href="${href}" data-top="${r.rank <= 3 ? r.rank : ''}" aria-label="${escapeHtml(r.agent_name || 'Trader')}, rank ${r.rank}, score ${r.score}">
+		<a class="lb-row" href="${href}" data-top="${r.rank <= 3 ? r.rank : ''}" aria-label="${escapeHtml(rowLabel)}">
 			<span class="lb-rank">${r.rank}</span>
 			<span class="lb-trader">
 				<img class="lb-avatar" src="${escapeHtml(img)}" alt="" loading="lazy" onerror="this.src='${identicon(r.agent_id || r.wallet || '?')}'" />
@@ -145,6 +180,7 @@ async function load() {
 		renderBoard(data);
 		renderTicker(data.trades);
 		firstLoad = false;
+		clearStale();
 	} catch (err) {
 		board.setAttribute('aria-busy', 'false');
 		if (firstLoad) {
@@ -154,8 +190,11 @@ async function load() {
 				<p>The track-record feed didn’t respond. This is usually transient.</p>
 				<button class="lb-btn lb-btn-primary" id="lb-retry">Retry</button>`;
 			$('#lb-retry')?.addEventListener('click', () => load());
+		} else {
+			// On a refresh failure we keep the last good board on screen — no
+			// flicker — but flag it as stale so the standings aren't trusted blindly.
+			showStale();
 		}
-		// On a refresh failure we keep the last good board on screen — no flicker.
 	}
 }
 
@@ -302,14 +341,18 @@ async function loadOracleLeaderboard() {
 		row.className = 'lb-oracle-row';
 		row.setAttribute('data-rank', String(a.rank));
 		const traderHref = `/trader/${encodeURIComponent(a.agent_id)}`;
+		const profileHref = `/agents/${encodeURIComponent(a.agent_id)}`;
+		const plainName = a.name || `${a.agent_id.slice(0, 8)}…`;
+		const wrText = a.win_rate != null ? `${a.win_rate}% conviction win rate` : 'win rate pending';
+		row.setAttribute('aria-label', `Rank ${a.rank}: ${plainName}, ${wrText}`);
 		row.innerHTML = `
 			<span class="lb-rank">${a.rank}</span>
-			<a class="lb-trader lb-oracle-trader-link" href="${traderHref}">${img}<span class="lb-trader-meta"><span class="lb-trader-name">${name}</span></span></a>
+			<a class="lb-trader lb-oracle-trader-link" href="${profileHref}">${img}<span class="lb-trader-meta"><span class="lb-trader-name">${name}</span></span></a>
 			<span class="lb-col-num">${wr}</span>
 			<span class="lb-col-num lb-neg" style="font-size:12px;color:var(--ink-dim)">${wl}</span>
 			<span class="lb-col-num lb-hide-sm">${pnl}</span>
 			<span class="lb-col-num lb-hide-sm">${roi}</span>
-			<span class="lb-col-num"><a class="lb-btn lb-btn-primary" href="${traderHref}#tp-copy-panel" style="font-size:11px;padding:4px 11px">Copy →</a></span>
+			<span class="lb-col-num"><span class="lb-oracle-actions"><a class="lb-btn" href="${profileHref}" style="font-size:11px;padding:4px 10px" aria-label="Open ${escapeHtml(plainName)} profile">Profile</a><a class="lb-btn lb-btn-primary" href="${traderHref}#tp-copy-panel" style="font-size:11px;padding:4px 11px" aria-label="Copy ${escapeHtml(plainName)}">Copy →</a></span></span>
 		`;
 		container.appendChild(row);
 	}

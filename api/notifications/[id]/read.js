@@ -3,6 +3,7 @@
 import { sql } from '../../_lib/db.js';
 import { getSessionUser } from '../../_lib/auth.js';
 import { cors, json, method, wrap, error } from '../../_lib/http.js';
+import { requireCsrf } from '../../_lib/csrf.js';
 
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'POST,OPTIONS', credentials: true })) return;
@@ -10,6 +11,8 @@ export default wrap(async (req, res) => {
 
 	const user = await getSessionUser(req);
 	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
+
+	if (!(await requireCsrf(req, res, user.id))) return;
 
 	const id = req.query?.id;
 	if (!id) return error(res, 400, 'validation_error', 'id required');

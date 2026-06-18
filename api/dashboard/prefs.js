@@ -13,6 +13,7 @@
 import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.js';
 import { sql } from '../_lib/db.js';
 import { cors, json, method, readJson, wrap, error, rateLimited } from '../_lib/http.js';
+import { requireCsrf } from '../_lib/csrf.js';
 import { limits } from '../_lib/rate-limit.js';
 import { parse } from '../_lib/validate.js';
 import { z } from 'zod';
@@ -39,6 +40,10 @@ export default wrap(async (req, res) => {
 		`;
 		return json(res, 200, { prefs: row?.prefs || {} });
 	}
+
+	// Session-cookie writes need CSRF; bearer-token callers are exempt (the token
+	// itself is the proof of intent and isn't auto-attached by browsers).
+	if (auth.fromSession && !(await requireCsrf(req, res, auth.userId))) return;
 
 	const rl = await limits.prefsWrite(auth.userId);
 	if (!rl.success) return rateLimited(res, rl);
@@ -75,8 +80,8 @@ export default wrap(async (req, res) => {
 
 async function resolveAuth(req) {
 	const session = await getSessionUser(req);
-	if (session) return { userId: session.id };
+	if (session) return { userId: session.id, fromSession: true };
 	const bearer = await authenticateBearer(extractBearer(req));
-	if (bearer) return { userId: bearer.userId };
+	if (bearer) return { userId: bearer.userId, fromSession: false };
 	return null;
 }

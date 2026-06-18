@@ -453,7 +453,7 @@
 			<div>
 				<h1 style="font-size:24px;font-weight:600;color:#fff;margin-bottom:10px">Agent Economy</h1>
 				<p style="color:#5c6180;max-width:400px;margin:0 auto 20px">Two 3D AI agents transacting on-chain. This interactive demo requires JavaScript.</p>
-				<a href="/docs/ibm" style="display:inline-block;padding:10px 18px;border-radius:8px;background:#4e8cff;color:#fff;text-decoration:none;font-size:14px">Read the docs</a>
+				<a href="/docs" style="display:inline-block;padding:10px 18px;border-radius:8px;background:#4e8cff;color:#fff;text-decoration:none;font-size:14px">Read the docs</a>
 			</div>
 		</div>
 	</noscript>
@@ -468,7 +468,7 @@
 				<div class="av-label-name">Nova</div>
 				<div class="av-label-role">Buyer Agent</div>
 				<div class="av-label-addr" id="buyer-addr">—</div>
-				<div class="av-label-bal bal-unknown" id="buyer-bal"><span class="bal-spin"></span></div>
+				<div class="av-label-bal bal-unknown" id="buyer-bal" aria-live="polite" aria-atomic="true" aria-label="Nova wallet balance"><span class="bal-spin"></span></div>
 			</div>
 		</div>
 
@@ -479,25 +479,25 @@
 				<div id="center-sub">Agents paying agents · Real SOL · Solana mainnet</div>
 			</div>
 
-			<div id="fund-alert"></div>
+			<div id="fund-alert" role="status" aria-live="polite" aria-atomic="true"></div>
 
 			<div id="catalog">
 				<div id="catalog-label">Services offered by Oracle</div>
-				<button class="svc-btn" data-service="market-analysis">
+				<button class="svc-btn" type="button" data-service="market-analysis" aria-label="Buy Market Analysis from Oracle for $0.001 — live sentiment and trend read">
 					<div class="svc-btn-left">
 						<span class="svc-btn-name">Market Analysis</span>
 						<span class="svc-btn-tag">Live sentiment + trend read</span>
 					</div>
 					<span class="svc-btn-price">$0.001</span>
 				</button>
-				<button class="svc-btn" data-service="onchain-insight">
+				<button class="svc-btn" type="button" data-service="onchain-insight" aria-label="Buy On-Chain Insight from Oracle for $0.002 — wallet activity and holder data">
 					<div class="svc-btn-left">
 						<span class="svc-btn-name">On-Chain Insight</span>
 						<span class="svc-btn-tag">Wallet activity + holder data</span>
 					</div>
 					<span class="svc-btn-price">$0.002</span>
 				</button>
-				<button class="svc-btn" data-service="risk-score">
+				<button class="svc-btn" type="button" data-service="risk-score" aria-label="Buy Risk Score from Oracle for $0.003 — AI-generated protocol rating">
 					<div class="svc-btn-left">
 						<span class="svc-btn-name">Risk Score</span>
 						<span class="svc-btn-tag">AI-generated protocol rating</span>
@@ -534,12 +534,12 @@
 				<div class="av-label-name">Oracle</div>
 				<div class="av-label-role">Data Seller Agent</div>
 				<div class="av-label-addr" id="seller-addr">—</div>
-				<div class="av-label-bal bal-unknown" id="seller-bal"><span class="bal-spin"></span></div>
+				<div class="av-label-bal bal-unknown" id="seller-bal" aria-live="polite" aria-atomic="true" aria-label="Oracle wallet balance"><span class="bal-spin"></span></div>
 			</div>
 		</div>
 
 		<div id="bottom-bar">
-			<a href="/ibm/galaxy">IBM showcase</a>
+			<a href="/galaxy">Galaxy showcase</a>
 			<span class="sep">·</span>
 			<a href="/x402">x402 Bazaar</a>
 			<span class="sep">·</span>

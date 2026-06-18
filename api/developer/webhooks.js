@@ -3,6 +3,7 @@
 
 import { cors, error, json, method, readJson, wrap } from '../_lib/http.js';
 import { getSessionUser } from '../_lib/auth.js';
+import { requireCsrf } from '../_lib/csrf.js';
 import { sql } from '../_lib/db.js';
 import { randomToken } from '../_lib/crypto.js';
 import { EVENT_TYPES } from '../_lib/webhook-dispatch.js';
@@ -44,6 +45,8 @@ export default wrap(async function handler(req, res) {
 	}
 
 	if (!method(req, res, ['POST'])) return;
+
+	if (!(await requireCsrf(req, res, user.id))) return;
 
 	let body;
 	try {
