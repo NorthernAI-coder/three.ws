@@ -35,6 +35,7 @@ import { enrichAgentDetail, renderEmbed as renderAgentEmbed } from './agent-deta
 import { log } from './shared/log.js';
 import { mountViewSwitcher } from './view-switcher.js';
 import { mountCoinStatus } from './pump/coin-status-card.js';
+import { consumeCsrfToken } from './api.js';
 
 // Live coin-status widgets mounted on this page (token chip + launch-history
 // rows). Tracked so a re-render (e.g. avatar refresh) tears down their refresh
@@ -846,12 +847,13 @@ function reviewAvatarEl(author) {
 	return el('div', { class: 'ad-review-avatar', text: initial });
 }
 
+// Single-use CSRF token for review writes. Delegates to the shared client so we
+// inherit the correct response shape ({ data: { token } }) — a local copy here
+// previously read d.token and always got undefined, sending writes without the
+// header and tripping a server 403 for signed-in users.
 async function getCsrfToken() {
 	try {
-		const r = await fetch('/api/csrf-token', { credentials: 'include' });
-		if (!r.ok) return null;
-		const d = await r.json();
-		return d.token || null;
+		return await consumeCsrfToken();
 	} catch {
 		return null;
 	}
@@ -1029,6 +1031,18 @@ function buildReviewForm(agentId, existing, onSuccess) {
 
 	submitBtn.addEventListener('click', async () => {
 		if (submitting || selectedRating === 0) return;
+
+		// Guests can't review — prompt sign-in without firing a csrf/POST pair the
+		// server would only 401. window.__authed is resolved by the page's inline
+		// /api/auth/me probe; unknown (null/undefined) means the probe is still in
+		// flight, so let the request go and the POST's own 401 handle it.
+		if (window.__authed === false) {
+			statusEl.innerHTML =
+				'<a href="/login" style="color:var(--ad-violet)">Sign in</a> to leave a review';
+			statusEl.style.color = 'var(--ad-muted)';
+			return;
+		}
+
 		submitting = true;
 		submitBtn.disabled = true;
 		submitBtn.textContent = 'Saving…';
@@ -1055,7 +1069,7 @@ function buildReviewForm(agentId, existing, onSuccess) {
 			if (!r.ok) {
 				if (r.status === 401) {
 					statusEl.innerHTML =
-						'<a href="/sign-in" style="color:var(--ad-violet)">Sign in</a> to leave a review';
+						'<a href="/login" style="color:var(--ad-violet)">Sign in</a> to leave a review';
 				} else {
 					statusEl.textContent = json.error?.message || 'Save failed';
 				}

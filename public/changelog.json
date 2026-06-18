@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-18T03:57:44.946Z",
+	"generated_at": "2026-06-18T04:13:28.939Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -55,6 +55,16 @@
 			"link": "/three",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-18",
+			"type": "update",
+			"title": "Leaving a review on an agent profile works again",
+			"summary": "Submitting or updating a star rating on an agent's profile was quietly failing for signed-in users — the form said “Save failed” no matter what, because the security token that protects the save was being read incorrectly and never attached. Reviews now save on the first try. Signed-out visitors who tap Submit get a clear “Sign in to leave a review” prompt instead of a dead button, and agent profiles no longer log errors for agents that have no on-chain trading record — the track-record card simply stays hidden.",
+			"link": null,
+			"tags": [
+				"fix"
 			]
 		},
 		{
