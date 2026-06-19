@@ -16,6 +16,7 @@ import { z } from 'zod';
 import { sql } from '../_lib/db.js';
 import { getSessionUser, authenticateBearer, extractBearer, hasScope } from '../_lib/auth.js';
 import { cors, json, method, readJson, wrap, error, rateLimited } from '../_lib/http.js';
+import { requireCsrf } from '../_lib/csrf.js';
 import { parse } from '../_lib/validate.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { decorate } from './index.js';
@@ -77,6 +78,8 @@ export default wrap(async (req, res) => {
 	}
 
 	if (!auth?.userId) return error(res, 401, 'unauthorized', 'authentication required');
+	// PATCH/DELETE only past here — CSRF-guard cookie-session callers (bearer exempt).
+	if (!(await requireCsrf(req, res, auth.userId))) return;
 	if (auth.source === 'oauth' || auth.source === 'apikey') {
 		const need = req.method === 'DELETE' ? 'avatars:delete' : 'avatars:write';
 		if (!hasScope(auth.scope, need))

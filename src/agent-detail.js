@@ -413,7 +413,7 @@ function render(agent) {
 
 	// Update page title, canonical URL, and OG tags for social sharing
 	if (agent.id && agent.name) {
-		const pageUrl = `https://three.ws/agent/${agent.id}`;
+		const pageUrl = `https://three.ws/agents/${agent.id}`;
 		const ogImg   = `https://three.ws/api/og/agent?id=${encodeURIComponent(agent.id)}`;
 		document.title = `${agent.name} · three.ws`;
 		const canonical = document.getElementById('canonical-link');

@@ -142,6 +142,31 @@ BASE_RPC_URL=... ARB_RPC_URL=... BSC_RPC_URL=... \
 node scripts/deploy-multichain.mjs
 ```
 
+## AgentPayments (EVM agent-token payment engine)
+
+EVM port of the Solana `pump_agent_payments` program. One deployment per chain
+serves every agent token on that chain. Deploy + wiring guide:
+[`AGENT_PAYMENTS.md`](AGENT_PAYMENTS.md). Source: [`src/AgentPayments.sol`](src/AgentPayments.sol).
+Owner = protocol/global buyback authority (set to the platform multisig).
+
+Unlike `ThreeWSPayments`, the constructor takes only `owner` (no chain-specific
+immutable), so a CREATE2 deploy via `ThreeWSFactory` with a shared salt yields the
+**same** address on every chain. Plain `new` deploys produce per-chain addresses
+(nonce-dependent) — fill in whichever you used.
+
+| Chain | Chain ID | AgentPayments | Owner | Routers allow-listed | Tx |
+| --- | --- | --- | --- | --- | --- |
+| Ethereum | 1 | TODO: fill after deployment | TODO | TODO | TODO |
+| Base | 8453 | TODO: fill after deployment | TODO | TODO | TODO |
+| Arbitrum One | 42161 | TODO: fill after deployment | TODO | TODO | TODO |
+| Polygon | 137 | TODO: fill after deployment | TODO | TODO | TODO |
+| BNB Smart Chain | 56 | TODO: fill after deployment | TODO | TODO | TODO |
+| Avalanche | 43114 | TODO: fill after deployment | TODO | TODO | TODO |
+
+After filling a row, set the matching `agentPayments` address in
+[`agent-payments-sdk/src/evm/addresses.ts`](../agent-payments-sdk/src/evm/addresses.ts)
+and run `npm run build` in `agent-payments-sdk/`.
+
 ## Notes
 
 - Addresses are authoritative in [`src/erc8004/abi.js`](../src/erc8004/abi.js) (`REGISTRY_DEPLOYMENTS`).

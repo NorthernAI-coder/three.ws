@@ -1,6 +1,7 @@
 import { sql } from '../_lib/db.js';
 import { env } from '../_lib/env.js';
 import { cors, json, method, wrap, error, readJson } from '../_lib/http.js';
+import { constantTimeEquals } from '../_lib/crypto.js';
 import { z } from 'zod';
 
 const DEFAULT_SYSTEM_PROMPT = `You are a helpful AI assistant on three.ws — a platform for 3D AI agents, Solana, and pump.fun.
@@ -54,7 +55,7 @@ export default wrap(async (req, res) => {
 	if (!adminKey) return error(res, 503, 'not_configured', 'Admin key is not configured');
 
 	const provided = (req.headers['x-admin-key'] || '').trim();
-	if (!provided || provided !== adminKey)
+	if (!provided || !constantTimeEquals(provided, adminKey))
 		return error(res, 403, 'forbidden', 'invalid admin key');
 
 	let body;

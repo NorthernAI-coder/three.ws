@@ -13,8 +13,12 @@ const rpcUrl = `https://devnet.helius-rpc.com/?api-key=${rpcKey}`
 const opensea_Key = import.meta.env.VITE_OPENSEA_KEY;
 const validation_server = import.meta.env.VITE_VALIDATION_SERVER_URL;
 
-const pinataApiKey = import.meta.env.VITE_PINATA_API_KEY
-const pinataSecretApiKey = import.meta.env.VITE_PINATA_API_SECRET
+// IPFS pinning is performed SERVER-SIDE via three.ws's /api/pinning/pin endpoint
+// (authenticated with the caller's session, secret held only on the server). The
+// Pinata API secret is NEVER exposed to the browser bundle — embedding
+// VITE_PINATA_API_SECRET here shipped a billing-capable credential to every
+// visitor of /avatar-studio.
+const PIN_ENDPOINT = '/api/pinning/pin'
 
 //const mintCost = 0.01
 const chainId = "0x89";
@@ -384,23 +388,40 @@ export function connectWallet(network) {
 //   }
 // }
 
-// ready to test
-async function saveFileToPinata(fileData, fileName) {
-    if (!fileData) return console.warn("Error saving to pinata: No file data")
-        const url = `https://api.pinata.cloud/pinning/pinFileToIPFS`
-    let data = new FormData()
-
-    data.append("file", fileData, fileName)
-    let resultOfUpload = await axios.post(url, data, {
-        maxContentLength: "Infinity", //this is needed to prevent axios from erroring out with large files
-        maxBodyLength: "Infinity", //this is needed to prevent axios from erroring out with large files
-        headers: {
-        "Content-Type": `multipart/form-data; boundary=${data._boundary}`,
-        pinata_api_key: pinataApiKey,
-        pinata_secret_api_key: pinataSecretApiKey,
-        },
+// Read a Blob/File as a base64 data: URL so it can be handed to the server pin
+// endpoint (which accepts a data: URL and pins the bytes with the server-held key).
+function blobToDataUrl(blob) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(reader.result)
+        reader.onerror = () => reject(reader.error || new Error("failed to read file"))
+        reader.readAsDataURL(blob)
     })
-    return resultOfUpload.data
+}
+
+// Pin a file to IPFS via the three.ws server proxy. `kind` is 'glb' for the model
+// and 'manifest' for images/JSON metadata. Returns { IpfsHash } so existing
+// callers are unchanged. No Pinata credentials touch the browser.
+async function saveFileToPinata(fileData, fileName, kind = "manifest") {
+    if (!fileData) {
+        console.warn("Error saving to pinata: No file data")
+        return
+    }
+    const blob = fileData instanceof Blob ? fileData : new Blob([fileData])
+    const dataUrl = await blobToDataUrl(blob)
+    const resp = await fetch(PIN_ENDPOINT, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sourceUrl: dataUrl, kind, filename: fileName }),
+    })
+    if (!resp.ok) {
+        const detail = await resp.text().catch(() => "")
+        throw new Error(`pin failed (${resp.status}): ${detail}`)
+    }
+    const out = await resp.json()
+    // Normalize to the Pinata-style shape callers already expect.
+    return { IpfsHash: out.cid || out.IpfsHash, ...out }
 }
 
 const getAvatarTraits = (avatar) => {
@@ -438,7 +459,8 @@ export async function mintAsset(avatar, screenshot, model, name, needCheckOT){
             try {
               const img_hash = await saveFileToPinata(
                 screenshot,
-                imageName
+                imageName,
+                "manifest"
               ).catch((reason) => {
                 console.error(i, "---", reason)
               })
@@ -460,7 +482,8 @@ export async function mintAsset(avatar, screenshot, model, name, needCheckOT){
                 try {
                 const glb_hash = await saveFileToPinata(
                     glb,
-                    glbName
+                    glbName,
+                    "glb"
                 ).catch((reason) => {
                     console.error(i, "---", reason)
                     return "Couldn't save glb to pinata"
@@ -489,6 +512,7 @@ export async function mintAsset(avatar, screenshot, model, name, needCheckOT){
         const metaDataHash = await saveFileToPinata(
             new Blob([str]),
             "AvatarMetadata_" + Date.now() + ".json",
+            "manifest"
         )
         const metadataIpfs = `ipfs://${metaDataHash.IpfsHash}`
 

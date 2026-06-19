@@ -1124,7 +1124,7 @@ create table if not exists royalty_ledger (
     settled_at     timestamptz,
     tx_hash        text,
     created_at     timestamptz not null default now(),
-    constraint royalty_ledger_status_check check (status in ('pending', 'settled', 'failed'))
+    constraint royalty_ledger_status_check check (status in ('pending', 'settling', 'settled', 'failed'))
 );
 
 create index if not exists royalty_ledger_author_idx on royalty_ledger(author_user_id, created_at desc);

@@ -35,6 +35,7 @@ contract ThreeWSPayments {
 
     error NotOwner();
     error ZeroAddress();
+    error TransferFailed();
 
     modifier onlyOwner() {
         if (msg.sender != owner) revert NotOwner();
@@ -52,14 +53,34 @@ contract ThreeWSPayments {
     /// @param ref  keccak256 of the request body — lets the server match payment to call.
     function pay(bytes32 ref) external {
         uint256 amount = pricePerCall;
-        USDC.transferFrom(msg.sender, address(this), amount);
+        // Check the transfer result. A bare call would `emit Payment` even when the
+        // transfer silently failed (a non-reverting/non-standard token), and the
+        // server keys settlement on that event — so an unchecked transfer could log
+        // a paid receipt for funds that never moved.
+        _safeTransferFrom(msg.sender, address(this), amount);
         emit Payment(msg.sender, amount, ref);
     }
 
     /// @notice Withdraw accumulated USDC to owner.
     function withdraw() external onlyOwner {
         uint256 bal = USDC.balanceOf(address(this));
-        USDC.transfer(owner, bal);
+        _safeTransfer(owner, bal);
+    }
+
+    /// @dev SafeERC20-style wrappers: succeed only if the call doesn't revert AND
+    ///      (returns no data OR returns true). Handles both standard and
+    ///      non-compliant ERC-20s without an external dependency.
+    function _safeTransfer(address to, uint256 amount) internal {
+        _callOptionalReturn(abi.encodeWithSelector(IERC20.transfer.selector, to, amount));
+    }
+
+    function _safeTransferFrom(address from, address to, uint256 amount) internal {
+        _callOptionalReturn(abi.encodeWithSelector(IERC20.transferFrom.selector, from, to, amount));
+    }
+
+    function _callOptionalReturn(bytes memory data) private {
+        (bool ok, bytes memory ret) = address(USDC).call(data);
+        if (!ok || (ret.length != 0 && !abi.decode(ret, (bool)))) revert TransferFailed();
     }
 
     /// @notice Update per-call price.

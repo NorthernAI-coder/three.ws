@@ -9,6 +9,7 @@ import { z } from 'zod';
 import { getSessionUser, authenticateBearer, extractBearer, hasScope } from '../../_lib/auth.js';
 import { sql } from '../../_lib/db.js';
 import { cors, json, method, readJson, wrap, error, rateLimited } from '../../_lib/http.js';
+import { requireCsrf } from '../../_lib/csrf.js';
 import { limits, clientIp } from '../../_lib/rate-limit.js';
 import { parse, isUuid } from '../../_lib/validate.js';
 import { readStorageMode, storageModeSchema, defaultStorageMode } from '../../_lib/storage-mode.js';
@@ -157,6 +158,7 @@ async function handlePinIpfs(req, res) {
 
 	const session = await getSessionUser(req);
 	if (!session) return error(res, 401, 'unauthorized', 'sign in required');
+	if (!(await requireCsrf(req, res, session.id))) return;
 
 	const [row] = await sql`
 		SELECT id, owner_id, checksum_sha256, storage_key, content_type, name
@@ -247,6 +249,7 @@ async function handleRollback(req, res) {
 	const bearer = session ? null : await authenticateBearer(extractBearer(req));
 	if (!session && !bearer) return error(res, 401, 'unauthorized', 'sign in required');
 	const userId = session?.id ?? bearer.userId;
+	if (!(await requireCsrf(req, res, userId))) return;
 
 	const rl = await limits.avatarRollback(userId);
 	if (!rl.success) return rateLimited(res, rl);
@@ -299,6 +302,7 @@ async function handleSession(req, res) {
 
 	const auth = await resolveSessionAuth(req);
 	if (!auth) return error(res, 401, 'unauthorized', 'sign in required');
+	if (!(await requireCsrf(req, res, auth.userId))) return;
 
 	const rl = await limits.upload(auth.userId);
 	if (!rl.success) return rateLimited(res, rl, 'too many requests, try again later');
@@ -416,6 +420,7 @@ async function handleStorageMode(req, res) {
 	// PUT — owner only
 	const session = await getSessionUser(req);
 	if (!session) return error(res, 401, 'unauthorized', 'sign in required');
+	if (!(await requireCsrf(req, res, session.id))) return;
 	if (session.id !== row.owner_id) return error(res, 403, 'forbidden', 'not your avatar');
 
 	const body = parse(storageModeSchema, await readJson(req));

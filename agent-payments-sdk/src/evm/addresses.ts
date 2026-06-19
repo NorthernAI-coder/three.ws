@@ -21,7 +21,10 @@ export interface EvmChainConfig {
 }
 
 /** The zero address. The AgentPayments contract is not yet deployed on any EVM
- *  chain, so every `agentPayments` below is this placeholder until deployment. */
+ *  chain, so every `agentPayments` below is this placeholder until deployment.
+ *  Contract source + deploy guide: `contracts/src/AgentPayments.sol` and
+ *  `contracts/AGENT_PAYMENTS.md`. After deploying, replace the UNDEPLOYED entry
+ *  for each chain with its address and run `npm run build` here. */
 export const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as Address;
 const UNDEPLOYED = ZERO_ADDRESS;
 

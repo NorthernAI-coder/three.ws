@@ -7,33 +7,37 @@
 //
 // Mechanism (three.js gpu-optimized depth path): when the live session
 // negotiated `depth-sensing` with `gpu-optimized` usage, three's WebXRManager
-// pulls the per-frame XRWebGLDepthInformation, wraps its texture, and exposes a
-// fullscreen occluder mesh via `renderer.xr.getDepthSensingMesh()`. That mesh's
-// fragment shader writes the *real-world* depth into the depth buffer. Drawn
-// before the agent (renderOrder below 0, colour-write off so the passthrough is
-// untouched), it makes any agent fragment behind real geometry fail the normal
-// depth test and get discarded — true occlusion, no custom shader of our own.
+// pulls the per-frame XRWebGLDepthInformation, wraps it as an ExternalTexture,
+// and — every presenting frame — renders a fullscreen occluder quad *itself*,
+// ahead of the scene (`projectObject(getDepthSensingMesh(), camera, -Infinity)`
+// inside WebGLRenderer.render). That quad's fragment shader writes the
+// *real-world* depth into the depth buffer, so any agent fragment behind real
+// geometry fails the normal depth test and is discarded — true occlusion, no
+// custom shader of our own, and no need to add the mesh to the scene graph.
+// (Adding it would put the same mesh in the render list a second time and draw a
+// redundant fullscreen depth pass every frame.)
+//
+// This helper therefore does the two things three's built-in path leaves to the
+// app: (1) gate the whole thing on the feature actually being negotiated, and
+// (2) configure three's occluder material so it writes depth but *no colour* —
+// the shader emits only gl_FragDepth, so the default colorWrite:true would paint
+// undefined garbage over the camera passthrough. It also frees the occluder's
+// GPU resources on exit, which three's own session-end reset() does not.
 //
 // Degrades silently: when the session has no depth-sensing feature (most devices
-// today) or the UA only offered cpu-optimized data, nothing is ever attached and
-// behavior is byte-for-byte identical to the pre-occlusion path — no error, no
-// console noise, the AR button works exactly as before.
-
-// Draw the occluder before the agent (default renderOrder 0) and before any
-// transparent avatar material, so the depth buffer holds real-world depth by the
-// time the agent is rasterized.
-const OCCLUDER_RENDER_ORDER = -10000;
+// today) or the UA only offered cpu-optimized data, three never builds the mesh,
+// this never configures anything, and behavior is byte-for-byte identical to the
+// pre-occlusion path — no error, no console noise, the AR button works as before.
 
 export class DepthOcclusion {
 	/**
-	 * @param {import('three').WebGLRenderer} renderer Active XR renderer.
-	 * @param {import('three').Scene} scene Scene the agent renders into; the
-	 *   occluder is attached here so it shares the single per-frame draw call.
+	 * @param {import('three').WebGLRenderer} renderer Active XR renderer. The
+	 *   occluder mesh is owned and drawn by `renderer.xr` itself, so the scene is
+	 *   never needed here — this only reads + configures what three exposes.
 	 */
-	constructor(renderer, scene) {
+	constructor(renderer) {
 		this._renderer = renderer;
-		this._scene = scene;
-		/** @type {import('three').Mesh|null} three's cached occluder, once attached. */
+		/** @type {import('three').Mesh|null} three's occluder, once configured. */
 		this._mesh = null;
 		this._enabled = false;
 	}
@@ -52,28 +56,31 @@ export class DepthOcclusion {
 	}
 
 	/**
-	 * Per-frame hook. Attaches three's occluder mesh the first frame real depth
-	 * data is available, then returns immediately on every subsequent frame —
-	 * three updates the depth texture in place, so no further work (and zero
-	 * allocation) is needed in steady state. Safe to call when depth-sensing is
-	 * unsupported: the renderer reports no depth and this is a no-op.
+	 * Per-frame hook. Configures three's occluder material the first frame real
+	 * depth data is available, then returns immediately on every subsequent frame —
+	 * three owns the mesh and updates the depth texture in place, so no further
+	 * work (and zero allocation) is needed in steady state. Must run before the
+	 * frame's `renderer.render` so the material is set before three draws the quad.
+	 * Safe to call when depth-sensing is unsupported: the renderer reports no depth
+	 * and this is a no-op.
 	 */
 	update() {
-		if (this._mesh) return; // attached — three drives the texture each frame
+		if (this._mesh) return; // configured — three drives the texture + draw each frame
 		const xr = this._renderer.xr;
 		// Three only builds the occluder for the gpu-optimized path; if the UA
 		// handed back cpu-optimized data this stays false forever and we degrade.
 		if (typeof xr.hasDepthSensing !== 'function' || !xr.hasDepthSensing()) return;
 		const mesh = xr.getDepthSensingMesh?.();
-		if (mesh) this._attach(mesh);
+		if (mesh) this._configure(mesh);
 	}
 
-	/** @param {import('three').Mesh} mesh */
-	_attach(mesh) {
+	/** @param {import('three').Mesh} mesh three's cached depth-sensing occluder. */
+	_configure(mesh) {
 		const material = mesh.material;
 		// The occluder exists only to stamp real-world depth — it must paint no
 		// colour, or the passthrough camera feed shows shader garbage where the
-		// agent isn't drawn. Its own fragment shader emits gl_FragDepth only.
+		// agent isn't drawn (three's occlusion shader emits gl_FragDepth only and
+		// never assigns a colour, so the default colorWrite:true is undefined out).
 		material.colorWrite = false;
 		material.depthWrite = true;
 		// Fullscreen depth fill on a freshly-cleared buffer: always write, never
@@ -83,28 +90,27 @@ export class DepthOcclusion {
 		// model matrix, so the mesh's world bounds are meaningless — never let
 		// frustum culling drop it as the camera moves around the room.
 		mesh.frustumCulled = false;
-		mesh.renderOrder = OCCLUDER_RENDER_ORDER;
-		this._scene.add(mesh);
 		this._mesh = mesh;
 		this._enabled = true;
 	}
 
-	/** True once the occluder is live in the scene. */
+	/** True once the occluder is live (configured for the current session). */
 	get enabled() {
 		return this._enabled;
 	}
 
 	/**
-	 * Detach and free the occluder on session exit. three resets its own depth
-	 * module on session end (dropping its reference to this mesh) and builds a
-	 * fresh one on the next session, so disposing the geometry/material here frees
-	 * the GPU resources without breaking a later run. The depth texture itself is
-	 * an external handle owned by the XR runtime — material.dispose() never touches
-	 * uniform textures, so it is correctly left alone.
+	 * Free the occluder on session exit. three's session-end `reset()` only nulls
+	 * its references to the mesh + texture — it never disposes the geometry,
+	 * material, or compiled program — so without this each AR entry would leak a
+	 * fullscreen quad + shader program. By the time this runs the render loop is
+	 * already stopped and no further frame draws the mesh, so freeing it is safe;
+	 * three rebuilds a fresh occluder on the next session. The depth texture itself
+	 * is an external handle owned by the XR runtime — material.dispose() never
+	 * touches uniform textures, so it is correctly left alone.
 	 */
 	dispose() {
 		if (this._mesh) {
-			this._scene.remove(this._mesh);
 			this._mesh.geometry?.dispose();
 			this._mesh.material?.dispose();
 			this._mesh = null;

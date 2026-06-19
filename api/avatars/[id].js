@@ -14,6 +14,7 @@ import {
 import { sql } from '../_lib/db.js';
 import { logAudit } from '../_lib/audit.js';
 import { cors, json, method, readJson, wrap, error, rateLimited } from '../_lib/http.js';
+import { requireCsrf } from '../_lib/csrf.js';
 import { headObject } from '../_lib/r2.js';
 import { limits } from '../_lib/rate-limit.js';
 import { recordEvent } from '../_lib/usage.js';
@@ -101,6 +102,10 @@ export default wrap(async (req, res) => {
 	}
 
 	if (!auth?.userId) return error(res, 401, 'unauthorized', 'authentication required');
+
+	// Past this point only PATCH/DELETE remain — guard both against CSRF for
+	// cookie-session callers (bearer/api-key requests are exempt inside requireCsrf).
+	if (!(await requireCsrf(req, res, auth.userId))) return;
 
 	if (req.method === 'PATCH') {
 		if (auth.source === 'oauth' || auth.source === 'apikey') {

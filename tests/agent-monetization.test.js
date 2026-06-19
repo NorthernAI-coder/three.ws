@@ -221,6 +221,46 @@ describe('x402 Manifest', () => {
 		expect(body.currency).toBe('USDC-MINT');
 	});
 
+	it('uses the canonical agent_skill_prices row when present', async () => {
+		const { agent } = createTestAgent();
+
+		sqlState.queue.push([agent]); // agent lookup
+		sqlState.queue.push([
+			{ amount: 2500000, currency_mint: 'USDC-MINT', chain: 'solana', is_active: true },
+		]); // canonical price row
+		sqlState.queue.push([{ address: 'PayoutWa11et1111111111111111111111111111111' }]); // payout wallet
+
+		const { status, body } = await invoke(x402Handler, {
+			method: 'GET',
+			url: `/api/agents/x402/manifest?agent_id=${agent.id}&skill=answer-question`,
+		});
+
+		expect(status).toBe(200);
+		expect(body.amount).toBe('2500000');
+		expect(body.currency).toBe('USDC-MINT');
+		expect(body.chain).toBe('solana');
+		expect(body.recipient).toBe('PayoutWa11et1111111111111111111111111111111');
+	});
+
+	it('falls back to the agent wallet_address when no payout wallet is set', async () => {
+		const { agent } = createTestAgent();
+
+		sqlState.queue.push([agent]); // agent lookup
+		sqlState.queue.push([
+			{ amount: 1000000, currency_mint: 'USDC-MINT', chain: 'solana', is_active: true },
+		]); // canonical price row
+		sqlState.queue.push([]); // no payout wallet
+		sqlState.queue.push([{ wallet_address: 'AgentOwnWa11et11111111111111111111111111111' }]); // agent fallback
+
+		const { status, body } = await invoke(x402Handler, {
+			method: 'GET',
+			url: `/api/agents/x402/manifest?agent_id=${agent.id}&skill=answer-question`,
+		});
+
+		expect(status).toBe(200);
+		expect(body.recipient).toBe('AgentOwnWa11et11111111111111111111111111111');
+	});
+
 	it('returns 404 when agent does not exist', async () => {
 		sqlState.queue.push([]); // no agent
 
@@ -233,18 +273,36 @@ describe('x402 Manifest', () => {
 		expect(body.error).toBe('not_found');
 	});
 
-	it('returns 409 when agent has not enabled payments', async () => {
+	it('returns 404 skill_not_priced when the skill has no price', async () => {
 		const { agent } = createTestAgent({ meta: { payments: { configured: false } } });
 
-		sqlState.queue.push([agent]);
+		sqlState.queue.push([agent]); // agent lookup
+		sqlState.queue.push([]); // no canonical price row
 
 		const { status, body } = await invoke(x402Handler, {
 			method: 'GET',
 			url: `/api/agents/x402/manifest?agent_id=${agent.id}&skill=echo`,
 		});
 
-		expect(status).toBe(409);
-		expect(body.error).toBe('no_payments');
+		expect(status).toBe(404);
+		expect(body.error).toBe('skill_not_priced');
+	});
+
+	it('returns 404 skill_not_available when the price row is inactive', async () => {
+		const { agent } = createTestAgent();
+
+		sqlState.queue.push([agent]); // agent lookup
+		sqlState.queue.push([
+			{ amount: 2500000, currency_mint: 'USDC-MINT', chain: 'solana', is_active: false },
+		]); // deactivated price row
+
+		const { status, body } = await invoke(x402Handler, {
+			method: 'GET',
+			url: `/api/agents/x402/manifest?agent_id=${agent.id}&skill=answer-question`,
+		});
+
+		expect(status).toBe(404);
+		expect(body.error).toBe('skill_not_available');
 	});
 
 	it('returns 400 when agent_id or skill is missing', async () => {

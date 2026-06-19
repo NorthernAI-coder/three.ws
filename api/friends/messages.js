@@ -9,6 +9,7 @@
 // silently dropped (Task 14). Rate-limited and length-capped like world chat.
 
 import { cors, error, json, method, readJson, wrap, rateLimited } from '../_lib/http.js';
+import { requireCsrf } from '../_lib/csrf.js';
 import { clientIp, limits } from '../_lib/rate-limit.js';
 import { resolveAccount } from '../_lib/account-auth.js';
 import { notifyMultiplayer } from '../_lib/presence-store.js';
@@ -53,7 +54,9 @@ export default wrap(async (req, res) => {
 		return json(res, 200, { data: { messages } });
 	}
 
-	// POST — send a DM.
+	// POST — send a DM. CSRF-guard cookie-session callers (bearer exempt).
+	if (!(await requireCsrf(req, res, me))) return;
+
 	const rl = await limits.dmSend(me);
 	if (!rl.success) return rateLimited(res, rl, 'you are sending messages too fast');
 
