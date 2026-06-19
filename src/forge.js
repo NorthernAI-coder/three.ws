@@ -671,7 +671,7 @@ async function reflectHighAccess(tierId, { silent = false } = {}) {
 	renderLock(
 		host,
 		lockStateFromAccess(access, {
-			getThreeUrl: '/three',
+			getThreeUrl: '/three-token',
 			onUseFree: () => selectTier('standard'),
 			useFreeLabel: 'Use Standard (free)',
 			// Working Pay-per-use CTA: pay $THREE for one High generation in place.
@@ -719,8 +719,8 @@ function applyHighAffordances(access) {
 	if (note) {
 		note.dataset.state = state;
 		note.innerHTML = eligible
-			? '<span class="fq-holder-ico" aria-hidden="true">◆</span> High quality is unlocked — you hold <a href="/three">$THREE</a>.'
-			: '<span class="fq-holder-ico" aria-hidden="true">◆</span> High quality is a <a href="/three">$THREE holder</a> feature — hold to unlock, or pay per generation.';
+			? '<span class="fq-holder-ico" aria-hidden="true">◆</span> High quality is unlocked — you hold <a href="/three-token">$THREE</a>.'
+			: '<span class="fq-holder-ico" aria-hidden="true">◆</span> High quality is a <a href="/three-token">$THREE holder</a> feature — hold to unlock, or pay per generation.';
 	}
 }
 
