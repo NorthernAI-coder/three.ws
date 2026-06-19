@@ -234,6 +234,52 @@ describe('paymentRequirements', () => {
 			expect(r.resource).toBe('https://three.ws/api/x402/foo');
 		}
 	});
+
+	it('advertises only USDC on Solana by default (no THREE accept)', async () => {
+		const { paymentRequirements } = await loadSpec();
+		const solana = paymentRequirements('https://three.ws/api/foo').filter((r) =>
+			r.network.startsWith('solana:'),
+		);
+		expect(solana.length).toBe(1);
+		expect(solana[0].extra.name).toBe('USDC');
+	});
+
+	it('adds a THREE Solana accept after USDC when X402_ACCEPT_THREE_SOLANA is on', async () => {
+		process.env.X402_ACCEPT_THREE_SOLANA = 'true';
+		const { paymentRequirements } = await loadSpec();
+		const solana = paymentRequirements('https://three.ws/api/foo').filter((r) =>
+			r.network.startsWith('solana:'),
+		);
+		expect(solana.length).toBe(2);
+		// USDC stays first so first-accept clients keep settling USDC.
+		expect(solana[0].extra.name).toBe('USDC');
+		expect(solana[1].extra.name).toBe('THREE');
+		expect(solana[1].asset).toBe('FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump');
+		expect(solana[1].payTo).toBe(solana[0].payTo);
+		expect(solana[1].extra.feePayer).toBe(solana[0].extra.feePayer);
+		// Default: reuses the USDC atomic price.
+		expect(solana[1].amount).toBe(solana[0].amount);
+	});
+
+	it('lets X402_THREE_AMOUNT_SOLANA price the THREE accept independently', async () => {
+		process.env.X402_ACCEPT_THREE_SOLANA = 'true';
+		process.env.X402_THREE_AMOUNT_SOLANA = '5000000';
+		const { paymentRequirements } = await loadSpec();
+		const three = paymentRequirements('https://three.ws/api/foo').find(
+			(r) => r.extra?.name === 'THREE',
+		);
+		expect(three.amount).toBe('5000000');
+	});
+
+	it('skips the THREE accept when no Solana fee payer is configured', async () => {
+		process.env.X402_ACCEPT_THREE_SOLANA = 'true';
+		delete process.env.X402_FEE_PAYER_SOLANA;
+		const { paymentRequirements } = await loadSpec();
+		const three = paymentRequirements('https://three.ws/api/foo').find(
+			(r) => r.extra?.name === 'THREE',
+		);
+		expect(three).toBeUndefined();
+	});
 });
 
 describe('build402Body extensions', () => {

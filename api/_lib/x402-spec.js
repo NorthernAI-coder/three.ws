@@ -182,6 +182,21 @@ export function paymentRequirements(resourceUrl, { amount } = {}) {
 			// `missing_fee_payer`.
 			extra: { name: 'USDC', decimals: 6, feePayer: env.X402_FEE_PAYER_SOLANA },
 		});
+		// $THREE alongside USDC on the same Solana rail (opt-in via
+		// X402_ACCEPT_THREE_SOLANA — see env.js). Pushed AFTER the USDC entry so
+		// clients that pick the first Solana accept keep settling USDC; the modal
+		// surfaces both as a token chooser. Same fee-payer co-sign path — the
+		// checkout server transfers any SPL mint, so no extra wiring is needed.
+		if (env.X402_ACCEPT_THREE_SOLANA && env.X402_FEE_PAYER_SOLANA) {
+			out.push({
+				...common,
+				...(env.X402_THREE_AMOUNT_SOLANA ? { amount: String(env.X402_THREE_AMOUNT_SOLANA) } : {}),
+				network: NETWORK_SOLANA_MAINNET,
+				payTo: env.X402_PAY_TO_SOLANA,
+				asset: env.THREE_TOKEN_MINT,
+				extra: { name: 'THREE', decimals: env.THREE_TOKEN_DECIMALS, feePayer: env.X402_FEE_PAYER_SOLANA },
+			});
+		}
 	}
 	if (env.X402_PAY_TO_BSC) {
 		// BSC uses the contract-mediated "direct" scheme — see x402-bsc-direct.js

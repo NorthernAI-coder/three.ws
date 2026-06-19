@@ -480,6 +480,22 @@ export const env = {
 		// Solana accept can't be co-signed, so it must come from config.
 		return opt('X402_FEE_PAYER_SOLANA');
 	},
+	// $THREE as a second Solana settlement asset, offered alongside USDC so
+	// holders can pay any three.ws paid endpoint in the platform token — the
+	// modal renders a token chooser whenever both are advertised. OFF by default:
+	// the advertised accept is co-signed and settled by X402_FACILITATOR_URL_SOLANA,
+	// so only enable once that facilitator actually settles the $THREE mint, else
+	// every THREE payment would verify-sign and then fail at /settle. Reuses the
+	// platform $THREE mint + decimals (THREE_TOKEN_MINT / THREE_TOKEN_DECIMALS).
+	get X402_ACCEPT_THREE_SOLANA() {
+		return opt('X402_ACCEPT_THREE_SOLANA', 'false') === 'true';
+	},
+	// Optional THREE price per call, in atomic THREE units (6 decimals). Unset →
+	// the USDC atomic price is reused. Set explicitly to price THREE by its own
+	// value rather than 1:1 with the dollar amount (e.g. while $THREE ≠ $1).
+	get X402_THREE_AMOUNT_SOLANA() {
+		return opt('X402_THREE_AMOUNT_SOLANA');
+	},
 
 	// ERC-8021 builder-code app identifier. When set, every 402 challenge
 	// advertises the `builder-code` extension declaring this as `info.a`,
