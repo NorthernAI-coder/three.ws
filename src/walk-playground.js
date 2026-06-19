@@ -197,6 +197,11 @@ class WalkPlayground {
 		this._armEl = null;
 		this._armAt = 0;
 		this._diving = false;
+
+		// Fall-recovery: timestamp the character first dropped below the visible
+		// viewport while the page could no longer scroll to follow. If it lingers
+		// there he's truly lost off-screen, so we re-drop him back into view.
+		this._airborneSince = 0;
 	}
 
 	async mount({ avatarId = null, startScreen = null, dropIn = false } = {}) {
@@ -635,6 +640,20 @@ class WalkPlayground {
 			}
 		}
 
+		// Fell off the bottom of the world on a page the camera can't scroll to
+		// follow — give it a beat to confirm, then re-drop him into view so he's
+		// never lost off-screen.
+		const sy = window.scrollY || 0;
+		if (!c.grounded && c.vy > 0 && c.y - sy > window.innerHeight * 1.25) {
+			if (!this._airborneSince) this._airborneSince = performance.now();
+			else if (performance.now() - this._airborneSince > 200) {
+				this._recall();
+				return;
+			}
+		} else {
+			this._airborneSince = 0;
+		}
+
 		// Trapdoor arming: standing fairly still on a link opens it. Suppressed
 		// during the spawn grace period so detaching onto a link isn't an instant
 		// teleport — the user gets to take control first.
@@ -659,12 +678,54 @@ class WalkPlayground {
 
 	// Scroll the page so the character stays comfortably in view.
 	_follow(dt) {
-		const want = clamp(this.char.y - window.innerHeight * 0.55, 0, maxScroll());
+		const c = this.char;
+		const vh = window.innerHeight;
 		const cur = window.scrollY || 0;
-		const next = this._reduced ? want : cur + (want - cur) * Math.min(1, dt * 6);
+		// Keep him ~55% down the viewport, easing smoothly — but track a fall
+		// tighter (gravity reaches 2400px/s), or the lag slides him off the
+		// bottom edge mid-plummet and the user loses sight of him.
+		const target = c.y - vh * 0.55;
+		const ease = c.grounded ? dt * 6 : dt * 12;
+		let next = this._reduced ? target : cur + (target - cur) * Math.min(1, ease);
+		// Hard visibility guarantee: never let his feet drop below 85% of the
+		// viewport while the page can still scroll, so he's always findable.
+		next = Math.max(next, c.y - vh * 0.85);
+		next = clamp(next, 0, maxScroll());
 		if (Math.abs(next - cur) > 0.5) window.scrollTo(0, next);
 		this._scrollY = window.scrollY || 0;
 		this._scan();
+	}
+
+	// Re-drop the character into the current view when a fall has carried him
+	// off-screen on a page the camera can't scroll to follow (e.g. a non-
+	// scrollable layout, where the document-bottom floor sits below the fold).
+	// He lands on the highest platform under him that's on screen, or onto a
+	// transient full-width ledge so he stops in view rather than vanishing.
+	_recall() {
+		this._scan(true);
+		const sy = window.scrollY || 0;
+		const vh = window.innerHeight;
+		const x = clamp(this.char.x, this.modelHalfW, docWidth() - this.modelHalfW);
+		let best = null;
+		for (const p of this.platforms) {
+			if (p.top < sy + 20 || p.top > sy + vh - 20) continue; // must be on screen
+			if (x < p.left - FOOT_PAD || x > p.right + FOOT_PAD) continue; // under him
+			if (!best || p.top < best.top) best = p;
+		}
+		if (!best) {
+			best = { left: -40, right: docWidth() + 40, top: sy + vh * 0.35, bottom: sy + vh * 0.35 + 3, href: null, el: null };
+			this.platforms.push(best);
+		}
+		this.char.x = x;
+		this.char.y = best.top;
+		this.char.vx = 0;
+		this.char.vy = 0;
+		this.char.grounded = true;
+		this.platform = best;
+		this._dropIgnore = null;
+		this._airborneSince = 0;
+		this.controller?.setState('idle');
+		this._say('Caught you — back in view.', 2200);
 	}
 
 	_render(dt) {

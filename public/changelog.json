@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-19T17:00:21.584Z",
+	"generated_at": "2026-06-19T17:58:05.905Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -516,6 +516,16 @@
 			"link": "/vanity-wallet",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-19",
+			"type": "update",
+			"title": "Walk Playground no longer loses your character when it falls",
+			"summary": "When you walked the little robot off a ledge it could plummet faster than the page could keep up and slip off the bottom of the screen, leaving you unable to find it. The camera now tracks falls tightly and keeps the character in view, and on pages that can't scroll it catches the character and drops it right back into view.",
+			"link": "/features/walk",
+			"tags": [
+				"fix"
 			]
 		},
 		{

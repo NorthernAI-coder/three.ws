@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-06-19",
+			"title": "Walk Playground no longer loses your character when it falls",
+			"summary": "When you walked the little robot off a ledge it could plummet faster than the page could keep up and slip off the bottom of the screen, leaving you unable to find it. The camera now tracks falls tightly and keeps the character in view, and on pages that can't scroll it catches the character and drops it right back into view.",
+			"tags": [
+				"fix"
+			],
+			"link": "/features/walk"
+		},
+		{
+			"date": "2026-06-19",
 			"title": "Fixed wallet sign-in returning an error",
 			"summary": "Signing in with a Solana or Ethereum wallet was failing for everyone — the request that starts the sign-in handshake was erroring out before you could approve anything in your wallet. A misread site address on the server was the cause; it now self-corrects, and wallet sign-in works again.",
 			"tags": [
