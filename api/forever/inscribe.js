@@ -158,6 +158,20 @@ export default async function handler(req, res) {
 	if (cors(req, res, { origins: '*', methods: 'POST,OPTIONS' })) return;
 	if (req.method !== 'POST') return error(res, 405, 'method_not_allowed', 'POST only');
 
+	// Creating an OrdinalsBot order spends the platform's API key/quota. Require a
+	// signed-in user or a valid bearer token, and rate-limit per IP, so the endpoint
+	// can't be scripted anonymously to spam third-party order creation.
+	const session = await getSessionUser(req).catch(() => null);
+	let authed = !!session;
+	if (!authed) {
+		const bearer = extractBearer(req);
+		if (bearer) authed = !!(await authenticateBearer(bearer).catch(() => null));
+	}
+	if (!authed) return error(res, 401, 'unauthorized', 'sign in or provide a valid bearer token');
+
+	const rl = await limits.inscribeIp(clientIp(req));
+	if (!rl.success) return rateLimited(res, rl);
+
 	let body;
 	try {
 		body = await readJson(req);

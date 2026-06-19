@@ -70,9 +70,13 @@ async function enforceSharedSpendPolicy(agentId, network, perTradeLamports) {
 
 // Record a confirmed/simulated snipe buy into the shared custody ledger so it
 // counts toward the per-agent daily ceiling and shows in the audit trail.
-// Fire-and-forget — prices the SOL spend best-effort, never blocks the trade.
-function recordSnipeSpend({ agentId, userId, network, lamports, signature, mode, mint }) {
-	(async () => {
+// Awaited by the caller (not fire-and-forget): the on-chain buy has already
+// settled, so a ledger-write failure must never throw the trade away — but we
+// must finish the write before returning so a rapid next snipe sees this spend
+// against the ceiling rather than racing an unwritten record. Prices the SOL
+// spend best-effort; a pricing hiccup records lamports with a null USD value.
+async function recordSnipeSpend({ agentId, userId, network, lamports, signature, mode, mint }) {
+	try {
 		let usd = null;
 		try { usd = await lamportsToUsd(lamports); } catch { usd = null; }
 		await recordSpend({
@@ -82,7 +86,9 @@ function recordSnipeSpend({ agentId, userId, network, lamports, signature, mode,
 			status: mode === 'live' ? 'confirmed' : 'ok',
 			meta: { mint, mode },
 		});
-	})().catch((err) => log.warn?.('snipe_spend_record_failed', { agent: agentId, message: err?.message }));
+	} catch (err) {
+		log.warn?.('snipe_spend_record_failed', { agent: agentId, message: err?.message });
+	}
 }
 
 /**
@@ -179,7 +185,7 @@ export async function executeBuy({ cfg, strat, mint, throttle }) {
 			`;
 			log.trade('buy', { ...tag, mode: cfg.mode, sig, sol: lamportsToSol(perTrade), base: baseAmount.toString(), impact: Number(quote.priceImpactPct).toFixed(2) });
 			notifyBuy({ agentName: strat.agent_name || strat.agent_id, symbol: mint.symbol, mint: mint.mint, solSpent: lamportsToSol(perTrade), mode: cfg.mode, sig, chatId: strat.telegram_chat_id || null });
-			recordSnipeSpend({ agentId: strat.agent_id, userId: strat.user_id, network: cfg.network, lamports: perTrade, signature: sig, mode: cfg.mode, mint: mint.mint });
+			await recordSnipeSpend({ agentId: strat.agent_id, userId: strat.user_id, network: cfg.network, lamports: perTrade, signature: sig, mode: cfg.mode, mint: mint.mint });
 			return { status: 'open', sig };
 		} catch (err) {
 			return await fail(posId, tag, errCode(err), err);

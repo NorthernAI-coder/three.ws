@@ -10,7 +10,7 @@
 // that the user authorized this class of spend before any autonomous payment.
 
 import { authenticateBearer, extractBearer, getSessionUser } from '../_lib/auth.js';
-import { cors, error, json, method, rateLimited, readJson, wrap } from '../_lib/http.js';
+import { cors, error, json, method, rateLimited, readJson, respondError, wrap } from '../_lib/http.js';
 import { limits } from '../_lib/rate-limit.js';
 import { DEFAULT_NETWORK, issueIntentMandate, MandateError, MAX_TTL_SECONDS, SUPPORTED_NETWORKS } from '../_lib/a2a/mandate.js';
 
@@ -58,7 +58,7 @@ export default wrap(async (req, res) => {
 			max_ttl_seconds: MAX_TTL_SECONDS,
 		});
 	} catch (err) {
-		if (err instanceof MandateError) return error(res, err.status, err.code, err.message);
+		if (err instanceof MandateError) return respondError(res, err.status, err.code, err);
 		throw err;
 	}
 });

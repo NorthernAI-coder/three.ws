@@ -13,7 +13,7 @@
  */
 
 import { getSessionUser, authenticateBearer, extractBearer } from '../../_lib/auth.js';
-import { cors, json, method, readJson, wrap, error, rateLimited } from '../../_lib/http.js';
+import { cors, json, method, readJson, wrap, error, rateLimited, serverError, respondError } from '../../_lib/http.js';
 import { limits, clientIp } from '../../_lib/rate-limit.js';
 import { loadAgentForSigning, solanaConnection } from '../../_lib/agent-pumpfun.js';
 import { reserveSpend, finalizeSpend, releaseSpend } from '../../_lib/agent-spend-policy.js';
@@ -279,7 +279,7 @@ async function handleBuy(req, res, id) {
 	} catch (err) {
 		console.error('[pumpfun/buy] send failed', err);
 		if (reservation) await releaseSpend(reservation.reservationId);
-		return error(res, 502, 'rpc_error', err.message || 'transaction failed');
+		return serverError(res, 502, 'rpc_error', err);
 	}
 
 	if (reservation) {
@@ -501,7 +501,7 @@ async function handleLaunch(req, res, id) {
 	} catch (err) {
 		console.error('[pumpfun/launch] send failed', err);
 		await releaseSpend(reservation.reservationId);
-		return error(res, 502, 'rpc_error', err.message || 'transaction failed');
+		return serverError(res, 502, 'rpc_error', err);
 	}
 
 	await finalizeSpend(reservation.reservationId, { mint: mintAddr, signature });
@@ -623,7 +623,7 @@ async function handlePay(req, res, id) {
 			});
 		} catch (err) {
 			console.error('[pumpfun/pay] balances failed', err);
-			return error(res, 502, 'rpc_error', err.message || 'balance fetch failed');
+			return serverError(res, 502, 'rpc_error', err);
 		}
 	}
 
@@ -734,7 +734,7 @@ async function handlePay(req, res, id) {
 		await conn.confirmTransaction(signature, 'confirmed');
 	} catch (err) {
 		console.error(`[pumpfun/pay] ${body.action} send failed`, err);
-		return error(res, 502, 'rpc_error', err.message || 'transaction failed');
+		return serverError(res, 502, 'rpc_error', err);
 	}
 
 	await sql`
@@ -1137,7 +1137,7 @@ async function handleSell(req, res, id) {
 		await conn.confirmTransaction(signature, 'confirmed');
 	} catch (err) {
 		console.error('[pumpfun/sell] send failed', err);
-		return error(res, 502, 'rpc_error', err.message || 'transaction failed');
+		return serverError(res, 502, 'rpc_error', err);
 	}
 
 	await sql`
@@ -1398,7 +1398,7 @@ async function handleSwap(req, res, id) {
 	} catch (err) {
 		console.error('[pumpfun/swap] send failed', err);
 		if (reservation) await releaseSpend(reservation.reservationId);
-		return error(res, 502, 'rpc_error', err.message || 'transaction failed');
+		return serverError(res, 502, 'rpc_error', err);
 	}
 
 	if (reservation) {

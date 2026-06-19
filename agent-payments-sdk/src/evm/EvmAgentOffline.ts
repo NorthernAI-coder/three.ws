@@ -9,7 +9,7 @@ import {
   type Hex,
 } from "viem";
 import { AGENT_PAYMENTS_ABI, ERC20_ABI } from "./abi.js";
-import { getEvmChain, NATIVE_TOKEN_ADDRESS, type EvmChainId } from "./addresses.js";
+import { getEvmChain, isAgentPaymentsDeployed, NATIVE_TOKEN_ADDRESS, type EvmChainId } from "./addresses.js";
 import { getInvoiceId, buildInvoiceWindow, generateMemo } from "./invoice.js";
 import type {
   EvmAcceptPaymentParams,
@@ -38,6 +38,18 @@ export class EvmAgentOffline {
   readonly contractAddress: Address;
 
   constructor(agentToken: Address, chainId: EvmChainId) {
+    // Fail loudly when the AgentPayments contract is not deployed on this chain.
+    // Without this guard every build*Tx() would silently emit a transaction
+    // addressed to 0x000…000 (funds/approvals lost), because the address table
+    // ships zero-address placeholders until the contract is live. Throwing here
+    // surfaces the real state — EVM agent payments are not yet operational — at
+    // construction, before any tx is built or signed.
+    if (!isAgentPaymentsDeployed(chainId)) {
+      throw new Error(
+        `AgentPayments contract is not deployed on chain ${chainId}. ` +
+          `EVM agent payments are not available yet on this chain; use the Solana payment path.`,
+      );
+    }
     this.agentToken = agentToken;
     this.chainId = chainId;
     this.contractAddress = getEvmChain(chainId).agentPayments;
