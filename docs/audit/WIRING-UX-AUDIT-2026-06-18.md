@@ -42,14 +42,18 @@ All items below are fixed in this pass unless marked otherwise.
 
 ### Missing / broken UI states ("every state is designed")
 
-| # | File | Issue | Fix |
+Several of these were **overstated by the audit pass** — verified against the
+real code, the surfaces already had error states. Each was checked; only genuine
+gaps were changed (verify-before-fix).
+
+| # | File | Verified reality | Action |
 |---|---|---|---|
-| F7 | `src/agents-directory.js` | Primary discovery page renders blank grid on fetch failure | visible error + retry ✅ |
-| F8 | `src/leaderboard.js` | Blank board on first-load failure | explicit error state + retry ✅ |
-| F10 | `src/marketplace.js` | `loadPublicAvatars()` skeletons render forever on error | error state + flag flip ✅ |
-| F11 | `src/bounties.js` | Load-more pagination failures silent | inline error on load-more failure ✅ |
-| F12 | `src/communities.js` | Per-coin profile fetch fails silently | error message in coin-profile container ✅ |
-| F13 | `src/collection.js` | No error state for subscription/collection lists | error banner + retry ✅ |
+| F7 | `public/agents/boot.js` (consumer of `agents-directory.js`) | Already rendered an "Error loading agents" empty-state on failure, but it was **not actionable** (no retry) and stale error copy leaked into the next empty render | Added Retry button + restore default empty copy ✅ |
+| F8 | `src/leaderboard.js` | **Already correct** — first-load failure renders an error state with a Retry button (`lb-retry`, lines 184-192). Audit claim was wrong | No change (verified) ✅ |
+| F10 | `src/marketplace.js` | **Already correct** — `loadPublicAvatars()` flips the loaded flag and renders a retryable error state (lines 570-581). Audit claim was stale | No change (verified) ✅ |
+| F11 | `src/bounties.js` | Load-more failure swapped the button to a bare "Retry" with no explanation | Button now reads "Couldn't load more — tap to retry" ✅ |
+| F12 | `src/communities.js` + `pages/communities.html` | A network/5xx coin-profile failure showed "Coin not found", conflating error with a real 404 | Distinguish 5xx/network from 404; show "Couldn't load this coin" + Retry ✅ |
+| F13 | `src/collection.js` | Handled the `!ok` path, but a `Promise.all`/`.json()` **rejection** (offline) left skeletons rendering forever (no `.catch` on `load()`) | Wrapped network + parse in try/catch with shared retryable error helper ✅ |
 
 ### Backend boundary hardening
 

@@ -55,9 +55,12 @@ import {
 	hashPaymentProof,
 	hashRequestPayload,
 	paymentIdentifierExtension,
+	reserveSlot,
+	releaseSlot,
 	storeResponse,
 	writeCachedResponse,
 	writeConflict,
+	writeInflight,
 } from './x402/payment-identifier-server.js';
 import { authenticateSiwx, declareSiwxExtensionFor, recordSiwxPayment } from './siwx-server.js';
 import { normalizeAddress } from './siwx-storage.js';
@@ -667,6 +670,10 @@ export function paidEndpoint(spec) {
 		// transient verify/settle failure never locks a legitimate payer out of
 		// retrying the same payment.
 		const paymentId = clientPaymentId || (paymentHash ? `proof:${paymentHash}` : null);
+		// Track whether THIS request owns the in-flight reservation, so we only
+		// release it on a failure path (never delete another request's slot or a
+		// stored response).
+		let ownsReservation = false;
 		if (paymentId) {
 			const lookup = await checkCache({ route, paymentId, payloadHash, paymentHash });
 			if (lookup.kind === 'hit') {
@@ -680,12 +687,36 @@ export function paidEndpoint(spec) {
 					reason: lookup.reason,
 				});
 			}
+			if (lookup.kind === 'inflight') {
+				return writeInflight(res);
+			}
+			// Atomically claim the slot. The check above + the deferred storeResponse
+			// (written only AFTER settle) left a window where N concurrent requests
+			// carrying the same X-PAYMENT all missed the cache, all ran the paid
+			// handler (side effects) and all settled before the first response was
+			// stored. The NX reservation closes it: only the winner proceeds; the rest
+			// observe the in-flight marker (or, once it finishes, the cached response).
+			ownsReservation = await reserveSlot({ route, paymentId, ttlSeconds: pidTtlSeconds });
+			if (!ownsReservation) {
+				const recheck = await checkCache({ route, paymentId, payloadHash, paymentHash });
+				if (recheck.kind === 'hit') return writeCachedResponse(res, recheck.entry);
+				if (recheck.kind === 'conflict') {
+					return writeConflict(res, {
+						route,
+						attemptedHash: recheck.attemptedHash,
+						existingHash: recheck.existingHash,
+						reason: recheck.reason,
+					});
+				}
+				return writeInflight(res);
+			}
 		}
 
 		let verified;
 		try {
 			verified = await verifyPayment({ paymentHeader, requirements, builderCode });
 		} catch (err) {
+			if (ownsReservation) await releaseSlot({ route, paymentId });
 			if (err.status === 402) return send402(res, { ...challenge, error: err.message });
 			return respondError(res, err.status || 502, err.code || 'verify_failed', err);
 		}
@@ -699,6 +730,7 @@ export function paidEndpoint(spec) {
 				payer: verified.payer,
 			});
 		} catch (err) {
+			if (ownsReservation) await releaseSlot({ route, paymentId });
 			if (err instanceof X402Error && err.status === 402) {
 				return send402(res, { ...challenge, error: err.message });
 			}
@@ -706,8 +738,13 @@ export function paidEndpoint(spec) {
 		}
 
 		// Handler may end the response itself (e.g. binary body); only settle +
-		// emit JSON when it returned a value and didn't already flush.
-		if (res.writableEnded) return;
+		// emit JSON when it returned a value and didn't already flush. This path
+		// stores no cache entry, so release the in-flight reservation rather than
+		// leaving a marker that would wedge same-payment retries for the full TTL.
+		if (res.writableEnded) {
+			if (ownsReservation) await releaseSlot({ route, paymentId });
+			return;
+		}
 
 		let settled;
 		try {
@@ -727,6 +764,7 @@ export function paidEndpoint(spec) {
 				userAgent: req.headers?.['user-agent']?.slice(0, 512) || null,
 				metadata: { error: err.message, code: err.code },
 			});
+			if (ownsReservation) await releaseSlot({ route, paymentId });
 			return respondError(res, err.status || 502, err.code || 'settle_failed', err);
 		}
 

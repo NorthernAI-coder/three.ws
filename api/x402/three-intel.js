@@ -154,22 +154,14 @@ export default paidEndpoint({
 		try { live = await fetchThreeMarket(mint); } catch { /* upstream hiccup */ }
 
 		if (!live || live.change_24h == null) {
-			return {
-				mint,
-				symbol: 'THREE',
-				price_usd: live?.price_usd ?? null,
-				change_24h: null,
-				market_cap_usd: live?.market_cap_usd ?? null,
-				liquidity_usd: live?.liquidity_usd ?? null,
-				volume_24h_usd: live?.volume_24h_usd ?? null,
-				signal: 'neutral',
-				headline: 'THREE — live data unavailable, signal estimated',
-				rationale:
-					'DexScreener rate-limited this request. ' +
-					'Signal is estimated from trend memory; retry in 60 s for a live quote.',
-				confidence: 0.4,
-				ts: new Date().toISOString(),
-			};
+			// Live data is unavailable (DexScreener hiccup/rate-limit). This is a
+			// paid endpoint — never charge for a fabricated signal. Throw so the
+			// paidEndpoint wrapper returns a 503 BEFORE settlement runs; the buyer
+			// is not charged and can retry once live data is back.
+			throw Object.assign(new Error('live THREE market data is temporarily unavailable'), {
+				status: 503,
+				code: 'data_unavailable',
+			});
 		}
 
 		const { signal, headline, rationale, confidence } = buildSignal(live);

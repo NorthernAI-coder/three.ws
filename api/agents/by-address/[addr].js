@@ -62,7 +62,7 @@ async function queryChain(addr, chainId, meta) {
 	try {
 		provider = await evmFallbackProvider(chainId, { primaryUrl: meta.rpc });
 	} catch {
-		return [];
+		return { agents: [], truncated: false };
 	}
 
 	const registry = new Contract(meta.registry, ENUM_ABI, provider);
@@ -70,13 +70,18 @@ async function queryChain(addr, chainId, meta) {
 	try {
 		count = Number(await withTimeout(registry.balanceOf(addr), RPC_TIMEOUT));
 	} catch {
-		return [];
+		return { agents: [], truncated: false };
 	}
 
-	if (count === 0) return [];
+	if (count === 0) return { agents: [], truncated: false };
+
+	// Cap enumeration so one wallet with a huge balance can't fan a single HTTP
+	// request into thousands of upstream RPC calls (DoS / Helius-burn).
+	const enumCount = Math.min(count, MAX_ENUM);
+	const truncated = count > MAX_ENUM;
 
 	const agentIds = await Promise.all(
-		Array.from({ length: count }, (_, i) =>
+		Array.from({ length: enumCount }, (_, i) =>
 			withTimeout(registry.tokenOfOwnerByIndex(addr, BigInt(i)), RPC_TIMEOUT).catch(
 				() => null,
 			),
@@ -102,7 +107,7 @@ async function queryChain(addr, chainId, meta) {
 		});
 	}
 
-	return results;
+	return { agents: results, truncated };
 }
 
 export default wrap(async (req, res) => {
@@ -166,7 +171,8 @@ export default wrap(async (req, res) => {
 		chains.map(({ id, meta }) => queryChain(raw, id, meta)),
 	);
 
-	const agents = settled.flatMap((r) => (r.status === 'fulfilled' ? r.value : []));
+	const agents = settled.flatMap((r) => (r.status === 'fulfilled' ? r.value.agents : []));
+	const truncated = settled.some((r) => r.status === 'fulfilled' && r.value.truncated);
 	cacheSet(cacheKey, agents);
-	return json(res, 200, { agents });
+	return json(res, 200, { agents, truncated });
 });

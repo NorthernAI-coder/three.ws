@@ -7,6 +7,7 @@ import { cors, json, method, readJson, wrap, error, rateLimited } from '../../_l
 import { limits, clientIp } from '../../_lib/rate-limit.js';
 import { parse, isUuid } from '../../_lib/validate.js';
 import { emit402, verifyPaid, consumeIntent, manifestOnly } from '../../_lib/x402.js';
+import { resolvePayoutAddress } from '../../_lib/payout.js';
 import { calculateFee } from '../../_lib/fee.js';
 import { insertNotification } from '../../_lib/notify.js';
 import { hasSkillAccess, consumeTrialUse, logSkillUsage } from '../../_lib/skill-access.js';
@@ -40,11 +41,22 @@ async function priceFor(agent, skill) {
 	`;
 	if (row) return { amount: String(row.amount), currency: row.currency_mint, chain: row.chain };
 
+	return metaPrice(agent, skill);
+}
+
+// Legacy pricing: agents priced via meta.skill_prices (or a meta default) before
+// the agent_skill_prices marketplace migration. Both invoke and manifest fall
+// back to this so pre-migration agents keep working.
+function metaPrice(agent, skill) {
 	const prices = agent.meta?.skill_prices || {};
 	const fromMap = prices[skill];
-	if (fromMap?.amount && fromMap?.currency) return fromMap;
+	if (fromMap?.amount && fromMap?.currency) {
+		return { amount: String(fromMap.amount), currency: fromMap.currency, chain: fromMap.chain ?? 'solana' };
+	}
 	const defaultPrice = agent.meta?.payments?.default_price;
-	if (defaultPrice?.amount && defaultPrice?.currency) return defaultPrice;
+	if (defaultPrice?.amount && defaultPrice?.currency) {
+		return { amount: String(defaultPrice.amount), currency: defaultPrice.currency, chain: defaultPrice.chain ?? 'solana' };
+	}
 	return null;
 }
 
@@ -235,24 +247,43 @@ async function handleManifest(req, res) {
 		await sql`select id, name, meta from agent_identities where id = ${agent_id} and deleted_at is null limit 1`;
 	if (!agent) return error(res, 404, 'not_found', 'agent not found');
 
-	// Manifest is callable as long as the skill is priced — either in the
-	// canonical agent_skill_prices table or the legacy meta.skill_prices map.
-	const [hasMarketplacePrice] = await sql`
-		SELECT 1 FROM agent_skill_prices WHERE agent_id = ${agent.id} AND skill = ${skill} AND is_active = true
+	// Canonical pricing lives in agent_skill_prices. Fetch the row regardless of
+	// is_active so we can distinguish "deactivated" (skill_not_available) from
+	// "never priced" (skill_not_priced).
+	const [priceRow] = await sql`
+		SELECT amount, currency_mint, chain, is_active
+		FROM agent_skill_prices
+		WHERE agent_id = ${agent.id} AND skill = ${skill}
 	`;
-	const hasMetaPrice = !!(
-		agent.meta?.skill_prices?.[skill] || agent.meta?.payments?.default_price
-	);
-	if (!hasMarketplacePrice && !hasMetaPrice) {
-		return error(res, 409, 'no_payments', 'this skill is not priced');
+
+	let price;
+	if (priceRow) {
+		if (!priceRow.is_active) {
+			return error(res, 404, 'skill_not_available', 'this skill is not currently available');
+		}
+		price = { amount: String(priceRow.amount), currency: priceRow.currency_mint, chain: priceRow.chain };
+	} else {
+		// Legacy meta-priced agents predate the marketplace table. The invoke path
+		// still honors them, so the manifest must surface them too.
+		price = metaPrice(agent, skill);
+		if (!price) {
+			return error(res, 404, 'skill_not_priced', 'this skill is not priced');
+		}
 	}
 
-	const price = await priceFor(agent, skill);
-	if (!price) {
-		// Defensive — the no-payments precheck above should have caught this.
-		return error(res, 409, 'no_payments', 'this skill is not priced');
-	}
-	return manifestOnly(res, { agent, skill, amount: price.amount, currency: price.currency });
+	// payTo resolves from the owner's configured payout wallet for this chain
+	// (agent_payout_wallets), falling back to the agent's own wallet_address.
+	// When neither is set, manifestOnly falls back to the agent's meta receiver.
+	const recipient = await resolvePayoutAddress(agent.id, price.chain || 'solana');
+
+	return manifestOnly(res, {
+		agent,
+		skill,
+		amount: price.amount,
+		currency: price.currency,
+		chain: price.chain,
+		recipient,
+	});
 }
 
 // ── dispatcher ────────────────────────────────────────────────────────────────

@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-06-19",
+			"title": "IBM sites can now embed three.ws pages",
+			"summary": "We extended the sitewide clickjacking protection to allow IBM properties to frame three.ws. Any page on ibm.com (and its subdomains) may now load three.ws pages inside an iframe — useful for the IBM x402 demo and other IBM-hosted integrations — while every other external site is still refused by default. Sign-in, wallet, dashboard and OAuth consent pages remain hard-locked and cannot be framed by anyone, including IBM. The avatar, widget and walk embeds continue to work on any site as before.",
+			"tags": [
+				"security",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-19",
 			"title": "AR & half-body avatar export fixed for compressed models",
 			"summary": "View-in-AR (USDZ for iOS Quick Look) and the half-body VR-seat export now work for avatars that ship with meshopt or Draco geometry compression. Previously these exports silently failed on compressed GLBs because the loader had no decoder registered; the pipeline now loads the meshopt and Draco decoders before parsing, so every avatar — including the compressed ones produced by the server-side bake — converts cleanly.",
 			"tags": [

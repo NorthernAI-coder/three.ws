@@ -484,6 +484,123 @@ export async function enforceSpendLimit({
 	return { ok: true, limits: lim, dailySpentUsd };
 }
 
+/**
+ * Atomically enforce the per-agent USD spend policy AND reserve a pending custody
+ * row, under a per-agent advisory lock. This closes the TOCTOU that
+ * `enforceSpendLimit` + a post-settle `recordSpend` leaves open: without the lock,
+ * K concurrent calls all read the same pre-spend 24h total, all pass the daily
+ * ceiling, and all settle — turning a $X/day cap into $X·K. Mirrors the proven
+ * `reserveSpend` pattern in agent-spend-policy.js (which already protects the SOL
+ * outflow path).
+ *
+ * Returns { ok: true, reservationId, dailySpentUsd } on success — finalize the
+ * reservation with `updateCustodyEvent(reservationId, { status, signature })` after
+ * settlement, or `releaseSpendReservation(reservationId)` if the spend never moved.
+ * @throws {SpendLimitError} on per-tx breach, daily breach, or withdraw-allowlist miss.
+ */
+export async function reserveSpendUsd({
+	agentId,
+	userId,
+	meta,
+	limits,
+	category,
+	usdValue,
+	destination,
+	network = 'mainnet',
+	asset = 'USDC',
+	rowMeta = {},
+}) {
+	const lim = limits || getSpendLimits(meta);
+
+	// Withdraw allowlist — destination gate (same as enforceSpendLimit).
+	if (category === 'withdraw' && lim.withdraw_allowlist.length > 0) {
+		const dest = typeof destination === 'string' ? destination.trim() : '';
+		if (!dest || !lim.withdraw_allowlist.includes(dest)) {
+			throw new SpendLimitError(
+				'destination_not_allowed',
+				'That destination is not on this agent’s withdraw allowlist. Add it under Limits & Safety, or send to an allowed address.',
+				{ destination: dest || null, allowlist_size: lim.withdraw_allowlist.length },
+			);
+		}
+	}
+
+	const hasUsd = typeof usdValue === 'number' && Number.isFinite(usdValue) && usdValue >= 0;
+
+	// Per-transaction ceiling (no lock needed — a single value vs a constant).
+	if (lim.per_tx_usd != null && hasUsd && usdValue > lim.per_tx_usd + 1e-9) {
+		throw new SpendLimitError(
+			'per_tx_exceeded',
+			`This ${category} is $${usdValue.toFixed(2)}, over the per-transaction limit of $${lim.per_tx_usd.toFixed(2)}.`,
+			{ usd: usdValue, per_tx_usd: lim.per_tx_usd },
+		);
+	}
+
+	const metaJson = JSON.stringify(rowMeta ?? {});
+
+	// No daily ceiling, or an unpriceable spend: just reserve a pending row (it
+	// can't gate a cap it has no number for) so the ledger still reflects it.
+	if (lim.daily_usd == null || !hasUsd) {
+		const reservationId = await recordCustodyEvent({
+			agentId, userId, eventType: 'spend', category, network, asset,
+			usd: hasUsd ? usdValue : null, destination, status: 'pending', meta: rowMeta,
+		});
+		return { ok: true, reservationId, dailySpentUsd: null };
+	}
+
+	// Atomic daily-cap reserve: the advisory xact lock serializes concurrent spends
+	// per agent, and the INSERT…SELECT only materializes the pending row when the
+	// rolling 24h total plus this spend stays within the cap — check + reserve are
+	// one statement, so two requests can never both pass on the same stale total.
+	const rows = await sql`
+		WITH locked AS (
+			SELECT pg_advisory_xact_lock(hashtextextended(${String(agentId)}, 0))
+		),
+		spent AS (
+			SELECT COALESCE(SUM(usd), 0)::float8 AS s
+			FROM agent_custody_events
+			WHERE agent_id = ${agentId}
+			  AND network = ${network}
+			  AND event_type = 'spend'
+			  AND status IN ('ok', 'pending', 'confirmed')
+			  AND usd IS NOT NULL
+			  AND created_at > now() - interval '24 hours'
+		)
+		INSERT INTO agent_custody_events
+			(agent_id, user_id, event_type, category, network, asset, usd, destination, status, meta)
+		SELECT ${agentId}, ${userId ?? null}, 'spend', ${category}, ${network}, ${asset},
+		       ${usdValue}, ${destination ?? null}, 'pending', ${metaJson}::jsonb
+		FROM spent, locked
+		WHERE spent.s + ${usdValue}::float8 <= ${lim.daily_usd}::float8 + 1e-9
+		RETURNING id, (SELECT s FROM spent) AS spent_before
+	`;
+
+	if (!rows.length) {
+		// Re-read the total for an accurate error message (outside the lock is fine).
+		const dailySpentUsd = await getDailySpendUsd(agentId, network);
+		throw new SpendLimitError(
+			'daily_exceeded',
+			`This ${category} would bring today’s spend to $${(dailySpentUsd + usdValue).toFixed(2)}, over the daily limit of $${lim.daily_usd.toFixed(2)}.`,
+			{ usd: usdValue, spent_usd: dailySpentUsd, daily_usd: lim.daily_usd },
+		);
+	}
+
+	return { ok: true, reservationId: rows[0].id, dailySpentUsd: Number(rows[0].spent_before || 0) };
+}
+
+/**
+ * Release a USD spend reservation that never resulted in a settled payment, so it
+ * stops counting toward the daily cap. Marks the pending row 'failed' rather than
+ * deleting it, preserving the audit trail.
+ */
+export async function releaseSpendReservation(reservationId, reason = 'spend_aborted') {
+	if (!reservationId) return;
+	await sql`
+		UPDATE agent_custody_events
+		SET status = 'failed', reason = ${reason}, updated_at = now()
+		WHERE id = ${reservationId} AND status = 'pending'
+	`;
+}
+
 const CUSTODY_COLUMNS = [
 	'agent_id', 'user_id', 'event_type', 'category', 'network', 'asset',
 	'amount_lamports', 'amount_raw', 'usd', 'destination', 'signature',

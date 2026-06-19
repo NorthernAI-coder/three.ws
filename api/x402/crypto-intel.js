@@ -164,17 +164,13 @@ export default paidEndpoint({
 		try { live = await fetchLivePrice(coinId); } catch { /* offline fallback */ }
 
 		if (!live || live.change_24h == null) {
-			return {
-				topic,
-				headline: `${topic.toUpperCase()} — live data unavailable, signal estimated`,
-				signal: 'neutral',
-				price_usd: null,
-				change_24h: null,
-				rationale: `CoinGecko rate-limited this request. ` +
-					`Signal is estimated from trend memory; retry in 60 s for a live quote.`,
-				confidence: 0.4,
-				ts: new Date().toISOString(),
-			};
+			// Paid endpoint — never charge for a fabricated signal. Throw so the
+			// paidEndpoint wrapper returns a 503 BEFORE settlement; the buyer is
+			// not charged and can retry once the live price feed recovers.
+			throw Object.assign(new Error(`live market data for ${topic} is temporarily unavailable`), {
+				status: 503,
+				code: 'data_unavailable',
+			});
 		}
 
 		const { signal, headline, rationale, confidence } = buildSignal(topic, live.price_usd, live.change_24h);

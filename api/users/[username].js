@@ -16,7 +16,7 @@ export default wrap(async (req, res) => {
 	if (!rl.success) return rateLimited(res, rl);
 
 	const [user] = await sql`
-		select id, display_name, username, created_at, referral_code, wallet_address
+		select id, display_name, username, created_at, wallet_address
 		from users
 		where lower(username) = ${username} and deleted_at is null
 		limit 1
@@ -269,7 +269,6 @@ export default wrap(async (req, res) => {
 		user: {
 			username: user.username,
 			display_name: user.display_name || user.username,
-			referral_code: user.referral_code,
 			wallet_address: user.wallet_address,
 			created_at: user.created_at,
 		},
