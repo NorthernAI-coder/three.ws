@@ -1,0 +1,566 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script>/* three.ws theme boot — no-flash */(function(){try{var m=localStorage.getItem('twx_theme');var l=m==='auto'?(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches):m==='light';document.documentElement.setAttribute('data-theme',l?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();</script>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>x402 Studio · Configure payments</title>
+<meta name="description" content="The control room for your x402 payments — products, payouts, agent wallets, security, CORS, and a drag-and-drop button builder. The Stripe of x402." />
+<link rel="icon" href="/favicon.ico" />
+<style>
+	:root {
+		color-scheme: dark;
+		--bg: #0b0b0b;
+		--bg-2: #111111;
+		--panel: #161616;
+		--panel-2: #1d1d1d;
+		--panel-3: #232323;
+		--border: #272727;
+		--border-strong: #343434;
+		--text: #f0f2f8;
+		--muted: #8a90a8;
+		--muted-2: #6b7088;
+		--accent: #0a84ff;
+		--accent-2: #60a5fa;
+		--green: #4ade80;
+		--amber: #fbbf24;
+		--red: #ef4444;
+		--mono: ui-monospace, "JetBrains Mono", "Fira Code", Menlo, monospace;
+		--rad: 12px;
+	}
+	[data-theme="light"] {
+		color-scheme: light;
+		--bg: #f6f7f9; --bg-2: #fff; --panel: #ffffff; --panel-2: #f3f4f7; --panel-3: #eceef2;
+		--border: #e4e6eb; --border-strong: #d4d7de; --text: #0e1116; --muted: #5b6172; --muted-2: #818799;
+	}
+	* { box-sizing: border-box; }
+	html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); }
+	body {
+		font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+		-webkit-font-smoothing: antialiased; line-height: 1.5; min-height: 100dvh;
+	}
+	a { color: var(--accent-2); text-decoration: none; }
+	a:hover { color: #93c5fd; }
+	h1, h2, h3 { letter-spacing: -0.02em; }
+	::selection { background: rgba(96,165,250,.3); }
+
+	/* ── header ── */
+	header {
+		display: flex; align-items: center; gap: 14px;
+		padding: 14px 24px; border-bottom: 1px solid var(--border);
+		position: sticky; top: 0; z-index: 50;
+		background: color-mix(in srgb, var(--bg) 86%, transparent);
+		backdrop-filter: saturate(140%) blur(12px);
+	}
+	.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 15px; color: var(--text); }
+	.brand .dot { width: 22px; height: 22px; border-radius: 7px; background: conic-gradient(from 200deg, var(--accent-2), #a78bfa, var(--accent-2)); }
+	.crumb { color: var(--muted); font-size: 13px; }
+	.header-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+	.savestate { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; min-width: 0; }
+	.savestate .pip { width: 7px; height: 7px; border-radius: 50%; background: var(--muted-2); }
+	.savestate.saved .pip { background: var(--green); }
+	.savestate.dirty .pip { background: var(--amber); }
+	.savestate.saving .pip { background: var(--accent-2); animation: pulse 1s infinite; }
+	@keyframes pulse { 50% { opacity: .35; } }
+
+	/* ── buttons ── */
+	.btn {
+		appearance: none; border: 1px solid var(--accent); background: var(--accent); color: #fff;
+		font: inherit; font-weight: 600; font-size: 13px; padding: 8px 14px; border-radius: 9px;
+		cursor: pointer; transition: filter .12s, transform .06s, background .12s, border-color .12s; white-space: nowrap;
+	}
+	.btn:hover { filter: brightness(1.08); }
+	.btn:active { transform: translateY(1px); }
+	.btn:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+	.btn.ghost { background: transparent; color: var(--text); border-color: var(--border-strong); }
+	.btn.ghost:hover { background: var(--panel-2); filter: none; }
+	.btn.danger { background: transparent; color: var(--red); border-color: color-mix(in srgb, var(--red) 45%, var(--border)); }
+	.btn.danger:hover { background: color-mix(in srgb, var(--red) 12%, transparent); }
+	.btn.sm { padding: 6px 10px; font-size: 12px; border-radius: 8px; }
+	.btn:disabled { opacity: .5; cursor: not-allowed; }
+
+	/* ── layout ── */
+	.shell { display: grid; grid-template-columns: 232px 1fr; min-height: calc(100dvh - 53px); }
+	nav.side { border-right: 1px solid var(--border); padding: 18px 12px; position: sticky; top: 53px; align-self: start; height: calc(100dvh - 53px); overflow-y: auto; }
+	nav.side .grp { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted-2); padding: 14px 12px 6px; }
+	nav.side a { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 9px; color: var(--muted); font-size: 13.5px; font-weight: 500; cursor: pointer; transition: background .12s, color .12s; }
+	nav.side a:hover { background: var(--panel-2); color: var(--text); }
+	nav.side a.active { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--text); }
+	nav.side a .ic { width: 17px; text-align: center; opacity: .85; }
+	nav.side a .badge { margin-left: auto; font-size: 11px; background: var(--panel-3); color: var(--muted); padding: 1px 7px; border-radius: 999px; }
+
+	main { padding: 28px 32px 80px; max-width: 1100px; }
+	@media (max-width: 860px) {
+		.shell { grid-template-columns: 1fr; }
+		nav.side { position: static; height: auto; display: flex; flex-wrap: wrap; gap: 4px; border-right: 0; border-bottom: 1px solid var(--border); }
+		nav.side .grp { display: none; }
+		main { padding: 22px 18px 80px; }
+	}
+	.view { display: none; animation: fade .2s ease; }
+	.view.active { display: block; }
+	@keyframes fade { from { opacity: 0; transform: translateY(4px); } }
+
+	.page-h { margin: 0 0 4px; font-size: 23px; }
+	.page-sub { margin: 0 0 24px; color: var(--muted); font-size: 14px; max-width: 640px; }
+
+	/* ── cards ── */
+	.card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--rad); padding: 20px; margin-bottom: 18px; }
+	.card h2 { margin: 0 0 3px; font-size: 16px; }
+	.card .desc { margin: 0 0 16px; color: var(--muted); font-size: 13px; }
+	.card-head { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 16px; }
+	.card-head .t { flex: 1; min-width: 0; }
+	.card-head h2 { margin: 0 0 2px; }
+	.card-head .desc { margin: 0; }
+
+	/* ── form ── */
+	label.fld { display: block; margin-bottom: 14px; font-size: 12.5px; font-weight: 600; color: var(--muted); }
+	label.fld > span.lbl { display: block; margin-bottom: 6px; color: var(--text); }
+	label.fld .hint { display: block; margin-top: 5px; font-weight: 400; color: var(--muted-2); font-size: 12px; }
+	input[type=text], input[type=url], input[type=email], input[type=number], select, textarea {
+		width: 100%; font: inherit; font-size: 13.5px; color: var(--text); background: var(--bg-2);
+		border: 1px solid var(--border-strong); border-radius: 9px; padding: 9px 11px; transition: border-color .12s, box-shadow .12s;
+	}
+	input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
+	input[type=color] { width: 44px; height: 36px; padding: 2px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--bg-2); cursor: pointer; }
+	textarea { resize: vertical; min-height: 64px; font-family: var(--mono); font-size: 12.5px; }
+	.row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+	.row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+	@media (max-width: 560px) { .row-2, .row-3 { grid-template-columns: 1fr; } }
+	.inline-color { display: flex; gap: 10px; align-items: center; }
+
+	/* toggle */
+	.switch { display: inline-flex; align-items: center; gap: 10px; cursor: pointer; font-size: 13.5px; color: var(--text); font-weight: 500; }
+	.switch input { display: none; }
+	.switch .track { width: 38px; height: 22px; border-radius: 999px; background: var(--panel-3); position: relative; transition: background .15s; flex: none; }
+	.switch .track::after { content: ""; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: transform .15s; }
+	.switch input:checked + .track { background: var(--accent); }
+	.switch input:checked + .track::after { transform: translateX(16px); }
+
+	/* chips */
+	.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+	.chip { display: inline-flex; align-items: center; gap: 7px; background: var(--panel-2); border: 1px solid var(--border-strong); border-radius: 999px; padding: 5px 10px 5px 12px; font-size: 12.5px; font-family: var(--mono); }
+	.chip button { appearance: none; border: 0; background: transparent; color: var(--muted); cursor: pointer; font-size: 14px; line-height: 1; padding: 0; }
+	.chip button:hover { color: var(--red); }
+	.seg { display: inline-flex; background: var(--bg-2); border: 1px solid var(--border-strong); border-radius: 9px; padding: 3px; gap: 3px; }
+	.seg button { appearance: none; border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 12.5px; font-weight: 600; padding: 6px 12px; border-radius: 7px; cursor: pointer; transition: background .12s, color .12s; }
+	.seg button.on { background: var(--panel-3); color: var(--text); }
+
+	/* stat grid */
+	.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 20px; }
+	.stat { background: var(--panel); border: 1px solid var(--border); border-radius: var(--rad); padding: 16px 18px; }
+	.stat .k { font-size: 12px; color: var(--muted); margin-bottom: 7px; }
+	.stat .v { font-size: 26px; font-weight: 700; font-feature-settings: 'tnum' 1; letter-spacing: -0.02em; }
+	.stat .v .u { font-size: 13px; color: var(--muted); font-weight: 500; }
+
+	/* mono value rows */
+	.kv { display: flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 12.5px; background: var(--bg-2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; word-break: break-all; }
+	.kv .copy { margin-left: auto; flex: none; }
+
+	/* product list */
+	.plist { display: flex; flex-direction: column; gap: 10px; }
+	.prow { display: flex; align-items: center; gap: 14px; background: var(--panel); border: 1px solid var(--border); border-radius: var(--rad); padding: 14px 16px; transition: border-color .12s, transform .08s; }
+	.prow:hover { border-color: var(--border-strong); }
+	.prow .swatch { width: 38px; height: 38px; border-radius: 9px; flex: none; display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 15px; }
+	.prow .pi { flex: 1; min-width: 0; }
+	.prow .pi .nm { font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+	.prow .pi .sub { color: var(--muted); font-size: 12.5px; font-family: var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	.prow .pm { text-align: right; font-size: 12px; color: var(--muted); flex: none; }
+	.prow .pm b { color: var(--text); font-size: 14px; font-weight: 700; display: block; }
+	.prow .pacts { display: flex; gap: 6px; flex: none; }
+	.tag { font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 6px; background: var(--panel-3); color: var(--muted); }
+	.tag.live { background: color-mix(in srgb, var(--green) 18%, transparent); color: var(--green); }
+
+	/* empty / loading / error */
+	.empty { text-align: center; padding: 48px 24px; color: var(--muted); border: 1px dashed var(--border-strong); border-radius: var(--rad); }
+	.empty .em { font-size: 30px; margin-bottom: 12px; opacity: .8; }
+	.empty h3 { margin: 0 0 6px; color: var(--text); font-size: 16px; }
+	.empty p { margin: 0 auto 16px; max-width: 380px; font-size: 13.5px; }
+	.skel { background: linear-gradient(90deg, var(--panel) 25%, var(--panel-2) 37%, var(--panel) 63%); background-size: 400% 100%; animation: sh 1.3s infinite; border-radius: var(--rad); }
+	@keyframes sh { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
+	.banner { padding: 12px 14px; border-radius: 9px; font-size: 13px; margin-bottom: 16px; border: 1px solid; display: flex; gap: 10px; align-items: flex-start; }
+	.banner.err { background: color-mix(in srgb, var(--red) 10%, transparent); border-color: color-mix(in srgb, var(--red) 40%, transparent); color: #fecaca; }
+	.banner.ok { background: color-mix(in srgb, var(--green) 10%, transparent); border-color: color-mix(in srgb, var(--green) 40%, transparent); color: #bbf7d0; }
+	.banner.warn { background: color-mix(in srgb, var(--amber) 10%, transparent); border-color: color-mix(in srgb, var(--amber) 40%, transparent); color: #fde68a; }
+
+	/* ── builder ── */
+	.builder { display: grid; grid-template-columns: 340px 1fr; gap: 20px; align-items: start; }
+	@media (max-width: 920px) { .builder { grid-template-columns: 1fr; } }
+	.canvas-wrap { background: var(--panel); border: 1px solid var(--border); border-radius: var(--rad); overflow: hidden; }
+	.canvas-bar { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-bottom: 1px solid var(--border); background: var(--panel-2); }
+	.canvas-bar .dots { display: flex; gap: 6px; }
+	.canvas-bar .dots i { width: 11px; height: 11px; border-radius: 50%; display: block; }
+	.canvas-bar .url { flex: 1; background: var(--bg-2); border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px; font-size: 12px; color: var(--muted); font-family: var(--mono); }
+	.canvas {
+		position: relative; min-height: 320px; padding: 28px;
+		background:
+			radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--text) 8%, transparent) 1px, transparent 0) 0 0 / 22px 22px;
+		display: flex; align-items: center; justify-content: center;
+	}
+	.canvas.light-bg { background-color: #fff; }
+	.canvas[data-layout="floating"] { align-items: flex-end; justify-content: flex-end; }
+	.canvas[data-layout="inline"] { align-items: flex-start; justify-content: flex-start; }
+	.x402btn {
+		display: inline-flex; align-items: center; gap: 8px; cursor: grab; border: 0;
+		font-family: -apple-system, BlinkMacSystemFont, "Inter", sans-serif; font-weight: 600;
+		user-select: none; transition: transform .08s, box-shadow .15s, filter .12s;
+		box-shadow: 0 4px 16px -4px color-mix(in srgb, var(--accent) 60%, transparent);
+	}
+	.x402btn:hover { filter: brightness(1.06); }
+	.x402btn:active { cursor: grabbing; transform: scale(.985); }
+	.x402btn .zap { font-size: 1em; }
+	.drag-hint { position: absolute; top: 10px; left: 12px; font-size: 11px; color: var(--muted-2); pointer-events: none; }
+
+	.field-card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--rad); padding: 16px; margin-bottom: 14px; }
+	.field-card > .lbl { font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted-2); margin-bottom: 12px; }
+
+	pre.snippet { background: var(--bg-2); border: 1px solid var(--border); border-radius: var(--rad); padding: 16px; overflow-x: auto; font-family: var(--mono); font-size: 12px; line-height: 1.6; color: #c7cbd6; margin: 0; }
+	.snippet-head { display: flex; align-items: center; justify-content: space-between; margin: 22px 0 10px; }
+	.snippet-head h3 { margin: 0; font-size: 14px; }
+
+	/* modal (create product) */
+	.overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: none; align-items: center; justify-content: center; padding: 20px; z-index: 100; backdrop-filter: blur(3px); }
+	.overlay.open { display: flex; }
+	.dialog { background: var(--panel); border: 1px solid var(--border-strong); border-radius: 16px; width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto; box-shadow: 0 30px 80px -20px rgba(0,0,0,.7); }
+	.dialog-head { display: flex; align-items: center; padding: 18px 22px; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--panel); }
+	.dialog-head h3 { margin: 0; font-size: 16px; }
+	.dialog-head .x { margin-left: auto; appearance: none; border: 0; background: transparent; color: var(--muted); font-size: 18px; cursor: pointer; padding: 4px 8px; border-radius: 6px; }
+	.dialog-head .x:hover { background: var(--panel-2); color: var(--text); }
+	.dialog-body { padding: 22px; }
+	.dialog-foot { display: flex; gap: 8px; padding: 16px 22px; border-top: 1px solid var(--border); position: sticky; bottom: 0; background: var(--panel); }
+
+	/* wallets table */
+	.wtable { width: 100%; border-collapse: collapse; font-size: 13px; }
+	.wtable th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted-2); padding: 0 10px 8px; font-weight: 600; }
+	.wtable td { padding: 11px 10px; border-top: 1px solid var(--border); vertical-align: middle; }
+	.wtable .addr { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+	.role-pill { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 6px; }
+	.role-pill.payer { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent-2); }
+	.role-pill.payout { background: color-mix(in srgb, var(--green) 18%, transparent); color: var(--green); }
+	.chainflag { font-size: 11px; color: var(--muted); font-weight: 600; }
+
+	.toast { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--panel-3); border: 1px solid var(--border-strong); color: var(--text); padding: 10px 16px; border-radius: 10px; font-size: 13px; box-shadow: 0 12px 40px -10px rgba(0,0,0,.6); opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 200; }
+	.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+	.muted { color: var(--muted); }
+	.copy { appearance: none; border: 1px solid var(--border-strong); background: var(--panel-2); color: var(--muted); font: inherit; font-size: 11px; padding: 3px 8px; border-radius: 6px; cursor: pointer; }
+	.copy:hover { color: var(--text); border-color: var(--accent); }
+</style>
+</head>
+<body>
+
+<header>
+	<a class="brand" href="/x402"><span class="dot"></span><span>x402 Studio</span></a>
+	<span class="crumb">/ Payments control room</span>
+	<div class="header-right">
+		<div class="savestate" id="savestate" title="Settings save status"><span class="pip"></span><span class="txt">Loading…</span></div>
+		<a href="/dashboard" class="btn ghost sm">Dashboard</a>
+		<a href="/x402" class="btn ghost sm">Docs</a>
+	</div>
+</header>
+
+<div class="shell">
+	<nav class="side" aria-label="Studio sections">
+		<a data-view="overview" class="active"><span class="ic">◎</span> Overview</a>
+		<a data-view="products"><span class="ic">▣</span> Products <span class="badge" id="nav-products">0</span></a>
+		<a data-view="builder"><span class="ic">✦</span> Button builder</a>
+		<div class="grp">Money</div>
+		<a data-view="wallets"><span class="ic">◈</span> Agent wallets <span class="badge" id="nav-wallets">0</span></a>
+		<a data-view="payouts"><span class="ic">⤓</span> Payouts</a>
+		<div class="grp">Platform</div>
+		<a data-view="security"><span class="ic">⚿</span> Security &amp; CORS</a>
+		<a data-view="brand"><span class="ic">✎</span> Branding</a>
+	</nav>
+
+	<main id="main">
+		<!-- gate shown when signed out -->
+		<div id="gate" style="display:none">
+			<div class="empty" style="margin-top:40px">
+				<div class="em">⚿</div>
+				<h3>Sign in to configure your payments</h3>
+				<p>x402 Studio is where you set prices, payout addresses, agent wallets, security and your embeddable pay buttons.</p>
+				<a class="btn" href="/login?redirect=/dashboard/x402-studio">Sign in</a>
+			</div>
+		</div>
+
+		<div id="app" style="display:none">
+
+		<!-- ── OVERVIEW ── -->
+		<section class="view active" data-view="overview">
+			<h1 class="page-h">Overview</h1>
+			<p class="page-sub">Your x402 payments at a glance. Configure once here, drop a button anywhere, settle on-chain in USDC on Base &amp; Solana.</p>
+			<div class="stats" id="ov-stats">
+				<div class="stat"><div class="k">Products</div><div class="v" id="ov-products">—</div></div>
+				<div class="stat"><div class="k">Paid calls</div><div class="v" id="ov-calls">—</div></div>
+				<div class="stat"><div class="k">Gross revenue</div><div class="v" id="ov-revenue">—<span class="u"> USDC</span></div></div>
+				<div class="stat"><div class="k">Agent wallets</div><div class="v" id="ov-wallets">—</div></div>
+			</div>
+
+			<div class="card">
+				<div class="card-head">
+					<div class="t"><h2>Platform agent wallet</h2><p class="desc">The shared three.ws payer that auto-settles A2A calls. Read-only — your own agent wallets live under Agent wallets.</p></div>
+					<a class="btn ghost sm" href="/play/agent-wallet" target="_blank" rel="noopener">Open bridge ↗</a>
+				</div>
+				<div id="ov-bridge"><div class="skel" style="height:64px"></div></div>
+			</div>
+
+			<div class="card">
+				<h2>Get to first payment</h2>
+				<p class="desc">Four steps to a working pay button.</p>
+				<div id="ov-checklist"></div>
+			</div>
+		</section>
+
+		<!-- ── PRODUCTS ── -->
+		<section class="view" data-view="products">
+			<div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:24px">
+				<div style="flex:1">
+					<h1 class="page-h">Products</h1>
+					<p class="page-sub" style="margin:0">A product is a paid endpoint with a hosted checkout link at <code>/pay/c/&lt;slug&gt;</code>. Sell access, summaries, generations — anything behind a 402.</p>
+				</div>
+				<button class="btn" id="newProductBtn">+ New product</button>
+			</div>
+			<div id="products-list"><div class="skel" style="height:120px"></div></div>
+		</section>
+
+		<!-- ── BUILDER ── -->
+		<section class="view" data-view="builder">
+			<h1 class="page-h">Button builder</h1>
+			<p class="page-sub">Design a drop-in pay button, drag it where you want it, then copy one snippet onto any site — Webflow, Shopify, WordPress, plain HTML. The checkout modal and on-chain settlement are handled for you.</p>
+			<div class="builder">
+				<div class="controls">
+					<div class="field-card">
+						<div class="lbl">What it charges for</div>
+						<label class="fld"><span class="lbl">Product</span>
+							<select id="b-product"><option value="">Custom endpoint…</option></select>
+							<span class="hint">Pick a product to auto-fill, or wire a custom 402 endpoint below.</span>
+						</label>
+						<div id="b-custom">
+							<label class="fld"><span class="lbl">Endpoint URL</span><input type="url" id="b-endpoint" placeholder="https://api.acme.com/paid/summarize" /></label>
+							<div class="row-2">
+								<label class="fld"><span class="lbl">Method</span><select id="b-method"><option>GET</option><option>POST</option></select></label>
+								<label class="fld"><span class="lbl">Merchant name</span><input type="text" id="b-merchant" placeholder="Acme" /></label>
+							</div>
+							<label class="fld" id="b-bodyWrap" style="display:none"><span class="lbl">POST body (JSON)</span><textarea id="b-body" placeholder='{"text":"hello"}'></textarea></label>
+						</div>
+					</div>
+
+					<div class="field-card">
+						<div class="lbl">Look</div>
+						<label class="fld"><span class="lbl">Label</span><input type="text" id="b-label" value="Pay &amp; run" maxlength="40" /></label>
+						<label class="fld"><span class="lbl">Size</span>
+							<div class="seg" id="b-size" role="group">
+								<button data-v="sm">Small</button><button data-v="md" class="on">Medium</button><button data-v="lg">Large</button>
+							</div>
+						</label>
+						<label class="fld"><span class="lbl">Shape</span>
+							<div class="seg" id="b-shape" role="group">
+								<button data-v="pill" class="on">Pill</button><button data-v="rounded">Rounded</button><button data-v="square">Square</button>
+							</div>
+						</label>
+						<div class="row-2">
+							<label class="fld"><span class="lbl">Accent</span>
+								<div class="inline-color"><input type="color" id="b-accent" value="#0a84ff" /><input type="text" id="b-accentHex" value="#0a84ff" maxlength="7" style="font-family:var(--mono)" /></div>
+							</label>
+							<label class="fld"><span class="lbl">Text</span>
+								<div class="seg" id="b-text" role="group"><button data-v="light" class="on">Light</button><button data-v="dark">Dark</button></div>
+							</label>
+						</div>
+						<label class="switch" style="margin:4px 0 12px"><input type="checkbox" id="b-zap" checked /><span class="track"></span> Show ⚡ icon</label>
+						<label class="switch" style="margin:0 0 12px"><input type="checkbox" id="b-full" /><span class="track"></span> Full width</label>
+					</div>
+
+					<div class="field-card">
+						<div class="lbl">Placement</div>
+						<label class="fld"><span class="lbl">Layout</span>
+							<div class="seg" id="b-layout" role="group">
+								<button data-v="inline" class="on">Inline</button><button data-v="center">Centered</button><button data-v="floating">Floating</button>
+							</div>
+							<span class="hint">Floating pins a pay button to the bottom-right corner of the page.</span>
+						</label>
+						<label class="fld" id="b-bgWrap"><span class="lbl">Preview background</span>
+							<div class="seg" id="b-bg" role="group"><button data-v="dark" class="on">Dark</button><button data-v="light">Light</button></div>
+						</label>
+					</div>
+					<button class="btn ghost" id="b-savePreset" style="width:100%">Save as my default</button>
+				</div>
+
+				<div class="preview">
+					<div class="canvas-wrap">
+						<div class="canvas-bar">
+							<div class="dots"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i></div>
+							<div class="url">your-site.com</div>
+						</div>
+						<div class="canvas" id="b-canvas" data-layout="inline">
+							<span class="drag-hint">drag the button to position it</span>
+							<button class="x402btn" id="b-preview" type="button">Pay &amp; run</button>
+						</div>
+					</div>
+					<div class="snippet-head">
+						<h3>Embed snippet</h3>
+						<button class="copy" id="b-copy" style="font-size:12px;padding:5px 12px">Copy snippet</button>
+					</div>
+					<pre class="snippet" id="b-snippet">…</pre>
+					<p class="muted" style="font-size:12px;margin-top:10px">Paste this once anywhere on your page. The <code>&lt;script&gt;</code> auto-binds every <code>[data-x402-endpoint]</code> button on the page and opens the checkout modal on click.</p>
+				</div>
+			</div>
+		</section>
+
+		<!-- ── AGENT WALLETS ── -->
+		<section class="view" data-view="wallets">
+			<h1 class="page-h">Agent wallets</h1>
+			<p class="page-sub">The wallets that move money for you. Authorize agent wallets to <b>auto-pay</b> for x402 calls (with per-payment and daily caps), and set <b>payout</b> wallets that receive your revenue. Caps are enforced before any signature.</p>
+
+			<div class="card">
+				<div class="card-head">
+					<div class="t"><h2>Platform payer</h2><p class="desc">three.ws' shared A2A payer that settles calls made through the hosted bridge. Live balance, on Solana mainnet.</p></div>
+					<button class="btn ghost sm" id="wallets-refresh">Refresh</button>
+				</div>
+				<div id="bridge-card"><div class="skel" style="height:64px"></div></div>
+			</div>
+
+			<div class="card">
+				<div class="card-head">
+					<div class="t"><h2>Your agent wallets</h2><p class="desc">Add the wallets your agents use to pay and the addresses you want paid. Stored against your account and applied across every product.</p></div>
+					<button class="btn" id="addWalletBtn">+ Add wallet</button>
+				</div>
+				<div id="wallets-body"></div>
+			</div>
+		</section>
+
+		<!-- ── PAYOUTS ── -->
+		<section class="view" data-view="payouts">
+			<h1 class="page-h">Payouts</h1>
+			<p class="page-sub">Where settled USDC lands. Each network settles to its own address — set the ones you accept.</p>
+			<div class="card">
+				<h2>Payout addresses</h2>
+				<p class="desc">USDC payout destinations. Leave a network blank to not accept it.</p>
+				<label class="fld"><span class="lbl">Base (EVM) — USDC payout address</span><input type="text" id="p-evm" placeholder="0x…" style="font-family:var(--mono)" /><span class="hint">A 0x address on Base. Receives USDC from <code>exact</code>-scheme EVM settlements.</span></label>
+				<label class="fld"><span class="lbl">Solana — USDC payout address</span><input type="text" id="p-sol" placeholder="base58 address" style="font-family:var(--mono)" /><span class="hint">Your Solana wallet (USDC ATA is derived automatically).</span></label>
+				<div class="card-head" style="margin:18px 0 12px"><div class="t"><h2 style="font-size:14px">Accepted networks</h2></div></div>
+				<div class="chips" style="margin-bottom:8px">
+					<label class="switch"><input type="checkbox" id="net-base" /><span class="track"></span> Base</label>
+					<label class="switch"><input type="checkbox" id="net-solana" /><span class="track"></span> Solana</label>
+				</div>
+			</div>
+			<div class="card">
+				<h2>Facilitator</h2>
+				<p class="desc">The service that verifies and settles payments. Leave blank to use the three.ws hosted facilitator (recommended). Point to your own <code>/verify · /settle · /supported</code> to self-host.</p>
+				<label class="fld"><span class="lbl">Custom facilitator URL</span><input type="url" id="p-facilitator" placeholder="https://facilitator.acme.com" style="font-family:var(--mono)" /></label>
+			</div>
+			<button class="btn" id="savePayouts">Save payouts</button>
+		</section>
+
+		<!-- ── SECURITY ── -->
+		<section class="view" data-view="security">
+			<h1 class="page-h">Security &amp; CORS</h1>
+			<p class="page-sub">Control who can call your paid endpoints, how much an agent can spend, and which origins may embed your buttons.</p>
+
+			<div class="card">
+				<h2>Spending caps</h2>
+				<p class="desc">Hard limits applied to agent-wallet auto-payments before any transaction is signed.</p>
+				<div class="row-2">
+					<label class="fld"><span class="lbl">Max per payment (USDC)</span><input type="number" id="s-percap" min="0" step="0.01" placeholder="0.10" /></label>
+					<label class="fld"><span class="lbl">Max per day (USDC)</span><input type="number" id="s-daycap" min="0" step="0.01" placeholder="2.00" /></label>
+				</div>
+				<label class="switch" style="margin-top:4px"><input type="checkbox" id="s-siwx" /><span class="track"></span> Require Sign-In-With-X before payment</label>
+				<p class="hint" style="margin:8px 0 0;color:var(--muted-2);font-size:12px">When on, returning buyers prove wallet ownership (CAIP-122) before the modal will charge — blocks anonymous drains.</p>
+			</div>
+
+			<div class="card">
+				<div class="card-head"><div class="t"><h2>CORS allowlist</h2><p class="desc">Origins permitted to embed your pay buttons and call your checkout. Empty = same-origin only.</p></div></div>
+				<form id="corsForm" style="display:flex;gap:8px;margin-bottom:14px">
+					<input type="url" id="cors-input" placeholder="https://shop.acme.com" style="flex:1;font-family:var(--mono)" />
+					<button class="btn" type="submit">Add</button>
+				</form>
+				<div class="chips" id="cors-list"></div>
+			</div>
+
+			<div class="card">
+				<div class="card-head"><div class="t"><h2>API bypass key</h2><p class="desc">A secret your subscribers send (as <code>Authorization: Bearer …</code>) to skip payment on your endpoints. Shown once on rotation — store it safely.</p></div></div>
+				<div id="apikey-body"></div>
+			</div>
+			<button class="btn" id="saveSecurity">Save security</button>
+		</section>
+
+		<!-- ── BRANDING ── -->
+		<section class="view" data-view="brand">
+			<h1 class="page-h">Branding</h1>
+			<p class="page-sub">Defaults applied to your checkout modal and hosted pages. Business identity used on receipts and support.</p>
+			<div class="card">
+				<h2>Identity</h2>
+				<div class="row-2">
+					<label class="fld"><span class="lbl">Business name</span><input type="text" id="br-business" placeholder="Acme Inc" /></label>
+					<label class="fld"><span class="lbl">Support email</span><input type="email" id="br-email" placeholder="support@acme.com" /></label>
+				</div>
+				<div class="row-2">
+					<label class="fld"><span class="lbl">Default merchant name (shown in modal)</span><input type="text" id="br-merchant" placeholder="Acme" /></label>
+					<label class="fld"><span class="lbl">Logo URL (https)</span><input type="url" id="br-logo" placeholder="https://acme.com/logo.png" style="font-family:var(--mono)" /></label>
+				</div>
+				<div class="row-2">
+					<label class="fld"><span class="lbl">Accent color</span><div class="inline-color"><input type="color" id="br-accent" value="#0a84ff" /><input type="text" id="br-accentHex" value="#0a84ff" maxlength="7" style="font-family:var(--mono)" /></div></label>
+					<label class="fld"><span class="lbl">Footer note</span><input type="text" id="br-footer" maxlength="120" placeholder="x402 · onchain settled" /></label>
+				</div>
+			</div>
+			<button class="btn" id="saveBrand">Save branding</button>
+		</section>
+
+		</div><!-- /#app -->
+	</main>
+</div>
+
+<!-- product dialog -->
+<div class="overlay" id="prodOverlay">
+	<div class="dialog">
+		<div class="dialog-head"><h3 id="prodTitle">New product</h3><button class="x" id="prodClose" aria-label="Close">✕</button></div>
+		<form class="dialog-body" id="prodForm">
+			<label class="fld"><span class="lbl">URL slug</span><input type="text" name="slug" required pattern="^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$" placeholder="pro-summary" /><span class="hint">Public URL: /pay/c/&lt;slug&gt;. 3–64 chars, lowercase + hyphens.</span></label>
+			<div class="row-2">
+				<label class="fld"><span class="lbl">Merchant name</span><input type="text" name="merchant_name" required maxlength="80" placeholder="Acme" /></label>
+				<label class="fld"><span class="lbl">Action name</span><input type="text" name="action_name" required maxlength="80" placeholder="Summarize" /></label>
+			</div>
+			<label class="fld"><span class="lbl">Target endpoint (402-enabled)</span><input type="url" name="target_endpoint" required placeholder="https://api.acme.com/paid/summarize" style="font-family:var(--mono)" /></label>
+			<div class="row-2">
+				<label class="fld"><span class="lbl">Method</span><select name="target_method"><option>GET</option><option>POST</option></select></label>
+				<label class="fld"><span class="lbl">Accent</span><div class="inline-color"><input type="color" name="accent_color" value="#0a84ff" /></div></label>
+			</div>
+			<label class="fld" id="prodBodyWrap" style="display:none"><span class="lbl">POST body (JSON)</span><textarea name="target_body" placeholder='{"text":"hello"}'></textarea></label>
+			<label class="fld"><span class="lbl">Description (optional)</span><textarea name="description" maxlength="2000" style="font-family:inherit" placeholder="What the buyer gets."></textarea></label>
+			<label class="fld"><span class="lbl">Success redirect URL (optional)</span><input type="url" name="success_url" placeholder="https://acme.com/thanks" style="font-family:var(--mono)" /></label>
+			<div class="banner err" id="prodErr" style="display:none"></div>
+		</form>
+		<div class="dialog-foot">
+			<button class="btn ghost" id="prodCancel" style="margin-left:auto">Cancel</button>
+			<button class="btn" id="prodSave" type="submit" form="prodForm">Create product</button>
+		</div>
+	</div>
+</div>
+
+<!-- wallet dialog -->
+<div class="overlay" id="walletOverlay">
+	<div class="dialog">
+		<div class="dialog-head"><h3 id="walletTitle">Add agent wallet</h3><button class="x" id="walletClose" aria-label="Close">✕</button></div>
+		<form class="dialog-body" id="walletForm">
+			<label class="fld"><span class="lbl">Label</span><input type="text" name="label" required maxlength="60" placeholder="Trading bot payer" /></label>
+			<div class="row-2">
+				<label class="fld"><span class="lbl">Chain</span><select name="chain"><option value="base">Base (EVM)</option><option value="solana">Solana</option></select></label>
+				<label class="fld"><span class="lbl">Role</span><select name="role"><option value="payer">Payer (auto-pays)</option><option value="payout">Payout (receives)</option></select></label>
+			</div>
+			<label class="fld"><span class="lbl">Address</span><input type="text" name="address" required placeholder="0x… or base58" style="font-family:var(--mono)" /></label>
+			<div class="row-2">
+				<label class="fld"><span class="lbl">Max per payment (USDC)</span><input type="number" name="per_payment_cap_usdc" min="0" step="0.01" value="0.10" /></label>
+				<label class="fld"><span class="lbl">Max per day (USDC)</span><input type="number" name="daily_cap_usdc" min="0" step="0.01" value="2.00" /></label>
+			</div>
+			<label class="switch"><input type="checkbox" name="enabled" checked /><span class="track"></span> Enabled</label>
+			<div class="banner err" id="walletErr" style="display:none"></div>
+		</form>
+		<div class="dialog-foot">
+			<button class="btn ghost" id="walletCancel" style="margin-left:auto">Cancel</button>
+			<button class="btn" id="walletSave" type="submit" form="walletForm">Save wallet</button>
+		</div>
+	</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module" src="/dashboard/x402-studio.js"></script>
+</body>
+</html>

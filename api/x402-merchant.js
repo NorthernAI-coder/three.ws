@@ -104,6 +104,15 @@ const settingsSchema = z.object({
 	agent_wallets: z.array(agentWalletSchema).max(50).optional(),
 	facilitator: httpsUrl.nullish(),
 	webhook_url: httpsUrl.nullish(),
+	// Giving — charity split (basis points of every settled payment) + round-up
+	// (round the buyer total up to the nearest unit, donate the difference).
+	charity_enabled: z.boolean().optional(),
+	charity_name: z.string().trim().max(80).nullish(),
+	charity_chain: z.enum(['base', 'solana']).nullish(),
+	charity_address: z.string().trim().min(1).max(64).nullish(),
+	charity_bps: z.number().int().min(0).max(10000).optional(),
+	roundup_enabled: z.boolean().optional(),
+	roundup_to_atomics: atomics.nullish(),
 	store_handle: storeHandle.nullish(),
 	store_published: z.boolean().optional(),
 	store_layout: z.array(blockSchema).max(60).optional(),
@@ -121,7 +130,36 @@ const settingsSchema = z.object({
 		})
 		.partial()
 		.optional(),
-});
+	})
+	.superRefine((s, ctx) => {
+		// A charity address must match its declared chain — a misrouted donation
+		// loses real funds, so validate the same way agent wallets do.
+		if (s.charity_address) {
+			const chain = s.charity_chain;
+			const ok =
+				chain === 'base'
+					? /^0x[0-9a-fA-F]{40}$/.test(s.charity_address)
+					: chain === 'solana'
+						? /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(s.charity_address)
+						: false;
+			if (!ok)
+				ctx.addIssue({
+					code: z.ZodIssueCode.custom,
+					path: ['charity_address'],
+					message: chain ? `invalid ${chain} address` : 'set charity_chain to validate the address',
+				});
+		}
+		// Enabling charity needs a destination + a non-zero share.
+		if (s.charity_enabled === true) {
+			if (!s.charity_address)
+				ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['charity_address'], message: 'charity address required when charity is enabled' });
+			if (s.charity_bps === 0)
+				ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['charity_bps'], message: 'set a non-zero share when charity is enabled' });
+		}
+		// Round-up donates the difference, so it needs a cause wallet too.
+		if (s.roundup_enabled === true && !s.charity_address)
+			ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['charity_address'], message: 'round-up needs a charity address to receive the difference' });
+	});
 
 const DEFAULTS = {
 	business_name: null,
@@ -139,6 +177,13 @@ const DEFAULTS = {
 	agent_wallets: [],
 	facilitator: null,
 	webhook_url: null,
+	charity_enabled: false,
+	charity_name: null,
+	charity_chain: null,
+	charity_address: null,
+	charity_bps: 0,
+	roundup_enabled: false,
+	roundup_to_atomics: null,
 	store_handle: null,
 	store_published: false,
 	store_layout: [],
@@ -151,6 +196,8 @@ const OWNER_COLS = sql`
 	payout_evm, payout_solana, default_network, cors_origins,
 	spend_cap_per_call_atomics, spend_cap_daily_atomics, require_siwx, allowed_networks,
 	agent_wallets, facilitator,
+	charity_enabled, charity_name, charity_chain, charity_address, charity_bps,
+	roundup_enabled, roundup_to_atomics,
 	api_key_prefix, api_key_created_at, webhook_url,
 	store_handle, store_published, store_layout, store_theme, created_at, updated_at
 `;
