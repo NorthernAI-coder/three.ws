@@ -25,7 +25,7 @@ import { cacheGet, cacheSet } from '../_lib/cache.js';
 import { sendOpsAlert } from '../_lib/alerts.js';
 import { sha256 } from '../_lib/crypto.js';
 import { readDeviceToken } from '../_lib/irl-auth.js';
-import { verifyFixToken } from '../_lib/irl-presence.js';
+import { verifyFixToken, fixEnforced } from '../_lib/irl-presence.js';
 
 // ── Moderation, safety & density caps (D4) ──────────────────────────────────
 // Everything below makes the public, shared IRL world safe to launch: content
@@ -734,6 +734,27 @@ export default wrap(async (req, res) => {
 
 		if (!isFinite(lat) || !isFinite(lng)) {
 			return json(res, 400, { error: 'lat and lng are required' });
+		}
+
+		// Proof-of-presence (H3): bind the read to a genuine fix. The caller mints a
+		// short-lived, HMAC-signed token from their real GPS via POST /fix-token; this
+		// read only answers for the coarse area that token was minted in, so a viewer
+		// can't browse pins at a location they aren't standing near (the actual product
+		// contract). Enforced only when IRL_FIX_SECRET is set — dev/preview without it
+		// works unchanged so local testing isn't gated (the mode is logged once at the
+		// mint endpoint's cold start). Failure → 401 fix_required, which the client
+		// turns into the "Getting your location…" designed state, never a blank screen.
+		if (fixEnforced()) {
+			const fixHeader = req.headers['x-irl-fix'];
+			const fixToken = Array.isArray(fixHeader) ? fixHeader[0] : fixHeader;
+			const v = await verifyFixToken(fixToken, lat, lng);
+			if (!v.ok) {
+				return json(res, 401, {
+					error: 'fix_required',
+					reason: v.reason,
+					error_description: 'a fresh location fix is required to read nearby agents',
+				});
+			}
 		}
 
 		// Bounding-box pre-filter (fast index scan), then haversine in app

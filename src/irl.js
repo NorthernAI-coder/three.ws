@@ -58,7 +58,8 @@ import { sharedGLTFLoader, createLoadQueue } from './irl/load-queue.js';
 import { roomOriginWorld, agentWorldPosition } from './irl/room-anchor.js';
 import { anchorPoseToPin, yawDegFromQuat } from './irl/floor-anchor.js';
 import { initRoomMode } from './irl/room-mode.js';
-import { isFiniteReading, isCompassFresh, shouldUseAbsoluteYaw, resolveLockYaw, clampPitch } from './irl/sensor-fusion.js';
+import { isFiniteReading, isCompassFresh, shouldUseAbsoluteYaw, resolveLockYaw, clampPitch, screenPitchDeg } from './irl/sensor-fusion.js';
+import { deriveVerticalFovDeg, DEFAULT_DIAG_FOV_DEG } from './irl/camera-fov.js';
 import { pinBandAction } from './irl/proximity-band.js';
 import {
 	shouldCueArrival,
@@ -298,6 +299,32 @@ let arFrozenCamLook = null;
 // fixed point and only rotates with the phone, so a pinned avatar stays anchored
 // in the room and is only visible when the camera points at it. null = inactive.
 let gyroLockCamPos  = null;
+// Last rear-camera sensor dimensions (from the video track) — captured when AR
+// starts and refreshed on viewport change so the FOV can be re-derived against the
+// current viewport aspect rather than frozen at the orientation AR opened in.
+let arTrackW = 0;
+let arTrackH = 0;
+
+// Re-derive and apply the camera vertical FOV from the live video track + current
+// viewport. Safe to call any time: a no-op (just the projection-matrix refresh)
+// when AR is off / no track, so the resize path can call it unconditionally.
+function applyCameraFov() {
+	const track = mediaStream?.getVideoTracks?.()[0];
+	if (track) {
+		const s = track.getSettings?.() ?? {};
+		if (Number.isFinite(s.width)  && s.width  > 0) arTrackW = s.width;
+		if (Number.isFinite(s.height) && s.height > 0) arTrackH = s.height;
+	}
+	if (!arActive || !(arTrackW > 0) || !(arTrackH > 0)) return;
+	camera.fov = deriveVerticalFovDeg({
+		trackWidth: arTrackW,
+		trackHeight: arTrackH,
+		viewWidth: window.innerWidth,
+		viewHeight: window.innerHeight,
+		diagFovDeg: DEFAULT_DIAG_FOV_DEG,
+	});
+	camera.updateProjectionMatrix();
+}
 
 async function enableAR() {
 	if (!navigator.mediaDevices?.getUserMedia) {
@@ -362,19 +389,11 @@ async function enableAR() {
 
 	videoEl.play().catch(() => {/* autoplay policies — frames still arrive via the stream */});
 
-	// Match Three.js FOV to device rear camera so the avatar's scale agrees
-	// with real-world objects (typically 70–75° diagonal for rear cameras).
-	const track = mediaStream.getVideoTracks()[0];
-	const s = track?.getSettings?.() ?? {};
-	const vw = s.width  ?? window.innerWidth;
-	const vh = s.height ?? window.innerHeight;
-	const diagFov  = 72;
-	const diagPx   = Math.hypot(vw, vh);
-	const hFovRad  = 2 * Math.atan((vw / diagPx) * Math.tan((diagFov * Math.PI / 180) / 2));
-	const aspect   = window.innerWidth / window.innerHeight;
-	const vFovDeg  = (2 * Math.atan(Math.tan(hFovRad / 2) / aspect)) * (180 / Math.PI);
-	camera.fov = Math.max(50, Math.min(90, vFovDeg));
-	camera.updateProjectionMatrix();
+	// Match Three.js FOV to device rear camera so the avatar's scale agrees with
+	// real-world objects. The sensor dimensions are captured so the resize /
+	// orientation path can re-derive the FOV when the viewport rotates — the
+	// derivation is no longer a one-shot frozen at portrait (task-02).
+	applyCameraFov();
 
 	// Freeze camera so the avatar walks through the real room instead of the
 	// follow-camera chasing it (which would shift the real-world background).
@@ -404,6 +423,8 @@ function disableAR() {
 	arFrozenCamPos  = null;
 	arFrozenCamLook = null;
 	gyroLockCamPos  = null;
+	arTrackW = 0;
+	arTrackH = 0;
 	setStatus('Camera off');
 }
 
@@ -3756,7 +3777,7 @@ function postInteraction(body) {
 	return fetch('/api/irl/interactions', {
 		method: 'POST',
 		credentials: 'include',
-		headers: { 'Content-Type': 'application/json' },
+		headers: deviceHeaders({ 'Content-Type': 'application/json' }),
 		body: JSON.stringify({ deviceToken: _deviceToken, ...body }),
 	});
 }
@@ -4042,7 +4063,7 @@ function openPinSheet(pin) {
 	if (pin.id) {
 		fetch('/api/irl/interactions', {
 			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
+			headers: deviceHeaders({ 'Content-Type': 'application/json' }),
 			body: JSON.stringify({
 				pinId: pin.id,
 				type: 'view',
@@ -4103,7 +4124,7 @@ document.getElementById('irl-sheet-msg')?.addEventListener('submit', async (e) =
 	try {
 		const r = await fetch('/api/irl/interactions', {
 			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
+			headers: deviceHeaders({ 'Content-Type': 'application/json' }),
 			body: JSON.stringify({
 				pinId,
 				type: 'message',
@@ -4175,7 +4196,7 @@ document.querySelectorAll('.irl-report-reason').forEach((btn) => {
 		try {
 			const r = await fetch('/api/irl/report', {
 				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
+				headers: deviceHeaders({ 'Content-Type': 'application/json' }),
 				body: JSON.stringify({ pinId, reason, deviceToken: _deviceToken }),
 			});
 			if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -5272,7 +5293,7 @@ async function saveCalibrate() {
 	try {
 		const r = await fetch('/api/irl/pins', {
 			method: 'PATCH', credentials: 'include',
-			headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+			headers: deviceHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify(body),
 		});
 		if (!r.ok) {
 			const m = r.status === 403 ? 'Only the owner can calibrate this agent.'
