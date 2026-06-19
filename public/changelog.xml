@@ -95,12 +95,12 @@
 			<description>We extended the sitewide clickjacking protection to allow IBM properties to frame three.ws. Any page on ibm.com (and its subdomains) may now load three.ws pages inside an iframe — useful for the IBM x402 demo and other IBM-hosted integrations — while every other external site is still refused by default. Sign-in, wallet, dashboard and OAuth consent pages remain hard-locked and cannot be framed by anyone, including IBM. The avatar, widget and walk embeds continue to work on any site as before.</description>
 		</item>
 		<item>
-			<title>One API for the whole platform: three.ws API v1</title>
+			<title>One API, many services: the three.ws API gateway</title>
 			<link>https://three.ws/changelog</link>
-			<guid isPermaLink="false">2026-06-19:One API for the whole platform: three.ws API v1</guid>
+			<guid isPermaLink="false">2026-06-19:One API, many services: the three.ws API gateway</guid>
 			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
-			<description>Everything three.ws can do is now reachable through a single, versioned API at /api/v1 — one key, one rate-limit budget, and one usage ledger across every capability. Hit GET /api/v1 to discover the full endpoint catalog (each one's auth, scope, and parameters) in a single call. The first endpoints are live: text sentiment scoring (POST /api/v1/sentiment), market and narrative intelligence (GET /api/v1/market/intel and /api/v1/market/projects), and verified agent-card resolution (GET /api/v1/agents/{caip}). Authenticate with a developer API key (Authorization: Bearer sk_live_…) created in your developer dashboard, an OAuth token, or a signed-in session; every response uses one consistent shape and standard RateLimit headers. More of the platform's capabilities will land under this same API over the coming releases.</description>
+			<description>We bundled a stack of popular third-party APIs behind a single three.ws API so you can reach them all with one integration, one key, and one bill. The first providers are live at /api/v1/x — CoinGecko (live prices and ranked market data), DefiLlama (protocol TVL across all of DeFi), and any OpenAI-compatible LLM — with more landing over the coming releases. Discover everything with one call to GET /api/v1, which returns the full catalog: every provider, endpoint, parameter, and price. You can pay three ways, your choice per call: bring your own upstream key (we just route it, no markup), use a three.ws API key on your plan, or pay-per-call in USDC with no account at all. Every response uses one consistent shape with standard rate-limit headers, and the platform's own capabilities — text sentiment, market and narrative intelligence, and verified agent-card lookups — live under the same /api/v1 surface.</description>
 		</item>
 		<item>
 			<title>Paid market-intel never charges you for unavailable data</title>
