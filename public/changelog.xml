@@ -95,6 +95,14 @@
 			<description>We extended the sitewide clickjacking protection to allow IBM properties to frame three.ws. Any page on ibm.com (and its subdomains) may now load three.ws pages inside an iframe — useful for the IBM x402 demo and other IBM-hosted integrations — while every other external site is still refused by default. Sign-in, wallet, dashboard and OAuth consent pages remain hard-locked and cannot be framed by anyone, including IBM. The avatar, widget and walk embeds continue to work on any site as before.</description>
 		</item>
 		<item>
+			<title>IRL is sharper on phones, in any orientation</title>
+			<link>https://three.ws/irl</link>
+			<guid isPermaLink="false">2026-06-19:IRL is sharper on phones, in any orientation</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>We polished IRL for the device it lives on. Every on-screen control now clears the notch and home indicator on modern phones — in portrait and landscape both — so nothing hides behind the camera cutout or rounded corners. On the narrowest phones the bottom controls wrap cleanly instead of squishing or clipping, and every button is a full finger-sized target. Typing a caption or message no longer makes Safari zoom the page in, long agent names truncate neatly instead of overflowing, and the calibrate readouts stay legible whichever way you hold the phone.</description>
+		</item>
+		<item>
 			<title>One API, many services: the three.ws API gateway</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-19:One API, many services: the three.ws API gateway</guid>
@@ -141,6 +149,14 @@
 			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>When you paste a link to an agent on X, Discord, Slack, Telegram or iMessage, the preview card now shows that agent's actual avatar, name and description instead of a generic three.ws image — so every shared link is visual proof of the collectible. Bots that don't run JavaScript get the right image and text rendered on the server, and agents without an avatar yet fall back to a clean branded card with their initial. We also fixed the canonical and share URLs on agent pages to point at the real /agents/&lt;id&gt; address.</description>
+		</item>
+		<item>
+			<title>Tapping an agent in AR now lands every time</title>
+			<link>https://three.ws/irl</link>
+			<guid isPermaLink="false">2026-06-19:Tapping an agent in AR now lands every time</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>Inspecting an agent in IRL AR is a tap — and we made that tap far harder to miss. There's now a finger-sized catch zone around each agent's floating name, so a tap that lands just beside a small or distant agent still opens its card instead of doing nothing. When several agents overlap on screen, your tap resolves to the one in front of you, and it never selects an agent that's behind you or off-screen. We also kept agents from vanishing when you bring your phone right up to one to look closely. Inspecting works whether the agent is centered, near the edge of the frame, close, or far.</description>
 		</item>
 		<item>
 			<title>Token Oracle follow / unfollow is working again</title>

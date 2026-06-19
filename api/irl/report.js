@@ -14,6 +14,12 @@
  *   not an instant delete — report-bombing is bounded by the distinct-reporter
  *   dedup, real abuse is taken down once enough independent people flag it.
  *
+ *   Abuse-hardened (task 13): a per-IP limiter bounds one source, the distinct-
+ *   reporter dedup bounds one actor, and a per-pin 24h ceiling bounds a distributed
+ *   flood. The free-text `detail` is control-char-stripped + length-bounded before
+ *   storage so the moderation console renders it safely, and a non-UUID `pinId` is
+ *   rejected at the boundary rather than 500ing on a Postgres cast.
+ *
  * References no coin and no third-party token; $THREE is the only coin three.ws
  * references. When the threshold hides a pin we publish a D1 pin:remove into its
  * geocell room so already-loaded viewers see it vanish live; the hidden_at filter
@@ -24,6 +30,7 @@ import { cors, json, wrap, rateLimited } from '../_lib/http.js';
 import { sql } from '../_lib/db.js';
 import { getSessionUser } from '../_lib/auth.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
+import { sendOpsAlert } from '../_lib/alerts.js';
 
 // Distinct reporters required before a pin is queued out of public view.
 const REPORT_HIDE_THRESHOLD = 3;
@@ -41,6 +48,12 @@ const REPORT_PIN_CAP_24H = 25;
 // Canonical reasons the UI offers; anything else collapses to 'other'. Kept as a
 // closed set so the (future) review console can triage by category.
 const REASONS = new Set(['spam', 'harassment', 'impersonation', 'scam', 'sexual', 'other']);
+
+// pin_id is a server-minted UUID column. Validate the shape at the boundary so a
+// garbage / oversized pinId is a clean 400 instead of a Postgres "invalid input
+// syntax for type uuid" cast error (which would 500 and leak a DB internal). The
+// SQL is parameterized — this is input hygiene + defense in depth (task 13).
+const PIN_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // Sanitize the free-text detail before it is STORED and later rendered in the
 // moderation console (task 13). The raw value is attacker-controlled from an
@@ -91,11 +104,12 @@ export default wrap(async (req, res) => {
 	const body  = req.body ?? {};
 	const pinId = body.pinId;
 	if (!pinId) return json(res, 400, { error: 'pinId required' });
+	if (typeof pinId !== 'string' || !PIN_UUID_RE.test(pinId)) {
+		return json(res, 400, { error: 'invalid pinId' });
+	}
 
 	const reason = REASONS.has(body.reason) ? body.reason : 'other';
-	const detail = typeof body.detail === 'string'
-		? body.detail.trim().slice(0, MAX_REASON_LEN) || null
-		: null;
+	const detail = sanitizeDetail(body.detail);
 	const reasonStored = detail ? `${reason}: ${detail}` : reason;
 
 	const session     = await getSessionUser(req).catch(() => null);
@@ -128,6 +142,28 @@ export default wrap(async (req, res) => {
 		(!!deviceToken && !!pin.device_token && deviceToken === pin.device_token);
 	if (isOwner) {
 		return json(res, 200, { ok: true, self: true });
+	}
+
+	// Per-pin abuse ceiling (task 13). Before recording a NEW report, refuse if this
+	// pin has already accrued REPORT_PIN_CAP_24H reports in the last 24h. The per-IP
+	// limiter above bounds one source; the distinct-reporter dedup bounds one actor;
+	// this bounds a DISTRIBUTED flood so a coordinated burst can't pile unbounded
+	// reports onto a legitimate pin. Skipped once the pin is already hidden (terminal
+	// — we report that state idempotently below and still keep the review trail).
+	if (!pin.hidden_at) {
+		const [{ n: recent }] = await sql`
+			SELECT count(*)::int AS n
+			FROM irl_pin_reports
+			WHERE pin_id = ${pinId}
+			  AND created_at > NOW() - INTERVAL '24 hours'
+		`;
+		if (recent >= REPORT_PIN_CAP_24H) {
+			res.setHeader?.('Retry-After', '3600');
+			return json(res, 429, {
+				error: 'too_many_reports',
+				message: 'This pin has already been reported many times and is under review.',
+			});
+		}
 	}
 
 	// Already hidden — accept the report idempotently (still record it for the
@@ -164,6 +200,27 @@ export default wrap(async (req, res) => {
 		// on hidden_at IS NULL), so a co-located viewer drops it on their next
 		// proximity poll. There is no realtime remove broadcast — a pin's location
 		// is never fanned out to a room, so neither is its removal.
+
+		// Moderation audit + ops alert (task 14). An auto-hide is a moderation action
+		// the review team must see — until now it left no trail. Log a structured
+		// event and fire ONE deduped ops alert carrying the pin id, distinct-reporter
+		// count, and timestamp. Privacy: NO coordinates and NO reporter identities —
+		// the pin row carries lat/lng but they never enter the log or the alert.
+		if (hidden) {
+			const at = new Date().toISOString();
+			console.warn('[irl/report] pin auto-hidden at report threshold', {
+				endpoint: 'POST /api/irl/report',
+				pinId,
+				reports: n,
+				threshold: REPORT_HIDE_THRESHOLD,
+				ts: at,
+			});
+			sendOpsAlert(
+				'IRL pin auto-hidden',
+				`Pin ${pinId} was hidden after crossing the report threshold (${n} distinct reporters ≥ ${REPORT_HIDE_THRESHOLD}) at ${at}. Queued for review; owner may appeal. No coordinates logged.`,
+				{ signature: `irl-hide:${pinId}` },
+			);
+		}
 	}
 
 	return json(res, 200, { ok: true, reports: n, hidden });

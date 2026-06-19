@@ -37,6 +37,7 @@ import { cors, method } from '../_lib/http.js';
 import { getSessionUser } from '../_lib/auth.js';
 import { sql } from '../_lib/db.js';
 import { readDeviceToken } from '../_lib/irl-auth.js';
+import { createPollBreaker, pruneSeen } from '../_lib/sse-poll-breaker.js';
 
 const HEARTBEAT_MS = 15_000;
 const POLL_MS_MIN = 2_000;   // fast cadence right after activity
@@ -45,8 +46,14 @@ const IDLE_TICKS_BEFORE_RAMP = 3;
 const OVERLAP_MS = 2_000;    // re-scan window so a row committed mid-tick isn't skipped
 const ROW_LIMIT = 200;       // per-tick cap; deduped by id across the overlap
 const SEEN_MAX = 1_000;      // bound the dedupe set on a long-lived instance
-const BREAKER_COOLDOWN_MS = 60_000;
+// Trip the poll breaker after this many CONSECUTIVE failures of ANY kind (a quota
+// error trips immediately). Below this a single blip is absorbed; at or above it a
+// sustained DB outage degrades to heartbeat-only with exponential backoff (the
+// gap the old quota-only breaker left — a DB outage became a POLL_MS_MIN storm).
+const BREAKER_FAILS_BEFORE_TRIP = 3;
+const BREAKER_BASE_COOLDOWN_MS = 60_000;
 const MAX_DURATION_MS = 275_000; // close before Vercel's 300s hard timeout
+const METRICS_INTERVAL_MS = 60_000; // emit at most one poller-health line this often
 
 // Only the fields the owner is allowed to see leave the server. NEVER the actor's
 // identity (viewer_user_id/viewer_device) or any actor GPS — the lat/lng below are
@@ -93,8 +100,49 @@ let lastPollAt = 0;          // ms; watermark floor for the next query
 let seen = new Set();        // recently-dispatched ids — global dedupe across overlap
 let currentDelay = POLL_MS_MIN;
 let idleTicks = 0;
-let breakerUntil = 0;
-let breakerLogged = false;
+// Breaker + exponential backoff for the DB poll. Trips on a quota error at once or
+// after BREAKER_FAILS_BEFORE_TRIP consecutive failures of any kind; the first clean
+// poll resets it. Pure state machine — see api/_lib/sse-poll-breaker.js.
+const breaker = createPollBreaker({
+	failuresBeforeTrip: BREAKER_FAILS_BEFORE_TRIP,
+	baseCooldownMs: BREAKER_BASE_COOLDOWN_MS,
+});
+let breakerLogged = false;   // dedupe the degrade log to one line per outage
+
+// ── Poller health telemetry (task 14) ────────────────────────────────────────
+// Rolling per-window counters so a stuck or thrashing poller is diagnosable from
+// the logs without a metrics backend. Reset each time a health line is emitted.
+// All aggregate counts — no actor identity, no coordinates ever enter these.
+let metricsWindowStart = 0;
+let dispatchedInWindow = 0;
+let sendErrorsInWindow = 0;
+let pollErrorsInWindow = 0;
+let pollsInWindow = 0;
+
+// Emit one structured health line once per METRICS_INTERVAL_MS while connections
+// are live: open connections, dispatch rate, error counts, and the current poll
+// delay (so a poller pinned at POLL_MS_MAX or stuck behind the breaker is visible).
+function emitPollerMetrics(now) {
+	if (!metricsWindowStart) { metricsWindowStart = now; return; }
+	if (now - metricsWindowStart < METRICS_INTERVAL_MS) return;
+	const windowMs = now - metricsWindowStart;
+	console.log('[irl-stream] poller health', {
+		connections: connections.size,
+		polls: pollsInWindow,
+		dispatched: dispatchedInWindow,
+		dispatchRatePerMin: Math.round((dispatchedInWindow / windowMs) * 60_000),
+		pollErrors: pollErrorsInWindow,
+		sendErrors: sendErrorsInWindow,
+		currentDelayMs: currentDelay,
+		breakerOpen: breaker.isOpen(now),
+		windowMs,
+	});
+	metricsWindowStart = now;
+	dispatchedInWindow = 0;
+	sendErrorsInWindow = 0;
+	pollErrorsInWindow = 0;
+	pollsInWindow = 0;
+}
 
 function resetSharedState() {
 	if (pollTimer) { clearTimeout(pollTimer); pollTimer = null; }
@@ -103,14 +151,29 @@ function resetSharedState() {
 	seen = new Set();
 	currentDelay = POLL_MS_MIN;
 	idleTicks = 0;
-	breakerUntil = 0;
+	breaker.reset();
 	breakerLogged = false;
+	metricsWindowStart = 0;
+	dispatchedInWindow = 0;
+	sendErrorsInWindow = 0;
+	pollErrorsInWindow = 0;
+	pollsInWindow = 0;
 }
 
-function scheduleNextPoll() {
+function scheduleNextPoll(delayMs) {
 	if (pollTimer) clearTimeout(pollTimer);
 	if (connections.size === 0) { pollTimer = null; return; }
-	pollTimer = setTimeout(runPoll, currentDelay);
+	let delay = delayMs;
+	if (delay == null) {
+		const now = Date.now();
+		// While the breaker is tripped, wake at the cooldown expiry — not the hot
+		// POLL_MS_MIN — so a DB outage degrades to heartbeat-only instead of a
+		// tight retry loop. Otherwise use the adaptive cadence.
+		delay = breaker.isOpen(now)
+			? Math.max(POLL_MS_MIN, breaker.cooldownUntil() - now)
+			: currentDelay;
+	}
+	pollTimer = setTimeout(runPoll, delay);
 }
 
 export function matches(conn, row) {
@@ -124,7 +187,10 @@ async function runPoll() {
 	if (polling) { scheduleNextPoll(); return; }
 
 	const now = Date.now();
-	if (now < breakerUntil) { scheduleNextPoll(); return; } // cooling down
+	// Breaker tripped (quota or a sustained DB outage): skip the query entirely so the
+	// loop is heartbeat-only, and re-check after the backoff window rather than at the
+	// hot cadence. scheduleNextPoll() reads the breaker and waits out the cooldown.
+	if (breaker.isOpen(now)) { scheduleNextPoll(); return; }
 
 	// Distinct owner identities currently connected — one query covers them all.
 	const ownerIds = [...new Set([...connections].map((c) => c.ownerId).filter(Boolean))];
@@ -132,6 +198,8 @@ async function runPoll() {
 	if (!ownerIds.length && !ownerDevs.length) { scheduleNextPoll(); return; }
 
 	polling = true;
+	pollsInWindow++;
+	if (!metricsWindowStart) metricsWindowStart = now;
 	const pollStart = now;
 	const watermark = new Date(lastPollAt - OVERLAP_MS).toISOString();
 	try {
@@ -148,7 +216,11 @@ async function runPoll() {
 			ORDER BY ix.created_at ASC
 			LIMIT ${ROW_LIMIT}
 		`;
-		breakerLogged = false; // a successful read clears the trip state
+		// A successful read clears the breaker — failure count, open window, and the
+		// backoff step all reset, so recovery is immediate and the next outage starts
+		// from the base cooldown again.
+		breaker.onSuccess();
+		breakerLogged = false;
 
 		let dispatched = 0;
 		for (const row of rows || []) {
@@ -161,7 +233,11 @@ async function runPoll() {
 				// (so a fresh tab is never spammed with the pre-connect backlog).
 				if (createdMs <= conn.connectedAt) continue;
 				if (!matches(conn, row)) continue;
-				try { conn.send('interaction', safe); dispatched++; } catch { /* dead socket; its own cleanup unregisters it */ }
+				// A throw here is a dead socket mid-teardown; its own close handler
+				// unregisters it, so per-frame logging would be noise. Count it instead
+				// and surface the aggregate in the periodic health line (a high sendErrors
+				// rate flags clients the poller can't reach).
+				try { conn.send('interaction', safe); dispatched++; } catch { sendErrorsInWindow++; }
 			}
 		}
 
@@ -176,22 +252,30 @@ async function runPoll() {
 		// [pollStart - overlap, nextPoll], no gaps; the overlap + `seen` cover the
 		// boundary. Bound the dedupe set on a long-lived instance.
 		lastPollAt = pollStart;
-		if (seen.size > SEEN_MAX) {
-			const keep = (rows || []).map((r) => r.id).filter(Boolean);
-			seen = new Set(keep);
-		}
+		seen = pruneSeen(seen, (rows || []).map((r) => r.id), SEEN_MAX);
+		dispatchedInWindow += dispatched;
 	} catch (err) {
-		if (isQuotaError(err)) {
-			breakerUntil = Date.now() + BREAKER_COOLDOWN_MS;
+		pollErrorsInWindow++;
+		// Trip the breaker on a quota error immediately, or after N consecutive failures
+		// of ANY kind — so a sustained DB outage (not only a quota trip) degrades to
+		// heartbeat-only with exponential backoff instead of a tight POLL_MS_MIN retry
+		// loop. The first clean poll above resets it (immediate recovery).
+		const trip = breaker.onFailure(Date.now(), { immediate: isQuotaError(err) });
+		if (trip.tripped) {
 			if (!breakerLogged) {
-				console.error('[irl-stream] DB busy — pausing poll for', BREAKER_COOLDOWN_MS, 'ms');
+				console.error(
+					`[irl-stream] DB poll degraded after ${trip.consecutiveFailures} failure(s) — ` +
+						`heartbeat-only for ${Math.round(trip.cooldownMs / 1000)}s:`,
+					err?.message || err,
+				);
 				breakerLogged = true;
 			}
 		} else {
-			console.error('[irl-stream] poll failed', err?.message || err);
+			console.error('[irl-stream] poll failed (transient)', err?.message || err);
 		}
 	} finally {
 		polling = false;
+		emitPollerMetrics(Date.now());
 		scheduleNextPoll();
 	}
 }
