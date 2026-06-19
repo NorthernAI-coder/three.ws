@@ -165,7 +165,9 @@ registerElement('site-guide');     // register under a custom tag → returns th
 
 ---
 
-## HTML attributes (`data-page-agent` script)
+## HTML attributes
+
+For the `data-page-agent` auto-init script.
 
 Add `data-page-agent` to a `<script>` loading the global build and it auto-starts
 from its `data-*` attributes (the first such script wins; idempotent).

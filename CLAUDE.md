@@ -164,6 +164,7 @@ Run both in the same step. If one fails, surface the error — do not silently l
 - Solana/agent SDKs in `sdk/`, `solana-agent-sdk/`, `agent-payments-sdk/`.
 - Real APIs in use: Pump.fun feed, Solana RPC, OpenAI/Anthropic via worker proxies. Never mock these.
 - **Orientation:** `STRUCTURE.md` maps every product surface to its directory. Read it before exploring the 60+ top-level dirs.
+- **Avatar animation is universal — no rig allowlist.** Any humanoid avatar drives the pre-baked clip library: `src/glb-canonicalize.js` maps its bone names (Mixamo, Avaturn, Unreal, VRM/VRoid, VRM 1.0, Daz/Genesis, MakeHuman, Blender `.L`, simple `shoulderL` rigs) to the canonical set, and `src/animation-retarget.js` retargets idle/walk onto them — legs included. A rig that genuinely can't be skeleton-driven (no skin, non-humanoid prop) falls back to the default rig (`AnimationManager.supportsCanonicalClips()` gate), never a bind-pose T-pose. Hit a new skeleton convention? Add its bone-name mapping to `glb-canonicalize.js` (cover it with a case in `tests/glb-canonicalize.test.js`) — don't hardcode a curated rig list.
 
 ## Known traps
 

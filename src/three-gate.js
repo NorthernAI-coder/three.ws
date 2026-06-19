@@ -33,7 +33,7 @@ import { log } from './shared/log.js';
 const THREE_MINT = 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump';
 const SOL_MINT = 'So11111111111111111111111111111111111111112';
 const JUPITER_SWAP_URL = `https://jup.ag/swap/SOL-${THREE_MINT}`;
-const ECONOMY_URL = '/three';
+const ECONOMY_URL = '/three-token';
 const SIGN_IN_URL = '/login'; // matches src/three-lock.js
 
 const LOCK_GLYPH =
@@ -289,7 +289,7 @@ class ThreeGate extends HTMLElement {
 			(pay
 				? `<p class="tg-pay">or pay <strong>${fmtUsd(pay.usd)}</strong> per use</p>`
 				: '') +
-			`<a class="tg-perks" href="${ECONOMY_URL}">See all holder perks →</a>` +
+			`<a class="tg-perks" href="${ECONOMY_URL}">Get $THREE →</a>` +
 			`</div>`;
 
 		this._wireLocked();

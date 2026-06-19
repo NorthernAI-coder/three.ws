@@ -1,6 +1,6 @@
 import puppeteer from 'puppeteer';
 const base = 'http://localhost:3000';
-const routes = ['/three-live','/pricing','/widgets','/marketplace','/walk','/community','/profile','/avatar-sdk','/mocap-studio','/pump-live','/pump-visualizer','/features','/home-v2','/tutorials','/pump-dashboard'];
+const routes = ['/three-live','/pricing','/widgets','/marketplace','/temporary','/community','/profile','/avatar-sdk','/mocap-studio','/pump-live','/pump-visualizer','/features','/home-v2','/tutorials','/pump-dashboard'];
 const browser = await puppeteer.launch({ args:['--no-sandbox','--disable-setuid-sandbox'] });
 const out = {};
 for (const path of routes) {

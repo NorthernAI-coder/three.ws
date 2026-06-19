@@ -13,7 +13,7 @@ want — from a diverse roster of rigged agents.
 ![license](https://img.shields.io/npm/l/@three-ws/page-agent?color=3b82f6)
 ![node](https://img.shields.io/node/v/@three-ws/page-agent?color=339933&logo=node.js)
 
-[Quick start](#quick-start) · [The catalog](#the-rigged-catalog) · [API](#api) · [How it works](#how-it-works) · [FAQ](#faq)
+[Quick start](#quick-start) · [Docs](#documentation) · [The catalog](#the-rigged-catalog) · [API](#api) · [How it works](#how-it-works) · [FAQ](#faq)
 
 </div>
 
@@ -36,11 +36,11 @@ frozen, dead-faced statue. Those are excluded.
 ### 1 — One script tag (zero JS)
 
 ```html
-<script type="module"
-        src="https://unpkg.com/@three-ws/page-agent/global"
+<script src="https://unpkg.com/@three-ws/page-agent/dist/page-agent.global.js"
         data-page-agent
         data-avatar="nova"
-        data-auto-narrate></script>
+        data-auto-narrate
+        defer></script>
 ```
 
 That's it. `Nova` appears bottom-right and tours the page. The visitor can change
@@ -68,6 +68,20 @@ guide.on('segment', ({ text, el }) => highlight(el));
 > **Peer dependency:** `three` (>= 0.150). Bundler users get tree-shaking and a
 > small ESM build with `three` left external. The `/global` build inlines three
 > for a plain CDN `<script>`.
+
+## Documentation
+
+Full guides live in [`docs/`](./docs/README.md), tiered by experience:
+
+- 🟢 **Basic** — [Getting started](./docs/getting-started.md) ·
+  [Narrating your page](./docs/guide-narration.md) ·
+  [Troubleshooting & FAQ](./docs/troubleshooting.md)
+- 🟡 **Medium** — [Framework integration](./docs/guide-frameworks.md) (React, Next, Vue, Svelte, Astro, no-code) ·
+  [Recipes](./docs/recipes.md) · [API reference](./docs/api-reference.md)
+- 🔴 **Advanced** — [Custom avatars](./docs/guide-custom-avatars.md) ·
+  [Building blocks](./docs/guide-building-blocks.md) (compose the engine yourself)
+- 🛠️ **Contribute** — [CONTRIBUTING](./CONTRIBUTING.md) (add an agent, improve
+  lipsync, ship an adapter) · [runnable examples](./examples/)
 
 ## The rigged catalog
 

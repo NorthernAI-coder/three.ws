@@ -1117,7 +1117,7 @@ async function loadAvatar() {
 	buildEmoteTray();
 
 	// Auto-hide help hints after 5 seconds — fade first, then remove from layout
-	// so the transition in walk.html's #walk-help { transition: opacity } plays.
+	// so the transition in temporary.html's #walk-help { transition: opacity } plays.
 	if (helpEl) {
 		helpAutoHideTimer = setTimeout(() => {
 			helpEl.style.opacity = '0';

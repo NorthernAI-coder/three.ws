@@ -18,7 +18,7 @@
 
 import { payWithToken } from './token-pay.js';
 
-const ECONOMY_URL = '/three';
+const ECONOMY_URL = '/three-token';
 const SIGN_IN_URL = '/login';
 const WALLET_URL = 'https://phantom.app/';
 

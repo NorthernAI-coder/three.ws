@@ -1435,7 +1435,11 @@ agent-3d:defined ~ .agent-skel{display:none}
       .then(function (body) {
         var accepts = (body && body.accepts) || [];
         if (!accepts.length) throw new Error('no payment terms in challenge');
-        renderChallengePreview(accepts);
+        // Solana-only checkout — quote just the Solana terms in the live preview
+        // so it matches the wallet flow. Fall back to all terms if the server
+        // ever omits Solana, so the preview never renders empty.
+        var solanaOnly = accepts.filter(function (a) { return a && typeof a.network === 'string' && a.network.indexOf('solana') === 0; });
+        renderChallengePreview(solanaOnly.length ? solanaOnly : accepts);
       })
       .catch(function (err) {
         var label = $('fgPvLabel'); label.className = 'preview-label err';
@@ -1644,6 +1648,7 @@ agent-3d:defined ~ .agent-skel{display:none}
       body: { prompt: prompt, tier: tier, aspect_ratio: '1:1' },
       merchant: 'three.ws',
       action: 'Forge: ' + prompt.slice(0, 48),
+      networks: ['solana'],
       caps: { maxPerCall: (TIER_ATOMIC[tier] || 500000) }
     }).then(function (out) {
       if (!out || !out.ok) { setResultError('The payment did not complete. Please try again.'); return; }

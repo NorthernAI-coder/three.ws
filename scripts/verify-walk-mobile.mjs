@@ -5,7 +5,7 @@
 //     (and, as a control, DOES auto-show on desktop)
 import puppeteer from 'puppeteer';
 
-const URL = process.env.WALK_URL || 'http://localhost:3000/walk';
+const URL = process.env.WALK_URL || 'http://localhost:3000/temporary';
 
 async function probe({ touch }) {
 	const browser = await puppeteer.launch({
