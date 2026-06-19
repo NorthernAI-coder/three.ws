@@ -52,7 +52,8 @@
 		"packages/ibm-watsonx-mcp",
 		"packages/ibm-x402-mcp",
 		"packages/three-token-mcp",
-		"packages/threews-avatar-mcp"
+		"packages/threews-avatar-mcp",
+		"walk-sdk"
 	],
 	"main": "src/app.js",
 	"browserslist": [

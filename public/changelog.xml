@@ -199,6 +199,14 @@
 			<description>A playable demo just landed at /play/ufo — a Flappy Bird-style space game where you pilot a UFO through asteroid fields. Connect your Solana wallet, copy your address as your in-game name, and submit your score to the global leaderboard, which refreshes live every 15 seconds and highlights your entry. Consider it a taste: these arcade demos are warm-ups while we build something far bigger for $THREE.</description>
 		</item>
 		<item>
+			<title>Forge a 3D model on the IBM x402 demo — free, no wallet</title>
+			<link>https://three.ws/ibm/x402-demo</link>
+			<guid isPermaLink="false">2026-06-19:Forge a 3D model on the IBM x402 demo — free, no wallet</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The IBM × three.ws x402 demo now forges 3D models two ways. The paid Forge takes one USDC micropayment from your own wallet and settles on Solana; right below it, a free generator turns any sentence into a textured, downloadable GLB with no wallet, no API key and no payment — it runs Microsoft TRELLIS on NVIDIA NIM with automatic fallback across lanes so a model always comes back. The paid Forge now settles in USDC on Solana mainnet.</description>
+		</item>
+		<item>
 			<title>Freeze your agent wallet in one tap — plus hardened custody security</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-19:Freeze your agent wallet in one tap — plus hardened custody security</guid>

@@ -16,6 +16,7 @@ bottom.
 |---|---|---|---|
 | Web renderer / viewer | [avatar-sdk/](avatar-sdk) `→ /viewer` | Published as `@three-ws/avatar` | `<agent-3d>` web component |
 | React avatar creator | [avatar-sdk/](avatar-sdk) `→ /react` `/creator` | Published as `@three-ws/avatar` | Same package, React subpath |
+| Talking page guide | [page-agent-sdk/](page-agent-sdk) | Published as `@three-ws/page-agent` | Drop-in rigged 3D agent that narrates any page + visitor avatar picker. `<page-agent>` web component. Rigged-only catalog. See [page-agent-sdk/PUBLISHING.md](page-agent-sdk/PUBLISHING.md) |
 | Avatar builder (full app) | [character-studio/](character-studio) | Fork of [m3-org/CharacterStudio](https://github.com/M3-org/CharacterStudio), MIT, see [character-studio/LICENSE](character-studio/LICENSE) | Web-first character creator |
 | Scene Studio (3D scene editor) | [src/scene-studio/](src/scene-studio) `→ /scene` | Vendored [mrdoob/three.js](https://github.com/mrdoob/three.js) r184 editor, MIT, see [src/scene-studio/vendor/README.md](src/scene-studio/vendor/README.md) | Import GLBs, compose scenes, edit materials/lights, export |
 | Embed examples | [examples/](examples) | In-repo | `embed-test.html`, `web-component.html`, `two-agents.html`, `minimal.html` |

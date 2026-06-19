@@ -1,9 +1,9 @@
-// @three-ws/x402-modal — drop-in payment modal for any x402 paid endpoint.
+// @three-ws/x402-payment-modal — drop-in payment modal for any x402 endpoint.
 //
 // A single, dependency-free ES module. Drop it on any page and any element with
 // `data-x402-endpoint` opens a payment modal on click:
 //
-//   <script type="module" src="https://unpkg.com/@three-ws/x402-modal"></script>
+//   <script type="module" src="https://unpkg.com/@three-ws/x402-payment-modal"></script>
 //
 //   <button
 //     data-x402-endpoint="https://example.com/api/paid/summarize"
@@ -742,8 +742,8 @@ class CheckoutModal {
 				</div>
 				<div class="x402-body" data-body></div>
 				<div class="x402-foot">
-					<span class="x402-secure">x402 · onchain settled</span>
-					<a href="https://three.ws" target="_blank" rel="noopener">Powered by three.ws</a>
+					<span class="x402-secure">${escapeHtml(CONFIG.footerNote)}</span>
+					${CONFIG.brand?.name ? `<a href="${escapeHtml(CONFIG.brand.url || '#')}" target="_blank" rel="noopener">Powered by ${escapeHtml(CONFIG.brand.name)}</a>` : ''}
 				</div>
 			</div>
 		`;
@@ -1597,8 +1597,45 @@ export function init() {
 	document.querySelectorAll('[data-x402-endpoint]').forEach(bindElement);
 }
 
+// Read host config from `data-*` attributes on the <script> tag that loaded
+// this module, so script-tag users can configure without an inline module:
+//
+//   <script type="module" src=".../x402.js"
+//           data-x402-checkout-origin="https://pay.acme.com"
+//           data-x402-brand-name="Acme" data-x402-brand-url="https://acme.com"
+//           data-x402-footer-note="Acme Pay"
+//           data-x402-builder-wallet="acme" data-x402-builder-service="acme_checkout"></script>
+function readScriptConfig() {
+	try {
+		const script =
+			document.currentScript ||
+			document.querySelector('script[src*="x402"][type="module"]') ||
+			document.querySelector('script[data-x402-checkout-origin]');
+		const ds = script?.dataset;
+		if (!ds) return;
+		const next = {};
+		if (ds.x402CheckoutOrigin) next.checkoutOrigin = ds.x402CheckoutOrigin;
+		if (ds.x402CheckoutPath) next.checkoutPath = ds.x402CheckoutPath;
+		if (ds.x402FooterNote) next.footerNote = ds.x402FooterNote;
+		if (ds.x402BrandName || ds.x402BrandUrl) {
+			next.brand = {};
+			if (ds.x402BrandName) next.brand.name = ds.x402BrandName;
+			if (ds.x402BrandUrl) next.brand.url = ds.x402BrandUrl;
+		}
+		if (ds.x402BuilderWallet || ds.x402BuilderService) {
+			next.builderCode = {};
+			if (ds.x402BuilderWallet) next.builderCode.wallet = ds.x402BuilderWallet;
+			if (ds.x402BuilderService) next.builderCode.service = ds.x402BuilderService;
+		}
+		if (Object.keys(next).length) configure(next);
+	} catch (_) {
+		// A missing/odd script tag is non-fatal — defaults still work.
+	}
+}
+
 // Auto-init on DOMContentLoaded, plus on demand.
 if (typeof document !== 'undefined') {
+	readScriptConfig();
 	if (document.readyState === 'loading') {
 		document.addEventListener('DOMContentLoaded', init, { once: true });
 	} else {
@@ -1611,5 +1648,5 @@ if (typeof document !== 'undefined') {
 
 // Expose to merchants' inline scripts.
 if (typeof window !== 'undefined') {
-	window.X402 = Object.freeze({ pay, init, version: VERSION });
+	window.X402 = Object.freeze({ pay, init, configure, version: VERSION });
 }
