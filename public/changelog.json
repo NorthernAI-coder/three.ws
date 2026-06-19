@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-19T09:40:00.703Z",
+	"generated_at": "2026-06-19T09:44:21.703Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -145,6 +145,16 @@
 			"type": "update",
 			"title": "IRL is sharper on phones, in any orientation",
 			"summary": "We polished IRL for the device it lives on. Every on-screen control now clears the notch and home indicator on modern phones — in portrait and landscape both — so nothing hides behind the camera cutout or rounded corners. On the narrowest phones the bottom controls wrap cleanly instead of squishing or clipping, and every button is a full finger-sized target. Typing a caption or message no longer makes Safari zoom the page in, long agent names truncate neatly instead of overflowing, and the calibrate readouts stay legible whichever way you hold the phone.",
+			"link": "/irl",
+			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-19",
+			"type": "update",
+			"title": "IRL stays fast and recovers gracefully in long AR sessions",
+			"summary": "IRL is built to run for an hour without slowing down. Swapping your avatar now fully releases the previous 3D model from memory instead of leaving it behind, so trying on a dozen looks in one session no longer piles up. If your phone reclaims graphics memory and the camera view would otherwise go black — a common thing on mobile after the tab sits idle — IRL now pauses cleanly and restores the scene, with a clear \"AR paused, restoring…\" card and a one-tap reload if your device needs it. Backgrounding the tab pauses the render loop and quiets the camera to save battery, then resumes the moment you come back. And as you move, avatars you walk past stop holding a load slot ahead of the ones you're heading toward, so the nearest agents always render first.",
 			"link": "/irl",
 			"tags": [
 				"improvement"
