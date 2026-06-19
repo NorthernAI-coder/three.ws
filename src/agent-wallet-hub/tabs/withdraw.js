@@ -291,15 +291,28 @@ registerWalletTab({
 
 		function renderConfirm() {
 			const it = state.intent;
+			// Allowlist awareness: if the owner has set an allowlist, show whether this
+			// destination is on it. The server enforces the allowlist regardless — this
+			// is the in-form signal the audit flagged as missing.
+			const allow = Array.isArray(state.limits?.limits?.withdraw_allowlist)
+				? state.limits.limits.withdraw_allowlist
+				: null;
+			let destBadge = '';
+			if (allow && allow.length) {
+				destBadge = allow.includes(it.destination)
+					? '<span class="awh-dest-tag ok">✓ allowlisted</span>'
+					: '<span class="awh-dest-tag warn">⚠ not on allowlist — this will be rejected</span>';
+			}
 			return `
 				<div class="awh-card">
 					<div class="awh-sum">
 						<div class="r"><span>Asset</span><span class="v">${esc(it.assetName)}</span></div>
 						<div class="r"><span>Amount</span><span class="v">${it.isMax ? 'Max — ' : ''}${esc(fmtAmount(it.amount, it.decimals))} ${esc(it.assetName)}</span></div>
-						<div class="r"><span>To</span><span class="v">${esc(it.destination)}</span></div>
+						<div class="r"><span>To</span><span class="v awh-mono" style="word-break:break-all;">${esc(it.destination)}${destBadge}</span></div>
 						<div class="r"><span>Network</span><span class="v">${esc(ctx.getNetwork())}</span></div>
 					</div>
 					${it.kind === 'SOL' && it.isMax ? '<div class="awh-note">A little SOL is kept back to cover rent + network fees.</div>' : ''}
+					<div class="awh-warn-irrev" role="note">⚠ Crypto transfers are final. Once submitted, this cannot be undone or reversed — double-check the destination address.</div>
 					<div class="awh-err" id="awh-cf-err" hidden></div>
 					<div class="awh-actions">
 						<button class="awh-btn" id="awh-back" type="button" style="flex:1;" ${state.phase === 'sending' ? 'disabled' : ''}>Back</button>
@@ -412,6 +425,10 @@ registerWalletTab({
 				};
 				state.phase = 'confirm';
 				render();
+				// Best-effort: pull the spend limits so the confirm step can show the
+				// allowlist-match badge. Non-blocking — the irreversibility warning and
+				// server-side enforcement do not depend on it.
+				if (state.limits === null) loadLimits();
 			});
 		}
 
@@ -468,7 +485,20 @@ registerWalletTab({
 			const spent = state.limits.spent_today_usd ?? 0;
 			const allow = Array.isArray(lim.withdraw_allowlist) ? lim.withdraw_allowlist : [];
 			const overDaily = lim.daily_usd != null && spent >= lim.daily_usd;
+			const frozen = lim.frozen === true;
 			return `
+				<div class="awh-card awh-freeze-card${frozen ? ' is-frozen' : ''}">
+					<div class="awh-freeze-row">
+						<div class="awh-freeze-copy">
+							<strong>${frozen ? '🔒 Wallet frozen' : 'Wallet active'}</strong>
+							<span>${frozen
+								? 'Autonomous spending (trades, snipes, payments) is paused. You can still withdraw funds out.'
+								: 'Freeze to instantly pause all autonomous spending. Withdrawals stay available.'}</span>
+						</div>
+						<button class="awh-btn ${frozen ? 'awh-btn--primary' : 'awh-btn--danger'}" id="awh-freeze-btn" type="button"
+							aria-pressed="${frozen}">${frozen ? 'Unfreeze' : 'Freeze wallet'}</button>
+					</div>
+				</div>
 				<div class="awh-card">
 					<div class="awh-chips">
 						<span class="awh-chip${overDaily ? ' alert' : ''}">Spent today: ${esc(formatUsd(spent) || '$0.00')}</span>
@@ -507,6 +537,27 @@ registerWalletTab({
 			const lim = state.limits.limits || {};
 			const allowState = (Array.isArray(lim.withdraw_allowlist) ? lim.withdraw_allowlist : []).slice();
 			const errEl = panel.querySelector('#awh-lim-err');
+
+			// Freeze toggle — one tap, applied immediately (no Save). Freezing is the
+			// safe direction; unfreezing resumes autonomous spending so we confirm it.
+			const freezeBtn = panel.querySelector('#awh-freeze-btn');
+			freezeBtn?.addEventListener('click', async () => {
+				const currentlyFrozen = lim.frozen === true;
+				if (currentlyFrozen && !confirm('Resume autonomous spending? The agent will be able to trade, snipe and pay from this wallet again.')) return;
+				freezeBtn.disabled = true;
+				freezeBtn.innerHTML = '<span class="awh-spin"></span>' + (currentlyFrozen ? 'Unfreezing…' : 'Freezing…');
+				const res = await call(`${base('limits')}?network=${ctx.getNetwork()}`, { method: 'PUT', body: { frozen: !currentlyFrozen } });
+				if (destroyed) return;
+				if (!res.ok) {
+					freezeBtn.disabled = false;
+					freezeBtn.textContent = currentlyFrozen ? 'Unfreeze' : 'Freeze wallet';
+					errEl.hidden = false; errEl.textContent = res.message;
+					return;
+				}
+				state.limits = res.data;
+				toast(currentlyFrozen ? 'Wallet unfrozen' : 'Wallet frozen — spending paused');
+				render();
+			});
 
 			function repaint() {
 				const ul = panel.querySelector('#awh-allow');
@@ -559,7 +610,9 @@ registerWalletTab({
 			const res = await call(`${base('limits')}?network=${ctx.getNetwork()}`);
 			if (destroyed) return;
 			state.limits = res.ok ? res.data : { error: res.message };
-			if (state.view === 'limits') render();
+			// Re-render on the limits view (full panel) or the withdraw confirm step,
+			// where the freshly-loaded allowlist drives the destination badge.
+			if (state.view === 'limits' || state.phase === 'confirm') render();
 		}
 
 		// ── Activity view (custody audit trail) ─────────────────────────────────

@@ -11,6 +11,7 @@ import {
 	escapeHtml, fmtSol, fmtUsd, fmtPct, pnlClass, shortAddr, holdTime, relTime,
 	identicon, verifiedBadge,
 } from './trader-format.js';
+import { walletChipHTML, wireWalletChips } from './shared/agent-wallet-chip.js';
 
 const API = '/api/sniper/leaderboard';
 const REFRESH_MS = 20_000;
@@ -104,7 +105,7 @@ function rowMarkup(r) {
 				<img class="lb-avatar" src="${escapeHtml(img)}" alt="" loading="lazy" onerror="this.src='${identicon(r.agent_id || r.wallet || '?')}'" />
 				<span class="lb-trader-meta">
 					<span class="lb-trader-name">${escapeHtml(r.agent_name || 'Unnamed agent')}${verifiedBadge(r.verified)}</span>
-					<span class="lb-trader-sub">${escapeHtml(shortAddr(r.wallet))} · ${r.unique_coins} coins${r.copiers ? ` · <span class="lb-copiers">${r.copiers} copying</span>` : ''}</span>
+					<span class="lb-trader-sub">${r.wallet ? walletChipHTML(r, { isOwner: false, showPending: false, link: false }) : escapeHtml(shortAddr(r.wallet))} · ${r.unique_coins} coins${r.copiers ? ` · <span class="lb-copiers">${r.copiers} copying</span>` : ''}</span>
 				</span>
 			</span>
 			<span class="lb-num">
@@ -160,6 +161,9 @@ function renderBoard(data) {
 	}
 	stateEl.innerHTML = '';
 	rows.innerHTML = list.map(rowMarkup).join('');
+	// Wire the wallet chips' copy + Tip actions. The board is public — viewers
+	// don't own these traders' agents — so chips render isOwner:false (◎ Tip).
+	wireWalletChips(rows);
 	// Stagger the entrance subtly.
 	rows.querySelectorAll('.lb-row').forEach((el, i) => { el.style.animationDelay = `${Math.min(i, 12) * 22}ms`; });
 }

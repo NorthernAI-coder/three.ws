@@ -6,7 +6,7 @@ import { sql } from '../_lib/db.js';
 import { cors, json, method, error, readJson, rateLimited, serverError } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { requireCsrf } from '../_lib/csrf.js';
-import { generateSolanaAgentWallet, recoverSolanaAgentKeypair } from '../_lib/agent-wallet.js';
+import { generateSolanaAgentWallet, recoverSolanaAgentKeypair, encryptSecret } from '../_lib/agent-wallet.js';
 import { solanaConnection, solanaPublicConnection } from '../_lib/agent-pumpfun.js';
 import { reverseLookupAddress } from '../../src/solana/sns.js';
 import {
@@ -19,8 +19,7 @@ import {
 	TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID,
 } from '@solana/spl-token';
 import { grindMintKeypair, estimateAttempts, BASE58_ALPHABET } from '../_lib/pump-vanity.js';
-import { webcrypto, randomUUID } from 'node:crypto';
-import { env } from '../_lib/env.js';
+import { randomUUID } from 'node:crypto';
 import { recordEvent } from '../_lib/usage.js';
 import { cacheGet, cacheSet } from '../_lib/cache.js';
 import { logAudit } from '../_lib/audit.js';
@@ -45,7 +44,6 @@ const SOL_FEE_RESERVE_LAMPORTS = 15_000n; // ~3× a single-signature base fee
 const RENT_EXEMPT_FALLBACK_LAMPORTS = 890_880n; // getMinimumBalanceForRentExemption(0)
 const TOKEN_ACCOUNT_RENT_FALLBACK_LAMPORTS = 2_039_280n; // 165-byte SPL token account
 
-const subtle = globalThis.crypto?.subtle || webcrypto.subtle;
 const BASE58_RE = /^[1-9A-HJ-NP-Za-km-z]+$/;
 const AIRDROP_LAMPORTS = LAMPORTS_PER_SOL;
 
@@ -121,23 +119,12 @@ async function _reverseSnsCached(address) {
 	return value;
 }
 
-async function _deriveKey() {
-	const raw = new TextEncoder().encode(env.JWT_SECRET);
-	const base = await subtle.importKey('raw', raw, 'HKDF', false, ['deriveKey']);
-	return subtle.deriveKey(
-		{ name: 'HKDF', hash: 'SHA-256', salt: new TextEncoder().encode('agent-wallet-v1'), info: new Uint8Array(0) },
-		base, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt'],
-	);
-}
-async function _encryptSecret(plaintext) {
-	const key = await _deriveKey();
-	const iv = new Uint8Array(12);
-	(globalThis.crypto || webcrypto).getRandomValues(iv);
-	const ct = await subtle.encrypt({ name: 'AES-GCM', iv }, key, new TextEncoder().encode(plaintext));
-	const buf = new Uint8Array(iv.length + ct.byteLength);
-	buf.set(iv, 0); buf.set(new Uint8Array(ct), iv.length);
-	return Buffer.from(buf).toString('base64');
-}
+// Encrypt a custodial Solana secret for storage. Delegates to the shared secret
+// box so imported / regenerated wallets are written with the SAME v2 scheme
+// (dedicated WALLET_ENCRYPTION_KEY + random per-record salt) as freshly-generated
+// ones. Previously this path wrote a weaker v1 ciphertext (JWT_SECRET + constant
+// salt); recoverSolanaAgentKeypair still reads those legacy records.
+const _encryptSecret = (plaintext) => encryptSecret(plaintext);
 
 async function resolveAuth(req) {
 	const session = await getSessionUser(req);
@@ -987,7 +974,7 @@ async function handleLimits(req, res, id) {
 		// owner surface. A PUT may patch either or both: a `trade_limits` object
 		// updates the discretionary-trade caps (per-trade SOL, daily budget, breaker,
 		// kill switch); the top-level USD/allowlist keys update the spend policy.
-		const wantsSpend = ['daily_usd', 'per_tx_usd', 'withdraw_allowlist'].some((k) => k in body);
+		const wantsSpend = ['daily_usd', 'per_tx_usd', 'withdraw_allowlist', 'frozen'].some((k) => k in body);
 		let limitsOut = getSpendLimits(meta);
 		let tradeLimitsOut = getTradeLimits(meta);
 		try {

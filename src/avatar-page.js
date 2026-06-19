@@ -14,6 +14,7 @@ import { log } from './shared/log.js';
 import { emptyStateHTML, errorStateHTML } from './shared/state-kit.js';
 import { mountViewSwitcher } from './view-switcher.js';
 import { PoseStage, loadPoseManifest } from './avatar-pose.js';
+import { walletChipHTML, wireWalletChips } from './shared/agent-wallet-chip.js';
 
 const ATTACHED_KEY_PREFIX = 'avatar_attached_v1:';
 
@@ -196,6 +197,17 @@ async function fetchSkills() {
 
 // ── Render ────────────────────────────────────────────────────────────
 
+// The avatar's bound agent custodial wallet, rendered with the shared chip.
+// owner_id is only present on the GET response when the viewer owns the avatar
+// (the API strips it for everyone else), so it's a reliable owner signal — the
+// owner gets the vanity entry point, everyone else gets the Tip action. Renders
+// nothing when the bound agent has no wallet yet (showPending:false), which is
+// fine: the avatar itself is an asset and the page already has a fork CTA.
+function walletRowHTML() {
+	const chip = walletChipHTML(avatar, { isOwner: !!avatar.owner_id, showPending: false });
+	return chip ? `<div class="av-wallet-row" id="av-wallet-row">${chip}</div>` : '';
+}
+
 function renderShell(glbUrl) {
 	const tagsHtml = (avatar.tags || [])
 		.map((t) => `<a class="av-tag" href="/marketplace?tag=${encodeURIComponent(t)}">${esc(t)}</a>`)
@@ -272,6 +284,7 @@ function renderShell(glbUrl) {
 				<div class="av-source-tag">${avatar.demo ? 'Curated · Public Domain' : 'Community avatar'}</div>
 				${byLine}
 				${tagsHtml ? `<div class="av-tags">${tagsHtml}</div>` : ''}
+				${walletRowHTML()}
 			</div>
 			<div class="av-cta-talk-row">
 				<button class="av-cta-talk" id="av-talk" type="button" aria-label="Talk to ${esc(avatar.name)}">
@@ -415,6 +428,8 @@ function renderShell(glbUrl) {
 			</div>
 		</div>
 	`;
+
+	wireWalletChips($('av-wallet-row'));
 
 	const viewer = $('av-viewer');
 	viewer?.addEventListener('load', () => {
@@ -1738,15 +1753,21 @@ async function loadUsedBy() {
 			const badge = a.onchain
 				? `<span class="av-used-by-badge" title="Registered on-chain">on-chain</span>`
 				: '';
+			// Each agent here is an agent surface — render the shared wallet chip
+			// (tip for visitors, vanity entry for the owner). Hidden when the
+			// used-by row carries no address, so we never show a misleading state.
+			const chip = walletChipHTML(a, { isOwner: false, showPending: false });
 			return `<a class="av-used-by-card" href="${esc(a.url)}" title="${esc(a.name)}">
 				${thumb}
 				<div class="av-used-by-meta">
 					<span class="av-used-by-name">${esc(a.name)}</span>
 					${badge}
 				</div>
+				${chip ? `<div class="av-used-by-wallet">${chip}</div>` : ''}
 			</a>`;
 		})
 		.join('');
+	wireWalletChips(grid);
 }
 
 // ── Forks (GitHub-style network) ──────────────────────────────────────

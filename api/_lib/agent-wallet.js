@@ -19,83 +19,23 @@
 // deploys don't break, but the per-record salt still applies.
 
 import { webcrypto } from 'node:crypto';
-import { env } from './env.js';
 import { evmFallbackProvider } from './evm/rpc.js';
+// Single source of truth for the AES-256-GCM secret box (HKDF key derivation,
+// per-record salt, v1 legacy read). Shared with the coin treasury + launcher so
+// every custodial secret on the platform uses the same at-rest scheme.
+import { encryptSecret, decryptSecret, isEncryptedSecret } from './secret-box.js';
 
-const subtle = globalThis.crypto?.subtle || webcrypto.subtle;
 const randomBytes = (n) => {
 	const b = new Uint8Array(n);
 	(globalThis.crypto || webcrypto).getRandomValues(b);
 	return b;
 };
 
-const V2_PREFIX = 'v2:';
-const LEGACY_SALT = new TextEncoder().encode('agent-wallet-v1');
-let _warnedFallback = false;
-
-// Dedicated master secret for wallet encryption, decoupled from JWT_SECRET.
-function walletMasterSecret() {
-	const dedicated = env.WALLET_ENCRYPTION_KEY;
-	if (dedicated && dedicated.length >= 16) return dedicated;
-	if (!_warnedFallback) {
-		_warnedFallback = true;
-		console.warn(
-			'[agent-wallet] WALLET_ENCRYPTION_KEY is not set (or too short); falling back to ' +
-				'JWT_SECRET for custodial key encryption. Set a dedicated WALLET_ENCRYPTION_KEY ' +
-				'(>=16 chars) so wallet confidentiality does not depend on the session secret.',
-		);
-	}
-	return env.JWT_SECRET;
-}
-
-// ── Key derivation ──────────────────────────────────────────────────────────
-// Derive an AES-256 key from a secret + salt via HKDF-SHA256.
-async function deriveKey(secret, salt) {
-	const raw = new TextEncoder().encode(secret);
-	const base = await subtle.importKey('raw', raw, 'HKDF', false, ['deriveKey']);
-	return subtle.deriveKey(
-		{ name: 'HKDF', hash: 'SHA-256', salt, info: new Uint8Array(0) },
-		base,
-		{ name: 'AES-GCM', length: 256 },
-		false,
-		['encrypt', 'decrypt'],
-	);
-}
-
-// ── Encrypt / decrypt ───────────────────────────────────────────────────────
-
-// v2 layout: "v2:" + base64( salt[16] || iv[12] || ciphertext+tag ).
-async function encrypt(plaintext) {
-	const salt = randomBytes(16);
-	const iv = randomBytes(12);
-	const key = await deriveKey(walletMasterSecret(), salt);
-	const data = new TextEncoder().encode(plaintext);
-	const ct = await subtle.encrypt({ name: 'AES-GCM', iv }, key, data);
-	const buf = new Uint8Array(salt.length + iv.length + ct.byteLength);
-	buf.set(salt, 0);
-	buf.set(iv, salt.length);
-	buf.set(new Uint8Array(ct), salt.length + iv.length);
-	return V2_PREFIX + Buffer.from(buf).toString('base64');
-}
-
-async function decrypt(ciphertext) {
-	if (typeof ciphertext === 'string' && ciphertext.startsWith(V2_PREFIX)) {
-		const raw = Buffer.from(ciphertext.slice(V2_PREFIX.length), 'base64');
-		const salt = raw.subarray(0, 16);
-		const iv = raw.subarray(16, 28);
-		const ct = raw.subarray(28);
-		const key = await deriveKey(walletMasterSecret(), salt);
-		const plain = await subtle.decrypt({ name: 'AES-GCM', iv }, key, ct);
-		return new TextDecoder().decode(plain);
-	}
-	// Legacy v1: JWT_SECRET + constant salt, no version tag.
-	const raw = Buffer.from(ciphertext, 'base64');
-	const iv = raw.subarray(0, 12);
-	const ct = raw.subarray(12);
-	const key = await deriveKey(env.JWT_SECRET, LEGACY_SALT);
-	const plain = await subtle.decrypt({ name: 'AES-GCM', iv }, key, ct);
-	return new TextDecoder().decode(plain);
-}
+// Local aliases preserve the original call sites below; re-exported so existing
+// importers of these names from agent-wallet.js keep working.
+const encrypt = encryptSecret;
+const decrypt = decryptSecret;
+export { encryptSecret, decryptSecret, isEncryptedSecret };
 
 // ── Wallet generation ───────────────────────────────────────────────────────
 

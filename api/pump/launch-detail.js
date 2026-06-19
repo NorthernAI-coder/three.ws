@@ -155,6 +155,9 @@ async function buildDetail(mint, network) {
 		       pam.sharing_config, pam.created_at,
 		       ai.id as agent_id, ai.name as agent_name, ai.description as agent_description,
 		       ai.is_public as agent_public,
+		       ai.solana_address as agent_solana_address,
+		       ai.solana_vanity_prefix as agent_solana_vanity_prefix,
+		       ai.solana_vanity_suffix as agent_solana_vanity_suffix,
 		       a.thumbnail_key as avatar_thumbnail_key, a.visibility as avatar_visibility
 		from pump_agent_mints pam
 		left join agent_identities ai on ai.id = pam.agent_id and ai.deleted_at is null
@@ -272,6 +275,11 @@ async function buildDetail(mint, network) {
 					url: `/agents/${reg.agent_id}`,
 					is_public: reg.agent_public,
 					avatar_thumbnail_url: avatarPublic ? safeR2Url(reg.avatar_thumbnail_key) : null,
+					// Public custodial wallet (+ vanity) of the launching agent, so the
+					// shared wallet chip renders identically here as on the feed/profile.
+					solana_address: reg.agent_solana_address || null,
+					solana_vanity_prefix: reg.agent_solana_vanity_prefix || null,
+					solana_vanity_suffix: reg.agent_solana_vanity_suffix || null,
 				}
 			: null,
 		economics,

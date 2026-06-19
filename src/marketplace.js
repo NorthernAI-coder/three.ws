@@ -18,6 +18,7 @@ import {
 	bindDetailExtras,
 } from './marketplace-detail.js';
 import { onchainBadgeHTML } from './shared/onchain-badge.js';
+import { walletChipHTML, walletChipEl, wireWalletChips } from './shared/agent-wallet-chip.js';
 import { seeInWorldHref, hasCustomAvatar } from './shared/agent-3d.js';
 import { coinChipHTML } from './shared/agent-coin.js';
 import { skeletonHTML, errorStateHTML, ensureStateKitStyles } from './shared/state-kit.js';
@@ -1250,6 +1251,10 @@ function renderGrid() {
 
 	// Poster cache + shimmer-off for model-viewers.
 	attachModelViewerBehavior();
+
+	// Wire wallet-chip copy buttons + explorer links so they act on the chip and
+	// don't bubble a click up to the card's detail-navigation handler.
+	wireWalletChips(els.grid);
 
 	// Kick off infinite scroll observation.
 	if (hasMore) _setupInfiniteScroll();
@@ -4506,6 +4511,7 @@ function renderCard(a) {
 			${buyers > 0 ? `<span class="stat-pill" title="${buyers} confirmed purchase${buyers === 1 ? '' : 's'}${buyers24h ? `, ${buyers24h} in last 24h` : ''}">$ ${fmtNumber(buyers)}${buyers24h > 0 ? ` <em>(+${buyers24h}/24h)</em>` : ''}</span>` : ''}
 			${skillPriceBadge}
 			${!skillPriceBadge && paid ? `<span class="stat-pill paid-badge">$ Paid</span>` : ''}
+			${walletChipHTML(a, { isOwner: false, showPending: false, link: true })}
 		</div>
 		<div class="footer">
 			<span>${date}</span>
@@ -5050,6 +5056,18 @@ function renderDetail(a, bookmarked) {
 	$('d-category').textContent = CATEGORY_LABELS[a.category] || a.category || 'General';
 	$('d-views').textContent = `⊙ ${fmtNumber(views)}`;
 	$('d-overview').textContent = a.description || '';
+
+	// Agent custodial wallet chip, rendered in the identity stats row beside the
+	// category/views. isOwner is true only when the signed-in viewer provably owns
+	// this row (author match) — that unlocks the "✦ Vanity" entry point to the
+	// wallet hub. The chip no-ops until the row carries a solana_address.
+	const statsRow = $('d-views')?.parentElement;
+	if (statsRow) {
+		statsRow.querySelector('.twc')?.remove();
+		const isOwner = !!(currentUserId && a.author_id && currentUserId === a.author_id);
+		const chip = walletChipEl(a, { isOwner, showPending: false, link: true });
+		if (chip) statsRow.appendChild(chip);
+	}
 
 	// Render pricing summary if agent has skill prices
 	renderDetailPricingSummary(a);

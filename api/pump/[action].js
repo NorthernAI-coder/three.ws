@@ -2445,6 +2445,9 @@ async function handleLaunches(req, res) {
 			select pam.mint, pam.network, pam.name, pam.symbol, pam.buyback_bps,
 			       pam.metadata_uri, pam.quote_mint, pam.created_at,
 			       ai.id as agent_id, ai.name as agent_name,
+			       ai.solana_address as agent_solana_address,
+			       ai.solana_vanity_prefix as agent_solana_vanity_prefix,
+			       ai.solana_vanity_suffix as agent_solana_vanity_suffix,
 			       a.thumbnail_key as avatar_thumbnail_key,
 			       a.visibility as avatar_visibility,
 			       oc.score as oracle_score, oc.tier as oracle_tier, oc.category as oracle_category
@@ -2463,6 +2466,9 @@ async function handleLaunches(req, res) {
 					select pam.mint, pam.network, pam.name, pam.symbol, pam.buyback_bps,
 					       pam.metadata_uri, pam.quote_mint, pam.created_at,
 					       ai.id as agent_id, ai.name as agent_name,
+					       ai.solana_address as agent_solana_address,
+					       ai.solana_vanity_prefix as agent_solana_vanity_prefix,
+					       ai.solana_vanity_suffix as agent_solana_vanity_suffix,
 					       a.thumbnail_key as avatar_thumbnail_key,
 					       a.visibility as avatar_visibility
 					from pump_agent_mints pam
@@ -2476,6 +2482,9 @@ async function handleLaunches(req, res) {
 					select pam.mint, pam.network, pam.name, pam.symbol, pam.buyback_bps,
 					       pam.metadata_uri, pam.quote_mint, pam.created_at,
 					       ai.id as agent_id, ai.name as agent_name,
+					       ai.solana_address as agent_solana_address,
+					       ai.solana_vanity_prefix as agent_solana_vanity_prefix,
+					       ai.solana_vanity_suffix as agent_solana_vanity_suffix,
 					       a.thumbnail_key as avatar_thumbnail_key,
 					       a.visibility as avatar_visibility
 					from pump_agent_mints pam
@@ -2512,6 +2521,11 @@ async function handleLaunches(req, res) {
 							r.avatar_thumbnail_key && avatarPublic
 								? r2PublicUrl(r.avatar_thumbnail_key)
 								: null,
+						// Public custodial wallet of the launching agent (+ vanity pattern)
+						// so the shared wallet chip renders the same on the feed as everywhere.
+						solana_address: r.agent_solana_address || null,
+						solana_vanity_prefix: r.agent_solana_vanity_prefix || null,
+						solana_vanity_suffix: r.agent_solana_vanity_suffix || null,
 					}
 				: null,
 		};

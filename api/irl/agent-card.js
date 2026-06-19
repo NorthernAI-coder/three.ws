@@ -186,6 +186,11 @@ async function buildCard(agentId, fallback = {}) {
 			bio:           bio || fallback.description || null,
 			thumbnail_url: agent.avatar_thumbnail_key && thumbPub ? publicUrl(agent.avatar_thumbnail_key) : null,
 			profile_url:   agent.home_url || `/agents/${agent.id}`,
+			// Public custodial wallet (same value GET /api/agents/:id/solana serves
+			// anonymously) so the IRL inspect card can render the wallet chip + Tip.
+			solana_address:        meta.solana_address || null,
+			solana_vanity_prefix:  meta.solana_vanity_prefix || null,
+			solana_vanity_suffix:  meta.solana_vanity_suffix || null,
 		},
 		reputation,
 		services: services.map((s) => ({

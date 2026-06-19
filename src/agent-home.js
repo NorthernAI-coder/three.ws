@@ -16,6 +16,7 @@ import { mountAgentVanityGrinderCard } from './agent-vanity-grinder.js';
 import { mountAgentEthVanityCard } from './agent-eth-vanity-card.js';
 import { mountAgentOnchainCard } from './agent-onchain-card.js';
 import { mountClaimsPanel } from './agent-home-claims.js';
+import { walletChipHTML, wireWalletChips } from './shared/agent-wallet-chip.js';
 
 const ACTION_ICONS = {
 	[ACTION_TYPES.SPEAK]: '💬',
@@ -83,6 +84,25 @@ export class AgentHome {
 	_buildPanel() {
 		const id = this.identity;
 		const skills = id.skills || [];
+
+		// Shared agent-wallet chip for the identity card. Default-deny ownership:
+		// owner-tier (vanity entry point) only when ownership is known true, else a
+		// non-owner Tip action — never show owner controls to a visitor. Reads the
+		// Solana address from the identity (solana_address / meta.solana_address);
+		// renders nothing when the agent has no custodial Solana wallet yet.
+		const walletOwner = this.isOwner !== null ? this.isOwner : id.isOwner;
+		const walletChip = walletChipHTML(
+			{
+				id: id.id,
+				name: id.name,
+				solana_address: id.solana_address || id.meta?.solana_address || '',
+				solana_vanity_prefix: id.solana_vanity_prefix || id.meta?.solana_vanity_prefix || null,
+				solana_vanity_suffix: id.solana_vanity_suffix || id.meta?.solana_vanity_suffix || null,
+				avatar_thumbnail_url: id.avatarUrl || id.image || '',
+				meta: id.meta || {},
+			},
+			{ isOwner: walletOwner === true, showPending: false },
+		);
 		const panel = document.createElement('div');
 		panel.className = 'agent-home-panel';
 		panel.innerHTML = `
@@ -123,6 +143,7 @@ export class AgentHome {
 							: `<button class="agent-home-address agent-home-address--cta" id="agent-home-address" type="button" title="Connect wallet to register on-chain" aria-label="Connect wallet to register on-chain">no wallet</button>`
 						}
 					</div>
+					${walletChip ? `<div class="agent-home-wallet-chip" id="agent-home-wallet-chip">${walletChip}</div>` : ''}
 					<p
 						class="agent-home-description agent-home-editable"
 						id="agent-home-description"
@@ -178,6 +199,8 @@ export class AgentHome {
 
 		this.container.appendChild(panel);
 		this._panel = panel;
+
+		wireWalletChips(panel.querySelector('#agent-home-wallet-chip'));
 
 		let _pumpMounted = false;
 		const mountPumpIfReady = () => {

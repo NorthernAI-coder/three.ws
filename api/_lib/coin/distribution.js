@@ -53,7 +53,7 @@ export async function snapshotHolders(coin) {
 // ─── Claim creator fees + allocation split ──────────────────────────────────
 
 export async function claimAndSplit(coin) {
-	const creator = loadCoinCreatorFromCoin(coin);
+	const creator = await loadCoinCreatorFromCoin(coin);
 	if (!creator) {
 		await sql`
 			insert into coin_events (coin_id, kind, payload)

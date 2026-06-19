@@ -188,3 +188,40 @@ describe('getDailySpendUsd / lamportsToUsd', () => {
 		expect(await lamportsToUsd(1_000_000_000n)).toBeCloseTo(200, 6);
 	});
 });
+
+// ── wallet freeze (kill switch) ──────────────────────────────────────────────
+describe('wallet freeze', () => {
+	it('normalizes frozen to a strict boolean (default false)', () => {
+		expect(normalizeSpendLimits({}).frozen).toBe(false);
+		expect(normalizeSpendLimits({ frozen: true }).frozen).toBe(true);
+		expect(normalizeSpendLimits({ frozen: 'yes' }).frozen).toBe(false); // only literal true freezes
+	});
+
+	it('blocks an autonomous trade when frozen', async () => {
+		const limits = normalizeSpendLimits({ frozen: true });
+		await expect(
+			enforceSpendLimit({ agentId: 'a', limits, category: 'trade', usdValue: 1 }),
+		).rejects.toMatchObject({ code: 'wallet_frozen', status: 403 });
+	});
+
+	it('blocks snipe and x402 when frozen', async () => {
+		const limits = normalizeSpendLimits({ frozen: true });
+		for (const category of ['snipe', 'x402']) {
+			await expect(
+				enforceSpendLimit({ agentId: 'a', limits, category, usdValue: 5 }),
+			).rejects.toMatchObject({ code: 'wallet_frozen' });
+		}
+	});
+
+	it('NEVER blocks the owner withdraw when frozen (funds must stay evacuable)', async () => {
+		const limits = normalizeSpendLimits({ frozen: true });
+		const r = await enforceSpendLimit({ agentId: 'a', limits, category: 'withdraw', usdValue: 10, destination: Keypair.generate().publicKey.toBase58() });
+		expect(r.ok).toBe(true);
+	});
+
+	it('does not block any path when not frozen', async () => {
+		const limits = normalizeSpendLimits({ frozen: false });
+		const r = await enforceSpendLimit({ agentId: 'a', limits, category: 'trade', usdValue: 1 });
+		expect(r.ok).toBe(true);
+	});
+});

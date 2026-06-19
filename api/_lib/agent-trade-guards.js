@@ -44,6 +44,12 @@ export const SPEND_LIMIT_DEFAULTS = Object.freeze({
 	daily_usd: null,
 	per_tx_usd: null,
 	withdraw_allowlist: [],
+	// Wallet freeze / kill switch. When true, every AUTONOMOUS outbound path
+	// (trade, snipe, x402) is rejected immediately. The owner's own withdraw is
+	// deliberately NOT blocked — a freeze must never trap the owner's funds; the
+	// safe direction (sweeping out) stays open so a freeze can be used to lock down
+	// a misbehaving agent while still evacuating its balance.
+	frozen: false,
 });
 
 // Per-agent discretionary-trade policy (lamports-denominated), stored at
@@ -139,6 +145,7 @@ export function normalizeSpendLimits(raw) {
 		daily_usd: numOrNull(r.daily_usd),
 		per_tx_usd: numOrNull(r.per_tx_usd),
 		withdraw_allowlist: deduped,
+		frozen: r.frozen === true,
 		updated_at: typeof r.updated_at === 'string' ? r.updated_at : null,
 	};
 }
@@ -167,6 +174,7 @@ export async function setSpendLimits(agentId, userId, patch, { req = null } = {}
 		per_tx_usd: 'per_tx_usd' in patch ? patch.per_tx_usd : prev.per_tx_usd,
 		withdraw_allowlist:
 			'withdraw_allowlist' in patch ? patch.withdraw_allowlist : prev.withdraw_allowlist,
+		frozen: 'frozen' in patch ? patch.frozen === true : prev.frozen,
 	});
 	next.updated_at = new Date().toISOString();
 
@@ -445,6 +453,15 @@ export async function enforceSpendLimit({
 }) {
 	const lim = limits || getSpendLimits(meta);
 
+	// 0. Wallet freeze — blocks every autonomous path; owner withdraw stays open.
+	if (lim.frozen && category !== 'withdraw') {
+		throw new SpendLimitError(
+			'wallet_frozen',
+			'This wallet is frozen. Autonomous spending (trades, snipes, payments) is paused. Unfreeze it under Limits & Safety to resume.',
+			{ category },
+		);
+	}
+
 	// 1. Withdraw allowlist — destination gate.
 	if (category === 'withdraw' && lim.withdraw_allowlist.length > 0) {
 		const dest = typeof destination === 'string' ? destination.trim() : '';
@@ -511,6 +528,15 @@ export async function reserveSpendUsd({
 	rowMeta = {},
 }) {
 	const lim = limits || getSpendLimits(meta);
+
+	// Wallet freeze — blocks every autonomous path; owner withdraw stays open.
+	if (lim.frozen && category !== 'withdraw') {
+		throw new SpendLimitError(
+			'wallet_frozen',
+			'This wallet is frozen. Autonomous spending (trades, snipes, payments) is paused. Unfreeze it under Limits & Safety to resume.',
+			{ category },
+		);
+	}
 
 	// Withdraw allowlist — destination gate (same as enforceSpendLimit).
 	if (category === 'withdraw' && lim.withdraw_allowlist.length > 0) {

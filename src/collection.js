@@ -2,6 +2,8 @@
  * My Collection page — shows all purchased skills and active subscriptions.
  */
 
+import { walletChipHTML, wireWalletChips } from './shared/agent-wallet-chip.js';
+
 const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 const THREE_MINT = 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump';
 
@@ -40,6 +42,23 @@ function skillCard(p) {
 
 	const priceLine = p.amount ? `<span class="badge badge-muted">${fmtAmount(p.amount, p.currency_mint)}</span>` : '';
 
+	// Wallet chip for the publishing agent, only when the purchase record carries
+	// its custodial Solana address. The buyer doesn't own the publisher agent, so
+	// the chip renders isOwner:false (◎ Tip), letting the holder tip the creator
+	// straight from their collection. getWalletStatus returns null without an
+	// address, so showPending:false means the chip simply doesn't render.
+	const agentRecord = {
+		id: p.agent_id,
+		name: p.agent_name,
+		solana_address: p.solana_address || p.agent_solana_address || null,
+		solana_vanity_prefix: p.solana_vanity_prefix || null,
+		solana_vanity_suffix: p.solana_vanity_suffix || null,
+		avatar_thumbnail_url: p.agent_thumbnail || null,
+	};
+	const walletLine = agentRecord.solana_address
+		? `<div class="col-card-wallet" style="margin-top:8px">${walletChipHTML(agentRecord, { isOwner: false, showPending: false })}</div>`
+		: '';
+
 	return `
 		<article class="col-card">
 			<div class="col-card-header">
@@ -49,6 +68,7 @@ function skillCard(p) {
 					<div class="col-card-agent">${p.agent_name || 'Unknown agent'}</div>
 				</div>
 			</div>
+			${walletLine}
 			<div class="col-card-badges">${kindBadge}${priceLine}</div>
 			${nftLine}
 			<div class="col-card-footer">
@@ -211,6 +231,10 @@ async function load() {
 	skillsGrid.innerHTML = purchases.length
 		? purchases.map(skillCard).join('')
 		: emptyState('skills');
+
+	// Wire the publishing agents' wallet chips (copy + ◎ Tip) on the freshly
+	// rendered skill cards. No-op for purchases without a wallet address.
+	wireWalletChips(skillsGrid);
 
 	subsGrid.innerHTML = subs.length
 		? subs.map(subCard).join('')

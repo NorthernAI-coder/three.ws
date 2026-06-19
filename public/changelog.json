@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-19T10:19:18.628Z",
+	"generated_at": "2026-06-19T10:48:07.066Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -117,6 +117,17 @@
 			"tags": [
 				"fix",
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-19",
+			"type": "update",
+			"title": "Freeze your agent wallet in one tap — plus hardened custody security",
+			"summary": "Your agent's wallet now has a freeze switch. Open the wallet's Limits & Safety panel and tap Freeze to instantly pause every kind of automatic spending — trades, snipes and payments all stop at once — while you stay free to withdraw your funds out at any time; a freeze locks down the agent without ever trapping your money. Withdrawals also got safer: before you confirm, you'll see a clear reminder that crypto transfers are final, and if you've set a withdraw allowlist the screen now tells you whether the address you're sending to is on it. Under the hood we tightened wallet security across the board — every money-moving request is now protected against cross-site request forgery, the keys that sign for your wallet are encrypted at rest with a dedicated key separated from the login system, and a class of launch keys that were previously stored in plain text are now encrypted too.",
+			"link": null,
+			"tags": [
+				"feature",
+				"security"
 			]
 		},
 		{
@@ -240,6 +251,17 @@
 			"link": null,
 			"tags": [
 				"fix"
+			]
+		},
+		{
+			"date": "2026-06-19",
+			"type": "update",
+			"title": "Pay-per-call vanity wallets now do seed phrases and encrypted delivery",
+			"summary": "The on-demand vanity address service — the one any app or agent can call and pay for per use, no account needed — can now hand back a 12- or 24-word seed phrase instead of just a raw key, so the wallet it grinds restores straight into Phantom, Solflare, or any wallet as a recovery phrase. And if you'd rather the secret never travel in the clear, you can now have it encrypted to a key only you hold: the service seals the result so the private key or seed phrase is unreadable to anyone in between — it isn't written to any log or cache, and only you can open it. The plain address still comes back in the clear so you can look it up right away.",
+			"link": "/vanity-wallet",
+			"tags": [
+				"feature",
+				"security"
 			]
 		},
 		{

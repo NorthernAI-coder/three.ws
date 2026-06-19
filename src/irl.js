@@ -75,6 +75,7 @@ import { openMapPlacePicker } from './irl/map-place.js';
 import { openPrivacyCenter, maybeShowFirstRunDisclosure, getDiscoveryPrecision } from './irl/privacy-center.js';
 import { loadLeaflet } from './shared/leaflet-loader.js';
 import { initDiscovery } from './irl/discovery.js';
+import { walletChipEl, hasWallet } from './shared/agent-wallet-chip.js';
 
 const AVATAR_URL_DEFAULT = '/avatars/default.glb';
 const ANIMATIONS_MANIFEST_URL = '/animations/manifest.json';
@@ -4529,6 +4530,21 @@ function _applyCard(card, pin) {
 		parts.push(_repStripHTML(card.reputation));
 		parts.push(_servicesHTML(card.services));
 		body.innerHTML = parts.join('');
+
+		// The agent's custodial Solana wallet — the same chip every other surface
+		// shows, so a tapped agent's identity reads identically in the world. The
+		// body is rebuilt on each tap (innerHTML above), so appending here can't
+		// duplicate. isOwner reflects whether this device placed the pin (gold
+		// "your agent" ownership); a stranger sees a Tip action, never owner
+		// controls. No-op unless the card carries a wallet (showPending:false).
+		if (hasWallet(agent)) {
+			const chip = walletChipEl(agent, { isOwner: isOwnRoomPin(pin), showPending: false });
+			if (chip) {
+				chip.classList.add('irl-card-wallet');
+				chip.style.marginTop = '10px';
+				body.appendChild(chip);
+			}
+		}
 	}
 
 	// Prefer the card's resolved x402 endpoint for the footer Pay button.

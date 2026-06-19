@@ -20,6 +20,7 @@
 
 import { Keypair, PublicKey, SystemProgram, Transaction, ComputeBudgetProgram } from '@solana/web3.js';
 import { getConnection } from '../pump.js';
+import { decryptSecret, isEncryptedSecret } from '../secret-box.js';
 
 const SOL_LAMPORTS = 1_000_000_000n;
 const TX_MAX_TRANSFERS = 18; // SystemProgram.transfer is ~96 bytes; leaves room for compute-budget ix
@@ -43,21 +44,38 @@ export function loadCoinTreasury() {
  * Load the pump.fun creator keypair for a specific mint.
  *
  * Lookup order:
- *   1. COIN_CREATOR_SECRET_KEY_B64_<MINT>  (env, deploy-time secret)
+ *   1. COIN_CREATOR_SECRET_KEY_B64_<MINT>  (env, deploy-time secret, base64)
  *   2. coin.metadata.creator_secret_b64    (DB, set by the launch script)
  *
- * Returns null if neither source is configured (caller decides whether to
- * fall back to dry-run or error).
+ * The DB value is AES-256-GCM-encrypted at rest under WALLET_ENCRYPTION_KEY
+ * (the same custodial-key scheme as agent wallets) — a `v2:`-prefixed blob is
+ * decrypted before use. Pre-encryption rows held a raw base64 secret in the
+ * clear; those are still read (so launches keep claiming fees) but emit a loud
+ * deprecation warning — re-run the launcher / a re-encrypt sweep to upgrade them.
+ *
+ * Async because decryption is async. Returns null if neither source is
+ * configured (caller decides whether to fall back to dry-run or error).
  */
-export function loadCoinCreatorFromCoin(coin) {
+export async function loadCoinCreatorFromCoin(coin) {
 	const mintKey = `COIN_CREATOR_SECRET_KEY_B64_${coin.mint}`;
 	const envValue = process.env[mintKey];
 	if (envValue) return decodeB64Keypair(envValue, mintKey);
 
 	const dbValue = coin?.metadata?.creator_secret_b64;
-	if (dbValue) return decodeB64Keypair(dbValue, 'coin.metadata.creator_secret_b64');
+	if (!dbValue) return null;
 
-	return null;
+	if (isEncryptedSecret(dbValue)) {
+		const b64 = await decryptSecret(dbValue);
+		return decodeB64Keypair(b64, 'coin.metadata.creator_secret_b64 (decrypted)');
+	}
+
+	// Legacy: a plaintext base64 secret was stored before at-rest encryption.
+	// Honor it so existing launches keep working, but make the exposure visible.
+	console.warn(
+		`[coin/treasury] mint ${coin.mint}: creator_secret_b64 is stored UNENCRYPTED. ` +
+			'Re-store it through the launcher (it now encrypts at rest) to remove the plaintext key.',
+	);
+	return decodeB64Keypair(dbValue, 'coin.metadata.creator_secret_b64 (legacy plaintext)');
 }
 
 /** Lamports → SOL string for log lines. */

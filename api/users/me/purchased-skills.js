@@ -39,7 +39,10 @@ export default wrap(async (req, res) => {
 			sp.trial_remaining,
 			sp.created_at,
 			ai.name AS agent_name,
-			ai.profile_image_url AS agent_thumbnail
+			ai.profile_image_url AS agent_thumbnail,
+			ai.meta->>'solana_address' AS agent_solana_address,
+			ai.meta->>'solana_vanity_prefix' AS agent_solana_vanity_prefix,
+			ai.meta->>'solana_vanity_suffix' AS agent_solana_vanity_suffix
 		FROM skill_purchases sp
 		LEFT JOIN agent_identities ai ON ai.id = sp.agent_id
 		WHERE sp.user_id = ${userId} AND sp.status IN ('confirmed', 'trial')

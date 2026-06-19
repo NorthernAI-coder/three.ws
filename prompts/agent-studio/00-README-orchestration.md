@@ -1,0 +1,137 @@
+# Agent Studio — Orchestration Index
+
+This directory contains self-contained task prompts. Each `.md` is meant to be pasted
+into its own agent chat. Each agent works in this shared worktree and must follow
+`CLAUDE.md` exactly. **When an agent finishes its task (and its self-improvement pass),
+it deletes its own prompt file.** When this directory is empty, the initiative is done.
+
+---
+
+## The vision (read this first — every agent must internalize it)
+
+We are building **Agent Studio**: one central command center where a user completely
+authors their 3D agent — its **brain** (LLM + memory + reasoning), its **money** (wallet
++ trading behavior), its **body** (avatar, outfits, animations), and its **skills**.
+
+Two non-negotiable product principles drive everything:
+
+1. **Everything is visual.** No hidden text-field config screens. The agent's brain is a
+   thing you *see and wire*. Memory is a thing you *watch form*. A trade rule is a thing
+   you *draw*. If a feature can be expressed as a manipulable visual object, it must be.
+
+2. **The avatar is always present.** The user's 3D agent is rendered live on **every page**
+   of the platform, reacting to what's happening (a pumping coin, a filled snipe, an
+   incoming DM). Editing the agent in Studio updates that live presence **instantly,
+   everywhere** — no save-and-refresh.
+
+Why this is gamechanging for crypto: today, sniping/trading/launching tools are dashboards
+of numbers. We make the trader a *character with a programmable brain and a memory of every
+trade* that lives alongside you. You don't configure a bot in a YAML file — you raise an
+agent, dress it, teach it, fund it, and watch it work. That is a product nobody else has.
+
+**Bar:** Vercel / Linear / Stripe / Figma quality. If you wouldn't screenshot it, raise it.
+
+---
+
+## The product map (what we're building)
+
+```
+/studio  ──────────────────────────────────────────────────────────────────┐
+│  PERSISTENT LIVE 3D AVATAR (left/stage)   │   EDITING SURFACE (right/tabs) │
+│  - the same agent the user sees site-wide │   ┌─────────────────────────┐ │
+│  - reacts live to every edit              │   │ Brain   (P1)            │ │
+│  - emotes, lip-syncs, poses               │   │ Memory  (P2)            │ │
+│                                           │   │ Body    (P3)            │ │
+│                                           │   │ Money   (P4)            │ │
+│                                           │   │ Skills  (P1/P4)         │ │
+│                                           │   └─────────────────────────┘ │
+└───────────────────────────────────────────────────────────────────────────┘
+              ▲ the SAME avatar presence renders on every other page (P5)
+```
+
+---
+
+## Run order & dependencies
+
+**P0 must merge first.** It defines the shell, the shared state store, the global presence
+component, and the schema/API contract everything else binds to. P1–P5 can then run in
+**parallel** because each owns a distinct set of files (see collision map).
+
+| Prompt | Task | Depends on | Can parallelize with |
+|---|---|---|---|
+| `01-foundation.md` (P0) | Studio shell, route, `AgentStudioStore`, `<agent-presence>` element, schema migration, API contract | — | run alone first |
+| `02-brain-studio.md` (P1) | Visual programmable **brain graph** + model routing | P0 | P2,P3,P4,P5 |
+| `03-memory-studio.md` (P2) | Tiered **memory** (working/recall/archival), visual timeline + graph, trade-aware | P0 | P1,P3,P4,P5 |
+| `04-wardrobe-studio.md` (P3) | **Body**: outfits, wearables, animations, live preview | P0 | P1,P2,P4,P5 |
+| `05-wallet-trading-brain.md` (P4) | **Money**: wallet + visual **sniping/trading rules** wired to real Solana | P0 | P1,P2,P3,P5 |
+| `06-living-presence.md` (P5) | Avatar on **every page**, reactive to live market/trade events | P0 | P1,P2,P3,P4 |
+
+If you want maximum speed: run P0 to completion, then launch P1–P5 as five concurrent agents.
+
+---
+
+## Shared contract (P0 owns these; everyone else consumes them)
+
+P0 publishes a single client module `src/studio/agent-studio-store.js` exporting a reactive
+store. Treat this as the integration seam — do not reach around it.
+
+```js
+import { studio } from '/src/studio/agent-studio-store.js'
+
+studio.agent            // current AgentIdentity (live, reactive)
+studio.subscribe(fn)    // fn(agent) on any change; returns unsubscribe
+studio.patch(partial)   // optimistic local update + debounced PUT /api/agents/:id
+studio.commit()         // force-flush pending writes now
+studio.on(event, fn)    // 'brain:change' | 'memory:change' | 'body:change' | 'wallet:change'
+studio.emitMarket(evt)  // P4/P5: broadcast a live market/trade event to the presence layer
+studio.preview(partial) // ephemeral, non-persisted preview (hover a hat → see it; don't save)
+```
+
+And one custom element, mountable anywhere on any page:
+
+```html
+<agent-presence data-agent-id="…" data-mode="stage|companion|mini"></agent-presence>
+```
+
+It renders the user's live avatar, subscribes to `studio`, and reacts to market events.
+P5 places it across the site; P1–P4 only need to know their edits flow through `studio`
+and the presence updates for free.
+
+---
+
+## Hard rules for every agent (these override defaults — see CLAUDE.md)
+
+- **No mocks, no fake data, no placeholders, no TODOs, no stubs.** Wire 100% to real APIs
+  (`api/agents.js`, `api/agent-memory.js`, `api/chat.js`, `api/brain/chat.js`, the coin/wallet
+  endpoints, Solana RPC, pump.fun). If a credential is missing, find it in `.env` / `vercel env`.
+- **The only coin is `$THREE`** (`FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump`). Never name,
+  hardcode, or recommend any other coin anywhere. Runtime-supplied mints (user launches,
+  launch directories) are the only mechanical exceptions.
+- **Use the design tokens** in `public/tokens.css` — no hardcoded colors/spacing/fonts.
+- **Every state designed:** loading (skeletons), empty (tells user what to do), error
+  (actionable), populated, overflow. Hover/active/focus on every interactive element.
+- **Concurrency:** other agents edit `main` in this worktree simultaneously. Stage **explicit
+  paths only** (never `git add -A`). Re-run `git status` + `git diff --staged` before committing.
+  Stay inside your file-ownership lane (below). If you must touch a shared file, append; don't rewrite.
+- **Changelog:** append a holder-readable entry to `data/changelog.json` for the user-visible change.
+- **Verify for real:** `npm run dev` (port 3000), exercise in a browser, check the network tab
+  shows real calls with real data, zero console errors. `npm test` still passes.
+- **Then improve, then delete this prompt.** After done: do a self-review pass (the five checks
+  in CLAUDE.md), find the single biggest quality gap, fix it, then `rm` your prompt file and
+  report what you shipped.
+
+---
+
+## File-ownership map (avoid collisions)
+
+- **P0:** `src/studio/agent-studio-store.js`, `src/studio/studio-shell.js`, `pages/studio.html`,
+  `src/studio/agent-presence.js` (the custom element), `api/_lib/migrations/*_agent_studio.sql`,
+  `data/pages.json` (one entry).
+- **P1:** `src/studio/brain/**`, `api/brain/**` (extend), `api/agents.js` (brain config fields only — append).
+- **P2:** `src/studio/memory/**`, `api/agent-memory.js` (extend), new `api/memory/**`.
+- **P3:** `src/studio/body/**`, builds on `src/avatar-wardrobe.js`, `src/animation-*.js` (consume, don't rewrite).
+- **P4:** `src/studio/money/**`, `api/coin/**` (extend), new `api/trading/**`, `api/_lib/agent-wallet.js` (extend).
+- **P5:** mounts `<agent-presence>` across `pages/*.html` + their `src/*.js` entry points; `src/presence/**`.
+
+Shared files touched by multiple prompts (`data/pages.json`, `data/changelog.json`, `api/agents.js`):
+**append only**, never reformat, and re-check `git diff --staged` right before commit.

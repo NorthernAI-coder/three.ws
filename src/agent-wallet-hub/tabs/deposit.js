@@ -309,7 +309,8 @@ registerWalletTab({
 								<div class="awh-dep-addr" title="${escapeHtml(state.address)}">${escapeHtml(state.address)}</div>
 							</div>
 							<div class="awh-dep-actions">
-								<button class="awh-btn" type="button" data-act="copy" aria-label="Copy wallet address">Copy address</button>
+								<button class="awh-btn awh-btn--primary" type="button" data-act="tip" aria-label="Tip from your connected wallet">◎ Tip from your wallet</button>
+									<button class="awh-btn" type="button" data-act="copy" aria-label="Copy wallet address">Copy address</button>
 								<a class="awh-btn" href="${escapeHtml(explorerAddressUrl(state.address, net))}" target="_blank" rel="noopener">Explorer ↗</a>
 							</div>
 
@@ -342,6 +343,23 @@ registerWalletTab({
 			panel.querySelector('[data-act="copy"]')?.addEventListener('click', async () => {
 				const ok = await copyToClipboard(state.address);
 				toast(ok ? 'Address copied' : 'Copy failed — select it manually');
+			});
+
+			panel.querySelector('[data-act="tip"]')?.addEventListener('click', async () => {
+				try {
+					const { openTipModal } = await import('../../shared/agent-tip-modal.js');
+					openTipModal(
+						{
+							solana_address: state.address,
+							name: ctx.agent?.name,
+							avatar_thumbnail_url: ctx.agent?.avatar_thumbnail_url,
+							meta: ctx.agent?.meta,
+						},
+						{ network: ctx.getNetwork(), onSent: () => { state.baselineSol = null; poll(); } },
+					);
+				} catch {
+					toast('Could not open the tip dialog — copy the address and send from any wallet');
+				}
 			});
 
 			const amountInput = panel.querySelector('[data-input="amount"]');
