@@ -25,6 +25,7 @@ export const NAV = [
 
 	// ── Distribute ──────────────────────────────────────────────────────
 	{ path: '/dashboard/widgets',     label: 'Widgets',         icon: 'widget',    group: 'Distribute', tags: ['embed', 'iframe', '<threews-avatar>', 'transcripts', 'knowledge'] },
+	{ path: '/dashboard/walk',        label: 'Walk Companion',  icon: 'walk',      group: 'Distribute', tags: ['walk', 'companion', 'mascot', 'avatar', 'sdk', '@three-ws/walk', 'playground', 'greeting', 'picker', 'embed'] },
 	{ path: '/dashboard/api',         label: 'API & Embed',     icon: 'code',      group: 'Distribute', tags: ['keys', 'token', 'mcp', 'snippets', 'embed-policy'] },
 	{ path: '/dashboard/developers',  label: 'Developer Hub',   icon: 'devhub',   group: 'Distribute', tags: ['render', 'webhooks', 'sdk', 'unity', 'unreal', 'integration', 'api', 'partner'] },
 	{ path: '/marketplace',           label: 'Marketplace',     icon: 'market',    group: 'Distribute', tags: ['browse', 'buy', 'sell', 'agents', 'avatars', 'directory'], external: true },
@@ -72,6 +73,7 @@ export const ICONS = {
 	agent:     '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="10" height="10" rx="2"/><circle cx="8" cy="6.5" r="1"/><circle cx="12" cy="6.5" r="1"/><path d="M8 9h4M3 14l2-2h10l2 2v3a1 1 0 01-1 1H4a1 1 0 01-1-1v-3z"/></svg>',
 	library:   '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h4v12H4zM12 4h4v12h-4z"/><path d="M6 7h0M14 7h0"/></svg>',
 	widget:    '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="6" height="6" rx="1.2"/><rect x="11" y="3" width="6" height="6" rx="1.2"/><rect x="3" y="11" width="6" height="6" rx="1.2"/><rect x="11" y="11" width="6" height="6" rx="1.2"/></svg>',
+	walk:      '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="3.6" r="1.6"/><path d="M11 6.2l-2.6 2 .9 3.3M11 6.2l2.2 1.4.6 2.6M9.3 11.5L7 17M12 10.2l1.4 2L15 16"/></svg>',
 	code:      '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 5l-4 5 4 5M13 5l4 5-4 5"/></svg>',
 	coin:      '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="6.5"/><path d="M10 6v8M7.5 8h4a1.5 1.5 0 010 3H8.5a1.5 1.5 0 000 3h4"/></svg>',
 	token:     '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2l2.5 5 5.5.8-4 3.9.9 5.5L10 14.7l-4.9 2.5.9-5.5L2 7.8l5.5-.8L10 2z"/></svg>',

@@ -255,7 +255,7 @@ describe('<three-gate> — lifecycle & states', () => {
 
 		// pay-per-use line + perks link.
 		expect(card.textContent).toMatch(/or pay\s*\$0\.50\s*per use/);
-		expect(root.querySelector('a.tg-perks').getAttribute('href')).toBe('/three');
+		expect(root.querySelector('a.tg-perks').getAttribute('href')).toBe('/three-token');
 
 		// Child stays inert behind the lock.
 		expect(el.querySelector('#premium').inert).toBe(true);

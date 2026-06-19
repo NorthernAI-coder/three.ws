@@ -3,6 +3,23 @@
 	"entries": [
 		{
 			"date": "2026-06-19",
+			"title": "The $THREE token page is now the single home for the coin",
+			"summary": "We retired the separate economy explainer and consolidated everything about $THREE onto one page: live price, the bonding-curve chart, streaming trades, and one-click buy. Every place that pointed you to \"learn about $THREE\" or \"get $THREE\" — the holder badges, the Forge high-quality unlock prompts, and the holder gates across the app — now takes you straight to the token page where you can act. Old /three links redirect there automatically.",
+			"tags": [
+				"improvement"
+			],
+			"link": "/three-token"
+		},
+		{
+			"date": "2026-06-19",
+			"title": "Every avatar now animates — VRoid, Daz, Blender and more walk out of the box",
+			"summary": "Bring any humanoid avatar and it just moves. The animation engine now recognizes every common character skeleton — VRoid/VRM, VRM 1.0, Daz/Genesis, MakeHuman, Blender, Unreal, Mixamo and simple game rigs — and retargets the idle and walk onto it, legs and all. No more characters frozen in a stiff T-pose because their bones were named differently. Anything that genuinely can't be animated (a non-humanoid prop with no skeleton) gracefully wears the default body instead of locking up. No allowlist, no per-avatar setup.",
+			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-19",
 			"title": "Pick who walks your pages — diverse avatar roster + Walk SDK",
 			"summary": "The walking companion that strolls the corner of every page (and detaches into the full-page playground) now lets you choose your character. A new picker offers a diverse roster — a robot mascot, humanoids, photoreal people, a fox, dancers and showpieces — and swaps the avatar live. Each one is animated correctly whether its model ships its own moves or borrows the shared motion library, so nobody ever freezes mid-stride. Under the hood the whole companion + playground is now a standalone SDK (@three-ws/walk) you can drop into any Three.js site.",
 			"tags": [

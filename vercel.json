@@ -1247,6 +1247,10 @@
 			"dest": "/dashboard-next/widgets.html"
 		},
 		{
+			"src": "/dashboard/walk/?",
+			"dest": "/dashboard-next/walk.html"
+		},
+		{
 			"src": "/dashboard/api/?",
 			"dest": "/dashboard-next/api.html"
 		},
