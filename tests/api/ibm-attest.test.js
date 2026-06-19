@@ -27,8 +27,17 @@ vi.mock('../../api/_lib/rate-limit.js', () => ({
 	limits: {
 		publicIp: vi.fn(async () => ({ success: true })),
 		watsonxEmbedGlobal: vi.fn(async () => ({ success: true })),
+		attestSubmitDaily: vi.fn(async () => ({ success: true })),
 	},
 	clientIp: vi.fn(() => '127.0.0.1'),
+}));
+
+// On-chain submission (submit:true) now requires an authenticated caller — provide
+// a session so the notarization tests exercise the broadcast path.
+vi.mock('../../api/_lib/auth.js', () => ({
+	getSessionUser: vi.fn(async () => ({ id: 'user-1' })),
+	authenticateBearer: vi.fn(async () => ({ userId: 'user-1' })),
+	extractBearer: vi.fn(() => null),
 }));
 
 vi.mock('../../api/_lib/market/ohlcv.js', () => ({
