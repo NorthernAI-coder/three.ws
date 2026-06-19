@@ -100,3 +100,17 @@ WebXR device: enter AR, lock the phone, unlock → clean resume. Enter, get a ca
 switch apps → clean exit + full restore. Cover a camera with your hand to force
 tracking loss → recoverable hint. Tap immediately on entry before GPS locks, wait
 for the fix → exactly one pin saved (check Network + `/api/irl/pins`).
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "tasks/irl-floor-anchor/05-session-lifecycle-hardening.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

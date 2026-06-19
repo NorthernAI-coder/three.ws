@@ -95,3 +95,17 @@ returns specific defects to the owning task; it does not fix them here.
 The deliverable *is* the verification: a complete `LAUNCH-SIGNOFF.md` whose every
 checkbox is backed by evidence (log excerpt, Network screenshot path, device note),
 ending in a defensible GO/NO-GO an engineer could stake their name on.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "tasks/irl-hardening/H9-launch-readiness-audit.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

@@ -117,3 +117,17 @@ A custom tile server — OSM tiles via Leaflet default are fine.
 `npm run dev` → `/irl`: place via "Pick a spot on a map," search a landmark, drag
 the marker, Place here → Network tab shows the POST with the picked coords and
 `anchor_source:'map'`; the agent renders; your real GPS never entered the request.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "tasks/irl-location-control/L2-map-placement-picker.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

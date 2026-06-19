@@ -95,3 +95,17 @@ reputation/banning (future). This task verifies, monitors, and documents.
 Run the boundary tests green. Locally force the limiter degraded and confirm the
 read rejects. Simulate a multi-cell sweep against a dev instance and confirm a
 single deduped ops alert fires with counts only — no coordinates.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "tasks/irl-hardening/H7-anti-scrape-resilience.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

@@ -103,3 +103,17 @@ public read (**H3**). Follow-up: remove the deprecated query fallback next relea
 `npm run dev`, place a pin anonymously, open `/dashboard/irl-placements`: the
 Network tab shows the `x-irl-device` header on `/mine` and **no `deviceToken=` in
 any URL**. Delete a pin — succeeds via body token. Confirm the device's pins load.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "tasks/irl-hardening/H2-device-token-transport.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

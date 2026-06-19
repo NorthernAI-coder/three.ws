@@ -103,3 +103,17 @@ spinners where a skeleton fits.
   motion safe. A 30-agent room holds frame budget.
 - Abuse/ownership/privacy limits verified client + server. Deploy verified live
   (columns + projection serving in prod). Changelog shipped. Full DoD met.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "tasks/irl-room-anchor/R4-production-hardening-and-cleanup.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

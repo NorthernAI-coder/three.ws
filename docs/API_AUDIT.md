@@ -136,6 +136,30 @@ auto-exempt. A cluster of mutating routes omit it:
 
 ---
 
+## Remediation status (2026-06-19)
+
+**Shipped in this pass** (verified: `node --check` + targeted `vitest`):
+
+- **P1** — `wrap()` now sanitizes every uncaught 5xx to a correlation `ref` (no `err.message` in the body); the keyed-`HELIUS_API_KEY` leak sites in `pump/[action].js` (×6), `coin/[mint]/cohorts.js`, and `tx/explain.js` now route through `respondError`/fixed messages. A broad lower-priority sweep sanitized ~47 more `>=500` `err.message` leaks across agents/, bazaar/, skills/, scene/, nft/, inference/, assets/, seed/.
+- **C1** — `DEMO_AVATARS` fixture + generator deleted; all 8 consumers serve real DB rows only; obsolete OG demo test removed.
+- **P2** — `requireCsrf` added to all 15 cookie-session mutations (bearer stays exempt). Handler-logic tests isolated via a `requireCsrf` mock; `security-csrf-gates` green.
+- **P3 / H11** — rate limits wired on `auth/wallets` (+ Redis-backed single-use link nonces), `auth/github`, `oauth/authorize`, the three money-moving admin actions, and the four `agents/payments` fund-prep/confirm handlers (which also gained the ownership gate).
+- **H3** — both paid intel endpoints now throw `503` on a live-data miss (verified the buyer is not charged: `handler()` runs before `settlePayment`).
+- **H4** — `settleRoyalties` claims rows atomically (`pending → settling`, new migration `20260619000000_royalty_settling_status.sql`) before the on-chain redeem; no double-pay.
+- **H5** — `agents/by-address` enumeration capped at `MAX_ENUM` with a `truncated` flag.
+- **H6 / H7** — `oracle/social` real limiter; `oracle/follow` POST/DELETE no longer dead (branch on `req.method`, `readJson` size cap restored).
+- **H8** — `vision.describeImage` now applies a synchronous SSRF guard (https + block private/loopback IP literals + localhost) covering every consumer, with no live-DNS dependency.
+- **H9** — `users/[username]` no longer leaks `referral_code`.
+- **H12 / M4** — `tx/explain` validates `sig` before forwarding; Solana plan-payment confirm claims the intent atomically (conditional UPDATE → 409 on race).
+- **M1 / M2** — retired Claude Haiku model ids replaced (`talk.js`, `brain/chat.js`).
+
+**Deferred — require a verified follow-up PR (do not ship blind on money paths):**
+
+- **H1 (agent spending-cap race)** — the race-free reserve-first ledger (`x402-spending-cap.js`) is wired only into `x402-user-payer.js`. Bringing the agent pay path (`x402-pay.js` + `agent-trade-guards.js`) onto it means reserving in the ledger before signing and rolling back on settle failure — a change to the live signing path that needs a funded test wallet to validate. **Remediation:** reserve-then-sign-then-finalize with rollback, keyed on `agent_id`, mirroring `x402-user-payer.js`.
+- **H2 (subscription active-before-pay)** — `creator_subscriptions` is granted an active period before payment, AND its `confirmPayment` activation function has **zero callers** (the in-app pay-confirm path is unwired). A one-line status flip would permanently lock out every subscriber. The duplicate-subscription race the audit also flagged is already prevented by the `unique(plan_id, subscriber_user_id)` constraint. **Remediation (3 parts):** (a) migration adding a pre-active status to the CHECK constraint; (b) wire `confirmPayment` into the tx-confirmation/cron path; (c) initialize new subs in the pre-active state. Until then the parallel `subscription_checkouts`/`verify.js` flow remains the correctly-gated path.
+
+**Pre-existing / concurrent-agent test failures (NOT from this pass — confirmed against clean HEAD):** `agent-monetization` (2, env), `ibm-attest` (2, Guardian env), `oauth-token` (2, env), and `widgets` (4) — the last is a real CSRF-placement bug introduced by a concurrent commit (`aaa038c1`): on `widgets/[id]` PATCH the CSRF check fires before the bearer-scope check, so a scoped-bearer request gets `csrf_missing` instead of `insufficient_scope`. Fix: gate that route's CSRF with the `if (session && …)` form so bearer callers reach the scope check.
+
 ## Fix plan (execution order)
 
 1. **P1 boundary** — sanitize `wrap()` 5xx + the keyed-URL leak sites. _(security)_

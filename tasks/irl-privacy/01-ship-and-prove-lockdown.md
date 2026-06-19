@@ -70,3 +70,17 @@ UX, copy, new tests in CI (that's 07). This is deploy + manual adversarial proof
 
 The proof doc IS the verification. A reviewer should be able to re-run every
 command in it and reproduce the same safe result.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "tasks/irl-privacy/01-ship-and-prove-lockdown.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

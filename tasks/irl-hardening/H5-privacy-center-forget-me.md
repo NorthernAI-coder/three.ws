@@ -103,3 +103,17 @@ cascading deletes on demand). Placement-time consent + fuzz is **H4**.
 "Privacy & my data", confirm the summary matches, unpublish one (it vanishes from
 nearby), then "Forget this device" and confirm a subsequent summary is empty and
 the Network calls carry the `x-irl-device` header (no token in any URL).
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "tasks/irl-hardening/H5-privacy-center-forget-me.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

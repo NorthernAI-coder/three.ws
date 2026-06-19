@@ -109,3 +109,17 @@ Based on the features we've designed in the previous 24 prompts, write a detaile
     *   A success toast/message should appear.
     *   The "Available Balance" should immediately update to $0.00.
     *   The "Withdrawal History" table should show a new entry with the status "pending".
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "tasks/monetization-feature/25-end-to-end-testing-plan.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.
