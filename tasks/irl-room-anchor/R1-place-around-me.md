@@ -1,10 +1,6 @@
 # R1 — "Place agents around me" (room authoring UI)
 
 > Epic R · Size **L** · Edits `src/irl.js`, `pages/irl.html`, `src/irl.css`.
-> Depends on the committed engine (`7bf9cecf`); see `tasks/irl-room-anchor/README.md`.
-> **This is the gate task — the feature is not reachable by a user without it.**
-
-## Goal
 
 A mode in `/irl` where you stand in a room and **drop agents at fixed real-world
 spots around you by aiming and setting a distance**. Point the phone at the
