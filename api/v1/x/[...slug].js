@@ -1,0 +1,173 @@
+// /api/v1/x/<provider>/<endpoint> — the aggregator front door.
+//
+// One catch-all route exposes every third-party API registered in
+// api/v1/_providers.js. Per request, it selects a billing model and runs the
+// call through the aggregator engine:
+//
+//   • BYOK   — caller supplies their own upstream key (e.g. "x-provider-key").
+//              Pure pass-through: no markup, no key custody. Rate-limited + metered.
+//   • plan   — caller authenticates with a three.ws API key / OAuth token / session.
+//              Uses the platform's upstream key; counts against their plan.
+//   • x402   — no credentials → pay-per-call in USDC via the real paidEndpoint
+//              rail (also makes the endpoint discoverable in the x402 bazaar).
+//
+// GET /api/v1/x (no provider) returns the machine-readable provider catalog.
+
+import { cors, json, error, rateLimited, wrap, readJson, setRateLimitHeaders } from '../../_lib/http.js';
+import { limits, clientIp } from '../../_lib/rate-limit.js';
+import { authenticateBearer, extractBearer, getSessionUser, hasScope } from '../../_lib/auth.js';
+import { recordEvent } from '../../_lib/usage.js';
+import { ENDPOINT_INDEX, providerCatalog } from '../_providers.js';
+import { executeUpstream, getPaidHandler, resolveUpstreamKey } from '../../_lib/aggregator.js';
+
+function parseSlug(req) {
+	// Prefer the platform-provided param; fall back to parsing the path so the
+	// route also works under runtimes that don't populate req.query.slug.
+	const fromQuery = req.query?.slug;
+	if (Array.isArray(fromQuery)) return fromQuery.filter(Boolean);
+	if (typeof fromQuery === 'string' && fromQuery) return fromQuery.split('/').filter(Boolean);
+	const path = new URL(req.url, 'http://internal').pathname;
+	const m = path.match(/\/api\/v1\/x\/?(.*)$/);
+	return m && m[1] ? m[1].split('/').filter(Boolean) : [];
+}
+
+function parseQuery(req) {
+	const q = { ...(req.query || {}) };
+	delete q.slug;
+	// Ensure path-only deployments still get query params.
+	for (const [k, v] of new URL(req.url, 'http://internal').searchParams) {
+		if (!(k in q)) q[k] = v;
+	}
+	return q;
+}
+
+export default wrap(async (req, res) => {
+	if (cors(req, res, { methods: 'GET,POST,OPTIONS', origins: '*' })) return;
+
+	const slug = parseSlug(req);
+
+	// Discovery: GET /api/v1/x → list every aggregated provider + endpoint.
+	if (slug.length === 0) {
+		return json(res, 200, {
+			data: {
+				base_url: '/api/v1/x',
+				billing: {
+					byok: 'send your own upstream key via the provider\'s BYOK header — pass-through, no markup',
+					plan: 'authenticate with a three.ws API key / OAuth token — uses the platform key',
+					x402: 'send no credentials — pay per call in USDC (HTTP 402)',
+				},
+				providers: providerCatalog(),
+			},
+		});
+	}
+
+	if (slug.length !== 2) {
+		return error(
+			res,
+			404,
+			'not_found',
+			'use /api/v1/x/<provider>/<endpoint> — GET /api/v1/x lists every available pair',
+		);
+	}
+
+	const ref = ENDPOINT_INDEX.get(`${slug[0]}/${slug[1]}`);
+	if (!ref) {
+		return error(
+			res,
+			404,
+			'unknown_endpoint',
+			`no aggregated endpoint "${slug[0]}/${slug[1]}" — GET /api/v1/x lists what's available`,
+		);
+	}
+	const { provider, endpoint } = ref;
+
+	const isHead = req.method === 'HEAD' && endpoint.method === 'GET';
+	if (req.method !== endpoint.method && !isHead) {
+		res.setHeader('allow', `${endpoint.method}, OPTIONS`);
+		return error(res, 405, 'method_not_allowed', `use ${endpoint.method}`);
+	}
+
+	// ── billing model selection ──────────────────────────────────────────────
+	const byokKey = provider.byokHeader ? req.headers[provider.byokHeader] : null;
+	let principal = null;
+	if (!byokKey) {
+		const session = await getSessionUser(req);
+		if (session) principal = { userId: session.id, source: 'session', scope: 'all' };
+		else {
+			const bearer = await authenticateBearer(extractBearer(req));
+			if (bearer)
+				principal = {
+					userId: bearer.userId,
+					source: bearer.source,
+					scope: bearer.scope || '',
+					apiKeyId: bearer.apiKeyId,
+					clientId: bearer.clientId,
+				};
+		}
+	}
+
+	// No BYOK key and no three.ws credentials → pay-per-call via the x402 rail.
+	if (!byokKey && !principal) return getPaidHandler(provider, endpoint)(req, res);
+
+	const billing = byokKey ? 'byok' : 'plan';
+
+	// Plan callers must hold the endpoint's scope (session owners hold all).
+	if (
+		billing === 'plan' &&
+		principal.source !== 'session' &&
+		endpoint.scope &&
+		!hasScope(principal.scope, endpoint.scope)
+	) {
+		return error(res, 403, 'insufficient_scope', `this endpoint requires the "${endpoint.scope}" scope`);
+	}
+
+	// ── rate limit (per principal › IP) ──────────────────────────────────────
+	const ip = clientIp(req);
+	const rlKey = principal?.apiKeyId
+		? `key:${principal.apiKeyId}`
+		: principal?.userId
+			? `user:${principal.userId}`
+			: `ip:${ip}`;
+	const rl = await limits.apiV1(rlKey);
+	setRateLimitHeaders(res, rl);
+	if (!rl.success) return rateLimited(res, rl);
+
+	// ── execute ──────────────────────────────────────────────────────────────
+	const query = parseQuery(req);
+	const body = endpoint.method === 'POST' ? await readJson(req) : undefined;
+	const { key, source } = resolveUpstreamKey(provider, billing === 'byok' ? byokKey : null);
+
+	const started = Date.now();
+	let out;
+	try {
+		out = await executeUpstream({ provider, endpoint, query, body, apiKey: key });
+	} catch (err) {
+		recordEvent({
+			kind: 'api',
+			tool: `v1.x.${provider.id}.${endpoint.id}`,
+			userId: principal?.userId,
+			apiKeyId: principal?.apiKeyId,
+			clientId: principal?.clientId,
+			status: 'error',
+			latencyMs: Date.now() - started,
+			meta: { billing, key_source: source, code: err?.code },
+		});
+		throw err;
+	}
+
+	recordEvent({
+		kind: 'api',
+		tool: `v1.x.${provider.id}.${endpoint.id}`,
+		userId: principal?.userId,
+		apiKeyId: principal?.apiKeyId,
+		clientId: principal?.clientId,
+		status: 'ok',
+		latencyMs: Date.now() - started,
+		meta: { billing, key_source: source },
+	});
+
+	return json(res, 200, {
+		data: out,
+		_meta: { provider: provider.id, endpoint: endpoint.id, billing },
+	});
+});
