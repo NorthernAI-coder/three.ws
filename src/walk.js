@@ -3274,7 +3274,7 @@ loadAvatar()
 		// the scene (default ground/lighting) is visible behind the message.
 		dismissLoading();
 		const hasParam = new URLSearchParams(location.search).has('avatar');
-		const suffix = hasParam ? ' — <a href="/walk">try the default avatar</a>' : '';
+		const suffix = hasParam ? ' — <a href="/temporary">try the default avatar</a>' : '';
 		if (statusEl) {
 			statusEl.innerHTML = `failed to load avatar: ${err?.message ?? err}${suffix}`;
 			statusEl.classList.add('is-error');

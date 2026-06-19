@@ -143,7 +143,7 @@ function enterWorld(coin) {
 	if (name) { p.set('name', name); try { localStorage.setItem(NAME_STORAGE_KEY, name); } catch {} }
 	if (selectedAvatar.kind === 'id') p.set('avatar', selectedAvatar.value);
 	else if (selectedAvatar.kind === 'url') p.set('avatarUrl', selectedAvatar.value);
-	location.href = `/walk?${p.toString()}`;
+	location.href = `/temporary?${p.toString()}`;
 }
 
 // ── Coin grid ──────────────────────────────────────────────────────────────

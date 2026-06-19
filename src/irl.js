@@ -5203,7 +5203,7 @@ document.getElementById('irl-sheet-view')?.addEventListener('click', () => {
 	if (agentId) {
 		window.open(`/agents/${agentId}`, '_blank', 'noopener');
 	} else {
-		window.open(`/walk?agent=${encodeURIComponent(name)}`, '_blank', 'noopener');
+		window.open(`/temporary?agent=${encodeURIComponent(name)}`, '_blank', 'noopener');
 	}
 });
 

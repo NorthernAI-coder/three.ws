@@ -1,0 +1,211 @@
+# @three-ws/walk
+
+> A diverse, animated 3D avatar that **walks and talks over your web pages** — a corner companion plus a full‑page playground, with a built‑in avatar picker. Powered by [Three.js](https://threejs.org).
+
+Drop a character onto any site. It idles in the corner, turns to follow the
+cursor, waves when the visitor navigates, and greets each page. Click it and it
+**detaches into a full‑page playground** the visitor can steer with the keyboard
+or an on‑screen d‑pad — strolling across the page from a gentle aerial view, or
+platforming across your real DOM with gravity and jumps. Walk onto a link and
+it opens like a doorway into the next page.
+
+Every visitor can **choose who walks with them** from a built‑in roster of
+avatars — a robot mascot, humanoids, photoreal people, a fox, dancers,
+showpieces — or you can supply your own GLB. Whatever they pick is animated
+correctly whether the rig ships its own clips or needs the shared retargeting
+library, so nothing ever freezes in a bind/T‑pose.
+
+This is the engine behind the walking companion on [three.ws](https://three.ws).
+
+---
+
+## Install
+
+```bash
+npm install @three-ws/walk three
+```
+
+`three` is a **peer dependency** — bring your own copy (>= 0.150).
+
+You also need to serve two sets of assets from your origin (or a CDN you point
+`assetBase` at):
+
+- the avatar GLBs the roster references (e.g. `/avatars/*.glb`), and
+- the shared animation manifest + clips (`/animations/manifest.json` + clips),
+  used to retarget motion onto rigs that ship no locomotion.
+
+> The defaults match the three.ws asset layout. Override them with `assetBase`,
+> `apiBase`, and `manifestUrl`, or pass your own `avatars` roster.
+
+---
+
+## Quick start
+
+The whole experience, app‑style (auto‑mounts when enabled, honors `?walk=` deep
+links, resumes the playground after a "dive"):
+
+```js
+import { createWalkCompanion } from '@three-ws/walk';
+
+const walk = createWalkCompanion();
+walk.bootstrap();
+```
+
+Or drive it yourself:
+
+```js
+const walk = createWalkCompanion({ defaultAvatarId: 'fox' });
+
+walk.enable(); // mount the corner companion
+walk.openPicker(); // let the visitor choose an avatar
+walk.setAvatar('michelle'); // swap the live avatar
+walk.disable(); // remove it
+```
+
+`createWalkCompanion` is **side‑effect free on import** — nothing touches the
+DOM until you call `enable()` or `bootstrap()`.
+
+---
+
+## How avatars are animated
+
+Each roster entry declares a rig strategy so it always moves:
+
+| `rig`      | Used for                                        | How it animates                                                                 |
+| ---------- | ----------------------------------------------- | ------------------------------------------------------------------------------- |
+| `embedded` | self‑animated or non‑humanoid GLBs (robot, fox) | plays the clips baked into the GLB; falls back to the first clip so it never freezes |
+| `shared`   | humanoids with no locomotion (or only a T‑pose) | retargets the shared clip library (`idle`/`walk`/`run`/`wave`/`jump`) onto the rig  |
+
+The same unified loader powers both the corner companion and the playground, so
+adding an avatar makes it work everywhere at once.
+
+### Custom roster
+
+```js
+import { createWalkCompanion, WALK_AVATARS } from '@three-ws/walk';
+
+createWalkCompanion({
+  avatars: [
+    ...WALK_AVATARS,
+    {
+      id: 'mascot',
+      name: 'Our Mascot',
+      category: 'Brand',
+      asset: '/brand/mascot.glb',
+      source: 'static',
+      rig: 'shared', // retarget the shared library onto it
+      accent: '#ff0066',
+    },
+  ],
+  defaultAvatarId: 'mascot',
+}).bootstrap();
+```
+
+User‑generated avatars served by a GLB proxy (`/api/avatars/<id>/glb`) work via
+`makeApiAvatarEntry(id)` and resolve at runtime — no need to list them.
+
+---
+
+## API
+
+### `createWalkCompanion(options?) → control`
+
+| option            | default                      | description                                              |
+| ----------------- | ---------------------------- | -------------------------------------------------------- |
+| `avatars`         | `WALK_AVATARS`               | roster shown in the picker and resolvable by id          |
+| `defaultAvatarId` | `'robot'`                    | avatar loaded when none is chosen/stored                 |
+| `assetBase`       | `''`                         | base prepended to static GLB paths (e.g. a CDN origin)   |
+| `apiBase`         | `''`                         | base prepended to the `/api/avatars/<id>/glb` proxy      |
+| `manifestUrl`     | `'/animations/manifest.json'`| shared animation manifest                                |
+| `excludedRoutes`  | full‑screen 3D routes        | path prefixes where the companion never mounts           |
+| `enablePicker`    | `true`                       | show the avatar picker button                            |
+| `greeting`        | built‑in                     | `(path) => string \| null` to customise the page greeting |
+| `docsUrl`         | `null`                       | optional "make your own" link in the picker footer       |
+| `storagePrefix`   | `'walk'`                     | localStorage/sessionStorage key prefix                   |
+
+The returned **control** object:
+
+```ts
+control.isEnabled(): boolean
+control.enable(): void
+control.disable(): void
+control.toggle(): void
+control.setAvatar(idOrEntry): void   // persist + hot-swap the live avatar
+control.openPicker(): void
+control.bootstrap(): void            // app-style auto-mount + ?walk= deep links
+control.instance                     // the live companion (or null)
+```
+
+### Roster helpers
+
+```js
+import {
+  WALK_AVATARS, DEFAULT_AVATAR_ID, getAvatar, defaultAvatar,
+  listCategories, makeApiAvatarEntry, resolveAvatarUrl,
+} from '@three-ws/walk';
+```
+
+### Playground (driven for you by the companion, exported for direct use)
+
+```js
+import {
+  launchPlayground, exitPlayground, switchPlaygroundMode,
+  getPlaygroundMode, consumeDropIn, playgroundState,
+} from '@three-ws/walk';
+```
+
+### Picker UI
+
+```js
+import { createAvatarPicker } from '@three-ws/walk';
+
+const picker = createAvatarPicker({
+  avatars: WALK_AVATARS,
+  currentId: 'robot',
+  onSelect: (entry) => console.log('chose', entry.id),
+});
+picker.show();
+```
+
+### Low‑level loader
+
+```js
+import { loadWalkAvatar, getAvatar } from '@three-ws/walk';
+
+const { model, controller } = await loadWalkAvatar(getAvatar('xbot'));
+scene.add(model);
+// each frame:
+controller.setState('walk'); // 'idle' | 'walk' | 'run' | 'jump'
+controller.update(dt);
+```
+
+---
+
+## URL controls
+
+The companion honours these query params (via `bootstrap()`):
+
+- `?walk=1` — force the companion on
+- `?walk=0` — force it off
+- `?walk=play` — deep‑link straight into the full‑page playground
+- `?avatar=<id>` — load a specific roster avatar (or a user avatar id)
+
+---
+
+## Accessibility & performance
+
+- **One shared WebGL context budget** — the companion and playground never run
+  two contexts at once, and the budget coordinates with other Three.js viewers
+  on the page so a busy site never hits the browser's context limit.
+- **Reduced motion** — respects `prefers-reduced-motion`; the avatar calms to a
+  steady idle and page "dives" skip the animation.
+- **Keyboard** — playground steers with arrow keys / WASD; the picker is fully
+  keyboard‑navigable; every control has a visible focus ring.
+- **Zero footprint when off** — nothing loads (no Three.js fetch) until enabled,
+  and the playground code is a lazy `import()` paid for only on first detach.
+
+---
+
+## License
+
+[Apache‑2.0](./LICENSE) © three.ws

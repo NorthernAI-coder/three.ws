@@ -1,4 +1,4 @@
-// Coin-world boot — the entry glue for /walk's social layer.
+// Coin-world boot — the entry glue for /temporary's social layer.
 //
 // Decides, from the URL, whether the visitor is choosing a world or already in
 // one, and mounts the right surface:

@@ -1,6 +1,6 @@
 // GET /api/community/worlds
 // The lobby of live coin-worlds. Each TopCommunity becomes an enterable 3D
-// world on /walk?coin=<token>. Real data — most active communities first.
+// world on /temporary?coin=<token>. Real data — most active communities first.
 import { cors, error, json, method, wrap, rateLimited } from '../_lib/http.js';
 import { clientIp, limits } from '../_lib/rate-limit.js';
 import { cc, toWorldCard, UnconfiguredError } from '../_lib/coin-communities.js';
