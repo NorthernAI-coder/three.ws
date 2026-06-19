@@ -134,6 +134,17 @@ export class AgentMemory {
 	 * @returns {Promise<MemoryEntry[]>}
 	 */
 	async recall(queryText, { type, limit = 10, minScore = 0.75 } = {}) {
+		// Backend-confirmed agents recall through the real tiered store
+		// (api/memory/search): server-side embeddings + semantic search across
+		// EVERY persisted memory — not just what this device cached. This is the
+		// path the Brain's Memory node (P1) relies on for real recall. Any
+		// failure (offline, unconfigured provider) falls through to the local
+		// cosine/substring engine below, so recall never hard-fails.
+		if (this.backendSync && this.agentId) {
+			const remote = await this._recallServer(queryText, { type, limit }).catch(() => null);
+			if (remote && remote.length) return remote;
+		}
+
 		if (!this.embedFn) return this.query({ type, limit });
 
 		const now = Date.now();
@@ -174,6 +185,36 @@ export class AgentMemory {
 			...fallback.filter((m) => !seen.has(m.id)),
 		];
 		return combined.slice(0, limit);
+	}
+
+	/**
+	 * Recall via the server's tiered semantic store (api/memory/search). Returns
+	 * decorated memory entries ranked by real cosine similarity (with a lexical
+	 * fallback server-side), or null on any failure so the caller degrades to the
+	 * local engine. GET + cookie auth — no CSRF needed, owner-scoped server-side.
+	 * @param {string} queryText
+	 * @param {{ type?: string, limit?: number }} [opts]
+	 * @returns {Promise<MemoryEntry[]|null>}
+	 */
+	async _recallServer(queryText, { type, limit = 10 } = {}) {
+		const q = String(queryText || '').trim();
+		if (!q) return null;
+		const params = new URLSearchParams({ agentId: this.agentId, q, topK: String(limit) });
+		if (type) params.set('type', type);
+		const resp = await fetch(`/api/memory/search?${params}`, { credentials: 'include' });
+		if (!resp.ok) return null;
+		const { results } = await resp.json();
+		if (!Array.isArray(results)) return null;
+		return results.map((r) => ({
+			id: r.id,
+			type: r.type,
+			content: r.content,
+			tags: r.tags || [],
+			salience: r.salience,
+			score: r.score ?? null,
+			tier: r.tier,
+			createdAt: r.createdAt,
+		}));
 	}
 
 	/**

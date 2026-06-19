@@ -13,6 +13,7 @@ import { getSessionUser, authenticateBearer, extractBearer } from './_lib/auth.j
 import { sql } from './_lib/db.js';
 import { cors, json, method, readJson, wrap, error } from './_lib/http.js';
 import { requireCsrf } from './_lib/csrf.js';
+import { decorateMemory, defaultTier, MEMORY_TIERS } from './_lib/memory-store.js';
 
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'GET,POST,DELETE,OPTIONS', credentials: true })) return;
@@ -56,7 +57,10 @@ async function handleList(req, res) {
 
 	const rows = type
 		? await sql`
-			SELECT * FROM agent_memories
+			SELECT id, agent_id, type, content, tags, context, salience, tier, pinned, embedder,
+			       (embedding IS NOT NULL) AS has_embedding, access_count, is_public,
+			       created_at, updated_at, last_accessed_at, expires_at
+			FROM agent_memories
 			WHERE agent_id = ${agentId}
 			  AND type = ${type}
 			  AND (expires_at IS NULL OR expires_at > now())
@@ -65,7 +69,10 @@ async function handleList(req, res) {
 			LIMIT ${limit}
 		`
 		: await sql`
-			SELECT * FROM agent_memories
+			SELECT id, agent_id, type, content, tags, context, salience, tier, pinned, embedder,
+			       (embedding IS NOT NULL) AS has_embedding, access_count, is_public,
+			       created_at, updated_at, last_accessed_at, expires_at
+			FROM agent_memories
 			WHERE agent_id = ${agentId}
 			  AND (expires_at IS NULL OR expires_at > now())
 			  AND created_at > ${new Date(since).toISOString()}
@@ -73,7 +80,7 @@ async function handleList(req, res) {
 			LIMIT ${limit}
 		`;
 
-	return json(res, 200, { entries: rows.map(decorateMemory) });
+	return json(res, 200, { entries: rows.map((r) => decorateMemory(r)) });
 }
 
 // ── Upsert ────────────────────────────────────────────────────────────────
@@ -100,18 +107,28 @@ async function handleUpsert(req, res) {
 	const validTypes = ['user', 'feedback', 'project', 'reference'];
 	const memType = validTypes.includes(entry.type) ? entry.type : 'project';
 
+	const salience = entry.salience || 0.5;
+	const pinned = entry.pinned === true;
+	const tier = MEMORY_TIERS.includes(entry.tier)
+		? entry.tier
+		: defaultTier({ pinned, salience, type: memType });
+
 	// Upsert by id (idempotent — local storage may resync the same entry).
 	// The WHERE clause on ON CONFLICT is critical: IDs come from the client,
 	// so without it, user B could write an entry with user A's memory id and
 	// the conflict would overwrite A's content. Constrain updates to rows
 	// belonging to the same agent (ownership already verified above).
+	//
+	// When an upsert changes the content, the stored vector + extracted entities
+	// are stale — reset both so the lazy read-path pipeline re-embeds and
+	// re-mines the row (this is what makes an edited memory re-index itself).
 	const entryUpdatedAt = entry.updatedAt
 		? new Date(entry.updatedAt).toISOString()
 		: new Date().toISOString();
 
 	const [row] = entry.id
 		? await sql`
-			INSERT INTO agent_memories (id, agent_id, type, content, tags, context, salience, created_at, expires_at, updated_at)
+			INSERT INTO agent_memories (id, agent_id, type, content, tags, context, salience, tier, pinned, created_at, expires_at, updated_at)
 			VALUES (
 				${entry.id},
 				${agentId},
@@ -119,7 +136,9 @@ async function handleUpsert(req, res) {
 				${String(entry.content || '').slice(0, 10000)},
 				${entry.tags || []},
 				${JSON.stringify(entry.context || {})}::jsonb,
-				${entry.salience || 0.5},
+				${salience},
+				${tier},
+				${pinned},
 				${entry.createdAt ? new Date(entry.createdAt).toISOString() : new Date().toISOString()},
 				${entry.expiresAt ? new Date(entry.expiresAt).toISOString() : null},
 				${entryUpdatedAt}
@@ -127,20 +146,28 @@ async function handleUpsert(req, res) {
 			ON CONFLICT (id) DO UPDATE SET
 				content    = EXCLUDED.content,
 				salience   = EXCLUDED.salience,
+				tier       = EXCLUDED.tier,
+				pinned     = EXCLUDED.pinned,
 				expires_at = EXCLUDED.expires_at,
-				updated_at = EXCLUDED.updated_at
+				updated_at = EXCLUDED.updated_at,
+				embedding  = CASE WHEN agent_memories.content IS DISTINCT FROM EXCLUDED.content
+				                  THEN NULL ELSE agent_memories.embedding END,
+				entities_extracted = CASE WHEN agent_memories.content IS DISTINCT FROM EXCLUDED.content
+				                  THEN false ELSE agent_memories.entities_extracted END
 			WHERE agent_memories.agent_id = EXCLUDED.agent_id
 			RETURNING *
 		`
 		: await sql`
-			INSERT INTO agent_memories (agent_id, type, content, tags, context, salience, expires_at, updated_at)
+			INSERT INTO agent_memories (agent_id, type, content, tags, context, salience, tier, pinned, expires_at, updated_at)
 			VALUES (
 				${agentId},
 				${memType},
 				${String(entry.content || '').slice(0, 10000)},
 				${entry.tags || []},
 				${JSON.stringify(entry.context || {})}::jsonb,
-				${entry.salience || 0.5},
+				${salience},
+				${tier},
+				${pinned},
 				${entry.expiresAt ? new Date(entry.expiresAt).toISOString() : null},
 				${entryUpdatedAt}
 			)
@@ -184,20 +211,4 @@ async function resolveAuth(req) {
 	const bearer = await authenticateBearer(extractBearer(req));
 	if (bearer) return { userId: bearer.userId };
 	return null;
-}
-
-function decorateMemory(row) {
-	const createdMs = row.created_at ? new Date(row.created_at).getTime() : Date.now();
-	return {
-		id: row.id,
-		agent_id: row.agent_id,
-		type: row.type,
-		content: row.content,
-		tags: row.tags || [],
-		context: row.context || {},
-		salience: row.salience,
-		createdAt: createdMs,
-		updatedAt: row.updated_at ? new Date(row.updated_at).getTime() : createdMs,
-		expiresAt: row.expires_at ? new Date(row.expires_at).getTime() : null,
-	};
 }
