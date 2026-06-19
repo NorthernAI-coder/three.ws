@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-19T11:34:06.212Z",
+	"generated_at": "2026-06-19T11:44:24.666Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -65,6 +65,16 @@
 			"tags": [
 				"improvement",
 				"fix"
+			]
+		},
+		{
+			"date": "2026-06-19",
+			"type": "update",
+			"title": "Brain Studio — build your agent’s mind as a visual circuit",
+			"summary": "The Brain tab in Agent Studio is now a visual node editor: wire Persona, Model, Memory, Skills, and trading-reasoning nodes into a living graph that IS your agent’s personality. Pick from real LLMs (Claude, GPT, Granite and more) per branch, connect a memory port that recalls and writes real memories, and watch the active path light up as your agent thinks — tokens streaming, memory firing, the avatar reacting live. A built-in test chat runs your graph against the real models with real latency and token stats, and forkable templates (Sniper, Scalper, Researcher, Companion) get you started in one click. Your graph compiles straight to your agent’s persona so every existing chat surface picks up the change.",
+			"link": "/agent-studio",
+			"tags": [
+				"feature"
 			]
 		},
 		{

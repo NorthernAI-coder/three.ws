@@ -376,6 +376,7 @@ const appConfig = {
 				'avatar-page': resolve(__dirname, 'pages/avatar-page.html'),
 				'avatar-sdk': resolve(__dirname, 'pages/avatar-sdk.html'),
 				brain: resolve(__dirname, 'pages/brain.html'),
+				'agent-studio': resolve(__dirname, 'pages/agent-studio.html'),
 				voice: resolve(__dirname, 'pages/voice.html'),
 				galaxy: resolve(__dirname, 'pages/galaxy.html'),
 				'ar-page': resolve(__dirname, 'pages/ar.html'),
