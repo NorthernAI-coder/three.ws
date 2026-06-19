@@ -1852,6 +1852,15 @@ body[data-viewer-mode='embed'] .dg.main {
 	display: none !important;
 }
 
+/* Page modes (/deploy, /explore) replace the 3D stage with their own full
+ * layout, so the fixed bottom-right onboarding card has nothing to onboard —
+ * it only floats over the page content (e.g. the deploy Live Preview panel).
+ * Suppress it here the same way embed mode does. */
+body[data-viewer-mode='deploy'] .agent-onboarding,
+body[data-viewer-mode='explore'] .agent-onboarding {
+	display: none !important;
+}
+
 /* Hide viewer-only action buttons in non-viewer modes — they're meaningless on
  * /deploy and /explore where the viewer is hidden. */
 body[data-viewer-mode='deploy'] .save-to-account-btn,

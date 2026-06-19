@@ -79,6 +79,45 @@ const STYLE = `
 .cp-stat-detail { display: inline-flex; align-items: center; justify-content: center; width: 14px; height: 14px; background: var(--nxt-stroke); border-radius: 50%; font-size: 9px; color: var(--nxt-ink-faint); cursor: help; }
 .cp-stat-sol .cp-stat-val { color: var(--nxt-accent); }
 .cp-hint { display: block; font-size: var(--text-2xs, 11px); color: var(--nxt-ink-faint); margin-top: 4px; line-height: 1.4; }
+
+/* smart money directory */
+.sm-controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 14px; }
+.sm-chips { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+.sm-chip { font-size: 12px; padding: 4px 11px; border-radius: 999px; border: 1px solid var(--nxt-stroke); background: var(--nxt-bg-2); color: var(--nxt-ink-dim); cursor: pointer; transition: border-color .14s, color .14s, background .14s; white-space: nowrap; }
+.sm-chip:hover { border-color: var(--nxt-stroke-strong); color: var(--nxt-ink); }
+.sm-chip.is-active { background: var(--nxt-accent); color: #061018; border-color: transparent; }
+.sm-spacer { flex: 1 1 auto; }
+.sm-search { font-size: 12px; padding: 5px 10px; border-radius: var(--nxt-radius-sm); border: 1px solid var(--nxt-stroke); background: var(--nxt-bg-2); color: var(--nxt-ink); min-width: 150px; }
+.sm-search:focus { outline: none; border-color: var(--nxt-accent); }
+.sm-sort { font-size: 12px; padding: 5px 8px; border-radius: var(--nxt-radius-sm); border: 1px solid var(--nxt-stroke); background: var(--nxt-bg-2); color: var(--nxt-ink); cursor: pointer; }
+.sm-item { display: grid; grid-template-columns: 38px 1fr auto; gap: 12px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--nxt-line); }
+.sm-item:last-child { border-bottom: 0; }
+.sm-av { width: 38px; height: 38px; border-radius: 10px; object-fit: cover; background: var(--nxt-bg-2); border: 1px solid var(--nxt-stroke); display: grid; place-items: center; font-weight: 700; font-size: 14px; color: var(--nxt-ink-dim); overflow: hidden; }
+.sm-av img { width: 100%; height: 100%; object-fit: cover; }
+.sm-mid { min-width: 0; }
+.sm-name { font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.sm-name a { color: inherit; text-decoration: none; }
+.sm-name a:hover { color: var(--nxt-accent); }
+.sm-mono { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
+.sm-tw { font-size: 12px; color: var(--nxt-ink-dim); text-decoration: none; }
+.sm-tw:hover { color: var(--nxt-accent); }
+.sm-tags { display: inline-flex; gap: 5px; flex-wrap: wrap; margin-top: 4px; }
+.sm-tag { font-size: 10px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--nxt-stroke); color: var(--nxt-ink-faint); text-transform: capitalize; }
+.sm-tag.smart_money { color: #34d399; border-color: color-mix(in srgb, #34d399 38%, transparent); }
+.sm-tag.kol { color: #c084fc; border-color: color-mix(in srgb, #c084fc 38%, transparent); }
+.sm-tag.launchpad { color: #60a5fa; border-color: color-mix(in srgb, #60a5fa 38%, transparent); }
+.sm-tag.sniper { color: #fbbf24; border-color: color-mix(in srgb, #fbbf24 38%, transparent); }
+.sm-tag.chain { color: var(--nxt-ink-dim); text-transform: uppercase; letter-spacing: .04em; }
+.sm-stats { display: flex; gap: 16px; align-items: baseline; justify-content: flex-end; }
+.sm-metric { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; }
+.sm-metric-val { font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.sm-metric-val.pos { color: var(--nxt-success); }
+.sm-metric-lbl { font-size: 10px; color: var(--nxt-ink-faint); text-transform: uppercase; letter-spacing: .04em; }
+.sm-track { font-size: 12px; padding: 6px 13px; border-radius: var(--nxt-radius-sm); border: 1px solid var(--nxt-stroke); background: var(--nxt-bg-2); color: var(--nxt-ink); text-decoration: none; white-space: nowrap; transition: border-color .14s, transform .14s; }
+.sm-track:hover { border-color: var(--nxt-stroke-strong); transform: translateY(-1px); }
+.sm-more { display: flex; justify-content: center; margin-top: 14px; }
+@media (max-width: 640px) { .sm-item { grid-template-columns: 38px 1fr; } .sm-stats { grid-column: 1 / -1; justify-content: flex-start; padding-left: 50px; } }
+
 @media (max-width: 560px) { .cp-item { grid-template-columns: 1fr; } .cp-side { justify-content: flex-start; } .cp-av { display: none; } .cp-stats { flex-wrap: wrap; } .cp-stat { min-width: 45%; } }
 </style>`;
 
@@ -434,6 +473,165 @@ async function payWithCopyFee(subscriptionId, onStatus = () => {}) {
 	return settled;
 }
 
+// ── Smart Money directory ─────────────────────────────────────────────────────
+// Curated top wallets from gmgn.ai's smart-money taxonomy (SOL + BSC), served by
+// /api/copy/smart-wallets. These are external on-chain wallets — not three.ws
+// agents — so the action is to watch their live trades, not auto-subscribe. We
+// surface them so copiers can vet ecosystem-proven traders before mirroring.
+
+const SM_CATS = [
+	{ key: '', label: 'All' },
+	{ key: 'smart_money', label: 'Smart money' },
+	{ key: 'kol', label: 'KOL' },
+	{ key: 'launchpad', label: 'Launchpad' },
+	{ key: 'sniper', label: 'Sniper' },
+];
+const SM_CHAINS = [
+	{ key: '', label: 'All chains' },
+	{ key: 'sol', label: 'Solana' },
+	{ key: 'bsc', label: 'BSC' },
+];
+const SM_SORTS = [
+	{ key: 'score', label: 'Top ranked' },
+	{ key: 'profit', label: 'Most profit (30d)' },
+	{ key: 'pnl', label: 'Best multiple' },
+	{ key: 'winrate', label: 'Win rate' },
+	{ key: 'followers', label: 'Most followed' },
+];
+const SM_PAGE = 12;
+
+function fmtUsd(n) {
+	const v = Number(n) || 0;
+	const a = Math.abs(v);
+	if (a >= 1e9) return `$${(v / 1e9).toFixed(1)}B`;
+	if (a >= 1e6) return `$${(v / 1e6).toFixed(1)}M`;
+	if (a >= 1e3) return `$${(v / 1e3).toFixed(0)}K`;
+	return `$${v.toFixed(0)}`;
+}
+function fmtMult(n) { return n == null ? '—' : `${Number(n).toFixed(1)}×`; }
+function fmtWr(n) { return n == null ? '—' : `${Math.round(Number(n) * 100)}%`; }
+function shortAddr(a) { return a ? `${a.slice(0, 4)}…${a.slice(-4)}` : ''; }
+function explorerUrl(w) {
+	return w.chain === 'bsc'
+		? `https://bscscan.com/address/${w.address}`
+		: `https://solscan.io/account/${w.address}`;
+}
+function gmgnUrl(w) { return `https://gmgn.ai/${w.chain === 'bsc' ? 'bsc' : 'sol'}/address/${w.address}`; }
+function initial(w) {
+	const ch = (w.name || w.address || '').replace(/[^a-zA-Z0-9]/g, '')[0];
+	return (ch || '?').toUpperCase();
+}
+
+function smartRow(w) {
+	const handle = w.twitter_username
+		? `<a class="sm-tw" href="https://x.com/${esc(w.twitter_username)}" target="_blank" rel="noopener">@${esc(w.twitter_username)}</a>`
+		: `<span class="sm-tw sm-mono">${esc(shortAddr(w.address))}</span>`;
+	const fallback = esc(initial(w));
+	const avatar = w.avatar
+		? `<img src="${esc(w.avatar)}" alt="" loading="lazy" onerror="this.replaceWith(document.createTextNode('${fallback}'))" />`
+		: fallback;
+	const tags = [
+		...w.categories.map((c) => `<span class="sm-tag ${esc(c)}">${esc(c.replace('_', ' '))}</span>`),
+		`<span class="sm-tag chain">${esc(w.chain)}</span>`,
+	].join('');
+	const title = w.name ? esc(w.name) : `<span class="sm-mono">${esc(shortAddr(w.address))}</span>`;
+	return `
+	<div class="sm-item">
+		<div class="sm-av">${avatar}</div>
+		<div class="sm-mid">
+			<div class="sm-name"><a href="${esc(gmgnUrl(w))}" target="_blank" rel="noopener">${title}</a> ${handle}</div>
+			<div class="sm-tags">${tags}</div>
+		</div>
+		<div class="sm-stats">
+			<div class="sm-metric"><span class="sm-metric-val pos">${fmtUsd(w.realized_profit_30d_usd)}</span><span class="sm-metric-lbl">PnL 30d</span></div>
+			<div class="sm-metric"><span class="sm-metric-val">${fmtMult(w.pnl_30d)}</span><span class="sm-metric-lbl">Multiple</span></div>
+			<div class="sm-metric"><span class="sm-metric-val">${fmtWr(w.win_rate_30d)}</span><span class="sm-metric-lbl">Win</span></div>
+			<a class="sm-track" href="${esc(gmgnUrl(w))}" target="_blank" rel="noopener" title="Watch this wallet's live trades">Track ↗</a>
+		</div>
+	</div>`;
+}
+
+async function mountSmartMoney(host) {
+	const state = { chain: '', category: '', sort: 'score', q: '', offset: 0, total: 0, rows: [] };
+	let searchTimer;
+
+	host.innerHTML = `
+		<section class="cp-sec">
+			<div class="cp-sec-h">
+				<h2>Smart money</h2>
+				<span class="cp-count" id="sm-count"></span>
+			</div>
+			<p class="cp-note">Ecosystem-proven wallets from gmgn.ai's smart-money taxonomy — ranked by 30-day realized profit across Solana and BSC. Vet a trader's live history before you mirror them.</p>
+			<div class="sm-controls">
+				<div class="sm-chips" id="sm-cat">${SM_CATS.map((c) => `<button class="sm-chip ${c.key === '' ? 'is-active' : ''}" data-cat="${c.key}">${c.label}</button>`).join('')}</div>
+				<span class="sm-spacer"></span>
+				<div class="sm-chips" id="sm-chain">${SM_CHAINS.map((c) => `<button class="sm-chip ${c.key === '' ? 'is-active' : ''}" data-chain="${c.key}">${c.label}</button>`).join('')}</div>
+				<input class="sm-search" id="sm-q" type="search" placeholder="Search name, @handle, address" autocomplete="off" spellcheck="false" />
+				<select class="sm-sort" id="sm-sort">${SM_SORTS.map((s) => `<option value="${s.key}">${s.label}</option>`).join('')}</select>
+			</div>
+			<div id="sm-rows"><div class="cp-skeleton"></div><div class="cp-skeleton" style="margin-top:4px"></div><div class="cp-skeleton" style="margin-top:4px"></div></div>
+			<div class="sm-more" id="sm-more"></div>
+		</section>`;
+
+	const rowsEl = host.querySelector('#sm-rows');
+	const moreEl = host.querySelector('#sm-more');
+	const countEl = host.querySelector('#sm-count');
+
+	async function load(append) {
+		if (!append) {
+			state.offset = 0;
+			rowsEl.innerHTML = `<div class="cp-skeleton"></div><div class="cp-skeleton" style="margin-top:4px"></div>`;
+			moreEl.innerHTML = '';
+		}
+		const qs = new URLSearchParams({ sort: state.sort, limit: String(SM_PAGE), offset: String(state.offset) });
+		if (state.chain) qs.set('chain', state.chain);
+		if (state.category) qs.set('category', state.category);
+		if (state.q) qs.set('q', state.q);
+		let data;
+		try {
+			data = await get(`/api/copy/smart-wallets?${qs.toString()}`);
+		} catch {
+			rowsEl.innerHTML = `<div class="cp-empty">Couldn't load smart-money wallets. <button class="cp-btn" id="sm-retry">Retry</button></div>`;
+			rowsEl.querySelector('#sm-retry')?.addEventListener('click', () => load(false));
+			return;
+		}
+		state.total = data.total || 0;
+		const rows = data.wallets || [];
+		const html = rows.length ? rows.map(smartRow).join('') : (append ? '' : `<div class="cp-empty">No wallets match these filters.</div>`);
+		if (append) rowsEl.insertAdjacentHTML('beforeend', html);
+		else rowsEl.innerHTML = html;
+		state.offset += rows.length;
+		countEl.textContent = state.total ? `${state.total.toLocaleString()} wallets` : '';
+		moreEl.innerHTML = data.has_more
+			? `<button class="cp-btn" id="sm-load">Load more (${(state.total - state.offset).toLocaleString()} left)</button>`
+			: '';
+		moreEl.querySelector('#sm-load')?.addEventListener('click', () => load(true));
+	}
+
+	host.querySelector('#sm-cat').addEventListener('click', (e) => {
+		const btn = e.target.closest('[data-cat]');
+		if (!btn) return;
+		host.querySelectorAll('#sm-cat .sm-chip').forEach((b) => b.classList.toggle('is-active', b === btn));
+		state.category = btn.dataset.cat;
+		load(false);
+	});
+	host.querySelector('#sm-chain').addEventListener('click', (e) => {
+		const btn = e.target.closest('[data-chain]');
+		if (!btn) return;
+		host.querySelectorAll('#sm-chain .sm-chip').forEach((b) => b.classList.toggle('is-active', b === btn));
+		state.chain = btn.dataset.chain;
+		load(false);
+	});
+	host.querySelector('#sm-sort').addEventListener('change', (e) => { state.sort = e.target.value; load(false); });
+	host.querySelector('#sm-q').addEventListener('input', (e) => {
+		clearTimeout(searchTimer);
+		const v = e.target.value.trim();
+		searchTimer = setTimeout(() => { state.q = v; load(false); }, 250);
+	});
+
+	load(false);
+}
+
 async function main() {
 	const root = await mountShell();
 	await requireUser();
@@ -445,8 +643,10 @@ async function main() {
 		</header>
 		<div id="cp-host">
 			<div class="cp-wrap"><div class="cp-skeleton"></div><div class="cp-skeleton" style="height:120px"></div></div>
-		</div>`;
+		</div>
+		<div id="cp-smart" style="margin-top:20px"></div>`;
 	await loadAndRender(root.querySelector('#cp-host'));
+	mountSmartMoney(root.querySelector('#cp-smart'));
 }
 
 main();

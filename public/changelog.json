@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-19T17:58:05.905Z",
+	"generated_at": "2026-06-19T18:41:44.795Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -182,6 +182,16 @@
 		{
 			"date": "2026-06-19",
 			"type": "update",
+			"title": "Fixed the clipped header on the agent wallet page",
+			"summary": "The agent wallet page had a broken header — the agent's avatar and the green \"Wallet ready\" badge were chopped off behind a black bar, with the wallet name floating above it. A site-wide page-header style was leaking onto the wallet's own header row and forcing it into a short, clipped strip. The header now lays out properly, so the avatar, status badge, profile link, and network selector are all fully visible.",
+			"link": null,
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-19",
+			"type": "update",
 			"title": "Fixed wallet sign-in returning an error",
 			"summary": "Signing in with a Solana or Ethereum wallet was failing for everyone — the request that starts the sign-in handshake was erroring out before you could approve anything in your wallet. A misread site address on the server was the cause; it now self-corrects, and wallet sign-in works again.",
 			"link": null,
@@ -228,6 +238,16 @@
 			"link": null,
 			"tags": [
 				"security"
+			]
+		},
+		{
+			"date": "2026-06-19",
+			"type": "update",
+			"title": "Generate a 3D model free on the IBM partnership page",
+			"summary": "The IBM and three.ws partnership page now lets you turn a sentence into a textured 3D model right there — no wallet, no API key, no payment. Type a description (or tap an example), and it builds a model you can orbit, download as a GLB, or open in the 3D scene. It runs Microsoft TRELLIS on NVIDIA NIM and automatically falls back across generation lanes, so a model always comes back.",
+			"link": "/ibm/x402-demo",
+			"tags": [
+				"feature"
 			]
 		},
 		{
@@ -325,6 +345,16 @@
 		{
 			"date": "2026-06-19",
 			"type": "update",
+			"title": "Live x402 payment challenges on the IBM partnership page",
+			"summary": "The “Accelerating outcomes” section on the IBM × three.ws page had two empty gradient boxes under its AI agents and Crypto tabs. They're now live: each reads a real three.ws endpoint's HTTP 402 response on the spot and shows the exact terms the server is quoting — price in USDC, settlement network, and recipient. The AI agents tab shows what an autonomous agent reads before paying for live market data; the Crypto tab shows how any endpoint becomes pay-per-call. No wallet needed to watch it.",
+			"link": "/ibm/x402-demo",
+			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-19",
+			"type": "update",
 			"title": "Memory Studio — watch your agent’s memory form, curate it, and trust it",
 			"summary": "The Memory tab in Agent Studio turns your agent’s memory into something you can see and shape. A live Timeline streams every memory as it forms — chats, lessons, rules, trades — each tagged by tier (working, recall, archival) and salience, with one-click pin, edit, merge, forget, and a slider to dial importance. A knowledge Graph maps the coins, wallets, people, and strategies your agent has learned, linked by what shows up together; click any coin to replay how your agent’s understanding of it evolved over time. Recall runs real semantic search over real embeddings, so asking “lessons from losing trades” or “rules my agent follows” returns what it actually knows — and an In-Context view shows exactly what the agent carries into every reply, with a live token budget so the core stays sharp. Seed it in seconds from your GitHub, X, and Farcaster, and the Brain’s Memory node recalls all of it for real.",
 			"link": "/agent-studio",
@@ -338,6 +368,16 @@
 			"title": "Mobile menu plays nicely with screen readers and keyboards",
 			"summary": "The mobile navigation drawer now fully hides itself from assistive tech and the keyboard tab order when it's closed, instead of leaving its links reachable but invisible. Screen-reader and keyboard users can no longer land focus on a link inside a collapsed menu, and the browser's accessibility warning about hidden-but-focused links is gone.",
 			"link": null,
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-19",
+			"type": "update",
+			"title": "Onboarding card no longer covers the Deploy page preview",
+			"summary": "The \"Your agent is ready\" pop-up — the welcome card that helps you find your way around the 3D viewer — was following you onto the Deploy on-chain page and floating over the Live Preview panel, hiding your agent's avatar, name, and cost summary right when you needed to check them before minting. The card now knows it belongs to the 3D viewer and stays out of the Deploy and Explore pages, so the preview is fully visible again.",
+			"link": "/deploy",
 			"tags": [
 				"fix"
 			]
@@ -382,6 +422,16 @@
 			"tags": [
 				"feature",
 				"security"
+			]
+		},
+		{
+			"date": "2026-06-19",
+			"type": "update",
+			"title": "Payment dialog no longer pushes its Pay button off-screen",
+			"summary": "On agent profiles, the Unlock skill / purchase dialog had no height limit. When the form ran tall — wallet area, price, fee note, Confirm button, and QR code together — it grew past the screen, so the title was shoved above the top edge and the Pay button dropped below the bottom, and neither could be scrolled to. The dialog is now capped to the visible screen with the form scrolling inside it and the header pinned, so the Pay button is always reachable on any screen size.",
+			"link": null,
+			"tags": [
+				"fix"
 			]
 		},
 		{
@@ -438,6 +488,16 @@
 		{
 			"date": "2026-06-19",
 			"type": "update",
+			"title": "Saved avatar now shows the real model on the \"what's next\" screen",
+			"summary": "After saving an avatar you'd made — including ones built from a template — the post-save \"your agent is ready\" screen showed a blank white mannequin instead of the avatar you just created, even though the name was correct. The page was looking for the model under a field name the agent record doesn't use, and never fell back to the avatar itself. It now loads your actual avatar — and works even for private avatars you've just made.",
+			"link": null,
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-19",
+			"type": "update",
 			"title": "See your net take when you price a skill",
 			"summary": "The Skill Pricing panel on the Monetize dashboard now shows exactly what you keep on every payment. As you type a per-call price, a line below the field updates live — \"You receive $X.XX after 2.5% fee\" — so the platform's cut is never a surprise at payout time. The same net figure appears in the Add Pricing dialog, and the panel header states the current platform fee rate, which is read from the live billing config rather than hardcoded.",
 			"link": "/dashboard/monetize",
@@ -455,6 +515,16 @@
 			"tags": [
 				"feature",
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-19",
+			"type": "update",
+			"title": "Smart Money directory comes to Copy Trading",
+			"summary": "The Copy Trading dashboard now has a Smart Money section: a ranked, searchable directory of over a thousand ecosystem-proven wallets drawn from gmgn.ai's smart-money taxonomy across both Solana and BSC. Filter by chain and by category — smart money, KOLs, launchpad specialists, snipers — and sort by 30-day realized profit, best multiple, win rate, or follower count. Each wallet shows its real 30-day performance and links straight to its live trade history, so you can vet a trader's track record before you decide to mirror them.",
+			"link": "/dashboard/copy",
+			"tags": [
+				"feature"
 			]
 		},
 		{

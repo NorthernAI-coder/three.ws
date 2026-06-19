@@ -41,14 +41,6 @@ import { log } from './shared/log.js';
 const RESUME_KEY = '3dagent:guest-avatar-resume';
 const $ = (sel) => document.querySelector(sel);
 
-// Sources that strongly imply a humanoid/creature avatar — default these to
-// 'avatar' (an agent that gets a brain). Everything else (prompt-to-3D, import,
-// upload, unknown) is an arbitrary 3D model, so default to 'object' (an item):
-// a teapot you typed into existence shouldn't pre-select "give it a brain". The
-// selector is always visible and switching is one click, so the default is just
-// a soft nudge, never a lock.
-const AVATAR_SOURCES = new Set(['avaturn', 'three-ws-studio', 'three-ws-selfie']);
-
 // 'avatar' = an Agent (gets a brain — voice, memory, on-chain identity);
 // 'object' = an Item (a 3D model saved to your library; props, not personalities).
 let creationType = 'avatar';
@@ -149,12 +141,11 @@ async function renderPreview(record) {
 	$('#tag-size').textContent =
 		record.size > 0 ? `${Math.round(record.size / 1024)} KB` : '— KB';
 
-	// Default type based on creation source: known character tools (selfie,
-	// studio, Avaturn) → 'avatar' (an agent); generic prompt-to-3D / import /
-	// upload → 'object' (an item), since an arbitrary generated model is far
-	// more likely a prop than a character. The selector is right there to flip
-	// if the guess is wrong.
-	setCreationType(AVATAR_SOURCES.has(src) ? 'avatar' : 'object');
+	// Default every creation to 'avatar' (an agent) regardless of source — an
+	// agent is the platform's first-class object, so we nudge toward giving the
+	// new thing a brain. The selector is always visible and switching to 'item'
+	// is one click, so the default is a soft nudge, never a lock.
+	setCreationType('avatar');
 
 	// Keep an object URL around for downstream consumers (Voice preview hands
 	// it to talk-mode, which loads via URL). The viewer itself now mounts

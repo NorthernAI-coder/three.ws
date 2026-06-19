@@ -143,6 +143,14 @@
 			<description>Several navigation links pointed at pages that no longer exist — &quot;View plans&quot; on the agent deploy flow, the Classic viewer menu item, and the API-key links on the AWS welcome and selfie pages — and now go to the right place. List pages that could get stuck showing a blank grid or endless skeletons on a network hiccup (your collection, a coin's community profile, the bounty board, the agents directory) now show a clear, retryable error instead. The $THREE dashboard also replaced a non-working &quot;claim&quot; button with a plain explanation that revenue share is distributed to holders automatically.</description>
 		</item>
 		<item>
+			<title>Fixed the clipped header on the agent wallet page</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-19:Fixed the clipped header on the agent wallet page</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>The agent wallet page had a broken header — the agent's avatar and the green &quot;Wallet ready&quot; badge were chopped off behind a black bar, with the wallet name floating above it. A site-wide page-header style was leaking onto the wallet's own header row and forcing it into a short, clipped strip. The header now lays out properly, so the avatar, status badge, profile link, and network selector are all fully visible.</description>
+		</item>
+		<item>
 			<title>Fixed wallet sign-in returning an error</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-19:Fixed wallet sign-in returning an error</guid>
@@ -181,6 +189,14 @@
 			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
 			<category>security</category>
 			<description>Following the security audit, we strengthened everything that touches money. Custodial agent-wallet private keys now encrypt with a dedicated key — separate from the session secret — and a unique salt per wallet, so the secret guarding your funds no longer shares fate with anything else (existing wallets keep working; they re-key on next use). Per-agent daily spend limits, x402 payment de-duplication, and on-chain permission caps are now enforced atomically, closing races where a burst of concurrent requests could slip past a budget or run paid work twice for one payment. Pay-by-name sends re-check that the name still resolves to the exact address you approved before the agent signs, and reject look-alike or invalid targets; withdrawals now only ever pay out to a wallet you've already saved. We also removed a stored cross-site-scripting vector in uploaded 3D-model metadata and the admin panel, added clickjacking and permissions-policy protections site-wide, and moved IPFS pinning fully server-side so no upload credential ever ships to the browser. No action needed on your end.</description>
+		</item>
+		<item>
+			<title>Generate a 3D model free on the IBM partnership page</title>
+			<link>https://three.ws/ibm/x402-demo</link>
+			<guid isPermaLink="false">2026-06-19:Generate a 3D model free on the IBM partnership page</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The IBM and three.ws partnership page now lets you turn a sentence into a textured 3D model right there — no wallet, no API key, no payment. Type a description (or tap an example), and it builds a model you can orbit, download as a GLB, or open in the 3D scene. It runs Microsoft TRELLIS on NVIDIA NIM and automatically falls back across generation lanes, so a model always comes back.</description>
 		</item>
 		<item>
 			<title>Getting-started progress now follows you across the whole platform</title>
@@ -255,6 +271,14 @@
 			<description>IRL has no map and no list on purpose: you find agents by walking up to them and looking through your camera. The first time you open it, a short card now explains that idea — agents are hidden in the world around you, dropping your own lets someone else stumble on it later, and we never show a roster of where agents are, not even to you. You can reopen that explainer any time from the small &quot;?&quot; in the corner. And when you're somewhere quiet with nobody pinned yet, instead of a blank screen you'll see a gentle &quot;Look around 👀 · or be the first to pin here&quot; prompt with a one-tap way to place your own agent — so an empty spot reads as &quot;keep exploring,&quot; not &quot;this is broken.&quot; The moment a real agent comes into range, the prompt fades away on its own.</description>
 		</item>
 		<item>
+			<title>Live x402 payment challenges on the IBM partnership page</title>
+			<link>https://three.ws/ibm/x402-demo</link>
+			<guid isPermaLink="false">2026-06-19:Live x402 payment challenges on the IBM partnership page</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>The “Accelerating outcomes” section on the IBM × three.ws page had two empty gradient boxes under its AI agents and Crypto tabs. They're now live: each reads a real three.ws endpoint's HTTP 402 response on the spot and shows the exact terms the server is quoting — price in USDC, settlement network, and recipient. The AI agents tab shows what an autonomous agent reads before paying for live market data; the Crypto tab shows how any endpoint becomes pay-per-call. No wallet needed to watch it.</description>
+		</item>
+		<item>
 			<title>Memory Studio — watch your agent’s memory form, curate it, and trust it</title>
 			<link>https://three.ws/agent-studio</link>
 			<guid isPermaLink="false">2026-06-19:Memory Studio — watch your agent’s memory form, curate it, and trust it</guid>
@@ -269,6 +293,14 @@
 			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>The mobile navigation drawer now fully hides itself from assistive tech and the keyboard tab order when it's closed, instead of leaving its links reachable but invisible. Screen-reader and keyboard users can no longer land focus on a link inside a collapsed menu, and the browser's accessibility warning about hidden-but-focused links is gone.</description>
+		</item>
+		<item>
+			<title>Onboarding card no longer covers the Deploy page preview</title>
+			<link>https://three.ws/deploy</link>
+			<guid isPermaLink="false">2026-06-19:Onboarding card no longer covers the Deploy page preview</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>The &quot;Your agent is ready&quot; pop-up — the welcome card that helps you find your way around the 3D viewer — was following you onto the Deploy on-chain page and floating over the Live Preview panel, hiding your agent's avatar, name, and cost summary right when you needed to check them before minting. The card now knows it belongs to the 3D viewer and stays out of the Deploy and Explore pages, so the preview is fully visible again.</description>
 		</item>
 		<item>
 			<title>One API, many services: the three.ws API gateway</title>
@@ -301,6 +333,14 @@
 			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>The on-demand vanity address service — the one any app or agent can call and pay for per use, no account needed — can now hand back a 12- or 24-word seed phrase instead of just a raw key, so the wallet it grinds restores straight into Phantom, Solflare, or any wallet as a recovery phrase. And if you'd rather the secret never travel in the clear, you can now have it encrypted to a key only you hold: the service seals the result so the private key or seed phrase is unreadable to anyone in between — it isn't written to any log or cache, and only you can open it. The plain address still comes back in the clear so you can look it up right away.</description>
+		</item>
+		<item>
+			<title>Payment dialog no longer pushes its Pay button off-screen</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-19:Payment dialog no longer pushes its Pay button off-screen</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>On agent profiles, the Unlock skill / purchase dialog had no height limit. When the form ran tall — wallet area, price, fee note, Confirm button, and QR code together — it grew past the screen, so the title was shoved above the top edge and the Pay button dropped below the bottom, and neither could be scrolled to. The dialog is now capped to the visible screen with the form scrolling inside it and the header pinned, so the Pay button is always reachable on any screen size.</description>
 		</item>
 		<item>
 			<title>Pinning your agent holds up when GPS gets flaky</title>
@@ -343,6 +383,14 @@
 			<description>Locked premium headwear, eyewear, dyes and auras in the character creator no longer dead-end on a placeholder — clicking one now opens the real wallet checkout and unlocks it the moment the USDC payment settles, then equips it on your live preview. Anything you already own loads pre-unlocked, and the price you see is the true checkout amount pulled from the catalog.</description>
 		</item>
 		<item>
+			<title>Saved avatar now shows the real model on the &quot;what's next&quot; screen</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-19:Saved avatar now shows the real model on the &quot;what's next&quot; screen</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>After saving an avatar you'd made — including ones built from a template — the post-save &quot;your agent is ready&quot; screen showed a blank white mannequin instead of the avatar you just created, even though the name was correct. The page was looking for the model under a field name the agent record doesn't use, and never fell back to the avatar itself. It now loads your actual avatar — and works even for private avatars you've just made.</description>
+		</item>
+		<item>
 			<title>See your net take when you price a skill</title>
 			<link>https://three.ws/dashboard/monetize</link>
 			<guid isPermaLink="false">2026-06-19:See your net take when you price a skill</guid>
@@ -357,6 +405,14 @@
 			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>When you paste a link to an agent on X, Discord, Slack, Telegram or iMessage, the preview card now shows that agent's actual avatar, name and description instead of a generic three.ws image — so every shared link is visual proof of the collectible. Bots that don't run JavaScript get the right image and text rendered on the server, and agents without an avatar yet fall back to a clean branded card with their initial. We also fixed the canonical and share URLs on agent pages to point at the real /agents/&lt;id&gt; address.</description>
+		</item>
+		<item>
+			<title>Smart Money directory comes to Copy Trading</title>
+			<link>https://three.ws/dashboard/copy</link>
+			<guid isPermaLink="false">2026-06-19:Smart Money directory comes to Copy Trading</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The Copy Trading dashboard now has a Smart Money section: a ranked, searchable directory of over a thousand ecosystem-proven wallets drawn from gmgn.ai's smart-money taxonomy across both Solana and BSC. Filter by chain and by category — smart money, KOLs, launchpad specialists, snipers — and sort by 30-day realized profit, best multiple, win rate, or follower count. Each wallet shows its real 30-day performance and links straight to its live trade history, so you can vet a trader's track record before you decide to mirror them.</description>
 		</item>
 		<item>
 			<title>Smoother switch between camera AR and Place on floor</title>

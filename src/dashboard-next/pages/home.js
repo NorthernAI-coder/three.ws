@@ -266,7 +266,7 @@ function renderHero(host, avatars, err) {
 				<div class="dnx-hero-overlay">
 					<a class="dn-btn" href="/agents/${encodeURIComponent(a.id)}">Live page</a>
 					<a class="dn-btn" href="/dashboard/widgets?avatar=${encodeURIComponent(a.id)}">Embed</a>
-					<a class="dn-btn" href="/dashboard/avatars?edit=${encodeURIComponent(a.id)}">Edit</a>
+					<a class="dn-btn" href="/avatars/${encodeURIComponent(a.id)}/edit">Edit</a>
 				</div>
 				<div class="dnx-hero-name">${esc(name)}</div>
 			</article>

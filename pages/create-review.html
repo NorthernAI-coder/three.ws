@@ -1451,10 +1451,14 @@
 				text-align: center;
 			}
 			.type-btn:hover { border-color: #2e2e2e; color: var(--text); }
+			/* Selected state is a solid white pill with black ink — a real, legible
+			   "on" signal. Unselected buttons stay outline (white text on black), so
+			   each state honours its own contrast: white button → black text, black
+			   button → white text. */
 			.type-btn.active {
 				border-color: var(--accent);
-				color: var(--accent);
-				background: color-mix(in srgb, var(--accent) 8%, transparent);
+				color: var(--accent-ink);
+				background: var(--accent);
 			}
 			/* Richer two-line type cards: bold title + muted one-line description so
 			   the agent/item distinction is legible at a glance. */
@@ -1471,12 +1475,13 @@
 				letter-spacing: -0.005em;
 				color: var(--text);
 			}
-			.type-btn.active .type-btn-title { color: var(--accent); }
+			.type-btn.active .type-btn-title { color: var(--accent-ink); }
 			.type-btn-desc {
 				font-size: 11px;
 				line-height: 1.35;
 				color: var(--muted);
 			}
+			.type-btn.active .type-btn-desc { color: rgba(0, 0, 0, 0.66); }
 
 			/* Item soft-nudge — replaces the agent capability grid for items. Reads
 			   as guidance, not an error; the promote button is the escape hatch. */

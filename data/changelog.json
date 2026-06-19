@@ -3,6 +3,66 @@
 	"entries": [
 		{
 			"date": "2026-06-19",
+			"title": "Onboarding card no longer covers the Deploy page preview",
+			"summary": "The \"Your agent is ready\" pop-up — the welcome card that helps you find your way around the 3D viewer — was following you onto the Deploy on-chain page and floating over the Live Preview panel, hiding your agent's avatar, name, and cost summary right when you needed to check them before minting. The card now knows it belongs to the 3D viewer and stays out of the Deploy and Explore pages, so the preview is fully visible again.",
+			"tags": [
+				"fix"
+			],
+			"link": "/deploy"
+		},
+		{
+			"date": "2026-06-19",
+			"title": "Smart Money directory comes to Copy Trading",
+			"summary": "The Copy Trading dashboard now has a Smart Money section: a ranked, searchable directory of over a thousand ecosystem-proven wallets drawn from gmgn.ai's smart-money taxonomy across both Solana and BSC. Filter by chain and by category — smart money, KOLs, launchpad specialists, snipers — and sort by 30-day realized profit, best multiple, win rate, or follower count. Each wallet shows its real 30-day performance and links straight to its live trade history, so you can vet a trader's track record before you decide to mirror them.",
+			"tags": [
+				"feature"
+			],
+			"link": "/dashboard/copy"
+		},
+		{
+			"date": "2026-06-19",
+			"title": "Saved avatar now shows the real model on the \"what's next\" screen",
+			"summary": "After saving an avatar you'd made — including ones built from a template — the post-save \"your agent is ready\" screen showed a blank white mannequin instead of the avatar you just created, even though the name was correct. The page was looking for the model under a field name the agent record doesn't use, and never fell back to the avatar itself. It now loads your actual avatar — and works even for private avatars you've just made.",
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-19",
+			"title": "Payment dialog no longer pushes its Pay button off-screen",
+			"summary": "On agent profiles, the Unlock skill / purchase dialog had no height limit. When the form ran tall — wallet area, price, fee note, Confirm button, and QR code together — it grew past the screen, so the title was shoved above the top edge and the Pay button dropped below the bottom, and neither could be scrolled to. The dialog is now capped to the visible screen with the form scrolling inside it and the header pinned, so the Pay button is always reachable on any screen size.",
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-19",
+			"title": "Live x402 payment challenges on the IBM partnership page",
+			"summary": "The “Accelerating outcomes” section on the IBM × three.ws page had two empty gradient boxes under its AI agents and Crypto tabs. They're now live: each reads a real three.ws endpoint's HTTP 402 response on the spot and shows the exact terms the server is quoting — price in USDC, settlement network, and recipient. The AI agents tab shows what an autonomous agent reads before paying for live market data; the Crypto tab shows how any endpoint becomes pay-per-call. No wallet needed to watch it.",
+			"tags": [
+				"improvement"
+			],
+			"link": "/ibm/x402-demo"
+		},
+		{
+			"date": "2026-06-19",
+			"title": "Fixed the clipped header on the agent wallet page",
+			"summary": "The agent wallet page had a broken header — the agent's avatar and the green \"Wallet ready\" badge were chopped off behind a black bar, with the wallet name floating above it. A site-wide page-header style was leaking onto the wallet's own header row and forcing it into a short, clipped strip. The header now lays out properly, so the avatar, status badge, profile link, and network selector are all fully visible.",
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-19",
+			"title": "Generate a 3D model free on the IBM partnership page",
+			"summary": "The IBM and three.ws partnership page now lets you turn a sentence into a textured 3D model right there — no wallet, no API key, no payment. Type a description (or tap an example), and it builds a model you can orbit, download as a GLB, or open in the 3D scene. It runs Microsoft TRELLIS on NVIDIA NIM and automatically falls back across generation lanes, so a model always comes back.",
+			"tags": [
+				"feature"
+			],
+			"link": "/ibm/x402-demo"
+		},
+		{
+			"date": "2026-06-19",
 			"title": "Walk Playground no longer loses your character when it falls",
 			"summary": "When you walked the little robot off a ledge it could plummet faster than the page could keep up and slip off the bottom of the screen, leaving you unable to find it. The camera now tracks falls tightly and keeps the character in view, and on pages that can't scroll it catches the character and drops it right back into view.",
 			"tags": [

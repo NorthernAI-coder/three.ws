@@ -1924,6 +1924,17 @@ model-viewer.ad-hero-avatar {
 .market-modal {
 	position: relative;
 	width: min(440px, 100%);
+	/* Overlay pads 20px top+bottom, so cap the box at the viewport minus that
+	   gutter. Without this the modal had no height limit: a tall purchase form
+	   (wallet area + price + confirm + QR) grew past the viewport and, because
+	   the overlay centers with align-items, pushed its header above the top
+	   edge and the Confirm button below the bottom — both unreachable, since
+	   neither the overlay nor the box scrolled. dvh tracks the real visible
+	   height on mobile; vh is the older-UA fallback. */
+	max-height: calc(100vh - 40px);
+	max-height: calc(100dvh - 40px);
+	display: flex;
+	flex-direction: column;
 	background: var(--ad-card);
 	border: 1px solid var(--ad-line-2);
 	border-radius: 16px;
@@ -1931,6 +1942,7 @@ model-viewer.ad-hero-avatar {
 	overflow: hidden;
 }
 .market-modal-head {
+	flex-shrink: 0;
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
@@ -1957,6 +1969,12 @@ model-viewer.ad-hero-avatar {
 }
 .payment-modal-body {
 	padding: 20px;
+	/* The modal is a capped-height flex column; let the form scroll inside it
+	   (min-height:0 lets a flex child shrink below its content) while the
+	   header stays pinned, so the Confirm button is always reachable. */
+	min-height: 0;
+	overflow-y: auto;
+	-webkit-overflow-scrolling: touch;
 }
 .payment-modal-badge {
 	display: flex;
@@ -2217,6 +2235,9 @@ model-viewer.ad-hero-avatar {
 .payment-modal-success {
 	padding: 30px 24px;
 	text-align: center;
+	min-height: 0;
+	overflow-y: auto;
+	-webkit-overflow-scrolling: touch;
 }
 .ps-check {
 	width: 52px;

@@ -167,7 +167,7 @@ export function mountAgentWalletHub({ mount, agent, initialTab, onNetworkChange 
 
 	mount.innerHTML = `
 		<section class="awh" aria-label="Agent wallet">
-			<header class="awh-header">
+			<div class="awh-header">
 				${
 					agent.avatar_thumbnail_url || agent.avatar_model_url
 						? `<img class="awh-avatar" src="${escapeHtml(agent.avatar_thumbnail_url || '')}" alt="" loading="lazy" onerror="this.remove()" />`
@@ -189,7 +189,7 @@ export function mountAgentWalletHub({ mount, agent, initialTab, onNetworkChange 
 						<option value="devnet">Devnet</option>
 					</select>
 				</label>
-			</header>
+			</div>
 
 			<div class="awh-tabs" role="tablist" aria-label="Wallet sections">
 				${tabs
