@@ -39,6 +39,14 @@
 			<description>The agent wallet's Deposit tab is now a complete, public funding panel: a crisp QR code (generated on-device, no third-party service) that your phone wallet can scan, a one-tap copyable Solana address, an optional preset amount, and a Solana deep-link that opens Phantom, Solflare or Backpack on mobile. The panel watches the agent's real on-chain balance and confirms the moment your SOL lands — &quot;◎0.5 SOL received&quot; — instead of leaving you guessing. Anyone can fund an agent, not just its owner, and the new &quot;Fund agent wallet&quot; button on the create-agent success screen leads new users straight into it.</description>
 		</item>
 		<item>
+			<title>Getting-started progress now follows you across the whole platform</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-19:Getting-started progress now follows you across the whole platform</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>Your setup checklist no longer forgets what you've done. The floating &quot;Getting started&quot; guide and the dashboard's onboarding panel now share one source of truth: the moment you create an avatar, give an agent a personality, or embed a widget, every checklist on the site ticks that step — no more seeing &quot;2 of 4 done&quot; in one place and &quot;0 of 3&quot; in another on the same visit. Visiting your dashboard reconciles your real progress automatically, and saving a persona to an agent now completes the &quot;give it a brain&quot; step the instant it happens.</description>
+		</item>
+		<item>
 			<title>Hardened the widget custom-brain proxy against internal-network abuse</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-19:Hardened the widget custom-brain proxy against internal-network abuse</guid>

@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-19T00:39:58.999Z",
+	"generated_at": "2026-06-19T00:48:29.587Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -45,6 +45,16 @@
 			"link": null,
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-19",
+			"type": "update",
+			"title": "Getting-started progress now follows you across the whole platform",
+			"summary": "Your setup checklist no longer forgets what you've done. The floating \"Getting started\" guide and the dashboard's onboarding panel now share one source of truth: the moment you create an avatar, give an agent a personality, or embed a widget, every checklist on the site ticks that step — no more seeing \"2 of 4 done\" in one place and \"0 of 3\" in another on the same visit. Visiting your dashboard reconciles your real progress automatically, and saving a persona to an agent now completes the \"give it a brain\" step the instant it happens.",
+			"link": null,
+			"tags": [
+				"improvement"
 			]
 		},
 		{
