@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-19T09:46:01.138Z",
+	"generated_at": "2026-06-19T09:48:35.457Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -137,6 +137,16 @@
 			"link": null,
 			"tags": [
 				"security",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-19",
+			"type": "update",
+			"title": "IRL is fully keyboard- and screen-reader-accessible",
+			"summary": "You can now drive every part of IRL without a mouse or touch. Each control — the camera button, the pill row, the object picker, every sheet — shows a clear focus ring as you Tab through it, and opening a panel (inspect an agent, add a caption, My Pins, report) traps focus inside it, closes on Escape, and returns focus to wherever you were. Toggle buttons announce their on/off state to screen readers, status messages are spoken politely as they appear, and we lifted faint grey text so it meets contrast guidelines on the dark camera background. If you've turned on Reduce Motion, the ambient pulses and glows hold still while your agent keeps moving.",
+			"link": "/irl",
+			"tags": [
 				"improvement"
 			]
 		},
