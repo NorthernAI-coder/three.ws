@@ -50,6 +50,7 @@ export class ClubAudio {
 		this._buffers = new Map(); // styleName → AudioBuffer
 		this._loading = new Map(); // styleName → Promise<AudioBuffer>
 		this._peakBuf = null; // Uint8Array reused for getByteFrequencyData
+		this._clarity = 0; // 0 = outside muffle, 1 = open floor — ramps with the walk-in
 		this.muted = this._readMutedPref();
 		this._onStatus = null; // optional callback(name, label)
 	}
@@ -401,29 +402,43 @@ export class ClubAudio {
 		return buf;
 	}
 
-	// Crossfade the effects chain between outdoor (heavy muffle + bass + long reverb)
-	// and indoor (full spectrum + tight room reverb). Call with isInside=false when
-	// the user is at the door; isInside=true on club:admitted.
-	setLocation(isInside) {
+	// Crossfade the effects chain along a clarity axis, where `frac` is 0 = fully
+	// outside (heavy muffle + bass + long exterior reverb, the club heard through
+	// the door) and 1 = on the floor (open spectrum + tight room reverb). The
+	// music keeps streaming from wherever it is — only the FX endpoints move — so
+	// each threshold you cross after paying lets a little more of the room
+	// through without ever restarting the track. Intermediate values are real
+	// in-between mixes: lerp each parameter from the outdoor endpoint to the
+	// indoor one, with the lowpass cutoff interpolated in log space so the sweep
+	// reads as a smooth, even opening rather than snapping wide near the top.
+	setClarity(frac, glideSec = 1.4) {
 		if (!this.ctx || !this._fx) return;
+		const f = Math.min(1, Math.max(0, Number(frac) || 0));
+		this._clarity = f;
 		const t = this.ctx.currentTime;
-		const tc = 0.9; // exponential time constant — fully settled in ~2s
+		// setTargetAtTime settles in ~3 time-constants; size tc to hit glideSec.
+		const tc = Math.max(0.05, glideSec) / 3;
 
-		if (isInside) {
-			this._fx.lowpass.frequency.setTargetAtTime(17000, t, tc);
-			this._fx.lowpass.Q.setTargetAtTime(0.5, t, tc);
-			this._fx.bass.gain.setTargetAtTime(9, t, tc);
-			this._fx.dry.gain.setTargetAtTime(0.65, t, tc);
-			this._fx.outdoorWet.gain.setTargetAtTime(0.0, t, tc);
-			this._fx.indoorWet.gain.setTargetAtTime(0.28, t, tc);
-		} else {
-			this._fx.lowpass.frequency.setTargetAtTime(420, t, tc);
-			this._fx.lowpass.Q.setTargetAtTime(1.0, t, tc);
-			this._fx.bass.gain.setTargetAtTime(18, t, tc);
-			this._fx.dry.gain.setTargetAtTime(0.22, t, tc);
-			this._fx.outdoorWet.gain.setTargetAtTime(0.85, t, tc);
-			this._fx.indoorWet.gain.setTargetAtTime(0.0, t, tc);
-		}
+		const lerp = (a, b) => a + (b - a) * f;
+		// Outdoor (f=0) → indoor (f=1) endpoints for every node in the chain.
+		const OUT = { freq: 420, q: 1.0, bass: 18, dry: 0.22, outWet: 0.85, inWet: 0.0 };
+		const IN = { freq: 17000, q: 0.5, bass: 9, dry: 0.65, outWet: 0.0, inWet: 0.28 };
+		// Cutoff perceived logarithmically — interpolate as a geometric sweep.
+		const freq = OUT.freq * Math.pow(IN.freq / OUT.freq, f);
+
+		this._fx.lowpass.frequency.setTargetAtTime(freq, t, tc);
+		this._fx.lowpass.Q.setTargetAtTime(lerp(OUT.q, IN.q), t, tc);
+		this._fx.bass.gain.setTargetAtTime(lerp(OUT.bass, IN.bass), t, tc);
+		this._fx.dry.gain.setTargetAtTime(lerp(OUT.dry, IN.dry), t, tc);
+		this._fx.outdoorWet.gain.setTargetAtTime(lerp(OUT.outWet, IN.outWet), t, tc);
+		this._fx.indoorWet.gain.setTargetAtTime(lerp(OUT.inWet, IN.inWet), t, tc);
+	}
+
+	// Snap to either extreme of the clarity axis — outside (false) or on the
+	// floor (true). Used by the degraded paths (cached re-entry, dead alley
+	// scene) that skip the gradual walk-through ramp.
+	setLocation(isInside) {
+		this.setClarity(isInside ? 1 : 0, 0.9);
 	}
 
 	// Ramp a single GainNode to `target`, gliding from its current value so the

@@ -1336,9 +1336,22 @@ window.addEventListener('club:performance-end', () => {
 		window.addEventListener('pointerdown', retry, { once: true });
 		window.addEventListener('keydown', retry, { once: true });
 	};
+
+	// The walk-through (src/club-entrance.js) opens the sound up a step at a time
+	// as you cross each threshold after paying — outside-the-door muffle → a
+	// little clearer in the gallery → clearer in the clubhouse → wide open on the
+	// floor. It drives that via club:clarity events so the music (a single
+	// streaming element) keeps playing from wherever it is and just gets clearer.
+	let clarityDrivenByWalk = false;
+	window.addEventListener('club:clarity', (e) => {
+		clarityDrivenByWalk = true;
+		audio.setClarity(Number(e.detail?.clarity));
+	});
 	window.addEventListener('club:admitted', () => {
-		// Transition audio from outdoor muffle → full indoor clarity as the door opens.
-		audio.setLocation(true);
+		// If the alley walk-through is ramping clarity itself, leave it to do so.
+		// Otherwise — a cached re-entry or a dead alley scene that skipped the
+		// walk — snap straight to full clarity as the door opens.
+		if (!clarityDrivenByWalk) audio.setLocation(true);
 		// On a cached re-entry the door opens with no gesture, so the context is
 		// still locked — fall back to playing on the next interaction.
 		audio.playEntrance().catch(armOnGesture);

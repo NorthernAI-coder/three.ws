@@ -529,6 +529,71 @@ describe('ClubAudio.setMuted', () => {
 	});
 });
 
+describe('ClubAudio.setClarity', () => {
+	it('snaps to the outdoor endpoints at clarity 0', async () => {
+		const audio = new ClubAudio();
+		await audio.ensureContext();
+		audio.setClarity(0);
+		expect(audio._fx.lowpass.frequency.value).toBeCloseTo(420, 0);
+		expect(audio._fx.bass.gain.value).toBeCloseTo(18, 3);
+		expect(audio._fx.dry.gain.value).toBeCloseTo(0.22, 3);
+		expect(audio._fx.outdoorWet.gain.value).toBeCloseTo(0.85, 3);
+		expect(audio._fx.indoorWet.gain.value).toBeCloseTo(0.0, 3);
+	});
+
+	it('snaps to the indoor endpoints at clarity 1', async () => {
+		const audio = new ClubAudio();
+		await audio.ensureContext();
+		audio.setClarity(1);
+		expect(audio._fx.lowpass.frequency.value).toBeCloseTo(17000, 0);
+		expect(audio._fx.bass.gain.value).toBeCloseTo(9, 3);
+		expect(audio._fx.dry.gain.value).toBeCloseTo(0.65, 3);
+		expect(audio._fx.outdoorWet.gain.value).toBeCloseTo(0.0, 3);
+		expect(audio._fx.indoorWet.gain.value).toBeCloseTo(0.28, 3);
+	});
+
+	it('produces a real in-between mix at partial clarity', async () => {
+		const audio = new ClubAudio();
+		await audio.ensureContext();
+		audio.setClarity(0.5);
+		// Linearly-interpolated params sit between the two endpoints.
+		expect(audio._fx.bass.gain.value).toBeCloseTo(13.5, 3);
+		expect(audio._fx.dry.gain.value).toBeCloseTo(0.435, 3);
+		expect(audio._fx.outdoorWet.gain.value).toBeCloseTo(0.425, 3);
+		expect(audio._fx.indoorWet.gain.value).toBeCloseTo(0.14, 3);
+		// Cutoff is geometric, so the midpoint is the geometric mean (~2672 Hz),
+		// far below the linear midpoint of ~8710 Hz.
+		expect(audio._fx.lowpass.frequency.value).toBeGreaterThan(2000);
+		expect(audio._fx.lowpass.frequency.value).toBeLessThan(3500);
+	});
+
+	it('clamps out-of-range and non-finite input', async () => {
+		const audio = new ClubAudio();
+		await audio.ensureContext();
+		audio.setClarity(5);
+		expect(audio._clarity).toBe(1);
+		audio.setClarity(-2);
+		expect(audio._clarity).toBe(0);
+		audio.setClarity(NaN);
+		expect(audio._clarity).toBe(0);
+	});
+
+	it('setLocation delegates to the clarity extremes', async () => {
+		const audio = new ClubAudio();
+		await audio.ensureContext();
+		audio.setLocation(true);
+		expect(audio._clarity).toBe(1);
+		audio.setLocation(false);
+		expect(audio._clarity).toBe(0);
+	});
+
+	it('no-ops cleanly before the context exists', () => {
+		const audio = new ClubAudio();
+		expect(() => audio.setClarity(0.5)).not.toThrow();
+		expect(() => audio.setLocation(true)).not.toThrow();
+	});
+});
+
 describe('ClubAudio.getPeak', () => {
 	it('returns 0 before the context is created', () => {
 		const audio = new ClubAudio();

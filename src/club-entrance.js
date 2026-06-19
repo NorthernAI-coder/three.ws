@@ -615,6 +615,22 @@ async function start(canvasEl) {
 	setupAgentSwitch();
 	showAgentSwitch(true);
 
+	// Music clarity ramps with the journey: the bed plays muffled-through-the-door
+	// while you're outside, opens up a step with each threshold you cross after
+	// paying, and is wide open by the time the pole floor reveals. src/club.js
+	// listens for club:clarity and drives the audio FX chain — the track itself
+	// never restarts, it just gets clearer. 0 = outside, 1 = on the floor.
+	function clarityForVenue(i) {
+		if (!paid) return 0;
+		// After paying, spread the opening evenly across the remaining walk:
+		// admission sits ~30% open, each venue deeper adds the rest, and the
+		// final hand-off to the stage (advance → arriving) snaps to fully open.
+		return 0.3 + 0.7 * (i / SEQUENCE.length);
+	}
+	function pushClarity(frac) {
+		window.dispatchEvent(new CustomEvent('club:clarity', { detail: { clarity: frac } }));
+	}
+
 	// Hint + prompt copy track where you are in the journey: the alley door takes
 	// the cover, the final place opens the stage, the rest just lead onward.
 	const isFinalVenue = () => venueIndex >= SEQUENCE.length - 1;
@@ -662,6 +678,7 @@ async function start(canvasEl) {
 		nearDoor = false;
 		if (isFinalVenue()) {
 			setJourneyStep(SEQUENCE.length); // light the Stage step
+			pushClarity(1); // stepping onto the floor — fully open the bed
 			setPhase('arriving');
 		} else {
 			setPhase('swapOut');
@@ -745,6 +762,8 @@ async function start(canvasEl) {
 						placeSpawn();
 						refreshCrowd(); // fill the next room with the roster
 						setHint();
+						// New room revealed — open the bed up another step.
+						pushClarity(clarityForVenue(venueIndex));
 						setPhase('swapIn');
 					} else if (next === 'error') {
 						// A place failed to load — don't strand the visitor; reveal
@@ -839,6 +858,9 @@ async function start(canvasEl) {
 		paid = true;
 		currentCover = false;
 		showPrompt(false); showHint(false); showJoystick(false); showMinimap(false); showAgentSwitch(false);
+		// Cover's paid and the rope drops — crack the door open so the bed clears
+		// its first step the moment the walk-in dance starts.
+		pushClarity(clarityForVenue(venueIndex));
 		await celebrateAdmission();
 		advance();
 	}
