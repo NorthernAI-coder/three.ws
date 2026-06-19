@@ -316,7 +316,7 @@ describe('/api/oauth/token — authorization_code grant', () => {
 	it('issues access + refresh on success and consumes the auth code', async () => {
 		sqlState.queue.push([PUBLIC_CLIENT]); // client
 		sqlState.queue.push([AUTH_CODE_ROW]); // code lookup
-		sqlState.queue.push([]); // mark code consumed
+		sqlState.queue.push([{ code: 'authcode' }]); // atomic consume returns the row
 		const { status, body } = await invoke({ formBody: baseForm });
 		expect(status).toBe(200);
 		expect(body.token_type).toBe('Bearer');
@@ -343,7 +343,7 @@ describe('/api/oauth/token — authorization_code grant', () => {
 		const noRefresh = { ...PUBLIC_CLIENT, grant_types: ['authorization_code'] };
 		sqlState.queue.push([noRefresh]);
 		sqlState.queue.push([AUTH_CODE_ROW]);
-		sqlState.queue.push([]);
+		sqlState.queue.push([{ code: 'authcode' }]); // atomic consume returns the row
 		const { status, body } = await invoke({ formBody: baseForm });
 		expect(status).toBe(200);
 		expect(body.refresh_token).toBeUndefined();
