@@ -112,6 +112,9 @@ function injectStyles() {
 export function initRoomMode(deps) {
 	const { getFix, getHeading, ensureReady, placeRoomAgent } = deps;
 	const status = deps.status || (() => {});
+	// Optional: drive a live 3D ghost preview of where the agent will land. irl.js
+	// owns the scene + render; we feed it the live aim each animation frame.
+	const previewAim = deps.previewAim || (() => {});
 	if (typeof getFix !== 'function' || typeof placeRoomAgent !== 'function') {
 		throw new Error('initRoomMode: getFix + placeRoomAgent are required');
 	}
@@ -122,6 +125,8 @@ export function initRoomMode(deps) {
 	let faceViewer = true;
 	let activeRoom = reviveRoomFromStore();
 	let tickTimer = null;
+	let previewRaf = null;
+	let previewLast = 0;
 	let busy = false;
 
 	// ── Entry button ─────────────────────────────────────────────────────────
@@ -264,6 +269,28 @@ export function initRoomMode(deps) {
 		}
 	}
 
+	// Per-frame ghost driver: feed irl.js the live aim so the translucent stand-in
+	// tracks the phone smoothly (the 120 ms HUD-readout tick would look stepped on
+	// the 3D preview). Re-projects from the live compass + current slider/facing.
+	function previewTick(ts) {
+		if (!active) return;
+		const dt = previewLast ? Math.min(0.1, (ts - previewLast) / 1000) : 0;
+		previewLast = ts;
+		const fix = getFix();
+		const heading = getHeading ? getHeading() : { deg: 0, absolute: false };
+		previewAim({ on: true, ready: !!(fix && fix.ready), headingDeg: heading.deg, distM, faceViewer, dt });
+		previewRaf = requestAnimationFrame(previewTick);
+	}
+	function startPreview() {
+		if (previewRaf != null) return;
+		previewLast = 0;
+		previewRaf = requestAnimationFrame(previewTick);
+	}
+	function stopPreview() {
+		if (previewRaf != null) { cancelAnimationFrame(previewRaf); previewRaf = null; }
+		previewAim({ on: false });
+	}
+
 	async function enter() {
 		if (active) return;
 		let ok = false;
@@ -280,6 +307,7 @@ export function initRoomMode(deps) {
 		refreshBadge();
 		placeBtn.focus();
 		tickTimer = setInterval(refreshReadouts, 120); // live compass/fix readout, decoupled from the render loop
+		startPreview();
 	}
 
 	function exit() {
@@ -291,6 +319,7 @@ export function initRoomMode(deps) {
 		hud.classList.remove('is-open');
 		badge.classList.remove('is-shown');
 		if (tickTimer) { clearInterval(tickTimer); tickTimer = null; }
+		stopPreview();
 	}
 
 	async function place() {

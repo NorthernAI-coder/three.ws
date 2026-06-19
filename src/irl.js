@@ -57,6 +57,7 @@ import { sharedGLTFLoader, createLoadQueue } from './irl/load-queue.js';
 import { roomOriginWorld, agentWorldPosition, localToGeo, calibrateRoomOrigin } from './irl/room-anchor.js';
 import { anchorPoseToPin, yawDegFromQuat } from './irl/floor-anchor.js';
 import { initRoomMode } from './irl/room-mode.js';
+import { createRoomGhost } from './irl/room-ghost.js';
 import { isFiniteReading, isCompassFresh, shouldUseAbsoluteYaw, resolveLockYaw, clampPitch, screenPitchDeg } from './irl/sensor-fusion.js';
 import { deriveVerticalFovDeg, DEFAULT_DIAG_FOV_DEG } from './irl/camera-fov.js';
 import { pinBandAction } from './irl/proximity-band.js';
@@ -660,9 +661,20 @@ const raycaster  = new Raycaster();
 const pointerNDC = new Vector2();
 let tapDownX = 0, tapDownY = 0;
 
-canvas.addEventListener('pointerdown', e => { tapDownX = e.clientX; tapDownY = e.clientY; armLongPress(e); });
+canvas.addEventListener('pointerdown', e => {
+	// The WebXR floor-anchor session (and its failed-start error card) layers a modal
+	// overlay over the canvas; don't arm a long-press behind it.
+	if (xrOverlay && !xrOverlay.hidden) return;
+	tapDownX = e.clientX; tapDownY = e.clientY; armLongPress(e);
+});
 canvas.addEventListener('pointerup', e => {
 	cancelLongPress();
+	// While the WebXR floor-anchor overlay is up, the immersive session owns taps —
+	// its 'select' places the anchor — and on a failed start the error card is modal.
+	// Either way the 2D pin/place raycast behind it must not also fire (dead taps,
+	// stray sheets). The overlay is display:none whenever AR/gyro mode is active, so
+	// this only gates during an actual XR session or its error state.
+	if (xrOverlay && !xrOverlay.hidden) return;
 	// While calibrating, taps belong to the nudge gesture — never re-open a sheet.
 	if (calibrateActive) return;
 	if (Math.hypot(e.clientX - tapDownX, e.clientY - tapDownY) > TAP_THRESHOLD) return;
@@ -1737,11 +1749,18 @@ function onGPSPosition(pos) {
 		// The agent being calibrated is driven by the nudge gesture this frame, not
 		// by GPS — re-apply its working pose against the (possibly shifted) origin.
 		if (calibrateActive && _cal && _cal.pin === p) { applyCalToGroup(); updatePinRing(p); continue; }
+		// A room being aligned is driven by the room-cal gesture against a temporary
+		// origin; skip the default reproject so it isn't double-corrected. The whole
+		// cluster is re-applied once below so it still tracks the blended viewer origin.
+		if (calibrateActive && _roomCal && _roomCal.pins.includes(p)) continue;
 		const wp = pinWorldPos(p);
 		p.group.position.set(wp.x, wp.y, wp.z);
 		p.distance_m = Math.round(Math.hypot(wp.x, wp.z));
 		updatePinRing(p);
 	}
+	// Re-apply the active room-cal cluster against the freshly blended origin so the
+	// rig holds its real-world spot as the viewer's GPS settles mid-alignment.
+	if (calibrateActive && _roomCal) applyRoomCalToGroups();
 
 	// Re-anchor live presence ghosts against the shifted origin too, so a co-viewer's
 	// orb holds its real-world bearing as the user walks (same treatment as pins).
@@ -1950,23 +1969,63 @@ async function savePin(lat, lng, heading = 0, caption = '', anchor = null) {
 // it renders world-locked at once via the room frame (pinWorldPos). Returns the
 // same { ok, id, message } shape the UI surfaces.
 async function placeRoomAgent(body) {
+	const room = body?.room;
+	if (!room || !room.id) return { ok: false, message: 'Could not anchor the room — try again.' };
+	const heading = ((Math.round(body.heading) % 360) + 360) % 360;
+	// Gyro placement has no measured floor depth and no surface quaternion: the agent
+	// stands on the viewer's own ground plane (heightM 0) facing the compass heading.
+	// 'gyro-gps' vs ':rel' carries the absolute-vs-page-relative bearing distinction A3
+	// down-weights. The WebXR path (postRoomPin via persistFloorAnchor) supplies a
+	// richer anchor — real floor height + surface quat + 'webxr' source.
+	const anchor = {
+		heightM: 0, yawDeg: heading,
+		gpsAccuracyM: gpsState.accuracy, altitudeM: gpsState.altitude,
+		source: body.absolute ? 'gyro-gps' : 'gyro-gps:rel',
+	};
+	return postRoomPin({
+		lat: body.lat, lng: body.lng, heading,
+		room: {
+			id: room.id,
+			originLat: room.originLat, originLng: room.originLng,
+			originYawDeg: room.originYawDeg || 0,
+			relEast: room.relEast, relNorth: room.relNorth,
+		},
+		anchor,
+	});
+}
+
+// Shared POST for a room-anchored agent — the one network+spawn path behind both
+// the gyro aim flow (R1, slider + compass) and the WebXR floor flow (R3, on-device
+// hit-test). The caller hands the computed absolute lat/lng (the GPS index), the
+// agent heading, the shared room block (origin + exact rel offset), and the A2
+// anchor pose, whose `source` / `quat` / `heightM` ride straight through so a
+// WebXR placement persists with centimetre precision while a gyro one degrades
+// honestly. On success we spawn locally so the agent is world-locked at once via
+// the shared frame (pinWorldPos), and bump the room badge through the room-mode API.
+async function postRoomPin({ lat, lng, heading, room, anchor }) {
 	try {
-		const room = body?.room;
 		if (!room || !room.id) return { ok: false, message: 'Could not anchor the room — try again.' };
-		const heading = ((Math.round(body.heading) % 360) + 360) % 360;
-		const source = body.absolute ? 'gyro-gps' : 'gyro-gps:rel';
+		const h = ((Math.round(heading) % 360) + 360) % 360;
+		const quat = Array.isArray(anchor?.quat) && anchor.quat.length === 4 ? anchor.quat : null;
 		const r = await fetch('/api/irl/pins', {
 			method: 'POST',
 			credentials: 'include',
 			headers: deviceHeaders({ 'Content-Type': 'application/json' }),
 			body: JSON.stringify({
-				lat: body.lat, lng: body.lng, heading,
+				lat, lng, heading: h,
 				caption: null,
 				avatarUrl: resolveAvatarUrl(_currentAvatarId),
 				avatarName: nameEl.textContent,
 				deviceToken: _deviceToken,
 				agentId: _currentAgentId || null,
-				anchor: { heightM: 0, yawDeg: heading, gpsAccuracyM: gpsState.accuracy, altitudeM: gpsState.altitude, source },
+				anchor: {
+					heightM: anchor?.heightM ?? 0,
+					yawDeg: anchor?.yawDeg ?? h,
+					quat,
+					gpsAccuracyM: anchor?.gpsAccuracyM ?? gpsState.accuracy,
+					altitudeM: anchor?.altitudeM ?? gpsState.altitude,
+					source: anchor?.source || 'gyro-gps',
+				},
 				room: {
 					id: room.id,
 					originLat: room.originLat, originLng: room.originLng,
@@ -1988,8 +2047,11 @@ async function placeRoomAgent(body) {
 		// matching the nearby projection so pinRoom()/pinWorldPos() render it correctly.
 		const pin = {
 			id: data.pin.id,
-			lat: body.lat, lng: body.lng,
-			heading, anchor_yaw_deg: heading, anchor_height_m: 0,
+			lat, lng,
+			heading: h, anchor_yaw_deg: anchor?.yawDeg ?? h,
+			anchor_height_m: anchor?.heightM ?? 0,
+			anchor_quat: quat,
+			anchor_source: anchor?.source || 'gyro-gps',
 			room_id: room.id, rel_east_m: room.relEast, rel_north_m: room.relNorth,
 			origin_lat: room.originLat, origin_lng: room.originLng, origin_yaw_deg: room.originYawDeg || 0,
 			avatar_url: resolveAvatarUrl(_currentAvatarId), avatar_name: nameEl.textContent,
@@ -2350,6 +2412,16 @@ document.addEventListener('visibilitychange', () => {
 });
 
 let xrSession = null;
+// The room-authoring API (src/irl/room-mode.js), captured from initRoomMode below.
+// The WebXR floor path reads it to anchor a hit into the active room (or establish
+// one) and to bump the room badge — so on-device precision and the gyro slider flow
+// always share one room. Assigned at init; only referenced after a user gesture.
+let roomModeApi = null;
+// The room pin currently being sharpened by a WebXR "Refine on floor" session, or
+// null for a normal placement. onFloorAnchored routes the tap to refine when set;
+// enterFloorPlacement clears it so a plain "Place on floor" never re-targets a stale
+// pin. Bounds-checked server-side — refine only sharpens this one agent's offset.
+let _refinePin = null;
 // A floor anchor placed before the first GPS fix is held here and persisted the
 // instant onGPSPosition() lands real coordinates (mirrors _pendingGpsLock for the
 // gyro path). The in-session XRAnchor already glues the agent; this rescues its
@@ -2553,6 +2625,15 @@ function onFloorAnchored(pose, meta = {}) {
 	// tap takes (the in-scene pulse + haptic fire from WebXRSession). It rides every
 	// downstream copy change until the session resets.
 	setXrConfirmed(true);
+	// Refine-on-floor (R3): the tap re-places ONE existing room agent rather than
+	// dropping a new one. Consume the target latch and PATCH the single agent's offset
+	// — bypassing the new-pin persist gate entirely (the agent already exists).
+	if (_refinePin) {
+		const target = _refinePin;
+		_refinePin = null;
+		refineFloorAnchored(target, pose);
+		return;
+	}
 	// The gate decides: with a live fix it persists now; during GPS warm-up it
 	// holds the pose (degraded flag rides along) and onGPSPosition drains it once.
 	const outcome = floorPersist.place({ pose, degraded }, gpsState.ready);
@@ -2566,46 +2647,134 @@ function onFloorAnchored(pose, meta = {}) {
 	// outcome === 'persisted' → persistFloorAnchor set the resting hint already.
 }
 
-// Convert the anchored local-space pose to a GPS pin and persist it (A2) — the
-// durable, shareable record beyond the in-session XRAnchor. Horizontal offset →
-// lat/lng uses the same metre-per-degree math as the gyro Pin path (local −Z =
-// north, +X = east); height + yaw + GPS-fit trust ride along in the anchor object.
-// Split out so onGPSPosition() can replay a pose captured before the first fix.
-// `degraded` (no real XRAnchor) only changes the in-session honesty copy — the
-// durable GPS pin is just coordinates, so it saves the same either way.
+// Persist a WebXR floor placement as a shared ROOM pin (R3). The hit-test gives a
+// metres-from-eye-level local pose; we fold the placer's GPS offset from the room
+// origin into it and store the EXACT room-frame offset (relEast/relNorth) + the real
+// floor height + the surface quaternion, tagged `anchor_source: 'webxr'`. The agent
+// then renders for every viewer through the same shared frame as a gyro placement —
+// WebXR only improved WHERE it was captured. If the user reached "Place on floor"
+// without entering room mode, we establish a room at the current fix first, so a
+// WebXR drop is never a one-off standalone pin. Split out so onGPSPosition() can
+// replay a pose captured before the first fix; the gate guarantees gpsState.ready.
+// `degraded` (no real XRAnchor) only changes the in-session honesty copy.
 function persistFloorAnchor(pose, degraded = false) {
 	const { position, quaternion } = pose;
-	// Pure, unit-tested conversion (src/irl/floor-anchor.js): horizontal offset →
-	// lat/lng via room-anchor's single projection, quaternion → normalised yaw.
-	const pin = anchorPoseToPin({
-		originLat: gpsState.lat,
-		originLng: gpsState.lng,
-		x: position.x,
-		y: position.y,
-		z: position.z,
-		quat: [quaternion.x, quaternion.y, quaternion.z, quaternion.w],
+	const quat = [quaternion.x, quaternion.y, quaternion.z, quaternion.w];
+
+	// Establish (or reuse) the shared room this precise placement anchors into. The
+	// compass frame matches the gyro path's getHeading dep: true compass when present,
+	// else camera-yaw, with prefersAbsOrientation deciding the true-north frame.
+	const headingDeg = lastCompassHeading != null
+		? lastCompassHeading
+		: ((-(cameraYaw * 180 / Math.PI)) % 360 + 360) % 360;
+	const room = roomModeApi?.ensureRoom({
+		lat: gpsState.lat, lng: gpsState.lng,
+		headingDeg, absolute: !!prefersAbsOrientation,
+	});
+	if (!room) {
+		// Behind the persist gate gpsState.ready is true, so this is defensive only:
+		// never strand the tap — the in-session anchor still holds the agent.
+		setXrResting('Placed — couldn’t lock your location to save it; move to a clearer sky and retry');
+		return;
+	}
+
+	// Pure, unit-tested conversion (src/irl/floor-anchor.js): XR hit pose → exact
+	// offset in the room frame + the absolute lat/lng GPS index + heading from the quat.
+	const placement = roomPlacementFromHit({
+		originLat: room.originLat, originLng: room.originLng, originYawDeg: room.originYawDeg || 0,
+		viewerLat: gpsState.lat, viewerLng: gpsState.lng,
+		x: position.x, y: position.y, z: position.z, quat,
 	});
 
-	gpsPin = { lat: pin.lat, lng: pin.lng };
-	gpsModeActive = true;
 	setXrResting(placementHint(degraded));
-	savePin(pin.lat, pin.lng, pin.heading, '', {
-		heightM: pin.heightM,       // floor height relative to the eye-level session origin (negative = below)
-		yawDeg:  pin.heading,
-		quat:    pin.quat,
-		source:  pin.source,
+	postRoomPin({
+		lat: placement.lat, lng: placement.lng, heading: placement.relYawDeg,
+		room: {
+			id: room.id, originLat: room.originLat, originLng: room.originLng,
+			originYawDeg: room.originYawDeg || 0,
+			relEast: placement.relEast, relNorth: placement.relNorth,
+		},
+		anchor: {
+			heightM: placement.heightM, yawDeg: placement.relYawDeg, quat: placement.quat,
+			gpsAccuracyM: gpsState.accuracy, altitudeM: gpsState.altitude, source: 'webxr',
+		},
 	}).then(result => {
-		if (result?.ok && gpsPin) {
-			gpsPin.id = result.id;
-			revealMyPinsBtn();
+		if (result?.ok) {
+			roomModeApi?.notePlacement();
 			setXrResting(result.permanent
-				? 'Saved — your agent is here for everyone nearby'
-				: 'Saved — people nearby can see your agent for 7 days');
+				? 'Saved on the floor — your agent is here for everyone nearby'
+				: 'Saved on the floor — people nearby can see your agent for 7 days');
 		} else {
 			// Surface the moderation/cap/rate reason; the in-session anchor still holds.
 			setXrResting(result?.message || 'Placed — couldn’t save the pin yet, retry on exit');
 		}
 	});
+}
+
+// Re-place ONE existing room agent from a fresh WebXR hit (R3 "refine on floor").
+// Converts the hit to the SAME room's frame (the agent's stored origin, never a new
+// one) and PATCHes only this agent's rel offset + floor height + facing — the shared
+// origin is untouched, so the cluster stays put and only the local view sharpens.
+// Bounds are enforced server-side; an over-large move is rejected with the existing
+// 422 copy. The session stays open on the sharpened agent; the user exits when ready.
+function refineFloorAnchored(pin, pose) {
+	if (!gpsState.ready) { setXrResting('Waiting for your location to refine — hold still a moment'); return; }
+	const room = pinRoom(pin);
+	if (!room) { setXrResting('This agent isn\u2019t in a room — exit and use Calibrate instead'); return; }
+	const { position, quaternion } = pose;
+	const placement = roomPlacementFromHit({
+		originLat: room.originLat, originLng: room.originLng, originYawDeg: room.originYawDeg,
+		viewerLat: gpsState.lat, viewerLng: gpsState.lng,
+		x: position.x, y: position.y, z: position.z,
+		quat: [quaternion.x, quaternion.y, quaternion.z, quaternion.w],
+	});
+	setXrResting('Sharpening this agent\u2019s spot\u2026');
+	const body = { id: pin.id, deviceToken: _deviceToken, calibrate: {
+		lat: placement.lat, lng: placement.lng,
+		anchorYawDeg: placement.relYawDeg, anchorHeightM: placement.heightM,
+		relEast: placement.relEast, relNorth: placement.relNorth,
+	} };
+	fetch('/api/irl/pins', {
+		method: 'PATCH', credentials: 'include',
+		headers: deviceHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify(body),
+	}).then(async (r) => {
+		if (!r.ok) {
+			const msg = r.status === 403 ? 'Only the owner can refine this agent.'
+				: r.status === 422 ? 'That\u2019s too far from the agent\u2019s spot — refine sharpens a placement, it doesn\u2019t move it across the room.'
+				: r.status === 404 ? 'This agent is no longer here.'
+				: 'Couldn\u2019t save the refined spot — try again.';
+			setXrResting(msg);
+			return;
+		}
+		// Commit the sharpened offset onto the live pin so it re-renders at once and
+		// every nearby viewer picks it up on their next proximity poll (~10 s).
+		pin.rel_east_m = placement.relEast;
+		pin.rel_north_m = placement.relNorth;
+		pin.lat = placement.lat; pin.lng = placement.lng;
+		pin.anchor_height_m = placement.heightM;
+		pin.anchor_yaw_deg = placement.relYawDeg; pin.heading = Math.round(placement.relYawDeg);
+		pin.anchor_quat = placement.quat;
+		if (pin.group && gpsState.ready) {
+			const wp = pinWorldPos(pin);
+			pin.group.position.set(wp.x, wp.y, wp.z);
+			pin.group.rotation.y = pinYawRad(pin);
+			if (pin.baseYaw != null) pin.baseYaw = pin.group.rotation.y;
+		}
+		setXrResting('Refined — saved here; nearby viewers update within ~10s. Tap exit when you\u2019re done.');
+		try { navigator.vibrate?.(12); } catch {}
+		loadNearbyPins();
+	}).catch(() => {
+		setXrResting('Couldn\u2019t reach the server — exit and try again.');
+	});
+}
+
+// Enter a WebXR floor session aimed at refining ONE existing room agent. Latches the
+// target so the next tap routes to refineFloorAnchored, then reuses the same hit-test
+// session as placement. WebXR-only and owner-only — gated where the entry is offered.
+function enterRefineOnFloor(pin) {
+	if (_placementCapability !== 'webxr' || !pin) return;
+	_refinePin = pin;
+	enterFloorAnchor();
 }
 
 // ── iOS AR Quick Look (capability 'quicklook') ─────────────────────────────
@@ -2652,6 +2821,10 @@ async function enterQuickLookPlacement() {
 // in-canvas hit-test session. ('pin' devices never reach here — the button stays
 // hidden and the Pin path is the placement.)
 function enterFloorPlacement() {
+	// A plain "Place on floor" drops a NEW agent — clear any refine target a prior,
+	// exited-without-tapping refine session left latched, so this never re-places an
+	// old agent instead of creating one.
+	_refinePin = null;
 	if (_placementCapability === 'quicklook') return enterQuickLookPlacement();
 	return enterFloorAnchor();
 }
@@ -3316,6 +3489,10 @@ async function loadNearbyPins() {
 		}
 
 		updateNearbyBadge();
+
+		// R2: offer the one-tap align for any nearby relative-frame room this viewer
+		// doesn't own (a room placed without a compass that may render rotated here).
+		maybePromptRoomAlign();
 
 		// Flash pin label if ?highlight= matches
 		if (highlightPinId) {
@@ -4638,6 +4815,34 @@ function openPinSheet(pin) {
 			: null;
 	}
 
+	// Refine on floor (R3) — the precision layer. On a WebXR device, the owner can
+	// re-place their OWN room agent with a real on-device hit-test (feet on the actual
+	// floor) instead of the drag nudge. Only shown for an own ROOM pin on a WebXR
+	// device; iOS/unsupported keep Calibrate (the button stays absent, never a dead
+	// end). It sharpens this one agent without touching the shared origin.
+	const refineBtn = document.getElementById('irl-sheet-refine');
+	if (refineBtn) {
+		const canRefine = _placementCapability === 'webxr' && isOwnPin(pin) && !!pinRoom(pin);
+		refineBtn.hidden = !canRefine;
+		refineBtn.onclick = canRefine
+			? () => { closeInspectSheet(); enterRefineOnFloor(pin); }
+			: null;
+	}
+
+	// Align this room (R2) — the headline one-gesture tool. Shown when this agent
+	// belongs to a multi-agent room THIS device owns entirely: align the whole
+	// cluster in one move instead of nudging each agent. The server re-checks
+	// ownership across every pin in the room.
+	const alignBtn = document.getElementById('irl-sheet-align-room');
+	if (alignBtn) {
+		const rid = alignableRoomId(pin);
+		const count = rid ? nearbyPins.filter(p => p.room_id === rid && p.group).length : 0;
+		const show = !!rid && count >= 2;
+		alignBtn.hidden = !show;
+		alignBtn.textContent = show ? `Align this room (${count})` : 'Align this room';
+		alignBtn.onclick = show ? () => { closeInspectSheet(); enterRoomCalibrate(rid); } : null;
+	}
+
 	// Report (D4) — community moderation. Pointless on your own pin (the server
 	// no-ops owner self-reports), so it's shown only on someone else's placement.
 	const reportBtn = document.getElementById('irl-sheet-report');
@@ -5801,7 +6006,8 @@ function tick() {
 // nudge keep the UX truthful and correctable. No coin is involved anywhere here.
 
 let calibrateActive = false;
-let _cal = null;                 // active calibration session, or null
+let _cal = null;                 // active per-pin calibration session, or null
+let _roomCal = null;             // active one-gesture room-calibrate session, or null
 
 // Pin ids this device placed — gates the client-side calibrate affordance and the
 // gold "your agent" label. The server re-checks ownership on every PATCH, so this
@@ -5809,6 +6015,20 @@ let _cal = null;                 // active calibration session, or null
 const _myPinIds = new Set();
 function isOwnPin(pin) {
 	return _myPinIds.has(pin.id) || (gpsPin?.id != null && pin.id === gpsPin.id);
+}
+// Room ownership: the server's is_mine (authoritative across sessions/reloads) or
+// a pin this device placed this session. Used to gate the whole-room align.
+function isOwnRoomPin(pin) {
+	return pin?.is_mine === true || isOwnPin(pin);
+}
+// The room id the given pin belongs to, IF this device owns every rendered agent
+// in it (so a whole-room align can never move a stranger's agent). Null otherwise.
+function alignableRoomId(pin) {
+	const rid = pin?.room_id;
+	if (!rid) return null;
+	const inRoom = nearbyPins.filter(p => p.room_id === rid && p.group);
+	if (!inRoom.length) return null;
+	return inRoom.every(isOwnRoomPin) ? rid : null;
 }
 
 // — Long-press to enter calibrate —
@@ -5884,6 +6104,7 @@ function enterCalibrate(pin, seed = null) {
 }
 
 function exitCalibrate(revert) {
+	if (_roomCal) return exitRoomCalibrate(revert);
 	document.getElementById('irl-calibrate-panel')?.classList.remove('is-open');
 	document.body.classList.remove('is-calibrating');
 	if (_cal) {
@@ -5984,17 +6205,39 @@ function calPointerDown(e) {
 	_calPtrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
 	try { canvas.setPointerCapture?.(e.pointerId); } catch {}
 	if (_calPtrs.size >= 2) {
-		_calTwistStart = { angle: _twoFingerAngle(), yaw: _cal.yaw };
+		_calTwistStart = { angle: _twoFingerAngle(), yaw: _roomCal ? _roomCal.dYaw : _cal.yaw };
 		_calGroundStart = null;
 	} else {
 		const gp = _groundPointXY(e.clientX, e.clientY);
 		_calGroundStart = gp ? { x: gp.x, z: gp.z } : null;
-		_calDragStart = { lat: _cal.lat, lng: _cal.lng };
+		_calDragStart = _roomCal ? { dEast: _roomCal.dEast, dNorth: _roomCal.dNorth } : { lat: _cal.lat, lng: _cal.lng };
 	}
 }
 function calPointerMove(e) {
 	if (!calibrateActive || !_calPtrs.has(e.pointerId)) return;
 	_calPtrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+	// Room align: the whole cluster slides (drag) / rotates about its origin (twist).
+	if (_roomCal) {
+		if (_calPtrs.size >= 2) {
+			if (!_calTwistStart) _calTwistStart = { angle: _twoFingerAngle(), yaw: _roomCal.dYaw };
+			let dDeg = (_twoFingerAngle() - _calTwistStart.angle) * 180 / Math.PI;
+			dDeg = Math.max(-45, Math.min(45, dDeg));
+			_roomCal.dYaw = _calTwistStart.yaw + dDeg;
+			applyRoomCalToGroups(); updateRoomCalReadout();
+			return;
+		}
+		if (!_calGroundStart || !_calDragStart) {
+			const gp0 = _groundPointXY(e.clientX, e.clientY);
+			if (gp0) { _calGroundStart = { x: gp0.x, z: gp0.z }; _calDragStart = { dEast: _roomCal.dEast, dNorth: _roomCal.dNorth }; }
+			return;
+		}
+		const gpr = _groundPointXY(e.clientX, e.clientY);
+		if (!gpr) return;
+		_roomCal.dEast  = _calDragStart.dEast  + (gpr.x - _calGroundStart.x);
+		_roomCal.dNorth = _calDragStart.dNorth - (gpr.z - _calGroundStart.z); // north = −Z
+		applyRoomCalToGroups(); updateRoomCalReadout();
+		return;
+	}
 	if (_calPtrs.size >= 2) {
 		// Two-finger twist → yaw nudge. Live feedback lets the owner aim it; clamp ±45°.
 		if (!_calTwistStart) _calTwistStart = { angle: _twoFingerAngle(), yaw: _cal.yaw };
@@ -6025,19 +6268,32 @@ function calPointerUp(e) {
 	try { canvas.releasePointerCapture?.(e.pointerId); } catch {}
 	if (_calPtrs.size < 2) _calTwistStart = null;
 	if (_calPtrs.size === 0) { _calGroundStart = null; _calDragStart = null; }
-	else { _calGroundStart = null; _calDragStart = { lat: _cal.lat, lng: _cal.lng }; } // rebase, avoid a jump
+	else { // rebase the remaining finger so lifting one doesn't jump the rig
+		_calGroundStart = null;
+		_calDragStart = _roomCal ? { dEast: _roomCal.dEast, dNorth: _roomCal.dNorth } : { lat: _cal.lat, lng: _cal.lng };
+	}
 }
 
 // — Save / errors —
 async function saveCalibrate() {
+	if (_roomCal) return saveRoomCalibrate();
 	if (!_cal) return;
 	const saveBtn = document.getElementById('irl-cal-save');
 	const errEl   = document.getElementById('irl-cal-error');
 	if (errEl) { errEl.hidden = true; errEl.replaceChildren(); }
 	if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving…'; }
 	const pin = _cal.pin;
+	// For a ROOM pin the render path resolves position from rel_east_m/rel_north_m
+	// (not the absolute lat/lng), so a drag that moved only lat/lng would snap back on
+	// the next viewer re-fetch. Re-derive the agent's exact room-frame offset from the
+	// calibrated coordinate and send it too, so the per-agent nudge sticks for everyone.
+	const _room = pinRoom(pin);
+	const _rel = _room
+		? roomRelFromGeo({ originLat: _room.originLat, originLng: _room.originLng, originYawDeg: _room.originYawDeg, lat: _cal.lat, lng: _cal.lng })
+		: null;
 	const body = { id: pin.id, deviceToken: _deviceToken, calibrate: {
-		lat: _cal.lat, lng: _cal.lng, anchorYawDeg: _cal.yaw, anchorHeightM: _cal.height } };
+		lat: _cal.lat, lng: _cal.lng, anchorYawDeg: _cal.yaw, anchorHeightM: _cal.height,
+		...(_rel ? { relEast: _rel.relEast, relNorth: _rel.relNorth } : {}) } };
 	try {
 		const r = await fetch('/api/irl/pins', {
 			method: 'PATCH', credentials: 'include',
@@ -6055,6 +6311,7 @@ async function saveCalibrate() {
 		pin.lat = _cal.lat; pin.lng = _cal.lng;
 		pin.anchor_yaw_deg = _cal.yaw; pin.heading = Math.round(_cal.yaw);
 		pin.anchor_height_m = _cal.height;
+		if (_rel) { pin.rel_east_m = _rel.relEast; pin.rel_north_m = _rel.relNorth; }
 		// The manual yaw nudge supersedes the captured surface quaternion; drop it so
 		// pinYawRad (task 02) reads the corrected anchor_yaw_deg, matching the server
 		// (handleCalibrate clears anchor_quat on a yaw change). Without this the live
@@ -6079,6 +6336,236 @@ async function saveCalibrate() {
 			errEl.hidden = false;
 		}
 	}
+}
+
+// ── One-gesture ROOM calibrate (R2) ─────────────────────────────────────────
+// The headline alignment tool. Every agent in a room is rigidly tied to one
+// shared origin, so instead of nudging each agent (A3) the owner grabs the WHOLE
+// cluster and slides / twists it onto its true real-world spot once — moving
+// every agent together with the internal layout intact. The gesture mirrors the
+// per-pin calibrate (reusing _calPtrs / _groundPointXY) but is applied to the
+// room ORIGIN (roomOriginWorld) and re-renders the cluster live; the save is the
+// owner-gated, bounds-checked room-scoped PATCH (handleCalibrateRoom), which
+// re-derives each agent's absolute lat/lng from its unchanged room-frame offset.
+
+function enterRoomCalibrate(roomId) {
+	const panel = document.getElementById('irl-calibrate-panel');
+	const pins = nearbyPins.filter(p => p.room_id === roomId && p.group);
+	if (!panel || !pins.length) return;
+	if (!pins.every(isOwnRoomPin)) { showCalibrateDenied(); return; }
+	if (!gpsState.ready) { setStatus('Waiting for a GPS fix before aligning the room…', { warn: true }); return; }
+	document.getElementById('irl-sheet')?.classList.remove('is-open');
+	const base = pins[0];
+	_roomCal = {
+		roomId, pins,
+		originLat: Number(base.origin_lat), originLng: Number(base.origin_lng),
+		originYawDeg: Number(base.origin_yaw_deg) || 0,
+		dEast: 0, dNorth: 0, dYaw: 0,
+	};
+	for (const p of pins) {
+		const yaw0 = Number.isFinite(p.anchor_yaw_deg) ? p.anchor_yaw_deg : (p.heading ?? 0);
+		p._roomCalBaseYaw = ((yaw0 % 360) + 360) % 360;
+		p.labelEl?.classList.add('is-calibrating');
+	}
+	calibrateActive = true;
+	document.body.classList.add('is-calibrating', 'is-room-cal');
+	const titleEl = document.getElementById('irl-cal-title');
+	if (titleEl) titleEl.textContent = `Align ${pins.length} agent${pins.length === 1 ? '' : 's'} in this room`;
+	const errEl = document.getElementById('irl-cal-error');
+	if (errEl) { errEl.hidden = true; errEl.replaceChildren(); }
+	const saveBtn = document.getElementById('irl-cal-save');
+	if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save room position'; }
+	updateRoomCalReadout(); updateRoomCalAccuracy();
+	panel.classList.add('is-open');
+	setStatus('Drag to slide the whole room · twist with two fingers to rotate');
+	_calPtrs.clear(); _calTwistStart = null; _calGroundStart = null; _calDragStart = null;
+}
+
+function exitRoomCalibrate(revert) {
+	document.getElementById('irl-calibrate-panel')?.classList.remove('is-open');
+	document.body.classList.remove('is-calibrating', 'is-room-cal');
+	if (_roomCal) {
+		if (revert) { _roomCal.dEast = 0; _roomCal.dNorth = 0; _roomCal.dYaw = 0; applyRoomCalToGroups(); }
+		for (const p of _roomCal.pins) { p.labelEl?.classList.remove('is-calibrating'); delete p._roomCalBaseYaw; }
+	}
+	_roomCal = null;
+	calibrateActive = false;
+	_calPtrs.clear(); _calTwistStart = null; _calGroundStart = null; _calDragStart = null;
+	const saveBtn = document.getElementById('irl-cal-save');
+	if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save position'; }
+	const titleEl = document.getElementById('irl-cal-title');
+	if (titleEl) titleEl.textContent = 'Calibrate position';
+}
+
+// Clamp the working alignment to a small correction — slide a few metres / twist,
+// never relocate. Matches the server ceilings (±5 m translation magnitude, ±45°).
+function clampRoomCal() {
+	if (!_roomCal) return;
+	const m = Math.hypot(_roomCal.dEast, _roomCal.dNorth);
+	if (m > 5) { const s = 5 / m; _roomCal.dEast *= s; _roomCal.dNorth *= s; }
+	_roomCal.dYaw = Math.max(-45, Math.min(45, _roomCal.dYaw));
+}
+
+// Apply the working alignment to every group in the cluster so the whole room
+// moves rigidly and live. Reuses the pure room-anchor math against a temporary
+// origin (current origin + the drag) and frame yaw (+ the twist).
+function applyRoomCalToGroups() {
+	if (!_roomCal) return;
+	clampRoomCal();
+	const moved = localToGeo(_roomCal.originLat, _roomCal.originLng, _roomCal.dEast, _roomCal.dNorth);
+	const yaw = ((_roomCal.originYawDeg + _roomCal.dYaw) % 360 + 360) % 360;
+	const originWorld = roomOriginWorld(gpsState.lat, gpsState.lng, moved.lat, moved.lng);
+	for (const p of _roomCal.pins) {
+		if (!p.group) continue;
+		const wp = agentWorldPosition({
+			originWorld,
+			relEast: Number(p.rel_east_m) || 0,
+			relNorth: Number(p.rel_north_m) || 0,
+			heightM: pinHeightM(p),
+			originYawDeg: yaw,
+		});
+		p.group.position.set(wp.x, wp.y, wp.z);
+		const fy = -(((p._roomCalBaseYaw || 0) + _roomCal.dYaw) * Math.PI / 180);
+		p.group.rotation.y = fy;
+		p.baseYaw = fy; // keep the camera-aware rest target in sync
+		updatePinRing(p);
+	}
+}
+
+function updateRoomCalReadout() {
+	const el = document.getElementById('irl-cal-readout');
+	if (!el || !_roomCal) return;
+	clampRoomCal();
+	const ns = _roomCal.dNorth >= 0 ? 'N' : 'S', ew = _roomCal.dEast >= 0 ? 'E' : 'W';
+	const dy = _roomCal.dYaw;
+	el.textContent = `${Math.abs(_roomCal.dNorth).toFixed(1)} m ${ns} · ${Math.abs(_roomCal.dEast).toFixed(1)} m ${ew} · ${dy >= 0 ? '+' : ''}${dy.toFixed(0)}°`;
+}
+
+// Honest room-level confidence: anchor the cluster to the LOOSEST origin-GPS
+// accuracy across its agents, so the owner understands "this room is anchored to
+// about ±N m — align it if it's off." Never imply centimetre precision.
+function updateRoomCalAccuracy() {
+	const el = document.getElementById('irl-cal-accuracy');
+	if (!el || !_roomCal) return;
+	let acc = null;
+	for (const p of _roomCal.pins) {
+		const a = Number.isFinite(p.gps_accuracy_m) ? p.gps_accuracy_m : null;
+		if (a != null) acc = acc == null ? a : Math.max(acc, a);
+	}
+	if (acc == null && Number.isFinite(gpsState.accuracy)) acc = gpsState.accuracy;
+	const low = acc != null && acc > RING_LOW_ACC_M;
+	el.classList.toggle('is-low', low);
+	el.textContent = acc != null
+		? `This room is anchored to about ±${Math.round(acc)} m. Slide and twist the whole cluster onto its real spot, then save.`
+		: 'Slide and twist the whole cluster onto its real spot, then save.';
+}
+
+async function saveRoomCalibrate() {
+	if (!_roomCal) return;
+	clampRoomCal();
+	const saveBtn = document.getElementById('irl-cal-save');
+	const errEl   = document.getElementById('irl-cal-error');
+	if (errEl) { errEl.hidden = true; errEl.replaceChildren(); }
+	const { roomId, dEast, dNorth, dYaw } = _roomCal;
+	// A no-op gesture: nothing to persist — exit cleanly rather than burn a write.
+	if (Math.hypot(dEast, dNorth) < 0.02 && Math.abs(dYaw) < 0.5) {
+		exitRoomCalibrate(false);
+		setStatus('Room already aligned — no change to save');
+		return;
+	}
+	if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving…'; }
+	const pins = _roomCal.pins;
+	const baseOrigin = { originLat: _roomCal.originLat, originLng: _roomCal.originLng, originYawDeg: _roomCal.originYawDeg };
+	try {
+		const r = await fetch('/api/irl/pins', {
+			method: 'PATCH', credentials: 'include',
+			headers: deviceHeaders({ 'Content-Type': 'application/json' }),
+			body: JSON.stringify({ deviceToken: _deviceToken, calibrateRoom: {
+				roomId, dEastM: dEast, dNorthM: dNorth, dYawDeg: dYaw } }),
+		});
+		if (!r.ok) {
+			const m = r.status === 403 ? 'Only the room owner can align this room.'
+				: r.status === 422 ? 'That move is too large — alignment slides the room a few metres, it doesn’t relocate it.'
+				: r.status === 404 ? 'This room is no longer here.'
+				: 'Could not save the room alignment.';
+			throw new Error(m);
+		}
+		const data = await r.json().catch(() => ({}));
+		const next = (data && data.origin)
+			? { originLat: data.origin.lat, originLng: data.origin.lng, originYawDeg: data.origin.yawDeg }
+			: calibrateRoomOrigin({ ...baseOrigin, dEastM: dEast, dNorthM: dNorth, dYawDeg: dYaw });
+		// Commit the new origin + per-agent facing onto every live pin so the cluster
+		// persists this session; nearby viewers pick it up on their next poll. Render
+		// keeps using the room frame (origin + rel), so this avoids a snap on exit.
+		for (const p of pins) {
+			p.origin_lat = next.originLat; p.origin_lng = next.originLng; p.origin_yaw_deg = next.originYawDeg;
+			const newYaw = (((p._roomCalBaseYaw || 0) + dYaw) % 360 + 360) % 360;
+			p.anchor_yaw_deg = newYaw; p.heading = Math.round(newYaw);
+			if (dYaw !== 0) p.anchor_quat = null;
+		}
+		setStatus('Room aligned — saved here; nearby viewers update within ~10s');
+		exitRoomCalibrate(false);
+		loadNearbyPins();
+	} catch (err) {
+		if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save room position'; }
+		if (errEl) {
+			errEl.replaceChildren(errorStateEl({
+				title: 'Alignment failed',
+				body: _escHtml(err.message || 'Could not save the room alignment.'),
+				actions: [
+					{ label: 'Retry', id: 'cal-retry', primary: true },
+					{ label: 'Undo',  id: 'cal-undo' },
+				],
+			}));
+			errEl.hidden = false;
+		}
+	}
+}
+
+// ── Relative-frame one-tap alignment (R2) ───────────────────────────────────
+// A room placed WITHOUT an absolute compass can render rotated for a second
+// viewer. When such a cluster is nearby (and this viewer doesn't own it — owners
+// get the full gesture), offer a one-tap "face the room's front and tap" align
+// that rotates THIS viewer's frame to match (a viewer-local _roomYawOffset). It
+// never moves the room for anyone else.
+const _roomAlignDismissed = new Set();
+function isRelativeFrameRoom(pin) {
+	return (Number(pin.origin_yaw_deg) || 0) !== 0 || pin.anchor_source === 'gyro-gps:rel';
+}
+function maybePromptRoomAlign() {
+	const prompt = document.getElementById('irl-room-align-prompt');
+	if (!prompt) return;
+	if (calibrateActive) return; // don't stack over an active alignment
+	let target = null;
+	for (const p of nearbyPins) {
+		if (!p.room_id || !p.group) continue;
+		if (_roomYawOffset.has(p.room_id) || _roomAlignDismissed.has(p.room_id)) continue;
+		if (alignableRoomId(p)) continue;          // owner — use the full align gesture instead
+		if (!isRelativeFrameRoom(p)) continue;
+		target = p; break;
+	}
+	if (!target) { prompt.classList.remove('is-shown'); prompt.hidden = true; return; }
+	prompt.dataset.roomId = target.room_id;
+	prompt.dataset.storedYaw = String(Number(target.origin_yaw_deg) || 0);
+	prompt.hidden = false;
+	requestAnimationFrame(() => prompt.classList.add('is-shown'));
+}
+function alignRelativeRoom(roomId, storedYaw) {
+	const heading = lastCompassHeading != null
+		? lastCompassHeading
+		: ((-(cameraYaw * 180 / Math.PI)) % 360 + 360) % 360;
+	// Effective frame yaw becomes the viewer's current facing, so the room's local
+	// "forward" (relNorth+) aligns to where the viewer is looking.
+	_roomYawOffset.set(roomId, (((heading - storedYaw) % 360) + 360) % 360);
+	persistRoomAlign();
+	for (const p of nearbyPins) {
+		if (p.room_id !== roomId || !p.group) continue;
+		const wp = pinWorldPos(p);
+		p.group.position.set(wp.x, wp.y, wp.z);
+		p.distance_m = Math.round(Math.hypot(wp.x, wp.z));
+		updatePinRing(p);
+	}
+	setStatus('Room aligned to your view');
 }
 
 function showCalibrateDenied() {
@@ -6125,6 +6612,22 @@ document.getElementById('irl-cal-denied')?.addEventListener('click', (e) => {
 	setTimeout(() => { el.hidden = true; }, 220);
 });
 window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && calibrateActive) exitCalibrate(true); });
+
+// Relative-frame one-tap alignment prompt (R2). "Align" rotates this viewer's
+// frame to match the room; "Dismiss" hides it for the session.
+document.getElementById('irl-room-align-prompt')?.addEventListener('click', (e) => {
+	const btn = e.target.closest('[data-ra-action]');
+	if (!btn) return;
+	const prompt = document.getElementById('irl-room-align-prompt');
+	const roomId = prompt?.dataset.roomId;
+	if (btn.dataset.raAction === 'align' && roomId) {
+		alignRelativeRoom(roomId, Number(prompt.dataset.storedYaw) || 0);
+	} else if (roomId) {
+		_roomAlignDismissed.add(roomId);
+	}
+	prompt?.classList.remove('is-shown');
+	if (prompt) setTimeout(() => { prompt.hidden = true; }, 220);
+});
 
 // ── Boot ──────────────────────────────────────────────────────────────────
 // Permissions + first-run onboarding (E1) own the camera/motion/location prompts.
@@ -6187,7 +6690,12 @@ detectFloorAnchorSupport();
 // supply the live pose, AR/permission readiness, and the placement (network +
 // scene spawn) it calls back into. Rooms are delivered to other viewers by the
 // REST proximity read — there is no realtime pin push to wire here.
-initRoomMode({
+// Live ghost preview (R1 §3): a translucent stand-in at the exact spot the agent
+// will land, so the user sees it in the room before committing. room-mode drives
+// it each animation frame via the previewAim dep; the geometry is the same
+// room-anchor.js math the real placement uses, so the agent doesn't jump on Place.
+const roomGhost = createRoomGhost(scene, { reducedMotion: prefersReducedMotion });
+roomModeApi = initRoomMode({
 	controlRow: document.querySelector('.irl-secondary-row'),
 	getFix: () => ({ lat: gpsState.lat, lng: gpsState.lng, ready: gpsState.ready, accuracy: gpsState.accuracy }),
 	getHeading: () => ({
@@ -6208,6 +6716,7 @@ initRoomMode({
 		return arActive;
 	},
 	placeRoomAgent,
+	previewAim: (s) => roomGhost.preview(s),
 	status: (m, o) => setStatus(m, o),
 });
 

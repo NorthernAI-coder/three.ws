@@ -167,6 +167,22 @@
 			<description>The pay-per-call market-intel endpoints (the $THREE Town Oracle and the crypto-intel kiosk) used to hand back an estimated &quot;neutral&quot; reading — and still take the payment — when their live price feed was rate-limited. They now return a clean &quot;temporarily unavailable, retry shortly&quot; instead, and crucially the payment is never settled when live data is missing. You only pay when you get a real, live signal.</description>
 		</item>
 		<item>
+			<title>Pinning your agent holds up when GPS gets flaky</title>
+			<link>https://three.ws/irl</link>
+			<guid isPermaLink="false">2026-06-19:Pinning your agent holds up when GPS gets flaky</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Anchoring an agent to a real spot now survives the rough edges of phone GPS. If your location drops for a moment — stepping indoors, into a garage, under heavy cover — IRL quietly re-acquires it on its own instead of going dark until you reload. When you pin before your phone has its first fix, it waits on a clear &quot;Getting your location…&quot; note and only drops the agent once a real position lands, so an agent can never be saved at the wrong place. The moment that precise fix arrives, your agent eases into its anchored spot instead of jumping. And when GPS is only roughly sure where you are, we say so — your pin is labelled an approximate spot with the accuracy in metres rather than pretending it's pinpoint.</description>
+		</item>
+		<item>
+			<title>Place AI agents at fixed spots around a real room</title>
+			<link>https://three.ws/irl</link>
+			<guid isPermaLink="false">2026-06-19:Place AI agents at fixed spots around a real room</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>IRL has a new way to author a scene: stand where you are, aim your phone at a real spot — the couch, the doorway, the empty chair across the table — set how far away it should sit, and tap Place to drop an agent right there. Drop several around you and each one stays locked to its real-world spot: turn away and it's gone, turn back and it slides into frame exactly where you left it, and the wall you never aimed at stays empty. The whole group is anchored as one shared room, so the layout holds its shape no matter how your GPS drifts — agents you placed metres apart stay metres apart on the right sides — and the next person who opens IRL at that spot sees the same arrangement you built. If the room ever lands slightly off, one drag nudges the entire cluster onto its true spot at once instead of fixing each agent by hand. Every part of the flow works by keyboard and reads its state aloud, and when your compass isn't calibrated we tell you honestly that others may see the room rotated rather than pretending it's perfect.</description>
+		</item>
+		<item>
 			<title>Platform-wide API security hardening</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-19:Platform-wide API security hardening</guid>
@@ -197,6 +213,14 @@
 			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>When you paste a link to an agent on X, Discord, Slack, Telegram or iMessage, the preview card now shows that agent's actual avatar, name and description instead of a generic three.ws image — so every shared link is visual proof of the collectible. Bots that don't run JavaScript get the right image and text rendered on the server, and agents without an avatar yet fall back to a clean branded card with their initial. We also fixed the canonical and share URLs on agent pages to point at the real /agents/&lt;id&gt; address.</description>
+		</item>
+		<item>
+			<title>Smoother switch between camera AR and Place on floor</title>
+			<link>https://three.ws/irl</link>
+			<guid isPermaLink="false">2026-06-19:Smoother switch between camera AR and Place on floor</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>On phones that can anchor an agent to your real floor, flipping between plain Camera AR and the Place on floor flow is now seamless. Before, tapping the two in quick succession could fight over the camera and leave you on a black screen with the camera light stuck on; now each switch waits for the previous one to finish releasing the camera, so it never double-grabs it. Leaving a floor session drops you straight back into the live camera view you came from — passthrough resumes instantly instead of flashing a dark frame — and taps on the screen behind the floor-anchor panel no longer slip through to open the wrong thing. If a floor session can't start, the scene keeps running and you get the calm &quot;use Pin here instead&quot; card rather than a frozen view.</description>
 		</item>
 		<item>
 			<title>Tapping an agent in AR now lands every time</title>
