@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-06-19",
+			"title": "Agent Studio — one place to build your whole agent, with a live avatar",
+			"summary": "Agent Studio is the new home for authoring everything about your AI agent — its brain, memory, 3D body, money, and skills — side by side with a live avatar that updates the instant you make a change, no save button and no refresh. The same living avatar can now appear anywhere on the platform as a presence companion, reacting with real emotion to what's happening: it celebrates a filled trade, looks concerned when a position drops, and stays in sync with whatever you edit in the Studio. This release ships the Studio shell and the shared foundation the rest of the experience builds on.",
+			"tags": [
+				"feature"
+			],
+			"link": "/agent-studio"
+		},
+		{
+			"date": "2026-06-19",
 			"title": "Pay-per-call vanity wallets now do seed phrases and encrypted delivery",
 			"summary": "The on-demand vanity address service — the one any app or agent can call and pay for per use, no account needed — can now hand back a 12- or 24-word seed phrase instead of just a raw key, so the wallet it grinds restores straight into Phantom, Solflare, or any wallet as a recovery phrase. And if you'd rather the secret never travel in the clear, you can now have it encrypted to a key only you hold: the service seals the result so the private key or seed phrase is unreadable to anyone in between — it isn't written to any log or cache, and only you can open it. The plain address still comes back in the clear so you can look it up right away.",
 			"tags": [

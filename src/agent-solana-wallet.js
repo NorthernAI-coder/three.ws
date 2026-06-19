@@ -73,10 +73,15 @@ export async function provisionAgentSolanaWallet({
 		};
 	}
 
+	// Provisioning/importing a keypair changes which keys control the agent's
+	// funds — carry a single-use CSRF token (the server burns it on use).
+	const provisionHeaders = body ? { 'Content-Type': 'application/json' } : {};
+	const provisionToken = await consumeCsrfToken();
+	if (provisionToken) provisionHeaders['x-csrf-token'] = provisionToken;
 	const resp = await fetch(ENDPOINT(agentId), {
 		method: 'POST',
 		credentials: 'include',
-		headers: body ? { 'Content-Type': 'application/json' } : {},
+		headers: provisionHeaders,
 		body: body ? JSON.stringify(body) : undefined,
 		signal,
 	});
@@ -91,7 +96,10 @@ export async function provisionAgentSolanaWallet({
 }
 
 export async function deleteAgentSolanaWallet(agentId) {
-	const resp = await fetch(ENDPOINT(agentId), { method: 'DELETE', credentials: 'include' });
+	const delHeaders = {};
+	const delToken = await consumeCsrfToken();
+	if (delToken) delHeaders['x-csrf-token'] = delToken;
+	const resp = await fetch(ENDPOINT(agentId), { method: 'DELETE', credentials: 'include', headers: delHeaders });
 	if (!resp.ok) {
 		const j = await resp.json().catch(() => ({}));
 		throw new Error(j?.error?.message || `delete failed (${resp.status})`);

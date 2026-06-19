@@ -136,6 +136,25 @@ export class AgentIdentity {
 		await this.save();
 	}
 
+	/**
+	 * Adopt an authoritative agent record returned by the backend WITHOUT issuing
+	 * another network call. Lets a caller that owns its own PUT (e.g. the Agent
+	 * Studio store, which needs optimistic updates + rollback + updated_at conflict
+	 * reconciliation that `save()` can't express) keep this identity + its
+	 * localStorage cache coherent with what the server stored. Returns the record.
+	 * @param {Object} apiRecord — a decorated agent record from /api/agents/:id
+	 */
+	applyServerRecord(apiRecord) {
+		if (!apiRecord) return this._record;
+		this._record = _normalise(apiRecord);
+		this._agentId = this._record.id;
+		this._loaded = true;
+		this._backendConfirmed = true;
+		this._owned = apiRecord.is_owner === true || Boolean(apiRecord.user_id);
+		this._persist();
+		return this._record;
+	}
+
 	// ── Wallet ────────────────────────────────────────────────────────────────
 
 	async linkWallet(address, chainId) {
