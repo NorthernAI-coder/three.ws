@@ -57,6 +57,25 @@ const createSchema = z.object({
 
 const updateSchema = createSchema.partial();
 
+// Shape the merchant's giving config into the minimal public payload the checkout
+// modal needs — or null when nothing is active. Round-up routes to the same cause
+// wallet, so both primitives require a charity address to mean anything.
+function publicGiving(row) {
+	const hasAddress = !!row.charity_address;
+	const charityActive = !!row.charity_enabled && hasAddress && Number(row.charity_bps) > 0;
+	const roundupActive = !!row.roundup_enabled && hasAddress && !!row.roundup_to_atomics;
+	if (!charityActive && !roundupActive) return null;
+	return {
+		charity_enabled: charityActive,
+		charity_name: row.charity_name || null,
+		charity_chain: row.charity_chain || null,
+		charity_address: row.charity_address || null,
+		charity_bps: charityActive ? Number(row.charity_bps) : 0,
+		roundup_enabled: roundupActive,
+		roundup_to_atomics: roundupActive ? String(row.roundup_to_atomics) : null,
+	};
+}
+
 export default wrap(async (req, res) => {
 	// Public reads (`?slug=` and stats for non-owner) need permissive CORS so the
 	// hosted checkout page running on a tenant subdomain can still call us.
@@ -73,17 +92,39 @@ export default wrap(async (req, res) => {
 async function handleGet(req, res) {
 	const { slug, id, stats } = req.query || {};
 	if (slug) {
-		// Public read for hosted checkout page.
+		// Public read for hosted checkout page. Join the merchant's giving config
+		// so the checkout modal can offer the buyer a charity split / round-up that
+		// settles in the same signed transaction.
 		const [row] = await sql`
-			select id, slug, target_endpoint, target_method, target_body,
-			       merchant_name, action_name, description, logo_url, image_url, accent_color,
-			       success_url, price_atomics, price_network
-			from x402_skus
-			where slug = ${String(slug)} and archived_at is null
+			select s.id, s.slug, s.target_endpoint, s.target_method, s.target_body,
+			       s.merchant_name, s.action_name, s.description, s.logo_url, s.image_url, s.accent_color,
+			       s.success_url, s.price_atomics, s.price_network,
+			       m.charity_enabled, m.charity_name, m.charity_chain, m.charity_address, m.charity_bps,
+			       m.roundup_enabled, m.roundup_to_atomics
+			from x402_skus s
+			left join x402_merchant_settings m on m.owner_user_id = s.owner_user_id
+			where s.slug = ${String(slug)} and s.archived_at is null
 			limit 1
 		`;
 		if (!row) return error(res, 404, 'sku_not_found', `no active SKU with slug "${slug}"`);
-		return json(res, 200, { sku: row });
+		const giving = publicGiving(row);
+		const sku = {
+			id: row.id,
+			slug: row.slug,
+			target_endpoint: row.target_endpoint,
+			target_method: row.target_method,
+			target_body: row.target_body,
+			merchant_name: row.merchant_name,
+			action_name: row.action_name,
+			description: row.description,
+			logo_url: row.logo_url,
+			image_url: row.image_url,
+			accent_color: row.accent_color,
+			success_url: row.success_url,
+			price_atomics: row.price_atomics,
+			price_network: row.price_network,
+		};
+		return json(res, 200, { sku, giving });
 	}
 
 	const user = await getSessionUser(req, res);

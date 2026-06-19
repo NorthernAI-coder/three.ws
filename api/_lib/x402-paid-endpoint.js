@@ -159,6 +159,23 @@ function buildRequirements({ priceAtomics, networks, resourceUrl, payToOverride 
 		if (net === NETWORK_BSC_MAINNET && (!bscTo || !env.X402_ASSET_ADDRESS_BSC)) continue;
 		const accept = buildAccept(net, priceAtomics, resourceUrl, payToOverride);
 		out.push(accept);
+		// $THREE alongside USDC on Solana (opt-in via X402_ACCEPT_THREE_SOLANA).
+		// Pushed right after the USDC Solana accept — and after the network guard
+		// above already confirmed solTo + fee payer + USDC mint — so holders can
+		// pay this endpoint in the platform token; the modal shows a token chooser.
+		// USDC stays first, so first-accept clients keep settling USDC.
+		if (net === NETWORK_SOLANA_MAINNET && env.X402_ACCEPT_THREE_SOLANA) {
+			out.push({
+				scheme: 'exact',
+				network: NETWORK_SOLANA_MAINNET,
+				amount: String(env.X402_THREE_AMOUNT_SOLANA || priceAtomics),
+				maxTimeoutSeconds: 60,
+				resource: resourceUrl,
+				payTo: solTo,
+				asset: env.THREE_TOKEN_MINT,
+				extra: { name: 'THREE', decimals: env.THREE_TOKEN_DECIMALS, feePayer: env.X402_FEE_PAYER_SOLANA },
+			});
+		}
 		// For EVM `exact` networks, advertise a Permit2 sibling so @x402/* SDK
 		// clients can pick the gasless Permit2-via-EIP-2612 path. The EIP-3009
 		// entry stays first so the browser modal (which only signs

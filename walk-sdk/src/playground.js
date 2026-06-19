@@ -55,7 +55,6 @@ const RUN_SPEED = 250;
 const FRICTION = 3200;
 const EDGE_PAD = 30;
 const CAM_PITCH = 0.5;
-const LINK_DWELL_MS = 700;
 const SPAWN_GUARD_MS = 1100;
 const ELEM_PROBE_MS = 90;
 
@@ -71,7 +70,6 @@ const AIR_ACCEL = 1400;
 const PLAT_FRICTION = 2400;
 const FOOT_PAD = 26;
 const LAND_TOL = 14;
-const LINK_ARM_MS = 850;
 
 const SOLID_SELECTOR = [
 	'a[href]',
@@ -546,7 +544,7 @@ class StrollPlayground {
 		this._armHref = href;
 		this._armAt = performance.now();
 		el.classList.add('walk-pg-portal');
-		this._say('Pause here or press Space to dive in', 2400);
+		this._say('Press Space (or ⬇ / gamepad) to dive in', 2400);
 	}
 
 	_clearArm() {
@@ -629,16 +627,12 @@ class StrollPlayground {
 			else if (this._armEl) this._clearArm();
 		}
 
-		if (this._armHref) {
-			if (this.input.dive) {
-				this._dive(this._armHref);
-				return;
-			}
-			const pastGuard = now > this._spawnGuardUntil;
-			if (pastGuard && speed < 24 && now - this._armAt > LINK_DWELL_MS) {
-				this._dive(this._armHref);
-				return;
-			}
+		// Diving is opt-in: standing on a link only arms it (the glow + hint). You
+		// commit with a deliberate press — Space / Enter / E, the on-screen dive
+		// button, or a gamepad face button — never by lingering on it.
+		if (this._armHref && this.input.dive && now > this._spawnGuardUntil) {
+			this._dive(this._armHref);
+			return;
 		}
 
 		let state = 'idle';
@@ -1137,13 +1131,12 @@ class PlatformerPlayground {
 				c.grounded = false;
 			}
 		}
+		// Standing on a link platform only arms it (glow + "↓ to dive in"). The dive
+		// itself is the deliberate ↓ / dive-button / gamepad-down press handled
+		// above — resting on a platform never navigates on its own.
 		const pastGuard = performance.now() > this._spawnGuardUntil;
 		if (pastGuard && c.grounded && this.platform?.href && Math.abs(c.vx) < 30 && dir === 0) {
 			this._armLink(this.platform);
-			if (performance.now() - this._armAt > LINK_ARM_MS) {
-				this._dive(this.platform.href);
-				return;
-			}
 		} else if (this._armEl && (!c.grounded || this.platform?.el !== this._armEl || dir !== 0)) {
 			this._clearArm();
 		}

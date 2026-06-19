@@ -87,9 +87,22 @@ const acceptSchema = z.object({
 		.passthrough(),
 });
 
+// Optional buyer-approved donations appended to the same signed transaction as
+// the payment (charity split + round-up giving). The buyer always sees and
+// signs these in the modal — the merchant only configures the destination/rule.
+// Routes the same mint as the payment, so each tip is an extra transferChecked
+// to the cause's ATA. Capped to keep a misconfigured giving rule from ever
+// sweeping a buyer: ≤ 100 tokens and ≤ 50× the payment per recipient.
+const TIP_ABS_MAX = 100_000_000n; // 100 USDC in 6-decimal atomics
+const tipSchema = z.object({
+	to: z.string().min(32).max(44),
+	amount: z.string().regex(/^\d+$/),
+});
+
 const prepareSchema = z.object({
 	accept: acceptSchema,
 	buyer: z.string().min(32).max(44),
+	tips: z.array(tipSchema).max(2).optional(),
 });
 
 const builderCodeBlockSchema = z
@@ -146,7 +159,7 @@ async function handlePrepare(req, res) {
 	if (!rl.success) return rateLimited(res, rl, 'too many prepare requests');
 
 	const body = parse(prepareSchema, await readJson(req));
-	const { accept, buyer } = body;
+	const { accept, buyer, tips } = body;
 	if (!isSolanaNetwork(accept.network)) {
 		return error(
 			res,
@@ -180,8 +193,12 @@ async function handlePrepare(req, res) {
 	);
 	const mintDecimals = await getMintDecimals(conn, rpc, mint);
 
+	// Base payment needs ~60k CU; each donation adds a transfer (+ possibly an ATA
+	// create), so budget headroom per tip. Unused CU isn't charged — this only
+	// raises the ceiling so a tip can't blow the limit and fail the whole tx.
+	const tipCount = Array.isArray(tips) ? tips.length : 0;
 	const ixs = [
-		ComputeBudgetProgram.setComputeUnitLimit({ units: 60_000 }),
+		ComputeBudgetProgram.setComputeUnitLimit({ units: 60_000 + tipCount * 40_000 }),
 		ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1 }),
 	];
 	const receiverInfo = await conn.getAccountInfo(receiverAta);
@@ -209,6 +226,49 @@ async function handlePrepare(req, res) {
 			TOKEN_PROGRAM_ID,
 		),
 	);
+
+	// Buyer-approved donations (charity + round-up). Each becomes an extra
+	// transferChecked of the same mint to the cause's ATA, signed by the buyer in
+	// the same transaction. Validate the destination, bound the amount, and dedupe
+	// against the merchant's own payout so a tip can never silently inflate it.
+	if (Array.isArray(tips) && tips.length) {
+		for (const tip of tips) {
+			let tipTo;
+			try {
+				tipTo = new PublicKey(tip.to);
+			} catch {
+				return error(res, 400, 'invalid_tip', `donation recipient is not a valid address: ${tip.to}`);
+			}
+			let tipAmount;
+			try {
+				tipAmount = BigInt(tip.amount);
+			} catch {
+				return error(res, 400, 'invalid_tip', 'donation amount must be a whole token amount');
+			}
+			if (tipAmount <= 0n) continue; // nothing to send
+			if (tipAmount > TIP_ABS_MAX || tipAmount > amount * 50n) {
+				return error(
+					res,
+					400,
+					'tip_too_large',
+					'donation exceeds the safety cap (≤ 100 tokens and ≤ 50× the payment) — check the giving configuration',
+				);
+			}
+			if (tipTo.equals(payTo)) {
+				return error(res, 400, 'invalid_tip', 'donation recipient cannot be the payment recipient');
+			}
+			const tipAta = getAssociatedTokenAddressSync(mint, tipTo, false, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID);
+			const tipAtaInfo = await conn.getAccountInfo(tipAta);
+			if (!tipAtaInfo) {
+				ixs.push(
+					createAssociatedTokenAccountIdempotentInstruction(feePayer, tipAta, tipTo, mint, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID),
+				);
+			}
+			ixs.push(
+				createTransferCheckedInstruction(senderAta, mint, tipAta, buyerPubkey, tipAmount, mintDecimals, [], TOKEN_PROGRAM_ID),
+			);
+		}
+	}
 
 	const blockhash = await getRecentBlockhash(conn, rpc);
 	const message = new TransactionMessage({
