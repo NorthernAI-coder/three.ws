@@ -169,7 +169,8 @@ export class BrainRuntime {
 	async _remember(userText, replyText) {
 		const mem = this.studio.identity?.memory;
 		if (!mem?.add) return;
-		await mem.add({ type: 'conversation', text: `User: ${userText}\nAgent: ${replyText}`.slice(0, 1000), tags: ['studio', 'chat'] });
+		// AgentMemory.add() reads `content` and runs the real embedding pipeline.
+		await mem.add({ type: 'project', content: `User: ${userText}\nAgent: ${replyText}`.slice(0, 1000), tags: ['studio', 'chat'] });
 	}
 
 	_nodeContext(compiled) {
