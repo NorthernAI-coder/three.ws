@@ -38,7 +38,7 @@ const DESCRIPTION =
 	'club ban list and its prior club activity, then issues an entry pass with ' +
 	'a door tier (newcomer / regular / vip). Banned wallets are turned away. ' +
 	'The /club page consumes the pass to drop the velvet rope. Pay-per-call in ' +
-	'USDC on Base or Solana mainnet.';
+	'USDC on Solana mainnet.';
 
 const INPUT_EXAMPLE = {};
 
@@ -111,7 +111,7 @@ export default paidEndpoint({
 	route: ROUTE,
 	method: 'GET',
 	priceAtomics: priceFor('club-cover', '10000'), // $0.01 USDC
-	networks: ['base', 'solana'],
+	networks: ['solana'],
 	description: DESCRIPTION,
 	bazaar: BAZAAR,
 	service: withService({

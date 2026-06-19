@@ -781,7 +781,7 @@
 				{
 					"path": "/club",
 					"title": "Pole Club",
-					"description": "A 3D club where dancers only perform when you send a micro-tip. Pay $0.001 per routine, settled on-chain via x402 on Base or Solana.",
+					"description": "A 3D club where dancers only perform when you send a micro-tip. Pay $0.001 per routine, settled on-chain via x402 on Solana.",
 					"priority": 0.7,
 					"changefreq": "weekly",
 					"added": "2026-06-05",
