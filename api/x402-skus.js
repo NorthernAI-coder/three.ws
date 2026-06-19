@@ -39,11 +39,20 @@ const createSchema = z.object({
 	action_name: z.string().trim().min(1).max(80),
 	description: z.string().trim().max(2000).optional(),
 	logo_url: httpsUrl.optional(),
+	image_url: httpsUrl.optional(),
 	accent_color: z
 		.string()
 		.regex(/^#[0-9a-fA-F]{6}$/)
 		.default('#0a84ff'),
 	success_url: httpsUrl.optional(),
+	// Storefront display fields — optional, never block a paid call.
+	price_atomics: z
+		.string()
+		.regex(/^\d{1,20}$/)
+		.optional(),
+	price_network: z.enum(['base', 'solana']).optional(),
+	position: z.number().int().min(0).max(9999).optional(),
+	active: z.boolean().optional(),
 });
 
 const updateSchema = createSchema.partial();
@@ -67,8 +76,8 @@ async function handleGet(req, res) {
 		// Public read for hosted checkout page.
 		const [row] = await sql`
 			select id, slug, target_endpoint, target_method, target_body,
-			       merchant_name, action_name, description, logo_url, accent_color,
-			       success_url
+			       merchant_name, action_name, description, logo_url, image_url, accent_color,
+			       success_url, price_atomics, price_network
 			from x402_skus
 			where slug = ${String(slug)} and archived_at is null
 			limit 1
@@ -83,8 +92,9 @@ async function handleGet(req, res) {
 	if (id) {
 		const [row] = await sql`
 			select id, slug, owner_user_id, target_endpoint, target_method, target_body,
-			       merchant_name, action_name, description, logo_url, accent_color,
-			       success_url, created_at, updated_at, archived_at
+			       merchant_name, action_name, description, logo_url, image_url, accent_color,
+			       success_url, price_atomics, price_network, position, active,
+			       created_at, updated_at, archived_at
 			from x402_skus
 			where id = ${String(id)} limit 1
 		`;
@@ -112,13 +122,14 @@ async function handleGet(req, res) {
 
 	const rows = await sql`
 		select s.id, s.slug, s.target_endpoint, s.target_method,
-		       s.merchant_name, s.action_name, s.accent_color,
+		       s.merchant_name, s.action_name, s.accent_color, s.image_url,
+		       s.price_atomics, s.price_network, s.position, s.active,
 		       s.created_at, s.updated_at,
 		       (select count(*)::int from x402_checkout_calls c where c.sku_id = s.id and c.response_status < 400) as paid_calls,
 		       (select coalesce(sum(amount_atomics::numeric), 0)::text from x402_checkout_calls c where c.sku_id = s.id and c.response_status < 400) as gross_atomics
 		from x402_skus s
 		where s.owner_user_id = ${user.id} and s.archived_at is null
-		order by s.created_at desc
+		order by s.position asc, s.created_at desc
 	`;
 	return json(res, 200, { skus: rows });
 }
@@ -138,13 +149,16 @@ async function handleCreate(req, res) {
 	const [created] = await sql`
 		insert into x402_skus (
 			owner_user_id, slug, target_endpoint, target_method, target_body,
-			merchant_name, action_name, description, logo_url, accent_color, success_url
+			merchant_name, action_name, description, logo_url, image_url, accent_color, success_url,
+			price_atomics, price_network, position, active
 		) values (
 			${user.id}, ${body.slug}, ${body.target_endpoint}, ${body.target_method},
 			${body.target_body ? JSON.stringify(body.target_body) : null}::jsonb,
 			${body.merchant_name}, ${body.action_name},
-			${body.description ?? null}, ${body.logo_url ?? null},
-			${body.accent_color}, ${body.success_url ?? null}
+			${body.description ?? null}, ${body.logo_url ?? null}, ${body.image_url ?? null},
+			${body.accent_color}, ${body.success_url ?? null},
+			${body.price_atomics ?? null}, ${body.price_network ?? null},
+			${body.position ?? 0}, ${body.active ?? true}
 		)
 		returning id, slug, merchant_name, action_name, created_at
 	`;
@@ -176,8 +190,13 @@ async function handleUpdate(req, res) {
 		  action_name = coalesce(${patch.action_name ?? null}, action_name),
 		  description = coalesce(${patch.description ?? null}, description),
 		  logo_url = coalesce(${patch.logo_url ?? null}, logo_url),
+		  image_url = coalesce(${patch.image_url ?? null}, image_url),
 		  accent_color = coalesce(${patch.accent_color ?? null}, accent_color),
 		  success_url = coalesce(${patch.success_url ?? null}, success_url),
+		  price_atomics = coalesce(${patch.price_atomics ?? null}, price_atomics),
+		  price_network = coalesce(${patch.price_network ?? null}, price_network),
+		  position = coalesce(${patch.position ?? null}, position),
+		  active = coalesce(${patch.active ?? null}, active),
 		  updated_at = now()
 		where id = ${String(id)}
 		returning id, slug, merchant_name, action_name, updated_at

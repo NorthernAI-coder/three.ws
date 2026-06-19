@@ -495,6 +495,14 @@
 			<description>On phones that can anchor an agent to your real floor, flipping between plain Camera AR and the Place on floor flow is now seamless. Before, tapping the two in quick succession could fight over the camera and leave you on a black screen with the camera light stuck on; now each switch waits for the previous one to finish releasing the camera, so it never double-grabs it. Leaving a floor session drops you straight back into the live camera view you came from — passthrough resumes instantly instead of flashing a dark frame — and taps on the screen behind the floor-anchor panel no longer slip through to open the wrong thing. If a floor session can't start, the scene keeps running and you get the calm &quot;use Pin here instead&quot; card rather than a frozen view.</description>
 		</item>
 		<item>
+			<title>Swap your avatar without leaving roaming mode</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-19:Swap your avatar without leaving roaming mode</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>When you detach the walking companion into full-page roaming — stroll or platformer — you can now change who you're playing as on the spot. A new Avatar button in the playground toolbar (or just press C) opens the same searchable roster picker, and the rig hot-swaps live without dropping you out of the page. Your pick is remembered across movement modes, the corner companion, and every page you visit next.</description>
+		</item>
+		<item>
 			<title>Switching avatars in the Club never freezes you in a T-pose</title>
 			<link>https://three.ws/club</link>
 			<guid isPermaLink="false">2026-06-19:Switching avatars in the Club never freezes you in a T-pose</guid>

@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-06-19",
+			"title": "Swap your avatar without leaving roaming mode",
+			"summary": "When you detach the walking companion into full-page roaming — stroll or platformer — you can now change who you're playing as on the spot. A new Avatar button in the playground toolbar (or just press C) opens the same searchable roster picker, and the rig hot-swaps live without dropping you out of the page. Your pick is remembered across movement modes, the corner companion, and every page you visit next.",
+			"tags": [
+				"feature",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-19",
 			"title": "Configure your Walk Companion from the dashboard",
 			"summary": "The walking avatar that strolls and greets across your pages now has its own settings page in the dashboard. Turn the companion on or off, pick which of the 13 roster avatars walks by default, choose whether visitors can swap, write a custom page greeting, and point the GLBs and animations at your own CDN. A live install snippet updates as you edit, so you can lift the exact @three-ws/walk setup for your own site, and a one-click preview drops the companion onto the page so you can see your choices instantly.",
 			"tags": [
