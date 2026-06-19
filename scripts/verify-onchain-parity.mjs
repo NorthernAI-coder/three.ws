@@ -55,9 +55,27 @@ function normalizeAddr(value) {
 export async function loadSources({ root = ROOT } = {}) {
 	const imp = async (rel) => import(pathToFileURL(resolve(root, rel)).href);
 
+	// The SDK source ships as a separate package and is excluded from the Vercel
+	// deploy bundle (`sdk` is in .vercelignore). When the file is absent we drop
+	// it from the comparison with a warning rather than hard-failing the build —
+	// the same degrade-don't-block stance the live RPC check takes. The full
+	// three-way parity still runs in local/CI and tests/onchain-parity.test.js,
+	// where the SDK source is present, so drift can never slip through unseen.
+	const impOptional = async (rel) => {
+		try {
+			return await imp(rel);
+		} catch (err) {
+			if (err?.code === 'ERR_MODULE_NOT_FOUND') {
+				console.warn(`[verify:onchain] skip ${rel} — not present in this build context`);
+				return null;
+			}
+			throw err;
+		}
+	};
+
 	const [srcMod, sdkMod, apiMod] = await Promise.all([
 		imp('src/erc8004/abi.js'),
-		imp('sdk/src/erc8004/abi.js'),
+		impOptional('sdk/src/erc8004/abi.js'),
 		imp('api/_lib/erc8004-chains.js'),
 	]);
 
@@ -71,9 +89,10 @@ export async function loadSources({ root = ROOT } = {}) {
 
 	const sources = {
 		'src/erc8004/abi.js': srcMod.REGISTRY_DEPLOYMENTS,
-		'sdk/src/erc8004/abi.js': sdkMod.REGISTRY_DEPLOYMENTS,
 		'api/_lib/erc8004-chains.js': apiDeployments,
 	};
+	// Only compare the SDK source when it is actually present in this context.
+	if (sdkMod) sources['sdk/src/erc8004/abi.js'] = sdkMod.REGISTRY_DEPLOYMENTS;
 
 	// CHAINS also feeds the live-bytecode check its RPC endpoints.
 	return { sources, chains: apiMod.CHAINS };
@@ -265,7 +284,7 @@ if (isMain) {
 	} else {
 		const slotCount = Object.values(merged).reduce((n, s) => n + Object.keys(s).length, 0);
 		console.log(
-			`[verify:onchain] parity OK — 3 sources agree across ${Object.keys(merged).length} chains / ${slotCount} address slots`,
+			`[verify:onchain] parity OK — ${Object.keys(sources).length} sources agree across ${Object.keys(merged).length} chains / ${slotCount} address slots`,
 		);
 	}
 
