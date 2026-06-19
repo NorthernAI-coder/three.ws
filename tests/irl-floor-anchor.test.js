@@ -11,8 +11,8 @@
 
 import { describe, it, expect } from 'vitest';
 
-import { yawDegFromQuat, anchorPoseToPin } from '../src/irl/floor-anchor.js';
-import { geoToLocal } from '../src/irl/room-anchor.js';
+import { yawDegFromQuat, anchorPoseToPin, roomRelFromGeo, roomPlacementFromHit } from '../src/irl/floor-anchor.js';
+import { geoToLocal, agentWorldPosition, roomOriginWorld } from '../src/irl/room-anchor.js';
 
 const ORIGIN = { lat: 37.7749, lng: -122.4194 }; // arbitrary; math is origin-relative
 const near = (a, b, eps = 1e-6) => Math.abs(a - b) <= eps;
@@ -137,6 +137,91 @@ describe('anchor_quat precision survives the persist → render-back round-trip'
 		expect(a.heading).toBe(b.heading); // 90 === 90 — the rounded column collapses them
 		expect(renderBackYaw(a.quat)).not.toBe(renderBackYaw(b.quat)); // the quat does not
 		expect(renderBackYaw(a.quat) - renderBackYaw(b.quat)).toBeCloseTo(0.6, 5);
+	});
+});
+
+// ── WebXR → room frame (R3) ──────────────────────────────────────────────────
+// A floor hit must land in the SHARED room frame, not a standalone GPS pin, so a
+// WebXR-placed agent renders identically for every viewer. These pin the two new
+// write-path conversions: roomRelFromGeo (lat/lng → exact room offset, used by the
+// calibrate/refine PATCH) and roomPlacementFromHit (XR hit pose → room placement).
+describe('roomRelFromGeo', () => {
+	const QUAT = yawQuat(0);
+
+	it('inverts anchorPoseToPin: a point 2 m E / 3 m N of the origin → rel (2, 3)', () => {
+		const pin = anchorPoseToPin({ originLat: ORIGIN.lat, originLng: ORIGIN.lng, x: 2, y: 0, z: -3, quat: QUAT });
+		const rel = roomRelFromGeo({ originLat: ORIGIN.lat, originLng: ORIGIN.lng, lat: pin.lat, lng: pin.lng });
+		expect(near(rel.relEast, 2, 1e-3)).toBe(true);
+		expect(near(rel.relNorth, 3, 1e-3)).toBe(true);
+	});
+
+	it('a rotated room (originYawDeg) round-trips back through agentWorldPosition', () => {
+		// Store an offset in a 30°-rotated room, then render it from the origin: the
+		// world position must match the un-rotated true-north offset the point implies.
+		const originYawDeg = 30;
+		const trueEast = 4, trueNorth = -1; // arbitrary true-north metres from origin
+		const { lat, lng } = anchorPoseToPin({
+			originLat: ORIGIN.lat, originLng: ORIGIN.lng, x: trueEast, y: 0, z: trueNorth, quat: QUAT,
+		}); // note z passed as north here is +trueNorth → world north is −z, see below
+		const rel = roomRelFromGeo({ originLat: ORIGIN.lat, originLng: ORIGIN.lng, originYawDeg, lat, lng });
+		// Re-render from the origin (viewer ON the origin → originWorld = {0,0}).
+		const world = agentWorldPosition({ originWorld: { x: 0, z: 0 }, relEast: rel.relEast, relNorth: rel.relNorth, originYawDeg });
+		// anchorPoseToPin treated z as the SOUTH axis (north = −z), so the stored point
+		// is trueEast east and −trueNorth north; agentWorldPosition must reproduce that.
+		expect(near(world.x, trueEast, 1e-3)).toBe(true);
+		expect(near(world.z, trueNorth, 1e-3)).toBe(true);
+	});
+});
+
+describe('roomPlacementFromHit', () => {
+	const QUAT = yawQuat(0);
+
+	it('a hit placed by a viewer standing ON the origin re-renders at the same spot', () => {
+		// Viewer == origin: a hit 2 m east / 3 m north (z = −3) of them must store as
+		// rel (2, 3) and render back to world (2, 0, −3) for that same viewer.
+		const p = roomPlacementFromHit({
+			originLat: ORIGIN.lat, originLng: ORIGIN.lng,
+			viewerLat: ORIGIN.lat, viewerLng: ORIGIN.lng,
+			x: 2, y: -1.4, z: -3, quat: QUAT,
+		});
+		expect(near(p.relEast, 2, 1e-6)).toBe(true);
+		expect(near(p.relNorth, 3, 1e-6)).toBe(true);
+		const world = agentWorldPosition({ originWorld: { x: 0, z: 0 }, relEast: p.relEast, relNorth: p.relNorth });
+		expect(near(world.x, 2, 1e-6)).toBe(true);
+		expect(near(world.z, -3, 1e-6)).toBe(true);
+		expect(p.heightM).toBe(-1.4); // real floor height rides through
+		expect(p.source).toBe('webxr');
+	});
+
+	it('folds in the placer offset: an off-origin viewer’s hit lands where they aimed', () => {
+		// The placer stands 5 m east of the origin and drops an agent 2 m north of
+		// themselves. Rendered for that same placer (viewer at world 0), the agent must
+		// sit at their local hit (x=0, z=−2) — proving the GPS offset is folded in.
+		const viewer = geoToLocal(ORIGIN.lat, ORIGIN.lng, 0, 0); // unused; build viewer geo below
+		void viewer;
+		const east5 = anchorPoseToPin({ originLat: ORIGIN.lat, originLng: ORIGIN.lng, x: 5, y: 0, z: 0, quat: QUAT });
+		const p = roomPlacementFromHit({
+			originLat: ORIGIN.lat, originLng: ORIGIN.lng,
+			viewerLat: east5.lat, viewerLng: east5.lng,
+			x: 0, y: -1.4, z: -2, quat: QUAT,
+		});
+		// Stored offset is from the ORIGIN: 5 m east, 2 m north.
+		expect(near(p.relEast, 5, 1e-3)).toBe(true);
+		expect(near(p.relNorth, 2, 1e-3)).toBe(true);
+		// Render for the placer (who is 5 m east of origin): agent lands at their hit.
+		const originWorld = roomOriginWorld(east5.lat, east5.lng, ORIGIN.lat, ORIGIN.lng);
+		const world = agentWorldPosition({ originWorld, relEast: p.relEast, relNorth: p.relNorth });
+		expect(near(world.x, 0, 1e-3)).toBe(true);
+		expect(near(world.z, -2, 1e-3)).toBe(true);
+	});
+
+	it('heading comes from the surface quat, normalised to [0,360)', () => {
+		const p = roomPlacementFromHit({
+			originLat: ORIGIN.lat, originLng: ORIGIN.lng,
+			viewerLat: ORIGIN.lat, viewerLng: ORIGIN.lng,
+			x: 0, y: 0, z: 0, quat: yawQuat(270),
+		});
+		expect(p.relYawDeg).toBe(270); // −90° from atan2, normalised
 	});
 });
 

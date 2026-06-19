@@ -134,6 +134,7 @@
 			padding: 6px 0;
 		}
 		.irl-back:hover { color: var(--text); }
+		.irl-back:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
 		.irl-back svg { flex-shrink: 0; }
 
 		.irl-topbar-center {
@@ -378,6 +379,7 @@
 		}
 		#irl-camera-btn:active:not(:disabled) { transform: translateY(0); }
 		#irl-camera-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+		#irl-camera-btn:focus-visible { outline: 2px solid #000; outline-offset: -4px; box-shadow: 0 0 0 4px rgba(255,255,255,0.9); }
 		#irl-camera-btn.is-active {
 			background: rgba(74,222,128,0.15);
 			color: var(--green);
@@ -424,6 +426,7 @@
 			background: rgba(255,255,255,0.1);
 		}
 		.irl-pill-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+		.irl-pill-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 		/* Touch devices: every fixed control meets the 44×44 Apple HIG tap target. */
 		@media (hover: none) {
 			.irl-pill-btn { min-height: 44px; }
@@ -616,6 +619,7 @@
 		}
 		.irl-obj-btn:hover { color: var(--text); border-color: var(--border-hi); }
 		.irl-obj-btn:active { transform: scale(0.95); }
+		.irl-obj-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 		.irl-obj-btn.active {
 			color: var(--text);
 			border-color: rgba(255,255,255,0.4);
@@ -1778,15 +1782,11 @@
 		}
 
 		/* ── Accessibility: shared keyboard focus ring (task 07) ───────────────
-		   Every interactive control surfaces the same crisp 2px ring on
-		   :focus-visible — keyboard navigation only, so a mouse/touch press never
-		   shows it. Grouped here (rather than per-element) so no control can be
-		   reached by Tab without a visible focus indicator. White on the dark / AR
-		   background clears non-text contrast comfortably. */
-		#irl-camera-btn:focus-visible,
-		.irl-pill-btn:focus-visible,
-		.irl-obj-btn:focus-visible,
-		.irl-back:focus-visible,
+		   The same crisp 2px ring on :focus-visible (keyboard nav only) for the
+		   interactive controls that lacked one — the hero button, pills, object
+		   picker and topbar Back are styled individually just above. Grouped so no
+		   sheet control can be Tab-reached without a visible focus indicator. White
+		   on the dark sheets clears non-text contrast comfortably. */
 		.irl-sheet-close:focus-visible,
 		.irl-sheet-btn:focus-visible,
 		.irl-msg-send:focus-visible,
@@ -1798,9 +1798,6 @@
 			outline: 2px solid var(--accent);
 			outline-offset: 2px;
 		}
-		/* The green Camera-On state needs the ring tinted so it stays visible
-		   against its own green border. */
-		#irl-camera-btn.is-active:focus-visible { outline-color: var(--green); }
 
 		/* ── Reduced motion: still ambient/decorative UI loops (task 07) ───────
 		   Continuous, purely-decorative animations are paused. Avatar movement is
@@ -1928,14 +1925,14 @@
 <!-- Bottom panel -->
 <footer class="irl-bottom">
 	<h1 class="irl-avatar-name" id="irl-avatar-name">Loading…</h1>
-	<p class="irl-subtitle" id="irl-subtitle">Turn on camera to place in your space</p>
+	<p class="irl-subtitle" id="irl-subtitle">Turn on Camera AR, then tap Pin here to anchor your agent in real space.</p>
 
 	<p class="irl-status is-hidden" id="irl-status">
 		<span class="irl-status-spinner hidden" id="irl-spinner" aria-hidden="true"></span>
 		<span id="irl-status-text"></span>
 	</p>
 
-	<button id="irl-camera-btn" type="button" disabled aria-busy="true">
+	<button id="irl-camera-btn" type="button" disabled aria-busy="true" aria-pressed="false">
 		<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 7 16 12l7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
 		<span id="irl-camera-label">Camera AR</span>
 	</button>
@@ -2071,7 +2068,7 @@
 <!-- Dimmed backdrop behind the inspect card — click to dismiss. Stays in the DOM
      (opacity/pointer-events toggled via .is-open) so it can fade in and out. -->
 <div id="irl-sheet-backdrop"></div>
-<div id="irl-sheet" role="dialog" aria-modal="false" aria-label="Nearby agent" tabindex="-1">
+<div id="irl-sheet" role="dialog" aria-modal="false" aria-labelledby="irl-sheet-name" tabindex="-1">
 	<div class="irl-sheet-handle" aria-hidden="true"></div>
 	<div class="irl-sheet-header">
 		<img id="irl-sheet-thumb" class="irl-sheet-thumb" alt="" hidden />
@@ -2111,10 +2108,10 @@
 </div>
 
 <!-- Report reason sheet (D4) — choose why, POST /api/irl/report, threshold-hide server-side -->
-<div id="irl-report-sheet" role="dialog" aria-modal="true" aria-label="Report this pin">
+<div id="irl-report-sheet" role="dialog" aria-modal="true" aria-labelledby="irl-report-title">
 	<div class="irl-sheet-handle" aria-hidden="true"></div>
 	<div class="irl-report-header">
-		<h3>Report this pin</h3>
+		<h3 id="irl-report-title">Report this pin</h3>
 		<button class="irl-sheet-close" id="irl-report-close" type="button" aria-label="Close">×</button>
 	</div>
 	<p class="irl-report-sub">Tell us what’s wrong. Reports are reviewed; a pin is hidden once enough people flag it.</p>
@@ -2130,11 +2127,11 @@
 </div>
 
 <!-- Agent picker sheet — lists authenticated user's agents to switch which one is placed -->
-<div id="irl-agents-sheet" role="dialog" aria-modal="true" aria-label="My agents">
+<div id="irl-agents-sheet" role="dialog" aria-modal="true" aria-labelledby="irl-agents-title">
 	<div class="irl-sheet-handle" aria-hidden="true"></div>
 	<div class="irl-agents-header">
 		<div>
-			<h3>My Agents</h3>
+			<h3 id="irl-agents-title">My Agents</h3>
 		</div>
 		<button class="irl-sheet-close" id="irl-agents-close" type="button" aria-label="Close">×</button>
 	</div>

@@ -156,6 +156,49 @@ export function compassToYaw(deg) {
 }
 
 /**
+ * The absolute lat/lng an agent should be stored at, given its UNCHANGED
+ * room-frame offset and the room's (possibly recalibrated) origin. This is the
+ * inverse-to-geo twin of {@link agentWorldPosition} — where that projects an
+ * agent into the VIEWER's world frame, this re-derives the agent's GPS index so a
+ * proximity read stays consistent after the room moves. Used by the room-scoped
+ * calibrate to persist each agent's lat/lng without ever touching its relEast/
+ * relNorth, so the cluster's internal layout is preserved exactly.
+ * @returns {{ lat:number, lng:number }}
+ */
+export function pinAbsoluteFromOrigin({ originLat, originLng, originYawDeg = 0, relEast, relNorth }) {
+	const tn = localToTrueNorth(relEast, relNorth, originYawDeg);
+	return localToGeo(originLat, originLng, tn.east, tn.north);
+}
+
+/**
+ * Apply a one-gesture ROOM calibrate to a room's origin. The owner grabs the
+ * whole cluster and slides it by a true-north metre offset (dEast/dNorth) and/or
+ * twists it about the origin by dYawDeg. Because every agent is rigidly tied to
+ * the shared origin via its relEast/relNorth, moving the origin moves the entire
+ * cluster together with its internal layout intact — no per-agent shear. The
+ * agents' room-frame offsets are NOT changed here; only the origin translates and
+ * the frame rotates. Pair with {@link pinAbsoluteFromOrigin} to re-derive each
+ * agent's absolute lat/lng under the returned origin.
+ *
+ * @param {object} p
+ * @param {number} p.originLat   current room origin latitude
+ * @param {number} p.originLng   current room origin longitude
+ * @param {number} [p.originYawDeg=0]  current room frame rotation vs true north
+ * @param {number} [p.dEastM=0]   ground translation east, metres (true-north frame)
+ * @param {number} [p.dNorthM=0]  ground translation north, metres
+ * @param {number} [p.dYawDeg=0]  cluster rotation about the origin, degrees
+ * @returns {{ originLat:number, originLng:number, originYawDeg:number }}
+ */
+export function calibrateRoomOrigin({ originLat, originLng, originYawDeg = 0, dEastM = 0, dNorthM = 0, dYawDeg = 0 }) {
+	const moved = localToGeo(originLat, originLng, dEastM, dNorthM);
+	return {
+		originLat: moved.lat,
+		originLng: moved.lng,
+		originYawDeg: (((originYawDeg + dYawDeg) % 360) + 360) % 360,
+	};
+}
+
+/**
  * "Place an agent around me." Turns the placer's live pose (where they stand +
  * which way the phone points) and a distance into a durable room-relative
  * anchor, plus the absolute lat/lng to persist for the GPS index / legacy

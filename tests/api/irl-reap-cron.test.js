@@ -16,7 +16,13 @@ vi.mock('../../api/_lib/sentry.js', () => ({ captureException: vi.fn() }));
 vi.mock('../../api/_lib/alerts.js', () => ({ sendOpsAlert: vi.fn() }));
 vi.mock('../../api/_lib/zauth.js', () => ({ instrument: () => false, drain: vi.fn() }));
 
-const { default: handler } = await import('../../api/cron/irl-reap.js');
+const { sendOpsAlert } = await import('../../api/_lib/alerts.js');
+const {
+	default: handler,
+	isReapSpike,
+	reapTotal,
+	REAP_SPIKE_THRESHOLD,
+} = await import('../../api/cron/irl-reap.js');
 
 process.env.CRON_SECRET = 'test-cron-secret';
 
@@ -38,8 +44,37 @@ function makeReqRes() {
 	return { req, res };
 }
 
+describe('reapTotal / isReapSpike (pure)', () => {
+	it('sums the three sweep counts, treating missing fields as 0', () => {
+		expect(reapTotal({ pins: 2, reports: 1, interactions: 3 })).toBe(6);
+		expect(reapTotal({ pins: 5 })).toBe(5);
+		expect(reapTotal({})).toBe(0);
+		expect(reapTotal(null)).toBe(0);
+		expect(reapTotal(undefined)).toBe(0);
+	});
+
+	it('is not a spike at steady-state volume', () => {
+		expect(isReapSpike({ pins: 3, reports: 1, interactions: 12 })).toBe(false);
+		expect(isReapSpike({})).toBe(false);
+	});
+
+	it('trips exactly at the threshold and above', () => {
+		expect(isReapSpike({ pins: REAP_SPIKE_THRESHOLD })).toBe(true);
+		expect(isReapSpike({ pins: REAP_SPIKE_THRESHOLD - 1 })).toBe(false);
+		expect(isReapSpike({ pins: REAP_SPIKE_THRESHOLD + 500 })).toBe(true);
+	});
+
+	it('honors a custom threshold so callers can tune sensitivity', () => {
+		expect(isReapSpike({ pins: 10 }, 10)).toBe(true);
+		expect(isReapSpike({ pins: 9 }, 10)).toBe(false);
+	});
+});
+
 describe('irl-reap cron', () => {
-	beforeEach(() => sqlMock.mockReset());
+	beforeEach(() => {
+		sqlMock.mockReset();
+		sendOpsAlert.mockClear();
+	});
 
 	it('returns 200 (not 500) when no table exists yet — nothing to reap', async () => {
 		// to_regclass probe → all NULL. No DELETE should ever be issued.
@@ -119,6 +154,38 @@ describe('irl-reap cron', () => {
 
 		expect(res.statusCode).toBe(200);
 		expect(res.body).toMatchObject({ ok: true, reapedPins: 0, reapedReports: 2, reapedInteractions: 1 });
+	});
+
+	it('fires an ops alert when one run deletes an anomalous number of rows', async () => {
+		const aged = Array.from({ length: REAP_SPIKE_THRESHOLD + 1 }, (_, i) => ({ id: `ix${i}` }));
+		sqlMock
+			.mockResolvedValueOnce([{ pins: 'irl_pins', reports: 'irl_pin_reports', interactions: 'irl_interactions' }]) // probe
+			.mockResolvedValueOnce([])    // pins delete
+			.mockResolvedValueOnce([])    // reports delete
+			.mockResolvedValueOnce([])    // interactions orphan delete
+			.mockResolvedValueOnce(aged); // interactions age-out delete — anomalous volume
+
+		const { req, res } = makeReqRes();
+		await handler(req, res);
+
+		expect(res.statusCode).toBe(200);
+		expect(sendOpsAlert).toHaveBeenCalledTimes(1);
+		expect(sendOpsAlert.mock.calls[0][0]).toBe('IRL reaper spike');
+	});
+
+	it('does NOT alert on a normal-volume sweep', async () => {
+		sqlMock
+			.mockResolvedValueOnce([{ pins: 'irl_pins', reports: 'irl_pin_reports', interactions: 'irl_interactions' }]) // probe
+			.mockResolvedValueOnce([{ id: 'p1' }]) // pins delete
+			.mockResolvedValueOnce([])             // reports delete
+			.mockResolvedValueOnce([])             // interactions orphan delete
+			.mockResolvedValueOnce([{ id: 'ix1' }]); // interactions age-out delete
+
+		const { req, res } = makeReqRes();
+		await handler(req, res);
+
+		expect(res.statusCode).toBe(200);
+		expect(sendOpsAlert).not.toHaveBeenCalled();
 	});
 
 	it('rejects an unauthenticated request with 401', async () => {
