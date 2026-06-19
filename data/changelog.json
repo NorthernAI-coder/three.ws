@@ -3,6 +3,14 @@
 	"entries": [
 		{
 			"date": "2026-06-19",
+			"title": "Paid doors stay open when one payment network is down",
+			"summary": "Every pay-per-call endpoint — the Pole Club cover charge, agent-to-agent calls, asset downloads — now offers each payment network independently. If Base is fully wired but Solana is missing a setting (or vice versa), you still get a working payment prompt on the network that's ready, instead of the whole door hard-failing. A network is advertised only when every piece it needs is in place, so a checkout can no longer be offered and then rejected mid-payment. The endpoint only declines outright when no network at all can take the payment.",
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-19",
 			"title": "Memory Studio — watch your agent’s memory form, curate it, and trust it",
 			"summary": "The Memory tab in Agent Studio turns your agent’s memory into something you can see and shape. A live Timeline streams every memory as it forms — chats, lessons, rules, trades — each tagged by tier (working, recall, archival) and salience, with one-click pin, edit, merge, forget, and a slider to dial importance. A knowledge Graph maps the coins, wallets, people, and strategies your agent has learned, linked by what shows up together; click any coin to replay how your agent’s understanding of it evolved over time. Recall runs real semantic search over real embeddings, so asking “lessons from losing trades” or “rules my agent follows” returns what it actually knows — and an In-Context view shows exactly what the agent carries into every reply, with a live token budget so the core stays sharp. Seed it in seconds from your GitHub, X, and Farcaster, and the Brain’s Memory node recalls all of it for real.",
 			"tags": [

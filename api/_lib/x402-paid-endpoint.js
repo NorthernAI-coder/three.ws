@@ -142,11 +142,21 @@ function buildRequirements({ priceAtomics, networks, resourceUrl, payToOverride 
 		const baseTo = payToOverride?.base || env.X402_PAY_TO_BASE;
 		const solTo = payToOverride?.solana || env.X402_PAY_TO_SOLANA;
 		const bscTo = payToOverride?.bsc || env.X402_PAY_TO_BSC;
-		if (net === NETWORK_BASE_MAINNET && !baseTo) continue;
+		// Advertise a network only when EVERY field its accept needs is present.
+		// One half-configured chain must never take down the others: the endpoint
+		// offers whatever networks are fully wired and silently drops the rest,
+		// 402-failing only when NONE are payable. The asset is checked here too —
+		// without it the accept would be advertised and then rejected by the
+		// facilitator at settle, which is the same broken experience as a 500.
+		if (net === NETWORK_BASE_MAINNET && (!baseTo || !env.X402_ASSET_ADDRESS_BASE)) continue;
 		// Solana also needs a fee payer to be co-signable — skip the network
 		// rather than advertise an accept the facilitator will reject.
-		if (net === NETWORK_SOLANA_MAINNET && (!solTo || !env.X402_FEE_PAYER_SOLANA)) continue;
-		if (net === NETWORK_BSC_MAINNET && !bscTo) continue;
+		if (
+			net === NETWORK_SOLANA_MAINNET &&
+			(!solTo || !env.X402_FEE_PAYER_SOLANA || !env.X402_ASSET_MINT_SOLANA)
+		)
+			continue;
+		if (net === NETWORK_BSC_MAINNET && (!bscTo || !env.X402_ASSET_ADDRESS_BSC)) continue;
 		const accept = buildAccept(net, priceAtomics, resourceUrl, payToOverride);
 		out.push(accept);
 		// For EVM `exact` networks, advertise a Permit2 sibling so @x402/* SDK

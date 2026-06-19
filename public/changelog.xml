@@ -223,6 +223,14 @@
 			<description>We bundled a stack of popular third-party APIs behind a single three.ws API so you can reach them all with one integration, one key, and one bill. The first providers are live at /api/v1/x — CoinGecko (live prices and ranked market data), DefiLlama (protocol TVL across all of DeFi), and any OpenAI-compatible LLM — with more landing over the coming releases. Discover everything with one call to GET /api/v1, which returns the full catalog: every provider, endpoint, parameter, and price. You can pay three ways, your choice per call: bring your own upstream key (we just route it, no markup), use a three.ws API key on your plan, or pay-per-call in USDC with no account at all. Every response uses one consistent shape with standard rate-limit headers, and the platform's own capabilities — text sentiment, market and narrative intelligence, and verified agent-card lookups — live under the same /api/v1 surface.</description>
 		</item>
 		<item>
+			<title>Paid doors stay open when one payment network is down</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-19:Paid doors stay open when one payment network is down</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Every pay-per-call endpoint — the Pole Club cover charge, agent-to-agent calls, asset downloads — now offers each payment network independently. If Base is fully wired but Solana is missing a setting (or vice versa), you still get a working payment prompt on the network that's ready, instead of the whole door hard-failing. A network is advertised only when every piece it needs is in place, so a checkout can no longer be offered and then rejected mid-payment. The endpoint only declines outright when no network at all can take the payment.</description>
+		</item>
+		<item>
 			<title>Paid market-intel never charges you for unavailable data</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-19:Paid market-intel never charges you for unavailable data</guid>
