@@ -83,6 +83,48 @@ function isSolanaNetwork(net) {
 function isEvmNetwork(net) {
 	return typeof net === 'string' && net.startsWith('eip155:');
 }
+
+// Compute the buyer-facing donation for a Solana `accept` under a merchant's
+// giving config (charity split + round-up). Returns null when nothing applies:
+// giving off, cause wallet on a different chain than this checkout, or a zero
+// total. The donation settles in the SAME mint + transaction as the payment, so
+// the cause wallet must be a Solana address. Pure integer math on atomics.
+function computeGiving(giving, accept) {
+	if (!giving || !isSolanaNetwork(accept?.network)) return null;
+	if (giving.charity_chain && giving.charity_chain !== 'solana') return null;
+	const to = giving.charity_address;
+	if (!to || !/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(to)) return null;
+	let base;
+	try { base = BigInt(accept.amount); } catch { return null; }
+	if (base <= 0n) return null;
+	let charityCut = 0n;
+	if (giving.charity_enabled && Number(giving.charity_bps) > 0) {
+		charityCut = (base * BigInt(Math.round(Number(giving.charity_bps)))) / 10000n;
+	}
+	let roundupCut = 0n;
+	if (giving.roundup_enabled && giving.roundup_to_atomics) {
+		let nearest = 0n;
+		try { nearest = BigInt(giving.roundup_to_atomics); } catch { nearest = 0n; }
+		if (nearest > 0n) {
+			const rem = base % nearest;
+			if (rem > 0n) roundupCut = nearest - rem;
+		}
+	}
+	const total = charityCut + roundupCut;
+	if (total <= 0n) return null;
+	const decimals = Number(accept.extra?.decimals ?? 6);
+	const sym = (accept.extra?.name || 'USDC').replace(/^USD Coin$/, 'USDC');
+	return {
+		to,
+		amount: total.toString(),
+		charity: charityCut.toString(),
+		roundup: roundupCut.toString(),
+		total: (base + total).toString(),
+		name: giving.charity_name || 'a good cause',
+		decimals,
+		sym,
+	};
+}
 // The modal only signs EIP-3009 transferWithAuthorization for EVM. When the
 // server publishes both an EIP-3009 entry and a Permit2 sibling (the
 // gas-sponsoring path used by @x402/evm SDK clients), we must pick the
@@ -561,6 +603,30 @@ const STYLES = `
 	margin-bottom: 6px;
 }
 
+.x402-giving {
+	display: flex; align-items: flex-start; gap: 10px;
+	padding: 11px 12px; margin-bottom: 10px;
+	border-radius: 11px; border: 1px solid #bbf7d0;
+	background: linear-gradient(180deg, #f0fdf4 0%, #ffffff 100%);
+	cursor: pointer; user-select: none;
+	transition: border-color 0.12s, background 0.12s;
+}
+.x402-giving:hover { border-color: #86efac; }
+.x402-giving input { position: absolute; opacity: 0; width: 0; height: 0; }
+.x402-giving-box {
+	flex: 0 0 auto; width: 18px; height: 18px; margin-top: 1px;
+	border-radius: 5px; border: 1.5px solid #86efac; background: #fff;
+	display: flex; align-items: center; justify-content: center;
+	color: #fff; font-size: 12px; line-height: 1; transition: background 0.12s, border-color 0.12s;
+}
+.x402-giving input:checked + .x402-giving-box { background: #16a34a; border-color: #16a34a; }
+.x402-giving input:checked + .x402-giving-box::after { content: '✓'; }
+.x402-giving input:focus-visible + .x402-giving-box { box-shadow: 0 0 0 3px rgba(22,163,74,0.25); }
+.x402-giving-text { flex: 1 1 auto; min-width: 0; }
+.x402-giving-title { font-size: 13px; font-weight: 700; color: #15803d; line-height: 1.3; }
+.x402-giving-sub { font-size: 11.5px; color: #5a6378; margin-top: 2px; line-height: 1.4; font-feature-settings: 'tnum' 1; }
+.x402-giving-amt { font-weight: 700; color: #0f0f0f; }
+
 .x402-error-box {
 	padding: 12px 14px; border-radius: 10px;
 	background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c;
@@ -755,6 +821,28 @@ class CheckoutModal {
 		return html;
 	}
 
+	// Buyer-facing charity / round-up opt-in. Default-checked; toggling updates
+	// `this.includeDonation`, which runSolana reads when assembling the tx. The
+	// donation rides the same signed transaction, so the buyer pays once.
+	renderGivingBox(g) {
+		const donation = formatAmount(g.amount, g.decimals);
+		const total = formatAmount(g.total, g.decimals);
+		const parts = [];
+		if (g.charity !== '0') parts.push(`${formatAmount(g.charity, g.decimals)} ${g.sym} donation`);
+		if (g.roundup !== '0') parts.push(`${formatAmount(g.roundup, g.decimals)} ${g.sym} round-up`);
+		const detail = parts.join(' + ');
+		return `
+			<label class="x402-giving">
+				<input type="checkbox" data-giving ${this.includeDonation ? 'checked' : ''} />
+				<span class="x402-giving-box"></span>
+				<span class="x402-giving-text">
+					<span class="x402-giving-title">Add <span class="x402-giving-amt">${donation} ${g.sym}</span> for ${escapeHtml(g.name)}</span>
+					<span class="x402-giving-sub">${detail ? escapeHtml(detail) + ' · ' : ''}you'd pay ${total} ${g.sym} total, settled in one transaction</span>
+				</span>
+			</label>
+		`;
+	}
+
 	setPrice(accept) {
 		const decimals = accept.extra?.decimals ?? 6;
 		const amount = formatAmount(accept.amount, decimals);
@@ -768,6 +856,13 @@ class CheckoutModal {
 		const evmDetected = typeof window !== 'undefined' && window.ethereum;
 		const solanaAccept = this.challenge?.accepts.find((a) => isSolanaNetwork(a.network));
 		const evmAccept = this.challenge?.accepts.find(isEip3009Accept);
+
+		// Charity / round-up giving — only when the merchant configured it and the
+		// cause wallet is reachable on this Solana checkout. Default-included, but
+		// always rendered with an opt-out so the buyer consents before signing.
+		this.solanaGiving = solanaAccept ? computeGiving(this.opts.giving, solanaAccept) : null;
+		if (this.includeDonation === undefined) this.includeDonation = true;
+		this.givingShown = false;
 
 		// SIWX-first path: when the 402 advertises sign-in-with-x AND we have a
 		// compatible wallet, lead with "Sign in with wallet" (primary) and
@@ -820,11 +915,16 @@ class CheckoutModal {
 		const fallbackBox = this.siwxFallbackNotice
 			? `<div class="x402-siwx-fallback">${escapeHtml(this.siwxFallbackNotice)}</div>`
 			: '';
+		const givingBox = this.solanaGiving ? this.renderGivingBox(this.solanaGiving) : '';
+		this.givingShown = !!this.solanaGiving;
 		this.bodyEl.innerHTML = `
 			${this.renderSteps('connect', { discover: 'done' })}
 			${fallbackBox}
+			${givingBox}
 			<div class="x402-wallet-buttons">${buttons.join('')}</div>
 		`;
+		const giveEl = this.bodyEl.querySelector('[data-giving]');
+		if (giveEl) giveEl.addEventListener('change', (e) => { this.includeDonation = !!e.target.checked; });
 		const onClick = (e) => {
 			const btn = e.target.closest('[data-wallet]');
 			if (!btn || btn.disabled) return;
@@ -993,9 +1093,16 @@ class CheckoutModal {
 			this.spendReservation = capCheck.reservation || null;
 			this.renderProgress('authorize', { text: `Building Solana payment for ${payerAddress.slice(0, 6)}…${payerAddress.slice(-4)}` });
 
+			// Only attach the donation when the buyer actually saw and kept the
+			// opt-in (givingShown) — never silently in autoConnect mode.
+			const tips =
+				this.givingShown && this.includeDonation && this.solanaGiving
+					? [{ to: this.solanaGiving.to, amount: this.solanaGiving.amount }]
+					: undefined;
 			const prep = await postJson(`${ORIGIN}/api/x402-checkout?action=prepare`, {
 				accept,
 				buyer: payerAddress,
+				...(tips ? { tips } : {}),
 			});
 			this.renderProgress('authorize', { text: 'Confirm in Phantom…' });
 			const txBytes = base64ToUint8Array(prep.tx_base64);

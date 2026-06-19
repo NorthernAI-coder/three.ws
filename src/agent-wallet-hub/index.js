@@ -1,6 +1,6 @@
 /**
  * Agent Wallet hub — the single product home for an agent's self-custodied
- * Solana wallet. Tabbed: Balance · Deposit · Trade · Snipe · Pay · Withdraw.
+ * Solana wallet. Tabbed: Balance · Deposit · Trade · Snipe · Pay · Withdraw · Give.
  *
  * This file owns the shell: layout, the agent header (name + wallet-readiness),
  * the network selector, the accessible tab strip, and the shared context handed
@@ -28,6 +28,7 @@ import './tabs/snipe.js';
 import './tabs/pay.js';
 import './tabs/vanity.js';
 import './tabs/withdraw.js';
+import './tabs/give.js';
 
 import { escapeHtml, shortAddress, copyToClipboard, toast } from './util.js';
 
