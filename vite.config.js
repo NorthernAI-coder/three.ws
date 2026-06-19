@@ -262,6 +262,7 @@ const appConfig = {
 				entryFileNames: (chunk) =>
 					chunk.name === 'footer-bot' ||
 					chunk.name === 'walk-companion' ||
+					chunk.name === 'walk-playground' ||
 					chunk.name === 'notifications' ||
 					chunk.name === 'nav-tier-badge'
 						? `${chunk.name}.js`
@@ -270,6 +271,7 @@ const appConfig = {
 			input: {
 				'footer-bot': resolve(__dirname, 'src/footer-bot.js'),
 				'walk-companion': resolve(__dirname, 'src/walk-companion.js'),
+				'walk-playground': resolve(__dirname, 'src/walk-playground.js'),
 				notifications: resolve(__dirname, 'src/notifications.js'),
 				'nav-tier-badge': resolve(__dirname, 'src/nav-tier-badge.js'),
 				app: resolve(__dirname, 'pages/app.html'),
@@ -1195,6 +1197,12 @@ support: resolve(__dirname, 'pages/support.html'),
 					// (built to a stable, unhashed name in prod; served from src in dev).
 					if (path === '/walk-companion.js') {
 						req.url = '/src/walk-companion.js';
+						return next();
+					}
+					// /walk-playground.js — stable URL so any page (not just the nav
+					// companion) can launch the full-page walk playground on demand.
+					if (path === '/walk-playground.js') {
+						req.url = '/src/walk-playground.js';
 						return next();
 					}
 					// /notifications.js — nav.js loads this module for the per-user inbox.

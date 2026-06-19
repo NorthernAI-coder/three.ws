@@ -20,6 +20,7 @@ import { onchainBadgeHTML } from '../../shared/onchain-badge.js';
 import { coinChipHTML } from '../../shared/agent-coin.js';
 import { walletChipHTML, wireWalletChips } from '../../shared/agent-wallet-chip.js';
 import { skeletonHTML, emptyStateHTML, ensureStateKitStyles } from '../../shared/state-kit.js';
+import { rigBadgeHTML, matchesRigFilter, RIG_FILTERS } from '../../shared/rig-status.js';
 ensureStateKitStyles();
 
 const MONO = `'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace`;
@@ -79,6 +80,9 @@ function toast(msg) {
 						<option value="name-desc">Name Z-A</option>
 					</select>
 				</div>
+				<div class="dn-agents-rig-chips" role="tablist" aria-label="Rig filter">
+					${RIG_FILTERS.map((f) => `<button type="button" class="dn-agents-rig-chip${f.key === 'all' ? ' active' : ''}" data-action="rig-chip" data-rig="${f.key}" role="tab" aria-selected="${f.key === 'all'}">${f.label}</button>`).join('')}
+				</div>
 				<span class="dn-agents-count" data-slot="agents-count"></span>
 			</div>
 
@@ -99,6 +103,8 @@ function toast(msg) {
 
 		let currentFilter = '';
 		let currentSort = 'created-desc';
+		let currentRig = 'all';
+		const avatarById = new Map(avatars.map((av) => [av.id, av]));
 
 		function getFilteredAgents() {
 			let filtered = agents;
@@ -110,6 +116,9 @@ function toast(msg) {
 					const tagline = (a.persona?.tagline || a.tagline || '').toLowerCase();
 					return name.includes(q) || wallet.includes(q) || tagline.includes(q);
 				});
+			}
+			if (currentRig !== 'all') {
+				filtered = filtered.filter((a) => matchesRigFilter(avatarById.get(a.avatar_id), currentRig));
 			}
 			filtered = [...filtered].sort((a, b) => {
 				switch (currentSort) {
@@ -161,6 +170,20 @@ function toast(msg) {
 		main.querySelector('[data-action="sort-select"]').addEventListener('change', (e) => {
 			currentSort = e.target.value;
 			rerender();
+		});
+
+		main.querySelectorAll('[data-action="rig-chip"]').forEach((chip) => {
+			chip.addEventListener('click', () => {
+				const v = chip.getAttribute('data-rig');
+				if (currentRig === v) return;
+				currentRig = v;
+				main.querySelectorAll('[data-action="rig-chip"]').forEach((x) => {
+					const on = x === chip;
+					x.classList.toggle('active', on);
+					x.setAttribute('aria-selected', on ? 'true' : 'false');
+				});
+				rerender();
+			});
 		});
 
 		main.querySelector('[data-action="create-agent"]').addEventListener('click', () => {
@@ -453,6 +476,7 @@ function agentCard(a, avatars) {
 				<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">
 					<span style="font-size:15px;font-weight:600;color:var(--nxt-ink)">${name}</span>
 					${onchainBadge || `<span class="dn-tag" style="font-size:11px">off-chain</span>`}
+					${a.avatar_id ? rigBadgeHTML(avatar, { size: 'sm' }) : ''}
 					${coinChipHTML(a, { launchable: false })}
 				</div>
 				<div style="margin-bottom:6px">${walletChipHTML(a, { isOwner: true, showPending: false })}</div>
@@ -1169,6 +1193,20 @@ function injectStyles() {
 		}
 		.dn-agents-sort:focus { border-color: var(--nxt-stroke-strong); }
 		.dn-agents-sort option { background: #14151c; color: var(--nxt-ink); }
+		.dn-agents-rig-chips { display: flex; gap: 4px; flex-wrap: wrap; }
+		.dn-agents-rig-chip {
+			padding: 7px 11px;
+			background: rgba(255,255,255,0.04);
+			border: 1px solid var(--nxt-stroke);
+			border-radius: 8px;
+			color: var(--nxt-ink-dim);
+			font-size: 12.5px;
+			font-family: inherit;
+			cursor: pointer;
+			transition: color 0.14s ease, background 0.14s ease, border-color 0.14s ease;
+		}
+		.dn-agents-rig-chip:hover { color: var(--nxt-ink); background: rgba(255,255,255,0.06); }
+		.dn-agents-rig-chip.active { color: var(--nxt-ink); border-color: var(--nxt-stroke-strong); background: rgba(255,255,255,0.08); }
 		.dn-agents-count {
 			font-size: 12px;
 			color: var(--nxt-ink-fade);

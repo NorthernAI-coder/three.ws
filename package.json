@@ -39,6 +39,7 @@
 		"agent-payments-sdk",
 		"agent-ui-sdk",
 		"avatar-sdk",
+		"page-agent-sdk",
 		"character-studio",
 		"mcp-bridge",
 		"mcp-server",
