@@ -103,6 +103,14 @@
 			<description>Opening IRL for the first time now spells out the core loop in plain words: turn on Camera AR, aim at the spot you want, then tap Pin here to anchor your agent in real space. The on-screen guidance updates as you go — it points you to the next step before you've pinned, and confirms when your agent is anchored. We rewrote the status messages around pinning to be calm and literal instead of technical or alarming: waiting on a GPS fix now tells you it's quicker outdoors, pinning without location explains your agent is saved on this device until you turn location on, and a missing compass reads as a gentle note rather than a warning. The caption keyboard now opens reliably when the panel slides up on iPhone.</description>
 		</item>
 		<item>
+			<title>Club dancers never flash a T-pose while the room loads in</title>
+			<link>https://three.ws/club</link>
+			<guid isPermaLink="false">2026-06-19:Club dancers never flash a T-pose while the room loads in</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>When you stepped onto the pole floor, the dancers used to stand stiff with their arms out — a frozen T-pose — for several seconds while their idle animation streamed in, and one of them could stay frozen even longer while her rig was swapped to a compatible one. Each dancer now has her idle and walk loaded and bound the instant she appears, so the first frame you see is her resting stance, and she steps to the pole with her legs moving. No more T-pose, no more sliding.</description>
+		</item>
+		<item>
 			<title>Corner helper cards no longer pile up and hide page content</title>
 			<link>https://three.ws/deploy</link>
 			<guid isPermaLink="false">2026-06-19:Corner helper cards no longer pile up and hide page content</guid>
@@ -431,12 +439,28 @@
 			<description>On phones that can anchor an agent to your real floor, flipping between plain Camera AR and the Place on floor flow is now seamless. Before, tapping the two in quick succession could fight over the camera and leave you on a black screen with the camera light stuck on; now each switch waits for the previous one to finish releasing the camera, so it never double-grabs it. Leaving a floor session drops you straight back into the live camera view you came from — passthrough resumes instantly instead of flashing a dark frame — and taps on the screen behind the floor-anchor panel no longer slip through to open the wrong thing. If a floor session can't start, the scene keeps running and you get the calm &quot;use Pin here instead&quot; card rather than a frozen view.</description>
 		</item>
 		<item>
+			<title>Switching avatars in the Club never freezes you in a T-pose</title>
+			<link>https://three.ws/club</link>
+			<guid isPermaLink="false">2026-06-19:Switching avatars in the Club never freezes you in a T-pose</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>The Club's avatar switcher lists public gallery rigs alongside the built-in ones, and not every gallery model is a humanoid our dance and walk clips can drive. Picking one of those used to leave your character frozen stiff, arms out, sliding around without moving her legs. Now the Club checks that a chosen avatar can actually be animated before committing to it — if it can't, it instantly rolls back to the one you were already walking as and tells you why, so your character keeps idling and walking with her legs moving no matter what you pick.</description>
+		</item>
+		<item>
 			<title>Tapping an agent in AR now lands every time</title>
 			<link>https://three.ws/irl</link>
 			<guid isPermaLink="false">2026-06-19:Tapping an agent in AR now lands every time</guid>
 			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
 			<category>improvement</category>
 			<description>Inspecting an agent in IRL AR is a tap — and we made that tap far harder to miss. There's now a finger-sized catch zone around each agent's floating name, so a tap that lands just beside a small or distant agent still opens its card instead of doing nothing. When several agents overlap on screen, your tap resolves to the one in front of you, and it never selects an agent that's behind you or off-screen. We also kept agents from vanishing when you bring your phone right up to one to look closely. Inspecting works whether the agent is centered, near the edge of the frame, close, or far.</description>
+		</item>
+		<item>
+			<title>The Club runs cooler — capped frame rate and adaptive quality</title>
+			<link>https://three.ws/club</link>
+			<guid isPermaLink="false">2026-06-19:The Club runs cooler — capped frame rate and adaptive quality</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Walking into the Club no longer spins your laptop's fans up. The walk-through now draws at a steady 60 fps instead of chasing high-refresh displays (which did up to 2.4× the GPU work for no visible gain), caps how many pixels it renders on retina screens, and pauses rendering entirely when the tab is in the background. If frames still run slow on a struggling machine, it automatically steps quality down a notch so the scene keeps moving smoothly instead of grinding. Big drop in heat and battery use, same neon-lit walk.</description>
 		</item>
 		<item>
 			<title>The Pole Club alley is easier to see</title>
