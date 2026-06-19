@@ -451,9 +451,23 @@ function initWalkToggle(root) {
 	}
 	sync();
 
+	// Whether we just dived through a link into the page playground on the
+	// previous page — the companion module reads + clears this to drop the
+	// character back in from the top.
+	let pendingDropIn = false;
+	try {
+		pendingDropIn = sessionStorage.getItem('walk:playground:resume') === '1';
+	} catch (_) {}
+
 	// Load the module if the companion should be active on this page. The module
-	// is self-mounting; ensureWalkCompanion is idempotent.
-	if (override === '1' || (override !== '0' && walkIsEnabled())) {
+	// is self-mounting; ensureWalkCompanion is idempotent. `?walk=play` deep-links
+	// straight into the playground; a pending drop-in resumes it after a dive.
+	if (
+		override === '1' ||
+		override === 'play' ||
+		pendingDropIn ||
+		(override !== '0' && walkIsEnabled())
+	) {
 		ensureWalkCompanion();
 	}
 

@@ -248,3 +248,6 @@ scripts/.corr-*
 # Anchored to root so legitimate underscore-prefixed files elsewhere are unaffected.
 /_*.mjs
 /_*.png
+
+# Scratch: IBM × three.ws partnership page experiment (duplicate of x402-demo, not for commit)
+/pages/ibm/partnership.html

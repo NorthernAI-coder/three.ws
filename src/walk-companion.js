@@ -45,6 +45,7 @@ const ENABLED_KEY = 'walk:companion:enabled';
 const STATE_KEY = 'walk:companion:state';
 const AVATAR_KEY = 'walk:companion:avatar';
 const GREET_KEY = 'walk:companion:greet'; // sessionStorage flag set on internal nav
+const INVITE_KEY = 'walk:companion:invited'; // sessionStorage: showed the "click to walk" tip
 const ROBOT_URL = '/animations/robotexpressive.glb';
 const MANIFEST_URL = '/animations/manifest.json';
 
@@ -359,12 +360,14 @@ class WalkCompanion {
 		this.host = host;
 		this.canvas = host.querySelector('.walk-companion-canvas');
 		this.bubble = host.querySelector('.walk-companion-bubble');
-		host.querySelector('.walk-companion-close').addEventListener('click', () => disable());
-		// Clicking the avatar makes it wave + re-greet.
-		this.canvas.addEventListener('click', () => {
-			this.controller?.playWave();
-			this._say(contextGreeting());
+		host.querySelector('.walk-companion-close').addEventListener('click', (e) => {
+			e.stopPropagation();
+			disable();
 		});
+		// Clicking the avatar detaches it from the corner into Playground mode —
+		// it walks out of this exact spot and roams the page. The corner companion
+		// returns automatically when the playground is exited.
+		this.canvas.addEventListener('click', () => detachToPlayground(this));
 		requestAnimationFrame(() => host.classList.add('is-in'));
 	}
 
@@ -577,6 +580,14 @@ class WalkCompanion {
 		// Orient toward a route-relevant element if there is one.
 		this._orientToContext();
 		this._say(contextGreeting());
+		// Once per session, invite the user to detach into Playground mode.
+		if (ssGet(INVITE_KEY) !== '1') {
+			ssSet(INVITE_KEY, '1');
+			clearTimeout(this._inviteTimer);
+			this._inviteTimer = setTimeout(() => {
+				if (this.mounted) this._say('Click me to walk the whole page →');
+			}, 5600);
+		}
 	}
 
 	_orientToContext() {
@@ -733,11 +744,86 @@ function toggle() {
 
 window.__walkCompanion = { enable, disable, toggle, isEnabled };
 
+// ── Playground hand-off ──────────────────────────────────────────────────────
+// The corner companion and the full-screen playground never run at once (one
+// shared WebGL context budget): detaching unmounts the corner instance, then
+// lazy-loads the playground so a normal page never fetches its code.
+let _pgWiring = false;
+function wirePlaygroundReturn() {
+	if (_pgWiring) return;
+	_pgWiring = true;
+	// When the playground exits, bring the corner companion back (if still on).
+	window.addEventListener('walk-playground:exit', () => {
+		if (isEnabled()) {
+			if (!_instance) _instance = new WalkCompanion();
+			_instance.mount();
+		}
+	});
+}
+
+async function detachToPlayground(companion) {
+	wirePlaygroundReturn();
+	// Where the avatar currently stands, in viewport coords, so it walks out of
+	// this exact corner instead of teleporting to the middle of the page.
+	let startScreen = null;
+	try {
+		const r = companion.host.getBoundingClientRect();
+		startScreen = { x: r.left + r.width / 2, y: r.top + r.height * 0.86 };
+	} catch {
+		/* fall back to centered spawn */
+	}
+	const avatarId = lsGet(AVATAR_KEY) || null;
+	if (_instance) _instance.unmount(); // free the corner WebGL context first
+	try {
+		const mod = await import('./walk-playground.js');
+		mod.launchPlayground({ avatarId, startScreen });
+	} catch (err) {
+		log.warn('[walk-companion] playground failed to load:', err?.message || err);
+		// Couldn't enter the playground — restore the corner companion so the
+		// click isn't a dead end.
+		if (isEnabled()) {
+			if (!_instance) _instance = new WalkCompanion();
+			_instance.mount();
+		}
+	}
+}
+
+// Arrived by diving through a link on the previous page → skip the corner
+// companion and drop the character straight into the playground from the top.
+async function tryDropIn() {
+	try {
+		const mod = await import('./walk-playground.js');
+		if (!mod.consumeDropIn()) return false;
+		wirePlaygroundReturn();
+		mod.launchPlayground({ avatarId: lsGet(AVATAR_KEY) || null, dropIn: true });
+		return true;
+	} catch (err) {
+		log.warn('[walk-companion] drop-in failed:', err?.message || err);
+		return false;
+	}
+}
+
 // Auto-mount on load when enabled (nav.js only injects this module when the
 // flag is set or the user just toggled it on, so this is the common path).
 const _params = new URLSearchParams(location.search);
 if (_params.get('walk') === '0') {
 	disable();
+} else if (_params.get('walk') === 'play') {
+	// Deep link straight into the page playground.
+	lsSet(ENABLED_KEY, '1');
+	import('./walk-playground.js')
+		.then((mod) => {
+			wirePlaygroundReturn();
+			mod.launchPlayground({ avatarId: lsGet(AVATAR_KEY) || null });
+		})
+		.catch((err) => {
+			log.warn('[walk-companion] playground deep-link failed:', err?.message || err);
+			enable();
+		});
 } else if (_params.get('walk') === '1' || isEnabled()) {
-	enable();
+	// If we just dived through a link, resume in the playground; otherwise show
+	// the corner companion as usual.
+	tryDropIn().then((dropped) => {
+		if (!dropped) enable();
+	});
 }
