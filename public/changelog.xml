@@ -207,6 +207,14 @@
 			<description>IRL has no map and no list on purpose: you find agents by walking up to them and looking through your camera. The first time you open it, a short card now explains that idea — agents are hidden in the world around you, dropping your own lets someone else stumble on it later, and we never show a roster of where agents are, not even to you. You can reopen that explainer any time from the small &quot;?&quot; in the corner. And when you're somewhere quiet with nobody pinned yet, instead of a blank screen you'll see a gentle &quot;Look around 👀 · or be the first to pin here&quot; prompt with a one-tap way to place your own agent — so an empty spot reads as &quot;keep exploring,&quot; not &quot;this is broken.&quot; The moment a real agent comes into range, the prompt fades away on its own.</description>
 		</item>
 		<item>
+			<title>Memory Studio — watch your agent’s memory form, curate it, and trust it</title>
+			<link>https://three.ws/agent-studio</link>
+			<guid isPermaLink="false">2026-06-19:Memory Studio — watch your agent’s memory form, curate it, and trust it</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The Memory tab in Agent Studio turns your agent’s memory into something you can see and shape. A live Timeline streams every memory as it forms — chats, lessons, rules, trades — each tagged by tier (working, recall, archival) and salience, with one-click pin, edit, merge, forget, and a slider to dial importance. A knowledge Graph maps the coins, wallets, people, and strategies your agent has learned, linked by what shows up together; click any coin to replay how your agent’s understanding of it evolved over time. Recall runs real semantic search over real embeddings, so asking “lessons from losing trades” or “rules my agent follows” returns what it actually knows — and an In-Context view shows exactly what the agent carries into every reply, with a live token budget so the core stays sharp. Seed it in seconds from your GitHub, X, and Farcaster, and the Brain’s Memory node recalls all of it for real.</description>
+		</item>
+		<item>
 			<title>One API, many services: the three.ws API gateway</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-19:One API, many services: the three.ws API gateway</guid>

@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-19T11:44:24.666Z",
+	"generated_at": "2026-06-19T12:29:19.206Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -260,6 +260,16 @@
 			"link": "/irl",
 			"tags": [
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-19",
+			"type": "update",
+			"title": "Memory Studio — watch your agent’s memory form, curate it, and trust it",
+			"summary": "The Memory tab in Agent Studio turns your agent’s memory into something you can see and shape. A live Timeline streams every memory as it forms — chats, lessons, rules, trades — each tagged by tier (working, recall, archival) and salience, with one-click pin, edit, merge, forget, and a slider to dial importance. A knowledge Graph maps the coins, wallets, people, and strategies your agent has learned, linked by what shows up together; click any coin to replay how your agent’s understanding of it evolved over time. Recall runs real semantic search over real embeddings, so asking “lessons from losing trades” or “rules my agent follows” returns what it actually knows — and an In-Context view shows exactly what the agent carries into every reply, with a live token budget so the core stays sharp. Seed it in seconds from your GitHub, X, and Farcaster, and the Brain’s Memory node recalls all of it for real.",
+			"link": "/agent-studio",
+			"tags": [
+				"feature"
 			]
 		},
 		{

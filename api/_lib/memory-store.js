@@ -211,7 +211,7 @@ export async function searchMemories(agentId, query, opts = {}) {
 			SET access_count = access_count + 1,
 			    last_accessed_at = now(),
 			    salience = LEAST(1.0, salience + 0.02)
-			WHERE id = ANY(${ids})
+			WHERE id = ANY(${ids}::uuid[])
 		`.catch(() => {});
 	}
 
@@ -294,7 +294,7 @@ export async function buildGraph(agentId, { limit = 200 } = {}) {
 	const ids = entities.map((e) => e.id);
 	const links = await sql`
 		SELECT entity_id, memory_id FROM agent_memory_entity_links
-		WHERE entity_id = ANY(${ids})
+		WHERE entity_id = ANY(${ids}::uuid[])
 	`;
 
 	// Group entities by the memory they co-occur in; every pair in a memory is an edge.
