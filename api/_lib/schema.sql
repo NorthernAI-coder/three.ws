@@ -504,10 +504,62 @@ create index if not exists agent_memories_public
     on agent_memories(agent_id, created_at desc)
     where is_public = true and expires_at is null;
 
+-- Memory Studio (P2): tiered model (working/recall/archival) + recall bookkeeping
+-- + lazy embedding/entity cursors. See migrations/20260619120000_memory_studio.sql.
+alter table agent_memories add column if not exists tier text not null default 'recall'
+    check (tier in ('working', 'recall', 'archival'));
+alter table agent_memories add column if not exists embedding jsonb;
+alter table agent_memories add column if not exists embedder text;
+alter table agent_memories add column if not exists pinned boolean not null default false;
+alter table agent_memories add column if not exists last_accessed_at timestamptz;
+alter table agent_memories add column if not exists access_count integer not null default 0;
+alter table agent_memories add column if not exists entities_extracted boolean not null default false;
+
+create index if not exists agent_memories_working
+    on agent_memories(agent_id, salience desc)
+    where tier = 'working' and expires_at is null;
+create index if not exists agent_memories_needs_embed
+    on agent_memories(agent_id, created_at desc)
+    where embedding is null and expires_at is null;
+create index if not exists agent_memories_needs_entities
+    on agent_memories(agent_id, created_at desc)
+    where entities_extracted = false and expires_at is null;
+
 do $$ begin
     create trigger agent_memories_set_updated_at before update on agent_memories
         for each row execute function set_updated_at();
 exception when duplicate_object then null; end $$;
+
+-- ── agent_memory_entities / _entity_links — temporal knowledge graph (P2) ────
+-- Nodes are the entities (mints, tickers, wallets, people, strategies, topics)
+-- the agent's memories mention; edges are derived at read time from co-occurrence
+-- within the same memory. See migrations/20260619120000_memory_studio.sql.
+create table if not exists agent_memory_entities (
+    id            uuid primary key default gen_random_uuid(),
+    agent_id      uuid not null references agent_identities(id) on delete cascade,
+    kind          text not null,
+    label         text not null,
+    normalized    text not null,
+    salience      real not null default 0.5,
+    mention_count integer not null default 0,
+    first_seen_at timestamptz not null default now(),
+    last_seen_at  timestamptz not null default now(),
+    meta          jsonb not null default '{}'::jsonb,
+    unique (agent_id, kind, normalized)
+);
+create index if not exists agent_memory_entities_agent
+    on agent_memory_entities(agent_id, last_seen_at desc);
+create index if not exists agent_memory_entities_kind
+    on agent_memory_entities(agent_id, kind, mention_count desc);
+
+create table if not exists agent_memory_entity_links (
+    entity_id   uuid not null references agent_memory_entities(id) on delete cascade,
+    memory_id   uuid not null references agent_memories(id) on delete cascade,
+    created_at  timestamptz not null default now(),
+    primary key (entity_id, memory_id)
+);
+create index if not exists agent_memory_entity_links_memory
+    on agent_memory_entity_links(memory_id);
 
 -- ── agent_memory_pins — IPFS CIDs an agent has pinned ────────────────────────
 -- Lets the read proxy (GET /api/agents/:id/memory/:cid) confirm the requested
