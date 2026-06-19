@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-19T09:44:21.703Z",
+	"generated_at": "2026-06-19T09:46:01.138Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -165,6 +165,16 @@
 			"type": "update",
 			"title": "IRL surfaces now show clear loading, empty, and error states",
 			"summary": "Every IRL screen that loads data now has a designed loading, empty, and error state — no more stuck \"Loading…\" or blank screens. Open \"My pins\" and you'll see a skeleton while it loads, a friendly nudge to drop your first agent when you have none, and a one-tap Retry if the network hiccups. Tapping an agent shows the same care: if its profile can't load, you get a clear message and Retry while its name and a link to the full profile stay put. The nearby radar reads as intentionally empty (\"Be the first to pin here\") instead of a broken dial, and the count beside it no longer flashes \"0 nearby\" before we've finished looking. On devices that can't run the AR view, you get a helpful card explaining why and where to go next — not a bare error.",
+			"link": "/irl",
+			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-19",
+			"type": "update",
+			"title": "IRL teaches you how to find agents — and an empty area now feels alive",
+			"summary": "IRL has no map and no list on purpose: you find agents by walking up to them and looking through your camera. The first time you open it, a short card now explains that idea — agents are hidden in the world around you, dropping your own lets someone else stumble on it later, and we never show a roster of where agents are, not even to you. You can reopen that explainer any time from the small \"?\" in the corner. And when you're somewhere quiet with nobody pinned yet, instead of a blank screen you'll see a gentle \"Look around 👀 · or be the first to pin here\" prompt with a one-tap way to place your own agent — so an empty spot reads as \"keep exploring,\" not \"this is broken.\" The moment a real agent comes into range, the prompt fades away on its own.",
 			"link": "/irl",
 			"tags": [
 				"improvement"

@@ -54,7 +54,7 @@ import { startOnboarding, ensurePermission, needsMotionGesture, setPermissionSta
 import { reserveWebGLContext, releaseWebGLContext } from './webgl-budget.js';
 import { detectTier, BUDGETS, TIER_ORDER, shiftTier } from './irl/perf-budget.js';
 import { sharedGLTFLoader, createLoadQueue } from './irl/load-queue.js';
-import { roomOriginWorld, agentWorldPosition } from './irl/room-anchor.js';
+import { roomOriginWorld, agentWorldPosition, localToGeo, calibrateRoomOrigin } from './irl/room-anchor.js';
 import { anchorPoseToPin, yawDegFromQuat } from './irl/floor-anchor.js';
 import { initRoomMode } from './irl/room-mode.js';
 import { isFiniteReading, isCompassFresh, shouldUseAbsoluteYaw, resolveLockYaw, clampPitch, screenPitchDeg } from './irl/sensor-fusion.js';
@@ -1413,17 +1413,38 @@ function pinHeightM(pin) {
 // the right sides no matter how GPS drifts. The math lives in the pure, unit-
 // tested src/irl/room-anchor.js; here we only read it. The proximity-poll
 // projection delivers these as snake_case, the one shape this reads.
+
+// Per-room viewer-local frame rotation (R2 relative-frame alignment). A room
+// placed WITHOUT an absolute compass (origin_yaw_deg ≠ 0, or anchor_source
+// 'gyro-gps:rel') can't recover true north from GPS alone, so its layout may
+// render rotated for another viewer. The one-tap "face the room's front and tap"
+// alignment captures an extra rotation THIS viewer applies on top of the stored
+// frame so the cluster sits where the real room is. It's viewer-local — never
+// sent to the server, it doesn't move the room for anyone else — and persisted
+// per room so it survives a reload.
+const ROOM_ALIGN_KEY = 'irl_room_align_v1';
+const _roomYawOffset = new Map(); // roomId → extra degrees, viewer-local
+try {
+	const saved = JSON.parse(localStorage.getItem(ROOM_ALIGN_KEY) || '{}');
+	for (const [k, v] of Object.entries(saved)) if (Number.isFinite(v)) _roomYawOffset.set(k, v);
+} catch { /* corrupt store → start fresh */ }
+function persistRoomAlign() {
+	try { localStorage.setItem(ROOM_ALIGN_KEY, JSON.stringify(Object.fromEntries(_roomYawOffset))); } catch { /* private mode */ }
+}
+
 function pinRoom(pin) {
 	if (!pin || !pin.room_id) return null;
 	const oLat = Number(pin.origin_lat), oLng = Number(pin.origin_lng);
 	if (!Number.isFinite(oLat) || !Number.isFinite(oLng)) return null;
+	const extra = _roomYawOffset.get(pin.room_id) || 0;
 	return {
 		roomId: pin.room_id,
 		relEast: Number(pin.rel_east_m) || 0,
 		relNorth: Number(pin.rel_north_m) || 0,
 		originLat: oLat,
 		originLng: oLng,
-		originYawDeg: Number(pin.origin_yaw_deg) || 0,
+		// Stored frame + this viewer's one-tap alignment (0 for a true-north room).
+		originYawDeg: (Number(pin.origin_yaw_deg) || 0) + extra,
 	};
 }
 
@@ -2428,7 +2449,15 @@ function showXrError(err) {
 }
 
 async function enterFloorAnchor() {
+	// Block while a prior camera/XR handoff is still settling — a fast double-tap, or
+	// a tap during disableAR → session start, must not start a second session or
+	// re-acquire the camera underneath this one.
+	if (_arTransitioning) return;
+	// Re-tapping the button once the session is fully live toggles it off. (Mid-startup
+	// the guard above already absorbed the tap, so this only ever ends a started
+	// session — never a half-built one.)
 	if (xrSession) { await xrSession.end(); return; }
+	_arTransitioning = true;
 	// immersive-ar owns the rear camera and the full screen; release the
 	// getUserMedia passthrough first so the two don't contend for the camera.
 	// Remember whether the user was in camera-AR so we can put them back there on
@@ -2441,6 +2470,7 @@ async function enterFloorAnchor() {
 	if (xrOverlay) xrOverlay.hidden = false;
 	resetXrHint();
 
+	let failedStart = false;
 	try {
 		xrSession = new WebXRSession(xrViewer, {
 			domOverlayRoot: xrOverlay,
@@ -2458,28 +2488,59 @@ async function enterFloorAnchor() {
 				// placement, so don't surprise them with a pin saved after they walk
 				// away (parity with the gyro path's arActive gate).
 				floorPersist.drop();
-				// WebXRSession restores an opaque clear color on exit; IRL renders
-				// over the page gradient with a transparent canvas — put that back.
+				// WebXRSession restored an OPAQUE clear color on exit (_handleEnd); IRL
+				// always renders the canvas transparent (alpha:true) over the page
+				// gradient or the camera feed. Re-assert transparent + the ground that
+				// matches the mode we return to, so passthrough resumes rather than a
+				// black fill.
 				renderer.setClearColor(0x000000, 0);
-				if (!arActive) scene.background = null;
+				scene.background = null;
 				if (anchorBtn) anchorBtn.classList.remove('is-active');
 				if (xrOverlay) xrOverlay.hidden = true;
-				// Return the user to camera-AR if that's where they came from — same
-				// path whether they tapped Exit or the OS ended the session.
-				if (resumeAR && !arActive) enableAR();
+				if (resumeAR) {
+					// Returning to camera-AR: show the soft passthrough contact shadow
+					// now; enableAR() re-acquires the stream and finishes the rest (FOV,
+					// status) async. enableAR() no-ops if a failed start left the guard
+					// raised — the post-settle resume below covers that case.
+					groundOpaque.visible = false;
+					groundShadow.visible = true;
+					enableAR();
+				} else {
+					// Back to the plain 3D view: opaque ground, no passthrough shadow.
+					groundOpaque.visible = true;
+					groundShadow.visible = false;
+				}
 			},
 		});
 		await xrSession.start();
 		setStatus('Floor anchoring on — find the floor, then tap to place your agent');
 	} catch (err) {
 		log.error('[irl] WebXR start failed:', err);
+		failedStart = true;
+		// A session that created its XRSession but threw mid-setup never reached
+		// setAnimationLoop, so its 'end' (→ onEnd) won't fire on its own. Tear it down
+		// explicitly so we don't leak a live immersive session, and reset the renderer
+		// state it touched (xr.enabled was set true before requestSession; an opaque
+		// clear color restored on its 'end'). The IRL RAF kept running through the
+		// failure, so the scene stays live — never frozen.
+		const failed = xrSession;
 		xrSession = null;
+		if (failed) { try { await failed.end(); } catch {} }
+		renderer.xr.enabled = false;
+		renderer.setClearColor(0x000000, 0);
+		scene.background = null;
 		if (anchorBtn) anchorBtn.classList.remove('is-active');
-		// The start failed before any session existed, so onEnd never runs — restore
-		// the camera-AR the user was in directly so the entry attempt isn't one-way.
-		if (resumeAR && !arActive) enableAR();
+		if (xrOverlay) xrOverlay.hidden = true;
 		showXrError(err);
+	} finally {
+		_arTransitioning = false;
 	}
+	// Resume camera-AR once the guard has cleared. On a failed start, onEnd's own
+	// resume was suppressed by the still-raised guard (when the session reached
+	// _handleEnd), or onEnd never fired (requestSession rejected) — either way the
+	// entry attempt must not be one-way. No-op on success or when there was no AR to
+	// return to; enableAR() re-checks every precondition.
+	if (failedStart && resumeAR && !arActive && !xrSession) enableAR();
 }
 
 // Entry point for a placed floor anchor: persist it now if we have a GPS fix,

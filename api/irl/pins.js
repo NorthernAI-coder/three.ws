@@ -1281,8 +1281,19 @@ export default wrap(async (req, res) => {
 			updates.avatarUrl = c.value;
 		}
 		if ('x402Endpoint' in updates) {
-			const c = safeRemoteUrl(updates.x402Endpoint, { allowRelative: false });
-			if (!c.ok) return json(res, 400, { error: 'invalid x402Endpoint' });
+			// Enforce the SAME first-party / allow-listed payment-host gate as POST —
+			// safePaymentEndpoint, not bare safeRemoteUrl. Editing a pin must not be a
+			// back door to point its Pay button at an arbitrary external drain host
+			// (the exact vector the POST allow-list closes). Relative same-origin paths
+			// stay first-party; a null/'' clears the endpoint.
+			const c = safePaymentEndpoint(updates.x402Endpoint);
+			if (!c.ok) {
+				return json(res, 422, {
+					error: 'endpoint',
+					field: 'x402Endpoint',
+					message: 'Pay endpoints must be hosted on three.ws.',
+				});
+			}
 			updates.x402Endpoint = c.value;
 		}
 

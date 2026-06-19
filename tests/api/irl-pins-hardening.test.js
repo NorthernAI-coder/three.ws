@@ -235,6 +235,27 @@ describe('DELETE /api/irl/pins — pin-id validation', () => {
 	});
 });
 
+// ── PATCH x402 edit must enforce the SAME allow-list as POST (task 13) ────────
+// Editing a pin can't be a back door around the first-party payment-host gate.
+describe('PATCH /api/irl/pins — x402 edit honours the payment-host allow-list', () => {
+	beforeEach(() => { sessionUser = { id: 'owner-uuid' }; });
+	it('422s an arbitrary external x402 host on edit, never reaching the UPDATE', async () => {
+		const { res, body } = await patch({ id: UUID, x402Endpoint: 'https://evil.example.com/drain' });
+		expect(res.statusCode).toBe(422);
+		expect(body.error).toBe('endpoint');
+		expect(body.field).toBe('x402Endpoint');
+		const ranEdit = sqlMock.mock.calls.some(([s]) =>
+			/UPDATE irl_pins SET[\s\S]*x402_endpoint/i.test(Array.isArray(s) ? s.join(' ') : String(s)));
+		expect(ranEdit).toBe(false);
+	});
+	it('accepts a same-origin relative pay path on edit (passes the allow-list)', async () => {
+		const { res } = await patch({ id: UUID, x402Endpoint: '/api/x402-pay' });
+		// Allow-list accepted it — not a 422 endpoint rejection. (The mocked field-edit
+		// UPDATE returns no row, so the handler then 404s; the point is it got past the gate.)
+		expect(res.statusCode).not.toBe(422);
+	});
+});
+
 // ── Expiry guard on mutations (task 13) ──────────────────────────────────────
 describe('calibrate — refuses an expired pin', () => {
 	it('404s an expired pin even for the owner, and never UPDATEs', async () => {
