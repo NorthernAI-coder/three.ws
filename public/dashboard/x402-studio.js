@@ -654,6 +654,7 @@ function buildSnippet() {
 	$('#b-snippet').textContent = snippet;
 }
 async function previewPay() {
+	if (suppressPreviewClick) return;
 	const o = builderOpts();
 	if (!o.endpoint) { toast('Pick a product or enter an endpoint first'); showView('builder'); return; }
 	if (o.body === '__INVALID__') { toast('POST body is not valid JSON'); return; }
@@ -686,19 +687,24 @@ function applyBuilderPreset(p) {
 function setSeg(sel, v) { $$(sel + ' button').forEach((b) => b.classList.toggle('on', b.dataset.v === v)); }
 
 // drag the preview button — corner-snaps in floating layout
+let suppressPreviewClick = false;
 function enableDrag() {
 	const btn = $('#b-preview');
 	const canvas = $('#b-canvas');
 	let drag = null;
 	btn.addEventListener('pointerdown', (e) => {
 		if (builder.layout !== 'floating') return;
-		drag = { id: e.pointerId };
+		drag = { id: e.pointerId, x: e.clientX, y: e.clientY };
 		btn.setPointerCapture(e.pointerId);
 		e.preventDefault();
 	});
 	btn.addEventListener('pointerup', (e) => {
 		if (!drag) return;
+		const moved = Math.hypot(e.clientX - drag.x, e.clientY - drag.y) > 6;
 		drag = null;
+		if (!moved) return; // treat as a click → previewPay
+		suppressPreviewClick = true;
+		setTimeout(() => { suppressPreviewClick = false; }, 50);
 		const r = canvas.getBoundingClientRect();
 		const x = e.clientX - r.left, y = e.clientY - r.top;
 		builder.corner = (y < r.height / 2 ? 't' : 'b') + (x < r.width / 2 ? 'l' : 'r');

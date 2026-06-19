@@ -48,6 +48,19 @@ CREATE TABLE IF NOT EXISTS x402_merchant_settings (
     require_siwx       boolean       NOT NULL DEFAULT false, -- re-entry must sign in
     allowed_networks   jsonb         NOT NULL DEFAULT '["base","solana"]'::jsonb,
 
+    -- Giving — optional charity split (basis points of every settled payment)
+    -- routed to a cause wallet, plus buyer round-up (round the total up to the
+    -- nearest unit and donate the difference). The cause address is validated
+    -- against charity_chain in the API.
+    charity_enabled    boolean       NOT NULL DEFAULT false,
+    charity_name       text,
+    charity_chain      text          CHECK (charity_chain IS NULL OR charity_chain IN ('base', 'solana')),
+    charity_address    text,
+    charity_bps        int           NOT NULL DEFAULT 0
+                                     CHECK (charity_bps BETWEEN 0 AND 10000),
+    roundup_enabled    boolean       NOT NULL DEFAULT false,
+    roundup_to_atomics text,
+
     -- Developer: API key (hashed) + settlement webhook
     api_key_hash       text,
     api_key_prefix     text,
@@ -72,6 +85,13 @@ CREATE INDEX IF NOT EXISTS idx_x402_merchant_store
 -- table already exists without the agent-wallet / facilitator config).
 ALTER TABLE x402_merchant_settings ADD COLUMN IF NOT EXISTS agent_wallets jsonb NOT NULL DEFAULT '[]'::jsonb;
 ALTER TABLE x402_merchant_settings ADD COLUMN IF NOT EXISTS facilitator   text;
+ALTER TABLE x402_merchant_settings ADD COLUMN IF NOT EXISTS charity_enabled    boolean NOT NULL DEFAULT false;
+ALTER TABLE x402_merchant_settings ADD COLUMN IF NOT EXISTS charity_name       text;
+ALTER TABLE x402_merchant_settings ADD COLUMN IF NOT EXISTS charity_chain      text;
+ALTER TABLE x402_merchant_settings ADD COLUMN IF NOT EXISTS charity_address    text;
+ALTER TABLE x402_merchant_settings ADD COLUMN IF NOT EXISTS charity_bps        int NOT NULL DEFAULT 0;
+ALTER TABLE x402_merchant_settings ADD COLUMN IF NOT EXISTS roundup_enabled    boolean NOT NULL DEFAULT false;
+ALTER TABLE x402_merchant_settings ADD COLUMN IF NOT EXISTS roundup_to_atomics text;
 
 -- Products = SKUs. Add commerce/display columns so storefront cards can render
 -- a price + image without a live 402 probe, and so products can be ordered and
