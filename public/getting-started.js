@@ -418,13 +418,32 @@
 		overlay.addEventListener('click', function (e) { if (e.target === overlay) close(); });
 	}
 
+	// Pull in the shared corner-stack wherever this widget runs — some pages
+	// include us directly without nav.js (which normally loads it). The stack
+	// adopts our tagged orphan when it initialises, so order doesn't matter.
+	function ensureCornerStack() {
+		if (window.twsCornerStack) return;
+		if (document.querySelector('script[src="/corner-stack.js"]')) return;
+		var s = document.createElement('script');
+		s.src = '/corner-stack.js';
+		s.defer = true;
+		(document.head || document.documentElement).appendChild(s);
+	}
+
 	// ── Mount ─────────────────────────────────────────────────────────────────────
 	function mount() {
 		ensureCss();
+		ensureCornerStack();
 		root = el('div', 'twg-root');
 		root.appendChild(buildPanel());
 		root.appendChild(buildPill());
-		document.body.appendChild(root);
+		// Flow into the shared corner-stack so it never overlaps the other
+		// bottom-right cards. The launcher pill owns the corner itself (highest
+		// priority). Falls back to a plain body mount if the stack isn't ready;
+		// the data-corner-priority tag lets it be adopted once the stack arrives.
+		root.setAttribute('data-corner-priority', '30');
+		if (window.twsCornerStack) window.twsCornerStack.mount(root);
+		else document.body.appendChild(root);
 
 		updatePill();
 		if (open) expand();

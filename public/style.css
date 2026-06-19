@@ -6636,11 +6636,14 @@ body[data-viewer-mode='main'][data-authed='false'] .auth-gate {
 /* ── First-time onboarding banner ─────────────────────────────────────────── */
 
 .agent-onboarding {
+	/* Fallback positioning for when the shared corner-stack isn't present; when
+	   it is, #tws-corner-stack > .tws-corner-item takes over and flows this card
+	   above the getting-started pill instead of overlapping it. */
 	position: fixed;
 	right: var(--space-md);
-	bottom: calc(var(--space-md) + 80px);
+	bottom: var(--space-md);
 	width: min(360px, calc(100vw - var(--space-md) * 2));
-	z-index: 60;
+	z-index: var(--z-corner-stack, 60);
 	animation: agent-onboarding-rise 0.32s ease-out;
 }
 

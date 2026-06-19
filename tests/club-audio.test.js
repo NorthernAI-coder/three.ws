@@ -140,6 +140,24 @@ class FakeConvolverNode {
 	}
 }
 
+class FakeDynamicsCompressorNode {
+	constructor() {
+		this.threshold = new FakeAudioParam(-24);
+		this.knee = new FakeAudioParam(30);
+		this.ratio = new FakeAudioParam(12);
+		this.attack = new FakeAudioParam(0.003);
+		this.release = new FakeAudioParam(0.25);
+		this._connections = [];
+	}
+	connect(dest) {
+		this._connections.push(dest);
+		return dest;
+	}
+	disconnect() {
+		this._connections = [];
+	}
+}
+
 class FakePannerNode {
 	constructor() {
 		this.panningModel = '';
@@ -237,6 +255,7 @@ class FakeAudioContext {
 		this.createdMediaSources = [];
 		this.createdFilters = [];
 		this.createdConvolvers = [];
+		this.createdCompressors = [];
 		this.createdPanners = [];
 		this.decodedBuffers = [];
 		this.listener = new FakeAudioListener();
@@ -264,6 +283,11 @@ class FakeAudioContext {
 	createConvolver() {
 		const c = new FakeConvolverNode();
 		this.createdConvolvers.push(c);
+		return c;
+	}
+	createDynamicsCompressor() {
+		const c = new FakeDynamicsCompressorNode();
+		this.createdCompressors.push(c);
 		return c;
 	}
 	createBuffer(channels, length, rate) {
@@ -353,6 +377,22 @@ describe('ClubAudio.ensureContext', () => {
 		expect(audio.analyser).toBeInstanceOf(FakeAnalyserNode);
 		// Master gain should be set to the documented 0.75 default.
 		expect(audio.master.gain.value).toBeCloseTo(0.75, 3);
+	});
+
+	it('routes the master through a brick-wall limiter before the destination', async () => {
+		const audio = new ClubAudio();
+		await audio.ensureContext();
+		expect(audio.ctx.createdCompressors).toHaveLength(1);
+		expect(audio.limiter).toBeInstanceOf(FakeDynamicsCompressorNode);
+		// Master feeds the limiter, limiter feeds the destination — nothing
+		// reaches the output un-limited.
+		expect(audio.master._connections).toContain(audio.limiter);
+		expect(audio.limiter._connections).toContain(audio.ctx.destination);
+		expect(audio.master._connections).not.toContain(audio.ctx.destination);
+		// Hard-knee, high-ratio limiting with a fast attack.
+		expect(audio.limiter.knee.value).toBe(0);
+		expect(audio.limiter.ratio.value).toBeGreaterThanOrEqual(20);
+		expect(audio.limiter.attack.value).toBeLessThanOrEqual(0.005);
 	});
 
 	it('is idempotent — re-calling does not allocate a new context', async () => {
@@ -580,7 +620,7 @@ describe('ClubAudio.setClarity', () => {
 		await audio.ensureContext();
 		audio.setClarity(0);
 		expect(audio._fx.lowpass.frequency.value).toBeCloseTo(420, 0);
-		expect(audio._fx.bass.gain.value).toBeCloseTo(18, 3);
+		expect(audio._fx.bass.gain.value).toBeCloseTo(10, 3);
 		expect(audio._fx.dry.gain.value).toBeCloseTo(0.22, 3);
 		expect(audio._fx.outdoorWet.gain.value).toBeCloseTo(0.85, 3);
 		expect(audio._fx.indoorWet.gain.value).toBeCloseTo(0.0, 3);
@@ -591,7 +631,7 @@ describe('ClubAudio.setClarity', () => {
 		await audio.ensureContext();
 		audio.setClarity(1);
 		expect(audio._fx.lowpass.frequency.value).toBeCloseTo(17000, 0);
-		expect(audio._fx.bass.gain.value).toBeCloseTo(9, 3);
+		expect(audio._fx.bass.gain.value).toBeCloseTo(5, 3);
 		expect(audio._fx.dry.gain.value).toBeCloseTo(0.65, 3);
 		expect(audio._fx.outdoorWet.gain.value).toBeCloseTo(0.0, 3);
 		expect(audio._fx.indoorWet.gain.value).toBeCloseTo(0.28, 3);
@@ -602,7 +642,7 @@ describe('ClubAudio.setClarity', () => {
 		await audio.ensureContext();
 		audio.setClarity(0.5);
 		// Linearly-interpolated params sit between the two endpoints.
-		expect(audio._fx.bass.gain.value).toBeCloseTo(13.5, 3);
+		expect(audio._fx.bass.gain.value).toBeCloseTo(7.5, 3);
 		expect(audio._fx.dry.gain.value).toBeCloseTo(0.435, 3);
 		expect(audio._fx.outdoorWet.gain.value).toBeCloseTo(0.425, 3);
 		expect(audio._fx.indoorWet.gain.value).toBeCloseTo(0.14, 3);

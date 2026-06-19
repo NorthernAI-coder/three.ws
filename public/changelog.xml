@@ -87,12 +87,28 @@
 			<description>The Brain tab in Agent Studio is now a visual node editor: wire Persona, Model, Memory, Skills, and trading-reasoning nodes into a living graph that IS your agent’s personality. Pick from real LLMs (Claude, GPT, Granite and more) per branch, connect a memory port that recalls and writes real memories, and watch the active path light up as your agent thinks — tokens streaming, memory firing, the avatar reacting live. A built-in test chat runs your graph against the real models with real latency and token stats, and forkable templates (Sniper, Scalper, Researcher, Companion) get you started in one click. Your graph compiles straight to your agent’s persona so every existing chat surface picks up the change.</description>
 		</item>
 		<item>
+			<title>Cleaner Pole Club bass — no more speaker distortion</title>
+			<link>https://three.ws/club</link>
+			<guid isPermaLink="false">2026-06-19:Cleaner Pole Club bass — no more speaker distortion</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Fixed the buzzy bass distortion some listeners heard at the Pole Club, especially on laptop and phone speakers. The club's low-end was being boosted hard enough to clip the audio output when several tracks overlapped; we've added a brick-wall limiter on the final mix, evened out the reverb so it adds a predictable amount of space, and dialed the bass boost back to a level that still hits hard without overdriving. The room now sounds full and clean at any volume.</description>
+		</item>
+		<item>
 			<title>Clearer IRL onboarding and copy</title>
 			<link>https://three.ws/irl</link>
 			<guid isPermaLink="false">2026-06-19:Clearer IRL onboarding and copy</guid>
 			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
 			<category>improvement</category>
 			<description>Opening IRL for the first time now spells out the core loop in plain words: turn on Camera AR, aim at the spot you want, then tap Pin here to anchor your agent in real space. The on-screen guidance updates as you go — it points you to the next step before you've pinned, and confirms when your agent is anchored. We rewrote the status messages around pinning to be calm and literal instead of technical or alarming: waiting on a GPS fix now tells you it's quicker outdoors, pinning without location explains your agent is saved on this device until you turn location on, and a missing compass reads as a gentle note rather than a warning. The caption keyboard now opens reliably when the panel slides up on iPhone.</description>
+		</item>
+		<item>
+			<title>Corner helper cards no longer pile up and hide page content</title>
+			<link>https://three.ws/deploy</link>
+			<guid isPermaLink="false">2026-06-19:Corner helper cards no longer pile up and hide page content</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>The small helper cards that live in the bottom-right corner — the &quot;Getting started&quot; guide, the &quot;have you tried…&quot; feature tips, and the &quot;Your agent is ready&quot; welcome card — each positioned themselves independently, so on many pages they stacked on the exact same spot and covered each other and the content behind them (most visibly the Deploy page's Live Preview). They now share a single tidy stack that flows them vertically, so they never overlap one another or the page. The welcome card also no longer follows you onto the Deploy and Explore pages, where it had nothing to do.</description>
 		</item>
 		<item>
 			<title>Creator royalty payouts protected against double-settlement</title>
@@ -295,14 +311,6 @@
 			<description>The mobile navigation drawer now fully hides itself from assistive tech and the keyboard tab order when it's closed, instead of leaving its links reachable but invisible. Screen-reader and keyboard users can no longer land focus on a link inside a collapsed menu, and the browser's accessibility warning about hidden-but-focused links is gone.</description>
 		</item>
 		<item>
-			<title>Onboarding card no longer covers the Deploy page preview</title>
-			<link>https://three.ws/deploy</link>
-			<guid isPermaLink="false">2026-06-19:Onboarding card no longer covers the Deploy page preview</guid>
-			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
-			<category>fix</category>
-			<description>The &quot;Your agent is ready&quot; pop-up — the welcome card that helps you find your way around the 3D viewer — was following you onto the Deploy on-chain page and floating over the Live Preview panel, hiding your agent's avatar, name, and cost summary right when you needed to check them before minting. The card now knows it belongs to the 3D viewer and stays out of the Deploy and Explore pages, so the preview is fully visible again.</description>
-		</item>
-		<item>
 			<title>One API, many services: the three.ws API gateway</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-19:One API, many services: the three.ws API gateway</guid>
@@ -471,12 +479,12 @@
 			<description>When you walked the little robot off a ledge it could plummet faster than the page could keep up and slip off the bottom of the screen, leaving you unable to find it. The camera now tracks falls tightly and keeps the character in view, and on pages that can't scroll it catches the character and drops it right back into view.</description>
 		</item>
 		<item>
-			<title>Walk the whole page — the site is now a platformer</title>
+			<title>Walk the whole page — the site is now a playground</title>
 			<link>https://three.ws/changelog</link>
-			<guid isPermaLink="false">2026-06-19:Walk the whole page — the site is now a platformer</guid>
+			<guid isPermaLink="false">2026-06-19:Walk the whole page — the site is now a playground</guid>
 			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
-			<description>The corner walking companion can now step out of its spot. Click it and the character detaches and drops onto the page itself: headings, cards, buttons and images become solid ground you can walk and jump across with the arrow keys or WASD (on-screen buttons on phones). Stand on any link and it lights up like a trapdoor — pause on it, or press down, and the character dives through and you fall into the next page, landing back in from the top when it loads. It loads nothing extra until you click in, so normal browsing pays no cost. Jump straight in from any page with ?walk=play.</description>
+			<description>The corner walking companion can now step out of its spot. Click it and the character detaches into a gentle bird's-eye view of the page, and you steer him anywhere across it with the arrow keys or WASD (an on-screen d-pad on phones) — no falling, just free roaming over the whole page. Step onto any link and it lights up like a doorway; pause on it or press the dive key and the character drops through, and you fall into the next page, arriving on the other side. It loads nothing extra until you click in, so normal browsing pays no cost. Jump straight in from any page with ?walk=play.</description>
 		</item>
 		<item>
 			<title>Agent economy demos now show honest run status</title>

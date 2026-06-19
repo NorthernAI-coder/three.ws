@@ -41,6 +41,7 @@ export class ClubAudio {
 	constructor() {
 		this.ctx = null;
 		this.master = null;
+		this.limiter = null; // brick-wall limiter on the final output (anti-clip)
 		this.ambience = null; // { source, gain }
 		this.music = null; // { el, source, gain, index } — looping full-track bed
 		this.style = null; // { name, source, gain }
@@ -84,7 +85,22 @@ export class ClubAudio {
 		this.ctx = new Ctor();
 		this.master = this.ctx.createGain();
 		this.master.gain.value = this.muted ? 0 : MASTER_GAIN;
-		this.master.connect(this.ctx.destination);
+
+		// Brick-wall limiter on the final output. The summed layers (music +
+		// ambience + a tipped style loop or the walk-in anthem) feeding through
+		// the +bass shelf can momentarily push the bus past 0 dBFS; without this
+		// the AudioContext destination hard-clips, which reads as buzzy bass
+		// distortion. A fast attack catches transient kick/sub peaks; the master
+		// gain still rides above it so nothing is audibly squashed under normal
+		// levels — it only engages on the overshoots.
+		this.limiter = this.ctx.createDynamicsCompressor();
+		this.limiter.threshold.value = -1.5;
+		this.limiter.knee.value = 0;
+		this.limiter.ratio.value = 20;
+		this.limiter.attack.value = 0.003;
+		this.limiter.release.value = 0.25;
+		this.master.connect(this.limiter);
+		this.limiter.connect(this.ctx.destination);
 
 		this.analyser = this.ctx.createAnalyser();
 		this.analyser.fftSize = 256;
@@ -105,7 +121,9 @@ export class ClubAudio {
 		this._fx.bass = this.ctx.createBiquadFilter();
 		this._fx.bass.type = 'lowshelf';
 		this._fx.bass.frequency.value = 90;
-		this._fx.bass.gain.value = 18;
+		// +10 dB gives the bass real body without slamming the bus into the
+		// limiter on every kick. (Was +18 dB — ~8× linear — which clipped.)
+		this._fx.bass.gain.value = 10;
 
 		this._fx.lowpass = this.ctx.createBiquadFilter();
 		this._fx.lowpass.type = 'lowpass';
@@ -416,6 +434,7 @@ export class ClubAudio {
 		const buf = this.ctx.createBuffer(2, len, rate);
 		for (let c = 0; c < 2; c++) {
 			const ch = buf.getChannelData(c);
+			let sumSq = 0;
 			for (let i = 0; i < len; i++) {
 				const r =
 					density >= 1
@@ -423,8 +442,18 @@ export class ClubAudio {
 						: Math.random() < density
 							? Math.random() * 2 - 1
 							: 0;
-				ch[i] = r * Math.pow(1 - i / len, decay);
+				const v = r * Math.pow(1 - i / len, decay);
+				ch[i] = v;
+				sumSq += v * v;
 			}
+			// Normalise each channel to unit energy (L2 norm). A raw noise IR's
+			// total energy scales with its length and density, so a 5 s sparse
+			// IR and a 1.5 s dense one would convolve at wildly different loudness
+			// and stack uncontrolled level onto the dry path. Unit-energy IRs give
+			// the convolver ~unity power gain, so the wet gains alone set how loud
+			// the reverb sits — no runaway convolution gain feeding the clip.
+			const norm = sumSq > 0 ? 1 / Math.sqrt(sumSq) : 1;
+			for (let i = 0; i < len; i++) ch[i] *= norm;
 		}
 		return buf;
 	}
@@ -448,8 +477,8 @@ export class ClubAudio {
 
 		const lerp = (a, b) => a + (b - a) * f;
 		// Outdoor (f=0) → indoor (f=1) endpoints for every node in the chain.
-		const OUT = { freq: 420, q: 1.0, bass: 18, dry: 0.22, outWet: 0.85, inWet: 0.0 };
-		const IN = { freq: 17000, q: 0.5, bass: 9, dry: 0.65, outWet: 0.0, inWet: 0.28 };
+		const OUT = { freq: 420, q: 1.0, bass: 10, dry: 0.22, outWet: 0.85, inWet: 0.0 };
+		const IN = { freq: 17000, q: 0.5, bass: 5, dry: 0.65, outWet: 0.0, inWet: 0.28 };
 		// Cutoff perceived logarithmically — interpolate as a geometric sweep.
 		const freq = OUT.freq * Math.pow(IN.freq / OUT.freq, f);
 

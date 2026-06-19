@@ -54,7 +54,7 @@ import {
 import { gltfLoader } from './loaders/gltf.js';
 import { AnimationManager } from './animation-manager.js';
 import { ClubCrowd } from './club-crowd.js';
-import { detectProfile, PROFILES } from './club-perf.js';
+import { detectProfile, PROFILES, createFrameWatchdog } from './club-perf.js';
 import { log } from './shared/log.js';
 
 const TOUR_URL = '/club/venue/tour.glb';
@@ -63,6 +63,10 @@ const CLUBHOUSE_URL = '/club/venue/space-smugglers-clubhouse.glb';
 const AVATAR_URL = '/avatars/default.glb';
 const MANIFEST_URL = '/animations/manifest.json';
 const PASS_KEY = 'club:pass:v1';
+
+// Hard cap on background crowd bodies per room. Each member is a full skinned
+// GLB rig (not an instanced mesh), so we keep the floor light for load + perf.
+const MAX_CROWD_PER_SCENE = 5;
 const MOVE_CLIPS = new Set(['idle', 'walk']);
 // The dance the avatar breaks into the instant the cover charge settles — a
 // twerk on the spot before it walks past the velvet rope. Lazy-loaded from the
@@ -161,8 +165,14 @@ async function start(canvasEl) {
 	// antialias off + tone mapping deferred — SMAA + ACES run in the composer
 	// below, exactly like the pole stage (src/club.js), so the two halves of the
 	// journey share one cinematic look.
-	const renderer = new WebGLRenderer({ canvas: canvasEl, antialias: false, alpha: false });
-	renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+	const renderer = new WebGLRenderer({ canvas: canvasEl, antialias: false, alpha: false, powerPreference: 'high-performance' });
+	// One capability profile drives the whole render budget. Pixel ratio is the
+	// single biggest heat lever — a 2× retina panel renders 4× the fragments of
+	// 1×, so we cap it per tier (high 2 / medium 1.5 / low 1) instead of always
+	// honouring the display's native ratio. The watchdog (see the frame loop)
+	// can drop this further mid-session if frames stay slow.
+	const profile = PROFILES[detectProfile()] || PROFILES.medium;
+	renderer.setPixelRatio(profile.pixelRatio);
 	renderer.setSize(window.innerWidth, window.innerHeight, false);
 	renderer.outputColorSpace = SRGBColorSpace;
 	renderer.toneMapping = NoToneMapping;
@@ -219,7 +229,11 @@ async function start(canvasEl) {
 		new ToneMappingEffect({ mode: ToneMappingMode.ACES_FILMIC }),
 		new VignetteEffect({ darkness: 0.5, offset: 0.3 }),
 	));
-	composer.addPass(new EffectPass(camera, new SMAAEffect()));
+	// SMAA is a full-screen edge pass — the first thing the watchdog drops when
+	// frames stay slow, so we keep a handle on it. Off by default on the low tier.
+	const smaaPass = new EffectPass(camera, new SMAAEffect());
+	smaaPass.enabled = profile.tier !== 'low';
+	composer.addPass(smaaPass);
 
 	const loader = gltfLoader(renderer);
 
@@ -304,12 +318,14 @@ async function start(canvasEl) {
 	// (bundled rigs + public gallery), grounded and dancing/idling clear of your
 	// path. Sized to the device's crowd budget; degrades to nothing if it can't
 	// load. Re-populated on every venue swap via refreshCrowd().
-	const crowdProfile = PROFILES[detectProfile()] || PROFILES.medium;
+	const crowdProfile = profile;
 	const crowd = new ClubCrowd({
 		renderer,
 		scene,
 		manifest,
-		max: crowdProfile.crowdInstances,
+		// Each crowd member is a full skinned GLB rig, so keep the floor light:
+		// at most MAX_CROWD_PER_SCENE bodies per room, regardless of device budget.
+		max: Math.min(MAX_CROWD_PER_SCENE, crowdProfile.crowdInstances),
 		bundled: BUNDLED_AGENTS,
 	});
 	crowd.load(); // background fetch of roster + clip data; mount() awaits it
