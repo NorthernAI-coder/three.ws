@@ -150,10 +150,20 @@ class BrainStudio {
 		this.el.querySelector('#bsOnboard').hidden = true;
 		this.el.querySelector('#bsEditor').hidden = false;
 		if (!this.graph) {
-			this.graph = new BrainGraphView(this.el.querySelector('#bsCanvas'), {
+			const canvas = this.el.querySelector('#bsCanvas');
+			this.graph = new BrainGraphView(canvas, {
 				onChange: (g) => this._onGraphChange(g),
 				onSelect: (n) => this._renderInspector(n),
 			});
+			// The Brain tab may be mounted while hidden (zero size), so the initial
+			// fit() no-ops. Re-frame once the panel first gains a real size.
+			if (typeof ResizeObserver !== 'undefined') {
+				let framed = false;
+				const ro = new ResizeObserver(() => {
+					if (!framed && canvas.clientWidth > 0) { framed = true; this.graph.fit(); ro.disconnect(); }
+				});
+				ro.observe(canvas);
+			}
 			this.runtime = new BrainRuntime({
 				graphView: this.graph,
 				studio: this.studio,
