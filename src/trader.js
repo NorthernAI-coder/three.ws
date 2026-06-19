@@ -13,6 +13,7 @@ import {
 	identicon, verifiedBadge,
 } from './trader-format.js';
 import { mountCopyPanel } from './copy-panel.js';
+import { walletChipHTML, wireWalletChips } from './shared/agent-wallet-chip.js';
 
 const WINDOWS = ['24h', '7d', '30d', 'all'];
 const WINDOW_LABEL = { '24h': '24h', '7d': '7d', '30d': '30d', all: 'All-time' };
@@ -204,6 +205,13 @@ function render(data) {
 	const walletLink = a.wallet
 		? `<a href="${solscanAddr(a.wallet)}" target="_blank" rel="noopener" title="Agent wallet on Solscan">${escapeHtml(shortAddr(a.wallet, 4, 4))} ↗</a>`
 		: '';
+	// Shared agent-wallet chip in the profile header. This is a public track-record
+	// page with no ownership signal, so isOwner:false — viewers get the Tip action,
+	// never owner controls. Renders nothing when the trader has no custodial wallet.
+	const walletChip = walletChipHTML(
+		{ ...a, solana_address: a.wallet, avatar_thumbnail_url: a.image || '' },
+		{ isOwner: false, showPending: false },
+	);
 	document.title = `${a.name || 'Trader'} · track record · three.ws`;
 
 	const winSeg = WINDOWS.map((w) => `<button class="lb-seg-btn ${w === ctx.window ? 'is-active' : ''}" data-window="${w}">${WINDOW_LABEL[w]}</button>`).join('');
@@ -222,6 +230,7 @@ function render(data) {
 					${m.last_active_at ? `<span>active ${relTime(m.last_active_at)}</span>` : ''}
 					${a.copiers ? `<span class="tp-copiers">${a.copiers} copying</span>` : ''}
 				</div>
+				${walletChip ? `<div class="tp-wallet-chip" style="margin-top:var(--space-2xs)">${walletChip}</div>` : ''}
 				${a.description ? `<p class="tp-desc">${escapeHtml(a.description)}</p>` : ''}
 			</div>
 			<div class="tp-gauge">
@@ -288,6 +297,7 @@ function render(data) {
 	wireTabs();
 	wireWindow();
 	wireShare();
+	wireWalletChips(content);
 	const panel = document.getElementById('tp-copy-panel');
 	if (panel) mountCopyPanel(panel, { leaderAgentId: a.id, leaderName: a.name, network: ctx.network });
 	root.setAttribute('aria-busy', 'false');

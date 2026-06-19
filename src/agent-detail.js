@@ -25,6 +25,7 @@ const solanaWeb3 = {
 	clusterApiUrl,
 };
 import { onchainBadgeEl } from './shared/onchain-badge.js';
+import { walletChipEl } from './shared/agent-wallet-chip.js';
 import { mountValidationBadge } from './shared/validation-badge.js';
 import { seeInWorldHref, agentAvatarGlb } from './shared/agent-3d.js';
 import { renderError as renderAsyncError } from './shared/async-state.js';
@@ -582,8 +583,32 @@ function render(agent) {
 	$('ad-svc-count').textContent = `${agent.services?.length || 0} configured`;
 	$('ad-svc-count2').textContent = String(agent.services?.length || 0);
 
-	$('ad-holdings-addr').textContent = shortAddr(agent.wallet);
-	$('ad-holdings-addr').dataset.full = agent.wallet;
+	// Universal wallet chip — the same vanity-aware component every other surface
+	// renders, so the agent's custodial Solana address (and its vanity styling)
+	// looks and behaves identically here: copy + explorer for everyone, plus the
+	// owner-only "✦ Vanity" entry point into the wallet hub via isOwner. The
+	// Solana address lives on meta.solana_address (agent.wallet is the EVM address,
+	// which the Solana chip rejects), so feed the chip the real Solana key.
+	{
+		const host = $('ad-holdings-chip');
+		const wMeta = agent.rawMetadata?.meta || {};
+		if (host) {
+			host.replaceChildren();
+			const chip = walletChipEl(
+				{
+					id: agent.id,
+					name: agent.name,
+					solana_address: wMeta.solana_address || null,
+					avatar_thumbnail_url: agent.avatar || '',
+					solana_vanity_prefix: wMeta.solana_vanity_prefix || null,
+					solana_vanity_suffix: wMeta.solana_vanity_suffix || null,
+					meta: wMeta,
+				},
+				{ isOwner: !!agent.isOwner, showPending: true, link: true },
+			);
+			if (chip) host.appendChild(chip);
+		}
+	}
 	$('ad-holdings-sol').textContent = String(agent.solBalance ?? 0);
 
 	// A re-render (avatar refresh) clears the token body below; tear down any

@@ -19,6 +19,7 @@
  */
 
 import { mountCoinStatus } from './pump/coin-status-card.js';
+import { walletChipEl } from './shared/agent-wallet-chip.js';
 import { createLogger } from './shared/log.js';
 
 const log = createLogger('launches');
@@ -523,6 +524,20 @@ function launchCard(launch, index, { featured = false } = {}) {
 		'aria-label': `Open ${launch.symbol ? `$${launch.symbol}` : launch.name || 'coin'} profile`,
 	});
 
+	// The launching agent's custodial wallet, shown read-only as a vanity-aware
+	// badge. agent_authority is the on-chain signer = the agent's Solana wallet,
+	// so it backstops the agent record's own solana_address. link:false keeps it a
+	// non-interactive badge so it never fights the stretched whole-card link above.
+	const walletChip = walletChipEl(
+		{
+			...(launch.agent || {}),
+			id: launch.agent?.id,
+			solana_address:
+				launch.agent?.solana_address || launch.agent?.meta?.solana_address || launch.agent_authority || null,
+		},
+		{ isOwner: false, showPending: false, link: false },
+	);
+
 	const card = el('article', { class: `lx-card${featured ? ' lx-card-featured' : ''}`, 'data-mint': launch.mint }, [
 		cardLink,
 		featured ? el('span', { class: 'lx-feat-tag', text: 'Latest' }) : null,
@@ -532,6 +547,7 @@ function launchCard(launch, index, { featured = false } = {}) {
 		market,
 		badges,
 		agentChip(launch.agent),
+		walletChip,
 		el('div', { class: 'lx-card-actions' }, actions),
 		el('span', { class: 'lx-mint', text: launch.mint, title: launch.mint }),
 		el('div', { class: 'lx-oracle-badge', 'aria-hidden': 'true' }),

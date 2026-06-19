@@ -14,6 +14,7 @@
 
 import { AvatarGalleryPicker } from './avatar-gallery-picker.js';
 import { AgentPicker } from './agent-picker.js';
+import { walletChipEl, hasWallet } from './shared/agent-wallet-chip.js';
 
 // ── tiny DOM helpers ─────────────────────────────────────────────────────────
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -43,6 +44,7 @@ const LS = {
 	avatarName: 'tws:worldAvatarName',
 	avatarUrl: 'tws:worldAvatarUrl',
 	avatarThumb: 'tws:worldAvatarThumb',
+	avatarWallet: 'tws:worldAvatarWallet',
 };
 const lsGet = (k) => { try { return localStorage.getItem(k) || ''; } catch { return ''; } };
 const lsSet = (k, v) => { try { localStorage.setItem(k, v ?? ''); } catch {} };
@@ -74,6 +76,7 @@ function currentAvatar() {
 			name: lsGet(LS.avatarName) || 'Avatar',
 			model_url: lsGet(LS.avatarUrl) || '',
 			thumbnail_url: lsGet(LS.avatarThumb) || '',
+			solana_address: lsGet(LS.avatarWallet) || '',
 		};
 	}
 	return null;
@@ -85,6 +88,7 @@ function setAvatar(a) {
 	lsSet(LS.avatarName, a?.name || '');
 	lsSet(LS.avatarUrl, a?.model_url || '');
 	lsSet(LS.avatarThumb, a?.thumbnail_url || '');
+	lsSet(LS.avatarWallet, a?.solana_address || '');
 	renderAvatarPanel();
 }
 
@@ -97,6 +101,9 @@ async function resolveAvatar(id) {
 		name: avatar.name || 'Avatar',
 		model_url: avatar.model_url || avatar.url || '',
 		thumbnail_url: avatar.thumbnail_url || '',
+		// Carry the linked agent's custodial wallet so the selection card can
+		// surface it. Avatar rows expose agent_solana_address (api/_lib/avatars.js).
+		solana_address: avatar.agent_solana_address || avatar.solana_address || '',
 	};
 }
 
@@ -134,6 +141,19 @@ function renderAvatarPanel() {
 		el('div', { class: 'wl-avatar-sub', text: a ? 'Ready to drop in' : 'Pick one below to get started' }),
 	]);
 	host.appendChild(meta);
+
+	// Surface the chosen agent/avatar's custodial wallet so the same identity reads
+	// the same everywhere. Viewer ownership is unknown on this no-sign-in front
+	// door → isOwner:false (a Tip action, never owner controls). No-op when the
+	// selected record carries no wallet (showPending:false).
+	if (a && hasWallet(a)) {
+		const chip = walletChipEl(a, { isOwner: false, showPending: false });
+		if (chip) {
+			chip.classList.add('wl-avatar-wallet');
+			chip.style.marginTop = '8px';
+			meta.appendChild(chip);
+		}
+	}
 
 	if (nameInput && !nameInput.value) {
 		nameInput.value = lsGet(LS.name) || `guest-${Math.random().toString(36).slice(2, 6)}`;
@@ -182,6 +202,7 @@ function wireAvatarActions() {
 					name: avatar.name || 'Avatar',
 					model_url: avatar.model_url || '',
 					thumbnail_url: avatar.thumbnail_url || '',
+					solana_address: avatar.agent_solana_address || avatar.solana_address || '',
 				});
 			},
 		});
@@ -206,6 +227,7 @@ function wireAvatarActions() {
 					name: agent.name || 'Agent',
 					model_url: modelUrl,
 					thumbnail_url: thumb,
+					solana_address: agent.solana_address || agent.meta?.solana_address || agent.wallet || '',
 				});
 				toast(`Dropping in as ${agent.name || 'agent'}.`, 'ok');
 			},

@@ -14,6 +14,7 @@
 //   GET /api/billing/summary
 
 import { onchainBadgeHTML } from './shared/onchain-badge.js';
+import { walletChipHTML, wireWalletChips } from './shared/agent-wallet-chip.js';
 
 const MONO = `'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace`;
 
@@ -219,6 +220,14 @@ function renderAgentCards(host, agents, avatars) {
 		const name = esc(a.name || a.display_name || 'Unnamed');
 		const tagline = esc((a.persona?.tagline || a.tagline || '').slice(0, 120));
 		const wallet = a.wallet_address || a.solana_address || '';
+		// Shared wallet chip. /a/me lists only agents the viewer owns, so every
+		// chip here is owner-tier (vanity entry point, never a Tip button). Reads
+		// the address from solana_address/meta/wallet; legacy rows expose only
+		// wallet_address, so normalise it onto solana_address for the chip.
+		const walletChip = walletChipHTML(
+			{ ...a, solana_address: a.solana_address || a.meta?.solana_address || a.wallet_address || null },
+			{ isOwner: true, showPending: false },
+		);
 		const onchainBadge = onchainBadgeHTML(a);
 		const pumpMint = a.meta?.pumpfun?.mint || a.meta?.token?.mint;
 		const created = a.created_at ? relTime(a.created_at) : '';
@@ -241,8 +250,8 @@ function renderAgentCards(host, agents, avatars) {
 							${pumpMint ? `<span class="ame-tag pump">pump.fun</span>` : ''}
 							${created ? `<span class="ame-meta-text">${esc(created)}</span>` : ''}
 						</div>
-						${wallet
-							? `<div class="ame-wallet">${esc(truncAddr(wallet, 8, 6))}</div>`
+						${walletChip
+							? `<div class="ame-wallet">${walletChip}</div>`
 							: `<button class="ame-btn small" data-action="create-wallet" data-agent-id="${esc(a.id)}">Create wallet</button>`}
 					</div>
 				</div>
@@ -268,6 +277,8 @@ function renderAgentCards(host, agents, avatars) {
 			</div>
 		`;
 	}).join('');
+
+	wireWalletChips(host);
 
 	host.addEventListener('click', e => {
 		const btn = e.target.closest('[data-action]');
@@ -511,12 +522,16 @@ async function handleCreateWallet(btn) {
 		});
 		const d = await r.json().catch(() => ({}));
 		if (!r.ok) throw new Error(d.message || d.error || `provision failed (${r.status})`);
-		btn.replaceWith(
-			Object.assign(document.createElement('div'), {
-				className: 'ame-wallet',
-				textContent: truncAddr(d.wallet_address, 8, 6),
-			}),
-		);
+		// Swap the CTA for the same owner-tier wallet chip the cards render, so a
+		// freshly-provisioned wallet looks identical to a pre-existing one.
+		const walletDiv = document.createElement('div');
+		walletDiv.className = 'ame-wallet';
+		walletDiv.innerHTML = walletChipHTML(
+			{ id: agentId, solana_address: d.wallet_address },
+			{ isOwner: true, showPending: false },
+		) || esc(truncAddr(d.wallet_address, 8, 6));
+		btn.replaceWith(walletDiv);
+		wireWalletChips(walletDiv);
 		toast('Agent wallet created');
 	} catch (e) {
 		btn.disabled = false;

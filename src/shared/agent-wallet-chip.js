@@ -14,10 +14,13 @@
  * owner it also surfaces a "Make it vanity" entry point that routes to the wallet
  * hub where the grind + money-safe swap happens (POST /api/agents/:id/solana/vanity).
  *
- * Reads the address from any agent record shape:
+ * Reads the address from any agent OR avatar record shape:
  *   agent.solana_address | agent.meta.solana_address | agent.wallet (base58)
+ *   avatar.agent_solana_address  (the agent joined onto an avatar row)
  * and the vanity pattern from:
  *   agent.solana_vanity_prefix/suffix | agent.meta.solana_vanity_prefix/suffix
+ *   avatar.agent_solana_vanity_prefix/suffix
+ * so a surface can pass whichever record it already holds without reshaping it.
  */
 
 const STYLE_ID = 'tws-agent-wallet-chip-styles';
@@ -39,14 +42,19 @@ export function getWalletStatus(agent) {
 	if (!agent || typeof agent !== 'object') return null;
 	const meta = agent.meta || {};
 	const address =
-		agent.solana_address || meta.solana_address ||
+		agent.solana_address || meta.solana_address || agent.agent_solana_address ||
 		(typeof agent.wallet === 'string' && BASE58_RE.test(agent.wallet) ? agent.wallet : null) ||
 		null;
 	if (!address || !BASE58_RE.test(String(address))) return null;
 
-	const prefix = agent.solana_vanity_prefix || meta.solana_vanity_prefix || null;
-	const suffix = agent.solana_vanity_suffix || meta.solana_vanity_suffix || null;
-	const agentId = agent.id || agent.agentId || agent.agent_id || null;
+	const prefix =
+		agent.solana_vanity_prefix || meta.solana_vanity_prefix || agent.agent_solana_vanity_prefix || null;
+	const suffix =
+		agent.solana_vanity_suffix || meta.solana_vanity_suffix || agent.agent_solana_vanity_suffix || null;
+	// Prefer the linked-agent id on avatar rows (agent_id) so the hub deep-link
+	// targets the agent that owns the wallet, not the avatar row id. Agent records
+	// have no agent_id field, so this falls through to their own id.
+	const agentId = agent.agent_id || agent.agentId || agent.id || null;
 
 	return {
 		address: String(address),
@@ -106,6 +114,10 @@ a.twc-link{color:inherit;text-decoration:none;display:inline-flex;align-items:ce
 .twc-make{font-weight:600;font-size:10px;color:#a78bfa;text-decoration:none;border-left:1px solid rgba(139,92,246,.3);
 	padding-left:7px;margin-left:1px;white-space:nowrap;transition:color .15s ease;}
 .twc-make:hover{color:#fff;}
+button.twc-make{appearance:none;background:none;border:none;border-left:1px solid rgba(139,92,246,.3);cursor:pointer;
+	font-family:inherit;line-height:1;padding:0 0 0 7px;}
+button.twc-make:active{transform:scale(.95);}
+button.twc-make:focus-visible{outline:2px solid rgba(139,92,246,.7);outline-offset:2px;border-radius:4px;}
 .twc-vanity-tag{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;opacity:.8;}
 .twc-pending{color:#888;background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.1);}
 .twc-copied{color:#4ade80!important;}
@@ -118,6 +130,19 @@ const COPY_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
 const LINK_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>';
 const WALLET_SVG = '<svg class="twc-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg>';
 
+/** Compact descriptor the tip modal needs, encoded onto the Tip button. */
+function tipAttrs(agent, status) {
+	const name = agent?.name || agent?.display_name || '';
+	const avatar = agent?.avatar_thumbnail_url || agent?.avatar_url || agent?.profile_image_url || '';
+	const accepted = (agent?.meta?.payments?.accepted_tokens || agent?.payments?.accepted_tokens || []).join(',');
+	return (
+		`data-twc-tip="${esc(status.address)}"` +
+		(name ? ` data-twc-name="${esc(name)}"` : '') +
+		(avatar ? ` data-twc-av="${esc(avatar)}"` : '') +
+		(accepted ? ` data-twc-pay="${esc(accepted)}"` : '')
+	);
+}
+
 /**
  * Render the wallet chip as an HTML string for template-string render sites
  * (card grids). Returns a "wallet pending" chip when no address is present yet so
@@ -125,13 +150,18 @@ const WALLET_SVG = '<svg class="twc-ico" viewBox="0 0 24 24" fill="none" stroke=
  *
  * @param {object} agent  Any supported agent record shape.
  * @param {object} [opts]
- * @param {boolean} [opts.isOwner=false]  Show the "Make it vanity" entry point.
+ * @param {boolean} [opts.isOwner=false]  Owner sees the vanity entry point; a
+ *   non-owner sees a Tip action instead. Ownership is the ONLY thing that gates
+ *   which action shows — never withdraw/manage to a non-owner, never a vanity
+ *   grind they can't assign (they must fork first; the fork CTA lives on the
+ *   surface, and forking mints them their own wallet).
  * @param {boolean} [opts.showPending=true]  Render a pending chip when no wallet.
  * @param {boolean} [opts.link=true]  Make the address a copy/explorer affordance.
+ * @param {boolean} [opts.tip=true]  Show the Tip action to non-owners.
  */
 export function walletChipHTML(agent, opts = {}) {
 	ensureWalletChipStyles();
-	const { isOwner = false, showPending = true, link = true } = opts;
+	const { isOwner = false, showPending = true, link = true, tip = true } = opts;
 	const status = getWalletStatus(agent);
 
 	if (!status) {
@@ -146,9 +176,16 @@ export function walletChipHTML(agent, opts = {}) {
 	const explorerLink = link
 		? `<a class="twc-act twc-link" href="${esc(status.explorerUrl)}" target="_blank" rel="noopener noreferrer" title="View on Solscan" aria-label="View wallet on Solscan" data-twc-stop>${LINK_SVG}</a>`
 		: '';
-	const makeVanity =
+	// Owner → grind a vanity address (routes to the hub's money-safe swap).
+	// Non-owner → tip the agent directly from their own wallet. A non-owner can
+	// never grind/assign a vanity to an agent they don't own.
+	const ownerAction =
 		isOwner && !status.isVanity && status.hubUrl
 			? `<a class="twc-make" href="${esc(status.hubUrl)}#vanity" title="Grind a custom vanity address" data-twc-stop>✦ Vanity</a>`
+			: '';
+	const tipBtn =
+		!isOwner && tip
+			? `<button type="button" class="twc-make twc-tip" ${tipAttrs(agent, status)} title="Tip ${esc(agent?.name || 'this agent')}" data-twc-stop>◎ Tip</button>`
 			: '';
 
 	const title = `Agent wallet ${status.address}${status.isVanity ? ' (vanity)' : ''}`;
@@ -159,7 +196,8 @@ export function walletChipHTML(agent, opts = {}) {
 		vanityTag +
 		copyBtn +
 		explorerLink +
-		makeVanity +
+		ownerAction +
+		tipBtn +
 		`</span>`
 	);
 }
@@ -196,6 +234,25 @@ function wireWalletChip(node) {
 	node.__twcWired = true;
 	for (const stop of node.querySelectorAll?.('[data-twc-stop]') || []) {
 		stop.addEventListener('click', (e) => e.stopPropagation());
+	}
+	const tipBtn = node.querySelector?.('[data-twc-tip]');
+	if (tipBtn) {
+		tipBtn.addEventListener('click', async (e) => {
+			e.preventDefault();
+			e.stopPropagation();
+			const agent = {
+				solana_address: tipBtn.getAttribute('data-twc-tip'),
+				name: tipBtn.getAttribute('data-twc-name') || 'this agent',
+				avatar_thumbnail_url: tipBtn.getAttribute('data-twc-av') || '',
+				meta: { payments: { accepted_tokens: (tipBtn.getAttribute('data-twc-pay') || '').split(',').filter(Boolean) } },
+			};
+			try {
+				const { openTipModal } = await import('./agent-tip-modal.js');
+				openTipModal(agent);
+			} catch {
+				/* modal failed to load — the address is still copyable from the chip */
+			}
+		});
 	}
 	const btn = node.matches?.('[data-twc-copy]') ? node : node.querySelector?.('[data-twc-copy]');
 	if (btn) {

@@ -5,7 +5,7 @@
  * Each card links to /character/:id. Supports search, sort, and load-more.
  */
 
-import { walletChipHTML } from './shared/agent-wallet-chip.js';
+import { walletChipHTML, wireWalletChips } from './shared/agent-wallet-chip.js';
 
 let state = { cursor: null, loading: false, sort: 'new', q: '' };
 
@@ -145,6 +145,11 @@ async function fetchCharacters(reset = false) {
 	} else {
 		grid.insertAdjacentHTML('beforeend', chars.map(cardHtml).join(''));
 	}
+
+	// Wire the wallet chips' copy + Tip actions on the freshly-injected cards.
+	// This is a public gallery, so cards default to isOwner:false → the ◎ Tip
+	// action; wiring is idempotent per chip, so re-running it on append is safe.
+	wireWalletChips(grid);
 
 	state.cursor = data.next_cursor || null;
 	if (loadMore) loadMore.style.display = state.cursor ? 'flex' : 'none';

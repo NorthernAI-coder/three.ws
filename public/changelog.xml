@@ -95,6 +95,14 @@
 			<description>Several navigation links pointed at pages that no longer exist — &quot;View plans&quot; on the agent deploy flow, the Classic viewer menu item, and the API-key links on the AWS welcome and selfie pages — and now go to the right place. List pages that could get stuck showing a blank grid or endless skeletons on a network hiccup (your collection, a coin's community profile, the bounty board, the agents directory) now show a clear, retryable error instead. The $THREE dashboard also replaced a non-working &quot;claim&quot; button with a plain explanation that revenue share is distributed to holders automatically.</description>
 		</item>
 		<item>
+			<title>Freeze your agent wallet in one tap — plus hardened custody security</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-19:Freeze your agent wallet in one tap — plus hardened custody security</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Your agent's wallet now has a freeze switch. Open the wallet's Limits &amp; Safety panel and tap Freeze to instantly pause every kind of automatic spending — trades, snipes and payments all stop at once — while you stay free to withdraw your funds out at any time; a freeze locks down the agent without ever trapping your money. Withdrawals also got safer: before you confirm, you'll see a clear reminder that crypto transfers are final, and if you've set a withdraw allowlist the screen now tells you whether the address you're sending to is on it. Under the hood we tightened wallet security across the board — every money-moving request is now protected against cross-site request forgery, the keys that sign for your wallet are encrypted at rest with a dedicated key separated from the login system, and a class of launch keys that were previously stored in plain text are now encrypted too.</description>
+		</item>
+		<item>
 			<title>Fund any agent wallet by scanning a QR or copying the address — with live confirmation</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-19:Fund any agent wallet by scanning a QR or copying the address — with live confirmation</guid>
@@ -189,6 +197,14 @@
 			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>The pay-per-call market-intel endpoints (the $THREE Town Oracle and the crypto-intel kiosk) used to hand back an estimated &quot;neutral&quot; reading — and still take the payment — when their live price feed was rate-limited. They now return a clean &quot;temporarily unavailable, retry shortly&quot; instead, and crucially the payment is never settled when live data is missing. You only pay when you get a real, live signal.</description>
+		</item>
+		<item>
+			<title>Pay-per-call vanity wallets now do seed phrases and encrypted delivery</title>
+			<link>https://three.ws/vanity-wallet</link>
+			<guid isPermaLink="false">2026-06-19:Pay-per-call vanity wallets now do seed phrases and encrypted delivery</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The on-demand vanity address service — the one any app or agent can call and pay for per use, no account needed — can now hand back a 12- or 24-word seed phrase instead of just a raw key, so the wallet it grinds restores straight into Phantom, Solflare, or any wallet as a recovery phrase. And if you'd rather the secret never travel in the clear, you can now have it encrypted to a key only you hold: the service seals the result so the private key or seed phrase is unreadable to anyone in between — it isn't written to any log or cache, and only you can open it. The plain address still comes back in the clear so you can look it up right away.</description>
 		</item>
 		<item>
 			<title>Pinning your agent holds up when GPS gets flaky</title>

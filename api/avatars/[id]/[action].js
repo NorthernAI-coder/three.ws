@@ -76,7 +76,10 @@ async function handleAgentsByAvatar(req, res) {
 
 	const rows = await sql`
 		SELECT i.id, i.name, i.description, i.profile_image_url, i.created_at,
-		       i.erc8004_agent_id, i.chain_id
+		       i.erc8004_agent_id, i.chain_id,
+		       i.meta->>'solana_address'       AS solana_address,
+		       i.meta->>'solana_vanity_prefix' AS solana_vanity_prefix,
+		       i.meta->>'solana_vanity_suffix' AS solana_vanity_suffix
 		  FROM agent_identities i
 		 WHERE i.avatar_id = ${id}
 		   AND i.deleted_at IS NULL
@@ -92,6 +95,12 @@ async function handleAgentsByAvatar(req, res) {
 		profileImage: r.profile_image_url || null,
 		onchain: r.erc8004_agent_id != null,
 		chainId: r.chain_id || null,
+		// Public wallet fields so every surface renders the shared wallet chip
+		// (tip for visitors, vanity entry for the owner). Mirrors api/trending.js
+		// + api/characters.js. Secret material is never selected.
+		solana_address: r.solana_address || null,
+		solana_vanity_prefix: r.solana_vanity_prefix || null,
+		solana_vanity_suffix: r.solana_vanity_suffix || null,
 		createdAt: r.created_at,
 		url: `/agent/${r.id}`,
 	}));

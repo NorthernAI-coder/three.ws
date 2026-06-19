@@ -21,6 +21,7 @@ import { z } from 'zod';
 import { paid } from '../payments.js';
 import { jsonSchemaFromZod } from './_shared.js';
 import { grindMintKeypair, estimateAttempts, BASE58_ALPHABET } from '../lib/pump-vanity.js';
+import { grindMnemonicKeypair, MAX_MNEMONIC_PATTERN_LENGTH } from '../lib/mnemonic-vanity.js';
 import bs58 from 'bs58';
 
 const TOOL_NAME = 'vanity_grinder';
@@ -45,10 +46,13 @@ const DEFAULT_MAX_ITERATIONS = 1_500_000;
 const DIFFICULTY_REJECT_MULTIPLE = 4;
 
 const TOOL_DESCRIPTION =
-	`Generate a Solana keypair whose base58 address starts with a chosen prefix (and optionally ends with a chosen suffix). ` +
-	`SECURITY: the returned \`privateKey64\` is a REAL, fully-funded-capable private key. It transits the MCP channel in plaintext, ` +
+	`Generate a Solana wallet whose base58 address starts with a chosen prefix (and optionally ends with a chosen suffix). ` +
+	`Set \`mnemonic: true\` to receive a BIP-39 SEED PHRASE (12 or 24 words) whose derived key at m/44'/501'/0'/0' lands on the ` +
+	`vanity address — importable as a recovery phrase into Phantom/Solflare/the Solana CLI (combined pattern capped at ` +
+	`${MAX_MNEMONIC_PATTERN_LENGTH} chars, ~100× slower to grind). Otherwise a raw 64-byte private key is returned. ` +
+	`SECURITY: the returned \`privateKey64\`/\`mnemonic\` is a REAL, fully-funded-capable secret. It transits the MCP channel in plaintext, ` +
 	`so the MCP host (Claude Desktop, Cursor, any proxy) MAY LOG the entire response. Treat the whole tool result as a secret, ` +
-	`import it into a wallet immediately, and never reuse a key that may have been logged. ` +
+	`import it into a wallet immediately, and never reuse a secret that may have been logged. ` +
 	`Billed via x402 \`exact\` (flat ${PRICE_USD} USDC on Solana).`;
 
 // Single source of truth: Zod shape carries descriptions + bounds; JSON Schema
@@ -69,6 +73,17 @@ const inputZodShape = {
 		.describe('Optional base58 suffix the address must end with. 1-6 chars.')
 		.optional(),
 	ignoreCase: z.boolean().describe('Case-insensitive match (folds upper+lower base58 chars).').optional(),
+	mnemonic: z
+		.boolean()
+		.describe(
+			`Return a BIP-39 seed phrase (importable as a recovery phrase) instead of a raw private key. ` +
+				`~100× slower; combined prefix+suffix capped at ${MAX_MNEMONIC_PATTERN_LENGTH} chars in this mode.`,
+		)
+		.optional(),
+	strength: z
+		.union([z.literal(128), z.literal(256)])
+		.describe('Mnemonic mode only: entropy bits — 128 → 12 words (default), 256 → 24 words.')
+		.optional(),
 	maxIterations: z
 		.number()
 		.int()
@@ -119,7 +134,36 @@ export async function buildVanityGrinderTool() {
 				priceUsd: PRICE_USD,
 			},
 		},
-		async ({ prefix, suffix, ignoreCase = false, maxIterations = DEFAULT_MAX_ITERATIONS }) => {
+		async ({ prefix, suffix, ignoreCase = false, mnemonic = false, strength = 128, maxIterations = DEFAULT_MAX_ITERATIONS }) => {
+			// Mnemonic mode: grind a BIP-39 seed phrase whose derived key lands on
+			// the vanity address. The grinder enforces its own (lower) pattern cap
+			// and iteration budget and throws on exhaustion so the caller isn't
+			// charged. Returns the phrase plus the derived 64-byte secret key.
+			if (mnemonic) {
+				const grind = await grindMnemonicKeypair({ prefix, suffix, ignoreCase, strength });
+				const address = grind.keypair.publicKey.toBase58();
+				const privateKey64 = bs58.encode(Buffer.from(grind.keypair.secretKey));
+				return {
+					address,
+					mnemonic: grind.mnemonic,
+					wordCount: grind.wordCount,
+					derivationPath: grind.derivationPath,
+					privateKey64,
+					iterations: grind.iterations,
+					estimatedIterations: Math.round(estimateAttempts({ prefix, suffix, ignoreCase })),
+					durationMs: grind.durationMs,
+					prefix,
+					suffix: suffix || null,
+					ignoreCase,
+					format: 'mnemonic',
+					priceUsd: PRICE_USD,
+					_secretWarning:
+						'mnemonic and privateKey64 are a REAL Solana seed phrase and key. They just transited the MCP channel ' +
+						'in plaintext, so the MCP host (Claude Desktop / Cursor / any proxy) MAY have logged this entire response. ' +
+						'Import the phrase into a wallet now, treat the whole result as a secret, and do not reuse a secret you suspect was logged.',
+				};
+			}
+
 			// Clamp the caller-supplied cap into the safe range so a single paid
 			// call can never schedule millions of synchronous keypair generations.
 			const cap = Math.min(Math.max(1, Math.floor(maxIterations)), MAX_ITERATIONS_CAP);
@@ -153,6 +197,7 @@ export async function buildVanityGrinderTool() {
 				prefix,
 				suffix: suffix || null,
 				ignoreCase,
+				format: 'keypair',
 				priceUsd: PRICE_USD,
 				_secretWarning:
 					'privateKey64 is a REAL Solana private key. It just transited the MCP channel in plaintext, ' +

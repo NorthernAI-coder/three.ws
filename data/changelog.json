@@ -3,6 +3,25 @@
 	"entries": [
 		{
 			"date": "2026-06-19",
+			"title": "Pay-per-call vanity wallets now do seed phrases and encrypted delivery",
+			"summary": "The on-demand vanity address service — the one any app or agent can call and pay for per use, no account needed — can now hand back a 12- or 24-word seed phrase instead of just a raw key, so the wallet it grinds restores straight into Phantom, Solflare, or any wallet as a recovery phrase. And if you'd rather the secret never travel in the clear, you can now have it encrypted to a key only you hold: the service seals the result so the private key or seed phrase is unreadable to anyone in between — it isn't written to any log or cache, and only you can open it. The plain address still comes back in the clear so you can look it up right away.",
+			"tags": [
+				"feature",
+				"security"
+			],
+			"link": "/vanity-wallet"
+		},
+		{
+			"date": "2026-06-19",
+			"title": "Freeze your agent wallet in one tap — plus hardened custody security",
+			"summary": "Your agent's wallet now has a freeze switch. Open the wallet's Limits & Safety panel and tap Freeze to instantly pause every kind of automatic spending — trades, snipes and payments all stop at once — while you stay free to withdraw your funds out at any time; a freeze locks down the agent without ever trapping your money. Withdrawals also got safer: before you confirm, you'll see a clear reminder that crypto transfers are final, and if you've set a withdraw allowlist the screen now tells you whether the address you're sending to is on it. Under the hood we tightened wallet security across the board — every money-moving request is now protected against cross-site request forgery, the keys that sign for your wallet are encrypted at rest with a dedicated key separated from the login system, and a class of launch keys that were previously stored in plain text are now encrypted too.",
+			"tags": [
+				"feature",
+				"security"
+			]
+		},
+		{
+			"date": "2026-06-19",
 			"title": "Vanity wallets for every agent — opt-in, owned per user",
 			"summary": "Every agent and avatar has its own custodial Solana wallet, and you own it per creation: make an avatar and its agent wallet is yours; if someone forks or saves that avatar, they get a brand-new wallet they alone control — yours is never shared or copied. A new Vanity tab in the agent wallet hub lets you grind a custom address (your own prefix and/or suffix) on demand. If the wallet already holds funds, they're automatically and safely swept to the new address before the switch completes, so funds are never stranded. The wallet now appears everywhere an agent or avatar shows up — profiles, avatar pages, your Agents and Avatars dashboards, the Characters feed and Trending — each with one-tap copy, an explorer link, and a vanity badge.",
 			"tags": [

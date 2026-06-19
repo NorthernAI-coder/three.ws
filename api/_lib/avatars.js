@@ -261,10 +261,17 @@ export async function searchPublicAvatars({ q, tag, category, limit = 24, cursor
 		        av.appearance, av.appearance_hash, av.baked_storage_key, av.baked_at,
 		        av.size_bytes,
 		        av.content_type, av.source, av.source_meta, av.fork_count, av.visibility, av.tags, av.view_count, av.created_at,
-		        ai.id as agent_id, ai.onchain as agent_onchain
+		        ai.id as agent_id, ai.onchain as agent_onchain,
+		        ai.solana_address as agent_solana_address,
+		        ai.solana_vanity_prefix as agent_solana_vanity_prefix,
+		        ai.solana_vanity_suffix as agent_solana_vanity_suffix
 		 from avatars av
 		 left join lateral (
-		   select id, meta->'onchain' as onchain from agent_identities
+		   select id, meta->'onchain' as onchain,
+		          meta->>'solana_address' as solana_address,
+		          meta->>'solana_vanity_prefix' as solana_vanity_prefix,
+		          meta->>'solana_vanity_suffix' as solana_vanity_suffix
+		   from agent_identities
 		   where avatar_id = av.id and owner_id = av.owner_id and deleted_at is null
 		   order by (meta->'onchain') is not null desc, created_at asc limit 1
 		 ) ai on true

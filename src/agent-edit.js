@@ -2,6 +2,7 @@ import { AvatarCreator } from './avatar-creator.js';
 import { saveRemoteGlbToAccount } from './account.js';
 import { apiFetch } from './api.js';
 import { openAvatarPicker } from './avatar-gallery-picker.js';
+import { walletChipHTML, wireWalletChips } from './shared/agent-wallet-chip.js';
 import { log } from './shared/log.js';
 import { isValidGlbMagic } from './shared/glb-magic.js';
 
@@ -139,6 +140,7 @@ function render() {
   $('panel-persona').classList.add('active');
   $('agent-title').textContent = `Edit Agent: ${agentData.name || 'Untitled'}`;
   $('back-link').href = `/agents/${agentData.id}`;
+  renderHeaderWalletChip();
 
   // Persona
   $('f-name').value = agentData.name || '';
@@ -155,6 +157,31 @@ function render() {
 
   // Autopilot
   $('f-strategy').value = formatStrategy(agentData.meta?.strategy);
+}
+
+// Render the shared custodial-wallet chip in the edit header. This page is the
+// owner's own agent (the GET above 401s anyone who isn't signed in, and the
+// record carries an authoritative `is_owner` flag), so the chip shows the owner
+// affordances — the "✦ Vanity" entry point routes to the wallet hub where the
+// money-safe grind/swap lives. We never inline withdraw/launch UI here.
+function renderHeaderWalletChip() {
+  const header = document.querySelector('.edit-header');
+  if (!header) return;
+  let host = $('agent-wallet-chip');
+  if (!host) {
+    host = document.createElement('div');
+    host.id = 'agent-wallet-chip';
+    host.className = 'edit-header-wallet';
+    header.appendChild(host);
+  }
+  // showPending so the header always communicates that every agent has a wallet,
+  // even in the brief window before provisioning completes.
+  host.innerHTML = walletChipHTML(agentData, {
+    isOwner: !!agentData.is_owner,
+    showPending: true,
+    link: true,
+  });
+  wireWalletChips(host);
 }
 
 function formatStrategy(strategy) {

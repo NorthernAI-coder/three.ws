@@ -33,6 +33,8 @@ import readline from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
 import { fileURLToPath } from 'node:url';
 
+import { encryptSecret } from '../api/_lib/secret-box.js';
+
 import {
 	Connection,
 	Keypair,
@@ -442,7 +444,17 @@ async function cmdRegister(positional, opts) {
 		treasury_is_creator: !!opts['treasury-is-creator'],
 	};
 	if (opts['creator-secret-b64']) {
-		metadata.creator_secret_b64 = opts['creator-secret-b64'];
+		// Encrypt the creator key at rest (AES-256-GCM under WALLET_ENCRYPTION_KEY)
+		// so a DB dump never yields a usable signing key. The treasury loader
+		// transparently decrypts the `v2:`-prefixed blob. Requires WALLET_ENCRYPTION_KEY
+		// (or JWT_SECRET) in the operator env — the same secret the runtime decrypts with.
+		if (!process.env.WALLET_ENCRYPTION_KEY && !process.env.JWT_SECRET) {
+			throw new Error(
+				'Cannot encrypt --creator-secret-b64: set WALLET_ENCRYPTION_KEY (preferred) or JWT_SECRET ' +
+					'to the SAME value the runtime uses, so the coin cron can decrypt the stored creator key.',
+			);
+		}
+		metadata.creator_secret_b64 = await encryptSecret(opts['creator-secret-b64']);
 	}
 
 	const sql = await neonSql();

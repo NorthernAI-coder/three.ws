@@ -35,6 +35,7 @@ import {
 	relTime,
 	verifiedBadge,
 } from './trader-format.js';
+import { walletChipEl } from './shared/agent-wallet-chip.js';
 
 const GRADUATION_CAP_USD = 69_000; // pump.fun bonding-curve graduation threshold
 const REDUCED_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -1089,6 +1090,20 @@ function renderAgent() {
 	]);
 
 	const body = el('div', { class: 'ld-agent-body' }, [head]);
+
+	// The launching agent's custodial Solana wallet — vanity-aware, copyable,
+	// read-only for visitors. agent_authority (the on-chain signer) backstops the
+	// agent record's own solana_address. Owner-only actions live in the wallet hub.
+	const walletChip = walletChipEl(
+		{
+			...agent,
+			id: agent.id,
+			solana_address:
+				agent.solana_address || agent.meta?.solana_address || state.detail.agent_authority || null,
+		},
+		{ isOwner: false, showPending: false, link: true },
+	);
+	if (walletChip) body.appendChild(walletChip);
 
 	if (agent.description) {
 		body.appendChild(el('p', { class: 'ld-agent-desc', text: agent.description }));

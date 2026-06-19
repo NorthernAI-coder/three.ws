@@ -272,7 +272,7 @@
 	</style>
 
 	<script type="module">
-		import { walletChipHTML } from '/src/shared/agent-wallet-chip.js';
+		import { walletChipHTML, wireWalletChips } from '/src/shared/agent-wallet-chip.js';
 		const $ = (s) => document.querySelector(s);
 		const $$ = (s) => document.querySelectorAll(s);
 		const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) =>
@@ -375,6 +375,11 @@
 					</${tag}>
 				</li>`;
 			}).join('');
+
+			// Wire the wallet chips' copy + Tip actions on the public feed. Viewers
+			// don't own these agents, so walletChipHTML defaults to isOwner:false and
+			// renders the ◎ Tip action — this hooks it up.
+			wireWalletChips(list);
 		}
 
 		// ── Render coins ────────────────────────────────────────────────────

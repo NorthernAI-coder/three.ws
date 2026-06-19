@@ -55,6 +55,17 @@ import {
 	expectedAttemptsFor,
 	MAX_SERVER_PATTERN_LENGTH,
 } from '../../src/solana/vanity/grinder-node.js';
+import {
+	grindVanityMnemonic,
+	expectedMnemonicAttempts,
+	MAX_MNEMONIC_PATTERN_LENGTH,
+} from '../../src/solana/vanity/mnemonic-grinder.js';
+import { STRENGTH_WORD_COUNTS, DEFAULT_STRENGTH } from '../../src/solana/vanity/mnemonic.js';
+import {
+	sealToRecipient,
+	parseX25519Key,
+	SEALED_ENVELOPE_SCHEME,
+} from '../../src/solana/vanity/sealed-envelope.js';
 import bs58 from 'bs58';
 
 const ROUTE = '/api/x402/vanity';
@@ -65,6 +76,14 @@ const routeConfig = { path: ROUTE, method: 'GET', requiredScope: REQUIRED_SCOPE 
 // Wall-clock budget for the grind. Kept under the route's 60s maxDuration with
 // headroom for facilitator verify + settle round-trips.
 const GRIND_TIME_BUDGET_MS = 45_000;
+
+// Output formats. `keypair` (default) returns a raw Ed25519 secret key ground in
+// the WASM engine. `mnemonic` returns a BIP-39 seed phrase whose derived key
+// (m/44'/501'/0'/0', Phantom's default) lands on the vanity address — importable
+// as a recovery phrase into any wallet.
+const FORMAT_KEYPAIR = 'keypair';
+const FORMAT_MNEMONIC = 'mnemonic';
+const FORMATS = new Set([FORMAT_KEYPAIR, FORMAT_MNEMONIC]);
 
 // Difficulty-tiered price in USDC atomic units (6 decimals). Indexed by the
 // combined prefix+suffix length. Each character multiplies expected work by 58,
@@ -77,18 +96,36 @@ const PRICE_BY_LENGTH = {
 	3: 250_000, // $0.25
 };
 
-function priceAtomicsFor(combinedLength) {
+// Mnemonic mode grinds ~100× slower (PBKDF2-HMAC-SHA512 per attempt) and ships a
+// full importable seed phrase, so it is priced as a premium tier and capped at
+// 2 characters server-side.
+const PRICE_BY_LENGTH_MNEMONIC = {
+	0: 50_000, //  $0.05 — base / probe
+	1: 50_000, //  $0.05
+	2: 500_000, // $0.50
+};
+
+function priceAtomicsFor(format, combinedLength) {
+	if (format === FORMAT_MNEMONIC) {
+		return PRICE_BY_LENGTH_MNEMONIC[combinedLength] ?? PRICE_BY_LENGTH_MNEMONIC[MAX_MNEMONIC_PATTERN_LENGTH];
+	}
 	return PRICE_BY_LENGTH[combinedLength] ?? PRICE_BY_LENGTH[MAX_SERVER_PATTERN_LENGTH];
 }
 
 const ROUTE_DESCRIPTION =
-	'three.ws Solana Vanity Grinder — generate a brand-new Solana keypair whose ' +
+	'three.ws Solana Vanity Grinder — generate a brand-new Solana wallet whose ' +
 	'Base58 address starts with your chosen prefix and/or ends with your chosen ' +
-	'suffix. Returns the public address and its secret key (Base58 + 64-byte array) ' +
-	'so you can import it into any Solana wallet. The key is ground fresh per ' +
-	'request in a Rust/WASM ed25519 engine and never stored. Price scales with ' +
-	'pattern difficulty ($0.01–$0.25); combined pattern capped at 3 Base58 ' +
-	'characters. Pay-per-call in USDC on Base or Solana mainnet — no API keys.';
+	'suffix. Two output formats: format=keypair (default) returns the public ' +
+	'address and its secret key (Base58 + 64-byte array), ground in a Rust/WASM ' +
+	'ed25519 engine — capped at 3 Base58 chars, priced $0.01–$0.25. format=mnemonic ' +
+	'returns a BIP-39 seed phrase (12 or 24 words) whose derived key at ' +
+	"m/44'/501'/0'/0' lands on the vanity address, importable as a recovery phrase " +
+	'into Phantom / Solflare / the Solana CLI — capped at 2 chars (~100× slower to ' +
+	'grind), priced $0.05–$0.50. Nothing is ever stored; the secret exists only in ' +
+	'the response, served once over TLS. Optional sealTo=<X25519 public key> seals the ' +
+	'secret to you (ECIES) so the plaintext never appears in the response or any log — ' +
+	'open it client-side with the matching private key. Pay-per-call in USDC on Base or ' +
+	'Solana mainnet — no API keys, no accounts.';
 
 // Base58 excludes 0/O/I/l. Note also that an address is 32 random bytes
 // Base58-encoded, so its LEADING characters are not uniformly distributed —
@@ -117,6 +154,26 @@ const DISCOVERY_INPUT_SCHEMA = {
 			description:
 				'When 1/true, match the pattern case-insensitively (faster, less specific).',
 		},
+		format: {
+			type: 'string',
+			enum: ['keypair', 'mnemonic'],
+			description:
+				'keypair (default): return a raw 64-byte Ed25519 secret key, up to 3 chars. ' +
+				'mnemonic: return a BIP-39 seed phrase importable into any wallet, up to 2 chars.',
+		},
+		strength: {
+			type: 'string',
+			enum: ['128', '256'],
+			description:
+				'Mnemonic mode only. 128 → 12 words (default), 256 → 24 words. Ignored for keypair format.',
+		},
+		sealTo: {
+			type: 'string',
+			description:
+				'Optional. Your 32-byte X25519 public key (Base58, Base64url, or hex). When set, ' +
+				'the secret is sealed to it (x25519-hkdf-sha256-aes256gcm) and the plaintext secret ' +
+				'is omitted from the response — open it client-side with the matching private key.',
+		},
 	},
 };
 
@@ -129,12 +186,16 @@ const DISCOVERY_OUTPUT_EXAMPLE = {
 	prefix: 'So',
 	suffix: null,
 	ignoreCase: false,
+	format: 'keypair',
 	secretKeyBase58: '<example-only — the live endpoint returns the ground secret key here>',
 	secretKey: [
 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 		0, 0,
 	],
+	mnemonic: null,
+	wordCount: null,
+	derivationPath: null,
 	attempts: 160000,
 	durationMs: 6030,
 	expectedAttempts: 3364,
@@ -151,10 +212,12 @@ const DISCOVERY_OUTPUT_SCHEMA = {
 		prefix: { type: ['string', 'null'] },
 		suffix: { type: ['string', 'null'] },
 		ignoreCase: { type: 'boolean' },
+		format: { type: 'string', enum: ['keypair', 'mnemonic'] },
 		secretKeyBase58: {
 			type: 'string',
 			description:
-				'Base58-encoded 64-byte Ed25519 secret key (import into Phantom/Solflare).',
+				'Base58-encoded 64-byte Ed25519 secret key (import into Phantom/Solflare). ' +
+				'Present in both formats — in mnemonic mode it is the key derived from the phrase.',
 		},
 		secretKey: {
 			type: 'array',
@@ -162,6 +225,34 @@ const DISCOVERY_OUTPUT_SCHEMA = {
 			minItems: 64,
 			maxItems: 64,
 			description: '64-byte secret key as an int array — save as a Solana CLI keypair JSON.',
+		},
+		mnemonic: {
+			type: ['string', 'null'],
+			description:
+				'mnemonic format only: BIP-39 seed phrase (12/24 words). Type it into any wallet ' +
+				'to recover this address. null in keypair format.',
+		},
+		wordCount: { type: ['integer', 'null'], description: 'mnemonic format only: 12 or 24.' },
+		derivationPath: {
+			type: ['string', 'null'],
+			description: "mnemonic format only: BIP-44 path, e.g. m/44'/501'/0'/0'.",
+		},
+		sealed: {
+			type: 'boolean',
+			description:
+				'Present and true only when sealTo was supplied. The plaintext secret fields ' +
+				'(secretKeyBase58/secretKey/mnemonic) are then omitted in favor of sealedSecret.',
+		},
+		sealedSecret: {
+			type: 'object',
+			description:
+				'sealTo only: ECIES envelope { scheme, epk, nonce, ciphertext, recipient }. Open it ' +
+				'with the X25519 private key matching sealTo to recover a JSON bundle of the secret.',
+		},
+		sealedFields: {
+			type: 'array',
+			items: { type: 'string' },
+			description: 'sealTo only: the field names contained in the decrypted JSON bundle.',
 		},
 		attempts: { type: 'integer', description: 'Keypairs tried before the match.' },
 		durationMs: { type: 'number' },
@@ -227,6 +318,25 @@ function parsePattern(req) {
 	const suffix = typeof q.suffix === 'string' ? q.suffix.trim() : '';
 	const ignoreCase = q.ignoreCase === '1' || q.ignoreCase === 'true';
 
+	const format = typeof q.format === 'string' ? q.format.trim().toLowerCase() : FORMAT_KEYPAIR;
+	if (!FORMATS.has(format)) {
+		throw Object.assign(new Error(`invalid format '${format}' — use keypair or mnemonic`), {
+			status: 400,
+			code: 'validation_error',
+		});
+	}
+
+	let strength = DEFAULT_STRENGTH;
+	if (q.strength != null && q.strength !== '') {
+		strength = Number(q.strength);
+		if (!STRENGTH_WORD_COUNTS[strength]) {
+			throw Object.assign(
+				new Error(`invalid strength '${q.strength}' — use 128 (12 words) or 256 (24 words)`),
+				{ status: 400, code: 'validation_error' },
+			);
+		}
+	}
+
 	for (const [label, pattern] of [
 		['prefix', prefix],
 		['suffix', suffix],
@@ -240,39 +350,123 @@ function parsePattern(req) {
 			});
 		}
 	}
+
+	const maxLength = format === FORMAT_MNEMONIC ? MAX_MNEMONIC_PATTERN_LENGTH : MAX_SERVER_PATTERN_LENGTH;
 	const combinedLength = prefix.length + suffix.length;
-	if (combinedLength > MAX_SERVER_PATTERN_LENGTH) {
+	if (combinedLength > maxLength) {
+		const reason =
+			format === FORMAT_MNEMONIC
+				? `seed-phrase grinding is ~100× slower; drop format=mnemonic for up to ${MAX_SERVER_PATTERN_LENGTH} chars, ` +
+					`or grind longer mnemonic patterns on your own machine`
+				: 'grind longer patterns in the browser at /vanity';
 		throw Object.assign(
 			new Error(
-				`combined pattern length ${combinedLength} exceeds the server limit of ` +
-					`${MAX_SERVER_PATTERN_LENGTH} characters — grind longer patterns in the browser at /vanity`,
+				`combined pattern length ${combinedLength} exceeds the ${format} server limit of ` +
+					`${maxLength} characters — ${reason}`,
 			),
 			{ status: 400, code: 'pattern_too_long' },
 		);
 	}
-	return { prefix, suffix, ignoreCase, combinedLength };
+
+	// Optional confidential delivery: an X25519 public key the secret is sealed
+	// to. Validate the key shape up front so a malformed key is a clean 400
+	// before the buyer ever pays. parseX25519Key throws status/code on bad input.
+	let sealTo = null;
+	if (typeof q.sealTo === 'string' && q.sealTo.trim()) {
+		sealTo = q.sealTo.trim();
+		parseX25519Key(sealTo, 'sealTo');
+	}
+
+	return { prefix, suffix, ignoreCase, combinedLength, format, strength, sealTo };
 }
 
-function grindAndShape({ prefix, suffix, ignoreCase }) {
-	const result = grindVanityNode({
-		prefix,
-		suffix,
-		ignoreCase,
-		timeBudgetMs: GRIND_TIME_BUDGET_MS,
-	});
+// Confidential delivery: when the caller supplies an X25519 public key, encrypt
+// the secret material to it (ECIES sealed envelope) so the plaintext secret
+// never appears in the response body, a proxy log, or the idempotency cache.
+// The address + grind metadata stay in the clear; only the secret is sealed.
+async function sealSecret(result, sealTo) {
+	const bundle =
+		result.format === FORMAT_MNEMONIC
+			? {
+					format: FORMAT_MNEMONIC,
+					mnemonic: result.mnemonic,
+					wordCount: result.wordCount,
+					derivationPath: result.derivationPath,
+					secretKeyBase58: result.secretKeyBase58,
+					secretKey: result.secretKey,
+				}
+			: {
+					format: FORMAT_KEYPAIR,
+					secretKeyBase58: result.secretKeyBase58,
+					secretKey: result.secretKey,
+				};
+	const sealedSecret = await sealToRecipient(JSON.stringify(bundle), sealTo);
+	// Strip every plaintext secret field; keep public metadata.
+	const { secretKeyBase58, secretKey, mnemonic, ...clear } = result;
 	return {
-		address: result.publicKey,
-		prefix: prefix || null,
-		suffix: suffix || null,
-		ignoreCase,
-		secretKeyBase58: bs58.encode(result.secretKey),
-		secretKey: Array.from(result.secretKey),
-		attempts: result.attempts,
-		durationMs: Math.round(result.durationMs),
-		expectedAttempts: expectedAttemptsFor(prefix, suffix),
-		network: 'solana',
-		explorerUrl: `https://solscan.io/account/${result.publicKey}`,
+		...clear,
+		sealed: true,
+		sealedScheme: SEALED_ENVELOPE_SCHEME,
+		sealedContentType: 'application/json',
+		sealedFields: Object.keys(bundle),
+		sealedSecret,
 	};
+}
+
+async function grindAndShape({ prefix, suffix, ignoreCase, format, strength, sealTo }) {
+	let shaped;
+	if (format === FORMAT_MNEMONIC) {
+		const result = grindVanityMnemonic({
+			prefix,
+			suffix,
+			ignoreCase,
+			strength,
+			timeBudgetMs: GRIND_TIME_BUDGET_MS,
+		});
+		shaped = {
+			address: result.publicKey,
+			prefix: prefix || null,
+			suffix: suffix || null,
+			ignoreCase,
+			format: FORMAT_MNEMONIC,
+			secretKeyBase58: bs58.encode(result.secretKey),
+			secretKey: Array.from(result.secretKey),
+			mnemonic: result.mnemonic,
+			wordCount: result.wordCount,
+			derivationPath: result.derivationPath,
+			attempts: result.attempts,
+			durationMs: Math.round(result.durationMs),
+			expectedAttempts: Math.round(expectedMnemonicAttempts(prefix, suffix, ignoreCase)),
+			network: 'solana',
+			explorerUrl: `https://solscan.io/account/${result.publicKey}`,
+		};
+	} else {
+		const result = grindVanityNode({
+			prefix,
+			suffix,
+			ignoreCase,
+			timeBudgetMs: GRIND_TIME_BUDGET_MS,
+		});
+		shaped = {
+			address: result.publicKey,
+			prefix: prefix || null,
+			suffix: suffix || null,
+			ignoreCase,
+			format: FORMAT_KEYPAIR,
+			secretKeyBase58: bs58.encode(result.secretKey),
+			secretKey: Array.from(result.secretKey),
+			mnemonic: null,
+			wordCount: null,
+			derivationPath: null,
+			attempts: result.attempts,
+			durationMs: Math.round(result.durationMs),
+			expectedAttempts: expectedAttemptsFor(prefix, suffix),
+			network: 'solana',
+			explorerUrl: `https://solscan.io/account/${result.publicKey}`,
+		};
+	}
+
+	return sealTo ? sealSecret(shaped, sealTo) : shaped;
 }
 
 export default wrap(async (req, res) => {
@@ -297,11 +491,11 @@ export default wrap(async (req, res) => {
 	}
 
 	const resourceUrl = resolveResourceUrl(req, ROUTE);
-	const priceAtomics = priceAtomicsFor(pattern.combinedLength);
+	const priceAtomics = priceAtomicsFor(pattern.format, pattern.combinedLength);
 	const requirements = buildRequirements(resourceUrl, priceAtomics);
 	const service = withService({
 		serviceName: 'three.ws Solana Vanity Grinder',
-		tags: ['solana', 'vanity', 'keypair', 'wallet', 'address'],
+		tags: ['solana', 'vanity', 'keypair', 'wallet', 'address', 'mnemonic', 'seed-phrase', 'bip39'],
 	});
 	const challenge = {
 		resourceUrl,
@@ -331,7 +525,7 @@ export default wrap(async (req, res) => {
 	if (acResult?.grantAccess) {
 		let result;
 		try {
-			result = grindAndShape(pattern);
+			result = await grindAndShape(pattern);
 		} catch (err) {
 			return error(res, err.status || 500, err.code || 'internal_error', err.message);
 		}
@@ -382,9 +576,11 @@ export default wrap(async (req, res) => {
 
 	// Grind AFTER verify but BEFORE settle: an invalid pattern or exhausted
 	// budget throws here, and settlement never runs, so the buyer isn't charged.
+	// grindAndShape is async (it may seal the secret to the buyer's key), so it
+	// must be awaited — otherwise the body serializes an unresolved Promise.
 	let result;
 	try {
-		result = grindAndShape(pattern);
+		result = await grindAndShape(pattern);
 	} catch (err) {
 		return error(res, err.status || 500, err.code || 'grind_failed', err.message);
 	}

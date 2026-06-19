@@ -362,7 +362,7 @@ async function handleCreate(req, res) {
 	}
 
 	return json(res, 201, {
-		data: { agent: toDetail({ ...agent, author_name: null, author_avatar: null }) },
+		data: { agent: toDetail({ ...agent, author_name: null, author_avatar: null }, {}, auth.userId) },
 	});
 }
 
@@ -399,7 +399,8 @@ async function handleMine(req, res) {
 
 	return json(res, 200, {
 		data: {
-			items: rows.map((r) => ({ ...toCard(r), is_published: r.is_published })),
+			// The "mine" listing is always the caller's own agents — owner everywhere.
+			items: rows.map((r) => ({ ...toCard(r), is_published: r.is_published, is_owner: true })),
 		},
 	});
 }
@@ -452,6 +453,9 @@ async function handleList(req, res, url) {
 			       av.visibility AS avatar_visibility,
 			       ai.meta->'onchain' AS onchain,
 			       ai.meta->'token'   AS token,
+			       ai.meta->>'solana_address'       AS solana_address,
+			       ai.meta->>'solana_vanity_prefix' AS solana_vanity_prefix,
+			       ai.meta->>'solana_vanity_suffix' AS solana_vanity_suffix,
 				   u.display_name AS author_name,
 			       EXISTS (
 			         SELECT 1 FROM agent_skill_prices asp
@@ -510,6 +514,9 @@ async function handleList(req, res, url) {
 					       av.visibility AS avatar_visibility,
 					       ai.meta->'onchain' AS onchain,
 					       ai.meta->'token'   AS token,
+					       ai.meta->>'solana_address'       AS solana_address,
+					       ai.meta->>'solana_vanity_prefix' AS solana_vanity_prefix,
+					       ai.meta->>'solana_vanity_suffix' AS solana_vanity_suffix,
 					       u.display_name AS author_name,
 					       EXISTS (
 					         SELECT 1 FROM agent_skill_prices asp
@@ -596,6 +603,9 @@ async function handleDetail(req, res, id) {
 			       av.visibility AS avatar_visibility,
 			       a.meta->>'sol_mint_address' AS sol_mint_address,
 			       a.meta->>'pumpfun_network'  AS pumpfun_network,
+			       a.meta->>'solana_address'       AS solana_address,
+			       a.meta->>'solana_vanity_prefix' AS solana_vanity_prefix,
+			       a.meta->>'solana_vanity_suffix' AS solana_vanity_suffix,
 			       COALESCE((SELECT count(*)::int FROM skill_purchases sp
 			        WHERE sp.agent_id = a.id AND sp.status = 'confirmed'), 0) AS buyers_total,
 			       COALESCE((SELECT count(*)::int FROM skill_purchases sp
@@ -743,7 +753,7 @@ async function handleDetail(req, res, id) {
 		{
 			data: {
 				agent: {
-					...toDetail(row),
+					...toDetail(row, skill_prices, auth?.userId || null),
 					skill_prices,
 					bookmarked,
 					purchased_skills,
@@ -1289,7 +1299,7 @@ async function handlePublish(req, res, id) {
 		`,
 	]);
 
-	return json(res, 200, { data: { agent: toDetail(updated), version: next_version } });
+	return json(res, 200, { data: { agent: toDetail(updated, {}, auth.userId), version: next_version } });
 }
 
 // ── View counter ───────────────────────────────────────────────────────────
@@ -1346,12 +1356,23 @@ function toCard(row) {
 		// badge can light up a deployed agent's marketplace card. Null when absent.
 		onchain: row.onchain || null,
 		token: row.token || null,
+		// Public custodial wallet + vanity pattern for the shared wallet chip. The
+		// address is public (GET /api/agents/:id/solana serves it anonymously); the
+		// signing secret never leaves the server.
+		solana_address: row.solana_address || null,
+		solana_vanity_prefix: row.solana_vanity_prefix || null,
+		solana_vanity_suffix: row.solana_vanity_suffix || null,
 	};
 }
 
-function toDetail(row, skill_prices = {}) {
+function toDetail(row, skill_prices = {}, viewerId = null) {
 	return {
 		...toCard(row),
+		// Server-authoritative ownership: true only for the signed-in owner. Drives
+		// which wallet affordance the client renders (owner hub vs visitor tip/pay).
+		// Visitors and anonymous reads always get false. The owner-only API routes
+		// (withdraw, vanity, limits) re-check ownership regardless of this flag.
+		is_owner: !!viewerId && row.user_id === viewerId,
 		system_prompt: row.system_prompt,
 		greeting: row.greeting,
 		capabilities: row.capabilities || {},

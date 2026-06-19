@@ -12,6 +12,7 @@
 
 import { onchainBadgeHTML } from './shared/onchain-badge.js';
 import { coinChipHTML } from './shared/agent-coin.js';
+import { walletChipHTML } from './shared/agent-wallet-chip.js';
 import { agentAvatarGlb, hasCustomAvatar, seeInWorldHref } from './shared/agent-3d.js';
 import { log } from './shared/log.js';
 
@@ -497,10 +498,13 @@ function renderCreatorModal(payload, deps) {
 			// on the agent detail page this card opens.
 			const onchain = onchainBadgeHTML(a, { link: false, size: 'sm' });
 			const coin = coinChipHTML(a, { link: false, size: 'sm' });
+			// Non-interactive (link:false) vanity-aware wallet badge — the card itself
+			// navigates, and the explorer/copy controls live on the agent's own page.
+			const wallet = walletChipHTML(a, { isOwner: false, showPending: false, link: false });
 			return `<div class="creator-mini-card" data-agent-id="${escapeHtml(a.id)}">
 				${thumb}
 				<div class="name">${escapeHtml(a.name)}</div>
-				${onchain || coin ? `<div class="meta">${onchain}${coin}</div>` : ''}
+				${onchain || coin || wallet ? `<div class="meta">${onchain}${coin}${wallet}</div>` : ''}
 				<div class="meta">⊙ ${fmtNumber(a.views_count)} · ⑂ ${fmtNumber(a.forks_count)}</div>
 			</div>`;
 		}).join('');
@@ -521,9 +525,11 @@ function renderCreatorModal(payload, deps) {
 			const thumb = avt.thumbnail_url
 				? `<div class="thumb" style="background-image:url('${escapeHtml(avt.thumbnail_url)}')"></div>`
 				: `<div class="thumb">◉</div>`;
+			const wallet = walletChipHTML(avt, { isOwner: false, showPending: false, link: false });
 			return `<div class="creator-mini-card" data-avatar-id="${escapeHtml(avt.id)}">
 				${thumb}
 				<div class="name">${escapeHtml(avt.name || 'Untitled')}</div>
+				${wallet ? `<div class="meta">${wallet}</div>` : ''}
 				<div class="meta">${escapeHtml(formatDate(avt.created_at))}</div>
 			</div>`;
 		}).join('');

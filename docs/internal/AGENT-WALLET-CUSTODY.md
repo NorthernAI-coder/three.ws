@@ -44,7 +44,22 @@ the platform to be able to sign. The controls below make that trustworthy.
 The audit `git grep` that gates this (see "Verifying" below) must stay clean.
 The only endpoint that returns a raw secret key is `api/x402/vanity.js`, which
 returns the **user's own freshly-ground** keypair at provisioning time — that is
-not a custodial agent secret and is by design.
+not a custodial agent secret and is by design. That endpoint never persists the
+secret (`cache-control: no-store`, no DB write, no log line); it exists only in
+the response body for one TLS-protected delivery. It offers two delivery
+hardening options for buyers who don't want the plaintext to touch the wire:
+
+- `format=mnemonic` returns a BIP-39 seed phrase instead of a raw key — the
+  recoverable form for consumer wallets — derived at `m/44'/501'/0'/0'`.
+- `sealTo=<X25519 public key>` seals the secret to a key the buyer controls via
+  an ECIES envelope (`x25519-hkdf-sha256-aes256gcm`, see
+  `src/solana/vanity/sealed-envelope.js`). When set, the plaintext secret is
+  **omitted** from the response entirely — only `sealedSecret` is returned, so
+  the cleartext never appears in the body, a proxy log, or the idempotency
+  cache. The buyer opens it client-side with `openSealed` and the matching
+  private key. The ephemeral server-side secret is discarded immediately, so the
+  envelope is forward-secret with respect to the platform. This is the only
+  custody-relevant secret path that can be made zero-plaintext end-to-end.
 
 ## Decryption is gated + audited
 
@@ -193,5 +208,70 @@ Run as a one-shot, reversible migration with **both** secrets available:
   must show only at-rest storage, the internal recover/generate helpers, and
   validation-message strings — never a value in a response, log, or error.
 - **Tests:** withdraw (SOL + SPL, Max rent/fee reserve, idempotency), spend-limit
-  enforcement (per-tx, daily, allowlist), and address validation are covered in
-  `tests/agent-custody-guards.test.js` and `tests/agent-wallet-withdraw.test.js`.
+  enforcement (per-tx, daily, allowlist, **freeze**), and address validation are
+  covered in `tests/agent-custody-guards.test.js` and
+  `tests/agent-wallet-withdraw.test.js`. CSRF gates on the fund-moving endpoints
+  are covered in `tests/api/security-csrf-gates.test.js`.
+
+---
+
+## Security hardening pass — 2026-06-19
+
+This supersedes parts of the description above; the older sections describe the
+original v1 scheme for historical context.
+
+**The secret box is now one module.** All at-rest encryption lives in
+`api/_lib/secret-box.js` (`encryptSecret` / `decryptSecret` / `isEncryptedSecret`),
+imported by `agent-wallet.js`, the coin treasury, and the coin launcher. There is
+a single implementation — no per-call-site crypto.
+
+- **v2 scheme (current):** AES-256-GCM with a key derived (HKDF-SHA256) from a
+  **dedicated `WALLET_ENCRYPTION_KEY`**, decoupled from `JWT_SECRET`, with a
+  **random per-record salt** and a `v2:` version prefix. New writes are always v2.
+- **Legacy read:** v1 ciphertext (no prefix; `JWT_SECRET` + constant salt) still
+  decrypts via the fallback branch so existing rows keep working.
+- **Fixed regression:** imported / regenerated Solana wallets in
+  `api/agents/solana-wallet.js` used to write the weaker v1 ciphertext directly.
+  They now go through the shared `encryptSecret` (v2) like generated wallets.
+
+**Coin creator keys are encrypted at rest.** `coin.metadata.creator_secret_b64`
+was previously stored as plaintext base64 — a DB read yielded a usable signing
+key. The launcher (`scripts/coin-cli.mjs`) now encrypts it with the same secret
+box; the treasury loader (`loadCoinCreatorFromCoin`, now async) decrypts `v2:`
+blobs and reads legacy plaintext with a loud deprecation warning.
+
+**CSRF on every custodial money path.** `requireCsrf` now gates withdraw, both
+trade endpoints, and x402-pay (settle path; preview/quote stay exempt to avoid
+burning single-use tokens). Bearer/API-key callers remain exempt — the token is
+itself proof of intent. Frontend mutating clients send `x-csrf-token` via
+`consumeCsrfToken()`.
+
+**Wallet freeze (kill switch).** `meta.spend_limits.frozen` is enforced in the
+shared spend policy (`enforceSpendLimit` + `reserveSpendUsd`), so a single flag
+pauses **every autonomous path** (trade, snipe, x402) uniformly. The owner's own
+**withdraw is deliberately never blocked** — a freeze locks down a misbehaving
+agent without trapping its funds. Toggle: owner-only, one tap, under the wallet
+hub's *Limits & Safety*.
+
+### Remaining follow-ups (prioritized)
+
+1. **KMS / HSM envelope encryption.** Generate a per-record data key, encrypt the
+   wallet secret with it, and wrap the data key with a managed KMS key (AWS KMS
+   `GenerateDataKey`, GCP Cloud KMS, or Vault transit). Decryption then requires
+   an online, auditable, revocable KMS call — a raw DB dump no longer yields
+   plaintext, and master-key rotation becomes a KMS operation instead of a
+   re-encrypt-every-row migration. **This is the highest-value remaining item:**
+   today a single `WALLET_ENCRYPTION_KEY` leak still decrypts every wallet.
+2. **Automated rotation / re-encrypt sweep.** Add `scripts/reencrypt-agent-wallets.mjs`
+   that decrypts each record and rewrites it as v2 under a new key — the same
+   keypair/address, so no funds move. Then a forced `WALLET_ENCRYPTION_KEY`
+   rotation becomes a one-command operation, and v1 records can finally be retired.
+3. **Bind `agent_id` as AES-GCM `additionalData` (AAD).** Today a ciphertext is
+   not bound to its agent, so a DB-write attacker could swap one agent's encrypted
+   key into another. AAD = `utf8(agentId)` on encrypt + decrypt makes a swapped
+   ciphertext fail to decrypt. Requires a re-encrypt pass (item 2) to apply to
+   existing rows.
+4. **Drop the `JWT_SECRET` legacy read** once item 2 has migrated every record to
+   v2, and fail closed in production when `WALLET_ENCRYPTION_KEY` is unset (today
+   it warns and falls back). This finally decouples session-secret rotation from
+   custody entirely.

@@ -11,6 +11,29 @@ import { IDENTITY_REGISTRY_ABI, REGISTRY_DEPLOYMENTS } from './abi.js';
 import { listAgentsByOwner, fetchAgentMetadata, findAvatar3D } from './queries.js';
 import { CHAIN_META, supportedChainIds } from './chain-meta.js';
 import { resolveURI } from '../ipfs.js';
+import { walletChipHTML, wireWalletChips } from '../shared/agent-wallet-chip.js';
+
+const SOLANA_BASE58_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+
+// Pull a Solana custodial/mint address out of ERC-8004 agent metadata. Agents
+// registered on Solana carry it under registrations[].onchain (family 'solana')
+// as `contract_or_mint`, or sometimes a top-level solana_address. Returns a
+// base58 address or '' so the wallet chip stays silent for EVM-only agents.
+function solanaAddressFromMetadata(data) {
+	if (!data || typeof data !== 'object') return '';
+	const direct = data.solana_address || data.solanaAddress;
+	if (typeof direct === 'string' && SOLANA_BASE58_RE.test(direct)) return direct;
+	const regs = Array.isArray(data.registrations) ? data.registrations : [];
+	for (const reg of regs) {
+		const oc = reg?.onchain || reg || {};
+		const fam = String(oc.family || reg?.family || '').toLowerCase();
+		const candidate = oc.contract_or_mint || oc.address || oc.mint;
+		if (fam === 'solana' && typeof candidate === 'string' && SOLANA_BASE58_RE.test(candidate)) {
+			return candidate;
+		}
+	}
+	return '';
+}
 
 const esc = (s) =>
 	String(s ?? '').replace(
@@ -111,6 +134,7 @@ export async function mountUserProfile(rootEl, address) {
 	allCards.sort((a, b) => Number(b.agentId) - Number(a.agentId));
 
 	grid.innerHTML = allCards.map(renderCard).join('');
+	wireWalletChips(grid);
 
 	// Lazy-load thumbnails via model-viewer after card DOM is present
 	grid.querySelectorAll('.up-card[data-glb]').forEach((card) => {
@@ -141,6 +165,7 @@ async function resolveAgentCard({ chainId, agentId, address }) {
 		description: '',
 		image: '',
 		glb: '',
+		solanaAddress: '',
 	};
 
 	try {
@@ -167,15 +192,24 @@ async function resolveAgentCard({ chainId, agentId, address }) {
 			description: data.description || '',
 			image: data.image || '',
 			glb,
+			solanaAddress: solanaAddressFromMetadata(data),
 		};
 	} catch {
 		return base;
 	}
 }
 
-function renderCard({ chainId, agentId, name, description, image, glb }) {
+function renderCard({ chainId, agentId, name, description, image, glb, solanaAddress }) {
 	const meta = CHAIN_META[chainId];
 	const agentUrl = `/a/${chainId}/${agentId}`;
+	// Shared wallet chip when the on-chain agent also has a Solana custodial
+	// address. This is a public profile with no reliable viewer-ownership signal,
+	// so isOwner:false — visitors get the Tip action, never owner controls.
+	// Renders nothing for EVM-only agents (showPending:false).
+	const walletChip = walletChipHTML(
+		{ id: `${chainId}/${agentId}`, name, solana_address: solanaAddress || '', avatar_thumbnail_url: image || '' },
+		{ isOwner: false, showPending: false },
+	);
 	const hasThumb = !!glb || !!image;
 	const thumbContent = glb
 		? '' // filled lazily
@@ -197,6 +231,7 @@ function renderCard({ chainId, agentId, name, description, image, glb }) {
 			<div class="up-card-chain">${esc(meta?.shortName || chainId)}</div>
 			<a href="${esc(agentUrl)}" class="up-card-name">${esc(name)}</a>
 			${description ? `<p class="up-card-desc">${esc(description)}</p>` : ''}
+			${walletChip ? `<div class="up-card-wallet">${walletChip}</div>` : ''}
 			<div class="up-card-footer">
 				<span class="up-card-id">#${agentId}</span>
 				<a href="${esc(editUrl)}" class="up-card-edit">Edit →</a>

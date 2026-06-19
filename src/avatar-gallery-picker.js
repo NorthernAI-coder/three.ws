@@ -18,6 +18,7 @@
 
 import './avatar-gallery-picker.css';
 import { onchainBadgeHTML } from './shared/onchain-badge.js';
+import { walletChipHTML } from './shared/agent-wallet-chip.js';
 
 const PAGE_SIZE = 24;
 
@@ -428,6 +429,10 @@ export class AvatarGalleryPicker {
 		// The card is a <button>, so render a non-link badge (no nested anchor /
 		// click conflict). The explorer link lives on the agent's own pages.
 		const onchain = onchainBadgeHTML(a, { link: false, size: 'sm', showChain: false });
+		// The card is a <button>; render the wallet chip as a non-interactive,
+		// vanity-aware badge (link:false → no nested copy/explorer controls). It
+		// no-ops until the avatar record carries a custodial solana_address.
+		const wallet = walletChipHTML(a, { isOwner: false, showPending: false, link: false });
 
 		card.innerHTML = `
 			<div class="agp-card-thumb">${thumb}</div>
@@ -435,6 +440,7 @@ export class AvatarGalleryPicker {
 				<div class="agp-card-name">${esc(a.name || 'Untitled')}</div>
 				<div class="agp-card-meta">
 					${onchain}
+					${wallet}
 					${tags}
 					${views ? `<span class="agp-card-chip">${compact.format(views)} views</span>` : ''}
 				</div>
