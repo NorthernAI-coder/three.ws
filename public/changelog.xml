@@ -527,6 +527,14 @@
 			<description>The walk up to the Pole Club was lit so tightly that only a thin strip of pavement under your feet was visible while the walls fell away to black. The alley now carries a soft warm fill light that travels with you and a wider key, plus a gentle lift to the ambient glow — so the stretch you're actually walking through stays legible the whole way to the door, without losing the moody neon look.</description>
 		</item>
 		<item>
+			<title>The x402 payment modal is now a drop-in SDK any site can use</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-19:The x402 payment modal is now a drop-in SDK any site can use</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>sdk</category>
+			<description>The polished checkout that lets you pay any x402 endpoint — connect a wallet, approve, get a receipt, all in one popup — is now packaged as a standalone, dependency-free SDK (@three-ws/x402-payment-modal). One script tag turns any button into a pay button, on Solana (Phantom) or Base/EVM (MetaMask) in USDC. It ships with the server piece for Solana, full docs, a step-by-step tutorial, and ready-to-run HTML, React and Express examples, so other builders can add x402 payments to their own products the same way three.ws does.</description>
+		</item>
+		<item>
 			<title>Token Oracle follow / unfollow is working again</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-19:Token Oracle follow / unfollow is working again</guid>
