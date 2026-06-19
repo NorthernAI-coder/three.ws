@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-19T01:47:46.340Z",
+	"generated_at": "2026-06-19T03:32:31.125Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -118,6 +118,17 @@
 			"tags": [
 				"security",
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-19",
+			"type": "update",
+			"title": "One API for the whole platform: three.ws API v1",
+			"summary": "Everything three.ws can do is now reachable through a single, versioned API at /api/v1 — one key, one rate-limit budget, and one usage ledger across every capability. Hit GET /api/v1 to discover the full endpoint catalog (each one's auth, scope, and parameters) in a single call. The first endpoints are live: text sentiment scoring (POST /api/v1/sentiment), market and narrative intelligence (GET /api/v1/market/intel and /api/v1/market/projects), and verified agent-card resolution (GET /api/v1/agents/{caip}). Authenticate with a developer API key (Authorization: Bearer sk_live_…) created in your developer dashboard, an OAuth token, or a signed-in session; every response uses one consistent shape and standard RateLimit headers. More of the platform's capabilities will land under this same API over the coming releases.",
+			"link": null,
+			"tags": [
+				"feature",
+				"sdk"
 			]
 		},
 		{

@@ -1,0 +1,31 @@
+// GET /api/v1/market/projects — momentum-ranked crypto projects.
+//
+// Unified-API surface over the aixbt bridge (api/_lib/aixbt.js). Like
+// /api/v1/market/intel, this consumes the global aixbt ceiling on top of the
+// gateway's per-principal budget so the shared upstream key stays protected.
+
+import { defineEndpoint, fail } from '../../_lib/gateway.js';
+import { getProjects, aixbtEnabled } from '../../_lib/aixbt.js';
+import { limits } from '../../_lib/rate-limit.js';
+
+export default defineEndpoint({
+	name: 'v1.market.projects',
+	method: 'GET',
+	auth: 'optional',
+	scope: 'agents:read',
+	handler: async ({ query }) => {
+		if (!aixbtEnabled())
+			fail(503, 'not_configured', 'market intelligence is not enabled on this deployment');
+
+		const g = await limits.aixbtGlobal();
+		if (!g.success) fail(429, 'rate_limited', 'market intelligence is busy — retry shortly');
+
+		const { projects, pagination } = await getProjects({
+			limit: query.limit,
+			page: query.page,
+			names: query.names,
+			chain: query.chain,
+		});
+		return { projects, pagination, source: 'aixbt' };
+	},
+});
