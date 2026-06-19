@@ -50,7 +50,9 @@
 		"./style.css": "./dist/page-agent.css"
 	},
 	"files": [
-		"dist",
+		"dist/page-agent.mjs",
+		"dist/page-agent.global.js",
+		"dist/page-agent.css",
 		"src",
 		"types",
 		"README.md",

@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-19T22:11:07.149Z",
+	"generated_at": "2026-06-19T22:13:29.951Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -248,6 +248,17 @@
 			"link": "/play/ufo",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-19",
+			"type": "update",
+			"title": "Forge a 3D model on the IBM x402 demo — free, no wallet",
+			"summary": "The IBM × three.ws x402 demo now forges 3D models two ways. The paid Forge takes one USDC micropayment from your own wallet and settles on Solana; right below it, a free generator turns any sentence into a textured, downloadable GLB with no wallet, no API key and no payment — it runs Microsoft TRELLIS on NVIDIA NIM with automatic fallback across lanes so a model always comes back. The paid Forge now settles in USDC on Solana mainnet.",
+			"link": "/ibm/x402-demo",
+			"tags": [
+				"feature",
+				"improvement"
 			]
 		},
 		{

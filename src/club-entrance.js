@@ -25,6 +25,7 @@ import {
 	Box3,
 	BoxGeometry,
 	Color,
+	DoubleSide,
 	Fog,
 	Group,
 	HemisphereLight,
@@ -106,6 +107,16 @@ const DOOR_RANGE = 2.6; // how close you stand before the prompt shows
 const CAM_DIST = 3.6;
 const CAM_HEIGHT = 1.55;
 const HEAD_Y = 1.2;
+// Camera-wall collision: keep this much clearance in front of any wall the
+// camera backs into. A fat skin matters because the near plane is small (0.08)
+// — at a thin standoff a wall pokes through the lens and the frame fills with
+// the wall's interior. CAM_MIN_DIST is only a floor so the camera never
+// collapses onto the avatar's head; it is deliberately small, NOT a comfortable
+// resting distance — clamping it up would shove the camera through any wall
+// closer than the floor. Walls closer than this are caught by the double-sided
+// env materials, which render solid from the inside instead of see-through.
+const CAM_WALL_SKIN = 0.4;
+const CAM_MIN_DIST = 0.5;
 
 const ARRIVE = 0.9; // final fade (seconds) that reveals the pole stage
 
@@ -194,7 +205,7 @@ async function start(canvasEl) {
 	scene.background = new Color(0x05030a);
 	scene.fog = new Fog(0x05030a, 8, 34);
 
-	const camera = new PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.05, 200);
+	const camera = new PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.08, 200);
 
 	// ── Light rig — moody, works for the alley and the interior ──────────────
 	// Keeps the noir palette but lifts the ambient/hemisphere floor so walls read
@@ -948,24 +959,52 @@ async function start(canvasEl) {
 		anim.crossfadeTo('walk', 0.2).catch(() => {});
 	}
 
+	// Distance from `target` at which the line of sight to the camera first hits a
+	// wall, or `fallback` when the path is clear. Shared by the desired-position
+	// solve and the post-lerp safety clamp so both use identical collision logic.
+	function wallClearance(target, dir, maxDist, fallback) {
+		camRay.set(target, dir);
+		camRay.far = maxDist;
+		const hit = camRay.intersectObject(env.root, true)[0];
+		if (!hit) return fallback;
+		return clamp(hit.distance - CAM_WALL_SKIN, CAM_MIN_DIST, maxDist);
+	}
+
 	function updateCamera(dt) {
 		const cosP = Math.cos(camPitch);
 		const off = new Vector3(Math.sin(camYaw) * cosP, Math.sin(camPitch), Math.cos(camYaw) * cosP);
 		const target = new Vector3(rig.position.x, rig.position.y + HEAD_Y, rig.position.z);
 		const desired = target.clone().addScaledVector(off, CAM_DIST);
 		desired.y = rig.position.y + CAM_HEIGHT + Math.sin(camPitch) * CAM_DIST;
-		// Pull the camera in front of any wall between it and the avatar, so you
-		// never see through walls or end up buried in geometry (a black frame).
+
+		// Pull the ideal position in front of any wall between it and the avatar,
+		// so the resting framing never buries the camera in geometry.
 		const toCam = desired.clone().sub(target);
 		const dist = toCam.length();
 		if (dist > 1e-3) {
-			camRay.set(target, toCam.multiplyScalar(1 / dist));
-			camRay.far = dist;
-			const hit = camRay.intersectObject(env.root, true)[0];
-			if (hit) desired.copy(target).addScaledVector(camRay.ray.direction, Math.max(0.5, hit.distance - 0.2));
+			const dir = toCam.multiplyScalar(1 / dist);
+			const clear = wallClearance(target, dir, dist, dist);
+			if (clear < dist) desired.copy(target).addScaledVector(dir, clear);
 		}
+
 		const a = 1 - Math.exp(-9 * dt);
 		camera.position.lerp(desired, a);
+
+		// Safety clamp on the *actual* (post-lerp) position. The smoothed camera
+		// lags the avatar, so during a fast turn or a step into a corner it can
+		// drift through a wall a frame before the lerp catches up — that's the
+		// flash of see-through brown geometry. Re-cast from the head to wherever
+		// the camera really is and hard-snap it in front of any wall it crossed.
+		// A hard snap (not a lerp) guarantees no frame is ever rendered from
+		// behind a wall.
+		const actual = camera.position.clone().sub(target);
+		const aDist = actual.length();
+		if (aDist > 1e-3) {
+			const dir = actual.multiplyScalar(1 / aDist);
+			const clear = wallClearance(target, dir, aDist, aDist);
+			if (clear < aDist) camera.position.copy(target).addScaledVector(dir, clear);
+		}
+
 		camera.lookAt(target);
 	}
 
@@ -1075,6 +1114,21 @@ function setJourneyStep(i) {
 // recentre on the floor at the origin, add it, and return its box + the
 // movement bounds (a margin inside the footprint so you don't clip walls).
 function mountEnvironment(scene, root) {
+	// Render the walls solid from both faces. These venue GLBs export single-sided
+	// (FrontSide) walls, so the instant the chase camera grazes or dips behind a
+	// building face the front faces cull away and you see straight through the
+	// alley to the backfaces of the far walls — the geometry reads as abstract
+	// brown shards rather than a room. DoubleSide keeps every surface opaque from
+	// either side, so a tight camera angle can never punch a hole in the alley.
+	root.traverse((n) => {
+		if (!n.isMesh) return;
+		n.frustumCulled = true;
+		const mats = Array.isArray(n.material) ? n.material : [n.material];
+		for (const m of mats) {
+			if (m) m.side = DoubleSide;
+		}
+	});
+
 	const box = new Box3().setFromObject(root);
 	const size = box.getSize(new Vector3());
 	root.scale.setScalar(ROOM_HEIGHT / (size.y || 1));

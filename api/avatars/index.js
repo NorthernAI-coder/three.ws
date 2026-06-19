@@ -100,7 +100,10 @@ async function handleCreate(req, res) {
 	// absent and the avatar reads as "unknown", exactly as before. Paths that
 	// already stamp the signal (reconstruct, forge, studio) pass their own
 	// source_meta; we only fill what inspection found and never clobber it.
-	if (!body.source_meta || body.source_meta.is_rigged == null) {
+	const looksGlb =
+		/\.glb$/i.test(body.storage_key) ||
+		(body.content_type || head.ContentType || '').includes('gltf-binary');
+	if (looksGlb && (!body.source_meta || body.source_meta.is_rigged == null)) {
 		try {
 			const rig = await inspectStorageKeyRig(body.storage_key);
 			if (rig) body.source_meta = { ...rig, ...(body.source_meta || {}) };
