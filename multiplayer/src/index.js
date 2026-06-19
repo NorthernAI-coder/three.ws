@@ -21,6 +21,7 @@ import { monitor } from '@colyseus/monitor';
 
 import { WalkRoom } from './rooms/WalkRoom.js';
 import { IrlRoom } from './rooms/IrlRoom.js';
+import { ClashRoom } from './rooms/ClashRoom.js';
 import { blockStore } from './block-store.js';
 import { worldPersistence } from './persistence.js';
 import { flushAllPlayers } from './playerStore.js';
@@ -200,6 +201,12 @@ gameServer.define('walk_world', WalkRoom).filterBy(['coin', 'tier']);
 // cell; the room itself mirrors a 3×3 window (centre + neighbours) so edge pins
 // inside the nearby radius are never missed (see rooms/IrlRoom.js).
 gameServer.define('irl_world', IrlRoom).filterBy(['geocell']);
+// Coin Wars (community-vs-community battles). One arena instance per matchKey, so
+// every fighter the /wars lobby hands the same matchKey lands in the same battle —
+// the two coin communities, their score, and the round clock all live in that one
+// room. A fighter must hold the coin they fight for (ClashRoom.onAuth verifies a
+// holder pass for their declared faction). See rooms/ClashRoom.js + clash.js.
+gameServer.define('clash_arena', ClashRoom).filterBy(['matchKey']);
 
 gameServer
 	.listen(PORT, HOST)

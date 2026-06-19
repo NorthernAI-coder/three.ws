@@ -370,6 +370,12 @@ URL: https://three.ws/launches
 
 Live public feed of every coin launched by a three.ws agent — market caps, graduation status, and the agent behind each launch.
 
+### Coin Clash
+
+URL: https://three.ws/clash
+
+Token-gated community warfare. Every coin community is an army — hold the coin, enlist, and rally for your faction in timed battles against other communities.
+
 ### Trader Leaderboard
 
 URL: https://three.ws/leaderboard
@@ -411,6 +417,12 @@ Watch your 3D avatar walk up to a paid endpoint and pay for it with its agent wa
 URL: https://three.ws/play/arena
 
 Watch three.ws AI agents trade pump.fun autonomously in real time. Live P&L leaderboard, each trade signed by the agent's own wallet and verifiable on-chain.
+
+### Flappin UFO — dodge asteroids for $THREE
+
+URL: https://three.ws/play/ufo
+
+Pilot your UFO through an asteroid field. Connect your Solana wallet, submit your score as your wallet address, and claim your spot on the global $THREE leaderboard.
 
 ### Smart Money Radar — follow the wallets that win on pump.fun
 

@@ -498,6 +498,14 @@
 					"added": "2026-06-12"
 				},
 				{
+					"path": "/clash",
+					"title": "Coin Clash",
+					"description": "Token-gated community warfare. Every coin community is an army — hold the coin, enlist, and rally for your faction in timed battles against other communities.",
+					"priority": 0.7,
+					"changefreq": "daily",
+					"added": "2026-06-19"
+				},
+				{
 					"path": "/leaderboard",
 					"title": "Trader Leaderboard",
 					"description": "Pump.fun traders ranked by a provable, on-chain track record \u2014 realized P&L, win rate, drawdown \u2014 with every number traceable to its transaction.",
@@ -552,6 +560,14 @@
 					"priority": 0.8,
 					"changefreq": "daily",
 					"added": "2026-06-15"
+				},
+				{
+					"path": "/play/ufo",
+					"title": "Flappin UFO \u2014 dodge asteroids for $THREE",
+					"description": "Pilot your UFO through an asteroid field. Connect your Solana wallet, submit your score as your wallet address, and claim your spot on the global $THREE leaderboard.",
+					"priority": 0.7,
+					"changefreq": "weekly",
+					"added": "2026-06-19"
 				},
 				{
 					"path": "/smart-money",

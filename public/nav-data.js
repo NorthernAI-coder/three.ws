@@ -99,6 +99,12 @@ export const NAV_GROUPS = [
 				desc: 'Every coin is a 3D world — drop in & hang out',
 			},
 			{
+				title: 'Coin Clash',
+				href: '/clash',
+				badge: 'New',
+				desc: 'Token-gated community warfare — hold a coin, enlist, and battle other armies live',
+			},
+			{
 				title: 'All pages',
 				href: '/sitemap',
 				desc: 'The full directory — every page on three.ws, filterable',

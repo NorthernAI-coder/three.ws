@@ -20,6 +20,12 @@ export default wrap(async (req, res) => {
 
 	const videoAvatarEnabled = !!(process.env.LONGCAT_WORKER_URL || '').trim();
 
+	// Live webcam body motion capture (Pose Landmarker → humanoid bones). Ships
+	// dark: the capture module and solver are bundled but no surface wires them in
+	// until this flag is flipped on via env, so it can be validated in production
+	// before being bridged into /mocap-studio.
+	const liveBodyMocapEnabled = /^(1|true|on)$/i.test((process.env.LIVE_BODY_MOCAP || '').trim());
+
 	// Enterprise SAML SSO — true when an IdP is wired (explicit cert + SSO URL,
 	// or a metadata URL to fetch them from). Drives the SSO button on /login.
 	// Cheap env-only check so this hot endpoint doesn't pull in the SAML lib.
@@ -49,6 +55,9 @@ export default wrap(async (req, res) => {
 			// /create/video uses the LongCat GPU worker on Cloud Run; only
 			// available once LONGCAT_WORKER_URL is set in Vercel env.
 			videoAvatar: videoAvatarEnabled,
+			// Live webcam body capture. Off until LIVE_BODY_MOCAP is set; the
+			// frontend gates the "go live (body)" affordance on this.
+			liveBodyMocap: liveBodyMocapEnabled,
 		},
 	});
 });
