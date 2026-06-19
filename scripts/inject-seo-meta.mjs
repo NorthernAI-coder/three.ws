@@ -135,16 +135,24 @@ function existingOgImage(head) {
 	return m ? m[1] : null;
 }
 
-// Re-point a page still on the single static share image at its own dynamic
-// card. Touches only og:image / twitter:image whose value is exactly the legacy
-// /og-image.png — custom per-entity OG cards are left alone. Returns the
-// possibly-rewritten html and whether anything changed.
+const PAGE_OG_BASE = `${ORIGIN}/api/page-og`;
+
+// Re-point a page's social share image at its own dynamic card. Touches
+// og:image / twitter:image whose value is either the legacy static
+// /og-image.png OR an out-of-date /api/page-og URL (so a copy change in the
+// catalog propagates, and the escaped form self-heals). Custom per-entity OG
+// cards (agent/avatar/feature) are left alone. `dynamicOg` must be HTML-escaped.
+// Returns the possibly-rewritten html and whether anything changed.
 function repointShareImage(html, dynamicOg) {
 	let changed = false;
 	const next = html.replace(
 		/(<meta[^>]+(?:property=["']og:image["']|name=["']twitter:image["'])[^>]+content=["'])([^"']+)(["'][^>]*>)/gi,
 		(full, pre, val, post) => {
-			if (!LEGACY_OG.has(val.trim())) return full;
+			const v = val.trim();
+			const isLegacy = LEGACY_OG.has(v);
+			const isOurCard = v.replace(/&amp;/g, '&').startsWith(`${PAGE_OG_BASE}?`);
+			if (!isLegacy && !isOurCard) return full; // bespoke card — leave it
+			if (v === dynamicOg) return full; // already current
 			changed = true;
 			return pre + dynamicOg + post;
 		},
@@ -280,6 +288,13 @@ async function main() {
 	let changed = 0;
 	let repointed = 0;
 	let alreadyComplete = 0;
+	let sharedShell = 0;
+	// Some routes (e.g. /tutorials/*) share one template file. A single static
+	// og:image/canonical can't be right for every route, and re-pointing each
+	// would thrash the same file, so the first route to land on a file owns its
+	// meta and later routes pointing at it are left alone (their per-route OG, if
+	// any, is a crawler-rewrite concern, not this static injector's).
+	const seenFiles = new Set();
 
 	for (const { page, sectionId } of targets) {
 		const file = resolveFile(page.path, router);
@@ -287,11 +302,16 @@ async function main() {
 			unresolved.push(page.path);
 			continue;
 		}
+		if (seenFiles.has(file)) {
+			sharedShell++;
+			continue;
+		}
+		seenFiles.add(file);
 		resolved++;
 		const original = await readFile(file, 'utf8');
 		// 1) Upgrade any legacy static share image to this page's dynamic card.
 		const dynamicOg = pageOgUrl(page, sectionId);
-		const { html, changed: didRepoint } = repointShareImage(original, dynamicOg);
+		const { html, changed: didRepoint } = repointShareImage(original, htmlEscape(dynamicOg));
 		// 2) Backfill any missing head tags (computed against the post-repoint head).
 		const head = headOf(html);
 		const tags = buildTags(page, head, sectionId);
@@ -329,7 +349,7 @@ async function main() {
 	}
 
 	console.log('\n──────────────────────────────────────────');
-	console.log(`targets: ${targets.length}  resolved: ${resolved}  complete-already: ${alreadyComplete}  re-pointed: ${repointed}  ${WRITE ? 'written' : 'would-change'}: ${changed}`);
+	console.log(`targets: ${targets.length}  resolved: ${resolved}  shared-shell: ${sharedShell}  complete-already: ${alreadyComplete}  re-pointed: ${repointed}  ${WRITE ? 'written' : 'would-change'}: ${changed}`);
 	if (unresolved.length) console.log(`UNRESOLVED (${unresolved.length}): ${unresolved.join(', ')}`);
 	if (!WRITE) console.log('\n(dry-run — pass --write to apply)');
 }

@@ -36,6 +36,7 @@
 import { cors, method } from '../_lib/http.js';
 import { getSessionUser } from '../_lib/auth.js';
 import { sql } from '../_lib/db.js';
+import { readDeviceToken } from '../_lib/irl-auth.js';
 
 const HEARTBEAT_MS = 15_000;
 const POLL_MS_MIN = 2_000;   // fast cadence right after activity
@@ -219,8 +220,13 @@ export default async function handleIrlInteractionsStream(req, res) {
 	// dual identity the GET ?mine=1 inbox + PATCH mark-read use).
 	const session = await getSessionUser(req, res).catch(() => null);
 	const ownerId = session?.id ?? null;
-	const rawTok = req.query?.deviceToken ?? null;
-	const ownerDev = (typeof rawTok === 'string' && rawTok.length) ? rawTok : null;
+	// H2 transport: prefer the x-irl-device header (used by fetch-based EventSource
+	// shims). Native browser EventSource CANNOT set request headers, so this stream
+	// retains the `?deviceToken=` query fallback for it — accepted here as a
+	// deliberate, documented exception. The token in that URL is scrubbed from every
+	// log sink by redactUrl() (api/_lib/http.js); the response is no-store; and the
+	// stream only ever returns the OWNER's own inbox, never another user's location.
+	const ownerDev = readDeviceToken(req);
 	if (!ownerId && !ownerDev) {
 		res.statusCode = 401;
 		res.setHeader('content-type', 'application/json');

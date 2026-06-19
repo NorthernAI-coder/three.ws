@@ -43,6 +43,7 @@ import { getSessionUser } from '../_lib/auth.js';
 import { insertNotification } from '../_lib/notify.js';
 import { sendOpsAlert } from '../_lib/alerts.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
+import { readDeviceToken } from '../_lib/irl-auth.js';
 import { isUuid } from '../_lib/validate.js';
 
 // view | tap — passive/active sighting of the agent. message — a note left for
@@ -176,7 +177,7 @@ export default wrap(async (req, res) => {
 
 		const session = await getSessionUser(req).catch(() => null);
 		const viewerUserId = session?.id ?? null;
-		const viewerDevice = body.deviceToken ?? null;
+		const viewerDevice = readDeviceToken(req);
 
 		// Confirm the pin exists (and is live) and snapshot its location + agent.
 		const [pin] = await sql`
@@ -360,16 +361,16 @@ export default wrap(async (req, res) => {
 	// ── GET — interactions on MY pins (owner feed) ────────────────────────────
 	if (req.method === 'GET' && req.query.mine === '1') {
 		const session = await getSessionUser(req).catch(() => null);
-		const deviceToken = req.query.deviceToken ?? null;
-		if (!session && !deviceToken) {
+		// Header-first (H2): the device credential never rides in the URL.
+		const ownerDev = readDeviceToken(req);
+		if (!session && !ownerDev) {
 			return json(res, 400, { error: 'sign in or pass deviceToken' });
 		}
 		const unreadOnly = req.query.unread === '1';
-		// Null-guard both identifiers so a missing owner id or an empty device token
-		// can NEVER match a row (a NULL user_id or '' device_token would otherwise
-		// surface another owner's — or every legacy NULL-token — interaction).
+		// Null-guard the owner id so a missing identifier can NEVER match a row (a
+		// NULL user_id or '' device_token would otherwise surface another owner's —
+		// or every legacy NULL-token — interaction). ownerDev is already null-guarded.
 		const ownerId  = session?.id ?? null;
-		const ownerDev = (typeof deviceToken === 'string' && deviceToken.length) ? deviceToken : null;
 
 		// Neon's tagged template doesn't compose nested `sql` fragments, so the
 		// unread filter is two explicit queries rather than a spliced clause.
@@ -412,9 +413,8 @@ export default wrap(async (req, res) => {
 	// ── PATCH — mark my interactions as seen ──────────────────────────────────
 	if (req.method === 'PATCH') {
 		const session = await getSessionUser(req).catch(() => null);
-		const rawTok = req.body?.deviceToken ?? null;
+		const ownerDev = readDeviceToken(req);
 		const ownerId  = session?.id ?? null;
-		const ownerDev = (typeof rawTok === 'string' && rawTok.length) ? rawTok : null;
 		if (!ownerId && !ownerDev) {
 			return json(res, 400, { error: 'sign in or pass deviceToken' });
 		}

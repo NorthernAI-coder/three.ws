@@ -24,6 +24,8 @@ import { validateAppearance } from '../_lib/accessories.js';
 import { cacheGet, cacheSet } from '../_lib/cache.js';
 import { sendOpsAlert } from '../_lib/alerts.js';
 import { sha256 } from '../_lib/crypto.js';
+import { readDeviceToken } from '../_lib/irl-auth.js';
+import { verifyFixToken } from '../_lib/irl-presence.js';
 
 // ── Moderation, safety & density caps (D4) ──────────────────────────────────
 // Everything below makes the public, shared IRL world safe to launch: content
@@ -465,7 +467,7 @@ export function isExpiredOrHidden(pin, now = Date.now()) {
 // re-fetch every nearby viewer already runs picks up the corrected spot. (Pushing
 // the correction to already-loaded viewers in realtime rides on D1; a re-fetch
 // suffices here.) Calibration touches no coin and no third-party token.
-async function handleCalibrate(res, { id, session, body }) {
+async function handleCalibrate(res, { id, session, body, deviceToken = null }) {
 	const cal = (body.calibrate && typeof body.calibrate === 'object') ? body.calibrate : {};
 
 	const [pin] = await sql`
@@ -480,7 +482,7 @@ async function handleCalibrate(res, { id, session, body }) {
 	// placed it (device_token). Anything else is denied — never silently allowed.
 	const owns =
 		(!!session?.id && !!pin.user_id && pin.user_id === session.id) ||
-		(!!pin.device_token && !!body.deviceToken && pin.device_token === body.deviceToken);
+		(!!pin.device_token && !!deviceToken && pin.device_token === deviceToken);
 	if (!owns) return json(res, 403, { error: 'only the owner can calibrate this agent' });
 
 	// An expired / moderation-hidden pin is gone from the public world — refuse to
@@ -657,8 +659,9 @@ export default wrap(async (req, res) => {
 		// owner's pins. (A bare `device_token = ''` would otherwise leak every
 		// legacy NULL/empty-token anonymous pin — and its lat/lng — to any caller.)
 		const ownerId  = session?.id ?? null;
-		const ownerDev = (typeof req.query.deviceToken === 'string' && req.query.deviceToken.length)
-			? req.query.deviceToken : null;
+		// Header-first (H2): the device token never rides in the URL where it would
+		// land in access logs / history. readDeviceToken null-guards empty values.
+		const ownerDev = readDeviceToken(req);
 		if (!ownerDev && !ownerId) {
 			return json(res, 400, { error: 'deviceToken required' });
 		}
@@ -741,7 +744,7 @@ export default wrap(async (req, res) => {
 		// ever exposing other people's owner identifiers.
 		const session = await getSessionUser(req).catch(() => null);
 		const myId    = session?.id ?? null;
-		const myTok   = req.query.deviceToken || null;
+		const myTok   = readDeviceToken(req);
 
 		const rows = await sql`
 			SELECT id, user_id, device_token, agent_id, lat, lng, heading,
@@ -871,7 +874,8 @@ export default wrap(async (req, res) => {
 			});
 		}
 		// Empty-string device token would otherwise become a shared anonymous owner.
-		const deviceToken = body.deviceToken || null;
+		// readDeviceToken accepts the header (H2) or body, null-guarding empties.
+		const deviceToken = readDeviceToken(req);
 
 		const session   = await getSessionUser(req).catch(() => null);
 		const userId    = session?.id ?? null;
@@ -1042,7 +1046,7 @@ export default wrap(async (req, res) => {
 		// placed the pin, so it routes BEFORE the auth gate below; ownership and
 		// nudge bounds are enforced inside handleCalibrate.
 		if (body.calibrate && typeof body.calibrate === 'object') {
-			return handleCalibrate(res, { id, session, body });
+			return handleCalibrate(res, { id, session, body, deviceToken: readDeviceToken(req) });
 		}
 
 		// Field edits (caption / avatar / location / heading / x402) require auth.
@@ -1124,7 +1128,8 @@ export default wrap(async (req, res) => {
 		if (!rl.success) return rateLimited(res, rl);
 
 		const id          = req.query.id;
-		const deviceToken = req.query.deviceToken ?? req.body?.deviceToken;
+		// Header/body-first (H2): the device credential leaves the URL.
+		const deviceToken = readDeviceToken(req);
 		const purgeAll    = req.query.all === '1' || req.query.all === 'true';
 
 		// ── Bulk purge — every pin from this device token, in one round-trip ──────

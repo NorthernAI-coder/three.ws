@@ -1094,7 +1094,11 @@ async function setLocked(next) {
 
 			// Remove the GPS pin
 			if (gpsPin?.id) {
-				fetch(`/api/irl/pins?id=${gpsPin.id}&deviceToken=${_deviceToken}`, { method: 'DELETE' }).catch(() => {});
+				fetch(`/api/irl/pins?id=${encodeURIComponent(gpsPin.id)}`, {
+				method: 'DELETE',
+				headers: deviceHeaders({ 'Content-Type': 'application/json' }),
+				body: JSON.stringify({ deviceToken: _deviceToken }),
+			}).catch(() => {});
 			}
 			gpsPin = null;
 			gpsModeActive = false;
@@ -1196,6 +1200,14 @@ let _deviceToken = localStorage.getItem('irl_device_token');
 if (!_deviceToken) {
 	_deviceToken = crypto.randomUUID();
 	localStorage.setItem('irl_device_token', _deviceToken);
+}
+
+// The anonymous device token is a bearer credential — it reads this device's full
+// pin location history. Carry it in the `x-irl-device` REQUEST HEADER (H2), never
+// a URL query string, so it can't leak via access logs, browser history, or a
+// cross-origin Referer. Spread into any fetch's `headers`.
+function deviceHeaders(extra = {}) {
+	return _deviceToken ? { 'x-irl-device': _deviceToken, ...extra } : { ...extra };
 }
 
 const gpsState = { lat: null, lng: null, ready: false, watchId: null, accuracy: null, altitude: null };
@@ -1538,7 +1550,7 @@ async function savePin(lat, lng, heading = 0, caption = '', anchor = null) {
 		const r = await fetch('/api/irl/pins', {
 			method: 'POST',
 			credentials: 'include',
-			headers: { 'Content-Type': 'application/json' },
+			headers: deviceHeaders({ 'Content-Type': 'application/json' }),
 			body: JSON.stringify({
 				lat, lng,
 				heading:     Math.round(heading) % 360,
@@ -1587,7 +1599,7 @@ async function placeRoomAgent(body) {
 		const r = await fetch('/api/irl/pins', {
 			method: 'POST',
 			credentials: 'include',
-			headers: { 'Content-Type': 'application/json' },
+			headers: deviceHeaders({ 'Content-Type': 'application/json' }),
 			body: JSON.stringify({
 				lat: body.lat, lng: body.lng, heading,
 				caption: null,
@@ -2634,7 +2646,9 @@ async function loadNearbyPins() {
 	try {
 		const r = await fetch(
 			`/api/irl/pins?lat=${_o.lat}&lng=${_o.lng}&radius=${NEARBY_READ_RADIUS}`,
+			{ headers: deviceHeaders(_fixToken ? { 'x-irl-fix': _fixToken } : {}) },
 		);
+		if (r.status === 401) { return handleFixRequired(r); }
 		if (!r.ok) { _nearbyError = true; updateNearbyBadge(); return; }
 		const { pins } = await r.json();
 		_nearbyError = false;
@@ -3167,8 +3181,9 @@ const MYPINS_EMPTY = {
 // has no token yet (nothing could have been placed).
 async function loadMyPins() {
 	if (!_deviceToken) return [];
-	const r = await fetch(`/api/irl/pins/mine?deviceToken=${encodeURIComponent(_deviceToken)}`, {
+	const r = await fetch('/api/irl/pins/mine', {
 		credentials: 'include',
+		headers: deviceHeaders(),
 	});
 	if (!r.ok) throw new Error(`HTTP ${r.status}`);
 	const pins = (await r.json()).pins ?? [];
@@ -3391,8 +3406,13 @@ async function runPurge(goBtn, cancelBtn) {
 	if (goBtn) { goBtn.disabled = true; goBtn.textContent = 'Removing…'; }
 	if (cancelBtn) cancelBtn.disabled = true;
 	const r = await fetch(
-		`/api/irl/pins?all=1&deviceToken=${encodeURIComponent(_deviceToken ?? '')}`,
-		{ method: 'DELETE', credentials: 'include' },
+		'/api/irl/pins?all=1',
+		{
+			method: 'DELETE',
+			credentials: 'include',
+			headers: deviceHeaders({ 'Content-Type': 'application/json' }),
+			body: JSON.stringify({ deviceToken: _deviceToken }),
+		},
 	).catch(() => null);
 	if (!r?.ok) {
 		if (goBtn) { goBtn.disabled = false; goBtn.textContent = 'Remove all'; }
@@ -3452,8 +3472,13 @@ function closeMyPinsSheet() {
 async function deleteMyPin(id, btn) {
 	if (btn) { btn.disabled = true; btn.innerHTML = '…'; }
 	const r = await fetch(
-		`/api/irl/pins?id=${encodeURIComponent(id)}&deviceToken=${encodeURIComponent(_deviceToken ?? '')}`,
-		{ method: 'DELETE', credentials: 'include' },
+		`/api/irl/pins?id=${encodeURIComponent(id)}`,
+		{
+			method: 'DELETE',
+			credentials: 'include',
+			headers: deviceHeaders({ 'Content-Type': 'application/json' }),
+			body: JSON.stringify({ deviceToken: _deviceToken }),
+		},
 	).catch(() => null);
 	if (!r?.ok) {
 		if (btn) { btn.disabled = false; btn.innerHTML = TRASH_SVG; }
