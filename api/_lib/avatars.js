@@ -264,14 +264,12 @@ export async function searchPublicAvatars({
 	// Rig classifier filter. Mirrors classifyRig() in src/shared/rig-classify.js
 	// exactly so a server-filtered list and a client-painted badge never disagree:
 	// a model is "rigged" iff source_meta.is_rigged is true OR it carries a
-	// positive skeleton_joint_count. CASE guards mean a malformed JSONB value
-	// degrades to "not rigged" instead of throwing a cast error.
-	// CASE (not AND) guards the cast: Postgres does not guarantee WHERE-clause
-	// AND short-circuits, so a bare `regex and (..)::int` can still evaluate the
-	// cast on a non-numeric string and throw. CASE is guaranteed to short-circuit.
+	// positive skeleton_joint_count. The joint test uses a regex (matching any
+	// integer ≥ 1) rather than an ::int cast so a malformed JSONB value can never
+	// throw — it simply fails to match and the model reads as "not rigged".
 	const RIG_SIGNAL = `(
 		(source_meta->>'is_rigged') = 'true'
-		or case when source_meta->>'skeleton_joint_count' ~ '^[1-9][0-9]*$' then true else false end
+		or source_meta->>'skeleton_joint_count' ~ '^[1-9][0-9]*$'
 	)`;
 	const rigState = normalizeRigFilter(rigged);
 	if (rigState === 'rigged') {

@@ -617,6 +617,7 @@ function communityCard(root, a) {
 			</div>
 			<div class="dn-av-meta">
 				${onchain}
+				${rigBadgeHTML(a, { size: 'sm' })}
 				${tagBits}
 				${views ? `<span class="dn-av-rel">${compactNum.format(views)} views</span>` : ''}
 				<span class="dn-av-rel">${esc(relTime(a.created_at))}</span>
@@ -800,6 +801,7 @@ function avatarCard(root, a) {
 			</div>
 			<div class="dn-av-meta">
 				${visibilityTag(a.visibility)}
+				${rigBadgeHTML(a, { size: 'sm' })}
 				<span class="dn-av-rel">${esc(relTime(a.updated_at || a.created_at))}</span>
 			</div>
 			${avatarWalletChip(a)}
