@@ -191,7 +191,7 @@ export class WebXRSession {
 		// actually negotiated `depth-sensing`. On every other device this stays null
 		// and the tick never touches depth — identical pre-occlusion behavior.
 		this._depthOcclusion = DepthOcclusion.sessionHasDepth(session)
-			? new DepthOcclusion(renderer, viewer.scene)
+			? new DepthOcclusion(renderer)
 			: null;
 
 		// Re-read the OS motion preference per session so a mid-use settings change
@@ -324,10 +324,10 @@ export class WebXRSession {
 		this._updateReticleVisual(time, dt);
 		this._updatePulse(dt);
 
-		// Attach the real-world occluder the first frame depth data is ready; a
+		// Configure the real-world occluder the first frame depth data is ready; a
 		// no-op (single boolean check) on every frame after, and never present at
 		// all when the session has no depth-sensing. Must run before the render so
-		// the depth buffer holds real-world depth when the agent is rasterized.
+		// three's depth quad writes real-world depth before the agent is rasterized.
 		this._depthOcclusion?.update();
 
 		renderer.render(viewer.scene, viewer.activeCamera);

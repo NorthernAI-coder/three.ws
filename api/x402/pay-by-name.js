@@ -40,6 +40,7 @@ import { sql } from '../_lib/db.js';
 import { cors, error, json, method, readJson, wrap, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { solanaConnection, loadAgentForSigning } from '../_lib/agent-pumpfun.js';
+import { getSpendLimits } from '../_lib/agent-trade-guards.js';
 import { PARENT_LABEL } from '../_lib/threews-sns.js';
 
 const USDC_MINT = new PublicKey('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');
@@ -235,13 +236,45 @@ async function handleSend(req, res, auth, body) {
 	const amountAtoms = parseAmountUsdc(body?.amount_usdc);
 	if (!amountAtoms) return error(res, 400, 'validation_error', 'amount_usdc must be > 0 and ≤ 10000');
 
+	// Recipient-poisoning guard. A name (esp. a raw SNS .sol domain) can repoint
+	// between the preview the user approved and this send, or a lookalike name can
+	// resolve to an attacker wallet. If the caller passes the address it previewed
+	// as `expected_address`, require the fresh resolution to still match it before
+	// the agent signs — binds the approved recipient into the signed request.
+	if (body?.expected_address && String(body.expected_address) !== resolved.address) {
+		return error(res, 409, 'recipient_changed',
+			'the name now resolves to a different address than the one you confirmed; re-preview before sending',
+			{ expected: String(body.expected_address), resolved: resolved.address });
+	}
+
+	let recipient;
+	try {
+		recipient = new PublicKey(resolved.address);
+	} catch {
+		return error(res, 400, 'invalid_recipient', 'resolved address is not a valid Solana public key');
+	}
+	// Reject off-curve targets (PDAs / program addresses can't hold a token account
+	// the way a user wallet does, and an off-curve "recipient" is a red flag).
+	if (!PublicKey.isOnCurve(recipient.toBytes())) {
+		return error(res, 400, 'invalid_recipient', 'resolved address is not a valid wallet (off-curve)');
+	}
+
 	const loaded = await loadAgentForSigning(agentId, auth.userId, {
 		reason: 'x402_pay_by_name',
 		meta: { name: body?.name, amount_usdc: Number(amountAtoms) / 10 ** USDC_DECIMALS },
 	});
 	if (loaded.error) return error(res, loaded.error.status, loaded.error.code, loaded.error.msg);
 	const { keypair } = loaded;
-	const recipient = new PublicKey(resolved.address);
+
+	// Per-transaction USD ceiling: this is a custodial outbound transfer, so bound
+	// it by the agent's configured per-tx limit (USDC ≈ $1, 6 decimals).
+	const spendUsd = Number(amountAtoms) / 10 ** USDC_DECIMALS;
+	const spendLimits = getSpendLimits(loaded.agent?.meta);
+	if (spendLimits.per_tx_usd != null && spendUsd > spendLimits.per_tx_usd + 1e-9) {
+		return error(res, 403, 'per_tx_exceeded',
+			`This $${spendUsd.toFixed(2)} send is over the agent's per-transaction limit of $${spendLimits.per_tx_usd.toFixed(2)}.`);
+	}
+
 	if (keypair.publicKey.equals(recipient)) {
 		return error(res, 400, 'self_pay', 'agent and recipient resolve to the same wallet');
 	}

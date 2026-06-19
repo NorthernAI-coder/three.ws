@@ -99,12 +99,38 @@ export async function settleRoyalties(authorUserId) {
 	`;
 
 	for (const group of groups) {
+		// Atomically claim this group's pending rows before redeeming. Only rows
+		// still 'pending' flip to 'settling' and are returned; a concurrent run
+		// that already claimed them gets an empty set, so the real on-chain USDC
+		// redeem runs at most once per ledger row (no double-pay).
+		const claimed = await sql`
+			UPDATE royalty_ledger
+			SET status = 'settling'
+			WHERE id = ANY(${group.ledger_ids}::uuid[]) AND status = 'pending'
+			RETURNING id, price_usd
+		`;
+		if (claimed.length === 0) continue; // another run owns these rows
+
+		const claimedIds = claimed.map((r) => r.id);
+		const claimedTotal = claimed.reduce((sum, r) => sum + Number(r.price_usd), 0);
+
+		// If a race left us with a sub-threshold slice (the rest was claimed by a
+		// concurrent run), don't pay a dust amount — release our claim back to
+		// pending so the next pass settles it once it re-accrues above threshold.
+		if (claimedTotal < SETTLE_THRESHOLD_USD) {
+			await sql`
+				UPDATE royalty_ledger SET status = 'pending'
+				WHERE id = ANY(${claimedIds}::uuid[]) AND status = 'settling'
+			`;
+			continue;
+		}
+
 		try {
-			const txHash = await _redeemForGroup(group, authorUserId);
+			const txHash = await _redeemForGroup({ ...group, total_usd: claimedTotal, ledger_ids: claimedIds }, authorUserId);
 			await sql`
 				UPDATE royalty_ledger
 				SET status = 'settled', settled_at = now(), tx_hash = ${txHash}
-				WHERE id = ANY(${group.ledger_ids}::uuid[])
+				WHERE id = ANY(${claimedIds}::uuid[])
 			`;
 		} catch (e) {
 			console.error('[royalty] settle failed for group', {
@@ -115,7 +141,7 @@ export async function settleRoyalties(authorUserId) {
 			await sql`
 				UPDATE royalty_ledger
 				SET status = 'failed'
-				WHERE id = ANY(${group.ledger_ids}::uuid[])
+				WHERE id = ANY(${claimedIds}::uuid[])
 			`;
 		}
 	}

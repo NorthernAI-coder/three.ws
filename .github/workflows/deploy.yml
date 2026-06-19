@@ -1,0 +1,138 @@
+name: CI / Deploy to Production
+
+# Runs on every push to main: format + lint + tests gate the build, the build
+# produces an inspectable dist artifact, and (only when Vercel secrets are
+# configured) the deploy job ships a prebuilt production deployment.
+#
+# Vercel's native Git integration may already deploy this repo. The deploy job
+# below stays dormant until VERCEL_TOKEN / VERCEL_ORG_ID / VERCEL_PROJECT_ID
+# are added as repository secrets, so enabling it is an explicit opt-in and the
+# two paths won't double-deploy by accident.
+
+on:
+    push:
+        branches:
+            - main
+    workflow_dispatch:
+
+# Cancel an in-flight run when a newer commit lands on the same branch.
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+
+permissions:
+    contents: read
+
+env:
+    NODE_VERSION: '24'
+
+jobs:
+    test:
+        name: Format · Lint · Unit tests
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: ${{ env.NODE_VERSION }}
+                  cache: 'npm'
+            - run: npm ci
+            - name: Prettier check
+              run: npm run format:check
+            - name: ESLint
+              run: npm run lint
+            - name: Unit / integration tests
+              run: npm run test:core
+
+    e2e:
+        name: End-to-end smoke
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: ${{ env.NODE_VERSION }}
+                  cache: 'npm'
+            - run: npm ci
+            - name: Install Playwright Chromium
+              run: npx playwright install --with-deps chromium
+            - name: Run Playwright smoke
+              run: npm run test:e2e
+              env:
+                  CI: 'true'
+
+    build:
+        name: Production build
+        needs: [test, e2e]
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: ${{ env.NODE_VERSION }}
+                  cache: 'npm'
+            - run: npm ci
+            - name: Build all targets
+              run: npm run build:all
+            - name: Upload dist artifact
+              uses: actions/upload-artifact@v4
+              with:
+                  name: dist
+                  path: dist/
+                  if-no-files-found: error
+                  retention-days: 7
+
+    deploy:
+        name: Deploy to Vercel
+        needs: build
+        runs-on: ubuntu-latest
+        steps:
+            - name: Check for Vercel credentials
+              id: gate
+              env:
+                  VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+              run: |
+                  if [ -z "$VERCEL_TOKEN" ]; then
+                    echo "configured=false" >> "$GITHUB_OUTPUT"
+                    echo "::notice::VERCEL_TOKEN not set — skipping deploy. Add VERCEL_TOKEN, VERCEL_ORG_ID and VERCEL_PROJECT_ID as repository secrets to enable CI deploys."
+                  else
+                    echo "configured=true" >> "$GITHUB_OUTPUT"
+                  fi
+
+            - name: Checkout
+              if: steps.gate.outputs.configured == 'true'
+              uses: actions/checkout@v4
+
+            - name: Setup Node
+              if: steps.gate.outputs.configured == 'true'
+              uses: actions/setup-node@v4
+              with:
+                  node-version: ${{ env.NODE_VERSION }}
+                  cache: 'npm'
+
+            - run: npm ci
+              if: steps.gate.outputs.configured == 'true'
+
+            - name: Pull Vercel environment
+              if: steps.gate.outputs.configured == 'true'
+              run: npx vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+              env:
+                  VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+                  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+                  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+            - name: Build with Vercel
+              if: steps.gate.outputs.configured == 'true'
+              run: npx vercel build --prod --token="$VERCEL_TOKEN"
+              env:
+                  VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+                  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+                  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+            - name: Deploy prebuilt to production
+              if: steps.gate.outputs.configured == 'true'
+              run: npx vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN"
+              env:
+                  VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+                  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+                  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}

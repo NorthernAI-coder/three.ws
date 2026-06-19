@@ -1,6 +1,7 @@
 import { sql } from '../../_lib/db.js';
 import { getSessionUser } from '../../_lib/auth.js';
 import { cors, error, json, method, wrap, rateLimited } from '../../_lib/http.js';
+import { requireCsrf } from '../../_lib/csrf.js';
 import { limits, clientIp } from '../../_lib/rate-limit.js';
 
 export default wrap(async (req, res) => {
@@ -9,6 +10,8 @@ export default wrap(async (req, res) => {
 
 	const user = await getSessionUser(req);
 	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
+
+	if (!(await requireCsrf(req, res, user.id))) return;
 
 	const rl = await limits.widgetWrite(clientIp(req));
 	if (!rl.success) return rateLimited(res, rl);

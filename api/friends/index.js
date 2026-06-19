@@ -13,6 +13,7 @@
 // duplicates, and unknown targets in the store layer; rate-limited per account.
 
 import { cors, error, json, method, readJson, wrap, rateLimited } from '../_lib/http.js';
+import { requireCsrf } from '../_lib/csrf.js';
 import { clientIp, limits } from '../_lib/rate-limit.js';
 import { resolveAccount } from '../_lib/account-auth.js';
 import { readPresence, notifyMultiplayer } from '../_lib/presence-store.js';
@@ -44,7 +45,10 @@ export default wrap(async (req, res) => {
 		return json(res, 200, { data: await graphWithPresence(me) });
 	}
 
-	// POST — a graph mutation. Tighter limit: 60 actions/min per account.
+	// POST — a graph mutation. CSRF-guard cookie-session callers (bearer exempt).
+	if (!(await requireCsrf(req, res, me))) return;
+
+	// Tighter limit: 60 actions/min per account.
 	const rl = await limits.chatUser(me);
 	if (!rl.success) return rateLimited(res, rl, 'slow down');
 

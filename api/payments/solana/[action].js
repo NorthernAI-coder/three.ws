@@ -115,7 +115,12 @@ async function handleConfirm(req, res) {
 		}
 	}
 	if (!matchingTransfer && !verifiedViaBalance) return error(res, 422, 'transfer_not_found', `No USDC transfer of ${intent.amount_usdc} to ${expectedRecipient} found in tx`);
-	await sql`update plan_payment_intents set status='confirmed', tx_hash=${tx_signature}, confirmed_at=now() where id=${intent_id}`;
+	// Atomically claim the intent: the status read at the top and this write are
+	// not in one transaction, so two concurrent confirms for the same intent could
+	// both pass the status guard. The conditional UPDATE lets exactly one win; if
+	// it claims no row, another request already confirmed → 409 (no double grant).
+	const [claimed] = await sql`update plan_payment_intents set status='confirmed', tx_hash=${tx_signature}, confirmed_at=now() where id=${intent_id} and status <> 'confirmed' returning id`;
+	if (!claimed) return error(res, 409, 'already_confirmed', 'payment already confirmed');
 	const planConfig = PLANS[intent.plan];
 	const activeUntil = new Date(Date.now() + planConfig.duration_days * 86400 * 1000);
 	await sql`insert into subscriptions (user_id, plan, chain_type, token_address, tx_hash, amount_usd, status, active_until) values (${user.id}, ${intent.plan}, 'solana', ${usdcMint}, ${tx_signature}, ${intent.amount_usdc}, 'active', ${activeUntil}) on conflict (user_id) where status='active' do update set plan=excluded.plan, chain_type=excluded.chain_type, token_address=excluded.token_address, tx_hash=excluded.tx_hash, amount_usd=excluded.amount_usd, active_until=excluded.active_until, updated_at=now()`;

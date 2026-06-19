@@ -1,6 +1,22 @@
 // Agent wallet generation and management.
-// Generates a random Ethereum wallet per agent and encrypts the private key
-// at rest using AES-256-GCM with the server JWT_SECRET as the key material.
+// Generates a random EVM/Solana wallet per agent and encrypts the private key at
+// rest using AES-256-GCM.
+//
+// Key management (v2): the encryption key derives from a DEDICATED secret
+// (WALLET_ENCRYPTION_KEY) — independent of JWT_SECRET — with a RANDOM per-record
+// salt embedded in each ciphertext. This fixes two problems with the original v1
+// scheme: (1) it tied every custodial wallet's confidentiality to JWT_SECRET, the
+// highest-circulation secret on the platform (every session/bearer check), so a
+// single JWT_SECRET leak decrypted all wallets and rotating it to invalidate
+// sessions would have bricked every wallet; (2) v1 used a constant salt, so all
+// records shared one derived key.
+//
+// Migration is dual-read, no data backfill required: ciphertexts written by v1
+// (no version tag) still decrypt with the legacy JWT_SECRET + constant-salt
+// derivation; new writes use v2 and records re-encrypt opportunistically on their
+// next write. Set WALLET_ENCRYPTION_KEY in every environment that holds custodial
+// keys; until it is set the code falls back to JWT_SECRET (with a warning) so
+// deploys don't break, but the per-record salt still applies.
 
 import { webcrypto } from 'node:crypto';
 import { env } from './env.js';
@@ -13,18 +29,32 @@ const randomBytes = (n) => {
 	return b;
 };
 
+const V2_PREFIX = 'v2:';
+const LEGACY_SALT = new TextEncoder().encode('agent-wallet-v1');
+let _warnedFallback = false;
+
+// Dedicated master secret for wallet encryption, decoupled from JWT_SECRET.
+function walletMasterSecret() {
+	const dedicated = env.WALLET_ENCRYPTION_KEY;
+	if (dedicated && dedicated.length >= 16) return dedicated;
+	if (!_warnedFallback) {
+		_warnedFallback = true;
+		console.warn(
+			'[agent-wallet] WALLET_ENCRYPTION_KEY is not set (or too short); falling back to ' +
+				'JWT_SECRET for custodial key encryption. Set a dedicated WALLET_ENCRYPTION_KEY ' +
+				'(>=16 chars) so wallet confidentiality does not depend on the session secret.',
+		);
+	}
+	return env.JWT_SECRET;
+}
+
 // ── Key derivation ──────────────────────────────────────────────────────────
-// Derive a stable AES-256 key from JWT_SECRET for encrypting agent private keys.
-async function deriveKey() {
-	const raw = new TextEncoder().encode(env.JWT_SECRET);
+// Derive an AES-256 key from a secret + salt via HKDF-SHA256.
+async function deriveKey(secret, salt) {
+	const raw = new TextEncoder().encode(secret);
 	const base = await subtle.importKey('raw', raw, 'HKDF', false, ['deriveKey']);
 	return subtle.deriveKey(
-		{
-			name: 'HKDF',
-			hash: 'SHA-256',
-			salt: new TextEncoder().encode('agent-wallet-v1'),
-			info: new Uint8Array(0),
-		},
+		{ name: 'HKDF', hash: 'SHA-256', salt, info: new Uint8Array(0) },
 		base,
 		{ name: 'AES-GCM', length: 256 },
 		false,
@@ -34,22 +64,35 @@ async function deriveKey() {
 
 // ── Encrypt / decrypt ───────────────────────────────────────────────────────
 
+// v2 layout: "v2:" + base64( salt[16] || iv[12] || ciphertext+tag ).
 async function encrypt(plaintext) {
-	const key = await deriveKey();
+	const salt = randomBytes(16);
 	const iv = randomBytes(12);
+	const key = await deriveKey(walletMasterSecret(), salt);
 	const data = new TextEncoder().encode(plaintext);
 	const ct = await subtle.encrypt({ name: 'AES-GCM', iv }, key, data);
-	const buf = new Uint8Array(iv.length + ct.byteLength);
-	buf.set(iv, 0);
-	buf.set(new Uint8Array(ct), iv.length);
-	return Buffer.from(buf).toString('base64');
+	const buf = new Uint8Array(salt.length + iv.length + ct.byteLength);
+	buf.set(salt, 0);
+	buf.set(iv, salt.length);
+	buf.set(new Uint8Array(ct), salt.length + iv.length);
+	return V2_PREFIX + Buffer.from(buf).toString('base64');
 }
 
 async function decrypt(ciphertext) {
-	const key = await deriveKey();
+	if (typeof ciphertext === 'string' && ciphertext.startsWith(V2_PREFIX)) {
+		const raw = Buffer.from(ciphertext.slice(V2_PREFIX.length), 'base64');
+		const salt = raw.subarray(0, 16);
+		const iv = raw.subarray(16, 28);
+		const ct = raw.subarray(28);
+		const key = await deriveKey(walletMasterSecret(), salt);
+		const plain = await subtle.decrypt({ name: 'AES-GCM', iv }, key, ct);
+		return new TextDecoder().decode(plain);
+	}
+	// Legacy v1: JWT_SECRET + constant salt, no version tag.
 	const raw = Buffer.from(ciphertext, 'base64');
 	const iv = raw.subarray(0, 12);
 	const ct = raw.subarray(12);
+	const key = await deriveKey(env.JWT_SECRET, LEGACY_SALT);
 	const plain = await subtle.decrypt({ name: 'AES-GCM', iv }, key, ct);
 	return new TextDecoder().decode(plain);
 }
@@ -237,6 +280,13 @@ export async function triggerSkillPayment({ agentId, skillSlug, skillId }) {
 
 		const priceUsd = Number(skill.price_per_call_usd);
 
+		// Validate the payout recipient shape before it can be used as a transfer
+		// target — never sign a spend to a malformed/unexpected address.
+		if (skill.author_wallet && !/^0x[0-9a-fA-F]{40}$/.test(String(skill.author_wallet))) {
+			console.warn(`[agent-payments] skill ${skillSlug} has a malformed author_wallet; skipping`);
+			return;
+		}
+
 		// Load agent to get chain + encrypted key
 		const [agent] = await sql`
 			select wallet_address, chain_id, erc8004_agent_id, meta
@@ -245,6 +295,24 @@ export async function triggerSkillPayment({ agentId, skillSlug, skillId }) {
 			limit 1
 		`;
 		if (!agent) return;
+
+		// Enforce the agent's per-transaction USD ceiling so a server-signed skill
+		// charge can't exceed the owner's configured limit (this path previously
+		// bypassed the spend policy entirely — only an affordability check applied).
+		const { getSpendLimits } = await import('./agent-trade-guards.js');
+		const spendLimits = getSpendLimits(agent.meta);
+		if (spendLimits.per_tx_usd != null && priceUsd > spendLimits.per_tx_usd + 1e-9) {
+			console.warn(
+				`[agent-payments] skill ${skillSlug} ($${priceUsd}) exceeds agent ${agentId} per_tx_usd ` +
+					`($${spendLimits.per_tx_usd}); skipping`,
+			);
+			await sql`
+				insert into agent_payments
+					(payer_agent_id, skill_id, amount_wei, chain_id, memo, status)
+				values (${agentId}, ${skill.id ?? null}, '0', ${agent.chain_id || 8453}, ${skillSlug}, 'failed')
+			`.catch(() => {});
+			return;
+		}
 
 		const chainId = agent.chain_id || 8453;
 		const encryptedKey = agent.meta?.encrypted_wallet_key;

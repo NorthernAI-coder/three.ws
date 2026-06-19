@@ -105,6 +105,17 @@ export const env = {
 		return opt('JWT_KID', 'k1');
 	},
 
+	// Dedicated secret for encrypting custodial agent wallet private keys at rest
+	// (api/_lib/agent-wallet.js). Decoupled from JWT_SECRET on purpose: JWT_SECRET
+	// is the highest-circulation secret on the platform, so binding wallet
+	// confidentiality to it gives a single leak the keys to every custodial wallet,
+	// and rotating session auth would otherwise re-key every wallet. Returns
+	// undefined when unset; the wallet module then falls back to JWT_SECRET with a
+	// warning. Set a distinct value (>=16 chars) in every environment with custody.
+	get WALLET_ENCRYPTION_KEY() {
+		return opt('WALLET_ENCRYPTION_KEY');
+	},
+
 	// ── Agent-to-agent (A2A) autonomous payments ────────────────────────────
 	// Secret that signs Intent Mandates (AP2-style budgeted spend authorizations).
 	// Dedicated by preference; falls back to JWT_SECRET so the feature works in

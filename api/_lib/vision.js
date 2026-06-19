@@ -25,9 +25,11 @@
 // base64 blob + mimeType (inlined as a data URI). Both verified live against
 // every NIM lane; see tasks/nvidia-nim/probes/vision.md.
 
+import { isIP } from 'node:net';
 import { env } from './env.js';
 import { recordEvent } from './usage.js';
 import { costMicroUsd } from './llm-pricing.js';
+import { validatePublicUrl, isPrivateAddress, SsrfError } from './ssrf.js';
 
 // Free NIM vision lanes, in order. nemotron-nano carries the smallest image
 // token footprint (~281 prompt tokens for a tiny image vs ~1600 for llama-90B);
@@ -105,6 +107,39 @@ export function visionConfigured() {
 	return visionChain().length > 0;
 }
 
+// Synchronous SSRF guard for a caller-supplied image URL. Requires https (http
+// only in dev) and blocks IP-literal hosts in private/loopback/link-local ranges
+// plus localhost — the direct SSRF targets reachable through the provider's
+// server-side image fetch. DNS-name hosts pass (we can't pin the provider's DNS
+// resolution, so name→private rebinding is out of scope here). Throws a 400
+// invalid_image_url so callers treat it as bad input, not a vision outage.
+function assertSafeImageUrl(rawUrl) {
+	let url;
+	try {
+		url = validatePublicUrl(rawUrl);
+	} catch (e) {
+		if (e instanceof SsrfError) {
+			throw Object.assign(new Error('image URL is not a public https address'), {
+				status: 400,
+				code: 'invalid_image_url',
+			});
+		}
+		throw e;
+	}
+	const host = url.hostname.replace(/^\[|\]$/g, '');
+	const fam = isIP(host);
+	const blocked = fam
+		? isPrivateAddress(host, fam)
+		: host === 'localhost' || /\.(local|internal|localdomain)$/i.test(host);
+	if (blocked) {
+		throw Object.assign(new Error('image URL resolves to a non-public host'), {
+			status: 400,
+			code: 'invalid_image_url',
+		});
+	}
+	return url;
+}
+
 // Normalize a caller's image spec into one OpenAI `image_url` content part.
 // Accepts { imageUrl } (pass-through) or { imageBase64, mimeType } (data URI).
 function imagePart({ imageUrl, imageBase64, mimeType = 'image/jpeg' }) {
@@ -157,6 +192,15 @@ export async function describeImage({
 }) {
 	const chain = visionChain();
 	if (!chain.length) throw new VisionUnavailableError();
+
+	// SSRF guard: the provider's model server fetches `imageUrl` server-side, so a
+	// caller-supplied URL could otherwise reach internal targets (169.254.169.254,
+	// localhost, RFC1918) through the provider. We can't DNS-pin the provider's
+	// fetch, so apply a synchronous string-level guard — require https and reject
+	// private/loopback/link-local IP literals + localhost — before the URL leaves
+	// this process. Centralized here so every consumer of describeImage is covered,
+	// not just the forge image-validate path that already pre-validates.
+	if (imageUrl) assertSafeImageUrl(imageUrl);
 
 	const parts = [
 		{ type: 'text', text: prompt },

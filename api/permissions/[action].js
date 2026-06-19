@@ -808,42 +808,14 @@ async function handleRedeem(req, res) {
 		}
 	}
 
-	// 3. Amount cap: compute period spend from usage_events history
+	// 3. Amount cap. Compute this request's spend, then reserve it atomically.
 	const maxAmount = BigInt(scope.maxAmount || '0');
 	const pStart = periodStart(scope.period || 'daily');
 
+	let requestAmount = 0n;
 	if (isNative) {
-		// Sum ETH values in this request
-		const requestAmount = calls.reduce((s, c) => s + BigInt(c.value), 0n);
-
-		// Query period history. Sum as numeric, truncate to an integer, and return
-		// as text so the cap check stays BigInt end-to-end — Number round-trips
-		// lose precision above 2^53 (routine for 18-decimal tokens).
-		const [histRow] = await sql`
-			SELECT trunc(COALESCE(SUM((meta->>'amount')::numeric), 0))::text AS spent
-			FROM usage_events
-			WHERE kind = 'permissions.redeem'
-			  AND meta->>'delegation_id' = ${id}
-			  AND created_at >= ${pStart.toISOString()}
-		`;
-		const historicalSpend = BigInt(histRow?.spent ?? '0');
-
-		if (requestAmount + historicalSpend > maxAmount) {
-			return error(
-				res,
-				403,
-				'scope_exceeded',
-				'ETH spend would exceed scope.maxAmount for this period',
-				{
-					maxAmount: scope.maxAmount,
-					periodSpent: historicalSpend.toString(),
-					requested: requestAmount.toString(),
-				},
-			);
-		}
+		requestAmount = calls.reduce((s, c) => s + BigInt(c.value), 0n);
 	} else {
-		// ERC-20: decode transfer amounts from call data
-		let requestAmount = 0n;
 		for (const call of calls) {
 			const decoded = decodeErc20AmountFixed(call.data);
 			if (decoded === null) {
@@ -856,32 +828,61 @@ async function handleRedeem(req, res) {
 			}
 			requestAmount += decoded;
 		}
+	}
 
-		// Sum as numeric → trunc → text so the cap check stays BigInt end-to-end
-		// (Number loses precision above 2^53 — routine for 18-decimal tokens).
-		const [histRow] = await sql`
-			SELECT trunc(COALESCE(SUM((meta->>'amount')::numeric), 0))::text AS spent
+	// Atomically reserve this spend against the period cap. Reading the period
+	// history and then writing the usage_event only AFTER the on-chain submit left
+	// a TOCTOU window: concurrent redeems for the same delegation all read the same
+	// historical total, all pass the cap, and all submit — collectively exceeding
+	// scope.maxAmount. The advisory xact lock (keyed on the delegation id)
+	// serializes redeems for one delegation, and the INSERT…SELECT only materializes
+	// the reservation row when history + this request stays within the cap, so the
+	// check and the reserve are one atomic statement. Finalized to 'ok' with the tx
+	// hash after submit, or deleted if the submit never lands. 'failed' rows are
+	// excluded from the period sum so a released reservation frees its budget.
+	const reserveMeta = JSON.stringify({ delegation_id: id, chain_id: chainId, amount: requestAmount.toString() });
+	const reserveRows = await sql`
+		WITH locked AS (
+			SELECT pg_advisory_xact_lock(hashtextextended(${String(id)}, 0))
+		),
+		spent AS (
+			SELECT trunc(COALESCE(SUM((meta->>'amount')::numeric), 0)) AS s
 			FROM usage_events
 			WHERE kind = 'permissions.redeem'
+			  AND status <> 'failed'
 			  AND meta->>'delegation_id' = ${id}
 			  AND created_at >= ${pStart.toISOString()}
+		)
+		INSERT INTO usage_events (user_id, api_key_id, agent_id, kind, status, meta)
+		SELECT ${bearer.userId}, ${bearer.apiKeyId ?? null}, ${row.agent_id},
+		       'permissions.redeem', 'pending', ${reserveMeta}::jsonb
+		FROM spent, locked
+		WHERE spent.s + ${requestAmount.toString()}::numeric <= ${maxAmount.toString()}::numeric
+		RETURNING id, (SELECT trunc(s)::text FROM spent) AS spent_before
+	`;
+	if (!reserveRows.length) {
+		// Re-read for an accurate error body (outside the lock is fine).
+		const [h] = await sql`
+			SELECT trunc(COALESCE(SUM((meta->>'amount')::numeric), 0))::text AS spent
+			FROM usage_events
+			WHERE kind = 'permissions.redeem' AND status <> 'failed'
+			  AND meta->>'delegation_id' = ${id} AND created_at >= ${pStart.toISOString()}
 		`;
-		const historicalSpend = BigInt(histRow?.spent ?? '0');
-
-		if (requestAmount + historicalSpend > maxAmount) {
-			return error(
-				res,
-				403,
-				'scope_exceeded',
-				'token spend would exceed scope.maxAmount for this period',
-				{
-					maxAmount: scope.maxAmount,
-					periodSpent: historicalSpend.toString(),
-					requested: requestAmount.toString(),
-				},
-			);
-		}
+		return error(
+			res,
+			403,
+			'scope_exceeded',
+			isNative
+				? 'ETH spend would exceed scope.maxAmount for this period'
+				: 'token spend would exceed scope.maxAmount for this period',
+			{
+				maxAmount: scope.maxAmount,
+				periodSpent: h?.spent ?? '0',
+				requested: requestAmount.toString(),
+			},
+		);
 	}
+	const spendReservationId = reserveRows[0].id;
 
 	// ── Build signer ───────────────────────────────────────────────────────
 	const rpcUrl = getRpcUrl(chainId);
@@ -914,6 +915,9 @@ async function handleRedeem(req, res) {
 			chainId,
 		}));
 	} catch (err) {
+		// The on-chain submit never landed — release the reservation so it stops
+		// counting toward the period cap (mark 'failed', excluded from the sum).
+		await sql`UPDATE usage_events SET status = 'failed' WHERE id = ${spendReservationId}`.catch(() => {});
 		if (err instanceof PermissionError && err.code === 'delegation_revoked') {
 			// Auto-sync status in DB
 			sql`UPDATE agent_delegations SET status = 'revoked' WHERE id = ${id}`.catch(() => {});
@@ -932,30 +936,15 @@ async function handleRedeem(req, res) {
 		WHERE id = ${id}
 	`;
 
-	// Compute amount redeemed for usage tracking
-	const redeemAmount = isNative
-		? calls.reduce((s, c) => s + BigInt(c.value), 0n).toString()
-		: calls
-				.reduce((s, c) => {
-					const a = decodeErc20AmountFixed(c.data);
-					return s + (a ?? 0n);
-				}, 0n)
-				.toString();
-
-	recordEvent({
-		userId: bearer.userId,
-		apiKeyId: bearer.apiKeyId ?? null,
-		agentId: row.agent_id,
-		kind: 'permissions.redeem',
-		status: 'ok',
-		meta: {
-			delegation_id: id,
-			chain_id: chainId,
-			tx_hash: txHash,
-			gas_used: receipt.gasUsed,
-			amount: redeemAmount,
-		},
-	});
+	// Finalize the reservation written before submit: flip 'pending' → 'ok' and
+	// attach the on-chain outcome. The amount already counts toward the period cap
+	// (reserved atomically under the advisory lock), so this only records the result.
+	await sql`
+		UPDATE usage_events
+		SET status = 'ok',
+		    meta = meta || ${JSON.stringify({ tx_hash: txHash, gas_used: receipt.gasUsed })}::jsonb
+		WHERE id = ${spendReservationId}
+	`.catch((err) => console.error('[permissions/redeem] finalize failed', err?.message));
 
 	const result = { ok: true, txHash, receipt };
 

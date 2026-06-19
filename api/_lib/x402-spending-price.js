@@ -31,6 +31,36 @@ const USD_STABLECOINS = new Set([
 // Decimals defaults — when accept.extra.decimals isn't present.
 const DEFAULT_TOKEN_DECIMALS = 6;
 
+// Trusted asset registry keyed by the on-chain asset (mint/contract) address,
+// lowercased. The decimals + peg here are AUTHORITATIVE and override anything the
+// payee declares in `requirement.extra`. Without this, a malicious payee could set
+// `extra.decimals` higher than reality (so the counted micro-USD is divided down
+// and the spending cap under-sees the spend) or set `extra.name:"usdc"` to force
+// the stablecoin branch and skip spot pricing — either way slipping a payment past
+// the autonomous budget. The dominant x402 assets (USDC/USDT across chains) are
+// listed; unknown assets fall back to payee values with a sanity-clamped decimals.
+const TRUSTED_ASSETS = new Map([
+	// USDC
+	['epjfwdd5aufqssqem2qn1xzybapc8g4weggkzwytdt1v', { decimals: 6, stable: true }], // Solana
+	['0x833589fcd6edb6e08f4c7c32d4f71b54bda02913', { decimals: 6, stable: true }],   // Base
+	['0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48', { decimals: 6, stable: true }],   // Ethereum
+	['0x3c499c542cef5e3811e1192ce70d8cc03d5c3359', { decimals: 6, stable: true }],   // Polygon (native)
+	['0x2791bca1f2de4661ed88a30c99a7a9449aa84174', { decimals: 6, stable: true }],   // Polygon (bridged)
+	['0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d', { decimals: 18, stable: true }],  // BSC USDC (18 dec)
+	// USDT
+	['es9vmfrzacermjfrf4h2fyd4kconky11mcce8benwnyb', { decimals: 6, stable: true }], // Solana
+	['0xdac17f958d2ee523a2206206994597c13d831ec7', { decimals: 6, stable: true }],   // Ethereum
+	['0x55d398326f99059ff775485246999027b3197955', { decimals: 18, stable: true }],  // BSC USDT (18 dec)
+]);
+
+// Clamp a payee-declared decimals value to a sane range so an unknown asset can't
+// declare an absurd value that wildly mis-scales the spend.
+function safeDecimals(raw) {
+	const n = Number(raw);
+	if (!Number.isInteger(n) || n < 0 || n > 18) return DEFAULT_TOKEN_DECIMALS;
+	return n;
+}
+
 // Per-process micro-cache to short-circuit the Redis round-trip when the same
 // symbol is hit twice in one function invocation (e.g. multi-leg settlement).
 const localCache = new Map();
@@ -85,9 +115,14 @@ async function fetchSpotUsd(symbol) {
 // requirement explicitly declares a non-pegged token.
 export async function toMicroUsd(amount, requirement) {
 	const atomic = BigInt(amount);
-	const decimals = Number(requirement?.extra?.decimals ?? DEFAULT_TOKEN_DECIMALS);
-	const name = requirement?.extra?.name || '';
-	if (isStablecoin(name)) {
+	// Prefer the trusted registry (authoritative decimals + peg) over anything the
+	// payee declared in `extra`. Only fall back to payee values for unknown assets,
+	// and clamp the decimals so a hostile payee can't mis-scale the cap.
+	const assetKey = String(requirement?.asset || '').trim().toLowerCase();
+	const trusted = TRUSTED_ASSETS.get(assetKey);
+	const decimals = trusted ? trusted.decimals : safeDecimals(requirement?.extra?.decimals);
+	const isStable = trusted ? trusted.stable : isStablecoin(requirement?.extra?.name || '');
+	if (isStable) {
 		return rescaleAtomics(atomic, decimals, 6);
 	}
 	// Non-stable: rescale to whole-token units then multiply by USD spot.

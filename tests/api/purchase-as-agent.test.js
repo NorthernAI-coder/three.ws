@@ -16,6 +16,11 @@ vi.mock('../../api/_lib/auth.js', () => ({
 	extractBearer:      vi.fn(() => null),
 }));
 
+// CSRF is exercised by its own dedicated suite; isolate these handler-logic
+// tests from the double-submit-token check (session-cookie mutations now
+// require it — bearer callers stay exempt in the handler itself).
+vi.mock('../../api/_lib/csrf.js', () => ({ requireCsrf: () => true }));
+
 const sqlQueue = [];
 vi.mock('../../api/_lib/db.js', () => ({
 	sql: Object.assign(
