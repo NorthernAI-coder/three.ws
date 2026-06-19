@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-19T20:23:06.902Z",
+	"generated_at": "2026-06-19T21:52:42.964Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -949,7 +949,7 @@
 				{
 					"path": "/club",
 					"title": "Pole Club",
-					"description": "A 3D club where dancers only perform when you send a micro-tip. Pay $0.001 per routine, settled on-chain via x402 on Base or Solana.",
+					"description": "A 3D club where dancers only perform when you send a micro-tip. Pay $0.001 per routine, settled on-chain via x402 on Solana.",
 					"added": "2026-06-05",
 					"auth": null,
 					"indexable": true,

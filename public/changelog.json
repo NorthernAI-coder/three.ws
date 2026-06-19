@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-19T20:23:06.913Z",
+	"generated_at": "2026-06-19T21:52:42.980Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -401,6 +401,16 @@
 			"link": null,
 			"tags": [
 				"fix"
+			]
+		},
+		{
+			"date": "2026-06-19",
+			"type": "update",
+			"title": "New Club lineup — Dylan, Nich and Boss Vernington take the poles",
+			"summary": "The three dancers on the Club floor have a fresh lineup: Dylan, Nich and Boss Vernington, each on their own distinct rig and tinted with their pole's accent color. Their names now show everywhere in the Club — on the pole cards, in the live tip ticker, and in chat — so when you tip, you tip them by name.",
+			"link": "/club",
+			"tags": [
+				"improvement"
 			]
 		},
 		{
@@ -5300,7 +5310,7 @@
 			"date": "2026-06-05",
 			"type": "launch",
 			"title": "Pole Club",
-			"summary": "A 3D club where dancers only perform when you send a micro-tip. Pay $0.001 per routine, settled on-chain via x402 on Base or Solana.",
+			"summary": "A 3D club where dancers only perform when you send a micro-tip. Pay $0.001 per routine, settled on-chain via x402 on Solana.",
 			"link": "/club",
 			"tags": [
 				"launch"

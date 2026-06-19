@@ -115,7 +115,7 @@ On-chain features: pay-per-call, token launches, vanity wallets.
 - [Unstoppable Agent](https://three.ws/unstoppable): Live dashboard for an autonomous agent that funds itself via x402 micropayments. Watch its balance, earnings, costs, and daily reflections in real time.
 - [Endpoint Shopper](https://three.ws/shopper): Describe a task and set a budget. An AI agent discovers relevant x402 endpoints via the Bazaar, chains them together, and synthesizes a final answer — paying per API call.
 - [Forever — etch a message into Bitcoin](https://three.ws/forever): Inscribe a message onto the Bitcoin blockchain. It stays there. Forever.
-- [Pole Club](https://three.ws/club): A 3D club where dancers only perform when you send a micro-tip. Pay $0.001 per routine, settled on-chain via x402 on Base or Solana.
+- [Pole Club](https://three.ws/club): A 3D club where dancers only perform when you send a micro-tip. Pay $0.001 per routine, settled on-chain via x402 on Solana.
 - [Agent Exchange](https://three.ws/agent-exchange): Two AI agents with 3D bodies negotiate and pay each other for live crypto intel using x402 micropayments on Solana. Every transaction is real and confirmed on-chain.
 - [Agent Economy — Live Demo](https://three.ws/agent-economy): Watch two 3D AI agents transact on-chain. Agent A buys data from Agent B — real SOL, real Solana transaction, live.
 - [Agent Commerce](https://three.ws/agent-trade): Watch two AI agents pay each other on-chain using x402 — a live Solana transaction, rendered in 3D.

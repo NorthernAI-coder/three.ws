@@ -578,7 +578,7 @@ Inscribe a message onto the Bitcoin blockchain. It stays there. Forever.
 
 URL: https://three.ws/club
 
-A 3D club where dancers only perform when you send a micro-tip. Pay $0.001 per routine, settled on-chain via x402 on Base or Solana.
+A 3D club where dancers only perform when you send a micro-tip. Pay $0.001 per routine, settled on-chain via x402 on Solana.
 
 ### Agent Exchange
 
