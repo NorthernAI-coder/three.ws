@@ -1687,8 +1687,58 @@ function handleSperaxPlugin(req, res) {
 	return json(res, 200, speraxManifest, { 'cache-control': 'public, max-age=3600' });
 }
 
+// ── three-vanity (/.well-known/three-vanity.json) ────────────────────────────
+// Publishes the provably-fair vanity grinder's service identity: the long-lived
+// Ed25519 public key that signs every verifiable-grind receipt, the protocol
+// version, and the scheme ids. The SDK + CLI + /vanity/verify page pin this key
+// so a buyer can prove a receipt really came from three.ws. The SECRET seed
+// never leaves the server — only the public key is published here.
+async function handleThreeVanity(req, res) {
+	let identity;
+	try {
+		const mod = await import('./_lib/vanity-service-key.js');
+		identity = await mod.getServiceIdentity();
+	} catch (err) {
+		console.error('[wk/three-vanity] service key unavailable', err?.message || err);
+		return error(res, 500, 'service_key_unavailable', 'vanity service key not configured');
+	}
+	const origin = env.APP_ORIGIN;
+	return json(
+		res,
+		200,
+		{
+			protocol: 'three-vanity/v1',
+			description:
+				'Provably-fair Solana vanity grinding. Each key is ground under a commit–reveal ' +
+				'seed-mixing protocol and delivered with a receipt signed by the service key below. ' +
+				'Verify a receipt entirely client-side — nothing here is trusted, everything is recomputed.',
+			serviceKey: {
+				curve: 'ed25519',
+				publicKeyBase58: identity.publicKeyBase58,
+				publicKeyHex: identity.publicKeyHex,
+				use: 'receipt-signing',
+			},
+			schemes: {
+				commitment: 'sha256(domain‖serverSeed)',
+				seedMix: 'hkdf-sha256(serverSeed‖clientSeed‖requestNonce)',
+				candidate: 'hmac-sha256(masterSeed, domain‖uint64_be(index)) → ed25519 seed',
+				signature: 'ed25519',
+				sealedEnvelope: 'x25519-hkdf-sha256-aes256gcm/v1',
+			},
+			endpoints: {
+				grind: `${origin}/api/x402/vanity-verifiable`,
+				verifyPage: `${origin}/vanity/verify`,
+			},
+			documentation: `${origin}/vanity/verify`,
+			protocolSpec: 'https://github.com/nirholas/three.ws/blob/main/docs/PROTOCOL-vanity.md',
+		},
+		{ 'cache-control': 'public, max-age=300' },
+	);
+}
+
 const DISPATCH = {
 	'agent-attestation-schemas': handleAttestationSchemas,
+	'three-vanity': handleThreeVanity,
 	'chat-plugin': handleChatPlugin,
 	'sperax-plugin': handleSperaxPlugin,
 	'oauth-authorization-server': handleOauthAuthServer,
@@ -1706,6 +1756,7 @@ const PUBLIC_DISCOVERY = new Set([
 	'chat-plugin',
 	'sperax-plugin',
 	'agent-attestation-schemas',
+	'three-vanity',
 ]);
 
 export default wrap(async (req, res) => {

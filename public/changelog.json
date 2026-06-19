@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-19T23:11:11.226Z",
+	"generated_at": "2026-06-19T23:28:51.089Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -32,6 +32,26 @@
 			"title": "Flappin UFO — dodge asteroids for $THREE",
 			"summary": "Pilot your UFO through an asteroid field. Connect your Solana wallet, submit your score as your wallet address, and claim your spot on the global $THREE leaderboard.",
 			"link": "/play/ufo",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-06-19",
+			"type": "launch",
+			"title": "Verify a Vanity Receipt",
+			"summary": "Independently verify a three.ws provably-fair vanity wallet receipt — entirely in your browser. Prove the key was generated fresh under a committed seed and the operator never kept a copy.",
+			"link": "/vanity/verify",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-06-19",
+			"type": "launch",
+			"title": "x402 Studio — the Stripe of x402",
+			"summary": "Merchant console to run a paid x402 business: products and pricing, payout and agent wallets, a real USDC send/receive with SNS .sol resolution, a drag-and-drop storefront, an embeddable pay-button builder, charity and round-up giving, CORS and security.",
+			"link": "/x402/studio",
 			"tags": [
 				"launch"
 			]
@@ -105,6 +125,17 @@
 			"link": "/agent-studio",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-19",
+			"type": "update",
+			"title": "Charity and round-up donations now settle on-chain at checkout",
+			"summary": "When a merchant turns on Giving, their charity split and round-up are no longer just shown — they move real money at the moment a buyer pays. The payment modal now offers the buyer a clear, pre-checked opt-in (\"Add 0.009 USDC for Save the Reefs\") and, when kept, appends the donation to the very same Solana transaction the buyer signs. One signature pays the merchant and the cause together, with the network fee still sponsored by the facilitator. The buyer always sees the exact amount and total before signing and can switch it off; the donation is bounded by a safety cap so a misconfigured rule can never sweep a wallet. Hosted /pay/c checkout links surface the cause up front, and the math — a basis-point share of the payment plus the round-up remainder — is covered by tests.",
+			"link": null,
+			"tags": [
+				"feature",
+				"sdk"
 			]
 		},
 		{
@@ -573,6 +604,18 @@
 		{
 			"date": "2026-06-19",
 			"type": "update",
+			"title": "Prove we never kept your vanity key — trustless wallet grinding",
+			"summary": "Every vanity-address service asks you to trust the operator: trust they used real randomness, that they didn't keep a copy, that they didn't grind thousands of keys and hand you the one they secretly logged. Now you don't have to. The new provably-fair grinder commits to a random seed before it grinds, mixes in your own entropy so neither side controls the result, seals the secret so only you can open it, and returns a signed receipt. You can verify all of it after the fact — paste the receipt at three.ws/vanity/verify (everything runs in your browser, your keys never leave), run the open-source CLI, or call verifyVanityReceipt() in the SDK. The checks prove the key was generated fresh, that the address really comes from that seed, that it matches your pattern, and that three.ws — not an impostor — signed it. Optionally open the sealed key locally to prove you, and only you, hold it.",
+			"link": "/vanity/verify",
+			"tags": [
+				"feature",
+				"security",
+				"sdk"
+			]
+		},
+		{
+			"date": "2026-06-19",
+			"type": "update",
 			"title": "Put a talking 3D guide on any website — new @three-ws/page-agent SDK",
 			"summary": "Drop one tag onto any site and a rigged 3D agent appears in the corner, greets visitors, and talks them through the page out loud — mouth moving in time with the words, all in the browser with no backend or API key. Visitors pick who guides them from a diverse roster of rigged agents (realistic, stylized, and a robot), and the choice is remembered as they move between pages. Only skeleton-rigged avatars ship in the catalog, so every guide actually breathes, blinks, and lip-syncs instead of standing frozen. Install @three-ws/page-agent from npm, or paste the one-line embed.",
 			"link": null,
@@ -746,6 +789,16 @@
 			"link": null,
 			"tags": [
 				"fix"
+			]
+		},
+		{
+			"date": "2026-06-19",
+			"type": "update",
+			"title": "Turn any agent wallet into a giving wallet",
+			"summary": "Every agent's self-custodied Solana wallet now has a Give tab. Pick a cause — any Solana wallet or .sol name — and donate SOL or USDC in one tap, or use a quick 1/5/10/25%/Max of the live balance. Round-up giving rounds a balance off and sends the spare change to your cause (e.g. 12.37 USDC → give $0.37, keep $12.00). Donations are real, server-signed, on-chain transfers — the same audited, idempotent path as a withdrawal — and your running total is tallied straight from the wallet's on-chain custody trail. Crypto transfers are final, so each donation is reviewed before it's sent.",
+			"link": null,
+			"tags": [
+				"feature"
 			]
 		},
 		{

@@ -406,6 +406,12 @@ URL: https://three.ws/pay
 
 Pay-per-call gateway: invoke any x402-protocol paid API with a USDC micro-transaction.
 
+### x402 Studio — the Stripe of x402
+
+URL: https://three.ws/x402/studio
+
+Merchant console to run a paid x402 business: products and pricing, payout and agent wallets, a real USDC send/receive with SNS .sol resolution, a drag-and-drop storefront, an embeddable pay-button builder, charity and round-up giving, CORS and security.
+
 ### Agent Wallet (x402 on Solana)
 
 URL: https://three.ws/play/agent-wallet
@@ -471,6 +477,12 @@ Build DCA and subscription strategies that trade on-chain on your behalf.
 URL: https://three.ws/vanity-wallet
 
 Grind a Solana address with a custom prefix using your browser's GPU.
+
+### Verify a Vanity Receipt
+
+URL: https://three.ws/vanity/verify
+
+Independently verify a three.ws provably-fair vanity wallet receipt — entirely in your browser. Prove the key was generated fresh under a committed seed and the operator never kept a copy.
 
 ### ETH Vanity (CREATE2)
 

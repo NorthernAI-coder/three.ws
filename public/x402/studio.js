@@ -1072,9 +1072,10 @@ function buttonCss() {
 	const fs = EMBED.size === 'sm' ? '14px' : EMBED.size === 'lg' ? '18px' : '16px';
 	const radius = EMBED.shape === 'sm' ? '6px' : EMBED.shape === 'pill' ? '999px' : '12px';
 	const accent = S.settings?.accent_color || '#0a84ff';
-	const fg = EMBED.theme === 'light' ? '#fff' : '#061018';
+	// Dark theme → white button on dark ink; light theme → accent button on white.
 	const bg = EMBED.theme === 'light' ? accent : '#ffffff';
-	return { pad, fs, radius, accent, fg, bg };
+	const fg = EMBED.theme === 'light' ? '#ffffff' : '#061018';
+	return { pad, fs, radius, accent, bg, fg };
 }
 
 function drawEmbed() {
@@ -1083,7 +1084,7 @@ function drawEmbed() {
 	const label = EMBED.label || (sku ? `Pay · ${sku.action_name}` : 'Pay with USDC');
 	const prev = $('#em_prev');
 	prev.innerHTML = '';
-	const btn = el('button', { style: `padding:${c.pad};font-size:${c.fs};border-radius:${c.radius};background:${EMBED.theme === 'light' ? c.accent : '#fff'};color:${EMBED.theme === 'light' ? '#fff' : '#061018'};border:0;font-weight:700;cursor:pointer;font-family:var(--font-body)`,
+	const btn = el('button', { style: `padding:${c.pad};font-size:${c.fs};border-radius:${c.radius};background:${c.bg};color:${c.fg};border:0;font-weight:700;cursor:pointer;font-family:var(--font-body)`,
 		'data-x402-endpoint': sku.target_endpoint,
 		'data-x402-method': sku.target_method,
 		'data-x402-merchant': sku.merchant_name,
@@ -1095,7 +1096,7 @@ function drawEmbed() {
 	if (window.X402?.init) window.X402.init();
 
 	// Generated snippet.
-	const style = `padding:${c.pad};font-size:${c.fs};border-radius:${c.radius};background:${EMBED.theme === 'light' ? c.accent : '#fff'};color:${EMBED.theme === 'light' ? '#fff' : '#061018'};border:0;font-weight:700;cursor:pointer`;
+	const style = `padding:${c.pad};font-size:${c.fs};border-radius:${c.radius};background:${c.bg};color:${c.fg};border:0;font-weight:700;cursor:pointer`;
 	const attrs = [
 		`data-x402-endpoint="${esc(sku.target_endpoint)}"`,
 		`data-x402-method="${esc(sku.target_method)}"`,

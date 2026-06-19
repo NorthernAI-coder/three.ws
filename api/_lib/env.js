@@ -138,6 +138,17 @@ export const env = {
 		return opt('WALLET_ENCRYPTION_KEY');
 	},
 
+	// Long-lived Ed25519 signing seed for the provably-fair vanity grinder
+	// (api/_lib/vanity-service-key.js). Stored as a secret-box ciphertext (v2:…)
+	// or a raw 32-byte seed in hex/Base58. Signs every verifiable-grind receipt;
+	// the public key is published at /.well-known/three-vanity.json and pinned in
+	// the SDK + verifier. Returns undefined when unset — the service module then
+	// derives a deterministic dev key from JWT_SECRET (with a one-time warning) so
+	// local/CI works, while production must set a dedicated value.
+	get VANITY_SERVICE_KEY() {
+		return opt('VANITY_SERVICE_KEY');
+	},
+
 	// ── Agent-to-agent (A2A) autonomous payments ────────────────────────────
 	// Secret that signs Intent Mandates (AP2-style budgeted spend authorizations).
 	// Dedicated by preference; falls back to JWT_SECRET so the feature works in
