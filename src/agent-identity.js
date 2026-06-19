@@ -377,6 +377,11 @@ function _normalise(apiRecord) {
 		chainId: apiRecord.chain_id || apiRecord.chainId || null,
 		skills: apiRecord.skills || [],
 		meta: apiRecord.meta || {},
+		// Carried through for the Agent Studio store (P0): the compiled Brain
+		// persona and the server's authoritative update timestamp (used for
+		// optimistic-write reconciliation). Owner-only on the wire — null for visitors.
+		persona_prompt: apiRecord.persona_prompt ?? null,
+		updated_at: apiRecord.updated_at || apiRecord.updatedAt || null,
 		createdAt: apiRecord.created_at
 			? new Date(apiRecord.created_at).getTime()
 			: apiRecord.createdAt || Date.now(),

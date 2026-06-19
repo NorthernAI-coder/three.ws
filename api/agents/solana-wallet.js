@@ -350,6 +350,11 @@ async function handleWallet(req, res, id) {
 	if (!row) return error(res, 404, 'not_found', 'agent not found');
 	if (row.user_id !== auth.userId) return error(res, 403, 'forbidden', 'not your agent');
 
+	// Provisioning, importing, and wiping a custodial keypair all change which
+	// keys control the agent's funds — gate the mutating methods behind CSRF so
+	// a cross-site forged request can never replace or delete the wallet.
+	if (req.method !== 'GET' && !(await requireCsrf(req, res, auth.userId))) return;
+
 	let meta = { ...(row.meta || {}) };
 
 	if (req.method === 'DELETE') {
@@ -958,6 +963,9 @@ async function handleLimits(req, res, id) {
 	const network = url.searchParams.get('network') === 'devnet' ? 'devnet' : 'mainnet';
 
 	if (req.method === 'PUT') {
+		// Spend ceilings, the freeze switch, and the withdraw allowlist are the
+		// wallet's safety gates — a forged change could disarm them, so require CSRF.
+		if (!(await requireCsrf(req, res, auth.userId))) return;
 		let body;
 		try {
 			body = await readJson(req);
@@ -1143,7 +1151,10 @@ async function handleVanity(req, res, id) {
 		});
 	}
 
-	// POST — sensitive: gate behind the withdrawal per-user cap + per-IP burst.
+	// POST — sensitive: it grinds a new keypair and sweeps every holding to it,
+	// so it moves funds. Require CSRF, then gate behind the withdrawal per-user
+	// cap + per-IP burst.
+	if (!(await requireCsrf(req, res, auth.userId))) return;
 	const rlUser = await limits.withdrawalPerUser(auth.userId);
 	if (!rlUser.success) return rateLimited(res, rlUser);
 	const rlIp = await limits.authIp(clientIp(req));
