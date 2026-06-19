@@ -60,3 +60,17 @@ Empty/error state content (task 08); copy rewrites (task 09); responsive layout 
 - [ ] VoiceOver/TalkBack spot check on the main controls (document what you tested).
 - [ ] esbuild clean; `npm test` green; changelog entry ("IRL is fully keyboard- and
       screen-reader-accessible").
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "tasks/irl-production/07-accessibility-pass.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

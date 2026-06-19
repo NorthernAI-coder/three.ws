@@ -135,3 +135,17 @@ the interaction table itself (C4) — this card only *reads* and *links*.
 `npm run dev` → `/dashboard/irl-placements` with ≥1 placed agent: confirm the
 Network tab shows one `agent-summary` call + parallel `…/solana` calls, balance
 chips resolve to real on-chain values, and every card link navigates.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "tasks/irl-live/C1-dashboard-overview.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

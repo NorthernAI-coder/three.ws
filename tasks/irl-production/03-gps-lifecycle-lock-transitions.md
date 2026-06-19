@@ -49,3 +49,17 @@ Sensor finite-guards (task 01); the local gyro-lock camera math itself (already 
 - [ ] Local→GPS transition has no jarring avatar teleport.
 - [ ] Pure helpers (e.g. accuracy bucketing, transition easing param) unit-tested.
 - [ ] `npm test` green; esbuild clean; changelog entry for the visible reliability win.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "tasks/irl-production/03-gps-lifecycle-lock-transitions.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

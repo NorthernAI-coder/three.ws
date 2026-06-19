@@ -70,3 +70,17 @@ Permission-flow polish and error states (task 06), the arrival cue (task 03).
 see the explainer once, see the designed empty state with no agents, then seed one
 in range (`__irlSeedPins(1)` per [memory: irl-perf-e2]) and confirm the empty
 prompt retires cleanly.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "tasks/irl-privacy/02-discovery-onboarding-empty-state.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

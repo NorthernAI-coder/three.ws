@@ -123,3 +123,17 @@ still reflects the real device, which is fine for placement testing).
 1. Desktop: open `/irl?mockLoc=37.7749,-122.4194` → badge shows, no location prompt, place a pin → POST body carries `37.7749/-122.4194`.
 2. Real iPhone over LAN: connect the phone to the same network, open `http://<your-lan-ip>:3000/irl?mockLoc=…` → the flow runs even though plain-http GPS is blocked; the pin lands at the fake spot, not your home.
 3. `npm run build` → `grep -r "__irlMockLocation\|SIMULATED LOCATION" dist/` returns nothing.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "tasks/irl-location-control/L1-simulated-location-dev.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

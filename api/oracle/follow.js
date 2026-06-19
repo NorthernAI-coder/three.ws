@@ -20,7 +20,7 @@
  * message to every follower subscribed to that agent above their min_score.
  */
 
-import { cors, json, method, readJson, wrap, error, rateLimited } from '../_lib/http.js';
+import { cors, json, readJson, wrap, error, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { sql } from '../_lib/db.js';
 import { isUuid } from '../_lib/validate.js';

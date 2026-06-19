@@ -45,3 +45,17 @@ The inspect card content/API (shipped); placement of objects (shipped).
 - [ ] No accidental selection of off-screen/behind-camera agents.
 - [ ] Any pure picking helper (screen-space distance, candidate ranking) unit-tested.
 - [ ] esbuild clean; `npm test` green; changelog entry if the win is user-visible.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "tasks/irl-production/05-tap-raycast-accuracy.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.
