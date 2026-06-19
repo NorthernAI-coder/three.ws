@@ -3,6 +3,22 @@
 	"entries": [
 		{
 			"date": "2026-06-19",
+			"title": "Homepage “Create” card now shows its 3D agent",
+			"summary": "The first card in the homepage walkthrough was framing its 3D avatar against the figure's arms-out rest pose, which pushed the camera so far back the agent shrank to a speck at the bottom of the card. It now uses an arms-down body that fills the frame just like the neighboring “Embed” card, so the preview reads as a living agent the moment it scrolls into view.",
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-19",
+			"title": "Mobile menu plays nicely with screen readers and keyboards",
+			"summary": "The mobile navigation drawer now fully hides itself from assistive tech and the keyboard tab order when it's closed, instead of leaving its links reachable but invisible. Screen-reader and keyboard users can no longer land focus on a link inside a collapsed menu, and the browser's accessibility warning about hidden-but-focused links is gone.",
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-19",
 			"title": "Paid doors stay open when one payment network is down",
 			"summary": "Every pay-per-call endpoint — the Pole Club cover charge, agent-to-agent calls, asset downloads — now offers each payment network independently. If Base is fully wired but Solana is missing a setting (or vice versa), you still get a working payment prompt on the network that's ready, instead of the whole door hard-failing. A network is advertised only when every piece it needs is in place, so a checkout can no longer be offered and then rejected mid-payment. The endpoint only declines outright when no network at all can take the payment.",
 			"tags": [

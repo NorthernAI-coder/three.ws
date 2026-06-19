@@ -159,6 +159,14 @@
 			<description>Chat widgets configured with a custom AI &quot;brain&quot; endpoint now route that request through our SSRF guard, so a widget owner can no longer point it at a private/internal address to probe our network. No change for legitimate public endpoints. We also tightened a few backend read paths so a temporary database or price-feed hiccup surfaces as &quot;temporarily unavailable&quot; instead of silently looking like empty data.</description>
 		</item>
 		<item>
+			<title>Homepage “Create” card now shows its 3D agent</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-19:Homepage “Create” card now shows its 3D agent</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>The first card in the homepage walkthrough was framing its 3D avatar against the figure's arms-out rest pose, which pushed the camera so far back the agent shrank to a speck at the bottom of the card. It now uses an arms-down body that fills the frame just like the neighboring “Embed” card, so the preview reads as a living agent the moment it scrolls into view.</description>
+		</item>
+		<item>
 			<title>IBM sites can now embed three.ws pages</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-19:IBM sites can now embed three.ws pages</guid>
@@ -213,6 +221,14 @@
 			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>The Memory tab in Agent Studio turns your agent’s memory into something you can see and shape. A live Timeline streams every memory as it forms — chats, lessons, rules, trades — each tagged by tier (working, recall, archival) and salience, with one-click pin, edit, merge, forget, and a slider to dial importance. A knowledge Graph maps the coins, wallets, people, and strategies your agent has learned, linked by what shows up together; click any coin to replay how your agent’s understanding of it evolved over time. Recall runs real semantic search over real embeddings, so asking “lessons from losing trades” or “rules my agent follows” returns what it actually knows — and an In-Context view shows exactly what the agent carries into every reply, with a live token budget so the core stays sharp. Seed it in seconds from your GitHub, X, and Farcaster, and the Brain’s Memory node recalls all of it for real.</description>
+		</item>
+		<item>
+			<title>Mobile menu plays nicely with screen readers and keyboards</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-19:Mobile menu plays nicely with screen readers and keyboards</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>The mobile navigation drawer now fully hides itself from assistive tech and the keyboard tab order when it's closed, instead of leaving its links reachable but invisible. Screen-reader and keyboard users can no longer land focus on a link inside a collapsed menu, and the browser's accessibility warning about hidden-but-focused links is gone.</description>
 		</item>
 		<item>
 			<title>One API, many services: the three.ws API gateway</title>

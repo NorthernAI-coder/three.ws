@@ -341,9 +341,14 @@ function initDrawer(root) {
 	if (!toggle || !drawer) return;
 
 	const isOpen = () => drawer.classList.contains('open');
+	// Start closed: `inert` keeps the drawer's links out of the tab order and
+	// hidden from assistive tech, and blurs any descendant that holds focus —
+	// which is what aria-hidden alone cannot do (it only warns).
+	drawer.inert = true;
 	function setOpen(open) {
 		toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
 		drawer.setAttribute('aria-hidden', open ? 'false' : 'true');
+		drawer.inert = !open;
 		document.body.style.overflow = open ? 'hidden' : '';
 		drawer.classList.toggle('open', open);
 	}
