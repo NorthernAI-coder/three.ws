@@ -23,11 +23,13 @@ export default [
 			'character-studio/**',
 			'docs/pumpfun-program/**',
 			// Vendored third-party browser libs (Draco/Basis compression,
-			// the scene-studio editor's bundled acorn/codemirror/esprima/etc.)
+			// the scene-studio editor's bundled acorn/codemirror/esprima/etc.,
+			// and MediaPipe's Emscripten-generated WASM glue).
 			'**/draco/**',
 			'**/basis/**',
 			'public/scene-studio/libs/**',
 			'src/scene-studio/vendor/**',
+			'**/vendor/mediapipe/**',
 			'**/*.bundle.js',
 			'public/dashboard/avaturn-sdk.js',
 			// Self-contained sub-projects with their own ESLint flat config

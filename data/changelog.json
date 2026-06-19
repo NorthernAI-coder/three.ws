@@ -3,6 +3,16 @@
 	"entries": [
 		{
 			"date": "2026-06-19",
+			"title": "The x402 Console — run a paid-API business end to end",
+			"summary": "A new merchant console brings everything you need to charge for endpoints into one place — the Stripe of x402. Configure agent wallets (the named on-chain wallets your agents auto-pay and receive from, each with its own per-call and daily USDC caps), default payout addresses on Base and Solana, and per-product pricing. Build a hosted storefront with a drag-and-drop block editor — hero, product grid, featured product, text, image, button, divider, footer — with a live preview, then publish it to a public /store/<handle> page that takes real on-chain payments. Plus API keys, a settlement webhook, a CORS/domain allow-list, spending caps, accepted-network toggles, and SIWX re-entry. Open it from the x402 dashboard.",
+			"tags": [
+				"feature",
+				"improvement"
+			],
+			"link": "/dashboard/x402-admin"
+		},
+		{
+			"date": "2026-06-19",
 			"title": "Swap your avatar without leaving roaming mode",
 			"summary": "When you detach the walking companion into full-page roaming — stroll or platformer — you can now change who you're playing as on the spot. A new Avatar button in the playground toolbar (or just press C) opens the same searchable roster picker, and the rig hot-swaps live without dropping you out of the page. Your pick is remembered across movement modes, the corner companion, and every page you visit next.",
 			"tags": [

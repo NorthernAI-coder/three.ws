@@ -220,7 +220,9 @@ async function handleGet(req, res) {
 	if (store) {
 		const [m] = await sql`
 			select owner_user_id, business_name, logo_url, accent_color,
-			       store_handle, store_layout, store_theme
+			       store_handle, store_layout, store_theme,
+			       charity_enabled, charity_name, charity_chain, charity_address, charity_bps,
+			       roundup_enabled, roundup_to_atomics
 			from x402_merchant_settings
 			where store_handle = ${String(store).toLowerCase()} and store_published = true
 			limit 1
@@ -304,6 +306,13 @@ async function handleUpsert(req, res) {
 			agent_wallets = ${JSON.stringify(next.agent_wallets ?? [])}::jsonb,
 			facilitator = ${next.facilitator},
 			webhook_url = ${next.webhook_url},
+			charity_enabled = ${next.charity_enabled ?? false},
+			charity_name = ${next.charity_name},
+			charity_chain = ${next.charity_chain},
+			charity_address = ${next.charity_address},
+			charity_bps = ${next.charity_bps ?? 0},
+			roundup_enabled = ${next.roundup_enabled ?? false},
+			roundup_to_atomics = ${next.roundup_to_atomics},
 			store_handle = ${next.store_handle},
 			store_published = ${next.store_published ?? false},
 			store_layout = ${JSON.stringify(next.store_layout ?? [])}::jsonb,
