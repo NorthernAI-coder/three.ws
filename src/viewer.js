@@ -45,7 +45,7 @@ import { addLights, removeLights } from './viewer/lights.js';
 import { getCubeMapTexture } from './viewer/environment.js';
 import { takeScreenshot, captureScreenshot } from './viewer/screenshot.js';
 import { setClips, playAllClips } from './viewer/animation.js';
-import { computeFramingExtent } from './viewer/framing.js';
+import { computeFramingExtent, computeFramingWidth } from './viewer/framing.js';
 import { LightProbeGrid } from './light-probe-grid.js';
 import { AnimationManager } from './animation-manager.js';
 import { computeBoundsTree, disposeBoundsTree, acceleratedRaycast } from 'three-mesh-bvh';
@@ -496,7 +496,8 @@ export class Viewer {
 
 		const extentV = (visH / 2) * PAD_V / usableFrac;
 		const distV = extentV / Math.tan(vFovRad / 2);
-		const distH = (bbSize.x / 2) * PAD_H / Math.tan(hFovRad / 2);
+		const framingWidth = computeFramingWidth(bbSize.x, bbSize.y, framingMode);
+		const distH = (framingWidth / 2) * PAD_H / Math.tan(hFovRad / 2);
 		const dist = Math.max(distV, distH);
 
 		// Center look-at on the usable area: with no panel focusY = baseY;
@@ -1056,7 +1057,8 @@ export class Viewer {
 
 		const extentV = (visH / 2) * PAD_V / usableFrac;
 		const distV = extentV / Math.tan(vFovRad / 2);
-		const distH = (bbSize.x / 2) * PAD_H / Math.tan(hFovRad / 2);
+		const framingWidth = computeFramingWidth(bbSize.x, bbSize.y, framingMode);
+		const distH = (framingWidth / 2) * PAD_H / Math.tan(hFovRad / 2);
 		const dist = Math.max(distV, distH);
 
 		// Center the look-at on the usable area: with no panel focusY=baseY;

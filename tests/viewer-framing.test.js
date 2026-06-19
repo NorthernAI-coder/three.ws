@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { computeFramingExtent } from '../src/viewer/framing.js';
+import { computeFramingExtent, computeFramingWidth } from '../src/viewer/framing.js';
 
 describe('computeFramingExtent — full (default)', () => {
 	it('is the legacy full-body framing: baseY at the vertical centre, full height', () => {
@@ -62,5 +62,41 @@ describe('computeFramingExtent — portrait', () => {
 		const b = computeFramingExtent(4, 2, 'portrait');
 		expect(b.visH).toBeCloseTo(a.visH * 2, 9);
 		expect(b.baseY).toBeCloseTo(a.baseY * 2, 9);
+	});
+});
+
+describe('computeFramingWidth', () => {
+	const H = 1.8;
+
+	it('full mode returns the raw width unchanged (whole-body framing is untouched)', () => {
+		expect(computeFramingWidth(0.5, H, 'full')).toBe(0.5);
+		expect(computeFramingWidth(1.6, H, 'full')).toBe(1.6); // even a T-pose width
+		expect(computeFramingWidth(0.5, H)).toBe(0.5); // defaults to full
+	});
+
+	it('portrait mode leaves a natural arms-down width unchanged', () => {
+		// Real arms-down humanoids are ~0.25–0.35× height — well under the cap.
+		const naturalWidth = H * 0.3;
+		expect(computeFramingWidth(naturalWidth, H, 'portrait')).toBe(naturalWidth);
+	});
+
+	it('portrait mode caps an arms-out T-pose width so it cannot blow out the frame', () => {
+		// A Mixamo T-pose measures ~0.85–1.0× height; it must be clamped.
+		const tPoseWidth = H * 0.9;
+		const capped = computeFramingWidth(tPoseWidth, H, 'portrait');
+		expect(capped).toBeLessThan(tPoseWidth);
+		expect(capped).toBeCloseTo(H * 0.55, 9);
+	});
+
+	it('the cap sits above any natural standing width but below a T-pose', () => {
+		// Boundary intent: 0.35 (broad shoulders) passes through; 0.85 (arms out)
+		// is clamped. The 0.55 threshold separates them.
+		expect(computeFramingWidth(H * 0.35, H, 'portrait')).toBeCloseTo(H * 0.35, 9);
+		expect(computeFramingWidth(H * 0.85, H, 'portrait')).toBeCloseTo(H * 0.55, 9);
+	});
+
+	it('scales the cap linearly with body height', () => {
+		expect(computeFramingWidth(10, 2, 'portrait')).toBeCloseTo(2 * 0.55, 9);
+		expect(computeFramingWidth(10, 4, 'portrait')).toBeCloseTo(4 * 0.55, 9);
 	});
 });
