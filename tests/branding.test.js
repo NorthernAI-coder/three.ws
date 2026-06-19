@@ -69,6 +69,10 @@ function isHardSkipped(relPath) {
 	}
 	// avatar-sdk has its own dist subtree to skip.
 	if (relPath.startsWith(`avatar-sdk${sep}dist${sep}`)) return true;
+	// docs/audit/* are internal engineering audit + remediation logs that by
+	// nature quote the exact brand strings they are cataloguing for removal.
+	// They are not user-facing product copy, so they are out of scope.
+	if (relPath.startsWith(`docs${sep}audit${sep}`)) return true;
 	return false;
 }
 

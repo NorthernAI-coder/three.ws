@@ -383,15 +383,5 @@
 		"pattern": "characterstudio-docs",
 		"file": "docs/character-studio.md",
 		"reason": "Required MIT upstream attribution — link to the upstream CharacterStudio asset-authoring docs (m3-org.github.io/characterstudio-docs); preserved so contributors can find the original vertex/UV conventions."
-	},
-	{
-		"pattern": "rename the asset path",
-		"file": "docs/audit/PLATFORM-AUDIT-2026-06-18.md",
-		"reason": "Internal platform-audit doc — line catalogues a legacy asset filename flagged for remediation; the reference is the audit's subject, not product copy."
-	},
-	{
-		"pattern": "in prose.",
-		"file": "docs/audit/PLATFORM-AUDIT-2026-06-18.md",
-		"reason": "Internal platform-audit doc — line itself catalogues brand references in other docs for remediation; a meta-reference, not user-facing copy."
 	}
 ]
