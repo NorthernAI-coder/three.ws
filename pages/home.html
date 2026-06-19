@@ -5872,8 +5872,15 @@
 		// into idle, loops (rumba/idle) loop seamlessly. No forced loop, so the old
 		// celebrate hard-snap is gone. `framing="portrait"` crops head-to-mid-thigh
 		// so the avatar fills the card instead of standing tiny-and-low.
+		//
+		// Portrait framing sizes the camera to the avatar's *load-time* bounding box
+		// (before any retargeted clip applies), so the body MUST ship arms-down at
+		// rest. T-pose-authored rigs (michelle, xbot — arms stretched horizontally)
+		// blow up the box width, push the camera far back, and leave a tiny figure
+		// stranded at the bottom of the card. Use rest-arms-down bodies here:
+		// default.glb and cz.glb (both in the curated portrait-safe POOL_FALLBACKS).
 		var LIVE_SPOTS = [
-			{ id: 'door-create',  clip: 'wave',  framing: 'portrait', glb: O + '/avatars/michelle.glb' },
+			{ id: 'door-create',  clip: 'wave',  framing: 'portrait', glb: O + '/avatars/default.glb' },
 			{ id: 'door-embed',   clip: 'rumba', framing: 'portrait', glb: O + '/avatars/cz.glb' },
 			{ id: 'bento-studio', clip: 'idle',  framing: 'portrait', glb: null },
 			{ id: 'bento-anim',   clip: 'idle',  framing: 'full',     glb: null }
