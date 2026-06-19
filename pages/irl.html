@@ -2094,6 +2094,8 @@
 	<div class="irl-sheet-actions">
 		<button id="irl-sheet-pay" class="irl-sheet-btn irl-sheet-btn-primary" type="button" hidden>Pay via x402</button>
 		<button id="irl-sheet-calibrate" class="irl-sheet-btn" type="button" hidden>Calibrate position</button>
+		<button id="irl-sheet-align-room" class="irl-sheet-btn" type="button" hidden>Align this room</button>
+		<button id="irl-sheet-refine" class="irl-sheet-btn" type="button" hidden>Refine on floor</button>
 		<button id="irl-sheet-view" class="irl-sheet-btn" type="button">View profile</button>
 	</div>
 	<!-- Leave a message — POSTs an interaction the owner sees in their dashboard feed -->
@@ -2190,6 +2192,35 @@
 	/* Honest accuracy line inside the inspect sheet (A3). */
 	.irl-sheet-accuracy { margin: 0 0 12px; font-size: 12px; line-height: 1.5; color: #8a94a6; }
 	.irl-sheet-accuracy.is-low { color: #fbbf73; }
+	/* Room align (R2) reuses the calibrate panel; a whole-room slide/twist has no
+	   per-agent floor-height step, so hide it and show the room-scale hint instead. */
+	body.is-room-cal #irl-calibrate-panel .irl-cal-height { display: none; }
+	body.is-room-cal #irl-calibrate-panel .irl-cal-hint::after {
+		content: ' The whole cluster moves together — its internal layout stays exact.';
+		color: #7c8aa0;
+	}
+	/* Relative-frame one-tap alignment prompt (R2) — a room placed without a compass
+	   may render rotated for another viewer; this offers a single corrective tap. */
+	#irl-room-align-prompt {
+		position: fixed; left: 50%; bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+		transform: translate(-50%, 12px); z-index: 58; width: min(420px, calc(100vw - 28px));
+		background: rgba(12,14,21,0.96); border: 1px solid rgba(124,92,255,0.45);
+		border-radius: 14px; box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+		padding: 13px 15px; opacity: 0; pointer-events: none;
+		transition: opacity .22s ease, transform .22s ease;
+	}
+	#irl-room-align-prompt.is-shown { opacity: 1; pointer-events: auto; transform: translate(-50%, 0); }
+	#irl-room-align-prompt p { margin: 0 0 10px; font-size: 12.5px; line-height: 1.5; color: #cdd6e4; }
+	#irl-room-align-prompt .irl-ra-actions { display: flex; gap: 9px; }
+	#irl-room-align-prompt button { flex: 1; padding: 10px 12px; border-radius: 11px; font: 600 13.5px inherit; cursor: pointer; transition: background .15s, border-color .15s; }
+	#irl-room-align-prompt .irl-ra-align { border: 1px solid rgba(124,92,255,0.55); background: rgba(124,92,255,0.22); color: #d6cbff; }
+	#irl-room-align-prompt .irl-ra-align:hover { background: rgba(124,92,255,0.34); }
+	#irl-room-align-prompt .irl-ra-dismiss { border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.05); color: #aeb6c4; flex: 0 0 96px; }
+	#irl-room-align-prompt .irl-ra-dismiss:hover { background: rgba(255,255,255,0.10); color: #fff; }
+	#irl-room-align-prompt button:focus-visible { outline: 2px solid #9d7bff; outline-offset: 2px; }
+	@media (prefers-reduced-motion: reduce) {
+		#irl-room-align-prompt { transition: opacity .01s; }
+	}
 </style>
 <div id="irl-calibrate-panel" role="dialog" aria-modal="false" aria-label="Calibrate agent position">
 	<div class="irl-sheet-handle" aria-hidden="true"></div>
@@ -2212,6 +2243,15 @@
 	</div>
 </div>
 <div id="irl-cal-denied" role="alertdialog" aria-modal="false" aria-label="Calibration locked" hidden></div>
+<!-- R2 relative-frame one-tap alignment prompt — shown for a nearby room placed
+     without an absolute compass that may render rotated for this viewer. -->
+<div id="irl-room-align-prompt" role="dialog" aria-modal="false" aria-label="Align this room to your view" hidden>
+	<p>This room was placed without a compass, so it may appear rotated. Face the room’s front and tap Align to match it to your view.</p>
+	<div class="irl-ra-actions">
+		<button type="button" class="irl-ra-align" data-ra-action="align">Align</button>
+		<button type="button" class="irl-ra-dismiss" data-ra-action="dismiss">Dismiss</button>
+	</div>
+</div>
 
 <!-- E1 first-run permission + onboarding overlay. Cards (prompt / granted /
      denied-with-recovery / unsupported) are rendered by src/irl/onboarding.js. -->

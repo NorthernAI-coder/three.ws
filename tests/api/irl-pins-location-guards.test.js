@@ -108,6 +108,15 @@ function nearbySelectCall() {
 function ranPinSelect() {
 	return nearbySelectCall() !== null;
 }
+// The /mine owner-scoped SELECT (device_token = … OR user_id = …, LIMIT 20). True
+// only when the handler actually reached the owner read — distinct from the DDL
+// `ensureTable()` calls that run on every request.
+function ranMineSelect() {
+	return sqlMock.mock.calls.some(([s]) => {
+		const q = Array.isArray(s) ? s.join(' ') : String(s);
+		return /FROM\s+irl_pins/i.test(q) && /device_token\s*=/i.test(q) && /LIMIT 20/i.test(q);
+	});
+}
 
 beforeEach(() => {
 	sqlMock.mockClear();
@@ -188,10 +197,11 @@ describe('GET /api/irl/pins/mine — owner-scoped, no cross-user coordinate leak
 		expect(ranPinSelect()).toBe(false);
 	});
 
-	it('400s a /mine call with no identifier at all, before any DB read', async () => {
+	it('400s a /mine call with no identifier at all, before the owner read', async () => {
 		const { res } = await getMine({ query: {} });
 		expect(res.statusCode).toBe(400);
-		expect(sqlMock).not.toHaveBeenCalled();
+		// The owner-scoped SELECT never ran — a caller with no identifier can't probe.
+		expect(ranMineSelect()).toBe(false);
 	});
 });
 

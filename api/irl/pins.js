@@ -502,7 +502,7 @@ async function handleCalibrate(res, { id, session, body, deviceToken = null }) {
 
 	const [pin] = await sql`
 		SELECT id, user_id, device_token, lat, lng, heading, anchor_yaw_deg, anchor_height_m,
-		       expires_at, hidden_at
+		       room_id, rel_east_m, rel_north_m, expires_at, hidden_at
 		FROM irl_pins
 		WHERE id = ${id}
 	`;
@@ -551,6 +551,24 @@ async function handleCalibrate(res, { id, session, body, deviceToken = null }) {
 		}
 	}
 
+	// New room-frame offset — optional; only meaningful for a room pin, where the
+	// render path (pinWorldPos) resolves position from rel_east_m/rel_north_m, NOT the
+	// absolute lat/lng. A WebXR "refine on floor" re-places one agent by sending its
+	// fresh offset; without persisting it the sharpened spot would snap back on the
+	// next viewer re-fetch. Bounded by the SAME ground-move ceiling against the stored
+	// offset, so refine sharpens a placement and never slides it across the room. A
+	// non-room pin (no room_id) ignores rel — its absolute lat/lng above is authoritative.
+	let newRelEast = null, newRelNorth = null;
+	if (pin.room_id && Number.isFinite(cal.relEast) && Number.isFinite(cal.relNorth)) {
+		const baseE = Number.isFinite(pin.rel_east_m) ? pin.rel_east_m : 0;
+		const baseN = Number.isFinite(pin.rel_north_m) ? pin.rel_north_m : 0;
+		if (Math.hypot(cal.relEast - baseE, cal.relNorth - baseN) > CAL_MAX_MOVE_M) {
+			return json(res, 422, { error: 'calibration move too large', max_m: CAL_MAX_MOVE_M });
+		}
+		newRelEast = Math.max(-REL_MAX_M, Math.min(REL_MAX_M, cal.relEast));
+		newRelNorth = Math.max(-REL_MAX_M, Math.min(REL_MAX_M, cal.relNorth));
+	}
+
 	// Persist. heading stays in sync with anchor_yaw_deg so legacy clients (which
 	// only read `heading`) still render the corrected bearing.
 	const headingToStore = newYaw != null ? Math.round(newYaw) : null;
@@ -568,11 +586,14 @@ async function handleCalibrate(res, { id, session, body, deviceToken = null }) {
 			anchor_yaw_deg  = COALESCE(${newYaw}, anchor_yaw_deg),
 			heading         = COALESCE(${headingToStore}, heading),
 			anchor_height_m = COALESCE(${newHeight}, anchor_height_m),
+			rel_east_m      = COALESCE(${newRelEast}, rel_east_m),
+			rel_north_m     = COALESCE(${newRelNorth}, rel_north_m),
 			anchor_quat     = CASE WHEN ${clearQuat} THEN NULL ELSE anchor_quat END
 		WHERE id = ${id}
 		  AND hidden_at IS NULL
 		  AND (expires_at IS NULL OR expires_at > NOW())
-		RETURNING id, lat, lng, heading, anchor_yaw_deg, anchor_height_m, anchor_quat, gps_accuracy_m
+		RETURNING id, lat, lng, heading, anchor_yaw_deg, anchor_height_m,
+		          rel_east_m, rel_north_m, anchor_quat, gps_accuracy_m
 	`;
 	// A lapse between the SELECT above and this write (e.g. expiry / a reaping cron)
 	// leaves no row — surface that as not-found instead of returning { pin: null }.
