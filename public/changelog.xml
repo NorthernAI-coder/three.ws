@@ -39,6 +39,14 @@
 			<description>The Explore / discovery feed previously padded itself with a set of built-in sample avatars and counted them in the totals. The feed and its counts now reflect only real avatars created by the community — no filler.</description>
 		</item>
 		<item>
+			<title>Every page now shares with its own social card</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-19:Every page now shares with its own social card</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>Share any three.ws page on X, Discord, Slack, iMessage, or LinkedIn and the link now previews with a branded card built for that exact page — its title, its one-line description, and a colour that matches the section it belongs to — instead of one generic image for the whole site. The cards render as real PNGs so they show up everywhere (not just the apps that handle SVG), and they're generated on the fly from the same page catalog that feeds the sitemap, so the preview always matches what's actually on the page. We also tightened the behind-the-scenes SEO on every page: cleaner canonical links, richer structured data with breadcrumbs, and crawler hints that let search engines show large image previews.</description>
+		</item>
+		<item>
 			<title>Fixed broken links and added retry on failed loads across the app</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-19:Fixed broken links and added retry on failed loads across the app</guid>

@@ -204,6 +204,11 @@ export const limits = {
 	//   · irlInteractIp — log a tap/view/message (lighter; legit viewing fans out)
 	irlPinIp: (ip) => getLimiter('irl:pin:ip', { limit: 20, window: '10 m' }).limit(ip),
 	irlInteractIp: (ip) => getLimiter('irl:interact:ip', { limit: 60, window: '1 m' }).limit(ip),
+	// IRL proof-of-presence mint (H3) — a walking viewer re-mints a fix token only
+	// when their coarse cell changes (every ~150 m of travel), so a generous 30/min
+	// covers a brisk walk + a few re-tries while a token-banking sweep (mint many
+	// distinct cells to scrape) trips fast. Keyed per IP.
+	irlFixIp: (ip) => getLimiter('irl:fix:ip', { limit: 30, window: '1 m' }).limit(ip),
 	// IRL placement token bucket (D4) — keyed per (device_token + IP), tighter than
 	// the coarse per-IP `irlPinIp` so one device can't script a rapid placement flood
 	// even from a rotating IP. Two windows: a 5/min burst guard and a 30/hour ceiling.

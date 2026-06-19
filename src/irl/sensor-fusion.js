@@ -101,3 +101,35 @@ export function clampPitch(pitch, min, max) {
 	const p = Number.isFinite(pitch) ? pitch : 0;
 	return p < min ? min : p > max ? max : p;
 }
+
+// ── Screen-orientation frame correction (task-02) ───────────────────────────
+// The pitch path integrates `beta` (front↔back tilt) on the assumption the phone
+// is held PORTRAIT. Rotate to landscape and the physical "look up / look down" the
+// user does no longer moves `beta` — it moves `gamma` (left↔right tilt), and the
+// sign flips between the two landscape directions. Left uncorrected, tilting the
+// phone up in landscape slides the avatar sideways instead of raising the view.
+//
+// `screen.orientation.angle` (0 | 90 | 180 | 270) tells us how the screen is
+// rotated relative to its natural (portrait) frame. We fold it in to recover the
+// PORTRAIT-EQUIVALENT pitch angle, so every downstream baseline/delta computation
+// keeps working unchanged regardless of how the device is held.
+//
+//   angle   0 (portrait)            → +beta
+//   angle  90 (landscape, ⟲ 90°)    → +gamma
+//   angle 180 (portrait, upside-down)→ −beta
+//   angle 270 (landscape, ⟳ 90°)    → −gamma
+//
+// Returns a finite number by contract when given finite beta/gamma; a non-finite
+// component for the active axis collapses to 0 (horizon) rather than poisoning the
+// camera.
+export function screenPitchDeg(beta, gamma, screenAngle = 0) {
+	const a = ((Math.round(Number(screenAngle) / 90) * 90) % 360 + 360) % 360;
+	let v;
+	switch (a) {
+		case 90:  v = gamma; break;
+		case 180: v = -beta; break;
+		case 270: v = -gamma; break;
+		default:  v = beta;  break; // 0 / unknown → portrait
+	}
+	return Number.isFinite(v) ? v : 0;
+}
