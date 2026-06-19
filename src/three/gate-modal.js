@@ -16,7 +16,7 @@
 // { ok:false, reason } on cancel. The server stays the authority — this only shapes
 // the path back to eligibility, it never grants it.
 
-const ECONOMY_URL = '/three'; // the $THREE economy page — where you get $THREE / see tiers
+const ECONOMY_URL = '/three-token'; // the $THREE token page — live price, chart & one-click buy
 
 let _active = null; // the single live instance: { overlay, resolve, restoreFocus, onKey }
 let _stylesInjected = false;
@@ -104,7 +104,7 @@ function bodyHTML(snapshot) {
 			${primaryBtn}
 			<button class="tga-btn tga-btn--ghost" data-act="recheck" type="button">Recheck access</button>
 		</div>
-		<a class="tga-tiers" href="${ECONOMY_URL}#tiers" target="_blank" rel="noopener">See holder tiers →</a>
+		<a class="tga-tiers" href="${ECONOMY_URL}" target="_blank" rel="noopener">Get $THREE →</a>
 		${ppu}
 		<p class="tga-note" id="tga-note" role="status" aria-live="polite"></p>
 		<p class="tga-foot">$THREE is the only coin on three.ws. Draft &amp; Standard generation stay free, forever.</p>`;

@@ -44,7 +44,7 @@ const CANONICAL_ROUTES = [
 	{ path: '/create/selfie', slug: 'create-selfie', engine: false, expectDegraded: true },
 	{ path: '/forge', slug: 'forge', engine: true },
 	{ path: '/play', slug: 'play', engine: true },
-	{ path: '/walk', slug: 'walk', engine: true },
+	{ path: '/temporary', slug: 'temporary', engine: true },
 	{ path: '/marketplace', slug: 'marketplace', engine: false, expectDegraded: true },
 	{ path: '/agent-exchange', slug: 'agent-exchange', engine: false, expectDegraded: true },
 	{ path: '/deploy', slug: 'deploy', engine: false, expectDegraded: true },

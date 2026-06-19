@@ -83,10 +83,9 @@ export const NAV_GROUPS = [
 				desc: 'Plain-English intro + real use-cases — start here',
 			},
 			{
-				title: 'The $THREE Economy',
-				href: '/three',
-				badge: 'New',
-				desc: 'Holder tiers, live pricing & rewards — and what holding $THREE unlocks',
+				title: '$THREE Token',
+				href: '/three-token',
+				desc: 'Live price, bonding-curve chart, streaming trades & one-click buy',
 			},
 			{ title: 'Agents Index', href: '/agents', desc: 'Browse every registered agent' },
 			{ title: 'Marketplace', href: '/marketplace', desc: 'Buy, sell & remix agents' },

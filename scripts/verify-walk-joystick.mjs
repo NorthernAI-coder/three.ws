@@ -6,7 +6,7 @@
 // move → tick → avatar.position pipeline. Run while `npm run dev` is up.
 import puppeteer from 'puppeteer';
 
-const URL = process.env.URL || 'http://localhost:3003/walk';
+const URL = process.env.URL || 'http://localhost:3003/temporary';
 
 const browser = await puppeteer.launch({
 	executablePath: '/home/codespace/.cache/puppeteer/chrome/linux-148.0.7778.97/chrome-linux64/chrome',

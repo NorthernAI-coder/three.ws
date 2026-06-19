@@ -95,7 +95,8 @@ describe('canonicalizeBoneName', () => {
 		expect(canonicalizeBoneName('')).toBeNull();
 		expect(canonicalizeBoneName(42)).toBeNull();
 		expect(canonicalizeBoneName('Tail_01')).toBeNull();
-		expect(canonicalizeBoneName('J_Bip_L_UpperArm')).toBeNull(); // VRM — unmapped
+		expect(canonicalizeBoneName('J_Sec_Hair1_01')).toBeNull(); // VRM secondary (hair) — not a body bone
+		expect(canonicalizeBoneName('mannequin-root')).toBeNull(); // armature root, not a bone
 	});
 
 	it('returns canonical exact-match names unchanged', () => {
@@ -206,6 +207,91 @@ describe('canonicalizeBoneName', () => {
 		expect(canonicalizeBoneName(input)).toBe(expected);
 	});
 
+	// VRM 0.x / VRoid skeletons (`J_Bip_<C|L|R>_<bone>`). The side is in the
+	// prefix; the alias table maps each explicitly, including the "Little" → pinky
+	// finger rename, so a VRoid avatar drives the canonical clip library.
+	it.each([
+		['J_Bip_C_Hips',       'Hips'],
+		['J_Bip_C_Spine',      'Spine'],
+		['J_Bip_C_Chest',      'Spine1'],
+		['J_Bip_C_UpperChest', 'Spine2'],
+		['J_Bip_C_Neck',       'Neck'],
+		['J_Bip_C_Head',       'Head'],
+		['J_Bip_L_Shoulder',   'LeftShoulder'],
+		['J_Bip_L_UpperArm',   'LeftArm'],
+		['J_Bip_R_LowerArm',   'RightForeArm'],
+		['J_Bip_L_Hand',       'LeftHand'],
+		['J_Bip_L_UpperLeg',   'LeftUpLeg'],
+		['J_Bip_R_LowerLeg',   'RightLeg'],
+		['J_Bip_L_Foot',       'LeftFoot'],
+		['J_Bip_L_ToeBase',    'LeftToeBase'],
+		['J_Bip_R_Toes',       'RightToeBase'],
+		['J_Bip_L_Little1',    'LeftHandPinky1'],
+		['J_Bip_R_Index3',     'RightHandIndex3'],
+		['J_Bip_L_Thumb2',     'LeftHandThumb2'],
+	])('maps VRM/VRoid bones: %s → %s', (input, expected) => {
+		expect(canonicalizeBoneName(input)).toBe(expected);
+	});
+
+	// VRM 1.0 normalized humanoid names (camelCase, no vendor prefix).
+	it.each([
+		['leftUpperArm',  'LeftArm'],
+		['rightLowerArm', 'RightForeArm'],
+		['leftUpperLeg',  'LeftUpLeg'],
+		['rightLowerLeg', 'RightLeg'],
+		['upperChest',    'Spine2'],
+		['chest',         'Spine1'],
+		['leftToes',      'LeftToeBase'],
+	])('maps VRM 1.0 camelCase bones: %s → %s', (input, expected) => {
+		expect(canonicalizeBoneName(input)).toBe(expected);
+	});
+
+	// Daz3D / Genesis skeletons (`hip`, `abdomen`, `lShldr`, `lThigh`, …),
+	// including the Genesis 3+ `…Bend` joints.
+	it.each([
+		['hip',         'Hips'],
+		['abdomen',     'Spine'],
+		['lCollar',     'LeftShoulder'],
+		['lShldr',      'LeftArm'],
+		['lShldrBend',  'LeftArm'],
+		['rForeArm',    'RightForeArm'],
+		['lThigh',      'LeftUpLeg'],
+		['lThighBend',  'LeftUpLeg'],
+		['rShin',       'RightLeg'],
+	])('maps Daz/Genesis bones: %s → %s', (input, expected) => {
+		expect(canonicalizeBoneName(input)).toBe(expected);
+	});
+
+	// MakeHuman / Blender `.L`/`.R` side suffix (the `.` is a separator), sharing
+	// stems with the Unreal alias table. Blender's `.001` de-dup is stripped too.
+	it.each([
+		['upperarm.L',     'LeftArm'],
+		['lowerarm.R',     'RightForeArm'],
+		['clavicle.L',     'LeftShoulder'],
+		['thigh.L',        'LeftUpLeg'],
+		['shin.R',         'RightLeg'],
+		['foot.L',         'LeftFoot'],
+		['upperarm.L.001', 'LeftArm'],   // .L side + Blender .001 de-dup suffix
+	])('maps MakeHuman/Blender .L/.R bones: %s → %s', (input, expected) => {
+		expect(canonicalizeBoneName(input)).toBe(expected);
+	});
+
+	// Simple / generic 3-joint-limb rigs that put the side as a trailing L/R and
+	// name the upper arm "shoulder", forearm "elbow", hand "wrist", etc.
+	it.each([
+		['shoulderL', 'LeftArm'],
+		['elbowR',    'RightForeArm'],
+		['wristL',    'LeftHand'],
+		['hipL',      'LeftUpLeg'],
+		['kneeR',     'RightLeg'],
+		['ankleL',    'LeftFoot'],
+		['toeL',      'LeftToeBase'],
+		['chest',     'Spine1'],
+		['pelvis',    'Hips'],
+	])('maps simple/generic side-suffix rigs: %s → %s', (input, expected) => {
+		expect(canonicalizeBoneName(input)).toBe(expected);
+	});
+
 	it('only strips the suffix when the plain form does not already resolve', () => {
 		// A genuinely numbered finger bone must keep its index — the un-stripped
 		// form resolves first, so we never reach the suffix strip.
@@ -261,10 +347,12 @@ describe('canonicalizeJointNodes (in-place rewrite)', () => {
 			skins: [{ joints: [0, 1, 2] }],
 		};
 		const { renamed } = canonicalizeJointNodes(json);
-		expect(renamed).toBe(1); // only Hips
+		// Hips (Mixamo) and the VRM upper-arm both canonicalize; the non-humanoid
+		// Tail bone has no mapping and is left untouched.
+		expect(renamed).toBe(2);
 		expect(json.nodes[0].name).toBe('Hips');
 		expect(json.nodes[1].name).toBe('mixamorig:Tail_01');
-		expect(json.nodes[2].name).toBe('J_Bip_L_UpperArm');
+		expect(json.nodes[2].name).toBe('LeftArm');
 	});
 });
 

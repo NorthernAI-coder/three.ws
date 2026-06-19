@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-19T22:13:29.951Z",
+	"generated_at": "2026-06-19T22:26:05.813Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -397,16 +397,6 @@
 		{
 			"date": "2026-06-19",
 			"type": "update",
-			"title": "Live x402 payment challenges on the IBM partnership page",
-			"summary": "The “Accelerating outcomes” section on the IBM × three.ws page had two empty gradient boxes under its AI agents and Crypto tabs. They're now live: each reads a real three.ws endpoint's HTTP 402 response on the spot and shows the exact terms the server is quoting — price in USDC, settlement network, and recipient. The AI agents tab shows what an autonomous agent reads before paying for live market data; the Crypto tab shows how any endpoint becomes pay-per-call. No wallet needed to watch it.",
-			"link": "/ibm/x402-demo",
-			"tags": [
-				"improvement"
-			]
-		},
-		{
-			"date": "2026-06-19",
-			"type": "update",
 			"title": "Memory Studio — watch your agent’s memory form, curate it, and trust it",
 			"summary": "The Memory tab in Agent Studio turns your agent’s memory into something you can see and shape. A live Timeline streams every memory as it forms — chats, lessons, rules, trades — each tagged by tier (working, recall, archival) and salience, with one-click pin, edit, merge, forget, and a slider to dial importance. A knowledge Graph maps the coins, wallets, people, and strategies your agent has learned, linked by what shows up together; click any coin to replay how your agent’s understanding of it evolved over time. Recall runs real semantic search over real embeddings, so asking “lessons from losing trades” or “rules my agent follows” returns what it actually knows — and an In-Context view shows exactly what the agent carries into every reply, with a live token budget so the core stays sharp. Seed it in seconds from your GitHub, X, and Farcaster, and the Brain’s Memory node recalls all of it for real.",
 			"link": "/agent-studio",
@@ -484,6 +474,17 @@
 			"link": null,
 			"tags": [
 				"fix"
+			]
+		},
+		{
+			"date": "2026-06-19",
+			"type": "update",
+			"title": "Pick who walks your pages — diverse avatar roster + Walk SDK",
+			"summary": "The walking companion that strolls the corner of every page (and detaches into the full-page playground) now lets you choose your character. A new picker offers a diverse roster — a robot mascot, humanoids, photoreal people, a fox, dancers and showpieces — and swaps the avatar live. Each one is animated correctly whether its model ships its own moves or borrows the shared motion library, so nobody ever freezes mid-stride. Under the hood the whole companion + playground is now a standalone SDK (@three-ws/walk) you can drop into any Three.js site.",
+			"link": null,
+			"tags": [
+				"feature",
+				"sdk"
 			]
 		},
 		{
@@ -685,6 +686,16 @@
 		{
 			"date": "2026-06-19",
 			"type": "update",
+			"title": "Walk mode moves to three.ws/temporary",
+			"summary": "The drive-your-avatar walk demo — joystick or WASD movement, AR back-camera passthrough, and the live coin-world mainland — now lives at three.ws/temporary. Every link across the site already points to the new path, and avatar deep-links (three.ws/wk/…) follow along. The old /walk address is freed up for what's coming next.",
+			"link": "/temporary",
+			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-19",
+			"type": "update",
 			"title": "Walk Playground no longer loses your character when it falls",
 			"summary": "When you walked the little robot off a ledge it could plummet faster than the page could keep up and slip off the bottom of the screen, leaving you unable to find it. The camera now tracks falls tightly and keeps the character in view, and on pages that can't scroll it catches the character and drops it right back into view.",
 			"link": "/features/walk",
@@ -698,6 +709,16 @@
 			"title": "Walk Playground now has two modes you can switch between",
 			"summary": "Click the corner walking companion to step into the page and you can now pick how he moves. Stroll mode is the relaxed top-down view — no gravity, wander anywhere across the page. Platformer mode turns the page's headings, cards and links into solid ground, with gravity, jumping and the chance to fall off edges. Flip between them live with the mode button (top-right) or the M key, and your choice is remembered as you walk from page to page.",
 			"link": null,
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-19",
+			"type": "update",
+			"title": "Walk the IBM partnership page with a 3D agent",
+			"summary": "The “Accelerating outcomes” section on the IBM × three.ws page had two empty gradient boxes. The AI agents tab now has a real 3D robot standing on it — click it (or press Enter) and the agent drops onto the page so you can walk the whole partnership page: every section becomes solid ground, arrow keys / WASD move and jump on desktop, and an on-screen joystick appears on phones. The Crypto tab now links straight to the live Forge and Play demos. The walk playground is also now loadable on its own from a stable URL, so any page can launch it.",
+			"link": "/ibm/partnership",
 			"tags": [
 				"feature"
 			]
@@ -2378,7 +2399,7 @@
 			"type": "update",
 			"title": "Walking avatars now travel the right way on every rig",
 			"summary": "Animations with root motion — walking, running, jumping with travel — now move your avatar in the correct world direction and distance no matter what tool the avatar came from. Avatars exported from Mixamo, Ready Player Me, Blender, and others orient their skeletons differently; previously a walk could drift sideways, sink into the floor, or moonwalk on rigs that didn't match the standard convention. The viewer now re-expresses each clip's root motion in the target rig's own frame, so two avatars built in different tools walk side by side in the same direction. Avatars that already matched the reference rig are byte-for-byte unchanged.",
-			"link": "/walk",
+			"link": "/temporary",
 			"tags": [
 				"fix",
 				"improvement"
@@ -3505,16 +3526,6 @@
 		{
 			"date": "2026-06-15",
 			"type": "launch",
-			"title": "The $THREE Economy",
-			"summary": "How three.ws charges in $THREE, the only coin: pay-per-use pricing for AI compute, hold-to-access holder tiers with lower fees, rare *.threews.sol names, and a holder-rewards loop. No burns — every spend funds the treasury or reflects back to holders.",
-			"link": "/three",
-			"tags": [
-				"launch"
-			]
-		},
-		{
-			"date": "2026-06-15",
-			"type": "launch",
 			"title": "Trader Leaderboard",
 			"summary": "Pump.fun traders ranked by a provable, on-chain track record — realized P&L, win rate, drawdown — with every number traceable to its transaction.",
 			"link": "/leaderboard",
@@ -4157,7 +4168,7 @@
 			"type": "update",
 			"title": "Animation library expands: 100+ clips, FBX and BVH upload",
 			"summary": "The platform animation library grows to 100+ retargeted motion clips drawn from Mixamo, Avaturn packs, and MIT-licensed Three.js example models (Soldier, Michelle, Xbot). The agent dashboard's Upload clip dialog now accepts .glb, .fbx, and .bvh files — FBX and BVH are converted to GLB client-side via three.js loaders before upload, so creators can bring mocap data directly from capture tools without a separate conversion step. A full Mixamo catalog download pipeline (scripts/mixamo-all.mjs) is in place to expand the library to 2,000+ clips as soon as credentials are supplied.",
-			"link": "/walk",
+			"link": "/temporary",
 			"tags": [
 				"feature",
 				"improvement"
@@ -6575,7 +6586,7 @@
 			"type": "launch",
 			"title": "Walk",
 			"summary": "Drive a 3D avatar around with a joystick or WASD — toggle the back camera for AR-style passthrough.",
-			"link": "/walk",
+			"link": "/temporary",
 			"tags": [
 				"launch"
 			]

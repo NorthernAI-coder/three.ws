@@ -4,17 +4,22 @@
 //
 // Handled name variants:
 //   • Mixamo:          `mixamorig:LeftArm`, `mixamorig1:LeftArm`, `mixamorigLeftArm`
-//   • Blender:         `Armature_LeftArm`, `Armature/LeftArm`
+//   • Blender:         `Armature_LeftArm`, `Armature/LeftArm`, `upperarm.L` (.L/.R side)
 //   • Rigify:          `DEF-LeftArm`, `ORG-LeftArm`, `MCH-LeftArm`
 //   • CharacterStudio: `CH_Hips`, `CH_LeftUpLeg` (CH_ prefix stripped)
 //   • Unreal mannequin: `pelvis`, `clavicle_l`, `upperarm_l`, `thigh_l`, `calf_l`, … (alias map)
+//   • VRM / VRoid:     `J_Bip_C_Hips`, `J_Bip_L_UpperArm`, `J_Bip_L_Little1` (alias map)
+//   • VRM 1.0:         `upperChest`, `leftUpperArm`, `leftLowerLeg`, `leftToes` (camelCase)
+//   • Daz / Genesis:   `hip`, `abdomen`, `lShldr`, `lForeArm`, `lThigh`, `lShin`, `lCollar`
+//   • MakeHuman:       `upperarm.L`, `shin.L`, `clavicle.L` (shared with Unreal/Blender stems)
+//   • Simple rigs:     `shoulderL`, `elbowL`, `wristL`, `hipL`, `kneeL`, `ankleL`, `chest`
 //   • snake_case:      `left_arm`, `Left_Arm`
 //   • kebab-case:      `left-arm`
 //   • lowercase:       `leftarm`, `lefthand`
 //
-// VRM-style names (`J_Bip_L_UpperArm`) and skeletons that aren't humanoid
-// (quadrupeds, custom rigs) deliberately fall through unchanged — there's no
-// safe automatic mapping for those.
+// Skeletons that aren't humanoid (quadrupeds, custom prop rigs) deliberately
+// fall through unchanged — there's no safe automatic mapping for those, and
+// callers fall back to a known-good rig rather than render a bind-pose T-pose.
 //
 // This module is pure JS — works in Node (vitest) and in the browser. It
 // rewrites the GLB JSON chunk in-place and repacks the binary container so
@@ -80,6 +85,75 @@ const UNREAL_ALIASES = new Map(Object.entries({
 	thighr: 'RightUpLeg', calfr: 'RightLeg', footr: 'RightFoot', ballr: 'RightToeBase',
 }));
 
+// Extended humanoid alias map: VRM/VRoid, VRM 1.0, Daz/Genesis, MakeHuman, and
+// simple/generic rigs. Keyed by the same separator-stripped, lowercased form
+// `_lookupBone` produces (e.g. `J_Bip_L_UpperArm` → `jbiplupperarm`,
+// `shoulderL` → `shoulderl`). Consulted AFTER the canonical/Mixamo and Unreal
+// tables, so it only ever resolves names those don't already cover — it can
+// never shadow a canonical spelling. Every entry maps onto the canonical bone
+// set the clip library drives, so any rig using these conventions animates
+// (idle + walk with legs moving) instead of freezing in its bind-pose T-pose.
+const EXTRA_ALIASES = (() => {
+	const m = new Map();
+	const norm = (s) => s.replace(/[-_.\s]+/g, '').toLowerCase();
+	// First spelling wins, so listing-order is the priority.
+	const put = (variant, canonical) => { const k = norm(variant); if (!m.has(k)) m.set(k, canonical); };
+
+	// VRM 0.x / VRoid skeletons (`J_Bip_<C|L|R>_<bone>`). The side lives in the
+	// prefix, so each is mapped explicitly rather than via the side helper below.
+	const VRM = [
+		['J_Bip_C_Hips', 'Hips'], ['J_Bip_C_Spine', 'Spine'], ['J_Bip_C_Chest', 'Spine1'],
+		['J_Bip_C_UpperChest', 'Spine2'], ['J_Bip_C_Neck', 'Neck'], ['J_Bip_C_Head', 'Head'],
+		['J_Bip_L_Shoulder', 'LeftShoulder'], ['J_Bip_L_UpperArm', 'LeftArm'], ['J_Bip_L_LowerArm', 'LeftForeArm'], ['J_Bip_L_Hand', 'LeftHand'],
+		['J_Bip_R_Shoulder', 'RightShoulder'], ['J_Bip_R_UpperArm', 'RightArm'], ['J_Bip_R_LowerArm', 'RightForeArm'], ['J_Bip_R_Hand', 'RightHand'],
+		['J_Bip_L_UpperLeg', 'LeftUpLeg'], ['J_Bip_L_LowerLeg', 'LeftLeg'], ['J_Bip_L_Foot', 'LeftFoot'], ['J_Bip_L_ToeBase', 'LeftToeBase'], ['J_Bip_L_Toes', 'LeftToeBase'],
+		['J_Bip_R_UpperLeg', 'RightUpLeg'], ['J_Bip_R_LowerLeg', 'RightLeg'], ['J_Bip_R_Foot', 'RightFoot'], ['J_Bip_R_ToeBase', 'RightToeBase'], ['J_Bip_R_Toes', 'RightToeBase'],
+	];
+	for (const [v, c] of VRM) put(v, c);
+	// VRoid finger chains: Thumb/Index/Middle/Ring map 1:1; "Little" is the pinky.
+	for (const [vf, cf] of [['Thumb', 'Thumb'], ['Index', 'Index'], ['Middle', 'Middle'], ['Ring', 'Ring'], ['Little', 'Pinky']]) {
+		for (let n = 1; n <= 3; n++) {
+			put(`J_Bip_L_${vf}${n}`, `LeftHand${cf}${n}`);
+			put(`J_Bip_R_${vf}${n}`, `RightHand${cf}${n}`);
+		}
+	}
+
+	// Centre / torso bones with no side (VRM 1.0, Daz, generic single-chest rigs).
+	for (const [v, c] of [
+		['chest', 'Spine1'], ['lowerChest', 'Spine1'], ['chestLower', 'Spine1'],
+		['upperChest', 'Spine2'], ['chestUpper', 'Spine2'],
+		['abdomen', 'Spine'], ['abdomenLower', 'Spine'], ['abdomenUpper', 'Spine1'],
+		['hip', 'Hips'],
+		['lowerNeck', 'Neck'], ['upperNeck', 'Neck'], ['neckLower', 'Neck'], ['neckUpper', 'Neck'],
+	]) put(v, c);
+
+	// Side-paired limb bones, given as the LEFT spelling + its canonical; the
+	// right twin is derived by swapping the side token (left→right, leading l→r,
+	// trailing L→R). Covers VRM 1.0 camelCase, Daz/Genesis (`lShldr`, `lThigh`),
+	// and simple rigs (`shoulderL`, `elbowL`, `hipL`).
+	const SIDED = [
+		['leftUpperArm', 'LeftArm'], ['lUpperArm', 'LeftArm'], ['shoulderL', 'LeftArm'], ['lShldr', 'LeftArm'], ['lShldrBend', 'LeftArm'],
+		['leftLowerArm', 'LeftForeArm'], ['lLowerArm', 'LeftForeArm'], ['elbowL', 'LeftForeArm'], ['lForeArm', 'LeftForeArm'], ['lForearmBend', 'LeftForeArm'],
+		['wristL', 'LeftHand'], ['lHand', 'LeftHand'],
+		['lCollar', 'LeftShoulder'], ['collarL', 'LeftShoulder'],
+		['leftUpperLeg', 'LeftUpLeg'], ['lUpperLeg', 'LeftUpLeg'], ['hipL', 'LeftUpLeg'], ['lThigh', 'LeftUpLeg'], ['lThighBend', 'LeftUpLeg'],
+		['leftLowerLeg', 'LeftLeg'], ['lLowerLeg', 'LeftLeg'], ['kneeL', 'LeftLeg'], ['shinL', 'LeftLeg'], ['lShin', 'LeftLeg'],
+		['ankleL', 'LeftFoot'], ['lFoot', 'LeftFoot'],
+		['leftToes', 'LeftToeBase'], ['toeL', 'LeftToeBase'], ['lToe', 'LeftToeBase'],
+	];
+	for (const [lv, lc] of SIDED) {
+		put(lv, lc);
+		const rc = lc.replace(/^Left/, 'Right');
+		let rv;
+		if (/^left/.test(lv)) rv = lv.replace(/^left/, 'right');
+		else if (/^l[A-Z]/.test(lv)) rv = 'r' + lv.slice(1);
+		else if (/L$/.test(lv)) rv = lv.replace(/L$/, 'R');
+		else rv = lv;
+		put(rv, rc);
+	}
+	return m;
+})();
+
 /**
  * Reduce a bone name to its canonical three.ws form, or null if it doesn't
  * correspond to a recognised humanoid bone.
@@ -98,7 +172,8 @@ export function canonicalizeBoneName(name) {
 	// removed — but only when the un-stripped form didn't already resolve, so a
 	// genuinely numbered bone like `left_hand_index_1` still maps to
 	// `LeftHandIndex1` before we'd ever strip its index.
-	const deduped = name.replace(/_\d+$/, '');
+	// `_NN` (glTF/FBX) and `.NNN` (Blender) are both node-de-dup suffixes.
+	const deduped = name.replace(/[._]\d+$/, '');
 	if (deduped !== name) return _lookupBone(deduped);
 	return null;
 }
@@ -114,11 +189,13 @@ function _lookupBone(name) {
 	// CharacterStudio exports prefix every joint `CH_` (`CH_Hips`, `CH_LeftUpLeg`),
 	// whose stems are otherwise canonical — strip it like any other vendor prefix.
 	s = s.replace(/^CH[_:]/i, '');
-	// Collapse separators so `Left_Arm`, `left-arm`, `left arm`, `LeftArm` all
-	// reach the same lookup key.
-	const key = s.replace(/[-_\s]+/g, '').toLowerCase();
-	// Canonical/Mixamo/Rigify spellings first, then the Unreal-mannequin aliases.
-	return LOOKUP.get(key) ?? UNREAL_ALIASES.get(key) ?? null;
+	// Collapse separators so `Left_Arm`, `left-arm`, `left arm`, `LeftArm`,
+	// `upperarm.L` all reach the same lookup key (`.` covers Blender/MakeHuman).
+	const key = s.replace(/[-_.\s]+/g, '').toLowerCase();
+	// Canonical/Mixamo/Rigify spellings first, then the Unreal-mannequin aliases,
+	// then the extended VRM/Daz/MakeHuman/simple-rig table (lowest priority, so it
+	// only catches names the first two don't already resolve).
+	return LOOKUP.get(key) ?? UNREAL_ALIASES.get(key) ?? EXTRA_ALIASES.get(key) ?? null;
 }
 
 /**

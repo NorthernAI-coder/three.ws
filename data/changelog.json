@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-06-19",
+			"title": "Pick who walks your pages — diverse avatar roster + Walk SDK",
+			"summary": "The walking companion that strolls the corner of every page (and detaches into the full-page playground) now lets you choose your character. A new picker offers a diverse roster — a robot mascot, humanoids, photoreal people, a fox, dancers and showpieces — and swaps the avatar live. Each one is animated correctly whether its model ships its own moves or borrows the shared motion library, so nobody ever freezes mid-stride. Under the hood the whole companion + playground is now a standalone SDK (@three-ws/walk) you can drop into any Three.js site.",
+			"tags": [
+				"feature",
+				"sdk"
+			]
+		},
+		{
+			"date": "2026-06-19",
 			"title": "Walk mode moves to three.ws/temporary",
 			"summary": "The drive-your-avatar walk demo — joystick or WASD movement, AR back-camera passthrough, and the live coin-world mainland — now lives at three.ws/temporary. Every link across the site already points to the new path, and avatar deep-links (three.ws/wk/…) follow along. The old /walk address is freed up for what's coming next.",
 			"tags": [
@@ -129,12 +138,12 @@
 		},
 		{
 			"date": "2026-06-19",
-			"title": "Live x402 payment challenges on the IBM partnership page",
-			"summary": "The “Accelerating outcomes” section on the IBM × three.ws page had two empty gradient boxes under its AI agents and Crypto tabs. They're now live: each reads a real three.ws endpoint's HTTP 402 response on the spot and shows the exact terms the server is quoting — price in USDC, settlement network, and recipient. The AI agents tab shows what an autonomous agent reads before paying for live market data; the Crypto tab shows how any endpoint becomes pay-per-call. No wallet needed to watch it.",
+			"title": "Walk the IBM partnership page with a 3D agent",
+			"summary": "The “Accelerating outcomes” section on the IBM × three.ws page had two empty gradient boxes. The AI agents tab now has a real 3D robot standing on it — click it (or press Enter) and the agent drops onto the page so you can walk the whole partnership page: every section becomes solid ground, arrow keys / WASD move and jump on desktop, and an on-screen joystick appears on phones. The Crypto tab now links straight to the live Forge and Play demos. The walk playground is also now loadable on its own from a stable URL, so any page can launch it.",
 			"tags": [
-				"improvement"
+				"feature"
 			],
-			"link": "/ibm/x402-demo"
+			"link": "/ibm/partnership"
 		},
 		{
 			"date": "2026-06-19",

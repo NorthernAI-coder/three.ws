@@ -4,7 +4,7 @@
 // input state and the avatar's world position before/after.
 import { chromium } from 'playwright';
 
-const URL = process.env.URL || 'http://localhost:3000/walk';
+const URL = process.env.URL || 'http://localhost:3000/temporary';
 
 const browser = await chromium.launch({
 	args: [

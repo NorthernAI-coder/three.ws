@@ -24,7 +24,7 @@ await page.route('**/api/community/worlds', (route) =>
 
 const result = { steps: [] };
 try {
-	await page.goto(`${BASE}/walk`, { waitUntil: 'domcontentloaded', timeout: 30000 });
+	await page.goto(`${BASE}/temporary`, { waitUntil: 'domcontentloaded', timeout: 30000 });
 	await page.waitForTimeout(3000);
 
 	const lobby = page.locator('.clobby');

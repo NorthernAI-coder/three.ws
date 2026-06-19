@@ -35,7 +35,7 @@ try {
 	// ── Enter a coin world ────────────────────────────────────────────────────
 	log('→ clicking first coin');
 	await Promise.all([
-		page.waitForURL(/\/walk\?.*coin=/, { timeout: 15000 }),
+		page.waitForURL(/\/temporary\?.*coin=/, { timeout: 15000 }),
 		first.click(),
 	]);
 	const url = new URL(page.url());
@@ -63,10 +63,10 @@ try {
 
 	// ── Mainland (no coin) still works ────────────────────────────────────────
 	log('→ verifying mainland (no coin) has no coin HUD');
-	await page.goto(`${BASE}/walk`, { waitUntil: 'domcontentloaded' });
+	await page.goto(`${BASE}/temporary`, { waitUntil: 'domcontentloaded' });
 	await page.waitForTimeout(1500);
 	const hudOnMainland = await page.locator('#walk-coin-hud').count();
-	if (hudOnMainland !== 0) errors.push('coin HUD wrongly present on mainland /walk');
+	if (hudOnMainland !== 0) errors.push('coin HUD wrongly present on mainland /temporary');
 	log(`  coin HUD on mainland: ${hudOnMainland} (expect 0)`);
 } catch (e) {
 	errors.push(`[harness] ${e.message}`);

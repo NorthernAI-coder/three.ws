@@ -43,7 +43,7 @@ let entersWalk = false;
 let walkUrl = '';
 try {
 	await page.locator('.wl-card:not(.wl-skel)').first().click();
-	await page.waitForURL('**/walk?**', { timeout: 10_000 });
+	await page.waitForURL('**/temporary?**', { timeout: 10_000 });
 	walkUrl = page.url();
 	entersWalk = /[?&]coin=[1-9A-HJ-NP-Za-km-z]{32,44}/.test(walkUrl);
 } catch { /* stays false */ }

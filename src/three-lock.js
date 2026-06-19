@@ -17,7 +17,7 @@
 // Fully keyboard-navigable (real <a>/<button>), ARIA-labelled, reduced-motion
 // aware, and responsive. Never throws — a missing target is a no-op.
 
-const ECONOMY_URL = '/three';
+const ECONOMY_URL = '/three-token';
 const SIGN_IN_URL = '/login';
 const LINK_WALLET_URL = '/dashboard/account#wallets';
 

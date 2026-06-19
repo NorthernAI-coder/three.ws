@@ -38,7 +38,7 @@ let _tierPass = null; // { pass, tier, exp(ms), wallet } — wallet is the ident
 let _tierPassInFlight = null; // de-dupe concurrent mints onto one network/signature round-trip
 let _stylesInjected = false;
 
-const ECONOMY_URL = '/three';
+const ECONOMY_URL = '/three-token';
 
 // The connected Solana wallet address (Phantom on web, the Seeker TWA wallet on
 // mobile), or null when none is connected — in which case every read falls back to
@@ -302,7 +302,7 @@ export async function mountTierBadge(target) {
 	// Icon + label are separate spans so the nav can collapse the chip to just the ◆ on
 	// the tightest viewports (≤520px) without losing the link or its accessible name.
 	el.innerHTML =
-		`<a class="tg-badge tg-tier-${escapeHtml(t.id)}" href="${ECONOMY_URL}#tiers" ` +
+		`<a class="tg-badge tg-tier-${escapeHtml(t.id)}" href="${ECONOMY_URL}" ` +
 		`aria-label="Your $THREE tier: ${escapeHtml(t.label)}" ` +
 		`title="Your $THREE holder tier — what it unlocks${held}">` +
 		`<span class="tg-tier-mark" aria-hidden="true">◆</span>` +
@@ -382,7 +382,7 @@ export function showThreeGate(gate, opts = {}) {
 			<div class="tg-actions">
 				<a class="tg-btn tg-btn--primary" id="tg-get" href="${escapeHtml(getUrl)}">Get $THREE</a>
 				${payBtn}
-				<a class="tg-btn tg-btn--ghost" href="${ECONOMY_URL}#tiers">See holder tiers</a>
+				<a class="tg-btn tg-btn--ghost" href="${ECONOMY_URL}">$THREE price &amp; chart</a>
 			</div>
 			<p class="tg-foot">$THREE is the only coin on three.ws. Draft &amp; Standard generation stay free, forever.</p>
 		</div>`;

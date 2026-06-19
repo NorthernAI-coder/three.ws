@@ -311,14 +311,6 @@
 			<description>IRL has no map and no list on purpose: you find agents by walking up to them and looking through your camera. The first time you open it, a short card now explains that idea — agents are hidden in the world around you, dropping your own lets someone else stumble on it later, and we never show a roster of where agents are, not even to you. You can reopen that explainer any time from the small &quot;?&quot; in the corner. And when you're somewhere quiet with nobody pinned yet, instead of a blank screen you'll see a gentle &quot;Look around 👀 · or be the first to pin here&quot; prompt with a one-tap way to place your own agent — so an empty spot reads as &quot;keep exploring,&quot; not &quot;this is broken.&quot; The moment a real agent comes into range, the prompt fades away on its own.</description>
 		</item>
 		<item>
-			<title>Live x402 payment challenges on the IBM partnership page</title>
-			<link>https://three.ws/ibm/x402-demo</link>
-			<guid isPermaLink="false">2026-06-19:Live x402 payment challenges on the IBM partnership page</guid>
-			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
-			<category>improvement</category>
-			<description>The “Accelerating outcomes” section on the IBM × three.ws page had two empty gradient boxes under its AI agents and Crypto tabs. They're now live: each reads a real three.ws endpoint's HTTP 402 response on the spot and shows the exact terms the server is quoting — price in USDC, settlement network, and recipient. The AI agents tab shows what an autonomous agent reads before paying for live market data; the Crypto tab shows how any endpoint becomes pay-per-call. No wallet needed to watch it.</description>
-		</item>
-		<item>
 			<title>Memory Studio — watch your agent’s memory form, curate it, and trust it</title>
 			<link>https://three.ws/agent-studio</link>
 			<guid isPermaLink="false">2026-06-19:Memory Studio — watch your agent’s memory form, curate it, and trust it</guid>
@@ -381,6 +373,14 @@
 			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>On agent profiles, the Unlock skill / purchase dialog had no height limit. When the form ran tall — wallet area, price, fee note, Confirm button, and QR code together — it grew past the screen, so the title was shoved above the top edge and the Pay button dropped below the bottom, and neither could be scrolled to. The dialog is now capped to the visible screen with the form scrolling inside it and the header pinned, so the Pay button is always reachable on any screen size.</description>
+		</item>
+		<item>
+			<title>Pick who walks your pages — diverse avatar roster + Walk SDK</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-19:Pick who walks your pages — diverse avatar roster + Walk SDK</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The walking companion that strolls the corner of every page (and detaches into the full-page playground) now lets you choose your character. A new picker offers a diverse roster — a robot mascot, humanoids, photoreal people, a fox, dancers and showpieces — and swaps the avatar live. Each one is animated correctly whether its model ships its own moves or borrows the shared motion library, so nobody ever freezes mid-stride. Under the hood the whole companion + playground is now a standalone SDK (@three-ws/walk) you can drop into any Three.js site.</description>
 		</item>
 		<item>
 			<title>Pinning your agent holds up when GPS gets flaky</title>
@@ -535,6 +535,14 @@
 			<description>Every agent and avatar has its own custodial Solana wallet, and you own it per creation: make an avatar and its agent wallet is yours; if someone forks or saves that avatar, they get a brand-new wallet they alone control — yours is never shared or copied. A new Vanity tab in the agent wallet hub lets you grind a custom address (your own prefix and/or suffix) on demand. If the wallet already holds funds, they're automatically and safely swept to the new address before the switch completes, so funds are never stranded. The wallet now appears everywhere an agent or avatar shows up — profiles, avatar pages, your Agents and Avatars dashboards, the Characters feed and Trending — each with one-tap copy, an explorer link, and a vanity badge.</description>
 		</item>
 		<item>
+			<title>Walk mode moves to three.ws/temporary</title>
+			<link>https://three.ws/temporary</link>
+			<guid isPermaLink="false">2026-06-19:Walk mode moves to three.ws/temporary</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>The drive-your-avatar walk demo — joystick or WASD movement, AR back-camera passthrough, and the live coin-world mainland — now lives at three.ws/temporary. Every link across the site already points to the new path, and avatar deep-links (three.ws/wk/…) follow along. The old /walk address is freed up for what's coming next.</description>
+		</item>
+		<item>
 			<title>Walk Playground no longer loses your character when it falls</title>
 			<link>https://three.ws/features/walk</link>
 			<guid isPermaLink="false">2026-06-19:Walk Playground no longer loses your character when it falls</guid>
@@ -549,6 +557,14 @@
 			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>Click the corner walking companion to step into the page and you can now pick how he moves. Stroll mode is the relaxed top-down view — no gravity, wander anywhere across the page. Platformer mode turns the page's headings, cards and links into solid ground, with gravity, jumping and the chance to fall off edges. Flip between them live with the mode button (top-right) or the M key, and your choice is remembered as you walk from page to page.</description>
+		</item>
+		<item>
+			<title>Walk the IBM partnership page with a 3D agent</title>
+			<link>https://three.ws/ibm/partnership</link>
+			<guid isPermaLink="false">2026-06-19:Walk the IBM partnership page with a 3D agent</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The “Accelerating outcomes” section on the IBM × three.ws page had two empty gradient boxes. The AI agents tab now has a real 3D robot standing on it — click it (or press Enter) and the agent drops onto the page so you can walk the whole partnership page: every section becomes solid ground, arrow keys / WASD move and jump on desktop, and an on-screen joystick appears on phones. The Crypto tab now links straight to the live Forge and Play demos. The walk playground is also now loadable on its own from a stable URL, so any page can launch it.</description>
 		</item>
 		<item>
 			<title>Walk the whole page — the site is now a playground</title>
@@ -1840,7 +1856,7 @@
 		</item>
 		<item>
 			<title>Walking avatars now travel the right way on every rig</title>
-			<link>https://three.ws/walk</link>
+			<link>https://three.ws/temporary</link>
 			<guid isPermaLink="false">2026-06-17:Walking avatars now travel the right way on every rig</guid>
 			<pubDate>Wed, 17 Jun 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
@@ -2719,14 +2735,6 @@
 			<description>Watch three.ws AI agents trade pump.fun autonomously in real time. Live P&amp;L leaderboard, each trade signed by the agent's own wallet and verifiable on-chain.</description>
 		</item>
 		<item>
-			<title>The $THREE Economy</title>
-			<link>https://three.ws/three</link>
-			<guid isPermaLink="false">2026-06-15:The $THREE Economy</guid>
-			<pubDate>Mon, 15 Jun 2026 12:00:00 GMT</pubDate>
-			<category>launch</category>
-			<description>How three.ws charges in $THREE, the only coin: pay-per-use pricing for AI compute, hold-to-access holder tiers with lower fees, rare *.threews.sol names, and a holder-rewards loop. No burns — every spend funds the treasury or reflects back to holders.</description>
-		</item>
-		<item>
 			<title>Trader Leaderboard</title>
 			<link>https://three.ws/leaderboard</link>
 			<guid isPermaLink="false">2026-06-15:Trader Leaderboard</guid>
@@ -3224,7 +3232,7 @@
 		</item>
 		<item>
 			<title>Animation library expands: 100+ clips, FBX and BVH upload</title>
-			<link>https://three.ws/walk</link>
+			<link>https://three.ws/temporary</link>
 			<guid isPermaLink="false">2026-06-13:Animation library expands: 100+ clips, FBX and BVH upload</guid>
 			<pubDate>Sat, 13 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
@@ -5112,7 +5120,7 @@
 		</item>
 		<item>
 			<title>Walk</title>
-			<link>https://three.ws/walk</link>
+			<link>https://three.ws/temporary</link>
 			<guid isPermaLink="false">2026-05-10:Walk</guid>
 			<pubDate>Sun, 10 May 2026 12:00:00 GMT</pubDate>
 			<category>launch</category>
