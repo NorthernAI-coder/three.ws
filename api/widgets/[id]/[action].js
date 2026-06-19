@@ -21,6 +21,7 @@ import { moderateAnonInput, refusalReply } from '../../_lib/moderation.js';
 import { embeddingsConfigured, scoreRowsBySpace } from '../../_lib/embeddings.js';
 import { rerankConfigured, rerankPassages } from '../../_lib/rerank.js';
 import { watsonxConfig, watsonxToken } from '../../_lib/watsonx.js';
+import { fetchSafePublicUrlPinned, SsrfBlockedError } from '../../_lib/ssrf-guard.js';
 import { listTranscripts, getTranscript } from './_transcripts.js';
 // _knowledge.js is loaded on demand (dynamic import in handleKnowledge) so the
 // knowledge-ingest path stays isolated: any failure constructing that module
@@ -641,16 +642,28 @@ async function callCustomProxy(proxyURL, body, cfg, allowedSkills) {
 	if (!/^https:\/\//i.test(proxyURL || '')) {
 		return { reply: 'Custom brain misconfigured — proxyURL must be HTTPS.', actions: [] };
 	}
-	const upstream = await fetch(proxyURL, {
-		method: 'POST',
-		headers: { 'content-type': 'application/json' },
-		body: JSON.stringify({
-			message: body.message,
-			history: body.history,
-			systemPrompt: buildSystemPromptForCustom(cfg),
-			temperature: Number(cfg.temperature) || 0.7,
-		}),
-	});
+	// The proxy URL is owner-supplied and persisted unvalidated, so route it through
+	// the SSRF guard (DNS-pinned, redirect-checked) instead of a bare fetch — this
+	// blocks a widget owner from pointing the "custom brain" at 169.254.169.254 or
+	// any RFC1918 host to pivot off our egress.
+	let upstream;
+	try {
+		upstream = await fetchSafePublicUrlPinned(proxyURL, {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({
+				message: body.message,
+				history: body.history,
+				systemPrompt: buildSystemPromptForCustom(cfg),
+				temperature: Number(cfg.temperature) || 0.7,
+			}),
+		});
+	} catch (err) {
+		if (err instanceof SsrfBlockedError) {
+			return { reply: 'Custom brain misconfigured — proxyURL must be a public host.', actions: [] };
+		}
+		return { reply: 'Custom brain is unreachable right now.', actions: [] };
+	}
 	if (!upstream.ok) {
 		return { reply: 'Custom brain returned an error.', actions: [] };
 	}

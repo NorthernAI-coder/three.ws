@@ -13,7 +13,7 @@
  * Requires HELIUS_API_KEY env var.
  */
 
-import { cors, json, method, error, wrap, rateLimited } from '../_lib/http.js';
+import { cors, json, method, error, wrap, rateLimited, serverError } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { getSessionUser, authenticateBearer, extractBearer, hasScope } from '../_lib/auth.js';
 
@@ -87,12 +87,14 @@ async function handlePortfolio(req, res) {
 
 	if (!resp.ok) {
 		const txt = await resp.text().catch(() => resp.status.toString());
-		return error(res, 502, 'upstream_error', `Helius DAS error ${resp.status}: ${txt}`);
+		console.error('[agents/nfts] Helius DAS error', resp.status, txt);
+		return serverError(res, 502, 'upstream_error', new Error(`Helius DAS error ${resp.status}`));
 	}
 
 	const data = await resp.json();
 	if (data.error) {
-		return error(res, 502, 'upstream_error', data.error.message || JSON.stringify(data.error));
+		console.error('[agents/nfts] Helius DAS rpc error', data.error?.message || data.error);
+		return serverError(res, 502, 'upstream_error', new Error('Helius DAS rpc error'));
 	}
 
 	const raw = data.result || {};
@@ -136,7 +138,8 @@ async function handleActivity(req, res) {
 
 	if (!resp.ok) {
 		const txt = await resp.text().catch(() => resp.status.toString());
-		return error(res, 502, 'upstream_error', `Helius enhanced tx error ${resp.status}: ${txt}`);
+		console.error('[agents/nfts] Helius enhanced tx error', resp.status, txt);
+		return serverError(res, 502, 'upstream_error', new Error(`Helius enhanced tx error ${resp.status}`));
 	}
 
 	const txns = await resp.json();

@@ -4,8 +4,9 @@
 // ordered failover: server Anthropic → Groq → OpenRouter, so a single upstream
 // 429/5xx fails over to the next provider instead of returning a hard 502.
 
-import { cors, json, method, readJson, wrap, error } from '../_lib/http.js';
+import { cors, json, method, readJson, wrap, error, rateLimited } from '../_lib/http.js';
 import { getSessionUser, authenticateBearer, extractBearer, hasScope } from '../_lib/auth.js';
+import { limits } from '../_lib/rate-limit.js';
 import { llmComplete, LlmUnavailableError } from '../_lib/llm.js';
 
 const MAX_ANSWERS = 12;
@@ -85,6 +86,12 @@ const handler = wrap(async (req, res) => {
 	if (!userId) {
 		return error(res, 401, 'unauthorized', 'Sign in to build your persona.');
 	}
+
+	// Each call is a paid LLM completion on the server key — meter per user so a
+	// free-signup loop can't run up an unbounded bill (5/day, matches the sibling
+	// agents/:id/persona route).
+	const rl = await limits.personaExtract(userId);
+	if (!rl.success) return rateLimited(res, rl);
 
 	const body = await readJson(req);
 	const input = validateInput(body);

@@ -20,14 +20,14 @@
  */
 
 import { sql } from '../_lib/db.js';
-import { cors, error, json, method, wrap, rateLimited } from '../_lib/http.js';
+import { cors, error, json, method, wrap, rateLimited, serverError } from '../_lib/http.js';
 import { clientIp, limits } from '../_lib/rate-limit.js';
+import { isUuid } from '../_lib/validate.js';
 import {
 	SKILL_LICENSE_PROGRAM_ID,
 	verifyOnchainSkillLicense,
 } from '../_lib/skill-license-onchain.js';
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const BASE58_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 
 function explorerForLicense(license, network) {
@@ -60,7 +60,7 @@ export default wrap(async (req, res) => {
 	// per-agent skill collection mint looked up from its uuid.
 	let agentMint = agentMintParam;
 	if (!agentMint && agentId) {
-		if (!UUID_RE.test(agentId)) {
+		if (!isUuid(agentId)) {
 			return error(res, 400, 'validation_error', 'agent_id must be a uuid');
 		}
 		const [agent] = await sql`
@@ -87,7 +87,8 @@ export default wrap(async (req, res) => {
 	try {
 		result = await verifyOnchainSkillLicense({ ownerWallet: wallet, agentMint, skill, network });
 	} catch (e) {
-		return error(res, 502, 'rpc_error', `could not read on-chain license: ${e.message}`);
+		console.error('[skills/license-onchain] read failed', e?.message);
+		return serverError(res, 502, 'rpc_error', e);
 	}
 
 	return json(

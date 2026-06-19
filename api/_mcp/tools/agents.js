@@ -14,8 +14,7 @@ import {
 } from '../../_lib/onchain-deploy.js';
 import { buildRegistrationJSON } from '../../../src/erc8004/registration-json.js';
 import { REGISTRY_DEPLOYMENTS } from '../../../src/erc8004/abi.js';
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { isUuid } from '../../_lib/validate.js';
 
 // Base mainnet — the EVM chain we expose for ERC-8004 self-registration.
 const BASE_CHAIN_ID = 8453;
@@ -292,7 +291,7 @@ export const toolDefs = [
 					retry_after: Math.ceil((rl.reset - Date.now()) / 1000),
 				});
 
-			if (!UUID_RE.test(args.agent_id || '')) {
+			if (!isUuid(args.agent_id || '')) {
 				return designedError('validation_error', 'agent_id must be a valid uuid.', {});
 			}
 
@@ -372,7 +371,7 @@ export const toolDefs = [
 			// isn't required to *read* a public identity, but we only resolve the row
 			// for the caller (own or public) and exclude it from its own comparison.
 			if (args.agent_id) {
-				if (!UUID_RE.test(args.agent_id)) {
+				if (!isUuid(args.agent_id)) {
 					return designedError('validation_error', 'agent_id must be a valid uuid.', {});
 				}
 				const [row] = await sql`

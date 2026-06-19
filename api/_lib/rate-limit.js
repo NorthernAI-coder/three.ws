@@ -494,6 +494,27 @@ export const limits = {
 	// Persona extraction: Claude API call — 5 per user per day.
 	personaExtract: (userId) =>
 		getLimiter('persona:extract', { limit: 5, window: '1 d' }).limit(userId),
+	// Persona preview: Claude API call on the server key. Looser than extract (it's
+	// interactive) but still per-user critical so a free-signup loop can't run up an
+	// unbounded LLM bill. Anonymous shouldn't reach it (auth required), so per-user.
+	personaPreviewUser: (userId) =>
+		getLimiter('persona:preview:user', { limit: 30, window: '1 h', critical: true }).limit(userId),
+	// Oracle social ingestion: unauthenticated, state-mutating write into the
+	// narrative virality/conviction scorer (up to 500 tweets/call). Tight per-IP cap
+	// so it can't be driven for narrative manipulation. (Replaces a mis-wired limiter
+	// that referenced an undefined bucket and dead-429'd the endpoint.)
+	oracleSocialIp: (ip) =>
+		getLimiter('oracle:social:ip', { limit: 20, window: '5 m' }).limit(ip),
+	// Forever/inscribe: creates a real OrdinalsBot order against the platform's API
+	// key. Per-IP so the platform's key/quota can't be scripted. Critical — a Redis
+	// outage should fail closed rather than uncap third-party order creation.
+	inscribeIp: (ip) =>
+		getLimiter('inscribe:ip', { limit: 10, window: '10 m', critical: true }).limit(ip),
+	// IBM attest submit: broadcasts a fee-paying on-chain tx from the shared attester
+	// wallet. Per-attester-pubkey daily ceiling so concurrent calls can't drain the
+	// wallet's SOL via fees. Critical — fail closed in prod without Redis.
+	attestSubmitDaily: (pubkey) =>
+		getLimiter('attest:submit:daily', { limit: 50, window: '1 d', critical: true }).limit(pubkey),
 	agentDelegate: (key) => getLimiter('agent:delegate', { limit: 10, window: '1 m' }).limit(key),
 	// GitHub memory seeding: expensive (GitHub API + Claude). 1 seed per agent per 24 hours.
 	memorySeed: (agentId) => getLimiter('memory:seed', { limit: 1, window: '1 d' }).limit(agentId),

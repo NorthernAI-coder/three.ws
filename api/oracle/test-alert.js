@@ -15,8 +15,8 @@ import { cors, json, method, readJson, wrap, error, rateLimited } from '../_lib/
 import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { sql } from '../_lib/db.js';
+import { isUuid } from '../_lib/validate.js';
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const CHAT_ID_RE = /^-?\d{1,20}$|^@[A-Za-z0-9_]{3,32}$/;
 
 async function resolveUserId(req) {
@@ -41,7 +41,7 @@ export default wrap(async (req, res) => {
 	const agentId = (body?.agent_id || '').trim();
 	const chatId  = (body?.chat_id  || '').trim();
 
-	if (!UUID_RE.test(agentId)) return error(res, 400, 'validation_error', 'invalid agent_id');
+	if (!isUuid(agentId)) return error(res, 400, 'validation_error', 'invalid agent_id');
 	if (!CHAT_ID_RE.test(chatId)) return error(res, 400, 'validation_error', 'chat_id must be a numeric ID or @handle');
 
 	// Verify ownership.

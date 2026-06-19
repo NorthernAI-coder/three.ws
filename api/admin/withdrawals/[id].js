@@ -5,7 +5,8 @@ import { z } from 'zod';
 import { sql } from '../../_lib/db.js';
 import { requireAdmin } from '../../_lib/admin.js';
 import { requireCsrf } from '../../_lib/csrf.js';
-import { cors, json, method, wrap, error, readJson } from '../../_lib/http.js';
+import { cors, json, method, wrap, error, readJson, rateLimited } from '../../_lib/http.js';
+import { limits } from '../../_lib/rate-limit.js';
 import { parse } from '../../_lib/validate.js';
 import { insertNotification } from '../../_lib/notify.js';
 
@@ -25,6 +26,9 @@ export default wrap(async (req, res) => {
 	const admin = await requireAdmin(req, res);
 	if (!admin) return;
 	if (!(await requireCsrf(req, res, admin.id))) return;
+
+	const rl = await limits.strict(admin.id);
+	if (!rl.success) return rateLimited(res, rl);
 
 	const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 	const id = req.query?.id;

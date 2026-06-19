@@ -59,7 +59,8 @@ export default wrap(async (req, res) => {
 	if (!method(req, res, ['POST'])) return;
 
 	const ip = clientIp(req);
-	if (await rateLimited(res, limits.moderate, ip)) return;
+	const rl = await limits.oracleSocialIp(ip);
+	if (!rl.success) return rateLimited(res, rl);
 
 	const body = await readJson(req);
 	const tweets = Array.isArray(body?.tweets) ? body.tweets : [];

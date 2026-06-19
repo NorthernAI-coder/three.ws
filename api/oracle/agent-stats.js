@@ -21,10 +21,9 @@ import { cors, json, method, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { sql } from '../_lib/db.js';
 import { recentActions, actionsSummary } from '../_lib/oracle/store.js';
+import { isUuid } from '../_lib/validate.js';
 
 const NETWORKS = new Set(['mainnet', 'devnet']);
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 export default async function handleAgentStats(req, res) {
 	if (cors(req, res, { methods: 'GET,OPTIONS', origins: '*' })) return;
 	if (!method(req, res, ['GET'])) return;
@@ -38,7 +37,7 @@ export default async function handleAgentStats(req, res) {
 	const network = NETWORKS.has(params.get('network')) ? params.get('network') : 'mainnet';
 	const limit = Math.min(50, Math.max(1, parseInt(params.get('limit') || '20', 10)));
 
-	if (!UUID_RE.test(agentId)) {
+	if (!isUuid(agentId)) {
 		return json(res, 400, { error: 'invalid_agent_id', message: 'agent_id must be a UUID' });
 	}
 

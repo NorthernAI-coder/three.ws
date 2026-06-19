@@ -671,7 +671,7 @@ The simplest possible setup — one script tag, one element, zero build step.
 		</style>
 	</head>
 	<body>
-		<script type="module" src="https://three.ws/agent-3d/1.5.1/agent-3d.js"></script>
+		<script type="module" src="https://three.ws/agent-3d/1.5.2/agent-3d.js"></script>
 		<agent-3d body="https://cdn.three.ws/models/sample-avatar.glb"></agent-3d>
 	</body>
 </html>
@@ -686,7 +686,7 @@ Drag-to-rotate, scroll-to-zoom, full PBR rendering — no API key, no account re
 Add `brain=` and `instructions=` to turn the viewer into a conversational agent.
 
 ```html
-<script type="module" src="https://three.ws/agent-3d/1.5.1/agent-3d.js"></script>
+<script type="module" src="https://three.ws/agent-3d/1.5.2/agent-3d.js"></script>
 
 <agent-3d
 	body="https://cdn.three.ws/models/sample-avatar.glb"
@@ -709,7 +709,7 @@ The chat input and mic button appear automatically when `brain` is set. No UI to
 Pin the agent to a corner of the page so it persists as users scroll.
 
 ```html
-<script type="module" src="https://three.ws/agent-3d/1.5.1/agent-3d.js"></script>
+<script type="module" src="https://three.ws/agent-3d/1.5.2/agent-3d.js"></script>
 
 <agent-3d
 	body="https://cdn.three.ws/models/sample-avatar.glb"
@@ -747,7 +747,7 @@ The element fetches the manifest (model URL, instructions, skills, memory config
 Hide the built-in chrome and wire in your own input using the element's JS API.
 
 ```html
-<script type="module" src="https://three.ws/agent-3d/1.5.1/agent-3d.js"></script>
+<script type="module" src="https://three.ws/agent-3d/1.5.2/agent-3d.js"></script>
 
 <agent-3d
 	id="agent"
@@ -1194,7 +1194,7 @@ The element fires a `postMessage` API for host-page communication (documented in
 **Versioned CDN bundles** are published at `/agent-3d/x.y.z/agent-3d.js`. Use `latest` for auto-updates or pin to a version for stability:
 
 ```html
-<script src="https://three.ws/agent-3d/1.5.1/agent-3d.js"></script>
+<script src="https://three.ws/agent-3d/1.5.2/agent-3d.js"></script>
 ```
 
 ### Iframe quickstart with the embed SDK
@@ -2562,7 +2562,7 @@ three.ws follows [Semantic Versioning](https://semver.org). The authoritative ve
 
 **Pinning recommendations**
 
-- For production embeds, pin to the patch version (`/agent-3d/1.5.1/agent-3d.js`) and bump deliberately.
+- For production embeds, pin to the patch version (`/agent-3d/1.5.2/agent-3d.js`) and bump deliberately.
 - For prototypes, pin to the major (`/agent-3d/1.x/agent-3d.js`) so you receive bug-fixes automatically.
 - For agent manifests, always set the `spec` field — the loader rejects manifests with an unknown spec rather than guessing.
 - For API consumers, request `application/json` and inspect the response `version` header (present on every endpoint).

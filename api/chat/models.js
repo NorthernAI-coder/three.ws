@@ -28,7 +28,14 @@ export default wrap(async (req, res) => {
 	if (!upstream.ok)
 		return json(res, 200, { data: [] });
 
-	const { data: allModels } = await upstream.json();
+	// OpenRouter occasionally returns a non-JSON error page (HTML/empty) with a 200;
+	// fall back to the same empty list the !ok branch uses rather than 500-ing.
+	let allModels;
+	try {
+		({ data: allModels } = await upstream.json());
+	} catch {
+		return json(res, 200, { data: [] });
+	}
 
 	// Only expose free-tier models so completions work via the proxy without a user key.
 	const freeModels = (allModels ?? []).filter((m) => m.id.endsWith(':free'));

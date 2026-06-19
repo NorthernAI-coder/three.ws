@@ -22,8 +22,7 @@ import { authenticateBearer, extractBearer, getSessionUser } from '../../_lib/au
 import { cors, error, json, method, wrap, rateLimited } from '../../_lib/http.js';
 import { clientIp, limits } from '../../_lib/rate-limit.js';
 import { getSkillPrices, skillPriceMap } from '../../_lib/skill-price-cache.js';
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { isUuid } from '../../_lib/validate.js';
 
 async function resolveAuth(req) {
 	const session = await getSessionUser(req);
@@ -42,7 +41,7 @@ export default wrap(async (req, res) => {
 
 	const url = new URL(req.url, 'http://x');
 	const id = url.searchParams.get('id') || url.pathname.split('/').filter(Boolean)[2];
-	if (!id || !UUID_RE.test(id)) return error(res, 404, 'not_found', 'agent not found');
+	if (!id || !isUuid(id)) return error(res, 404, 'not_found', 'agent not found');
 
 	const [agent] = await sql`
 		SELECT id FROM agent_identities WHERE id = ${id} AND deleted_at IS NULL

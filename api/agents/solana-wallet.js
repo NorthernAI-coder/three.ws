@@ -3,7 +3,7 @@
 
 import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.js';
 import { sql } from '../_lib/db.js';
-import { cors, json, method, error, readJson, rateLimited } from '../_lib/http.js';
+import { cors, json, method, error, readJson, rateLimited, serverError } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { generateSolanaAgentWallet, recoverSolanaAgentKeypair } from '../_lib/agent-wallet.js';
 import { solanaConnection, solanaPublicConnection } from '../_lib/agent-pumpfun.js';
@@ -711,7 +711,8 @@ async function handleWithdraw(req, res, id) {
 		try {
 			sim = await conn.simulateTransaction(vtx, { sigVerify: false, replaceRecentBlockhash: true });
 		} catch (e) {
-			return error(res, 502, 'simulation_failed', e?.message || 'simulation failed');
+			console.error('[agents/solana-wallet] simulation failed', e?.message);
+			return serverError(res, 502, 'simulation_failed', e);
 		}
 		return json(res, 200, {
 			data: {

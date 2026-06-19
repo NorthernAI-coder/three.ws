@@ -8,12 +8,10 @@ import { z } from 'zod';
 import { sql } from '../_lib/db.js';
 import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.js';
 import { cors, json, method, wrap, error, readJson, rateLimited } from '../_lib/http.js';
-import { parse, isValidSolanaAddress, isValidEvmAddress } from '../_lib/validate.js';
+import { parse, isValidSolanaAddress, isValidEvmAddress, isUuid } from '../_lib/validate.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { requireCsrf } from '../_lib/csrf.js';
 import { getAvailableBalance } from '../_lib/monetization.js';
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const MIN_WITHDRAWAL_USDC = 1; // 1 USDC minimum
 const MIN_WITHDRAWAL_ATOMIC = MIN_WITHDRAWAL_USDC * 1_000_000;
@@ -49,7 +47,7 @@ export default wrap(async (req, res) => {
 		const limit = Math.min(100, Math.max(1, parseInt(params.get('limit') || '20', 10)));
 		const offset = Math.max(0, parseInt(params.get('offset') || '0', 10));
 
-		if (agentId && !UUID_RE.test(agentId)) {
+		if (agentId && !isUuid(agentId)) {
 			return error(res, 400, 'validation_error', 'agent_id must be a UUID');
 		}
 

@@ -10,7 +10,7 @@
 // available or the upstream call fails — the panel should always render
 // something useful.
 
-import { cors, json, error, wrap, rateLimited } from '../_lib/http.js';
+import { cors, json, error, wrap, rateLimited, serverError } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { llmComplete } from '../_lib/llm.js';
 import { Bazaar } from '../_lib/x402/bazaar-client.js';
@@ -306,7 +306,8 @@ async function handler(req, res) {
 			baz.list({ type: 'mcp', maxItems: 3000 }),
 		]);
 	} catch (e) {
-		return error(res, 502, 'facilitator_error', String(e?.message || e));
+		console.error('[bazaar] facilitator error', e?.message || e);
+		return serverError(res, 502, 'facilitator_error', e);
 	}
 	const items = [...(httpRes.items || []), ...(mcpRes.items || [])];
 

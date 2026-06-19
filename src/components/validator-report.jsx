@@ -84,20 +84,17 @@ export function ValidatorReport({
 				)}
 				{info?.extras?.author && (
 					<li>
-						<b>Author:</b>{' '}
-						<span dangerouslySetInnerHTML={{ __html: info.extras.author }} />
+						<b>Author:</b> <span>{info.extras.author}</span>
 					</li>
 				)}
 				{info?.extras?.license && (
 					<li>
-						<b>License:</b>{' '}
-						<span dangerouslySetInnerHTML={{ __html: info.extras.license }} />
+						<b>License:</b> <span>{info.extras.license}</span>
 					</li>
 				)}
 				{info?.extras?.source && (
 					<li>
-						<b>Source:</b>{' '}
-						<span dangerouslySetInnerHTML={{ __html: info.extras.source }} />
+						<b>Source:</b> <span>{info.extras.source}</span>
 					</li>
 				)}
 				<li>

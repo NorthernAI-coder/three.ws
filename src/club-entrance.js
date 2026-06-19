@@ -80,7 +80,7 @@ const BUNDLED_AGENTS = [
 	{ key: 'default', name: 'Aria', url: AVATAR_URL },
 	{ key: 'michelle', name: 'Michelle', url: '/avatars/michelle.glb' },
 	{ key: 'realistic-female', name: 'Realistic', url: '/avatars/realistic-female.glb' },
-	{ key: 'studio', name: 'Studio', url: '/avatars/readyplayerme.glb' },
+	{ key: 'studio', name: 'Studio', url: '/avatars/studio.glb' },
 	{ key: 'mannequin', name: 'Mannequin', url: '/avatars/mannequin.glb' },
 ];
 const AGENT_GALLERY_URL = '/api/explore?source=avatar&category=avatar&only3d=1&limit=24';

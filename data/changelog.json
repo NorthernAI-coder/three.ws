@@ -2,6 +2,103 @@
 	"$comment": "Curated changelog entries for three.ws — the editorial layer of the public changelog. New PAGE launches are tracked automatically via the `added` field in data/pages.json; this file is for everything else holders care about: improvements, fixes, SDK releases, trading/payments capabilities, security work. scripts/build-page-index.mjs merges both sources into CHANGELOG.md, public/changelog.json, and public/changelog.xml. Newest first. Allowed tags: feature, improvement, fix, sdk, infra, docs, security. `link` is optional and must be a live three.ws path.",
 	"entries": [
 		{
+			"date": "2026-06-19",
+			"title": "AR & half-body avatar export fixed for compressed models",
+			"summary": "View-in-AR (USDZ for iOS Quick Look) and the half-body VR-seat export now work for avatars that ship with meshopt or Draco geometry compression. Previously these exports silently failed on compressed GLBs because the loader had no decoder registered; the pipeline now loads the meshopt and Draco decoders before parsing, so every avatar — including the compressed ones produced by the server-side bake — converts cleanly.",
+			"tags": [
+				"fix"
+			],
+			"link": "/gallery"
+		},
+		{
+			"date": "2026-06-18",
+			"title": "Pay-per-call demos hardened: honest loading, no dead ends, accessible to everyone",
+			"summary": "We did a top-to-bottom pass on every page where you (or your agent) pay an x402 endpoint in real USDC — Pay, Endpoint Bazaar, Arbitrage, Providers, Tutor, Fact Checker, Unstoppable, Endpoint Shopper, Forever, the Club, Agent Exchange, Agent Economy, Agent Trade and the IBM x402 demo — so none of them can hang, mislead, or strand you. The Fact Checker no longer shows a faked progress bar; it tells you plainly when it's working and only quotes a price it actually read from the live payment challenge. Paid and polling pages now time out and back off instead of spinning forever, surface a real error with a Retry button when a feed drops, and check the payment widget is loaded before letting you click Pay. Forever now estimates your Bitcoin inscription fee and confirms you can cover it before you commit, and Unstoppable shows how old cached figures are and offers a top-up path if a donation fails. We fixed broken navigation links across these pages and the home and Constellation footers, and made the whole group far friendlier to screen readers and keyboards — live balances and results now announce themselves, dialogs trap focus, and tap targets meet the 44px minimum on mobile.",
+			"tags": [
+				"improvement",
+				"fix"
+			],
+			"link": "/pay"
+		},
+		{
+			"date": "2026-06-18",
+			"title": "Sitewide clickjacking protection",
+			"summary": "Every page on three.ws now refuses by default to be loaded inside a frame on another website — closing a clickjacking vector where a malicious site could invisibly overlay three.ws and trick you into clicking things you didn't mean to. Sign-in, wallet and dashboard pages were already locked down; this extends the same protection to the rest of the site. The avatar, widget and walk embeds that are designed to be placed on other sites keep working exactly as before.",
+			"tags": [
+				"security"
+			]
+		},
+		{
+			"date": "2026-06-18",
+			"title": "Trading & market pages: never silently stale, and accessible to everyone",
+			"summary": "We hardened every live trading and market-intelligence page so a dropped connection or a slow API can no longer leave you staring at frozen data. When a live feed stops, pages like Pump Live, Pump Dashboard and the Pump Visualizer now back off and retry, and if they truly give up they say so plainly with a Reconnect button instead of spinning forever. Oracle, Activity, Leaderboard, Trending and Smart Money now show a clear “reconnecting — data may be stale” badge with a Retry button the moment a background refresh fails, so you always know whether what you’re seeing is live. The Pump Visualizer also falls back to a readable list if your device can’t run its 3D view, and draws coin avatars locally instead of relying on an outside service. We fixed a dead “galaxy” link on the Constellation page, replaced the Strategy Lab’s browser pop-up with a proper in-app confirmation before it sells everything, and made these pages far friendlier to screen readers — tables, rows and coin buttons now announce what they are, and the trade time-window tabs are fully keyboard navigable.",
+			"tags": [
+				"improvement",
+				"fix"
+			],
+			"link": "/oracle"
+		},
+		{
+			"date": "2026-06-18",
+			"title": "Claim Your Wallet now really claims it — sign once, your Trader Card goes live",
+			"summary": "Claiming a wallet on the Claim Your Wallet page used to just say “Your Trader Card is live” the moment you signed in, without ever proving the wallet was yours. Now it does the real thing: once you’re signed in, you sign a free, gasless message in Phantom, Backpack, or Solflare to prove you control the keypair, and the wallet is verifiably linked to your account. The page reads your linked wallets back, so it only shows the claimed state when the wallet is genuinely yours — and if the wallet was claimed on another account, your signature lets you move it over with one confirmation. If you connect a different wallet than the one on screen, it tells you which one to switch to. We also widened the Coin Intelligence detail panel on large screens, and watched-coin alerts now open the Oracle breakdown in the same tab so Back returns you to your watchlist.",
+			"tags": [
+				"fix",
+				"feature",
+				"improvement"
+			],
+			"link": "/claim-wallet"
+		},
+		{
+			"date": "2026-06-18",
+			"title": "Agent Wallet now pays real x402 endpoints in production",
+			"summary": "The Agent Wallet world — where your avatar walks up to a paid API kiosk and pays for it — used to only work on a developer’s machine through a local bridge; for everyone else the Pay button was permanently disabled. It now runs against a hosted agent-wallet service, so a signed-in visitor can have the agent wallet make a real x402 micropayment in USDC on Solana mainnet and get the live result back, with per-payment and daily spending caps protecting the wallet. If you’re not signed in, the page now tells you clearly and links you to sign in instead of looking broken.",
+			"tags": [
+				"feature",
+				"improvement"
+			],
+			"link": "/play/agent-wallet"
+		},
+		{
+			"date": "2026-06-18",
+			"title": "Agent economy demos now show honest run status",
+			"summary": "The two-agent economy demos (/demo and /live) now label what actually happened. When no real on-chain payment runs — a visitor isn’t signed in, or the agents’ wallets aren’t configured — they say “no real payment occurred” instead of claiming the trade settled on-chain. The /demo “x402 bazaar” screen shows real marketplace listings when the live bazaar is reachable and an honest “bazaar unavailable” note when it isn’t, rather than inventing services. The simulated path no longer breaks, the bottom status line reflects the real mode, agents link out to the directory, and the payment details are reachable on phones via a slide-up sheet. /live also adds designed “fund the wallet” and “wallets not configured” states and keeps the agents talking even if the chat service hiccups.",
+			"tags": [
+				"fix",
+				"improvement"
+			],
+			"link": "/live"
+		},
+		{
+			"date": "2026-06-18",
+			"title": "Vanity wallet & address generators: accurate info and usable results",
+			"summary": "Cleaned up the Solana, EVM and CREATE2 vanity-address tools. The CREATE2 generator’s share/preview info no longer references a factory and chain it doesn’t use, its footer is styled, and the highlighted prefix/suffix in previews is now visible instead of white-on-white. Colored success/error feedback that referenced undefined styles now renders correctly across all three tools. The EVM wallet generator keeps your private key out of page markup, loads its keystore export library only when you export, and adds a clear path to use the wallet with an agent. The Solana tool’s pre-generation time estimate is now labeled as rough and calibrated, and the “keys never leave your device” note is accurate about the opt-in assign-to-agent step.",
+			"tags": [
+				"improvement",
+				"fix"
+			],
+			"link": "/vanity-wallet"
+		},
+		{
+			"date": "2026-06-18",
+			"title": "Live trading arena: clearer status and an accessible avatar picker",
+			"summary": "On the live trading arena the trade tape now tells you when it’s reconnecting to the stream versus simply waiting for the next trade, and the leaderboard refreshes live as updates arrive. The avatar picker is now keyboard-accessible with a proper focus trap, leaderboard avatars that fail to load fall back to a clean initial instead of leaving a gap, and there’s a direct link to the agent directory.",
+			"tags": [
+				"improvement"
+			],
+			"link": "/play/arena"
+		},
+		{
+			"date": "2026-06-18",
+			"title": "Avatar wallet chat: fund hint, fixed link, steadier polling",
+			"summary": "The avatar wallet chat now shows a designed “fund your wallet” hint with the wallet address before you try to send, instead of only failing after the fact when the balance is too low. The IBM Granite Guardian trust-layer link now points to a real page, and the background activity poller starts once at load instead of stacking up a new timer on every message.",
+			"tags": [
+				"improvement",
+				"fix"
+			],
+			"link": "/avatar-wallet-chat"
+		},
+		{
 			"date": "2026-06-18",
 			"title": "Avatar viewer, lipsync tools, sign-in and account polish from a labs & account audit",
 			"summary": "A page-by-page audit of the labs, avatar tools and account pages turned up rough edges we’ve now smoothed. The standalone Avatar Artifact viewer works on phones — it has a back link to three.ws, links out to Playground, Labs and Agents, a loading state, a designed message if the 3D runtime can’t load, and you can steer the avatar with touch or the arrow keys, not just a mouse. The mic lipsync demo now shows a clear, recoverable message when the microphone is blocked, missing or busy instead of a bare pop-up, and the TTS lipsync demo shows a retry banner if speech generation fails. Sign-in and sign-up no longer leave you on the form after a connection blip, redirect cleanly so Back doesn’t return you to a login screen you already passed, and signup now bounces you onward if you’re already signed in. Forgot-password tells you if your request didn’t reach us instead of always saying it was sent. The Playground rejects oversized or wrong-type model uploads with friendly guidance, the account page’s delegation panel now opens a working console to have one of your agents answer a prompt, and the reputation explorer clearly flags when reviews are written to a test network.",

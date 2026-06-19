@@ -1,5 +1,5 @@
 import { env } from '../_lib/env.js';
-import { wrap, cors, error, json, readJson, method, rateLimited } from '../_lib/http.js';
+import { wrap, cors, error, json, readJson, method, rateLimited, respondError } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.js';
 import { createUmi } from '@metaplex-foundation/umi-bundle-defaults';
@@ -68,7 +68,8 @@ export default wrap(async (req, res) => {
 			uploadToNftStorage(storageToken, Buffer.from(thumbnailBase64, 'base64'), 'image/png'),
 		]);
 	} catch (e) {
-		return error(res, e.status || 502, e.code || 'upstream_error', e.message);
+		console.error('[nft/mint-scene] asset upload failed', e?.message);
+		return respondError(res, e.status || 502, e.code || 'upstream_error', e);
 	}
 
 	const metadata = {
@@ -93,7 +94,8 @@ export default wrap(async (req, res) => {
 			'application/json',
 		);
 	} catch (e) {
-		return error(res, e.status || 502, e.code || 'upstream_error', e.message);
+		console.error('[nft/mint-scene] metadata upload failed', e?.message);
+		return respondError(res, e.status || 502, e.code || 'upstream_error', e);
 	}
 
 	const rpcUrl = env.SOLANA_RPC_URL;

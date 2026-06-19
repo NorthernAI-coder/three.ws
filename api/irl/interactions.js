@@ -43,6 +43,7 @@ import { getSessionUser } from '../_lib/auth.js';
 import { insertNotification } from '../_lib/notify.js';
 import { sendOpsAlert } from '../_lib/alerts.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
+import { isUuid } from '../_lib/validate.js';
 
 // view | tap — passive/active sighting of the agent. message — a note left for
 // the owner. pay — an x402 settlement against the agent (see PAY note below).
@@ -63,7 +64,6 @@ const MAX_MESSAGE_LEN = 280;
 // on by the B3 settlement path, which owns the seller payout + price context.
 const EVM_TX_RE   = /^0x[0-9a-fA-F]{64}$/;
 const SOL_SIG_RE  = /^[1-9A-HJ-NP-Za-km-z]{43,88}$/;
-const UUID_RE     = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const THREE_MINT  = 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump';
 const USDC_SOLANA  = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 const USDC_BASE    = '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913';
@@ -223,8 +223,8 @@ export default wrap(async (req, res) => {
 		// target first, then strip both; the server re-stamps them only for a genuine
 		// owner reply below.
 		const replyToRaw =
-			(typeof body.replyTo === 'string' && UUID_RE.test(body.replyTo)) ? body.replyTo
-			: (typeof payload.replyTo === 'string' && UUID_RE.test(payload.replyTo)) ? payload.replyTo
+			(typeof body.replyTo === 'string' && isUuid(body.replyTo)) ? body.replyTo
+			: (typeof payload.replyTo === 'string' && isUuid(payload.replyTo)) ? payload.replyTo
 			: null;
 		delete payload.from;
 		delete payload.replyTo;

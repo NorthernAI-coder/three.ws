@@ -106,7 +106,8 @@ vi.mock('../../api/_lib/notify.js', () => ({
 	insertNotification: vi.fn(() => {}),
 }));
 
-vi.mock('../../api/_lib/validate.js', () => ({
+vi.mock('../../api/_lib/validate.js', async (importOriginal) => ({
+	...(await importOriginal()),
 	parse: vi.fn((schema, data) => schema.parse(data)),
 }));
 

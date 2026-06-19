@@ -15,8 +15,8 @@
 import { sql } from './_lib/db.js';
 import { cors, wrap } from './_lib/http.js';
 import { env } from './_lib/env.js';
+import { isUuid } from './_lib/validate.js';
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const LAMPORTS = 1e9;
 
 export default wrap(async (req, res) => {
@@ -26,7 +26,7 @@ export default wrap(async (req, res) => {
 	const agentId = (url.searchParams.get('agent_id') || '').trim();
 	const origin  = env.APP_ORIGIN || 'https://three.ws';
 
-	if (!UUID_RE.test(agentId)) return redirect(res, `${origin}/leaderboard`);
+	if (!isUuid(agentId)) return redirect(res, `${origin}/leaderboard`);
 
 	let agent, stats;
 	try {

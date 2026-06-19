@@ -3,9 +3,8 @@ import { sql } from '../_lib/db.js';
 import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.js';
 import { cors, json, error, method, readJson, wrap, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
-import { parse } from '../_lib/validate.js';
+import { parse, isUuid } from '../_lib/validate.js';
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const CATEGORY_RE = /^[a-z0-9-]{1,50}$/;
 const VALID_SORTS = new Set(['popular', 'new', 'az']);
 const DEFAULT_SORT = 'popular';
@@ -125,7 +124,7 @@ async function handleList(req, res) {
 		return error(res, 401, 'unauthorized', 'sign in required to filter by installed');
 	}
 
-	if (cursor && !UUID_RE.test(cursor)) {
+	if (cursor && !isUuid(cursor)) {
 		return error(res, 400, 'validation_error', 'invalid cursor');
 	}
 

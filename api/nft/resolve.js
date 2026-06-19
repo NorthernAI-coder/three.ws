@@ -1,5 +1,5 @@
 import { env } from '../_lib/env.js';
-import { wrap, cors, error, json, readJson, method, rateLimited } from '../_lib/http.js';
+import { wrap, cors, error, json, readJson, method, rateLimited, serverError } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 
 export default wrap(async (req, res) => {
@@ -26,7 +26,8 @@ export default wrap(async (req, res) => {
 		});
 		if (!resp.ok) {
 			const txt = await resp.text();
-			return error(res, 502, 'upstream_error', `Helius error ${resp.status}: ${txt}`);
+			console.error('[nft/resolve] Helius error', resp.status, txt);
+			return serverError(res, 502, 'upstream_error', new Error(`Helius error ${resp.status}`));
 		}
 		const data = await resp.json();
 		if (data.error) {
@@ -66,7 +67,11 @@ export default wrap(async (req, res) => {
 	const resp = await fetch(url);
 	if (!resp.ok) {
 		const txt = await resp.text();
-		return error(res, resp.status === 404 ? 404 : 502, resp.status === 404 ? 'not_found' : 'upstream_error', `Alchemy error ${resp.status}: ${txt}`);
+		if (resp.status === 404) {
+			return error(res, 404, 'not_found', `Alchemy error ${resp.status}: ${txt}`);
+		}
+		console.error('[nft/resolve] Alchemy error', resp.status, txt);
+		return serverError(res, 502, 'upstream_error', new Error(`Alchemy error ${resp.status}`));
 	}
 	const data = await resp.json();
 	const name = data.name || data.contract?.name || id;

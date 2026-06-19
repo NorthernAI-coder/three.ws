@@ -17,6 +17,7 @@
 import { sql } from '../_lib/db.js';
 import { cors, error, json, method, wrap } from '../_lib/http.js';
 import { publicUrl } from '../_lib/r2.js';
+import { isUuid } from '../_lib/validate.js';
 
 const SORTS = {
 	recent: 'created_at desc',
@@ -104,10 +105,8 @@ export default wrap(async (req, res) => {
 	return json(res, 200, { items, next_cursor: nextCursor });
 });
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 async function handleOne(res, id) {
-	if (!UUID_RE.test(id)) return error(res, 400, 'invalid_request', 'id must be a uuid');
+	if (!isUuid(id)) return error(res, 400, 'invalid_request', 'id must be a uuid');
 	let row;
 	try {
 		[row] = await sql`

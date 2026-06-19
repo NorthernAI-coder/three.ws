@@ -4,8 +4,9 @@
 // ordered failover: server Anthropic → Groq → OpenRouter, so a single upstream
 // 429/5xx fails over to the next provider instead of returning a hard 502.
 
-import { cors, json, method, readJson, wrap, error } from '../_lib/http.js';
+import { cors, json, method, readJson, wrap, error, rateLimited } from '../_lib/http.js';
 import { getSessionUser, authenticateBearer, extractBearer, hasScope } from '../_lib/auth.js';
+import { limits } from '../_lib/rate-limit.js';
 import { llmComplete, LlmUnavailableError } from '../_lib/llm.js';
 
 const MAX_MSG_CHARS = 1500;
@@ -63,6 +64,10 @@ const handler = wrap(async (req, res) => {
 	if (!userId) {
 		return error(res, 401, 'unauthorized', 'sign in or provide a valid bearer token');
 	}
+
+	// Paid LLM completion on the server key — meter per user to bound the bill.
+	const rl = await limits.personaPreviewUser(userId);
+	if (!rl.success) return rateLimited(res, rl);
 
 	const body = validateBody(await readJson(req));
 

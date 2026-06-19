@@ -1,7 +1,7 @@
 // Consolidated SAS credential endpoints (credentials + issue-credential).
 
 import { sql } from '../../_lib/db.js';
-import { cors, json, method, readJson, wrap, error, rateLimited } from '../../_lib/http.js';
+import { cors, json, method, readJson, wrap, error, rateLimited, serverError } from '../../_lib/http.js';
 import { parse } from '../../_lib/validate.js';
 import { limits, clientIp } from '../../_lib/rate-limit.js';
 import { requireAdmin } from '../../_lib/admin.js';
@@ -68,7 +68,7 @@ async function handleIssueCredential(req, res) {
 
 	let result;
 	try { result = await sasIssue({ kind: body.kind, subject: body.subject, data: body.data, expiry: body.expiry, network: body.network }); }
-	catch (e) { return error(res, 500, 'sas_issue_failed', e.message || String(e)); }
+	catch (e) { console.error('[agents/sas] issue failed', e?.message || e); return serverError(res, 500, 'sas_issue_failed', e); }
 
 	const expiryDate = body.expiry > 0 ? new Date(body.expiry * 1000) : null;
 	await sql`insert into solana_credentials (attestation_pda, network, schema_pda, credential_pda, kind, subject, issuer_signature, data, expiry) values (${result.attestation_pda}, ${body.network}, ${result.schema_pda}, ${result.credential_pda}, ${body.kind}, ${body.subject}, ${result.signature}, ${JSON.stringify(body.data)}::jsonb, ${expiryDate}) on conflict (attestation_pda) do update set data=excluded.data, expiry=excluded.expiry, issuer_signature=excluded.issuer_signature, closed=false, closed_at=null`;

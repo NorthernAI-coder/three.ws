@@ -12,6 +12,7 @@
 import { sql } from './_lib/db.js';
 import { getAvatar } from './_lib/avatars.js';
 import { cors, wrap } from './_lib/http.js';
+import { isUuid } from './_lib/validate.js';
 
 const CACHE_CARD = 'public, max-age=3600, s-maxage=86400';
 const CACHE_REDIR = 'public, max-age=3600';
@@ -21,15 +22,13 @@ const CACHE_REDIR = 'public, max-age=3600';
 // interpolate the real id) or other junk; passing that straight to Postgres throws
 // `invalid input syntax for type uuid` (22P02) and 500s. Validate the shape up
 // front so any non-uuid degrades to a clean 404 instead of an unhandled error.
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'GET,OPTIONS' })) return;
 
 	const url = new URL(req.url, 'http://x');
 	const agentId = url.searchParams.get('id');
 
-	if (!agentId || !UUID_RE.test(agentId)) return sendNotFound(res);
+	if (!agentId || !isUuid(agentId)) return sendNotFound(res);
 
 	const [agent] = await sql`
 		SELECT id, name, description, avatar_id

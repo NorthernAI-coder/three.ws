@@ -9,11 +9,15 @@ import { parse, isValidSolanaAddress, isValidEvmAddress } from '../../_lib/valid
 import { limits, clientIp } from '../../_lib/rate-limit.js';
 import { requireCsrf } from '../../_lib/csrf.js';
 
+// Note: the payout destination is intentionally NOT accepted from the client.
+// It is resolved server-side from the user's saved `agent_payout_wallets` so a
+// caller can only ever withdraw to a wallet they have already registered —
+// trusting a client-supplied `to_address` was an exfil vector (a hijacked
+// session could redirect a payout to an attacker wallet).
 const postBody = z.object({
 	amount: z.number().int().positive(),
 	currency_mint: z.string().trim().min(1).max(100),
 	chain: z.enum(['solana', 'base', 'evm']),
-	to_address: z.string().trim().min(1).max(200),
 	agent_id: z.string().uuid().nullable().optional(),
 });
 
@@ -77,18 +81,11 @@ export default wrap(async (req, res) => {
 	if (!rlUser.success) return rateLimited(res, rlUser, 'too many withdrawal requests');
 
 	const body = parse(postBody, await readJson(req));
-	const { amount, currency_mint, chain, to_address, agent_id = null } = body;
+	const { amount, currency_mint, chain, agent_id = null } = body;
 
 	const MIN_WITHDRAWAL = 1_000_000;
 	if (amount < MIN_WITHDRAWAL) {
 		return error(res, 422, 'below_minimum', 'Minimum withdrawal is 1 USDC');
-	}
-
-	if (chain === 'solana' && !isValidSolanaAddress(to_address)) {
-		return error(res, 400, 'validation_error', 'invalid Solana address');
-	}
-	if ((chain === 'base' || chain === 'evm') && !isValidEvmAddress(to_address)) {
-		return error(res, 400, 'validation_error', 'invalid EVM address');
 	}
 
 	// Verify agent_id belongs to this user if provided
@@ -98,6 +95,33 @@ export default wrap(async (req, res) => {
 			where id = ${agent_id} and user_id = ${user.id} and deleted_at is null
 		`;
 		if (!agent) return error(res, 404, 'not_found', 'agent not found');
+	}
+
+	// Resolve the payout destination from the user's saved wallets for this chain.
+	// `base`/`evm` are EVM-family and both map to the wallet's `base` chain entry.
+	const walletChain = chain === 'solana' ? 'solana' : 'base';
+	const [payoutWallet] = await sql`
+		select address from agent_payout_wallets
+		where user_id = ${user.id} and chain = ${walletChain}
+		  and (agent_id = ${agent_id} or agent_id is null)
+		order by
+			case when agent_id = ${agent_id} then 0 else 1 end,
+			is_default desc,
+			created_at desc
+		limit 1
+	`;
+	if (!payoutWallet) {
+		return error(res, 422, 'no_payout_wallet', 'Configure a payout wallet for this chain before requesting a withdrawal');
+	}
+	const to_address = payoutWallet.address;
+
+	// Defensive: the saved address should already be valid, but never persist a
+	// malformed destination into the admin-processed payout queue.
+	if (chain === 'solana' && !isValidSolanaAddress(to_address)) {
+		return error(res, 422, 'invalid_payout_wallet', 'saved payout wallet is not a valid Solana address');
+	}
+	if ((chain === 'base' || chain === 'evm') && !isValidEvmAddress(to_address)) {
+		return error(res, 422, 'invalid_payout_wallet', 'saved payout wallet is not a valid EVM address');
 	}
 
 	// Reserve the withdrawal atomically. The available balance (earned minus

@@ -32,7 +32,7 @@ import { PublicKey } from '@solana/web3.js';
 import { createHash } from 'node:crypto';
 import { getTask, getTaskLifecycleSummary, getTasksByCreator, getAgent, deriveTaskPda, deriveAgentPda } from '@tetsuo-ai/sdk';
 
-import { cors, json, method, readJson, wrap, error, rateLimited } from '../_lib/http.js';
+import { cors, json, method, readJson, wrap, error, rateLimited, serverError } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { Bazaar, filterByExtension, filterByMaxPrice, filterByNetwork } from '../_lib/x402/bazaar-client.js';
 import {
@@ -349,7 +349,8 @@ async function handleX402Services(req, res) {
 	try {
 		result = await baz.list({ type, limit: 200, maxItems });
 	} catch (err) {
-		return error(res, 502, 'facilitator_error', err.message || 'bazaar fetch failed');
+		console.error('[agenc] bazaar fetch failed', err?.message);
+		return serverError(res, 502, 'facilitator_error', err);
 	}
 	let items = result.items;
 	if (network) items = filterByNetwork(items, network);
@@ -419,6 +420,7 @@ export default wrap(async (req, res) => {
 	try {
 		return await route.fn(req, res);
 	} catch (err) {
-		return error(res, 500, 'agenc_error', err.message || 'unexpected error');
+		console.error('[agenc] unexpected error', err?.message);
+		return serverError(res, 500, 'agenc_error', err);
 	}
 });

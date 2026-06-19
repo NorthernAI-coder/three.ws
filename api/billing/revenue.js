@@ -4,8 +4,8 @@
 import { sql } from '../_lib/db.js';
 import { getSessionUser } from '../_lib/auth.js';
 import { cors, json, method, wrap, error } from '../_lib/http.js';
+import { isUuid } from '../_lib/validate.js';
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const VALID_GRANULARITY = new Set(['day', 'week', 'month']);
 
 export default wrap(async (req, res) => {
@@ -19,7 +19,7 @@ export default wrap(async (req, res) => {
 
 	// Parse and validate query params
 	const agentId = q.agent_id ?? null;
-	if (agentId !== null && !UUID_RE.test(agentId))
+	if (agentId !== null && !isUuid(agentId))
 		return error(res, 400, 'validation_error', 'agent_id must be a UUID');
 
 	const granularity = q.granularity ?? 'day';

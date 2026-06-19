@@ -13,7 +13,7 @@ You don't have to write code to make an impact. Contributions take many forms:
 - **New features** — discuss the idea in an issue first, then implement
 - **Documentation** — improve or extend these docs (typos count)
 - **Skills** — build and share a new agent skill without touching core code
-- **3D assets** — contribute to the Character Studio avatar library
+- **3D assets** — contribute to the Avatar Studio avatar library
 - **Smart contracts** — improve the ERC-8004 contracts (requires prior security audit review)
 - **Translations** — localize the UI for new languages
 
@@ -247,7 +247,7 @@ Skills are the best way to extend three.ws without touching core code. A skill i
 
 ---
 
-## Contributing to Character Studio Assets
+## Contributing to Avatar Studio Assets
 
 The avatar asset library welcomes clothing, hair, accessories, and other character parts:
 

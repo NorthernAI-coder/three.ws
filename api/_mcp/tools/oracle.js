@@ -24,6 +24,7 @@
 import { sql } from '../../_lib/db.js';
 import { limits } from '../../_lib/rate-limit.js';
 import { readFeed, scoreCoin, getWatch, upsertWatch, recentActions, actionsSummary } from '../../_lib/oracle/store.js';
+import { isUuid } from '../../_lib/validate.js';
 
 const NETWORKS = new Set(['mainnet', 'devnet']);
 const CATEGORIES = new Set([
@@ -32,8 +33,6 @@ const CATEGORIES = new Set([
 ]);
 const TIERS = new Set(['prime', 'strong', 'lean', 'watch']);
 const MINT_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 const REC = {
 	prime:  { action: 'buy',   confidence: 'high',   size_factor: 1.0,  note: 'top-conviction play — proven smart money + clean structure + on-narrative' },
 	strong: { action: 'buy',   confidence: 'medium', size_factor: 0.75, note: 'strong conviction — favorable across multiple pillars' },
@@ -216,7 +215,7 @@ export const toolDefs = [
 			if (!auth.userId) return mcpErr('You must be signed in with a three.ws account to arm an agent watch.');
 
 			const agentId = (args?.agent_id || '').trim();
-			if (!UUID_RE.test(agentId)) return mcpErr('Invalid agent_id — must be a UUID (get it from /api/agents or your dashboard).');
+			if (!isUuid(agentId)) return mcpErr('Invalid agent_id — must be a UUID (get it from /api/agents or your dashboard).');
 
 			if (!(await ownsAgent(auth.userId, agentId))) {
 				return mcpErr(`Agent ${agentId} does not belong to your account.`);
@@ -289,7 +288,7 @@ export const toolDefs = [
 			if (!auth.userId) return mcpErr('Sign in to check your agent watch status.');
 
 			const agentId = (args?.agent_id || '').trim();
-			if (!UUID_RE.test(agentId)) return mcpErr('Invalid agent_id — must be a UUID.');
+			if (!isUuid(agentId)) return mcpErr('Invalid agent_id — must be a UUID.');
 
 			if (!(await ownsAgent(auth.userId, agentId))) {
 				return mcpErr(`Agent ${agentId} does not belong to your account.`);

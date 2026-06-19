@@ -797,27 +797,20 @@ npm install @three-ws/sdk
 						<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M10.4 12l-4.8 8.3 2.8.7 2.4-4.3h4.4l2.4 4.3 2.8-.7-4.8-8.3zm1.6-1L7.2 2.7 4.4 3.4l2.4 4.3-2.4 4.3h-4L.4 12l4-7L7.2 2.7h5.6l2.4-4.3L12 2h-1.6zm9.6 1l-4-7-2.8.7 2.4 4.3H13l-2.4-4.3-2.8.7L12.6 15h4.8l2.4 4.3 2.8-.7-4.8-8.3h4l.4-7z" transform="scale(0.7) translate(5,5)"/></svg>
 					</div>
 					<div>
-						<h3 class="dev-sdk-name">Unity SDK</h3>
-						<span class="dn-tag warn">Coming Soon</span>
+						<h3 class="dev-sdk-name">Unity</h3>
+						<span class="dn-tag success">Works today</span>
 					</div>
 				</div>
-				<p class="dev-sdk-desc">Load three.ws avatars into any Unity project. Supports runtime loading, Mixamo-compatible rigs, and morph targets.</p>
-				<div class="dev-code-block"><pre><code>using ThreeWS;
+				<p class="dev-sdk-desc">three.ws avatars are standard glTF 2.0, so they load in Unity today with <a href="https://github.com/atteneder/glTFast" target="_blank" rel="noopener">glTFast</a> — the de-facto runtime glTF importer. A native package with morph-target helpers is on the roadmap.</p>
+				<div class="dev-code-block"><pre><code>// Unity (glTFast) — load a three.ws avatar GLB at runtime
+using GLTFast;
 
-// Load avatar at runtime
-var avatar = await AvatarLoader.Load("YOUR_AVATAR_ID");
-avatar.SetScene(AvatarScene.UpperBody);
-
-// Apply expression
-avatar.SetExpression("mouthSmile", 0.6f);
-
-// Render API fallback for 2D UIs
-var texture = await AvatarRender.GetTexture(
-    "YOUR_AVATAR_ID",
-    scene: "portrait",
-    size: 256
-);</code></pre></div>
+var url = "${location.origin}/api/avatars/YOUR_AVATAR_ID/glb";
+var gltf = new GltfImport();
+if (await gltf.LoadFile(url))
+    gltf.InstantiateMainScene(transform);</code></pre></div>
 				<div class="dev-sdk-links">
+					<a href="/dashboard/api" class="dn-btn ghost">Documentation</a>
 					<a href="https://github.com/nirholas/three.ws" target="_blank" class="dn-btn ghost">Follow Development</a>
 				</div>
 			</div>
@@ -829,26 +822,19 @@ var texture = await AvatarRender.GetTexture(
 					</div>
 					<div>
 						<h3 class="dev-sdk-name">Unreal Engine</h3>
-						<span class="dn-tag warn">Coming Soon</span>
+						<span class="dn-tag success">Works today</span>
 					</div>
 				</div>
-				<p class="dev-sdk-desc">Blueprint and C++ support for loading three.ws avatars as Skeletal Meshes with full morph target and animation support.</p>
-				<div class="dev-code-block"><pre><code>// C++ — Load avatar as Skeletal Mesh
-#include "ThreeWS/AvatarLoader.h"
+				<p class="dev-sdk-desc">Import three.ws avatars as Skeletal Meshes in the editor with Unreal's built-in Interchange glTF importer, or load them at runtime with <a href="https://github.com/rdeioris/glTFRuntime" target="_blank" rel="noopener">glTFRuntime</a>. A native plugin is on the roadmap.</p>
+				<div class="dev-code-block"><pre><code>// Unreal (glTFRuntime) — load a three.ws avatar GLB at runtime
+FglTFRuntimeConfig Config;
+UglTFRuntimeAsset* Asset = UglTFRuntimeFunctionLibrary::glTFLoadAssetFromUrl(
+    TEXT("${location.origin}/api/avatars/YOUR_AVATAR_ID/glb"), Config);
 
-void AMyActor::BeginPlay()
-{
-    Super::BeginPlay();
-    UThreeWSLoader::LoadAvatar(
-        "YOUR_AVATAR_ID",
-        FOnAvatarLoaded::CreateLambda(
-            [this](USkeletalMesh* Mesh) {
-                GetMesh()->SetSkeletalMesh(Mesh);
-            }
-        )
-    );
-}</code></pre></div>
+USkeletalMesh* Mesh = Asset->LoadSkeletalMesh(0, 0);
+GetMesh()->SetSkeletalMesh(Mesh);</code></pre></div>
 				<div class="dev-sdk-links">
+					<a href="/dashboard/api" class="dn-btn ghost">Documentation</a>
 					<a href="https://github.com/nirholas/three.ws" target="_blank" class="dn-btn ghost">Follow Development</a>
 				</div>
 			</div>

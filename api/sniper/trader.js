@@ -15,10 +15,9 @@
 import { cors, json, method, wrap, error, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { getTraderStats, WINDOWS } from '../_lib/trader-stats.js';
+import { isUuid } from '../_lib/validate.js';
 
 const NETWORKS = new Set(['mainnet', 'devnet']);
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'GET,OPTIONS', origins: '*' })) return;
 	if (!method(req, res, ['GET'])) return;
@@ -31,7 +30,7 @@ export default wrap(async (req, res) => {
 	const network = NETWORKS.has(params.get('network')) ? params.get('network') : 'mainnet';
 	const window = WINDOWS.has(params.get('window')) ? params.get('window') : 'all';
 
-	if (!UUID_RE.test(agentId)) {
+	if (!isUuid(agentId)) {
 		return error(res, 400, 'invalid_agent', 'agent_id must be a valid agent UUID');
 	}
 

@@ -24,7 +24,7 @@ async function init() {
 
 async function loadUser() {
 	try {
-		const r = await fetch('/api/me', { credentials: 'include' });
+		const r = await fetch('/api/auth/me', { credentials: 'include' });
 		if (r.ok) {
 			currentUser = await r.json();
 			const btn = document.getElementById('user-btn');

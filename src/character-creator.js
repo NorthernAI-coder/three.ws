@@ -10,9 +10,11 @@
 // AnimationManager + applyLoadout) — what you see on the turntable is what peers see.
 //
 // The wardrobe is the cosmetics catalog: free cosmetics equip instantly and preview
-// live; premium ones are locked behind the W04 shop (the unlock hook), shown but not
-// wearable until owned. On save we persist the avatar + the equipped loadout via the
-// same hand-off the rest of the platform uses (play-handoff) and jump into /play.
+// live; premium ones are locked until owned. Clicking a locked chip runs the real
+// x402 USDC purchase rail (cosmetics-purchase.js → /api/x402/cosmetic-purchase) and
+// equips it once the server confirms ownership; anything the account already owns
+// loads pre-unlocked from /api/cosmetics/catalog. On save we persist the avatar +
+// equipped loadout via the shared hand-off (play-handoff) and jump into /play.
 
 import {
 	Scene, PerspectiveCamera, WebGLRenderer, Group,
@@ -26,6 +28,7 @@ import {
 	COSMETICS, SLOTS, SLOT_LABELS, getCosmetic, isFreeCosmetic, DEFAULT_LOADOUT,
 } from '../multiplayer/src/cosmetics-catalog.js';
 import { setPlayAvatar, setPlayName, setPlayCosmetics, playAs, getPlayAvatar } from './game/play-handoff.js';
+import { purchaseCosmetic, fetchOwnedCosmetics, resolveShopAccount } from './game/cosmetics-purchase.js';
 import { log } from './shared/log.js';
 
 const $ = (id) => document.getElementById(id);
@@ -49,6 +52,12 @@ class CharacterCreator {
 		this._dragging = false;
 		this._autoRotate = true;
 		this._yaw = 0.4;
+		// Premium cosmetics the signed-in/guest account already owns (from the R22
+		// ledger). Owned premium chips equip like free ones; the rest open the
+		// real USDC purchase rail on click.
+		this.ownedPremium = new Set();
+		this.priceUsdcById = new Map();
+		this._buying = false;
 	}
 
 	async init() {
@@ -56,6 +65,9 @@ class CharacterCreator {
 		this._renderWardrobe();
 		this._wireSources();
 		this._wireActions();
+		// Pull owned premium cosmetics in the background; re-render the wardrobe once
+		// they arrive so anything this account bought reads as unlocked, not locked.
+		this._loadOwnedCosmetics();
 		// Prefill the name from a previous session so returning players keep theirs.
 		try {
 			const n = localStorage.getItem('cc-name');
@@ -227,14 +239,14 @@ class CharacterCreator {
 	}
 
 	_cosmeticChip(c) {
-		const free = isFreeCosmetic(c.id);
+		const unlocked = isFreeCosmetic(c.id) || this.ownedPremium.has(c.id);
 		const btn = document.createElement('button');
 		btn.type = 'button';
 		btn.className = 'cc-chip';
 		btn.dataset.id = c.id;
 		btn.dataset.slot = c.slot;
 		btn.setAttribute('aria-pressed', String(this.equipped[c.slot] === c.id));
-		if (!free) btn.classList.add('cc-chip--locked');
+		if (!unlocked) btn.classList.add('cc-chip--locked');
 
 		// Visual: a thumbnail for props, a colour swatch for dyes/auras, a glyph for "none".
 		const media = document.createElement('span');
@@ -257,23 +269,23 @@ class CharacterCreator {
 		name.textContent = c.name;
 		btn.appendChild(name);
 
-		if (!free) {
+		if (!unlocked) {
 			const lock = document.createElement('span');
 			lock.className = 'cc-chip__lock';
 			lock.textContent = `🔒 ${c.price} $THREE`;
 			btn.appendChild(lock);
-			btn.title = 'Unlock in the shop';
+			btn.title = `Buy ${c.name} to equip it`;
 		}
 
-		btn.addEventListener('click', () => this._onChipClick(c, free));
+		btn.addEventListener('click', () => this._onChipClick(c, unlocked));
 		return btn;
 	}
 
-	_onChipClick(c, free) {
-		if (!free) {
-			// Premium: the W04 shop grants ownership; until then it's locked. Honest —
-			// you can't preview-wear what you don't own (the server would reject it too).
-			this._toast('That’s a premium cosmetic — unlock it in the shop (coming soon).');
+	_onChipClick(c, unlocked) {
+		if (!unlocked) {
+			// Premium and not owned: run the real USDC purchase rail. The chip equips
+			// only after the server confirms ownership — no optimistic unlock.
+			this._buyCosmetic(c);
 			return;
 		}
 		this.equipped[c.slot] = c.id;
@@ -281,6 +293,69 @@ class CharacterCreator {
 		// Reflect selection: only one chip pressed per slot.
 		for (const el of document.querySelectorAll(`.cc-chip[data-slot="${c.slot}"]`)) {
 			el.setAttribute('aria-pressed', String(el.dataset.id === c.id));
+		}
+	}
+
+	// Load the real catalog for this account: which premium cosmetics it already
+	// owns (so they equip like free chips) and each item's USDC checkout price (so
+	// the purchase modal shows the true amount). Falls back to the owned-ids ledger
+	// if the catalog endpoint is unavailable. Best-effort — a failure just leaves
+	// premium chips locked, still buyable.
+	async _loadOwnedCosmetics() {
+		const acct = resolveShopAccount();
+		try {
+			const r = await fetch(`/api/cosmetics/catalog?account=${encodeURIComponent(acct)}`, {
+				headers: { accept: 'application/json' },
+			});
+			if (r.ok) {
+				const body = await r.json();
+				const items = Array.isArray(body?.items) ? body.items : [];
+				const owned = new Set();
+				for (const it of items) {
+					if (it?.id && Number.isFinite(Number(it.priceUsdc))) this.priceUsdcById.set(it.id, Number(it.priceUsdc));
+					if (it?.id && it.owned) owned.add(it.id);
+				}
+				this.ownedPremium = owned;
+				this._renderWardrobe();
+				return;
+			}
+		} catch { /* fall through to the owned-ids ledger */ }
+		try {
+			const owned = await fetchOwnedCosmetics(acct);
+			if (Array.isArray(owned) && owned.length) {
+				this.ownedPremium = new Set(owned);
+				this._renderWardrobe();
+			}
+		} catch { /* keep premium chips locked */ }
+	}
+
+	// Buy a premium cosmetic over the x402 USDC rail. On a settled purchase the
+	// item joins the owned set, the wardrobe re-renders unlocked, and it equips.
+	async _buyCosmetic(c) {
+		if (this._buying) return;
+		this._buying = true;
+		this._toast(`Opening wallet to unlock ${c.name}…`);
+		try {
+			await purchaseCosmetic(
+				{ id: c.id, name: c.name, priceUsdc: this.priceUsdcById.get(c.id) },
+				{ account: resolveShopAccount() },
+			);
+			this.ownedPremium.add(c.id);
+			this.equipped[c.slot] = c.id;
+			this._renderWardrobe();
+			this._applyCosmetics();
+			for (const el of document.querySelectorAll(`.cc-chip[data-slot="${c.slot}"]`)) {
+				el.setAttribute('aria-pressed', String(el.dataset.id === c.id));
+			}
+			this._toast(`Unlocked ${c.name} — equipped.`);
+		} catch (err) {
+			if (err?.code === 'cancelled') {
+				this._toast('Purchase cancelled.');
+			} else {
+				this._toast(`Couldn’t unlock ${c.name} — ${err?.message || 'try again'}.`);
+			}
+		} finally {
+			this._buying = false;
 		}
 	}
 

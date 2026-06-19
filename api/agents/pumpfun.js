@@ -200,8 +200,7 @@ function _writeSse(res, event, data) {
 
 import { sql as _sql } from '../_lib/db.js';
 import { env as _env } from '../_lib/env.js';
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { isUuid } from '../_lib/validate.js';
 
 async function handleMetadata(req, res) {
 	if (cors(req, res, { methods: 'GET,OPTIONS', origins: '*' })) return;
@@ -213,7 +212,7 @@ async function handleMetadata(req, res) {
 	if (!id) return error(res, 400, 'validation_error', 'id required');
 	// agent_identities.id is a uuid column — a malformed id otherwise leaks
 	// Postgres error 22P02 to the caller as a 500. Return a clean 404 instead.
-	if (!UUID_RE.test(id)) return error(res, 404, 'not_found', 'agent not found');
+	if (!isUuid(id)) return error(res, 404, 'not_found', 'agent not found');
 	const [a] =
 		await _sql`select id, name, description, avatar_id, meta, wallet_address from agent_identities where id = ${id} and deleted_at is null limit 1`;
 	if (!a) return error(res, 404, 'not_found', 'agent not found');

@@ -20,8 +20,7 @@
 import { cors, json, method, readJson, wrap, rateLimited } from './_lib/http.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 import { hashClient, attachPoster, forgeStoreEnabled } from './_lib/forge-store.js';
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { isUuid } from './_lib/validate.js';
 
 // Posters are 640px webp/png/jpeg renders — ~30-80 KB typical. The caps leave
 // generous headroom without letting the endpoint ingest arbitrary blobs.
@@ -46,7 +45,7 @@ export default wrap(async (req, res) => {
 
 	const body = await readJson(req, MAX_BODY_BYTES).catch(() => null);
 	const creationId = typeof body?.creation_id === 'string' ? body.creation_id.trim() : '';
-	if (!UUID_RE.test(creationId)) {
+	if (!isUuid(creationId)) {
 		return json(res, 400, { error: 'invalid_creation', message: 'creation_id must be a uuid.' });
 	}
 

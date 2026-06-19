@@ -22,7 +22,7 @@ import * as raw from 'multiformats/codecs/raw';
 import { sha256 } from 'multiformats/hashes/sha2';
 import { sql } from '../../_lib/db.js';
 import { getSessionUser } from '../../_lib/auth.js';
-import { cors, json, method, readJson, wrap, error, rateLimited } from '../../_lib/http.js';
+import { cors, json, method, readJson, wrap, error, rateLimited, serverError, respondError } from '../../_lib/http.js';
 import { limits, clientIp } from '../../_lib/rate-limit.js';
 import { parse } from '../../_lib/validate.js';
 import { randomToken } from '../../_lib/crypto.js';
@@ -353,10 +353,12 @@ async function handlePrep(req, res) {
 	} catch (e) {
 		if (e.code === 'rpc_rate_limited') {
 			res.setHeader('Retry-After', '15');
-			return error(res, 503, 'rpc_rate_limited', e.message);
+			console.error('[agents/onchain] rpc rate limited', e?.message);
+			return serverError(res, 503, 'rpc_rate_limited', e);
 		}
 		if (e.code === 'rpc_auth_failed') {
-			return error(res, 503, 'rpc_unavailable', e.message);
+			console.error('[agents/onchain] rpc auth failed', e?.message);
+			return serverError(res, 503, 'rpc_unavailable', e);
 		}
 		if (e.code === 'authority_unconfigured') {
 			return error(res, 500, 'authority_unconfigured', e.message);
@@ -546,7 +548,8 @@ async function handleConfirm(req, res) {
 			return error(res, 400, 'validation_error', `unknown chain family: ${p.chain_family}`);
 		}
 	} catch (e) {
-		return error(res, e.status || 500, e.code || 'verify_failed', e.message);
+		console.error('[agents/onchain] verify failed', e?.message);
+		return respondError(res, e.status || 500, e.code || 'verify_failed', e);
 	}
 
 	// Link wallet to user (idempotent — confirm time, since tx is ownership proof).

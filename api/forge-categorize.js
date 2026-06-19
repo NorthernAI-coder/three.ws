@@ -12,8 +12,8 @@
 import { cors, json, method, readJson, wrap, rateLimited } from './_lib/http.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 import { hashClient, setForgeCategory, MODEL_CATEGORIES, forgeStoreEnabled } from './_lib/forge-store.js';
+import { isUuid } from './_lib/validate.js';
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const VALID_CATEGORIES = new Set(MODEL_CATEGORIES);
 
 export default wrap(async (req, res) => {
@@ -29,7 +29,7 @@ export default wrap(async (req, res) => {
 
 	const body = await readJson(req, 4_000).catch(() => null);
 	const creationId = typeof body?.creation_id === 'string' ? body.creation_id.trim() : '';
-	if (!UUID_RE.test(creationId)) {
+	if (!isUuid(creationId)) {
 		return json(res, 400, { error: 'invalid_creation', message: 'creation_id must be a uuid.' });
 	}
 

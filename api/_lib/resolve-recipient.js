@@ -15,8 +15,8 @@
 // an account-enumeration oracle.
 
 import { sql } from './db.js';
+import { isUuid } from './validate.js';
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const EVM_RE = /^0x[0-9a-fA-F]{40}$/;
 const SOL_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 
@@ -34,7 +34,7 @@ export async function resolveRecipient(identifier) {
 	if (!q) return null;
 
 	// 1. Raw user id.
-	if (UUID_RE.test(q)) {
+	if (isUuid(q)) {
 		const [u] = await sql`
 			SELECT id, username, display_name, avatar_url
 			FROM users WHERE id = ${q} AND deleted_at IS NULL LIMIT 1`;

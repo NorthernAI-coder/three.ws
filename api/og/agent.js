@@ -17,8 +17,8 @@
 import { cors, wrap } from '../_lib/http.js';
 import { sql } from '../_lib/db.js';
 import { env } from '../_lib/env.js';
+import { isUuid } from '../_lib/validate.js';
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const CACHE   = 'public, max-age=300, s-maxage=3600, stale-while-revalidate=60';
 
 // Name-based gradient palette (same GRADIENTS array used in agent-detail.js)
@@ -53,7 +53,7 @@ export default wrap(async (req, res) => {
 	const url = new URL(req.url, `http://${req.headers.host || 'x'}`);
 	const id  = (url.searchParams.get('id') || '').trim();
 
-	if (!UUID_RE.test(id)) return fallback(res);
+	if (!isUuid(id)) return fallback(res);
 
 	let row;
 	try {

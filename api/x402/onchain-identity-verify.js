@@ -18,6 +18,7 @@ import { installAccessControl } from '../_lib/x402/access-control.js';
 import { withService } from '../_lib/x402/bazaar-helpers.js';
 import { sql } from '../_lib/db.js';
 import { priceFor } from '../_lib/x402-prices.js';
+import { isUuid } from '../_lib/validate.js';
 
 const ROUTE = '/api/x402/onchain-identity-verify';
 
@@ -107,7 +108,6 @@ const BAZAAR = {
 	}),
 };
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const CAIP2_RE = /^[a-z0-9-]{3,}:[a-zA-Z0-9]{1,64}$/;
 
 function normalizeAddress(addr, chain) {
@@ -189,7 +189,7 @@ export default paidEndpoint({
 			err.code = 'missing_params';
 			throw err;
 		}
-		if (!UUID_RE.test(agentId)) {
+		if (!isUuid(agentId)) {
 			const err = new Error('agent_id must be a UUID');
 			err.status = 400;
 			err.code = 'invalid_agent_id';

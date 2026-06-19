@@ -3,9 +3,7 @@ import { sql } from '../_lib/db.js';
 import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.js';
 import { cors, json, error, method, readJson, wrap, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
-import { parse } from '../_lib/validate.js';
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { parse, isUuid } from '../_lib/validate.js';
 
 const updateSchema = z.object({
 	name: z.string().trim().min(2).max(80).optional(),
@@ -32,7 +30,7 @@ export default wrap(async (req, res) => {
 	if (!method(req, res, ['GET', 'PUT', 'DELETE'])) return;
 
 	const id = req.query?.id;
-	if (!id || !UUID_RE.test(id)) return error(res, 404, 'not_found', 'skill not found');
+	if (!id || !isUuid(id)) return error(res, 404, 'not_found', 'skill not found');
 
 	if (req.method === 'GET') return handleGet(req, res, id);
 	if (req.method === 'PUT') return handleUpdate(req, res, id);

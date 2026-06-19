@@ -21,10 +21,10 @@ import { sql } from '../../_lib/db.js';
 import { limits } from '../../_lib/rate-limit.js';
 import { getLeaderboard, getTraderStats, WINDOWS, LEADERBOARD_SORTS } from '../../_lib/trader-stats.js';
 import { normalizeSubscriptionInput } from '../../_lib/copy-engine.js';
+import { isUuid } from '../../_lib/validate.js';
 
 const NETWORKS  = new Set(['mainnet', 'devnet']);
 const SORTS     = new Set([...LEADERBOARD_SORTS]);
-const UUID_RE   = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const BASE58_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 
 function mcpOk(payload) {
@@ -143,7 +143,7 @@ export const toolDefs = [
 		},
 		async handler(args, auth) {
 			const agentId = (args?.agent_id || '').trim();
-			if (!UUID_RE.test(agentId)) return mcpErr('Invalid agent_id — must be a UUID (get it from trader_leaderboard).');
+			if (!isUuid(agentId)) return mcpErr('Invalid agent_id — must be a UUID (get it from trader_leaderboard).');
 
 			const network = NETWORKS.has(args?.network) ? args.network : 'mainnet';
 			const window  = WINDOWS.has(args?.window) ? args.window : 'all';
@@ -241,7 +241,7 @@ export const toolDefs = [
 			if (!auth.userId) return mcpErr('Sign in to a three.ws account to set up copy-trading.');
 
 			const leaderId = (args?.leader_agent_id || '').trim();
-			if (!UUID_RE.test(leaderId)) return mcpErr('Invalid leader_agent_id — must be a UUID from trader_leaderboard.');
+			if (!isUuid(leaderId)) return mcpErr('Invalid leader_agent_id — must be a UUID from trader_leaderboard.');
 
 			const wallet = (args?.copier_wallet || '').trim();
 			if (!BASE58_RE.test(wallet)) return mcpErr('Invalid copier_wallet — must be a base58 Solana address.');

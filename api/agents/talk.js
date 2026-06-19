@@ -22,6 +22,7 @@ import { cors, error, json, method, readJson, wrap, rateLimited } from '../_lib/
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { normalizeLegacyPolicy } from '../_lib/embed-policy.js';
 import { llmComplete, LlmUnavailableError } from '../_lib/llm.js';
+import { isUuid } from '../_lib/validate.js';
 
 const ALLOWED_MODELS = new Set([
 	'claude-haiku-4-5-20251001',
@@ -30,8 +31,6 @@ const ALLOWED_MODELS = new Set([
 	'claude-opus-4-7',
 	'claude-3-5-haiku-20241022',
 ]);
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const bodySchema = z.object({
 	agentId: z.string().min(1).max(120),
@@ -75,7 +74,7 @@ export default wrap(async (req, res) => {
 
 	// agent_identities.id is a uuid column — a malformed id otherwise leaks
 	// Postgres error 22P02 to the caller as a 500. Return a clean 404 instead.
-	if (!UUID_RE.test(agentId)) return error(res, 404, 'agent_not_found', 'agent not found');
+	if (!isUuid(agentId)) return error(res, 404, 'agent_not_found', 'agent not found');
 
 	const [agent] = await sql`
 		SELECT id, name, description, embed_policy, meta

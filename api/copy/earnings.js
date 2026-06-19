@@ -18,8 +18,8 @@ import { limits, clientIp } from '../_lib/rate-limit.js';
 import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.js';
 import { sql } from '../_lib/db.js';
 import { accruedLeaderEarnings, subscriptionOwed } from '../_lib/copy-earnings.js';
+import { isUuid } from '../_lib/validate.js';
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const NETWORKS = new Set(['mainnet', 'devnet']);
 
 export default wrap(async (req, res) => {
@@ -35,7 +35,7 @@ export default wrap(async (req, res) => {
 
 	// Public leader aggregate.
 	if (agentId) {
-		if (!UUID_RE.test(agentId)) return error(res, 400, 'invalid_agent', 'agent_id must be a UUID');
+		if (!isUuid(agentId)) return error(res, 400, 'invalid_agent', 'agent_id must be a UUID');
 		const earnings = await accruedLeaderEarnings(agentId, network);
 		return json(res, 200, { agent_id: agentId, network, ...earnings },
 			{ 'cache-control': 'public, max-age=30, s-maxage=60' });

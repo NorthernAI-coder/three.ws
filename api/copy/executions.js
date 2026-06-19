@@ -16,8 +16,8 @@ import { limits, clientIp } from '../_lib/rate-limit.js';
 import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.js';
 import { requireCsrf } from '../_lib/csrf.js';
 import { sql } from '../_lib/db.js';
+import { isUuid } from '../_lib/validate.js';
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const STATUSES = new Set(['pending', 'acted', 'dismissed', 'skipped', 'expired', 'all']);
 
 async function requireUser(req, res) {
@@ -75,7 +75,7 @@ export default wrap(async (req, res) => {
 	if (!body || typeof body !== 'object') return error(res, 400, 'bad_request', 'JSON body required');
 	const id = String(body.id || '').trim();
 	const action = body.action;
-	if (!UUID_RE.test(id)) return error(res, 400, 'invalid_id', 'id must be an execution UUID');
+	if (!isUuid(id)) return error(res, 400, 'invalid_id', 'id must be an execution UUID');
 	if (!['acted', 'dismissed'].includes(action)) return error(res, 400, 'invalid_action', 'action must be acted or dismissed');
 
 	const txSig = action === 'acted' && typeof body.tx_signature === 'string'

@@ -1646,7 +1646,7 @@ function flashPoleCard(poleId) {
 // to the default in attachAvatar, so a pick never freezes a dancer.
 const BUNDLED_AVATARS = [
 	{ key: 'bundled-michelle',  name: 'Michelle',  url: '/avatars/michelle.glb' },
-	{ key: 'bundled-studio',    name: 'Studio',    url: '/avatars/readyplayerme.glb' },
+	{ key: 'bundled-studio',    name: 'Studio',    url: '/avatars/studio.glb' },
 	{ key: 'bundled-realistic', name: 'Realistic', url: '/avatars/realistic-female.glb' },
 	{ key: 'bundled-mannequin', name: 'Mannequin', url: '/avatars/mannequin.glb' },
 	{ key: 'bundled-classic',   name: 'Classic',   url: AVATAR_URL },

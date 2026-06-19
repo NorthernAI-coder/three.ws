@@ -19,13 +19,12 @@
 import { cors, json, method, wrap, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { sql } from '../_lib/db.js';
+import { isUuid } from '../_lib/validate.js';
 
 const NETWORKS = new Set(['mainnet', 'devnet']);
 const TIERS    = new Set(['prime', 'strong', 'lean', 'watch', 'avoid']);
 const MODES    = new Set(['live', 'simulate']);
 const OUTCOMES = new Set(['win', 'loss', 'flat', 'open']);
-const UUID_RE  = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 function shapeRow(r) {
 	return {
 		id: r.id,
@@ -64,7 +63,7 @@ export default wrap(async (req, res) => {
 	const mode     = MODES.has(params.get('mode'))       ? params.get('mode')     : null;
 	const tier     = TIERS.has(params.get('tier'))       ? params.get('tier')     : null;
 	const outcome  = OUTCOMES.has(params.get('outcome')) ? params.get('outcome')  : null;
-	const agentId  = UUID_RE.test(params.get('agent_id') || '') ? params.get('agent_id') : null;
+	const agentId  = isUuid(params.get('agent_id') || '') ? params.get('agent_id') : null;
 	const before   = params.get('before') || null;
 
 	const rows = await sql`

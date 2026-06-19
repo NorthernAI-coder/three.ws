@@ -15,8 +15,7 @@
 import { sql } from './_lib/db.js';
 import { cors, wrap } from './_lib/http.js';
 import { env } from './_lib/env.js';
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { isUuid } from './_lib/validate.js';
 
 // Chain IDs → human-readable labels for EVM chains
 const EVM_CHAIN = { 8453: 'Base', 1: 'Ethereum', 10: 'Optimism', 137: 'Polygon', 42161: 'Arbitrum' };
@@ -28,7 +27,7 @@ export default wrap(async (req, res) => {
 	const id     = (url.searchParams.get('id') || '').trim();
 	const origin = env.APP_ORIGIN || 'https://three.ws';
 
-	if (!UUID_RE.test(id)) return redirect(res, `${origin}/agents`);
+	if (!isUuid(id)) return redirect(res, `${origin}/agents`);
 
 	let row;
 	try {

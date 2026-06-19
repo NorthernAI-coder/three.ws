@@ -81,6 +81,12 @@
 			}
 			.btn-ghost:hover { color: #ccc; border-color: rgba(255,255,255,0.25); }
 		</style>
+		<!-- Resolve the bare @three-ws/agent-ui specifier without a bundler (this
+		     file is served verbatim from public/). esm.sh ships the package's ESM
+		     build and resolves its peer deps (three, etc.) transitively. -->
+		<script type="importmap">
+			{ "imports": { "@three-ws/agent-ui": "https://esm.sh/@three-ws/agent-ui@0.2.0" } }
+		</script>
 	</head>
 	<body>
 		<div id="nav-container"></div>

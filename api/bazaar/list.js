@@ -4,7 +4,7 @@
 // We merge across facilitators, dedupe by resource (HTTP) or (resource,toolName)
 // (MCP), normalize the item shape, and apply the optional filters.
 
-import { cors, json, error, wrap } from '../_lib/http.js';
+import { cors, json, error, wrap, serverError } from '../_lib/http.js';
 import {
 	Bazaar,
 	filterByExtension,
@@ -41,7 +41,8 @@ async function handler(req, res) {
 	try {
 		result = await baz.list({ type, limit, maxItems });
 	} catch (e) {
-		return error(res, 502, 'facilitator_error', String(e?.message || e));
+		console.error('[bazaar] facilitator error', e?.message || e);
+		return serverError(res, 502, 'facilitator_error', e);
 	}
 
 	let items = result.items;

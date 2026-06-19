@@ -19,8 +19,7 @@ import { clientIp, limits } from '../_lib/rate-limit.js';
 import { requireCsrf } from '../_lib/csrf.js';
 import { resolveMarketplaceFee } from '../_lib/marketplace-platform-fee.js';
 import { confirmSkillPurchase } from '../_lib/purchase-confirm.js';
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { isUuid } from '../_lib/validate.js';
 
 async function resolveAuth(req) {
 	const session = await getSessionUser(req);
@@ -42,7 +41,7 @@ export default wrap(async (req, res) => {
 		if (req.method === 'POST') return handleCreate(req, res);
 		return error(res, 405, 'method_not_allowed', 'POST required');
 	}
-	if (!UUID_RE.test(purchaseId)) return error(res, 400, 'validation_error', 'invalid purchase id');
+	if (!isUuid(purchaseId)) return error(res, 400, 'validation_error', 'invalid purchase id');
 	if (op === 'confirm') return handleConfirm(req, res, purchaseId);
 	return error(res, 404, 'not_found', 'unknown action');
 });
@@ -60,7 +59,7 @@ async function handleCreate(req, res) {
 	if (!rl.success) return rateLimited(res, rl);
 
 	const body = await readJson(req).catch(() => null);
-	if (!body?.bundle_id || !UUID_RE.test(body.bundle_id))
+	if (!body?.bundle_id || !isUuid(body.bundle_id))
 		return error(res, 400, 'validation_error', 'bundle_id required');
 
 	const [bundle] = await sql`

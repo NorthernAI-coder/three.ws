@@ -10,8 +10,7 @@ import { sql } from '../_lib/db.js';
 import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.js';
 import { cors, json, method, wrap, error, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { isUuid } from '../_lib/validate.js';
 
 const PERIOD_TO_INTERVAL = {
 	'1d': '1 day',
@@ -42,7 +41,7 @@ export default wrap(async (req, res) => {
 	const params = new URL(req.url, 'http://x').searchParams;
 
 	const agentId = params.get('agent_id') || null;
-	if (agentId && !UUID_RE.test(agentId)) {
+	if (agentId && !isUuid(agentId)) {
 		return error(res, 400, 'validation_error', 'agent_id must be a UUID');
 	}
 

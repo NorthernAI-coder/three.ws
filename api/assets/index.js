@@ -18,7 +18,7 @@
 
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { cors, error, wrap } from '../_lib/http.js';
+import { cors, error, wrap, serverError } from '../_lib/http.js';
 
 // In-process caches: the on-disk manifests don't change between requests
 // on the same serverless instance.
@@ -104,14 +104,16 @@ export default wrap(async (req, res) => {
 		try {
 			buckets.push(await loadAccessories());
 		} catch (err) {
-			return error(res, 500, 'manifest_unreadable', `accessories: ${err?.message}`);
+			console.error('[assets] accessories manifest unreadable', err?.message);
+			return serverError(res, 500, 'manifest_unreadable', err);
 		}
 	}
 	if (!type || type === 'animation') {
 		try {
 			buckets.push(await loadAnimations());
 		} catch (err) {
-			return error(res, 500, 'manifest_unreadable', `animations: ${err?.message}`);
+			console.error('[assets] animations manifest unreadable', err?.message);
+			return serverError(res, 500, 'manifest_unreadable', err);
 		}
 	}
 	if (!type || type === 'environment') {

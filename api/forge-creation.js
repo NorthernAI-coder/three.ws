@@ -19,8 +19,7 @@
 import { cors, json, method, wrap, rateLimited } from './_lib/http.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 import { getPublicCreation, forgeStoreEnabled } from './_lib/forge-store.js';
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { isUuid } from './_lib/validate.js';
 
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'GET,OPTIONS' })) return;
@@ -37,7 +36,7 @@ export default wrap(async (req, res) => {
 
 	const url = new URL(req.url, 'http://localhost');
 	const id = url.searchParams.get('id');
-	if (!id || !UUID_RE.test(id)) {
+	if (!id || !isUuid(id)) {
 		return json(res, 400, { enabled: true, creation: null, error: 'invalid id' });
 	}
 
