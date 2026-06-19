@@ -23,6 +23,7 @@ import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.
 import { sql } from '../_lib/db.js';
 import { cors, json, method, error, readJson, rateLimited, serverError } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
+import { requireCsrf } from '../_lib/csrf.js';
 import { ensureAgentWallet, recoverSolanaAgentKeypair } from '../_lib/agent-wallet.js';
 import { getPumpTradeClient } from '../_lib/pump.js';
 import { buildAmmSellInstructions, quoteAmmSell } from '../../workers/agent-sniper/amm-exit.js';
@@ -358,6 +359,11 @@ async function handleExecute(req, res, id) {
 	}
 	const { side, network, simulate, slippagePct } = input;
 	const idempotencyKey = input.idempotencyKey || randomUUID();
+
+	// CSRF on the real, fund-moving path only — `simulate` is a dry run that never
+	// signs or records. Bearer/API-key callers (the primary consumers of this flat
+	// trade endpoint) are exempt inside requireCsrf.
+	if (!simulate && !(await requireCsrf(req, res, auth.userId))) return;
 
 	// Guarantee the wallet exists (lazy provision) so a funded-but-unprovisioned
 	// agent can trade. ensureAgentWallet audits the provision and never returns

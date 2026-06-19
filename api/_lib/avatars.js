@@ -38,10 +38,17 @@ export async function listAvatars({
 		        a.size_bytes, a.content_type, a.source, a.source_meta, a.fork_count, a.visibility, a.tags, a.version,
 		        a.model_category,
 		        a.created_at, a.updated_at, a.parent_avatar_id,
-		        ai.id as agent_id, ai.wallet_address as agent_wallet_address
+		        ai.id as agent_id, ai.wallet_address as agent_wallet_address,
+		        ai.solana_address as agent_solana_address,
+		        ai.solana_vanity_prefix as agent_solana_vanity_prefix,
+		        ai.solana_vanity_suffix as agent_solana_vanity_suffix
 		 from avatars a
 		 left join lateral (
-		   select id, wallet_address from agent_identities
+		   select id, wallet_address,
+		          meta->>'solana_address' as solana_address,
+		          meta->>'solana_vanity_prefix' as solana_vanity_prefix,
+		          meta->>'solana_vanity_suffix' as solana_vanity_suffix
+		   from agent_identities
 		   where avatar_id = a.id and user_id = $1 and deleted_at is null
 		   order by created_at asc limit 1
 		 ) ai on true
@@ -64,10 +71,17 @@ export async function getAvatar({ id, requesterId = null }) {
 	if (!isUuid(id)) return null;
 
 	const rows = await sql`
-		select a.*, ai.id as agent_id, ai.wallet_address as agent_wallet_address
+		select a.*, ai.id as agent_id, ai.wallet_address as agent_wallet_address,
+		       ai.solana_address as agent_solana_address,
+		       ai.solana_vanity_prefix as agent_solana_vanity_prefix,
+		       ai.solana_vanity_suffix as agent_solana_vanity_suffix
 		from avatars a
 		left join lateral (
-			select id, wallet_address from agent_identities
+			select id, wallet_address,
+			       meta->>'solana_address' as solana_address,
+			       meta->>'solana_vanity_prefix' as solana_vanity_prefix,
+			       meta->>'solana_vanity_suffix' as solana_vanity_suffix
+			from agent_identities
 			where avatar_id = a.id and user_id = ${requesterId} and deleted_at is null
 			order by created_at asc limit 1
 		) ai on true
@@ -430,6 +444,9 @@ function decorate(row) {
 		baked_at: row.baked_at || null,
 		agent_id: row.agent_id || null,
 		agent_wallet_address: row.agent_wallet_address || null,
+		agent_solana_address: row.agent_solana_address || null,
+		agent_solana_vanity_prefix: row.agent_solana_vanity_prefix || null,
+		agent_solana_vanity_suffix: row.agent_solana_vanity_suffix || null,
 		// On-chain block of the agent this avatar represents (public gallery only;
 		// null for callers whose query doesn't join it). Shape mirrors meta.onchain
 		// so the shared onchain badge can read it directly via `{ onchain }`.

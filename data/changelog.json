@@ -3,6 +3,16 @@
 	"entries": [
 		{
 			"date": "2026-06-19",
+			"title": "AR agents hold their place and size when you rotate your phone",
+			"summary": "Camera AR used to assume you were holding your phone upright. Rotate to landscape — or just have the browser's toolbar slide away as you scroll — and a pinned agent could quietly change size or drift off the real-world spot you placed it on. IRL now re-reads your camera's lens and your screen's orientation the instant either changes, so the agent keeps its true scale and stays locked to its spot whether you hold the phone portrait or sideways. The motion-sensor lock that rotates the view as you turn now understands landscape too, so panning around the agent stays smooth and accurate, and the rapid resizing iPhone Safari does while scrolling no longer makes the scene stutter.",
+			"tags": [
+				"improvement",
+				"fix"
+			],
+			"link": "/irl"
+		},
+		{
+			"date": "2026-06-19",
 			"title": "Pinning your agent holds up when GPS gets flaky",
 			"summary": "Anchoring an agent to a real spot now survives the rough edges of phone GPS. If your location drops for a moment — stepping indoors, into a garage, under heavy cover — IRL quietly re-acquires it on its own instead of going dark until you reload. When you pin before your phone has its first fix, it waits on a clear \"Getting your location…\" note and only drops the agent once a real position lands, so an agent can never be saved at the wrong place. The moment that precise fix arrives, your agent eases into its anchored spot instead of jumping. And when GPS is only roughly sure where you are, we say so — your pin is labelled an approximate spot with the accuracy in metres rather than pretending it's pinpoint.",
 			"tags": [
