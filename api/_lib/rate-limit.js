@@ -623,6 +623,16 @@ export const limits = {
 	oracleTelegramTestIp: (ip) =>
 		getLimiter('oracle:tg-test:ip', { limit: 5, window: '10 m' }).limit(ip),
 
+	// Coin Clash community battles (api/clash/*). enlist verifies a wallet sig +
+	// runs a balance read, so cap per IP. rally is the hot tap loop — per wallet,
+	// generous enough for furious tapping but bounded so one tab can't flood; the
+	// real influence ceiling is the per-wallet power cap in clash-store.js.
+	clashEnlistIp: (ip) => getLimiter('clash:enlist:ip', { limit: 20, window: '5 m' }).limit(ip),
+	clashRallyWallet: (wallet) =>
+		getLimiter('clash:rally:wallet', { limit: 40, window: '1 m' }).limit(wallet),
+	clashStateIp: (ip) =>
+		getLimiter('clash:state:ip', { limit: 120, window: '1 m', local: true }).limit(ip),
+
 	// Oracle follower subscribe/update — write path creates a DB row and will
 	// eventually fan out Telegram messages, so keep post-rate tight.
 	// 10 per hour per IP is enough for manual setup; bots would need more.
