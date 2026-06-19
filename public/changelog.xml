@@ -143,6 +143,14 @@
 			<description>On Android phones that support AR, placing an agent in your room is now pinpoint: point at the floor, a reticle locks onto the real ground, and you tap to drop the agent exactly where you're looking — feet on the actual floor, not floating at a guess. It anchors into the same shared room as the rest of your agents, so everyone who opens IRL at that spot — including iPhones — sees it in the same place, and you can re-tap “Refine on floor” on one of your agents to sharpen just its spot without nudging the others. iPhones and phones without AR keep the aim-and-distance flow they already had, with no extra buttons and nothing that doesn't work — every device gets the best placement it can do.</description>
 		</item>
 		<item>
+			<title>Every avatar now animates — VRoid, Daz, Blender and more walk out of the box</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-19:Every avatar now animates — VRoid, Daz, Blender and more walk out of the box</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>Bring any humanoid avatar and it just moves. The animation engine now recognizes every common character skeleton — VRoid/VRM, VRM 1.0, Daz/Genesis, MakeHuman, Blender, Unreal, Mixamo and simple game rigs — and retargets the idle and walk onto it, legs and all. No more characters frozen in a stiff T-pose because their bones were named differently. Anything that genuinely can't be animated (a non-humanoid prop with no skeleton) gracefully wears the default body instead of locking up. No allowlist, no per-avatar setup.</description>
+		</item>
+		<item>
 			<title>Every IRL moment now has a designed, honest state</title>
 			<link>https://three.ws/irl</link>
 			<guid isPermaLink="false">2026-06-19:Every IRL moment now has a designed, honest state</guid>
@@ -493,6 +501,14 @@
 			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
 			<category>improvement</category>
 			<description>Inspecting an agent in IRL AR is a tap — and we made that tap far harder to miss. There's now a finger-sized catch zone around each agent's floating name, so a tap that lands just beside a small or distant agent still opens its card instead of doing nothing. When several agents overlap on screen, your tap resolves to the one in front of you, and it never selects an agent that's behind you or off-screen. We also kept agents from vanishing when you bring your phone right up to one to look closely. Inspecting works whether the agent is centered, near the edge of the frame, close, or far.</description>
+		</item>
+		<item>
+			<title>The $THREE token page is now the single home for the coin</title>
+			<link>https://three.ws/three-token</link>
+			<guid isPermaLink="false">2026-06-19:The $THREE token page is now the single home for the coin</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>We retired the separate economy explainer and consolidated everything about $THREE onto one page: live price, the bonding-curve chart, streaming trades, and one-click buy. Every place that pointed you to &quot;learn about $THREE&quot; or &quot;get $THREE&quot; — the holder badges, the Forge high-quality unlock prompts, and the holder gates across the app — now takes you straight to the token page where you can act. Old /three links redirect there automatically.</description>
 		</item>
 		<item>
 			<title>The Club runs cooler — capped frame rate and adaptive quality</title>

@@ -64,8 +64,8 @@ describe('lockStateFromAccess', () => {
 
 	it('merges extra handlers/urls through', () => {
 		const onUseFree = () => {};
-		const s = lockStateFromAccess(INELIGIBLE, { getThreeUrl: '/three', onUseFree });
-		expect(s.getThreeUrl).toBe('/three');
+		const s = lockStateFromAccess(INELIGIBLE, { getThreeUrl: '/three-token', onUseFree });
+		expect(s.getThreeUrl).toBe('/three-token');
 		expect(s.onUseFree).toBe(onUseFree);
 	});
 });
@@ -99,7 +99,7 @@ describe('renderLock — states', () => {
 
 	it('locked (insufficient_tier) shows required tier, held line, progress + Get $THREE', () => {
 		const el = host();
-		renderLock(el, lockStateFromAccess(INELIGIBLE, { getThreeUrl: '/three' }));
+		renderLock(el, lockStateFromAccess(INELIGIBLE, { getThreeUrl: '/three-token' }));
 		const card = el.querySelector('.tl-card--lock');
 		expect(card).toBeTruthy();
 		expect(card.getAttribute('role')).toBe('group');
@@ -107,7 +107,7 @@ describe('renderLock — states', () => {
 		expect(card.textContent).toMatch(/You hold\s*Member/);
 		const get = el.querySelector('[data-tl-get]');
 		expect(get.tagName).toBe('A');
-		expect(get.getAttribute('href')).toBe('/three');
+		expect(get.getAttribute('href')).toBe('/three-token');
 		expect(el.querySelector('.tl-prog')).toBeTruthy();
 	});
 
