@@ -31,6 +31,19 @@ function loadSearch() {
 	document.head.appendChild(s);
 }
 
+// Load the shared corner-stack (public/corner-stack.js) BEFORE any widget that
+// uses it, so window.twsCornerStack exists when they mount. It is also
+// order-independent (adopts orphans), but loading it first avoids the adopt
+// round-trip. Self-mounting + idempotent.
+function loadCornerStack() {
+	if (window.twsCornerStack) return;
+	if (document.querySelector('script[src="/corner-stack.js"]')) return;
+	const s = document.createElement('script');
+	s.src = '/corner-stack.js';
+	s.defer = true;
+	document.head.appendChild(s);
+}
+
 // Load the site-wide "Getting started" first-run guide (public/getting-started.js):
 // a one-time welcome for new visitors plus a resumable progress checklist. Self-
 // mounting + idempotent; honours <html data-getting-started="off">.
@@ -90,6 +103,7 @@ function loadThemeSwitcher() {
 }
 
 function boot() {
+	loadCornerStack();
 	loadGlossary();
 	loadSearch();
 	loadDiscovery();

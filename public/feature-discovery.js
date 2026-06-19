@@ -29,6 +29,18 @@
 	if (typeof document === 'undefined') return;
 	if (document.documentElement.getAttribute('data-discovery') === 'off') return;
 
+	// Pull in the shared corner-stack so the card flows with the other
+	// bottom-right widgets instead of overlapping them. Idempotent; the stack
+	// adopts our tagged orphan if it loads after us.
+	function ensureCornerStack() {
+		if (window.twsCornerStack) return;
+		if (document.querySelector('script[src="/corner-stack.js"]')) return;
+		var s = document.createElement('script');
+		s.src = '/corner-stack.js';
+		s.defer = true;
+		(document.head || document.documentElement).appendChild(s);
+	}
+
 	// ── localStorage keys (threews:fd:* namespace) ─────────────────────────────
 	var K_VISITED = 'threews:fd:visited';     // routes the user has opened (array)
 	var K_TRIED   = 'threews:fd:tried';       // dismissed "have you tried" prompts (map)
@@ -288,7 +300,13 @@
 		_escHandler = function (e) { if (e.key === 'Escape') dismiss(); };
 		document.addEventListener('keydown', _escHandler);
 
-		document.body.appendChild(card);
+		// Flow into the shared corner-stack so the prompt stacks above the other
+		// bottom-right cards instead of landing on the same pixel. Falls back to a
+		// plain body mount; the data-corner-priority tag lets it be adopted later.
+		ensureCornerStack();
+		card.setAttribute('data-corner-priority', '10');
+		if (window.twsCornerStack) window.twsCornerStack.mount(card);
+		else document.body.appendChild(card);
 		_card = card;
 		// Reveal on next frame so the CSS transition runs.
 		requestAnimationFrame(function () { requestAnimationFrame(function () { card.classList.add('is-in'); }); });

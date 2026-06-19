@@ -22,6 +22,18 @@ const TRUSTED_ASSET_HOST_RE = /(^|\.)(three\.ws|r2\.dev|mypinata\.cloud|pinata\.
 // Solana. The "Deploy on Solana" CTA in /app always routes here.
 const ONCHAIN_DEPLOY_AGENT_ID = '67bf6e67-93bb-40c6-9a6b-91e921696248';
 const ONCHAIN_DEPLOY_AGENT_URL = `/app?agent=${ONCHAIN_DEPLOY_AGENT_ID}`;
+// Pull in the shared corner-stack (public/corner-stack.js) so the onboarding
+// card flows with the other bottom-right widgets instead of overlapping them.
+// Idempotent; the stack adopts the tagged card once it initialises.
+function ensureCornerStack() {
+	if (typeof document === 'undefined' || window.twsCornerStack) return;
+	if (document.querySelector('script[src="/corner-stack.js"]')) return;
+	const s = document.createElement('script');
+	s.src = '/corner-stack.js';
+	s.defer = true;
+	(document.head || document.documentElement).appendChild(s);
+}
+
 function isSafeQueryModelUrl(raw) {
 	if (!raw || typeof raw !== 'string') return false;
 	if (raw.startsWith('/') && !raw.startsWith('//')) return true; // same-origin relative
@@ -1211,6 +1223,17 @@ class App {
 			if (el) el.addEventListener('click', () => dismiss());
 		});
 
+		// Flow into the shared corner-stack so the card sits above the
+		// getting-started pill instead of overlapping it. If the stack isn't ready
+		// yet, anchor the card to <body> and tag it so the stack adopts it on
+		// load; ensureCornerStack() pulls the module in if nothing else has.
+		banner.setAttribute('data-corner-priority', '20');
+		if (window.twsCornerStack) {
+			window.twsCornerStack.mount(banner);
+		} else {
+			document.body.appendChild(banner);
+			ensureCornerStack();
+		}
 		banner.hidden = false;
 		// Move focus into the dialog so keyboard/screen-reader users are taken
 		// to the freshly-revealed orientation message.
