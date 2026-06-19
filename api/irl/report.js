@@ -28,9 +28,35 @@ import { limits, clientIp } from '../_lib/rate-limit.js';
 // Distinct reporters required before a pin is queued out of public view.
 const REPORT_HIDE_THRESHOLD = 3;
 const MAX_REASON_LEN = 240;
+// Per-pin abuse ceiling: the most report rows a single pin may accrue in a rolling
+// 24h window before new reports are refused (task 13). The distinct-reporter dedup
+// (one row per (pin, reporter)) already stops ONE actor inflating the count; this
+// bounds a DISTRIBUTED flood so a coordinated burst can't pile unbounded reports
+// onto — and fast-track the hiding of — a legitimate pin. It sits well above
+// REPORT_HIDE_THRESHOLD so genuine flagging still hides a pin at 3 distinct
+// reporters; once a pin is at the ceiling it is already under review, so nothing
+// new is accepted. Because of the dedup, this is effectively a distinct-reporter-
+// per-day cap.
+const REPORT_PIN_CAP_24H = 25;
 // Canonical reasons the UI offers; anything else collapses to 'other'. Kept as a
 // closed set so the (future) review console can triage by category.
 const REASONS = new Set(['spam', 'harassment', 'impersonation', 'scam', 'sexual', 'other']);
+
+// Sanitize the free-text detail before it is STORED and later rendered in the
+// moderation console (task 13). The raw value is attacker-controlled from an
+// anonymous device, so: drop NUL + C0/C1 control characters (they corrupt log
+// lines and can smuggle terminal/console escape sequences past a naïve renderer),
+// collapse runs of whitespace, then hard-bound the length. Returns null when
+// nothing printable survives so an all-control-char payload stores as no detail.
+function sanitizeDetail(raw) {
+	if (typeof raw !== 'string') return null;
+	const cleaned = raw
+		.replace(/[\u0000-\u001F\u007F-\u009F]/g, ' ')  // NUL + C0/C1 control chars -> space
+		.replace(/\s+/g, ' ')
+		.trim()
+		.slice(0, MAX_REASON_LEN);
+	return cleaned || null;
+}
 
 let _tableReady = false;
 async function ensureTable() {

@@ -15,6 +15,7 @@ import {
 	shouldUseAbsoluteYaw,
 	resolveLockYaw,
 	clampPitch,
+	screenPitchDeg,
 } from '../src/irl/sensor-fusion.js';
 
 const DEG = Math.PI / 180;
@@ -173,5 +174,56 @@ describe('clampPitch', () => {
 		expect(clampPitch(NaN, PITCH_MIN, PITCH_MAX)).toBe(0);
 		expect(clampPitch(Infinity, PITCH_MIN, PITCH_MAX)).toBe(0);
 		expect(Number.isFinite(clampPitch(NaN, PITCH_MIN, PITCH_MAX))).toBe(true);
+	});
+});
+
+// The screen-orientation frame correction (task-02): the gyro pitch path assumes
+// the phone is held portrait. screenPitchDeg() folds screen.orientation.angle back
+// into a portrait-equivalent pitch so the world-lock holds through rotation.
+describe('screenPitchDeg', () => {
+	it('portrait (angle 0) passes beta through, ignoring gamma', () => {
+		expect(screenPitchDeg(30, 12, 0)).toBe(30);
+		expect(screenPitchDeg(-45, 80, 0)).toBe(-45);
+	});
+
+	it('landscape ⟲90° reads pitch from +gamma instead of beta', () => {
+		expect(screenPitchDeg(0, 30, 90)).toBe(30);
+		expect(screenPitchDeg(88, -20, 90)).toBe(-20);
+	});
+
+	it('upside-down portrait (180°) inverts beta', () => {
+		expect(screenPitchDeg(30, 0, 180)).toBe(-30);
+		expect(screenPitchDeg(-45, 0, 180)).toBe(45);
+	});
+
+	it('landscape ⟳270° reads pitch from −gamma (the opposite landscape sign)', () => {
+		expect(screenPitchDeg(0, 30, 270)).toBe(-30);
+		expect(screenPitchDeg(0, -25, 270)).toBe(25);
+	});
+
+	it('defaults to portrait when the angle is omitted', () => {
+		expect(screenPitchDeg(42, 99)).toBe(42);
+	});
+
+	it('snaps an off-grid / rounding-noisy angle to the nearest 90° bucket', () => {
+		expect(screenPitchDeg(0, 30, 88)).toBe(30);   // → 90
+		expect(screenPitchDeg(30, 0, 179)).toBe(-30); // → 180
+		expect(screenPitchDeg(0, 30, 271)).toBe(-30); // → 270
+	});
+
+	it('normalizes negative / >360 angles into the canonical bucket', () => {
+		expect(screenPitchDeg(30, 0, -180)).toBe(-30); // -180 → 180
+		expect(screenPitchDeg(0, 30, 450)).toBe(30);   // 450 → 90
+	});
+
+	it('collapses a non-finite active axis to the horizon (0), never NaN', () => {
+		expect(screenPitchDeg(NaN, 30, 0)).toBe(0);     // portrait reads beta
+		expect(screenPitchDeg(30, NaN, 90)).toBe(0);    // landscape reads gamma
+		expect(Number.isFinite(screenPitchDeg(NaN, NaN, 270))).toBe(true);
+	});
+
+	it('ignores the inactive axis being non-finite', () => {
+		expect(screenPitchDeg(30, NaN, 0)).toBe(30);    // portrait: gamma unused
+		expect(screenPitchDeg(NaN, 30, 90)).toBe(30);   // landscape: beta unused
 	});
 });

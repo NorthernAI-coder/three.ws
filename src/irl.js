@@ -61,6 +61,8 @@ import { initRoomMode } from './irl/room-mode.js';
 import { isFiniteReading, isCompassFresh, shouldUseAbsoluteYaw, resolveLockYaw, clampPitch, screenPitchDeg } from './irl/sensor-fusion.js';
 import { deriveVerticalFovDeg, DEFAULT_DIAG_FOV_DEG } from './irl/camera-fov.js';
 import { pinBandAction } from './irl/proximity-band.js';
+import { gpsAccuracyBucket, easeGpsTransition, GPS_TRANSITION_MS } from './irl/gps-lifecycle.js';
+import { pickLabelHit } from './irl/tap-pick.js';
 import {
 	shouldCueArrival,
 	relativeBearing,
@@ -265,7 +267,12 @@ rayPlane.position.y = 0.005;
 scene.add(rayPlane);
 
 // ── Camera ────────────────────────────────────────────────────────────────
-const camera = new PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.05, 200);
+// near = 0.02 m: held one-handed, a virtual agent brought close to inspect can put
+// its near face inside the clip cone and vanish (and so dodge the inspect tap). 2 cm
+// keeps it visible without the depth-fighting a 1 cm near would risk against the
+// coplanar ground/shadow planes at the 0.02→200 ratio. Raycasting itself is
+// near-independent (Raycaster.near defaults to 0), so this is purely a render fix.
+const camera = new PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.02, 200);
 const avatarRig = new Group();
 scene.add(avatarRig);
 
@@ -659,22 +666,16 @@ canvas.addEventListener('pointerup', e => {
 
 // Nearest on-screen name label within a finger-sized radius of the tap (B4).
 // Uses the screen positions cached by updateLabels() each frame, so it costs a
-// short loop and zero projection/allocation. A clear pixel winner takes it;
-// near-ties resolve to the nearer (front) agent so clustered labels behave.
-const TAP_SLOP = 28; // px — touch radius around a label centre, wider than the box
+// short loop with no projection. The ranking (clear pixel winner takes it; cluster
+// ties resolve to the nearer/front agent) lives in the pure, unit-tested
+// pickLabelHit helper — here we only adapt each pin into a candidate it understands.
 function _nearestLabelWithinSlop(px, py) {
-	let best = null, bestPx = Infinity;
+	const candidates = [];
 	for (const pin of nearbyPins) {
 		if (!pin._labelOnScreen) continue;
-		const d = Math.hypot(px - pin._labelSx, py - pin._labelSy);
-		if (d > TAP_SLOP) continue;
-		if (d < bestPx - 8) { best = pin; bestPx = d; }
-		else if (Math.abs(d - bestPx) <= 8 &&
-			(pin.distance_m ?? Infinity) < (best?.distance_m ?? Infinity)) {
-			best = pin; bestPx = d;
-		}
+		candidates.push({ sx: pin._labelSx, sy: pin._labelSy, distance: pin.distance_m, pin });
 	}
-	return best;
+	return pickLabelHit(candidates, px, py)?.pin ?? null;
 }
 
 function _pinForObject(obj) {
@@ -1249,6 +1250,18 @@ let gpsModeActive = false;
 // True when the user locked before the first GPS fix landed: onGPSPosition()
 // finishes the anchor the instant a fix arrives, instead of pinning at origin.
 let _pendingGpsLock = false;
+// Camera glide for the local→GPS lock upgrade. When the first fix flips
+// gpsModeActive, the camera jumps from the gyro pivot to the viewer origin and the
+// avatar reprojects via gpsToWorld — without easing, that reads as a teleport. Set
+// to { from: Vector3, elapsed: 0 } at the flip; the GPS camera branch in tick()
+// eases position from `from` toward the origin over GPS_TRANSITION_MS, then clears.
+let _gpsCamTransition = null;
+// Pending re-arm of the geolocation watch after a transient (non-permission) error.
+// watchPosition does not reliably resume after an indoor timeout, and initGPS() is
+// idempotent on a live watchId — so onGPSError() tears the dead watch down and
+// schedules this backoff re-arm, letting an idle session self-heal without a reload.
+let _gpsRetryTimer = null;
+const GPS_RETRY_MS = 4000;
 
 function gpsToWorld(agentLat, agentLng) {
 	if (!gpsState.ready) return new Vector3(0, 0, 0);
@@ -1566,6 +1579,7 @@ function onGPSPosition(pos) {
 		gpsState.lng = blended.lng;
 	}
 	gpsState.ready    = true;
+	_gpsAcquiring     = false;   // first fix in hand — leave the "finding you" state
 
 	// First fix: GPS is live, so the user can place + manage pins from here.
 	if (!wasReady) revealMyPinsBtn();
@@ -1664,8 +1678,13 @@ function anchorGpsPin() {
 
 function onGPSError(err) {
 	// A revoked location permission always surfaces a re-request chip (E1), even
-	// outside an active pin attempt.
-	if (err && err.code === err.PERMISSION_DENIED) setPermissionState('location', 'denied');
+	// outside an active pin attempt. Leave the "finding you" state too — the denied
+	// chip owns recovery from here, and the badge falls back to hidden.
+	if (err && err.code === err.PERMISSION_DENIED) {
+		_gpsAcquiring = false;
+		setPermissionState('location', 'denied');
+		updateNearbyBadge();
+	}
 	// Only intervene with a sheet when a placement is actively waiting on a fix —
 	// a transient watchPosition timeout shouldn't disturb a working session.
 	if (!_pendingGpsLock) return;
@@ -1685,6 +1704,10 @@ function initGPS() {
 	if (_mockLocation) return;             // DEV simulated location active — never attach the real watch
 	if (!navigator.geolocation) return;
 	if (gpsState.watchId != null) return; // idempotent — onboarding, boot, and Pin may all call
+	// Enter the "finding you" state the moment the watch attaches (unless a fix is
+	// somehow already in hand) so the topbar shows honest progress, not a blank gap,
+	// before the first position lands.
+	if (!gpsState.ready) { _gpsAcquiring = true; updateNearbyBadge(); }
 	gpsState.watchId = navigator.geolocation.watchPosition(
 		onGPSPosition,
 		onGPSError,
@@ -2274,6 +2297,14 @@ let nearbyPins = []; // [{ id, lat, lng, avatar_url, avatar_name, caption, x402_
 // Set true when the last nearby fetch failed; cleared on the next good fetch, so
 // a failed refresh shows a visible indicator on the badge instead of going silent.
 let _nearbyError = false;
+// Set true on a 429 from the nearby read — a calm, auto-recovering "catching up"
+// state distinct from the scary error badge (the next poll clears it). The limiter
+// is generous, so this is rare, but it must never read as "discovery is broken".
+let _nearbyRateLimited = false;
+// Location is granted and the GPS watch is attached, but no first fix has landed
+// yet. A distinct "finding you" state so the gap before the first fix is never
+// mistaken for "nobody's here." Cleared the instant gpsState.ready flips true.
+let _gpsAcquiring = false;
 
 // ── "Newly stable in-range" signal (task 04 → task 03) ──────────────────────
 // The hysteresis band (proximity-band.js) makes membership steady: a pin only
@@ -2825,9 +2856,15 @@ async function loadNearbyPins() {
 			{ headers: await presenceHeaders() },
 		);
 		if (r.status === 401) { return handleFixRequired(r); }
+		// 429: we're polling faster than the limiter allows (rare — the cadence is
+		// fixed at 10 s — but possible behind a shared NAT or after a manual retry
+		// storm). Treat it as a transient, self-healing pause, NOT an error: keep the
+		// last good pins on screen and let the next cycle catch up. Never alarm the user.
+		if (r.status === 429) { _nearbyRateLimited = true; updateNearbyBadge(); return; }
 		if (!r.ok) { _nearbyError = true; updateNearbyBadge(); return; }
 		const { pins } = await r.json();
 		_nearbyError = false;
+		_nearbyRateLimited = false;
 
 		const incoming     = pins.filter(p => !gpsPin?.id || p.id !== gpsPin.id);
 		const incomingById = new Map(incoming.map(p => [p.id, p]));
@@ -2899,8 +2936,10 @@ async function loadNearbyPins() {
 		}
 	} catch {
 		// Don't fail silently — a busy spot that can't load looks identical to an
-		// empty one otherwise. Flag it on the badge; the 15 s poll retries.
+		// empty one otherwise. Flag it on the badge; the 15 s poll retries. A genuine
+		// network drop supersedes a prior rate-limit pause (error is the actionable state).
 		_nearbyError = true;
+		_nearbyRateLimited = false;
 		updateNearbyBadge();
 	}
 }
@@ -3260,6 +3299,11 @@ function updateNearbyBadge() {
 		// Visible, not silent: the 15 s poll retries; show we know the data is stale.
 		text = n > 0 ? `${n} nearby · refresh failed` : 'Couldn’t load nearby — retrying…';
 		mod = 'is-error';
+	} else if (_nearbyRateLimited) {
+		// Calm + specific + self-healing: we backed off, the next cycle resumes. Keep any
+		// pins we already have visible ("N nearby · catching up"); never an error tone.
+		text = n > 0 ? `${n} nearby · catching up…` : 'Refreshing too fast — catching up…';
+		mod = 'is-rate';
 	} else if (n > 0) {
 		text = `${n} nearby`;
 		mod = '';
@@ -3268,13 +3312,21 @@ function updateNearbyBadge() {
 		// to be the first, rather than hiding (which reads as "feature off").
 		text = 'No agents nearby — be the first to pin here';
 		mod = 'is-empty';
+	} else if (_gpsAcquiring) {
+		// Granted but no fix yet — a distinct, honest "finding you" state (shimmer skeleton
+		// in CSS) so the pre-fix gap never reads as the empty "nobody's here" state.
+		text = 'Finding your location…';
+		mod = 'is-acquiring';
 	} else {
-		// No fix yet → nothing to say about "nearby"; stay hidden until GPS lands.
+		// No location yet (denied / not asked) → nothing to say about "nearby"; stay
+		// hidden until a fix lands. The permission chips own the recovery path.
 		text = '';
 		mod = 'hidden';
 	}
 	badge.classList.toggle('is-error', mod === 'is-error');
 	badge.classList.toggle('is-empty', mod === 'is-empty');
+	badge.classList.toggle('is-rate', mod === 'is-rate');
+	badge.classList.toggle('is-acquiring', mod === 'is-acquiring');
 	if (mod === 'hidden') { badge.hidden = true; return; }
 	badge.hidden = false;
 	if (badge.textContent !== text) badge.textContent = text;
