@@ -88,6 +88,12 @@
 	--accent: #ffffff;
 	--accent-soft: rgba(255, 255, 255, 0.10);
 
+	/* Gold brand channel (B08) — the reused features/optional-tier gold. Stored as
+	   raw RGB channels so every translucent variant references one source:
+	   rgba(var(--gold-rgb), <alpha>). Keeps the many alpha tints on a single token
+	   without collapsing them to one opacity. */
+	--gold-rgb: 255, 215, 0;
+
 	/* Surface system — mirrors the /dashboard (dashboard-next) palette so every
 	   surface across the site reads as one product. Monochrome glass on near-black,
 	   soft 14px cards, semantic green/red/amber. Reference these instead of

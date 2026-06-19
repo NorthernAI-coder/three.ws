@@ -38,6 +38,16 @@ import nipplejs from 'nipplejs';
 
 import { AnimationManager } from './animation-manager.js';
 import { log } from './shared/log.js';
+import {
+	CHANNEL,
+	PROTOCOL_VERSION,
+	INBOUND,
+	OUTBOUND,
+	makeMessage,
+	makeOriginAllowList,
+	isWalkMessage,
+	validateInbound,
+} from './walk-embed-events.js';
 
 const AVATAR_URL_DEFAULT = '/avatars/default.glb';
 
@@ -85,6 +95,11 @@ const ANIMATIONS_MANIFEST_URL = '/animations/manifest.json';
 const CLIP_IDLE = 'idle';
 const CLIP_WALK = 'av-walk-feminine';
 const CLIP_RUN = 'av-walk-feminine'; // no separate run clip; timeScale handles pace difference
+// One-shot gesture clips, driven by the `walk:gesture` host command. Mapped to
+// real manifest clip names; playOnce settles back to idle when each finishes.
+const GESTURE_CLIPS = { wave: 'wave', jump: 'av-superhero-jump' };
+// Clip names the embed must have resident for locomotion + gestures.
+const REQUIRED_CLIPS = new Set([CLIP_IDLE, CLIP_WALK, CLIP_RUN, ...Object.values(GESTURE_CLIPS)]);
 
 const WALK_SPEED = 1.6;
 const RUN_SPEED = 4.0;
@@ -126,14 +141,27 @@ function setStatus(text, { error = false, sticky = false } = {}) {
 }
 
 // ── postMessage bridge to host page ──────────────────────────────────────
-// The host frame learns about embed lifecycle + avatar position via
-// window.postMessage. We post to window.parent only when it's a different
-// window (i.e. we're actually inside an iframe). Direct page loads still
-// work — they just don't emit messages.
+// The host frame learns about embed lifecycle + avatar position via the typed
+// walk-embed-events contract (src/walk-embed-events.js). We post to window.parent
+// only when it's a different window (i.e. we're actually inside an iframe).
+// Direct page loads still work — they just don't emit messages.
+//
+// `?targetOrigin=` lets a security-conscious host pin the exact origin we post
+// to; default '*' keeps the embed droppable on any site (it ships
+// frame-ancestors *). The inbound source check below is the real authentication.
 const INSIDE_IFRAME = window.parent && window.parent !== window;
-function postToHost(payload) {
+const TARGET_ORIGIN = params.get('targetOrigin') || '*';
+const isOriginAllowed = makeOriginAllowList(params.get('allowOrigins')?.split(',').map((s) => s.trim()).filter(Boolean) || '*');
+
+// Emit a typed outbound event. `legacy` (optional) is the pre-contract message
+// shape we still emit alongside the new one so integrations written against
+// walk:ready / walk:position keep receiving events during the transition.
+function emit(type, payload = {}, legacy = null) {
 	if (!INSIDE_IFRAME) return;
-	try { window.parent.postMessage(payload, '*'); } catch {}
+	try {
+		window.parent.postMessage(makeMessage(type, payload), TARGET_ORIGIN);
+		if (legacy) window.parent.postMessage(legacy, TARGET_ORIGIN);
+	} catch {}
 }
 
 // ── Renderer / scene ──────────────────────────────────────────────────────
@@ -284,7 +312,23 @@ const input = {
 	keys: { forward: 0, back: 0, left: 0, right: 0, run: false },
 	joy: { x: 0, y: 0, active: false },
 	autoplay: { active: false, t: 0 },
+	// Programmatic vector, set by the `walk:move` host command (analog form).
+	// Persists until the host sends move {x:0,y:0} or any live input overrides it.
+	cmd: { x: 0, y: 0, run: false, active: false },
+	// Scripted discrete move ({ dir, meters }) — walks a fixed distance then stops.
+	// `remaining` counts down in metres each frame; `vx/vy` is the unit heading.
+	scripted: { remaining: 0, vx: 0, vy: 0, run: false },
 	_speedMultiplier: 1.0,
+};
+
+// Map a discrete direction to a camera-relative input vector. forward/back use
+// the y axis (joystick up = forward), left/right the x axis — same convention
+// readMoveInput already resolves against the camera heading.
+const DIR_VECTORS = {
+	forward: { vx: 0, vy: 1 },
+	back: { vx: 0, vy: -1 },
+	left: { vx: -1, vy: 0 },
+	right: { vx: 1, vy: 0 },
 };
 
 if (CONTROLS === 'keyboard' || CONTROLS === 'joystick') {
@@ -378,11 +422,9 @@ async function loadAvatar() {
 			if (!r.ok) throw new Error(`HTTP ${r.status} fetching animation manifest`);
 			return r.json();
 		});
-	const needed = manifest.filter((d) =>
-		d.name === CLIP_IDLE || d.name === CLIP_WALK || d.name === CLIP_RUN,
-	);
-	if (needed.length === 0) {
-		throw new Error('Animation manifest missing idle/walking/running clips');
+	const needed = manifest.filter((d) => REQUIRED_CLIPS.has(d.name));
+	if (!needed.some((d) => d.name === CLIP_IDLE) || !needed.some((d) => d.name === CLIP_WALK)) {
+		throw new Error('Animation manifest missing idle/walking clips');
 	}
 	animationManager.setAnimationDefs(needed);
 	await animationManager.loadAll();
@@ -396,7 +438,7 @@ async function loadAvatar() {
 	}
 
 	setStatus('walk it');
-	postToHost({ type: 'walk:ready', avatar: avatarUrl });
+	emit(OUTBOUND.LOADED, { avatar: avatarUrl }, { type: 'walk:ready', avatar: avatarUrl });
 }
 
 // ── Resize ────────────────────────────────────────────────────────────────
@@ -418,12 +460,24 @@ const moveRight = new Vector3();
 const upY = new Vector3(0, 1, 0);
 
 function readMoveInput(dt) {
-	if (input.joy.active) return { ix: input.joy.x, iy: input.joy.y };
+	// Live input always wins and cancels any programmatic drive so a human can
+	// grab control mid-script.
+	if (input.joy.active) { input.scripted.remaining = 0; input.cmd.active = false; return { ix: input.joy.x, iy: input.joy.y, run: false }; }
 	if (CONTROLS !== 'none') {
 		const ix = input.keys.right - input.keys.left;
 		const iy = input.keys.forward - input.keys.back;
-		if (ix || iy) return { ix, iy };
+		if (ix || iy) { input.scripted.remaining = 0; input.cmd.active = false; return { ix, iy, run: input.keys.run }; }
 	}
+	// Scripted discrete move: walk a fixed distance then stop. Decrement by the
+	// per-frame distance the loop will actually travel (speed × dt) so `meters`
+	// maps to real world distance regardless of frame rate.
+	if (input.scripted.remaining > 0) {
+		const pace = (input.scripted.run ? RUN_SPEED : WALK_SPEED) * (input._speedMultiplier || 1.0);
+		input.scripted.remaining = Math.max(0, input.scripted.remaining - pace * dt);
+		return { ix: input.scripted.vx, iy: input.scripted.vy, run: input.scripted.run };
+	}
+	// Held analog vector from `walk:move`.
+	if (input.cmd.active) return { ix: input.cmd.x, iy: input.cmd.y, run: input.cmd.run };
 	if (input.autoplay.active) {
 		// Lazy "walk in a slow circle" pattern — readable, non-distracting,
 		// and keeps the avatar within the visible ground disc no matter how
@@ -526,13 +580,13 @@ function tick() {
 	) {
 		lastBroadcastX = avatarRig.position.x;
 		lastBroadcastZ = avatarRig.position.z;
-		postToHost({
-			type: 'walk:position',
+		const pos = {
 			x: avatarRig.position.x,
 			z: avatarRig.position.z,
 			yaw: avatarYaw,
 			motion: currentMotion,
-		});
+		};
+		emit(OUTBOUND.MOVED, pos, { type: 'walk:position', ...pos });
 	}
 
 	renderer.render(scene, camera);

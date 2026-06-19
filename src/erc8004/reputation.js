@@ -1,9 +1,17 @@
 /**
  * ReputationRegistry helpers — submit and query agent feedback.
  *
- * Matches the canonical ERC-8004 reputation contract:
- *   submitReputation(uint256 agentId, uint8 score, string comment)
- *   getReputation(uint256 agentId) → (uint256 totalScore, uint256 count)
+ * Matches the deployed ERC-8004 reputation contract
+ * (contracts/src/ReputationRegistry.sol) exactly:
+ *   submitFeedback(uint256 agentId, int8 score, string uri)
+ *   getReputation(uint256 agentId) → (int256 avgX100, uint256 count)
+ *   getTotalStake(uint256 agentId) → uint256
+ *   FeedbackSubmitted(agentId, from, int8 score, string uri)
+ *
+ * `getReputation` returns the average already multiplied by 100 (so callers can
+ * divide client-side without precision loss). Never re-divide by `count` — that
+ * is what the contract already did. `score` is a signed int8 in [-100, 100]; the
+ * star UIs pass 1-5, which is a valid subset.
  */
 
 import { Contract } from 'ethers';
@@ -18,43 +26,42 @@ function getContract(chainId, runner) {
 }
 
 /**
- * Submit a reputation score about an agent.
+ * Submit reputation feedback about an agent.
  * @param {object} opts
  * @param {number|bigint} opts.agentId
- * @param {number} opts.score                     Integer 0-255 (typically 1-5 or 1-100)
- * @param {string} [opts.comment='']              Free-form comment
+ * @param {number} opts.score                     Signed int8 in [-100, 100] (star UIs pass 1-5)
+ * @param {string} [opts.comment='']              Optional public on-chain comment / ipfs:// URI
  * @param {import('ethers').Signer} opts.signer
  * @param {number} [opts.chainId]
  * @returns {Promise<string>} tx hash
  */
-export async function submitReputation({ agentId, score, comment = '', signer, chainId }) {
-	if (!Number.isInteger(score) || score < 0 || score > 255) {
-		throw new Error('score must be a uint8 (0-255)');
+export async function submitFeedback({ agentId, score, comment = '', signer, chainId }) {
+	if (!Number.isInteger(score) || score < -100 || score > 100) {
+		throw new Error('score must be an int8 in [-100, 100]');
 	}
 	const resolvedChainId = chainId ?? Number((await signer.provider.getNetwork()).chainId);
 	const contract = getContract(resolvedChainId, signer);
-	const tx = await contract.submitReputation(agentId, score, comment);
+	const tx = await contract.submitFeedback(agentId, score, comment);
 	await tx.wait();
 	return tx.hash;
 }
 
-// Back-compat alias — the canonical contract calls it submitReputation.
-export const submitFeedback = submitReputation;
+// Back-compat alias — the prior client API called this submitReputation.
+export const submitReputation = submitFeedback;
 
 /**
  * Read aggregated reputation.
- * @returns {Promise<{total: number, count: number, average: number}>}
- *          average is 0 when no reviews have been submitted.
+ * @returns {Promise<{average: number, count: number}>}
+ *          `average` is the on-chain avgX100 divided by 100 (so 4.2 reads as 4.2),
+ *          0 when no reviews have been submitted.
  */
 export async function getReputation({ agentId, runner, chainId }) {
 	const contract = getContract(chainId, runner);
-	const [totalScore, count] = await contract.getReputation(agentId);
+	const [avgX100, count] = await contract.getReputation(agentId);
 	const n = Number(count);
-	const t = Number(totalScore);
 	return {
-		total: t,
 		count: n,
-		average: n === 0 ? 0 : t / n,
+		average: n === 0 ? 0 : Number(avgX100) / 100,
 	};
 }
 
@@ -90,18 +97,18 @@ export async function getTotalStake({ agentId, runner, chainId }) {
 }
 
 /**
- * Enumerate past reviews by querying the ReputationSubmitted event log.
+ * Enumerate past reviews by querying the FeedbackSubmitted event log.
  * Optional — only useful if an indexer/provider supports filtered log queries.
  */
 export async function getRecentReviews({ agentId, runner, chainId, fromBlock = 0 }) {
 	const contract = getContract(chainId, runner);
-	const filter = contract.filters.ReputationSubmitted(agentId);
+	const filter = contract.filters.FeedbackSubmitted(agentId);
 	const events = await contract.queryFilter(filter, fromBlock);
 	return events.map((ev) => ({
 		agentId: Number(ev.args.agentId),
-		from: ev.args.submitter,
+		from: ev.args.from,
 		score: Number(ev.args.score),
-		comment: ev.args.comment,
+		comment: ev.args.uri,
 		blockNumber: ev.blockNumber,
 		txHash: ev.transactionHash,
 	}));

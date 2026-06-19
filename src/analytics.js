@@ -1,21 +1,114 @@
-// Tiny PostHog identity helper.
+// Analytics — PostHog identity + a typed, documented event taxonomy.
 //
 // The snippet injected by vite.config.js auto-captures pageviews, clicks and
-// session replays anonymously. Without `posthog.identify()`, every visit is a
-// fresh "person" keyed by session ID — funnels, cohorts and retention all
-// break. Call identifyUser() once after auth resolves, resetIdentity() on
-// sign-out.
+// session replays anonymously. This module adds:
+//   1. Identity      — identifyUser() / resetIdentity() (call after auth resolves).
+//   2. Event catalog  — ANALYTICS_EVENTS: the single source of truth for every
+//                       product-meaningful event name + its documented props.
+//   3. track()        — a validating facade. Unknown events are rejected (and
+//                       surfaced in dev) so the taxonomy can't silently drift.
+//   4. Funnels        — trackFunnelStep() for ordered conversion journeys
+//                       (landing → connect-wallet → action → success).
+//   5. Errors         — trackError() to capture handled boundary failures with
+//                       context, so reliability shows up alongside behaviour.
 //
-// All calls are no-ops when window.posthog isn't loaded (embed pages,
-// blocked by adblock, ad-blocker test) so callers can fire-and-forget.
+// Privacy: never pass raw wallet addresses or other PII as props — use
+// shortWallet() to truncate. Every call is a no-op when window.posthog isn't
+// loaded (embed pages, ad-blockers) so callers can fire-and-forget and analytics
+// can never break the app.
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Event taxonomy — the documented catalog. Keys are stable event names sent to
+// PostHog; comments describe the props each event should carry. Group by journey.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const ANALYTICS_EVENTS = Object.freeze({
+	// ── Acquisition ──────────────────────────────────────────────────────────
+	/** Landing/home surfaced. props: { referrer?, utm_source?, path? } */
+	LANDING_VIEWED: 'landing_viewed',
+	/** A primary CTA was clicked. props: { cta: string, location: string } */
+	CTA_CLICKED: 'cta_clicked',
+
+	// ── Activation ───────────────────────────────────────────────────────────
+	/** Wallet connect initiated. props: { provider?: string } */
+	WALLET_CONNECT_STARTED: 'wallet_connect_started',
+	/** Wallet connected. props: { provider?, wallet_short?, chain? } */
+	WALLET_CONNECT_SUCCEEDED: 'wallet_connect_succeeded',
+	/** Wallet connect failed. props: { provider?, reason? } */
+	WALLET_CONNECT_FAILED: 'wallet_connect_failed',
+	/** An agent was created. props: { agent_id?, source? } */
+	AGENT_CREATED: 'agent_created',
+	/** First embed/snippet generated for an agent. props: { agent_id?, embed_kind? } */
+	EMBED_GENERATED: 'embed_generated',
+
+	// ── $THREE holder funnel (ordered — see FUNNELS.three) ───────────────────
+	/** $THREE token page viewed. props: { price_usd? } */
+	TOKEN_PAGE_VIEWED: 'token_page_viewed',
+	/** Buy/swap intent clicked. props: { source? } */
+	TOKEN_BUY_CLICKED: 'token_buy_clicked',
+	/** A swap quote was shown. props: { amount_usd?, out_amount? } */
+	TOKEN_QUOTE_SHOWN: 'token_quote_shown',
+	/** Swap submitted/confirmed by the user. props: { amount_usd? } */
+	TOKEN_SWAP_CONFIRMED: 'token_swap_confirmed',
+	/** Swap settled successfully. props: { amount_usd?, tx_short? } */
+	TOKEN_SWAP_SUCCEEDED: 'token_swap_succeeded',
+
+	// ── Engagement ───────────────────────────────────────────────────────────
+	/** Marketplace search/filter used. props: { query_len?, filters? } */
+	MARKETPLACE_SEARCHED: 'marketplace_searched',
+	/** An agent profile was opened. props: { agent_id? } */
+	AGENT_PROFILE_VIEWED: 'agent_profile_viewed',
+	/** Visualizer/dashboard surface opened. props: { surface: string } */
+	SURFACE_OPENED: 'surface_opened',
+
+	// ── Share (this module's own instrumentation surface) ────────────────────
+	/** Share card flow opened. props: { kind: string, entity_id? } */
+	SHARE_CARD_OPENED: 'share_card_opened',
+	/** A share action fired. props: { kind, channel: 'copy'|'download'|'native'|'x', entity_id? } */
+	SHARE_CARD_ACTION: 'share_card_action',
+
+	// ── Errors ───────────────────────────────────────────────────────────────
+	/** A handled error at a boundary. props: { context, message, code?, status? } */
+	ERROR_OCCURRED: 'error_occurred',
+});
+
+const _eventValues = new Set(Object.values(ANALYTICS_EVENTS));
+
+/**
+ * Ordered conversion funnels. Each is a list of event names from
+ * ANALYTICS_EVENTS; trackFunnelStep() tags events with their funnel + step index
+ * so PostHog funnel insights line up without per-call configuration.
+ */
+export const FUNNELS = Object.freeze({
+	activation: [
+		ANALYTICS_EVENTS.LANDING_VIEWED,
+		ANALYTICS_EVENTS.WALLET_CONNECT_STARTED,
+		ANALYTICS_EVENTS.WALLET_CONNECT_SUCCEEDED,
+		ANALYTICS_EVENTS.AGENT_CREATED,
+	],
+	three: [
+		ANALYTICS_EVENTS.TOKEN_PAGE_VIEWED,
+		ANALYTICS_EVENTS.TOKEN_BUY_CLICKED,
+		ANALYTICS_EVENTS.TOKEN_QUOTE_SHOWN,
+		ANALYTICS_EVENTS.TOKEN_SWAP_CONFIRMED,
+		ANALYTICS_EVENTS.TOKEN_SWAP_SUCCEEDED,
+	],
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PostHog plumbing
+// ─────────────────────────────────────────────────────────────────────────────
 
 function ph() {
 	if (typeof window === 'undefined') return null;
 	if (window.__posthog_blocked) return null;
 	const p = window.posthog;
-	if (!p || typeof p.identify !== 'function') return null;
+	if (!p || typeof p.capture !== 'function') return null;
 	return p;
 }
+
+const _isDev =
+	typeof import.meta !== 'undefined' && import.meta.env ? Boolean(import.meta.env.DEV) : false;
 
 let _lastDistinctId = null;
 
@@ -26,7 +119,7 @@ let _lastDistinctId = null;
 export function identifyUser(user) {
 	if (!user?.id) return;
 	const p = ph();
-	if (!p) return;
+	if (!p || typeof p.identify !== 'function') return;
 	// Avoid re-identifying on every getMe() call (most pages call it on load).
 	if (_lastDistinctId === user.id) return;
 	_lastDistinctId = user.id;
@@ -46,7 +139,7 @@ export function identifyUser(user) {
 export function resetIdentity() {
 	_lastDistinctId = null;
 	const p = ph();
-	if (!p) return;
+	if (!p || typeof p.reset !== 'function') return;
 	try {
 		p.reset();
 	} catch {
@@ -54,18 +147,118 @@ export function resetIdentity() {
 	}
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// track() — the validating facade every call site uses
+// ─────────────────────────────────────────────────────────────────────────────
+
 /**
- * Capture a custom event. Use sparingly — most behavior is already auto-captured.
- * Reserve for product-meaningful actions (e.g. "widget_published", "knowledge_uploaded").
- * @param {string} event
+ * Capture a product-meaningful event. Reserve for actions in the catalog above —
+ * most behaviour is already auto-captured. Unknown event names are rejected so
+ * the taxonomy can't silently drift; in dev the rejection is logged.
+ *
+ * @param {string} event — must be a value from ANALYTICS_EVENTS.
  * @param {Record<string, any>} [props]
+ * @returns {boolean} whether the event was accepted + sent.
  */
 export function track(event, props = {}) {
-	const p = ph();
-	if (!p) return;
-	try {
-		p.capture(event, props);
-	} catch {
-		/* swallow */
+	if (!_eventValues.has(event)) {
+		if (_isDev && typeof console !== 'undefined') {
+			console.warn(
+				`[analytics] rejected unknown event "${event}" — add it to ANALYTICS_EVENTS in src/analytics.js`,
+			);
+		}
+		return false;
 	}
+	const p = ph();
+	if (!p) return false;
+	try {
+		p.capture(event, sanitizeProps(props));
+		return true;
+	} catch {
+		/* swallow — analytics must never break the app */
+		return false;
+	}
+}
+
+/**
+ * Track one step of a named conversion funnel. Stamps the event with
+ * `funnel` + `funnel_step` (1-based) so funnel insights align in PostHog.
+ *
+ * @param {keyof typeof FUNNELS} funnel
+ * @param {string} event — must belong to FUNNELS[funnel].
+ * @param {Record<string, any>} [props]
+ * @returns {boolean}
+ */
+export function trackFunnelStep(funnel, event, props = {}) {
+	const steps = FUNNELS[funnel];
+	if (!steps) {
+		if (_isDev && typeof console !== 'undefined') {
+			console.warn(`[analytics] unknown funnel "${funnel}"`);
+		}
+		return false;
+	}
+	const idx = steps.indexOf(event);
+	if (idx < 0) {
+		if (_isDev && typeof console !== 'undefined') {
+			console.warn(`[analytics] event "${event}" is not a step of funnel "${funnel}"`);
+		}
+		return false;
+	}
+	return track(event, { ...props, funnel, funnel_step: idx + 1 });
+}
+
+/**
+ * Capture a handled error at a boundary (network, user input, parse) with
+ * enough context to triage without leaking internals. Errors are non-fatal to
+ * the app — this is observability, not control flow.
+ *
+ * @param {string} context — where it happened, e.g. 'share_card.generate'.
+ * @param {unknown} err — the caught error / value.
+ * @param {Record<string, any>} [extra] — additional safe context.
+ */
+export function trackError(context, err, extra = {}) {
+	const message =
+		err instanceof Error ? err.message : typeof err === 'string' ? err : String(err ?? 'unknown');
+	const code = err && typeof err === 'object' ? err.code : undefined;
+	const status = err && typeof err === 'object' ? err.status : undefined;
+	return track(ANALYTICS_EVENTS.ERROR_OCCURRED, {
+		context,
+		message: String(message).slice(0, 300),
+		...(code != null ? { code: String(code) } : {}),
+		...(status != null ? { status: Number(status) } : {}),
+		...extra,
+	});
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Truncate a wallet address for analytics props so a raw public key never lands
+ * in an event payload: "FeMb…Jpump".
+ * @param {string} addr
+ * @returns {string}
+ */
+export function shortWallet(addr) {
+	const s = String(addr || '');
+	return s.length > 10 ? `${s.slice(0, 4)}…${s.slice(-4)}` : s;
+}
+
+// Defensive: strip obvious full-length wallet/PII shapes from props so a careless
+// call site can't leak a raw address. Values are kept otherwise as-is.
+const _BASE58_WALLET = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+const _EVM_ADDRESS = /^0x[a-fA-F0-9]{40}$/;
+function sanitizeProps(props) {
+	if (!props || typeof props !== 'object') return {};
+	const out = {};
+	for (const [k, v] of Object.entries(props)) {
+		if (v == null) continue;
+		if (typeof v === 'string' && (_BASE58_WALLET.test(v) || _EVM_ADDRESS.test(v))) {
+			out[k] = shortWallet(v);
+		} else {
+			out[k] = v;
+		}
+	}
+	return out;
 }

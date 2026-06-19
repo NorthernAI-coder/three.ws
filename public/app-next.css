@@ -41,7 +41,7 @@ body.app-next-body {
 		/* Base depth gradient */
 		radial-gradient(ellipse 90% 70% at 50% 60%, #0e0e0e 0%, #080808 55%, #020202 100%);
 	color: var(--nxt-ink);
-	font-family: 'Inter', system-ui, -apple-system, sans-serif;
+	font-family: var(--font-body);
 	overflow: hidden;
 }
 
@@ -1753,7 +1753,7 @@ body.app-next-body .dg.ac { display: none !important; }
 }
 
 .nxt-visitor-card__name {
-	font-family: 'Space Grotesk', 'Inter', sans-serif;
+	font-family: var(--font-display);
 	font-size: 16px;
 	font-weight: 600;
 	color: #f5f5f7;

@@ -1443,12 +1443,12 @@ footer:not([class*="h-footer"]) .separator {
 
 .phi-grid::before {
 	left: 38.2%;
-	background: rgba(255, 215, 0, 0.5);
+	background: rgba(var(--gold-rgb), 0.5);
 }
 
 .phi-grid::after {
 	left: 61.8%;
-	background: rgba(255, 215, 0, 0.5);
+	background: rgba(var(--gold-rgb), 0.5);
 }
 
 /* Horizontal golden split + thirds via inner spans */
@@ -1504,12 +1504,12 @@ footer:not([class*="h-footer"]) .separator {
 
 .phi-grid-h::before {
 	top: 38.2%;
-	background: rgba(255, 215, 0, 0.5);
+	background: rgba(var(--gold-rgb), 0.5);
 }
 
 .phi-grid-h::after {
 	top: 61.8%;
-	background: rgba(255, 215, 0, 0.5);
+	background: rgba(var(--gold-rgb), 0.5);
 }
 
 /* Rule-of-thirds lines (dimmer) */
@@ -1554,7 +1554,7 @@ footer:not([class*="h-footer"]) .separator {
 	transform: translateX(-50%);
 	font-family: 'SF Mono', 'Fira Code', monospace;
 	font-size: var(--text-xs);
-	color: rgba(255, 215, 0, 0.7);
+	color: rgba(var(--gold-rgb), 0.7);
 	background: rgba(0, 0, 0, 0.7);
 	padding: var(--space-3xs) var(--space-xs);
 	border-radius: var(--radius-sm);
@@ -1739,7 +1739,7 @@ footer:not([class*="h-footer"]) .separator {
 	border-radius: var(--radius-lg);
 	padding: var(--space-xs) var(--space-sm);
 	color: #fff;
-	font-family: 'Inter', sans-serif;
+	font-family: var(--font-body);
 	font-size: var(--text-sm);
 	outline: none;
 	transition: border-color 0.2s ease;
@@ -5215,7 +5215,7 @@ body[data-viewer-mode='explore'] #layout-switch {
 .agent-home-editable.is-editing,
 .agent-home-editable:focus-visible {
 	background: rgba(255, 255, 255, 0.08);
-	box-shadow: 0 0 0 1px rgba(255, 215, 0, 0.5);
+	box-shadow: 0 0 0 1px rgba(var(--gold-rgb), 0.5);
 }
 .agent-home-editable.is-saving {
 	box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18);
@@ -5802,7 +5802,7 @@ body[data-viewer-mode='explore'] #layout-switch {
 	min-width: 48px;
 	font-size: 13px;
 	line-height: 1.45;
-	font-family: 'Inter', sans-serif;
+	font-family: var(--font-body);
 	word-wrap: break-word;
 	text-align: center;
 	position: relative;
@@ -5876,7 +5876,7 @@ body[data-viewer-mode='explore'] #layout-switch {
 	min-height: 100vh;
 	background: #000;
 	color: #e0e0e0;
-	font-family: 'Inter', sans-serif;
+	font-family: var(--font-body);
 	display: flex;
 	flex-direction: column;
 	align-items: center;
@@ -6704,7 +6704,7 @@ body[data-viewer-mode='main'][data-authed='false'] .auth-gate {
 }
 
 .agent-onboarding__title {
-	font-family: 'Space Grotesk', 'Inter', sans-serif;
+	font-family: var(--font-display);
 	margin: 0 0 var(--space-xs);
 	font-size: 1.1rem;
 	font-weight: 600;
@@ -6832,7 +6832,7 @@ body[data-viewer-mode='main'][data-authed='false'] .auth-gate {
 }
 
 .auth-gate__title {
-	font-family: 'Space Grotesk', 'Inter', sans-serif;
+	font-family: var(--font-display);
 	font-size: 1.32rem;
 	font-weight: 600;
 	color: #fff;
@@ -7977,7 +7977,7 @@ textarea.erc8004-code {
 }
 .explore-hero h1,
 .explore-hero h2 {
-	font-family: 'Space Grotesk', system-ui, sans-serif;
+	font-family: var(--font-display);
 	font-size: clamp(1.9rem, 6vw, 3.2rem);
 	font-weight: 700;
 	letter-spacing: -0.02em;
@@ -8266,7 +8266,7 @@ textarea.erc8004-code {
 }
 .explore-card-name {
 	margin: 0;
-	font-family: 'Space Grotesk', system-ui, sans-serif;
+	font-family: var(--font-display);
 	font-size: 15px;
 	font-weight: 600;
 	color: #fff;

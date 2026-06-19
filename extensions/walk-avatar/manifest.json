@@ -3,7 +3,7 @@
 	"name": "three.ws Walk Avatar",
 	"short_name": "Walk Avatar",
 	"version": "1.0.0",
-	"description": "Walk your three.ws avatar on any website you visit — browse the web with a living 3D companion.",
+	"description": "Walk your three.ws avatar on any site and have it read pages aloud — a living 3D browsing companion.",
 	"homepage_url": "https://three.ws/extension",
 
 	"icons": {
@@ -34,21 +34,16 @@
 	"permissions": [
 		"storage",
 		"activeTab",
-		"scripting"
+		"scripting",
+		"tabs"
 	],
 
 	"host_permissions": [
+		"https://three.ws/*",
 		"<all_urls>"
 	],
 
 	"options_page": "options.html",
-
-	"web_accessible_resources": [
-		{
-			"resources": ["styles/inject.css"],
-			"matches": ["<all_urls>"]
-		}
-	],
 
 	"content_security_policy": {
 		"extension_pages": "script-src 'self'; object-src 'self'"

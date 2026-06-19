@@ -179,10 +179,11 @@ async function _refresh(state, panel) {
 		const symbol = symbolRes.status === 'fulfilled' ? symbolRes.value : '';
 		let reputationData = null;
 		if (repRes.status === 'fulfilled' && repRes.value) {
-			const [total, count] = repRes.value;
+			// getReputation returns (avgX100, count) — already averaged ×100 on-chain.
+			// Divide for display; never re-divide by count.
+			const [avgX100, count] = repRes.value;
 			const n = Number(count);
-			const t = Number(total);
-			reputationData = { total: t, count: n, average: n === 0 ? 0 : t / n };
+			reputationData = { count: n, average: n === 0 ? 0 : Number(avgX100) / 100 };
 		}
 
 		let feedback = [];

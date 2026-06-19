@@ -10,7 +10,45 @@
 
 const PRECISION_KEY  = 'irl_discovery_precision';   // 'precise' | 'approximate'
 const DISCLOSED_KEY  = 'irl_location_disclosed_v1';
+const DEVICE_KEY     = 'irl_device_token';          // shared with src/irl.js (H2 identity)
 const STYLE_ID       = 'irlpc-styles';
+
+// The anonymous device token is a BEARER credential (H2): presenting it reads a
+// device's pin history + inbox. It rides the `x-irl-device` REQUEST HEADER — never
+// a URL — so it can't leak through access logs, history, or a Referer header. The
+// session cookie (credentials: 'include') authenticates a signed-in caller; both
+// arms are accepted by api/irl/privacy.js, which scopes every query to the owner.
+function deviceToken() {
+	try { return localStorage.getItem(DEVICE_KEY) || ''; } catch { return ''; }
+}
+
+function privacyHeaders(extra = {}) {
+	const tok = deviceToken();
+	return tok ? { 'x-irl-device': tok, ...extra } : { ...extra };
+}
+
+// Talk to api/irl/privacy.js. Token in the header, body for mutations, never a
+// query string. Throws a plain-language Error on a non-2xx so the UI renders a
+// designed error state rather than a silent failure.
+async function privacyApi(method, { query = '', body } = {}) {
+	const init = { method, credentials: 'include', headers: privacyHeaders() };
+	if (body !== undefined) {
+		init.headers = privacyHeaders({ 'content-type': 'application/json' });
+		init.body = JSON.stringify(body);
+	}
+	let resp;
+	try {
+		resp = await fetch(`/api/irl/privacy${query}`, init);
+	} catch {
+		throw new Error('Network error — check your connection and try again.');
+	}
+	let data = null;
+	try { data = await resp.json(); } catch { /* empty/non-JSON body */ }
+	if (!resp.ok) {
+		throw new Error(data?.error || `Request failed (${resp.status}).`);
+	}
+	return data;
+}
 
 // ── Discovery precision (single source of truth) ────────────────────────────
 export function getDiscoveryPrecision() {
@@ -87,6 +125,61 @@ function ensureStyles() {
 .irlpc-learn .ar{font-size:14px}
 /* First-run disclosure reuses the sheet shell with a tighter body */
 .irlpc-discl .irlpc-sec{border-top:none}
+/* ── My data panel ──────────────────────────────────────────────────────── */
+.irlpc-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:4px}
+.irlpc-stat{background:#11151f;border:1px solid #232838;border-radius:11px;padding:11px 12px}
+.irlpc-stat .n{font:700 19px/1 system-ui,sans-serif;color:#eef1f7}
+.irlpc-stat .l{font:500 11px/1.2 system-ui,sans-serif;color:#8b93a7;margin-top:4px}
+.irlpc-stored{list-style:none;margin:10px 0 0;padding:0}
+.irlpc-stored li{position:relative;padding:0 0 6px 16px;font:400 12px/1.45 system-ui,sans-serif;color:#aeb6c8}
+.irlpc-stored li::before{content:'•';position:absolute;left:3px;color:#4f7cff}
+.irlpc-pin{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid #161b27}
+.irlpc-pin:first-child{border-top:none}
+.irlpc-pin .pmeta{flex:1;min-width:0}
+.irlpc-pin .pname{font:600 13px/1.3 system-ui,sans-serif;color:#eef1f7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.irlpc-pin .psub{font:400 11px/1.3 system-ui,sans-serif;color:#7b8398;margin-top:2px}
+.irlpc-pin.hidden .pname{color:#8b93a7}
+.irlpc-tag{display:inline-block;margin-left:6px;font:600 9.5px/1.4 system-ui,sans-serif;letter-spacing:.04em;
+  text-transform:uppercase;color:#cda13a;background:#2a2410;border:1px solid #4a3f17;border-radius:5px;padding:1px 5px;vertical-align:middle}
+.irlpc-pinbtn{appearance:none;border:1px solid #2a3042;background:#161b27;color:#aeb6c8;border-radius:8px;cursor:pointer;
+  font:600 11.5px system-ui,sans-serif;padding:7px 10px;transition:background .15s,color .15s,border-color .15s;flex-shrink:0}
+.irlpc-pinbtn:hover,.irlpc-pinbtn:focus-visible{background:#1f2636;color:#eef1f7;outline:none;border-color:#3a4258}
+.irlpc-pinbtn:focus-visible{outline:2px solid #4f7cff;outline-offset:2px}
+.irlpc-pinbtn.danger{color:#ff8a8a;border-color:#4a2630}
+.irlpc-pinbtn.danger:hover,.irlpc-pinbtn.danger:focus-visible{background:#2a1620;color:#ffb3b3}
+.irlpc-actbtn{display:flex;align-items:center;justify-content:center;gap:7px;width:100%;appearance:none;cursor:pointer;
+  border-radius:11px;padding:12px;font:600 13.5px system-ui,sans-serif;transition:background .15s,border-color .15s;margin-top:8px}
+.irlpc-actbtn.ghost{background:#11151f;border:1px solid #232838;color:#eef1f7}
+.irlpc-actbtn.ghost:hover{background:#1a2032}
+.irlpc-actbtn.danger{background:#1c1014;border:1px solid #4a2630;color:#ff9a9a}
+.irlpc-actbtn.danger:hover{background:#2a1620;border-color:#6a3340;color:#ffb3b3}
+.irlpc-actbtn:disabled{opacity:.5;cursor:not-allowed}
+.irlpc-empty{text-align:center;padding:22px 12px;color:#8b93a7;font:400 13px/1.5 system-ui,sans-serif}
+.irlpc-empty .e-ic{font-size:26px;display:block;margin-bottom:8px}
+.irlpc-skel{height:64px;border-radius:11px;background:linear-gradient(90deg,#11151f 25%,#171c28 50%,#11151f 75%);
+  background-size:200% 100%;animation:irlpc-shimmer 1.3s infinite;margin-bottom:8px}
+@keyframes irlpc-shimmer{from{background-position:200% 0}to{background-position:-200% 0}}
+.irlpc-err{background:#1c1014;border:1px solid #4a2630;border-radius:11px;padding:12px 14px;color:#ffb3b3;
+  font:500 12.5px/1.45 system-ui,sans-serif;display:flex;flex-direction:column;gap:9px}
+.irlpc-err button{align-self:flex-start;appearance:none;background:#2a1620;border:1px solid #6a3340;color:#ffd1d1;
+  border-radius:8px;padding:7px 12px;font:600 12px system-ui,sans-serif;cursor:pointer}
+.irlpc-toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(8px);z-index:10003;opacity:0;
+  background:#11331c;border:1px solid #1f6b3a;color:#c8ffd9;border-radius:11px;padding:11px 16px;
+  font:600 13px system-ui,sans-serif;box-shadow:0 8px 30px rgba(0,0,0,.5);transition:opacity .2s,transform .2s;pointer-events:none}
+.irlpc-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.irlpc-toast.err{background:#331114;border-color:#6b1f24;color:#ffd1d1}
+/* Typed-confirm modal */
+.irlpc-confirm h4{margin:0 0 8px;font:700 15px/1.3 system-ui,sans-serif;color:#eef1f7;text-transform:none;letter-spacing:0}
+.irlpc-confirm p{margin:0 0 12px;font:400 13px/1.5 system-ui,sans-serif;color:#aeb6c8}
+.irlpc-confirm code{background:#11151f;border:1px solid #232838;border-radius:5px;padding:1px 6px;color:#ffd1d1;font:600 12px ui-monospace,monospace}
+.irlpc-confirm input{width:100%;box-sizing:border-box;background:#0a0d14;border:1px solid #2a3042;border-radius:9px;
+  padding:11px 12px;color:#eef1f7;font:500 14px system-ui,sans-serif;margin-bottom:12px}
+.irlpc-confirm input:focus{outline:2px solid #ff8a8a;outline-offset:1px;border-color:#ff8a8a}
+.irlpc-confirm .row{display:flex;gap:9px}
+.irlpc-confirm .row button{flex:1;appearance:none;border-radius:10px;padding:12px;font:600 13.5px system-ui,sans-serif;cursor:pointer}
+.irlpc-confirm .cancel{background:#161b27;border:1px solid #232838;color:#eef1f7}
+.irlpc-confirm .go{background:#7a1f2a;border:1px solid #a13340;color:#fff}
+.irlpc-confirm .go:disabled{opacity:.45;cursor:not-allowed}
 `;
 	document.head.appendChild(el);
 }
@@ -206,6 +299,298 @@ export function openPrivacyCenter({ getGhost, setGhost, onManagePins } = {}) {
 		});
 
 		setTimeout(() => sheet.querySelector('[data-close]')?.focus(), 60);
+	});
+}
+
+// ── Toast (success / error confirmation) ────────────────────────────────────
+function toast(msg, kind = 'ok') {
+	if (typeof document === 'undefined') return;
+	const t = document.createElement('div');
+	t.className = `irlpc-toast ${kind === 'err' ? 'err' : ''}`.trim();
+	t.setAttribute('role', 'status');
+	t.textContent = msg;
+	document.body.appendChild(t);
+	requestAnimationFrame(() => t.classList.add('show'));
+	setTimeout(() => {
+		t.classList.remove('show');
+		setTimeout(() => t.remove(), 240);
+	}, 2600);
+}
+
+// ── Typed-confirm modal for the two irreversible actions ────────────────────
+// The user must type the exact word to arm the destructive button — no accidental
+// "remove everything." Resolves true only on a confirmed go.
+function typedConfirm({ title, body, word, goLabel }) {
+	return new Promise((resolve) => {
+		let done = false;
+		const finish = (ok) => { if (done) return; done = true; close(); resolve(ok); };
+		const close = modal((sheet) => {
+			sheet.classList.add('irlpc-confirm');
+			sheet.setAttribute('aria-label', title);
+			sheet.innerHTML = `
+				<div class="irlpc-sec">
+					<h4>${esc(title)}</h4>
+					<p>${body}</p>
+					<input type="text" autocomplete="off" autocapitalize="none" spellcheck="false"
+						aria-label="Type ${esc(word)} to confirm" placeholder="Type ${esc(word)} to confirm" data-field />
+					<div class="row">
+						<button class="cancel" type="button" data-cancel>Cancel</button>
+						<button class="go" type="button" data-go disabled>${esc(goLabel)}</button>
+					</div>
+				</div>`;
+			const field = sheet.querySelector('[data-field]');
+			const go = sheet.querySelector('[data-go]');
+			field.addEventListener('input', () => {
+				go.disabled = field.value.trim().toLowerCase() !== word.toLowerCase();
+			});
+			field.addEventListener('keydown', (e) => {
+				if (e.key === 'Enter' && !go.disabled) finish(true);
+			});
+			go.addEventListener('click', () => finish(true));
+			sheet.querySelector('[data-cancel]').addEventListener('click', () => finish(false));
+			setTimeout(() => field.focus(), 60);
+		}, { onClose: () => finish(false) });
+	});
+}
+
+// ── "Privacy & my data" — the H5 control surface ────────────────────────────
+// Renders the caller's real data summary (api/irl/privacy GET), a per-pin
+// Unpublish/Republish + Delete, Download, and the two destructive actions behind
+// a typed confirm. Every state — loading, empty, error, populated — is designed.
+export function openMyDataPanel({ onChanged } = {}) {
+	modal((sheet, close) => {
+		sheet.setAttribute('aria-label', 'Privacy and my data');
+		const head = `
+			<div class="irlpc-head">
+				<div class="irlpc-title">Privacy &amp; my data</div>
+				<button class="irlpc-x" type="button" data-close aria-label="Close">×</button>
+			</div>`;
+
+		const renderLoading = () => {
+			sheet.innerHTML = `${head}
+				<div class="irlpc-sec"><div class="irlpc-skel"></div><div class="irlpc-skel"></div><div class="irlpc-skel"></div></div>`;
+			sheet.querySelector('[data-close]')?.addEventListener('click', close);
+		};
+
+		const renderError = (message) => {
+			sheet.innerHTML = `${head}
+				<div class="irlpc-sec">
+					<div class="irlpc-err">
+						<span>${esc(message)}</span>
+						<button type="button" data-retry>Try again</button>
+					</div>
+				</div>`;
+			sheet.querySelector('[data-close]')?.addEventListener('click', close);
+			sheet.querySelector('[data-retry]')?.addEventListener('click', load);
+		};
+
+		const fmtDate = (iso) => {
+			if (!iso) return '';
+			try { return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }); }
+			catch { return ''; }
+		};
+
+		async function load() {
+			renderLoading();
+			let data;
+			try {
+				data = await privacyApi('GET');
+			} catch (e) {
+				renderError(e.message || 'Could not load your data.');
+				return;
+			}
+			renderSummary(data.summary || {});
+		}
+
+		function renderSummary(s) {
+			const pins = s.pins || {};
+			const ix = s.interactions || {};
+			const ret = s.retention || {};
+			const stored = Array.isArray(s.stored) ? s.stored : [];
+			const totalPins = pins.total || 0;
+
+			if (totalPins === 0 && (ix.onYourPins || 0) === 0 && (ix.youLeftElsewhere || 0) === 0) {
+				sheet.innerHTML = `${head}
+					<div class="irlpc-sec">
+						<div class="irlpc-empty">
+							<span class="e-ic">🫧</span>
+							We hold no location data for this ${s.account === 'signed-in' ? 'account' : 'device'}.
+							Place an agent in /irl and it’ll show up here — yours to manage or remove anytime.
+						</div>
+					</div>
+					<div class="irlpc-foot"><button class="irlpc-done" type="button" data-close>Done</button></div>`;
+				sheet.querySelectorAll('[data-close]').forEach((b) => b.addEventListener('click', close));
+				return;
+			}
+
+			const expiryNote = ret.nextPinExpiry
+				? `Your next anonymous pin expires ${fmtDate(ret.nextPinExpiry)}.`
+				: (pins.permanent ? 'Your pins are permanent until you remove them.' : '');
+
+			sheet.innerHTML = `${head}
+				<div class="irlpc-sec">
+					<h4>What we hold</h4>
+					<div class="irlpc-stats">
+						<div class="irlpc-stat"><div class="n">${totalPins}</div><div class="l">placed agent${totalPins === 1 ? '' : 's'}${pins.unpublished ? ` · ${pins.unpublished} hidden` : ''}</div></div>
+						<div class="irlpc-stat"><div class="n">${ix.onYourPins || 0}</div><div class="l">encounters on your agents</div></div>
+						<div class="irlpc-stat"><div class="n">${ix.youLeftElsewhere || 0}</div><div class="l">taps you left elsewhere</div></div>
+						<div class="irlpc-stat"><div class="n">${pins.permanent || 0}</div><div class="l">permanent · ${pins.expiring || 0} auto-expiring</div></div>
+					</div>
+					${expiryNote ? `<div class="irlpc-note">${esc(expiryNote)} Encounters auto-delete after ${ret.interactionsExpireInDays || 180} days.</div>` : ''}
+					<ul class="irlpc-stored">${stored.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>
+				</div>
+				<div class="irlpc-sec" data-pins-sec>
+					<h4>Your placed agents</h4>
+					<div data-pins><div class="irlpc-skel"></div></div>
+				</div>
+				<div class="irlpc-sec">
+					<h4>Export &amp; erase</h4>
+					<button class="irlpc-actbtn ghost" type="button" data-export>⬇ Download my data (JSON)</button>
+					<button class="irlpc-actbtn danger" type="button" data-del-all>Remove all my pins</button>
+					<button class="irlpc-actbtn danger" type="button" data-forget>Forget this device</button>
+					<div class="irlpc-note">“Forget this device” erases every pin and every tap tied to this device, everywhere — instantly and permanently.</div>
+				</div>
+				<div class="irlpc-foot"><button class="irlpc-done" type="button" data-close>Done</button></div>`;
+
+			sheet.querySelectorAll('[data-close]').forEach((b) => b.addEventListener('click', close));
+			loadPins();
+
+			sheet.querySelector('[data-export]')?.addEventListener('click', onExport);
+			sheet.querySelector('[data-del-all]')?.addEventListener('click', () => onDestructive('all'));
+			sheet.querySelector('[data-forget]')?.addEventListener('click', () => onDestructive('device'));
+		}
+
+		async function loadPins() {
+			const host = sheet.querySelector('[data-pins]');
+			if (!host) return;
+			let data;
+			try {
+				data = await privacyApi('GET', { query: '?export=1' });
+			} catch (e) {
+				host.innerHTML = `<div class="irlpc-err"><span>${esc(e.message || 'Could not load your pins.')}</span></div>`;
+				return;
+			}
+			const pins = Array.isArray(data?.pins) ? data.pins : [];
+			if (!pins.length) {
+				host.innerHTML = `<div class="irlpc-empty">No placed agents on this ${data.account === 'signed-in' ? 'account' : 'device'} yet.</div>`;
+				return;
+			}
+			host.innerHTML = pins.map((p) => renderPinRow(p)).join('');
+			host.querySelectorAll('[data-pin]').forEach((rowEl) => wirePinRow(rowEl));
+		}
+
+		function renderPinRow(p) {
+			const hidden = !!p.hidden_at;
+			const name = p.avatar_name || p.caption || 'Placed agent';
+			const sub = fmtDate(p.placed_at) + (p.expires_at ? ` · expires ${fmtDate(p.expires_at)}` : ' · permanent');
+			return `
+				<div class="irlpc-pin ${hidden ? 'hidden' : ''}" data-pin="${esc(p.id)}" data-hidden="${hidden}">
+					<div class="pmeta">
+						<div class="pname">${esc(name)}${hidden ? '<span class="irlpc-tag">hidden</span>' : ''}</div>
+						<div class="psub">${esc(sub)}</div>
+					</div>
+					<button class="irlpc-pinbtn" type="button" data-toggle>${hidden ? 'Republish' : 'Unpublish'}</button>
+					<button class="irlpc-pinbtn danger" type="button" data-del>Delete</button>
+				</div>`;
+		}
+
+		function wirePinRow(rowEl) {
+			const id = rowEl.getAttribute('data-pin');
+			const toggleBtn = rowEl.querySelector('[data-toggle]');
+			const delBtn = rowEl.querySelector('[data-del]');
+
+			toggleBtn?.addEventListener('click', async () => {
+				const hidden = rowEl.getAttribute('data-hidden') === 'true';
+				const action = hidden ? 'republish' : 'unpublish';
+				toggleBtn.disabled = true; toggleBtn.textContent = '…';
+				try {
+					const r = await privacyApi('PATCH', { body: { pinId: id, action } });
+					const nowHidden = !!r?.hidden;
+					rowEl.setAttribute('data-hidden', String(nowHidden));
+					rowEl.classList.toggle('hidden', nowHidden);
+					toggleBtn.textContent = nowHidden ? 'Republish' : 'Unpublish';
+					const nameEl = rowEl.querySelector('.pname');
+					const tag = nameEl.querySelector('.irlpc-tag');
+					if (nowHidden && !tag) nameEl.insertAdjacentHTML('beforeend', '<span class="irlpc-tag">hidden</span>');
+					if (!nowHidden && tag) tag.remove();
+					toast(nowHidden ? 'Pin hidden from everyone' : 'Pin is visible again');
+					onChanged?.();
+				} catch (e) {
+					toast(e.message || 'Could not update the pin', 'err');
+					toggleBtn.textContent = hidden ? 'Republish' : 'Unpublish';
+				} finally {
+					toggleBtn.disabled = false;
+				}
+			});
+
+			delBtn?.addEventListener('click', async () => {
+				delBtn.disabled = true; toggleBtn && (toggleBtn.disabled = true);
+				try {
+					const r = await privacyApi('DELETE', { body: { scope: 'pin', pinId: id } });
+					rowEl.style.transition = 'opacity .2s, height .2s';
+					rowEl.style.opacity = '0';
+					setTimeout(() => {
+						rowEl.remove();
+						const host = sheet.querySelector('[data-pins]');
+						if (host && !host.querySelector('[data-pin]')) {
+							host.innerHTML = '<div class="irlpc-empty">No placed agents left on this device.</div>';
+						}
+					}, 200);
+					toast(`Deleted${r?.deletedInteractions ? ` (and ${r.deletedInteractions} encounter${r.deletedInteractions === 1 ? '' : 's'})` : ''}`);
+					onChanged?.();
+				} catch (e) {
+					toast(e.message || 'Could not delete the pin', 'err');
+					delBtn.disabled = false; toggleBtn && (toggleBtn.disabled = false);
+				}
+			});
+		}
+
+		async function onExport() {
+			const btn = sheet.querySelector('[data-export]');
+			if (btn) { btn.disabled = true; }
+			try {
+				const data = await privacyApi('GET', { query: '?export=1' });
+				const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+				const url = URL.createObjectURL(blob);
+				const a = document.createElement('a');
+				a.href = url;
+				a.download = 'irl-my-data.json';
+				document.body.appendChild(a);
+				a.click();
+				a.remove();
+				setTimeout(() => URL.revokeObjectURL(url), 1000);
+				toast('Your data is downloading');
+			} catch (e) {
+				toast(e.message || 'Export failed', 'err');
+			} finally {
+				if (btn) btn.disabled = false;
+			}
+		}
+
+		async function onDestructive(scope) {
+			const isDevice = scope === 'device';
+			const ok = await typedConfirm({
+				title: isDevice ? 'Forget this device?' : 'Remove all your pins?',
+				body: isDevice
+					? 'This permanently deletes every agent you placed and every tap or message this device left anywhere. It cannot be undone.'
+					: 'This permanently deletes every agent you placed and the encounters on them. It cannot be undone.',
+				word: isDevice ? 'forget' : 'delete',
+				goLabel: isDevice ? 'Forget device' : 'Remove all',
+			});
+			if (!ok) return;
+			try {
+				const r = await privacyApi('DELETE', { body: { scope } });
+				const n = r?.deletedPins || 0;
+				const ic = r?.deletedInteractions || 0;
+				toast(`Removed ${n} pin${n === 1 ? '' : 's'}${ic ? ` and ${ic} encounter${ic === 1 ? '' : 's'}` : ''}`);
+				onChanged?.();
+				load(); // refresh — the summary should now read empty
+			} catch (e) {
+				toast(e.message || 'Could not complete that', 'err');
+			}
+		}
+
+		load();
 	});
 }
 

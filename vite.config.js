@@ -314,6 +314,8 @@ const appConfig = {
 				'create-review': resolve(__dirname, 'pages/create-review.html'),
 				'import-rpm': resolve(__dirname, 'pages/import-rpm.html'),
 				marketplace: resolve(__dirname, 'pages/marketplace.html'),
+				'marketplace-analytics': resolve(__dirname, 'pages/marketplace-analytics.html'),
+				collection: resolve(__dirname, 'pages/collection.html'),
 				'agent-edit': resolve(__dirname, 'pages/agent-edit.html'),
 				'avatar-edit': resolve(__dirname, 'pages/avatar-edit.html'),
 				'create-video': resolve(__dirname, 'pages/create/video.html'),

@@ -3,29 +3,58 @@
 All three registries are deployed via CREATE2, giving the same address on every
 supported EVM chain within each environment class (mainnet vs. testnet).
 
+## Provenance
+
+Deployment transaction hashes from the original CREATE2 broadcast were not
+captured per chain at deploy time. Rather than leave the record as bare `TODO`s,
+each live contract is **verified by on-chain bytecode**: `scripts/verify-onchain-parity.mjs`
+performs an `eth_getCode` sweep against the public RPCs in `api/_lib/erc8004-chains.js`
+and asserts non-empty runtime code at every declared address. The
+`bytecode ✓ (YYYY-MM-DD)` notes below are the dates of those reads. Re-run any
+time with:
+
+```
+VERIFY_ONCHAIN_CHAINS=all npm run verify:onchain   # full sweep
+npm run verify:onchain                              # build-gate subset (Base + Base Sepolia)
+```
+
+The IdentityRegistry + ReputationRegistry share one address per network class
+(CREATE2-deterministic). A single explorer link below resolves to the contract
+on any listed chain; the per-chain bytecode-verified status is the authoritative
+liveness signal.
+
 ## Mainnet
 
-Chains: Ethereum (1), Optimism (10), BSC (56), Gnosis (100), Polygon (137),
-Fantom (250), zkSync Era (324), Moonbeam (1284), Mantle (5000), Base (8453),
-Arbitrum One (42161), Celo (42220), Avalanche (43114), Linea (59144), Scroll (534352)
+Chains with confirmed bytecode (verified 2026-06-19): Ethereum (1), Optimism (10),
+BSC (56), Gnosis (100), Polygon (137), Mantle (5000), Base (8453),
+Arbitrum One (42161), Celo (42220), Avalanche (43114), Linea (59144), Scroll (534352).
 
-| Contract             | Address                                      | Tx Hash              |
-| -------------------- | -------------------------------------------- | -------------------- |
-| IdentityRegistry     | `0x8004A169FB4a3325136EB29fA0ceB6D2e539a432` | TODO: fill after deployment |
-| ReputationRegistry   | `0x8004BAa17C55a88189AE136b182e5fdA19dE9b63` | TODO: fill after deployment |
-| ValidationRegistry   | `TODO: fill after deployment` (same address on all chains) | TODO: one tx hash per chain |
+> **Not yet deployed on Fantom (250), zkSync Era (324), Moonbeam (1284).** An
+> `eth_getCode` sweep on 2026-06-19 returned `0x` (no code) at the registry
+> addresses on these three chains across multiple independent RPCs. zkSync Era
+> derives CREATE2 addresses differently from the EVM, so the canonical address is
+> not reachable there without a chain-specific deploy. Registration / reputation
+> writes on these chains will revert until the registries are deployed (deploy
+> backlog). The address columns are kept for parity; liveness is per the bytecode
+> notes only.
+
+| Contract             | Address                                      | Provenance              |
+| -------------------- | -------------------------------------------- | ----------------------- |
+| IdentityRegistry     | [`0x8004A169FB4a3325136EB29fA0ceB6D2e539a432`](https://basescan.org/address/0x8004A169FB4a3325136EB29fA0ceB6D2e539a432) | bytecode ✓ (2026-06-19) on 12 chains; tx unrecoverable |
+| ReputationRegistry   | [`0x8004BAa17C55a88189AE136b182e5fdA19dE9b63`](https://basescan.org/address/0x8004BAa17C55a88189AE136b182e5fdA19dE9b63) | bytecode ✓ (2026-06-19) on 12 chains; tx unrecoverable |
+| ValidationRegistry   | not deployed on mainnet                      | pending mainnet deploy (`src/erc8004/abi.js` MAINNET.validationRegistry = '') |
 
 ## Testnet
 
-Chains: BSC Testnet (97), Ethereum Sepolia (11155111), Base Sepolia (84532),
-Arbitrum Sepolia (421614), Optimism Sepolia (11155420), Polygon Amoy (80002),
-Avalanche Fuji (43113)
+Chains (all bytecode-verified 2026-06-19): BSC Testnet (97), Ethereum Sepolia (11155111),
+Base Sepolia (84532), Arbitrum Sepolia (421614), Optimism Sepolia (11155420),
+Polygon Amoy (80002), Avalanche Fuji (43113).
 
-| Contract             | Address                                      | Tx Hash              |
-| -------------------- | -------------------------------------------- | -------------------- |
-| IdentityRegistry     | `0x8004A818BFB912233c491871b3d84c89A494BD9e` | TODO: fill after deployment |
-| ReputationRegistry   | `0x8004B663056A597Dffe9eCcC1965A193B7388713` | TODO: fill after deployment |
-| ValidationRegistry   | `0x8004Cb1BF31DAf7788923b405b754f57acEB4272` | TODO: fill after deployment |
+| Contract             | Address                                      | Provenance              |
+| -------------------- | -------------------------------------------- | ----------------------- |
+| IdentityRegistry     | [`0x8004A818BFB912233c491871b3d84c89A494BD9e`](https://sepolia.basescan.org/address/0x8004A818BFB912233c491871b3d84c89A494BD9e) | bytecode ✓ (2026-06-19) on 7 testnets; tx unrecoverable |
+| ReputationRegistry   | [`0x8004B663056A597Dffe9eCcC1965A193B7388713`](https://sepolia.basescan.org/address/0x8004B663056A597Dffe9eCcC1965A193B7388713) | bytecode ✓ (2026-06-19) on 7 testnets; tx unrecoverable |
+| ValidationRegistry   | [`0x8004Cb1BF31DAf7788923b405b754f57acEB4272`](https://sepolia.basescan.org/address/0x8004Cb1BF31DAf7788923b405b754f57acEB4272) | bytecode ✓ (2026-06-19) on 7 testnets; tx unrecoverable |
 
 ## Platform validator (ValidationRegistry attestor)
 

@@ -407,6 +407,22 @@ async function ensureTable() {
 	await sql`ALTER TABLE irl_pins ADD COLUMN IF NOT EXISTS origin_lng     DOUBLE PRECISION`;
 	await sql`ALTER TABLE irl_pins ADD COLUMN IF NOT EXISTS origin_yaw_deg DOUBLE PRECISION`;
 	await sql`CREATE INDEX IF NOT EXISTS irl_pins_room ON irl_pins (room_id) WHERE room_id IS NOT NULL AND hidden_at IS NULL`;
+	// Placement consent + approximate placement (H4). A placer chooses whether the
+	// agent sits at their EXACT spot ('precise') or is deliberately blurred to a
+	// random point within fuzz_radius_m of it ('approximate') — so a user can share
+	// "an agent near here" without pinning their precise real-world location. The
+	// CLIENT computes the fuzzed lat/lng it sends; the server stores the consent +
+	// the radius it was blurred by, so the choice is auditable (the privacy center
+	// surfaces it) and the dashboard can show "placed approximately (±Nm)". A legacy
+	// pin with neither column set reads as a 'precise' placement (the prior default).
+	await sql`ALTER TABLE irl_pins ADD COLUMN IF NOT EXISTS placement_kind TEXT`;
+	await sql`ALTER TABLE irl_pins ADD COLUMN IF NOT EXISTS fuzz_radius_m  DOUBLE PRECISION`;
+	// Privacy center (H5). `published` is the owner-controlled visibility flag: an
+	// unpublished pin is suppressed from EVERY public nearby read (and stops
+	// accepting new interactions) while the owner keeps the row to republish later
+	// — distinct from hidden_at (moderation) and expiry (lifetime). DEFAULT TRUE so
+	// every existing + future placement is public unless the owner unpublishes it.
+	await sql`ALTER TABLE irl_pins ADD COLUMN IF NOT EXISTS published BOOLEAN NOT NULL DEFAULT TRUE`;
 	_tableReady = true;
 }
 
@@ -425,6 +441,17 @@ const CAL_MAX_RISE_M  = 3;    // floor-height nudge ceiling, metres
 // can't be bent into a cross-map jump, while still covering any real venue.
 const ROOM_ID_RE = /^[a-z0-9-]{1,64}$/;
 const REL_MAX_M  = 500;
+
+// ── Placement consent (H4) ──────────────────────────────────────────────────
+// 'precise' pins the agent at the placer's exact spot; 'approximate' blurs it to
+// a random point within fuzz_radius_m of the real spot (the CLIENT computes the
+// fuzzed coordinate it sends — the server only stores the consent + the radius it
+// was blurred by). The radius is clamped to a sane band: below FUZZ_MIN_M the blur
+// is pointless (under GPS error), above FUZZ_MAX_M it stops being "near here". A
+// missing/invalid placement reads as 'precise' so old clients are unaffected.
+const PLACEMENT_KINDS = new Set(['precise', 'approximate']);
+const FUZZ_MIN_M = 10;    // below this the blur is within GPS error — meaningless
+const FUZZ_MAX_M = 500;   // above this it stops meaning "an agent near here"
 
 // Pin ids are server-minted UUIDs (gen_random_uuid()). Validate the format at the
 // top of every mutation path so an oversized / garbage id is a clean 400 and never
@@ -777,6 +804,7 @@ export default wrap(async (req, res) => {
 			WHERE lat BETWEEN ${lat - latDelta} AND ${lat + latDelta}
 			  AND lng BETWEEN ${lng - lngDelta} AND ${lng + lngDelta}
 			  AND hidden_at IS NULL
+			  AND published IS NOT FALSE
 			  AND (expires_at IS NULL OR expires_at > NOW())
 			ORDER BY placed_at DESC
 			LIMIT 50
@@ -1004,13 +1032,27 @@ export default wrap(async (req, res) => {
 		const originYawV = roomOk && Number.isFinite(room.originYawDeg)
 			? ((room.originYawDeg % 360) + 360) % 360 : null;
 
+		// Placement consent (H4) — record whether the placer pinned their exact spot
+		// or deliberately blurred it. The client computes the fuzzed lat/lng it sends;
+		// we store the consent kind + the radius the blur used. An 'approximate' pin
+		// must carry a fuzz radius (clamped to the sane band); a missing/invalid
+		// placement (or an old client that sends neither) defaults to 'precise' with
+		// no radius, so behaviour is unchanged for every existing caller.
+		const rawKind        = String(body.placementKind ?? body.placement_kind ?? '').toLowerCase();
+		const placementKind  = PLACEMENT_KINDS.has(rawKind) ? rawKind : 'precise';
+		const rawFuzz        = Number(body.fuzzRadiusM ?? body.fuzz_radius_m);
+		const fuzzRadiusM    = placementKind === 'approximate' && Number.isFinite(rawFuzz)
+			? Math.min(FUZZ_MAX_M, Math.max(FUZZ_MIN_M, rawFuzz))
+			: null;
+
 		const [pin] = await sql`
 			INSERT INTO irl_pins
 				(user_id, agent_id, device_token, lat, lng, heading,
 				 avatar_url, avatar_name, caption, x402_endpoint, expires_at,
 				 anchor_height_m, anchor_yaw_deg, anchor_quat,
 				 gps_accuracy_m, altitude_m, anchor_source, geocell7,
-				 room_id, rel_east_m, rel_north_m, origin_lat, origin_lng, origin_yaw_deg)
+				 room_id, rel_east_m, rel_north_m, origin_lat, origin_lng, origin_yaw_deg,
+				 placement_kind, fuzz_radius_m)
 			VALUES (
 				${userId},
 				${body.agentId    ?? null},
@@ -1034,7 +1076,9 @@ export default wrap(async (req, res) => {
 				${relNorthM},
 				${originLatV},
 				${originLngV},
-				${originYawV}
+				${originYawV},
+				${placementKind},
+				${fuzzRadiusM}
 			)
 			RETURNING *
 		`;

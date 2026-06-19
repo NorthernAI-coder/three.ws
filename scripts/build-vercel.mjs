@@ -215,6 +215,14 @@ try {
 		// and confirms the canonical accounts are the right kind on mainnet
 		// (live check degrades to a warning when the RPC is unreachable).
 		run('verify:solana', 'node scripts/verify-solana-parity.mjs'),
+		// ERC-8004 EVM registry parity: the same registry addresses are hand-copied
+		// across src/erc8004/abi.js, sdk/src/erc8004/abi.js, and
+		// api/_lib/erc8004-chains.js. A drift sends registrations / reputation /
+		// validation writes to the wrong (or zero) contract. Hard-fails on any
+		// mismatch or the ValidationRegistry null-vs-address drift trap. The live
+		// bytecode sweep defaults to Base mainnet + Base Sepolia (both deployed);
+		// an unreachable RPC degrades to a warning so transport noise never blocks.
+		run('verify:onchain', 'node scripts/verify-onchain-parity.mjs'),
 		// MCP registry manifests: catches version drift, >100-char descriptions,
 		// and mcpName mismatches at build time instead of on publish day.
 		run('audit:mcp', 'node scripts/audit-mcp-manifests.mjs'),

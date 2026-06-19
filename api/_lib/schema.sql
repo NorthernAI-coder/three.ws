@@ -416,11 +416,26 @@ CREATE TABLE IF NOT EXISTS agent_identities (
 
 create index if not exists agent_identities_user
     on agent_identities(user_id) where deleted_at is null;
-create index if not exists agent_identities_wallet
-    on agent_identities(wallet_address) where wallet_address is not null;
 
 -- Additive migrations for agent_identities columns added after initial deployment.
 alter table agent_identities add column if not exists wallet_address   text;
+-- Custodial wallet keys, on-chain identity, persona, payments, and the unified
+-- meta.onchain block all live in `meta`; `skills` is the agent's text[] skill
+-- list (read/written as a raw Postgres array — never jsonb — by api/agents.js
+-- and queried with `skills @> '{…}'::text[]` in api/agents/public.js). Both
+-- columns are written on EVERY create path (api/agents.js:154,281) and read by
+-- the wallet/onchain provisioning, the task-01 backfill, and the custody
+-- migration, yet the original CREATE TABLE above never declared them — a DB
+-- bootstrapped purely from this file 500s on the first wallet write without
+-- these two lines. Declare them idempotently here so a fresh apply is correct.
+alter table agent_identities add column if not exists meta             jsonb not null default '{}'::jsonb;
+alter table agent_identities add column if not exists skills           text[] not null default '{}'::text[];
+
+-- Wallet-address index: created AFTER the column is guaranteed above so a fresh
+-- apply never references a not-yet-added column (the original ordering indexed
+-- wallet_address before its ADD and broke a clean-room bootstrap).
+create index if not exists agent_identities_wallet
+    on agent_identities(wallet_address) where wallet_address is not null;
 alter table agent_identities add column if not exists chain_id         int;
 alter table agent_identities add column if not exists erc8004_agent_id bigint;
 alter table agent_identities add column if not exists erc8004_registry text;

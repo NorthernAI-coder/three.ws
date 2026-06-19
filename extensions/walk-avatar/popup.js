@@ -1,20 +1,33 @@
-// popup.js — popup controller for the Walk Avatar extension.
+// popup.js — controller for the Walk Avatar popup.
+//
+// Wires the real three.ws API:
+//   GET /api/threews/me               — session identity (username)
+//   GET /api/avatars                  — the signed-in user's avatars
+//   GET /api/avatars?include_public=true&visibility=public — featured/public
+// Thumbnails come back on each avatar as `thumbnail_url` (a CDN URL); the GLB
+// model is `model_url`. No per-thumb endpoint is needed.
 
 const THREEWS = 'https://three.ws';
 
-let state = {
+const state = {
 	session: null,
 	settings: {},
 	selectedAvatarId: '',
 	currentTab: null,
 	tabEnabled: false,
+	activeTab: 'mine',
 };
 
-// ── Helpers ───────────────────────────────────────────────────────────────
-async function apiFetch(path, opts = {}) {
-	const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
+// ── API ───────────────────────────────────────────────────────────────────
+async function apiFetch(path) {
+	const headers = { Accept: 'application/json' };
 	if (state.session) headers['Authorization'] = `Bearer ${state.session}`;
-	const res = await fetch(`${THREEWS}${path}`, { ...opts, headers });
+	const res = await fetch(`${THREEWS}${path}`, { headers, credentials: 'include' });
+	if (res.status === 401) {
+		const err = new Error('unauthorized');
+		err.status = 401;
+		throw err;
+	}
 	if (!res.ok) throw new Error(`HTTP ${res.status}`);
 	return res.json();
 }
@@ -23,7 +36,11 @@ function msg(type, data = {}) {
 	return chrome.runtime.sendMessage({ type, ...data });
 }
 
-// ── Auth ──────────────────────────────────────────────────────────────────
+function openLogin() {
+	chrome.tabs.create({ url: `${THREEWS}/login?redirect=extension` });
+}
+
+// ── Auth header ────────────────────────────────────────────────────────────
 async function renderAuth() {
 	const pill = document.getElementById('auth-pill');
 	const label = document.getElementById('auth-label');
@@ -31,9 +48,10 @@ async function renderAuth() {
 
 	if (state.session) {
 		try {
-			const { user } = await apiFetch('/api/me');
+			const body = await apiFetch('/api/threews/me');
+			const user = body?.data?.user || body?.user || {};
 			pill.classList.add('signed-in');
-			label.textContent = `@${user.handle || user.email}`;
+			label.textContent = user.username ? `@${user.username}` : (user.display_name || 'signed in');
 			signInBtn.textContent = 'Sign out';
 			signInBtn.onclick = async () => {
 				await msg('clear-session');
@@ -41,172 +59,267 @@ async function renderAuth() {
 				renderAuth();
 				loadAvatars('mine');
 			};
-		} catch {
-			// Token invalid — clear it
-			await msg('clear-session');
-			state.session = null;
-			renderAuth();
+			return;
+		} catch (err) {
+			if (err.status === 401) {
+				await msg('clear-session');
+				state.session = null;
+			}
 		}
+	}
+
+	pill.classList.remove('signed-in');
+	label.textContent = 'not signed in';
+	signInBtn.textContent = 'Sign in';
+	signInBtn.onclick = openLogin;
+}
+
+// ── Avatar grids ────────────────────────────────────────────────────────────
+function skeleton(n = 6) {
+	return Array.from({ length: n }, () => '<div class="avatar-thumb skeleton" aria-hidden="true"></div>').join('');
+}
+
+function renderEmpty(gridEl, tab) {
+	if (tab === 'mine') {
+		gridEl.innerHTML = `
+			<div class="empty-state" role="status">
+				<div class="empty-emoji" aria-hidden="true">🚶</div>
+				<div class="empty-title">No avatars yet</div>
+				<p class="empty-sub">Create a 3D avatar from a selfie, then walk it on any site.</p>
+				<button class="cta-btn" id="create-cta">Create your first avatar</button>
+			</div>`;
+		gridEl.querySelector('#create-cta')?.addEventListener('click', () => {
+			chrome.tabs.create({ url: `${THREEWS}/create-selfie` });
+		});
 	} else {
-		pill.classList.remove('signed-in');
-		label.textContent = 'not signed in';
-		signInBtn.textContent = 'Sign in';
-		signInBtn.onclick = () => {
-			chrome.tabs.create({ url: `${THREEWS}/login?redirect=extension` });
-		};
+		gridEl.innerHTML = `
+			<div class="empty-state" role="status">
+				<div class="empty-emoji" aria-hidden="true">✨</div>
+				<div class="empty-title">No featured avatars right now</div>
+				<p class="empty-sub">Check back soon, or browse the gallery.</p>
+				<button class="cta-btn ghost" id="gallery-cta">Open gallery</button>
+			</div>`;
+		gridEl.querySelector('#gallery-cta')?.addEventListener('click', () => {
+			chrome.tabs.create({ url: `${THREEWS}/gallery` });
+		});
 	}
 }
 
-// ── Avatar grids ──────────────────────────────────────────────────────────
-function renderAvatarGrid(gridEl, errorEl, avatars) {
+function renderError(gridEl, errorEl, tab, message) {
 	gridEl.innerHTML = '';
-	errorEl.style.display = 'none';
+	errorEl.innerHTML = `
+		<span class="err-text">Couldn't load avatars — ${message}</span>
+		<button class="retry-btn" id="retry-${tab}">Retry</button>`;
+	errorEl.style.display = 'flex';
+	errorEl.querySelector(`#retry-${tab}`)?.addEventListener('click', () => loadAvatars(tab));
+}
 
-	if (!avatars || avatars.length === 0) {
-		gridEl.innerHTML = `<div class="empty-state" style="grid-column:1/-1">
-			No avatars yet. <a href="${THREEWS}/create-selfie" target="_blank">Create one →</a>
-		</div>`;
-		return;
-	}
-
-	avatars.forEach((av) => {
-		const thumb = document.createElement('div');
+function renderAvatarGrid(gridEl, avatars) {
+	gridEl.innerHTML = '';
+	for (const av of avatars) {
+		const thumb = document.createElement('button');
 		thumb.className = 'avatar-thumb' + (av.id === state.selectedAvatarId ? ' selected' : '');
-		thumb.title = av.name || av.id;
+		thumb.type = 'button';
+		thumb.title = av.name || 'Avatar';
+		thumb.setAttribute('aria-label', `Select avatar ${av.name || ''}`.trim());
+		thumb.setAttribute('aria-pressed', av.id === state.selectedAvatarId ? 'true' : 'false');
 
-		const img = document.createElement('img');
-		img.src = av.thumbnail_url || `${THREEWS}/api/avatars/${av.id}/thumb`;
-		img.alt = av.name || 'avatar';
-		img.onerror = () => { img.src = `${THREEWS}/public/og-image.png`; };
+		if (av.thumbnail_url) {
+			const img = document.createElement('img');
+			img.src = av.thumbnail_url;
+			img.alt = av.name || 'avatar';
+			img.loading = 'lazy';
+			img.addEventListener('error', () => {
+				img.remove();
+				thumb.classList.add('no-thumb');
+				thumb.appendChild(fallbackGlyph(av.name));
+			});
+			thumb.appendChild(img);
+		} else {
+			thumb.classList.add('no-thumb');
+			thumb.appendChild(fallbackGlyph(av.name));
+		}
 
-		thumb.appendChild(img);
-		thumb.addEventListener('click', () => {
-			state.selectedAvatarId = av.id;
-			gridEl.querySelectorAll('.avatar-thumb').forEach(t => t.classList.remove('selected'));
-			thumb.classList.add('selected');
-			// Persist selection and update active tab
-			msg('set-avatar', { avatarId: av.id });
-		});
-
+		thumb.addEventListener('click', () => selectAvatar(av.id, gridEl, thumb));
 		gridEl.appendChild(thumb);
-	});
+	}
+}
+
+function fallbackGlyph(name) {
+	const span = document.createElement('span');
+	span.className = 'thumb-glyph';
+	span.textContent = (name || '?').trim().charAt(0).toUpperCase() || '?';
+	return span;
+}
+
+function selectAvatar(avatarId, gridEl, thumbEl) {
+	state.selectedAvatarId = avatarId;
+	for (const t of gridEl.parentElement.parentElement.querySelectorAll('.avatar-thumb')) {
+		const on = t === thumbEl;
+		t.classList.toggle('selected', on);
+		t.setAttribute('aria-pressed', on ? 'true' : 'false');
+	}
+	msg('set-avatar', { avatarId });
+	// If the avatar is already running on this tab, the background broadcast
+	// swaps it live; otherwise the selection is stored for the next enable.
 }
 
 async function loadAvatars(tab) {
+	state.activeTab = tab;
 	const gridEl = document.getElementById(`grid-${tab}`);
 	const errorEl = document.getElementById(`error-${tab}`);
-
-	// Show skeletons
-	gridEl.innerHTML = Array.from({ length: 3 }, () =>
-		'<div class="avatar-thumb skeleton"></div>'
-	).join('');
+	errorEl.style.display = 'none';
+	gridEl.innerHTML = skeleton();
 
 	try {
-		if (tab === 'mine') {
-			if (!state.session) {
-				gridEl.innerHTML = `<div class="empty-state" style="grid-column:1/-1">
-					<a href="#" id="sign-in-link">Sign in</a> to see your avatars.
+		if (tab === 'mine' && !state.session) {
+			gridEl.innerHTML = `
+				<div class="empty-state" role="status">
+					<div class="empty-emoji" aria-hidden="true">🔑</div>
+					<div class="empty-title">Sign in to see your avatars</div>
+					<p class="empty-sub">Your three.ws avatars sync here once you sign in.</p>
+					<button class="cta-btn" id="signin-cta">Sign in</button>
 				</div>`;
-				document.getElementById('sign-in-link')?.addEventListener('click', (e) => {
-					e.preventDefault();
-					chrome.tabs.create({ url: `${THREEWS}/login?redirect=extension` });
-				});
-				return;
-			}
-			const { avatars } = await apiFetch('/api/avatars/mine');
-			renderAvatarGrid(gridEl, errorEl, avatars);
-		} else {
-			const { avatars } = await apiFetch('/api/avatars/featured');
-			renderAvatarGrid(gridEl, errorEl, avatars);
+			gridEl.querySelector('#signin-cta')?.addEventListener('click', openLogin);
+			return;
 		}
+
+		const path = tab === 'mine'
+			? '/api/avatars?limit=60'
+			: '/api/avatars?include_public=true&visibility=public&limit=60';
+		const body = await apiFetch(path);
+		const avatars = (body.avatars || []).filter((a) => a && a.id);
+
+		if (avatars.length === 0) {
+			renderEmpty(gridEl, tab);
+			return;
+		}
+		renderAvatarGrid(gridEl, avatars);
 	} catch (err) {
-		gridEl.innerHTML = '';
-		errorEl.textContent = `Failed to load avatars: ${err.message}`;
-		errorEl.style.display = 'block';
+		if (err.status === 401) {
+			await msg('clear-session');
+			state.session = null;
+			renderAuth();
+			loadAvatars(tab);
+			return;
+		}
+		renderError(gridEl, errorEl, tab, err.message);
 	}
 }
 
-// ── Current tab ───────────────────────────────────────────────────────────
+// ── Current tab ──────────────────────────────────────────────────────────────
 async function initCurrentTab() {
 	const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 	state.currentTab = tab;
 
 	const siteEl = document.getElementById('current-site');
-	if (tab?.url) {
-		try {
-			siteEl.textContent = new URL(tab.url).hostname;
-		} catch {
-			siteEl.textContent = tab.url.slice(0, 40);
-		}
+	const toggle = document.getElementById('enable-toggle');
+
+	const restricted = !tab?.url || /^(chrome|edge|about|chrome-extension|devtools):/i.test(tab.url);
+	if (restricted) {
+		siteEl.textContent = 'unavailable on this page';
+		toggle.disabled = true;
+		toggle.closest('.footer')?.classList.add('disabled');
+		return;
 	}
 
-	// Restore toggle state from session storage (per-tab)
-	const stored = await chrome.storage.session.get(`tab_enabled_${tab?.id}`).catch(() => ({}));
-	state.tabEnabled = !!stored[`tab_enabled_${tab?.id}`];
-	document.getElementById('enable-toggle').checked = state.tabEnabled;
+	let host = tab.url;
+	try { host = new URL(tab.url).hostname; } catch {}
+	siteEl.textContent = host;
+
+	// Per-tab enable state is kept in session storage, set when the popup toggles.
+	const key = `tab_enabled_${tab.id}`;
+	const stored = await chrome.storage.session.get(key).catch(() => ({}));
+	state.tabEnabled = !!stored[key];
+	toggle.checked = state.tabEnabled;
+
+	// Surface allow/blocklist filtering so the user knows why a toggle is a no-op.
+	const { allowed } = await msg('check-site', { url: tab.url }).catch(() => ({ allowed: true }));
+	if (!allowed) {
+		siteEl.innerHTML = `${host} <span class="filtered-tag">filtered</span>`;
+	}
 }
 
-// ── Toggle ────────────────────────────────────────────────────────────────
+// ── Toggle ────────────────────────────────────────────────────────────────────
 document.getElementById('enable-toggle').addEventListener('change', async (e) => {
 	const enabled = e.target.checked;
-	state.tabEnabled = enabled;
-
 	if (!state.currentTab) return;
 
 	const key = `tab_enabled_${state.currentTab.id}`;
-	chrome.storage.session.set({ [key]: enabled }).catch(() => {});
-
-	await msg('toggle-tab', {
+	const res = await msg('toggle-tab', {
 		tabId: state.currentTab.id,
 		enabled,
 		avatarId: state.selectedAvatarId || state.settings.avatarId,
 	});
+
+	if (enabled && res && res.ok === false) {
+		// Site filtered or injection blocked — revert the switch and explain.
+		e.target.checked = false;
+		const siteEl = document.getElementById('current-site');
+		siteEl.innerHTML = `${siteEl.textContent} <span class="filtered-tag">${res.reason || res.error}</span>`;
+		await chrome.storage.session.set({ [key]: false }).catch(() => {});
+		return;
+	}
+
+	state.tabEnabled = enabled;
+	await chrome.storage.session.set({ [key]: enabled }).catch(() => {});
 });
 
-// ── Speed slider ──────────────────────────────────────────────────────────
+// ── Speed slider ──────────────────────────────────────────────────────────────
 const speedSlider = document.getElementById('speed-slider');
 const speedVal = document.getElementById('speed-val');
 
 speedSlider.addEventListener('input', () => {
-	const v = parseFloat(speedSlider.value);
-	speedVal.textContent = v.toFixed(1) + '×';
+	speedVal.textContent = parseFloat(speedSlider.value).toFixed(1) + '×';
 });
 
 speedSlider.addEventListener('change', async () => {
 	const v = parseFloat(speedSlider.value);
 	await msg('update-settings', { settings: { walkSpeed: v } });
-	// Send live update to active tab
-	if (state.currentTab) {
-		chrome.tabs.sendMessage(state.currentTab.id, {
-			type: 'walk:setSpeed',
-			speed: v,
-		}).catch(() => {});
-	}
 });
 
-// ── Tab switching ─────────────────────────────────────────────────────────
+// ── Tab bar ────────────────────────────────────────────────────────────────────
 document.querySelectorAll('.tab-btn').forEach((btn) => {
 	btn.addEventListener('click', () => {
 		const tab = btn.dataset.tab;
-		document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b === btn));
-		document.querySelectorAll('.tab-panel').forEach(p => {
+		document.querySelectorAll('.tab-btn').forEach((b) => {
+			const on = b === btn;
+			b.classList.toggle('active', on);
+			b.setAttribute('aria-selected', on ? 'true' : 'false');
+		});
+		document.querySelectorAll('.tab-panel').forEach((p) => {
 			p.classList.toggle('active', p.id === `tab-${tab}`);
 		});
 		loadAvatars(tab);
 	});
 });
 
-// ── Boot ──────────────────────────────────────────────────────────────────
+// Open the full settings page.
+document.getElementById('settings-link').addEventListener('click', (e) => {
+	e.preventDefault();
+	chrome.runtime.openOptionsPage();
+});
+
+// React to the session token arriving from the auth-callback tab while the
+// popup is still open.
+chrome.runtime.onMessage.addListener((m) => {
+	if (m.type === 'session-updated' && m.token) {
+		state.session = m.token;
+		renderAuth();
+		loadAvatars(state.activeTab);
+	}
+});
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
 (async () => {
 	const { session, settings } = await msg('get-state');
 	state.session = session;
 	state.settings = settings || {};
 	state.selectedAvatarId = state.settings.avatarId || '';
 
-	if (state.settings.walkSpeed) {
-		speedSlider.value = String(state.settings.walkSpeed);
-		speedVal.textContent = parseFloat(state.settings.walkSpeed).toFixed(1) + '×';
-	}
+	const speed = state.settings.walkSpeed || 1;
+	speedSlider.value = String(speed);
+	speedVal.textContent = parseFloat(speed).toFixed(1) + '×';
 
 	await Promise.all([
 		renderAuth(),
