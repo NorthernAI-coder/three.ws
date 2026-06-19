@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-19T09:37:27.069Z",
+	"generated_at": "2026-06-19T09:40:00.703Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -24,6 +24,16 @@
 			"link": "/gallery",
 			"tags": [
 				"fix"
+			]
+		},
+		{
+			"date": "2026-06-19",
+			"type": "update",
+			"title": "Clearer IRL onboarding and copy",
+			"summary": "Opening IRL for the first time now spells out the core loop in plain words: turn on Camera AR, aim at the spot you want, then tap Pin here to anchor your agent in real space. The on-screen guidance updates as you go — it points you to the next step before you've pinned, and confirms when your agent is anchored. We rewrote the status messages around pinning to be calm and literal instead of technical or alarming: waiting on a GPS fix now tells you it's quicker outdoors, pinning without location explains your agent is saved on this device until you turn location on, and a missing compass reads as a gentle note rather than a warning. The caption keyboard now opens reliably when the panel slides up on iPhone.",
+			"link": "/irl",
+			"tags": [
+				"improvement"
 			]
 		},
 		{

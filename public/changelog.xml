@@ -23,6 +23,14 @@
 			<description>View-in-AR (USDZ for iOS Quick Look) and the half-body VR-seat export now work for avatars that ship with meshopt or Draco geometry compression. Previously these exports silently failed on compressed GLBs because the loader had no decoder registered; the pipeline now loads the meshopt and Draco decoders before parsing, so every avatar — including the compressed ones produced by the server-side bake — converts cleanly.</description>
 		</item>
 		<item>
+			<title>Clearer IRL onboarding and copy</title>
+			<link>https://three.ws/irl</link>
+			<guid isPermaLink="false">2026-06-19:Clearer IRL onboarding and copy</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>Opening IRL for the first time now spells out the core loop in plain words: turn on Camera AR, aim at the spot you want, then tap Pin here to anchor your agent in real space. The on-screen guidance updates as you go — it points you to the next step before you've pinned, and confirms when your agent is anchored. We rewrote the status messages around pinning to be calm and literal instead of technical or alarming: waiting on a GPS fix now tells you it's quicker outdoors, pinning without location explains your agent is saved on this device until you turn location on, and a missing compass reads as a gentle note rather than a warning. The caption keyboard now opens reliably when the panel slides up on iPhone.</description>
+		</item>
+		<item>
 			<title>Creator royalty payouts protected against double-settlement</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-19:Creator royalty payouts protected against double-settlement</guid>
