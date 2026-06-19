@@ -53,3 +53,8 @@ export { toUiAmount } from "./utils/format.js";
 
 // AgenC adapter — read + write the AgenC coordination protocol (agenc.tech).
 export * from "./actions/agenc/index.js";
+
+// Provably-fair vanity grinding — verify a three.ws vanity receipt entirely
+// client-side, open the sealed key, or run the whole request→open→verify flow
+// in one call. Proves the key was generated fresh and never kept.
+export * from "./vanity/index.js";

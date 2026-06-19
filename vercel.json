@@ -94,6 +94,10 @@
 			"includeFiles": "{src/solana/vanity/wasm/**,examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 60
 		},
+		"api/x402/vanity-verifiable.js": {
+			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
+			"maxDuration": 60
+		},
 		"api/pump/[action].js": {
 			"includeFiles": "{src/solana/vanity/wasm/**,examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 60
@@ -359,6 +363,10 @@
 			"dest": "/api/wk?name=agent-attestation-schemas"
 		},
 		{
+			"src": "/\\.well-known/three-vanity\\.json",
+			"dest": "/api/wk?name=three-vanity"
+		},
+		{
 			"src": "/\\.well-known/jwks\\.json",
 			"dest": "/api/auth/persona/[action]?action=jwks"
 		},
@@ -537,6 +545,10 @@
 		{
 			"src": "/gmgn/",
 			"dest": "/gmgn.html"
+		},
+		{
+			"src": "/vanity/verify/?",
+			"dest": "/vanity/verify/index.html"
 		},
 		{
 			"src": "/vanity-wallet",

@@ -31,6 +31,22 @@
 			<description>Pilot your UFO through an asteroid field. Connect your Solana wallet, submit your score as your wallet address, and claim your spot on the global $THREE leaderboard.</description>
 		</item>
 		<item>
+			<title>Verify a Vanity Receipt</title>
+			<link>https://three.ws/vanity/verify</link>
+			<guid isPermaLink="false">2026-06-19:Verify a Vanity Receipt</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>Independently verify a three.ws provably-fair vanity wallet receipt — entirely in your browser. Prove the key was generated fresh under a committed seed and the operator never kept a copy.</description>
+		</item>
+		<item>
+			<title>x402 Studio — the Stripe of x402</title>
+			<link>https://three.ws/x402/studio</link>
+			<guid isPermaLink="false">2026-06-19:x402 Studio — the Stripe of x402</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>Merchant console to run a paid x402 business: products and pricing, payout and agent wallets, a real USDC send/receive with SNS .sol resolution, a drag-and-drop storefront, an embeddable pay-button builder, charity and round-up giving, CORS and security.</description>
+		</item>
+		<item>
 			<title>8D audio mode at the Pole Club</title>
 			<link>https://three.ws/club</link>
 			<guid isPermaLink="false">2026-06-19:8D audio mode at the Pole Club</guid>
@@ -85,6 +101,14 @@
 			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>The Brain tab in Agent Studio is now a visual node editor: wire Persona, Model, Memory, Skills, and trading-reasoning nodes into a living graph that IS your agent’s personality. Pick from real LLMs (Claude, GPT, Granite and more) per branch, connect a memory port that recalls and writes real memories, and watch the active path light up as your agent thinks — tokens streaming, memory firing, the avatar reacting live. A built-in test chat runs your graph against the real models with real latency and token stats, and forkable templates (Sniper, Scalper, Researcher, Companion) get you started in one click. Your graph compiles straight to your agent’s persona so every existing chat surface picks up the change.</description>
+		</item>
+		<item>
+			<title>Charity and round-up donations now settle on-chain at checkout</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-19:Charity and round-up donations now settle on-chain at checkout</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>When a merchant turns on Giving, their charity split and round-up are no longer just shown — they move real money at the moment a buyer pays. The payment modal now offers the buyer a clear, pre-checked opt-in (&quot;Add 0.009 USDC for Save the Reefs&quot;) and, when kept, appends the donation to the very same Solana transaction the buyer signs. One signature pays the merchant and the cause together, with the network fee still sponsored by the facilitator. The buyer always sees the exact amount and total before signing and can switch it off; the donation is bounded by a safety cap so a misconfigured rule can never sweep a wallet. Hosted /pay/c checkout links surface the cause up front, and the math — a basis-point share of the payment plus the round-up remainder — is covered by tests.</description>
 		</item>
 		<item>
 			<title>Cleaner Pole Club bass — no more speaker distortion</title>
@@ -447,6 +471,14 @@
 			<description>Locked premium headwear, eyewear, dyes and auras in the character creator no longer dead-end on a placeholder — clicking one now opens the real wallet checkout and unlocks it the moment the USDC payment settles, then equips it on your live preview. Anything you already own loads pre-unlocked, and the price you see is the true checkout amount pulled from the catalog.</description>
 		</item>
 		<item>
+			<title>Prove we never kept your vanity key — trustless wallet grinding</title>
+			<link>https://three.ws/vanity/verify</link>
+			<guid isPermaLink="false">2026-06-19:Prove we never kept your vanity key — trustless wallet grinding</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Every vanity-address service asks you to trust the operator: trust they used real randomness, that they didn't keep a copy, that they didn't grind thousands of keys and hand you the one they secretly logged. Now you don't have to. The new provably-fair grinder commits to a random seed before it grinds, mixes in your own entropy so neither side controls the result, seals the secret so only you can open it, and returns a signed receipt. You can verify all of it after the fact — paste the receipt at three.ws/vanity/verify (everything runs in your browser, your keys never leave), run the open-source CLI, or call verifyVanityReceipt() in the SDK. The checks prove the key was generated fresh, that the address really comes from that seed, that it matches your pattern, and that three.ws — not an impostor — signed it. Optionally open the sealed key locally to prove you, and only you, hold it.</description>
+		</item>
+		<item>
 			<title>Put a talking 3D guide on any website — new @three-ws/page-agent SDK</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-19:Put a talking 3D guide on any website — new @three-ws/page-agent SDK</guid>
@@ -581,6 +613,14 @@
 			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>Subscribing an agent to a token's oracle alerts — and unsubscribing — was silently failing for everyone; only the status check worked. Both now go through correctly, so you can opt an agent into (and out of) score-based alerts as intended.</description>
+		</item>
+		<item>
+			<title>Turn any agent wallet into a giving wallet</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-19:Turn any agent wallet into a giving wallet</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Every agent's self-custodied Solana wallet now has a Give tab. Pick a cause — any Solana wallet or .sol name — and donate SOL or USDC in one tap, or use a quick 1/5/10/25%/Max of the live balance. Round-up giving rounds a balance off and sends the spare change to your cause (e.g. 12.37 USDC → give $0.37, keep $12.00). Donations are real, server-signed, on-chain transfers — the same audited, idempotent path as a withdrawal — and your running total is tallied straight from the wallet's on-chain custody trail. Crypto transfers are final, so each donation is reviewed before it's sent.</description>
 		</item>
 		<item>
 			<title>Unity &amp; Unreal avatar loading documented with code that actually works</title>

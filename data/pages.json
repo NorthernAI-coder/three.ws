@@ -546,6 +546,14 @@
 					"added": "2026-05-10"
 				},
 				{
+					"path": "/x402/studio",
+					"title": "x402 Studio — the Stripe of x402",
+					"description": "Merchant console to run a paid x402 business: products and pricing, payout and agent wallets, a real USDC send/receive with SNS .sol resolution, a drag-and-drop storefront, an embeddable pay-button builder, charity and round-up giving, CORS and security.",
+					"priority": 0.7,
+					"changefreq": "weekly",
+					"added": "2026-06-19"
+				},
+				{
 					"path": "/play/agent-wallet",
 					"title": "Agent Wallet (x402 on Solana)",
 					"description": "Watch your 3D avatar walk up to a paid endpoint and pay for it with its agent wallet — a real USDC micropayment signed by the agent and settled on Solana.",
@@ -632,6 +640,14 @@
 					"priority": 0.6,
 					"changefreq": "monthly",
 					"added": "2026-04-29"
+				},
+				{
+					"path": "/vanity/verify",
+					"title": "Verify a Vanity Receipt",
+					"description": "Independently verify a three.ws provably-fair vanity wallet receipt — entirely in your browser. Prove the key was generated fresh under a committed seed and the operator never kept a copy.",
+					"priority": 0.6,
+					"changefreq": "monthly",
+					"added": "2026-06-19"
 				},
 				{
 					"path": "/eth-vanity",

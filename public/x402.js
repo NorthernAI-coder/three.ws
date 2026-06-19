@@ -89,7 +89,7 @@ function isEvmNetwork(net) {
 // giving off, cause wallet on a different chain than this checkout, or a zero
 // total. The donation settles in the SAME mint + transaction as the payment, so
 // the cause wallet must be a Solana address. Pure integer math on atomics.
-function computeGiving(giving, accept) {
+export function computeGiving(giving, accept) {
 	if (!giving || !isSolanaNetwork(accept?.network)) return null;
 	if (giving.charity_chain && giving.charity_chain !== 'solana') return null;
 	const to = giving.charity_address;

@@ -3,6 +3,34 @@
 	"entries": [
 		{
 			"date": "2026-06-19",
+			"title": "Prove we never kept your vanity key — trustless wallet grinding",
+			"summary": "Every vanity-address service asks you to trust the operator: trust they used real randomness, that they didn't keep a copy, that they didn't grind thousands of keys and hand you the one they secretly logged. Now you don't have to. The new provably-fair grinder commits to a random seed before it grinds, mixes in your own entropy so neither side controls the result, seals the secret so only you can open it, and returns a signed receipt. You can verify all of it after the fact — paste the receipt at three.ws/vanity/verify (everything runs in your browser, your keys never leave), run the open-source CLI, or call verifyVanityReceipt() in the SDK. The checks prove the key was generated fresh, that the address really comes from that seed, that it matches your pattern, and that three.ws — not an impostor — signed it. Optionally open the sealed key locally to prove you, and only you, hold it.",
+			"tags": [
+				"feature",
+				"security",
+				"sdk"
+			],
+			"link": "/vanity/verify"
+		},
+		{
+			"date": "2026-06-19",
+			"title": "Charity and round-up donations now settle on-chain at checkout",
+			"summary": "When a merchant turns on Giving, their charity split and round-up are no longer just shown — they move real money at the moment a buyer pays. The payment modal now offers the buyer a clear, pre-checked opt-in (\"Add 0.009 USDC for Save the Reefs\") and, when kept, appends the donation to the very same Solana transaction the buyer signs. One signature pays the merchant and the cause together, with the network fee still sponsored by the facilitator. The buyer always sees the exact amount and total before signing and can switch it off; the donation is bounded by a safety cap so a misconfigured rule can never sweep a wallet. Hosted /pay/c checkout links surface the cause up front, and the math — a basis-point share of the payment plus the round-up remainder — is covered by tests.",
+			"tags": [
+				"feature",
+				"sdk"
+			]
+		},
+		{
+			"date": "2026-06-19",
+			"title": "Turn any agent wallet into a giving wallet",
+			"summary": "Every agent's self-custodied Solana wallet now has a Give tab. Pick a cause — any Solana wallet or .sol name — and donate SOL or USDC in one tap, or use a quick 1/5/10/25%/Max of the live balance. Round-up giving rounds a balance off and sends the spare change to your cause (e.g. 12.37 USDC → give $0.37, keep $12.00). Donations are real, server-signed, on-chain transfers — the same audited, idempotent path as a withdrawal — and your running total is tallied straight from the wallet's on-chain custody trail. Crypto transfers are final, so each donation is reviewed before it's sent.",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-19",
 			"title": "Roaming links no longer open just by standing on them",
 			"summary": "In full-page roaming mode — stroll or platformer — walking your avatar onto a link used to dive into it on its own after a short pause, which made it easy to leave a page by accident. Now standing on a link only arms it (it glows with a prompt) and you commit deliberately: press Space / Enter / E or tap the dive button in stroll mode, or press ↓ / the dive button in platformer mode. Gamepads work too — the left stick or d-pad walks, ✕/○ dive in stroll, and pushing down or ○ dives in platformer — so a controller drives the avatar exactly like the keyboard.",
 			"tags": [
