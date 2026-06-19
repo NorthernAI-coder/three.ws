@@ -3,6 +3,14 @@
 	"entries": [
 		{
 			"date": "2026-06-19",
+			"title": "Getting-started progress now follows you across the whole platform",
+			"summary": "Your setup checklist no longer forgets what you've done. The floating \"Getting started\" guide and the dashboard's onboarding panel now share one source of truth: the moment you create an avatar, give an agent a personality, or embed a widget, every checklist on the site ticks that step — no more seeing \"2 of 4 done\" in one place and \"0 of 3\" in another on the same visit. Visiting your dashboard reconciles your real progress automatically, and saving a persona to an agent now completes the \"give it a brain\" step the instant it happens.",
+			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-19",
 			"title": "Agent wallet's full money loop is now verified end-to-end on devnet",
 			"summary": "A re-runnable harness now exercises the entire agent-wallet lifecycle in one pass — create a wallet, fund it, trade and snipe pump.fun tokens, pay an x402 service, exit a graduated position, and withdraw — against real Solana devnet state. It runs simulate-first and reports each step as passed or honestly blocked on funding/credentials, never a fake result, so regressions in the seams between deposit, trading, sniping, payments, and withdrawal surface before they reach holders. The agent wallet hub's Snipe tab now opens the live Sniper dashboard directly instead of a placeholder.",
 			"tags": [

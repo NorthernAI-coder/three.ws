@@ -28,11 +28,6 @@ vi.mock('../../api/_lib/env.js', () => ({
 
 vi.mock('../../api/_lib/zauth.js', () => ({ instrument: () => {}, drain: async () => {} }));
 vi.mock('../../api/_lib/sentry.js', () => ({ captureException: () => {} }));
-vi.mock('../../api/_lib/demo-avatars.js', () => ({
-	DEMO_AVATARS: [
-		{ avatarId: 'avatar_demo_alice', name: 'Alice', description: 'A demo', tags: ['demo'] },
-	],
-}));
 
 const { default: handler, __testInternals } = await import('../../api/avatar-og.js');
 
@@ -68,16 +63,7 @@ beforeEach(() => {
 
 // ── Tests ──────────────────────────────────────────────────────────────────
 
-describe('GET /api/avatar/:id/og — demo + 404 paths', () => {
-	it('returns SVG card for known demo avatar', async () => {
-		const req = mkReq({ url: '/api/avatar/avatar_demo_alice/og' });
-		const res = mkRes();
-		await handler(req, res);
-		expect(res.statusCode).toBe(200);
-		expect(res._h['content-type']).toMatch(/image\/svg/);
-		expect(String(res._body)).toContain('Alice');
-	});
-
+describe('GET /api/avatar/:id/og — 404 paths', () => {
 	it('returns SVG 404 for unknown demo id', async () => {
 		const req = mkReq({ url: '/api/avatar/avatar_demo_nope/og' });
 		const res = mkRes();

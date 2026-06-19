@@ -682,6 +682,9 @@ async function saveToAgent() {
 		await put(`/api/agents/${encodeURIComponent(agentId)}`, { persona });
 		const name = S.agents.find(a => a.id === agentId)?.name || 'agent';
 		toast(`Persona saved to ${name}`);
+		// Giving an agent a persona *is* the "give it a brain" milestone — report it
+		// precisely so the getting-started guide ticks without a route round-trip.
+		try { document.dispatchEvent(new CustomEvent('three-ws:guide', { detail: { step: 'brain' } })); } catch (_) {}
 	} catch (err) {
 		toast(`Save failed: ${err.message}`);
 	} finally {

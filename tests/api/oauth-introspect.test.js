@@ -24,6 +24,7 @@ vi.mock('../../api/_lib/db.js', () => ({
 vi.mock('../../api/_lib/rate-limit.js', () => ({
 	limits: {
 		oauthToken: vi.fn(async () => ({ success: true })),
+		authIp: vi.fn(async () => ({ success: true })),
 	},
 	clientIp: () => '127.0.0.1',
 }));

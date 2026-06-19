@@ -83,6 +83,12 @@ const STATE = {
 	const widgets = widgetsRes.status === 'fulfilled' ? (widgetsRes.value?.widgets ?? []) : [];
 	const agents  = agentsRes.status === 'fulfilled'  ? (agentsRes.value?.agents  ?? []) : [];
 
+	// The dashboard holds authoritative server state; the floating guide
+	// (getting-started.js) otherwise only infers progress from the current route
+	// and drifts. Reconcile it here on every dashboard visit — this is data sync,
+	// so it runs even when the onboarding panel is dismissed.
+	reconcileGuide({ avatars, agents, widgets });
+
 	renderHero(slots.hero, avatars, avatarsRes.status === 'rejected' ? avatarsRes.reason : null);
 	loadTradingOverview(slots.trading);
 	renderAgentHealth(slots.health, agents, widgets);
@@ -791,6 +797,25 @@ function renderForgeAnnounce(host) {
 
 // ── Onboarding checklist ──────────────────────────────────────────────────
 
+// Sync the floating getting-started guide to authoritative server state. The
+// guide exposes window.__twsGuide.complete(id) and is idempotent — completing an
+// already-done step is a no-op, so this is safe to call on every dashboard load.
+function reconcileGuide({ avatars = [], agents = [], widgets = [] }) {
+	const guide = window.__twsGuide;
+	if (!guide || typeof guide.complete !== 'function') return;
+	try {
+		if (avatars.length > 0) guide.complete('create', { silent: true });
+		if (agents.length > 0) guide.complete('brain', { silent: true });
+		if (widgets.length > 0) guide.complete('embed', { silent: true });
+	} catch (_) {}
+}
+
+// Has the user completed the optional monetize step on any surface? The guide is
+// the cross-page record of record for it.
+function guideStepDone(id) {
+	try { return !!window.__twsGuide?.progress?.()[id]; } catch (_) { return false; }
+}
+
 function renderOnboarding(host, { avatars, agents, widgets }) {
 	const steps = [
 		{
@@ -823,7 +848,7 @@ function renderOnboarding(host, { avatars, agents, widgets }) {
 			sub: 'Charge per message, set a subscription, or let fans tip — paid out in USDC.',
 			href: '/dashboard/monetize',
 			cta: 'Set up monetization',
-			done: false,
+			done: guideStepDone('monetize'),
 			optional: true,
 			optionalTip: 'Earning and payouts settle in USDC and need a wallet. It is entirely opt-in — skip it and the rest of your agent works exactly the same.',
 		},
