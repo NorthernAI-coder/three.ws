@@ -338,10 +338,15 @@ async function loadCoinProfile(mint) {
 	$('coin-profile-empty').hidden = true;
 
 	let coin = null;
+	let loadFailed = false;
 	try {
 		const r = await fetch(`/api/pump/coin?mint=${encodeURIComponent(mint)}`, { headers: { accept: 'application/json' } });
 		if (r.ok) coin = await r.json();
+		// A 5xx (or any non-404 non-ok) is a transient failure, not a real "missing
+		// coin" — track it so we offer a retry instead of a misleading "not found".
+		else if (r.status !== 404) loadFailed = true;
 	} catch (err) {
+		loadFailed = true;
 		log.warn('[communities] coin profile', err?.message ?? err);
 	}
 
@@ -352,9 +357,25 @@ async function loadCoinProfile(mint) {
 		$('coin-profile-skeleton').hidden = true;
 		$('coin-profile-empty').hidden = false;
 		$('coin-profile-empty-mint').textContent = mint;
-		document.title = 'Coin not found · three.ws';
+		const retryBtn = $('coin-profile-retry');
+		if (loadFailed) {
+			// Couldn't reach the feed — distinguish from a genuine 404 and let the
+			// user retry the same mint without re-navigating.
+			$('coin-profile-empty-msg').textContent = 'Couldn’t load this coin right now.';
+			document.title = 'Couldn’t load coin · three.ws';
+			if (retryBtn) {
+				retryBtn.hidden = false;
+				retryBtn.onclick = () => loadCoinProfile(mint);
+			}
+		} else {
+			$('coin-profile-empty-msg').textContent = 'That coin couldn’t be found on pump.fun.';
+			document.title = 'Coin not found · three.ws';
+			if (retryBtn) retryBtn.hidden = true;
+		}
 		return;
 	}
+	const retryBtn = $('coin-profile-retry');
+	if (retryBtn) retryBtn.hidden = true;
 
 	renderCoinProfile(coin);
 	// Live market data + trades enrich the page once the core render is up.

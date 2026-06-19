@@ -222,5 +222,23 @@ export function writeConflict(res, { route, attemptedHash, existingHash, reason 
 	);
 }
 
+// Write a 409 telling a concurrent caller the same payment is already being
+// processed. Retry-After:1 nudges well-behaved clients to poll for the cached
+// response rather than re-submitting (which would conflict on the proof hash).
+export function writeInflight(res) {
+	res.statusCode = 409;
+	res.setHeader('content-type', 'application/json; charset=utf-8');
+	res.setHeader('cache-control', 'no-store');
+	res.setHeader('x-x402-idempotent', 'in-flight');
+	res.setHeader('retry-after', '1');
+	res.end(
+		JSON.stringify({
+			error: 'payment_in_flight',
+			error_description:
+				'a request with this payment is already being processed; retry shortly to receive the cached response',
+		}),
+	);
+}
+
 export { hashRequestPayload, hashPaymentProof } from './idempotency-cache.js';
 export const ttlSeconds = envTtl;

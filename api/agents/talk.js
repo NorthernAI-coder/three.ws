@@ -29,7 +29,6 @@ const ALLOWED_MODELS = new Set([
 	'claude-sonnet-4-5',
 	'claude-sonnet-4-6',
 	'claude-opus-4-7',
-	'claude-3-5-haiku-20241022',
 ]);
 
 const bodySchema = z.object({

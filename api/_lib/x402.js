@@ -186,8 +186,23 @@ export async function consumeIntent(intentId) {
  */
 export async function manifestOnly(res, opts) {
 	const validUntil = Math.floor(Date.now() / 1000) + (opts.validForSec || 900);
-	const payments = opts.agent.meta?.payments || opts.agent.payments;
-	const { recipient, recipient_name } = await resolveRecipient({ agent: opts.agent, payments });
+
+	// Prefer an explicit payout `recipient` (resolved from agent_payout_wallets /
+	// the agent's own wallet_address by the caller). Only when none is supplied do
+	// we fall back to resolving the agent's configured meta receiver via SNS — this
+	// keeps pre-payout-wallet agents working unchanged.
+	let recipient = opts.recipient ?? null;
+	let recipient_name = null;
+	if (recipient) {
+		const metaName = opts.agent.meta?.sns_domain || null;
+		recipient_name = metaName
+			? (metaName.endsWith('.sol') ? metaName : `${metaName}.sol`)
+			: null;
+	} else {
+		const payments = opts.agent.meta?.payments || opts.agent.payments;
+		({ recipient, recipient_name } = await resolveRecipient({ agent: opts.agent, payments }));
+	}
+
 	return json(res, 200, {
 		version: X402_VERSION,
 		kind: 'agent-skill',
@@ -195,6 +210,7 @@ export async function manifestOnly(res, opts) {
 		skill: opts.skill,
 		amount: String(opts.amount),
 		currency: opts.currency,
+		chain: opts.chain ?? 'solana',
 		recipient,
 		recipient_name,
 		valid_until: validUntil,

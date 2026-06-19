@@ -174,7 +174,7 @@ async function load(reset = false) {
 		if (query && nextCursor && !scanning) scanForSearch();
 	} catch (err) {
 		if (reset) grid().innerHTML = errorState(err.message);
-		else setLoadMore('Retry', false);
+		else setLoadMore('Couldn’t load more — tap to retry', false);
 	}
 }
 

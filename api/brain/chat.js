@@ -99,7 +99,7 @@ const PROVIDERS = {
 		maxOutput: 8192,
 		description: 'Fastest Claude. Low latency, high throughput.',
 		native: () => (env.ANTHROPIC_API_KEY ? createAnthropic({ apiKey: env.ANTHROPIC_API_KEY })('claude-haiku-4-5-20251001') : null),
-		openrouterModel: 'anthropic/claude-3.5-haiku',
+		openrouterModel: 'anthropic/claude-haiku-4.5',
 	},
 	'gpt-4o': {
 		label: 'GPT-4o',

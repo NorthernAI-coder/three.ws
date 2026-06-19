@@ -106,7 +106,7 @@ async function loadAndRender(host, me, agents) {
 
 	const [
 		revenue, withdrawalsResp, walletsResp, summary, plans,
-		mineSubs, earningsResp, pricesResp, monWalletResp, monRevenueResp,
+		mineSubs, earningsResp, pricesResp, monWalletResp, monRevenueResp, feeInfo,
 	] = await Promise.all([
 		safe(() => get(`/api/billing/revenue?from=${encodeURIComponent(since30)}&granularity=day`)),
 		safe(() => get('/api/billing/withdrawals?limit=50')),
@@ -120,7 +120,13 @@ async function loadAndRender(host, me, agents) {
 		selectedAgentId ? safe(() => get(`/api/monetization/prices?${agentParam}`)) : Promise.resolve(null),
 		selectedAgentId ? safe(() => get(`/api/monetization/wallet?${agentParam}`)) : Promise.resolve(null),
 		selectedAgentId ? safe(() => get(`/api/monetization/revenue?${agentParam}&period=all`)) : Promise.resolve(null),
+		safe(() => get('/api/billing/fee-info')),
 	]);
+
+	// Platform fee, used to show agent owners their net per-payment take when
+	// pricing skills. Fall back to the documented 2.5% default if the rate
+	// endpoint is unreachable so the UI never renders a misleading "0% fee".
+	const feeBps = Number.isFinite(Number(feeInfo?.fee_bps)) ? Number(feeInfo.fee_bps) : 250;
 
 	// If every primary revenue surface failed to load, the page would otherwise
 	// render an all-zero hero and empty panels with no signal that the data is
@@ -163,7 +169,7 @@ async function loadAndRender(host, me, agents) {
 	host.appendChild(renderHero({ available, revenue, creatorPlans, subscribedTo, pendingRoyaltyAtomics, monRevenue }));
 
 	if (selectedAgentId) {
-		host.appendChild(renderSkillPricing(skillPrices, selectedAgentId, host, me, agents));
+		host.appendChild(renderSkillPricing(skillPrices, selectedAgentId, host, me, agents, feeBps));
 		host.appendChild(renderPayoutWalletPanel(monWallet, selectedAgentId, host, me, agents, wallets));
 	}
 
@@ -275,17 +281,20 @@ function heroCard({ title, value, sub, color, button }) {
 
 // -- Skill Pricing Panel --
 
-function renderSkillPricing(prices, agentId, host, me, agents) {
+function renderSkillPricing(prices, agentId, host, me, agents, feeBps = 250) {
 	const panel = document.createElement('div');
 	panel.className = 'dn-panel';
 	let skillPrices = [...prices];
+
+	const feePercent = (feeBps / 100).toFixed(feeBps % 100 === 0 ? 0 : 1);
+	const netOf = (price) => Math.max(0, price * (1 - feeBps / 10_000));
 
 	function paint() {
 		panel.innerHTML = `
 			<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px">
 				<div>
 					<div class="dn-panel-title">Skill Pricing</div>
-					<div class="dn-panel-sub" style="margin:2px 0 0">Set per-call prices for your agent's skills. Callers pay in USDC.</div>
+					<div class="dn-panel-sub" style="margin:2px 0 0">Set per-call prices for your agent's skills. Callers pay in USDC — the platform takes ${esc(feePercent)}% per payment.</div>
 				</div>
 				<button class="dn-btn primary" data-action="add-price">+ Add Pricing</button>
 			</div>
@@ -322,6 +331,9 @@ function renderSkillPricing(prices, agentId, host, me, agents) {
 											<input type="number" min="0" step="0.000001" class="mon-input mon-input-sm"
 												value="${esc(String(p.price_usdc ?? p.price ?? 0))}"
 												data-field="price" data-idx="${idx}" aria-label="Price" />
+											<div class="mon-fee-note" data-slot="fee-note" data-idx="${idx}">
+												You receive ${esc(formatNetUsdc(netOf(Number(p.price_usdc ?? p.price ?? 0))))} after ${esc(feePercent)}% fee
+											</div>
 										</td>
 										<td style="text-align:center">
 											<label class="mon-toggle" title="${active ? 'Active' : 'Inactive'}">
@@ -344,10 +356,24 @@ function renderSkillPricing(prices, agentId, host, me, agents) {
 		}
 
 		panel.querySelector('[data-action="add-price"]').addEventListener('click', () => {
-			openAddPriceModal(agentId, (saved) => {
+			openAddPriceModal(agentId, feeBps, (saved) => {
 				skillPrices.push(saved);
 				paint();
 				toastMonetize('Skill price added');
+			});
+		});
+
+		// Live-update the "you receive" note as the owner edits a price so the
+		// net take is always in sync with what they're typing.
+		panel.querySelectorAll('input[data-field="price"]').forEach((input) => {
+			input.addEventListener('input', () => {
+				const idx = input.dataset.idx;
+				const note = panel.querySelector(`[data-slot="fee-note"][data-idx="${idx}"]`);
+				if (!note) return;
+				const val = parseFloat(input.value);
+				note.textContent = Number.isFinite(val) && val >= 0
+					? `You receive ${formatNetUsdc(netOf(val))} after ${feePercent}% fee`
+					: `Enter a valid price`;
 			});
 		});
 
@@ -407,7 +433,9 @@ function renderSkillPricing(prices, agentId, host, me, agents) {
 	return panel;
 }
 
-function openAddPriceModal(agentId, onSaved) {
+function openAddPriceModal(agentId, feeBps, onSaved) {
+	const feePercent = (feeBps / 100).toFixed(feeBps % 100 === 0 ? 0 : 1);
+	const netOf = (price) => Math.max(0, price * (1 - feeBps / 10_000));
 	const overlay = document.createElement('div');
 	overlay.className = 'mon-overlay';
 	overlay.innerHTML = `
@@ -422,6 +450,7 @@ function openAddPriceModal(agentId, onSaved) {
 			<label class="mon-field">
 				<span class="mon-label">Price per call (USDC)</span>
 				<input data-slot="price" type="number" min="0" step="0.000001" placeholder="0.001" class="mon-input" />
+				<span data-slot="fee-note" class="mon-fee-note">Platform fee: ${esc(feePercent)}% — set a price to see your net take.</span>
 			</label>
 
 			<label style="display:flex;align-items:center;gap:10px;margin-bottom:18px;cursor:pointer">
@@ -443,8 +472,16 @@ function openAddPriceModal(agentId, onSaved) {
 	const priceEl = overlay.querySelector('[data-slot="price"]');
 	const activeEl = overlay.querySelector('[data-slot="active"]');
 	const errorEl = overlay.querySelector('[data-slot="error"]');
+	const feeNoteEl = overlay.querySelector('[data-slot="fee-note"]');
 	const submitBtn = overlay.querySelector('[data-action="submit"]');
 	skillEl.focus();
+
+	priceEl.addEventListener('input', () => {
+		const val = parseFloat(priceEl.value);
+		feeNoteEl.textContent = Number.isFinite(val) && val > 0
+			? `Platform fee: ${feePercent}% — you receive ${formatNetUsdc(netOf(val))} per call.`
+			: `Platform fee: ${feePercent}% — set a price to see your net take.`;
+	});
 
 	const close = () => { overlay.remove(); document.removeEventListener('keydown', onKey); };
 	const onKey = (e) => { if (e.key === 'Escape') close(); };
@@ -786,6 +823,16 @@ function renderSkillLegend(bySkill) {
 			</span>`;
 		})
 		.join('');
+}
+
+// Format a human-denominated USDC amount (not atomics) for the net-take note.
+// Skill prices range from sub-cent (0.001) to dollars, so show enough precision
+// to keep tiny per-call prices meaningful without trailing-zero noise on whole cents.
+function formatNetUsdc(amount) {
+	const n = Number(amount);
+	if (!Number.isFinite(n) || n <= 0) return '$0.00';
+	const decimals = n < 0.01 ? 6 : n < 1 ? 4 : 2;
+	return `$${n.toFixed(decimals)}`;
 }
 
 function humanizeSkill(skill) {
@@ -1999,6 +2046,7 @@ function injectStyles() {
 .mon-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
 .mon-label { font-size: 12px; color: var(--nxt-ink-dim); font-weight: 500; }
 .mon-hint { font-size: 11.5px; color: var(--nxt-ink-fade); }
+.mon-fee-note { display: block; font-size: 11px; color: var(--nxt-ink-fade); margin-top: 4px; font-variant-numeric: tabular-nums; }
 .mon-error { font-size: 12.5px; color: var(--nxt-danger); min-height: 18px; margin-bottom: 10px; }
 .mon-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 

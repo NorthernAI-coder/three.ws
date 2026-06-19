@@ -47,7 +47,7 @@ import { sql } from './_lib/db.js';
 import { logger } from './_lib/usage.js';
 import { getSessionUser, authenticateBearer, extractBearer } from './_lib/auth.js';
 import { recoverSolanaAgentKeypair } from './_lib/agent-wallet.js';
-import { enforceSpendLimit, SpendLimitError, recordSpend } from './_lib/agent-trade-guards.js';
+import { SpendLimitError, reserveSpendUsd, updateCustodyEvent, releaseSpendReservation } from './_lib/agent-trade-guards.js';
 import { validatePublicUrl, resolvePublicHost, pinnedAgent, SsrfError } from './_lib/ssrf.js';
 import { BUILDER_CODE } from './_lib/x402-builder-code.js';
 
@@ -556,17 +556,24 @@ async function runExternalFlow({ url, method, body, emit, buyer, spendGuard, ser
 	});
 
 	// Per-agent spend policy — enforced BEFORE the payment is built/signed so a
-	// breach moves no funds.
+	// breach moves no funds. reserveSpendUsd atomically checks the cap AND writes a
+	// pending ledger row under a per-agent lock, so concurrent calls can't all pass
+	// the same stale daily total and overspend the cap. Finalize/release below.
+	let spendReservationId = null;
 	if (spendGuard) {
 		try {
-			await enforceSpendLimit({
+			const reservation = await reserveSpendUsd({
 				agentId: spendGuard.agentId,
+				userId: spendGuard.userId,
 				meta: spendGuard.meta,
 				category: 'x402',
 				usdValue: spendUsd,
 				destination: accept.payTo,
 				network: 'mainnet',
+				asset: 'USDC',
+				rowMeta: { url, service: serviceLabel || resource.serviceName || null, resource: resource.url },
 			});
+			spendReservationId = reservation.reservationId;
 		} catch (e) {
 			if (e instanceof SpendLimitError) {
 				throw Object.assign(new Error(e.message), { status: e.status, code: e.code, detail: e.detail });
@@ -600,6 +607,11 @@ async function runExternalFlow({ url, method, body, emit, buyer, spendGuard, ser
 	const paidJson = safeJsonParse(paid.text) ?? paid.text;
 	if (!paid.ok) {
 		if (paid.status === 402) {
+			// Explicit pre-settlement rejection: no funds moved, so release the
+			// reservation — it must not count toward the daily cap. (The
+			// settle_uncertain path below deliberately KEEPS the reservation:
+			// chain state is unknown, so we conservatively count it as spent.)
+			if (spendReservationId) await releaseSpendReservation(spendReservationId, 'payment_rejected_402');
 			throw Object.assign(
 				new Error('the service rejected the payment before settlement; no funds were transferred'),
 				{ status: 402, code: 'payment_required', detail: typeof paidJson === 'object' ? paidJson : null },
@@ -622,24 +634,14 @@ async function runExternalFlow({ url, method, body, emit, buyer, spendGuard, ser
 		explorer: tx ? `https://solscan.io/tx/${tx}` : null,
 	});
 
-	// Record the agent's x402 spend into the shared custody ledger so it counts
-	// toward the per-agent daily ceiling and shows in the wallet's payment activity.
-	if (spendGuard) {
-		void recordSpend({
-			agentId: spendGuard.agentId,
-			userId: spendGuard.userId,
-			category: 'x402',
-			network: 'mainnet',
-			asset: 'USDC',
-			usd: spendUsd,
-			destination: accept.payTo,
-			signature: tx,
+	// Finalize the pending reservation written before signing: flip it to
+	// confirmed/ok and attach the tx signature. It already counts toward the daily
+	// cap (written under the advisory lock), so this just records the outcome.
+	if (spendReservationId) {
+		void updateCustodyEvent(spendReservationId, {
 			status: tx ? 'confirmed' : 'ok',
-			meta: {
-				url,
-				service: serviceLabel || resource.serviceName || null,
-				resource: resource.url,
-			},
+			signature: tx,
+			meta: { settledAt: new Date(tSettled).toISOString() },
 		}).catch((err) => log.warn('x402_external_spend_record_failed', { message: err?.message }));
 	}
 
@@ -712,16 +714,21 @@ async function runFlow({ tool, args, emit, buyer: buyerOverride, resourceUrl, sp
 	// breach moves no funds. USDC is dollar-denominated (6 decimals), so the
 	// payment amount converts straight to the USD ceiling unit.
 	const spendUsd = Number(accept.amount) / 1e6;
+	let spendReservationId = null;
 	if (spendGuard) {
 		try {
-			await enforceSpendLimit({
+			const reservation = await reserveSpendUsd({
 				agentId: spendGuard.agentId,
+				userId: spendGuard.userId,
 				meta: spendGuard.meta,
 				category: 'x402',
 				usdValue: spendUsd,
 				destination: accept.payTo,
 				network: spendGuard.network || 'mainnet',
+				asset: 'USDC',
+				rowMeta: { tool },
 			});
+			spendReservationId = reservation.reservationId;
 		} catch (e) {
 			if (e instanceof SpendLimitError) {
 				throw Object.assign(new Error(e.message), { status: e.status, code: e.code, detail: e.detail });
@@ -756,6 +763,8 @@ async function runFlow({ tool, args, emit, buyer: buyerOverride, resourceUrl, sp
 	emit('dispatched', { dispatch_ms: tDispatched - tVerified });
 
 	if (rpcResp?.error) {
+		// Dispatch failed before settlement — no funds moved, release the reservation.
+		if (spendReservationId) await releaseSpendReservation(spendReservationId, 'mcp_dispatch_error');
 		throw Object.assign(
 			new Error(rpcResp.error.message || 'mcp_dispatch_error'),
 			{ status: 502, mcpError: rpcResp.error },
@@ -784,20 +793,12 @@ async function runFlow({ tool, args, emit, buyer: buyerOverride, resourceUrl, sp
 	void recordFeedEntry(feedEntry).catch((err) => {
 		log.warn('feed_record_failed', { tx: settled.transaction, message: err?.message });
 	});
-	// Record the agent's x402 spend into the shared custody ledger so it counts
-	// toward the per-agent daily ceiling and shows in the custody audit trail.
-	if (spendGuard) {
-		void recordSpend({
-			agentId: spendGuard.agentId,
-			userId: spendGuard.userId,
-			category: 'x402',
-			network: spendGuard.network || 'mainnet',
-			asset: 'USDC',
-			usd: spendUsd,
-			destination: accept.payTo,
-			signature: settled.transaction || null,
+	// Finalize the pending reservation written before signing: it already counts
+	// toward the daily cap (reserved under the advisory lock); attach the outcome.
+	if (spendReservationId) {
+		void updateCustodyEvent(spendReservationId, {
 			status: settled.transaction ? 'confirmed' : 'ok',
-			meta: { tool },
+			signature: settled.transaction || null,
 		}).catch((err) => log.warn('x402_spend_record_failed', { message: err?.message }));
 	}
 	if (settled.transaction) {

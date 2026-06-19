@@ -36,7 +36,11 @@ export default wrap(async (req, res) => {
 	const ip = clientIp(req);
 
 	// ── GET — check follow status ─────────────────────────────────────────────
-	if (method(req, res, ['GET'], { silent: true })) {
+	// Branch on req.method directly: the shared method() helper writes a 405 and
+	// ends the response on the first mismatch, so calling it per-branch (GET first)
+	// would 405 every POST/DELETE before its branch was reached. A single trailing
+	// 405 below covers unsupported verbs.
+	if (req.method === 'GET' || req.method === 'HEAD') {
 		const rl = await limits.publicIp(ip);
 		if (!rl.success) return rateLimited(res, rl);
 
@@ -61,12 +65,12 @@ export default wrap(async (req, res) => {
 	}
 
 	// ── POST — subscribe or update ────────────────────────────────────────────
-	if (method(req, res, ['POST'], { silent: true })) {
+	if (req.method === 'POST') {
 		const rl = await limits.oracleFollowIp(ip);
 		if (!rl.success) return rateLimited(res, rl);
 
-		const body = await readJson(req, res);
-		if (!body) return;
+		const body = await readJson(req).catch(() => null);
+		if (!body) return error(res, 400, 'invalid_json', 'request body must be valid JSON');
 
 		const agentId  = (body.agent_id  || '').trim();
 		const chatId   = (body.chat_id   || '').trim();
@@ -106,12 +110,12 @@ export default wrap(async (req, res) => {
 	}
 
 	// ── DELETE — unsubscribe ──────────────────────────────────────────────────
-	if (method(req, res, ['DELETE'], { silent: true })) {
+	if (req.method === 'DELETE') {
 		const rl = await limits.publicIp(ip);
 		if (!rl.success) return rateLimited(res, rl);
 
-		const body = await readJson(req, res);
-		if (!body) return;
+		const body = await readJson(req).catch(() => null);
+		if (!body) return error(res, 400, 'invalid_json', 'request body must be valid JSON');
 
 		const agentId = (body.agent_id || '').trim();
 		const chatId  = (body.chat_id  || '').trim();
