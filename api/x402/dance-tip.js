@@ -278,7 +278,7 @@ export default paidEndpoint({
 	route: ROUTE,
 	method: 'GET',
 	priceAtomics: priceFor('dance-tip', '1000'),
-	networks: ['base', 'solana'],
+	networks: ['solana'],
 	description: DESCRIPTION,
 	bazaar: BAZAAR,
 	service: withService({
