@@ -38,7 +38,6 @@ import {
 	WebGLRenderer,
 	WebGLRenderTarget,
 } from 'three';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import nipplejs from 'nipplejs';
 import { AnimationManager } from './animation-manager.js';
@@ -139,6 +138,15 @@ const videoEl     = $('irl-camera');
 const joystickEl  = $('irl-joystick');
 const nameEl      = $('irl-avatar-name');
 const subtitleEl  = $('irl-subtitle');
+// First-run guidance: the subtitle is the always-visible signpost to the next
+// concrete step in the core loop (turn on Camera AR → aim → Pin here). It tracks
+// three states so a brand-new user is never left guessing what to tap next.
+const SUBTITLE = {
+	cameraOff: 'Turn on Camera AR, then tap Pin here to anchor your agent in real space.',
+	aiming:    'Aim at the spot you want, then tap Pin here to anchor your agent.',
+	pinned:    'Your agent is anchored here. Tap Pin here again to release it.',
+};
+function setSubtitle(text) { if (subtitleEl) subtitleEl.textContent = text; }
 const statusEl    = $('irl-status');
 const statusTxt   = $('irl-status-text');
 const spinner     = $('irl-spinner');
@@ -300,6 +308,14 @@ applyCameraImmediate();
 // ── AR passthrough ────────────────────────────────────────────────────────
 let arActive        = false;
 let mediaStream     = null;
+// Single mutex over camera + render-loop ownership. getUserMedia camera-AR and the
+// WebXR immersive session both want the rear camera and the RAF; a fast tap during
+// the async handoff (disableAR → session start, or session end → enableAR) could
+// double-acquire the camera (black screen / dangling track). This blocks every
+// entry point — enableAR(), enterFloorAnchor(), the Camera button — until the prior
+// acquire/release fully settles. Always cleared in a finally so a failure can't
+// wedge the toggle permanently.
+let _arTransitioning = false;
 let arFrozenCamPos  = null;
 let arFrozenCamLook = null;
 // Pivot for the local (no-GPS) gyro world-lock: once set, the camera holds this
@@ -334,6 +350,23 @@ function applyCameraFov() {
 }
 
 async function enableAR() {
+	// Refuse while a camera/XR handoff is still settling, while AR is already on, and
+	// while the immersive XR session owns the camera — acquiring getUserMedia in any
+	// of those states collides on the rear camera. The XR dom-overlay is
+	// pointer-events:none, so a tap can fall through to the Camera button mid-session;
+	// xrSession is a real guard case, not a theoretical one. The guard is always
+	// released in a finally so a permission denial or a getUserMedia error can't wedge
+	// the toggle.
+	if (_arTransitioning || arActive || xrSession) return;
+	_arTransitioning = true;
+	try {
+		await _enableARBody();
+	} finally {
+		_arTransitioning = false;
+	}
+}
+
+async function _enableARBody() {
 	if (!navigator.mediaDevices?.getUserMedia) {
 		// Designed state via the shared guidance sheet, not a toast — the 3D scene
 		// still works without the camera, so say so instead of just "unavailable".
@@ -388,7 +421,7 @@ async function enableAR() {
 	document.body.classList.add('is-ar');
 	cameraBtn.classList.add('is-active');
 	cameraLabel.textContent = 'Camera On';
-	subtitleEl.textContent = 'Walk your avatar on the real floor';
+	setSubtitle(SUBTITLE.aiming);
 	groundOpaque.visible = false;
 	groundShadow.visible = true;
 	renderer.setClearColor(0x000000, 0);
@@ -407,7 +440,7 @@ async function enableAR() {
 	arFrozenCamPos  = camera.position.clone();
 	arFrozenCamLook = camLookCurrent.clone();
 
-	setStatus('Camera on — walk your avatar on the real floor');
+	setStatus('Camera on — aim at a spot, then tap Pin here');
 }
 
 function disableAR() {
@@ -420,7 +453,7 @@ function disableAR() {
 	document.body.classList.remove('is-ar');
 	cameraBtn.classList.remove('is-active');
 	cameraLabel.textContent = 'Camera AR';
-	subtitleEl.textContent = 'Turn on camera to place in your space';
+	setSubtitle(SUBTITLE.cameraOff);
 	groundOpaque.visible = true;
 	groundShadow.visible = false;
 	camera.fov = 50;
@@ -439,6 +472,11 @@ cameraBtn.addEventListener('click', () => {
 	// Unlock the arrival-cue chime inside this real gesture (same tap that grants
 	// camera + motion), so it can play later without an autoplay-policy warning.
 	unlockArrivalAudio();
+	// Ignore taps mid-handoff: enableAR/disableAR own the rear camera and the RAF, so
+	// a tap landing between release and re-acquire would collide; and the XR session
+	// owns the camera while it runs. enableAR() re-checks the guard too — this just
+	// keeps the toggle from flipping state under a double-tap.
+	if (_arTransitioning || xrSession) return;
 	if (arActive) disableAR();
 	else enableAR();
 });
@@ -771,11 +809,19 @@ let _usdzObjectUrl   = null;
 let _usdzObjectUrlFor = null;
 
 function _clearAvatar() {
+	// Detach the mixer FIRST so it stops every action and uncaches the root's clips
+	// before we free the model's GPU resources — otherwise an orphaned
+	// AnimationAction would keep pointing at geometry we're about to dispose. detach()
+	// is idempotent, so a failed (re)load that never re-attaches leaves the manager
+	// clean (no nulled mixer holding stale clips) rather than half-torn-down.
+	animMgr.detach();
 	if (avatar) {
 		avatarRig.remove(avatar);
+		// Free the previous avatar's geometry/materials/textures. Without this every
+		// hot-swap leaked a full skinned mesh's GPU memory — fatal over a long session.
+		disposeObject3D(avatar);
 		avatar = null;
 	}
-	animMgr.detach();
 }
 
 async function loadAvatar(idOrUrl, nameOverride) {
@@ -819,8 +865,10 @@ async function loadAvatar(idOrUrl, nameOverride) {
 
 	_clearAvatar();
 
-	const loader = new GLTFLoader();
-	const gltf   = await loader.loadAsync(glbUrl);
+	// Reuse the one shared Draco+meshopt loader (the pin queue's loader) instead of
+	// a fresh GLTFLoader per swap — the player's own avatar can be compressed too,
+	// and a per-swap loader allocated decoders the shared one already holds.
+	const gltf = await sharedGLTFLoader().loadAsync(glbUrl);
 	avatar = gltf.scene;
 	avatar.traverse(n => {
 		if (n.isMesh) {
@@ -1099,6 +1147,8 @@ async function setLocked(next) {
 			arFrozenCamLook = null;
 			document.body.classList.add('is-locked');
 
+			setSubtitle(SUBTITLE.pinned);
+
 			// GPS: anchor the avatar to real-world coordinates. If the first fix
 			// isn't in yet, defer the precise pin to it (onGPSPosition) rather than
 			// dropping the agent at a default origin — locking still works locally.
@@ -1106,15 +1156,17 @@ async function setLocked(next) {
 				anchorGpsPin();
 			} else if (locGranted) {
 				_pendingGpsLock = true;
-				setStatus('Waiting for location to pin precisely…', { loading: true, sticky: true });
+				setStatus('Getting your location to place the pin — this is quicker outdoors with a clear view of the sky.', { loading: true, sticky: true });
 			} else {
 				// Location unavailable — lock the gyro view locally; no cross-user pin.
-				setStatus('Pinned to your view — enable location to anchor it for others', { warn: true });
+				setStatus('Your agent is pinned on this device. Turn on location to place it at this real-world spot for others.', { warn: true });
 			}
 		} else {
+			setSubtitle(SUBTITLE.aiming);
 			devOrientBaseAlpha = null;
 			gyroLockCamPos  = null;
 			_pendingGpsLock = false;
+			_gpsCamTransition = null;
 			lockYawMode     = 'relative';
 			arFrozenCamPos  = camera.position.clone();
 			arFrozenCamLook = camLookCurrent.clone();
@@ -1557,6 +1609,8 @@ function prefersReducedMotion() {
 }
 
 function onGPSPosition(pos) {
+	// A fix landed — cancel any pending transient-loss re-arm; the watch is alive.
+	if (_gpsRetryTimer != null) { clearTimeout(_gpsRetryTimer); _gpsRetryTimer = null; }
 	const wasReady = gpsState.ready;
 	const rawLat = pos.coords.latitude;
 	const rawLng = pos.coords.longitude;
@@ -1648,10 +1702,27 @@ function onGPSPosition(pos) {
 // calls this directly when one is ready, or defers it here via _pendingGpsLock
 // until onGPSPosition() lands the first fix.
 function anchorGpsPin() {
+	// Hard gate: never anchor without a real fix. Without this a null/origin
+	// gpsState would pin the agent at lat/lng 0,0 (off the coast of Africa) and
+	// persist it there. setLocked() already defers via _pendingGpsLock until the
+	// first fix; this guards every other caller and re-defers if one slips through.
+	if (!gpsState.ready || !Number.isFinite(gpsState.lat) || !Number.isFinite(gpsState.lng)) {
+		_pendingGpsLock = true;
+		setStatus('Getting your location…', { loading: true, sticky: true });
+		return;
+	}
 	const mLat = 110540;
 	const mLng = 111320 * Math.cos(gpsState.lat * (Math.PI / 180));
 	const pinLat = gpsState.lat + (-avatarRig.position.z / mLat);
 	const pinLng = gpsState.lng + ( avatarRig.position.x / mLng);
+	// Local→GPS upgrade: glide the camera from the gyro pivot to the viewer origin
+	// instead of snapping. The avatar holds its world spot (the pin is derived so
+	// gpsToWorld() returns its current position), so easing the only thing that
+	// moves — the camera — keeps the avatar from visibly teleporting in the room.
+	// Reduced-motion jumps straight to the anchored frame.
+	if (!gpsModeActive && gyroLockCamPos && !prefersReducedMotion()) {
+		_gpsCamTransition = { from: gyroLockCamPos.clone(), elapsed: 0 };
+	}
 	gpsModeActive = true;
 	document.body.classList.add('gps-mode');
 	// On iOS the live compass is the authoritative bearing — re-derive cameraYaw from
@@ -1671,25 +1742,38 @@ function anchorGpsPin() {
 	// in anchor_source (':rel') so A3 can down-weight it, and warn the user.
 	const source = prefersAbsOrientation ? 'gyro-gps' : 'gyro-gps:rel';
 	if (!prefersAbsOrientation) {
-		setStatus('Compass heading unavailable — others may see this agent rotated', { warn: true });
+		setStatus('Pinned. Compass isn’t available here, so the direction your agent faces may be approximate for others.', { warn: true });
 	}
 	openCaptionPanel(pinLat, pinLng, headingDeg, source);
 }
 
 function onGPSError(err) {
+	const denied = err && err.code === err.PERMISSION_DENIED;
 	// A revoked location permission always surfaces a re-request chip (E1), even
 	// outside an active pin attempt. Leave the "finding you" state too — the denied
-	// chip owns recovery from here, and the badge falls back to hidden.
-	if (err && err.code === err.PERMISSION_DENIED) {
+	// chip owns recovery from here, and the badge falls back to hidden. The watch is
+	// kept on its designed re-request path (a re-grant resumes the same watch).
+	if (denied) {
 		_gpsAcquiring = false;
 		setPermissionState('location', 'denied');
 		updateNearbyBadge();
+	} else {
+		// Transient failure (indoor timeout, momentary signal loss). watchPosition does
+		// not reliably resume after a timeout, and initGPS() is idempotent on a live
+		// watchId — so a dead watch would never restart, leaving a zombie that needs a
+		// reload. Tear it down so any retry path (the placement sheet below, or the
+		// backoff re-arm) can re-establish it cleanly.
+		stopGPSWatch();
 	}
 	// Only intervene with a sheet when a placement is actively waiting on a fix —
 	// a transient watchPosition timeout shouldn't disturb a working session.
-	if (!_pendingGpsLock) return;
+	if (!_pendingGpsLock) {
+		// No placement waiting: a denial waits for a user re-grant; a transient loss
+		// self-heals on a short backoff so an indoor dropout recovers without a reload.
+		if (!denied) scheduleGpsRetry();
+		return;
+	}
 	_pendingGpsLock = false;
-	const denied = err && err.code === err.PERMISSION_DENIED;
 	showErrorState({
 		title: denied ? 'Location access needed to pin' : 'Couldn’t get your location',
 		body: denied
@@ -1713,6 +1797,27 @@ function initGPS() {
 		onGPSError,
 		{ enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 },
 	);
+}
+
+// Stop the live geolocation watch, if any, and clear its id so initGPS() will
+// re-attach on the next call. The single owner of watch teardown — onGPSError()'s
+// transient path, the DEV mock, and unload all route through here.
+function stopGPSWatch() {
+	if (gpsState.watchId != null) {
+		navigator.geolocation.clearWatch(gpsState.watchId);
+		gpsState.watchId = null;
+	}
+}
+
+// Re-arm the watch a short moment after a transient loss. Debounced on the pending
+// timer so a burst of error callbacks schedules one re-arm, and a no-op under the
+// DEV mock so a simulated location is never overridden by the real watch.
+function scheduleGpsRetry() {
+	if (_gpsRetryTimer != null || _mockLocation) return;
+	_gpsRetryTimer = setTimeout(() => {
+		_gpsRetryTimer = null;
+		initGPS();
+	}, GPS_RETRY_MS);
 }
 
 function compassLabel(deg) {
@@ -1869,6 +1974,26 @@ const captionInput   = document.getElementById('irl-caption-input');
 const captionConfirm = document.getElementById('irl-caption-confirm');
 const captionCancel  = document.getElementById('irl-caption-cancel');
 
+// Focus the caption field once the sheet has finished sliding up. iOS only opens
+// the on-screen keyboard when focus lands on a visible, settled input, so we tie
+// focus to the panel's open transition rather than a brittle fixed delay — with a
+// safety timer for the cases where transitionend never fires (an interrupted
+// transition, or a browser that skips it).
+function focusCaptionWhenOpen() {
+	if (!captionInput || !captionPanel) return;
+	let done = false;
+	const focusNow = () => {
+		if (done) return;
+		done = true;
+		captionPanel.removeEventListener('transitionend', onEnd);
+		clearTimeout(safety);
+		try { captionInput.focus({ preventScroll: true }); } catch {}
+	};
+	const onEnd = (e) => { if (!e || e.propertyName === 'transform') focusNow(); };
+	captionPanel.addEventListener('transitionend', onEnd);
+	const safety = setTimeout(focusNow, 360);
+}
+
 function openCaptionPanel(pinLat, pinLng, headingDeg, source = 'gyro-gps') {
 	if (!captionPanel) {
 		commitPin(pinLat, pinLng, headingDeg, '', source);
@@ -1876,7 +2001,7 @@ function openCaptionPanel(pinLat, pinLng, headingDeg, source = 'gyro-gps') {
 	}
 	captionInput.value = '';
 	captionPanel.classList.add('is-open');
-	setTimeout(() => captionInput.focus(), 300);
+	focusCaptionWhenOpen();
 	captionConfirm.onclick = () => {
 		captionPanel.classList.remove('is-open');
 		commitPin(pinLat, pinLng, headingDeg, captionInput.value.trim(), source);
@@ -1888,6 +2013,15 @@ function openCaptionPanel(pinLat, pinLng, headingDeg, source = 'gyro-gps') {
 }
 
 function commitPin(pinLat, pinLng, headingDeg, caption, source = 'gyro-gps') {
+	// Final origin guard: never persist a pin at null/origin coordinates. The deferred
+	// lock and anchorGpsPin()'s gate should make this unreachable, but a pin at 0,0 is
+	// corrupt and shared with others — so refuse it and release the lock rather than
+	// writing a permanent record at the wrong place.
+	if (!Number.isFinite(pinLat) || !Number.isFinite(pinLng)) {
+		setStatus('Couldn’t read your location to pin — try again.', { error: true });
+		setLocked(false);
+		return;
+	}
 	gpsPin = { lat: pinLat, lng: pinLng, heightM: 0 };
 	// Gyro-GPS placement pose (A2/A3): the agent stands on the floor. anchor_height_m
 	// is a floor-relative offset, and gyro placement has no measured floor depth, so
@@ -1896,14 +2030,21 @@ function commitPin(pinLat, pinLng, headingDeg, caption, source = 'gyro-gps') {
 	// distinction ('gyro-gps' | 'gyro-gps:rel') for A3. accuracy / altitude are filled
 	// from the live GPS fix inside savePin().
 	const anchor = { heightM: 0, yawDeg: headingDeg, source };
+	// Tell the truth about precision: a noisy fix (>25 m) is an approximate spot, not a
+	// pinpoint. The exact metres ride the stored gpsAccuracyM (savePin); here we surface
+	// a subtle note so the success copy never implies more accuracy than the fix had.
+	const acc = gpsAccuracyBucket(gpsState.accuracy);
+	// Only annotate when we have a concrete metres figure to show (skip the unknown
+	// bucket, which has no label — no number, nothing honest to add).
+	const accNote = acc.precise || !acc.label ? '' : ` · approximate spot (${acc.label})`;
 	savePin(pinLat, pinLng, headingDeg, caption, anchor).then(result => {
 		if (result?.ok && gpsPin) {
 			gpsPin.id = result.id;
 			_myPinIds.add(result.id);
 			const dir = compassLabel(headingDeg);
 			setStatus(result.permanent
-				? `Pinned facing ${dir} — permanently visible to nearby users`
-				: `Pinned facing ${dir} — others nearby can see you for 7 days`);
+				? `Pinned facing ${dir}${accNote} — permanently visible to nearby users`
+				: `Pinned facing ${dir}${accNote} — others nearby can see you for 7 days`);
 			revealMyPinsBtn();
 		} else {
 			// Rejected (content / area_full / pin_limit / rate / network) — show the
@@ -1937,7 +2078,7 @@ function openCaptionForMapPin(lat, lng, label) {
 	if (!captionPanel) { commitMapPin(lat, lng, '', label); return; }
 	captionInput.value = '';
 	captionPanel.classList.add('is-open');
-	setTimeout(() => captionInput.focus(), 300);
+	focusCaptionWhenOpen();
 	captionConfirm.onclick = () => {
 		captionPanel.classList.remove('is-open');
 		commitMapPin(lat, lng, captionInput.value.trim(), label);
@@ -1996,9 +2137,103 @@ const xrViewer = {
 // (cancelAnimationFrame on xrViewer._rafId) while the XR animation loop runs,
 // then resume it on exit via _updateRenderLoop().
 function startTick() {
-	if (xrViewer._rafId !== null) return;
+	if (xrViewer._rafId !== null || _renderPaused) return;
 	xrViewer._rafId = requestAnimationFrame(tick);
 }
+
+// ── Render-loop lifecycle: backgrounding + GPU context loss (task-06) ────────
+// IRL is a long-lived single-page session. A backgrounded tab must stop burning
+// battery (RAF + camera), and a lost WebGL context (the OS reclaiming GPU memory,
+// common on mobile after the tab idles) must recover instead of leaving a silent
+// black canvas. Both pause the same render loop; resume rebuilds only what the GPU
+// dropped.
+let _renderPaused = false;   // RAF intentionally stopped (tab hidden or context lost)
+let _contextLost  = false;   // true between webglcontextlost and …restored
+
+// Stop the render loop without tearing down any session/AR state. The in-flight
+// tick (if one is mid-execution) finishes, then declines to reschedule.
+function pauseRender() {
+	if (_renderPaused) return;
+	_renderPaused = true;
+	if (xrViewer._rafId !== null) { cancelAnimationFrame(xrViewer._rafId); xrViewer._rafId = null; }
+}
+
+// Resume the loop. No-ops before the loop ever started (ensureTick owns first
+// start) and while the context is still lost (rendering to a dead context is
+// pointless). dt is clamped in tick(), so the first resumed frame never jumps.
+function resumeRender() {
+	if (!_renderPaused) return;
+	if (_contextLost || !_tickStarted) { _renderPaused = false; return; }
+	_renderPaused = false;
+	startTick();
+}
+
+// Quiet the camera while hidden: disabling the track stops frame production (and
+// the sensor churn / battery cost) and is instantly reversible — no re-prompt, no
+// getUserMedia round-trip, unlike track.stop(). Pausing the <video> stops decode.
+function setCameraQuiet(quiet) {
+	if (!mediaStream) return;
+	for (const t of mediaStream.getVideoTracks()) { try { t.enabled = !quiet; } catch {} }
+	if (quiet) { try { videoEl.pause(); } catch {} }
+	else { videoEl.play?.().catch(() => { /* autoplay policy — frames still arrive */ }); }
+}
+
+// The GPU dropped every uploaded resource on context loss. three.js re-uploads
+// geometries/materials/textures lazily on the next render, but resources it can't
+// reach from the scene graph — the PMREM environment map and each pin's baked
+// impostor render target — are blank now and must be rebuilt explicitly.
+function rebuildAfterContextRestore() {
+	try {
+		const prevEnv = scene.environment;
+		scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+		prevEnv?.dispose?.();
+	} catch (e) {
+		log.warn('[irl] environment rebuild after context restore failed:', e);
+	}
+	// Baked impostor snapshots are empty framebuffers now — drop them and reset each
+	// pin's band so enforceLOD re-bakes/re-mounts from scratch on its next pass.
+	for (const pin of nearbyPins) {
+		disposeImpostor(pin);
+		pin._lod = null;
+		if (pin.group) showDot(pin);
+	}
+	applyTierToRenderer();
+}
+
+canvas.addEventListener('webglcontextlost', (e) => {
+	// Without preventDefault the context is gone permanently and the canvas stays
+	// black. Claim it so the browser will fire webglcontextrestored when it can.
+	e.preventDefault();
+	_contextLost = true;
+	pauseRender();
+	setCameraQuiet(true);
+	showErrorState({
+		title: 'AR paused',
+		body: 'The graphics context was lost — the device reclaimed GPU memory. Restoring…',
+		actionLabel: 'Reload AR',
+		// Manual escape hatch if the browser never auto-restores: a full reload
+		// rebuilds the scene cleanly. If restore already fired, just dismiss.
+		onAction: () => { if (_contextLost) location.reload(); else hideErrorState(); },
+	});
+}, false);
+
+canvas.addEventListener('webglcontextrestored', () => {
+	_contextLost = false;
+	rebuildAfterContextRestore();
+	hideErrorState();
+	if (!document.hidden) { setCameraQuiet(false); resumeRender(); }
+}, false);
+
+// Backgrounded tab: pause the loop + quiet the camera; resume cleanly on return.
+document.addEventListener('visibilitychange', () => {
+	if (document.hidden) {
+		pauseRender();
+		setCameraQuiet(true);
+	} else if (!_contextLost) {
+		setCameraQuiet(false);
+		resumeRender();
+	}
+});
 
 let xrSession = null;
 // A floor anchor placed before the first GPS fix is held here and persisted the
@@ -2305,6 +2540,11 @@ let _nearbyRateLimited = false;
 // yet. A distinct "finding you" state so the gap before the first fix is never
 // mistaken for "nobody's here." Cleared the instant gpsState.ready flips true.
 let _gpsAcquiring = false;
+// True once the first proximity read has returned. The window between the GPS fix
+// landing and that read resolving is still "looking around", NOT empty — gating the
+// empty state on this stops a premature "0 nearby" / "be the first" flash before we
+// actually know whether anyone is here. Set on the first completed read; never reset.
+let _nearbyLoaded = false;
 
 // ── "Newly stable in-range" signal (task 04 → task 03) ──────────────────────
 // The hysteresis band (proximity-band.js) makes membership steady: a pin only
@@ -2540,9 +2780,13 @@ function flashPinLabel(pin) {
 // drop the DOM label. The single place that knows the full E2 resource set.
 function disposePin(p) {
 	cancelPinGLB(p);
-	if (p.group)       { scene.remove(p.group); disposeObject3D(p.group); }
-	if (p._impostorRT) { p._impostorRT.dispose(); p._impostorRT = null; }
-	if (p.labelEl)     p.labelEl.remove();
+	// Tear the impostor down FIRST, in the correct order (null the sprite material's
+	// texture ref → dispose material → dispose RT + its texture). If the group
+	// traversal below reached the sprite instead, it would dispose the RT's texture
+	// via the material's `.map`, then `_impostorRT.dispose()` would free it twice.
+	disposeImpostor(p);
+	if (p.group)   { scene.remove(p.group); disposeObject3D(p.group); }
+	if (p.labelEl) p.labelEl.remove();
 }
 
 // Drop one nearby pin from the scene now — disposing its GPU resources — instead
@@ -2865,6 +3109,7 @@ async function loadNearbyPins() {
 		const { pins } = await r.json();
 		_nearbyError = false;
 		_nearbyRateLimited = false;
+		_nearbyLoaded = true;   // first real read in hand — empty now means genuinely empty
 
 		const incoming     = pins.filter(p => !gpsPin?.id || p.id !== gpsPin.id);
 		const incomingById = new Map(incoming.map(p => [p.id, p]));
@@ -3067,7 +3312,12 @@ function _escHtml(s) {
 // and any texture maps on them) so removing a nearby agent doesn't leak.
 function disposeObject3D(root) {
 	root.traverse(n => {
-		if (n.geometry) n.geometry.dispose();
+		// Sprites share ONE module-level geometry across every Sprite instance in
+		// three.js — disposing it from here would yank the buffer out from under
+		// every other live sprite (radar, impostors). Skip sprite geometry; its
+		// material + texture are still freed below. Impostor RTs are disposed by
+		// disposeImpostor(), which runs before this traversal reaches the sprite.
+		if (n.geometry && !n.isSprite) n.geometry.dispose();
 		const mats = Array.isArray(n.material) ? n.material : n.material ? [n.material] : [];
 		for (const m of mats) {
 			for (const k in m) {
@@ -3138,7 +3388,16 @@ function bakeImpostor(model) {
 function disposeImpostor(pin) {
 	if (pin._impostorSprite) {
 		pin.group?.remove(pin._impostorSprite);
-		pin._impostorSprite.material.dispose();
+		const mat = pin._impostorSprite.material;
+		if (mat) {
+			// Drop the material's reference to the RT's texture BEFORE we dispose the
+			// RT, so no live material is left pointing at a freed texture (and the RT's
+			// own dispose() is the single owner that frees it, just below).
+			mat.map = null;
+			mat.dispose();
+		}
+		// NB: don't dispose the sprite geometry — three.js shares one geometry across
+		// every Sprite; freeing it here would corrupt all other live sprites.
 		pin._impostorSprite = null;
 	}
 	if (pin._impostorRT) { pin._impostorRT.dispose(); pin._impostorRT = null; }
@@ -3249,9 +3508,17 @@ function evictPinGLB(pin) {
 	pin.restHeadQuat = pin.restSpineQuat = null;
 }
 
-// Cancel a still-queued (not yet started) load when a pin is culled.
-function cancelPinGLB(pin) {
-	if (pin._glbLoading) glbQueue.cancel(p => p === pin);
+// Cancel a still-queued (not yet started) load when a pin is culled or demoted.
+// Dropping it frees the slot for a NEARER pin's load — a now-distant pin must not
+// hold a slot ahead of one the viewer is walking toward. Already-running loads
+// can't be aborted mid-flight, but onPinGLBLoaded() disposes their result when the
+// pin is no longer in the 'full' band, so the GPU memory is reclaimed either way.
+// `keepBakeOnly` spares a cheap impostor-bake load (still worth finishing) while
+// cancelling an in-flight full-model load the demotion no longer needs.
+function cancelPinGLB(pin, { keepBakeOnly = false } = {}) {
+	if (!pin._glbLoading) return;
+	if (keepBakeOnly && pin._bakeOnly) return;
+	glbQueue.cancel(p => p === pin);
 }
 
 // Apply a re-skin (C6) detected by the nearby-poll diff: adopt the new versioned
@@ -3307,11 +3574,17 @@ function updateNearbyBadge() {
 	} else if (n > 0) {
 		text = `${n} nearby`;
 		mod = '';
-	} else if (gpsState.ready) {
-		// GPS-ready but nobody here yet — a designed empty state that invites the user
-		// to be the first, rather than hiding (which reads as "feature off").
+	} else if (gpsState.ready && _nearbyLoaded) {
+		// GPS-ready, the first read has landed, and nobody's here — a designed empty state
+		// that invites the user to be the first, rather than hiding (reads as "feature off").
 		text = 'No agents nearby — be the first to pin here';
 		mod = 'is-empty';
+	} else if (gpsState.ready) {
+		// Fix in hand but the first proximity read hasn't returned — still "looking", NOT
+		// empty. Gating on _nearbyLoaded above stops the empty "0 nearby" flash before we
+		// actually know whether anyone is here.
+		text = 'Looking for agents nearby…';
+		mod = 'is-acquiring';
 	} else if (_gpsAcquiring) {
 		// Granted but no fix yet — a distinct, honest "finding you" state (shimmer skeleton
 		// in CSS) so the pre-fix gap never reads as the empty "nobody's here" state.
@@ -4571,7 +4844,10 @@ function updateRadar() {
 	// even when the fetch broke. The hint reuses the existing 15 s poll / live stream
 	// to recover, so it clears itself on the next good update.
 	let hint = radar.querySelector('.irl-radar-hint');
-	const message = _nearbyError ? 'Can’t refresh' : (shown === 0 ? 'No agents in range' : '');
+	const message = _nearbyError ? 'Can’t refresh'
+		: _nearbyRateLimited ? 'Catching up…'
+		: !_nearbyLoaded ? 'Looking around…'
+		: (shown === 0 ? 'Be the first to pin here' : '');
 	if (message) {
 		if (!hint) {
 			hint = document.createElement('div');
@@ -4734,12 +5010,18 @@ function applyBand(pin, band) {
 			break;
 		case 'dot':
 			pin.group.visible = true;
+			// Distance jumped out of the model bands — drop any queued load so it
+			// can't hold a slot ahead of a nearer pin (a dot needs no GLB at all).
+			cancelPinGLB(pin);
 			evictPinGLB(pin);
 			hideImpostor(pin);
 			showDot(pin);
 			break;
 		case 'impostor':
 			pin.group.visible = true;
+			// Cancel an in-flight FULL-model load the demotion no longer needs, but
+			// let a cheap impostor-bake load finish (it's what this band wants).
+			cancelPinGLB(pin, { keepBakeOnly: true });
 			evictPinGLB(pin);
 			if (pin._impostorRT) { hideDot(pin); showImpostor(pin); }
 			else {
@@ -5195,7 +5477,23 @@ function tick() {
 		// they grow/hold their real spot instead of following the user. Panning
 		// only rotates the camera (gyro cameraYaw/Pitch), leaving the avatar on its
 		// real-world bearing. Net effect matches WebXR (A1) without any WebXR.
-		camera.position.set(0, EYE_HEIGHT, 0);
+		//
+		// Local→GPS upgrade: ease the camera from the gyro pivot to the viewer origin
+		// over GPS_TRANSITION_MS instead of snapping, so the avatar glides into its
+		// precise anchor rather than teleporting. The transition clears itself on arrival.
+		if (_gpsCamTransition) {
+			_gpsCamTransition.elapsed += dt * 1000;
+			const e = easeGpsTransition(_gpsCamTransition.elapsed / GPS_TRANSITION_MS);
+			const from = _gpsCamTransition.from;
+			camera.position.set(
+				from.x + (0 - from.x) * e,
+				from.y + (EYE_HEIGHT - from.y) * e,
+				from.z + (0 - from.z) * e,
+			);
+			if (e >= 1) _gpsCamTransition = null;
+		} else {
+			camera.position.set(0, EYE_HEIGHT, 0);
+		}
 		camera.rotation.order = 'YXZ';
 		camera.rotation.y = cameraYaw;
 		camera.rotation.x = -cameraPitch;

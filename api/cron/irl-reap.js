@@ -39,6 +39,22 @@ import { error, json, method, wrap } from '../_lib/http.js';
 import { env } from '../_lib/env.js';
 import { constantTimeEquals } from '../_lib/crypto.js';
 import { sql } from '../_lib/db.js';
+import { sendOpsAlert } from '../_lib/alerts.js';
+
+// A single hourly run that deletes more than this many rows is anomalous: a steady
+// state reaps a handful of expired anon pins + their trail, so a four-figure sweep
+// means a mass-expiry (clock jump, bulk backfill, or a delete bug) worth a human
+// look. Tuned well above normal hourly volume so a healthy sweep stays silent.
+export const REAP_SPIKE_THRESHOLD = 1000;
+
+// Pure: is this run's deletion volume anomalous? Sums the three sweep counts and
+// compares to the threshold. Exported for unit testing — no I/O, no clock.
+export function reapTotal(counts) {
+	return (counts?.pins || 0) + (counts?.reports || 0) + (counts?.interactions || 0);
+}
+export function isReapSpike(counts, threshold = REAP_SPIKE_THRESHOLD) {
+	return reapTotal(counts) >= threshold;
+}
 
 function requireCron(req, res) {
 	const secret = process.env.CRON_SECRET || env.CRON_SECRET;
@@ -121,11 +137,35 @@ export default wrap(async (req, res) => {
 		reapedInteractions = [...orphaned, ...aged];
 	}
 
+	const counts = {
+		pins: reapedPins.length,
+		reports: reapedReports.length,
+		interactions: reapedInteractions.length,
+	};
+	const total = reapTotal(counts);
+
+	// Per-run telemetry (task 14): one structured line every run so the sweep is
+	// observable and a reaper that silently stopped deleting (or started deleting
+	// far too much) is diagnosable from the logs. No PII — counts only.
+	console.log('[irl-reap] swept', { ...counts, total, ts: new Date().toISOString() });
+
+	// Anomalous-spike alert. A run far above steady state is surfaced to ops once
+	// (deduped by hour bucket inside sendOpsAlert). Repeated hard FAILURES are
+	// already covered: this handler is wrapped, and wrap() fires an unhandled-5xx
+	// ops alert if any query throws, so a reaper that keeps crashing self-reports.
+	if (isReapSpike(counts)) {
+		sendOpsAlert(
+			'IRL reaper spike',
+			`The IRL reaper deleted ${total} rows in one run (pins ${counts.pins}, reports ${counts.reports}, interactions ${counts.interactions}) — above the ${REAP_SPIKE_THRESHOLD} anomaly threshold. Possible mass-expiry, backfill, or delete bug.`,
+			{ signature: `irl-reap:spike:${Math.floor(Date.now() / 3_600_000)}` },
+		);
+	}
+
 	return json(res, 200, {
 		ok: true,
-		reapedPins: reapedPins.length,
-		reapedReports: reapedReports.length,
-		reapedInteractions: reapedInteractions.length,
+		reapedPins: counts.pins,
+		reapedReports: counts.reports,
+		reapedInteractions: counts.interactions,
 		ts: Date.now(),
 	});
 });

@@ -24,7 +24,7 @@
 //   Yaw:     degrees 0–359 clockwise from the local −Z axis (what savePin stores
 //            and spawnNearbyPin reads back).
 
-import { localToGeo } from './room-anchor.js';
+import { geoToLocal, localToGeo, localToTrueNorth } from './room-anchor.js';
 
 /**
  * Yaw (rotation about world Y) in degrees, clockwise from the local −Z axis —
@@ -67,6 +67,83 @@ export function anchorPoseToPin({ originLat, originLng, x, y, z, quat }) {
 		lng,
 		heading,
 		heightM: y, // floor height relative to the eye-level session origin (negative = below)
+		quat,
+		source: 'webxr',
+	};
+}
+
+/**
+ * An absolute lat/lng → its EXACT offset in a room's frame (relEast / relNorth,
+ * metres). The inverse of room-anchor's agentWorldPosition input: it un-rotates a
+ * true-north offset by the room's orientation so the stored offset round-trips
+ * cleanly back to world for every viewer. Used both when a WebXR refine moves a
+ * single agent and when an A3 calibrate drag repositions a ROOM pin — a room pin
+ * renders from rel_*, so a calibrate that only moved lat/lng would never show.
+ *
+ * @param {object} p
+ * @param {number} p.originLat     room origin latitude
+ * @param {number} p.originLng     room origin longitude
+ * @param {number} [p.originYawDeg] room frame rotation vs true north (0 = aligned)
+ * @param {number} p.lat           the point's latitude
+ * @param {number} p.lng           the point's longitude
+ * @returns {{ relEast:number, relNorth:number }}
+ */
+export function roomRelFromGeo({ originLat, originLng, originYawDeg = 0, lat, lng }) {
+	const off = geoToLocal(originLat, originLng, lat, lng); // true-north metres
+	const room = originYawDeg
+		? localToTrueNorth(off.east, off.north, -originYawDeg) // inverse rotation into the room frame
+		: { east: off.east, north: off.north };
+	return { relEast: room.east, relNorth: room.north };
+}
+
+/**
+ * A WebXR floor hit → a durable ROOM placement. This is the precision twin of
+ * room-anchor's placeAround: instead of a compass bearing + slider distance, the
+ * agent's spot comes from a real on-device hit-test pose (metres from the XR
+ * session origin, which sits at the viewer's GPS fix). The result is expressed in
+ * the SAME shared room frame (relEast / relNorth from the room origin) so the
+ * WebXR-placed agent renders identically for every viewer — WebXR only improved
+ * WHERE it was captured, not how it's shared.
+ *
+ * The placer need not stand on the origin: their GPS offset from it is folded in,
+ * exactly like placeAround, so a walked-around room stays in one frame. The XR
+ * local axes match the world convention (+X = east, −Z = north), the same
+ * assumption anchorPoseToPin already ships on the standalone write path.
+ *
+ * @param {object} p
+ * @param {number} p.originLat     room origin latitude
+ * @param {number} p.originLng     room origin longitude
+ * @param {number} [p.originYawDeg] room frame rotation vs true north (0 = aligned)
+ * @param {number} p.viewerLat     placer's current latitude (the XR session origin)
+ * @param {number} p.viewerLng     placer's current longitude
+ * @param {number} p.x  hit east offset from the viewer (metres, +X)
+ * @param {number} p.y  hit floor height relative to the eye-level session origin (+Y up)
+ * @param {number} p.z  hit south offset from the viewer (metres, +Z); world north is −Z
+ * @param {[number, number, number, number]} p.quat  surface orientation [x,y,z,w]
+ * @returns {{ relEast:number, relNorth:number, relYawDeg:number, lat:number, lng:number, heightM:number, quat:[number,number,number,number], source:'webxr' }}
+ */
+export function roomPlacementFromHit({ originLat, originLng, originYawDeg = 0, viewerLat, viewerLng, x, y, z, quat }) {
+	// Hit offset from the viewer, in the project's world-aligned convention.
+	const hitEast = x;
+	const hitNorth = -z;
+	// Where the placer stands relative to the origin (true-north metres).
+	const viewer = geoToLocal(originLat, originLng, viewerLat, viewerLng);
+	const trueEast = viewer.east + hitEast;
+	const trueNorth = viewer.north + hitNorth;
+	// Store the offset in the ROOM frame (un-rotate by the frame's orientation) so a
+	// non-north room round-trips through agentWorldPosition cleanly.
+	const room = originYawDeg
+		? localToTrueNorth(trueEast, trueNorth, -originYawDeg)
+		: { east: trueEast, north: trueNorth };
+	const abs = localToGeo(originLat, originLng, trueEast, trueNorth);
+	const heading = ((Math.round(yawDegFromQuat(quat[0], quat[1], quat[2], quat[3])) % 360) + 360) % 360;
+	return {
+		relEast: room.east,
+		relNorth: room.north,
+		relYawDeg: heading,
+		lat: abs.lat,
+		lng: abs.lng,
+		heightM: y,
 		quat,
 		source: 'webxr',
 	};

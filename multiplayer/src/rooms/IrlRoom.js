@@ -74,20 +74,40 @@ export class IrlRoom extends Room {
 		// to everyone here so the agent visibly emotes for bystanders. This is the
 		// flourish only; the durable record + owner notification ride the REST
 		// `/api/irl/interactions` path, so we never write the DB here (no double count).
-		this.onMessage('interaction', (client, payload) => this._handleInteraction(client, payload));
+		this.onMessage('interaction', this._guard('interaction', (client, payload) => this._handleInteraction(client, payload)));
 
 		// D2 presence — a heartbeat refreshes liveness + facing (so a backgrounded
 		// tab that stops firing is reaped), and set_ghost flips a viewer's "appear to
 		// others" opt-in live so the marker shows/hides without a reconnect.
-		this.onMessage('heartbeat', (client, payload) => this._handleHeartbeat(client, payload));
-		this.onMessage('set_ghost', (client, payload) => this._handleSetGhost(client, payload));
+		this.onMessage('heartbeat', this._guard('heartbeat', (client, payload) => this._handleHeartbeat(client, payload)));
+		this.onMessage('set_ghost', this._guard('set_ghost', (client, payload) => this._handleSetGhost(client, payload)));
 
 		// Reaper: drop viewers whose last heartbeat is stale. Covers silent
 		// disconnects and backgrounded mobile tabs that never fire onLeave. The
 		// clock is owned by the room and torn down automatically on dispose.
 		this.clock.setInterval(() => this._reapStaleViewers(), REAPER_INTERVAL_MS);
 
-		console.log(`[irl_world ${this.roomId} cell=${this.geocell || 'invalid'}] created (presence + reactions)`);
+		console.log(`${this._tag()} created (presence + reactions)`);
+	}
+
+	// Stable, PII-free log prefix for this room. The geocell is a coarse (~1 km)
+	// public cell label, never a viewer's precise location, so it is safe to log.
+	_tag() {
+		return `[irl_world ${this.roomId} cell=${this.geocell || 'invalid'}]`;
+	}
+
+	// Wrap a message handler so a thrown error is logged (with context, no PII) and
+	// contained — one malformed payload can never take down the room loop or leak a
+	// stack to other viewers. Only the error message is logged, never the payload
+	// (which could carry a device token) or any viewer coordinate.
+	_guard(label, fn) {
+		return (client, payload) => {
+			try {
+				fn(client, payload);
+			} catch (err) {
+				console.error(`${this._tag()} ${label} handler error:`, err?.message || err);
+			}
+		};
 	}
 
 	// D3 — turn a viewer's interaction into an ambient reaction for the whole cell.
@@ -126,7 +146,13 @@ export class IrlRoom extends Room {
 		// here and the raw GPS immediately discarded: the only location that leaves
 		// the server is "somewhere in this ~1 km cell." Guarded by MAX_VIEWERS so a
 		// flood can't bloat the state handed to every client.
-		if (this.state.viewers.size >= MAX_VIEWERS) return;
+		if (this.state.viewers.size >= MAX_VIEWERS) {
+			// At capacity the join is accepted as a client (it still receives broadcasts)
+			// but not synced into presence. Worth a warn — a cell pinned at the cap means
+			// real viewers are missing from the "N nearby" count.
+			console.warn(`${this._tag()} presence cap reached (${MAX_VIEWERS}) — join not synced to viewers`);
+			return;
+		}
 		const ghost = options?.ghost === true;
 		const viewer = new IrlViewer();
 		viewer.id = client.sessionId;
@@ -140,10 +166,15 @@ export class IrlRoom extends Room {
 		viewer.avatar = ghost && typeof options?.avatar === 'string' ? options.avatar.slice(0, GHOST_AVATAR_MAX) : '';
 		viewer.tsServer = Date.now();
 		this.state.viewers.set(client.sessionId, viewer);
+		// Anonymous, aggregate-only: viewer COUNT and the coarse cell. No device token,
+		// no agent id, no coordinate — presence is anonymous by construction and the log
+		// keeps it that way. Lets ops see room liveness + spot a join/leave imbalance.
+		console.log(`${this._tag()} +join (viewers=${this.state.viewers.size})`);
 	}
 
 	onLeave(client) {
-		this.state.viewers.delete(client.sessionId);
+		const had = this.state.viewers.delete(client.sessionId);
+		if (had) console.log(`${this._tag()} -leave (viewers=${this.state.viewers.size})`);
 	}
 
 	// Heartbeat: prove the viewer is still here and refresh their facing. Updating
@@ -197,7 +228,7 @@ export class IrlRoom extends Room {
 
 	onDispose() {
 		this._reactionLedger.clear();
-		console.log(`[irl_world ${this.roomId} cell=${this.geocell || 'invalid'}] disposed`);
+		console.log(`${this._tag()} disposed`);
 	}
 }
 

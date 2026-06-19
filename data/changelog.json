@@ -3,6 +3,24 @@
 	"entries": [
 		{
 			"date": "2026-06-19",
+			"title": "IRL is sharper on phones, in any orientation",
+			"summary": "We polished IRL for the device it lives on. Every on-screen control now clears the notch and home indicator on modern phones — in portrait and landscape both — so nothing hides behind the camera cutout or rounded corners. On the narrowest phones the bottom controls wrap cleanly instead of squishing or clipping, and every button is a full finger-sized target. Typing a caption or message no longer makes Safari zoom the page in, long agent names truncate neatly instead of overflowing, and the calibrate readouts stay legible whichever way you hold the phone.",
+			"tags": [
+				"improvement"
+			],
+			"link": "/irl"
+		},
+		{
+			"date": "2026-06-19",
+			"title": "Tapping an agent in AR now lands every time",
+			"summary": "Inspecting an agent in IRL AR is a tap — and we made that tap far harder to miss. There's now a finger-sized catch zone around each agent's floating name, so a tap that lands just beside a small or distant agent still opens its card instead of doing nothing. When several agents overlap on screen, your tap resolves to the one in front of you, and it never selects an agent that's behind you or off-screen. We also kept agents from vanishing when you bring your phone right up to one to look closely. Inspecting works whether the agent is centered, near the edge of the frame, close, or far.",
+			"tags": [
+				"improvement"
+			],
+			"link": "/irl"
+		},
+		{
+			"date": "2026-06-19",
 			"title": "One API, many services: the three.ws API gateway",
 			"summary": "We bundled a stack of popular third-party APIs behind a single three.ws API so you can reach them all with one integration, one key, and one bill. The first providers are live at /api/v1/x — CoinGecko (live prices and ranked market data), DefiLlama (protocol TVL across all of DeFi), and any OpenAI-compatible LLM — with more landing over the coming releases. Discover everything with one call to GET /api/v1, which returns the full catalog: every provider, endpoint, parameter, and price. You can pay three ways, your choice per call: bring your own upstream key (we just route it, no markup), use a three.ws API key on your plan, or pay-per-call in USDC with no account at all. Every response uses one consistent shape with standard rate-limit headers, and the platform's own capabilities — text sentiment, market and narrative intelligence, and verified agent-card lookups — live under the same /api/v1 surface.",
 			"tags": [
