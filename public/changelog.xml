@@ -111,6 +111,14 @@
 			<description>When you stepped onto the pole floor, the dancers used to stand stiff with their arms out — a frozen T-pose — for several seconds while their idle animation streamed in, and one of them could stay frozen even longer while her rig was swapped to a compatible one. Each dancer now has her idle and walk loaded and bound the instant she appears, so the first frame you see is her resting stance, and she steps to the pole with her legs moving. No more T-pose, no more sliding.</description>
 		</item>
 		<item>
+			<title>Configure your Walk Companion from the dashboard</title>
+			<link>https://three.ws/dashboard/walk</link>
+			<guid isPermaLink="false">2026-06-19:Configure your Walk Companion from the dashboard</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The walking avatar that strolls and greets across your pages now has its own settings page in the dashboard. Turn the companion on or off, pick which of the 13 roster avatars walks by default, choose whether visitors can swap, write a custom page greeting, and point the GLBs and animations at your own CDN. A live install snippet updates as you edit, so you can lift the exact @three-ws/walk setup for your own site, and a one-click preview drops the companion onto the page so you can see your choices instantly.</description>
+		</item>
+		<item>
 			<title>Corner helper cards no longer pile up and hide page content</title>
 			<link>https://three.ws/deploy</link>
 			<guid isPermaLink="false">2026-06-19:Corner helper cards no longer pile up and hide page content</guid>
@@ -581,14 +589,6 @@
 			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>Click the corner walking companion to step into the page and you can now pick how he moves. Stroll mode is the relaxed top-down view — no gravity, wander anywhere across the page. Platformer mode turns the page's headings, cards and links into solid ground, with gravity, jumping and the chance to fall off edges. Flip between them live with the mode button (top-right) or the M key, and your choice is remembered as you walk from page to page.</description>
-		</item>
-		<item>
-			<title>Walk the IBM partnership page with a 3D agent</title>
-			<link>https://three.ws/ibm/partnership</link>
-			<guid isPermaLink="false">2026-06-19:Walk the IBM partnership page with a 3D agent</guid>
-			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
-			<category>feature</category>
-			<description>The “Accelerating outcomes” section on the IBM × three.ws page had two empty gradient boxes. The AI agents tab now has a real 3D robot standing on it — click it (or press Enter) and the agent drops onto the page so you can walk the whole partnership page: every section becomes solid ground, arrow keys / WASD move and jump on desktop, and an on-screen joystick appears on phones. The Crypto tab now links straight to the live Forge and Play demos. The walk playground is also now loadable on its own from a stable URL, so any page can launch it.</description>
 		</item>
 		<item>
 			<title>Walk the whole page — the site is now a playground</title>

@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-19T22:32:32.897Z",
+	"generated_at": "2026-06-19T22:37:56.369Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -135,6 +135,17 @@
 			"link": "/club",
 			"tags": [
 				"fix"
+			]
+		},
+		{
+			"date": "2026-06-19",
+			"type": "update",
+			"title": "Configure your Walk Companion from the dashboard",
+			"summary": "The walking avatar that strolls and greets across your pages now has its own settings page in the dashboard. Turn the companion on or off, pick which of the 13 roster avatars walks by default, choose whether visitors can swap, write a custom page greeting, and point the GLBs and animations at your own CDN. A live install snippet updates as you edit, so you can lift the exact @three-ws/walk setup for your own site, and a one-click preview drops the companion onto the page so you can see your choices instantly.",
+			"link": "/dashboard/walk",
+			"tags": [
+				"feature",
+				"sdk"
 			]
 		},
 		{
@@ -740,16 +751,6 @@
 			"title": "Walk Playground now has two modes you can switch between",
 			"summary": "Click the corner walking companion to step into the page and you can now pick how he moves. Stroll mode is the relaxed top-down view — no gravity, wander anywhere across the page. Platformer mode turns the page's headings, cards and links into solid ground, with gravity, jumping and the chance to fall off edges. Flip between them live with the mode button (top-right) or the M key, and your choice is remembered as you walk from page to page.",
 			"link": null,
-			"tags": [
-				"feature"
-			]
-		},
-		{
-			"date": "2026-06-19",
-			"type": "update",
-			"title": "Walk the IBM partnership page with a 3D agent",
-			"summary": "The “Accelerating outcomes” section on the IBM × three.ws page had two empty gradient boxes. The AI agents tab now has a real 3D robot standing on it — click it (or press Enter) and the agent drops onto the page so you can walk the whole partnership page: every section becomes solid ground, arrow keys / WASD move and jump on desktop, and an on-screen joystick appears on phones. The Crypto tab now links straight to the live Forge and Play demos. The walk playground is also now loadable on its own from a stable URL, so any page can launch it.",
-			"link": "/ibm/partnership",
 			"tags": [
 				"feature"
 			]

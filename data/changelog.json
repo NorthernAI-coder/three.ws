@@ -3,6 +3,16 @@
 	"entries": [
 		{
 			"date": "2026-06-19",
+			"title": "Configure your Walk Companion from the dashboard",
+			"summary": "The walking avatar that strolls and greets across your pages now has its own settings page in the dashboard. Turn the companion on or off, pick which of the 13 roster avatars walks by default, choose whether visitors can swap, write a custom page greeting, and point the GLBs and animations at your own CDN. A live install snippet updates as you edit, so you can lift the exact @three-ws/walk setup for your own site, and a one-click preview drops the companion onto the page so you can see your choices instantly.",
+			"tags": [
+				"feature",
+				"sdk"
+			],
+			"link": "/dashboard/walk"
+		},
+		{
+			"date": "2026-06-19",
 			"title": "The x402 payment modal is now a drop-in SDK any site can use",
 			"summary": "The polished checkout that lets you pay any x402 endpoint — connect a wallet, approve, get a receipt, all in one popup — is now packaged as a standalone, dependency-free SDK (@three-ws/x402-payment-modal). One script tag turns any button into a pay button, on Solana (Phantom) or Base/EVM (MetaMask) in USDC. It ships with the server piece for Solana, full docs, a step-by-step tutorial, and ready-to-run HTML, React and Express examples, so other builders can add x402 payments to their own products the same way three.ws does.",
 			"tags": [
@@ -161,15 +171,6 @@
 			"tags": [
 				"fix"
 			]
-		},
-		{
-			"date": "2026-06-19",
-			"title": "Walk the IBM partnership page with a 3D agent",
-			"summary": "The “Accelerating outcomes” section on the IBM × three.ws page had two empty gradient boxes. The AI agents tab now has a real 3D robot standing on it — click it (or press Enter) and the agent drops onto the page so you can walk the whole partnership page: every section becomes solid ground, arrow keys / WASD move and jump on desktop, and an on-screen joystick appears on phones. The Crypto tab now links straight to the live Forge and Play demos. The walk playground is also now loadable on its own from a stable URL, so any page can launch it.",
-			"tags": [
-				"feature"
-			],
-			"link": "/ibm/partnership"
 		},
 		{
 			"date": "2026-06-19",
