@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-06-19",
+			"title": "New Club lineup — Dylan, Nich and Boss Vernington take the poles",
+			"summary": "The three dancers on the Club floor have a fresh lineup: Dylan, Nich and Boss Vernington, each on their own distinct rig and tinted with their pole's accent color. Their names now show everywhere in the Club — on the pole cards, in the live tip ticker, and in chat — so when you tip, you tip them by name.",
+			"tags": [
+				"improvement"
+			],
+			"link": "/club"
+		},
+		{
+			"date": "2026-06-19",
 			"title": "Club dancers never flash a T-pose while the room loads in",
 			"summary": "When you stepped onto the pole floor, the dancers used to stand stiff with their arms out — a frozen T-pose — for several seconds while their idle animation streamed in, and one of them could stay frozen even longer while her rig was swapped to a compatible one. Each dancer now has her idle and walk loaded and bound the instant she appears, so the first frame you see is her resting stance, and she steps to the pole with her legs moving. No more T-pose, no more sliding.",
 			"tags": [

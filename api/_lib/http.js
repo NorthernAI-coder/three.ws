@@ -209,6 +209,10 @@ export function readBody(req, limit) {
 	});
 }
 
+// ibm.com and any subdomain (any depth), https only. Used by the default
+// allowlist so the IBM partnership embeds reach the shared three.ws APIs.
+const IBM_ORIGIN = /^https:\/\/([a-z0-9-]+\.)*ibm\.com$/i;
+
 export function cors(
 	req,
 	res,
@@ -249,6 +253,11 @@ function isAllowedOrigin(origin, allowed) {
 		if (origin === 'https://x402scan.com') return true;
 		if (origin === 'https://agentic.market') return true;
 		if (origin === 'https://www.agentic.market') return true;
+		// IBM partnership: allow ibm.com and every subdomain (any depth) over
+		// https, so the partnership page's embeds and the shared three.ws APIs
+		// (forge, etc.) work when served from *.ibm.com. Anchored to the exact
+		// host so look-alikes like ibm.com.evil.example or notibm.com don't match.
+		if (IBM_ORIGIN.test(origin)) return true;
 		if (
 			process.env.NODE_ENV !== 'production' &&
 			/^https?:\/\/localhost(:\d+)?$/.test(origin)
