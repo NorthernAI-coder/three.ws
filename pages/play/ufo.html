@@ -272,6 +272,49 @@
 		}
 		.three-badge::before { content: '◈'; opacity: .7; }
 
+		/* ── demo badge ──────────────────────────────────── */
+		.demo-badge {
+			display: inline-flex; align-items: center; gap: 5px;
+			padding: 3px 8px; border-radius: 999px;
+			border: 1px solid color-mix(in srgb, var(--gold) 40%, var(--line));
+			background: color-mix(in srgb, var(--gold) 10%, transparent);
+			font: 700 9.5px/1 var(--mono); color: var(--gold);
+			letter-spacing: .08em; text-transform: uppercase;
+		}
+		.demo-badge::before {
+			content: ''; width: 5px; height: 5px; border-radius: 50%;
+			background: var(--gold); box-shadow: 0 0 6px var(--gold);
+		}
+
+		/* ── demo teaser ─────────────────────────────────── */
+		.teaser {
+			position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%);
+			z-index: 12; display: flex; align-items: center; gap: 10px;
+			max-width: calc(100vw - 32px);
+			padding: 9px 10px 9px 14px; border-radius: 999px;
+			background: var(--panel); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+			border: 1px solid color-mix(in srgb, var(--violet) 28%, var(--line));
+			box-shadow: var(--shadow);
+			font-size: 12.5px; color: var(--muted);
+			transition: opacity .35s ease, transform .35s ease;
+		}
+		.teaser[hidden] { opacity: 0; transform: translate(-50%, 12px); pointer-events: none; }
+		.teaser b { color: var(--ink); font-weight: 600; }
+		.teaser .teaser-link {
+			color: var(--violet); font-weight: 600; white-space: nowrap;
+			border-bottom: 1px solid color-mix(in srgb, var(--violet) 45%, transparent);
+			transition: color .15s ease, border-color .15s ease;
+		}
+		.teaser .teaser-link:hover { color: var(--cyan); border-color: var(--cyan); }
+		.teaser .teaser-link:focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; border-radius: 3px; }
+		.teaser-close {
+			display: inline-flex; align-items: center; justify-content: center;
+			width: 22px; height: 22px; border-radius: 50%; flex: 0 0 auto;
+			color: var(--faint); transition: color .15s ease, background .15s ease;
+		}
+		.teaser-close:hover { color: var(--ink); background: rgba(255,255,255,0.07); }
+		.teaser-close:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+
 		/* ── mobile ──────────────────────────────────────── */
 		@media (max-width: 600px) {
 			.bar { padding: 9px 12px; gap: 8px; }
@@ -279,6 +322,8 @@
 			.brand-sep { display: none; }
 			.panel { right: 8px; top: 54px; width: calc(100vw - 16px); }
 			.hint { display: none; }
+			.teaser { font-size: 11.5px; padding: 8px 8px 8px 12px; gap: 8px; }
+			.demo-badge { padding: 3px 6px; letter-spacing: .05em; }
 		}
 	</style>
 
@@ -307,6 +352,7 @@
 	</a>
 	<span class="brand-sep">/</span>
 	<span class="game-title">Flappin UFO</span>
+	<span class="demo-badge" title="A playable demo — the real product is far bigger">Demo</span>
 
 	<div class="spacer"></div>
 
@@ -369,6 +415,28 @@
 <div class="hint" id="controls-hint" aria-hidden="true">
 	<kbd>Space</kbd> or <kbd>Click</kbd> to thrust &nbsp;·&nbsp; hold to climb
 </div>
+
+<!-- demo teaser -->
+<div class="teaser" id="demo-teaser" role="note">
+	<span><b>This is just a demo.</b> We're building something far bigger for $THREE — <a class="teaser-link" href="/what-is">see what's coming →</a></span>
+	<button class="teaser-close" id="teaser-close" aria-label="Dismiss">
+		<svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M1 1l10 10M11 1L1 11" /></svg>
+	</button>
+</div>
+
+<script>
+(function () {
+	'use strict';
+	const KEY = 'threews:ufo-teaser-dismissed';
+	const teaser = document.getElementById('demo-teaser');
+	const close = document.getElementById('teaser-close');
+	try { if (localStorage.getItem(KEY)) teaser.hidden = true; } catch (_) {}
+	close.addEventListener('click', () => {
+		teaser.hidden = true;
+		try { localStorage.setItem(KEY, '1'); } catch (_) {}
+	});
+})();
+</script>
 
 <script>
 (function () {

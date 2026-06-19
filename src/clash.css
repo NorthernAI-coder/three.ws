@@ -84,6 +84,47 @@
 	line-height: 1.55;
 }
 
+/* ── Demo badge + teaser ────────────────────────────────────────────────── */
+.cl-demo-badge {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	margin-left: var(--space-2, 8px);
+	padding: 3px 9px;
+	border-radius: var(--radius-pill);
+	border: 1px solid color-mix(in srgb, rgb(var(--gold-rgb)) 40%, var(--line, rgba(255,255,255,0.1)));
+	background: color-mix(in srgb, rgb(var(--gold-rgb)) 12%, transparent);
+	font: 700 var(--text-3xs, 9.5px) / 1 var(--font-mono);
+	letter-spacing: 0.1em;
+	text-transform: uppercase;
+	color: rgb(var(--gold-rgb));
+	vertical-align: middle;
+}
+.cl-demo-badge::before {
+	content: '';
+	width: 5px;
+	height: 5px;
+	border-radius: 50%;
+	background: rgb(var(--gold-rgb));
+	box-shadow: 0 0 6px rgb(var(--gold-rgb));
+}
+.cl-demo-note {
+	max-width: 52ch;
+	margin: var(--space-3, 12px) auto 0;
+	color: var(--ink-faint, var(--ink-dim));
+	font-size: var(--text-sm, 0.875rem);
+	line-height: 1.5;
+}
+.cl-demo-note a {
+	color: var(--accent);
+	font-weight: 600;
+	white-space: nowrap;
+	border-bottom: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+	transition: color 0.15s ease, border-color 0.15s ease;
+}
+.cl-demo-note a:hover { color: var(--ink-bright); border-color: var(--ink-bright); }
+.cl-demo-note a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 3px; }
+
 .cl-round {
 	display: flex;
 	justify-content: center;
