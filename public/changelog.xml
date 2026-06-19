@@ -31,6 +31,14 @@
 			<description>Pilot your UFO through an asteroid field. Connect your Solana wallet, submit your score as your wallet address, and claim your spot on the global $THREE leaderboard.</description>
 		</item>
 		<item>
+			<title>8D audio mode at the Pole Club</title>
+			<link>https://three.ws/club</link>
+			<guid isPermaLink="false">2026-06-19:8D audio mode at the Pole Club</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>There's a new 8D pill in the Pole Club top bar. Flip it on (headphones recommended) and the whole soundtrack starts slowly orbiting around your head — the spinning, three-dimensional “8D audio” effect — looping a full lap roughly every eight seconds. It rides on top of everything: the muffled-through-the-door walk-in, the clear-up as you step inside, and the per-dancer tip tracks. The orbit only moves the stereo image, never the volume, so nothing pumps as it circles, and your choice is remembered between visits. Off by default.</description>
+		</item>
+		<item>
 			<title>Agent Studio — one place to build your whole agent, with a live avatar</title>
 			<link>https://three.ws/agent-studio</link>
 			<guid isPermaLink="false">2026-06-19:Agent Studio — one place to build your whole agent, with a live avatar</guid>
@@ -365,6 +373,14 @@
 			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
 			<category>improvement</category>
 			<description>Inspecting an agent in IRL AR is a tap — and we made that tap far harder to miss. There's now a finger-sized catch zone around each agent's floating name, so a tap that lands just beside a small or distant agent still opens its card instead of doing nothing. When several agents overlap on screen, your tap resolves to the one in front of you, and it never selects an agent that's behind you or off-screen. We also kept agents from vanishing when you bring your phone right up to one to look closely. Inspecting works whether the agent is centered, near the edge of the frame, close, or far.</description>
+		</item>
+		<item>
+			<title>The Pole Club alley is easier to see</title>
+			<link>https://three.ws/club</link>
+			<guid isPermaLink="false">2026-06-19:The Pole Club alley is easier to see</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>The walk up to the Pole Club was lit so tightly that only a thin strip of pavement under your feet was visible while the walls fell away to black. The alley now carries a soft warm fill light that travels with you and a wider key, plus a gentle lift to the ambient glow — so the stretch you're actually walking through stays legible the whole way to the door, without losing the moody neon look.</description>
 		</item>
 		<item>
 			<title>Token Oracle follow / unfollow is working again</title>

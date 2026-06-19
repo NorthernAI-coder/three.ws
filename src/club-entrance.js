@@ -177,8 +177,10 @@ async function start(canvasEl) {
 	const camera = new PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.05, 200);
 
 	// ── Light rig — moody, works for the alley and the interior ──────────────
-	scene.add(new AmbientLight(0x241433, 0.7));
-	const hemi = new HemisphereLight(0xff6abf, 0x0a0512, 0.45);
+	// Keeps the noir palette but lifts the ambient/hemisphere floor so walls read
+	// as dim surfaces instead of pure black where no accent light reaches.
+	scene.add(new AmbientLight(0x241433, 0.95));
+	const hemi = new HemisphereLight(0xff6abf, 0x0a0512, 0.62);
 	hemi.position.set(0, ROOM_HEIGHT, 0);
 	scene.add(hemi);
 	const pink = new PointLight(0xff3bd6, 7, 26, 1.4);
@@ -187,10 +189,17 @@ async function start(canvasEl) {
 	const cyan = new PointLight(0x4ad6ff, 5, 24, 1.5);
 	cyan.position.set(3, 2.4, 2);
 	scene.add(cyan);
-	// A soft key that tracks the avatar so it never falls into shadow.
-	const key = new SpotLight(0xffe6c2, 10, 26, Math.PI / 5, 0.6, 1.2);
+	// A soft key that tracks the avatar so it never falls into shadow. Widened
+	// from a tight PI/5 so it washes the walls beside you, not just a floor strip.
+	const key = new SpotLight(0xffe6c2, 11, 28, Math.PI / 3.4, 0.7, 1.0);
 	key.position.set(0, 5, 0);
 	scene.add(key, key.target);
+	// Warm fill that rides along with the avatar so the immediate surroundings —
+	// the stretch of alley you're actually walking through — are always legible,
+	// however far the fixed accent lights are behind you.
+	const fill = new PointLight(0xffd9c2, 2.4, 12, 1.6);
+	fill.position.set(0, 2.4, 0);
+	scene.add(fill);
 
 	// ── Postprocessing — the same cinematic stack as the pole stage ──────────
 	// Bloom makes the neon door/sign actually glow, ACES gives filmic colour,
@@ -731,9 +740,10 @@ async function start(canvasEl) {
 		updateCamera(dt);
 		if (phase === 'walk') minimap.update(rig.position, rig.rotation.y, nearDoor, now / 1000, prefersReducedMotion);
 
-		// Key light + proximity prompt follow the avatar in the alley.
+		// Key + fill follow the avatar so the patch of alley you're walking is lit.
 		key.position.set(rig.position.x, 5, rig.position.z + 1);
 		key.target.position.copy(rig.position).setY(1);
+		fill.position.set(rig.position.x, 2.4, rig.position.z);
 
 		if (phase === 'walk') {
 			const d = Math.hypot(rig.position.x - path.door.x, rig.position.z - path.door.z);

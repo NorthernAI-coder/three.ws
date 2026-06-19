@@ -51,6 +51,12 @@ export class ClubAudio {
 		this._loading = new Map(); // styleName → Promise<AudioBuffer>
 		this._peakBuf = null; // Uint8Array reused for getByteFrequencyData
 		this._clarity = 0; // 0 = outside muffle, 1 = open floor — ramps with the walk-in
+		this._panner = null; // HRTF node the whole mix orbits through for 8D
+		this.spatialIn = null; // gain that funnels every layer into the panner
+		// 8D orbit config. `speed` is orbits/second — ~0.125 puts a full lap at
+		// ~8s, the classic "8D audio" sweep. Off by default: it's a headphone
+		// effect and can be disorienting on speakers.
+		this.spin = { on: this._read8DPref(), speed: 0.125, radius: 1.0, height: 0 };
 		this.muted = this._readMutedPref();
 		this._onStatus = null; // optional callback(name, label)
 	}
@@ -121,19 +127,40 @@ export class ClubAudio {
 		this._fx.indoorWet = this.ctx.createGain();
 		this._fx.indoorWet.gain.value = 0.0;
 
-		// effectsBus → bass → lowpass → dry ──────────────────────────→ master
-		//                             → outdoorConv → outdoorWet ──────→ master
-		//                             → indoorConv  → indoorWet  ──────→ master
+		// ── 8D spatial orbit ──────────────────────────────────────────────────
+		// The entire club mix funnels into one HRTF panner that can slowly orbit
+		// the listener's head — the "8D audio" effect. rolloffFactor 0 means the
+		// orbit changes only the stereo image, never the loudness, so the bed
+		// never pumps as it circles. spin8D() walks the source around the circle
+		// once per frame; when 8D is off the source just sits straight ahead.
+		this.spatialIn = this.ctx.createGain();
+		this._panner = this.ctx.createPanner();
+		this._panner.panningModel = 'HRTF';
+		this._panner.distanceModel = 'inverse';
+		this._panner.refDistance = 1;
+		this._panner.maxDistance = 100;
+		this._panner.rolloffFactor = 0;
+		this._panner.coneInnerAngle = 360;
+		this._panner.coneOuterAngle = 0;
+		this._panner.coneOuterGain = 0;
+		this._placeListener();
+		this._setSpinPos(0, 0, -1); // straight ahead until/unless the orbit drives it
+		this.spatialIn.connect(this._panner);
+		this._panner.connect(this.master);
+
+		// effectsBus → bass → lowpass → dry ──────────────→ spatialIn → panner → master
+		//                             → outdoorConv → outdoorWet ──────→ spatialIn ↗
+		//                             → indoorConv  → indoorWet  ──────→ spatialIn ↗
 		this.effectsBus.connect(this._fx.bass);
 		this._fx.bass.connect(this._fx.lowpass);
 		this._fx.lowpass.connect(this._fx.dry);
 		this._fx.lowpass.connect(this._fx.outdoorConv);
 		this._fx.lowpass.connect(this._fx.indoorConv);
-		this._fx.dry.connect(this.master);
+		this._fx.dry.connect(this.spatialIn);
 		this._fx.outdoorConv.connect(this._fx.outdoorWet);
-		this._fx.outdoorWet.connect(this.master);
+		this._fx.outdoorWet.connect(this.spatialIn);
 		this._fx.indoorConv.connect(this._fx.indoorWet);
-		this._fx.indoorWet.connect(this.master);
+		this._fx.indoorWet.connect(this.spatialIn);
 
 		if (this.ctx.state === 'suspended') {
 			try {
@@ -439,6 +466,78 @@ export class ClubAudio {
 	// scene) that skip the gradual walk-through ramp.
 	setLocation(isInside) {
 		this.setClarity(isInside ? 1 : 0, 0.9);
+	}
+
+	// ── 8D spatial orbit ──────────────────────────────────────────────────────
+	// Seat the listener at the origin, facing -Z (into the screen). Modern
+	// browsers expose position/orientation as AudioParams; older Safari uses the
+	// deprecated setPosition/setOrientation setters — support both.
+	_placeListener() {
+		const L = this.ctx?.listener;
+		if (!L) return;
+		if (L.forwardX) {
+			L.positionX.value = 0; L.positionY.value = 0; L.positionZ.value = 0;
+			L.forwardX.value = 0; L.forwardY.value = 0; L.forwardZ.value = -1;
+			L.upX.value = 0; L.upY.value = 1; L.upZ.value = 0;
+		} else if (L.setPosition) {
+			L.setPosition(0, 0, 0);
+			L.setOrientation(0, 0, -1, 0, 1, 0);
+		}
+	}
+
+	// Move the orbiting source. Set .value directly (not scheduled) so per-frame
+	// updates don't pile up automation events; the per-frame delta is tiny at the
+	// orbit speeds we use, so there's no zipper noise.
+	_setSpinPos(x, y, z) {
+		const p = this._panner;
+		if (!p) return;
+		if (p.positionX) {
+			p.positionX.value = x;
+			p.positionY.value = y;
+			p.positionZ.value = z;
+		} else if (p.setPosition) {
+			p.setPosition(x, y, z);
+		}
+	}
+
+	// Enable/disable the orbit. Persists the choice; recentres the image to dead
+	// ahead when turned off so the mix doesn't freeze mid-circle off to one side.
+	set8D(on) {
+		this.spin.on = !!on;
+		this._write8DPref(this.spin.on);
+		if (!this.spin.on) this._setSpinPos(0, 0, -1);
+		return this.spin.on;
+	}
+
+	is8D() {
+		return !!this.spin.on;
+	}
+
+	// Walk the source around a horizontal circle about the listener's head. Call
+	// once per animation frame with the scene's elapsed seconds. Starts dead
+	// ahead (-Z) at t=0 and rotates; a no-op when 8D is off or before the graph
+	// exists, so the render loop can call it unconditionally.
+	spin8D(tSeconds) {
+		if (!this._panner || !this.spin.on) return;
+		const a = tSeconds * this.spin.speed * Math.PI * 2;
+		const r = this.spin.radius;
+		this._setSpinPos(Math.sin(a) * r, this.spin.height, -Math.cos(a) * r);
+	}
+
+	_read8DPref() {
+		try {
+			if (typeof localStorage === 'undefined') return false;
+			return localStorage.getItem('club.audio.spatial') === '1';
+		} catch {
+			return false;
+		}
+	}
+
+	_write8DPref(on) {
+		try {
+			if (typeof localStorage === 'undefined') return;
+			localStorage.setItem('club.audio.spatial', on ? '1' : '0');
+		} catch {}
 	}
 
 	// Ramp a single GainNode to `target`, gliding from its current value so the
