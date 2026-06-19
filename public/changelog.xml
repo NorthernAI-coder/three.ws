@@ -95,6 +95,14 @@
 			<description>We extended the sitewide clickjacking protection to allow IBM properties to frame three.ws. Any page on ibm.com (and its subdomains) may now load three.ws pages inside an iframe — useful for the IBM x402 demo and other IBM-hosted integrations — while every other external site is still refused by default. Sign-in, wallet, dashboard and OAuth consent pages remain hard-locked and cannot be framed by anyone, including IBM. The avatar, widget and walk embeds continue to work on any site as before.</description>
 		</item>
 		<item>
+			<title>One API for the whole platform: three.ws API v1</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-19:One API for the whole platform: three.ws API v1</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Everything three.ws can do is now reachable through a single, versioned API at /api/v1 — one key, one rate-limit budget, and one usage ledger across every capability. Hit GET /api/v1 to discover the full endpoint catalog (each one's auth, scope, and parameters) in a single call. The first endpoints are live: text sentiment scoring (POST /api/v1/sentiment), market and narrative intelligence (GET /api/v1/market/intel and /api/v1/market/projects), and verified agent-card resolution (GET /api/v1/agents/{caip}). Authenticate with a developer API key (Authorization: Bearer sk_live_…) created in your developer dashboard, an OAuth token, or a signed-in session; every response uses one consistent shape and standard RateLimit headers. More of the platform's capabilities will land under this same API over the coming releases.</description>
+		</item>
+		<item>
 			<title>Paid market-intel never charges you for unavailable data</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-19:Paid market-intel never charges you for unavailable data</guid>
