@@ -770,6 +770,8 @@ window.addEventListener('keyup', e => {
 	let dragging = false, lastX = 0, lastY = 0, downId = -1;
 	canvas.addEventListener('pointerdown', e => {
 		if (placeModeActive || calibrateActive) return;
+		// Don't orbit the (paused, hidden) IRL camera behind the WebXR overlay.
+		if (xrOverlay && !xrOverlay.hidden) return;
 		const r = joystickEl.getBoundingClientRect();
 		if (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) return;
 		dragging = true; downId = e.pointerId; lastX = e.clientX; lastY = e.clientY;
@@ -1197,6 +1199,20 @@ async function setLocked(next) {
 if (lockBtn) {
 	lockBtn.addEventListener('click', () => setLocked(!avatarLocked));
 }
+
+// ── Discovery onboarding + designed empty state (task 02) ───────────────────
+// "Place an agent here" — the CTA on the empty-state prompt and the first-run
+// explainer. Placing your own agent so others stumble on it IS the pin: bring up
+// the camera if it's off, then drop the GPS-anchored pin. setLocked() owns the
+// location/motion permission flow and the precise anchor, so this just sequences
+// into it within the user's tap.
+async function placeAgentHere() {
+	unlockArrivalAudio();
+	if (!arActive) await enableAR();
+	if (arActive && !avatarLocked) setLocked(true);
+}
+
+const discovery = initDiscovery({ onPlace: placeAgentHere });
 
 // ── Designed guidance sheet ───────────────────────────────────────────────
 // iOS Safari has no WebXR, so the whole world-lock rides on motion + GPS
@@ -1968,6 +1984,50 @@ function saveErrorFallback(code) {
 	}
 }
 
+// ── Modal-sheet keyboard accessibility (task 07) ──────────────────────────
+// A small shared primitive the bottom sheets reuse: while a sheet is open it
+// (1) closes on Escape, (2) keeps Tab focus inside the sheet, and (3) restores
+// focus to whatever opened it on close. It generalises the bespoke trap the
+// bulk-purge confirm already ships so every modal sheet behaves identically.
+//
+// Each sheet keeps its own open/close functions (no over-refactor) and simply
+// calls trapSheet() after adding .is-open and releaseSheet() after removing it.
+// opts.suspendWhile lets an outer sheet defer to a nested confirm (My Pins → the
+// "remove all" purge) that runs its own trap; opts.manageFocus=false lets a
+// caller that focuses its own field (the caption input) keep doing so.
+const A11Y_FOCUSABLE = 'a[href],button:not([disabled]),textarea:not([disabled]),input:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex="-1"])';
+const _sheetTraps = new Map();
+
+function trapSheet(el, onClose, opts = {}) {
+	if (!el || _sheetTraps.has(el)) return;
+	const lastFocus = opts.restoreFocus === false ? null : document.activeElement;
+	const keydown = (e) => {
+		if (opts.suspendWhile?.()) return;            // a nested dialog owns the keyboard
+		if (e.key === 'Escape') { e.preventDefault(); onClose?.(); return; }
+		if (e.key !== 'Tab') return;
+		const nodes = [...el.querySelectorAll(A11Y_FOCUSABLE)].filter(n => n.offsetParent !== null);
+		if (!nodes.length) { e.preventDefault(); return; }
+		const first = nodes[0], last = nodes[nodes.length - 1], act = document.activeElement;
+		if (e.shiftKey && (act === first || !el.contains(act))) { e.preventDefault(); last.focus(); }
+		else if (!e.shiftKey && (act === last || !el.contains(act))) { e.preventDefault(); first.focus(); }
+	};
+	document.addEventListener('keydown', keydown, true);
+	_sheetTraps.set(el, { keydown, lastFocus });
+	if (opts.manageFocus === false) return;           // caller focuses its own field
+	const initial = opts.initialFocus || el.querySelector(A11Y_FOCUSABLE) || el;
+	requestAnimationFrame(() => { try { initial.focus({ preventScroll: true }); } catch {} });
+}
+
+function releaseSheet(el) {
+	const t = el && _sheetTraps.get(el);
+	if (!t) return;
+	document.removeEventListener('keydown', t.keydown, true);
+	_sheetTraps.delete(el);
+	if (t.lastFocus && document.contains(t.lastFocus)) {
+		try { t.lastFocus.focus({ preventScroll: true }); } catch {}
+	}
+}
+
 // ── Caption panel (pre-save) ──────────────────────────────────────────────
 
 const captionPanel   = document.getElementById('irl-caption-panel');
@@ -2003,14 +2063,20 @@ function openCaptionPanel(pinLat, pinLng, headingDeg, source = 'gyro-gps') {
 	captionInput.value = '';
 	captionPanel.classList.add('is-open');
 	focusCaptionWhenOpen();
-	captionConfirm.onclick = () => {
+	const cancel = () => {
 		captionPanel.classList.remove('is-open');
-		commitPin(pinLat, pinLng, headingDeg, captionInput.value.trim(), source);
-	};
-	captionCancel.onclick = () => {
-		captionPanel.classList.remove('is-open');
+		releaseSheet(captionPanel);
 		setLocked(false);
 	};
+	captionConfirm.onclick = () => {
+		captionPanel.classList.remove('is-open');
+		releaseSheet(captionPanel);
+		commitPin(pinLat, pinLng, headingDeg, captionInput.value.trim(), source);
+	};
+	captionCancel.onclick = cancel;
+	// Escape mirrors Cancel (release the AR lock); the caption field manages its
+	// own focus via focusCaptionWhenOpen(), so the trap doesn't steal it.
+	trapSheet(captionPanel, cancel, { manageFocus: false });
 }
 
 function commitPin(pinLat, pinLng, headingDeg, caption, source = 'gyro-gps') {
@@ -2080,11 +2146,14 @@ function openCaptionForMapPin(lat, lng, label) {
 	captionInput.value = '';
 	captionPanel.classList.add('is-open');
 	focusCaptionWhenOpen();
+	const close = () => { captionPanel.classList.remove('is-open'); releaseSheet(captionPanel); };
 	captionConfirm.onclick = () => {
-		captionPanel.classList.remove('is-open');
+		close();
 		commitMapPin(lat, lng, captionInput.value.trim(), label);
 	};
-	captionCancel.onclick = () => { captionPanel.classList.remove('is-open'); };
+	captionCancel.onclick = close;
+	// No AR lock to release here — Escape just closes the panel.
+	trapSheet(captionPanel, close, { manageFocus: false });
 }
 
 async function commitMapPin(lat, lng, caption, label) {
@@ -2164,7 +2233,11 @@ function pauseRender() {
 // pointless). dt is clamped in tick(), so the first resumed frame never jumps.
 function resumeRender() {
 	if (!_renderPaused) return;
-	if (_contextLost || !_tickStarted) { _renderPaused = false; return; }
+	// Don't start IRL's own loop while it's still lost, before boot, or during an
+	// immersive WebXR session (which drives its own animation loop — IRL's tick is
+	// intentionally parked then). The clear of _renderPaused still happens so a later
+	// XR exit / context restore resumes through the normal path.
+	if (_contextLost || !_tickStarted || xrSession) { _renderPaused = false; return; }
 	_renderPaused = false;
 	startTick();
 }
