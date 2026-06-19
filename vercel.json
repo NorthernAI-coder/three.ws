@@ -169,29 +169,17 @@
 		"api/sniper/history.js": {
 			"maxDuration": 20
 		},
-		"api/irl/pins.js": {
-			"maxDuration": 15
-		},
-		"api/irl/interactions.js": {
-			"maxDuration": 15
-		},
 		"api/irl/interactions-stream.js": {
 			"maxDuration": 300
-		},
-		"api/irl/agent-summary.js": {
-			"maxDuration": 15
-		},
-		"api/irl/agent-card.js": {
-			"maxDuration": 15
-		},
-		"api/irl/report.js": {
-			"maxDuration": 15
 		},
 		"api/irl/fix-token.js": {
 			"maxDuration": 10
 		},
 		"api/irl/privacy.js": {
 			"maxDuration": 20
+		},
+		"api/irl/*.js": {
+			"maxDuration": 15
 		},
 		"api/**/*.js": {
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
