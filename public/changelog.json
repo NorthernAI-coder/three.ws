@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-19T19:07:20.492Z",
+	"generated_at": "2026-06-19T20:23:06.913Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -125,6 +125,16 @@
 			"link": "/irl",
 			"tags": [
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-19",
+			"type": "update",
+			"title": "Club dancers never flash a T-pose while the room loads in",
+			"summary": "When you stepped onto the pole floor, the dancers used to stand stiff with their arms out — a frozen T-pose — for several seconds while their idle animation streamed in, and one of them could stay frozen even longer while her rig was swapped to a compatible one. Each dancer now has her idle and walk loaded and bound the instant she appears, so the first frame you see is her resting stance, and she steps to the pole with her legs moving. No more T-pose, no more sliding.",
+			"link": "/club",
+			"tags": [
+				"fix"
 			]
 		},
 		{
@@ -551,10 +561,31 @@
 		{
 			"date": "2026-06-19",
 			"type": "update",
+			"title": "Switching avatars in the Club never freezes you in a T-pose",
+			"summary": "The Club's avatar switcher lists public gallery rigs alongside the built-in ones, and not every gallery model is a humanoid our dance and walk clips can drive. Picking one of those used to leave your character frozen stiff, arms out, sliding around without moving her legs. Now the Club checks that a chosen avatar can actually be animated before committing to it — if it can't, it instantly rolls back to the one you were already walking as and tells you why, so your character keeps idling and walking with her legs moving no matter what you pick.",
+			"link": "/club",
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-19",
+			"type": "update",
 			"title": "Tapping an agent in AR now lands every time",
 			"summary": "Inspecting an agent in IRL AR is a tap — and we made that tap far harder to miss. There's now a finger-sized catch zone around each agent's floating name, so a tap that lands just beside a small or distant agent still opens its card instead of doing nothing. When several agents overlap on screen, your tap resolves to the one in front of you, and it never selects an agent that's behind you or off-screen. We also kept agents from vanishing when you bring your phone right up to one to look closely. Inspecting works whether the agent is centered, near the edge of the frame, close, or far.",
 			"link": "/irl",
 			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-19",
+			"type": "update",
+			"title": "The Club runs cooler — capped frame rate and adaptive quality",
+			"summary": "Walking into the Club no longer spins your laptop's fans up. The walk-through now draws at a steady 60 fps instead of chasing high-refresh displays (which did up to 2.4× the GPU work for no visible gain), caps how many pixels it renders on retina screens, and pauses rendering entirely when the tab is in the background. If frames still run slow on a struggling machine, it automatically steps quality down a notch so the scene keeps moving smoothly instead of grinding. Big drop in heat and battery use, same neon-lit walk.",
+			"link": "/club",
+			"tags": [
+				"fix",
 				"improvement"
 			]
 		},

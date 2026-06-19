@@ -722,6 +722,22 @@ class PoleStation {
 	}
 
 	/**
+	 * Bind the pre-fetched locomotion clips (idle + walk) into this dancer's
+	 * mixer so the first `play('idle')` resolves from memory — no network fetch,
+	 * no T-pose window. No-op until the boot pre-fetch has populated the shared
+	 * `locomotionClips` map (e.g. an offline boot where it stayed empty); the
+	 * AnimationManager then lazy-loads as before. Each call retargets the same
+	 * raw clip onto whatever rig is currently attached, so it's correct on both
+	 * the chosen rig and the fallback rig.
+	 */
+	_injectLocomotion() {
+		if (!this.anim || !locomotionClips) return;
+		for (const [name, json] of Object.entries(locomotionClips)) {
+			this.anim.injectClip(name, json, { loop: true });
+		}
+	}
+
+	/**
 	 * Attach this dancer's avatar. `template` is her chosen GLB; `fallback` is
 	 * the known-good default rig. Every shipped avatar is verified drivable, but
 	 * we still confirm the clip library can retarget onto the chosen rig at
@@ -749,9 +765,12 @@ class PoleStation {
 
 		this.skinned = root;
 		this.anim.setAnimationDefs(animationDefs);
+		this._injectLocomotion();
 		// Await idle so we can detect if the fallen-pose guard rejects the
 		// retarget — in which case swap to the fallback rig rather than leave
-		// the dancer frozen in her bind pose.
+		// the dancer frozen in her bind pose. With the locomotion clips injected
+		// above, idle binds synchronously — the dancer's first rendered frame is
+		// her resting stance, never a T-pose.
 		this.anim.play('idle').then((ok) => {
 			if (ok || !fallback || fallback === template) return;
 			log.warn(`[club] dancer ${this.id} idle retarget rejected — falling back to default avatar`);
@@ -762,6 +781,7 @@ class PoleStation {
 			this.anim.attach(fbRoot);
 			this.skinned = fbRoot;
 			this.anim.setAnimationDefs(animationDefs);
+			this._injectLocomotion();
 			this.anim.play('idle').catch(() => {});
 		}).catch(() => {});
 		// Pre-load the walk clip so the first tip's walk starts immediately
@@ -1111,6 +1131,40 @@ function createAmbientParticles(count = 50) {
 // ── Avatar template + manifest load ──────────────────────────────────────
 let animationDefs = null;
 
+// Raw clip JSON for the two locomotion clips every dancer needs on the first
+// frame — idle (her resting stance) and the feminine walk (the step on/off the
+// pole). Pre-fetched once at boot and injected into each dancer's mixer before
+// the first render so a dancer is NEVER seen in a bind/T-pose while a 3 MB clip
+// streams in. Mirrors the entrance walk-through's inject-before-first-frame
+// pattern (src/club-entrance.js). Keyed by clip name.
+let locomotionClips = null;
+
+/**
+ * Fetch the raw JSON for the locomotion clips named in `names` from their
+ * manifest defs, in parallel. Returns a name→clipJSON map; a clip whose fetch
+ * fails is simply omitted (the dancer's AnimationManager then lazy-loads it as
+ * before, so a failed pre-fetch degrades to the old behaviour, never an error).
+ * @param {Array<{name:string,url:string}>} defs
+ * @param {string[]} names
+ * @returns {Promise<Record<string, object>>}
+ */
+async function loadLocomotionClips(defs, names) {
+	const entries = await Promise.all(
+		names.map(async (name) => {
+			const def = defs.find((d) => d.name === name);
+			if (!def?.url) return null;
+			try {
+				const res = await fetch(def.url, { cache: 'force-cache' });
+				if (!res.ok) return null;
+				return [name, await res.json()];
+			} catch {
+				return null;
+			}
+		}),
+	);
+	return Object.fromEntries(entries.filter(Boolean));
+}
+
 /**
  * Resolve a dancer's avatar GLB URL. A gallery `avatarId` is looked up through
  * the same /api/avatars/:id endpoint the rest of the app uses (Vite dev proxies
@@ -1267,6 +1321,11 @@ async function bootstrap() {
 	const stageTemplate = stageGltf.scene;
 
 	animationDefs = manifest.filter((d) => REQUIRED_CLIPS.has(d.name));
+
+	// Pre-fetch idle + the feminine walk so every dancer binds them on the first
+	// frame — no T-pose flash while the clip streams in, no extra round-trip on
+	// the fallback rig when a gallery skeleton fails the fallen-pose guard.
+	locomotionClips = await loadLocomotionClips(animationDefs, ['idle', WALK_CLIP]);
 
 	for (const station of stations) {
 		station.attachProps({ poleTemplate, stageTemplate });

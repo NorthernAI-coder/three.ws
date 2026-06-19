@@ -3,6 +3,34 @@
 	"entries": [
 		{
 			"date": "2026-06-19",
+			"title": "Club dancers never flash a T-pose while the room loads in",
+			"summary": "When you stepped onto the pole floor, the dancers used to stand stiff with their arms out — a frozen T-pose — for several seconds while their idle animation streamed in, and one of them could stay frozen even longer while her rig was swapped to a compatible one. Each dancer now has her idle and walk loaded and bound the instant she appears, so the first frame you see is her resting stance, and she steps to the pole with her legs moving. No more T-pose, no more sliding.",
+			"tags": [
+				"fix"
+			],
+			"link": "/club"
+		},
+		{
+			"date": "2026-06-19",
+			"title": "Switching avatars in the Club never freezes you in a T-pose",
+			"summary": "The Club's avatar switcher lists public gallery rigs alongside the built-in ones, and not every gallery model is a humanoid our dance and walk clips can drive. Picking one of those used to leave your character frozen stiff, arms out, sliding around without moving her legs. Now the Club checks that a chosen avatar can actually be animated before committing to it — if it can't, it instantly rolls back to the one you were already walking as and tells you why, so your character keeps idling and walking with her legs moving no matter what you pick.",
+			"tags": [
+				"fix"
+			],
+			"link": "/club"
+		},
+		{
+			"date": "2026-06-19",
+			"title": "The Club runs cooler — capped frame rate and adaptive quality",
+			"summary": "Walking into the Club no longer spins your laptop's fans up. The walk-through now draws at a steady 60 fps instead of chasing high-refresh displays (which did up to 2.4× the GPU work for no visible gain), caps how many pixels it renders on retina screens, and pauses rendering entirely when the tab is in the background. If frames still run slow on a struggling machine, it automatically steps quality down a notch so the scene keeps moving smoothly instead of grinding. Big drop in heat and battery use, same neon-lit walk.",
+			"tags": [
+				"fix",
+				"improvement"
+			],
+			"link": "/club"
+		},
+		{
+			"date": "2026-06-19",
 			"title": "Corner helper cards no longer pile up and hide page content",
 			"summary": "The small helper cards that live in the bottom-right corner — the \"Getting started\" guide, the \"have you tried…\" feature tips, and the \"Your agent is ready\" welcome card — each positioned themselves independently, so on many pages they stacked on the exact same spot and covered each other and the content behind them (most visibly the Deploy page's Live Preview). They now share a single tidy stack that flows them vertically, so they never overlap one another or the page. The welcome card also no longer follows you onto the Deploy and Explore pages, where it had nothing to do.",
 			"tags": [

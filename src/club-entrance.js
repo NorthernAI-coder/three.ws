@@ -68,6 +68,15 @@ const PASS_KEY = 'club:pass:v1';
 // GLB rig (not an instanced mesh), so we keep the floor light for load + perf.
 const MAX_CROWD_PER_SCENE = 5;
 const MOVE_CLIPS = new Set(['idle', 'walk']);
+// Canonical URLs for the player's locomotion clips, kept independent of the
+// manifest so they survive a failed/empty manifest fetch. These back the
+// guaranteed idle/walk defs below: even if both the prefetch AND the manifest
+// fetch fail, play('idle') can still lazy-load from here rather than leave the
+// avatar frozen in a bind/T-pose on entry. The url's match the prefetch URLs.
+const MOVE_CLIP_URLS = {
+	idle: '/animations/clips/idle.json',
+	walk: '/animations/clips/walk.json',
+};
 // The dance the avatar breaks into the instant the cover charge settles — a
 // twerk on the spot before it walks past the velvet rope. Lazy-loaded from the
 // manifest on first admit (most visitors never pay a cover the same session as
@@ -77,9 +86,10 @@ const VENUE_NAMES = ['Alley', 'Gallery', 'Clubhouse']; // index-aligned with SEQ
 
 // The agent switcher's catalog: bundled, known-good humanoid rigs that ship with
 // the app (so the dropdown always has options offline — Hard rule 9), plus public
-// avatars pulled from the gallery at runtime. Deduped by URL. Any rig the clip
-// library can't drive falls back to its bind pose in the AnimationManager, so a
-// pick never freezes the walk.
+// avatars pulled from the gallery at runtime. Deduped by URL. A gallery rig the
+// clip library can't drive (a non-humanoid sample model, an odd skeleton) is
+// caught at swap time and rolled back to the working rig — see swapAvatarTo — so
+// a pick never leaves the player frozen in a bind/T-pose mid-walk.
 const BUNDLED_AGENTS = [
 	{ key: 'default', name: 'Aria', url: AVATAR_URL },
 	{ key: 'michelle', name: 'Michelle', url: '/avatars/michelle.glb' },
@@ -304,8 +314,16 @@ async function start(canvasEl) {
 
 	const anim = new AnimationManager();
 	anim.attach(avatar, { avatarUrl: AVATAR_URL });
-	const sceneDefs = (Array.isArray(manifest) ? manifest : [])
+	const manifestDefs = (Array.isArray(manifest) ? manifest : [])
 		.filter((d) => MOVE_CLIPS.has(d.name) || d.name === ADMIT_DANCE_CLIP);
+	// Guarantee an idle + walk def even if the manifest fetch failed or returned
+	// no locomotion entries — without a def, a null prefetch leaves play('idle')
+	// with nothing to load and the avatar enters the club in a T-pose. Manifest
+	// entries win (they may carry richer metadata); these only fill the gaps.
+	const sceneDefs = ['idle', 'walk']
+		.filter((name) => !manifestDefs.some((d) => d.name === name))
+		.map((name) => ({ name, url: MOVE_CLIP_URLS[name], loop: true }))
+		.concat(manifestDefs);
 	anim.setAnimationDefs(sceneDefs);
 	// Inject the pre-fetched clip data directly — no second network round-trip,
 	// animations are bound before the first render frame so there's no T-pose.
@@ -612,23 +630,56 @@ async function start(canvasEl) {
 		if (agentSelect) agentSelect.disabled = true;
 		if (agentBrowseBtn) agentBrowseBtn.disabled = true;
 		const movingNow = anim.currentName === 'walk';
+		const clip = movingNow ? 'walk' : 'idle';
+		const prevAvatar = avatar; // kept mounted until the new rig proves it can move
 		try {
 			const gltf = await loader.loadAsync(url);
 			const next = gltf.scene;
 			scaleToHeight(next, AVATAR_HEIGHT);
 			placeOnFloor(next);
-			rig.remove(avatar);
-			disposeObject(avatar);
+			// Verify the clip library can actually drive this rig BEFORE committing.
+			// The switcher lists public gallery rigs, not all of them humanoid — a
+			// non-canonical skeleton (Fox, CesiumMan, a robot…) can't be retargeted
+			// and would leave the player frozen in a bind/T-pose. Mount it, attach,
+			// and require the clip to play; if it can't, roll back to the working
+			// rig so her legs never stop moving (Hard rule 9: no errors without
+			// solutions). The dancers (src/club.js) use the same verified fallback.
+			rig.remove(prevAvatar);
+			rig.add(next);
+			anim.attach(next, { avatarUrl: url });
+			const drivable = anim.supportsCanonicalClips() && await anim.play(clip);
+			if (!drivable) {
+				rig.remove(next);
+				disposeObject(next);
+				rig.add(prevAvatar);
+				anim.attach(prevAvatar, { avatarUrl: currentAvatarUrl });
+				await anim.play(clip);
+				avatar = prevAvatar;
+				if (agentSelect) agentSelect.value = currentAvatarUrl;
+				log.warn(`[club-entrance] "${url}" can't be retargeted — keeping the current rig`);
+				flashHint("That avatar can't dance our moves — keeping your current one.");
+				return false;
+			}
+			// Committed: the new rig drives. Now it's safe to drop the old one.
+			disposeObject(prevAvatar);
 			avatar = next;
-			rig.add(avatar);
-			anim.attach(avatar, { avatarUrl: url });
-			await anim.play(movingNow ? 'walk' : 'idle');
 			currentAvatarUrl = url;
 			if (agentSelect) agentSelect.value = url;
 			return true;
 		} catch (err) {
 			log.warn('[club-entrance] agent swap failed', err);
+			// A load/parse failure: make sure the working rig is still mounted and
+			// animating, never a blank/frozen stage.
+			if (avatar !== prevAvatar) {
+				try {
+					rig.add(prevAvatar);
+					anim.attach(prevAvatar, { avatarUrl: currentAvatarUrl });
+					await anim.play(clip);
+					avatar = prevAvatar;
+				} catch (e2) { log.warn('[club-entrance] rollback after swap failure also failed', e2); }
+			}
 			if (agentSelect) agentSelect.value = currentAvatarUrl; // keep the working rig selected
+			flashHint("Couldn't load that avatar — keeping your current one.");
 			return false;
 		} finally {
 			swappingAgent = false;
@@ -671,6 +722,17 @@ async function start(canvasEl) {
 		hintEl.textContent = isTouch
 			? `Drag to move and look · ${tail}`
 			: `WASD / arrows to move · drag to look · ${tail}`;
+	}
+	// Briefly override the controls hint with a transient message (e.g. a rejected
+	// avatar swap), then restore the normal movement hint. Self-cancelling so
+	// rapid messages don't leave a stale one pinned.
+	let hintFlashTimer = 0;
+	function flashHint(msg) {
+		if (!hintEl) return;
+		if (hintFlashTimer) clearTimeout(hintFlashTimer);
+		hintEl.textContent = msg;
+		showHint(true);
+		hintFlashTimer = setTimeout(() => { hintFlashTimer = 0; setHint(); }, 3200);
 	}
 	function setPromptLabel() {
 		if (!promptEl) return;
@@ -725,6 +787,27 @@ async function start(canvasEl) {
 	let phaseStart = performance.now();
 	let raf = 0;
 	let last = performance.now();
+	let lastDraw = 0;
+	// Cap the draw rate at ~60 fps. Without this the loop renders at the panel's
+	// native refresh (120/144 Hz on many laptops), doing 2–2.4× the GPU work for
+	// no visible benefit — the dominant cause of the fans spinning up. Simulation
+	// still steps every animation frame; only the expensive composer.render is
+	// gated, so movement stays smooth.
+	const FRAME_BUDGET_MS = 1000 / 60 - 1; // -1ms slack so a 60Hz panel never skips
+	// Sustained-slow-frame watchdog: drops pixel ratio one tier (and finally the
+	// SMAA pass) when frames stay above budget, so a struggling GPU cools off
+	// instead of grinding. Never upgrades — see club-perf.js.
+	const watchdog = createFrameWatchdog({
+		initialTier: profile.tier,
+		onDowngrade(tier) {
+			const next = PROFILES[tier];
+			if (!next) return;
+			renderer.setPixelRatio(next.pixelRatio);
+			composer.setSize(window.innerWidth, window.innerHeight);
+			smaaPass.enabled = next.tier !== 'low';
+			log.info('[club] render downgraded to', tier, 'profile');
+		},
+	});
 	// True only while the admission dance is playing. Freezes the movement clip
 	// so the per-frame idle/walk crossfade in stepAvatar can't stomp the twerk
 	// the instant it starts.
@@ -823,7 +906,17 @@ async function start(canvasEl) {
 			}
 		}
 
-		composer.render(dt);
+		// Draw at most ~60 fps, and never while the tab is hidden — the GPU
+		// shouldn't keep rendering a club nobody is looking at. Simulation above
+		// already ran this frame; here we only decide whether to paint it.
+		if (!document.hidden && now - lastDraw >= FRAME_BUDGET_MS) {
+			// Clamp like the sim dt so the first draw after a hidden tab (interval
+			// of seconds) can't single-handedly trip the slow-frame watchdog.
+			const drawDt = Math.min((now - lastDraw) / 1000, 0.1);
+			lastDraw = now;
+			composer.render(dt);
+			watchdog.tick(drawDt);
+		}
 		raf = requestAnimationFrame(frame);
 	}
 	// Draw one frame so the alley is on screen, then lift the intro overlay.
