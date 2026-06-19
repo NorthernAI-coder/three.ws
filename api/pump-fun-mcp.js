@@ -28,6 +28,7 @@
 import { cors, json, method, wrap, readJson, rateLimited } from './_lib/http.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 import { extractBearer, authenticateBearer } from './_lib/auth.js';
+import { fetchSafePublicUrlPinned, SsrfBlockedError } from './_lib/ssrf-guard.js';
 import {
 	verifyPayment,
 	settlePayment,
@@ -1035,7 +1036,15 @@ async function _fetchImgBuf(imageUrl) {
 	const ctrl = new AbortController();
 	const tid = setTimeout(() => ctrl.abort(), META_IMG_TIMEOUT_MS);
 	try {
-		const r = await fetch(imageUrl, { signal: ctrl.signal });
+		// image_url is fully caller-supplied; guard against SSRF (internal hosts /
+		// cloud metadata) before fetching. Pinned variant closes the DNS-rebind window.
+		let r;
+		try {
+			r = await fetchSafePublicUrlPinned(imageUrl, { signal: ctrl.signal }, { allowHttp: true });
+		} catch (err) {
+			if (err instanceof SsrfBlockedError) throw rpcError(-32602, 'image_url is not an allowed public URL');
+			throw err;
+		}
 		if (!r.ok) throw rpcError(-32004, `image fetch failed: HTTP ${r.status}`);
 		const buf = Buffer.from(await r.arrayBuffer());
 		if (buf.byteLength > IMG_MAX_BYTES) throw rpcError(-32602, 'image exceeds 5 MB');
@@ -1370,8 +1379,10 @@ const AUTH_REQUIRED_TOOLS = new Set([
 ]);
 
 // Resolve the caller's credentials for a gated tool, once per request. Returns
-//   { ok: true, x402Ctx }            x402Ctx null for bearer auth, or the
-//                                    verified payment envelope to settle later
+//   { ok: true, x402Ctx, principal }  x402Ctx null for bearer auth, or the
+//                                    verified payment envelope to settle later;
+//                                    principal is a stable per-caller key used for
+//                                    the per-principal rate limit on gated tools
 //   { ok: false, failure }           failure.kind ∈ bad_bearer | bad_payment |
 //                                    no_credentials (+ message, envelope)
 // The result is memoized so a batch carrying several gated calls verifies the
@@ -1380,7 +1391,16 @@ async function resolveGatedAuth(req) {
 	const bearer = extractBearer(req);
 	if (bearer) {
 		const auth = await authenticateBearer(bearer).catch(() => null);
-		if (auth) return { ok: true, x402Ctx: null };
+		if (auth) {
+			// A valid bearer authorizes the gated tools for free, so bind a stable
+			// principal (api key id / oauth subject) for the per-principal rate limit
+			// — otherwise one account could drive unlimited expensive/credit-burning
+			// calls.
+			const principal = auth.apiKeyId
+				? `apikey:${auth.apiKeyId}`
+				: `user:${auth.userId || 'unknown'}`;
+			return { ok: true, x402Ctx: null, principal };
+		}
 		return {
 			ok: false,
 			failure: {
@@ -1396,7 +1416,12 @@ async function resolveGatedAuth(req) {
 		const requirements = paymentRequirements(resourceUrl);
 		try {
 			const verified = await verifyPayment({ paymentHeader, requirements });
-			return { ok: true, x402Ctx: { resourceUrl, requirements, verified } };
+			const payer = verified?.payer || verified?.payload?.payer || null;
+			return {
+				ok: true,
+				x402Ctx: { resourceUrl, requirements, verified },
+				principal: payer ? `payer:${payer}` : `ip:${clientIp(req)}`,
+			};
 		} catch (err) {
 			return {
 				ok: false,
@@ -1544,6 +1569,19 @@ async function dispatchRpc(msg, ctx) {
 				return gatedAuthFailureEnvelope(ctx.res, id, authz.failure);
 			}
 			ctx.x402Ctx = authz.x402Ctx;
+			// Per-principal ceiling on expensive/gated tools so a single bearer (which
+			// pays nothing) or payer can't drive unlimited grind/credit-burning work.
+			const gatedRl = await limits.mcpPumpGated(authz.principal || `ip:${clientIp(ctx.req)}`);
+			if (!gatedRl.success) {
+				if (!ctx.batch) {
+					ctx.gateDenied = {
+						id,
+						failure: { kind: 'rate_limited', code: -32029, message: 'rate limit exceeded for gated tools' },
+					};
+					return null;
+				}
+				return rpcEnvelope(id, null, { code: -32029, message: 'rate limit exceeded for gated tools' });
+			}
 			try {
 				const data = await handler(params?.arguments || {});
 				ctx.gatedSuccess = true;

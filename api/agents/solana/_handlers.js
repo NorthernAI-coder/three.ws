@@ -8,7 +8,7 @@ import { z } from 'zod';
 import { PublicKey } from '@solana/web3.js';
 import { solanaConnection, solanaRpcEndpoints, isEndpointCooling } from '../../_lib/solana/connection.js';
 import { sql } from '../../_lib/db.js';
-import { cors, json, method, wrap, error, readJson, rateLimited } from '../../_lib/http.js';
+import { cors, json, method, wrap, error, readJson, rateLimited, serverError, respondError } from '../../_lib/http.js';
 import { limits, clientIp } from '../../_lib/rate-limit.js';
 import { getSessionUser } from '../../_lib/auth.js';
 import { parse } from '../../_lib/validate.js';
@@ -228,7 +228,9 @@ export const handleValidate = wrap(async (req, res) => {
 		});
 	} catch (e) {
 		if (e instanceof SolanaAttestError) {
-			return error(res, SOLANA_ATTEST_ERROR_STATUS[e.code] || 500, e.code, e.message);
+			const status = SOLANA_ATTEST_ERROR_STATUS[e.code] || 500;
+			if (status >= 500) console.error('[agents/solana] attest failed', e.code, e?.message);
+			return respondError(res, status, e.code, e);
 		}
 		throw e;
 	}
@@ -395,6 +397,12 @@ export const handleCard = wrap(async (req, res) => {
 	const network = a.meta?.network || 'mainnet';
 	const origin = env.APP_ORIGIN;
 
+	// Sections sourced from independent reads below. A read that throws on a
+	// transient DB error is recorded here so the response can tell the client
+	// "temporarily unavailable" apart from a genuine "no data" (null), instead of
+	// silently conflating the two.
+	const degraded = [];
+
 	let pumpfun = null;
 	try {
 		const rows = await sql`select kind, count(*)::int as n, max(seen_at) as last_seen from pumpfun_signals where agent_asset = ${asset} group by kind`;
@@ -408,19 +416,28 @@ export const handleCard = wrap(async (req, res) => {
 			}
 			pumpfun = { signal_count: total, by_kind: byKind, last_seen: last, feed_url: `${origin}/api/agents/pumpfun-feed` };
 		}
-	} catch {}
+	} catch (err) {
+		degraded.push('pumpfun');
+		console.warn('[agent-card] pumpfun signals read failed:', err?.message || err);
+	}
 
 	let token_stats = null;
 	try {
 		const [s] = await sql`select s.graduated, s.bonding_curve, s.amm, s.last_signature, s.last_signature_at, s.recent_tx_count, s.refreshed_at, m.mint, m.network from pump_agent_stats s join pump_agent_mints m on m.id = s.mint_id where m.mint = ${asset} limit 1`;
 		if (s) token_stats = { mint: s.mint, network: s.network, graduated: s.graduated, bonding_curve: s.bonding_curve, amm: s.amm, last_signature: s.last_signature, last_signature_at: s.last_signature_at, recent_tx_count: s.recent_tx_count, refreshed_at: s.refreshed_at };
-	} catch {}
+	} catch (err) {
+		degraded.push('token_stats');
+		console.warn('[agent-card] token_stats read failed:', err?.message || err);
+	}
 
 	let validation = null;
 	try {
 		const [v] = await sql`select signature, attester, payload, block_time from solana_attestations where agent_asset = ${asset} and network = ${network} and kind = 'threews.validation.v1' and payload->>'subkind' = ${SUBKIND_GLB_SCHEMA} and revoked = false order by slot desc nulls first, block_time desc limit 1`;
 		if (v) validation = { passed: v.payload?.passed === true, proof_hash: v.payload?.proof_hash || null, proof_uri: v.payload?.proof_uri || null, validator: v.attester, signature: v.signature, validated_at: v.block_time };
-	} catch {}
+	} catch (err) {
+		degraded.push('validation');
+		console.warn('[agent-card] validation read failed:', err?.message || err);
+	}
 
 	return json(res, 200, {
 		schema_version: '1.0',
@@ -459,7 +476,8 @@ export const handleCard = wrap(async (req, res) => {
 		...(validation ? { validation } : {}),
 		...(pumpfun ? { pumpfun } : {}),
 		...(token_stats ? { token_stats } : {}),
-	}, { 'cache-control': 'public, max-age=120', 'access-control-allow-origin': '*' });
+		...(degraded.length ? { degraded } : {}),
+	}, { 'cache-control': degraded.length ? 'no-store' : 'public, max-age=120', 'access-control-allow-origin': '*' });
 });
 
 // ── solana-price-history ──────────────────────────────────────────────────────
@@ -948,7 +966,8 @@ export const handleEdit = wrap(async (req, res) => {
 		umi = createUmi(rpc).use(mplCore());
 		umi.use(signerIdentity(collectionAuthoritySigner(umi)));
 	} catch (e) {
-		return error(res, 500, 'authority_unconfigured', e.message);
+		console.error('[agents/solana] authority/umi init failed', e?.message);
+		return serverError(res, 500, 'authority_unconfigured', e);
 	}
 
 	const assetPk = umiPublicKey(asset_pubkey);
@@ -997,7 +1016,8 @@ export const handleEdit = wrap(async (req, res) => {
 				signatures.name = base58Sig(nameRes.signature);
 			}
 		} catch (e) {
-			return error(res, 502, 'onchain_edit_failed', `on-chain edit failed: ${e?.message || e}`);
+			console.error('[agents/solana] on-chain edit failed', e?.message || e);
+			return serverError(res, 502, 'onchain_edit_failed', e);
 		}
 	}
 

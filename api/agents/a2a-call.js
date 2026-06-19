@@ -19,7 +19,7 @@
 // co-signed by the peer's facilitator fee payer — with EVM EIP-3009 as fallback.
 
 import { authenticateBearer, extractBearer, getSessionUser } from '../_lib/auth.js';
-import { cors, error, json, method, rateLimited, readJson, respondError, wrap } from '../_lib/http.js';
+import { cors, error, json, method, rateLimited, readJson, respondError, serverError, wrap } from '../_lib/http.js';
 import { limits } from '../_lib/rate-limit.js';
 import { env } from '../_lib/env.js';
 import { assertSafePublicUrl, SsrfBlockedError } from '../_lib/ssrf-guard.js';
@@ -115,7 +115,7 @@ export default wrap(async (req, res) => {
 	try {
 		mandate = await verifyIntentMandate(mandateJws);
 	} catch (err) {
-		if (err instanceof MandateError) return error(res, err.status, err.code, err.message);
+		if (err instanceof MandateError) return respondError(res, err.status, err.code, err);
 		throw err;
 	}
 	if (mandate.ownerUserId !== userId) {
@@ -128,7 +128,8 @@ export default wrap(async (req, res) => {
 		quote = await requestQuote({ endpoint: safeEndpoint, text });
 	} catch (err) {
 		if (err instanceof A2AClientError) {
-			return error(res, 502, 'quote_failed', `could not get a quote from peer: ${err.message}`);
+			console.error('[agents/a2a-call] peer quote failed', err?.message);
+			return serverError(res, 502, 'quote_failed', err);
 		}
 		throw err;
 	}
@@ -152,7 +153,7 @@ export default wrap(async (req, res) => {
 			currency: currencyOf(accept),
 		});
 	} catch (err) {
-		if (err instanceof MandateError) return error(res, err.status, err.code, err.message);
+		if (err instanceof MandateError) return respondError(res, err.status, err.code, err);
 		throw err;
 	}
 
@@ -256,7 +257,8 @@ export default wrap(async (req, res) => {
 		// release the hold so the mandate's budget isn't silently consumed.
 		await release(mandate.mandateId, amount);
 		if (err instanceof A2AClientError) {
-			return error(res, 502, err.code || 'payment_failed', err.message, { details: err.details });
+			console.error('[agents/a2a-call] peer payment failed', err?.code, err?.message);
+			return serverError(res, 502, err.code || 'payment_failed', err);
 		}
 		return respondError(res, err.status || 502, 'payment_failed', err);
 	}

@@ -255,6 +255,12 @@ export const limits = {
 		),
 	mcpUser: (userId) => getLimiter('mcp:user', { limit: 1200, window: '1 m' }).limit(userId),
 	mcpIp: (ip) => getLimiter('mcp:ip', { limit: 600, window: '1 m' }).limit(ip),
+	// Per-principal ceiling on the expensive/gated pump-fun MCP tools (vanity grind,
+	// whale/claim watches, metadata upload that burns shared IPFS pinning credits).
+	// A bearer authorizes these for free, so without a per-principal cap one account
+	// could drive unlimited expensive calls. Critical — fail closed in prod.
+	mcpPumpGated: (principal) =>
+		getLimiter('mcp:pump:gated', { limit: 30, window: '1 m', critical: true }).limit(principal),
 	// Paid MCP tools — each call runs real compute (glTF validation / inspection
 	// / optimization on a fetched model). Marked critical so they fail closed in
 	// prod without Redis rather than allowing unbounded paid work per instance.

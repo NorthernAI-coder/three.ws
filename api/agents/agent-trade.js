@@ -21,7 +21,7 @@
 
 import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.js';
 import { sql } from '../_lib/db.js';
-import { cors, json, method, error, readJson, rateLimited } from '../_lib/http.js';
+import { cors, json, method, error, readJson, rateLimited, serverError } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { ensureAgentWallet, recoverSolanaAgentKeypair } from '../_lib/agent-wallet.js';
 import { getPumpTradeClient } from '../_lib/pump.js';
@@ -139,7 +139,8 @@ async function quoteTrade({ ctx, side, mintPk, amount, isMax, slippagePct, netwo
 			if (isGraduatedErr(err)) {
 				throw boundary(409, 'graduated', 'This coin has graduated off the bonding curve. Buying it from the agent wallet via the AMM isn’t supported on this path yet.');
 			}
-			throw boundary(502, 'quote_failed', `could not price the buy: ${err?.message || 'unknown error'}`);
+			console.error('[agents/agent-trade] buy quote failed', err?.message);
+			throw boundary(502, 'quote_failed', 'could not price the buy — try again');
 		}
 		requireSolQuote(ctx, q.quoteMint);
 		const expectedBase = BigInt(q.expectedBaseTokens.toString());
@@ -178,7 +179,8 @@ async function quoteTrade({ ctx, side, mintPk, amount, isMax, slippagePct, netwo
 	} catch (err) {
 		if (!isGraduatedErr(err)) {
 			if (err?.isBoundary) throw err;
-			throw boundary(502, 'quote_failed', `could not price the sell: ${err?.message || 'unknown error'}`);
+			console.error('[agents/agent-trade] sell quote failed', err?.message);
+			throw boundary(502, 'quote_failed', 'could not price the sell — try again');
 		}
 		// Graduated: route the quote through the canonical AMM pool.
 		const a = await quoteAmmSell({ network, mint: mintPk.toBase58(), baseAmount: baseBn, slippagePct });
@@ -428,7 +430,8 @@ async function handleExecute(req, res, id) {
 		if (isGraduatedErr(e)) {
 			return error(res, 409, 'graduated', 'This coin graduated mid-trade — refresh the quote and retry.');
 		}
-		return error(res, 502, 'build_failed', `could not build the trade: ${e?.message || 'unknown error'}`);
+		console.error('[agents/agent-trade] build failed', e?.message);
+		return error(res, 502, 'build_failed', 'could not build the trade — try again');
 	}
 
 	const ledgerMeta = {
@@ -447,7 +450,8 @@ async function handleExecute(req, res, id) {
 		try {
 			sim = await conn.simulateTransaction(vtx, { sigVerify: false, replaceRecentBlockhash: true });
 		} catch (e) {
-			return error(res, 502, 'simulation_failed', e?.message || 'simulation failed');
+			console.error('[agents/agent-trade] simulation failed', e?.message);
+			return serverError(res, 502, 'simulation_failed', e);
 		}
 		return json(res, 200, {
 			data: {

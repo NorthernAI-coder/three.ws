@@ -23,6 +23,7 @@ import { createHash } from 'node:crypto';
 
 import { cors, json, method, wrap, error, readJson, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
+import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.js';
 import { watsonxConfig, watsonxChatComplete } from '../_lib/watsonx.js';
 import { watsonxForecast, forecastModelFor } from '../_lib/watsonx-forecast.js';
 import { fetchOhlcv, topPoolForToken, trendingPools } from '../_lib/market/ohlcv.js';
@@ -474,6 +475,23 @@ export default wrap(async (req, res) => {
 	// POST with submit:true actually writes the proof on-chain (server is
 	// authoritative — it re-derives the digest and never trusts a client value).
 	if (submit && req.method === 'POST') {
+		// Broadcasting pays a real network fee from the shared attester wallet, so
+		// gate it: require a signed-in user or bearer token (read-only attestation
+		// stays open), plus a per-attester-pubkey daily ceiling so concurrent calls
+		// can't drain the wallet's SOL via fees.
+		const session = await getSessionUser(req).catch(() => null);
+		let authed = !!session;
+		if (!authed) {
+			const bearer = extractBearer(req);
+			if (bearer) authed = !!(await authenticateBearer(bearer).catch(() => null));
+		}
+		if (!authed) {
+			out.onchain.error = 'on-chain submission requires sign-in or a valid bearer token';
+			return json(res, 401, out, { 'cache-control': 'no-store' });
+		}
+		const submitRl = await limits.attestSubmitDaily(wallet.address || 'unconfigured');
+		if (!submitRl.success) return rateLimited(res, submitRl, 'daily on-chain attestation limit reached');
+
 		if (!out.proof) {
 			out.onchain.error = 'nothing to notarize: ' + (out.onchain.reason || 'no forecast');
 		} else if (out.governance?.passed === false) {

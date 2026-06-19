@@ -132,7 +132,19 @@ export async function checkAllowance(
     body: JSON.stringify(body),
   });
 
-  const json: { result: Hex } = await res.json();
+  if (!res.ok) {
+    throw new Error(`Allowance check failed: RPC returned HTTP ${res.status}`);
+  }
+
+  const json: { result?: Hex; error?: { code: number; message: string } } =
+    await res.json();
+  if (json.error) {
+    throw new Error(`Allowance check failed: ${json.error.message}`);
+  }
+  if (typeof json.result !== "string") {
+    throw new Error("Allowance check failed: RPC returned no result");
+  }
+
   const allowance = BigInt(json.result);
   return allowance >= amount;
 }

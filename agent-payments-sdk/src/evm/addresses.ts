@@ -20,8 +20,10 @@ export interface EvmChainConfig {
   agentPayments: Address;
 }
 
-/** Placeholder — replace with deployed contract addresses post-deployment */
-const UNDEPLOYED = "0x0000000000000000000000000000000000000000" as Address;
+/** The zero address. The AgentPayments contract is not yet deployed on any EVM
+ *  chain, so every `agentPayments` below is this placeholder until deployment. */
+export const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as Address;
+const UNDEPLOYED = ZERO_ADDRESS;
 
 export const EVM_CHAINS: Record<EvmChainId, EvmChainConfig> = {
   1: {
@@ -96,6 +98,15 @@ export function getEvmChain(chainId: EvmChainId): EvmChainConfig {
 
 export function isEvmChainSupported(chainId: number): chainId is EvmChainId {
   return chainId in EVM_CHAINS;
+}
+
+/** Whether the AgentPayments contract is actually deployed on this chain (i.e.
+ *  its address is not the zero-address placeholder). Until deployment this is
+ *  false for every chain, and constructing an EVM agent against it throws rather
+ *  than silently handing the caller a transaction addressed to 0x000…000. */
+export function isAgentPaymentsDeployed(chainId: EvmChainId): boolean {
+  const chain = EVM_CHAINS[chainId];
+  return !!chain && chain.agentPayments.toLowerCase() !== ZERO_ADDRESS;
 }
 
 /** Native ETH/BNB/AVAX sentinel address (matches EIP-7528) */
