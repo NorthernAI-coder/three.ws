@@ -45,6 +45,61 @@ const animationEntrySchema = z.object({
 
 const animationsSchema = z.array(animationEntrySchema).max(30);
 
+// ── Agent Studio meta contract (P0 foundation) ───────────────────────────────
+// PUT /api/agents/:id persists Agent Studio state under meta.studio. This is the
+// stable contract the Studio sub-surfaces (P1-P5) bind to — keep it in sync with
+// the column comment in 20260619010000_agent_studio.sql.
+//
+//   meta.studio = {
+//     studio_version : number   // schema version of this bag (currently 1)
+//     brain   : object          // P1 — { model, provider, graph, ... }
+//     memory  : object          // P2 — memory config / retention policy
+//     body    : object          // P3 — { outfit, animation, animationRefs, ... }
+//     money   : object          // P4 — payout / pricing knobs
+//     trading : object          // P5 — { rules, ... } trade automation
+//     skills  : object          // skills surface config
+//   }
+//
+// Only these top-level keys are accepted inside meta.studio; any other is
+// rejected (400) so a typo or rogue client can't pollute the shared bag. The
+// serialized-size limit is enforced separately in handleUpdate. Secrets must
+// never be written here — custodial keys live at meta.encrypted_* (stripped on read).
+const STUDIO_ALLOWED_KEYS = new Set([
+	'studio_version',
+	'brain',
+	'memory',
+	'body',
+	'money',
+	'trading',
+	'skills',
+]);
+
+// Returns an error message when the client-supplied meta.studio bag is malformed,
+// or null when it's absent (nothing to validate) / null (explicit clear) / valid.
+// Validates the CLIENT INPUT only — never re-validates already-stored data, so a
+// legacy row is never rejected by a later, stricter key set.
+function validateStudioMeta(meta) {
+	if (!meta || typeof meta !== 'object' || Array.isArray(meta)) return null;
+	if (!('studio' in meta)) return null;
+	const studio = meta.studio;
+	if (studio === null) return null;
+	if (typeof studio !== 'object' || Array.isArray(studio)) {
+		return 'meta.studio must be an object';
+	}
+	for (const key of Object.keys(studio)) {
+		if (!STUDIO_ALLOWED_KEYS.has(key)) {
+			return `meta.studio: unknown key "${key}" (allowed: ${[...STUDIO_ALLOWED_KEYS].join(', ')})`;
+		}
+	}
+	if (
+		studio.studio_version !== undefined &&
+		(typeof studio.studio_version !== 'number' || !Number.isFinite(studio.studio_version))
+	) {
+		return 'meta.studio.studio_version must be a number';
+	}
+	return null;
+}
+
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'GET,POST,OPTIONS', credentials: true })) return;
 	if (!method(req, res, ['GET', 'POST'])) return;
@@ -402,6 +457,11 @@ async function handleUpdate(req, res, id, auth) {
 
 	const body = await readJson(req);
 
+	// Reject a malformed Agent Studio bag up front (unknown top-level keys, bad
+	// studio_version) so the shared meta.studio contract stays clean for P1-P5.
+	const studioErr = validateStudioMeta(body.meta);
+	if (studioErr) return error(res, 400, 'validation_error', studioErr);
+
 	// Server-side meta merge. GET strips encrypted_wallet_key /
 	// encrypted_solana_secret before returning meta, so a client read-modify-write
 	// must never be able to wipe (or set) them: merge the client's meta over the
@@ -448,7 +508,8 @@ async function handleUpdate(req, res, id, auth) {
 			skills         = COALESCE(${body.skills || null}, skills),
 			meta           = COALESCE(${mergedMeta ? JSON.stringify(mergedMeta) : null}::jsonb, meta),
 			persona_prompt = COALESCE(${personaPrompt}, persona_prompt),
-			home_url       = COALESCE(${body.home_url || null}, home_url)
+			home_url       = COALESCE(${body.home_url || null}, home_url),
+			updated_at     = now()
 		WHERE id = ${id}
 		RETURNING *
 	`;
@@ -715,6 +776,10 @@ function decorate(row, isOwner = true) {
 		// requests the backend will reject with 403.
 		is_owner: !!isOwner,
 		created_at: row.created_at,
+		// updated_at lets the Agent Studio store reconcile concurrent edits: when a
+		// PUT returns a newer timestamp than the client's optimistic copy, the store
+		// takes the server record as truth instead of clobbering it.
+		updated_at: row.updated_at,
 	};
 	// Voice fields are public (the runtime reads them to configure TTS).
 	base.voice_provider = row.voice_provider || 'browser';

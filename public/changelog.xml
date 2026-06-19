@@ -55,6 +55,14 @@
 			<description>Camera AR used to assume you were holding your phone upright. Rotate to landscape — or just have the browser's toolbar slide away as you scroll — and a pinned agent could quietly change size or drift off the real-world spot you placed it on. IRL now re-reads your camera's lens and your screen's orientation the instant either changes, so the agent keeps its true scale and stays locked to its spot whether you hold the phone portrait or sideways. The motion-sensor lock that rotates the view as you turn now understands landscape too, so panning around the agent stays smooth and accurate, and the rapid resizing iPhone Safari does while scrolling no longer makes the scene stutter.</description>
 		</item>
 		<item>
+			<title>Brain Studio — build your agent’s mind as a visual circuit</title>
+			<link>https://three.ws/agent-studio</link>
+			<guid isPermaLink="false">2026-06-19:Brain Studio — build your agent’s mind as a visual circuit</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The Brain tab in Agent Studio is now a visual node editor: wire Persona, Model, Memory, Skills, and trading-reasoning nodes into a living graph that IS your agent’s personality. Pick from real LLMs (Claude, GPT, Granite and more) per branch, connect a memory port that recalls and writes real memories, and watch the active path light up as your agent thinks — tokens streaming, memory firing, the avatar reacting live. A built-in test chat runs your graph against the real models with real latency and token stats, and forkable templates (Sniper, Scalper, Researcher, Companion) get you started in one click. Your graph compiles straight to your agent’s persona so every existing chat surface picks up the change.</description>
+		</item>
+		<item>
 			<title>Clearer IRL onboarding and copy</title>
 			<link>https://three.ws/irl</link>
 			<guid isPermaLink="false">2026-06-19:Clearer IRL onboarding and copy</guid>

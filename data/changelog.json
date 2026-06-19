@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-06-19",
+			"title": "Brain Studio — build your agent’s mind as a visual circuit",
+			"summary": "The Brain tab in Agent Studio is now a visual node editor: wire Persona, Model, Memory, Skills, and trading-reasoning nodes into a living graph that IS your agent’s personality. Pick from real LLMs (Claude, GPT, Granite and more) per branch, connect a memory port that recalls and writes real memories, and watch the active path light up as your agent thinks — tokens streaming, memory firing, the avatar reacting live. A built-in test chat runs your graph against the real models with real latency and token stats, and forkable templates (Sniper, Scalper, Researcher, Companion) get you started in one click. Your graph compiles straight to your agent’s persona so every existing chat surface picks up the change.",
+			"tags": [
+				"feature"
+			],
+			"link": "/agent-studio"
+		},
+		{
+			"date": "2026-06-19",
 			"title": "Agent Studio — one place to build your whole agent, with a live avatar",
 			"summary": "Agent Studio is the new home for authoring everything about your AI agent — its brain, memory, 3D body, money, and skills — side by side with a live avatar that updates the instant you make a change, no save button and no refresh. The same living avatar can now appear anywhere on the platform as a presence companion, reacting with real emotion to what's happening: it celebrates a filled trade, looks concerned when a position drops, and stays in sync with whatever you edit in the Studio. This release ships the Studio shell and the shared foundation the rest of the experience builds on.",
 			"tags": [

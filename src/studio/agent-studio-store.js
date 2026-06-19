@@ -32,6 +32,22 @@
  * `studio.onMarket(fn)` and are mapped to avatar reactions by `<agent-presence>`.
  *
  * The store is framework-agnostic (no React/DOM deps) so it works on every page.
+ *
+ * ── P0 FOUNDATION ADDENDUM (routing, presence, server contract) ──────────────
+ * • Route: the Studio shell lives at /agent-studio (pages/agent-studio.html →
+ *   src/studio/studio-shell.js). Each tab is an empty <section
+ *   data-studio-mount="brain|memory|body|money|skills"> with a designed empty
+ *   state — mount your sub-studio there and remove its `.studio-empty`. The shell
+ *   fires document `studio-shell:ready` (detail:{ studio, agent }) once loaded.
+ * • Presence: <agent-presence> (src/studio/agent-presence.js) renders this same
+ *   live agent anywhere (modes: stage|companion|mini) and auto-syncs to this
+ *   store. It maps `studio.emitMarket({ type })` events to avatar reactions — so
+ *   P4/P5 only need to emit (e.g. 'snipe:filled', 'position:down'); the avatar
+ *   celebrates/worries with no extra wiring.
+ * • Server: PUT /api/agents/:id persists meta.studio. Write ONLY your domain
+ *   namespace (brain|memory|body|money|trading|skills) — the server whitelists
+ *   top-level keys (api/agents.js validateStudioMeta) and size-limits the bag;
+ *   an unknown key 400s. The decorated record exposes `updated_at` for reconcile.
  */
 
 import { AgentIdentity } from '../agent-identity.js';
