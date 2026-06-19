@@ -8,6 +8,8 @@
  * PATCH  /api/irl/pins  { id, caption, avatarUrl, avatarName, lat, lng }  edit pin (auth required)
  * PATCH  /api/irl/pins  { id, deviceToken, calibrate:{ lat, lng, anchorYawDeg, anchorHeightM } }
  *                                                  owner-gated, bounds-checked pose nudge (A3)
+ * PATCH  /api/irl/pins  { deviceToken, calibrateRoom:{ roomId, dEastM, dNorthM, dYawDeg } }
+ *                                                  owner-gated, bounds-checked whole-room align (R2)
  * DELETE /api/irl/pins?id=                         remove own pin (device_token or auth)
  * DELETE /api/irl/pins?all=1&deviceToken=          purge every pin from this device → { deleted }
  * POST   /api/irl/pins/interact { pinId, event, deviceToken }  log a tap/view
@@ -26,6 +28,7 @@ import { sendOpsAlert } from '../_lib/alerts.js';
 import { sha256 } from '../_lib/crypto.js';
 import { readDeviceToken } from '../_lib/irl-auth.js';
 import { verifyFixToken, fixEnforced } from '../_lib/irl-presence.js';
+import { calibrateRoomOrigin, pinAbsoluteFromOrigin } from '../../src/irl/room-anchor.js';
 
 // ── Moderation, safety & density caps (D4) ──────────────────────────────────
 // Everything below makes the public, shared IRL world safe to launch: content
@@ -579,6 +582,117 @@ async function handleCalibrate(res, { id, session, body, deviceToken = null }) {
 	return json(res, 200, { pin: row, calibrated: true });
 }
 
+// One-gesture ROOM calibrate (R2). The headline alignment tool: instead of
+// nudging each agent (A3), the owner grabs the WHOLE cluster and slides / twists
+// it onto its true real-world spot once. Every agent is rigidly tied to the
+// shared origin via its rel_east_m/rel_north_m, so moving the origin moves them
+// all together with the internal layout intact — never a per-agent shear. We
+// translate the origin by a true-north metre offset and rotate the frame about
+// it (reusing the A3 calibration ceilings), then re-derive each agent's absolute
+// lat/lng (the GPS index nearby reads use) from its UNCHANGED room offset. A
+// cluster rotation also turns each agent's facing by the same angle so the rig
+// stays internally consistent. Owner-gated across EVERY pin in the room: one
+// stranger's agent in the cluster denies the whole move — we never slide someone
+// else's agent across the map. No coin or third-party token is involved.
+async function handleCalibrateRoom(res, { session, body, deviceToken = null }) {
+	const cal = (body.calibrateRoom && typeof body.calibrateRoom === 'object') ? body.calibrateRoom : {};
+	const roomId = String(cal.roomId || '');
+	if (!ROOM_ID_RE.test(roomId)) return json(res, 400, { error: 'invalid room id' });
+
+	const dEastM  = Number(cal.dEastM);
+	const dNorthM = Number(cal.dNorthM);
+	const dYawDeg = Number(cal.dYawDeg);
+	if (![dEastM, dNorthM, dYawDeg].every(Number.isFinite)) {
+		return json(res, 400, { error: 'invalid room calibrate offsets' });
+	}
+	// Bounds reuse the A3 ceilings: a move is the ground translation magnitude, a
+	// rotation the absolute yaw delta. Reject larger with the existing 422 codes.
+	if (Math.hypot(dEastM, dNorthM) > CAL_MAX_MOVE_M) {
+		return json(res, 422, { error: 'calibration move too large', max_m: CAL_MAX_MOVE_M });
+	}
+	if (Math.abs(dYawDeg) > CAL_MAX_YAW_DEG) {
+		return json(res, 422, { error: 'calibration rotation too large', max_deg: CAL_MAX_YAW_DEG });
+	}
+
+	// Every live pin in the room. A calibrate only ever touches the public, visible
+	// cluster — an expired / moderation-hidden pin is gone from the world (task 13),
+	// same stance as the per-pin path.
+	const pins = await sql`
+		SELECT id, user_id, device_token, rel_east_m, rel_north_m,
+		       origin_lat, origin_lng, origin_yaw_deg, heading, anchor_yaw_deg
+		FROM irl_pins
+		WHERE room_id = ${roomId}
+		  AND hidden_at IS NULL
+		  AND (expires_at IS NULL OR expires_at > NOW())
+	`;
+	if (!pins.length) return json(res, 404, { error: 'room not found' });
+
+	// Ownership: EVERY pin must belong to the caller — the authenticated owner
+	// (user_id) or the anonymous device that placed it (device_token). Null-guarded
+	// so a NULL user_id / empty device token can never match. Deny the whole move
+	// if any agent is a stranger's; never move an agent we don't own.
+	const owns = (p) =>
+		(!!session?.id && !!p.user_id && p.user_id === session.id) ||
+		(!!p.device_token && !!deviceToken && p.device_token === deviceToken);
+	if (!pins.every(owns)) {
+		return json(res, 403, { error: 'only the room owner can align this room' });
+	}
+
+	// Resolve the new origin once (it is denormalized identically across the cluster)
+	// via the shared geodesy, then re-derive each agent's absolute lat/lng + facing
+	// from its unchanged room-frame offset so nearby reads stay correct.
+	const baseRow = pins[0];
+	const next = calibrateRoomOrigin({
+		originLat: Number(baseRow.origin_lat), originLng: Number(baseRow.origin_lng),
+		originYawDeg: Number(baseRow.origin_yaw_deg) || 0,
+		dEastM, dNorthM, dYawDeg,
+	});
+	const rotated = dYawDeg !== 0;
+	const ids = [], lats = [], lngs = [], yaws = [];
+	for (const p of pins) {
+		const abs = pinAbsoluteFromOrigin({
+			originLat: next.originLat, originLng: next.originLng, originYawDeg: next.originYawDeg,
+			relEast: Number(p.rel_east_m) || 0, relNorth: Number(p.rel_north_m) || 0,
+		});
+		const baseYaw = Number.isFinite(p.anchor_yaw_deg) ? p.anchor_yaw_deg
+			: (Number.isFinite(p.heading) ? p.heading : 0);
+		ids.push(p.id);
+		lats.push(abs.lat);
+		lngs.push(abs.lng);
+		yaws.push((((baseYaw + dYawDeg) % 360) + 360) % 360);
+	}
+
+	// One atomic write: set the shared origin for the whole cluster and join each
+	// agent's re-derived lat/lng + facing by id via unnest, scoped to the verified
+	// room. A rotation clears anchor_quat (the captured surface orientation is now
+	// wrong — same as the per-pin path) so anchor_yaw_deg is authoritative again.
+	const rows = await sql`
+		UPDATE irl_pins AS t SET
+			origin_lat     = ${next.originLat},
+			origin_lng     = ${next.originLng},
+			origin_yaw_deg = ${next.originYawDeg},
+			lat            = v.lat,
+			lng            = v.lng,
+			heading        = ROUND(v.yaw)::int,
+			anchor_yaw_deg = v.yaw,
+			anchor_quat    = CASE WHEN ${rotated} THEN NULL ELSE anchor_quat END
+		FROM (
+			SELECT * FROM unnest(${ids}::uuid[], ${lats}::float8[], ${lngs}::float8[], ${yaws}::float8[])
+				AS u(id, lat, lng, yaw)
+		) AS v
+		WHERE t.id = v.id AND t.room_id = ${roomId}
+		RETURNING t.id
+	`;
+	// The aligned cluster reaches nearby viewers on their next proximity poll — pin
+	// positions are never broadcast as a roster.
+	return json(res, 200, {
+		ok: true,
+		roomId,
+		moved: rows.length,
+		origin: { lat: next.originLat, lng: next.originLng, yawDeg: next.originYawDeg },
+	});
+}
+
 // ── Remote outfit change (C6) ───────────────────────────────────────────────
 // Re-skin a placed agent for EVERY nearby viewer. The owner sends the appearance
 // manifest ({ colors, hidden, accessories }); we validate it against the same
@@ -1099,6 +1213,16 @@ export default wrap(async (req, res) => {
 
 		const session = await getSessionUser(req).catch(() => null);
 		const body = req.body ?? {};
+
+		// ── Room calibrate — one-gesture align of an entire owned cluster (R2) ──
+		// Routed BEFORE the per-pin `id` gate: a room calibrate is scoped by roomId,
+		// not a single pin id. Owner-gated for both authenticated owners and the
+		// anonymous device that placed the room; ownership + bounds are enforced
+		// inside handleCalibrateRoom.
+		if (body.calibrateRoom && typeof body.calibrateRoom === 'object') {
+			return handleCalibrateRoom(res, { session, body, deviceToken: readDeviceToken(req) });
+		}
+
 		const { id } = body;
 		if (!id) return json(res, 400, { error: 'id required' });
 		// Reject a malformed pin id up front (covers calibrate / outfit / field-edit):

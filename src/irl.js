@@ -421,6 +421,7 @@ async function _enableARBody() {
 	arActive = true;
 	document.body.classList.add('is-ar');
 	cameraBtn.classList.add('is-active');
+	cameraBtn.setAttribute('aria-pressed', 'true');
 	cameraLabel.textContent = 'Camera On';
 	setSubtitle(SUBTITLE.aiming);
 	groundOpaque.visible = false;
@@ -453,6 +454,7 @@ function disableAR() {
 	arActive = false;
 	document.body.classList.remove('is-ar');
 	cameraBtn.classList.remove('is-active');
+	cameraBtn.setAttribute('aria-pressed', 'false');
 	cameraLabel.textContent = 'Camera AR';
 	setSubtitle(SUBTITLE.cameraOff);
 	groundOpaque.visible = true;
@@ -746,7 +748,17 @@ joystick.on('move', evt => {
 });
 joystick.on('end', () => { input.joy.x = 0; input.joy.y = 0; input.joy.active = false; });
 
+// Don't drive the avatar while the keyboard belongs to something else: a text
+// field (typing a caption / message) or an open modal sheet (its own focus trap
+// owns Tab/Escape). Otherwise WASD/arrows would both type and walk.
+function movementKeysCaptured() {
+	const a = document.activeElement;
+	if (a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.isContentEditable)) return true;
+	return !!document.querySelector('.is-open[aria-modal="true"]');
+}
+
 window.addEventListener('keydown', e => {
+	if (movementKeysCaptured()) return;
 	switch (e.code) {
 		case 'KeyW': case 'ArrowUp':         input.keys.forward = 1; break;
 		case 'KeyS': case 'ArrowDown':       input.keys.back    = 1; break;
@@ -1238,10 +1250,14 @@ function showErrorState({ title, body, actionLabel, onAction }) {
 		errorActionEl.hidden = true;
 	}
 	errorSheet.classList.add('is-open');
+	// Trap focus + Escape; land on the primary action when there is one, else the
+	// dismiss control, so a keyboard user starts on the most useful target.
+	trapSheet(errorSheet, hideErrorState, { initialFocus: onAction ? errorActionEl : errorDismissEl });
 }
 
 function hideErrorState() {
 	if (errorSheet) errorSheet.classList.remove('is-open');
+	releaseSheet(errorSheet);
 	_errorAction = null;
 }
 
@@ -1260,7 +1276,7 @@ if (errorDismissEl) errorDismissEl.addEventListener('click', hideErrorState);
 const overlayEl = document.getElementById('irl-overlay');
 
 function hideOverlay() {
-	if (overlayEl) { overlayEl.hidden = true; overlayEl.innerHTML = ''; }
+	if (overlayEl) { releaseSheet(overlayEl); overlayEl.hidden = true; overlayEl.innerHTML = ''; }
 }
 
 function showAvatarLoadError(err, onRetry) {
@@ -1275,10 +1291,13 @@ function showAvatarLoadError(err, onRetry) {
 		scope: 'irl-avatar',
 	})}</div>`;
 	overlayEl.hidden = false;
-	overlayEl.querySelector('[data-sk-retry]')?.addEventListener('click', () => {
-		hideOverlay();
-		onRetry?.();
-	});
+	const retry = () => { hideOverlay(); onRetry?.(); };
+	overlayEl.querySelector('[data-sk-retry]')?.addEventListener('click', retry);
+	// This avatar-load failure is recoverable, so Escape acts as Retry and focus is
+	// trapped on the Retry control. (The terminal "unsupported device" overlay is
+	// rendered by the page's capability gate, not here, and is intentionally not
+	// Escape-dismissable — there's nothing working behind it.)
+	trapSheet(overlayEl, retry, { initialFocus: overlayEl.querySelector('[data-sk-retry]') });
 }
 
 // ── GPS world-anchor system ───────────────────────────────────────────────
@@ -3674,9 +3693,14 @@ function updateNearbyBadge() {
 	badge.classList.toggle('is-empty', mod === 'is-empty');
 	badge.classList.toggle('is-rate', mod === 'is-rate');
 	badge.classList.toggle('is-acquiring', mod === 'is-acquiring');
-	if (mod === 'hidden') { badge.hidden = true; return; }
+	if (mod === 'hidden') { badge.hidden = true; discovery.setEmpty(false); return; }
 	badge.hidden = false;
 	if (badge.textContent !== text) badge.textContent = text;
+	// Task 02 — the designed in-scene "keep exploring" prompt shows ONLY in the
+	// genuine empty state (GPS ready, first read landed, nobody here). Every other
+	// state (looking, acquiring, populated, error, rate-limited) retires it. The
+	// badge above owns the polite SR announcement; the prompt is the visual story.
+	discovery.setEmpty(mod === 'is-empty', { ar: arActive });
 }
 
 // ── My Pins management ────────────────────────────────────────────────────
@@ -4016,6 +4040,12 @@ async function openMyPinsSheet() {
 	const list  = document.getElementById('irl-mypins-list');
 	if (!sheet || !list) return;
 	sheet.classList.add('is-open');
+	// Trap focus + Escape. suspendWhile defers to the bulk-purge confirm's own trap
+	// when it's open, so Escape there closes only the confirm, not the whole sheet.
+	trapSheet(sheet, closeMyPinsSheet, {
+		initialFocus: document.getElementById('irl-mypins-close'),
+		suspendWhile: () => !!document.querySelector('.irl-mypins-confirm'),
+	});
 	resetMyPinsChrome();   // map skeleton on, footer + any stale confirm cleared
 	// Designed loading → list / empty / error(+retry). loadInto returns the data on
 	// success or null when empty/errored; the map + purge footer ride a real,
@@ -4038,7 +4068,9 @@ async function openMyPinsSheet() {
 }
 
 function closeMyPinsSheet() {
-	document.getElementById('irl-mypins-sheet')?.classList.remove('is-open');
+	const sheet = document.getElementById('irl-mypins-sheet');
+	sheet?.classList.remove('is-open');
+	releaseSheet(sheet);
 	_myPinsMapSeq++;        // void any in-flight CDN build
 	teardownMyPinsMap();
 	hideMyPinsFooter();
@@ -4724,10 +4756,15 @@ function openReportSheet(pinId) {
 	if (status) { status.hidden = true; status.classList.remove('is-error'); }
 	sheet.querySelectorAll('.irl-report-reason').forEach((b) => { b.disabled = false; });
 	sheet.classList.add('is-open');
+	// Trap focus + Escape; start on the first reason so a keyboard user can pick
+	// one immediately.
+	trapSheet(sheet, closeReportSheet, { initialFocus: sheet.querySelector('.irl-report-reason') });
 }
 
 function closeReportSheet() {
-	document.getElementById('irl-report-sheet')?.classList.remove('is-open');
+	const sheet = document.getElementById('irl-report-sheet');
+	sheet?.classList.remove('is-open');
+	releaseSheet(sheet);
 	_reportPinId = null;
 }
 
@@ -4787,6 +4824,8 @@ async function openAgentPicker() {
 	const list  = document.getElementById('irl-agents-list');
 	if (!sheet || !list) return;
 	sheet.classList.add('is-open');
+	// Trap focus + Escape; the rows load async, so start focus on the close button.
+	trapSheet(sheet, closeAgentPicker, { initialFocus: document.getElementById('irl-agents-close') });
 	list.innerHTML = '<p class="irl-agents-empty">Loading…</p>';
 
 	let agents = [];
@@ -4807,6 +4846,9 @@ async function openAgentPicker() {
 
 	list.innerHTML = agents.map(a => `
 		<div class="irl-agent-row${_currentAgentId === a.id ? ' is-active' : ''}"
+		     role="button" tabindex="0"
+		     aria-pressed="${_currentAgentId === a.id ? 'true' : 'false'}"
+		     aria-label="Use agent ${_escHtml(a.name)}"
 		     data-agent-id="${_escHtml(a.id)}"
 		     data-avatar-id="${_escHtml(a.avatar_id ?? '')}"
 		     data-avatar-url="${_escHtml(a.avatar_model_url ?? '')}"
@@ -4825,9 +4867,23 @@ async function openAgentPicker() {
 	`).join('');
 }
 
+function closeAgentPicker() {
+	const sheet = document.getElementById('irl-agents-sheet');
+	sheet?.classList.remove('is-open');
+	releaseSheet(sheet);
+}
+
 document.getElementById('irl-agents-btn')?.addEventListener('click', openAgentPicker);
-document.getElementById('irl-agents-close')?.addEventListener('click', () => {
-	document.getElementById('irl-agents-sheet')?.classList.remove('is-open');
+document.getElementById('irl-agents-close')?.addEventListener('click', closeAgentPicker);
+
+// Agent rows are role="button" divs — make Enter/Space activate them like a
+// native button so the picker is fully operable from the keyboard.
+document.getElementById('irl-agents-list')?.addEventListener('keydown', (e) => {
+	if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
+	const row = e.target.closest('.irl-agent-row[data-agent-id]');
+	if (!row) return;
+	e.preventDefault();
+	row.click();
 });
 
 document.getElementById('irl-agents-list')?.addEventListener('click', async (e) => {
@@ -4837,7 +4893,7 @@ document.getElementById('irl-agents-list')?.addEventListener('click', async (e) 
 	const avatarId  = row.dataset.avatarId;
 	const avatarUrl = row.dataset.avatarUrl;
 	const name      = row.dataset.name;
-	document.getElementById('irl-agents-sheet')?.classList.remove('is-open');
+	closeAgentPicker();
 	_currentAgentId = agentId;
 	// Update URL so a share link carries the chosen agent's avatar
 	const sp = new URLSearchParams(location.search);
@@ -6015,7 +6071,12 @@ window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && calibrateA
 // or a later chip tap — so there's no silent native location prompt on load.
 startOnboarding({ onGrant: (kind) => {
 	if (kind === 'location') { initGPS(); maybeShowFirstRunDisclosure(); }
-} });
+} }).finally(() => {
+	// Task 02 — once the permission flow settles, reveal the "?" affordance and, on
+	// a fresh device, show the discovery explainer once. maybeFirstRun() defers
+	// behind any open first-run privacy disclosure so the two never stack.
+	discovery.maybeFirstRun();
+});
 
 // Reveal My pins on load if this device already owns pins — management must
 // survive a reload (and a denied GPS prompt). The GPS-ready path reveals it too.
@@ -6281,4 +6342,49 @@ if (import.meta.env.DEV) {
 	onPinStable((pin) => { _stableArrivals.push({ id: pin.id, name: pin.avatar_name, at: Date.now() }); });
 	window.__irlStableArrivals = () => _stableArrivals.slice();
 	window.__irlResetStableArrivals = () => { _stableArrivals.length = 0; return 'reset'; };
+
+	// ── E2E discovery + privacy harness (task 07) ─────────────────────────────
+	// Hermetic hooks that let the Playwright regression LOCK the location-privacy
+	// invariant without a phone, a live socket, or a real database: the test routes
+	// /api/irl/pins to serve chosen rows, drives the REAL proximity reconcile
+	// (loadNearbyPins → the asymmetric ENTER/EXIT band), and reads back EXACTLY what
+	// the client is holding. The reader is the assertion surface: if an out-of-range
+	// coordinate ever survived the band into client state, it would show up here.
+	//
+	// setGps writes straight into gpsState and deliberately does NOT open the
+	// presence socket (startPinSync), so the run stays fully offline — pins ride the
+	// poll regardless, and skipping the socket keeps the console error-free.
+	window.__irlE2E = {
+		setGps(lat, lng, accuracy = 8) {
+			gpsState.lat = lat;
+			gpsState.lng = lng;
+			gpsState.accuracy = accuracy;
+			gpsState.altitude = null;
+			gpsState.ready = true;
+			_gpsAcquiring = false;
+			updateNearbyBadge();
+			return { lat: gpsState.lat, lng: gpsState.lng };
+		},
+		// Run exactly one proximity reconcile against whatever the test has routed for
+		// /api/irl/pins, then resolve — deterministic, no 10 s poll-timer wait.
+		poll: () => loadNearbyPins(),
+		// The full set of pin coordinates the client currently holds — the privacy
+		// assertion's window into client state. An out-of-range pin that the band
+		// correctly refused to render never enters this list, so its coordinate is
+		// provably absent from the client.
+		nearby: () => nearbyPins.map((p) => ({
+			id: p.id,
+			lat: p.lat,
+			lng: p.lng,
+			distance: Math.round(bandDistance(p)),
+			rendered: !!p.group,
+		})),
+		// Turn a metres-offset (north/east) into a coordinate so a test can plant a
+		// served pin at an EXACT distance from the viewer and assert the ENTER/EXIT gate.
+		offsetCoord(lat, lng, north = 0, east = 0) {
+			const mLat = 110540;
+			const mLng = 111320 * Math.cos(lat * (Math.PI / 180));
+			return { lat: lat + north / mLat, lng: lng + east / mLng };
+		},
+	};
 }

@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-06-19",
+			"title": "IRL stays fast and recovers gracefully in long AR sessions",
+			"summary": "IRL is built to run for an hour without slowing down. Swapping your avatar now fully releases the previous 3D model from memory instead of leaving it behind, so trying on a dozen looks in one session no longer piles up. If your phone reclaims graphics memory and the camera view would otherwise go black — a common thing on mobile after the tab sits idle — IRL now pauses cleanly and restores the scene, with a clear \"AR paused, restoring…\" card and a one-tap reload if your device needs it. Backgrounding the tab pauses the render loop and quiets the camera to save battery, then resumes the moment you come back. And as you move, avatars you walk past stop holding a load slot ahead of the ones you're heading toward, so the nearest agents always render first.",
+			"tags": [
+				"improvement"
+			],
+			"link": "/irl"
+		},
+		{
+			"date": "2026-06-19",
 			"title": "Clearer IRL onboarding and copy",
 			"summary": "Opening IRL for the first time now spells out the core loop in plain words: turn on Camera AR, aim at the spot you want, then tap Pin here to anchor your agent in real space. The on-screen guidance updates as you go — it points you to the next step before you've pinned, and confirms when your agent is anchored. We rewrote the status messages around pinning to be calm and literal instead of technical or alarming: waiting on a GPS fix now tells you it's quicker outdoors, pinning without location explains your agent is saved on this device until you turn location on, and a missing compass reads as a gentle note rather than a warning. The caption keyboard now opens reliably when the panel slides up on iPhone.",
 			"tags": [

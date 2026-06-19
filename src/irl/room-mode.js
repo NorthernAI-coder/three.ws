@@ -195,6 +195,37 @@ export function initRoomMode(deps) {
 		try { localStorage.setItem(STORE_KEY, serializeRoom(activeRoom)); } catch {}
 	}
 
+	// Establish the session room from a live pose if one isn't already active, then
+	// return it. Single source of truth for both the slider Place flow and the WebXR
+	// floor path (R3), so a precision placement and a gyro placement always anchor
+	// into the SAME shared room. Returns null only when the fix is unusable.
+	function ensureRoom({ lat, lng, headingDeg = 0, absolute = false } = {}) {
+		if (activeRoom) return activeRoom;
+		if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+		try {
+			activeRoom = establishRoom({
+				lat, lng,
+				headingDeg, hasAbsoluteCompass: absolute,
+				locationKey: locationKey(lat, lng),
+				rand: (Math.random().toString(36).slice(2, 8)),
+				now: Date.now(),
+			});
+			persistRoom();
+		} catch { return null; }
+		return activeRoom;
+	}
+
+	// Record one successful placement against the active room: bump the count, persist
+	// the resume token, and refresh the badge. Called by the slider Place flow and by
+	// the WebXR floor path so the badge stays honest however an agent was dropped.
+	function notePlacement() {
+		if (!activeRoom) return;
+		activeRoom.count = (activeRoom.count || 0) + 1;
+		persistRoom();
+		refreshBadge();
+		if (active) refreshReadouts();
+	}
+
 	function refreshReadouts() {
 		out.textContent = `${distM.toFixed(1)} m`;
 		const fix = getFix();
@@ -270,14 +301,9 @@ export function initRoomMode(deps) {
 
 		// Establish the room on the first placement of the session/spot.
 		if (!activeRoom) {
-			activeRoom = establishRoom({
-				lat: fix.lat, lng: fix.lng,
-				headingDeg: heading.deg, hasAbsoluteCompass: heading.absolute,
-				locationKey: locationKey(fix.lat, fix.lng),
-				rand: (Math.random().toString(36).slice(2, 8)),
-				now: Date.now(),
-			});
+			ensureRoom({ lat: fix.lat, lng: fix.lng, headingDeg: heading.deg, absolute: heading.absolute });
 		}
+		if (!activeRoom) { setCoach('Waiting for a GPS fix before placing…', 'warn'); return; }
 
 		let body;
 		try {
@@ -302,12 +328,9 @@ export function initRoomMode(deps) {
 		busy = false;
 		placeBtn.textContent = prevLabel;
 		if (result && result.ok) {
-			activeRoom.count = (activeRoom.count || 0) + 1;
-			persistRoom();
+			notePlacement();
 			placeBtn.classList.remove('is-flash'); void placeBtn.offsetWidth; placeBtn.classList.add('is-flash');
 			try { navigator.vibrate && navigator.vibrate(10); } catch {}
-			refreshBadge();
-			refreshReadouts();
 		} else {
 			setCoach(result?.message || 'Could not place the agent — try again.', 'warn');
 		}
@@ -317,5 +340,12 @@ export function initRoomMode(deps) {
 	return {
 		isActive: () => active,
 		exit,
+		// Shared room state for the WebXR precision layer (R3): irl.js reads the
+		// active room to anchor a floor hit into the same frame, establishes one when
+		// the user goes straight to "Place on floor", and reports the placement back
+		// so the badge/count stay in sync across both authoring paths.
+		getActiveRoom: () => activeRoom,
+		ensureRoom,
+		notePlacement,
 	};
 }

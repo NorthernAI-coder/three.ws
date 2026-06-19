@@ -21,9 +21,11 @@
  *   rejected at the boundary rather than 500ing on a Postgres cast.
  *
  * References no coin and no third-party token; $THREE is the only coin three.ws
- * references. When the threshold hides a pin we publish a D1 pin:remove into its
- * geocell room so already-loaded viewers see it vanish live; the hidden_at filter
- * on every nearby/mine/bbox read is the durable backstop if that push ever drops.
+ * references. Hiding is durable-only: there is NO realtime remove broadcast. A
+ * pin's location is never fanned out to a room, so neither is its removal — the
+ * hidden_at filter on every nearby/mine read drops it on each viewer's next ~10 s
+ * proximity poll. That keeps the privacy invariant intact (no roster ever leaves
+ * over the socket) at the cost of a few seconds' latency on a hide.
  */
 
 import { cors, json, wrap, rateLimited } from '../_lib/http.js';
