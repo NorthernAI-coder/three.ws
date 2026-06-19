@@ -59,7 +59,7 @@
 	"scripts": {
 		"build": "node build.mjs",
 		"prepublishOnly": "node build.mjs",
-		"test": "node --test test/"
+		"test": "node --test 'test/*.test.js'"
 	},
 	"peerDependencies": {
 		"three": ">=0.150.0"

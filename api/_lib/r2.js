@@ -116,6 +116,18 @@ export async function getObjectBuffer(key) {
 	return Buffer.concat(chunks);
 }
 
+// Read just the leading `length` bytes of an object via an HTTP Range request.
+// Used by the rig classifier to read a GLB's glTF JSON chunk (which lives at
+// the file head) without downloading the whole — potentially large — mesh.
+export async function getObjectRange(key, length) {
+	const { Body } = await r2.send(
+		new GetObjectCommand({ Bucket: env.S3_BUCKET, Key: key, Range: `bytes=0-${length - 1}` }),
+	);
+	const chunks = [];
+	for await (const chunk of Body) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+	return Buffer.concat(chunks);
+}
+
 // Public CDN URL for objects served via R2 custom domain / r2.dev.
 //
 // First-party / externally-hosted avatars store an absolute URL in their

@@ -4,6 +4,7 @@
 import { getSessionUser, authenticateBearer, extractBearer, hasScope } from '../_lib/auth.js';
 import { listAvatars, createAvatar } from '../_lib/avatars.js';
 import { headObject, r2 } from '../_lib/r2.js';
+import { inspectStorageKeyRig } from '../_lib/rig-inspect.js';
 import { HeadObjectCommand } from '@aws-sdk/client-s3';
 import { env } from '../_lib/env.js';
 import { sql } from '../_lib/db.js';
@@ -90,6 +91,22 @@ async function handleCreate(req, res) {
 			limit 1
 		`;
 		if (!rows[0]) return error(res, 404, 'not_found', 'parent_avatar_id not found');
+	}
+
+	// Skeleton-inspect the uploaded GLB so the rig classifier (gallery filter,
+	// per-card badge, "Rigged first" sort) knows whether it can animate. Only the
+	// glTF JSON chunk is read via a ranged request — never the mesh binary — so
+	// this is one small round trip. Best-effort: any failure leaves the rig fields
+	// absent and the avatar reads as "unknown", exactly as before. Paths that
+	// already stamp the signal (reconstruct, forge, studio) pass their own
+	// source_meta; we only fill what inspection found and never clobber it.
+	if (!body.source_meta || body.source_meta.is_rigged == null) {
+		try {
+			const rig = await inspectStorageKeyRig(body.storage_key);
+			if (rig) body.source_meta = { ...rig, ...(body.source_meta || {}) };
+		} catch {
+			// non-fatal — classifier degrades to "unknown" for this avatar
+		}
 	}
 
 	const avatar = await createAvatar({

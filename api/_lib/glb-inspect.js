@@ -37,7 +37,7 @@ const CHUNK_BIN  = 0x004E4942;      // 'BIN\0' little-endian
  *   binChunkBytes: number,
  * }}
  */
-export function inspectGlb(buf) {
+export function inspectGlb(buf, { allowPartial = false } = {}) {
 	if (!isBufferLike(buf) || buf.length < 12 + 8) return null;
 	const view = bufToDataView(buf);
 	if (view.getUint32(0, true) !== GLB_MAGIC) return null;
@@ -46,7 +46,14 @@ export function inspectGlb(buf) {
 	// Reject if declared length is inconsistent with the buffer or absurdly large.
 	// 512 MB is a hard ceiling — no realistic avatar exceeds this; a corrupted
 	// header could otherwise allocate enormous slices during JSON chunk reads.
-	if (declaredLen > buf.length || declaredLen < 20) return null;
+	//
+	// allowPartial: the caller deliberately fetched only a leading prefix (a
+	// ranged read covering the JSON chunk), so declaredLen — the FULL file size —
+	// legitimately exceeds buf.length. Skip that consistency check; the JSON
+	// chunk's own bounds are still validated below, so a truncated/short prefix
+	// (chunk not fully present) returns null and the caller can refetch.
+	if (!allowPartial && declaredLen > buf.length) return null;
+	if (declaredLen < 20) return null;
 	if (declaredLen > 512 * 1024 * 1024) return null;
 
 	// First chunk header at byte 12.
@@ -110,6 +117,20 @@ export function inspectGlb(buf) {
 		hasBinChunk,
 		binChunkBytes,
 	};
+}
+
+/**
+ * Byte offset at which the glTF JSON chunk ends (i.e. the minimum prefix length
+ * needed to parse it): 12-byte file header + 8-byte chunk header + chunk body.
+ * Returns 0 when the buffer is too short or isn't a JSON-first binary glTF.
+ * Lets a ranged-read caller fetch exactly enough on a second pass.
+ */
+export function glbJsonChunkEnd(buf) {
+	if (!isBufferLike(buf) || buf.length < 20) return 0;
+	const view = bufToDataView(buf);
+	if (view.getUint32(0, true) !== GLB_MAGIC) return 0;
+	if (view.getUint32(16, true) !== CHUNK_JSON) return 0;
+	return 20 + view.getUint32(12, true);
 }
 
 /**

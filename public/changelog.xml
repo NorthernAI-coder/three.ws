@@ -415,6 +415,22 @@
 			<description>Locked premium headwear, eyewear, dyes and auras in the character creator no longer dead-end on a placeholder — clicking one now opens the real wallet checkout and unlocks it the moment the USDC payment settles, then equips it on your live preview. Anything you already own loads pre-unlocked, and the price you see is the true checkout amount pulled from the catalog.</description>
 		</item>
 		<item>
+			<title>Put a talking 3D guide on any website — new @three-ws/page-agent SDK</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-19:Put a talking 3D guide on any website — new @three-ws/page-agent SDK</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>sdk</category>
+			<description>Drop one tag onto any site and a rigged 3D agent appears in the corner, greets visitors, and talks them through the page out loud — mouth moving in time with the words, all in the browser with no backend or API key. Visitors pick who guides them from a diverse roster of rigged agents (realistic, stylized, and a robot), and the choice is remembered as they move between pages. Only skeleton-rigged avatars ship in the catalog, so every guide actually breathes, blinks, and lip-syncs instead of standing frozen. Install @three-ws/page-agent from npm, or paste the one-line embed.</description>
+		</item>
+		<item>
+			<title>Rigged-or-not filter across your Agents and Avatars</title>
+			<link>https://three.ws/dashboard/avatars</link>
+			<guid isPermaLink="false">2026-06-19:Rigged-or-not filter across your Agents and Avatars</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The rigged-or-not category now reaches everything you own, not just the public gallery. Your Avatars page (both My avatars and the Community tab) and your Agents page each get a Rigged / Static filter and a badge on every card, so you can tell at a glance which models carry a skeleton and can play the animation library — and narrow the list to just the animation-ready ones. An agent's badge reflects the rig state of its 3D body.</description>
+		</item>
+		<item>
 			<title>Saved avatar now shows the real model on the &quot;what's next&quot; screen</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-19:Saved avatar now shows the real model on the &quot;what's next&quot; screen</guid>

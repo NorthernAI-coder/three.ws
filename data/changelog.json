@@ -3,6 +3,24 @@
 	"entries": [
 		{
 			"date": "2026-06-19",
+			"title": "Put a talking 3D guide on any website — new @three-ws/page-agent SDK",
+			"summary": "Drop one tag onto any site and a rigged 3D agent appears in the corner, greets visitors, and talks them through the page out loud — mouth moving in time with the words, all in the browser with no backend or API key. Visitors pick who guides them from a diverse roster of rigged agents (realistic, stylized, and a robot), and the choice is remembered as they move between pages. Only skeleton-rigged avatars ship in the catalog, so every guide actually breathes, blinks, and lip-syncs instead of standing frozen. Install @three-ws/page-agent from npm, or paste the one-line embed.",
+			"tags": [
+				"sdk",
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-19",
+			"title": "Rigged-or-not filter across your Agents and Avatars",
+			"summary": "The rigged-or-not category now reaches everything you own, not just the public gallery. Your Avatars page (both My avatars and the Community tab) and your Agents page each get a Rigged / Static filter and a badge on every card, so you can tell at a glance which models carry a skeleton and can play the animation library — and narrow the list to just the animation-ready ones. An agent's badge reflects the rig state of its 3D body.",
+			"tags": [
+				"feature"
+			],
+			"link": "/dashboard/avatars"
+		},
+		{
+			"date": "2026-06-19",
 			"title": "Filter the avatar gallery by rigged vs static",
 			"summary": "Every public avatar is now classified by whether it carries a skeleton — rigged models can play the animation library straight away, while static ones are geometry only until you auto-rig them. The gallery shows a green \"Rigged\" or grey \"Not rigged\" badge in the corner of each card, adds a Rig filter so you can show just the animation-ready avatars, and a \"Rigged first\" sort. Deep links keep your filter, so you can share a view of only the rigged avatars.",
 			"tags": [

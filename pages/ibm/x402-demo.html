@@ -274,6 +274,44 @@ a:focus-visible{outline-offset:3px}
 
 .forge-foot{font-size:13px;color:var(--ibm-muted);margin-top:18px;font-weight:300}
 .forge-foot a{font-weight:500}
+/* Free text→3D widget — the no-wallet companion to the paid Forge */
+.g3d{margin-top:32px;border:1px solid var(--ibm-border);background:var(--ibm-field);padding:24px}
+.g3d-tag{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--ibm-blue);font-weight:500;margin-bottom:8px}
+.g3d h4{font-size:20px;font-weight:300;margin:0 0 8px;color:var(--ibm-ink);max-width:none}
+.g3d h4 strong{font-weight:600}
+.g3d-sub{font-size:14px;color:var(--ibm-muted);line-height:1.6;margin:0 0 20px;max-width:640px}
+.g3d-field{display:flex;gap:1px;flex-wrap:wrap;background:var(--ibm-border)}
+.g3d-input{flex:1 1 280px;min-width:0;font-family:var(--font-sans);font-size:15px;color:var(--ibm-ink);background:var(--ibm-page);border:none;padding:0 16px;height:48px;outline:none}
+.g3d-input:focus-visible{outline:2px solid var(--ibm-blue);outline-offset:-2px}
+.g3d-btn{display:inline-flex;align-items:center;gap:10px;background:var(--ibm-blue);color:#fff;border:none;cursor:pointer;font-family:var(--font-sans);font-size:15px;font-weight:500;padding:0 24px;height:48px;transition:background .12s,transform .04s}
+.g3d-btn:hover:not(:disabled){background:var(--ibm-blue-hover)}
+.g3d-btn:active:not(:disabled){transform:translateY(1px)}
+.g3d-btn:disabled{opacity:.7;cursor:not-allowed}
+.g3d-btn:focus-visible{outline:2px solid var(--ibm-blue);outline-offset:2px}
+.g3d-spin{width:15px;height:15px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:none}
+.g3d-btn.loading .g3d-spin{display:inline-block}
+.g3d-suggest{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.g3d-suggest button{font-family:inherit;font-size:13px;color:var(--ibm-muted);background:transparent;border:1px solid var(--ibm-border);padding:6px 12px;cursor:pointer;transition:border-color .12s,color .12s}
+.g3d-suggest button:hover{border-color:var(--ibm-blue);color:var(--ibm-blue)}
+.g3d-result{margin-top:20px;border:1px solid var(--ibm-border);background:var(--ibm-page)}
+.g3d-result.is-empty{padding:28px 20px;text-align:center;font-size:14px;color:var(--ibm-subtle)}
+.g3d-load{padding:28px 20px}
+.g3d-bar{display:block;height:3px;background:var(--ibm-border);overflow:hidden;margin-bottom:16px}
+.g3d-bar span{display:block;height:100%;width:40%;background:var(--ibm-blue);animation:g3dslide 1.3s ease-in-out infinite}
+@keyframes g3dslide{0%{transform:translateX(-110%)}100%{transform:translateX(360%)}}
+.g3d-loadmsg{font-size:14px;color:var(--ibm-muted);text-align:center}
+.g3d-err{padding:24px 20px;text-align:center}
+.g3d-err p{font-size:14px;color:var(--ibm-muted);margin:0 auto 16px;max-width:440px;line-height:1.6}
+.g3d-retry{font-family:inherit;font-size:14px;font-weight:500;color:#fff;background:var(--ibm-blue);border:none;padding:10px 20px;cursor:pointer;transition:background .12s}
+.g3d-retry:hover{background:var(--ibm-blue-hover)}
+.g3d-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:14px 16px;border-top:1px solid var(--ibm-border)}
+.g3d-act{display:inline-flex;align-items:center;font-family:inherit;font-size:14px;font-weight:500;text-decoration:none;padding:9px 16px;border:1px solid var(--ibm-blue);color:var(--ibm-blue);cursor:pointer;transition:background .12s}
+.g3d-act:hover{background:rgba(15,98,254,.08);text-decoration:none}
+.g3d-act.primary{background:var(--ibm-blue);color:#fff;border-color:var(--ibm-blue)}
+.g3d-act.primary:hover{background:var(--ibm-blue-hover)}
+.g3d-engine{font-size:12px;color:var(--ibm-subtle);margin-left:auto}
+@media(max-width:560px){.g3d-btn{width:100%}.g3d-engine{margin-left:0;width:100%}}
+
 @media(pointer:coarse){.tier,.r-btn{min-height:44px}}
 
 /* embed snippet */
@@ -518,6 +556,31 @@ agent-3d:defined ~ .agent-skel{display:none}
         </div>
       </div>
     </div>
+
+      <!-- Free, no-wallet companion to the paid Forge above. Same text→3D
+           pipeline (Microsoft TRELLIS on NVIDIA NIM), on the house — no wallet,
+           no key, no payment. POSTs the free /api/forge lane and polls it. -->
+      <div class="g3d">
+        <div class="g3d-tag">Live · Free · No wallet</div>
+        <h4 id="g3d-h">Or forge one <strong>free</strong> — no wallet needed</h4>
+        <p class="g3d-sub">The same pipeline, on the house. No wallet, no API key, no payment — it runs Microsoft TRELLIS on NVIDIA NIM with automatic fallback across generation lanes, so a textured GLB always comes back to orbit and download.</p>
+        <div class="g3d-field">
+          <label for="g3dPrompt" class="sr-only">Describe an object to generate for free</label>
+          <input id="g3dPrompt" class="g3d-input" value="a brass steampunk owl, full body" maxlength="600" autocomplete="off" spellcheck="true" inputmode="text" aria-describedby="g3d-h">
+          <button id="g3dBtn" class="g3d-btn" type="button"><span class="g3d-spin" aria-hidden="true"></span><span class="g3d-label">Generate free</span> <span aria-hidden="true">→</span></button>
+        </div>
+        <div class="g3d-suggest" id="g3dSuggest" aria-label="Example prompts">
+          <button type="button" data-p="a low-poly red fox, sitting">low-poly fox</button>
+          <button type="button" data-p="a glossy ceramic teapot with gold trim">ceramic teapot</button>
+          <button type="button" data-p="a futuristic delivery drone">delivery drone</button>
+          <button type="button" data-p="a worn leather hiking boot">hiking boot</button>
+        </div>
+        <div id="g3dResult" class="g3d-result is-empty">
+          Describe an object and generate — your model appears here to orbit and download.
+        </div>
+        <p id="g3dStatus" class="sr-only" role="status" aria-live="polite"></p>
+      </div>
+
     <p class="forge-foot">Want image→3D, auto-rigging, AR preview and the full gallery? <a href="https://three.ws/forge" target="_blank" rel="noopener">Open the full Forge tool ↗</a></p>
   </div>
 </section>
@@ -1653,6 +1716,216 @@ agent-3d:defined ~ .agent-skel{display:none}
   syncTierUi();
   loadCatalog();
   loadChallengePreview();
+})();
+</script>
+
+<!-- Free, no-wallet text→3D companion to the paid Forge. POSTs the free
+     /api/forge NVIDIA NIM (Microsoft TRELLIS) lane, walks a fallback ladder, and
+     polls GET /api/forge?job=<id>. No wallet, no key, no payment. -->
+<script type="module">
+(function () {
+  'use strict';
+
+  var API = 'https://three.ws/api/forge';
+  var $ = function (id) { return document.getElementById(id); };
+  var btn = $('g3dBtn');
+  if (!btn) return; // panel not present — nothing to wire
+
+  var input = $('g3dPrompt');
+  var result = $('g3dResult');
+  var statusEl = $('g3dStatus');
+  var suggest = $('g3dSuggest');
+
+  var inFlight = false;
+  var runSeq = 0;
+  var loadTimer = null;
+
+  var CID = (function () {
+    var fresh = function () { return 'c-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10); };
+    try {
+      var KEY = 'forge:cid';
+      var v = localStorage.getItem(KEY);
+      if (!v) { v = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : fresh(); localStorage.setItem(KEY, v); }
+      return v;
+    } catch (e) { return fresh(); }
+  })();
+  var HEADERS = { 'x-forge-client': CID };
+
+  var _mv = null;
+  function ensureModelViewer() {
+    if (_mv) return _mv;
+    _mv = new Promise(function (resolve) {
+      if (window.customElements && customElements.get('model-viewer')) { resolve(); return; }
+      var s = document.createElement('script');
+      s.type = 'module';
+      s.src = './vendor/model-viewer.min.js';
+      s.addEventListener('error', resolve);
+      document.head.appendChild(s);
+      if (window.customElements) customElements.whenDefined('model-viewer').then(resolve, resolve);
+      else resolve();
+    });
+    return _mv;
+  }
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+
+  // Fallback ladder — first rung that yields a GLB wins. The free NVIDIA NIM lane
+  // degrades internally too, but walking distinct backends + a second pass makes
+  // a transient outage on any one engine invisible to the user.
+  var LADDER = [
+    { aspect_ratio: '1:1', path: 'image', tier: 'draft', backend: 'nvidia' },
+    { aspect_ratio: '1:1', path: 'image', tier: 'draft', backend: 'trellis' },
+    { aspect_ratio: '1:1', path: 'image', tier: 'standard', backend: 'trellis' }
+  ];
+
+  async function startJob(body) {
+    var res = await fetch(API, {
+      method: 'POST',
+      headers: Object.assign({ 'content-type': 'application/json' }, HEADERS),
+      body: JSON.stringify(body)
+    });
+    var data = await res.json().catch(function () { return {}; });
+    if (!res.ok) throw new Error(data.message || data.error || ('HTTP ' + res.status));
+    return data;
+  }
+
+  async function pollJob(jobId, seq) {
+    var deadline = Date.now() + 240000;
+    while (seq === runSeq && Date.now() < deadline) {
+      await sleep(2500);
+      if (seq !== runSeq) return null;
+      var res = await fetch(API + '?job=' + encodeURIComponent(jobId), { headers: HEADERS });
+      var data = await res.json().catch(function () { return {}; });
+      if (data.status === 'done' && data.glb_url) return data;
+      if (data.status === 'failed') throw new Error(data.error || 'generation failed');
+    }
+    if (seq !== runSeq) return null;
+    throw new Error('timed out');
+  }
+
+  async function generate(prompt, seq) {
+    var lastErr = null;
+    for (var pass = 0; pass < 2; pass++) {
+      for (var i = 0; i < LADDER.length; i++) {
+        if (seq !== runSeq) return null;
+        try {
+          var job = await startJob(Object.assign({ prompt: prompt }, LADDER[i]));
+          if (job.status === 'done' && job.glb_url) return job; // synchronous (NVIDIA sync)
+          if (job.job_id) {
+            var done = await pollJob(job.job_id, seq);
+            if (done) return done;
+            if (seq !== runSeq) return null;
+          }
+          lastErr = new Error('no model returned');
+        } catch (e) { lastErr = e; }
+        if (seq !== runSeq) return null;
+      }
+      await sleep(1500);
+    }
+    throw lastErr || new Error('generation unavailable');
+  }
+
+  function setLoading() {
+    var msgs = [
+      'Reading your prompt…',
+      'Generating geometry on NVIDIA NIM…',
+      'Texturing the mesh…',
+      'Finalizing the GLB…'
+    ];
+    var i = 0;
+    result.className = 'g3d-result is-loading';
+    result.innerHTML =
+      '<div class="g3d-load"><span class="g3d-bar"><span></span></span>' +
+      '<span class="g3d-loadmsg" id="g3dLoadMsg">' + esc(msgs[0]) + '</span></div>';
+    statusEl.textContent = 'Generating your 3D model.';
+    clearInterval(loadTimer);
+    loadTimer = setInterval(function () {
+      i = (i + 1) % msgs.length;
+      var el = $('g3dLoadMsg');
+      if (el) el.textContent = msgs[i];
+    }, 4000);
+  }
+
+  function setError() {
+    clearInterval(loadTimer);
+    result.className = 'g3d-result is-error';
+    result.innerHTML =
+      '<div class="g3d-err"><p>The free generator is briefly unreachable. It auto-retries across NVIDIA NIM and TRELLIS — give it another try.</p>' +
+      '<button type="button" class="g3d-retry" id="g3dRetry">Try again</button></div>';
+    var rb = $('g3dRetry');
+    if (rb) rb.addEventListener('click', run);
+    statusEl.textContent = 'Generation failed. Press try again.';
+  }
+
+  function engineLabel(backend) {
+    if (backend === 'nvidia') return 'Microsoft TRELLIS · NVIDIA NIM';
+    if (backend === 'trellis') return 'Microsoft TRELLIS';
+    if (backend === 'huggingface') return 'TRELLIS · Hugging Face';
+    return 'three.ws Forge';
+  }
+
+  async function renderModel(job, prompt) {
+    clearInterval(loadTimer);
+    await ensureModelViewer();
+    var glb = job.glb_url;
+    var scene = 'https://three.ws/scene?model=' + encodeURIComponent(glb) +
+      '&name=' + encodeURIComponent(prompt.slice(0, 80));
+    result.className = 'g3d-result is-done';
+    result.innerHTML =
+      '<div class="mv-wrap"><model-viewer src="' + esc(glb) + '" alt="3D model generated from your prompt" ' +
+      'camera-controls auto-rotate rotation-per-second="18deg" interaction-prompt="none" ' +
+      'shadow-intensity="0.7" shadow-softness="0.8" environment-image="neutral" exposure="1" ' +
+      'camera-orbit="0deg 80deg auto" loading="eager"></model-viewer></div>' +
+      '<div class="g3d-actions">' +
+      '<a class="g3d-act primary" href="' + esc(glb) + '" download>Download GLB</a>' +
+      '<a class="g3d-act" href="' + esc(scene) + '" target="_blank" rel="noopener">Open in 3D scene ↗</a>' +
+      '<span class="g3d-engine">Generated free · ' + esc(engineLabel(job.backend)) + '</span>' +
+      '</div>';
+    statusEl.textContent = 'Your 3D model is ready. Orbit it, or download the GLB.';
+  }
+
+  async function run() {
+    var prompt = (input.value || '').trim();
+    if (!prompt) { try { input.focus(); } catch (_) {} return; }
+    var seq = ++runSeq;
+    inFlight = true;
+    btn.classList.add('loading');
+    btn.disabled = true;
+    setLoading();
+    try {
+      var job = await generate(prompt, seq);
+      if (seq !== runSeq) return;
+      if (!job || !job.glb_url) throw new Error('no model');
+      await renderModel(job, prompt);
+    } catch (e) {
+      if (seq !== runSeq) return;
+      setError();
+    } finally {
+      if (seq === runSeq) {
+        inFlight = false;
+        btn.classList.remove('loading');
+        btn.disabled = false;
+      }
+    }
+  }
+
+  btn.addEventListener('click', function () { if (!inFlight) run(); });
+  input.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); if (!inFlight) run(); }
+  });
+  if (suggest) {
+    suggest.addEventListener('click', function (e) {
+      var b = e.target.closest('button[data-p]');
+      if (!b) return;
+      input.value = b.getAttribute('data-p');
+      if (!inFlight) run();
+    });
+  }
 })();
 </script>
 </body>
