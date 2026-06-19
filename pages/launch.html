@@ -150,9 +150,12 @@
 		<script type="module">
 			// launch.js and its dependency chain (/studio/launch-panel.js,
 			// /studio/fees-panel.js) live in public/ and are loaded by URL at
-			// runtime. @vite-ignore keeps rollup from trying to bundle a
-			// public-dir asset (which it cannot resolve) and aborting build:app.
-			const { mountLaunchCoin } = await import(/* @vite-ignore */ '/launch/launch.js');
+			// runtime. The specifier is kept in a var so Vite's import-analysis
+			// leaves it as a browser-resolved runtime import instead of trying
+			// to resolve a public-dir asset (which it refuses, aborting the dev
+			// server / build:app).
+			const spec = '/launch/launch.js';
+			const { mountLaunchCoin } = await import(/* @vite-ignore */ spec);
 			mountLaunchCoin(document.getElementById('launch-root'));
 		</script>
 		<script src="/brand.js" defer></script>

@@ -244,12 +244,8 @@ export class FaceTracker {
 			throw err;
 		}
 
-		try {
-			await this.init();
-		} catch (err) {
-			// init() already emitted a typed error; re-surface to the caller.
-			throw err;
-		}
+		// init() already emits a typed error on failure; let it surface to the caller.
+		await this.init();
 
 		this._video = videoEl;
 		this._setStatus('requesting-camera');
