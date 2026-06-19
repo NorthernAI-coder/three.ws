@@ -18,6 +18,7 @@ import { openAvatarPicker } from '../../avatar-gallery-picker.js';
 import { openLaunchTokenModal } from '../../pump/launch-token-modal.js';
 import { onchainBadgeHTML } from '../../shared/onchain-badge.js';
 import { coinChipHTML } from '../../shared/agent-coin.js';
+import { walletChipHTML, wireWalletChips } from '../../shared/agent-wallet-chip.js';
 import { skeletonHTML, emptyStateHTML, ensureStateKitStyles } from '../../shared/state-kit.js';
 ensureStateKitStyles();
 
@@ -47,12 +48,6 @@ function toast(msg) {
 		el.style.opacity = '0';
 		el.style.transform = 'translateX(-50%) translateY(20px)';
 	}, 1800);
-}
-
-function truncMid(s, head = 6, tail = 4) {
-	const str = String(s || '');
-	if (str.length <= head + tail + 1) return str;
-	return `${str.slice(0, head)}…${str.slice(-tail)}`;
 }
 
 (async function boot() {
@@ -210,6 +205,7 @@ function renderAgents(host, agents, avatars, root) {
 	}
 
 	host.innerHTML = agents.map((a) => agentCard(a, avatars)).join('');
+	wireWalletChips(host);
 
 	host.querySelectorAll('[data-action="edit-agent"]').forEach((btn) => {
 		btn.addEventListener('click', () => {
@@ -431,7 +427,6 @@ function brainLabel(agent) {
 
 function agentCard(a, avatars) {
 	const name = esc(a.name || a.display_name || 'Unnamed agent');
-	const wallet = a.wallet_address || a.solana_address || '';
 	const avatar = avatars.find((av) => av.id === a.avatar_id);
 	const avatarThumb = avatar?.thumbnail_url || avatar?.url || '';
 	const created = a.created_at ? relTime(a.created_at) : '—';
@@ -460,7 +455,7 @@ function agentCard(a, avatars) {
 					${onchainBadge || `<span class="dn-tag" style="font-size:11px">off-chain</span>`}
 					${coinChipHTML(a, { launchable: false })}
 				</div>
-				${wallet ? `<div style="font-family:${MONO};font-size:12px;color:var(--nxt-ink-fade);margin-bottom:6px">${esc(truncMid(wallet, 8, 6))}</div>` : ''}
+				<div style="margin-bottom:6px">${walletChipHTML(a, { isOwner: true, showPending: false })}</div>
 				<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:12.5px;color:var(--nxt-ink-dim)">
 					<span>Created ${esc(created)}</span>
 					<span style="display:inline-flex;align-items:center;gap:4px">

@@ -16,6 +16,7 @@
  */
 
 import { grindVanity } from './solana/vanity/grinder.js';
+import { consumeCsrfToken } from './api.js';
 
 const ENDPOINT = (id, qs = '') =>
 	`/api/agents/${encodeURIComponent(id)}/solana${qs ? `?${qs}` : ''}`;
@@ -135,12 +136,19 @@ export class TradeError extends Error {
 
 async function postTrade(agentId, body) {
 	const url = `/api/agents/${encodeURIComponent(agentId)}/solana/trade`;
+	const headers = { 'Content-Type': 'application/json' };
+	// A live quote (`preview: true`) moves no funds — only the real trade carries a
+	// single-use CSRF token, matching the server's preview-exempt gate.
+	if (body?.preview !== true) {
+		const token = await consumeCsrfToken();
+		if (token) headers['x-csrf-token'] = token;
+	}
 	let resp;
 	try {
 		resp = await fetch(url, {
 			method: 'POST',
 			credentials: 'include',
-			headers: { 'Content-Type': 'application/json' },
+			headers,
 			body: JSON.stringify(body),
 		});
 	} catch {

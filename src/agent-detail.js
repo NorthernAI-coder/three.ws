@@ -1696,7 +1696,15 @@ function bindWalletActions(agent) {
 	deposit.className = 'ad-btn';
 	deposit.href = `/agent/${encodeURIComponent(agentId)}/wallet#deposit`;
 	deposit.textContent = 'Deposit';
-	actions.append(manage, deposit);
+	// Opt-in vanity: grind a custom address for this agent's custodial wallet.
+	const meta = agent?.rawMetadata?.meta || {};
+	const isVanity = !!(meta.solana_vanity_prefix || meta.solana_vanity_suffix);
+	const vanity = document.createElement('a');
+	vanity.className = 'ad-btn';
+	vanity.href = `/agent/${encodeURIComponent(agentId)}/wallet#vanity`;
+	vanity.textContent = isVanity ? '✦ Vanity address' : '✦ Make it vanity';
+	vanity.setAttribute('aria-label', 'Grind a custom vanity address for this agent wallet');
+	actions.append(manage, deposit, vanity);
 }
 
 function renderNotFound(id, reason) {

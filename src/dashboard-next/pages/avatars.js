@@ -11,6 +11,7 @@ import { openSelfieModal } from '../../selfie-modal.js';
 import { openAvatarPicker } from '../../avatar-gallery-picker.js';
 import { createFromTemplate } from '../../shared/template-picker.js';
 import { onchainBadgeHTML, ensureOnchainBadgeStyles } from '../../shared/onchain-badge.js';
+import { walletChipHTML, wireWalletChips } from '../../shared/agent-wallet-chip.js';
 
 const PAGE_SIZE = 24;
 const VISIBILITIES = ['public', 'unlisted', 'private'];
@@ -760,11 +761,13 @@ function avatarCard(root, a) {
 				${visibilityTag(a.visibility)}
 				<span class="dn-av-rel">${esc(relTime(a.updated_at || a.created_at))}</span>
 			</div>
+			${avatarWalletChip(a)}
 		</div>
 	`;
 
 	wireRename(root, el, a);
 	wireMoreMenu(root, el, a);
+	wireWalletChips(el);
 	return el;
 }
 
@@ -773,6 +776,20 @@ function visibilityTag(v) {
 	const cls = visibility === 'public' ? 'success' : visibility === 'private' ? 'warn' : '';
 	const label = visibility[0].toUpperCase() + visibility.slice(1);
 	return `<span class="dn-tag ${cls}" data-vis-tag>${esc(label)}</span>`;
+}
+
+// The owner's avatar-linked agent wallet (with vanity status + "make vanity"
+// entry point). Renders a "Wallet pending" chip while provisioning so every
+// avatar communicates that it has a custodial wallet.
+function avatarWalletChip(a) {
+	if (!a.agent_id) return '';
+	const agent = {
+		id: a.agent_id,
+		solana_address: a.agent_solana_address || null,
+		solana_vanity_prefix: a.agent_solana_vanity_prefix || null,
+		solana_vanity_suffix: a.agent_solana_vanity_suffix || null,
+	};
+	return `<div class="dn-av-wallet" style="margin-top:8px;">${walletChipHTML(agent, { isOwner: true, showPending: true })}</div>`;
 }
 
 // ── Inline rename ────────────────────────────────────────────────────────

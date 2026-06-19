@@ -12,6 +12,8 @@
  * Solana wallet (api/x402-pay.js). The shared platform wallet is never used here.
  */
 
+import { consumeCsrfToken } from './api.js';
+
 // Browse / search the x402 bazaar, scoped to services payable in Solana USDC
 // (the only network an agent's Solana wallet can settle). Returns normalized
 // resources from api/_lib/x402/bazaar-client.js.
@@ -56,10 +58,15 @@ export async function previewX402({ agentId, url, method = 'GET', body = undefin
 // 'result'|'error'). Resolves with the final result envelope, or rejects with an
 // Error carrying `.code`/`.envelope` from the 'error' event.
 export async function payX402Stream({ agentId, url, method = 'GET', body = undefined, serviceLabel = null }, on = () => {}) {
+	// Settle moves USDC + signs with the agent key → single-use CSRF token required
+	// (the preview path above is exempt server-side). Bearer SDK callers are exempt.
+	const headers = { 'content-type': 'application/json', accept: 'text/event-stream' };
+	const token = await consumeCsrfToken();
+	if (token) headers['x-csrf-token'] = token;
 	const resp = await fetch('/api/x402-pay', {
 		method: 'POST',
 		credentials: 'include',
-		headers: { 'content-type': 'application/json', accept: 'text/event-stream' },
+		headers,
 		body: JSON.stringify({ agentId, url, method, body, service_label: serviceLabel, stream: true }),
 	});
 

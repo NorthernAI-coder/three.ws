@@ -9,9 +9,18 @@
 const X402_PAY_BODY = `const agentId = (() => { try { return localStorage.getItem('payAgentId') || null; } catch { return null; } })();
 const body = { tool: TOOL_NAME, args: ARGS_BUILDER };
 if (agentId) body.agentId = agentId;
+const headers = { 'content-type': 'application/json' };
+// Agent-mode pay spends the owner's custodial wallet via the session cookie, so it
+// requires a single-use CSRF token. The shared-wallet path (no agentId) does not.
+if (agentId) {
+	try {
+		const ct = await fetch('/api/csrf-token', { credentials: 'include' });
+		if (ct.ok) { const cj = await ct.json().catch(() => null); const tok = cj && cj.data && cj.data.token; if (tok) headers['x-csrf-token'] = tok; }
+	} catch (e) { /* fall through — server will 403 if the token is truly required */ }
+}
 const r = await fetch('/api/x402-pay', {
 	method: 'POST',
-	headers: { 'content-type': 'application/json' },
+	headers,
 	credentials: 'include',
 	body: JSON.stringify(body),
 });

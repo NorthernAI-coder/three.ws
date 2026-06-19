@@ -235,10 +235,19 @@ class AvatarActions extends HTMLElement {
 					<button class="copy" data-copy="${a}" title="Copy ${chain} address">Copy</button>
 					<span class="bal" data-bal="${balKey}"></span></div>`
 				: '';
+		const VTAG = 'font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#a78bfa;border:1px solid rgba(139,92,246,.45);border-radius:999px;padding:1px 6px;';
+		const solRow = sol
+			? `<div class="addr"><span class="chain">SOL</span><code>${short(sol)}</code>
+				<button class="copy" data-copy="${sol}" title="Copy SOL address">Copy</button>
+				${solVanity
+					? `<span title="Custom vanity address" style="${VTAG}">vanity</span>`
+					: `<a class="manage" href="/agent/${ag.id}/wallet#vanity" title="Grind a custom vanity address">✦ Vanity</a>`}
+				<span class="bal" data-bal="sol"></span></div>`
+			: '';
 		return `<div class="wallet">
 			<div class="row spread"><h4>Agent wallet</h4>${manage}</div>
 			${addr('EVM', evm, 'eth')}
-			${addr('SOL', sol, 'sol')}
+			${solRow}
 			${evm && sol ? '' : `<button data-act="create-wallet">Provision missing chain</button>`}
 		</div>`;
 	}
