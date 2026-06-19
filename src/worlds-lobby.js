@@ -1,6 +1,6 @@
 // Coin Communities lobby — the front door to three.ws worlds.
 //
-// Every coin on three.ws is its own 3D world at /walk?coin=<mint>; its
+// Every coin on three.ws is its own 3D world at /temporary?coin=<mint>; its
 // CoinCommunities community is the live social layer inside. This page does two
 // things with zero friction:
 //   1. Lets a visitor pick or drop in an avatar / 3D agent (no sign-in) and
@@ -271,7 +271,7 @@ function enterWorld(coin) {
 	if (a?.id) params.set('avatar', a.id);
 	if (name) params.set('name', name);
 	const qs = params.toString();
-	window.location.href = `/walk${qs ? `?${qs}` : ''}`;
+	window.location.href = `/temporary${qs ? `?${qs}` : ''}`;
 }
 
 // ── worlds grid ──────────────────────────────────────────────────────────────

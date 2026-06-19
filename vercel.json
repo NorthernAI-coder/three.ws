@@ -758,7 +758,7 @@
 			}
 		},
 		{
-			"src": "/walk/?",
+			"src": "/temporary/?",
 			"dest": "/walk.html"
 		},
 		{
@@ -787,7 +787,7 @@
 		},
 		{
 			"src": "/wk/([A-Za-z0-9_-]+)",
-			"dest": "/walk?avatar=$1",
+			"dest": "/temporary?avatar=$1",
 			"status": 302
 		},
 		{

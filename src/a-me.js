@@ -266,7 +266,7 @@ function renderAgentCards(host, agents, avatars) {
 						<a class="ame-btn small" href="/dashboard/monetize">Monetize</a>
 					</div>
 					<div class="ame-actions-row">
-						${avatarId ? `<a class="ame-btn ghost small" href="/walk?avatar=${encodeURIComponent(avatarId)}">Walk</a>` : ''}
+						${avatarId ? `<a class="ame-btn ghost small" href="/temporary?avatar=${encodeURIComponent(avatarId)}">Walk</a>` : ''}
 						${avatarId ? `<a class="ame-btn ghost small" href="/pose?avatar=${encodeURIComponent(avatarId)}">Pose</a>` : ''}
 						${avatarId ? `<a class="ame-btn ghost small" href="/mocap-studio?avatar=${encodeURIComponent(avatarId)}">Mocap</a>` : ''}
 						<button class="ame-btn ghost small" data-action="toggle-skills" data-agent-id="${esc(a.id)}">Skills</button>
@@ -338,7 +338,7 @@ function renderAvatarCards(host, avatars, agents) {
 						<a class="ame-btn ghost tiny" href="/agents/${encodeURIComponent(av.id)}" title="View">View</a>
 						<button class="ame-btn ghost tiny" data-action="selfie" data-avatar-id="${esc(av.id)}" title="Update from selfie">Selfie</button>
 						<button class="ame-btn ghost tiny" data-action="share" data-avatar-id="${esc(av.id)}" data-name="${name}" title="Share">Share</button>
-						<a class="ame-btn ghost tiny" href="/walk?avatar=${encodeURIComponent(av.id)}" title="Walk">Walk</a>
+						<a class="ame-btn ghost tiny" href="/temporary?avatar=${encodeURIComponent(av.id)}" title="Walk">Walk</a>
 					</div>
 				</div>
 			</div>

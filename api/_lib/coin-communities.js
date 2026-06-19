@@ -1,6 +1,6 @@
 // CoinCommunities server-side client — the ONLY place the API key lives.
 //
-// Each coin on three.ws is its own 3D world (/walk?coin=<mint>); its
+// Each coin on three.ws is its own 3D world (/temporary?coin=<mint>); its
 // CoinCommunities community is that world's live social layer. The browser
 // never sees the API key: it talks to the api/community/* proxy, which calls
 // CoinCommunities with the key held here. Realtime works the same way — the

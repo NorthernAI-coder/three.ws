@@ -994,7 +994,7 @@ const DIR_ICONS = {
 	'/gallery-picker':      '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="16" height="14" rx="2"/><circle cx="7" cy="8" r="1.5"/><path d="M2 14l4-4 3 3 4-5 5 6"/></svg>',
 	'/import-rpm':          '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2v12M6 10l4 4 4-4"/><path d="M3 14v3h14v-3"/></svg>',
 	'/create/selfie':       '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="16" height="14" rx="2"/><circle cx="10" cy="10" r="3"/><path d="M6 3V2M14 3V2"/></svg>',
-	'/walk':                '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="4" r="2"/><path d="M10 6v4l-2 4M10 10l2 4M7 8l3 2 3-2"/></svg>',
+	'/temporary':                '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="4" r="2"/><path d="M10 6v4l-2 4M10 10l2 4M7 8l3 2 3-2"/></svg>',
 	'/pose':                '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="4" r="2"/><path d="M10 6v5M6 8l4 2 4-2M8 11l-2 5M12 11l2 5"/></svg>',
 	'/dashboard/agents':    '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="10" height="10" rx="2"/><circle cx="8" cy="6.5" r="1"/><circle cx="12" cy="6.5" r="1"/><path d="M8 9h4M3 14l2-2h10l2 2v3a1 1 0 01-1 1H4a1 1 0 01-1-1v-3z"/></svg>',
 	'/onchain':             '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12a4 4 0 005.7 0l2-2a4 4 0 00-5.7-5.7l-1 1"/><path d="M12 8a4 4 0 00-5.7 0l-2 2a4 4 0 005.7 5.7l1-1"/></svg>',
@@ -1098,7 +1098,7 @@ const DIRECTORY = [
 		group: '3D & Immersive',
 		items: [
 			{ href: '/app',                title: '3D Viewer',        sub: 'Interactive 3D agent editor and viewer' },
-			{ href: '/walk',               title: 'Walk Viewer',      sub: 'Walk and animation preview' },
+			{ href: '/temporary',               title: 'Walk Viewer',      sub: 'Walk and animation preview' },
 			{ href: '/pose',               title: 'Pose Editor',      sub: 'Pose and position your avatar' },
 			{ href: '/xr',                 title: 'XR / AR',          sub: 'Augmented and extended reality views' },
 		],

@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-06-19",
+			"title": "Walk mode moves to three.ws/temporary",
+			"summary": "The drive-your-avatar walk demo — joystick or WASD movement, AR back-camera passthrough, and the live coin-world mainland — now lives at three.ws/temporary. Every link across the site already points to the new path, and avatar deep-links (three.ws/wk/…) follow along. The old /walk address is freed up for what's coming next.",
+			"tags": [
+				"improvement"
+			],
+			"link": "/temporary"
+		},
+		{
+			"date": "2026-06-19",
 			"title": "Forge a 3D model on the IBM x402 demo — free, no wallet",
 			"summary": "The IBM × three.ws x402 demo now forges 3D models two ways. The paid Forge takes one USDC micropayment from your own wallet and settles on Solana; right below it, a free generator turns any sentence into a textured, downloadable GLB with no wallet, no API key and no payment — it runs Microsoft TRELLIS on NVIDIA NIM with automatic fallback across lanes so a model always comes back. The paid Forge now settles in USDC on Solana mainnet.",
 			"tags": [
@@ -1483,7 +1492,7 @@
 				"fix",
 				"improvement"
 			],
-			"link": "/walk"
+			"link": "/temporary"
 		},
 		{
 			"date": "2026-06-17",
@@ -3424,7 +3433,7 @@
 				"feature",
 				"improvement"
 			],
-			"link": "/walk"
+			"link": "/temporary"
 		},
 		{
 			"date": "2026-06-13",

@@ -24,6 +24,7 @@
 //     body: { text: 'hello' },
 //     merchant: 'Acme',
 //     action: 'Summarize',
+//     networks: ['solana'], // optional allowlist — force a Solana-only checkout
 //   });
 //
 // The modal handles wallet connect (Phantom for Solana, window.ethereum for
@@ -92,6 +93,23 @@ function isEip3009Accept(accept) {
 	if (!isEvmNetwork(accept?.network)) return false;
 	const method = accept?.extra?.assetTransferMethod;
 	return !method || method === 'eip3009';
+}
+// Opt-in allowlist (opts.networks). When a caller restricts which networks the
+// modal may offer (e.g. ['solana'] to force a Solana-only checkout), drop every
+// accept outside the allowlist before the picker renders. Families: 'solana' /
+// 'svm' match any solana:* network, 'evm' matches any eip155:*, or pass an exact
+// CAIP id like 'eip155:8453'. If the filter would empty the list we keep the
+// original accepts so a misconfigured allowlist never breaks a live checkout.
+function filterAcceptsByNetwork(challenge, networks) {
+	if (!challenge || !Array.isArray(challenge.accepts) || !Array.isArray(networks) || !networks.length) return challenge;
+	const want = networks.map((n) => String(n).toLowerCase());
+	const allowed = (net) => want.some((w) => {
+		if (w === 'solana' || w === 'svm') return isSolanaNetwork(net);
+		if (w === 'evm') return isEvmNetwork(net);
+		return typeof net === 'string' && net.toLowerCase() === w;
+	});
+	const kept = challenge.accepts.filter((a) => a && allowed(a.network));
+	return kept.length ? { ...challenge, accepts: kept } : challenge;
 }
 function networkLabel(net, accept) {
 	if (isSolanaNetwork(net)) return 'Solana';
@@ -934,7 +952,7 @@ class CheckoutModal {
 		this.bodyEl.innerHTML = this.renderSteps('discover');
 		try {
 			const challenge = await discoverChallenge(this.opts);
-			this.challenge = challenge;
+			this.challenge = filterAcceptsByNetwork(challenge, this.opts.networks);
 			this.siwx = extractSiwxExtension(challenge);
 			this.payFlowOverride = false;
 			this.siwxFallbackNotice = null;

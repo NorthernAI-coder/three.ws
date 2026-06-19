@@ -121,7 +121,7 @@ export async function renderAnimations(host) {
 				<div class="dn-panel-sub" style="margin:0">Clips attached to any of your agents. Uploading adds a clip to the agent you select.</div>
 			</div>
 			<div class="anim-head-actions">
-				<a class="dn-btn ghost" href="/walk">Browse presets →</a>
+				<a class="dn-btn ghost" href="/temporary">Browse presets →</a>
 				<button class="dn-btn primary" id="anim-upload-open" type="button">Upload clip (.glb / .fbx / .bvh)</button>
 			</div>
 		</div>
@@ -211,7 +211,7 @@ export async function renderAnimations(host) {
 				<p>Upload a .glb, .fbx, or .bvh clip, or pick from our mocap library.</p>
 				<div style="display:flex;gap:8px;justify-content:center;margin-top:12px;flex-wrap:wrap">
 					<button class="dn-btn primary" id="anim-empty-upload" type="button">Upload</button>
-					<a class="dn-btn ghost" href="/walk">Browse presets →</a>
+					<a class="dn-btn ghost" href="/temporary">Browse presets →</a>
 				</div>
 			</div>
 		`;

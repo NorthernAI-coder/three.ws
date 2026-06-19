@@ -15,6 +15,7 @@ bottom.
 | Surface | Location | Status | Notes |
 |---|---|---|---|
 | Web renderer / viewer | [avatar-sdk/](avatar-sdk) `→ /viewer` | Published as `@three-ws/avatar` | `<agent-3d>` web component |
+| Walk companion + playground | [walk-sdk/](walk-sdk) `→ /walk-companion.js` | Published as `@three-ws/walk` | Corner mascot + full-page stroll/platformer playground + diverse avatar picker. App entries: [src/walk-companion.js](src/walk-companion.js), [src/walk-playground.js](src/walk-playground.js) |
 | React avatar creator | [avatar-sdk/](avatar-sdk) `→ /react` `/creator` | Published as `@three-ws/avatar` | Same package, React subpath |
 | Talking page guide | [page-agent-sdk/](page-agent-sdk) | Published as `@three-ws/page-agent` | Drop-in rigged 3D agent that narrates any page + visitor avatar picker. `<page-agent>` web component. Rigged-only catalog. See [page-agent-sdk/PUBLISHING.md](page-agent-sdk/PUBLISHING.md) |
 | Avatar builder (full app) | [character-studio/](character-studio) | Fork of [m3-org/CharacterStudio](https://github.com/M3-org/CharacterStudio), MIT, see [character-studio/LICENSE](character-studio/LICENSE) | Web-first character creator |
@@ -53,6 +54,7 @@ packages/ibm-watsonx-mcp/     → @three-ws/ibm-watsonx-mcp   (MCP server — IB
 packages/ibm-x402-mcp/        → @three-ws/ibm-x402-mcp      (MCP server — IBM x402 payments)
 packages/three-token-mcp/     → @three-ws/three-token-mcp   (MCP server — $THREE token tools)
 packages/threews-avatar-mcp/  → @three-ws/threews-avatar-mcp (MCP server — three.ws avatar ops)
+walk-sdk/                     → @three-ws/walk             (page walking companion + playground + avatar picker)
 ```
 
 `packages/*` is the home for clean, publishable spec/schema/preset packages

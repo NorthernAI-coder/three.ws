@@ -295,7 +295,7 @@ export class CommunityUI {
 				['/launchpad', 'Launchpad Studio', 'Build a 3D launchpad · token · concierge', 'New'],
 				['/mocap-studio', 'Mocap Studio', 'Record face → save clip → replay', 'New'],
 				['/pose', 'Pose Studio', 'Click-to-pose mannequin + export PNG'],
-				['/walk', 'Walk', 'Walk your avatar — multiplayer + AR', 'New'],
+				['/temporary', 'Walk', 'Walk your avatar — multiplayer + AR', 'New'],
 				['/xr', 'XR', 'Place your avatar in the real world', 'New'],
 				['/three-live', '$THREE Live', 'Protocol pulse — live trades in 3D', 'New'],
 				['/pump-visualizer', 'Pump Visualizer', '3D view of trending tokens'],

@@ -32,7 +32,7 @@ const FEATURE_META = {
   },
   walk: {
     label: 'Walk',
-    route: '/walk',
+    route: '/temporary',
     accent: '#fb923c',
     icon: '◉',
     tagline: '3D Avatar + AR',

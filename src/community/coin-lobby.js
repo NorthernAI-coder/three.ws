@@ -1,7 +1,7 @@
 // Coin lobby — the entry surface for /walk when no coin is chosen.
 //
 // Lists live coin-worlds from the proxy (real getTopCommunities data) as
-// enterable cards. Picking one navigates to /walk?coin=<mint> (preserving any
+// enterable cards. Picking one navigates to /temporary?coin=<mint> (preserving any
 // ?avatar / ?agent so the player keeps their identity into the world). Fully
 // self-contained: injects its own styles, mounts over <body>, removes itself on
 // enter. Designed loading / empty / error states.
