@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-06-19",
+			"title": "Flappin UFO — a $THREE arcade game is live",
+			"summary": "You can now play Flappin UFO on three.ws at /play/ufo — a Flappy Bird-style space game where you pilot a UFO through asteroid fields. Connect your Solana wallet, copy your address as your in-game name, and submit your score to the global leaderboard. The leaderboard panel refreshes live every 15 seconds and highlights your wallet entry so you can see exactly where you rank among $THREE holders.",
+			"tags": [
+				"feature"
+			],
+			"link": "/play/ufo"
+		},
+		{
+			"date": "2026-06-19",
 			"title": "Homepage “Create” card now shows its 3D agent",
 			"summary": "The first card in the homepage walkthrough was framing its 3D avatar against the figure's arms-out rest pose, which pushed the camera so far back the agent shrank to a speck at the bottom of the card. It now uses an arms-down body that fills the frame just like the neighboring “Embed” card, so the preview reads as a living agent the moment it scrolls into view.",
 			"tags": [

@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-19T13:25:20.997Z",
+	"generated_at": "2026-06-19T13:45:36.994Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -12,6 +12,26 @@
 			"title": "Agent Studio",
 			"summary": "Author your agent's brain, memory, body, money, and skills in one place, with a live 3D avatar that updates everywhere as you edit.",
 			"link": "/agent-studio",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-06-19",
+			"type": "launch",
+			"title": "Coin Clash",
+			"summary": "Token-gated community warfare. Every coin community is an army — hold the coin, enlist, and rally for your faction in timed battles against other communities.",
+			"link": "/clash",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-06-19",
+			"type": "launch",
+			"title": "Flappin UFO — dodge asteroids for $THREE",
+			"summary": "Pilot your UFO through an asteroid field. Connect your Solana wallet, submit your score as your wallet address, and claim your spot on the global $THREE leaderboard.",
+			"link": "/play/ufo",
 			"tags": [
 				"launch"
 			]
@@ -147,6 +167,16 @@
 			"tags": [
 				"fix",
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-19",
+			"type": "update",
+			"title": "Flappin UFO — a $THREE arcade game is live",
+			"summary": "You can now play Flappin UFO on three.ws at /play/ufo — a Flappy Bird-style space game where you pilot a UFO through asteroid fields. Connect your Solana wallet, copy your address as your in-game name, and submit your score to the global leaderboard. The leaderboard panel refreshes live every 15 seconds and highlights your wallet entry so you can see exactly where you rank among $THREE holders.",
+			"link": "/play/ufo",
+			"tags": [
+				"feature"
 			]
 		},
 		{

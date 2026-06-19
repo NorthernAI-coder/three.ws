@@ -1,0 +1,555 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<script>/* three.ws theme boot */(function(){try{var m=localStorage.getItem('twx_theme');var l=m==='auto'?(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches):m==='light';document.documentElement.setAttribute('data-theme',l?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();</script>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
+	<title>Flappin UFO — dodge asteroids for $THREE · three.ws</title>
+	<meta name="description" content="Pilot your UFO through an asteroid field. Connect your Solana wallet, submit your score to the global leaderboard, and represent $THREE holders." />
+	<meta property="og:title" content="Flappin UFO · three.ws" />
+	<meta property="og:description" content="Dodge asteroids in your UFO. Connect your Solana wallet and claim your spot on the $THREE leaderboard." />
+	<meta property="og:type" content="website" />
+	<meta property="og:site_name" content="three.ws" />
+	<meta property="og:url" content="https://three.ws/play/ufo" />
+	<meta property="og:image" content="https://three.ws/api/page-og?s=crypto&t=Flappin+UFO+%E2%80%94+dodge+asteroids+for+%24THREE&d=Pilot+your+UFO+through+asteroids.+Connect+your+Solana+wallet+and+climb+the+%24THREE+leaderboard.&p=%2Fplay%2Fufo" />
+	<meta name="twitter:card" content="summary_large_image" />
+	<meta name="twitter:title" content="Flappin UFO — dodge asteroids for $THREE" />
+	<meta name="twitter:description" content="Pilot your UFO through asteroids. Connect your Solana wallet and climb the $THREE leaderboard." />
+	<meta name="twitter:image" content="https://three.ws/api/page-og?s=crypto&t=Flappin+UFO+%E2%80%94+dodge+asteroids+for+%24THREE&d=Pilot+your+UFO+through+asteroids.+Connect+your+Solana+wallet+and+climb+the+%24THREE+leaderboard.&p=%2Fplay%2Fufo" />
+	<link rel="canonical" href="https://three.ws/play/ufo" />
+	<link rel="icon" href="/favicon.ico" />
+	<style>
+		:root {
+			--bg: #06070f;
+			--panel: rgba(12, 14, 24, 0.78);
+			--panel-solid: #0c0e18;
+			--line: rgba(255, 255, 255, 0.08);
+			--ink: #e8edf8;
+			--muted: #8b93b0;
+			--faint: rgba(255, 255, 255, 0.38);
+			--violet: #a78bff;
+			--cyan: #6ee7ff;
+			--gold: #fbbf24;
+			--up: #34d399;
+			--r: 14px;
+			--mono: ui-monospace, "JetBrains Mono", SFMono-Regular, Menlo, monospace;
+			--shadow: 0 18px 50px -20px rgba(0, 0, 0, 0.85), 0 1px 0 rgba(255, 255, 255, 0.04) inset;
+			--blur: saturate(160%) blur(20px);
+		}
+
+		* { box-sizing: border-box; margin: 0; padding: 0; }
+
+		html, body {
+			height: 100%;
+			overflow: hidden;
+			background: var(--bg);
+			color: var(--ink);
+			font: 14px/1.5 Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+			-webkit-font-smoothing: antialiased;
+			overscroll-behavior: none;
+		}
+
+		a { color: inherit; text-decoration: none; }
+		button { font: inherit; color: inherit; cursor: pointer; border: none; background: none; }
+
+		/* ── stars background ───────────────────────────── */
+		.stars {
+			position: fixed; inset: 0; z-index: 0; pointer-events: none;
+			background:
+				radial-gradient(ellipse 80% 60% at 20% 30%, rgba(90, 60, 180, 0.12), transparent 70%),
+				radial-gradient(ellipse 60% 50% at 80% 70%, rgba(30, 80, 160, 0.1), transparent 70%);
+		}
+
+		/* ── game iframe ─────────────────────────────────── */
+		#game-frame {
+			position: fixed;
+			inset: 0;
+			width: 100%;
+			height: 100%;
+			border: none;
+			z-index: 1;
+			display: block;
+			background: #000;
+		}
+
+		/* ── top bar ─────────────────────────────────────── */
+		.bar {
+			position: fixed; top: 0; left: 0; right: 0; z-index: 10;
+			display: flex; align-items: center; gap: 12px; padding: 11px 16px;
+			background: linear-gradient(180deg, rgba(6, 7, 15, 0.9) 0%, rgba(6, 7, 15, 0.5) 70%, transparent 100%);
+			pointer-events: none;
+		}
+		.bar > * { pointer-events: auto; }
+		.spacer { flex: 1; }
+
+		.brand {
+			display: inline-flex; align-items: center; gap: 8px;
+			font-weight: 700; font-size: 14px; letter-spacing: -0.02em;
+			opacity: 0.9;
+		}
+		.brand img { width: 20px; height: 20px; border-radius: 5px; }
+		.brand-sep { color: var(--faint); font-weight: 400; margin: 0 2px; }
+		.game-title {
+			font-weight: 700; font-size: 14px; letter-spacing: -0.01em;
+			background: linear-gradient(90deg, var(--violet), var(--cyan));
+			-webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+		}
+
+		.pill {
+			display: inline-flex; align-items: center; gap: 7px;
+			padding: 7px 12px; border-radius: 999px;
+			border: 1px solid var(--line); background: var(--panel);
+			backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+			font-size: 12px; color: var(--muted);
+			transition: border-color .2s, color .2s;
+		}
+
+		.btn {
+			display: inline-flex; align-items: center; gap: 7px;
+			padding: 8px 14px; border-radius: 999px;
+			border: 1px solid var(--line); background: var(--panel);
+			backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+			font-weight: 600; font-size: 12.5px; color: var(--ink);
+			transition: transform .12s, border-color .2s, background .2s;
+			white-space: nowrap;
+		}
+		.btn:hover { transform: translateY(-1px); border-color: color-mix(in srgb, var(--violet) 55%, var(--line)); }
+		.btn:active { transform: translateY(0) scale(.97); }
+		.btn.primary {
+			background: linear-gradient(135deg,
+				color-mix(in srgb, var(--violet) 20%, var(--panel)),
+				color-mix(in srgb, var(--cyan) 15%, var(--panel)));
+			border-color: color-mix(in srgb, var(--violet) 45%, var(--line));
+		}
+		.btn.connected {
+			border-color: color-mix(in srgb, var(--up) 50%, var(--line));
+			color: var(--up);
+		}
+
+		.btn-lb {
+			display: inline-flex; align-items: center; gap: 6px;
+			padding: 8px 13px; border-radius: 999px;
+			border: 1px solid var(--line); background: var(--panel);
+			backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+			font-weight: 600; font-size: 12px; color: var(--muted);
+			transition: transform .12s, border-color .2s, color .2s;
+		}
+		.btn-lb:hover { transform: translateY(-1px); color: var(--ink); border-color: color-mix(in srgb, var(--violet) 45%, var(--line)); }
+		.btn-lb svg { width: 14px; height: 14px; }
+
+		/* ── leaderboard panel ───────────────────────────── */
+		.panel {
+			position: fixed; z-index: 9; right: 16px; top: 60px;
+			width: 300px; max-width: calc(100vw - 28px);
+			background: var(--panel); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+			border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow);
+			overflow: hidden;
+			transform: translateX(calc(100% + 20px)); opacity: 0; pointer-events: none;
+			transition: transform .35s cubic-bezier(.22, 1, .36, 1), opacity .25s;
+		}
+		.panel.open {
+			transform: none; opacity: 1; pointer-events: auto;
+		}
+
+		.panel-head {
+			display: flex; align-items: center; justify-content: space-between;
+			padding: 11px 14px; border-bottom: 1px solid var(--line);
+		}
+		.panel-head h2 {
+			font-size: 10.5px; text-transform: uppercase; letter-spacing: .1em;
+			color: var(--faint); font-weight: 600; margin: 0;
+			display: flex; align-items: center; gap: 7px;
+		}
+		.panel-head .live-dot {
+			width: 6px; height: 6px; border-radius: 50%; background: var(--up);
+			animation: pulse 1.8s infinite;
+		}
+		@keyframes pulse { 0%{box-shadow:0 0 0 0 rgba(52,211,153,.5)} 70%{box-shadow:0 0 0 6px rgba(52,211,153,0)} 100%{box-shadow:0 0 0 0 rgba(52,211,153,0)} }
+
+		.panel-close {
+			width: 26px; height: 26px; border-radius: 8px;
+			border: 1px solid var(--line); background: rgba(255,255,255,0.04);
+			display: grid; place-items: center; color: var(--muted);
+			transition: color .15s, border-color .15s;
+		}
+		.panel-close:hover { color: var(--ink); border-color: var(--violet); }
+
+		/* wallet identity box */
+		.identity-box {
+			padding: 12px 14px; border-bottom: 1px solid var(--line);
+			display: none;
+			flex-direction: column; gap: 7px;
+		}
+		.identity-box.show { display: flex; }
+		.identity-label {
+			font-size: 10px; text-transform: uppercase; letter-spacing: .1em; color: var(--faint); font-weight: 600;
+		}
+		.identity-row {
+			display: flex; align-items: center; gap: 8px;
+		}
+		.identity-addr {
+			flex: 1; font: 600 12px/1.3 var(--mono); color: var(--cyan);
+			overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+		}
+		.copy-btn {
+			display: inline-flex; align-items: center; gap: 5px;
+			padding: 5px 10px; border-radius: 7px;
+			border: 1px solid color-mix(in srgb, var(--violet) 40%, var(--line));
+			background: color-mix(in srgb, var(--violet) 10%, transparent);
+			font: 600 11px/1 var(--mono); color: var(--violet);
+			transition: background .15s, border-color .15s, transform .1s;
+			white-space: nowrap;
+		}
+		.copy-btn:hover { background: color-mix(in srgb, var(--violet) 18%, transparent); transform: translateY(-1px); }
+		.copy-btn.copied { color: var(--up); border-color: color-mix(in srgb, var(--up) 40%, var(--line)); background: color-mix(in srgb, var(--up) 10%, transparent); }
+		.identity-hint {
+			font-size: 11px; color: var(--muted); line-height: 1.4;
+		}
+
+		/* leaderboard list */
+		.board { max-height: min(55vh, 440px); overflow-y: auto; }
+		.board::-webkit-scrollbar { width: 4px; } .board::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+
+		.lb-row {
+			display: grid; grid-template-columns: 22px 1fr auto; gap: 8px; align-items: center;
+			padding: 9px 14px; border-bottom: 1px solid var(--line);
+			transition: background .15s;
+		}
+		.lb-row:last-child { border-bottom: none; }
+		.lb-row:hover { background: rgba(255,255,255,0.03); }
+		.lb-row.me { background: color-mix(in srgb, var(--violet) 7%, transparent); }
+
+		.lb-rank { font: 700 11.5px/1 var(--mono); color: var(--faint); text-align: center; }
+		.lb-rank.gold { color: var(--gold); }
+		.lb-rank.silver { color: #9ca3af; }
+		.lb-rank.bronze { color: #b45309; }
+
+		.lb-info { min-width: 0; }
+		.lb-name { font-size: 12.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+		.lb-name.wallet { font: 600 11px/1.3 var(--mono); color: var(--cyan); }
+		.lb-sub { font-size: 10.5px; color: var(--muted); margin-top: 1px; }
+
+		.lb-score { text-align: right; }
+		.lb-score b { display: block; font: 700 13px/1 var(--mono); color: var(--ink); }
+		.lb-score small { font: 500 10px/1 var(--mono); color: var(--muted); }
+
+		.lb-empty { padding: 28px 18px; text-align: center; }
+		.lb-empty b { display: block; font-size: 14px; color: var(--ink); margin-bottom: 6px; }
+		.lb-empty p { font-size: 12px; color: var(--muted); line-height: 1.5; }
+
+		.lb-skel {
+			height: 46px; margin: 0; border-bottom: 1px solid var(--line);
+			background: linear-gradient(90deg,
+				rgba(255,255,255,0.03) 25%,
+				rgba(255,255,255,0.06) 37%,
+				rgba(255,255,255,0.03) 63%);
+			background-size: 400% 100%;
+			animation: shimmer 1.4s infinite;
+		}
+		@keyframes shimmer { to { background-position: -400% 0; } }
+
+		/* ── controls hint ───────────────────────────────── */
+		.hint {
+			position: fixed; left: 16px; bottom: 16px; z-index: 9;
+			display: flex; gap: 7px; align-items: center;
+			padding: 7px 12px; border-radius: 999px;
+			background: var(--panel); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+			border: 1px solid var(--line); color: var(--muted); font-size: 11.5px;
+		}
+		.hint kbd {
+			font: 600 10px/1 var(--mono); background: rgba(255,255,255,0.07);
+			border: 1px solid var(--line); border-radius: 4px; padding: 3px 5px; color: var(--ink);
+		}
+
+		/* ── $THREE badge ────────────────────────────────── */
+		.three-badge {
+			display: inline-flex; align-items: center; gap: 5px;
+			padding: 5px 10px; border-radius: 999px;
+			border: 1px solid color-mix(in srgb, var(--violet) 35%, var(--line));
+			background: color-mix(in srgb, var(--violet) 8%, transparent);
+			font: 700 11px/1 var(--mono); color: var(--violet);
+			letter-spacing: .02em;
+		}
+		.three-badge::before { content: '◈'; opacity: .7; }
+
+		/* ── mobile ──────────────────────────────────────── */
+		@media (max-width: 600px) {
+			.bar { padding: 9px 12px; gap: 8px; }
+			.game-title { display: none; }
+			.brand-sep { display: none; }
+			.panel { right: 8px; top: 54px; width: calc(100vw - 16px); }
+			.hint { display: none; }
+		}
+	</style>
+</head>
+<body>
+<div class="stars"></div>
+
+<!-- full-screen game iframe -->
+<iframe
+	id="game-frame"
+	src="https://flappin-ufo.vercel.app"
+	allow="autoplay; fullscreen"
+	title="Flappin UFO"
+></iframe>
+
+<!-- top bar -->
+<header class="bar">
+	<a href="/" class="brand">
+		<img src="/favicon.svg" alt="three.ws" />
+		<span>three.ws</span>
+	</a>
+	<span class="brand-sep">/</span>
+	<span class="game-title">Flappin UFO</span>
+
+	<div class="spacer"></div>
+
+	<span class="three-badge">$THREE</span>
+
+	<button class="btn-lb" id="lb-toggle" aria-label="Toggle leaderboard" title="Leaderboard">
+		<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+			<rect x="1.5" y="9.5" width="3" height="5" rx=".5" />
+			<rect x="6.5" y="5.5" width="3" height="9" rx=".5" />
+			<rect x="11.5" y="2.5" width="3" height="12" rx=".5" />
+		</svg>
+		<span id="lb-toggle-label">Scores</span>
+	</button>
+
+	<button class="btn primary" id="connect-wallet-btn" onclick="connectWallet()">
+		<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+			<path d="M20 12V8a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-4" />
+			<path d="M15 12h6" /><circle cx="15" cy="12" r="1.5" fill="currentColor" />
+		</svg>
+		<span data-wallet-label>Connect Wallet</span>
+	</button>
+</header>
+
+<!-- leaderboard panel -->
+<aside class="panel" id="lb-panel" role="complementary" aria-label="Leaderboard">
+	<div class="panel-head">
+		<h2>
+			<span class="live-dot"></span>
+			Global Leaderboard
+		</h2>
+		<button class="panel-close" onclick="closePanel()" aria-label="Close leaderboard">
+			<svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+				<path d="M1 1l10 10M11 1L1 11" />
+			</svg>
+		</button>
+	</div>
+
+	<!-- identity box (wallet connected) -->
+	<div class="identity-box" id="identity-box">
+		<span class="identity-label">Your game name</span>
+		<div class="identity-row">
+			<code class="identity-addr" id="identity-addr"></code>
+			<button class="copy-btn" id="copy-btn" onclick="copyAddr()">Copy</button>
+		</div>
+		<p class="identity-hint">Paste this as your name in-game to appear on the leaderboard.</p>
+	</div>
+
+	<!-- scores list -->
+	<div class="board" id="lb-board">
+		<!-- skeleton -->
+		<div class="lb-skel"></div>
+		<div class="lb-skel"></div>
+		<div class="lb-skel"></div>
+		<div class="lb-skel"></div>
+		<div class="lb-skel"></div>
+	</div>
+</aside>
+
+<!-- controls hint -->
+<div class="hint" id="controls-hint" aria-hidden="true">
+	<kbd>Space</kbd> or <kbd>Click</kbd> to thrust &nbsp;·&nbsp; hold to climb
+</div>
+
+<script>
+(function () {
+	'use strict';
+
+	const LEADERBOARD_URL = 'https://flappin-ufo.vercel.app/api/leaderboard';
+	const REFRESH_MS = 15_000;
+
+	let walletAddress = null;
+	let panelOpen = false;
+	let refreshTimer = null;
+
+	// ── wallet ──────────────────────────────────────────────
+	function getPhantom() {
+		const p = window.solana;
+		if (!p) return null;
+		return (p.isPhantom || p.isThreeWs) ? p : null;
+	}
+
+	window.connectWallet = async function () {
+		const p = getPhantom();
+		if (!p) { window.open('https://phantom.app/', '_blank', 'noopener'); return; }
+		try {
+			const res = await p.connect();
+			walletAddress = res?.publicKey?.toString?.() || null;
+			onWalletChange(walletAddress);
+		} catch (_) {}
+	};
+
+	function onWalletChange(addr) {
+		walletAddress = addr;
+		const btn = document.getElementById('connect-wallet-btn');
+		const lbl = btn?.querySelector('[data-wallet-label]');
+		if (addr) {
+			const short = addr.slice(0, 4) + '…' + addr.slice(-4);
+			if (lbl) lbl.textContent = short;
+			btn?.classList.add('connected');
+			showIdentity(addr);
+		} else {
+			if (lbl) lbl.textContent = 'Connect Wallet';
+			btn?.classList.remove('connected');
+			hideIdentity();
+		}
+		renderLeaderboard(lastRuns);
+	}
+
+	function showIdentity(addr) {
+		const box = document.getElementById('identity-box');
+		const addrEl = document.getElementById('identity-addr');
+		if (box) box.classList.add('show');
+		if (addrEl) addrEl.textContent = addr;
+		openPanel();
+	}
+
+	function hideIdentity() {
+		document.getElementById('identity-box')?.classList.remove('show');
+	}
+
+	window.copyAddr = function () {
+		if (!walletAddress) return;
+		navigator.clipboard.writeText(walletAddress).then(() => {
+			const btn = document.getElementById('copy-btn');
+			if (!btn) return;
+			btn.classList.add('copied');
+			btn.textContent = 'Copied!';
+			setTimeout(() => { btn.classList.remove('copied'); btn.textContent = 'Copy'; }, 2000);
+		});
+	};
+
+	// detect if Phantom was already connected
+	(function detectExisting() {
+		const p = getPhantom();
+		if (!p) return;
+		p.on('connect', (pk) => onWalletChange(pk?.toString?.() || null));
+		p.on('disconnect', () => onWalletChange(null));
+		if (p.isConnected && p.publicKey) {
+			onWalletChange(p.publicKey.toString());
+		}
+	})();
+
+	// ── panel ────────────────────────────────────────────────
+	function openPanel() {
+		panelOpen = true;
+		document.getElementById('lb-panel')?.classList.add('open');
+		document.getElementById('lb-toggle-label').textContent = 'Hide';
+		if (!refreshTimer) startRefresh();
+	}
+
+	window.closePanel = function () {
+		panelOpen = false;
+		document.getElementById('lb-panel')?.classList.remove('open');
+		document.getElementById('lb-toggle-label').textContent = 'Scores';
+	};
+
+	document.getElementById('lb-toggle').addEventListener('click', () => {
+		panelOpen ? closePanel() : openPanel();
+	});
+
+	// open panel by default on desktop
+	if (window.innerWidth >= 768) openPanel();
+
+	// ── leaderboard ──────────────────────────────────────────
+	let lastRuns = [];
+
+	function rankClass(i) {
+		if (i === 0) return 'gold';
+		if (i === 1) return 'silver';
+		if (i === 2) return 'bronze';
+		return '';
+	}
+
+	function rankSymbol(i) {
+		if (i === 0) return '🥇';
+		if (i === 1) return '🥈';
+		if (i === 2) return '🥉';
+		return String(i + 1);
+	}
+
+	function isWallet(name) {
+		return /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(name);
+	}
+
+	function formatName(name) {
+		if (!name) return 'anon';
+		if (isWallet(name)) return name.slice(0, 4) + '…' + name.slice(-4);
+		return name;
+	}
+
+	function isMe(name) {
+		if (!walletAddress || !name) return false;
+		return name.toLowerCase() === walletAddress.toLowerCase();
+	}
+
+	function renderLeaderboard(runs) {
+		lastRuns = runs || [];
+		const board = document.getElementById('lb-board');
+		if (!board) return;
+
+		if (!lastRuns.length) {
+			board.innerHTML = `
+				<div class="lb-empty">
+					<b>No scores yet</b>
+					<p>Be the first to submit a score.<br>Connect your wallet and play!</p>
+				</div>`;
+			return;
+		}
+
+		board.innerHTML = lastRuns.map((r, i) => {
+			const me = isMe(r.name);
+			const wallet = isWallet(r.name);
+			return `<div class="lb-row${me ? ' me' : ''}">
+				<span class="lb-rank ${rankClass(i)}">${rankSymbol(i)}</span>
+				<div class="lb-info">
+					<div class="lb-name${wallet ? ' wallet' : ''}" title="${escHtml(r.name || 'anon')}">${escHtml(formatName(r.name))}</div>
+					<div class="lb-sub">Level ${r.level ?? 1}</div>
+				</div>
+				<div class="lb-score">
+					<b>${(r.score ?? 0).toLocaleString()}</b>
+					<small>pts</small>
+				</div>
+			</div>`;
+		}).join('');
+	}
+
+	function escHtml(s) {
+		return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+	}
+
+	async function fetchLeaderboard() {
+		try {
+			const r = await fetch(LEADERBOARD_URL, { cache: 'no-store' });
+			if (!r.ok) throw new Error(r.status);
+			const data = await r.json();
+			renderLeaderboard(data.runs || []);
+		} catch (e) {
+			// keep whatever we already rendered; don't wipe on transient error
+		}
+	}
+
+	function startRefresh() {
+		fetchLeaderboard();
+		refreshTimer = setInterval(fetchLeaderboard, REFRESH_MS);
+	}
+
+	// fetch on panel open only
+	if (panelOpen) startRefresh();
+})();
+</script>
+</body>
+</html>

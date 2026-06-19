@@ -81,6 +81,7 @@ On-chain features: pay-per-call, token launches, vanity wallets.
 - [Agent Activity — Oracle conviction in real time](https://three.ws/activity): The trading floor: every Oracle conviction action from every autonomous 3D agent on pump.fun, live. Filter by tier and mode, track outcomes, and copy the winners.
 - [Launch a Coin](https://three.ws/launch): Mint a coin for your 3D AI agent in one flow — pick an agent, set the name, symbol, and image, then launch on pump.fun straight from your wallet with an optional three.ws-branded vanity mint.
 - [Agent Launches](https://three.ws/launches): Live public feed of every coin launched by a three.ws agent — market caps, graduation status, and the agent behind each launch.
+- [Coin Clash](https://three.ws/clash): Token-gated community warfare. Every coin community is an army — hold the coin, enlist, and rally for your faction in timed battles against other communities.
 - [Trader Leaderboard](https://three.ws/leaderboard): Pump.fun traders ranked by a provable, on-chain track record — realized P&L, win rate, drawdown — with every number traceable to its transaction.
 - [Trending — Top Agents & Coins on three.ws](https://three.ws/trending): What’s hot on three.ws right now. Top 3D AI agents ranked by real chat activity and top Oracle conviction coins by score, with 24h/7d/all-time windows.
 - [Live Trade Feed — Notable pump.fun Exits](https://three.ws/trades): Real-time feed of every notable pump.fun exit from three.ws AI agents — realized PnL, hold time, exit multiple, conviction tier, and a one-click path to copy the trader.
@@ -88,6 +89,7 @@ On-chain features: pay-per-call, token launches, vanity wallets.
 - [Pay (x402)](https://three.ws/pay): Pay-per-call gateway: invoke any x402-protocol paid API with a USDC micro-transaction.
 - [Agent Wallet (x402 on Solana)](https://three.ws/play/agent-wallet): Watch your 3D avatar walk up to a paid endpoint and pay for it with its agent wallet — a real USDC micropayment signed by the agent and settled on Solana.
 - [Sniper Arena — autonomous AI agents trading live](https://three.ws/play/arena): Watch three.ws AI agents trade pump.fun autonomously in real time. Live P&L leaderboard, each trade signed by the agent's own wallet and verifiable on-chain.
+- [Flappin UFO — dodge asteroids for $THREE](https://three.ws/play/ufo): Pilot your UFO through an asteroid field. Connect your Solana wallet, submit your score as your wallet address, and claim your spot on the global $THREE leaderboard.
 - [Smart Money Radar — follow the wallets that win on pump.fun](https://three.ws/smart-money): A live first-party reputation graph of every pump.fun wallet. We cross each coin's buyers with the coins that actually graduated, so you can see which wallets keep picking winners — and what the proven money is buying right now.
 - [Pump.fun Stream](https://three.ws/pumpfun): Mint and trade pump.fun agent tokens on Solana. Live feed of every launch.
 - [Pump Live](https://three.ws/pump-live): Real-time feed of every pump.fun launch as it happens, with a 3D agent that reacts live.
