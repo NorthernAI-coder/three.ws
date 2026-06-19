@@ -22,10 +22,6 @@ import { cors, json, method, readJson, wrap, error } from '../_lib/http.js';
 import { requireCsrf } from '../_lib/csrf.js';
 import { MEMORY_TIERS, decorateMemory } from '../_lib/memory-store.js';
 
-const RETURN_COLS = `id, agent_id, type, content, tags, context, salience, tier, pinned, embedder,
-	(embedding IS NOT NULL) AS has_embedding, access_count, is_public,
-	created_at, updated_at, last_accessed_at, expires_at`;
-
 async function resolveAuth(req) {
 	const session = await getSessionUser(req);
 	if (session) return { userId: session.id };
@@ -54,29 +50,62 @@ export default wrap(async (req, res) => {
 	if (!agentRow) return error(res, 404, 'not_found', 'agent not found');
 	if (agentRow.user_id !== auth.userId) return error(res, 403, 'forbidden', 'not your agent');
 
+	const memoryId = body.memoryId;
 	switch (op) {
-		case 'pin':
-			return updateOne(res, agentId, body.memoryId, sql`pinned = true, tier = 'working'`);
-		case 'unpin':
-			return updateOne(res, agentId, body.memoryId, sql`pinned = false, tier = 'recall'`);
+		case 'pin': {
+			if (!memoryId) return error(res, 400, 'validation_error', 'memoryId required');
+			return respondRow(res, await sql`
+				UPDATE agent_memories SET pinned = true, tier = 'working', updated_at = now()
+				WHERE id = ${memoryId} AND agent_id = ${agentId}
+				RETURNING id, agent_id, type, content, tags, context, salience, tier, pinned, embedder,
+				          (embedding IS NOT NULL) AS has_embedding, access_count, is_public,
+				          created_at, updated_at, last_accessed_at, expires_at
+			`);
+		}
+		case 'unpin': {
+			if (!memoryId) return error(res, 400, 'validation_error', 'memoryId required');
+			return respondRow(res, await sql`
+				UPDATE agent_memories SET pinned = false, tier = 'recall', updated_at = now()
+				WHERE id = ${memoryId} AND agent_id = ${agentId}
+				RETURNING id, agent_id, type, content, tags, context, salience, tier, pinned, embedder,
+				          (embedding IS NOT NULL) AS has_embedding, access_count, is_public,
+				          created_at, updated_at, last_accessed_at, expires_at
+			`);
+		}
 		case 'tier': {
+			if (!memoryId) return error(res, 400, 'validation_error', 'memoryId required');
 			if (!MEMORY_TIERS.includes(body.tier)) return error(res, 400, 'validation_error', 'invalid tier');
-			const pinExpr = body.tier === 'working' ? sql`pinned = true` : sql`pinned = pinned`;
-			return updateOne(res, agentId, body.memoryId, sql`tier = ${body.tier}, ${pinExpr}`);
+			return respondRow(res, await sql`
+				UPDATE agent_memories
+				SET tier = ${body.tier},
+				    pinned = CASE WHEN ${body.tier} = 'working' THEN true ELSE pinned END,
+				    updated_at = now()
+				WHERE id = ${memoryId} AND agent_id = ${agentId}
+				RETURNING id, agent_id, type, content, tags, context, salience, tier, pinned, embedder,
+				          (embedding IS NOT NULL) AS has_embedding, access_count, is_public,
+				          created_at, updated_at, last_accessed_at, expires_at
+			`);
 		}
 		case 'salience': {
+			if (!memoryId) return error(res, 400, 'validation_error', 'memoryId required');
 			const s = Number(body.salience);
 			if (!Number.isFinite(s) || s < 0 || s > 1) return error(res, 400, 'validation_error', 'salience must be 0..1');
-			return updateOne(res, agentId, body.memoryId, sql`salience = ${s}`);
+			return respondRow(res, await sql`
+				UPDATE agent_memories SET salience = ${s}, updated_at = now()
+				WHERE id = ${memoryId} AND agent_id = ${agentId}
+				RETURNING id, agent_id, type, content, tags, context, salience, tier, pinned, embedder,
+				          (embedding IS NOT NULL) AS has_embedding, access_count, is_public,
+				          created_at, updated_at, last_accessed_at, expires_at
+			`);
 		}
 		case 'edit':
 			return handleEdit(res, agentId, body);
 		case 'merge':
 			return handleMerge(res, agentId, body);
 		case 'forget': {
-			if (!body.memoryId) return error(res, 400, 'validation_error', 'memoryId required');
+			if (!memoryId) return error(res, 400, 'validation_error', 'memoryId required');
 			const [row] = await sql`
-				DELETE FROM agent_memories WHERE id = ${body.memoryId} AND agent_id = ${agentId} RETURNING id
+				DELETE FROM agent_memories WHERE id = ${memoryId} AND agent_id = ${agentId} RETURNING id
 			`;
 			if (!row) return error(res, 404, 'not_found', 'memory not found');
 			return json(res, 200, { ok: true, forgot: row.id });
@@ -86,15 +115,8 @@ export default wrap(async (req, res) => {
 	}
 });
 
-async function updateOne(res, agentId, memoryId, setExpr) {
-	if (!memoryId) return error(res, 400, 'validation_error', 'memoryId required');
-	const [row] = await sql`
-		UPDATE agent_memories SET ${setExpr}, updated_at = now()
-		WHERE id = ${memoryId} AND agent_id = ${agentId}
-		RETURNING id, agent_id, type, content, tags, context, salience, tier, pinned, embedder,
-		          (embedding IS NOT NULL) AS has_embedding, access_count, is_public,
-		          created_at, updated_at, last_accessed_at, expires_at
-	`;
+function respondRow(res, rows) {
+	const row = rows?.[0];
 	if (!row) return error(res, 404, 'not_found', 'memory not found');
 	return json(res, 200, { entry: decorateMemory(row) });
 }
@@ -139,7 +161,7 @@ async function handleMerge(res, agentId, body) {
 
 	const rows = await sql`
 		SELECT id, content, tags, salience, type FROM agent_memories
-		WHERE id = ANY(${ids}) AND agent_id = ${agentId}
+		WHERE id = ANY(${ids}::uuid[]) AND agent_id = ${agentId}
 	`;
 	if (rows.length < 2) return error(res, 404, 'not_found', 'memories not found');
 
@@ -176,7 +198,7 @@ async function handleMerge(res, agentId, body) {
 		          created_at, updated_at, last_accessed_at, expires_at
 	`;
 	if (presentDupes.length) {
-		await sql`DELETE FROM agent_memories WHERE id = ANY(${presentDupes}) AND agent_id = ${agentId}`;
+		await sql`DELETE FROM agent_memories WHERE id = ANY(${presentDupes}::uuid[]) AND agent_id = ${agentId}`;
 	}
 	return json(res, 200, { entry: decorateMemory(updated), merged: presentDupes.length });
 }

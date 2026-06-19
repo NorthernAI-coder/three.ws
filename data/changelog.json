@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-06-19",
+			"title": "Memory Studio — watch your agent’s memory form, curate it, and trust it",
+			"summary": "The Memory tab in Agent Studio turns your agent’s memory into something you can see and shape. A live Timeline streams every memory as it forms — chats, lessons, rules, trades — each tagged by tier (working, recall, archival) and salience, with one-click pin, edit, merge, forget, and a slider to dial importance. A knowledge Graph maps the coins, wallets, people, and strategies your agent has learned, linked by what shows up together; click any coin to replay how your agent’s understanding of it evolved over time. Recall runs real semantic search over real embeddings, so asking “lessons from losing trades” or “rules my agent follows” returns what it actually knows — and an In-Context view shows exactly what the agent carries into every reply, with a live token budget so the core stays sharp. Seed it in seconds from your GitHub, X, and Farcaster, and the Brain’s Memory node recalls all of it for real.",
+			"tags": [
+				"feature"
+			],
+			"link": "/agent-studio"
+		},
+		{
+			"date": "2026-06-19",
 			"title": "Brain Studio — build your agent’s mind as a visual circuit",
 			"summary": "The Brain tab in Agent Studio is now a visual node editor: wire Persona, Model, Memory, Skills, and trading-reasoning nodes into a living graph that IS your agent’s personality. Pick from real LLMs (Claude, GPT, Granite and more) per branch, connect a memory port that recalls and writes real memories, and watch the active path light up as your agent thinks — tokens streaming, memory firing, the avatar reacting live. A built-in test chat runs your graph against the real models with real latency and token stats, and forkable templates (Sniper, Scalper, Researcher, Companion) get you started in one click. Your graph compiles straight to your agent’s persona so every existing chat surface picks up the change.",
 			"tags": [

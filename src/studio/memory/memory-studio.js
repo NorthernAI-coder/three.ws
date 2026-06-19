@@ -201,6 +201,8 @@ class MemoryStudio {
 	}
 
 	_selectView(view) {
+		// Tear down the graph sim (RAF + window/canvas listeners) when leaving it.
+		if (view !== 'graph' && this._graph) { this._graph.destroy(); this._graph = null; }
 		this.state.view = view;
 		this.state.search = null;
 		this.state.entity = null;
@@ -313,10 +315,12 @@ class MemoryStudio {
 				${slice.map((m) => this._card(m)).join('')}
 			</ol>
 			${more > 0 ? `<div class="mem-more">Showing ${slice.length} of ${all.length} — scroll for ${more} more</div>` : ''}`;
-		// Mark newly arrived for entrance animation, then clear the flag.
+		// Mark newly arrived for entrance animation, then remember them so they
+		// only animate once (a filter re-render won't re-trigger the entrance).
 		host.querySelectorAll('.mem-card--new').forEach((c) => {
 			requestAnimationFrame(() => c.classList.remove('mem-card--new'));
 		});
+		slice.forEach((m) => this._knownIds.add(m.id));
 	}
 
 	_card(m) {
