@@ -1162,6 +1162,9 @@ class App {
 	// agent. Localstorage-keyed per agent so it never reappears once dismissed.
 	_maybeShowOnboarding(agentId) {
 		if (typeof window === 'undefined' || !agentId) return;
+		// Only the main viewer has a 3D stage to onboard. On page modes
+		// (/deploy, /explore, embeds) the fixed card just covers content.
+		if ((document.body?.dataset.viewerMode || 'main') !== 'main') return;
 		const key = `3dagent:onboarded:${agentId}`;
 		try {
 			if (localStorage.getItem(key)) return;
@@ -2442,6 +2445,10 @@ class App {
 			if (authGate) authGate.style.display = 'none';
 			const presence = this.el.querySelector('.agent-presence-sidebar');
 			if (presence) presence.style.display = 'none';
+			// The fixed onboarding card ("Your agent is ready") would otherwise
+			// float over the deploy Live Preview panel — it has no purpose here.
+			const onboarding = this.el.querySelector('#agent-onboarding');
+			if (onboarding) onboarding.hidden = true;
 
 			const page = document.createElement('section');
 			page.className = 'deploy-page';

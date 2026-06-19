@@ -278,7 +278,7 @@
 	</div>
 
 	<script type="module">
-		import { agentAvatarGlb } from '/src/shared/agent-3d.js';
+		import { agentAvatarGlb, MANNEQUIN_GLB } from '/src/shared/agent-3d.js';
 
 		const p = new URLSearchParams(location.search);
 		const avatarId = p.get('avatarId') || '';
@@ -317,6 +317,22 @@
 		after(700, () => document.getElementById('cnAvatarTag').classList.add('show'));
 		// Step cards already have show class, transition-delay handles stagger
 
+		// Fetch one avatar's loadable model URL + name. The avatar endpoint wraps its
+		// payload in `{ avatar: {...} }` and serves the model under `url` (a presigned
+		// link for the owner, so it works even when the avatar is private — which the
+		// agent record's `avatar_model_url` is gated against). Returns null on failure.
+		async function fetchAvatar(id) {
+			try {
+				const r = await fetch(`/api/avatars/${encodeURIComponent(id)}`, { credentials: 'include' });
+				if (!r.ok) return null;
+				const data = await r.json();
+				const avatar = data.avatar || data;
+				return { name: avatar.name || '', url: avatar.url || avatar.model_url || avatar.glb_url || null };
+			} catch {
+				return null;
+			}
+		}
+
 		async function loadData() {
 			let name = '';
 			let glbUrl = null;
@@ -327,18 +343,23 @@
 					if (r.ok) {
 						const agent = await r.json();
 						name = agent.name || '';
-						glbUrl = agentAvatarGlb(agent);
+						const g = agentAvatarGlb(agent);
+						// Only adopt it when it's the agent's own model — never the mannequin,
+						// so the avatarId fallback below can supply the real one.
+						if (g && g !== MANNEQUIN_GLB) glbUrl = g;
 					}
 				} catch { /* non-fatal */ }
-			} else if (avatarId) {
-				try {
-					const r = await fetch(`/api/avatars/${encodeURIComponent(avatarId)}`, { credentials: 'include' });
-					if (r.ok) {
-						const avatar = await r.json();
-						name = avatar.name || '';
-						glbUrl = avatar.model_url || avatar.glb_url;
-					}
-				} catch { /* non-fatal */ }
+			}
+
+			// Avatar-only saves, or agent saves whose record hasn't surfaced a public
+			// model URL yet (e.g. a freshly created private avatar): pull the model
+			// straight from the avatar the user just made.
+			if (!glbUrl && avatarId) {
+				const av = await fetchAvatar(avatarId);
+				if (av) {
+					if (!name) name = av.name;
+					glbUrl = av.url;
+				}
 			}
 
 			// Try URL-param name as fallback

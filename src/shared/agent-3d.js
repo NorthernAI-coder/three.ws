@@ -24,8 +24,15 @@ const GLB_RE = /\.(glb|gltf|vrm)(\?|#|$)/i;
 export function agentAvatarGlb(agent) {
 	if (!agent) return MANNEQUIN_GLB;
 
-	// Marketplace / avatar-service shapes carry an explicit GLB URL.
-	const direct = agent.avatar_glb_url || agent.base_model_url || agent.glb_url || agent.model_url;
+	// Marketplace / avatar-service shapes carry an explicit GLB URL. The single
+	// agent GET (GET /api/agents/:id) serves it as `avatar_model_url`, so check
+	// that too — otherwise an agent's real avatar silently falls to the mannequin.
+	const direct =
+		agent.avatar_glb_url ||
+		agent.base_model_url ||
+		agent.avatar_model_url ||
+		agent.glb_url ||
+		agent.model_url;
 	if (typeof direct === 'string' && GLB_RE.test(direct)) return direct;
 
 	// ERC-8004 on-chain agents expose their model through registration metadata
