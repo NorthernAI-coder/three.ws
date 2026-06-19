@@ -20,6 +20,7 @@
 
 import { registerWalletTab } from '../registry.js';
 import { formatUsd, explorerTxUrl, explorerAddressUrl } from '../util.js';
+import { consumeCsrfToken } from '../../api.js';
 
 const SOL_ADDR_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 
@@ -93,6 +94,12 @@ async function call(url, { method = 'GET', body = null } = {}) {
 		if (body != null) {
 			opts.headers['content-type'] = 'application/json';
 			opts.body = JSON.stringify(body);
+		}
+		// State-changing requests (withdraw POST, limits PUT) carry a single-use
+		// CSRF token; reads (GET) don't need one. The server burns the token on use.
+		if (method !== 'GET') {
+			const token = await consumeCsrfToken();
+			if (token) opts.headers['x-csrf-token'] = token;
 		}
 		const r = await fetch(url, opts);
 		let j = null;

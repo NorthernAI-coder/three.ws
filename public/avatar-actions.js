@@ -219,6 +219,7 @@ class AvatarActions extends HTMLElement {
 		}
 		const evm = ag.wallet_address || null;
 		const sol = ag.meta?.solana_address || null;
+		const solVanity = !!(sol && (ag.meta?.solana_vanity_prefix || ag.meta?.solana_vanity_suffix));
 		const manage = `<a class="manage" href="/agent-edit.html?id=${ag.id}">Manage →</a>`;
 
 		if (!evm && !sol) {

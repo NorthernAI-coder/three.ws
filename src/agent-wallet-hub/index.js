@@ -26,6 +26,7 @@ import './tabs/deposit.js';
 import './tabs/trade.js';
 import './tabs/snipe.js';
 import './tabs/pay.js';
+import './tabs/vanity.js';
 import './tabs/withdraw.js';
 
 import { escapeHtml, shortAddress, copyToClipboard, toast } from './util.js';

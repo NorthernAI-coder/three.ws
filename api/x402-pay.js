@@ -33,6 +33,7 @@ import bs58 from 'bs58';
 
 import { cors, json, readJson, wrap, rateLimited, setRateLimitHeaders } from './_lib/http.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
+import { requireCsrf } from './_lib/csrf.js';
 import {
 	paymentRequirements,
 	verifyPayment,
@@ -942,6 +943,11 @@ async function handleExternalPay(req, res, input, ip) {
 		}
 	}
 
+	// CSRF on the settle path (funds move + the agent key signs). The preview branch
+	// above returns before this point, so a live price probe never burns a token.
+	// Bearer/API-key callers are exempt inside requireCsrf.
+	if (!(await requireCsrf(req, res, auth.userId))) return;
+
 	const spendGuard = { agentId, userId: auth.userId, meta: loaded.meta, network: 'mainnet' };
 	const wantsStream =
 		(req.headers.accept || '').includes('text/event-stream') || input.stream === true;
@@ -1068,6 +1074,8 @@ export default wrap(async (req, res) => {
 		if (!auth) return json(res, 401, { error: 'authentication_required' });
 		const loaded = await loadAgentKeypairForUser(routing.agentId, auth.userId);
 		if (!loaded) return json(res, 403, { error: 'agent_not_found_or_no_solana_wallet' });
+		// CSRF: this tool call pays from the agent's own wallet. Bearer callers exempt.
+		if (!(await requireCsrf(req, res, auth.userId))) return;
 		buyer = loaded.keypair;
 		// Per-agent spend policy applies to x402 just like trade/snipe/withdraw.
 		spendGuard = { agentId: routing.agentId, userId: auth.userId, meta: loaded.meta, network: 'mainnet' };

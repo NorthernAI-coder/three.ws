@@ -5,6 +5,7 @@ import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.
 import { sql } from '../_lib/db.js';
 import { cors, json, method, error, readJson, rateLimited, serverError } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
+import { requireCsrf } from '../_lib/csrf.js';
 import { generateSolanaAgentWallet, recoverSolanaAgentKeypair } from '../_lib/agent-wallet.js';
 import { solanaConnection, solanaPublicConnection } from '../_lib/agent-pumpfun.js';
 import { reverseLookupAddress } from '../../src/solana/sns.js';
@@ -26,7 +27,7 @@ import { logAudit } from '../_lib/audit.js';
 import { explorerTxUrl } from '../_lib/avatar-wallet.js';
 import {
 	validateSolanaAddress, enforceSpendLimit, SpendLimitError, lamportsToUsd,
-	getSpendLimits, setSpendLimits, listCustodyEvents, updateCustodyEvent,
+	getSpendLimits, setSpendLimits, listCustodyEvents, updateCustodyEvent, recordCustodyEvent,
 	getDailySpendUsd, getTradeLimits, setTradeLimits, getDailySpendLamports,
 } from '../_lib/agent-trade-guards.js';
 
@@ -488,6 +489,11 @@ async function handleWithdraw(req, res, id) {
 	const owned = await loadOwnedWallet(req, res, id);
 	if (owned.error) return;
 	const { auth, meta, address: fromAddress, encryptedSecret } = owned;
+
+	// CSRF: sweeping a custodial wallet is the single highest-stakes action on the
+	// platform — it must be at least as protected as message-signing. Bearer/API-key
+	// callers are exempt inside requireCsrf (the token is itself proof of intent).
+	if (!(await requireCsrf(req, res, auth.userId))) return;
 
 	// Owner-only daily withdraw cap + per-IP burst guard.
 	const rlUser = await limits.withdrawalPerUser(auth.userId);
@@ -1004,12 +1010,305 @@ async function handleLimits(req, res, id) {
 	return json(res, 200, { data: { limits: limitsOut, trade_limits: getTradeLimits(meta), spent_today_usd: spentUsd, spent_today_sol: Number(spentLamports) / 1e9 } });
 }
 
+// ── vanity grind + custodial swap ──────────────────────────────────────────────
+// GET  /api/agents/:id/solana/vanity  — owner-only current vanity status.
+// POST /api/agents/:id/solana/vanity  — owner-only: grind a vanity keypair
+//   server-side (the secret never leaves the server) and make it the agent's
+//   custodial Solana wallet. If the existing wallet holds funds, every asset is
+//   swept to the new address FIRST, signed by the old key; the stored key is only
+//   swapped after the sweep confirms, so funds can never be stranded. This is an
+//   internal custody migration between two wallets the same owner controls — not a
+//   third-party withdrawal — so it is exempt from the withdraw allowlist but fully
+//   audited as a `vanity_swap` custody event.
+
+// Server-side grind is bounded so a serverless invocation can't hang. Patterns
+// harder than this are ground in the browser at /vanity-wallet (GPU + workers,
+// up to 8 chars) and assigned via POST /api/agents/:id/solana { secret_key }.
+const VANITY_MAX_CHARS = 3;          // combined prefix+suffix length for server grind
+const VANITY_MAX_ITERATIONS = 4_000_000;
+
+// Move every asset (all SPL tokens + remaining SOL) from a custodial keypair to a
+// destination address, reclaiming token-account rent. Two-phase so the final SOL
+// figure is exact: (A) transfer + close each token account, (B) sweep all SOL.
+// Returns { signatures, sol, tokens }. Throws if any leg fails to confirm — the
+// caller must NOT discard the source key unless this resolves.
+async function sweepWalletToAddress({ conn, fromKeypair, toPubkey, network }) {
+	const fromPk = fromKeypair.publicKey;
+	const signatures = [];
+	const movedTokens = [];
+
+	// Phase A — collect every non-empty token account across both token programs.
+	const tokenLegs = [];
+	for (const programId of [TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID]) {
+		let resp;
+		try {
+			resp = await conn.getParsedTokenAccountsByOwner(fromPk, { programId });
+		} catch {
+			continue;
+		}
+		for (const { account } of resp.value) {
+			const info = account.data?.parsed?.info;
+			const amt = info?.tokenAmount;
+			if (!info || !amt) continue;
+			const raw = BigInt(amt.amount || '0');
+			if (raw <= 0n) continue;
+			const mintPk = new PublicKey(info.mint);
+			const sourceAta = getAssociatedTokenAddressSync(mintPk, fromPk, false, programId, ASSOCIATED_TOKEN_PROGRAM_ID);
+			const destAta = getAssociatedTokenAddressSync(mintPk, toPubkey, false, programId, ASSOCIATED_TOKEN_PROGRAM_ID);
+			tokenLegs.push({ mintPk, programId, sourceAta, destAta, raw, decimals: amt.decimals });
+			movedTokens.push({ mint: info.mint, ui_amount: amt.uiAmount, amount_raw: amt.amount });
+		}
+	}
+
+	// Send token transfers + closes in chunks so each transaction stays under the
+	// size limit. Closing the source ATA returns its rent lamports to `fromPk`,
+	// which are then swept out in phase B.
+	const CHUNK = 4;
+	for (let i = 0; i < tokenLegs.length; i += CHUNK) {
+		const chunk = tokenLegs.slice(i, i + CHUNK);
+		const ixs = [];
+		for (const leg of chunk) {
+			ixs.push(createAssociatedTokenAccountIdempotentInstruction(
+				fromPk, leg.destAta, toPubkey, leg.mintPk, leg.programId, ASSOCIATED_TOKEN_PROGRAM_ID,
+			));
+			ixs.push(createTransferCheckedInstruction(
+				leg.sourceAta, leg.mintPk, leg.destAta, fromPk, leg.raw, leg.decimals, [], leg.programId,
+			));
+			ixs.push(createCloseAccountInstruction(leg.sourceAta, fromPk, fromPk, [], leg.programId));
+		}
+		const sig = await sendV0({ conn, payer: fromKeypair, ixs });
+		signatures.push(sig);
+	}
+
+	// Phase B — sweep all remaining SOL, leaving only the network fee. The old
+	// account is intentionally abandoned (drained to ~0), so no rent is reserved.
+	let lamports = 0n;
+	try {
+		lamports = BigInt(await conn.getBalance(fromPk, 'confirmed'));
+	} catch {
+		lamports = 0n;
+	}
+	const spendable = lamports - SOL_FEE_RESERVE_LAMPORTS;
+	let solMoved = 0;
+	if (spendable > 0n) {
+		const sig = await sendV0({
+			conn,
+			payer: fromKeypair,
+			ixs: [SystemProgram.transfer({ fromPubkey: fromPk, toPubkey, lamports: spendable })],
+		});
+		signatures.push(sig);
+		solMoved = Number(spendable) / 1e9;
+	}
+
+	return { signatures, sol: solMoved, tokens: movedTokens };
+}
+
+// Build, sign, send and confirm a single v0 transaction. Throws on any failure or
+// an unconfirmed/erroring result so callers treat the leg as not-yet-final.
+async function sendV0({ conn, payer, ixs }) {
+	const bh = await conn.getLatestBlockhash('confirmed');
+	const msg = new TransactionMessage({
+		payerKey: payer.publicKey,
+		recentBlockhash: bh.blockhash,
+		instructions: ixs,
+	}).compileToV0Message();
+	const vtx = new VersionedTransaction(msg);
+	vtx.sign([payer]);
+	const sig = await conn.sendRawTransaction(vtx.serialize(), { skipPreflight: false, maxRetries: 3 });
+	const r = await conn.confirmTransaction(
+		{ signature: sig, blockhash: bh.blockhash, lastValidBlockHeight: bh.lastValidBlockHeight },
+		'confirmed',
+	);
+	if (r?.value?.err) throw new Error(`transaction ${sig} failed: ${JSON.stringify(r.value.err)}`);
+	return sig;
+}
+
+function validateVanityPattern(raw, label) {
+	if (raw == null || raw === '') return null;
+	const s = String(raw);
+	if (s.length > 6) return { error: `${label} is too long (max 6 base58 chars)` };
+	for (const c of s) {
+		if (!BASE58_ALPHABET.includes(c)) return { error: `${label} has a non-base58 char '${c}' (0/O/I/l are not allowed)` };
+	}
+	return { value: s };
+}
+
+async function handleVanity(req, res, id) {
+	if (cors(req, res, { methods: 'GET,POST,OPTIONS', credentials: true })) return;
+	if (!method(req, res, ['GET', 'POST'])) return;
+
+	const owned = await loadOwnedWallet(req, res, id);
+	if (owned.error) return;
+	const { auth, meta, address: currentAddress, encryptedSecret } = owned;
+
+	if (req.method === 'GET') {
+		const rl = await limits.walletRead(auth.userId);
+		if (!rl.success) return rateLimited(res, rl);
+		return json(res, 200, {
+			data: {
+				address: currentAddress,
+				vanity_prefix: meta.solana_vanity_prefix || null,
+				vanity_suffix: meta.solana_vanity_suffix || null,
+				source: meta.solana_wallet_source || (encryptedSecret ? 'generated' : null),
+				is_vanity: !!(meta.solana_vanity_prefix || meta.solana_vanity_suffix),
+				max_chars: VANITY_MAX_CHARS,
+			},
+		});
+	}
+
+	// POST — sensitive: gate behind the withdrawal per-user cap + per-IP burst.
+	const rlUser = await limits.withdrawalPerUser(auth.userId);
+	if (!rlUser.success) return rateLimited(res, rlUser);
+	const rlIp = await limits.authIp(clientIp(req));
+	if (!rlIp.success) return rateLimited(res, rlIp);
+
+	let body;
+	try {
+		body = await readJson(req);
+	} catch (e) {
+		return error(res, e?.status === 415 ? 415 : 400, 'bad_request', e?.message || 'invalid request body');
+	}
+
+	const network = body.network === 'devnet' ? 'devnet' : 'mainnet';
+	const ignoreCase = body.ignoreCase === true || body.ignore_case === true;
+
+	const pfx = validateVanityPattern(body.prefix, 'prefix');
+	const sfx = validateVanityPattern(body.suffix, 'suffix');
+	if (pfx?.error) return error(res, 400, 'validation_error', pfx.error);
+	if (sfx?.error) return error(res, 400, 'validation_error', sfx.error);
+	const prefix = pfx?.value || null;
+	const suffix = sfx?.value || null;
+	if (!prefix && !suffix) return error(res, 400, 'validation_error', 'provide a prefix and/or suffix');
+
+	const combinedLen = (prefix?.length || 0) + (suffix?.length || 0);
+	if (combinedLen > VANITY_MAX_CHARS) {
+		return error(res, 400, 'pattern_too_hard',
+			`server-side grinding supports up to ${VANITY_MAX_CHARS} combined characters. ` +
+			`Grind longer patterns in your browser at /vanity-wallet (GPU-accelerated, up to 8 chars) and assign the result.`);
+	}
+
+	// Grind the vanity keypair. The secret stays in process memory only.
+	let ground;
+	try {
+		const est = estimateAttempts({ prefix, suffix, ignoreCase });
+		const maxIterations = Math.min(VANITY_MAX_ITERATIONS, Math.max(200_000, Math.ceil(est * 25)));
+		ground = await grindMintKeypair({ prefix, suffix, ignoreCase, maxIterations });
+	} catch (e) {
+		if (e?.code === 'vanity_timeout') {
+			return error(res, 504, 'vanity_timeout', 'could not find a matching address in time — try a shorter pattern or grind it in the browser at /vanity-wallet');
+		}
+		if (e?.code === 'invalid_vanity') return error(res, 400, 'validation_error', e.message);
+		console.error('[agents/solana/vanity] grind failed', e?.message);
+		return error(res, 502, 'grind_failed', 'vanity grind failed — try again');
+	}
+
+	const newKp = ground.keypair;
+	const newAddress = newKp.publicKey.toBase58();
+
+	// If the agent already holds a funded custodial wallet, migrate the balance to
+	// the new address before swapping the stored key. This is the money-safe gate:
+	// a failed sweep throws and we keep the old wallet intact.
+	let swept = null;
+	if (currentAddress && encryptedSecret && currentAddress !== newAddress) {
+		const conn = solanaConnection(network);
+		let needsSweep = false;
+		try {
+			const lamports = BigInt(await conn.getBalance(new PublicKey(currentAddress), 'confirmed'));
+			needsSweep = lamports > SOL_FEE_RESERVE_LAMPORTS;
+			if (!needsSweep) {
+				// Any non-empty token account also requires a sweep.
+				for (const programId of [TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID]) {
+					const resp = await conn.getParsedTokenAccountsByOwner(new PublicKey(currentAddress), { programId }).catch(() => ({ value: [] }));
+					if (resp.value.some((t) => Number(t.account.data?.parsed?.info?.tokenAmount?.uiAmount) > 0)) {
+						needsSweep = true;
+						break;
+					}
+				}
+			}
+		} catch (e) {
+			return error(res, 502, 'rpc_error', 'could not read the current wallet balance — try again before migrating funds');
+		}
+
+		if (needsSweep) {
+			let oldKp;
+			try {
+				oldKp = await recoverSolanaAgentKeypair(encryptedSecret, {
+					agentId: id, userId: auth.userId, reason: 'vanity_swap',
+					meta: { from: currentAddress, to: newAddress, network },
+				});
+			} catch (e) {
+				console.error('[agents/solana/vanity] key recovery failed', e?.message);
+				return error(res, 500, 'key_recover_failed', 'could not access the current wallet key — no funds were moved and the wallet is unchanged');
+			}
+			try {
+				swept = await sweepWalletToAddress({ conn, fromKeypair: oldKp, toPubkey: newKp.publicKey, network });
+			} catch (e) {
+				console.error('[agents/solana/vanity] sweep failed', e?.message);
+				return error(res, 502, 'sweep_failed',
+					'funds could not be fully migrated to the new address — your existing wallet is unchanged and still holds the funds. Try again.');
+			}
+			await recordCustodyEvent({
+				agentId: id, userId: auth.userId, eventType: 'spend', category: 'vanity_swap',
+				network, asset: 'ALL', status: 'confirmed',
+				signature: swept.signatures[swept.signatures.length - 1] || null,
+				destination: newAddress,
+				meta: { from: currentAddress, to: newAddress, sol: swept.sol, tokens: swept.tokens, signatures: swept.signatures },
+			}).catch(() => {});
+		}
+	}
+
+	// Persist the new keypair as the agent's custodial wallet.
+	const encrypted_secret = await _encryptSecret(Buffer.from(newKp.secretKey).toString('base64'));
+	const history = Array.isArray(meta.solana_wallet_history) ? meta.solana_wallet_history : [];
+	const nextMeta = {
+		...meta,
+		solana_address: newAddress,
+		encrypted_solana_secret: encrypted_secret,
+		solana_wallet_source: 'vanity_grind',
+		solana_vanity_prefix: prefix || null,
+		solana_vanity_suffix: suffix || null,
+	};
+	if (!prefix) delete nextMeta.solana_vanity_prefix;
+	if (!suffix) delete nextMeta.solana_vanity_suffix;
+	if (currentAddress && currentAddress !== newAddress) {
+		nextMeta.solana_wallet_history = [
+			...history,
+			{ address: currentAddress, replaced_at: new Date().toISOString(), reason: 'vanity_upgrade', swept: !!swept },
+		].slice(-10);
+	}
+	await sql`UPDATE agent_identities SET meta = ${JSON.stringify(nextMeta)}::jsonb WHERE id = ${id}`;
+
+	if (currentAddress) await cacheSet(`sol:bal:${currentAddress}:${network}`, null, 1).catch(() => {});
+	await cacheSet(`sol:bal:${newAddress}:${network}`, null, 1).catch(() => {});
+
+	recordEvent({
+		userId: auth.userId, agentId: id, kind: 'solana_vanity_grind', tool: 'server', status: 'ok',
+		meta: { address: newAddress, prefix, suffix, ignoreCase, iterations: ground.iterations, swept: swept ? { sol: swept.sol, tokens: swept.tokens.length } : null },
+	});
+	logAudit({ userId: auth.userId, action: 'custody.vanity_grind', resourceId: id, meta: { address: newAddress, prefix, suffix, replaced: currentAddress || null, swept: !!swept }, req });
+
+	return json(res, 201, {
+		data: {
+			address: newAddress,
+			vanity_prefix: prefix,
+			vanity_suffix: suffix,
+			network,
+			iterations: ground.iterations,
+			duration_ms: ground.durationMs,
+			replaced: currentAddress && currentAddress !== newAddress ? currentAddress : null,
+			swept,
+			source: 'vanity_grind',
+		},
+	});
+}
+
 // ── dispatcher ────────────────────────────────────────────────────────────────
 
 export default async function handler(req, res, id, action) {
 	if (action === 'activity') return handleActivity(req, res, id);
 	if (action === 'airdrop') return handleAirdrop(req, res, id);
 	if (action === 'withdraw') return handleWithdraw(req, res, id);
+	if (action === 'vanity') return handleVanity(req, res, id);
 	if (action === 'holdings') return handleHoldings(req, res, id);
 	if (action === 'custody') return handleCustody(req, res, id);
 	if (action === 'limits') return handleLimits(req, res, id);

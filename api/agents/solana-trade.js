@@ -22,6 +22,7 @@ import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.
 import { sql } from '../_lib/db.js';
 import { cors, json, method, error, readJson, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
+import { requireCsrf } from '../_lib/csrf.js';
 import { recoverSolanaAgentKeypair } from '../_lib/agent-wallet.js';
 import { solanaConnection, solanaPublicConnection } from '../_lib/agent-pumpfun.js';
 import { PublicKey, TransactionMessage, VersionedTransaction } from '@solana/web3.js';
@@ -252,6 +253,10 @@ export async function handleTrade(req, res, id) {
 
 	const network = netOf(body.network);
 	const preview = body.preview === true;
+
+	// CSRF on the state-changing path only — a live preview/quote moves no funds and
+	// would otherwise burn a single-use token on every keystroke. Bearer callers exempt.
+	if (!preview && !(await requireCsrf(req, res, auth.userId))) return;
 
 	let slippageBps = Number(body.slippage_bps ?? body.slippageBps);
 	if (!Number.isFinite(slippageBps)) slippageBps = DEFAULT_SLIPPAGE_BPS;
