@@ -272,6 +272,7 @@
 	</style>
 
 	<script type="module">
+		import { walletChipHTML } from '/src/shared/agent-wallet-chip.js';
 		const $ = (s) => document.querySelector(s);
 		const $$ = (s) => document.querySelectorAll(s);
 		const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) =>
@@ -365,6 +366,7 @@
 						<span class="tr-body">
 							<span class="tr-name">${esc(a.name || 'Unnamed agent')}${onchainBadge}</span>
 							${a.description ? `<span class="tr-desc">${esc(a.description)}</span>` : ''}
+							${a.solana_address ? `<span class="tr-wallet" style="margin-top:4px;display:inline-flex">${walletChipHTML(a, { link: false, showPending: false })}</span>` : ''}
 						</span>
 						<span class="tr-meta">
 							<span class="tr-metric">${fmt(count)}</span>

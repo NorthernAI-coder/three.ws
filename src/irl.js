@@ -55,7 +55,7 @@ import { reserveWebGLContext, releaseWebGLContext } from './webgl-budget.js';
 import { detectTier, BUDGETS, TIER_ORDER, shiftTier } from './irl/perf-budget.js';
 import { sharedGLTFLoader, createLoadQueue } from './irl/load-queue.js';
 import { roomOriginWorld, agentWorldPosition, localToGeo, calibrateRoomOrigin } from './irl/room-anchor.js';
-import { anchorPoseToPin, yawDegFromQuat } from './irl/floor-anchor.js';
+import { anchorPoseToPin, yawDegFromQuat, roomPlacementFromHit, roomRelFromGeo } from './irl/floor-anchor.js';
 import { initRoomMode } from './irl/room-mode.js';
 import { createRoomGhost } from './irl/room-ghost.js';
 import { isFiniteReading, isCompassFresh, shouldUseAbsoluteYaw, resolveLockYaw, clampPitch, screenPitchDeg } from './irl/sensor-fusion.js';
