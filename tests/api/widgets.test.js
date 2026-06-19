@@ -40,6 +40,10 @@ vi.mock('../../api/_lib/auth.js', () => ({
 	},
 }));
 
+vi.mock('../../api/_lib/csrf.js', () => ({
+	requireCsrf: vi.fn(async () => true),
+}));
+
 const rlState = { success: true };
 
 vi.mock('../../api/_lib/rate-limit.js', () => ({

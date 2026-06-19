@@ -501,6 +501,8 @@ describe('Withdrawals', () => {
 	it('owner can request a withdrawal when balance is sufficient', async () => {
 		authState.session = { id: 'user-1' };
 
+		// payout wallet resolution (destination is server-resolved, not client-supplied)
+		sqlState.queue.push([{ address: 'So11111111111111111111111111111111111111112' }]);
 		// balance check
 		sqlState.queue.push([{ earned: 10_000_000n, pending_amount: 0n }]);
 		// insert withdrawal
@@ -533,6 +535,8 @@ describe('Withdrawals', () => {
 	it('over-withdrawal is rejected with 422', async () => {
 		authState.session = { id: 'user-1' };
 
+		// payout wallet resolution (destination is server-resolved, not client-supplied)
+		sqlState.queue.push([{ address: 'So11111111111111111111111111111111111111112' }]);
 		// available: 2_000_000, request: 9_999_999_999
 		sqlState.queue.push([{ earned: 2_000_000n, pending_amount: 0n }]);
 
