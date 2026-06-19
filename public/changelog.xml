@@ -7,6 +7,14 @@
 		<description>What's new on three.ws — features, improvements, and releases, newest first.</description>
 		<language>en</language>
 		<item>
+			<title>Agent wallet's full money loop is now verified end-to-end on devnet</title>
+			<link>https://three.ws/agent-wallet</link>
+			<guid isPermaLink="false">2026-06-19:Agent wallet's full money loop is now verified end-to-end on devnet</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>infra</category>
+			<description>A re-runnable harness now exercises the entire agent-wallet lifecycle in one pass — create a wallet, fund it, trade and snipe pump.fun tokens, pay an x402 service, exit a graduated position, and withdraw — against real Solana devnet state. It runs simulate-first and reports each step as passed or honestly blocked on funding/credentials, never a fake result, so regressions in the seams between deposit, trading, sniping, payments, and withdrawal surface before they reach holders. The agent wallet hub's Snipe tab now opens the live Sniper dashboard directly instead of a placeholder.</description>
+		</item>
+		<item>
 			<title>AR &amp; half-body avatar export fixed for compressed models</title>
 			<link>https://three.ws/gallery</link>
 			<guid isPermaLink="false">2026-06-19:AR &amp; half-body avatar export fixed for compressed models</guid>
@@ -15,12 +23,68 @@
 			<description>View-in-AR (USDZ for iOS Quick Look) and the half-body VR-seat export now work for avatars that ship with meshopt or Draco geometry compression. Previously these exports silently failed on compressed GLBs because the loader had no decoder registered; the pipeline now loads the meshopt and Draco decoders before parsing, so every avatar — including the compressed ones produced by the server-side bake — converts cleanly.</description>
 		</item>
 		<item>
+			<title>Fixed broken links and added retry on failed loads across the app</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-19:Fixed broken links and added retry on failed loads across the app</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Several navigation links pointed at pages that no longer exist — &quot;View plans&quot; on the agent deploy flow, the Classic viewer menu item, and the API-key links on the AWS welcome and selfie pages — and now go to the right place. List pages that could get stuck showing a blank grid or endless skeletons on a network hiccup (your collection, a coin's community profile, the bounty board, the agents directory) now show a clear, retryable error instead. The $THREE dashboard also replaced a non-working &quot;claim&quot; button with a plain explanation that revenue share is distributed to holders automatically.</description>
+		</item>
+		<item>
+			<title>Fund any agent wallet by scanning a QR or copying the address — with live confirmation</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-19:Fund any agent wallet by scanning a QR or copying the address — with live confirmation</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The agent wallet's Deposit tab is now a complete, public funding panel: a crisp QR code (generated on-device, no third-party service) that your phone wallet can scan, a one-tap copyable Solana address, an optional preset amount, and a Solana deep-link that opens Phantom, Solflare or Backpack on mobile. The panel watches the agent's real on-chain balance and confirms the moment your SOL lands — &quot;◎0.5 SOL received&quot; — instead of leaving you guessing. Anyone can fund an agent, not just its owner, and the new &quot;Fund agent wallet&quot; button on the create-agent success screen leads new users straight into it.</description>
+		</item>
+		<item>
+			<title>Hardened the widget custom-brain proxy against internal-network abuse</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-19:Hardened the widget custom-brain proxy against internal-network abuse</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>security</category>
+			<description>Chat widgets configured with a custom AI &quot;brain&quot; endpoint now route that request through our SSRF guard, so a widget owner can no longer point it at a private/internal address to probe our network. No change for legitimate public endpoints. We also tightened a few backend read paths so a temporary database or price-feed hiccup surfaces as &quot;temporarily unavailable&quot; instead of silently looking like empty data.</description>
+		</item>
+		<item>
 			<title>IBM sites can now embed three.ws pages</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-19:IBM sites can now embed three.ws pages</guid>
 			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
 			<category>security</category>
 			<description>We extended the sitewide clickjacking protection to allow IBM properties to frame three.ws. Any page on ibm.com (and its subdomains) may now load three.ws pages inside an iframe — useful for the IBM x402 demo and other IBM-hosted integrations — while every other external site is still refused by default. Sign-in, wallet, dashboard and OAuth consent pages remain hard-locked and cannot be framed by anyone, including IBM. The avatar, widget and walk embeds continue to work on any site as before.</description>
+		</item>
+		<item>
+			<title>Premium avatar cosmetics are now buyable right in the character creator</title>
+			<link>https://three.ws/create</link>
+			<guid isPermaLink="false">2026-06-19:Premium avatar cosmetics are now buyable right in the character creator</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Locked premium headwear, eyewear, dyes and auras in the character creator no longer dead-end on a placeholder — clicking one now opens the real wallet checkout and unlocks it the moment the USDC payment settles, then equips it on your live preview. Anything you already own loads pre-unlocked, and the price you see is the true checkout amount pulled from the catalog.</description>
+		</item>
+		<item>
+			<title>See your net take when you price a skill</title>
+			<link>https://three.ws/dashboard/monetize</link>
+			<guid isPermaLink="false">2026-06-19:See your net take when you price a skill</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The Skill Pricing panel on the Monetize dashboard now shows exactly what you keep on every payment. As you type a per-call price, a line below the field updates live — &quot;You receive $X.XX after 2.5% fee&quot; — so the platform's cut is never a surprise at payout time. The same net figure appears in the Add Pricing dialog, and the panel header states the current platform fee rate, which is read from the live billing config rather than hardcoded.</description>
+		</item>
+		<item>
+			<title>Shared agent links now unfurl with the agent's own avatar</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-19:Shared agent links now unfurl with the agent's own avatar</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>When you paste a link to an agent on X, Discord, Slack, Telegram or iMessage, the preview card now shows that agent's actual avatar, name and description instead of a generic three.ws image — so every shared link is visual proof of the collectible. Bots that don't run JavaScript get the right image and text rendered on the server, and agents without an avatar yet fall back to a clean branded card with their initial. We also fixed the canonical and share URLs on agent pages to point at the real /agents/&lt;id&gt; address.</description>
+		</item>
+		<item>
+			<title>Unity &amp; Unreal avatar loading documented with code that actually works</title>
+			<link>https://three.ws/dashboard/developers</link>
+			<guid isPermaLink="false">2026-06-19:Unity &amp; Unreal avatar loading documented with code that actually works</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>docs</category>
+			<description>The developer hub's Unity and Unreal cards used to show sample code for an SDK that doesn't exist yet. They now show the real, working way to load a three.ws avatar today — your avatar's GLB endpoint loaded at runtime with glTFast (Unity) or glTFRuntime (Unreal), both standard glTF importers — alongside an honest note that a native package is still on the roadmap.</description>
 		</item>
 		<item>
 			<title>Agent economy demos now show honest run status</title>
