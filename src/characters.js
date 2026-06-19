@@ -5,6 +5,8 @@
  * Each card links to /character/:id. Supports search, sort, and load-more.
  */
 
+import { walletChipHTML } from './shared/agent-wallet-chip.js';
+
 let state = { cursor: null, loading: false, sort: 'new', q: '' };
 
 function formatNum(n) {
@@ -96,6 +98,7 @@ function cardHtml(ch) {
 			${ch.description ? `<p class="chs-card-desc">${escHtml(ch.description)}</p>` : ''}
 			${statsHtml}
 			${tokenHtml}
+			${ch.solana_address ? `<div class="chs-card-wallet" style="margin-top:8px">${walletChipHTML(ch, { link: false, showPending: false })}</div>` : ''}
 		</a>`;
 }
 

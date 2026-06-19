@@ -99,6 +99,12 @@ export default wrap(async (req, res) => {
 			author_username: row.author_username || null,
 			author_avatar: row.author_avatar || null,
 			chat_count: row.chat_count,
+			// Public custodial wallet address (same value GET /api/agents/:id/solana
+			// serves anonymously) + its vanity pattern, so the shared wallet chip can
+			// render on character cards. The signing secret never leaves the server.
+			solana_address: typeof meta.solana_address === 'string' ? meta.solana_address : null,
+			solana_vanity_prefix: meta.solana_vanity_prefix || null,
+			solana_vanity_suffix: meta.solana_vanity_suffix || null,
 			token: token
 				? {
 					symbol: token.symbol || null,

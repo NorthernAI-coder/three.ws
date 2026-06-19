@@ -95,6 +95,10 @@ export default wrap(async (req, res) => {
 			chat_count:         Number(r.chat_count) || 0,
 			window_chats:       Number(r.window_chats) || null,
 			is_onchain:         isOnchain,
+			// Public custodial wallet + vanity pattern for the shared wallet chip.
+			solana_address:       typeof meta.solana_address === 'string' ? meta.solana_address : null,
+			solana_vanity_prefix: meta.solana_vanity_prefix || null,
+			solana_vanity_suffix: meta.solana_vanity_suffix || null,
 			agent_url:          `https://three.ws/agent/${encodeURIComponent(r.id)}`,
 		};
 	});
