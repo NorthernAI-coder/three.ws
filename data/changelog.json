@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-06-19",
+			"title": "Pole Club music opens up as you walk inside",
+			"summary": "The soundtrack at the Pole Club now follows you in. Out in the alley it plays muffled and bass-heavy, like the room heard through the door. Pay the cover and the same track — never restarted, just picked up from wherever it is — gets a little clearer with every threshold you cross: a step more open when the rope drops, more again through the gallery and the clubhouse, then wide open the moment you step onto the floor. The walk in now sounds like a walk in.",
+			"tags": [
+				"improvement"
+			],
+			"link": "/club"
+		},
+		{
+			"date": "2026-06-19",
 			"title": "Flappin UFO — a $THREE arcade demo is live",
 			"summary": "A playable demo just landed at /play/ufo — a Flappy Bird-style space game where you pilot a UFO through asteroid fields. Connect your Solana wallet, copy your address as your in-game name, and submit your score to the global leaderboard, which refreshes live every 15 seconds and highlights your entry. Consider it a taste: these arcade demos are warm-ups while we build something far bigger for $THREE.",
 			"tags": [
