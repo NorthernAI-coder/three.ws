@@ -543,6 +543,14 @@
 			<description>The walk up to the Pole Club was lit so tightly that only a thin strip of pavement under your feet was visible while the walls fell away to black. The alley now carries a soft warm fill light that travels with you and a wider key, plus a gentle lift to the ambient glow — so the stretch you're actually walking through stays legible the whole way to the door, without losing the moody neon look.</description>
 		</item>
 		<item>
+			<title>The x402 Console — run a paid-API business end to end</title>
+			<link>https://three.ws/dashboard/x402-admin</link>
+			<guid isPermaLink="false">2026-06-19:The x402 Console — run a paid-API business end to end</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>A new merchant console brings everything you need to charge for endpoints into one place — the Stripe of x402. Configure agent wallets (the named on-chain wallets your agents auto-pay and receive from, each with its own per-call and daily USDC caps), default payout addresses on Base and Solana, and per-product pricing. Build a hosted storefront with a drag-and-drop block editor — hero, product grid, featured product, text, image, button, divider, footer — with a live preview, then publish it to a public /store/&lt;handle&gt; page that takes real on-chain payments. Plus API keys, a settlement webhook, a CORS/domain allow-list, spending caps, accepted-network toggles, and SIWX re-entry. Open it from the x402 dashboard.</description>
+		</item>
+		<item>
 			<title>The x402 payment modal is now a drop-in SDK any site can use</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-19:The x402 payment modal is now a drop-in SDK any site can use</guid>
