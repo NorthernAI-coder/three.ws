@@ -419,16 +419,36 @@ async function handleUpdate(req, res, id, auth) {
 		if ('encrypted_solana_secret' in existingMeta) {
 			mergedMeta.encrypted_solana_secret = existingMeta.encrypted_solana_secret;
 		}
+		// Size-guard the Agent Studio bag (meta.studio) so a malformed/oversized
+		// brain graph can't bloat the row or the jsonb GIN index. 256KB is far
+		// above any realistic node graph; reject rather than silently truncate.
+		if (mergedMeta.studio) {
+			const studioBytes = Buffer.byteLength(JSON.stringify(mergedMeta.studio), 'utf8');
+			if (studioBytes > 256 * 1024) {
+				return error(res, 413, 'studio_too_large',
+					`meta.studio exceeds 256KB (${studioBytes} bytes)`);
+			}
+		}
 	}
+
+	// Brain Studio compiles its visual graph (meta.studio.brain) down to the real
+	// persona_prompt column that api/chat.js consumes, so existing chat surfaces
+	// keep working. Accept it here as part of brain-config handling. A string ""
+	// is non-null, so COALESCE persists it (clears the persona); `undefined`
+	// becomes null below, so COALESCE leaves the stored value untouched.
+	const personaPrompt = typeof body.persona_prompt === 'string'
+		? body.persona_prompt.slice(0, 8000)
+		: null;
 
 	const [updated] = await sql`
 		UPDATE agent_identities SET
-			name         = COALESCE(${body.name || null}, name),
-			description  = COALESCE(${body.description || null}, description),
-			avatar_id    = COALESCE(${body.avatar_id || null}, avatar_id),
-			skills       = COALESCE(${body.skills || null}, skills),
-			meta         = COALESCE(${mergedMeta ? JSON.stringify(mergedMeta) : null}::jsonb, meta),
-			home_url     = COALESCE(${body.home_url || null}, home_url)
+			name           = COALESCE(${body.name || null}, name),
+			description    = COALESCE(${body.description || null}, description),
+			avatar_id      = COALESCE(${body.avatar_id || null}, avatar_id),
+			skills         = COALESCE(${body.skills || null}, skills),
+			meta           = COALESCE(${mergedMeta ? JSON.stringify(mergedMeta) : null}::jsonb, meta),
+			persona_prompt = COALESCE(${personaPrompt}, persona_prompt),
+			home_url       = COALESCE(${body.home_url || null}, home_url)
 		WHERE id = ${id}
 		RETURNING *
 	`;
@@ -712,6 +732,8 @@ function decorate(row, isOwner = true) {
 		// Publish-time fields needed by the agent editor. Owner-only because the
 		// system prompt is private IP.
 		base.system_prompt = row.system_prompt || null;
+		// Compiled Brain Studio persona — owner-only, same rationale as system_prompt.
+		base.persona_prompt = row.persona_prompt || null;
 		base.greeting = row.greeting || null;
 		base.category = row.category || null;
 		base.tags = row.tags || [];
