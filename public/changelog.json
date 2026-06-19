@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-19T09:30:40.311Z",
+	"generated_at": "2026-06-19T09:37:27.069Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -42,6 +42,16 @@
 			"title": "Discovery now shows only real creator avatars",
 			"summary": "The Explore / discovery feed previously padded itself with a set of built-in sample avatars and counted them in the totals. The feed and its counts now reflect only real avatars created by the community — no filler.",
 			"link": "/explore",
+			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-19",
+			"type": "update",
+			"title": "Every IRL moment now has a designed, honest state",
+			"summary": "IRL asks for the three most sensitive permissions a web app can — camera, motion, and location — and we made every moment around them feel deliberate instead of uncertain. While your phone is still finding your GPS fix, the top bar shows a clear \"Finding your location…\" shimmer so the wait never looks like an empty, nobody-here screen. If discovery ever has to slow down to catch its breath, you get a calm \"catching up…\" note that quietly recovers on its own — never a scary error. The live-presence indicator stays honest too: when it drops, nearby discovery keeps working and nothing implies otherwise. Every control is now reachable by keyboard with a visible focus ring, screen readers announce each state change once, and all of it respects reduced-motion settings.",
+			"link": "/irl",
 			"tags": [
 				"improvement"
 			]
@@ -125,6 +135,16 @@
 			"type": "update",
 			"title": "IRL is sharper on phones, in any orientation",
 			"summary": "We polished IRL for the device it lives on. Every on-screen control now clears the notch and home indicator on modern phones — in portrait and landscape both — so nothing hides behind the camera cutout or rounded corners. On the narrowest phones the bottom controls wrap cleanly instead of squishing or clipping, and every button is a full finger-sized target. Typing a caption or message no longer makes Safari zoom the page in, long agent names truncate neatly instead of overflowing, and the calibrate readouts stay legible whichever way you hold the phone.",
+			"link": "/irl",
+			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-19",
+			"type": "update",
+			"title": "IRL surfaces now show clear loading, empty, and error states",
+			"summary": "Every IRL screen that loads data now has a designed loading, empty, and error state — no more stuck \"Loading…\" or blank screens. Open \"My pins\" and you'll see a skeleton while it loads, a friendly nudge to drop your first agent when you have none, and a one-tap Retry if the network hiccups. Tapping an agent shows the same care: if its profile can't load, you get a clear message and Retry while its name and a link to the full profile stay put. The nearby radar reads as intentionally empty (\"Be the first to pin here\") instead of a broken dial, and the count beside it no longer flashes \"0 nearby\" before we've finished looking. On devices that can't run the AR view, you get a helpful card explaining why and where to go next — not a bare error.",
 			"link": "/irl",
 			"tags": [
 				"improvement"
