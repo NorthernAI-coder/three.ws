@@ -103,6 +103,10 @@ export async function checkCache({ route, paymentId, payloadHash, paymentHash })
 	if (!paymentId) return { kind: 'miss' };
 	const entry = await cache.get(route, paymentId);
 	if (!entry) return { kind: 'miss' };
+	// A concurrent request with the same payment is still executing the paid work.
+	// Signal the caller to back off rather than re-run it (closes the verify→settle
+	// double-execution window).
+	if (cache.isInflight(entry)) return { kind: 'inflight' };
 	// Payment-proof binding: a stored entry written with a paymentHash only
 	// replays to a caller presenting the same signed proof. A mismatch (or a
 	// caller that omits the proof against a proof-bound entry) is a conflict —
@@ -160,6 +164,21 @@ export async function storeResponse({
 		},
 		ttl,
 	);
+}
+
+// Atomically claim the in-flight slot for a payment before doing the paid work.
+// Returns true for the single winner; false when another request already holds
+// the slot or a response is already cached. Pair with releaseSlot() on any
+// failure path so a transient error doesn't lock the payer out of retrying.
+export async function reserveSlot({ route, paymentId, ttlSeconds }) {
+	if (!paymentId) return true;
+	const ttl = Number.isFinite(ttlSeconds) && ttlSeconds > 0 ? ttlSeconds : envTtl();
+	return cache.reserve(route, paymentId, ttl);
+}
+
+export async function releaseSlot({ route, paymentId }) {
+	if (!paymentId) return;
+	await cache.release(route, paymentId);
 }
 
 // Flush a cached entry back onto the wire. Mirrors the headers the live path

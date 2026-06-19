@@ -30,6 +30,12 @@ const filterChips = document.querySelectorAll('.filter-chip');
 const sortSelect = document.getElementById('sort');
 const agentsContainer = document.getElementById('agents');
 const emptyState = document.getElementById('empty-state');
+// Default empty-state copy, captured before any error path rewrites it so the
+// "no results" message can be restored after a failed load is retried.
+const emptyDefaults = {
+	title: emptyState?.querySelector('h2')?.textContent || 'No agents found',
+	body: emptyState?.querySelector('p')?.textContent || 'Try a different filter or search.',
+};
 const loadingEl = document.getElementById('loading');
 const paginationEl = document.getElementById('pagination');
 const pageInfo = document.getElementById('page-info');
@@ -73,7 +79,10 @@ async function render() {
 			page: currentPage,
 		});
 
+		hideRetry();
 		if (result.agents.length === 0) {
+			emptyState.querySelector('h2').textContent = emptyDefaults.title;
+			emptyState.querySelector('p').textContent = emptyDefaults.body;
 			emptyState.style.display = 'block';
 			loadingEl.style.display = 'none';
 			return;
@@ -98,7 +107,31 @@ async function render() {
 		emptyState.style.display = 'block';
 		emptyState.querySelector('h2').textContent = 'Error loading agents';
 		emptyState.querySelector('p').textContent = err.message || 'Please try again later.';
+		showRetry();
 	}
+}
+
+// Actionable error recovery: a Retry button inside the empty-state that re-runs
+// the load. Created once and reused; hidden on any successful render so it never
+// lingers over real results.
+function showRetry() {
+	let btn = document.getElementById('empty-retry');
+	if (!btn) {
+		btn = document.createElement('button');
+		btn.id = 'empty-retry';
+		btn.type = 'button';
+		btn.className = 'btn-primary';
+		btn.textContent = 'Retry';
+		btn.style.marginTop = '16px';
+		btn.addEventListener('click', () => { render(); });
+		emptyState.appendChild(btn);
+	}
+	btn.style.display = 'inline-flex';
+}
+
+function hideRetry() {
+	const btn = document.getElementById('empty-retry');
+	if (btn) btn.style.display = 'none';
 }
 
 /**
