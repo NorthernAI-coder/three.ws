@@ -127,6 +127,26 @@ function emptyState(panel) {
 		</div>`;
 }
 
+// Render a retryable load error into the shared error element and clear the
+// loading skeletons so they never linger. Wires a Retry button to re-run load().
+function renderLoadError(errorEl, skillsGrid, subsGrid, detail) {
+	errorEl.innerHTML = '';
+	const msg = document.createElement('span');
+	msg.textContent = detail
+		? `Couldn't load your collection — ${detail}.`
+		: 'Failed to load your collection. Please try again.';
+	const retry = document.createElement('button');
+	retry.type = 'button';
+	retry.className = 'col-retry-btn';
+	retry.textContent = 'Retry';
+	retry.style.marginLeft = '10px';
+	retry.addEventListener('click', () => { load(); });
+	errorEl.append(msg, retry);
+	errorEl.hidden = false;
+	skillsGrid.innerHTML = '';
+	subsGrid.innerHTML = '';
+}
+
 async function load() {
 	const authWall = document.getElementById('col-auth-wall');
 	const errorEl = document.getElementById('col-error');
@@ -136,13 +156,23 @@ async function load() {
 	const subsGrid = document.getElementById('subs-grid');
 
 	// Show skeleton while loading
+	errorEl.hidden = true;
 	skillsGrid.innerHTML = skeletonGrid(6);
 	subsGrid.innerHTML = skeletonGrid(3);
 
-	const [skillsRes, subsRes] = await Promise.all([
-		fetch('/api/users/me/purchased-skills', { credentials: 'include' }),
-		fetch('/api/subscriptions', { credentials: 'include' }),
-	]);
+	let skillsRes, subsRes;
+	try {
+		[skillsRes, subsRes] = await Promise.all([
+			fetch('/api/users/me/purchased-skills', { credentials: 'include' }),
+			fetch('/api/subscriptions', { credentials: 'include' }),
+		]);
+	} catch (err) {
+		// Network-level failure (offline, DNS, aborted): without this the awaited
+		// Promise.all rejects and the skeletons render forever. Surface a retryable
+		// error instead.
+		renderLoadError(errorEl, skillsGrid, subsGrid, err?.message);
+		return;
+	}
 
 	if (skillsRes.status === 401 || subsRes.status === 401) {
 		authWall.hidden = false;
@@ -152,16 +182,18 @@ async function load() {
 	}
 
 	if (!skillsRes.ok || !subsRes.ok) {
-		const msg = 'Failed to load collection. Please refresh and try again.';
-		errorEl.textContent = msg;
-		errorEl.hidden = false;
-		skillsGrid.innerHTML = '';
-		subsGrid.innerHTML = '';
+		renderLoadError(errorEl, skillsGrid, subsGrid);
 		return;
 	}
 
-	const { data: skillsData } = await skillsRes.json();
-	const { data: subsData } = await subsRes.json();
+	let skillsData, subsData;
+	try {
+		({ data: skillsData } = await skillsRes.json());
+		({ data: subsData } = await subsRes.json());
+	} catch (err) {
+		renderLoadError(errorEl, skillsGrid, subsGrid, err?.message);
+		return;
+	}
 
 	const purchases = skillsData?.purchases ?? [];
 	const subs = subsData ?? [];

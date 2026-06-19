@@ -1,5 +1,5 @@
 import { getSessionUser, authenticateBearer, extractBearer } from '../../_lib/auth.js';
-import { cors, json, method, readJson, wrap, error } from '../../_lib/http.js';
+import { cors, json, method, readJson, wrap, error, respondError } from '../../_lib/http.js';
 import { requireCsrf } from '../../_lib/csrf.js';
 import { MonetizationService } from '../../_lib/services/MonetizationService.js';
 import { z } from 'zod';
@@ -37,7 +37,8 @@ export default wrap(async (req, res) => {
 	try {
 		await service.assertOwnership(id);
 	} catch (e) {
-		return error(res, e.status || 500, e.code || 'error', e.message);
+		console.error('[agents/skills-pricing] ownership check failed', e?.message);
+		return respondError(res, e.status || 500, e.code || 'error', e);
 	}
 
 	if (req.method === 'GET') return handleGet(req, res, service, id);

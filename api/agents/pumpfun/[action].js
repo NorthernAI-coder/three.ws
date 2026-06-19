@@ -240,12 +240,7 @@ async function handleBuy(req, res, id) {
 		}
 	} catch (err) {
 		console.error('[pumpfun/buy] build failed', err);
-		return error(
-			res,
-			err.status || 422,
-			err.code || 'build_failed',
-			err.message || 'could not build buy ix',
-		);
+		return respondError(res, err.status || 422, err.code || 'build_failed', err);
 	}
 
 	// Reserve against the daily SOL cap for SOL spends only — atomically, BEFORE
@@ -428,7 +423,8 @@ async function handleLaunch(req, res, id) {
 			vanityIterations = ground.iterations;
 			vanityDurationMs = ground.durationMs;
 		} catch (err) {
-			return error(res, err.status || 500, err.code || 'internal', err.message);
+			console.error('[pumpfun/launch] vanity grind failed', err?.message);
+			return respondError(res, err.status || 500, err.code || 'internal', err);
 		}
 	}
 	const solLamports = new BN(Math.floor((body.solAmount || 0) * 1e9));
@@ -1117,12 +1113,7 @@ async function handleSell(req, res, id) {
 		instructions = ixs;
 	} catch (err) {
 		console.error('[pumpfun/sell] build failed', err);
-		return error(
-			res,
-			err.status || 422,
-			err.code || 'build_failed',
-			err.message || 'could not build sell ix',
-		);
+		return respondError(res, err.status || 422, err.code || 'build_failed', err);
 	}
 
 	const tx = new Transaction().add(...instructions);

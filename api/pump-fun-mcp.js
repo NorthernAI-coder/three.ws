@@ -1654,9 +1654,33 @@ export default wrap(async (req, res) => {
 		);
 	}
 
+	// A single X-PAYMENT settles exactly once for the whole request, so a batch
+	// carrying more than one gated (paid) tool would run them all for one payment
+	// (pay-once-run-many). Reject that up front. Bearer-authed batches are exempt —
+	// they don't settle a payment and are bounded by the per-principal limiter.
+	if (req.headers['x-payment'] && !extractBearer(req)) {
+		const gatedCount = messages.reduce((n, m) => {
+			if (m?.method !== 'tools/call') return n;
+			const nm = resolveToolName(m?.params?.name);
+			return n + (typeof nm === 'string' && AUTH_REQUIRED_TOOLS.has(nm) ? 1 : 0);
+		}, 0);
+		if (gatedCount > 1) {
+			return json(
+				res,
+				400,
+				rpcEnvelope(null, null, {
+					code: -32600,
+					message: 'one X-PAYMENT settles a single gated call — send at most one paid tool per request',
+				}),
+				{ 'mcp-protocol-version': PROTOCOL_VERSION },
+			);
+		}
+	}
+
 	// Per-request dispatch context. Gate credentials resolve at most once.
 	let gateAuthPromise = null;
 	const ctx = {
+		req,
 		res,
 		batch: isBatch,
 		x402Ctx: null,

@@ -128,6 +128,58 @@ export async function set(route, paymentId, entry, ttlSec) {
 	}
 }
 
+// Sentinel stored while a paid request is mid-flight (verify→handler→settle).
+// A concurrent request carrying the same payment that observes this marker knows
+// the original is still running and must not re-execute the paid work.
+export const INFLIGHT = { __x402_inflight__: true };
+
+// Atomically claim the slot for `key`: SET NX so exactly one concurrent request
+// wins. Returns true for the winner, false if a value (in-flight marker OR a
+// stored response) already exists. The TTL is a crash backstop — the winner is
+// expected to overwrite (set) on success or release() on failure well before it.
+export async function reserve(route, paymentId, ttlSec) {
+	const key = fullKey(route, paymentId);
+	const ttl = ttlSec > 0 ? ttlSec : 120;
+	if (!redis) {
+		// Single-process fallback: the JS event loop makes get+set atomic here.
+		if (memoryGet(key) != null) return false;
+		memorySet(key, INFLIGHT, ttl);
+		return true;
+	}
+	try {
+		const ok = await redis.set(key, JSON.stringify(INFLIGHT), { nx: true, ex: ttl });
+		// Upstash returns 'OK' on success, null when the key already existed.
+		return ok === 'OK' || ok === true;
+	} catch (err) {
+		// On a Redis error, fail OPEN (allow the request) rather than wedging a
+		// legitimate payment — the always-on proof-hash dedup still bounds replay.
+		console.error('[idempotency-cache] reserve failed:', err?.message || err);
+		return true;
+	}
+}
+
+// Release a slot claimed by reserve() when the request failed before storing a
+// real response (verify/handler/settle error). Only ever called on failure paths
+// where no real entry was written, so an unconditional delete is safe and keeps a
+// transient failure from locking the payer out of retrying.
+export async function release(route, paymentId) {
+	const key = fullKey(route, paymentId);
+	if (!redis) {
+		memoryStore.delete(key);
+		return;
+	}
+	try {
+		await redis.del(key);
+	} catch (err) {
+		console.error('[idempotency-cache] release failed:', err?.message || err);
+	}
+}
+
+// True when a cached entry is the in-flight marker rather than a real response.
+export function isInflight(entry) {
+	return !!(entry && entry.__x402_inflight__ === true);
+}
+
 // Test-only hook to drop the in-memory store between tests.
 export function _resetMemoryStore() {
 	memoryStore.clear();
