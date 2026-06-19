@@ -23,6 +23,7 @@ import { compileBrain } from './brain-compile.js';
 import { BrainRuntime } from './brain-runtime.js';
 import { NODE_TYPES, normalizeGraph, defaultGraph } from './brain-nodes.js';
 import { TEMPLATES } from './brain-templates.js';
+import { apiFetch } from '../../api.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const PALETTE = ['persona', 'model', 'memory', 'skill', 'market', 'output'];
@@ -48,7 +49,7 @@ class BrainStudio {
 	async _init() {
 		// Providers power the Model node's picker — real availability from the proxy.
 		try {
-			const resp = await fetch('/api/brain/chat', { credentials: 'include' });
+			const resp = await apiFetch('/api/brain/chat', { allowAnonymous: true });
 			if (resp.ok) this.providers = (await resp.json()).providers || [];
 		} catch { /* picker falls back to a static list of model ids */ }
 
@@ -294,8 +295,12 @@ class BrainStudio {
 				onMeta: (m) => { statEl.textContent = `${m.label}…`; },
 			});
 			const reply = bubble.querySelector('.brainstudio__msg-text').textContent;
-			this._history.push({ role: 'user', content: text }, { role: 'assistant', content: reply });
-			this._history = this._history.slice(-20);
+			// Only record a turn the proxy will accept next time (it rejects empty
+			// assistant content) — an empty reply means nothing streamed.
+			if (reply.trim()) {
+				this._history.push({ role: 'user', content: text }, { role: 'assistant', content: reply });
+				this._history = this._history.slice(-20);
+			}
 			statEl.textContent = this._fmtStats(stats);
 		} catch (err) {
 			bubble.classList.add('is-error');
