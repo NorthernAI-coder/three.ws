@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-06-19",
+			"title": "Drop agents on your real floor with AR precision",
+			"summary": "On Android phones that support AR, placing an agent in your room is now pinpoint: point at the floor, a reticle locks onto the real ground, and you tap to drop the agent exactly where you're looking \u2014 feet on the actual floor, not floating at a guess. It anchors into the same shared room as the rest of your agents, so everyone who opens IRL at that spot \u2014 including iPhones \u2014 sees it in the same place, and you can re-tap \u201cRefine on floor\u201d on one of your agents to sharpen just its spot without nudging the others. iPhones and phones without AR keep the aim-and-distance flow they already had, with no extra buttons and nothing that doesn't work \u2014 every device gets the best placement it can do.",
+			"tags": [
+				"feature"
+			],
+			"link": "/irl"
+		},
+		{
+			"date": "2026-06-19",
 			"title": "AR agents hold their place and size when you rotate your phone",
 			"summary": "Camera AR used to assume you were holding your phone upright. Rotate to landscape — or just have the browser's toolbar slide away as you scroll — and a pinned agent could quietly change size or drift off the real-world spot you placed it on. IRL now re-reads your camera's lens and your screen's orientation the instant either changes, so the agent keeps its true scale and stays locked to its spot whether you hold the phone portrait or sideways. The motion-sensor lock that rotates the view as you turn now understands landscape too, so panning around the agent stays smooth and accurate, and the rapid resizing iPhone Safari does while scrolling no longer makes the scene stutter.",
 			"tags": [

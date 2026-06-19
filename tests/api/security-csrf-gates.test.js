@@ -100,6 +100,21 @@ vi.mock('../../api/_lib/rate-limit.js', () => ({
 vi.mock('../../api/_lib/agent-wallet.js', () => ({
 	generateAgentWallet: vi.fn(async () => ({ address: '0xaa', encrypted_key: 'k' })),
 	generateSolanaAgentWallet: vi.fn(async () => ({ address: 'sol', encrypted_secret: 's' })),
+	recoverSolanaAgentKeypair: vi.fn(async () => ({ publicKey: { toBase58: () => 'sol' } })),
+	recoverAgentKey: vi.fn(async () => '0x' + '11'.repeat(32)),
+	ensureAgentWallet: vi.fn(async () => ({ address: 'sol', created: false })),
+}));
+
+// solana-wallet.js / solana-trade.js touch Solana RPC + SNS at module scope via
+// these helpers; stub them so the CSRF-gate path (which short-circuits before any
+// RPC) can be exercised without a live cluster.
+vi.mock('../../api/_lib/agent-pumpfun.js', () => ({
+	solanaConnection: vi.fn(() => ({})),
+	solanaPublicConnection: vi.fn(() => ({})),
+}));
+
+vi.mock('../../src/solana/sns.js', () => ({
+	reverseLookupAddress: vi.fn(async () => null),
 }));
 
 vi.mock('../../api/_lib/notify.js', () => ({
@@ -139,6 +154,8 @@ const { default: agentActionsHandler } = await import('../../api/agent-actions.j
 const { default: agentMemoryHandler } = await import('../../api/agent-memory.js');
 const { default: subscriptionsHandler } = await import('../../api/subscriptions.js');
 const { default: dcaHandler } = await import('../../api/dca-strategies.js');
+const { handleWithdraw } = await import('../../api/agents/solana-wallet.js');
+const { handleTrade } = await import('../../api/agents/solana-trade.js');
 
 // ── helpers ───────────────────────────────────────────────────────────────
 
@@ -606,5 +623,85 @@ describe('POST/DELETE /api/dca-strategies — CSRF gate', () => {
 		await dcaHandler(req, res);
 		expect(res.statusCode).toBe(403);
 		expect(parseRes(res).error).toBe('csrf_missing');
+	});
+});
+
+// ── Custodial fund-moving endpoints ────────────────────────────────────────
+// Withdraw and discretionary trade move real funds out of a custodial agent
+// wallet. They must be CSRF-gated at least as strongly as message-signing.
+// A valid (non-WSOL) base58 mint so the trade handler reaches the CSRF check
+// rather than failing input validation first.
+const VALID_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+
+describe('POST /api/agents/:id/solana/withdraw — CSRF gate', () => {
+	const AGENT_ID = '44444444-4444-4444-4444-444444444444';
+
+	it('rejects session-authed withdraw without X-CSRF-Token (403 csrf_missing)', async () => {
+		authState.session = { id: 'owner-1' };
+		// loadOwnedWallet's ownership SELECT — owner matches the session.
+		sqlState.queue.push([
+			{ id: AGENT_ID, user_id: 'owner-1', meta: { solana_address: 'sol', encrypted_solana_secret: 's' } },
+		]);
+		const req = makeReq({
+			method: 'POST',
+			url: `/api/agents/${AGENT_ID}/solana/withdraw`,
+			body: { asset: 'SOL', amount: '0.1', destination: VALID_MINT, network: 'mainnet' },
+		});
+		const res = makeRes();
+		await handleWithdraw(req, res, AGENT_ID);
+		expect(res.statusCode).toBe(403);
+		expect(parseRes(res).error).toBe('csrf_missing');
+	});
+
+	it('does NOT reach the CSRF check for a non-owner (403 forbidden first)', async () => {
+		authState.session = { id: 'not-owner' };
+		sqlState.queue.push([
+			{ id: AGENT_ID, user_id: 'owner-1', meta: { solana_address: 'sol', encrypted_solana_secret: 's' } },
+		]);
+		const req = makeReq({
+			method: 'POST',
+			url: `/api/agents/${AGENT_ID}/solana/withdraw`,
+			body: { asset: 'SOL', amount: '0.1', destination: VALID_MINT, network: 'mainnet' },
+		});
+		const res = makeRes();
+		await handleWithdraw(req, res, AGENT_ID);
+		expect(res.statusCode).toBe(403);
+		expect(parseRes(res).error).toBe('forbidden');
+	});
+});
+
+describe('POST /api/agents/:id/solana/trade — CSRF gate', () => {
+	const AGENT_ID = '55555555-5555-5555-5555-555555555555';
+
+	it('rejects a session-authed real trade without X-CSRF-Token (403 csrf_missing)', async () => {
+		authState.session = { id: 'owner-2' };
+		sqlState.queue.push([
+			{ id: AGENT_ID, user_id: 'owner-2', meta: { solana_address: 'sol', encrypted_solana_secret: 's' } },
+		]);
+		const req = makeReq({
+			method: 'POST',
+			url: `/api/agents/${AGENT_ID}/solana/trade`,
+			body: { side: 'buy', mint: VALID_MINT, sol_amount: 0.05, network: 'mainnet' },
+		});
+		const res = makeRes();
+		await handleTrade(req, res, AGENT_ID);
+		expect(res.statusCode).toBe(403);
+		expect(parseRes(res).error).toBe('csrf_missing');
+	});
+
+	it('exempts a live preview (preview:true never burns a token)', async () => {
+		authState.session = { id: 'owner-2' };
+		sqlState.queue.push([
+			{ id: AGENT_ID, user_id: 'owner-2', meta: { solana_address: 'sol', encrypted_solana_secret: 's' } },
+		]);
+		const req = makeReq({
+			method: 'POST',
+			url: `/api/agents/${AGENT_ID}/solana/trade`,
+			body: { side: 'buy', mint: VALID_MINT, sol_amount: 0.05, network: 'mainnet', preview: true },
+		});
+		const res = makeRes();
+		await handleTrade(req, res, AGENT_ID);
+		// Preview is exempt: whatever the quote path returns, it must NOT be the CSRF 403.
+		expect(parseRes(res)?.error).not.toBe('csrf_missing');
 	});
 });
