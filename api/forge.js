@@ -492,7 +492,7 @@ async function startJob(req, res) {
 				return json(res, err.status || 402, {
 					error: err.code || 'payment_invalid',
 					feature: 'forge.high',
-					get_three_url: '/three',
+					get_three_url: '/three-token',
 					pay_per_use: usd ? { action: 'forge.high', usd } : null,
 					message: err.message || 'That $THREE payment could not be verified.',
 				});
@@ -625,7 +625,7 @@ async function startJob(req, res) {
 				return json(res, 409, {
 					error: 'payment_already_used',
 					feature: 'forge.high',
-					get_three_url: '/three',
+					get_three_url: '/three-token',
 					message:
 						'This payment has already been used for a generation. Pay again to generate another High model.',
 				});
