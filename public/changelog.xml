@@ -7,6 +7,22 @@
 		<description>What's new on three.ws — features, improvements, and releases, newest first.</description>
 		<language>en</language>
 		<item>
+			<title>Agent Studio</title>
+			<link>https://three.ws/agent-studio</link>
+			<guid isPermaLink="false">2026-06-19:Agent Studio</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>Author your agent's brain, memory, body, money, and skills in one place, with a live 3D avatar that updates everywhere as you edit.</description>
+		</item>
+		<item>
+			<title>Agent Studio — one place to build your whole agent, with a live avatar</title>
+			<link>https://three.ws/agent-studio</link>
+			<guid isPermaLink="false">2026-06-19:Agent Studio — one place to build your whole agent, with a live avatar</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Agent Studio is the new home for authoring everything about your AI agent — its brain, memory, 3D body, money, and skills — side by side with a live avatar that updates the instant you make a change, no save button and no refresh. The same living avatar can now appear anywhere on the platform as a presence companion, reacting with real emotion to what's happening: it celebrates a filled trade, looks concerned when a position drops, and stays in sync with whatever you edit in the Studio. This release ships the Studio shell and the shared foundation the rest of the experience builds on.</description>
+		</item>
+		<item>
 			<title>Agent wallet's full money loop is now verified end-to-end on devnet</title>
 			<link>https://three.ws/agent-wallet</link>
 			<guid isPermaLink="false">2026-06-19:Agent wallet's full money loop is now verified end-to-end on devnet</guid>

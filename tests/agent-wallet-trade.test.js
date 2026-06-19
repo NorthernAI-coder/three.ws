@@ -31,6 +31,13 @@ vi.mock('../api/_lib/auth.js', () => ({
 	extractBearer: vi.fn(() => null),
 }));
 
+// CSRF enforcement is exercised by agent-identity-csrf.test.js; here we mock it
+// through so these tests focus on trade guards, spend policy, and execution.
+vi.mock('../api/_lib/csrf.js', () => ({
+	requireCsrf: vi.fn(async () => true),
+	issueCsrf: vi.fn(async () => ({ token: 'test-csrf', expiresIn: 3600 })),
+}));
+
 // ── db ──────────────────────────────────────────────────────────────────────
 const sqlState = { queue: [], calls: [] };
 vi.mock('../api/_lib/db.js', () => ({

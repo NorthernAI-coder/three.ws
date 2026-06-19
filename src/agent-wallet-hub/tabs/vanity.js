@@ -14,6 +14,7 @@
  */
 
 import { registerWalletTab } from '../registry.js';
+import { consumeCsrfToken } from '../../api.js';
 
 const MAX_CHARS = 3;
 const BASE58_RE = /^[1-9A-HJ-NP-Za-km-z]*$/;
@@ -48,6 +49,12 @@ async function call(url, { method = 'GET', body = null } = {}) {
 		if (body != null) {
 			opts.headers['content-type'] = 'application/json';
 			opts.body = JSON.stringify(body);
+		}
+		// Grinding a vanity address swaps the keypair and sweeps funds — the POST is
+		// state-changing, so carry a single-use CSRF token (server burns it on use).
+		if (method !== 'GET') {
+			const token = await consumeCsrfToken();
+			if (token) opts.headers['x-csrf-token'] = token;
 		}
 		const r = await fetch(url, opts);
 		let j = null;

@@ -3346,6 +3346,14 @@
 			"dest": "/create-agent.html"
 		},
 		{
+			"src": "/agent-studio",
+			"dest": "/agent-studio.html"
+		},
+		{
+			"src": "/agent-studio/",
+			"dest": "/agent-studio.html"
+		},
+		{
 			"src": "/creating",
 			"dest": "/creating.html"
 		},

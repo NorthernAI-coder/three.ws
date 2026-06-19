@@ -45,6 +45,12 @@ export const NAV_GROUPS = [
 				desc: 'Guided wizard: name, 3D body, skills, personality → ship it',
 			},
 			{
+				title: 'Agent Studio',
+				href: '/agent-studio',
+				badge: 'New',
+				desc: "Author brain, memory, body, money & skills with a live avatar",
+			},
+			{
 				title: 'Selfie to avatar',
 				href: '/create/selfie',
 				desc: 'One photo → rigged 3D avatar',

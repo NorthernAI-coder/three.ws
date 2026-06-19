@@ -168,6 +168,14 @@
 					"added": "2026-06-05"
 				},
 				{
+					"path": "/agent-studio",
+					"title": "Agent Studio",
+					"description": "Author your agent's brain, memory, body, money, and skills in one place, with a live 3D avatar that updates everywhere as you edit.",
+					"auth": "required",
+					"indexable": false,
+					"added": "2026-06-19"
+				},
+				{
 					"path": "/app",
 					"title": "Viewer",
 					"description": "Drag-and-drop glTF/GLB viewer for inspecting 3D models in the browser.",

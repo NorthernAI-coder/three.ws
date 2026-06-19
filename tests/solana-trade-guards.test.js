@@ -32,6 +32,13 @@ vi.mock('../api/_lib/auth.js', () => ({
 	extractBearer: vi.fn(() => null),
 }));
 
+// CSRF enforcement is exercised by agent-identity-csrf.test.js; mock it through
+// so these tests focus on the trade execution guard ladder.
+vi.mock('../api/_lib/csrf.js', () => ({
+	requireCsrf: vi.fn(async () => true),
+	issueCsrf: vi.fn(async () => ({ token: 'test-csrf', expiresIn: 3600 })),
+}));
+
 vi.mock('../api/_lib/rate-limit.js', () => ({
 	limits: { authIp: vi.fn(async () => ({ success: true })), walletRead: vi.fn(async () => ({ success: true })) },
 	clientIp: () => '127.0.0.1',
