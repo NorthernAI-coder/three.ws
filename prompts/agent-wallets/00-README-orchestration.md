@@ -191,13 +191,65 @@ Wire that connection too.
 file** (`prompts/agent-wallets/0X-*.md`) so the task board reflects reality. Leave
 this `00-README-orchestration.md` in place until the whole program is done.
 
+## The invention bar (read this twice)
+
+The user does not want a wallet that other platforms already have. A balance card, a
+send/receive screen, a vanity grinder — those are table stakes (tasks `01`–`05`
+build them, and they must be best-in-class, but they are the *floor*). The ceiling
+is the **invention layer** (`07`–`12`): features that are **only possible because
+three.ws is the one platform where a real, funded, self-custodial wallet is welded
+to a rigged, talking, ownable 3D agent.** That combination is the moat. Every
+invention-layer feature must answer "why can *only* three.ws do this?" — if the
+answer is "anyone could," it's not done; raise it until it's something users would
+switch platforms for and screenshot to their group chat.
+
+Rules for the invention layer, on top of every rule above:
+
+- **Novel, not derivative.** Do not reskin Phantom/Jupiter/a CEX. Invent the
+  interaction. If a competitor has it, you have not gone far enough.
+- **Uniquely ours.** The feature must exploit the avatar↔wallet↔identity weld.
+  A number on a card is not enough; the *agent* must visibly be the one acting.
+- **Still 100% real.** Inventiveness is never an excuse for fake data. Every visual,
+  flow, and number traces to a real chain call, real feed, or real DB row. No
+  simulated trades, no mock balances, no decorative-only animation — every animation
+  is driven by a real event.
+- **Safe by construction.** Anything that moves custodial funds (voice trades,
+  mirror-trades, autonomous strategies, recovery transfers) is owner-only, gated by
+  the server-side spend policy, requires explicit consent, and is fully audited in
+  the custody trail. Invention does not bypass safety; it showcases it.
+
 ## Suggested order / dependencies
+
+**Floor (best-in-class table stakes):**
 
 - **`01` (Wallet Identity Layer)** is the foundation — the shared chip + data
   contract everything else hangs off. Ideally land first, or coordinate closely.
 - **`02` (Wallet HUD/Drawer)**, **`03` (Vanity Studio)**, **`04` (Ownership /
   Fork-to-own)** build on `01`'s shared component and can run in parallel.
-- **`05` (Sniper / Trading Co-pilot)** is the headline innovation; it consumes the
-  HUD and balances from `01`/`02`.
+- **`05` (Sniper / Trading Co-pilot)** is the trading engine; it consumes the HUD
+  and balances from `01`/`02`. The invention layer's trading features reuse its
+  execution + spend-guard path.
+
+**Invention layer (the moat — what no one else has):**
+
+- **`07` (Net-Worth-Reactive Avatar)** — the 3D agent physically *wears its wallet*.
+  Depends on `01` (real balances/holdings).
+- **`08` (Conversational Wallet — talk-to-trade)** — speak/type intent to your
+  avatar; it executes real, limit-gated wallet ops. Depends on `02`/`05`.
+- **`09` (Mirror / Copy-Trade Social Graph)** — follow an agent's wallet; your agent
+  mirrors within your limits. Depends on `05`.
+- **`10` (Strategy Objects)** — encode a snipe/trade strategy as a real, ownable,
+  shareable on-chain object agents can equip. Depends on `05`.
+- **`11` (Social Recovery & Inheritance)** — guardians + dead-man's-switch for
+  custodial agent wallets. Depends on `02`.
+- **`12` (Galaxy Money-Cam)** — the 3D galaxy renders real money flowing between
+  agent wallets, live. Depends on `01`.
+
+These six are independent of each other and can each run in their own agent chat in
+parallel once their dependency (`01`/`02`/`05`) exists. Coordinate only on the shared
+`src/shared/` modules.
+
+**Last:**
+
 - **`06` (Integration & QA pass)** runs last — verifies every surface, every state,
-  every viewer role, end to end in the browser.
+  every viewer role, every invention-layer feature, end to end in the browser.
