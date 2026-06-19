@@ -2781,6 +2781,14 @@
 			"dest": "/pay/$1"
 		},
 		{
+			"src": "/x402/studio",
+			"dest": "/x402/studio.html"
+		},
+		{
+			"src": "/x402/studio/",
+			"dest": "/x402/studio.html"
+		},
+		{
 			"src": "/x402",
 			"dest": "/x402-stripe.html"
 		},

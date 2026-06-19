@@ -241,6 +241,48 @@ async function loadCharacter(avatarId, charPx) {
 	return { model, controller, halfW: (size.x * scale) / 2 };
 }
 
+// Deflection past which a stick axis counts as a held direction. High enough
+// that a resting/drifting stick never walks the avatar on its own.
+const PAD_DEADZONE = 0.45;
+
+// Standard Gamepad → walk intents. Reads the first connected pad (null when
+// none) so a controller drives the avatar exactly like the keyboard: left stick
+// or d-pad to move, ✕/A (0) and ○/B (1) as face buttons. Each mode decides what
+// counts as "dive" — so "joystick down" and "press O" map to entry, never a
+// resting stick.
+function readGamepad() {
+	const pads = typeof navigator !== 'undefined' && navigator.getGamepads
+		? navigator.getGamepads()
+		: null;
+	if (!pads) return null;
+	let gp = null;
+	for (const p of pads) {
+		if (p && p.connected) { gp = p; break; }
+	}
+	if (!gp) return null;
+	const ax = gp.axes[0] || 0;
+	const ay = gp.axes[1] || 0;
+	const btn = (i) => !!gp.buttons[i]?.pressed;
+	return {
+		left: ax < -PAD_DEADZONE || btn(14),
+		right: ax > PAD_DEADZONE || btn(15),
+		up: ay < -PAD_DEADZONE || btn(12),
+		down: ay > PAD_DEADZONE || btn(13),
+		faceA: btn(0), // ✕ / A
+		faceB: btn(1), // ○ / B
+	};
+}
+
+// Fold a gamepad's intents into a keyboard-driven `input` map without stomping
+// keys the player is physically holding: `held` remembers which flags this pad
+// asserted last frame, so releasing the stick only clears what the pad set.
+function mergePad(input, held, next) {
+	for (const k in next) {
+		if (next[k]) { input[k] = true; held[k] = true; }
+		else if (held[k]) { input[k] = false; held[k] = false; }
+	}
+}
+
 // ═════════════════════════════════════════════════════════════════════════════
 // Stroll mode — gentle top-down aerial view, no gravity, roam anywhere.
 // ═════════════════════════════════════════════════════════════════════════════
@@ -257,8 +299,8 @@ class StrollPlayground {
 		this.char = { x: 0, y: 0, vx: 0, vy: 0, facing: 0 };
 		this._yaw = 0;
 		this.input = { up: false, down: false, left: false, right: false, dive: false };
+		this._padHeld = {};
 		this._armEl = null;
-		this._armAt = 0;
 		this._armHref = null;
 		this._lastProbe = 0;
 		this._diving = false;
@@ -542,7 +584,6 @@ class StrollPlayground {
 		this._clearArm();
 		this._armEl = el;
 		this._armHref = href;
-		this._armAt = performance.now();
 		el.classList.add('walk-pg-portal');
 		this._say('Press Space (or ⬇ / gamepad) to dive in', 2400);
 	}
@@ -582,7 +623,20 @@ class StrollPlayground {
 		this._raf = requestAnimationFrame(this._tick);
 	}
 
+	_pollGamepad() {
+		const gp = readGamepad();
+		mergePad(this.input, this._padHeld, {
+			up: !!gp?.up,
+			down: !!gp?.down,
+			left: !!gp?.left,
+			right: !!gp?.right,
+			// Either face button is the deliberate "dive into this link" confirm.
+			dive: !!(gp?.faceA || gp?.faceB),
+		});
+	}
+
 	_step(dt) {
+		this._pollGamepad();
 		const c = this.char;
 		let ix = (this.input.right ? 1 : 0) - (this.input.left ? 1 : 0);
 		let iy = (this.input.down ? 1 : 0) - (this.input.up ? 1 : 0);
@@ -706,9 +760,9 @@ class PlatformerPlayground {
 		this._lastScan = 0;
 		this._scrollY = 0;
 		this.input = { left: false, right: false, jump: false, down: false };
+		this._padHeld = {};
 		this._jumpEdge = false;
 		this._armEl = null;
-		this._armAt = 0;
 		this._armHref = null;
 		this._diving = false;
 		this._picker = null;
@@ -1027,10 +1081,9 @@ class PlatformerPlayground {
 		if (this._armEl === p.el) return;
 		this._clearArm();
 		this._armEl = p.el;
-		this._armAt = performance.now();
 		this._armHref = p.href;
 		p.el.classList.add('walk-pg-portal');
-		this._say('↓ to dive in', 2200);
+		this._say('Press ↓ (or ⤓ / gamepad) to dive in', 2200);
 	}
 
 	_clearArm() {
@@ -1069,7 +1122,19 @@ class PlatformerPlayground {
 		this._raf = requestAnimationFrame(this._tick);
 	}
 
+	_pollGamepad() {
+		const gp = readGamepad();
+		mergePad(this.input, this._padHeld, {
+			left: !!gp?.left,
+			right: !!gp?.right,
+			jump: !!gp?.faceA, // ✕ / A leaps
+			// Down on the stick/d-pad, or ○ / B, dives into the link platform.
+			down: !!(gp?.down || gp?.faceB),
+		});
+	}
+
 	_step(dt) {
+		this._pollGamepad();
 		const c = this.char;
 		const dir = (this.input.right ? 1 : 0) - (this.input.left ? 1 : 0);
 		const accel = c.grounded ? GROUND_ACCEL : AIR_ACCEL;
@@ -1082,6 +1147,9 @@ class PlatformerPlayground {
 			if (Math.abs(c.vx) <= f) c.vx = 0;
 			else c.vx -= Math.sign(c.vx) * f;
 		}
+		// Edge-trigger the jump from whichever source released it (keyup clears this
+		// for the keyboard; the pad poll can't, so re-arm here when jump is idle).
+		if (!this.input.jump) this._jumpEdge = false;
 		if (this.input.jump && c.grounded && !this._jumpEdge) {
 			c.vy = -JUMP_V;
 			c.grounded = false;
@@ -1091,14 +1159,19 @@ class PlatformerPlayground {
 		}
 		if (this.input.down && c.grounded) {
 			if (this.platform?.href) {
-				this._dive(this.platform.href);
-				return;
+				// Down on a link platform dives — never drops through it. Held over
+				// from a previous page? The spawn guard swallows it for a beat.
+				if (performance.now() > this._spawnGuardUntil) {
+					this._dive(this.platform.href);
+					return;
+				}
+			} else {
+				c.y += 4;
+				c.grounded = false;
+				const dropped = this.platform;
+				this.platform = null;
+				this._dropIgnore = dropped;
 			}
-			c.y += 4;
-			c.grounded = false;
-			const dropped = this.platform;
-			this.platform = null;
-			this._dropIgnore = dropped;
 		}
 		c.vy = Math.min(c.vy + GRAVITY * dt, TERMINAL);
 		const prevY = c.y;

@@ -48,6 +48,9 @@
 	.b-empty { color: #99a; text-align: center; }
 	.powered { text-align: center; padding: 14px; font-size: 11px; color: #aab; }
 	.powered a { color: #889; text-decoration: none; font-weight: 600; }
+	.giving { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 9px 16px; font-size: 13px; background: #ecfdf3; color: #0a7d3a; border-bottom: 1px solid #d3f3df; }
+	.giving b { font-weight: 700; }
+	@media (prefers-color-scheme: dark) { .giving { background: #0b1f17; color: #4ade80; border-color: #14532d; } }
 
 	.state { max-width: 560px; margin: 90px auto; text-align: center; padding: 0 24px; color: #667; }
 	.state h2 { color: #111; font-size: 22px; margin: 0 0 8px; }
@@ -130,8 +133,17 @@ function render(data){
 	const body = layout.map(block).join('') || '<section class="b-text"><p class="b-empty">This store has no content yet.</p></section>';
 	const logo = s.logo_url ? `<img src="${esc(s.logo_url)}" alt="">` : esc((s.business_name||'·')[0]);
 
+	let giving = '';
+	if (s.charity_enabled && s.charity_bps > 0){
+		const pct = s.charity_bps / 100;
+		const pctLabel = (pct % 1 === 0 ? pct.toFixed(0) : pct.toString());
+		const cause = s.charity_name ? esc(s.charity_name) : 'a good cause';
+		giving = `<div class="giving">♥ <span><b>${pctLabel}%</b> of every payment supports <b>${cause}</b>${s.roundup_enabled ? ' · round-up at checkout' : ''}</span></div>`;
+	}
+
 	document.getElementById('root').innerHTML =
 		`<div class="topbar"><div class="blogo">${logo}</div><span class="bname">${esc(s.business_name||'Store')}</span><span class="secured">Secured by x402 · on-chain settlement</span></div>`
+		+ giving
 		+ body
 		+ `<div class="powered">Powered by <a href="/x402" target="_blank">three.ws x402</a></div>`;
 

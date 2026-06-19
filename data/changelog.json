@@ -3,8 +3,26 @@
 	"entries": [
 		{
 			"date": "2026-06-19",
+			"title": "Roaming links no longer open just by standing on them",
+			"summary": "In full-page roaming mode — stroll or platformer — walking your avatar onto a link used to dive into it on its own after a short pause, which made it easy to leave a page by accident. Now standing on a link only arms it (it glows with a prompt) and you commit deliberately: press Space / Enter / E or tap the dive button in stroll mode, or press ↓ / the dive button in platformer mode. Gamepads work too — the left stick or d-pad walks, ✕/○ dive in stroll, and pushing down or ○ dives in platformer — so a controller drives the avatar exactly like the keyboard.",
+			"tags": [
+				"improvement",
+				"sdk"
+			]
+		},
+		{
+			"date": "2026-06-19",
+			"title": "Pay any x402 endpoint in $THREE, not just USDC",
+			"summary": "The three.ws payment modal now treats $THREE as a first-class settlement token on Solana, right alongside USDC. When an endpoint accepts both, a token chooser appears in checkout so you decide which to pay with — the headline price, the Phantom transaction, and the receipt all switch to your pick. $THREE (FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump) is recognized by its mint, so it shows its own ticker and badge even when the merchant doesn't label it. The payment is still a single gasless signature with the network fee sponsored by the facilitator. Endpoint operators turn the $THREE option on with one setting; the drop-in modal and its solanaAccept() helper support it out of the box.",
+			"tags": [
+				"feature",
+				"sdk"
+			]
+		},
+		{
+			"date": "2026-06-19",
 			"title": "The x402 Console — run a paid-API business end to end",
-			"summary": "A new merchant console brings everything you need to charge for endpoints into one place — the Stripe of x402. Configure agent wallets (the named on-chain wallets your agents auto-pay and receive from, each with its own per-call and daily USDC caps), default payout addresses on Base and Solana, and per-product pricing. Build a hosted storefront with a drag-and-drop block editor — hero, product grid, featured product, text, image, button, divider, footer — with a live preview, then publish it to a public /store/<handle> page that takes real on-chain payments. Plus API keys, a settlement webhook, a CORS/domain allow-list, spending caps, accepted-network toggles, and SIWX re-entry. Open it from the x402 dashboard.",
+			"summary": "A new merchant console brings everything you need to charge for endpoints into one place — the Stripe of x402. Configure agent wallets (the named on-chain wallets your agents auto-pay and receive from, each with its own per-call and daily USDC caps), default payout addresses on Base and Solana, and per-product pricing. Build a hosted storefront with a drag-and-drop block editor — hero, product grid, featured product, text, image, button, divider, footer — with a live preview, then publish it to a public /store/<handle> page that takes real on-chain payments. Plus API keys, a settlement webhook, a CORS/domain allow-list, spending caps, accepted-network toggles, SIWX re-entry, and optional Giving — donate a share of every payment to a cause and let buyers round up, shown right on your storefront. Open it from the x402 dashboard.",
 			"tags": [
 				"feature",
 				"improvement"

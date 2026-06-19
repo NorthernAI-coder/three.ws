@@ -332,6 +332,23 @@
 				</div>
 
 				<div class="card">
+					<h3>Giving</h3>
+					<p class="card-sub">Donate a share of every payment to a cause, and let buyers round up. Shown to buyers on your checkout and storefront.</p>
+					<div class="toggle-row"><div class="tr-text"><b>Donate a share of revenue</b><span>A percentage of each settled payment goes to your chosen cause.</span></div><label class="switch"><input type="checkbox" id="charity_enabled" /><span class="slider"></span></label></div>
+					<div id="charityFields" style="margin-top:14px;display:none">
+						<div class="row-2">
+							<label class="field">Cause name<input id="charity_name" maxlength="80" placeholder="GiveDirectly" /></label>
+							<label class="field">Share of each payment<input id="charity_pct" type="number" min="0" max="100" step="0.01" placeholder="1" /><span class="hint">Percent. e.g. 1 = 1% of every payment.</span></label>
+						</div>
+						<div class="row-2">
+							<label class="field">Cause chain<select id="charity_chain"><option value="base">Base</option><option value="solana">Solana</option></select></label>
+							<label class="field">Cause wallet<input id="charity_address" class="mono" spellcheck="false" autocomplete="off" placeholder="0x… or base58" /><span class="hint" id="charityAddrHint">Validated against the selected chain.</span></label>
+						</div>
+						<div class="toggle-row"><div class="tr-text"><b>Round-up at checkout</b><span>Round the buyer's total up to the nearest unit and donate the difference to the cause.</span></div><label class="switch"><input type="checkbox" id="roundup_enabled" /><span class="slider"></span></label></div>
+					</div>
+				</div>
+
+				<div class="card">
 					<h3>Business identity</h3>
 					<p class="card-sub">Shown on hosted checkout pages and your storefront.</p>
 					<div class="row-2">
@@ -621,6 +638,13 @@ function hydrate(){
 	$('net_base').checked = nets.includes('base');
 	$('net_solana').checked = nets.includes('solana');
 	$('require_siwx').checked = !!s.require_siwx;
+	$('charity_enabled').checked = !!s.charity_enabled;
+	$('charity_name').value = s.charity_name || '';
+	$('charity_pct').value = s.charity_bps ? (s.charity_bps / 100) : '';
+	$('charity_chain').value = s.charity_chain || 'base';
+	$('charity_address').value = s.charity_address || '';
+	$('roundup_enabled').checked = !!s.roundup_enabled;
+	toggleCharity();
 	if (s.api_key_prefix){ $('keyVal').textContent = s.api_key_prefix + '…'; }
 	renderCors();
 	layout = Array.isArray(s.store_layout) ? structuredClone(s.store_layout) : [];
@@ -653,6 +677,14 @@ function collect(){
 		spend_cap_daily_atomics: toAtomics($('cap_day').value),
 		allowed_networks: nets.length ? nets : ['base','solana'],
 		require_siwx: $('require_siwx').checked,
+		charity_enabled: $('charity_enabled').checked,
+		charity_name: $('charity_name').value.trim() || null,
+		charity_chain: $('charity_chain').value,
+		charity_address: $('charity_address').value.trim() || null,
+		charity_bps: Math.round((Number($('charity_pct').value) || 0) * 100),
+		roundup_enabled: $('roundup_enabled').checked,
+		// Round buyer totals up to the nearest $1 (1e6 atomics) when enabled.
+		roundup_to_atomics: $('roundup_enabled').checked ? '1000000' : null,
 	};
 }
 
@@ -662,6 +694,16 @@ async function save(){
 	// Client-side address guards — block obviously bad payout wallets.
 	if (patch.payout_evm && !/^0x[0-9a-fA-F]{40}$/.test(patch.payout_evm)){ goTab('payout'); toast('Base payout address is invalid', true); return; }
 	if (patch.payout_solana && !/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(patch.payout_solana)){ goTab('payout'); toast('Solana payout address is invalid', true); return; }
+	// Giving guards — mirror the server so a bad config can't silently drop.
+	if (patch.charity_address){
+		const re = patch.charity_chain === 'base' ? /^0x[0-9a-fA-F]{40}$/ : /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+		if (!re.test(patch.charity_address)){ goTab('payout'); toast('Cause wallet is invalid for the selected chain', true); return; }
+	}
+	if (patch.charity_enabled){
+		if (!patch.charity_address){ goTab('payout'); toast('Add a cause wallet to enable giving', true); return; }
+		if (!patch.charity_bps){ goTab('payout'); toast('Set a non-zero share to enable giving', true); return; }
+	}
+	if (patch.roundup_enabled && !patch.charity_address){ goTab('payout'); toast('Round-up needs a cause wallet to receive the difference', true); return; }
 	setSaveState('saving');
 	try {
 		const d = await api.json('/api/x402-merchant', 'PUT', patch);
@@ -685,10 +727,20 @@ function setSaveState(st){
 }
 
 // Watch all setting inputs.
-['payout_evm','payout_solana','business_name','support_email','logo_url','accent_color','webhook_url','facilitator','store_handle','cap_call','cap_day']
+['payout_evm','payout_solana','business_name','support_email','logo_url','accent_color','webhook_url','facilitator','store_handle','cap_call','cap_day','charity_name','charity_pct','charity_address']
 	.forEach((id)=> $(id).addEventListener('input', markDirty));
-['store_published','net_base','net_solana','require_siwx'].forEach((id)=> $(id).addEventListener('change', markDirty));
+['store_published','net_base','net_solana','require_siwx','charity_enabled','charity_chain','roundup_enabled'].forEach((id)=> $(id).addEventListener('change', markDirty));
 $('topSave').addEventListener('click', save);
+
+// ── Giving controls ──
+function toggleCharity(){ $('charityFields').style.display = $('charity_enabled').checked ? '' : 'none'; }
+$('charity_enabled').addEventListener('change', toggleCharity);
+function validateCharityAddr(){
+	const re = $('charity_chain').value === 'base' ? /^0x[0-9a-fA-F]{40}$/ : /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+	validateAddr('charity_address', re, 'charityAddrHint', `${$('charity_chain').value === 'base' ? '0x address, 42 chars.' : 'Base58, 32–44 chars.'}`);
+}
+$('charity_address').addEventListener('input', validateCharityAddr);
+$('charity_chain').addEventListener('change', validateCharityAddr);
 
 // Live address validation feedback
 function validateAddr(id, re, hintId, okMsg){
@@ -1068,7 +1120,7 @@ function schedulePreview(){ clearTimeout(previewTimer); previewTimer = setTimeou
 function refreshPreview(){
 	const frame = $('previewFrame');
 	if (!frame) return;
-	const data = { store: { business_name: $('business_name').value || 'Your store', logo_url: $('logo_url').value || null, accent_color: $('accent_color').value, store_handle: $('store_handle').value || 'preview', store_layout: layout, store_theme: {} }, products };
+	const data = { store: { business_name: $('business_name').value || 'Your store', logo_url: $('logo_url').value || null, accent_color: $('accent_color').value, store_handle: $('store_handle').value || 'preview', store_layout: layout, store_theme: {}, charity_enabled: $('charity_enabled').checked, charity_name: $('charity_name').value, charity_bps: Math.round((Number($('charity_pct').value)||0)*100), roundup_enabled: $('roundup_enabled').checked }, products };
 	frame.srcdoc = renderStoreHtml(data, true);
 }
 $('refreshPreview').addEventListener('click', refreshPreview);
@@ -1100,13 +1152,16 @@ function renderStoreHtml(data, isPreview){
 		if (b.type==='footer') return `<footer class="b-footer">${esc(b.body||'')}</footer>`;
 		return '';
 	};
-	const body = (s.store_layout||[]).map(block).join('') || '<section class="b-text"><p class="b-empty">This store has no content yet.</p></section>';
+	const layoutHtml = (s.store_layout||[]).map(block).join('') || '<section class="b-text"><p class="b-empty">This store has no content yet.</p></section>';
+	const giving = (s.charity_enabled && s.charity_bps>0) ? `<div class="b-giving">♥ <span><b>${(s.charity_bps/100)}%</b> of every payment supports <b>${esc(s.charity_name||'a good cause')}</b>${s.roundup_enabled?' · round-up at checkout':''}</span></div>` : '';
+	const body = giving + layoutHtml;
 	return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(s.business_name||'Store')}</title>
 <style>
 :root{--accent:${accent}}*{box-sizing:border-box}html,body{margin:0;background:#fff;color:#111;font-family:-apple-system,BlinkMacSystemFont,Inter,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased;line-height:1.55}
 .b-hero{padding:80px 24px 56px;max-width:760px;margin:0 auto}.b-hero h1{font-size:clamp(32px,6vw,52px);font-weight:800;letter-spacing:-.03em;margin:0 0 14px}.b-hero p{font-size:18px;color:#555;margin:0 0 26px;max-width:60ch;margin-left:auto;margin-right:auto}
 .b-cta{display:inline-block;background:var(--accent);color:#fff;padding:13px 26px;border-radius:11px;font-weight:600;text-decoration:none}
+.b-giving{display:flex;align-items:center;justify-content:center;gap:8px;padding:9px 16px;font-size:13px;background:#ecfdf3;color:#0a7d3a;border-bottom:1px solid #d3f3df}.b-giving b{font-weight:700}
 .b-products,.b-text,.b-feature{max-width:1040px;margin:0 auto;padding:30px 24px}.b-products h2,.b-text h2{font-size:26px;font-weight:700;letter-spacing:-.02em;margin:0 0 22px}
 .p-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:16px}
 .p-card{border:1px solid #e6e8ee;border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:10px;background:#fff;transition:box-shadow .15s,transform .08s}
