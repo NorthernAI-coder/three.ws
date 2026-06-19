@@ -140,6 +140,44 @@ class FakeConvolverNode {
 	}
 }
 
+class FakePannerNode {
+	constructor() {
+		this.panningModel = '';
+		this.distanceModel = '';
+		this.refDistance = 1;
+		this.maxDistance = 10000;
+		this.rolloffFactor = 1;
+		this.coneInnerAngle = 360;
+		this.coneOuterAngle = 360;
+		this.coneOuterGain = 0;
+		this.positionX = new FakeAudioParam(0);
+		this.positionY = new FakeAudioParam(0);
+		this.positionZ = new FakeAudioParam(0);
+		this._connections = [];
+	}
+	connect(dest) {
+		this._connections.push(dest);
+		return dest;
+	}
+	disconnect() {
+		this._connections = [];
+	}
+}
+
+class FakeAudioListener {
+	constructor() {
+		this.positionX = new FakeAudioParam(0);
+		this.positionY = new FakeAudioParam(0);
+		this.positionZ = new FakeAudioParam(0);
+		this.forwardX = new FakeAudioParam(0);
+		this.forwardY = new FakeAudioParam(0);
+		this.forwardZ = new FakeAudioParam(-1);
+		this.upX = new FakeAudioParam(0);
+		this.upY = new FakeAudioParam(1);
+		this.upZ = new FakeAudioParam(0);
+	}
+}
+
 class FakeMediaElementSource {
 	constructor(el) {
 		this.mediaElement = el;
@@ -199,7 +237,14 @@ class FakeAudioContext {
 		this.createdMediaSources = [];
 		this.createdFilters = [];
 		this.createdConvolvers = [];
+		this.createdPanners = [];
 		this.decodedBuffers = [];
+		this.listener = new FakeAudioListener();
+	}
+	createPanner() {
+		const p = new FakePannerNode();
+		this.createdPanners.push(p);
+		return p;
 	}
 	createGain() {
 		const g = new FakeGainNode();
@@ -591,6 +636,88 @@ describe('ClubAudio.setClarity', () => {
 		const audio = new ClubAudio();
 		expect(() => audio.setClarity(0.5)).not.toThrow();
 		expect(() => audio.setLocation(true)).not.toThrow();
+	});
+});
+
+describe('ClubAudio 8D spatial orbit', () => {
+	it('builds an HRTF panner the whole mix funnels through, parked dead ahead', async () => {
+		const audio = new ClubAudio();
+		await audio.ensureContext();
+		expect(audio.ctx.createdPanners).toHaveLength(1);
+		expect(audio._panner.panningModel).toBe('HRTF');
+		// rolloff 0 keeps loudness constant as the image orbits.
+		expect(audio._panner.rolloffFactor).toBe(0);
+		// Parked straight ahead (-Z) until the orbit drives it.
+		expect(audio._panner.positionX.value).toBeCloseTo(0, 6);
+		expect(audio._panner.positionZ.value).toBeCloseTo(-1, 6);
+		// Listener sits at the origin facing into the screen.
+		expect(audio.ctx.listener.forwardZ.value).toBeCloseTo(-1, 6);
+		// The dry + both reverb tails route into the panner, not straight to master.
+		expect(audio._fx.dry._connections).toContain(audio.spatialIn);
+		expect(audio._fx.outdoorWet._connections).toContain(audio.spatialIn);
+		expect(audio._fx.indoorWet._connections).toContain(audio.spatialIn);
+		expect(audio.spatialIn._connections).toContain(audio._panner);
+		expect(audio._panner._connections).toContain(audio.master);
+	});
+
+	it('is off by default and spin8D is a no-op until enabled', async () => {
+		const audio = new ClubAudio();
+		await audio.ensureContext();
+		expect(audio.is8D()).toBe(false);
+		audio.spin8D(3.2);
+		// Still parked dead ahead — nothing moved.
+		expect(audio._panner.positionX.value).toBeCloseTo(0, 6);
+		expect(audio._panner.positionZ.value).toBeCloseTo(-1, 6);
+	});
+
+	it('orbits the source around the head once enabled', async () => {
+		const audio = new ClubAudio();
+		await audio.ensureContext();
+		audio.set8D(true);
+		expect(audio.is8D()).toBe(true);
+
+		// t=0 → straight ahead (sin0=0, -cos0=-1).
+		audio.spin8D(0);
+		expect(audio._panner.positionX.value).toBeCloseTo(0, 6);
+		expect(audio._panner.positionZ.value).toBeCloseTo(-1, 6);
+
+		// A quarter lap (speed 0.125 rps → 2s) swings the source hard right (+X).
+		audio.spin8D(2);
+		expect(audio._panner.positionX.value).toBeCloseTo(1, 5);
+		expect(audio._panner.positionZ.value).toBeCloseTo(0, 5);
+
+		// Half a lap (4s) puts it directly behind (+Z).
+		audio.spin8D(4);
+		expect(audio._panner.positionZ.value).toBeCloseTo(1, 5);
+	});
+
+	it('recentres the image to dead ahead when turned off', async () => {
+		const audio = new ClubAudio();
+		await audio.ensureContext();
+		audio.set8D(true);
+		audio.spin8D(2); // swing it off to one side
+		expect(audio._panner.positionX.value).toBeCloseTo(1, 5);
+		audio.set8D(false);
+		expect(audio._panner.positionX.value).toBeCloseTo(0, 6);
+		expect(audio._panner.positionZ.value).toBeCloseTo(-1, 6);
+	});
+
+	it('persists the 8D preference and reads it on construction', async () => {
+		const audio = new ClubAudio();
+		await audio.ensureContext();
+		audio.set8D(true);
+		expect(globalThis.localStorage.getItem('club.audio.spatial')).toBe('1');
+
+		const reloaded = new ClubAudio();
+		expect(reloaded.is8D()).toBe(true);
+	});
+
+	it('no-ops cleanly before the context exists', () => {
+		const audio = new ClubAudio();
+		expect(() => audio.spin8D(1)).not.toThrow();
+		// set8D persists the flag even with no graph yet.
+		expect(audio.set8D(true)).toBe(true);
+		expect(audio.is8D()).toBe(true);
 	});
 });
 

@@ -1555,6 +1555,28 @@ function bindMutePill() {
 }
 bindMutePill();
 
+// ── 8D pill in top bar ───────────────────────────────────────────────────
+// Toggles the HRTF orbit (src/club-audio.js → spin8D). The render loop drives
+// the orbit every frame; this just flips it on/off and persists the choice.
+function bindSpatialPill() {
+	const btn = document.getElementById('club-spatial-toggle');
+	if (!btn) return;
+	const render = () => {
+		const on = audio.is8D();
+		btn.textContent = on ? '🎧 8D on' : '🎧 8D off';
+		btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+	};
+	render();
+	btn.addEventListener('click', async () => {
+		// Building the context wires the panner the orbit needs, so a first
+		// click both unlocks audio and arms the effect in one gesture.
+		try { await audio.ensureContext(); } catch {}
+		audio.set8D(!audio.is8D());
+		render();
+	});
+}
+bindSpatialPill();
+
 // ── Free cam chip (shown while in VIP / house) ───────────────────────────
 let freeCamChip = null;
 function ensureFreeCamChip() {
@@ -2143,6 +2165,9 @@ function animate() {
 
 	// Beat level — drives both the bloom and the volumetric beams this frame.
 	const peak = audio.getPeak();
+
+	// 8D audio — orbit the whole mix around the listener's head when enabled.
+	audio.spin8D(t);
 
 	for (const station of stations) {
 		station.tick(dt);

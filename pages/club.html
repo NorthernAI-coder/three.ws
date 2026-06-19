@@ -169,6 +169,13 @@
 				border-color: rgba(124, 93, 146, 0.38);
 				color: var(--text-3);
 			}
+			/* 8D pill: a steady cyan glow while the orbit is live. */
+			.club-pill-8d[aria-pressed="true"] {
+				background: rgba(74, 214, 255, 0.16);
+				border-color: rgba(74, 214, 255, 0.5);
+				color: #cdeefe;
+				box-shadow: 0 0 10px rgba(74, 214, 255, 0.35);
+			}
 
 			/* ── Presence bar ─────────────────────────────────── */
 			.club-presence {
@@ -1521,6 +1528,7 @@
 			.club-lb-tab:focus-visible,
 			.club-react-btn:focus-visible,
 			#club-audio-toggle:focus-visible,
+			#club-spatial-toggle:focus-visible,
 			#club-free-cam:focus-visible,
 			#club-sheet-handle:focus-visible {
 				outline: 2px solid var(--accent-2);
@@ -2052,6 +2060,13 @@
 					aria-pressed="false"
 					title="Toggle club audio (mute)"
 				>🔊 Audio on</button>
+				<button
+					id="club-spatial-toggle"
+					type="button"
+					class="club-pill club-pill-toggle club-pill-8d"
+					aria-pressed="false"
+					title="8D audio — orbits the sound around your head (headphones recommended)"
+				>🎧 8D off</button>
 			</header>
 
 			<!-- STAGE -->
