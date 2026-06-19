@@ -23,6 +23,22 @@
 			<description>View-in-AR (USDZ for iOS Quick Look) and the half-body VR-seat export now work for avatars that ship with meshopt or Draco geometry compression. Previously these exports silently failed on compressed GLBs because the loader had no decoder registered; the pipeline now loads the meshopt and Draco decoders before parsing, so every avatar — including the compressed ones produced by the server-side bake — converts cleanly.</description>
 		</item>
 		<item>
+			<title>Creator royalty payouts protected against double-settlement</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-19:Creator royalty payouts protected against double-settlement</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Royalty payouts to skill authors now claim each pending amount atomically before sending funds on-chain, so two overlapping settlement runs can never pay the same balance twice. Creators are paid exactly once for what they've earned.</description>
+		</item>
+		<item>
+			<title>Discovery now shows only real creator avatars</title>
+			<link>https://three.ws/explore</link>
+			<guid isPermaLink="false">2026-06-19:Discovery now shows only real creator avatars</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>The Explore / discovery feed previously padded itself with a set of built-in sample avatars and counted them in the totals. The feed and its counts now reflect only real avatars created by the community — no filler.</description>
+		</item>
+		<item>
 			<title>Fixed broken links and added retry on failed loads across the app</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-19:Fixed broken links and added retry on failed loads across the app</guid>
@@ -37,6 +53,14 @@
 			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>The agent wallet's Deposit tab is now a complete, public funding panel: a crisp QR code (generated on-device, no third-party service) that your phone wallet can scan, a one-tap copyable Solana address, an optional preset amount, and a Solana deep-link that opens Phantom, Solflare or Backpack on mobile. The panel watches the agent's real on-chain balance and confirms the moment your SOL lands — &quot;◎0.5 SOL received&quot; — instead of leaving you guessing. Anyone can fund an agent, not just its owner, and the new &quot;Fund agent wallet&quot; button on the create-agent success screen leads new users straight into it.</description>
+		</item>
+		<item>
+			<title>Funds and payments hardened: wallet-key isolation, spend-cap races, recipient checks</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-19:Funds and payments hardened: wallet-key isolation, spend-cap races, recipient checks</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>security</category>
+			<description>Following the security audit, we strengthened everything that touches money. Custodial agent-wallet private keys now encrypt with a dedicated key — separate from the session secret — and a unique salt per wallet, so the secret guarding your funds no longer shares fate with anything else (existing wallets keep working; they re-key on next use). Per-agent daily spend limits, x402 payment de-duplication, and on-chain permission caps are now enforced atomically, closing races where a burst of concurrent requests could slip past a budget or run paid work twice for one payment. Pay-by-name sends re-check that the name still resolves to the exact address you approved before the agent signs, and reject look-alike or invalid targets; withdrawals now only ever pay out to a wallet you've already saved. We also removed a stored cross-site-scripting vector in uploaded 3D-model metadata and the admin panel, added clickjacking and permissions-policy protections site-wide, and moved IPFS pinning fully server-side so no upload credential ever ships to the browser. No action needed on your end.</description>
 		</item>
 		<item>
 			<title>Getting-started progress now follows you across the whole platform</title>
@@ -63,6 +87,22 @@
 			<description>We extended the sitewide clickjacking protection to allow IBM properties to frame three.ws. Any page on ibm.com (and its subdomains) may now load three.ws pages inside an iframe — useful for the IBM x402 demo and other IBM-hosted integrations — while every other external site is still refused by default. Sign-in, wallet, dashboard and OAuth consent pages remain hard-locked and cannot be framed by anyone, including IBM. The avatar, widget and walk embeds continue to work on any site as before.</description>
 		</item>
 		<item>
+			<title>Paid market-intel never charges you for unavailable data</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-19:Paid market-intel never charges you for unavailable data</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>The pay-per-call market-intel endpoints (the $THREE Town Oracle and the crypto-intel kiosk) used to hand back an estimated &quot;neutral&quot; reading — and still take the payment — when their live price feed was rate-limited. They now return a clean &quot;temporarily unavailable, retry shortly&quot; instead, and crucially the payment is never settled when live data is missing. You only pay when you get a real, live signal.</description>
+		</item>
+		<item>
+			<title>Platform-wide API security hardening</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-19:Platform-wide API security hardening</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>security</category>
+			<description>We completed a full security audit of the API and tightened it across the board. Server errors no longer echo internal details back to callers — they return a short reference code you can quote to support, while the real diagnostics stay server-side (this also closes a path where a backend service key could surface in an error message). Account-changing actions made from the website — updating preferences, managing webhooks and payout wallets, marking notifications read, scheduling posts, setting skill prices — now carry cross-site request-forgery protection, so a malicious page can't act on your behalf. Sign-in, wallet-linking, GitHub connect and sensitive admin actions gained rate limits, and image-analysis requests are now screened so a supplied URL can't be used to probe internal systems. API access via developer keys is unaffected.</description>
+		</item>
+		<item>
 			<title>Premium avatar cosmetics are now buyable right in the character creator</title>
 			<link>https://three.ws/create</link>
 			<guid isPermaLink="false">2026-06-19:Premium avatar cosmetics are now buyable right in the character creator</guid>
@@ -85,6 +125,14 @@
 			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>When you paste a link to an agent on X, Discord, Slack, Telegram or iMessage, the preview card now shows that agent's actual avatar, name and description instead of a generic three.ws image — so every shared link is visual proof of the collectible. Bots that don't run JavaScript get the right image and text rendered on the server, and agents without an avatar yet fall back to a clean branded card with their initial. We also fixed the canonical and share URLs on agent pages to point at the real /agents/&lt;id&gt; address.</description>
+		</item>
+		<item>
+			<title>Token Oracle follow / unfollow is working again</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-19:Token Oracle follow / unfollow is working again</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Subscribing an agent to a token's oracle alerts — and unsubscribing — was silently failing for everyone; only the status check worked. Both now go through correctly, so you can opt an agent into (and out of) score-based alerts as intended.</description>
 		</item>
 		<item>
 			<title>Unity &amp; Unreal avatar loading documented with code that actually works</title>
