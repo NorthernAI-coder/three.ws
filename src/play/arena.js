@@ -20,7 +20,7 @@ const ROSTER = [
 	{ url: '/avatars/default.glb',      name: 'Default' },
 	{ url: '/avatars/michelle.glb',     name: 'Michelle' },
 	{ url: '/avatars/xbot.glb',         name: 'X-Bot' },
-	{ url: '/avatars/readyplayerme.glb', name: 'RPM' },
+	{ url: '/avatars/studio.glb', name: 'Studio' },
 	{ url: '/avatars/cz.glb',           name: 'CZ' },
 ];
 const MAX_AGENTS = 9;

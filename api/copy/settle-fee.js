@@ -23,8 +23,8 @@ import { subscriptionOwed } from '../_lib/copy-earnings.js';
 import { issueQuote } from '../_lib/token/quote.js';
 import { verifyAndSettlePayment } from '../_lib/token/payments.js';
 import { solUsdPrice } from '../_lib/avatar-wallet.js';
+import { isUuid } from '../_lib/validate.js';
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const NETWORKS = new Set(['mainnet', 'devnet']);
 
 async function requireUser(req, res) {
@@ -65,7 +65,7 @@ export default wrap(async (req, res) => {
 		// Ratchet the HWM to the cumulative profit the quote was bound to (refId).
 		const [subId, cumulativeStr] = String(result.quote?.refId || '').split('|');
 		const cumulative = Number(cumulativeStr);
-		if (UUID_RE.test(subId) && Number.isFinite(cumulative)) {
+		if (isUuid(subId) && Number.isFinite(cumulative)) {
 			await sql`
 				update copy_subscriptions
 				set high_water_mark_sol = greatest(high_water_mark_sol, ${cumulative}), updated_at = now()
@@ -78,12 +78,12 @@ export default wrap(async (req, res) => {
 	// --- CHARGE phase ---
 	let sub;
 	if (body.subscription_id) {
-		if (!UUID_RE.test(body.subscription_id)) return error(res, 400, 'invalid_id', 'subscription_id must be a UUID');
+		if (!isUuid(body.subscription_id)) return error(res, 400, 'invalid_id', 'subscription_id must be a UUID');
 		[sub] = await sql`select * from copy_subscriptions where id = ${body.subscription_id} and copier_user_id = ${userId} limit 1`;
 	} else {
 		const leaderId = String(body.leader_agent_id || '').trim();
 		const network = NETWORKS.has(body.network) ? body.network : 'mainnet';
-		if (!UUID_RE.test(leaderId)) return error(res, 400, 'invalid_leader', 'leader_agent_id must be a UUID');
+		if (!isUuid(leaderId)) return error(res, 400, 'invalid_leader', 'leader_agent_id must be a UUID');
 		[sub] = await sql`
 			select * from copy_subscriptions
 			where leader_agent_id = ${leaderId} and copier_user_id = ${userId} and network = ${network} limit 1

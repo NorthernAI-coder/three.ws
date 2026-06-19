@@ -479,7 +479,7 @@ async function handleBalances(req, res) {
 // meta.payments.mint (only payments-configured, non-deleted agents qualify).
 async function resolveAgentByPaymentsMint(mint) {
 	const [agent] = await sql`
-		select id from agent_identities
+		select id, user_id from agent_identities
 		where (meta->'payments'->>'mint') = ${mint}
 		  and (meta->'payments'->>'configured') = 'true'
 		  and deleted_at is null
@@ -500,9 +500,12 @@ async function handleDistributePrep(req, res) {
 	if (!method(req, res, ['POST'])) return;
 	const user = await getSessionUser(req);
 	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
+	const rl = await limits.authIp(clientIp(req));
+	if (!rl.success) return rateLimited(res, rl);
 	const body = parse(distributePrepSchema, await readJson(req));
 	const agent = await resolveAgentByPaymentsMint(body.mint);
 	if (!agent) return error(res, 404, 'not_found', 'no payments-enabled agent for this mint');
+	if (agent.user_id !== user.id) return error(res, 404, 'not_found', 'agent not found');
 	const conn = solanaConnection({ url: rpcUrl(body.cluster), commitment: 'confirmed' });
 	const wallet = new PublicKey(body.wallet_address);
 	const offline = PumpAgentOffline.load(new PublicKey(body.mint), conn);
@@ -533,6 +536,8 @@ async function handleDistributeConfirm(req, res) {
 	if (!method(req, res, ['POST'])) return;
 	const user = await getSessionUser(req);
 	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
+	const rl = await limits.authIp(clientIp(req));
+	if (!rl.success) return rateLimited(res, rl);
 	const body = parse(
 		z.object({ prep_id: z.string(), tx_signature: z.string() }),
 		await readJson(req),
@@ -572,9 +577,12 @@ async function handleWithdrawPrep(req, res) {
 	if (!method(req, res, ['POST'])) return;
 	const user = await getSessionUser(req);
 	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
+	const rl = await limits.authIp(clientIp(req));
+	if (!rl.success) return rateLimited(res, rl);
 	const body = parse(withdrawPrepSchema, await readJson(req));
 	const agent = await resolveAgentByPaymentsMint(body.mint);
 	if (!agent) return error(res, 404, 'not_found', 'no payments-enabled agent for this mint');
+	if (agent.user_id !== user.id) return error(res, 404, 'not_found', 'agent not found');
 	const conn = solanaConnection({ url: rpcUrl(body.cluster), commitment: 'confirmed' });
 	const spl = await import('@solana/spl-token');
 	const authority = new PublicKey(body.wallet_address);
@@ -607,6 +615,8 @@ async function handleWithdrawConfirm(req, res) {
 	if (!method(req, res, ['POST'])) return;
 	const user = await getSessionUser(req);
 	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
+	const rl = await limits.authIp(clientIp(req));
+	if (!rl.success) return rateLimited(res, rl);
 	const body = parse(
 		z.object({ prep_id: z.string(), tx_signature: z.string() }),
 		await readJson(req),

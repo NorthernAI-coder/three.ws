@@ -7,12 +7,36 @@
 		<description>What's new on three.ws — features, improvements, and releases, newest first.</description>
 		<language>en</language>
 		<item>
+			<title>AR &amp; half-body avatar export fixed for compressed models</title>
+			<link>https://three.ws/gallery</link>
+			<guid isPermaLink="false">2026-06-19:AR &amp; half-body avatar export fixed for compressed models</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>View-in-AR (USDZ for iOS Quick Look) and the half-body VR-seat export now work for avatars that ship with meshopt or Draco geometry compression. Previously these exports silently failed on compressed GLBs because the loader had no decoder registered; the pipeline now loads the meshopt and Draco decoders before parsing, so every avatar — including the compressed ones produced by the server-side bake — converts cleanly.</description>
+		</item>
+		<item>
+			<title>Agent economy demos now show honest run status</title>
+			<link>https://three.ws/live</link>
+			<guid isPermaLink="false">2026-06-18:Agent economy demos now show honest run status</guid>
+			<pubDate>Thu, 18 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>The two-agent economy demos (/demo and /live) now label what actually happened. When no real on-chain payment runs — a visitor isn’t signed in, or the agents’ wallets aren’t configured — they say “no real payment occurred” instead of claiming the trade settled on-chain. The /demo “x402 bazaar” screen shows real marketplace listings when the live bazaar is reachable and an honest “bazaar unavailable” note when it isn’t, rather than inventing services. The simulated path no longer breaks, the bottom status line reflects the real mode, agents link out to the directory, and the payment details are reachable on phones via a slide-up sheet. /live also adds designed “fund the wallet” and “wallets not configured” states and keeps the agents talking even if the chat service hiccups.</description>
+		</item>
+		<item>
 			<title>Agent lookup now matches the rest of the site and links straight to the agent’s page</title>
 			<link>https://three.ws/lookup</link>
 			<guid isPermaLink="false">2026-06-18:Agent lookup now matches the rest of the site and links straight to the agent’s page</guid>
 			<pubDate>Thu, 18 Jun 2026 12:00:00 GMT</pubDate>
 			<category>improvement</category>
 			<description>The agent lookup tool used to render as a stark white page that ignored your light/dark theme and had no site navigation or footer. It now uses the same chrome and theme tokens as every other page, so it looks on-brand in both modes. More importantly, when a lookup resolves an agent it now shows a prominent “Open agent page” button that takes you to that agent’s profile on three.ws — so resolving an agent no longer dead-ends on external explorer links. Copy buttons also tell you if a copy fails instead of staying silent.</description>
+		</item>
+		<item>
+			<title>Agent Wallet now pays real x402 endpoints in production</title>
+			<link>https://three.ws/play/agent-wallet</link>
+			<guid isPermaLink="false">2026-06-18:Agent Wallet now pays real x402 endpoints in production</guid>
+			<pubDate>Thu, 18 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The Agent Wallet world — where your avatar walks up to a paid API kiosk and pays for it — used to only work on a developer’s machine through a local bridge; for everyone else the Pay button was permanently disabled. It now runs against a hosted agent-wallet service, so a signed-in visitor can have the agent wallet make a real x402 micropayment in USDC on Solana mainnet and get the live result back, with per-payment and daily spending caps protecting the wallet. If you’re not signed in, the page now tells you clearly and links you to sign in instead of looking broken.</description>
 		</item>
 		<item>
 			<title>Avatar Studio no longer crashes on NFT-gated traits, wallet checks, exports, or VRM0 models</title>
@@ -31,12 +55,28 @@
 			<description>A page-by-page audit of the labs, avatar tools and account pages turned up rough edges we’ve now smoothed. The standalone Avatar Artifact viewer works on phones — it has a back link to three.ws, links out to Playground, Labs and Agents, a loading state, a designed message if the 3D runtime can’t load, and you can steer the avatar with touch or the arrow keys, not just a mouse. The mic lipsync demo now shows a clear, recoverable message when the microphone is blocked, missing or busy instead of a bare pop-up, and the TTS lipsync demo shows a retry banner if speech generation fails. Sign-in and sign-up no longer leave you on the form after a connection blip, redirect cleanly so Back doesn’t return you to a login screen you already passed, and signup now bounces you onward if you’re already signed in. Forgot-password tells you if your request didn’t reach us instead of always saying it was sent. The Playground rejects oversized or wrong-type model uploads with friendly guidance, the account page’s delegation panel now opens a working console to have one of your agents answer a prompt, and the reputation explorer clearly flags when reviews are written to a test network.</description>
 		</item>
 		<item>
+			<title>Avatar wallet chat: fund hint, fixed link, steadier polling</title>
+			<link>https://three.ws/avatar-wallet-chat</link>
+			<guid isPermaLink="false">2026-06-18:Avatar wallet chat: fund hint, fixed link, steadier polling</guid>
+			<pubDate>Thu, 18 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>The avatar wallet chat now shows a designed “fund your wallet” hint with the wallet address before you try to send, instead of only failing after the fact when the balance is too low. The IBM Granite Guardian trust-layer link now points to a real page, and the background activity poller starts once at load instead of stacking up a new timer on every message.</description>
+		</item>
+		<item>
 			<title>Bundle specific skills into your subscription plans</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-18:Bundle specific skills into your subscription plans</guid>
 			<pubDate>Thu, 18 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>When you create or edit a subscription plan in the agent editor's Monetization tab, you can now tick exactly which of your agent's skills the plan includes. Subscribers to that plan get unlimited access to those skills for the life of their subscription, and the plan list shows what each plan bundles at a glance — so you can offer a focused starter plan and a fuller pro plan side by side.</description>
+		</item>
+		<item>
+			<title>Claim Your Wallet now really claims it — sign once, your Trader Card goes live</title>
+			<link>https://three.ws/claim-wallet</link>
+			<guid isPermaLink="false">2026-06-18:Claim Your Wallet now really claims it — sign once, your Trader Card goes live</guid>
+			<pubDate>Thu, 18 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Claiming a wallet on the Claim Your Wallet page used to just say “Your Trader Card is live” the moment you signed in, without ever proving the wallet was yours. Now it does the real thing: once you’re signed in, you sign a free, gasless message in Phantom, Backpack, or Solflare to prove you control the keypair, and the wallet is verifiably linked to your account. The page reads your linked wallets back, so it only shows the claimed state when the wallet is genuinely yours — and if the wallet was claimed on another account, your signature lets you move it over with one confirmation. If you connect a different wallet than the one on screen, it tells you which one to switch to. We also widened the Coin Intelligence detail panel on large screens, and watched-coin alerts now open the Oracle breakdown in the same tab so Back returns you to your watchlist.</description>
 		</item>
 		<item>
 			<title>Coin community worlds no longer get stuck on “Connecting…”</title>
@@ -159,6 +199,14 @@
 			<description>Submitting or updating a star rating on an agent's profile was quietly failing for signed-in users — the form said “Save failed” no matter what, because the security token that protects the save was being read incorrectly and never attached. Reviews now save on the first try. Signed-out visitors who tap Submit get a clear “Sign in to leave a review” prompt instead of a dead button, and agent profiles no longer log errors for agents that have no on-chain trading record — the track-record card simply stays hidden.</description>
 		</item>
 		<item>
+			<title>Live trading arena: clearer status and an accessible avatar picker</title>
+			<link>https://three.ws/play/arena</link>
+			<guid isPermaLink="false">2026-06-18:Live trading arena: clearer status and an accessible avatar picker</guid>
+			<pubDate>Thu, 18 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>On the live trading arena the trade tape now tells you when it’s reconnecting to the stream versus simply waiting for the next trade, and the leaderboard refreshes live as updates arrive. The avatar picker is now keyboard-accessible with a proper focus trap, leaderboard avatars that fail to load fall back to a clean initial instead of leaving a gap, and there’s a direct link to the agent directory.</description>
+		</item>
+		<item>
 			<title>Manage an agent's subscription tiers straight from the API</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-18:Manage an agent's subscription tiers straight from the API</guid>
@@ -213,6 +261,14 @@
 			<pubDate>Thu, 18 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>When you walk up to the Pole Club door and pay the cover charge, your avatar now breaks into a dance the instant the USDC settles — right as the velvet rope drops — before strolling inside. It's your own moment in the spotlight for making it past the bouncer, the same way the dancers move when you tip them. The dance is skipped automatically if you've turned on reduced motion, so entry stays instant either way.</description>
+		</item>
+		<item>
+			<title>Pay-per-call demos hardened: honest loading, no dead ends, accessible to everyone</title>
+			<link>https://three.ws/pay</link>
+			<guid isPermaLink="false">2026-06-18:Pay-per-call demos hardened: honest loading, no dead ends, accessible to everyone</guid>
+			<pubDate>Thu, 18 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>We did a top-to-bottom pass on every page where you (or your agent) pay an x402 endpoint in real USDC — Pay, Endpoint Bazaar, Arbitrage, Providers, Tutor, Fact Checker, Unstoppable, Endpoint Shopper, Forever, the Club, Agent Exchange, Agent Economy, Agent Trade and the IBM x402 demo — so none of them can hang, mislead, or strand you. The Fact Checker no longer shows a faked progress bar; it tells you plainly when it's working and only quotes a price it actually read from the live payment challenge. Paid and polling pages now time out and back off instead of spinning forever, surface a real error with a Retry button when a feed drops, and check the payment widget is loaded before letting you click Pay. Forever now estimates your Bitcoin inscription fee and confirms you can cover it before you commit, and Unstoppable shows how old cached figures are and offers a top-up path if a donation fails. We fixed broken navigation links across these pages and the home and Constellation footers, and made the whole group far friendlier to screen readers and keyboards — live balances and results now announce themselves, dialogs trap focus, and tap targets meet the 44px minimum on mobile.</description>
 		</item>
 		<item>
 			<title>Place your agent on the floor — now on iPhone too</title>
@@ -277,6 +333,14 @@
 			<pubDate>Thu, 18 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>The dashboard now has a Transactions page that lays out your full payment history in one place: every skill you've purchased from other agents and every sale your own agents have made, newest first. Each row shows the date, whether it was a purchase or a sale, the skill and agent involved, the USDC amount (sellers see their take-home net of the platform fee), and a link straight to the transaction on Solscan or Basescan. Filter by purchases or sales, and download the whole thing as a CSV for your records or taxes.</description>
+		</item>
+		<item>
+			<title>Sitewide clickjacking protection</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-18:Sitewide clickjacking protection</guid>
+			<pubDate>Thu, 18 Jun 2026 12:00:00 GMT</pubDate>
+			<category>security</category>
+			<description>Every page on three.ws now refuses by default to be loaded inside a frame on another website — closing a clickjacking vector where a malicious site could invisibly overlay three.ws and trick you into clicking things you didn't mean to. Sign-in, wallet and dashboard pages were already locked down; this extends the same protection to the rest of the site. The avatar, widget and walk embeds that are designed to be placed on other sites keep working exactly as before.</description>
 		</item>
 		<item>
 			<title>Skill prices fade in smoothly on agent pages</title>
@@ -389,6 +453,22 @@
 			<pubDate>Thu, 18 Jun 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>When you buy $THREE (or swap any pair) from the swap window, it now tells you exactly how it went. After you approve in your wallet, a banner shows it submitting and confirming on-chain, then resolves to a clear result: a green “Swap confirmed” with the amount you received and a Solscan link, a red on-chain failure with the reason (and a hint to widen slippage when that's the cause), or a “still confirming” notice with a link if the network is slow. Previously a swap could land successfully but the window sat on “Confirming…” indefinitely with no confirmation — because it was waiting on a live socket the swap proxy doesn't carry. It now polls the chain directly and gives you a definite answer in seconds.</description>
+		</item>
+		<item>
+			<title>Trading &amp; market pages: never silently stale, and accessible to everyone</title>
+			<link>https://three.ws/oracle</link>
+			<guid isPermaLink="false">2026-06-18:Trading &amp; market pages: never silently stale, and accessible to everyone</guid>
+			<pubDate>Thu, 18 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>We hardened every live trading and market-intelligence page so a dropped connection or a slow API can no longer leave you staring at frozen data. When a live feed stops, pages like Pump Live, Pump Dashboard and the Pump Visualizer now back off and retry, and if they truly give up they say so plainly with a Reconnect button instead of spinning forever. Oracle, Activity, Leaderboard, Trending and Smart Money now show a clear “reconnecting — data may be stale” badge with a Retry button the moment a background refresh fails, so you always know whether what you’re seeing is live. The Pump Visualizer also falls back to a readable list if your device can’t run its 3D view, and draws coin avatars locally instead of relying on an outside service. We fixed a dead “galaxy” link on the Constellation page, replaced the Strategy Lab’s browser pop-up with a proper in-app confirmation before it sells everything, and made these pages far friendlier to screen readers — tables, rows and coin buttons now announce what they are, and the trade time-window tabs are fully keyboard navigable.</description>
+		</item>
+		<item>
+			<title>Vanity wallet &amp; address generators: accurate info and usable results</title>
+			<link>https://three.ws/vanity-wallet</link>
+			<guid isPermaLink="false">2026-06-18:Vanity wallet &amp; address generators: accurate info and usable results</guid>
+			<pubDate>Thu, 18 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>Cleaned up the Solana, EVM and CREATE2 vanity-address tools. The CREATE2 generator’s share/preview info no longer references a factory and chain it doesn’t use, its footer is styled, and the highlighted prefix/suffix in previews is now visible instead of white-on-white. Colored success/error feedback that referenced undefined styles now renders correctly across all three tools. The EVM wallet generator keeps your private key out of page markup, loads its keystore export library only when you export, and adds a clear path to use the wallet with an agent. The Solana tool’s pre-generation time estimate is now labeled as rough and calibrated, and the “keys never leave your device” note is accurate about the opt-in assign-to-agent step.</description>
 		</item>
 		<item>
 			<title>You can move the moment a Coin Communities world loads</title>

@@ -15,10 +15,9 @@ import { cors, json, method, wrap, error, rateLimited } from '../_lib/http.js';
 import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { sql } from '../_lib/db.js';
+import { isUuid } from '../_lib/validate.js';
 
 const NETWORKS = new Set(['mainnet', 'devnet']);
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 function solscan(sig, network) {
 	if (!sig || sig === 'SIMULATED') return null;
 	return network === 'devnet' ? `https://solscan.io/tx/${sig}?cluster=devnet` : `https://solscan.io/tx/${sig}`;
@@ -48,7 +47,7 @@ export default wrap(async (req, res) => {
 	const network = NETWORKS.has(params.get('network')) ? params.get('network') : 'mainnet';
 	const limitN = Math.min(200, Math.max(1, Number(params.get('limit')) || 50));
 	const agentIdParam = (params.get('agent_id') || '').trim();
-	const agentId = UUID_RE.test(agentIdParam) ? agentIdParam : null;
+	const agentId = isUuid(agentIdParam) ? agentIdParam : null;
 
 	const rows = agentId
 		? await sql`

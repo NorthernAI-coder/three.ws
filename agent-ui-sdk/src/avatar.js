@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 
 const ROOT_BONE_RX = /^(Hips|Root|mixamorig:?Hips)$/i;
 
@@ -14,7 +15,11 @@ const ROOT_BONE_RX = /^(Hips|Root|mixamorig:?Hips)$/i;
  * }} options
  */
 export async function loadAvatar({ avatar, clipsBase, clips, subclips = {} }) {
+	// three.ws avatars ship with EXT_meshopt_compression, so the decoder must be
+	// wired before the loader can parse a single bufferView — otherwise GLTFLoader
+	// throws "setMeshoptDecoder must be called before loading compressed files".
 	const loader = new GLTFLoader();
+	loader.setMeshoptDecoder(MeshoptDecoder);
 	const [gltf, clipJsons] = await Promise.all([
 		new Promise((resolve, reject) => loader.load(avatar, resolve, undefined, reject)),
 		Promise.all(clips.map((name) =>

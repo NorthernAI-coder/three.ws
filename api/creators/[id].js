@@ -13,15 +13,14 @@ import { sql } from '../_lib/db.js';
 import { cors, error, json, method, wrap, rateLimited } from '../_lib/http.js';
 import { publicUrl } from '../_lib/r2.js';
 import { clientIp, limits } from '../_lib/rate-limit.js';
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { isUuid } from '../_lib/validate.js';
 
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'GET,OPTIONS' })) return;
 	if (!method(req, res, ['GET'])) return;
 
 	const id = String(req.query?.id || '').trim();
-	if (!UUID_RE.test(id)) return error(res, 404, 'not_found', 'creator not found');
+	if (!isUuid(id)) return error(res, 404, 'not_found', 'creator not found');
 
 	const rl = await limits.publicIp(clientIp(req));
 	if (!rl.success) return rateLimited(res, rl);

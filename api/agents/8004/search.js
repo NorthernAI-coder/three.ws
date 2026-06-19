@@ -14,7 +14,7 @@
 // `first` and `skip` down to the GraphQL layer, and attach a hard timeout.
 
 import { DEFAULT_SUBGRAPH_URLS, DEFAULT_REGISTRIES } from 'agent0-sdk';
-import { cors, method, error, wrap, json } from '../../_lib/http.js';
+import { cors, method, error, wrap, json, serverError } from '../../_lib/http.js';
 
 export const maxDuration = 30;
 
@@ -131,7 +131,8 @@ export default wrap(async function handler(req, res) {
 			timedOut = true;
 			rawAgents = [];
 		} else {
-			return error(res, 502, 'subgraph_error', e?.message || 'subgraph query failed');
+			console.error('[agents/8004/search] subgraph query failed', e?.message);
+			return serverError(res, 502, 'subgraph_error', e);
 		}
 	}
 

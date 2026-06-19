@@ -89,7 +89,7 @@ After converting, always optimize before shipping (see [GLB optimization](#glb-o
 
 ### FBX → clip JSON: a reusable animation
 
-This is how a motion enters the **shared animation library** that every agent and avatar draws from. The build script reads Mixamo FBX (or GLB) clips, **retargets** them to the canonical Avaturn skeleton (`public/avatars/cz.glb`), validates that retargeting succeeded, and writes one JSON clip per motion plus a manifest entry.
+This is how a motion enters the **shared animation library** that every agent and avatar draws from. The build script reads Mixamo FBX (or GLB) clips, **retargets** them to the canonical three.ws skeleton (`public/avatars/cz.glb`), validates that retargeting succeeded, and writes one JSON clip per motion plus a manifest entry.
 
 ```bash
 # 1. Drop the FBX into animation-sources/  (build-time input, not shipped)
@@ -187,7 +187,7 @@ The same FBX/GLB/JSON plumbing is the foundation for the platform's generative 3
 **Make it move:**
 
 - **Auto-rig a static mesh** — `rig_mesh` MCP tool (UniRig) turns a rig-less GLB into an animation-ready one with a humanoid skeleton and skin weights.
-- **Retarget any humanoid rig** — drop in a Mixamo, Blender, Rigify, Unreal, Ready Player Me, or Avaturn GLB and the canonicalizer + retargeter let it play every library clip. No manual bone mapping.
+- **Retarget any humanoid rig** — drop in a Mixamo, Blender, Rigify, Unreal, or other standard humanoid GLB and the canonicalizer + retargeter let it play every library clip. No manual bone mapping.
 - **Text → motion** — the pose studio generates brand-new clips from a text prompt (`/api/forge-motion`), not just presets.
 - **Author by hand** — pose with FK/IK gizmos on the `/pose` timeline and export a JSON clip or an animated GLB.
 

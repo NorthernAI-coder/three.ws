@@ -85,6 +85,8 @@ function renderConsent(res, { client, user, params, csrf }) {
 async function handleAuthorize(req, res) {
 	if (cors(req, res, { methods: 'GET,POST,OPTIONS', credentials: true })) return;
 	if (!method(req, res, ['GET', 'POST'])) return;
+	const rl = await limits.authIp(clientIp(req));
+	if (!rl.success) return rateLimited(res, rl);
 	const params = req.method === 'POST' ? await readForm(req) : parseQuery(req.url);
 	const { response_type, client_id, redirect_uri, scope, state, code_challenge, code_challenge_method, resource } = params;
 	if (response_type !== 'code') return error(res, 400, 'unsupported_response_type', 'only response_type=code supported');
@@ -172,7 +174,16 @@ async function handleToken(req, res) {
 		if (row.client_id !== client.client_id) return error(res, 400, 'invalid_grant', 'client mismatch');
 		if (row.redirect_uri !== redirect_uri) return error(res, 400, 'invalid_grant', 'redirect_uri mismatch');
 		if (await sha256Base64Url(code_verifier) !== row.code_challenge) return error(res, 400, 'invalid_grant', 'PKCE verification failed');
-		await sql`update oauth_auth_codes set consumed_at = now() where code = ${code}`;
+		// Consume atomically: the consumed_at check above + this update was a TOCTOU
+		// window where two concurrent requests with the same code + verifier could both
+		// mint tokens (OAuth 2.1 §4.1.3 requires single use). Only the request whose
+		// conditional UPDATE returns a row proceeds; a lost race means the code was just
+		// used — revoke any tokens already issued from it and reject.
+		const consumed = await sql`update oauth_auth_codes set consumed_at = now() where code = ${code} and consumed_at is null returning code`;
+		if (!consumed[0]) {
+			await sql`update oauth_refresh_tokens set revoked_at = now() where user_id = ${row.user_id} and client_id = ${client.client_id} and revoked_at is null`;
+			return error(res, 400, 'invalid_grant', 'authorization code already used');
+		}
 		const accessToken = await mintAccessToken({ userId: row.user_id, clientId: client.client_id, scope: row.scope, resource: row.resource || env.MCP_RESOURCE });
 		const wantsRefresh = client.grant_types.includes('refresh_token');
 		const refresh = wantsRefresh ? await issueRefreshToken({ userId: row.user_id, clientId: client.client_id, scope: row.scope, resource: row.resource }) : null;
@@ -236,6 +247,10 @@ async function handleRevoke(req, res) {
 	const form = await readForm(req);
 	const { token, token_type_hint, client_id, client_secret } = form;
 	if (!token || !client_id) return error(res, 400, 'invalid_request', 'token and client_id required');
+	// Rate-limit per IP: revocation is unauthenticated for public clients, so cap
+	// it to deny a token-probing oracle / brute-force surface (RFC 7009 hardening).
+	const rlRevoke = await limits.authIp(clientIp(req));
+	if (!rlRevoke.success) return rateLimited(res, rlRevoke);
 	const rows = await sql`select * from oauth_clients where client_id = ${client_id} limit 1`;
 	const client = rows[0];
 	if (!client) return json(res, 200, {});
@@ -255,6 +270,10 @@ async function handleIntrospect(req, res) {
 	const form = await readForm(req);
 	const { token, client_id, client_secret } = form;
 	if (!token || !client_id) return error(res, 400, 'invalid_request', 'token and client_id required');
+	// Rate-limit per IP: introspection is unauthenticated for public clients
+	// (RFC 7662 §2.1). Capping it denies a token validity/scope/sub probing oracle.
+	const rlIntrospect = await limits.authIp(clientIp(req));
+	if (!rlIntrospect.success) return rateLimited(res, rlIntrospect);
 	const rows = await sql`select * from oauth_clients where client_id = ${client_id} limit 1`;
 	const client = rows[0];
 	if (!client) return json(res, 200, { active: false });

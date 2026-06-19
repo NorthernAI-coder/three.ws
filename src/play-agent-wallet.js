@@ -44,7 +44,6 @@ function localBridgeUrl() {
 const LOCAL_BRIDGE = localBridgeUrl();
 const HOSTED = !LOCAL_BRIDGE;
 const BRIDGE_BASE = LOCAL_BRIDGE || '/api/agent-wallet-bridge';
-const BRIDGE_URL = BRIDGE_BASE; // always set — hosted in prod, local in dev
 const statusUrl = () => (HOSTED ? `${BRIDGE_BASE}?status=1` : `${BRIDGE_BASE}/status`);
 const quoteUrl = (qs) => (HOSTED ? `${BRIDGE_BASE}?quote=1&${qs}` : `${BRIDGE_BASE}/quote?${qs}`);
 const payUrl = () => (HOSTED ? `${BRIDGE_BASE}?pay=1` : `${BRIDGE_BASE}/pay`);
@@ -722,6 +721,10 @@ $('copyAddr').addEventListener('click', async () => {
 		setTimeout(() => { $('copyAddr').textContent = 'copy'; }, 1200);
 	} catch { /* clipboard unavailable */ }
 });
+
+// In local-bridge mode, surface the dev hint inside the unavailable banner so a
+// developer knows to start the bridge; in hosted prod mode it stays hidden.
+if (!HOSTED) { const hint = $('bridgeDevHint'); if (hint) hint.style.display = 'block'; }
 
 refreshStatus().then(loadQuote);
 setInterval(refreshStatus, 30_000);

@@ -4,7 +4,7 @@
 // side because none of the public facilitators expose a server-side search
 // route — we pull the list, score items against the query terms, and sort.
 
-import { cors, json, error, wrap } from '../_lib/http.js';
+import { cors, json, error, wrap, serverError } from '../_lib/http.js';
 import {
 	Bazaar,
 	filterByExtension,
@@ -40,7 +40,8 @@ async function handler(req, res) {
 	try {
 		result = await baz.search({ query, type, maxItems });
 	} catch (e) {
-		return error(res, 502, 'facilitator_error', String(e?.message || e));
+		console.error('[bazaar] facilitator error', e?.message || e);
+		return serverError(res, 502, 'facilitator_error', e);
 	}
 
 	let resources = result.resources;

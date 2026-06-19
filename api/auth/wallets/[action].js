@@ -17,7 +17,8 @@ import { z } from 'zod';
 import { sql } from '../../_lib/db.js';
 import { getSessionUser } from '../../_lib/auth.js';
 import { logAudit } from '../../_lib/audit.js';
-import { cors, json, method, readJson, wrap, error } from '../../_lib/http.js';
+import { cors, json, method, readJson, wrap, error, rateLimited } from '../../_lib/http.js';
+import { limits, clientIp } from '../../_lib/rate-limit.js';
 import { requireCsrf } from '../../_lib/csrf.js';
 import { parse } from '../../_lib/validate.js';
 import { parseSiweMessage } from '../../_lib/siwe.js';
@@ -111,6 +112,9 @@ async function handleListWallets(userId, res) {
 }
 
 async function handleLinkWallet(userId, req, res) {
+	const rl = await limits.walletLink(userId);
+	if (!rl.success) return rateLimited(res, rl);
+
 	const body = parse(linkBody, await readJson(req));
 
 	// 1. Parse SIWE message.
@@ -150,7 +154,7 @@ async function handleLinkWallet(userId, req, res) {
 	}
 
 	// 4. Verify nonce was issued to this user and burn it.
-	const nonceData = consumeNonce(fields.nonce, userId);
+	const nonceData = await consumeNonce(fields.nonce, userId);
 	if (!nonceData) {
 		return error(res, 400, 'invalid_nonce', 'unknown, expired, or invalid nonce');
 	}
@@ -263,9 +267,12 @@ async function handleNonce(req, res) {
 	const session = await getSessionUser(req);
 	if (!session) return error(res, 401, 'unauthorized', 'sign in required');
 
+	const rl = await limits.walletLink(session.id);
+	if (!rl.success) return rateLimited(res, rl);
+
 	const appOrigin = env.APP_ORIGIN;
 	const domain = new URL(appOrigin).host;
-	const nonce = issueNonce(session.id);
+	const nonce = await issueNonce(session.id);
 
 	// GET: bare per-user link nonce for the connect-button component, which
 	// builds the SIWE message client-side. The security of linking rests on this
@@ -315,10 +322,13 @@ async function handleNonceSolana(req, res) {
 	const session = await getSessionUser(req);
 	if (!session) return error(res, 401, 'unauthorized', 'sign in required');
 
+	const rl = await limits.walletLink(session.id);
+	if (!rl.success) return rateLimited(res, rl);
+
 	const { address, chainId } = parse(nonceSolanaBody, await readJson(req));
 	const chain = chainId && ALLOWED_SOLANA_CHAINS.has(chainId) ? chainId : 'mainnet';
 
-	const nonce = issueNonce(session.id);
+	const nonce = await issueNonce(session.id);
 
 	const appOrigin = env.APP_ORIGIN;
 	const domain = new URL(appOrigin).host;
@@ -363,6 +373,9 @@ async function handleLinkSolana(req, res) {
 	const session = await getSessionUser(req);
 	if (!session) return error(res, 401, 'unauthorized', 'sign in required');
 
+	const rl = await limits.walletLink(session.id);
+	if (!rl.success) return rateLimited(res, rl);
+
 	const body = parse(linkSolanaBody, await readJson(req));
 
 	const fields = parseSiwsMessage(body.message);
@@ -405,7 +418,7 @@ async function handleLinkSolana(req, res) {
 	}
 
 	// Burn the per-user link nonce.
-	const nonceData = consumeNonce(fields.nonce, session.id);
+	const nonceData = await consumeNonce(fields.nonce, session.id);
 	if (!nonceData) {
 		return error(res, 400, 'invalid_nonce', 'unknown, expired, or invalid nonce');
 	}

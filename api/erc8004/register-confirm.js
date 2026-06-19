@@ -6,6 +6,7 @@ import { cors, json, method, wrap, error, readJson, rateLimited } from '../_lib/
 import { parse } from '../_lib/validate.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { CHAIN_BY_ID } from '../_lib/erc8004-chains.js';
+import { fetchSafePublicUrl, SsrfBlockedError } from '../_lib/ssrf-guard.js';
 
 const REGISTERED_TOPIC = keccakId('Registered(uint256,string,address)');
 const TIMEOUT_MS = 10_000;
@@ -165,7 +166,14 @@ function resolveGateway(uri) {
 async function enrichMetadata(chainId, agentId, uri) {
 	const url = resolveGateway(uri);
 	if (!url) return;
-	const r = await fetch(url, { signal: AbortSignal.timeout(TIMEOUT_MS) });
+	// uri is the client-supplied metadataUri; guard against SSRF into internal hosts.
+	let r;
+	try {
+		r = await fetchSafePublicUrl(url, { signal: AbortSignal.timeout(TIMEOUT_MS) }, { allowHttp: true });
+	} catch (err) {
+		if (err instanceof SsrfBlockedError) return;
+		throw err;
+	}
 	if (!r.ok) return;
 	const meta = await r.json();
 	const services = Array.isArray(meta.services) ? meta.services : [];

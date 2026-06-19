@@ -128,9 +128,13 @@ function collectScopedFiles() {
 	}
 
 	// 3. docs/**/*.md
+	//    docs/ALL.md is a read-only generated concatenation of every other doc
+	//    (scripts/combine-docs.mjs). Its sources are each already in scope, so
+	//    scanning it too would double every finding and force brittle parallel
+	//    allowlist entries that silently drift on each regeneration. Skip it.
 	for (const abs of walk(
 		join(REPO_ROOT, 'docs'),
-		(_a, rel) => rel.endsWith('.md'),
+		(_a, rel) => rel.endsWith('.md') && rel !== join('docs', 'ALL.md'),
 	)) {
 		files.push({ abs, kind: 'md' });
 	}

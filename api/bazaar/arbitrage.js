@@ -13,7 +13,7 @@
 //   minProviders  — require at least this many distinct provider hosts (default 2)
 //   limit         — cap returned opportunities (default 100, max 500)
 
-import { cors, json, error, wrap } from '../_lib/http.js';
+import { cors, json, error, wrap, serverError } from '../_lib/http.js';
 import { Bazaar } from '../_lib/x402/bazaar-client.js';
 
 const STOP_WORDS = new Set([
@@ -111,7 +111,8 @@ async function handler(req, res) {
 			baz.list({ type: 'mcp', maxItems: 3000 }),
 		]);
 	} catch (e) {
-		return error(res, 502, 'facilitator_error', String(e?.message || e));
+		console.error('[bazaar] facilitator error', e?.message || e);
+		return serverError(res, 502, 'facilitator_error', e);
 	}
 
 	const items = [...(httpRes.items || []), ...(mcpRes.items || [])];

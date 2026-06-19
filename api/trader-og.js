@@ -16,8 +16,8 @@
 
 import { cors, wrap } from './_lib/http.js';
 import { sql } from './_lib/db.js';
+import { isUuid } from './_lib/validate.js';
 
-const UUID_RE  = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const LAMPORTS = 1e9;
 const CACHE    = 'public, max-age=120, s-maxage=900, stale-while-revalidate=60';
 
@@ -37,7 +37,7 @@ export default wrap(async (req, res) => {
 	const url     = new URL(req.url, `http://${req.headers.host || 'x'}`);
 	const agentId = (url.searchParams.get('agent_id') || '').trim();
 
-	if (!UUID_RE.test(agentId)) {
+	if (!isUuid(agentId)) {
 		return fallback(res);
 	}
 

@@ -4,6 +4,14 @@
   "description": "SDK for the on-chain agent-to-agent invocation protocol.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
   "files": [
     "dist",
     "src",
@@ -12,6 +20,8 @@
   ],
   "scripts": {
     "build": "tsc",
+    "pretest": "tsc",
+    "test": "node --test \"test/**/*.test.js\"",
     "prepublishOnly": "tsc"
   },
   "dependencies": {

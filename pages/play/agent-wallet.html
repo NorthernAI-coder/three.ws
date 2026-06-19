@@ -259,6 +259,7 @@
 			<span class="badge"><span class="dot"></span>Agent Wallet × x402 on Solana</span>
 		</div>
 		<div style="display:flex;gap:10px;align-items:center;">
+			<a class="tb-btn" href="/play/arena" title="Live agent trading arena">Arena</a>
 			<a class="tb-btn" href="/agent-exchange" title="Two agents paying each other">Agent Exchange</a>
 			<a class="tb-btn" href="/pay" title="x402 pay-per-call demo">x402 demo</a>
 		</div>
@@ -290,11 +291,14 @@
 				</div>
 
 				<div class="banner offline" id="bridgeOffline" role="alert">
-					<div class="b-head">Bridge offline</div>
-					The agent wallet key lives in your terminal session, so this demo talks
-					to it through a local bridge. Start it in the repo root:
-					<div style="margin-top:6px"><code>npm run demo:agent-wallet-bridge</code></div>
-					<div style="margin-top:4px">with <code>A2A_PAYER_SOLANA_SECRET</code> set in <code>.env</code> or the shell.</div>
+					<div class="b-head">Agent wallet unavailable</div>
+					Couldn't reach the agent wallet service right now — this is usually a brief
+					network or Solana RPC hiccup. Retry in a moment.
+					<div id="bridgeDevHint" style="display:none;margin-top:6px">
+						Running locally? Start the bridge in the repo root:
+						<div style="margin-top:4px"><code>npm run demo:agent-wallet-bridge</code></div>
+						with <code>A2A_PAYER_SOLANA_SECRET</code> set in <code>.env</code> or the shell.
+					</div>
 					<button class="retry" id="retryBridge" type="button">Retry connection</button>
 				</div>
 				<div class="banner lowbal" id="lowBalance" role="alert">

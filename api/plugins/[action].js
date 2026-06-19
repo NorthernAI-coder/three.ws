@@ -15,8 +15,7 @@ import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.
 import { cors, error, json, method, readJson, wrap, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { fetchSafePublicUrl, SsrfBlockedError } from '../_lib/ssrf-guard.js';
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { isUuid } from '../_lib/validate.js';
 
 const VALID_SORTS = new Set(['popular', 'new', 'az']);
 const MAX_MANIFEST_BYTES = 64 * 1024; // 64 KB
@@ -93,7 +92,7 @@ export default wrap(async (req, res) => {
 	if (segment === 'publish') return handlePublish(req, res);
 
 	// /api/plugins/:id[/install]
-	if (UUID_RE.test(segment)) {
+	if (isUuid(segment)) {
 		const sub = parts[3];
 		if (sub === 'install') return handleInstall(req, res, segment);
 		if (!sub) return handleDetail(req, res, segment);

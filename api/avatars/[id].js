@@ -18,10 +18,8 @@ import { headObject } from '../_lib/r2.js';
 import { limits } from '../_lib/rate-limit.js';
 import { recordEvent } from '../_lib/usage.js';
 import { z } from 'zod';
-import { avatarVisibility, avatarAppearance, parse } from '../_lib/validate.js';
+import { avatarVisibility, avatarAppearance, parse, isUuid } from '../_lib/validate.js';
 import { dispatchWebhooks } from '../_lib/webhook-dispatch.js';
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const MODEL_CATEGORY_VALUES = ['avatar', 'accessory', 'item', 'scene', 'creature', 'vehicle', 'other'];
 
@@ -68,7 +66,7 @@ export default wrap(async (req, res) => {
 	// Guard the DB call: an id that isn't a uuid would otherwise hit Postgres as
 	// `WHERE id = $1`, which raises 22P02 and leaks the raw error code to the
 	// caller. Return a clean 404 instead.
-	if (!UUID_RE.test(id)) {
+	if (!isUuid(id)) {
 		return error(res, 404, 'not_found', 'avatar not found');
 	}
 

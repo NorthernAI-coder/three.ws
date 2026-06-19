@@ -374,7 +374,7 @@ function accruedBody(pos, rev, token) {
 				<div style="font-size:${c.strong ? '24px' : '19px'};font-weight:700;font-family:${MONO};color:${c.strong ? '#4ade80' : 'inherit'}">${c.value}</div>
 			</div>`).join('')}
 		</div>
-		<button class="dn-btn" disabled title="On-chain revenue-share distribution is coming" style="font-size:12.5px;opacity:0.6;cursor:not-allowed">Claim — coming soon</button>`;
+					<p style="font-size:12px;color:var(--nxt-ink-fade);margin:0;line-height:1.5">Revenue share is distributed on-chain to $THREE holders pro-rata — your accrual settles to the wallet holding the tokens. No manual claim required.</p>`;
 }
 
 // ── Four utility pillars ──────────────────────────────────────────────────────

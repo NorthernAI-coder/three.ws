@@ -24,7 +24,7 @@ import { z } from 'zod';
 
 import { sql } from '../_lib/db.js';
 import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.js';
-import { cors, json, error, method, readJson, wrap, rateLimited } from '../_lib/http.js';
+import { cors, json, error, method, readJson, wrap, rateLimited, serverError, respondError } from '../_lib/http.js';
 import { requireCsrf } from '../_lib/csrf.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { parse } from '../_lib/validate.js';
@@ -155,7 +155,8 @@ export default wrap(async (req, res) => {
 		try {
 			result = await confirmSkillPurchase(purchase, { txHash: txSig });
 		} catch (e) {
-			return error(res, 502, 'confirm_failed', `could not verify payment: ${e.message}`);
+			console.error('[skills/mint] payment verify failed', e?.message);
+			return serverError(res, 502, 'confirm_failed', e);
 		}
 		if (result.status !== 'confirmed') {
 			const map = { pending: 402, expired: 410, tipped: 409, mismatch: 409 };
@@ -185,7 +186,8 @@ export default wrap(async (req, res) => {
 			preferredNetwork: 'mainnet',
 		});
 	} catch (e) {
-		return error(res, e.status || 502, e.code || 'mint_failed', e.message || 'mint failed');
+		console.error('[skills/mint] mint failed', e?.message);
+		return respondError(res, e.status || 502, e.code || 'mint_failed', e);
 	}
 
 	// Persist the mint, guarded so a concurrent call can't double-record. The

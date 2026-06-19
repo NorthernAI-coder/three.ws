@@ -19,8 +19,7 @@ import { authenticateBearer, extractBearer, getSessionUser } from '../_lib/auth.
 import { cors, error, json, method, readJson, wrap, rateLimited } from '../_lib/http.js';
 import { clientIp, limits } from '../_lib/rate-limit.js';
 import { requireCsrf } from '../_lib/csrf.js';
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { isUuid } from '../_lib/validate.js';
 
 const reviewSchema = z.object({
 	rating: z.number().int().min(1).max(5),
@@ -40,7 +39,7 @@ export default wrap(async (req, res) => {
 	const parts = url.pathname.split('/').filter(Boolean); // [api, marketplace, agents, :id, reviews]
 	const agentId = url.searchParams.get('agent_id') || parts[3];
 
-	if (!agentId || !UUID_RE.test(agentId)) {
+	if (!agentId || !isUuid(agentId)) {
 		return error(res, 400, 'validation_error', 'agent_id required');
 	}
 

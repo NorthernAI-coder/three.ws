@@ -32,7 +32,8 @@
 
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { cors, error, wrap } from '../_lib/http.js';
+import { cors, error, wrap, rateLimited } from '../_lib/http.js';
+import { limits, clientIp } from '../_lib/rate-limit.js';
 import { env } from '../_lib/env.js';
 import { sql } from '../_lib/db.js';
 import { publicUrl } from '../_lib/r2.js';
@@ -70,7 +71,17 @@ async function resolveSource({ src, id }) {
 		return src;
 	}
 	if (id) {
-		const rows = await sql`select storage_key from avatars where id = ${id} and deleted_at is null limit 1`;
+		// Non-UUID ids would throw a Postgres 22P02 on the uuid cast; treat as not found.
+		if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+			throw Object.assign(new Error('avatar not found'), { code: 'source_not_found', status: 404 });
+		}
+		// This endpoint is unauthenticated, so private avatars must never be
+		// resolvable by id alone — only public/unlisted ones. Resolving by id
+		// without the visibility filter was an IDOR that leaked private source GLBs.
+		const rows = await sql`
+			select storage_key from avatars
+			where id = ${id} and deleted_at is null and visibility in ('public', 'unlisted')
+			limit 1`;
 		if (!rows[0]) throw Object.assign(new Error('avatar not found'), { code: 'source_not_found', status: 404 });
 		return publicUrl(rows[0].storage_key);
 	}
@@ -162,6 +173,11 @@ export default wrap(async (req, res) => {
 	if (req.method !== 'GET') {
 		return error(res, 405, 'method_not_allowed', `method ${req.method} not allowed`);
 	}
+
+	// Transcoding is CPU/memory heavy and unauthenticated; cap per-IP to keep it
+	// from being driven as a free compute amplifier.
+	const rl = await limits.imgProxyIp(clientIp(req));
+	if (!rl.success) return rateLimited(res, rl);
 
 	const url = new URL(req.url, 'http://x');
 	const src = url.searchParams.get('src');

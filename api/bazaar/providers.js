@@ -8,7 +8,7 @@
 // categories, networks, facilitators discovered on, and the underlying
 // listings.
 
-import { cors, json, error, wrap } from '../_lib/http.js';
+import { cors, json, error, wrap, serverError } from '../_lib/http.js';
 import { Bazaar } from '../_lib/x402/bazaar-client.js';
 
 function hostOf(url) {
@@ -99,7 +99,8 @@ async function handler(req, res) {
 			baz.list({ type: 'mcp', maxItems: 3000 }),
 		]);
 	} catch (e) {
-		return error(res, 502, 'facilitator_error', String(e?.message || e));
+		console.error('[bazaar] facilitator error', e?.message || e);
+		return serverError(res, 502, 'facilitator_error', e);
 	}
 
 	const items = [...(httpRes.items || []), ...(mcpRes.items || [])];

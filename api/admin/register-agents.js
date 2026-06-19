@@ -23,7 +23,8 @@
 //   done        { registered, already, errors }
 
 import { LAMPORTS_PER_SOL } from '@solana/web3.js';
-import { cors, method, error } from '../_lib/http.js';
+import { cors, method, error, rateLimited } from '../_lib/http.js';
+import { limits } from '../_lib/rate-limit.js';
 import { requireAdmin } from '../_lib/admin.js';
 import { requireCsrf } from '../_lib/csrf.js';
 import {
@@ -50,6 +51,9 @@ export default async function handler(req, res) {
 	const admin = await requireAdmin(req, res);
 	if (!admin) return;
 	if (!(await requireCsrf(req, res, admin.id))) return;
+
+	const rl = await limits.strict(admin.id);
+	if (!rl.success) return rateLimited(res, rl);
 
 	const q = req.query ?? {};
 	const network = q.network === 'devnet' ? 'devnet' : 'mainnet';

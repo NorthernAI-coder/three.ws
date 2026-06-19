@@ -73,10 +73,17 @@ function workerKey() {
 	return k;
 }
 
-async function resolveImageUrl(avatarId) {
+async function resolveImageUrl(avatarId, requesterId) {
+	if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(avatarId || ''))) {
+		throw Object.assign(new Error('avatar not found'), { code: 'avatar_not_found', status: 404 });
+	}
+	// Enforce ownership/visibility: the caller may only generate video from an
+	// avatar they own or one that is public/unlisted — never another user's
+	// private avatar. (Previously resolved by id alone — an IDOR.)
 	const rows = await sql`
 		select storage_key from avatars
 		where id = ${avatarId} and deleted_at is null
+		  and (owner_id = ${requesterId} or visibility in ('public', 'unlisted'))
 		limit 1
 	`;
 	if (!rows[0])
@@ -140,7 +147,7 @@ export default wrap(async (req, res) => {
 
 	if (!imageUrl && avatarId) {
 		try {
-			imageUrl = await resolveImageUrl(avatarId);
+			imageUrl = await resolveImageUrl(avatarId, userId);
 		} catch (err) {
 			return error(res, err.status || 400, err.code || 'invalid_request', err.message);
 		}

@@ -9,13 +9,11 @@ import { z } from 'zod';
 import { sql } from '../_lib/db.js';
 import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.js';
 import { cors, json, method, wrap, error, readJson, rateLimited } from '../_lib/http.js';
-import { parse } from '../_lib/validate.js';
+import { parse, isUuid } from '../_lib/validate.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { requireCsrf } from '../_lib/csrf.js';
 
 const SKILL_RE = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/;
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 // USDC has 6 decimals. 0.000001 USDC = 1 atomic unit.
 const MIN_PRICE_ATOMIC = 1;
 
@@ -62,7 +60,7 @@ export default wrap(async (req, res) => {
 
 		const params = new URL(req.url, 'http://x').searchParams;
 		const agentId = params.get('agent_id');
-		if (!agentId || !UUID_RE.test(agentId)) {
+		if (!agentId || !isUuid(agentId)) {
 			return error(res, 400, 'validation_error', 'agent_id query parameter is required and must be a UUID');
 		}
 

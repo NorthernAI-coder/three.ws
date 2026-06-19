@@ -23,11 +23,10 @@
 import { cors, json, method, readJson, wrap, error, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { sql } from '../_lib/db.js';
+import { isUuid } from '../_lib/validate.js';
 
 const NETWORKS = new Set(['mainnet', 'devnet']);
 const CHAT_ID_RE = /^-?\d{1,20}$|^@[a-zA-Z0-9_]{5,32}$/;
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 function validateChatId(v) {
 	return typeof v === 'string' && CHAT_ID_RE.test(v.trim());
 }
@@ -46,7 +45,7 @@ export default wrap(async (req, res) => {
 		const chatId  = (params.get('chat_id') || '').trim();
 		const network = NETWORKS.has(params.get('network')) ? params.get('network') : 'mainnet';
 
-		if (!UUID_RE.test(agentId)) return error(res, 400, 'validation_error', 'agent_id must be a UUID');
+		if (!isUuid(agentId)) return error(res, 400, 'validation_error', 'agent_id must be a UUID');
 		if (!validateChatId(chatId)) return error(res, 400, 'validation_error', 'chat_id must be a numeric ID or @handle');
 
 		const rows = await sql`
@@ -74,7 +73,7 @@ export default wrap(async (req, res) => {
 		const network  = NETWORKS.has(body.network) ? body.network : 'mainnet';
 		const minScore = Math.min(100, Math.max(0, Number(body.min_score ?? 54) || 54));
 
-		if (!UUID_RE.test(agentId)) return error(res, 400, 'validation_error', 'agent_id must be a UUID');
+		if (!isUuid(agentId)) return error(res, 400, 'validation_error', 'agent_id must be a UUID');
 		if (!validateChatId(chatId)) return error(res, 400, 'validation_error', 'chat_id must be a numeric Telegram ID or @handle');
 
 		// Ensure the agent exists (guard against phantom subscriptions)
@@ -118,7 +117,7 @@ export default wrap(async (req, res) => {
 		const chatId  = (body.chat_id  || '').trim();
 		const network = NETWORKS.has(body.network) ? body.network : 'mainnet';
 
-		if (!UUID_RE.test(agentId)) return error(res, 400, 'validation_error', 'agent_id must be a UUID');
+		if (!isUuid(agentId)) return error(res, 400, 'validation_error', 'agent_id must be a UUID');
 		if (!validateChatId(chatId)) return error(res, 400, 'validation_error', 'chat_id must be a numeric Telegram ID or @handle');
 
 		await sql`

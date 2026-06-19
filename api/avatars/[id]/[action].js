@@ -17,8 +17,6 @@ import { r2, publicUrl } from '../../_lib/r2.js';
 import { env } from '../../_lib/env.js';
 
 const PINATA_ENDPOINT = 'https://api.pinata.cloud/pinning/pinFileToIPFS';
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 export default wrap(async (req, res) => {
 	let action = req.query?.action;
 	// Expose the GLB proxy at a `.glb`-terminating URL as well. Standard glTF
@@ -33,7 +31,7 @@ export default wrap(async (req, res) => {
 	// column. A malformed id leaks Postgres 22P02 to the caller as a 500;
 	// short-circuit with a clean 404.
 	const id = req.query?.id;
-	if (id && !UUID_RE.test(id)) {
+	if (id && !isUuid(id)) {
 		return error(res, 404, 'not_found', 'avatar not found');
 	}
 	switch (action) {

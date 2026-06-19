@@ -24,6 +24,7 @@ import { publishFeedEvent } from './_lib/feed.js';
 import { getSkillPrices, skillPriceMap } from './_lib/skill-price-cache.js';
 import { env } from './_lib/env.js';
 import { z } from 'zod';
+import { isUuid } from './_lib/validate.js';
 
 const animationEntrySchema = z.object({
 	name: z.string().trim().min(1).max(60),
@@ -43,8 +44,6 @@ const animationEntrySchema = z.object({
 });
 
 const animationsSchema = z.array(animationEntrySchema).max(30);
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'GET,POST,OPTIONS', credentials: true })) return;
@@ -67,7 +66,7 @@ async function handleList(req, res) {
 	// the public projection of GET /api/agents/:id — decorate() strips secrets.
 	const avatarIdParam = url.searchParams.get('avatar_id');
 	if (avatarIdParam && !isMe) {
-		if (!UUID_RE.test(avatarIdParam)) {
+		if (!isUuid(avatarIdParam)) {
 			return error(res, 400, 'validation_error', 'avatar_id must be a UUID');
 		}
 		let viewer = null;
@@ -221,7 +220,7 @@ async function handleCreate(req, res) {
 	let avatarId = null;
 	if (body.avatar_id) {
 		const raw = String(body.avatar_id);
-		if (!UUID_RE.test(raw))
+		if (!isUuid(raw))
 			return error(res, 400, 'validation_error', 'avatar_id must be a UUID');
 		const [av] = await sql`
 			SELECT id FROM avatars
@@ -316,7 +315,7 @@ export async function handleGetOne(req, res, id) {
 	if (cors(req, res, { methods: 'GET,PUT,PATCH,DELETE,OPTIONS', credentials: true })) return;
 	if (!method(req, res, ['GET', 'PUT', 'PATCH', 'DELETE'])) return;
 
-	if (!UUID_RE.test(String(id || ''))) return error(res, 404, 'not_found', 'agent not found');
+	if (!isUuid(String(id || ''))) return error(res, 404, 'not_found', 'agent not found');
 
 	if (req.method === 'GET') {
 		const rl = await limits.publicIp(clientIp(req));

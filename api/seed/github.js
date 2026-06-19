@@ -10,7 +10,7 @@
 // works against unauthenticated GitHub in development.
 
 import { Octokit } from '@octokit/rest';
-import { cors, json, method, wrap, error, rateLimited } from '../_lib/http.js';
+import { cors, json, method, wrap, error, rateLimited, serverError } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 
 const HANDLE_RE = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/;
@@ -45,7 +45,8 @@ export default wrap(async (req, res) => {
 	} catch (err) {
 		if (err.status === 404)
 			return error(res, 404, 'not_found', `no GitHub user named "${handle}"`);
-		return error(res, 502, 'upstream_error', `GitHub profile fetch failed: ${err.message}`);
+		console.error('[seed/github] profile fetch failed', err?.message);
+		return serverError(res, 502, 'upstream_error', err);
 	}
 
 	let repos = [];

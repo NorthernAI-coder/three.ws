@@ -81,7 +81,7 @@ Changes appear in the real-time 3D preview immediately. When you are satisfied, 
 
 ### Technical notes
 
-Character Studio communicates with the parent app via `postMessage`. The message shape is:
+Avatar Studio communicates with the parent app via `postMessage`. The message shape is:
 
 ```js
 { source: 'characterstudio', type: 'export', glb: ArrayBuffer }

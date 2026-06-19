@@ -16,9 +16,9 @@ import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.
 import { requireCsrf } from '../_lib/csrf.js';
 import { sql } from '../_lib/db.js';
 import { normalizeSubscriptionInput } from '../_lib/copy-engine.js';
+import { isUuid } from '../_lib/validate.js';
 
 const NETWORKS = new Set(['mainnet', 'devnet']);
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const BASE58_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 
 // Returns { userId, viaSession } or null (after writing a 401). Cookie-session
@@ -63,7 +63,7 @@ export default wrap(async (req, res) => {
 
 	if (req.method === 'DELETE') {
 		const id = new URL(req.url, 'http://x').searchParams.get('id') || '';
-		if (!UUID_RE.test(id)) return error(res, 400, 'invalid_id', 'id must be a subscription UUID');
+		if (!isUuid(id)) return error(res, 400, 'invalid_id', 'id must be a subscription UUID');
 		const [row] = await sql`
 			update copy_subscriptions set status = 'stopped', updated_at = now()
 			where id = ${id} and copier_user_id = ${userId}
@@ -79,7 +79,7 @@ export default wrap(async (req, res) => {
 
 	// Status-only update (pause / resume / stop).
 	if (body.id && body.status && Object.keys(body).length <= 2) {
-		if (!UUID_RE.test(body.id)) return error(res, 400, 'invalid_id', 'id must be a subscription UUID');
+		if (!isUuid(body.id)) return error(res, 400, 'invalid_id', 'id must be a subscription UUID');
 		if (!['active', 'paused', 'stopped'].includes(body.status)) {
 			return error(res, 400, 'invalid_status', 'status must be active, paused, or stopped');
 		}
@@ -96,7 +96,7 @@ export default wrap(async (req, res) => {
 	const leaderId = String(body.leader_agent_id || '').trim();
 	const wallet = String(body.copier_wallet || '').trim();
 	const network = NETWORKS.has(body.network) ? body.network : 'mainnet';
-	if (!UUID_RE.test(leaderId)) return error(res, 400, 'invalid_leader', 'leader_agent_id must be an agent UUID');
+	if (!isUuid(leaderId)) return error(res, 400, 'invalid_leader', 'leader_agent_id must be an agent UUID');
 	if (!BASE58_RE.test(wallet)) return error(res, 400, 'invalid_wallet', 'copier_wallet must be a valid Solana address');
 
 	const [leader] = await sql`

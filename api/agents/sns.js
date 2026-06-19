@@ -26,7 +26,7 @@
 
 import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.js';
 import { sql } from '../_lib/db.js';
-import { cors, json, method, error, readJson, rateLimited } from '../_lib/http.js';
+import { cors, json, method, error, readJson, rateLimited, serverError } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { env } from '../_lib/env.js';
 import { loadAgentForSigning, solanaConnection } from '../_lib/agent-pumpfun.js';
@@ -166,8 +166,7 @@ async function handleRegisterAgent(req, res, id, auth) {
 			err: err?.message,
 			stack: err?.stack,
 		});
-		const msg = err?.message || 'registration failed';
-		return error(res, 502, 'upstream_error', msg);
+		return serverError(res, 502, 'upstream_error', err);
 	}
 }
 
@@ -223,7 +222,7 @@ async function handleRegisterPrep(req, res, id, auth) {
 			err: err?.message,
 			stack: err?.stack,
 		});
-		return error(res, 502, 'upstream_error', err?.message || 'failed to build registration tx');
+		return serverError(res, 502, 'upstream_error', err);
 	}
 }
 

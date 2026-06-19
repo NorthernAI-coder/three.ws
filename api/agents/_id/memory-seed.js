@@ -6,7 +6,7 @@
 import { webcrypto } from 'node:crypto';
 import { sql } from '../../_lib/db.js';
 import { getSessionUser, authenticateBearer, extractBearer } from '../../_lib/auth.js';
-import { cors, json, method, error, rateLimited } from '../../_lib/http.js';
+import { cors, json, method, error, rateLimited, serverError } from '../../_lib/http.js';
 import { env } from '../../_lib/env.js';
 import { llmComplete } from '../../_lib/llm.js';
 import { limits } from '../../_lib/rate-limit.js';
@@ -162,7 +162,8 @@ export default async function handleMemorySeed(req, res, agentId) {
 	try {
 		githubData = await fetchGitHubData(accessToken, conn.username);
 	} catch (e) {
-		return error(res, 502, 'upstream_error', e.message || 'GitHub API fetch failed');
+		console.error('[memory-seed] GitHub API fetch failed', e?.message);
+		return serverError(res, 502, 'upstream_error', e);
 	}
 
 	let facts;

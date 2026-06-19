@@ -7,7 +7,8 @@ import { webcrypto } from 'node:crypto';
 import { sql } from '../../_lib/db.js';
 import { getSessionUser } from '../../_lib/auth.js';
 import { hmacSha256, constantTimeEquals } from '../../_lib/crypto.js';
-import { cors, json, redirect, error, wrap } from '../../_lib/http.js';
+import { cors, json, redirect, error, wrap, rateLimited } from '../../_lib/http.js';
+import { limits, clientIp } from '../../_lib/rate-limit.js';
 import { env } from '../../_lib/env.js';
 
 const subtle = globalThis.crypto?.subtle || webcrypto.subtle;
@@ -69,6 +70,9 @@ async function handleConnect(req, res) {
 		return error(res, 501, 'not_configured', 'GitHub OAuth is not configured');
 	}
 
+	const rl = await limits.authIp(clientIp(req));
+	if (!rl.success) return rateLimited(res, rl);
+
 	const session = await getSessionUser(req);
 	if (!session) return error(res, 401, 'unauthorized', 'sign in required');
 
@@ -95,6 +99,9 @@ async function handleCallback(req, res) {
 	if (!env.GITHUB_OAUTH_CLIENT_ID || !env.GITHUB_OAUTH_CLIENT_SECRET) {
 		return error(res, 501, 'not_configured', 'GitHub OAuth is not configured');
 	}
+
+	const rl = await limits.authIp(clientIp(req));
+	if (!rl.success) return rateLimited(res, rl);
 
 	const url = new URL(req.url, 'http://x');
 	const code = url.searchParams.get('code');

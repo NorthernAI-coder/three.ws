@@ -14,8 +14,7 @@ import { getSessionUser } from '../../_lib/auth.js';
 import { cors, json, method, wrap, error, readJson, rateLimited } from '../../_lib/http.js';
 import { limits, clientIp } from '../../_lib/rate-limit.js';
 import { requireCsrf } from '../../_lib/csrf.js';
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { isUuid } from '../../_lib/validate.js';
 
 const createSchema = z.object({
 	name:          z.string().trim().min(2).max(80),
@@ -42,7 +41,7 @@ export default wrap(async (req, res) => {
 	const agentId  = url.searchParams.get('id')        || parts[2] || null;
 	const bundleId = url.searchParams.get('bundle_id') || parts[4] || null;
 
-	if (!agentId || !UUID_RE.test(agentId))
+	if (!agentId || !isUuid(agentId))
 		return error(res, 400, 'validation_error', 'valid agent id required');
 
 	if (req.method === 'GET')    return handleList(req, res, agentId);
@@ -123,7 +122,7 @@ async function handleCreate(req, res, agentId) {
 
 async function handlePatch(req, res, agentId, bundleId) {
 	if (!method(req, res, ['PATCH'])) return;
-	if (!UUID_RE.test(bundleId)) return error(res, 400, 'validation_error', 'invalid bundle id');
+	if (!isUuid(bundleId)) return error(res, 400, 'validation_error', 'invalid bundle id');
 
 	const user = await ownerCheck(req, res, agentId);
 	if (!user) return;
@@ -170,7 +169,7 @@ async function handlePatch(req, res, agentId, bundleId) {
 
 async function handleDelete(req, res, agentId, bundleId) {
 	if (!method(req, res, ['DELETE'])) return;
-	if (!UUID_RE.test(bundleId)) return error(res, 400, 'validation_error', 'invalid bundle id');
+	if (!isUuid(bundleId)) return error(res, 400, 'validation_error', 'invalid bundle id');
 
 	const user = await ownerCheck(req, res, agentId);
 	if (!user) return;

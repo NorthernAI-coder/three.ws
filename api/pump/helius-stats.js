@@ -25,8 +25,19 @@ async function getSolPrice() {
 		const p = d?.solana?.usd;
 		const c = d?.solana?.usd_24h_change;
 		if (p > 0) _solCache = { price: p, change_24h: c, at: Date.now() };
-	} catch {}
+	} catch (err) {
+		// Log instead of swallowing: a failed refresh returns the last good price (or
+		// 0 → null at the boundary), and the handler flags staleness so the page can
+		// tell "couldn't refresh" apart from a genuine $0.
+		console.warn('[helius-stats] SOL price refresh failed:', err?.message || err);
+	}
 	return _solCache.price || 0;
+}
+
+// True when the served price predates the 60s refresh window — i.e. the last
+// refresh failed and we're falling back to a cached value.
+function solPriceIsStale() {
+	return _solCache.price > 0 && Date.now() - _solCache.at > 60_000;
 }
 
 async function getHeliusInfo() {
@@ -83,6 +94,7 @@ export default wrap(async (req, res) => {
 
 	return json(res, 200, {
 		sol_price: solPrice || null,
+		sol_price_stale: solPriceIsStale(),
 		sol_change_24h: _solCache.change_24h ?? null,
 		helius,
 		feed: {

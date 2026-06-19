@@ -14,6 +14,7 @@
 
 import { sql } from './_lib/db.js';
 import { cors, wrap } from './_lib/http.js';
+import { isUuid } from './_lib/validate.js';
 
 const CACHE_CARD = 'public, max-age=3600, s-maxage=86400';
 const CACHE_REDIR = 'public, max-age=3600';
@@ -24,7 +25,7 @@ export default wrap(async (req, res) => {
 	const url = new URL(req.url, 'http://x');
 	const id = url.searchParams.get('id');
 
-	if (!id || !UUID_RE.test(id)) return sendFallback(res);
+	if (!id || !isUuid(id)) return sendFallback(res);
 
 	let row;
 	try {
@@ -90,4 +91,3 @@ function escapeXml(s) {
 		.replace(/'/g, '&apos;');
 }
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

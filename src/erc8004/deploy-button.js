@@ -411,7 +411,7 @@ export class DeployButton {
 					`${err.message || 'Paid plan required'} — upgrade to use 5+ character vanity prefixes.`,
 					{
 						label: 'View plans',
-						handler: () => (window.location.href = '/billing.html'),
+						handler: () => (window.location.href = '/pricing.html'),
 					},
 				);
 				return;

@@ -165,6 +165,19 @@ const api = {
 
 let state = { tab: 'overview', usersPage: 1, usersQ: '', usersPlan: '', statsData: null };
 
+// Escape any value interpolated into innerHTML. display_name/email are user-set
+// profile fields and error_description comes from upstream responses — both render
+// in an admin's authenticated session, so an unescaped <img onerror> would be
+// stored XSS with privilege escalation. Always wrap untrusted strings with esc().
+function esc(v) {
+	return String(v == null ? '' : v)
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+		.replace(/"/g, '&quot;')
+		.replace(/'/g, '&#39;');
+}
+
 // ── Auth guard ──────────────────────────────────────────────────────────────
 
 async function boot() {
@@ -192,7 +205,7 @@ async function loadOverview() {
 	const el = document.getElementById('tab-overview');
 	el.innerHTML = '<div class="empty"><span class="spinner"></span></div>';
 	const data = await api.get('/api/admin/stats');
-	if (data.error) { el.innerHTML = `<div class="empty">Error: ${data.error_description}</div>`; return; }
+	if (data.error) { el.innerHTML = `<div class="empty">Error: ${esc(data.error_description)}</div>`; return; }
 	state.statsData = data;
 	const c = data.counts;
 
@@ -286,8 +299,8 @@ async function loadUsers() {
 			`<span class="badge badge-${w.chain_type}">${w.chain_type === 'solana' ? shortAddr(w.address, 4) : shortAddr(w.address, 6)}</span>`
 		).join(' ');
 		return `<tr onclick="openDrawer('${u.id}')" style="cursor:pointer">
-			<td>${u.display_name || '<span style="color:#444">—</span>'}</td>
-			<td style="color:#666;font-size:12px">${u.email}</td>
+			<td>${u.display_name ? esc(u.display_name) : '<span style="color:#444">—</span>'}</td>
+			<td style="color:#666;font-size:12px">${esc(u.email)}</td>
 			<td>${wallets || '<span style="color:#444">—</span>'}</td>
 			<td><span class="badge badge-${u.plan}">${u.plan}</span>${u.is_admin ? ' <span class="badge badge-admin">admin</span>' : ''}</td>
 			<td style="color:#555;font-size:12px">${fmtDate(u.created_at)}</td>
@@ -325,19 +338,19 @@ async function openDrawer(id) {
 	drawer.classList.add('open');
 
 	const data = await api.get(`/api/admin/user/${id}`);
-	if (data.error) { content.innerHTML = `<div class="empty">${data.error_description}</div>`; return; }
+	if (data.error) { content.innerHTML = `<div class="empty">${esc(data.error_description)}</div>`; return; }
 	const u = data.user;
 	const wallets = (u.wallets || []).map((w) =>
-		`<div style="margin:3px 0"><span class="badge badge-${w.chain_type}">${w.chain_type}</span> <code style="font-size:11px;color:#888">${w.address}</code>${w.is_primary ? ' <span style="color:#555;font-size:11px">primary</span>' : ''}</div>`
+		`<div style="margin:3px 0"><span class="badge badge-${esc(w.chain_type)}">${esc(w.chain_type)}</span> <code style="font-size:11px;color:#888">${esc(w.address)}</code>${w.is_primary ? ' <span style="color:#555;font-size:11px">primary</span>' : ''}</div>`
 	).join('');
 	const subs = (u.subscriptions || []).map((s) =>
 		`<div style="font-size:12px;color:#888">${s.plan} · ${s.chain_type} · <span style="color:${s.status==='active'?'#00c896':'#ff6060'}">${s.status}</span></div>`
 	).join('') || '<span style="color:#444">none</span>';
 
 	content.innerHTML = `
-		<h2>${u.display_name || 'Unnamed user'}</h2>
-		<div class="field"><label>ID</label><div class="field-val"><code style="font-size:11px">${u.id}</code></div></div>
-		<div class="field"><label>Email</label><div class="field-val">${u.email}</div></div>
+		<h2>${u.display_name ? esc(u.display_name) : 'Unnamed user'}</h2>
+		<div class="field"><label>ID</label><div class="field-val"><code style="font-size:11px">${esc(u.id)}</code></div></div>
+		<div class="field"><label>Email</label><div class="field-val">${esc(u.email)}</div></div>
 		<div class="field"><label>Wallets</label><div class="field-val">${wallets || '—'}</div></div>
 		<div class="field"><label>Plan</label>
 			<div style="display:flex;align-items:center;gap:8px;margin-top:4px">

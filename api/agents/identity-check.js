@@ -15,8 +15,7 @@ import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.
 import { cors, json, method, wrap, error, readJson, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { checkIdentityIntegrity } from '../_lib/identity-integrity.js';
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { isUuid } from '../_lib/validate.js';
 
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'POST,OPTIONS', credentials: true })) return;
@@ -52,7 +51,7 @@ export default wrap(async (req, res) => {
 		? body.persona_tone_tags.map((t) => String(t).trim()).filter(Boolean).slice(0, 12)
 		: [];
 	const excludeAgentId =
-		typeof body.agent_id === 'string' && UUID_RE.test(body.agent_id) ? body.agent_id : null;
+		typeof body.agent_id === 'string' && isUuid(body.agent_id) ? body.agent_id : null;
 
 	if (!name && !description) {
 		return error(res, 400, 'validation_error', 'name or description is required');

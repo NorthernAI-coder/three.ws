@@ -19,6 +19,7 @@ import {
 	validationRegistryFor,
 } from './erc8004-chains.js';
 import { KIND_GLB_SCHEMA } from '../../src/erc8004/validation-report.js';
+import { fetchSafePublicUrlPinned } from './ssrf-guard.js';
 
 const IDENTITY_ABI = [
 	'function tokenURI(uint256 tokenId) external view returns (string)',
@@ -312,7 +313,16 @@ export async function resolveOnChainAgent({
 
 	if (fetchManifest && base.tokenURIResolved) {
 		try {
-			const res = await _withTimeout(fetch(base.tokenURIResolved), timeoutMs);
+			// tokenURI is fully attacker-controlled (any NFT owner sets it), so the
+			// manifest fetch must go through the SSRF guard: a tokenURI of
+			// http://169.254.169.254/... or an internal host would otherwise let an
+			// unauthenticated caller read internal services and exfiltrate the body
+			// (it is returned to the caller as `card`). Pinned variant closes the DNS
+			// rebinding window since the response is forwarded out.
+			const res = await _withTimeout(
+				fetchSafePublicUrlPinned(base.tokenURIResolved, {}, { allowHttp: true }),
+				timeoutMs,
+			);
 			if (res.ok) {
 				const json = await res.json();
 				base.manifest = json;

@@ -25,8 +25,7 @@ import { clientIp, limits } from '../_lib/rate-limit.js';
 import { markProviderCooldown, AUTH_COOLDOWN_SECONDS } from '../_lib/provider-health.js';
 import { getSkillPrices, skillPriceMap } from '../_lib/skill-price-cache.js';
 import { z } from 'zod';
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { isUuid } from '../_lib/validate.js';
 
 const CATEGORIES = [
 	'academic',
@@ -93,7 +92,7 @@ export default wrap(async (req, res) => {
 			return handleList(req, res, url);
 		}
 		if (id === 'mine') return handleMine(req, res);
-		if (!UUID_RE.test(id)) return error(res, 404, 'not_found', 'agent not found');
+		if (!isUuid(id)) return error(res, 404, 'not_found', 'agent not found');
 		if (!sub) return handleDetail(req, res, id);
 		if (sub === 'versions') return handleVersions(req, res, id);
 		if (sub === 'similar') return handleSimilar(req, res, id);

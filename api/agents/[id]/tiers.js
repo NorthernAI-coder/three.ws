@@ -16,11 +16,9 @@ import { z } from 'zod';
 import { sql } from '../../_lib/db.js';
 import { getSessionUser } from '../../_lib/auth.js';
 import { cors, json, method, wrap, error, readJson, rateLimited } from '../../_lib/http.js';
-import { parse } from '../../_lib/validate.js';
+import { parse, isUuid } from '../../_lib/validate.js';
 import { limits, clientIp } from '../../_lib/rate-limit.js';
 import { requireCsrf } from '../../_lib/csrf.js';
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const createSchema = z.object({
 	name:      z.string().trim().min(2).max(80),
@@ -49,7 +47,7 @@ export default wrap(async (req, res) => {
 	const agentId = url.searchParams.get('id') || parts[2] || null;
 	const tierId  = url.searchParams.get('tier_id') || parts[4] || null;
 
-	if (!agentId || !UUID_RE.test(agentId)) return error(res, 400, 'validation_error', 'valid agent id required');
+	if (!agentId || !isUuid(agentId)) return error(res, 400, 'validation_error', 'valid agent id required');
 
 	if (req.method === 'GET') return handleList(req, res, agentId);
 	if (req.method === 'POST' && !tierId) return handleCreate(req, res, agentId);

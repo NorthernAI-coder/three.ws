@@ -4,7 +4,7 @@
 // Used by /demos/erc8004 — no auth, read-only.
 
 import { DEFAULT_SUBGRAPH_URLS, DEFAULT_REGISTRIES } from 'agent0-sdk';
-import { cors, method, error, wrap, json } from '../../_lib/http.js';
+import { cors, method, error, wrap, json, serverError } from '../../_lib/http.js';
 
 export const maxDuration = 30;
 
@@ -106,7 +106,8 @@ export default wrap(async function handler(req, res) {
 		if (e?.name === 'AbortError') {
 			return error(res, 504, 'subgraph_timeout', 'subgraph query timed out');
 		}
-		return error(res, 502, 'lookup_failed', e?.message || 'subgraph query failed');
+		console.error('[agents/8004/agent] subgraph query failed', e?.message);
+		return serverError(res, 502, 'lookup_failed', e);
 	}
 
 	if (!raw) return error(res, 404, 'not_found', `agent #${idRaw} not found on chain ${chainId}`);

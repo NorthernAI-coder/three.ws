@@ -15,8 +15,7 @@
 import { sql } from './_lib/db.js';
 import { cors, wrap } from './_lib/http.js';
 import { env } from './_lib/env.js';
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { isUuid } from './_lib/validate.js';
 
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'GET,OPTIONS' })) return;
@@ -25,7 +24,7 @@ export default wrap(async (req, res) => {
 	const agentId = url.searchParams.get('id');
 	const origin = env.APP_ORIGIN || 'https://three.ws';
 
-	if (!agentId || !UUID_RE.test(agentId)) {
+	if (!agentId || !isUuid(agentId)) {
 		return passthrough(res, origin);
 	}
 

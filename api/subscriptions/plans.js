@@ -12,7 +12,7 @@ import { z } from 'zod';
 import { sql } from '../_lib/db.js';
 import { getSessionUser } from '../_lib/auth.js';
 import { cors, json, method, wrap, error, readJson, rateLimited } from '../_lib/http.js';
-import { parse } from '../_lib/validate.js';
+import { parse, isUuid } from '../_lib/validate.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { requireCsrf } from '../_lib/csrf.js';
 
@@ -64,11 +64,10 @@ async function handleList(req, res) {
 		return error(res, 400, 'validation_error', 'creator_id or agent_id required');
 	}
 
-	const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-	if (creatorId && !UUID_RE.test(creatorId)) {
+	if (creatorId && !isUuid(creatorId)) {
 		return error(res, 400, 'validation_error', 'creator_id must be a valid UUID');
 	}
-	if (agentId && !UUID_RE.test(agentId)) {
+	if (agentId && !isUuid(agentId)) {
 		return error(res, 400, 'validation_error', 'agent_id must be a valid UUID');
 	}
 

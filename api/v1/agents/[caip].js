@@ -28,6 +28,7 @@
 import { wrap, cors, method, json, error, rateLimited } from '../../_lib/http.js';
 import { limits, clientIp } from '../../_lib/rate-limit.js';
 import { resolveOnChainAgent, resolveURI } from '../../_lib/onchain.js';
+import { fetchSafePublicUrl } from '../../_lib/ssrf-guard.js';
 
 const CAIP_RE = /^eip155:(\d+):(0x[a-fA-F0-9]{40})\/(\d+)$/;
 const CACHE_HEADERS = {
@@ -105,7 +106,9 @@ async function verifyCard(card) {
 	if (expected && uri) {
 		try {
 			const httpUrl = resolveURI(uri);
-			const r = await fetch(httpUrl, { signal: AbortSignal.timeout(5000) });
+			// model.uri comes from the attacker-authored card manifest; guard it so a
+			// crafted internal URL can't be probed via the sha256-match boolean.
+			const r = await fetchSafePublicUrl(httpUrl, { signal: AbortSignal.timeout(5000) }, { allowHttp: true });
 			if (r.ok) {
 				const buf = new Uint8Array(await r.arrayBuffer());
 				const hash = await sha256Hex(buf);
