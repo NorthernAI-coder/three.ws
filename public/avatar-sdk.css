@@ -15,7 +15,7 @@ body {
 	display: flex;
 	flex-direction: column;
 	min-height: 100vh;
-	font-family: 'Inter', system-ui, sans-serif;
+	font-family: var(--font-body);
 }
 
 /* ── Scroll reveal ─────────────────────────────────────────────────── */
@@ -130,7 +130,7 @@ body {
 	50% { box-shadow: 0 0 16px rgba(160, 160, 160, 1); }
 }
 .sdk-hero-h1 {
-	font-family: 'Space Grotesk', 'Inter', sans-serif;
+	font-family: var(--font-display);
 	font-size: clamp(36px, 5vw, 56px);
 	font-weight: 700;
 	letter-spacing: -0.03em;
@@ -170,7 +170,7 @@ body {
 	border: 1px solid var(--stroke-strong);
 	border-radius: var(--radius-control);
 	padding: 12px 16px;
-	font-family: 'JetBrains Mono', ui-monospace, monospace;
+	font-family: var(--font-mono);
 	font-size: 13.5px;
 	color: var(--ink);
 	cursor: pointer;
@@ -304,7 +304,7 @@ body {
 	gap: 4px;
 }
 .sdk-stat-value {
-	font-family: 'Space Grotesk', sans-serif;
+	font-family: var(--font-display);
 	font-size: 24px;
 	font-weight: 700;
 	color: #ffffff;
@@ -373,7 +373,7 @@ body {
 	background: var(--accent);
 }
 .sdk-h2 {
-	font-family: 'Space Grotesk', 'Inter', sans-serif;
+	font-family: var(--font-display);
 	font-size: clamp(26px, 3.5vw, 38px);
 	font-weight: 700;
 	letter-spacing: -0.02em;
@@ -430,7 +430,7 @@ body {
 	border: 1px solid var(--icon-border, rgba(160, 160, 160, 0.2));
 }
 .sdk-feat-title {
-	font-family: 'Space Grotesk', sans-serif;
+	font-family: var(--font-display);
 	font-size: 16px;
 	font-weight: 600;
 	color: var(--ink);
@@ -515,7 +515,7 @@ pre.sdk-pre {
 	border-radius: var(--radius-control);
 	padding: 18px 20px;
 	overflow-x: auto;
-	font-family: 'JetBrains Mono', ui-monospace, monospace;
+	font-family: var(--font-mono);
 	font-size: 13px;
 	line-height: 1.75;
 	color: #d3d3d3;
@@ -603,7 +603,7 @@ pre.sdk-pre .t-op  { color: #a1a1a1; }
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	font-family: 'Space Grotesk', sans-serif;
+	font-family: var(--font-display);
 	font-size: 16px;
 	font-weight: 700;
 	color: var(--accent);
@@ -612,7 +612,7 @@ pre.sdk-pre .t-op  { color: #a1a1a1; }
 }
 .sdk-step-body {}
 .sdk-step-title {
-	font-family: 'Space Grotesk', sans-serif;
+	font-family: var(--font-display);
 	font-size: 18px;
 	font-weight: 600;
 	color: var(--ink);
@@ -821,7 +821,7 @@ table.sdk-table {
 	background: rgba(255, 255, 255, 0.04);
 	padding: 14px 20px;
 	text-align: left;
-	font-family: 'Space Grotesk', sans-serif;
+	font-family: var(--font-display);
 	font-size: 13px;
 	font-weight: 600;
 	color: var(--ink);
@@ -946,7 +946,7 @@ table.sdk-table {
 	pointer-events: none;
 }
 .sdk-cta-banner h2 {
-	font-family: 'Space Grotesk', sans-serif;
+	font-family: var(--font-display);
 	font-size: 28px;
 	font-weight: 700;
 	letter-spacing: -0.02em;

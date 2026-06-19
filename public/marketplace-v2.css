@@ -363,7 +363,7 @@ body.market-page > #footer-container {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	font-family: 'Space Grotesk', sans-serif;
+	font-family: var(--font-display);
 	font-weight: 700;
 	font-size: 24px;
 	color: #fafafa;
@@ -378,7 +378,7 @@ body.market-page > #footer-container {
 	flex: 1;
 }
 .creator-modal-eyebrow {
-	font-family: 'Space Grotesk', sans-serif;
+	font-family: var(--font-display);
 	font-size: 10px;
 	letter-spacing: 0.18em;
 	text-transform: uppercase;
@@ -386,7 +386,7 @@ body.market-page > #footer-container {
 	font-weight: 600;
 }
 .creator-modal-title {
-	font-family: 'Space Grotesk', sans-serif;
+	font-family: var(--font-display);
 	font-size: 22px;
 	font-weight: 700;
 	color: #fafafa;
@@ -407,7 +407,7 @@ body.market-page > #footer-container {
 }
 .creator-modal-stats strong {
 	color: #fafafa;
-	font-family: 'Space Grotesk', sans-serif;
+	font-family: var(--font-display);
 	font-weight: 700;
 	margin-right: 4px;
 }

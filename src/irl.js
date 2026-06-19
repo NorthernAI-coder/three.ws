@@ -897,7 +897,7 @@ if (avatarBtn) {
 // (−Z = north, matching gpsToWorld), the avatar holds its real-world bearing for
 // every viewer, and the stored pose is a genuine compass heading. Page-relative
 // devices keep the delta fallback and are tagged `:rel` for A3 down-weighting.
-let lastDevAlpha = 0, lastDevBeta = 90;
+let lastDevAlpha = 0, lastDevBeta = 90, lastDevGamma = 0;
 let devOrientBaseAlpha    = null; // null = inactive
 let devOrientBaseBeta     = null;
 let devOrientBaseCamYaw   = 0;
@@ -935,9 +935,14 @@ function onDeviceOrientation(e) {
 	if (isFiniteReading(e.alpha, e.beta)) {
 		lastDevAlpha = e.alpha;
 		lastDevBeta  = e.beta;
+		// gamma (left↔right tilt) only matters when the screen is landscape, where it
+		// becomes the pitch axis. Hold the last value if a frame omits it.
+		if (Number.isFinite(e.gamma)) lastDevGamma = e.gamma;
 	}
 	const a = lastDevAlpha;
-	const b = lastDevBeta;
+	// Portrait-equivalent pitch: in landscape the user's look-up/down rides gamma,
+	// not beta, so fold the screen angle in before the baseline-delta math (task-02).
+	const b = screenPitchDeg(lastDevBeta, lastDevGamma, currentScreenAngle());
 	const compass = readCompassHeading(e);
 	if (compass !== null) {
 		lastCompassHeading = compass;
@@ -1079,7 +1084,9 @@ async function setLocked(next) {
 			// on the page-relative fallback path. The pitch baseline is used by both
 			// paths; the yaw baseline only by the delta fallback.
 			devOrientBaseAlpha    = lastDevAlpha;
-			devOrientBaseBeta     = lastDevBeta;
+			// Same screen-corrected pitch source as the per-frame path, so the first
+			// delta after locking is 0 regardless of how the device is held (task-02).
+			devOrientBaseBeta     = screenPitchDeg(lastDevBeta, lastDevGamma, currentScreenAngle());
 			devOrientBaseCamYaw   = cameraYaw;
 			devOrientBaseCamPitch = cameraPitch;
 			// iOS compass + a live GPS fix: snap the first locked frame to the true
@@ -1388,6 +1395,147 @@ function discoveryOrigin() {
 	};
 }
 
+// ── H4 / L4 — Approximate placement (how a pin the user PLACES is stored) ─────
+// Distinct from discovery precision (which governs the nearby READ): placement
+// precision governs the coordinate we WRITE. 'precise' stores the agent exactly
+// where chosen; 'approximate' stores a point fuzzed within PLACEMENT_FUZZ_RADIUS_M
+// so the exact standing spot is never recorded. The first-placement consent sheet
+// (maybeConfirmPlacement) sets it; the choice is remembered across sessions.
+const PLACEMENT_KIND_KEY = 'irl_placement_kind';
+const PLACEMENT_CONSENT_KEY = 'irl_placement_consented_v1';
+const PLACEMENT_FUZZ_RADIUS_M = 30;
+
+function getPlacementKind() {
+	try { return localStorage.getItem(PLACEMENT_KIND_KEY) === 'approximate' ? 'approximate' : 'precise'; }
+	catch { return 'precise'; }
+}
+function setPlacementKind(v) {
+	try { localStorage.setItem(PLACEMENT_KIND_KEY, v === 'approximate' ? 'approximate' : 'precise'); } catch {}
+}
+function hasPlacementConsent() {
+	try { return localStorage.getItem(PLACEMENT_CONSENT_KEY) === '1'; } catch { return false; }
+}
+function markPlacementConsented() {
+	try { localStorage.setItem(PLACEMENT_CONSENT_KEY, '1'); } catch {}
+}
+
+// Offset a coordinate by a uniformly-distributed random point inside a disc of
+// `radiusM` metres (not a square — a square biases the corners). sqrt(rand) gives a
+// uniform areal distribution; the bearing is uniform. Returns a fresh {lat,lng} so a
+// caller can fuzz once at commit and store the result, keeping the true spot local.
+function fuzzCoord(lat, lng, radiusM) {
+	const r = radiusM * Math.sqrt(Math.random());
+	const theta = Math.random() * Math.PI * 2;
+	const dNorth = r * Math.cos(theta);
+	const dEast  = r * Math.sin(theta);
+	const mLat = 110540;
+	const mLng = 111320 * Math.cos(lat * Math.PI / 180) || 1;
+	return { lat: lat + dNorth / mLat, lng: lng + dEast / mLng };
+}
+
+// Apply the active placement kind to a coordinate at commit time. In approximate
+// mode it returns the fuzzed point + the metadata the pin-create call sends
+// (placement_kind + fuzz_radius_m); precise mode returns the coordinate untouched.
+function applyPlacementKind(lat, lng) {
+	if (getPlacementKind() !== 'approximate') {
+		return { lat, lng, placementKind: 'precise', fuzzRadiusM: 0 };
+	}
+	const fuzzed = fuzzCoord(lat, lng, PLACEMENT_FUZZ_RADIUS_M);
+	return { lat: fuzzed.lat, lng: fuzzed.lng, placementKind: 'approximate', fuzzRadiusM: PLACEMENT_FUZZ_RADIUS_M };
+}
+
+// H3 — Proof-of-presence. The nearby read is bound to a genuine fix: we mint a
+// short-lived, server-signed token from our REAL geolocation and attach it
+// (x-irl-fix) to every loadNearbyPins call, so the server only answers for where
+// we actually are. Invisible to the user — they already granted location. We
+// re-mint on a coarse cell change (~150 m of travel) or on a 401 fix_required.
+let _fixToken = null;
+let _fixCell = null;       // the ~110 m cell key the current token was minted for
+let _fixExpiresAt = 0;     // performance.now()-relative ms when the cached token lapses
+let _fixMintInflight = null;
+// Re-mint a hair before the server clock would reject the token, so a poll or a pin
+// create never races the boundary and eats a 401.
+const FIX_EXPIRY_SKEW_MS = 8000;
+
+// A coarse cell key for the origin we send to the read — 3 decimals ≈ 110 m, the
+// granularity the server token anchors at. When this changes we re-mint.
+function fixCellKey(origin) {
+	if (!origin || !Number.isFinite(origin.lat) || !Number.isFinite(origin.lng)) return null;
+	return `${origin.lat.toFixed(3)},${origin.lng.toFixed(3)}`;
+}
+
+// True when the cached token is still good for the current cell AND hasn't lapsed.
+// A cell change (the user walked ~150 m) or an imminent expiry both force a re-mint.
+function fixTokenFresh(cell) {
+	return !!_fixToken && cell === _fixCell && Date.now() < _fixExpiresAt;
+}
+
+// Mint (or re-mint) a fix token for the current discovery origin. De-duped so a
+// burst of GPS callbacks issues one request; cached until the cell changes OR the
+// server-supplied expires_in lapses. On a dev/preview server with IRL_FIX_SECRET
+// unset the read ignores the token, so a mint failure there is harmless — we simply
+// poll without one.
+async function ensureFixToken(force = false) {
+	const origin = discoveryOrigin();
+	const cell = fixCellKey(origin);
+	if (!cell) return null;
+	if (!force && fixTokenFresh(cell)) return _fixToken;
+	if (_fixMintInflight) return _fixMintInflight;
+	_fixMintInflight = (async () => {
+		try {
+			const r = await fetch('/api/irl/fix-token', {
+				method: 'POST',
+				credentials: 'include',
+				headers: deviceHeaders({ 'Content-Type': 'application/json' }),
+				body: JSON.stringify({ deviceToken: _deviceToken, lat: origin.lat, lng: origin.lng, accuracy: gpsState.accuracy }),
+			});
+			if (!r.ok) return null;
+			// `expires_in` is the token TTL in seconds (the server's exp expressed as a
+			// relative lifetime); cache the absolute lapse moment so a long-idle session
+			// re-mints rather than re-using a stale token the server now rejects.
+			const { token, expires_in } = await r.json();
+			if (token) {
+				_fixToken = token;
+				_fixCell = cell;
+				const ttlMs = Number.isFinite(expires_in) ? expires_in * 1000 : 180000;
+				_fixExpiresAt = Date.now() + Math.max(0, ttlMs - FIX_EXPIRY_SKEW_MS);
+			}
+			return _fixToken;
+		} catch {
+			return null;
+		} finally {
+			_fixMintInflight = null;
+		}
+	})();
+	return _fixMintInflight;
+}
+
+// Headers for a request that proves presence: device id + a guaranteed-fresh fix
+// token. Awaits a mint when the cache is cold/expired so a pin create or nearby read
+// is never sent without proof when one is obtainable. Falls back to device-only
+// headers when no fix is available yet (dev/preview, or location off) so the call
+// still goes out rather than dead-ending.
+async function presenceHeaders(extra = {}) {
+	let token = _fixToken;
+	const cell = fixCellKey(discoveryOrigin());
+	if (cell && !fixTokenFresh(cell)) token = await ensureFixToken();
+	return deviceHeaders(token ? { 'x-irl-fix': token, ...extra } : { ...extra });
+}
+
+// The nearby read returned 401 fix_required (proof-of-presence enforced and our
+// token is missing/expired/out-of-area). Re-mint from the current fix and let the
+// next ~10 s poll cycle pick it up — or, if location is unavailable, surface the
+// existing designed permission/no-fix state rather than a blank screen.
+async function handleFixRequired(_resp) {
+	const token = await ensureFixToken(true);
+	if (!token) {
+		// Couldn't mint — almost always because we don't have a usable fix. Flag the
+		// badge so the user sees a retrying state instead of an empty world.
+		_nearbyError = true;
+		updateNearbyBadge();
+	}
+}
+
 // Honour the OS "reduce motion" setting for the spawn/despawn transitions below —
 // scale in/out for everyone else, instant for users who asked for less animation.
 function prefersReducedMotion() {
@@ -1426,6 +1574,11 @@ function onGPSPosition(pos) {
 	// the ~10 s REST poll; the socket carries only live presence + ambient reactions,
 	// and the poll runs the whole session even if that socket never connects.
 	if (!wasReady) startPinSync();
+
+	// H3: keep a fresh proof-of-presence token for the nearby read. ensureFixToken
+	// is a no-op unless our coarse cell changed, so this fires a mint on the first
+	// fix and then only every ~150 m of travel — invisible, and cheap. Fire-and-forget.
+	ensureFixToken();
 
 	// A lock was requested before the first fix — finish anchoring now that we
 	// have real coordinates, rather than dropping the agent at a default origin.
@@ -2665,9 +2818,11 @@ async function loadNearbyPins() {
 	// debounce CLIENT-side (pinBandAction) so consumer GPS jitter can't pop it in and out.
 	const _o = discoveryOrigin();
 	try {
+		// presenceHeaders awaits a mint when the cached token is cold or lapsed, so the
+		// read is never sent with a stale token that the server would 401 on.
 		const r = await fetch(
 			`/api/irl/pins?lat=${_o.lat}&lng=${_o.lng}&radius=${NEARBY_READ_RADIUS}`,
-			{ headers: deviceHeaders(_fixToken ? { 'x-irl-fix': _fixToken } : {}) },
+			{ headers: await presenceHeaders() },
 		);
 		if (r.status === 401) { return handleFixRequired(r); }
 		if (!r.ok) { _nearbyError = true; updateNearbyBadge(); return; }
@@ -4556,14 +4711,64 @@ function applyBand(pin, band) {
 	}
 }
 
-// ── Resize ────────────────────────────────────────────────────────────────
-function resize() {
-	renderer.setSize(window.innerWidth, window.innerHeight, false);
-	camera.aspect = window.innerWidth / window.innerHeight;
-	camera.updateProjectionMatrix();
+// ── Viewport / orientation change ───────────────────────────────────────────
+// One funnel for resize, orientationchange, and screen.orientation's change event
+// (feature-detected — iOS support varies). It re-applies the active perf tier's
+// pixel ratio + render size, the new aspect, AND re-derives the camera FOV from
+// the rear-camera sensor against the now-current viewport — so rotating
+// portrait↔landscape holds the avatar's real-world scale instead of leaving it at
+// the orientation AR opened in (task-02). iOS Safari's dynamic toolbar fires
+// `resize` on every scroll frame, so the work is debounced to a single rAF and
+// skipped entirely when the viewport dimensions did not actually change.
+let _lastViewW = window.innerWidth;
+let _lastViewH = window.innerHeight;
+let _viewportRaf = 0;
+function onViewportChanged() {
+	if (_viewportRaf) return;
+	_viewportRaf = requestAnimationFrame(() => {
+		_viewportRaf = 0;
+		const w = window.innerWidth, h = window.innerHeight;
+		if (w === _lastViewW && h === _lastViewH) return; // toolbar jitter with no real change
+		_lastViewW = w; _lastViewH = h;
+		// setPixelRatio first so setSize allocates the drawing buffer at the right DPR.
+		renderer.setPixelRatio(Math.min(window.devicePixelRatio, budget.pixelRatio));
+		renderer.setSize(w, h, false);
+		camera.aspect = w / h;
+		camera.updateProjectionMatrix();
+		applyCameraFov(); // no-op when AR is off; re-derives + refreshes projection otherwise
+		rebaselineGyroForScreenAngle();
+	});
 }
-window.addEventListener('resize', resize);
-window.addEventListener('orientationchange', resize);
+// `screen.orientation.angle` for the landscape gyro-frame correction. Falls back
+// to the legacy `window.orientation` (older iOS) and finally 0 (assume portrait).
+function currentScreenAngle() {
+	const a = window.screen?.orientation?.angle;
+	if (Number.isFinite(a)) return a;
+	const legacy = window.orientation;
+	if (Number.isFinite(legacy)) return ((legacy % 360) + 360) % 360;
+	return 0;
+}
+// When the screen rotates mid-lock the pitch axis switches (beta↔gamma), so the
+// relative integrator baselines — captured under the previous angle — no longer
+// describe the current pose and the view would snap. Re-pin them to the live pose
+// at the new angle so rotation is seamless (the absolute-yaw path is unaffected;
+// it tracks the compass directly). No-op when not locked in AR.
+let _lastGyroScreenAngle = currentScreenAngle();
+function rebaselineGyroForScreenAngle() {
+	const angle = currentScreenAngle();
+	if (angle === _lastGyroScreenAngle) return;
+	_lastGyroScreenAngle = angle;
+	if (!avatarLocked || !arActive || devOrientBaseAlpha === null) return;
+	devOrientBaseAlpha    = lastDevAlpha;
+	devOrientBaseBeta     = screenPitchDeg(lastDevBeta, lastDevGamma, angle);
+	devOrientBaseCamYaw   = cameraYaw;
+	devOrientBaseCamPitch = cameraPitch;
+}
+window.addEventListener('resize', onViewportChanged);
+window.addEventListener('orientationchange', onViewportChanged);
+if (window.screen?.orientation?.addEventListener) {
+	window.screen.orientation.addEventListener('change', onViewportChanged);
+}
 
 // ── Main loop ─────────────────────────────────────────────────────────────
 const clock      = new Timer();

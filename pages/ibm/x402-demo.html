@@ -476,17 +476,17 @@ agent-3d:defined ~ .agent-skel{display:none}
 
         <!-- quality tier -->
         <div class="tier-row" id="fgTiers" role="radiogroup" aria-label="Generation quality tier">
-          <button class="tier" type="button" role="radio" aria-checked="true" data-tier="draft">
+          <button class="tier" type="button" role="radio" aria-checked="true" tabindex="0" data-tier="draft">
             <span class="t-name"><span class="t-tier">Draft</span><span class="t-price" data-price>$0.05</span></span>
             <span class="t-blurb">Fast preview geometry. Best to try the flow.</span>
             <span class="t-eta" data-eta>~40s</span>
           </button>
-          <button class="tier" type="button" role="radio" aria-checked="false" data-tier="standard">
+          <button class="tier" type="button" role="radio" aria-checked="false" tabindex="-1" data-tier="standard">
             <span class="t-name"><span class="t-tier">Standard</span><span class="t-price" data-price>$0.15</span></span>
             <span class="t-blurb">Balanced detail. The default for most assets.</span>
             <span class="t-eta" data-eta>~60s</span>
           </button>
-          <button class="tier" type="button" role="radio" aria-checked="false" data-tier="high">
+          <button class="tier" type="button" role="radio" aria-checked="false" tabindex="-1" data-tier="high">
             <span class="t-name"><span class="t-tier">High</span><span class="t-price" data-price>$0.50</span></span>
             <span class="t-blurb">Maximum geometry + PBR textures. Slower.</span>
             <span class="t-eta" data-eta>~130s</span>
@@ -1602,21 +1602,43 @@ agent-3d:defined ~ .agent-skel{display:none}
     });
   }
 
-  // ── tier selection ─────────────────────────────────────────────────────────
-  function selectTier(tier) {
-    if (tier === selectedTier || !TIER_ATOMIC[tier]) return;
+  // ── tier selection (WAI-ARIA radiogroup) ─────────────────────────────────────
+  // Selection drives a roving tabindex: only the checked radio is in the tab
+  // order, so Tab lands on the group once and Arrow/Home/End move within it —
+  // the operable behaviour the role="radiogroup"/role="radio" markup promises.
+  function tierButtons() {
+    return Array.prototype.slice.call(document.querySelectorAll('#fgTiers .tier'));
+  }
+  function selectTier(tier, focusIt) {
+    if (!TIER_ATOMIC[tier]) return;
+    var changed = tier !== selectedTier;
     selectedTier = tier;
-    document.querySelectorAll('#fgTiers .tier').forEach(function (btn) {
-      btn.setAttribute('aria-checked', btn.getAttribute('data-tier') === tier ? 'true' : 'false');
+    tierButtons().forEach(function (btn) {
+      var on = btn.getAttribute('data-tier') === tier;
+      btn.setAttribute('aria-checked', on ? 'true' : 'false');
+      btn.tabIndex = on ? 0 : -1;
+      if (on && focusIt) { try { btn.focus(); } catch (_) {} }
     });
-    syncTierUi();
-    loadChallengePreview();
+    if (changed) { syncTierUi(); loadChallengePreview(); }
   }
 
   // ── wiring ──────────────────────────────────────────────────────────────────
-  document.querySelectorAll('#fgTiers .tier').forEach(function (btn) {
-    btn.addEventListener('click', function () { selectTier(btn.getAttribute('data-tier')); });
-  });
+  (function wireTierKeys() {
+    var btns = tierButtons();
+    btns.forEach(function (btn, i) {
+      btn.addEventListener('click', function () { selectTier(btn.getAttribute('data-tier')); });
+      btn.addEventListener('keydown', function (e) {
+        var key = e.key, next = -1;
+        if (key === 'ArrowRight' || key === 'ArrowDown') next = (i + 1) % btns.length;
+        else if (key === 'ArrowLeft' || key === 'ArrowUp') next = (i - 1 + btns.length) % btns.length;
+        else if (key === 'Home') next = 0;
+        else if (key === 'End') next = btns.length - 1;
+        else return;
+        e.preventDefault();
+        selectTier(btns[next].getAttribute('data-tier'), true);
+      });
+    });
+  })();
   $('fgBtn').addEventListener('click', runForge);
   $('fgPrompt').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); runForge(); } });
   var pvTimer;

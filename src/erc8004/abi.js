@@ -55,13 +55,27 @@ export const IDENTITY_REGISTRY_ABI = [
 	'event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)',
 ];
 
+// Mirrors contracts/src/ReputationRegistry.sol exactly (the deployed bytecode):
+//   submitFeedback(uint256, int8 score, string uri)        — score is signed, [-100,100]
+//   getReputation(uint256) → (int256 avgX100, uint256 count) — pre-averaged ×100; divide for display
+//   FeedbackSubmitted(agentId, from, int8 score, string uri) — `from`, not `submitter`
+// The earlier `submitReputation` / `(uint256 totalScore, uint256 count)` shape
+// did NOT match the contract: ethers mis-decoded a signed average as a raw total
+// and the write selector reverted. Kept byte-identical with sdk/src/erc8004/abi.js.
 export const REPUTATION_REGISTRY_ABI = [
-	'function submitReputation(uint256 agentId, uint8 score, string comment) external',
-	'function getReputation(uint256 agentId) external view returns (uint256 totalScore, uint256 count)',
+	'function submitFeedback(uint256 agentId, int8 score, string uri) external',
+	'function getReputation(uint256 agentId) external view returns (int256 avgX100, uint256 count)',
+	'function getFeedbackCount(uint256 agentId) external view returns (uint256)',
+	'function getFeedback(uint256 agentId, uint256 index) external view returns (tuple(address from, int8 score, uint64 timestamp, string uri))',
+	'function getFeedbackRange(uint256 agentId, uint256 offset, uint256 limit) external view returns (tuple(address from, int8 score, uint64 timestamp, string uri)[])',
+	'function hasReviewed(uint256 agentId, address reviewer) external view returns (bool)',
 	'function stakeReputation(uint256 agentId, uint8 score, string comment) external payable',
+	'function withdrawStake(uint256 agentId) external',
 	'function getTotalStake(uint256 agentId) external view returns (uint256)',
-	'event ReputationSubmitted(uint256 indexed agentId, address indexed submitter, uint8 score, string comment)',
+	'function getStake(uint256 agentId, address staker) external view returns (uint256)',
+	'event FeedbackSubmitted(uint256 indexed agentId, address indexed from, int8 score, string uri)',
 	'event ReputationStaked(uint256 indexed agentId, address indexed staker, uint8 score, uint256 value)',
+	'event StakeWithdrawn(uint256 indexed agentId, address indexed staker, uint256 value)',
 ];
 
 /**

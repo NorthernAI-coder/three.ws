@@ -12,7 +12,7 @@
 body.app-demo-body {
 	background: #0a0a0a;
 	color: #eee;
-	font-family: 'Inter', system-ui, -apple-system, sans-serif;
+	font-family: var(--font-body);
 	font-size: 14px;
 	line-height: 1.45;
 }
@@ -329,7 +329,7 @@ body.app-demo-body .auth-gate__eyebrow {
 }
 
 body.app-demo-body .auth-gate__title {
-	font-family: 'Space Grotesk', 'Inter', system-ui, sans-serif;
+	font-family: var(--font-display);
 	font-size: 1.35rem;
 	font-weight: 600;
 	color: #fff;
@@ -402,7 +402,7 @@ body.app-demo-body .agent-onboarding {
 }
 
 body.app-demo-body .agent-onboarding__title {
-	font-family: 'Space Grotesk', 'Inter', system-ui, sans-serif;
+	font-family: var(--font-display);
 }
 
 body.app-demo-body .agent-onboarding__btn {

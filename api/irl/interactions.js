@@ -185,6 +185,7 @@ export default wrap(async (req, res) => {
 			FROM irl_pins
 			WHERE id = ${pinId}
 			  AND hidden_at IS NULL
+			  AND published IS NOT FALSE
 			  AND (expires_at IS NULL OR expires_at > NOW())
 			LIMIT 1
 		`;
