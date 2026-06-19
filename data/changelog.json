@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-06-19",
+			"title": "IRL is fully keyboard- and screen-reader-accessible",
+			"summary": "You can now drive every part of IRL without a mouse or touch. Each control — the camera button, the pill row, the object picker, every sheet — shows a clear focus ring as you Tab through it, and opening a panel (inspect an agent, add a caption, My Pins, report) traps focus inside it, closes on Escape, and returns focus to wherever you were. Toggle buttons announce their on/off state to screen readers, status messages are spoken politely as they appear, and we lifted faint grey text so it meets contrast guidelines on the dark camera background. If you've turned on Reduce Motion, the ambient pulses and glows hold still while your agent keeps moving.",
+			"tags": [
+				"improvement"
+			],
+			"link": "/irl"
+		},
+		{
+			"date": "2026-06-19",
 			"title": "IRL teaches you how to find agents — and an empty area now feels alive",
 			"summary": "IRL has no map and no list on purpose: you find agents by walking up to them and looking through your camera. The first time you open it, a short card now explains that idea — agents are hidden in the world around you, dropping your own lets someone else stumble on it later, and we never show a roster of where agents are, not even to you. You can reopen that explainer any time from the small \"?\" in the corner. And when you're somewhere quiet with nobody pinned yet, instead of a blank screen you'll see a gentle \"Look around 👀 · or be the first to pin here\" prompt with a one-tap way to place your own agent — so an empty spot reads as \"keep exploring,\" not \"this is broken.\" The moment a real agent comes into range, the prompt fades away on its own.",
 			"tags": [
