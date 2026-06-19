@@ -51,22 +51,49 @@ agent, dress it, teach it, fund it, and watch it work. That is a product nobody 
 
 ---
 
+## Read these two framing docs first
+
+- `00-README-orchestration.md` (this file) — how to run the initiative.
+- `00b-innovation-north-star.md` — **the bar.** What "gamechanging" means, the five invention
+  principles, and how the features interlock. Every agent reads it before starting.
+
+## Two waves
+
+- **Wave 1 (P0–P5)** — the foundation: the central studio + the persistent avatar. Necessary, but a
+  competitor could imitate it.
+- **Wave 2 (P6–P11)** — the **invention layer**: features only possible because we have an embodied,
+  brain-having, money-handling agent with a memory. This is the moat. See the north-star doc.
+
 ## Run order & dependencies
 
 **P0 must merge first.** It defines the shell, the shared state store, the global presence
-component, and the schema/API contract everything else binds to. P1–P5 can then run in
-**parallel** because each owns a distinct set of files (see collision map).
+component, and the schema/API contract everything else binds to. Then Wave 1 (P1–P5) can run in
+**parallel**. Wave 2 (P6–P11) builds on Wave 1 surfaces but each owns distinct files — start each
+once its listed dependencies are in.
 
-| Prompt | Task | Depends on | Can parallelize with |
+### Wave 1 — foundation
+| Prompt | Task | Depends on | Parallel with |
 |---|---|---|---|
-| `01-foundation.md` (P0) | Studio shell, route, `AgentStudioStore`, `<agent-presence>` element, schema migration, API contract | — | run alone first |
+| `01-foundation.md` (P0) | Studio shell, route, `AgentStudioStore`, `<agent-presence>`, schema, API contract | — | run alone first |
 | `02-brain-studio.md` (P1) | Visual programmable **brain graph** + model routing | P0 | P2,P3,P4,P5 |
-| `03-memory-studio.md` (P2) | Tiered **memory** (working/recall/archival), visual timeline + graph, trade-aware | P0 | P1,P3,P4,P5 |
+| `03-memory-studio.md` (P2) | Tiered **memory**, visual timeline + graph, trade-aware | P0 | P1,P3,P4,P5 |
 | `04-wardrobe-studio.md` (P3) | **Body**: outfits, wearables, animations, live preview | P0 | P1,P2,P4,P5 |
-| `05-wallet-trading-brain.md` (P4) | **Money**: wallet + visual **sniping/trading rules** wired to real Solana | P0 | P1,P2,P3,P5 |
+| `05-wallet-trading-brain.md` (P4) | **Money**: wallet + visual **sniping/trading rules** on real Solana | P0 | P1,P2,P3,P5 |
 | `06-living-presence.md` (P5) | Avatar on **every page**, reactive to live market/trade events | P0 | P1,P2,P3,P4 |
 
-If you want maximum speed: run P0 to completion, then launch P1–P5 as five concurrent agents.
+### Wave 2 — invention layer
+| Prompt | Task | Depends on | Parallel with |
+|---|---|---|---|
+| `07-meshy-forge.md` (P6) | **Generate** any avatar/wearable/scene from words or a photo (real Meshy), attach live, mint on-chain | P0, P3 | P7–P11 |
+| `08-mind-palace.md` (P7) | **Walk through** the agent's memory in 3D; it shows why it believes what it believes | P0, P2, P1 | P6,P8–P11 |
+| `09-alpha-network.md` (P8) | Agents meet, publish **verified** calls, earn **on-chain reputation**, copy-trade | P0, P1, P2, P4 | P6,P7,P9–P11 |
+| `10-trade-theater.md` (P9) | Every snipe becomes a cinematic the avatar performs → **shareable clip** (viral loop) | P0, P4, P1, P3, P5 | P6,P7,P8,P10,P11 |
+| `11-director-mode.md` (P10) | **Talk** to reshape the agent; brain graph rewires live | P0, P1, P4 | P6–P9,P11 |
+| `12-agent-dreams.md` (P11) | Agent works the **night shift**, greets you with findings + proposed moves | P0, P1, P2, P4 | P6–P10 |
+
+Max speed: P0 → fan out P1–P5 → as each dependency lands, fan out P6–P11. Wave 2 prompts are written
+to wire **into each other** (Forge trophies ↔ trading/reputation, Theater ↔ network, Dreams ↔ everything);
+the north-star doc has the interlock map. Building silos is a fail — find the connections and wire them.
 
 ---
 
@@ -132,6 +159,12 @@ and the presence updates for free.
 - **P3:** `src/studio/body/**`, builds on `src/avatar-wardrobe.js`, `src/animation-*.js` (consume, don't rewrite).
 - **P4:** `src/studio/money/**`, `api/coin/**` (extend), new `api/trading/**`, `api/_lib/agent-wallet.js` (extend).
 - **P5:** mounts `<agent-presence>` across `pages/*.html` + their `src/*.js` entry points; `src/presence/**`.
+- **P6:** `src/studio/forge/**`, `api/forge/**` (real Meshy proxy; consumes P3 wardrobe).
+- **P7:** `src/mind-palace/**` + a page entry (reads P2 memory + P1 brain; never forks their stores).
+- **P8:** `src/network/**`, `api/network/**` (builds on `contracts/`, `agent-protocol-sdk/`, `multiplayer/`).
+- **P9:** `src/theater/**`, `api/theater/**` (extends `src/viewer/screenshot.js`/framing; consumes P1/P3/P4/P5).
+- **P10:** `src/studio/director/**`, `api/director/**` (compiles to P1 graph + P4 rules; writes P2 memory).
+- **P11:** `src/dreams/**`, `api/dreams/**` (builds on existing scheduler + notification infra).
 
 Shared files touched by multiple prompts (`data/pages.json`, `data/changelog.json`, `api/agents.js`):
 **append only**, never reformat, and re-check `git diff --staged` right before commit.
