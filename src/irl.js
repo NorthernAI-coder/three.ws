@@ -73,6 +73,7 @@ import { loadInto } from './shared/async-state.js';
 import { openMapPlacePicker } from './irl/map-place.js';
 import { openPrivacyCenter, maybeShowFirstRunDisclosure, getDiscoveryPrecision } from './irl/privacy-center.js';
 import { loadLeaflet } from './shared/leaflet-loader.js';
+import { initDiscovery } from './irl/discovery.js';
 
 const AVATAR_URL_DEFAULT = '/avatars/default.glb';
 const ANIMATIONS_MANIFEST_URL = '/animations/manifest.json';
@@ -5590,7 +5591,9 @@ function tick() {
 
 	renderer.render(scene, camera);
 	frameWatchdog(dt);
-	xrViewer._rafId = requestAnimationFrame(tick);
+	// Decline to reschedule if a pause landed mid-frame (tab hidden / context lost),
+	// so the loop truly stops instead of resurrecting itself the next frame.
+	xrViewer._rafId = _renderPaused ? null : requestAnimationFrame(tick);
 }
 
 // ── Nudge-to-calibrate (A3) ────────────────────────────────────────────────
@@ -6047,6 +6050,17 @@ if (import.meta.env.DEV) {
 		log.info(`[irl] seeded ${n} synthetic pins for LOD stress test`);
 		return n;
 	};
+	// Dispose every synthetic pin and return the count cleared. Pair with
+	// __irlSeedPins to run seed→clear churn and confirm renderer.info.memory returns
+	// to baseline (the task-06 leak check) rather than climbing each cycle.
+	window.__irlClearSeed = () => {
+		const seeded = nearbyPins.filter(p => String(p.id).startsWith('dev-seed-'));
+		for (const p of seeded) disposePin(p);
+		nearbyPins = nearbyPins.filter(p => !String(p.id).startsWith('dev-seed-'));
+		updateNearbyBadge();
+		log.info(`[irl] cleared ${seeded.length} synthetic pins`);
+		return seeded.length;
+	};
 	window.__irlPerf = () => ({
 		tier: activeTier,
 		baseTier,
@@ -6057,6 +6071,9 @@ if (import.meta.env.DEV) {
 		hidden:   nearbyPins.filter(p => p._lod === 'hidden').length,
 		drawsEstimate: _drawEstimate,
 		drawCalls: renderer.info.render.calls,
+		// GPU resource counts — the leak signal. Across repeated avatar swaps and
+		// seed/clear cycles these must return to baseline, not grow monotonically.
+		memory: { geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures },
 		queue: { active: glbQueue.active, pending: glbQueue.pending },
 		reservedContexts: window.__agent3dReservedContexts,
 	});

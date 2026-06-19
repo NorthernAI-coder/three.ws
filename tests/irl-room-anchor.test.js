@@ -21,6 +21,8 @@ import {
 	agentWorldPosition,
 	compassToYaw,
 	placeAround,
+	pinAbsoluteFromOrigin,
+	calibrateRoomOrigin,
 } from '../src/irl/room-anchor.js';
 
 const ORIGIN = { lat: 37.7749, lng: -122.4194 }; // arbitrary; math is origin-relative
@@ -185,5 +187,79 @@ describe('intra-room geometry is exact under GPS drift (the headline guarantee)'
 		expect(cW.x).toBeGreaterThan(wW.x);              // couch still to the right of wall
 		// And the whole cluster shifted left by the 12 m origin offset, together.
 		expect(near(cW.x, -12 + 2, 1e-6)).toBe(true);
+	});
+});
+
+describe('one-gesture room calibrate (calibrateRoomOrigin + pinAbsoluteFromOrigin)', () => {
+	// The canonical cluster: couch-agent 2 m east, wall-agent 2 m west of a
+	// true-north origin (the same scene as above, expressed as stored offsets).
+	const couch = { relEast: 2, relNorth: 0 };
+	const wall  = { relEast: -2, relNorth: 0 };
+	const absOf = (origin, pin) => pinAbsoluteFromOrigin({
+		originLat: origin.originLat, originLng: origin.originLng,
+		originYawDeg: origin.originYawDeg ?? 0, relEast: pin.relEast, relNorth: pin.relNorth,
+	});
+	const base = { originLat: ORIGIN.lat, originLng: ORIGIN.lng, originYawDeg: 0 };
+
+	it('pinAbsoluteFromOrigin inverts agentWorldPosition through the same origin', () => {
+		// Project a pin into a viewer's frame, then re-derive its absolute coord from
+		// the origin — the round-trip must land back on the geodesy localToGeo gives.
+		const abs = absOf(base, couch);
+		const direct = localToGeo(base.originLat, base.originLng, couch.relEast, couch.relNorth);
+		expect(near(abs.lat, direct.lat, 1e-12)).toBe(true);
+		expect(near(abs.lng, direct.lng, 1e-12)).toBe(true);
+	});
+
+	it('a pure translation slides every agent by the same metre offset, layout intact', () => {
+		const before = { couch: absOf(base, couch), wall: absOf(base, wall) };
+		const next = calibrateRoomOrigin({ ...base, dEastM: 1.2, dNorthM: -0.4 });
+		expect(next.originYawDeg).toBe(0); // no rotation
+		const after = { couch: absOf(next, couch), wall: absOf(next, wall) };
+
+		// Each agent moved by exactly (+1.2 m E, −0.4 m N) from its old spot.
+		for (const tag of ['couch', 'wall']) {
+			const d = geoToLocal(base.originLat, base.originLng, after[tag].lat, after[tag].lng);
+			const d0 = geoToLocal(base.originLat, base.originLng, before[tag].lat, before[tag].lng);
+			expect(near(d.east - d0.east, 1.2, 1e-6)).toBe(true);
+			expect(near(d.north - d0.north, -0.4, 1e-6)).toBe(true);
+		}
+		// And they stay exactly 4 m apart on opposite sides — the cluster is rigid.
+		const sep = geoToLocal(after.wall.lat, after.wall.lng, after.couch.lat, after.couch.lng);
+		expect(near(sep.east, 4, 1e-6)).toBe(true);
+	});
+
+	it('a rotation about the origin preserves each agent’s distance and turns its bearing by dYaw', () => {
+		const next = calibrateRoomOrigin({ ...base, dYawDeg: 30 });
+		expect(next.originYawDeg).toBe(30);
+		// The origin itself didn't move (no translation).
+		expect(near(next.originLat, base.originLat, 1e-12)).toBe(true);
+		expect(near(next.originLng, base.originLng, 1e-12)).toBe(true);
+
+		const before = absOf(base, couch);
+		const after  = absOf(next, couch);
+		const b = geoToLocal(base.originLat, base.originLng, before.lat, before.lng);
+		const a = geoToLocal(next.originLat, next.originLng, after.lat, after.lng);
+		// Distance from the origin is unchanged (rigid rotation).
+		expect(near(Math.hypot(a.east, a.north), Math.hypot(b.east, b.north), 1e-6)).toBe(true);
+		// Bearing advanced by exactly the rotation.
+		const bb = localToBearingDistance(b.east, b.north);
+		const ab = localToBearingDistance(a.east, a.north);
+		expect(near(((ab.bearingDeg - bb.bearingDeg + 540) % 360) - 180, 30, 1e-4)).toBe(true);
+	});
+
+	it('normalizes the new frame rotation into 0–359°', () => {
+		expect(calibrateRoomOrigin({ ...base, originYawDeg: 350, dYawDeg: 20 }).originYawDeg).toBe(10);
+		expect(calibrateRoomOrigin({ ...base, originYawDeg: 10, dYawDeg: -20 }).originYawDeg).toBe(350);
+	});
+
+	it('translate + rotate compose: the origin moves and the cluster twists in one call', () => {
+		const next = calibrateRoomOrigin({ ...base, dEastM: 3, dNorthM: 2, dYawDeg: -15 });
+		const moved = localToGeo(base.originLat, base.originLng, 3, 2);
+		expect(near(next.originLat, moved.lat, 1e-12)).toBe(true);
+		expect(near(next.originLng, moved.lng, 1e-12)).toBe(true);
+		expect(next.originYawDeg).toBe(345);
+		// Agent stays 2 m from the (now-moved) origin — rigid through the compound move.
+		const a = geoToLocal(next.originLat, next.originLng, absOf(next, couch).lat, absOf(next, couch).lng);
+		expect(near(Math.hypot(a.east, a.north), 2, 1e-6)).toBe(true);
 	});
 });

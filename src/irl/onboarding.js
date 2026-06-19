@@ -81,7 +81,7 @@ function recoverySteps(kind) {
 }
 
 function unsupportedBody(kind) {
-	if (kind === 'camera') return 'This device can’t open a camera here, so AR passthrough isn’t available — you can still explore your agent in orbit view.';
+	if (kind === 'camera') return 'This device can’t open a camera here, so the live camera view isn’t available — you can still explore your agent in orbit view.';
 	if (kind === 'motion') return 'This device doesn’t report motion, so look-around is off. Drag to orbit the scene instead.';
 	if (kind === 'location') return 'This device can’t share location, so pinning to real spots and nearby discovery are off — everything else still works.';
 	return 'This feature isn’t available on this device.';

@@ -219,6 +219,77 @@ export function maybeFirstRun() {
 }
 
 const MODAL_CSS = `
+/* ── Designed discovery empty state ──────────────────────────────────────────
+   A centered, low-contrast "keep exploring" prompt for the common case of a
+   live-but-empty area. The container catches no pointer events (camera taps pass
+   through); only the CTA is interactive. Calm blue, never red/amber — visually
+   distinct from the error state (task 06). */
+.irl-dx-empty {
+	position: fixed; inset: 0; z-index: 11;
+	display: flex; align-items: center; justify-content: center;
+	pointer-events: none;
+	opacity: 0; transition: opacity .4s ease;
+}
+.irl-dx-empty[hidden] { display: none; }
+.irl-dx-empty.is-visible { opacity: 1; }
+.irl-dx-empty-card {
+	display: flex; flex-direction: column; align-items: center;
+	gap: 16px; text-align: center; padding: 0 24px;
+	/* Sit a touch above centre so the bottom panel never overlaps the CTA. */
+	transform: translateY(-7%);
+}
+.irl-dx-empty-pulse { position: relative; width: 56px; height: 56px; flex-shrink: 0; }
+.irl-dx-empty-pulse::before {
+	content: ''; position: absolute; left: 50%; top: 50%;
+	width: 12px; height: 12px; margin: -6px 0 0 -6px;
+	border-radius: 50%; background: #8ec5ff; box-shadow: 0 0 10px rgba(140,197,255,0.85);
+}
+.irl-dx-empty-pulse::after {
+	content: ''; position: absolute; inset: 0; border-radius: 50%;
+	border: 1.5px solid rgba(140,197,255,0.55);
+	animation: irl-dx-ripple 2.4s ease-out infinite;
+}
+@keyframes irl-dx-ripple {
+	0%   { transform: scale(0.32); opacity: 0.9; }
+	100% { transform: scale(1);    opacity: 0;   }
+}
+.irl-dx-empty-hint {
+	margin: 0; max-width: 280px;
+	font: 600 14px/1.45 system-ui, sans-serif;
+	color: #c6d2e2; text-shadow: 0 1px 10px rgba(0,0,0,0.65);
+}
+.irl-dx-place {
+	pointer-events: auto; appearance: none; cursor: pointer;
+	border: 1px solid rgba(140,197,255,0.5);
+	background: rgba(20,30,48,0.72); color: #eaf4ff;
+	border-radius: 999px; padding: 11px 20px;
+	font: 600 13.5px system-ui, sans-serif;
+	-webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+	box-shadow: 0 6px 24px rgba(0,0,0,0.4);
+	transition: background .15s, border-color .15s, transform .12s;
+}
+.irl-dx-place:hover { background: rgba(30,44,68,0.88); border-color: rgba(140,197,255,0.8); }
+.irl-dx-place:active { transform: translateY(1px); }
+.irl-dx-place:focus-visible { outline: 2px solid #8ec5ff; outline-offset: 2px; }
+
+/* Re-openable "?" explainer affordance — below the topbar on the left, clear of
+   the joystick (bottom) and the perm chips (top-centre). */
+.irl-dx-help {
+	position: fixed; left: 12px; top: calc(env(safe-area-inset-top, 0px) + 58px);
+	z-index: 12; width: 30px; height: 30px; border-radius: 50%;
+	display: flex; align-items: center; justify-content: center;
+	appearance: none; cursor: pointer;
+	font: 700 15px system-ui, sans-serif; color: #aeb6c8;
+	background: rgba(18,26,40,0.7); border: 1px solid rgba(255,255,255,0.14);
+	-webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+	transition: background .15s, color .15s, transform .12s;
+}
+.irl-dx-help[hidden] { display: none; }
+.irl-dx-help:hover { background: rgba(30,40,58,0.88); color: #eaf4ff; }
+.irl-dx-help:active { transform: scale(0.94); }
+.irl-dx-help:focus-visible { outline: 2px solid #8ec5ff; outline-offset: 2px; }
+
+/* ── First-run explainer modal ──────────────────────────────────────────────── */
 #irl-discovery-explainer {
 	position: fixed; inset: 0; z-index: 130;
 	display: flex; align-items: center; justify-content: center;
@@ -302,6 +373,8 @@ const MODAL_CSS = `
 .irl-dx-learn:focus-visible { outline: 2px solid #7dd3fc; outline-offset: 3px; border-radius: 6px; }
 @media (prefers-reduced-motion: reduce) {
 	#irl-discovery-explainer, .irl-dx-panel { transition: none; }
+	.irl-dx-empty { transition: opacity .001s; }
+	.irl-dx-empty-pulse::after { animation: none; opacity: 0.5; transform: scale(0.85); }
 }
 `;
 
