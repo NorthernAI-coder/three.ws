@@ -124,12 +124,17 @@
 						<select id="gallery-sort" data-role="sort">
 							<option value="newest">Newest</option>
 							<option value="alpha">A → Z</option>
+							<option value="rigged">Rigged first</option>
 						</select>
 					</div>
 				</div>
 				<div class="gallery-cat-wrap" data-role="cat-wrap">
 					<div class="gallery-tag-label">Category</div>
 					<div class="gallery-cats" data-role="cats"></div>
+				</div>
+				<div class="gallery-cat-wrap" data-role="rig-wrap">
+					<div class="gallery-tag-label">Rig</div>
+					<div class="gallery-cats" data-role="rigs"></div>
 				</div>
 				<div class="gallery-tag-wrap" data-role="tag-wrap" hidden>
 					<div class="gallery-tag-label">Tags</div>
@@ -177,6 +182,8 @@
 
 		<!-- Sets window.twsOnchainBadge for the static gallery.js (bundled by Vite). -->
 		<script type="module">import '/src/shared/onchain-badge.js';</script>
+		<!-- Sets window.twsRig (rig classifier + badge) for the static gallery.js. -->
+		<script type="module">import '/src/shared/rig-classify.js';</script>
 		<!-- Wires the hero "Create from template" button. -->
 		<script type="module">import '/src/shared/template-picker.js';</script>
 		<script type="module" src="/gallery/gallery.js"></script>

@@ -25,9 +25,10 @@
 // charged. The job token is the upstream prediction id, identical to what the
 // free endpoint issues, so a single poll path serves both.
 //
-// Networks: Base mainnet (EIP-3009 + Permit2 sibling) and Solana mainnet (USDC).
-// verifyPayment / settlePayment in x402-spec.js route per network; the Solana
-// entry is omitted when X402_PAY_TO_SOLANA is unset so the 402 stays valid.
+// Network: Solana mainnet (USDC) only. verifyPayment / settlePayment in
+// x402-spec.js route per network. Base is offered solely as a dev/preview
+// failsafe when X402_PAY_TO_SOLANA is unset; production sets it, so the live
+// route quotes Solana only.
 
 import { wrap, cors, error, json, rateLimited } from '../_lib/http.js';
 import {
@@ -91,7 +92,7 @@ const ROUTE_DESCRIPTION =
 	'finish inline and return the GLB url with status:"done"). Text→3D runs on the ' +
 	'free NVIDIA NIM TRELLIS lane (native text→mesh); image→3D reconstructs via ' +
 	'TRELLIS. Priced per quality tier in USDC ($0.05 draft / $0.15 standard / ' +
-	'$0.50 high). Pay autonomously on Base or Solana mainnet — no API key, no account.';
+	'$0.50 high). Pay autonomously in USDC on Solana mainnet — no API key, no account.';
 
 const INPUT_EXAMPLE = {
 	prompt: 'a brass steampunk owl, full body',
@@ -177,6 +178,26 @@ const ROUTE_BAZAAR = {
 
 function buildRequirements(resourceUrl, priceAtomics) {
 	const amount = String(priceAtomics);
+	// The paid Forge settles in USDC on Solana mainnet ONLY. Base/EVM is
+	// intentionally not offered — every quote on this route is a Solana 402.
+	if (env.X402_PAY_TO_SOLANA) {
+		return [
+			{
+				scheme: 'exact',
+				network: NETWORK_SOLANA_MAINNET,
+				amount,
+				payTo: env.X402_PAY_TO_SOLANA,
+				asset: env.X402_ASSET_MINT_SOLANA,
+				maxTimeoutSeconds: 60,
+				resource: resourceUrl,
+				extra: { name: 'USDC', decimals: 6, feePayer: env.X402_FEE_PAYER_SOLANA },
+			},
+		];
+	}
+	// Failsafe for a dev/preview deploy where Solana isn't configured: fall back to
+	// Base so the route never dead-ends with an empty 402. Production sets
+	// X402_PAY_TO_SOLANA, so this branch never runs there and the route stays
+	// Solana-only in the live product.
 	const eip3009 = {
 		scheme: 'exact',
 		network: NETWORK_BASE_MAINNET,
@@ -190,18 +211,6 @@ function buildRequirements(resourceUrl, priceAtomics) {
 	const out = [eip3009];
 	const permit2 = permit2VariantOf(eip3009);
 	if (permit2) out.push(permit2);
-	if (env.X402_PAY_TO_SOLANA) {
-		out.push({
-			scheme: 'exact',
-			network: NETWORK_SOLANA_MAINNET,
-			amount,
-			payTo: env.X402_PAY_TO_SOLANA,
-			asset: env.X402_ASSET_MINT_SOLANA,
-			maxTimeoutSeconds: 60,
-			resource: resourceUrl,
-			extra: { name: 'USDC', decimals: 6, feePayer: env.X402_FEE_PAYER_SOLANA },
-		});
-	}
 	return out;
 }
 

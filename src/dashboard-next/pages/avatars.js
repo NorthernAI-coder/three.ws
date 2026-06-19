@@ -12,6 +12,7 @@ import { openAvatarPicker } from '../../avatar-gallery-picker.js';
 import { createFromTemplate } from '../../shared/template-picker.js';
 import { onchainBadgeHTML, ensureOnchainBadgeStyles } from '../../shared/onchain-badge.js';
 import { walletChipHTML, wireWalletChips } from '../../shared/agent-wallet-chip.js';
+import { rigBadgeHTML, matchesRigFilter, RIG_FILTERS } from '../../shared/rig-status.js';
 
 const PAGE_SIZE = 24;
 const VISIBILITIES = ['public', 'unlisted', 'private'];
@@ -38,7 +39,7 @@ const state = {
 	loaded: false,
 	nextCursor: /** @type {string|null} */ (null),
 	loadingMore: false,
-	filter: { q: '', visibility: 'all', sort: 'newest' },
+	filter: { q: '', visibility: 'all', rigged: 'all', sort: 'newest' },
 	io: /** @type {IntersectionObserver|null} */ (null),
 	// Community ("all public avatars") view — independent data + filter slice so
 	// switching tabs never clobbers the user's own list state.
@@ -50,7 +51,7 @@ const state = {
 		total: /** @type {number|null} */ (null),
 		totalViews: /** @type {number|null} */ (null),
 		loadedTags: /** @type {Set<string>} */ (new Set()),
-		filter: { q: '', tag: '', sort: 'newest' },
+		filter: { q: '', tag: '', rigged: 'all', sort: 'newest' },
 		io: /** @type {IntersectionObserver|null} */ (null),
 		searchTimer: /** @type {any} */ (null),
 	},
@@ -104,6 +105,11 @@ const state = {
 					<button type="button" class="dn-av-chip${v === 'all' ? ' active' : ''}" data-vis-chip="${v}" role="tab" aria-selected="${v === 'all'}">${v[0].toUpperCase() + v.slice(1)}</button>
 				`).join('')}
 			</div>
+			<div class="dn-av-chips" role="tablist" aria-label="Rig filter">
+				${RIG_FILTERS.map((f) => `
+					<button type="button" class="dn-av-chip${f.key === 'all' ? ' active' : ''}" data-rig-chip="${f.key}" role="tab" aria-selected="${f.key === 'all'}">${f.label}</button>
+				`).join('')}
+			</div>
 			<label class="dn-av-sort">
 				<select data-sort aria-label="Sort">
 					${SORTS.map((s) => `<option value="${s.key}">${s.label}</option>`).join('')}
@@ -116,6 +122,11 @@ const state = {
 				<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3 3"/></svg>
 				<input type="search" placeholder="Search the community gallery…" data-cq autocomplete="off" aria-label="Search the community gallery" />
 			</label>
+			<div class="dn-av-chips" role="tablist" aria-label="Rig filter">
+				${RIG_FILTERS.map((f) => `
+					<button type="button" class="dn-av-chip${f.key === 'all' ? ' active' : ''}" data-crig-chip="${f.key}" role="tab" aria-selected="${f.key === 'all'}">${f.label}</button>
+				`).join('')}
+			</div>
 			<label class="dn-av-sort">
 				<select data-csort aria-label="Sort community avatars">
 					${COMMUNITY_SORTS.map((s) => `<option value="${s.key}">${s.label}</option>`).join('')}
@@ -283,6 +294,7 @@ async function loadCommunityInitial(root) {
 		const params = new URLSearchParams({ limit: String(PAGE_SIZE), totals: '1' });
 		if (c.filter.q) params.set('q', c.filter.q);
 		if (c.filter.tag) params.set('tag', c.filter.tag);
+		if (c.filter.rigged !== 'all') params.set('rigged', c.filter.rigged);
 		const data = await get(`/api/avatars/public?${params.toString()}`);
 		const rows = Array.isArray(data?.avatars) ? data.avatars : [];
 		c.all = rows;
@@ -314,6 +326,7 @@ async function loadCommunityMore(root) {
 		const params = new URLSearchParams({ limit: String(PAGE_SIZE), cursor: c.nextCursor });
 		if (c.filter.q) params.set('q', c.filter.q);
 		if (c.filter.tag) params.set('tag', c.filter.tag);
+		if (c.filter.rigged !== 'all') params.set('rigged', c.filter.rigged);
 		const data = await get(`/api/avatars/public?${params.toString()}`);
 		const more = Array.isArray(data?.avatars) ? data.avatars : [];
 		c.all = c.all.concat(more);
@@ -352,6 +365,20 @@ function wireCommunityFilters(root) {
 		renderCommunityGrid(root);
 	});
 
+	root.querySelectorAll('[data-crig-chip]').forEach((btn) => {
+		btn.addEventListener('click', () => {
+			const v = btn.getAttribute('data-crig-chip');
+			if (c.filter.rigged === v) return;
+			c.filter.rigged = v;
+			root.querySelectorAll('[data-crig-chip]').forEach((x) => {
+				const on = x === btn;
+				x.classList.toggle('active', on);
+				x.setAttribute('aria-selected', on ? 'true' : 'false');
+			});
+			loadCommunityInitial(root);
+		});
+	});
+
 	const tagsHost = root.querySelector('[data-community-tags]');
 	tagsHost.addEventListener('click', (e) => {
 		const btn = e.target.closest('[data-tag]');
@@ -375,6 +402,19 @@ function wireFilters(root) {
 			const v = b.getAttribute('data-vis-chip');
 			state.filter.visibility = v;
 			root.querySelectorAll('[data-vis-chip]').forEach((x) => {
+				const on = x === b;
+				x.classList.toggle('active', on);
+				x.setAttribute('aria-selected', on ? 'true' : 'false');
+			});
+			renderGrid(root);
+		});
+	});
+
+	root.querySelectorAll('[data-rig-chip]').forEach((b) => {
+		b.addEventListener('click', () => {
+			const v = b.getAttribute('data-rig-chip');
+			state.filter.rigged = v;
+			root.querySelectorAll('[data-rig-chip]').forEach((x) => {
 				const on = x === b;
 				x.classList.toggle('active', on);
 				x.setAttribute('aria-selected', on ? 'true' : 'false');
@@ -449,10 +489,11 @@ function wireNewMenu(root) {
 // ── Filtering / rendering ────────────────────────────────────────────────
 
 function applyFilter(rows) {
-	const { q, visibility, sort } = state.filter;
+	const { q, visibility, rigged, sort } = state.filter;
 	let out = rows;
 	if (q) out = out.filter((a) => (a.name || '').toLowerCase().includes(q));
 	if (visibility !== 'all') out = out.filter((a) => (a.visibility || 'private') === visibility);
+	if (rigged !== 'all') out = out.filter((a) => matchesRigFilter(a, rigged));
 	const cmp = SORTS.find((s) => s.key === sort)?.cmp;
 	if (cmp) out = [...out].sort(cmp);
 	return out;

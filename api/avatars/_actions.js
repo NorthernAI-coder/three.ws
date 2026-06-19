@@ -326,6 +326,7 @@ const handlePublic = wrap(async (req, res) => {
 			q: url.searchParams.get('q') || undefined,
 			tag: url.searchParams.get('tag') || undefined,
 			category: url.searchParams.get('category') || undefined,
+			rigged: url.searchParams.get('rigged') || undefined,
 			limit,
 			cursor: url.searchParams.get('cursor') || undefined,
 			withTotals: url.searchParams.get('totals') === '1',

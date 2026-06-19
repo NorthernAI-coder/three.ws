@@ -225,7 +225,27 @@ export async function deleteAvatar({ id, userId }) {
 	return true;
 }
 
-export async function searchPublicAvatars({ q, tag, category, limit = 24, cursor, withTotals = false }) {
+// Normalize the public `rigged` query param into one of the classifier buckets,
+// or null for "no rig filter". Accepts the booleanish forms the UI sends
+// (true/false/1/0/yes/no) plus the explicit bucket names.
+function normalizeRigFilter(rigged) {
+	if (rigged == null || rigged === '') return null;
+	const v = String(rigged).trim().toLowerCase();
+	if (v === 'true' || v === '1' || v === 'yes' || v === 'rigged') return 'rigged';
+	if (v === 'false' || v === '0' || v === 'no' || v === 'static') return 'static';
+	if (v === 'unknown') return 'unknown';
+	return null;
+}
+
+export async function searchPublicAvatars({
+	q,
+	tag,
+	category,
+	rigged,
+	limit = 24,
+	cursor,
+	withTotals = false,
+}) {
 	limit = Math.min(Math.max(limit, 1), 100);
 	const params = [];
 	const conds = [`deleted_at is null`, `visibility = 'public'`];
@@ -240,6 +260,32 @@ export async function searchPublicAvatars({ q, tag, category, limit = 24, cursor
 	if (category) {
 		params.push(category);
 		conds.push(`model_category = $${params.length}`);
+	}
+	// Rig classifier filter. Mirrors classifyRig() in src/shared/rig-classify.js
+	// exactly so a server-filtered list and a client-painted badge never disagree:
+	// a model is "rigged" iff source_meta.is_rigged is true OR it carries a
+	// positive skeleton_joint_count. CASE guards mean a malformed JSONB value
+	// degrades to "not rigged" instead of throwing a cast error.
+	// CASE (not AND) guards the cast: Postgres does not guarantee WHERE-clause
+	// AND short-circuits, so a bare `regex and (..)::int` can still evaluate the
+	// cast on a non-numeric string and throw. CASE is guaranteed to short-circuit.
+	const RIG_SIGNAL = `(
+		(source_meta->>'is_rigged') = 'true'
+		or case when source_meta->>'skeleton_joint_count' ~ '^[1-9][0-9]*$' then true else false end
+	)`;
+	const rigState = normalizeRigFilter(rigged);
+	if (rigState === 'rigged') {
+		conds.push(RIG_SIGNAL);
+	} else if (rigState === 'static') {
+		// Everything that is NOT rigged — both confirmed-static meshes and
+		// never-inspected uploads. From a user's standpoint both need rigging
+		// before they animate, so they belong in the same "not rigged" bucket.
+		conds.push(`not ${RIG_SIGNAL}`);
+	} else if (rigState === 'unknown') {
+		// Never skeleton-inspected: no is_rigged flag and no joint count.
+		conds.push(
+			`(source_meta->>'is_rigged') is null and (source_meta->>'skeleton_joint_count' is null or source_meta->>'skeleton_joint_count' !~ '^[1-9][0-9]*$')`,
+		);
 	}
 	const filterParams = params.slice();
 	const filterConds = conds.join(' and ');

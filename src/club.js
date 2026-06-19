@@ -458,16 +458,17 @@ const POLE_COLORS = [0xff3bd6, 0x4ad6ff, 0xff8a3b, 0x9b5dff];
 // Dancer registry — display names, bios, accent palette, and the avatar each
 // dancer wears. A local `avatar` path loads that GLB directly; an `avatarId`
 // is resolved through /api/avatars/:id at boot (see resolveDancerAvatarUrl).
-// The three are deliberately three DISTINCT bundled rigs so the lineup never
-// collapses onto one look: Boss Vernington keeps his canonical soldier rig,
-// while Dylan and Nich take two other bundled rigs the picker already verifies.
-// attachAvatar still falls back to the default rig if a rig ever isn't drivable,
-// so a dancer is never frozen, and each is tinted with their pole's accent color
-// so the three read as a set.
+// The three rigs are deliberately DISTINCT and, critically, VERIFIED-DRIVABLE:
+// the club's clip library retargets idle/walk onto them so each dancer idles in
+// her resting stance and her legs actually move when she walks to the pole —
+// never a T-pose. Only swap a rig here for another the clip library can drive
+// (gallery rigs that fail retarget bind in their T-pose). attachAvatar still
+// falls back to the default rig if a rig ever isn't drivable, and each dancer is
+// tinted with her pole's accent color so the three read as a set.
 const DANCER_META = [
-	{ name: 'Dylan', bio: 'Neon pink heat. Fast, precise, relentless.', palette: 'pink', avatar: '/avatars/studio.glb' },
-	{ name: 'Nich', bio: 'Cyan cool. Fluid, hypnotic, in control.', palette: 'cyan', avatar: '/avatars/mannequin.glb' },
-	{ name: 'Boss Vernington', bio: 'Amber muscle. Pure power on the pole.', palette: 'amber', avatar: '/animations/soldier.glb' },
+	{ name: 'Dylan', bio: 'Neon pink heat. Fast, precise, relentless.', palette: 'pink', avatarId: '25195a2e-130c-4da5-8cad-8e7490d69b45' },
+	{ name: 'Nich', bio: 'Cyan cool. Fluid, hypnotic, in control.', palette: 'cyan', avatar: '/avatars/michelle.glb' },
+	{ name: 'Boss Vernington', bio: 'Amber muscle. Pure power on the pole.', palette: 'amber', avatarId: 'd92b292e-c2db-40cb-bf88-3e141c6b0057' },
 ];
 
 // Every dancer is scaled to this standing height (metres) so a mix of
