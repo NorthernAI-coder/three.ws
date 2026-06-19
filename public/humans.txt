@@ -6,6 +6,7 @@
   Security: security@three.ws
   Site: https://three.ws
   GitHub: https://github.com/nirholas/three.ws
+  X: https://x.com/trythreews
 
 /* THANKS */
 
