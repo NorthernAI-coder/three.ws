@@ -50,10 +50,15 @@ dependency hardening**.
 - No-fix transitive cluster: `undici`, `bigint-buffer`, `@solana/spl-token`,
   `@solana/buffer-layout-utils` — track upstream.
 
-**Remediation:** apply the non-breaking `npm audit fix` set now; schedule the
-`@metaplex-foundation/js@0.19.5` breaking bump to clear the axios/form-data/aptos
-chain; track the no-fix Solana cluster. **Status: in progress (non-breaking set),
-tracked (breaking bump).**
+**Remediation:** `npm audit fix --omit=dev` clears ~16 advisories (175 → 159) via
+semver-compatible bumps, but in this monorepo it also reformats ~57k lines of
+`package-lock.json` (npm version skew) — an unreviewable diff that conflicts with
+concurrent work. So dependency bumps are deliberately **isolated to their own PR**:
+run `npm audit fix --omit=dev` on a clean branch, review, and land separately.
+The `@metaplex-foundation/js@0.19.5` breaking bump (clears axios/form-data/aptos)
+and the no-fix Solana cluster (`undici`, `bigint-buffer`, `@solana/spl-token`)
+are tracked upstream. **Status: tracked (isolated dependency PR) — command
+verified to reduce counts; not bundled into this security changeset.**
 
 ---
 

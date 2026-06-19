@@ -400,14 +400,17 @@ async function stepTrade() {
 async function stepSnipe() {
 	// The autonomous engine must be present + importable (the worker the strategy
 	// row drives). A broken import is a real FAIL.
-	let scorerOk = false;
 	try {
 		const scorer = await import('../workers/agent-sniper/scorer.js');
-		scorerOk = typeof scorer.scoreCandidate === 'function' || Object.keys(scorer).length > 0;
+		// The candidate scorers the worker runs on every feed event — a strategy
+		// that can't be scored can't fire, so a missing scorer is a real FAIL.
+		if (typeof scorer.scoreMint !== 'function' || typeof scorer.scoreIntel !== 'function') {
+			return fail('agent-sniper scorer is missing scoreMint/scoreIntel — strategies could not be evaluated');
+		}
 	} catch (e) {
 		return fail(`agent-sniper scorer failed to import: ${(e.message || e).slice(0, 120)}`);
 	}
-	note(`agent-sniper engine present (scorer importable=${scorerOk})`);
+	note('agent-sniper engine present (scoreMint + scoreIntel importable)');
 
 	if (!ctx.agentId) {
 		return blocked(
