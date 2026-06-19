@@ -28,8 +28,9 @@ export function usePageAgent(config = {}) {
 			guide.dispose();      // free the WebGL context + speech queue on unmount
 			ref.current = null;
 		};
-		// Construct once. Intentionally empty deps.
-		// eslint-disable-next-line react-hooks/exhaustive-deps
+		// Construct once for the component's lifetime — deps intentionally empty.
+		// (In a React project with the react-hooks plugin, this is the expected
+		// "create on mount, dispose on unmount" pattern.)
 	}, []);
 
 	return agent;

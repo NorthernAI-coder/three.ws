@@ -1384,6 +1384,10 @@
 			"status": 301
 		},
 		{
+			"src": "/dashboard/x402-admin",
+			"dest": "/dashboard/x402-admin.html"
+		},
+		{
 			"src": "/dashboard/x402",
 			"dest": "/dashboard/x402.html"
 		},
@@ -2767,6 +2771,10 @@
 		{
 			"src": "/pay/c/[a-z0-9][a-z0-9-]+/?",
 			"dest": "/pay/c/index.html"
+		},
+		{
+			"src": "/store/[a-z0-9][a-z0-9-]+/?",
+			"dest": "/store/index.html"
 		},
 		{
 			"src": "/pay/(.*)",

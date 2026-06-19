@@ -532,6 +532,28 @@ POST  /api/x402-merchant?action=rotate-key mint a fresh API key</span></div>
 	</div>
 </div>
 
+<!-- Agent wallet modal -->
+<div class="overlay" id="walletModal">
+	<div class="modal">
+		<div class="modal-head"><h3 id="wmTitle">Add agent wallet</h3><button class="modal-close" id="wmClose">✕</button></div>
+		<form class="modal-body" id="walletForm">
+			<label class="field">Label<input name="label" required maxlength="60" placeholder="Treasury · Base" /></label>
+			<div class="row-2">
+				<label class="field">Chain<select name="chain"><option value="base">Base</option><option value="solana">Solana</option></select></label>
+				<label class="field">Role<select name="role"><option value="payout">Payout · receives</option><option value="payer">Payer · auto-pays</option></select></label>
+			</div>
+			<label class="field">Address<input name="address" required class="mono" spellcheck="false" autocomplete="off" placeholder="0x… or base58" /><span class="hint" id="wmAddrHint">Validated against the selected chain.</span></label>
+			<div class="row-2">
+				<label class="field">Per-call cap (USDC)<input name="per_call" type="number" min="0" step="0.000001" placeholder="no cap" /></label>
+				<label class="field">Daily cap (USDC)<input name="daily" type="number" min="0" step="0.000001" placeholder="no cap" /></label>
+			</div>
+			<div class="toggle-row" style="border-top:1px solid var(--border);margin-top:4px"><div class="tr-text"><b>Enabled</b><span>Disabled wallets are kept but never used.</span></div><label class="switch"><input type="checkbox" name="enabled" checked /><span class="slider"></span></label></div>
+			<div id="wmError" class="form-error" style="display:none"></div>
+			<div class="form-actions"><button type="button" class="btn ghost" id="wmCancel">Cancel</button><button type="submit" class="btn" id="wmSave">Add wallet</button></div>
+		</form>
+	</div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script type="module">
@@ -588,6 +610,9 @@ function hydrate(){
 	$('accent_color').value = s.accent_color || '#0a84ff';
 	setNetSeg(s.default_network || 'base');
 	$('webhook_url').value = s.webhook_url || '';
+	$('facilitator').value = s.facilitator || '';
+	agentWallets = Array.isArray(s.agent_wallets) ? structuredClone(s.agent_wallets) : [];
+	renderWallets();
 	$('store_handle').value = s.store_handle || '';
 	$('store_published').checked = !!s.store_published;
 	$('cap_call').value = s.spend_cap_per_call_atomics ? fmtUsdc(s.spend_cap_per_call_atomics) : '';
@@ -617,6 +642,8 @@ function collect(){
 		logo_url: $('logo_url').value.trim() || null,
 		accent_color: $('accent_color').value || '#0a84ff',
 		default_network: currentNet,
+		agent_wallets: agentWallets,
+		facilitator: $('facilitator').value.trim() || null,
 		webhook_url: $('webhook_url').value.trim() || null,
 		store_handle: $('store_handle').value.trim().toLowerCase() || null,
 		store_published: $('store_published').checked,
@@ -658,7 +685,7 @@ function setSaveState(st){
 }
 
 // Watch all setting inputs.
-['payout_evm','payout_solana','business_name','support_email','logo_url','accent_color','webhook_url','store_handle','cap_call','cap_day']
+['payout_evm','payout_solana','business_name','support_email','logo_url','accent_color','webhook_url','facilitator','store_handle','cap_call','cap_day']
 	.forEach((id)=> $(id).addEventListener('input', markDirty));
 ['store_published','net_base','net_solana','require_siwx'].forEach((id)=> $(id).addEventListener('change', markDirty));
 $('topSave').addEventListener('click', save);
@@ -709,6 +736,86 @@ function addCors(){
 }
 $('corsAdd').addEventListener('click', addCors);
 $('corsInput').addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); addCors(); } });
+
+// ── Agent wallets ──
+let agentWallets = [];
+const ADDR_RE = { base: /^0x[0-9a-fA-F]{40}$/, solana: /^[1-9A-HJ-NP-Za-km-z]{32,44}$/ };
+function shortAddr(a){ return a && a.length>14 ? `${a.slice(0,8)}…${a.slice(-6)}` : a; }
+function renderWallets(){
+	const wrap = $('walletList');
+	if (!agentWallets.length){
+		wrap.innerHTML = `<div class="empty" style="padding:30px 20px"><h4>No agent wallets yet</h4><p>Add a wallet your agents can pay from or receive into — bounded by its own caps.</p><p style="margin-top:14px"><button class="btn ghost sm" id="emptyWallet">+ Add agent wallet</button></p></div>`;
+		$('emptyWallet')?.addEventListener('click', ()=> openWallet(null));
+		return;
+	}
+	wrap.innerHTML = `<div class="prod-list">${agentWallets.map((w,i)=>{
+		const ok = ADDR_RE[w.chain]?.test(w.address);
+		const caps = [w.per_call_cap_atomics?`≤ ${fmtUsdc(w.per_call_cap_atomics)}/call`:null, w.daily_cap_atomics?`≤ ${fmtUsdc(w.daily_cap_atomics)}/day`:null].filter(Boolean).join(' · ') || 'no caps';
+		return `<div class="prod-card ${w.enabled===false?'inactive':''}" data-i="${i}">
+			<div class="pc-img" style="background:${w.role==='payer'?'linear-gradient(135deg,#fbbf24,#f59e0b)':'linear-gradient(135deg,#0a84ff,#60a5fa)'};font-size:12px">${w.role==='payer'?'PAY':'IN'}</div>
+			<div><div class="pc-name">${esc(w.label)} ${ok?'':'<span style="color:var(--red);font-size:11px">⚠ invalid</span>'}</div><div class="pc-meta">${esc(w.chain)} · ${esc(shortAddr(w.address))} · ${esc(caps)}</div></div>
+			<div class="pc-price" style="color:var(--muted);font-size:11px;text-transform:uppercase">${w.enabled===false?'off':w.role}</div>
+			<div class="pc-actions"><button class="btn ghost sm" data-act="edit">Edit</button><button class="btn ghost sm" data-act="del">Remove</button></div>
+		</div>`;
+	}).join('')}</div>`;
+	wrap.querySelectorAll('.prod-card').forEach((row)=>{
+		const i = +row.dataset.i;
+		row.querySelector('[data-act="edit"]').addEventListener('click', ()=> openWallet(i));
+		row.querySelector('[data-act="del"]').addEventListener('click', ()=>{ if(!confirm(`Remove "${agentWallets[i].label}"?`))return; agentWallets.splice(i,1); renderWallets(); markDirty(); });
+	});
+}
+const walletModal = $('walletModal'), walletForm = $('walletForm');
+let editingWallet = null;
+function openWallet(i){
+	editingWallet = (i==null) ? null : i;
+	const w = i==null ? null : agentWallets[i];
+	$('wmTitle').textContent = w ? 'Edit agent wallet' : 'Add agent wallet';
+	$('wmSave').textContent = w ? 'Save' : 'Add wallet';
+	$('wmError').style.display='none';
+	walletForm.reset();
+	walletForm.chain.value = w?.chain || currentNet;
+	walletForm.role.value = w?.role || 'payout';
+	walletForm.enabled.checked = w ? w.enabled!==false : true;
+	if (w){
+		walletForm.label.value = w.label || '';
+		walletForm.address.value = w.address || '';
+		walletForm.per_call.value = w.per_call_cap_atomics ? fmtUsdc(w.per_call_cap_atomics) : '';
+		walletForm.daily.value = w.daily_cap_atomics ? fmtUsdc(w.daily_cap_atomics) : '';
+	}
+	updateWmHint();
+	walletModal.classList.add('show');
+}
+function closeWallet(){ walletModal.classList.remove('show'); editingWallet=null; }
+function updateWmHint(){
+	const chain = walletForm.chain.value, v = walletForm.address.value.trim();
+	const h = $('wmAddrHint');
+	if (v && !ADDR_RE[chain].test(v)){ h.textContent = `Not a valid ${chain} address.`; h.classList.add('warn'); }
+	else { h.textContent = chain==='base' ? '0x address, 42 chars.' : 'Base58, 32–44 chars.'; h.classList.remove('warn'); }
+}
+walletForm.chain.addEventListener('change', updateWmHint);
+walletForm.address.addEventListener('input', updateWmHint);
+$('newWallet').addEventListener('click', ()=> openWallet(null));
+$('wmClose').addEventListener('click', closeWallet);
+$('wmCancel').addEventListener('click', closeWallet);
+walletModal.addEventListener('click', (e)=>{ if(e.target===walletModal) closeWallet(); });
+walletForm.addEventListener('submit', (e)=>{
+	e.preventDefault();
+	$('wmError').style.display='none';
+	const chain = walletForm.chain.value;
+	const address = walletForm.address.value.trim();
+	if (!ADDR_RE[chain].test(address)){ $('wmError').textContent = `Address is not a valid ${chain} address.`; $('wmError').style.display=''; return; }
+	const wallet = {
+		id: (editingWallet!=null && agentWallets[editingWallet]?.id) || 'w'+Math.round(performance.now())+Math.floor(Math.random()*1e4),
+		label: walletForm.label.value.trim(),
+		chain, role: walletForm.role.value, address,
+		enabled: walletForm.enabled.checked,
+		per_call_cap_atomics: toAtomics(walletForm.per_call.value),
+		daily_cap_atomics: toAtomics(walletForm.daily.value),
+	};
+	if (editingWallet!=null) agentWallets[editingWallet] = wallet; else agentWallets.push(wallet);
+	closeWallet(); renderWallets(); markDirty();
+	toast(editingWallet!=null ? 'Wallet updated' : 'Wallet added — save to persist');
+});
 
 // ── API key rotation ──
 $('rotateKey').addEventListener('click', async ()=>{

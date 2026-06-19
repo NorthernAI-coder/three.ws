@@ -81,3 +81,18 @@ ALTER TABLE x402_skus ADD COLUMN IF NOT EXISTS price_atomics   text;   -- displa
 ALTER TABLE x402_skus ADD COLUMN IF NOT EXISTS price_network   text;   -- 'base' | 'solana' the price is quoted in
 ALTER TABLE x402_skus ADD COLUMN IF NOT EXISTS position        int     NOT NULL DEFAULT 0;
 ALTER TABLE x402_skus ADD COLUMN IF NOT EXISTS active          boolean NOT NULL DEFAULT true;
+
+-- Giving — charity + round-up. A merchant can pledge a portion of every settled
+-- payment to a cause and/or round each charge up to a unit and donate the delta.
+-- Surfaced on the hosted checkout and the public storefront as a pledge badge so
+-- buyers see exactly what their payment supports. All optional → no-op by default.
+ALTER TABLE x402_merchant_settings ADD COLUMN IF NOT EXISTS give_enabled    boolean NOT NULL DEFAULT false;
+ALTER TABLE x402_merchant_settings ADD COLUMN IF NOT EXISTS give_label      text;    -- public cause name, e.g. "Ocean Cleanup"
+ALTER TABLE x402_merchant_settings ADD COLUMN IF NOT EXISTS give_url        text;    -- link buyers can verify the cause at
+ALTER TABLE x402_merchant_settings ADD COLUMN IF NOT EXISTS give_address    text;    -- destination wallet for the donation
+ALTER TABLE x402_merchant_settings ADD COLUMN IF NOT EXISTS give_network    text DEFAULT 'solana'
+                                                            CHECK (give_network IS NULL OR give_network IN ('base','solana'));
+ALTER TABLE x402_merchant_settings ADD COLUMN IF NOT EXISTS give_bps        int  NOT NULL DEFAULT 0
+                                                            CHECK (give_bps BETWEEN 0 AND 10000);  -- % of each payment, in basis points
+ALTER TABLE x402_merchant_settings ADD COLUMN IF NOT EXISTS roundup_enabled boolean NOT NULL DEFAULT false;
+ALTER TABLE x402_merchant_settings ADD COLUMN IF NOT EXISTS roundup_unit_atomics text; -- round each charge up to this unit; donate the delta
