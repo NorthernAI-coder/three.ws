@@ -9,8 +9,13 @@
 // sitemap), so the meta a crawler sees matches the catalog exactly.
 //
 // It NEVER overwrites a tag a page already has — page bodies are owned by
-// other agents; we only fill genuine gaps. Re-running is a no-op once a page
-// is fully covered. Pass --write to mutate files; default is a dry-run report.
+// other agents; we only fill genuine gaps. The one exception is the social
+// share image: pages whose og:image/twitter:image still point at the single
+// static /og-image.png are re-pointed at the per-page dynamic OG card
+// (/api/page-og) so every shared link previews with its own title, section,
+// and description. Custom dynamic OG images (agent/avatar/feature cards) are
+// left untouched. Re-running is a no-op once a page is fully covered. Pass
+// --write to mutate files; default is a dry-run report.
 //
 // Route → file resolution uses vercel.json's `routes` table (the real router),
 // falling back to conventional file locations.
@@ -22,7 +27,22 @@ import path from 'node:path';
 const ROOT = process.cwd();
 const ORIGIN = 'https://three.ws';
 const DEFAULT_OG = `${ORIGIN}/og-image.png`;
+// Every value a crawler might currently hold for the legacy shared card. Any of
+// these gets upgraded to the page's dynamic /api/page-og image.
+const LEGACY_OG = new Set([DEFAULT_OG, '/og-image.png', `${ORIGIN}/og-image.png?v=1`]);
 const WRITE = process.argv.includes('--write');
+
+// Per-page dynamic social share image. Copy is carried in the URL so the
+// /api/page-og renderer stays a pure, cacheable function of its params and
+// always matches this catalog. Mirrors the section accents defined there.
+function pageOgUrl(page, sectionId) {
+	const q = new URLSearchParams();
+	q.set('s', sectionId || 'main');
+	q.set('t', page.title || 'three.ws');
+	if (page.description) q.set('d', page.description.slice(0, 160));
+	q.set('p', page.path || '/');
+	return `${ORIGIN}/api/page-og?${q.toString()}`;
+}
 
 function htmlEscape(s) {
 	return String(s)
@@ -102,6 +122,10 @@ const has = {
 	twitterTitle: (h) => /<meta[^>]+name=["']twitter:title["']/i.test(h),
 	twitterDescription: (h) => /<meta[^>]+name=["']twitter:description["']/i.test(h),
 	twitterImage: (h) => /<meta[^>]+name=["']twitter:image["']/i.test(h),
+	twitterSite: (h) => /<meta[^>]+name=["']twitter:site["']/i.test(h),
+	ogImageAlt: (h) => /<meta[^>]+property=["']og:image:alt["']/i.test(h),
+	ogLocale: (h) => /<meta[^>]+property=["']og:locale["']/i.test(h),
+	robots: (h) => /<meta[^>]+name=["']robots["']/i.test(h),
 	jsonld: (h) => /<script[^>]+application\/ld\+json/i.test(h),
 };
 
@@ -111,40 +135,96 @@ function existingOgImage(head) {
 	return m ? m[1] : null;
 }
 
-function buildTags(page, head) {
+// Re-point a page still on the single static share image at its own dynamic
+// card. Touches only og:image / twitter:image whose value is exactly the legacy
+// /og-image.png — custom per-entity OG cards are left alone. Returns the
+// possibly-rewritten html and whether anything changed.
+function repointShareImage(html, dynamicOg) {
+	let changed = false;
+	const next = html.replace(
+		/(<meta[^>]+(?:property=["']og:image["']|name=["']twitter:image["'])[^>]+content=["'])([^"']+)(["'][^>]*>)/gi,
+		(full, pre, val, post) => {
+			if (!LEGACY_OG.has(val.trim())) return full;
+			changed = true;
+			return pre + dynamicOg + post;
+		},
+	);
+	return { html: next, changed };
+}
+
+function buildTags(page, head, sectionId) {
 	const url = `${ORIGIN}${page.path === '/' ? '/' : page.path}`;
 	const title = `${page.title} · three.ws`;
 	const desc = page.description || '';
-	const ogImage = existingOgImage(head) || DEFAULT_OG;
+	const dynamicOg = pageOgUrl(page, sectionId);
+	// Keep a page's bespoke OG card if it already has one; otherwise the dynamic
+	// per-page card. (Legacy static images were already swapped by repoint.)
+	const existing = existingOgImage(head);
+	const ogImage = existing && !LEGACY_OG.has(existing.trim()) ? existing : dynamicOg;
 	const lines = [];
 	const indent = '\t';
 
 	if (!has.canonical(head)) lines.push(`<link rel="canonical" href="${url}">`);
+	if (!has.robots(head))
+		lines.push(
+			`<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">`,
+		);
 	if (!has.ogType(head)) lines.push(`<meta property="og:type" content="website">`);
 	if (!has.ogSiteName(head)) lines.push(`<meta property="og:site_name" content="three.ws">`);
+	if (!has.ogLocale(head)) lines.push(`<meta property="og:locale" content="en_US">`);
 	if (!has.ogTitle(head)) lines.push(`<meta property="og:title" content="${htmlEscape(title)}">`);
 	if (!has.ogDescription(head) && desc)
 		lines.push(`<meta property="og:description" content="${htmlEscape(desc)}">`);
 	if (!has.ogUrl(head)) lines.push(`<meta property="og:url" content="${url}">`);
 	if (!has.ogImage(head)) {
-		lines.push(`<meta property="og:image" content="${ogImage}">`);
+		lines.push(`<meta property="og:image" content="${htmlEscape(ogImage)}">`);
 		lines.push(`<meta property="og:image:width" content="1200">`);
 		lines.push(`<meta property="og:image:height" content="630">`);
+		lines.push(`<meta property="og:image:type" content="image/png">`);
 	}
+	if (!has.ogImageAlt(head))
+		lines.push(`<meta property="og:image:alt" content="${htmlEscape(page.title)} — three.ws">`);
 	if (!has.twitterCard(head)) lines.push(`<meta name="twitter:card" content="summary_large_image">`);
+	if (!has.twitterSite(head)) lines.push(`<meta name="twitter:site" content="@trythreews">`);
 	if (!has.twitterTitle(head)) lines.push(`<meta name="twitter:title" content="${htmlEscape(title)}">`);
 	if (!has.twitterDescription(head) && desc)
 		lines.push(`<meta name="twitter:description" content="${htmlEscape(desc)}">`);
-	if (!has.twitterImage(head)) lines.push(`<meta name="twitter:image" content="${ogImage}">`);
+	if (!has.twitterImage(head)) lines.push(`<meta name="twitter:image" content="${htmlEscape(ogImage)}">`);
 	if (!has.jsonld(head)) {
-		const ld = {
-			'@context': 'https://schema.org',
-			'@type': 'WebPage',
-			name: page.title,
-			description: desc || undefined,
-			url,
-			isPartOf: { '@type': 'WebSite', name: 'three.ws', url: ORIGIN },
-		};
+		const graph = [
+			{
+				'@type': 'WebPage',
+				name: page.title,
+				description: desc || undefined,
+				url,
+				isPartOf: { '@type': 'WebSite', name: 'three.ws', url: ORIGIN },
+				primaryImageOfPage: ogImage,
+			},
+		];
+		// Breadcrumb trail for nested routes (e.g. /docs/start-here) so search
+		// results render a path instead of a bare URL.
+		const segs = page.path.split('/').filter(Boolean);
+		if (segs.length > 1) {
+			const items = [{ name: 'Home', url: `${ORIGIN}/` }];
+			let acc = '';
+			for (const s of segs) {
+				acc += `/${s}`;
+				items.push({
+					name: s.replace(/[-_]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
+					url: `${ORIGIN}${acc}`,
+				});
+			}
+			graph.push({
+				'@type': 'BreadcrumbList',
+				itemListElement: items.map((it, i) => ({
+					'@type': 'ListItem',
+					position: i + 1,
+					name: it.name,
+					item: it.url,
+				})),
+			});
+		}
+		const ld = { '@context': 'https://schema.org', '@graph': graph };
 		lines.push(
 			`<script type="application/ld+json">${JSON.stringify(ld).replace(/</g, '\\u003c')}</script>`,
 		);
@@ -191,48 +271,65 @@ async function main() {
 			if (p.indexable === false || p.auth === 'required') continue;
 			if (!p.path || p.path.startsWith('http')) continue;
 			if (skip(p.path)) continue;
-			targets.push(p);
+			targets.push({ page: p, sectionId: s.id });
 		}
 	}
 
 	let resolved = 0;
 	let unresolved = [];
 	let changed = 0;
+	let repointed = 0;
 	let alreadyComplete = 0;
 
-	for (const page of targets) {
+	for (const { page, sectionId } of targets) {
 		const file = resolveFile(page.path, router);
 		if (!file) {
 			unresolved.push(page.path);
 			continue;
 		}
 		resolved++;
-		const html = await readFile(file, 'utf8');
+		const original = await readFile(file, 'utf8');
+		// 1) Upgrade any legacy static share image to this page's dynamic card.
+		const dynamicOg = pageOgUrl(page, sectionId);
+		const { html, changed: didRepoint } = repointShareImage(original, dynamicOg);
+		// 2) Backfill any missing head tags (computed against the post-repoint head).
 		const head = headOf(html);
-		const tags = buildTags(page, head);
-		if (!tags.trim()) {
+		const tags = buildTags(page, head, sectionId);
+		if (!tags.trim() && !didRepoint) {
 			alreadyComplete++;
 			continue;
 		}
-		const added = tags
-			.trim()
-			.split('\n')
-			.map((l) => l.trim().match(/(rel|property|name)=["']([^"']+)["']|<(title|script)/i))
-			.map((m) => (m ? m[2] || m[3] : '?'))
-			.join(', ');
 		const relFile = path.relative(ROOT, file);
 		console.log(`${page.path}  →  ${relFile}`);
-		console.log(`    + ${added}`);
-		changed++;
+		if (didRepoint) {
+			repointed++;
+			console.log(`    ~ og:image/twitter:image → /api/page-og`);
+		}
+		if (tags.trim()) {
+			const added = tags
+				.trim()
+				.split('\n')
+				.map((l) => l.trim().match(/(rel|property|name)=["']([^"']+)["']|<(title|script)/i))
+				.map((m) => (m ? m[2] || m[3] : '?'))
+				.join(', ');
+			console.log(`    + ${added}`);
+			changed++;
+		}
 		if (WRITE) {
-			const next = injectIntoHead(html, tags);
-			if (next) await writeFile(file, next);
-			else console.log(`    ! no </head> — skipped`);
+			let next = html;
+			if (tags.trim()) {
+				next = injectIntoHead(html, tags);
+				if (!next) {
+					console.log(`    ! no </head> — skipped`);
+					next = html;
+				}
+			}
+			if (next !== original) await writeFile(file, next);
 		}
 	}
 
 	console.log('\n──────────────────────────────────────────');
-	console.log(`targets: ${targets.length}  resolved: ${resolved}  complete-already: ${alreadyComplete}  ${WRITE ? 'written' : 'would-change'}: ${changed}`);
+	console.log(`targets: ${targets.length}  resolved: ${resolved}  complete-already: ${alreadyComplete}  re-pointed: ${repointed}  ${WRITE ? 'written' : 'would-change'}: ${changed}`);
 	if (unresolved.length) console.log(`UNRESOLVED (${unresolved.length}): ${unresolved.join(', ')}`);
 	if (!WRITE) console.log('\n(dry-run — pass --write to apply)');
 }
