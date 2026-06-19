@@ -135,6 +135,14 @@
 			<description>Every IRL screen that loads data now has a designed loading, empty, and error state — no more stuck &quot;Loading…&quot; or blank screens. Open &quot;My pins&quot; and you'll see a skeleton while it loads, a friendly nudge to drop your first agent when you have none, and a one-tap Retry if the network hiccups. Tapping an agent shows the same care: if its profile can't load, you get a clear message and Retry while its name and a link to the full profile stay put. The nearby radar reads as intentionally empty (&quot;Be the first to pin here&quot;) instead of a broken dial, and the count beside it no longer flashes &quot;0 nearby&quot; before we've finished looking. On devices that can't run the AR view, you get a helpful card explaining why and where to go next — not a bare error.</description>
 		</item>
 		<item>
+			<title>IRL teaches you how to find agents — and an empty area now feels alive</title>
+			<link>https://three.ws/irl</link>
+			<guid isPermaLink="false">2026-06-19:IRL teaches you how to find agents — and an empty area now feels alive</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>IRL has no map and no list on purpose: you find agents by walking up to them and looking through your camera. The first time you open it, a short card now explains that idea — agents are hidden in the world around you, dropping your own lets someone else stumble on it later, and we never show a roster of where agents are, not even to you. You can reopen that explainer any time from the small &quot;?&quot; in the corner. And when you're somewhere quiet with nobody pinned yet, instead of a blank screen you'll see a gentle &quot;Look around 👀 · or be the first to pin here&quot; prompt with a one-tap way to place your own agent — so an empty spot reads as &quot;keep exploring,&quot; not &quot;this is broken.&quot; The moment a real agent comes into range, the prompt fades away on its own.</description>
+		</item>
+		<item>
 			<title>One API, many services: the three.ws API gateway</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-19:One API, many services: the three.ws API gateway</guid>
