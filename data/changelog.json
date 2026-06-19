@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-06-19",
+			"title": "Clearer IRL onboarding and copy",
+			"summary": "Opening IRL for the first time now spells out the core loop in plain words: turn on Camera AR, aim at the spot you want, then tap Pin here to anchor your agent in real space. The on-screen guidance updates as you go — it points you to the next step before you've pinned, and confirms when your agent is anchored. We rewrote the status messages around pinning to be calm and literal instead of technical or alarming: waiting on a GPS fix now tells you it's quicker outdoors, pinning without location explains your agent is saved on this device until you turn location on, and a missing compass reads as a gentle note rather than a warning. The caption keyboard now opens reliably when the panel slides up on iPhone.",
+			"tags": [
+				"improvement"
+			],
+			"link": "/irl"
+		},
+		{
+			"date": "2026-06-19",
 			"title": "IRL surfaces now show clear loading, empty, and error states",
 			"summary": "Every IRL screen that loads data now has a designed loading, empty, and error state — no more stuck \"Loading…\" or blank screens. Open \"My pins\" and you'll see a skeleton while it loads, a friendly nudge to drop your first agent when you have none, and a one-tap Retry if the network hiccups. Tapping an agent shows the same care: if its profile can't load, you get a clear message and Retry while its name and a link to the full profile stay put. The nearby radar reads as intentionally empty (\"Be the first to pin here\") instead of a broken dial, and the count beside it no longer flashes \"0 nearby\" before we've finished looking. On devices that can't run the AR view, you get a helpful card explaining why and where to go next — not a bare error.",
 			"tags": [
