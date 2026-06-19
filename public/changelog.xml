@@ -135,6 +135,14 @@
 			<description>Several navigation links pointed at pages that no longer exist — &quot;View plans&quot; on the agent deploy flow, the Classic viewer menu item, and the API-key links on the AWS welcome and selfie pages — and now go to the right place. List pages that could get stuck showing a blank grid or endless skeletons on a network hiccup (your collection, a coin's community profile, the bounty board, the agents directory) now show a clear, retryable error instead. The $THREE dashboard also replaced a non-working &quot;claim&quot; button with a plain explanation that revenue share is distributed to holders automatically.</description>
 		</item>
 		<item>
+			<title>Fixed wallet sign-in returning an error</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-19:Fixed wallet sign-in returning an error</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Signing in with a Solana or Ethereum wallet was failing for everyone — the request that starts the sign-in handshake was erroring out before you could approve anything in your wallet. A misread site address on the server was the cause; it now self-corrects, and wallet sign-in works again.</description>
+		</item>
+		<item>
 			<title>Flappin UFO — a $THREE arcade demo is live</title>
 			<link>https://three.ws/play/ufo</link>
 			<guid isPermaLink="false">2026-06-19:Flappin UFO — a $THREE arcade demo is live</guid>
@@ -381,6 +389,14 @@
 			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>Every agent and avatar has its own custodial Solana wallet, and you own it per creation: make an avatar and its agent wallet is yours; if someone forks or saves that avatar, they get a brand-new wallet they alone control — yours is never shared or copied. A new Vanity tab in the agent wallet hub lets you grind a custom address (your own prefix and/or suffix) on demand. If the wallet already holds funds, they're automatically and safely swept to the new address before the switch completes, so funds are never stranded. The wallet now appears everywhere an agent or avatar shows up — profiles, avatar pages, your Agents and Avatars dashboards, the Characters feed and Trending — each with one-tap copy, an explorer link, and a vanity badge.</description>
+		</item>
+		<item>
+			<title>Walk the whole page — the site is now a platformer</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-19:Walk the whole page — the site is now a platformer</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The corner walking companion can now step out of its spot. Click it and the character detaches and drops onto the page itself: headings, cards, buttons and images become solid ground you can walk and jump across with the arrow keys or WASD (on-screen buttons on phones). Stand on any link and it lights up like a trapdoor — pause on it, or press down, and the character dives through and you fall into the next page, landing back in from the top when it loads. It loads nothing extra until you click in, so normal browsing pays no cost. Jump straight in from any page with ?walk=play.</description>
 		</item>
 		<item>
 			<title>Agent economy demos now show honest run status</title>

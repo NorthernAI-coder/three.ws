@@ -16,6 +16,28 @@ function trimSlash(s) {
 	return s ? s.replace(/\/$/, '') : s;
 }
 
+// Canonical fallback origin — used when PUBLIC_APP_ORIGIN is unset, empty, or
+// not a parseable absolute URL.
+const DEFAULT_APP_ORIGIN = 'https://three.ws';
+
+// Coerce PUBLIC_APP_ORIGIN into a valid absolute origin. A bare host (e.g.
+// PUBLIC_APP_ORIGIN=three.ws — a real Vercel misconfiguration that 500'd every
+// SIWS/SIWE nonce request and emitted schemeless OIDC discovery URLs) gets an
+// https:// scheme prepended, and the result is validated through the URL
+// parser. Anything still unparseable falls back to the canonical origin rather
+// than letting `new URL(env.APP_ORIGIN)` throw ERR_INVALID_URL deep inside a
+// handler. Returns a normalized origin with no trailing slash or path.
+function normalizeAppOrigin(raw) {
+	let v = (raw ?? '').trim();
+	if (!v) return DEFAULT_APP_ORIGIN;
+	if (!/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(v)) v = `https://${v}`;
+	try {
+		return trimSlash(new URL(v).origin);
+	} catch {
+		return DEFAULT_APP_ORIGIN;
+	}
+}
+
 // Platform owner wallets with standing admin access, independent of env config.
 // Public addresses, safe to commit. Unioned with ADMIN_ADDRESSES (see below).
 const BUILT_IN_ADMIN_ADDRESSES = ['9MjzHaTB6Jko4YKo9mDzJSaGnktzhbebgsnqPpYWnXC7'];
@@ -31,7 +53,7 @@ function pem(name) {
 
 export const env = {
 	get APP_ORIGIN() {
-		return trimSlash(opt('PUBLIC_APP_ORIGIN', 'https://three.ws/'));
+		return normalizeAppOrigin(opt('PUBLIC_APP_ORIGIN'));
 	},
 
 	// Runtime environment signals. NODE_ENV is set to 'production' by Vercel's

@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-19T15:25:52.116Z",
+	"generated_at": "2026-06-19T16:46:11.556Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -167,6 +167,16 @@
 			"tags": [
 				"fix",
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-19",
+			"type": "update",
+			"title": "Fixed wallet sign-in returning an error",
+			"summary": "Signing in with a Solana or Ethereum wallet was failing for everyone — the request that starts the sign-in handshake was erroring out before you could approve anything in your wallet. A misread site address on the server was the cause; it now self-corrects, and wallet sign-in works again.",
+			"link": null,
+			"tags": [
+				"fix"
 			]
 		},
 		{
@@ -484,6 +494,16 @@
 			"title": "Vanity wallets for every agent — opt-in, owned per user",
 			"summary": "Every agent and avatar has its own custodial Solana wallet, and you own it per creation: make an avatar and its agent wallet is yours; if someone forks or saves that avatar, they get a brand-new wallet they alone control — yours is never shared or copied. A new Vanity tab in the agent wallet hub lets you grind a custom address (your own prefix and/or suffix) on demand. If the wallet already holds funds, they're automatically and safely swept to the new address before the switch completes, so funds are never stranded. The wallet now appears everywhere an agent or avatar shows up — profiles, avatar pages, your Agents and Avatars dashboards, the Characters feed and Trending — each with one-tap copy, an explorer link, and a vanity badge.",
 			"link": "/vanity-wallet",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-19",
+			"type": "update",
+			"title": "Walk the whole page — the site is now a platformer",
+			"summary": "The corner walking companion can now step out of its spot. Click it and the character detaches and drops onto the page itself: headings, cards, buttons and images become solid ground you can walk and jump across with the arrow keys or WASD (on-screen buttons on phones). Stand on any link and it lights up like a trapdoor — pause on it, or press down, and the character dives through and you fall into the next page, landing back in from the top when it loads. It loads nothing extra until you click in, so normal browsing pays no cost. Jump straight in from any page with ?walk=play.",
+			"link": null,
 			"tags": [
 				"feature"
 			]
