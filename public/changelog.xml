@@ -159,6 +159,14 @@
 			<description>Share any three.ws page on X, Discord, Slack, iMessage, or LinkedIn and the link now previews with a branded card built for that exact page — its title, its one-line description, and a colour that matches the section it belongs to — instead of one generic image for the whole site. The cards render as real PNGs so they show up everywhere (not just the apps that handle SVG), and they're generated on the fly from the same page catalog that feeds the sitemap, so the preview always matches what's actually on the page. We also tightened the behind-the-scenes SEO on every page: cleaner canonical links, richer structured data with breadcrumbs, and crawler hints that let search engines show large image previews.</description>
 		</item>
 		<item>
+			<title>Filter the avatar gallery by rigged vs static</title>
+			<link>https://three.ws/gallery</link>
+			<guid isPermaLink="false">2026-06-19:Filter the avatar gallery by rigged vs static</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Every public avatar is now classified by whether it carries a skeleton — rigged models can play the animation library straight away, while static ones are geometry only until you auto-rig them. The gallery shows a green &quot;Rigged&quot; or grey &quot;Not rigged&quot; badge in the corner of each card, adds a Rig filter so you can show just the animation-ready avatars, and a &quot;Rigged first&quot; sort. Deep links keep your filter, so you can share a view of only the rigged avatars.</description>
+		</item>
+		<item>
 			<title>Fixed broken links and added retry on failed loads across the app</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-19:Fixed broken links and added retry on failed loads across the app</guid>
@@ -509,6 +517,14 @@
 			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>When you walked the little robot off a ledge it could plummet faster than the page could keep up and slip off the bottom of the screen, leaving you unable to find it. The camera now tracks falls tightly and keeps the character in view, and on pages that can't scroll it catches the character and drops it right back into view.</description>
+		</item>
+		<item>
+			<title>Walk Playground now has two modes you can switch between</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-19:Walk Playground now has two modes you can switch between</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Click the corner walking companion to step into the page and you can now pick how he moves. Stroll mode is the relaxed top-down view — no gravity, wander anywhere across the page. Platformer mode turns the page's headings, cards and links into solid ground, with gravity, jumping and the chance to fall off edges. Flip between them live with the mode button (top-right) or the M key, and your choice is remembered as you walk from page to page.</description>
 		</item>
 		<item>
 			<title>Walk the whole page — the site is now a playground</title>

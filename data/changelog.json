@@ -3,6 +3,23 @@
 	"entries": [
 		{
 			"date": "2026-06-19",
+			"title": "Filter the avatar gallery by rigged vs static",
+			"summary": "Every public avatar is now classified by whether it carries a skeleton — rigged models can play the animation library straight away, while static ones are geometry only until you auto-rig them. The gallery shows a green \"Rigged\" or grey \"Not rigged\" badge in the corner of each card, adds a Rig filter so you can show just the animation-ready avatars, and a \"Rigged first\" sort. Deep links keep your filter, so you can share a view of only the rigged avatars.",
+			"tags": [
+				"feature"
+			],
+			"link": "/gallery"
+		},
+		{
+			"date": "2026-06-19",
+			"title": "Walk Playground now has two modes you can switch between",
+			"summary": "Click the corner walking companion to step into the page and you can now pick how he moves. Stroll mode is the relaxed top-down view — no gravity, wander anywhere across the page. Platformer mode turns the page's headings, cards and links into solid ground, with gravity, jumping and the chance to fall off edges. Flip between them live with the mode button (top-right) or the M key, and your choice is remembered as you walk from page to page.",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-19",
 			"title": "New Club lineup — Dylan, Nich and Boss Vernington take the poles",
 			"summary": "The three dancers on the Club floor have a fresh lineup: Dylan, Nich and Boss Vernington, each on their own distinct rig and tinted with their pole's accent color. Their names now show everywhere in the Club — on the pole cards, in the live tip ticker, and in chat — so when you tip, you tip them by name.",
 			"tags": [

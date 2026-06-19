@@ -19,6 +19,7 @@
 
 import { saveRemoteGlbToAccount } from './account.js';
 import { log } from './shared/log.js';
+import { classifyRig } from './shared/rig-classify.js';
 
 const POLL_INTERVAL_MS = 2500;
 const POLL_TIMEOUT_MS = 5 * 60 * 1000; // auto-rig backends finish well within 5 min
@@ -29,23 +30,14 @@ const POLL_TIMEOUT_MS = 5 * 60 * 1000; // auto-rig backends finish well within 5
  * Derive a human-meaningful rig status from an avatar's source_meta. The
  * reconstruct pipeline stamps is_rigged / skeleton_joint_count when it
  * inspects a delivered GLB (api/_lib/glb-inspect.js); uploads that were never
- * inspected leave it unknown.
+ * inspected leave it unknown. Thin adapter over the shared classifier
+ * (src/shared/rig-classify.js) — kept for back-compat with this module's
+ * callers, which expect the { rigged, known, jointCount } shape.
  * @returns {{ rigged: boolean, known: boolean, jointCount: number|null }}
  */
 export function getRigStatus(avatar) {
-	const meta = avatar?.source_meta || {};
-	const flag = meta.is_rigged;
-	const jointCount =
-		typeof meta.skeleton_joint_count === 'number' ? meta.skeleton_joint_count : null;
-	if (flag === true || (jointCount != null && jointCount > 0)) {
-		return { rigged: true, known: true, jointCount };
-	}
-	if (flag === false) {
-		return { rigged: false, known: true, jointCount: jointCount ?? 0 };
-	}
-	// is_rigged absent — an upload we never skeleton-inspected. Treat as unknown
-	// so the UI offers to rig rather than falsely claiming "static".
-	return { rigged: false, known: false, jointCount };
+	const { rigged, known, jointCount } = classifyRig(avatar);
+	return { rigged, known, jointCount };
 }
 
 // /api/config is small and stable for the session — fetch once.

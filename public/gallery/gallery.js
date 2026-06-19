@@ -19,6 +19,8 @@ const els = {
 	sort: document.querySelector('[data-role="sort"]'),
 	catWrap: document.querySelector('[data-role="cat-wrap"]'),
 	cats: document.querySelector('[data-role="cats"]'),
+	rigWrap: document.querySelector('[data-role="rig-wrap"]'),
+	rigs: document.querySelector('[data-role="rigs"]'),
 	tagWrap: document.querySelector('[data-role="tag-wrap"]'),
 	tags: document.querySelector('[data-role="tags"]'),
 	grid: document.querySelector('[data-role="grid"]'),
@@ -35,6 +37,7 @@ const state = {
 	query: initialParams.get('q') || '',
 	tag: initialParams.get('tag') || '',
 	category: initialParams.get('category') || '',
+	rigged: initialParams.get('rigged') || '',
 	sortBy: initialParams.get('sort') || 'newest',
 	cursor: null,
 	loading: false,
@@ -63,6 +66,7 @@ function syncUrl() {
 	const p = new URLSearchParams();
 	if (state.query) p.set('q', state.query);
 	if (state.category) p.set('category', state.category);
+	if (state.rigged) p.set('rigged', state.rigged);
 	if (state.tag) p.set('tag', state.tag);
 	if (state.sortBy !== 'newest') p.set('sort', state.sortBy);
 	const qs = p.toString();
@@ -122,6 +126,16 @@ els.cats?.addEventListener('click', (e) => {
 	resetAndLoad();
 });
 
+els.rigs?.addEventListener('click', (e) => {
+	const btn = e.target.closest('[data-rig]');
+	if (!btn) return;
+	const rig = btn.dataset.rig === state.rigged ? '' : btn.dataset.rig;
+	state.rigged = rig;
+	renderRigs();
+	syncUrl();
+	resetAndLoad();
+});
+
 els.loadMore.addEventListener('click', () => loadPage());
 
 els.status.addEventListener('click', (e) => {
@@ -172,12 +186,14 @@ function clearAllFilters() {
 	state.query = '';
 	state.tag = '';
 	state.category = '';
+	state.rigged = '';
 	state.sortBy = 'newest';
 	els.search.value = '';
 	if (els.sort) els.sort.value = 'newest';
 	updateSearchClearVisibility();
 	renderTags();
 	renderCats();
+	renderRigs();
 	syncUrl();
 	resetAndLoad();
 }
@@ -229,6 +245,7 @@ async function loadPage() {
 	const params = new URLSearchParams();
 	if (state.query) params.set('q', state.query);
 	if (state.category) params.set('category', state.category);
+	if (state.rigged) params.set('rigged', state.rigged);
 	if (state.tag) params.set('tag', state.tag);
 	if (state.cursor) params.set('cursor', state.cursor);
 	params.set('limit', '24');
@@ -243,10 +260,18 @@ async function loadPage() {
 
 		let avatars = Array.isArray(data.avatars) ? data.avatars : [];
 
-		// Client-side sort
+		// Client-side sort (applies within the loaded set, like the server's
+		// newest-first default does across pages).
 		if (state.sortBy === 'alpha') {
 			avatars = [...avatars].sort((a, b) =>
 				(a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' }),
+			);
+		} else if (state.sortBy === 'rigged') {
+			// Rigged first, then by newest within each bucket.
+			avatars = [...avatars].sort(
+				(a, b) =>
+					Number(isRigged(b)) - Number(isRigged(a)) ||
+					new Date(b.created_at || 0) - new Date(a.created_at || 0),
 			);
 		}
 
@@ -268,7 +293,7 @@ async function loadPage() {
 		els.loadMore.hidden = !state.cursor;
 
 		if (els.grid.children.length === 0) {
-			const filtersActive = !!state.query || !!state.tag || !!state.category;
+			const filtersActive = !!state.query || !!state.tag || !!state.category || !!state.rigged;
 			els.status.innerHTML = filtersActive
 				? `<div class="gallery-empty">
 						<div class="gallery-empty-art">🔍</div>
@@ -340,6 +365,30 @@ function renderCats() {
 		.join('');
 }
 
+const RIG_LABELS = [
+	{ value: '', label: 'All' },
+	{ value: 'rigged', label: '⛹ Rigged' },
+	{ value: 'static', label: '▢ Not rigged' },
+];
+
+function renderRigs() {
+	if (!els.rigs) return;
+	els.rigs.innerHTML = RIG_LABELS.map(
+		({ value, label }) =>
+			`<button type="button" class="gallery-tag${
+				value === state.rigged ? ' is-active' : ''
+			}" data-rig="${escapeAttr(value)}">${escapeHtml(label)}</button>`,
+	).join('');
+}
+
+// Classify a card's rig state via the shared classifier (window.twsRig bridge),
+// degrading to source_meta inspection if the module hasn't loaded yet.
+function isRigged(a) {
+	if (window.twsRig?.classifyRig) return window.twsRig.classifyRig(a).rigged;
+	const m = a?.source_meta || {};
+	return m.is_rigged === true || (typeof m.skeleton_joint_count === 'number' && m.skeleton_joint_count > 0);
+}
+
 function renderCard(a) {
 	const card = document.createElement('article');
 	card.className = 'gallery-card';
@@ -384,10 +433,13 @@ function renderCard(a) {
 		? window.twsOnchainBadge.onchainBadgeHTML(a, { link: false, showChain: true, size: 'sm' })
 		: '';
 
+	const rigBadge = window.twsRig?.rigBadgeHTML ? window.twsRig.rigBadgeHTML(a) : '';
+
 	card.innerHTML = `
 		<a class="gallery-card-thumb" href="${escapeAttr(viewerUrl)}" aria-label="View ${escapeAttr(a.name || 'Avatar')} in 3D viewer">
 			${thumbContent}
 			<span class="gallery-card-3dpill">3D</span>
+			${rigBadge ? `<span class="gallery-card-rig">${rigBadge}</span>` : ''}
 			<span class="gallery-card-play" aria-hidden="true">▶</span>
 		</a>
 		<div class="gallery-card-body">
@@ -648,6 +700,7 @@ function openAvatarEmbedModal({ avatarId, glbUrl, name }) {
 }
 
 renderCats();
+renderRigs();
 resetAndLoad();
 
 // =============================================================================
