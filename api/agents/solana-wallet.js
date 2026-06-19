@@ -14,9 +14,10 @@ import {
 } from '@solana/web3.js';
 import {
 	getAssociatedTokenAddressSync, createTransferCheckedInstruction,
-	createAssociatedTokenAccountIdempotentInstruction, getMint,
+	createAssociatedTokenAccountIdempotentInstruction, createCloseAccountInstruction, getMint,
 	TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID,
 } from '@solana/spl-token';
+import { grindMintKeypair, estimateAttempts, BASE58_ALPHABET } from '../_lib/pump-vanity.js';
 import { webcrypto, randomUUID } from 'node:crypto';
 import { env } from '../_lib/env.js';
 import { recordEvent } from '../_lib/usage.js';
