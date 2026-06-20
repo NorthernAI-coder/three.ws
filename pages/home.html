@@ -231,117 +231,6 @@
 			margin: 0; color: var(--text-3); font-size: 13.5px; max-width: 240px;
 		}
 
-		/* ── Reactive $THREE hero ──────────────────────────────────────── */
-		/* Live-data canvas sits behind the avatar; the avatar's transparent
-		   stage lets the crystal + particle field bleed around it. */
-		.rhero-canvas {
-			position: absolute; inset: 0;
-			width: 100%; height: 100%;
-			display: block; z-index: 0;
-			opacity: 0;
-			transition: opacity 1.1s ease;
-			pointer-events: none;
-		}
-		.rhero-canvas.rhero-canvas--ready { opacity: 1; }
-		/* Calm static fallback (reduced motion / canvas unavailable): a faint
-		   faceted glow, no animation. Hidden once the live canvas paints. */
-		.rhero-static {
-			position: absolute; inset: 0; z-index: 0; pointer-events: none;
-			background:
-				radial-gradient(42% 38% at 50% 46%, rgba(170,200,255,0.16) 0%, rgba(140,170,230,0.05) 45%, transparent 70%),
-				conic-gradient(from 30deg at 50% 46%, rgba(255,255,255,0.05), transparent 25%, rgba(255,255,255,0.04) 50%, transparent 75%, rgba(255,255,255,0.05));
-			opacity: 0;
-			transition: opacity 0.6s ease;
-		}
-		.hero-stage[data-rhero-reduced="true"] .rhero-static { opacity: 1; }
-		.hero-stage-inner { z-index: 1; }
-
-		/* Live data readout — small, elegant, anchored top-left of the stage. */
-		.rhero-overlay {
-			position: absolute; top: 16px; left: 16px; z-index: 6;
-			display: flex; flex-direction: column; gap: 4px;
-			padding: 11px 14px;
-			border-radius: 14px;
-			background: rgba(8,8,9,0.55);
-			border: 1px solid var(--hairline-strong);
-			backdrop-filter: blur(14px) saturate(1.1);
-			-webkit-backdrop-filter: blur(14px) saturate(1.1);
-			pointer-events: none;
-			min-width: 132px;
-			box-shadow: 0 10px 30px rgba(0,0,0,0.35);
-			animation: rhero-overlay-in 0.7s 0.2s both cubic-bezier(.2,.7,.3,1);
-		}
-		@keyframes rhero-overlay-in {
-			from { opacity: 0; transform: translateY(-6px); }
-			to   { opacity: 1; transform: none; }
-		}
-		.rhero-overlay-head {
-			display: flex; align-items: center; justify-content: space-between; gap: 10px;
-		}
-		.rhero-mint {
-			font: 600 10px/1 var(--font-mono);
-			letter-spacing: 0.16em; color: var(--text-3);
-		}
-		.rhero-status {
-			display: inline-flex; align-items: center; gap: 5px;
-			font: 500 9.5px/1 var(--font-mono);
-			letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-3);
-		}
-		.rhero-dot {
-			width: 5px; height: 5px; border-radius: 50%;
-			background: var(--buy); box-shadow: 0 0 6px var(--buy);
-			animation: rhero-pulse 2.2s ease-in-out infinite;
-		}
-		.rhero-overlay[data-connection="reconnecting"] .rhero-dot {
-			background: #f5a623; box-shadow: 0 0 6px #f5a623;
-		}
-		.rhero-overlay[data-connection="reconnecting"] .rhero-status { color: #f5a623; }
-		@keyframes rhero-pulse {
-			0%, 100% { opacity: 1; transform: scale(1); }
-			50%      { opacity: 0.45; transform: scale(0.7); }
-		}
-		.rhero-price-row { display: flex; align-items: baseline; gap: 8px; }
-		.rhero-price {
-			font: 600 19px/1 var(--font-display);
-			color: var(--text); letter-spacing: -0.01em;
-			font-variant-numeric: tabular-nums;
-		}
-		.rhero-change {
-			font: 600 11.5px/1 var(--font-mono);
-			font-variant-numeric: tabular-nums;
-		}
-		.rhero-change[data-dir="up"]   { color: var(--buy); }
-		.rhero-change[data-dir="down"] { color: var(--sell); }
-		.rhero-change[data-dir="flat"] { color: var(--text-3); }
-		.rhero-holders {
-			font: 500 10.5px/1 var(--font-mono);
-			color: var(--text-4); letter-spacing: 0.04em;
-		}
-		.rhero-holders [data-rhero="holders"] { color: var(--text-3); }
-		/* Loading shimmer for the values until first stats land. */
-		.rhero-overlay[data-loading] .rhero-price,
-		.rhero-overlay[data-loading] .rhero-change,
-		.rhero-overlay[data-loading] [data-rhero="holders"] {
-			color: transparent; border-radius: 5px;
-			background: linear-gradient(90deg, var(--surface-2) 25%, var(--surface-3) 50%, var(--surface-2) 75%);
-			background-size: 200% 100%;
-			animation: rhero-shimmer 1.3s ease-in-out infinite;
-		}
-		@keyframes rhero-shimmer {
-			from { background-position: 200% 0; }
-			to   { background-position: -200% 0; }
-		}
-		@media (max-width: 980px) {
-			.rhero-overlay { top: 12px; left: 12px; padding: 9px 12px; min-width: 116px; }
-			.rhero-price { font-size: 16.5px; }
-		}
-		@media (prefers-reduced-motion: reduce) {
-			.rhero-dot, .rhero-overlay { animation: none !important; }
-			.rhero-overlay[data-loading] .rhero-price,
-			.rhero-overlay[data-loading] .rhero-change,
-			.rhero-overlay[data-loading] [data-rhero="holders"] { animation: none !important; }
-		}
-
 		/* ── CAPABILITY STRIP ──────────────────────────────────── */
 		.capability-strip {
 			position: relative;
@@ -1467,8 +1356,18 @@
 			background: var(--text-3); border-radius: 2px;
 			border: none; cursor: pointer;
 			opacity: 0.5; transition: opacity 0.15s;
+			position: relative;
 		}
 		.wyg-anim-stop:hover { opacity: 1; }
+		/* Touch: extend the hit area to 44px around the 14px glyph without
+		   altering its visual size or the header layout (WCAG 2.5.8). */
+		@media (hover: none) and (pointer: coarse) {
+			.wyg-anim-stop::after {
+				content: ''; position: absolute;
+				top: 50%; left: 50%; transform: translate(-50%, -50%);
+				width: 44px; height: 44px;
+			}
+		}
 		.wyg-anim-scroll {
 			display: flex; gap: 6px;
 			overflow-x: auto; overflow-y: hidden;
@@ -2579,19 +2478,6 @@
 		</div>
 	</div>
 	<div class="hero-stage" id="hero-stage">
-		<canvas class="rhero-canvas" id="rhero-canvas" aria-hidden="true"></canvas>
-		<div class="rhero-static" aria-hidden="true"></div>
-		<div class="rhero-overlay" id="rhero-overlay" data-loading data-connection="live" role="group" aria-label="Live $THREE market data">
-			<div class="rhero-overlay-head">
-				<span class="rhero-mint">$THREE</span>
-				<span class="rhero-status"><span class="rhero-dot"></span><span data-rhero="status">Live</span></span>
-			</div>
-			<div class="rhero-price-row">
-				<span class="rhero-price" data-rhero="price">—</span>
-				<span class="rhero-change" data-rhero="change" data-dir="flat">—</span>
-			</div>
-			<div class="rhero-holders"><span data-rhero="holders">—</span> holders</div>
-		</div>
 		<div class="hero-stage-inner" id="hero-stage-inner"></div>
 		<div class="hero-chips-wrap" id="hero-chips-wrap">
 			<div class="hero-chips-label">
@@ -4924,21 +4810,9 @@
 	// Live pump.fun token card + real "Launch yours" flow.
 	import { initHomeLiveToken } from '/src/home-live-token.js';
 	import { initHomepageLauncher } from '/src/pump/homepage-launcher.js';
-	import { initReactiveHero } from '/src/home-three-reactive-hero.js';
 	const hltCard = document.getElementById('hlt-card');
 	if (hltCard) initHomeLiveToken(hltCard);
 	initHomepageLauncher(document.getElementById('hlt-launch'));
-
-	// Signature reactive $THREE hero — crystal + particle field that breathes
-	// with live market data, mounted behind the hero avatar.
-	const rheroStage = document.getElementById('hero-stage');
-	if (rheroStage) {
-		initReactiveHero({
-			stage: rheroStage,
-			canvas: document.getElementById('rhero-canvas'),
-			overlay: document.getElementById('rhero-overlay'),
-		});
-	}
 </script>
 
 <script type="module">

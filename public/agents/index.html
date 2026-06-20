@@ -120,7 +120,11 @@
 			.hero h1 { font-size: 26px; }
 		}
 		</style>
-	
+		<!-- Site-wide mobile polish: horizontal-scroll guard, iOS focus-zoom
+		     fix, and the 44px tap-target floor. Loaded last so it wins on
+		     equal specificity over this page's inline styles. -->
+		<link rel="stylesheet" href="/mobile.css" />
+
 	<meta name="twitter:title" content="Agents Index · three.ws">
 	<meta name="twitter:description" content="Browse every registered agent on three.ws.">
 	<meta name="twitter:image" content="https://three.ws/api/page-og?s=agent-tools&amp;t=Agents+Index&amp;d=Browse+every+registered+agent+on+three.ws.&amp;p=%2Fagents">

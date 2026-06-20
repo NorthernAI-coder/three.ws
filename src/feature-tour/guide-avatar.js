@@ -55,9 +55,19 @@ export class GuideAvatar {
 	async mount() {
 		ensureStyles();
 		this._buildDom();
-		await this._buildScene();
-		this.clock = new Timer();
-		this._raf = requestAnimationFrame(this._tick);
+		// The DOM host (and its speech bubble) is built first, so even if WebGL or
+		// the avatar GLB fail to load the tour degrades gracefully: captions still
+		// show above the moving host, and the spotlight + pointer beam still work.
+		// The guide just loses its rendered body rather than breaking the tour.
+		try {
+			await this._buildScene();
+			this.clock = new Timer();
+			this._raf = requestAnimationFrame(this._tick);
+		} catch (err) {
+			console.warn('[tour] guide avatar failed to load — continuing without a rendered body:', err?.message || err);
+			this._headless = true;
+			this.canvas?.remove();
+		}
 		// Park bottom-right until the first stop moves it.
 		const start = { x: window.innerWidth - CANVAS_W - MARGIN, y: window.innerHeight - CANVAS_H - MARGIN };
 		this._setPos(start, false);

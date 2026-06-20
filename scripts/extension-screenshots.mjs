@@ -236,10 +236,17 @@ async function routeApi(context, avatars) {
 // Compose a small extension surface onto a branded 1280×800 frame.
 async function composeSurface(shotBuf, outName, caption) {
 	const bg = await sharp(tileSvg(W, H, { title: '', sub: '' })).png().toBuffer();
-	const meta = await sharp(shotBuf).metadata();
+	// Scale the surface to comfortably fit inside the frame (room for caption).
+	const maxW = W - 200, maxH = H - 170;
+	let shot = shotBuf;
+	const m0 = await sharp(shotBuf).metadata();
+	if (m0.width > maxW || m0.height > maxH) {
+		shot = await sharp(shotBuf).resize({ width: maxW, height: maxH, fit: 'inside' }).png().toBuffer();
+	}
+	const meta = await sharp(shot).metadata();
 	const sw = meta.width, sh = meta.height;
 	const mask = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${sw}" height="${sh}"><rect width="${sw}" height="${sh}" rx="16" ry="16"/></svg>`);
-	const rounded = await sharp(shotBuf).composite([{ input: mask, blend: 'dest-in' }]).png().toBuffer();
+	const rounded = await sharp(shot).composite([{ input: mask, blend: 'dest-in' }]).png().toBuffer();
 	const left = Math.round((W - sw) / 2);
 	const top = Math.round((H - sh) / 2) - 20;
 	const shadow = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}"><rect x="${left - 6}" y="${top + 12}" width="${sw + 12}" height="${sh + 12}" rx="22" fill="#000" opacity="0.5"/></svg>`);

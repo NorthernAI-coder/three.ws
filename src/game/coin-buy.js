@@ -21,6 +21,7 @@
 import './coin-buy.css';
 import { detectSolanaWallet, SOLANA_RPC, solanaTxExplorerUrl } from '../erc8004/solana-deploy.js';
 import { createSafetyPanel } from '../shared/safety-panel.js';
+import { createSmartMoneyPanel } from '../shared/smart-money-panel.js';
 
 const WSOL = 'So11111111111111111111111111111111111111112';
 const USDC_MINT = {
@@ -203,6 +204,12 @@ class TradeModal {
 		this.safetyHost = el('div', { class: 'cc-buy-safety-host' });
 		this.safetyHost.appendChild(this.safety.el);
 
+		// Who is buying this coin — the smart-money wallet-reputation read. Coin-level
+		// intel (independent of buy amount/denomination), shown for any selected coin.
+		this.smartMoney = createSmartMoneyPanel();
+		this.smartMoneyHost = el('div', { class: 'cc-buy-smartmoney-host' });
+		this.smartMoneyHost.appendChild(this.smartMoney.el);
+
 		this.cta = el('button', { class: 'cc-buy-cta', type: 'button', onclick: () => this._onCta() });
 		this.ctaLabel = 'buy';
 
@@ -241,6 +248,7 @@ class TradeModal {
 			this.feeLine,
 			this.slipRow,
 			this.walletLine,
+			this.smartMoneyHost,
 			this.safetyHost,
 			this.cta,
 			this.statusLine,
@@ -256,6 +264,7 @@ class TradeModal {
 		document.body.appendChild(this.overlay);
 		requestAnimationFrame(() => this.overlay.classList.add('cc-on'));
 		this._syncMode();
+		this.smartMoney?.loadForMint({ mint: this.coin.mint, network: NETWORK });
 		setTimeout(() => this.amountInput.focus(), 30);
 	}
 
@@ -265,6 +274,7 @@ class TradeModal {
 		this.overlay.classList.remove('cc-on');
 		setTimeout(() => this.overlay.remove(), 180);
 		this.safety?.destroy();
+		this.smartMoney?.destroy();
 		if (_open === this) _open = null;
 	}
 

@@ -414,13 +414,12 @@
 		min-height: 44px;
 	}
 
-	/* Filter chips/segments: 40px keeps dense rows from ballooning while
-	   still clearing the comfortable-touch threshold, with breathing room
-	   between neighbours. */
+	/* Filter chips/segments: full 44px hit height with breathing room
+	   between neighbours so dense rows stay easy to tap. */
 	.market-chip,
 	.market-cat-chip,
 	.market-filter-chip {
-		min-height: 40px;
+		min-height: 44px;
 		display: inline-flex;
 		align-items: center;
 	}
