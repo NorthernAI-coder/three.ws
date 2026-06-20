@@ -25,6 +25,14 @@ vi.mock('../../api/_lib/rate-limit.js', () => ({
 	clientIp: vi.fn(() => '127.0.0.1'),
 }));
 
+// CSRF is enforced on the state-changing import/clear paths; its token round-trip
+// has dedicated coverage in security-csrf-gates. Stub it to a pass so these tests
+// exercise the import validation logic, as auth/db/rate-limit are mocked above.
+vi.mock('../../api/_lib/csrf.js', () => ({
+	requireCsrf: vi.fn(async () => true),
+	issueCsrf: vi.fn(async () => 'csrf-test-token'),
+}));
+
 vi.mock('../../api/_lib/env.js', () => ({
 	env: { JWT_SECRET: 'test-secret-please-do-not-use-in-production-ever' },
 }));
@@ -46,6 +54,10 @@ vi.mock('../../api/_lib/agent-wallet.js', () => ({
 		address: 'GeneratedAddr1111111111111111111111111111111',
 		encrypted_secret: 'mocked-cipher',
 	})),
+	// The import/clear paths encrypt the supplied secret with the dedicated
+	// custody key; the cipher itself is opaque to this test.
+	encryptSecret: vi.fn(async () => 'mocked-cipher'),
+	recoverSolanaAgentKeypair: vi.fn(async () => Keypair.generate()),
 }));
 
 const { default: handler } = await import('../../api/agents/solana-wallet.js');
