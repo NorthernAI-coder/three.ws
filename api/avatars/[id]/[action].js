@@ -50,6 +50,8 @@ export default wrap(async (req, res) => {
 			return handleSession(req, res);
 		case 'storage-mode':
 			return handleStorageMode(req, res);
+		case 'thumb':
+			return handleThumb(req, res);
 		case 'thumbnail':
 			return handleThumbnail(req, res);
 		case 'versions':
@@ -561,6 +563,35 @@ function redirect(res, url) {
 	res.setHeader('location', url);
 	res.setHeader('cache-control', 'public, max-age=60, s-maxage=300');
 	res.end();
+}
+
+// ── thumb (embed-friendly poster) ────────────────────────────────────────────
+// GET /api/avatars/:id/thumb — 302 to the avatar's R2-hosted poster, with
+// wildcard CORS so it loads from a plain <img src> in any first-party client
+// (the Walk Avatar extension popup, the embed SDK) where an Authorization
+// header can't be attached. Unlike `thumbnail`, this is public for every
+// visibility: the poster PNG is already a public CDN object, while the GLB
+// stays gated behind `glb`. No thumbnail → 404 so the client renders its
+// initial-glyph fallback.
+async function handleThumb(req, res) {
+	res.setHeader('access-control-allow-origin', '*');
+	res.setHeader('access-control-allow-methods', 'GET,OPTIONS');
+	if (req.method === 'OPTIONS') {
+		res.statusCode = 204;
+		return res.end();
+	}
+	if (!method(req, res, ['GET'])) return;
+
+	const id = req.query?.id || new URL(req.url, 'http://x').pathname.split('/').filter(Boolean)[2];
+	if (!id) return error(res, 400, 'invalid_request', 'avatar id required');
+
+	const [row] = await sql`
+		SELECT thumbnail_key FROM avatars WHERE id = ${id} AND deleted_at IS NULL LIMIT 1
+	`;
+	if (!row) return error(res, 404, 'not_found', 'avatar not found');
+	if (!row.thumbnail_key) return error(res, 404, 'not_found', 'avatar has no thumbnail');
+
+	return redirect(res, publicUrl(row.thumbnail_key));
 }
 
 // ── glb (same-origin CORS-friendly proxy) ─────────────────────────────────
