@@ -58,10 +58,10 @@ export async function buildSentimentPulseTool() {
 			scheme: 'exact',
 			priceUsd: '$0.003',
 			inputSchema: inputJsonSchema,
-			example: { token: 'HZ1JovNiVvGrGNiiYvEozEVgZ58xaU3RKwX8eACQBCt3', limit: 100 },
+			example: { token: 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump', limit: 100 },
 			outputExample: {
 				ok: true,
-				token: 'HZ1JovNiVvGrGNiiYvEozEVgZ58xaU3RKwX8eACQBCt3',
+				token: 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump',
 				overall: { score: 0.42, posPct: 58, negPct: 16, neuPct: 26, count: 100 },
 				breakdown: { pumpfun: { score: 0.4, count: 90 }, extra: { score: 0.5, count: 10 } },
 			},

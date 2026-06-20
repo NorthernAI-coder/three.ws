@@ -38,7 +38,7 @@
 claude mcp add 3d-agent -- npx -y @three-ws/mcp-server
 ```
 
-To also receive payments (server operators), pass the payout address as env: `claude mcp add 3d-agent -e MCP_SVM_PAYMENT_ADDRESS=YourSolanaWallet -- npx -y @three-ws/mcp-server`. Alternatively, run `/setup-mcp` in any project that includes this repo and Claude will detect your OS, collect your wallet addresses, and write the config for you.
+To also receive payments (server operators), pass the payout address as env: `claude mcp add 3d-agent -e MCP_SVM_PAYMENT_ADDRESS=YourSolanaWallet -- npx -y @three-ws/mcp-server`.
 
 ### Claude Desktop
 
@@ -140,18 +140,24 @@ Then replace `"command": "npx", "args": ["-y", "@three-ws/mcp-server"]` with `"c
 | `MCP_POSE_PREVIEW_BASE`         | `https://three.ws/pose`               | Base URL for `get_pose_seed` preview links                                                                         |
 | `MCP_AGENT_REP_RPC_<chainId>`   | public RPC                            | Per-chain RPC override for `agent_reputation` (tried before the failover set)                                      |
 | `MCP_AGENT_REP_LOG_WINDOW`      | `200000`                              | Block window for `agent_reputation` event scan                                                                     |
+| `X402_ASSET_MINT_SOLANA`        | USDC (`EPjFW…Dt1v`)                   | SPL mint settled as the payment asset (defaults to Solana USDC)                                                    |
+| `SOLANA_DEVNET_RPC_URL`         | public devnet                         | Devnet RPC for the AgenC tools when `cluster: "devnet"`                                                            |
+| `AGENC_RPC_URL`                 | unset                                 | Single-endpoint override for all AgenC reads (wins over cluster defaults)                                          |
+| `MCP_ENS_RPC_URL` / `MAINNET_RPC_URL` | failover set                    | Ethereum-mainnet RPC override for `ens_sns_resolve`                                                                |
+| `MESH_FORGE_TIMEOUT_MS` / `MESH_FORGE_POLL_MS` | `180000` / `3000`      | `mesh_forge` reconstruct poll budget / interval                                                                   |
+| `MESH_FORGE_DIRECTOR`           | `1` (on)                              | Set `0` to skip the IBM Granite prompt-director stage in `mesh_forge`                                              |
+| `RIG_MESH_TIMEOUT_MS` / `RIG_MESH_POLL_MS` | `180000` / `3000`          | `rig_mesh` poll budget / interval                                                                                  |
 
----
+### `text_to_avatar` (Replicate)
 
-## Claude Code slash commands
+The `text_to_avatar` tool drives Replicate. If the two vars below are unset it returns a `not_configured` error instead of generating — every other tool works without them.
 
-This repo ships three slash commands in `.claude/commands/` that work in any project that references this repo:
-
-| Command                  | What it does                                                                            |
-| ------------------------ | --------------------------------------------------------------------------------------- |
-| `/setup-mcp`             | Detects your OS, collects wallet addresses, and writes the MCP config to the right file |
-| `/scaffold-agent`        | Scaffolds a new three.ws agent in the current project with MCP client wiring            |
-| `/use-tools [tool_name]` | Produces a complete, runnable code example for a specific paid tool                     |
+| Var                            | Default                | Description                                                              |
+| ------------------------------ | ---------------------- | ----------------------------------------------------------------------- |
+| `REPLICATE_API_TOKEN`          | unset (**required**)   | Replicate API token used to submit the prediction                       |
+| `REPLICATE_TEXT_TO_AVATAR_MODEL` | unset (**required**) | Pinned commercial-OK image/text-to-3D version hash (e.g. Hunyuan-3D 3.1) |
+| `MCP_TEXT_TO_AVATAR_TIMEOUT_MS` / `MCP_TEXT_TO_AVATAR_POLL_MS` | `110000` / `2000` | Prediction poll budget / interval |
+| `MCP_TEXT_TO_AVATAR_REHOST`    | `0`                    | Set `1` to rehost the Replicate GLB to three.ws R2 via `MCP_REHOST_ENDPOINT` + `MCP_REHOST_KEY` |
 
 ---
 
