@@ -13,7 +13,7 @@
 //   - no Helius key → returns only cached + bare {mint, symbol: mint.slice(0,6)}
 //   - DB unreachable → in-memory map for the request lifetime
 
-import { sql } from './db.js';
+import { sql, sqlValues } from './db.js';
 
 const REFRESH_AFTER_MS = 1000 * 60 * 60 * 24 * 30; // 30 days
 
@@ -57,11 +57,13 @@ async function fetchFromCache(mints) {
 async function persist(entries) {
 	if (entries.length === 0) return;
 	try {
+		const now = new Date();
+		const rows = entries.map((e) => [
+			e.mint, 'solana', e.symbol, e.name, e.logo, e.decimals, 'helius-das', now,
+		]);
 		await sql`
 			INSERT INTO token_metadata (mint, chain, symbol, name, logo, decimals, source, refreshed_at)
-			SELECT * FROM ${sql(
-				entries.map((e) => [e.mint, 'solana', e.symbol, e.name, e.logo, e.decimals, 'helius-das', new Date()]),
-			)}
+			VALUES ${sqlValues(rows)}
 			ON CONFLICT (mint) DO UPDATE SET
 				symbol = EXCLUDED.symbol,
 				name = EXCLUDED.name,

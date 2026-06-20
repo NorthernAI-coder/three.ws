@@ -225,6 +225,9 @@
 		.irl-cue-mute.is-muted .irl-cue-off { display: inline; }
 		.irl-cue-mute.is-muted { color: var(--text-3); }
 		.irl-cue-mute[aria-pressed="false"] { color: var(--green); border-color: rgba(74,222,128,0.32); }
+		/* Smart-glasses pairing — icon-only, lights blue when a lens is linked. */
+		.irl-glasses-btn { padding: 6px; display: inline-flex; align-items: center; justify-content: center; margin-right: 8px; }
+		.irl-glasses-btn.is-connected { color: #7aa2ff; border-color: rgba(122,162,255,0.45); background: rgba(79,124,255,0.12); }
 
 		/* ── Joystick ────────────────────────────────────────────── */
 		#irl-joystick {
@@ -430,7 +433,7 @@
 		/* Touch devices: every fixed control meets the 44×44 Apple HIG tap target. */
 		@media (hover: none) {
 			.irl-pill-btn { min-height: 44px; }
-			.irl-share-btn, .irl-privacy-btn, .irl-cue-mute { min-height: 44px; min-width: 44px; }
+			.irl-share-btn, .irl-privacy-btn, .irl-cue-mute, .irl-glasses-btn { min-height: 44px; min-width: 44px; }
 			.irl-back { min-height: 44px; }
 		}
 		#irl-clear-btn { color: var(--danger); border-color: rgba(248,113,113,0.3); background: rgba(248,113,113,0.06); }
@@ -1867,6 +1870,9 @@
 	</button>
 	<button class="irl-share-btn irl-privacy-btn" id="irl-privacy-btn" type="button" aria-label="Location & privacy" title="Location & privacy">
 		<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+	</button>
+	<button class="irl-share-btn irl-glasses-btn" id="irl-glasses-btn" type="button" aria-pressed="false" aria-label="Connect smart glasses" title="Connect smart glasses">
+		<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="15" r="4"/><circle cx="18" cy="15" r="4"/><path d="M10 15a2 2 0 0 1 4 0"/><path d="m2.5 13 1.5-5a2 2 0 0 1 2-1.5"/><path d="m21.5 13-1.5-5a2 2 0 0 0-2-1.5"/></svg>
 	</button>
 	<button class="irl-share-btn" id="irl-share-btn" type="button" aria-label="Share">Share</button>
 </header>

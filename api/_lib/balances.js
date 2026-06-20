@@ -225,21 +225,21 @@ async function getSolanaBalancesViaDas(address) {
 			.catch(() => {});
 		// Direct write (cheaper than going through getMetadataForMints):
 		try {
-			const { sql } = await import('./db.js');
+			const { sql, sqlValues } = await import('./db.js');
+			const now = new Date();
+			const rows = metaPayload.map((m) => [
+				m.mint,
+				'solana',
+				m.symbol,
+				m.name,
+				m.logo,
+				m.decimals,
+				'helius-das',
+				now,
+			]);
 			await sql`
 				INSERT INTO token_metadata (mint, chain, symbol, name, logo, decimals, source, refreshed_at)
-				SELECT * FROM ${sql(
-					metaPayload.map((m) => [
-						m.mint,
-						'solana',
-						m.symbol,
-						m.name,
-						m.logo,
-						m.decimals,
-						'helius-das',
-						new Date(),
-					]),
-				)}
+				VALUES ${sqlValues(rows)}
 				ON CONFLICT (mint) DO UPDATE SET
 					symbol = EXCLUDED.symbol,
 					name = EXCLUDED.name,

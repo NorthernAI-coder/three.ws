@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-06-20",
+			"title": "/irl now pairs with smart glasses",
+			"summary": "You can connect companion smart glasses to the /irl augmented-reality view and see the nearest agent right on your lens — its name, the direction to turn, how far away it is, and a flash when one walks into range. Your phone keeps doing all the GPS, compass and discovery work; the glasses just show the cue, so you can keep your head up instead of staring at a screen. Brilliant Labs Frame is fully supported (official SDK); Even Realities G1 works too via its two-arm pairing (experimental, community protocol). Pairing uses an encrypted Web Bluetooth link in Chromium browsers — your location is never sent to the glasses, only the direction and distance you already see on screen.",
+			"tags": [
+				"feature"
+			],
+			"link": "/irl"
+		},
+		{
+			"date": "2026-06-20",
 			"title": "Transaction history and the Brain Studio editor are stable again",
 			"summary": "Two crashes are fixed. Your account's transaction history — every skill purchase and sale — was failing to load because of a database column mismatch; it now reads each payment's token decimals from the price record and renders the full ledger correctly. And in the agent Brain Studio, closing the 'How this brain behaves' preview before the circuit canvas had finished loading could throw an error; the editor now closes cleanly no matter when you dismiss it.",
 			"tags": [

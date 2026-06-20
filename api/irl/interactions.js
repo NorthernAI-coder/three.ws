@@ -49,6 +49,13 @@ import { isUuid } from '../_lib/validate.js';
 // view | tap — passive/active sighting of the agent. message — a note left for
 // the owner. pay — an x402 settlement against the agent (see PAY note below).
 const TYPES = new Set(['view', 'tap', 'message', 'pay']);
+// The surface the encounter happened on, so an owner can tell an IRL phone tap from a
+// smart-glasses (Frame / G1) encounter. Whitelisted — an unknown value collapses to
+// 'phone' rather than storing arbitrary caller text.
+const DEVICE_TYPES = new Set(['phone', 'glasses']);
+function normDeviceType(v) {
+	return typeof v === 'string' && DEVICE_TYPES.has(v) ? v : 'phone';
+}
 const VIEW_DEDUPE_MS = 5 * 60 * 1000; // collapse repeat views from one device
 const MAX_MESSAGE_LEN = 280;
 
@@ -169,6 +176,9 @@ async function runMigrations() {
 	await sql`ALTER TABLE irl_interactions ADD COLUMN IF NOT EXISTS amount        NUMERIC`;
 	await sql`ALTER TABLE irl_interactions ADD COLUMN IF NOT EXISTS currency_mint TEXT`;
 	await sql`ALTER TABLE irl_interactions ADD COLUMN IF NOT EXISTS payload       JSONB DEFAULT '{}'::jsonb`;
+	// The encounter surface (phone | glasses). Defaults to 'phone' so legacy rows and
+	// any caller that omits it read as the common case.
+	await sql`ALTER TABLE irl_interactions ADD COLUMN IF NOT EXISTS device_type   TEXT DEFAULT 'phone'`;
 	// One settlement → one pay row. Indexed for the de-dupe lookup on insert.
 	await sql`CREATE INDEX IF NOT EXISTS irl_interactions_paysig ON irl_interactions ((payload->>'signature')) WHERE type = 'pay'`;
 }
@@ -196,6 +206,7 @@ export default wrap(async (req, res) => {
 		const session = await getSessionUser(req).catch(() => null);
 		const viewerUserId = session?.id ?? null;
 		const viewerDevice = readDeviceToken(req);
+		const deviceType = normDeviceType(body.device_type);
 
 		// Confirm the pin exists (and is live) and snapshot its location + agent.
 		const [pin] = await sql`
@@ -287,7 +298,7 @@ export default wrap(async (req, res) => {
 		const [row] = await sql`
 			INSERT INTO irl_interactions
 				(pin_id, agent_id, type, message, viewer_user_id, viewer_device, lat, lng,
-				 amount, currency_mint, payload, seen_at)
+				 amount, currency_mint, payload, seen_at, device_type)
 			VALUES (
 				${pinId},
 				${pin.agent_id ?? null},
@@ -300,7 +311,8 @@ export default wrap(async (req, res) => {
 				${amount},
 				${currencyMint},
 				${payloadJson}::jsonb,
-				${seenAt}
+				${seenAt},
+				${deviceType}
 			)
 			RETURNING id, type, created_at
 		`;
@@ -398,7 +410,7 @@ export default wrap(async (req, res) => {
 				SELECT
 					ix.id, ix.pin_id, ix.agent_id, ix.type, ix.message,
 					ix.lat, ix.lng, ix.seen_at, ix.created_at,
-					ix.amount, ix.currency_mint, ix.payload,
+					ix.amount, ix.currency_mint, ix.payload, ix.device_type,
 					p.avatar_name, p.caption
 				FROM irl_interactions ix
 				JOIN irl_pins p ON p.id = ix.pin_id
@@ -411,7 +423,7 @@ export default wrap(async (req, res) => {
 				SELECT
 					ix.id, ix.pin_id, ix.agent_id, ix.type, ix.message,
 					ix.lat, ix.lng, ix.seen_at, ix.created_at,
-					ix.amount, ix.currency_mint, ix.payload,
+					ix.amount, ix.currency_mint, ix.payload, ix.device_type,
 					p.avatar_name, p.caption
 				FROM irl_interactions ix
 				JOIN irl_pins p ON p.id = ix.pin_id

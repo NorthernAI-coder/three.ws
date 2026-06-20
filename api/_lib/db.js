@@ -101,6 +101,40 @@ function makeFragment(strings, values) {
 	};
 }
 
+// Build a composable multi-row `VALUES` fragment for bulk INSERTs:
+//   sql`INSERT INTO t (a, b) VALUES ${sqlValues(rows)} ON CONFLICT …`
+// where `rows` is an array of equal-length value arrays. Every value becomes a
+// `$N` placeholder, renumbered against the parent query by composeFragment, so
+// dates/strings/jsonb are bound as parameters — never stringified into the SQL
+// text. This replaces the postgres.js-style `SELECT * FROM ${sql(rows)}` idiom,
+// which the Neon wrapper does NOT support: it would stringify each row array
+// inline (a Date's ISO `:` then triggering `syntax error at or near ":"`).
+export function sqlValues(rows) {
+	if (!Array.isArray(rows) || rows.length === 0) {
+		throw new Error('sqlValues requires a non-empty array of row arrays');
+	}
+	const width = rows[0].length;
+	if (width === 0) throw new Error('sqlValues rows must have at least one column');
+	const strings = [];
+	const values = [];
+	let pending = '';
+	for (let r = 0; r < rows.length; r++) {
+		const row = rows[r];
+		if (!Array.isArray(row) || row.length !== width) {
+			throw new Error('sqlValues: every row must be an array of the same width');
+		}
+		pending += r === 0 ? '(' : '), (';
+		for (let c = 0; c < width; c++) {
+			strings.push(pending);
+			pending = c < width - 1 ? ', ' : '';
+			values.push(row[c]);
+		}
+	}
+	pending += ')';
+	strings.push(pending);
+	return makeFragment(strings, values);
+}
+
 export const sql = new Proxy(function () {}, {
 	apply(_t, _this, args) {
 		// Neon dispatches on the first argument: a string is the ordinary

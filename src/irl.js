@@ -73,6 +73,8 @@ import {
 import { loadInto } from './shared/async-state.js';
 import { openMapPlacePicker } from './irl/map-place.js';
 import { openPrivacyCenter, maybeShowFirstRunDisclosure, getDiscoveryPrecision } from './irl/privacy-center.js';
+import { GlassesBridge } from './irl/glasses/bridge.js';
+import { openGlassesConnect } from './irl/glasses/connect-ui.js';
 import { loadLeaflet } from './shared/leaflet-loader.js';
 import { initDiscovery } from './irl/discovery.js';
 import { walletChipEl, hasWallet } from './shared/agent-wallet-chip.js';
@@ -1339,6 +1341,13 @@ if (!_deviceToken) {
 function deviceHeaders(extra = {}) {
 	return _deviceToken ? { 'x-irl-device': _deviceToken, ...extra } : { ...extra };
 }
+
+// Smart-glasses bridge — mirrors the nearest-agent cue (direction · distance ·
+// arrivals) to companion glasses (Brilliant Labs Frame / Even Realities G1) over Web
+// Bluetooth. Idle until the user pairs from the topbar; the render loop pushes live
+// state to it every frame (it self-throttles + early-outs when not connected), and a
+// connected link stamps interaction telemetry as a 'glasses' encounter.
+const glassesBridge = new GlassesBridge();
 
 const gpsState = { lat: null, lng: null, ready: false, watchId: null, accuracy: null, altitude: null };
 // DEV-only simulated-location guard (L1). Always false in production — the mock
@@ -3011,6 +3020,8 @@ function fireArrivalCue() {
 	try { navigator.vibrate?.([18, 40, 18]); } catch {}
 	playArrivalChime();
 	showArrivalBanner();
+	// Flash the arrival on paired glasses too (no-op when none connected).
+	glassesBridge.announce('Agent nearby — look around');
 }
 
 onPinStable(() => fireArrivalCue());
@@ -3084,6 +3095,44 @@ function _hideNudge() {
 	if (!_nudgeVisible) return;
 	_nudgeVisible = false;
 	_nudgeEl?.classList.remove('is-visible');
+}
+
+// ── Smart-glasses HUD push ──────────────────────────────────────────────────
+// The same nearest-agent read that drives the on-screen directional nudge, reshaped
+// for the glasses bridge: which agent, how far, and the screen-relative bearing
+// (0 = ahead, + = turn right). Privacy-preserving by construction — it consumes the
+// world offset the scene already renders, never a coordinate, exactly like the nudge.
+function glassesNearbyState() {
+	let candidates = null;
+	let count = 0;
+	for (const pin of nearbyPins) {
+		if (!pin.group) continue;
+		count++;
+		(candidates ??= []).push({ pin, distance: bandDistance(pin) });
+	}
+	const target = candidates && nearestAgent(candidates);
+	if (!target) return { nearest: null, count };
+	const wp = target.pin.group.position;
+	return {
+		nearest: {
+			name: target.pin.avatar_name || 'Agent',
+			distanceM: target.distance,
+			relBearingRad: relativeBearing(wp.x, wp.z, cameraYaw),
+		},
+		count,
+	};
+}
+
+// Per-frame push, gated + accumulated so we only build state at ~6 Hz; the bridge
+// throttles the actual BLE write further and skips byte-identical frames.
+let _glassesAccum = 0;
+const GLASSES_PUSH_INTERVAL = 0.16;
+function pushGlassesHud(dt) {
+	if (!glassesBridge.connected) return;
+	_glassesAccum += dt;
+	if (_glassesAccum < GLASSES_PUSH_INTERVAL) return;
+	_glassesAccum = 0;
+	glassesBridge.pushState(glassesNearbyState());
 }
 
 // Briefly tint a pin's floating label so a deep-linked target (?highlight= or
@@ -4399,6 +4448,25 @@ document.getElementById('irl-privacy-btn')?.addEventListener('click', () => {
 	openPrivacyCenter({ getGhost: getShareGhost, setGhost: applyGhost, onManagePins: openMyPinsSheet });
 });
 
+// Connect smart glasses — mirror the nearest-agent cue to a Frame / G1 lens over Web
+// Bluetooth. The button reflects the live link state so a connected pair reads at a
+// glance; the sheet owns the capability gate, pairing flow and disconnect.
+const glassesBtn = document.getElementById('irl-glasses-btn');
+function syncGlassesButton() {
+	if (!glassesBtn) return;
+	const on = glassesBridge.connected;
+	glassesBtn.classList.toggle('is-connected', on);
+	glassesBtn.setAttribute('aria-pressed', String(on));
+	const label = on ? `Glasses connected — ${glassesBridge.deviceName || 'tap to manage'}` : 'Connect smart glasses';
+	glassesBtn.setAttribute('aria-label', label);
+	glassesBtn.title = label;
+}
+glassesBtn?.addEventListener('click', () => openGlassesConnect(glassesBridge));
+glassesBridge.on('status', syncGlassesButton);
+syncGlassesButton();
+// Clean BLE teardown if the page goes away while paired.
+window.addEventListener('pagehide', () => { try { glassesBridge.destroy(); } catch {} });
+
 document.getElementById('irl-mypins-close')?.addEventListener('click', closeMyPinsSheet);
 
 document.getElementById('irl-mypins-list')?.addEventListener('click', (e) => {
@@ -4618,7 +4686,7 @@ function postInteraction(body) {
 		method: 'POST',
 		credentials: 'include',
 		headers: deviceHeaders({ 'Content-Type': 'application/json' }),
-		body: JSON.stringify({ deviceToken: _deviceToken, ...body }),
+		body: JSON.stringify({ deviceToken: _deviceToken, device_type: glassesBridge.deviceType(), ...body }),
 	});
 }
 
@@ -4936,6 +5004,7 @@ function openPinSheet(pin) {
 				pinId: pin.id,
 				type: 'view',
 				deviceToken: _deviceToken,
+				device_type: glassesBridge.deviceType(),
 				agentId: pin.agent_id ?? null,
 			}),
 		}).catch(() => {});
@@ -4998,6 +5067,7 @@ document.getElementById('irl-sheet-msg')?.addEventListener('submit', async (e) =
 				type: 'message',
 				message: text,
 				deviceToken: _deviceToken,
+				device_type: glassesBridge.deviceType(),
 				agentId: sheet.dataset.agentId || null,
 			}),
 		});
@@ -5996,6 +6066,8 @@ function tick() {
 	// Non-map directional hint (task 03): point the edge glow toward the nearest
 	// in-range agent and fade it once it's on-screen. ~20 Hz internally, no map.
 	updateDirectionalNudge(dt);
+	// Mirror that same nearest-agent cue onto paired smart glasses (no-op until paired).
+	pushGlassesHud(dt);
 	// Radar DOM is rebuilt at ~5 Hz, not every frame (it was a per-frame churn).
 	_radarAccum += dt;
 	if (_radarAccum >= RADAR_INTERVAL) { _radarAccum = 0; updateRadar(); }
