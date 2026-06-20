@@ -429,7 +429,7 @@ export class AgentTokenWidget {
 
 	_renderEmpty() {
 		const ownerCta = this.isOwner
-			? `<div style="margin-top:0.7rem"><a href="/dashboard/pump-launch?agent=${this.agentId}" class="atok-btn atok-btn-primary" style="text-decoration:none;display:inline-block">Launch $AGENT →</a></div>`
+			? `<div style="margin-top:0.7rem"><a href="/launch?agent=${this.agentId}" class="atok-btn atok-btn-primary" style="text-decoration:none;display:inline-block">Launch $AGENT →</a></div>`
 			: '';
 		this.mount.innerHTML = `
 			<div class="atok">

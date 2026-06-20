@@ -844,6 +844,12 @@
 
     const links = document.createElement('div');
     links.className = 'token-links';
+    // On-platform coin profile — keeps traders inside three.ws instead of
+    // bouncing straight to pump.fun/solscan.
+    const profileLink = document.createElement('a');
+    profileLink.href = '/launches/' + encodeURIComponent(token.mint);
+    profileLink.textContent = 'Profile';
+    profileLink.setAttribute('aria-label', `Open the three.ws profile for ${token.symbol || token.name || 'this coin'}`);
     const pumpLink = document.createElement('a');
     pumpLink.href = 'https://pump.fun/' + encodeURIComponent(token.mint);
     pumpLink.target = '_blank';
@@ -874,7 +880,7 @@
     const oracleBadge = document.createElement('span');
     oracleBadge.className = 'pl-oracle-badge';
     oracleBadge.dataset.oracleMint = token.mint;
-    links.append(pumpLink, solscanLink, watchBtn, oracleBadge);
+    links.append(profileLink, pumpLink, solscanLink, watchBtn, oracleBadge);
 
     info.append(nameEl, symEl, mcapEl, links);
     card.append(img, info);

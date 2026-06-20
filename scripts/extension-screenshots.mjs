@@ -234,7 +234,7 @@ async function routeApi(context, avatars, allowOrigin) {
 			headers: { 'access-control-allow-origin': origin, 'access-control-allow-credentials': 'true' },
 			body: JSON.stringify(obj),
 		});
-		if (/\/api\/avatars\/(mine|featured)\b/.test(url) || /\/api\/avatars\?/.test(url)) return reply({ avatars });
+		if (/\/api\/avatars(\/(mine|featured|public))?(\?|$)/.test(url)) return reply({ avatars });
 		if (/\/api\/tts\/voices\b/.test(url)) return reply({ enabled: true, default: DEFAULT_VOICE, voices: TTS_VOICES, providers: { nvidia: true, openai: true } });
 		if (/\/api\/(me|threews\/me)\b/.test(url)) return reply({ user: { handle: '@you', username: 'you' } });
 		return route.continue();

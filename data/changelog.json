@@ -3,6 +3,22 @@
 	"entries": [
 		{
 			"date": "2026-06-20",
+			"title": "The walking guide now strolls on phones and tablets",
+			"summary": "The corner walk companion only knew how to follow a mouse cursor, so on touch devices — with no cursor to chase — it stood frozen in place. On phones and tablets it now wanders on its own, ambling between headings and pausing to look around, so the walk actually walks. Its dismiss and 'choose avatar' buttons, previously revealed only on hover, are now always tappable on touch, and the 'tap me to walk the whole page' invite reads right for a finger instead of a click.",
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-20",
+			"title": "On-chain agent reputation attestations are minting reliably again",
+			"summary": "The background job that records agents' on-chain milestones — token graduations, fee claims, whale trades — had stopped running because it could only read its signing key in one specific format. Now it accepts the key in any standard Solana format, so those reputation events post to the chain again, and a misconfigured key skips cleanly instead of taking the whole monitor down.",
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-20",
 			"title": "Live token card on the home page is streaming again",
 			"summary": "The 'Live token · Pump.fun' card on the home page was stuck on 'Loading live token…' and falling back to 'Live feed unavailable right now.' It now picks a real trending pump.fun coin — complete with its logo and market cap — and streams its live buys and sells again. The same fix restores the trending coin grid on the Communities page.",
 			"tags": [

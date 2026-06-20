@@ -155,9 +155,9 @@ async function buildDetail(mint, network) {
 		       pam.sharing_config, pam.created_at,
 		       ai.id as agent_id, ai.name as agent_name, ai.description as agent_description,
 		       ai.is_public as agent_public,
-		       ai.solana_address as agent_solana_address,
-		       ai.solana_vanity_prefix as agent_solana_vanity_prefix,
-		       ai.solana_vanity_suffix as agent_solana_vanity_suffix,
+		       ai.meta->>'solana_address' as agent_solana_address,
+		       ai.meta->>'solana_vanity_prefix' as agent_solana_vanity_prefix,
+		       ai.meta->>'solana_vanity_suffix' as agent_solana_vanity_suffix,
 		       a.thumbnail_key as avatar_thumbnail_key, a.visibility as avatar_visibility
 		from pump_agent_mints pam
 		left join agent_identities ai on ai.id = pam.agent_id and ai.deleted_at is null

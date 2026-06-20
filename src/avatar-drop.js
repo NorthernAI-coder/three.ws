@@ -16,6 +16,7 @@ import {
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { reserveWebGLContext } from './webgl-budget.js';
 import { log } from './shared/log.js';
+import { resolveDevR2Url } from './shared/dev-r2-proxy.js';
 
 export function initAvatarDrop(sectionEl) {
 	const canvas  = sectionEl.querySelector('#drop-canvas');
@@ -342,17 +343,6 @@ export function initAvatarDrop(sectionEl) {
 		);
 	}
 
-	// Resolve GLB URL for dev proxy
-	function resolveGlb(url) {
-		if (!url) return url;
-		const isDev = location.hostname === 'localhost'
-			|| location.hostname.includes('.github.dev')
-			|| location.hostname.includes('.gitpod.io');
-		if (isDev && url.includes('r2.dev')) {
-			try { return '/r2-proxy' + new URL(url).pathname; } catch (_) {}
-		}
-		return url;
-	}
 
 	const AVATAR_ID = 'bacff13e-b64b-4ac0-860d-44f0168ad23b';
 	const BOOT_TIMEOUT_MS = 12_000;
@@ -366,7 +356,7 @@ export function initAvatarDrop(sectionEl) {
 	timedFetch(`${location.origin}/api/avatars/${AVATAR_ID}`)
 		.then(r => r.json())
 		.then(d => {
-			const glb = resolveGlb(d.avatar?.model_url || d.avatar?.url);
+			const glb = resolveDevR2Url(d.avatar?.model_url || d.avatar?.url);
 			if (!glb) return;
 
 			new GLTFLoader().load(glb, gltf => {

@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-20T05:35:12.277Z",
+	"generated_at": "2026-06-20T06:46:51.241Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -92,6 +92,26 @@
 		{
 			"date": "2026-06-20",
 			"type": "update",
+			"title": "Live token card on the home page is streaming again",
+			"summary": "The 'Live token · Pump.fun' card on the home page was stuck on 'Loading live token…' and falling back to 'Live feed unavailable right now.' It now picks a real trending pump.fun coin — complete with its logo and market cap — and streams its live buys and sells again. The same fix restores the trending coin grid on the Communities page.",
+			"link": null,
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-20",
+			"type": "update",
+			"title": "On-chain agent reputation attestations are minting reliably again",
+			"summary": "The background job that records agents' on-chain milestones — token graduations, fee claims, whale trades — had stopped running because it could only read its signing key in one specific format. Now it accepts the key in any standard Solana format, so those reputation events post to the chain again, and a misconfigured key skips cleanly instead of taking the whole monitor down.",
+			"link": null,
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-20",
+			"type": "update",
 			"title": "Pick and switch avatars from the Walk Avatar extension popup",
 			"summary": "The three.ws Walk Avatar browser extension popup is now a full avatar picker. Sign in straight from the popup — it opens three.ws, signs you in, and links the extension automatically — then browse your own avatars, a Featured shelf of community favorites, and a Recent tab of the avatars you've picked before. Tap any thumbnail to instantly swap the walking avatar on the current tab, drag the speed slider to change how fast it walks in real time, and use the big switch to turn it on or off for the site you're on. Every thumbnail is a real avatar from your account, with graceful empty, loading, and error states throughout.",
 			"link": null,
@@ -161,6 +181,16 @@
 			"link": "/pricing",
 			"tags": [
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-20",
+			"type": "update",
+			"title": "The walking guide now strolls on phones and tablets",
+			"summary": "The corner walk companion only knew how to follow a mouse cursor, so on touch devices — with no cursor to chase — it stood frozen in place. On phones and tablets it now wanders on its own, ambling between headings and pausing to look around, so the walk actually walks. Its dismiss and 'choose avatar' buttons, previously revealed only on hover, are now always tappable on touch, and the 'tap me to walk the whole page' invite reads right for a finger instead of a click.",
+			"link": null,
+			"tags": [
+				"fix"
 			]
 		},
 		{

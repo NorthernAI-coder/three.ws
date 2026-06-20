@@ -1097,7 +1097,22 @@ async function handlePumpfunMonitor(req, res) {
 		limit ${PUMPFUN_MONITOR_MAX_PER_RUN}
 	`;
 
-	const attester = loadAttesterKeypair();
+	let attester;
+	try {
+		attester = loadAttesterKeypair();
+	} catch (e) {
+		// Key is present but undecodable (wrong encoding). Skip the attestation
+		// work cleanly rather than 500-ing every run and marking the cron job as
+		// failing — heartbeat + alerts above already ran. Surface the reason so
+		// the misconfiguration is visible in the cron response/logs.
+		return json(res, 200, {
+			skipped: true,
+			reason: e?.code === 'attester_key_undecodable' ? 'attester_key_undecodable' : 'attester_load_failed',
+			detail: e?.message || String(e),
+			heartbeat: true,
+			alerts: alertReport,
+		});
+	}
 	const report = {
 		scanned: rows.length,
 		minted: 0,

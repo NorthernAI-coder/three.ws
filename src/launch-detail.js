@@ -1043,18 +1043,24 @@ function renderEconomics() {
 		body.appendChild(
 			el('div', { class: 'ld-burn-feed' }, [
 				el('span', { class: 'ld-burn-feed-title', text: 'Recent burns' }),
-				...feed.map((b) =>
-					el('a', {
-						class: 'ld-burn-row',
-						href: b.tx_signature ? `https://solscan.io/tx/${b.tx_signature}` : '#',
-						target: '_blank',
-						rel: 'noopener noreferrer',
-					}, [
+				...feed.map((b) => {
+					const cells = [
 						el('span', { class: 'ld-burn-amt', text: `🔥 ${compact(Number(b.burn_amount || 0) / 1e6)}` }),
 						el('span', { class: 'ld-burn-time', text: relTime(b.created_at) }),
-						el('span', { class: 'ld-burn-link', text: 'tx ↗' }),
-					]),
-				),
+					];
+					// Only render a clickable tx link when the burn has a signature —
+					// otherwise show a plain, non-linking row (no dead href="#").
+					if (b.tx_signature) {
+						cells.push(el('span', { class: 'ld-burn-link', text: 'tx ↗' }));
+						return el('a', {
+							class: 'ld-burn-row',
+							href: `https://solscan.io/tx/${b.tx_signature}`,
+							target: '_blank',
+							rel: 'noopener noreferrer',
+						}, cells);
+					}
+					return el('div', { class: 'ld-burn-row' }, cells);
+				}),
 			]),
 		);
 	}

@@ -486,6 +486,7 @@
 			color: var(--vz-text);
 		}
 		.vz-legend li:hover { background: rgba(255,255,255,0.04); }
+		.vz-legend li:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 		.vz-legend li.is-selected { background: var(--accent-soft); }
 		.vz-legend li .rank { color: var(--vz-muted); width: 26px; font-size: 10px; font-variant-numeric: tabular-nums; }
 		.vz-legend li .rank.age { color: var(--vz-red); font-weight: 600; }
@@ -1856,7 +1857,16 @@
 					li.appendChild(pill);
 				}
 
+				li.tabIndex = 0;
+				li.setAttribute('role', 'button');
+				li.setAttribute('aria-label', 'View details for ' + (token.name || 'Unknown') + (token.symbol ? ' ($' + token.symbol + ')' : ''));
 				li.addEventListener('click', () => focusToken(token));
+				li.addEventListener('keydown', (e) => {
+					if (e.key === 'Enter' || e.key === ' ') {
+						e.preventDefault();
+						focusToken(token);
+					}
+				});
 				legendList.appendChild(li);
 			});
 			legendEl.hidden = false;

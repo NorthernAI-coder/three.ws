@@ -494,7 +494,7 @@
 					<div id="first-claims"><div class="empty">Loading first-time claims…</div></div>
 				</div>
 				<div id="feed-wrap">
-					<h2><span id="feed-title">Live feed</span><a id="helius-pill" class="helius-pill" href="https://helius.dev" target="_blank" rel="noopener" title="Real-time Solana data via Helius webhooks"><span class="helius-dot" aria-hidden="true"></span><span id="helius-count" class="helius-count">0</span>Powered by Helius</a></h2>
+					<h2><span id="feed-title">Live feed</span><a id="helius-pill" class="helius-pill" href="https://pumpportal.fun" target="_blank" rel="noopener" title="Real-time pump.fun data via the PumpPortal WebSocket — count is events received this session"><span class="helius-dot" aria-hidden="true"></span><span id="helius-count" class="helius-count">0</span>Powered by PumpPortal</a></h2>
 					<button type="button" class="feed-jump" id="feed-jump" data-visible="false" aria-live="polite">↑ <span id="feed-jump-count">0</span> new</button>
 					<div id="feed"><div class="empty">Waiting for events…</div></div>
 				</div>
@@ -1174,6 +1174,7 @@
 			count: 0,
 			timer: null,
 		};
+		let quietTimer = null; // fires when a live feed has had no events for a while
 		const seen = new Set(); // seen mints in this session
 
 		// ── Avatar viewer ────────────────────────────────────────────────────
@@ -1491,6 +1492,7 @@
 				esBackoff = 1000;
 				esConsecutiveFails = 0;
 				setStatus('live', 'live');
+				scheduleQuiet();
 			});
 			const ingest = (sseType) => (msg) => {
 				let ev; try { ev = JSON.parse(msg.data); } catch { return; }
@@ -1516,10 +1518,6 @@
 		}
 
 		function handleEvent(evt) {
-			if (evt.type === 'meta') {
-				updateHeliusPill(evt);
-				return;
-			}
 			if (seen.has(evt.mint)) return;
 			if (evt.type === 'mint') seen.add(evt.mint);
 
@@ -1533,6 +1531,7 @@
 				feed.pending.push(card);
 				updateFeedJump();
 			}
+			markActivity();
 			narrateEvent(evt);
 		}
 
@@ -1867,16 +1866,18 @@
 			return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
 		}
 		function shortenAddress(a) { return a ? a.slice(0, 4) + '…' + a.slice(-4) : ''; }
-		function updateHeliusPill(data) {
-			if (data.active_ws < 2) {
-				heliusPill.el.title = `Real-time Solana data via Helius webhooks. ${data.active_ws} listener.`;
-				heliusPill.el.href = 'https://helius.dev';
-				heliusPill.el.target = '_blank';
-			} else {
-				heliusPill.el.title = `Real-time Solana data via Helius webhooks. ${data.active_ws} listeners. You rock!`;
-				heliusPill.el.href = 'https://youtu.be/dQw4w9WgXcQ';
-				heliusPill.el.target = '_blank';
-			}
+		// Real per-session event counter: every event we actually render bumps the
+		// pill. (The feed source is PumpPortal, which does not emit a listener-count
+		// `meta` event, so the count reflects throughput the viewer can see.) Also
+		// drives the quiet state — a connected feed with no recent activity.
+		const QUIET_AFTER_MS = 45_000;
+		function scheduleQuiet() {
+			clearTimeout(quietTimer);
+			quietTimer = setTimeout(() => {
+				if (status.pill.dataset.state === 'live') setStatus('quiet', 'live · quiet');
+			}, QUIET_AFTER_MS);
+		}
+		function markActivity() {
 			heliusPill.count++;
 			heliusPill.countEl.textContent = heliusPill.count;
 			heliusPill.el.dataset.count = 'active';
@@ -1884,6 +1885,9 @@
 			heliusPill.timer = setTimeout(() => {
 				heliusPill.el.dataset.count = '';
 			}, 1200);
+			// An event after a quiet stretch means we're live again.
+			if (status.pill.dataset.state === 'quiet') setStatus('live', 'live');
+			scheduleQuiet();
 		}
 		// Build a clean, shareable URL: keep only the public presentation params
 		// (filters, mood, narration, avatar) and drop transient/private ones such
