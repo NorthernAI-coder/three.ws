@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<script>/* three.ws theme boot — no-flash; runtime in /theme-switcher.js */(function(){try{var m=localStorage.getItem('twx_theme');var l=m==='auto'?(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches):m==='light';document.documentElement.setAttribute('data-theme',l?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();</script>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Guided Tour — A 3D guide walks you through three.ws · three.ws</title>
+		<meta
+			name="description"
+			content="Take the three.ws guided tour: a 3D avatar walks across the live site, points at every feature, and narrates what each one does and how to use it — voice and on-screen captions, paced by you."
+		/>
+		<meta name="robots" content="index, follow" />
+		<link rel="canonical" href="https://three.ws/tour" />
+
+		<meta property="og:type" content="website" />
+		<meta property="og:site_name" content="three.ws" />
+		<meta property="og:title" content="Guided Tour — A 3D guide walks you through three.ws" />
+		<meta
+			property="og:description"
+			content="A 3D avatar walks the live site, points at every feature, and narrates how to use it. Roughly half an hour, paced by you."
+		/>
+		<meta property="og:url" content="https://three.ws/tour" />
+		<meta property="og:image" content="https://three.ws/api/page-og?s=main&amp;t=Guided+Tour&amp;d=A+3D+guide+walks+you+through+every+feature%2C+live%2C+on+the+real+site.&amp;p=%2Ftour" />
+		<meta property="og:image:width" content="1200" />
+		<meta property="og:image:height" content="630" />
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta name="twitter:title" content="Guided Tour — A 3D guide walks you through three.ws" />
+		<meta
+			name="twitter:description"
+			content="A 3D avatar walks the live site, points at every feature, and narrates how to use it."
+		/>
+		<meta name="twitter:image" content="https://three.ws/api/page-og?s=main&amp;t=Guided+Tour&amp;d=A+3D+guide+walks+you+through+every+feature%2C+live%2C+on+the+real+site.&amp;p=%2Ftour" />
+
+		<link rel="icon" href="/favicon.ico" sizes="any" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+		<link rel="manifest" href="/site.webmanifest" />
+		<link rel="stylesheet" href="/style.css" />
+		<link rel="stylesheet" href="/nav.css" />
+		<link rel="stylesheet" href="/fonts/fonts.css" />
+
+		<style>
+			.tour-page {
+				--accent: #7aa2ff;
+				--accent-2: #9d7bff;
+				color: #e7eaf2;
+			}
+			.tour-wrap {
+				max-width: 1040px;
+				margin: 0 auto;
+				padding: 0 20px 80px;
+			}
+			/* Hero */
+			.tour-hero {
+				position: relative;
+				text-align: center;
+				padding: 64px 20px 48px;
+				overflow: hidden;
+			}
+			.tour-hero::before {
+				content: '';
+				position: absolute;
+				inset: -40% 0 auto;
+				height: 480px;
+				background: radial-gradient(60% 60% at 50% 0%, rgba(122, 162, 255, 0.22), transparent 70%);
+				pointer-events: none;
+				z-index: 0;
+			}
+			.tour-hero > * {
+				position: relative;
+				z-index: 1;
+			}
+			.tour-eyebrow {
+				display: inline-flex;
+				align-items: center;
+				gap: 8px;
+				font-size: 12.5px;
+				font-weight: 600;
+				letter-spacing: 0.04em;
+				text-transform: uppercase;
+				color: var(--accent);
+				background: rgba(122, 162, 255, 0.1);
+				border: 1px solid rgba(122, 162, 255, 0.28);
+				padding: 6px 12px;
+				border-radius: 99px;
+				margin-bottom: 22px;
+			}
+			.tour-eyebrow .dot {
+				width: 7px;
+				height: 7px;
+				border-radius: 50%;
+				background: var(--accent);
+				box-shadow: 0 0 0 0 rgba(122, 162, 255, 0.6);
+				animation: tour-pulse 2s infinite;
+			}
+			@keyframes tour-pulse {
+				0% { box-shadow: 0 0 0 0 rgba(122, 162, 255, 0.5); }
+				70% { box-shadow: 0 0 0 8px rgba(122, 162, 255, 0); }
+				100% { box-shadow: 0 0 0 0 rgba(122, 162, 255, 0); }
+			}
+			.tour-h1 {
+				font-size: clamp(2rem, 5vw, 3.3rem);
+				line-height: 1.08;
+				font-weight: 800;
+				margin: 0 0 16px;
+				letter-spacing: -0.02em;
+			}
+			.tour-h1 .grad {
+				background: linear-gradient(90deg, var(--accent), var(--accent-2));
+				-webkit-background-clip: text;
+				background-clip: text;
+				color: transparent;
+			}
+			.tour-sub {
+				font-size: clamp(1rem, 2vw, 1.18rem);
+				line-height: 1.55;
+				color: #aeb6c6;
+				max-width: 620px;
+				margin: 0 auto 30px;
+			}
+			.tour-cta-row {
+				display: flex;
+				gap: 12px;
+				justify-content: center;
+				flex-wrap: wrap;
+			}
+			.tour-btn {
+				appearance: none;
+				border: 1px solid rgba(255, 255, 255, 0.14);
+				background: rgba(255, 255, 255, 0.05);
+				color: #eef1f6;
+				font: 600 15px/1 system-ui, -apple-system, 'Segoe UI', sans-serif;
+				padding: 15px 24px;
+				border-radius: 13px;
+				cursor: pointer;
+				text-decoration: none;
+				display: inline-flex;
+				align-items: center;
+				gap: 9px;
+				transition: background 0.18s ease, border-color 0.18s ease, transform 0.12s ease;
+			}
+			.tour-btn:hover {
+				background: rgba(255, 255, 255, 0.1);
+				border-color: rgba(255, 255, 255, 0.22);
+			}
+			.tour-btn:active {
+				transform: scale(0.98);
+			}
+			.tour-btn--primary {
+				background: linear-gradient(90deg, var(--accent), var(--accent-2));
+				color: #0b0e16;
+				border-color: transparent;
+				box-shadow: 0 10px 30px rgba(122, 162, 255, 0.32);
+			}
+			.tour-btn--primary:hover {
+				filter: brightness(1.06);
+				background: linear-gradient(90deg, var(--accent), var(--accent-2));
+			}
+			.tour-btn:focus-visible {
+				outline: 2px solid var(--accent);
+				outline-offset: 3px;
+			}
+			.tour-resume {
+				display: none;
+				margin-top: 16px;
+				font-size: 13.5px;
+				color: #aeb6c6;
+			}
+			.tour-resume a {
+				color: var(--accent);
+				font-weight: 600;
+			}
+			/* Stats */
+			.tour-stats {
+				display: flex;
+				justify-content: center;
+				gap: 14px;
+				flex-wrap: wrap;
+				margin: 40px 0 8px;
+			}
+			.tour-stat {
+				background: rgba(255, 255, 255, 0.035);
+				border: 1px solid rgba(255, 255, 255, 0.08);
+				border-radius: 16px;
+				padding: 18px 26px;
+				min-width: 132px;
+				text-align: center;
+			}
+			.tour-stat__n {
+				font-size: 1.8rem;
+				font-weight: 800;
+				background: linear-gradient(90deg, var(--accent), var(--accent-2));
+				-webkit-background-clip: text;
+				background-clip: text;
+				color: transparent;
+				font-variant-numeric: tabular-nums;
+			}
+			.tour-stat__l {
+				font-size: 12.5px;
+				color: #8b93a7;
+				margin-top: 4px;
+			}
+			/* Sections */
+			.tour-section {
+				margin-top: 64px;
+			}
+			.tour-section__title {
+				font-size: 1.5rem;
+				font-weight: 700;
+				margin: 0 0 8px;
+				text-align: center;
+			}
+			.tour-section__lead {
+				color: #8b93a7;
+				text-align: center;
+				margin: 0 auto 28px;
+				max-width: 560px;
+				font-size: 15px;
+			}
+			.tour-how {
+				display: grid;
+				grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+				gap: 16px;
+			}
+			.tour-how__card {
+				background: rgba(255, 255, 255, 0.035);
+				border: 1px solid rgba(255, 255, 255, 0.08);
+				border-radius: 16px;
+				padding: 22px;
+			}
+			.tour-how__icon {
+				width: 42px;
+				height: 42px;
+				border-radius: 11px;
+				display: grid;
+				place-items: center;
+				font-size: 20px;
+				background: rgba(122, 162, 255, 0.12);
+				border: 1px solid rgba(122, 162, 255, 0.22);
+				margin-bottom: 14px;
+			}
+			.tour-how__h {
+				font-weight: 700;
+				margin: 0 0 6px;
+				font-size: 16px;
+			}
+			.tour-how__p {
+				color: #9aa3b6;
+				font-size: 14px;
+				line-height: 1.5;
+				margin: 0;
+			}
+			/* Chapters */
+			.tour-chapters {
+				display: grid;
+				grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+				gap: 14px;
+			}
+			.tour-chapter {
+				display: flex;
+				align-items: center;
+				gap: 16px;
+				background: rgba(255, 255, 255, 0.035);
+				border: 1px solid rgba(255, 255, 255, 0.08);
+				border-radius: 14px;
+				padding: 18px;
+				transition: border-color 0.18s ease, background 0.18s ease;
+			}
+			.tour-chapter:hover {
+				border-color: rgba(122, 162, 255, 0.3);
+				background: rgba(122, 162, 255, 0.05);
+			}
+			.tour-chapter__num {
+				flex: 0 0 auto;
+				width: 38px;
+				height: 38px;
+				border-radius: 10px;
+				display: grid;
+				place-items: center;
+				font-weight: 800;
+				color: #0b0e16;
+				background: linear-gradient(135deg, var(--accent), var(--accent-2));
+			}
+			.tour-chapter__body h3 {
+				margin: 0 0 3px;
+				font-size: 15.5px;
+			}
+			.tour-chapter__body p {
+				margin: 0;
+				font-size: 13px;
+				color: #8b93a7;
+			}
+			.tour-final {
+				text-align: center;
+				margin-top: 68px;
+				padding: 40px 24px;
+				background: radial-gradient(120% 100% at 50% 0%, rgba(122, 162, 255, 0.1), transparent 70%);
+				border: 1px solid rgba(255, 255, 255, 0.08);
+				border-radius: 22px;
+			}
+			.tour-final h2 {
+				font-size: 1.5rem;
+				margin: 0 0 10px;
+			}
+			.tour-final p {
+				color: #9aa3b6;
+				margin: 0 0 22px;
+			}
+		</style>
+	</head>
+	<body class="tour-page">
+		<header><div id="nav-container"></div></header>
+		<script src="/nav.js"></script>
+
+		<main class="tour-wrap">
+			<section class="tour-hero">
+				<span class="tour-eyebrow"><span class="dot"></span> Guided Tour</span>
+				<h1 class="tour-h1">Let a 3D guide <span class="grad">walk you through</span> three.ws</h1>
+				<p class="tour-sub">
+					Press play and a 3D avatar steps onto the page, walks over to each feature,
+					points right at it, and tells you what it does and how to use it — speaking
+					out loud with a chat bubble over its head. It covers the whole platform, on
+					the real live site, and you set the pace.
+				</p>
+				<div class="tour-cta-row">
+					<button class="tour-btn tour-btn--primary" id="tour-start">▶ Start the guided tour</button>
+					<a class="tour-btn" href="#how">How it works</a>
+				</div>
+				<p class="tour-resume" id="tour-resume">
+					You have a tour in progress — <a href="#" id="tour-resume-link">pick it back up →</a>
+				</p>
+			</section>
+
+			<div class="tour-stats" id="tour-stats">
+				<div class="tour-stat"><div class="tour-stat__n" id="stat-features">—</div><div class="tour-stat__l">features visited</div></div>
+				<div class="tour-stat"><div class="tour-stat__n" id="stat-minutes">~30</div><div class="tour-stat__l">minutes, paced by you</div></div>
+				<div class="tour-stat"><div class="tour-stat__n" id="stat-chapters">6</div><div class="tour-stat__l">chapters</div></div>
+			</div>
+
+			<section class="tour-section" id="how">
+				<h2 class="tour-section__title">How it works</h2>
+				<p class="tour-section__lead">No video, no slides — the guide drives the actual site, so everything it points at is the real thing you'll use.</p>
+				<div class="tour-how">
+					<div class="tour-how__card">
+						<div class="tour-how__icon">🚶</div>
+						<h3 class="tour-how__h">It walks and points</h3>
+						<p class="tour-how__p">The avatar moves across the page to stand beside each feature, faces it, and gestures — with a beam connecting the guide to exactly what it's talking about.</p>
+					</div>
+					<div class="tour-how__card">
+						<div class="tour-how__icon">🗣️</div>
+						<h3 class="tour-how__h">It speaks and captions</h3>
+						<p class="tour-how__p">Every stop is narrated out loud and shown in a chat bubble above the guide's head, so you can listen, read, or mute the voice and just read along.</p>
+					</div>
+					<div class="tour-how__card">
+						<div class="tour-how__icon">🎛️</div>
+						<h3 class="tour-how__h">You're in control</h3>
+						<p class="tour-how__p">Pause, skip ahead, step back, or scrub the progress bar anytime. Wander off to explore and the guide waits — press play and it takes you back to where you were.</p>
+					</div>
+				</div>
+			</section>
+
+			<section class="tour-section">
+				<h2 class="tour-section__title">What you'll see</h2>
+				<p class="tour-section__lead">The tour runs as chapters — from building your first agent to taking it on-chain.</p>
+				<div class="tour-chapters" id="tour-chapters"></div>
+			</section>
+
+			<section class="tour-final">
+				<h2>Ready when you are</h2>
+				<p>Bring your curiosity — the guide handles the rest.</p>
+				<button class="tour-btn tour-btn--primary" id="tour-start-2">▶ Start the guided tour</button>
+			</section>
+		</main>
+
+		<script>
+			// Friendly one-line summaries for each chapter, keyed by curriculum
+			// section id. The curriculum (built from data/pages.json) supplies the
+			// authoritative titles and per-chapter stop counts at runtime.
+			const CHAPTER_BLURB = {
+				main: 'Get your bearings — the front door, discovery, and the marketplace.',
+				build: 'Give your AI a body: avatars, a brain, a voice, and the studios.',
+				crypto: 'Wallets, payments, token launches, and live market intelligence.',
+				labs: 'The showcases — living demos that push the platform to full power.',
+				'agent-tools': 'Talk to your agents, manage them, and check their reputation.',
+				learn: 'Docs, guides, and tutorials for going deeper on your own.',
+			};
+
+			const STATE_KEY = 'tws:tour:state';
+
+			function startTour() {
+				// The engine boots on the first stop's page via ?tour=start.
+				fetch('/tour/curriculum.json', { cache: 'force-cache' })
+					.then((r) => r.json())
+					.then((c) => {
+						const first = (c.stops && c.stops[0] && c.stops[0].path) || '/';
+						location.href = first + '?tour=start';
+					})
+					.catch(() => {
+						location.href = '/?tour=start';
+					});
+			}
+
+			document.getElementById('tour-start').addEventListener('click', startTour);
+			document.getElementById('tour-start-2').addEventListener('click', startTour);
+
+			// Resume affordance when a tour is already in progress this session.
+			try {
+				const raw = sessionStorage.getItem(STATE_KEY);
+				const st = raw ? JSON.parse(raw) : null;
+				if (st && st.active) {
+					const resume = document.getElementById('tour-resume');
+					resume.style.display = 'block';
+					document.getElementById('tour-resume-link').addEventListener('click', (e) => {
+						e.preventDefault();
+						fetch('/tour/curriculum.json', { cache: 'force-cache' })
+							.then((r) => r.json())
+							.then((c) => {
+								const stop = (c.stops && c.stops[st.index || 0]) || c.stops[0];
+								location.href = (stop ? stop.path : '/') + '?tour=1';
+							})
+							.catch(() => (location.href = '/?tour=1'));
+					});
+				}
+			} catch (_) {}
+
+			// Populate stats + chapter cards from the live curriculum.
+			fetch('/tour/curriculum.json', { cache: 'force-cache' })
+				.then((r) => r.json())
+				.then((c) => {
+					document.getElementById('stat-features').textContent = c.stopCount || (c.stops || []).length;
+					document.getElementById('stat-minutes').textContent = '~' + (c.estimatedMinutes || 30);
+					document.getElementById('stat-chapters').textContent = (c.sections || []).length || 6;
+
+					const counts = {};
+					(c.stops || []).forEach((s) => (counts[s.section] = (counts[s.section] || 0) + 1));
+					const host = document.getElementById('tour-chapters');
+					host.innerHTML = '';
+					(c.sections || []).forEach((section, i) => {
+						const n = counts[section.id] || 0;
+						const card = document.createElement('div');
+						card.className = 'tour-chapter';
+						card.innerHTML =
+							'<div class="tour-chapter__num">' + (i + 1) + '</div>' +
+							'<div class="tour-chapter__body"><h3>' + escapeHtml(section.title) +
+							' <span style="color:#7f8aa0;font-weight:500;font-size:12px">· ' + n + ' stops</span></h3>' +
+							'<p>' + escapeHtml(CHAPTER_BLURB[section.id] || '') + '</p></div>';
+						host.appendChild(card);
+					});
+				})
+				.catch(() => {
+					/* curriculum not built yet — the static fallback stats still read well */
+				});
+
+			function escapeHtml(s) {
+				return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({
+					'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+				})[c]);
+			}
+		</script>
+
+		<div id="footer-container"></div>
+		<script src="/footer.js"></script>
+	</body>
+</html>

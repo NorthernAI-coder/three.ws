@@ -133,6 +133,14 @@
 					"priority": 0.8,
 					"changefreq": "monthly",
 					"added": "2026-06-05"
+				},
+				{
+					"path": "/tour",
+					"title": "Guided Tour",
+					"description": "A 3D guide walks across the live site, points at every feature, and narrates what each one does and how to use it — voice plus an on-screen chat bubble, paced by you.",
+					"priority": 0.7,
+					"changefreq": "monthly",
+					"added": "2026-06-20"
 				}
 			]
 		},

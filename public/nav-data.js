@@ -83,6 +83,12 @@ export const NAV_GROUPS = [
 				desc: 'Plain-English intro + real use-cases — start here',
 			},
 			{
+				title: 'Take the guided tour',
+				href: '/tour',
+				badge: 'New',
+				desc: 'A 3D guide walks you through every feature, live',
+			},
+			{
 				title: '$THREE Token',
 				href: '/three-token',
 				desc: 'Live price, bonding-curve chart, streaming trades & one-click buy',

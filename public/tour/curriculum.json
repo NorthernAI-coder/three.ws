@@ -1,6 +1,6 @@
 {
 	"version": 1,
-	"generatedAt": "2026-06-20T05:20:15.130Z",
+	"generatedAt": "2026-06-20T05:33:35.841Z",
 	"generatedBy": "scripts/build-tour.mjs from data/pages.json",
 	"title": "The three.ws Guided Tour",
 	"tagline": "A 3D guide walks you through every feature, live, on the real site.",
