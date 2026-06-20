@@ -54,6 +54,14 @@ vi.mock('../api/_lib/avatar-wallet.js', () => ({
 
 vi.mock('../api/_lib/audit.js', () => ({ logAudit: vi.fn() }));
 
+// CSRF is enforced on the live (non-simulate) trade path; the token round-trip is
+// covered by its own suite. Here we stub it to a pass so these tests exercise the
+// trade logic, exactly as auth/rate-limit/db are mocked above.
+vi.mock('../api/_lib/csrf.js', () => ({
+	requireCsrf: vi.fn(async () => true),
+	issueCsrf: vi.fn(async () => 'csrf-test-token'),
+}));
+
 const authState = { session: { id: 'owner-1' }, bearer: null };
 vi.mock('../api/_lib/auth.js', () => ({
 	getSessionUser: vi.fn(async () => authState.session),
