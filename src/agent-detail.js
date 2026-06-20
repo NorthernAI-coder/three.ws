@@ -182,16 +182,23 @@ async function renderLaunchHistory(container, agent) {
 		);
 		for (const coin of coins) {
 			const isDevnet = coin.network === 'devnet';
-			const href = isDevnet
-				? `https://explorer.solana.com/address/${coin.mint}?cluster=devnet`
-				: `https://pump.fun/${coin.mint}`;
-			const row = el('a', {
-				class: 'ad-launch-row',
-				href,
-				target: '_blank',
-				rel: 'noopener noreferrer',
-				'aria-label': `${coin.symbol || coin.name || 'coin'} on ${isDevnet ? 'Solana Explorer' : 'pump.fun'}`,
-			});
+			// Keep traders on-platform: each launched coin links to its three.ws
+			// coin profile (/launches/<mint>), matching the launches-feed cards.
+			// Devnet mints have no market page, so they still deep-link to the
+			// explorer in a new tab.
+			const row = isDevnet
+				? el('a', {
+					class: 'ad-launch-row',
+					href: `https://explorer.solana.com/address/${coin.mint}?cluster=devnet`,
+					target: '_blank',
+					rel: 'noopener noreferrer',
+					'aria-label': `${coin.symbol || coin.name || 'coin'} on Solana Explorer`,
+				})
+				: el('a', {
+					class: 'ad-launch-row',
+					href: `/launches/${coin.mint}`,
+					'aria-label': `${coin.symbol || coin.name || 'coin'} on three.ws`,
+				});
 			box.appendChild(row);
 			if (isDevnet) {
 				// Devnet mints have no pump.fun market data — render the static row.

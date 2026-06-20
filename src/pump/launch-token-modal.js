@@ -127,6 +127,7 @@ export class LaunchTokenModal {
 		this._overlay = null;
 		this._chart = null;
 		this._keyHandler = null;
+		this._prevActive = null;
 		this._solPriceUsd = null;
 		this._deployBusy = false;
 	}
@@ -182,6 +183,8 @@ export class LaunchTokenModal {
 
 	open() {
 		if (this._overlay) return;
+		this._prevActive =
+			document.activeElement instanceof HTMLElement ? document.activeElement : null;
 		this._injectCss();
 		this._fetchSolPrice();
 
@@ -192,13 +195,43 @@ export class LaunchTokenModal {
 		el.addEventListener('click', (e) => {
 			if (e.target === el) this._close();
 		});
+		// Focus trap: Escape closes; Tab/Shift+Tab cycle within the dialog so
+		// keyboard and screen-reader users can't tab out behind the overlay.
 		this._keyHandler = (e) => {
-			if (e.key === 'Escape') this._close();
+			if (e.key === 'Escape') { this._close(); return; }
+			if (e.key !== 'Tab') return;
+			const items = this._focusable();
+			if (items.length === 0) return;
+			const first = items[0], last = items[items.length - 1];
+			const active = document.activeElement;
+			if (e.shiftKey && (active === first || !el.contains(active))) {
+				e.preventDefault(); last.focus();
+			} else if (!e.shiftKey && (active === last || !el.contains(active))) {
+				e.preventDefault(); first.focus();
+			}
 		};
 		window.addEventListener('keydown', this._keyHandler);
 		requestAnimationFrame(() => el.classList.add('ltm-open'));
 		if (this._needsDeploy) this._renderStep0();
 		else this._renderStep1();
+		this._focusInitial();
+	}
+
+	/** All focusable controls inside the dialog, in DOM order. */
+	_focusable() {
+		if (!this._overlay) return [];
+		return Array.from(
+			this._overlay.querySelectorAll(
+				'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
+			),
+		).filter((el) => el.offsetParent !== null || el.getClientRects().length > 0);
+	}
+
+	/** Move focus into the dialog on open — close button, else first control. */
+	_focusInitial() {
+		const close = this._overlay?.querySelector('.ltm-close');
+		const target = close || this._focusable()[0];
+		target?.focus();
 	}
 
 	_close() {
@@ -215,6 +248,10 @@ export class LaunchTokenModal {
 			window.removeEventListener('keydown', this._keyHandler);
 			this._keyHandler = null;
 		}
+		if (this._prevActive && this._prevActive.isConnected) {
+			this._prevActive.focus();
+		}
+		this._prevActive = null;
 	}
 
 	_stepDots() {

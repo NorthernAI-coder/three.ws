@@ -15,6 +15,7 @@ import { coinChipHTML } from './shared/agent-coin.js';
 import { walletChipHTML } from './shared/agent-wallet-chip.js';
 import { agentAvatarGlb, hasCustomAvatar, seeInWorldHref } from './shared/agent-3d.js';
 import { log } from './shared/log.js';
+import { resolveDevR2Url } from './shared/dev-r2-proxy.js';
 
 const API = '/api';
 const $ = (id) => document.getElementById(id);
@@ -91,25 +92,6 @@ export function renderDetailAvatar(a) {
 let stageVisibilityObserver = null;
 let stageFullscreenBound = false;
 
-// R2's public bucket only allows the three.ws origin — in dev (localhost /
-// Codespaces) GLB fetches fail CORS, so route them through Vite's /r2-proxy
-// (same workaround as avatar-drop.js). No-op in production.
-function resolveStageGlb(url) {
-	if (!url) return url;
-	const isDev =
-		location.hostname === 'localhost' ||
-		location.hostname.includes('.github.dev') ||
-		location.hostname.includes('.gitpod.io');
-	if (isDev && url.includes('r2.dev')) {
-		try {
-			return '/r2-proxy' + new URL(url).pathname;
-		} catch {
-			/* malformed URL — use as-is */
-		}
-	}
-	return url;
-}
-
 export function renderDetailModelStage(a) {
 	const card = $('d-model-card');
 	const stage = $('d-model-stage');
@@ -132,7 +114,7 @@ export function renderDetailModelStage(a) {
 	}
 
 	const mv = document.createElement('model-viewer');
-	mv.setAttribute('src', resolveStageGlb(glbUrl));
+	mv.setAttribute('src', resolveDevR2Url(glbUrl));
 	mv.setAttribute('alt', `${a.name || 'Agent'} — 3D model`);
 	mv.setAttribute('camera-controls', '');
 	mv.setAttribute('auto-rotate', '');

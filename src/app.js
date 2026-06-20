@@ -470,7 +470,7 @@ class App {
 		}
 
 		const model = options.model || '/avatars/cz.glb';
-		const resolvedModel = isDecentralizedURI(model) ? resolveURI(model) : model;
+		const resolvedModel = resolveModelUrl(model);
 		const isDefaultCz = !options.model;
 		const loadPromise = this.view(resolvedModel, '', new Map());
 		if (isDefaultCz) {
@@ -1333,7 +1333,7 @@ class App {
 			document.querySelector('header')?.style.setProperty('display', 'none');
 		}
 
-		const resolved = isDecentralizedURI(modelUrl) ? resolveURI(modelUrl) : modelUrl;
+		const resolved = resolveModelUrl(modelUrl);
 		this.view(resolved, '', new Map());
 
 		// Apply post-create brand bits once viewer exists.
@@ -2395,7 +2395,7 @@ class App {
 				return;
 			}
 
-			const resolvedGlb = isDecentralizedURI(glbUri) ? resolveURI(glbUri) : glbUri;
+			const resolvedGlb = resolveModelUrl(glbUri);
 			await this.view(resolvedGlb, '', new Map());
 		} catch (err) {
 			log.warn('[3d-agent] on-chain load failed:', err);

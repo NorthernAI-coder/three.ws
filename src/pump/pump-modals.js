@@ -1,5 +1,5 @@
 /**
- * Pump.fun modals: pay, governance, launch wizard, withdraw confirm.
+ * Pump.fun modals: pay, governance, launch wizard.
  *
  * Mounted once per page via mountPumpModals(). Listens on window CustomEvents
  * dispatched by the AgentTokenWidget (pump-pay-open, pump-governance-open,
@@ -39,6 +39,9 @@ const M_STYLES = `
 	color: #fff; font-size: 0.9rem; font-family: inherit;
 }
 .pmodal input[type="range"] { width: 100%; accent-color: #a4f0bc; }
+.pmodal input:focus-visible, .pmodal select:focus-visible, .pmodal textarea:focus-visible {
+	outline: 2px solid #fff; outline-offset: 2px;
+}
 .pmodal-slider-label {
 	display: flex; justify-content: space-between; font-size: 0.78rem;
 	color: rgba(255,255,255,0.6); margin-top: 0.4rem;
@@ -51,6 +54,7 @@ const M_STYLES = `
 	color: rgba(255,255,255,0.7); font-size: 0.84rem; font-weight: 600; transition: 0.15s;
 }
 .pmodal-quote-opt:hover { background: rgba(255,255,255,0.08); }
+.pmodal-quote-opt:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 .pmodal-quote-opt.active {
 	background: rgba(120,200,140,0.18); border-color: rgba(120,200,140,0.4); color: #d8f5e2;
 }
@@ -61,6 +65,7 @@ const M_STYLES = `
 	color: rgba(255,255,255,0.85); font-size: 0.86rem; transition: 0.15s;
 }
 .pmodal-btn:hover { background: rgba(255,255,255,0.08); }
+.pmodal-btn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 .pmodal-btn-primary {
 	background: rgba(120,200,140,0.18); border-color: rgba(120,200,140,0.32); color: #d8f5e2;
 }
@@ -114,12 +119,52 @@ function openModal() {
 	back.className = 'pmodal-back';
 	const inner = document.createElement('div');
 	inner.className = 'pmodal';
+	inner.setAttribute('role', 'dialog');
+	inner.setAttribute('aria-modal', 'true');
 	back.appendChild(inner);
 	document.body.appendChild(back);
 	back.addEventListener('click', (e) => {
 		if (e.target === back) close();
 	});
+
+	const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+	function focusables() {
+		return Array.from(inner.querySelectorAll(FOCUSABLE)).filter(
+			(el) => el.offsetParent !== null || el === document.activeElement,
+		);
+	}
+	function onKeydown(e) {
+		if (e.key === 'Escape') {
+			e.preventDefault();
+			close();
+			return;
+		}
+		if (e.key !== 'Tab') return;
+		const items = focusables();
+		if (!items.length) return;
+		const first = items[0];
+		const last = items[items.length - 1];
+		if (e.shiftKey && document.activeElement === first) {
+			e.preventDefault();
+			last.focus();
+		} else if (!e.shiftKey && document.activeElement === last) {
+			e.preventDefault();
+			first.focus();
+		}
+	}
+	document.addEventListener('keydown', onKeydown, true);
+
+	// Focus the first input, else the first button, inside the modal. Callers
+	// populate inner.innerHTML synchronously after openModal() returns, so defer
+	// to the next frame to focus a control that actually exists.
+	requestAnimationFrame(() => {
+		if (!inner.isConnected) return;
+		const firstField = inner.querySelector('input, select, textarea') || inner.querySelector('button');
+		if (firstField) firstField.focus();
+	});
+
 	function close() {
+		document.removeEventListener('keydown', onKeydown, true);
 		if (back.parentNode) back.parentNode.removeChild(back);
 	}
 	return { back, inner, close };

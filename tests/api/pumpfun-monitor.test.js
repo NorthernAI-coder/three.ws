@@ -1,7 +1,10 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
+
+import bs58 from 'bs58';
+import { Keypair } from '@solana/web3.js';
 
 import { detectEvents } from '../../api/cron/[name].js';
-import { deriveEventId } from '../../api/_lib/attest-event.js';
+import { deriveEventId, decodeAttesterSecret, loadAttesterKeypair } from '../../api/_lib/attest-event.js';
 
 const baseRow = {
 	mint_id:           'mint-uuid',
@@ -88,5 +91,77 @@ describe('deriveEventId', () => {
 		const a = deriveEventId({ event_type: 'graduation', mint: 'M', slot_or_ts: 'x' });
 		const b = deriveEventId({ event_type: 'cto',         mint: 'M', slot_or_ts: 'x' });
 		expect(a).not.toBe(b);
+	});
+});
+
+describe('decodeAttesterSecret', () => {
+	// A real, deterministic ed25519 keypair to encode across formats.
+	const kp = Keypair.fromSeed(new Uint8Array(32).fill(7));
+	const secret = kp.secretKey; // 64 bytes
+	const expectedPubkey = kp.publicKey.toBase58();
+
+	it('decodes a base58 secret key (the historical format)', () => {
+		const bytes = decodeAttesterSecret(bs58.encode(secret));
+		expect(bytes).toBeInstanceOf(Uint8Array);
+		expect(Keypair.fromSecretKey(bytes).publicKey.toBase58()).toBe(expectedPubkey);
+	});
+
+	it('decodes a Solana CLI JSON byte-array secret key', () => {
+		const bytes = decodeAttesterSecret(JSON.stringify(Array.from(secret)));
+		expect(Keypair.fromSecretKey(bytes).publicKey.toBase58()).toBe(expectedPubkey);
+	});
+
+	it('decodes a JSON byte-array with surrounding whitespace', () => {
+		const bytes = decodeAttesterSecret(`  ${JSON.stringify(Array.from(secret))}\n`);
+		expect(Keypair.fromSecretKey(bytes).publicKey.toBase58()).toBe(expectedPubkey);
+	});
+
+	it('decodes a base64 secret key', () => {
+		const bytes = decodeAttesterSecret(Buffer.from(secret).toString('base64'));
+		expect(Keypair.fromSecretKey(bytes).publicKey.toBase58()).toBe(expectedPubkey);
+	});
+
+	it('returns null for empty / missing input', () => {
+		expect(decodeAttesterSecret('')).toBeNull();
+		expect(decodeAttesterSecret(null)).toBeNull();
+		expect(decodeAttesterSecret('   ')).toBeNull();
+	});
+
+	it('returns null for an undecodable string', () => {
+		expect(decodeAttesterSecret('not-a-real-key-!@#$')).toBeNull();
+	});
+
+	it('returns null for a wrong-length byte array', () => {
+		expect(decodeAttesterSecret(JSON.stringify([1, 2, 3]))).toBeNull();
+	});
+});
+
+describe('loadAttesterKeypair', () => {
+	const kp = Keypair.fromSeed(new Uint8Array(32).fill(9));
+	const original = process.env.ATTEST_AGENT_SECRET_KEY;
+
+	afterEach(() => {
+		if (original === undefined) delete process.env.ATTEST_AGENT_SECRET_KEY;
+		else process.env.ATTEST_AGENT_SECRET_KEY = original;
+	});
+
+	it('loads a JSON byte-array key from env (the format that caused the crash)', () => {
+		process.env.ATTEST_AGENT_SECRET_KEY = JSON.stringify(Array.from(kp.secretKey));
+		expect(loadAttesterKeypair().publicKey.toBase58()).toBe(kp.publicKey.toBase58());
+	});
+
+	it('throws a typed error when the key is set but undecodable', () => {
+		process.env.ATTEST_AGENT_SECRET_KEY = 'not-base58-!@#';
+		expect(() => loadAttesterKeypair()).toThrowError(/could not be decoded/);
+		try {
+			loadAttesterKeypair();
+		} catch (e) {
+			expect(e.code).toBe('attester_key_undecodable');
+		}
+	});
+
+	it('throws when the key is missing', () => {
+		delete process.env.ATTEST_AGENT_SECRET_KEY;
+		expect(() => loadAttesterKeypair()).toThrowError(/not configured/);
 	});
 });

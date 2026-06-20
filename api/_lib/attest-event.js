@@ -65,10 +65,73 @@ export function buildPayload({
 	}
 }
 
+/**
+ * Decode a Solana secret key from any encoding used across the three.ws env,
+ * synchronously (bs58 is statically imported here). Mirrors the async
+ * decodeSecretKey() in solana-signers.js so the attester key works whether it
+ * was provisioned as a Solana CLI JSON byte array, base64, or base58.
+ *   - JSON array of 64 (or 32) ints — `solana-keygen` keypair file contents
+ *   - base64 of the raw secret-key bytes
+ *   - base58 of the raw secret-key bytes
+ * @param {string} secret
+ * @returns {Uint8Array|null} 64/32-byte key, or null if it can't be decoded.
+ */
+export function decodeAttesterSecret(secret) {
+	const raw = (secret || '').trim();
+	if (!raw) return null;
+
+	// JSON array form (Solana CLI keypair file contents).
+	if (raw.startsWith('[')) {
+		try {
+			const arr = JSON.parse(raw);
+			if (Array.isArray(arr) && (arr.length === 64 || arr.length === 32)) {
+				return Uint8Array.from(arr);
+			}
+		} catch {
+			/* fall through */
+		}
+	}
+
+	// base64 form. Buffer.from is lenient, so validate the byte length and
+	// require a clean round-trip to reject base58 strings that happen to
+	// base64-decode to 64 bytes.
+	try {
+		const buf = Buffer.from(raw, 'base64');
+		if (
+			(buf.length === 64 || buf.length === 32) &&
+			buf.toString('base64').replace(/=+$/, '') === raw.replace(/=+$/, '')
+		) {
+			return new Uint8Array(buf);
+		}
+	} catch {
+		/* fall through */
+	}
+
+	// base58 form.
+	try {
+		const bytes = bs58.decode(raw);
+		if (bytes.length === 64 || bytes.length === 32) return Uint8Array.from(bytes);
+	} catch {
+		/* fall through */
+	}
+
+	return null;
+}
+
 export function loadAttesterKeypair() {
 	const k = process.env.ATTEST_AGENT_SECRET_KEY;
 	if (!k) throw Object.assign(new Error('ATTEST_AGENT_SECRET_KEY not configured'), { status: 500 });
-	return Keypair.fromSecretKey(bs58.decode(k));
+	const bytes = decodeAttesterSecret(k);
+	if (!bytes) {
+		throw Object.assign(
+			new Error(
+				'ATTEST_AGENT_SECRET_KEY is set but could not be decoded — expected a 64-byte ' +
+					'ed25519 secret key as a JSON byte array, base64, or base58 string.',
+			),
+			{ status: 500, code: 'attester_key_undecodable' },
+		);
+	}
+	return Keypair.fromSecretKey(bytes);
 }
 
 function withTimeout(promise, ms, onTimeout) {

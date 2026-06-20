@@ -4182,10 +4182,32 @@
 			// ── Modals ───────────────────────────────────────────────────
 
 			function openModal(id) {
-				$(id)?.classList.add('is-open');
+				const backdrop = $(id);
+				if (!backdrop) return;
+				backdrop.classList.add('is-open');
+				const focusable =
+					backdrop.querySelector('input, select, textarea') ||
+					backdrop.querySelector('button');
+				focusable?.focus();
 			}
 			function closeModal(id) {
 				$(id)?.classList.remove('is-open');
+			}
+			// Escape closes the topmost open modal; backdrop-click closes that modal.
+			// Wired once at init via initModalDismiss().
+			function initModalDismiss() {
+				document.addEventListener('keydown', (e) => {
+					if (e.key !== 'Escape') return;
+					const open = document.querySelector('.pd-modal-backdrop.is-open');
+					if (open) closeModal(open.id);
+				});
+				document
+					.querySelectorAll('.pd-modal-backdrop')
+					.forEach((backdrop) => {
+						backdrop.addEventListener('click', (e) => {
+							if (e.target === backdrop) closeModal(backdrop.id);
+						});
+					});
 			}
 
 			// ── Uptime ───────────────────────────────────────────────────
@@ -5106,6 +5128,9 @@
 					$('pd-key-token').value = '';
 					loadApiKeys();
 				});
+
+				// Modal dismissal (Escape + backdrop click), wired once
+				initModalDismiss();
 
 				// Boot the data flows
 				connectApi();
