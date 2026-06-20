@@ -23,6 +23,14 @@
 			<description>A public gallery and leaderboard of the rarest Solana vanity addresses ground on three.ws — each provably-fair, verified, and shareable. Appraise any address to see its honest rarity tier and grind cost.</description>
 		</item>
 		<item>
+			<title>Express yourself in Walk — wave, dance, sit, point, cheer and more</title>
+			<link>https://three.ws/walk</link>
+			<guid isPermaLink="false">2026-06-20:Express yourself in Walk — wave, dance, sit, point, cheer and more</guid>
+			<pubDate>Sat, 20 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Your avatar can now emote while you stroll. Hold G on desktop — or long-press the action button on mobile — to pop a radial gesture wheel, aim, and release to play one of eight gestures: wave, dance, sit, point, cheer, agree, disagree, and a talking idle. Keys 1–8 fire them instantly, and a quick-access tray sits in the corner. Upper-body gestures like wave and cheer blend over your walk so you keep moving while you gesture; sit and dance take over the whole body, and a single step rises you back up. Everything crossfades — no stiff T-pose flashes between moves — and gestures replicate to other players in the same world. Chat messages now animate the avatar as it 'talks', and developers can trigger any gesture programmatically with window.walk.playGesture('wave').</description>
+		</item>
+		<item>
 			<title>Grind-bounty market: post a reward, a fleet grinds your hard vanity address</title>
 			<link>https://three.ws/vanity/bounties</link>
 			<guid isPermaLink="false">2026-06-20:Grind-bounty market: post a reward, a fleet grinds your hard vanity address</guid>
@@ -31,12 +39,84 @@
 			<description>A 5-to-8-character vanity address is hours-to-years on one machine, so until now &quot;hard&quot; vanity meant running your browser overnight and hoping. The new grind-bounty market makes it a liquid, pay-for-results service. Post the pattern you want, escrow a USDC bounty, and a fleet of independent workers grinds it in parallel — the first one to find a verified match is paid automatically. The breakthrough is that the found key is sealed to your encryption key before the worker ever submits it, so the worker earns the bounty yet never sees your wallet, and three.ws never holds your secret either. Settlement is trustless via x402: no valid match, no payout; only one worker can win; and a bounty that goes unfilled refunds your escrow when it expires. You also get an honest difficulty meter and a fair-price oracle when posting (priced off the real grind odds, not made-up numbers), a live board with biggest-reward and expiring-soon sorts, and a one-click way to open your won wallet locally with your private key. Want to earn instead? Flip on &quot;Grind &amp; earn,&quot; point your spare cores at the open bounties, and get paid in USDC for every fill — there's a leaderboard of the top grinders.</description>
 		</item>
 		<item>
+			<title>IRL augmented reality, location, and motion sensors now enabled in production</title>
+			<link>https://three.ws/irl</link>
+			<guid isPermaLink="false">2026-06-20:IRL augmented reality, location, and motion sensors now enabled in production</guid>
+			<pubDate>Sat, 20 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>The live IRL map was served with a browser security header that switched off the camera, GPS, and device-motion access the augmented-reality view depends on — so on stricter browsers, opening /irl to place or discover an agent in AR couldn't start the camera or read your location. We now grant exactly those capabilities, scoped to the IRL page itself and nothing else, so the camera, your location, and device motion come up the moment you open it while every other page stays locked down.</description>
+		</item>
+		<item>
+			<title>IRL pin placement and discovery are reliable again</title>
+			<link>https://three.ws/irl</link>
+			<guid isPermaLink="false">2026-06-20:IRL pin placement and discovery are reliable again</guid>
+			<pubDate>Sat, 20 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Placing an agent at a real-world spot and seeing nearby agents on the IRL map could intermittently fail to load. The cause was that the apps re-checked the entire database schema on every single request, and under bursts of traffic those redundant checks could collide and stall the request. We now run that setup once and never let it block a placement or a nearby-search again — so dropping a pin, browsing what's around you, and logging an encounter respond immediately and consistently.</description>
+		</item>
+		<item>
+			<title>Pick and switch avatars from the Walk Avatar extension popup</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-20:Pick and switch avatars from the Walk Avatar extension popup</guid>
+			<pubDate>Sat, 20 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The three.ws Walk Avatar browser extension popup is now a full avatar picker. Sign in straight from the popup — it opens three.ws, signs you in, and links the extension automatically — then browse your own avatars, a Featured shelf of community favorites, and a Recent tab of the avatars you've picked before. Tap any thumbnail to instantly swap the walking avatar on the current tab, drag the speed slider to change how fast it walks in real time, and use the big switch to turn it on or off for the site you're on. Every thumbnail is a real avatar from your account, with graceful empty, loading, and error states throughout.</description>
+		</item>
+		<item>
 			<title>Proof-of-grind: a public gallery of the rarest wallets ground here</title>
 			<link>https://three.ws/vanity/gallery</link>
 			<guid isPermaLink="false">2026-06-20:Proof-of-grind: a public gallery of the rarest wallets ground here</guid>
 			<pubDate>Sat, 20 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>A vanity address is a flex — but until now the flex was unverifiable. Proof-of-grind turns it into provenance. Every provably-fair grind can now carry an honest rarity score and tier (Common → Mythic) computed straight from the real grind difficulty: longer patterns rank higher, with documented, capped bonuses for real dictionary words, palindromes, and repeated-character runs — no inflated numbers. Publish a wallet (opt-in, secret-free; we re-verify your signed receipt against the live three.ws service key before it appears) and it joins a public gallery and leaderboard of the rarest addresses ground on three.ws, sortable and filterable by tier and pattern, each with a verified badge and a beautiful share card for X. New tools: paste any address to appraise its tier and estimated grind cost, and every agent's wallet chip now shows its rarity tier wherever it appears. No secret, seed, or sealed key is ever stored or shown.</description>
+		</item>
+		<item>
+			<title>Real product analytics + the $THREE conversion funnel</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-20:Real product analytics + the $THREE conversion funnel</guid>
+			<pubDate>Sat, 20 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>We now measure the journeys that matter so we can find and fix where people drop off. Every key step is captured as a real, privacy-respecting event: landing on the homepage and which call-to-action you click, connecting a wallet (started, succeeded, or failed), creating an agent, and copying an embed snippet. The $THREE holder funnel is fully instrumented end to end — token page view → buy clicked → swap quote shown → swap confirmed → swap settled on-chain — so we can see exactly how far buyers get. Marketplace searches, agent profile views, and dashboard/visualizer opens are tracked too, alongside failed API calls so reliability is visible. Wallet addresses are always truncated, events are queued so they never slow the page, and analytics can never break the app.</description>
+		</item>
+		<item>
+			<title>Solana cover-charge and x402 payments fixed when the primary RPC misbehaves</title>
+			<link>https://three.ws/club</link>
+			<guid isPermaLink="false">2026-06-20:Solana cover-charge and x402 payments fixed when the primary RPC misbehaves</guid>
+			<pubDate>Sat, 20 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Paying the Pole Club cover charge — and any Solana payment authorized through the checkout — could fail at the &quot;Authorize payment&quot; step with an internal-error reference. The cause was a misconfigured upstream Solana node answering with a &quot;not found&quot; status that our automatic failover didn't treat as a reason to switch providers, so the payment stalled instead of routing to a healthy node. Failover now rotates off a dead or misrouted node the same way it already handled rate-limits and outages, so the wallet falls through to a working node and the payment goes through.</description>
+		</item>
+		<item>
+			<title>The homepage hero now reacts to live $THREE market data</title>
+			<link>https://three.ws/</link>
+			<guid isPermaLink="false">2026-06-20:The homepage hero now reacts to live $THREE market data</guid>
+			<pubDate>Sat, 20 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The 3D agent on the home page now stands inside a living $THREE energy field — a faceted crystal in a particle cloud that breathes with the market in real time. Price momentum speeds its spin and warms or cools its color, 24-hour volume sets how brightly the field glows, every on-chain buy sends a green ripple and every sell a red one, and each deploy burn flares the whole field in burn-orange. A small live readout in the corner shows the current $THREE price, 24h change, and holder count. It loads only when the hero is on screen, drops to a calm static version if you prefer reduced motion, and quietly shows a &quot;reconnecting&quot; hint instead of ever inventing a number when the feed blips.</description>
+		</item>
+		<item>
+			<title>The pricing page now reveals as you scroll</title>
+			<link>https://three.ws/pricing</link>
+			<guid isPermaLink="false">2026-06-20:The pricing page now reveals as you scroll</guid>
+			<pubDate>Sat, 20 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>The lower sections of the pricing page — the full feature comparison, the FAQ, and the closing call-to-action — now fade and rise gently into view as you scroll to them instead of sitting flat on the page, matching the staggered entrance the plan cards already had. The motion is purely cosmetic and gracefully turns itself off if you've asked your system to reduce motion, and the content always appears even on browsers that don't support scroll detection.</description>
+		</item>
+		<item>
+			<title>Walk Avatar extension gets a full settings page</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-20:Walk Avatar extension gets a full settings page</guid>
+			<pubDate>Sat, 20 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The three.ws Walk Avatar browser extension now has a dedicated settings page (open it from the popup's &quot;All settings&quot; link or chrome://extensions → Details → Extension options). Choose your default avatar, where it appears on a page (including a new follow-the-cursor mode), its size, walk speed, and a light/dark/auto theme that reads each page's background. Turn on read-aloud narration and pick from real synthesis voices, and set per-site allow and block lists so the avatar only shows up where you want it. Every change saves instantly and roams across your signed-in Chrome installs, with a one-click reset to defaults and a diagnostics panel showing your session and extension version.</description>
+		</item>
+		<item>
+			<title>Walk Avatar reads articles aloud more cleanly</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-20:Walk Avatar reads articles aloud more cleanly</guid>
+			<pubDate>Sat, 20 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>When you turn on read-aloud narration in the Walk Avatar browser extension, it now isolates the real article on a page before speaking — using Mozilla's Readability engine to strip away navigation, headers, footers, sidebars and ads — so the avatar narrates the actual story you're reading instead of menu labels or boilerplate. As you scroll, it follows the section in view, shows the text in a tidy speech bubble above the avatar (now neatly clamped to three lines), and reads it with a real synthesis voice; muting silences it and cancels any in-flight audio instantly. Narration stays off when you've asked your system to reduce motion.</description>
 		</item>
 		<item>
 			<title>Agent Studio</title>

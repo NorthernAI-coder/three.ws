@@ -4,8 +4,8 @@
 //   • Seed and serve default settings (chrome.storage.sync, roams across installs).
 //   • Relay the popup/options UI to the per-tab content scripts.
 //   • Capture the session token from the three.ws auth-callback tab.
-//   • Inject content.js + content-narrator.js on demand and keep their iframes
-//     in sync as settings change.
+//   • Inject vendor/readability.js + content-narrator.js + content.js on demand
+//     and keep their iframes in sync as settings change.
 //   • Enforce the site allow/blocklist before an avatar is ever mounted.
 
 const THREEWS_ORIGIN = 'https://three.ws';
@@ -66,12 +66,15 @@ async function getSettings() {
 	return { ...DEFAULTS, ...sync };
 }
 
-// Inject both content modules (idempotent — re-injection is a no-op once the
-// guard flag is set inside content.js).
+// Inject the content modules in dependency order (idempotent — re-injection is
+// a no-op once the guard flag is set inside content.js). vendor/readability.js
+// runs first so it can publish window.__ThreewsReadability before
+// content-narrator.js reads it; content.js mounts the iframe and owns the
+// narrator lifecycle, so it goes last.
 async function injectContent(tabId) {
 	await chrome.scripting.executeScript({
 		target: { tabId },
-		files: ['content-narrator.js', 'content.js'],
+		files: ['vendor/readability.js', 'content-narrator.js', 'content.js'],
 	});
 }
 
@@ -140,6 +143,17 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 					break;
 				}
 
+				case 'reset-settings': {
+					// Clear everything and re-seed the canonical defaults, then push
+					// them to every mounted iframe. The session token lives in
+					// storage.local and is intentionally left untouched.
+					await chrome.storage.sync.clear();
+					await chrome.storage.sync.set(DEFAULTS);
+					broadcast({ type: 'walk:applySettings', settings: { ...DEFAULTS } });
+					sendResponse({ ok: true, settings: { ...DEFAULTS } });
+					break;
+				}
+
 				case 'check-site': {
 					const settings = await getSettings();
 					sendResponse({ allowed: siteAllowed(msg.url || '', settings) });
@@ -168,10 +182,12 @@ function broadcast(message) {
 }
 
 // ── Auth callback capture ─────────────────────────────────────────────────────
-// The popup opens three.ws/login?redirect=extension. After a successful sign-in
-// the site redirects to /extension/auth-callback?token=<session>. We read the
-// token out of that tab's URL, persist it, close the tab, and notify any open
-// popup so it can re-render the signed-in state.
+// The popup opens three.ws/login?next=/extension/auth-callback. After a
+// successful sign-in the site lands on /extension/auth-callback, which mints a
+// Bearer token (POST /api/auth/extension-token) and redirects to
+// /extension/auth-callback?token=<token>. We read the token out of that tab's
+// URL, persist it, close the tab, and notify any open popup so it can re-render
+// the signed-in state.
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 	if (changeInfo.status !== 'complete' || !tab.url) return;
 	if (!tab.url.startsWith(THREEWS_ORIGIN + '/extension/auth-callback')) return;

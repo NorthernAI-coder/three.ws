@@ -1,13 +1,20 @@
 // popup.js — controller for the Walk Avatar popup.
 //
-// Wires the real three.ws API:
-//   GET /api/threews/me               — session identity (username)
-//   GET /api/avatars                  — the signed-in user's avatars
-//   GET /api/avatars?include_public=true&visibility=public — featured/public
-// Thumbnails come back on each avatar as `thumbnail_url` (a CDN URL); the GLB
-// model is `model_url`. No per-thumb endpoint is needed.
+// Real three.ws API (no placeholders, no sample data):
+//   GET  /api/me                  — signed-in identity (handle shown in the pill)
+//   GET  /api/avatars/mine        — the caller's avatars (Bearer, avatars:read)
+//   GET  /api/avatars/featured    — curated + popular public avatars
+//   GET  /api/avatars/:id/thumb   — poster JPG/PNG (used directly as <img src>)
+//
+// Auth: the popup opens three.ws/login?next=/extension/auth-callback. The site
+// mints a Bearer token there and the background worker captures it from the
+// callback URL into chrome.storage.local.threews_session. The "Recent" tab is
+// the avatars the user has picked here, kept in chrome.storage.local.
 
 const THREEWS = 'https://three.ws';
+const RECENT_KEY = 'recentAvatars';
+const SELECTION_KEY = 'walk_selection';
+const MAX_RECENT = 12;
 
 const state = {
 	session: null,
@@ -16,15 +23,18 @@ const state = {
 	currentTab: null,
 	tabEnabled: false,
 	activeTab: 'mine',
+	// id -> avatar object, so the Recent tab and re-selection can render without
+	// a refetch and we can snapshot picks into chrome.storage.local.
+	cache: new Map(),
 };
 
-// ── API ───────────────────────────────────────────────────────────────────
+// ── API ─────────────────────────────────────────────────────────────────────
 async function apiFetch(path) {
 	const headers = { Accept: 'application/json' };
 	if (state.session) headers['Authorization'] = `Bearer ${state.session}`;
 	const res = await fetch(`${THREEWS}${path}`, { headers, credentials: 'include' });
 	if (res.status === 401) {
-		const err = new Error('unauthorized');
+		const err = new Error('session expired');
 		err.status = 401;
 		throw err;
 	}
@@ -37,27 +47,42 @@ function msg(type, data = {}) {
 }
 
 function openLogin() {
-	chrome.tabs.create({ url: `${THREEWS}/login?redirect=extension` });
+	chrome.tabs.create({
+		url: `${THREEWS}/login?next=${encodeURIComponent('/extension/auth-callback')}`,
+	});
 }
 
-// ── Auth header ────────────────────────────────────────────────────────────
+function thumbUrl(av) {
+	return av.thumb_url || `${THREEWS}/api/avatars/${av.id}/thumb`;
+}
+
+// ── Auth header ───────────────────────────────────────────────────────────────
 async function renderAuth() {
 	const pill = document.getElementById('auth-pill');
 	const label = document.getElementById('auth-label');
+	const avatarChip = document.getElementById('auth-avatar');
 	const signInBtn = document.getElementById('sign-in-btn');
 
 	if (state.session) {
 		try {
-			const body = await apiFetch('/api/threews/me');
-			const user = body?.data?.user || body?.user || {};
+			const body = await apiFetch('/api/me');
+			const user = body?.user || {};
 			pill.classList.add('signed-in');
-			label.textContent = user.username ? `@${user.username}` : (user.display_name || 'signed in');
+			label.textContent =
+				user.handle || (user.username ? `@${user.username}` : user.display_name || 'signed in');
+			if (user.avatar_url) {
+				avatarChip.src = user.avatar_url;
+				avatarChip.onerror = () => avatarChip.removeAttribute('src');
+			} else {
+				avatarChip.removeAttribute('src');
+			}
 			signInBtn.textContent = 'Sign out';
 			signInBtn.onclick = async () => {
 				await msg('clear-session');
 				state.session = null;
+				avatarChip.removeAttribute('src');
 				renderAuth();
-				loadAvatars('mine');
+				loadAvatars(state.activeTab);
 			};
 			return;
 		} catch (err) {
@@ -69,14 +94,18 @@ async function renderAuth() {
 	}
 
 	pill.classList.remove('signed-in');
+	avatarChip.removeAttribute('src');
 	label.textContent = 'not signed in';
 	signInBtn.textContent = 'Sign in';
 	signInBtn.onclick = openLogin;
 }
 
-// ── Avatar grids ────────────────────────────────────────────────────────────
+// ── Avatar grids ──────────────────────────────────────────────────────────────
 function skeleton(n = 6) {
-	return Array.from({ length: n }, () => '<div class="avatar-thumb skeleton" aria-hidden="true"></div>').join('');
+	return Array.from(
+		{ length: n },
+		() => '<div class="avatar-thumb skeleton" aria-hidden="true"></div>',
+	).join('');
 }
 
 function renderEmpty(gridEl, tab) {
@@ -91,6 +120,13 @@ function renderEmpty(gridEl, tab) {
 		gridEl.querySelector('#create-cta')?.addEventListener('click', () => {
 			chrome.tabs.create({ url: `${THREEWS}/create-selfie` });
 		});
+	} else if (tab === 'recent') {
+		gridEl.innerHTML = `
+			<div class="empty-state" role="status">
+				<div class="empty-emoji" aria-hidden="true">🕘</div>
+				<div class="empty-title">No recent picks</div>
+				<p class="empty-sub">Avatars you choose here show up in this tab so you can switch back fast.</p>
+			</div>`;
 	} else {
 		gridEl.innerHTML = `
 			<div class="empty-state" role="status">
@@ -114,9 +150,18 @@ function renderError(gridEl, errorEl, tab, message) {
 	errorEl.querySelector(`#retry-${tab}`)?.addEventListener('click', () => loadAvatars(tab));
 }
 
+function fallbackGlyph(name) {
+	const span = document.createElement('span');
+	span.className = 'thumb-glyph';
+	span.textContent = (name || '?').trim().charAt(0).toUpperCase() || '?';
+	return span;
+}
+
 function renderAvatarGrid(gridEl, avatars) {
 	gridEl.innerHTML = '';
 	for (const av of avatars) {
+		state.cache.set(av.id, av);
+
 		const thumb = document.createElement('button');
 		thumb.className = 'avatar-thumb' + (av.id === state.selectedAvatarId ? ' selected' : '');
 		thumb.type = 'button';
@@ -124,9 +169,21 @@ function renderAvatarGrid(gridEl, avatars) {
 		thumb.setAttribute('aria-label', `Select avatar ${av.name || ''}`.trim());
 		thumb.setAttribute('aria-pressed', av.id === state.selectedAvatarId ? 'true' : 'false');
 
-		if (av.thumbnail_url) {
+		if (av.featured) {
+			const badge = document.createElement('span');
+			badge.className = 'thumb-badge';
+			badge.textContent = 'Featured';
+			thumb.appendChild(badge);
+		}
+
+		// has_thumbnail === false means the poster endpoint would 404 — skip the
+		// round trip and render the initial glyph straight away.
+		if (av.has_thumbnail === false) {
+			thumb.classList.add('no-thumb');
+			thumb.appendChild(fallbackGlyph(av.name));
+		} else {
 			const img = document.createElement('img');
-			img.src = av.thumbnail_url;
+			img.src = thumbUrl(av);
 			img.alt = av.name || 'avatar';
 			img.loading = 'lazy';
 			img.addEventListener('error', () => {
@@ -135,33 +192,59 @@ function renderAvatarGrid(gridEl, avatars) {
 				thumb.appendChild(fallbackGlyph(av.name));
 			});
 			thumb.appendChild(img);
-		} else {
-			thumb.classList.add('no-thumb');
-			thumb.appendChild(fallbackGlyph(av.name));
 		}
 
-		thumb.addEventListener('click', () => selectAvatar(av.id, gridEl, thumb));
+		thumb.addEventListener('click', () => selectAvatar(av, thumb));
 		gridEl.appendChild(thumb);
 	}
 }
 
-function fallbackGlyph(name) {
-	const span = document.createElement('span');
-	span.className = 'thumb-glyph';
-	span.textContent = (name || '?').trim().charAt(0).toUpperCase() || '?';
-	return span;
-}
-
-function selectAvatar(avatarId, gridEl, thumbEl) {
+// ── Selection ─────────────────────────────────────────────────────────────────
+async function selectAvatar(av, thumbEl) {
+	const avatarId = av.id;
 	state.selectedAvatarId = avatarId;
-	for (const t of gridEl.parentElement.parentElement.querySelectorAll('.avatar-thumb')) {
+
+	// Reflect selection across the whole popup (all three grids).
+	for (const t of document.querySelectorAll('.avatar-thumb')) {
 		const on = t === thumbEl;
 		t.classList.toggle('selected', on);
 		t.setAttribute('aria-pressed', on ? 'true' : 'false');
 	}
-	msg('set-avatar', { avatarId });
-	// If the avatar is already running on this tab, the background broadcast
-	// swaps it live; otherwise the selection is stored for the next enable.
+
+	// 1) Persist the picker selection in the shape the rest of the extension reads.
+	await persistSelection();
+
+	// 2) Remember it as a "recent" pick for the Recent tab.
+	await pushRecent(av);
+
+	// 3) Background relay updates the synced default + broadcasts a live swap to
+	//    every mounted tab; also message the current tab directly so the swap is
+	//    instant even if the broadcast races.
+	await msg('set-avatar', { avatarId });
+	if (state.currentTab?.id != null) {
+		chrome.tabs
+			.sendMessage(state.currentTab.id, { type: 'walk:setAvatar', avatarId })
+			.catch(() => {});
+	}
+}
+
+// ── Recent tab (client-side, real picks) ───────────────────────────────────────
+async function getRecent() {
+	const out = await chrome.storage.local.get(RECENT_KEY).catch(() => ({}));
+	return Array.isArray(out[RECENT_KEY]) ? out[RECENT_KEY] : [];
+}
+
+async function pushRecent(av) {
+	const slim = {
+		id: av.id,
+		name: av.name || 'Avatar',
+		thumb_url: thumbUrl(av),
+		has_thumbnail: av.has_thumbnail !== false,
+		featured: !!av.featured,
+	};
+	const existing = (await getRecent()).filter((a) => a && a.id && a.id !== av.id);
+	const next = [slim, ...existing].slice(0, MAX_RECENT);
+	await chrome.storage.local.set({ [RECENT_KEY]: next }).catch(() => {});
 }
 
 async function loadAvatars(tab) {
@@ -169,6 +252,15 @@ async function loadAvatars(tab) {
 	const gridEl = document.getElementById(`grid-${tab}`);
 	const errorEl = document.getElementById(`error-${tab}`);
 	errorEl.style.display = 'none';
+
+	// Recent is local — no network, no skeleton flash.
+	if (tab === 'recent') {
+		const recent = await getRecent();
+		recent.forEach((a) => state.cache.set(a.id, a));
+		if (recent.length === 0) return renderEmpty(gridEl, tab);
+		return renderAvatarGrid(gridEl, recent);
+	}
+
 	gridEl.innerHTML = skeleton();
 
 	try {
@@ -184,16 +276,12 @@ async function loadAvatars(tab) {
 			return;
 		}
 
-		const path = tab === 'mine'
-			? '/api/avatars?limit=60'
-			: '/api/avatars?include_public=true&visibility=public&limit=60';
+		const path =
+			tab === 'mine' ? '/api/avatars/mine?limit=60' : '/api/avatars/featured?limit=48';
 		const body = await apiFetch(path);
 		const avatars = (body.avatars || []).filter((a) => a && a.id);
 
-		if (avatars.length === 0) {
-			renderEmpty(gridEl, tab);
-			return;
-		}
+		if (avatars.length === 0) return renderEmpty(gridEl, tab);
 		renderAvatarGrid(gridEl, avatars);
 	} catch (err) {
 		if (err.status === 401) {
@@ -207,7 +295,7 @@ async function loadAvatars(tab) {
 	}
 }
 
-// ── Current tab ──────────────────────────────────────────────────────────────
+// ── Current tab ────────────────────────────────────────────────────────────────
 async function initCurrentTab() {
 	const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 	state.currentTab = tab;
@@ -224,7 +312,9 @@ async function initCurrentTab() {
 	}
 
 	let host = tab.url;
-	try { host = new URL(tab.url).hostname; } catch {}
+	try {
+		host = new URL(tab.url).hostname;
+	} catch {}
 	siteEl.textContent = host;
 
 	// Per-tab enable state is kept in session storage, set when the popup toggles.
@@ -240,7 +330,7 @@ async function initCurrentTab() {
 	}
 }
 
-// ── Toggle ────────────────────────────────────────────────────────────────────
+// ── Toggle ──────────────────────────────────────────────────────────────────────
 document.getElementById('enable-toggle').addEventListener('change', async (e) => {
 	const enabled = e.target.checked;
 	if (!state.currentTab) return;
@@ -258,27 +348,57 @@ document.getElementById('enable-toggle').addEventListener('change', async (e) =>
 		const siteEl = document.getElementById('current-site');
 		siteEl.innerHTML = `${siteEl.textContent} <span class="filtered-tag">${res.reason || res.error}</span>`;
 		await chrome.storage.session.set({ [key]: false }).catch(() => {});
+		state.tabEnabled = false;
+		await persistSelection();
 		return;
 	}
 
 	state.tabEnabled = enabled;
 	await chrome.storage.session.set({ [key]: enabled }).catch(() => {});
+	await persistSelection();
 });
 
 // ── Speed slider ──────────────────────────────────────────────────────────────
 const speedSlider = document.getElementById('speed-slider');
 const speedVal = document.getElementById('speed-val');
 
+function currentSpeed() {
+	return parseFloat(speedSlider.value) || 1;
+}
+
+async function persistSelection() {
+	await chrome.storage.local
+		.set({
+			[SELECTION_KEY]: {
+				avatarId: state.selectedAvatarId || state.settings.avatarId || '',
+				walkSpeed: currentSpeed(),
+				enabled: state.tabEnabled,
+			},
+		})
+		.catch(() => {});
+}
+
+// Throttle live speed broadcasts so dragging the slider stays smooth.
+let speedThrottle = null;
 speedSlider.addEventListener('input', () => {
-	speedVal.textContent = parseFloat(speedSlider.value).toFixed(1) + '×';
+	speedVal.textContent = currentSpeed().toFixed(1) + '×';
+	if (speedThrottle) return;
+	speedThrottle = setTimeout(() => {
+		speedThrottle = null;
+		msg('update-settings', { settings: { walkSpeed: currentSpeed() } });
+	}, 150);
 });
 
 speedSlider.addEventListener('change', async () => {
-	const v = parseFloat(speedSlider.value);
-	await msg('update-settings', { settings: { walkSpeed: v } });
+	if (speedThrottle) {
+		clearTimeout(speedThrottle);
+		speedThrottle = null;
+	}
+	await msg('update-settings', { settings: { walkSpeed: currentSpeed() } });
+	await persistSelection();
 });
 
-// ── Tab bar ────────────────────────────────────────────────────────────────────
+// ── Tab bar ──────────────────────────────────────────────────────────────────────
 document.querySelectorAll('.tab-btn').forEach((btn) => {
 	btn.addEventListener('click', () => {
 		const tab = btn.dataset.tab;
@@ -321,9 +441,5 @@ chrome.runtime.onMessage.addListener((m) => {
 	speedSlider.value = String(speed);
 	speedVal.textContent = parseFloat(speed).toFixed(1) + '×';
 
-	await Promise.all([
-		renderAuth(),
-		initCurrentTab(),
-		loadAvatars('mine'),
-	]);
+	await Promise.all([renderAuth(), initCurrentTab(), loadAvatars('mine')]);
 })();
