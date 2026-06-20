@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-20T06:58:46.940Z",
+	"generated_at": "2026-06-20T07:37:55.056Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -34,6 +34,16 @@
 			"link": "/vanity/gallery",
 			"tags": [
 				"launch"
+			]
+		},
+		{
+			"date": "2026-06-20",
+			"type": "update",
+			"title": "/irl now pairs with smart glasses",
+			"summary": "You can connect companion smart glasses to the /irl augmented-reality view and see the nearest agent right on your lens — its name, the direction to turn, how far away it is, and a flash when one walks into range. Your phone keeps doing all the GPS, compass and discovery work; the glasses just show the cue, so you can keep your head up instead of staring at a screen. Brilliant Labs Frame is fully supported (official SDK); Even Realities G1 works too via its two-arm pairing (experimental, community protocol). Pairing uses an encrypted Web Bluetooth link in Chromium browsers — your location is never sent to the glasses, only the direction and distance you already see on screen.",
+			"link": "/irl",
+			"tags": [
+				"feature"
 			]
 		},
 		{

@@ -11,9 +11,10 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 
 let sql;
+let sqlValues;
 beforeAll(async () => {
 	process.env.DATABASE_URL = process.env.DATABASE_URL || 'postgresql://u:p@localhost/db';
-	({ sql } = await import('../api/_lib/db.js'));
+	({ sql, sqlValues } = await import('../api/_lib/db.js'));
 });
 
 describe('sql fragment composition', () => {
@@ -104,5 +105,55 @@ describe('sql fragment composition', () => {
 			query: 'select $1::int',
 			params: ['7'],
 		});
+	});
+});
+
+describe('sqlValues — multi-row VALUES fragment', () => {
+	it('renders one row as a single parameterized tuple', () => {
+		const { query, params } = sql`insert into t (a, b) values ${sqlValues([[1, 'x']])}`
+			.parameterizedQuery;
+		expect(query).toBe('insert into t (a, b) values ($1, $2)');
+		expect(params).toEqual(['1', 'x']);
+	});
+
+	it('renders multiple rows with contiguous, renumbered placeholders', () => {
+		const { query, params } = sql`insert into t (a, b) values ${sqlValues([
+			[1, 'x'],
+			[2, 'y'],
+			[3, 'z'],
+		])}`.parameterizedQuery;
+		expect(query).toBe('insert into t (a, b) values ($1, $2), ($3, $4), ($5, $6)');
+		expect(params).toEqual(['1', 'x', '2', 'y', '3', 'z']);
+	});
+
+	it('renumbers against a parent query that also binds params', () => {
+		const { query, params } = sql`
+			insert into token_metadata (mint, source) values ${sqlValues([
+				['mintA', 'helius-das'],
+				['mintB', 'helius-das'],
+			])}
+			on conflict (mint) do update set source = ${'updated'}
+		`.parameterizedQuery;
+		expect(query).toContain('values ($1, $2), ($3, $4)');
+		expect(query).toContain('set source = $5');
+		expect(params).toEqual(['mintA', 'helius-das', 'mintB', 'helius-das', 'updated']);
+	});
+
+	it('binds Date values as parameters (never inlines the colon-bearing ISO string)', () => {
+		const ts = new Date('2026-06-20T06:40:10.000Z');
+		const { query, params } = sql`insert into t (m, at) values ${sqlValues([['x', ts]])}`
+			.parameterizedQuery;
+		expect(query).toBe('insert into t (m, at) values ($1, $2)');
+		// The colon-bearing timestamp is a bound param, not raw SQL — this is the
+		// exact failure mode (`syntax error at or near ":"`) the helper prevents.
+		expect(query).not.toContain(':');
+		expect(params[0]).toBe('x');
+		expect(String(params[1])).toContain('2026-06-20');
+	});
+
+	it('rejects empty input and ragged rows', () => {
+		expect(() => sqlValues([])).toThrow();
+		expect(() => sqlValues('nope')).toThrow();
+		expect(() => sqlValues([[1, 2], [3]])).toThrow();
 	});
 });
