@@ -20,6 +20,7 @@ import { runPositionSweep } from './positions.js';
 import { startFirstClaimWatch } from './first-claim-watch.js';
 import { startIntelWatcher } from './intel/watcher.js';
 import { getLearnedWeights } from './intel/store.js';
+import { getSmartMoneyForMint } from '../../api/_lib/smart-money.js';
 import { startHeartbeat } from './heartbeat.js';
 import { makeErrorTracker } from './error-tracker.js';
 import {
@@ -128,11 +129,23 @@ async function main() {
 		const onIntel = (rec) => {
 			if (draining || cfg.globalKill) return;
 			const strategies = cachedStrategies();
+			const wantsIntel = strategies.some(
+				(strat) => (strat.trigger || 'new_mint') === 'intel_confirmed' && strat.network === cfg.network,
+			);
+			if (!wantsIntel) return;
+
+			// Attach the live smart-money graph read once per finished intel record so
+			// scoreIntel's gate + score see who reputable is in. Degrades silently to a
+			// zero-data result (computed:false) — never blocks the snipe path.
+			const smartReady = getSmartMoneyForMint(rec.mint, cfg.network)
+				.then((sm) => { rec.smart_money = sm; })
+				.catch(() => { rec.smart_money = null; });
+
 			for (const strat of strategies) {
 				if ((strat.trigger || 'new_mint') !== 'intel_confirmed') continue;
 				if (strat.network !== cfg.network) continue;
-				getLearnedWeights(cfg.network)
-					.then((weights) => {
+				Promise.all([getLearnedWeights(cfg.network), smartReady])
+					.then(([weights]) => {
 						const { pass, score, reasons } = scoreIntel(rec, strat, weights);
 						if (!pass) return;
 						log.info('intel candidate', { agent: strat.agent_id, mint: rec.mint, symbol: rec.symbol, score, reasons });

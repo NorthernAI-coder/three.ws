@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-20T05:23:20.537Z",
+	"generated_at": "2026-06-20T05:35:12.182Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -160,6 +160,16 @@
 					"title": "What is three.ws?",
 					"description": "Plain-English introduction to three.ws — what a 3D AI agent is, real use-cases, and where to begin.",
 					"added": "2026-06-05",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/tour",
+					"title": "Guided Tour",
+					"description": "A 3D guide walks across the live site, points at every feature, and narrates what each one does and how to use it — voice plus an on-screen chat bubble, paced by you.",
+					"added": "2026-06-20",
 					"auth": null,
 					"indexable": true,
 					"tags": [],

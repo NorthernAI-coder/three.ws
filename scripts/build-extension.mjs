@@ -38,6 +38,33 @@ await Promise.all([
 		target: 'chrome109',
 		external: ['chrome'],
 	}),
+	// Classic content scripts injected (in order) via chrome.scripting before
+	// content.js — each is a self-contained IIFE that publishes a window global.
+	// They are NOT imported by content.js, so esbuild must emit them separately
+	// or chrome.scripting.executeScript fails on a missing file and the whole
+	// avatar injection aborts.
+	build({
+		entryPoints: [join(src, 'content-narrator.js')],
+		outfile: join(out, 'content-narrator.js'),
+		bundle: true,
+		format: 'iife',
+		platform: 'browser',
+		minify: isProd,
+		sourcemap: !isProd,
+		target: 'chrome109',
+		external: ['chrome'],
+	}),
+	build({
+		entryPoints: [join(src, 'content-pilot.js')],
+		outfile: join(out, 'content-pilot.js'),
+		bundle: true,
+		format: 'iife',
+		platform: 'browser',
+		minify: isProd,
+		sourcemap: !isProd,
+		target: 'chrome109',
+		external: ['chrome'],
+	}),
 	build({
 		entryPoints: [join(src, 'popup.js')],
 		outfile: join(out, 'popup.js'),
@@ -67,6 +94,9 @@ cpSync(join(src, 'manifest.json'), join(out, 'manifest.json'));
 cpSync(join(src, 'popup.html'), join(out, 'popup.html'));
 cpSync(join(src, 'options.html'), join(out, 'options.html'));
 cpSync(join(src, 'icons'), join(out, 'icons'), { recursive: true });
+// Vendored third-party readability lib is injected as-is (large, pre-minified);
+// copy it verbatim rather than re-bundling.
+cpSync(join(src, 'vendor'), join(out, 'vendor'), { recursive: true });
 
 // Write injected CSS (empty placeholder — content.js injects styles programmatically)
 writeFileSync(join(out, 'styles', 'inject.css'), '/* reserved for injected styles */\n');

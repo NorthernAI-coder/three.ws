@@ -26,6 +26,7 @@ Entry points into the product.
 - [Sitemap](https://three.ws/sitemap): Human-readable index of every page on three.ws.
 - [Characters](https://three.ws/characters): Discover AI characters on three.ws. Chat, trade, and create.
 - [What is three.ws?](https://three.ws/what-is): Plain-English introduction to three.ws — what a 3D AI agent is, real use-cases, and where to begin.
+- [Guided Tour](https://three.ws/tour): A 3D guide walks across the live site, points at every feature, and narrates what each one does and how to use it — voice plus an on-screen chat bubble, paced by you.
 
 ## Build
 

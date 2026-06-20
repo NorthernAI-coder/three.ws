@@ -107,6 +107,24 @@ export function scoreIntel(rec, strat, weights = null) {
 		return { pass: false, score: 0, reasons: ['no_socials'] };
 	}
 
+	// Smart-money gate (task 03). `rec.smart_money` is the live graph read attached
+	// by the worker (getSmartMoneyForMint). It honours two optional strategy knobs:
+	//   require_smart_money   — demand at least one reputable, non-sybil buyer.
+	//   min_smart_money_score — demand the coin's 0..100 pedigree score clears a bar.
+	// Both skip silently when the graph hasn't scored this coin yet (computed:false)
+	// — a brand-new coin lacks history; the other gates still protect the snipe.
+	const sm = rec.smart_money || null;
+	const smComputed = !!(sm && sm.computed);
+	if (smComputed) {
+		if (strat.require_smart_money === true && (sm.count ?? 0) < 1) {
+			return { pass: false, score: 0, reasons: ['no_smart_money'] };
+		}
+		const minSm = n(strat.min_smart_money_score);
+		if (minSm != null && (n(sm.smart_money_score) ?? 0) < minSm) {
+			return { pass: false, score: 0, reasons: [`smart_money_below_min:${sm.smart_money_score}<${minSm}`] };
+		}
+	}
+
 	// ── score: baseline quality + learned model + organic, minus risk ─────────
 	let score = (rec.quality_score ?? 0) / 100;
 	reasons.push(`quality:${rec.quality_score}`);
@@ -115,6 +133,15 @@ export function scoreIntel(rec, strat, weights = null) {
 
 	const learned = learnedScore(s, weights);
 	if (learned != null) { score += learned; reasons.push(`learned:${learned}`); }
+
+	// Smart-money lifts the score (proven money in) and a dominant sybil cluster
+	// drags it (a manufactured "wide base"). Pure contribution — no I/O here.
+	if (smComputed) {
+		const smScore = n(sm.smart_money_score) ?? 0;
+		const smCount = sm.count ?? 0;
+		if (smCount > 0) { score += Math.min(0.5, (smScore / 100) * 0.5); reasons.push(`smart_money:${smScore}/${smCount}`); }
+		if (sm.sybil_flag) { score -= 0.4; reasons.push('sybil_cluster'); }
+	}
 
 	if (rec.category) reasons.push(`cat:${rec.category}`);
 	for (const flag of rec.risk_flags || []) reasons.push(`flag:${flag}`);

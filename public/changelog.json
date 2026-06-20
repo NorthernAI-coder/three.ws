@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-20T05:23:20.566Z",
+	"generated_at": "2026-06-20T05:35:12.277Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -12,6 +12,16 @@
 			"title": "Grind-Bounty Market",
 			"summary": "A decentralized x402 bounty market for hard Solana vanity addresses — escrow a USDC bounty and a fleet of independent workers grinds it in parallel. The first verified match wins, but the found key is sealed to you so the worker never sees your wallet. Earn USDC by grinding open bounties.",
 			"link": "/vanity/bounties",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-06-20",
+			"type": "launch",
+			"title": "Guided Tour",
+			"summary": "A 3D guide walks across the live site, points at every feature, and narrates what each one does and how to use it — voice plus an on-screen chat bubble, paced by you.",
+			"link": "/tour",
 			"tags": [
 				"launch"
 			]
@@ -120,6 +130,16 @@
 			"link": "/club",
 			"tags": [
 				"fix"
+			]
+		},
+		{
+			"date": "2026-06-20",
+			"type": "update",
+			"title": "Take the guided tour — a 3D guide walks you through every feature",
+			"summary": "New to three.ws, or never sure what half the menus do? Press play on the new Guided Tour and a 3D avatar steps onto the page, walks across the real live site, and points at each feature in turn — a beam connects the guide to exactly what it's describing, a spotlight dims everything else, and it tells you what the feature does and how to use it. Every stop is narrated out loud and shown in a chat bubble above the guide's head, so you can listen, read along, or mute the voice. The tour runs as chapters — getting started, building an agent and giving it a body and voice, taking it on-chain with wallets and payments, the live showcases, and where to learn more — about half an hour end to end, and entirely paced by you: pause, skip ahead, step back, or scrub the progress bar anytime. Wander off to try something and the guide waits; press play and it walks you back to where you left off. Start it from the new Tour page or the Discover menu.",
+			"link": "/tour",
+			"tags": [
+				"feature"
 			]
 		},
 		{

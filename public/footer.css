@@ -545,6 +545,9 @@
 		width: 44px;
 		height: 44px;
 	}
+	.h-footer-newsletter-input {
+		min-height: 44px;
+	}
 	.h-footer-newsletter-btn svg,
 	.h-footer-social svg {
 		width: 16px;

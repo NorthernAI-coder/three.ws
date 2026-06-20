@@ -103,6 +103,12 @@ URL: https://three.ws/what-is
 
 Plain-English introduction to three.ws — what a 3D AI agent is, real use-cases, and where to begin.
 
+### Guided Tour
+
+URL: https://three.ws/tour
+
+A 3D guide walks across the live site, points at every feature, and narrates what each one does and how to use it — voice plus an on-screen chat bubble, paced by you.
+
 ## Build
 
 Create and customize an agent.

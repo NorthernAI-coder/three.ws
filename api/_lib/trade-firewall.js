@@ -23,6 +23,7 @@ import { unpackMint, NATIVE_MINT } from '@solana/spl-token';
 import { sql } from './db.js';
 import { getPumpTradeClient, getAmmPoolState, getConnection } from './pump.js';
 import { checkPriceImpact } from './agent-trade-guards.js';
+import { getSmartMoneyForMint } from './smart-money.js';
 
 const WSOL_MINT = NATIVE_MINT.toBase58();
 
@@ -46,6 +47,7 @@ const PENALTY = Object.freeze({
 	dev_dumped: 14, // dev sold inside the observation window
 	bundle: 12, // coordinated-launch likelihood
 	price_impact: 10, // this size moves the market a lot
+	sybil_cluster: 14, // buyers dominated by one funder cluster (manufactured demand)
 });
 
 const BLOCK_SCORE = 45; // at/under this composite → block on warnings alone
@@ -331,6 +333,30 @@ function checkImpact(priceImpactPct) {
 	return result('price_impact', 'pass', 'impact_ok', { impact_pct: Number(priceImpactPct) });
 }
 
+// ── check 5: smart-money sybil dominance (task 03 graph) ──────────────────────
+// The buyers "in" this coin are scored against the wallet-reputation graph: when
+// the net-buy flow is dominated by a single shared-funder cluster, the demand is
+// likely manufactured (one entity across many wallets), so WARN. Pure additive
+// signal — if the graph has no data or the DB is unreachable, this degrades to a
+// silent skip and never blocks the trade.
+async function checkSybil(mint, network) {
+	try {
+		const sm = await getSmartMoneyForMint(mint, network);
+		if (!sm || sm.sybil_flag !== true) {
+			return result('smart_money', sm && sm.count > 0 ? 'pass' : 'skip',
+				sm && sm.count > 0 ? 'smart_money_clean' : 'no_smart_money_data',
+				{ count: sm?.count ?? 0, smart_money_score: sm?.smart_money_score ?? null });
+		}
+		return result('smart_money', 'warn', 'sybil_cluster_dominant', {
+			count: sm.count ?? 0,
+			smart_money_score: sm.smart_money_score ?? null,
+			dominant_cluster: sm.dominant_cluster ?? null,
+		});
+	} catch {
+		return result('smart_money', 'skip', 'smart_money_unavailable', {});
+	}
+}
+
 // ── verdict composition ───────────────────────────────────────────────────────
 function compose(checks, simulated) {
 	let score = 100;
@@ -375,6 +401,10 @@ function compose(checks, simulated) {
 			case 'high_price_impact':
 				score -= PENALTY.price_impact;
 				reasons.push(`Price impact is high (${Number(c.detail.impact_pct).toFixed(1)}%) — you may receive far less than market.`);
+				break;
+			case 'sybil_cluster_dominant':
+				score -= PENALTY.sybil_cluster;
+				reasons.push('Buying is dominated by one funder cluster — the demand looks manufactured by a single entity, not organic.');
 				break;
 			case 'venue_read_failed':
 			case 'authority_read_failed':
@@ -475,18 +505,19 @@ export async function assessTradeSafety({
 
 	// Run the independent checks concurrently — the kernel adds a few hundred ms,
 	// not seconds, even on the hot snipe path.
-	const [authorityRes, venueRes, roundTrip, intelRes] = await Promise.all([
+	const [authorityRes, venueRes, roundTrip, intelRes, sybilRes] = await Promise.all([
 		checkMintAuthority(conn, mintPk, cacheKey),
 		checkVenue(net, mintPk, cacheKey),
 		lamports > 0n
 			? checkRoundTrip({ network: net, mintPk, payer, quoteAmount: lamports, connection: conn })
 			: Promise.resolve({ res: result('round_trip', 'skip', 'no_quote_amount', {}), simulated: false }),
 		checkIntel(mintPk.toBase58(), net),
+		checkSybil(mintPk.toBase58(), net),
 	]);
 
 	const impactRes = checkImpact(priceImpactPct);
 
-	const checks = [authorityRes, venueRes, roundTrip.res, intelRes, impactRes];
+	const checks = [authorityRes, venueRes, roundTrip.res, intelRes, impactRes, sybilRes];
 	const { verdict, score, reasons } = compose(checks, roundTrip.simulated);
 
 	return { verdict, score, simulated: roundTrip.simulated, reasons, checks };
