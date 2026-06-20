@@ -131,13 +131,27 @@ async function probeX402() {
 
 	const result = {};
 
-	// Check if PAY_TO addresses are configured
+	// Check if PAY_TO addresses are configured. A network counts as wired only
+	// when EVERY field its 402 accept needs is present — the same gate
+	// buildRequirements() applies before advertising it. Solana additionally
+	// requires a fee payer (no default): without it the accept is dropped, so a
+	// Solana-only paid endpoint (e.g. /api/x402/club-cover) fails closed with a
+	// 500. Surfacing it here turns a silent door outage into a visible warning.
+	const hasSolanaPayTo = !!process.env.X402_PAY_TO_SOLANA || !!process.env.X402_PAY_TO;
+	const hasSolanaFeePayer = !!process.env.X402_FEE_PAYER_SOLANA;
 	const hasBase = !!process.env.X402_PAY_TO_BASE;
-	const hasSolana = !!process.env.X402_PAY_TO_SOLANA || !!process.env.X402_PAY_TO;
+	const hasSolana = hasSolanaPayTo && hasSolanaFeePayer;
 	result.configured = hasBase || hasSolana;
 	result.networks = [];
 	if (hasBase) result.networks.push('base');
 	if (hasSolana) result.networks.push('solana');
+	result.warnings = [];
+	if (hasSolanaPayTo && !hasSolanaFeePayer) {
+		result.warnings.push(
+			'solana_fee_payer_missing: X402_PAY_TO_SOLANA is set but X402_FEE_PAYER_SOLANA is not — ' +
+				'Solana accepts are dropped, breaking Solana-only paid endpoints (club-cover, dance-tip).',
+		);
+	}
 
 	// Probe facilitator connectivity (cached at this level, 5 min TTL)
 	const facilitatorUrl = process.env.X402_CDP_FACILITATOR_URL || process.env.X402_FACILITATOR_URL_BASE;

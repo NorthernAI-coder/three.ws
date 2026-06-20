@@ -100,6 +100,8 @@ On-chain features: pay-per-call, token launches, vanity wallets.
 - [Strategy Lab](https://three.ws/strategy-lab): Build DCA and subscription strategies that trade on-chain on your behalf.
 - [Solana Vanity Wallet](https://three.ws/vanity-wallet): Grind a Solana address with a custom prefix using your browser's GPU.
 - [Verify a Vanity Receipt](https://three.ws/vanity/verify): Independently verify a three.ws provably-fair vanity wallet receipt — entirely in your browser. Prove the key was generated fresh under a committed seed and the operator never kept a copy.
+- [Proof-of-Grind Gallery](https://three.ws/vanity/gallery): A public gallery and leaderboard of the rarest Solana vanity addresses ground on three.ws — each provably-fair, verified, and shareable. Appraise any address to see its honest rarity tier and grind cost.
+- [Grind-Bounty Market](https://three.ws/vanity/bounties): A decentralized x402 bounty market for hard Solana vanity addresses — escrow a USDC bounty and a fleet of independent workers grinds it in parallel. The first verified match wins, but the found key is sealed to you so the worker never sees your wallet. Earn USDC by grinding open bounties.
 - [ETH Vanity (CREATE2)](https://three.ws/eth-vanity): Grind a vanity smart-contract address using the ThreeWSFactory CREATE2 deployer on BSC.
 - [Pump Visualizer](https://three.ws/pump-visualizer): 3D visualizer of trending pump.fun tokens — live market data rendered as an interactive scene.
 - [Coin Intelligence](https://three.ws/coin-intel): Every pump.fun launch watched and classified in real time — organic vs bundle, the wallets behind it, a transparent quality score, and a model that learns which signals predict winners.

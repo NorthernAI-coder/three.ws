@@ -22,10 +22,14 @@ export const VANITY_PROTOCOL_VERSION = "three-vanity/v1";
 
 /**
  * Pinned three.ws vanity service public key (Base58 Ed25519). Verification pins
- * to this by default so a self-signed impostor receipt is rejected. Override via
- * `verifyVanityReceipt(receipt, { servicePublicKey })` — e.g. after fetching the
- * live key from `/.well-known/three-vanity.json`. Updated when the service key
- * rotates; always cross-check against the well-known document for production use.
+ * to this by default so a self-signed impostor receipt is rejected.
+ *
+ * IMPORTANT: this is a *bootstrap* pin. The authoritative key is always the one
+ * published at `/.well-known/three-vanity.json` for the deployment that issued
+ * your receipt. For production verification, resolve the live key with
+ * `fetchServiceKey()` and pass it as `servicePublicKey` — the one-call client
+ * (`grindVerifiedVanity`) does this automatically. Update this constant whenever
+ * the service key rotates so the offline default stays accurate.
  */
 export const THREE_VANITY_SERVICE_KEY = "H8wSgC8JgTadWE4ECVkUdHRywxEygnLbpJjEwcej92NH";
 

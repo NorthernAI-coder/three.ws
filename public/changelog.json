@@ -1,11 +1,55 @@
 {
-	"generated_at": "2026-06-19T23:28:51.089Z",
+	"generated_at": "2026-06-20T01:36:23.606Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
 		"url": "https://three.ws"
 	},
 	"entries": [
+		{
+			"date": "2026-06-20",
+			"type": "launch",
+			"title": "Grind-Bounty Market",
+			"summary": "A decentralized x402 bounty market for hard Solana vanity addresses — escrow a USDC bounty and a fleet of independent workers grinds it in parallel. The first verified match wins, but the found key is sealed to you so the worker never sees your wallet. Earn USDC by grinding open bounties.",
+			"link": "/vanity/bounties",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-06-20",
+			"type": "launch",
+			"title": "Proof-of-Grind Gallery",
+			"summary": "A public gallery and leaderboard of the rarest Solana vanity addresses ground on three.ws — each provably-fair, verified, and shareable. Appraise any address to see its honest rarity tier and grind cost.",
+			"link": "/vanity/gallery",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-06-20",
+			"type": "update",
+			"title": "Grind-bounty market: post a reward, a fleet grinds your hard vanity address",
+			"summary": "A 5-to-8-character vanity address is hours-to-years on one machine, so until now \"hard\" vanity meant running your browser overnight and hoping. The new grind-bounty market makes it a liquid, pay-for-results service. Post the pattern you want, escrow a USDC bounty, and a fleet of independent workers grinds it in parallel — the first one to find a verified match is paid automatically. The breakthrough is that the found key is sealed to your encryption key before the worker ever submits it, so the worker earns the bounty yet never sees your wallet, and three.ws never holds your secret either. Settlement is trustless via x402: no valid match, no payout; only one worker can win; and a bounty that goes unfilled refunds your escrow when it expires. You also get an honest difficulty meter and a fair-price oracle when posting (priced off the real grind odds, not made-up numbers), a live board with biggest-reward and expiring-soon sorts, and a one-click way to open your won wallet locally with your private key. Want to earn instead? Flip on \"Grind & earn,\" point your spare cores at the open bounties, and get paid in USDC for every fill — there's a leaderboard of the top grinders.",
+			"link": "/vanity/bounties",
+			"tags": [
+				"feature",
+				"security",
+				"sdk"
+			]
+		},
+		{
+			"date": "2026-06-20",
+			"type": "update",
+			"title": "Proof-of-grind: a public gallery of the rarest wallets ground here",
+			"summary": "A vanity address is a flex — but until now the flex was unverifiable. Proof-of-grind turns it into provenance. Every provably-fair grind can now carry an honest rarity score and tier (Common → Mythic) computed straight from the real grind difficulty: longer patterns rank higher, with documented, capped bonuses for real dictionary words, palindromes, and repeated-character runs — no inflated numbers. Publish a wallet (opt-in, secret-free; we re-verify your signed receipt against the live three.ws service key before it appears) and it joins a public gallery and leaderboard of the rarest addresses ground on three.ws, sortable and filterable by tier and pattern, each with a verified badge and a beautiful share card for X. New tools: paste any address to appraise its tier and estimated grind cost, and every agent's wallet chip now shows its rarity tier wherever it appears. No secret, seed, or sealed key is ever stored or shown.",
+			"link": "/vanity/gallery",
+			"tags": [
+				"feature",
+				"security",
+				"sdk"
+			]
+		},
 		{
 			"date": "2026-06-19",
 			"type": "launch",
@@ -64,6 +108,17 @@
 			"link": "/club",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-19",
+			"type": "update",
+			"title": "Agent profile pages now read perfectly on phones",
+			"summary": "Open an agent's profile on a phone and it now fits the screen edge-to-edge with no sideways scrolling. Long service endpoint URLs that used to push the whole page wide now trim cleanly with an ellipsis, the search and action buttons up top stack instead of spilling off-screen, and every section — holdings, token, trust, reviews — lines up in a single tidy column. Desktop is unchanged; small screens just stopped looking cramped.",
+			"link": null,
+			"tags": [
+				"fix",
+				"improvement"
 			]
 		},
 		{

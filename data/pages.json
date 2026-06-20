@@ -650,6 +650,22 @@
 					"added": "2026-06-19"
 				},
 				{
+					"path": "/vanity/gallery",
+					"title": "Proof-of-Grind Gallery",
+					"description": "A public gallery and leaderboard of the rarest Solana vanity addresses ground on three.ws — each provably-fair, verified, and shareable. Appraise any address to see its honest rarity tier and grind cost.",
+					"priority": 0.6,
+					"changefreq": "weekly",
+					"added": "2026-06-20"
+				},
+				{
+					"path": "/vanity/bounties",
+					"title": "Grind-Bounty Market",
+					"description": "A decentralized x402 bounty market for hard Solana vanity addresses — escrow a USDC bounty and a fleet of independent workers grinds it in parallel. The first verified match wins, but the found key is sealed to you so the worker never sees your wallet. Earn USDC by grinding open bounties.",
+					"priority": 0.6,
+					"changefreq": "weekly",
+					"added": "2026-06-20"
+				},
+				{
 					"path": "/eth-vanity",
 					"title": "ETH Vanity (CREATE2)",
 					"description": "Grind a vanity smart-contract address using the ThreeWSFactory CREATE2 deployer on BSC.",

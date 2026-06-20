@@ -165,7 +165,7 @@ describe('verifyVanityReceipt — happy path', () => {
 describe('verifyVanityReceipt — negative / tamper tests', () => {
 	it('FAILS when the address is swapped', () => {
 		const { receipt } = buildSignedReceipt({ prefix: 'a' });
-		const tampered = { ...receipt, address: 'So11111111111111111111111111111111111111112' };
+		const tampered = { ...receipt, address: 'THREEsynthetic1111111111111111111111111111111' };
 		const { valid, checks } = verifyVanityReceipt(tampered, { servicePublicKey: receipt.servicePublicKey });
 		expect(valid).toBe(false);
 		// Signature breaks (address is signed) AND derivation no longer matches.

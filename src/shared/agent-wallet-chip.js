@@ -23,6 +23,8 @@
  * so a surface can pass whichever record it already holds without reshaping it.
  */
 
+import { computeRarity } from '../solana/vanity/rarity.js';
+
 const STYLE_ID = 'tws-agent-wallet-chip-styles';
 const BASE58_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 
@@ -56,13 +58,33 @@ export function getWalletStatus(agent) {
 	// have no agent_id field, so this falls through to their own id.
 	const agentId = agent.agent_id || agent.agentId || agent.id || null;
 
+	const pre = prefix ? String(prefix) : null;
+	const suf = suffix ? String(suffix) : null;
+	const isVanity = !!(pre || suf);
+	// Honest rarity tier from the SAME model the proof-of-grind gallery uses, so a
+	// rare agent address advertises its tier everywhere the chip appears. Only an
+	// actual vanity pattern that the address really satisfies earns a tier — a
+	// claimed prefix that doesn't match the address is ignored.
+	let rarity = null;
+	if (isVanity) {
+		const addr = String(address);
+		const realPrefix = pre && addr.startsWith(pre) ? pre : '';
+		const realSuffix = suf && addr.endsWith(suf) ? suf : '';
+		if (realPrefix || realSuffix) {
+			const r = computeRarity({ prefix: realPrefix, suffix: realSuffix });
+			if (r.tier !== 'common') rarity = { tier: r.tier, label: r.tierLabel, accent: r.accent, score: r.rarityScore };
+		}
+	}
+
 	return {
 		address: String(address),
-		prefix: prefix ? String(prefix) : null,
-		suffix: suffix ? String(suffix) : null,
-		isVanity: !!(prefix || suffix),
+		prefix: pre,
+		suffix: suf,
+		isVanity,
+		rarity,
 		explorerUrl: `https://solscan.io/account/${address}`,
 		hubUrl: agentId ? `/agent/${agentId}/wallet` : null,
+		galleryUrl: `/vanity/gallery?address=${encodeURIComponent(String(address))}`,
 		agentId,
 	};
 }
@@ -119,6 +141,10 @@ button.twc-make{appearance:none;background:none;border:none;border-left:1px soli
 button.twc-make:active{transform:scale(.95);}
 button.twc-make:focus-visible{outline:2px solid rgba(139,92,246,.7);outline-offset:2px;border-radius:4px;}
 .twc-vanity-tag{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;opacity:.8;}
+a.twc-rarity{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;text-decoration:none;
+	padding:1px 6px;border-radius:999px;color:#06060b;line-height:1.4;white-space:nowrap;transition:transform .12s ease,filter .15s ease;}
+a.twc-rarity:hover{transform:translateY(-1px);filter:brightness(1.08);}
+a.twc-rarity:focus-visible{outline:2px solid rgba(255,255,255,.7);outline-offset:2px;}
 .twc-pending{color:#888;background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.1);}
 .twc-copied{color:#4ade80!important;}
 @media (prefers-reduced-motion: reduce){.twc-act{transition:none;}}
@@ -169,7 +195,18 @@ export function walletChipHTML(agent, opts = {}) {
 		return `<span class="twc twc-pending" title="Wallet provisioning">${WALLET_SVG}<span>Wallet pending</span></span>`;
 	}
 
-	const vanityTag = status.isVanity ? '<span class="twc-vanity-tag">vanity</span>' : '';
+	// A matched vanity address advertises its honest rarity tier (tinted); when the
+	// chip is interactive it links to the address's appraisal in the proof-of-grind
+	// gallery, otherwise (link:false, used inside card anchors) it stays a plain
+	// span so we never nest an <a> in an <a>. An unmatched/plain-vanity pattern
+	// falls back to the neutral "vanity" tag.
+	const vanityTag = status.rarity
+		? link
+			? `<a class="twc-rarity" href="${esc(status.galleryUrl)}" style="background:${esc(status.rarity.accent)}" title="Rarity ${esc(status.rarity.label)} · score ${esc(status.rarity.score)} — appraise on three.ws" data-twc-stop>${esc(status.rarity.label)}</a>`
+			: `<span class="twc-rarity" style="background:${esc(status.rarity.accent)}" title="Rarity ${esc(status.rarity.label)} · score ${esc(status.rarity.score)}">${esc(status.rarity.label)}</span>`
+		: status.isVanity
+			? '<span class="twc-vanity-tag">vanity</span>'
+			: '';
 	const copyBtn = link
 		? `<button type="button" class="twc-act" data-twc-copy="${esc(status.address)}" title="Copy address" aria-label="Copy wallet address">${COPY_SVG}</button>`
 		: '';
