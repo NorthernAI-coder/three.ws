@@ -134,6 +134,14 @@ const STYLE = `<style>
 .sn-ob-score { font: 700 11px/1 var(--nxt-mono, monospace); font-variant-numeric: tabular-nums; }
 .sn-ob-tier { font: 600 8px/1 var(--nxt-mono, monospace); text-transform: uppercase; letter-spacing: .06em; opacity: .8; }
 .sn-empty { color: var(--nxt-ink-faint); font-size: 13px; padding: 24px 16px; text-align: center; }
+/* execution readout — MEV route, tip, time-to-land */
+.sn-exec { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 5px; }
+.sn-exec-badge { font: 600 9.5px/1 var(--nxt-mono, monospace); text-transform: uppercase; letter-spacing: .05em; padding: 3px 6px; border-radius: 5px; border: 1px solid var(--nxt-stroke); color: var(--nxt-ink-faint); }
+.sn-exec-turbo { color: #c084fc; border-color: color-mix(in srgb, #c084fc 45%, transparent); background: color-mix(in srgb, #c084fc 10%, transparent); }
+.sn-exec-jito { color: #34d399; border-color: color-mix(in srgb, #34d399 45%, transparent); background: color-mix(in srgb, #34d399 10%, transparent); }
+.sn-exec-prot { color: #60a5fa; border-color: color-mix(in srgb, #60a5fa 40%, transparent); }
+.sn-exec-sim { color: var(--nxt-ink-faint); }
+.sn-exec-meta { font: 500 10px/1 var(--nxt-mono, monospace); color: var(--nxt-ink-faint); font-variant-numeric: tabular-nums; }
 
 /* trade history */
 .sn-hist { background: var(--nxt-panel); border: 1px solid var(--nxt-stroke); border-radius: var(--nxt-radius); overflow: hidden; }
@@ -392,6 +400,26 @@ function stratForm(s) {
 			<span class="sn-hint">100 bps = 1%.</span>
 		</div>
 
+		<div class="sn-section-head">Execution & Safety</div>
+		<div class="sn-field">
+			<label>MEV tip mode</label>
+			<select name="mev_tip_mode" aria-label="MEV tip mode">
+				<option value="off" ${(!s.mev_tip_mode || s.mev_tip_mode === 'off') ? 'selected' : ''}>Off — protected single tx, no tip</option>
+				<option value="economy" ${s.mev_tip_mode === 'economy' ? 'selected' : ''}>Economy — Jito bundle, small tip near the floor</option>
+				<option value="turbo" ${s.mev_tip_mode === 'turbo' ? 'selected' : ''}>Turbo — Jito bundle, aggressive tip for first-block</option>
+			</select>
+			<span class="sn-hint">A Jito tip is real SOL leaving the wallet — it counts against your daily budget and is recorded in the custody ledger. Off uses the protected route with a dynamic priority fee. Falls back to protected automatically on devnet or when Jito is unreachable.</span>
+		</div>
+		<div class="sn-field">
+			<label>Firewall level</label>
+			<select name="firewall_level" aria-label="Rug/honeypot firewall level">
+				<option value="block" ${(!s.firewall_level || s.firewall_level === 'block') ? 'selected' : ''}>Block — abort the snipe on a block verdict (recommended)</option>
+				<option value="warn" ${s.firewall_level === 'warn' ? 'selected' : ''}>Warn — record the verdict but proceed (raw speed)</option>
+				<option value="off" ${s.firewall_level === 'off' ? 'selected' : ''}>Off — skip the safety simulation</option>
+			</select>
+			<span class="sn-hint">A real on-chain simulated buy→sell round-trip + authority audit before every buy. Block is the safe default.</span>
+		</div>
+
 		<div class="sn-section-head">Exit Rules</div>
 		<div class="sn-field">
 			<label>Take profit (%)</label>
@@ -569,6 +597,7 @@ function posRow(p) {
 		<div class="sn-pos-info">
 			<div class="sn-pos-sym">${esc(p.symbol || p.mint?.slice(0, 8) || '—')}</div>
 			<div class="sn-pos-sub">${esc(p.agent_name || '')}${p.opened_at ? ` · opened ${relTime(p.opened_at)}` : ''}</div>
+			${execReadout(p)}
 		</div>
 		<div class="sn-pos-pnl">${pnlStr}</div>
 		<span class="sn-pos-oracle"></span>
@@ -903,6 +932,8 @@ async function saveForm(form, root) {
 			per_trade_lamports: solToLamports(fd.per_trade_sol || '0'),
 			max_concurrent_positions: Number(fd.max_concurrent_positions) || 1,
 			slippage_bps: Number(fd.slippage_bps) || 500,
+			mev_tip_mode: ['off', 'economy', 'turbo'].includes(fd.mev_tip_mode) ? fd.mev_tip_mode : 'off',
+			firewall_level: ['block', 'warn', 'off'].includes(fd.firewall_level) ? fd.firewall_level : 'block',
 			take_profit_pct: fd.take_profit_pct !== '' ? Number(fd.take_profit_pct) : null,
 			stop_loss_pct: Number(fd.stop_loss_pct) || 30,
 			trailing_stop_pct: fd.trailing_stop_pct !== '' ? Number(fd.trailing_stop_pct) : null,
@@ -1066,7 +1097,36 @@ function normPos(p) {
 		unrealized_pct: pnlPct,
 		buy_url: p.buy_url || null,
 		opened_at: p.at || p.opened_at || null,
+		exec_route: p.exec_route || null,
+		tip_lamports: p.tip_lamports != null ? Number(p.tip_lamports) : null,
+		priority_fee_microlamports: p.priority_fee_microlamports != null ? Number(p.priority_fee_microlamports) : null,
+		landed_ms: p.landed_ms != null ? Number(p.landed_ms) : null,
 	};
+}
+
+// Render the MEV execution readout for a position/trade: the route badge, the
+// Jito tip paid (if any), and the time-to-land. Returns '' when no telemetry
+// exists (a pre-engine position or a paper fill with no broadcast).
+const EXEC_ROUTE = {
+	jito_turbo: { label: 'Jito turbo', cls: 'sn-exec-turbo', title: 'Landed via a Jito bundle with an aggressive tip' },
+	jito_economy: { label: 'Jito', cls: 'sn-exec-jito', title: 'Landed via a Jito bundle with an economy tip' },
+	protected: { label: 'Protected', cls: 'sn-exec-prot', title: 'Landed via the protected single-tx route (dynamic fee + retry)' },
+	simulated: { label: 'Paper', cls: 'sn-exec-sim', title: 'Simulated fill — no broadcast' },
+};
+
+function execReadout(p) {
+	const route = p.exec_route;
+	if (!route) return '';
+	const meta = EXEC_ROUTE[route] || { label: route, cls: 'sn-exec-prot', title: 'Execution route' };
+	const parts = [`<span class="sn-exec-badge ${meta.cls}" title="${esc(meta.title)}">${esc(meta.label)}</span>`];
+	if (p.tip_lamports != null && p.tip_lamports > 0) {
+		parts.push(`<span class="sn-exec-meta" title="Jito tip paid">tip ◎${(p.tip_lamports / 1e9).toFixed(5)}</span>`);
+	}
+	if (p.landed_ms != null && p.landed_ms >= 0) {
+		const s = p.landed_ms >= 1000 ? `${(p.landed_ms / 1000).toFixed(1)}s` : `${p.landed_ms}ms`;
+		parts.push(`<span class="sn-exec-meta" title="Time to land">${s}</span>`);
+	}
+	return `<div class="sn-exec">${parts.join('')}</div>`;
 }
 
 function renderOwnedPositions() {

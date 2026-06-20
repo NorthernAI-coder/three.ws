@@ -45,6 +45,10 @@ function shape(r, network) {
 		pnl_pct: r.realized_pnl_pct != null ? Number(r.realized_pnl_pct) : (entry > 0 ? ((last - entry) / entry) * 100 : null),
 		buy_url: solscan(r.buy_sig, network),
 		sell_url: solscan(r.sell_sig, network),
+		exec_route: r.exec_route || null,
+		tip_lamports: r.tip_lamports != null ? Number(r.tip_lamports) : null,
+		priority_fee_microlamports: r.priority_fee_microlamports != null ? Number(r.priority_fee_microlamports) : null,
+		landed_ms: r.landed_ms != null ? Number(r.landed_ms) : null,
 		at: r.changed_at,
 	};
 }
@@ -84,7 +88,9 @@ export default async function handleSniperStream(req, res) {
 				select p.id, p.agent_id, a.name as agent_name, p.mint, p.symbol, p.name,
 				       p.status, p.exit_reason, p.entry_quote_lamports, p.last_value_lamports,
 				       p.exit_quote_lamports, p.realized_pnl_lamports, p.realized_pnl_pct,
-				       p.buy_sig, p.sell_sig, p.opened_at, p.closed_at,
+				       p.buy_sig, p.sell_sig,
+				       p.exec_route, p.tip_lamports, p.priority_fee_microlamports, p.landed_ms,
+				       p.opened_at, p.closed_at,
 				       greatest(p.opened_at, coalesce(p.closed_at, p.opened_at),
 				                coalesce(p.last_quoted_at, p.opened_at)) as changed_at
 				from agent_sniper_positions p
