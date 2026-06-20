@@ -81,7 +81,7 @@ export default wrap(async (req, res) => {
 			c.pedigree, c.structure, c.narrative, c.momentum, c.scored_at,
 			o.ath_multiple, o.last_market_cap_usd, o.graduated
 		from oracle_conviction c
-		join pump_coin_outcomes o on o.mint = c.mint and o.network = c.network
+		join pump_coin_outcomes o on o.mint = c.mint
 		where c.network = ${network}
 		  and o.ath_multiple >= ${minAth}
 		  and (o.graduated or o.ath_multiple >= 2)
@@ -103,7 +103,7 @@ export default wrap(async (req, res) => {
 			round(max(o.ath_multiple)::numeric, 2)                                 as best_ath,
 			count(*) filter (where o.graduated)::int                               as graduated_count
 		from oracle_conviction c
-		join pump_coin_outcomes o on o.mint = c.mint and o.network = c.network
+		join pump_coin_outcomes o on o.mint = c.mint
 		where c.network = ${network}
 		  and o.ath_multiple >= ${minAth}
 		  and (o.graduated or o.ath_multiple >= 2)

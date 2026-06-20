@@ -21,6 +21,33 @@ function deriveWsUrl(httpUrl) {
 	return String(httpUrl).replace(/^https:/, 'wss:').replace(/^http:/, 'ws:');
 }
 
+// Repair known-bad RPC hostnames sourced from env before they enter the endpoint
+// list. Helius's JSON-RPC host is `mainnet.helius-rpc.com` / `devnet.helius-rpc.com`;
+// a recurring prod misconfiguration set SOLANA_RPC_URL to `api-mainnet.helius-rpc.com`
+// (conflating the RPC host with the `api.helius.xyz` REST host), which 404s every
+// request and gets parked in a 30m cooldown forever. Rewriting the host turns a
+// perpetually-dead primary into a working endpoint instead of relying on failover
+// to silently route around it on every cold start. Unrecognized URLs pass through
+// untouched.
+export function normalizeRpcUrl(raw) {
+	const v = (raw ?? '').trim();
+	if (!v) return v;
+	try {
+		const u = new URL(v);
+		const fixedHost = u.hostname.replace(
+			/^api-(mainnet|devnet)\.helius-rpc\.com$/i,
+			'$1.helius-rpc.com',
+		);
+		if (fixedHost !== u.hostname) {
+			u.hostname = fixedHost;
+			return u.toString();
+		}
+		return v;
+	} catch {
+		return v;
+	}
+}
+
 // Cooldown durations by failure class. Quota exhaustion (e.g. Helius -32429
 // "max usage reached") means the provider is dead for the billing window, so we
 // park it for hours instead of re-hammering it on every RPC call and every cron
@@ -95,16 +122,16 @@ export function solanaRpcEndpoints(network = 'mainnet', url = null) {
 	const ankr = process.env.ANKR_API_KEY;
 	if (network === 'devnet') {
 		return dedupe([
-			url,
-			process.env.SOLANA_RPC_URL_DEVNET,
+			normalizeRpcUrl(url),
+			normalizeRpcUrl(process.env.SOLANA_RPC_URL_DEVNET),
 			key && `https://devnet.helius-rpc.com/?api-key=${key}`,
 			alch && `https://solana-devnet.g.alchemy.com/v2/${alch}`,
 			PUBLIC_DEVNET,
 		]);
 	}
 	return dedupe([
-		url,
-		process.env.SOLANA_RPC_URL,
+		normalizeRpcUrl(url),
+		normalizeRpcUrl(process.env.SOLANA_RPC_URL),
 		key && `https://mainnet.helius-rpc.com/?api-key=${key}`,
 		alch && `https://solana-mainnet.g.alchemy.com/v2/${alch}`,
 		// Ankr sunset keyless access — every keyless rpc.ankr.com/<chain> now 403s

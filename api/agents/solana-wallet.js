@@ -1021,6 +1021,9 @@ async function handleLimits(req, res, id) {
 // up to 8 chars) and assigned via POST /api/agents/:id/solana { secret_key }.
 const VANITY_MAX_CHARS = 3;          // combined prefix+suffix length for server grind
 const VANITY_MAX_ITERATIONS = 4_000_000;
+// Wall-clock grind budget. Kept under the function's 45s maxDuration (vercel.json)
+// with ~15s of headroom for the post-grind wallet sweep and response.
+const VANITY_GRIND_BUDGET_MS = 30_000;
 
 // Move every asset (all SPL tokens + remaining SOL) from a custodial keypair to a
 // destination address, reclaiming token-account rent. Two-phase so the final SOL
@@ -1190,7 +1193,10 @@ async function handleVanity(req, res, id) {
 	try {
 		const est = estimateAttempts({ prefix, suffix, ignoreCase });
 		const maxIterations = Math.min(VANITY_MAX_ITERATIONS, Math.max(200_000, Math.ceil(est * 25)));
-		ground = await grindMintKeypair({ prefix, suffix, ignoreCase, maxIterations });
+		// Bail before the function's maxDuration (45s, see vercel.json) so the grind
+		// returns a clean `vanity_timeout` 504 instead of a hard runtime kill, and
+		// still leaves headroom to sweep the wallet to the new address afterward.
+		ground = await grindMintKeypair({ prefix, suffix, ignoreCase, maxIterations, maxMs: VANITY_GRIND_BUDGET_MS });
 	} catch (e) {
 		if (e?.code === 'vanity_timeout') {
 			return error(res, 504, 'vanity_timeout', 'could not find a matching address in time — try a shorter pattern or grind it in the browser at /vanity-wallet');

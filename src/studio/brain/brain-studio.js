@@ -361,6 +361,13 @@ class BrainStudio {
 	// Show how the current circuit compiles to behavior, and diff it against the
 	// last-saved brain so a user sees exactly how an edit changes the agent.
 	_showBehavior() {
+		// The brain canvas mounts lazily (see _showEditor), so #bsDiff can be
+		// clicked before this.graph exists — e.g. during the async provider fetch
+		// in _init, or a stray click while onboarding is still showing. Lazily
+		// mount the editor first so there's always a graph to compile; an empty
+		// graph renders the "(empty — wire a Persona node)" diff rather than
+		// throwing "undefined is not an object (evaluating 'this.graph.toGraph')".
+		if (!this.graph) this._showEditor();
 		const current = compileBrain(this.graph.toGraph(), { agentName: this.studio.agent?.name });
 		const prev = this._savedPersona;
 		const card = this.el.querySelector('#bsModalCard');

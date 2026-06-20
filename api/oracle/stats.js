@@ -62,7 +62,7 @@ export default wrap(async (req, res) => {
 				count(*) filter (where o.ath_multiple >= 2 or o.graduated)         as total_wins,
 				round(max(o.ath_multiple)::numeric, 2)                             as best_ath
 			from oracle_conviction c
-			join pump_coin_outcomes o on o.mint = c.mint and o.network = c.network
+			join pump_coin_outcomes o on o.mint = c.mint
 			where c.network = ${network}
 		`.catch(() => [{}]),
 

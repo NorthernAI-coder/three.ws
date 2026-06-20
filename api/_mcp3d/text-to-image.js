@@ -195,7 +195,10 @@ export async function textToImage(prompt, { aspectRatio = '1:1' } = {}) {
 		} catch (err) {
 			// Nothing downstream to fall through to → surface the NIM error.
 			if (!hasVertex && !token) throw err;
-			console.error(`nim flux failed, falling back: ${err?.message}`);
+			// A handled degradation (Vertex/HF will serve the image), not a fault —
+			// warn so it doesn't read as an error in the logs like the rest of the
+			// free-first cascade.
+			console.warn(`nim flux failed, falling back: ${err?.message}`);
 		}
 	}
 

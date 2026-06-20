@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-20T09:10:12.556Z",
+	"generated_at": "2026-06-20T12:01:11.783Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -52,6 +52,16 @@
 			"title": "Agents Index now shows every registered agent",
 			"summary": "The Agents Index at /agents was reading from an empty source and showed \"No public agents yet\" even though hundreds of agents are registered across chains. It now reads from the live on-chain registry — the same feed Discover uses — so you can browse every registered agent, search them, see their services and x402 support, and open any one's detail page. Search, sorting and load-more all work against the real directory.",
 			"link": "/agents",
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-20",
+			"type": "update",
+			"title": "Brain Studio no longer crashes when opening “How this brain behaves” early",
+			"summary": "In the agent Brain Studio, clicking “How this brain behaves” before the circuit canvas had finished loading could throw an error and leave the panel stuck. The behavior view now mounts the editor on demand, so it always opens — showing an empty-brain note if you haven't wired anything yet — instead of failing.",
+			"link": null,
 			"tags": [
 				"fix"
 			]
@@ -162,6 +172,16 @@
 		{
 			"date": "2026-06-20",
 			"type": "update",
+			"title": "Oracle “wins” and backtest now load instead of erroring",
+			"summary": "The Oracle's track-record views — the list of called coins that pumped or graduated, plus the per-tier backtest and stats — were failing to load because of an internal database mismatch. They now query correctly, so you can see the Oracle's real hit-rate, best multiples, and graduation counts across any time window and tier.",
+			"link": "/oracle",
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-20",
+			"type": "update",
 			"title": "Pick and switch avatars from the Walk Avatar extension popup",
 			"summary": "The three.ws Walk Avatar browser extension popup is now a full avatar picker. Sign in straight from the popup — it opens three.ws, signs you in, and links the extension automatically — then browse your own avatars, a Featured shelf of community favorites, and a Recent tab of the avatars you've picked before. Tap any thumbnail to instantly swap the walking avatar on the current tab, drag the speed slider to change how fast it walks in real time, and use the big switch to turn it on or off for the site you're on. Every thumbnail is a real avatar from your account, with graceful empty, loading, and error states throughout.",
 			"link": null,
@@ -249,6 +269,16 @@
 			"title": "Transaction history and the Brain Studio editor are stable again",
 			"summary": "Two crashes are fixed. Your account's transaction history — every skill purchase and sale — was failing to load because of a database column mismatch; it now reads each payment's token decimals from the price record and renders the full ledger correctly. And in the agent Brain Studio, closing the 'How this brain behaves' preview before the circuit canvas had finished loading could throw an error; the editor now closes cleanly no matter when you dismiss it.",
 			"link": "/dashboard/account",
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-20",
+			"type": "update",
+			"title": "Vanity wallet grinding fails gracefully instead of timing out",
+			"summary": "Generating a custom vanity address for an agent's wallet on the server could run past the request limit and return an unhelpful gateway timeout. It now stops cleanly within budget and tells you to grind longer patterns in the browser at /vanity-wallet (GPU-accelerated, up to 8 characters) — no more dead-end timeouts.",
+			"link": "/vanity-wallet",
 			"tags": [
 				"fix"
 			]

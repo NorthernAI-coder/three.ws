@@ -23,7 +23,6 @@
 import { z } from 'zod';
 import { solanaConnection } from './_lib/solana/connection.js';
 import {
-	Connection,
 	PublicKey,
 	TransactionMessage,
 	VersionedTransaction,
@@ -41,9 +40,12 @@ import { cors, json, method, readJson, wrap, error, rateLimited } from './_lib/h
 import { parse } from './_lib/validate.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 import { NETWORK_SOLANA_MAINNET, NETWORK_SOLANA_DEVNET } from './_lib/x402-spec.js';
+import { env } from './_lib/env.js';
 
-const SOLANA_RPC = process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com';
-const SOLANA_DEVNET_RPC = process.env.SOLANA_RPC_URL_DEVNET || 'https://api.devnet.solana.com';
+// Routed through env.* so the `api-mainnet.helius-rpc.com` misconfig is repaired
+// (env.normalizeRpcUrl) — a bad host 404'd getAccountInfo on the USDC mint here.
+const SOLANA_RPC = env.SOLANA_RPC_URL;
+const SOLANA_DEVNET_RPC = env.SOLANA_RPC_URL_DEVNET;
 
 // Short-lived caches so repeated prepare calls don't re-issue identical RPC
 // round-trips. Mint decimals are effectively immutable; a blockhash is valid for
@@ -54,8 +56,23 @@ const BLOCKHASH_TTL_MS = 8 * 1000;
 const mintDecimalsCache = new Map(); // `${rpc}:${mint}` -> { decimals, at }
 const blockhashCache = new Map(); // rpc -> { blockhash, at }
 
+// Decimals for canonical mints are immutable and universally known. Resolving
+// them locally skips an RPC round-trip on the hot checkout path (USDC is the
+// default settlement asset) and immunizes prepare against a flaky/rate-limited
+// RPC returning 404 for getAccountInfo on the mint — the failure mode that
+// 500'd every USDC checkout when the public endpoint was cooling.
+const WELL_KNOWN_MINT_DECIMALS = new Map([
+	['EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', 6], // USDC (mainnet)
+	['Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB', 6], // USDT (mainnet)
+	['So11111111111111111111111111111111111111112', 9], // wrapped SOL
+]);
+
 async function getMintDecimals(conn, rpc, mint) {
-	const key = `${rpc}:${mint.toBase58()}`;
+	const mintStr = mint.toBase58();
+	const known = WELL_KNOWN_MINT_DECIMALS.get(mintStr);
+	if (known != null) return known;
+
+	const key = `${rpc}:${mintStr}`;
 	const hit = mintDecimalsCache.get(key);
 	if (hit && Date.now() - hit.at < MINT_DECIMALS_TTL_MS) return hit.decimals;
 	const info = await getMint(conn, mint);

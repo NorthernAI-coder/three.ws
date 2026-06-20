@@ -15,6 +15,10 @@ const BASE58_CHARS = new Set(BASE58_ALPHABET);
 const MAX_PATTERN_LENGTH = 6;
 const DEFAULT_MAX_ITERATIONS = 2_000_000;
 const YIELD_EVERY = 10_000;
+// Wall-clock deadline is checked more often than we yield so a maxMs budget
+// overshoots by at most ~this-many keypairs (a fraction of a second) instead of
+// a full YIELD_EVERY block — keeps a serverless grind well inside maxDuration.
+const TIME_CHECK_EVERY = 2_000;
 
 function validatePattern(pattern, label) {
 	if (typeof pattern !== 'string' || pattern.length === 0) {
@@ -67,6 +71,9 @@ export function estimateAttempts({ prefix, suffix, ignoreCase = false } = {}) {
  * @param {string} [opts.suffix]      — required base58 suffix
  * @param {boolean} [opts.ignoreCase] — case-insensitive match
  * @param {number} [opts.maxIterations] — hard cap (default 2M)
+ * @param {number} [opts.maxMs] — wall-clock budget in ms (default Infinity). Bails
+ *   with a `vanity_timeout` error before this elapses so a serverless invocation
+ *   returns a clean 504 instead of being hard-killed by the platform's runtime limit.
  * @param {(attempts:number,rate:number)=>void} [opts.onProgress] — every 1k attempts
  * @returns {Promise<{ keypair: Keypair, iterations: number, durationMs: number }>}
  */
@@ -75,6 +82,7 @@ export async function grindMintKeypair({
 	suffix,
 	ignoreCase = false,
 	maxIterations = DEFAULT_MAX_ITERATIONS,
+	maxMs = Infinity,
 	onProgress,
 } = {}) {
 	if (!prefix && !suffix) {
@@ -90,10 +98,24 @@ export async function grindMintKeypair({
 	const sLen = targetSuffix?.length || 0;
 
 	const start = Date.now();
+	const deadline = Number.isFinite(maxMs) ? start + maxMs : Infinity;
 	let lastProgressAt = start;
 	let lastProgressAttempts = 0;
 
+	const timeout = (attempts) =>
+		Object.assign(
+			new Error(
+				`vanity ${prefix ? `prefix '${prefix}'` : ''}${prefix && suffix ? ' + ' : ''}${suffix ? `suffix '${suffix}'` : ''} not found in ${attempts.toLocaleString()} attempts (estimated ~${Math.round(estimateAttempts({ prefix, suffix, ignoreCase })).toLocaleString()})`,
+			),
+			{ status: 504, code: 'vanity_timeout' },
+		);
+
 	for (let i = 1; i <= maxIterations; i++) {
+		// Cheap, frequent deadline check so a wall-clock budget bails promptly.
+		if (deadline !== Infinity && i % TIME_CHECK_EVERY === 0 && Date.now() >= deadline) {
+			throw timeout(i);
+		}
+
 		const kp = Keypair.generate();
 		const addr = kp.publicKey.toBase58();
 
@@ -111,10 +133,5 @@ export async function grindMintKeypair({
 		return { keypair: kp, iterations: i, durationMs: Date.now() - start };
 	}
 
-	throw Object.assign(
-		new Error(
-			`vanity ${prefix ? `prefix '${prefix}'` : ''}${prefix && suffix ? ' + ' : ''}${suffix ? `suffix '${suffix}'` : ''} not found in ${maxIterations} attempts (estimated ~${Math.round(estimateAttempts({ prefix, suffix, ignoreCase })).toLocaleString()})`,
-		),
-		{ status: 504, code: 'vanity_timeout' },
-	);
+	throw timeout(maxIterations);
 }

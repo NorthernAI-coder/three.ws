@@ -110,6 +110,7 @@ export class AvatarGalleryPicker {
 
 	openModal() {
 		if (this._overlay) return;
+		this._closed = false;
 		ensureModelViewer();
 
 		this._overlay = document.createElement('div');
@@ -132,6 +133,7 @@ export class AvatarGalleryPicker {
 	}
 
 	mountInline(container) {
+		this._closed = false;
 		ensureModelViewer();
 		this._shell = this._buildShell();
 		this._shell.classList.add('agp-shell--inline');
@@ -142,15 +144,25 @@ export class AvatarGalleryPicker {
 	}
 
 	close() {
+		// Idempotent: a fast close→navigate (e.g. the /pose page tears the picker
+		// down while a backdrop-dismiss is mid-flight) can call close() twice. We
+		// null the instance fields synchronously and operate on captured locals so
+		// the deferred overlay removal never dereferences a node a prior call
+		// already detached (TypeError: ... reading 'remove' on null).
+		if (this._closed) return;
+		this._closed = true;
 		if (this._io) { this._io.disconnect(); this._io = null; }
 		document.removeEventListener('keydown', this._onKey);
-		if (this._overlay) {
-			this._overlay.classList.remove('agp-open');
-			setTimeout(() => { this._overlay.remove(); this._overlay = null; }, 200);
-		} else if (this._shell) {
-			this._shell.remove();
-		}
+		const overlay = this._overlay;
+		const shell = this._shell;
+		this._overlay = null;
 		this._shell = null;
+		if (overlay) {
+			overlay.classList.remove('agp-open');
+			setTimeout(() => overlay.remove(), 200);
+		} else if (shell) {
+			shell.remove();
+		}
 		this.opts.onClose();
 	}
 
