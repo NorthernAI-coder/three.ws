@@ -110,7 +110,9 @@ export async function getBuyQuote(connection, mint, solAmount) {
 		const impact = calculateBuyPriceImpact({ global, feeConfig, mintSupply, bondingCurve, solAmount: amount });
 		return { tokens, priceImpact: impact.impactBps / 100 };
 	} catch (err) {
-		if (!isMissingAccount(err) && !isTransientRpc(err)) {
+		// A graduated coin (no curve) is an expected state — the trade handler
+		// re-prices off the AMM pool. Don't log it as a failure.
+		if (!err?.graduated && !isMissingAccount(err) && !isTransientRpc(err)) {
 			console.warn('[sdk-bridge] getBuyQuote failed: %s', String(err).slice(0, 120));
 		}
 		return null;
@@ -131,7 +133,8 @@ export async function getSellQuote(connection, mint, tokenAmount) {
 		const impact = calculateSellPriceImpact({ global, feeConfig, mintSupply, bondingCurve, tokenAmount: amount });
 		return { sol, priceImpact: impact.impactBps / 100 };
 	} catch (err) {
-		if (!isMissingAccount(err) && !isTransientRpc(err)) {
+		// Graduated coins re-price off the AMM pool in the trade handler — expected.
+		if (!err?.graduated && !isMissingAccount(err) && !isTransientRpc(err)) {
 			console.warn('[sdk-bridge] getSellQuote failed: %s', String(err).slice(0, 120));
 		}
 		return null;

@@ -56,7 +56,7 @@ async function query(days, tier, network) {
 			count(*) filter (where o.graduated)::int                                      as graduated,
 			count(*) filter (where o.rugged)::int                                         as rugged
 		from oracle_conviction c
-		join pump_coin_outcomes o on o.mint = c.mint and o.network = c.network
+		join pump_coin_outcomes o on o.mint = c.mint
 		where c.network = ${network}
 		  and (o.graduated or o.rugged or o.ath_multiple is not null)
 		  ${tierFilter}
@@ -86,7 +86,7 @@ async function query(days, tier, network) {
 	const top = await sql`
 		select c.mint, c.symbol, c.name, c.score, c.tier, o.ath_multiple, o.graduated, o.rugged
 		from oracle_conviction c
-		join pump_coin_outcomes o on o.mint = c.mint and o.network = c.network
+		join pump_coin_outcomes o on o.mint = c.mint
 		where c.network = ${network}
 		  and o.ath_multiple is not null
 		  ${topTierFilter}

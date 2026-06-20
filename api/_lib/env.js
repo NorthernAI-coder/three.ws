@@ -38,6 +38,28 @@ function normalizeAppOrigin(raw) {
 	}
 }
 
+// Repair the recurring `api-mainnet.helius-rpc.com` / `api-devnet.helius-rpc.com`
+// misconfiguration (Helius's JSON-RPC host is `mainnet.helius-rpc.com`, not the
+// `api.helius.xyz` REST host) before the URL reaches any Solana caller. A bad host
+// 404s every request and gets parked in a 30m cooldown forever; rewriting it keeps
+// SOLANA_RPC_URL a working primary. Kept dependency-free so env.js stays light —
+// mirrors normalizeRpcUrl() in solana/connection.js. Unrecognized URLs pass through.
+function normalizeRpcUrl(raw) {
+	const v = (raw ?? '').trim();
+	if (!v) return v;
+	try {
+		const u = new URL(v);
+		const fixed = u.hostname.replace(/^api-(mainnet|devnet)\.helius-rpc\.com$/i, '$1.helius-rpc.com');
+		if (fixed !== u.hostname) {
+			u.hostname = fixed;
+			return u.toString();
+		}
+		return v;
+	} catch {
+		return v;
+	}
+}
+
 // Platform owner wallets with standing admin access, independent of env config.
 // Public addresses, safe to commit. Unioned with ADMIN_ADDRESSES (see below).
 const BUILT_IN_ADMIN_ADDRESSES = ['9MjzHaTB6Jko4YKo9mDzJSaGnktzhbebgsnqPpYWnXC7'];
@@ -676,7 +698,7 @@ export const env = {
 	// Solana RPC URL — single source of truth for all Solana RPC calls.
 	// Set to a Helius/QuickNode/Triton URL in production to avoid public RPC rate limits.
 	get SOLANA_RPC_URL() {
-		return opt('SOLANA_RPC_URL', 'https://api.mainnet-beta.solana.com');
+		return normalizeRpcUrl(opt('SOLANA_RPC_URL', 'https://api.mainnet-beta.solana.com'));
 	},
 
 	// Helius API key — extracted from SOLANA_RPC_URL when it's a Helius endpoint,
@@ -693,7 +715,7 @@ export const env = {
 
 	// Solana devnet RPC URL. Falls back to the public devnet endpoint.
 	get SOLANA_RPC_URL_DEVNET() {
-		return opt('SOLANA_RPC_URL_DEVNET', 'https://api.devnet.solana.com');
+		return normalizeRpcUrl(opt('SOLANA_RPC_URL_DEVNET', 'https://api.devnet.solana.com'));
 	},
 
 	// ── threews.sol subdomain minting ─────────────────────────────────────

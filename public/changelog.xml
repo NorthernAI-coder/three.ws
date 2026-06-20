@@ -47,6 +47,14 @@
 			<description>The Agents Index at /agents was reading from an empty source and showed &quot;No public agents yet&quot; even though hundreds of agents are registered across chains. It now reads from the live on-chain registry — the same feed Discover uses — so you can browse every registered agent, search them, see their services and x402 support, and open any one's detail page. Search, sorting and load-more all work against the real directory.</description>
 		</item>
 		<item>
+			<title>Brain Studio no longer crashes when opening “How this brain behaves” early</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-20:Brain Studio no longer crashes when opening “How this brain behaves” early</guid>
+			<pubDate>Sat, 20 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>In the agent Brain Studio, clicking “How this brain behaves” before the circuit canvas had finished loading could throw an error and leave the panel stuck. The behavior view now mounts the editor on demand, so it always opens — showing an empty-brain note if you haven't wired anything yet — instead of failing.</description>
+		</item>
+		<item>
 			<title>Choose where you walk — six environments for the Walk page</title>
 			<link>https://three.ws/features/walk</link>
 			<guid isPermaLink="false">2026-06-20:Choose where you walk — six environments for the Walk page</guid>
@@ -127,6 +135,14 @@
 			<description>The background job that records agents' on-chain milestones — token graduations, fee claims, whale trades — had stopped running because it could only read its signing key in one specific format. Now it accepts the key in any standard Solana format, so those reputation events post to the chain again, and a misconfigured key skips cleanly instead of taking the whole monitor down.</description>
 		</item>
 		<item>
+			<title>Oracle “wins” and backtest now load instead of erroring</title>
+			<link>https://three.ws/oracle</link>
+			<guid isPermaLink="false">2026-06-20:Oracle “wins” and backtest now load instead of erroring</guid>
+			<pubDate>Sat, 20 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>The Oracle's track-record views — the list of called coins that pumped or graduated, plus the per-tier backtest and stats — were failing to load because of an internal database mismatch. They now query correctly, so you can see the Oracle's real hit-rate, best multiples, and graduation counts across any time window and tier.</description>
+		</item>
+		<item>
 			<title>Pick and switch avatars from the Walk Avatar extension popup</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-20:Pick and switch avatars from the Walk Avatar extension popup</guid>
@@ -197,6 +213,14 @@
 			<pubDate>Sat, 20 Jun 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>Two crashes are fixed. Your account's transaction history — every skill purchase and sale — was failing to load because of a database column mismatch; it now reads each payment's token decimals from the price record and renders the full ledger correctly. And in the agent Brain Studio, closing the 'How this brain behaves' preview before the circuit canvas had finished loading could throw an error; the editor now closes cleanly no matter when you dismiss it.</description>
+		</item>
+		<item>
+			<title>Vanity wallet grinding fails gracefully instead of timing out</title>
+			<link>https://three.ws/vanity-wallet</link>
+			<guid isPermaLink="false">2026-06-20:Vanity wallet grinding fails gracefully instead of timing out</guid>
+			<pubDate>Sat, 20 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Generating a custom vanity address for an agent's wallet on the server could run past the request limit and return an unhelpful gateway timeout. It now stops cleanly within budget and tells you to grind longer patterns in the browser at /vanity-wallet (GPU-accelerated, up to 8 characters) — no more dead-end timeouts.</description>
 		</item>
 		<item>
 			<title>Walk Avatar browser extension — Chrome Web Store release package</title>

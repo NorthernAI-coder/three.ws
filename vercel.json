@@ -9,6 +9,9 @@
 		"api/cron/copy-fanout.js": {
 			"maxDuration": 120
 		},
+		"api/agents/[id].js": {
+			"maxDuration": 45
+		},
 		"api/club/tips-stream.js": {
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 300

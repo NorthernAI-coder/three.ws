@@ -3,6 +3,32 @@
 	"entries": [
 		{
 			"date": "2026-06-20",
+			"title": "Oracle “wins” and backtest now load instead of erroring",
+			"summary": "The Oracle's track-record views — the list of called coins that pumped or graduated, plus the per-tier backtest and stats — were failing to load because of an internal database mismatch. They now query correctly, so you can see the Oracle's real hit-rate, best multiples, and graduation counts across any time window and tier.",
+			"tags": [
+				"fix"
+			],
+			"link": "/oracle"
+		},
+		{
+			"date": "2026-06-20",
+			"title": "Vanity wallet grinding fails gracefully instead of timing out",
+			"summary": "Generating a custom vanity address for an agent's wallet on the server could run past the request limit and return an unhelpful gateway timeout. It now stops cleanly within budget and tells you to grind longer patterns in the browser at /vanity-wallet (GPU-accelerated, up to 8 characters) — no more dead-end timeouts.",
+			"tags": [
+				"fix"
+			],
+			"link": "/vanity-wallet"
+		},
+		{
+			"date": "2026-06-20",
+			"title": "Brain Studio no longer crashes when opening “How this brain behaves” early",
+			"summary": "In the agent Brain Studio, clicking “How this brain behaves” before the circuit canvas had finished loading could throw an error and leave the panel stuck. The behavior view now mounts the editor on demand, so it always opens — showing an empty-brain note if you haven't wired anything yet — instead of failing.",
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-20",
 			"title": "Agents Index now shows every registered agent",
 			"summary": "The Agents Index at /agents was reading from an empty source and showed \"No public agents yet\" even though hundreds of agents are registered across chains. It now reads from the live on-chain registry — the same feed Discover uses — so you can browse every registered agent, search them, see their services and x402 support, and open any one's detail page. Search, sorting and load-more all work against the real directory.",
 			"tags": [

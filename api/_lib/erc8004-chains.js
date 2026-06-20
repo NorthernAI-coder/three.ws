@@ -232,7 +232,11 @@ export const CHAINS = [
 		testnet: true,
 		registry: IDENTITY_REGISTRY_TESTNET,
 		explorer: 'https://sepolia-optimism.etherscan.io',
-		rpcUrls: ['https://sepolia.optimism.io', 'https://optimism-sepolia.publicnode.com'],
+		rpcUrls: [
+			'https://sepolia.optimism.io',
+			'https://optimism-sepolia.publicnode.com',
+			'https://optimism-sepolia.drpc.org',
+		],
 	},
 	{
 		id: 80002,
