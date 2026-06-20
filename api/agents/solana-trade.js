@@ -25,7 +25,7 @@ import { limits, clientIp } from '../_lib/rate-limit.js';
 import { requireCsrf } from '../_lib/csrf.js';
 import { recoverSolanaAgentKeypair } from '../_lib/agent-wallet.js';
 import { solanaConnection, solanaPublicConnection } from '../_lib/agent-pumpfun.js';
-import { PublicKey, TransactionMessage, VersionedTransaction } from '@solana/web3.js';
+import { PublicKey } from '@solana/web3.js';
 import { cacheSet } from '../_lib/cache.js';
 import { logAudit } from '../_lib/audit.js';
 import { explorerTxUrl } from '../_lib/avatar-wallet.js';
@@ -42,6 +42,7 @@ import {
 import { getBuyQuote, getSellQuote } from '../_lib/solana/sdk-bridge.js';
 import { getAmmPoolState } from '../_lib/pump.js';
 import { assessTradeSafety, recordFirewallDecision } from '../_lib/trade-firewall.js';
+import { submitProtected } from '../_lib/execution-engine.js';
 
 const LAMPORTS_PER_SOL = 1_000_000_000;
 const BASE58_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
@@ -526,39 +527,32 @@ export async function handleTrade(req, res, id) {
 		return error(res, 422, 'build_failed', 'could not build this trade — the market may have moved; try again');
 	}
 
-	// Sign v0 + send + confirm (with the same unconfirmed re-check the withdraw
-	// path uses — never mark failed on an ambiguous confirm that may have landed).
+	// Broadcast + confirm through the MEV-aware execution engine: dynamic compute
+	// budget (real simulate + real priority-fee estimate) + bounded adaptive retry,
+	// with the same ambiguous-confirm re-check the withdraw path uses (never mark a
+	// landed tx failed). The discretionary path has no per-strategy tip policy, so it
+	// uses the protected single-tx route (tipMode 'off' — no Jito tip).
 	const signConn = solanaConnection(network);
-	let blockhashCtx;
-	try {
-		blockhashCtx = await signConn.getLatestBlockhash('confirmed');
-	} catch {
-		await updateCustodyEvent(claimId, { status: 'failed', meta: { error: 'blockhash_failed' } }).catch(() => {});
-		return error(res, 502, 'rpc_error', 'the Solana network was unreachable — no funds were moved; try again');
-	}
-	const msg = new TransactionMessage({ payerKey: keypair.publicKey, recentBlockhash: blockhashCtx.blockhash, instructions }).compileToV0Message();
-	const vtx = new VersionedTransaction(msg);
-	vtx.sign([keypair]);
-
 	let signature;
-	try {
-		signature = await signConn.sendRawTransaction(vtx.serialize(), { skipPreflight: false, maxRetries: 3 });
-	} catch (e) {
-		await updateCustodyEvent(claimId, { status: 'failed', meta: { error: 'send_failed', message: (e?.message || '').slice(0, 200) } }).catch(() => {});
-		logAudit({ userId: auth.userId, action: 'custody.trade_failed', resourceId: id, meta: { side, mint: mintStr, reason: 'send_failed' }, req });
-		return error(res, 502, 'send_failed', 'the trade could not be submitted and no funds were moved — try again');
-	}
-
 	let confirmed = true;
+	let execTelemetry = null;
 	try {
-		const r = await signConn.confirmTransaction({ signature, blockhash: blockhashCtx.blockhash, lastValidBlockHeight: blockhashCtx.lastValidBlockHeight }, 'confirmed');
-		if (r?.value?.err) confirmed = false;
-	} catch {
-		try {
-			const st = await signConn.getSignatureStatus(signature, { searchTransactionHistory: true });
-			const s = st?.value?.confirmationStatus;
-			confirmed = !st?.value?.err && (s === 'confirmed' || s === 'finalized');
-		} catch { confirmed = false; }
+		const result = await submitProtected({
+			network, connection: signConn, payer: keypair, instructions,
+			opts: { tipMode: 'off', confirmTimeoutMs: 45_000 },
+		});
+		signature = result.signature;
+		execTelemetry = { route: result.route, priority_fee_microlamports: result.priorityFeeMicroLamports, landed_ms: result.landedMs, attempts: result.attempts };
+	} catch (e) {
+		if (e?.code === 'TX_ERR') {
+			// Landed but reverted on-chain — record the failed signature, don't re-send.
+			signature = e.signature || null;
+			confirmed = false;
+		} else {
+			await updateCustodyEvent(claimId, { status: 'failed', meta: { error: 'send_failed', message: (e?.message || '').slice(0, 200) } }).catch(() => {});
+			logAudit({ userId: auth.userId, action: 'custody.trade_failed', resourceId: id, meta: { side, mint: mintStr, reason: 'send_failed' }, req });
+			return error(res, 502, 'send_failed', 'the trade could not be submitted and no funds were moved — try again');
+		}
 	}
 
 	if (!confirmed) {
@@ -567,8 +561,8 @@ export async function handleTrade(req, res, id) {
 		return error(res, 202, 'trade_unconfirmed', 'the trade was submitted but not yet confirmed — check the explorer link before retrying', { signature, explorer: explorerTxUrl(signature, network) });
 	}
 
-	await updateCustodyEvent(claimId, { status: 'confirmed', signature, usd: side === 'buy' ? usdValue ?? null : null }).catch(() => {});
-	logAudit({ userId: auth.userId, action: 'custody.trade', resourceId: id, meta: { side, mint: mintStr, venue: quote.venue, usd: usdValue, signature, network }, req });
+	await updateCustodyEvent(claimId, { status: 'confirmed', signature, usd: side === 'buy' ? usdValue ?? null : null, meta: execTelemetry ? { exec: execTelemetry } : undefined }).catch(() => {});
+	logAudit({ userId: auth.userId, action: 'custody.trade', resourceId: id, meta: { side, mint: mintStr, venue: quote.venue, usd: usdValue, signature, network, exec_route: execTelemetry?.route }, req });
 
 	// Mirror into pump_agent_trades for cross-feature analytics when the mint is a
 	// three.ws-launched coin (FK requires a pump_agent_mints row). Best-effort.
@@ -587,6 +581,7 @@ export async function handleTrade(req, res, id) {
 			...quotePayload,
 			filled: { in: quotePayload.in, expected_out: quotePayload.out, min_received: quotePayload.min_received },
 			new_balance_sol: newSol,
+			execution: execTelemetry,
 		},
 	});
 }

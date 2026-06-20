@@ -8,12 +8,13 @@
 import { sql } from '../../api/_lib/db.js';
 import { log } from './log.js';
 import { loadAgentKeypair } from './keys.js';
-import { getTradeCtx, signAndSend } from './trade-client.js';
+import { getTradeCtx, signAndSend, submitProtectedTrade } from './trade-client.js';
 import { countOpenPositions, getDailySpend } from './strategy-store.js';
 import { notifyBuy, notifySell } from '../../api/_lib/sniper/notify.js';
 import {
 	getSpendLimits, enforceSpendLimit, SpendLimitError, recordSpend, lamportsToUsd,
 	checkConcurrency, checkDailyBudgetLamports, checkSolHeadroom, checkPriceImpact,
+	recordCustodyEvent,
 	SOL_FEE_HEADROOM_LAMPORTS,
 } from '../../api/_lib/agent-trade-guards.js';
 import { buildAmmSellInstructions } from './amm-exit.js';
@@ -90,6 +91,65 @@ async function recordSnipeSpend({ agentId, userId, network, lamports, signature,
 	} catch (err) {
 		log.warn?.('snipe_spend_record_failed', { agent: agentId, message: err?.message });
 	}
+}
+
+// Build the spend-guard hook the execution engine calls BEFORE appending a Jito
+// tip. A tip is real SOL leaving the agent wallet, so it must obey the SAME
+// ceilings as the trade itself: the kill switch (frozen wallet), the rolling
+// daily SOL budget (tip + already-committed spend must fit the strategy's
+// daily_budget_lamports), and the cross-path USD ceiling. On a breach the hook
+// THROWS with code 'spend_guard' — the engine vetoes the tip and falls back to
+// the protected route, so a tip can never bypass a limit. On allow it records the
+// real tip outflow into agent_custody_events (category 'mev_tip') so it counts
+// toward the daily ceiling and shows in the owner's audit trail.
+function makeTipGuard({ strat, network, alreadyCommittedLamports, dailySpentLamports }) {
+	return async function onTip(tipLamports, route) {
+		const tip = BigInt(tipLamports);
+		if (tip <= 0n) return;
+
+		// Kill switch / wallet freeze — the same gate every autonomous spend honors.
+		if (strat.kill_switch === true) {
+			throw Object.assign(new Error('strategy kill switch is on'), { code: 'spend_guard' });
+		}
+		let limits;
+		try {
+			const [row] = await sql`SELECT meta FROM agent_identities WHERE id = ${strat.agent_id} AND deleted_at IS NULL`;
+			limits = getSpendLimits(row?.meta);
+		} catch {
+			limits = null;
+		}
+		if (limits?.frozen) {
+			throw Object.assign(new Error('agent wallet is frozen'), { code: 'spend_guard' });
+		}
+
+		// Daily SOL budget — the tip stacks on the buy already committed this attempt
+		// plus the day's prior spend. Keep the wallet inside the strategy budget.
+		const budget = BigInt(strat.daily_budget_lamports);
+		if (dailySpentLamports + alreadyCommittedLamports + tip > budget) {
+			throw Object.assign(new Error('tip would exceed daily budget'), { code: 'spend_guard' });
+		}
+
+		// Cross-path USD ceiling (best-effort price; a pricing outage records lamports
+		// without a USD value rather than blocking — the lamports budget above holds).
+		let usd = null;
+		try {
+			usd = await lamportsToUsd(tip);
+			await enforceSpendLimit({ agentId: strat.agent_id, limits, category: 'snipe', usdValue: usd, network });
+		} catch (err) {
+			if (err instanceof SpendLimitError) {
+				throw Object.assign(new Error(err.message), { code: 'spend_guard' });
+			}
+			// pricing/RPC hiccup — fall through and record lamports only.
+		}
+
+		// Record the real tip outflow into the shared custody ledger.
+		await recordCustodyEvent({
+			agentId: strat.agent_id, userId: strat.user_id, eventType: 'spend',
+			category: 'mev_tip', network, asset: 'SOL', amountLamports: tip, usd,
+			status: 'confirmed', reason: 'jito_tip',
+			meta: { mint: strat._tip_mint || null, route, mode: strat.mev_tip_mode || 'off' },
+		}).catch((err) => log.warn?.('mev_tip_record_failed', { agent: strat.agent_id, message: err?.message }));
+	};
 }
 
 /**
@@ -212,8 +272,29 @@ export async function executeBuy({ cfg, strat, mint, throttle }) {
 			if (baseAmount <= 0n) return await fail(posId, tag, 'zero_tokens');
 
 			let sig = 'SIMULATED';
+			// Execution telemetry — only set on a live broadcast; simulate keeps nulls
+			// (except a 'simulated' route marker so the UI can label paper fills).
+			let exec = { route: 'simulated', tipLamports: 0, priorityFeeMicroLamports: null, landedMs: null };
 			if (cfg.mode === 'live') {
-				sig = await signAndSend(ctx, keypair, built.instructions, cfg.confirmTimeoutMs);
+				const tipMode = ['economy', 'turbo'].includes(strat.mev_tip_mode) ? strat.mev_tip_mode : 'off';
+				// The tip guard needs to know what's already committed today + this trade.
+				strat._tip_mint = mint.mint;
+				const onTip = makeTipGuard({
+					strat, network: cfg.network,
+					alreadyCommittedLamports: perTrade,
+					dailySpentLamports: spent,
+				});
+				const result = await submitProtectedTrade(ctx, keypair, built.instructions, cfg.confirmTimeoutMs, {
+					tipMode, onTip, preSimulated: firewallLevel !== 'off',
+				});
+				sig = result.signature;
+				exec = {
+					route: result.route,
+					tipLamports: result.tipLamports,
+					priorityFeeMicroLamports: result.priorityFeeMicroLamports,
+					landedMs: result.landedMs,
+				};
+				log.trade('exec', { ...tag, route: result.route, tip: result.tipLamports, fee: result.priorityFeeMicroLamports, landed_ms: result.landedMs, attempts: result.attempts, fallback: result.fallbackReason || null });
 			}
 
 			const pricePerToken = Number(perTrade) / Number(baseAmount);
@@ -226,6 +307,10 @@ export async function executeBuy({ cfg, strat, mint, throttle }) {
 					entry_price_impact_pct = ${Number(quote.priceImpactPct)},
 					peak_value_lamports = ${perTrade.toString()},
 					last_value_lamports = ${perTrade.toString()},
+					exec_route = ${exec.route},
+					tip_lamports = ${exec.tipLamports != null ? String(exec.tipLamports) : null},
+					priority_fee_microlamports = ${exec.priorityFeeMicroLamports != null ? String(exec.priorityFeeMicroLamports) : null},
+					landed_ms = ${exec.landedMs},
 					last_quoted_at = now()
 				WHERE id = ${posId}
 			`;

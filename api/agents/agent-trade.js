@@ -44,6 +44,7 @@ import {
 	SOL_FEE_HEADROOM_LAMPORTS, TRADE_LIMIT_DEFAULTS,
 } from '../_lib/agent-trade-guards.js';
 import { assessTradeSafety, recordFirewallDecision, firewallGuardResponse } from '../_lib/trade-firewall.js';
+import { submitProtected } from '../_lib/execution-engine.js';
 
 const WSOL_MINT = 'So11111111111111111111111111111111111111112';
 const CONFIRM_TIMEOUT_MS = 45_000;
@@ -528,10 +529,10 @@ async function handleExecute(req, res, id) {
 		return error(res, 500, 'key_recover_failed', 'could not access the agent wallet key — no funds were moved');
 	}
 
-	// Submit + confirm, re-checking the chain on an ambiguous timeout.
+	// Submit + confirm through the protected execution engine.
 	let result;
 	try {
-		result = await signSendConfirm(conn, keypair, built.instructions);
+		result = await signSendConfirm(conn, keypair, built.instructions, network);
 	} catch (e) {
 		await updateCustodyEvent(claimId, { status: 'failed', meta: { error: e?.code || 'send_failed', message: e?.message?.slice(0, 200) } }).catch(() => {});
 		logAudit({ userId: auth.userId, action: 'custody.trade_failed', resourceId: id, meta: { side, mint: input.mint, reason: e?.code || 'send_failed', network }, req });
@@ -544,8 +545,8 @@ async function handleExecute(req, res, id) {
 		return error(res, 202, 'trade_unconfirmed', 'the trade was submitted but not yet confirmed — check the explorer link before retrying', { signature: result.signature, explorer: explorerTxUrl(result.signature, network) });
 	}
 
-	await updateCustodyEvent(claimId, { status: 'confirmed', signature: result.signature }).catch(() => {});
-	logAudit({ userId: auth.userId, action: 'custody.trade', resourceId: id, meta: { side, mint: input.mint, venue: prep.venue, network, signature: result.signature, usd: prep.usdValue }, req });
+	await updateCustodyEvent(claimId, { status: 'confirmed', signature: result.signature, meta: result.exec ? { exec: result.exec } : undefined }).catch(() => {});
+	logAudit({ userId: auth.userId, action: 'custody.trade', resourceId: id, meta: { side, mint: input.mint, venue: prep.venue, network, signature: result.signature, usd: prep.usdValue, exec_route: result.exec?.route }, req });
 
 	// Re-read the SOL balance for the response.
 	let newSol = null;
@@ -564,6 +565,7 @@ async function handleExecute(req, res, id) {
 				: { tokens_sold: prep.baseAmount.toString(), sol_received: lamportsToSol(prep.expectedOutRaw) }),
 			min_out: prep.minOutRaw.toString(),
 			new_balance_sol: newSol,
+			execution: result.exec || null,
 		},
 	});
 }
@@ -572,40 +574,32 @@ async function safeBlockhash(conn) {
 	try { return await conn.getLatestBlockhash('confirmed'); } catch { return null; }
 }
 
-// Assemble a v0 tx, sign with the agent key, broadcast, and confirm — with a
-// status re-check on an ambiguous confirm so a landed tx is never marked failed.
-// Mirrors the proven flow in solana-wallet.js handleWithdraw.
-async function signSendConfirm(conn, payer, instructions) {
-	const bh = await conn.getLatestBlockhash('confirmed');
-	const message = new TransactionMessage({
-		payerKey: payer.publicKey,
-		recentBlockhash: bh.blockhash,
-		instructions,
-	}).compileToV0Message();
-	const vtx = new VersionedTransaction(message);
-	vtx.sign([payer]);
-
-	let signature;
+// Broadcast + confirm through the MEV-aware execution engine: dynamic compute
+// budget (real simulate + real priority-fee estimate) and bounded adaptive retry
+// with an ambiguous-confirm re-check so a landed tx is never marked failed. The
+// discretionary path has no per-strategy tip policy, so it uses the protected
+// single-tx route (tipMode 'off' — no Jito tip) while still getting the data-driven
+// fee + retry. Returns the execution telemetry for the response.
+async function signSendConfirm(conn, payer, instructions, network) {
+	let result;
 	try {
-		signature = await conn.sendRawTransaction(vtx.serialize(), { skipPreflight: false, maxRetries: 3 });
+		result = await submitProtected({
+			network, connection: conn, payer, instructions,
+			opts: { tipMode: 'off', confirmTimeoutMs: CONFIRM_TIMEOUT_MS },
+		});
 	} catch (e) {
+		if (e?.code === 'TX_ERR') {
+			// Landed but reverted on-chain — surfaced as confirmed:false so the caller
+			// records the (failed) signature rather than retrying.
+			return { signature: e.signature || null, confirmed: false, exec: null };
+		}
 		throw Object.assign(new Error(e?.message || 'send failed'), { code: 'send_failed' });
 	}
-
-	let confirmed = true;
-	try {
-		const r = await conn.confirmTransaction({ signature, blockhash: bh.blockhash, lastValidBlockHeight: bh.lastValidBlockHeight }, 'confirmed');
-		if (r?.value?.err) confirmed = false;
-	} catch {
-		try {
-			const st = await conn.getSignatureStatus(signature, { searchTransactionHistory: true });
-			const s = st?.value?.confirmationStatus;
-			confirmed = !st?.value?.err && (s === 'confirmed' || s === 'finalized');
-		} catch {
-			confirmed = false;
-		}
-	}
-	return { signature, confirmed };
+	return {
+		signature: result.signature,
+		confirmed: true,
+		exec: { route: result.route, priority_fee_microlamports: result.priorityFeeMicroLamports, landed_ms: result.landedMs, attempts: result.attempts },
+	};
 }
 
 // ── preview / quote ───────────────────────────────────────────────────────────

@@ -54,6 +54,7 @@ export default wrap(async (req, res) => {
 			select p.id, p.agent_id, p.network, p.mint, p.symbol, p.name,
 			       p.status, p.exit_reason, p.entry_quote_lamports, p.exit_quote_lamports,
 			       p.realized_pnl_lamports, p.realized_pnl_pct, p.buy_sig, p.sell_sig,
+			       p.exec_route, p.tip_lamports, p.priority_fee_microlamports, p.landed_ms,
 			       p.opened_at, p.closed_at,
 			       a.name as agent_name, a.profile_image_url as agent_image, a.avatar_url as agent_avatar
 			from agent_sniper_positions p
@@ -69,6 +70,7 @@ export default wrap(async (req, res) => {
 			select p.id, p.agent_id, p.network, p.mint, p.symbol, p.name,
 			       p.status, p.exit_reason, p.entry_quote_lamports, p.exit_quote_lamports,
 			       p.realized_pnl_lamports, p.realized_pnl_pct, p.buy_sig, p.sell_sig,
+			       p.exec_route, p.tip_lamports, p.priority_fee_microlamports, p.landed_ms,
 			       p.opened_at, p.closed_at,
 			       a.name as agent_name, a.profile_image_url as agent_image, a.avatar_url as agent_avatar
 			from agent_sniper_positions p
@@ -94,6 +96,10 @@ export default wrap(async (req, res) => {
 		pnl_pct: r.realized_pnl_pct != null ? Number(r.realized_pnl_pct) : null,
 		buy_url: solscan(r.buy_sig, network),
 		sell_url: solscan(r.sell_sig, network),
+		exec_route: r.exec_route || null,
+		tip_lamports: r.tip_lamports != null ? Number(r.tip_lamports) : null,
+		priority_fee_microlamports: r.priority_fee_microlamports != null ? Number(r.priority_fee_microlamports) : null,
+		landed_ms: r.landed_ms != null ? Number(r.landed_ms) : null,
 		opened_at: r.opened_at,
 		closed_at: r.closed_at,
 	}));
