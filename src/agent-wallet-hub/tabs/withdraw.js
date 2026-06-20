@@ -272,7 +272,7 @@ registerWalletTab({
 						<label for="awh-dest">Destination address or .sol name</label>
 						<div class="awh-row">
 							<input class="awh-in" id="awh-dest" autocomplete="off" spellcheck="false" placeholder="Recipient wallet or name.sol" value="${esc(state.dest)}">
-							<button class="awh-btn" id="awh-scan" type="button" title="Scan a QR code" ${qrSupported() ? '' : 'style="display:none"'}>⛶</button>
+							<button class="awh-btn" id="awh-scan" type="button" aria-label="Scan a QR code" title="Scan a QR code" ${qrSupported() ? '' : 'style="display:none"'}>⛶</button>
 						</div>
 						<div class="awh-resolved" id="awh-resolved" hidden></div>
 					</div>

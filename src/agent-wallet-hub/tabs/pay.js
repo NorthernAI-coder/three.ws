@@ -32,6 +32,9 @@ const PAY_STYLE = `
 .awh-pay-input { flex: 1 1 auto; min-width: 0; font: inherit; font-size: var(--text-md,.8125rem); color: var(--ink,#e8e8e8); background: var(--surface-2, rgba(255,255,255,.05)); border: 1px solid var(--stroke, rgba(255,255,255,.08)); border-radius: var(--radius-md,10px); padding: 8px 12px; }
 .awh-pay-input:focus-visible { outline: var(--focus-ring-width,2px) solid var(--focus-ring-color,#fff); outline-offset: var(--focus-ring-offset,2px); }
 .awh-pay-hint { font-size: var(--text-sm,.764rem); color: var(--ink-dim,#888); margin: var(--space-3,12px) 0 0; }
+.awh-pay-hint .awh-linkbtn { background: none; border: 0; padding: 0; margin: 0; font: inherit; color: var(--accent,#7dd3fc); text-decoration: underline; cursor: pointer; }
+.awh-pay-hint .awh-linkbtn:hover { color: var(--ink-bright,#fff); }
+.awh-pay-hint .awh-linkbtn:focus-visible { outline: 2px solid var(--accent,#7dd3fc); outline-offset: 2px; border-radius: 3px; }
 .awh-pay-note { font-size: var(--text-sm,.764rem); color: var(--warn,#fbbf24); margin: 0 0 var(--space-3,12px); }
 
 .awh-svc-list { list-style: none; margin: var(--space-3,12px) 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2,8px); }
@@ -189,7 +192,7 @@ registerWalletTab({
 					<button class="awh-btn awh-btn--primary" type="submit">Search</button>
 				</form>
 				<p class="awh-pay-hint">Browse Solana-payable services, or
-					<a href="#" data-act="paste" aria-expanded="${state.pasteOpen ? 'true' : 'false'}">${state.pasteOpen ? 'hide URL entry' : 'paste an endpoint URL'}</a>.</p>
+					<button type="button" class="awh-linkbtn" data-act="paste" aria-expanded="${state.pasteOpen ? 'true' : 'false'}">${state.pasteOpen ? 'hide URL entry' : 'paste an endpoint URL'}</button>.</p>
 				${
 					state.pasteOpen
 						? `<form class="awh-pay-search" data-form="paste" autocomplete="off" style="margin-top:8px">
