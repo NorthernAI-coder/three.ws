@@ -387,7 +387,12 @@ export class AnimationManager {
 		try {
 			res = await fetch(url, {
 				signal: controller.signal,
-				credentials: isApiClip ? 'include' : 'omit',
+				// API clips need auth; static clips are same-origin assets. Use
+				// 'same-origin' (not 'omit') so a credential-gated host proxy — e.g.
+				// a private-forwarded Codespaces port — still receives the auth cookie
+				// and serves the asset instead of 302-ing it to a login tunnel.
+				credentials: isApiClip ? 'include' : 'same-origin',
+				redirect: 'error',
 			});
 		} finally {
 			clearTimeout(timeoutId);

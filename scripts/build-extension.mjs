@@ -1,6 +1,6 @@
 // scripts/build-extension.mjs — bundle the Chrome extension for load-unpacked or Web Store.
 import { build } from 'esbuild';
-import { cpSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'fs';
+import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
@@ -11,83 +11,48 @@ const src = join(root, 'extensions', 'walk-avatar');
 const out = join(root, 'dist', 'extension');
 const isProd = process.argv.includes('--prod');
 
+// Start from a clean output dir so stale artifacts (e.g. dev source maps, or a
+// removed entrypoint) never leak into the packaged zip.
+rmSync(out, { recursive: true, force: true });
 mkdirSync(out, { recursive: true });
 mkdirSync(join(out, 'icons'), { recursive: true });
 mkdirSync(join(out, 'styles'), { recursive: true });
 
-// Bundle JS files
-await Promise.all([
-	build({
-		entryPoints: [join(src, 'background.js')],
-		outfile: join(out, 'background.js'),
-		bundle: true,
-		format: 'esm',
-		platform: 'browser',
-		minify: isProd,
-		sourcemap: !isProd,
-		target: 'chrome109',
-	}),
-	build({
-		entryPoints: [join(src, 'content.js')],
-		outfile: join(out, 'content.js'),
-		bundle: true,
-		format: 'iife',
-		platform: 'browser',
-		minify: isProd,
-		sourcemap: !isProd,
-		target: 'chrome109',
-		external: ['chrome'],
-	}),
-	// Classic content scripts injected (in order) via chrome.scripting before
-	// content.js — each is a self-contained IIFE that publishes a window global.
-	// They are NOT imported by content.js, so esbuild must emit them separately
-	// or chrome.scripting.executeScript fails on a missing file and the whole
-	// avatar injection aborts.
-	build({
-		entryPoints: [join(src, 'content-narrator.js')],
-		outfile: join(out, 'content-narrator.js'),
-		bundle: true,
-		format: 'iife',
-		platform: 'browser',
-		minify: isProd,
-		sourcemap: !isProd,
-		target: 'chrome109',
-		external: ['chrome'],
-	}),
-	build({
-		entryPoints: [join(src, 'content-pilot.js')],
-		outfile: join(out, 'content-pilot.js'),
-		bundle: true,
-		format: 'iife',
-		platform: 'browser',
-		minify: isProd,
-		sourcemap: !isProd,
-		target: 'chrome109',
-		external: ['chrome'],
-	}),
-	build({
-		entryPoints: [join(src, 'popup.js')],
-		outfile: join(out, 'popup.js'),
-		bundle: true,
-		format: 'iife',
-		platform: 'browser',
-		minify: isProd,
-		sourcemap: !isProd,
-		target: 'chrome109',
-		external: ['chrome'],
-	}),
-	build({
-		entryPoints: [join(src, 'options.js')],
-		outfile: join(out, 'options.js'),
-		bundle: true,
-		format: 'iife',
-		platform: 'browser',
-		minify: isProd,
-		sourcemap: !isProd,
-		target: 'chrome109',
-		external: ['chrome'],
-	}),
-]);
+// Bundle JS files. background.js is an ESM service worker; everything else is a
+// self-contained IIFE. Classic content scripts (content-narrator, content-pilot,
+// content) are injected in order via chrome.scripting before content.js — each
+// publishes a window global and is NOT imported by content.js, so esbuild must
+// emit them separately or chrome.scripting.executeScript fails on a missing file.
+// Optional entrypoints (those still being authored) are skipped with a warning
+// rather than failing the whole build.
+const ENTRYPOINTS = [
+	{ file: 'background.js', format: 'esm', external: [] },
+	{ file: 'content.js', format: 'iife', external: ['chrome'] },
+	{ file: 'content-narrator.js', format: 'iife', external: ['chrome'] },
+	{ file: 'content-pilot.js', format: 'iife', external: ['chrome'], optional: true },
+	{ file: 'popup.js', format: 'iife', external: ['chrome'] },
+	{ file: 'options.js', format: 'iife', external: ['chrome'] },
+];
+
+await Promise.all(
+	ENTRYPOINTS.filter((e) => {
+		if (existsSync(join(src, e.file))) return true;
+		if (e.optional) { console.warn(`⚠ skipping ${e.file} (not present yet)`); return false; }
+		throw new Error(`missing required extension entrypoint: ${e.file}`);
+	}).map((e) =>
+		build({
+			entryPoints: [join(src, e.file)],
+			outfile: join(out, e.file),
+			bundle: true,
+			format: e.format,
+			platform: 'browser',
+			minify: isProd,
+			sourcemap: !isProd,
+			target: 'chrome109',
+			external: e.external,
+		}),
+	),
+);
 
 // Copy static files
 cpSync(join(src, 'manifest.json'), join(out, 'manifest.json'));
@@ -117,6 +82,9 @@ if (isProd) {
 	// Zip for Web Store submission
 	const { execSync } = await import('child_process');
 	const zipPath = join(root, 'dist', `extension-${manifest.version}.zip`);
+	// Remove any prior zip first — `zip -r` updates in place and would otherwise
+	// retain stale entries (e.g. dev source maps) no longer in the output dir.
+	rmSync(zipPath, { force: true });
 	execSync(`cd "${out}" && zip -r "${zipPath}" .`);
 	console.log(`\nZipped → dist/extension-${manifest.version}.zip`);
 }

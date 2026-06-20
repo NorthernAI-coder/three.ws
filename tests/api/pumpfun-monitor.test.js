@@ -121,6 +121,24 @@ describe('decodeAttesterSecret', () => {
 		expect(Keypair.fromSecretKey(bytes).publicKey.toBase58()).toBe(expectedPubkey);
 	});
 
+	it('decodes a base64url secret key (- and _ instead of + and /)', () => {
+		const b64url = Buffer.from(secret).toString('base64url');
+		const bytes = decodeAttesterSecret(b64url);
+		expect(bytes).toBeInstanceOf(Uint8Array);
+		expect(Keypair.fromSecretKey(bytes).publicKey.toBase58()).toBe(expectedPubkey);
+	});
+
+	it('decodes a hex secret key (64 bytes = 128 hex chars)', () => {
+		const bytes = decodeAttesterSecret(Buffer.from(secret).toString('hex'));
+		expect(bytes).toBeInstanceOf(Uint8Array);
+		expect(Keypair.fromSecretKey(bytes).publicKey.toBase58()).toBe(expectedPubkey);
+	});
+
+	it('decodes an uppercase hex secret key', () => {
+		const bytes = decodeAttesterSecret(Buffer.from(secret).toString('hex').toUpperCase());
+		expect(Keypair.fromSecretKey(bytes).publicKey.toBase58()).toBe(expectedPubkey);
+	});
+
 	it('returns null for empty / missing input', () => {
 		expect(decodeAttesterSecret('')).toBeNull();
 		expect(decodeAttesterSecret(null)).toBeNull();
