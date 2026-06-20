@@ -11,7 +11,7 @@
  * migrated (AMM) trades and is rock-solid.
  */
 
-const TRENDING_URL = '/api/pump/trending?limit=24';
+const TRENDING_URL = '/api/pump/trending?limit=24&rich=1';
 const TRADES_URL = (mint, limit = 30) =>
 	`/api/pump/coin-trades?mint=${encodeURIComponent(mint)}&limit=${limit}`;
 const MAX_ROWS = 6;
@@ -119,7 +119,7 @@ class HomeLiveToken {
 		}
 		if (!r.ok) return null;
 		const data = await r.json();
-		const list = Array.isArray(data) ? data : data?.coins || [];
+		const list = Array.isArray(data) ? data : data?.data || data?.coins || [];
 		// Prefer a coin with an image and a real market cap; fall back to any with
 		// a mint + symbol so the card is never empty.
 		const usable = list.filter((c) => c && c.mint && c.symbol);

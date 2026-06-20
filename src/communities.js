@@ -216,10 +216,10 @@ function renderCoinError() {
 async function loadTrending() {
 	renderSkeleton();
 	try {
-		const r = await fetch('/api/pump/trending?limit=48', { headers: { accept: 'application/json' } });
+		const r = await fetch('/api/pump/trending?limit=48&rich=1', { headers: { accept: 'application/json' } });
 		if (!r.ok) throw new Error(`HTTP ${r.status}`);
 		const data = await r.json();
-		renderCoins(Array.isArray(data) ? data : data?.coins || []);
+		renderCoins(Array.isArray(data) ? data : data?.data || data?.coins || []);
 	} catch (err) {
 		log.warn('[communities] trending failed:', err?.message ?? err);
 		renderCoinError();

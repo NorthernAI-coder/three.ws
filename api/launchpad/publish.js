@@ -32,11 +32,7 @@ import { z } from 'zod';
 const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;
 const SOL_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 const EVM_RE = /^0x[a-fA-F0-9]{40}$/;
-// Only the fully-wired template is publishable. The paid-concierge and
-// gated-showroom templates require a per-page x402 paywall that settles to an
-// arbitrary creator wallet — infrastructure that does not exist yet — so they
-// are not offered rather than shipped as a page with a dead pay button.
-const TEMPLATES = ['token-launchpad'];
+const TEMPLATES = ['token-launchpad', 'paid-concierge', 'gated-showroom'];
 
 const skillSchema = z.object({
 	name: z.string().trim().min(1).max(80),

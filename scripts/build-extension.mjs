@@ -1,6 +1,6 @@
 // scripts/build-extension.mjs — bundle the Chrome extension for load-unpacked or Web Store.
 import { build } from 'esbuild';
-import { cpSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { cpSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
@@ -97,6 +97,12 @@ cpSync(join(src, 'icons'), join(out, 'icons'), { recursive: true });
 // Vendored third-party readability lib is injected as-is (large, pre-minified);
 // copy it verbatim rather than re-bundling.
 cpSync(join(src, 'vendor'), join(out, 'vendor'), { recursive: true });
+
+// Copy stylesheets referenced by popup.html / options.html (e.g. popup.css).
+// HTML pages load these as-is; without them the popup ships unstyled.
+for (const file of readdirSync(src)) {
+	if (file.endsWith('.css')) cpSync(join(src, file), join(out, file));
+}
 
 // Write injected CSS (empty placeholder — content.js injects styles programmatically)
 writeFileSync(join(out, 'styles', 'inject.css'), '/* reserved for injected styles */\n');

@@ -222,10 +222,18 @@ function chromeShim(cfg) {
 		};
 	}).toString()})(${JSON.stringify(cfg)})`;
 }
-async function routeApi(context, avatars) {
+async function routeApi(context, avatars, allowOrigin) {
 	await context.route('**/three.ws/api/**', async (route) => {
 		const url = route.request().url();
-		const reply = (obj) => route.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify(obj) });
+		// popup.js / options.js fetch with credentials:'include' — CORS forbids a
+		// wildcard ACAO with credentials, so reflect the caller's origin.
+		const origin = route.request().headers()['origin'] || allowOrigin || '*';
+		const reply = (obj) => route.fulfill({
+			status: 200,
+			contentType: 'application/json',
+			headers: { 'access-control-allow-origin': origin, 'access-control-allow-credentials': 'true' },
+			body: JSON.stringify(obj),
+		});
 		if (/\/api\/avatars\/(mine|featured)\b/.test(url) || /\/api\/avatars\?/.test(url)) return reply({ avatars });
 		if (/\/api\/tts\/voices\b/.test(url)) return reply({ enabled: true, default: DEFAULT_VOICE, voices: TTS_VOICES, providers: { nvidia: true, openai: true } });
 		if (/\/api\/(me|threews\/me)\b/.test(url)) return reply({ user: { handle: '@you', username: 'you' } });
@@ -258,7 +266,7 @@ async function composeSurface(shotBuf, outName, caption) {
 async function snapExtensionPage(extBase, avatars, { file, viewport, shim, tabName, thumbSel, then }) {
 	return withBrowser(async (browser) => {
 		const ctx = await browser.newContext({ viewport, deviceScaleFactor: 2 });
-		await routeApi(ctx, avatars);
+		await routeApi(ctx, avatars, extBase);
 		const page = await ctx.newPage();
 		await page.addInitScript(shim);
 		await page.goto(`${extBase}/${file}`, { waitUntil: 'domcontentloaded' });

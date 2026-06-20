@@ -29,6 +29,15 @@ export default wrap(async (req, res) => {
 	// Fire-and-forget view increment. Failure here must never block the read.
 	sql`UPDATE launchpad_pages SET view_count = view_count + 1 WHERE slug = ${slug}`.catch(() => {});
 
+	// gated-showroom is a pay-to-reveal page: withhold the private scene URL from
+	// the public read so the only way to obtain it is settling the x402 unlock at
+	// /api/launchpad/invoke. A `locked` flag lets the renderer show the lock
+	// state without leaking the asset.
+	const config = row.config || {};
+	if (row.template === 'gated-showroom' && config.scene?.src) {
+		config.scene = { ...config.scene, src: '', locked: true };
+	}
+
 	return json(
 		res,
 		200,
@@ -36,7 +45,7 @@ export default wrap(async (req, res) => {
 			slug: row.slug,
 			template: row.template,
 			ownerWallet: row.owner_wallet,
-			config: row.config,
+			config,
 			viewCount: row.view_count + 1,
 			createdAt: row.created_at,
 			updatedAt: row.updated_at,
