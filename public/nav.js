@@ -102,7 +102,31 @@ function loadThemeSwitcher() {
 	document.head.appendChild(s);
 }
 
+// Load the site-wide Guided Tour engine (src/feature-tour.js → /feature-tour.js)
+// only when a tour is starting (?tour=) or already in progress (sessionStorage).
+// Runs before the nav-container short-circuit below so it also boots on the
+// full-screen 3D pages the tour visits (e.g. /forge, /club) which have no nav.
+// The module is self-bootstrapping + idempotent; a page that never tours pays
+// nothing for it.
+function loadFeatureTour() {
+	if (window.top !== window.self) return; // never inside an embed/iframe
+	let active = false;
+	try {
+		const raw = sessionStorage.getItem('tws:tour:state');
+		active = !!raw && JSON.parse(raw).active === true;
+	} catch (_) {}
+	const param = new URLSearchParams(location.search).get('tour');
+	const wanted = param === 'start' || param === '1' || (param !== '0' && active);
+	if (!wanted) return;
+	if (document.querySelector('script[src="/feature-tour.js"]')) return;
+	const s = document.createElement('script');
+	s.type = 'module';
+	s.src = '/feature-tour.js';
+	document.head.appendChild(s);
+}
+
 function boot() {
+	loadFeatureTour();
 	loadCornerStack();
 	loadGlossary();
 	loadSearch();

@@ -3432,6 +3432,14 @@
 			"dest": "/what-is.html"
 		},
 		{
+			"src": "/tour",
+			"dest": "/tour.html"
+		},
+		{
+			"src": "/tour/",
+			"dest": "/tour.html"
+		},
+		{
 			"src": "/features",
 			"dest": "/features.html"
 		},

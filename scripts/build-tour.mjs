@@ -46,6 +46,8 @@ const SECTION_INTROS = {
 // preferred over its /features/* landing-page twin.
 const DENY = new Set([
 	'/login', '/register', '/forgot-password', '/sitemap',
+	// The tour's own landing page is the entry point, not a stop on the route.
+	'/tour',
 	// /features/* are marketing landings for product pages already in the tour.
 	'/features/ar', '/features/forge', '/features/scan', '/features/play',
 	'/features/walk', '/features/studio', '/features/marketplace',

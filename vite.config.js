@@ -281,6 +281,7 @@ const appConfig = {
 				'app-next': resolve(__dirname, 'pages/app-next.html'),
 				home: resolve(__dirname, 'pages/home.html'),
 				'what-is': resolve(__dirname, 'pages/what-is.html'),
+				tour: resolve(__dirname, 'pages/tour.html'),
 				features: resolve(__dirname, 'pages/features.html'),
 				'features-ar': resolve(__dirname, 'pages/features/ar.html'),
 				'features-forge': resolve(__dirname, 'pages/features/forge.html'),
