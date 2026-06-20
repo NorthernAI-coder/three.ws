@@ -125,6 +125,9 @@ function serializePayload(payload) {
 let _tableReady = false;
 async function ensureTable() {
 	if (_tableReady) return;
+	// Critical bootstrap — the base table + its read/reaper indexes. Idempotent and,
+	// on a live database, a cheap catalog check with no exclusive lock. A failure
+	// here is a real DB fault (no connection, no CREATE grant) and is left to surface.
 	await sql`
 		CREATE TABLE IF NOT EXISTS irl_interactions (
 			id            UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -144,6 +147,22 @@ async function ensureTable() {
 	await sql`CREATE INDEX IF NOT EXISTS irl_interactions_viewer ON irl_interactions (viewer_device, pin_id, type)`;
 	// Index-backs the reaper's age-out sweep (DELETE … WHERE created_at < NOW() - 180d).
 	await sql`CREATE INDEX IF NOT EXISTS irl_interactions_created ON irl_interactions (created_at)`;
+	// Incremental migrations — idempotent so a fresh DB self-provisions, but already
+	// applied on a live one. Re-running them per request is redundant and risky: each
+	// ALTER/CREATE INDEX takes an ACCESS EXCLUSIVE lock that can time out under racing
+	// cold starts, and a least-privilege role may lack DDL grants. Best-effort only;
+	// never let it gate logging an interaction.
+	try {
+		await runMigrations();
+	} catch (err) {
+		console.error('[irl/interactions] schema migrations skipped (already applied or no DDL grant)', {
+			reason: err?.message || String(err),
+		});
+	}
+	_tableReady = true;
+}
+
+async function runMigrations() {
 	// Earnings columns (C4) — populated for type='pay'. amount is in the asset's
 	// atomic units; currency_mint is $THREE or USDC; payload carries the on-chain
 	// signature, network, and any structured context (geo, settlement detail).
@@ -152,7 +171,6 @@ async function ensureTable() {
 	await sql`ALTER TABLE irl_interactions ADD COLUMN IF NOT EXISTS payload       JSONB DEFAULT '{}'::jsonb`;
 	// One settlement → one pay row. Indexed for the de-dupe lookup on insert.
 	await sql`CREATE INDEX IF NOT EXISTS irl_interactions_paysig ON irl_interactions ((payload->>'signature')) WHERE type = 'pay'`;
-	_tableReady = true;
 }
 
 export default wrap(async (req, res) => {

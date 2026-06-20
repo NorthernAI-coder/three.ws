@@ -23,13 +23,13 @@ import { cors, method, readJson, error, wrap, rateLimited } from '../_lib/http.j
 import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { synthesizeNvidiaTts, nvidiaTtsConfigured } from '../_lib/tts-nvidia.js';
+import { TTS_VOICE_IDS } from '../_lib/tts-voices.js';
 
 export const maxDuration = 60;
 
-const VOICES = new Set([
-	'alloy', 'ash', 'ballad', 'coral', 'echo', 'fable',
-	'nova', 'onyx', 'sage', 'shimmer', 'verse',
-]);
+// Validate against the shared catalog (api/_lib/tts-voices.js) so /api/tts/voices
+// and this endpoint can never disagree about which voices exist.
+const VOICES = new Set(TTS_VOICE_IDS);
 const MODELS = new Set(['tts-1', 'tts-1-hd', 'gpt-4o-mini-tts']);
 const FORMATS = {
 	mp3: 'audio/mpeg',

@@ -355,6 +355,10 @@ function initDrawer(root) {
 	if (!toggle || !drawer) return;
 
 	const isOpen = () => drawer.classList.contains('open');
+	const focusables = () =>
+		[...drawer.querySelectorAll('a[href], button:not([disabled]), input:not([disabled])')].filter(
+			(el) => el.offsetParent !== null && !el.closest('[hidden]'),
+		);
 	// Start closed: `inert` keeps the drawer's links out of the tab order and
 	// hidden from assistive tech, and blurs any descendant that holds focus —
 	// which is what aria-hidden alone cannot do (it only warns).
@@ -365,15 +369,37 @@ function initDrawer(root) {
 		drawer.inert = !open;
 		document.body.style.overflow = open ? 'hidden' : '';
 		drawer.classList.toggle('open', open);
+		// Move focus into the drawer on open so keyboard/SR users land on the
+		// menu, not stranded on the toggle behind the overlay. The 0ms defer
+		// lets `inert` clear first (a still-inert element rejects focus).
+		if (open) setTimeout(() => focusables()[0]?.focus({ preventScroll: true }), 0);
 	}
 	toggle.addEventListener('click', () => setOpen(!isOpen()));
 	drawer.addEventListener('click', (e) => {
 		if (e.target.closest('a')) setOpen(false);
 	});
 	document.addEventListener('keydown', (e) => {
-		if (e.key === 'Escape' && isOpen()) {
+		if (!isOpen()) return;
+		if (e.key === 'Escape') {
 			setOpen(false);
 			toggle.focus();
+			return;
+		}
+		// Focus trap: keep Tab cycling inside the open drawer. The page behind
+		// is visually covered, so focus must not escape to it.
+		if (e.key === 'Tab') {
+			const items = focusables();
+			if (!items.length) return;
+			const first = items[0];
+			const last = items[items.length - 1];
+			const active = document.activeElement;
+			if (e.shiftKey && (active === first || !drawer.contains(active))) {
+				e.preventDefault();
+				last.focus({ preventScroll: true });
+			} else if (!e.shiftKey && (active === last || !drawer.contains(active))) {
+				e.preventDefault();
+				first.focus({ preventScroll: true });
+			}
 		}
 	});
 	window.addEventListener('resize', () => {

@@ -9,6 +9,7 @@
 import { createThreeTokenData, THREE_MINT } from './pump/three-token-data.js';
 import { mountBondingCurve } from './widgets/bonding-curve.js';
 import { openSwapModal } from './swap-jupiter.js';
+import { trackFunnelStep, ANALYTICS_EVENTS } from './analytics.js';
 
 const SOL_MINT = 'So11111111111111111111111111111111111111112';
 const PUMP_URL = `https://pump.fun/coin/${THREE_MINT}`;
@@ -233,10 +234,16 @@ async function buyThree() {
 	}
 }
 
+// Latest $THREE price seen by the store — used to enrich the buy-click event.
+let _lastThreePrice = null;
+
 // ── boot ─────────────────────────────────────────────────────────────────────
 function boot() {
 	injectStyles();
 	document.title = '$THREE · Live price, chart & trades · three.ws';
+
+	// $THREE holder funnel, step 1: the token page is in view.
+	trackFunnelStep('three', ANALYTICS_EVENTS.TOKEN_PAGE_VIEWED, {});
 
 	const wrap = document.createElement('div');
 	wrap.className = 'tk-wrap';
@@ -292,8 +299,14 @@ function boot() {
 		} catch {}
 	});
 
-	// Buy
-	wrap.querySelector('[data-buy]').addEventListener('click', () => { buyThree().catch(() => window.open(PUMP_URL, '_blank', 'noopener')); });
+	// Buy — funnel step 2: buy intent.
+	wrap.querySelector('[data-buy]').addEventListener('click', () => {
+		trackFunnelStep('three', ANALYTICS_EVENTS.TOKEN_BUY_CLICKED, {
+			source: 'token_page',
+			...(_lastThreePrice != null ? { price_usd: _lastThreePrice } : {}),
+		});
+		buyThree().catch(() => window.open(PUMP_URL, '_blank', 'noopener'));
+	});
 
 	// Bonding curve — real on-chain reads for the $THREE mint.
 	mountBondingCurve(wrap.querySelector('[data-curve]'), { mint: THREE_MINT, network: 'mainnet', showUsd: true, refreshMs: 15_000 });
@@ -303,7 +316,10 @@ function boot() {
 	const store = createThreeTokenData({ pollMs: 30_000, anchorEl: wrap });
 	store.subscribe((state) => {
 		const p = state.protocol;
-		if (p.status === 'ok' && p.token) statsEl.innerHTML = renderHeaderStats(p.token);
+		if (p.status === 'ok' && p.token) {
+			if (p.token.price_usd != null) _lastThreePrice = Number(p.token.price_usd);
+			statsEl.innerHTML = renderHeaderStats(p.token);
+		}
 		else if (p.status === 'error') statsEl.innerHTML = `<div class="tk-empty" style="grid-column:1/-1">Couldn’t load $THREE market data. <a href="${PUMP_URL}" target="_blank" rel="noopener" style="color:#7CC4FF">View on pump.fun ↗</a></div>`;
 	});
 

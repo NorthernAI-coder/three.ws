@@ -1,5 +1,11 @@
 import { ensureWallet } from './erc8004/agent-registry.js';
-import { identifyUser, resetIdentity } from './analytics.js';
+import {
+	identifyUser,
+	resetIdentity,
+	trackFunnelStep,
+	shortWallet,
+	ANALYTICS_EVENTS,
+} from './analytics.js';
 import { resolveError } from './shared/error-messages.js';
 
 // ─── Public API ─────────────────────────────────────────────────────────────
@@ -17,48 +23,71 @@ export async function signInWithWallet() {
 	const existing = await getCurrentUser();
 	if (existing) return { user: existing };
 
-	const { signer, address, chainId } = await ensureWallet();
+	// Activation funnel: a real connect prompt is about to fire (the session
+	// short-circuit above means this only counts genuine connect attempts).
+	trackFunnelStep('activation', ANALYTICS_EVENTS.WALLET_CONNECT_STARTED, { provider: 'eip4361' });
 
-	// GET nonce — sets __Host-csrf-siwe cookie, returns csrf token
-	const nonceRes = await fetch('/api/auth/siwe/nonce', {
-		credentials: 'include',
-	});
-	if (!nonceRes.ok) {
-		const body = await nonceRes.json().catch(() => ({}));
-		throw new Error(body.error_description || 'Failed to fetch nonce');
+	let chainId;
+	let address;
+	try {
+		const wallet = await ensureWallet();
+		address = wallet.address;
+		chainId = wallet.chainId;
+		const { signer } = wallet;
+
+		// GET nonce — sets __Host-csrf-siwe cookie, returns csrf token
+		const nonceRes = await fetch('/api/auth/siwe/nonce', {
+			credentials: 'include',
+		});
+		if (!nonceRes.ok) {
+			const body = await nonceRes.json().catch(() => ({}));
+			throw new Error(body.error_description || 'Failed to fetch nonce');
+		}
+		const { nonce, csrf } = await nonceRes.json();
+
+		const message = [
+			`${location.host} wants you to sign in with your Ethereum account:`,
+			address,
+			'',
+			'Sign in to three.ws.',
+			'',
+			`URI: ${location.origin}`,
+			'Version: 1',
+			`Chain ID: ${chainId}`,
+			`Nonce: ${nonce}`,
+			`Issued At: ${new Date().toISOString()}`,
+		].join('\n');
+
+		const signature = await signer.signMessage(message);
+
+		const verifyRes = await fetch('/api/auth/siwe/verify', {
+			method: 'POST',
+			credentials: 'include',
+			headers: {
+				'content-type': 'application/json',
+				'x-csrf-token': csrf,
+			},
+			body: JSON.stringify({ message, signature }),
+		});
+
+		const data = await verifyRes.json().catch(() => ({}));
+		if (!verifyRes.ok) {
+			throw new Error(data.error_description || data.error || 'Sign-in failed');
+		}
+		trackFunnelStep('activation', ANALYTICS_EVENTS.WALLET_CONNECT_SUCCEEDED, {
+			provider: 'eip4361',
+			wallet_short: shortWallet(address),
+			chain: chainId,
+		});
+		return data;
+	} catch (err) {
+		trackFunnelStep('activation', ANALYTICS_EVENTS.WALLET_CONNECT_FAILED, {
+			provider: 'eip4361',
+			reason: err instanceof Error ? err.message.slice(0, 120) : 'unknown',
+			...(chainId != null ? { chain: chainId } : {}),
+		});
+		throw err;
 	}
-	const { nonce, csrf } = await nonceRes.json();
-
-	const message = [
-		`${location.host} wants you to sign in with your Ethereum account:`,
-		address,
-		'',
-		'Sign in to three.ws.',
-		'',
-		`URI: ${location.origin}`,
-		'Version: 1',
-		`Chain ID: ${chainId}`,
-		`Nonce: ${nonce}`,
-		`Issued At: ${new Date().toISOString()}`,
-	].join('\n');
-
-	const signature = await signer.signMessage(message);
-
-	const verifyRes = await fetch('/api/auth/siwe/verify', {
-		method: 'POST',
-		credentials: 'include',
-		headers: {
-			'content-type': 'application/json',
-			'x-csrf-token': csrf,
-		},
-		body: JSON.stringify({ message, signature }),
-	});
-
-	const data = await verifyRes.json().catch(() => ({}));
-	if (!verifyRes.ok) {
-		throw new Error(data.error_description || data.error || 'Sign-in failed');
-	}
-	return data;
 }
 
 /** @returns {Promise<void>} */

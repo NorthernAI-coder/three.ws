@@ -827,12 +827,34 @@
 }
 .pricing-faq summary:active::after { background: rgba(255, 255, 255, 0.14); }
 
+/* Below-the-fold sections reveal on scroll (IntersectionObserver adds
+   .is-revealed). Transform/opacity only; the script reveals everything
+   immediately when IO is unsupported or reduced motion is set, so content is
+   never left invisible. */
+.js .reveal-section {
+	opacity: 0;
+	transform: translateY(18px);
+	transition:
+		opacity var(--duration-slow, 420ms) var(--ease-emphasized, cubic-bezier(0.22, 1, 0.36, 1)),
+		transform var(--duration-slow, 420ms) var(--ease-emphasized, cubic-bezier(0.22, 1, 0.36, 1));
+	will-change: opacity, transform;
+}
+.reveal-section.is-revealed {
+	opacity: 1;
+	transform: none;
+}
+
 /* Reduced motion: this sheet uses literal durations, so disable explicitly. */
 @media (prefers-reduced-motion: reduce) {
 	.pricing-tier-card,
 	.pricing-faq details[open] p,
 	.price-swap {
 		animation: none !important;
+	}
+	.reveal-section {
+		opacity: 1 !important;
+		transform: none !important;
+		transition: none !important;
 	}
 	.pricing-hero *,
 	.pricing-tier-card,

@@ -343,6 +343,10 @@ export async function recordCellRead(ip, cell) {
 let _tableReady = false;
 async function ensureTable() {
 	if (_tableReady) return;
+	// Critical bootstrap — the base table + proximity/expiry indexes. These are
+	// idempotent (`IF NOT EXISTS`) and, on an already-provisioned database, a cheap
+	// catalog check that takes no exclusive lock. A failure here is a genuine DB
+	// fault (no connection, no CREATE grant) and is allowed to surface.
 	await sql`
 		CREATE TABLE IF NOT EXISTS irl_pins (
 			id            UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -362,6 +366,25 @@ async function ensureTable() {
 	`;
 	await sql`CREATE INDEX IF NOT EXISTS irl_pins_lat_lng ON irl_pins (lat, lng)`;
 	await sql`CREATE INDEX IF NOT EXISTS irl_pins_expires ON irl_pins (expires_at)`;
+	// Incremental migrations — every column/index below ships idempotently so a
+	// fresh database self-provisions. On a LIVE database they are already applied,
+	// so re-running them is pure redundancy: each `ALTER TABLE` / `CREATE INDEX`
+	// takes an ACCESS EXCLUSIVE lock that can time out when many cold starts race,
+	// and a least-privilege runtime role may lack DDL grants outright. Neither must
+	// ever gate a read or write — the schema is already in place. Run them
+	// best-effort, mark the table ready regardless, and let any genuine schema gap
+	// surface as a precise error on the actual query rather than a blanket 500 here.
+	try {
+		await runMigrations();
+	} catch (err) {
+		console.error('[irl/pins] schema migrations skipped (already applied or no DDL grant)', {
+			reason: err?.message || String(err),
+		});
+	}
+	_tableReady = true;
+}
+
+async function runMigrations() {
 	// view_count — deduplicated visitor count; incremented by /api/irl/interactions
 	await sql`ALTER TABLE irl_pins ADD COLUMN IF NOT EXISTS view_count BIGINT NOT NULL DEFAULT 0`;
 	// Anchor pose — added 2026-06 for IRL-Live world anchoring (A2). Persisting the
@@ -426,7 +449,6 @@ async function ensureTable() {
 	// — distinct from hidden_at (moderation) and expiry (lifetime). DEFAULT TRUE so
 	// every existing + future placement is public unless the owner unpublishes it.
 	await sql`ALTER TABLE irl_pins ADD COLUMN IF NOT EXISTS published BOOLEAN NOT NULL DEFAULT TRUE`;
-	_tableReady = true;
 }
 
 // ── Calibration bounds (A3) ─────────────────────────────────────────────────

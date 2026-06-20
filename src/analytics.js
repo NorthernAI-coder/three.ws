@@ -58,7 +58,9 @@ export const ANALYTICS_EVENTS = Object.freeze({
 	MARKETPLACE_SEARCHED: 'marketplace_searched',
 	/** An agent profile was opened. props: { agent_id? } */
 	AGENT_PROFILE_VIEWED: 'agent_profile_viewed',
-	/** Visualizer/dashboard surface opened. props: { surface: string } */
+	/** Visualizer/dashboard surface opened. props: { surface: string } — name
+	 *  surfaces as `category:name` (e.g. 'dashboard:monetize', 'visualizer:galaxy')
+	 *  so insights group cleanly across surfaces. */
 	SURFACE_OPENED: 'surface_opened',
 
 	// ── Share (this module's own instrumentation surface) ────────────────────

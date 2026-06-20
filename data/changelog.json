@@ -3,12 +3,21 @@
 	"entries": [
 		{
 			"date": "2026-06-20",
+			"title": "Choose where you walk — six environments for the Walk page",
+			"summary": "Your avatar no longer strolls in one fixed studio. A new environment picker lets you drop into six distinct worlds: a sunlit Park with shade trees and benches, a neon Cyberpunk street, a bright Beach with palm trees and a turquoise sea, a white-walled Gallery with pedestals and hung art, an abstract Void grid for pure focus, and the three.ws Office with desks and plants. Open the picker from the environment button in the Walk HUD to see a preview of each scene, or press V to cycle through them. Switching fades smoothly to the new sky and back — the ground, lighting, reflections, and props all change to match, and the avatar walks and collides correctly in every world. Link straight to a scene with ?env=beach (or park, cyberpunk, gallery, void, office), and your last choice is remembered next time you visit. Every scene is a real 3D model with its own HDR lighting, authored and owned by three.ws.",
+			"tags": [
+				"feature"
+			],
+			"link": "/features/walk"
+		},
+		{
+			"date": "2026-06-20",
 			"title": "Express yourself in Walk — wave, dance, sit, point, cheer and more",
 			"summary": "Your avatar can now emote while you stroll. Hold G on desktop — or long-press the action button on mobile — to pop a radial gesture wheel, aim, and release to play one of eight gestures: wave, dance, sit, point, cheer, agree, disagree, and a talking idle. Keys 1–8 fire them instantly, and a quick-access tray sits in the corner. Upper-body gestures like wave and cheer blend over your walk so you keep moving while you gesture; sit and dance take over the whole body, and a single step rises you back up. Everything crossfades — no stiff T-pose flashes between moves — and gestures replicate to other players in the same world. Chat messages now animate the avatar as it 'talks', and developers can trigger any gesture programmatically with window.walk.playGesture('wave').",
 			"tags": [
 				"feature"
 			],
-			"link": "/walk"
+			"link": "/features/walk"
 		},
 		{
 			"date": "2026-06-20",

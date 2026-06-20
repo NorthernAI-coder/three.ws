@@ -43,6 +43,7 @@ import {
 	checkSolHeadroom, checkPriceImpact, tradeGuardResponse,
 	SOL_FEE_HEADROOM_LAMPORTS, TRADE_LIMIT_DEFAULTS,
 } from '../_lib/agent-trade-guards.js';
+import { assessTradeSafety, recordFirewallDecision, firewallGuardResponse } from '../_lib/trade-firewall.js';
 
 const WSOL_MINT = 'So11111111111111111111111111111111111111112';
 const CONFIRM_TIMEOUT_MS = 45_000;
@@ -227,7 +228,7 @@ async function buildTradeInstructions({ ctx, side, venue, mintPk, ownerPk, lampo
 // shape. Buys are gated on the lamport caps + USD ceiling + balance; sells only
 // move SOL inward, so they skip the spend caps but still honor the kill switch,
 // the price-impact breaker, and a fee-headroom floor.
-async function runGuards({ id, side, tradeLimits, prep, walletLamports, network, meta }) {
+async function runGuards({ id, side, tradeLimits, prep, walletLamports, network, meta, mintPk, ownerPk, userId }) {
 	const killed = checkKillSwitch(tradeLimits.kill_switch);
 	if (killed) return tradeGuardResponse(killed);
 
@@ -263,6 +264,26 @@ async function runGuards({ id, side, tradeLimits, prep, walletLamports, network,
 
 		const headroom = checkSolHeadroom(walletLamports, lamports, SOL_FEE_HEADROOM_LAMPORTS);
 		if (headroom) return tradeGuardResponse(headroom);
+
+		// Rug/honeypot firewall — a REAL on-chain simulated buy→sell round-trip +
+		// authority audit. A 'block' verdict refuses the buy (server-signed funds
+		// never move on a coin you can't sell). Never throws; degrades to 'warn'.
+		if (mintPk) {
+			const assessment = await assessTradeSafety({
+				network, mint: mintPk, side: 'buy', payer: ownerPk,
+				quoteAmount: lamports, priceImpactPct: prep.priceImpactPct,
+			}).catch(() => null);
+			if (assessment) {
+				recordFirewallDecision({
+					mint: mintPk.toBase58?.() || String(mintPk), network, side: 'buy',
+					verdict: assessment.verdict, score: assessment.score, simulated: assessment.simulated,
+					checks: assessment.checks, reasons: assessment.reasons,
+					source: 'discretionary', agentId: id, userId: userId ?? null,
+					quoteLamports: lamports, enforced: assessment.verdict === 'block',
+				}).catch(() => {});
+				if (assessment.verdict === 'block') return firewallGuardResponse(assessment);
+			}
+		}
 	} else {
 		// Sell: only needs enough SOL on hand to pay the network fee (and maybe
 		// open a wSOL/quote ATA). Reuse the same headroom floor with zero spend.
@@ -422,7 +443,7 @@ async function handleExecute(req, res, id) {
 	// Run the shared guardrails.
 	let blocked;
 	try {
-		blocked = await runGuards({ id, side, tradeLimits, prep, walletLamports, network, meta });
+		blocked = await runGuards({ id, side, tradeLimits, prep, walletLamports, network, meta, mintPk: input.mintPk, ownerPk, userId: auth.userId });
 	} catch (e) {
 		return error(res, 502, 'guard_check_failed', 'could not verify the trade guardrails — try again');
 	}
@@ -645,7 +666,7 @@ async function handleQuote(req, res, id) {
 	}
 
 	let blocked = null;
-	try { blocked = await runGuards({ id, side, tradeLimits, prep, walletLamports, network, meta }); } catch { blocked = null; }
+	try { blocked = await runGuards({ id, side, tradeLimits, prep, walletLamports, network, meta, mintPk: input.mintPk, ownerPk, userId: auth.userId }); } catch { blocked = null; }
 
 	return json(res, 200, {
 		data: {

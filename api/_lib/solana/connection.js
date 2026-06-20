@@ -49,6 +49,10 @@ function cooldownMsFor(status, bodyText) {
 			: RATE_LIMIT_COOLDOWN_MS;
 	}
 	if (status === 401 || status === 403) return AUTH_COOLDOWN_MS;
+	// 404/410: the endpoint URL is dead or misrouted (expired QuickNode/Alchemy
+	// app, wrong path) — a persistent misconfiguration, so park it like an auth
+	// failure rather than re-probing every few minutes.
+	if (status === 404 || status === 410) return AUTH_COOLDOWN_MS;
 	if (status >= 500) return SERVER_COOLDOWN_MS;
 	return RATE_LIMIT_COOLDOWN_MS;
 }
@@ -126,11 +130,22 @@ function maskUrl(url) {
 }
 
 // Rotate this endpoint out of service on a 401/403 (bad/expired key on this
-// provider only), 429 (rate-limited), or 5xx (provider down) — all of which the
-// next provider may not share. Other 4xx are real request errors and identical
-// everywhere, so they're returned to the caller as-is.
-function shouldRotate(status) {
-	return status === 401 || status === 403 || status === 429 || status >= 500;
+// provider only), 404/408/410 (the endpoint URL itself is dead, misrouted, or
+// timing out — a live JSON-RPC node answers a POST with method-not-found as a
+// 200 + JSON-RPC error body, never an HTTP 404, so a 404 means the configured
+// URL is wrong, not the request), 429 (rate-limited), or 5xx (provider down) —
+// all of which the next provider may not share. Other 4xx are real request
+// errors, identical on every provider, so they're returned to the caller as-is.
+export function shouldRotate(status) {
+	return (
+		status === 401 ||
+		status === 403 ||
+		status === 404 ||
+		status === 408 ||
+		status === 410 ||
+		status === 429 ||
+		status >= 500
+	);
 }
 
 // Rotating fetch backing a Connection. It NEVER surfaces a rotate-worthy status

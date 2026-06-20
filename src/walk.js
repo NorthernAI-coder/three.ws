@@ -16,18 +16,14 @@ import {
 	CircleGeometry,
 	Timer,
 	Color,
-	ConeGeometry,
 	CylinderGeometry,
 	DirectionalLight,
 	DoubleSide,
 	Group,
 	HemisphereLight,
-	InstancedMesh,
-	Matrix4,
 	Mesh,
 	MeshBasicMaterial,
 	MeshStandardMaterial,
-	Object3D,
 	OrthographicCamera,
 	PCFShadowMap,
 	PerspectiveCamera,
@@ -46,6 +42,7 @@ import { clone as cloneSkinnedScene } from 'three/addons/utils/SkeletonUtils.js'
 import nipplejs from 'nipplejs';
 
 import { AnimationManager } from './animation-manager.js';
+import { WalkGestures, GESTURE_ORDER } from './walk-gestures.js';
 import { WalkNet } from './walk-net.js';
 import { applyLoadout } from './game/cosmetics-loadout.js';
 import { getPlayCosmetics } from './game/play-handoff.js';
@@ -53,6 +50,17 @@ import { getPresenceTicket, friendsClient } from './friends.js';
 import { FriendsPanel } from './game/friends-panel.js';
 import { PhysicsWorld } from './physics/physics-world.js';
 import { createTerrain } from './game/terrain.js';
+import {
+	fetchEnvironmentManifest,
+	resolveEnvName,
+	getEnvironment,
+	loadEnvironmentScenery,
+	loadEnvironmentHDR,
+	applyLighting,
+	applySky,
+	skyFadeColor,
+	terrainColor as envTerrainColor,
+} from './walk-environments.js';
 import { log } from './shared/log.js';
 
 const AVATAR_URL_DEFAULT = '/avatars/default.glb';
@@ -67,9 +75,15 @@ async function resolveAvatarUrl() {
 	// A direct GLB/VRM URL wins — this is what the /communities lobby passes when
 	// a guest drops in with a pasted model or a Ready Player Me link.
 	const direct = params.get('avatarUrl');
-	if (direct) { resolvedAvatarUrl = direct; return direct; }
+	if (direct) {
+		resolvedAvatarUrl = direct;
+		return direct;
+	}
 	const id = params.get('avatar');
-	if (!id) { resolvedAvatarUrl = AVATAR_URL_DEFAULT; return AVATAR_URL_DEFAULT; }
+	if (!id) {
+		resolvedAvatarUrl = AVATAR_URL_DEFAULT;
+		return AVATAR_URL_DEFAULT;
+	}
 	const res = await fetch(`/api/avatars/${encodeURIComponent(id)}`);
 	if (!res.ok) throw new Error(`avatar ${id} not found (HTTP ${res.status})`);
 	const { avatar } = await res.json();
@@ -87,7 +101,8 @@ const COIN_PARAMS = (() => {
 	const p = new URLSearchParams(location.search);
 	const mint = (p.get('coin') || '').trim();
 	const MINT_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
-	if (!MINT_RE.test(mint)) return { coin: '', name: '', symbol: '', image: '', agent: (p.get('agent') || '').trim() };
+	if (!MINT_RE.test(mint))
+		return { coin: '', name: '', symbol: '', image: '', agent: (p.get('agent') || '').trim() };
 	return {
 		coin: mint,
 		name: (p.get('coinName') || '').slice(0, 48),
@@ -103,7 +118,7 @@ const CLIP_WALK = 'av-walk-feminine';
 const CLIP_RUN = 'av-walk-feminine'; // no separate run clip; timeScale handles pace difference
 
 const WALK_SPEED = 1.6; // m/s — target ground speed in walk mode
-const RUN_SPEED = 4.0;  // m/s — target ground speed in run mode
+const RUN_SPEED = 4.0; // m/s — target ground speed in run mode
 // Natural ground speed of the Mixamo clips at timeScale=1, in m/s. Measured
 // from the clip cadence (root-bone delta per cycle ÷ cycle duration on the
 // canonical Avaturn rig). We rescale the mixer's timeScale by
@@ -112,7 +127,7 @@ const RUN_SPEED = 4.0;  // m/s — target ground speed in run mode
 const NATURAL_WALK_SPEED = 1.5;
 const NATURAL_RUN_SPEED = 3.4;
 const TURN_LERP = 0.18; // 0..1 — how snappy avatar facing follows movement
-const CAM_LERP = 0.12;  // 0..1 — how snappy follow-camera trails the avatar
+const CAM_LERP = 0.12; // 0..1 — how snappy follow-camera trails the avatar
 // Procedural body lean — pitch the avatar slightly forward when moving so
 // the silhouette communicates weight transfer instead of looking like the
 // torso is being slid along on rails. Radians, ramped by speed fraction.
@@ -183,12 +198,16 @@ function dismissLoading() {
 // ── Name persistence ─────────────────────────────────────────────────────
 function getStoredName() {
 	const params = new URLSearchParams(location.search);
-	return params.get('name')
-		|| (typeof localStorage !== 'undefined' && localStorage.getItem(NAME_STORAGE_KEY))
-		|| '';
+	return (
+		params.get('name') ||
+		(typeof localStorage !== 'undefined' && localStorage.getItem(NAME_STORAGE_KEY)) ||
+		''
+	);
 }
 function storeName(name) {
-	try { localStorage.setItem(NAME_STORAGE_KEY, name); } catch {}
+	try {
+		localStorage.setItem(NAME_STORAGE_KEY, name);
+	} catch {}
 }
 if (nameInput) {
 	const initial = getStoredName();
@@ -202,7 +221,9 @@ if (nameInput) {
 	};
 	nameInput.addEventListener('blur', commitName);
 	nameInput.addEventListener('keydown', (e) => {
-		if (e.key === 'Enter') { nameInput.blur(); }
+		if (e.key === 'Enter') {
+			nameInput.blur();
+		}
 	});
 }
 
@@ -213,7 +234,10 @@ if (helpToggleBtn) {
 	helpToggleBtn.addEventListener('click', () => {
 		toggleHelp();
 		// Also hide the small hints if showing the full overlay
-		if (helpEl && helpAutoHideTimer) { clearTimeout(helpAutoHideTimer); helpAutoHideTimer = null; }
+		if (helpEl && helpAutoHideTimer) {
+			clearTimeout(helpAutoHideTimer);
+			helpAutoHideTimer = null;
+		}
 	});
 }
 
@@ -233,39 +257,43 @@ function setZen(on) {
 		// DOM-based checks keep this safe to call during module init.
 		if (playersPanelEl && !playersPanelEl.hidden) togglePlayersPanel();
 		if (friendsPanelOpen) closeFriendsPanel();
-		if (gesturePaletteVisible) hideGesturePalette();
+		if (gestures?.isWheelOpen()) gestures.closeWheel();
 	} else {
 		document.body.classList.remove('zen-revealed');
 	}
 	if (zenBtn) zenBtn.setAttribute('aria-pressed', String(on));
-	try { localStorage.setItem(ZEN_STORAGE_KEY, on ? '1' : '0'); } catch {}
+	try {
+		localStorage.setItem(ZEN_STORAGE_KEY, on ? '1' : '0');
+	} catch {}
 }
-function toggleZen() { setZen(!zenActive); }
+function toggleZen() {
+	setZen(!zenActive);
+}
 if (zenBtn) zenBtn.addEventListener('click', toggleZen);
 if (zenExitBtn) zenExitBtn.addEventListener('click', () => setZen(false));
 
 // ── HUD button handlers for new features ─────────────────────────────────
 if (cameraModeBtn) cameraModeBtn.addEventListener('click', () => cycleCameraMode());
-if (envBtn) envBtn.addEventListener('click', () => cycleEnvironment());
+if (envBtn) {
+	envBtn.setAttribute('aria-haspopup', 'listbox');
+	envBtn.setAttribute('aria-expanded', 'false');
+	envBtn.addEventListener('click', () => toggleEnvPicker());
+}
 if (screenshotBtn) screenshotBtn.addEventListener('click', () => takeScreenshot());
 if (minimapBtn) minimapBtn.addEventListener('click', () => toggleMinimap());
 
 // ── On-screen touch action cluster (mobile) ──────────────────────────────
 // jump / camera flip / gestures for thumbs — keyboardless devices can't reach
-// Space, C, or G. The underlying actions already fire haptics; the gesture
-// button opens the palette (no emote until one is picked) so it taps its own.
+// Space, C, or G. The gesture button is wired by WalkGestures.attachTouchButton
+// (tap = open the wheel, long-press = aim-and-release) once gestures are ready.
 document.getElementById('walk-touch-jump')?.addEventListener('click', () => triggerJump());
 document.getElementById('walk-touch-camera')?.addEventListener('click', () => cycleCameraMode());
-document.getElementById('walk-touch-gesture')?.addEventListener('click', () => {
-	haptics.buzz(5);
-	toggleGesturePalette();
-});
 
 // ── Friends panel (Task 15) ───────────────────────────────────────────────
 const friendsOverlay = document.getElementById('walk-friends-overlay');
-const friendsBody    = document.getElementById('walk-friends-body');
+const friendsBody = document.getElementById('walk-friends-body');
 const friendsCloseBtn = document.getElementById('walk-friends-close');
-const friendsHudBtn  = document.getElementById('walk-friends-btn');
+const friendsHudBtn = document.getElementById('walk-friends-btn');
 const friendsBadgeEl = document.getElementById('walk-friends-badge');
 
 let _friendsPanel = null;
@@ -293,7 +321,10 @@ function closeFriendsPanel() {
 	if (friendsOverlay) {
 		friendsOverlay.classList.remove('is-open');
 		// Hide after transition so aria-hidden doesn't cut off the close anim.
-		const onEnd = () => { friendsOverlay.setAttribute('hidden', ''); friendsOverlay.removeEventListener('transitionend', onEnd); };
+		const onEnd = () => {
+			friendsOverlay.setAttribute('hidden', '');
+			friendsOverlay.removeEventListener('transitionend', onEnd);
+		};
 		friendsOverlay.addEventListener('transitionend', onEnd);
 	}
 	if (friendsHudBtn) friendsHudBtn.setAttribute('aria-pressed', 'false');
@@ -301,7 +332,8 @@ function closeFriendsPanel() {
 }
 
 function toggleFriendsPanel() {
-	if (friendsPanelOpen) closeFriendsPanel(); else openFriendsPanel();
+	if (friendsPanelOpen) closeFriendsPanel();
+	else openFriendsPanel();
 }
 
 if (friendsHudBtn) friendsHudBtn.addEventListener('click', toggleFriendsPanel);
@@ -351,13 +383,23 @@ function renderPlayerList() {
 		playersListEl.appendChild(row);
 	}
 }
-function esc(s) { return String(s).replace(/[<>&"']/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;' })[c]); }
+function esc(s) {
+	return String(s).replace(
+		/[<>&"']/g,
+		(c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;' })[c],
+	);
+}
 
 // ── Renderer / scene ──────────────────────────────────────────────────────
 // preserveDrawingBuffer is required so the canvas pixels remain readable for
 // the "Record" feature — without it, drawImage(renderer.domElement, …) into
 // the offscreen compositor canvas returns blank pixels after the next paint.
-const renderer = new WebGLRenderer({ canvas, antialias: true, alpha: true, preserveDrawingBuffer: true });
+const renderer = new WebGLRenderer({
+	canvas,
+	antialias: true,
+	alpha: true,
+	preserveDrawingBuffer: true,
+});
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight, false);
 renderer.shadowMap.enabled = true;
@@ -367,6 +409,8 @@ const scene = new Scene();
 
 const pmrem = new PMREMGenerator(renderer);
 scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+// The neutral room IBL — restored for environments that ship no HDR (the void).
+const defaultEnvTexture = scene.environment;
 
 // Lights — ambient + hemi for soft fill, directional for shadow cast.
 const ambientLight = new AmbientLight(0xffffff, 0.55);
@@ -404,7 +448,10 @@ groundOpaque.visible = false;
 // Procedural heightfield terrain — the single source of truth for ground shape.
 // Its column-major height buffer feeds both this mesh and the Rapier heightfield
 // collider (see initWalkPhysics), so the surface you see is the surface you walk.
-const terrain = createTerrain({ color: 0x202833 });
+// `let`, not `const`: each environment regenerates the heightfield with its own
+// amplitude/tint/seed (flat indoors, rolling outdoors). Closures that read
+// `terrain.*` pick up the new instance because they close over the binding.
+let terrain = createTerrain({ color: 0x202833 });
 scene.add(terrain.mesh);
 
 const groundShadowCatcher = new Mesh(
@@ -431,7 +478,12 @@ _blobCtx.fillStyle = _blobGrad;
 _blobCtx.fillRect(0, 0, 64, 64);
 const blobShadow = new Mesh(
 	new PlaneGeometry(1.0, 1.0),
-	new MeshBasicMaterial({ map: new CanvasTexture(_blobCanvas), transparent: true, depthWrite: false, opacity: 0 }),
+	new MeshBasicMaterial({
+		map: new CanvasTexture(_blobCanvas),
+		transparent: true,
+		depthWrite: false,
+		opacity: 0,
+	}),
 );
 blobShadow.rotation.x = -Math.PI / 2;
 blobShadow.position.y = 0.004;
@@ -448,7 +500,7 @@ const camDesired = new Vector3();
 const camLookTarget = new Vector3();
 const camLookCurrent = new Vector3();
 
-let cameraYaw = 0;     // user-controlled orbit yaw around avatar (radians)
+let cameraYaw = 0; // user-controlled orbit yaw around avatar (radians)
 let cameraPitch = 0.05; // small downward tilt by default
 // In AR mode the camera is frozen in world space instead of following the
 // avatar — the joystick then walks the avatar around physically and natural
@@ -466,7 +518,12 @@ let camZoom = 1.0;
 // ── Camera mode system ───────────────────────────────────────────────────
 // Modes: 'follow' (default third-person), 'cinematic' (orbiting), 'firstperson', 'topdown'
 const CAMERA_MODES = ['follow', 'cinematic', 'firstperson', 'topdown'];
-const CAMERA_MODE_LABELS = { follow: 'Follow', cinematic: 'Cinematic', firstperson: 'First Person', topdown: 'Top Down' };
+const CAMERA_MODE_LABELS = {
+	follow: 'Follow',
+	cinematic: 'Cinematic',
+	firstperson: 'First Person',
+	topdown: 'Top Down',
+};
 const CAMERA_MODE_FOV = { follow: 50, cinematic: 35, firstperson: 75, topdown: 50 };
 const CAMERA_MODE_KEY = 'walk:camera-mode';
 let cameraMode = 'follow';
@@ -511,7 +568,9 @@ function setCameraMode(mode) {
 	cameraModeTo.fov = CAMERA_MODE_FOV[mode] || 50;
 	// Hide/show avatar for first person
 	if (avatar) avatar.visible = mode !== 'firstperson';
-	try { localStorage.setItem(CAMERA_MODE_KEY, mode); } catch {}
+	try {
+		localStorage.setItem(CAMERA_MODE_KEY, mode);
+	} catch {}
 	updateCameraModeIndicator();
 }
 
@@ -528,15 +587,23 @@ const cameraModeIndicator = (() => {
 	el.id = 'walk-camera-mode';
 	el.setAttribute('role', 'status');
 	el.style.cssText = [
-		'position:fixed', 'z-index:6',
-		'left:50%', 'top:calc(env(safe-area-inset-top, 0) + 60px)',
+		'position:fixed',
+		'z-index:6',
+		'left:50%',
+		'top:calc(env(safe-area-inset-top, 0) + 60px)',
 		'transform:translateX(-50%)',
-		'background:rgba(17,17,17,0.72)', 'border:1px solid rgba(255,255,255,0.08)',
-		'border-radius:999px', 'padding:5px 14px',
-		'font-size:11px', 'font-weight:500', 'color:rgba(255,255,255,0.7)',
-		'backdrop-filter:blur(10px)', '-webkit-backdrop-filter:blur(10px)',
+		'background:rgba(17,17,17,0.72)',
+		'border:1px solid rgba(255,255,255,0.08)',
+		'border-radius:999px',
+		'padding:5px 14px',
+		'font-size:11px',
+		'font-weight:500',
+		'color:rgba(255,255,255,0.7)',
+		'backdrop-filter:blur(10px)',
+		'-webkit-backdrop-filter:blur(10px)',
 		'pointer-events:none',
-		'opacity:0', 'transition:opacity 0.25s ease',
+		'opacity:0',
+		'transition:opacity 0.25s ease',
 	].join(';');
 	document.body.appendChild(el);
 	return el;
@@ -643,10 +710,16 @@ applyCameraImmediate();
 	canvas.addEventListener('pointerdown', (e) => {
 		// Pointers belonging to a stick zone are owned by nipplejs — capturing
 		// them here would redirect its move stream and break movement.
-		if (inRect(joystickEl, e.clientX, e.clientY) || inRect(lookJoystickEl, e.clientX, e.clientY)) return;
+		if (
+			inRect(joystickEl, e.clientX, e.clientY) ||
+			inRect(lookJoystickEl, e.clientX, e.clientY)
+		)
+			return;
 
 		pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-		try { canvas.setPointerCapture?.(e.pointerId); } catch {}
+		try {
+			canvas.setPointerCapture?.(e.pointerId);
+		} catch {}
 
 		if (pointers.size === 1) {
 			orbitId = e.pointerId;
@@ -667,7 +740,10 @@ applyCameraImmediate();
 		if (pointers.size >= 2) {
 			// Pinch: spreading fingers (distance grows) zooms in (camZoom down).
 			const dist = pinchDistance();
-			camZoom = Math.max(CAM_ZOOM_MIN, Math.min(CAM_ZOOM_MAX, camZoom - (dist - pinchDist) * 0.005));
+			camZoom = Math.max(
+				CAM_ZOOM_MIN,
+				Math.min(CAM_ZOOM_MAX, camZoom - (dist - pinchDist) * 0.005),
+			);
 			pinchDist = dist;
 		} else if (e.pointerId === orbitId) {
 			cameraYaw -= dx * 0.005;
@@ -678,7 +754,9 @@ applyCameraImmediate();
 	const onUp = (e) => {
 		if (!pointers.has(e.pointerId)) return;
 		pointers.delete(e.pointerId);
-		try { canvas.releasePointerCapture?.(e.pointerId); } catch {}
+		try {
+			canvas.releasePointerCapture?.(e.pointerId);
+		} catch {}
 		// Dropping from pinch back to a single finger resumes orbit with it.
 		if (pointers.size === 1) {
 			orbitId = [...pointers.keys()][0];
@@ -707,17 +785,27 @@ const haptics = (() => {
 	const KEY = 'walk:haptics';
 	const supported = typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function';
 	let enabled = true;
-	try { enabled = localStorage.getItem(KEY) !== '0'; } catch {}
+	try {
+		enabled = localStorage.getItem(KEY) !== '0';
+	} catch {}
 	return {
-		get supported() { return supported; },
-		get enabled() { return enabled; },
+		get supported() {
+			return supported;
+		},
+		get enabled() {
+			return enabled;
+		},
 		set(on) {
 			enabled = !!on;
-			try { localStorage.setItem(KEY, enabled ? '1' : '0'); } catch {}
+			try {
+				localStorage.setItem(KEY, enabled ? '1' : '0');
+			} catch {}
 		},
 		buzz(ms) {
 			if (!enabled || !supported) return;
-			try { navigator.vibrate(ms); } catch {}
+			try {
+				navigator.vibrate(ms);
+			} catch {}
 		},
 	};
 })();
@@ -760,10 +848,14 @@ function triggerJump() {
 const SNAP_TURN_RAD = Math.PI / 4; // 45°
 
 // ── Scroll-wheel zoom ────────────────────────────────────────────────────
-canvas.addEventListener('wheel', (e) => {
-	e.preventDefault();
-	camZoom = Math.max(CAM_ZOOM_MIN, Math.min(CAM_ZOOM_MAX, camZoom + e.deltaY * 0.001));
-}, { passive: false });
+canvas.addEventListener(
+	'wheel',
+	(e) => {
+		e.preventDefault();
+		camZoom = Math.max(CAM_ZOOM_MIN, Math.min(CAM_ZOOM_MAX, camZoom + e.deltaY * 0.001));
+	},
+	{ passive: false },
+);
 
 // ── Pointer lock (click canvas → lock; Esc → unlock) ────────────────────
 let pointerLocked = false;
@@ -795,11 +887,18 @@ const helpOverlay = (() => {
 	// window-level pointerdown listener below plus H / Esc, so the panel never
 	// needs to capture and the sticks underneath always stay live.
 	el.style.cssText = [
-		'position:fixed', 'inset:0', 'z-index:9999',
-		'display:flex', 'align-items:center', 'justify-content:center',
-		'background:rgba(0,0,0,0.72)', 'backdrop-filter:blur(6px)',
-		'color:#fff', 'font-family:system-ui,sans-serif',
-		'opacity:0', 'pointer-events:none',
+		'position:fixed',
+		'inset:0',
+		'z-index:9999',
+		'display:flex',
+		'align-items:center',
+		'justify-content:center',
+		'background:rgba(0,0,0,0.72)',
+		'backdrop-filter:blur(6px)',
+		'color:#fff',
+		'font-family:system-ui,sans-serif',
+		'opacity:0',
+		'pointer-events:none',
 		'transition:opacity 0.18s',
 	].join(';');
 	el.innerHTML = `
@@ -825,7 +924,9 @@ const helpOverlay = (() => {
 				<tr><td style="color:#aaa;padding-right:16px">Scroll / pinch</td><td>Zoom in / out</td></tr>
 				<tr><td style="color:#aaa;padding-right:16px">Esc</td><td>Close overlay / release pointer</td></tr>
 			</table>
-			${haptics.supported ? `
+			${
+				haptics.supported
+					? `
 			<div style="margin:18px 0 0;padding-top:16px;border-top:1px solid rgba(255,255,255,0.1);display:flex;align-items:center;justify-content:space-between" data-help-keep>
 				<span style="font-size:14px">Haptics</span>
 				<button type="button" id="walk-haptics-toggle" role="switch" data-help-keep
@@ -833,7 +934,9 @@ const helpOverlay = (() => {
 					style="appearance:none;border:1px solid rgba(255,255,255,0.2);background:${haptics.enabled ? 'var(--accent,#7c5cff)' : 'rgba(255,255,255,0.08)'};color:#fff;border-radius:999px;padding:5px 14px;font:inherit;font-size:13px;cursor:pointer">
 					${haptics.enabled ? 'On' : 'Off'}
 				</button>
-			</div>` : ''}
+			</div>`
+					: ''
+			}
 			<p style="margin:20px 0 0;font-size:12px;color:#666">Click the canvas to lock the mouse for first-person look.</p>
 		</div>`;
 	document.body.appendChild(el);
@@ -848,7 +951,9 @@ if (hapticsToggle) {
 		haptics.set(!haptics.enabled);
 		hapticsToggle.setAttribute('aria-checked', String(haptics.enabled));
 		hapticsToggle.textContent = haptics.enabled ? 'On' : 'Off';
-		hapticsToggle.style.background = haptics.enabled ? 'var(--accent,#7c5cff)' : 'rgba(255,255,255,0.08)';
+		hapticsToggle.style.background = haptics.enabled
+			? 'var(--accent,#7c5cff)'
+			: 'rgba(255,255,255,0.08)';
 		haptics.buzz(8); // confirm the new setting with a tick
 	});
 }
@@ -864,62 +969,175 @@ function toggleHelp() {
 // the joystick underneath — so the first-visit help never costs the user a
 // stalled touch. Controls tagged data-help-keep (the haptics switch) are
 // exempt so toggling a setting doesn't slam the panel shut.
-window.addEventListener('pointerdown', (e) => {
-	if (helpVisible && !e.target?.closest?.('[data-help-keep]')) toggleHelp();
-}, true);
+window.addEventListener(
+	'pointerdown',
+	(e) => {
+		if (helpVisible && !e.target?.closest?.('[data-help-keep]')) toggleHelp();
+	},
+	true,
+);
 
 window.addEventListener('keydown', (e) => {
 	if (e.target?.tagName === 'INPUT' || e.target?.tagName === 'TEXTAREA') return;
 	if (e.target !== document.body && e.target !== canvas) return;
 	switch (e.code) {
-		case 'KeyW': case 'ArrowUp':    input.keys.forward = 1; break;
-		case 'KeyS': case 'ArrowDown':  input.keys.back = 1; break;
-		case 'KeyA': case 'ArrowLeft':  input.keys.left = 1; break;
-		case 'KeyD': case 'ArrowRight': input.keys.right = 1; break;
-		case 'ShiftLeft': case 'ShiftRight': input.keys.run = true; break;
-		case 'Space': e.preventDefault(); triggerJump(); break;
-		case 'KeyQ': cameraYaw += SNAP_TURN_RAD; break;
+		case 'KeyW':
+		case 'ArrowUp':
+			input.keys.forward = 1;
+			break;
+		case 'KeyS':
+		case 'ArrowDown':
+			input.keys.back = 1;
+			break;
+		case 'KeyA':
+		case 'ArrowLeft':
+			input.keys.left = 1;
+			break;
+		case 'KeyD':
+		case 'ArrowRight':
+			input.keys.right = 1;
+			break;
+		case 'ShiftLeft':
+		case 'ShiftRight':
+			input.keys.run = true;
+			break;
+		case 'Space':
+			e.preventDefault();
+			triggerJump();
+			break;
+		case 'KeyQ':
+			cameraYaw += SNAP_TURN_RAD;
+			break;
 		// 'E' kept for snap turn — environment cycles via 'V'
-		case 'KeyE': cameraYaw -= SNAP_TURN_RAD; break;
-		case 'KeyC': e.preventDefault(); cycleCameraMode(); break;
-		case 'KeyG': e.preventDefault(); toggleGesturePalette(); break;
-		case 'KeyT': e.preventDefault(); focusChat(); break;
-		case 'KeyV': e.preventDefault(); cycleEnvironment(); break;
-		case 'KeyP': e.preventDefault(); takeScreenshot(); break;
-		case 'KeyR': e.preventDefault(); toggleGifRecording(); break;
-		case 'KeyM': e.preventDefault(); toggleMinimap(); break;
-		case 'KeyZ': e.preventDefault(); toggleZen(); break;
-		case 'KeyF': e.preventDefault(); toggleFriendsPanel(); break;
-		case 'KeyH': e.preventDefault(); toggleHelp(); break;
+		case 'KeyE':
+			cameraYaw -= SNAP_TURN_RAD;
+			break;
+		case 'KeyC':
+			e.preventDefault();
+			cycleCameraMode();
+			break;
+		case 'KeyG':
+			e.preventDefault();
+			gestures?.wheelKeyDown(e.repeat);
+			break;
+		case 'KeyT':
+			e.preventDefault();
+			focusChat();
+			break;
+		case 'KeyV':
+			e.preventDefault();
+			cycleEnvironment();
+			break;
+		case 'KeyP':
+			e.preventDefault();
+			takeScreenshot();
+			break;
+		case 'KeyR':
+			e.preventDefault();
+			toggleGifRecording();
+			break;
+		case 'KeyM':
+			e.preventDefault();
+			toggleMinimap();
+			break;
+		case 'KeyZ':
+			e.preventDefault();
+			toggleZen();
+			break;
+		case 'KeyF':
+			e.preventDefault();
+			toggleFriendsPanel();
+			break;
+		case 'KeyH':
+			e.preventDefault();
+			toggleHelp();
+			break;
 		case 'Slash':
-			if (e.shiftKey) { e.preventDefault(); toggleHelp(); }
+			if (e.shiftKey) {
+				e.preventDefault();
+				toggleHelp();
+			}
 			break;
 		case 'Escape':
-			if (friendsPanelOpen) { closeFriendsPanel(); break; }
-			if (helpVisible) { toggleHelp(); break; }
-			if (gesturePaletteVisible) { hideGesturePalette(); break; }
-			if (zenActive) { setZen(false); break; }
+			if (friendsPanelOpen) {
+				closeFriendsPanel();
+				break;
+			}
+			if (helpVisible) {
+				toggleHelp();
+				break;
+			}
+			if (gestures?.isWheelOpen()) {
+				gestures.closeWheel();
+				break;
+			}
+			if (zenActive) {
+				setZen(false);
+				break;
+			}
 			break;
-		// Number keys 1-9 for quick gestures
-		case 'Digit1': e.preventDefault(); triggerQuickGesture(0); break;
-		case 'Digit2': e.preventDefault(); triggerQuickGesture(1); break;
-		case 'Digit3': e.preventDefault(); triggerQuickGesture(2); break;
-		case 'Digit4': e.preventDefault(); triggerQuickGesture(3); break;
-		case 'Digit5': e.preventDefault(); triggerQuickGesture(4); break;
-		case 'Digit6': e.preventDefault(); triggerQuickGesture(5); break;
-		case 'Digit7': e.preventDefault(); triggerQuickGesture(6); break;
-		case 'Digit8': e.preventDefault(); triggerQuickGesture(7); break;
-		case 'Digit9': e.preventDefault(); triggerQuickGesture(8); break;
-		default: return;
+		// Number keys 1-8 trigger the eight gestures directly.
+		case 'Digit1':
+			e.preventDefault();
+			gestures?.play(GESTURE_ORDER[0]);
+			break;
+		case 'Digit2':
+			e.preventDefault();
+			gestures?.play(GESTURE_ORDER[1]);
+			break;
+		case 'Digit3':
+			e.preventDefault();
+			gestures?.play(GESTURE_ORDER[2]);
+			break;
+		case 'Digit4':
+			e.preventDefault();
+			gestures?.play(GESTURE_ORDER[3]);
+			break;
+		case 'Digit5':
+			e.preventDefault();
+			gestures?.play(GESTURE_ORDER[4]);
+			break;
+		case 'Digit6':
+			e.preventDefault();
+			gestures?.play(GESTURE_ORDER[5]);
+			break;
+		case 'Digit7':
+			e.preventDefault();
+			gestures?.play(GESTURE_ORDER[6]);
+			break;
+		case 'Digit8':
+			e.preventDefault();
+			gestures?.play(GESTURE_ORDER[7]);
+			break;
+		default:
+			return;
 	}
 });
 window.addEventListener('keyup', (e) => {
 	switch (e.code) {
-		case 'KeyW': case 'ArrowUp':    input.keys.forward = 0; break;
-		case 'KeyS': case 'ArrowDown':  input.keys.back = 0; break;
-		case 'KeyA': case 'ArrowLeft':  input.keys.left = 0; break;
-		case 'KeyD': case 'ArrowRight': input.keys.right = 0; break;
-		case 'ShiftLeft': case 'ShiftRight': input.keys.run = false; break;
+		case 'KeyW':
+		case 'ArrowUp':
+			input.keys.forward = 0;
+			break;
+		case 'KeyS':
+		case 'ArrowDown':
+			input.keys.back = 0;
+			break;
+		case 'KeyA':
+		case 'ArrowLeft':
+			input.keys.left = 0;
+			break;
+		case 'KeyD':
+		case 'ArrowRight':
+			input.keys.right = 0;
+			break;
+		case 'ShiftLeft':
+		case 'ShiftRight':
+			input.keys.run = false;
+			break;
+		case 'KeyG':
+			gestures?.wheelKeyUp();
+			break;
 	}
 });
 
@@ -1047,7 +1265,11 @@ function applyLocalCosmetics(wire) {
 	const next = typeof wire === 'string' ? wire : '';
 	if (localCosmetics && _localCosWire === next) return;
 	_localCosWire = next;
-	try { localCosmetics?.dispose(); } catch { /* already gone */ }
+	try {
+		localCosmetics?.dispose();
+	} catch {
+		/* already gone */
+	}
 	localCosmetics = applyLoadout(avatarRig, avatarHeight || 1.7, next);
 }
 
@@ -1090,15 +1312,14 @@ async function loadAvatar() {
 	animationManager.attach(avatar);
 
 	setLoadingText('Preparing animations...');
-	const manifest = await fetch(ANIMATIONS_MANIFEST_URL, { cache: 'force-cache' })
-		.then((r) => {
-			if (!r.ok) throw new Error(`HTTP ${r.status} fetching animation manifest`);
-			return r.json();
-		});
+	const manifest = await fetch(ANIMATIONS_MANIFEST_URL, { cache: 'force-cache' }).then((r) => {
+		if (!r.ok) throw new Error(`HTTP ${r.status} fetching animation manifest`);
+		return r.json();
+	});
 	// Store the full manifest for emote tray population.
 	_fullManifest = manifest;
-	const needed = manifest.filter((d) =>
-		d.name === CLIP_IDLE || d.name === CLIP_WALK || d.name === CLIP_RUN,
+	const needed = manifest.filter(
+		(d) => d.name === CLIP_IDLE || d.name === CLIP_WALK || d.name === CLIP_RUN,
 	);
 	if (needed.length === 0) {
 		throw new Error('Animation manifest missing idle/walking/running clips');
@@ -1114,7 +1335,7 @@ async function loadAvatar() {
 	// Clear the sticky "loading avatar…" pill that #walk-status ships with —
 	// setStatus auto-hides this confirmation after a couple of seconds.
 	setStatus('Ready — drag to look around');
-	buildEmoteTray();
+	setupGestures();
 
 	// Auto-hide help hints after 5 seconds — fade first, then remove from layout
 	// so the transition in temporary.html's #walk-help { transition: opacity } plays.
@@ -1129,81 +1350,72 @@ async function loadAvatar() {
 	}
 }
 
-// ── Emote tray ───────────────────────────────────────────────────────────
+// ── Gestures (Task 14) ─────────────────────────────────────────────────────
+// The expressive emote system lives in src/walk-gestures.js: wave / dance / sit
+// / point / cheer / agree / disagree / talking, driven through the animation
+// state machine's gesture slot with additive upper-body blending so the avatar
+// can wave while it walks. Built once the avatar + animation manifest are ready.
 let _fullManifest = null;
-let _emoteActive = false;
+/** @type {WalkGestures|null} */
+let gestures = null;
 
-const EMOTE_CLIPS = [
-	{ name: 'wave', icon: '👋', label: 'Wave' },
-	{ name: 'dance', icon: '💃', label: 'Dance' },
-	{ name: 'celebrate', icon: '🎉', label: 'Celebrate' },
-	{ name: 'angry', icon: '😠', label: 'Angry' },
-	{ name: 'silly', icon: '🤪', label: 'Silly' },
-	{ name: 'pray', icon: '🙏', label: 'Pray' },
-	{ name: 'taunt', icon: '😏', label: 'Taunt' },
-	{ name: 'kiss', icon: '😘', label: 'Kiss' },
-];
+function setupGestures() {
+	if (gestures || !emoteTrayEl) return;
+	gestures = new WalkGestures({
+		animationManager,
+		getMotionClip: () => motionToClipName(currentMotion),
+		// Replicate the gesture's clip to other players over the existing emote
+		// channel — remote avatars render it full-body via _playRemoteEmote.
+		broadcast: (clip) => {
+			if (net) net.sendEmote(clip);
+		},
+		// Make each gesture clip loadable: register its def with the manager and
+		// the shared manifest so remote players can resolve it too.
+		registerDefs: (defs) => {
+			for (const d of defs) {
+				if (animationDefs && !animationDefs.some((x) => x.name === d.name))
+					animationDefs.push(d);
+				if (_fullManifest && !_fullManifest.some((x) => x.name === d.name))
+					_fullManifest.push(d);
+			}
+			if (animationDefs) animationManager.setAnimationDefs(animationDefs);
+		},
+		haptics,
+		host: document.body,
+	});
+	gestures.buildTray(emoteTrayEl);
+	gestures.attachTouchButton(document.getElementById('walk-touch-gesture'));
 
-function buildEmoteTray() {
-	if (!emoteTrayEl || !_fullManifest) return;
-	const available = EMOTE_CLIPS.filter(e =>
-		_fullManifest.some(d => d.name === e.name),
-	);
-	if (available.length === 0) return;
-	emoteTrayEl.hidden = false;
-	emoteTrayEl.innerHTML = '';
-	for (const emote of available) {
-		const btn = document.createElement('button');
-		btn.type = 'button';
-		btn.className = 'walk-emote-btn';
-		btn.title = emote.label;
-		btn.setAttribute('aria-pressed', 'false');
-		btn.innerHTML = `<span>${emote.icon}</span><span class="emote-label">${emote.label}</span>`;
-		btn.addEventListener('click', () => playEmote(emote.name, btn));
-		emoteTrayEl.appendChild(btn);
-	}
+	// Programmatic API for the narrator / chat / TTS and embedding hosts.
+	window.walk = window.walk || {};
+	window.walk.playGesture = (name) => (gestures ? gestures.play(name) : false);
+	window.walk.stopGesture = () => gestures?.stop();
+	window.walk.setTalking = (on) => gestures?.setTalking(!!on);
+	window.walk.gestures = () => [...GESTURE_ORDER];
+
+	// Let an embedding host trigger gestures: `postMessage({ type:'walk:gesture', gesture })`.
+	window.addEventListener('message', (e) => {
+		const d = e.data;
+		if (
+			d &&
+			typeof d === 'object' &&
+			d.type === 'walk:gesture' &&
+			typeof d.gesture === 'string'
+		) {
+			gestures?.play(d.gesture);
+		}
+	});
 }
 
-async function playEmote(name, btn) {
-	if (_emoteActive) return;
-	_emoteActive = true;
-
-	emoteTrayEl?.querySelectorAll('.walk-emote-btn').forEach(b => b.setAttribute('aria-pressed', 'false'));
-	if (btn) btn.setAttribute('aria-pressed', 'true');
-
-	const def = _fullManifest?.find(d => d.name === name);
-	if (!def) { _emoteActive = false; return; }
-
-	if (!animationDefs.some(d => d.name === name)) {
-		animationDefs.push(def);
-		animationManager.setAnimationDefs(animationDefs);
-	}
-	try {
-		await animationManager.ensureLoaded(name);
-	} catch {
-		_emoteActive = false;
-		return;
-	}
-
-	await animationManager.crossfadeTo(name, 0.2);
-	if (net) net.sendEmote(name);
-
-	const action = animationManager.currentAction;
-	if (action && !action.loop) {
-		const dur = action.getClip().duration * 1000;
-		setTimeout(() => {
-			if (!_emoteActive) return;
-			_emoteActive = false;
-			animationManager.crossfadeTo(motionToClipName(currentMotion), 0.25);
-			if (btn) btn.setAttribute('aria-pressed', 'false');
-		}, dur + 100);
-	} else {
-		setTimeout(() => {
-			_emoteActive = false;
-			animationManager.crossfadeTo(motionToClipName(currentMotion), 0.25);
-			if (btn) btn.setAttribute('aria-pressed', 'false');
-		}, 3000);
-	}
+// Play the looping `talking` overlay for roughly as long as a chat/TTS line is
+// on screen, scaled to its length (≈45ms/char) and capped to the bubble's life.
+let _talkingTimer = null;
+function triggerTalking(text) {
+	if (!gestures) return;
+	gestures.setTalking(true);
+	clearTimeout(_talkingTimer);
+	const ms = Math.min(SPEECH_BUBBLE_DURATION, Math.max(1500, (text?.length || 0) * 45));
+	_talkingTimer = setTimeout(() => gestures?.setTalking(false), ms);
 }
 
 // ── AR depth: light estimation ────────────────────────────────────────────
@@ -1224,9 +1436,15 @@ function estimateLighting() {
 	try {
 		_leSampleCtx.drawImage(video, 0, 0, 8, 6);
 		const px = _leSampleCtx.getImageData(0, 0, 8, 6).data;
-		let r = 0, g = 0, b = 0;
+		let r = 0,
+			g = 0,
+			b = 0;
 		const n = px.length / 4;
-		for (let i = 0; i < px.length; i += 4) { r += px[i]; g += px[i + 1]; b += px[i + 2]; }
+		for (let i = 0; i < px.length; i += 4) {
+			r += px[i];
+			g += px[i + 1];
+			b += px[i + 2];
+		}
 		r = r / n / 255;
 		g = g / n / 255;
 		b = b / n / 255;
@@ -1241,7 +1459,9 @@ function estimateLighting() {
 			Math.min(1, 0.65 + b * 0.9),
 		);
 		hemi.color.lerp(_leColor, 0.12);
-	} catch { /* cross-origin or tainted canvas — skip */ }
+	} catch {
+		/* cross-origin or tainted canvas — skip */
+	}
 }
 
 // ── AR passthrough ───────────────────────────────────────────────────────
@@ -1259,14 +1479,17 @@ async function enableAR() {
 			audio: false,
 		});
 	} catch (err) {
-		const msg = err?.name === 'NotAllowedError'
-			? 'camera permission denied'
-			: `camera unavailable: ${err?.message ?? err}`;
+		const msg =
+			err?.name === 'NotAllowedError'
+				? 'camera permission denied'
+				: `camera unavailable: ${err?.message ?? err}`;
 		setStatus(msg, { error: true, sticky: true });
 		return;
 	}
 	video.srcObject = mediaStream;
-	try { await video.play(); } catch {}
+	try {
+		await video.play();
+	} catch {}
 
 	arActive = true;
 	stage.classList.add('is-ar');
@@ -1287,9 +1510,9 @@ async function enableAR() {
 		// Estimate horizontal FOV from diagonal FOV ≈ 72° default for rear cameras.
 		const diagFov = 72;
 		const diagPx = Math.hypot(w, h);
-		const hFovRad = 2 * Math.atan((w / diagPx) * Math.tan((diagFov * Math.PI / 180) / 2));
+		const hFovRad = 2 * Math.atan((w / diagPx) * Math.tan((diagFov * Math.PI) / 180 / 2));
 		const aspect = window.innerWidth / window.innerHeight;
-		const vFovDeg = (2 * Math.atan(Math.tan(hFovRad / 2) / aspect)) * (180 / Math.PI);
+		const vFovDeg = 2 * Math.atan(Math.tan(hFovRad / 2) / aspect) * (180 / Math.PI);
 		camera.fov = Math.max(50, Math.min(90, vFovDeg));
 		camera.updateProjectionMatrix();
 	}
@@ -1310,7 +1533,9 @@ async function enableAR() {
 function disableAR() {
 	if (mediaStream) {
 		for (const track of mediaStream.getTracks()) {
-			try { track.stop(); } catch {}
+			try {
+				track.stop();
+			} catch {}
 		}
 		mediaStream = null;
 	}
@@ -1352,8 +1577,10 @@ arBtn.addEventListener('click', () => {
 // inviting the user to put their agent on their real floor. Dismissible.
 const IS_TOUCH = (() => {
 	if (typeof window === 'undefined') return false;
-	return matchMedia('(hover: none) and (pointer: coarse)').matches
-		|| ('ontouchstart' in window && navigator.maxTouchPoints > 0);
+	return (
+		matchMedia('(hover: none) and (pointer: coarse)').matches ||
+		('ontouchstart' in window && navigator.maxTouchPoints > 0)
+	);
 })();
 const CAMERA_SUPPORTED = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
 const AR_CTA_DISMISS_KEY = 'walk:ar-cta-dismissed';
@@ -1387,7 +1614,9 @@ function showArCta() {
 	if (!arCta) return;
 	if (arActive) return;
 	if (!IS_TOUCH || !CAMERA_SUPPORTED) return;
-	try { if (sessionStorage.getItem(AR_CTA_DISMISS_KEY) === '1') return; } catch {}
+	try {
+		if (sessionStorage.getItem(AR_CTA_DISMISS_KEY) === '1') return;
+	} catch {}
 	arCta.classList.add('is-visible');
 	arCta.setAttribute('aria-hidden', 'false');
 }
@@ -1399,9 +1628,11 @@ function hideArCta() {
 if (arCta) {
 	arCta.addEventListener('click', (e) => {
 		// Tap the explicit dismiss "×" → remember and don't re-show this session.
-		const target = /** @type {HTMLElement} */(e.target);
+		const target = /** @type {HTMLElement} */ (e.target);
 		if (target?.classList?.contains('dismiss')) {
-			try { sessionStorage.setItem(AR_CTA_DISMISS_KEY, '1'); } catch {}
+			try {
+				sessionStorage.setItem(AR_CTA_DISMISS_KEY, '1');
+			} catch {}
 			hideArCta();
 			return;
 		}
@@ -1427,7 +1658,9 @@ function pickRecorderMime() {
 		'video/webm',
 	];
 	for (const t of candidates) {
-		try { if (MediaRecorder.isTypeSupported(t)) return t; } catch {}
+		try {
+			if (MediaRecorder.isTypeSupported(t)) return t;
+		} catch {}
 	}
 	return '';
 }
@@ -1464,7 +1697,9 @@ async function startRecording() {
 		return;
 	}
 	const chunks = [];
-	recorder.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
+	recorder.ondataavailable = (e) => {
+		if (e.data && e.data.size) chunks.push(e.data);
+	};
 
 	recording = true;
 	recordBtn?.setAttribute('data-recording', 'true');
@@ -1498,7 +1733,9 @@ async function startRecording() {
 		if (elapsed < RECORD_SECONDS) {
 			requestAnimationFrame(paint);
 		} else {
-			try { recorder.stop(); } catch {}
+			try {
+				recorder.stop();
+			} catch {}
 		}
 	}
 
@@ -1629,7 +1866,10 @@ function readMoveInput() {
 			ix = worldDir.dot(camRight);
 			iy = worldDir.dot(camFwd);
 			const m = Math.hypot(ix, iy);
-			if (m > 0.01) { ix /= m; iy /= m; }
+			if (m > 0.01) {
+				ix /= m;
+				iy /= m;
+			}
 			// Slow down near target
 			const speed = Math.min(1, dist / 1.5);
 			ix *= speed * 0.7;
@@ -1651,7 +1891,10 @@ function tick() {
 	// tilts the view upward, clamped to the same pitch limits.
 	if (input.look.active) {
 		cameraYaw -= input.look.x * LOOK_YAW_SPEED * dt;
-		cameraPitch = Math.max(PITCH_MIN, Math.min(PITCH_MAX, cameraPitch + input.look.y * LOOK_PITCH_SPEED * dt));
+		cameraPitch = Math.max(
+			PITCH_MIN,
+			Math.min(PITCH_MAX, cameraPitch + input.look.y * LOOK_PITCH_SPEED * dt),
+		);
 	}
 
 	// When the Rapier solver is up (and we're not in AR), the kinematic
@@ -1665,7 +1908,9 @@ function tick() {
 		jumpVelocity += GRAVITY * dt;
 		avatarRig.position.y += jumpVelocity * dt;
 		// Land on the terrain surface (flat GROUND_Y while floating in AR).
-		const landY = arActive ? GROUND_Y : terrain.heightAt(avatarRig.position.x, avatarRig.position.z);
+		const landY = arActive
+			? GROUND_Y
+			: terrain.heightAt(avatarRig.position.x, avatarRig.position.z);
 		if (avatarRig.position.y <= landY) {
 			avatarRig.position.y = landY;
 			jumpVelocity = 0;
@@ -1681,6 +1926,9 @@ function tick() {
 	const speed = mag * (wantRun ? RUN_SPEED : WALK_SPEED);
 
 	if (mag > 0.01 && avatar) {
+		// A movement input rises the avatar out of any full-body gesture (sit/dance)
+		// so locomotion resumes the instant the player steers.
+		gestures?.notifyMovement();
 		// Forward = where the camera is currently looking, flattened to XZ.
 		moveForward.copy(camLookCurrent).sub(camera.position);
 		moveForward.y = 0;
@@ -1688,7 +1936,8 @@ function tick() {
 		else moveForward.normalize();
 		moveRight.crossVectors(moveForward, upY).normalize();
 
-		moveWorld.set(0, 0, 0)
+		moveWorld
+			.set(0, 0, 0)
 			.addScaledVector(moveForward, iy / Math.max(mag, 1e-6))
 			.addScaledVector(moveRight, ix / Math.max(mag, 1e-6))
 			.normalize()
@@ -1711,7 +1960,10 @@ function tick() {
 				}
 				// Follow the terrain surface until the physics solver takes over.
 				if (!jumpActive) {
-					avatarRig.position.y = terrain.heightAt(avatarRig.position.x, avatarRig.position.z);
+					avatarRig.position.y = terrain.heightAt(
+						avatarRig.position.x,
+						avatarRig.position.z,
+					);
 				}
 			}
 		}
@@ -1722,15 +1974,21 @@ function tick() {
 		avatarRig.quaternion.setFromAxisAngle(upY, avatarYaw);
 
 		// Animation crossfade based on actual speed (the AnimationManager
-		// no-ops if the requested name is already current).
+		// no-ops if the requested name is already current). A full-body gesture
+		// (sit/dance) owns the base layer — skip the locomotion crossfade until it
+		// clears; an upper-body gesture (wave/point) rides additively over it.
 		const want = wantRun ? 'run' : 'walk';
 		if (currentMotion !== want) {
 			currentMotion = want;
-			animationManager.crossfadeTo(want === 'run' ? CLIP_RUN : CLIP_WALK, 0.18);
+			if (!gestures?.isFullBodyActive()) {
+				animationManager.crossfadeTo(want === 'run' ? CLIP_RUN : CLIP_WALK, 0.18);
+			}
 		}
 	} else if (currentMotion !== 'idle' && avatar) {
 		currentMotion = 'idle';
-		animationManager.crossfadeTo(CLIP_IDLE, 0.25);
+		if (!gestures?.isFullBodyActive()) {
+			animationManager.crossfadeTo(CLIP_IDLE, 0.25);
+		}
 	}
 
 	// Physics movement — feed the frame's horizontal displacement plus an
@@ -1790,11 +2048,12 @@ function tick() {
 	// Procedural forward lean — sells weight transfer. Target lean ramps
 	// with how much of the input is engaged; we lerp to it so direction
 	// changes don't snap.
-	const targetLean = currentMotion === 'run'
-		? LEAN_RUN_RAD * mag
-		: currentMotion === 'walk'
-			? LEAN_WALK_RAD * mag
-			: 0;
+	const targetLean =
+		currentMotion === 'run'
+			? LEAN_RUN_RAD * mag
+			: currentMotion === 'walk'
+				? LEAN_WALK_RAD * mag
+				: 0;
 	avatarLean += (targetLean - avatarLean) * LEAN_LERP;
 	if (avatar) avatar.rotation.x = avatarLean;
 
@@ -1832,7 +2091,7 @@ function tick() {
 		// Camera mode transition (smooth lerp)
 		if (cameraModeTransition > 0) {
 			cameraModeTransition = Math.max(0, cameraModeTransition - dt);
-			const t = 1 - (cameraModeTransition / CAMERA_MODE_TRANSITION_DUR);
+			const t = 1 - cameraModeTransition / CAMERA_MODE_TRANSITION_DUR;
 			const ease = t * t * (3 - 2 * t); // smoothstep
 			camera.position.lerpVectors(cameraModeFrom.pos, desired.pos, ease);
 			camLookCurrent.lerpVectors(cameraModeFrom.look, desired.look, ease);
@@ -1932,23 +2191,30 @@ const MAX_IDLE_REMOTE_TEMPLATES = 12;
 function loadRemoteAvatarTemplate(url) {
 	if (url === resolvedAvatarUrl && avatarTemplate) return Promise.resolve(avatarTemplate);
 	let entry = _remoteAvatarTemplates.get(url);
-	if (entry) { entry.lastUsed = performance.now(); return entry.promise; }
-	const promise = new GLTFLoader().loadAsync(url).then((gltf) => {
-		gltf.scene.traverse((n) => {
-			if (n.isMesh) {
-				n.castShadow = true;
-				n.receiveShadow = false;
-				if (n.material && 'envMapIntensity' in n.material) n.material.envMapIntensity = 0.85;
-			}
+	if (entry) {
+		entry.lastUsed = performance.now();
+		return entry.promise;
+	}
+	const promise = new GLTFLoader()
+		.loadAsync(url)
+		.then((gltf) => {
+			gltf.scene.traverse((n) => {
+				if (n.isMesh) {
+					n.castShadow = true;
+					n.receiveShadow = false;
+					if (n.material && 'envMapIntensity' in n.material)
+						n.material.envMapIntensity = 0.85;
+				}
+			});
+			if (entry) entry.scene = gltf.scene;
+			return gltf.scene;
+		})
+		.catch((err) => {
+			// A failed load must not poison the cache forever — drop the entry so a
+			// later player can retry, and re-throw for the caller's own handling.
+			if (_remoteAvatarTemplates.get(url) === entry) _remoteAvatarTemplates.delete(url);
+			throw err;
 		});
-		if (entry) entry.scene = gltf.scene;
-		return gltf.scene;
-	}).catch((err) => {
-		// A failed load must not poison the cache forever — drop the entry so a
-		// later player can retry, and re-throw for the caller's own handling.
-		if (_remoteAvatarTemplates.get(url) === entry) _remoteAvatarTemplates.delete(url);
-		throw err;
-	});
 	entry = { promise, scene: null, refs: 0, lastUsed: performance.now() };
 	_remoteAvatarTemplates.set(url, entry);
 	return promise;
@@ -1958,7 +2224,10 @@ function loadRemoteAvatarTemplate(url) {
 // cache knows when a template is unreferenced and safe to evict.
 function acquireRemoteTemplate(url) {
 	const entry = _remoteAvatarTemplates.get(url);
-	if (entry) { entry.refs++; entry.lastUsed = performance.now(); }
+	if (entry) {
+		entry.refs++;
+		entry.lastUsed = performance.now();
+	}
 }
 
 function releaseRemoteTemplate(url) {
@@ -1990,7 +2259,7 @@ function disposeTemplateScene(scene) {
 	if (!scene) return;
 	scene.traverse((n) => {
 		if (n.geometry) n.geometry.dispose();
-		const mats = Array.isArray(n.material) ? n.material : (n.material ? [n.material] : []);
+		const mats = Array.isArray(n.material) ? n.material : n.material ? [n.material] : [];
 		for (const mat of mats) {
 			for (const v of Object.values(mat)) {
 				if (v && v.isTexture) v.dispose();
@@ -2000,8 +2269,11 @@ function disposeTemplateScene(scene) {
 	});
 }
 function isLoadableAvatarUrl(url) {
-	return typeof url === 'string' && url.length > 0 &&
-		(url.startsWith('/') || url.startsWith('http://') || url.startsWith('https://'));
+	return (
+		typeof url === 'string' &&
+		url.length > 0 &&
+		(url.startsWith('/') || url.startsWith('http://') || url.startsWith('https://'))
+	);
 }
 
 class RemotePlayer {
@@ -2115,12 +2387,16 @@ class RemotePlayer {
 	// when the wire changed — and shares applyLoadout with the local avatar so one
 	// wardrobe renders the same in every world.
 	_applyCosmetics(wire) {
-		const next = typeof wire === 'string' ? wire : (this._cosWire || '');
+		const next = typeof wire === 'string' ? wire : this._cosWire || '';
 		this._cosWire = next;
 		if (!this.rig || !this._avatarHeight) return;
 		if (this.cosmetics && this._cosApplied === next) return;
 		this._cosApplied = next;
-		try { this.cosmetics?.dispose(); } catch { /* already gone */ }
+		try {
+			this.cosmetics?.dispose();
+		} catch {
+			/* already gone */
+		}
 		this.cosmetics = applyLoadout(this.rig, this._avatarHeight, next);
 	}
 
@@ -2133,20 +2409,31 @@ class RemotePlayer {
 		try {
 			templateScene = await loadRemoteAvatarTemplate(url);
 		} catch (err) {
-			log.warn('[walk] remote avatar load failed, keeping stand-in:', url, err?.message ?? err);
+			log.warn(
+				'[walk] remote avatar load failed, keeping stand-in:',
+				url,
+				err?.message ?? err,
+			);
 			return;
 		}
 		if (token !== this._avatarLoadToken || !this.rig) return; // superseded or disposed
 
 		const root = cloneSkinnedScene(templateScene);
-		root.traverse((n) => { if (n.isMesh) { n.castShadow = true; n.receiveShadow = false; } });
+		root.traverse((n) => {
+			if (n.isMesh) {
+				n.castShadow = true;
+				n.receiveShadow = false;
+			}
+		});
 		// Center feet on the rig origin so y=0 is the ground, matching loadAvatar().
 		const box = new Box3().setFromObject(root);
 		root.position.y -= box.min.y;
 
 		// Tear down the old body + its mixer, then attach a fresh one bound to the
 		// new skeleton with the same shared clips.
-		try { this.anim.dispose(); } catch {}
+		try {
+			this.anim.dispose();
+		} catch {}
 		if (this._root) this.rig.remove(this._root);
 		this._root = root;
 		this.rig.add(root);
@@ -2159,7 +2446,8 @@ class RemotePlayer {
 
 		// Track template references so the cache can evict & dispose templates no
 		// live player is cloning. Release the previous, claim the new.
-		if (this._heldTemplateUrl && this._heldTemplateUrl !== url) releaseRemoteTemplate(this._heldTemplateUrl);
+		if (this._heldTemplateUrl && this._heldTemplateUrl !== url)
+			releaseRemoteTemplate(this._heldTemplateUrl);
 		acquireRemoteTemplate(url);
 		this._heldTemplateUrl = url;
 
@@ -2175,17 +2463,21 @@ class RemotePlayer {
 
 	async _playRemoteEmote(name) {
 		if (!_fullManifest) return;
-		const def = _fullManifest.find(d => d.name === name);
+		const def = _fullManifest.find((d) => d.name === name);
 		if (!def) return;
-		if (!animationDefs.some(d => d.name === name)) {
+		if (!animationDefs.some((d) => d.name === name)) {
 			animationDefs.push(def);
 			this.anim.setAnimationDefs(animationDefs);
 		}
-		try { await this.anim.ensureLoaded(name); } catch { return; }
+		try {
+			await this.anim.ensureLoaded(name);
+		} catch {
+			return;
+		}
 		this._emoting = true;
 		this.anim.crossfadeTo(name, 0.2);
 		const action = this.anim.currentAction;
-		const dur = (action && !action.loop) ? action.getClip().duration * 1000 : 3000;
+		const dur = action && !action.loop ? action.getClip().duration * 1000 : 3000;
 		setTimeout(() => {
 			this._emoting = false;
 			this.anim.crossfadeTo(motionToClipName(this.motion), 0.25);
@@ -2226,8 +2518,15 @@ class RemotePlayer {
 
 	dispose() {
 		this._avatarLoadToken++; // cancel any in-flight avatar swap
-		if (this._heldTemplateUrl) { releaseRemoteTemplate(this._heldTemplateUrl); this._heldTemplateUrl = null; }
-		try { this.cosmetics?.dispose(); } catch { /* already gone */ }
+		if (this._heldTemplateUrl) {
+			releaseRemoteTemplate(this._heldTemplateUrl);
+			this._heldTemplateUrl = null;
+		}
+		try {
+			this.cosmetics?.dispose();
+		} catch {
+			/* already gone */
+		}
 		scene.remove(this.rig);
 		this.rig = null;
 		this.anim.dispose();
@@ -2325,11 +2624,21 @@ function startNet() {
 	net.on('add', (player, sessionId) => {
 		if (sessionId === net.mySessionId) return; // skip self
 		if (remotePlayers.has(sessionId)) return;
-		remotePlayers.set(sessionId, new RemotePlayer(sessionId, {
-			x: player.x, y: player.y, z: player.z, yaw: player.yaw,
-			motion: player.motion, name: player.name, color: player.color,
-			avatar: player.avatar, agent: player.agent, cosmetics: player.cosmetics,
-		}));
+		remotePlayers.set(
+			sessionId,
+			new RemotePlayer(sessionId, {
+				x: player.x,
+				y: player.y,
+				z: player.z,
+				yaw: player.yaw,
+				motion: player.motion,
+				name: player.name,
+				color: player.color,
+				avatar: player.avatar,
+				agent: player.agent,
+				cosmetics: player.cosmetics,
+			}),
+		);
 		renderOnlineCount();
 	});
 	net.on('change', (player, sessionId) => {
@@ -2363,109 +2672,9 @@ function startNet() {
 	net.connect();
 }
 
-// ── Gesture palette (radial menu) ────────────────────────────────────────
-// G key opens a radial menu of gesture shortcuts. Number keys 1-9 trigger
-// gestures directly from the EMOTE_CLIPS list.
-let gesturePaletteVisible = false;
-const gesturePaletteEl = (() => {
-	const el = document.createElement('div');
-	el.id = 'walk-gesture-palette';
-	el.setAttribute('aria-hidden', 'true');
-	el.style.cssText = [
-		'position:fixed', 'z-index:9998',
-		'left:50%', 'top:50%', 'transform:translate(-50%,-50%)',
-		'width:280px', 'height:280px',
-		'border-radius:50%',
-		'background:rgba(10,10,10,0.82)',
-		'border:1px solid rgba(255,255,255,0.1)',
-		'backdrop-filter:blur(16px)', '-webkit-backdrop-filter:blur(16px)',
-		'display:none', 'opacity:0',
-		'transition:opacity 0.18s ease, transform 0.18s ease',
-		'pointer-events:none',
-	].join(';');
-	document.body.appendChild(el);
-	return el;
-})();
-
-function buildGesturePalette() {
-	gesturePaletteEl.innerHTML = '';
-	const items = EMOTE_CLIPS;
-	const count = items.length;
-	const radius = 100;
-	const centerX = 140;
-	const centerY = 140;
-	items.forEach((emote, i) => {
-		const angle = (i / count) * Math.PI * 2 - Math.PI / 2;
-		const x = centerX + Math.cos(angle) * radius - 24;
-		const y = centerY + Math.sin(angle) * radius - 24;
-		const btn = document.createElement('button');
-		btn.type = 'button';
-		btn.style.cssText = [
-			'position:absolute', `left:${x}px`, `top:${y}px`,
-			'width:48px', 'height:48px', 'border-radius:50%',
-			'background:rgba(255,255,255,0.08)', 'border:1px solid rgba(255,255,255,0.15)',
-			'color:#fff', 'font-size:22px', 'cursor:pointer',
-			'display:flex', 'align-items:center', 'justify-content:center',
-			'transition:transform 0.1s, background 0.1s',
-		].join(';');
-		btn.title = `${emote.label} [${i + 1}]`;
-		btn.setAttribute('aria-label', emote.label);
-		btn.textContent = emote.icon;
-		btn.addEventListener('click', () => {
-			playEmote(emote.name);
-			hideGesturePalette();
-		});
-		btn.addEventListener('mouseenter', () => { btn.style.transform = 'scale(1.18)'; btn.style.background = 'rgba(255,255,255,0.18)'; });
-		btn.addEventListener('mouseleave', () => { btn.style.transform = ''; btn.style.background = 'rgba(255,255,255,0.08)'; });
-		gesturePaletteEl.appendChild(btn);
-	});
-	// Center label
-	const label = document.createElement('div');
-	label.style.cssText = 'position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:11px;color:rgba(255,255,255,0.5);text-align:center;pointer-events:none;line-height:1.4';
-	label.textContent = 'Gestures';
-	gesturePaletteEl.appendChild(label);
-}
-
-function showGesturePalette() {
-	if (!gesturePaletteEl.children.length) buildGesturePalette();
-	gesturePaletteVisible = true;
-	gesturePaletteEl.style.display = 'block';
-	gesturePaletteEl.style.pointerEvents = 'auto';
-	gesturePaletteEl.setAttribute('aria-hidden', 'false');
-	requestAnimationFrame(() => {
-		gesturePaletteEl.style.opacity = '1';
-		gesturePaletteEl.style.transform = 'translate(-50%,-50%) scale(1)';
-	});
-}
-
-function hideGesturePalette() {
-	gesturePaletteVisible = false;
-	gesturePaletteEl.style.opacity = '0';
-	gesturePaletteEl.style.transform = 'translate(-50%,-50%) scale(0.85)';
-	gesturePaletteEl.style.pointerEvents = 'none';
-	gesturePaletteEl.setAttribute('aria-hidden', 'true');
-	setTimeout(() => {
-		if (!gesturePaletteVisible) gesturePaletteEl.style.display = 'none';
-	}, 200);
-}
-
-function toggleGesturePalette() {
-	if (gesturePaletteVisible) hideGesturePalette();
-	else showGesturePalette();
-}
-
-function triggerQuickGesture(index) {
-	if (index < 0 || index >= EMOTE_CLIPS.length) return;
-	const emote = EMOTE_CLIPS[index];
-	playEmote(emote.name);
-	setStatus(`Gesture: ${emote.label}`);
-	haptics.buzz(5);
-}
-
-// Close gesture palette on click outside
-gesturePaletteEl.addEventListener('click', (e) => {
-	if (e.target === gesturePaletteEl) hideGesturePalette();
-});
+// ── Gestures: see setupGestures() and src/walk-gestures.js. The radial
+// gesture wheel (hold G / long-press), the 1–8 quick keys, and the side
+// tray are all owned by the WalkGestures controller built in setupGestures().
 
 // ── Chat focus helper ────────────────────────────────────────────────────
 function focusChat() {
@@ -2485,14 +2694,21 @@ function createSpeechBubbleEl() {
 	const wrap = document.createElement('div');
 	wrap.className = 'walk-speech-bubble';
 	wrap.style.cssText = [
-		'position:fixed', 'z-index:3', 'pointer-events:none',
-		'max-width:240px', 'padding:8px 14px',
-		'background:rgba(10,10,10,0.82)', 'color:#fafafa',
+		'position:fixed',
+		'z-index:3',
+		'pointer-events:none',
+		'max-width:240px',
+		'padding:8px 14px',
+		'background:rgba(10,10,10,0.82)',
+		'color:#fafafa',
 		'border:1px solid rgba(255,255,255,0.12)',
 		'border-radius:14px',
-		'backdrop-filter:blur(8px)', '-webkit-backdrop-filter:blur(8px)',
-		'font-size:12px', 'line-height:1.45',
-		'word-break:break-word', 'white-space:pre-wrap',
+		'backdrop-filter:blur(8px)',
+		'-webkit-backdrop-filter:blur(8px)',
+		'font-size:12px',
+		'line-height:1.45',
+		'word-break:break-word',
+		'white-space:pre-wrap',
 		'transform:translate(-50%,-100%) scale(0.7)',
 		'opacity:0',
 		'transition:opacity 0.25s ease, transform 0.25s ease',
@@ -2501,10 +2717,14 @@ function createSpeechBubbleEl() {
 	// Arrow pointer
 	const arrow = document.createElement('div');
 	arrow.style.cssText = [
-		'position:absolute', 'bottom:-6px', 'left:50%',
+		'position:absolute',
+		'bottom:-6px',
+		'left:50%',
 		'transform:translateX(-50%)',
-		'width:0', 'height:0',
-		'border-left:6px solid transparent', 'border-right:6px solid transparent',
+		'width:0',
+		'height:0',
+		'border-left:6px solid transparent',
+		'border-right:6px solid transparent',
 		'border-top:6px solid rgba(10,10,10,0.82)',
 	].join(';');
 	wrap.appendChild(arrow);
@@ -2519,7 +2739,12 @@ function createSpeechBubbleEl() {
 
 function showSpeechBubbleFor(key, text) {
 	// Sanitize
-	const clean = text.replace(/[<>&"']/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;' })[c]).slice(0, SPEECH_BUBBLE_MAX_LEN);
+	const clean = text
+		.replace(
+			/[<>&"']/g,
+			(c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;' })[c],
+		)
+		.slice(0, SPEECH_BUBBLE_MAX_LEN);
 	// Remove existing bubble for this key
 	const existing = speechBubbles.get(key);
 	if (existing) {
@@ -2557,7 +2782,7 @@ function updateSpeechBubbles() {
 			const sx = (headV.x * 0.5 + 0.5) * w;
 			const sy = (-headV.y * 0.5 + 0.5) * h;
 			localBubble.el.style.left = sx + 'px';
-			localBubble.el.style.top = (sy - 10) + 'px';
+			localBubble.el.style.top = sy - 10 + 'px';
 			localBubble.el.style.display = '';
 		} else {
 			localBubble.el.style.display = 'none';
@@ -2574,7 +2799,7 @@ function updateSpeechBubbles() {
 			const sx = (headV.x * 0.5 + 0.5) * w;
 			const sy = (-headV.y * 0.5 + 0.5) * h;
 			bubble.el.style.left = sx + 'px';
-			bubble.el.style.top = (sy - 10) + 'px';
+			bubble.el.style.top = sy - 10 + 'px';
 			bubble.el.style.display = '';
 		} else {
 			bubble.el.style.display = 'none';
@@ -2583,210 +2808,90 @@ function updateSpeechBubbles() {
 }
 
 // ── Environment selector ─────────────────────────────────────────────────
-// Four procedural environments using simple geometries. No external GLBs.
+// Six worlds the avatar can roam — park, cyberpunk street, beach, gallery,
+// abstract void, and the three.ws office. Each is a real glTF scene (or the
+// procedural void) with its own terrain tint, sky gradient, light rig, and HDR
+// image-based lighting, defined in public/environments/index.json and loaded
+// through src/walk-environments.js. The terrain heightfield stays the walkable
+// ground; an environment supplies scenery + lighting on top of it.
 const ENV_KEY = 'walk:environment';
-const ENVIRONMENTS = [
-	{ name: 'default', label: 'Studio', groundColor: 0x202833, skyTop: '#1a2538', skyBot: '#0a0a0a', ambientColor: 0xffffff, ambientIntensity: 0.55, sunIntensity: 1.4, hemiSky: 0xbcd6ff },
-	{ name: 'park', label: 'Park', groundColor: 0x2d5a27, skyTop: '#4a90c4', skyBot: '#87ceeb', ambientColor: 0xfffbe6, ambientIntensity: 0.7, sunIntensity: 1.6, hemiSky: 0xa8d8ea },
-	{ name: 'city', label: 'City', groundColor: 0x3a3a3a, skyTop: '#1a1a2e', skyBot: '#16213e', ambientColor: 0xd4d4ff, ambientIntensity: 0.4, sunIntensity: 0.9, hemiSky: 0x8888aa },
-	{ name: 'beach', label: 'Beach', groundColor: 0xc2b280, skyTop: '#3b7dd8', skyBot: '#87ceeb', ambientColor: 0xfff8e7, ambientIntensity: 0.75, sunIntensity: 1.8, hemiSky: 0xccddff },
-];
-
-let currentEnvIndex = 0;
-const envPropsGroup = new Group();
+let walkManifest = null;
+let currentEnvName = 'park';
+let envApplyToken = 0; // bumped per swap so a stale async load can't clobber a newer one
+const envPropsGroup = new Group(); // holds the kickable dynamic props (balls/crates)
 scene.add(envPropsGroup);
+let envScenery = null; // { group, dispose } — the current GLB/void scenery in the scene
+let envHdr = null; // { texture, dispose } — the current pre-filtered IBL
 
-// Collider descriptors emitted by the prop builders for the current environment.
-// `worldObstacles` are static (trees/buildings); `worldDynamicProps` are the
-// kickable bodies whose meshes the physics solver drives each frame. Both are
-// rebuilt on every environment swap and consumed by rebuildPhysicsWorld().
+// Collider descriptors for the current environment. `worldObstacles` are static
+// (trees/buildings/walls); `worldDynamicProps` are the kickable bodies whose
+// meshes the physics solver drives each frame. Rebuilt on every swap and
+// consumed by rebuildPhysicsWorld().
 let worldObstacles = [];
 let worldDynamicProps = [];
 
-// Restore saved environment
-try {
-	const savedEnv = localStorage.getItem(ENV_KEY);
-	if (savedEnv) {
-		const idx = ENVIRONMENTS.findIndex(e => e.name === savedEnv);
-		if (idx >= 0) currentEnvIndex = idx;
-	}
-} catch {}
+// Regenerate the heightfield terrain for an environment: flat indoors, gently
+// rolling outdoors. Swaps the render mesh and re-points the physics ground at
+// the new surface so collider and visual never drift apart.
+function swapTerrain(meta) {
+	const t = meta.terrain || {};
+	const next = createTerrain({
+		amplitude: typeof t.amplitude === 'number' ? t.amplitude : 1.8,
+		color: envTerrainColor(meta),
+		seed: t.seed || 1337,
+	});
+	scene.remove(terrain.mesh);
+	terrain.dispose();
+	terrain = next;
+	terrain.mesh.visible = !arActive;
+	scene.add(terrain.mesh);
+	groundOpaque.material.color.setHex(envTerrainColor(meta));
+	if (physics && physicsReady) physics.addHeightfield(terrain);
+}
 
-function applyEnvironment(index) {
-	const env = ENVIRONMENTS[index];
-	if (!env) return;
-	currentEnvIndex = index;
-	// Ground color — recolor the terrain surface (the flat disc stays hidden).
-	terrain.setColor(env.groundColor);
-	groundOpaque.material.color.setHex(env.groundColor);
-	// Stage background gradient
-	if (stage) stage.style.background = `radial-gradient(80% 60% at 50% 30%, ${env.skyTop} 0%, ${env.skyBot} 70%) ${env.skyBot}`;
-	// Lighting
-	ambientLight.color.setHex(env.ambientColor);
-	ambientLight.intensity = env.ambientIntensity;
-	sun.intensity = env.sunIntensity;
-	hemi.color.setHex(env.hemiSky);
-	// Clear old props
-	while (envPropsGroup.children.length > 0) {
-		const child = envPropsGroup.children[0];
-		envPropsGroup.remove(child);
-		if (child.geometry) child.geometry.dispose();
-		if (child.material) child.material.dispose();
-		// InstancedMesh
-		if (child.isInstancedMesh) {
-			child.geometry.dispose();
-			child.material.dispose();
+// Translate the manifest's collider list into solver obstacles, resolving each
+// y from the live terrain so trees/posts/walls sit on the ground they render on.
+function buildCollidersFromMeta(meta) {
+	worldObstacles = [];
+	for (const c of meta.colliders || []) {
+		const gy = terrain.heightAt(c.x, c.z);
+		if (c.type === 'cylinder') {
+			worldObstacles.push({
+				type: 'cylinder',
+				position: { x: c.x, y: gy + c.halfHeight, z: c.z },
+				radius: c.radius,
+				halfHeight: c.halfHeight,
+			});
+		} else {
+			worldObstacles.push({
+				type: 'box',
+				position: { x: c.x, y: gy + c.hy, z: c.z },
+				halfExtents: { x: c.hx, y: c.hy, z: c.hz },
+				rotationY: c.rotationY || 0,
+			});
 		}
 	}
-	// Reset collider descriptors — the builders below repopulate them.
-	worldObstacles = [];
-	worldDynamicProps = [];
-	// Add environment props
-	if (env.name === 'park') buildParkProps();
-	else if (env.name === 'city') buildCityProps();
-	else if (env.name === 'beach') buildBeachProps();
-	buildDynamicProps(env.name);
-	// Sync the physics world to the new scenery (no-op until physics is ready).
-	rebuildPhysicsWorld();
-	try { localStorage.setItem(ENV_KEY, env.name); } catch {}
-	updateEnvIndicator();
-}
-
-function buildParkProps() {
-	// Trees as instanced cones + cylinders
-	const trunkGeo = new CylinderGeometry(0.08, 0.12, 0.8, 6);
-	const trunkMat = new MeshStandardMaterial({ color: 0x5c3a1e, roughness: 0.9 });
-	const foliageGeo = new ConeGeometry(0.6, 1.4, 6);
-	const foliageMat = new MeshStandardMaterial({ color: 0x2d7a2d, roughness: 0.85 });
-	const dummy = new Object3D();
-	const treeCount = 18;
-	const trunkMesh = new InstancedMesh(trunkGeo, trunkMat, treeCount);
-	const foliageMesh = new InstancedMesh(foliageGeo, foliageMat, treeCount);
-	trunkMesh.castShadow = true;
-	foliageMesh.castShadow = true;
-	for (let i = 0; i < treeCount; i++) {
-		const angle = (i / treeCount) * Math.PI * 2 + Math.random() * 0.3;
-		const r = 5 + Math.random() * 5.5;
-		const x = Math.cos(angle) * r;
-		const z = Math.sin(angle) * r;
-		const scale = 0.8 + Math.random() * 0.6;
-		const gy = terrain.heightAt(x, z); // sit the tree on the rolling ground
-		dummy.position.set(x, gy + 0.4 * scale, z);
-		dummy.scale.set(scale, scale, scale);
-		dummy.updateMatrix();
-		trunkMesh.setMatrixAt(i, dummy.matrix);
-		dummy.position.y = gy + 1.1 * scale;
-		dummy.updateMatrix();
-		foliageMesh.setMatrixAt(i, dummy.matrix);
-		// Solid trunk: a cylinder you can't walk through, sized to the canopy base.
-		worldObstacles.push({
-			type: 'cylinder',
-			position: { x, y: gy + 0.9 * scale, z },
-			radius: 0.32 * scale,
-			halfHeight: 0.9 * scale,
-		});
-	}
-	envPropsGroup.add(trunkMesh);
-	envPropsGroup.add(foliageMesh);
-}
-
-function buildCityProps() {
-	// Buildings as instanced boxes along the perimeter
-	const buildingGeo = new BoxGeometry(1, 1, 1);
-	const buildingMat = new MeshStandardMaterial({ color: 0x2a2a3a, roughness: 0.7, metalness: 0.3 });
-	const dummy = new Object3D();
-	const count = 24;
-	const mesh = new InstancedMesh(buildingGeo, buildingMat, count);
-	mesh.castShadow = true;
-	mesh.receiveShadow = true;
-	for (let i = 0; i < count; i++) {
-		const angle = (i / count) * Math.PI * 2 + Math.random() * 0.15;
-		const r = 8 + Math.random() * 3;
-		const x = Math.cos(angle) * r;
-		const z = Math.sin(angle) * r;
-		const h = 1.5 + Math.random() * 4;
-		const w = 0.8 + Math.random() * 1.2;
-		const d = 0.8 + Math.random() * 1.2;
-		const rotationY = Math.random() * Math.PI;
-		const gy = terrain.heightAt(x, z); // base the building on the terrain surface
-		dummy.position.set(x, gy + h / 2, z);
-		dummy.scale.set(w, h, d);
-		dummy.rotation.y = rotationY;
-		dummy.updateMatrix();
-		mesh.setMatrixAt(i, dummy.matrix);
-		worldObstacles.push({
-			type: 'box',
-			position: { x, y: gy + h / 2, z },
-			halfExtents: { x: w / 2, y: h / 2, z: d / 2 },
-			rotationY,
-		});
-	}
-	envPropsGroup.add(mesh);
-	// Grid lines on ground
-	const gridMat = new MeshBasicMaterial({ color: 0x555577, transparent: true, opacity: 0.15, side: DoubleSide });
-	for (let i = -10; i <= 10; i += 2) {
-		const lineH = new Mesh(new PlaneGeometry(24, 0.02), gridMat);
-		lineH.rotation.x = -Math.PI / 2;
-		lineH.position.set(0, 0.005, i);
-		envPropsGroup.add(lineH);
-		const lineV = new Mesh(new PlaneGeometry(0.02, 24), gridMat);
-		lineV.rotation.x = -Math.PI / 2;
-		lineV.position.set(i, 0.005, 0);
-		envPropsGroup.add(lineV);
-	}
-}
-
-function buildBeachProps() {
-	// Wave plane
-	const waveMat = new MeshStandardMaterial({ color: 0x2196f3, roughness: 0.2, metalness: 0.1, transparent: true, opacity: 0.6 });
-	const wave = new Mesh(new PlaneGeometry(30, 14, 1, 1), waveMat);
-	wave.rotation.x = -Math.PI / 2;
-	wave.position.set(0, 0.01, -10);
-	envPropsGroup.add(wave);
-	// Palm trees
-	const trunkGeo = new CylinderGeometry(0.06, 0.1, 2.5, 6);
-	const trunkMat = new MeshStandardMaterial({ color: 0x8b6914, roughness: 0.9 });
-	const leafGeo = new ConeGeometry(0.9, 0.5, 5);
-	const leafMat = new MeshStandardMaterial({ color: 0x228b22, roughness: 0.8 });
-	const dummy = new Object3D();
-	const palmCount = 8;
-	const palmTrunks = new InstancedMesh(trunkGeo, trunkMat, palmCount);
-	const palmLeaves = new InstancedMesh(leafGeo, leafMat, palmCount);
-	palmTrunks.castShadow = true;
-	palmLeaves.castShadow = true;
-	for (let i = 0; i < palmCount; i++) {
-		const angle = (i / palmCount) * Math.PI + Math.PI * 0.5 + Math.random() * 0.3;
-		const r = 6 + Math.random() * 4;
-		const x = Math.cos(angle) * r;
-		const z = Math.sin(angle) * r;
-		const gy = terrain.heightAt(x, z); // root the palm in the sand
-		dummy.position.set(x, gy + 1.25, z);
-		dummy.rotation.set(Math.random() * 0.15, 0, Math.random() * 0.15);
-		dummy.scale.setScalar(1);
-		dummy.updateMatrix();
-		palmTrunks.setMatrixAt(i, dummy.matrix);
-		dummy.position.y = gy + 2.6;
-		dummy.updateMatrix();
-		palmLeaves.setMatrixAt(i, dummy.matrix);
-		worldObstacles.push({
-			type: 'cylinder',
-			position: { x, y: gy + 1.25, z },
-			radius: 0.28,
-			halfHeight: 1.25,
-		});
-	}
-	envPropsGroup.add(palmTrunks);
-	envPropsGroup.add(palmLeaves);
 }
 
 // Kickable physics props — beach balls and crates that fall, roll, and get
-// shoved when the avatar walks into them. Each prop builds its own mesh (added
-// to envPropsGroup so it's torn down on env change) and records a descriptor in
-// worldDynamicProps; rebuildPhysicsWorld() binds a rigid body to that mesh.
+// shoved when the avatar walks into them. Counts come from the manifest. Each
+// mesh is added to envPropsGroup (torn down on swap) with a descriptor in
+// worldDynamicProps that rebuildPhysicsWorld() binds a rigid body to.
 const PROP_BALL_COLORS = [0xff5a5f, 0x2ec4b6, 0xffd166, 0x5a8dee];
-function buildDynamicProps(envName) {
-	const balls = envName === 'beach' ? 5 : 3;
-	const crates = envName === 'beach' ? 0 : 3;
+function clearDynamicMeshes() {
+	while (envPropsGroup.children.length > 0) {
+		const child = envPropsGroup.children[0];
+		envPropsGroup.remove(child);
+		child.geometry?.dispose?.();
+		const mats = Array.isArray(child.material) ? child.material : [child.material];
+		mats.forEach((m) => m?.dispose?.());
+	}
+}
+function buildDynamicProps(meta) {
+	worldDynamicProps = [];
+	const dp = meta.dynamicProps || { balls: 3, crates: 3 };
+	const balls = dp.balls || 0;
+	const crates = dp.crates || 0;
 
 	for (let i = 0; i < balls; i++) {
 		const radius = 0.28 + Math.random() * 0.12;
@@ -2798,9 +2903,11 @@ function buildDynamicProps(envName) {
 				metalness: 0.05,
 			}),
 		);
-		const angle = (i / balls) * Math.PI * 2 + 0.6;
+		const angle = (i / Math.max(1, balls)) * Math.PI * 2 + 0.6;
 		const r = 2.4 + Math.random() * 1.6;
-		mesh.position.set(Math.cos(angle) * r, radius + 0.05, Math.sin(angle) * r);
+		const x = Math.cos(angle) * r;
+		const z = Math.sin(angle) * r;
+		mesh.position.set(x, terrain.heightAt(x, z) + radius + 0.05, z);
 		mesh.castShadow = true;
 		envPropsGroup.add(mesh);
 		worldDynamicProps.push({ kind: 'ball', mesh, radius });
@@ -2812,9 +2919,11 @@ function buildDynamicProps(envName) {
 			new BoxGeometry(s * 2, s * 2, s * 2),
 			new MeshStandardMaterial({ color: 0x9c6b3f, roughness: 0.85, metalness: 0.0 }),
 		);
-		const angle = (i / crates) * Math.PI * 2 - 0.8;
+		const angle = (i / Math.max(1, crates)) * Math.PI * 2 - 0.8;
 		const r = 2.0 + Math.random() * 1.4;
-		mesh.position.set(Math.cos(angle) * r, s + 0.02, Math.sin(angle) * r);
+		const x = Math.cos(angle) * r;
+		const z = Math.sin(angle) * r;
+		mesh.position.set(x, terrain.heightAt(x, z) + s + 0.02, z);
 		mesh.rotation.y = Math.random() * Math.PI;
 		mesh.castShadow = true;
 		mesh.receiveShadow = true;
@@ -2823,29 +2932,142 @@ function buildDynamicProps(envName) {
 	}
 }
 
-// Environment indicator
+// The synchronous half of a swap: terrain, lights, sky, colliders, props.
+// Runs while the screen is faded out so none of it is seen mid-change.
+function applyEnvironmentMeta(meta) {
+	swapTerrain(meta);
+	applyLighting(meta, { ambientLight, hemi, sun });
+	applySky(meta, stage);
+	clearDynamicMeshes();
+	buildCollidersFromMeta(meta);
+	buildDynamicProps(meta);
+	rebuildPhysicsWorld();
+	try {
+		localStorage.setItem(ENV_KEY, meta.name);
+	} catch {}
+	updateEnvIndicator();
+	updateEnvPickerSelection();
+}
+
+// The asynchronous half: load the GLB scenery + HDR, then swap them into the
+// scene. Guarded by `token` so a rapid re-selection discards a superseded load.
+async function loadEnvScenery(meta, token) {
+	let scenery = null;
+	let hdr = null;
+	try {
+		scenery = await loadEnvironmentScenery(meta, {
+			heightAt: (x, z) => terrain.heightAt(x, z),
+		});
+	} catch (err) {
+		log.warn('[walk] scenery load failed for', meta.name, err?.message || err);
+	}
+	try {
+		hdr = await loadEnvironmentHDR(meta, renderer);
+	} catch (err) {
+		log.warn('[walk] HDR load failed for', meta.name, err?.message || err);
+	}
+	if (token !== envApplyToken) {
+		scenery?.dispose();
+		hdr?.dispose();
+		return;
+	}
+	if (envScenery) {
+		scene.remove(envScenery.group);
+		envScenery.dispose();
+	}
+	envScenery = scenery;
+	if (scenery) scene.add(scenery.group);
+	if (envHdr) {
+		envHdr.dispose();
+		envHdr = null;
+	}
+	if (hdr) {
+		envHdr = hdr;
+		scene.environment = hdr.texture;
+	} else {
+		scene.environment = defaultEnvTexture;
+	}
+	if ('environmentIntensity' in scene) scene.environmentIntensity = meta.envIntensity || 1;
+}
+
+// Full environment swap. The first paint applies instantly; later swaps fade to
+// the new sky's horizon colour for ~300 ms so the world change is seamless.
+async function applyEnvironment(name, { initial = false } = {}) {
+	const meta = getEnvironment(walkManifest, name);
+	if (!meta) return;
+	const token = ++envApplyToken;
+	currentEnvName = meta.name;
+	if (initial) {
+		applyEnvironmentMeta(meta);
+		await loadEnvScenery(meta, token);
+		return;
+	}
+	await fadeWorld(skyFadeColor(meta), 1);
+	if (token !== envApplyToken) return;
+	applyEnvironmentMeta(meta);
+	await loadEnvScenery(meta, token);
+	if (token !== envApplyToken) return;
+	await fadeWorld(null, 0);
+}
+
+// Fade-to-colour overlay used during environment swaps. Resolves after the CSS
+// transition (skipped instantly when the user prefers reduced motion).
+let envFadeEl = null;
+function fadeWorld(color, opacity) {
+	if (!envFadeEl) {
+		envFadeEl = document.createElement('div');
+		envFadeEl.id = 'walk-env-fade';
+		envFadeEl.style.cssText =
+			'position:fixed;inset:0;z-index:40;pointer-events:none;opacity:0;background:#05070c;transition:opacity .3s ease';
+		document.body.appendChild(envFadeEl);
+	}
+	if (color) envFadeEl.style.background = color;
+	const reduced =
+		typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+	if (reduced) {
+		envFadeEl.style.transition = 'none';
+		envFadeEl.style.opacity = String(opacity);
+		return Promise.resolve();
+	}
+	envFadeEl.style.transition = 'opacity .3s ease';
+	return new Promise((resolve) => {
+		requestAnimationFrame(() => {
+			envFadeEl.style.opacity = String(opacity);
+			setTimeout(resolve, 320);
+		});
+	});
+}
+
+// Environment indicator — a transient pill naming the active scene.
 const envIndicator = (() => {
 	const el = document.createElement('div');
 	el.id = 'walk-env-indicator';
 	el.setAttribute('role', 'status');
 	el.style.cssText = [
-		'position:fixed', 'z-index:6',
-		'left:16px', 'top:calc(env(safe-area-inset-top, 0) + 60px)',
-		'background:rgba(17,17,17,0.72)', 'border:1px solid rgba(255,255,255,0.08)',
-		'border-radius:999px', 'padding:5px 14px',
-		'font-size:11px', 'font-weight:500', 'color:rgba(255,255,255,0.7)',
-		'backdrop-filter:blur(10px)', '-webkit-backdrop-filter:blur(10px)',
+		'position:fixed',
+		'z-index:6',
+		'left:16px',
+		'top:calc(env(safe-area-inset-top, 0) + 60px)',
+		'background:rgba(17,17,17,0.72)',
+		'border:1px solid rgba(255,255,255,0.08)',
+		'border-radius:999px',
+		'padding:5px 14px',
+		'font-size:11px',
+		'font-weight:500',
+		'color:rgba(255,255,255,0.7)',
+		'backdrop-filter:blur(10px)',
+		'-webkit-backdrop-filter:blur(10px)',
 		'pointer-events:none',
-		'opacity:0', 'transition:opacity 0.25s ease',
+		'opacity:0',
+		'transition:opacity 0.25s ease',
 	].join(';');
 	document.body.appendChild(el);
 	return el;
 })();
 let envIndicatorTimer = 0;
-
 function updateEnvIndicator() {
-	const env = ENVIRONMENTS[currentEnvIndex];
-	envIndicator.textContent = `Scene: ${env.label}`;
+	const meta = getEnvironment(walkManifest, currentEnvName);
+	envIndicator.textContent = `Scene: ${meta?.label || currentEnvName}`;
 	envIndicator.style.opacity = '1';
 	clearTimeout(envIndicatorTimer);
 	envIndicatorTimer = setTimeout(() => {
@@ -2854,9 +3076,137 @@ function updateEnvIndicator() {
 }
 
 function cycleEnvironment() {
-	const next = (currentEnvIndex + 1) % ENVIRONMENTS.length;
-	applyEnvironment(next);
-	setStatus(`Environment: ${ENVIRONMENTS[next].label}`);
+	if (!walkManifest?.environments?.length) return;
+	const list = walkManifest.environments;
+	const i = list.findIndex((e) => e.name === currentEnvName);
+	const next = list[(i + 1) % list.length];
+	applyEnvironment(next.name);
+	setStatus(`Environment: ${next.label}`);
+}
+
+// ── Environment picker (HUD dropdown) ─────────────────────────────────────
+// A previews-first dropdown anchored to the HUD's environment button. Built
+// once the manifest is known; selecting a tile triggers a faded swap.
+let envPickerEl = null;
+let envPickerOpen = false;
+
+function ensureEnvPickerStyles() {
+	if (document.getElementById('walk-env-picker-style')) return;
+	const style = document.createElement('style');
+	style.id = 'walk-env-picker-style';
+	style.textContent = `
+#walk-env-picker{position:fixed;left:16px;top:calc(env(safe-area-inset-top,0) + 96px);z-index:9;width:248px;max-height:70vh;overflow-y:auto;display:flex;flex-direction:column;gap:4px;padding:8px;background:rgba(14,14,18,0.92);border:1px solid rgba(255,255,255,0.1);border-radius:14px;box-shadow:0 18px 48px rgba(0,0,0,0.5);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);opacity:0;transform:translateY(-6px) scale(0.98);transform-origin:top left;transition:opacity .2s ease,transform .2s ease;pointer-events:none}
+#walk-env-picker.is-open{opacity:1;transform:translateY(0) scale(1);pointer-events:auto}
+.walk-env-opt{display:flex;align-items:center;gap:10px;width:100%;padding:6px;border:1px solid transparent;border-radius:10px;background:transparent;color:#f2f4f8;font:inherit;text-align:left;cursor:pointer;transition:background .15s ease,border-color .15s ease}
+.walk-env-opt:hover{background:rgba(255,255,255,0.07)}
+.walk-env-opt:focus-visible{outline:2px solid #7aa2ff;outline-offset:1px}
+.walk-env-opt[aria-selected="true"]{background:rgba(122,162,255,0.16);border-color:rgba(122,162,255,0.5)}
+.walk-env-opt-thumb{width:54px;height:54px;border-radius:8px;object-fit:cover;flex:0 0 54px;background:#1c1c24;border:1px solid rgba(255,255,255,0.08)}
+.walk-env-opt-text{display:flex;flex-direction:column;gap:2px;min-width:0}
+.walk-env-opt-name{font-size:13px;font-weight:600;line-height:1.1}
+.walk-env-opt-blurb{font-size:11px;line-height:1.25;color:rgba(255,255,255,0.55);overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+@media (prefers-reduced-motion:reduce){#walk-env-picker{transition:none}}
+`;
+	document.head.appendChild(style);
+}
+
+function buildEnvPicker() {
+	if (envPickerEl || !walkManifest?.environments?.length) return;
+	ensureEnvPickerStyles();
+	const el = document.createElement('div');
+	el.id = 'walk-env-picker';
+	el.setAttribute('role', 'listbox');
+	el.setAttribute('aria-label', 'Choose environment');
+	el.hidden = true;
+	el.innerHTML = walkManifest.environments
+		.map(
+			(e) => `
+		<button type="button" class="walk-env-opt" role="option" data-env="${e.name}" aria-selected="${e.name === currentEnvName ? 'true' : 'false'}">
+			<img class="walk-env-opt-thumb" src="/environments/${e.preview}" alt="" width="54" height="54" loading="lazy" />
+			<span class="walk-env-opt-text"><span class="walk-env-opt-name">${e.label}</span><span class="walk-env-opt-blurb">${e.blurb || ''}</span></span>
+		</button>`,
+		)
+		.join('');
+	el.addEventListener('click', (ev) => {
+		const btn = ev.target.closest?.('.walk-env-opt');
+		if (btn) selectEnvironment(btn.getAttribute('data-env'));
+	});
+	document.body.appendChild(el);
+	envPickerEl = el;
+	document.addEventListener('pointerdown', onEnvPickerOutside, true);
+}
+
+function updateEnvPickerSelection() {
+	if (!envPickerEl) return;
+	envPickerEl.querySelectorAll('.walk-env-opt').forEach((b) => {
+		b.setAttribute(
+			'aria-selected',
+			b.getAttribute('data-env') === currentEnvName ? 'true' : 'false',
+		);
+	});
+}
+
+function openEnvPicker() {
+	if (!envPickerEl || envPickerOpen) return;
+	envPickerOpen = true;
+	envPickerEl.hidden = false;
+	requestAnimationFrame(() => envPickerEl.classList.add('is-open'));
+	envBtn?.setAttribute('aria-expanded', 'true');
+}
+function closeEnvPicker() {
+	if (!envPickerEl || !envPickerOpen) return;
+	envPickerOpen = false;
+	envPickerEl.classList.remove('is-open');
+	envBtn?.setAttribute('aria-expanded', 'false');
+	const onEnd = () => {
+		if (!envPickerOpen) envPickerEl.hidden = true;
+		envPickerEl.removeEventListener('transitionend', onEnd);
+	};
+	envPickerEl.addEventListener('transitionend', onEnd);
+}
+function toggleEnvPicker() {
+	if (!envPickerEl) return;
+	if (envPickerOpen) closeEnvPicker();
+	else openEnvPicker();
+}
+function onEnvPickerOutside(ev) {
+	if (!envPickerOpen) return;
+	if (envPickerEl.contains(ev.target) || envBtn?.contains(ev.target)) return;
+	closeEnvPicker();
+}
+
+function selectEnvironment(name) {
+	if (name && name !== currentEnvName) {
+		const meta = getEnvironment(walkManifest, name);
+		applyEnvironment(name);
+		if (meta) setStatus(`Environment: ${meta.label}`);
+	}
+	closeEnvPicker();
+}
+
+// Load the manifest, resolve the requested scene (?env=… → localStorage →
+// default), build the picker, and stage the world. Failures degrade to the
+// default terrain/lighting already in the scene rather than blanking the page.
+async function initEnvironments() {
+	try {
+		walkManifest = await fetchEnvironmentManifest();
+	} catch (err) {
+		log.warn(
+			'[walk] environments manifest unavailable; using default world:',
+			err?.message || err,
+		);
+		return;
+	}
+	const params = new URLSearchParams(location.search);
+	let want = params.get('env');
+	if (!want) {
+		try {
+			want = localStorage.getItem(ENV_KEY);
+		} catch {}
+	}
+	currentEnvName = resolveEnvName(walkManifest, want);
+	buildEnvPicker();
+	await applyEnvironment(currentEnvName, { initial: true });
 }
 
 // ── Screenshot capture ───────────────────────────────────────────────────
@@ -2886,18 +3236,27 @@ const gifIndicator = (() => {
 	const el = document.createElement('div');
 	el.id = 'walk-gif-indicator';
 	el.style.cssText = [
-		'position:fixed', 'z-index:8',
-		'right:16px', 'top:calc(env(safe-area-inset-top, 0) + 60px)',
-		'background:rgba(248,113,113,0.92)', 'color:#fff',
+		'position:fixed',
+		'z-index:8',
+		'right:16px',
+		'top:calc(env(safe-area-inset-top, 0) + 60px)',
+		'background:rgba(248,113,113,0.92)',
+		'color:#fff',
 		'border:1px solid rgba(255,255,255,0.25)',
-		'border-radius:999px', 'padding:6px 14px',
-		'font-size:12px', 'font-weight:600',
-		'display:none', 'align-items:center', 'gap:8px',
+		'border-radius:999px',
+		'padding:6px 14px',
+		'font-size:12px',
+		'font-weight:600',
+		'display:none',
+		'align-items:center',
+		'gap:8px',
 		'pointer-events:none',
-		'backdrop-filter:blur(6px)', '-webkit-backdrop-filter:blur(6px)',
+		'backdrop-filter:blur(6px)',
+		'-webkit-backdrop-filter:blur(6px)',
 	].join(';');
 	const dot = document.createElement('span');
-	dot.style.cssText = 'width:8px;height:8px;border-radius:50%;background:#fff;animation:walk-rec-pulse 0.9s infinite';
+	dot.style.cssText =
+		'width:8px;height:8px;border-radius:50%;background:#fff;animation:walk-rec-pulse 0.9s infinite';
 	el.appendChild(dot);
 	const label = document.createElement('span');
 	label.textContent = 'REC';
@@ -2930,7 +3289,10 @@ function startGifRecording() {
 
 function stopGifRecording() {
 	gifRecording = false;
-	if (gifInterval) { clearInterval(gifInterval); gifInterval = null; }
+	if (gifInterval) {
+		clearInterval(gifInterval);
+		gifInterval = null;
+	}
 	gifIndicator.style.display = 'none';
 
 	if (gifFrames.length === 0) {
@@ -2985,7 +3347,9 @@ async function exportFramesAsVideo(frames) {
 	}
 
 	const chunks = [];
-	recorder.ondataavailable = (e) => { if (e.data?.size) chunks.push(e.data); };
+	recorder.ondataavailable = (e) => {
+		if (e.data?.size) chunks.push(e.data);
+	};
 
 	recorder.onstop = () => {
 		const isMp4 = (recorder.mimeType || '').includes('mp4');
@@ -3016,7 +3380,7 @@ async function exportFramesAsVideo(frames) {
 		ctx.drawImage(frameImg, 0, 0, w, h);
 		// Request a frame from the stream
 		if (videoTrack.requestFrame) videoTrack.requestFrame();
-		await new Promise(r => setTimeout(r, GIF_FRAME_INTERVAL));
+		await new Promise((r) => setTimeout(r, GIF_FRAME_INTERVAL));
 	}
 
 	recorder.stop();
@@ -3038,15 +3402,21 @@ const minimapContainer = (() => {
 	const el = document.createElement('div');
 	el.id = 'walk-minimap';
 	el.style.cssText = [
-		'position:fixed', 'z-index:6',
-		'right:16px', 'bottom:calc(28px + env(safe-area-inset-bottom, 0))',
-		'width:' + MINIMAP_SIZE + 'px', 'height:' + MINIMAP_SIZE + 'px',
-		'border-radius:12px', 'overflow:hidden',
+		'position:fixed',
+		'z-index:6',
+		'right:16px',
+		'bottom:calc(28px + env(safe-area-inset-bottom, 0))',
+		'width:' + MINIMAP_SIZE + 'px',
+		'height:' + MINIMAP_SIZE + 'px',
+		'border-radius:12px',
+		'overflow:hidden',
 		'background:rgba(10,10,10,0.7)',
 		'border:1px solid rgba(255,255,255,0.1)',
-		'backdrop-filter:blur(6px)', '-webkit-backdrop-filter:blur(6px)',
+		'backdrop-filter:blur(6px)',
+		'-webkit-backdrop-filter:blur(6px)',
 		'display:none',
-		'opacity:0', 'transition:opacity 0.2s ease',
+		'opacity:0',
+		'transition:opacity 0.2s ease',
 		'cursor:crosshair',
 	].join(';');
 	document.body.appendChild(el);
@@ -3092,10 +3462,14 @@ function toggleMinimap() {
 	minimapVisible = !minimapVisible;
 	if (minimapVisible) {
 		minimapContainer.style.display = 'block';
-		requestAnimationFrame(() => { minimapContainer.style.opacity = '1'; });
+		requestAnimationFrame(() => {
+			minimapContainer.style.opacity = '1';
+		});
 	} else {
 		minimapContainer.style.opacity = '0';
-		setTimeout(() => { if (!minimapVisible) minimapContainer.style.display = 'none'; }, 200);
+		setTimeout(() => {
+			if (!minimapVisible) minimapContainer.style.display = 'none';
+		}, 200);
 	}
 	setStatus(minimapVisible ? 'Minimap on' : 'Minimap off');
 }
@@ -3127,20 +3501,16 @@ function updateMinimapFrame() {
 	ctx.fillStyle = 'rgba(255,255,255,0.03)';
 	ctx.fill();
 
-	// Environment props indicator (dots for trees/buildings)
-	for (const child of envPropsGroup.children) {
-		if (child.isInstancedMesh && child.count > 0) {
-			const m = new Matrix4();
-			for (let i = 0; i < child.count; i++) {
-				child.getMatrixAt(i, m);
-				const px = m.elements[12] * scale + offsetX;
-				const pz = m.elements[14] * scale + offsetZ;
-				ctx.beginPath();
-				ctx.arc(px, pz, 2, 0, Math.PI * 2);
-				ctx.fillStyle = 'rgba(255,255,255,0.2)';
-				ctx.fill();
-			}
-		}
+	// Environment props indicator — a dot per static obstacle (trees, towers,
+	// pedestals, desks) so the minimap reflects the scenery the avatar weaves
+	// through. Positions come from the live collider set.
+	ctx.fillStyle = 'rgba(255,255,255,0.2)';
+	for (const o of worldObstacles) {
+		const px = o.position.x * scale + offsetX;
+		const pz = o.position.z * scale + offsetZ;
+		ctx.beginPath();
+		ctx.arc(px, pz, 2, 0, Math.PI * 2);
+		ctx.fill();
 	}
 
 	// Remote players
@@ -3199,7 +3569,9 @@ function showHelpOnFirstVisit() {
 	try {
 		if (localStorage.getItem(HELP_FIRST_VISIT_KEY) === '1') return;
 		localStorage.setItem(HELP_FIRST_VISIT_KEY, '1');
-	} catch { return; }
+	} catch {
+		return;
+	}
 	// Show help briefly on first visit
 	toggleHelp();
 	setTimeout(() => {
@@ -3220,7 +3592,11 @@ function rebuildPhysicsWorld() {
 	}
 	for (const p of worldDynamicProps) {
 		if (p.kind === 'ball') physics.addDynamicBall({ mesh: p.mesh, radius: p.radius });
-		else if (p.kind === 'box') physics.addDynamicBox({ mesh: p.mesh, halfExtents: { x: p.half, y: p.half, z: p.half } });
+		else if (p.kind === 'box')
+			physics.addDynamicBox({
+				mesh: p.mesh,
+				halfExtents: { x: p.half, y: p.half, z: p.half },
+			});
 	}
 }
 
@@ -3250,11 +3626,13 @@ async function initWalkPhysics() {
 
 // ── Boot ──────────────────────────────────────────────────────────────────
 loadAvatar()
-	.then(() => {
+	.then(async () => {
 		requestAnimationFrame(tick);
 		startNet();
-		// Apply saved environment
-		applyEnvironment(currentEnvIndex);
+		// Stage the world: manifest → ?env / saved / default scene (terrain set
+		// synchronously, scenery + HDR streamed in). Degrades to the default
+		// ground/lighting if the manifest can't be reached.
+		await initEnvironments();
 		// Bring up the physics solver (async WASM); legacy movement runs until ready.
 		initWalkPhysics();
 		// Show camera mode if not default
@@ -3298,7 +3676,7 @@ if (import.meta.env?.DEV) {
 			y: p.mesh.position.y,
 			z: p.mesh.position.z,
 		})),
-		env: ENVIRONMENTS[currentEnvIndex]?.name,
+		env: currentEnvName,
 	});
 }
 
@@ -3319,7 +3697,11 @@ if (import.meta.env?.DEV) {
 	}
 
 	if (pickerBtn) pickerBtn.addEventListener('click', togglePicker);
-	if (pickerClose) pickerClose.addEventListener('click', () => { pickerOpen = false; if (pickerPanel) pickerPanel.hidden = true; });
+	if (pickerClose)
+		pickerClose.addEventListener('click', () => {
+			pickerOpen = false;
+			if (pickerPanel) pickerPanel.hidden = true;
+		});
 
 	async function loadAvatarList() {
 		pickerLoaded = true;
@@ -3329,7 +3711,8 @@ if (import.meta.env?.DEV) {
 			const data = await res.json();
 			const avatars = data?.avatars ?? [];
 			if (!avatars.length) {
-				pickerList.innerHTML = '<div class="walk-avatar-picker-loading">No avatars yet. <a href="/create" style="color:#fff;text-decoration:underline">Create one</a></div>';
+				pickerList.innerHTML =
+					'<div class="walk-avatar-picker-loading">No avatars yet. <a href="/create" style="color:#fff;text-decoration:underline">Create one</a></div>';
 				return;
 			}
 			pickerList.innerHTML = `
@@ -3337,64 +3720,73 @@ if (import.meta.env?.DEV) {
 					<div class="walk-avatar-opt-thumb" style="background:#333;display:flex;align-items:center;justify-content:center;font-size:16px">D</div>
 					<span class="walk-avatar-opt-name">Default avatar</span>
 				</button>
-				${avatars.map(a => {
-					const thumb = a.thumbnail_url || '';
-					const name = a.name || a.slug || 'Untitled';
-					const active = currentAvatarId === a.id;
-					return `<button class="walk-avatar-opt${active ? ' is-active' : ''}" data-avatar-url="${esc(a.url || '')}" data-avatar-id="${esc(a.id ?? '')}">
+				${avatars
+					.map((a) => {
+						const thumb = a.thumbnail_url || '';
+						const name = a.name || a.slug || 'Untitled';
+						const active = currentAvatarId === a.id;
+						return `<button class="walk-avatar-opt${active ? ' is-active' : ''}" data-avatar-url="${esc(a.url || '')}" data-avatar-id="${esc(a.id ?? '')}">
 						${thumb ? `<img class="walk-avatar-opt-thumb" src="${esc(thumb)}" alt="" loading="lazy" />` : `<div class="walk-avatar-opt-thumb" style="display:flex;align-items:center;justify-content:center;font-size:14px;color:#999">${esc(name[0] || '')}</div>`}
 						<span class="walk-avatar-opt-name">${esc(name)}</span>
 					</button>`;
-				}).join('')}
+					})
+					.join('')}
 			`;
 		} catch {
-			pickerList.innerHTML = '<div class="walk-avatar-picker-loading"><a href="/login" style="color:#fff;text-decoration:underline">Sign in</a> to use your avatars</div>';
+			pickerList.innerHTML =
+				'<div class="walk-avatar-picker-loading"><a href="/login" style="color:#fff;text-decoration:underline">Sign in</a> to use your avatars</div>';
 		}
 	}
 
-	if (pickerList) pickerList.addEventListener('click', async (e) => {
-		const btn = e.target.closest('.walk-avatar-opt');
-		if (!btn) return;
-		const url = btn.dataset.avatarUrl;
-		if (!url) return;
+	if (pickerList)
+		pickerList.addEventListener('click', async (e) => {
+			const btn = e.target.closest('.walk-avatar-opt');
+			if (!btn) return;
+			const url = btn.dataset.avatarUrl;
+			if (!url) return;
 
-		pickerList.querySelectorAll('.walk-avatar-opt').forEach(b => b.classList.remove('is-active'));
-		btn.classList.add('is-active');
-		currentAvatarId = btn.dataset.avatarId || null;
+			pickerList
+				.querySelectorAll('.walk-avatar-opt')
+				.forEach((b) => b.classList.remove('is-active'));
+			btn.classList.add('is-active');
+			currentAvatarId = btn.dataset.avatarId || null;
 
-		setStatus('Switching avatar...');
-		try {
-			const loader = new GLTFLoader();
-			const gltf = await loader.loadAsync(url);
-			if (avatar) avatarRig.remove(avatar);
-			avatar = gltf.scene;
-			avatarTemplate = gltf.scene;
-			avatar.traverse(n => {
-				if (n.isMesh) { n.castShadow = true; n.receiveShadow = false; }
-			});
-			const box = new Box3().setFromObject(avatar);
-			avatar.position.y -= box.min.y;
-			avatarRig.add(avatar);
-			const height = Math.max(0.5, box.max.y - box.min.y);
-			avatarHeight = height;
-			CAM_OFFSET.set(0, height * 1.05, height * 1.95);
-			CAM_LOOK_OFFSET.set(0, height * 0.6, 0);
-			// Respect current camera mode visibility
-			if (cameraMode === 'firstperson') avatar.visible = false;
-			animationManager.attach(avatar);
-			animationManager.crossfadeTo(motionToClipName(currentMotion), 0);
-			// Broadcast the new avatar so everyone else in the room re-renders us
-			// as our real avatar live, without a rejoin. Keep resolvedAvatarUrl in
-			// sync so remote-template caching stays correct.
-			resolvedAvatarUrl = url;
-			net?.sendAvatar(url, currentAvatarId || '');
-			setStatus('Avatar switched');
-		} catch (err) {
-			setStatus('Failed to load avatar', { error: true });
-			log.error('[walk] avatar switch failed:', err);
-		}
-		togglePicker();
-	});
+			setStatus('Switching avatar...');
+			try {
+				const loader = new GLTFLoader();
+				const gltf = await loader.loadAsync(url);
+				if (avatar) avatarRig.remove(avatar);
+				avatar = gltf.scene;
+				avatarTemplate = gltf.scene;
+				avatar.traverse((n) => {
+					if (n.isMesh) {
+						n.castShadow = true;
+						n.receiveShadow = false;
+					}
+				});
+				const box = new Box3().setFromObject(avatar);
+				avatar.position.y -= box.min.y;
+				avatarRig.add(avatar);
+				const height = Math.max(0.5, box.max.y - box.min.y);
+				avatarHeight = height;
+				CAM_OFFSET.set(0, height * 1.05, height * 1.95);
+				CAM_LOOK_OFFSET.set(0, height * 0.6, 0);
+				// Respect current camera mode visibility
+				if (cameraMode === 'firstperson') avatar.visible = false;
+				animationManager.attach(avatar);
+				animationManager.crossfadeTo(motionToClipName(currentMotion), 0);
+				// Broadcast the new avatar so everyone else in the room re-renders us
+				// as our real avatar live, without a rejoin. Keep resolvedAvatarUrl in
+				// sync so remote-template caching stays correct.
+				resolvedAvatarUrl = url;
+				net?.sendAvatar(url, currentAvatarId || '');
+				setStatus('Avatar switched');
+			} catch (err) {
+				setStatus('Failed to load avatar', { error: true });
+				log.error('[walk] avatar switch failed:', err);
+			}
+			togglePicker();
+		});
 }
 
 // ── Chat system ──────────────────────────────────────────────────────────
@@ -3427,22 +3819,31 @@ if (import.meta.env?.DEV) {
 		}, FADE_MS);
 	}
 
-	if (chatForm) chatForm.addEventListener('submit', (e) => {
-		e.preventDefault();
-		const text = chatInput.value.trim();
-		if (!text) return;
-		chatInput.value = '';
-		chatInput.blur(); // return focus to canvas so WASD works
-		const name = nameInput?.value?.trim() || 'you';
-		addChatMessage(name, text);
-		// Show speech bubble above local avatar
-		showSpeechBubbleFor('local', text);
-		net?.sendChat(text);
-	});
+	if (chatForm)
+		chatForm.addEventListener('submit', (e) => {
+			e.preventDefault();
+			const text = chatInput.value.trim();
+			if (!text) return;
+			chatInput.value = '';
+			chatInput.blur(); // return focus to canvas so WASD works
+			const name = nameInput?.value?.trim() || 'you';
+			addChatMessage(name, text);
+			// Show speech bubble above local avatar
+			showSpeechBubbleFor('local', text);
+			// Read the avatar as speaking for the life of the bubble — the talking
+			// overlay animates the upper body while the message is on screen.
+			triggerTalking(text);
+			net?.sendChat(text);
+		});
 
 	window.addEventListener('keydown', (e) => {
-		if (e.key === 'Enter' && !e.shiftKey && document.activeElement !== chatInput
-			&& document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
+		if (
+			e.key === 'Enter' &&
+			!e.shiftKey &&
+			document.activeElement !== chatInput &&
+			document.activeElement?.tagName !== 'INPUT' &&
+			document.activeElement?.tagName !== 'TEXTAREA'
+		) {
 			e.preventDefault();
 			chatInput?.focus();
 		}
@@ -3530,13 +3931,16 @@ if (import.meta.env?.DEV) {
 					ctx.clip();
 					// cover-fit the image into the circle
 					const s = Math.max(size / img.width, size / img.height);
-					const w = img.width * s, h = img.height * s;
+					const w = img.width * s,
+						h = img.height * s;
 					ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
 					ctx.restore();
 					ring();
 					tex.needsUpdate = true;
 				} catch {
-					drawFallback(); ring(); tex.needsUpdate = true;
+					drawFallback();
+					ring();
+					tex.needsUpdate = true;
 				}
 			};
 			img.src = COIN_PARAMS.image;
@@ -3551,7 +3955,11 @@ if (import.meta.env?.DEV) {
 		cv.width = cv.height = size;
 		const ctx = cv.getContext('2d');
 		const c = size / 2;
-		for (const [r, a, w] of [[c - 18, 0.85, 10], [c - 60, 0.35, 6], [c - 150, 0.18, 3]]) {
+		for (const [r, a, w] of [
+			[c - 18, 0.85, 10],
+			[c - 60, 0.35, 6],
+			[c - 150, 0.18, 3],
+		]) {
 			ctx.beginPath();
 			ctx.arc(c, c, r, 0, Math.PI * 2);
 			ctx.strokeStyle = accent.css;
@@ -3577,7 +3985,9 @@ if (import.meta.env?.DEV) {
 				new CircleGeometry(2.6, 64),
 				new MeshBasicMaterial({
 					map: makeGroundRingTexture(accent),
-					transparent: true, depthWrite: false, opacity: 0.9,
+					transparent: true,
+					depthWrite: false,
+					opacity: 0.9,
 				}),
 			);
 			this.ringMesh.rotation.x = -Math.PI / 2;
@@ -3587,7 +3997,13 @@ if (import.meta.env?.DEV) {
 			// Faint light beam from the ring up to the medallion.
 			this.beam = new Mesh(
 				new CylinderGeometry(0.04, 0.22, 3.0, 16, 1, true),
-				new MeshBasicMaterial({ color: accent.three, transparent: true, opacity: 0.12, depthWrite: false, side: DoubleSide }),
+				new MeshBasicMaterial({
+					color: accent.three,
+					transparent: true,
+					opacity: 0.12,
+					depthWrite: false,
+					side: DoubleSide,
+				}),
 			);
 			this.beam.position.y = 1.5;
 			this.group.add(this.beam);
@@ -3595,7 +4011,11 @@ if (import.meta.env?.DEV) {
 			// Billboarded medallion.
 			this.medallion = new Mesh(
 				new PlaneGeometry(1.5, 1.5),
-				new MeshBasicMaterial({ map: makeMedallionTexture(accent), transparent: true, depthWrite: false }),
+				new MeshBasicMaterial({
+					map: makeMedallionTexture(accent),
+					transparent: true,
+					depthWrite: false,
+				}),
 			);
 			this.medallion.position.y = 3.4;
 			this.group.add(this.medallion);
@@ -3629,14 +4049,22 @@ if (import.meta.env?.DEV) {
 		const hud = document.createElement('div');
 		hud.id = 'walk-coin-hud';
 		hud.style.cssText = [
-			'position:fixed', 'z-index:7',
-			'left:50%', 'top:calc(env(safe-area-inset-top, 0) + 56px)',
+			'position:fixed',
+			'z-index:7',
+			'left:50%',
+			'top:calc(env(safe-area-inset-top, 0) + 56px)',
 			'transform:translateX(-50%)',
-			'display:flex', 'align-items:center', 'gap:10px',
-			'background:rgba(14,14,22,0.74)', `border:1px solid ${accent.css}`,
-			'border-radius:999px', 'padding:6px 14px 6px 7px',
-			'backdrop-filter:blur(12px)', '-webkit-backdrop-filter:blur(12px)',
-			'font-family:system-ui,sans-serif', 'color:#fff',
+			'display:flex',
+			'align-items:center',
+			'gap:10px',
+			'background:rgba(14,14,22,0.74)',
+			`border:1px solid ${accent.css}`,
+			'border-radius:999px',
+			'padding:6px 14px 6px 7px',
+			'backdrop-filter:blur(12px)',
+			'-webkit-backdrop-filter:blur(12px)',
+			'font-family:system-ui,sans-serif',
+			'color:#fff',
 			'box-shadow:0 6px 24px rgba(0,0,0,0.35)',
 			'max-width:min(92vw, 460px)',
 		].join(';');
@@ -3646,7 +4074,9 @@ if (import.meta.env?.DEV) {
 			: `<span class="coin-fallback">${esc(initials(COIN_PARAMS.symbol, COIN_PARAMS.name))}</span>`;
 
 		const title = COIN_PARAMS.symbol ? `$${esc(COIN_PARAMS.symbol)}` : 'Coin';
-		const sub = COIN_PARAMS.name ? esc(COIN_PARAMS.name) : `${COIN_PARAMS.coin.slice(0, 4)}…${COIN_PARAMS.coin.slice(-4)}`;
+		const sub = COIN_PARAMS.name
+			? esc(COIN_PARAMS.name)
+			: `${COIN_PARAMS.coin.slice(0, 4)}…${COIN_PARAMS.coin.slice(-4)}`;
 
 		hud.innerHTML = `
 			<style>
@@ -3688,27 +4118,42 @@ if (import.meta.env?.DEV) {
 					const data = await r.json();
 					const t = data?.trades?.[0];
 					if (t && Number.isFinite(t.sol_amount)) {
-						const sol = t.sol_amount >= 1 ? t.sol_amount.toFixed(2) : t.sol_amount.toFixed(3);
+						const sol =
+							t.sol_amount >= 1 ? t.sol_amount.toFixed(2) : t.sol_amount.toFixed(3);
 						tradeEl.textContent = `${t.is_buy ? '▲' : '▼'} ${sol} SOL`;
 						tradeEl.className = `coin-trade is-live ${t.is_buy ? 'buy' : 'sell'}`;
 						tradeEl.title = 'Most recent on-chain trade';
 					}
 				}
-			} catch { /* offline / rate-limited — keep last value */ }
+			} catch {
+				/* offline / rate-limited — keep last value */
+			}
 			if (!stopped) setTimeout(pollTrade, TRADE_POLL_MS);
 		}
 		pollTrade();
-		window.addEventListener('beforeunload', () => { stopped = true; });
+		window.addEventListener('beforeunload', () => {
+			stopped = true;
+		});
 	}
 
-	function escAttr(s) { return String(s).replace(/[<>&"]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' })[c]); }
+	function escAttr(s) {
+		return String(s).replace(
+			/[<>&"]/g,
+			(c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' })[c],
+		);
+	}
 }
 
 // ── Restore zen preference ───────────────────────────────────────────────
 // Runs after all UI state is declared. URL param wins, then stored choice.
 (() => {
 	const param = new URLSearchParams(location.search).get('ui');
-	if (param === 'hidden' || param === 'off') { setZen(true); return; }
+	if (param === 'hidden' || param === 'off') {
+		setZen(true);
+		return;
+	}
 	if (param === 'on' || param === 'shown') return;
-	try { if (localStorage.getItem(ZEN_STORAGE_KEY) === '1') setZen(true); } catch {}
+	try {
+		if (localStorage.getItem(ZEN_STORAGE_KEY) === '1') setZen(true);
+	} catch {}
 })();

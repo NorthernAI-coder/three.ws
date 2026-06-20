@@ -19,6 +19,13 @@ import {
 	VersionedTransaction,
 } from '@solana/web3.js';
 import { log } from './shared/log.js';
+import { trackFunnelStep, trackError, ANALYTICS_EVENTS } from './analytics.js';
+
+// The $THREE conversion funnel only counts swaps that actually touch $THREE —
+// this modal is a general swap surface, so a USDC↔SOL trade isn't a holder step.
+function _involvesThree() {
+	return _ctx?.inputToken?.mint === THREE_MINT || _ctx?.outputToken?.mint === THREE_MINT;
+}
 
 // Solana mint constants used as built-in defaults / quick picks. SOL and USDC
 // are coin-agnostic settlement / quote assets (the default swap pair); $THREE is
@@ -455,13 +462,25 @@ async function fetchQuote() {
 		if (seq !== _quoteSeq) return; // Stale response.
 		_quote = quote;
 
-		$('sj-to-amount').value = fmtAmount(quote.outAmount, _ctx.outputToken.decimals);
+		const outAmountStr = fmtAmount(quote.outAmount, _ctx.outputToken.decimals);
+		$('sj-to-amount').value = outAmountStr;
 		renderQuoteMeta(quote);
 		setStatus('');
 		updateConfirmButton();
+
+		// $THREE holder funnel, step 3: a real quote is on screen.
+		if (_involvesThree()) {
+			trackFunnelStep('three', ANALYTICS_EVENTS.TOKEN_QUOTE_SHOWN, {
+				out_amount: Number(outAmountStr) || undefined,
+				in_token: _ctx.inputToken.symbol,
+				out_token: _ctx.outputToken.symbol,
+				price_impact_pct: Number(quote.priceImpactPct || 0) * 100 || undefined,
+			});
+		}
 	} catch (err) {
 		if (seq !== _quoteSeq) return;
 		log.error('[swap-jupiter] quote failed', err);
+		if (_involvesThree()) trackError('swap.quote', err, { funnel: 'three' });
 		_quote = null;
 		$('sj-to-amount').value = '';
 		setStatus(`Quote failed: ${err.message}`, 'sj-err');
@@ -826,6 +845,15 @@ async function executeSwap() {
 		const outSym = _ctx.outputToken.symbol;
 		const outAmount = $('sj-to-amount').value;
 
+		// $THREE holder funnel, step 4: user approved + submitted the swap.
+		if (_involvesThree()) {
+			trackFunnelStep('three', ANALYTICS_EVENTS.TOKEN_SWAP_CONFIRMED, {
+				out_amount: Number(outAmount) || undefined,
+				in_token: _ctx.inputToken.symbol,
+				out_token: outSym,
+			});
+		}
+
 		const connection = new Connection(SWAP_RPC, 'confirmed');
 		const sig = await connection.sendRawTransaction(signed.serialize(), {
 			skipPreflight: false,
@@ -850,6 +878,15 @@ async function executeSwap() {
 			btn.disabled = false;
 			_phase = 'done';
 			refreshBalance();
+
+			// $THREE holder funnel, step 5: swap settled on-chain.
+			if (_involvesThree()) {
+				trackFunnelStep('three', ANALYTICS_EVENTS.TOKEN_SWAP_SUCCEEDED, {
+					out_amount: Number(outAmount) || undefined,
+					out_token: outSym,
+					tx_short: `${sig.slice(0, 4)}…${sig.slice(-4)}`,
+				});
+			}
 		} else if (result.state === 'failed') {
 			setStatus(statusBanner(
 				'Swap failed on-chain',
@@ -872,6 +909,7 @@ async function executeSwap() {
 		}
 	} catch (err) {
 		log.error('[swap-jupiter] swap failed', err);
+		if (_involvesThree()) trackError('swap.execute', err, { funnel: 'three' });
 		const friendly = /user rejected|rejected the request|declined/i.test(err.message || '')
 			? 'You declined the transaction in your wallet.'
 			: err.message;

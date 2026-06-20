@@ -1,4 +1,13 @@
-import { AnimationClip, AnimationMixer, LoopRepeat, LoopOnce, Quaternion, Vector3 } from 'three';
+import {
+	AdditiveAnimationBlendMode,
+	AnimationClip,
+	AnimationMixer,
+	AnimationUtils,
+	LoopRepeat,
+	LoopOnce,
+	Quaternion,
+	Vector3,
+} from 'three';
 import { canonicalizeBoneName } from './glb-canonicalize.js';
 import {
 	canonicalNodeMapFromObject,
@@ -73,6 +82,18 @@ export function measureHipsTiltDeg(retargetedClip, model, canonicalToNode) {
 // + a limb, which is enough to read as a real humanoid performance.
 const MIN_CANONICAL_BONES = 8;
 
+// Canonical bones that belong to the lower body. When a gesture plays as an
+// upper-body overlay (so the avatar can wave while it keeps walking), every
+// track addressing one of these bones is stripped from the additive clip — the
+// base locomotion layer owns the hips, legs, and feet; the overlay only adds
+// motion to the spine, arms, neck, and head. Hips is included so the overlay
+// never fights the walk cycle's root sway.
+const LOWER_BODY_CANONICAL = Object.freeze([
+	'Hips',
+	'LeftUpLeg', 'LeftLeg', 'LeftFoot', 'LeftToeBase',
+	'RightUpLeg', 'RightLeg', 'RightFoot', 'RightToeBase',
+]);
+
 /**
  * Manages pre-baked animation clips for skinned agents.
  *
@@ -122,6 +143,14 @@ export class AnimationManager {
 		this._fallen = new Set();
 		/** @type {string|null} Name of the most-recently-requested crossfade target. Used to cancel stale async requests. */
 		this._latestCrossfadeTarget = null;
+		/** @type {THREE.AnimationAction|null} The additive upper-body overlay action (gesture-over-walk), if any. */
+		this.overlayAction = null;
+		/** @type {string|null} Name of the active overlay gesture clip. */
+		this.overlayName = null;
+		/** @type {Map<string, THREE.AnimationClip>} Cache of built additive overlay clips, keyed by `${name}|${upperBodyOnly}`. */
+		this._overlayClips = new Map();
+		/** @type {Function|null} mixer 'finished' listener for the current one-shot overlay. */
+		this._overlayFinishHandler = null;
 	}
 
 	/**
@@ -260,6 +289,12 @@ export class AnimationManager {
 		this.currentName = null;
 		this._latestCrossfadeTarget = null;
 		this._fallen.clear();
+		// Overlay clips are retargeted to the (now-gone) model's bones — drop them
+		// so a freshly-attached rig rebuilds its own.
+		this.overlayAction = null;
+		this.overlayName = null;
+		this._overlayClips.clear();
+		this._overlayFinishHandler = null;
 	}
 
 	// ── Definitions ────────────────────────────────────────────────────────────
@@ -588,6 +623,134 @@ export class AnimationManager {
 		try { this.onChange?.(name); } catch (e) { log.warn('[AnimationManager] onChange threw:', e); }
 	}
 
+	// ── Additive overlay (gesture-over-locomotion) ──────────────────────────────
+
+	/**
+	 * Build (and cache) an additive clip for the named library clip, retargeted to
+	 * the attached rig. The clip is made additive relative to its own first frame —
+	 * the standard three.js technique (see webgl_animation_skinning_additive_blending) —
+	 * so playing it adds its pose delta on top of whatever the base layer is doing.
+	 * When `upperBodyOnly` is set, every lower-body track (hips, legs, feet) is
+	 * dropped first so locomotion keeps full control of the legs.
+	 *
+	 * @param {string} name
+	 * @param {boolean} upperBodyOnly
+	 * @returns {THREE.AnimationClip|null}
+	 */
+	_buildOverlayClip(name, upperBodyOnly) {
+		const cacheKey = `${name}|${upperBodyOnly ? 'upper' : 'full'}`;
+		const cached = this._overlayClips.get(cacheKey);
+		if (cached) return cached;
+
+		const raw = this.clips.get(name);
+		if (!raw) return null;
+		const retargeted = this._retarget(raw);
+		if (!retargeted) return null;
+
+		let tracks = retargeted.tracks;
+		if (upperBodyOnly && this._canonicalToNode) {
+			const lowerNodes = new Set();
+			for (const canonical of LOWER_BODY_CANONICAL) {
+				const node = this._canonicalToNode.get(canonical);
+				if (node) lowerNodes.add(node);
+			}
+			tracks = tracks.filter((t) => {
+				const node = t.name.split('.')[0];
+				return !lowerNodes.has(node);
+			});
+			if (tracks.length === 0) return null; // rig shares no upper-body bones
+		}
+
+		const overlay = new AnimationClip(`${name}__additive`, retargeted.duration, tracks);
+		// Subtract frame 0 so the clip becomes a pose-delta the mixer can add.
+		AnimationUtils.makeClipAdditive(overlay);
+		this._overlayClips.set(cacheKey, overlay);
+		return overlay;
+	}
+
+	/**
+	 * Play a gesture as an additive overlay on top of the current base clip, so the
+	 * avatar can (e.g.) wave or cheer while it keeps walking. The base
+	 * idle/walk/run action is untouched — only this additive layer is added.
+	 *
+	 * @param {string} name clip name (library or appended def)
+	 * @param {{ loop?: boolean, crossfade?: number, upperBodyOnly?: boolean, timeScale?: number, onFinished?: Function }} [opts]
+	 * @returns {Promise<boolean>} true if the overlay started
+	 */
+	async playOverlay(name, { loop = false, crossfade = 0.25, upperBodyOnly = true, timeScale = 1, onFinished = null } = {}) {
+		crossfade = Math.max(0, Math.min(crossfade, 5));
+		const ready = await this.ensureLoaded(name);
+		if (!ready || !this.mixer) return false;
+
+		const overlayClip = this._buildOverlayClip(name, upperBodyOnly);
+		if (!overlayClip) return false;
+
+		const next = this.mixer.clipAction(overlayClip, undefined, AdditiveAnimationBlendMode);
+		// Tear down any previous overlay listener and fade the old overlay out.
+		this._detachOverlayFinish();
+		const prev = this.overlayAction;
+		if (prev && prev !== next) prev.fadeOut(crossfade);
+
+		next.enabled = true;
+		next.setLoop(loop ? LoopRepeat : LoopOnce, loop ? Infinity : 1);
+		next.clampWhenFinished = !loop;
+		next.setEffectiveTimeScale(timeScale);
+		next.reset();
+		next.setEffectiveWeight(1);
+		next.fadeIn(crossfade);
+		next.play();
+
+		this.overlayAction = next;
+		this.overlayName = name;
+
+		if (!loop) {
+			const handler = (e) => {
+				if (e.action !== next) return;
+				this.mixer.removeEventListener('finished', handler);
+				if (this._overlayFinishHandler === handler) this._overlayFinishHandler = null;
+				// Fade the held final frame out and clear, unless something already
+				// replaced this overlay.
+				if (this.overlayAction === next) {
+					next.fadeOut(crossfade);
+					this.overlayAction = null;
+					this.overlayName = null;
+				}
+				try { onFinished?.(name); } catch (err) { log.warn('[AnimationManager] overlay onFinished threw:', err); }
+			};
+			this._overlayFinishHandler = handler;
+			this.mixer.addEventListener('finished', handler);
+		}
+		return true;
+	}
+
+	/** @private Detach the pending one-shot overlay 'finished' listener. */
+	_detachOverlayFinish() {
+		if (this._overlayFinishHandler && this.mixer) {
+			this.mixer.removeEventListener('finished', this._overlayFinishHandler);
+		}
+		this._overlayFinishHandler = null;
+	}
+
+	/**
+	 * Fade out and clear the active additive overlay, returning the avatar to the
+	 * pure base layer. No-op when no overlay is playing.
+	 * @param {{ crossfade?: number }} [opts]
+	 */
+	stopOverlay({ crossfade = 0.2 } = {}) {
+		crossfade = Math.max(0, Math.min(crossfade, 5));
+		this._detachOverlayFinish();
+		if (this.overlayAction) {
+			this.overlayAction.fadeOut(crossfade);
+			this.overlayAction = null;
+			this.overlayName = null;
+		}
+	}
+
+	/** @returns {boolean} whether an additive overlay is currently playing. */
+	hasOverlay() {
+		return this.overlayAction != null;
+	}
+
 	/**
 	 * Scale playback speed of the active clip. 1 = normal; >1 plays faster
 	 * (used to make a walk cycle read as a run).
@@ -600,8 +763,11 @@ export class AnimationManager {
 	/** Stop all animations. */
 	stopAll() {
 		this.mixer?.stopAllAction();
+		this._detachOverlayFinish();
 		this.currentAction = null;
 		this.currentName = null;
+		this.overlayAction = null;
+		this.overlayName = null;
 		try { this.onChange?.(null); } catch (e) { log.warn('[AnimationManager] onChange threw:', e); }
 	}
 

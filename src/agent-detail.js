@@ -34,6 +34,7 @@ import { openCoinLaunch } from './shared/agent-coin.js';
 import { showSharePanel } from './shared/share.js';
 import { enrichAgentDetail, renderEmbed as renderAgentEmbed } from './agent-detail-market.js';
 import { log } from './shared/log.js';
+import { track, trackError, ANALYTICS_EVENTS } from './analytics.js';
 import { mountViewSwitcher } from './view-switcher.js';
 import { mountCoinStatus } from './pump/coin-status-card.js';
 import { consumeCsrfToken } from './api.js';
@@ -2011,11 +2012,18 @@ function runLoad() {
 	loadAgent(id)
 		.then(({ agent, error, notFound, redirecting }) => {
 			if (redirecting) return;
-			if (agent) { render(agent); renderOracleTrackRecord(agent.id); return; }
+			if (agent) {
+				track(ANALYTICS_EVENTS.AGENT_PROFILE_VIEWED, { agent_id: agent.id });
+				render(agent);
+				renderOracleTrackRecord(agent.id);
+				return;
+			}
 			if (notFound) return renderNotFound(id, typeof error === 'string' ? error : '');
+			if (error) trackError('agent_detail.load', error, { agent_id: id });
 			renderLoadError(error);
 		})
 		.catch((e) => {
+			trackError('agent_detail.load', e, { agent_id: id });
 			renderLoadError(e);
 		});
 }

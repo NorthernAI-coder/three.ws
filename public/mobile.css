@@ -375,3 +375,69 @@
 		scroll-behavior: smooth;
 	}
 }
+
+/* ── Tap-target floor (touch only) ─────────────────────────────────────
+ * Loaded last, so these win over page CSS on equal specificity. Gated on
+ * pointer type (not viewport width) because a 768px+ tablet is still
+ * touch-only and needs the same 44px floor — and desktop mouse visuals
+ * must stay untouched. Scope is the controls the cross-page audit flagged
+ * below 44px at 320/768: search/sort fields, marketplace + agents filter
+ * controls, the dashboard/login form, and the onboarding pill.
+ */
+@media (hover: none) and (pointer: coarse) {
+	/* Primary text fields & selects — comfortable height + 16px font (the
+	   font rule above already prevents iOS focus-zoom). */
+	#market-search,
+	#ag-search,
+	#skills-search,
+	.market-sort,
+	#ag-sort,
+	#skills-sort {
+		min-height: 44px;
+	}
+
+	/* Buttons that drive search/filter/auth flows. */
+	.mkt-wallet-btn,
+	.market-theme-cta,
+	#skills-loadmore,
+	.privy-row-btn,
+	.privy-chain-btn,
+	.onchain-toggle-btn,
+	.card-see3d {
+		min-height: 44px;
+	}
+
+	/* Square icon buttons need width too, not just height. */
+	.password-toggle,
+	.card-star {
+		min-width: 44px;
+		min-height: 44px;
+	}
+
+	/* Filter chips/segments: 40px keeps dense rows from ballooning while
+	   still clearing the comfortable-touch threshold, with breathing room
+	   between neighbours. */
+	.market-chip,
+	.market-cat-chip,
+	.market-filter-chip {
+		min-height: 40px;
+		display: inline-flex;
+		align-items: center;
+	}
+	.market-filter-chips,
+	.market-cats {
+		gap: 8px;
+	}
+
+	/* "On-chain only" style inline checkbox rows — give the whole label a
+	   44px hit area and enlarge the box itself from its 13px default. */
+	label:has(> #ag-onchain),
+	label:has(> #remember) {
+		min-height: 44px;
+	}
+	#ag-onchain,
+	#remember {
+		width: 18px;
+		height: 18px;
+	}
+}

@@ -11,6 +11,8 @@ import {
 	DEFAULT_STATES,
 	DEFAULT_TRANSITIONS,
 	STATE_NAMES,
+	GESTURES,
+	GESTURE_NAMES,
 } from '../src/animation-state-machine.js';
 
 function record() {
@@ -185,5 +187,90 @@ describe('AnimationStateMachine — onTransition payload', () => {
 		expect(p.clip).toBe('walk');
 		expect(p.def).toBe(sm.states.walk);
 		expect(typeof p.crossfade).toBe('number');
+	});
+});
+
+describe('AnimationStateMachine — gesture slot', () => {
+	let onT, onG, sm;
+	beforeEach(() => {
+		onT = record();
+		onG = record();
+		sm = new AnimationStateMachine({}, onT, onG);
+	});
+
+	it('exposes the eight built-in gestures', () => {
+		expect(GESTURE_NAMES).toEqual([
+			'wave', 'dance', 'sit', 'point', 'cheer', 'agree', 'disagree', 'talking',
+		]);
+		for (const name of GESTURE_NAMES) {
+			const g = GESTURES[name];
+			expect(typeof g.clip).toBe('string');
+			expect(['upper', 'full']).toContain(g.layer);
+			expect(typeof g.crossfade).toBe('number');
+		}
+	});
+
+	it('playGesture sets the slot and fires onGesture with the resolved def', () => {
+		const out = sm.playGesture('wave');
+		expect(out).toBe('wave');
+		expect(sm.getGesture()).toBe('wave');
+		const p = onG.calls[0];
+		expect(p.active).toBe(true);
+		expect(p.gesture).toBe('wave');
+		expect(p.def.clip).toBe('wave');
+		expect(p.def.layer).toBe('upper');
+		expect(p.prev).toBe(null);
+	});
+
+	it('rejects unknown gestures without touching the slot', () => {
+		expect(sm.playGesture('moonwalk')).toBe(null);
+		expect(sm.getGesture()).toBe(null);
+		expect(onG.calls.length).toBe(0);
+	});
+
+	it('re-firing the active gesture is a no-op (held loops do not restart)', () => {
+		sm.playGesture('dance');
+		sm.playGesture('dance');
+		expect(onG.calls.length).toBe(1);
+		expect(sm.getGesture()).toBe('dance');
+	});
+
+	it('switching gestures reports the previous one', () => {
+		sm.playGesture('wave');
+		sm.playGesture('cheer');
+		expect(sm.getGesture()).toBe('cheer');
+		expect(onG.calls[1].prev).toBe('wave');
+	});
+
+	it('endGesture clears the slot and fires active:false', () => {
+		sm.playGesture('sit');
+		const cleared = sm.endGesture();
+		expect(cleared).toBe('sit');
+		expect(sm.getGesture()).toBe(null);
+		const p = onG.calls[onG.calls.length - 1];
+		expect(p.active).toBe(false);
+		expect(p.gesture).toBe(null);
+		expect(p.prev).toBe('sit');
+	});
+
+	it('endGesture with no active gesture is a no-op', () => {
+		expect(sm.endGesture()).toBe(null);
+		expect(onG.calls.length).toBe(0);
+	});
+
+	it('runs the gesture slot in parallel to the base state', () => {
+		sm.fire('walk');
+		sm.playGesture('wave');
+		// Base locomotion is untouched by the gesture slot.
+		expect(sm.getCurrent()).toBe('walk');
+		expect(sm.getGesture()).toBe('wave');
+	});
+
+	it('reset clears both the base state and the gesture slot', () => {
+		sm.fire('walk');
+		sm.playGesture('dance');
+		sm.reset();
+		expect(sm.getCurrent()).toBe('idle');
+		expect(sm.getGesture()).toBe(null);
 	});
 });

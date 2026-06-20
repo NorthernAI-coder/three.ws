@@ -35,6 +35,7 @@ import {
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import nipplejs from 'nipplejs';
+import { getMeshoptDecoder } from './viewer/internal.js';
 
 import { AnimationManager } from './animation-manager.js';
 import { log } from './shared/log.js';
@@ -162,6 +163,14 @@ function emit(type, payload = {}, legacy = null) {
 		window.parent.postMessage(makeMessage(type, payload), TARGET_ORIGIN);
 		if (legacy) window.parent.postMessage(legacy, TARGET_ORIGIN);
 	} catch {}
+}
+
+// Post a raw, pre-shaped message to the host frame. Used for the embed's
+// imperative ack/error replies (walk:avatarChanged, walk:error) that aren't part
+// of the typed lifecycle contract; emit() is preferred for ready/position/move.
+function postToHost(message) {
+	if (!INSIDE_IFRAME) return;
+	try { window.parent.postMessage(message, TARGET_ORIGIN); } catch {}
 }
 
 // ── Renderer / scene ──────────────────────────────────────────────────────
@@ -387,11 +396,28 @@ let avatarYaw = 0;
 let avatarLean = 0;
 let currentMotion = 'idle';
 
+// The default avatar (and most three.ws avatars) ship with
+// EXT_meshopt_compression, so the loader must have the meshopt decoder wired
+// before it can parse a single bufferView — otherwise GLTFLoader throws
+// "setMeshoptDecoder must be called before loading compressed files". Build the
+// loader once and share it across the initial load and live avatar swaps.
+let _loaderPromise = null;
+function getAvatarLoader() {
+	if (!_loaderPromise) {
+		_loaderPromise = getMeshoptDecoder().then((decoder) => {
+			const loader = new GLTFLoader();
+			loader.setMeshoptDecoder(decoder);
+			return loader;
+		});
+	}
+	return _loaderPromise;
+}
+
 async function loadAvatar() {
 	setStatus('loading avatar…', { sticky: true });
 
 	const avatarUrl = resolveAvatarUrl();
-	const loader = new GLTFLoader();
+	const loader = await getAvatarLoader();
 	const gltf = await loader.loadAsync(avatarUrl);
 	avatar = gltf.scene;
 	avatar.traverse((n) => {
@@ -609,7 +635,7 @@ window.addEventListener('message', async (e) => {
 	if (!msg || typeof msg !== 'object') return;
 	if (msg.type === 'walk:setAvatar' && msg.id) {
 		try {
-			const loader = new GLTFLoader();
+			const loader = await getAvatarLoader();
 			const gltf = await loader.loadAsync(`/api/avatars/${encodeURIComponent(msg.id)}/glb`);
 			if (avatar) avatarRig.remove(avatar);
 			avatar = gltf.scene;
@@ -652,12 +678,20 @@ window.addEventListener('message', async (e) => {
 });
 
 // ── Speech bubble (DOM overlay) ───────────────────────────────────────────
+// Shows the narration text above the avatar. The text lives in a dedicated
+// inner element clamped to 3 lines (-webkit-line-clamp) so long sections wrap
+// and truncate cleanly; the pointer triangle is a separate sibling so it never
+// participates in the clamp. Authoritative hide is walk:narrateEnd (audio
+// ended); the timer is only a fallback if that message is ever lost.
 let bubbleEl = null;
+let bubbleTextEl = null;
 let bubbleHideTimer = null;
 
 function ensureBubble() {
 	if (bubbleEl) return bubbleEl;
 	bubbleEl = document.createElement('div');
+	bubbleEl.setAttribute('role', 'status');
+	bubbleEl.setAttribute('aria-live', 'polite');
 	bubbleEl.style.cssText = `
 		position: fixed;
 		left: 50%;
@@ -678,9 +712,20 @@ function ensureBubble() {
 		z-index: 10;
 		opacity: 0;
 		transition: opacity 0.25s ease;
+	`;
+
+	bubbleTextEl = document.createElement('div');
+	bubbleTextEl.style.cssText = `
+		display: -webkit-box;
+		-webkit-box-orient: vertical;
+		-webkit-line-clamp: 3;
+		line-clamp: 3;
+		overflow: hidden;
 		word-break: break-word;
 	`;
-	// Pointer triangle
+	bubbleEl.appendChild(bubbleTextEl);
+
+	// Pointer triangle — sibling of the clamped text so it's never counted.
 	const tri = document.createElement('div');
 	tri.style.cssText = `
 		position: absolute;
@@ -700,13 +745,11 @@ function ensureBubble() {
 
 function showSpeechBubble(text) {
 	clearTimeout(bubbleHideTimer);
-	const el = ensureBubble();
-	// Set text without the pointer triangle child
-	const tri = el.lastChild;
-	el.textContent = text.slice(0, 220);
-	el.appendChild(tri);
-	el.style.opacity = '1';
-	// Auto-hide after estimated reading time
+	ensureBubble();
+	bubbleTextEl.textContent = text.slice(0, 280);
+	bubbleEl.style.opacity = '1';
+	// Fallback auto-hide keyed to estimated reading time, in case walk:narrateEnd
+	// never arrives (e.g. audio blocked by the host's autoplay policy).
 	const ms = Math.max(2500, text.length * 55);
 	bubbleHideTimer = setTimeout(hideSpeechBubble, ms);
 }

@@ -263,6 +263,7 @@ const appConfig = {
 					chunk.name === 'footer-bot' ||
 					chunk.name === 'walk-companion' ||
 					chunk.name === 'walk-playground' ||
+					chunk.name === 'feature-tour' ||
 					chunk.name === 'notifications' ||
 					chunk.name === 'nav-tier-badge'
 						? `${chunk.name}.js`
@@ -272,6 +273,7 @@ const appConfig = {
 				'footer-bot': resolve(__dirname, 'src/footer-bot.js'),
 				'walk-companion': resolve(__dirname, 'src/walk-companion.js'),
 				'walk-playground': resolve(__dirname, 'src/walk-playground.js'),
+				'feature-tour': resolve(__dirname, 'src/feature-tour.js'),
 				notifications: resolve(__dirname, 'src/notifications.js'),
 				'nav-tier-badge': resolve(__dirname, 'src/nav-tier-badge.js'),
 				app: resolve(__dirname, 'pages/app.html'),
@@ -1209,6 +1211,12 @@ support: resolve(__dirname, 'pages/support.html'),
 					// companion) can launch the full-page walk playground on demand.
 					if (path === '/walk-playground.js') {
 						req.url = '/src/walk-playground.js';
+						return next();
+					}
+					// /feature-tour.js — nav.js's Guided Tour module, served from src
+					// in dev at the stable, unhashed name it ships under in prod.
+					if (path === '/feature-tour.js') {
+						req.url = '/src/feature-tour.js';
 						return next();
 					}
 					// /notifications.js — nav.js loads this module for the per-user inbox.
