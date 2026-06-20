@@ -41,6 +41,7 @@ import {
 } from '../_lib/pump-trade-args.js';
 import { getBuyQuote, getSellQuote } from '../_lib/solana/sdk-bridge.js';
 import { getAmmPoolState } from '../_lib/pump.js';
+import { assessTradeSafety, recordFirewallDecision } from '../_lib/trade-firewall.js';
 
 const LAMPORTS_PER_SOL = 1_000_000_000;
 const BASE58_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
@@ -280,7 +281,12 @@ export async function handleTrade(req, res, id) {
 	if (!address) {
 		return error(res, 409, 'wallet_preparing', 'this agent’s wallet is still being prepared — try again in a moment');
 	}
-	const ownerPk = new PublicKey(address);
+	let ownerPk;
+	try {
+		ownerPk = new PublicKey(address);
+	} catch {
+		return error(res, 409, 'wallet_preparing', 'this agent’s wallet is still being prepared — try again in a moment');
+	}
 
 	const readConn = solanaConnection(network);
 
@@ -363,6 +369,37 @@ export async function handleTrade(req, res, id) {
 		}
 	}
 
+	// Rug/honeypot firewall — a REAL on-chain simulated buy→sell round-trip +
+	// authority audit, gating BUYS only (a sell brings SOL inward, the safe
+	// direction). A 'block' verdict refuses the buy with a structured 422 the UI
+	// surfaces pre-trade. Never throws; degrades to 'warn' when a source is down.
+	let quoteFirewall = null;
+	if (!guardWarning && side === 'buy') {
+		const assessment = await assessTradeSafety({
+			network, mint: mintPk, side: 'buy', payer: ownerPk,
+			quoteAmount: BigInt(quote.inAtomics), priceImpactPct: quote.priceImpactPct,
+		}).catch(() => null);
+		if (assessment) {
+			recordFirewallDecision({
+				mint: mintStr, network, side: 'buy',
+				verdict: assessment.verdict, score: assessment.score, simulated: assessment.simulated,
+				checks: assessment.checks, reasons: assessment.reasons,
+				source: 'discretionary', agentId: id, userId: auth.userId,
+				quoteLamports: BigInt(quote.inAtomics), enforced: assessment.verdict === 'block',
+			}).catch(() => {});
+			if (assessment.verdict === 'block') {
+				guardWarning = {
+					status: 422,
+					code: 'firewall_blocked',
+					message: assessment.reasons?.[0] || 'This trade was blocked by the safety firewall.',
+					detail: { verdict: assessment.verdict, score: assessment.score, simulated: assessment.simulated, reasons: assessment.reasons, checks: assessment.checks },
+				};
+			} else {
+				quoteFirewall = { verdict: assessment.verdict, score: assessment.score, simulated: assessment.simulated, reasons: assessment.reasons, checks: assessment.checks };
+			}
+		}
+	}
+
 	// SOL fee/headroom + balance check (real on-chain balance).
 	let walletLamports = null;
 	try {
@@ -402,6 +439,7 @@ export async function handleTrade(req, res, id) {
 		wallet_balance_sol: walletLamports != null ? lamportsToSol(walletLamports) : null,
 		guard: guardWarning,
 		funds: fundsWarning,
+		firewall: quoteFirewall,
 	};
 
 	// 3. PREVIEW — return the quote, never touch the key, never send.

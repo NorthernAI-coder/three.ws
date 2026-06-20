@@ -114,162 +114,44 @@ function renderPage(root, payload) {
 
 function extraCopy(payload) {
 	const { template, config } = payload;
-	const m = config?.monetize || {};
 	if (template === 'token-launchpad') {
 		const t = config?.token || {};
 		const name = t.name || 'your token';
 		const ticker = t.ticker ? ` ($${t.ticker})` : '';
 		return `One click launches ${name}${ticker} on Pump.fun. Creator fees route to ${short(config?.identity?.wallet)}.`;
 	}
-	if (template === 'paid-concierge') {
-		return `Ask anything. Each call costs ${priceLabel(m) || 'a small USDC fee'} and settles instantly to ${short(config?.identity?.wallet)}.`;
-	}
-	if (template === 'gated-showroom') {
-		return `Unlock a private 3D scene with a one-time ${priceLabel(m) || 'USDC pass'}.`;
+	// Legacy templates (paid-concierge / gated-showroom) render as hosted
+	// landing pages; their CTA routes to the creator's own channel below.
+	if (config?.identity?.website) {
+		return `Built on three.ws. Continue to ${short(config?.identity?.wallet)}'s site to take the next step.`;
 	}
 	return '';
 }
 
-// CTA handlers — each template hands off to the relevant real flow.
+// CTA handler. The only template with an on-platform action is the token
+// launchpad (one-click Pump.fun mint). Every other published page is a hosted
+// landing page whose CTA continues to the creator's own website — never a
+// dead endpoint.
 function onCtaClick(payload, btn, statusEl) {
-	const { template, slug, config } = payload;
+	const { template, config } = payload;
 	if (template === 'token-launchpad') {
-		// Pump.fun coin creation lives in the agent token UI. Open the
-		// dedicated launch surface with prefilled params; the user signs the
-		// transaction in their wallet there.
-		const t = config?.token || {};
-		const params = new URLSearchParams({
-			creator: config?.identity?.wallet || '',
-			name: t.name || '',
-			ticker: t.ticker || '',
-			supply: String(t.supply || ''),
-			ref: `launchpad:${slug}`,
-		});
-		window.open(`${AGENT_3D_HOST}/agent-pumpfun?${params}`, '_blank', 'noopener');
-		statusEl.textContent = 'Opened Pump.fun launch in a new tab.';
+		// Pump.fun coin creation lives on the public /launch surface, where the
+		// visitor picks a wallet and signs the mint transaction themselves.
+		window.open(`${AGENT_3D_HOST}/launch`, '_blank', 'noopener');
+		statusEl.textContent = 'Opened the three.ws launch flow in a new tab.';
 		statusEl.className = 'status-msg ok';
 		return;
 	}
-	if (template === 'paid-concierge') {
-		openConciergeModal(payload, statusEl);
+	const website = config?.identity?.website || '';
+	if (website) {
+		const href = /^https?:\/\//i.test(website) ? website : `https://${website}`;
+		window.open(href, '_blank', 'noopener');
+		statusEl.textContent = 'Continuing to the creator’s site…';
+		statusEl.className = 'status-msg ok';
 		return;
 	}
-	if (template === 'gated-showroom') {
-		openUnlockModal(payload, statusEl);
-		return;
-	}
-	statusEl.textContent = 'No action wired for this template yet.';
+	statusEl.textContent = 'This page has no destination set yet — add a website in the Studio.';
 	statusEl.className = 'status-msg err';
-}
-
-function openConciergeModal(payload, statusEl) {
-	const { slug, config } = payload;
-	const m = config?.monetize || {};
-	const backdrop = document.createElement('div');
-	backdrop.className = 'modal-backdrop';
-	backdrop.innerHTML = `
-		<div class="modal" role="dialog" aria-modal="true">
-			<h2>Ask the concierge</h2>
-			<p>Costs ${esc(priceLabel(m) || 'a small USDC fee')}. Settles to ${esc(short(config?.identity?.wallet))} on ${esc(m.chain || 'base')}.</p>
-			<div class="field">
-				<label>Your question</label>
-				<input type="text" data-q placeholder="What's the best way to..." autofocus />
-			</div>
-			<div class="status-msg" data-modal-status></div>
-			<div class="modal-actions">
-				<button class="secondary" data-cancel>Cancel</button>
-				<button class="primary" data-pay>Pay ${esc(priceLabel(m) || '')}</button>
-			</div>
-		</div>
-	`;
-	document.body.appendChild(backdrop);
-	const close = () => backdrop.remove();
-	backdrop.querySelector('[data-cancel]').addEventListener('click', close);
-	backdrop.addEventListener('click', (e) => { if (e.target === backdrop) close(); });
-	backdrop.querySelector('[data-pay]').addEventListener('click', async () => {
-		const q = backdrop.querySelector('[data-q]').value.trim();
-		const ms = backdrop.querySelector('[data-modal-status]');
-		if (!q) { ms.textContent = 'Type a question first.'; ms.className = 'status-msg err'; return; }
-		ms.textContent = 'Requesting payment quote…';
-		ms.className = 'status-msg';
-		try {
-			const r = await fetch(`/api/launchpad/invoke?slug=${encodeURIComponent(slug)}`, {
-				method: 'POST',
-				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ question: q }),
-			});
-			if (r.status === 402) {
-				const challenge = await r.json();
-				ms.innerHTML = `Payment required. Open your x402 wallet — invoice <code>${esc(challenge?.invoice || challenge?.payment?.id || '…')}</code>.`;
-				ms.className = 'status-msg';
-				return;
-			}
-			if (!r.ok) throw new Error(`Service error (${r.status})`);
-			const data = await r.json();
-			ms.textContent = data?.answer || 'Reply received.';
-			ms.className = 'status-msg ok';
-			statusEl.textContent = 'Concierge replied — see modal.';
-			statusEl.className = 'status-msg ok';
-		} catch (err) {
-			ms.textContent = err.message || 'Something went wrong.';
-			ms.className = 'status-msg err';
-		}
-	});
-}
-
-function openUnlockModal(payload, statusEl) {
-	const { slug, config } = payload;
-	const m = config?.monetize || {};
-	const sceneSrc = config?.scene?.src || '';
-	const backdrop = document.createElement('div');
-	backdrop.className = 'modal-backdrop';
-	backdrop.innerHTML = `
-		<div class="modal" role="dialog" aria-modal="true">
-			<h2>Unlock the room</h2>
-			<p>One-time ${esc(priceLabel(m) || 'USDC pass')} grants 24 h access. Settles to ${esc(short(config?.identity?.wallet))}.</p>
-			<div class="status-msg" data-modal-status">Preparing payment…</div>
-			<div class="modal-actions">
-				<button class="secondary" data-cancel>Cancel</button>
-				<button class="primary" data-pay>Pay & enter</button>
-			</div>
-		</div>
-	`;
-	document.body.appendChild(backdrop);
-	const close = () => backdrop.remove();
-	backdrop.querySelector('[data-cancel]').addEventListener('click', close);
-	backdrop.addEventListener('click', (e) => { if (e.target === backdrop) close(); });
-	backdrop.querySelector('[data-pay]').addEventListener('click', async () => {
-		const ms = backdrop.querySelector('[data-modal-status]');
-		ms.textContent = 'Issuing x402 invoice…';
-		ms.className = 'status-msg';
-		try {
-			const r = await fetch(`/api/launchpad/invoke?slug=${encodeURIComponent(slug)}&action=unlock`, {
-				method: 'POST',
-				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ sceneSrc }),
-			});
-			if (r.status === 402) {
-				const challenge = await r.json();
-				ms.innerHTML = `Pay <code>${esc(challenge?.invoice || challenge?.payment?.id || '…')}</code> in your x402 wallet, then refresh.`;
-				ms.className = 'status-msg';
-				return;
-			}
-			if (!r.ok) throw new Error(`Service error (${r.status})`);
-			const data = await r.json();
-			if (data?.unlockUrl) {
-				window.open(data.unlockUrl, '_blank', 'noopener');
-				close();
-				statusEl.textContent = 'Room unlocked — opened in new tab.';
-				statusEl.className = 'status-msg ok';
-			} else {
-				ms.textContent = 'Unlocked, but no scene URL was returned.';
-				ms.className = 'status-msg err';
-			}
-		} catch (err) {
-			ms.textContent = err.message || 'Something went wrong.';
-			ms.className = 'status-msg err';
-		}
-	});
 }
 
 // ─────── Boot ───────

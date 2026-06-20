@@ -16,6 +16,7 @@ import { apiFetch } from './api.js';
 import { getMe, saveRemoteGlbToAccount } from './account.js';
 import { log } from './shared/log.js';
 import { isValidGlbMagic } from './shared/glb-magic.js';
+import { trackFunnelStep, trackError, ANALYTICS_EVENTS } from './analytics.js';
 
 const TOTAL_STEPS = 5;
 const STEP_LABELS = ['Basics', 'Model', 'Skills', 'Personality', 'Review'];
@@ -1022,6 +1023,12 @@ async function submit() {
 		const agent = createData.agent;
 		if (!agent?.id) throw new Error('Create succeeded but no agent was returned.');
 
+		// Activation funnel: a real agent identity now exists.
+		trackFunnelStep('activation', ANALYTICS_EVENTS.AGENT_CREATED, {
+			agent_id: agent.id,
+			source: 'wizard',
+		});
+
 		// 3. Personality + marketplace listing. Publish writes the system prompt,
 		//    greeting, category, and tags to the real columns and lists the agent.
 		//    Only attempted when the user opted in AND supplied what publish needs.
@@ -1059,6 +1066,7 @@ async function submit() {
 		succeed(agent);
 	} catch (err) {
 		log.error('[create-agent] submit failed', err);
+		trackError('create_agent.submit', err);
 		state.submitting = false;
 		resetSubmitButton();
 		setMsg(err.message || 'Something went wrong. Please try again.', 'err');

@@ -1,3 +1,5 @@
+import { track, trackError, ANALYTICS_EVENTS } from './analytics.js';
+
 /**
  * Embed modal for the agent hub page.
  * Shows iframe, web-component, and SDK snippets with copy-to-clipboard.
@@ -13,6 +15,9 @@ export class AgentEmbedModal {
 		this._onKey = this._onKey.bind(this);
 		this._w = 420;
 		this._h = 520;
+		// Which snippet kinds we've already reported for this agent — instance-level
+		// so closing and reopening the modal doesn't re-fire EMBED_GENERATED.
+		this._embeddedKinds = new Set();
 	}
 
 	open() {
@@ -162,7 +167,15 @@ export class AgentEmbedModal {
 					copyBtn.textContent = 'copy';
 					copyBtn.classList.remove('aem-copied');
 				}, 1400);
-			} catch {}
+				// Activation signal: developer took a real embed snippet. Dedupe per
+				// kind so re-copying the same snippet doesn't double-fire.
+				if (!this._embeddedKinds.has(current)) {
+					this._embeddedKinds.add(current);
+					track(ANALYTICS_EVENTS.EMBED_GENERATED, { agent_id: id, embed_kind: current });
+				}
+			} catch (err) {
+				trackError('agent_embed.copy', err, { embed_kind: current });
+			}
 		});
 
 		overlay.querySelector('.aem-close').addEventListener('click', () => this.close());

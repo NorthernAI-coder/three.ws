@@ -23,6 +23,7 @@ import { seeInWorldHref, hasCustomAvatar } from './shared/agent-3d.js';
 import { coinChipHTML } from './shared/agent-coin.js';
 import { skeletonHTML, errorStateHTML, ensureStateKitStyles } from './shared/state-kit.js';
 import { log } from './shared/log.js';
+import { track, trackError, ANALYTICS_EVENTS } from './analytics.js';
 ensureStateKitStyles();
 
 const API = '/api';
@@ -4578,10 +4579,19 @@ function renderOnchainCard(a) {
 
 let detailState = null;
 
+const _viewedAgentIds = new Set();
+
 async function loadDetail(id) {
 	els.discovery.hidden = true;
 	els.detail.hidden = false;
 	els.detail.scrollIntoView({ behavior: 'instant', block: 'start' });
+
+	// Engagement: agent profile opened. Deduped per id so re-opening the same
+	// profile within a session doesn't inflate the count.
+	if (!_viewedAgentIds.has(id)) {
+		_viewedAgentIds.add(id);
+		track(ANALYTICS_EVENTS.AGENT_PROFILE_VIEWED, { agent_id: id });
+	}
 
 	// Optimistically render from cached list item if available, then refresh from API.
 	const cached = state.items.find((item) => item.id === id);
@@ -4623,6 +4633,7 @@ async function loadDetail(id) {
 		}).catch(() => { /* best-effort — main detail already rendered */ });
 	} catch (err) {
 		log.error('[marketplace] detail load', err);
+		trackError('marketplace.detail_load', err, { agent_id: id });
 		if (!cached) showDetailState('error', { id });
 		else resolveSkillsLoading(cached);
 	}
@@ -5683,6 +5694,12 @@ function bindEvents() {
 		searchTimer = setTimeout(() => {
 			state.q = e.target.value.trim();
 			syncFilterToUrl();
+			// Engagement: search intent. Debounced above, so this fires once per
+			// settled query — never per keystroke. Length only, never the query text.
+			track(ANALYTICS_EVENTS.MARKETPLACE_SEARCHED, {
+				query_len: state.q.length,
+				filters: { filter: state.filter, sort: state.sort },
+			});
 			// All three feeds (agents, avatars, onchain) accept ?q= on the server.
 			// If we only re-fetch agents on search, the grid keeps stale avatar +
 			// onchain cards from the previous query — and the empty state never
@@ -5697,6 +5714,10 @@ function bindEvents() {
 	els.sortSel.addEventListener('change', (e) => {
 		state.sort = e.target.value;
 		syncFilterToUrl({ push: true });
+		track(ANALYTICS_EVENTS.MARKETPLACE_SEARCHED, {
+			query_len: state.q?.length || 0,
+			filters: { filter: state.filter, sort: state.sort },
+		});
 		loadList(true);
 	});
 	els.loadMore.addEventListener('click', () => {

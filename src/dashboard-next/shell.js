@@ -16,6 +16,7 @@ import { renderTopbar,   mountTopbarBehavior  } from './components/topbar.js';
 import { renderDrawer,   mountDrawerBehavior  } from './components/drawer.js';
 import { mountPaletteBehavior } from './components/palette.js';
 import { claimPendingReferral } from './referral-claim.js';
+import { track, ANALYTICS_EVENTS } from '../analytics.js';
 
 /**
  * Build the shell, mount its behaviour, and resolve to the <main> slot
@@ -55,6 +56,12 @@ export async function mountShell() {
 		${renderDrawer()}
 	`;
 	document.body.appendChild(shell);
+
+	// Engagement: a dashboard surface opened. The first path segment after
+	// /dashboard names the surface (e.g. 'monetize', 'holders'), else 'home'.
+	track(ANALYTICS_EVENTS.SURFACE_OPENED, {
+		surface: `dashboard:${location.pathname.replace(/^\/dashboard\/?/, '').split('/')[0] || 'home'}`,
+	});
 
 	mountSidebarBehavior(shell);
 	mountMobileNavBehavior(shell, location.pathname);

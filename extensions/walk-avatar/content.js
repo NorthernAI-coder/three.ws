@@ -70,6 +70,45 @@
 		}
 	}
 
+	// ── Theme ────────────────────────────────────────────────────────────────────
+	// Resolve light/dark for the avatar's shadow + toolbar contrast. 'auto'
+	// samples the host page's effective background luminance so the avatar reads
+	// against either a light or dark site.
+	function pageBackgroundLuminance() {
+		let el = document.body || document.documentElement;
+		while (el) {
+			const bg = getComputedStyle(el).backgroundColor;
+			const m = bg && bg.match(/rgba?\(([^)]+)\)/);
+			if (m) {
+				const [r, g, b, a = '1'] = m[1].split(',').map((s) => parseFloat(s));
+				if (parseFloat(a) > 0) {
+					// Rec. 709 relative luminance, 0 (black) … 1 (white).
+					return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+				}
+			}
+			el = el.parentElement;
+		}
+		return 0; // No opaque background found — assume a dark canvas.
+	}
+
+	function resolveTheme(s) {
+		if (s.theme === 'light' || s.theme === 'dark') return s.theme;
+		return pageBackgroundLuminance() > 0.5 ? 'light' : 'dark';
+	}
+
+	function applyTheme() {
+		if (!container) return;
+		const theme = resolveTheme(settings);
+		// On a light page a soft dark shadow grounds the avatar; on a dark page a
+		// faint light glow keeps its silhouette legible.
+		container.style.filter = theme === 'light'
+			? 'drop-shadow(0 10px 28px rgba(0,0,0,0.28))'
+			: 'drop-shadow(0 10px 30px rgba(0,0,0,0.5)) drop-shadow(0 0 1px rgba(255,255,255,0.25))';
+		container.dataset.theme = theme;
+		// Hand the embed the resolved theme so its narration bubble can match.
+		iframe?.contentWindow?.postMessage({ type: 'walk:theme', theme }, THREEWS);
+	}
+
 	// ── Follow-cursor ──────────────────────────────────────────────────────────
 	let followHandler = null;
 	function enableFollowCursor() {
@@ -192,6 +231,7 @@
 
 		// Apply runtime config once the embed signals readiness.
 		applyLiveConfig();
+		applyTheme();
 
 		if (settings.position === 'follow-cursor') enableFollowCursor();
 
@@ -287,6 +327,7 @@
 		}
 
 		applyLiveConfig();
+		applyTheme();
 		maybeStartNarrator();
 	}
 
@@ -318,7 +359,7 @@
 		if (!iframe || e.source !== iframe.contentWindow) return;
 		const data = e.data;
 		if (!data || typeof data !== 'object') return;
-		if (data.type === 'walk:ready') applyLiveConfig();
+		if (data.type === 'walk:ready') { applyLiveConfig(); applyTheme(); }
 		// Surface avatar events to the host page for any listeners.
 		try {
 			document.dispatchEvent(new CustomEvent('threews-walk', { detail: data }));

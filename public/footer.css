@@ -535,6 +535,29 @@
 	.h-footer-badge:hover { transform: none; }
 }
 
+/* Touch devices: floor the footer's icon controls to a 44px hit area
+ * (WCAG 2.5.8). Width-based queries miss tablets at 768px+ that are still
+ * touch-only, so gate on the pointer type, not the viewport. Desktop mouse
+ * visuals are untouched. */
+@media (hover: none) and (pointer: coarse) {
+	.h-footer-newsletter-btn,
+	.h-footer-social {
+		width: 44px;
+		height: 44px;
+	}
+	.h-footer-newsletter-btn svg,
+	.h-footer-social svg {
+		width: 16px;
+		height: 16px;
+	}
+	.h-footer-ca-btn,
+	.h-footer-badge {
+		min-height: 44px;
+		display: inline-flex;
+		align-items: center;
+	}
+}
+
 @media (max-width: 720px) {
 	.h-footer-horizon {
 		min-height: 320px;

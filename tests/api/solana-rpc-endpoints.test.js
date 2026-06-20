@@ -9,7 +9,7 @@
 // rate-limited public mainnet-beta endpoint alone.
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { solanaRpcEndpoints } from '../../api/_lib/solana/connection.js';
+import { solanaRpcEndpoints, shouldRotate } from '../../api/_lib/solana/connection.js';
 
 const KEYS = ['HELIUS_API_KEY', 'ALCHEMY_API_KEY', 'ANKR_API_KEY', 'SOLANA_RPC_URL'];
 
@@ -63,5 +63,33 @@ describe('solanaRpcEndpoints', () => {
 		const eps = solanaRpcEndpoints('devnet');
 		expect(eps).toContain('https://api.devnet.solana.com');
 		expect(eps).not.toContain('https://api.mainnet-beta.solana.com');
+	});
+});
+
+// Regression guard for the production club-cover outage: a misconfigured primary
+// SOLANA_RPC_URL answered JSON-RPC POSTs with HTTP 404, and shouldRotate() did
+// not treat 404 as rotate-worthy — so the 404 was returned to web3.js instead of
+// failing over to the healthy PublicNode lane, taking every `getMint`/checkout
+// `prepare` call (and thus the whole Solana payment flow) down with a 500.
+describe('shouldRotate', () => {
+	it('rotates off a dead/misrouted endpoint URL (404/408/410)', () => {
+		expect(shouldRotate(404)).toBe(true); // wrong/expired RPC URL path
+		expect(shouldRotate(408)).toBe(true); // request timeout
+		expect(shouldRotate(410)).toBe(true); // endpoint gone
+	});
+
+	it('still rotates on auth, rate-limit, and provider-down statuses', () => {
+		for (const s of [401, 403, 429, 500, 502, 503]) {
+			expect(shouldRotate(s)).toBe(true);
+		}
+	});
+
+	it('does not rotate a healthy response or a genuine request error', () => {
+		// 200 is healthy; a live RPC returns method-not-found as 200 + JSON-RPC
+		// error, never an HTTP 404. 400/422 are real request errors, identical on
+		// every provider, so they surface to the caller rather than burning the list.
+		for (const s of [200, 400, 422]) {
+			expect(shouldRotate(s)).toBe(false);
+		}
 	});
 });

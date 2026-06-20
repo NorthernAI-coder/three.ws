@@ -477,9 +477,9 @@
 /* ── MOBILE NAV ─────────────────────────────────────────────── */
 .nav-toggle {
 	display: none; align-items: center; justify-content: center;
-	width: 36px; height: 36px; padding: 0; margin-left: auto;
+	width: 44px; height: 44px; padding: 0; margin-left: auto;
 	background: none; border: 1px solid var(--nv-hairline-strong);
-	border-radius: 7px; color: var(--nv-text); cursor: pointer;
+	border-radius: 9px; color: var(--nv-text); cursor: pointer;
 	transition: border-color 0.15s, background 0.15s;
 }
 .nav-toggle:hover { border-color: var(--nv-text); background: rgba(255,255,255,0.04); }

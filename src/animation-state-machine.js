@@ -52,7 +52,44 @@ const DEFAULT_TRANSITIONS = Object.freeze({
 
 const STATE_NAMES = Object.freeze(Object.keys(DEFAULT_STATES));
 
-export { DEFAULT_STATES, DEFAULT_TRANSITIONS, STATE_NAMES };
+/**
+ * Gesture / emote library — a parallel "slot" that plays over the base
+ * walk/idle layer rather than replacing it. Each gesture names a real clip in
+ * the animation library and declares how it composes with locomotion:
+ *
+ *   layer: 'upper'  — additive upper-body overlay. Plays *on top of* whatever
+ *                     the base layer is doing, so the avatar can wave while it
+ *                     walks (legs keep the walk cycle, arms/torso/head gesture).
+ *   layer: 'full'   — whole-body clip that takes over the base layer (the avatar
+ *                     stops to sit or dance). Locomotion is suppressed until the
+ *                     gesture ends.
+ *
+ *   loop: false     — one-shot; auto-returns to the base layer when the clip ends.
+ *   loop: true      — holds until explicitly cleared (toggle off, movement input,
+ *                     or another gesture). `talking` is held for the duration of
+ *                     TTS narration; `dance` until the user stops it.
+ *
+ *   exitOnMove      — a full-body gesture (sit) that the avatar rises out of the
+ *                     instant a movement key/stick is pressed.
+ *
+ * `clip` names map to baked clips in public/animations/clips/. `point` reuses
+ * the project's registry-sanctioned `reaction` clip (registry.json designates it
+ * as the active default for the "point" agent slot).
+ */
+const GESTURES = Object.freeze({
+	wave:     { clip: 'wave',            label: 'Wave',     icon: '👋', loop: false, layer: 'upper', crossfade: 0.25 },
+	dance:    { clip: 'dance',           label: 'Dance',    icon: '💃', loop: true,  layer: 'full',  crossfade: 0.3  },
+	sit:      { clip: 'sitidle',         label: 'Sit',      icon: '🪑', loop: true,  layer: 'full',  crossfade: 0.35, exitOnMove: true },
+	point:    { clip: 'reaction',        label: 'Point',    icon: '👉', loop: false, layer: 'upper', crossfade: 0.25 },
+	cheer:    { clip: 'av-cheering',     label: 'Cheer',    icon: '🙌', loop: false, layer: 'upper', crossfade: 0.25 },
+	agree:    { clip: 'xbot-agree',      label: 'Agree',    icon: '✅', loop: false, layer: 'upper', crossfade: 0.2  },
+	disagree: { clip: 'xbot-head-shake', label: 'Disagree', icon: '🙅', loop: false, layer: 'upper', crossfade: 0.2  },
+	talking:  { clip: 'av-vtubing',      label: 'Talking',  icon: '💬', loop: true,  layer: 'upper', crossfade: 0.3  },
+});
+
+const GESTURE_NAMES = Object.freeze(Object.keys(GESTURES));
+
+export { DEFAULT_STATES, DEFAULT_TRANSITIONS, STATE_NAMES, GESTURES, GESTURE_NAMES };
 
 /**
  * @typedef {Object} StateDef
@@ -76,13 +113,21 @@ export class AnimationStateMachine {
 	 * @param {(payload: {state: string, def: StateDef, clip: string, crossfade: number}) => void} [onTransition]
 	 *   Called every time the current state changes. The caller wires this to the
 	 *   actual animation playback (e.g. `viewer.animationManager.crossfadeTo(clip, crossfade)`).
+	 * @param {(payload: {gesture: string|null, def: object|null, active: boolean, prev: string|null}) => void} [onGesture]
+	 *   Called every time the gesture slot changes. The caller wires this to the
+	 *   overlay playback (additive upper-body layer, or a full-body takeover).
 	 */
-	constructor(graph = {}, onTransition = null) {
+	constructor(graph = {}, onTransition = null, onGesture = null) {
 		this.states      = mergeStates(graph.states);
 		this.transitions = mergeTransitions(graph.transitions);
 		this.initial     = graph.initial && this.states[graph.initial] ? graph.initial : 'idle';
 		this.current     = this.initial;
 		this.onTransition = typeof onTransition === 'function' ? onTransition : null;
+		this.onGesture    = typeof onGesture === 'function' ? onGesture : null;
+		// The gesture slot runs in parallel to `current`: a one-shot wave or a
+		// held dance/sit that overlays (or, for full-body gestures, takes over)
+		// the base state without rewriting the locomotion graph.
+		this.gesture = null;
 		// History of one-shot returns. A `react` fired during a `talk` should
 		// return to `talk` afterwards, not blindly to `idle`. We keep a small
 		// stack so nested one-shots compose cleanly.
@@ -147,10 +192,68 @@ export class AnimationStateMachine {
 		return resolvedTarget;
 	}
 
-	/** Reset to the initial state and clear any pending returns. */
+	// ── Gesture slot ────────────────────────────────────────────────────────
+
+	/** Currently-playing gesture name, or null. */
+	getGesture() { return this.gesture; }
+
+	/** The resolved definition for a gesture name, or null if unknown. */
+	getGestureDef(name) {
+		const def = GESTURES[name];
+		return def ? { name, ...def } : null;
+	}
+
+	/**
+	 * Play a gesture in the parallel gesture slot. Validates the name against the
+	 * built-in {@link GESTURES} library and fires `onGesture` with the resolved
+	 * definition so the caller can crossfade the overlay/full-body clip in.
+	 * Re-firing the gesture that's already active is a no-op (prevents restarting
+	 * a held loop every keypress).
+	 *
+	 * @param {string} name
+	 * @returns {string|null} the gesture name if it started, else null
+	 */
+	playGesture(name) {
+		const def = GESTURES[name];
+		if (!def) return null;
+		if (this.gesture === name) return name;
+		const prev = this.gesture;
+		this.gesture = name;
+		if (this.onGesture) {
+			try {
+				this.onGesture({ gesture: name, def: { name, ...def }, active: true, prev });
+			} catch (err) {
+				log.warn('[AnimationStateMachine] onGesture threw:', err);
+			}
+		}
+		return name;
+	}
+
+	/**
+	 * Clear the active gesture and return the base layer to view. Fires
+	 * `onGesture` with `active: false` so the caller can fade the overlay out and
+	 * resume locomotion. No-op when no gesture is active.
+	 * @returns {string|null} the gesture that was cleared, or null
+	 */
+	endGesture() {
+		if (!this.gesture) return null;
+		const prev = this.gesture;
+		this.gesture = null;
+		if (this.onGesture) {
+			try {
+				this.onGesture({ gesture: null, def: null, active: false, prev });
+			} catch (err) {
+				log.warn('[AnimationStateMachine] onGesture threw:', err);
+			}
+		}
+		return prev;
+	}
+
+	/** Reset to the initial state and clear any pending returns + gesture. */
 	reset() {
 		this._returnStack.length = 0;
 		this.current = this.initial;
+		this.endGesture();
 	}
 }
 

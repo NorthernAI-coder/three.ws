@@ -17,6 +17,7 @@ import {
 	SOL_FEE_HEADROOM_LAMPORTS,
 } from '../../api/_lib/agent-trade-guards.js';
 import { buildAmmSellInstructions } from './amm-exit.js';
+import { assessTradeSafety, recordFirewallDecision } from '../../api/_lib/trade-firewall.js';
 
 // ── per-agent serialization ────────────────────────────────────────────────
 // Single-worker assumption: a per-agent in-process lock makes the budget +
@@ -157,6 +158,51 @@ export async function executeBuy({ cfg, strat, mint, throttle }) {
 			}
 			const impact = checkPriceImpact(Number(quote.priceImpactPct), Number(strat.max_price_impact_pct));
 			if (impact) return await fail(posId, tag, impact.reason);
+
+			// 6b. rug/honeypot firewall — a REAL on-chain simulated buy→sell
+			// round-trip + authority audit, run after the quote and BEFORE any
+			// broadcast. Per-strategy `firewall_level`: 'block' (default) aborts a
+			// 'block' verdict; 'warn' logs the verdict but proceeds (raw speed);
+			// 'off' skips the check. Never throws — the kernel degrades to 'warn'
+			// when a data source is down, so a firewall hiccup can't stall the trader.
+			const firewallLevel = ['warn', 'off'].includes(strat.firewall_level) ? strat.firewall_level : 'block';
+			if (firewallLevel !== 'off') {
+				const assessment = await assessTradeSafety({
+					network: cfg.network,
+					mint: mint.mint,
+					side: 'buy',
+					payer: keypair.publicKey,
+					quoteAmount: perTrade,
+					connection: ctx.connection,
+					priceImpactPct: Number(quote.priceImpactPct),
+				}).catch((err) => {
+					log.warn?.('firewall_check_failed', { ...tag, message: err?.message });
+					return null;
+				});
+				if (assessment) {
+					const enforced = firewallLevel === 'block' && assessment.verdict === 'block';
+					recordFirewallDecision({
+						mint: mint.mint, network: cfg.network, side: 'buy',
+						verdict: assessment.verdict, score: assessment.score, simulated: assessment.simulated,
+						checks: assessment.checks, reasons: assessment.reasons,
+						source: 'sniper', agentId: strat.agent_id, userId: strat.user_id,
+						quoteLamports: perTrade, enforced,
+					}).catch(() => {});
+					if (enforced) {
+						const reason = assessment.reasons?.[0] || 'firewall_blocked';
+						await sql`
+							UPDATE agent_sniper_positions
+							SET status = 'failed', error = ${`firewall_block: ${reason}`.slice(0, 280)}, closed_at = now()
+							WHERE id = ${posId}
+						`;
+						log.warn('buy blocked by firewall', { ...tag, score: assessment.score, reasons: assessment.reasons });
+						return { status: 'failed', reason: 'firewall_block' };
+					}
+					if (assessment.verdict !== 'allow') {
+						log.info('firewall warn (proceeding)', { ...tag, level: firewallLevel, verdict: assessment.verdict, score: assessment.score });
+					}
+				}
+			}
 
 			// 7. build + (live) broadcast
 			const built = await ctx.client.buildBuyInstructions({

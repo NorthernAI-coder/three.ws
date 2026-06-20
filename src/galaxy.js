@@ -12,6 +12,7 @@
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { track, ANALYTICS_EVENTS } from './analytics.js';
 
 const REDUCED_MOTION =
 	typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -68,6 +69,8 @@ const dbg = (window.__galaxy = {
 
 // ── Boot ───────────────────────────────────────────────────────────────────
 function boot() {
+	// Engagement: the galaxy visualizer surface opened.
+	track(ANALYTICS_EVENTS.SURFACE_OPENED, { surface: 'visualizer:galaxy' });
 	cacheEls();
 	setupThree();
 	bindUI();

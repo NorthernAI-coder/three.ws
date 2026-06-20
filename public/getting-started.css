@@ -435,6 +435,12 @@
 	.twg-modal-steps { flex-direction: row; }
 }
 
+/* Touch: the floating onboarding pill is a primary CTA — give it a full
+   44px hit height (WCAG 2.5.8) without changing the desktop mouse size. */
+@media (hover: none) and (pointer: coarse) {
+	.twg-pill { height: 44px; padding: 0 16px 0 12px; }
+}
+
 @media (prefers-reduced-motion: reduce) {
 	.twg-panel, .twg-modal, .twg-modal-overlay, .twg-modal-art-glyph { animation: none !important; }
 	.twg-bar-fill, .twg-pill, .twg-step, .twg-step-arrow, .twg-btn { transition: none !important; }

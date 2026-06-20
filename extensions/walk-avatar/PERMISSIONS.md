@@ -13,6 +13,15 @@ Used to read the current tab's URL hostname so the popup can display "Enable on
 this site" with the correct domain name. Also used to send messages to the active
 tab's content script when the user toggles the avatar.
 
+## `tabs`
+Used to keep the avatar in sync with the tab the user is on: reading a tab's URL
+to evaluate the per-site allowlist/blocklist, listening for navigation
+(`tabs.onUpdated`) so the avatar re-mounts after a full page load on sites the
+user enabled, relaying live setting changes to mounted tabs (`tabs.sendMessage`),
+and opening the sign-in / create-avatar pages (`tabs.create`). The extension
+never reads tab content — only the URL and load state needed to place the avatar
+correctly.
+
 ## `scripting`
 Used to inject `content.js` into the user's active tab when they explicitly enable
 the walking avatar via the popup toggle. The script is never injected automatically

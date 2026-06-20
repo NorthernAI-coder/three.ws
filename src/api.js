@@ -11,8 +11,22 @@
 // prevent the kind of drift that left agent-edit.js without CSRF and silently
 // 403'ing every save until a user complained.
 
+import { trackError, track, ANALYTICS_EVENTS } from './analytics.js';
+
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 const TRANSIENT_STATUSES = new Set([502, 503, 504]);
+
+// Reduce an API path to a low-cardinality route for analytics: drop the query
+// string (may carry tokens) and collapse UUIDs / long ids to ':id' so the
+// reliability view groups by endpoint, not by individual resource.
+function routeOf(path) {
+	let p = String(path || '');
+	const q = p.indexOf('?');
+	if (q >= 0) p = p.slice(0, q);
+	return p
+		.replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, ':id')
+		.replace(/\/\d{4,}(?=\/|$)/g, '/:id');
+}
 
 // Fetch a fresh single-use CSRF token for every mutation. Tokens are burned
 // on first use (api/_lib/csrf.js), so caching is unsafe when concurrent
@@ -79,7 +93,25 @@ export async function apiFetch(path, options = {}) {
 		if (canRetry && TRANSIENT_STATUSES.has(res.status)) continue;
 		break;
 	}
-	if (!res) throw lastErr;
+	if (!res) {
+		// Reliability boundary: the request never got a response (offline / DNS /
+		// CORS) even after retries. Fire once per call, never per attempt.
+		trackError('api.network', lastErr, { endpoint: routeOf(path), method });
+		throw lastErr;
+	}
+
+	// Reliability boundary: a server error that survived the retry budget. 4xx is
+	// left out — those are usually expected client/validation outcomes, not
+	// reliability failures — except 401 which the redirect path below owns.
+	if (res.status >= 500) {
+		track(ANALYTICS_EVENTS.ERROR_OCCURRED, {
+			context: 'api.server_error',
+			message: `${method} ${routeOf(path)} → ${res.status}`,
+			status: res.status,
+			endpoint: routeOf(path),
+			method,
+		});
+	}
 
 	if (res.status === 401 && !allowAnonymous) {
 		redirectToLogin();

@@ -1,0 +1,701 @@
+{
+	"version": 1,
+	"generatedAt": "2026-06-20T05:20:15.130Z",
+	"generatedBy": "scripts/build-tour.mjs from data/pages.json",
+	"title": "The three.ws Guided Tour",
+	"tagline": "A 3D guide walks you through every feature, live, on the real site.",
+	"estimatedMinutes": 29,
+	"stopCount": 85,
+	"sections": [
+		{
+			"id": "main",
+			"title": "Main",
+			"intro": "Welcome — I'm your guide. Over the next while I'll walk you through three.ws and show you, hands-on, what every part of the platform does. Let's start at the front door."
+		},
+		{
+			"id": "build",
+			"title": "Build",
+			"intro": "Now the fun part — building. This is where you give your AI a body: a 3D avatar, a brain, a voice, and the studios to shape all of it."
+		},
+		{
+			"id": "crypto",
+			"title": "Crypto",
+			"intro": "Here's what makes three.ws agents truly autonomous — they can hold a wallet and move real money. Let me show you the on-chain side: payments, launches, and live market intelligence."
+		},
+		{
+			"id": "labs",
+			"title": "Labs",
+			"intro": "These are the showcases — the experiments and living demos that show the platform off at full power. Some of my favourites are in here."
+		},
+		{
+			"id": "agent-tools",
+			"title": "Agent Tools",
+			"intro": "Once you've built agents, this is where you talk to them, manage them, and check their reputation."
+		},
+		{
+			"id": "learn",
+			"title": "Learn",
+			"intro": "And when you're ready to go deeper on your own, here's where the documentation, guides, and tutorials live. That's the whole tour — let's wrap up."
+		}
+	],
+	"stops": [
+		{
+			"id": "home",
+			"path": "/",
+			"section": "main",
+			"title": "Home",
+			"narration": "Here we have Home. Landing page. 3D AI agents that think on IBM watsonx.ai (Granite) — the pitch, live agent demos, and the front door to every flow.",
+			"sectionIntro": "Welcome — I'm your guide. Over the next while I'll walk you through three.ws and show you, hands-on, what every part of the platform does. Let's start at the front door.",
+			"targets": [
+				"a[href=\"/create-agent\"], a[href=\"/create\"], .hero a.cta, main a.button"
+			]
+		},
+		{
+			"id": "what-is",
+			"path": "/what-is",
+			"section": "main",
+			"title": "What is three.ws?",
+			"narration": "Next up, What is three.ws?. Plain-English introduction to three.ws — what a 3D AI agent is, real use-cases, and where to begin."
+		},
+		{
+			"id": "discover",
+			"path": "/discover",
+			"section": "main",
+			"title": "Discover",
+			"narration": "This is Discover. On-chain agent directory (ERC-8004 + Solana). Browse, search, and inspect every registered agent.",
+			"targets": [
+				".agent-card, .grid, [data-agent], main"
+			]
+		},
+		{
+			"id": "marketplace",
+			"path": "/marketplace",
+			"section": "main",
+			"title": "Marketplace",
+			"narration": "Take a look at Marketplace. Buy access to agents, skills, and avatars from other creators.",
+			"targets": [
+				".card, .grid, [data-skill], main"
+			]
+		},
+		{
+			"id": "animations",
+			"path": "/animations",
+			"section": "main",
+			"title": "Animation Gallery",
+			"narration": "Now, Animation Gallery. Browse and preview public animations authored by the three.ws community. Apply any clip to your avatar in the Animation Studio."
+		},
+		{
+			"id": "irl-privacy",
+			"path": "/irl-privacy",
+			"section": "main",
+			"title": "How location works on IRL",
+			"narration": "Let's visit How location works on IRL. Placed agents are private by location: they appear only to people physically standing near them, never on a map or a list. What's shared, what isn't, and how your camera, motion, and location are used."
+		},
+		{
+			"id": "collection",
+			"path": "/collection",
+			"section": "main",
+			"title": "My Collection",
+			"narration": "Over here is My Collection. View all the skills and subscriptions you've unlocked on three.ws."
+		},
+		{
+			"id": "irl",
+			"path": "/irl",
+			"section": "main",
+			"title": "IRL",
+			"narration": "Here's IRL. Place a 3D avatar in your real environment. Camera AR passthrough, joystick movement, and tap-to-place 3D objects on your floor."
+		},
+		{
+			"id": "skills",
+			"path": "/skills",
+			"section": "main",
+			"title": "Skills Marketplace",
+			"narration": "Meet Skills Marketplace. Browse, search, and install agent skills — tool packs, knowledge bases, and capabilities that make AI agents smarter."
+		},
+		{
+			"id": "characters",
+			"path": "/characters",
+			"section": "main",
+			"title": "Characters",
+			"narration": "And this — Characters. Discover AI characters on three.ws. Chat, trade, and create."
+		},
+		{
+			"id": "gallery",
+			"path": "/gallery",
+			"section": "main",
+			"title": "Avatar Gallery",
+			"narration": "Check out Avatar Gallery. Every public 3D avatar in the system, browsable as a grid."
+		},
+		{
+			"id": "temporary",
+			"path": "/temporary",
+			"section": "main",
+			"title": "Walk",
+			"narration": "This one is Walk. Drive a 3D avatar around with a joystick or WASD — toggle the back camera for AR-style passthrough."
+		},
+		{
+			"id": "community",
+			"path": "/community",
+			"section": "main",
+			"title": "Community",
+			"narration": "Here we have Community. Featured creators, builds, and conversations from the three.ws community."
+		},
+		{
+			"id": "create-agent",
+			"path": "/create-agent",
+			"section": "build",
+			"title": "Create an Agent",
+			"narration": "Next up, Create an Agent. Step-by-step wizard to create a 3D AI agent: name, 3D body, skills, personality, voice, and on-chain identity.",
+			"sectionIntro": "Now the fun part — building. This is where you give your AI a body: a 3D avatar, a brain, a voice, and the studios to shape all of it.",
+			"targets": [
+				"form, .wizard, .step, button"
+			]
+		},
+		{
+			"id": "forge",
+			"path": "/forge",
+			"section": "build",
+			"title": "Forge — Text to 3D",
+			"narration": "This is Forge — Text to 3D. Type a prompt — or drop in photos or a sketch — and get a downloadable textured 3D model (GLB). Pick from multiple generation engines with live health status.",
+			"targets": [
+				"textarea, input[type=\"text\"], .prompt-input, form"
+			]
+		},
+		{
+			"id": "scan",
+			"path": "/scan",
+			"section": "build",
+			"title": "3D Scanner — Scan Yourself into 3D",
+			"narration": "Take a look at 3D Scanner — Scan Yourself into 3D. Point your camera at your face, hold still, and walk away with a rigged 3D avatar — reconstruction runs in about a minute, free, in your browser.",
+			"targets": [
+				"button, .scan-start, video, .camera"
+			]
+		},
+		{
+			"id": "pose",
+			"path": "/pose",
+			"section": "build",
+			"title": "Animation Studio",
+			"narration": "Now, Animation Studio. Pose any three.ws avatar or the built-in mannequin with FK/IK, keyframe a timeline, and preview the motion live. Export an animated GLB or clip JSON, save animations to your account, play them back across the platform, and sell them for USDC.",
+			"targets": [
+				"canvas, .timeline, .pose-controls"
+			]
+		},
+		{
+			"id": "voice",
+			"path": "/voice",
+			"section": "build",
+			"title": "Voice Lab",
+			"narration": "Let's visit Voice Lab. Clone your voice from a short recording, then use it for TTS or give it to your agent. Side-by-side comparison of voice models.",
+			"targets": [
+				"button, .record, audio"
+			]
+		},
+		{
+			"id": "compose",
+			"path": "/compose",
+			"section": "build",
+			"title": "Scene Composer",
+			"narration": "Over here is Scene Composer. Real-time 3D scene composer: forge items from text, attach them to your avatar's skeleton bones, arrange and scale freely, then export your creation or save it as an outfit."
+		},
+		{
+			"id": "scene",
+			"path": "/scene",
+			"section": "build",
+			"title": "Scene Studio",
+			"narration": "Here's Scene Studio. Full 3D scene editor in the browser — import GLB models, arrange them with transform gizmos, edit materials and lights, and export complete scenes."
+		},
+		{
+			"id": "create-prompt",
+			"path": "/create/prompt",
+			"section": "build",
+			"title": "Describe it to 3D",
+			"narration": "Meet Describe it to 3D. Type a description. About a minute later: a rigged 3D avatar you can animate and download."
+		},
+		{
+			"id": "create-selfie",
+			"path": "/create/selfie",
+			"section": "build",
+			"title": "Selfie to Avatar",
+			"narration": "And this — Selfie to Avatar. One selfie. About a minute. A rigged 3D avatar that works everywhere."
+		},
+		{
+			"id": "studio",
+			"path": "/studio",
+			"section": "build",
+			"title": "Widget Studio",
+			"narration": "Check out Widget Studio. Pick an avatar, configure embed options, copy a one-line snippet for your site."
+		},
+		{
+			"id": "hydrate",
+			"path": "/hydrate",
+			"section": "build",
+			"title": "Hydrate",
+			"narration": "This one is Hydrate. Take an existing on-chain agent (ERC-8004 / Solana) and attach a 3D body, voice, and skills."
+		},
+		{
+			"id": "app",
+			"path": "/app",
+			"section": "build",
+			"title": "Viewer",
+			"narration": "Here we have Viewer. Drag-and-drop glTF/GLB viewer for inspecting 3D models in the browser."
+		},
+		{
+			"id": "widgets",
+			"path": "/widgets",
+			"section": "build",
+			"title": "Widgets Gallery",
+			"narration": "Next up, Widgets Gallery. Pre-built chat, voice, and 3D-avatar widgets you can drop into any page."
+		},
+		{
+			"id": "features",
+			"path": "/features",
+			"section": "build",
+			"title": "Features",
+			"narration": "This is Features. Full feature overview of the three.ws platform: avatars, agents, on-chain identity, x402 payments, and embedding."
+		},
+		{
+			"id": "pay",
+			"path": "/pay",
+			"section": "crypto",
+			"title": "Pay (x402)",
+			"narration": "Take a look at Pay (x402). Pay-per-call gateway: invoke any x402-protocol paid API with a USDC micro-transaction.",
+			"sectionIntro": "Here's what makes three.ws agents truly autonomous — they can hold a wallet and move real money. Let me show you the on-chain side: payments, launches, and live market intelligence.",
+			"targets": [
+				"form, input, button"
+			]
+		},
+		{
+			"id": "x402-studio",
+			"path": "/x402/studio",
+			"section": "crypto",
+			"title": "x402 Studio — the Stripe of x402",
+			"narration": "Now, x402 Studio — the Stripe of x402. Merchant console to run a paid x402 business: products and pricing, payout and agent wallets, a real USDC send/receive with SNS .sol resolution, a drag-and-drop storefront, an embeddable pay-button builder, charity and round-up giving, CORS and security.",
+			"targets": [
+				".console, nav, form, button"
+			]
+		},
+		{
+			"id": "launch",
+			"path": "/launch",
+			"section": "crypto",
+			"title": "Launch a Coin",
+			"narration": "Let's visit Launch a Coin. Mint a coin for your 3D AI agent in one flow — pick an agent, set the name, symbol, and image, then launch on pump.fun straight from your wallet with an optional three.ws-branded vanity mint.",
+			"targets": [
+				"form, input, button"
+			]
+		},
+		{
+			"id": "oracle",
+			"path": "/oracle",
+			"section": "crypto",
+			"title": "Oracle — AI Conviction Engine",
+			"narration": "Over here is Oracle — AI Conviction Engine. A fused AI conviction engine for every pump.fun launch: pedigree (who's buying), structure (bundle vs organic), narrative (what story is it riding), and momentum — fused into a single 0–100 conviction score with transparent pillar reasoning.",
+			"targets": [
+				".score, canvas, .conviction, h1"
+			]
+		},
+		{
+			"id": "vanity-wallet",
+			"path": "/vanity-wallet",
+			"section": "crypto",
+			"title": "Solana Vanity Wallet",
+			"narration": "Here's Solana Vanity Wallet. Grind a Solana address with a custom prefix using your browser's GPU.",
+			"targets": [
+				"input, button, .grinder"
+			]
+		},
+		{
+			"id": "vanity-bounties",
+			"path": "/vanity/bounties",
+			"section": "crypto",
+			"title": "Grind-Bounty Market",
+			"narration": "Meet Grind-Bounty Market. A decentralized x402 bounty market for hard Solana vanity addresses — escrow a USDC bounty and a fleet of independent workers grinds it in parallel. The first verified match wins, but the found key is sealed to you so the worker never sees your wallet. Earn USDC by grinding open bounties."
+		},
+		{
+			"id": "vanity-gallery",
+			"path": "/vanity/gallery",
+			"section": "crypto",
+			"title": "Proof-of-Grind Gallery",
+			"narration": "And this — Proof-of-Grind Gallery. A public gallery and leaderboard of the rarest Solana vanity addresses ground on three.ws — each provably-fair, verified, and shareable. Appraise any address to see its honest rarity tier and grind cost."
+		},
+		{
+			"id": "clash",
+			"path": "/clash",
+			"section": "crypto",
+			"title": "Coin Clash",
+			"narration": "Check out Coin Clash. Token-gated community warfare. Every coin community is an army — hold the coin, enlist, and rally for your faction in timed battles against other communities."
+		},
+		{
+			"id": "play-ufo",
+			"path": "/play/ufo",
+			"section": "crypto",
+			"title": "Flappin UFO — dodge asteroids for $THREE",
+			"narration": "This one is Flappin UFO — dodge asteroids for $THREE. Pilot your UFO through an asteroid field. Connect your Solana wallet, submit your score as your wallet address, and claim your spot on the global $THREE leaderboard."
+		},
+		{
+			"id": "ibm-x402-demo",
+			"path": "/ibm/x402-demo",
+			"section": "crypto",
+			"title": "x402 Live Demo (IBM × three.ws)",
+			"narration": "Here we have x402 Live Demo (IBM × three.ws). A self-contained x402 micropayment demo: pay $0.001 USDC from your own wallet — MetaMask on Base or Phantom on Solana — to call a real three.ws data API. Watch the live HTTP 402 challenge, sign a gasless authorization, and see the on-chain settlement receipt. No backend, no account; built as the public face of the IBM × three.ws partnership."
+		},
+		{
+			"id": "activity",
+			"path": "/activity",
+			"section": "crypto",
+			"title": "Agent Activity — Oracle conviction in real time",
+			"narration": "Next up, Agent Activity — Oracle conviction in real time. The trading floor: every Oracle conviction action from every autonomous 3D agent on pump.fun, live. Filter by tier and mode, track outcomes, and copy the winners."
+		},
+		{
+			"id": "claim-wallet",
+			"path": "/claim-wallet",
+			"section": "crypto",
+			"title": "Claim Your Wallet — Verified pump.fun Track Record",
+			"narration": "This is Claim Your Wallet — Verified pump.fun Track Record. Paste your Solana wallet to see your provable pump.fun track record — win rate, smart-money score, reputation label, and coin history. Sign in to claim it as your official three.ws Trader Card."
+		},
+		{
+			"id": "trades",
+			"path": "/trades",
+			"section": "crypto",
+			"title": "Live Trade Feed — Notable pump.fun Exits",
+			"narration": "Take a look at Live Trade Feed — Notable pump.fun Exits. Real-time feed of every notable pump.fun exit from three.ws AI agents — realized PnL, hold time, exit multiple, conviction tier, and a one-click path to copy the trader."
+		},
+		{
+			"id": "trending",
+			"path": "/trending",
+			"section": "crypto",
+			"title": "Trending — Top Agents & Coins on three.ws",
+			"narration": "Now, Trending — Top Agents & Coins on three.ws. What’s hot on three.ws right now. Top 3D AI agents ranked by real chat activity and top Oracle conviction coins by score, with 24h/7d/all-time windows."
+		},
+		{
+			"id": "watchlist",
+			"path": "/watchlist",
+			"section": "crypto",
+			"title": "Watchlist",
+			"narration": "Let's visit Watchlist. Your privately-stored watchlist of pump.fun coins — live market caps, graduation status, and quick links to full coin profiles. No account required; stored in your browser."
+		},
+		{
+			"id": "coin-intel",
+			"path": "/coin-intel",
+			"section": "crypto",
+			"title": "Coin Intelligence",
+			"narration": "Over here is Coin Intelligence. Every pump.fun launch watched and classified in real time — organic vs bundle, the wallets behind it, a transparent quality score, and a model that learns which signals predict winners."
+		},
+		{
+			"id": "radar",
+			"path": "/radar",
+			"section": "crypto",
+			"title": "Coin Radar",
+			"narration": "Here's Coin Radar. Live pump.fun launch intelligence: every new coin scored in its first ~90 seconds — bundle vs organic, wallet concentration, dev behaviour, and risk flags from the Coin Intelligence Engine."
+		},
+		{
+			"id": "smart-money",
+			"path": "/smart-money",
+			"section": "crypto",
+			"title": "Smart Money Radar — follow the wallets that win on pump.fun",
+			"narration": "Meet Smart Money Radar — follow the wallets that win on pump.fun. A live first-party reputation graph of every pump.fun wallet. We cross each coin's buyers with the coins that actually graduated, so you can see which wallets keep picking winners — and what the proven money is buying right now."
+		},
+		{
+			"id": "play-arena",
+			"path": "/play/arena",
+			"section": "crypto",
+			"title": "Sniper Arena — autonomous AI agents trading live",
+			"narration": "And this — Sniper Arena — autonomous AI agents trading live. Watch three.ws AI agents trade pump.fun autonomously in real time. Live P&L leaderboard, each trade signed by the agent's own wallet and verifiable on-chain."
+		},
+		{
+			"id": "leaderboard",
+			"path": "/leaderboard",
+			"section": "crypto",
+			"title": "Trader Leaderboard",
+			"narration": "Check out Trader Leaderboard. Pump.fun traders ranked by a provable, on-chain track record — realized P&L, win rate, drawdown — with every number traceable to its transaction."
+		},
+		{
+			"id": "launches",
+			"path": "/launches",
+			"section": "crypto",
+			"title": "Agent Launches",
+			"narration": "This one is Agent Launches. Live public feed of every coin launched by a three.ws agent — market caps, graduation status, and the agent behind each launch."
+		},
+		{
+			"id": "play-agent-wallet",
+			"path": "/play/agent-wallet",
+			"section": "crypto",
+			"title": "Agent Wallet (x402 on Solana)",
+			"narration": "Here we have Agent Wallet (x402 on Solana). Watch your 3D avatar walk up to a paid endpoint and pay for it with its agent wallet — a real USDC micropayment signed by the agent and settled on Solana."
+		},
+		{
+			"id": "club",
+			"path": "/club",
+			"section": "crypto",
+			"title": "Pole Club",
+			"narration": "Next up, Pole Club. A 3D club where dancers only perform when you send a micro-tip. Pay $0.001 per routine, settled on-chain via x402 on Solana.",
+			"targets": [
+				"canvas, .tip-button, [data-tip]"
+			]
+		},
+		{
+			"id": "demo",
+			"path": "/demo",
+			"section": "crypto",
+			"title": "Agent Economy — NOVA & ORACLE",
+			"narration": "This is Agent Economy — NOVA & ORACLE. Two three.ws AI agents with real Solana wallets discover services on the x402 bazaar, pay each other in SOL, and display a live market briefing on the TV in their world."
+		},
+		{
+			"id": "constellation",
+			"path": "/constellation",
+			"section": "crypto",
+			"title": "watsonx Constellation",
+			"narration": "Take a look at watsonx Constellation. Live Solana tokens in a 3D galaxy, positioned in semantic space by IBM Granite embeddings on watsonx.ai. Click a star for a live IBM Granite analysis.",
+			"targets": [
+				"canvas"
+			]
+		},
+		{
+			"id": "avatar-wallet-chat",
+			"path": "/avatar-wallet-chat",
+			"section": "crypto",
+			"title": "Avatar Wallet",
+			"narration": "Now, Avatar Wallet. An embeddable 3D AI avatar that holds a Solana wallet, chats, and can autonomously send SOL."
+		},
+		{
+			"id": "coin3d",
+			"path": "/coin3d",
+			"section": "crypto",
+			"title": "Token in 3D",
+			"narration": "Let's visit Token in 3D. Any pump.fun token as a live 3D scene — a spinning coin medallion with the token's logo, top holders as a galaxy sized by balance, and a graduation ring tracking bonding-curve progress."
+		},
+		{
+			"id": "three-live",
+			"path": "/three-live",
+			"section": "crypto",
+			"title": "$THREE Live · Protocol Pulse",
+			"narration": "Over here is $THREE Live · Protocol Pulse. The $THREE protocol as a living 3D organism. Real on-chain trades pulse through it in real time — each transaction emits a particle burst, whales send shockwaves, with a live trade feed and a HUD of price, market cap, holders, and volume.",
+			"targets": [
+				"canvas"
+			]
+		},
+		{
+			"id": "forever",
+			"path": "/forever",
+			"section": "crypto",
+			"title": "Forever — etch a message into Bitcoin",
+			"narration": "Here's Forever — etch a message into Bitcoin. Inscribe a message onto the Bitcoin blockchain. It stays there. Forever."
+		},
+		{
+			"id": "tutor",
+			"path": "/tutor",
+			"section": "crypto",
+			"title": "Pay-As-You-Learn Tutor",
+			"narration": "Meet Pay-As-You-Learn Tutor. Ask anything and pay a cent per answer. A pay-as-you-learn AI tutor that bills $0.01 per explanation in USDC over x402, with a live itemized session invoice and signed attestation."
+		},
+		{
+			"id": "arbitrage",
+			"path": "/arbitrage",
+			"section": "crypto",
+			"title": "x402 Arbitrage",
+			"narration": "And this — x402 Arbitrage. Cross-provider price disparities surfaced live from the merged x402 facilitator catalog. Find the cheapest endpoint for any capability."
+		},
+		{
+			"id": "providers",
+			"path": "/providers",
+			"section": "crypto",
+			"title": "x402 Providers",
+			"narration": "Check out x402 Providers. Quantified operator profiles for the x402 paid API catalog. Service counts, price bands, dominant categories, and the underlying listings."
+		},
+		{
+			"id": "shopper",
+			"path": "/shopper",
+			"section": "crypto",
+			"title": "Endpoint Shopper",
+			"narration": "This one is Endpoint Shopper. Describe a task and set a budget. An AI agent discovers relevant x402 endpoints via the Bazaar, chains them together, and synthesizes a final answer — paying per API call."
+		},
+		{
+			"id": "fact-checker",
+			"path": "/fact-checker",
+			"section": "crypto",
+			"title": "Fact Checker",
+			"narration": "Here we have Fact Checker. Pay $0.10 per claim. The agent searches across authoritative sources, pays per retrieval via x402, and returns a verdict with cited evidence and a signed attestation."
+		},
+		{
+			"id": "unstoppable",
+			"path": "/unstoppable",
+			"section": "crypto",
+			"title": "Unstoppable Agent",
+			"narration": "Next up, Unstoppable Agent. Live dashboard for an autonomous agent that funds itself via x402 micropayments. Watch its balance, earnings, costs, and daily reflections in real time."
+		},
+		{
+			"id": "gmgn",
+			"path": "/gmgn",
+			"section": "crypto",
+			"title": "GMGN Smart Money",
+			"narration": "This is GMGN Smart Money. Live smart-money signals narrated by a 3D AI agent. Tracks which wallets are loading on Solana, Ethereum, Base, and BNB Chain in real time."
+		},
+		{
+			"id": "bazaar",
+			"path": "/bazaar",
+			"section": "crypto",
+			"title": "x402 Bazaar",
+			"narration": "Take a look at x402 Bazaar. Search and browse the x402 facilitator catalog. Filter by network, price, and extensions. Pay any service in one click."
+		},
+		{
+			"id": "strategy-lab",
+			"path": "/strategy-lab",
+			"section": "crypto",
+			"title": "Strategy Lab",
+			"narration": "Now, Strategy Lab. Build DCA and subscription strategies that trade on-chain on your behalf."
+		},
+		{
+			"id": "pump-dashboard",
+			"path": "/pump-dashboard",
+			"section": "crypto",
+			"title": "Pump Dashboard",
+			"narration": "Let's visit Pump Dashboard. Pump.fun trading desk: watchlists, scanner, quotes, portfolio, and live charts."
+		},
+		{
+			"id": "pump-live",
+			"path": "/pump-live",
+			"section": "crypto",
+			"title": "Pump Live",
+			"narration": "Over here is Pump Live. Real-time feed of every pump.fun launch as it happens, with a 3D agent that reacts live."
+		},
+		{
+			"id": "pump-visualizer",
+			"path": "/pump-visualizer",
+			"section": "crypto",
+			"title": "Pump Visualizer",
+			"narration": "Here's Pump Visualizer. 3D visualizer of trending pump.fun tokens — live market data rendered as an interactive scene."
+		},
+		{
+			"id": "pumpfun",
+			"path": "/pumpfun",
+			"section": "crypto",
+			"title": "Pump.fun Stream",
+			"narration": "Meet Pump.fun Stream. Mint and trade pump.fun agent tokens on Solana. Live feed of every launch."
+		},
+		{
+			"id": "brain",
+			"path": "/brain",
+			"section": "labs",
+			"title": "Multi-LLM Brain",
+			"narration": "And this — Multi-LLM Brain. Send one prompt to Claude, GPT, Qwen, ModelScope, and Groq simultaneously. Side-by-side streaming with latency and token stats.",
+			"sectionIntro": "These are the showcases — the experiments and living demos that show the platform off at full power. Some of my favourites are in here.",
+			"targets": [
+				"textarea, input, form"
+			]
+		},
+		{
+			"id": "labs",
+			"path": "/labs",
+			"section": "labs",
+			"title": "Labs Showcase",
+			"narration": "Check out Labs Showcase. A curated gallery of three.ws's most powerful — and most hidden — features. Find and try things you didn't know existed."
+		},
+		{
+			"id": "playground",
+			"path": "/playground",
+			"section": "labs",
+			"title": "Playground",
+			"narration": "This one is Playground. Sandbox for experimenting with agents, prompts, and 3D scenes."
+		},
+		{
+			"id": "launchpad",
+			"path": "/launchpad",
+			"section": "labs",
+			"title": "Launchpad Studio",
+			"narration": "Here we have Launchpad Studio. Build a hosted 3D launchpad, token page, concierge, or showroom on a three.ws subdomain."
+		},
+		{
+			"id": "lipsync-mic",
+			"path": "/lipsync/mic",
+			"section": "labs",
+			"title": "Lipsync (Mic)",
+			"narration": "Next up, Lipsync (Mic). Feed live mic audio through the viseme analyser and watch the avatar's mouth track your voice in real time."
+		},
+		{
+			"id": "lipsync",
+			"path": "/lipsync",
+			"section": "labs",
+			"title": "Lipsync (TTS)",
+			"narration": "This is Lipsync (TTS). Type text, stream it through the avatar's voice, and the mouth animates in real time via wawa-lipsync viseme detection."
+		},
+		{
+			"id": "chat",
+			"path": "/chat",
+			"section": "agent-tools",
+			"title": "Chat",
+			"narration": "Take a look at Chat. Talk to your agent. Voice, text, and tool-use in one interface.",
+			"sectionIntro": "Once you've built agents, this is where you talk to them, manage them, and check their reputation.",
+			"targets": [
+				"textarea, input, .composer, form"
+			]
+		},
+		{
+			"id": "agents",
+			"path": "/agents",
+			"section": "agent-tools",
+			"title": "Agents Index",
+			"narration": "Now, Agents Index. Browse every registered agent on three.ws."
+		},
+		{
+			"id": "reputation",
+			"path": "/reputation",
+			"section": "agent-tools",
+			"title": "Reputation Explorer",
+			"narration": "Let's visit Reputation Explorer. Inspect on-chain reputation scores and attestations for any agent."
+		},
+		{
+			"id": "agent",
+			"path": "/agent",
+			"section": "agent-tools",
+			"title": "Agent Home",
+			"narration": "Over here is Agent Home. Default landing for an agent instance — chat, embed, and remix actions."
+		},
+		{
+			"id": "docs",
+			"path": "/docs",
+			"section": "learn",
+			"title": "Docs",
+			"narration": "Here's Docs. Full documentation: SDKs, API reference, embedding, agent system, smart contracts.",
+			"sectionIntro": "And when you're ready to go deeper on your own, here's where the documentation, guides, and tutorials live. That's the whole tour — let's wrap up.",
+			"targets": [
+				"nav, .sidebar, main"
+			]
+		},
+		{
+			"id": "tutorials",
+			"path": "/tutorials",
+			"section": "learn",
+			"title": "Tutorials",
+			"narration": "Meet Tutorials. Step-by-step build guides."
+		},
+		{
+			"id": "events-build-3d-agents-live",
+			"path": "/events/build-3d-agents-live",
+			"section": "learn",
+			"title": "Building 3D AI Agents Live",
+			"narration": "And this — Building 3D AI Agents Live. A live build session: from a single prompt to an interactive 3D AI agent embedded in any app, in minutes — then a live Q&A. Hosted by three.ws, in partnership with IBM."
+		},
+		{
+			"id": "status",
+			"path": "/status",
+			"section": "learn",
+			"title": "Status",
+			"narration": "Check out Status. Live operational status and 90-day uptime history for the platform, API, and x402 surfaces — probed every 5 minutes."
+		},
+		{
+			"id": "support",
+			"path": "/support",
+			"section": "learn",
+			"title": "Support",
+			"narration": "This one is Support. Get help with three.ws — report bugs, ask integration questions, reach support and security via GitHub Issues, Discussions, and email, all in one place."
+		},
+		{
+			"id": "glossary",
+			"path": "/glossary",
+			"section": "learn",
+			"title": "Glossary",
+			"narration": "Here we have Glossary. Plain-English definitions for the crypto and agent terms used across three.ws — no jargon required to get started."
+		}
+	]
+}

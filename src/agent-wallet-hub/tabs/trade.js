@@ -23,6 +23,7 @@ import { registerWalletTab } from '../registry.js';
 import {
 	previewAgentTrade, executeAgentTrade, fetchAgentHoldings, fetchAgentTradeHistory, TradeError,
 } from '../../agent-solana-wallet.js';
+import { createSafetyPanel } from '../../shared/safety-panel.js';
 import { solToUsd } from '../../shared/usd-price.js';
 import { formatSol, timeAgo, explorerTxUrl } from '../util.js';
 
@@ -35,6 +36,20 @@ const IMPACT_DANGER = 15; // red
 // the only coin three.ws references; this is illustrative input only).
 const MINT_PLACEHOLDER = 'Paste a coin mint address…';
 const MINT_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+
+// Derive a Safety-panel-shaped verdict from a trade preview payload. The preview
+// embeds `firewall` (warn/allow) directly; a hard block arrives as a guard with
+// code 'firewall_blocked' carrying the same detail. Returns null when the buy
+// side carries no firewall signal (e.g. a sell, which the firewall doesn't gate).
+function verdictFromPreview(q) {
+	if (!q) return null;
+	if (q.guard && q.guard.code === 'firewall_blocked') {
+		const d = q.guard.detail || {};
+		return { verdict: 'block', score: d.score, simulated: d.simulated, reasons: d.reasons || [q.guard.message], checks: d.checks || [] };
+	}
+	if (q.firewall && typeof q.firewall.verdict === 'string') return q.firewall;
+	return null;
+}
 
 const STYLE_ID = 'awh-trade-style';
 const STYLE = `
@@ -204,6 +219,7 @@ registerWalletTab({
 		let detachNet = null;
 		let quoteTimer = null;
 		let quoteSeq = 0;
+		const safety = createSafetyPanel({ startExpanded: false });
 
 		const state = {
 			isOwner: ctx.isOwner,
@@ -314,12 +330,14 @@ registerWalletTab({
 				state.quoting = false;
 				renderQuote();
 				renderActions();
+				renderSafety();
 				return;
 			}
 			state.quoting = true;
 			state.quoteError = null;
 			renderQuote();
 			renderActions();
+			renderSafety();
 			const seq = ++quoteSeq;
 			quoteTimer = setTimeout(async () => {
 				try {
@@ -336,6 +354,7 @@ registerWalletTab({
 						state.quoting = false;
 						renderQuote();
 						renderActions();
+						renderSafety();
 					}
 				}
 			}, QUOTE_DEBOUNCE_MS);
@@ -394,6 +413,21 @@ registerWalletTab({
 		}
 
 		// ── renderers ───────────────────────────────────────────────────────────
+		// Re-attach the persistent Safety panel into its host after a full re-render
+		// (renderAll wipes innerHTML) and apply the current verdict. Hidden on the
+		// sell side — the firewall guards the buy direction.
+		function renderSafety() {
+			const host = panel.querySelector('[data-host="safety"]');
+			if (!host) return;
+			if (state.side !== 'buy' || !state.coin) { host.hidden = true; return; }
+			host.hidden = false;
+			if (safety.el.parentNode !== host) { host.innerHTML = ''; host.appendChild(safety.el); }
+			if (state.quoting) { safety.setState('loading'); return; }
+			const v = verdictFromPreview(state.quote);
+			if (v) safety.applyVerdict(v);
+			else safety.setState('idle');
+		}
+
 		function renderAll() {
 			if (destroyed) return;
 			if (!state.walletReady) {
@@ -413,6 +447,7 @@ registerWalletTab({
 					${historyCardHtml()}
 				</div>`;
 			wireEvents();
+			renderSafety();
 		}
 
 		function visitorBannerHtml() {
@@ -450,6 +485,8 @@ registerWalletTab({
 						<div class="awh-tr-label">Quote</div>
 						<div data-host="quote">${quoteInnerHtml()}</div>
 					</div>
+
+					<div data-host="safety" class="awh-tr-safety-host"></div>
 
 					<div class="awh-tr-actions" data-host="actions">${actionsInnerHtml()}</div>
 					<div data-host="result">${resultInnerHtml()}</div>
@@ -887,6 +924,7 @@ registerWalletTab({
 			destroy() {
 				destroyed = true;
 				clearTimeout(quoteTimer);
+				safety?.destroy();
 				detachNet?.();
 			},
 		};

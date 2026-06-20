@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 	<head>
-		<script>/* three.ws theme boot — no-flash; runtime in /theme-switcher.js */(function(){try{var m=localStorage.getItem('twx_theme');var l=m==='auto'?(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches):m==='light';document.documentElement.setAttribute('data-theme',l?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();</script>
+		<script>/* three.ws theme boot — no-flash; runtime in /theme-switcher.js */(function(){document.documentElement.classList.add('js');try{var m=localStorage.getItem('twx_theme');var l=m==='auto'?(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches):m==='light';document.documentElement.setAttribute('data-theme',l?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();</script>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 		<title>Pricing · three.ws</title>
@@ -137,7 +137,7 @@
 			<canvas class="pricing-avatar-canvas" id="avatar-canvas"></canvas>
 
 			<!-- ── FEATURE COMPARISON ──────────────────────────────────────── -->
-			<section class="pricing-comparison">
+			<section class="pricing-comparison reveal-section">
 				<h2>Compare every feature</h2>
 				<table class="comparison-table">
 					<thead>
@@ -315,7 +315,7 @@
 			</section>
 
 			<!-- ── FAQ ─────────────────────────────────────────────────────── -->
-			<section class="pricing-faq">
+			<section class="pricing-faq reveal-section">
 				<h2>Frequently asked questions</h2>
 
 				<details>
@@ -380,7 +380,7 @@
 			</section>
 
 			<!-- ── BOTTOM CTA ──────────────────────────────────────────────── -->
-			<section class="pricing-bottom-cta">
+			<section class="pricing-bottom-cta reveal-section">
 				<div class="cta-card">
 					<h2>Ready to give your<br />AI agent a body?</h2>
 					<p>Free during open beta. No credit card. Two lines of HTML.</p>
@@ -569,6 +569,35 @@
 				</div>
 			</footer>
 		</main>
+
+		<!-- ── Reveal-on-scroll for below-the-fold sections ────────────────────── -->
+		<script>
+			(function () {
+				const sections = document.querySelectorAll('.reveal-section');
+				if (!sections.length) return;
+				const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+				const revealAll = () =>
+					sections.forEach((s) => s.classList.add('is-revealed'));
+
+				if (reduce || !('IntersectionObserver' in window)) {
+					revealAll();
+					return;
+				}
+
+				const io = new IntersectionObserver(
+					(entries, obs) => {
+						for (const entry of entries) {
+							if (entry.isIntersecting) {
+								entry.target.classList.add('is-revealed');
+								obs.unobserve(entry.target);
+							}
+						}
+					},
+					{ threshold: 0.12, rootMargin: '0px 0px -8% 0px' },
+				);
+				sections.forEach((s) => io.observe(s));
+			})();
+		</script>
 
 		<!-- ── Billing toggle ──────────────────────────────────────────────── -->
 		<script>

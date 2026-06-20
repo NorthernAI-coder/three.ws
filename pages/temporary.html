@@ -692,6 +692,85 @@
 				.walk-emote-btn .emote-label { display: none; }
 			}
 
+			/* ── Gesture wheel (radial picker — hold G / long-press) ────── */
+			.walk-gesture-wheel {
+				position: fixed;
+				z-index: 9998;
+				left: 50%;
+				top: 50%;
+				width: 260px;
+				height: 260px;
+				transform: translate(-50%, -50%) scale(0.85);
+				opacity: 0;
+				pointer-events: none;
+				transition: opacity 0.16s ease, transform 0.16s ease;
+			}
+			.walk-gesture-wheel.is-open {
+				opacity: 1;
+				transform: translate(-50%, -50%) scale(1);
+				pointer-events: auto;
+			}
+			.walk-gesture-wheel .wheel-ring {
+				position: absolute;
+				inset: 0;
+				border-radius: 50%;
+				background: rgba(10, 10, 10, 0.78);
+				border: 1px solid rgba(255, 255, 255, 0.1);
+				backdrop-filter: blur(16px);
+				-webkit-backdrop-filter: blur(16px);
+				box-shadow: 0 12px 48px rgba(0, 0, 0, 0.45);
+			}
+			.walk-gesture-wheel .wheel-seg {
+				position: absolute;
+				left: 50%;
+				top: 50%;
+				width: 52px;
+				height: 52px;
+				margin: -26px 0 0 -26px;
+				transform: translate(var(--x, 0), var(--y, 0));
+				border-radius: 50%;
+				border: 1px solid rgba(255, 255, 255, 0.14);
+				background: rgba(255, 255, 255, 0.07);
+				color: #fff;
+				cursor: pointer;
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				justify-content: center;
+				gap: 1px;
+				transition: transform 0.1s ease, background 0.1s ease, border-color 0.1s ease;
+			}
+			.walk-gesture-wheel .wheel-seg .wheel-ico { font-size: 22px; line-height: 1; }
+			.walk-gesture-wheel .wheel-seg .wheel-lbl {
+				font-size: 8px;
+				letter-spacing: 0.02em;
+				text-transform: uppercase;
+				color: rgba(255, 255, 255, 0.55);
+			}
+			.walk-gesture-wheel .wheel-seg:hover,
+			.walk-gesture-wheel .wheel-seg.is-active {
+				transform: translate(var(--x, 0), var(--y, 0)) scale(1.16);
+				background: var(--accent, #7c5cff);
+				border-color: rgba(255, 255, 255, 0.45);
+			}
+			.walk-gesture-wheel .wheel-seg.is-active .wheel-lbl { color: #fff; }
+			.walk-gesture-wheel .wheel-seg:focus-visible {
+				outline: 2px solid var(--accent, #7c5cff);
+				outline-offset: 2px;
+			}
+			.walk-gesture-wheel .wheel-hub {
+				position: absolute;
+				left: 50%;
+				top: 50%;
+				transform: translate(-50%, -50%);
+				font-size: 12px;
+				font-weight: 600;
+				color: rgba(255, 255, 255, 0.75);
+				text-align: center;
+				pointer-events: none;
+				min-width: 80px;
+			}
+
 			/* ── Recording UI ──────────────────────────────────────────── */
 			#walk-record-btn .dot { transition: background 0.15s ease, box-shadow 0.15s ease; }
 			#walk-record-btn[data-recording="true"] .dot {

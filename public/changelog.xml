@@ -23,8 +23,16 @@
 			<description>A public gallery and leaderboard of the rarest Solana vanity addresses ground on three.ws — each provably-fair, verified, and shareable. Appraise any address to see its honest rarity tier and grind cost.</description>
 		</item>
 		<item>
+			<title>Choose where you walk — six environments for the Walk page</title>
+			<link>https://three.ws/features/walk</link>
+			<guid isPermaLink="false">2026-06-20:Choose where you walk — six environments for the Walk page</guid>
+			<pubDate>Sat, 20 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Your avatar no longer strolls in one fixed studio. A new environment picker lets you drop into six distinct worlds: a sunlit Park with shade trees and benches, a neon Cyberpunk street, a bright Beach with palm trees and a turquoise sea, a white-walled Gallery with pedestals and hung art, an abstract Void grid for pure focus, and the three.ws Office with desks and plants. Open the picker from the environment button in the Walk HUD to see a preview of each scene, or press V to cycle through them. Switching fades smoothly to the new sky and back — the ground, lighting, reflections, and props all change to match, and the avatar walks and collides correctly in every world. Link straight to a scene with ?env=beach (or park, cyberpunk, gallery, void, office), and your last choice is remembered next time you visit. Every scene is a real 3D model with its own HDR lighting, authored and owned by three.ws.</description>
+		</item>
+		<item>
 			<title>Express yourself in Walk — wave, dance, sit, point, cheer and more</title>
-			<link>https://three.ws/walk</link>
+			<link>https://three.ws/features/walk</link>
 			<guid isPermaLink="false">2026-06-20:Express yourself in Walk — wave, dance, sit, point, cheer and more</guid>
 			<pubDate>Sat, 20 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>

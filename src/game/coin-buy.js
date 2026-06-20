@@ -20,6 +20,7 @@
 
 import './coin-buy.css';
 import { detectSolanaWallet, SOLANA_RPC, solanaTxExplorerUrl } from '../erc8004/solana-deploy.js';
+import { createSafetyPanel } from '../shared/safety-panel.js';
 
 const WSOL = 'So11111111111111111111111111111111111111112';
 const USDC_MINT = {
@@ -150,6 +151,9 @@ class TradeModal {
 		// until the first quote resolves; 0 disables the fee line. Disclosed in the
 		// modal so a fee never lands as a surprise.
 		this.platformFeeBps = null;
+		// Firewall verdict for the current (mint, amount). 'block' disables Buy.
+		this.safetyVerdict = null;
+		this._safetySeq = 0;
 		this._build();
 		this._detectP = this._detectDenom();
 		this._refreshWallet();
@@ -191,6 +195,14 @@ class TradeModal {
 
 		this.walletLine = el('div', { class: 'cc-buy-wallet' });
 
+		// Pre-trade rug/honeypot firewall verdict — rendered right above the CTA on
+		// buys. A 'block' disables the Buy button; the user can still review checks.
+		this.safety = createSafetyPanel({
+			onVerdict: (v) => { this.safetyVerdict = v; this._syncCta(); },
+		});
+		this.safetyHost = el('div', { class: 'cc-buy-safety-host' });
+		this.safetyHost.appendChild(this.safety.el);
+
 		this.cta = el('button', { class: 'cc-buy-cta', type: 'button', onclick: () => this._onCta() });
 		this.ctaLabel = 'buy';
 
@@ -229,6 +241,7 @@ class TradeModal {
 			this.feeLine,
 			this.slipRow,
 			this.walletLine,
+			this.safetyHost,
 			this.cta,
 			this.statusLine,
 			pumpLink,
@@ -251,6 +264,7 @@ class TradeModal {
 	close() {
 		this.overlay.classList.remove('cc-on');
 		setTimeout(() => this.overlay.remove(), 180);
+		this.safety?.destroy();
 		if (_open === this) _open = null;
 	}
 
@@ -467,6 +481,14 @@ class TradeModal {
 		if (this.denom.kind === 'usdc' && this.quoteBalance && this.amount > 0 && this.amount > this.quoteBalance.ui + 1e-9) {
 			this.cta.textContent = 'Add USDC to buy'; this.ctaLabel = 'fund'; this.cta.disabled = false; return;
 		}
+		// Hard-stop a buy the firewall blocked (honeypot / unsellable / no venue).
+		// The user can still read the verdict above; the action is what's refused.
+		if (this.denom.kind === 'sol' && this.safetyVerdict?.verdict === 'block') {
+			this.ctaLabel = 'buy';
+			this.cta.textContent = 'Blocked — unsafe to buy';
+			this.cta.disabled = true;
+			return;
+		}
 		this.ctaLabel = 'buy';
 		this.cta.textContent = this.amount > 0 ? `Buy ${this.amount} ${this.denom.label} of ${this.sym}` : 'Enter an amount';
 		this.cta.disabled = !(this.amount > 0);
@@ -528,10 +550,35 @@ class TradeModal {
 		line.title = 'A platform fee at pump.fun’s trade-fee rate, included in this transaction alongside the standard Solana network fee.';
 	}
 
+	// ----------------------------------------------------------- safety firewall
+	// Fetch the pre-trade firewall verdict for the current (mint, SOL amount). Only
+	// meaningful for SOL buys (the firewall guards the buy direction on the curve).
+	// Hidden for sells and USDC buys, where the SOL round-trip simulation doesn't
+	// apply — the panel resets to idle so a stale verdict never gates the CTA.
+	_refreshSafety() {
+		if (!this.safety) return;
+		const isSolBuy = this.mode === 'buy' && this.denom.kind === 'sol';
+		this.safetyHost.hidden = !isSolBuy;
+		if (!isSolBuy) {
+			this.safetyVerdict = null;
+			this.safety.setState('idle');
+			this._syncCta();
+			return;
+		}
+		if (!(this.amount > 0)) {
+			this.safetyVerdict = null;
+			this.safety.setState('idle');
+			this._syncCta();
+			return;
+		}
+		this.safety.loadForMint({ mint: this.coin.mint, network: NETWORK, amountSol: this.amount });
+	}
+
 	// --------------------------------------------------------------- quote
 	async _quote() {
 		await this._detectP;
 		this._renderFee();
+		this._refreshSafety();
 		// SOL buys keep the original client-side AMM quote (price impact + honest
 		// bonding-curve fallback). Everything else (USDC buys, all sells) prices
 		// through the server quote endpoint, which handles USDC and both routes.
@@ -688,6 +735,12 @@ class TradeModal {
 	async _buy() {
 		await this._detectP;
 		if (!(this.amount > 0)) return;
+		// Never broadcast a buy the firewall blocked, even if the CTA were somehow
+		// reached — the verdict above explains why.
+		if (this.denom.kind === 'sol' && this.safetyVerdict?.verdict === 'block') {
+			this._setStatus('This coin failed the safety check — buying is blocked.', 'err');
+			return;
+		}
 		const isUsdc = this.denom.kind === 'usdc';
 		this.busy = true; this._syncCta();
 		const wallet = detectSolanaWallet();
