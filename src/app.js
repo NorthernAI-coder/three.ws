@@ -12,6 +12,15 @@ import { NichAgent } from './nich-agent.js';
 import { ThoughtBubble } from './thought-bubble.js';
 import { AvatarCreator } from './avatar-creator.js';
 import { resolveURI, isDecentralizedURI } from './ipfs.js';
+import { resolveDevR2Url } from './shared/dev-r2-proxy.js';
+
+// Resolve a model URL for loading: expand decentralized URIs (ipfs:/ar:) via the
+// gateway, then route r2.dev assets through the dev /r2-proxy so cross-origin
+// GLB fetches don't fail CORS on localhost / Codespaces. No-op in production.
+function resolveModelUrl(url) {
+	const expanded = isDecentralizedURI(url) ? resolveURI(url) : url;
+	return resolveDevR2Url(expanded);
+}
 // Hosts we trust to serve 3D assets when a model URL arrives from an untrusted
 // source (the `?model=` query param). Same-origin, decentralized (ipfs:/ar:),
 // and these first-party/gateway hosts only — so a crafted link can't make the
@@ -318,7 +327,7 @@ class App {
 			// arbitrary attacker URL falls through to the default avatar.
 			const qpModel = isSafeQueryModelUrl(rawQpModel) ? rawQpModel : '';
 			const model = options.model || qpModel || '/avatars/cz.glb';
-			this.view(isDecentralizedURI(model) ? resolveURI(model) : model, '', new Map())
+			this.view(resolveModelUrl(model), '', new Map())
 				.catch(() => {})
 				.finally(() => this._showDeployPage());
 			this._initAgentSystem();

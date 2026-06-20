@@ -1228,8 +1228,8 @@ function buildRailHTML(state) {
 				${field('Chain', `
 					<select data-bind="monetize.chain">
 						<option value="base" ${state.monetize.chain === 'base' ? 'selected' : ''}>Base</option>
-						<option value="polygon" ${state.monetize.chain === 'polygon' ? 'selected' : ''}>Polygon</option>
-					</select>`)}
+						<option value="solana" ${state.monetize.chain === 'solana' ? 'selected' : ''}>Solana</option>
+					</select>`, 'x402 settles the per-call fee in USDC on the chosen chain.')}
 			</div>
 		`;
 	} else if (tpl.id === 'gated-showroom') {

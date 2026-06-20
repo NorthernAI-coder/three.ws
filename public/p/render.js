@@ -114,26 +114,25 @@ function renderPage(root, payload) {
 
 function extraCopy(payload) {
 	const { template, config } = payload;
+	const m = config?.monetize || {};
 	if (template === 'token-launchpad') {
 		const t = config?.token || {};
 		const name = t.name || 'your token';
 		const ticker = t.ticker ? ` ($${t.ticker})` : '';
 		return `One click launches ${name}${ticker} on Pump.fun. Creator fees route to ${short(config?.identity?.wallet)}.`;
 	}
-	// Legacy templates (paid-concierge / gated-showroom) render as hosted
-	// landing pages; their CTA routes to the creator's own channel below.
-	if (config?.identity?.website) {
-		return `Built on three.ws. Continue to ${short(config?.identity?.wallet)}'s site to take the next step.`;
+	if (template === 'paid-concierge') {
+		return `Ask anything. Each call costs ${priceLabel(m) || 'a small USDC fee'} and settles instantly to ${short(config?.identity?.wallet)}.`;
+	}
+	if (template === 'gated-showroom') {
+		return `Unlock a private 3D scene with a one-time ${priceLabel(m) || 'USDC pass'}.`;
 	}
 	return '';
 }
 
-// CTA handler. The only template with an on-platform action is the token
-// launchpad (one-click Pump.fun mint). Every other published page is a hosted
-// landing page whose CTA continues to the creator's own website — never a
-// dead endpoint.
+// CTA handler — each template hands off to its real flow.
 function onCtaClick(payload, btn, statusEl) {
-	const { template, config } = payload;
+	const { template } = payload;
 	if (template === 'token-launchpad') {
 		// Pump.fun coin creation lives on the public /launch surface, where the
 		// visitor picks a wallet and signs the mint transaction themselves.
@@ -142,16 +141,125 @@ function onCtaClick(payload, btn, statusEl) {
 		statusEl.className = 'status-msg ok';
 		return;
 	}
-	const website = config?.identity?.website || '';
-	if (website) {
-		const href = /^https?:\/\//i.test(website) ? website : `https://${website}`;
-		window.open(href, '_blank', 'noopener');
-		statusEl.textContent = 'Continuing to the creator’s site…';
-		statusEl.className = 'status-msg ok';
+	if (template === 'paid-concierge') {
+		openPaidModal(payload, statusEl, 'concierge');
 		return;
 	}
-	statusEl.textContent = 'This page has no destination set yet — add a website in the Studio.';
+	if (template === 'gated-showroom') {
+		openPaidModal(payload, statusEl, 'unlock');
+		return;
+	}
+	statusEl.textContent = 'No action wired for this template yet.';
 	statusEl.className = 'status-msg err';
+}
+
+// Format the live x402 402 challenge for a human. The published page is not a
+// wallet — an x402-capable wallet or agent settles the payment and retries —
+// so we surface the real amount, recipient, and network from the challenge.
+function challengeSummary(challenge) {
+	const a = Array.isArray(challenge?.accepts) ? challenge.accepts[0] : null;
+	if (!a) return 'Payment required — settle the x402 invoice in your wallet, then retry.';
+	const usdc = a.amount ? (Number(a.amount) / 1e6).toLocaleString(undefined, { maximumFractionDigits: 6 }) : '';
+	const net = String(a.network || '').startsWith('solana') ? 'Solana' : 'Base';
+	return `Pay ${usdc} USDC to ${short(a.payTo)} on ${net} with your x402 wallet, then retry.`;
+}
+
+// Shared modal for both paid templates. `mode` is 'concierge' (asks a question)
+// or 'unlock' (reveals a gated scene). Keyboard-operable: Escape closes, focus
+// is trapped, and the first control is focused on open.
+function openPaidModal(payload, statusEl, mode) {
+	const { slug, config } = payload;
+	const m = config?.monetize || {};
+	const isAsk = mode === 'concierge';
+	const backdrop = document.createElement('div');
+	backdrop.className = 'modal-backdrop';
+	backdrop.innerHTML = `
+		<div class="modal" role="dialog" aria-modal="true" aria-labelledby="lp-modal-title">
+			<h2 id="lp-modal-title">${isAsk ? 'Ask the concierge' : 'Unlock the room'}</h2>
+			<p>${isAsk
+				? `Costs ${esc(priceLabel(m) || 'a small USDC fee')}. Settles to ${esc(short(config?.identity?.wallet))} on ${esc(m.chain || 'base')}.`
+				: `One-time ${esc(priceLabel(m) || 'USDC pass')} grants 24 h access. Settles to ${esc(short(config?.identity?.wallet))}.`}</p>
+			${isAsk ? `
+				<div class="field">
+					<label for="lp-modal-q">Your question</label>
+					<input id="lp-modal-q" type="text" data-q placeholder="What's the best way to..." />
+				</div>` : ''}
+			<div class="status-msg" data-modal-status role="status" aria-live="polite"></div>
+			<div class="modal-actions">
+				<button class="secondary" type="button" data-cancel>Cancel</button>
+				<button class="primary" type="button" data-pay>${isAsk ? `Pay ${esc(priceLabel(m) || '')}`.trim() : 'Pay & enter'}</button>
+			</div>
+		</div>
+	`;
+	document.body.appendChild(backdrop);
+
+	const lastFocused = document.activeElement;
+	const close = () => {
+		backdrop.remove();
+		document.removeEventListener('keydown', onKey, true);
+		if (lastFocused && typeof lastFocused.focus === 'function') lastFocused.focus();
+	};
+	const focusables = () =>
+		[...backdrop.querySelectorAll('input,button,[href],[tabindex]:not([tabindex="-1"])')].filter(
+			(n) => !n.disabled && n.offsetParent !== null,
+		);
+	function onKey(e) {
+		if (e.key === 'Escape') { e.preventDefault(); close(); return; }
+		if (e.key === 'Tab') {
+			const f = focusables();
+			if (!f.length) return;
+			const first = f[0], last = f[f.length - 1];
+			if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+			else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+		}
+	}
+	document.addEventListener('keydown', onKey, true);
+	backdrop.querySelector('[data-cancel]').addEventListener('click', close);
+	backdrop.addEventListener('click', (e) => { if (e.target === backdrop) close(); });
+	(backdrop.querySelector('[data-q]') || backdrop.querySelector('[data-pay]')).focus();
+
+	backdrop.querySelector('[data-pay]').addEventListener('click', async () => {
+		const ms = backdrop.querySelector('[data-modal-status]');
+		const qEl = backdrop.querySelector('[data-q]');
+		const question = qEl ? qEl.value.trim() : '';
+		if (isAsk && !question) { ms.textContent = 'Type a question first.'; ms.className = 'status-msg err'; return; }
+		ms.textContent = isAsk ? 'Requesting an answer…' : 'Requesting unlock…';
+		ms.className = 'status-msg';
+		try {
+			const r = await fetch(`/api/launchpad/invoke?slug=${encodeURIComponent(slug)}`, {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify(isAsk ? { question } : {}),
+			});
+			if (r.status === 402) {
+				ms.textContent = challengeSummary(await r.json().catch(() => null));
+				ms.className = 'status-msg';
+				return;
+			}
+			if (!r.ok) {
+				const e = await r.json().catch(() => null);
+				throw new Error(e?.message || `Service error (${r.status})`);
+			}
+			const data = await r.json();
+			if (isAsk) {
+				ms.textContent = data?.answer || 'Reply received.';
+				ms.className = 'status-msg ok';
+				statusEl.textContent = 'Concierge replied — see the panel.';
+				statusEl.className = 'status-msg ok';
+			} else if (data?.unlockUrl) {
+				window.open(data.unlockUrl, '_blank', 'noopener');
+				close();
+				statusEl.textContent = 'Room unlocked — opened in a new tab.';
+				statusEl.className = 'status-msg ok';
+			} else {
+				ms.textContent = 'Unlocked, but no scene URL was returned.';
+				ms.className = 'status-msg err';
+			}
+		} catch (err) {
+			ms.textContent = err.message || 'Something went wrong.';
+			ms.className = 'status-msg err';
+		}
+	});
 }
 
 // ─────── Boot ───────
