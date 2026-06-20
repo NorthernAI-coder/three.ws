@@ -258,6 +258,14 @@ export const limits = {
 		getLimiter('avatar:payout:daily', { limit: 50, window: '24 h', critical: true }).limit(
 			walletAddr,
 		),
+	// Proof-of-grind gallery. Publishing verifies a signed receipt server-side then
+	// writes a public rarity entry — bound per IP so one caller can't carpet the
+	// gallery, but generous enough for a real owner publishing a few grinds.
+	// Reads (gallery list / leaderboard / appraisal) are cheap and CDN-cacheable.
+	vanityGalleryPublishIp: (ip) =>
+		getLimiter('vanity:gallery:publish:ip', { limit: 12, window: '10 m' }).limit(ip),
+	vanityGalleryReadIp: (ip) =>
+		getLimiter('vanity:gallery:read:ip', { limit: 240, window: '5 m' }).limit(ip),
 	mcpUser: (userId) => getLimiter('mcp:user', { limit: 1200, window: '1 m' }).limit(userId),
 	mcpIp: (ip) => getLimiter('mcp:ip', { limit: 600, window: '1 m' }).limit(ip),
 	// Per-principal ceiling on the expensive/gated pump-fun MCP tools (vanity grind,

@@ -484,6 +484,18 @@ URL: https://three.ws/vanity/verify
 
 Independently verify a three.ws provably-fair vanity wallet receipt — entirely in your browser. Prove the key was generated fresh under a committed seed and the operator never kept a copy.
 
+### Proof-of-Grind Gallery
+
+URL: https://three.ws/vanity/gallery
+
+A public gallery and leaderboard of the rarest Solana vanity addresses ground on three.ws — each provably-fair, verified, and shareable. Appraise any address to see its honest rarity tier and grind cost.
+
+### Grind-Bounty Market
+
+URL: https://three.ws/vanity/bounties
+
+A decentralized x402 bounty market for hard Solana vanity addresses — escrow a USDC bounty and a fleet of independent workers grinds it in parallel. The first verified match wins, but the found key is sealed to you so the worker never sees your wallet. Earn USDC by grinding open bounties.
+
 ### ETH Vanity (CREATE2)
 
 URL: https://three.ws/eth-vanity

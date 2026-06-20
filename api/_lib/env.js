@@ -715,6 +715,28 @@ export const env = {
 		return trimSlash(opt('STOREFRONT_ORIGIN', 'https://three.ws'));
 	},
 
+	// ── Grind-bounty market (api/vanity/bounties.js) ──────────────────────
+	// Solana USDC payout wallet for the grind-bounty market. Holds the escrowed
+	// USDC the platform received via x402 when requesters funded their bounties,
+	// and pays the winning worker (or refunds the requester on expiry) in real
+	// on-chain SPL transfers. Never logged, never returned. Accepts a Base58
+	// 64-byte secret key directly; the payout module also accepts the existing
+	// base64 CLUB_SOLANA_TREASURY_SECRET_KEY_B64 as a fallback so the market
+	// settles in environments that already fund that treasury.
+	get VANITY_BOUNTY_PAYOUT_KEY() {
+		return opt('VANITY_BOUNTY_PAYOUT_KEY');
+	},
+
+	// Solana funding wallet for sealed wallet drops (api/vanity/drops.js). Funds
+	// each freshly-ground drop address on-chain (SOL/USDC/$THREE) and pays the
+	// network fee on the expiry-reclaim sweep back to the sender. Never logged,
+	// never returned. Accepts a Base58 64-byte secret; the funding module also
+	// accepts VANITY_BOUNTY_PAYOUT_KEY and the base64 CLUB_SOLANA_TREASURY_SECRET_KEY_B64
+	// as fallbacks so drops fund wherever the platform already holds a hot wallet.
+	get VANITY_DROP_FUNDING_KEY() {
+		return opt('VANITY_DROP_FUNDING_KEY');
+	},
+
 	// ── Lottery + Reflection coin (api/_lib/coin/*) ───────────────────────
 	// Treasury keypair (base64-encoded 64-byte secret). Fee payer for every
 	// lottery winner transfer + reflection batch transfer. Holds the SOL that

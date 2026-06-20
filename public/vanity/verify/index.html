@@ -54,6 +54,7 @@
 		.verdict { display:none; align-items:center; gap:.8rem; border-radius:var(--radius-md); padding:1rem 1.2rem; margin-bottom:1.1rem; font-weight:600; }
 		.verdict.show { display:flex; }
 		.verdict.ok { background:var(--ok-bg); color:var(--ok-fg); border:1px solid rgba(74,222,128,0.3); }
+		.verdict.partial { background:var(--warn-bg); color:var(--warn-fg); border:1px solid rgba(251,191,36,0.3); }
 		.verdict.bad { background:var(--bad-bg); color:var(--bad-fg); border:1px solid rgba(239,68,68,0.3); }
 		.verdict .vmark { font-size:1.4rem; line-height:1; }
 		.verdict .vtext small { display:block; font-weight:400; opacity:.85; font-size:.78rem; margin-top:.15rem; }
@@ -92,6 +93,23 @@
 		a.link { color:#ffd54f; text-decoration:none; border-bottom:1px solid rgba(255,213,79,.4); }
 		a.link:hover { border-bottom-color:#ffd54f; }
 	</style>
+
+	<link rel="canonical" href="https://three.ws/vanity/verify">
+	<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
+	<meta property="og:type" content="website">
+	<meta property="og:site_name" content="three.ws">
+	<meta property="og:locale" content="en_US">
+	<meta property="og:url" content="https://three.ws/vanity/verify">
+	<meta property="og:image" content="https://three.ws/api/page-og?s=crypto&amp;t=Verify+a+Vanity+Receipt&amp;d=Independently+verify+a+three.ws+provably-fair+vanity+wallet+receipt+%E2%80%94+entirely+in+your+browser.+Prove+the+key+was+generated+fresh+under+a+committed+seed+and+the&amp;p=%2Fvanity%2Fverify">
+	<meta property="og:image:width" content="1200">
+	<meta property="og:image:height" content="630">
+	<meta property="og:image:type" content="image/png">
+	<meta property="og:image:alt" content="Verify a Vanity Receipt — three.ws">
+	<meta name="twitter:site" content="@trythreews">
+	<meta name="twitter:title" content="Verify a Vanity Receipt · three.ws">
+	<meta name="twitter:description" content="Independently verify a three.ws provably-fair vanity wallet receipt — entirely in your browser. Prove the key was generated fresh under a committed seed and the operator never kept a copy.">
+	<meta name="twitter:image" content="https://three.ws/api/page-og?s=crypto&amp;t=Verify+a+Vanity+Receipt&amp;d=Independently+verify+a+three.ws+provably-fair+vanity+wallet+receipt+%E2%80%94+entirely+in+your+browser.+Prove+the+key+was+generated+fresh+under+a+committed+seed+and+the&amp;p=%2Fvanity%2Fverify">
+	<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"WebPage","name":"Verify a Vanity Receipt","description":"Independently verify a three.ws provably-fair vanity wallet receipt — entirely in your browser. Prove the key was generated fresh under a committed seed and the operator never kept a copy.","url":"https://three.ws/vanity/verify","isPartOf":{"@type":"WebSite","name":"three.ws","url":"https://three.ws"},"primaryImageOfPage":"https://three.ws/api/page-og?s=crypto&t=Verify+a+Vanity+Receipt&d=Independently+verify+a+three.ws+provably-fair+vanity+wallet+receipt+%E2%80%94+entirely+in+your+browser.+Prove+the+key+was+generated+fresh+under+a+committed+seed+and+the&p=%2Fvanity%2Fverify"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://three.ws/"},{"@type":"ListItem","position":2,"name":"Vanity","item":"https://three.ws/vanity"},{"@type":"ListItem","position":3,"name":"Verify","item":"https://three.ws/vanity/verify"}]}]}</script>
 </head>
 <body>
 	<a href="#main-content" class="skip-link">Skip to main content</a>
@@ -141,6 +159,7 @@
 			<div class="share-row" id="share-row">
 				<span class="badge">✓ Verified trustless · three.ws</span>
 				<button class="ghost" id="copy-badge">Copy verified badge</button>
+				<a class="link" id="publish-link" href="/vanity/gallery#tab=publish" style="align-self:center;font-size:.85rem">Publish to the rarity gallery →</a>
 			</div>
 		</div>
 
@@ -205,7 +224,7 @@
 			$('verdict').classList.remove('show');
 		}
 
-		function renderResult(result, receipt) {
+		function renderResult(result, receipt, { pinned } = { pinned: true }) {
 			const checksEl = $('checks');
 			checksEl.innerHTML = result.checks.map((c) =>
 				'<div class="check ' + (c.pass ? 'pass' : 'fail') + '">' +
@@ -215,13 +234,23 @@
 				'</div>'
 			).join('');
 
+			// Full "provably fair" only when every check passed AND we pinned the
+			// signer against the independent well-known key. Internally-valid but
+			// unpinned → a deliberately cautious "partial" state, not a green pass.
+			const fullyTrustless = result.valid && pinned;
 			const verdict = $('verdict');
-			verdict.className = 'verdict show ' + (result.valid ? 'ok' : 'bad');
-			$('vmark').textContent = result.valid ? '✓' : '✗';
-			$('vtext-main').textContent = result.valid ? 'Verified — this receipt is provably fair.' : 'Verification failed — do not trust this receipt.';
-			$('vtext-sub').textContent = result.valid
-				? 'The key was generated fresh under the committed seed; the operator could not have kept a copy.'
-				: 'One or more protocol checks did not pass. The key/receipt may have been tampered with.';
+			verdict.className = 'verdict show ' + (result.valid ? (fullyTrustless ? 'ok' : 'partial') : 'bad');
+			$('vmark').textContent = result.valid ? (fullyTrustless ? '✓' : '!') : '✗';
+			$('vtext-main').textContent = !result.valid
+				? 'Verification failed — do not trust this receipt.'
+				: fullyTrustless
+					? 'Verified — this receipt is provably fair.'
+					: 'Receipt is self-consistent, but the signer is unpinned.';
+			$('vtext-sub').textContent = !result.valid
+				? 'One or more protocol checks did not pass. The key/receipt may have been tampered with.'
+				: fullyTrustless
+					? 'The key was generated fresh under the committed seed; the operator could not have kept a copy.'
+					: 'Every protocol check passed against the receipt’s own key, but we could not reach /.well-known/three-vanity.json to confirm three.ws (not an impostor) signed it. Re-run when online to fully pin.';
 
 			const m = $('meta');
 			m.innerHTML = '<dl class="meta-grid">' +
@@ -233,7 +262,7 @@
 				'</dl>' +
 				(receipt.address ? '<p style="margin-top:.7rem"><a class="link" href="https://solscan.io/account/' + encodeURIComponent(receipt.address) + '" target="_blank" rel="noopener">View on Solscan →</a></p>' : '');
 
-			$('share-row').classList.toggle('show', result.valid);
+			$('share-row').classList.toggle('show', fullyTrustless);
 		}
 
 		async function verify() {
@@ -259,8 +288,13 @@
 					openedSecretSeed = bundle.seed || (Array.isArray(bundle.secretKey) ? Uint8Array.from(bundle.secretKey).slice(0, 32) : undefined);
 				}
 
+				// Pin to the live well-known key when we have it. If we couldn't fetch
+				// it, verify against the receipt's own key but DOWNGRADE the verdict:
+				// without an independent pin we can confirm the receipt is internally
+				// consistent and self-signed, but not that three.ws (vs an impostor)
+				// signed it — so we never show the full "provably fair" green banner.
 				const result = verifyVanityReceipt(receipt, { servicePublicKey: pinnedKey || receipt.servicePublicKey, openedSecretSeed });
-				renderResult(result, receipt);
+				renderResult(result, receipt, { pinned: !!pinnedKey });
 			} catch (e) {
 				$('results-card').style.display = 'none';
 				showError(e.message || String(e));

@@ -21,7 +21,9 @@
 import bs58 from "bs58";
 import {
   verifyVanityReceipt,
+  fetchServiceKey,
   THREE_VANITY_ENDPOINT,
+  THREE_VANITY_WELL_KNOWN,
   type VanityReceipt,
   type VerifyResult,
 } from "./verify.js";
@@ -57,8 +59,13 @@ export interface GrindVerifiedOptions {
   fetchImpl?: typeof fetch;
   /** Override the endpoint (e.g. devnet/staging). */
   endpoint?: string;
-  /** Override the pinned service key (e.g. fetched from the well-known doc). */
-  servicePublicKey?: string;
+  /** Override the pinned service key. By default the live key is fetched from
+   *  the well-known document and pinned, so verification never depends on a
+   *  possibly-stale SDK constant. Pass `false` to skip the fetch and use the
+   *  built-in pin, or a string to pin an explicit key. */
+  servicePublicKey?: string | false;
+  /** Well-known URL to resolve the live service key from (default three.ws). */
+  wellKnownUrl?: string;
 }
 
 function randomClientSeedHex(): string {
@@ -120,8 +127,20 @@ export async function grindVerifiedVanity(
   }
 
   // 4. Independently verify EVERY claim — including custody of THIS key.
+  //    Pin against the LIVE well-known key by default (so a stale SDK constant
+  //    never causes a false negative or a false positive); callers can override
+  //    with an explicit key or `false` to use the built-in pin.
+  let servicePublicKey: string | undefined;
+  if (opts.servicePublicKey === false) {
+    servicePublicKey = undefined; // fall back to the SDK's built-in pin
+  } else if (typeof opts.servicePublicKey === "string") {
+    servicePublicKey = opts.servicePublicKey;
+  } else {
+    servicePublicKey = await fetchServiceKey(opts.wellKnownUrl ?? THREE_VANITY_WELL_KNOWN);
+  }
+
   const verification = verifyVanityReceipt(receipt, {
-    servicePublicKey: opts.servicePublicKey,
+    servicePublicKey,
     openedSecretSeed: openedSeed,
   });
   if (!verification.valid) {

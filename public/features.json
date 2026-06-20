@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-19T23:28:51.074Z",
+	"generated_at": "2026-06-20T01:36:23.594Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -791,6 +791,26 @@
 					"title": "Verify a Vanity Receipt",
 					"description": "Independently verify a three.ws provably-fair vanity wallet receipt — entirely in your browser. Prove the key was generated fresh under a committed seed and the operator never kept a copy.",
 					"added": "2026-06-19",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/vanity/gallery",
+					"title": "Proof-of-Grind Gallery",
+					"description": "A public gallery and leaderboard of the rarest Solana vanity addresses ground on three.ws — each provably-fair, verified, and shareable. Appraise any address to see its honest rarity tier and grind cost.",
+					"added": "2026-06-20",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/vanity/bounties",
+					"title": "Grind-Bounty Market",
+					"description": "A decentralized x402 bounty market for hard Solana vanity addresses — escrow a USDC bounty and a fleet of independent workers grinds it in parallel. The first verified match wins, but the found key is sealed to you so the worker never sees your wallet. Earn USDC by grinding open bounties.",
+					"added": "2026-06-20",
 					"auth": null,
 					"indexable": true,
 					"tags": [],

@@ -434,6 +434,8 @@ const appConfig = {
 				// END:DISCOVER_ROUTE
 				'vanity-wallet': resolve(__dirname, 'public/vanity-wallet.html'),
 				'vanity-verify': resolve(__dirname, 'public/vanity/verify/index.html'),
+				'vanity-gallery': resolve(__dirname, 'public/vanity/gallery/index.html'),
+				'vanity-bounties': resolve(__dirname, 'public/vanity/bounties/index.html'),
 				'eth-vanity': resolve(__dirname, 'public/eth-vanity.html'),
 				'evm-wallet': resolve(__dirname, 'public/evm-wallet.html'),
 				pay: resolve(__dirname, 'public/pay/index.html'),
@@ -854,6 +856,10 @@ support: resolve(__dirname, 'pages/support.html'),
 					'/eth-vanity/': resolve(root, 'public/eth-vanity.html'),
 					'/vanity/verify': resolve(root, 'public/vanity/verify/index.html'),
 					'/vanity/verify/': resolve(root, 'public/vanity/verify/index.html'),
+					'/vanity/gallery': resolve(root, 'public/vanity/gallery/index.html'),
+					'/vanity/gallery/': resolve(root, 'public/vanity/gallery/index.html'),
+					'/vanity/bounties': resolve(root, 'public/vanity/bounties/index.html'),
+					'/vanity/bounties/': resolve(root, 'public/vanity/bounties/index.html'),
 					'/evm-wallet': resolve(root, 'public/evm-wallet.html'),
 					'/evm-wallet/': resolve(root, 'public/evm-wallet.html'),
 					'/strategy-lab': resolve(root, 'public/strategy-lab.html'),
@@ -1722,6 +1728,11 @@ support: resolve(__dirname, 'pages/support.html'),
 					['dist/public/demos/3d-home.html', 'dist/demos/3d-home.html'],
 					['dist/public/eth-vanity.html', 'dist/eth-vanity.html'],
 					['dist/public/evm-wallet.html', 'dist/evm-wallet.html'],
+					// Grind-bounty market: its controller pulls bare deps (bs58, @noble,
+					// sealed-envelope) through the bundler, so the BUNDLED output must be
+					// served — promote it over the raw publicDir copy before dist/public
+					// is wiped.
+					['dist/public/vanity/bounties/index.html', 'dist/vanity/bounties/index.html'],
 				];
 				for (const [from, to] of pairs) {
 					const src = resolve(__dirname, from);

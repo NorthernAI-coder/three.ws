@@ -7,6 +7,38 @@
 		<description>What's new on three.ws — features, improvements, and releases, newest first.</description>
 		<language>en</language>
 		<item>
+			<title>Grind-Bounty Market</title>
+			<link>https://three.ws/vanity/bounties</link>
+			<guid isPermaLink="false">2026-06-20:Grind-Bounty Market</guid>
+			<pubDate>Sat, 20 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>A decentralized x402 bounty market for hard Solana vanity addresses — escrow a USDC bounty and a fleet of independent workers grinds it in parallel. The first verified match wins, but the found key is sealed to you so the worker never sees your wallet. Earn USDC by grinding open bounties.</description>
+		</item>
+		<item>
+			<title>Proof-of-Grind Gallery</title>
+			<link>https://three.ws/vanity/gallery</link>
+			<guid isPermaLink="false">2026-06-20:Proof-of-Grind Gallery</guid>
+			<pubDate>Sat, 20 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>A public gallery and leaderboard of the rarest Solana vanity addresses ground on three.ws — each provably-fair, verified, and shareable. Appraise any address to see its honest rarity tier and grind cost.</description>
+		</item>
+		<item>
+			<title>Grind-bounty market: post a reward, a fleet grinds your hard vanity address</title>
+			<link>https://three.ws/vanity/bounties</link>
+			<guid isPermaLink="false">2026-06-20:Grind-bounty market: post a reward, a fleet grinds your hard vanity address</guid>
+			<pubDate>Sat, 20 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>A 5-to-8-character vanity address is hours-to-years on one machine, so until now &quot;hard&quot; vanity meant running your browser overnight and hoping. The new grind-bounty market makes it a liquid, pay-for-results service. Post the pattern you want, escrow a USDC bounty, and a fleet of independent workers grinds it in parallel — the first one to find a verified match is paid automatically. The breakthrough is that the found key is sealed to your encryption key before the worker ever submits it, so the worker earns the bounty yet never sees your wallet, and three.ws never holds your secret either. Settlement is trustless via x402: no valid match, no payout; only one worker can win; and a bounty that goes unfilled refunds your escrow when it expires. You also get an honest difficulty meter and a fair-price oracle when posting (priced off the real grind odds, not made-up numbers), a live board with biggest-reward and expiring-soon sorts, and a one-click way to open your won wallet locally with your private key. Want to earn instead? Flip on &quot;Grind &amp; earn,&quot; point your spare cores at the open bounties, and get paid in USDC for every fill — there's a leaderboard of the top grinders.</description>
+		</item>
+		<item>
+			<title>Proof-of-grind: a public gallery of the rarest wallets ground here</title>
+			<link>https://three.ws/vanity/gallery</link>
+			<guid isPermaLink="false">2026-06-20:Proof-of-grind: a public gallery of the rarest wallets ground here</guid>
+			<pubDate>Sat, 20 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>A vanity address is a flex — but until now the flex was unverifiable. Proof-of-grind turns it into provenance. Every provably-fair grind can now carry an honest rarity score and tier (Common → Mythic) computed straight from the real grind difficulty: longer patterns rank higher, with documented, capped bonuses for real dictionary words, palindromes, and repeated-character runs — no inflated numbers. Publish a wallet (opt-in, secret-free; we re-verify your signed receipt against the live three.ws service key before it appears) and it joins a public gallery and leaderboard of the rarest addresses ground on three.ws, sortable and filterable by tier and pattern, each with a verified badge and a beautiful share card for X. New tools: paste any address to appraise its tier and estimated grind cost, and every agent's wallet chip now shows its rarity tier wherever it appears. No secret, seed, or sealed key is ever stored or shown.</description>
+		</item>
+		<item>
 			<title>Agent Studio</title>
 			<link>https://three.ws/agent-studio</link>
 			<guid isPermaLink="false">2026-06-19:Agent Studio</guid>
@@ -53,6 +85,14 @@
 			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>There's a new 8D pill in the Pole Club top bar. Flip it on (headphones recommended) and the whole soundtrack starts slowly orbiting around your head — the spinning, three-dimensional “8D audio” effect — looping a full lap roughly every eight seconds. It rides on top of everything: the muffled-through-the-door walk-in, the clear-up as you step inside, and the per-dancer tip tracks. The orbit only moves the stereo image, never the volume, so nothing pumps as it circles, and your choice is remembered between visits. Off by default.</description>
+		</item>
+		<item>
+			<title>Agent profile pages now read perfectly on phones</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-19:Agent profile pages now read perfectly on phones</guid>
+			<pubDate>Fri, 19 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Open an agent's profile on a phone and it now fits the screen edge-to-edge with no sideways scrolling. Long service endpoint URLs that used to push the whole page wide now trim cleanly with an ellipsis, the search and action buttons up top stack instead of spilling off-screen, and every section — holdings, token, trust, reviews — lines up in a single tidy column. Desktop is unchanged; small screens just stopped looking cramped.</description>
 		</item>
 		<item>
 			<title>Agent Studio — one place to build your whole agent, with a live avatar</title>
