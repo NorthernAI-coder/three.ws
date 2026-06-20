@@ -198,13 +198,13 @@ export async function buildPumpSnapshotTool() {
 			scheme: 'exact',
 			priceUsd: '$0.005',
 			inputSchema: inputJsonSchema,
-			example: { token: 'HZ1JovNiVvGrGNiiYvEozEVgZ58xaU3RKwX8eACQBCt3' },
+			example: { token: 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump' },
 			outputExample: {
-				token: 'HZ1JovNiVvGrGNiiYvEozEVgZ58xaU3RKwX8eACQBCt3',
+				token: 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump',
 				price: { usdPrice: 0.0415, priceChange24hPct: 2.5, liquidityUsd: 107732 },
 				volume24h: { volume24hUsd: 270780.6, dex: 'raydium' },
 				holders: { topHolderCount: 20, topHolders: [{ address: '...', uiAmount: 1234 }] },
-				meta: { name: 'Pyth Network', symbol: 'PYTH', imageUrl: 'https://...' },
+				meta: { name: 'three.ws', symbol: 'THREE', imageUrl: 'https://...' },
 			},
 		},
 		async ({ token }) => {
