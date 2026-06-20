@@ -8,9 +8,9 @@
  * ./registry.js — adding a tab is a new file + one import below, never an edit
  * to a shared list.
  *
- * Balance is fully built (this task). Deposit/Trade/Snipe/Pay/Withdraw ship as
- * honest "coming online" placeholders that later tasks (02/04/06/08/09) replace
- * by overwriting their own tab file.
+ * Balance, Deposit, Trade, Snipe, Pay, Withdraw, and Give are all fully built —
+ * each is its own tab file under ./tabs/, registered via ./registry.js, so the
+ * shell never hardcodes a tab list and a surface is a single-file change.
  *
  * Reachable from the agent profile and the create-agent success screen as
  * `/agent/:id/wallet` (or `?id=`). Owner sees management tabs; a visitor gets a
@@ -87,9 +87,14 @@ const STYLE = `
 .awh-dest-tag.warn { color: var(--danger,#ef4444); background: color-mix(in srgb, var(--danger,#ef4444) 12%, transparent); border: 1px solid color-mix(in srgb, var(--danger,#ef4444) 34%, transparent); }
 .awh-mono { font-family: var(--font-mono, ui-monospace, monospace); }
 .awh-empty { color: var(--ink-dim, #888); font-size: var(--text-sm, .764rem); padding: var(--space-3,12px) 0; }
-.awh-placeholder { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-3,12px); }
-.awh-placeholder-badge { font-size: var(--text-2xs,.6875rem); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--warn,#fbbf24); background: color-mix(in srgb, var(--warn,#fbbf24) 12%, transparent); border: 1px solid color-mix(in srgb, var(--warn,#fbbf24) 30%, transparent); border-radius: var(--radius-pill,999px); padding: 3px 10px; }
-.awh-placeholder p { margin: 0; color: var(--ink-dim,#888); font-size: var(--text-md,.8125rem); line-height: 1.5; }
+/* Shared address-row + explorer-link primitives. Defined at the hub level (not in
+ * a single tab's lazily-injected sheet) so every tab that reuses them — balance,
+ * pay, trade — is styled regardless of which tab mounts first. */
+.awh-bal-addr { display: flex; align-items: center; gap: var(--space-2,8px); margin-top: var(--space-4,16px); flex-wrap: wrap; }
+.awh-bal-addr .awh-mono { font-size: var(--text-sm,.764rem); color: var(--ink,#e8e8e8); background: var(--surface-2, rgba(255,255,255,.05)); padding: 6px 9px; border-radius: var(--radius-sm,6px); border: 1px solid var(--stroke, rgba(255,255,255,.08)); }
+.awh-bal-mini { padding: 6px 10px; font-size: var(--text-sm,.764rem); text-decoration: none; }
+.awh-act-sig { color: var(--ink,#e8e8e8); text-decoration: none; }
+.awh-act-sig:hover { text-decoration: underline; }
 
 .awh-toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%) translateY(8px); background: var(--bg-1, #1a1a1a); color: var(--ink-bright,#fff); border: 1px solid var(--stroke-strong, rgba(255,255,255,.14)); border-radius: var(--radius-md,10px); padding: 10px 16px; font-size: var(--text-md,.8125rem); box-shadow: var(--shadow-3, 0 8px 32px rgba(0,0,0,.5)); opacity: 0; pointer-events: none; transition: opacity var(--duration-base,220ms), transform var(--duration-base,220ms); z-index: 9999; }
 .awh-toast[data-show="true"] { opacity: 1; transform: translateX(-50%) translateY(0); }
@@ -241,7 +246,6 @@ export function mountAgentWalletHub({ mount, agent, initialTab, onNetworkChange 
 			panel.querySelector('[data-awh-retry]')?.addEventListener('click', () => {
 				instances.delete(id);
 				ensureMounted(id);
-				panelFor(id)?.querySelector('[data-awh-tab]'); // no-op guard
 				const fresh = instances.get(id);
 				fresh?.onShow?.();
 			});

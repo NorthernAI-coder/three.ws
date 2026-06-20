@@ -25,16 +25,14 @@ const BAL_STYLE = `
 .awh-bal-amount.is-unavailable { font-size: var(--text-md,.8125rem); font-weight: 600; color: var(--warn,#fbbf24); cursor: help; }
 .awh-bal-usd { font-size: var(--text-sm,.764rem); color: var(--ink-dim,#888); margin-top: 4px; }
 .awh-bal-refresh { flex: none; }
-.awh-bal-addr { display: flex; align-items: center; gap: var(--space-2,8px); margin-top: var(--space-4,16px); flex-wrap: wrap; }
-.awh-bal-addr .awh-mono { font-size: var(--text-sm,.764rem); color: var(--ink,#e8e8e8); background: var(--surface-2, rgba(255,255,255,.05)); padding: 6px 9px; border-radius: var(--radius-sm,6px); border: 1px solid var(--stroke, rgba(255,255,255,.08)); }
-.awh-bal-mini { padding: 6px 10px; font-size: var(--text-sm,.764rem); text-decoration: none; }
+/* .awh-bal-addr / .awh-bal-addr .awh-mono / .awh-bal-mini live in the hub shell
+ * stylesheet (index.js) so pay/trade reuse them regardless of mount order. */
 .awh-bal-note { margin-top: var(--space-3,12px); font-size: var(--text-sm,.764rem); color: var(--warn,#fbbf24); }
 
 .awh-act-list { list-style: none; margin: 0; padding: 0; }
 .awh-act-row { display: flex; align-items: center; gap: var(--space-3,12px); padding: 9px 0; border-bottom: 1px solid var(--stroke, rgba(255,255,255,.06)); font-size: var(--text-sm,.764rem); }
 .awh-act-row:last-child { border-bottom: none; }
-.awh-act-sig { color: var(--ink,#e8e8e8); text-decoration: none; }
-.awh-act-sig:hover { text-decoration: underline; }
+/* .awh-act-sig / .awh-act-sig:hover live in the hub shell stylesheet (index.js). */
 .awh-act-meta { color: var(--ink-dim,#888); flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .awh-act-delta { font-family: var(--font-mono, ui-monospace, monospace); flex: none; }
 .awh-act-delta.is-pos { color: var(--success,#4ade80); }

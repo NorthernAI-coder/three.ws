@@ -107,10 +107,9 @@ const NO_DB = has('no-db');
 const KEEP = has('keep');
 const JSON_OUT = has('json');
 
-// The only coin three.ws references. Used as the synthetic trade/withdraw mint so
-// the harness never names another token. ($THREE is a mainnet mint; on devnet it
-// has no curve, so the live trade leg stays BLOCKED until --mint supplies one.)
-const THREE_MINT = 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump';
+// $THREE is the only coin three.ws references; the live trade leg quotes against a
+// devnet curve supplied via --mint (a mainnet mint has no devnet curve), so the
+// harness never hardcodes or names any other token. See the header docstring.
 const SMOKE_EMAIL = 'agent-wallet-smoke@three.ws';
 const SMOKE_AGENT = 'agent-wallet-smoke';
 
