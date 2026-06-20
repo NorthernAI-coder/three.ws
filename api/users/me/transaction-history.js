@@ -62,7 +62,7 @@ export default wrap(async (req, res) => {
 			sp.amount,
 			sp.tipped_amount,
 			sp.platform_fee_amount,
-			sp.mint_decimals,
+			COALESCE(asp.mint_decimals, 6) AS mint_decimals,
 			sp.currency_mint,
 			sp.chain,
 			sp.tx_signature,
@@ -74,6 +74,7 @@ export default wrap(async (req, res) => {
 			'buyer'::text AS role
 		FROM skill_purchases sp
 		LEFT JOIN agent_identities ai ON ai.id = sp.agent_id
+		LEFT JOIN agent_skill_prices asp ON asp.agent_id = sp.agent_id AND asp.skill = sp.skill
 		WHERE sp.user_id = ${userId}
 		  AND sp.status IN ('confirmed', 'tipped', 'trial')
 		ORDER BY sp.confirmed_at DESC NULLS LAST, sp.created_at DESC
@@ -91,7 +92,7 @@ export default wrap(async (req, res) => {
 			sp.amount,
 			sp.tipped_amount,
 			sp.platform_fee_amount,
-			sp.mint_decimals,
+			COALESCE(asp.mint_decimals, 6) AS mint_decimals,
 			sp.currency_mint,
 			sp.chain,
 			sp.tx_signature,
@@ -103,6 +104,7 @@ export default wrap(async (req, res) => {
 			'seller'::text AS role
 		FROM skill_purchases sp
 		JOIN agent_identities ai ON ai.id = sp.agent_id AND ai.user_id = ${userId}
+		LEFT JOIN agent_skill_prices asp ON asp.agent_id = sp.agent_id AND asp.skill = sp.skill
 		WHERE sp.status IN ('confirmed', 'tipped')
 		ORDER BY sp.confirmed_at DESC NULLS LAST, sp.created_at DESC
 		LIMIT ${limit} OFFSET ${offset}

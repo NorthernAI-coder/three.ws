@@ -392,7 +392,16 @@ class BrainStudio {
 	}
 
 	_closeModal() {
-		this.el.querySelector('#bsModal').hidden = true;
-		this._savedPersona = compileBrain(this.graph.toGraph(), { agentName: this.studio.agent?.name }).personaPrompt;
+		const modal = this.el.querySelector('#bsModal');
+		if (modal) modal.hidden = true;
+		// The brain canvas mounts lazily (see _mountGraph), so the modal can be
+		// dismissed before this.graph exists — e.g. a fast open→close, or closing
+		// via backdrop click before the canvas framed. Only resnapshot the saved
+		// persona when there's a graph to compile; otherwise keep the last value.
+		if (this.graph) {
+			this._savedPersona = compileBrain(this.graph.toGraph(), {
+				agentName: this.studio.agent?.name,
+			}).personaPrompt;
+		}
 	}
 }

@@ -92,14 +92,26 @@ export function decodeAttesterSecret(secret) {
 		}
 	}
 
-	// base64 form. Buffer.from is lenient, so validate the byte length and
-	// require a clean round-trip to reject base58 strings that happen to
-	// base64-decode to 64 bytes.
+	// hex form (128 chars = 64 bytes, or 64 chars = 32 bytes). Checked before
+	// base58 because hex's '0' is not a base58 character — an all-hex key would
+	// otherwise throw "Non-base58 character" out of bs58.decode and fail to load.
+	if (/^[0-9a-fA-F]+$/.test(raw) && (raw.length === 128 || raw.length === 64)) {
+		const buf = Buffer.from(raw, 'hex');
+		if (buf.length === 64 || buf.length === 32) return new Uint8Array(buf);
+	}
+
+	// base64 / base64url form. Buffer.from is lenient, so validate the byte length
+	// and require a clean round-trip to reject base58 strings that happen to
+	// base64-decode to 64 bytes. base64url (with - and _) is normalized to base64
+	// first so url-safe-provisioned keys decode instead of falling through to the
+	// base58 lane and throwing on the '-'/'_'.
 	try {
-		const buf = Buffer.from(raw, 'base64');
+		const normalized = raw.replace(/-/g, '+').replace(/_/g, '/');
+		const buf = Buffer.from(normalized, 'base64');
 		if (
 			(buf.length === 64 || buf.length === 32) &&
-			buf.toString('base64').replace(/=+$/, '') === raw.replace(/=+$/, '')
+			buf.toString('base64').replace(/=+$/, '') ===
+				normalized.replace(/=+$/, '')
 		) {
 			return new Uint8Array(buf);
 		}

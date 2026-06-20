@@ -163,13 +163,47 @@ async function captureSite(candidates) {
 	});
 }
 
+// The product's narration speech bubble is a real DOM element (dark rounded card
+// with a pointer, 3-line clamp) — see showSpeechBubble() in src/walk-embed.js.
+// Headless software-GL fails to rasterize it (backdrop-filter over a transparent
+// canvas), so for the listing shot we redraw it 1:1 with the same narration copy.
+function speechBubbleSvg(text) {
+	const max = 34;
+	const words = text.split(' ');
+	const lines = [];
+	let cur = '';
+	for (const w of words) {
+		if ((cur + ' ' + w).trim().length > max) { lines.push(cur.trim()); cur = w; } else { cur += ' ' + w; }
+		if (lines.length === 3) break;
+	}
+	if (cur.trim() && lines.length < 3) lines.push(cur.trim());
+	const w = 300, lh = 21, padY = 14;
+	const h = padY * 2 + lines.length * lh;
+	const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+	const tspans = lines.map((l, i) => `<text x="16" y="${padY + 15 + i * lh}" font-family="Inter,system-ui,sans-serif" font-size="13.5" fill="#fafafa">${esc(l)}</text>`).join('');
+	const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h + 8}">
+		<rect x="0" y="0" width="${w}" height="${h}" rx="14" fill="rgba(10,10,10,0.92)" stroke="rgba(255,255,255,0.14)"/>
+		<path d="M ${w / 2 - 7} ${h} L ${w / 2 + 7} ${h} L ${w / 2} ${h + 8} Z" fill="rgba(10,10,10,0.92)"/>
+		${tspans}
+	</svg>`;
+	return { buf: Buffer.from(svg), width: w, height: h + 8 };
+}
+
 // ── Composite the real avatar over the real site ──────────────────────────────
-async function compositeAvatar(siteBuf, avatarBuf, { heightPx = 380, margin = 26, position = 'bottom-right' } = {}) {
+async function compositeAvatar(siteBuf, avatarBuf, { heightPx = 380, margin = 26, position = 'bottom-right', bubble = null } = {}) {
 	const av = await sharp(avatarBuf).resize({ height: heightPx }).png().toBuffer();
 	const m = await sharp(av).metadata();
-	const left = position.includes('left') ? margin : W - (m.width || 240) - margin;
-	const top = H - (m.height || heightPx) - margin + 8;
-	return sharp(siteBuf).composite([{ input: av, left: Math.round(left), top: Math.round(top) }]).png().toBuffer();
+	const aw = m.width || 240, ah = m.height || heightPx;
+	const left = position.includes('left') ? margin : W - aw - margin;
+	const top = H - ah - margin + 8;
+	const layers = [{ input: av, left: Math.round(left), top: Math.round(top) }];
+	if (bubble) {
+		const b = speechBubbleSvg(bubble);
+		const bLeft = Math.max(12, Math.round(left + aw / 2 - b.width / 2));
+		const bTop = Math.max(12, Math.round(top + ah * 0.06 - b.height));
+		layers.push({ input: await sharp(b.buf).png().toBuffer(), left: bLeft, top: bTop });
+	}
+	return sharp(siteBuf).composite(layers).png().toBuffer();
 }
 
 // ── Extension pages: static server + chrome.* shim + real API routing ─────────
@@ -336,8 +370,9 @@ try {
 	console.log('✓ screenshot-1.png (avatar on an article page)');
 
 	// 4: avatar narrating with its speech bubble, on a real news page
+	const NARRATION = 'Let me read this story to you while you keep browsing — tap me to mute any time.';
 	const site4 = await captureSite(['https://text.npr.org', 'https://en.wikipedia.org/wiki/Three.js']);
-	await sharp(await compositeAvatar(site4, avatarTalk, { heightPx: 440 })).toFile(join(OUT, 'screenshot-4.png'));
+	await sharp(await compositeAvatar(site4, avatarTalk, { heightPx: 440, bubble: NARRATION })).toFile(join(OUT, 'screenshot-4.png'));
 	console.log('✓ screenshot-4.png (avatar narrating)');
 
 	// 5: avatar on a real social page
