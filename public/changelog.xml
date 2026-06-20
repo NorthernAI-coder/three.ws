@@ -71,6 +71,14 @@
 			<description>Placing an agent at a real-world spot and seeing nearby agents on the IRL map could intermittently fail to load. The cause was that the apps re-checked the entire database schema on every single request, and under bursts of traffic those redundant checks could collide and stall the request. We now run that setup once and never let it block a placement or a nearby-search again — so dropping a pin, browsing what's around you, and logging an encounter respond immediately and consistently.</description>
 		</item>
 		<item>
+			<title>Launchpad polish pass — paid concierge &amp; showroom pages now really charge, plus accessibility fixes across the trading desk</title>
+			<link>https://three.ws/launches</link>
+			<guid isPermaLink="false">2026-06-20:Launchpad polish pass — paid concierge &amp; showroom pages now really charge, plus accessibility fixes across the trading desk</guid>
+			<pubDate>Sat, 20 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>We ran the whole pump.fun launchpad through a single quality sweep. Launchpad Studio's paid templates — the pay-per-question concierge and the pay-to-enter 3D showroom — now work end to end: visitors pay in USDC straight to the creator's own wallet, then get their answer or the unlocked scene (showroom scenes stay hidden until paid for). Coin cards across the new-launches feed, the live stream, and agent profiles now link to their three.ws coin profile instead of bouncing you off to pump.fun, so you stay on the platform. Every buy/sell, governance, and launch dialog is now fully keyboard-operable — Escape to close, focus stays inside the dialog, visible focus rings everywhere — and the live PumpPortal stream is labeled correctly with a working event counter and a 'quiet' indicator when the feed goes still.</description>
+		</item>
+		<item>
 			<title>Live token card on the home page is streaming again</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-20:Live token card on the home page is streaming again</guid>
@@ -149,6 +157,22 @@
 			<pubDate>Sat, 20 Jun 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>The corner walk companion only knew how to follow a mouse cursor, so on touch devices — with no cursor to chase — it stood frozen in place. On phones and tablets it now wanders on its own, ambling between headings and pausing to look around, so the walk actually walks. Its dismiss and 'choose avatar' buttons, previously revealed only on hover, are now always tappable on touch, and the 'tap me to walk the whole page' invite reads right for a finger instead of a click.</description>
+		</item>
+		<item>
+			<title>Transaction history and the Brain Studio editor are stable again</title>
+			<link>https://three.ws/dashboard/account</link>
+			<guid isPermaLink="false">2026-06-20:Transaction history and the Brain Studio editor are stable again</guid>
+			<pubDate>Sat, 20 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Two crashes are fixed. Your account's transaction history — every skill purchase and sale — was failing to load because of a database column mismatch; it now reads each payment's token decimals from the price record and renders the full ledger correctly. And in the agent Brain Studio, closing the 'How this brain behaves' preview before the circuit canvas had finished loading could throw an error; the editor now closes cleanly no matter when you dismiss it.</description>
+		</item>
+		<item>
+			<title>Walk Avatar browser extension — Chrome Web Store release package</title>
+			<link>https://three.ws/extension/privacy</link>
+			<guid isPermaLink="false">2026-06-20:Walk Avatar browser extension — Chrome Web Store release package</guid>
+			<pubDate>Sat, 20 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The Walk Avatar Chrome extension is packaged and ready to publish. It lets you walk your three.ws 3D avatar on any website you visit and, optionally, have it read page sections aloud. This release adds a real privacy policy and terms of service (at three.ws/extension/privacy and three.ws/extension/terms), a one-command production build that minifies and zips the extension for upload, and a full set of store-listing images captured from the real product. We also fixed the in-page avatar so it loads correctly — the default and compressed avatars now render reliably — and the popup's Featured tab now shows public avatars without signing in.</description>
 		</item>
 		<item>
 			<title>Walk Avatar extension gets a full settings page</title>
