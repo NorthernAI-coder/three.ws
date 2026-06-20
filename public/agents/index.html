@@ -5,12 +5,12 @@
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 		<title>Agents Index · three.ws</title>
-		<meta name="description" content="Browse every public 3D AI agent on three.ws — chat, check skills, and copy the ones you like." />
+		<meta name="description" content="Browse every agent registered on three.ws across every supported chain — inspect their services and bring them into 3D." />
 		<meta property="og:type" content="website" />
 		<meta property="og:site_name" content="three.ws" />
 		<meta property="og:url" content="https://three.ws/agents" />
 		<meta property="og:title" content="Agents Index · three.ws" />
-		<meta property="og:description" content="Browse every public 3D AI agent on three.ws — chat, check skills, and copy the ones you like." />
+		<meta property="og:description" content="Browse every agent registered on three.ws across every supported chain — inspect their services and bring them into 3D." />
 		<meta property="og:image" content="https://three.ws/api/page-og?s=agent-tools&amp;t=Agents+Index&amp;d=Browse+every+registered+agent+on+three.ws.&amp;p=%2Fagents" />
 		<meta name="twitter:card" content="summary_large_image" />
 		<meta name="twitter:site" content="@trythreews" />
@@ -141,7 +141,7 @@
 			<section class="hero">
 				<div class="eyebrow">3D AI Agents</div>
 				<h1>Agent <span>Index</span></h1>
-				<p>Every public 3D AI agent on three.ws. Chat with them, check their skills, or fork them as your own starting point.</p>
+				<p>Every agent registered on three.ws, across every supported chain. Browse the directory, inspect their services, and bring any of them into 3D.</p>
 				<div class="hero-ctas">
 					<a class="btn btn-primary" href="/create-agent">Create an agent</a>
 					<a class="btn btn-ghost" href="/marketplace">Marketplace</a>
@@ -156,14 +156,9 @@
 					<input id="ag-search" type="search" placeholder="Search agents…" autocomplete="off" />
 				</div>
 				<select id="ag-sort" class="ctrl" aria-label="Sort">
-					<option value="popular">Most popular</option>
 					<option value="newest">Newest first</option>
 					<option value="name">Name A–Z</option>
 				</select>
-				<label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);cursor:pointer;user-select:none">
-					<input id="ag-onchain" type="checkbox" />
-					On-chain only
-				</label>
 				<span id="ag-count" class="count-label"></span>
 			</div>
 
@@ -175,7 +170,10 @@
 		</main>
 
 		<script type="module">
-		const API = '/api/agents/public';
+		// Source: the server-crawled ERC-8004 registry (/api/explore, fed by the
+		// erc8004-crawl cron) — the same populated feed /discover and the embed
+		// use. Matches this page's nav promise: "browse every registered agent".
+		const API = '/api/explore';
 		const $ = (id) => document.getElementById(id);
 		const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
@@ -185,7 +183,7 @@
 		const moreWrap = $('ag-more-wrap');
 		const moreBtn  = $('ag-more');
 
-		const state = { q: '', sort: 'popular', onchain: false, cursor: null, loading: false, total: 0 };
+		const state = { q: '', sort: 'newest', cursor: null, loading: false, items: [] };
 
 		function skeletons(n = 8) {
 			return Array.from({length: n}, () => `
@@ -204,66 +202,74 @@
 		}
 
 		function cardHtml(a) {
-			const onchain = a.is_registered;
-			const topSkills = (a.skills || []).slice(0, 3);
-			const chats = a.chat_count > 0 ? `${a.chat_count.toLocaleString()} chat${a.chat_count === 1 ? '' : 's'}` : '';
-			const avatar = a.avatar_thumbnail
-				? `<img class="ag-avatar" src="${esc(a.avatar_thumbnail)}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" /><div class="ag-avatar-fallback" style="display:none">${esc(initial(a.name))}</div>`
+			// Registry thumbnails live on arbitrary third-party hosts (IPFS, plain
+			// http) — route them through the same-origin /api/img proxy so a dead
+			// host degrades to the lettered fallback instead of a console error.
+			const img = a.image ? `/api/img?url=${encodeURIComponent(a.image)}` : null;
+			const avatar = img
+				? `<img class="ag-avatar" src="${esc(img)}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" /><div class="ag-avatar-fallback" style="display:none">${esc(initial(a.name))}</div>`
 				: `<div class="ag-avatar-fallback">${esc(initial(a.name))}</div>`;
+			const services = (a.services || []).map((s) => s && s.name).filter(Boolean).slice(0, 3);
+			const x402 = a.x402Support ? `<span class="ag-skill" title="Accepts x402 payments">x402</span>` : '';
+			const chain = a.chainShortName || 'on-chain';
+			const href = `/a/${esc(a.chainId)}/${esc(a.agentId)}`;
 
 			return `<div class="ag-card">
-				<a class="ag-card-link" href="${esc(a.home_url)}" aria-label="${esc(a.name)}"></a>
+				<a class="ag-card-link" href="${href}" aria-label="${esc(a.name)}"></a>
 				<div class="ag-top">
 					<div style="display:flex;flex-direction:column;gap:6px;align-items:center">
 						${avatar}
-						${onchain ? `<span class="ag-badge-onchain">✦ on-chain</span>` : ''}
+						<span class="ag-badge-onchain">✦ ${esc(chain)}</span>
 					</div>
 					<div class="ag-meta">
 						<div class="ag-name">${esc(a.name)}</div>
 						${a.description ? `<div class="ag-desc">${esc(a.description)}</div>` : ''}
 					</div>
 				</div>
-				${topSkills.length || chats ? `<div class="ag-footer">
-					${topSkills.map((s) => `<span class="ag-skill">${esc(s)}</span>`).join('')}
-					${chats ? `<span class="ag-chats">${esc(chats)}</span>` : ''}
+				${services.length || x402 ? `<div class="ag-footer">
+					${services.map((s) => `<span class="ag-skill">${esc(s)}</span>`).join('')}
+					${x402}
 				</div>` : ''}
 			</div>`;
+		}
+
+		function renderList() {
+			let items = state.items;
+			if (state.sort === 'name') {
+				items = [...items].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+			}
+			grid.innerHTML = items.map(cardHtml).join('');
 		}
 
 		async function load(reset = false) {
 			if (state.loading) return;
 			state.loading = true;
-			if (reset) { state.cursor = null; state.total = 0; grid.innerHTML = skeletons(); stateEl.hidden = true; }
+			if (reset) { state.cursor = null; state.items = []; grid.innerHTML = skeletons(); stateEl.hidden = true; }
 
 			const url = new URL(API, location.origin);
+			url.searchParams.set('source', 'onchain');
 			url.searchParams.set('limit', '24');
-			url.searchParams.set('sort', state.sort);
 			if (state.q) url.searchParams.set('q', state.q);
-			if (state.cursor) url.searchParams.set('before', state.cursor);
-			if (state.onchain) url.searchParams.set('onchain', '1');
+			if (state.cursor) url.searchParams.set('cursor', state.cursor);
 
 			try {
 				const r = await fetch(url, { headers: { accept: 'application/json' } });
 				if (!r.ok) throw new Error('HTTP ' + r.status);
 				const data = await r.json();
-				const items = data.agents || [];
+				const items = (data.items || []).filter((it) => it.kind === 'onchain');
 
-				if (reset) {
-					grid.innerHTML = items.length ? items.map(cardHtml).join('') : '';
-				} else {
-					items.forEach((a) => grid.insertAdjacentHTML('beforeend', cardHtml(a)));
-				}
+				state.items.push(...items);
+				state.cursor = data.nextCursor || null;
+				renderList();
 
-				state.total += items.length;
-				state.cursor = data.next_cursor || null;
-				countEl.textContent = state.total > 0 ? `${state.total}${data.has_more ? '+' : ''} agents` : '';
+				const more = !!data.nextCursor;
+				countEl.textContent = state.items.length > 0 ? `${state.items.length}${more ? '+' : ''} agents` : '';
+				moreWrap.hidden = !more;
 
-				moreWrap.hidden = !data.has_more;
-
-				if (!state.total) {
+				if (!state.items.length) {
 					stateEl.innerHTML = state.q
 						? `<b>No agents found</b>Search found nothing for "${esc(state.q)}". Try a different term.`
-						: `<b>No public agents yet</b><a href="/create-agent">Create the first one →</a>`;
+						: `<b>No registered agents yet</b><a href="/create-agent">Register the first one →</a>`;
 					stateEl.hidden = false;
 				}
 			} catch {
@@ -282,8 +288,7 @@
 			clearTimeout(_t);
 			_t = setTimeout(() => { state.q = e.target.value.trim(); load(true); }, 320);
 		});
-		$('ag-sort').addEventListener('change', (e) => { state.sort = e.target.value; load(true); });
-		$('ag-onchain').addEventListener('change', (e) => { state.onchain = e.target.checked; load(true); });
+		$('ag-sort').addEventListener('change', (e) => { state.sort = e.target.value; renderList(); });
 		moreBtn.addEventListener('click', () => load(false));
 
 		load(true);

@@ -39,12 +39,36 @@
 			<description>You can connect companion smart glasses to the /irl augmented-reality view and see the nearest agent right on your lens — its name, the direction to turn, how far away it is, and a flash when one walks into range. Your phone keeps doing all the GPS, compass and discovery work; the glasses just show the cue, so you can keep your head up instead of staring at a screen. Brilliant Labs Frame is fully supported (official SDK); Even Realities G1 works too via its two-arm pairing (experimental, community protocol). Pairing uses an encrypted Web Bluetooth link in Chromium browsers — your location is never sent to the glasses, only the direction and distance you already see on screen.</description>
 		</item>
 		<item>
+			<title>Agents Index now shows every registered agent</title>
+			<link>https://three.ws/agents</link>
+			<guid isPermaLink="false">2026-06-20:Agents Index now shows every registered agent</guid>
+			<pubDate>Sat, 20 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>The Agents Index at /agents was reading from an empty source and showed &quot;No public agents yet&quot; even though hundreds of agents are registered across chains. It now reads from the live on-chain registry — the same feed Discover uses — so you can browse every registered agent, search them, see their services and x402 support, and open any one's detail page. Search, sorting and load-more all work against the real directory.</description>
+		</item>
+		<item>
 			<title>Choose where you walk — six environments for the Walk page</title>
 			<link>https://three.ws/features/walk</link>
 			<guid isPermaLink="false">2026-06-20:Choose where you walk — six environments for the Walk page</guid>
 			<pubDate>Sat, 20 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>Your avatar no longer strolls in one fixed studio. A new environment picker lets you drop into six distinct worlds: a sunlit Park with shade trees and benches, a neon Cyberpunk street, a bright Beach with palm trees and a turquoise sea, a white-walled Gallery with pedestals and hung art, an abstract Void grid for pure focus, and the three.ws Office with desks and plants. Open the picker from the environment button in the Walk HUD to see a preview of each scene, or press V to cycle through them. Switching fades smoothly to the new sky and back — the ground, lighting, reflections, and props all change to match, and the avatar walks and collides correctly in every world. Link straight to a scene with ?env=beach (or park, cyberpunk, gallery, void, office), and your last choice is remembered next time you visit. Every scene is a real 3D model with its own HDR lighting, authored and owned by three.ws.</description>
+		</item>
+		<item>
+			<title>Compressed 3D avatars now load everywhere</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-20:Compressed 3D avatars now load everywhere</guid>
+			<pubDate>Sat, 20 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Generated and server-baked avatars are saved in a compressed format to keep them small and fast to download. On a number of pages — including the avatar results screen after a Forge or selfie creation — the 3D viewer wasn't set up to decompress them, so the model silently failed to appear. The viewer now loads the decompression decoder on every page that shows a 3D model, so your avatars render reliably no matter where they're displayed.</description>
+		</item>
+		<item>
+			<title>Create and manage your avatar's wallet right on its page</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-20:Create and manage your avatar's wallet right on its page</guid>
+			<pubDate>Sat, 20 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>If you own an avatar, its page now has the full Solana wallet built in — no more jumping to a separate settings screen. Generate a custodial wallet for the avatar's agent in one click, then use it from the same spot: see the SOL balance, copy the address, open it in an explorer, request a devnet airdrop, and watch recent on-chain activity. You can also grind a vanity address so the wallet starts with characters you choose, and the wallet badge on the page updates instantly when you do. Everything is owner-only and verified server-side; visitors just see the public address.</description>
 		</item>
 		<item>
 			<title>Express yourself in Walk — wave, dance, sit, point, cheer and more</title>

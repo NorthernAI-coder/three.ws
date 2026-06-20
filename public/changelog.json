@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-20T07:37:55.056Z",
+	"generated_at": "2026-06-20T09:10:12.556Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -49,9 +49,39 @@
 		{
 			"date": "2026-06-20",
 			"type": "update",
+			"title": "Agents Index now shows every registered agent",
+			"summary": "The Agents Index at /agents was reading from an empty source and showed \"No public agents yet\" even though hundreds of agents are registered across chains. It now reads from the live on-chain registry — the same feed Discover uses — so you can browse every registered agent, search them, see their services and x402 support, and open any one's detail page. Search, sorting and load-more all work against the real directory.",
+			"link": "/agents",
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-20",
+			"type": "update",
 			"title": "Choose where you walk — six environments for the Walk page",
 			"summary": "Your avatar no longer strolls in one fixed studio. A new environment picker lets you drop into six distinct worlds: a sunlit Park with shade trees and benches, a neon Cyberpunk street, a bright Beach with palm trees and a turquoise sea, a white-walled Gallery with pedestals and hung art, an abstract Void grid for pure focus, and the three.ws Office with desks and plants. Open the picker from the environment button in the Walk HUD to see a preview of each scene, or press V to cycle through them. Switching fades smoothly to the new sky and back — the ground, lighting, reflections, and props all change to match, and the avatar walks and collides correctly in every world. Link straight to a scene with ?env=beach (or park, cyberpunk, gallery, void, office), and your last choice is remembered next time you visit. Every scene is a real 3D model with its own HDR lighting, authored and owned by three.ws.",
 			"link": "/features/walk",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-20",
+			"type": "update",
+			"title": "Compressed 3D avatars now load everywhere",
+			"summary": "Generated and server-baked avatars are saved in a compressed format to keep them small and fast to download. On a number of pages — including the avatar results screen after a Forge or selfie creation — the 3D viewer wasn't set up to decompress them, so the model silently failed to appear. The viewer now loads the decompression decoder on every page that shows a 3D model, so your avatars render reliably no matter where they're displayed.",
+			"link": null,
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-20",
+			"type": "update",
+			"title": "Create and manage your avatar's wallet right on its page",
+			"summary": "If you own an avatar, its page now has the full Solana wallet built in — no more jumping to a separate settings screen. Generate a custodial wallet for the avatar's agent in one click, then use it from the same spot: see the SOL balance, copy the address, open it in an explorer, request a devnet airdrop, and watch recent on-chain activity. You can also grind a vanity address so the wallet starts with characters you choose, and the wallet badge on the page updates instantly when you do. Everything is owner-only and verified server-side; visitors just see the public address.",
+			"link": null,
 			"tags": [
 				"feature"
 			]
