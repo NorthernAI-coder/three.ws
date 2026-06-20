@@ -3,6 +3,31 @@
 	"entries": [
 		{
 			"date": "2026-06-20",
+			"title": "Agents Index now shows every registered agent",
+			"summary": "The Agents Index at /agents was reading from an empty source and showed \"No public agents yet\" even though hundreds of agents are registered across chains. It now reads from the live on-chain registry — the same feed Discover uses — so you can browse every registered agent, search them, see their services and x402 support, and open any one's detail page. Search, sorting and load-more all work against the real directory.",
+			"tags": [
+				"fix"
+			],
+			"link": "/agents"
+		},
+		{
+			"date": "2026-06-20",
+			"title": "Compressed 3D avatars now load everywhere",
+			"summary": "Generated and server-baked avatars are saved in a compressed format to keep them small and fast to download. On a number of pages — including the avatar results screen after a Forge or selfie creation — the 3D viewer wasn't set up to decompress them, so the model silently failed to appear. The viewer now loads the decompression decoder on every page that shows a 3D model, so your avatars render reliably no matter where they're displayed.",
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-20",
+			"title": "Create and manage your avatar's wallet right on its page",
+			"summary": "If you own an avatar, its page now has the full Solana wallet built in — no more jumping to a separate settings screen. Generate a custodial wallet for the avatar's agent in one click, then use it from the same spot: see the SOL balance, copy the address, open it in an explorer, request a devnet airdrop, and watch recent on-chain activity. You can also grind a vanity address so the wallet starts with characters you choose, and the wallet badge on the page updates instantly when you do. Everything is owner-only and verified server-side; visitors just see the public address.",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-20",
 			"title": "/irl now pairs with smart glasses",
 			"summary": "You can connect companion smart glasses to the /irl augmented-reality view and see the nearest agent right on your lens — its name, the direction to turn, how far away it is, and a flash when one walks into range. Your phone keeps doing all the GPS, compass and discovery work; the glasses just show the cue, so you can keep your head up instead of staring at a screen. Brilliant Labs Frame is fully supported (official SDK); Even Realities G1 works too via its two-arm pairing (experimental, community protocol). Pairing uses an encrypted Web Bluetooth link in Chromium browsers — your location is never sent to the glasses, only the direction and distance you already see on screen.",
 			"tags": [

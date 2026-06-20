@@ -15,6 +15,8 @@ import { emptyStateHTML, errorStateHTML } from './shared/state-kit.js';
 import { mountViewSwitcher } from './view-switcher.js';
 import { PoseStage, loadPoseManifest } from './avatar-pose.js';
 import { walletChipHTML, wireWalletChips } from './shared/agent-wallet-chip.js';
+import { mountAgentSolanaWalletCard } from './agent-solana-wallet.js';
+import { mountAgentVanityGrinderCard } from './agent-vanity-grinder.js';
 
 const ATTACHED_KEY_PREFIX = 'avatar_attached_v1:';
 
@@ -285,6 +287,7 @@ function renderShell(glbUrl) {
 				${byLine}
 				${tagsHtml ? `<div class="av-tags">${tagsHtml}</div>` : ''}
 				${walletRowHTML()}
+				${avatar.owner_id && avatar.agent_id ? `<div class="av-wallet-manage" id="av-wallet-manage"></div>` : ''}
 			</div>
 			<div class="av-cta-talk-row">
 				<button class="av-cta-talk" id="av-talk" type="button" aria-label="Talk to ${esc(avatar.name)}">
@@ -452,6 +455,93 @@ function renderShell(glbUrl) {
 	// avatar-id attribute (set in the template) if the element hasn't upgraded yet.
 	const actions = $('av-actions');
 	if (actions && customElements.get('avatar-actions')) actions.avatar = avatar;
+
+	mountWalletManager();
+}
+
+/**
+ * Owner-only inline wallet management for the avatar's bound agent: generate a
+ * random custodial Solana wallet, use it (balance, copy, explorer, devnet
+ * airdrop, on-chain activity, replace), and grind a vanity address — all from
+ * this page instead of routing the owner away to /agent-edit.
+ *
+ * Reuses the same server-verified cards the agent home panel mounts, so the
+ * wallet behaves identically everywhere. Both cards self-gate on the server
+ * (a 403 removes them), and we only mount when the viewer owns the avatar and
+ * it has a bound agent, so visitor views never fire owner-only requests.
+ */
+function mountWalletManager() {
+	const host = $('av-wallet-manage');
+	if (!host || !avatar.owner_id || !avatar.agent_id) return;
+
+	const identity = {
+		id: avatar.agent_id,
+		name: avatar.name || 'agent',
+		solana_address: avatar.agent_solana_address || null,
+		meta: {
+			solana_address: avatar.agent_solana_address || null,
+			solana_vanity_prefix: avatar.agent_solana_vanity_prefix || null,
+			solana_vanity_suffix: avatar.agent_solana_vanity_suffix || null,
+		},
+	};
+
+	// Keep the read-only chip above in sync after any provision/replace/grind so
+	// the page reflects the new address (and vanity styling) without a reload.
+	// The wallet card mutates `identity` itself; the vanity card hands the fresh
+	// provision payload straight to its callback, so fold that in when present.
+	const syncChip = (data) => {
+		if (data) {
+			identity.solana_address = data.address || null;
+			identity.meta = {
+				...(identity.meta || {}),
+				solana_address: data.address || null,
+				solana_vanity_prefix: data.vanity_prefix || null,
+				solana_vanity_suffix: data.vanity_suffix || null,
+			};
+		}
+		avatar.agent_solana_address = identity.solana_address || null;
+		avatar.agent_solana_vanity_prefix = identity.meta?.solana_vanity_prefix || null;
+		avatar.agent_solana_vanity_suffix = identity.meta?.solana_vanity_suffix || null;
+		const row = $('av-wallet-row');
+		const chip = walletChipHTML(avatar, { isOwner: true, showPending: false });
+		if (chip) {
+			if (row) {
+				row.innerHTML = chip;
+			} else {
+				// First wallet on an avatar that had none — inject the chip row
+				// directly above the management panel.
+				const newRow = document.createElement('div');
+				newRow.className = 'av-wallet-row';
+				newRow.id = 'av-wallet-row';
+				newRow.innerHTML = chip;
+				host.parentNode?.insertBefore(newRow, host);
+			}
+			wireWalletChips($('av-wallet-row'));
+		}
+	};
+
+	let walletCard = null;
+	try {
+		walletCard = mountAgentSolanaWalletCard({
+			panel: host,
+			identity,
+			onProvisioned: (data) => syncChip(data),
+		});
+	} catch (err) {
+		log.error('[avatar] wallet card', err);
+	}
+	try {
+		mountAgentVanityGrinderCard({
+			panel: host,
+			identity,
+			onProvisioned: (data) => {
+				syncChip(data);
+				walletCard?.refresh?.();
+			},
+		});
+	} catch (err) {
+		log.error('[avatar] vanity card', err);
+	}
 }
 
 /**
