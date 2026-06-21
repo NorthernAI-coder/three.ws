@@ -118,10 +118,12 @@ async function serveLiveCohorts(req, res, { mint, agentToken }) {
 	// ── Overview: definitions + counts + concentration (public) ──────────────
 	if (!cohortId) {
 		const { holderCount, counts, concentration } = liveCohortCounts(set, params);
-		res.setHeader('Cache-Control', OVERVIEW_CACHE);
+		// A stale set came from the failover snapshot (Helius was unreachable) — use a
+		// shorter cache so the panel re-attempts live data sooner, and label it.
+		res.setHeader('Cache-Control', set.stale ? 'public, max-age=15, s-maxage=30' : OVERVIEW_CACHE);
 		return json(res, 200, {
 			coin: coinInfo,
-			source: 'live',
+			source: set.stale ? 'live-stale' : 'live',
 			lastSnapshotAt: null,
 			holderCount,
 			concentration,
@@ -162,7 +164,7 @@ async function serveLiveCohorts(req, res, { mint, agentToken }) {
 
 	return json(res, 200, {
 		coin: coinInfo,
-		source: 'live',
+		source: set.stale ? 'live-stale' : 'live',
 		cohort: cohortId,
 		sampled,
 		sample: sample ?? null,
