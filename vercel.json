@@ -2730,6 +2730,22 @@
 			"dest": "/docs-widgets.html"
 		},
 		{
+			"src": "/docs/walk",
+			"dest": "/docs/walk/index.html"
+		},
+		{
+			"src": "/docs/walk/",
+			"dest": "/docs/walk/index.html"
+		},
+		{
+			"src": "/docs/walk/([^./]+)",
+			"dest": "/docs/walk/$1.html"
+		},
+		{
+			"src": "/docs/walk-embed-api",
+			"dest": "/docs/walk-embed-api.html"
+		},
+		{
 			"src": "/docs/([^./]+)",
 			"dest": "/docs/index.html"
 		},

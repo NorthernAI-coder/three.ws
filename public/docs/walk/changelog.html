@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<script>/* three.ws theme boot — no-flash; runtime in /theme-switcher.js */(function(){try{var m=localStorage.getItem('twx_theme');var l=m==='auto'?(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches):m==='light';document.documentElement.setAttribute('data-theme',l?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();</script>
+		<meta charset="utf-8" />
+		<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+		<title>Changelog — Walk docs — three.ws</title>
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+		<meta name="description" content="Walk system changelog — real, dated entries pulled live from the three.ws public changelog feed." />
+		<meta name="theme-color" content="#0a0a0a" />
+		<link rel="canonical" href="https://three.ws/docs/walk/changelog" />
+		<link rel="shortcut icon" href="/favicon.ico" />
+		<link rel="stylesheet" href="/fonts/fonts.css" />
+		<link rel="stylesheet" href="/style.css" />
+		<link rel="stylesheet" href="/footer.css" />
+		<link rel="stylesheet" href="/nav.css" />
+		<link rel="stylesheet" href="/docs/walk/docs.css" />
+		<style>
+			.wd-cl { display: flex; flex-direction: column; gap: var(--space-3); margin: 0 0 var(--space-lg); max-width: 46rem; }
+			.wd-cl-item { border: 1px solid var(--stroke); border-radius: var(--radius-lg); background: var(--surface-glass); padding: var(--space-4); }
+			.wd-cl-meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-bottom: var(--space-2); }
+			.wd-cl-date { font: var(--weight-semibold) var(--text-sm) var(--font-mono); color: var(--ink-dim); }
+			.wd-cl-tag { font: var(--weight-semibold) var(--text-2xs) var(--font-body); text-transform: uppercase; letter-spacing: 0.06em; padding: var(--space-3xs) var(--space-2); border-radius: var(--radius-pill); border: 1px solid var(--stroke-strong); color: var(--ink-bright); background: var(--surface-2); }
+			.wd-cl-item h3 { margin: 0 0 var(--space-1); }
+			.wd-cl-item p { margin: 0 0 var(--space-2); color: var(--ink-dim); }
+			.wd-cl-item p:last-child { margin-bottom: 0; }
+			.wd-cl-state { color: var(--ink-dim); font: var(--weight-regular) var(--text-base) var(--font-body); }
+			.wd-skel { height: 6.5rem; border: 1px solid var(--stroke); border-radius: var(--radius-lg); background: linear-gradient(100deg, var(--surface-1) 30%, var(--surface-2) 50%, var(--surface-1) 70%); background-size: 200% 100%; animation: wd-shimmer 1.4s var(--ease-standard) infinite; }
+			@keyframes wd-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+			@media (prefers-reduced-motion: reduce) { .wd-skel { animation: none; } }
+		</style>
+	</head>
+	<body>
+		<a class="wd-skip" href="#wd-main">Skip to content</a>
+		<header><div id="nav-container"></div></header>
+		<script src="/nav.js"></script>
+
+		<div class="wd-shell">
+			<button class="wd-side-toggle" type="button" aria-expanded="false" aria-controls="wd-side">
+				<span>Documentation menu</span><span aria-hidden="true">☰</span>
+			</button>
+			<aside class="wd-side" id="wd-side" aria-label="Walk documentation">
+				<h2>Walk docs</h2>
+				<nav aria-label="Walk documentation pages">
+					<a href="/docs/walk">Overview</a>
+					<a href="/docs/walk/getting-started">Getting started</a>
+				</nav>
+				<h2>Use it</h2>
+				<nav aria-label="Using Walk">
+					<a href="/docs/walk/walk-page">The walk page</a>
+					<a href="/docs/walk/companion-mode">Companion mode</a>
+					<a href="/docs/walk/chrome-extension">Chrome extension</a>
+				</nav>
+				<h2>Build with it</h2>
+				<nav aria-label="Building with Walk">
+					<a href="/docs/walk/embed-iframe">Iframe embed</a>
+					<a href="/docs/walk/embed-sdk">JavaScript SDK</a>
+					<a href="/docs/walk/postmessage-events">postMessage events</a>
+					<a href="/docs/walk/analytics">Analytics</a>
+				</nav>
+				<h2>Reference</h2>
+				<nav aria-label="Reference"><a href="/docs/walk/changelog" aria-current="page">Changelog</a></nav>
+			</aside>
+
+			<main class="wd-main" id="wd-main">
+				<p class="wd-crumbs"><a href="/docs">Docs</a> / <a href="/docs/walk">Walk</a> / Changelog</p>
+				<h1>Changelog</h1>
+				<p class="wd-lede">
+					Walk-related entries from the three.ws public changelog, loaded live. For the
+					full platform history, RSS, and JSON feeds, see
+					<a href="/changelog">three.ws/changelog</a>.
+				</p>
+
+				<div class="wd-cl" id="wd-changelog" aria-live="polite" aria-busy="true">
+					<div class="wd-skel" aria-hidden="true"></div>
+					<div class="wd-skel" aria-hidden="true"></div>
+					<div class="wd-skel" aria-hidden="true"></div>
+				</div>
+
+				<div class="wd-pagefoot">
+					<a class="wd-edit" href="https://github.com/nirholas/three.ws/edit/main/public/docs/walk/changelog.html" rel="noopener"><span aria-hidden="true">✎</span> Edit this page on GitHub</a>
+					<div class="wd-nextprev">
+						<a href="/docs/walk/chrome-extension"><span>Previous</span>← Chrome extension</a>
+						<a href="/docs/walk"><span>Next</span>Overview →</a>
+					</div>
+				</div>
+			</main>
+		</div>
+
+		<div id="footer-container"></div>
+		<script src="/footer.js"></script>
+		<script src="/brand.js" defer></script>
+		<script type="module" src="/docs/walk/docs.js"></script>
+		<script type="module">
+			// Pull the real, dated changelog from the platform feed and surface the
+			// walk-related entries. No hand-written version history: if the feed has
+			// nothing about walk, we say so and link to the full changelog.
+			const host = document.getElementById('wd-changelog');
+
+			function esc(s) {
+				return String(s == null ? '' : s).replace(/[&<>"']/g, (c) =>
+					({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+			}
+
+			function isWalk(entry) {
+				// Match the Walk PRODUCT, not the verb. The link or title must name a
+				// walk surface, OR the text must use a walk-system product term — this
+				// keeps out unrelated entries that merely contain the word "walk"
+				// (e.g. "walks into range", "idle/walk animation library").
+				const link = String(entry.link || '').toLowerCase();
+				const text = `${String(entry.title || '')} ${String(entry.summary || '')}`.toLowerCase();
+				// Strongest signal: the entry links to a Walk product surface.
+				if (/^\/(walk|features\/walk|dashboard\/walk)(\b|-|\/|$)/.test(link)) return true;
+				// Otherwise require an explicit Walk-system product phrase, so the verb
+				// "walk" alone (e.g. "walk into the club", "walk up to them") doesn't match.
+				return /walk page|walk hub|walk-embed|walk sdk|walk mode|walk playground|walk companion|companion mode|walking avatar|walk avatar|walk scene|walk leaderboard|walk analytics/.test(text);
+			}
+
+			function fmtDate(iso) {
+				const d = new Date(iso);
+				if (Number.isNaN(d.getTime())) return esc(iso);
+				return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+			}
+
+			function render(entries) {
+				if (!entries.length) {
+					host.innerHTML =
+						'<p class="wd-cl-state">No walk-specific entries in the changelog yet. See the ' +
+						'<a href="/changelog">full three.ws changelog</a> for the latest platform updates.</p>';
+					return;
+				}
+				host.innerHTML = entries
+					.map((e) => {
+						const tags = (e.tags || [])
+							.map((t) => `<span class="wd-cl-tag">${esc(t)}</span>`)
+							.join('');
+						const title = e.link
+							? `<a href="${esc(e.link)}">${esc(e.title)}</a>`
+							: esc(e.title);
+						return (
+							'<article class="wd-cl-item">' +
+							`<div class="wd-cl-meta"><span class="wd-cl-date">${fmtDate(e.date)}</span>${tags}</div>` +
+							`<h3>${title}</h3>` +
+							(e.summary ? `<p>${esc(e.summary)}</p>` : '') +
+							'</article>'
+						);
+					})
+					.join('');
+			}
+
+			async function load() {
+				try {
+					const res = await fetch('/changelog.json', { headers: { accept: 'application/json' } });
+					if (!res.ok) throw new Error(`HTTP ${res.status}`);
+					const data = await res.json();
+					const all = Array.isArray(data.entries) ? data.entries : [];
+					const walk = all
+						.filter(isWalk)
+						.sort((a, b) => String(b.date).localeCompare(String(a.date)));
+					render(walk);
+				} catch (err) {
+					host.innerHTML =
+						'<p class="wd-cl-state">Couldn\'t load the changelog right now. ' +
+						'Read it directly at <a href="/changelog">three.ws/changelog</a>.</p>';
+				} finally {
+					host.setAttribute('aria-busy', 'false');
+				}
+			}
+
+			load();
+		</script>
+	</body>
+</html>
