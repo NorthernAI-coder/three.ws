@@ -37,7 +37,7 @@ import {
 	scaleClipSpeed,
 	MIN_COVERAGE,
 } from '../src/animation-retarget.js';
-import { CANONICAL_REST } from '../src/animation-canonical-rest.js';
+import { CANONICAL_REST, CANONICAL_REST_WORLD } from '../src/animation-canonical-rest.js';
 import { canonicalizeBoneName } from '../src/glb-canonicalize.js';
 import { loadBoneGraph } from './_helpers/glb-bone-graph.js';
 
@@ -492,5 +492,87 @@ describe('cross-rig locomotion invariants (real GLB)', () => {
 		for (const t of corrected.tracks) {
 			expect(Array.from(t.values)).toEqual(Array.from(byName.get(t.name).values));
 		}
+	});
+});
+
+describe('world-delta correctness — limb retarget preserves world motion', () => {
+	// The bug this guards: a local-only premultiply correction (Rt·Rs⁻¹·q) replays a
+	// clip bone's deviation in the wrong frame, skewing limbs by ~30° on a rig whose
+	// rest pose differs from the cz authoring rig. The world-aware correction
+	// (q ← L·q·R) must instead reproduce the SAME world-space rotation delta on any
+	// rest pose. Oracle is three's getWorldQuaternion — independent of the module's
+	// own world-rest math, so the test can't pass by sharing the bug.
+	const Rs = new Quaternion().fromArray(CANONICAL_REST.LeftArm); // cz LeftArm local rest
+	const WS = new Quaternion().fromArray(CANONICAL_REST_WORLD.LeftArm); // …world rest
+
+	// A target rig whose LeftArm rests deep down-and-in, under rotated Hips/Spine —
+	// a rest pose far from cz, so a local-only correction would visibly skew it.
+	function buildTarget() {
+		const root = new Object3D();
+		const hips = Object.assign(new Bone(), { name: 'Hips' });
+		hips.quaternion.setFromEuler(new Euler(0.12, 0.25, -0.08));
+		const spine = Object.assign(new Bone(), { name: 'Spine' });
+		spine.quaternion.setFromEuler(new Euler(0.05, 0, 0.18));
+		const arm = Object.assign(new Bone(), { name: 'LeftArm' });
+		arm.quaternion.setFromEuler(new Euler(0.2, -0.3, -1.1));
+		spine.add(arm);
+		hips.add(spine);
+		root.add(hips);
+		root.updateMatrixWorld(true);
+		return { root, arm, restLocal: arm.quaternion.clone() };
+	}
+
+	// A clip keyframe: cz's LeftArm rotated by world delta D, as its absolute local
+	// rotation (sourceParentWorld = WS·Rs⁻¹ ⇒ local = parent⁻¹·D·WS).
+	function clipForWorldDelta(D) {
+		const parentWorld = WS.clone().multiply(Rs.clone().invert());
+		const S = parentWorld.clone().invert().multiply(D).multiply(WS);
+		return new AnimationClip('m', 1, [
+			new QuaternionKeyframeTrack(
+				'LeftArm.quaternion',
+				[0, 1],
+				[S.x, S.y, S.z, S.w, S.x, S.y, S.z, S.w],
+			),
+		]);
+	}
+
+	const worldDirErr = (a, b) => {
+		const probe = new Vector3(0, 1, 0);
+		return (
+			(probe.clone().applyQuaternion(a).angleTo(probe.clone().applyQuaternion(b)) * 180) / Math.PI
+		);
+	};
+
+	it('reproduces a known world-space arm motion on a foreign rest pose (≈0° error)', () => {
+		const D = new Quaternion().setFromAxisAngle(new Vector3(1, 0, 0), (40 * Math.PI) / 180);
+		const clip = clipForWorldDelta(D);
+		const { root, arm } = buildTarget();
+		const restWorld = arm.getWorldQuaternion(new Quaternion()); // bind world (oracle)
+		const expected = D.clone().multiply(restWorld); // same world delta on target rest
+
+		const out = retargetClipToObject(clip, root, { minCoverage: 0 }).clip;
+		const t = out.tracks.find((x) => x.name === 'LeftArm.quaternion');
+		arm.quaternion.set(t.values[0], t.values[1], t.values[2], t.values[3]);
+		root.updateMatrixWorld(true);
+		const actual = arm.getWorldQuaternion(new Quaternion());
+
+		expect(worldDirErr(actual, expected)).toBeLessThan(0.5);
+	});
+
+	it('the old local-only premultiply (Rt·Rs⁻¹·q) would skew this badly (>5°) — test is discriminating', () => {
+		const D = new Quaternion().setFromAxisAngle(new Vector3(1, 0, 0), (40 * Math.PI) / 180);
+		const clip = clipForWorldDelta(D);
+		const { root, arm, restLocal } = buildTarget();
+		const restWorld = arm.getWorldQuaternion(new Quaternion());
+		const expected = D.clone().multiply(restWorld);
+
+		// Reconstruct the prior behaviour: C·q with C = Rt·Rs⁻¹ (no world term).
+		const S = new Quaternion(clip.tracks[0].values[0], clip.tracks[0].values[1], clip.tracks[0].values[2], clip.tracks[0].values[3]);
+		const buggy = restLocal.clone().multiply(Rs.clone().invert()).multiply(S);
+		arm.quaternion.copy(buggy);
+		root.updateMatrixWorld(true);
+		const actual = arm.getWorldQuaternion(new Quaternion());
+
+		expect(worldDirErr(actual, expected)).toBeGreaterThan(5);
 	});
 });

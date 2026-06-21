@@ -18,9 +18,9 @@
 //              then gets unwrapped and routed to the treasury inside the same
 //              transaction.
 
-import { Keypair, PublicKey, SystemProgram, Transaction, ComputeBudgetProgram } from '@solana/web3.js';
+import { Keypair, PublicKey, SystemProgram } from '@solana/web3.js';
 import { getConnection } from '../pump.js';
-import { confirmOrThrow } from '../solana/confirm.js';
+import { submitProtected } from '../execution-engine.js';
 import { decryptSecret, isEncryptedSecret } from '../secret-box.js';
 
 const SOL_LAMPORTS = 1_000_000_000n;
@@ -99,39 +99,6 @@ export function lamportsToSol(lamports) {
 }
 
 /**
- * Confirm a recent signature against the network with a bounded timeout.
- * Vercel function executions are short-lived; we don't want to hang on
- * confirmation if the cluster is slow.
- */
-async function confirmWithTimeout(connection, signature, { commitment = 'confirmed', timeoutMs = 30_000 } = {}) {
-	const start = Date.now();
-	// First try the explicit confirm API; if that errors transiently, fall back
-	// to polling getSignatureStatus.
-	try {
-		const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash(commitment);
-		await confirmOrThrow(
-			connection,
-			{ signature, blockhash, lastValidBlockHeight },
-			commitment,
-		);
-		return true;
-	} catch {
-		while (Date.now() - start < timeoutMs) {
-			const status = await connection.getSignatureStatus(signature, {
-				searchTransactionHistory: true,
-			});
-			const val = status?.value;
-			if (val?.err) throw new Error('tx_failed: ' + JSON.stringify(val.err));
-			if (val?.confirmationStatus === 'confirmed' || val?.confirmationStatus === 'finalized') {
-				return true;
-			}
-			await new Promise((r) => setTimeout(r, 1_500));
-		}
-		throw new Error('confirm_timeout');
-	}
-}
-
-/**
  * Send a single SystemProgram.transfer of `lamports` SOL from `from` to `to`.
  * Returns the tx signature on confirmation. Used for the lottery winner payout.
  *
@@ -147,18 +114,16 @@ export async function sendSolTransfer({ from, to, lamports, network = 'mainnet' 
 	const amount = typeof lamports === 'bigint' ? lamports : BigInt(lamports);
 	if (amount <= 0n) throw new Error('sendSolTransfer: amount must be > 0');
 
-	const tx = new Transaction();
-	tx.add(ComputeBudgetProgram.setComputeUnitPrice({ microLamports: PRIORITY_MICRO_LAMPORTS }));
-	tx.add(SystemProgram.transfer({ fromPubkey: from.publicKey, toPubkey: toPk, lamports: amount }));
-	tx.feePayer = from.publicKey;
-	const { blockhash } = await connection.getLatestBlockhash('confirmed');
-	tx.recentBlockhash = blockhash;
-	tx.sign(from);
-
-	const raw = tx.serialize();
-	const sig = await connection.sendRawTransaction(raw, { skipPreflight: false, maxRetries: 5 });
-	await confirmWithTimeout(connection, sig);
-	return sig;
+	// Protected send: data-driven priority fee + CU, rebroadcast with blockhash
+	// refresh, and a hard throw on an on-chain revert. (submitProtected sets its
+	// own compute-budget, so we no longer add one here.)
+	const { signature } = await submitProtected({
+		network,
+		connection,
+		payer: from,
+		instructions: [SystemProgram.transfer({ fromPubkey: from.publicKey, toPubkey: toPk, lamports: amount })],
+	});
+	return signature;
 }
 
 /**
@@ -167,28 +132,15 @@ export async function sendSolTransfer({ from, to, lamports, network = 'mainnet' 
  */
 async function sendChunk({ from, transfers, network }) {
 	const connection = getConnection({ network });
-	const tx = new Transaction();
-	tx.add(ComputeBudgetProgram.setComputeUnitPrice({ microLamports: PRIORITY_MICRO_LAMPORTS }));
-	for (const t of transfers) {
-		tx.add(
-			SystemProgram.transfer({
-				fromPubkey: from.publicKey,
-				toPubkey: typeof t.to === 'string' ? new PublicKey(t.to) : t.to,
-				lamports: typeof t.lamports === 'bigint' ? t.lamports : BigInt(t.lamports),
-			}),
-		);
-	}
-	tx.feePayer = from.publicKey;
-	const { blockhash } = await connection.getLatestBlockhash('confirmed');
-	tx.recentBlockhash = blockhash;
-	tx.sign(from);
-
-	const sig = await connection.sendRawTransaction(tx.serialize(), {
-		skipPreflight: false,
-		maxRetries: 5,
-	});
-	await confirmWithTimeout(connection, sig);
-	return sig;
+	const instructions = transfers.map((t) =>
+		SystemProgram.transfer({
+			fromPubkey: from.publicKey,
+			toPubkey: typeof t.to === 'string' ? new PublicKey(t.to) : t.to,
+			lamports: typeof t.lamports === 'bigint' ? t.lamports : BigInt(t.lamports),
+		}),
+	);
+	const { signature } = await submitProtected({ network, connection, payer: from, instructions });
+	return signature;
 }
 
 /**

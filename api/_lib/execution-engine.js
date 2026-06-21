@@ -349,6 +349,8 @@ async function sendProtected(signedTx, signature, connection, blockhashCtx, conf
  * @param {import('@solana/web3.js').TransactionInstruction[]} o.instructions  the trade ixs
  * @param {object}  [o.opts]
  * @param {'off'|'economy'|'turbo'} [o.opts.tipMode='off']     per-strategy Jito tip policy
+ * @param {import('@solana/web3.js').Keypair[]} [o.opts.extraSigners=[]]  co-signers
+ *          beyond the fee-payer (e.g. a new mint Keypair on a launch)
  * @param {number}  [o.opts.confirmTimeoutMs=45000]            protected-route confirm bound
  * @param {boolean} [o.opts.preSimulated=false]               caller already simulated (firewall) — still estimates CU
  * @param {(tipLamports: bigint, route: string) => Promise<void>} [o.opts.onTip]
@@ -361,13 +363,24 @@ async function sendProtected(signedTx, signature, connection, blockhashCtx, conf
 export async function submitProtected({ network, connection, payer, instructions, opts = {} }) {
 	const tipMode = ['economy', 'turbo'].includes(opts.tipMode) ? opts.tipMode : 'off';
 	const confirmTimeoutMs = Number.isFinite(opts.confirmTimeoutMs) ? opts.confirmTimeoutMs : 45_000;
+	// Co-signers beyond the fee-payer — e.g. a freshly generated mint Keypair on a
+	// token launch. The fee payer is always `payer`; these are added to the
+	// signature set. (Sim uses sigVerify:false, so it needs only the account metas
+	// the instructions already carry, not these keypairs.)
+	const extraSigners = Array.isArray(opts.extraSigners) ? opts.extraSigners : [];
+	// Strip any caller-supplied ComputeBudget instructions: this engine sets its own
+	// data-driven CU limit + escalating priority fee, and a SECOND ComputeBudget
+	// instruction of the same kind makes the runtime reject the whole transaction.
+	// No-op for the trade path (passes none); lets migrated send paths hand us their
+	// raw instructions untouched without each having to remember to drop their own.
+	const userIxs = instructions.filter((ix) => !ix.programId.equals(ComputeBudgetProgram.programId));
 	const t0 = Date.now();
 
 	// 1. Data-driven compute budget. Estimate the priority fee and the CU limit in
 	//    parallel — both are real RPC reads (fee cached, CU is a fresh simulate).
 	const [priorityFeeBase, cuLimit] = await Promise.all([
 		estimatePriorityFeeMicroLamports(connection, network),
-		estimateComputeUnits(connection, payer, instructions),
+		estimateComputeUnits(connection, payer, userIxs),
 	]);
 
 	const canJito = jitoEligible(network, tipMode);
@@ -395,7 +408,7 @@ export async function submitProtected({ network, connection, payer, instructions
 			ComputeBudgetProgram.setComputeUnitLimit({ units: cuLimit }),
 			ComputeBudgetProgram.setComputeUnitPrice({ microLamports: priorityFeeMicroLamports }),
 		];
-		const txIxs = [...budgetIxs, ...instructions];
+		const txIxs = [...budgetIxs, ...userIxs];
 
 		if (tryJito) {
 			tipLamports = resolveTipLamports(tipMode, tipFloor, attempt);
@@ -440,7 +453,7 @@ export async function submitProtected({ network, connection, payer, instructions
 			instructions: txIxs,
 		}).compileToV0Message();
 		const tx = new VersionedTransaction(msg);
-		tx.sign([payer]);
+		tx.sign([payer, ...extraSigners]);
 		const signature = bs58Sig(tx);
 
 		try {

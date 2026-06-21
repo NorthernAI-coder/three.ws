@@ -191,6 +191,44 @@ export class GuideAvatar {
 		this.controller?.playWave();
 	}
 
+	// ── Free-roam hooks ─────────────────────────────────────────────────────────
+	// The canvas host is pointer-events:none during the guided tour so it never
+	// eats page clicks; free-roam flips it interactive so the guide can be grabbed.
+	setInteractive(on) {
+		if (!this.host) return;
+		this.host.style.pointerEvents = on ? 'auto' : 'none';
+		this.host.classList.toggle('is-roam', !!on);
+	}
+
+	// Footprint of the avatar host, for centering it under a pointer.
+	size() {
+		const r = this.host?.getBoundingClientRect();
+		return { w: r?.width || CANVAS_W, h: r?.height || CANVAS_H };
+	}
+
+	// Instant placement (drag / edge-scroll follow): clamp to the viewport, face
+	// the direction of travel, run the walk cycle, and auto-settle to idle shortly
+	// after movement stops so a parked guide isn't stuck mid-stride.
+	place(pos) {
+		const s = this.size();
+		const x = clamp(pos.x, MARGIN, window.innerWidth - s.w - MARGIN);
+		const y = clamp(pos.y, MARGIN, window.innerHeight - s.h - MARGIN);
+		const dx = x - this._pos.x;
+		if (Math.abs(dx) > 1) this._targetYaw = clamp((dx / window.innerWidth) * 2, -0.7, 0.7);
+		this.controller?.setState('walk');
+		this._walking = true;
+		clearTimeout(this._settleTimer);
+		this._settleTimer = setTimeout(() => this.settle(), 180);
+		this._setPos({ x, y }, false);
+	}
+
+	settle() {
+		clearTimeout(this._settleTimer);
+		this._walking = false;
+		this._targetYaw = 0;
+		this.controller?.setState('idle');
+	}
+
 	_spotBeside(rect) {
 		const gap = 22;
 		const rightX = rect.left + rect.width + gap;

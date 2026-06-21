@@ -526,7 +526,6 @@
 				}
 				document.getElementById('tour-resume-link').addEventListener('click', (e) => {
 					e.preventDefault();
-					const param = inProgress ? '?tour=1' : '?tour=1';
 					fetch('/tour/curriculum.json', { cache: 'force-cache' })
 						.then((r) => r.json())
 						.then((c) => {
@@ -548,9 +547,9 @@
 									);
 								} catch (_) {}
 							}
-							location.href = (stop ? stop.path : '/') + param;
+							location.href = (stop ? stop.path : '/') + '?tour=1';
 						})
-						.catch(() => (location.href = '/' + param));
+						.catch(() => (location.href = '/?tour=1'));
 				});
 			})();
 

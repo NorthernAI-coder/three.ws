@@ -17,6 +17,7 @@ import { cors, json, method, readJson, wrap, error, rateLimited } from '../_lib/
 import { parse } from '../_lib/validate.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { logAudit } from '../_lib/audit.js';
+import { recordPaymentMetric } from '../_lib/axiom.js';
 import {
 	avatarWalletConfig,
 	loadAvatarKeypair,
@@ -151,6 +152,7 @@ export default wrap(async (req, res) => {
 	}
 
 	let signature;
+	const sendStartedAt = Date.now();
 	try {
 		signature = await sendSol({
 			connection,
@@ -160,8 +162,24 @@ export default wrap(async (req, res) => {
 			memo: body.memo || `three.ws avatar · $${usd.toFixed(2)} SOL`,
 		});
 	} catch (err) {
+		recordPaymentMetric({
+			kind: 'avatar_payout',
+			status: 'failed',
+			network: cfg.network,
+			amountUsd: usd,
+			latencyMs: Date.now() - sendStartedAt,
+			reason: err?.message || 'unknown',
+		});
 		return error(res, 502, 'send_failed', `on-chain transfer failed: ${err?.message || 'unknown error'}`);
 	}
+	recordPaymentMetric({
+		kind: 'avatar_payout',
+		status: 'ok',
+		network: cfg.network,
+		amountUsd: usd,
+		latencyMs: Date.now() - sendStartedAt,
+		signature,
+	});
 
 	// Immutable trail for the one custodial money-out path: who triggered a
 	// payout (by IP/UA — this endpoint is session-less, gated by demo-token /

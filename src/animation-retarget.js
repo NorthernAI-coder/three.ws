@@ -16,7 +16,7 @@
 
 import { AnimationClip, Quaternion, Vector3 } from 'three';
 import { canonicalizeBoneName } from './glb-canonicalize.js';
-import { CANONICAL_REST } from './animation-canonical-rest.js';
+import { CANONICAL_REST, CANONICAL_REST_WORLD } from './animation-canonical-rest.js';
 
 // A clip retargets cleanly only when enough of its tracks find a home on the
 // target rig. Below this the motion would read as a few twitching joints rather
@@ -40,6 +40,17 @@ export const MIN_COVERAGE = 0.5;
 // (skipped below), so a matching rig round-trips byte-for-byte.
 const SOURCE_REST = new Map(
 	Object.entries(CANONICAL_REST).map(([bone, q]) => [bone, new Quaternion(q[0], q[1], q[2], q[3])]),
+);
+
+// World-space (model-frame) bind rotation of each canonical bone on the authoring
+// rig. Paired with SOURCE_REST so the bind correction can preserve a clip bone's
+// *world* motion delta (not just its local deviation) when the target rig rests
+// in a different pose — see `bindCorrections`.
+const SOURCE_WORLD_REST = new Map(
+	Object.entries(CANONICAL_REST_WORLD).map(([bone, q]) => [
+		bone,
+		new Quaternion(q[0], q[1], q[2], q[3]),
+	]),
 );
 
 // A quaternion within this of identity (|w| ≈ 1) is treated as no rotation, so a
@@ -145,35 +156,121 @@ export function canonicalRestMapFromRig(rig) {
 	return map;
 }
 
+// World (model-frame) bind rotation of a node: the pure-quaternion product of its
+// ancestors' rotations down to `stopAt` (exclusive), times the node's own. Stops
+// at the model root so a placement rotation the viewer applies to the whole avatar
+// is excluded — the same frame SOURCE_WORLD_REST is measured in. Requires local
+// rotations to be at bind pose (true at attach time).
+function worldRestQuat(node, stopAt) {
+	const q = node.quaternion.clone();
+	for (let n = node.parent; n && n !== stopAt; n = n.parent) q.premultiply(n.quaternion);
+	return q;
+}
+
 /**
- * Per-bone bind correction `C = targetRest · sourceRest⁻¹`. Applying `C · q` to a
- * clip keyframe replays the source bone's deviation-from-rest in the target
- * bone's own rest frame, so a clip authored for one rest pose drives a rig with a
- * different one (e.g. a Mixamo rig whose Hips bakes the up-axis as −90°X). Bones
- * whose correction is identity are omitted, so a matching rig skips the work and
- * round-trips unchanged.
+ * World bind-rotation map by walking an Object3D graph — the world-frame companion
+ * to {@link canonicalRestMapFromObject}, read in the same first-bone-wins order.
+ * Excludes `root` so it matches {@link hipsParentWorldQuat}'s within-model frame.
  *
- * @param {Map<string,import('three').Quaternion>|null} targetRest
+ * @param {import('three').Object3D} root
  * @returns {Map<string,import('three').Quaternion>}
  */
-function bindCorrections(targetRest) {
+export function canonicalWorldRestMapFromObject(root) {
+	const map = new Map();
+	const consider = (node) => {
+		if (!node?.name) return;
+		const canonical = canonicalizeBoneName(node.name);
+		if (canonical && !map.has(canonical)) map.set(canonical, worldRestQuat(node, root));
+	};
+	const skinned = [];
+	root.traverse((node) => {
+		if (node.isSkinnedMesh) skinned.push(node);
+		if (node.isBone) consider(node);
+	});
+	for (const sm of skinned) {
+		for (const bone of sm.skeleton?.bones || []) consider(bone);
+	}
+	return map;
+}
+
+/**
+ * World bind-rotation map from a GltfRig/MannequinRig. The rig is posed at the
+ * origin (within-model == world), so we compose all the way to the top.
+ *
+ * @param {{ getBones: () => Array<{key:string,node:import('three').Object3D}> }} rig
+ * @returns {Map<string,import('three').Quaternion>}
+ */
+export function canonicalWorldRestMapFromRig(rig) {
+	const map = new Map();
+	for (const { key, node } of rig.getBones?.() || []) {
+		if (node && !map.has(key)) map.set(key, worldRestQuat(node, null));
+	}
+	return map;
+}
+
+/**
+ * Per-bone bind correction `{L, R}` such that `q' = L · q · R` re-expresses a clip
+ * bone's keyframe so it produces the SAME world-space rotation delta on a target
+ * rig that rests in a different pose:
+ *
+ *   L = Rt · WT⁻¹ · WS · Rs⁻¹      R = WS⁻¹ · WT
+ *
+ * where Rs/Rt are the source/target LOCAL bind rotations and WS/WT their WORLD
+ * (model-frame) bind rotations. This is the standard world-delta-preserving
+ * retarget (trgLocal = WTp⁻¹·WSp · q · WS⁻¹·WT, with the parent worlds derived as
+ * WSp = WS·Rs⁻¹, WTp = WT·Rt⁻¹). It collapses to:
+ *   • the pure axis-convention reframe for the Hips (different parent frame, same
+ *     world rest — e.g. a Mixamo Hips baked at −90°X), and
+ *   • the correct limb reframe for an A-pose clip on a T-pose rig, which a
+ *     local-only `Rt·Rs⁻¹` premultiply skewed by ~30°.
+ *
+ * When world rests are unavailable we fall back to the prior local-only premultiply
+ * (`L = Rt·Rs⁻¹`, `R = I`) so callers that don't supply them still work. Bones whose
+ * correction is identity are omitted, so a matching rig skips the work and
+ * round-trips unchanged.
+ *
+ * @param {Map<string,import('three').Quaternion>|null} targetRest        target LOCAL bind
+ * @param {Map<string,import('three').Quaternion>|null} [targetWorldRest] target WORLD bind
+ * @returns {Map<string,{L:import('three').Quaternion,R:import('three').Quaternion|null}>}
+ */
+function bindCorrections(targetRest, targetWorldRest) {
 	const out = new Map();
 	if (!(targetRest instanceof Map)) return out;
-	for (const [canonical, sourceRest] of SOURCE_REST) {
-		const tr = targetRest.get(canonical);
-		if (!tr) continue;
-		const c = new Quaternion().multiplyQuaternions(tr, sourceRest.clone().invert());
-		if (1 - Math.abs(c.w) < BIND_EPSILON) continue; // identity → no correction
-		out.set(canonical, c);
+	const haveWorld = targetWorldRest instanceof Map;
+	for (const [canonical, Rs] of SOURCE_REST) {
+		const Rt = targetRest.get(canonical);
+		if (!Rt) continue;
+		const WS = SOURCE_WORLD_REST.get(canonical);
+		const WT = haveWorld ? targetWorldRest.get(canonical) : null;
+		let L;
+		let R = null;
+		if (WS && WT) {
+			// L = Rt · WT⁻¹ · WS · Rs⁻¹
+			L = Rt.clone()
+				.multiply(WT.clone().invert())
+				.multiply(WS)
+				.multiply(Rs.clone().invert());
+			// R = WS⁻¹ · WT
+			R = WS.clone().invert().multiply(WT);
+			if (1 - Math.abs(R.w) < BIND_EPSILON) R = null; // identity post-factor
+		} else {
+			// Fallback: local-only premultiply (prior behaviour).
+			L = Rt.clone().multiply(Rs.clone().invert());
+		}
+		const identityL = 1 - Math.abs(L.w) < BIND_EPSILON;
+		if (identityL && !R) continue; // nothing to do → round-trips unchanged
+		out.set(canonical, { L: identityL ? null : L, R });
 	}
 	return out;
 }
 
-// Pre-multiply every [x,y,z,w] keyframe of a quaternion track by `c` in place:
-// q ← c · q (deviation replayed in the target bone's rest frame).
-function premultiplyQuaternionTrack(values, c) {
+// Apply the bind correction `q ← L · q · R` to every [x,y,z,w] keyframe in place.
+// Either factor may be null (identity).
+function correctQuaternionTrack(values, { L, R }) {
 	for (let i = 0; i < values.length; i += 4) {
-		_q.set(values[i], values[i + 1], values[i + 2], values[i + 3]).premultiply(c);
+		_q.set(values[i], values[i + 1], values[i + 2], values[i + 3]);
+		if (L) _q.premultiply(L);
+		if (R) _q.multiply(R);
 		values[i] = _q.x;
 		values[i + 1] = _q.y;
 		values[i + 2] = _q.z;
@@ -212,7 +309,10 @@ function hipPositionCorrection(hipsParentWorldQuat, corrections) {
 		q.invert();
 		return 1 - Math.abs(q.w) < BIND_EPSILON ? null : q;
 	}
-	return corrections.get('Hips') || null;
+	// Fallback: the Hips correction's premultiply (parent-frame) factor, which for
+	// the Hips carries the axis-convention reframe (its post-factor is identity
+	// when source and target share a world rest).
+	return corrections.get('Hips')?.L || null;
 }
 
 /**
@@ -282,7 +382,7 @@ function clipHipBaselineY(clip) {
 export function retargetClip(clip, canonicalToNode, opts = {}) {
 	const hipScale = Number.isFinite(opts.hipScale) && opts.hipScale > 0 ? opts.hipScale : 1;
 	const minCoverage = opts.minCoverage ?? MIN_COVERAGE;
-	const corrections = bindCorrections(opts.targetRest);
+	const corrections = bindCorrections(opts.targetRest, opts.targetWorldRest);
 	const hipsPosCorrection = hipPositionCorrection(opts.hipsParentWorldQuat, corrections);
 	const total = clip.tracks.length;
 	const dropped = [];
@@ -302,12 +402,13 @@ export function retargetClip(clip, canonicalToNode, opts = {}) {
 		const next = track.clone();
 		next.name = `${nodeName}.${property}`;
 		if (property === 'quaternion') {
-			// Bind correction: replay the clip's deviation-from-rest in the target
-			// bone's own rest frame, so a clip authored for one rest pose (cz's
-			// A-pose) drives a differently-rigged avatar (a Mixamo T-pose, or a Hips
-			// baked at −90°X that would otherwise read as "lying down").
+			// Bind correction q ← L·q·R: replay the clip bone's motion as the same
+			// world-space delta on the target's rest pose, so a clip authored for one
+			// rest pose (cz's A-pose) drives a differently-rigged avatar (a Mixamo
+			// T-pose, or a Hips baked at −90°X that would otherwise read as "lying
+			// down") without skewing limbs.
 			const correction = corrections.get(canonical);
-			if (correction) premultiplyQuaternionTrack(next.values, correction);
+			if (correction) correctQuaternionTrack(next.values, correction);
 		} else if (property === 'position' && canonical === 'Hips') {
 			// Root motion: the clip authors hip translation in the authoring rig's
 			// world-Y-up frame; re-express it in the target's hips-parent frame so it
@@ -342,6 +443,7 @@ export function retargetClip(clip, canonicalToNode, opts = {}) {
 export function retargetClipToRig(clip, rig, opts = {}) {
 	const map = canonicalNodeMapFromRig(rig);
 	const targetRest = canonicalRestMapFromRig(rig);
+	const targetWorldRest = canonicalWorldRestMapFromRig(rig);
 	let hipScale = 1;
 	if (opts.scaleHips !== false) {
 		const targetY = hipRestHeight(rig);
@@ -364,6 +466,7 @@ export function retargetClipToRig(clip, rig, opts = {}) {
 		hipScale,
 		minCoverage: opts.minCoverage,
 		targetRest,
+		targetWorldRest,
 		hipsParentWorldQuat: hipsParent,
 	});
 }
@@ -380,8 +483,14 @@ export function retargetClipToRig(clip, rig, opts = {}) {
 export function retargetClipToObject(clip, root, opts = {}) {
 	const map = canonicalNodeMapFromObject(root);
 	const targetRest = opts.targetRest || canonicalRestMapFromObject(root);
+	const targetWorldRest = opts.targetWorldRest || canonicalWorldRestMapFromObject(root);
 	const hipsParentWorld = opts.hipsParentWorldQuat || hipsParentWorldQuat(root);
-	return retargetClip(clip, map, { ...opts, targetRest, hipsParentWorldQuat: hipsParentWorld });
+	return retargetClip(clip, map, {
+		...opts,
+		targetRest,
+		targetWorldRest,
+		hipsParentWorldQuat: hipsParentWorld,
+	});
 }
 
 /**

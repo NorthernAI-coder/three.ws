@@ -649,7 +649,7 @@ async function handleX402Discovery(req, res) {
 			tags: ['solana', 'vanity', 'keypair', 'wallet', 'address'],
 		}),
 		vanityVerifiable: withService({
-			serviceName: 'three.ws Provably-Fair Vanity Grinder',
+			serviceName: 'three.ws Provable Vanity Grinder',
 			tags: ['solana', 'vanity', 'keypair', 'wallet', 'verifiable', 'commit-reveal'],
 		}),
 		permit2Demo: withService({
@@ -693,7 +693,7 @@ async function handleX402Discovery(req, res) {
 			tags: ['3d', 'avatar', 'club', 'access', 'cover'],
 		}),
 		forge: withService({
-			serviceName: 'three.ws Forge — text/image → 3D',
+			serviceName: 'three.ws Forge: text/image to 3D',
 			tags: ['3d', 'generation', 'text-to-3d', 'image-to-3d', 'glb', 'mesh'],
 		}),
 	};

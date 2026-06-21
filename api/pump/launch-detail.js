@@ -33,6 +33,7 @@ import { sql } from '../_lib/db.js';
 import { publicUrl as r2PublicUrl } from '../_lib/r2.js';
 import { normalizeGatewayURL } from '../../src/ipfs.js';
 import { getTraderStats } from '../_lib/trader-stats.js';
+import { withBreaker } from '../_lib/resilience.js';
 
 const MINT_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 const lamportsToSol = (v) => (v == null ? null : Number(BigInt(v)) / 1e9);
@@ -53,42 +54,45 @@ function safeR2Url(key) {
 // Creator fee-sharing earnings — what the coin's creator has actually earned
 // from pump.fun's creator-reward program. Two public pump.fun endpoints (the
 // same ones the pump.fun frontend calls): coin metadata → creator wallet, then
-// the creator's fee-sharing totals filtered to this mint. Best-effort and
-// timeout-bounded; degrades to null so it never blocks or slows the page.
+// the creator's fee-sharing totals filtered to this mint.
+//
+// Each call is timeout-bounded, and the whole thing runs behind a circuit
+// breaker at the call site (see buildDetail): an UNHEALTHY upstream (network
+// error, timeout, non-2xx) throws so consecutive failures open the breaker and
+// later requests skip pump.fun instantly instead of every launch-page load
+// waiting out two 5s timeouts during an outage. A VALID-but-empty response (no
+// creator, no earnings) returns null and counts as a success — it isn't an
+// outage, so it must not trip the breaker.
 const PUMP_FRONTEND_V3 = 'https://frontend-api-v3.pump.fun';
 const PUMP_SWAP_API = 'https://swap-api.pump.fun';
 
 async function fetchCreatorFees(mint, network) {
 	if (network !== 'mainnet') return null;
-	try {
-		const metaResp = await fetch(`${PUMP_FRONTEND_V3}/coins-v2/${mint}`, {
-			headers: { accept: 'application/json' },
-			signal: AbortSignal.timeout(5000),
-		});
-		if (!metaResp.ok) return null;
-		const meta = await metaResp.json();
-		const creator = meta?.creator || meta?.creator_address;
-		if (!creator || typeof creator !== 'string') return null;
+	const metaResp = await fetch(`${PUMP_FRONTEND_V3}/coins-v2/${mint}`, {
+		headers: { accept: 'application/json' },
+		signal: AbortSignal.timeout(5000),
+	});
+	if (!metaResp.ok) throw new Error(`pump.fun coin meta ${metaResp.status}`);
+	const meta = await metaResp.json();
+	const creator = meta?.creator || meta?.creator_address;
+	if (!creator || typeof creator !== 'string') return null; // valid: no creator on file
 
-		const totResp = await fetch(
-			`${PUMP_SWAP_API}/v1/fee-sharing/account/${creator}/totals?mint=${mint}`,
-			{ headers: { accept: 'application/json' }, signal: AbortSignal.timeout(5000) },
-		);
-		if (!totResp.ok) return null;
-		const t = await totResp.json();
-		const earnedSol = Number(t?.shareholderTotalEarned?.sol);
-		if (!Number.isFinite(earnedSol)) return null;
-		return {
-			creator,
-			earned_sol: earnedSol,
-			earned_usd: Number(t?.shareholderTotalEarned?.usd) || null,
-			claimed_sol: Number(t?.shareholderClaimed?.sol) || 0,
-			unclaimed_sol: Number(t?.shareholderUnclaimed?.sol) || 0,
-			mint_count: t?.mintCount != null ? Number(t.mintCount) : null,
-		};
-	} catch {
-		return null;
-	}
+	const totResp = await fetch(
+		`${PUMP_SWAP_API}/v1/fee-sharing/account/${creator}/totals?mint=${mint}`,
+		{ headers: { accept: 'application/json' }, signal: AbortSignal.timeout(5000) },
+	);
+	if (!totResp.ok) throw new Error(`pump.fun fee-sharing ${totResp.status}`);
+	const t = await totResp.json();
+	const earnedSol = Number(t?.shareholderTotalEarned?.sol);
+	if (!Number.isFinite(earnedSol)) return null; // valid: creator has no fee-sharing earnings
+	return {
+		creator,
+		earned_sol: earnedSol,
+		earned_usd: Number(t?.shareholderTotalEarned?.usd) || null,
+		claimed_sol: Number(t?.shareholderClaimed?.sol) || 0,
+		unclaimed_sol: Number(t?.shareholderUnclaimed?.sol) || 0,
+		mint_count: t?.mintCount != null ? Number(t.mintCount) : null,
+	};
 }
 
 // Short-lived per-instance cache — the page is read far more than coins are
@@ -203,7 +207,15 @@ async function buildDetail(mint, network) {
 				where mint_id=${reg.id} and status='confirmed'
 				order by created_at desc limit 8
 			`,
-			fetchCreatorFees(mint, network),
+			// Behind a circuit breaker: a healthy pump.fun returns the fees (or a
+			// valid null); a sick one trips the breaker after 3 failures so later
+			// launch-page loads skip it instantly and degrade to null instead of
+			// each waiting out two 5s timeouts during an outage.
+			withBreaker('pumpfun:creator-fees', () => fetchCreatorFees(mint, network), {
+				fallback: null,
+				threshold: 3,
+				halfOpenAfterMs: 30_000,
+			}),
 		]);
 		economics = {
 			confirmed_payments: stats?.confirmed_payments ?? 0,

@@ -1633,19 +1633,19 @@
 		},
 		{
 			"src": "/collection",
-			"dest": "/pages/collection.html"
+			"dest": "/collection.html"
 		},
 		{
 			"src": "/collection/",
-			"dest": "/pages/collection.html"
+			"dest": "/collection.html"
 		},
 		{
 			"src": "/marketplace/analytics",
-			"dest": "/pages/marketplace-analytics.html"
+			"dest": "/marketplace-analytics.html"
 		},
 		{
 			"src": "/marketplace/analytics/",
-			"dest": "/pages/marketplace-analytics.html"
+			"dest": "/marketplace-analytics.html"
 		},
 		{
 			"src": "/marketplace",

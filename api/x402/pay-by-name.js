@@ -36,7 +36,7 @@ import {
 } from '@solana/spl-token';
 
 import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.js';
-import { confirmOrThrow } from '../_lib/solana/confirm.js';
+import { submitProtected } from '../_lib/execution-engine.js';
 import { sql } from '../_lib/db.js';
 import { cors, error, json, method, readJson, wrap, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
@@ -286,23 +286,11 @@ async function handleSend(req, res, auth, body) {
 		recipient,
 		amountAtoms,
 	});
-	const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash('confirmed');
-	const msg = new TransactionMessage({
-		payerKey: keypair.publicKey,
-		recentBlockhash: blockhash,
-		instructions: ixs,
-	}).compileToV0Message();
-	const tx = new VersionedTransaction(msg);
-	tx.sign([keypair]);
-
 	let signature;
 	try {
-		signature = await conn.sendRawTransaction(tx.serialize(), { skipPreflight: false });
-		await confirmOrThrow(
-			conn,
-			{ signature, blockhash, lastValidBlockHeight },
-			'confirmed',
-		);
+		// Protected send: priority fee + CU estimate, rebroadcast with blockhash
+		// refresh until it lands, hard throw on an on-chain revert.
+		({ signature } = await submitProtected({ network: 'mainnet', connection: conn, payer: keypair, instructions: ixs }));
 	} catch (err) {
 		console.error('[pay-by-name] send_failed', err);
 		return error(res, 502, 'upstream_error', err?.message || 'transfer failed');

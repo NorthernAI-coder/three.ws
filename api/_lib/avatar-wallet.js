@@ -22,7 +22,7 @@ import {
 	TransactionInstruction,
 } from '@solana/web3.js';
 import { solanaConnection } from './solana/connection.js';
-import { confirmOrThrow } from './solana/confirm.js';
+import { submitProtected } from './execution-engine.js';
 import bs58 from 'bs58';
 
 const bs58decode = bs58.default ? bs58.default.decode : bs58.decode;
@@ -158,23 +158,15 @@ export async function getSolBalance(connection, pubkey) {
  * broadcasting — split out from sendSol so the exact tx the endpoint submits
  * can be verified offline (see scripts/verify-send-sol.mjs).
  */
-export function buildSignedSolTransfer({ fromKeypair, to, lamports, memo, blockhash }) {
+function buildSolTransferInstructions({ fromKeypair, to, lamports, memo }) {
 	const toPubkey = to instanceof PublicKey ? to : new PublicKey(to);
 	const lamportsInt = Math.round(Number(lamports));
 	if (!Number.isFinite(lamportsInt) || lamportsInt <= 0) {
 		throw Object.assign(new Error('transfer amount must be a positive number of lamports'), { code: 'bad_amount' });
 	}
-
-	const tx = new Transaction();
-	tx.add(
-		SystemProgram.transfer({
-			fromPubkey: fromKeypair.publicKey,
-			toPubkey,
-			lamports: lamportsInt,
-		}),
-	);
+	const ixs = [SystemProgram.transfer({ fromPubkey: fromKeypair.publicKey, toPubkey, lamports: lamportsInt })];
 	if (memo) {
-		tx.add(
+		ixs.push(
 			new TransactionInstruction({
 				programId: MEMO_PROGRAM_ID,
 				keys: [],
@@ -182,7 +174,11 @@ export function buildSignedSolTransfer({ fromKeypair, to, lamports, memo, blockh
 			}),
 		);
 	}
+	return ixs;
+}
 
+export function buildSignedSolTransfer({ fromKeypair, to, lamports, memo, blockhash }) {
+	const tx = new Transaction().add(...buildSolTransferInstructions({ fromKeypair, to, lamports, memo }));
 	tx.feePayer = fromKeypair.publicKey;
 	tx.recentBlockhash = blockhash;
 	tx.sign(fromKeypair);
@@ -190,19 +186,16 @@ export function buildSignedSolTransfer({ fromKeypair, to, lamports, memo, blockh
 }
 
 /**
- * Sign and submit a native SOL transfer, waiting for `confirmed` commitment.
- * Returns the transaction signature. This is the single money-moving primitive
- * shared by the /api/agent/send-sol endpoint and the verification script.
+ * Sign and submit a native SOL transfer, returning the signature on confirmation.
+ * The single money-moving primitive shared by /api/agent/send-sol, the chat
+ * sendSol tool, the agent economy, and the verification script. Routes through
+ * the protected sender: data-driven priority fee + CU, rebroadcast with blockhash
+ * refresh, and a hard throw on an on-chain revert — so a send no longer drops
+ * silently under congestion or reports a reverted transfer as success.
  */
-export async function sendSol({ connection, fromKeypair, to, lamports, memo }) {
-	const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
-	const tx = buildSignedSolTransfer({ fromKeypair, to, lamports, memo, blockhash });
-
-	const signature = await connection.sendRawTransaction(tx.serialize(), {
-		skipPreflight: false,
-		maxRetries: 3,
-	});
-	await confirmOrThrow(connection, { signature, blockhash, lastValidBlockHeight }, 'confirmed');
+export async function sendSol({ connection, fromKeypair, to, lamports, memo, network = 'mainnet' }) {
+	const instructions = buildSolTransferInstructions({ fromKeypair, to, lamports, memo });
+	const { signature } = await submitProtected({ network, connection, payer: fromKeypair, instructions });
 	return signature;
 }
 

@@ -4,7 +4,22 @@
 .husky
 .vscode
 
-tests
+# Keep the full test suite's source out of the deploy upload, but PRESERVE the
+# critical-path gate files (scripts/test-gate.mjs runs them during the Vercel
+# build and FAILS the deploy if they are stripped). Mirror the examples/ idiom
+# below: exclude contents, re-include the directory, then re-include the exact
+# files. This list MUST stay in sync with GATE_TESTS in scripts/test-gate.mjs —
+# the gate now fails loudly naming any file missing from the build context.
+tests/*
+!tests/api
+tests/api/*
+!tests/solana-confirm.test.js
+!tests/http-cache-control.test.js
+!tests/agent-custody-guards.test.js
+!tests/agent-wallet-vanity.test.js
+!tests/api/x402.test.js
+!tests/api/three-token-leaderboard.test.js
+!tests/api/healthz.test.js
 specs
 examples/*
 !examples/skills
@@ -35,7 +50,8 @@ dist-artifact
 public/screenshots
 public/skills.mp4
 
-vitest.config.js
+# vitest.config.js stays in the upload: scripts/test-gate.mjs needs its extended
+# hookTimeouts + @grpc dedupe to run the gate tests' heavy cold imports on Vercel.
 vite.config.artifact.js
 playwright.config.*
 scripts/gitpretty.sh
