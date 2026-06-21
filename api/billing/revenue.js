@@ -97,6 +97,71 @@ export default wrap(async (req, res) => {
 		tsParams,
 	);
 
+	// ── Subscription income ──────────────────────────────────────────────────
+	// Creator subscriptions (subscription_plans → creator_subscriptions →
+	// subscription_payments) settle the creator leg DIRECTLY to the creator's
+	// wallet on-chain, so they never write agent_revenue_events and are absent
+	// from net_total / the withdrawable balance. Surface them here as a SEPARATE,
+	// USD-denominated figure (amount_usd is numeric(8,2), not atomic units) so the
+	// creator sees their full income without ever mixing units or double-counting
+	// against the platform-custodied withdrawal pool. When filtering by agent we
+	// count only plans scoped to that agent; creator-wide plans show in the
+	// all-agents view. `subAgentFilter` reuses the same positional params as the
+	// revenue queries above (so $4 is agent_id when present).
+	const subAgentFilter = agentId ? `AND pl.agent_id = $4::uuid` : '';
+	const [subSummaryRow] = await sql(
+		`
+		SELECT
+			COALESCE(SUM(sp.amount_usd), 0)::numeric AS income_usd,
+			COUNT(*)::int                            AS payment_count
+		FROM subscription_payments sp
+		JOIN creator_subscriptions cs ON cs.id = sp.subscription_id
+		JOIN subscription_plans pl    ON pl.id = cs.plan_id
+		WHERE pl.creator_id = $1
+		  AND sp.status = 'succeeded'
+		  AND sp.paid_at BETWEEN $2 AND $3
+		  ${subAgentFilter}
+	`,
+		filterParams,
+	);
+
+	// Current-state counts (not date-bounded): active subscribers + active plans.
+	const subStateAgentFilter = agentId ? `AND pl.agent_id = $2::uuid` : '';
+	const subStateParams = agentId ? [user.id, agentId] : [user.id];
+	const [subStateRow] = await sql(
+		`
+		SELECT
+			COUNT(*) FILTER (WHERE cs.status = 'active')::int AS active_subscribers,
+			COUNT(DISTINCT pl.id)::int                        AS plan_count
+		FROM subscription_plans pl
+		LEFT JOIN creator_subscriptions cs ON cs.plan_id = pl.id
+		WHERE pl.creator_id = $1
+		  AND pl.active = true
+		  ${subStateAgentFilter}
+	`,
+		subStateParams,
+	);
+
+	const subTsAgentFilter = agentId ? `AND pl.agent_id = $5::uuid` : '';
+	const subTimeseries = await sql(
+		`
+		SELECT
+			date_trunc($4, sp.paid_at) AS period,
+			COALESCE(SUM(sp.amount_usd), 0)::numeric AS income_usd,
+			COUNT(*)::int                            AS count
+		FROM subscription_payments sp
+		JOIN creator_subscriptions cs ON cs.id = sp.subscription_id
+		JOIN subscription_plans pl    ON pl.id = cs.plan_id
+		WHERE pl.creator_id = $1
+		  AND sp.status = 'succeeded'
+		  AND sp.paid_at BETWEEN $2 AND $3
+		  ${subTsAgentFilter}
+		GROUP BY period
+		ORDER BY period
+	`,
+		tsParams,
+	);
+
 	return json(res, 200, {
 		summary: {
 			gross_total: Number(summaryRow.gross_total),
@@ -114,6 +179,19 @@ export default wrap(async (req, res) => {
 		timeseries: timeseries.map((r) => ({
 			period: r.period instanceof Date ? r.period.toISOString().slice(0, 10) : String(r.period),
 			net_total: Number(r.net_total),
+			count: r.count,
+		})),
+		// USD-denominated, paid directly to the creator wallet (not withdrawable
+		// from the platform pool — kept distinct from `summary` above by design).
+		subscriptions: {
+			income_usd: Number(subSummaryRow?.income_usd ?? 0),
+			payment_count: subSummaryRow?.payment_count ?? 0,
+			active_subscribers: subStateRow?.active_subscribers ?? 0,
+			plan_count: subStateRow?.plan_count ?? 0,
+		},
+		subscription_timeseries: subTimeseries.map((r) => ({
+			period: r.period instanceof Date ? r.period.toISOString().slice(0, 10) : String(r.period),
+			income_usd: Number(r.income_usd),
 			count: r.count,
 		})),
 	});
