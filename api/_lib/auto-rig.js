@@ -101,6 +101,20 @@ export async function maybeAutoRigAvatar({ userId, avatar, rigInfo, source = 'up
 			provider.instance.supportsMode('rerig');
 		if (!canRig) return { queued: false, skipped: 'no_rig_model' };
 
+		// Idempotency: never stack a second auto-rig job on the same avatar. A
+		// retry or a double-create would otherwise race two rigged GLBs onto the
+		// one in-place swap. If an auto_rig job for this avatar is still in flight,
+		// let it finish.
+		const inFlight = await sql`
+			select 1 from avatar_regen_jobs
+			where source_avatar_id = ${avatar.id}
+			  and mode = 'rerig'
+			  and (params->>'auto_rig') = 'true'
+			  and status in ('queued', 'running', 'rigging')
+			limit 1
+		`;
+		if (inFlight[0]) return { queued: false, skipped: 'already_in_flight' };
+
 		const sourceUrl = publicUrl(avatar.storage_key);
 		let submission;
 		try {
@@ -200,13 +214,22 @@ export async function finalizeAutoRigStage({ userId, jobId, job, glbUrl }) {
 	}
 	const tags = Array.from(new Set([...(av.tags || []).filter((t) => t !== 'unrigged'), 'rigged']));
 
+	// Invalidate geometry-derived variants: the USDZ companion, the waist-up
+	// half-body GLB, and the optimized bake were all generated from the STATIC
+	// mesh and no longer match the now-rigged skeleton. Nulling them makes the
+	// editor/AR/VR surfaces fall back to the new GLB and regenerate on demand.
+	// thumbnail_key is intentionally kept — rigging adds a skeleton without moving
+	// the rest pose, so the existing preview is still visually accurate.
 	await sql`
 		update avatars
-		set storage_key = ${newKey},
-			size_bytes  = ${glbBuf.length},
-			source_meta = ${JSON.stringify(meta)}::jsonb,
-			tags        = ${tags}::text[],
-			updated_at  = now()
+		set storage_key       = ${newKey},
+			size_bytes        = ${glbBuf.length},
+			source_meta       = ${JSON.stringify(meta)}::jsonb,
+			tags              = ${tags}::text[],
+			usdz_key          = null,
+			halfbody_key      = null,
+			baked_storage_key = null,
+			updated_at        = now()
 		where id = ${avatarId} and owner_id = ${userId}
 	`;
 	await closeJob(avatarId);
