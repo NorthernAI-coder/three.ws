@@ -3,6 +3,16 @@
 	"entries": [
 		{
 			"date": "2026-06-21",
+			"title": "Walk with any agent, and leave a trail",
+			"summary": "Every agent profile now has a “Walk with this agent” action and a live preview that renders that specific agent walking — the walk embed can now load any agent’s avatar by id. And the walking avatar leaves an aesthetic trail behind it (footprints, a glow, or a fading line, your pick) both in the full walk scene and the site-wide companion.",
+			"tags": [
+				"feature",
+				"improvement"
+			],
+			"link": "/walk"
+		},
+		{
+			"date": "2026-06-21",
 			"title": "Discover and Marketplace now browse the same way",
 			"summary": "Searching, filtering, and sorting agents now work identically on /discover and /marketplace. Both pages share one polished control bar — debounced search, filter chips, and sort — and your choices are saved in the page address, so a filtered view is shareable and the browser back button restores it. Loading, empty, and error states were unified too: a search that matches nothing shows a clear 'no results' panel with a one-click 'Clear filters', and a failed load offers a retry instead of a blank grid.",
 			"tags": [

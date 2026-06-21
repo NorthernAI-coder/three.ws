@@ -163,3 +163,10 @@ Retired (feature verified shipped):
 | tasks/walk/48-walk-postmessage-events-spec.md | DELETE | Built: src/walk-embed-events.js full contract + installEmbedBridge, pages/walk-embed.html wiring, public/walk-embed-sdk.js host SDK (embed().on/goto/gesture/say/setEnv/...), public/docs/walk-embed-api.html. Shipped in commit 9746b744a. |
 | tasks/walk/47-walk-api-programmatic-control.md | DELETE | Built: api/walk/control/[action].js (session/move/gesture/say/env/poll/state/contract) + migration 20260621160000_walk_control.sql + src/walk.js control poller. Shipped in commit 9746b744a. |
 | tasks/walk/49-walk-documentation-page.md | DELETE | Built: public/docs/walk/* hub (index, getting-started, walk-page, embed-iframe, embed-sdk, postmessage-events, companion-mode, analytics, chrome-extension, changelog) routed at /docs/walk/*; rest-api page intentionally omitted-then-superseded by control API. |
+
+## 2026-06-21 built-and-shipped (walk batch 3)
+
+| spec file | decision | evidence |
+|---|---|---|
+| tasks/walk/36-walk-path-visualization.md | DELETE | Built: src/walk-trails.js (footprints/glow/line, 3D decals+points & 2D DOM/canvas/SVG, 60-cap, accent color, 5s fade) wired into src/walk.js + src/walk-companion.js with persisted style toggle. |
+| tasks/walk/23-agent-detail-walk-mode.md | DELETE | Built: ?agent=/?avatar= resolution in src/walk-embed.js + "Walk with this agent" CTA & live preview card in pages/agent-detail.html/src/agent-detail.js. |

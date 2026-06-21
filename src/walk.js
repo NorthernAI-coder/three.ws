@@ -62,6 +62,7 @@ import {
 	terrainColor as envTerrainColor,
 } from './walk-environments.js';
 import { log } from './shared/log.js';
+import { createWalkTrails3D, createTrailSetting, TRAIL_STYLE_LABELS } from './walk-trails.js';
 
 const AVATAR_URL_DEFAULT = '/avatars/default.glb';
 
@@ -453,6 +454,25 @@ groundOpaque.visible = false;
 // `terrain.*` pick up the new instance because they close over the binding.
 let terrain = createTerrain({ color: 0x202833 });
 scene.add(terrain.mesh);
+
+// ── Walk path visualization (Task 36) ─────────────────────────────────────
+// A footstep / glow / line trail painted behind the avatar. The style choice is
+// persisted with the same namespaced-key convention as zen/camera-mode/haptics.
+// The system itself is built once the avatar loads (so its accent is known); the
+// setting is created up-front so the help-overlay control can render immediately.
+const TRAIL_KEY = 'walk:trail-style';
+const trailSetting = createTrailSetting(TRAIL_KEY, 'footprints');
+/** @type {ReturnType<typeof createWalkTrails3D>|null} */
+let trails = null;
+
+// Avatar accent → trail colour. The walk avatar is a raw GLB, so we read any
+// authored meta accent (gltf.userData / scene.userData), else fall back to the
+// brand --accent token (handled inside the trail system).
+function avatarAccent() {
+	const m = avatar?.userData?.meta || avatar?.userData || avatarTemplate?.userData || null;
+	const a = m?.accent;
+	return typeof a === 'string' || typeof a === 'number' ? a : null;
+}
 
 const groundShadowCatcher = new Mesh(
 	new CircleGeometry(GROUND_RADIUS, 64),
@@ -937,6 +957,14 @@ const helpOverlay = (() => {
 			</div>`
 					: ''
 			}
+			<div style="margin:14px 0 0;padding-top:14px;border-top:1px solid rgba(255,255,255,0.1);display:flex;align-items:center;justify-content:space-between" data-help-keep>
+				<span style="font-size:14px">Path trail</span>
+				<button type="button" id="walk-trail-toggle" data-help-keep
+					aria-label="Cycle path trail style"
+					style="appearance:none;border:1px solid rgba(255,255,255,0.2);background:${trailSetting.get() === 'off' ? 'rgba(255,255,255,0.08)' : 'var(--accent,#7c5cff)'};color:#fff;border-radius:999px;padding:5px 14px;font:inherit;font-size:13px;cursor:pointer">
+					${TRAIL_STYLE_LABELS[trailSetting.get()]}
+				</button>
+			</div>
 			<p style="margin:20px 0 0;font-size:12px;color:#666">Click the canvas to lock the mouse for first-person look.</p>
 		</div>`;
 	document.body.appendChild(el);
@@ -955,6 +983,22 @@ if (hapticsToggle) {
 			? 'var(--accent,#7c5cff)'
 			: 'rgba(255,255,255,0.08)';
 		haptics.buzz(8); // confirm the new setting with a tick
+	});
+}
+
+// Path-trail style switch — cycles off → footprints → glow → line. Persisted via
+// trailSetting; applied live to the trail system (which may not exist yet if the
+// avatar is still loading — the new style is still persisted and read on build).
+const trailToggle = helpOverlay.querySelector('#walk-trail-toggle');
+if (trailToggle) {
+	trailToggle.addEventListener('click', () => {
+		const next = trailSetting.cycle();
+		trails?.setStyle(next);
+		trailToggle.textContent = TRAIL_STYLE_LABELS[next];
+		trailToggle.style.background =
+			next === 'off' ? 'rgba(255,255,255,0.08)' : 'var(--accent,#7c5cff)';
+		setStatus(`Path trail: ${TRAIL_STYLE_LABELS[next]}`);
+		haptics.buzz(6);
 	});
 }
 
@@ -1302,6 +1346,16 @@ async function loadAvatar() {
 	const height = Math.max(0.5, box.max.y - box.min.y);
 	avatarHeight = height;
 	frameAvatarCamera();
+
+	// Build the trail system now that the avatar (and its accent) and the terrain
+	// ground both exist. Decals project onto terrain.mesh and orient to
+	// terrain.normalAt, so the trail follows the rolling surface.
+	trails = createWalkTrails3D({
+		scene,
+		ground: terrain,
+		getColor: avatarAccent,
+		initialStyle: trailSetting.get(),
+	});
 
 	// Dress the local avatar in the loadout the player last equipped (R23). The
 	// equipped fit is persisted to their account in /play and mirrored to the
@@ -2125,6 +2179,18 @@ function tick() {
 	// 3. Tick the animation mixer.
 	animationManager.update(dt);
 	localCosmetics?.tick(dt);
+
+	// 3b. Paint the path trail behind the avatar. Suppressed in AR (no rendered
+	// ground to stamp decals onto) and when the style is 'off'.
+	if (trails && trails.style !== 'off' && !arActive && avatar) {
+		trails.update(dt, {
+			x: avatarRig.position.x,
+			y: avatarRig.position.y,
+			z: avatarRig.position.z,
+			yaw: avatarYaw,
+			moving: currentMotion === 'walk' || currentMotion === 'run',
+		});
+	}
 
 	// 4. Broadcast our state to the server (throttled inside WalkNet) and
 	//    advance every remote player's interpolated transform + animation.
@@ -3134,6 +3200,9 @@ function swapTerrain(meta) {
 	terrain = next;
 	terrain.mesh.visible = !arActive;
 	scene.add(terrain.mesh);
+	// Re-point the trail system at the new heightfield so footprint decals project
+	// onto (and orient to) the environment's ground instead of the old one.
+	trails?.setGround(terrain);
 	groundOpaque.material.color.setHex(envTerrainColor(meta));
 	if (physics && physicsReady) physics.addHeightfield(terrain);
 }

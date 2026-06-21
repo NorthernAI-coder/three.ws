@@ -115,6 +115,110 @@ function xrHref(agent) {
 	return id ? `/xr?avatar=${encodeURIComponent(id)}` : '/xr';
 }
 
+// Deep-link into the full walk experience (/walk/app, which serves the same
+// runtime as /walk-embed). Pass the avatar id when present — the embed routes it
+// through the same-origin GLB proxy that works from any host — and always pass
+// `agent=` so the runtime can resolve the body (and any future persona) even when
+// no avatar id is attached, falling back to the mannequin. Joystick controls so a
+// visitor can immediately drive the avatar.
+function walkAppHref(agent) {
+	const sp = new URLSearchParams();
+	if (agent?.avatar_id) sp.set('avatar', agent.avatar_id);
+	if (agent?.id) sp.set('agent', agent.id);
+	sp.set('controls', 'joystick');
+	return `/walk/app?${sp.toString()}`;
+}
+
+// Source URL for the inline preview iframe. Autoplaying (avatar walks an idle
+// circle), joystick-driven, on the studio environment with a transparent
+// background so the card's own gradient shows through.
+function walkEmbedSrc(agent) {
+	const sp = new URLSearchParams();
+	if (agent?.avatar_id) sp.set('avatar', agent.avatar_id);
+	if (agent?.id) sp.set('agent', agent.id);
+	sp.set('controls', 'joystick');
+	sp.set('autoplay', 'true');
+	sp.set('env', 'studio');
+	return `/walk-embed?${sp.toString()}`;
+}
+
+// Wire the hero "Walk with this agent" CTA plus the inline walking-avatar preview
+// card. The card self-manages loading / error / populated states off the embed's
+// postMessage handshake (walk:ready) and the iframe's own load/error events.
+function wireWalkMode(agent) {
+	const cta = document.getElementById('ad-walk-link');
+	if (cta) cta.href = walkAppHref(agent);
+
+	const card = document.getElementById('ad-walk-card');
+	const frame = document.getElementById('ad-walk-frame');
+	const skeleton = document.getElementById('ad-walk-skeleton');
+	const errorBox = document.getElementById('ad-walk-error');
+	const retry = document.getElementById('ad-walk-retry');
+	const expand = document.getElementById('ad-walk-expand');
+	if (!card || !frame) return;
+
+	if (expand) expand.href = walkAppHref(agent);
+
+	// Idempotent: re-render (avatar refresh) shouldn't stack listeners/timers.
+	if (frame._walkWired) clearTimeout(frame._walkTimer);
+	frame._walkWired = true;
+
+	const src = walkEmbedSrc(agent);
+	card.hidden = false;
+
+	const showReady = () => {
+		clearTimeout(frame._walkTimer);
+		if (errorBox) errorBox.hidden = true;
+		skeleton?.classList.add('is-hidden');
+		frame.style.opacity = '1';
+	};
+	const showError = () => {
+		clearTimeout(frame._walkTimer);
+		skeleton?.classList.add('is-hidden');
+		frame.style.opacity = '0';
+		if (errorBox) errorBox.hidden = false;
+	};
+
+	// The embed posts { channel:'three-walk', type:'walk:ready' } once the GLB +
+	// animations are live (see src/walk-embed-events.js CHANNEL/OUTBOUND.READY).
+	// Listen for it (origin- and source-checked) to fade the avatar in; the iframe
+	// `load` event only means the document loaded, not that the 3D scene is ready.
+	if (!frame._walkMsgWired) {
+		frame._walkMsgWired = true;
+		window.addEventListener('message', (e) => {
+			if (e.source !== frame.contentWindow) return;
+			if (e.origin !== location.origin) return;
+			const data = e.data;
+			if (data && data.channel === 'three-walk' && data.type === 'walk:ready') {
+				showReady();
+			}
+		});
+	}
+
+	const start = () => {
+		frame.style.opacity = '0';
+		skeleton?.classList.remove('is-hidden');
+		if (errorBox) errorBox.hidden = true;
+		// Belt-and-suspenders: if walk:ready never arrives (e.g. WebGL blocked),
+		// reveal whatever the iframe rendered after a grace period instead of an
+		// indefinite skeleton. A hard iframe `error` flips to the error state.
+		clearTimeout(frame._walkTimer);
+		frame._walkTimer = setTimeout(showReady, 9000);
+		frame.src = src;
+	};
+
+	if (!frame._walkErrWired) {
+		frame._walkErrWired = true;
+		frame.addEventListener('error', showError);
+	}
+	if (retry && !retry._wired) {
+		retry._wired = true;
+		retry.addEventListener('click', start);
+	}
+
+	start();
+}
+
 function el(tag, props = {}, children = []) {
 	const node = document.createElement(tag);
 	for (const [k, v] of Object.entries(props)) {
@@ -464,6 +568,11 @@ function render(agent) {
 	if (irlLink) irlLink.href = irlHref(agent);
 	const xrLink = $('ad-xr-link');
 	if (xrLink) xrLink.href = xrHref(agent);
+
+	// "Walk with this agent" — the hero CTA and the inline walking preview card,
+	// both pointed at /walk/app + /walk-embed with this agent's avatar. Every agent
+	// has a resolvable body (custom GLB or mannequin), so the mode is always live.
+	wireWalkMode(agent);
 
 	// View switcher: flip this agent between its detail, 3D world, and embed
 	// presentations. Every agent has a 3D body (custom GLB or mannequin).
