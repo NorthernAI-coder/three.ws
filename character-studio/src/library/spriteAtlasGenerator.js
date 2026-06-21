@@ -24,7 +24,6 @@ export class SpriteAtlasGenerator {
             assetsLocation = "",
             animationsDirectory = "",
             backgroundColor = [1,1,1,1],
-            screenshotOffset,
             topFrameOffset = 0.1,
             bottomFrameOffset = 0.1,
             pixelStyleSize, 
@@ -55,8 +54,6 @@ export class SpriteAtlasGenerator {
                             animationName,
                             animationPath,
                             framesNumber,
-                            lookAtCamera,
-                            expression,
                             cameraPosition,
                             cameraFrame,
                         } = spriteInfo;

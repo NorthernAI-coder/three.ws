@@ -43,7 +43,7 @@ export default class TextureImageDataRenderer {
     // if texture is null or undefined, create a texture only with clearColor (that is color type)
     const textures = getAsArray(texture)
     if (textures.length === 0) {
-      texture = getAsArray(TextureImageDataRenderer.createSolidColorTexture(clearColor, this.width, this.height))
+      getAsArray(TextureImageDataRenderer.createSolidColorTexture(clearColor, this.width, this.height))
     }
 
     if (this.renderer == null) {
@@ -150,7 +150,6 @@ export default class TextureImageDataRenderer {
     })
     this.quads.forEach((quad) => {
       this.sceneRTT?.remove(quad)
-      quad = null
     })
     this.materials.length = 0
     this.quads.length = 0
