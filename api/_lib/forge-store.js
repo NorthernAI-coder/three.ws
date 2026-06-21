@@ -255,11 +255,25 @@ export async function attachPoster({ id, clientKey, body, contentType, ext }) {
 export async function markFailed({ replicateJobId, clientKey, error }) {
 	if (!forgeStoreEnabled() || !replicateJobId) return;
 	try {
-		await sql`
+		const rows = await sql`
 			update forge_creations
 			set status = 'failed', error = ${String(error || 'generation failed').slice(0, 500)}, updated_at = now()
 			where replicate_job_id = ${replicateJobId} and client_key = ${clientKey} and status != 'done'
+			returning backend, tier, path
 		`;
+		// Terminal failure — counted only when a row actually flipped to 'failed'
+		// (returning is empty when the job already completed or never existed), so a
+		// stray late poll can't inflate the failure rate.
+		const row = rows[0];
+		if (row) {
+			await recordGenerationEvent({
+				phase: 'failed',
+				backend: row.backend,
+				tier: row.tier,
+				path: row.path,
+				source: 'mark_failed',
+			});
+		}
 	} catch (err) {
 		console.error('[forge-store] markFailed failed:', err?.message);
 	}
