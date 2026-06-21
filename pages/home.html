@@ -2476,6 +2476,7 @@
 			<a class="btn btn--primary" href="/create" data-cta="build_agent" data-cta-loc="hero">Build your agent <span class="arrow">→</span></a>
 			<a class="btn btn--forge" href="/forge" data-cta="text_to_3d" data-cta-loc="hero"><span class="btn-forge-dot" aria-hidden="true"></span>Text → 3D</a>
 			<a class="btn" href="#embed" data-cta="see_embed" data-cta-loc="hero">See the embed</a>
+			<a class="btn" href="/tour" id="hero-tour-start" data-cta="guided_tour" data-cta-loc="hero"><span aria-hidden="true">▶</span>&nbsp;Take the tour</a>
 		</div>
 	</div>
 	<div class="hero-stage" id="hero-stage">
@@ -3035,7 +3036,12 @@
 	const MV_SRC = 'https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js';
 	function ensureModelViewer() {
 		if (customElements.get('model-viewer')) return;
-		if (document.querySelector('script[src*="model-viewer"]')) return;
+		// Reuse the library if the hero/mini-forge already injected it, but match
+		// the actual element bundle (model-viewer.min.js) — NOT model-viewer-meshopt.js,
+		// the decoder helper loaded on this page, whose src also contains
+		// "model-viewer". The looser match short-circuited here and left the
+		// community cards permanently un-upgraded (gradient/poster, never a mesh).
+		if (document.querySelector('script[src*="model-viewer.min.js"]')) return;
 		var s = document.createElement('script');
 		s.type = 'module';
 		s.src = MV_SRC;
@@ -6951,6 +6957,26 @@
 					addr.textContent = 'Copied!';
 					setTimeout(function () { addr.textContent = orig; }, 1500);
 				});
+			});
+		})();
+	</script>
+	<script>
+		// Hero "Take the tour" launches the guided 3D tour directly from the
+		// homepage — the engine boots on the first stop's page via ?tour=start
+		// (nav.js injects /feature-tour.js when it sees the param). The anchor's
+		// href="/tour" is the no-JS fallback to the track picker.
+		(function () {
+			var btn = document.getElementById('hero-tour-start');
+			if (!btn) return;
+			btn.addEventListener('click', function (e) {
+				e.preventDefault();
+				fetch('/tour/curriculum.json', { cache: 'force-cache' })
+					.then(function (r) { return r.json(); })
+					.then(function (c) {
+						var first = (c.stops && c.stops[0] && c.stops[0].path) || '/';
+						location.href = first + '?tour=start';
+					})
+					.catch(function () { location.href = '/?tour=start'; });
 			});
 		})();
 	</script>

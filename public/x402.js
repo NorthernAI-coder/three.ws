@@ -189,11 +189,26 @@ function solanaRpcUrl() {
 	const meta = typeof document !== 'undefined' && document.querySelector('meta[name="solana-rpc-url"]');
 	if (meta?.content) return meta.content;
 	if (typeof window !== 'undefined' && window.SOLANA_RPC_URL) return window.SOLANA_RPC_URL;
-	// Last resort: our same-origin proxy, which fails over across Helius → Alchemy →
-	// dRPC → five keyless public lanes, so the balance read survives any single
-	// provider (an expired Helius plan included) being down. Absolute URL so the
-	// widget still resolves a working RPC when embedded on a third-party origin.
-	return 'https://three.ws/api/solana-rpc';
+	// Last resort: the /api/solana-rpc proxy co-deployed with this script, which
+	// fails over across Helius → Alchemy → dRPC → five keyless public lanes, so the
+	// balance read survives any single provider (an expired Helius plan included)
+	// being down. Resolved from this module's own serving origin, NOT a hardcoded
+	// host: as a third-party embed the script is loaded from three.ws (resolves to
+	// three.ws); as the first-party app on a preview/dev/tunnel origin it resolves
+	// same-origin, so the read never trips that origin's CORS allowlist.
+	return scriptOrigin() + '/api/solana-rpc';
+}
+
+// Origin that served this module — where its same-deployment /api proxy lives.
+function scriptOrigin() {
+	try {
+		const o = new URL(import.meta.url).origin;
+		if (o && o !== 'null') return o;
+	} catch {}
+	if (typeof location !== 'undefined' && location.origin && location.origin !== 'null') {
+		return location.origin;
+	}
+	return 'https://three.ws';
 }
 async function readSolanaBalanceAtomic(owner, mint) {
 	try {

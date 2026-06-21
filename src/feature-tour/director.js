@@ -56,7 +56,9 @@ export class TourDirector {
 		this._seenSections = new Set();
 		this._beamRaf = 0;
 		this._beamActive = false;
+		this._soundNudge = null;
 		this._onKey = this._onKey.bind(this);
+		this._onUnlockGesture = this._onUnlockGesture.bind(this);
 	}
 
 	// ── Entry points ──────────────────────────────────────────────────────────
@@ -145,6 +147,12 @@ export class TourDirector {
 		this._buildBeam();
 		this.spotlight = new Spotlight();
 		this.narrator = new Narrator();
+		// On touch browsers audio is gated behind a gesture (and that permission
+		// dies on every navigation the tour makes). Arm a one-time unlock on the
+		// first tap of this page, and show a "tap for voice" cue if a clip is
+		// blocked before then.
+		this.narrator.onBlocked = () => this._showSoundNudge();
+		this._armAudioUnlock();
 		this.avatar = new GuideAvatar();
 		await this.avatar.mount();
 		this.freeRoam = new FreeRoam(this.avatar);
@@ -237,6 +245,9 @@ export class TourDirector {
 	// Show caption + speak; resolves when the voice (or timed fallback) ends.
 	async _present(text, token) {
 		this.avatar.say(text);
+		// Surface the unlock cue up front (not after a blocked play() round-trip) so
+		// a phone visitor knows one tap brings the voice.
+		if (!this.muted && this.narrator.needsUnlock()) this._showSoundNudge();
 		await this.narrator.speak(text, { muted: this.muted, voice: this.voice, speed: this.speed });
 	}
 
@@ -306,6 +317,56 @@ export class TourDirector {
 			const token = ++this._runToken;
 			this._narrateAndMaybeAdvance(token);
 		}
+	}
+
+	// ── Mobile audio unlock ─────────────────────────────────────────────────────
+	// iOS/Android gate audio behind a user gesture, and the permission resets on
+	// every page the tour navigates to. We bless the narrator's audio element on
+	// the first tap of each page; until then a clip plays as a timed caption.
+	_armAudioUnlock() {
+		if (!this.narrator?.needsUnlock()) return; // desktop or already unlocked
+		document.addEventListener('pointerdown', this._onUnlockGesture, true);
+		document.addEventListener('touchend', this._onUnlockGesture, true);
+	}
+
+	_disarmAudioUnlock() {
+		document.removeEventListener('pointerdown', this._onUnlockGesture, true);
+		document.removeEventListener('touchend', this._onUnlockGesture, true);
+	}
+
+	async _onUnlockGesture() {
+		const ok = await this.narrator.unlock();
+		if (!ok) return; // that gesture wasn't enough — keep listening for the next
+		this._disarmAudioUnlock();
+		this._hideSoundNudge();
+		// Re-speak the current stop now that we have a voice, so unlocking mid-caption
+		// doesn't cost the visitor this stop's narration.
+		if (this.mounted && !this.paused && !this.offRoute && !this.roam) {
+			const token = ++this._runToken;
+			this._narrateAndMaybeAdvance(token);
+		}
+	}
+
+	_showSoundNudge() {
+		if (this._soundNudge || !this.narrator?.needsUnlock()) return;
+		ensureNudgeStyles();
+		const chip = document.createElement('button');
+		chip.type = 'button';
+		chip.className = 'tws-tour-soundcue';
+		chip.setAttribute('aria-label', "Tap to hear the guide's voice");
+		chip.innerHTML = '<span class="tws-tour-soundcue__icon" aria-hidden="true">🔊</span> Tap for the guide’s voice';
+		chip.addEventListener('click', () => this._onUnlockGesture());
+		document.body.appendChild(chip);
+		requestAnimationFrame(() => chip.classList.add('is-in'));
+		this._soundNudge = chip;
+	}
+
+	_hideSoundNudge() {
+		const chip = this._soundNudge;
+		if (!chip) return;
+		this._soundNudge = null;
+		chip.classList.remove('is-in');
+		setTimeout(() => chip.remove(), 300);
 	}
 
 	// ── Track / speed / voice ───────────────────────────────────────────────────
@@ -507,6 +568,8 @@ export class TourDirector {
 		clearState();
 		this._stopBeam();
 		this._beam?.remove();
+		this._disarmAudioUnlock();
+		this._hideSoundNudge();
 		document.removeEventListener('keydown', this._onKey);
 		this.roam = false;
 		this.freeRoam?.disable();
@@ -605,6 +668,13 @@ export class TourDirector {
 	_onKey(e) {
 		if (this.panel?.open) return; // the panel owns the keyboard while it's up
 		if (isTypingTarget(e.target)) return;
+		// In free roam the visitor steers the guide with WASD / arrows — free-roam
+		// owns those keys; here we only let them toggle roam off or escape it.
+		if (this.roam) {
+			if (e.key === 'r' || e.key === 'R') this._toggleRoam();
+			else if (e.key === 'Escape') this._exitRoam();
+			return;
+		}
 		if (e.key === ' ' || e.key === 'k') {
 			e.preventDefault();
 			this._togglePause();
@@ -644,6 +714,22 @@ function isTypingTarget(el) {
 	if (!el) return false;
 	const tag = el.tagName;
 	return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable;
+}
+
+let _nudgeStyles = false;
+function ensureNudgeStyles() {
+	if (_nudgeStyles) return;
+	_nudgeStyles = true;
+	const style = document.createElement('style');
+	style.textContent = `
+.tws-tour-soundcue{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 16px);transform:translateX(-50%) translateY(-12px);z-index:2147483450;display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:10px 18px;border:1px solid rgba(122,162,255,.45);border-radius:99px;background:rgba(14,16,22,.94);backdrop-filter:blur(10px);color:#eaf0ff;font:700 14px/1 system-ui,-apple-system,'Segoe UI',sans-serif;box-shadow:0 12px 34px rgba(0,0,0,.5);cursor:pointer;opacity:0;transition:opacity .3s ease,transform .3s ease;-webkit-tap-highlight-color:transparent;animation:tws-soundcue-pulse 1.8s ease-in-out infinite}
+.tws-tour-soundcue.is-in{opacity:1;transform:translateX(-50%) translateY(0)}
+.tws-tour-soundcue:active{transform:translateX(-50%) translateY(0) scale(.96)}
+.tws-tour-soundcue__icon{font-size:16px}
+@keyframes tws-soundcue-pulse{0%,100%{box-shadow:0 12px 34px rgba(0,0,0,.5),0 0 0 0 rgba(122,162,255,.45)}50%{box-shadow:0 12px 34px rgba(0,0,0,.5),0 0 0 7px rgba(122,162,255,0)}}
+@media (prefers-reduced-motion:reduce){.tws-tour-soundcue{animation:none;transition:opacity .2s ease}}
+`;
+	document.head.appendChild(style);
 }
 
 let _doneStyles = false;

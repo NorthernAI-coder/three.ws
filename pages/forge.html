@@ -47,9 +47,9 @@
 			/* No per-surface accent override — forge uses the global monochrome tokens. */
 
 			.forge-main {
-				max-width: 1320px;
-				margin: 0 auto;
-				padding: var(--space-md) var(--space-md) var(--space-2xl);
+				max-width: none;
+				margin: 0;
+				padding: var(--space-md) clamp(var(--space-md), 4vw, var(--space-2xl)) var(--space-2xl);
 			}
 			.forge-head {
 				/* Reset the global site-nav `header` rule from style.css —

@@ -33,7 +33,7 @@
 	"module": "./dist/index.mjs",
 	"types": "./types/index.d.ts",
 	"bin": {
-		"tour-build-curriculum": "./bin/tour-build-curriculum.mjs"
+		"tour-build-curriculum": "bin/tour-build-curriculum.mjs"
 	},
 	"exports": {
 		".": {
@@ -67,6 +67,9 @@
 	"peerDependencies": {
 		"@three-ws/walk": ">=0.1.0",
 		"three": ">=0.150.0"
+	},
+	"devDependencies": {
+		"esbuild": "^0.27.7"
 	},
 	"engines": {
 		"node": ">=18"
