@@ -642,6 +642,10 @@ async function handleX402Discovery(req, res) {
 			serviceName: 'three.ws Vanity Grinder',
 			tags: ['solana', 'vanity', 'keypair', 'wallet', 'address'],
 		}),
+		vanityVerifiable: withService({
+			serviceName: 'three.ws Provably-Fair Vanity Grinder',
+			tags: ['solana', 'vanity', 'keypair', 'wallet', 'verifiable', 'commit-reveal'],
+		}),
 		permit2Demo: withService({
 			serviceName: 'three.ws Permit2 Demo',
 			tags: ['x402', 'permit2', 'eip2612', 'gasless', 'demo'],
@@ -1169,6 +1173,60 @@ async function handleX402Discovery(req, res) {
 										enum: ['0', '1', 'true', 'false'],
 										description:
 											'When 1/true, match case-insensitively (faster, less specific).',
+									},
+								},
+							},
+						}),
+					};
+				})(),
+				(() => {
+					// Provably-fair vanity grind: same difficulty tiers as /vanity with a
+					// small premium for the deterministic derivation + signed receipt. The
+					// catalog advertises the 1-char entry tier ('20000' = $0.02); the live
+					// 402 quotes the exact price for the requested pattern length.
+					const url = `${origin}/api/x402/vanity-verifiable`;
+					const accepts = acceptsForPrice('20000', url);
+					return {
+						path: '/api/x402/vanity-verifiable',
+						url,
+						method: 'GET',
+						description:
+							'Provably-Fair Vanity Grinder — generate a brand-new Solana keypair whose Base58 address starts with a chosen prefix and/or ends with a chosen suffix, with a SIGNED receipt that proves the key was ground fresh and never kept. The server commits to a random 32-byte seed (commitment = SHA-256(serverSeed)) BEFORE grinding, mixes in your optional clientSeed, derives each candidate deterministically (HMAC-SHA256 → Ed25519), and signs the receipt with its long-lived service key (published at /.well-known/three-vanity.json). Pass sealTo=<X25519 public key> and the secret is ECIES-sealed to you — plaintext never appears in the response or any log. Verify entirely client-side with @three-ws/solana-agent verifyVanityReceipt(), the CLI, or three.ws/vanity/verify. Combined pattern capped at 3 Base58 chars, priced $0.02–$0.40; settlement runs only after a successful grind, so an exhausted budget costs nothing.',
+						mimeType: 'application/json',
+						serviceName: routeMeta.vanityVerifiable.serviceName,
+						tags: routeMeta.vanityVerifiable.tags,
+						iconUrl: routeMeta.vanityVerifiable.iconUrl,
+						accepts,
+						extensions: extensionsForAccepts(accepts, {
+							method: 'GET',
+							discoverable: true,
+							input: { prefix: 'So', suffix: '', ignoreCase: '0', sealTo: '' },
+							inputSchema: {
+								type: 'object',
+								anyOf: [{ required: ['prefix'] }, { required: ['suffix'] }],
+								properties: {
+									prefix: {
+										type: 'string',
+										maxLength: 3,
+										description:
+											'Base58 characters the address must start with (excludes 0, O, I, l). Combined with suffix, max 3.',
+									},
+									suffix: {
+										type: 'string',
+										maxLength: 3,
+										description:
+											'Base58 characters the address must end with. Combined with prefix, max 3.',
+									},
+									ignoreCase: {
+										type: 'string',
+										enum: ['0', '1', 'true', 'false'],
+										description:
+											'When 1/true, match case-insensitively (faster, less specific).',
+									},
+									sealTo: {
+										type: 'string',
+										description:
+											'Recommended. Your 32-byte X25519 public key (Base58/Base64url/hex). When set, the secret is ECIES-sealed to it and omitted from the response.',
 									},
 								},
 							},

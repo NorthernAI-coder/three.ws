@@ -121,5 +121,13 @@ export default wrap(async (req, res) => {
 
 	const nextCursor = hasMore ? items[items.length - 1].created_at : null;
 
-	return json(res, 200, { characters: items, next_cursor: nextCursor });
+	// Public, non-personalized published-agents feed. CDN-cache so a traffic surge
+	// is absorbed at the edge instead of re-running the per-row chat_count aggregate
+	// on every request; stale-while-revalidate keeps it warm across refreshes.
+	return json(
+		res,
+		200,
+		{ characters: items, next_cursor: nextCursor },
+		{ 'cache-control': 'public, s-maxage=60, stale-while-revalidate=300' },
+	);
 });

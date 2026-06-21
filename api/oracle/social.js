@@ -22,7 +22,7 @@
 
 import { cors, json, method, readJson, wrap, error, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
-import { sql } from '../_lib/db.js';
+import { sql, sqlValues } from '../_lib/db.js';
 
 const NETWORK = 'mainnet';
 
@@ -116,23 +116,25 @@ export default wrap(async (req, res) => {
 		updates.push({ mint, network, virality: data.maxVirality, tweetCount: data.tweetCount });
 	}
 
-	let mints_updated = 0;
-	for (const u of updates) {
-		await sql`
-			insert into oracle_narrative (mint, network, virality, confidence, source, classified_at)
-			values (${u.mint}, ${u.network}, ${u.virality}, 0.4, 'heuristic', now())
-			on conflict (mint, network) do update set
-				virality = case
-					when oracle_narrative.source = 'llm' then oracle_narrative.virality
-					else least(100, greatest(oracle_narrative.virality, excluded.virality))
-				end,
-				classified_at = case
-					when oracle_narrative.source = 'llm' then oracle_narrative.classified_at
-					else now()
-				end
-		`.catch(() => null);
-		mints_updated++;
-	}
+	// Single multi-row upsert instead of one round-trip per symbol — a batch of up
+	// to 500 tweets can mention dozens of known mints, and N sequential INSERTs
+	// would serialize the whole request behind DB latency. classified_at is bound
+	// per row; the ON CONFLICT branch still uses now() for the update path.
+	const rows = updates.map((u) => [u.mint, u.network, u.virality, 0.4, 'heuristic', new Date()]);
+	const upserted = await sql`
+		insert into oracle_narrative (mint, network, virality, confidence, source, classified_at)
+		values ${sqlValues(rows)}
+		on conflict (mint, network) do update set
+			virality = case
+				when oracle_narrative.source = 'llm' then oracle_narrative.virality
+				else least(100, greatest(oracle_narrative.virality, excluded.virality))
+			end,
+			classified_at = case
+				when oracle_narrative.source = 'llm' then oracle_narrative.classified_at
+				else now()
+			end
+	`.catch(() => null);
+	const mints_updated = upserted === null ? 0 : updates.length;
 
 	return json(res, 200, {
 		ok: true,
