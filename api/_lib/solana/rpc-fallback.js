@@ -144,7 +144,11 @@ export class RpcFallback {
 					const alreadyCooling = isEndpointCooling(this.currentUrl);
 					const ms = markEndpointCooldown(this.currentUrl, status, String((err && err.message) || err));
 					if (!alreadyCooling) {
-						console.warn(
+						// INFO, not WARN: withFallback() keeps trying the remaining
+						// endpoints and the call still resolves. Only an exhausted chain
+						// (the throw below) is actionable — so this stays out of the
+						// `level:warning` view to avoid non-actionable failover chatter.
+						console.log(
 							'[rpc-fallback] %s %s — cooling %dm, rotating',
 							maskUrl(this.currentUrl),
 							status,
@@ -157,6 +161,10 @@ export class RpcFallback {
 				}
 			}
 		}
+		// Every endpoint failed or is cooling — the caller gets nothing. This is the
+		// actionable condition (the whole failover chain is down), so it warns where
+		// the per-endpoint rotations above only log.
+		console.warn(`[rpc-fallback] all ${this.urls.length} endpoints exhausted`);
 		throw new Error('All RPC endpoints exhausted');
 	}
 
