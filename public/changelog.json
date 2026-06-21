@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-21T05:23:11.939Z",
+	"generated_at": "2026-06-21T05:42:22.088Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -35,6 +35,17 @@
 			"link": "/three-token",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "update",
+			"title": "Discover and character feeds load faster under heavy traffic",
+			"summary": "The Discover grid and the published-agents (Characters) feed now serve from the edge cache, so a surge of visitors is absorbed at the CDN instead of re-running a database scan on every request. Pages stay fast and consistent even during a rush, and a stale-while-revalidate window keeps them warm between refreshes.",
+			"link": "/discover",
+			"tags": [
+				"improvement",
+				"infra"
 			]
 		},
 		{
@@ -102,6 +113,27 @@
 			"tags": [
 				"fix",
 				"security",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "update",
+			"title": "Provably-fair vanity grinder now listed in the x402 bazaar",
+			"summary": "The provably-fair Solana vanity grinder — which returns a signed, independently-verifiable receipt proving the key was ground fresh and never kept — is now published in the x402 discovery catalog, so paying agents and bazaar crawlers can find and call it directly.",
+			"link": "/vanity/verify",
+			"tags": [
+				"feature",
+				"sdk"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "update",
+			"title": "Smoother landing page on hover",
+			"summary": "The homepage's parallax hero and 3D stack-card glow used to read the page layout on every pointer move, which could make the cursor feel sticky on the first page new visitors see. Those effects now batch their work to one frame at a time, so hover and tilt stay buttery on any device.",
+			"link": "/",
+			"tags": [
 				"improvement"
 			]
 		},

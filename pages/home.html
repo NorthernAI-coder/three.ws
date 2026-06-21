@@ -5138,11 +5138,16 @@
 	if (stage && inner && window.matchMedia('(min-width: 980px)').matches) {
 		let rx = 0, ry = 0, tx = 0, ty = 0;
 		const lerp = (a, b, t) => a + (b - a) * t;
+		// Cache the stage rect and refresh only on layout changes, so the hot
+		// mousemove path never forces a synchronous reflow per pointer event.
+		let r = stage.getBoundingClientRect();
+		const refreshRect = () => { r = stage.getBoundingClientRect(); };
+		window.addEventListener('resize', refreshRect, { passive: true });
+		window.addEventListener('scroll', refreshRect, { passive: true });
 		stage.addEventListener('mousemove', (e) => {
-			const r = stage.getBoundingClientRect();
 			tx = ((e.clientX - r.left) / r.width - 0.5) * 6;
 			ty = -((e.clientY - r.top) / r.height - 0.5) * 4;
-		});
+		}, { passive: true });
 		stage.addEventListener('mouseleave', () => { tx = 0; ty = 0; });
 		(function tick() {
 			rx = lerp(rx, ty, 0.08);
@@ -5859,14 +5864,28 @@
 				requestAnimationFrame(tick);
 			})();
 
+			// Cache the card list + rects once and batch CSS-var writes into a
+			// single rAF per frame, so the glow no longer forces a layout read per
+			// card on every mousemove (the landing page's worst thrash hot path).
+			const glowCards = Array.from(scene.querySelectorAll('.stack-card'));
+			let glowRects = glowCards.map((c) => c.getBoundingClientRect());
+			const refreshGlowRects = () => { glowRects = glowCards.map((c) => c.getBoundingClientRect()); };
+			window.addEventListener('resize', refreshGlowRects, { passive: true });
+			window.addEventListener('scroll', refreshGlowRects, { passive: true });
+			let glowX = 0, glowY = 0, glowPending = false;
 			scene.addEventListener('mousemove', (e) => {
-				const cards = scene.querySelectorAll('.stack-card');
-				cards.forEach(card => {
-					const cr = card.getBoundingClientRect();
-					card.style.setProperty('--mx', (e.clientX - cr.left) + 'px');
-					card.style.setProperty('--my', (e.clientY - cr.top) + 'px');
+				glowX = e.clientX; glowY = e.clientY;
+				if (glowPending) return;
+				glowPending = true;
+				requestAnimationFrame(() => {
+					glowPending = false;
+					for (let i = 0; i < glowCards.length; i++) {
+						const cr = glowRects[i];
+						glowCards[i].style.setProperty('--mx', (glowX - cr.left) + 'px');
+						glowCards[i].style.setProperty('--my', (glowY - cr.top) + 'px');
+					}
 				});
-			});
+			}, { passive: true });
 		}
 
 		if (wrap) {

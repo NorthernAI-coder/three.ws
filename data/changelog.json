@@ -3,6 +3,35 @@
 	"entries": [
 		{
 			"date": "2026-06-21",
+			"title": "Discover and character feeds load faster under heavy traffic",
+			"summary": "The Discover grid and the published-agents (Characters) feed now serve from the edge cache, so a surge of visitors is absorbed at the CDN instead of re-running a database scan on every request. Pages stay fast and consistent even during a rush, and a stale-while-revalidate window keeps them warm between refreshes.",
+			"tags": [
+				"improvement",
+				"infra"
+			],
+			"link": "/discover"
+		},
+		{
+			"date": "2026-06-21",
+			"title": "Smoother landing page on hover",
+			"summary": "The homepage's parallax hero and 3D stack-card glow used to read the page layout on every pointer move, which could make the cursor feel sticky on the first page new visitors see. Those effects now batch their work to one frame at a time, so hover and tilt stay buttery on any device.",
+			"tags": [
+				"improvement"
+			],
+			"link": "/"
+		},
+		{
+			"date": "2026-06-21",
+			"title": "Provably-fair vanity grinder now listed in the x402 bazaar",
+			"summary": "The provably-fair Solana vanity grinder — which returns a signed, independently-verifiable receipt proving the key was ground fresh and never kept — is now published in the x402 discovery catalog, so paying agents and bazaar crawlers can find and call it directly.",
+			"tags": [
+				"feature",
+				"sdk"
+			],
+			"link": "/vanity/verify"
+		},
+		{
+			"date": "2026-06-21",
 			"title": "Forge scales further — duplicate generations collapse, free lane protected, prices shown up front",
 			"summary": "More headroom for the influx. Forge now recognizes when the same prompt or photo set is already generating and quietly hands everyone the same result instead of paying to build it twice — so a viral prompt or a double-click no longer multiplies cost or wait. The free Hugging Face engine is now capped to a safe number of simultaneous jobs so a rush can't tie up the servers and stall everyone; over the cap, your generation cleanly falls back to another engine instead of hanging. The composer now shows the real price before you generate — 'Free' for Draft and Standard, the exact dollar amount (or 'Free, you hold $THREE') for High, and 'billed to your own key' for bring-your-own-key engines — so there are no surprises. Finally, the 3D viewer shows a loading shimmer instead of a dark void while your model paints in.",
 			"tags": [
