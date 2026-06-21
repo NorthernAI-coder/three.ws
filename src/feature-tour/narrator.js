@@ -5,22 +5,95 @@
 // so captions still pace correctly. Every call is cancelable (skip / pause /
 // exit) via a monotonic token — a stale fetch or audio that returns after a
 // cancel is ignored.
+//
+// Mobile / iOS audio:
+//   Safari (and most touch browsers) refuse audio.play() unless it happens
+//   inside a user gesture, and that permission does NOT survive a navigation —
+//   which the cross-page tour does constantly. So instead of `new Audio()` per
+//   clip (each one a fresh, un-blessed element that iOS blocks), we keep ONE
+//   persistent <audio> element and "bless" it once per page via unlock(): a
+//   single silent play() driven from a real tap. Every later clip reuses that
+//   blessed element, so it plays without a gesture. If a clip is blocked anyway
+//   (page not yet unlocked), speak() reports it via onBlocked and paces the
+//   caption on a timer instead of advancing instantly — the director re-narrates
+//   the stop the moment unlock() succeeds, so nothing is missed.
 
 const WPM = 150;
+
+// A tiny silent MP3. Playing it during a tap blesses the audio element for all
+// later programmatic play() calls on the same page (the iOS autoplay unlock).
+const SILENT_MP3 =
+	'data:audio/mpeg;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA//tQxAADB8AhSmxhIIEVCSiJrDCQBTcu3UrAIwUdkRgQbFAZC1CQEwTJ9mjRvBA4UOLD8nKVOWfh+UlK3z/177OXrfOdKl7pyn3Xf//WreyTEFNRTMuOTkuNVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV//sQxAUACAAGkABFCAAggAAAAaAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV';
 
 export class Narrator {
 	constructor() {
 		this.audio = null;
+		this.onBlocked = null; // director hook: fired when a clip is blocked by autoplay policy
 		this._token = 0;
 		this._sleepTimer = 0;
 		this._sleepResolve = null;
 		this._finishCurrent = null;
+		this._el = null; // the single, persistent (unlockable) audio element
+		this._unlocked = false;
+		this._blocked = false;
+		this._coarse =
+			typeof matchMedia === 'function' ? matchMedia('(pointer: coarse)').matches : false;
 	}
 
 	estimateMs(text, speed = 1) {
 		const words = String(text || '').trim().split(/\s+/).filter(Boolean).length;
 		const base = Math.max(1600, (words / WPM) * 60000 + 600);
 		return base / clampSpeed(speed);
+	}
+
+	// The one audio element every clip plays through. Created lazily so SSR/import
+	// stays side-effect free; reused forever so the iOS unlock survives between
+	// clips on the same page.
+	_element() {
+		if (this._el) return this._el;
+		const el = new Audio();
+		el.preload = 'auto';
+		el.setAttribute('playsinline', ''); // never go fullscreen on iOS
+		this._el = el;
+		return el;
+	}
+
+	// True when this device gates audio behind a gesture and we haven't been
+	// blessed on this page yet — the director uses it to show a "tap for voice"
+	// affordance instead of letting the first clip silently fail.
+	needsUnlock() {
+		return this._coarse && !this._unlocked;
+	}
+
+	get blocked() {
+		return this._blocked;
+	}
+
+	// Bless the audio element from inside a user gesture by playing a silent clip.
+	// Idempotent and safe to call on every tap — once unlocked it short-circuits.
+	// Returns true if audio is now usable.
+	async unlock() {
+		if (this._unlocked) return true;
+		const el = this._element();
+		const wasSrc = el.src;
+		try {
+			el.src = SILENT_MP3;
+			el.playbackRate = 1;
+			await el.play();
+			el.pause();
+			try {
+				el.currentTime = 0;
+			} catch {
+				/* some engines reject seeking a data URI — harmless */
+			}
+			this._unlocked = true;
+			this._blocked = false;
+			return true;
+		} catch {
+			// Restore whatever was queued; the gesture wasn't enough (rare).
+			if (wasSrc && wasSrc !== SILENT_MP3) el.src = wasSrc;
+			return false;
+		}
 	}
 
 	// Speak `text`; resolves when playback (or the timed fallback) completes.
@@ -47,24 +120,51 @@ export class Narrator {
 			const blob = await res.blob();
 			if (token !== this._token) return;
 			url = URL.createObjectURL(blob);
-			const audio = new Audio(url);
+			const audio = this._element();
+			audio.src = url;
 			// The server renders the OpenAI lane at `speed`, but the free Magpie
 			// lane ignores it — so also nudge playbackRate as a client-side backstop
 			// that works on whichever lane answered. (1× leaves audio untouched.)
 			audio.playbackRate = rate;
 			this.audio = audio;
-			await new Promise((resolve) => {
+			const blocked = await new Promise((resolve) => {
 				let done = false;
-				const finish = () => {
+				const finish = (wasBlocked) => {
 					if (done) return;
 					done = true;
-					resolve();
+					audio.removeEventListener('ended', onEnd);
+					audio.removeEventListener('error', onEnd);
+					resolve(!!wasBlocked);
 				};
-				this._finishCurrent = finish;
-				audio.addEventListener('ended', finish);
-				audio.addEventListener('error', finish);
-				audio.play().catch(finish);
+				const onEnd = () => finish(false);
+				this._finishCurrent = () => finish(false);
+				audio.addEventListener('ended', onEnd);
+				audio.addEventListener('error', onEnd);
+				audio.play().then(
+					() => {
+						this._blocked = false;
+					},
+					(err) => {
+						// Autoplay policy (no gesture on this page yet). Surface it so the
+						// director can prompt for a tap, and pace the caption on a timer
+						// instead of resolving instantly (which would race-advance the tour).
+						if (err && err.name === 'NotAllowedError') {
+							this._blocked = true;
+							try {
+								this.onBlocked?.();
+							} catch {
+								/* hook must never break narration */
+							}
+							finish(true);
+						} else {
+							finish(false);
+						}
+					},
+				);
 			});
+			if (blocked && token === this._token) {
+				await this._sleep(this.estimateMs(clean, rate), token);
+			}
 		} catch {
 			if (token !== this._token) return;
 			// TTS unavailable — keep the caption on screen for its reading time.
@@ -87,7 +187,8 @@ export class Narrator {
 		});
 	}
 
-	// Stop any in-flight speech/sleep and invalidate pending callbacks.
+	// Stop any in-flight speech/sleep and invalidate pending callbacks. Keeps the
+	// persistent (blessed) element alive so the iOS unlock survives the next clip.
 	cancel() {
 		this._token++;
 		clearTimeout(this._sleepTimer);
@@ -97,7 +198,7 @@ export class Narrator {
 			this._sleepResolve = null;
 		}
 		try {
-			this.audio?.pause();
+			this._el?.pause();
 		} catch {
 			/* ignore */
 		}
@@ -108,6 +209,17 @@ export class Narrator {
 
 	dispose() {
 		this.cancel();
+		try {
+			if (this._el) {
+				this._el.pause();
+				this._el.removeAttribute('src');
+				this._el.load();
+			}
+		} catch {
+			/* ignore */
+		}
+		this._el = null;
+		this._unlocked = false;
 	}
 }
 

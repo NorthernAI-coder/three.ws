@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { PublicKey } from '@solana/web3.js';
 
-import { acceptSchema, prepareSchema, ataExists } from '../api/x402-checkout.js';
+import { acceptSchema, prepareSchema, ataExists, getRecentBlockhash } from '../api/x402-checkout.js';
 
 // The 402 challenge's `accept` is built from operator env (X402_PAY_TO_SOLANA /
 // X402_FEE_PAYER_SOLANA). Those values are pasted into dashboards and routinely
@@ -88,5 +88,49 @@ describe('x402-checkout ataExists — fail-open on a flaky RPC', () => {
 		// Must NOT propagate — assuming-missing only adds an idempotent ATA-create,
 		// safe whether or not the account exists.
 		await expect(ataExists(conn, ata)).resolves.toBe(false);
+	});
+});
+
+describe('x402-checkout getRecentBlockhash — fail-open on a total RPC outage', () => {
+	const BH = 'GfVcyD4kkTrj4bKc7Wd9G4nf2k1zk8mF8YQ4i6N2bQrs';
+	const ok = (blockhash) => ({ getLatestBlockhash: async () => ({ blockhash }) });
+	const dead = {
+		getLatestBlockhash: async () => {
+			throw new Error('all solana rpc endpoints failed');
+		},
+	};
+
+	it('serves a fresh blockhash and caches it for reuse', async () => {
+		const rpc = 'https://rpc.test/fresh';
+		const bh = await getRecentBlockhash(ok(BH), rpc, { now: () => 1000 });
+		expect(bh).toBe(BH);
+		// Within the hot TTL, the cached value is returned without touching the RPC.
+		const cached = await getRecentBlockhash(dead, rpc, { now: () => 1000 + 5000 });
+		expect(cached).toBe(BH);
+	});
+
+	it('falls back to a slightly-stale cached blockhash when every RPC endpoint fails — the Authorize-step 500 this guards', async () => {
+		const rpc = 'https://rpc.test/stale-fallback';
+		await getRecentBlockhash(ok(BH), rpc, { now: () => 1000 }); // warm the cache
+		// 20s later: past the 8s freshness TTL but inside the ~60s validity window,
+		// so a dead failover chain must NOT 500 — it serves the cached blockhash.
+		const bh = await getRecentBlockhash(dead, rpc, { now: () => 1000 + 20_000 });
+		expect(bh).toBe(BH);
+	});
+
+	it('propagates the error only when no usable cached blockhash remains', async () => {
+		const rpc = 'https://rpc.test/too-stale';
+		await getRecentBlockhash(ok(BH), rpc, { now: () => 1000 });
+		// 90s later the cached blockhash is past the cluster's validity window —
+		// serving it would just fail to confirm, so we surface the RPC error instead.
+		await expect(
+			getRecentBlockhash(dead, rpc, { now: () => 1000 + 90_000 }),
+		).rejects.toThrow(/all solana rpc endpoints failed/);
+	});
+
+	it('propagates the error when the cache is cold (first request hits the outage)', async () => {
+		await expect(
+			getRecentBlockhash(dead, 'https://rpc.test/cold', { now: () => 1000 }),
+		).rejects.toThrow(/all solana rpc endpoints failed/);
 	});
 });

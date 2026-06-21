@@ -58,8 +58,13 @@ async function captureFromGlb(card, glbUrl) {
 	if (!window.customElements?.get('model-viewer')) return null;
 	return new Promise((resolve) => {
 		const viewer = document.createElement('model-viewer');
+		// Render at a real resolution off-screen — model-viewer sizes its WebGL
+		// canvas to the element box, so a 1px element would capture a 1px frame
+		// (a solid block once stretched over the 200px thumb). 384px gives a
+		// crisp, retina-ish thumbnail. position:fixed keeps it out of layout;
+		// opacity:0 + negative z-index keep it invisible while it still paints.
 		viewer.style.cssText =
-			'position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;overflow:hidden;';
+			'position:fixed;left:0;top:0;width:384px;height:384px;opacity:0;pointer-events:none;z-index:-1;';
 		viewer.setAttribute('src', glbUrl);
 		viewer.setAttribute('shadow-intensity', '0');
 		viewer.setAttribute('exposure', '0.9');
@@ -84,7 +89,11 @@ async function captureFromGlb(card, glbUrl) {
 					// Brief settle so the mesh textures are uploaded to GPU.
 					await new Promise((r) => setTimeout(r, 800));
 					const url = viewer.toDataURL?.('image/webp') ?? null;
-					finish(url && url.length > 100 ? url : null);
+					// A real 384px model render encodes to several KB; a blank or
+					// transparent frame compresses to a few hundred bytes. Reject
+					// the near-empty case so the readable gradient+prompt fallback
+					// wins instead of an invisible card.
+					finish(url && url.length > 1024 ? url : null);
 				} catch {
 					finish(null);
 				}

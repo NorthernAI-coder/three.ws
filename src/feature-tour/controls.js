@@ -131,7 +131,7 @@ function ensureStyles() {
 	const style = document.createElement('style');
 	style.id = 'tws-tour-bar-style';
 	style.textContent = `
-.tws-tour-bar{position:fixed;left:50%;bottom:18px;transform:translateX(-50%) translateY(14px);z-index:${Z_CONTROLS};display:flex;align-items:center;gap:8px;padding:8px 12px;background:rgba(14,16,22,.92);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.1);border-radius:16px;box-shadow:0 16px 40px rgba(0,0,0,.45);opacity:0;transition:opacity .35s ease,transform .35s ease;font-family:system-ui,-apple-system,'Segoe UI',sans-serif;max-width:min(560px,calc(100vw - 24px))}
+.tws-tour-bar{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 18px);transform:translateX(-50%) translateY(14px);z-index:${Z_CONTROLS};display:flex;align-items:center;flex-wrap:wrap;justify-content:center;gap:8px;padding:8px 12px;background:rgba(14,16,22,.92);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.1);border-radius:16px;box-shadow:0 16px 40px rgba(0,0,0,.45);opacity:0;transition:opacity .35s ease,transform .35s ease;font-family:system-ui,-apple-system,'Segoe UI',sans-serif;max-width:min(560px,calc(100vw - 24px))}
 .tws-tour-bar.is-in{opacity:1;transform:translateX(-50%) translateY(0)}
 .tws-tour-btn{appearance:none;border:none;background:rgba(255,255,255,.06);color:#eef1f6;width:36px;height:36px;border-radius:10px;font-size:15px;line-height:1;cursor:pointer;display:grid;place-items:center;transition:background .18s ease,transform .12s ease}
 .tws-tour-btn:hover{background:rgba(122,162,255,.22)}
@@ -149,7 +149,16 @@ function ensureStyles() {
 .tws-tour-track{position:relative;height:6px;border-radius:99px;background:rgba(255,255,255,.12);cursor:pointer}
 .tws-tour-track:focus-visible{outline:2px solid #7aa2ff;outline-offset:3px}
 .tws-tour-track__fill{position:absolute;left:0;top:0;height:100%;border-radius:99px;background:linear-gradient(90deg,#7aa2ff,#9d7bff);transition:width .4s ease}
-@media (max-width:560px){.tws-tour-meta{min-width:96px}.tws-tour-chapter{max-width:120px}}
+@media (max-width:560px){
+	.tws-tour-bar{gap:6px;padding:10px 12px;width:calc(100vw - 20px);max-width:none}
+	/* Progress + chapter take their own full-width row above the buttons. */
+	.tws-tour-meta{order:-1;flex-basis:100%;min-width:0}
+	.tws-tour-chapter{max-width:none}
+	/* Apple HIG: every control is at least a 44×44 tap target. */
+	.tws-tour-btn{width:44px;height:44px;font-size:17px}
+	.tws-tour-btn--speed{width:auto;min-width:48px}
+}
+@media (pointer:coarse){.tws-tour-btn{width:44px;height:44px}.tws-tour-btn--speed{width:auto;min-width:48px}.tws-tour-track{height:10px}}
 @media (prefers-reduced-motion:reduce){.tws-tour-bar,.tws-tour-track__fill{transition:opacity .2s ease}}
 `;
 	document.head.appendChild(style);

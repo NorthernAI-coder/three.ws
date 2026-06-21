@@ -262,6 +262,15 @@ function renderDrawerLink(item) {
 
 function renderDrawer(navData) {
 	let html = '';
+	// Walk Companion toggle — the desktop nav exposes it in `.nav-end`, which is
+	// hidden on the mobile breakpoint, so without this row touch visitors have no
+	// way to summon the walking avatar. Lead the drawer with it as a switch row;
+	// initWalkToggle wires it (and keeps it in sync with the desktop button).
+	html +=
+		`<button type="button" class="dr-walk" id="home-nav-drawer-walk" aria-pressed="false">` +
+		`<span class="nav-walk-ico" aria-hidden="true">🚶</span>` +
+		`<span class="dr-walk-label">Walk with me</span>` +
+		`<span class="dr-walk-state" aria-hidden="true">Off</span></button>`;
 	// Highlighted top-level links lead the drawer as featured rows — burying
 	// the one link the nav spotlights under "More" defeats the spotlight.
 	navData.NAV_LINKS.filter((l) => l.highlight).forEach((link) => {
@@ -423,7 +432,9 @@ function initDrawer(root) {
 	}
 	toggle.addEventListener('click', () => setOpen(!isOpen()));
 	drawer.addEventListener('click', (e) => {
-		if (e.target.closest('a')) setOpen(false);
+		// Links navigate; the Walk toggle stays put but the drawer still closes so
+		// the summoned avatar isn't hidden behind the overlay.
+		if (e.target.closest('a, #home-nav-drawer-walk')) setOpen(false);
 	});
 	document.addEventListener('keydown', (e) => {
 		if (!isOpen()) return;
@@ -518,16 +529,22 @@ function ensureWalkCompanion() {
 }
 
 function initWalkToggle(root) {
-	const btn = root.querySelector('#home-nav-walk');
-	if (!btn) return;
+	// Desktop button (`.nav-end`) + mobile drawer row — both toggle the same
+	// companion and stay mirrored, so the avatar is reachable at every breakpoint.
+	const btns = [...root.querySelectorAll('#home-nav-walk, #home-nav-drawer-walk')];
+	if (!btns.length) return;
 
 	const params = new URLSearchParams(location.search);
 	const override = params.get('walk');
 
 	function sync() {
 		const on = walkIsEnabled();
-		btn.setAttribute('aria-pressed', on ? 'true' : 'false');
-		btn.classList.toggle('is-on', on);
+		btns.forEach((btn) => {
+			btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+			btn.classList.toggle('is-on', on);
+			const state = btn.querySelector('.dr-walk-state');
+			if (state) state.textContent = on ? 'On' : 'Off';
+		});
 	}
 
 	// An explicit ?walk= override decides the initial state; otherwise restore.
@@ -558,16 +575,18 @@ function initWalkToggle(root) {
 		ensureWalkCompanion();
 	}
 
-	btn.addEventListener('click', () => {
-		if (window.__walkCompanion) {
-			window.__walkCompanion.toggle();
-		} else {
-			try {
-				localStorage.setItem(WALK_ENABLED_KEY, '1');
-			} catch (_) {}
-			ensureWalkCompanion();
-		}
-		sync();
+	btns.forEach((btn) => {
+		btn.addEventListener('click', () => {
+			if (window.__walkCompanion) {
+				window.__walkCompanion.toggle();
+			} else {
+				try {
+					localStorage.setItem(WALK_ENABLED_KEY, '1');
+				} catch (_) {}
+				ensureWalkCompanion();
+			}
+			sync();
+		});
 	});
 
 	window.addEventListener('walk-companion:change', sync);

@@ -292,16 +292,17 @@ export class GuideAvatar {
 		return { w: r?.width || CANVAS_W, h: r?.height || CANVAS_H };
 	}
 
-	// Instant placement (drag / edge-scroll follow): clamp to the viewport, face
-	// the direction of travel, run the walk cycle, and auto-settle to idle shortly
-	// after movement stops so a parked guide isn't stuck mid-stride.
-	place(pos) {
+	// Instant placement (drag / keyboard / edge-scroll follow): clamp to the
+	// viewport, face the direction of travel, run the walk (or run) cycle, and
+	// auto-settle to idle shortly after movement stops so a parked guide isn't
+	// stuck mid-stride. `running` switches to the run gait for keyboard sprinting.
+	place(pos, { running = false } = {}) {
 		const s = this.size();
 		const x = clamp(pos.x, MARGIN, window.innerWidth - s.w - MARGIN);
 		const y = clamp(pos.y, MARGIN, window.innerHeight - s.h - MARGIN);
 		const dx = x - this._pos.x;
 		if (Math.abs(dx) > 1) this._targetYaw = clamp((dx / window.innerWidth) * 2, -0.7, 0.7);
-		this.controller?.setState('walk');
+		this.controller?.setState(running ? 'run' : 'walk');
 		this._walking = true;
 		clearTimeout(this._settleTimer);
 		this._settleTimer = setTimeout(() => this.settle(), 180);

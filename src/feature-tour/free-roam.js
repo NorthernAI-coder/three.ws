@@ -19,11 +19,32 @@ const SCROLL_MAX = 22; // px per frame at the very edge
 const RIPPLE_MS = 600;
 const Z_FX = 2147483090; // under the spotlight (…100), over the page
 
+// Keyboard walking — screen-space speeds in px/second, like the Walk playground.
+const WALK_SPEED = 460;
+const RUN_SPEED = 820;
+const MARGIN = 16; // viewport inset the guide stays within (matches GuideAvatar)
+
+function clamp(n, lo, hi) {
+	return Math.min(hi, Math.max(lo, n));
+}
+
 // Elements whose clicks belong to the page, never to "walk there".
 const INTERACTIVE = 'a,button,input,textarea,select,label,summary,[role="button"],[contenteditable],[contenteditable="true"],canvas,video,iframe,[data-walk-block]';
 
 export function isInteractiveTarget(el) {
 	return !!(el && el.closest && el.closest(INTERACTIVE));
+}
+
+// A field the visitor is typing into — never steal its keystrokes for walking.
+function isTypingTarget(el) {
+	if (!el) return false;
+	const tag = el.tagName;
+	return (
+		tag === 'INPUT' ||
+		tag === 'TEXTAREA' ||
+		tag === 'SELECT' ||
+		el.isContentEditable === true
+	);
 }
 
 export class FreeRoam {
@@ -35,9 +56,17 @@ export class FreeRoam {
 		this._ptr = { x: 0, y: 0 };
 		this._scrollRaf = 0;
 		this._reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+		// Keyboard walking state — held directions + the guide's live screen position.
+		this._keys = { up: false, down: false, left: false, right: false, run: false };
+		this._walkRaf = 0;
+		this._walkPos = null;
+		this._walkLast = 0;
 		this._onDown = this._onDown.bind(this);
 		this._onMove = this._onMove.bind(this);
 		this._onUp = this._onUp.bind(this);
+		this._onKeyDown = this._onKeyDown.bind(this);
+		this._onKeyUp = this._onKeyUp.bind(this);
+		this._walkTick = this._walkTick.bind(this);
 		ensureStyles();
 	}
 
@@ -46,6 +75,10 @@ export class FreeRoam {
 		this.enabled = true;
 		this.avatar.setInteractive(true);
 		document.addEventListener('pointerdown', this._onDown, true);
+		// Capture phase so movement keys reach the guide before the director's
+		// stop-navigation handler, which we silence per-key while walking.
+		document.addEventListener('keydown', this._onKeyDown, true);
+		document.addEventListener('keyup', this._onKeyUp, true);
 		this._hint = makeHint();
 	}
 
@@ -53,7 +86,10 @@ export class FreeRoam {
 		if (!this.enabled) return;
 		this.enabled = false;
 		this._endDrag();
+		this._stopWalk();
 		document.removeEventListener('pointerdown', this._onDown, true);
+		document.removeEventListener('keydown', this._onKeyDown, true);
+		document.removeEventListener('keyup', this._onKeyUp, true);
 		this.avatar.setInteractive(false);
 		this.avatar.settle();
 		this._hint?.remove();
@@ -107,6 +143,118 @@ export class FreeRoam {
 		this.avatar.settle();
 	}
 
+	// ── Keyboard walking ─────────────────────────────────────────────────────────
+	// Drive the guide across the page with WASD / arrow keys (hold Shift to run),
+	// exactly like steering your avatar on the Walk pages. Movement is screen-space
+	// and pins-and-scrolls at the viewport edges, so you can walk the whole document
+	// — not just the current screen. Real page clicks and typing are never touched.
+	_dirFor(key) {
+		switch (key) {
+			case 'ArrowUp':
+			case 'w':
+			case 'W':
+				return 'up';
+			case 'ArrowDown':
+			case 's':
+			case 'S':
+				return 'down';
+			case 'ArrowLeft':
+			case 'a':
+			case 'A':
+				return 'left';
+			case 'ArrowRight':
+			case 'd':
+			case 'D':
+				return 'right';
+			default:
+				return null;
+		}
+	}
+
+	_onKeyDown(e) {
+		if (!this.enabled || this.dragging) return;
+		if (e.ctrlKey || e.metaKey || e.altKey) return;
+		if (isTypingTarget(e.target)) return;
+		const dir = this._dirFor(e.key);
+		if (!dir) return;
+		// Own this key: stop the director from treating arrows as stop-navigation
+		// and the browser from scrolling the page out from under the walk.
+		e.preventDefault();
+		e.stopPropagation();
+		this._keys[dir] = true;
+		this._keys.run = e.shiftKey;
+		this._dismissHint();
+		this._startWalk();
+	}
+
+	_onKeyUp(e) {
+		if (e.key === 'Shift') this._keys.run = false;
+		const dir = this._dirFor(e.key);
+		if (!dir) return;
+		e.stopPropagation();
+		this._keys[dir] = false;
+		if (!this._keys.up && !this._keys.down && !this._keys.left && !this._keys.right) {
+			this._stopWalk();
+		}
+	}
+
+	_startWalk() {
+		if (this._walkRaf) return;
+		const r = this.avatar.host?.getBoundingClientRect();
+		this._walkPos = { x: r?.left ?? this._ptr.x, y: r?.top ?? this._ptr.y };
+		this._walkLast = performance.now();
+		this._walkRaf = requestAnimationFrame(this._walkTick);
+	}
+
+	_stopWalk() {
+		cancelAnimationFrame(this._walkRaf);
+		this._walkRaf = 0;
+		this._walkPos = null;
+		if (this.enabled && !this.dragging) this.avatar.settle();
+	}
+
+	_walkTick(now) {
+		if (!this.enabled || this.dragging) {
+			this._walkRaf = 0;
+			return;
+		}
+		const dt = Math.min((now - this._walkLast) / 1000, 0.05);
+		this._walkLast = now;
+
+		let ix = (this._keys.right ? 1 : 0) - (this._keys.left ? 1 : 0);
+		let iy = (this._keys.down ? 1 : 0) - (this._keys.up ? 1 : 0);
+		if (ix === 0 && iy === 0) {
+			this._stopWalk();
+			return;
+		}
+		if (ix !== 0 && iy !== 0) {
+			const inv = 1 / Math.SQRT2;
+			ix *= inv;
+			iy *= inv;
+		}
+		const speed = this._keys.run ? RUN_SPEED : WALK_SPEED;
+		const s = this.avatar.size();
+		const maxX = window.innerWidth - s.w - MARGIN;
+		const maxY = window.innerHeight - s.h - MARGIN;
+
+		this._walkPos.x = clamp(this._walkPos.x + ix * speed * dt, MARGIN, maxX);
+
+		// Vertical: walk within the viewport; at the top/bottom edge, pin the guide
+		// and scroll the document instead so the walk continues down the whole page.
+		let rawY = this._walkPos.y + iy * speed * dt;
+		if (rawY < MARGIN && iy < 0) {
+			window.scrollBy(0, rawY - MARGIN);
+			rawY = MARGIN;
+		} else if (rawY > maxY && iy > 0) {
+			window.scrollBy(0, rawY - maxY);
+			rawY = maxY;
+		}
+		this._walkPos.y = clamp(rawY, MARGIN, maxY);
+
+		this.avatar.place({ x: this._walkPos.x, y: this._walkPos.y }, { running: this._keys.run });
+		this._walkRaf = requestAnimationFrame(this._walkTick);
+	}
+
 	// While dragging near the top/bottom edge, scroll the page and keep the guide
 	// pinned under the pointer so it appears to walk the document up/down.
 	_startScrollLoop() {
@@ -151,7 +299,7 @@ function makeHint() {
 	h.className = 'tws-roam-hint';
 	h.setAttribute('role', 'status');
 	h.innerHTML =
-		'<span class="tws-roam-hint__dot"></span>Free roam — click anywhere to walk me there, or drag me around. Press ▶ to rejoin the tour.';
+		'<span class="tws-roam-hint__dot"></span>Free roam — walk me with WASD / arrow keys (Shift to run), click anywhere to send me there, or drag me. Press ▶ to rejoin the tour.';
 	document.body.appendChild(h);
 	requestAnimationFrame(() => h.classList.add('is-in'));
 	return h;

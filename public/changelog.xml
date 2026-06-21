@@ -47,6 +47,14 @@
 			<description>Global leaderboard for the walking avatar — distance walked, sites visited, and time, ranked daily, weekly, and all-time.</description>
 		</item>
 		<item>
+			<title>&quot;Made with Forge&quot; showcase on the homepage spins again</title>
+			<link>https://three.ws/forge</link>
+			<guid isPermaLink="false">2026-06-21:&quot;Made with Forge&quot; showcase on the homepage spins again</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>The homepage's community strip — fresh text-to-3D models the moment they're forged — had stopped showing the spinning models, leaving only empty placeholder tiles. The viewer that renders each model was waiting on a script that never loaded because of a too-broad name match, so the meshes never appeared. The strip now loads its viewer correctly: real community creations rotate live again, with a click-through to forge your own.</description>
+		</item>
+		<item>
 			<title>$THREE buyback commitment is now public and verifiable on the token page</title>
 			<link>https://three.ws/three-token</link>
 			<guid isPermaLink="false">2026-06-21:$THREE buyback commitment is now public and verifiable on the token page</guid>
@@ -117,6 +125,14 @@
 			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
 			<category>improvement</category>
 			<description>Before the next trade lands, the live-trades panel on the $THREE token page now reads in plain language — 'Live trades will appear here' — with a short note on what it shows, and the technical detail tucked behind an info tooltip. Screen readers announce new trades as they stream in.</description>
+		</item>
+		<item>
+			<title>Club door payment no longer fails when an RPC node blips</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-21:Club door payment no longer fails when an RPC node blips</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Paying the cover charge to enter the Pole Club builds a Solana transaction the moment you authorize, and that step reads a fresh blockhash from the network. If every Solana node we try is momentarily throttled in that instant, the door used to fail with an opaque &quot;internal error&quot; right after you confirmed the price — even though nothing was charged. The door now keeps a recent blockhash on hand and reuses it through a brief outage, so a transient node hiccup no longer turns you away. It still refuses only when there's genuinely no valid blockhash to build with.</description>
 		</item>
 		<item>
 			<title>Coin pages stay fast when pump.fun is having a moment</title>
@@ -343,12 +359,12 @@
 			<description>Two behind-the-scenes reliability and safety fixes. Agent payment invoices now verify that the wallet paying is actually linked to your account before an invoice is created, closing a gap that let bogus payment requests be generated against any agent. And the $THREE holder leaderboard, its share card, and the token stats panel no longer each kick off a full on-chain holder scan during a traffic spike — one scan now serves everyone and refreshes the shared snapshot, so the leaderboard stays fast and responsive under load. Nothing to do on your end.</description>
 		</item>
 		<item>
-			<title>Pick your own guide for the product tour</title>
+			<title>Pick your guide for the product tour — and walk her around yourself</title>
 			<link>https://three.ws/changelog</link>
-			<guid isPermaLink="false">2026-06-21:Pick your own guide for the product tour</guid>
+			<guid isPermaLink="false">2026-06-21:Pick your guide for the product tour — and walk her around yourself</guid>
 			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
-			<description>The 3D guide who walks you through the product tour now starts as Ava, our photoreal full-body character — and you can swap her for anyone in the cast. Open the tour menu and use the new Guide picker to choose any avatar (your own custom ones included); the tour switches on the spot and remembers your pick. She also obeys gravity now, just like your character on the Walk pages: she drops in and plants her feet on the ground instead of hovering.</description>
+			<description>The 3D guide who walks you through the product tour now starts as Ava, our photoreal full-body character — and you can swap her for anyone in the cast. Open the tour menu and use the new Guide picker to choose any avatar (your own custom ones included); the tour switches on the spot and remembers your pick. In free roam you can now steer the guide with WASD or the arrow keys (hold Shift to run) and walk her across the whole page, just like steering your character on the Walk pages — clicking and dragging still work too. She also obeys gravity now: she drops in and plants her feet on the ground instead of hovering.</description>
 		</item>
 		<item>
 			<title>Platform-wide hardening: payment integrity, security, and scale</title>
@@ -415,12 +431,36 @@
 			<description>The $THREE page leads with a clear &quot;Why hold $THREE&quot; section: revenue buybacks (a fixed, live share of platform revenue buys $THREE on the open market), holder rewards (every paid action reflects $THREE back to holders pro-rata), hold-to-access (discounts, higher quotas, and pro perks), and real usage (deploying agents, forging avatars, and trading the marketplace all run on $THREE). Each pillar maps to a mechanism that actually exists on the platform, and the buyback figure is wired to the live commitment. The page's market data also now rides a shared cache, so it stays fast and reliable under heavy traffic.</description>
 		</item>
 		<item>
+			<title>The Forge now fills the whole screen</title>
+			<link>https://three.ws/forge</link>
+			<guid isPermaLink="false">2026-06-21:The Forge now fills the whole screen</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>The Forge — where you turn text or photos into a textured 3D model — used to sit in a narrow column down the middle of the page, leaving big empty margins on wide monitors and a cramped preview. It now stretches edge to edge with comfortable side gutters, so the 3D preview gets far more room to show off your model while the controls stay put on the left.</description>
+		</item>
+		<item>
+			<title>The guided tour now works on iPhones and phones</title>
+			<link>https://three.ws/tour</link>
+			<guid isPermaLink="false">2026-06-21:The guided tour now works on iPhones and phones</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>The guided tour — where a 3D avatar walks across the live site and narrates every feature — was effectively broken on phones: mobile browsers block audio unless it starts from a tap, and that permission resets each time the tour moves to a new page, so the guide ran silent. The tour now unlocks its voice on your first tap of each page and shows a clear &quot;tap for the guide's voice&quot; cue while it waits, then re-speaks the current stop so you don't miss anything. The playback controls also got phone-sized tap targets and a layout that fits a small screen, and you can now launch the whole tour straight from the homepage with the new &quot;Take the tour&quot; button.</description>
+		</item>
+		<item>
 			<title>The guided tour, now yours to steer</title>
 			<link>https://three.ws/tour</link>
 			<guid isPermaLink="false">2026-06-21:The guided tour, now yours to steer</guid>
 			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>The 3D guided tour got a major upgrade. Pick how deep to go: a new “Quick highlights” track samples the best of every chapter in a few minutes, or take the full feature-by-feature walk. A new tour map (open it from the ☰ button or press C) lists every chapter and stop, marks where you are, and lets you search and jump anywhere instantly. You can now change the narrator's voice and set the playback speed (0.75×–1.5×) on the fly, and the tour remembers your spot, voice, and pace across sessions — come back later and pick up right where you left off.</description>
+		</item>
+		<item>
+			<title>The Walk Companion now works on phones</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-21:The Walk Companion now works on phones</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>The walking 3D avatar that strolls along beside you on desktop was unreachable on mobile — the button that summons it lived in the part of the nav bar that collapses on small screens, so there was no way to turn it on from a phone. It's now a switch right inside the mobile menu: tap &quot;Walk with me&quot; and the avatar drops into the corner, wanders on its own without a mouse to follow, and tapping it still opens the full-page playground with on-screen controls.</description>
 		</item>
 		<item>
 			<title>USDC checkout no longer fails when an RPC node hiccups</title>

@@ -455,6 +455,35 @@
 	background: rgba(139,92,246,0.14);
 }
 .dr-hot-arrow { margin-left: auto; color: var(--nv-text-3); }
+/* Walk Companion switch row — the drawer's counterpart to the desktop nav
+   toggle. Same iris card chrome as a featured row, but it flips an on/off pill
+   in place instead of navigating. */
+.nav-drawer button.dr-walk {
+	display: flex; align-items: center; gap: 10px; width: calc(100% - 24px);
+	margin: 4px 12px 8px; padding: 12px 14px;
+	border: 1px solid rgba(139,92,246,0.35); border-radius: 12px;
+	color: var(--nv-text); font: inherit; font-weight: 500; text-align: left;
+	background: rgba(139,92,246,0.08); cursor: pointer;
+	transition: border-color 0.15s, background 0.15s;
+}
+.nav-drawer button.dr-walk:hover { border-color: rgba(139,92,246,0.5); }
+.nav-drawer button.dr-walk:active {
+	border-color: rgba(139,92,246,0.6); background: rgba(139,92,246,0.14);
+}
+.dr-walk .nav-walk-ico { font-size: 18px; line-height: 1; }
+.dr-walk-label { flex: 1; }
+.dr-walk-state {
+	font-size: 12px; font-weight: 600; letter-spacing: 0.02em;
+	padding: 3px 9px; border-radius: 999px;
+	color: var(--nv-text-3); background: var(--nv-surface-1);
+	border: 1px solid var(--nv-hairline);
+}
+.nav-drawer button.dr-walk.is-on {
+	border-color: rgba(139,92,246,0.6); background: rgba(139,92,246,0.16);
+}
+.dr-walk.is-on .dr-walk-state {
+	color: #fff; background: rgba(139,92,246,0.85); border-color: transparent;
+}
 /* Light bar: white-alpha pill chrome washes out — remap to ink tints. */
 :root[data-theme='light'] .nav-main > a.nav-hot {
 	border-color: rgba(15, 18, 28, 0.18);

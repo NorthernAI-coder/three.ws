@@ -53,6 +53,10 @@ const SOLANA_DEVNET_RPC = env.SOLANA_RPC_URL_DEVNET;
 // handing out a stale-enough blockhash for the buyer's signed tx to fail.
 const MINT_DECIMALS_TTL_MS = 5 * 60 * 1000;
 const BLOCKHASH_TTL_MS = 8 * 1000;
+// Cold-path fail-open window: a Solana blockhash stays valid on-chain for ~60-90s,
+// so if a live fetch fails we may still serve a cached one this much past its fetch
+// time rather than 500'ing the checkout. Conservatively under the cluster floor.
+const BLOCKHASH_STALE_FALLBACK_MS = 60 * 1000;
 const mintDecimalsCache = new Map(); // `${rpc}:${mint}` -> { decimals, at }
 const blockhashCache = new Map(); // rpc -> { blockhash, at }
 
@@ -96,12 +100,36 @@ function toPubkey(value, field) {
 	}
 }
 
-async function getRecentBlockhash(conn, rpc) {
+// Resolve a recent blockhash for the payment tx. The one RPC call on the USDC
+// checkout hot path that isn't already fail-open (getMintDecimals resolves
+// canonical mints from a local map; ataExists fails open to "missing"), so a
+// transient *total* failover outage — every endpoint in solanaConnection's chain
+// failing within this single request — used to throw straight through wrap() as an
+// opaque "internal error — quote ref … to support" 500 at the modal's Authorize
+// step. Match the sibling fail-open posture: if the live fetch fails but we still
+// hold a cached blockhash inside the cluster's ~60-90s validity window, serve it.
+// Safe by construction — a blockhash only bounds how long the buyer has to land the
+// signed tx, never the amount or recipient, and a too-stale one simply fails to
+// confirm and prompts a clean retry, never a double charge. `now` is injectable so
+// the staleness branches are unit-testable without a real clock.
+export async function getRecentBlockhash(conn, rpc, { now = Date.now } = {}) {
 	const hit = blockhashCache.get(rpc);
-	if (hit && Date.now() - hit.at < BLOCKHASH_TTL_MS) return hit.blockhash;
-	const { blockhash } = await conn.getLatestBlockhash('confirmed');
-	blockhashCache.set(rpc, { blockhash, at: Date.now() });
-	return blockhash;
+	if (hit && now() - hit.at < BLOCKHASH_TTL_MS) return hit.blockhash;
+	try {
+		const { blockhash } = await conn.getLatestBlockhash('confirmed');
+		blockhashCache.set(rpc, { blockhash, at: now() });
+		return blockhash;
+	} catch (err) {
+		if (hit && now() - hit.at < BLOCKHASH_STALE_FALLBACK_MS) {
+			console.warn(
+				`[x402-checkout] getLatestBlockhash failed across all RPC endpoints; serving ${Math.round(
+					(now() - hit.at) / 1000,
+				)}s-old cached blockhash so checkout still builds: ${err?.message || err}`,
+			);
+			return hit.blockhash;
+		}
+		throw err;
+	}
 }
 
 // Does an ATA already exist on-chain? web3.js decodes getAccountInfo's reply

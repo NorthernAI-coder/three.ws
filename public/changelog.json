@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-21T09:59:56.909Z",
+	"generated_at": "2026-06-21T11:00:00.373Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -54,6 +54,16 @@
 			"link": "/walk-leaderboard",
 			"tags": [
 				"launch"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "update",
+			"title": "\"Made with Forge\" showcase on the homepage spins again",
+			"summary": "The homepage's community strip — fresh text-to-3D models the moment they're forged — had stopped showing the spinning models, leaving only empty placeholder tiles. The viewer that renders each model was waiting on a script that never loaded because of a too-broad name match, so the meshes never appeared. The strip now loads its viewer correctly: real community creations rotate live again, with a click-through to forge your own.",
+			"link": "/forge",
+			"tags": [
+				"fix"
 			]
 		},
 		{
@@ -148,6 +158,17 @@
 			"link": "/three-token",
 			"tags": [
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "update",
+			"title": "Club door payment no longer fails when an RPC node blips",
+			"summary": "Paying the cover charge to enter the Pole Club builds a Solana transaction the moment you authorize, and that step reads a fresh blockhash from the network. If every Solana node we try is momentarily throttled in that instant, the door used to fail with an opaque \"internal error\" right after you confirmed the price — even though nothing was charged. The door now keeps a recent blockhash on hand and reuses it through a brief outage, so a transient node hiccup no longer turns you away. It still refuses only when there's genuinely no valid blockhash to build with.",
+			"link": null,
+			"tags": [
+				"fix",
+				"infra"
 			]
 		},
 		{
@@ -455,8 +476,8 @@
 		{
 			"date": "2026-06-21",
 			"type": "update",
-			"title": "Pick your own guide for the product tour",
-			"summary": "The 3D guide who walks you through the product tour now starts as Ava, our photoreal full-body character — and you can swap her for anyone in the cast. Open the tour menu and use the new Guide picker to choose any avatar (your own custom ones included); the tour switches on the spot and remembers your pick. She also obeys gravity now, just like your character on the Walk pages: she drops in and plants her feet on the ground instead of hovering.",
+			"title": "Pick your guide for the product tour — and walk her around yourself",
+			"summary": "The 3D guide who walks you through the product tour now starts as Ava, our photoreal full-body character — and you can swap her for anyone in the cast. Open the tour menu and use the new Guide picker to choose any avatar (your own custom ones included); the tour switches on the spot and remembers your pick. In free roam you can now steer the guide with WASD or the arrow keys (hold Shift to run) and walk her across the whole page, just like steering your character on the Walk pages — clicking and dragging still work too. She also obeys gravity now: she drops in and plants her feet on the ground instead of hovering.",
 			"link": null,
 			"tags": [
 				"feature",
@@ -552,12 +573,44 @@
 		{
 			"date": "2026-06-21",
 			"type": "update",
+			"title": "The Forge now fills the whole screen",
+			"summary": "The Forge — where you turn text or photos into a textured 3D model — used to sit in a narrow column down the middle of the page, leaving big empty margins on wide monitors and a cramped preview. It now stretches edge to edge with comfortable side gutters, so the 3D preview gets far more room to show off your model while the controls stay put on the left.",
+			"link": "/forge",
+			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "update",
+			"title": "The guided tour now works on iPhones and phones",
+			"summary": "The guided tour — where a 3D avatar walks across the live site and narrates every feature — was effectively broken on phones: mobile browsers block audio unless it starts from a tap, and that permission resets each time the tour moves to a new page, so the guide ran silent. The tour now unlocks its voice on your first tap of each page and shows a clear \"tap for the guide's voice\" cue while it waits, then re-speaks the current stop so you don't miss anything. The playback controls also got phone-sized tap targets and a layout that fits a small screen, and you can now launch the whole tour straight from the homepage with the new \"Take the tour\" button.",
+			"link": "/tour",
+			"tags": [
+				"fix",
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "update",
 			"title": "The guided tour, now yours to steer",
 			"summary": "The 3D guided tour got a major upgrade. Pick how deep to go: a new “Quick highlights” track samples the best of every chapter in a few minutes, or take the full feature-by-feature walk. A new tour map (open it from the ☰ button or press C) lists every chapter and stop, marks where you are, and lets you search and jump anywhere instantly. You can now change the narrator's voice and set the playback speed (0.75×–1.5×) on the fly, and the tour remembers your spot, voice, and pace across sessions — come back later and pick up right where you left off.",
 			"link": "/tour",
 			"tags": [
 				"feature",
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "update",
+			"title": "The Walk Companion now works on phones",
+			"summary": "The walking 3D avatar that strolls along beside you on desktop was unreachable on mobile — the button that summons it lived in the part of the nav bar that collapses on small screens, so there was no way to turn it on from a phone. It's now a switch right inside the mobile menu: tap \"Walk with me\" and the avatar drops into the corner, wanders on its own without a mouse to follow, and tapping it still opens the full-page playground with on-screen controls.",
+			"link": null,
+			"tags": [
+				"fix",
+				"feature"
 			]
 		},
 		{
