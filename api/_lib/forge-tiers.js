@@ -120,6 +120,29 @@ export const BACKENDS = Object.freeze({
 		free: true,
 		blurb: 'Free TRELLIS generation on NVIDIA NIM — the default lane for text prompts at draft and standard tiers; no vendor cost. Photo input uses the standing engine.',
 	}),
+	huggingface: Object.freeze({
+		id: 'huggingface',
+		label: 'Hunyuan3D / TRELLIS (free)',
+		vendor: 'Hugging Face Spaces',
+		paths: Object.freeze(['image']),
+		byok: false,
+		provider: 'huggingface',
+		requiresEnv: Object.freeze(['HF_TOKEN']),
+		polyControl: false,
+		// Unlike NVIDIA's text-only hosted preview, this lane DOES take user photos —
+		// it is the free option for image→3D, the counterpart to the free text lane.
+		userImages: true,
+		// Community GPU Spaces reached over Gradio's blocking /call API, with a
+		// failover chain (Hunyuan3D 2.1 → Hunyuan3D 2 → TRELLIS → TripoSR). Queue
+		// waits + cold starts dominate, so the ETA is generous; it blocks within the
+		// 300s reconstruct budget like the Stable Fast 3D synchronous lane.
+		baseEta: 90,
+		credits: null,
+		// Free image→3D — no vendor credit cost (HF Spaces' free GPU). One HF_TOKEN
+		// unlocks the whole chain; this is what makes photo→3D free for users.
+		free: true,
+		blurb: 'Free photo→3D on community GPU Spaces — Hunyuan3D / TRELLIS / TripoSR with automatic failover. No vendor cost; queue waits vary.',
+	}),
 	trellis: Object.freeze({
 		id: 'trellis',
 		label: 'TRELLIS',

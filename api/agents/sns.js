@@ -26,6 +26,7 @@
 
 import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.js';
 import { sql } from '../_lib/db.js';
+import { confirmOrThrow } from '../_lib/solana/confirm.js';
 import { cors, json, method, error, readJson, rateLimited, serverError } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { env } from '../_lib/env.js';
@@ -151,7 +152,7 @@ async function handleRegisterAgent(req, res, id, auth) {
 		tx.recentBlockhash = blockhash;
 		tx.sign(keypair);
 		const sig = await conn.sendRawTransaction(tx.serialize(), { skipPreflight: false });
-		await conn.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed');
+		await confirmOrThrow(conn, { signature: sig, blockhash, lastValidBlockHeight }, 'confirmed');
 
 		meta = { ...meta, sns_domain: domain };
 		await sql`UPDATE agent_identities SET meta = ${JSON.stringify(meta)}::jsonb WHERE id = ${id}`;

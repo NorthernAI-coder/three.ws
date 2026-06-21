@@ -26,6 +26,7 @@ import {
 import { NATIVE_MINT, getAssociatedTokenAddressSync, createCloseAccountInstruction } from '@solana/spl-token';
 
 import { getConnection, getPumpSdk, solanaPubkey } from '../pump.js';
+import { confirmOrThrow } from '../solana/confirm.js';
 
 const PRIORITY_MICRO_LAMPORTS = 100_000;
 
@@ -96,7 +97,7 @@ export async function claimCreatorFees({ coin, coinCreator, treasury }) {
 		skipPreflight: false,
 		maxRetries: 5,
 	});
-	await connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed');
+	await confirmOrThrow(connection, { signature: sig, blockhash, lastValidBlockHeight }, 'confirmed');
 
 	// Attempt the unwrap as a follow-up tx (best-effort).
 	if (creatorWsolAta) {

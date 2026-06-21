@@ -3,6 +3,7 @@
 
 import { Connection, PublicKey, Transaction, VersionedTransaction } from '@solana/web3.js';
 import { solanaConnection } from './solana/connection.js';
+import { confirmOrThrow } from './solana/confirm.js';
 import { recoverSolanaAgentKeypair } from './agent-wallet.js';
 
 /**
@@ -29,7 +30,8 @@ export async function loadWallet(encryptedSecret) {
 		const raw = tx.serialize();
 		const sig = await conn.sendRawTransaction(raw, { skipPreflight: false });
 		const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash();
-		await conn.confirmTransaction(
+		await confirmOrThrow(
+			conn,
 			{ signature: sig, blockhash, lastValidBlockHeight },
 			'confirmed',
 		);

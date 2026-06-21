@@ -20,6 +20,7 @@
 
 import { Keypair, PublicKey, SystemProgram, Transaction, ComputeBudgetProgram } from '@solana/web3.js';
 import { getConnection } from '../pump.js';
+import { confirmOrThrow } from '../solana/confirm.js';
 import { decryptSecret, isEncryptedSecret } from '../secret-box.js';
 
 const SOL_LAMPORTS = 1_000_000_000n;
@@ -97,7 +98,8 @@ async function confirmWithTimeout(connection, signature, { commitment = 'confirm
 	// to polling getSignatureStatus.
 	try {
 		const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash(commitment);
-		await connection.confirmTransaction(
+		await confirmOrThrow(
+			connection,
 			{ signature, blockhash, lastValidBlockHeight },
 			commitment,
 		);

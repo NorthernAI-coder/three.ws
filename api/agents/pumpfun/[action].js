@@ -16,6 +16,7 @@ import { getSessionUser, authenticateBearer, extractBearer } from '../../_lib/au
 import { cors, json, method, readJson, wrap, error, rateLimited, serverError, respondError } from '../../_lib/http.js';
 import { limits, clientIp } from '../../_lib/rate-limit.js';
 import { loadAgentForSigning, solanaConnection } from '../../_lib/agent-pumpfun.js';
+import { confirmOrThrow } from '../../_lib/solana/confirm.js';
 import { reserveSpend, finalizeSpend, releaseSpend } from '../../_lib/agent-spend-policy.js';
 import { grindMintKeypair } from '../../_lib/pump-vanity.js';
 import { sql } from '../../_lib/db.js';
@@ -270,7 +271,7 @@ async function handleBuy(req, res, id) {
 	let signature;
 	try {
 		signature = await conn.sendRawTransaction(tx.serialize(), { skipPreflight: false });
-		await conn.confirmTransaction(signature, 'confirmed');
+		await confirmOrThrow(conn, signature, 'confirmed');
 	} catch (err) {
 		console.error('[pumpfun/buy] send failed', err);
 		if (reservation) await releaseSpend(reservation.reservationId);
@@ -493,7 +494,7 @@ async function handleLaunch(req, res, id) {
 	let signature;
 	try {
 		signature = await conn.sendRawTransaction(tx.serialize(), { skipPreflight: false });
-		await conn.confirmTransaction(signature, 'confirmed');
+		await confirmOrThrow(conn, signature, 'confirmed');
 	} catch (err) {
 		console.error('[pumpfun/launch] send failed', err);
 		await releaseSpend(reservation.reservationId);
@@ -727,7 +728,7 @@ async function handlePay(req, res, id) {
 	let signature;
 	try {
 		signature = await conn.sendRawTransaction(tx.serialize(), { skipPreflight: false });
-		await conn.confirmTransaction(signature, 'confirmed');
+		await confirmOrThrow(conn, signature, 'confirmed');
 	} catch (err) {
 		console.error(`[pumpfun/pay] ${body.action} send failed`, err);
 		return serverError(res, 502, 'rpc_error', err);
@@ -1125,7 +1126,7 @@ async function handleSell(req, res, id) {
 	let signature;
 	try {
 		signature = await conn.sendRawTransaction(tx.serialize(), { skipPreflight: false });
-		await conn.confirmTransaction(signature, 'confirmed');
+		await confirmOrThrow(conn, signature, 'confirmed');
 	} catch (err) {
 		console.error('[pumpfun/sell] send failed', err);
 		return serverError(res, 502, 'rpc_error', err);
@@ -1385,7 +1386,7 @@ async function handleSwap(req, res, id) {
 	let signature;
 	try {
 		signature = await conn.sendRawTransaction(tx.serialize(), { skipPreflight: false });
-		await conn.confirmTransaction(signature, 'confirmed');
+		await confirmOrThrow(conn, signature, 'confirmed');
 	} catch (err) {
 		console.error('[pumpfun/swap] send failed', err);
 		if (reservation) await releaseSpend(reservation.reservationId);

@@ -3,6 +3,7 @@
 // Used by x402 intent consumption, skill purchase confirmation, and any
 // code path that needs to attribute revenue to an agent owner.
 
+import { randomUUID } from 'node:crypto';
 import { sql } from './db.js';
 import { calculateFee } from './fee.js';
 
@@ -43,16 +44,33 @@ export async function recordRevenueEvent({
 
 	const { fee, net } = calculateFee(grossAmount);
 
+	// intent_id is UNIQUE — one on-chain payment credits exactly once. A real
+	// intent/tx reuses its identifier (so a retry conflicts and no-ops); a direct
+	// call with neither gets a synthetic unique key so distinct direct credits
+	// never collide.
+	const dedupeKey = intentId ?? txHash ?? `direct_${randomUUID()}`;
 	const [row] = await sql`
 		INSERT INTO agent_revenue_events
 			(agent_id, intent_id, skill, gross_amount, fee_amount, net_amount,
 			 currency_mint, chain, payer_address)
 		VALUES
-			(${agentId}, ${intentId ?? txHash ?? 'direct'}, ${skillName}, ${grossAmount},
+			(${agentId}, ${dedupeKey}, ${skillName}, ${grossAmount},
 			 ${fee}, ${net}, ${currencyMint}, ${network}, ${callerAddress})
+		ON CONFLICT (intent_id) DO NOTHING
 		RETURNING id, agent_id, skill, gross_amount, fee_amount, net_amount,
 		          currency_mint, chain, payer_address, created_at
 	`;
+
+	// Conflict → this payment was already recorded; return the existing row so
+	// callers stay idempotent rather than seeing a phantom failure.
+	if (!row) {
+		const [existing] = await sql`
+			SELECT id, agent_id, skill, gross_amount, fee_amount, net_amount,
+			       currency_mint, chain, payer_address, created_at
+			FROM agent_revenue_events WHERE intent_id = ${dedupeKey} LIMIT 1
+		`;
+		return existing;
+	}
 
 	return row;
 }

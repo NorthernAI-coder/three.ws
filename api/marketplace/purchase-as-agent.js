@@ -19,6 +19,7 @@
  */
 import { Keypair, PublicKey, Transaction } from '@solana/web3.js';
 import { solanaConnection } from '../_lib/solana/connection.js';
+import { confirmOrThrow } from '../_lib/solana/confirm.js';
 import {
 	getAssociatedTokenAddressSync,
 	createTransferCheckedInstruction,
@@ -272,7 +273,7 @@ export default wrap(async (req, res) => {
 			skipPreflight: false,
 			preflightCommitment: 'confirmed',
 		});
-		await connection.confirmTransaction({ signature: txSig, blockhash, lastValidBlockHeight }, 'confirmed');
+		await confirmOrThrow(connection, { signature: txSig, blockhash, lastValidBlockHeight }, 'confirmed');
 		log('purchase_as_agent.tx_confirmed', { purchase_id: pur.id, tx_signature: txSig });
 	} catch (e) {
 		await sql`

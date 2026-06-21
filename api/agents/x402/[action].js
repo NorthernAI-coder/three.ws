@@ -202,22 +202,30 @@ async function handleInvoke(req, res) {
 	// payment still covers a retry instead of being burned on a failed call.
 	const result = await executeSkill(agent, body, auth, paid.payerAddress || null);
 
-	await consumeIntent(paid.intentId);
-	const gross = parseInt(paid.amount, 10);
-	const { fee, net } = calculateFee(gross);
-	await sql`
-		insert into agent_revenue_events
-			(agent_id, intent_id, skill, gross_amount, fee_amount, net_amount, currency_mint, chain, payer_address)
-		values
-			(${agent.id}, ${paid.intentId}, ${body.skill}, ${gross}, ${fee}, ${net}, ${paid.currency}, ${price.chain ?? 'solana'}, ${paid.payerAddress})
-	`;
-	insertNotification(agent.user_id, 'payment_received', {
-		agent_id: agent.id,
-		agent_name: agent.name,
-		skill: body.skill,
-		net_amount: net,
-		currency_mint: paid.currency,
-	});
+	// Credit revenue ONLY for the request that atomically wins paid→consumed.
+	// Two concurrent requests can both pass verifyPaid (both see status='paid'),
+	// but only one transitions the intent to 'consumed'; gating the insert here is
+	// what prevents one on-chain payment from being credited twice. The unique
+	// index on agent_revenue_events(intent_id) is the hard backstop.
+	const claimed = await consumeIntent(paid.intentId);
+	if (claimed) {
+		const gross = parseInt(paid.amount, 10);
+		const { fee, net } = calculateFee(gross);
+		await sql`
+			insert into agent_revenue_events
+				(agent_id, intent_id, skill, gross_amount, fee_amount, net_amount, currency_mint, chain, payer_address)
+			values
+				(${agent.id}, ${paid.intentId}, ${body.skill}, ${gross}, ${fee}, ${net}, ${paid.currency}, ${price.chain ?? 'solana'}, ${paid.payerAddress})
+			on conflict (intent_id) do nothing
+		`;
+		insertNotification(agent.user_id, 'payment_received', {
+			agent_id: agent.id,
+			agent_name: agent.name,
+			skill: body.skill,
+			net_amount: net,
+			currency_mint: paid.currency,
+		});
+	}
 	return json(res, 200, {
 		ok: true,
 		intent_id: paid.intentId,

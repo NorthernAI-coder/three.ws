@@ -170,9 +170,16 @@ function setCinema(on) {
 const ENGINE_KEY_SVG =
 	'<svg class="eng-key" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7.5" cy="15.5" r="4.5"/><path d="M10.7 12.3 21 2"/><path d="m15 7 3 3"/><path d="m18 4 3 3"/></svg>';
 
-// Short engine labels for the picker buttons, keyed by backend id.
+// Inline "FREE" pill appended to zero-cost engine buttons (catalog `free:true`).
+// The free lanes are named by engine like every other button; this pill — not
+// the label — is what marks them free, so two free lanes never both read "Free".
+const ENGINE_FREE_PILL = '<span class="eng-free" aria-hidden="true">FREE</span>';
+
+// Short engine labels for the picker buttons, keyed by backend id. Free lanes
+// carry the FREE pill above, so they are labelled by engine name like the rest.
 const ENGINE_LABELS = {
-	nvidia: 'Free',
+	nvidia: 'NVIDIA',
+	huggingface: 'Hunyuan3D',
 	trellis: 'Fast',
 	meshy: 'Meshy',
 	tripo: 'Tripo',
@@ -457,11 +464,12 @@ function buildEngineButtons() {
 		// BYOK engines carry a small key glyph so the picker shows at a glance
 		// which lanes run on the user's own API key vs the free/included ones.
 		const short = ENGINE_LABELS[b.id] || b.label;
-		btn.innerHTML = `<span class="eng-label">${short}</span>${b.byok ? ENGINE_KEY_SVG : ''}`;
+		btn.innerHTML = `<span class="eng-label">${short}</span>${b.free ? ENGINE_FREE_PILL : ''}${b.byok ? ENGINE_KEY_SVG : ''}`;
 		const keyNote = b.byok ? ` · uses your own ${KEY_HINTS[b.byok]?.label || b.byok} key` : '';
-		btn.title = `${b.label} — ${b.blurb}${keyNote}`;
+		const freeNote = b.free ? ' · free, no API key' : '';
+		btn.title = `${b.label} — ${b.blurb}${freeNote}${keyNote}`;
 		// aria-label survives the dynamic title rewrites in updateEngineAvailability.
-		btn.setAttribute('aria-label', `${b.label}${keyNote}`);
+		btn.setAttribute('aria-label', `${b.label}${freeNote}${keyNote}`);
 		btn.setAttribute('aria-pressed', String(b.id === selectedEngine.backend));
 		els.engine.appendChild(btn);
 	}

@@ -29,6 +29,8 @@ alter table users add column if not exists privy_did text;
 create unique index if not exists users_wallet_unique on users(wallet_address) where wallet_address is not null;
 create unique index if not exists users_username_unique on users(lower(username)) where username is not null;
 create unique index if not exists users_privy_did_unique on users(privy_did) where privy_did is not null;
+-- Case-insensitive username lookup on the login/signup hot path (auth/[action].js).
+create index if not exists users_display_name_lower on users(lower(display_name)) where deleted_at is null;
 
 -- SAML SSO subject link (set when a user signs in via an enterprise IdP).
 alter table users add column if not exists saml_name_id text;
@@ -1248,11 +1250,18 @@ create table if not exists subscription_payments (
     status          text        not null default 'pending' check (status in ('pending','succeeded','failed')),
     tx_hash         text,
     paid_at         timestamptz,
+    period_end      timestamptz,
     created_at      timestamptz not null default now()
 );
 
 create index if not exists subscription_payments_subscription_idx
     on subscription_payments(subscription_id);
+
+-- At most one pending charge per (subscription, billing period) — see
+-- migration 20260621122000_subscription-payment-idempotency.sql.
+create unique index if not exists subscription_payments_one_pending_per_period
+    on subscription_payments (subscription_id, period_end)
+    where status = 'pending' and period_end is not null;
 
 -- ── social_connections ────────────────────────────────────────────────────────
 create table if not exists social_connections (

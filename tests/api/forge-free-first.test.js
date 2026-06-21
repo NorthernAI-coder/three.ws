@@ -133,6 +133,9 @@ function makeRes() {
 		setHeader(name, value) {
 			this.headers[String(name).toLowerCase()] = value;
 		},
+		getHeader(name) {
+			return this.headers[String(name).toLowerCase()];
+		},
 		end(body) {
 			this.body = body ? JSON.parse(body) : null;
 		},
@@ -204,6 +207,54 @@ describe('forge free-first reconstruct ordering', () => {
 		expect(res.body.error).toBe('generation_unavailable');
 		expect(res.body.message).not.toMatch(/credit|replicate|billing|insufficient/i);
 		expect(res.headers['retry-after']).toBe('30');
+	});
+
+	it('routes an EXPLICIT huggingface pick to the free lane and never the paid one', async () => {
+		// The user deliberately chose the free engine for a photo upload.
+		process.env.HF_TOKEN = 'test-hf-token';
+		replicateSubmit.mockClear();
+		hfSubmit.mockClear();
+		try {
+			const req = makeReq({
+				image_urls: ['https://cdn.example/photo.png'],
+				backend: 'huggingface',
+				tier: 'standard',
+				path: 'image',
+				skip_validation: true,
+			});
+			const res = makeRes();
+			await handler(req, res);
+
+			expect(res.statusCode).toBe(200);
+			expect(res.body.backend).toBe('huggingface');
+			expect(res.body.mode).toBe('image_to_3d');
+			expect(hfSubmit).toHaveBeenCalled();
+			expect(replicateSubmit).not.toHaveBeenCalled();
+		} finally {
+			delete process.env.HF_TOKEN;
+		}
+	});
+
+	it('surfaces a designed busy error (never a paid fallback) when an explicit free pick has no lane', async () => {
+		// HF_TOKEN unset → the free Spaces provider is unavailable. An explicit free
+		// pick must NOT silently spend on the paid Replicate account; it returns a
+		// designed, retryable error instead.
+		delete process.env.HF_TOKEN;
+		replicateSubmit.mockClear();
+		const req = makeReq({
+			image_urls: ['https://cdn.example/photo.png'],
+			backend: 'huggingface',
+			tier: 'standard',
+			path: 'image',
+			skip_validation: true,
+		});
+		const res = makeRes();
+		await handler(req, res);
+
+		expect(res.statusCode).toBe(502);
+		expect(res.body.error).toBe('provider_busy');
+		expect(res.body.backend).toBe('huggingface');
+		expect(replicateSubmit).not.toHaveBeenCalled();
 	});
 
 	it('restores the paid-default ORDER when FORGE_PREFER_FREE=false (Replicate tried first)', async () => {

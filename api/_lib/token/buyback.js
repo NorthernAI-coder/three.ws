@@ -25,6 +25,7 @@ import {
 
 import { sql } from '../db.js';
 import { getConnection, solanaPubkey } from '../pump.js';
+import { confirmOrThrow } from '../solana/confirm.js';
 import { SOLANA_USDC_MINT } from '../../payments/_config.js';
 import { TOKEN_MINT, TOKEN_DECIMALS } from './config.js';
 import { treasuryWallet, treasuryWalletOrNull } from './config.js';
@@ -216,8 +217,9 @@ export async function executeBuyback(signer, plan) {
 	buyTx.sign([signer]);
 	const buySig = await connection.sendRawTransaction(buyTx.serialize(), { maxRetries: 5 });
 	try {
-		await connection.confirmTransaction(buySig, 'confirmed');
+		await confirmOrThrow(connection, buySig, 'confirmed');
 	} catch (waitErr) {
+		if (waitErr?.code === 'tx_reverted') throw waitErr;
 		throw Object.assign(
 			new Error(`buyback ${buySig} submitted but confirmation timed out (${waitErr?.message || waitErr})`),
 			{ code: 'tx_unconfirmed', status: 'pending', buySignature: buySig },
@@ -246,7 +248,7 @@ export async function executeBuyback(signer, plan) {
 		tx.sign(signer);
 		sweepSig = await connection.sendRawTransaction(tx.serialize(), { maxRetries: 5 });
 		try {
-			await connection.confirmTransaction(sweepSig, 'confirmed');
+			await confirmOrThrow(connection, sweepSig, 'confirmed');
 		} catch (waitErr) {
 			// The buy already landed; surface a sweep-specific failure so the next
 			// run self-heals (it sweeps any pre-existing $THREE before buying more).
@@ -293,7 +295,7 @@ export async function sweepStrandedThree(signer) {
 	tx.feePayer = payer;
 	tx.sign(signer);
 	const sig = await connection.sendRawTransaction(tx.serialize(), { maxRetries: 5 });
-	await connection.confirmTransaction(sig, 'confirmed');
+	await confirmOrThrow(connection, sig, 'confirmed');
 	return sig;
 }
 

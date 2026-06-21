@@ -19,7 +19,7 @@
 // upserted as graph nodes and linked to their source memory. Edges between
 // entities are derived at read time from co-occurrence within a memory.
 
-import { sql } from './db.js';
+import { sql, sqlValues } from './db.js';
 import {
 	embeddingsConfigured,
 	defaultIngestEmbedderTag,
@@ -243,36 +243,91 @@ export async function ensureEntities(agentId, cap = ENTITY_CAP) {
 	const capped = rows.length > cap;
 	const batch = capped ? rows.slice(0, cap) : rows;
 
-	let processed = 0;
+	// Mine every memory first, then write in three bulk statements instead of the
+	// 2× INSERT + UPDATE per entity-per-row the loop used to issue.
+	//   1. Upsert entities, aggregated by (kind, normalized): mention_count and the
+	//      capped salience bump are summed over occurrences in this batch (net-equal
+	//      to applying the per-occurrence upsert sequentially); label/meta take the
+	//      last occurrence, matching the original EXCLUDED.* "last writer wins".
+	//   2. Insert the (entity, memory) links, resolving entity ids from the upsert's
+	//      RETURNING, with ON CONFLICT DO NOTHING.
+	//   3. Mark the processed memories entities_extracted.
+	const byKey = new Map();   // "kind normalized" → { kind, label, normalized, meta, count }
+	const mentions = [];       // { key, memoryId } per occurrence — drives the links
 	for (const row of batch) {
 		const entities = extractEntities(row.content, row.tags || [], row.context || {});
-		try {
-			for (const e of entities) {
-				const [ent] = await sql`
-					INSERT INTO agent_memory_entities (agent_id, kind, label, normalized, mention_count, salience, meta)
-					VALUES (${agentId}, ${e.kind}, ${e.label}, ${e.normalized}, 1, 0.5, ${JSON.stringify(e.meta || {})}::jsonb)
-					ON CONFLICT (agent_id, kind, normalized) DO UPDATE
-					SET mention_count = agent_memory_entities.mention_count + 1,
-					    last_seen_at = now(),
-					    label = EXCLUDED.label,
-					    salience = LEAST(1.0, agent_memory_entities.salience + 0.05)
-					RETURNING id
-				`;
-				if (ent?.id) {
-					await sql`
-						INSERT INTO agent_memory_entity_links (entity_id, memory_id)
-						VALUES (${ent.id}, ${row.id})
-						ON CONFLICT DO NOTHING
-					`;
-				}
+		for (const e of entities) {
+			const key = `${e.kind} ${e.normalized}`;
+			const agg = byKey.get(key);
+			if (agg) {
+				agg.count += 1;
+				agg.label = e.label;
+				agg.meta = e.meta || {};
+			} else {
+				byKey.set(key, { kind: e.kind, label: e.label, normalized: e.normalized, meta: e.meta || {}, count: 1 });
 			}
-			await sql`UPDATE agent_memories SET entities_extracted = true WHERE id = ${row.id}`;
-			processed++;
-		} catch (err) {
-			console.warn('[memory-store] entity extraction failed for', row.id, err?.message);
+			mentions.push({ key, memoryId: row.id });
 		}
 	}
-	return { processed, remaining: capped ? 1 : 0 };
+
+	if (!byKey.size) {
+		// No entities in any memory — still mark them processed so reads converge.
+		try {
+			const ids = batch.map((r) => r.id);
+			await sql`UPDATE agent_memories SET entities_extracted = true WHERE id = ANY(${ids}::uuid[])`;
+			return { processed: batch.length, remaining: capped ? 1 : 0 };
+		} catch (err) {
+			console.warn('[memory-store] entity extraction failed', err?.message);
+			return { processed: 0, remaining: capped ? 1 : 0 };
+		}
+	}
+
+	try {
+		const entityRows = [...byKey.values()].map((e) => [
+			agentId, e.kind, e.label, e.normalized, e.count, JSON.stringify(e.meta || {}),
+		]);
+		const upserted = await sql`
+			INSERT INTO agent_memory_entities (agent_id, kind, label, normalized, mention_count, salience, meta)
+			SELECT v.agent_id, v.kind, v.label, v.normalized, v.cnt, 0.5, v.meta::jsonb
+			FROM ( VALUES ${sqlValues(entityRows)} ) AS v(agent_id, kind, label, normalized, cnt, meta)
+			ON CONFLICT (agent_id, kind, normalized) DO UPDATE
+			SET mention_count = agent_memory_entities.mention_count + EXCLUDED.mention_count,
+			    last_seen_at = now(),
+			    label = EXCLUDED.label,
+			    salience = LEAST(1.0, agent_memory_entities.salience + 0.05 * EXCLUDED.mention_count)
+			RETURNING id, kind, normalized
+		`;
+
+		const idByKey = new Map();
+		for (const r of upserted) idByKey.set(`${r.kind} ${r.normalized}`, r.id);
+
+		// Dedup link pairs (the PK is (entity_id, memory_id)) before the bulk insert.
+		const linkSet = new Set();
+		const linkRows = [];
+		for (const m of mentions) {
+			const entityId = idByKey.get(m.key);
+			if (!entityId) continue;
+			const pair = `${entityId} ${m.memoryId}`;
+			if (linkSet.has(pair)) continue;
+			linkSet.add(pair);
+			linkRows.push([entityId, m.memoryId]);
+		}
+		if (linkRows.length) {
+			await sql`
+				INSERT INTO agent_memory_entity_links (entity_id, memory_id)
+				SELECT v.entity_id::uuid, v.memory_id::uuid
+				FROM ( VALUES ${sqlValues(linkRows)} ) AS v(entity_id, memory_id)
+				ON CONFLICT DO NOTHING
+			`;
+		}
+
+		const ids = batch.map((r) => r.id);
+		await sql`UPDATE agent_memories SET entities_extracted = true WHERE id = ANY(${ids}::uuid[])`;
+		return { processed: batch.length, remaining: capped ? 1 : 0 };
+	} catch (err) {
+		console.warn('[memory-store] entity extraction failed', err?.message);
+		return { processed: 0, remaining: capped ? 1 : 0 };
+	}
 }
 
 /**

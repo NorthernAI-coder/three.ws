@@ -18,6 +18,7 @@ import {
 	bindDetailExtras,
 } from './marketplace-detail.js';
 import { onchainBadgeHTML } from './shared/onchain-badge.js';
+import { safeUrl } from './safe-url.js';
 import { walletChipHTML, walletChipEl, wireWalletChips } from './shared/agent-wallet-chip.js';
 import { seeInWorldHref, hasCustomAvatar } from './shared/agent-3d.js';
 import { coinChipHTML } from './shared/agent-coin.js';
@@ -1456,7 +1457,7 @@ function openAvatarModal(avatar) {
 			$('avatar-modal-desc')?.insertAdjacentElement('afterend', authorEl);
 		}
 		authorEl.innerHTML = avatar.author.profileUrl
-			? `by <a href="${escapeHtml(avatar.author.profileUrl)}" rel="author">${escapeHtml(avatar.author.displayName || avatar.author.handle)}</a>`
+			? `by <a href="${escapeHtml(safeUrl(avatar.author.profileUrl))}" rel="author">${escapeHtml(avatar.author.displayName || avatar.author.handle)}</a>`
 			: `by ${escapeHtml(avatar.author.displayName || avatar.author.handle)}`;
 	} else if (authorEl) { authorEl.textContent = ''; }
 
@@ -4036,7 +4037,7 @@ function renderOnchainDetail(a) {
 		const fact = (label, value, link) => {
 			if (!value) return '';
 			const v = link
-				? `<a href="${escapeHtml(link)}" target="_blank" rel="noopener">${escapeHtml(value)}</a>`
+				? `<a href="${escapeHtml(safeUrl(link))}" target="_blank" rel="noopener">${escapeHtml(value)}</a>`
 				: escapeHtml(value);
 			return `<div class="onchain-fact"><span class="onchain-fact-label">${escapeHtml(label)}</span><span class="onchain-fact-value">${v}</span></div>`;
 		};
@@ -4392,7 +4393,7 @@ function renderAvatarCard(a, spotlight = false) {
 	const when = a.createdAt ? liveTime(a.createdAt) : '';
 	const author = a.author;
 	const authorLine = author?.profileUrl
-		? `<a class="card-author" href="${escapeHtml(author.profileUrl)}" rel="author">${escapeHtml(author.displayName || author.handle)}</a>`
+		? `<a class="card-author" href="${escapeHtml(safeUrl(author.profileUrl))}" rel="author">${escapeHtml(author.displayName || author.handle)}</a>`
 		: author?.handle
 			? `<span class="card-author">${escapeHtml(author.displayName || author.handle)}</span>`
 			: `<span class="card-author muted">Anonymous</span>`;
@@ -4788,7 +4789,7 @@ async function loadAvatarDetail(id) {
 	const authorEl = $('avatar-detail-author');
 	if (avatar.author?.handle) {
 		authorEl.innerHTML = avatar.author.profileUrl
-			? `by <a href="${escapeHtml(avatar.author.profileUrl)}" rel="author">${escapeHtml(avatar.author.displayName || avatar.author.handle)}</a>`
+			? `by <a href="${escapeHtml(safeUrl(avatar.author.profileUrl))}" rel="author">${escapeHtml(avatar.author.displayName || avatar.author.handle)}</a>`
 			: `by ${escapeHtml(avatar.author.displayName || avatar.author.handle)}`;
 	}
 

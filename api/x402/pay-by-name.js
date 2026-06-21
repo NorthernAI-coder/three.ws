@@ -36,6 +36,7 @@ import {
 } from '@solana/spl-token';
 
 import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.js';
+import { confirmOrThrow } from '../_lib/solana/confirm.js';
 import { sql } from '../_lib/db.js';
 import { cors, error, json, method, readJson, wrap, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
@@ -297,7 +298,8 @@ async function handleSend(req, res, auth, body) {
 	let signature;
 	try {
 		signature = await conn.sendRawTransaction(tx.serialize(), { skipPreflight: false });
-		await conn.confirmTransaction(
+		await confirmOrThrow(
+			conn,
 			{ signature, blockhash, lastValidBlockHeight },
 			'confirmed',
 		);

@@ -48,6 +48,7 @@ import {
 
 import { env } from './env.js';
 import { solanaConnection } from './agent-pumpfun.js';
+import { confirmOrThrow } from './solana/confirm.js';
 import { SOLANA_USDC_MINT } from '../payments/_config.js';
 import { recordReclaim } from './sealed-drop-store.js';
 
@@ -196,7 +197,7 @@ export async function fundDropAddress({ toAddress, asset, atomics }) {
 	tx.recentBlockhash = blockhash;
 	tx.sign(payer);
 	const sig = await conn.sendRawTransaction(tx.serialize(), { skipPreflight: false, maxRetries: 3 });
-	await conn.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed');
+	await confirmOrThrow(conn, { signature: sig, blockhash, lastValidBlockHeight }, 'confirmed');
 	return { fundingTx: sig, atomics: amount.toString(), asset };
 }
 
@@ -297,7 +298,7 @@ export async function sweepReclaim({ record, dropSecretKey, toAddress }) {
 	tx.recentBlockhash = blockhash;
 	tx.sign(feePayer, dropKp);
 	const sig = await conn.sendRawTransaction(tx.serialize(), { skipPreflight: false, maxRetries: 3 });
-	await conn.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed');
+	await confirmOrThrow(conn, { signature: sig, blockhash, lastValidBlockHeight }, 'confirmed');
 	await recordReclaim({ id: record.id, reclaimTx: sig });
 	return { reclaimTx: sig, alreadyReclaimed: false };
 }

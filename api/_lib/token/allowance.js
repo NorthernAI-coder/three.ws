@@ -45,9 +45,10 @@ export const SUBSCRIPTIONS_PROGRAM_ID = new PublicKey(
 	'De1egAFMkMWZSN5rYXRj9CAdheBamobVNubTsi9avR44',
 );
 
-// Instruction discriminators (single leading u8 — see IDL). Only the three we use.
+// Instruction discriminators (single leading u8 — see IDL). Only the ones we use.
 const IX_INIT_SUBSCRIPTION_AUTHORITY = 0;
 const IX_CREATE_FIXED_DELEGATION = 1;
+const IX_REVOKE_DELEGATION = 3;
 const IX_TRANSFER_FIXED = 4;
 
 // On-chain account byte layouts (from the IDL `accounts` definitions). The
@@ -176,6 +177,18 @@ export function ixCreateFixedDelegation({
 			{ pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
 		],
 		data,
+	});
+}
+
+/** revokeDelegation (disc 3) — the user (authority) cancels a delegation and reclaims its rent. */
+export function ixRevokeDelegation({ authority, delegationPda }) {
+	return new TransactionInstruction({
+		programId: SUBSCRIPTIONS_PROGRAM_ID,
+		keys: [
+			{ pubkey: new PublicKey(authority), isSigner: true, isWritable: true },
+			{ pubkey: new PublicKey(delegationPda), isSigner: false, isWritable: true },
+		],
+		data: Buffer.from([IX_REVOKE_DELEGATION]),
 	});
 }
 

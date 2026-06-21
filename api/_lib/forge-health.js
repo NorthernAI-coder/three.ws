@@ -105,6 +105,35 @@ async function probeNvidia() {
 	return result(id, 'ok', 'NVIDIA NIM accepted authentication; the free lane is live.', { latency_ms: latency });
 }
 
+// Hugging Face Spaces (the free `huggingface` image→3D lane): a whoami-v2
+// lookup authenticates the token without touching a Space — no GPU, no queue,
+// no billable work. 200 proves the token is live; 401/403 means a submit would
+// be rejected. We can't cheaply probe Space queue depth, so an authenticated
+// token reports ok with the honest caveat that queue waits vary.
+const HF_WHOAMI_URL = 'https://huggingface.co/api/whoami-v2';
+
+async function probeHuggingFace() {
+	const id = 'huggingface';
+	const token = readEnv('HF_TOKEN');
+	if (!token) return result(id, 'unconfigured', 'HF_TOKEN is not set on this deployment.');
+	const started = Date.now();
+	const res = await probeFetch(HF_WHOAMI_URL, {
+		headers: { authorization: `Bearer ${token}` },
+	});
+	const latency = Date.now() - started;
+	if (!res) return result(id, 'down', 'Hugging Face is unreachable.', { latency_ms: latency });
+	if (res.status === 401 || res.status === 403) {
+		return result(id, 'down', 'Hugging Face rejected the platform token.', { http_status: res.status, latency_ms: latency });
+	}
+	if (res.status === 429) {
+		return result(id, 'degraded', 'Hugging Face is rate-limiting — the free Spaces may queue.', { http_status: res.status, latency_ms: latency });
+	}
+	if (res.ok) {
+		return result(id, 'ok', 'Hugging Face accepted the token; the free Spaces lane is reachable (queue waits vary).', { latency_ms: latency });
+	}
+	return result(id, 'down', `Hugging Face returned an unexpected HTTP ${res.status}.`, { http_status: res.status, latency_ms: latency });
+}
+
 // Self-hosted Cloud Run workers (Hunyuan3D, TripoSG): an authenticated GET
 // against the service root. Cloud Run answers anything <500 when the
 // container is up and routable.
@@ -136,6 +165,7 @@ function byokResult(id) {
 
 const PROBES = {
 	nvidia: probeNvidia,
+	huggingface: probeHuggingFace,
 	trellis: probeReplicate,
 	hunyuan3d: gcpWorkerProbe('hunyuan3d', 'GCP_HUNYUAN3D_URL'),
 	triposg: gcpWorkerProbe('triposg', 'GCP_TRIPOSG_URL'),

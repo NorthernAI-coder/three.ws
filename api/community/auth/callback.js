@@ -23,7 +23,7 @@ function announceSignIn(user) {
 
 function page({ ok, user = null, message = '' }) {
 	// The opener verifies event.origin === APP_ORIGIN before trusting this.
-	const payload = JSON.stringify({ type: 'cc-auth', ok, user, message });
+	const payload = JSON.stringify({ type: 'cc-auth', ok, user, message }).replace(/</g, '\\u003c');
 	return `<!doctype html><meta charset="utf-8"><title>Signing in…</title>
 <body style="margin:0;display:grid;place-items:center;height:100vh;font:15px system-ui;background:#0a0e1c;color:#cdd9f5">
 <div>${ok ? 'Signed in — you can close this window.' : 'Sign-in failed. You can close this window.'}</div>

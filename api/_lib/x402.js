@@ -169,15 +169,22 @@ export async function verifyPaid(req, { agentId, skill, expectedAmount, expected
 }
 
 /**
- * Convenience: complete a paid call. Marks the intent as `consumed` so it
- * can't be reused — paid intents are single-shot per spec.
+ * Convenience: complete a paid call. Atomically marks the intent as `consumed`
+ * so it can't be reused — paid intents are single-shot per spec. Returns true
+ * only for the caller that won the paid→consumed transition; concurrent callers
+ * racing the same intent get false. Revenue/credit side effects MUST be gated on
+ * a true return, otherwise one on-chain payment can be credited N times.
+ *
+ * @returns {Promise<boolean>} true if this call consumed the intent.
  */
 export async function consumeIntent(intentId) {
-	await sql`
+	const rows = await sql`
 		update agent_payment_intents
 		set status = 'consumed'
 		where id = ${intentId} and status = 'paid'
+		returning id
 	`;
+	return rows.length > 0;
 }
 
 /**

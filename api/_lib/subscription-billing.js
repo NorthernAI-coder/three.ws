@@ -70,19 +70,63 @@ export async function chargeSubscription(subscriptionId) {
 		return { success: false, error: 'creator_payout_wallet_missing' };
 	}
 
-	// Create the pending payment record.
-	const [payment] = await sql`
-		INSERT INTO subscription_payments (subscription_id, amount_usd, status)
-		VALUES (${subscriptionId}, ${row.price_usd}, 'pending')
+	// Create the pending payment record — idempotently. At most one pending
+	// payment may exist per (subscription, period): the partial-unique index makes
+	// a concurrent/retried cron pass conflict instead of minting a second payable
+	// intent for the same period. On conflict we REUSE the existing pending payment
+	// (and its intent) rather than creating duplicates.
+	const periodEnd = row.current_period_end;
+	let [payment] = await sql`
+		INSERT INTO subscription_payments (subscription_id, amount_usd, status, period_end)
+		VALUES (${subscriptionId}, ${row.price_usd}, 'pending', ${periodEnd})
+		ON CONFLICT (subscription_id, period_end) WHERE status = 'pending' AND period_end IS NOT NULL
+		DO NOTHING
 		RETURNING id, status, amount_usd
 	`;
+	let reusing = false;
+	if (!payment) {
+		[payment] = await sql`
+			SELECT id, status, amount_usd FROM subscription_payments
+			WHERE subscription_id = ${subscriptionId} AND period_end = ${periodEnd}
+			  AND status = 'pending'
+			ORDER BY created_at DESC LIMIT 1
+		`;
+		reusing = true;
+		if (!payment) {
+			// The conflicting row left 'pending' between our insert and select — a
+			// charge is mid-flight for this period; let the next pass settle it.
+			return { success: false, error: 'charge_in_progress' };
+		}
+	}
+
+	const amountAtomics = String(BigInt(Math.round(row.price_usd * 1_000_000)));
+	const memo = `sub:${subscriptionId}:${payment.id}`;
+
+	// If we're reusing an existing pending payment that already has a live intent,
+	// hand back THAT intent — never mint a second payable intent for one period.
+	if (reusing) {
+		const [existingIntent] = await sql`
+			SELECT id FROM agent_payment_intents
+			WHERE memo = ${memo} AND status = 'pending'
+			ORDER BY start_time DESC LIMIT 1
+		`;
+		if (existingIntent) {
+			return {
+				success: false,
+				pending: true,
+				paymentId: payment.id,
+				intentId: existingIntent.id,
+				payUrl: `${APP_ORIGIN}/pay?intent=${encodeURIComponent(existingIntent.id)}`,
+				amount_usd: Number(row.price_usd),
+				reused: true,
+			};
+		}
+	}
 
 	// Create the matching payment intent so the subscriber can actually pay.
 	// Amount stored in canonical USDC atomics — both EVM and Solana USDC are
 	// 6-decimal so the conversion is identical.
-	const amountAtomics = String(BigInt(Math.round(row.price_usd * 1_000_000)));
 	const intentId = `sub_${nanoid()}`;
-	const memo = `sub:${subscriptionId}:${payment.id}`;
 	const now = new Date();
 	const expiresAt = new Date(now.getTime() + 7 * 24 * 3600 * 1000); // 7-day grace window
 
@@ -185,9 +229,12 @@ export async function confirmPayment(paymentId, txHash) {
 	if (sub) {
 		const periodMs = sub.interval === 'weekly' ? 7 * 24 * 3600 * 1000 : 30 * 24 * 3600 * 1000;
 		const nextEnd = new Date(new Date(sub.current_period_end).getTime() + periodMs).toISOString();
+		// GREATEST so an out-of-order confirm (e.g. a manual replay) can only ever
+		// move the period boundary forward, never rewind a subscriber's paid time.
 		await sql`
 			UPDATE creator_subscriptions
-			SET current_period_end = ${nextEnd}, status = 'active'
+			SET current_period_end = GREATEST(current_period_end, ${nextEnd}::timestamptz),
+			    status = 'active'
 			WHERE id = ${payment.subscription_id}
 		`;
 	}

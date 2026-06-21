@@ -22,6 +22,7 @@ import {
 	TransactionInstruction,
 } from '@solana/web3.js';
 import { solanaConnection } from './solana/connection.js';
+import { confirmOrThrow } from './solana/confirm.js';
 import bs58 from 'bs58';
 
 const bs58decode = bs58.default ? bs58.default.decode : bs58.decode;
@@ -201,7 +202,7 @@ export async function sendSol({ connection, fromKeypair, to, lamports, memo }) {
 		skipPreflight: false,
 		maxRetries: 3,
 	});
-	await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, 'confirmed');
+	await confirmOrThrow(connection, { signature, blockhash, lastValidBlockHeight }, 'confirmed');
 	return signature;
 }
 

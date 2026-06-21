@@ -154,11 +154,21 @@ async function fanoutBuys(network, stats) {
 	const spent = new Map(spendRows.map((r) => [r.subscription_id, Number(r.spent) || 0]));
 	const open = new Map(openRows.map((r) => [r.subscription_id, Number(r.open) || 0]));
 
+	// Active subscriptions for every leader in this batch, fetched once and grouped
+	// by leader_agent_id — replaces a per-position query.
+	const leaderIds = [...new Set(positions.map((p) => p.agent_id))];
+	const subRows = await sql`
+		select * from copy_subscriptions
+		where leader_agent_id = any(${leaderIds}) and network = ${network} and status = 'active'
+	`;
+	const subsByLeader = new Map();
+	for (const s of subRows) {
+		if (!subsByLeader.has(s.leader_agent_id)) subsByLeader.set(s.leader_agent_id, []);
+		subsByLeader.get(s.leader_agent_id).push(s);
+	}
+
 	for (const pos of positions) {
-		const subs = await sql`
-			select * from copy_subscriptions
-			where leader_agent_id = ${pos.agent_id} and network = ${network} and status = 'active'
-		`;
+		const subs = subsByLeader.get(pos.agent_id) || [];
 		if (!subs.length) continue;
 		const score = await oracleScore(pos.mint, network);
 		const coin = await coinContext(pos.mint, score);
@@ -223,13 +233,25 @@ async function fanoutSells(network, stats) {
 		order by p.closed_at desc
 		limit 200
 	`;
+	if (!closes.length) return;
+
+	// Acted buys for every close in this batch, fetched once and grouped by the
+	// leader position they mirror — replaces a per-close query.
+	const closeIds = [...new Set(closes.map((p) => p.id))];
+	const buyRows = await sql`
+		select e.leader_position_id, e.subscription_id, e.copier_user_id, s.copy_sells, s.status as sub_status
+		from copy_executions e
+		join copy_subscriptions s on s.id = e.subscription_id
+		where e.leader_position_id = any(${closeIds}) and e.direction = 'buy' and e.status = 'acted'
+	`;
+	const buysByPosition = new Map();
+	for (const b of buyRows) {
+		if (!buysByPosition.has(b.leader_position_id)) buysByPosition.set(b.leader_position_id, []);
+		buysByPosition.get(b.leader_position_id).push(b);
+	}
+
 	for (const pos of closes) {
-		const buys = await sql`
-			select e.subscription_id, e.copier_user_id, s.copy_sells, s.status as sub_status
-			from copy_executions e
-			join copy_subscriptions s on s.id = e.subscription_id
-			where e.leader_position_id = ${pos.id} and e.direction = 'buy' and e.status = 'acted'
-		`;
+		const buys = buysByPosition.get(pos.id) || [];
 		for (const b of buys) {
 			if (!b.copy_sells || b.sub_status === 'stopped') continue;
 			const [inserted] = await sql`
@@ -287,11 +309,21 @@ async function fanoutOracleBuys(network, stats) {
 	const spent = new Map(spendRows.map((r) => [r.subscription_id, Number(r.spent) || 0]));
 	const open = new Map(openRows.map((r) => [r.subscription_id, Number(r.open) || 0]));
 
+	// Active subscriptions for every acting agent in this batch, fetched once and
+	// grouped by leader_agent_id — replaces a per-action query.
+	const leaderIds = [...new Set(actions.map((a) => a.agent_id))];
+	const subRows = await sql`
+		select * from copy_subscriptions
+		where leader_agent_id = any(${leaderIds}) and network = ${network} and status = 'active'
+	`;
+	const subsByLeader = new Map();
+	for (const s of subRows) {
+		if (!subsByLeader.has(s.leader_agent_id)) subsByLeader.set(s.leader_agent_id, []);
+		subsByLeader.get(s.leader_agent_id).push(s);
+	}
+
 	for (const action of actions) {
-		const subs = await sql`
-			select * from copy_subscriptions
-			where leader_agent_id = ${action.agent_id} and network = ${network} and status = 'active'
-		`;
+		const subs = subsByLeader.get(action.agent_id) || [];
 		if (!subs.length) continue;
 		// Oracle action has conviction inline — no DB lookup needed.
 		const coin = await coinContext(action.mint, action.conviction != null ? Number(action.conviction) : null);

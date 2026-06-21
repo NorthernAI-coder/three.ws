@@ -7,10 +7,28 @@ import { captureException } from './sentry.js';
 import { sendOpsAlert } from './alerts.js';
 import { instrument as zauthInstrument, drain as zauthDrain } from './zauth.js';
 
+// Secure-by-default caching: emit `no-store` UNLESS the handler already set a
+// Cache-Control header (e.g. `res.setHeader('cache-control', 'public, s-maxage=…')`
+// on a public read) or passes one via `headers`. Previously this unconditionally
+// forced `no-store`, silently overriding any cache header a handler set just
+// before calling json()/text() — so public reads like /u/:username were never
+// CDN-cacheable. Error responses must NEVER be cached, so error()/serverError()/
+// validationError() pass an explicit `cache-control: no-store` in `headers`,
+// which wins via the loop below regardless of what the success path set.
+function applyCacheControl(res, headers) {
+	const fromArg = Object.keys(headers).some((k) => k.toLowerCase() === 'cache-control');
+	// `getHeader` is always present on a real Node ServerResponse; guard so a
+	// minimal mock without it still gets the secure default rather than throwing.
+	const alreadySet = typeof res.getHeader === 'function' && res.getHeader('cache-control');
+	if (!fromArg && !alreadySet) {
+		res.setHeader('cache-control', 'no-store');
+	}
+}
+
 export function json(res, status, body, headers = {}) {
 	res.statusCode = status;
 	res.setHeader('content-type', 'application/json; charset=utf-8');
-	res.setHeader('cache-control', 'no-store');
+	applyCacheControl(res, headers);
 	res.setHeader('x-content-type-options', 'nosniff');
 	res.setHeader('x-frame-options', 'DENY');
 	res.setHeader('referrer-policy', 'strict-origin-when-cross-origin');
@@ -21,7 +39,7 @@ export function json(res, status, body, headers = {}) {
 export function text(res, status, body, headers = {}) {
 	res.statusCode = status;
 	res.setHeader('content-type', 'text/plain; charset=utf-8');
-	res.setHeader('cache-control', 'no-store');
+	applyCacheControl(res, headers);
 	res.setHeader('x-content-type-options', 'nosniff');
 	res.setHeader('x-frame-options', 'DENY');
 	res.setHeader('referrer-policy', 'strict-origin-when-cross-origin');
@@ -37,7 +55,9 @@ export function redirect(res, location, status = 302) {
 }
 
 export function error(res, status, code, message, extra = {}) {
-	return json(res, status, { error: code, error_description: message, ...extra });
+	// Error responses must never be cached, even on a handler that set a permissive
+	// Cache-Control on its success path before hitting this error branch.
+	return json(res, status, { error: code, error_description: message, ...extra }, { 'cache-control': 'no-store' });
 }
 
 // Query params that can carry a user's real-world position or a bearer-style
@@ -110,7 +130,7 @@ export function serverError(res, status, code, err, extra = {}) {
 		error_description: `internal error — quote ref ${ref} to support`,
 		ref,
 		...extra,
-	});
+	}, { 'cache-control': 'no-store' });
 }
 
 // Dispatch: client-fault (4xx) keep their descriptive message; server-fault
@@ -169,7 +189,7 @@ export function validationError(res, err) {
 		error: err.code || 'validation_error',
 		error_description: err.message || 'invalid input',
 		issues: err.issues || [],
-	});
+	}, { 'cache-control': 'no-store' });
 }
 
 export async function readJson(req, limit = 1_000_000) {
@@ -295,7 +315,7 @@ export function wrap(handler) {
 						error: err.code || 'internal_error',
 						error_description: `internal error — quote ref ${ref} to support`,
 						ref,
-					});
+					}, { 'cache-control': 'no-store' });
 				}
 			} else if (!res.headersSent && !res.writableEnded) {
 				if (err.code === 'validation_error' && Array.isArray(err.issues)) {

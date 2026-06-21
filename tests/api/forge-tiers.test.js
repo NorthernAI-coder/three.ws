@@ -119,6 +119,66 @@ describe('forge-tiers — NVIDIA NIM backend registration', () => {
 	});
 });
 
+// The free HuggingFace Spaces lane is the free option for PHOTO input — the
+// counterpart to the text-only NVIDIA lane. It must surface in the catalog as a
+// free, image-capable, platform-keyed engine gated on HF_TOKEN, and be an
+// explicit opt-in (never the silent auto-default).
+describe('forge-tiers — HuggingFace free image lane', () => {
+	const prev = process.env.HF_TOKEN;
+	afterEach(() => {
+		if (prev === undefined) delete process.env.HF_TOKEN;
+		else process.env.HF_TOKEN = prev;
+	});
+
+	it('registers a free, platform-keyed image backend that accepts user photos', () => {
+		const hf = BACKENDS.huggingface;
+		expect(hf).toBeTruthy();
+		expect(hf.provider).toBe('huggingface');
+		expect(hf.byok).toBe(false);
+		expect(hf.paths).toEqual(['image']);
+		expect(hf.requiresEnv).toEqual(['HF_TOKEN']);
+		expect(hf.free).toBe(true);
+		expect(hf.userImages).toBe(true);
+		expect(hf.credits).toBeNull();
+		expect(hf.baseEta).toBeGreaterThan(0);
+	});
+
+	it('is configured only when HF_TOKEN is present', () => {
+		delete process.env.HF_TOKEN;
+		expect(backendIsConfigured('huggingface')).toBe(false);
+		process.env.HF_TOKEN = 'hf_test';
+		expect(backendIsConfigured('huggingface')).toBe(true);
+	});
+
+	it('surfaces in the catalog as a free, photo-capable, selectable engine', () => {
+		process.env.HF_TOKEN = 'hf_test';
+		const hf = buildCatalog().backends.find((b) => b.id === 'huggingface');
+		expect(hf).toBeTruthy();
+		expect(hf.free).toBe(true);
+		expect(hf.user_images).toBe(true);
+		expect(hf.byok).toBeNull();
+		expect(hf.configured).toBe(true);
+		const est = hf.estimates.image.find((e) => e.tier === 'standard');
+		expect(est.eta_seconds).toBeGreaterThan(0);
+		expect(est.credits).toBeNull();
+	});
+
+	it('stays selectable when explicitly named on the image path with photos', () => {
+		expect(
+			resolveBackendId({ path: 'image', tier: 'standard', backend: 'huggingface', userImages: true }),
+		).toBe('huggingface');
+	});
+
+	// An explicit opt-in lane, not a silent default — the standing image default
+	// stays trellis (which free-firsts to HF internally), so resolution without an
+	// explicit pick never surprises a caller onto the HF Spaces lane.
+	it('is never the auto-resolved default for the image path', () => {
+		delete process.env.HF_TOKEN;
+		expect(resolveBackendId({ path: 'image', tier: 'standard' })).not.toBe('huggingface');
+		expect(resolveBackendId({ path: 'image', tier: 'draft', userImages: true })).not.toBe('huggingface');
+	});
+});
+
 // The Hunyuan3D lane runs on its own Cloud Run worker. It must never report
 // configured off the avatar pipeline's GCP_RECONSTRUCTION_URL — that service's
 // face pipeline rejects every non-face image, so the lane looked live in the

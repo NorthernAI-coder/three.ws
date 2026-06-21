@@ -201,6 +201,31 @@
 			.aspect button[aria-pressed='true'] .eng-key {
 				opacity: 0.95;
 			}
+			/* "FREE" pill on zero-cost engines (catalog free:true). A quiet green
+			   accent so the free lanes read at a glance without shouting over the
+			   selected-state styling. Sits after the label, before the health dot. */
+			.aspect button .eng-free {
+				margin-left: 0.45em;
+				padding: 0.05em 0.4em;
+				border-radius: 999px;
+				font-size: 0.62em;
+				font-weight: 700;
+				letter-spacing: 0.04em;
+				line-height: 1.5;
+				vertical-align: 0.08em;
+				/* Dark theme is the default — a bright mint reads on the dark button. */
+				color: #4ade80;
+				background: rgba(34, 197, 94, 0.14);
+				border: 1px solid rgba(74, 222, 128, 0.38);
+			}
+			html[data-theme='light'] .aspect button .eng-free {
+				color: #0a7d33;
+				background: rgba(34, 197, 94, 0.16);
+				border-color: rgba(34, 197, 94, 0.32);
+			}
+			.aspect button:disabled .eng-free {
+				opacity: 0.5;
+			}
 			.aspect button:focus-visible,
 			.chip:focus-visible,
 			.btn:focus-visible {

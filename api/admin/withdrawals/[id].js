@@ -62,16 +62,23 @@ export default wrap(async (req, res) => {
 		);
 	}
 
+	// Compare-and-set on the status we validated against. Without this guard the
+	// SELECT-then-UPDATE races the cron's atomic pending→processing claim (and a
+	// second admin): both could read 'pending' and both send funds. Gating the
+	// UPDATE on the prior status means exactly one transition wins; the loser
+	// gets a clean 409 instead of a double-spend.
 	const [withdrawal] = await sql`
 		update agent_withdrawals
 		set
 			status = ${status},
 			tx_signature = coalesce(${tx_signature ?? null}, tx_signature),
 			updated_at = now()
-		where id = ${id}
+		where id = ${id} and status = ${current.status}
 		returning id, user_id, agent_id, amount, currency_mint, chain, to_address,
 		          status, tx_signature, created_at, updated_at
 	`;
+	if (!withdrawal)
+		return error(res, 409, 'conflict', 'withdrawal status changed concurrently — reload and retry');
 
 	if (status === 'completed' || status === 'failed') {
 		const notifType = status === 'completed' ? 'withdrawal_completed' : 'withdrawal_failed';

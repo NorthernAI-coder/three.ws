@@ -131,7 +131,13 @@ async function buyOnPump({ network, mint, solAmount, payer, useJito = false, jit
 	const tx = new VersionedTransaction(msg);
 	tx.sign([payer]);
 	const sig = await connection.sendRawTransaction(tx.serialize(), { skipPreflight: false, maxRetries: 3 });
-	await connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed');
+	const conf = await connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed');
+	// confirmTransaction resolves for a tx that landed-but-reverted; the on-chain
+	// error is in value.err, not a thrown exception. Surface it so the executor
+	// never records a reverted oracle execution as a confirmed one.
+	if (conf?.value?.err) {
+		throw new Error(`oracle tx ${sig} reverted on-chain: ${JSON.stringify(conf.value.err)}`);
+	}
 	return sig;
 }
 

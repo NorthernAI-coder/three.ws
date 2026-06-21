@@ -11,6 +11,7 @@ import { BACKENDS } from '../../api/_lib/forge-tiers.js';
 
 const ENV_VARS = [
 	'NVIDIA_API_KEY',
+	'HF_TOKEN',
 	'REPLICATE_API_TOKEN',
 	'GCP_HUNYUAN3D_URL',
 	'GCP_TRIPOSG_URL',
@@ -82,6 +83,7 @@ describe('forge-health — per-backend verdicts', () => {
 		mockUpstreams([]);
 		const health = await probeForgeHealth();
 		expect(health.backends.nvidia.status).toBe('unconfigured');
+		expect(health.backends.huggingface.status).toBe('unconfigured');
 		expect(health.backends.trellis.status).toBe('unconfigured');
 		expect(health.backends.hunyuan3d.status).toBe('unconfigured');
 	});
@@ -132,6 +134,29 @@ describe('forge-health — per-backend verdicts', () => {
 		mockUpstreams([['api.nvcf.nvidia.com', 401]]);
 		const health = await probeForgeHealth();
 		expect(health.backends.nvidia.status).toBe('down');
+	});
+
+	it('passes HuggingFace when whoami authenticates the token (200)', async () => {
+		process.env.HF_TOKEN = 'hf_test';
+		mockUpstreams([['huggingface.co', 200]]);
+		const health = await probeForgeHealth();
+		expect(health.backends.huggingface.status).toBe('ok');
+	});
+
+	it('fails HuggingFace on a rejected token (401) and degrades on rate-limit (429)', async () => {
+		process.env.HF_TOKEN = 'hf_bad';
+		mockUpstreams([['huggingface.co', 401]]);
+		expect((await probeForgeHealth()).backends.huggingface.status).toBe('down');
+		resetForgeHealthCache();
+		mockUpstreams([['huggingface.co', 429]]);
+		expect((await probeForgeHealth()).backends.huggingface.status).toBe('degraded');
+	});
+
+	it('never probes HuggingFace when HF_TOKEN is unset', async () => {
+		mockUpstreams([]);
+		const health = await probeForgeHealth();
+		expect(health.backends.huggingface.status).toBe('unconfigured');
+		expect(backendProbes()).toEqual([]);
 	});
 
 	it('probes a deployed Hunyuan3D worker and reports 5xx as down', async () => {

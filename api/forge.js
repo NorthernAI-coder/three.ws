@@ -879,6 +879,11 @@ async function startJob(req, res) {
 					provider = createGcpProvider({ reconstructUrl: hunyuanUrl });
 				} else if (backendId === 'replicate_byok') {
 					provider = createRegenProvider({ apiToken: byokReplicateKey });
+				} else if (backendId === 'huggingface') {
+					// The free HF Spaces lane is driven by runHfImageLane() below — it
+					// creates its own provider. We deliberately do NOT build a Replicate
+					// client here: creating one would 503 on a deployment that has no
+					// REPLICATE_API_TOKEN, breaking an explicitly-chosen free engine.
 				} else {
 					provider = createRegenProvider();
 				}
@@ -911,6 +916,37 @@ async function startJob(req, res) {
 			referenceImageUrl = synthesized.imageUrl;
 			textToImageModel = synthesized.model;
 			views = [referenceImageUrl];
+		}
+
+		// Explicitly chosen free HuggingFace lane. Unlike the trellis free-first
+		// path below — which degrades to the paid Replicate lane when the free
+		// Spaces are down — an explicit pick of the FREE engine must never silently
+		// fall through to a paid lane: that would spend credits the user
+		// deliberately opted out of. So we run the free Spaces and, if every one is
+		// busy/down, return a designed error the UI can act on (retry / switch engine).
+		if (backendId === 'huggingface') {
+			if (
+				await runHfImageLane({
+					req,
+					res,
+					ip,
+					imageUrls: views,
+					prompt,
+					aspect,
+					tier,
+					path,
+					mode: isImageMode ? 'image_to_3d' : 'text_to_3d',
+					previewImageUrl: referenceImageUrl,
+					textToImageModel,
+				})
+			)
+				return;
+			return json(res, 502, {
+				error: 'provider_busy',
+				backend: 'huggingface',
+				message:
+					'The free 3D Spaces are all busy or warming up right now. Try again in a moment, or pick another engine.',
+			});
 		}
 
 		// Free-first: exhaust the free reconstruct lane (HuggingFace Spaces) BEFORE

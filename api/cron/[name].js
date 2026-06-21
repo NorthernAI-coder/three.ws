@@ -30,6 +30,7 @@ import { evmTransport } from '../_lib/evm/rpc.js';
 import { baseSepolia, base } from 'viem/chains';
 
 import { sql } from '../_lib/db.js';
+import { confirmOrThrow } from '../_lib/solana/confirm.js';
 import { cors, error, json, method, wrap } from '../_lib/http.js';
 import { env } from '../_lib/env.js';
 import { llmComplete } from '../_lib/llm.js';
@@ -1770,7 +1771,7 @@ async function handleRunBuyback(req, res) {
 			tx.feePayer = relayer.publicKey;
 			tx.sign(relayer);
 			const sig = await connection.sendRawTransaction(tx.serialize());
-			await connection.confirmTransaction(sig, 'confirmed');
+			await confirmOrThrow(connection, sig, 'confirmed');
 
 			const [run] = await sql`
 				insert into pump_buyback_runs
@@ -2523,7 +2524,7 @@ async function handleRunDistributePayments(req, res) {
 			const sig = await connection.sendRawTransaction(tx.serialize(), {
 				skipPreflight: false,
 			});
-			await connection.confirmTransaction(sig, 'confirmed');
+			await confirmOrThrow(connection, sig, 'confirmed');
 
 			const balancesAfter = await agent.getBalances(currency);
 			const [run] = await sql`
@@ -3085,6 +3086,19 @@ async function handleProcessSubscriptions(req, res) {
 		}
 	}
 
+	// Page on genuine charge failures so a billing outage doesn't hide behind a
+	// green cron. 'charge_in_progress' is the benign idempotency signal (another
+	// pass already owns this period) and is intentionally not a failure.
+	const realErrors = report.errors.filter((e) => e.error !== 'charge_in_progress');
+	if (realErrors.length > 0) {
+		const { sendOpsAlert } = await import('../_lib/alerts.js');
+		await sendOpsAlert(
+			`${realErrors.length} subscription charge(s) failed this run`,
+			realErrors.slice(0, 10).map((e) => `• ${e.id}: ${e.error}`).join('\n'),
+			{ signature: 'subscriptions-charge-failed' },
+		);
+	}
+
 	console.log(JSON.stringify({ event: 'process_subscriptions.done', ...report }));
 	return json(res, 200, report);
 }
@@ -3205,6 +3219,30 @@ async function handleProcessWithdrawals(req, res) {
 	const { transferSolanaUSDC } = await import('../_lib/solana-transfer.js');
 	const { sendEvmUsdc, resolveEvmChainId } = await import('../_lib/evm-transfer.js');
 	const { insertNotification } = await import('../_lib/notify.js');
+	const { sendOpsAlert } = await import('../_lib/alerts.js');
+
+	// Reconciliation: a crash between the on-chain send and the 'completed' write
+	// strands a row in 'processing'. The main loop only claims 'pending', so it is
+	// never retried. We do NOT auto-resend — without an on-chain idempotency
+	// reference a blind retry could double-pay — we page an operator to reconcile
+	// by hand (confirm the transfer settled, then complete or re-queue the row).
+	const stranded = await sql`
+		SELECT id, amount, currency_mint, chain, updated_at
+		FROM agent_withdrawals
+		WHERE status = 'processing' AND updated_at < now() - interval '15 minutes'
+		ORDER BY updated_at ASC LIMIT 50
+	`;
+	if (stranded.length) {
+		await sendOpsAlert(
+			`${stranded.length} withdrawal(s) stranded in 'processing' >15m`,
+			stranded
+				.map((s) => `• ${s.id} — ${s.amount} ${s.currency_mint} (${s.chain})`)
+				.join('\n') +
+				'\nManual reconciliation required: verify whether the on-chain transfer ' +
+				'settled BEFORE completing or re-queuing — a blind retry can double-pay.',
+			{ signature: 'withdrawals-stranded' },
+		);
+	}
 
 	// Build the chain filter to match what we can actually process. A row whose
 	// chain has no treasury key configured stays 'pending' for the next pass
@@ -3259,7 +3297,7 @@ async function handleProcessWithdrawals(req, res) {
 		LIMIT ${WITHDRAWALS_BATCH}
 	`;
 
-	const report = { processed: 0, completed: 0, failed: 0, skipped: 0, errors: [] };
+	const report = { processed: 0, completed: 0, failed: 0, skipped: 0, sendFailed: 0, errors: [] };
 
 	for (const w of pending) {
 		report.processed++;
@@ -3337,31 +3375,47 @@ async function handleProcessWithdrawals(req, res) {
 				WHERE id = ${w.user_id}
 			`.catch((e) => console.error('[process-withdrawals] referral deduct failed:', e.message));
 
-			insertNotification(w.user_id, 'withdrawal_completed', {
+			await insertNotification(w.user_id, 'withdrawal_completed', {
 				withdrawal_id: w.id,
 				amount: w.amount,
 				currency_mint: w.currency_mint,
 				chain: w.chain,
 				tx_signature: sig,
-			});
+			}).catch((e) => console.error('[process-withdrawals] notify completed failed:', e.message));
 
 			report.completed++;
 		} catch (err) {
 			const msg = err.message || String(err);
+			// The row was already claimed to 'processing'. A failure HERE may mean the
+			// on-chain send threw before broadcast (safe to fail) OR after (funds may
+			// have moved). Mark failed so the user is told, but record it as a send
+			// failure so the batch alert fires and an operator reconciles.
 			await sql`
 				UPDATE agent_withdrawals
 				SET status = 'failed', error_message = ${msg}, updated_at = now()
 				WHERE id = ${w.id}
 			`;
-			insertNotification(w.user_id, 'withdrawal_failed', {
+			await insertNotification(w.user_id, 'withdrawal_failed', {
 				withdrawal_id: w.id,
 				amount: w.amount,
 				currency_mint: w.currency_mint,
 				reason: msg,
-			});
+			}).catch((e) => console.error('[process-withdrawals] notify failed failed:', e.message));
 			report.failed++;
+			report.sendFailed++;
 			report.errors.push({ id: w.id, error: msg });
 		}
+	}
+
+	// A green cron with failing payouts is invisible — page on real send failures
+	// (treasury out of gas/SOL, RPC down, transfer reverted) so a payout outage
+	// doesn't sit silently. Balance-rejections above are normal and excluded.
+	if (report.sendFailed > 0) {
+		await sendOpsAlert(
+			`${report.sendFailed} withdrawal payout(s) failed on-chain this run`,
+			report.errors.slice(0, 10).map((e) => `• ${e.id}: ${e.error}`).join('\n'),
+			{ signature: 'withdrawals-send-failed' },
+		);
 	}
 
 	return json(res, 200, { ok: true, ...report });
