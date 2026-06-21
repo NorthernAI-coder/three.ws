@@ -159,9 +159,9 @@ describe('cosmetic-purchase endpoint boundary', () => {
 	beforeEach(() => {
 		// Minimal x402 config so the 402 challenge can build a Solana accept — the
 		// Solana leg needs both a payout address and a co-signing fee payer.
-		process.env.X402_PAY_TO_SOLANA = 'BUrwd1nK6tFeeJMyzRHDo6AuVbnSfUULfvwq21X93nSN';
+		process.env.X402_PAY_TO_SOLANA = 'wwwwwDxFWRn7grgr3Esrsg5C6NvDoDHSA4gaCffccrU';
 		process.env.X402_ASSET_MINT_SOLANA = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
-		process.env.X402_FEE_PAYER_SOLANA = 'BUrwd1nK6tFeeJMyzRHDo6AuVbnSfUULfvwq21X93nSN';
+		process.env.X402_FEE_PAYER_SOLANA = 'wwwwwDxFWRn7grgr3Esrsg5C6NvDoDHSA4gaCffccrU';
 	});
 
 	it('rejects missing id / account', async () => {

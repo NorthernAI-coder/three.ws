@@ -48,7 +48,7 @@ const INPUT_SCHEMA = {
 const OUTPUT_EXAMPLE = {
 	agent_id: '7b9a4f30-2d11-4e2d-9d12-1cdb1f6a3a55',
 	name: 'Helios',
-	wallet_address: 'BUrwd1nK6tFeeJMyzRHDo6AuVbnSfUULfvwq21X93nSN',
+	wallet_address: 'wwwwwDxFWRn7grgr3Esrsg5C6NvDoDHSA4gaCffccrU',
 	deployed_mints: 2,
 	mints: [
 		{ mint: 'C3vQ...', network: 'mainnet', symbol: 'HELIO' },
