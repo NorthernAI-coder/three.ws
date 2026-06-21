@@ -25,7 +25,11 @@ export async function loadCurriculum() {
 // Normalize a pathname to match curriculum stop paths ("/" stays "/", others
 // lose any trailing slash). Query and hash are irrelevant to which stop we're on.
 export function normalizePath(pathname = location.pathname) {
-	const p = pathname.replace(/\/+$/, '');
+	// Strip query/hash first (a caller may hand us a full href) then trailing
+	// slashes, so only the route path decides which stop we're on — as the
+	// surrounding comments promise.
+	const clean = String(pathname).split(/[?#]/)[0];
+	const p = clean.replace(/\/+$/, '');
 	return p === '' ? '/' : p;
 }
 
@@ -130,5 +134,5 @@ export function stopIndexForPath(curriculum, pathname = location.pathname) {
 }
 
 export function sectionTitle(curriculum, id) {
-	return curriculum.sections.find((s) => s.id === id)?.title || '';
+	return (curriculum.sections || []).find((s) => s.id === id)?.title || '';
 }

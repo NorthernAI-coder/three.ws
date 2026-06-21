@@ -3,6 +3,13 @@
 	"entries": [
 		{
 			"date": "2026-06-21",
+			"title": "Guided Tour: smoother, more reliable, more accessible",
+			"summary": "A pass over the 3D guided tour fixed a handful of rough edges. If a narration clip failed to load, the tour used to skip straight past that stop with no audio and no time to read the caption — now it paces the caption just like it does when audio is muted. In free roam, a movement key still held when you rejoined the tour could leave the guide drifting on its own; that's fixed. The spotlight ring now recovers if the thing it's highlighting briefly disappears and comes back, instead of going dark for the rest of the stop. Restarting from the 'Walk it again' button now cleanly rebuilds the tour, and the chapter menu keeps keyboard focus inside the panel so it no longer wanders behind the overlay.",
+			"tags": ["fix", "improvement"],
+			"link": "/tour"
+		},
+		{
+			"date": "2026-06-21",
 			"title": "x402 comes to VS Code",
 			"summary": "A new VS Code extension brings the x402 bazaar into your editor. Browse and search every paid API and MCP tool across the network, decode any endpoint's payment challenge to see exactly what it charges and on which chain, and pay-per-call with USDC right from a side panel — the amount is shown and confirmed before signing, a spending cap blocks anything over your limit, and the on-chain receipt comes back inline. Your wallet key is stored in the OS keychain, never in files. Developers can also scaffold a new paid endpoint in one command. Built for the people who wire up and call paid services — and they live in their editor.",
 			"tags": ["sdk", "feature"]

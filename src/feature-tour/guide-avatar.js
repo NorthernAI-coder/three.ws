@@ -66,6 +66,8 @@ export class GuideAvatar {
 		this._targetYaw = 0;
 		this._walking = false;
 		this._walkRaf = 0;
+		this._walkResolve = null;
+		this._bubbleHideTimer = 0;
 		this._reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 		this._pos = { x: 0, y: 0 };
 		// Vertical physics state — height above the ground plane and its velocity.
@@ -241,6 +243,13 @@ export class GuideAvatar {
 			y: clamp(pos.y, MARGIN, window.innerHeight - CANVAS_H - MARGIN),
 		};
 		// Supersede any walk already in flight so a fresh click redirects the guide.
+		// Settle its promise first so an awaiter (approach/park) can never hang
+		// forever once we cancel the RAF that would have resolved it.
+		if (this._walkResolve) {
+			const prev = this._walkResolve;
+			this._walkResolve = null;
+			prev();
+		}
 		cancelAnimationFrame(this._walkRaf);
 		this._walkRaf = 0;
 		const dx = clamped.x - this._pos.x;
@@ -258,6 +267,7 @@ export class GuideAvatar {
 		let traveled = 0;
 		let last = performance.now();
 		return new Promise((resolve) => {
+			this._walkResolve = resolve;
 			const step = (now) => {
 				const dt = Math.min((now - last) / 1000, 0.05);
 				last = now;
@@ -265,6 +275,7 @@ export class GuideAvatar {
 				this.place({ x: from.x + ux * traveled, y: from.y + uy * traveled });
 				if (traveled >= dist) {
 					this._walkRaf = 0;
+					this._walkResolve = null;
 					this.settle();
 					resolve();
 					return;
@@ -362,14 +373,16 @@ export class GuideAvatar {
 	// ── Speech bubble ─────────────────────────────────────────────────────────
 	say(text) {
 		if (!this.bubble) return;
+		clearTimeout(this._bubbleHideTimer);
 		this.bubble.textContent = text;
 		this.bubble.hidden = false;
-		requestAnimationFrame(() => this.bubble.classList.add('is-in'));
+		requestAnimationFrame(() => this.bubble?.classList.add('is-in'));
 	}
 	hideBubble() {
 		if (!this.bubble) return;
 		this.bubble.classList.remove('is-in');
-		setTimeout(() => {
+		clearTimeout(this._bubbleHideTimer);
+		this._bubbleHideTimer = setTimeout(() => {
 			if (this.bubble) this.bubble.hidden = true;
 		}, 280);
 	}
@@ -411,8 +424,15 @@ export class GuideAvatar {
 		cancelAnimationFrame(this._raf);
 		cancelAnimationFrame(this._walkRaf);
 		clearTimeout(this._settleTimer);
+		clearTimeout(this._bubbleHideTimer);
 		this._raf = 0;
 		this._walkRaf = 0;
+		// Settle any awaiter blocked on an in-flight walk so it can't hang past teardown.
+		if (this._walkResolve) {
+			const prev = this._walkResolve;
+			this._walkResolve = null;
+			prev();
+		}
 		try {
 			this.controller?.dispose();
 		} catch {
@@ -429,6 +449,7 @@ export class GuideAvatar {
 		}
 		this.host?.remove();
 		this.host = null;
+		this.bubble = null;
 	}
 }
 

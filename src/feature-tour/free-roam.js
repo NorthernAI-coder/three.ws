@@ -52,6 +52,7 @@ export class FreeRoam {
 		this.avatar = avatar;
 		this.enabled = false;
 		this.dragging = false;
+		this._dragPointerId = null;
 		this._grab = { x: 0, y: 0 };
 		this._ptr = { x: 0, y: 0 };
 		this._scrollRaf = 0;
@@ -87,6 +88,10 @@ export class FreeRoam {
 		this.enabled = false;
 		this._endDrag();
 		this._stopWalk();
+		// A key still physically held when we disable will never deliver its keyup
+		// here (listeners are about to be removed), which would leave that direction
+		// stuck on for the next enable — clear the held state now.
+		this._keys = { up: false, down: false, left: false, right: false, run: false };
 		document.removeEventListener('pointerdown', this._onDown, true);
 		document.removeEventListener('keydown', this._onKeyDown, true);
 		document.removeEventListener('keyup', this._onKeyUp, true);
@@ -106,6 +111,12 @@ export class FreeRoam {
 			this._grab = { x: e.clientX - r.left, y: e.clientY - r.top };
 			this._ptr = { x: e.clientX, y: e.clientY };
 			this.dragging = true;
+			this._dragPointerId = e.pointerId;
+			try {
+				host.setPointerCapture(e.pointerId);
+			} catch {
+				/* capture unsupported / already released — document listeners still cover it */
+			}
 			document.addEventListener('pointermove', this._onMove, true);
 			document.addEventListener('pointerup', this._onUp, true);
 			document.addEventListener('pointercancel', this._onUp, true);
@@ -137,6 +148,14 @@ export class FreeRoam {
 		this._scrollRaf = 0;
 		if (!this.dragging) return;
 		this.dragging = false;
+		if (this._dragPointerId != null) {
+			try {
+				this.avatar.host?.releasePointerCapture(this._dragPointerId);
+			} catch {
+				/* already released */
+			}
+			this._dragPointerId = null;
+		}
 		document.removeEventListener('pointermove', this._onMove, true);
 		document.removeEventListener('pointerup', this._onUp, true);
 		document.removeEventListener('pointercancel', this._onUp, true);
@@ -258,7 +277,6 @@ export class FreeRoam {
 	// While dragging near the top/bottom edge, scroll the page and keep the guide
 	// pinned under the pointer so it appears to walk the document up/down.
 	_startScrollLoop() {
-		if (this._reduced) return;
 		const tick = () => {
 			if (!this.dragging) return;
 			const y = this._ptr.y;

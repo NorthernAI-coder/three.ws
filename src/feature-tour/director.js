@@ -109,7 +109,10 @@ export class TourDirector {
 		this.playlist = buildPlaylist(this.curriculum, this.track);
 
 		const here = stopIndexForPath(this.curriculum, location.pathname);
-		const wanted = state.index || 0;
+		// Clamp the persisted index to the live curriculum: a curriculum that lost
+		// stops between deploys could otherwise point past the end and silently
+		// finish the tour on resume.
+		const wanted = Math.min(Math.max(0, state.index || 0), this.curriculum.stops.length - 1);
 		if (normalizePath(this.curriculum.stops[wanted]?.path) === normalizePath()) {
 			this.index = wanted; // arrived exactly where we were heading
 			this.offRoute = false;
@@ -313,7 +316,7 @@ export class TourDirector {
 		writeState({ muted: this.muted });
 		this.controls.setMuted(this.muted);
 		this.narrator.cancel();
-		if (!this.paused) {
+		if (!this.paused && !this.roam) {
 			const token = ++this._runToken;
 			this._narrateAndMaybeAdvance(token);
 		}
@@ -396,7 +399,7 @@ export class TourDirector {
 		this.controls?.setSpeed(next);
 		this.panel?.setSpeed(next);
 		// Re-narrate the current stop at the new rate if we're actively playing.
-		if (!this.paused && !this.offRoute && this.mounted) {
+		if (!this.paused && !this.offRoute && !this.roam && this.mounted) {
 			const token = ++this._runToken;
 			this._narrateAndMaybeAdvance(token);
 		}
@@ -407,7 +410,7 @@ export class TourDirector {
 		this.voice = value;
 		writeState({ voice: value });
 		this.panel?.setVoice(value);
-		if (!this.paused && !this.offRoute && this.mounted) {
+		if (!this.paused && !this.offRoute && !this.roam && this.mounted) {
 			const token = ++this._runToken;
 			this._narrateAndMaybeAdvance(token);
 		}
@@ -527,6 +530,7 @@ export class TourDirector {
 		this.avatar.point();
 		const outro = "And that's the whole platform. You've seen how to build an agent, give it a body and a voice, take it on-chain, and put it to work. Go make something — I'll be around if you want to walk it again.";
 		await this._present(outro, token);
+		if (token !== this._runToken) return; // exited / navigated while the outro played
 		markCompleted();
 		clearState();
 		this._showCompletion();
@@ -551,7 +555,10 @@ export class TourDirector {
 		card.addEventListener('click', (e) => {
 			const act = e.target.closest('[data-act]')?.dataset.act;
 			if (act === 'restart') {
-				card.remove();
+				// Tear the finished tour fully down before starting a fresh one —
+				// otherwise _mount()'s `if (this.mounted) return` makes restart a
+				// no-op that reuses the old, half-cleared avatar and listeners.
+				this.exit();
 				this.start(this.track);
 			} else if (act === 'close') {
 				card.remove();
