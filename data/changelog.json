@@ -3,6 +3,26 @@
 	"entries": [
 		{
 			"date": "2026-06-21",
+			"title": "Every Forge quality tier now runs on free engines",
+			"summary": "Forge's quality tiers — Draft, Standard, and High — all generate on zero-cost engines now: Draft and Standard on the fast free NVIDIA lane, and High on the higher-fidelity, fully textured free HuggingFace engine. Higher tiers buy you genuinely better geometry and textures, not a different bill behind the scenes. Photo-to-3D at any tier routes straight to a free engine too, so a generation never quietly falls back to a paid lane. The High tier stays a $THREE holder perk (or a one-off pay-per-use) — that's the price of premium quality, not a cost we're passing through.",
+			"tags": [
+				"improvement",
+				"feature"
+			],
+			"link": "/forge"
+		},
+		{
+			"date": "2026-06-21",
+			"title": "Forge stays calm under a crowd: live countdown, graceful high-demand handling, one-tap model retry",
+			"summary": "Generating a 3D model now feels steadier when lots of people are forging at once. The progress meter shows a real \"~Ns left\" countdown instead of a static estimate, so you can see it moving. If the free engines are momentarily at capacity during a rush, you get a friendly \"high demand\" notice with a live retry countdown that re-arms itself the moment a slot frees up — your spot in line, not a dead-end error — and you can keep refining a model you already have while you wait. And if a finished model ever fails to paint because of a brief network blip, a new Retry button reloads it in place instead of forcing a download. Behind the scenes, generation success rate and latency are now tracked so we can catch slowdowns before they reach you.",
+			"tags": [
+				"improvement",
+				"fix"
+			],
+			"link": "/forge"
+		},
+		{
+			"date": "2026-06-21",
 			"title": "Live market feed stays up through provider blips",
 			"summary": "The trending-tokens feed that powers the home card, communities, the token constellation, and the 3D visualizer is now resilient to upstream outages. If a market data provider goes down or rate-limits us, we transparently fall back to a second source; if both are briefly unavailable, the surfaces keep showing the last good data (clearly marked as a moment stale) instead of going blank. We also added a fast-fail circuit breaker so a slow provider can't drag the feed down during a traffic spike. Net effect: the live market views stay populated and snappy even when a data provider hiccups.",
 			"tags": [
@@ -80,7 +100,7 @@
 		{
 			"date": "2026-06-21",
 			"title": "Forge scales further — duplicate generations collapse, free lane protected, prices shown up front",
-			"summary": "More headroom for the influx. Forge now recognizes when the same prompt or photo set is already generating and quietly hands everyone the same result instead of paying to build it twice — so a viral prompt or a double-click no longer multiplies cost or wait. The free Hugging Face engine is now capped to a safe number of simultaneous jobs so a rush can't tie up the servers and stall everyone; over the cap, your generation cleanly falls back to another engine instead of hanging. The composer now shows the real price before you generate — 'Free' for Draft and Standard, the exact dollar amount (or 'Free, you hold $THREE') for High, and 'billed to your own key' for bring-your-own-key engines — so there are no surprises. Finally, the 3D viewer shows a loading shimmer instead of a dark void while your model paints in.",
+			"summary": "More headroom for the influx. Forge now recognizes when the same prompt or photo set is already generating and quietly hands everyone the same result instead of paying to build it twice — so a viral prompt or a double-click no longer multiplies cost or wait. The free Hugging Face engine is now capped to a safe number of simultaneous jobs so a rush can't tie up the servers and stall everyone; over the cap, your generation cleanly falls back to another engine instead of hanging. The composer now shows the real price before you generate — 'Free' for Draft and Standard, the exact dollar amount (or 'Free, you hold $THREE') for High, and 'billed to your own key' for bring-your-own-key engines — so there are no surprises. The engine picker also gained a small legend explaining the badges at a glance — which engines are free, which use your own key, and which are busy or unavailable. And the 3D viewer now shows a loading shimmer instead of a dark void while your model paints in.",
 			"tags": [
 				"improvement",
 				"infra"

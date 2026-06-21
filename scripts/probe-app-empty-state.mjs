@@ -3,7 +3,15 @@
 import { chromium } from 'playwright';
 
 const URL = process.env.PROBE_URL || 'http://localhost:3000/app';
-const browser = await chromium.launch();
+const browser = await chromium.launch({
+  args: [
+    '--use-gl=angle',
+    '--use-angle=swiftshader',
+    '--enable-unsafe-swiftshader',
+    '--disable-gpu-sandbox',
+    '--no-sandbox',
+  ],
+});
 const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
 const page = await ctx.newPage();
 
@@ -37,6 +45,9 @@ const report = await page.evaluate(() => {
   };
 });
 
-await page.screenshot({ path: '/tmp/app-fresh-user.png', fullPage: false });
 console.log(JSON.stringify({ report, errors: errors.slice(0, 20) }, null, 2));
+await page
+  .screenshot({ path: '/tmp/app-fresh-user.png', fullPage: false, timeout: 5000, animations: 'disabled' })
+  .then(() => console.log('screenshot: /tmp/app-fresh-user.png'))
+  .catch(() => console.log('screenshot: skipped (animating canvas)'));
 await browser.close();

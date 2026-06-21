@@ -13,6 +13,7 @@
 // lazy import() chunk and isn't pulled in until the avatar detaches.
 
 import { createWalkCompanion } from '../walk-sdk/src/companion.js';
+import { installTransitions } from './walk-companion-transitions.js';
 
 const walk = createWalkCompanion({
 	// Static GLBs and the animation manifest are served from this origin.
@@ -26,5 +27,13 @@ const walk = createWalkCompanion({
 // public/nav.js drives the companion through this global (toggle from the nav
 // Walk button, react to ?walk= overrides). Keep the surface it relies on.
 window.__walkCompanion = walk;
+
+// Walk-aware page transitions (task 33): dress the jump between pages to match
+// the destination. The runner needs the companion's host element — both for the
+// camera-zoom-into-avatar preset and for slotting the "Themed transitions"
+// settings pill into the companion's existing control cluster. We read it lazily
+// off the live instance so this survives avatar swaps and playground round-trips.
+const companionHost = () => walk.instance?.host || null;
+installTransitions({ getAvatarEl: companionHost, getHostEl: companionHost });
 
 walk.bootstrap();

@@ -68,9 +68,18 @@ function ensureTables() {
  * Called by the cron only. Returns { holders, scannedAt } for logging.
  */
 export async function refreshThreeHolderSnapshot() {
+	const balances = await fetchHolderBalances({ mint: THREE_MINT });
+	return persistThreeHolderSnapshot(balances);
+}
+
+/**
+ * Persist an already-scanned Map<wallet, bigint> to the snapshot table. Split out
+ * of refreshThreeHolderSnapshot so the cold-fallback read path can reuse a single
+ * scan for BOTH the response and self-healing the cache — never scanning twice.
+ */
+export async function persistThreeHolderSnapshot(balances) {
 	if (!(await ensureTables())) throw new Error('three_holder_snapshot table unavailable');
 
-	const balances = await fetchHolderBalances({ mint: THREE_MINT });
 	const wallets = [...balances.keys()].filter((w) => balances.get(w) > 0n);
 	const now = new Date();
 
@@ -185,17 +194,15 @@ async function coldFallbackScan() {
 		return fetchHolderBalances({ mint: THREE_MINT });
 	}
 	try {
-		// Winner: refresh the shared snapshot so subsequent reads hit cache instead
-		// of scanning. Fall back to a read-only scan if the refresh can't persist
-		// (e.g. snapshot table not migrated yet) so the page still renders.
-		try {
-			await refreshThreeHolderSnapshot();
-			const snap = await readThreeHolderSnapshot();
-			if (snap) return snap;
-		} catch (err) {
-			console.warn('[three-holders] cold refresh failed, serving live scan:', err?.message || err);
-		}
-		return fetchHolderBalances({ mint: THREE_MINT });
+		// Winner: one live scan serves this response AND self-heals the shared
+		// snapshot, so subsequent reads hit cache instead of scanning. Persist is
+		// fire-and-forget — a write failure (e.g. snapshot table not migrated yet)
+		// must never break the page, and we never scan twice.
+		const balances = await fetchHolderBalances({ mint: THREE_MINT });
+		persistThreeHolderSnapshot(balances).catch((err) =>
+			console.warn('[three-holders] cold snapshot persist failed:', err?.message || err),
+		);
+		return balances;
 	} finally {
 		await releaseLock(COLD_SCAN_LOCK_KEY);
 	}

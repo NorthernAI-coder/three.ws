@@ -6,6 +6,10 @@ import {
 	registerInFlight,
 	acquireBlockingSlot,
 	providerSubmitAllowed,
+	dailyPaidAllowed,
+	circuitState,
+	circuitRecordFailure,
+	circuitRecordSuccess,
 	SCALE_LIMITS,
 } from '../api/_lib/forge-scale.js';
 
@@ -75,6 +79,34 @@ describe('fail-open behavior without Redis', () => {
 
 	it('providerSubmitAllowed allows', async () => {
 		expect(await providerSubmitAllowed('replicate', { limit: 1, windowS: 10 })).toBe(true);
+	});
+
+	it('dailyPaidAllowed allows and reports the limit', async () => {
+		const r = await dailyPaidAllowed('client-abc', { limit: 60 });
+		expect(r.ok).toBe(true);
+		expect(r.limit).toBe(60);
+	});
+
+	it('dailyPaidAllowed no-ops on an empty identity', async () => {
+		expect((await dailyPaidAllowed('', { limit: 60 })).ok).toBe(true);
+	});
+});
+
+describe('shared circuit breaker (in-memory fallback)', () => {
+	it('opens after the threshold and resets on success', async () => {
+		// Without Redis the breaker uses a per-instance map keyed by name — exercise
+		// the full open/close cycle on a name unique to this test.
+		const name = 'test-breaker';
+		expect((await circuitState(name)).open).toBe(false);
+		await circuitRecordFailure(name, { threshold: 3, baseMs: 60_000 });
+		await circuitRecordFailure(name, { threshold: 3, baseMs: 60_000 });
+		expect((await circuitState(name)).open).toBe(false); // 2 < threshold
+		await circuitRecordFailure(name, { threshold: 3, baseMs: 60_000 });
+		const open = await circuitState(name);
+		expect(open.open).toBe(true);
+		expect(open.failures).toBe(3);
+		await circuitRecordSuccess(name);
+		expect((await circuitState(name)).open).toBe(false);
 	});
 });
 

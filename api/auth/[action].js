@@ -13,7 +13,7 @@ import { randomToken, randomDigits, sha256 } from '../_lib/crypto.js';
 import { cors, json, method, readJson, wrap, error, rateLimited } from '../_lib/http.js';
 import { requireCsrf } from '../_lib/csrf.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
-import { parse, loginBody, registerBody, usernameRegisterBody, username as usernameValidator, displayName, email, password } from '../_lib/validate.js';
+import { parse, loginBody, registerBody, usernameRegisterBody, username as usernameValidator, displayName, email, password, bio as bioValidator, profileLocation, httpUrl } from '../_lib/validate.js';
 import { sendPasswordResetEmail, sendVerificationEmail } from '../_lib/email.js';
 import { generateReferralCode } from '../_lib/referrals.js';
 import { seedDefaultAgent } from '../_lib/seed-default-agent.js';
@@ -187,7 +187,23 @@ async function handleMe(req, res) {
 const profileSchema = z.object({
 	username: usernameValidator.optional(),
 	display_name: displayName.optional(),
-}).refine((b) => b.username !== undefined || b.display_name !== undefined, { message: 'at least one field required' });
+	bio: bioValidator.optional(),
+	website: httpUrl.optional(),
+	location: profileLocation.optional(),
+	avatar_url: httpUrl.optional(),
+	banner_url: httpUrl.optional(),
+}).refine(
+	(b) => Object.keys(b).length > 0,
+	{ message: 'at least one field required' },
+);
+
+// Trim, and treat an empty string as an explicit "clear this field" → null.
+// `undefined` (key omitted) leaves the stored value untouched.
+function profileField(value, current) {
+	if (value === undefined) return current;
+	const trimmed = String(value).trim();
+	return trimmed === '' ? null : trimmed;
+}
 
 async function handleProfile(req, res) {
 	if (cors(req, res, { methods: 'PATCH,OPTIONS', credentials: true })) return;
@@ -198,20 +214,46 @@ async function handleProfile(req, res) {
 	const rl = await limits.authIp(clientIp(req));
 	if (!rl.success) return rateLimited(res, rl);
 	const body = parse(profileSchema, await readJson(req));
-	if (body.username) {
+
+	const [current] = await sql`
+		select username, display_name, bio, website, location, avatar_url, banner_url
+		from users where id = ${user.id} and deleted_at is null limit 1
+	`;
+	if (!current) return error(res, 401, 'unauthenticated', 'not signed in');
+
+	if (body.username && body.username.toLowerCase() !== (current.username || '').toLowerCase()) {
 		const taken = await sql`select id from users where lower(username) = ${body.username.toLowerCase()} and id != ${user.id} and deleted_at is null limit 1`;
 		if (taken[0]) return error(res, 409, 'conflict', 'username already taken');
 	}
-	const [updated] = await sql`update users set username = coalesce(${body.username ?? null}, username), display_name = coalesce(${body.display_name ?? null}, display_name), updated_at = now() where id = ${user.id} and deleted_at is null returning id, display_name, username`;
+
+	const next = {
+		// username can only be set/changed, never cleared (it's the profile URL).
+		username: body.username !== undefined ? body.username : current.username,
+		display_name: body.display_name !== undefined ? body.display_name : current.display_name,
+		bio: profileField(body.bio, current.bio),
+		website: profileField(body.website, current.website),
+		location: profileField(body.location, current.location),
+		avatar_url: profileField(body.avatar_url, current.avatar_url),
+		banner_url: profileField(body.banner_url, current.banner_url),
+	};
+
+	const [updated] = await sql`
+		update users set
+			username = ${next.username},
+			display_name = ${next.display_name},
+			bio = ${next.bio},
+			website = ${next.website},
+			location = ${next.location},
+			avatar_url = ${next.avatar_url},
+			banner_url = ${next.banner_url},
+			updated_at = now()
+		where id = ${user.id} and deleted_at is null
+		returning id, username, display_name, bio, website, location, avatar_url, banner_url
+	`;
 	logAudit({
 		userId: user.id,
 		action: 'update_profile',
-		meta: {
-			fields: [
-				body.username !== undefined ? 'username' : null,
-				body.display_name !== undefined ? 'display_name' : null,
-			].filter(Boolean),
-		},
+		meta: { fields: Object.keys(body) },
 		req,
 	});
 	return json(res, 200, { user: updated });

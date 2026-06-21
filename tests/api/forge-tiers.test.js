@@ -88,6 +88,7 @@ describe('forge-tiers — NVIDIA NIM backend registration', () => {
 
 	it('surfaces the backend in the public catalog with honest estimates', () => {
 		process.env.NVIDIA_API_KEY = 'nvapi-test';
+		process.env.HF_TOKEN = 'hf_test';
 		const cat = buildCatalog();
 		const nv = cat.backends.find((b) => b.id === 'nvidia');
 		expect(nv).toBeTruthy();
@@ -97,10 +98,10 @@ describe('forge-tiers — NVIDIA NIM backend registration', () => {
 		const draftEst = nv.estimates.image.find((e) => e.tier === 'draft');
 		expect(draftEst.eta_seconds).toBeGreaterThan(0);
 		expect(draftEst.credits).toBeNull();
-		// The tier-aware default map advertises the free lane for draft and standard.
+		// The tier-aware default map advertises a free engine for every tier.
 		expect(cat.default_backend_for_tier.draft.image).toBe('nvidia');
 		expect(cat.default_backend_for_tier.standard.image).toBe('nvidia');
-		expect(cat.default_backend_for_tier.high.image).toBe('trellis');
+		expect(cat.default_backend_for_tier.high.image).toBe('huggingface');
 	});
 
 	// NVIDIA's hosted TRELLIS preview is text-only (rejects every user-image
@@ -138,9 +139,15 @@ describe('forge-tiers — NVIDIA NIM backend registration', () => {
 // explicit opt-in (never the silent auto-default).
 describe('forge-tiers — HuggingFace free image lane', () => {
 	const prev = process.env.HF_TOKEN;
+	const prevNv = process.env.NVIDIA_API_KEY;
+	beforeEach(() => {
+		delete process.env.NVIDIA_API_KEY;
+	});
 	afterEach(() => {
 		if (prev === undefined) delete process.env.HF_TOKEN;
 		else process.env.HF_TOKEN = prev;
+		if (prevNv === undefined) delete process.env.NVIDIA_API_KEY;
+		else process.env.NVIDIA_API_KEY = prevNv;
 	});
 
 	it('registers a free, platform-keyed image backend that accepts user photos', () => {
@@ -182,13 +189,24 @@ describe('forge-tiers — HuggingFace free image lane', () => {
 		).toBe('huggingface');
 	});
 
-	// An explicit opt-in lane, not a silent default — the standing image default
-	// stays trellis (which free-firsts to HF internally), so resolution without an
-	// explicit pick never surprises a caller onto the HF Spaces lane.
-	it('is never the auto-resolved default for the image path', () => {
+	// Free-for-us routing: the HF lane is the auto default for the cases NVIDIA's
+	// text-only preview can't serve — photo submissions at any tier, and the
+	// higher-quality High tier — so a free deployment never falls onto the paid
+	// Replicate lane for them.
+	it('becomes the auto default for photo submissions and the high tier when configured', () => {
+		process.env.HF_TOKEN = 'hf_test';
+		delete process.env.NVIDIA_API_KEY;
+		expect(resolveBackendId({ path: 'image', tier: 'draft', userImages: true })).toBe('huggingface');
+		expect(resolveBackendId({ path: 'image', tier: 'standard', userImages: true })).toBe('huggingface');
+		expect(resolveBackendId({ path: 'image', tier: 'high' })).toBe('huggingface');
+		expect(resolveBackendId({ path: 'image', tier: 'high', userImages: true })).toBe('huggingface');
+	});
+
+	it('falls back to the paid lane only when no free engine is configured', () => {
 		delete process.env.HF_TOKEN;
-		expect(resolveBackendId({ path: 'image', tier: 'standard' })).not.toBe('huggingface');
-		expect(resolveBackendId({ path: 'image', tier: 'draft', userImages: true })).not.toBe('huggingface');
+		delete process.env.NVIDIA_API_KEY;
+		expect(resolveBackendId({ path: 'image', tier: 'standard' })).toBe('trellis');
+		expect(resolveBackendId({ path: 'image', tier: 'high' })).toBe('trellis');
 	});
 });
 
