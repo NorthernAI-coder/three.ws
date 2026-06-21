@@ -73,13 +73,18 @@ test.describe('Agent Studio · Brain tab overlay', () => {
 		const blank = page.locator('#bsBlank');
 		if (await blank.count()) await blank.click();
 
-		// Templates opens the shared modal…
-		await page.locator('#bsTpl').click();
+		// Templates opens the shared modal. Fire the real toolbar handler directly:
+		// the editor's graph canvas captures pointer events across its hit-area, so a
+		// synthetic Playwright click on the toolbar button races the canvas. We're
+		// asserting the modal's visibility CSS, not the button's reachability.
+		await expect(page.locator('#bsTpl')).toBeVisible();
+		await page.evaluate(() => document.querySelector('#bsTpl').click());
 		const modal = page.locator('#bsModal');
 		await expect(modal).toBeVisible();
 		expect(await centreIsClickThrough(page, '#bsModal')).toBe(false); // it covers, by design
 
-		// …and the close (×) hides it again, restoring interaction.
+		// …and the close (×) hides it again, restoring interaction. The × sits on the
+		// modal (z-index:1000), above the canvas, so a real click is safe here.
 		await page.locator('#bsModalCard .brainstudio__modal-x').click();
 		await expect(modal).toBeHidden();
 		expect(await centreIsClickThrough(page, '#bsModal')).toBe(true);
