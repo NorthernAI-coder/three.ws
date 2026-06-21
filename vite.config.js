@@ -1403,6 +1403,33 @@ support: resolve(__dirname, 'pages/support.html'),
 			},
 		},
 		{
+			// Vercel Speed Insights — real-user Core Web Vitals (LCP/INP/CLS/TTFB)
+			// for every page, collected from actual visitors and surfaced in the
+			// Vercel dashboard. This is the "measure, don't guess" complement to the
+			// first-party error reporter above: it tells us which pages are slow for
+			// real users under load instead of inferring it from synthetic audits.
+			//
+			// Injected ONLY on Vercel builds (process.env.VERCEL is set there). The
+			// script is served by the platform at /_vercel/speed-insights/script.js
+			// once Speed Insights is enabled for the project; off-Vercel (the
+			// push-only mirror, local dev) it would 404, so we never emit it there.
+			// Zero ingestion code by design — the platform owns collection + storage.
+			name: 'vercel-speed-insights',
+			transformIndexHtml: {
+				order: 'pre',
+				handler() {
+					if (!process.env.VERCEL) return [];
+					return [
+						{
+							tag: 'script',
+							attrs: { defer: true, src: '/_vercel/speed-insights/script.js' },
+							injectTo: 'head',
+						},
+					];
+				},
+			},
+		},
+		{
 			// Native View Transitions for internal nav. Chrome/Safari ship it,
 			// Firefox falls back to a normal location change (no UX regression).
 			// Skip on embed pages — they're iframes and shouldn't intercept clicks.

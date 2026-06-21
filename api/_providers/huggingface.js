@@ -39,16 +39,22 @@ const HF_INFERENCE_TIMEOUT_MS = 280_000; // leave headroom for response framing
 // payload from the selfie photos. Add new Spaces as they come online; keep
 // the most reliable / highest-quality at the top.
 //
-// Verified targets (2026-05):
-//   tencent/Hunyuan3D-2                 — textured GLB via /generation_all
-//   tencent/Hunyuan3D-2.1               — successor; same /generation_all shape
-//   JeffreyXiang/TRELLIS                — Microsoft TRELLIS, single image
-//   stabilityai/TripoSR                 — fast feed-forward, single image
+// Verified targets (2026-06, probed live against each Space's Gradio /info):
+//   tencent/Hunyuan3D-2     — textured GLB via /generation_all (highest quality;
+//                             flaky GPU/queue, recovers)
+//   tencent/Hunyuan3D-2.1   — successor; same /generation_all shape
+//   stabilityai/TripoSR     — fast feed-forward via /generate; takes
+//                             [image, mc_resolution] and returns [OBJ, GLB].
+//                             Reliable terminal fallback — keep it last so the
+//                             chain always has a Space that actually returns a GLB.
+//
+// JeffreyXiang/TRELLIS was removed: the Space host now 404s (taken down), so
+// listing it only burned a failover hop. Re-add a working TRELLIS Space here (or
+// via HF_RECONSTRUCT_SPACES) if one comes back online.
 const HF_FAILOVER_CHAIN = [
-	{ space: 'tencent/Hunyuan3D-2.1',           api: 'generation_all',  builder: 'hunyuan' },
 	{ space: 'tencent/Hunyuan3D-2',             api: 'generation_all',  builder: 'hunyuan' },
-	{ space: 'JeffreyXiang/TRELLIS',            api: 'image_to_3d',     builder: 'single' },
-	{ space: 'stabilityai/TripoSR',             api: 'predict',         builder: 'single' },
+	{ space: 'tencent/Hunyuan3D-2.1',           api: 'generation_all',  builder: 'hunyuan' },
+	{ space: 'stabilityai/TripoSR',             api: 'generate',        builder: 'triposr' },
 ];
 
 function readEnv(name) {
@@ -245,16 +251,26 @@ function resolveChain() {
 				return {
 					space,
 					api: api || 'generation_all',
-					builder: api === 'image_to_3d' || api === 'predict' ? 'single' : 'hunyuan',
+					builder: builderForApi(api),
 				};
 			});
 	}
 	const legacySpace = readEnv('HF_RECONSTRUCT_SPACE');
 	if (legacySpace) {
 		const api = readEnv('HF_RECONSTRUCT_API_NAME') || 'generation_all';
-		return [{ space: legacySpace, api, builder: api === 'generation_all' ? 'hunyuan' : 'single' }];
+		return [{ space: legacySpace, api, builder: builderForApi(api) }];
 	}
 	return HF_FAILOVER_CHAIN;
+}
+
+// Pick the payload builder for an env-supplied "owner/name[:api]" entry from its
+// Gradio api_name. /generation_all is Hunyuan3D's 13-arg shape; /generate is
+// TripoSR's [image, mc_resolution]; anything else (single-image endpoints) gets
+// the bare one-file payload.
+function builderForApi(api) {
+	if (!api || api === 'generation_all') return 'hunyuan';
+	if (api === 'generate') return 'triposr';
+	return 'single';
 }
 
 // Per-Space payload builders. Map our normalized {photos, params} into the
@@ -262,6 +278,11 @@ function resolveChain() {
 const BUILDERS = {
 	hunyuan: ({ photos, params }) => buildHunyuanPayload({ photos, params }),
 	single: ({ photos }) => [toFileData(photos[0])],
+	// stabilityai/TripoSR /generate: (image filepath, marching-cubes resolution
+	// float) → [OBJ, GLB]. We pass the reference view straight through — the forge
+	// image lane already supplies a clean subject view — and take the GLB output;
+	// extractFirstGlbUrl skips the OBJ and returns the .glb.
+	triposr: ({ photos, params }) => [toFileData(photos[0]), Number(params?.mc_resolution ?? 256)],
 };
 
 // Try one Space end-to-end: enqueue → consume SSE → extract GLB url.

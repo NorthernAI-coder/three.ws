@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<script>/* three.ws theme boot — no-flash; runtime in /theme-switcher.js */(function(){try{var m=localStorage.getItem('twx_theme');var l=m==='auto'?(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches):m==='light';document.documentElement.setAttribute('data-theme',l?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();</script>
+		<meta charset="utf-8" />
+		<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+		<title>Getting started — Walk docs — three.ws</title>
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+		<meta name="description" content="Walk your first three.ws avatar in five minutes: try the walk page, drop a one-tag embed onto any site, or turn on the site-wide companion." />
+		<meta name="theme-color" content="#0a0a0a" />
+		<link rel="canonical" href="https://three.ws/docs/walk/getting-started" />
+		<link rel="shortcut icon" href="/favicon.ico" />
+		<link rel="stylesheet" href="/fonts/fonts.css" />
+		<link rel="stylesheet" href="/style.css" />
+		<link rel="stylesheet" href="/footer.css" />
+		<link rel="stylesheet" href="/nav.css" />
+		<link rel="stylesheet" href="/docs/walk/docs.css" />
+	</head>
+	<body>
+		<a class="wd-skip" href="#wd-main">Skip to content</a>
+		<header><div id="nav-container"></div></header>
+		<script src="/nav.js"></script>
+
+		<div class="wd-shell">
+			<button class="wd-side-toggle" type="button" aria-expanded="false" aria-controls="wd-side">
+				<span>Documentation menu</span><span aria-hidden="true">☰</span>
+			</button>
+			<aside class="wd-side" id="wd-side" aria-label="Walk documentation">
+				<h2>Walk docs</h2>
+				<nav aria-label="Walk documentation pages">
+					<a href="/docs/walk">Overview</a>
+					<a href="/docs/walk/getting-started" aria-current="page">Getting started</a>
+				</nav>
+				<h2>Use it</h2>
+				<nav aria-label="Using Walk">
+					<a href="/docs/walk/walk-page">The walk page</a>
+					<a href="/docs/walk/companion-mode">Companion mode</a>
+					<a href="/docs/walk/chrome-extension">Chrome extension</a>
+				</nav>
+				<h2>Build with it</h2>
+				<nav aria-label="Building with Walk">
+					<a href="/docs/walk/embed-iframe">Iframe embed</a>
+					<a href="/docs/walk/embed-sdk">JavaScript SDK</a>
+					<a href="/docs/walk/postmessage-events">postMessage events</a>
+					<a href="/docs/walk/analytics">Analytics</a>
+				</nav>
+				<h2>Reference</h2>
+				<nav aria-label="Reference"><a href="/docs/walk/changelog">Changelog</a></nav>
+			</aside>
+
+			<main class="wd-main" id="wd-main">
+				<p class="wd-crumbs"><a href="/docs">Docs</a> / <a href="/docs/walk">Walk</a> / Getting started</p>
+				<h1>Walk your first avatar in five minutes</h1>
+				<p class="wd-lede">
+					Three ways in, fastest first. Try the live page, drop an avatar onto your own
+					site with a single script tag, or turn on the companion that walks with you
+					across three.ws.
+				</p>
+
+				<h2>1 · Try it live (zero setup)</h2>
+				<p>
+					Open <a href="/walk">three.ws/walk</a>. Move with <kbd>W</kbd> <kbd>A</kbd>
+					<kbd>S</kbd> <kbd>D</kbd> or the arrow keys, hold <kbd>Shift</kbd> to run,
+					press <kbd>Space</kbd> to jump, and tap a number key for a gesture. On a phone,
+					use the on-screen joysticks. The full control reference lives on
+					<a href="/docs/walk/walk-page">the walk page docs</a>.
+				</p>
+				<div class="wd-demo">
+					<div class="wd-demo-head"><span><span class="wd-demo-dot"></span>Embedded preview</span><span>autoplay walk</span></div>
+					<iframe title="Walking avatar preview" src="/walk-embed?controls=none&autoplay=true&ground=false&env=studio" height="300" loading="lazy" allow="accelerometer; gyroscope; xr-spatial-tracking"></iframe>
+				</div>
+
+				<h2>2 · Put an avatar on your own site (one tag)</h2>
+				<p>
+					The fastest integration is a single <code>&lt;script&gt;</code> tag. Drop this
+					into the <code>&lt;body&gt;</code> of any page on any origin — no build step, no
+					framework, no API key:
+				</p>
+				<div class="wd-code" data-lang="html" data-label="HTML">
+					<pre><code>&lt;script src="https://three.ws/walk-embed-sdk.js"
+        data-position="bottom-right"
+        data-width="220"
+        data-height="320"&gt;&lt;/script&gt;</code></pre>
+				</div>
+				<p>
+					That injects a fixed-position, transparent iframe in the corner and starts a
+					slow circular walk. To show a specific avatar, add its id:
+				</p>
+				<div class="wd-code" data-lang="html" data-label="HTML">
+					<pre><code>&lt;script src="https://three.ws/walk-embed-sdk.js"
+        data-avatar="YOUR-AVATAR-UUID"
+        data-position="bottom-left"
+        data-env="beach"&gt;&lt;/script&gt;</code></pre>
+				</div>
+				<div class="wd-note">
+					<span class="wd-icon" aria-hidden="true">✱</span>
+					<span>Omit <code>data-avatar</code> and the SDK falls back to the bundled default avatar — served same-origin, so it works in dev, preview, and production without any CORS setup.</span>
+				</div>
+				<p>
+					Want full programmatic control instead of attributes? See the
+					<a href="/docs/walk/embed-sdk">JavaScript SDK reference</a>. Prefer to manage
+					the iframe yourself? See the <a href="/docs/walk/embed-iframe">iframe embed
+					guide</a>.
+				</p>
+
+				<h2>3 · Walk across three.ws (companion mode)</h2>
+				<p>
+					On three.ws itself, the <strong>Walk</strong> button in the top navigation
+					detaches your avatar from the page and lets it stroll around — and it follows
+					you as you navigate between pages. You can also force it on with a query
+					parameter on any three.ws URL:
+				</p>
+				<div class="wd-code" data-lang="text" data-label="URL">
+					<pre><code>https://three.ws/?walk=1</code></pre>
+				</div>
+				<p>Read more in <a href="/docs/walk/companion-mode">Companion mode</a>.</p>
+
+				<h2>Next steps</h2>
+				<ul>
+					<li><a href="/docs/walk/walk-page">The walk page</a> — every control, camera, environment, gesture, and AR.</li>
+					<li><a href="/docs/walk/embed-sdk">JavaScript SDK</a> — drive the avatar at runtime: <code>setAvatar</code>, <code>setEnv</code>, <code>setPosition</code>, events.</li>
+					<li><a href="/docs/walk/analytics">Analytics</a> — measure sessions, distance, and conversions per avatar.</li>
+					<li><a href="/docs/walk/chrome-extension">Chrome extension</a> — your avatar on every website you visit.</li>
+				</ul>
+
+				<div class="wd-pagefoot">
+					<a class="wd-edit" href="https://github.com/nirholas/three.ws/edit/main/public/docs/walk/getting-started.html" rel="noopener"><span aria-hidden="true">✎</span> Edit this page on GitHub</a>
+					<div class="wd-nextprev">
+						<a href="/docs/walk"><span>Previous</span>← Overview</a>
+						<a href="/docs/walk/walk-page"><span>Next</span>The walk page →</a>
+					</div>
+				</div>
+			</main>
+		</div>
+
+		<div id="footer-container"></div>
+		<script src="/footer.js"></script>
+		<script src="/brand.js" defer></script>
+		<script type="module" src="/docs/walk/docs.js"></script>
+	</body>
+</html>

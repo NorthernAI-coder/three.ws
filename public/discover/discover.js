@@ -6,7 +6,18 @@
  * Clicking a card opens the on-chain token page on the source chain's
  * explorer; clicking the 3D preview (when present) loads the GLB in the
  * main viewer via /app#model=<url>.
+ *
+ * Controls (search · filter · source · sort) are driven by the shared
+ * list-controls toolkit (src/shared/list-controls.js) so /discover and
+ * /marketplace browse identically: same debounced search, same chip/sort
+ * vocabulary, same URL-sync, same back/forward behaviour. Loading / empty /
+ * error states use the shared state-kit so every browse surface reads as one
+ * product. This file owns only the page-specific data flow (the /api/explore
+ * fetch, the chain dropdown, card rendering, infinite scroll, embed modals).
  */
+
+import { createListControls } from '../../src/shared/list-controls.js';
+import { skeletonHTML, emptyStateHTML, errorStateHTML } from '../../src/shared/state-kit.js';
 
 const CHAINS = [
 	{ id: 8453, name: 'Base' },
@@ -34,24 +45,15 @@ const CHAINS = [
 ];
 
 const els = {
-	search: document.querySelector('[data-role="search"]'),
-	filters: document.querySelector('[data-role="filters"]'),
-	sources: document.querySelector('[data-role="sources"]'),
+	listControls: document.querySelector('[data-role="list-controls"]'),
 	chain: document.querySelector('[data-role="chain"]'),
-	sort: document.querySelector('[data-role="sort"]'),
 	grid: document.querySelector('[data-role="grid"]'),
 	stats: document.querySelector('[data-role="stats"]'),
 	status: document.querySelector('[data-role="status"]'),
 	loadMore: document.querySelector('[data-role="load-more"]'),
 	sentinel: document.querySelector('[data-role="sentinel"]'),
 	myAgentsChip: document.querySelector('[data-role="my-agents-chip"]'),
-	searchClear: document.querySelector('[data-role="search-clear"]'),
 };
-
-function updateSearchClearVisibility() {
-	if (!els.searchClear) return;
-	els.searchClear.hidden = !els.search.value;
-}
 
 // Reveal "View my agents" chip + nav link when signed in.
 fetch('/api/auth/me', { credentials: 'include' })
@@ -64,7 +66,8 @@ fetch('/api/auth/me', { credentials: 'include' })
 	})
 	.catch(() => {});
 
-// Populate chain dropdown.
+// Populate chain dropdown (page-specific — long dynamic option list, kept out of
+// the shared toolkit which models fixed chip/sort vocabularies).
 for (const c of CHAINS) {
 	const opt = document.createElement('option');
 	opt.value = String(c.id);
@@ -72,50 +75,50 @@ for (const c of CHAINS) {
 	els.chain.appendChild(opt);
 }
 
-// Hydrate initial state from URL so deep links from register-ui (?q=…) and
-// browser back/forward restore the user's filters. The marketplace is a 3D
-// showcase first — when no `only3d` param is present, default to 3D. Pass
-// `only3d=0` (or click the "All agents" chip) to opt into the full firehose.
-const initialParams = new URLSearchParams(location.search);
-const hasAnyParam = initialParams.toString().length > 0;
-const only3dParam = initialParams.get('only3d');
-const initialFilter = only3dParam === '0' ? 'all' : '3d';
-const initialChain = initialParams.get('chain') || '';
-const initialQuery = initialParams.get('q') || '';
-const initialSource = ['onchain', 'avatar', 'solana'].includes(initialParams.get('source'))
-	? initialParams.get('source')
-	: 'all';
-
+// Page state. Search / filter / source / sort are owned by the shared
+// list-controls toolkit; chain + pagination cursor live here.
 const state = {
-	filter: initialFilter, // 'all' | '3d' | 'x402'
-	source: initialSource, // 'all' | 'onchain' | 'avatar'
-	chainId: initialChain,
-	query: initialQuery,
-	sortBy: initialParams.get('sort') || 'newest', // 'newest' | 'x402' | 'alpha'
+	filter: '3d', // 'all' | '3d' | 'x402'
+	source: 'all', // 'all' | 'onchain' | 'avatar' | 'solana'
+	chainId: '',
+	query: '',
+	sortBy: 'newest', // 'newest' | 'x402' | 'alpha'
 	cursor: null,
 	loading: false,
 };
 
-// Reflect hydrated state in the controls.
-if (initialQuery) els.search.value = initialQuery;
+const initialParams = new URLSearchParams(location.search);
+const hasAnyParam = initialParams.toString().length > 0;
+
+// Pre-select the chain dropdown from the URL (falls back to All for an unknown id).
+const initialChain = initialParams.get('chain') || '';
 if (initialChain) {
-	// Chain dropdown is populated above; pre-select if the option exists.
 	const opt = els.chain.querySelector(`option[value="${CSS.escape(initialChain)}"]`);
 	if (opt) els.chain.value = initialChain;
-	else state.chainId = ''; // unknown chain id — fall back to All
-}
-if (initialFilter !== 'all') {
-	for (const b of els.filters.querySelectorAll('[data-filter]')) {
-		b.classList.toggle('active', b.dataset.filter === initialFilter);
-	}
-}
-if (els.sources && initialSource !== 'all') {
-	for (const b of els.sources.querySelectorAll('[data-source]')) {
-		b.classList.toggle('active', b.dataset.source === initialSource);
-	}
 }
 
-/** Sync state into URL via replaceState (no history spam). */
+// Map /discover's legacy URL scheme (only3d / x402 / source / q / sort) onto the
+// toolkit's state keys. Kept here so existing deep links from register-ui and
+// shared bookmarks keep resolving, and the discover-rename test contract holds.
+function hydrateFromUrl(params) {
+	const only3d = params.get('only3d');
+	const x402 = params.get('x402');
+	let filter = 'all';
+	if (only3d !== '0') filter = '3d'; // default: 3D-first showcase
+	if (x402 === '1') filter = 'x402';
+	if (only3d === '0' && x402 !== '1') filter = 'all';
+	const source = ['onchain', 'avatar', 'solana'].includes(params.get('source'))
+		? params.get('source')
+		: 'all';
+	return {
+		q: (params.get('q') || '').trim(),
+		filter,
+		source,
+		sort: params.get('sort') || 'newest',
+	};
+}
+
+/** Write the toolkit/page state back to the URL in the legacy scheme. */
 function syncUrl() {
 	const p = new URLSearchParams();
 	if (state.filter === '3d') p.set('only3d', '1');
@@ -132,29 +135,65 @@ function syncUrl() {
 	}
 }
 
-let searchDebounce;
-
-els.filters.addEventListener('click', (e) => {
-	const btn = e.target.closest('[data-filter]');
-	if (!btn) return;
-	state.filter = btn.dataset.filter;
-	for (const b of els.filters.querySelectorAll('[data-filter]')) {
-		b.classList.toggle('active', b.dataset.filter === state.filter);
-	}
-	syncUrl();
-	resetAndLoad();
+// Shared list-controls toolkit: debounced search, filter + source chip segments,
+// sort dropdown. URL-sync is owned by this page (legacy scheme), so urlSync:false.
+const controls = createListControls({
+	mount: els.listControls,
+	searchKey: 'q',
+	searchPlaceholder: 'Search by name or description…',
+	searchLabel: 'Search agents',
+	urlSync: false,
+	hydrate: hydrateFromUrl,
+	defaults: { q: '', filter: 'all', source: 'all', sort: 'newest' },
+	segments: [
+		{
+			key: 'filter',
+			label: 'Agent type',
+			options: [
+				{ value: 'all', label: 'All agents' },
+				{ value: '3d', label: '3D only' },
+				{ value: 'x402', label: 'x402' },
+			],
+		},
+		{
+			key: 'source',
+			label: 'Source',
+			options: [
+				{ value: 'all', label: 'All sources' },
+				{ value: 'solana', label: 'Solana' },
+				{ value: 'onchain', label: 'EVM' },
+				{ value: 'avatar', label: 'Avatars' },
+			],
+		},
+	],
+	sortKey: 'sort',
+	sortOptions: [
+		{ value: 'newest', label: 'Newest' },
+		{ value: 'x402', label: 'x402 first' },
+		{ value: 'alpha', label: 'A → Z' },
+	],
+	onChange: (s, meta) => {
+		state.filter = s.filter;
+		state.source = s.source;
+		state.query = s.q;
+		state.sortBy = s.sort;
+		// popstate may have changed the chain via the dropdown's own URL handling;
+		// re-read it so back/forward restores chain too.
+		if (meta.reason === 'popstate') {
+			const ch = new URLSearchParams(location.search).get('chain') || '';
+			els.chain.value = ch && els.chain.querySelector(`option[value="${CSS.escape(ch)}"]`) ? ch : '';
+			state.chainId = els.chain.value;
+		}
+		syncUrl();
+		resetAndLoad();
+	},
 });
 
-els.sources?.addEventListener('click', (e) => {
-	const btn = e.target.closest('[data-source]');
-	if (!btn) return;
-	state.source = btn.dataset.source;
-	for (const b of els.sources.querySelectorAll('[data-source]')) {
-		b.classList.toggle('active', b.dataset.source === state.source);
-	}
-	syncUrl();
-	resetAndLoad();
-});
+// Move the page-specific chain selector into the toolbar's primary row so it
+// sits inline with search + sort (one visual control bar).
+const chainWrap = document.querySelector('[data-role="chain-wrap"]');
+const primaryRow = els.listControls.querySelector('.tws-lc-row--primary');
+if (chainWrap && primaryRow) primaryRow.appendChild(chainWrap);
 
 els.chain.addEventListener('change', () => {
 	state.chainId = els.chain.value;
@@ -162,44 +201,19 @@ els.chain.addEventListener('change', () => {
 	resetAndLoad();
 });
 
-els.search.addEventListener('input', () => {
-	updateSearchClearVisibility();
-	clearTimeout(searchDebounce);
-	searchDebounce = setTimeout(() => {
-		state.query = els.search.value.trim();
-		syncUrl();
-		resetAndLoad();
-	}, 250);
-});
-
-els.searchClear?.addEventListener('click', () => {
-	els.search.value = '';
-	state.query = '';
-	updateSearchClearVisibility();
-	syncUrl();
-	resetAndLoad();
-	els.search.focus();
-});
-
-els.sort?.addEventListener('change', () => {
-	state.sortBy = els.sort.value;
-	syncUrl();
-	resetAndLoad();
-});
-
-// Reflect initial sort in dropdown
-if (els.sort && state.sortBy !== 'newest') {
-	els.sort.value = state.sortBy;
+// Seed page state from the toolkit's hydrated (URL-derived) values so the first
+// load reflects deep links and the 3D-first default before any user interaction.
+{
+	const s = controls.getState();
+	state.filter = s.filter;
+	state.source = s.source;
+	state.query = s.q;
+	state.sortBy = s.sort;
+	state.chainId = els.chain.value;
 }
 
-// Initial visibility (covers ?q= deep links).
-updateSearchClearVisibility();
-
-// If we defaulted to 3D-only (no params on the URL), reflect that in the URL
-// so the user can copy/share the canonical view.
-if (!hasAnyParam) {
-	syncUrl();
-}
+// Canonicalise the URL on first load (covers the 3D-first default + ?q= deep links).
+if (!hasAnyParam) syncUrl();
 
 els.loadMore.addEventListener('click', () => loadPage());
 
@@ -256,26 +270,19 @@ els.grid.addEventListener('click', (e) => {
 	}
 });
 
+// Loading placeholders use the shared state-kit skeleton (same shimmer + token
+// vocabulary as /marketplace) so both browse surfaces look identical while data
+// streams in. A wrapper class keeps them removable as a group.
 function renderSkeletons(n) {
-	const frag = document.createDocumentFragment();
-	for (let i = 0; i < n; i++) {
-		const card = document.createElement('article');
-		card.className = 'explore-card explore-card--skel';
-		card.innerHTML = `
-			<div class="explore-card-thumb"></div>
-			<div class="explore-card-body">
-				<div class="explore-card-skel-name">&nbsp;</div>
-				<div class="explore-card-skel-desc">&nbsp;</div>
-				<div class="explore-card-skel-badges">&nbsp;</div>
-			</div>
-		`;
-		frag.appendChild(card);
-	}
-	els.grid.appendChild(frag);
+	const wrap = document.createElement('div');
+	wrap.className = 'explore-skeletons';
+	wrap.style.display = 'contents';
+	wrap.innerHTML = skeletonHTML(n, 'card');
+	els.grid.appendChild(wrap);
 }
 
 function clearSkeletons() {
-	for (const node of els.grid.querySelectorAll('.explore-card--skel')) node.remove();
+	for (const node of els.grid.querySelectorAll('.explore-skeletons')) node.remove();
 }
 
 function resetAndLoad() {
@@ -291,7 +298,9 @@ async function loadPage() {
 	els.loadMore.hidden = true;
 	if (!state.cursor) {
 		els.status.textContent = '';
+		els.status.hidden = true;
 	} else {
+		els.status.hidden = false;
 		els.status.textContent = 'Loading more…';
 	}
 
@@ -343,64 +352,66 @@ async function loadPage() {
 		// flicker as more cards stream in on paginated loads.
 		if (isFirstPage && data.totals) renderStats(data.totals);
 
-		const visibleCards = els.grid.querySelectorAll('.explore-card:not(.explore-card--skel)').length;
+		const visibleCards = els.grid.querySelectorAll('.explore-card').length;
 		if (visibleCards === 0) {
-			const filtersActive = state.filter !== 'all' || !!state.chainId || !!state.query;
+			const filtersActive =
+				controls.isFiltered() || !!state.chainId || state.filter !== 'all';
+			// Shared state-kit empty shell — identical look to /marketplace's
+			// zero-results. The "Clear filters" CTA carries data-role="clear-filters"
+			// so the existing delegated handler resets every control.
 			els.status.innerHTML = filtersActive
-				? `<div class="explore-empty">
-						No agents match these filters yet.
-						<button type="button" class="explore-clear-filters" data-role="clear-filters">Clear filters</button>
-					</div>`
-				: `<div class="explore-empty">
-						No agents indexed yet. Be the first —
-						<a href="/forge">forge a 3D model from a text prompt</a> and register it as an agent.
-					</div>`;
+				? emptyStateHTML({
+						title: 'No agents match these filters',
+						body: 'Try a broader search, a different chain, or clear everything to see the full directory.',
+						actions: [{ label: 'Clear filters', id: 'clear-filters', primary: true }],
+					}).replace('data-sk-action="clear-filters"', 'data-sk-action="clear-filters" data-role="clear-filters"')
+				: emptyStateHTML({
+						title: 'No agents indexed yet',
+						body: 'Be the first — forge a 3D model from a text prompt and register it as an agent.',
+						actions: [{ label: 'Forge a model', href: '/forge', primary: true }],
+					});
+			els.status.hidden = false;
 		} else {
 			els.status.textContent = '';
+			els.status.hidden = true;
 		}
 	} catch (err) {
 		clearSkeletons();
-		els.status.innerHTML = `<div class="explore-error" role="alert">
-			<span class="explore-error-msg">Couldn't load agents. Check your connection and try again.</span>
-			<button type="button" class="explore-retry" data-role="retry-load">Retry</button>
-		</div>`;
+		// Shared state-kit error shell with a retry CTA (data-sk-retry).
+		els.status.innerHTML = errorStateHTML({
+			title: "Couldn't load agents",
+			body: 'Check your connection and try again.',
+			scope: 'discover',
+		});
+		els.status.hidden = false;
 	} finally {
 		state.loading = false;
 	}
 }
 
-// Delegated status-block clicks (the block is re-rendered each load).
+// Delegated status-block clicks (the block is re-rendered each load). Matches
+// both the state-kit hooks (data-sk-action / data-sk-retry) and the legacy
+// data-role marker kept for backward-compatible selectors/tests.
 els.status.addEventListener('click', (e) => {
-	if (e.target.closest('[data-role="clear-filters"]')) {
+	if (
+		e.target.closest('[data-role="clear-filters"]') ||
+		e.target.closest('[data-sk-action="clear-filters"]')
+	) {
 		clearAllFilters();
 		return;
 	}
-	if (e.target.closest('[data-role="retry-load"]')) {
+	if (e.target.closest('[data-sk-retry]')) {
 		els.status.textContent = 'Loading…';
 		loadPage();
 	}
 });
 
+// Resetting every control flows through the shared toolkit, which re-renders the
+// chips, clears the search box, syncs the URL, and fires onChange → resetAndLoad.
 function clearAllFilters() {
-	state.filter = 'all';
-	state.source = 'all';
-	state.chainId = '';
-	state.query = '';
-	state.sortBy = 'newest';
-	els.search.value = '';
 	els.chain.value = '';
-	if (els.sort) els.sort.value = 'newest';
-	updateSearchClearVisibility();
-	for (const b of els.filters.querySelectorAll('[data-filter]')) {
-		b.classList.toggle('active', b.dataset.filter === 'all');
-	}
-	if (els.sources) {
-		for (const b of els.sources.querySelectorAll('[data-source]')) {
-			b.classList.toggle('active', b.dataset.source === 'all');
-		}
-	}
-	syncUrl();
-	resetAndLoad();
+	state.chainId = '';
+	controls.reset();
 }
 
 function renderStats(totals) {
@@ -875,4 +886,5 @@ function openAvatarEmbedModal({ avatarId, glbUrl, name }) {
 	});
 }
 
-loadPage();
+// Initial load — render shared skeletons then fetch the first page.
+resetAndLoad();

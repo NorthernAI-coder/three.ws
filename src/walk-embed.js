@@ -40,14 +40,8 @@ import { getMeshoptDecoder } from './viewer/internal.js';
 import { AnimationManager } from './animation-manager.js';
 import { log } from './shared/log.js';
 import {
-	CHANNEL,
-	PROTOCOL_VERSION,
-	INBOUND,
 	OUTBOUND,
-	makeMessage,
-	makeOriginAllowList,
-	isWalkMessage,
-	validateInbound,
+	installEmbedBridge,
 } from './walk-embed-events.js';
 
 const AVATAR_URL_DEFAULT = '/avatars/default.glb';
@@ -60,6 +54,14 @@ const AUTOPLAY = params.get('autoplay') === 'true' || params.get('autoplay') ===
 const SHOW_GROUND = params.get('ground') !== 'false';
 const ORBIT_ENABLED = params.get('orbit') !== 'false';
 const ENV_PARAM = (params.get('env') || 'studio').toLowerCase();
+
+// Live-tracked state surfaced to the host via the typed contract. `currentAvatarId`
+// is the public identifier hosts gave us (?avatar=<id|url>) or 'default'; never a
+// resolved internal R2/CDN URL with credentials. `currentEnv` and `isReady` back
+// the walk:ready handshake + walk:ping replies.
+let currentAvatarId = params.get('avatar') || 'default';
+let currentEnv = ENV_PARAM;
+let isReady = false;
 
 // Real, self-contained scene presets. Each preset retints the clear color,
 // fog, ground disc, and the hemisphere/sun lights — no external HDRIs to
@@ -141,36 +143,25 @@ function setStatus(text, { error = false, sticky = false } = {}) {
 	}
 }
 
-// ── postMessage bridge to host page ──────────────────────────────────────
-// The host frame learns about embed lifecycle + avatar position via the typed
-// walk-embed-events contract (src/walk-embed-events.js). We post to window.parent
-// only when it's a different window (i.e. we're actually inside an iframe).
-// Direct page loads still work — they just don't emit messages.
-//
-// `?targetOrigin=` lets a security-conscious host pin the exact origin we post
-// to; default '*' keeps the embed droppable on any site (it ships
-// frame-ancestors *). The inbound source check below is the real authentication.
-const INSIDE_IFRAME = window.parent && window.parent !== window;
-const TARGET_ORIGIN = params.get('targetOrigin') || '*';
-const isOriginAllowed = makeOriginAllowList(params.get('allowOrigins')?.split(',').map((s) => s.trim()).filter(Boolean) || '*');
-
-// Emit a typed outbound event. `legacy` (optional) is the pre-contract message
-// shape we still emit alongside the new one so integrations written against
-// walk:ready / walk:position keep receiving events during the transition.
-function emit(type, payload = {}, legacy = null) {
-	if (!INSIDE_IFRAME) return;
-	try {
-		window.parent.postMessage(makeMessage(type, payload), TARGET_ORIGIN);
-		if (legacy) window.parent.postMessage(legacy, TARGET_ORIGIN);
-	} catch {}
+// ── Outbound event bus → installEmbedBridge (src/walk-embed-events.js) ──────
+// The runtime never touches postMessage itself. It fires typed lifecycle events
+// on this tiny in-process bus; the embed bridge (installed from
+// pages/walk-embed.html) subscribes via runtime.on() and is the single place
+// that validates origins, shapes the envelope, and posts to window.parent. This
+// keeps the wire contract in one module and guarantees no internal state leaks
+// out by accident — only the fields the bridge forwards ever cross the boundary.
+const _listeners = new Map();
+function busOn(event, cb) {
+	if (!_listeners.has(event)) _listeners.set(event, new Set());
+	_listeners.get(event).add(cb);
+	return () => _listeners.get(event)?.delete(cb);
 }
-
-// Post a raw, pre-shaped message to the host frame. Used for the embed's
-// imperative ack/error replies (walk:avatarChanged, walk:error) that aren't part
-// of the typed lifecycle contract; emit() is preferred for ready/position/move.
-function postToHost(message) {
-	if (!INSIDE_IFRAME) return;
-	try { window.parent.postMessage(message, TARGET_ORIGIN); } catch {}
+function emit(type, payload = {}) {
+	const set = _listeners.get(type);
+	if (!set) return;
+	for (const cb of set) {
+		try { cb(payload); } catch {}
+	}
 }
 
 // ── Renderer / scene ──────────────────────────────────────────────────────
@@ -327,8 +318,13 @@ const input = {
 	// Scripted discrete move ({ dir, meters }) — walks a fixed distance then stops.
 	// `remaining` counts down in metres each frame; `vx/vy` is the unit heading.
 	scripted: { remaining: 0, vx: 0, vy: 0, run: false },
+	// Seek target from `walk:goto` — drive toward a world (x,z) then stop within
+	// GOTO_ARRIVE_EPSILON. Cleared by any live input or a new command.
+	seek: { active: false, x: 0, z: 0, run: false },
 	_speedMultiplier: 1.0,
 };
+
+const GOTO_ARRIVE_EPSILON = 0.18; // metres — close enough to "arrived"
 
 // Map a discrete direction to a camera-relative input vector. forward/back use
 // the y axis (joystick up = forward), left/right the x axis — same convention
@@ -464,7 +460,8 @@ async function loadAvatar() {
 	}
 
 	setStatus('walk it');
-	emit(OUTBOUND.LOADED, { avatar: avatarUrl }, { type: 'walk:ready', avatar: avatarUrl });
+	isReady = true;
+	emit(OUTBOUND.READY, { avatarId: currentAvatarId, env: currentEnv });
 }
 
 // ── Resize ────────────────────────────────────────────────────────────────
@@ -485,14 +482,47 @@ const moveForward = new Vector3();
 const moveRight = new Vector3();
 const upY = new Vector3(0, 1, 0);
 
+// A human grabbing the controls (or a fresh command) cancels every form of
+// programmatic drive so they never fight for the avatar.
+function cancelProgrammatic() {
+	input.scripted.remaining = 0;
+	input.cmd.active = false;
+	input.seek.active = false;
+}
+
 function readMoveInput(dt) {
 	// Live input always wins and cancels any programmatic drive so a human can
 	// grab control mid-script.
-	if (input.joy.active) { input.scripted.remaining = 0; input.cmd.active = false; return { ix: input.joy.x, iy: input.joy.y, run: false }; }
+	if (input.joy.active) { cancelProgrammatic(); return { ix: input.joy.x, iy: input.joy.y, run: false }; }
 	if (CONTROLS !== 'none') {
 		const ix = input.keys.right - input.keys.left;
 		const iy = input.keys.forward - input.keys.back;
-		if (ix || iy) { input.scripted.remaining = 0; input.cmd.active = false; return { ix, iy, run: input.keys.run }; }
+		if (ix || iy) { cancelProgrammatic(); return { ix, iy, run: input.keys.run }; }
+	}
+	// Seek to a world (x,z) from walk:goto. Steer in world space, then express
+	// the world heading in the camera-relative basis the loop consumes so the
+	// avatar walks straight to the point regardless of camera orbit.
+	if (input.seek.active && avatar) {
+		const dx = input.seek.x - avatarRig.position.x;
+		const dz = input.seek.z - avatarRig.position.z;
+		const dist = Math.hypot(dx, dz);
+		if (dist <= GOTO_ARRIVE_EPSILON) {
+			input.seek.active = false;
+			return { ix: 0, iy: 0 };
+		}
+		moveForward.copy(camLookCurrent).sub(camera.position);
+		moveForward.y = 0;
+		if (moveForward.lengthSq() < 1e-6) moveForward.set(0, 0, -1);
+		else moveForward.normalize();
+		moveRight.crossVectors(moveForward, upY).normalize();
+		const ndx = dx / dist, ndz = dz / dist;
+		// Decompose the world unit heading onto the camera basis: iy along
+		// forward, ix along right.
+		const iy = moveForward.x * ndx + moveForward.z * ndz;
+		const ix = moveRight.x * ndx + moveRight.z * ndz;
+		// Ease the final stretch so we settle instead of overshooting.
+		const gain = Math.min(1, dist / 0.6);
+		return { ix: ix * gain, iy: iy * gain, run: input.seek.run };
 	}
 	// Scripted discrete move: walk a fixed distance then stop. Decrement by the
 	// per-frame distance the loop will actually travel (speed × dt) so `meters`
@@ -519,7 +549,13 @@ function readMoveInput(dt) {
 
 let lastBroadcastX = 0;
 let lastBroadcastZ = 0;
+let lastBroadcastAt = 0;
 const BROADCAST_EPSILON = 0.02; // metres — skip duplicate post messages
+const BROADCAST_INTERVAL_MS = 100; // walk:position fires at ≤10 Hz per the contract
+
+function round3(n) {
+	return Math.round(n * 1000) / 1000;
+}
 
 function tick() {
 	clock.update();
@@ -598,21 +634,22 @@ function tick() {
 
 	animationManager.update(dt);
 
+	const now = performance.now();
 	if (
-		avatar && (
+		avatar &&
+		now - lastBroadcastAt >= BROADCAST_INTERVAL_MS && (
 			Math.abs(avatarRig.position.x - lastBroadcastX) > BROADCAST_EPSILON ||
 			Math.abs(avatarRig.position.z - lastBroadcastZ) > BROADCAST_EPSILON
 		)
 	) {
+		lastBroadcastAt = now;
 		lastBroadcastX = avatarRig.position.x;
 		lastBroadcastZ = avatarRig.position.z;
-		const pos = {
-			x: avatarRig.position.x,
-			z: avatarRig.position.z,
-			yaw: avatarYaw,
-			motion: currentMotion,
-		};
-		emit(OUTBOUND.MOVED, pos, { type: 'walk:position', ...pos });
+		emit(OUTBOUND.POSITION, {
+			x: round3(avatarRig.position.x),
+			z: round3(avatarRig.position.z),
+			heading: round3(avatarYaw),
+		});
 	}
 
 	renderer.render(scene, camera);
@@ -625,56 +662,163 @@ function lerpAngle(a, b, t) {
 	return a + diff * t;
 }
 
-// ── Host commands ─────────────────────────────────────────────────────────
-// Hosts can drive the embed via window.postMessage. Supported commands:
-//   { type: 'walk:setAvatar', id }   — swap avatar live
-//   { type: 'walk:setMotion', motion } — 'idle' | 'walk' | 'run' (autoplay)
-//   { type: 'walk:resetPose' }       — recenter avatar on the ground
-window.addEventListener('message', async (e) => {
-	const msg = e.data;
-	if (!msg || typeof msg !== 'object') return;
-	if (msg.type === 'walk:setAvatar' && msg.id) {
+// ── Imperative runtime handle (consumed by installEmbedBridge) ─────────────
+// Every method receives values the bridge has already validated, clamped, and
+// bounded against the walk-embed-events contract — so the runtime trusts them
+// and just applies them to the real avatar/controls. The bridge is the only
+// thing that talks postMessage; the runtime only knows about its scene.
+const runtime = {
+	on: busOn,
+	getReady() {
+		return isReady ? { avatarId: currentAvatarId, env: currentEnv } : null;
+	},
+	// Walk to a world (x, z) then stop. Steered each frame in readMoveInput.
+	goto(x, z) {
+		cancelProgrammatic();
+		const dist = Math.hypot(x - avatarRig.position.x, z - avatarRig.position.z);
+		input.seek.active = true;
+		input.seek.x = x;
+		input.seek.z = z;
+		input.seek.run = dist > 4; // jog to far targets, walk to near ones
+		input.autoplay.active = false;
+	},
+	// Held analog vector / discrete nudge from walk:move.
+	move(payload) {
+		cancelProgrammatic();
+		input.autoplay.active = false;
+		if (typeof payload.dir === 'string') {
+			const v = DIR_VECTORS[payload.dir];
+			if (!v) return;
+			input.scripted.vx = v.vx;
+			input.scripted.vy = v.vy;
+			input.scripted.run = false;
+			input.scripted.remaining = payload.meters;
+		} else {
+			input.cmd.x = payload.x;
+			input.cmd.y = payload.y;
+			input.cmd.run = !!payload.run;
+			input.cmd.active = Math.hypot(payload.x, payload.y) > 0.01;
+		}
+	},
+	// One-shot gestures (wave/jump) play over locomotion then settle to idle.
+	// Locomotion gestures (idle/walk/run) drive the autoplay loop the same way
+	// the legacy walk:setMotion command did.
+	gesture(g) {
+		if (g === 'wave' || g === 'jump') {
+			const clip = GESTURE_CLIPS[g];
+			if (clip && animationManager.supportsCanonicalClips?.() !== false) {
+				animationManager.playOnce(clip, { settleTo: CLIP_IDLE, fade: 0.18 });
+			}
+			emit(OUTBOUND.GESTURE, { gesture: g });
+			return;
+		}
+		if (g === 'walk' || g === 'run') {
+			input.autoplay.active = true;
+			input.autoplay.t = 0;
+		} else if (g === 'idle') {
+			input.autoplay.active = false;
+			input.cmd.active = false;
+			input.seek.active = false;
+			input.scripted.remaining = 0;
+		}
+		emit(OUTBOUND.GESTURE, { gesture: g });
+	},
+	// Show a speech bubble; `voice` is forwarded to the host echo as a hint (the
+	// embed renders text, the host owns any TTS). durationMs sets the auto-hide.
+	say(text, voice, durationMs) {
+		const ms = showSpeechBubble(text, durationMs);
+		emit(OUTBOUND.SPEAK, { text, voice, durationMs: ms });
+	},
+	setEnv(env) {
+		applyEnvironment(env);
+		currentEnv = env;
+		emit(OUTBOUND.ENVIRONMENT, { env });
+	},
+	async setAvatar(avatarId) {
 		try {
+			const url = /^https?:\/\//i.test(avatarId) || avatarId.startsWith('/')
+				? avatarId
+				: `/api/avatars/${encodeURIComponent(avatarId)}/glb`;
 			const loader = await getAvatarLoader();
-			const gltf = await loader.loadAsync(`/api/avatars/${encodeURIComponent(msg.id)}/glb`);
+			const gltf = await loader.loadAsync(url);
 			if (avatar) avatarRig.remove(avatar);
 			avatar = gltf.scene;
-			avatar.traverse((n) => { if (n.isMesh) n.castShadow = true; });
+			avatar.traverse((n) => {
+				if (n.isMesh) {
+					n.castShadow = true;
+					if (n.material && 'envMapIntensity' in n.material) n.material.envMapIntensity = 0.85;
+				}
+			});
 			const box = new Box3().setFromObject(avatar);
 			avatar.position.y -= box.min.y;
 			avatarRig.add(avatar);
+			const height = Math.max(0.5, box.max.y - box.min.y);
+			CAM_OFFSET.set(0, height * 1.05, height * 1.95);
+			CAM_LOOK_OFFSET.set(0, height * 0.6, 0);
+			applyCameraImmediate();
 			animationManager.attach(avatar);
 			await animationManager.crossfadeTo(CLIP_IDLE, 0.0);
 			currentMotion = 'idle';
-			postToHost({ type: 'walk:avatarChanged', id: msg.id });
+			currentAvatarId = avatarId;
+			emit(OUTBOUND.AVATAR_CHANGED, { avatarId });
 		} catch (err) {
-			postToHost({ type: 'walk:error', error: String(err?.message || err) });
+			emit(OUTBOUND.ERROR, { code: 'avatar_load_failed', message: String(err?.message || err) });
 		}
-	} else if (msg.type === 'walk:setMotion') {
-		if (msg.motion === 'walk' || msg.motion === 'run') {
-			input.autoplay.active = true;
-			input.autoplay.t = 0;
-		} else if (msg.motion === 'idle') {
-			input.autoplay.active = false;
-		}
-	} else if (msg.type === 'walk:resetPose') {
+	},
+	config({ speed, bg, controls } = {}) {
+		if (typeof speed === 'number') input._speedMultiplier = speed;
+		if (typeof bg === 'string') applyBackground(bg);
+		if (typeof controls === 'string') applyControls(controls);
+	},
+	reset() {
+		cancelProgrammatic();
+		input.autoplay.active = false;
 		avatarRig.position.set(0, 0, 0);
 		avatarYaw = 0;
 		avatarRig.quaternion.setFromAxisAngle(upY, 0);
-		applyCameraImmediate();
-	} else if (msg.type === 'walk:narrate' && typeof msg.text === 'string') {
-		// Show a DOM speech bubble above the avatar for the narration text.
-		showSpeechBubble(msg.text);
-	} else if (msg.type === 'walk:narrateEnd') {
 		hideSpeechBubble();
-	} else if (msg.type === 'walk:config') {
-		if (typeof msg.speed === 'number') {
-			// Walk speed multiplier — applied to input magnitude each frame
-			input._speedMultiplier = Math.max(0.3, Math.min(3, msg.speed));
-		}
-	} else if (msg.type === 'walk:setEnv' && typeof msg.env === 'string') {
-		applyEnvironment(msg.env.toLowerCase());
+		applyCameraImmediate();
+	},
+};
+
+// Expose the handle so installEmbedBridge (and integration tests) can drive the
+// runtime without importing it. Public methods only — no scene internals.
+window.__walkEmbed = runtime;
+
+// Apply a runtime background override (walk:config { bg }). 'transparent' lets
+// the host page show through; a hex/rgb paints a solid clear color.
+function applyBackground(bg) {
+	if (!bg || bg === 'transparent') {
+		renderer.setClearColor(0x000000, 0);
+		document.body.style.background = 'transparent';
+		stage.style.background = 'transparent';
+		return;
 	}
+	try {
+		renderer.setClearColor(new Color(bg), 1);
+		document.body.style.background = bg;
+		stage.style.background = bg;
+	} catch {}
+}
+
+// Swap control scheme at runtime (walk:config { controls }). Only toggles the
+// joystick visibility + clears live key/joy state; keyboard listeners stay
+// installed and simply go unused when controls are 'none'.
+function applyControls(mode) {
+	stage.dataset.controls = mode;
+	if (mode === 'none') {
+		input.keys.forward = input.keys.back = input.keys.left = input.keys.right = 0;
+		input.keys.run = false;
+		input.joy.x = input.joy.y = 0;
+		input.joy.active = false;
+	}
+}
+
+// Install the postMessage bridge — origin allow-list and target origin come
+// from the embed URL so a security-conscious host can pin them.
+installEmbedBridge(runtime, {
+	allowedOrigins: params.get('allowOrigins')?.split(',').map((s) => s.trim()).filter(Boolean) || '*',
+	targetOrigin: params.get('targetOrigin') || '*',
 });
 
 // ── Speech bubble (DOM overlay) ───────────────────────────────────────────
@@ -743,15 +887,17 @@ function ensureBubble() {
 	return bubbleEl;
 }
 
-function showSpeechBubble(text) {
+// Returns the resolved visible duration (ms) so the host's walk:speak echo can
+// report exactly how long the bubble will stay up.
+function showSpeechBubble(text, durationMs) {
 	clearTimeout(bubbleHideTimer);
 	ensureBubble();
 	bubbleTextEl.textContent = text.slice(0, 280);
 	bubbleEl.style.opacity = '1';
-	// Fallback auto-hide keyed to estimated reading time, in case walk:narrateEnd
-	// never arrives (e.g. audio blocked by the host's autoplay policy).
-	const ms = Math.max(2500, text.length * 55);
+	// Explicit durationMs wins; otherwise estimate from reading time.
+	const ms = durationMs && durationMs > 0 ? durationMs : Math.max(2500, text.length * 55);
 	bubbleHideTimer = setTimeout(hideSpeechBubble, ms);
+	return ms;
 }
 
 function hideSpeechBubble() {
@@ -770,6 +916,6 @@ loadAvatar()
 			statusEl.classList.add('is-error');
 			statusEl.classList.remove('is-hidden');
 		}
-		postToHost({ type: 'walk:error', error: String(err?.message || err) });
+		emit(OUTBOUND.ERROR, { code: 'avatar_load_failed', message: String(err?.message || err) });
 		requestAnimationFrame(tick);
 	});

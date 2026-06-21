@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<script>/* three.ws theme boot — no-flash; runtime in /theme-switcher.js */(function(){try{var m=localStorage.getItem('twx_theme');var l=m==='auto'?(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches):m==='light';document.documentElement.setAttribute('data-theme',l?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();</script>
+		<meta charset="utf-8" />
+		<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+		<title>The walk page — Walk docs — three.ws</title>
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+		<meta name="description" content="The three.ws walk page: keyboard and touch controls, four camera modes, six environments, eight gestures, live multiplayer presence, AR camera passthrough, and the URL parameters it reads." />
+		<meta name="theme-color" content="#0a0a0a" />
+		<link rel="canonical" href="https://three.ws/docs/walk/walk-page" />
+		<link rel="shortcut icon" href="/favicon.ico" />
+		<link rel="stylesheet" href="/fonts/fonts.css" />
+		<link rel="stylesheet" href="/style.css" />
+		<link rel="stylesheet" href="/footer.css" />
+		<link rel="stylesheet" href="/nav.css" />
+		<link rel="stylesheet" href="/docs/walk/docs.css" />
+	</head>
+	<body>
+		<a class="wd-skip" href="#wd-main">Skip to content</a>
+		<header><div id="nav-container"></div></header>
+		<script src="/nav.js"></script>
+
+		<div class="wd-shell">
+			<button class="wd-side-toggle" type="button" aria-expanded="false" aria-controls="wd-side">
+				<span>Documentation menu</span><span aria-hidden="true">☰</span>
+			</button>
+			<aside class="wd-side" id="wd-side" aria-label="Walk documentation">
+				<h2>Walk docs</h2>
+				<nav aria-label="Walk documentation pages">
+					<a href="/docs/walk">Overview</a>
+					<a href="/docs/walk/getting-started">Getting started</a>
+				</nav>
+				<h2>Use it</h2>
+				<nav aria-label="Using Walk">
+					<a href="/docs/walk/walk-page" aria-current="page">The walk page</a>
+					<a href="/docs/walk/companion-mode">Companion mode</a>
+					<a href="/docs/walk/chrome-extension">Chrome extension</a>
+				</nav>
+				<h2>Build with it</h2>
+				<nav aria-label="Building with Walk">
+					<a href="/docs/walk/embed-iframe">Iframe embed</a>
+					<a href="/docs/walk/embed-sdk">JavaScript SDK</a>
+					<a href="/docs/walk/postmessage-events">postMessage events</a>
+					<a href="/docs/walk/analytics">Analytics</a>
+				</nav>
+				<h2>Reference</h2>
+				<nav aria-label="Reference"><a href="/docs/walk/changelog">Changelog</a></nav>
+			</aside>
+
+			<main class="wd-main" id="wd-main">
+				<p class="wd-crumbs"><a href="/docs">Docs</a> / <a href="/docs/walk">Walk</a> / The walk page</p>
+				<h1>The walk page</h1>
+				<p class="wd-lede">
+					<a href="/walk">three.ws/walk</a> is the full experience: move an avatar through
+					six 3D worlds, switch between four camera modes, fire gestures, see other
+					walkers live, and step into AR. This page documents the controls exactly as
+					they ship.
+				</p>
+
+				<h2>Keyboard &amp; pointer controls</h2>
+				<p>On desktop, the avatar is driven with the keyboard; the mouse orbits the camera.</p>
+				<div class="wd-table-wrap">
+					<table class="wd-table">
+						<thead><tr><th>Key</th><th>Action</th></tr></thead>
+						<tbody>
+							<tr><td><kbd>W</kbd> / <kbd>↑</kbd></td><td>Move forward</td></tr>
+							<tr><td><kbd>S</kbd> / <kbd>↓</kbd></td><td>Move backward</td></tr>
+							<tr><td><kbd>A</kbd> / <kbd>←</kbd></td><td>Strafe left</td></tr>
+							<tr><td><kbd>D</kbd> / <kbd>→</kbd></td><td>Strafe right</td></tr>
+							<tr><td><kbd>Shift</kbd> (hold)</td><td>Run</td></tr>
+							<tr><td><kbd>Space</kbd></td><td>Jump</td></tr>
+							<tr><td><kbd>Q</kbd> / <kbd>E</kbd></td><td>Snap-turn 45° left / right</td></tr>
+							<tr><td><kbd>C</kbd></td><td>Cycle camera mode</td></tr>
+							<tr><td><kbd>V</kbd></td><td>Cycle environment</td></tr>
+							<tr><td><kbd>G</kbd> (hold)</td><td>Open the gesture wheel</td></tr>
+							<tr><td><kbd>1</kbd>–<kbd>8</kbd></td><td>Play a gesture directly</td></tr>
+							<tr><td><kbd>T</kbd> / <kbd>Enter</kbd></td><td>Focus chat</td></tr>
+							<tr><td><kbd>P</kbd></td><td>Screenshot</td></tr>
+							<tr><td><kbd>R</kbd></td><td>Toggle GIF recording</td></tr>
+							<tr><td><kbd>M</kbd></td><td>Toggle minimap</td></tr>
+							<tr><td><kbd>Z</kbd></td><td>Hide UI (Zen mode)</td></tr>
+							<tr><td><kbd>H</kbd> / <kbd>?</kbd></td><td>Toggle the help overlay</td></tr>
+							<tr><td>Mouse drag</td><td>Orbit the camera</td></tr>
+							<tr><td>Scroll / pinch</td><td>Zoom in / out</td></tr>
+							<tr><td><kbd>Esc</kbd></td><td>Close overlay / release pointer lock</td></tr>
+						</tbody>
+					</table>
+				</div>
+				<div class="wd-note">
+					<span class="wd-icon" aria-hidden="true">✱</span>
+					<span>On touch devices the page shows dual on-screen sticks — the left stick moves the avatar, the right stick orbits the camera — plus jump, camera, and gesture buttons. Hold the gesture button to open the radial wheel.</span>
+				</div>
+
+				<h2>Camera modes</h2>
+				<p>Press <kbd>C</kbd> (or tap the camera button) to cycle through four modes. Your choice persists across sessions.</p>
+				<div class="wd-table-wrap">
+					<table class="wd-table">
+						<thead><tr><th>Mode</th><th>Label</th><th>Behaviour</th></tr></thead>
+						<tbody>
+							<tr><td><code>follow</code></td><td>Follow</td><td>Default third-person camera that trails the avatar.</td></tr>
+							<tr><td><code>cinematic</code></td><td>Cinematic</td><td>Auto-orbiting camera that periodically cuts to a new angle.</td></tr>
+							<tr><td><code>firstperson</code></td><td>First Person</td><td>Sees through the avatar's eyes; the body is hidden.</td></tr>
+							<tr><td><code>topdown</code></td><td>Top Down</td><td>Overhead view of the avatar and surrounding world.</td></tr>
+						</tbody>
+					</table>
+				</div>
+
+				<h2>Environments</h2>
+				<p>Six worlds, each with its own terrain, sky, and lighting. Cycle with <kbd>V</kbd>, or land directly in one with the <code>?env=</code> URL parameter.</p>
+				<div class="wd-table-wrap">
+					<table class="wd-table">
+						<thead><tr><th>id</th><th>Name</th><th>Setting</th></tr></thead>
+						<tbody>
+							<tr><td><code>park</code></td><td>Park</td><td>Rolling green with shade trees, benches, and lamp posts. <em>(default)</em></td></tr>
+							<tr><td><code>beach</code></td><td>Beach</td><td>Bright sand, palms, parasols, and a turquoise sea.</td></tr>
+							<tr><td><code>gallery</code></td><td>Gallery</td><td>White-walled exhibition space with pedestals and hung art.</td></tr>
+							<tr><td><code>cyberpunk</code></td><td>Cyberpunk</td><td>Neon towers and holo signs over a rain-dark street.</td></tr>
+							<tr><td><code>office</code></td><td>Office</td><td>The three.ws virtual office — desks, plants, brand wall.</td></tr>
+							<tr><td><code>void</code></td><td>Void</td><td>A minimal grid plane under a soft gradient — pure focus.</td></tr>
+						</tbody>
+					</table>
+				</div>
+				<div class="wd-code" data-lang="text" data-label="URL">
+					<pre><code>https://three.ws/walk?env=cyberpunk</code></pre>
+				</div>
+
+				<h2>Gestures</h2>
+				<p>
+					Eight gestures play on top of (or instead of) walking. Hold <kbd>G</kbd> for the
+					radial wheel, or press a number key. Upper-body gestures layer over locomotion
+					so the avatar keeps walking; full-body gestures take over until they finish.
+				</p>
+				<div class="wd-table-wrap">
+					<table class="wd-table">
+						<thead><tr><th>#</th><th>Gesture</th><th>Layer</th></tr></thead>
+						<tbody>
+							<tr><td>1</td><td><code>wave</code></td><td>Upper body (keeps walking)</td></tr>
+							<tr><td>2</td><td><code>dance</code></td><td>Full body</td></tr>
+							<tr><td>3</td><td><code>sit</code></td><td>Full body</td></tr>
+							<tr><td>4</td><td><code>point</code></td><td>Upper body (keeps walking)</td></tr>
+							<tr><td>5</td><td><code>cheer</code></td><td>Upper body (keeps walking)</td></tr>
+							<tr><td>6</td><td><code>agree</code></td><td>Upper body (keeps walking)</td></tr>
+							<tr><td>7</td><td><code>disagree</code></td><td>Upper body (keeps walking)</td></tr>
+							<tr><td>8</td><td><code>talking</code></td><td>Full body</td></tr>
+						</tbody>
+					</table>
+				</div>
+
+				<h2>Multiplayer presence</h2>
+				<p>
+					The walk page connects to a real-time presence server, so when others are in the
+					same world you see them move, gesture, and chat live. Each remote walker's
+					position, facing, motion, name, colour, and avatar are synchronised continuously.
+					The status pill shows <strong>online</strong>, <strong>connecting</strong>,
+					<strong>solo</strong>, or <strong>offline</strong>, and a player list names
+					everyone present.
+				</p>
+				<p>
+					Walkers are grouped into shared rooms by the <code>?coin</code> community they
+					arrive with — pass a Solana mint and a friendly name to put a community in one
+					room together:
+				</p>
+				<div class="wd-code" data-lang="text" data-label="URL">
+					<pre><code>https://three.ws/walk?coin=&lt;mint&gt;&amp;coinName=&lt;name&gt;&amp;coinSymbol=&lt;ticker&gt;</code></pre>
+				</div>
+				<div class="wd-note">
+					<span class="wd-icon" aria-hidden="true">✱</span>
+					<span>If the presence server is unreachable the page still works perfectly — it simply runs solo. Multiplayer is an enhancement, never a requirement.</span>
+				</div>
+
+				<h2>AR camera passthrough</h2>
+				<p>
+					On a phone, the AR button drops the avatar into your real surroundings. It
+					streams the rear camera as the backdrop, hides the procedural terrain, keeps a
+					shadow-catcher under the avatar's feet, freezes the camera in world space, and
+					continuously samples the live video to match the avatar's lighting to your room.
+				</p>
+				<div class="wd-warn">
+					<span class="wd-icon" aria-hidden="true">▲</span>
+					<span>AR uses the device camera (<code>getUserMedia</code>) for passthrough — it is not WebXR spatial AR, so there is no plane detection or world anchoring. It requires a browser with camera access and falls back gracefully with a clear message where the camera API is unavailable.</span>
+				</div>
+
+				<h2>URL parameters the page reads</h2>
+				<p>Append these to <code>/walk</code> to deep-link into a configuration.</p>
+				<div class="wd-table-wrap">
+					<table class="wd-table">
+						<thead><tr><th>Parameter</th><th>Value</th><th>Effect</th></tr></thead>
+						<tbody>
+							<tr><td><code>avatar</code></td><td>avatar UUID</td><td>Load a registered avatar by id.</td></tr>
+							<tr><td><code>avatarUrl</code></td><td>GLB / VRM URL</td><td>Load a model directly by URL.</td></tr>
+							<tr><td><code>name</code></td><td>string (≤24 chars)</td><td>Pre-fill the player name.</td></tr>
+							<tr><td><code>env</code></td><td>environment id</td><td>Start in a specific world.</td></tr>
+							<tr><td><code>coin</code></td><td>Solana mint</td><td>Join that community's shared room.</td></tr>
+							<tr><td><code>coinName</code></td><td>string (≤48)</td><td>Display name for the community.</td></tr>
+							<tr><td><code>coinSymbol</code></td><td>string (≤16)</td><td>Ticker for the community.</td></tr>
+							<tr><td><code>coinImage</code></td><td>image URL (≤1024)</td><td>Community logo.</td></tr>
+							<tr><td><code>agent</code></td><td>agent id</td><td>The three.ws agent this walker embodies.</td></tr>
+							<tr><td><code>ui</code></td><td><code>hidden</code> / <code>off</code></td><td>Hide the UI on load (Zen mode).</td></tr>
+						</tbody>
+					</table>
+				</div>
+
+				<div class="wd-pagefoot">
+					<a class="wd-edit" href="https://github.com/nirholas/three.ws/edit/main/public/docs/walk/walk-page.html" rel="noopener"><span aria-hidden="true">✎</span> Edit this page on GitHub</a>
+					<div class="wd-nextprev">
+						<a href="/docs/walk/getting-started"><span>Previous</span>← Getting started</a>
+						<a href="/docs/walk/embed-iframe"><span>Next</span>Iframe embed →</a>
+					</div>
+				</div>
+			</main>
+		</div>
+
+		<div id="footer-container"></div>
+		<script src="/footer.js"></script>
+		<script src="/brand.js" defer></script>
+		<script type="module" src="/docs/walk/docs.js"></script>
+	</body>
+</html>

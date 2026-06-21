@@ -8,8 +8,12 @@
 // un-throttled fallback so failover never depends on the aggressively
 // rate-limited public mainnet-beta endpoint alone.
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { solanaRpcEndpoints, shouldRotate } from '../../api/_lib/solana/connection.js';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import {
+	solanaRpcEndpoints,
+	shouldRotate,
+	makeRotatingFetch,
+} from '../../api/_lib/solana/connection.js';
 
 const KEYS = [
 	'HELIUS_API_KEY',
@@ -118,5 +122,64 @@ describe('shouldRotate', () => {
 		for (const s of [200, 400, 422]) {
 			expect(shouldRotate(s)).toBe(false);
 		}
+	});
+});
+
+// Regression guard for the recurring StructError storm: a provider answered a
+// JSON-RPC POST with HTTP 200 but an empty or HTML body, which web3.js then ran
+// through its superstruct result schema and threw
+// `StructError: Expected the value to satisfy a union of … but received:` to the
+// caller WITHOUT rotating (a parse error carries no rotate-worthy HTTP status).
+// makeRotatingFetch now detects the poison body and fails over to the next lane.
+describe('makeRotatingFetch poison-body failover', () => {
+	const json = '{"jsonrpc":"2.0","result":{"value":1},"id":1}';
+	let realFetch;
+	beforeEach(() => {
+		realFetch = global.fetch;
+	});
+	afterEach(() => {
+		global.fetch = realFetch;
+		vi.restoreAllMocks();
+	});
+
+	function mockResponses(map) {
+		global.fetch = vi.fn(async (url) => {
+			const r = map[url];
+			if (!r) throw new Error(`unexpected fetch ${url}`);
+			return new Response(r.body, { status: r.status ?? 200, headers: { 'content-type': 'application/json' } });
+		});
+	}
+
+	it('fails over a 200-but-empty body to the next endpoint and returns its JSON', async () => {
+		vi.spyOn(console, 'log').mockImplementation(() => {});
+		const a = 'https://poison-empty.example/sol';
+		const b = 'https://healthy.example/sol';
+		mockResponses({ [a]: { body: '' }, [b]: { body: json } });
+		const fetchImpl = makeRotatingFetch([a, b]);
+		const resp = await fetchImpl(a, { method: 'POST', body: '{}' });
+		expect(resp.status).toBe(200);
+		expect(await resp.text()).toBe(json);
+	});
+
+	it('fails over a 200-but-HTML body (provider interstitial) to the next endpoint', async () => {
+		vi.spyOn(console, 'log').mockImplementation(() => {});
+		const a = 'https://poison-html.example/sol';
+		const b = 'https://healthy.example/sol';
+		mockResponses({ [a]: { body: '<!DOCTYPE html><html>503</html>' }, [b]: { body: json } });
+		const fetchImpl = makeRotatingFetch([a, b]);
+		const resp = await fetchImpl(a, { method: 'POST', body: '{}' });
+		expect(await resp.text()).toBe(json);
+	});
+
+	it('passes a valid JSON-RPC error body straight through (does not rotate)', async () => {
+		const errBody = '{"jsonrpc":"2.0","error":{"code":-32601,"message":"Method not found"},"id":1}';
+		const a = 'https://rpc.example/sol';
+		const fetchImpl = makeRotatingFetch([a, 'https://unused.example/sol']);
+		global.fetch = vi.fn(async (url) => {
+			if (url !== a) throw new Error('should not have rotated');
+			return new Response(errBody, { status: 200, headers: { 'content-type': 'application/json' } });
+		});
+		const resp = await fetchImpl(a, { method: 'POST', body: '{}' });
+		expect(await resp.text()).toBe(errBody);
 	});
 });

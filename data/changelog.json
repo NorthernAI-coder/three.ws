@@ -3,6 +3,31 @@
 	"entries": [
 		{
 			"date": "2026-06-21",
+			"title": "Discover and Marketplace now browse the same way",
+			"summary": "Searching, filtering, and sorting agents now work identically on /discover and /marketplace. Both pages share one polished control bar — debounced search, filter chips, and sort — and your choices are saved in the page address, so a filtered view is shareable and the browser back button restores it. Loading, empty, and error states were unified too: a search that matches nothing shows a clear 'no results' panel with a one-click 'Clear filters', and a failed load offers a retry instead of a blank grid.",
+			"tags": [
+				"improvement"
+			],
+			"link": "/discover"
+		},
+		{
+			"date": "2026-06-21",
+			"title": "Pay-per-call endpoints accept Solana USDC payments again",
+			"summary": "Paying for any x402 endpoint with Solana USDC was failing the moment the wallet tried to build the payment — the platform's receiving address was being published with a stray invisible character, so a correctly-built payment got rejected as going to the wrong recipient. Payment addresses are now cleaned before they're ever advertised, so Solana USDC payments to paid endpoints go through and settle as expected.",
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"title": "Free 3D generation keeps working when the paid engines are down",
+			"summary": "The text/image→3D forge has a free fallback that runs on public GPU Spaces so a generation never dead-ends when the paid engine is busy or out of capacity. Two of those Spaces had gone stale — one was taken offline and another was being called on the wrong endpoint — which meant the free lane could fail even when a working Space was available. The chain now targets only live Spaces with the correct settings, so 'type a prompt → get a model' keeps returning a result even when every paid lane is unavailable.",
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-21",
 			"title": "Your avatar now walks anywhere — new Walk hub, leaderboard, and creator analytics",
 			"summary": "There's a dedicated home for the walking avatar at /walk with live demos across six environments, an embeddable one-tag widget, and a Chrome-extension CTA. A new global leaderboard ranks walkers by distance, sites visited, and time (daily / weekly / all-time), and creators who embed an avatar get a private analytics dashboard — sessions, average duration, distance, top embed origins, and custom conversion events. Page-to-page navigation also gained themed, motion-aware transitions.",
 			"tags": [

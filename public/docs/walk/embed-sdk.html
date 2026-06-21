@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<script>/* three.ws theme boot — no-flash; runtime in /theme-switcher.js */(function(){try{var m=localStorage.getItem('twx_theme');var l=m==='auto'?(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches):m==='light';document.documentElement.setAttribute('data-theme',l?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();</script>
+		<meta charset="utf-8" />
+		<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+		<title>JavaScript SDK — Walk docs — three.ws</title>
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+		<meta name="description" content="The walk-embed-sdk.js host API. Mount a floating avatar with one script tag and control it at runtime through window.ThreeWalkAvatar: setAvatar, setEnv, setPosition, setSize, on/off events, and track." />
+		<meta name="theme-color" content="#0a0a0a" />
+		<link rel="canonical" href="https://three.ws/docs/walk/embed-sdk" />
+		<link rel="shortcut icon" href="/favicon.ico" />
+		<link rel="stylesheet" href="/fonts/fonts.css" />
+		<link rel="stylesheet" href="/style.css" />
+		<link rel="stylesheet" href="/footer.css" />
+		<link rel="stylesheet" href="/nav.css" />
+		<link rel="stylesheet" href="/docs/walk/docs.css" />
+	</head>
+	<body>
+		<a class="wd-skip" href="#wd-main">Skip to content</a>
+		<header><div id="nav-container"></div></header>
+		<script src="/nav.js"></script>
+
+		<div class="wd-shell">
+			<button class="wd-side-toggle" type="button" aria-expanded="false" aria-controls="wd-side">
+				<span>Documentation menu</span><span aria-hidden="true">☰</span>
+			</button>
+			<aside class="wd-side" id="wd-side" aria-label="Walk documentation">
+				<h2>Walk docs</h2>
+				<nav aria-label="Walk documentation pages">
+					<a href="/docs/walk">Overview</a>
+					<a href="/docs/walk/getting-started">Getting started</a>
+				</nav>
+				<h2>Use it</h2>
+				<nav aria-label="Using Walk">
+					<a href="/docs/walk/walk-page">The walk page</a>
+					<a href="/docs/walk/companion-mode">Companion mode</a>
+					<a href="/docs/walk/chrome-extension">Chrome extension</a>
+				</nav>
+				<h2>Build with it</h2>
+				<nav aria-label="Building with Walk">
+					<a href="/docs/walk/embed-iframe">Iframe embed</a>
+					<a href="/docs/walk/embed-sdk" aria-current="page">JavaScript SDK</a>
+					<a href="/docs/walk/postmessage-events">postMessage events</a>
+					<a href="/docs/walk/analytics">Analytics</a>
+				</nav>
+				<h2>Reference</h2>
+				<nav aria-label="Reference"><a href="/docs/walk/changelog">Changelog</a></nav>
+			</aside>
+
+			<main class="wd-main" id="wd-main">
+				<p class="wd-crumbs"><a href="/docs">Docs</a> / <a href="/docs/walk">Walk</a> / JavaScript SDK</p>
+				<h1>JavaScript SDK</h1>
+				<p class="wd-lede">
+					<code>walk-embed-sdk.js</code> is a standalone, zero-dependency script. It reads
+					<code>data-*</code> attributes off its own tag, injects a fixed-position
+					transparent iframe, and exposes <code>window.ThreeWalkAvatar</code> for runtime
+					control — plus it re-emits the iframe's <code>postMessage</code> events as
+					document-level <code>CustomEvent</code>s so you never touch <code>postMessage</code>
+					directly.
+				</p>
+
+				<h2>Install</h2>
+				<p>One tag. It auto-mounts on DOM ready unless you set <code>data-auto="false"</code>.</p>
+				<div class="wd-code" data-lang="html" data-label="HTML">
+					<pre><code>&lt;script src="https://three.ws/walk-embed-sdk.js"
+        data-avatar="YOUR-AVATAR-UUID"
+        data-position="bottom-right"
+        data-width="220"
+        data-height="320"
+        data-env="studio"&gt;&lt;/script&gt;</code></pre>
+				</div>
+
+				<h2>Script attributes</h2>
+				<div class="wd-table-wrap">
+					<table class="wd-table">
+						<thead><tr><th>Attribute</th><th>Values</th><th>Default</th><th>Description</th></tr></thead>
+						<tbody>
+							<tr><td><code>data-avatar</code></td><td>avatar UUID / GLB URL</td><td class="wd-default">default avatar</td><td>The model to render.</td></tr>
+							<tr><td><code>data-position</code></td><td><code>bottom-right</code> · <code>bottom-left</code> · <code>top-right</code> · <code>top-left</code></td><td class="wd-default"><code>bottom-right</code></td><td>Corner to anchor the floating avatar.</td></tr>
+							<tr><td><code>data-width</code> / <code>data-height</code></td><td>pixels</td><td class="wd-default"><code>220</code> / <code>320</code></td><td>Iframe size.</td></tr>
+							<tr><td><code>data-controls</code></td><td><code>none</code> · <code>joystick</code> · <code>keyboard</code></td><td class="wd-default"><code>none</code></td><td>Input method. With <code>none</code>, clicks pass through to your page.</td></tr>
+							<tr><td><code>data-env</code></td><td>environment id</td><td class="wd-default"><code>studio</code></td><td>Scene preset.</td></tr>
+							<tr><td><code>data-autoplay</code></td><td><code>true</code> / <code>false</code></td><td class="wd-default"><code>true</code></td><td>Auto-walk so the avatar is never static.</td></tr>
+							<tr><td><code>data-ground</code></td><td><code>true</code> / <code>false</code></td><td class="wd-default"><code>false</code></td><td>Show the ground disc. Off by default for floating corner embeds.</td></tr>
+							<tr><td><code>data-orbit</code></td><td><code>true</code> / <code>false</code></td><td class="wd-default"><code>false</code></td><td>Allow drag-to-orbit. Off by default for corner embeds.</td></tr>
+							<tr><td><code>data-bg</code></td><td><code>transparent</code> / hex</td><td class="wd-default"><code>transparent</code></td><td>Background fill.</td></tr>
+							<tr><td><code>data-z-index</code></td><td>integer</td><td class="wd-default"><code>2147483640</code></td><td>Stacking order of the floating container.</td></tr>
+							<tr><td><code>data-auto</code></td><td><code>true</code> / <code>false</code></td><td class="wd-default"><code>true</code></td><td>Auto-mount on DOM ready. Set <code>false</code> to mount manually.</td></tr>
+						</tbody>
+					</table>
+				</div>
+
+				<h2>The <code>window.ThreeWalkAvatar</code> API</h2>
+				<p>The SDK exposes this object once it loads. Every method below is real and shipped.</p>
+				<div class="wd-table-wrap">
+					<table class="wd-table">
+						<thead><tr><th>Method</th><th>Description</th></tr></thead>
+						<tbody>
+							<tr><td><code>mount(target?)</code></td><td>Mount the floating iframe. Idempotent. <code>target</code> may be an element or selector; defaults to <code>&lt;body&gt;</code>. Returns the container element.</td></tr>
+							<tr><td><code>unmount()</code></td><td>Remove the iframe and detach listeners.</td></tr>
+							<tr><td><code>setAvatar(id)</code></td><td>Swap the avatar live (UUID or GLB URL).</td></tr>
+							<tr><td><code>setEnv(env)</code></td><td>Change the environment preset.</td></tr>
+							<tr><td><code>setMotion(motion)</code></td><td>Set motion: <code>'idle'</code>, <code>'walk'</code>, or <code>'run'</code>.</td></tr>
+							<tr><td><code>setPosition(pos)</code></td><td>Re-anchor to a corner (<code>bottom-right</code> etc.).</td></tr>
+							<tr><td><code>setSize(w, h)</code></td><td>Resize the floating container in pixels.</td></tr>
+							<tr><td><code>resetPose()</code></td><td>Recenter the avatar and reset its facing.</td></tr>
+							<tr><td><code>on(name, cb)</code></td><td>Subscribe to an event (see below).</td></tr>
+							<tr><td><code>off(name, cb)</code></td><td>Remove a previously registered listener.</td></tr>
+							<tr><td><code>getOptions()</code></td><td>Return a read-only snapshot of the current options.</td></tr>
+						</tbody>
+					</table>
+				</div>
+
+				<h2>Events</h2>
+				<p>
+					The SDK forwards the iframe's <code>postMessage</code> events two ways: as
+					document-level <code>CustomEvent</code>s and through <code>on()/off()</code>.
+					The forwarded names are <code>walk:ready</code>, <code>walk:position</code>,
+					<code>walk:error</code>, and <code>walk:avatarChanged</code>.
+				</p>
+				<div class="wd-code" data-lang="js" data-label="JavaScript">
+					<pre><code>// Either listen on the document…
+document.addEventListener('walk:ready', (e) =&gt; {
+  console.log('avatar loaded', e.detail);
+});
+
+// …or through the API.
+ThreeWalkAvatar.on('walk:position', ({ x, z, motion }) =&gt; {
+  console.log(`at ${x.toFixed(2)}, ${z.toFixed(2)} — ${motion}`);
+});</code></pre>
+				</div>
+
+				<h2>Runtime control example</h2>
+				<div class="wd-code" data-lang="js" data-label="JavaScript">
+					<pre><code>const api = window.ThreeWalkAvatar;
+
+api.setPosition('top-right');
+api.setSize(180, 260);
+api.setEnv('night');
+api.setAvatar('NEW-AVATAR-UUID');
+api.setMotion('run');</code></pre>
+				</div>
+
+				<h2>Conversion tracking</h2>
+				<p>
+					On the dedicated <a href="/walk">walk page</a> (and any surface that boots the
+					full walk runtime), <code>window.ThreeWalkAvatar.track(name, opts?)</code> records
+					a creator-defined conversion event against the current avatar. It posts
+					immediately and powers the funnel in the
+					<a href="/docs/walk/analytics">analytics dashboard</a>.
+				</p>
+				<div class="wd-code" data-lang="js" data-label="JavaScript">
+					<pre><code>// name is capped at 64 chars; value is an optional number.
+window.ThreeWalkAvatar.track('subscribe', { value: 9 });</code></pre>
+				</div>
+				<div class="wd-note">
+					<span class="wd-icon" aria-hidden="true">✱</span>
+					<span><code>track()</code> is provided by the full walk runtime. The lightweight floating-corner SDK focuses on mount and control; for conversion analytics, fire events from a page running the walk runtime.</span>
+				</div>
+
+				<h2>Manual mounting</h2>
+				<div class="wd-code" data-lang="html" data-label="HTML">
+					<pre><code>&lt;script src="https://three.ws/walk-embed-sdk.js"
+        data-auto="false"&gt;&lt;/script&gt;
+&lt;script&gt;
+  // mount into a specific container when you're ready
+  ThreeWalkAvatar.mount('#avatar-slot');
+&lt;/script&gt;</code></pre>
+				</div>
+
+				<div class="wd-pagefoot">
+					<a class="wd-edit" href="https://github.com/nirholas/three.ws/edit/main/public/docs/walk/embed-sdk.html" rel="noopener"><span aria-hidden="true">✎</span> Edit this page on GitHub</a>
+					<div class="wd-nextprev">
+						<a href="/docs/walk/embed-iframe"><span>Previous</span>← Iframe embed</a>
+						<a href="/docs/walk/postmessage-events"><span>Next</span>postMessage events →</a>
+					</div>
+				</div>
+			</main>
+		</div>
+
+		<div id="footer-container"></div>
+		<script src="/footer.js"></script>
+		<script src="/brand.js" defer></script>
+		<script type="module" src="/docs/walk/docs.js"></script>
+	</body>
+</html>

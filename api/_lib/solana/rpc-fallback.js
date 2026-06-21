@@ -58,7 +58,15 @@ function isRetryable(err) {
 		msg.includes('ETIMEDOUT') ||
 		msg.includes('ECONNREFUSED') ||
 		msg.includes('ECONNRESET') ||
-		msg.includes('fetch failed')
+		msg.includes('fetch failed') ||
+		// A provider that returns 200 + an empty/garbage body makes web3.js throw a
+		// `StructError: Expected the value to satisfy a union of …, but received:`
+		// while parsing the response. makeRotatingFetch already catches this at the
+		// transport layer, but a single-endpoint Connection (urls.length === 1, no
+		// rotating fetch attached) surfaces it here — rotating/cooling is the right
+		// response, not bubbling an opaque schema error to the caller.
+		msg.includes('StructError') ||
+		msg.includes('Expected the value to satisfy')
 	);
 }
 

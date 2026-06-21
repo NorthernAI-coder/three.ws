@@ -86,11 +86,17 @@ function pickSolanaRequirement(envelope) {
 	);
 }
 
+// Server-supplied addresses can carry trailing whitespace/newlines from
+// dashboard-pasted env vars; `new PublicKey()` rejects them as "Non-base58
+// character". A robust client trims before decoding rather than trusting the
+// challenge to be clean (the server is also fixed at api/_lib/env.js).
+const cleanKey = (s) => String(s ?? '').trim();
+
 async function buildAndSignTransferTx({ kp, connection, requirement }) {
 	const payer = kp.publicKey;
-	const mint = new PublicKey(requirement.asset);
-	const payTo = new PublicKey(requirement.payTo);
-	const feePayer = new PublicKey(requirement.extra.feePayer);
+	const mint = new PublicKey(cleanKey(requirement.asset));
+	const payTo = new PublicKey(cleanKey(requirement.payTo));
+	const feePayer = new PublicKey(cleanKey(requirement.extra.feePayer));
 	const amount = BigInt(requirement.amount);
 
 	const mintInfo = await getMint(connection, mint);
@@ -150,7 +156,17 @@ async function runOne(endpoint, kp, connection) {
 		return { name: endpoint.name, ok: false, status: probe.status };
 	}
 	const envelope = await probe.json();
-	const requirement = pickSolanaRequirement(envelope);
+	const rawRequirement = pickSolanaRequirement(envelope);
+	// Normalize address fields up front so the signed tx and the echoed
+	// `accepted` requirement agree — a server with a whitespace-tainted payTo
+	// env would otherwise make the facilitator compute a different expected
+	// recipient than the one we transfer to (recipient_mismatch).
+	const requirement = rawRequirement && {
+		...rawRequirement,
+		asset: cleanKey(rawRequirement.asset),
+		payTo: cleanKey(rawRequirement.payTo),
+		extra: { ...rawRequirement.extra, feePayer: cleanKey(rawRequirement.extra?.feePayer) },
+	};
 	if (!requirement) {
 		console.log(`   ✗ envelope has no Solana accepts entry`);
 		return { name: endpoint.name, ok: false, note: 'no solana accept' };

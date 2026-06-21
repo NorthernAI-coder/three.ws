@@ -1847,6 +1847,51 @@ create unique index if not exists walk_achievements_uniq
     );
 create index if not exists walk_achievements_user on walk_achievements (user_id) where user_id is not null;
 
+-- ── walk programmatic-control sessions + command queue ───────────────────────
+-- See api/_lib/migrations/20260621160000_walk_control.sql for the full rationale.
+-- Mirrored here so a clean schema.sql apply provisions the walk control API.
+-- Endpoint: api/walk/control/[action].js. The walk client opts in via
+-- /walk?control=<sessionId>&ck=<controlToken>.
+create table if not exists walk_control_sessions (
+    id              uuid primary key default gen_random_uuid(),
+    owner_id        uuid not null references users(id) on delete cascade,
+    avatar_id       uuid references avatars(id) on delete set null,
+    token_hash      text not null,
+    label           text,
+    env_id          text,
+    pos_x           double precision,
+    pos_z           double precision,
+    facing          double precision,
+    motion          text,
+    current_env     text,
+    client_seen_at  timestamptz,
+    created_at      timestamptz not null default now(),
+    expires_at      timestamptz not null
+);
+create index if not exists walk_control_sessions_owner
+    on walk_control_sessions (owner_id, created_at desc);
+create index if not exists walk_control_sessions_token
+    on walk_control_sessions (token_hash);
+create index if not exists walk_control_sessions_expires
+    on walk_control_sessions (expires_at);
+
+create table if not exists walk_control_commands (
+    id              bigserial primary key,
+    session_id      uuid not null references walk_control_sessions(id) on delete cascade,
+    seq             bigint not null,
+    kind            text not null check (kind in ('move','gesture','say','env')),
+    payload         jsonb not null default '{}'::jsonb,
+    dedup_key       text,
+    created_at      timestamptz not null default now(),
+    delivered_at    timestamptz
+);
+create index if not exists walk_control_commands_drain
+    on walk_control_commands (session_id, seq)
+    where delivered_at is null;
+create unique index if not exists walk_control_commands_dedup
+    on walk_control_commands (session_id, kind, dedup_key)
+    where dedup_key is not null;
+
 CREATE TABLE IF NOT EXISTS x_pending_reviews (
     id           uuid        NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
     user_id      uuid        NOT NULL REFERENCES users(id) ON DELETE CASCADE,

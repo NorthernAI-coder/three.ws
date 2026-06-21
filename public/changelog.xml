@@ -71,6 +71,14 @@
 			<description>The Discover grid and the published-agents (Characters) feed now serve from the edge cache, so a surge of visitors is absorbed at the CDN instead of re-running a database scan on every request. Pages stay fast and consistent even during a rush, and a stale-while-revalidate window keeps them warm between refreshes.</description>
 		</item>
 		<item>
+			<title>Discover and Marketplace now browse the same way</title>
+			<link>https://three.ws/discover</link>
+			<guid isPermaLink="false">2026-06-21:Discover and Marketplace now browse the same way</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>Searching, filtering, and sorting agents now work identically on /discover and /marketplace. Both pages share one polished control bar — debounced search, filter chips, and sort — and your choices are saved in the page address, so a filtered view is shareable and the browser back button restores it. Loading, empty, and error states were unified too: a search that matches nothing shows a clear 'no results' panel with a one-click 'Clear filters', and a failed load offers a retry instead of a blank grid.</description>
+		</item>
+		<item>
 			<title>Empty pages now guide you instead of going blank</title>
 			<link>https://three.ws/dashboard</link>
 			<guid isPermaLink="false">2026-06-21:Empty pages now guide you instead of going blank</guid>
@@ -119,6 +127,14 @@
 			<description>A new forge_avatar MCP tool collapses the old two-step flow (generate a mesh, then rig it) into a single call: describe a character in text — or pass reference images — and it generates the textured model, auto-rigs it with a humanoid skeleton, and returns an animation-ready GLB that drops straight into the pose studio and plays the idle/walk library. A built-in humanoid check runs first, so a non-character prompt (furniture, a vehicle, an animal) is turned away with no charge instead of wasting a paid rig. It bundles generation and rigging at their combined price ($0.45) with no hidden markup, and you are never charged if no rigged avatar is produced.</description>
 		</item>
 		<item>
+			<title>Free 3D generation keeps working when the paid engines are down</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-21:Free 3D generation keeps working when the paid engines are down</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>The text/image→3D forge has a free fallback that runs on public GPU Spaces so a generation never dead-ends when the paid engine is busy or out of capacity. Two of those Spaces had gone stale — one was taken offline and another was being called on the wrong endpoint — which meant the free lane could fail even when a working Space was available. The chain now targets only live Spaces with the correct settings, so 'type a prompt → get a model' keeps returning a result even when every paid lane is unavailable.</description>
+		</item>
+		<item>
 			<title>Free photo → 3D is now a one-click engine in Forge</title>
 			<link>https://three.ws/forge</link>
 			<guid isPermaLink="false">2026-06-21:Free photo → 3D is now a one-click engine in Forge</guid>
@@ -149,6 +165,14 @@
 			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
 			<category>infra</category>
 			<description>The trending-tokens feed that powers the home card, communities, the token constellation, and the 3D visualizer is now resilient to upstream outages. If a market data provider goes down or rate-limits us, we transparently fall back to a second source; if both are briefly unavailable, the surfaces keep showing the last good data (clearly marked as a moment stale) instead of going blank. We also added a fast-fail circuit breaker so a slow provider can't drag the feed down during a traffic spike. Net effect: the live market views stay populated and snappy even when a data provider hiccups.</description>
+		</item>
+		<item>
+			<title>Pay-per-call endpoints accept Solana USDC payments again</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-21:Pay-per-call endpoints accept Solana USDC payments again</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Paying for any x402 endpoint with Solana USDC was failing the moment the wallet tried to build the payment — the platform's receiving address was being published with a stray invisible character, so a correctly-built payment got rejected as going to the wrong recipient. Payment addresses are now cleaned before they're ever advertised, so Solana USDC payments to paid endpoints go through and settle as expected.</description>
 		</item>
 		<item>
 			<title>Payment hardening and a steadier holder leaderboard</title>
@@ -5956,7 +5980,7 @@
 			<guid isPermaLink="false">2026-04-29:Solana Vanity Wallet</guid>
 			<pubDate>Wed, 29 Apr 2026 12:00:00 GMT</pubDate>
 			<category>launch</category>
-			<description>Grind a Solana address with a custom prefix using your browser's GPU.</description>
+			<description>Grind a Solana address with a custom prefix — entirely in your browser, across your CPU cores.</description>
 		</item>
 		<item>
 			<title>On-chain agents on Solana and EVM</title>
