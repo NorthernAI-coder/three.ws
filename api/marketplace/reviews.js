@@ -20,6 +20,7 @@ import { cors, error, json, method, readJson, wrap, rateLimited } from '../_lib/
 import { clientIp, limits } from '../_lib/rate-limit.js';
 import { requireCsrf } from '../_lib/csrf.js';
 import { isUuid } from '../_lib/validate.js';
+import { publishUserEvent } from '../_lib/feed.js';
 
 const reviewSchema = z.object({
 	rating: z.number().int().min(1).max(5),
@@ -148,7 +149,7 @@ async function handleUpsert(req, res, agentId) {
 	if (!rl.success) return rateLimited(res, rl);
 
 	const [agent] = await sql`
-		SELECT id, user_id FROM agent_identities
+		SELECT id, user_id, name FROM agent_identities
 		WHERE id = ${agentId} AND deleted_at IS NULL AND is_published = true
 	`;
 	if (!agent) return error(res, 404, 'not_found', 'agent not found');
@@ -177,6 +178,23 @@ async function handleUpsert(req, res, agentId) {
 			COUNT(*)::int                          AS rating_count
 		FROM agent_reviews WHERE agent_id = ${agentId}
 	`;
+
+	// Notify the owner of a genuinely NEW review (not an edit). On a fresh insert
+	// created_at === updated_at; an upsert-update bumps updated_at, so this gates
+	// out edit spam. Fire-and-forget via the existing in-app notification system.
+	if (+new Date(row.created_at) === +new Date(row.updated_at)) {
+		const [reviewer] = await sql`
+			SELECT display_name, username FROM users WHERE id = ${auth.userId} AND deleted_at IS NULL
+		`;
+		publishUserEvent(agent.user_id, {
+			type: 'agent_review',
+			actor: reviewer?.display_name || reviewer?.username || 'Someone',
+			agent_id: agentId,
+			agent_name: agent.name || null,
+			rating: parsed.data.rating,
+			link: `/agent/${agentId}`,
+		});
+	}
 
 	return json(res, 200, {
 		data: {

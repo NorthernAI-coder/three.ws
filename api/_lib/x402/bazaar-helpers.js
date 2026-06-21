@@ -196,7 +196,12 @@ export function declareMcpDiscovery({
 		throw new Error(`declareMcpDiscovery: SDK rejected config: ${err.message}`);
 	}
 	const sdkInner = sdkBlock?.bazaar || Object.values(sdkBlock || {})[0];
-	return sdkInner;
+	// Force the top-level `discoverable: true` flag. The SDK's inner block omits
+	// it, but CDP Bazaar / agentic.market only catalog a resource whose bazaar
+	// extension is explicitly discoverable — without this, every priced MCP tool
+	// row is silently skipped by the discovery crawler. declareHttpDiscovery sets
+	// the same flag for REST routes; this keeps MCP rows at parity.
+	return { ...sdkInner, discoverable: true };
 }
 
 // Convenience: returns the full extensions block `{ bazaar: <inner> }` for

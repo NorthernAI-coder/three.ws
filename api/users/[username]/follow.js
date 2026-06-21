@@ -15,6 +15,7 @@ import { cors, json, method, wrap, error, rateLimited } from '../../_lib/http.js
 import { getSessionUser } from '../../_lib/auth.js';
 import { requireCsrf } from '../../_lib/csrf.js';
 import { limits, clientIp } from '../../_lib/rate-limit.js';
+import { publishUserEvent } from '../../_lib/feed.js';
 
 async function counts(userId) {
 	const [row] = await sql`
@@ -79,11 +80,24 @@ export default wrap(async (req, res) => {
 	}
 
 	if (req.method === 'POST') {
-		await sql`
+		// RETURNING yields a row only when a NEW edge was created — re-following an
+		// account you already follow is a no-op and must not re-notify.
+		const inserted = await sql`
 			insert into user_follows (follower_id, following_id)
 			values (${viewer.id}, ${target.id})
 			on conflict do nothing
+			returning follower_id
 		`;
+		if (inserted.length) {
+			// Reuse the existing in-app notification system (nav bell) — fire-and-
+			// forget, never blocks the response.
+			publishUserEvent(target.id, {
+				type: 'follow',
+				actor: viewer.display_name || viewer.username || 'Someone',
+				follower_username: viewer.username || null,
+				link: viewer.username ? `/u/${viewer.username}` : '/feed',
+			});
+		}
 	} else {
 		await sql`
 			delete from user_follows

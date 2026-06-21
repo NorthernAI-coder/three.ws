@@ -17,9 +17,9 @@
  *
  * Revenue + notifications are handled by confirmSkillPurchase (purchase-confirm.js).
  */
-import { Keypair, PublicKey, Transaction } from '@solana/web3.js';
+import { Keypair, PublicKey } from '@solana/web3.js';
 import { solanaConnection } from '../_lib/solana/connection.js';
-import { confirmOrThrow } from '../_lib/solana/confirm.js';
+import { submitProtected } from '../_lib/execution-engine.js';
 import {
 	getAssociatedTokenAddressSync,
 	createTransferCheckedInstruction,
@@ -262,18 +262,11 @@ export default wrap(async (req, res) => {
 	transferIx.keys.push({ pubkey: referenceKey, isSigner: false, isWritable: false });
 	ixs.push(transferIx);
 
-	const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
-	const tx = new Transaction({ feePayer: buyerKeypair.publicKey, recentBlockhash: blockhash, lastValidBlockHeight });
-	for (const ix of ixs) tx.add(ix);
-	tx.sign(buyerKeypair);
-
 	let txSig;
 	try {
-		txSig = await connection.sendRawTransaction(tx.serialize(), {
-			skipPreflight: false,
-			preflightCommitment: 'confirmed',
-		});
-		await confirmOrThrow(connection, { signature: txSig, blockhash, lastValidBlockHeight }, 'confirmed');
+		// Protected send: priority fee + CU estimate, rebroadcast with blockhash
+		// refresh until it lands, hard throw on an on-chain revert.
+		({ signature: txSig } = await submitProtected({ network: 'mainnet', connection, payer: buyerKeypair, instructions: ixs }));
 		log('purchase_as_agent.tx_confirmed', { purchase_id: pur.id, tx_signature: txSig });
 	} catch (e) {
 		await sql`

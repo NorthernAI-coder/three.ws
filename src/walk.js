@@ -64,6 +64,7 @@ import {
 import { log } from './shared/log.js';
 import { createWalkTrails3D, createTrailSetting, TRAIL_STYLE_LABELS } from './walk-trails.js';
 import { createWalkSession, showWelcomeBackToast } from './walk-session.js';
+import { createWalkNpcs } from './walk-npcs.js';
 
 const AVATAR_URL_DEFAULT = '/avatars/default.glb';
 
@@ -465,6 +466,24 @@ const TRAIL_KEY = 'walk:trail-style';
 const trailSetting = createTrailSetting(TRAIL_KEY, 'footprints');
 /** @type {ReturnType<typeof createWalkTrails3D>|null} */
 let trails = null;
+
+// ── NPC companions (Task 19) ───────────────────────────────────────────────
+// A small cast of autonomous companions — a greeter, a wanderer, and a guide —
+// that make each environment feel inhabited. Built once the avatar + animation
+// clips load (so NPCs share the resolved clip library), spawned/despawned per
+// environment with its own dialogue table, and ticked in the render loop. The
+// on/off choice is persisted with the same namespaced-key convention as the
+// other walk settings, and the toggle lives in the controls overlay.
+const NPC_KEY = 'walk:npcs';
+let npcsEnabled = (() => {
+	try {
+		return localStorage.getItem(NPC_KEY) !== '0';
+	} catch {
+		return true;
+	}
+})();
+/** @type {ReturnType<typeof createWalkNpcs>|null} */
+let walkNpcs = null;
 
 // Avatar accent → trail colour. The walk avatar is a raw GLB, so we read any
 // authored meta accent (gltf.userData / scene.userData), else fall back to the
@@ -967,6 +986,14 @@ const helpOverlay = (() => {
 					${TRAIL_STYLE_LABELS[trailSetting.get()]}
 				</button>
 			</div>
+			<div style="margin:14px 0 0;padding-top:14px;border-top:1px solid rgba(255,255,255,0.1);display:flex;align-items:center;justify-content:space-between" data-help-keep>
+				<span style="font-size:14px">NPC companions</span>
+				<button type="button" id="walk-npc-toggle" role="switch" data-help-keep
+					aria-checked="${npcsEnabled}"
+					style="appearance:none;border:1px solid rgba(255,255,255,0.2);background:${npcsEnabled ? 'var(--accent,#7c5cff)' : 'rgba(255,255,255,0.08)'};color:#fff;border-radius:999px;padding:5px 14px;font:inherit;font-size:13px;cursor:pointer">
+					${npcsEnabled ? 'On' : 'Off'}
+				</button>
+			</div>
 			<p style="margin:20px 0 0;font-size:12px;color:#666">Click the canvas to lock the mouse for first-person look.</p>
 		</div>`;
 	document.body.appendChild(el);
@@ -1000,6 +1027,32 @@ if (trailToggle) {
 		trailToggle.style.background =
 			next === 'off' ? 'rgba(255,255,255,0.08)' : 'var(--accent,#7c5cff)';
 		setStatus(`Path trail: ${TRAIL_STYLE_LABELS[next]}`);
+		haptics.buzz(6);
+	});
+}
+
+// NPC companions on/off. Persisted; applied live — turning them on respawns the
+// current environment's cast, turning them off despawns and releases every NPC.
+const npcToggle = helpOverlay.querySelector('#walk-npc-toggle');
+if (npcToggle) {
+	npcToggle.addEventListener('click', () => {
+		npcsEnabled = !npcsEnabled;
+		try {
+			localStorage.setItem(NPC_KEY, npcsEnabled ? '1' : '0');
+		} catch {}
+		npcToggle.setAttribute('aria-checked', String(npcsEnabled));
+		npcToggle.textContent = npcsEnabled ? 'On' : 'Off';
+		npcToggle.style.background = npcsEnabled
+			? 'var(--accent,#7c5cff)'
+			: 'rgba(255,255,255,0.08)';
+		if (walkNpcs) {
+			walkNpcs.setEnabled(npcsEnabled);
+			if (npcsEnabled && walkManifest) {
+				const meta = getEnvironment(walkManifest, currentEnvName);
+				if (meta) applyNpcsForEnv(meta, envApplyToken);
+			}
+		}
+		setStatus(`NPC companions: ${npcsEnabled ? 'on' : 'off'}`);
 		haptics.buzz(6);
 	});
 }
@@ -1395,6 +1448,19 @@ async function loadAvatar() {
 	// setStatus auto-hides this confirmation after a couple of seconds.
 	setStatus('Ready — drag to look around');
 	setupGestures();
+
+	// Stand up the NPC companion system now that the clip library is resolved.
+	// initEnvironments() (which runs after the avatar boots) populates the first
+	// world's NPCs via applyNpcsForEnv(); subsequent env swaps respawn them.
+	walkNpcs = createWalkNpcs({
+		scene,
+		camera,
+		renderer,
+		getGroundY: (x, z) => (arActive ? GROUND_Y : terrain.heightAt(x, z)),
+		animationDefs,
+		ttsEnabled: true,
+	});
+	walkNpcs.setEnabled(npcsEnabled);
 
 	// Auto-hide help hints after 5 seconds — fade first, then remove from layout
 	// so the transition in temporary.html's #walk-help { transition: opacity } plays.
@@ -2251,6 +2317,10 @@ function tick() {
 		});
 	}
 	updateRemotePlayers(dt);
+
+	// 4a. Advance the NPC companions' FSMs (greeter waves on approach, wanderer
+	//     roams, guide leads toward a landmark) against the live player position.
+	if (walkNpcs && avatar) walkNpcs.update(dt, avatarRig.position);
 
 	// 4b. Animate the coin totem (billboard + bob + ring spin) when present.
 	if (coinTotem) coinTotem.update(dt);
@@ -3529,6 +3599,40 @@ async function loadEnvScenery(meta, token) {
 	if ('environmentIntensity' in scene) scene.environmentIntensity = meta.envIntensity || 1;
 }
 
+// Per-environment NPC dialogue tables, cached so re-entering a world doesn't
+// re-fetch. Each table is the parsed public/environments/<env>/dialogue.json
+// (greeter / guide lines + landmarks); a missing or malformed file degrades to
+// the NPC system's built-in coin-agnostic fallback copy.
+const _npcDialogueCache = new Map(); // envName → { greeter, 'guide-arrive', 'guide-wait', landmarks }
+
+async function loadEnvDialogue(meta) {
+	if (_npcDialogueCache.has(meta.name)) return _npcDialogueCache.get(meta.name);
+	let table = {};
+	try {
+		const res = await fetch(`/environments/${meta.name}/dialogue.json`, { cache: 'force-cache' });
+		if (res.ok) table = await res.json();
+	} catch (err) {
+		log.warn('[walk] NPC dialogue unavailable for', meta.name, err?.message || err);
+	}
+	_npcDialogueCache.set(meta.name, table);
+	return table;
+}
+
+// Spawn the NPC cast for an environment. The dialogue table supplies the spoken
+// lines and the guide's landmarks; the cast itself defaults to the built-in
+// greeter/wanderer/guide trio unless the table provides an explicit `npcs` list.
+// Guarded by `token` so a rapid env re-selection discards a superseded spawn.
+async function applyNpcsForEnv(meta, token) {
+	if (!walkNpcs) return;
+	const table = await loadEnvDialogue(meta);
+	if (token !== envApplyToken) return; // a newer swap already took over
+	walkNpcs.spawn({
+		cast: Array.isArray(table.npcs) ? table.npcs : null,
+		landmarks: Array.isArray(table.landmarks) ? table.landmarks : null,
+		dialogue: table,
+	});
+}
+
 // Full environment swap. The first paint applies instantly; later swaps fade to
 // the new sky's horizon colour for ~300 ms so the world change is seamless.
 async function applyEnvironment(name, { initial = false } = {}) {
@@ -3542,6 +3646,7 @@ async function applyEnvironment(name, { initial = false } = {}) {
 	if (initial) {
 		applyEnvironmentMeta(meta);
 		await loadEnvScenery(meta, token);
+		applyNpcsForEnv(meta, token);
 		return;
 	}
 	await fadeWorld(skyFadeColor(meta), 1);
@@ -3549,6 +3654,7 @@ async function applyEnvironment(name, { initial = false } = {}) {
 	applyEnvironmentMeta(meta);
 	await loadEnvScenery(meta, token);
 	if (token !== envApplyToken) return;
+	applyNpcsForEnv(meta, token);
 	await fadeWorld(null, 0);
 }
 

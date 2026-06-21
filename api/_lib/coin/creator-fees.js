@@ -26,7 +26,7 @@ import {
 import { NATIVE_MINT, getAssociatedTokenAddressSync, createCloseAccountInstruction } from '@solana/spl-token';
 
 import { getConnection, getPumpSdk, solanaPubkey } from '../pump.js';
-import { confirmOrThrow } from '../solana/confirm.js';
+import { submitProtected } from '../execution-engine.js';
 
 const PRIORITY_MICRO_LAMPORTS = 100_000;
 
@@ -79,25 +79,18 @@ export async function claimCreatorFees({ coin, coinCreator, treasury }) {
 		creatorWsolAta = null;
 	}
 
-	const tx = new Transaction();
-	tx.add(ComputeBudgetProgram.setComputeUnitPrice({ microLamports: PRIORITY_MICRO_LAMPORTS }));
-	for (const ix of ixs) tx.add(ix);
-	tx.feePayer = treasuryPk;
-	const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
-	tx.recentBlockhash = blockhash;
-
-	// Sign with both keys: treasury pays + signs as fee payer, creator signs
-	// the collectCreatorFee instruction. When they're the same keypair, this
-	// gracefully deduplicates inside @solana/web3.js.
-	const signers = [treasury];
-	if (creatorPk.toBase58() !== treasuryPk.toBase58()) signers.push(coinCreator);
-	tx.sign(...signers);
-
-	const sig = await connection.sendRawTransaction(tx.serialize(), {
-		skipPreflight: false,
-		maxRetries: 5,
+	// Protected send: treasury is fee-payer + signer; the coin creator co-signs the
+	// collectCreatorFee instruction when it's a distinct key. submitProtected sets
+	// its own compute-budget, rebroadcasts with a fresh blockhash, and throws on an
+	// on-chain revert.
+	const extraSigners = creatorPk.toBase58() !== treasuryPk.toBase58() ? [coinCreator] : [];
+	const { signature: sig } = await submitProtected({
+		network,
+		connection,
+		payer: treasury,
+		instructions: ixs,
+		opts: { extraSigners },
 	});
-	await confirmOrThrow(connection, { signature: sig, blockhash, lastValidBlockHeight }, 'confirmed');
 
 	// Attempt the unwrap as a follow-up tx (best-effort).
 	if (creatorWsolAta) {

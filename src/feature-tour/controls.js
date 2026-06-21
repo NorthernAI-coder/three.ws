@@ -29,6 +29,7 @@ export class TourControls {
 				</div>
 			</div>
 			<button class="tws-tour-btn tws-tour-btn--speed" data-act="speed" aria-label="Playback speed" title="Playback speed">1×</button>
+			<button class="tws-tour-btn" data-act="roam" aria-label="Free roam — drive the guide yourself" title="Free roam" aria-pressed="false">🧭</button>
 			<button class="tws-tour-btn" data-act="mute" aria-label="Mute narration" title="Mute / unmute voice">🔊</button>
 			<button class="tws-tour-btn tws-tour-btn--exit" data-act="exit" aria-label="Exit tour" title="Exit tour">✕</button>
 		`;
@@ -38,6 +39,7 @@ export class TourControls {
 		this.playBtn = bar.querySelector('[data-act="toggle"]');
 		this.muteBtn = bar.querySelector('[data-act="mute"]');
 		this.speedBtn = bar.querySelector('[data-act="speed"]');
+		this.roamBtn = bar.querySelector('[data-act="roam"]');
 		this.chapterEl = bar.querySelector('.tws-tour-chapter');
 		this.countEl = bar.querySelector('.tws-tour-count');
 		this.track = bar.querySelector('.tws-tour-track');
@@ -51,6 +53,7 @@ export class TourControls {
 			else if (act === 'next') this.handlers.onNext?.();
 			else if (act === 'toggle') this.handlers.onToggle?.();
 			else if (act === 'speed') this.handlers.onSpeed?.();
+			else if (act === 'roam') this.handlers.onRoam?.();
 			else if (act === 'mute') this.handlers.onMute?.();
 			else if (act === 'exit') this.handlers.onExit?.();
 		});
@@ -102,6 +105,13 @@ export class TourControls {
 	setMenuOpen(open) {
 		this.menuBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
 		this.menuBtn.classList.toggle('is-active', open);
+	}
+
+	setRoam(on) {
+		this.roamBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
+		this.roamBtn.classList.toggle('is-active', on);
+		this.roamBtn.setAttribute('title', on ? 'Rejoin the tour' : 'Free roam');
+		this.bar.classList.toggle('is-roaming', on);
 	}
 
 	dispose() {

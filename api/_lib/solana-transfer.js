@@ -1,6 +1,6 @@
-import { PublicKey, Transaction, Keypair } from '@solana/web3.js';
+import { PublicKey, Keypair } from '@solana/web3.js';
 import { solanaConnection } from './solana/connection.js';
-import { confirmOrThrow } from './solana/confirm.js';
+import { submitProtected } from './execution-engine.js';
 import {
 	getAssociatedTokenAddress,
 	createAssociatedTokenAccountInstruction,
@@ -29,21 +29,21 @@ export async function transferSolanaUSDC({ fromWallet, toAddress, amount, mint }
 	const senderATA = await getAssociatedTokenAddress(mintPubkey, kp.publicKey);
 	const recipientATA = await getAssociatedTokenAddress(mintPubkey, recipientPubkey);
 
-	const tx = new Transaction();
-
+	const instructions = [];
 	const recipientAccount = await connection.getAccountInfo(recipientATA);
 	if (!recipientAccount) {
-		tx.add(createAssociatedTokenAccountInstruction(kp.publicKey, recipientATA, recipientPubkey, mintPubkey));
+		instructions.push(createAssociatedTokenAccountInstruction(kp.publicKey, recipientATA, recipientPubkey, mintPubkey));
 	}
+	instructions.push(createTransferInstruction(senderATA, recipientATA, kp.publicKey, BigInt(amount)));
 
-	tx.add(createTransferInstruction(senderATA, recipientATA, kp.publicKey, BigInt(amount)));
-
-	const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
-	tx.feePayer = kp.publicKey;
-	tx.recentBlockhash = blockhash;
-
-	tx.sign(kp);
-	const sig = await connection.sendRawTransaction(tx.serialize(), { skipPreflight: false });
-	await confirmOrThrow(connection, { signature: sig, blockhash, lastValidBlockHeight }, 'confirmed');
-	return sig;
+	// Protected send: data-driven priority fee + CU, rebroadcast with blockhash
+	// refresh until it lands, and a hard throw on an on-chain revert — replaces the
+	// previous send-once-and-confirm, which dropped silently under congestion.
+	const { signature } = await submitProtected({
+		network: 'mainnet',
+		connection,
+		payer: kp,
+		instructions,
+	});
+	return signature;
 }

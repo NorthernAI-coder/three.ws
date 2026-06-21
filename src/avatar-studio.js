@@ -26,6 +26,7 @@ import { renderSculptPanel, applyMorphsToRoot } from './avatar-sculpt.js';
 import { saveRemoteGlbToAccount, apiFetch } from './account.js';
 import { uploadAvatarSnapshot } from './voice/avatar-snapshot.js';
 import { optimizeAndValidateGlb } from './avatar-studio-optimize.js';
+import { openColorPopover, closeActivePopover } from './avatar-studio-colorpicker.js';
 import {
 	collapseAppearance,
 	hydrateAppearance,
@@ -112,6 +113,20 @@ const COLOR_SLOTS = [
 const COLOR_SLOT_BY_ID = new Map(COLOR_SLOTS.map((s) => [s.id, s]));
 const HEX_RE = /^#[0-9a-f]{6}$/i;
 const BODY_TYPE = 'feminine';
+
+// ── Looks — one-tap palettes that theme skin + hair + outfit together ──
+// Every hue is drawn from the per-slot swatch palettes above, so a Look always
+// lands on real, coherent material colors. Applied as a single history step.
+const LOOKS = [
+	{ id: 'noir', name: 'Noir', colors: { skin: '#e0a878', hair: '#0e0e0e', outfit: '#101010' } },
+	{ id: 'sunset', name: 'Sunset', colors: { skin: '#f3c1a3', hair: '#6b4423', outfit: '#c08a1e' } },
+	{ id: 'arctic', name: 'Arctic', colors: { skin: '#ffe9d6', hair: '#b8b8b8', outfit: '#3b6ea5' } },
+	{ id: 'cyber', name: 'Cyber', colors: { skin: '#c08552', hair: '#9b5cc0', outfit: '#1e3a5f' } },
+	{ id: 'rose', name: 'Rosé', colors: { skin: '#f3c1a3', hair: '#3b2417', outfit: '#d4577e' } },
+	{ id: 'forest', name: 'Forest', colors: { skin: '#9c6b44', hair: '#3b2417', outfit: '#1f6b3a' } },
+	{ id: 'mono', name: 'Mono', colors: { skin: '#e0a878', hair: '#b8b8b8', outfit: '#f2f2f2' } },
+	{ id: 'ember', name: 'Ember', colors: { skin: '#9c6b44', hair: '#0e0e0e', outfit: '#7a1f2b' } },
+];
 
 // ── Garment layers (show/hide) ───────────────────────────────────────
 const LAYER_SLOTS = [
@@ -449,6 +464,9 @@ function renderTabs() {
 }
 
 function renderActivePanel() {
+	// A re-render replaces the swatch DOM the popover is anchored to; close it
+	// first so it never points at a detached node.
+	closeActivePopover();
 	const tab = TABS.find((t) => t.id === activeTab);
 	const panel = $('as-panel');
 	panel.setAttribute('aria-labelledby', `as-tab-${activeTab}`);
@@ -580,25 +598,29 @@ function renderColorPanel(panel) {
 						aria-label="${esc(slot.label)} default" data-slot="${slot.id}" data-hex=""
 						title="Default"></button>
 					${swatches}
-					<label class="as-swatch as-swatch-custom${customSel ? '' : ''}"
-						aria-label="${esc(slot.label)} custom color" title="Custom color"
+					<label class="as-swatch as-swatch-custom" data-custom-slot="${slot.id}"
+						role="button" tabindex="0" aria-haspopup="dialog"
+						aria-label="${esc(slot.label)} custom color" title="Full-spectrum picker"
 						${customSel ? 'style="border-color:var(--accent);box-shadow:0 0 0 2px var(--accent),0 0 0 4px rgba(0,0,0,0.6)"' : ''}>
 						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>
-						<input type="color" data-slot="${slot.id}" value="${esc(current || '#ffffff')}" />
+						<input type="color" data-slot="${slot.id}" value="${esc(current || '#ffffff')}" tabindex="-1" aria-hidden="true" />
 					</label>
 				</div>
 			</div>`;
 	}).join('');
 
 	ensureLayerCss();
+	ensureColorExtrasCss();
 	panel.innerHTML = `
+		${looksBlockHtml()}
 		${layersBlockHtml()}
-		<p class="ae-sculpt-note" style="margin-top:16px;">Tint skin, hair and outfit. Colors bake into your saved avatar.</p>
+		<p class="ae-sculpt-note" style="margin-top:16px;">Tint skin, hair and outfit. Tap the rainbow chip for the full-spectrum picker. Colors bake into your saved avatar.</p>
 		${groups}
 		${ready ? '' : '<div class="as-empty" style="padding-top:8px;">Waiting for avatar to load…</div>'}`;
 
 	bindColorPanel(panel);
 	bindLayersBlock(panel);
+	bindLooksBlock(panel);
 }
 
 // ── Layers (show/hide) ───────────────────────────────────────────────
@@ -721,11 +743,131 @@ function bindColorPanel(panel) {
 	panel.querySelectorAll('.as-swatch[data-slot]').forEach((btn) => {
 		btn.addEventListener('click', () => setSlotColor(btn.dataset.slot, btn.dataset.hex || null));
 	});
+	// Native OS picker stays wired as a fallback for the advanced popover.
 	panel.querySelectorAll('input[type="color"][data-slot]').forEach((input) => {
 		const slot = input.dataset.slot;
 		input.addEventListener('input', () => liveSlotColor(slot, input.value));
 		input.addEventListener('change', () => setSlotColor(slot, input.value));
 	});
+	// Rainbow chip → full-spectrum iro.js popover (wheel + hex + eyedropper).
+	panel.querySelectorAll('.as-swatch-custom[data-custom-slot]').forEach((label) => {
+		const slot = label.dataset.customSlot;
+		label.addEventListener('click', (e) => { e.preventDefault(); openCustomPicker(slot, label); });
+		label.addEventListener('keydown', (e) => {
+			if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openCustomPicker(slot, label); }
+		});
+	});
+}
+
+// Open the advanced color picker for a slot. A whole open→drag→close session
+// collapses to a single undo step: soft updates apply live while open, and one
+// history entry is pushed on close only if the color actually changed.
+function openCustomPicker(slotId, anchorEl) {
+	const slot = COLOR_SLOT_BY_ID.get(slotId);
+	if (!slot) return;
+	const sessionStart = workingAppearance.colors[slotId] || null;
+	openColorPopover({
+		anchorEl,
+		title: slot.label,
+		current: sessionStart || '#ffffff',
+		onInput: (hex) => liveSlotColor(slotId, hex),
+		onChange: (hex) => softSetSlotColor(slotId, hex),
+		onClose: () => endColorSession(slotId, sessionStart),
+	}).catch((err) => {
+		// iro failed to even open → fall back to the native OS color dialog.
+		log.warn('[avatar-studio] color popover failed, using native picker', err);
+		const input = anchorEl.querySelector('input[type="color"]');
+		if (input) { try { input.showPicker(); } catch { input.click(); } }
+	});
+}
+
+function softSetSlotColor(slotId, hex) {
+	const slot = COLOR_SLOT_BY_ID.get(slotId);
+	if (!slot || !HEX_RE.test(hex)) return;
+	workingAppearance.colors[slotId] = hex.toLowerCase();
+	applySlotColor(slot, hex);
+	liveSlotColor(slotId, hex); // keep the group's current dot/label in sync
+	renderChips();
+	updateDirtyState();
+	scheduleDraftSave();
+}
+
+function endColorSession(slotId, sessionStart) {
+	const now = workingAppearance.colors[slotId] || null;
+	if (now !== sessionStart) pushHistory();
+	if (activeTab === 'color') renderActivePanel();
+	updateDirtyState();
+}
+
+// ── Looks (one-tap palettes) ─────────────────────────────────────────
+
+function looksBlockHtml() {
+	const cards = LOOKS.map((look) => {
+		const active = COLOR_SLOTS.every(
+			(s) => (workingAppearance.colors[s.id] || null) === (look.colors[s.id] || null),
+		);
+		const grad = `linear-gradient(135deg, ${look.colors.skin} 0 34%, ${look.colors.hair} 34% 67%, ${look.colors.outfit} 67% 100%)`;
+		return `<button class="as-look${active ? ' active' : ''}" type="button"
+			data-look="${esc(look.id)}" aria-pressed="${active ? 'true' : 'false'}" title="${esc(look.name)} look">
+			<span class="as-look-sw" style="background:${grad}"></span>
+			<span class="as-look-name">${esc(look.name)}</span>
+		</button>`;
+	}).join('');
+	return `
+		<div class="as-looks">
+			<div class="as-looks-head">
+				<span class="as-color-title">Looks</span>
+				<span class="as-looks-hint">One-tap palettes</span>
+			</div>
+			<div class="as-looks-row">${cards}</div>
+		</div>`;
+}
+
+function bindLooksBlock(panel) {
+	panel.querySelectorAll('.as-look[data-look]').forEach((btn) => {
+		btn.addEventListener('click', () => {
+			const look = LOOKS.find((l) => l.id === btn.dataset.look);
+			if (look) applyLook(look);
+		});
+	});
+}
+
+function applyLook(look) {
+	for (const slot of COLOR_SLOTS) {
+		const hex = look.colors[slot.id];
+		if (!hex) continue;
+		workingAppearance.colors[slot.id] = hex.toLowerCase();
+		applySlotColor(slot, hex);
+	}
+	pushHistory();
+	renderChips();
+	if (activeTab === 'color') renderActivePanel();
+	updateDirtyState();
+	scheduleDraftSave();
+	setStatus('ok', `Applied the ${look.name} look.`);
+}
+
+let _colorExtrasCssInjected = false;
+function ensureColorExtrasCss() {
+	if (_colorExtrasCssInjected) return;
+	_colorExtrasCssInjected = true;
+	const style = document.createElement('style');
+	style.textContent = `
+		.as-looks { margin-bottom: 18px; }
+		.as-looks-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin: 0 0 10px; }
+		.as-looks-hint { font-size: 11px; color: var(--text-3, #71717a); }
+		.as-looks-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 8px; }
+		.as-look { display: flex; flex-direction: column; align-items: center; gap: 6px; background: var(--panel, #111); border: 1px solid var(--border, #1f1f1f); border-radius: 11px; padding: 8px 6px 7px; cursor: pointer; font-family: inherit; transition: border-color .15s, transform .12s, background .15s; }
+		.as-look:hover { border-color: var(--text-3, #71717a); transform: translateY(-1px); background: rgba(255,255,255,.03); }
+		.as-look:focus-visible { outline: none; border-color: var(--accent, #fff); box-shadow: 0 0 0 2px var(--accent, #fff); }
+		.as-look.active { border-color: var(--accent, #fff); background: rgba(255,255,255,.05); }
+		.as-look-sw { width: 100%; aspect-ratio: 1/1; border-radius: 8px; border: 1px solid rgba(255,255,255,.12); }
+		.as-look-name { font-size: 11px; font-weight: 600; color: var(--text-2, #a1a1aa); }
+		.as-look.active .as-look-name { color: var(--text, #fafafa); }
+		.as-swatch-custom[role="button"] { display: inline-flex; align-items: center; justify-content: center; }
+		.as-swatch-custom:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--accent, #fff); }
+	`;
+	document.head.appendChild(style);
 }
 
 function setSlotColor(slotId, hex) {

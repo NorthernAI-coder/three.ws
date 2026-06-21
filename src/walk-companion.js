@@ -16,6 +16,7 @@ import { createWalkCompanion } from '../walk-sdk/src/companion.js';
 import { installTransitions } from './walk-companion-transitions.js';
 import { createWalkTrails2D, createTrailSetting, TRAIL_STYLE_LABELS } from './walk-trails.js';
 import { installClickToWalk } from './walk-companion-click-to-walk.js';
+import { installNarrator } from './walk-companion-narrator.js';
 
 const walk = createWalkCompanion({
 	// Static GLBs and the animation manifest are served from this origin.
@@ -253,6 +254,25 @@ installClickToWalk({
 	getInstance: () => walk.instance,
 	getHostEl: companionHost,
 	storageKey: C2W_KEY,
+});
+
+// ── Section narration (Task 34) ──────────────────────────────────────────────
+// As the companion walks the page, it reads the section nearest it: a caption
+// bubble (always-on, aria-live) and — strictly opt-in — spoken audio from the
+// real /api/tts/speak endpoint. Authors mark what to read with
+// [data-walk-narrate] (and optional [data-walk-script] copy); unmarked pages
+// fall back to heading/paragraph detection. An IntersectionObserver picks the
+// most-visible section, debounced so each narrates once. The off/caption/voice
+// mode persists under the companion's own key namespace
+// (`${prefix}:companion:narrate`); its settings pill slots into the same chrome
+// as the trails/click-to-walk toggles. We pass the live instance getter so it
+// survives avatar swaps and playground round-trips. Default is caption-only —
+// audio never plays without an explicit opt-in and a real user gesture.
+const NARRATE_KEY = `${(walk.config?.keys?.enabled || 'three:companion:enabled').split(':')[0]}:companion:narrate`;
+installNarrator({
+	getInstance: () => walk.instance,
+	getHostEl: companionHost,
+	storageKey: NARRATE_KEY,
 });
 
 walk.bootstrap();

@@ -207,6 +207,20 @@
 				return { icon: '↻', href: p.link || '/dashboard', parts: ['Someone remixed your creation'] };
 			case 'reply':
 				return { icon: '“', href: p.link || agentHref, parts: ['You have a new reply'] };
+			case 'follow':
+				return {
+					icon: '+',
+					href: p.link || (p.follower_username ? '/u/' + encodeURIComponent(p.follower_username) : '/feed'),
+					parts: [bold(p.actor || 'Someone'), ' followed you'],
+				};
+			case 'agent_review': {
+				var stars = p.rating ? ' ' + '★'.repeat(Math.max(1, Math.min(5, p.rating))) : '';
+				return {
+					icon: '★',
+					href: p.link || agentHref,
+					parts: [bold(p.actor || 'Someone'), ' reviewed ', bold(p.agent_name || 'your agent'), stars],
+				};
+			}
 			default:
 				return { icon: '•', href: p.link || '/dashboard', parts: [titleCase(n.type) || 'New notification'] };
 		}

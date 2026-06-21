@@ -50,7 +50,7 @@ async function handleMine(req, res) {
 			cs.id, cs.plan_id, cs.status, cs.current_period_start, cs.current_period_end,
 			cs.payment_method, cs.wallet_address, cs.created_at, cs.cancelled_at,
 			sp.name AS plan_name, sp.price_usd, sp.interval,
-			u.display_name AS creator_name, u.id AS creator_id
+			u.display_name AS creator_name, u.id AS creator_id, u.username AS creator_username
 		FROM creator_subscriptions cs
 		JOIN subscription_plans sp ON sp.id = cs.plan_id
 		JOIN users u ON u.id = sp.creator_id

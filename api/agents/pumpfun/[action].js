@@ -16,11 +16,11 @@ import { getSessionUser, authenticateBearer, extractBearer } from '../../_lib/au
 import { cors, json, method, readJson, wrap, error, rateLimited, serverError, respondError } from '../../_lib/http.js';
 import { limits, clientIp } from '../../_lib/rate-limit.js';
 import { loadAgentForSigning, solanaConnection } from '../../_lib/agent-pumpfun.js';
-import { confirmOrThrow } from '../../_lib/solana/confirm.js';
+import { submitProtected } from '../../_lib/execution-engine.js';
 import { reserveSpend, finalizeSpend, releaseSpend } from '../../_lib/agent-spend-policy.js';
 import { grindMintKeypair } from '../../_lib/pump-vanity.js';
 import { sql } from '../../_lib/db.js';
-import { Keypair, PublicKey, Transaction } from '@solana/web3.js';
+import { Keypair, PublicKey } from '@solana/web3.js';
 import { z } from 'zod';
 
 const NATIVE_SOL_MINT = 'So11111111111111111111111111111111111111112';
@@ -262,16 +262,11 @@ async function handleBuy(req, res, id) {
 			return error(res, reservation.status, reservation.code, reservation.msg);
 	}
 
-	const tx = new Transaction().add(...instructions);
-	tx.feePayer = keypair.publicKey;
-	const { blockhash } = await conn.getLatestBlockhash();
-	tx.recentBlockhash = blockhash;
-	tx.sign(keypair);
-
 	let signature;
 	try {
-		signature = await conn.sendRawTransaction(tx.serialize(), { skipPreflight: false });
-		await confirmOrThrow(conn, signature, 'confirmed');
+		// Protected send: priority fee + CU estimate, rebroadcast with blockhash
+		// refresh until it lands, hard throw on an on-chain revert.
+		({ signature } = await submitProtected({ network: body.network, connection: conn, payer: keypair, instructions }));
 	} catch (err) {
 		console.error('[pumpfun/buy] send failed', err);
 		if (reservation) await releaseSpend(reservation.reservationId);
@@ -485,16 +480,18 @@ async function handleLaunch(req, res, id) {
 	});
 	if (!reservation.ok) return error(res, reservation.status, reservation.code, reservation.msg);
 
-	const tx = new Transaction().add(...instructions);
-	tx.feePayer = keypair.publicKey;
-	const { blockhash } = await conn.getLatestBlockhash();
-	tx.recentBlockhash = blockhash;
-	tx.sign(keypair, mint);
-
 	let signature;
 	try {
-		signature = await conn.sendRawTransaction(tx.serialize(), { skipPreflight: false });
-		await confirmOrThrow(conn, signature, 'confirmed');
+		// Protected send: the agent keypair pays + signs, the new mint co-signs.
+		// Priority fee + CU estimate, rebroadcast with blockhash refresh, hard throw
+		// on an on-chain revert.
+		({ signature } = await submitProtected({
+			network: body.network,
+			connection: conn,
+			payer: keypair,
+			instructions,
+			opts: { extraSigners: [mint] },
+		}));
 	} catch (err) {
 		console.error('[pumpfun/launch] send failed', err);
 		await releaseSpend(reservation.reservationId);
@@ -719,16 +716,11 @@ async function handlePay(req, res, id) {
 		return error(res, 422, 'build_failed', err.message || 'could not build instruction');
 	}
 
-	const tx = new Transaction().add(...instructions);
-	tx.feePayer = keypair.publicKey;
-	const { blockhash } = await conn.getLatestBlockhash();
-	tx.recentBlockhash = blockhash;
-	tx.sign(keypair);
-
 	let signature;
 	try {
-		signature = await conn.sendRawTransaction(tx.serialize(), { skipPreflight: false });
-		await confirmOrThrow(conn, signature, 'confirmed');
+		// Protected send: priority fee + CU estimate, rebroadcast with blockhash
+		// refresh until it lands, hard throw on an on-chain revert.
+		({ signature } = await submitProtected({ network: body.network, connection: conn, payer: keypair, instructions }));
 	} catch (err) {
 		console.error(`[pumpfun/pay] ${body.action} send failed`, err);
 		return serverError(res, 502, 'rpc_error', err);
@@ -1117,16 +1109,11 @@ async function handleSell(req, res, id) {
 		return respondError(res, err.status || 422, err.code || 'build_failed', err);
 	}
 
-	const tx = new Transaction().add(...instructions);
-	tx.feePayer = keypair.publicKey;
-	const { blockhash } = await conn.getLatestBlockhash();
-	tx.recentBlockhash = blockhash;
-	tx.sign(keypair);
-
 	let signature;
 	try {
-		signature = await conn.sendRawTransaction(tx.serialize(), { skipPreflight: false });
-		await confirmOrThrow(conn, signature, 'confirmed');
+		// Protected send: priority fee + CU estimate, rebroadcast with blockhash
+		// refresh until it lands, hard throw on an on-chain revert.
+		({ signature } = await submitProtected({ network: body.network, connection: conn, payer: keypair, instructions }));
 	} catch (err) {
 		console.error('[pumpfun/sell] send failed', err);
 		return serverError(res, 502, 'rpc_error', err);
@@ -1377,16 +1364,11 @@ async function handleSwap(req, res, id) {
 			return error(res, reservation.status, reservation.code, reservation.msg);
 	}
 
-	const tx = new Transaction().add(...instructions);
-	tx.feePayer = keypair.publicKey;
-	const { blockhash } = await conn.getLatestBlockhash();
-	tx.recentBlockhash = blockhash;
-	tx.sign(keypair);
-
 	let signature;
 	try {
-		signature = await conn.sendRawTransaction(tx.serialize(), { skipPreflight: false });
-		await confirmOrThrow(conn, signature, 'confirmed');
+		// Protected send: priority fee + CU estimate, rebroadcast with blockhash
+		// refresh until it lands, hard throw on an on-chain revert.
+		({ signature } = await submitProtected({ network: body.network, connection: conn, payer: keypair, instructions }));
 	} catch (err) {
 		console.error('[pumpfun/swap] send failed', err);
 		if (reservation) await releaseSpend(reservation.reservationId);

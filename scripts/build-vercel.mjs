@@ -8,12 +8,31 @@
  *  - Clear timing + error reporting
  */
 import { execSync, spawn } from 'child_process';
+import { createRequire } from 'module';
 import { existsSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { isCached, writeStamp } from './build-cache.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const require = createRequire(import.meta.url);
+
+// Resolve a dev tool's CLI entry through Node module resolution instead of the
+// `.bin/<tool>` shim. Vercel restores a cached `node_modules` between builds
+// but does NOT always recreate the `.bin/` symlinks — so the package dir is
+// present while `.bin/<tool>` is missing, and `npx <tool>` dies with
+// "<tool>: not found" in <1s, failing the deploy though nothing regressed.
+// This exact stripped-bin hit the test gate (2026-06-21); the build's other
+// tool invocations (tsc, vite) share the landmine, so route them all through
+// the package's own bin file, which needs only the (intact) package directory.
+// Returns a shell-quoted absolute path safe to splice into an `sh -c` command.
+function binCli(pkg, binName = pkg) {
+	const pkgJsonPath = require.resolve(`${pkg}/package.json`);
+	const bin = require(pkgJsonPath).bin;
+	const rel = typeof bin === 'string' ? bin : bin?.[binName];
+	if (!rel) throw new Error(`[build:vercel] ${pkg} exposes no \`${binName}\` bin entry`);
+	return JSON.stringify(resolve(dirname(pkgJsonPath), rel));
+}
 
 const running = new Set();
 
@@ -152,7 +171,7 @@ async function prebuild() {
 	// deploy build is the only automated checkpoint, so a type error in a
 	// ratcheted file (see jsconfig.json) fails the deploy instead of shipping.
 	// Cheap (~5s) and has already caught a real prod bug (elevenlabs voice_id).
-	await run('typecheck', 'npx tsc -p jsconfig.json');
+	await run('typecheck', `node ${binCli('typescript', 'tsc')} -p jsconfig.json`);
 	await Promise.all([
 		run('build:news', 'node scripts/build-news.mjs'),
 		run('build:skill-metadata', 'node scripts/build-skill-metadata.mjs'),
@@ -173,12 +192,12 @@ async function prebuild() {
 }
 
 async function buildLib() {
-	await run('build:lib', 'TARGET=lib npx vite build');
+	await run('build:lib', `TARGET=lib node ${binCli('vite')} build`);
 	await run('avatar-sdk', 'node avatar-sdk/build.mjs');
 }
 
 async function buildApp() {
-	await run('build:app', 'npx vite build && node scripts/strip-sw-from-embeds.mjs', {
+	await run('build:app', `node ${binCli('vite')} build && node scripts/strip-sw-from-embeds.mjs`, {
 		env: { NODE_OPTIONS: '--no-deprecation --max-old-space-size=6144' },
 	});
 }

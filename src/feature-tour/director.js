@@ -31,6 +31,7 @@ import { Spotlight } from './spotlight.js';
 import { Narrator } from './narrator.js';
 import { TourControls } from './controls.js';
 import { ChapterPanel } from './chapters.js';
+import { FreeRoam } from './free-roam.js';
 
 const ADVANCE_BEAT_MS = 900; // pause between finishing a stop and moving on
 const Z_BEAM = 2147483280;
@@ -49,6 +50,7 @@ export class TourDirector {
 		this.speed = 1;
 		this.mounted = false;
 		this.offRoute = false;
+		this.roam = false;
 		this._runToken = 0;
 		this._advanceTimer = 0;
 		this._seenSections = new Set();
@@ -135,11 +137,17 @@ export class TourDirector {
 	async _mount() {
 		if (this.mounted) return;
 		this.mounted = true;
+		// The site-wide corner companion is the same kind of avatar — during the
+		// tour it would just be a second body on screen, so stand it down (and its
+		// click-to-walk, which would otherwise fight free roam) and bring it back
+		// when the tour ends.
+		this._suppressCompanion();
 		this._buildBeam();
 		this.spotlight = new Spotlight();
 		this.narrator = new Narrator();
 		this.avatar = new GuideAvatar();
 		await this.avatar.mount();
+		this.freeRoam = new FreeRoam(this.avatar);
 		this.controls = new TourControls({
 			onMenu: () => this.panel?.toggle(),
 			onPrev: () => this._go(this.pos - 1),
@@ -147,6 +155,7 @@ export class TourDirector {
 			onToggle: () => this._togglePause(),
 			onSeek: (i) => this._go(i),
 			onSpeed: () => this._cycleSpeed(),
+			onRoam: () => this._toggleRoam(),
 			onMute: () => this._toggleMute(),
 			onExit: () => this.exit(),
 		});
@@ -231,6 +240,12 @@ export class TourDirector {
 	// anything in flight, then runs the stop here or navigates if it's off-page.
 	_go(pos) {
 		if (!this.playlist.length) return;
+		if (this.roam) {
+			// Any explicit navigation leaves free roam and resumes the guided tour.
+			this.roam = false;
+			this.freeRoam?.disable();
+			this.controls?.setRoam(false);
+		}
 		const clamped = Math.max(0, Math.min(this.playlist.length - 1, pos));
 		this._runToken++;
 		clearTimeout(this._advanceTimer);
@@ -256,6 +271,7 @@ export class TourDirector {
 	}
 
 	_togglePause() {
+		if (this.roam) return this._exitRoam(); // play rejoins the tour from roam
 		this.paused = !this.paused;
 		writeState({ paused: this.paused });
 		this.controls.setPaused(this.paused);
@@ -324,6 +340,73 @@ export class TourDirector {
 		if (!this.paused && !this.offRoute && this.mounted) {
 			const token = ++this._runToken;
 			this._narrateAndMaybeAdvance(token);
+		}
+	}
+
+	// ── Free roam ───────────────────────────────────────────────────────────────
+	// Hand the stage to the visitor: freeze the guided sequence and let them drive
+	// the guide around the page (free-roam.js). Toggling off — or any navigation /
+	// play — rejoins the tour at the current stop.
+	_toggleRoam() {
+		this.roam ? this._exitRoam() : this._enterRoam();
+	}
+
+	_enterRoam() {
+		if (this.roam) return;
+		this.roam = true;
+		this._runToken++; // freeze whatever the guide was doing
+		clearTimeout(this._advanceTimer);
+		this.narrator?.cancel();
+		this._stopBeam();
+		this.spotlight?.highlight(null);
+		this.avatar?.hideBubble();
+		this.panel?.close();
+		this.controls?.setRoam(true);
+		this.freeRoam?.enable();
+	}
+
+	_exitRoam() {
+		if (!this.roam) return;
+		this.roam = false;
+		this.freeRoam?.disable();
+		this.controls?.setRoam(false);
+		// Rejoining the tour means playing again from the current stop.
+		this.paused = false;
+		this.controls?.setPaused(false);
+		writeState({ paused: false });
+		this._go(this.pos);
+	}
+
+	// ── Corner-companion suppression (de-dupe the on-screen avatar) ──────────────
+	_suppressCompanion() {
+		const w = window.__walkCompanion;
+		if (!w) return;
+		this._companionWasOn = !!(w.instance?.mounted || (w.isEnabled && w.isEnabled()));
+		const hide = () => {
+			try {
+				if (w.instance?.mounted) w.instance.unmount();
+			} catch {
+				/* companion mid-mount — the change listener will catch it */
+			}
+		};
+		hide();
+		// The companion auto-mounts on load (and on playground return); re-hide it
+		// whenever it reappears while the tour owns the screen.
+		this._onCompanionChange = hide;
+		window.addEventListener('walk-companion:change', this._onCompanionChange);
+	}
+
+	_restoreCompanion() {
+		if (this._onCompanionChange) {
+			window.removeEventListener('walk-companion:change', this._onCompanionChange);
+			this._onCompanionChange = null;
+		}
+		const w = window.__walkCompanion;
+		if (!w || !this._companionWasOn) return;
+		try {
+			if (!w.instance?.mounted) (w.instance ? w.instance.mount() : w.enable?.());
+		} catch {
+			/* non-fatal — the companion will re-mount on the next page load */
 		}
 	}
 

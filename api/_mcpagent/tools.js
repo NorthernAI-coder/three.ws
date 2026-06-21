@@ -457,7 +457,15 @@ export const toolDefs = [
 					type: 'object',
 					description: 'Optional JSON Schema for the request body.',
 				},
-				network: { type: 'string', enum: ['solana', 'base'], default: 'solana' },
+				// Base is the default monetization rail: it matches the handler's own
+				// fallback (`args.network === 'solana' ? 'solana' : 'base'`) and
+				// createPaidService's `network = 'base'`. The validator compiles with
+				// Ajv `useDefaults: true`, so this default is written into `args.network`
+				// before the handler runs — a `'solana'` default here silently forced
+				// every default-network call onto the Solana payout path (reading the
+				// usually-empty meta.solana_address) and rejected it as no_payout_wallet,
+				// even for an agent with a Base EVM wallet.
+				network: { type: 'string', enum: ['solana', 'base'], default: 'base' },
 			},
 			required: ['agent_id', 'name', 'description', 'price_usdc', 'target_url'],
 			additionalProperties: false,

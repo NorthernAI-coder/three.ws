@@ -58,6 +58,8 @@ export const USER_EVENT_TYPES = new Set([
 	'embed',             // someone embedded the creator's agent
 	'remix',             // someone remixed a creation
 	'reply',             // new reply to an agent interaction
+	'follow',            // someone followed you; { actor, follower_username, link }
+	'agent_review',      // someone reviewed your agent; { actor, agent_id, agent_name, rating, link }
 	// types already produced by purchase-confirm / buy-asset confirm flows
 	'skill_purchased',
 	'skill_purchase_confirmed',

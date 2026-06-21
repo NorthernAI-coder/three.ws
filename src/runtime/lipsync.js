@@ -101,9 +101,89 @@ function _resetMap(map) {
 	}
 }
 
+// The viseme active at `elapsedMs` in a sorted [{viseme,startMs,endMs}] sequence,
+// or null in the gaps. Linear scan — sequences are short (one utterance).
+export function activeVisemeAt(sequence, elapsedMs) {
+	for (const entry of sequence) {
+		if (elapsedMs >= entry.startMs && elapsedMs < entry.endMs) return entry.viseme;
+	}
+	return null;
+}
+
+/**
+ * Build a morph driver bound to an avatar's mouth/jaw blendshapes. Returns null
+ * when the avatar has none. `step(targetViseme)` lerps one frame toward the given
+ * viseme (or rest when null); `reset()` zeroes every morph. Shared by the text
+ * heuristic ({@link startLipsync}) and the neural timestamp lane (neural-tts.js).
+ *
+ * @param {import('three').Object3D} root
+ * @returns {{ mode:'arkit'|'jaw', step(target:string|null):void, reset():void }|null}
+ */
+export function createVisemeDriver(root) {
+	const result = _buildMorphMap(root);
+	if (!result) return null;
+	const { mode, map } = result;
+	const weights = new Map();
+	for (const name of map.keys()) weights.set(name, 0);
+	return {
+		mode,
+		step(targetViseme) {
+			// 'arkit' rigs hit the exact viseme morph; 'jaw'-only rigs open the jaw
+			// for any active viseme (a single morph can't shape phonemes).
+			for (const [name, targets] of map.entries()) {
+				const goal = mode === 'arkit' ? (name === targetViseme ? 1 : 0) : targetViseme ? 0.7 : 0;
+				const cur = weights.get(name);
+				const next = cur + (goal - cur) * LERP_FACTOR;
+				weights.set(name, next);
+				_setMorph(targets, next);
+			}
+		},
+		reset() {
+			for (const name of weights.keys()) weights.set(name, 0);
+			_resetMap(map);
+		},
+	};
+}
+
+/**
+ * Drive mouth morphs from a timed viseme sequence against a caller-supplied clock.
+ * The clock decouples timing from wall-time: the text heuristic ticks on
+ * `performance.now`, while the neural lane ticks on `audio.currentTime` so visemes
+ * stay locked to playback even if the audio starts late or stalls.
+ *
+ * @param {import('three').Object3D} root
+ * @param {Array<{viseme:string,startMs:number,endMs:number}>} sequence
+ * @param {() => number} elapsedMs — current elapsed time, in ms
+ * @returns {{ stop(): void }}
+ */
+export function playVisemeSequence(root, sequence, elapsedMs = () => 0) {
+	const driver = createVisemeDriver(root);
+	if (!driver || !sequence?.length) return { stop: () => {} };
+
+	let rafId;
+	let stopped = false;
+	const tick = () => {
+		if (stopped) return;
+		driver.step(activeVisemeAt(sequence, elapsedMs()));
+		rafId = requestAnimationFrame(tick);
+	};
+	rafId = requestAnimationFrame(tick);
+
+	return {
+		stop() {
+			stopped = true;
+			if (rafId !== undefined) cancelAnimationFrame(rafId);
+			driver.reset();
+		},
+	};
+}
+
 /**
  * Drive jaw/mouth morph targets in sync with speech text via a phoneme heuristic.
- * Supports the ARKit viseme_* morph targets that three.ws avatars ship with (and the same names exported by Mixamo / VRM), plus jawOpen / mouthOpen fallbacks.
+ * Supports the ARKit viseme_* morph targets that three.ws avatars ship with (and
+ * the same names exported by Mixamo / VRM), plus jawOpen / mouthOpen fallbacks.
+ * Used when the TTS lane gives no real timing (browser SpeechSynthesis); the
+ * neural lane uses {@link playVisemeSequence} with actual phoneme timestamps.
  *
  * @param {string} text — the spoken text
  * @param {import('three').Object3D} root — avatar root (or scene) to traverse for morph targets
@@ -111,60 +191,7 @@ function _resetMap(map) {
  */
 export function startLipsync(text, root) {
 	if (!text || !root) return { stop: () => {} };
-
-	const result = _buildMorphMap(root);
-	if (!result) return { stop: () => {} };
-
-	const { mode, map } = result;
 	const sequence = _tokenize(text);
-
-	const startTime = performance.now();
-	const weights = new Map();
-	for (const name of map.keys()) weights.set(name, 0);
-
-	let rafId;
-	let stopped = false;
-
-	const tick = () => {
-		if (stopped) return;
-		const elapsed = performance.now() - startTime;
-
-		let targetViseme = null;
-		for (const entry of sequence) {
-			if (elapsed >= entry.startMs && elapsed < entry.endMs) {
-				targetViseme = entry.viseme;
-				break;
-			}
-		}
-
-		if (mode === 'arkit') {
-			for (const [name, targets] of map.entries()) {
-				const goal = name === targetViseme ? 1 : 0;
-				const cur = weights.get(name);
-				const next = cur + (goal - cur) * LERP_FACTOR;
-				weights.set(name, next);
-				_setMorph(targets, next);
-			}
-		} else {
-			const goal = targetViseme ? 0.7 : 0;
-			for (const [name, targets] of map.entries()) {
-				const cur = weights.get(name);
-				const next = cur + (goal - cur) * LERP_FACTOR;
-				weights.set(name, next);
-				_setMorph(targets, next);
-			}
-		}
-
-		rafId = requestAnimationFrame(tick);
-	};
-
-	rafId = requestAnimationFrame(tick);
-
-	return {
-		stop() {
-			stopped = true;
-			if (rafId !== undefined) cancelAnimationFrame(rafId);
-			_resetMap(map);
-		},
-	};
+	const t0 = performance.now();
+	return playVisemeSequence(root, sequence, () => performance.now() - t0);
 }

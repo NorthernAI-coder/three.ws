@@ -18,6 +18,7 @@
  */
 import { execFileSync } from 'child_process';
 import { createRequire } from 'module';
+import { existsSync } from 'fs';
 import { resolve, dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -52,6 +53,21 @@ const GATE_TESTS = [
 ];
 
 console.log(`[test-gate] running ${GATE_TESTS.length} critical-path test files…`);
+
+// On Vercel the repo is cloned and then `.vercelignore` paths are STRIPPED before
+// the build runs. `tests/` is ignored to keep the suite out of the deploy upload,
+// so each gate file must be explicitly re-included in `.vercelignore`. If one is
+// missing here, vitest would just print a cryptic "No test files found" and exit
+// 1 — indistinguishable from a real regression. Detect it ourselves and fail with
+// a message that names the file and points at the actual fix.
+const missing = GATE_TESTS.filter((t) => !existsSync(resolve(ROOT, t)));
+if (missing.length) {
+	console.error(`[test-gate] ✗ ${missing.length} gate test file(s) absent from the build context:`);
+	for (const m of missing) console.error(`[test-gate]     ${m}`);
+	console.error('[test-gate]   These are stripped by .vercelignore (which excludes tests/). Re-include each');
+	console.error('[test-gate]   gate file there with a `!` negation — keep .vercelignore in sync with GATE_TESTS.');
+	process.exit(1);
+}
 
 let vitestCli;
 try {
