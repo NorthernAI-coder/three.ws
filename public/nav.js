@@ -295,7 +295,7 @@ function renderDrawer(navData) {
 	html += navData.DRAWER_LEGAL.map(renderDrawerLink).join('');
 	html += `<div class="dr-h">More</div>`;
 	html += navData.NAV_LINKS.filter((l) => !l.highlight).map(renderTopLink).join('');
-	html += `<a href="/my-agents" id="home-nav-drawer-my-agents" data-auth="in" hidden>My Agents</a>`;
+	html += `<a href="/dashboard" id="home-nav-drawer-dashboard" data-auth="in" hidden>Dashboard</a>`;
 	html += `<div class="sep"></div>`;
 	html += `<a href="/login" id="home-nav-drawer-cta" data-auth="out">Sign in</a>`;
 	html += `<a class="btn primary btn--primary" href="/dashboard">Console →</a>`;
@@ -479,7 +479,7 @@ function initActivePage(root) {
 }
 
 // ── Auth-aware CTAs ──────────────────────────────────────────────────────────
-// Swap "Sign in" for the dashboard / My Agents entry points when the visitor is
+// Swap "Sign in" for the dashboard entry points when the visitor is
 // authenticated. The behavior lives in the shared /nav-auth.js module — see that
 // file for the hint-then-reconcile-against-/api/auth/me strategy and its
 // data-auth markup contract. Loaded on demand and called once the nav markup is

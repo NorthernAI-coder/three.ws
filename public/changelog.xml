@@ -47,6 +47,14 @@
 			<description>Global leaderboard for the walking avatar — distance walked, sites visited, and time, ranked daily, weekly, and all-time.</description>
 		</item>
 		<item>
+			<title>&quot;Fresh from the Forge&quot; thumbnails now show your models</title>
+			<link>https://three.ws/forge</link>
+			<guid isPermaLink="false">2026-06-21:&quot;Fresh from the Forge&quot; thumbnails now show your models</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>The community strip on the Forge page shows the newest models people make. Half the tiles were rendering as blank dark squares: for models generated without a reference image, the page builds a thumbnail by snapshotting the 3D model itself — but it was doing that on a one-pixel-wide canvas, so the snapshot came out as a solid block. The snapshot now renders at full thumbnail resolution, and a snapshot that comes back empty cleanly falls back to a labeled prompt card instead of an empty tile. Every card in the strip now shows real artwork.</description>
+		</item>
+		<item>
 			<title>&quot;Made with Forge&quot; showcase on the homepage spins again</title>
 			<link>https://three.ws/forge</link>
 			<guid isPermaLink="false">2026-06-21:&quot;Made with Forge&quot; showcase on the homepage spins again</guid>
@@ -309,6 +317,22 @@
 			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>The /collection page — where your unlocked skills and active subscriptions live — was returning a 404 because its route pointed at the wrong build path, and its subscriptions list was calling an endpoint that rejected the request. Both are fixed: the page loads, your purchased skills and NFT receipts render, and the Subscriptions tab now shows your active creator subscriptions with plan, price, renewal date, and a link to each creator. The marketplace analytics page had the same routing fault and now loads too.</description>
+		</item>
+		<item>
+			<title>Nav now points straight to your Dashboard</title>
+			<link>https://three.ws/dashboard</link>
+			<guid isPermaLink="false">2026-06-21:Nav now points straight to your Dashboard</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>Once you're signed in, the site navigation now shows a single 'Dashboard' entry that takes you to your full console — wallets, agents, portfolio, usage and more — instead of the narrower 'My Agents' link. One clear door to everything you manage on three.ws.</description>
+		</item>
+		<item>
+			<title>New tutorial: create, enhance &amp; edit your agent's memory</title>
+			<link>https://three.ws/tutorials/create-and-edit-memory</link>
+			<guid isPermaLink="false">2026-06-21:New tutorial: create, enhance &amp; edit your agent's memory</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>docs</category>
+			<description>A custom memory is a fact your agent carries into every future conversation — quote prices in USDC, address me formally, ship by July. A new step-by-step tutorial shows the five ways to add one (straight from the dashboard with no code, by just telling the agent, over the MCP tools, via the API, or from inside a skill) and, just as importantly, how to make a memory actually get used: the right type, one fact per memory, tags, and salience. It also covers editing a memory in place and forgetting one you no longer want.</description>
 		</item>
 		<item>
 			<title>No more nav flash on page refresh</title>

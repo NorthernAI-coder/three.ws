@@ -4,6 +4,8 @@ Agent memory lets an agent remember things between sessions. Without it, every c
 
 This document covers how agent memory works, how to configure storage modes, and how to read and write memories from code.
 
+> **Just want to add a memory?** Start with the hands-on tutorial: [Create, enhance & edit agent memory](/docs/tutorials/create-and-edit-memory) walks through every path — the dashboard, the agent itself, MCP tools, the REST API, and skills — plus how to sharpen, edit, and forget. This reference is the underlying data model.
+
 ---
 
 ## Two layers

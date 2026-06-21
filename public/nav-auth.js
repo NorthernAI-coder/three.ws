@@ -10,7 +10,7 @@
 // Markup contract — tag elements with data attributes; no per-page JS required:
 //
 //   data-auth="out"   → visible only when SIGNED OUT  (e.g. the "Sign in" link)
-//   data-auth="in"    → visible only when SIGNED IN   (e.g. a "My Agents" link;
+//   data-auth="in"    → visible only when SIGNED IN   (e.g. a "Dashboard" link;
 //                       author it with the `hidden` attribute so the signed-out
 //                       default — and the no-JS / fetch-failed fallback — is the
 //                       safe "Sign in" view)

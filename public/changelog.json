@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-21T11:00:00.373Z",
+	"generated_at": "2026-06-21T11:06:25.035Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -54,6 +54,16 @@
 			"link": "/walk-leaderboard",
 			"tags": [
 				"launch"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "update",
+			"title": "\"Fresh from the Forge\" thumbnails now show your models",
+			"summary": "The community strip on the Forge page shows the newest models people make. Half the tiles were rendering as blank dark squares: for models generated without a reference image, the page builds a thumbnail by snapshotting the 3D model itself — but it was doing that on a one-pixel-wide canvas, so the snapshot came out as a solid block. The snapshot now renders at full thumbnail resolution, and a snapshot that comes back empty cleanly falls back to a labeled prompt card instead of an empty tile. Every card in the strip now shows real artwork.",
+			"link": "/forge",
+			"tags": [
+				"fix"
 			]
 		},
 		{
@@ -409,6 +419,26 @@
 			"link": "/collection",
 			"tags": [
 				"fix"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "update",
+			"title": "Nav now points straight to your Dashboard",
+			"summary": "Once you're signed in, the site navigation now shows a single 'Dashboard' entry that takes you to your full console — wallets, agents, portfolio, usage and more — instead of the narrower 'My Agents' link. One clear door to everything you manage on three.ws.",
+			"link": "/dashboard",
+			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "update",
+			"title": "New tutorial: create, enhance & edit your agent's memory",
+			"summary": "A custom memory is a fact your agent carries into every future conversation — quote prices in USDC, address me formally, ship by July. A new step-by-step tutorial shows the five ways to add one (straight from the dashboard with no code, by just telling the agent, over the MCP tools, via the API, or from inside a skill) and, just as importantly, how to make a memory actually get used: the right type, one fact per memory, tags, and salience. It also covers editing a memory in place and forgetting one you no longer want.",
+			"link": "/tutorials/create-and-edit-memory",
+			"tags": [
+				"docs"
 			]
 		},
 		{
