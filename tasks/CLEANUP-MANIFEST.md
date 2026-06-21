@@ -146,3 +146,12 @@ Retired (feature verified shipped):
 | --- | --- |
 | monetization-prompts/21-skill-subscription-model-backend.md | subscription_plans/creator_subscriptions/subscription_payments (schema.sql:1205+); api/subscriptions/{plans,subscribe,verify}.js; api/_lib/subscription-billing.js; gating in api/_lib/skill-access.js (creator_subscriptions check); process-subscriptions cron in api/cron/[name].js |
 | monetization-prompts/17-database-schema-creator-payouts.md | creator payout function shipped via agent_revenue_events (balance ledger) + agent_withdrawals (payout log) + api/billing/{revenue,withdrawals,payout-wallets} + process-withdrawals cron; the spec-named creator_balances/creator_payouts tables are intentionally superseded by this canonical ledger |
+
+## 2026-06-21 built-and-shipped (walk batch 1)
+
+| spec file | decision | evidence |
+|---|---|---|
+| tasks/walk/39-walk-leaderboard.md | DELETE | Built: api/walk/metrics.js + api/walk/leaderboard.js + migration 20260621140000_walk_metrics.sql (walk_metrics/walk_events/walk_achievements) + pages/walk-leaderboard.html (routed /walk-leaderboard); client accrual+beacon in src/walk.js. Shipped in commit a06ea92aa. |
+| tasks/walk/40-walk-analytics-dashboard.md | DELETE | Built: api/walk/analytics.js (owner-gated) + pages/walk-analytics.html (routed /walk-analytics) + window.ThreeWalkAvatar.track() in src/walk.js. Shipped in commit a06ea92aa. |
+| tasks/walk/46-walk-landing-marketing-page.md | DELETE | Built: pages/walk-landing.html (routed /walk; app at /walk/app) + data/walk-social.json/public/walk-social.json; live embeds, real leaderboard teaser fetch, all states. Shipped in commit a06ea92aa. |
+| tasks/walk/33-walk-aware-page-transitions.md | DELETE | Built: src/walk-companion-transitions.js (6 route presets, WAAPI, reduced-motion) wired into src/walk-companion.js with persisted toggle. Shipped in commit a06ea92aa. |

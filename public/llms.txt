@@ -27,6 +27,7 @@ Entry points into the product.
 - [Characters](https://three.ws/characters): Discover AI characters on three.ws. Chat, trade, and create.
 - [What is three.ws?](https://three.ws/what-is): Plain-English introduction to three.ws — what a 3D AI agent is, real use-cases, and where to begin.
 - [Guided Tour](https://three.ws/tour): A 3D guide walks across the live site, points at every feature, and narrates what each one does and how to use it — voice plus an on-screen chat bubble, paced by you.
+- [Walk](https://three.ws/walk): Your 3D avatar walks anywhere on the web. Live demos across six environments, a Chrome extension, one-tag embeds, and a global distance leaderboard.
 
 ## Build
 
@@ -73,6 +74,7 @@ Experimental features actively shipping. Expect fast iteration.
 - [Avatar Artifact](https://three.ws/avatar-artifact): Standalone Three.js viewer for avatar artifacts — embeddable and shareable without any wrapper page.
 - [Playground](https://three.ws/playground): Sandbox for experimenting with agents, prompts, and 3D scenes.
 - [Labs Showcase](https://three.ws/labs): A curated gallery of three.ws's most powerful — and most hidden — features. Find and try things you didn't know existed.
+- [Walk Leaderboard](https://three.ws/walk-leaderboard): Global leaderboard for the walking avatar — distance walked, sites visited, and time, ranked daily, weekly, and all-time.
 
 ## Crypto
 

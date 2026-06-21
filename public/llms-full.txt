@@ -109,6 +109,12 @@ URL: https://three.ws/tour
 
 A 3D guide walks across the live site, points at every feature, and narrates what each one does and how to use it — voice plus an on-screen chat bubble, paced by you.
 
+### Walk
+
+URL: https://three.ws/walk
+
+Your 3D avatar walks anywhere on the web. Live demos across six environments, a Chrome extension, one-tag embeds, and a global distance leaderboard.
+
 ## Build
 
 Create and customize an agent.
@@ -347,6 +353,12 @@ Sandbox for experimenting with agents, prompts, and 3D scenes.
 URL: https://three.ws/labs
 
 A curated gallery of three.ws's most powerful — and most hidden — features. Find and try things you didn't know existed.
+
+### Walk Leaderboard
+
+URL: https://three.ws/walk-leaderboard
+
+Global leaderboard for the walking avatar — distance walked, sites visited, and time, ranked daily, weekly, and all-time.
 
 ## Crypto
 

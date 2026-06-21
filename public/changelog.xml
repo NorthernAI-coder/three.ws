@@ -7,6 +7,22 @@
 		<description>What's new on three.ws — features, improvements, and releases, newest first.</description>
 		<language>en</language>
 		<item>
+			<title>Walk</title>
+			<link>https://three.ws/walk</link>
+			<guid isPermaLink="false">2026-06-21:Walk</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>Your 3D avatar walks anywhere on the web. Live demos across six environments, a Chrome extension, one-tag embeds, and a global distance leaderboard.</description>
+		</item>
+		<item>
+			<title>Walk Leaderboard</title>
+			<link>https://three.ws/walk-leaderboard</link>
+			<guid isPermaLink="false">2026-06-21:Walk Leaderboard</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>Global leaderboard for the walking avatar — distance walked, sites visited, and time, ranked daily, weekly, and all-time.</description>
+		</item>
+		<item>
 			<title>$THREE buyback commitment is now public and verifiable on the token page</title>
 			<link>https://three.ws/three-token</link>
 			<guid isPermaLink="false">2026-06-21:$THREE buyback commitment is now public and verifiable on the token page</guid>
@@ -197,6 +213,14 @@
 			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>The $THREE page leads with a clear &quot;Why hold $THREE&quot; section: revenue buybacks (a fixed, live share of platform revenue buys $THREE on the open market), holder rewards (every paid action reflects $THREE back to holders pro-rata), hold-to-access (discounts, higher quotas, and pro perks), and real usage (deploying agents, forging avatars, and trading the marketplace all run on $THREE). Each pillar maps to a mechanism that actually exists on the platform, and the buyback figure is wired to the live commitment. The page's market data also now rides a shared cache, so it stays fast and reliable under heavy traffic.</description>
+		</item>
+		<item>
+			<title>Your avatar now walks anywhere — new Walk hub, leaderboard, and creator analytics</title>
+			<link>https://three.ws/walk</link>
+			<guid isPermaLink="false">2026-06-21:Your avatar now walks anywhere — new Walk hub, leaderboard, and creator analytics</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>There's a dedicated home for the walking avatar at /walk with live demos across six environments, an embeddable one-tag widget, and a Chrome-extension CTA. A new global leaderboard ranks walkers by distance, sites visited, and time (daily / weekly / all-time), and creators who embed an avatar get a private analytics dashboard — sessions, average duration, distance, top embed origins, and custom conversion events. Page-to-page navigation also gained themed, motion-aware transitions.</description>
 		</item>
 		<item>
 			<title>Grind-Bounty Market</title>
