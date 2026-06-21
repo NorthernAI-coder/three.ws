@@ -96,6 +96,15 @@
 		.bar-track { flex: 1; background: #1b1b1b; border-radius: 4px; height: 8px; }
 		.bar-fill  { height: 8px; border-radius: 4px; background: linear-gradient(90deg,var(--accent),var(--accent2)); }
 		.bar-count { width: 40px; color: #aaa; flex-shrink: 0; }
+
+		/* Column chart (time series) */
+		.col-chart { display: flex; align-items: flex-end; gap: 3px; height: 120px; padding-top: 8px; }
+		.col { flex: 1; min-width: 0; background: linear-gradient(180deg,var(--accent),var(--accent2)); border-radius: 3px 3px 0 0; min-height: 2px; opacity: .85; transition: opacity .15s; cursor: default; position: relative; }
+		.col:hover { opacity: 1; }
+		.col-axis { display: flex; justify-content: space-between; font-size: 10px; color: #444; padding-top: 6px; }
+
+		/* Compact KPI row reused across analytics tabs */
+		.kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px,1fr)); gap: 12px; margin-bottom: 20px; }
 	</style>
 </head>
 <body>
@@ -104,6 +113,9 @@
 		<span class="sidebar-brand">three.ws <span class="sidebar-badge">ADMIN</span></span>
 		<a class="nav-item active" data-tab="overview" onclick="switchTab('overview')">Overview</a>
 		<a class="nav-item" data-tab="users" onclick="switchTab('users')">Users</a>
+		<a class="nav-item" data-tab="revenue" onclick="switchTab('revenue')">Revenue</a>
+		<a class="nav-item" data-tab="llm" onclick="switchTab('llm')">LLM Spend</a>
+		<a class="nav-item" data-tab="usage" onclick="switchTab('usage')">Usage</a>
 		<a class="nav-item" href="/admin/news">News</a>
 		<a class="nav-item" href="/admin/sdp">Solana Platform</a>
 		<a class="nav-item" href="/dashboard/">Dashboard</a>
@@ -115,6 +127,9 @@
 		</div>
 		<div id="tab-overview"></div>
 		<div id="tab-users" style="display:none"></div>
+		<div id="tab-revenue" style="display:none"></div>
+		<div id="tab-llm" style="display:none"></div>
+		<div id="tab-usage" style="display:none"></div>
 	</main>
 </div>
 
@@ -189,14 +204,19 @@ async function boot() {
 
 // ── Tab routing ─────────────────────────────────────────────────────────────
 
+const TAB_TITLES = { overview: 'Overview', users: 'Users', revenue: 'Revenue', llm: 'LLM Spend', usage: 'Usage' };
 function switchTab(tab) {
 	state.tab = tab;
 	document.querySelectorAll('.nav-item[data-tab]').forEach((el) => el.classList.toggle('active', el.dataset.tab === tab));
-	document.getElementById('tab-overview').style.display = tab === 'overview' ? '' : 'none';
-	document.getElementById('tab-users').style.display    = tab === 'users'    ? '' : 'none';
-	document.getElementById('page-title').textContent = tab === 'overview' ? 'Overview' : 'Users';
+	['overview', 'users', 'revenue', 'llm', 'usage'].forEach((t) => {
+		document.getElementById('tab-' + t).style.display = t === tab ? '' : 'none';
+	});
+	document.getElementById('page-title').textContent = TAB_TITLES[tab] || 'Overview';
 	if (tab === 'overview' && !state.statsData) loadOverview();
 	if (tab === 'users') loadUsers();
+	if (tab === 'revenue') loadRevenue();
+	if (tab === 'llm') loadLlmSpend();
+	if (tab === 'usage') loadFeatures();
 }
 
 // ── Overview tab ─────────────────────────────────────────────────────────────
@@ -220,6 +240,10 @@ async function loadOverview() {
 			${statCard('Total agents', c.total_agents)}
 			${statCard('Active subs', c.active_subscriptions)}
 		</div>
+		<div class="section">
+			<div class="section-head"><span class="section-title">New signups · last 30 days</span><span style="margin-left:auto;font-size:12px;color:#555" id="signups-total"></span></div>
+			<div class="chart-wrap" id="signups-chart"></div>
+		</div>
 		<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
 			<div class="section">
 				<div class="section-head"><span class="section-title">Plan breakdown</span></div>
@@ -231,6 +255,8 @@ async function loadOverview() {
 			</div>
 		</div>
 	`;
+
+	renderSignups(data.recentSignups || []);
 
 	const maxPlan = Math.max(...data.planBreakdown.map((r) => r.users), 1);
 	document.getElementById('plan-chart').innerHTML = data.planBreakdown.map((r) =>
@@ -402,8 +428,153 @@ function confirmDelete(id) {
 
 function closeDrawer() { document.getElementById('drawer').classList.remove('open'); }
 
+// ── Shared chart renderers ───────────────────────────────────────────────────
+
+// Column chart from [{day, <valueKey>}] rows. Fills missing days as zero so the
+// 30-day window is always continuous and comparable week-over-week.
+function renderSignups(rows) {
+	const wrap = document.getElementById('signups-chart');
+	if (!wrap) return;
+	const total = rows.reduce((s, r) => s + (r.users || 0), 0);
+	const totalEl = document.getElementById('signups-total');
+	if (totalEl) totalEl.textContent = `${total} total`;
+	wrap.innerHTML = colChart(rows.map((r) => ({ day: r.day, value: r.users })));
+}
+
+// Generic column chart markup. Each item: {day, value}. Bars scale to the max.
+function colChart(items, fmt = (v) => v) {
+	if (!items.length) return '<div class="empty" style="padding:20px">No activity yet.</div>';
+	const max = Math.max(...items.map((i) => i.value), 1);
+	const cols = items.map((i) =>
+		`<div class="col" style="height:${Math.max(2, Math.round(i.value / max * 100))}%" title="${esc(fmtDate(i.day))}: ${esc(fmt(i.value))}"></div>`
+	).join('');
+	const first = items[0]?.day, last = items[items.length - 1]?.day;
+	return `<div class="col-chart">${cols}</div><div class="col-axis"><span>${esc(fmtDate(first))}</span><span>${esc(fmtDate(last))}</span></div>`;
+}
+
+// Horizontal ranked bars from rows, picking label + value via accessors.
+function rankBars(rows, labelOf, valueOf, fmt = (v) => v) {
+	if (!rows.length) return '<div class="empty" style="padding:20px">No data.</div>';
+	const max = Math.max(...rows.map(valueOf), 1);
+	return rows.map((r) => {
+		const v = valueOf(r);
+		return `<div class="bar-row">
+			<span class="bar-label" style="width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(labelOf(r))}">${esc(labelOf(r))}</span>
+			<div class="bar-track"><div class="bar-fill" style="width:${Math.round(v / max * 100)}%"></div></div>
+			<span class="bar-count" style="width:70px;text-align:right">${esc(fmt(v))}</span>
+		</div>`;
+	}).join('');
+}
+
+function kpi(label, value, sub) {
+	return `<div class="stat-card"><div class="stat-label">${esc(label)}</div><div class="stat-value">${esc(value ?? '—')}</div>${sub ? `<div class="stat-sub">${esc(sub)}</div>` : ''}</div>`;
+}
+
+// ── Revenue tab (x402 payments) ───────────────────────────────────────────────
+
+async function loadRevenue() {
+	const el = document.getElementById('tab-revenue');
+	el.innerHTML = '<div class="empty"><span class="spinner"></span></div>';
+	const data = await api.get('/api/admin/x402');
+	if (data.error) { el.innerHTML = `<div class="empty">Error: ${esc(data.error_description || data.error)}</div>`; return; }
+	const t = data.totals || {};
+	el.innerHTML = `
+		<div class="kpi-grid">
+			${kpi('Settled (30d)', t.settled, 'successful payments')}
+			${kpi('Volume (30d)', fmtUsdc(t.volume_atomics), 'USDC')}
+			${kpi('Unique payers', t.unique_payers)}
+			${kpi('Failed', t.failed, 'payment attempts')}
+		</div>
+		<div class="section">
+			<div class="section-head"><span class="section-title">Payments · last 30 days</span></div>
+			<div class="chart-wrap" id="rev-day"></div>
+		</div>
+		<div class="section">
+			<div class="section-head"><span class="section-title">Top routes by volume</span></div>
+			<div class="chart-wrap" id="rev-route"></div>
+		</div>
+	`;
+	document.getElementById('rev-day').innerHTML = colChart((data.byDay || []).map((r) => ({ day: r.day, value: r.payments })), (v) => v + ' payments');
+	document.getElementById('rev-route').innerHTML = rankBars(data.byRoute || [], (r) => r.route, (r) => Number(r.volume_atomics) || 0, (v) => fmtUsdc(v));
+}
+
+// ── LLM Spend tab ─────────────────────────────────────────────────────────────
+
+async function loadLlmSpend() {
+	const el = document.getElementById('tab-llm');
+	el.innerHTML = '<div class="empty"><span class="spinner"></span></div>';
+	const data = await api.get('/api/admin/llm-spend');
+	if (data.error) { el.innerHTML = `<div class="empty">Error: ${esc(data.error_description || data.error)}</div>`; return; }
+	const t = data.totals || {};
+	el.innerHTML = `
+		<div class="kpi-grid">
+			${kpi('Spend (24h)', fmtUsd(t.cost_micro_usd_24h), `${t.calls_24h ?? 0} calls`)}
+			${kpi('Spend (7d)', fmtUsd(t.cost_micro_usd_7d), `${t.calls_7d ?? 0} calls`)}
+			${kpi('Spend (30d)', fmtUsd(t.cost_micro_usd_30d), `${t.total_calls ?? 0} calls`)}
+			${kpi('Paid calls', t.paid_calls, `of ${t.total_calls ?? 0}`)}
+			${kpi('Input tokens', fmtNum(t.input_tokens))}
+			${kpi('Output tokens', fmtNum(t.output_tokens))}
+		</div>
+		<div class="section">
+			<div class="section-head"><span class="section-title">Spend · last 30 days</span></div>
+			<div class="chart-wrap" id="llm-day"></div>
+		</div>
+		<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+			<div class="section">
+				<div class="section-head"><span class="section-title">By provider</span></div>
+				<div class="chart-wrap" id="llm-provider"></div>
+			</div>
+			<div class="section">
+				<div class="section-head"><span class="section-title">Top models</span></div>
+				<div class="chart-wrap" id="llm-model"></div>
+			</div>
+		</div>
+	`;
+	document.getElementById('llm-day').innerHTML = colChart((data.byDay || []).map((r) => ({ day: r.day, value: Number(r.cost_micro_usd) || 0 })), (v) => fmtUsd(v));
+	document.getElementById('llm-provider').innerHTML = rankBars(data.byProvider || [], (r) => r.provider, (r) => Number(r.cost_micro_usd) || 0, (v) => fmtUsd(v));
+	document.getElementById('llm-model').innerHTML = rankBars(data.byModel || [], (r) => r.model, (r) => Number(r.cost_micro_usd) || 0, (v) => fmtUsd(v));
+}
+
+// ── Usage tab (feature adoption) ──────────────────────────────────────────────
+
+async function loadFeatures() {
+	const el = document.getElementById('tab-usage');
+	el.innerHTML = '<div class="empty"><span class="spinner"></span></div>';
+	const data = await api.get('/api/admin/features');
+	if (data.error) { el.innerHTML = `<div class="empty">Error: ${esc(data.error_description || data.error)}</div>`; return; }
+
+	// Daily totals across all kinds for the trend column chart.
+	const dayMap = {};
+	for (const r of data.byDay || []) dayMap[r.day] = (dayMap[r.day] || 0) + (r.events || 0);
+	const dayRows = Object.keys(dayMap).sort().map((day) => ({ day, value: dayMap[day] }));
+
+	el.innerHTML = `
+		<div class="section">
+			<div class="section-head"><span class="section-title">Events · last 30 days</span></div>
+			<div class="chart-wrap" id="feat-day"></div>
+		</div>
+		<div class="section">
+			<div class="section-head"><span class="section-title">By event kind</span></div>
+			<div class="section-body">
+				<table><thead><tr><th>Kind</th><th>Events</th><th>Users</th><th>Agents</th></tr></thead><tbody>
+					${(data.byKind || []).map((r) => `<tr><td style="color:#ddd">${esc(r.kind)}</td><td>${fmtNum(r.events)}</td><td>${fmtNum(r.users)}</td><td>${fmtNum(r.agents)}</td></tr>`).join('') || '<tr><td colspan="4" class="empty">No events.</td></tr>'}
+				</tbody></table>
+			</div>
+		</div>
+		<div class="section">
+			<div class="section-head"><span class="section-title">Top tools</span></div>
+			<div class="chart-wrap" id="feat-tool"></div>
+		</div>
+	`;
+	document.getElementById('feat-day').innerHTML = colChart(dayRows, (v) => v + ' events');
+	document.getElementById('feat-tool').innerHTML = rankBars(data.byTool || [], (r) => r.tool, (r) => r.events, (v) => fmtNum(v));
+}
+
 // ── Utils ─────────────────────────────────────────────────────────────────────
 
+function fmtUsd(micro) { const v = (Number(micro) || 0) / 1e6; return '$' + v.toLocaleString('en-US', { minimumFractionDigits: v < 100 ? 2 : 0, maximumFractionDigits: v < 1 ? 4 : 2 }); }
+function fmtUsdc(atomics) { const v = (Number(atomics) || 0) / 1e6; return v.toLocaleString('en-US', { maximumFractionDigits: 2 }) + ' USDC'; }
+function fmtNum(n) { return (Number(n) || 0).toLocaleString('en-US'); }
 function fmtDate(iso) { return iso ? new Date(iso).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' }) : '—'; }
 function fmtBytes(b) { if (!b) return '0 B'; const u=['B','KB','MB','GB','TB']; let i=0; while(b>=1024&&i<4){b/=1024;i++;} return b.toFixed(i?1:0)+' '+u[i]; }
 function shortAddr(a, n=6) { return a ? `${a.slice(0,n)}…${a.slice(-4)}` : '—'; }

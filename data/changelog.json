@@ -2,6 +2,16 @@
 	"$comment": "Curated changelog entries for three.ws — the editorial layer of the public changelog. New PAGE launches are tracked automatically via the `added` field in data/pages.json; this file is for everything else holders care about: improvements, fixes, SDK releases, trading/payments capabilities, security work. scripts/build-page-index.mjs merges both sources into CHANGELOG.md, public/changelog.json, and public/changelog.xml. Newest first. Allowed tags: feature, improvement, fix, sdk, infra, docs, security. `link` is optional and must be a live three.ws path.",
 	"entries": [
 		{
+			"date": "2026-06-21",
+			"title": "$THREE holder leaderboard loads faster from a shared snapshot",
+			"summary": "The $THREE holder leaderboard, its share card, and the token stats panel used to rescan every holder on-chain on each page view. They now read from a holder snapshot that refreshes every few minutes, so the board and badges load faster and the same numbers stay consistent across all three surfaces.",
+			"tags": [
+				"improvement",
+				"infra"
+			],
+			"link": "/leaderboard"
+		},
+		{
 			"date": "2026-06-20",
 			"title": "Oracle “wins” and backtest now load instead of erroring",
 			"summary": "The Oracle's track-record views — the list of called coins that pumped or graduated, plus the per-tier backtest and stats — were failing to load because of an internal database mismatch. They now query correctly, so you can see the Oracle's real hit-rate, best multiples, and graduation counts across any time window and tier.",

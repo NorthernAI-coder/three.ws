@@ -20,7 +20,7 @@ import { getSessionUser } from '../_lib/auth.js';
 import { cors, error, json, method, wrap } from '../_lib/http.js';
 import { TOKEN_MINT as THREE_MINT } from '../_lib/token/config.js';
 import { fetchTokenMarketData } from '../_lib/market/token-market.js';
-import { fetchHolderBalances } from '../_lib/coin/holders.js';
+import { threeHolderBalances } from '../_lib/coin/three-holders.js';
 import { buybackStats } from '../_lib/token/buyback.js';
 
 // Truncate a base58 wallet for display: "FeMb…Jpump".
@@ -211,11 +211,12 @@ export default wrap(async (req, res) => {
 		const offset = Math.max(0, Number(url.searchParams.get('offset')) || 0);
 
 		try {
-			// Real holder set from Helius (every $THREE holder, all token programs)
-			// plus market data for supply → % of supply. Both are independently
-			// resilient; a market-data blip just nulls the percentages.
+			// Holder set from the cached snapshot (three-holders-snapshot cron) — the
+			// full $THREE holder list across all token programs, without a per-request
+			// Helius DAS walk. Market data gives supply → % of supply. Both are
+			// independently resilient; a market-data blip just nulls the percentages.
 			const [balances, market] = await Promise.all([
-				fetchHolderBalances({ mint: THREE_MINT }),
+				threeHolderBalances(),
 				fetchTokenMarketData(THREE_MINT).catch(() => null),
 			]);
 

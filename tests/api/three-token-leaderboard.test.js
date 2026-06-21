@@ -1,10 +1,10 @@
-// Handler tests for GET /api/three-token/leaderboard. Helius holder data and
-// market data are mocked at the module boundary, so these exercise the ranking,
-// pagination, percentage math, and the empty-board degrade — no real RPC.
+// Handler tests for GET /api/three-token/leaderboard. The cached holder snapshot
+// and market data are mocked at the module boundary, so these exercise the
+// ranking, pagination, percentage math, and the empty-board degrade — no real RPC.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('../../api/_lib/coin/holders.js', () => ({ fetchHolderBalances: vi.fn() }));
+vi.mock('../../api/_lib/coin/three-holders.js', () => ({ threeHolderBalances: vi.fn() }));
 vi.mock('../../api/_lib/market/token-market.js', () => ({ fetchTokenMarketData: vi.fn() }));
 vi.mock('../../api/_lib/token/config.js', () => ({
 	TOKEN_MINT: 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump',
@@ -12,7 +12,7 @@ vi.mock('../../api/_lib/token/config.js', () => ({
 vi.mock('../../api/_lib/zauth.js', () => ({ instrument: () => {}, drain: async () => {} }));
 vi.mock('../../api/_lib/sentry.js', () => ({ captureException: () => {} }));
 
-import { fetchHolderBalances } from '../../api/_lib/coin/holders.js';
+import { threeHolderBalances } from '../../api/_lib/coin/three-holders.js';
 import { fetchTokenMarketData } from '../../api/_lib/market/token-market.js';
 import handler from '../../api/three-token/[action].js';
 
@@ -40,7 +40,7 @@ describe('GET /api/three-token/leaderboard', () => {
 	beforeEach(() => { vi.clearAllMocks(); });
 
 	it('ranks holders descending with rank, short wallet, and % of supply', async () => {
-		fetchHolderBalances.mockResolvedValueOnce(new Map([
+		threeHolderBalances.mockResolvedValueOnce(new Map([
 			['walletA', 300n],
 			['walletB', 100n],
 			['walletC', 200n],
@@ -60,7 +60,7 @@ describe('GET /api/three-token/leaderboard', () => {
 	});
 
 	it('paginates with limit + offset and keeps absolute ranks', async () => {
-		fetchHolderBalances.mockResolvedValueOnce(new Map([
+		threeHolderBalances.mockResolvedValueOnce(new Map([
 			['walletA', 300n],
 			['walletB', 100n],
 			['walletC', 200n],
@@ -77,7 +77,7 @@ describe('GET /api/three-token/leaderboard', () => {
 	});
 
 	it('excludes zero-balance wallets', async () => {
-		fetchHolderBalances.mockResolvedValueOnce(new Map([
+		threeHolderBalances.mockResolvedValueOnce(new Map([
 			['walletA', 300n],
 			['walletZero', 0n],
 		]));
@@ -90,7 +90,7 @@ describe('GET /api/three-token/leaderboard', () => {
 	});
 
 	it('nulls percentages when market supply is unavailable', async () => {
-		fetchHolderBalances.mockResolvedValueOnce(new Map([['walletA', 300n]]));
+		threeHolderBalances.mockResolvedValueOnce(new Map([['walletA', 300n]]));
 		fetchTokenMarketData.mockResolvedValueOnce(null);
 		const res = makeRes();
 		await handler(makeReq({ url: '/api/three-token/leaderboard' }), res);
@@ -99,7 +99,7 @@ describe('GET /api/three-token/leaderboard', () => {
 	});
 
 	it('degrades to an empty board (200, not 500) when Helius fails', async () => {
-		fetchHolderBalances.mockRejectedValueOnce(new Error('helius unconfigured'));
+		threeHolderBalances.mockRejectedValueOnce(new Error('helius unconfigured'));
 		const res = makeRes();
 		await handler(makeReq({ url: '/api/three-token/leaderboard' }), res);
 		expect(res.statusCode).toBe(200);

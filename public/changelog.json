@@ -1,11 +1,22 @@
 {
-	"generated_at": "2026-06-20T12:01:11.783Z",
+	"generated_at": "2026-06-21T00:59:23.556Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
 		"url": "https://three.ws"
 	},
 	"entries": [
+		{
+			"date": "2026-06-21",
+			"type": "update",
+			"title": "$THREE holder leaderboard loads faster from a shared snapshot",
+			"summary": "The $THREE holder leaderboard, its share card, and the token stats panel used to rescan every holder on-chain on each page view. They now read from a holder snapshot that refreshes every few minutes, so the board and badges load faster and the same numbers stay consistent across all three surfaces.",
+			"link": "/leaderboard",
+			"tags": [
+				"improvement",
+				"infra"
+			]
+		},
 		{
 			"date": "2026-06-20",
 			"type": "launch",

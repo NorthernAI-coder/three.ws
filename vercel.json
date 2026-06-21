@@ -51,6 +51,9 @@
 			"includeFiles": "data/pages.json",
 			"maxDuration": 30
 		},
+		"api/cron/three-holders-snapshot.js": {
+			"maxDuration": 120
+		},
 		"api/cron/quota-check.js": {
 			"includeFiles": "data/pages.json",
 			"maxDuration": 30
@@ -3814,6 +3817,10 @@
 		{
 			"path": "/api/cron/pump-agent-stats",
 			"schedule": "*/10 * * * *"
+		},
+		{
+			"path": "/api/cron/three-holders-snapshot",
+			"schedule": "*/5 * * * *"
 		},
 		{
 			"path": "/api/cron/pumpfun-monitor",
