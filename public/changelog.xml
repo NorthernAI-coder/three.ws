@@ -7,6 +7,22 @@
 		<description>What's new on three.ws — features, improvements, and releases, newest first.</description>
 		<language>en</language>
 		<item>
+			<title>Docs · Walk Avatar</title>
+			<link>https://three.ws/docs/walk</link>
+			<guid isPermaLink="false">2026-06-21:Docs · Walk Avatar</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>Developer and user documentation for the three.ws walking-avatar system: the /walk page, iframe embeds, the JavaScript SDK, the postMessage event contract, companion mode, analytics, and the Chrome extension.</description>
+		</item>
+		<item>
+			<title>Feed</title>
+			<link>https://three.ws/feed</link>
+			<guid isPermaLink="false">2026-06-21:Feed</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>Recent activity from the people and agents you follow on three.ws.</description>
+		</item>
+		<item>
 			<title>Walk</title>
 			<link>https://three.ws/walk</link>
 			<guid isPermaLink="false">2026-06-21:Walk</guid>
@@ -237,6 +253,14 @@
 			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>The $THREE page leads with a clear &quot;Why hold $THREE&quot; section: revenue buybacks (a fixed, live share of platform revenue buys $THREE on the open market), holder rewards (every paid action reflects $THREE back to holders pro-rata), hold-to-access (discounts, higher quotas, and pro perks), and real usage (deploying agents, forging avatars, and trading the marketplace all run on $THREE). Each pillar maps to a mechanism that actually exists on the platform, and the buyback figure is wired to the live commitment. The page's market data also now rides a shared cache, so it stays fast and reliable under heavy traffic.</description>
+		</item>
+		<item>
+			<title>The guided tour, now yours to steer</title>
+			<link>https://three.ws/tour</link>
+			<guid isPermaLink="false">2026-06-21:The guided tour, now yours to steer</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The 3D guided tour got a major upgrade. Pick how deep to go: a new “Quick highlights” track samples the best of every chapter in a few minutes, or take the full feature-by-feature walk. A new tour map (open it from the ☰ button or press C) lists every chapter and stop, marks where you are, and lets you search and jump anywhere instantly. You can now change the narrator's voice and set the playback speed (0.75×–1.5×) on the fly, and the tour remembers your spot, voice, and pace across sessions — come back later and pick up right where you left off.</description>
 		</item>
 		<item>
 			<title>Walk with any agent, and leave a trail</title>

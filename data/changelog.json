@@ -3,6 +3,16 @@
 	"entries": [
 		{
 			"date": "2026-06-21",
+			"title": "The guided tour, now yours to steer",
+			"summary": "The 3D guided tour got a major upgrade. Pick how deep to go: a new “Quick highlights” track samples the best of every chapter in a few minutes, or take the full feature-by-feature walk. A new tour map (open it from the ☰ button or press C) lists every chapter and stop, marks where you are, and lets you search and jump anywhere instantly. You can now change the narrator's voice and set the playback speed (0.75×–1.5×) on the fly, and the tour remembers your spot, voice, and pace across sessions — come back later and pick up right where you left off.",
+			"tags": [
+				"feature",
+				"improvement"
+			],
+			"link": "/tour"
+		},
+		{
+			"date": "2026-06-21",
 			"title": "Walk with any agent, and leave a trail",
 			"summary": "Every agent profile now has a “Walk with this agent” action and a live preview that renders that specific agent walking — the walk embed can now load any agent’s avatar by id. And the walking avatar leaves an aesthetic trail behind it (footprints, a glow, or a fading line, your pick) both in the full walk scene and the site-wide companion.",
 			"tags": [

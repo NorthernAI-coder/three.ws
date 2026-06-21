@@ -18,6 +18,7 @@ export class TourControls {
 		bar.setAttribute('role', 'group');
 		bar.setAttribute('aria-label', 'Guided tour controls');
 		bar.innerHTML = `
+			<button class="tws-tour-btn" data-act="menu" aria-label="Chapters and settings" title="Chapters & settings" aria-haspopup="dialog" aria-expanded="false">☰</button>
 			<button class="tws-tour-btn" data-act="prev" aria-label="Previous feature" title="Previous">⏮</button>
 			<button class="tws-tour-btn tws-tour-btn--play" data-act="toggle" aria-label="Pause tour" title="Pause / resume">⏸</button>
 			<button class="tws-tour-btn" data-act="next" aria-label="Next feature" title="Next">⏭</button>
@@ -27,13 +28,16 @@ export class TourControls {
 					<div class="tws-tour-track__fill"></div>
 				</div>
 			</div>
+			<button class="tws-tour-btn tws-tour-btn--speed" data-act="speed" aria-label="Playback speed" title="Playback speed">1×</button>
 			<button class="tws-tour-btn" data-act="mute" aria-label="Mute narration" title="Mute / unmute voice">🔊</button>
 			<button class="tws-tour-btn tws-tour-btn--exit" data-act="exit" aria-label="Exit tour" title="Exit tour">✕</button>
 		`;
 		document.body.appendChild(bar);
 		this.bar = bar;
+		this.menuBtn = bar.querySelector('[data-act="menu"]');
 		this.playBtn = bar.querySelector('[data-act="toggle"]');
 		this.muteBtn = bar.querySelector('[data-act="mute"]');
+		this.speedBtn = bar.querySelector('[data-act="speed"]');
 		this.chapterEl = bar.querySelector('.tws-tour-chapter');
 		this.countEl = bar.querySelector('.tws-tour-count');
 		this.track = bar.querySelector('.tws-tour-track');
@@ -42,9 +46,11 @@ export class TourControls {
 		bar.addEventListener('click', (e) => {
 			const act = e.target.closest('[data-act]')?.dataset.act;
 			if (!act) return;
-			if (act === 'prev') this.handlers.onPrev?.();
+			if (act === 'menu') this.handlers.onMenu?.();
+			else if (act === 'prev') this.handlers.onPrev?.();
 			else if (act === 'next') this.handlers.onNext?.();
 			else if (act === 'toggle') this.handlers.onToggle?.();
+			else if (act === 'speed') this.handlers.onSpeed?.();
 			else if (act === 'mute') this.handlers.onMute?.();
 			else if (act === 'exit') this.handlers.onExit?.();
 		});
@@ -86,6 +92,18 @@ export class TourControls {
 		this.muteBtn.setAttribute('aria-label', muted ? 'Unmute narration' : 'Mute narration');
 	}
 
+	setSpeed(speed) {
+		// Show a tidy "1×" / "1.5×" label; drop the trailing ".0".
+		const label = (Number(speed) || 1).toFixed(2).replace(/\.?0+$/, '');
+		this.speedBtn.textContent = label + '×';
+		this.speedBtn.setAttribute('aria-label', `Playback speed ${label} times — tap to change`);
+	}
+
+	setMenuOpen(open) {
+		this.menuBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+		this.menuBtn.classList.toggle('is-active', open);
+	}
+
 	dispose() {
 		this.bar?.remove();
 		this.bar = null;
@@ -111,6 +129,8 @@ function ensureStyles() {
 .tws-tour-btn:focus-visible{outline:2px solid #7aa2ff;outline-offset:2px}
 .tws-tour-btn--play{background:rgba(122,162,255,.9);color:#0b0e16}
 .tws-tour-btn--play:hover{background:rgba(122,162,255,1)}
+.tws-tour-btn--speed{width:auto;min-width:40px;padding:0 9px;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums}
+.tws-tour-btn.is-active{background:rgba(122,162,255,.28);color:#cdd8ff}
 .tws-tour-btn--exit:hover{background:rgba(220,70,70,.85)}
 .tws-tour-meta{display:flex;flex-direction:column;gap:5px;min-width:160px;flex:1}
 .tws-tour-meta__top{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:12px}

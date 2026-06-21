@@ -63,6 +63,7 @@ import {
 } from './walk-environments.js';
 import { log } from './shared/log.js';
 import { createWalkTrails3D, createTrailSetting, TRAIL_STYLE_LABELS } from './walk-trails.js';
+import { createWalkSession, showWelcomeBackToast } from './walk-session.js';
 
 const AVATAR_URL_DEFAULT = '/avatars/default.glb';
 
@@ -1404,6 +1405,37 @@ async function loadAvatar() {
 	}
 }
 
+// Swap the live avatar to a different GLB. Shared by the in-page avatar picker and
+// by session restore so both paths build, frame, animate, and broadcast the new
+// avatar identically. Throws on load failure so callers can surface it.
+async function applyAvatarSwap(url, id) {
+	const loader = new GLTFLoader();
+	const gltf = await loader.loadAsync(url);
+	if (avatar) avatarRig.remove(avatar);
+	avatar = gltf.scene;
+	avatarTemplate = gltf.scene;
+	avatar.traverse((n) => {
+		if (n.isMesh) {
+			n.castShadow = true;
+			n.receiveShadow = false;
+		}
+	});
+	const box = new Box3().setFromObject(avatar);
+	avatar.position.y -= box.min.y;
+	avatarRig.add(avatar);
+	const height = Math.max(0.5, box.max.y - box.min.y);
+	avatarHeight = height;
+	CAM_OFFSET.set(0, height * 1.05, height * 1.95);
+	CAM_LOOK_OFFSET.set(0, height * 0.6, 0);
+	if (cameraMode === 'firstperson') avatar.visible = false;
+	animationManager.attach(avatar);
+	animationManager.crossfadeTo(motionToClipName(currentMotion), 0);
+	resolvedAvatarUrl = url;
+	setSelectedAvatar(id, url);
+	setWalkMetricsAvatarId(id);
+	net?.sendAvatar(url, id || '');
+}
+
 // ── Gestures (Task 14) ─────────────────────────────────────────────────────
 // The expressive emote system lives in src/walk-gestures.js: wave / dance / sit
 // / point / cheer / agree / disagree / talking, driven through the animation
@@ -2285,6 +2317,39 @@ let walkMetricsAvatarId = (() => {
 function setWalkMetricsAvatarId(id) {
 	walkMetricsAvatarId = id && UUID_RE.test(id) ? id : null;
 }
+
+// ── Walk session persistence (resume where you left off) ──────────────────────
+// Mirrors the live scene state so a returning visitor resumes from where they
+// left off. The avatar picker (a scoped block far below) updates these via
+// setSelectedAvatar(); the env/camera/gesture/trail paths feed the same module
+// through walkSession.save(). The controller persists to localStorage for
+// everyone and syncs to /api/walk/session for signed-in users.
+let selectedAvatarId =
+	(() => {
+		const id = new URLSearchParams(location.search).get('avatar');
+		return id && UUID_RE.test(id) ? id : null;
+	})();
+let selectedAvatarUrl = null; // resolved on swap; null = default avatar
+const recentGestures = []; // most-recent-first, capped at 5
+
+function setSelectedAvatar(id, url) {
+	selectedAvatarId = id && UUID_RE.test(id) ? id : null;
+	selectedAvatarUrl = url || null;
+}
+
+// Record a gesture into the most-recent-first ring (deduped), capped at 5, and
+// persist. Surfaces the user's recent gestures so a return visit can prioritise
+// them. Called from the gesture-play wrapper installed in setupGestures().
+function recordRecentGesture(name) {
+	if (!name || typeof name !== 'string') return;
+	const i = recentGestures.indexOf(name);
+	if (i !== -1) recentGestures.splice(i, 1);
+	recentGestures.unshift(name);
+	if (recentGestures.length > 5) recentGestures.length = 5;
+	walkSession?.save();
+}
+
+let walkSession = null;
 
 // Per-session accumulators. `pending*` hold metrics earned since the last flush;
 // `session*` hold lifetime-of-session totals used for achievement thresholds and

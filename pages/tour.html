@@ -160,6 +160,79 @@
 				outline: 2px solid var(--accent);
 				outline-offset: 3px;
 			}
+			/* Track picker */
+			.tour-tracks {
+				display: flex;
+				gap: 14px;
+				justify-content: center;
+				flex-wrap: wrap;
+				margin-top: 6px;
+			}
+			.tour-track {
+				display: flex;
+				align-items: center;
+				gap: 14px;
+				text-align: left;
+				appearance: none;
+				cursor: pointer;
+				width: 300px;
+				max-width: 100%;
+				padding: 16px 18px;
+				border-radius: 16px;
+				border: 1px solid rgba(255, 255, 255, 0.12);
+				background: rgba(255, 255, 255, 0.04);
+				color: #eef1f6;
+				transition: border-color 0.18s ease, background 0.18s ease, transform 0.12s ease;
+			}
+			.tour-track:hover {
+				border-color: rgba(122, 162, 255, 0.45);
+				background: rgba(122, 162, 255, 0.07);
+				transform: translateY(-2px);
+			}
+			.tour-track:active {
+				transform: translateY(0) scale(0.99);
+			}
+			.tour-track:focus-visible {
+				outline: 2px solid var(--accent);
+				outline-offset: 3px;
+			}
+			.tour-track--primary {
+				border-color: transparent;
+				background: linear-gradient(120deg, rgba(122, 162, 255, 0.22), rgba(157, 123, 255, 0.22));
+				box-shadow: 0 12px 34px rgba(122, 162, 255, 0.22);
+			}
+			.tour-track--primary:hover {
+				background: linear-gradient(120deg, rgba(122, 162, 255, 0.3), rgba(157, 123, 255, 0.3));
+			}
+			.tour-track__icon {
+				flex: 0 0 auto;
+				width: 42px;
+				height: 42px;
+				border-radius: 12px;
+				display: grid;
+				place-items: center;
+				font-size: 20px;
+				background: rgba(0, 0, 0, 0.22);
+			}
+			.tour-track__body {
+				flex: 1;
+				display: flex;
+				flex-direction: column;
+				gap: 3px;
+			}
+			.tour-track__title {
+				font-weight: 700;
+				font-size: 15.5px;
+			}
+			.tour-track__meta {
+				font-size: 12.5px;
+				color: #9aa3b6;
+			}
+			.tour-track__go {
+				flex: 0 0 auto;
+				color: var(--accent);
+				font-size: 13px;
+			}
 			.tour-resume {
 				display: none;
 				margin-top: 16px;
@@ -327,8 +400,25 @@
 					out loud with a chat bubble over its head. It covers the whole platform, on
 					the real live site, and you set the pace.
 				</p>
-				<div class="tour-cta-row">
-					<button class="tour-btn tour-btn--primary" id="tour-start">▶ Start the guided tour</button>
+				<div class="tour-tracks" id="tour-tracks">
+					<button class="tour-track tour-track--primary" data-track="quick" id="tour-start-quick">
+						<span class="tour-track__icon">⚡</span>
+						<span class="tour-track__body">
+							<span class="tour-track__title">Quick highlights</span>
+							<span class="tour-track__meta" id="track-quick-meta">the best of every chapter</span>
+						</span>
+						<span class="tour-track__go">▶</span>
+					</button>
+					<button class="tour-track" data-track="full" id="tour-start-full">
+						<span class="tour-track__icon">🗺️</span>
+						<span class="tour-track__body">
+							<span class="tour-track__title">Full tour</span>
+							<span class="tour-track__meta" id="track-full-meta">every feature, chapter by chapter</span>
+						</span>
+						<span class="tour-track__go">▶</span>
+					</button>
+				</div>
+				<div class="tour-cta-row" style="margin-top:18px">
 					<a class="tour-btn" href="#how">How it works</a>
 				</div>
 				<p class="tour-resume" id="tour-resume">
@@ -391,42 +481,78 @@
 			};
 
 			const STATE_KEY = 'tws:tour:state';
+			const RESUME_KEY = 'tws:tour:resume';
 
-			function startTour() {
+			function startTour(track) {
 				// The engine boots on the first stop's page via ?tour=start.
+				const q = track === 'quick' ? '?tour=start&track=quick' : '?tour=start';
 				fetch('/tour/curriculum.json', { cache: 'force-cache' })
 					.then((r) => r.json())
 					.then((c) => {
 						const first = (c.stops && c.stops[0] && c.stops[0].path) || '/';
-						location.href = first + '?tour=start';
+						location.href = first + q;
 					})
 					.catch(() => {
-						location.href = '/?tour=start';
+						location.href = '/' + q;
 					});
 			}
 
-			document.getElementById('tour-start').addEventListener('click', startTour);
-			document.getElementById('tour-start-2').addEventListener('click', startTour);
+			document.getElementById('tour-start-quick').addEventListener('click', () => startTour('quick'));
+			document.getElementById('tour-start-full').addEventListener('click', () => startTour('full'));
+			document.getElementById('tour-start-2').addEventListener('click', () => startTour('quick'));
 
-			// Resume affordance when a tour is already in progress this session.
-			try {
-				const raw = sessionStorage.getItem(STATE_KEY);
-				const st = raw ? JSON.parse(raw) : null;
-				if (st && st.active) {
-					const resume = document.getElementById('tour-resume');
-					resume.style.display = 'block';
-					document.getElementById('tour-resume-link').addEventListener('click', (e) => {
-						e.preventDefault();
-						fetch('/tour/curriculum.json', { cache: 'force-cache' })
-							.then((r) => r.json())
-							.then((c) => {
-								const stop = (c.stops && c.stops[st.index || 0]) || c.stops[0];
-								location.href = (stop ? stop.path : '/') + '?tour=1';
-							})
-							.catch(() => (location.href = '/?tour=1'));
-					});
+			// Resume affordance: an in-progress tour this session (sessionStorage)
+			// takes priority; otherwise a durable cross-session bookmark
+			// (localStorage) lets a returning visitor pick up where they left off.
+			function readJSON(store, key) {
+				try {
+					const raw = store.getItem(key);
+					return raw ? JSON.parse(raw) : null;
+				} catch (_) {
+					return null;
 				}
-			} catch (_) {}
+			}
+			(function setupResume() {
+				const live = readJSON(sessionStorage, STATE_KEY);
+				const saved = readJSON(localStorage, RESUME_KEY);
+				const inProgress = live && live.active;
+				const bookmarked = saved && !saved.completed && (saved.index || 0) > 0;
+				if (!inProgress && !bookmarked) return;
+				const src = inProgress ? live : saved;
+				const resume = document.getElementById('tour-resume');
+				resume.style.display = 'block';
+				if (!inProgress) {
+					resume.firstChild.textContent = 'Welcome back — your tour is bookmarked. ';
+				}
+				document.getElementById('tour-resume-link').addEventListener('click', (e) => {
+					e.preventDefault();
+					const param = inProgress ? '?tour=1' : '?tour=1';
+					fetch('/tour/curriculum.json', { cache: 'force-cache' })
+						.then((r) => r.json())
+						.then((c) => {
+							const stop = (c.stops && c.stops[src.index || 0]) || c.stops[0];
+							// Re-seed the live session from the durable bookmark before navigating.
+							if (!inProgress && src) {
+								try {
+									sessionStorage.setItem(
+										STATE_KEY,
+										JSON.stringify({
+											active: true,
+											index: src.index || 0,
+											track: src.track || 'full',
+											voice: src.voice || 'nova',
+											speed: src.speed || 1,
+											paused: false,
+											muted: false,
+										}),
+									);
+								} catch (_) {}
+							}
+							location.href = (stop ? stop.path : '/') + param;
+						})
+						.catch(() => (location.href = '/' + param));
+				});
+			})();
 
 			// Populate stats + chapter cards from the live curriculum.
 			fetch('/tour/curriculum.json', { cache: 'force-cache' })
@@ -435,6 +561,18 @@
 					document.getElementById('stat-features').textContent = c.stopCount || (c.stops || []).length;
 					document.getElementById('stat-minutes').textContent = '~' + (c.estimatedMinutes || 30);
 					document.getElementById('stat-chapters').textContent = (c.sections || []).length || 6;
+
+					// Fill the track-picker cards from the curriculum's track metadata.
+					const tracks = {};
+					(c.tracks || []).forEach((t) => (tracks[t.id] = t));
+					if (tracks.quick) {
+						document.getElementById('track-quick-meta').textContent =
+							tracks.quick.stopCount + ' picks · ~' + tracks.quick.estimatedMinutes + ' min';
+					}
+					if (tracks.full) {
+						document.getElementById('track-full-meta').textContent =
+							tracks.full.stopCount + ' features · ~' + tracks.full.estimatedMinutes + ' min';
+					}
 
 					const counts = {};
 					(c.stops || []).forEach((s) => (counts[s.section] = (counts[s.section] || 0) + 1));

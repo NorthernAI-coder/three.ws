@@ -17,19 +17,21 @@ export class Narrator {
 		this._finishCurrent = null;
 	}
 
-	estimateMs(text) {
+	estimateMs(text, speed = 1) {
 		const words = String(text || '').trim().split(/\s+/).filter(Boolean).length;
-		return Math.max(1600, (words / WPM) * 60000 + 600);
+		const base = Math.max(1600, (words / WPM) * 60000 + 600);
+		return base / clampSpeed(speed);
 	}
 
 	// Speak `text`; resolves when playback (or the timed fallback) completes.
-	async speak(text, { muted = false, voice = 'nova' } = {}) {
+	async speak(text, { muted = false, voice = 'nova', speed = 1 } = {}) {
 		this.cancel();
 		const token = ++this._token;
+		const rate = clampSpeed(speed);
 		const clean = String(text || '').trim();
 		if (!clean) return;
 		if (muted) {
-			await this._sleep(this.estimateMs(clean), token);
+			await this._sleep(this.estimateMs(clean, rate), token);
 			return;
 		}
 
@@ -38,7 +40,7 @@ export class Narrator {
 			const res = await fetch('/api/tts/speak', {
 				method: 'POST',
 				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ text: clean.slice(0, 4096), voice, format: 'mp3' }),
+				body: JSON.stringify({ text: clean.slice(0, 4096), voice, speed: rate, format: 'mp3' }),
 			});
 			if (token !== this._token) return; // canceled while fetching
 			if (!res.ok) throw new Error(`tts ${res.status}`);
@@ -46,6 +48,10 @@ export class Narrator {
 			if (token !== this._token) return;
 			url = URL.createObjectURL(blob);
 			const audio = new Audio(url);
+			// The server renders the OpenAI lane at `speed`, but the free Magpie
+			// lane ignores it — so also nudge playbackRate as a client-side backstop
+			// that works on whichever lane answered. (1× leaves audio untouched.)
+			audio.playbackRate = rate;
 			this.audio = audio;
 			await new Promise((resolve) => {
 				let done = false;
@@ -103,4 +109,10 @@ export class Narrator {
 	dispose() {
 		this.cancel();
 	}
+}
+
+function clampSpeed(s) {
+	const n = Number(s);
+	if (!Number.isFinite(n)) return 1;
+	return Math.min(2, Math.max(0.5, n));
 }

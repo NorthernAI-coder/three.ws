@@ -18,8 +18,8 @@ export function createFeatureTour() {
 		isActive() {
 			return readState().active === true;
 		},
-		start() {
-			return ensure().start();
+		start(track) {
+			return ensure().start(track);
 		},
 		resume() {
 			return ensure().resume();
@@ -33,9 +33,11 @@ export function createFeatureTour() {
 		bootstrap() {
 			if (typeof window === 'undefined') return;
 			if (window.top !== window.self) return; // never inside an embed/iframe
-			const param = new URLSearchParams(location.search).get('tour');
+			const params = new URLSearchParams(location.search);
+			const param = params.get('tour');
 			if (param === 'start') {
-				ensure().start();
+				const track = params.get('track') === 'quick' ? 'quick' : 'full';
+				ensure().start(track);
 			} else if (param === '0') {
 				director?.exit();
 			} else if (param === '1' || readState().active) {
