@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-21T19:01:16.428Z",
+	"generated_at": "2026-06-21T19:17:43.937Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -974,6 +974,17 @@
 			"tags": [
 				"feature",
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "update",
+			"title": "x402 comes to VS Code",
+			"summary": "A new VS Code extension brings the x402 bazaar into your editor. Browse and search every paid API and MCP tool across the network, decode any endpoint's payment challenge to see exactly what it charges and on which chain, and pay-per-call with USDC right from a side panel — the amount is shown and confirmed before signing, a spending cap blocks anything over your limit, and the on-chain receipt comes back inline. Your wallet key is stored in the OS keychain, never in files. Developers can also scaffold a new paid endpoint in one command. Built for the people who wire up and call paid services — and they live in their editor.",
+			"link": null,
+			"tags": [
+				"sdk",
+				"feature"
 			]
 		},
 		{
