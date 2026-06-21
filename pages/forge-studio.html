@@ -2923,6 +2923,164 @@
 				#studio-avatar .btn-primary { justify-content: center; }
 				#studio-avatar .hint { text-align: center; }
 			}
+
+			/* ── Lab pane (free client-side 3D generators) ─────────────────────── */
+			#studio-lab {
+				--panel: #0a0a0a;
+				--panel-elev: #111111;
+				--border: #1a1a1a;
+				--border-strong: #2a2a2a;
+				--text: #e8e8e8;
+				--muted: #888888;
+				--accent: #ffffff;
+				--accent-ink: #000000;
+			}
+			#studio-lab .lab {
+				display: grid;
+				grid-template-columns: minmax(220px, 280px) 1fr;
+				gap: var(--space-lg, 20px);
+				align-items: start;
+				max-width: 1180px;
+				margin: 8px auto 0;
+			}
+			#studio-lab .lab-tools { display: flex; flex-direction: column; gap: 8px; }
+			#studio-lab .lab-tool {
+				text-align: left;
+				border: 1px solid var(--border-strong);
+				background: var(--panel);
+				color: var(--text);
+				border-radius: 12px;
+				padding: 12px 14px;
+				cursor: pointer;
+				display: flex;
+				flex-direction: column;
+				gap: 3px;
+				transition: border-color 0.15s, background 0.15s, transform 0.12s;
+			}
+			#studio-lab .lab-tool:hover { border-color: #444; background: var(--panel-elev); }
+			#studio-lab .lab-tool:active { transform: translateY(1px); }
+			#studio-lab .lab-tool:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+			#studio-lab .lab-tool[aria-pressed='true'] { border-color: var(--accent); background: var(--panel-elev); }
+			#studio-lab .lab-tool-name { font-weight: 600; font-size: 14.5px; }
+			#studio-lab .lab-tool-blurb { font-size: 12px; color: var(--muted); line-height: 1.4; }
+			#studio-lab .lab-stage { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+			#studio-lab .lab-controls {
+				display: grid;
+				grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+				gap: 14px;
+				border: 1px solid var(--border-strong);
+				border-radius: 14px;
+				background: var(--panel);
+				padding: 16px;
+			}
+			#studio-lab .lab-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+			#studio-lab .lab-field[hidden] { display: none; }
+			#studio-lab .lab-field-label {
+				font-size: 12.5px;
+				color: var(--muted);
+				display: flex;
+				justify-content: space-between;
+				gap: 8px;
+				align-items: baseline;
+			}
+			#studio-lab .lab-field-out { font-size: 11.5px; color: #666; font-variant-numeric: tabular-nums; }
+			#studio-lab .lab-field input[type='range'] { width: 100%; accent-color: var(--accent); }
+			#studio-lab .lab-field input[type='color'] {
+				width: 100%;
+				height: 36px;
+				padding: 2px;
+				border: 1px solid var(--border-strong);
+				border-radius: 10px;
+				background: var(--panel-elev);
+				cursor: pointer;
+			}
+			#studio-lab .lab-field input[type='text'],
+			#studio-lab .lab-field select,
+			#studio-lab .lab-field textarea,
+			#studio-lab .lab-field input[type='file'] {
+				width: 100%;
+				border: 1px solid var(--border-strong);
+				background: var(--panel-elev);
+				color: var(--text);
+				border-radius: 10px;
+				padding: 9px 11px;
+				font: inherit;
+				font-size: 13px;
+				outline: none;
+			}
+			#studio-lab .lab-field textarea { resize: vertical; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; line-height: 1.5; }
+			#studio-lab .lab-field input:focus-visible,
+			#studio-lab .lab-field select:focus-visible,
+			#studio-lab .lab-field textarea:focus-visible { border-color: var(--accent); }
+			#studio-lab .lab-field-check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text); cursor: pointer; }
+			#studio-lab .lab-field-check input { width: 16px; height: 16px; accent-color: var(--accent); }
+			#studio-lab .lab-preview {
+				position: relative;
+				width: 100%;
+				aspect-ratio: 16 / 10;
+				border: 1px solid var(--border-strong);
+				border-radius: 16px;
+				background: radial-gradient(circle at 50% 35%, #15151c, #060608 75%);
+				overflow: hidden;
+			}
+			#studio-lab .lab-preview model-viewer,
+			#studio-lab .lab-splat {
+				position: absolute;
+				inset: 0;
+				width: 100%;
+				height: 100%;
+			}
+			#studio-lab .lab-splat { cursor: grab; }
+			#studio-lab .lab-splat[hidden] { display: none; }
+			#studio-lab model-viewer[hidden] { display: none; }
+			#studio-lab .lab-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+			#studio-lab .btn-primary {
+				display: inline-flex;
+				align-items: center;
+				gap: 9px;
+				background: var(--accent);
+				color: var(--accent-ink);
+				border: 0;
+				border-radius: 12px;
+				padding: 12px 22px;
+				font-size: 15px;
+				font-weight: 600;
+				cursor: pointer;
+				transition: opacity 0.15s, transform 0.12s;
+			}
+			#studio-lab .btn-primary:hover { opacity: 0.9; }
+			#studio-lab .btn-primary:active { transform: translateY(1px); }
+			#studio-lab .btn-primary:disabled { opacity: 0.45; cursor: progress; }
+			#studio-lab .btn-primary:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+			#studio-lab .btn-ghost {
+				display: inline-flex;
+				align-items: center;
+				gap: 8px;
+				background: var(--panel);
+				color: var(--text);
+				border: 1px solid var(--border-strong);
+				border-radius: 12px;
+				padding: 11px 18px;
+				font-size: 14px;
+				font-weight: 500;
+				cursor: pointer;
+				text-decoration: none;
+				transition: border-color 0.15s, background 0.15s, transform 0.12s, opacity 0.15s;
+			}
+			#studio-lab .btn-ghost:hover { border-color: #444; background: var(--panel-elev); }
+			#studio-lab .btn-ghost.is-disabled { opacity: 0.4; pointer-events: none; }
+			#studio-lab .btn-ghost.is-hidden { display: none; }
+			#studio-lab .lab-status { font-size: 13px; color: var(--muted); }
+			#studio-lab .lab-status[data-kind='ok'] { color: #6ee7a8; }
+			#studio-lab .lab-status[data-kind='err'] { color: #f3b4b4; }
+			#studio-lab .lab-foot { font-size: 12px; color: #666; margin: 0; max-width: 70ch; }
+			#studio-lab .lab-foot a { color: #aaa; text-decoration: underline; text-underline-offset: 2px; }
+			#studio-lab .lab-foot a:hover { color: var(--text); }
+			@media (max-width: 760px) {
+				#studio-lab .lab { grid-template-columns: 1fr; }
+				#studio-lab .lab-tools { flex-direction: row; flex-wrap: wrap; }
+				#studio-lab .lab-tool { flex: 1 1 140px; }
+			}
 		</style>
 
 	<link rel="canonical" href="https://three.ws/forge-studio">
@@ -2960,6 +3118,16 @@
 						aria-controls="studio-avatar"
 					>
 						<span class="dot" aria-hidden="true"></span>Avatar
+					</button>
+					<button
+						type="button"
+						role="tab"
+						id="studio-tab-lab"
+						data-studio-mode="lab"
+						aria-selected="false"
+						aria-controls="studio-lab"
+					>
+						<span class="dot" aria-hidden="true"></span>Lab
 					</button>
 				</div>
 			</header>
@@ -3759,6 +3927,48 @@
 					</div>
 				</section>
 			</section><!-- /#studio-avatar -->
+
+			<section id="studio-lab" class="studio-pane" role="tabpanel" aria-labelledby="studio-tab-lab" hidden>
+				<div class="lab">
+					<aside class="lab-tools" id="lab-tools" aria-label="3D tools"></aside>
+					<div class="lab-stage">
+						<div class="lab-controls" id="lab-controls"></div>
+						<div class="lab-preview">
+							<model-viewer
+								id="lab-viewer"
+								camera-controls
+								auto-rotate
+								rotation-per-second="18deg"
+								interaction-prompt="none"
+								shadow-intensity="0.6"
+								shadow-softness="0.8"
+								environment-image="neutral"
+								exposure="1.0"
+								loading="eager"
+								alt="Generated 3D model preview"
+							></model-viewer>
+							<div id="lab-splat" class="lab-splat" hidden></div>
+						</div>
+						<div class="lab-actions">
+							<button class="btn-primary" id="lab-generate" type="button">Generate model</button>
+							<a class="btn-ghost is-disabled" id="lab-download" href="#" download>
+								Download GLB
+								<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+									<path d="M12 3v12" /><polyline points="7 11 12 16 17 11" /><line x1="5" y1="20" x2="19" y2="20" />
+								</svg>
+							</a>
+							<span class="lab-status" id="lab-status" role="status" aria-live="polite"></span>
+						</div>
+						<p class="lab-foot">
+							Every Lab tool runs entirely in your browser — no API key, no upload, no cost.
+							Mesh tools export a real binary <strong>GLB</strong>; the Gaussian-splat viewer
+							renders the photoreal radiance-field format. Powered by
+							<a href="https://threejs.org" rel="noopener" target="_blank">three.js</a> and
+							<a href="https://github.com/mkkellogg/GaussianSplats3D" rel="noopener" target="_blank">GaussianSplats3D</a>.
+						</p>
+					</div>
+				</div>
+			</section><!-- /#studio-lab -->
 		</main>
 
 		<script src="/nav.js" defer></script>
@@ -3779,11 +3989,13 @@
 			// the Avatar pane (prompt → rigged avatar) lazy-inits its controller the
 			// first time it's shown so it never competes with Forge on load.
 			import { initCreatePrompt, focusPrompt } from '/src/forge-studio/create-prompt.js';
+			import { initLab } from '/src/forge-studio/lab/lab.js';
 
 			const tabs = Array.from(document.querySelectorAll('.studio-tabs [data-studio-mode]'));
 			const panes = {
 				object: document.getElementById('studio-object'),
 				avatar: document.getElementById('studio-avatar'),
+				lab: document.getElementById('studio-lab'),
 			};
 
 			function setMode(mode, { focus = false } = {}) {
@@ -3792,11 +4004,12 @@
 					const on = t.dataset.studioMode === mode;
 					t.setAttribute('aria-selected', on ? 'true' : 'false');
 				}
-				panes.object.hidden = mode !== 'object';
-				panes.avatar.hidden = mode !== 'avatar';
+				for (const [key, pane] of Object.entries(panes)) pane.hidden = key !== mode;
 				if (mode === 'avatar') {
 					initCreatePrompt();
 					if (focus) focusPrompt();
+				} else if (mode === 'lab') {
+					initLab();
 				}
 				const url = new URL(window.location.href);
 				if (mode === 'object') url.searchParams.delete('mode');
@@ -3808,9 +4021,9 @@
 				t.addEventListener('click', () => setMode(t.dataset.studioMode, { focus: true }));
 			}
 
-			// Deep-link: /forge-studio?mode=avatar opens straight into the avatar pane.
+			// Deep-link: /forge-studio?mode=avatar|lab opens straight into that pane.
 			const initial = new URLSearchParams(window.location.search).get('mode');
-			if (initial === 'avatar') setMode('avatar');
+			if (initial === 'avatar' || initial === 'lab') setMode(initial);
 		</script>
 		<div id="footer-container"></div>
 		<script src="/footer.js"></script>
