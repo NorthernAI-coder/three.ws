@@ -73,8 +73,10 @@ const vercel = JSON.parse(readFileSync(join(ROOT, 'vercel.json'), 'utf8'));
 const ASSET_CATCHALL = '/(.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico|woff2|woff|ttf|otf|glb|gltf|hdr|exr|ktx2|basis|bin))$';
 const isCatchAll = (src) => src === '/(.*)' || src === ASSET_CATCHALL;
 
-// Specific routes that actually resolve a request to something (have a dest).
-const destRoutes = (vercel.routes || []).filter((r) => r.dest && !isCatchAll(r.src));
+const isRedirect = (r) => typeof r.status === 'number' && r.status >= 300 && r.status < 400;
+// Specific routes that resolve a request to something: a rewrite (dest) OR a
+// 3xx redirect to a real page. Both are valid link destinations.
+const destRoutes = (vercel.routes || []).filter((r) => (r.dest || isRedirect(r)) && !isCatchAll(r.src));
 
 const compiledRoutes = destRoutes.map((r) => {
 	let s = r.src;
@@ -164,14 +166,23 @@ function resolveInternal(rawTarget, baseDir) {
 // ── Target extraction ────────────────────────────────────────────────────────
 const STUB_VALUES = new Set(['#', '', 'javascript:void(0)', 'javascript:void(0);', 'javascript:;', 'javascript:']);
 
+// Self-origins: a link written as an absolute URL back to our own domain is really
+// an internal route — resolve it locally instead of probing the live deploy (which
+// lags source and yields false 404s). This also surfaces genuinely wrong self-links.
+const SELF_ORIGINS = /^https?:\/\/(?:www\.)?(?:three\.ws|3d-agent\.vercel\.app)(\/[^\s]*)?$/i;
+
 function classifyTarget(value) {
 	const v = (value || '').trim();
 	if (STUB_VALUES.has(v.toLowerCase())) return { type: 'stub', value: v };
 	// javascript:void(0) is a stub; any other javascript: URL runs real code → scheme.
 	if (/^(mailto:|tel:|sms:|data:|blob:|javascript:)/i.test(v)) return { type: 'scheme', value: v };
+	// Dynamic FIRST — a template-literal/concatenated URL is not a concrete target,
+	// even when it starts with https:// (e.g. `https://solscan.io/tx/${sig}`).
+	if (v.includes('${') || /["'`]\s*\+/.test(v) || v.includes('+ ')) return { type: 'dynamic', value: v };
+	const self = v.match(SELF_ORIGINS);
+	if (self) return { type: 'internal', value: self[1] || '/' };
 	if (/^https?:\/\//i.test(v)) return { type: 'external', value: v };
 	if (/^\/\//.test(v)) return { type: 'external', value: 'https:' + v };
-	if (v.includes('${') || /["'`]\s*\+/.test(v) || v.includes('+ ')) return { type: 'dynamic', value: v };
 	if (v.startsWith('#')) return { type: 'anchor', value: v };
 	if (v.startsWith('/') || /^[\w.-]/.test(v)) return { type: 'internal', value: v };
 	return { type: 'dynamic', value: v };
@@ -220,7 +231,12 @@ function record(target, file, line) {
 	// scheme / anchor → fine
 }
 
+// Third-party/minified bundles whose internals aren't our navigable links.
+const VENDOR_RE = /(?:\/draco\/|\/three\/|\bvendor\b|\.min\.js$|wasm_wrapper)/;
+
 function scanFile(file) {
+	const rel = file.replace(ROOT + '/', '');
+	if (VENDOR_RE.test(rel)) return; // skip vendored libs — not our link surface
 	const content = readFileSync(file, 'utf8');
 	const isJs = /\.m?js$/.test(file);
 	findings.scanned++;
@@ -247,6 +263,7 @@ function scanFile(file) {
 function danglingRoutes() {
 	const out = [];
 	for (const r of destRoutes) {
+		if (!r.dest) continue; // redirect route — no file to dangle
 		const dest = r.dest.split('?')[0];
 		if (!dest.endsWith('.html')) continue;
 		if (dest.includes('$')) continue; // dest uses a capture group — resolved per-request
@@ -276,7 +293,9 @@ async function probeExternal(urls) {
 				}
 				clearTimeout(t);
 				status = res.status;
-				ok = res.status < 400;
+				// 401/403/429/405 mean the host answered but bot-blocks automated probes —
+				// the page exists. Only 404/410/5xx and DNS/timeout failures are truly dead.
+				ok = res.status < 400 || [401, 403, 405, 429].includes(res.status);
 			} catch (e) {
 				status = e.name === 'AbortError' ? 'timeout' : 'error';
 			}

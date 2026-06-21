@@ -1,0 +1,1338 @@
+{
+  "summary": {
+    "generatedBy": "prompt 01 — production audit",
+    "note": "vendored=true entries are third-party code (three.js editor, mediapipe wasm, codemirror, draco, lobehub, *.bundle.js) and are NOT first-party gaps. mockData is empty: all grep hits for sample/mock/hardcoded were triaged as false positives (no shipped mock arrays). deadPaths line:0 entries are runtime/live-site findings keyed to a page surface rather than a source line.",
+    "counts": {
+      "todos_total": 81,
+      "todos_firstParty": 10,
+      "emptyCatches_total": 126,
+      "emptyCatches_firstParty": 85,
+      "mockData": 0,
+      "deadPaths": 15
+    }
+  },
+  "todos": [
+    {
+      "file": "src/widget-types.js",
+      "line": 5,
+      "snippet": "// widgets save their config but the runtime renders a \"coming soon\" banner",
+      "vendored": false
+    },
+    {
+      "file": "src/game/npc/npc-services.js",
+      "line": 3,
+      "snippet": "// from your wallet, and the service runs for real — no mocks, no \"coming soon\".",
+      "vendored": false
+    },
+    {
+      "file": "src/game/npc/npc-catalog.js",
+      "line": 11,
+      "snippet": "// on-chain in USDC, 24/7. No \"coming soon\", no mocks.",
+      "vendored": false
+    },
+    {
+      "file": "src/pinning/web3-storage.js",
+      "line": 8,
+      "snippet": "* Directory pinning requires CAR format (not implemented here). Use pinata when",
+      "vendored": false
+    },
+    {
+      "file": "src/create.js",
+      "line": 62,
+      "snippet": "if (title) title.textContent = 'Talking avatar video · coming soon';",
+      "vendored": false
+    },
+    {
+      "file": "src/create.js",
+      "line": 168,
+      "snippet": "showStatus('Talking avatar video is coming soon — stay tuned.', 'info');",
+      "vendored": false
+    },
+    {
+      "file": "src/scene-studio/vendor/js/Sidebar.Material.js",
+      "line": 491,
+      "snippet": "// TODO Find a easier to maintain approach",
+      "vendored": true
+    },
+    {
+      "file": "src/scene-studio/vendor/js/Sidebar.Material.js",
+      "line": 533,
+      "snippet": "// TODO Copy other references in the scene graph",
+      "vendored": true
+    },
+    {
+      "file": "src/scene-studio/vendor/js/Script.js",
+      "line": 227,
+      "snippet": "signals.materialChanged.dispatch( currentObject, 0 ); // TODO: Add multi-material support",
+      "vendored": true
+    },
+    {
+      "file": "src/scene-studio/vendor/js/Script.js",
+      "line": 493,
+      "snippet": "// TODO: Adds multi-material support",
+      "vendored": true
+    },
+    {
+      "file": "src/scene-studio/vendor/js/libs/app.js",
+      "line": 235,
+      "snippet": "dispatch( events.update, { time: time * 1000, delta: 0 /* TODO */ } );",
+      "vendored": true
+    },
+    {
+      "file": "src/scene-studio/vendor/js/Menubar.File.js",
+      "line": 264,
+      "snippet": "// TODO: Change to DRACOExporter's parse( geometry, onParse )?",
+      "vendored": true
+    },
+    {
+      "file": "src/solana/vanity/wasm/vanity_grinder.js",
+      "line": 139,
+      "snippet": "// TODO we could test for more things here, like `Set`s and `Map`s.",
+      "vendored": true
+    },
+    {
+      "file": "public/studio/launch-panel.js",
+      "line": 429,
+      "snippet": "// 'mayhem' (pump.fun mayhem mode), 'usdc' (USDC-denominated agent — coming soon)",
+      "vendored": false
+    },
+    {
+      "file": "public/scene-studio/libs/codemirror/mode/javascript.js",
+      "line": 285,
+      "snippet": "// FIXME function decls are also not block scoped",
+      "vendored": true
+    },
+    {
+      "file": "public/scene-studio/libs/codemirror/codemirror.js",
+      "line": 7764,
+      "snippet": "throw new Error(\"inputStyle can not (yet) be changed in a running editor\") // FIXME",
+      "vendored": true
+    },
+    {
+      "file": "public/scene-studio/libs/codemirror/codemirror.js",
+      "line": 9320,
+      "snippet": "// FIXME this is all really shaky. might handle the few cases it needs to handle, but likely to cause problems",
+      "vendored": true
+    },
+    {
+      "file": "public/scene-studio/app/app.js",
+      "line": 235,
+      "snippet": "dispatch( events.update, { time: time * 1000, delta: 0 /* TODO */ } );",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_internal.js",
+      "line": 183,
+      "snippet": "// TODO(sbc): Make this the default even without STRICT enabled.",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_internal.js",
+      "line": 269,
+      "snippet": "// TODO(sbc): Should we remove printing and leave it up to whoever",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_internal.js",
+      "line": 277,
+      "snippet": "// FIXME This approach does not work in Wasm EH because it currently does not assume",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_internal.js",
+      "line": 280,
+      "snippet": "// we don't have a way of throwing a wasm trap from JS. TODO Make a JS API that",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_internal.js",
+      "line": 285,
+      "snippet": "// TODO(https://github.com/google/closure-compiler/pull/3913): Remove if/when upstream closure gets fixed.",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_internal.js",
+      "line": 378,
+      "snippet": "// TODO: Due to Closure regression https://github.com/google/closure-compiler/issues/3193, the above line no longer optimizes out down to the following line.",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_internal.js",
+      "line": 640,
+      "snippet": "// actually compiled in because application is not doing any GL operations. TODO: Ideally if GL is not being used, this function",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_internal.js",
+      "line": 1815,
+      "snippet": "// TODO we should allow people to just pass in a complete filename instead",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_internal.js",
+      "line": 2169,
+      "snippet": "// TODO: check for O_SEARCH? (== search for dir only)",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_internal.js",
+      "line": 3071,
+      "snippet": "// TODO deprecate the old functionality of a single",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_internal.js",
+      "line": 3314,
+      "snippet": "// TODO: Use mozResponseArrayBuffer, responseStream, etc. if available.",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_internal.js",
+      "line": 3771,
+      "snippet": "// TODO: in theory we should write to the winsize struct that gets",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_internal.js",
+      "line": 3785,
+      "snippet": "// TODO: technically, this ioctl call should change the window size.",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_internal.js",
+      "line": 4270,
+      "snippet": "// TODO: assert if anything else is given?",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_internal.js",
+      "line": 4549,
+      "snippet": "// TODO: Use (malleable) environment variables instead of system settings.",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_internal.js",
+      "line": 5047,
+      "snippet": "// TODO: initial pass to detect ranges we need to upload, might not need",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_internal.js",
+      "line": 5073,
+      "snippet": "// TODO: Once the bug is fixed and shipped in Safari, adjust the Safari",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_internal.js",
+      "line": 5208,
+      "snippet": "// TODO: Remove this line, target '#canvas' should refer only to Module['canvas'], not to GL.offscreenCanvases['canvas'] - but need stricter tests to be able to remove this line.",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_internal.js",
+      "line": 5993,
+      "snippet": "abort(\"TODO: Implement asyncify-free WaitAny for timeout=0\");",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_internal.js",
+      "line": 7546,
+      "snippet": "// TODO: Use the descriptor.",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_module_internal.js",
+      "line": 182,
+      "snippet": "// TODO(sbc): Make this the default even without STRICT enabled.",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_module_internal.js",
+      "line": 268,
+      "snippet": "// TODO(sbc): Should we remove printing and leave it up to whoever",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_module_internal.js",
+      "line": 276,
+      "snippet": "// FIXME This approach does not work in Wasm EH because it currently does not assume",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_module_internal.js",
+      "line": 279,
+      "snippet": "// we don't have a way of throwing a wasm trap from JS. TODO Make a JS API that",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_module_internal.js",
+      "line": 284,
+      "snippet": "// TODO(https://github.com/google/closure-compiler/pull/3913): Remove if/when upstream closure gets fixed.",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_module_internal.js",
+      "line": 381,
+      "snippet": "// TODO: Due to Closure regression https://github.com/google/closure-compiler/issues/3193, the above line no longer optimizes out down to the following line.",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_module_internal.js",
+      "line": 643,
+      "snippet": "// actually compiled in because application is not doing any GL operations. TODO: Ideally if GL is not being used, this function",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_module_internal.js",
+      "line": 1818,
+      "snippet": "// TODO we should allow people to just pass in a complete filename instead",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_module_internal.js",
+      "line": 2172,
+      "snippet": "// TODO: check for O_SEARCH? (== search for dir only)",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_module_internal.js",
+      "line": 3074,
+      "snippet": "// TODO deprecate the old functionality of a single",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_module_internal.js",
+      "line": 3317,
+      "snippet": "// TODO: Use mozResponseArrayBuffer, responseStream, etc. if available.",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_module_internal.js",
+      "line": 3774,
+      "snippet": "// TODO: in theory we should write to the winsize struct that gets",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_module_internal.js",
+      "line": 3788,
+      "snippet": "// TODO: technically, this ioctl call should change the window size.",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_module_internal.js",
+      "line": 4273,
+      "snippet": "// TODO: assert if anything else is given?",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_module_internal.js",
+      "line": 4552,
+      "snippet": "// TODO: Use (malleable) environment variables instead of system settings.",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_module_internal.js",
+      "line": 5050,
+      "snippet": "// TODO: initial pass to detect ranges we need to upload, might not need",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_module_internal.js",
+      "line": 5076,
+      "snippet": "// TODO: Once the bug is fixed and shipped in Safari, adjust the Safari",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_module_internal.js",
+      "line": 5211,
+      "snippet": "// TODO: Remove this line, target '#canvas' should refer only to Module['canvas'], not to GL.offscreenCanvases['canvas'] - but need stricter tests to be able to remove this line.",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_module_internal.js",
+      "line": 5996,
+      "snippet": "abort(\"TODO: Implement asyncify-free WaitAny for timeout=0\");",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_module_internal.js",
+      "line": 7549,
+      "snippet": "// TODO: Use the descriptor.",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_nosimd_internal.js",
+      "line": 183,
+      "snippet": "// TODO(sbc): Make this the default even without STRICT enabled.",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_nosimd_internal.js",
+      "line": 269,
+      "snippet": "// TODO(sbc): Should we remove printing and leave it up to whoever",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_nosimd_internal.js",
+      "line": 277,
+      "snippet": "// FIXME This approach does not work in Wasm EH because it currently does not assume",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_nosimd_internal.js",
+      "line": 280,
+      "snippet": "// we don't have a way of throwing a wasm trap from JS. TODO Make a JS API that",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_nosimd_internal.js",
+      "line": 285,
+      "snippet": "// TODO(https://github.com/google/closure-compiler/pull/3913): Remove if/when upstream closure gets fixed.",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_nosimd_internal.js",
+      "line": 378,
+      "snippet": "// TODO: Due to Closure regression https://github.com/google/closure-compiler/issues/3193, the above line no longer optimizes out down to the following line.",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_nosimd_internal.js",
+      "line": 640,
+      "snippet": "// actually compiled in because application is not doing any GL operations. TODO: Ideally if GL is not being used, this function",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_nosimd_internal.js",
+      "line": 1815,
+      "snippet": "// TODO we should allow people to just pass in a complete filename instead",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_nosimd_internal.js",
+      "line": 2169,
+      "snippet": "// TODO: check for O_SEARCH? (== search for dir only)",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_nosimd_internal.js",
+      "line": 3071,
+      "snippet": "// TODO deprecate the old functionality of a single",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_nosimd_internal.js",
+      "line": 3314,
+      "snippet": "// TODO: Use mozResponseArrayBuffer, responseStream, etc. if available.",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_nosimd_internal.js",
+      "line": 3771,
+      "snippet": "// TODO: in theory we should write to the winsize struct that gets",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_nosimd_internal.js",
+      "line": 3785,
+      "snippet": "// TODO: technically, this ioctl call should change the window size.",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_nosimd_internal.js",
+      "line": 4270,
+      "snippet": "// TODO: assert if anything else is given?",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_nosimd_internal.js",
+      "line": 4549,
+      "snippet": "// TODO: Use (malleable) environment variables instead of system settings.",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_nosimd_internal.js",
+      "line": 5047,
+      "snippet": "// TODO: initial pass to detect ranges we need to upload, might not need",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_nosimd_internal.js",
+      "line": 5073,
+      "snippet": "// TODO: Once the bug is fixed and shipped in Safari, adjust the Safari",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_nosimd_internal.js",
+      "line": 5208,
+      "snippet": "// TODO: Remove this line, target '#canvas' should refer only to Module['canvas'], not to GL.offscreenCanvases['canvas'] - but need stricter tests to be able to remove this line.",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_nosimd_internal.js",
+      "line": 5993,
+      "snippet": "abort(\"TODO: Implement asyncify-free WaitAny for timeout=0\");",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_nosimd_internal.js",
+      "line": 7546,
+      "snippet": "// TODO: Use the descriptor.",
+      "vendored": true
+    },
+    {
+      "file": "api/openapi-json.js",
+      "line": 11,
+      "snippet": "// MPP (Stripe/Tempo) is not implemented, so it is intentionally not advertised",
+      "vendored": false
+    },
+    {
+      "file": "api/pump-fun-mcp.js",
+      "line": 249,
+      "snippet": "if (!upstream) throw rpcError(-32601, `tool \"${name}\" not implemented`);",
+      "vendored": false
+    },
+    {
+      "file": "workers/pump-fun-mcp/worker.js",
+      "line": 265,
+      "snippet": "if (!upstream) throw rpcError(-32601, `tool \"${name}\" not implemented`);",
+      "vendored": false
+    }
+  ],
+  "emptyCatches": [
+    {
+      "file": "src/walk-net.js",
+      "line": 47,
+      "snippet": "} catch (_) {}",
+      "vendored": false
+    },
+    {
+      "file": "src/walk-net.js",
+      "line": 60,
+      "snippet": "try { isProd = import.meta?.env?.PROD === true; } catch (_) {}",
+      "vendored": false
+    },
+    {
+      "file": "src/editor/texture-inspector.js",
+      "line": 318,
+      "snippet": "} catch (e) {}",
+      "vendored": false
+    },
+    {
+      "file": "src/editor/texture-inspector.js",
+      "line": 468,
+      "snippet": "} catch (e) {}",
+      "vendored": false
+    },
+    {
+      "file": "src/editor/index.js",
+      "line": 239,
+      "snippet": "} catch (e) {}",
+      "vendored": false
+    },
+    {
+      "file": "src/editor/scene-explorer.js",
+      "line": 212,
+      "snippet": "} catch (e) {}",
+      "vendored": false
+    },
+    {
+      "file": "src/editor/scene-explorer.js",
+      "line": 261,
+      "snippet": "} catch (e) {}",
+      "vendored": false
+    },
+    {
+      "file": "src/editor/material-editor.js",
+      "line": 178,
+      "snippet": "} catch (e) {}",
+      "vendored": false
+    },
+    {
+      "file": "src/editor/publish-modal.js",
+      "line": 68,
+      "snippet": "} catch (_) {}",
+      "vendored": false
+    },
+    {
+      "file": "src/editor/publish-modal.js",
+      "line": 121,
+      "snippet": "} catch (_) {}",
+      "vendored": false
+    },
+    {
+      "file": "src/editor/publish-modal.js",
+      "line": 152,
+      "snippet": "} catch (_) {}",
+      "vendored": false
+    },
+    {
+      "file": "src/editor/publish-modal.js",
+      "line": 193,
+      "snippet": "} catch (_) {}",
+      "vendored": false
+    },
+    {
+      "file": "src/account.js",
+      "line": 293,
+      "snippet": "} catch (_) {}",
+      "vendored": false
+    },
+    {
+      "file": "src/runtime/data-reactive.js",
+      "line": 189,
+      "snippet": "try { ac.abort(); } catch (_) {}",
+      "vendored": false
+    },
+    {
+      "file": "src/play-agent-wallet.js",
+      "line": 39,
+      "snippet": "try { isDev = import.meta?.env?.DEV === true; } catch (_) {}",
+      "vendored": false
+    },
+    {
+      "file": "src/game/community-net.js",
+      "line": 56,
+      "snippet": "} catch (_) {}",
+      "vendored": false
+    },
+    {
+      "file": "src/game/community-net.js",
+      "line": 66,
+      "snippet": "try { isProd = import.meta?.env?.PROD === true; } catch (_) {}",
+      "vendored": false
+    },
+    {
+      "file": "src/avatar-drop.js",
+      "line": 407,
+      "snippet": "} catch (_) {}",
+      "vendored": false
+    },
+    {
+      "file": "src/avatar-drop.js",
+      "line": 432,
+      "snippet": "} catch (_) {}",
+      "vendored": false
+    },
+    {
+      "file": "src/selfie-pipeline.js",
+      "line": 40,
+      "snippet": "} catch (_) {}",
+      "vendored": false
+    },
+    {
+      "file": "src/selfie-pipeline.js",
+      "line": 49,
+      "snippet": "} catch (_) {}",
+      "vendored": false
+    },
+    {
+      "file": "src/selfie-pipeline.js",
+      "line": 57,
+      "snippet": "} catch (_) {}",
+      "vendored": false
+    },
+    {
+      "file": "src/selfie-pipeline.js",
+      "line": 125,
+      "snippet": "} catch (_) {}",
+      "vendored": false
+    },
+    {
+      "file": "src/selfie-pipeline.js",
+      "line": 219,
+      "snippet": "try { sessionStorage.setItem('selfie:pendingJobId', submitData.jobId); } catch (_) {}",
+      "vendored": false
+    },
+    {
+      "file": "src/selfie-pipeline.js",
+      "line": 223,
+      "snippet": "try { sessionStorage.removeItem('selfie:pendingJobId'); } catch (_) {}",
+      "vendored": false
+    },
+    {
+      "file": "src/selfie-pipeline.js",
+      "line": 312,
+      "snippet": "try { sessionStorage.setItem('selfie:pendingJobId', jobId); } catch (_) {}",
+      "vendored": false
+    },
+    {
+      "file": "src/selfie-pipeline.js",
+      "line": 428,
+      "snippet": "try { bitmap.close?.(); } catch (_) {}",
+      "vendored": false
+    },
+    {
+      "file": "src/selfie-pipeline.js",
+      "line": 437,
+      "snippet": "} catch (_) {}",
+      "vendored": false
+    },
+    {
+      "file": "src/create-review.js",
+      "line": 414,
+      "snippet": "try { window.__twsGuide?.complete('create'); } catch (_) {}",
+      "vendored": false
+    },
+    {
+      "file": "src/create-review.js",
+      "line": 439,
+      "snippet": "try { window.__twsGuide?.complete('create'); } catch (_) {}",
+      "vendored": false
+    },
+    {
+      "file": "src/permissions/grant-modal.js",
+      "line": 426,
+      "snippet": "} catch (_) {}",
+      "vendored": false
+    },
+    {
+      "file": "src/permissions/grant-modal.js",
+      "line": 1004,
+      "snippet": "} catch (_) {}",
+      "vendored": false
+    },
+    {
+      "file": "src/avatar-creator.js",
+      "line": 23,
+      "snippet": "} catch (_) {}",
+      "vendored": false
+    },
+    {
+      "file": "src/avatar-creator.js",
+      "line": 221,
+      "snippet": "} catch (_) {}",
+      "vendored": false
+    },
+    {
+      "file": "src/app.js",
+      "line": 1519,
+      "snippet": "} catch (_) {}",
+      "vendored": false
+    },
+    {
+      "file": "src/api-playground.js",
+      "line": 90,
+      "snippet": "try { localStorage.removeItem(PG_KEY_STORE); } catch (_) {}",
+      "vendored": false
+    },
+    {
+      "file": "src/api-playground.js",
+      "line": 91,
+      "snippet": "try { pgS.key.value = sessionStorage.getItem(PG_KEY_STORE) || ''; } catch (_) {}",
+      "vendored": false
+    },
+    {
+      "file": "src/api-playground.js",
+      "line": 97,
+      "snippet": "} catch (_) {}",
+      "vendored": false
+    },
+    {
+      "file": "src/api-playground.js",
+      "line": 289,
+      "snippet": "} catch (_) {}",
+      "vendored": false
+    },
+    {
+      "file": "src/api-playground.js",
+      "line": 351,
+      "snippet": "}).catch(function() {});",
+      "vendored": false
+    },
+    {
+      "file": "src/irl-net.js",
+      "line": 53,
+      "snippet": "} catch (_) {}",
+      "vendored": false
+    },
+    {
+      "file": "src/irl-net.js",
+      "line": 60,
+      "snippet": "try { isProd = import.meta?.env?.PROD === true; } catch (_) {}",
+      "vendored": false
+    },
+    {
+      "file": "src/dashboard-next/pages/brain.js",
+      "line": 687,
+      "snippet": "try { document.dispatchEvent(new CustomEvent('three-ws:guide', { detail: { step: 'brain' } })); } catch (_) {}",
+      "vendored": false
+    },
+    {
+      "file": "src/dashboard-next/pages/home.js",
+      "line": 810,
+      "snippet": "} catch (_) {}",
+      "vendored": false
+    },
+    {
+      "file": "src/selfie-modal.js",
+      "line": 607,
+      "snippet": "try { bitmap.close?.(); } catch (_) {}",
+      "vendored": false
+    },
+    {
+      "file": "src/scene-studio/vendor/js/libs/ui.js",
+      "line": 507,
+      "snippet": "} catch ( exception ) {}",
+      "vendored": true
+    },
+    {
+      "file": "src/demo/os-studio.js",
+      "line": 37,
+      "snippet": "} catch (_) {}",
+      "vendored": false
+    },
+    {
+      "file": "src/demo/os-hub.js",
+      "line": 61,
+      "snippet": "} catch (_) {}",
+      "vendored": false
+    },
+    {
+      "file": "public/search.js",
+      "line": 229,
+      "snippet": "} catch (_) {}",
+      "vendored": false
+    },
+    {
+      "file": "public/search.js",
+      "line": 452,
+      "snippet": "fetchFeatures().catch(function () {});",
+      "vendored": false
+    },
+    {
+      "file": "public/search.js",
+      "line": 453,
+      "snippet": "fetchSkills().catch(function () {});",
+      "vendored": false
+    },
+    {
+      "file": "public/widget-client.js",
+      "line": 76,
+      "snippet": "try { any[j](msg.method, msg.params || {}); } catch (_) {}",
+      "vendored": false
+    },
+    {
+      "file": "public/widget-client.js",
+      "line": 171,
+      "snippet": "try { this._pending[id].reject(new Error('client closed')); } catch (_) {}",
+      "vendored": false
+    },
+    {
+      "file": "public/nav-auth.js",
+      "line": 46,
+      "snippet": "} catch (_) {}",
+      "vendored": false
+    },
+    {
+      "file": "public/x402-paywall.js",
+      "line": 254,
+      "snippet": "} catch (_) {}",
+      "vendored": false
+    },
+    {
+      "file": "public/x402-paywall.js",
+      "line": 539,
+      "snippet": "try { localStorage.removeItem(storageKey(endpoint)); } catch (_) {}",
+      "vendored": false
+    },
+    {
+      "file": "public/nav.js",
+      "line": 117,
+      "snippet": "} catch (_) {}",
+      "vendored": false
+    },
+    {
+      "file": "public/nav.js",
+      "line": 554,
+      "snippet": "} catch (_) {}",
+      "vendored": false
+    },
+    {
+      "file": "public/nav.js",
+      "line": 564,
+      "snippet": "} catch (_) {}",
+      "vendored": false
+    },
+    {
+      "file": "public/nav.js",
+      "line": 585,
+      "snippet": "} catch (_) {}",
+      "vendored": false
+    },
+    {
+      "file": "public/lobehub/iframe/boot.js",
+      "line": 99,
+      "snippet": "} catch (_) {}",
+      "vendored": true
+    },
+    {
+      "file": "public/lobehub/iframe/boot.js",
+      "line": 312,
+      "snippet": "} catch (_) {}",
+      "vendored": true
+    },
+    {
+      "file": "public/lobehub/iframe/boot.js",
+      "line": 414,
+      "snippet": "} catch (_) {}",
+      "vendored": true
+    },
+    {
+      "file": "public/x402.js",
+      "line": 53,
+      "snippet": "} catch (_) {}",
+      "vendored": false
+    },
+    {
+      "file": "public/x402.js",
+      "line": 1714,
+      "snippet": "try { parsed = await res.clone().json(); } catch (_) {}",
+      "vendored": false
+    },
+    {
+      "file": "public/notifications.js",
+      "line": 433,
+      "snippet": "}).catch(function () {});",
+      "vendored": false
+    },
+    {
+      "file": "public/notifications.js",
+      "line": 443,
+      "snippet": ".catch(function () {});",
+      "vendored": false
+    },
+    {
+      "file": "public/x402-discover.js",
+      "line": 21,
+      "snippet": "} catch (_) {}",
+      "vendored": false
+    },
+    {
+      "file": "public/three/basis/basis_transcoder.js",
+      "line": 9,
+      "snippet": "var Module=moduleArg;var readyPromiseResolve,readyPromiseReject;var readyPromise=new Promise((resolve,reject)=>{readyPromiseResolve=resolve;readyPromiseReject=reject});var ENVIRONMENT_IS_WEB=typeof window==\"object\";var ENVIRONMENT_IS_WORKER",
+      "vendored": true
+    },
+    {
+      "file": "public/three/draco/draco_decoder.js",
+      "line": 22,
+      "snippet": ")(info)},instantiate:function(binary,info){return{then:function(ok){var module=new WebAssembly.Module(binary);ok({\"instance\":new WebAssembly.Instance(module,info)})}}},RuntimeError:Error};wasmBinary=[];if(typeof WebAssembly!=\"object\"){abort",
+      "vendored": true
+    },
+    {
+      "file": "public/three/draco/gltf/draco_decoder.js",
+      "line": 21,
+      "snippet": ")(info)},instantiate:function(binary,info){return{then:function(ok){var module=new WebAssembly.Module(binary);ok({\"instance\":new WebAssembly.Instance(module,info)})}}},RuntimeError:Error};wasmBinary=[];if(typeof WebAssembly!=\"object\"){abort",
+      "vendored": true
+    },
+    {
+      "file": "public/three/draco/gltf/draco_wasm_wrapper.js",
+      "line": 37,
+      "snippet": "for(var c=1;4>=c;c*=2){var d=b*(1+.2/c);d=Math.min(d,e+100663296);var g=Math;d=Math.max(e,d);g=g.min.call(g,2147483648,d+(65536-d%65536)%65536);a:{d=ja.buffer;try{ja.grow(g-d.byteLength+65535>>>16);l();var t=1;break a}catch(aa){}t=void 0}if",
+      "vendored": true
+    },
+    {
+      "file": "public/three/draco/draco_wasm_wrapper.js",
+      "line": 37,
+      "snippet": "1;4>=c;c*=2){var d=b*(1+.2/c);d=Math.min(d,e+100663296);var g=Math;d=Math.max(e,d);g=g.min.call(g,2147483648,d+(65536-d%65536)%65536);a:{d=ja.buffer;try{ja.grow(g-d.byteLength+65535>>>16);A();var u=1;break a}catch(X){}u=void 0}if(u)return!0",
+      "vendored": true
+    },
+    {
+      "file": "public/motion-path.js",
+      "line": 131,
+      "snippet": "} catch (_) {}",
+      "vendored": false
+    },
+    {
+      "file": "public/embed.js",
+      "line": 351,
+      "snippet": "if (newVal) this.play(newVal).catch(function () {});",
+      "vendored": false
+    },
+    {
+      "file": "public/scene-studio/libs/acorn/acorn.js",
+      "line": 2716,
+      "snippet": "} catch (e) {}",
+      "vendored": true
+    },
+    {
+      "file": "public/scene-studio/libs/acorn/acorn_loose.js",
+      "line": 1243,
+      "snippet": "} catch (e) {}",
+      "vendored": true
+    },
+    {
+      "file": "public/scene-studio/libs/ternjs/polyfill.js",
+      "line": 64,
+      "snippet": "if (!window.JSON) (function(){var e=void 0,i=!0,k=null,l={}.toString,m,n,p=\"function\"===typeof define&&define.c,q=!p&&\"object\"==typeof exports&&exports;q||p?\"object\"==typeof JSON&&JSON?p?q=JSON:(q.stringify=JSON.stringify,q.parse=JSON.parse",
+      "vendored": true
+    },
+    {
+      "file": "public/scene-studio/libs/ternjs/polyfill.js",
+      "line": 67,
+      "snippet": "q.parse('{\"A\":[1,true,false,null,\"\\\\u0000\\\\b\\\\n\\\\f\\\\r\\\\t\"]}');if(a=d.a.length==5&&d.a[0]==1){try{a=!q.parse('\"\\t\"')}catch(o){}if(a)try{a=q.parse(\"01\")!=1}catch(g){}}}}catch(h){a=false}if(!j)return a}return c&&a}}",
+      "vendored": true
+    },
+    {
+      "file": "public/scene-studio/libs/codemirror/codemirror.js",
+      "line": 144,
+      "snippet": "{ selectInput = function(node) { try { node.select(); } catch(_e) {} }; }",
+      "vendored": true
+    },
+    {
+      "file": "public/scene-studio/libs/codemirror/codemirror.js",
+      "line": 689,
+      "snippet": "catch(e) {}",
+      "vendored": true
+    },
+    {
+      "file": "public/scene-studio/libs/codemirror/codemirror.js",
+      "line": 6601,
+      "snippet": "catch(e$1){}",
+      "vendored": true
+    },
+    {
+      "file": "public/scene-studio/libs/codemirror/codemirror.js",
+      "line": 8952,
+      "snippet": "catch(e) {} // Our model of the DOM might be outdated, in which case the range we try to set can be impossible",
+      "vendored": true
+    },
+    {
+      "file": "public/scene-studio/libs/codemirror/codemirror.js",
+      "line": 9506,
+      "snippet": "catch (e) {} // IE8 will throw if the textarea is display: none or not in DOM",
+      "vendored": true
+    },
+    {
+      "file": "public/scene-studio/libs/codemirror/codemirror.js",
+      "line": 9732,
+      "snippet": "} catch(e) {}",
+      "vendored": true
+    },
+    {
+      "file": "public/scene-studio/basis/basis_transcoder.js",
+      "line": 9,
+      "snippet": "var Module=moduleArg;var readyPromiseResolve,readyPromiseReject;var readyPromise=new Promise((resolve,reject)=>{readyPromiseResolve=resolve;readyPromiseReject=reject});var ENVIRONMENT_IS_WEB=typeof window==\"object\";var ENVIRONMENT_IS_WORKER",
+      "vendored": true
+    },
+    {
+      "file": "public/scene-studio/draco/draco_decoder.js",
+      "line": 22,
+      "snippet": ")(info)},instantiate:function(binary,info){return{then:function(ok){var module=new WebAssembly.Module(binary);ok({\"instance\":new WebAssembly.Instance(module,info)})}}},RuntimeError:Error};wasmBinary=[];if(typeof WebAssembly!=\"object\"){abort",
+      "vendored": true
+    },
+    {
+      "file": "public/scene-studio/draco/gltf/draco_decoder.js",
+      "line": 21,
+      "snippet": ")(info)},instantiate:function(binary,info){return{then:function(ok){var module=new WebAssembly.Module(binary);ok({\"instance\":new WebAssembly.Instance(module,info)})}}},RuntimeError:Error};wasmBinary=[];if(typeof WebAssembly!=\"object\"){abort",
+      "vendored": true
+    },
+    {
+      "file": "public/scene-studio/draco/gltf/draco_wasm_wrapper.js",
+      "line": 37,
+      "snippet": "for(var c=1;4>=c;c*=2){var d=b*(1+.2/c);d=Math.min(d,e+100663296);var g=Math;d=Math.max(e,d);g=g.min.call(g,2147483648,d+(65536-d%65536)%65536);a:{d=ja.buffer;try{ja.grow(g-d.byteLength+65535>>>16);l();var t=1;break a}catch(aa){}t=void 0}if",
+      "vendored": true
+    },
+    {
+      "file": "public/scene-studio/draco/draco_wasm_wrapper.js",
+      "line": 37,
+      "snippet": "1;4>=c;c*=2){var d=b*(1+.2/c);d=Math.min(d,e+100663296);var g=Math;d=Math.max(e,d);g=g.min.call(g,2147483648,d+(65536-d%65536)%65536);a:{d=ja.buffer;try{ja.grow(g-d.byteLength+65535>>>16);A();var u=1;break a}catch(X){}u=void 0}if(u)return!0",
+      "vendored": true
+    },
+    {
+      "file": "public/walk-embed-sdk.js",
+      "line": 80,
+      "snippet": "try { return new URL(SCRIPT.src).origin; } catch (e) {}",
+      "vendored": false
+    },
+    {
+      "file": "public/walk-embed-sdk.js",
+      "line": 156,
+      "snippet": "} catch (e) {}",
+      "vendored": false
+    },
+    {
+      "file": "public/walk-embed-sdk.js",
+      "line": 161,
+      "snippet": "try { arr[i](detail); } catch (e) {}",
+      "vendored": false
+    },
+    {
+      "file": "public/walk-embed-sdk.js",
+      "line": 178,
+      "snippet": "} catch (e) {}",
+      "vendored": false
+    },
+    {
+      "file": "public/walk-embed-sdk.js",
+      "line": 275,
+      "snippet": "try { arr[i](detail); } catch (e) {}",
+      "vendored": false
+    },
+    {
+      "file": "public/walk-embed-sdk.js",
+      "line": 299,
+      "snippet": "try { iframe.contentWindow.postMessage(envelope(type, payload), origin); } catch (e) {}",
+      "vendored": false
+    },
+    {
+      "file": "public/walk-embed-sdk.js",
+      "line": 309,
+      "snippet": "if (name === 'ready' && ready) { try { cb(ready); } catch (e) {} }",
+      "vendored": false
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_internal.js",
+      "line": 1602,
+      "snippet": "} catch (e) {}",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_internal.js",
+      "line": 2133,
+      "snippet": "} catch (e) {}",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_internal.js",
+      "line": 2505,
+      "snippet": "} catch (e) {}",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_internal.js",
+      "line": 3140,
+      "snippet": "} catch (e) {}",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_internal.js",
+      "line": 4744,
+      "snippet": "} catch (e) {}",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_internal.js",
+      "line": 8330,
+      "snippet": "} catch (e) {}",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_module_internal.js",
+      "line": 1605,
+      "snippet": "} catch (e) {}",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_module_internal.js",
+      "line": 2136,
+      "snippet": "} catch (e) {}",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_module_internal.js",
+      "line": 2508,
+      "snippet": "} catch (e) {}",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_module_internal.js",
+      "line": 3143,
+      "snippet": "} catch (e) {}",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_module_internal.js",
+      "line": 4747,
+      "snippet": "} catch (e) {}",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_module_internal.js",
+      "line": 8333,
+      "snippet": "} catch (e) {}",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_nosimd_internal.js",
+      "line": 1602,
+      "snippet": "} catch (e) {}",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_nosimd_internal.js",
+      "line": 2133,
+      "snippet": "} catch (e) {}",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_nosimd_internal.js",
+      "line": 2505,
+      "snippet": "} catch (e) {}",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_nosimd_internal.js",
+      "line": 3140,
+      "snippet": "} catch (e) {}",
+      "vendored": true
+    },
+    {
+      "file": "public/vendor/mediapipe/wasm/vision_wasm_nosimd_internal.js",
+      "line": 4744,
+      "snippet": "} catch (e) {}",
+      "vendored": true
+    },
+    {
+      "file": "public/getting-started.js",
+      "line": 103,
+      "snippet": "function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (_) {} }",
+      "vendored": false
+    },
+    {
+      "file": "public/feature-discovery.js",
+      "line": 140,
+      "snippet": "try { localStorage.setItem(key, JSON.stringify(val)); } catch (_) {}",
+      "vendored": false
+    },
+    {
+      "file": "public/feature-discovery.js",
+      "line": 338,
+      "snippet": "try { sessionStorage.setItem(SESSION_PROMPTED, '1'); } catch (_) {}",
+      "vendored": false
+    },
+    {
+      "file": "public/discover/detail.js",
+      "line": 422,
+      "snippet": "} catch (_) {}",
+      "vendored": false
+    },
+    {
+      "file": "public/demos/agents/_lib.js",
+      "line": 89,
+      "snippet": "try { rootBone.position.copy(baseRootPos); } catch (_) {}",
+      "vendored": false
+    },
+    {
+      "file": "public/demos/agents/_lib.js",
+      "line": 101,
+      "snippet": "} catch (_) {}",
+      "vendored": false
+    },
+    {
+      "file": "api/widgets/page.js",
+      "line": 192,
+      "snippet": "} catch (e) {}",
+      "vendored": false
+    },
+    {
+      "file": "api/a-page.js",
+      "line": 165,
+      "snippet": "} catch (e) {}",
+      "vendored": false
+    },
+    {
+      "file": "api/community/auth/callback.js",
+      "line": 33,
+      "snippet": "try { if (window.opener) window.opener.postMessage(msg, ${JSON.stringify(env.APP_ORIGIN)}); } catch (e) {}",
+      "vendored": false
+    },
+    {
+      "file": "api/community/auth/callback.js",
+      "line": 34,
+      "snippet": "setTimeout(function(){ try { window.close(); } catch (e) {} }, 350);",
+      "vendored": false
+    },
+    {
+      "file": "api/avatar/optimize.js",
+      "line": 58,
+      "snippet": "} catch (_) {}",
+      "vendored": false
+    },
+    {
+      "file": "api/_providers/huggingface.js",
+      "line": 214,
+      "snippet": "try { await reader.cancel(); } catch (_) {}",
+      "vendored": false
+    }
+  ],
+  "mockData": [],
+  "deadPaths": [
+    {
+      "file": "src/widget-types.js",
+      "line": 5,
+      "snippet": "Widgets save config but the runtime renders a \"coming soon\" banner instead of the widget (P1 incomplete feature)."
+    },
+    {
+      "file": "src/create.js",
+      "line": 62,
+      "snippet": "\"Talking avatar video · coming soon\" — create flow advertises a feature that is not yet shipped."
+    },
+    {
+      "file": "src/create.js",
+      "line": 168,
+      "snippet": "showStatus(\"Talking avatar video is coming soon — stay tuned.\") — coming-soon path in /create."
+    },
+    {
+      "file": "public/studio/launch-panel.js",
+      "line": 429,
+      "snippet": "'usdc' (USDC-denominated agent — coming soon) launch mode referenced but not yet enabled."
+    },
+    {
+      "file": "src/scene-studio/main.js",
+      "line": 89,
+      "snippet": "/scene (Scene Studio): no loading/empty/error UI; storage read errors continue silently; not mobile-responsive (vendored three.js editor, desktop-only)."
+    },
+    {
+      "file": "src/marketplace.js",
+      "line": 207,
+      "snippet": "/marketplace tabs tools/skills/mine/purchases are routed but their detail views are unverified/possibly WIP. Live audit shows /marketplace 5 console errors, /skills 5 console errors."
+    },
+    {
+      "file": "pages/walk-landing.html",
+      "line": 1,
+      "snippet": "/walk: avatar/manifest 404 degrades silently (no error UI); WebGL-unsupported has no fallback message. Live audit: /walk 1 error / 11 warnings."
+    },
+    {
+      "file": "chat/src/App.svelte",
+      "line": 160,
+      "snippet": "/chat: errors are console-only (IndexedDB/network) with no user-facing error UI; empty/first-run state unverified at runtime."
+    },
+    {
+      "file": "pages/launches.html",
+      "line": 132,
+      "snippet": "/launches explore-nav links (/watchlist,/radar,/pump-live,/pump-visualizer,/launchpad) unverified — confirm they resolve and are wired."
+    },
+    {
+      "file": "public/temporary",
+      "line": 0,
+      "snippet": "/temporary: live audit shows 3 console errors / 3 warnings — needs investigation."
+    },
+    {
+      "file": "public/gallery",
+      "line": 0,
+      "snippet": "/gallery: live audit shows 1 console error / 2 warnings."
+    },
+    {
+      "file": "pages/create-agent.html",
+      "line": 0,
+      "snippet": "/create: live audit shows 2 console errors / 2 warnings."
+    },
+    {
+      "file": "public/collection",
+      "line": 0,
+      "snippet": "/collection: live audit shows 1 console error / 4 warnings."
+    },
+    {
+      "file": "public/feed",
+      "line": 0,
+      "snippet": "/feed: live audit shows 1 console error / 3 warnings."
+    },
+    {
+      "file": "src/skill-reviews.js",
+      "line": 158,
+      "snippet": "check:images (strict) FAIL: <img> for review author avatar is missing loading= attribute. Fix: node scripts/codemod-lazy-images.mjs."
+    }
+  ]
+}

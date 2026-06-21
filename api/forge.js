@@ -79,6 +79,13 @@ import {
 	redeemForgePayment,
 	releaseForgePayment,
 } from './_lib/forge-high-payment.js';
+import { getSessionUser } from './_lib/auth.js';
+import {
+	chargeCreditsForAction,
+	quoteCreditsForAction,
+	getCreditAccount,
+	refundCredits,
+} from './_lib/credits.js';
 
 // Holder perk (Lever 2): a presented, verified $THREE tier pass lifts the free
 // generation ceiling by that tier's multiplier. The pass is pure-HMAC verifiable
@@ -470,6 +477,12 @@ async function startJob(req, res) {
 	// just before dispatch, and released if the generation fails before delivery.
 	let paidHigh = null;
 
+	// Prepaid-credit lane (pay_with:'credits'): set to { user, action, ref,
+	// ledgerId?, chargedUsd? } once a signed-in user opts to spend their credit
+	// balance instead of holding $THREE or paying per-call. Validated at the gate,
+	// debited just before dispatch, refunded if the generation fails.
+	let creditsCharge = null;
+
 	// Fingerprint for in-flight request coalescing, set once the lane is resolved
 	// below. Null disables coalescing (high tier, which is paid/gated per caller and
 	// must never hand one payer's job to another).
@@ -506,9 +519,42 @@ async function startJob(req, res) {
 		// generation instead of holding. Validate it read-only here; the single-use
 		// claim is taken atomically just before dispatch (see paidHigh below). A
 		// missing/invalid proof falls through to the normal hold-or-pay 402.
+		const payWith = typeof body?.pay_with === 'string' ? body.pay_with.toLowerCase() : '';
 		const paymentId = typeof body?.payment_id === 'string' ? body.payment_id.trim() : '';
 		const refId = typeof body?.ref_id === 'string' ? body.ref_id.trim() : '';
-		if (paymentId && refId) {
+		if (payWith === 'credits') {
+			// Prepaid-credit lane: a signed-in user spends their balance instead of
+			// holding $THREE or paying per-call. Affordability is checked here; the
+			// single-use debit happens just before dispatch and is refunded if the
+			// job fails (see creditsCharge in the try/finally below).
+			const creditUser = await getSessionUser(req).catch(() => null);
+			if (!creditUser) {
+				return json(res, 401, {
+					error: 'unauthorized',
+					feature: 'forge.high',
+					top_up_url: '/credits',
+					message: 'Sign in to pay with credits.',
+				});
+			}
+			let priceUsd;
+			try {
+				priceUsd = (await quoteCreditsForAction({ user: creditUser, action: 'forge.high' })).usd;
+			} catch {
+				priceUsd = Number(priceForAction('forge.high').usd) || 0;
+			}
+			const acct = await getCreditAccount(creditUser.id);
+			if (acct.balanceUsd < priceUsd) {
+				return json(res, 402, {
+					error: 'insufficient_credits',
+					feature: 'forge.high',
+					price_usd: priceUsd,
+					balance_usd: acct.balanceUsd,
+					top_up_url: '/credits',
+					message: `Generating a High model costs $${priceUsd.toFixed(2)} in credits — your balance is $${acct.balanceUsd.toFixed(2)}. Top up to continue.`,
+				});
+			}
+			creditsCharge = { user: creditUser, action: 'forge.high', ref: refId || randomUUID() };
+		} else if (paymentId && refId) {
 			try {
 				const proof = await assertForgePayment({ paymentId, refId });
 				paidHigh = { paymentId, refId, settledAt: proof.payment.settledAt };
@@ -696,6 +742,36 @@ async function startJob(req, res) {
 				});
 			}
 			paidHigh.redeemed = true;
+		}
+
+		// Prepaid-credit charge: debit now, immediately before provider work, so
+		// every cheap failure above left the balance untouched. Idempotent on the
+		// client ref; the finally refunds it if the job fails before delivery.
+		if (creditsCharge && !creditsCharge.ledgerId) {
+			try {
+				const charged = await chargeCreditsForAction({
+					user: creditsCharge.user,
+					action: creditsCharge.action,
+					refType: 'forge',
+					refId: creditsCharge.ref,
+					idempotencyKey: `forge:credits:${creditsCharge.ref}`,
+					meta: { tier: 'high' },
+				});
+				creditsCharge.ledgerId = charged.ledgerId;
+				creditsCharge.chargedUsd = charged.chargedUsd;
+			} catch (err) {
+				if (err.code === 'insufficient_credits') {
+					return json(res, 402, {
+						error: 'insufficient_credits',
+						feature: 'forge.high',
+						available_usd: err.available_usd,
+						required_usd: err.required_usd,
+						top_up_url: '/credits',
+						message: err.message,
+					});
+				}
+				throw err;
+			}
 		}
 
 		// ── Sketch path (TripoSG-scribble, self-host) ───────────────────────────
@@ -1313,6 +1389,19 @@ async function startJob(req, res) {
 		// keeps the claim, so one payment can never buy a second generation.
 		if (paidHigh?.redeemed && res.statusCode >= 400) {
 			await releaseForgePayment({ paymentId: paidHigh.paymentId }).catch(() => {});
+		}
+		// A charged prepaid generation that did NOT deliver (any non-2xx exit) is
+		// refunded so credits are never spent on a failed job.
+		if (creditsCharge?.ledgerId && creditsCharge.chargedUsd > 0 && res.statusCode >= 400) {
+			await refundCredits({
+				userId: creditsCharge.user.id,
+				amountUsd: creditsCharge.chargedUsd,
+				action: creditsCharge.action,
+				refType: 'forge',
+				refId: creditsCharge.ref,
+				idempotencyKey: `forge:credits:refund:${creditsCharge.ledgerId}`,
+				meta: { reason: 'generation_failed' },
+			}).catch(() => {});
 		}
 	}
 }

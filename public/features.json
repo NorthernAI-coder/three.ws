@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-21T12:19:55.764Z",
+	"generated_at": "2026-06-21T13:16:39.652Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -1180,6 +1180,16 @@
 			"title": "Account",
 			"description": "Sign-in, dashboard, billing.",
 			"pages": [
+				{
+					"path": "/credits",
+					"title": "Credits",
+					"description": "Top up with SOL or $THREE and spend credits on 3D generation, agents, and compute. Hold $THREE for up to 30% off every spend.",
+					"added": "2026-06-21",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
 				{
 					"path": "/login",
 					"title": "Sign in",

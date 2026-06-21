@@ -15,6 +15,14 @@
 			<description>Configure your 3D agent to trade Oracle conviction automatically: set the minimum score, position size, daily and open-position caps, narrative filters and Telegram alerts, then arm it in simulate or live mode. Every action is graded against the outcome.</description>
 		</item>
 		<item>
+			<title>Credits</title>
+			<link>https://three.ws/credits</link>
+			<guid isPermaLink="false">2026-06-21:Credits</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>Top up with SOL or $THREE and spend credits on 3D generation, agents, and compute. Hold $THREE for up to 30% off every spend.</description>
+		</item>
+		<item>
 			<title>Docs · Walk Avatar</title>
 			<link>https://three.ws/docs/walk</link>
 			<guid isPermaLink="false">2026-06-21:Docs · Walk Avatar</guid>
@@ -79,6 +87,14 @@
 			<description>The $THREE holder leaderboard, its share card, and the token stats panel used to rescan every holder on-chain on each page view. They now read from a holder snapshot that refreshes every few minutes, so the board and badges load faster and the same numbers stay consistent across all three surfaces.</description>
 		</item>
 		<item>
+			<title>13 new step-by-step tutorials — Walk, IRL, Scene Studio, voice, vanity names and more</title>
+			<link>https://three.ws/tutorials</link>
+			<guid isPermaLink="false">2026-06-21:13 new step-by-step tutorials — Walk, IRL, Scene Studio, voice, vanity names and more</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>docs</category>
+			<description>The tutorial library got a big fill-in: every major part of three.ws that didn't have a walkthrough now has one. New guides cover putting a walking 3D avatar on your own site, placing your agent in your real room with IRL, building a scene in Scene Studio, animating any avatar, turning a selfie into a rigged avatar, importing an avatar by link, viewing a model in AR, giving an agent a real voice with lip-sync, paying for an x402 service from your agent, claiming a .threews.sol name and getting paid by it, reading an agent's on-chain reputation, mining a Solana vanity address, and a no-code getting-started. Every tutorial is grounded in the live product, with copy-paste steps and troubleshooting.</description>
+		</item>
+		<item>
 			<title>Affiliate dashboard now shows who you referred</title>
 			<link>https://three.ws/dashboard/referrals</link>
 			<guid isPermaLink="false">2026-06-21:Affiliate dashboard now shows who you referred</guid>
@@ -141,6 +157,14 @@
 			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
 			<category>infra</category>
 			<description>The /launches coin page pulls creator fee-sharing earnings live from pump.fun. We put that call behind a circuit breaker (built on the well-tested cockatiel library rather than home-grown code): if pump.fun slows down or errors, the breaker trips after a few failures and the page instantly skips that one enrichment instead of every visitor waiting out the timeout. The earnings simply show as unavailable until pump.fun recovers, and the rest of the page — registry, intel, outcome, trader record — was never affected. Same approach is now available platform-wide for other third-party data sources.</description>
+		</item>
+		<item>
+			<title>Credits: top up with SOL or $THREE, spend on generation and agents</title>
+			<link>https://three.ws/credits</link>
+			<guid isPermaLink="false">2026-06-21:Credits: top up with SOL or $THREE, spend on generation and agents</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>You can now keep a prepaid balance on three.ws. Deposit SOL or $THREE from your wallet and it's credited to your account at the live USD value; spend those credits on paid compute like High-quality 3D generation — no per-action wallet popup each time. Holding $THREE still discounts every spend (up to 30%), so the credits you buy go further the bigger your bag. Deposits are verified on-chain and bound to a wallet linked to your account, your balance and full history live at /credits, and a failed generation is automatically refunded. Forge High now accepts credits as a payment option alongside holding $THREE or paying per generation.</description>
 		</item>
 		<item>
 			<title>Describe-it-to-3D no longer shows a confusing third-party billing error</title>
@@ -285,6 +309,14 @@
 			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>The guided tour now has a free-roam mode (the 🧭 button, or press R). Click anywhere on the page and the 3D guide walks there; grab it and drag it around; drag it to the top or bottom edge and the page scrolls so you can walk it up and down the whole page. Press play to drop right back into the tour where you left off. We also stopped the corner walking companion from doubling up: while the guided tour is running, the corner companion steps aside so there's only ever one avatar on screen, and it returns the moment the tour ends.</description>
+		</item>
+		<item>
+			<title>Game-Ready export is now a $THREE perk — hold, or pay per export</title>
+			<link>https://three.ws/forge</link>
+			<guid isPermaLink="false">2026-06-21:Game-Ready export is now a $THREE perk — hold, or pay per export</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Turning a generated or uploaded model into a clean, engine-ready asset — one-click retopology to a poly budget with a PBR texture re-bake, delivered as a GLB plus an FBX for Unity and Unreal — is now a $THREE benefit. Hold $THREE and every Game-Ready export is free; if you don't hold, pay once per export in $THREE without leaving the result view, then the export runs immediately. Text→3D generation at Draft and Standard stays free for everyone. The export runs real GPU retopology on our remesh service, so holders fund it by holding rather than us metering everyone — the same hold-or-pay model already used for High-quality generation.</description>
 		</item>
 		<item>
 			<title>Grind an agent's vanity wallet right on its page — with your CPU cores</title>

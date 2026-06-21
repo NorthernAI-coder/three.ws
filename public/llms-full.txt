@@ -716,6 +716,12 @@ Inspect on-chain reputation scores and attestations for any agent.
 
 Sign-in, dashboard, billing.
 
+### Credits
+
+URL: https://three.ws/credits
+
+Top up with SOL or $THREE and spend credits on 3D generation, agents, and compute. Hold $THREE for up to 30% off every spend.
+
 ### Sign in
 
 URL: https://three.ws/login

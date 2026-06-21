@@ -972,6 +972,14 @@
 			"description": "Sign-in, dashboard, billing.",
 			"pages": [
 				{
+					"path": "/credits",
+					"title": "Credits",
+					"description": "Top up with SOL or $THREE and spend credits on 3D generation, agents, and compute. Hold $THREE for up to 30% off every spend.",
+					"priority": 0.6,
+					"changefreq": "weekly",
+					"added": "2026-06-21"
+				},
+				{
 					"path": "/login",
 					"title": "Sign in",
 					"description": "Sign in with email, GitHub, or a connected wallet.",
