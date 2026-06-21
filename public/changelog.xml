@@ -375,6 +375,14 @@
 			<description>The Oracle page is now styled in a clean grayscale palette. Conviction tiers, pillar bars, wallet labels, and the 3D conviction graph read by brightness instead of color — brighter means stronger — for a calmer, more focused view.</description>
 		</item>
 		<item>
+			<title>Our 3D guided tour is now a standalone package any site can use</title>
+			<link>https://three.ws/tour</link>
+			<guid isPermaLink="false">2026-06-21:Our 3D guided tour is now a standalone package any site can use</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>sdk</category>
+			<description>The 3D guide that walks across three.ws, spotlights each feature and narrates it is now published as an open-source npm package, @three-ws/tour. Any developer can drop the same guided product tour onto their own site: a small avatar walks the real page, dims everything but the feature it's describing, points at it, and speaks each step — with synthesized voice if a speech endpoint is wired, or paced captions if not. It survives page-to-page navigation, ships Quick and Full tracks, a searchable chapter map, and a free-roam mode, and reuses our @three-ws/walk avatar engine so any humanoid rig animates without freezing. Install with `npm i @three-ws/tour`.</description>
+		</item>
+		<item>
 			<title>Our paid services are properly discoverable by AI agents again</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-21:Our paid services are properly discoverable by AI agents again</guid>
