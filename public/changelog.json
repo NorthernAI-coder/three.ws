@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-21T05:13:39.232Z",
+	"generated_at": "2026-06-21T05:23:11.939Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -35,6 +35,28 @@
 			"link": "/three-token",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "update",
+			"title": "Forge hardened for a traffic surge — faster loads, protected free lanes",
+			"summary": "We scaled Forge for the influx of new users. The engine catalog and live health status now serve from the edge cache, so the page loads instantly even under heavy traffic instead of recomputing on every visit. We also added a platform-wide safety valve on paid generation: if demand ever spikes past the shared paid budget, the free engines (NVIDIA and Hugging Face) stay fully open and you get a clear 'try a free engine' message instead of a hard failure — your own bring-your-own-key engines are never affected. Net result: Forge stays fast and available as we grow, and free 3D generation never gets crowded out.",
+			"link": "/forge",
+			"tags": [
+				"infra",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "update",
+			"title": "Forge scales further — duplicate generations collapse, free lane protected, prices shown up front",
+			"summary": "More headroom for the influx. Forge now recognizes when the same prompt or photo set is already generating and quietly hands everyone the same result instead of paying to build it twice — so a viral prompt or a double-click no longer multiplies cost or wait. The free Hugging Face engine is now capped to a safe number of simultaneous jobs so a rush can't tie up the servers and stall everyone; over the cap, your generation cleanly falls back to another engine instead of hanging. The composer now shows the real price before you generate — 'Free' for Draft and Standard, the exact dollar amount (or 'Free, you hold $THREE') for High, and 'billed to your own key' for bring-your-own-key engines — so there are no surprises. Finally, the 3D viewer shows a loading shimmer instead of a dark void while your model paints in.",
+			"link": "/forge",
+			"tags": [
+				"improvement",
+				"infra"
 			]
 		},
 		{

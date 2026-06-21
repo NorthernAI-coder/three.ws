@@ -17,6 +17,7 @@ import { createHash } from 'node:crypto';
 import { randomUUID } from 'node:crypto';
 import { sql } from './db.js';
 import { putObject, publicUrl } from './r2.js';
+import { recordGenerationEvent } from './forge-events.js';
 
 // Stable, non-secret salt so a leaked DB row can't be trivially reversed to the
 // raw browser-local id. The id is anonymous to begin with; this is hygiene, not
@@ -97,6 +98,9 @@ export async function createCreation({
 				 ${typeof multiview === 'boolean' ? multiview : null}, ${backend ?? null},
 				 ${tier ?? null}, ${path ?? null}, 'generating', 'generated', ${category})
 		`;
+		// Funnel start — counts attempts so the health rollup can show how many
+		// generations began vs. completed. Best-effort; never blocks the insert.
+		await recordGenerationEvent({ phase: 'start', backend, tier, path, source: 'create' });
 		return id;
 	} catch (err) {
 		console.error('[forge-store] createCreation failed:', err?.message);
@@ -111,7 +115,8 @@ export async function findByJob({ replicateJobId, clientKey }) {
 	try {
 		const rows = await sql`
 			select id, status, glb_url, glb_key, prompt, preview_image_url,
-				views_requested, views_used, multiview, backend, tier, path, model_category
+				views_requested, views_used, multiview, backend, tier, path, model_category,
+				created_at
 			from forge_creations
 			where replicate_job_id = ${replicateJobId} and client_key = ${clientKey}
 			limit 1
@@ -192,6 +197,20 @@ export async function materializeCreation({ replicateJobId, clientKey, glbUrl })
 				updated_at = now()
 			where id = ${existing.id} and client_key = ${clientKey}
 		`;
+		// Terminal success — the one universal completion writer every lane (free
+		// HF, async Replicate poll, BYOK) flows through, so it's where the rolling
+		// success/latency counters are recorded. Latency is wall-clock from the row's
+		// created_at; null if the timestamp is unreadable rather than a bogus number.
+		const startedAt = existing.created_at ? Date.parse(existing.created_at) : NaN;
+		const latencyMs = Number.isFinite(startedAt) ? Date.now() - startedAt : null;
+		await recordGenerationEvent({
+			phase: 'done',
+			backend: existing.backend,
+			tier: existing.tier,
+			path: existing.path,
+			latencyMs,
+			source: 'materialize',
+		});
 		return { id: existing.id, glbUrl: glb.publicUrl, previewImageUrl: preview.url };
 	} catch (err) {
 		console.error('[forge-store] materializeCreation failed:', err?.message);

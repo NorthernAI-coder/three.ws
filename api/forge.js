@@ -533,13 +533,31 @@ async function startJob(req, res) {
 		}
 	}
 
-	const isFreeLane = BACKENDS[backendId]?.free === true;
+	const backendMeta = BACKENDS[backendId];
+	const isFreeLane = backendMeta?.free === true;
 	if (!isInternalSeedRequest(req)) {
 		const rl = isFreeLane
 			? await limits.mcp3dGenerateFreeTiered(ip, freeLaneMultiplier(req, body))
 			: await limits.mcp3dGenerate(ip);
 		if (!rl.success) {
 			return rateLimited(res, rl, 'Generation limit reached. Try again shortly.');
+		}
+		// Cost circuit breaker: a platform-wide hourly ceiling on PLATFORM-keyed paid
+		// generation (the shared Replicate/self-host budget), on top of the per-IP cap
+		// above. It stops the influx/abuse failure mode where many callers each stay
+		// under their own cap but collectively drain spend. BYOK lanes spend the
+		// caller's own key, so the platform-budget ceiling must never throttle them.
+		// When it trips the free NVIDIA / HuggingFace lanes stay open — paid capacity
+		// degrades, it never dead-ends.
+		if (!isFreeLane && !backendMeta?.byok) {
+			const globalRl = await limits.mcp3dGenerateGlobal();
+			if (!globalRl.success) {
+				return rateLimited(
+					res,
+					globalRl,
+					'Paid 3D generation is at capacity right now — switch to a free engine (NVIDIA or Hugging Face), or try again shortly.',
+				);
+			}
 		}
 	}
 

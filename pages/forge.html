@@ -745,6 +745,14 @@
 				color: var(--ink);
 				font-weight: 600;
 			}
+			.fq-estimate .est-free {
+				color: var(--success);
+				font-weight: 700;
+			}
+			.fq-estimate .est-cost {
+				color: var(--ink);
+				font-weight: 700;
+			}
 
 			/* Mode switch — now lives inside .composer as the first element */
 			.mode-switch-wrap {
@@ -1461,6 +1469,58 @@
 			.viewer-shell.has-load-error model-viewer {
 				opacity: 0;
 				pointer-events: none;
+			}
+			/* Load skeleton — covers the dark void between a result being revealed and
+			   the GLB actually painting. Shown while .is-loading is set, removed on the
+			   model-viewer 'load' event (or on load error, which has its own panel). */
+			.viewer-shell .viewer-skeleton {
+				display: none;
+				position: absolute;
+				inset: 0;
+				z-index: 3;
+				align-items: center;
+				justify-content: center;
+				overflow: hidden;
+				background: radial-gradient(120% 120% at 50% 0%, #1a1612 0%, #0b0a09 70%);
+			}
+			html[data-theme='light'] .viewer-shell .viewer-skeleton {
+				background: radial-gradient(120% 120% at 50% 0%, #f3eee9 0%, #e7e2dc 70%);
+			}
+			.viewer-shell.is-loading .viewer-skeleton {
+				display: flex;
+			}
+			.viewer-shell.is-loading.has-load-error .viewer-skeleton {
+				display: none;
+			}
+			.viewer-skeleton-sheen {
+				position: absolute;
+				inset: 0;
+				background: linear-gradient(
+					105deg,
+					transparent 30%,
+					color-mix(in srgb, var(--accent) 12%, transparent) 50%,
+					transparent 70%
+				);
+				transform: translateX(-100%);
+				animation: viewer-skeleton-sweep 1.6s ease-in-out infinite;
+			}
+			.viewer-skeleton-label {
+				position: relative;
+				z-index: 1;
+				font-family: var(--font-mono);
+				font-size: var(--text-xs);
+				color: var(--ink-dim);
+				letter-spacing: 0.04em;
+			}
+			@keyframes viewer-skeleton-sweep {
+				to {
+					transform: translateX(100%);
+				}
+			}
+			@media (prefers-reduced-motion: reduce) {
+				.viewer-skeleton-sheen {
+					animation: none;
+				}
 			}
 			.viewer-load-error-icon {
 				font-size: 2rem;
@@ -2839,6 +2899,10 @@
 							crossorigin="anonymous"
 							alt="Generated 3D model"
 						></model-viewer>
+						<div class="viewer-skeleton" id="viewer-skeleton" aria-hidden="true">
+							<span class="viewer-skeleton-sheen"></span>
+							<span class="viewer-skeleton-label">Loading model…</span>
+						</div>
 						<div class="viewer-load-error" id="viewer-load-error" role="alert" aria-live="polite">
 							<span class="viewer-load-error-icon" aria-hidden="true">⚠</span>
 							<p>Model failed to load. Use the download button below to save the file directly.</p>
