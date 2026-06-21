@@ -31,6 +31,14 @@
 			<description>The $THREE page now lets you set a spending allowance: approve a cap once, and paid actions across the platform — forge, skills, names, cosmetics — debit it automatically without asking you to sign every time. It's non-custodial and built on Solana's native, audited Subscriptions &amp; Allowances program: your tokens stay in your own wallet until a charge pulls them, never more than the cap you set, and you can let it expire or revoke it anytime. Set a cap, top it up, or leave it off and keep signing each payment — your choice.</description>
 		</item>
 		<item>
+			<title>Discover and character feeds load faster under heavy traffic</title>
+			<link>https://three.ws/discover</link>
+			<guid isPermaLink="false">2026-06-21:Discover and character feeds load faster under heavy traffic</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>The Discover grid and the published-agents (Characters) feed now serve from the edge cache, so a surge of visitors is absorbed at the CDN instead of re-running a database scan on every request. Pages stay fast and consistent even during a rush, and a stale-while-revalidate window keeps them warm between refreshes.</description>
+		</item>
+		<item>
 			<title>Forge hardened for a traffic surge — faster loads, protected free lanes</title>
 			<link>https://three.ws/forge</link>
 			<guid isPermaLink="false">2026-06-21:Forge hardened for a traffic surge — faster loads, protected free lanes</guid>
@@ -77,6 +85,22 @@
 			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>Two reliability fixes for everyone trading, launching, and browsing. First: every on-chain action that moves funds — coin launches, buys and sells, buybacks, payouts, transfers — now treats a transaction that lands but reverts as a real failure instead of quietly reporting success. You'll see an accurate error and your spending limit won't be charged for a trade that didn't go through. Second: public profile and creator pages are now cacheable at the edge, so they load noticeably faster under load. No action needed — these apply automatically.</description>
+		</item>
+		<item>
+			<title>Provably-fair vanity grinder now listed in the x402 bazaar</title>
+			<link>https://three.ws/vanity/verify</link>
+			<guid isPermaLink="false">2026-06-21:Provably-fair vanity grinder now listed in the x402 bazaar</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The provably-fair Solana vanity grinder — which returns a signed, independently-verifiable receipt proving the key was ground fresh and never kept — is now published in the x402 discovery catalog, so paying agents and bazaar crawlers can find and call it directly.</description>
+		</item>
+		<item>
+			<title>Smoother landing page on hover</title>
+			<link>https://three.ws/</link>
+			<guid isPermaLink="false">2026-06-21:Smoother landing page on hover</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>The homepage's parallax hero and 3D stack-card glow used to read the page layout on every pointer move, which could make the cursor feel sticky on the first page new visitors see. Those effects now batch their work to one frame at a time, so hover and tilt stay buttery on any device.</description>
 		</item>
 		<item>
 			<title>Solana is now the default payment network</title>
