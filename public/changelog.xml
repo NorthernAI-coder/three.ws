@@ -7,6 +7,14 @@
 		<description>What's new on three.ws — features, improvements, and releases, newest first.</description>
 		<language>en</language>
 		<item>
+			<title>$THREE holder leaderboard loads faster from a shared snapshot</title>
+			<link>https://three.ws/leaderboard</link>
+			<guid isPermaLink="false">2026-06-21:$THREE holder leaderboard loads faster from a shared snapshot</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>The $THREE holder leaderboard, its share card, and the token stats panel used to rescan every holder on-chain on each page view. They now read from a holder snapshot that refreshes every few minutes, so the board and badges load faster and the same numbers stay consistent across all three surfaces.</description>
+		</item>
+		<item>
 			<title>Grind-Bounty Market</title>
 			<link>https://three.ws/vanity/bounties</link>
 			<guid isPermaLink="false">2026-06-20:Grind-Bounty Market</guid>

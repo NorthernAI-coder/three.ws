@@ -20,7 +20,7 @@
 import { ImageResponse } from '@vercel/og';
 import { TOKEN_MINT as THREE_MINT } from './_lib/token/config.js';
 import { fetchTokenMarketData } from './_lib/market/token-market.js';
-import { fetchHolderBalances } from './_lib/coin/holders.js';
+import { threeHolderBalances } from './_lib/coin/three-holders.js';
 
 const WIDTH = 1200;
 const HEIGHT = 630;
@@ -65,7 +65,9 @@ function fmtUsd(n) {
 // Build the ranked holder list + market context once, shared by both card modes.
 async function loadBoard() {
 	const [balances, market] = await Promise.all([
-		fetchHolderBalances({ mint: THREE_MINT }).catch(() => new Map()),
+		// Cached snapshot (three-holders-snapshot cron) — no per-render Helius walk,
+		// which also removes the crawler-amplified DAS burn on this OG card.
+		threeHolderBalances().catch(() => new Map()),
 		fetchTokenMarketData(THREE_MINT).catch(() => null),
 	]);
 	const decimals = Number(market?.decimals ?? 6);

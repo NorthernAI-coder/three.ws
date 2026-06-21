@@ -1,10 +1,11 @@
 // GET /api/leaderboard  — public $THREE holder leaderboard (clean, paginated)
 // --------------------------------------------------------------------------
-// The canonical holder board for /leaderboard's "$THREE Holders" view. It wraps
-// the real Helius DAS holder scan (api/_lib/coin/holders.js) and the live market
-// module (price / supply / holder count), then derives a holder TIER from each
-// wallet's on-chain balance so the page can render badges and gate the 3D PFP
-// generator without re-deriving thresholds client-side.
+// The canonical holder board for /leaderboard's "$THREE Holders" view. It serves
+// the cached $THREE holder snapshot (api/_lib/coin/three-holders.js, refreshed by
+// the three-holders-snapshot cron — falling back to a live Helius DAS scan only on
+// a cold cache) and the live market module (price / supply / holder count), then
+// derives a holder TIER from each wallet's on-chain balance so the page can render
+// badges and gate the 3D PFP generator without re-deriving thresholds client-side.
 //
 // Query params:
 //   ?limit=<1..100>   page size           (default 50)
@@ -29,7 +30,7 @@
 import { cors, json, method, wrap } from './_lib/http.js';
 import { TOKEN_MINT as THREE_MINT } from './_lib/token/config.js';
 import { fetchTokenMarketData } from './_lib/market/token-market.js';
-import { fetchHolderBalances } from './_lib/coin/holders.js';
+import { threeHolderBalances } from './_lib/coin/three-holders.js';
 
 const BASE58_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 
@@ -77,8 +78,10 @@ export default wrap(async (req, res) => {
 		// Real holder set (every $THREE holder across both token programs) + live
 		// market data for supply → % of supply and the header price strip. Both are
 		// independently resilient: a market blip just nulls the percentages.
+		// Holders come from the cached snapshot (refreshed by the
+		// three-holders-snapshot cron); only a cold/stale cache live-scans Helius.
 		const [balances, market] = await Promise.all([
-			fetchHolderBalances({ mint: THREE_MINT }),
+			threeHolderBalances(),
 			fetchTokenMarketData(THREE_MINT).catch(() => null),
 		]);
 

@@ -1,0 +1,153 @@
+// $THREE holder snapshot — the cached read/write layer behind the public holder
+// leaderboard, its OG share card, and the token stats panel.
+//
+// Why this exists: those three public surfaces each used to call
+// fetchHolderBalances({ mint: THREE_MINT }) directly — a full Helius DAS
+// `getTokenAccounts` walk of EVERY $THREE holder — on every edge-cache miss. That
+// recomputed a slowly-changing set on web/bot traffic, so DAS credit burn scaled
+// with page views (and the OG card amplified it: every crawler/unfurl that missed
+// cache triggered a full scan). This module flips that around: a single cron
+// (api/cron/three-holders-snapshot.js) runs ONE scan every few minutes and writes
+// the result to three_holder_snapshot; the public reads serve from that snapshot
+// for the cost of a single DB query.
+//
+// threeHolderBalances() returns the exact same Map<wallet, bigint> shape that
+// fetchHolderBalances() returns, so call sites swap their data source in one line
+// and every downstream derivation (ranking, tiers, % of supply) is untouched.
+
+import { sql } from '../db.js';
+import { TOKEN_MINT as THREE_MINT } from '../token/config.js';
+import { fetchHolderBalances } from './holders.js';
+
+const UPSERT_CHUNK = 2000; // rows per batched upsert — mirrors persistHolderSnapshot
+// A snapshot older than this is treated as missing: the reader falls back to a
+// live scan so a stalled cron degrades to "slightly more expensive" rather than
+// "serving hours-old holder data". The cron runs every 5m, so 30m tolerates a few
+// missed ticks before falling back.
+const MAX_SNAPSHOT_AGE_MS = 30 * 60_000;
+
+let _ensured = null;
+function ensureTables() {
+	if (_ensured) return _ensured;
+	_ensured = (async () => {
+		await sql`
+			create table if not exists three_holder_snapshot (
+				wallet      text primary key,
+				balance     bigint not null,
+				updated_at  timestamptz not null default now()
+			)
+		`;
+		await sql`
+			create index if not exists three_holder_snapshot_balance_idx
+				on three_holder_snapshot (balance desc)
+		`;
+		await sql`
+			create table if not exists three_holder_snapshot_meta (
+				id           smallint primary key default 1,
+				snapshot_at  timestamptz,
+				holder_count integer not null default 0
+			)
+		`;
+		await sql`
+			insert into three_holder_snapshot_meta (id, snapshot_at, holder_count)
+			values (1, null, 0)
+			on conflict (id) do nothing
+		`;
+		return true;
+	})().catch((err) => {
+		console.error('[three-holders] ensureTables failed:', err?.message || err);
+		_ensured = null; // allow a retry on the next call
+		return false;
+	});
+	return _ensured;
+}
+
+/**
+ * Run a full $THREE holder scan and atomically refresh the snapshot table.
+ * Called by the cron only. Returns { holders, scannedAt } for logging.
+ */
+export async function refreshThreeHolderSnapshot() {
+	if (!(await ensureTables())) throw new Error('three_holder_snapshot table unavailable');
+
+	const balances = await fetchHolderBalances({ mint: THREE_MINT });
+	const wallets = [...balances.keys()].filter((w) => balances.get(w) > 0n);
+	const now = new Date();
+
+	// Batched multi-row upsert via unnest — one round-trip per chunk instead of
+	// one per holder (thousands of serial Neon HTTP calls otherwise).
+	for (let i = 0; i < wallets.length; i += UPSERT_CHUNK) {
+		const chunk = wallets.slice(i, i + UPSERT_CHUNK);
+		const balanceStrs = chunk.map((w) => balances.get(w).toString());
+		await sql`
+			insert into three_holder_snapshot (wallet, balance, updated_at)
+			select u.wallet, u.balance, ${now}
+			from unnest(${chunk}::text[], ${balanceStrs}::bigint[]) as u(wallet, balance)
+			on conflict (wallet) do update set
+				balance = excluded.balance,
+				updated_at = excluded.updated_at
+		`;
+	}
+
+	// Hard-delete wallets that fully exited since the last snapshot — this is a
+	// pure cache, so there's no accrual to preserve (unlike coin_holders). Neon's
+	// HTTP client expands arrays into Postgres params, so use `<> all(...)`.
+	if (wallets.length > 0) {
+		await sql`
+			delete from three_holder_snapshot
+			where not (wallet = any(${wallets}))
+		`;
+	} else {
+		// An empty scan almost certainly means Helius was unreachable, not that
+		// $THREE has zero holders — never wipe a good snapshot on a bad scan.
+		throw new Error('holder scan returned 0 holders — refusing to wipe snapshot');
+	}
+
+	await sql`
+		update three_holder_snapshot_meta
+		set snapshot_at = ${now}, holder_count = ${wallets.length}
+		where id = 1
+	`;
+
+	return { holders: wallets.length, scannedAt: now.toISOString() };
+}
+
+/**
+ * Read the cached snapshot as a Map<wallet, bigint>. Returns null when there is
+ * no fresh snapshot (table missing, never populated, or older than
+ * MAX_SNAPSHOT_AGE_MS) so the caller can fall back to a live scan.
+ */
+export async function readThreeHolderSnapshot() {
+	let meta;
+	try {
+		[meta] = await sql`select snapshot_at, holder_count from three_holder_snapshot_meta where id = 1`;
+	} catch {
+		// Table not created yet (migration pending on a fresh deploy) — signal the
+		// caller to live-scan rather than erroring the public read.
+		return null;
+	}
+	if (!meta?.snapshot_at) return null;
+	const ageMs = Date.now() - new Date(meta.snapshot_at).getTime();
+	if (ageMs > MAX_SNAPSHOT_AGE_MS) return null;
+
+	const rows = await sql`select wallet, balance from three_holder_snapshot`;
+	const balances = new Map();
+	for (const r of rows) {
+		// Neon returns bigint columns as strings to preserve precision.
+		balances.set(r.wallet, BigInt(r.balance));
+	}
+	return balances.size > 0 ? balances : null;
+}
+
+/**
+ * The drop-in replacement for fetchHolderBalances({ mint: THREE_MINT }) on public
+ * read paths: serve the cached snapshot, falling back to a single live scan only
+ * on a cold start (snapshot missing/stale). Same Map<wallet, bigint> shape, so
+ * callers' downstream ranking/tier/percentage logic is unchanged.
+ */
+export async function threeHolderBalances() {
+	const snap = await readThreeHolderSnapshot();
+	if (snap) return snap;
+	// Cold start or stalled cron — one live scan keeps the page correct. This is
+	// the rare path now, not the per-request default.
+	return fetchHolderBalances({ mint: THREE_MINT });
+}
