@@ -14,6 +14,7 @@
 
 import { createWalkCompanion } from '../walk-sdk/src/companion.js';
 import { installTransitions } from './walk-companion-transitions.js';
+import { createWalkTrails2D, createTrailSetting, TRAIL_STYLE_LABELS } from './walk-trails.js';
 
 const walk = createWalkCompanion({
 	// Static GLBs and the animation manifest are served from this origin.
@@ -58,5 +59,182 @@ installTransitions({
 	getHostEl: companionHost,
 	onNavStart: onTransitionNavStart,
 });
+
+// ── Path-trail visualization (Task 36) ──────────────────────────────────────
+// Paint where the companion has been: footprints / glow / line dropped into an
+// overlay glued behind the avatar canvas while the avatar is in its walk state.
+// The companion avatar walks in place (it rotates to follow the cursor rather
+// than translating), so the trail synthesizes a gentle path beneath its feet.
+//
+// Integration is non-invasive: we never edit the SDK. We observe the live
+// instance — its host element (for the overlay rect + a small style toggle), its
+// current roster entry (for the avatar accent), and its controller (whose
+// setState we wrap to learn when it's walking). All three are re-resolved as the
+// companion mounts, swaps avatars, and tears down, so the trail follows along.
+const TRAIL_KEY = `${(walk.config?.keys?.enabled || 'three:companion:enabled').split(':')[0]}:companion:trail`;
+const trailSetting = createTrailSetting(TRAIL_KEY, 'footprints');
+
+let trail2d = null; // active createWalkTrails2D handle
+let trailHost = null; // host element the current trail is glued to
+let trailRaf = 0;
+let trailClock = 0;
+let isWalking = false; // captured from the patched controller.setState
+let patchedController = null; // controller whose setState we've wrapped
+let trailToggleBtn = null; // the small style switch added to the host chrome
+let trailAccentId = null; // entry id whose accent the trail currently uses
+
+function companionAccent() {
+	const inst = walk.instance;
+	const entry = inst?._currentEntry;
+	const a = entry?.accent;
+	return typeof a === 'string' || typeof a === 'number' ? a : null;
+}
+
+// Wrap the controller's setState exactly once per controller instance so we know
+// when the avatar is walking without touching the SDK. Re-runs after avatar
+// swaps (which mint a fresh controller).
+function syncControllerPatch() {
+	const ctrl = walk.instance?.controller;
+	if (!ctrl || ctrl === patchedController) return;
+	patchedController = ctrl;
+	const original = ctrl.setState.bind(ctrl);
+	ctrl.setState = (next) => {
+		isWalking = next === 'walk' || next === 'run';
+		return original(next);
+	};
+}
+
+// A small style switch slotted into the companion's chrome, styled to match its
+// close/swap buttons. Tap to cycle off → footprints → glow → line.
+function ensureToggleButton(host) {
+	if (trailToggleBtn && trailToggleBtn.isConnected) return;
+	const btn = document.createElement('button');
+	btn.type = 'button';
+	btn.className = 'walk-companion-trail';
+	btn.setAttribute('aria-label', 'Cycle companion path trail style');
+	btn.title = `Path trail: ${TRAIL_STYLE_LABELS[trailSetting.get()]}`;
+	btn.textContent = '∿';
+	btn.style.cssText = [
+		'position:absolute',
+		'top:2px',
+		'right:54px',
+		'z-index:3',
+		'width:22px',
+		'height:22px',
+		'border:none',
+		'border-radius:50%',
+		'background:rgba(12,14,20,.55)',
+		'color:#fff',
+		'font-size:13px',
+		'line-height:1',
+		'cursor:pointer',
+		'pointer-events:auto',
+		'opacity:0',
+		'transition:opacity .2s ease,background .2s ease',
+		'display:grid',
+		'place-items:center',
+		'padding:0',
+	].join(';');
+	btn.addEventListener('click', (e) => {
+		e.stopPropagation();
+		const next = trailSetting.cycle();
+		trail2d?.setStyle(next);
+		btn.title = `Path trail: ${TRAIL_STYLE_LABELS[next]}`;
+		btn.style.background = next === 'off' ? 'rgba(12,14,20,.55)' : 'rgba(122,162,255,.85)';
+	});
+	// Reveal the button on hover/focus of the companion, matching its siblings.
+	const styleId = 'walk-companion-trail-style';
+	if (!document.getElementById(styleId)) {
+		const s = document.createElement('style');
+		s.id = styleId;
+		s.textContent =
+			'.walk-companion:hover .walk-companion-trail,.walk-companion:focus-within .walk-companion-trail{opacity:1}' +
+			'.walk-companion-trail:hover{background:rgba(122,162,255,.85)}' +
+			'.walk-companion-trail:focus-visible{outline:2px solid #7aa2ff;outline-offset:2px;opacity:1}' +
+			'@media (pointer:coarse){.walk-companion-trail{opacity:1}}';
+		document.head.appendChild(s);
+	}
+	if (trailSetting.get() !== 'off') btn.style.background = 'rgba(122,162,255,.85)';
+	host.appendChild(btn);
+	trailToggleBtn = btn;
+}
+
+function teardownTrail() {
+	if (trailRaf) cancelAnimationFrame(trailRaf);
+	trailRaf = 0;
+	trail2d?.dispose();
+	trail2d = null;
+	trailHost = null;
+	trailToggleBtn = null;
+	patchedController = null;
+	trailAccentId = null;
+}
+
+function trailTick(now) {
+	const inst = walk.instance;
+	const host = inst?.host;
+	// The companion came or went (enable/disable, detach to playground, swap) —
+	// (re)bind the trail to whatever host is live now.
+	if (!host || !inst.mounted) {
+		if (trail2d) teardownTrail();
+		trailRaf = requestAnimationFrame(trailTick);
+		return;
+	}
+	if (host !== trailHost) {
+		teardownTrail();
+		trailHost = host;
+		trail2d = createWalkTrails2D({
+			host,
+			getColor: companionAccent,
+			getWalking: () => isWalking,
+			initialStyle: trailSetting.get(),
+		});
+		ensureToggleButton(host);
+		trailClock = now;
+	}
+	ensureToggleButton(host);
+	syncControllerPatch();
+	// Re-read the accent only when the avatar actually changed (avoids a
+	// getComputedStyle / parse on every frame).
+	const entryId = inst._currentEntry?.id ?? null;
+	if (entryId !== trailAccentId) {
+		trailAccentId = entryId;
+		trail2d.refreshColor();
+	}
+	const dt = Math.min(0.05, (now - trailClock) / 1000) || 0;
+	trailClock = now;
+	if (trailSetting.get() !== 'off') trail2d.update(dt);
+	else trail2d.clear();
+	trailRaf = requestAnimationFrame(trailTick);
+}
+
+// Expose a tiny programmatic surface so hosts / the console can drive the trail.
+walk.trails = {
+	get style() {
+		return trailSetting.get();
+	},
+	setStyle(next) {
+		const applied = trailSetting.set(next);
+		trail2d?.setStyle(applied);
+		if (trailToggleBtn) {
+			trailToggleBtn.title = `Path trail: ${TRAIL_STYLE_LABELS[applied]}`;
+			trailToggleBtn.style.background =
+				applied === 'off' ? 'rgba(12,14,20,.55)' : 'rgba(122,162,255,.85)';
+		}
+		return applied;
+	},
+	cycle() {
+		const next = trailSetting.cycle();
+		trail2d?.setStyle(next);
+		if (trailToggleBtn) {
+			trailToggleBtn.title = `Path trail: ${TRAIL_STYLE_LABELS[next]}`;
+			trailToggleBtn.style.background =
+				next === 'off' ? 'rgba(12,14,20,.55)' : 'rgba(122,162,255,.85)';
+		}
+		return next;
+	},
+};
+
+trailRaf = requestAnimationFrame(trailTick);
 
 walk.bootstrap();

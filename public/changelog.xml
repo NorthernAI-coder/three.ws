@@ -239,6 +239,14 @@
 			<description>The $THREE page leads with a clear &quot;Why hold $THREE&quot; section: revenue buybacks (a fixed, live share of platform revenue buys $THREE on the open market), holder rewards (every paid action reflects $THREE back to holders pro-rata), hold-to-access (discounts, higher quotas, and pro perks), and real usage (deploying agents, forging avatars, and trading the marketplace all run on $THREE). Each pillar maps to a mechanism that actually exists on the platform, and the buyback figure is wired to the live commitment. The page's market data also now rides a shared cache, so it stays fast and reliable under heavy traffic.</description>
 		</item>
 		<item>
+			<title>Walk with any agent, and leave a trail</title>
+			<link>https://three.ws/walk</link>
+			<guid isPermaLink="false">2026-06-21:Walk with any agent, and leave a trail</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Every agent profile now has a “Walk with this agent” action and a live preview that renders that specific agent walking — the walk embed can now load any agent’s avatar by id. And the walking avatar leaves an aesthetic trail behind it (footprints, a glow, or a fading line, your pick) both in the full walk scene and the site-wide companion.</description>
+		</item>
+		<item>
 			<title>Your avatar now walks anywhere — new Walk hub, leaderboard, and creator analytics</title>
 			<link>https://three.ws/walk</link>
 			<guid isPermaLink="false">2026-06-21:Your avatar now walks anywhere — new Walk hub, leaderboard, and creator analytics</guid>

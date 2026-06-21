@@ -56,10 +56,12 @@ const ORBIT_ENABLED = params.get('orbit') !== 'false';
 const ENV_PARAM = (params.get('env') || 'studio').toLowerCase();
 
 // Live-tracked state surfaced to the host via the typed contract. `currentAvatarId`
-// is the public identifier hosts gave us (?avatar=<id|url>) or 'default'; never a
-// resolved internal R2/CDN URL with credentials. `currentEnv` and `isReady` back
-// the walk:ready handshake + walk:ping replies.
-let currentAvatarId = params.get('avatar') || 'default';
+// is the public identifier hosts gave us (?avatar=<id|url>, else the ?agent=<id>
+// whose avatar we resolved) or 'default'; never a resolved internal R2/CDN URL
+// with credentials. `currentEnv` and `isReady` back the walk:ready handshake +
+// walk:ping replies.
+const AGENT_PARAM = params.get('agent');
+let currentAvatarId = params.get('avatar') || (AGENT_PARAM ? `agent:${AGENT_PARAM}` : 'default');
 let currentEnv = ENV_PARAM;
 let isReady = false;
 
@@ -76,22 +78,94 @@ const ENVIRONMENTS = {
 	grid:   { bg: 0x0d0f12, ground: 0x1a1f2a, hemiSky: 0x4a5a80, hemiGround: 0x0d0f12, hemiInt: 0.7,  sun: 0xffffff, sunInt: 1.3, fog: null },
 };
 
-function resolveAvatarUrl() {
+// Hosts we'll load a raw ?avatar=<url> from. Same-origin is always allowed (the
+// iframe is served from three.ws); these extra hosts cover the R2/CDN buckets and
+// model providers three.ws itself stores avatars on. A ?avatar= URL pointing
+// anywhere else is rejected and we fall back to the default avatar, so a hostile
+// host can't make the embed fetch arbitrary third-party origins on its behalf.
+const AVATAR_HOST_ALLOWLIST = [
+	/^([a-z0-9-]+\.)*three\.ws$/i,
+	/^([a-z0-9-]+\.)*r2\.cloudflarestorage\.com$/i,
+	/^([a-z0-9-]+\.)*r2\.dev$/i,
+	/(^|\.)readyplayer\.me$/i,
+	/(^|\.)models\.readyplayer\.me$/i,
+];
+
+const GLB_PATH_RE = /\.(glb|gltf|vrm)(\?|#|$)/i;
+
+// Validate a raw ?avatar= URL. Same-origin (absolute or path-relative) always
+// passes; cross-origin must be an allow-listed host AND look like a model file.
+// Returns the loadable URL or null if it should be rejected.
+function validateAvatarUrl(raw) {
+	if (raw.startsWith('/')) return raw; // same-origin path — always safe
+	let u;
+	try {
+		u = new URL(raw, location.origin);
+	} catch {
+		return null;
+	}
+	if (u.protocol !== 'https:' && u.protocol !== 'http:') return null;
+	if (u.origin === location.origin) return u.href;
+	const hostOk = AVATAR_HOST_ALLOWLIST.some((re) => re.test(u.hostname));
+	if (!hostOk) return null;
+	if (!GLB_PATH_RE.test(u.pathname)) return null;
+	return u.href;
+}
+
+// Resolve a ?agent=<id> to that agent's GLB URL via the real agent record. The
+// /api/agents/:id endpoint returns avatar_model_url (custom GLB) and avatar_id;
+// we prefer the explicit model URL, fall back to the same-origin avatar GLB proxy
+// (which streams bytes with permissive CORS so the embed works on any host), and
+// finally to the baked mannequin so an agent is never bodiless.
+async function resolveAgentAvatarUrl(agentId) {
+	const r = await fetch(`/api/agents/${encodeURIComponent(agentId)}`, {
+		headers: { accept: 'application/json' },
+	});
+	if (!r.ok) throw new Error(`HTTP ${r.status} resolving agent avatar`);
+	const body = await r.json();
+	const rec = body?.agent || body;
+	const direct = rec?.avatar_model_url || rec?.avatar_glb_url || rec?.glb_url;
+	if (typeof direct === 'string' && GLB_PATH_RE.test(direct)) {
+		return validateAvatarUrl(direct) || `/api/avatars/${encodeURIComponent(rec.avatar_id)}/glb`;
+	}
+	if (rec?.avatar_id) return `/api/avatars/${encodeURIComponent(rec.avatar_id)}/glb`;
+	return AVATAR_URL_DEFAULT;
+}
+
+// Resolve the avatar to load from the embed params. Precedence: explicit
+// ?avatar= (raw URL or avatar id) wins; otherwise ?agent=<id> resolves to that
+// agent's GLB; otherwise the default avatar. Any failure logs and falls back to
+// the default so the embed always renders a walking body.
+async function resolveAvatarUrl() {
 	const id = params.get('avatar');
-	if (!id) return AVATAR_URL_DEFAULT;
-	// A direct GLB/VRM URL or site path loads as-is — this is how Forge/Scan
-	// hand a just-generated model into the embed editor (?avatar=<glb url>),
-	// the same passthrough the /play worlds use (src/game/avatar-rig.js).
-	// Same-origin /cdn/ paths stay loadable from third-party iframes because
-	// the iframe itself is served from three.ws.
-	if (/^https?:\/\//i.test(id) || id.startsWith('/')) return id;
-	// Go through the same-origin GLB proxy (api/avatars/[id]/glb) instead
-	// of the metadata JSON. The proxy streams the bytes with
-	// `Access-Control-Allow-Origin: *` so hosts on any origin can iframe
-	// this page. Fetching the JSON first would just give us back the raw
-	// R2 URL, which R2 only allows from the three.ws origin and breaks the
-	// moment the embed is dropped onto a third-party site.
-	return `/api/avatars/${encodeURIComponent(id)}/glb`;
+	if (id) {
+		// A direct GLB/VRM URL or site path loads as-is (validated) — this is how
+		// Forge/Scan hand a just-generated model into the embed editor
+		// (?avatar=<glb url>), the same passthrough the /play worlds use
+		// (src/game/avatar-rig.js).
+		if (/^https?:\/\//i.test(id) || id.startsWith('/')) {
+			const safe = validateAvatarUrl(id);
+			if (safe) return safe;
+			log.warn('[walk-embed] rejected ?avatar= URL (origin/host not allowed):', id);
+			return AVATAR_URL_DEFAULT;
+		}
+		// Bare avatar id: go through the same-origin GLB proxy (api/avatars/[id]/glb)
+		// instead of the metadata JSON. The proxy streams the bytes with
+		// `Access-Control-Allow-Origin: *` so hosts on any origin can iframe this
+		// page. Fetching the JSON first would just give us back the raw R2 URL,
+		// which R2 only allows from the three.ws origin and breaks the moment the
+		// embed is dropped onto a third-party site.
+		return `/api/avatars/${encodeURIComponent(id)}/glb`;
+	}
+	if (AGENT_PARAM) {
+		try {
+			return await resolveAgentAvatarUrl(AGENT_PARAM);
+		} catch (err) {
+			log.warn('[walk-embed] agent avatar resolve failed, using default:', err?.message || err);
+			return AVATAR_URL_DEFAULT;
+		}
+	}
+	return AVATAR_URL_DEFAULT;
 }
 
 const ANIMATIONS_MANIFEST_URL = '/animations/manifest.json';
@@ -412,7 +486,7 @@ function getAvatarLoader() {
 async function loadAvatar() {
 	setStatus('loading avatar…', { sticky: true });
 
-	const avatarUrl = resolveAvatarUrl();
+	const avatarUrl = await resolveAvatarUrl();
 	const loader = await getAvatarLoader();
 	const gltf = await loader.loadAsync(avatarUrl);
 	avatar = gltf.scene;
