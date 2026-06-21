@@ -10,7 +10,11 @@
  */
 (function () {
 	var KEY = 'tw:ref';
-	var CODE_RE = /^[A-Z2-9]{4,20}$/;
+	// Canonical referral-code shape: A–Z and 0–9, 3–20 chars. Vanity codes (the
+	// member's name) may use any letter or digit; the auto-generator stays on a
+	// restricted alphabet but matching must accept the full range. Mirrors
+	// REFERRAL_CODE_RE in api/_lib/referrals.js.
+	var CODE_RE = /^[A-Z0-9]{3,20}$/;
 	// A captured code older than this is stale — drop it rather than attribute a
 	// signup to a link the user clicked weeks ago.
 	var MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;

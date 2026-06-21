@@ -22,8 +22,10 @@ import { cors, json, error, method, wrap, rateLimited, readJson } from '../_lib/
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { insertNotification } from '../_lib/notify.js';
 
-// Referral codes use a base32-like alphabet (api/_lib/referrals.js).
-const CODE_RE = /^[A-Z2-9]{4,20}$/;
+// Canonical referral-code shape (api/_lib/referrals.js REFERRAL_CODE_RE): A–Z
+// and 0–9, 3–20 chars. Accepts vanity codes (the member's name), not just the
+// restricted alphabet the auto-generator draws from.
+const CODE_RE = /^[A-Z0-9]{3,20}$/;
 
 // How long after signup a referral can still be attributed. The once-only
 // `referred_by_id IS NULL` guard does the heavy lifting; this window simply
@@ -70,7 +72,7 @@ export default wrap(async (req, res) => {
 	const [referrer] = await sql`
 		SELECT id, display_name, username
 		FROM users
-		WHERE referral_code = ${code} AND id <> ${me.id} AND deleted_at IS NULL
+		WHERE UPPER(referral_code) = ${code} AND id <> ${me.id} AND deleted_at IS NULL
 		LIMIT 1
 	`;
 	if (!referrer) return json(res, 200, { status: 'invalid' });

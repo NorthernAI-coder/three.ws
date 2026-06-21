@@ -26,6 +26,7 @@ import { MonetizationService } from '../_lib/services/MonetizationService.js';
 import { solanaConnection } from '../_lib/solana/connection.js';
 import { buildGaslessPurchaseTx } from '../_lib/solana/gasless-tx.js';
 import { resolveRecipient } from '../_lib/resolve-recipient.js';
+import { normalizeReferralCode } from '../_lib/referrals.js';
 
 const SOLANA_RPC = process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com';
 
@@ -252,9 +253,9 @@ async function handleConfirm(req, res, reference) {
 //   2. users.referred_by_id — buyer signed up under someone.
 async function resolveReferrer(req, buyerUserId) {
 	const url = new URL(req.url, 'http://x');
-	const code = url.searchParams.get('ref');
+	const code = normalizeReferralCode(url.searchParams.get('ref'));
 	if (code) {
-		const [u] = await sql`SELECT id FROM users WHERE referral_code = ${code} LIMIT 1`;
+		const [u] = await sql`SELECT id FROM users WHERE UPPER(referral_code) = ${code} AND deleted_at IS NULL LIMIT 1`;
 		if (u && u.id !== buyerUserId) return u.id;
 	}
 	const [me] = await sql`SELECT referred_by_id FROM users WHERE id = ${buyerUserId}`;

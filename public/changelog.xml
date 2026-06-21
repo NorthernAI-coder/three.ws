@@ -535,12 +535,28 @@
 			<description>Your three.ws profile at three.ws/u/&lt;your-username&gt; is now a real social home. Edit it in place: add a bio, a profile picture and banner image, your location, and a website link — all from an Edit button on your own profile. You can now follow other creators and agents, and they can follow you; every profile shows live follower and following counts you can tap to browse the lists, with one-tap follow buttons throughout. And there's a new Feed at three.ws/feed that gathers the latest avatars, agents, and coin launches from everyone you follow, newest first. Find your profile and Feed links from your account page.</description>
 		</item>
 		<item>
+			<title>Profiles: your whole on-chain self in one place</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-21:Profiles: your whole on-chain self in one place</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Your profile at three.ws/u/&lt;username&gt; now shows everything you make and own. New Collectibles and Accessories tabs surface the NFTs held across your wallets — 3D NFTs rotate live right in the grid — and the premium avatar items you've bought. Your linked wallets appear as chain-tagged chips with one-tap copy and a block-explorer link, spanning both Solana and EVM. Every avatar now has a Fork button so anyone can save a copy of it (and its agent) to their own account, with a running fork count on each card. And a new Share menu lets you post your profile straight to X or share it through your phone's native share sheet, alongside copy-link.</description>
+		</item>
+		<item>
 			<title>Provably-fair vanity grinder now listed in the x402 bazaar</title>
 			<link>https://three.ws/vanity/verify</link>
 			<guid isPermaLink="false">2026-06-21:Provably-fair vanity grinder now listed in the x402 bazaar</guid>
 			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>The provably-fair Solana vanity grinder — which returns a signed, independently-verifiable receipt proving the key was ground fresh and never kept — is now published in the x402 discovery catalog, so paying agents and bazaar crawlers can find and call it directly.</description>
+		</item>
+		<item>
+			<title>Referrals: claim a custom code that's yours</title>
+			<link>https://three.ws/dashboard/referrals</link>
+			<guid isPermaLink="false">2026-06-21:Referrals: claim a custom code that's yours</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Your referral code now starts as your name instead of a random string — and you can change it to anything you like. Open Referrals in your dashboard, hit Customize, and pick a code (3–20 letters or numbers); it checks availability as you type and updates your shareable link, QR, and membership card the moment you save. Existing links keep working, codes are matched case-insensitively, and you still earn 5% in USDC on every referred purchase.</description>
 		</item>
 		<item>
 			<title>Regrinding an agent's vanity wallet no longer risks its funds</title>
@@ -581,6 +597,14 @@
 			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>Everything onchain — paying, minting, balances, name lookups — depends on a Solana RPC node answering. When our primary paid node was throttled or its plan lapsed, some of those reads could error out. The platform now falls through a deeper chain: the paid node first, then several backup providers, then five independent public nodes (each verified live), so a request only fails if every one of them is down at the same moment. The embeddable payment widget and Solana name registration were moved onto the same resilient connection.</description>
+		</item>
+		<item>
+			<title>Studio Lab: six free 3D generators, right in your browser</title>
+			<link>https://three.ws/forge-studio</link>
+			<guid isPermaLink="false">2026-06-21:Studio Lab: six free 3D generators, right in your browser</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The new Lab tab in Studio turns text and parameters into real 3D — no API key, no cost, nothing leaves your machine. Build math-driven parametric solids and supershapes, extrude 3D lettering from any string, turn an SVG icon or logo into a solid model, generate a lithophane relief from a photo, or grow a procedural landscape from a seed — each one previews live and downloads as a real GLB. Plus a Gaussian-splat viewer for the photoreal radiance-field format (.splat / .ply). Powered by three.js and GaussianSplats3D.</description>
 		</item>
 		<item>
 			<title>The $THREE page now shows live market cap, holders &amp; real trades</title>

@@ -34,10 +34,11 @@ export default wrap(async (req, res) => {
 		memoryRows,
 		socialRows,
 		statsRow,
+		shopRows,
 	] = await Promise.all([
 		sql`
 			select id, name, slug, description, storage_key, thumbnail_key, tags,
-			       source, size_bytes, version, created_at
+			       source, size_bytes, version, fork_count, parent_avatar_id, created_at
 			from avatars
 			where owner_id = ${user.id}
 			  and visibility = 'public'
@@ -48,7 +49,7 @@ export default wrap(async (req, res) => {
 		sql`
 			select id, name, description, avatar_url, profile_image_url, home_url,
 			       wallet_address, chain_id, erc8004_agent_id, x_username,
-			       farcaster_fname, created_at,
+			       farcaster_fname, created_at, is_published, forks_count, fork_of,
 			       meta->>'solana_address' as solana_address,
 			       meta->>'sns_domain'     as sns_domain,
 			       meta->'onchain'         as onchain,
@@ -146,6 +147,29 @@ export default wrap(async (req, res) => {
 			  (select coalesce(sum(view_count), 0)::bigint from widgets
 			    where user_id = ${user.id} and is_public = true and deleted_at is null) as total_widget_views
 		`,
+		// Items for sale: one-time-priced assets the user actively lists. The price
+		// of record lives in asset_prices (item_type ∈ avatar|agent|plugin); join
+		// each item type to pull a display name + thumbnail. Soft-deleted items are
+		// excluded so a delisted asset never renders a dead card.
+		sql`
+			select ap.item_type, ap.item_id::text as item_id, ap.amount::text as amount,
+			       ap.currency_mint, ap.chain, ap.mint_decimals, ap.updated_at,
+			       av.name as avatar_name, av.slug as avatar_slug, av.thumbnail_key,
+			       ag.name as agent_name, ag.profile_image_url, ag.avatar_url,
+			       pl.name as plugin_name, pl.identifier as plugin_identifier
+			from asset_prices ap
+			left join avatars av
+			  on ap.item_type = 'avatar' and av.id = ap.item_id and av.deleted_at is null
+			left join agent_identities ag
+			  on ap.item_type = 'agent' and ag.id = ap.item_id and ag.deleted_at is null
+			left join plugins pl
+			  on ap.item_type = 'plugin' and pl.id = ap.item_id and pl.deleted_at is null
+			where ap.owner_user_id = ${user.id}
+			  and ap.is_active = true
+			  and coalesce(av.id, ag.id, pl.id) is not null
+			order by ap.updated_at desc
+			limit 48
+		`.catch(() => []),
 	]);
 
 	const avatars = avatarRows.map((a) => ({
@@ -158,6 +182,8 @@ export default wrap(async (req, res) => {
 		size_bytes: Number(a.size_bytes || 0),
 		source: a.source,
 		version: a.version,
+		fork_count: Number(a.fork_count || 0),
+		is_fork: Boolean(a.parent_avatar_id),
 		tags: a.tags || [],
 		created_at: a.created_at,
 	}));
@@ -180,8 +206,60 @@ export default wrap(async (req, res) => {
 		sns_domain: a.sns_domain
 			? (a.sns_domain.endsWith('.sol') ? a.sns_domain : `${a.sns_domain}.sol`)
 			: null,
+		// Fork eligibility: only published agents can be forked (the fork endpoint
+		// requires is_published). forks_count drives the "N forks" badge; is_fork
+		// flags agents that are themselves derived from another.
+		is_published: a.is_published === true,
+		forks_count: Number(a.forks_count || 0),
+		is_fork: Boolean(a.fork_of),
 		created_at: a.created_at,
 	}));
+
+	// Items for sale. avatar/agent carry a thumbnail; plugins don't, so they fall
+	// back to a glyph in the UI. Each card deep-links to the item's own page where
+	// the existing purchase flow lives (no duplicate checkout here).
+	const USDC_MINTS = new Set([
+		'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', // USDC Solana mainnet
+		'4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU', // USDC Solana devnet
+	]);
+	const currencyLabel = (mint, chain) => {
+		if (!mint || mint === 'native') return chain === 'solana' ? 'SOL' : 'ETH';
+		if (USDC_MINTS.has(mint)) return 'USDC';
+		return mint.length > 10 ? `${mint.slice(0, 4)}…${mint.slice(-4)}` : mint;
+	};
+	const shop = shopRows
+		.map((r) => {
+			const isAvatar = r.item_type === 'avatar';
+			const isAgent = r.item_type === 'agent';
+			const name = r.avatar_name || r.agent_name || r.plugin_name || 'Item';
+			const image = isAvatar
+				? r.thumbnail_key
+					? publicUrl(r.thumbnail_key)
+					: null
+				: isAgent
+					? r.profile_image_url || r.avatar_url || null
+					: null;
+			const href = isAvatar
+				? `/avatars/${r.item_id}`
+				: isAgent
+					? `/agent/${r.item_id}`
+					: r.plugin_identifier
+						? `/plugins#${r.plugin_identifier}`
+						: '/plugins';
+			const decimals = Number(r.mint_decimals || 0);
+			const price = Number(r.amount || 0) / 10 ** decimals;
+			return {
+				item_type: r.item_type,
+				item_id: r.item_id,
+				name,
+				image,
+				href,
+				price,
+				currency: currencyLabel(r.currency_mint, r.chain),
+				chain: r.chain,
+			};
+		})
+		.filter(Boolean);
 
 	const widgets = widgetRows.map((w) => ({
 		id: w.id,
@@ -271,6 +349,7 @@ export default wrap(async (req, res) => {
 		plugins: statsRow?.plugins_count ?? 0,
 		coins: statsRow?.coins_count ?? 0,
 		memories: statsRow?.memories_count ?? 0,
+		shop: shop.length,
 		widget_views: Number(statsRow?.total_widget_views ?? 0),
 		followers: followCounts?.followers ?? 0,
 		following: followCounts?.following ?? 0,
@@ -299,5 +378,6 @@ export default wrap(async (req, res) => {
 		plugins,
 		coins,
 		memories,
+		shop,
 	});
 });

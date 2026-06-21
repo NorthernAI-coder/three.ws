@@ -21,6 +21,185 @@ export function generateReferralCode(length = 8) {
   return code;
 }
 
+// ── Custom referral codes ────────────────────────────────────────────────────
+//
+// Auto-generated codes draw from a restricted, unambiguous alphabet, but a
+// user-chosen vanity code (e.g. their name) may legitimately contain any letter
+// or digit. Codes are stored and matched in a single canonical case (UPPERCASE)
+// so the UNIQUE index on users.referral_code doubles as a case-insensitive
+// uniqueness guard and every lookup site can match without per-call lowering.
+
+export const REFERRAL_CODE_MIN_LEN = 3;
+export const REFERRAL_CODE_MAX_LEN = 20;
+
+// The canonical, storable shape of a referral code: A–Z and 0–9 only. Vanity
+// codes accept the full alphanumeric range; the generator stays restricted so
+// auto-minted codes remain easy to read aloud off a membership card.
+export const REFERRAL_CODE_RE = new RegExp(`^[A-Z0-9]{${REFERRAL_CODE_MIN_LEN},${REFERRAL_CODE_MAX_LEN}}$`);
+
+// Codes that collide with product surfaces, routes, or the brand. Reserving them
+// keeps referral links unambiguous and stops a user from minting a code that
+// reads like an official endpoint. Compared case-insensitively (canonical upper).
+const RESERVED_REFERRAL_CODES = new Set([
+  'THREE', 'THREEWS', 'THREE3', 'ADMIN', 'ROOT', 'SUPPORT', 'HELP', 'OFFICIAL',
+  'API', 'APP', 'WWW', 'LOGIN', 'REGISTER', 'SIGNUP', 'SIGNIN', 'AUTH', 'OAUTH',
+  'DASHBOARD', 'ACCOUNT', 'SETTINGS', 'BILLING', 'WALLET', 'PAY', 'CHECKOUT',
+  'REFERRAL', 'REFERRALS', 'REF', 'INVITE', 'NULL', 'NONE', 'TEST', 'SYSTEM',
+  'MARKETPLACE', 'FORGE', 'STUDIO', 'AGENT', 'AGENTS', 'CLUB', 'CHANGELOG',
+]);
+
+/**
+ * Normalize arbitrary user input to a canonical referral code, or null if it
+ * can't be one. Trims, uppercases, and validates against the canonical shape —
+ * it never strips invalid characters (so "my-code" is rejected, not silently
+ * mangled into "MYCODE"); callers surface the rejection to the user.
+ *
+ * @param {unknown} input
+ * @returns {string|null} canonical code, or null when invalid
+ */
+export function normalizeReferralCode(input) {
+  if (input == null) return null;
+  const code = String(input).trim().toUpperCase();
+  return REFERRAL_CODE_RE.test(code) ? code : null;
+}
+
+/** True if the canonical code is reserved for the platform. */
+export function isReservedReferralCode(code) {
+  return RESERVED_REFERRAL_CODES.has(String(code || '').toUpperCase());
+}
+
+/**
+ * Derive a canonical referral code candidate from a person's name. Strips
+ * everything but letters and digits, uppercases, and clamps to the max length.
+ * Returns null if nothing usable (≥ MIN_LEN chars) remains — e.g. a name that's
+ * all punctuation or an emoji.
+ *
+ * @param {string|null|undefined} name
+ * @returns {string|null}
+ */
+export function slugifyReferralName(name) {
+  const slug = String(name || '')
+    .normalize('NFKD')
+    .replace(/[^A-Za-z0-9]/g, '')
+    .toUpperCase()
+    .slice(0, REFERRAL_CODE_MAX_LEN);
+  return slug.length >= REFERRAL_CODE_MIN_LEN ? slug : null;
+}
+
+/**
+ * Ordered candidate codes for a new account: the user's name first (so the
+ * default referral code reads like them), then the name plus a short random
+ * suffix to ride out collisions while staying recognizable, then pure random
+ * fallbacks. Finite — callers loop until an insert/update succeeds.
+ *
+ * @param {string|null} name  display name or username to seed the default
+ * @returns {Generator<string>}
+ */
+export function* referralCodeCandidates(name) {
+  const seen = new Set();
+  const offer = function* (code) {
+    if (code && !seen.has(code)) { seen.add(code); yield code; }
+  };
+
+  const slug = slugifyReferralName(name);
+  if (slug && !isReservedReferralCode(slug)) yield* offer(slug);
+
+  if (slug) {
+    // Keep room for a 4-char suffix so "ada" → "ADAX7QK" stays under the cap.
+    const base = slug.slice(0, REFERRAL_CODE_MAX_LEN - 4);
+    for (let i = 0; i < 4; i++) yield* offer(base + generateReferralCode(4));
+  }
+
+  for (let i = 0; i < 8; i++) yield* offer(generateReferralCode());
+}
+
+// Typed error for referral-code mutations so the endpoint can map a failure to a
+// precise HTTP status + machine-readable reason without string-matching.
+class ReferralCodeError extends Error {
+  constructor(reason, status, message) {
+    super(message);
+    this.name = 'ReferralCodeError';
+    this.reason = reason;
+    this.status = status;
+  }
+}
+
+/**
+ * Whether a desired code is available to a given user. Used by the live
+ * availability check as the user types in the code editor.
+ *
+ * @param {string|number} userId
+ * @param {unknown} desired  raw user input
+ * @returns {Promise<{ available: boolean, reason: string, code: string|null }>}
+ *   reason ∈ 'ok' | 'current' | 'invalid' | 'reserved' | 'taken'
+ */
+export async function getReferralCodeAvailability(userId, desired) {
+  const code = normalizeReferralCode(desired);
+  if (!code) return { available: false, reason: 'invalid', code: null };
+  if (isReservedReferralCode(code)) return { available: false, reason: 'reserved', code };
+
+  const [holder] = await sql`
+    SELECT id FROM users
+    WHERE UPPER(referral_code) = ${code} AND deleted_at IS NULL
+    LIMIT 1
+  `;
+  if (!holder) return { available: true, reason: 'ok', code };
+  if (String(holder.id) === String(userId)) return { available: true, reason: 'current', code };
+  return { available: false, reason: 'taken', code };
+}
+
+/**
+ * Set the signed-in user's custom referral code. Validates shape, blocks
+ * reserved codes, and relies on the UNIQUE index (plus a pre-check) to keep
+ * codes globally unique case-insensitively. Idempotent when the user submits
+ * the code they already hold.
+ *
+ * @param {string|number} userId
+ * @param {unknown} desired  raw user input
+ * @returns {Promise<{ referral_code: string, changed: boolean }>}
+ * @throws {ReferralCodeError} reason ∈ 'invalid' | 'reserved' | 'not_found' | 'taken'
+ */
+export async function setReferralCode(userId, desired) {
+  const code = normalizeReferralCode(desired);
+  if (!code) {
+    throw new ReferralCodeError('invalid', 400, `Use ${REFERRAL_CODE_MIN_LEN}–${REFERRAL_CODE_MAX_LEN} letters or numbers (no spaces or symbols).`);
+  }
+  if (isReservedReferralCode(code)) {
+    throw new ReferralCodeError('reserved', 409, 'That code is reserved. Pick another.');
+  }
+
+  const [me] = await sql`
+    SELECT referral_code FROM users WHERE id = ${userId} AND deleted_at IS NULL
+  `;
+  if (!me) throw new ReferralCodeError('not_found', 404, 'user not found');
+
+  // No-op when the user re-submits their current code (any case).
+  if (me.referral_code && me.referral_code.toUpperCase() === code) {
+    return { referral_code: me.referral_code, changed: false };
+  }
+
+  const [taken] = await sql`
+    SELECT id FROM users
+    WHERE UPPER(referral_code) = ${code} AND id <> ${userId} AND deleted_at IS NULL
+    LIMIT 1
+  `;
+  if (taken) throw new ReferralCodeError('taken', 409, 'That code is already taken.');
+
+  try {
+    const [row] = await sql`
+      UPDATE users SET referral_code = ${code} WHERE id = ${userId}
+      RETURNING referral_code
+    `;
+    return { referral_code: row.referral_code, changed: true };
+  } catch (err) {
+    // Lost a race to a concurrent claim of the same code.
+    if (err && err.code === '23505') {
+      throw new ReferralCodeError('taken', 409, 'That code is already taken.');
+    }
+    throw err;
+  }
+}
+
 // Every user is a potential referrer, but only the email + SAML signup paths
 // mint a `referral_code` up front. Privy / SIWS / SIWE sign-ups (and any
 // pre-existing account) land with a NULL code. This lazily assigns one the
@@ -30,11 +209,12 @@ export function generateReferralCode(length = 8) {
 // @param {string|number} userId
 // @returns {Promise<string>} the user's referral code
 export async function ensureReferralCode(userId) {
-  const [existing] = await sql`SELECT referral_code FROM users WHERE id = ${userId}`;
+  const [existing] = await sql`SELECT referral_code, display_name, username FROM users WHERE id = ${userId}`;
   if (existing?.referral_code) return existing.referral_code;
 
-  for (let attempt = 0; attempt < 6; attempt++) {
-    const code = generateReferralCode();
+  // Default the code to the member's name (then name+suffix, then random) so the
+  // first code they ever see reads like them — they can customize it later.
+  for (const code of referralCodeCandidates(existing?.display_name || existing?.username)) {
     try {
       const [row] = await sql`
         UPDATE users SET referral_code = ${code}
@@ -46,8 +226,8 @@ export async function ensureReferralCode(userId) {
       const [now] = await sql`SELECT referral_code FROM users WHERE id = ${userId}`;
       if (now?.referral_code) return now.referral_code;
     } catch (err) {
-      // 23505 = unique_violation: this random code collided with another user's.
-      // Retry with a fresh code.
+      // 23505 = unique_violation: this code collided with another user's.
+      // Retry with the next candidate.
       if (err && err.code === '23505') continue;
       throw err;
     }

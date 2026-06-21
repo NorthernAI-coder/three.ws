@@ -17,7 +17,7 @@ import { limits, clientIp } from '../../_lib/rate-limit.js';
 import { env } from '../../_lib/env.js';
 import { logAudit } from '../../_lib/audit.js';
 import { seedDefaultAgent } from '../../_lib/seed-default-agent.js';
-import { generateReferralCode } from '../../_lib/referrals.js';
+import { referralCodeCandidates } from '../../_lib/referrals.js';
 import {
 	getSamlInstance,
 	generateSpMetadataXml,
@@ -192,13 +192,12 @@ async function findOrCreateUser({ issuer, nameID, email, name }) {
 }
 
 // Bounded retry around the unique referral_code index (mirrors api/auth/[action].js).
-// A 23505 on a non-referral constraint means a concurrent ACS won the race for
-// this subject/email — re-select and return that user instead of erroring.
-const MAX_REFERRAL_CODE_TRIES = 8;
-
+// The first candidate is the member's name (default referral code reads like
+// them), then name+suffix, then random fallbacks. A 23505 on a non-referral
+// constraint means a concurrent ACS won the race for this subject/email —
+// re-select and return that user instead of erroring.
 async function insertSamlUser({ email, displayName, issuer, nameID, emailVerified }) {
-	for (let i = 0; i < MAX_REFERRAL_CODE_TRIES; i += 1) {
-		const code = generateReferralCode();
+	for (const code of referralCodeCandidates(displayName)) {
 		try {
 			const [row] = await sql`
 				insert into users (email, display_name, referral_code, saml_issuer, saml_name_id, email_verified)
