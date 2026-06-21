@@ -290,6 +290,22 @@ export async function textToImage(prompt, { aspectRatio = '1:1' } = {}) {
 				},
 			);
 		}
+		// Hard out-of-credit / billing failure. Replicate returns this as a 402,
+		// but the same "purchase credit at replicate.com/billing" copy can ride in
+		// on other 4xx codes too — match on status OR content so a status change
+		// upstream can never spill the vendor's billing page onto the buyer. Keep
+		// the raw detail for logs (providerDetail); surface a neutral, buyer-safe
+		// message the caller maps to "temporarily unavailable" (never "go buy
+		// credit"). The free NIM lane is the primary path — this backstop being
+		// dry must read as a transient platform issue, not a user-facing dead end.
+		if (res.status === 402 || /credit|billing|purchase|payment required/i.test(detail)) {
+			if (detail) console.warn(`[text-to-image] replicate billing/credit failure: ${detail}`);
+			throw Object.assign(new Error('image provider billing error'), {
+				code: 'billing',
+				providerStatus: 402,
+				providerDetail: detail,
+			});
+		}
 		throw Object.assign(new Error(detail || `text-to-image returned ${res.status}`), {
 			providerStatus: res.status,
 		});

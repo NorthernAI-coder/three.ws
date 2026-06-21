@@ -250,6 +250,69 @@ describe('textToImage — Vertex → Replicate fallback', () => {
 		expect(caught.message).not.toMatch(/credit|\$5|throttl|rate limit/i);
 	});
 
+	it('masks a Replicate 402 out-of-credit failure as a buyer-safe billing error', async () => {
+		// The incident the user hit: the free NIM lane fell through to the paid
+		// Replicate backstop, which had zero credit. Replicate returns the hard
+		// "purchase credit at replicate.com/billing" copy on a 402 — that vendor
+		// billing page must never reach the buyer. We keep the raw detail for logs
+		// (providerDetail) but the surfaced message must be neutral.
+		process.env.REPLICATE_API_TOKEN = 'r8_test_token';
+		const RAW_DETAIL =
+			'You have insufficient credit to run this model. Go to ' +
+			'https://replicate.com/account/billing#billing to purchase credit. ' +
+			'Once you purchase credit, please wait a few minutes before trying again.';
+		stubFetch([
+			[
+				'api.replicate.com',
+				() =>
+					new Response(JSON.stringify({ detail: RAW_DETAIL }), {
+						status: 402,
+						headers: { 'content-type': 'application/json' },
+					}),
+			],
+		]);
+		vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+		const textToImage = await freshTextToImage();
+		const caught = await textToImage('a red teapot').then(
+			() => null,
+			(e) => e,
+		);
+		expect(caught).toBeTruthy();
+		expect(caught.code).toBe('billing');
+		expect(caught.providerStatus).toBe(402);
+		expect(caught.providerDetail).toBe(RAW_DETAIL); // retained for server logs
+		expect(caught.message).toBe('image provider billing error');
+		// The raw vendor billing page and "buy credit" call-to-action must be gone.
+		expect(caught.message).not.toMatch(/credit|replicate\.com|purchase|insufficient/i);
+	});
+
+	it('masks a credit/billing message even on a non-402 status', async () => {
+		// Defense in depth: if Replicate ever delivers the same billing copy under
+		// a different 4xx, the content match must still keep it off the buyer.
+		process.env.REPLICATE_API_TOKEN = 'r8_test_token';
+		stubFetch([
+			[
+				'api.replicate.com',
+				() =>
+					new Response(
+						JSON.stringify({ detail: 'Payment required: please purchase credit to continue.' }),
+						{ status: 400, headers: { 'content-type': 'application/json' } },
+					),
+			],
+		]);
+		vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+		const textToImage = await freshTextToImage();
+		const caught = await textToImage('a red teapot').then(
+			() => null,
+			(e) => e,
+		);
+		expect(caught.code).toBe('billing');
+		expect(caught.providerStatus).toBe(402);
+		expect(caught.message).not.toMatch(/credit|purchase|payment/i);
+	});
+
 	it('persists a Vertex data: URI to object storage and returns the https URL', async () => {
 		process.env.GOOGLE_CLOUD_PROJECT = 'demo-project';
 		vertexState.configured = true;

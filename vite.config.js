@@ -1377,11 +1377,20 @@ support: resolve(__dirname, 'pages/support.html'),
 								'window.va=window.va||function(){(window.vaq=window.vaq||[]).push(arguments)};',
 							injectTo: 'head',
 						},
-						{
-							tag: 'script',
-							attrs: { defer: true, src: '/_vercel/insights/script.js' },
-							injectTo: 'head',
-						},
+						// /_vercel/insights/script.js only exists on a Vercel deploy. Under
+						// the Vite dev server (ctx.server present) it 404s with an empty MIME
+						// type, which strict MIME checking surfaces as a console error on every
+						// page. Inject it only at build time; the `va` queue stub above still
+						// no-ops any track() calls fired in dev.
+						...(ctx.server
+							? []
+							: [
+									{
+										tag: 'script',
+										attrs: { defer: true, src: '/_vercel/insights/script.js' },
+										injectTo: 'head',
+									},
+								]),
 					];
 				},
 			},

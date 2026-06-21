@@ -28,6 +28,15 @@
 		<link rel="stylesheet" href="/memory-studio.css" />
 
 		<style>
+			/* Base reset: this page deliberately skips style.css, so it must carry
+			   the [hidden] guard itself. Without it, components that toggle the
+			   `hidden` attribute (brain studio's onboard/editor/modal views, etc.)
+			   stay visible — their class rules set `display`, which beats the UA
+			   `[hidden]{display:none}` rule. */
+			[hidden] {
+				display: none !important;
+			}
+
 			html,
 			body {
 				margin: 0;
