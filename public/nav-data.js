@@ -188,6 +188,12 @@ export const NAV_GROUPS = [
 				desc: 'One fused conviction score per launch — and arm your agent to act on it',
 			},
 			{
+				title: 'Arm your agent',
+				href: '/oracle/arm',
+				badge: 'New',
+				desc: 'Set the rules and let your 3D agent trade Oracle conviction — simulate first, then go live',
+			},
+			{
 				title: 'Strategy Lab',
 				href: '/strategy-lab',
 				badge: 'New',

@@ -108,6 +108,14 @@ vi.mock('@solana/web3.js', async (importOriginal) => {
 	};
 });
 
+// The launch-agent path now sends via submitProtected (real signing + serialize),
+// which is incompatible with the fake VersionedTransaction above (no real
+// signatures). These tests verify the GROUND MINT carries the 3ws mark
+// (response.mint), not the send mechanism, so mock the protected sender.
+vi.mock('../api/_lib/execution-engine.js', () => ({
+	submitProtected: vi.fn(async () => ({ signature: 'a'.repeat(88), slot: 1, route: 'protected' })),
+}));
+
 // ── pump.js SDK ───────────────────────────────────────────────────────────────
 vi.mock('../api/_lib/pump.js', () => ({
 	getConnection: vi.fn(() => ({})),
@@ -311,9 +319,12 @@ describe('POST /api/pump/launch-agent — brand-mark enforcement', () => {
 		// Funded mock Solana connection (sufficient for ~0.022 SOL launch cost)
 		agentPumpfunState.connection = {
 			getBalance: async () => 1_000_000_000,
-			getLatestBlockhash: async () => ({ blockhash: 'testblockhash111111111111111111111' }),
+			getLatestBlockhash: async () => ({ blockhash: 'testblockhash111111111111111111111', lastValidBlockHeight: 1000 }),
+			// submitProtected estimates a priority fee + CU (simulate) before sending.
+			simulateTransaction: async () => ({ value: { err: null, unitsConsumed: 50_000, logs: [] } }),
+			getRecentPrioritizationFees: async () => [{ prioritizationFee: 1000 }],
 			sendRawTransaction: async () => 'a'.repeat(88),
-			confirmTransaction: async () => ({}),
+			confirmTransaction: async () => ({ value: { err: null }, context: { slot: 1 } }),
 		};
 
 		// Agent custodial keypair returned by the loadAgentForSigning mock

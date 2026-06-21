@@ -125,6 +125,31 @@ function loadFeatureTour() {
 	document.head.appendChild(s);
 }
 
+// Resolves once /nav.css is loaded so the nav markup is never injected
+// unstyled (the flash-of-unstyled-content seen on hard refresh). A JS-inserted
+// stylesheet loads asynchronously and does not block paint, so the injected
+// innerHTML must wait on the link's load event before it is written.
+function ensureNavStylesheet() {
+	const href = '/nav.css';
+	let link = document.querySelector(`link[href="${href}"]`);
+	if (link) {
+		// Already on the page; resolve immediately if the sheet is parsed.
+		if (link.sheet) return Promise.resolve();
+		return new Promise((resolve) => {
+			link.addEventListener('load', resolve, { once: true });
+			link.addEventListener('error', resolve, { once: true });
+		});
+	}
+	return new Promise((resolve) => {
+		link = document.createElement('link');
+		link.rel = 'stylesheet';
+		link.href = href;
+		link.addEventListener('load', resolve, { once: true });
+		link.addEventListener('error', resolve, { once: true });
+		document.head.appendChild(link);
+	});
+}
+
 function boot() {
 	loadFeatureTour();
 	loadCornerStack();
@@ -135,13 +160,11 @@ function boot() {
 	loadThemeSwitcher();
 	const navContainer = document.getElementById('nav-container');
 	if (!navContainer) return;
-	if (!document.querySelector('link[href="/nav.css"]')) {
-		const link = document.createElement('link');
-		link.rel = 'stylesheet';
-		link.href = '/nav.css';
-		document.head.appendChild(link);
-	}
-	Promise.all([fetch('/nav.html').then((response) => response.text()), import('/nav-data.js')])
+	Promise.all([
+		fetch('/nav.html').then((response) => response.text()),
+		import('/nav-data.js'),
+		ensureNavStylesheet(),
+	])
 		.then(([html, navData]) => {
 			navContainer.innerHTML = html;
 			renderMenus(navContainer, navData);

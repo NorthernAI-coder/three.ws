@@ -1,11 +1,21 @@
 {
-	"generated_at": "2026-06-21T08:30:32.877Z",
+	"generated_at": "2026-06-21T08:50:53.678Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
 		"url": "https://three.ws"
 	},
 	"entries": [
+		{
+			"date": "2026-06-21",
+			"type": "launch",
+			"title": "Arm your agent — automate Oracle conviction",
+			"summary": "Configure your 3D agent to trade Oracle conviction automatically: set the minimum score, position size, daily and open-position caps, narrative filters and Telegram alerts, then arm it in simulate or live mode. Every action is graded against the outcome.",
+			"link": "/oracle/arm",
+			"tags": [
+				"launch"
+			]
+		},
 		{
 			"date": "2026-06-21",
 			"type": "launch",
@@ -86,6 +96,17 @@
 			"tags": [
 				"feature",
 				"sdk"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "update",
+			"title": "Arm your agent gets its own setup page",
+			"summary": "Configuring your 3D agent to trade Oracle conviction now has a dedicated page at /oracle/arm — a clean, focused setup laid out the way trading bots do it: a live status bar with a big arm switch, a stats strip, and step-by-step cards for entry rules, position sizing and caps, alerts, and simulate-vs-live mode. The Oracle tab now shows your agent's configuration at a glance and links straight to the full editor.",
+			"link": "/oracle/arm",
+			"tags": [
+				"feature",
+				"improvement"
 			]
 		},
 		{
@@ -318,6 +339,16 @@
 		{
 			"date": "2026-06-21",
 			"type": "update",
+			"title": "Launch-and-snipe: atomic dev buy at token launch",
+			"summary": "Atomic pump.fun launches can now include a first buy in the very same transaction that creates the token. The creator's buy lands in the same block as the mint — inside one Jito bundle — so no external sniper can wedge in ahead of the floor. Set a buy size and slippage; the funder covers it on top of rent, and the same spend caps apply.",
+			"link": null,
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "update",
 			"title": "Live market feed stays up through provider blips",
 			"summary": "The trending-tokens feed that powers the home card, communities, the token constellation, and the 3D visualizer is now resilient to upstream outages. If a market data provider goes down or rate-limits us, we transparently fall back to a second source; if both are briefly unavailable, the surfaces keep showing the last good data (clearly marked as a moment stale) instead of going blank. We also added a fast-fail circuit breaker so a slow provider can't drag the feed down during a traffic spike. Net effect: the live market views stay populated and snappy even when a data provider hiccups.",
 			"link": null,
@@ -346,6 +377,26 @@
 			"link": "/collection",
 			"tags": [
 				"fix"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "update",
+			"title": "No more nav flash on page refresh",
+			"summary": "Fixed a brief flash of unstyled menu and footer links that could appear when hard-refreshing a page. The shared navigation and footer now wait for their styles to load before appearing.",
+			"link": null,
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "update",
+			"title": "Oracle gets a monochrome look",
+			"summary": "The Oracle page is now styled in a clean grayscale palette. Conviction tiers, pillar bars, wallet labels, and the 3D conviction graph read by brightness instead of color — brighter means stronger — for a calmer, more focused view.",
+			"link": "/oracle",
+			"tags": [
+				"improvement"
 			]
 		},
 		{

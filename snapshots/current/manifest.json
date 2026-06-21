@@ -1,33 +1,21 @@
 {
-  "capturedAt": "2026-06-11T23:12:49.165Z",
-  "date": "2026-06-11",
-  "baseUrl": "http://localhost:3457",
+  "capturedAt": "2026-06-21T08:42:21.012Z",
+  "date": "2026-06-21",
+  "baseUrl": "http://localhost:3000",
   "viewports": [
     "desktop"
   ],
-  "pageCount": 2,
-  "capturedCount": 2,
+  "pageCount": 1,
+  "capturedCount": 1,
   "pages": [
     {
-      "path": "/forge",
-      "title": "/forge",
+      "path": "/oracle",
+      "title": "/oracle",
       "section": "Selected",
-      "slug": "forge",
+      "slug": "oracle",
       "shots": {
         "desktop": {
-          "bytes": 144849,
-          "navStatus": 200
-        }
-      }
-    },
-    {
-      "path": "/segment",
-      "title": "/segment",
-      "section": "Selected",
-      "slug": "segment",
-      "shots": {
-        "desktop": {
-          "bytes": 123456,
+          "bytes": 102285,
           "navStatus": 200
         }
       }

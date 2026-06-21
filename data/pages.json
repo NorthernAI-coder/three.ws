@@ -506,6 +506,14 @@
 					"added": "2026-06-16"
 				},
 				{
+					"path": "/oracle/arm",
+					"title": "Arm your agent — automate Oracle conviction",
+					"description": "Configure your 3D agent to trade Oracle conviction automatically: set the minimum score, position size, daily and open-position caps, narrative filters and Telegram alerts, then arm it in simulate or live mode. Every action is graded against the outcome.",
+					"priority": 0.8,
+					"changefreq": "weekly",
+					"added": "2026-06-21"
+				},
+				{
 					"path": "/activity",
 					"title": "Agent Activity — Oracle conviction in real time",
 					"description": "The trading floor: every Oracle conviction action from every autonomous 3D agent on pump.fun, live. Filter by tier and mode, track outcomes, and copy the winners.",
