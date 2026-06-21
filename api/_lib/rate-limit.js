@@ -26,6 +26,17 @@ if (IS_PRODUCTION && !REDIS_CONFIGURED) {
 const limiters = new Map();
 const memoryBuckets = new Map();
 
+// Circuit-breaker ceiling for the generic paid-endpoint family's facilitator
+// /verify fan-out (api/_lib/x402-paid-endpoint.js). A backstop against a runaway
+// retry loop or a distributed junk-X-PAYMENT flood — set well above realistic
+// peak and raisable via env as volume grows, so scaling up is a config change,
+// not a redeploy. Floored so a fat-fingered env value can't throttle the
+// platform to a crawl.
+const X402_VERIFY_GLOBAL_PER_HOUR = Math.max(
+	1200,
+	Number(process.env.X402_VERIFY_GLOBAL_PER_HOUR) || 12000,
+);
+
 // A limiter that always denies. Used in production for cost/money-moving buckets
 // when Redis is absent: better to 503 a paid action than to silently allow
 // unbounded spend across serverless instances.
@@ -382,6 +393,26 @@ export const limits = {
 	// x402 checkout analytics record (api/x402-checkout-record). Public + write,
 	// so bound per-IP to stop an attacker scripting fabricated revenue rows.
 	x402RecordIp: (ip) => getLimiter('x402:record:ip', { limit: 30, window: '1 m' }).limit(ip),
+	// Generic paid x402 endpoints (~18 routes via paidEndpoint()). Two tiers:
+	//  • probe — every anonymous request (price-discovery 402 + paid retry).
+	//    Generous + NON-critical so a Redis outage never blocks discovery or a
+	//    legitimate paid call; authenticated/subscription callers skip it entirely
+	//    (they have their own access-control gating). Pure anonymous-flood guard.
+	//  • verify — only requests carrying an X-PAYMENT header reach the facilitator
+	//    /verify round-trip. Without this, one cheap inbound request amplifies into
+	//    one outbound facilitator call at our expense (cost/DDoS vector). Tight
+	//    per-IP AND a global circuit breaker, both CRITICAL (fail closed in prod):
+	//    during a Redis outage, rejecting a payment retry (buyer keeps funds and
+	//    retries) beats letting the amplification run unbounded.
+	x402ProbeIp: (ip) => getLimiter('x402:probe:ip', { limit: 120, window: '1 m' }).limit(ip),
+	x402VerifyIp: (ip) =>
+		getLimiter('x402:verify:ip', { limit: 20, window: '1 m', critical: true }).limit(ip),
+	x402VerifyGlobal: () =>
+		getLimiter('x402:verify:global', {
+			limit: X402_VERIFY_GLOBAL_PER_HOUR,
+			window: '1 h',
+			critical: true,
+		}).limit('global'),
 	checkName: (ip) => getLimiter('check-name:ip', { limit: 60, window: '1 m' }).limit(ip),
 	ensResolve: (ip) => getLimiter('ens:resolve:ip', { limit: 60, window: '1 m' }).limit(ip),
 	snsResolve: (ip) => getLimiter('sns:resolve:ip', { limit: 60, window: '1 m' }).limit(ip),
