@@ -1,0 +1,19 @@
+{
+	"common": {
+		"language": "Language",
+		"take_tour": "Take the tour"
+	},
+	"home": {
+		"bullet_create": "<strong>Create</strong> a 3D AI agent from a text prompt or selfie in about a minute",
+		"bullet_earn": "<strong>Earn</strong> USDC per chat with x402 micropayments",
+		"bullet_embed": "<strong>Embed</strong> it on any website with two lines of HTML",
+		"cta_build": "Build your agent <span class=\"arrow\">→</span>",
+		"cta_embed": "See the embed",
+		"cta_text3d": "Text → 3D",
+		"eyebrow": "New · Text&nbsp;→&nbsp;3D is live — type a prompt, get a model <span class=\"eyebrow-arrow\" aria-hidden=\"true\">→</span>",
+		"eyebrow_aria": "New: Text to 3D is live — open the Forge",
+		"hero_h": "The 3D agent<br> layer of the<br> <em>internet.</em>",
+		"meta_desc": "Make a 3D AI agent from a selfie in 60 seconds. Drop one HTML tag to embed it on any website. Agents think on IBM watsonx.ai (Granite); optionally charge per chat with built-in micropayments.",
+		"meta_title": "three.ws — The 3D Agent Layer of the Internet"
+	}
+}

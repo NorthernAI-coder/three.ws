@@ -148,6 +148,30 @@ export async function readThreeHolderSnapshot() {
 	return balances.size > 0 ? balances : null;
 }
 
+/**
+ * Cheap holder *count* for the public stats panel. Reads only the snapshot meta
+ * row (one query, no balance rows) so the hot, edge-cached /api/three-token/stats
+ * path never triggers the multi-second DAS walk that threeHolderBalances() can.
+ * Returns null when there's no fresh snapshot so the caller can fall back to a
+ * market-data figure (Birdeye) or render "—" — the leaderboard read self-heals a
+ * stale/cold snapshot on its own.
+ */
+export async function threeHolderCount() {
+	try {
+		const [meta] = await sql`
+			select snapshot_at, holder_count from three_holder_snapshot_meta where id = 1
+		`;
+		if (!meta?.snapshot_at) return null;
+		const ageMs = Date.now() - new Date(meta.snapshot_at).getTime();
+		if (ageMs > MAX_SNAPSHOT_AGE_MS) return null;
+		const n = Number(meta.holder_count);
+		return Number.isFinite(n) && n > 0 ? n : null;
+	} catch {
+		// Table not migrated yet / DB blip — signal "unknown" rather than erroring.
+		return null;
+	}
+}
+
 // Cross-instance lock + TTL for the cold-fallback scan. The full DAS walk takes
 // several seconds; 90s is comfortably longer so a slow scan keeps the lock, and
 // it auto-expires if the holder's lambda dies mid-scan.

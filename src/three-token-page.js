@@ -247,20 +247,29 @@ function renderBuyback(bb) {
 		${renderBuybackRuns(bb.recent_runs)}`;
 }
 
-// ── live trade tape via SSE (reconnecting) ───────────────────────────────────
+// ── live trade tape (DEX swap poll) ──────────────────────────────────────────
+// $THREE has graduated, so its swaps happen on a DEX pool, not the pump.fun
+// bonding curve — the PumpPortal trade WS streams nothing for it. We poll the
+// real DEX trades (GeckoTerminal, edge-cached so a crowd shares one upstream
+// call) and prepend new swaps with the same enter animation, so the tape is a
+// genuine live feed of on-chain trades.
+const TAPE_POLL_MS = 9_000;
+
 function startTradeTape(tapeEl, statusEl) {
-	let es = null;
 	let stopped = false;
-	let retry = null;
-	let everConnected = false;
+	let timer = null;
+	let everLoaded = false;
+	const seen = new Set();
 
 	const setStatus = (online) => {
 		statusEl.innerHTML = `<span class="tk-dot ${online ? '' : 'off'}"></span>${online ? 'Live' : 'Reconnecting…'}`;
 	};
 
-	const addTrade = (t) => {
-		if (!t || (t.mint && t.mint !== THREE_MINT)) return;
-		// Drop the empty-state placeholder on first real trade.
+	const addTrade = (t, animate) => {
+		if (!t || !t.signature || seen.has(t.signature)) return;
+		if (t.mint && t.mint !== THREE_MINT) return;
+		seen.add(t.signature);
+		// Drop the empty-state placeholder on the first real trade.
 		const empty = tapeEl.querySelector('[data-empty]');
 		if (empty) empty.remove();
 
@@ -268,35 +277,48 @@ function startTradeTape(tapeEl, statusEl) {
 		const usd = t.sol_value_usd != null ? fmtUsd(t.sol_value_usd) : null;
 		const sol = t.sol_amount != null ? `${Number(t.sol_amount).toFixed(3)} SOL` : '';
 		const row = document.createElement('div');
-		row.className = `tk-trade ${isBuy ? 'buy' : 'sell'}${REDUCED_MOTION ? '' : ' in'}`;
+		row.className = `tk-trade ${isBuy ? 'buy' : 'sell'}${animate && !REDUCED_MOTION ? ' in' : ''}`;
+		row.dataset.sig = t.signature;
 		row.innerHTML = `
 			<span class="tk-side ${isBuy ? 'buy' : 'sell'}">${isBuy ? 'Buy' : 'Sell'}</span>
 			<a class="tk-trader" href="https://solscan.io/account/${esc(t.trader || '')}" target="_blank" rel="noopener">${esc(shortAddr(t.trader))}</a>
 			<span class="tk-amt">${usd || sol}${usd && sol ? ` <small>${sol}</small>` : ''} <small>· ${relTime(t.timestamp)}</small></span>`;
 		tapeEl.prepend(row);
 		while (tapeEl.children.length > MAX_TAPE_ROWS) tapeEl.lastElementChild.remove();
+
+		// Bound the dedupe set over a long session — rebuild from what's on screen.
+		if (seen.size > 3000) {
+			seen.clear();
+			tapeEl.querySelectorAll('[data-sig]').forEach((el) => seen.add(el.dataset.sig));
+		}
 	};
 
-	const connect = () => {
+	const poll = async () => {
 		if (stopped) return;
-		es = new EventSource(`/api/pump/trades-stream?mint=${encodeURIComponent(THREE_MINT)}`);
-		es.addEventListener('open', () => { everConnected = true; setStatus(true); });
-		es.addEventListener('trade', (e) => { try { addTrade(JSON.parse(e.data)); } catch {} });
-		es.addEventListener('close', () => { es.close(); scheduleReconnect(); });
-		es.onerror = () => { setStatus(false); es.close(); scheduleReconnect(); };
-	};
-
-	const scheduleReconnect = () => {
-		if (stopped) return;
-		setStatus(false);
-		clearTimeout(retry);
-		// The server caps each stream at 90s, so a reconnect is normal, not an error.
-		retry = setTimeout(connect, everConnected ? 1200 : 4000);
+		try {
+			const r = await fetch(
+				`/api/pump/dex-trades?mint=${encodeURIComponent(THREE_MINT)}&limit=${MAX_TAPE_ROWS}`,
+				{ headers: { accept: 'application/json' } },
+			);
+			if (!r.ok) throw new Error(`trades ${r.status}`);
+			const d = await r.json();
+			const trades = Array.isArray(d.trades) ? d.trades : [];
+			// Endpoint returns newest-first; insert oldest-first so prepend leaves the
+			// newest trade on top. First load paints without animation; later polls
+			// animate only the genuinely new rows.
+			const animate = everLoaded;
+			for (let i = trades.length - 1; i >= 0; i--) addTrade(trades[i], animate);
+			everLoaded = true;
+			setStatus(true);
+		} catch {
+			setStatus(false);
+		}
 	};
 
 	setStatus(false);
-	connect();
-	return () => { stopped = true; clearTimeout(retry); es?.close(); };
+	poll();
+	timer = setInterval(poll, TAPE_POLL_MS);
+	return () => { stopped = true; clearInterval(timer); };
 }
 
 // ── buy flow: Phantom → in-page swap, else pump.fun ─────────────────────────
@@ -360,7 +382,7 @@ function boot() {
 						icon: '',
 						title: 'Live trades will appear here',
 						body: 'As people buy and sell $THREE, each trade streams in here in real time.',
-						tip: 'Streaming live from the $THREE bonding curve via the Solana RPC trade feed.',
+						tip: 'Live on-chain swaps from the $THREE DEX pool, refreshed every few seconds.',
 					})}</div>
 				</div>
 			</div>
@@ -399,7 +421,7 @@ function boot() {
 	});
 
 	// Bonding curve — real on-chain reads for the $THREE mint.
-	mountBondingCurve(wrap.querySelector('[data-curve]'), { mint: THREE_MINT, network: 'mainnet', showUsd: true, refreshMs: 15_000 });
+	mountBondingCurve(wrap.querySelector('[data-curve]'), { mint: THREE_MINT, network: 'mainnet', showUsd: true, refreshMs: 15_000, accent: '#4ade80' });
 
 	// Header stats from the shared store (price/mcap/volume/holders).
 	const statsEl = wrap.querySelector('[data-stats]');

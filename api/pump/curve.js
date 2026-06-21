@@ -134,12 +134,21 @@ export default wrap(async (req, res) => {
 		return error(res, 404, 'no_curve', 'no bonding curve found for that mint');
 	}
 
-	// Graduated coins have no bonding-curve price. Fall back to Jupiter so callers
-	// always get a usable price even after migration to a DEX.
+	// Graduated coins have no bonding-curve price. A coin can graduate yet leave
+	// its on-chain curve account behind (closed, reserves zeroed, complete=true) —
+	// this is exactly the case for our own $THREE. Fall back to Jupiter so callers
+	// always get a usable price even after migration to a DEX, and surface the same
+	// `graduated: true` + market-cap-enriched `graduatedPrice` shape as the
+	// curve-gone path above so every consumer renders graduated coins identically.
 	let pricePayload = result.price ? serializeBNs(result.price) : null;
+	const curveComplete = Boolean(result.curve?.complete);
 	let graduatedPrice = null;
-	if (!pricePayload && result.curve?.complete) {
-		graduatedPrice = await jupiterPriceFallback(mint);
+	if (!pricePayload && curveComplete) {
+		const jup = await jupiterPriceFallback(mint);
+		if (jup) {
+			// Fixed 1B supply minted entirely into the curve/pool ⇒ FDV == market cap.
+			graduatedPrice = { ...jup, marketCapUsd: jup.priceUsd * PUMP_TOTAL_SUPPLY };
+		}
 	}
 
 	return json(
@@ -149,6 +158,7 @@ export default wrap(async (req, res) => {
 			mint,
 			network,
 			curve: result.curve,
+			...(curveComplete ? { graduated: true } : {}),
 			price: pricePayload,
 			graduation: result.graduation ? serializeBNs(result.graduation) : null,
 			...(graduatedPrice ? { graduatedPrice } : {}),

@@ -53,7 +53,9 @@ export function setDeep(obj, dottedKey, value) {
 }
 
 export function getDeep(obj, dottedKey) {
-	return dottedKey.split('.').reduce((n, p) => (isPlainObject(n) || Array.isArray(n) ? n[p] : undefined), obj);
+	return dottedKey
+		.split('.')
+		.reduce((n, p) => (isPlainObject(n) || Array.isArray(n) ? n[p] : undefined), obj);
 }
 
 // Keys present (and non-empty) in `source` but missing/empty in `target`.
@@ -163,7 +165,9 @@ export function lintLocale(source, target, { code, doNotTranslate = [] } = {}) {
 		const srcVars = (sv.match(PLACEHOLDER_RE) || []).sort();
 		const tgtVars = (tv.match(PLACEHOLDER_RE) || []).sort();
 		if (srcVars.join('|') !== tgtVars.join('|')) {
-			problems.push(`[${code}] placeholder drift in ${k}: ${srcVars.join(',') || '∅'} → ${tgtVars.join(',') || '∅'}`);
+			problems.push(
+				`[${code}] placeholder drift in ${k}: ${srcVars.join(',') || '∅'} → ${tgtVars.join(',') || '∅'}`,
+			);
 		}
 
 		// Any do-not-translate term in the source must appear verbatim.

@@ -24,7 +24,7 @@
 //   node scripts/i18n-translate.mjs --lint          # validate only (build gate, no API key needed)
 //   node scripts/i18n-translate.mjs --dry-run       # report what would translate
 
-import { writeFileSync } from 'node:fs';
+import { writeFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import {
 	ROOT,
@@ -65,8 +65,10 @@ function runLint() {
 	for (const code of targets) {
 		const target = readJSON(localePath(code));
 		if (!target) {
-			console.error(`✗ ${code}: missing ${cfg.output}/${code}.json`);
-			problems++;
+			// Configured but not yet translated — not an integrity failure. Lint
+			// gates the catalogs we actually ship; run `npm run i18n:translate` to
+			// generate the rest.
+			console.log(`◦ ${code}: not generated yet (skipped)`);
 			continue;
 		}
 		const found = lintLocale(source, target, { code, doNotTranslate: cfg.doNotTranslate });
@@ -109,7 +111,10 @@ function chunkKeys(keys, budgetChars) {
 // --- LLM backends ----------------------------------------------------------
 
 function stripFences(text) {
-	return text.replace(/^\s*```(?:json)?/i, '').replace(/```\s*$/, '').trim();
+	return text
+		.replace(/^\s*```(?:json)?/i, '')
+		.replace(/```\s*$/, '')
+		.trim();
 }
 
 function buildPrompt(langName, payload) {
@@ -131,7 +136,10 @@ function buildPrompt(langName, payload) {
 }
 
 async function callGemini(prompt) {
-	const key = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.GOOGLE_GENAI_API_KEY;
+	const key =
+		process.env.GEMINI_API_KEY ||
+		process.env.GOOGLE_API_KEY ||
+		process.env.GOOGLE_GENAI_API_KEY;
 	if (!key) throw new Error('GEMINI_API_KEY (or GOOGLE_API_KEY) not set');
 	const model = cfg.modelName || 'gemini-2.5-flash';
 	const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
@@ -248,7 +256,9 @@ async function translateLocale(code) {
 	}
 
 	const chunks = chunkKeys(todo, (cfg.splitToken || 1200) * 4);
-	console.log(`→ ${code}: ${todo.length} key(s) in ${chunks.length} chunk(s) via ${cfg.provider}`);
+	console.log(
+		`→ ${code}: ${todo.length} key(s) in ${chunks.length} chunk(s) via ${cfg.provider}`,
+	);
 
 	const translatedFlat = {};
 	let done = 0;
@@ -289,18 +299,24 @@ function persist(code, existing, translatedFlat) {
 	const translatedNested = {};
 	for (const [k, v] of Object.entries(translatedFlat)) setDeep(translatedNested, k, v);
 	const merged = mergeOrdered(source, existing, translatedNested);
-	writeFileSync(localePath(code), JSON.stringify(merged, null, 2) + '\n');
+	writeFileSync(localePath(code), JSON.stringify(merged, null, '\t') + '\n');
 }
 
-// Refresh the runtime manifest the locale switcher reads.
+// Refresh the runtime manifest the locale switcher reads. Only locales with a
+// committed catalog are listed, so the switcher never offers a language that
+// would silently fall back to English.
 function writeManifest() {
-	const localesList = [cfg.entryLocale, ...cfg.outputLocales].map((code) => ({
+	const ready = (code) => code === cfg.entryLocale || existsSync(localePath(code));
+	const localesList = [cfg.entryLocale, ...cfg.outputLocales].filter(ready).map((code) => ({
 		code,
 		name: cfg.localeNames?.[code] || code,
 		dir: (cfg.rtlLocales || []).includes(code) ? 'rtl' : 'ltr',
 	}));
 	const manifest = { default: cfg.entryLocale, locales: localesList };
-	writeFileSync(resolve(ROOT, cfg.output, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n');
+	writeFileSync(
+		resolve(ROOT, cfg.output, 'manifest.json'),
+		JSON.stringify(manifest, null, '\t') + '\n',
+	);
 }
 
 async function main() {

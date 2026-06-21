@@ -92,6 +92,15 @@
 					top: 84px;
 				}
 			}
+			/* Stage column — the viewer/result, your creations, and the showcase.
+			   min-width:0 lets the 3D canvas shrink to its grid cell instead of
+			   forcing the rail narrow; the sections stack with even spacing. */
+			.forge-stage {
+				min-width: 0;
+				display: flex;
+				flex-direction: column;
+				gap: var(--space-lg);
+			}
 			/* forge-eyebrow removed — header is now inline h1 + tagline */
 			.forge-head h1 {
 				font-family: var(--font-display);
@@ -2870,6 +2879,9 @@
 				<button class="chip" type="button">a glazed ceramic teapot</button>
 				<button class="chips-more" type="button" id="chips-more" aria-label="Swap in a fresh set of example prompts">↻ More ideas</button>
 			</div>
+				</div>
+				<!-- ── Stage column: viewer, your creations, community showcase ── -->
+				<div class="forge-stage">
 
 			<section class="stage" id="stage" aria-live="polite">
 				<!-- Empty / idle -->
@@ -3240,9 +3252,10 @@
 					<span class="glyph" aria-hidden="true">◌</span>
 					<h3>Generator not configured</h3>
 					<p>
-						Text-to-3D needs a Replicate API token on this deployment. Once
-						<code>REPLICATE_API_TOKEN</code> is set, Forge runs the full flux → TRELLIS
-						pipeline with no further changes.
+						No 3D engine is reachable on this deployment. Set any one of
+						<code>NVIDIA_API_KEY</code> or <code>HF_TOKEN</code> for the free lanes, or
+						<code>REPLICATE_API_TOKEN</code> for the flux → TRELLIS pipeline — Forge picks
+						up whichever is configured with no further changes.
 					</p>
 				</div>
 			</section>
@@ -3303,6 +3316,8 @@
 			<p class="hint-foot">
 				Multi-engine pipeline — Free uses NVIDIA-hosted generation; Fast, Meshy, Tripo, Rodin, Stability, and Replicate require an API key. Best results: one clearly described subject with a material and lighting cue. Photo mode accepts up to 4 views for multi-view reconstruction. The same pipeline is available to agents over MCP at <a href="/docs">/api/mcp-3d</a>.
 			</p>
+				</div><!-- /.forge-stage -->
+				</div><!-- /.forge-workspace -->
 		</main>
 
 		<script src="/nav.js" defer></script>

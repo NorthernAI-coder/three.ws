@@ -20,7 +20,7 @@ import { getSessionUser } from '../_lib/auth.js';
 import { cors, error, json, method, wrap } from '../_lib/http.js';
 import { TOKEN_MINT as THREE_MINT } from '../_lib/token/config.js';
 import { fetchTokenMarketData } from '../_lib/market/token-market.js';
-import { threeHolderBalances } from '../_lib/coin/three-holders.js';
+import { threeHolderBalances, threeHolderCount } from '../_lib/coin/three-holders.js';
 import { buybackStats } from '../_lib/token/buyback.js';
 
 // Truncate a base58 wallet for display: "FeMb…Jpump".
@@ -100,12 +100,16 @@ export default wrap(async (req, res) => {
 	const action = parts[2];
 
 	if (action === 'stats') {
-		const [market, platform, buyback] = await Promise.all([
+		const [market, platform, buyback, holderCount] = await Promise.all([
 			fetchTokenMarketData(THREE_MINT).catch(() => null),
 			fetchPlatformMetrics(),
 			// Programmatic buyback summary (revenue → $THREE bought into treasury).
 			// Resilient: returns zeros before the first run / migration.
 			buybackStats().catch(() => null),
+			// Holder count from our own snapshot — the keyless market sources
+			// (DexScreener / GeckoTerminal) don't return holders, so without this the
+			// panel shows "—" whenever Birdeye is rate-limited. Cheap meta read only.
+			threeHolderCount().catch(() => null),
 		]);
 
 		return json(
@@ -119,7 +123,7 @@ export default wrap(async (req, res) => {
 					price_change_24h: market?.price_change_24h ?? null,
 					market_cap: market?.market_cap ?? null,
 					volume_24h: market?.volume_24h ?? null,
-					holders: market?.holders ?? null,
+					holders: market?.holders ?? holderCount ?? null,
 					liquidity: market?.liquidity ?? null,
 					supply: market?.supply ?? null,
 					decimals: market?.decimals ?? 6,

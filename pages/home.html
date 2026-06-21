@@ -2478,6 +2478,10 @@
 			<a class="btn" href="#embed" data-cta="see_embed" data-cta-loc="hero" data-i18n="home.cta_embed">See the embed</a>
 			<a class="btn" href="/tour" id="hero-tour-start" data-cta="guided_tour" data-cta-loc="hero"><span aria-hidden="true">▶</span>&nbsp;<span data-i18n="common.take_tour">Take the tour</span></a>
 		</div>
+		<div class="hero-lang" style="margin-top:18px;display:flex;align-items:center;gap:8px;">
+			<span style="font-size:12px;color:var(--text-3);" data-i18n="common.language">Language</span>
+			<lang-switcher></lang-switcher>
+		</div>
 	</div>
 	<div class="hero-stage" id="hero-stage">
 		<div class="hero-stage-inner" id="hero-stage-inner"></div>
@@ -6984,5 +6988,7 @@
 		import { initAcquisitionAnalytics } from '/src/acquisition-analytics.js';
 		initAcquisitionAnalytics();
 	</script>
+	<!-- Runtime i18n: detects locale, swaps annotated copy, mounts <lang-switcher>. -->
+	<script type="module" src="/i18n.js"></script>
 </body>
 </html>

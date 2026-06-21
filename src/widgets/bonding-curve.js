@@ -25,6 +25,12 @@
 const LAMPORTS_PER_SOL = 1_000_000_000;
 const SOL_MINT = 'So11111111111111111111111111111111111111112';
 
+// pump.fun mints a fixed 1B total supply, all of which is sold through the curve
+// and seeded into the AMM on graduation — so fully-diluted value equals market
+// cap. Used to derive a graduated coin's market cap from its DEX price when the
+// endpoint didn't already enrich one.
+const PUMP_TOTAL_SUPPLY = 1_000_000_000;
+
 // Settlement / native tokens that can never carry a pump.fun bonding curve.
 // Listed only to *exclude* them from curve lookups — never to promote them.
 const NON_CURVE_MINTS = new Set([
@@ -155,37 +161,54 @@ export function areaPathFor(progress, samples = CURVE_SAMPLES, vb = VB) {
  * @param {number|null} solUsd  SOL price in USD, or null when unavailable.
  */
 export function computeView(data, solUsd = null) {
-	// Graduated coin whose on-chain curve account is gone (closed on migration to
-	// the AMM). There's no curve to chart, but the token still has a real DEX
-	// price — render a 100% "Graduated" state with that live price rather than the
-	// empty "no curve" card. The endpoint enriches market cap from fixed supply.
-	if (data && data.graduated && !data.curve) {
-		const gp = data.graduatedPrice || {};
-		const priceUsd = Number(gp.priceUsd);
-		const marketCapUsd = Number(gp.marketCapUsd);
-		const hasUsd = Number.isFinite(priceUsd) && priceUsd > 0;
+	if (!data || (!data.curve && !data.graduated)) {
+		return { status: 'empty', progress: 0, hasUsd: false };
+	}
+
+	const grad = data.graduation || {};
+	const price = data.price || {};
+	// A coin is graduated when it has migrated to its AMM. The endpoint signals
+	// this in several shapes depending on whether the on-chain curve account is
+	// still readable: a top-level `graduated` flag (account closed), the nested
+	// `graduation.isGraduated`, or a `curve.complete` flag (account lingers with
+	// zeroed reserves — exactly the case for our own $THREE post-migration).
+	const isGraduated = Boolean(
+		data.graduated || grad.isGraduated || price.isGraduated || data.curve?.complete,
+	);
+
+	// Graduated coin: there's no curve raise left to chart, but the token trades
+	// live on a DEX. The endpoint enriches that price as `graduatedPrice`; render a
+	// 100% "Graduated" state with the real price + fixed-supply market cap rather
+	// than the $0 the closed curve's zeroed reserves would otherwise produce. This
+	// fires whether or not the curve account still exists, so it covers both the
+	// `curve: null` and the lingering-`curve.complete` payloads.
+	const gp = data.graduatedPrice || {};
+	const gpPrice = Number(gp.priceUsd);
+	if (isGraduated && Number.isFinite(gpPrice) && gpPrice > 0) {
+		const gpMc = Number(gp.marketCapUsd);
 		return {
 			status: 'graduated',
 			progress: 1,
 			progressPct: 100,
 			marketCapSol: 0,
-			marketCapUsd: Number.isFinite(marketCapUsd) && marketCapUsd > 0 ? marketCapUsd : null,
+			marketCapUsd: Number.isFinite(gpMc) && gpMc > 0 ? gpMc : gpPrice * PUMP_TOTAL_SUPPLY,
 			raisedSol: null, // the raise completed and the curve closed — N/A now
 			raisedUsd: null,
 			priceSol: 0,
-			priceUsd: hasUsd ? priceUsd : null,
-			isMayhem: false,
+			priceUsd: gpPrice,
+			isMayhem: Boolean(data.curve?.isMayhemMode),
 			network: data.network === 'devnet' ? 'devnet' : 'mainnet',
 			mint: data.mint || '',
-			hasUsd,
+			hasUsd: true,
 		};
 	}
-	if (!data || !data.curve) {
+
+	// Graduated but with no usable DEX price (Jupiter blip), or a live bonding
+	// curve — fall through to the on-chain curve math. Without a curve account and
+	// no graduated price there's nothing to show.
+	if (!data.curve) {
 		return { status: 'empty', progress: 0, hasUsd: false };
 	}
-	const grad = data.graduation || {};
-	const price = data.price || {};
-	const isGraduated = Boolean(grad.isGraduated || price.isGraduated || data.curve.complete);
 	const progress = isGraduated ? 1 : clamp01(Number(grad.progressBps) / 10_000);
 
 	// The SDK can report a small negative market cap for a freshly-created

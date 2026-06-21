@@ -148,6 +148,29 @@ describe('GET /api/pump/curve', () => {
 		expect(res.getHeader('cache-control')).toMatch(/s-maxage=10/);
 	});
 
+	it('200 graduated view when the curve account lingers (complete) with a DEX price', async () => {
+		// $THREE's real shape: the on-chain curve account survives migration with
+		// complete=true and zeroed reserves, and the SDK returns no curve price. The
+		// handler must mark it graduated and enrich a fixed-supply market cap so the
+		// widget renders the live price instead of $0.
+		getBondingCurveState.mockResolvedValueOnce({
+			realSolReserves: '0', realTokenReserves: '0', complete: true,
+			creator: 'CRE', isMayhemMode: false,
+		});
+		getTokenPrice.mockResolvedValueOnce(null);
+		getGraduationProgress.mockResolvedValueOnce({ progressBps: 10_000, isGraduated: true });
+		stubJupiter(0.0035);
+		const res = makeRes();
+		await curveHandler(makeReq({ url: `/api/pump/curve?mint=${CURVE_MINT}` }), res);
+		expect(res.statusCode).toBe(200);
+		const body = getJson(res);
+		expect(body.graduated).toBe(true);
+		expect(body.curve.complete).toBe(true);
+		expect(body.price).toBeNull();
+		expect(body.graduatedPrice.priceUsd).toBe(0.0035);
+		expect(body.graduatedPrice.marketCapUsd).toBeCloseTo(0.0035 * 1_000_000_000, 3);
+	});
+
 	it('honors network=devnet', async () => {
 		getBondingCurveState.mockResolvedValueOnce({ creator: 'X' });
 		getTokenPrice.mockResolvedValueOnce(null);

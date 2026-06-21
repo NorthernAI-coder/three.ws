@@ -1,0 +1,19 @@
+{
+	"common": {
+		"language": "Idioma",
+		"take_tour": "Hacer el tour"
+	},
+	"home": {
+		"bullet_create": "<strong>Crea</strong> un agente de IA en 3D a partir de un texto o un selfie en aproximadamente un minuto",
+		"bullet_earn": "<strong>Gana</strong> USDC por cada chat con micropagos x402",
+		"bullet_embed": "<strong>Inserta</strong>lo en cualquier sitio web con dos líneas de HTML",
+		"cta_build": "Crea tu agente <span class=\"arrow\">→</span>",
+		"cta_embed": "Ver la inserción",
+		"cta_text3d": "Texto → 3D",
+		"eyebrow": "Nuevo · Texto&nbsp;→&nbsp;3D ya está disponible — escribe un prompt y obtén un modelo <span class=\"eyebrow-arrow\" aria-hidden=\"true\">→</span>",
+		"eyebrow_aria": "Nuevo: Texto a 3D ya está disponible — abre Forge",
+		"hero_h": "La capa de<br> agentes 3D de<br> <em>internet.</em>",
+		"meta_desc": "Crea un agente de IA en 3D a partir de un selfie en 60 segundos. Coloca una etiqueta HTML para insertarlo en cualquier sitio web. Los agentes piensan con IBM watsonx.ai (Granite); opcionalmente cobra por chat con micropagos integrados.",
+		"meta_title": "three.ws — La capa de agentes 3D de internet"
+	}
+}
