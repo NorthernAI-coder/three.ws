@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-21T18:33:13.627Z",
+	"generated_at": "2026-06-21T19:01:16.428Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -49,9 +49,29 @@
 		{
 			"date": "2026-06-21",
 			"type": "launch",
+			"title": "Hero Stage",
+			"summary": "A cinematic 3D hero stage for three.ws agents — a lit avatar centered in deep space over concentric glowing rings, a drifting starfield, and soft bloom, with pointer parallax and a live avatar switcher. Motion-safe.",
+			"link": "/hero-demo",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "launch",
 			"title": "Studio — Object + Avatar from text",
 			"summary": "One canvas for both text-to-3D pipelines: forge a textured object (GLB) in the Object tab, or describe a character and get a rigged avatar in the Avatar tab.",
 			"link": "/forge-studio",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "launch",
+			"title": "The Agent Economy — Live",
+			"summary": "The live three.ws agent economy: agents earning real money ranked by buyers and ratings, and the pay-per-call (x402) services they expose across Solana and Base.",
+			"link": "/economy",
 			"tags": [
 				"launch"
 			]
@@ -161,6 +181,16 @@
 		{
 			"date": "2026-06-21",
 			"type": "update",
+			"title": "Agent Studio: save a draft or step away without losing work",
+			"summary": "Agent Studio now carries a persistent header on every tab with Save draft and Exit. Your agent already saves automatically as you edit — Save draft commits your progress on demand with a clear confirmation, and Exit saves first, then opens your live agent. Move freely between Brain, Memory, Body, Money and Skills from the tab row at any time, so no single section is a dead end.",
+			"link": "/agent-studio",
+			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "update",
 			"title": "Agent Studio: save your Brain and flow straight into Memory",
 			"summary": "Building your agent's reasoning graph in the Brain tab now has a clear finish line. A new Save button writes the graph to the server on demand (or press ⌘/Ctrl+S), the header's save indicator finally lights up for Brain edits the way it does for the name and tagline, and a Done button saves and carries you on to the Memory tab so designing a mind flows naturally into the next step instead of dead-ending on the canvas. Pressing Escape now also closes the Templates and behavior dialogs so they can never trap you.",
 			"link": "/agent-studio",
@@ -208,6 +238,16 @@
 			"tags": [
 				"feature",
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "update",
+			"title": "Bring your creations to life — talk to them",
+			"summary": "Made an avatar from a prompt, or a model in the Lab? A new Talk button drops you into a live voice conversation with it: speak, and it answers out loud with an AI brain and real-time lip-sync. Avatars take on a first-person persona; objects play along. Same voice + reasoning stack the rest of three.ws uses.",
+			"link": "/forge-studio",
+			"tags": [
+				"feature"
 			]
 		},
 		{
@@ -804,6 +844,16 @@
 			"type": "update",
 			"title": "Studio Lab: six free 3D generators, right in your browser",
 			"summary": "The new Lab tab in Studio turns text and parameters into real 3D — no API key, no cost, nothing leaves your machine. Build math-driven parametric solids and supershapes, extrude 3D lettering from any string, turn an SVG icon or logo into a solid model, generate a lithophane relief from a photo, or grow a procedural landscape from a seed — each one previews live and downloads as a real GLB. Plus a Gaussian-splat viewer for the photoreal radiance-field format (.splat / .ply). Powered by three.js and GaussianSplats3D.",
+			"link": "/forge-studio",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "update",
+			"title": "Studio Lab: turn any model into a Gaussian splat",
+			"summary": "The Lab in Studio now owns the splat format both ways. A new Mesh → Splats tool resamples any model — a Lab generator or a GLB you upload — into a Gaussian-splat radiance field entirely in your browser, viewable live and downloadable as a real .splat file. The Splat Viewer also gained a download button, so you can pull down whatever you load. No API key, no upload, no cost.",
 			"link": "/forge-studio",
 			"tags": [
 				"feature"

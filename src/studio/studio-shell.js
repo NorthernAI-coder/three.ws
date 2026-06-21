@@ -175,7 +175,14 @@ class StudioShell {
 							maxlength="100" aria-label="Agent name" placeholder="Name your agent" />
 						<input id="studio-tagline" class="studio-tagline" value="${esc(agent.description || '')}"
 							maxlength="280" aria-label="Agent tagline" placeholder="Add a short tagline…" />
-						<span class="studio-save" id="studio-save" aria-live="polite"></span>
+						<div class="studio-actions">
+							<span class="studio-save" id="studio-save" aria-live="polite"></span>
+							<button type="button" class="studio-btn studio-btn-ghost studio-action" id="studio-save-draft"
+								title="Save your progress now — your agent stays a private draft you can keep editing">Save draft</button>
+							<a class="studio-btn studio-btn-ghost studio-action" id="studio-exit"
+								href="${agent.id ? `/agent/${encodeURIComponent(agent.id)}` : '/'}"
+								title="Save and leave the Studio — opens your live agent">Exit ↗</a>
+						</div>
 					</header>
 
 					<nav class="studio-tabs" role="tablist" aria-label="Editor sections">
@@ -247,6 +254,13 @@ class StudioShell {
 			saveEl.dataset.state = 'saved';
 		});
 
+		// Studio-wide escape hatches. Every tab auto-saves through the store, but a
+		// focused sub-studio (e.g. the Brain graph) can feel like a forward-only
+		// dead-end — these give an always-present, honest way to save a draft and to
+		// leave. "Edit other parts" is the tab row directly below this header.
+		this.root.querySelector('#studio-save-draft')?.addEventListener('click', (e) => this._saveDraft(e.currentTarget));
+		this.root.querySelector('#studio-exit')?.addEventListener('click', (e) => this._exit(e));
+
 		// Sub-studios (e.g. the Brain graph's "Done →") request an onward jump
 		// through a DOM event so they stay decoupled from the shell instance.
 		this._navHandler = (e) => {
@@ -271,6 +285,53 @@ class StudioShell {
 				saveEl.dataset.state = 'error';
 			}
 		});
+	}
+
+	// Flush any sub-studio's not-yet-debounced edits into the store, then push the
+	// real PUT through. The flush event lets a focused editor (Brain graph) commit
+	// its in-progress state synchronously *before* we commit, so an explicit
+	// Save/Exit honestly captures what's on screen rather than the last auto-save.
+	async _flushAndCommit() {
+		document.dispatchEvent(new CustomEvent('studio:flush'));
+		return studio.commit();
+	}
+
+	async _saveDraft(btn) {
+		if (!btn || btn.dataset.busy) return;
+		btn.dataset.busy = '1';
+		btn.disabled = true;
+		btn.textContent = 'Saving…';
+		clearTimeout(this._draftFlash);
+		try {
+			await this._flushAndCommit();
+			btn.textContent = 'Draft saved ✓';
+		} catch {
+			btn.textContent = 'Retry save';
+		} finally {
+			btn.disabled = false;
+			delete btn.dataset.busy;
+			this._draftFlash = setTimeout(() => {
+				btn.textContent = 'Save draft';
+			}, 1800);
+		}
+	}
+
+	// Save, then leave to the live agent. We navigate even if the save errors —
+	// the store's beforeunload/visibilitychange flush is a backstop, and the href
+	// is a real link so a blocked handler still goes somewhere useful.
+	async _exit(e) {
+		const link = e.currentTarget;
+		e.preventDefault();
+		if (link.dataset.busy) return;
+		link.dataset.busy = '1';
+		const href = link.getAttribute('href') || '/';
+		link.textContent = 'Saving…';
+		try {
+			await this._flushAndCommit();
+		} catch {
+			/* navigate anyway — leaving must never trap the user */
+		}
+		location.href = href;
 	}
 
 	_onTabKeydown(e, tabs) {

@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-21T18:33:13.608Z",
+	"generated_at": "2026-06-21T19:01:16.416Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -1067,6 +1067,16 @@
 					"showcase": false
 				},
 				{
+					"path": "/economy",
+					"title": "The Agent Economy — Live",
+					"description": "The live three.ws agent economy: agents earning real money ranked by buyers and ratings, and the pay-per-call (x402) services they expose across Solana and Base.",
+					"added": "2026-06-21",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
 					"path": "/agent-trade",
 					"title": "Agent Commerce",
 					"description": "Watch two AI agents pay each other on-chain using x402 — a live Solana transaction, rendered in 3D.",
@@ -1111,6 +1121,16 @@
 					"title": "Token in 3D",
 					"description": "Any pump.fun token as a live 3D scene — a spinning coin medallion with the token's logo, top holders as a galaxy sized by balance, and a graduation ring tracking bonding-curve progress.",
 					"added": "2026-06-02",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/hero-demo",
+					"title": "Hero Stage",
+					"description": "A cinematic 3D hero stage for three.ws agents — a lit avatar centered in deep space over concentric glowing rings, a drifting starfield, and soft bloom, with pointer parallax and a live avatar switcher. Motion-safe.",
+					"added": "2026-06-21",
 					"auth": null,
 					"indexable": true,
 					"tags": [],

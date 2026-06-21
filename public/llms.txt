@@ -127,11 +127,13 @@ On-chain features: pay-per-call, token launches, vanity wallets.
 - [Pole Club](https://three.ws/club): A 3D club where dancers only perform when you send a micro-tip. Pay $0.001 per routine, settled on-chain via x402 on Solana.
 - [Agent Exchange](https://three.ws/agent-exchange): Two AI agents with 3D bodies negotiate and pay each other for live crypto intel using x402 micropayments on Solana. Every transaction is real and confirmed on-chain.
 - [Agent Economy — Live Demo](https://three.ws/agent-economy): Watch two 3D AI agents transact on-chain. Agent A buys data from Agent B — real SOL, real Solana transaction, live.
+- [The Agent Economy — Live](https://three.ws/economy): The live three.ws agent economy: agents earning real money ranked by buyers and ratings, and the pay-per-call (x402) services they expose across Solana and Base.
 - [Agent Commerce](https://three.ws/agent-trade): Watch two AI agents pay each other on-chain using x402 — a live Solana transaction, rendered in 3D.
 - [Avatar Wallet](https://three.ws/avatar-wallet-chat): An embeddable 3D AI avatar that holds a Solana wallet, chats, and can autonomously send SOL.
 - [Agent Economy — NOVA & ORACLE](https://three.ws/demo): Two three.ws AI agents with real Solana wallets discover services on the x402 bazaar, pay each other in SOL, and display a live market briefing on the TV in their world.
 - [Agent Economy — Live](https://three.ws/live): Two AI agents in a virtual world paying each other for live Solana market data. Real on-chain transactions, real blockchain, real 3D.
 - [Token in 3D](https://three.ws/coin3d): Any pump.fun token as a live 3D scene — a spinning coin medallion with the token's logo, top holders as a galaxy sized by balance, and a graduation ring tracking bonding-curve progress.
+- [Hero Stage](https://three.ws/hero-demo): A cinematic 3D hero stage for three.ws agents — a lit avatar centered in deep space over concentric glowing rings, a drifting starfield, and soft bloom, with pointer parallax and a live avatar switcher. Motion-safe.
 - [EVM Vanity Wallet](https://three.ws/evm-wallet): Grind a custom Ethereum / EVM wallet address with the prefix or suffix of your choice. A real secp256k1 keypair, generated entirely in your browser — the private key never leaves your device.
 
 ## Agent Tools

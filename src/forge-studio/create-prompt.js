@@ -228,6 +228,25 @@ async function renderDone(avatarId) {
 	const viewer = /** @type {any} */ ($('#cp-done-model'));
 	if (modelUrl && viewer) viewer.setAttribute('src', modelUrl);
 
+	// Bring it alive — hand the finished avatar to the real talk stack (voice in,
+	// LLM brain, voice out, lip-sync). Per-agent memory rides along via agent_id.
+	const talkBtn = $('#cp-talk');
+	if (talkBtn) {
+		const name = avatar?.display_name || avatar?.name || 'Your avatar';
+		talkBtn.hidden = !modelUrl;
+		talkBtn.addEventListener('click', async () => {
+			talkBtn.disabled = true;
+			try {
+				const { launchTalk } = await import('./talk-launch.js');
+				await launchTalk({ name, glbUrl: modelUrl, id: avatarId, agentId: avatar?.agent_id, kind: 'avatar' });
+			} catch (err) {
+				log.error('[studio-prompt] talk', err);
+			} finally {
+				talkBtn.disabled = false;
+			}
+		});
+	}
+
 	const rigged = avatar?.source_meta?.is_rigged ?? avatar?.tags?.includes?.('rigged');
 	const tagsEl = $('#cp-done-tags');
 	tagsEl.innerHTML = '';
