@@ -135,14 +135,6 @@
 			<description>Before the next trade lands, the live-trades panel on the $THREE token page now reads in plain language — 'Live trades will appear here' — with a short note on what it shows, and the technical detail tucked behind an info tooltip. Screen readers announce new trades as they stream in.</description>
 		</item>
 		<item>
-			<title>Club door payment no longer fails when an RPC node blips</title>
-			<link>https://three.ws/changelog</link>
-			<guid isPermaLink="false">2026-06-21:Club door payment no longer fails when an RPC node blips</guid>
-			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
-			<category>fix</category>
-			<description>Paying the cover charge to enter the Pole Club builds a Solana transaction the moment you authorize, and that step reads a fresh blockhash from the network. If every Solana node we try is momentarily throttled in that instant, the door used to fail with an opaque &quot;internal error&quot; right after you confirmed the price — even though nothing was charged. The door now keeps a recent blockhash on hand and reuses it through a brief outage, so a transient node hiccup no longer turns you away. It still refuses only when there's genuinely no valid blockhash to build with.</description>
-		</item>
-		<item>
 			<title>Coin pages stay fast when pump.fun is having a moment</title>
 			<link>https://three.ws/launches</link>
 			<guid isPermaLink="false">2026-06-21:Coin pages stay fast when pump.fun is having a moment</guid>
@@ -189,6 +181,14 @@
 			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
 			<category>improvement</category>
 			<description>Forge's quality tiers — Draft, Standard, and High — all generate on zero-cost engines now: Draft and Standard on the fast free NVIDIA lane, and High on the higher-fidelity, fully textured free HuggingFace engine. Higher tiers buy you genuinely better geometry and textures, not a different bill behind the scenes. Photo-to-3D at any tier routes straight to a free engine too, so a generation never quietly falls back to a paid lane. The High tier stays a $THREE holder perk (or a one-off pay-per-use) — that's the price of premium quality, not a cost we're passing through.</description>
+		</item>
+		<item>
+			<title>Fixed: &quot;Edit Avatar&quot; no longer 404s</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-21:Fixed: &quot;Edit Avatar&quot; no longer 404s</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>The Edit Avatar link in the account menu was sending you to a page that didn't exist, so customizing your avatar dead-ended on a 404. It now opens the avatar editor correctly. We also pointed the &quot;create your avatar&quot; button (shown when you don't have one yet) straight at the avatar creator instead of an empty editor.</description>
 		</item>
 		<item>
 			<title>Follows and reviews now ring the notification bell</title>
@@ -437,6 +437,14 @@
 			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
 			<category>improvement</category>
 			<description>Solana is now the default everywhere you pick a chain — the dashboard's Default payment network setting, x402 merchant settlement, and the monetization payout wallet all default to Solana for every user, with Solana listed first. Base and Polygon remain available if you prefer an EVM chain.</description>
+		</item>
+		<item>
+			<title>Solana reads and the club door survive a degraded RPC provider</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-21:Solana reads and the club door survive a degraded RPC provider</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>When a Solana node answers with a 200 but an unusable body — an empty payload, an HTML error page, or a quota-exhausted reply — our network layer had one weak spot: if every node was momentarily cooling off at once, it forwarded that garbage response straight through. In the browser that showed up as broken balance and blockhash reads on the marketplace, staking, and payment screens; at the club door it could fail the cover charge with an opaque error even though nothing was charged. The network layer now validates every reply on every path and fails over to a healthy node instead of passing a bad one along, returning a clean, honest error only when every provider is genuinely down. The club door also keeps a recent blockhash on hand and reuses it through a brief blip, so paying to enter and reading on-chain balances stay reliable through provider hiccups.</description>
 		</item>
 		<item>
 			<title>Solana stays online even if our paid RPC goes dark</title>

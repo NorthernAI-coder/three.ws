@@ -314,11 +314,15 @@ export function shouldRotate(status) {
 // one request, so the caller gets nothing back — is the only WARN.
 export function makeRotatingFetch(endpoints) {
 	return async function rotatingFetch(_info, init) {
-		let lastErr = null;
-		let attempted = false;
-		for (const url of endpoints) {
-			if (isEndpointCooling(url)) continue;
-			attempted = true;
+		// One fully-validated attempt against a single endpoint. Returns
+		// `{ response }` with a usable JSON-RPC body, or `{ error }` after parking
+		// the endpoint in cooldown so the caller rotates on. It NEVER returns an
+		// unvalidated body: a 200 carrying an empty/HTML/truncated payload, a
+		// `{jsonrpc,id}` envelope missing `result`, or a 200 + JSON-RPC capacity
+		// error is treated as a failure — web3.js would otherwise choke on it with a
+		// `StructError`, and the /api/solana-rpc proxy would forward the garbage (an
+		// empty `[]`) straight to the browser.
+		const tryEndpoint = async (url) => {
 			try {
 				const resp = await fetch(url, init);
 				if (shouldRotate(resp.status)) {
@@ -337,21 +341,8 @@ export function makeRotatingFetch(endpoints) {
 							`[solana-rpc] ${maskUrl(url)} ${resp.status} — cooling ${Math.round(ms / 60_000)}m, failing over`,
 						);
 					}
-					lastErr = new Error(`solana rpc ${resp.status} @ ${maskUrl(url)}`);
-					continue;
+					return { error: new Error(`solana rpc ${resp.status} @ ${maskUrl(url)}`) };
 				}
-				// A healthy 2xx status is not a guarantee of a usable body. Under load
-				// (or with an exhausted paid plan) some providers answer a JSON-RPC POST
-				// with 200 + an empty payload, an HTML interstitial, a truncated body, a
-				// `{jsonrpc,id}` envelope missing `result`, or a 200 + JSON-RPC capacity
-				// error. web3.js runs any of those through its superstruct result schema
-				// and throws `StructError: Expected the value to satisfy a union of
-				// type | type, but received:` straight to the caller WITHOUT rotating,
-				// because a parse error carries no rotate-worthy HTTP status — the single
-				// failure mode behind the recurring StructError noise across getBalance /
-				// getLatestBlockhash / getAccountInfo / getSignaturesForAddress. classify
-				// the body here and fail over instead of handing web3.js something it
-				// cannot parse.
 				const okBody = await resp.text();
 				const bad = classifyRpcBody(okBody);
 				if (bad) {
@@ -362,37 +353,51 @@ export function makeRotatingFetch(endpoints) {
 							`[solana-rpc] ${maskUrl(url)} ${bad.log} — cooling ${Math.round(ms / 60_000)}m, failing over`,
 						);
 					}
-					lastErr = new Error(`solana rpc ${bad.reason} @ ${maskUrl(url)}`);
-					continue;
+					return { error: new Error(`solana rpc ${bad.reason} @ ${maskUrl(url)}`) };
 				}
-				// Body already consumed above; hand web3.js a fresh Response carrying
+				// Body already consumed above; hand the caller a fresh Response carrying
 				// the same payload. Only content-type is preserved; copying
 				// content-encoding/content-length would mislead the consumer since the
 				// transport already decoded the body into `okBody`.
-				return new Response(okBody, {
-					status: resp.status,
-					statusText: resp.statusText,
-					headers: { 'content-type': resp.headers.get('content-type') || 'application/json' },
-				});
+				return {
+					response: new Response(okBody, {
+						status: resp.status,
+						statusText: resp.statusText,
+						headers: { 'content-type': resp.headers.get('content-type') || 'application/json' },
+					}),
+				};
 			} catch (err) {
 				// A thrown fetch is a transient network/DNS blip, not a quota signal —
 				// cool only briefly so a healthy provider isn't parked for long.
 				_endpointCooldown.set(url, Date.now() + NETWORK_COOLDOWN_MS);
-				lastErr = err;
+				return { error: err };
 			}
+		};
+
+		let lastErr = null;
+		// Pass 1 skips endpoints currently in cooldown. Pass 2 runs ONLY when pass 1
+		// tried nothing (every endpoint was already cooling) — it ignores cooldowns so
+		// a just-recovered node still gets exercised. Crucially both passes route
+		// through tryEndpoint(), so the all-cooling case validates like any other and
+		// can never fall back to a raw, unvalidated passthrough — the bug that leaked
+		// an empty `[]` body straight to the browser and broke web3.js reads.
+		for (const ignoreCooldown of [false, true]) {
+			let attempted = false;
+			for (const url of endpoints) {
+				if (!ignoreCooldown && isEndpointCooling(url)) continue;
+				attempted = true;
+				const out = await tryEndpoint(url);
+				if (out.response) return out.response;
+				lastErr = out.error;
+			}
+			// Pass 1 actually exercised at least one live endpoint and they all failed
+			// this request — the chain is genuinely down right now, so don't force a
+			// second cooldown-ignoring sweep that would just re-hammer dead lanes.
+			if (!ignoreCooldown && attempted) break;
 		}
-		// Every endpoint is cooling down. Rather than blindly re-hit the (likely
-		// dead) primary, take one shot at whichever recovers soonest — its cooldown
-		// may have just lapsed and it's the least-bad option.
-		if (!attempted) {
-			const soonest = endpoints
-				.slice()
-				.sort((a, b) => (_endpointCooldown.get(a) || 0) - (_endpointCooldown.get(b) || 0))[0];
-			return fetch(soonest, init);
-		}
-		// Reached the end with every attempted provider failing in this one request —
-		// the caller gets an error, not data. THIS is worth a warning: the whole
-		// failover chain is down, not just one lane.
+		// Reached the end with every provider failing in this one request — the caller
+		// gets a thrown error (→ a clean 502 from the proxy), never garbage. THIS is
+		// worth a warning: the whole failover chain is down, not just one lane.
 		console.warn(
 			`[solana-rpc] all ${endpoints.length} endpoints failed this request — ${lastErr?.message || 'unknown error'}`,
 		);
