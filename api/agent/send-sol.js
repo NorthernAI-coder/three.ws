@@ -16,6 +16,7 @@ import { z } from 'zod';
 import { cors, json, method, readJson, wrap, error, rateLimited } from '../_lib/http.js';
 import { parse } from '../_lib/validate.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
+import { logAudit } from '../_lib/audit.js';
 import {
 	avatarWalletConfig,
 	loadAvatarKeypair,
@@ -161,6 +162,26 @@ export default wrap(async (req, res) => {
 	} catch (err) {
 		return error(res, 502, 'send_failed', `on-chain transfer failed: ${err?.message || 'unknown error'}`);
 	}
+
+	// Immutable trail for the one custodial money-out path: who triggered a
+	// payout (by IP/UA — this endpoint is session-less, gated by demo-token /
+	// recipient-lock), how much, and the on-chain signature. Reconciliation and
+	// incident response depend on this row. Fire-and-forget; never blocks the response.
+	logAudit({
+		userId: null,
+		action: 'avatar_payout',
+		resourceId: signature,
+		meta: {
+			from: cfg.address,
+			to: recipient,
+			lamports,
+			sol: solAmount,
+			usd,
+			sol_price_usd: solPriceUsd,
+			network: cfg.network,
+		},
+		req,
+	});
 
 	return json(res, 200, {
 		ok: true,
