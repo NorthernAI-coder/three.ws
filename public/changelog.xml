@@ -55,6 +55,22 @@
 			<description>The $THREE holder leaderboard, its share card, and the token stats panel used to rescan every holder on-chain on each page view. They now read from a holder snapshot that refreshes every few minutes, so the board and badges load faster and the same numbers stay consistent across all three surfaces.</description>
 		</item>
 		<item>
+			<title>Affiliate dashboard now shows who you referred</title>
+			<link>https://three.ws/dashboard/referrals</link>
+			<guid isPermaLink="false">2026-06-21:Affiliate dashboard now shows who you referred</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>The referrals dashboard lists each person you referred with their signup date, the revenue they generated, and the commission you earned — not just totals.</description>
+		</item>
+		<item>
+			<title>Agent payments now produce a signed receipt of exactly what was bought</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-21:Agent payments now produce a signed receipt of exactly what was bought</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Autonomous agent-to-agent payments already run under a signed Intent Mandate (your standing authorization with budget and per-call caps). They now also issue a Cart Mandate for each transaction — a tamper-evident, signed record of the exact endpoint paid, the amount, currency, network, and line items, bound to the authorizing mandate. It comes back with every paid call and can be checked by anyone via a new verification endpoint, so a paid service has cryptographic proof of what its caller agreed to. This completes our alignment with Google's Agent Payments Protocol (AP2), layered cleanly on top of x402 settlement.</description>
+		</item>
+		<item>
 			<title>Authorize $THREE once, then pay with no wallet popups</title>
 			<link>https://three.ws/three-token</link>
 			<guid isPermaLink="false">2026-06-21:Authorize $THREE once, then pay with no wallet popups</guid>
@@ -69,6 +85,14 @@
 			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>The $THREE page now lets you set a spending allowance: approve a cap once, and paid actions across the platform — forge, skills, names, cosmetics — debit it automatically without asking you to sign every time. It's non-custodial and built on Solana's native, audited Subscriptions &amp; Allowances program: your tokens stay in your own wallet until a charge pulls them, never more than the cap you set, and you can let it expire or revoke it anytime. Set a cap, top it up, or leave it off and keep signing each payment — your choice.</description>
+		</item>
+		<item>
+			<title>Avatar Studio: full-spectrum color picker and one-tap Looks</title>
+			<link>https://three.ws/avatar-studio</link>
+			<guid isPermaLink="false">2026-06-21:Avatar Studio: full-spectrum color picker and one-tap Looks</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The Color tab in Avatar Studio is no longer limited to a fixed row of swatches. Tap the rainbow chip on any of skin, hair, or outfit and a real color wheel opens — drag for any hue, slide for brightness, type or paste an exact hex code, or use the eyedropper to sample any color on your screen (where your browser supports it). Every color you pick is remembered in a 'Recent' strip so a palette carries from one part of the avatar to the next, and between sessions. New 'Looks' sit above the colors too: one tap themes skin, hair, and outfit together — Noir, Sunset, Arctic, Cyber, Rosé, Forest, Mono, Ember — and a whole picking session counts as a single undo. The wheel loads only when you open it, so the studio stays fast.</description>
 		</item>
 		<item>
 			<title>Clearer empty state on the $THREE live-trades feed</title>
@@ -221,6 +245,14 @@
 			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
 			<category>infra</category>
 			<description>The trending-tokens feed that powers the home card, communities, the token constellation, and the 3D visualizer is now resilient to upstream outages. If a market data provider goes down or rate-limits us, we transparently fall back to a second source; if both are briefly unavailable, the surfaces keep showing the last good data (clearly marked as a moment stale) instead of going blank. We also added a fast-fail circuit breaker so a slow provider can't drag the feed down during a traffic spike. Net effect: the live market views stay populated and snappy even when a data provider hiccups.</description>
+		</item>
+		<item>
+			<title>More reliable on-chain transactions across the platform</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-21:More reliable on-chain transactions across the platform</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>Every on-chain action that moves funds — agent transfers, token launches, buys and sells, creator-fee claims, club and lottery payouts, buybacks, and skill purchases — now goes through one hardened sender. It estimates the right priority fee, automatically re-broadcasts your transaction with a fresh blockhash until it actually lands instead of giving up after one try, and treats a transaction that reverts on-chain as a clear failure rather than a silent success. In practice that means far fewer 'stuck' or dropped transactions when the network is busy, and an honest error (with your funds untouched) when something genuinely can't go through. Nothing to do on your end.</description>
 		</item>
 		<item>
 			<title>My Collection page now loads</title>

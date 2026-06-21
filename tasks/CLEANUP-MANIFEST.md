@@ -193,3 +193,11 @@ Retired (feature verified shipped):
 |---|---|---|
 | tasks/walk/19-walk-npc-companions.md | DELETE | Built: src/walk-npcs.js (greeter/wanderer/guide FSM, real GLBs michelle/xbot/realistic-female, AnimationManager clips, disposal, cap 4) + per-env public/environments/*/dialogue.json + src/walk.js spawn/update/toggle. |
 | tasks/walk/34-section-narration-as-avatar-walks.md | DELETE | Built: src/walk-companion-narrator.js (data-walk-narrate + heading fallback, IntersectionObserver, caption aria-live + optional real /api/tts/speak voice, off/caption/voice toggle) wired into src/walk-companion.js. |
+
+## 2026-06-21 built-and-shipped (monetization batch A)
+
+| spec file | decision | evidence |
+|---|---|---|
+| tasks/monetization-feature/17-transactional-emails.md | DELETE | Built: sendPurchaseReceiptEmail/sendSaleNotificationEmail/sendReferralCommissionEmail in api/_lib/email.js, triggered in api/_lib/purchase-confirm.js + api/_lib/referrals.js (creditReferralCommission), best-effort. |
+| tasks/monetization-feature/21-user-ratings-and-reviews.md | DELETE | Built: skill_reviews migration + api/skills/review.js (purchase-verified via hasSkillAccess) + src/skill-reviews.js mounted on src/agent-detail-market.js; route via api/skills/[id].js delegation. |
+| tasks/monetization-feature/19-affiliate-dashboard-improvements.md | DELETE | Built: getReferredUsers in api/_lib/referrals.js + per-user list in GET /api/users/referrals + table in src/dashboard-next/pages/referrals.js (real joins over skill_purchases/asset_purchases). |

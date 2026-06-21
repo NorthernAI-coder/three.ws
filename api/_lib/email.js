@@ -88,6 +88,30 @@ export function renderSubscriptionConfirm({ plan, chain, txId }) {
 	};
 }
 
+export function renderPurchaseReceipt({ skillName, agentName, agentUrl, amount, currency, date, txUrl, txId }) {
+	return {
+		subject: `Your three.ws receipt — ${skillName}`,
+		html: purchaseReceiptHtml({ skillName, agentName, agentUrl, amount, currency, date, txUrl, txId }),
+		text: purchaseReceiptText({ skillName, agentName, agentUrl, amount, currency, date, txUrl, txId }),
+	};
+}
+
+export function renderSaleNotification({ skillName, agentName, agentUrl, netAmount, currency, buyerHandle, date, txUrl, txId }) {
+	return {
+		subject: `You made a sale — ${skillName}`,
+		html: saleNotificationHtml({ skillName, agentName, agentUrl, netAmount, currency, buyerHandle, date, txUrl, txId }),
+		text: saleNotificationText({ skillName, agentName, agentUrl, netAmount, currency, buyerHandle, date, txUrl, txId }),
+	};
+}
+
+export function renderReferralCommission({ amount, currency, fromHandle, skillName, date }) {
+	return {
+		subject: `You earned a referral commission`,
+		html: referralCommissionHtml({ amount, currency, fromHandle, skillName, date }),
+		text: referralCommissionText({ amount, currency, fromHandle, skillName, date }),
+	};
+}
+
 // ─── Template wrappers ────────────────────────────────────────────────────────
 
 export function sendWelcomeEmail({ to, displayName }) {
@@ -104,6 +128,18 @@ export function sendPasswordResetEmail({ to, resetUrl, expiresInMinutes = 60 }) 
 
 export function sendSubscriptionConfirmEmail({ to, plan, chain, txId }) {
 	return sendEmail({ to, ...renderSubscriptionConfirm({ plan, chain, txId }) });
+}
+
+export function sendPurchaseReceiptEmail({ to, skillName, agentName, agentUrl, amount, currency, date, txUrl, txId }) {
+	return sendEmail({ to, ...renderPurchaseReceipt({ skillName, agentName, agentUrl, amount, currency, date, txUrl, txId }) });
+}
+
+export function sendSaleNotificationEmail({ to, skillName, agentName, agentUrl, netAmount, currency, buyerHandle, date, txUrl, txId }) {
+	return sendEmail({ to, ...renderSaleNotification({ skillName, agentName, agentUrl, netAmount, currency, buyerHandle, date, txUrl, txId }) });
+}
+
+export function sendReferralCommissionEmail({ to, amount, currency, fromHandle, skillName, date }) {
+	return sendEmail({ to, ...renderReferralCommission({ amount, currency, fromHandle, skillName, date }) });
 }
 
 // ─── HTML helpers ─────────────────────────────────────────────────────────────
@@ -186,6 +222,120 @@ function subscriptionHtml(plan, chain, txId) {
 
 function subscriptionText(plan, chain, txId) {
 	return `Your three.ws ${plan} plan is now active on ${chain}.\n${txId ? `Transaction: ${txId}\n` : ''}Open dashboard: ${APP_URL}/dashboard/`;
+}
+
+// Renders a label/value row used by the receipt + sale templates.
+function row(label, value) {
+	if (value === null || value === undefined || value === '') return '';
+	return `<tr><td style="padding:6px 0;color:#777;font-size:13px">${esc(label)}</td><td style="padding:6px 0;color:#eee;font-size:14px;text-align:right;font-weight:600">${value}</td></tr>`;
+}
+
+function purchaseReceiptHtml({ skillName, agentName, agentUrl, amount, currency, date, txUrl, txId }) {
+	const txCell = txUrl
+		? `<a href="${esc(txUrl)}" style="color:#6a5cff;text-decoration:none">${esc(shortTx(txId))}</a>`
+		: (txId ? `<code>${esc(shortTx(txId))}</code>` : '');
+	return layout(`Receipt — ${skillName}`, `
+    <p class="brand">three.ws</p>
+    <h1>Purchase confirmed</h1>
+    <p>Thanks for your purchase. Here's your receipt for <strong>${esc(skillName)}</strong>${agentName ? ` from <strong>${esc(agentName)}</strong>` : ''}.</p>
+    <table style="width:100%;border-collapse:collapse;margin:8px 0 20px">
+      ${row('Skill', esc(skillName))}
+      ${agentName ? row('Agent', esc(agentName)) : ''}
+      ${row('Amount', `${esc(amount)} ${esc(currency)}`)}
+      ${date ? row('Date', esc(date)) : ''}
+      ${txCell ? row('Transaction', txCell) : ''}
+    </table>
+    ${agentUrl ? `<a class="btn" href="${esc(agentUrl)}">View agent</a>` : ''}
+    <hr>
+    <p class="muted">Keep this email as proof of purchase. Questions? Reply and we'll help.</p>
+  `);
+}
+
+function purchaseReceiptText({ skillName, agentName, agentUrl, amount, currency, date, txUrl, txId }) {
+	return [
+		`Purchase confirmed — three.ws`,
+		``,
+		`Skill: ${skillName}`,
+		agentName ? `Agent: ${agentName}` : null,
+		`Amount: ${amount} ${currency}`,
+		date ? `Date: ${date}` : null,
+		txId ? `Transaction: ${txUrl || txId}` : null,
+		agentUrl ? `\nView agent: ${agentUrl}` : null,
+		``,
+		`Keep this email as proof of purchase.`,
+	].filter(Boolean).join('\n');
+}
+
+function saleNotificationHtml({ skillName, agentName, agentUrl, netAmount, currency, buyerHandle, date, txUrl, txId }) {
+	const txCell = txUrl
+		? `<a href="${esc(txUrl)}" style="color:#6a5cff;text-decoration:none">${esc(shortTx(txId))}</a>`
+		: (txId ? `<code>${esc(shortTx(txId))}</code>` : '');
+	return layout(`You made a sale`, `
+    <p class="brand">three.ws</p>
+    <h1>You made a sale</h1>
+    <p>Someone purchased <strong>${esc(skillName)}</strong>${agentName ? ` on <strong>${esc(agentName)}</strong>` : ''}. Your net earnings have been recorded.</p>
+    <table style="width:100%;border-collapse:collapse;margin:8px 0 20px">
+      ${row('Skill', esc(skillName))}
+      ${agentName ? row('Agent', esc(agentName)) : ''}
+      ${row('Net earnings', `${esc(netAmount)} ${esc(currency)}`)}
+      ${buyerHandle ? row('Buyer', esc(buyerHandle)) : ''}
+      ${date ? row('Date', esc(date)) : ''}
+      ${txCell ? row('Transaction', txCell) : ''}
+    </table>
+    <a class="btn" href="${APP_URL}/dashboard/">View earnings</a>
+    ${agentUrl ? `<hr><p class="muted">Manage this agent: <a href="${esc(agentUrl)}" style="color:#6a5cff">${esc(agentUrl)}</a></p>` : ''}
+  `);
+}
+
+function saleNotificationText({ skillName, agentName, agentUrl, netAmount, currency, buyerHandle, date, txUrl, txId }) {
+	return [
+		`You made a sale — three.ws`,
+		``,
+		`Skill: ${skillName}`,
+		agentName ? `Agent: ${agentName}` : null,
+		`Net earnings: ${netAmount} ${currency}`,
+		buyerHandle ? `Buyer: ${buyerHandle}` : null,
+		date ? `Date: ${date}` : null,
+		txId ? `Transaction: ${txUrl || txId}` : null,
+		``,
+		`View earnings: ${APP_URL}/dashboard/`,
+		agentUrl ? `Manage agent: ${agentUrl}` : null,
+	].filter(Boolean).join('\n');
+}
+
+function referralCommissionHtml({ amount, currency, fromHandle, skillName, date }) {
+	return layout(`Referral commission earned`, `
+    <p class="brand">three.ws</p>
+    <h1>You earned a commission</h1>
+    <p>A purchase by ${fromHandle ? `<strong>${esc(fromHandle)}</strong>` : 'someone you referred'} earned you a referral commission.</p>
+    <table style="width:100%;border-collapse:collapse;margin:8px 0 20px">
+      ${row('Commission', `${esc(amount)} ${esc(currency)}`)}
+      ${fromHandle ? row('From', esc(fromHandle)) : ''}
+      ${skillName ? row('Skill', esc(skillName)) : ''}
+      ${date ? row('Date', esc(date)) : ''}
+    </table>
+    <a class="btn" href="${APP_URL}/dashboard/">View earnings</a>
+    <hr>
+    <p class="muted">Keep sharing your referral link to keep earning.</p>
+  `);
+}
+
+function referralCommissionText({ amount, currency, fromHandle, skillName, date }) {
+	return [
+		`You earned a referral commission — three.ws`,
+		``,
+		`Commission: ${amount} ${currency}`,
+		fromHandle ? `From: ${fromHandle}` : null,
+		skillName ? `Skill: ${skillName}` : null,
+		date ? `Date: ${date}` : null,
+		``,
+		`View earnings: ${APP_URL}/dashboard/`,
+	].filter(Boolean).join('\n');
+}
+
+function shortTx(tx) {
+	const s = String(tx || '');
+	return s.length > 16 ? `${s.slice(0, 8)}…${s.slice(-6)}` : s;
 }
 
 function esc(s) {

@@ -88,6 +88,25 @@ function memberSinceLabel(memberSince) {
 	return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
 }
 
+/** "Jun 21, 2026" — full signup date for the referrals table. */
+function fmtDate(value) {
+	if (!value) return '—';
+	const d = new Date(value);
+	if (Number.isNaN(d.getTime())) return '—';
+	return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+/** Privacy-preserving display for a referred user with no public username. */
+function maskedHandle(item) {
+	if (item.display_name) return item.display_name;
+	if (item.username) return `@${item.username}`;
+	return 'Anonymous member';
+}
+
+// Referred-user list pagination size. Matches the server default so the first
+// page is a single request with no over-fetch.
+const REF_PAGE_SIZE = 20;
+
 // ── styles (scoped, injected once) ──────────────────────────────────────────
 
 function injectStyles() {
@@ -192,6 +211,51 @@ function injectStyles() {
 		.ref-stage{flex-direction:column-reverse}
 		.ref-rail{flex-direction:row;flex-wrap:wrap;justify-content:center}
 		.ref-tip{display:none}
+	}
+
+	/* ── referred-users table ───────────────────────────────────────────── */
+	.ref-list-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+	.ref-list-count{font-size:12.5px;color:var(--nxt-ink-fade);font-family:${MONO}}
+	.ref-tablewrap{overflow-x:auto;border:1px solid var(--nxt-stroke);border-radius:var(--nxt-radius-sm,12px);background:rgba(255,255,255,.012)}
+	.ref-table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:520px}
+	.ref-table thead th{
+		text-align:left;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;
+		color:var(--nxt-ink-fade);font-weight:600;padding:11px 16px;
+		border-bottom:1px solid var(--nxt-stroke);white-space:nowrap;background:rgba(255,255,255,.02)}
+	.ref-table thead th.num,.ref-table tbody td.num{text-align:right;font-family:${MONO}}
+	.ref-table tbody td{padding:13px 16px;border-bottom:1px solid var(--nxt-stroke);color:var(--nxt-ink);vertical-align:middle}
+	.ref-table tbody tr:last-child td{border-bottom:none}
+	.ref-table tbody tr{transition:background .12s ease}
+	.ref-table tbody tr:hover{background:rgba(167,139,250,.06)}
+	.ref-table tbody tr:focus-within{background:rgba(167,139,250,.08)}
+	.ref-user{display:flex;align-items:center;gap:10px;min-width:0}
+	.ref-avatar{flex:0 0 auto;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;
+		background:linear-gradient(135deg,#3a2680,#241a4d);color:#c4b5fd;font-size:12px;font-weight:700;font-family:${MONO};
+		border:1px solid rgba(167,139,250,.3)}
+	.ref-user-name{font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px}
+	.ref-table .ref-commission{color:#86efac;font-weight:600}
+	.ref-table .ref-zero{color:var(--nxt-ink-fade)}
+	.ref-pager{display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-top:14px}
+	.ref-pager-info{font-size:12.5px;color:var(--nxt-ink-fade);font-family:${MONO};margin-right:auto}
+	.ref-pgbtn{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.04);
+		border:1px solid var(--nxt-stroke-strong);border-radius:9px;padding:7px 13px;color:var(--nxt-ink);
+		font-size:13px;cursor:pointer;transition:background .12s ease,border-color .12s ease,transform .1s ease}
+	.ref-pgbtn:hover:not(:disabled){background:rgba(167,139,250,.16);border-color:rgba(167,139,250,.5)}
+	.ref-pgbtn:active:not(:disabled){transform:translateY(1px)}
+	.ref-pgbtn:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(167,139,250,.4)}
+	.ref-pgbtn:disabled{opacity:.4;cursor:not-allowed}
+	.ref-empty{padding:36px 24px;text-align:center}
+	.ref-empty svg{opacity:.5;margin-bottom:12px}
+	.ref-empty h4{margin:0 0 6px;font-size:15px;color:var(--nxt-ink)}
+	.ref-empty p{margin:0 0 16px;font-size:13px;color:var(--nxt-ink-dim);line-height:1.5;max-width:340px;margin-left:auto;margin-right:auto}
+	.ref-skel-row td{padding:13px 16px;border-bottom:1px solid var(--nxt-stroke)}
+	.ref-skel-bar{height:12px;border-radius:6px;background:linear-gradient(90deg,rgba(255,255,255,.05),rgba(255,255,255,.1),rgba(255,255,255,.05));
+		background-size:200% 100%;animation:ref-shim2 1.4s infinite}
+	@keyframes ref-shim2{0%{background-position:200% 0}100%{background-position:-200% 0}}
+	@media (prefers-reduced-motion: reduce){.ref-skel-bar{animation:none}}
+	@media (max-width:560px){
+		.ref-pager{flex-wrap:wrap}
+		.ref-pager-info{width:100%;margin-bottom:6px}
 	}
 	`;
 	document.head.appendChild(s);
@@ -401,6 +465,8 @@ function renderCard(host, card) {
 			<div class="ref-tile"><div class="ref-tile-k">Score</div><div class="ref-tile-v">${fmtInt(card.score)}</div></div>
 		</div>
 
+		<section class="dn-panel" style="margin-top:20px" data-slot="referrals-list" aria-label="Your referrals"></section>
+
 		<section class="dn-panel" style="margin-top:20px">
 			<div class="dn-panel-title" style="margin-bottom:14px">How referrals work</div>
 			<div class="ref-steps">
@@ -412,6 +478,7 @@ function renderCard(host, card) {
 	`;
 
 	wireCard(host, card, refUrl);
+	mountReferralsList(host.querySelector('[data-slot="referrals-list"]'), refUrl, card.referred_users);
 }
 
 function wireCard(host, card, refUrl) {
@@ -478,6 +545,173 @@ function wireCard(host, card, refUrl) {
 			await copyToClipboard(refUrl);
 		}
 	});
+}
+
+// ── referred-users table ──────────────────────────────────────────────────────
+
+const PEOPLE_ICON = '<svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M16 19v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 19v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>';
+
+function initials(item) {
+	const src = item.display_name || item.username || '';
+	const letters = src.replace(/[^a-zA-Z0-9]/g, '').slice(0, 2).toUpperCase();
+	return letters || '?';
+}
+
+function referralRow(item) {
+	const name = maskedHandle(item);
+	const rev = Number(item.revenue_generated_usd || 0);
+	const comm = Number(item.commission_earned_usd || 0);
+	return `
+		<tr tabindex="0">
+			<td>
+				<div class="ref-user">
+					<span class="ref-avatar" aria-hidden="true">${esc(initials(item))}</span>
+					<span class="ref-user-name" title="${esc(name)}">${esc(name)}</span>
+				</div>
+			</td>
+			<td>${esc(fmtDate(item.signup_date))}</td>
+			<td class="num ${rev > 0 ? '' : 'ref-zero'}">${esc(fmtUsd(rev))}</td>
+			<td class="num ${comm > 0 ? 'ref-commission' : 'ref-zero'}">${esc(fmtUsd(comm))}</td>
+		</tr>`;
+}
+
+function referralsTableShell(rowsHtml) {
+	return `
+		<div class="ref-tablewrap">
+			<table class="ref-table">
+				<thead>
+					<tr>
+						<th scope="col">Referred user</th>
+						<th scope="col">Signup date</th>
+						<th scope="col" class="num">Revenue generated</th>
+						<th scope="col" class="num">Your commission</th>
+					</tr>
+				</thead>
+				<tbody data-ref-tbody>${rowsHtml}</tbody>
+			</table>
+		</div>`;
+}
+
+function skeletonRows(n = 5) {
+	let html = '';
+	for (let i = 0; i < n; i++) {
+		html += `<tr class="ref-skel-row">
+			<td><div class="ref-user"><span class="ref-skel-bar" style="width:28px;height:28px;border-radius:50%"></span><span class="ref-skel-bar" style="width:120px"></span></div></td>
+			<td><span class="ref-skel-bar" style="width:88px;display:inline-block"></span></td>
+			<td class="num"><span class="ref-skel-bar" style="width:64px;display:inline-block"></span></td>
+			<td class="num"><span class="ref-skel-bar" style="width:52px;display:inline-block"></span></td>
+		</tr>`;
+	}
+	return html;
+}
+
+function renderReferralsEmpty(host) {
+	host.innerHTML = `
+		<div class="ref-empty">
+			${PEOPLE_ICON}
+			<h4>No referrals yet</h4>
+			<p>Share your link above — when someone signs up through it and starts spending, they'll show up here with the revenue they generate and your commission.</p>
+			<button class="dn-btn primary" data-action="copy-from-empty" style="padding:0 18px;height:38px">Copy referral link</button>
+		</div>`;
+}
+
+function renderReferralsError(host, message, onRetry) {
+	host.innerHTML = `
+		<div class="ref-empty">
+			<h4>Couldn't load your referrals</h4>
+			<p>${esc(message || 'Try again in a moment.')}</p>
+			<button class="dn-btn" data-action="retry-list" style="padding:0 18px;height:38px">Retry</button>
+		</div>`;
+	host.querySelector('[data-action="retry-list"]').addEventListener('click', onRetry);
+}
+
+// Stateful, paginated referrals list. Renders into `host` and refetches per page
+// without touching the membership card. First page may be hydrated from the
+// initial card payload to avoid a duplicate request.
+function mountReferralsList(host, refUrl, seed) {
+	const state = {
+		offset: 0,
+		limit: seed?.limit || REF_PAGE_SIZE,
+		total: typeof seed?.total === 'number' ? seed.total : null,
+		loading: false,
+	};
+
+	function renderPage(payload) {
+		state.total = payload.total;
+		state.limit = payload.limit || state.limit;
+		state.offset = payload.offset || 0;
+
+		const totalLabel = `${fmtInt(state.total)} ${state.total === 1 ? 'referral' : 'referrals'}`;
+		if (!payload.items || payload.items.length === 0) {
+			if (state.total === 0) {
+				host.innerHTML = `<div class="ref-list-head"><h3 class="dn-panel-title" style="margin:0">Your referrals</h3></div>`;
+				const slot = document.createElement('div');
+				host.appendChild(slot);
+				renderReferralsEmpty(slot);
+				const copyBtn = slot.querySelector('[data-action="copy-from-empty"]');
+				if (copyBtn) copyBtn.addEventListener('click', () => copyToClipboard(refUrl));
+				return;
+			}
+			// Past the last page (e.g. data shrank) — step back.
+			if (state.offset > 0) { go(Math.max(0, state.offset - state.limit)); return; }
+		}
+
+		const start = state.offset + 1;
+		const end = state.offset + payload.items.length;
+		const pages = Math.max(1, Math.ceil(state.total / state.limit));
+		const currentPage = Math.floor(state.offset / state.limit) + 1;
+		const hasPrev = state.offset > 0;
+		const hasNext = state.offset + state.limit < state.total;
+
+		host.innerHTML = `
+			<div class="ref-list-head">
+				<h3 class="dn-panel-title" style="margin:0">Your referrals</h3>
+				<span class="ref-list-count">${esc(totalLabel)}</span>
+			</div>
+			${referralsTableShell(payload.items.map(referralRow).join(''))}
+			${state.total > state.limit ? `
+				<div class="ref-pager">
+					<span class="ref-pager-info">Showing ${fmtInt(start)}–${fmtInt(end)} of ${fmtInt(state.total)} · page ${fmtInt(currentPage)}/${fmtInt(pages)}</span>
+					<button class="ref-pgbtn" data-action="prev" ${hasPrev ? '' : 'disabled'} aria-label="Previous page">‹ Prev</button>
+					<button class="ref-pgbtn" data-action="next" ${hasNext ? '' : 'disabled'} aria-label="Next page">Next ›</button>
+				</div>` : ''}
+		`;
+		const prev = host.querySelector('[data-action="prev"]');
+		const next = host.querySelector('[data-action="next"]');
+		if (prev) prev.addEventListener('click', () => go(Math.max(0, state.offset - state.limit)));
+		if (next) next.addEventListener('click', () => go(state.offset + state.limit));
+	}
+
+	function renderLoading() {
+		host.innerHTML = `
+			<div class="ref-list-head">
+				<h3 class="dn-panel-title" style="margin:0">Your referrals</h3>
+				<span class="ref-list-count">Loading…</span>
+			</div>
+			${referralsTableShell(skeletonRows(Math.min(5, state.limit)))}`;
+	}
+
+	async function go(offset) {
+		if (state.loading) return;
+		state.loading = true;
+		state.offset = offset;
+		renderLoading();
+		try {
+			const data = await get(`/api/users/referrals?limit=${state.limit}&offset=${offset}`);
+			renderPage(data?.referred_users || { items: [], total: 0, limit: state.limit, offset });
+		} catch (err) {
+			renderReferralsError(host, err?.message, () => go(offset));
+		} finally {
+			state.loading = false;
+		}
+	}
+
+	// Hydrate from the seed (the membership-card request already fetched page 0).
+	if (seed && seed.items) {
+		renderPage(seed);
+	} else {
+		go(0);
+	}
 }
 
 function renderError(host, message) {
