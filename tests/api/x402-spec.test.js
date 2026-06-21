@@ -69,7 +69,7 @@ const ORIG_ENV = { ...process.env };
 
 beforeEach(() => {
 	// Baseline env every test sees; individual tests may toggle CDP credentials.
-	process.env.X402_PAY_TO_SOLANA = 'BUrwd1nK6tFeeJMyzRHDo6AuVbnSfUULfvwq21X93nSN';
+	process.env.X402_PAY_TO_SOLANA = 'wwwwwDxFWRn7grgr3Esrsg5C6NvDoDHSA4gaCffccrU';
 	process.env.X402_PAY_TO_BASE = '0x4022de2d36c334e73c7a108805cea11c0564f402';
 	process.env.X402_ASSET_MINT_SOLANA = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 	process.env.X402_ASSET_ADDRESS_BASE = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
@@ -158,7 +158,7 @@ describe('permit2VariantOf', () => {
 				scheme: 'exact',
 				network: 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp',
 				amount: '1000',
-				payTo: 'BUrwd1nK6tFeeJMyzRHDo6AuVbnSfUULfvwq21X93nSN',
+				payTo: 'wwwwwDxFWRn7grgr3Esrsg5C6NvDoDHSA4gaCffccrU',
 				asset: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
 				extra: { name: 'USDC', decimals: 6, feePayer: 'x' },
 			}),
@@ -431,7 +431,7 @@ describe('callFacilitator transient retry (via verify/settle)', () => {
 		const requirement = {
 			scheme: 'exact',
 			network: 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp',
-			payTo: 'BUrwd1nK6tFeeJMyzRHDo6AuVbnSfUULfvwq21X93nSN',
+			payTo: 'wwwwwDxFWRn7grgr3Esrsg5C6NvDoDHSA4gaCffccrU',
 			asset: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
 			amount: '1000',
 		};
