@@ -120,7 +120,10 @@ describe('x402 payment modal — trust + a11y', () => {
 			throw new Error('should not reach signing when underfunded');
 		};
 		global.fetch = vi.fn(async (url) => {
-			if (String(url).includes('mainnet')) {
+			// The modal reads the buyer's SPL balance through the same-origin
+			// /api/solana-rpc proxy (getTokenAccountsByOwner); an empty value[]
+			// means a 0 balance, which must surface the insufficient-funds state.
+			if (String(url).includes('solana-rpc')) {
 				return { ok: true, json: async () => ({ result: { value: [] } }) }; // 0 balance
 			}
 			return stub402();
