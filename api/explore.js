@@ -292,17 +292,25 @@ export default wrap(async (req, res) => {
 	const allTotal = Number(onchainTotal) + solCount + avatarCount;
 	const threeDTotal = Number(onchain3d) + avatarCount;
 
-	return json(res, 200, {
-		items,
-		nextCursor,
-		totals: {
-			all: allTotal,
-			threeD: threeDTotal,
-			onchain: Number(onchainTotal),
-			solana: solCount,
-			avatars: avatarCount,
+	return json(
+		res,
+		200,
+		{
+			items,
+			nextCursor,
+			totals: {
+				all: allTotal,
+				threeD: threeDTotal,
+				onchain: Number(onchainTotal),
+				solana: solCount,
+				avatars: avatarCount,
+			},
 		},
-	});
+		// Public, non-personalized discover feed (incl. the leading-wildcard search
+		// scan). CDN-cache by full URL so repeated queries and the firehose of new
+		// visitors are served from the edge instead of re-scanning on every hit.
+		{ 'cache-control': 'public, s-maxage=30, stale-while-revalidate=120' },
+	);
 });
 
 function shortAddr(a) {

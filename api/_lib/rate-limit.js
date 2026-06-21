@@ -347,6 +347,24 @@ export const limits = {
 	// keep that egress bounded. Non-critical: a Redis outage must never block a
 	// rewrite (the enhancer degrades gracefully to the original prompt anyway).
 	forgeEnhance: (key) => getLimiter('forge:enhance', { limit: 40, window: '1 h' }).limit(key),
+	// Diorama composer (api/diorama action:compose) — one free-first LLM
+	// completion per call that decomposes a sentence into a placed object set.
+	// Paid upstream egress, so cap per IP and add a global hourly circuit breaker.
+	// Critical: a Redis outage in prod fails closed rather than handing out
+	// unbounded paid inference (the same posture as the chat/brain buckets).
+	dioramaComposeIp: (ip) =>
+		getLimiter('diorama:compose:ip', { limit: 20, window: '10 m', critical: true }).limit(ip),
+	dioramaComposeGlobal: () =>
+		getLimiter('diorama:compose:global', {
+			limit: Math.max(120, Number(process.env.DIORAMA_COMPOSE_GLOBAL_HOURLY) || 600),
+			window: '1 h',
+			critical: true,
+		}).limit('global'),
+	// Diorama save (api/diorama action:save) — persists a forged world to the
+	// public gallery table. Anonymous write, so cap per IP to stop one caller
+	// carpeting the gallery; non-critical so an infra hiccup never blocks a save.
+	dioramaSaveIp: (ip) =>
+		getLimiter('diorama:save:ip', { limit: 30, window: '10 m' }).limit(ip),
 	// x402 Bazaar MCP. Discovery calls fan out to external facilitators, so cap
 	// per principal to keep that egress bounded without throttling normal use.
 	mcpBazaar: (key) =>

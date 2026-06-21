@@ -17,7 +17,8 @@
  * 503 and the page renders a designed retry state — it never fabricates a world.
  */
 
-import { cors, json, method, readJson, wrap } from './_lib/http.js';
+import { cors, json, method, readJson, wrap, rateLimited } from './_lib/http.js';
+import { limits, clientIp } from './_lib/rate-limit.js';
 import { llmComplete, llmConfigured } from './_lib/llm.js';
 import { saveDiorama, getDiorama, listDioramas, bumpViews, dioramaStoreEnabled } from './_lib/diorama-store.js';
 import {
@@ -106,6 +107,19 @@ async function handleCompose(req, res, body) {
 		});
 	}
 
+	// Compose runs a paid LLM completion — gate per IP and behind a global hourly
+	// circuit breaker so one caller (or an influx) can't drive unbounded inference
+	// spend. The global bucket only trips under a genuine surge or distributed abuse.
+	const ip = clientIp(req);
+	const rl = await limits.dioramaComposeIp(ip);
+	if (!rl.success) {
+		return rateLimited(res, rl, 'World composer limit reached. Try again shortly.');
+	}
+	const globalRl = await limits.dioramaComposeGlobal();
+	if (!globalRl.success) {
+		return rateLimited(res, globalRl, 'The world composer is at capacity. Try again shortly.');
+	}
+
 	let completion;
 	try {
 		completion = await llmComplete({
@@ -158,6 +172,12 @@ async function handleSave(req, res, body) {
 			error: 'sharing_unavailable',
 			message: 'Sharing is not configured on this deployment.',
 		});
+	}
+	// Persisting a world is an anonymous public write — bound per IP so one caller
+	// can't carpet the gallery table.
+	const saveRl = await limits.dioramaSaveIp(clientIp(req));
+	if (!saveRl.success) {
+		return rateLimited(res, saveRl, 'Saving too fast. Try again in a moment.');
 	}
 	let saved;
 	try {
