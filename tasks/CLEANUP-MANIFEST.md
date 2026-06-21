@@ -130,3 +130,19 @@ verifiably present in code:
 | prompts/monetization-prompts/21-gifting-skills.md | DELETE | api/payments/purchase-skill.js + api/_lib/resolve-recipient.js + MonetizationService recipient_user_id path + src/shared/skill-purchase.js gift UI + skill_gift_received notification (purchase-confirm.js:548) fully wire gifting. |
 | prompts/monetization-prompts/21-skill-subscription-model-backend.md | DELETE | Full subscription backend: subscription_plans table, api/subscriptions/{plans,subscribe,verify}.js create/activate flow, and gating in api/_lib/skill-access.js (user_agent_subscriptions + creator_subscriptions). |
 | prompts/monetization-prompts/22-unit-tests-monetization-service.md | DELETE | tests/api/monetization-service.test.js directly tests MonetizationService methods (setSkillPrices, preparePurchaseTransaction, confirmPurchase, etc.) and tests/monetization-service.test.js covers fee/balance/revenue logic. |
+
+## monetization revenue (2026-06-21) — subscription earnings visibility shipped + 2 specs retired
+
+Built: creator subscription income now surfaced in the earnings dashboard.
+- api/billing/revenue.js: adds a  block (income_usd, payment_count,
+  active_subscribers, plan_count) + , sourced from
+  subscription_payments→creator_subscriptions→subscription_plans. USD-denominated
+  and kept SEPARATE from the atomic net_total/withdrawable balance (subscription
+  legs settle creator-direct on-chain) so there is no unit-mixing or double-pay.
+- src/dashboard-next/pages/monetize.js: new "Subscription income" hero card.
+
+Retired (feature verified shipped):
+| spec | evidence |
+| --- | --- |
+| monetization-prompts/21-skill-subscription-model-backend.md | subscription_plans/creator_subscriptions/subscription_payments (schema.sql:1205+); api/subscriptions/{plans,subscribe,verify}.js; api/_lib/subscription-billing.js; gating in api/_lib/skill-access.js (creator_subscriptions check); process-subscriptions cron in api/cron/[name].js |
+| monetization-prompts/17-database-schema-creator-payouts.md | creator payout function shipped via agent_revenue_events (balance ledger) + agent_withdrawals (payout log) + api/billing/{revenue,withdrawals,payout-wallets} + process-withdrawals cron; the spec-named creator_balances/creator_payouts tables are intentionally superseded by this canonical ledger |
