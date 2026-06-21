@@ -36,6 +36,7 @@ export default defineConfig({
 			'tests/**/*.test.mjs',
 			'src/**/*.test.js',
 			'api/_lib/coin/**/*.test.js',
+			'tour-sdk/test/**/*.test.mjs',
 		],
 		// 45s proved too tight for this environment: with every fork cold-importing
 		// multi-thousand-module graphs concurrently, single imports have been
