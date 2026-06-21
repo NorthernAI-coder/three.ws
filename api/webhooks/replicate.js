@@ -24,6 +24,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 import { sql } from '../_lib/db.js';
 import { json, method, wrap, error } from '../_lib/http.js';
 import { finalizeReconstructStage } from '../_lib/reconstruct-finalize.js';
+import { finalizeAutoRigStage } from '../_lib/auto-rig.js';
 
 const REPLAY_WINDOW_SECONDS = 5 * 60;
 
@@ -171,7 +172,7 @@ export default wrap(async (req, res) => {
 	// simple equality match. Skip silently if the prediction isn't ours —
 	// other Replicate apps in the same account can land here harmlessly.
 	const rows = await sql`
-		select job_id, user_id, status, result_avatar_id, mode, params
+		select job_id, user_id, status, result_avatar_id, mode, params, source_avatar_id
 		from avatar_regen_jobs
 		where ext_job_id = ${extJobId}
 		limit 1
@@ -218,6 +219,25 @@ export default wrap(async (req, res) => {
 			// Finalize failure isn't fatal for the webhook ack — the next
 			// /regenerate-status poll will retry the materialize/rig path.
 			console.warn('[replicate-webhook] finalize failed', { jobId: job.job_id, error: err?.message });
+		}
+	}
+
+	// Auto-rig completion — a static upload/import/forge avatar was sent through a
+	// 'rerig' job tagged auto_rig. Swap the rigged GLB in place on the source
+	// avatar now so it becomes animation-ready without waiting on a browser poll
+	// (MCP/headless creations never poll). Same SSRF host-pin as above.
+	if (
+		nextStatus === 'done' &&
+		nextGlbUrl &&
+		isAllowedResultUrl(nextGlbUrl) &&
+		job.mode === 'rerig' &&
+		job.params?.auto_rig === true &&
+		!job.result_avatar_id
+	) {
+		try {
+			await finalizeAutoRigStage({ userId: job.user_id, jobId: job.job_id, job, glbUrl: nextGlbUrl });
+		} catch (err) {
+			console.warn('[replicate-webhook] auto-rig finalize failed', { jobId: job.job_id, error: err?.message });
 		}
 	}
 

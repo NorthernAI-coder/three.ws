@@ -1,10 +1,10 @@
-// director.js — the brain of the Feature Tour. It walks the curriculum stop by
-// stop: for each one it finds the real on-page element to showcase, spotlights
-// it, walks the guide avatar over to point at it, draws a beam from the avatar
-// to the feature, speaks the narration, and — unless paused — advances. When
-// the next stop lives on another route it persists progress and navigates; the
-// tour re-hydrates from sessionStorage on the new page and picks up exactly
-// where it left off. One module owns all of that sequencing and every control.
+// director.js — the brain of the tour. It walks the curriculum stop by stop:
+// for each one it finds the real on-page element to showcase, spotlights it,
+// walks the guide avatar over to point at it, draws a beam from the avatar to
+// the feature, speaks the narration, and — unless paused — advances. When the
+// next stop lives on another route it persists progress and navigates; the tour
+// re-hydrates from sessionStorage on the new page and picks up exactly where it
+// left off. One module owns all of that sequencing and every control.
 //
 // Navigation is expressed over a *playlist* — the ordered list of stop indices
 // the chosen track visits (the Full track is every stop; the Quick track is the
@@ -16,16 +16,13 @@
 
 import {
 	loadCurriculum,
-	readState,
-	writeState,
-	clearState,
-	readResume,
-	markCompleted,
+	createTourState,
 	buildPlaylist,
 	normalizePath,
 	stopIndexForPath,
 	sectionTitle,
 } from './curriculum.js';
+import { resolveTourConfig } from './config.js';
 import { GuideAvatar } from './guide-avatar.js';
 import { Spotlight } from './spotlight.js';
 import { Narrator } from './narrator.js';
@@ -38,7 +35,9 @@ const Z_BEAM = 2147483280;
 const SPEED_CYCLE = [1, 1.25, 1.5, 0.75];
 
 export class TourDirector {
-	constructor() {
+	constructor(config) {
+		this.config = config && config.keys ? config : resolveTourConfig(config);
+		this.state = createTourState(this.config);
 		this.curriculum = null;
 		this.playlist = [];
 		this.pos = 0;
@@ -46,7 +45,7 @@ export class TourDirector {
 		this.track = 'full';
 		this.paused = false;
 		this.muted = false;
-		this.voice = 'nova';
+		this.voice = this.config.defaultVoice;
 		this.speed = 1;
 		this.mounted = false;
 		this.offRoute = false;
@@ -61,14 +60,15 @@ export class TourDirector {
 
 	// ── Entry points ──────────────────────────────────────────────────────────
 
-	// Begin a fresh tour from the very first stop (called by the "Start tour"
-	// button / ?tour=start). `track` chooses Quick vs Full; voice/speed default to
-	// the visitor's remembered preferences. Navigates to stop 0's page if needed.
+	// Begin a fresh tour from the very first stop (called by the host's "Start
+	// tour" action / the deep-link). `track` chooses Quick vs Full; voice/speed
+	// default to the visitor's remembered preferences. Navigates to stop 0's page
+	// if needed.
 	async start(track) {
 		await this._ensureCurriculum();
-		const prefs = readResume();
+		const prefs = this.state.readResume();
 		this.track = track || 'full';
-		this.voice = prefs.voice || 'nova';
+		this.voice = prefs.voice || this.config.defaultVoice;
 		this.speed = prefs.speed || 1;
 		this.muted = false;
 		this.paused = false;
@@ -76,7 +76,7 @@ export class TourDirector {
 		this.playlist = buildPlaylist(this.curriculum, this.track);
 		this.pos = 0;
 		this.index = this.playlist[0] ?? 0;
-		writeState({
+		this.state.writeState({
 			active: true,
 			index: this.index,
 			track: this.track,
@@ -96,12 +96,12 @@ export class TourDirector {
 
 	// Re-hydrate on a normal page load when a tour is already in progress.
 	async resume() {
-		const state = readState();
+		const state = this.state.readState();
 		if (!state.active) return;
 		await this._ensureCurriculum();
 		this.paused = state.paused;
 		this.muted = state.muted;
-		this.voice = state.voice || 'nova';
+		this.voice = state.voice || this.config.defaultVoice;
 		this.speed = state.speed || 1;
 		this.track = state.track || 'full';
 		this.playlist = buildPlaylist(this.curriculum, this.track);
@@ -114,7 +114,7 @@ export class TourDirector {
 		} else if (here >= 0) {
 			this.index = here; // visitor hand-navigated to another stop's page
 			this.offRoute = false;
-			writeState({ index: here });
+			this.state.writeState({ index: here });
 		} else {
 			this.index = wanted; // wandered off the route entirely
 			this.offRoute = true;
@@ -130,22 +130,22 @@ export class TourDirector {
 	}
 
 	async _ensureCurriculum() {
-		if (!this.curriculum) this.curriculum = await loadCurriculum();
+		if (!this.curriculum) this.curriculum = await loadCurriculum(this.config);
 	}
 
 	// ── Mounting ──────────────────────────────────────────────────────────────
 	async _mount() {
 		if (this.mounted) return;
 		this.mounted = true;
-		// The site-wide corner companion is the same kind of avatar — during the
-		// tour it would just be a second body on screen, so stand it down (and its
+		// A companion avatar (e.g. the @three-ws/walk corner mascot) would just be a
+		// second body on screen during the tour, so stand it down (and its
 		// click-to-walk, which would otherwise fight free roam) and bring it back
 		// when the tour ends.
 		this._suppressCompanion();
 		this._buildBeam();
 		this.spotlight = new Spotlight();
-		this.narrator = new Narrator();
-		this.avatar = new GuideAvatar();
+		this.narrator = new Narrator(this.config);
+		this.avatar = new GuideAvatar(this.config);
 		await this.avatar.mount();
 		this.freeRoam = new FreeRoam(this.avatar);
 		this.controls = new TourControls({
@@ -166,14 +166,9 @@ export class TourDirector {
 				onTrack: (t) => this._applyTrack(t),
 				onSpeed: (v) => this._setSpeed(v),
 				onVoice: (v) => this._setVoice(v),
-				onAvatar: (entry) => this._setAvatar(entry),
 				onOpenChange: (open) => this.controls.setMenuOpen(open),
 			},
-			{
-				avatars: this.avatar.avatars(),
-				currentId: this.avatar.currentAvatarId(),
-				docsUrl: '/avatar-studio',
-			},
+			this.config.voices,
 		);
 		this.controls.setMuted(this.muted);
 		this.controls.setPaused(this.paused);
@@ -194,7 +189,7 @@ export class TourDirector {
 
 		this._syncControls();
 		this.panel?.setActive(this.index);
-		writeState({ index: this.index });
+		this.state.writeState({ index: this.index });
 
 		// Chapter bridge — spoken once per section per session.
 		if (stop.sectionIntro && !this._seenSections.has(stop.section)) {
@@ -261,7 +256,7 @@ export class TourDirector {
 		this.narrator?.cancel();
 		this.pos = clamped;
 		this.index = this.playlist[clamped];
-		writeState({ index: this.index });
+		this.state.writeState({ index: this.index });
 		this.panel?.setActive(this.index);
 		const stop = this.curriculum.stops[this.index];
 		if (normalizePath(stop.path) === normalizePath()) {
@@ -282,7 +277,7 @@ export class TourDirector {
 	_togglePause() {
 		if (this.roam) return this._exitRoam(); // play rejoins the tour from roam
 		this.paused = !this.paused;
-		writeState({ paused: this.paused });
+		this.state.writeState({ paused: this.paused });
 		this.controls.setPaused(this.paused);
 		if (this.paused) {
 			clearTimeout(this._advanceTimer);
@@ -299,7 +294,7 @@ export class TourDirector {
 
 	_toggleMute() {
 		this.muted = !this.muted;
-		writeState({ muted: this.muted });
+		this.state.writeState({ muted: this.muted });
 		this.controls.setMuted(this.muted);
 		this.narrator.cancel();
 		if (!this.paused) {
@@ -316,7 +311,7 @@ export class TourDirector {
 		this.playlist = buildPlaylist(this.curriculum, track);
 		this.pos = this._posForAbs(abs);
 		this.index = this.playlist[this.pos];
-		writeState({ track, index: this.index });
+		this.state.writeState({ track, index: this.index });
 		this.panel?.setTrack(track);
 		this._syncControls();
 		if (!silent) this._go(this.pos); // re-anchor to the (possibly new) stop
@@ -331,7 +326,7 @@ export class TourDirector {
 		const next = Math.min(2, Math.max(0.5, Number(value) || 1));
 		if (next === this.speed) return;
 		this.speed = next;
-		writeState({ speed: next });
+		this.state.writeState({ speed: next });
 		this.controls?.setSpeed(next);
 		this.panel?.setSpeed(next);
 		// Re-narrate the current stop at the new rate if we're actively playing.
@@ -344,21 +339,12 @@ export class TourDirector {
 	_setVoice(value) {
 		if (!value || value === this.voice) return;
 		this.voice = value;
-		writeState({ voice: value });
+		this.state.writeState({ voice: value });
 		this.panel?.setVoice(value);
 		if (!this.paused && !this.offRoute && this.mounted) {
 			const token = ++this._runToken;
 			this._narrateAndMaybeAdvance(token);
 		}
-	}
-
-	// Swap the guide to any avatar the visitor picks. The guide persists the choice
-	// (shared with the site-wide Walk Companion) and resolves to the entry actually
-	// shown — the fallback if the pick failed to load — which we echo back to the
-	// panel so its button and the picker's check mark stay truthful.
-	async _setAvatar(entry) {
-		const shown = await this.avatar.setAvatar(entry);
-		if (shown?.id) this.panel?.setAvatarCurrent(shown.id);
 	}
 
 	// ── Free roam ───────────────────────────────────────────────────────────────
@@ -391,13 +377,15 @@ export class TourDirector {
 		// Rejoining the tour means playing again from the current stop.
 		this.paused = false;
 		this.controls?.setPaused(false);
-		writeState({ paused: false });
+		this.state.writeState({ paused: false });
 		this._go(this.pos);
 	}
 
-	// ── Corner-companion suppression (de-dupe the on-screen avatar) ──────────────
+	// ── Companion suppression (de-dupe the on-screen avatar) ─────────────────────
 	_suppressCompanion() {
-		const w = window.__walkCompanion;
+		const cfg = this.config.companion;
+		if (!cfg) return;
+		const w = window[cfg.global];
 		if (!w) return;
 		this._companionWasOn = !!(w.instance?.mounted || (w.isEnabled && w.isEnabled()));
 		const hide = () => {
@@ -411,15 +399,17 @@ export class TourDirector {
 		// The companion auto-mounts on load (and on playground return); re-hide it
 		// whenever it reappears while the tour owns the screen.
 		this._onCompanionChange = hide;
-		window.addEventListener('walk-companion:change', this._onCompanionChange);
+		window.addEventListener(cfg.changeEvent, this._onCompanionChange);
 	}
 
 	_restoreCompanion() {
-		if (this._onCompanionChange) {
-			window.removeEventListener('walk-companion:change', this._onCompanionChange);
+		const cfg = this.config.companion;
+		if (cfg && this._onCompanionChange) {
+			window.removeEventListener(cfg.changeEvent, this._onCompanionChange);
 			this._onCompanionChange = null;
 		}
-		const w = window.__walkCompanion;
+		if (!cfg) return;
+		const w = window[cfg.global];
 		if (!w || !this._companionWasOn) return;
 		try {
 			if (!w.instance?.mounted) (w.instance ? w.instance.mount() : w.enable?.());
@@ -450,11 +440,11 @@ export class TourDirector {
 		this.spotlight.highlight(null);
 		this.avatar.park();
 		this.paused = true;
-		writeState({ paused: true });
+		this.state.writeState({ paused: true });
 		this.controls.setPaused(true);
 		this._syncControls();
 		this.panel?.setActive(this.index);
-		this.avatar.say('We stepped off the tour — press play and I’ll take you back to where we were.');
+		this.avatar.say(this.config.copy.offRoute);
 	}
 
 	// ── Finish ────────────────────────────────────────────────────────────────
@@ -464,24 +454,27 @@ export class TourDirector {
 		this.spotlight.highlight(null);
 		await this.avatar.park();
 		this.avatar.point();
-		const outro = "And that's the whole platform. You've seen how to build an agent, give it a body and a voice, take it on-chain, and put it to work. Go make something — I'll be around if you want to walk it again.";
-		await this._present(outro, token);
-		markCompleted();
-		clearState();
+		await this._present(this.config.copy.outro, token);
+		this.state.markCompleted();
+		this.state.clearState();
 		this._showCompletion();
 	}
 
 	_showCompletion() {
+		const done = this.config.copy.completion;
 		const card = document.createElement('div');
 		card.className = 'tws-tour-done';
+		const primary = done.primary
+			? `<a class="tws-tour-done__btn tws-tour-done__btn--primary" href="${escAttr(done.primary.href)}">${escHtml(done.primary.label)}</a>`
+			: '';
 		card.innerHTML = `
 			<div class="tws-tour-done__inner" role="dialog" aria-label="Tour complete">
-				<div class="tws-tour-done__title">Tour complete 🎉</div>
-				<p class="tws-tour-done__body">You've walked the whole of three.ws. Where to next?</p>
+				<div class="tws-tour-done__title">${escHtml(done.title)}</div>
+				<p class="tws-tour-done__body">${escHtml(done.body)}</p>
 				<div class="tws-tour-done__actions">
-					<a class="tws-tour-done__btn tws-tour-done__btn--primary" href="/create-agent">Build your agent</a>
-					<button class="tws-tour-done__btn" data-act="restart">Walk it again</button>
-					<button class="tws-tour-done__btn" data-act="close">Explore on my own</button>
+					${primary}
+					<button class="tws-tour-done__btn" data-act="restart">${escHtml(done.restartLabel)}</button>
+					<button class="tws-tour-done__btn" data-act="close">${escHtml(done.closeLabel)}</button>
 				</div>
 			</div>`;
 		ensureDoneStyles();
@@ -504,7 +497,7 @@ export class TourDirector {
 	exit() {
 		this._runToken++;
 		clearTimeout(this._advanceTimer);
-		clearState();
+		this.state.clearState();
 		this._stopBeam();
 		this._beam?.remove();
 		document.removeEventListener('keydown', this._onKey);
@@ -599,7 +592,7 @@ export class TourDirector {
 
 	_navigate(path) {
 		// Progress is already persisted; the new page's bootstrap calls resume().
-		location.assign(path);
+		this.config.navigate(path);
 	}
 
 	_onKey(e) {
@@ -644,6 +637,15 @@ function isTypingTarget(el) {
 	if (!el) return false;
 	const tag = el.tagName;
 	return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable;
+}
+function escHtml(s) {
+	return String(s == null ? '' : s).replace(
+		/[&<>"']/g,
+		(c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c],
+	);
+}
+function escAttr(s) {
+	return escHtml(s);
 }
 
 let _doneStyles = false;

@@ -3,10 +3,37 @@
 	"entries": [
 		{
 			"date": "2026-06-21",
+			"title": "Every avatar you create now auto-rigs so it can move",
+			"summary": "A 3D model can only walk, wave, and emote if it has a skeleton. Until now only prompt and selfie avatars got one automatically — a GLB you uploaded, imported by link, or generated in chat would land as a frozen statue. Now every creation path auto-rigs: drop in a static model and the platform quietly builds a skeleton in the background and swaps the animation-ready version in place, so the avatar (and the agent it backs) can play the full motion library. Models that already carry a skeleton — like Avaturn characters — are left untouched, never re-rigged. If rigging isn't available on a deployment, you still get your model, exactly as before.",
+			"tags": [
+				"feature",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"title": "Pick your own guide for the product tour",
+			"summary": "The 3D guide who walks you through the product tour now starts as Ava, our photoreal full-body character — and you can swap her for anyone in the cast. Open the tour menu and use the new Guide picker to choose any avatar (your own custom ones included); the tour switches on the spot and remembers your pick. She also obeys gravity now, just like your character on the Walk pages: she drops in and plants her feet on the ground instead of hovering.",
+			"tags": [
+				"feature",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-21",
 			"title": "USDC checkout no longer fails when an RPC node hiccups",
 			"summary": "Paying with USDC at a door (like the Pole Club cover charge) could occasionally fail with an \"internal error\" right after you connected your wallet, if our Solana RPC briefly returned a malformed reply while building your payment. The checkout now shrugs that off and builds the transaction anyway, so a flaky node no longer turns you away at the door. Nothing was ever charged when this happened.",
 			"tags": [
 				"fix"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"title": "Solana stays online even if our paid RPC goes dark",
+			"summary": "Everything onchain — paying, minting, balances, name lookups — depends on a Solana RPC node answering. When our primary paid node was throttled or its plan lapsed, some of those reads could error out. The platform now falls through a deeper chain: the paid node first, then several backup providers, then five independent public nodes (each verified live), so a request only fails if every one of them is down at the same moment. The embeddable payment widget and Solana name registration were moved onto the same resilient connection.",
+			"tags": [
+				"fix",
+				"infra"
 			]
 		},
 		{

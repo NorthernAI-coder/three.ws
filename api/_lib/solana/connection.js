@@ -11,10 +11,15 @@
 //
 // Priority (per network): the caller's explicit url (if any) → Helius → Alchemy
 // → dRPC (authenticated) → Ankr (authenticated only) → operator-supplied
-// SOLANA_RPC_FALLBACK_URLS → PublicNode → the keyless public endpoint, always
-// last. We never depend on the public endpoint alone — it is the most
-// aggressively rate-limited (the source of the `getBalance 429` log noise) — and
-// we never include a keyless Ankr URL, which Ankr now answers with a hard 403.
+// SOLANA_RPC_FALLBACK_URLS → PublicNode → Leo RPC (keyless FREE tier) → Tatum →
+// therpc → the official mainnet-beta endpoint, always last. We never depend on the
+// public endpoint alone — it is the most aggressively rate-limited (the source of
+// the `getBalance 429` log noise) — and we never include a keyless Ankr URL, which
+// Ankr now answers with a hard 403. The keyless tail (PublicNode + Leo RPC + Tatum
+// + therpc + mainnet-beta) is what keeps checkout serving when a paid plan lapses:
+// all five were verified serving live getLatestBlockhash/getAccountInfo on Solana
+// mainnet, so even with every API key dead the chain still resolves a working node
+// instead of erroring out.
 //
 // To survive a single provider's quota running dry (e.g. a paid Helius plan
 // exhausting its monthly requests), register free-tier keys at several providers
@@ -172,6 +177,23 @@ export function solanaRpcEndpoints(network = 'mainnet', url = null) {
 		// uses) so failover lands on a working endpoint instead of depending on the
 		// aggressively rate-limited public mainnet-beta endpoint alone.
 		'https://solana-rpc.publicnode.com',
+		// Leo RPC keyless FREE tier — a second un-throttled keyless lane so the
+		// chain still has depth when every paid key is exhausted (e.g. a Helius plan
+		// lapsing mid-billing-cycle). Verified serving getAccountInfo on mainnet.
+		'https://solana.leorpc.com/?api_key=FREE',
+		// Tatum + therpc — two more keyless public lanes. PublicNode, Leo RPC and
+		// Tatum were each verified serving getAccountInfo (the method whose malformed
+		// response 500'd checkout); therpc was verified on getLatestBlockhash but is
+		// flaky on getAccountInfo (intermittently returns an empty body), so it sits
+		// last before mainnet-beta and leans on the classifyRpcBody guard to fail over
+		// when it returns garbage — it adds redundancy for the methods it serves
+		// without ever handing web3.js something it can't parse. With mainnet-beta this
+		// is five keyless fallbacks: a request only errors if all five are down at
+		// once. The free public-RPC pool has thinned (most providers now 401/403/429
+		// keyless), so this set is curated to ones that actually respond — re-verify
+		// any that start cooling persistently in the failover logs.
+		'https://api.tatum.io/v3/blockchain/node/solana-mainnet',
+		'https://solana.therpc.io',
 		PUBLIC_MAINNET,
 	]);
 }
@@ -183,6 +205,78 @@ function maskUrl(url) {
 	} catch {
 		return String(url).slice(0, 24);
 	}
+}
+
+// JSON-RPC error codes that mean "this provider can't serve you right now" — a
+// capacity/quota/auth/staleness problem the NEXT provider may not share, so we
+// fail over instead of surfacing it. Crucially this is how an exhausted paid plan
+// answers: HTTP 200 with `{"error":{"code":-32429,"message":"max usage reached"}}`
+// — no rotate-worthy HTTP status, so without this it leaks straight to the caller.
+// Method/data errors (-32600 invalid request, -32601 method not found, -32602
+// invalid params, -32002 tx simulation failed) are deterministic across providers
+// and are intentionally excluded — rotating on those would just retry a guaranteed
+// failure on every lane.
+const PROVIDER_CAPACITY_CODES = new Set([
+	-32429, // Helius / common: max usage / quota reached
+	-32029, // OnFinality / common: too many requests
+	-32052, // Ankr: key not allowed / forbidden
+	-32005, // node is behind by N slots — a fresher node may answer
+	-32004, // block/slot not available yet — another node may have it
+]);
+
+function isProviderCapacityError(rpcError) {
+	if (!rpcError || typeof rpcError !== 'object') return false;
+	if (PROVIDER_CAPACITY_CODES.has(rpcError.code)) return true;
+	return /too many requests|rate.?limit|quota|usage limit|credits?\s*exhausted|forbidden|api key|unauthor|max usage/i.test(
+		String(rpcError.message || ''),
+	);
+}
+
+// Classify a 200-status RPC body. Returns null when it's a usable JSON-RPC
+// response web3.js can parse; otherwise a {status, reason, log, bodyText} telling
+// the rotating fetch to fail over. This is the guard that turns the recurring
+// `StructError: Expected the value to satisfy a union … but received:` into a
+// transparent failover: that error is web3.js choking on a 200 body that is NOT a
+// well-formed JSON-RPC response (empty, HTML interstitial, truncated JSON, or a
+// `{jsonrpc,id}` envelope with neither `result` nor `error`). We detect every one
+// of those shapes here — plus provider-capacity JSON-RPC errors — and route past
+// the bad node instead of handing the caller something it cannot parse.
+export function classifyRpcBody(body) {
+	const trimmed = (body || '').trim();
+	if (trimmed === '') return { status: 502, reason: 'empty body', log: '200 but empty body', bodyText: '' };
+	if (trimmed[0] === '<') return { status: 502, reason: 'HTML body', log: '200 but HTML body', bodyText: '' };
+	let parsed;
+	try {
+		parsed = JSON.parse(trimmed);
+	} catch {
+		return { status: 502, reason: 'unparseable body', log: '200 but unparseable JSON', bodyText: '' };
+	}
+	// Single response or a JSON-RPC batch array — every element must be a valid envelope.
+	const items = Array.isArray(parsed) ? parsed : [parsed];
+	if (items.length === 0) {
+		return { status: 502, reason: 'empty batch', log: '200 but empty JSON-RPC batch', bodyText: '' };
+	}
+	for (const item of items) {
+		if (!item || typeof item !== 'object') {
+			return { status: 502, reason: 'malformed envelope', log: '200 but malformed JSON-RPC envelope', bodyText: '' };
+		}
+		const hasResult = 'result' in item;
+		const hasError = 'error' in item;
+		if (!hasResult && !hasError) {
+			// Neither field present — the exact shape that produces the empty-`received:`
+			// StructError. `result: null` is fine (the key is present); this catches a
+			// genuinely truncated/garbage envelope.
+			return { status: 502, reason: 'missing result/error', log: '200 but JSON-RPC envelope missing result/error', bodyText: '' };
+		}
+		if (hasError && isProviderCapacityError(item.error)) {
+			const code = item.error?.code ?? '';
+			const msg = String(item.error?.message || '');
+			// status 429 → cooldownMsFor scans the message for a quota signal and parks
+			// a truly-exhausted plan for hours rather than re-hitting it every call.
+			return { status: 429, reason: `provider error ${code}`.trim(), log: `200 + provider error ${code} ${msg.slice(0, 48)}`.trim(), bodyText: msg };
+		}
+	}
+	return null;
 }
 
 // Rotate this endpoint out of service on a 401/403 (bad/expired key on this
@@ -247,29 +341,28 @@ export function makeRotatingFetch(endpoints) {
 					continue;
 				}
 				// A healthy 2xx status is not a guarantee of a usable body. Under load
-				// some providers answer a JSON-RPC POST with 200 + an empty payload or
-				// 200 + an HTML interstitial/error page instead of a 5xx. web3.js then
-				// runs that through its superstruct result schema and throws
-				// `StructError: Expected the value to satisfy a union of type | type,
-				// but received:` (the empty/garbage body) straight to the caller,
-				// WITHOUT rotating, because a parse error carries no rotate-worthy HTTP
-				// status. That single failure mode produced the recurring StructError
-				// noise across getBalance / getLatestBlockhash / getSignaturesForAddress
-				// / getBuyQuote. Detect the poison body here and fail over to the next
-				// provider instead of handing web3.js something it cannot parse.
+				// (or with an exhausted paid plan) some providers answer a JSON-RPC POST
+				// with 200 + an empty payload, an HTML interstitial, a truncated body, a
+				// `{jsonrpc,id}` envelope missing `result`, or a 200 + JSON-RPC capacity
+				// error. web3.js runs any of those through its superstruct result schema
+				// and throws `StructError: Expected the value to satisfy a union of
+				// type | type, but received:` straight to the caller WITHOUT rotating,
+				// because a parse error carries no rotate-worthy HTTP status — the single
+				// failure mode behind the recurring StructError noise across getBalance /
+				// getLatestBlockhash / getAccountInfo / getSignaturesForAddress. classify
+				// the body here and fail over instead of handing web3.js something it
+				// cannot parse.
 				const okBody = await resp.text();
-				const firstChar = okBody.trimStart()[0];
-				if (okBody.trim() === '' || firstChar === '<') {
+				const bad = classifyRpcBody(okBody);
+				if (bad) {
 					const alreadyCooling = isEndpointCooling(url);
-					// Treat like a transient provider 5xx: short cooldown, not a long
-					// quota park. The endpoint is up but momentarily returning garbage.
-					const ms = markEndpointCooldown(url, 502, '');
+					const ms = markEndpointCooldown(url, bad.status, bad.bodyText || '');
 					if (!alreadyCooling) {
 						console.log(
-							`[solana-rpc] ${maskUrl(url)} 200 but ${okBody.trim() === '' ? 'empty' : 'non-JSON'} body — cooling ${Math.round(ms / 60_000)}m, failing over`,
+							`[solana-rpc] ${maskUrl(url)} ${bad.log} — cooling ${Math.round(ms / 60_000)}m, failing over`,
 						);
 					}
-					lastErr = new Error(`solana rpc non-JSON-RPC body @ ${maskUrl(url)}`);
+					lastErr = new Error(`solana rpc ${bad.reason} @ ${maskUrl(url)}`);
 					continue;
 				}
 				// Body already consumed above; hand web3.js a fresh Response carrying
