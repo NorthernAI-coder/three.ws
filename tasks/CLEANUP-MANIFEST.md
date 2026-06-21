@@ -81,3 +81,22 @@ Notable genuine gaps surfaced by the audit (still pending work):
 - **task-06** (mcp.js ≤60 lines: actual 90), **task-09** (no `PUT /api/agent-memory`).
 - **agent-monetization 03/08/12/15/16/17/19**: x402 404-vs-409 mismatch, payout-wallet UI section, platform-fee display, cron `SKIP LOCKED`, per-payer rate limit, per-type notif opt-out, security-review artifact.
 - **pump-dashboard 12**: server-side whale/fees/launch alert matching.
+
+
+## prompts/ sweep (2026-06-21) — 7 specs deleted (feature verified shipped)
+
+Read-only verification across all prompts/ groups (most are aspirational best-version
+specs that do not meet their own DoD — kept). DELETE only where every deliverable is
+verifiably present in code:
+
+| spec | evidence (file:symbol proving shipped) |
+| --- | --- |
+| prompts/agent-wallets/02-wallet-hud-drawer.md | pages/agent-wallet.html + src/agent-wallet-hub/tabs/{balance,deposit,withdraw,vanity}.js; /api/agents/:id/solana holdings/withdraw/limits/custody/activity all real |
+| prompts/agent-wallets/03-vanity-studio.md | src/agent-wallet-hub/tabs/vanity.js (grind+estimate+sweep); POST /api/agents/:id/solana/vanity in api/agents/solana-wallet.js |
+| prompts/animation-studio/00-README.md | whole group shipped: pages/pose.html, src/pose-studio.js, api/animations/clips.js, migration 2026-05-31-animation-clips.sql |
+| prompts/animation-studio/07-nav-promotion-and-polish.md | /pose nav wired; api/animations/sell.js + api/x402/animation-download.js monetization live |
+| prompts/avatar-animation-hardening/00-README.md | whole group shipped: src/animation-canonical-rest.js, src/animation-retarget.js, src/glb-canonicalize.js, tests/animation-upright-invariant.test.js |
+| prompts/avatar-animation-hardening/01-full-bind-correction.md | canonical rest pose + per-bone bind correction in animation-retarget.js; locked by tests/animation-retarget.test.js |
+| prompts/avatar-animation-hardening/06-final-qa-and-promote.md | runtime fallen-pose guard in animation-manager.js; regression corpus tests/animation-upright-invariant.test.js green |
+
+**KEEP (notable):** all monetization/ + monetization-prompts/ (subscriptions, bundles, NFT receipts, fiat, creator payouts, email, admin — none shipped); all feature-innovation/ (improvement specs, gaps remain); all living-agents/, living-wallet/, wallet-innovation/, inventions/, moonshots/, agent-studio 04-12, vanity-* (named modules absent).
