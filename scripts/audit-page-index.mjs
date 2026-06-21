@@ -43,6 +43,7 @@ const IGNORE = new Set([
 	'/widget', // embed surface, not a discovery page
 	'/agent/index.html', // internal SPA shell
 	'/avatar-studio', // editor shell reached from /create + /app, not a landing
+	'/avatar-edit', // noindex avatar customizer reached in-flow with an id, not a landing
 	'/create-review', // mid-flow step of /create
 	'/deploy', // post-create deploy step, reached in-flow
 	'/demos', // internal demo index
