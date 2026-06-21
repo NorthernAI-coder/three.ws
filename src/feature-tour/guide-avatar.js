@@ -292,6 +292,7 @@ export class GuideAvatar {
 	dispose() {
 		cancelAnimationFrame(this._raf);
 		clearTimeout(this._walkTimer);
+		clearTimeout(this._settleTimer);
 		this._raf = 0;
 		try {
 			this.controller?.dispose();

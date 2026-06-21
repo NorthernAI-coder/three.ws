@@ -3,6 +3,34 @@
 	"entries": [
 		{
 			"date": "2026-06-21",
+			"title": "My Collection page now loads",
+			"summary": "The /collection page — where your unlocked skills and active subscriptions live — was returning a 404 because its route pointed at the wrong build path, and its subscriptions list was calling an endpoint that rejected the request. Both are fixed: the page loads, your purchased skills and NFT receipts render, and the Subscriptions tab now shows your active creator subscriptions with plan, price, renewal date, and a link to each creator. The marketplace analytics page had the same routing fault and now loads too.",
+			"tags": [
+				"fix"
+			],
+			"link": "/collection"
+		},
+		{
+			"date": "2026-06-21",
+			"title": "Free roam: walk the tour guide around the page yourself",
+			"summary": "The guided tour now has a free-roam mode (the 🧭 button, or press R). Click anywhere on the page and the 3D guide walks there; grab it and drag it around; drag it to the top or bottom edge and the page scrolls so you can walk it up and down the whole page. Press play to drop right back into the tour where you left off. We also stopped the corner walking companion from doubling up: while the guided tour is running, the corner companion steps aside so there's only ever one avatar on screen, and it returns the moment the tour ends.",
+			"tags": [
+				"feature",
+				"improvement"
+			],
+			"link": "/tour"
+		},
+		{
+			"date": "2026-06-21",
+			"title": "Free neural voice for agents — high-quality speech, no API key",
+			"summary": "Agents now have a third voice option, 'neural', alongside browser and ElevenLabs. It runs a neural text-to-speech model entirely in your browser (on the GPU where available), so it sounds far better than the robotic built-in browser voice while costing nothing — no API key, no per-word charges, and the audio never leaves your device. Because the model returns exact phoneme timings, lip-sync is locked to the actual speech instead of estimated from text. Pick it under Voice in the agent builder and choose a Kokoro voice like af_bella or am_fenrir. First use downloads the model once.",
+			"tags": [
+				"feature",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-21",
 			"title": "Imported avatars now animate with correct arm and leg orientation",
 			"summary": "Animations are authored on one reference rig and retargeted onto whatever avatar you bring — Mixamo, Ready Player Me, VRoid, and more. We found that limbs on those rigs could play roughly 30° off from where they should be, because the retarget replayed each joint's motion in the wrong frame when a rig's rest pose differed from ours. The retarget now preserves each joint's true world-space motion, so idle, walk, and every other clip drive a foreign rig's arms and legs the way they were animated. Avatars matching the reference rig are byte-for-byte unchanged.",
 			"tags": [

@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-21T07:50:59.849Z",
+	"generated_at": "2026-06-21T07:55:33.519Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -218,9 +218,31 @@
 		{
 			"date": "2026-06-21",
 			"type": "update",
+			"title": "Free neural voice for agents — high-quality speech, no API key",
+			"summary": "Agents now have a third voice option, 'neural', alongside browser and ElevenLabs. It runs a neural text-to-speech model entirely in your browser (on the GPU where available), so it sounds far better than the robotic built-in browser voice while costing nothing — no API key, no per-word charges, and the audio never leaves your device. Because the model returns exact phoneme timings, lip-sync is locked to the actual speech instead of estimated from text. Pick it under Voice in the agent builder and choose a Kokoro voice like af_bella or am_fenrir. First use downloads the model once.",
+			"link": null,
+			"tags": [
+				"feature",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "update",
 			"title": "Free photo → 3D is now a one-click engine in Forge",
 			"summary": "Turning a photo into a 3D model is free — and now you can pick it directly. Forge's engine selector has a new 'Hunyuan3D / TRELLIS' lane marked with a FREE badge that reconstructs your uploaded photo (or 2–4 angles) into a textured GLB at no cost and with no API key, running on community GPU Spaces with automatic failover across Hunyuan3D, TRELLIS, and TripoSR. Until now the free photo lane only kicked in behind the scenes; it's a first-class choice in the picker, shows live availability, and never silently falls back to a paid engine. The FREE badge also marks every other no-cost lane so you can always see which engines cost nothing.",
 			"link": "/forge",
+			"tags": [
+				"feature",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "update",
+			"title": "Free roam: walk the tour guide around the page yourself",
+			"summary": "The guided tour now has a free-roam mode (the 🧭 button, or press R). Click anywhere on the page and the 3D guide walks there; grab it and drag it around; drag it to the top or bottom edge and the page scrolls so you can walk it up and down the whole page. Press play to drop right back into the tour where you left off. We also stopped the corner walking companion from doubling up: while the guided tour is running, the corner companion steps aside so there's only ever one avatar on screen, and it returns the moment the tour ends.",
+			"link": "/tour",
 			"tags": [
 				"feature",
 				"improvement"
@@ -270,6 +292,16 @@
 			"tags": [
 				"infra",
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "update",
+			"title": "My Collection page now loads",
+			"summary": "The /collection page — where your unlocked skills and active subscriptions live — was returning a 404 because its route pointed at the wrong build path, and its subscriptions list was calling an endpoint that rejected the request. Both are fixed: the page loads, your purchased skills and NFT receipts render, and the Subscriptions tab now shows your active creator subscriptions with plan, price, renewal date, and a link to each creator. The marketplace analytics page had the same routing fault and now loads too.",
+			"link": "/collection",
+			"tags": [
+				"fix"
 			]
 		},
 		{

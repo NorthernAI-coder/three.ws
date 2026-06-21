@@ -30,7 +30,7 @@ import { evmTransport } from '../_lib/evm/rpc.js';
 import { baseSepolia, base } from 'viem/chains';
 
 import { sql } from '../_lib/db.js';
-import { confirmOrThrow } from '../_lib/solana/confirm.js';
+import { submitProtected } from '../_lib/execution-engine.js';
 import { cors, error, json, method, wrap } from '../_lib/http.js';
 import { env } from '../_lib/env.js';
 import { llmComplete } from '../_lib/llm.js';
@@ -1763,15 +1763,9 @@ async function handleRunBuyback(req, res) {
 			}
 
 			const connection = getConnection({ network: m.network });
-			const [{ Transaction }] = await Promise.all([import('@solana/web3.js')]);
-			const tx = new Transaction();
-			tx.add(ix);
-			const { blockhash } = await connection.getLatestBlockhash('confirmed');
-			tx.recentBlockhash = blockhash;
-			tx.feePayer = relayer.publicKey;
-			tx.sign(relayer);
-			const sig = await connection.sendRawTransaction(tx.serialize());
-			await confirmOrThrow(connection, sig, 'confirmed');
+			// Protected send: priority fee + CU estimate, rebroadcast with blockhash
+			// refresh, hard throw on an on-chain revert.
+			const { signature: sig } = await submitProtected({ network: m.network, connection, payer: relayer, instructions: [ix] });
 
 			const [run] = await sql`
 				insert into pump_buyback_runs
@@ -2514,17 +2508,9 @@ async function handleRunDistributePayments(req, res) {
 				currencyMint: currency,
 			});
 			const connection = getConnection({ network: m.network });
-			const [{ Transaction }] = await Promise.all([import('@solana/web3.js')]);
-			const tx = new Transaction();
-			tx.add(...(Array.isArray(ixs) ? ixs : [ixs]));
-			const { blockhash } = await connection.getLatestBlockhash('confirmed');
-			tx.recentBlockhash = blockhash;
-			tx.feePayer = relayer.publicKey;
-			tx.sign(relayer);
-			const sig = await connection.sendRawTransaction(tx.serialize(), {
-				skipPreflight: false,
-			});
-			await confirmOrThrow(connection, sig, 'confirmed');
+			// Protected send: priority fee + CU estimate, rebroadcast with blockhash
+			// refresh, hard throw on an on-chain revert.
+			const { signature: sig } = await submitProtected({ network: m.network, connection, payer: relayer, instructions: Array.isArray(ixs) ? ixs : [ixs] });
 
 			const balancesAfter = await agent.getBalances(currency);
 			const [run] = await sql`

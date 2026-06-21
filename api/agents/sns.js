@@ -26,7 +26,7 @@
 
 import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.js';
 import { sql } from '../_lib/db.js';
-import { confirmOrThrow } from '../_lib/solana/confirm.js';
+import { submitProtected } from '../_lib/execution-engine.js';
 import { cors, json, method, error, readJson, rateLimited, serverError } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { env } from '../_lib/env.js';
@@ -138,7 +138,6 @@ async function handleRegisterAgent(req, res, id, auth) {
 	const { keypair } = loaded;
 	let meta = { ...(loaded.meta || {}) };
 
-	const { Transaction } = await import('@solana/web3.js');
 	const conn = solanaConnection('mainnet');
 
 	try {
@@ -146,13 +145,9 @@ async function handleRegisterAgent(req, res, id, auth) {
 			return error(res, 409, 'conflict', `${domain}.sol is already registered`);
 		}
 		const ixs = await buildRegisterIxs({ connection: conn, domain, buyer: keypair.publicKey, space });
-		const tx = new Transaction().add(...ixs);
-		tx.feePayer = keypair.publicKey;
-		const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash('confirmed');
-		tx.recentBlockhash = blockhash;
-		tx.sign(keypair);
-		const sig = await conn.sendRawTransaction(tx.serialize(), { skipPreflight: false });
-		await confirmOrThrow(conn, { signature: sig, blockhash, lastValidBlockHeight }, 'confirmed');
+		// Protected send: priority fee + CU estimate, rebroadcast with blockhash
+		// refresh, hard throw on an on-chain revert.
+		const { signature: sig } = await submitProtected({ network: 'mainnet', connection: conn, payer: keypair, instructions: ixs });
 
 		meta = { ...meta, sns_domain: domain };
 		await sql`UPDATE agent_identities SET meta = ${JSON.stringify(meta)}::jsonb WHERE id = ${id}`;

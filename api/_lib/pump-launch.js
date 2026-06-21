@@ -13,10 +13,10 @@
 //   • launchPumpToken()      — grind the mint (optional vanity), build the
 //                              create-only instruction, send + confirm.
 
-import { Keypair, PublicKey, Transaction } from '@solana/web3.js';
+import { Keypair, PublicKey } from '@solana/web3.js';
 import { env } from './env.js';
 import { solanaConnection } from './agent-pumpfun.js';
-import { confirmOrThrow } from './solana/confirm.js';
+import { submitProtected } from './execution-engine.js';
 import { grindMintKeypair } from './pump-vanity.js';
 
 const PUMP_IPFS_ENDPOINT = 'https://pump.fun/api/ipfs';
@@ -235,16 +235,17 @@ export async function launchPumpToken({
 		throw launchError(422, 'build_failed', err.message || 'could not build create instruction');
 	}
 
-	const tx = new Transaction().add(...instructions);
-	tx.feePayer = launcher.publicKey;
-	const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash();
-	tx.recentBlockhash = blockhash;
-	tx.sign(launcher, mint);
-
 	let signature;
 	try {
-		signature = await conn.sendRawTransaction(tx.serialize(), { skipPreflight: false });
-		await confirmOrThrow(conn, { signature, blockhash, lastValidBlockHeight }, 'confirmed');
+		// Protected send: the launcher pays + signs, the new mint co-signs. Priority
+		// fee + CU estimate, rebroadcast with blockhash refresh, hard throw on revert.
+		({ signature } = await submitProtected({
+			network,
+			connection: conn,
+			payer: launcher,
+			instructions,
+			opts: { extraSigners: [mint] },
+		}));
 	} catch (err) {
 		throw launchError(502, 'rpc_error', err.message || 'create-coin transaction failed');
 	}
