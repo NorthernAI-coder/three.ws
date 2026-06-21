@@ -689,6 +689,9 @@ async function reflectHighAccess(tierId, { silent = false } = {}) {
 	applyHighGate();
 	// Keep the persistent button pill + note in sync with the fresh verdict.
 	applyHighAffordances(access);
+	// Reflect the resolved hold in the cost line too — High flips to "Free" for a
+	// holder without a reload.
+	updateEstimate();
 	if (access.eligible) primeTierPass();
 }
 
@@ -774,6 +777,21 @@ async function updatePerkLine() {
 	}
 }
 
+// The honest price for the current engine + tier, as a styled segment. The web
+// gate charges only High tier (hold $THREE or pay per generation); Draft and
+// Standard run free on the platform's rate-limited lanes; BYOK engines bill the
+// caller's own provider key. `_highAccess.eligible` reflects a resolved $THREE
+// hold, so a holder sees High as already unlocked.
+function costSegment(backend, tierMeta) {
+	if (backend.byok) return 'billed to your own key';
+	if (tierMeta.id === 'high') {
+		return _highAccess?.eligible
+			? '<span class="est-free">Free</span> · you hold $THREE'
+			: `<span class="est-cost">$${tierMeta.price_usdc}</span> or hold $THREE`;
+	}
+	return '<span class="est-free">Free</span>';
+}
+
 // Render the honest time/cost/poly estimate for the current engine + tier from
 // the catalog. No fabricated numbers — everything comes from /api/forge?catalog.
 function updateEstimate() {
@@ -790,7 +808,7 @@ function updateEstimate() {
 	// Holder-readable, not pipeline-internal: say how long it usually takes and
 	// what the engine does, in plain words. The mechanism ("builds from a
 	// reference image") replaces jargon like "image-intermediate · fast path".
-	const parts = [`<strong>${tierMeta.label}</strong>`];
+	const parts = [`<strong>${tierMeta.label}</strong>`, costSegment(backend, tierMeta)];
 	if (est?.eta_seconds) parts.push(`usually ~${est.eta_seconds}s`);
 	if (est && est.credits != null) parts.push(`~${est.credits} credits`);
 	if (backend.poly_control) parts.push(`up to ${tierMeta.polycount.toLocaleString()} polygons`);
@@ -1540,6 +1558,9 @@ function showResult(glbUrl, label, meta, { autoSaved = false } = {}) {
 	resetCategoryPicker();
 	if (els.categoryPicker) els.categoryPicker.hidden = false;
 	els.viewerShell?.classList.remove('has-load-error');
+	// Show the load skeleton over the dark viewport until the GLB paints. The
+	// persistent 'load'/'error' listeners below clear it.
+	els.viewerShell?.classList.add('is-loading');
 	els.viewer.setAttribute('src', glbUrl);
 	els.viewer.setAttribute('alt', `3D model: ${label}`);
 	lastShownGlb = glbUrl;
@@ -2121,7 +2142,14 @@ async function payThenGenerate(pay) {
 // Wiring ----------------------------------------------------------------------
 
 els.viewer.addEventListener('error', () => {
-	if (els.viewerShell) els.viewerShell.classList.add('has-load-error');
+	if (els.viewerShell) {
+		els.viewerShell.classList.add('has-load-error');
+		els.viewerShell.classList.remove('is-loading');
+	}
+});
+// The GLB finished painting — drop the load skeleton.
+els.viewer.addEventListener('load', () => {
+	els.viewerShell?.classList.remove('is-loading');
 });
 
 buildSlots();

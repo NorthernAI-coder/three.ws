@@ -319,6 +319,24 @@ export function paidEndpoint(spec) {
 			return error(res, 405, 'method_not_allowed', `use ${httpMethod}`);
 		}
 
+		const ip = clientIp(req);
+		// Abuse guard, tier 1 — anonymous-flood protection on the discovery/probe
+		// path. Authenticated and subscription callers (Bearer / SIWX / API key)
+		// have their own access-control gating downstream, so they bypass this
+		// per-IP cap; only unauthenticated traffic is bounded here. Non-critical:
+		// a Redis outage must never block price discovery or a legitimate paid
+		// retry — the fail-closed facilitator guard (tier 2) runs further down.
+		const isAuthenticatedCaller =
+			!!req.headers?.authorization ||
+			!!req.headers?.['sign-in-with-x'] ||
+			!!req.headers?.['x-api-key'];
+		if (!isAuthenticatedCaller) {
+			const probe = await limits.x402ProbeIp(ip);
+			if (!probe.success) {
+				return rateLimited(res, probe, 'too many requests — slow down and retry shortly');
+			}
+		}
+
 		const resourceUrl =
 			typeof resourceUrlBuilder === 'function'
 				? resourceUrlBuilder(req)
@@ -659,6 +677,23 @@ export function paidEndpoint(spec) {
 		}
 
 		if (!paymentHeader) return send402(res, challenge);
+
+		// Abuse guard, tier 2 — only requests carrying an X-PAYMENT header reach the
+		// facilitator /verify round-trip below, so this is where a junk-payment flood
+		// would amplify one cheap inbound request into one outbound facilitator call
+		// at our expense. Cap per-IP and globally; both CRITICAL (fail closed in
+		// prod) — during a Redis outage, rejecting a payment retry (the buyer keeps
+		// their funds and retries) beats letting the amplification run unbounded. The
+		// global ceiling is a runaway/DDoS circuit breaker, tunable via
+		// X402_VERIFY_GLOBAL_PER_HOUR as legitimate volume grows.
+		const verifyIpLimit = await limits.x402VerifyIp(ip);
+		if (!verifyIpLimit.success) {
+			return rateLimited(res, verifyIpLimit, 'too many payment attempts — retry shortly');
+		}
+		const verifyGlobalLimit = await limits.x402VerifyGlobal();
+		if (!verifyGlobalLimit.success) {
+			return rateLimited(res, verifyGlobalLimit, 'payment system at capacity — retry shortly');
+		}
 
 		// USE-15: required-mode rejects the call before we burn an RPC round-trip.
 		try {

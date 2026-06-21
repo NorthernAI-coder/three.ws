@@ -11,6 +11,15 @@ const redis = getRedis();
 const IS_PRODUCTION = env.NODE_ENV === 'production' || env.VERCEL_ENV === 'production';
 const REDIS_CONFIGURED = Boolean(redis);
 
+// Platform-wide hourly ceiling on PLATFORM-keyed paid 3D generations (the shared
+// Replicate / self-host GPU budget). This is a circuit breaker, NOT a per-user
+// limit: it stops the failure mode where an influx — or distributed abuse — sends
+// many callers who each stay under their own 30/h cap but collectively drain real
+// spend. Tunable via env without a code change; the default is generous enough
+// that only a genuine surge or attack trips it, and when it does the free NVIDIA /
+// HuggingFace lanes stay open, so paid capacity degrades instead of dead-ending.
+const FORGE_PAID_GLOBAL_HOURLY = Math.max(1, Number(process.env.FORGE_PAID_GLOBAL_HOURLY) || 600);
+
 // Loud, one-time startup warning when Redis is unconfigured in production. Without
 // Redis every limiter falls back to a PER-INSTANCE in-memory map, which is
 // effectively unbounded across serverless fan-out — fine for dev, dangerous for
@@ -299,6 +308,17 @@ export const limits = {
 	// hourly ceiling per principal. Status polling is cheap and frequent.
 	mcp3dGenerate: (key) =>
 		getLimiter('mcp3d:generate', { limit: 30, window: '1 h', critical: true }).limit(key),
+	// Global circuit breaker on platform-keyed paid generation — the shared
+	// Replicate/self-host budget. Keyed by 'global' (mirrors chatHostKeyGlobal /
+	// x402PayGlobal): stops many accounts, each under their own mcp3dGenerate cap,
+	// from collectively draining spend during an influx. Critical → fails closed in
+	// prod without Redis, like the per-user paid bucket it backstops.
+	mcp3dGenerateGlobal: () =>
+		getLimiter('mcp3d:generate:global', {
+			limit: FORGE_PAID_GLOBAL_HOURLY,
+			window: '1 h',
+			critical: true,
+		}).limit('global'),
 	// Free generation lane (NVIDIA NIM TRELLIS draft). No Replicate/vendor spend,
 	// so it gets a much higher per-principal ceiling than the paid bucket and is
 	// NON-critical: a Redis outage must never deny a zero-cost generation (fail
