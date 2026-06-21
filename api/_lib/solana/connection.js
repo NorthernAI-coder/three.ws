@@ -181,6 +181,14 @@ export function shouldRotate(status) {
 // Retrying after Nms") never fires. Cooldowns live in the process-wide map, so a
 // quota-dead provider is skipped on the very next call (and next cron tick), not
 // re-probed every time.
+//
+// Log severity tracks actionability, not event count. A single provider getting
+// parked while the call transparently lands on the next one is the failover doing
+// its job — the request still succeeds (HTTP 200), so it logs at INFO. Emitting it
+// at WARN flooded Vercel's `level:warning` view with non-actionable failover
+// chatter (the source of the recurring "[solana-rpc] … 429 — cooling" warnings).
+// The genuinely actionable condition — every provider in the chain failing within
+// one request, so the caller gets nothing back — is the only WARN.
 export function makeRotatingFetch(endpoints) {
 	return async function rotatingFetch(_info, init) {
 		let lastErr = null;
@@ -200,7 +208,9 @@ export function makeRotatingFetch(endpoints) {
 					const alreadyCooling = isEndpointCooling(url);
 					const ms = markEndpointCooldown(url, resp.status, bodyText);
 					if (!alreadyCooling) {
-						console.warn(
+						// INFO, not WARN: the request continues to the next provider and
+						// still succeeds. This is the redundancy working, not a fault.
+						console.log(
 							`[solana-rpc] ${maskUrl(url)} ${resp.status} — cooling ${Math.round(ms / 60_000)}m, failing over`,
 						);
 					}
@@ -224,6 +234,12 @@ export function makeRotatingFetch(endpoints) {
 				.sort((a, b) => (_endpointCooldown.get(a) || 0) - (_endpointCooldown.get(b) || 0))[0];
 			return fetch(soonest, init);
 		}
+		// Reached the end with every attempted provider failing in this one request —
+		// the caller gets an error, not data. THIS is worth a warning: the whole
+		// failover chain is down, not just one lane.
+		console.warn(
+			`[solana-rpc] all ${endpoints.length} endpoints failed this request — ${lastErr?.message || 'unknown error'}`,
+		);
 		throw lastErr || new Error('all solana rpc endpoints failed');
 	};
 }
