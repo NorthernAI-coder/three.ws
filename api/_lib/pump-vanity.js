@@ -54,6 +54,28 @@ export function isValidVanityPrefix(prefix) {
 	return true;
 }
 
+/**
+ * Does `address` satisfy the requested vanity pattern? The security boundary
+ * for adopting a browser-ground keypair: the server must NEVER trust a client's
+ * claim that a key is "vanity" — it re-derives the address and checks it here.
+ * Case-insensitive matching is applied only when the owner explicitly asked for
+ * it; otherwise an exact (case-sensitive) match is required.
+ *
+ * @param {string} address                      Base58 public key.
+ * @param {{ prefix?: string, suffix?: string, ignoreCase?: boolean }} pattern
+ * @returns {boolean}
+ */
+export function addressMatchesPattern(address, { prefix = '', suffix = '', ignoreCase = false } = {}) {
+	if (typeof address !== 'string' || !address) return false;
+	if (!prefix && !suffix) return false;
+	const probe = ignoreCase ? address.toLowerCase() : address;
+	const wantP = prefix ? (ignoreCase ? prefix.toLowerCase() : prefix) : '';
+	const wantS = suffix ? (ignoreCase ? suffix.toLowerCase() : suffix) : '';
+	if (wantP && !probe.startsWith(wantP)) return false;
+	if (wantS && !probe.endsWith(wantS)) return false;
+	return true;
+}
+
 // Estimated attempts ≈ 58^n (per pattern position). Used by callers to set
 // a reasonable maxIterations and to surface difficulty in error messages.
 export function estimateAttempts({ prefix, suffix, ignoreCase = false } = {}) {

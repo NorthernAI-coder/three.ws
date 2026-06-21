@@ -12,6 +12,8 @@
 // they can and never crash on a single upstream blip. This is the market-data
 // analogue of the RPC failover layer.
 
+import { cacheGet, cacheSet } from '../cache.js';
+
 const BIRDEYE_BASE = 'https://public-api.birdeye.so';
 const DEXSCREENER_BASE = 'https://api.dexscreener.com/latest/dex/tokens';
 const GECKOTERMINAL_BASE = 'https://api.geckoterminal.com/api/v2/networks/solana/tokens';
@@ -19,6 +21,16 @@ const GECKOTERMINAL_BASE = 'https://api.geckoterminal.com/api/v2/networks/solana
 const FETCH_TIMEOUT_MS = 6000;
 const DEFAULT_TTL_MS = 30_000;
 const STALE_MAX_MS = 5 * 60_000;
+
+// L2 (shared, cross-instance) cache TTL. Scaling defense: Vercel runs many
+// stateless lambda instances; the per-instance L1 Map below is wiped on every
+// cold start, so under a traffic spike each cold instance would independently
+// fan out to all three upstreams. The L2 Upstash cache lets a cold lambda serve
+// a sibling's recent fetch instead, collapsing fleet-wide upstream load to ~1
+// call per key per window — the difference between "holds at 100x" and "every
+// instance rate-limits Birdeye at once". Short window keeps a token price fresh.
+const SHARED_TTL_S = 15;
+const sharedKey = (mint) => `mktdata:v1:${mint}`;
 
 const _cache = new Map(); // mint → { value, expires, fetchedAt }
 const _warnedAt = new Map();
@@ -159,7 +171,25 @@ const SOURCES = [fromBirdeye, fromDexScreener, fromGeckoTerminal];
 export async function fetchTokenMarketData(mint, { fresh = false, ttlMs = DEFAULT_TTL_MS } = {}) {
 	const now = Date.now();
 	const hit = _cache.get(mint);
-	if (!fresh && hit && hit.expires > now) return hit.value;
+	if (!fresh && hit && hit.expires > now) return hit.value; // L1: warm in-process
+
+	// L2: shared cross-instance cache. A cold lambda (no L1) serves a sibling's
+	// recent fetch instead of hitting three upstreams — the core scaling defense.
+	// cache.js already single-flights + memoizes GETs, so a burst of cold reads
+	// collapses to one Redis round-trip. Best-effort: any cache error falls through
+	// to a live fetch, never failing the read.
+	if (!fresh) {
+		try {
+			const shared = await cacheGet(sharedKey(mint));
+			if (shared && shared.price_usd > 0) {
+				_cache.set(mint, { value: shared, expires: now + ttlMs, fetchedAt: now });
+				if (_cache.size > 256) _cache.delete(_cache.keys().next().value);
+				return shared;
+			}
+		} catch {
+			/* fall through to live fetch */
+		}
+	}
 
 	for (const src of SOURCES) {
 		if ((_sourceCooldown.get(src.name) || 0) > now) continue;
@@ -168,6 +198,8 @@ export async function fetchTokenMarketData(mint, { fresh = false, ttlMs = DEFAUL
 			if (result && result.price_usd > 0) {
 				_cache.set(mint, { value: result, expires: now + ttlMs, fetchedAt: now });
 				if (_cache.size > 256) _cache.delete(_cache.keys().next().value);
+				// Publish to the shared cache for sibling instances (best-effort).
+				cacheSet(sharedKey(mint), result, SHARED_TTL_S).catch(() => {});
 				return result;
 			}
 		} catch (err) {

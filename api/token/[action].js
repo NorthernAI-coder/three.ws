@@ -25,6 +25,8 @@ import {
 	listPayments,
 	getAllowanceStatus,
 	buildGrantTransaction,
+	confirmAllowance,
+	buildRevokeTransaction,
 	delegateAddress,
 } from '../_lib/token/index.js';
 
@@ -197,6 +199,8 @@ async function handleAllowanceStatus(req, res) {
 	if (!method(req, res, ['GET'])) return;
 	const user = await getSessionUser(req, res);
 	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
+	const rl = await limits.tokenPriceIp(clientIp(req));
+	if (!rl.success) return rateLimited(res, rl);
 
 	const delegate = await delegateAddress();
 	if (!delegate) {
@@ -254,6 +258,7 @@ async function handleAllowanceGrant(req, res) {
 		capAtomics,
 		expiryTs,
 		network: body.network,
+		userId: user.id,
 	});
 
 	return json(res, 200, {
@@ -263,6 +268,67 @@ async function handleAllowanceGrant(req, res) {
 		expiry_ts: expiryTs,
 		...built,
 	});
+}
+
+// ── POST /api/token/allowance-confirm ────────────────────────────────────────
+//
+// Called by the client right after it sends a signed grant or revoke. Reconciles
+// the one delegation PDA against the chain and updates the registry, so the wallet
+// panel reflects the new cap (or revocation) instantly without waiting on the
+// status cache to expire.
+
+const DELEGATION_PDA = z.string().regex(/^[1-9A-HJ-NP-Za-km-z]{32,44}$/, 'invalid delegation address');
+const confirmSchema = z.object({
+	delegation_pda: DELEGATION_PDA,
+	revoked: z.boolean().optional(),
+	network: z.enum(['mainnet', 'devnet']).default('mainnet'),
+});
+
+async function handleAllowanceConfirm(req, res) {
+	if (cors(req, res, { methods: 'POST,OPTIONS', credentials: true })) return;
+	if (!method(req, res, ['POST'])) return;
+	const user = await getSessionUser(req, res);
+	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
+	if (!user.wallet_address) return error(res, 400, 'wallet_required', 'connect a Solana wallet');
+	const rl = await limits.tokenSettle(user.id);
+	if (!rl.success) return rateLimited(res, rl);
+
+	const body = parse(confirmSchema, await readJson(req));
+	const result = await confirmAllowance({
+		userWallet: user.wallet_address,
+		delegationPda: body.delegation_pda,
+		revoked: body.revoked === true,
+		network: body.network,
+	});
+	return json(res, 200, result);
+}
+
+// ── POST /api/token/allowance-revoke ─────────────────────────────────────────
+//
+// Build the user-signed transaction that cancels a delegation and reclaims its
+// rent. The client signs + sends it, then calls allowance-confirm with revoked:true.
+
+const revokeSchema = z.object({
+	delegation_pda: DELEGATION_PDA,
+	network: z.enum(['mainnet', 'devnet']).default('mainnet'),
+});
+
+async function handleAllowanceRevoke(req, res) {
+	if (cors(req, res, { methods: 'POST,OPTIONS', credentials: true })) return;
+	if (!method(req, res, ['POST'])) return;
+	const user = await getSessionUser(req, res);
+	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
+	if (!user.wallet_address) return error(res, 400, 'wallet_required', 'connect a Solana wallet');
+	const rl = await limits.tokenQuote(user.id);
+	if (!rl.success) return rateLimited(res, rl);
+
+	const body = parse(revokeSchema, await readJson(req));
+	const built = await buildRevokeTransaction({
+		userWallet: user.wallet_address,
+		delegationPda: body.delegation_pda,
+		network: body.network,
+	});
+	return json(res, 200, built);
 }
 
 // ── GET /api/token/payments (audit) ──────────────────────────────────────────
@@ -295,6 +361,8 @@ const DISPATCH = {
 	payments: handlePayments,
 	'allowance-status': handleAllowanceStatus,
 	'allowance-grant': handleAllowanceGrant,
+	'allowance-confirm': handleAllowanceConfirm,
+	'allowance-revoke': handleAllowanceRevoke,
 };
 
 export default wrap(async (req, res) => {

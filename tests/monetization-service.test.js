@@ -188,10 +188,12 @@ describe('recordRevenueEvent', () => {
 		expect(findInsert().values[1]).toBe('sig-abc');
 	});
 
-	it("falls back to 'direct' when neither intentId nor txHash is given", async () => {
+	it('falls back to a unique direct_ key when neither intentId nor txHash is given', async () => {
 		sqlState.queue.push([{ id: 'rev-5' }]);
 		await recordRevenueEvent({ ...baseEvent, intentId: undefined, txHash: undefined });
-		expect(findInsert().values[1]).toBe('direct');
+		// intent_id is UNIQUE, so distinct direct credits must NOT collide on a
+		// shared literal — each gets its own synthetic key.
+		expect(findInsert().values[1]).toMatch(/^direct_[0-9a-f-]{36}$/);
 	});
 
 	it('rejects a non-positive amount before touching the database', async () => {

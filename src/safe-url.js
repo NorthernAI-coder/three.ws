@@ -4,8 +4,9 @@
  * collapses to a safe placeholder, neutralising script-scheme injection in
  * `href`, `src`, and CSS `url(...)` sinks.
  *
- * Allowed: strings starting with `/`, `./`, `../`, `#`, or matching `^https?:`
- * (case-insensitive, after trimming surrounding whitespace).
+ * Allowed: site-relative paths (`/` but not protocol-relative `//`), `./`,
+ * `../`, in-page anchors (`#`), or http(s) URLs (`^https?:`, case-insensitive,
+ * after trimming surrounding whitespace).
  *
  * @param {unknown} url - candidate URL, typically user- or remote-controlled.
  * @param {string} [fallback='#'] - returned when `url` is rejected.
@@ -15,7 +16,7 @@ export function safeUrl(url, fallback = '#') {
 	if (typeof url !== 'string') return fallback;
 	const trimmed = url.trim();
 	if (!trimmed) return fallback;
-	if (/^(?:\/|\.\/|\.\.\/|#)/.test(trimmed)) return url;
+	if (/^(?:\/(?!\/)|\.\/|\.\.\/|#)/.test(trimmed)) return url;
 	if (/^https?:/i.test(trimmed)) return url;
 	return fallback;
 }

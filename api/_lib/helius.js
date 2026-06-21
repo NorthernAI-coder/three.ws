@@ -22,6 +22,14 @@ function apiKey() {
 	return k;
 }
 
+// All Helius calls run inside serverless functions with a hard maxDuration. A
+// hung Helius socket must not pin a function open to its limit, so every request
+// carries a bounded abort. 10s is generous for a webhook-management API.
+const HELIUS_TIMEOUT_MS = 10_000;
+function heliusFetch(url, init = {}) {
+	return fetch(url, { ...init, signal: AbortSignal.timeout(HELIUS_TIMEOUT_MS) });
+}
+
 export function heliusEnabled() {
 	return Boolean(process.env.HELIUS_API_KEY && process.env.HELIUS_WEBHOOK_AUTH);
 }
@@ -32,7 +40,7 @@ export function heliusEnabled() {
  * @param {{ wallets: string[], webhookURL: string, network?: 'mainnet'|'devnet' }} opts
  */
 export async function createWebhook({ wallets, webhookURL, network = 'mainnet' }) {
-	const r = await fetch(`${HELIUS_API}?api-key=${apiKey()}`, {
+	const r = await heliusFetch(`${HELIUS_API}?api-key=${apiKey()}`, {
 		method: 'POST',
 		headers: { 'content-type': 'application/json' },
 		body: JSON.stringify({
@@ -49,7 +57,7 @@ export async function createWebhook({ wallets, webhookURL, network = 'mainnet' }
 
 /** Replace `accountAddresses` on an existing webhook (use to add/remove wallets in batch). */
 export async function updateWebhookWallets(webhookID, wallets) {
-	const r = await fetch(`${HELIUS_API}/${webhookID}?api-key=${apiKey()}`, {
+	const r = await heliusFetch(`${HELIUS_API}/${webhookID}?api-key=${apiKey()}`, {
 		method: 'PUT',
 		headers: { 'content-type': 'application/json' },
 		body: JSON.stringify({ accountAddresses: wallets }),
@@ -59,13 +67,13 @@ export async function updateWebhookWallets(webhookID, wallets) {
 }
 
 export async function listWebhooks() {
-	const r = await fetch(`${HELIUS_API}?api-key=${apiKey()}`);
+	const r = await heliusFetch(`${HELIUS_API}?api-key=${apiKey()}`);
 	if (!r.ok) throw new Error(`helius list failed: ${r.status}`);
 	return r.json();
 }
 
 export async function deleteWebhook(webhookID) {
-	const r = await fetch(`${HELIUS_API}/${webhookID}?api-key=${apiKey()}`, { method: 'DELETE' });
+	const r = await heliusFetch(`${HELIUS_API}/${webhookID}?api-key=${apiKey()}`, { method: 'DELETE' });
 	if (!r.ok && r.status !== 404) throw new Error(`helius delete failed: ${r.status}`);
 }
 
