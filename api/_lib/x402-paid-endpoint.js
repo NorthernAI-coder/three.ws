@@ -28,9 +28,9 @@
 // helper. Missing keys fall back to env (so a single override doesn't
 // disable the other networks).
 
-import { cors, error, respondError, wrap } from './http.js';
+import { cors, error, respondError, rateLimited, wrap } from './http.js';
 import { env } from './env.js';
-import { clientIp } from './rate-limit.js';
+import { clientIp, limits } from './rate-limit.js';
 import { logPaymentEvent } from './x402/audit-log.js';
 import { PAYMENT_EVENT_TOPIC as BSC_PAYMENT_EVENT_TOPIC } from './x402-bsc-direct.js';
 import {

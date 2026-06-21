@@ -61,6 +61,14 @@ import {
 	findByJob,
 } from './_lib/forge-store.js';
 import { constantTimeEquals } from './_lib/crypto.js';
+import {
+	forgeRequestHash,
+	coalesceInFlight,
+	registerInFlight,
+	acquireBlockingSlot,
+	providerSubmitAllowed,
+	SCALE_LIMITS,
+} from './_lib/forge-scale.js';
 import { env as _env } from './_lib/env.js';
 import { verifyTierPass, TIERS } from './_lib/three-tier.js';
 import { requireFeatureAccess } from './_lib/require-three.js';
@@ -345,6 +353,21 @@ async function runHfImageLane({
 		return false;
 	}
 
+	// The Space call BLOCKS this serverless worker for up to ~280s. Under an influx
+	// that exhausts the Vercel worker pool and stalls /forge for everyone, so we cap
+	// fleet-wide concurrent holds with a self-healing TTL lease. Over the cap the
+	// lane reports "not served" (false) and the caller degrades — to the paid
+	// reconstruct fallback on the free-first path, or a designed "free lane busy"
+	// error on an explicit free pick — instead of piling onto an exhausted pool.
+	const slot = await acquireBlockingSlot('hf', {
+		max: SCALE_LIMITS.hfConcurrent,
+		ttlMs: SCALE_LIMITS.hfSlotTtlMs,
+	});
+	if (!slot.ok) {
+		console.warn('[forge] free HuggingFace lane at concurrency cap; shedding this request');
+		return false;
+	}
+
 	let resultGlbUrl;
 	try {
 		const submitted = await provider.submit({
@@ -360,6 +383,8 @@ async function runHfImageLane({
 	} catch (err) {
 		console.warn(`[forge] free HuggingFace image lane failed: ${err?.message || err}`);
 		return false;
+	} finally {
+		await slot.release();
 	}
 
 	const backendId = 'huggingface';
@@ -443,6 +468,11 @@ async function startJob(req, res) {
 	// in lieu of holding. The payment is validated at the gate, claimed atomically
 	// just before dispatch, and released if the generation fails before delivery.
 	let paidHigh = null;
+
+	// Fingerprint for in-flight request coalescing, set once the lane is resolved
+	// below. Null disables coalescing (high tier, which is paid/gated per caller and
+	// must never hand one payer's job to another).
+	let requestHash = null;
 
 	// The geometry path is BYOK-only — no free model does native text→geometry.
 	// So when the caller didn't explicitly pick a backend and has no key for the
@@ -901,6 +931,35 @@ async function startJob(req, res) {
 				return unconfigured(res);
 		}
 
+		// In-flight coalescing: if an identical (path, tier, backend, prompt, images)
+		// request is already generating, hand its job back instead of running the
+		// whole FLUX→reconstruct pipeline a second time. Collapses double-clicks and
+		// viral-prompt bursts to one generation that N clients poll. Skipped for high
+		// tier (paid/gated per caller) so a payment is never shared across users.
+		if (tier.id !== 'high') {
+			requestHash = forgeRequestHash({
+				path,
+				tier: tier.id,
+				backend: backendId,
+				prompt,
+				images: isImageMode ? imageUrls : null,
+			});
+			const existing = await coalesceInFlight(requestHash);
+			if (existing) {
+				return json(res, 200, {
+					job_id: existing,
+					status: 'queued',
+					coalesced: true,
+					mode: isImageMode ? 'image_to_3d' : 'text_to_3d',
+					path,
+					tier: tier.id,
+					backend: backendId,
+					prompt: prompt || null,
+					eta_seconds: estimateEtaSeconds({ backendId, tier }),
+				});
+			}
+		}
+
 		// Resolve the reference views: supplied directly (image→3D) or a single
 		// view synthesized from the prompt (text→3D). `referenceImageUrl` is the
 		// primary view — the durable preview + the synthesis target.
@@ -990,6 +1049,24 @@ async function startJob(req, res) {
 
 		let job;
 		try {
+			// Per-provider submit throttle: shed platform Replicate bursts to the free
+			// lane BEFORE they hit the account quota and turn into fleet-wide 429s. Only
+			// the platform-keyed default lane is capped — BYOK lanes spend the caller's
+			// own quota. Over-cap is thrown as upstream-unavailable so the existing
+			// fallback chain (self-host Hunyuan3D → free HuggingFace) absorbs it.
+			if (
+				backendId === 'trellis' &&
+				!(await providerSubmitAllowed('replicate', {
+					limit: SCALE_LIMITS.replicateSubmitLimit,
+					windowS: SCALE_LIMITS.replicateSubmitWindowS,
+				}))
+			) {
+				console.warn('[forge] platform Replicate submit throttle hit; shedding to free lane');
+				throw Object.assign(new Error('platform submit throttle'), {
+					code: 'rate_limited',
+					providerStatus: 429,
+				});
+			}
 			job = await provider.submit({
 				mode: 'reconstruct',
 				sourceUrl: referenceImageUrl,
@@ -1101,6 +1178,11 @@ async function startJob(req, res) {
 			tier: tier.id,
 			path,
 		});
+
+		// Publish this job as the canonical handle for its fingerprint so identical
+		// requests in the next few minutes coalesce onto it instead of re-running the
+		// GPU pipeline. First writer wins; best-effort (no-op without Redis).
+		await registerInFlight(requestHash, jobHandle);
 
 		return json(res, 200, {
 			job_id: jobHandle,
