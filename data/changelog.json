@@ -3,6 +3,19 @@
 	"entries": [
 		{
 			"date": "2026-06-21",
+			"title": "Membership tiers: see your mode on your member card",
+			"summary": "Your dashboard membership card now shows your tier — User, Beta, Pro, Holder, or Three Dimensional. A new panel on the Referrals page lays out the full ladder: which modes you already hold, and exactly what unlocks the rest. Holder is detected live from the $THREE you hold across any linked Solana wallet (hold more to climb the Bronze→Genesis ladder), Pro comes with a paid plan, and Beta and Three Dimensional are granted by the team. Everyone starts as a User with full free-forever access.",
+			"tags": ["feature"],
+			"link": "/dashboard/referrals"
+		},
+		{
+			"date": "2026-06-21",
+			"title": "Profiles: a storefront for what you sell, and fork any agent",
+			"summary": "Your profile now has a For sale tab that gathers every avatar, agent, and plugin you've priced into one storefront — each card shows the asking price and links straight to its purchase page. And published agents now carry a Fork button, so anyone can clone an agent (its prompt, skills, and settings) into their own account in one tap, with a running fork count on every card.",
+			"tags": ["feature"]
+		},
+		{
+			"date": "2026-06-21",
 			"title": "Referrals: claim a custom code that's yours",
 			"summary": "Your referral code now starts as your name instead of a random string — and you can change it to anything you like. Open Referrals in your dashboard, hit Customize, and pick a code (3–20 letters or numbers); it checks availability as you type and updates your shareable link, QR, and membership card the moment you save. Existing links keep working, codes are matched case-insensitively, and you still earn 5% in USDC on every referred purchase.",
 			"tags": ["feature"],

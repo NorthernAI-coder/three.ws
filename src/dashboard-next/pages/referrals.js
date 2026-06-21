@@ -292,6 +292,49 @@ function injectStyles() {
 		.ref-pager{flex-wrap:wrap}
 		.ref-pager-info{width:100%;margin-bottom:6px}
 	}
+
+	/* ── membership tier ─────────────────────────────────────────────────── */
+	.ref-tier-pill{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;
+		letter-spacing:.01em;padding:4px 9px 4px 8px;border-radius:999px;line-height:1;white-space:nowrap;
+		background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.22);color:#fff;
+		backdrop-filter:blur(4px)}
+	.ref-tier-pill .ref-tier-dot{width:7px;height:7px;border-radius:50%;flex:0 0 auto;
+		box-shadow:0 0 6px 1px currentColor}
+	.ref-tier-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:6px}
+	.ref-tier-badge{display:inline-flex;align-items:center;gap:8px;padding:7px 14px;border-radius:999px;
+		font-size:14px;font-weight:700;letter-spacing:-0.01em;border:1px solid}
+	.ref-tier-badge .ref-tier-dot{width:9px;height:9px;border-radius:50%;box-shadow:0 0 8px 1px currentColor}
+	.ref-tier-desc{font-size:13px;color:var(--nxt-ink-dim);line-height:1.55;margin:0 0 16px;max-width:62ch}
+	.ref-tier-badges{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px}
+	.ref-tier-chip{display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:600;
+		padding:5px 11px;border-radius:999px;background:rgba(255,255,255,.04);border:1px solid var(--nxt-stroke-strong);color:var(--nxt-ink)}
+	.ref-tier-chip .ref-tier-dot{width:7px;height:7px;border-radius:50%;box-shadow:0 0 6px 1px currentColor}
+	.ref-tier-ladder{display:flex;flex-direction:column;gap:2px}
+	.ref-tier-rung{display:flex;align-items:center;gap:13px;padding:12px 14px;border-radius:12px;
+		border:1px solid transparent;transition:background .14s ease,border-color .14s ease}
+	.ref-tier-rung[data-active="true"]{background:rgba(167,139,250,.07);border-color:rgba(167,139,250,.22)}
+	.ref-tier-rung[data-active="false"]{opacity:.72}
+	.ref-tier-rung:hover{background:rgba(255,255,255,.03)}
+	.ref-tier-marker{flex:0 0 auto;width:34px;height:34px;border-radius:9px;display:grid;place-items:center;
+		border:1px solid;font-size:13px;font-weight:700;font-family:${MONO}}
+	.ref-tier-rung-body{flex:1;min-width:0}
+	.ref-tier-rung-title{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600;color:var(--nxt-ink)}
+	.ref-tier-rung-tag{font-size:11px;color:var(--nxt-ink-fade);font-weight:500;text-transform:uppercase;letter-spacing:.05em}
+	.ref-tier-rung-desc{font-size:12.5px;color:var(--nxt-ink-dim);line-height:1.45;margin-top:3px}
+	.ref-tier-status{flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;
+		padding:4px 10px;border-radius:999px;white-space:nowrap}
+	.ref-tier-status.active{background:rgba(134,239,172,.12);color:#86efac;border:1px solid rgba(134,239,172,.3)}
+	.ref-tier-status.locked{background:rgba(255,255,255,.04);color:var(--nxt-ink-fade);border:1px solid var(--nxt-stroke-strong)}
+	a.ref-tier-status.locked:hover{background:rgba(167,139,250,.16);color:#c4b5fd;border-color:rgba(167,139,250,.5)}
+	.ref-tier-next{margin-top:16px;display:flex;align-items:center;gap:12px;padding:13px 16px;border-radius:12px;
+		background:rgba(167,139,250,.08);border:1px solid rgba(167,139,250,.25)}
+	.ref-tier-next svg{flex:0 0 auto;color:#c4b5fd}
+	.ref-tier-next-body{flex:1;min-width:0;font-size:13px;color:var(--nxt-ink);line-height:1.45}
+	.ref-tier-next-body b{color:#c4b5fd}
+	@media (max-width:560px){
+		.ref-tier-rung{flex-wrap:wrap}
+		.ref-tier-status{margin-left:47px}
+	}
 	`;
 	document.head.appendChild(s);
 }
@@ -321,7 +364,10 @@ function frontFace(card, refUrl) {
 				<span>EXP <b>${esc(expLabel(card.member_since))}</b> &nbsp; Member since ${esc(memberSinceLabel(card.member_since))}</span>
 				<span>#${String(card.position).padStart(6, '0')}</span>
 			</div>
-			<div class="ref-name" style="margin-top:10px">${esc(card.display_name || 'Member')}</div>
+			<div class="ref-name" style="margin-top:10px;display:flex;align-items:center;justify-content:space-between;gap:10px">
+				<span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(card.display_name || 'Member')}</span>
+				<span class="ref-tier-pill" data-tier-pill hidden></span>
+			</div>
 		</div>`;
 }
 
@@ -500,6 +546,8 @@ function renderCard(host, card) {
 			<div class="ref-tile"><div class="ref-tile-k">Score</div><div class="ref-tile-v">${fmtInt(card.score)}</div></div>
 		</div>
 
+		<section class="dn-panel" style="margin-top:20px" data-slot="tier-panel" aria-label="Your membership tier"></section>
+
 		<section class="dn-panel" style="margin-top:20px" data-slot="referrals-list" aria-label="Your referrals"></section>
 
 		<section class="dn-panel" style="margin-top:20px">
@@ -513,6 +561,7 @@ function renderCard(host, card) {
 	`;
 
 	wireCard(host, card, refUrl);
+	loadTier(host, card);
 	mountReferralsList(host.querySelector('[data-slot="referrals-list"]'), refUrl, card.referred_users);
 }
 
@@ -733,6 +782,147 @@ function wireCodeEditor(host, card) {
 	}
 
 	showCollapsed();
+}
+
+// ── membership tier ───────────────────────────────────────────────────────────
+//
+// Every member wears a "mode": user, beta, pro, holder, or three-dimensional.
+// The card shows the highest one as a pill; this panel shows the full ladder,
+// which badges you already hold, and what unlocks the rest. Data is real, from
+// /api/users/me/tier — holder status is read live from your on-chain $THREE.
+
+// Where a locked mode is earned, and where to go to get there. Derived modes
+// link to the surface that unlocks them; granted modes are invite-only.
+const TIER_UNLOCK = {
+	beta: { label: 'By invitation', href: null },
+	pro: { label: 'Upgrade plan', href: '/dashboard/monetize' },
+	holder: { label: 'Hold $THREE', href: '/dashboard/three-token' },
+	'three-dimensional': { label: 'By invitation', href: null },
+};
+
+const ARROW_UP_ICON = '<svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M10 16V5M5.5 9.5 10 5l4.5 4.5"/></svg>';
+
+function tierDot(color) {
+	return `<span class="ref-tier-dot" style="background:${color};color:${color}"></span>`;
+}
+
+/** Fill the small tier pill on the card front. */
+function fillTierPill(pill, tier) {
+	if (!pill || !tier) return;
+	pill.style.color = tier.color;
+	pill.style.borderColor = `${tier.color}66`;
+	pill.style.background = `${tier.color}24`;
+	pill.innerHTML = `${tierDot(tier.color)}${esc(tier.label)}`;
+	pill.hidden = false;
+}
+
+function renderTierSkeleton(host) {
+	host.innerHTML = `
+		<div class="ref-tier-head">
+			<h3 class="dn-panel-title" style="margin:0">Your membership tier</h3>
+			<span class="ref-skel-bar" style="width:96px;height:26px;border-radius:999px"></span>
+		</div>
+		<div class="ref-tier-ladder" style="margin-top:10px">
+			${[0, 1, 2].map(() => `
+				<div class="ref-tier-rung" data-active="false">
+					<span class="ref-skel-bar" style="width:34px;height:34px;border-radius:9px"></span>
+					<div class="ref-tier-rung-body"><span class="ref-skel-bar" style="width:120px"></span>
+						<div style="margin-top:8px"><span class="ref-skel-bar" style="width:220px"></span></div></div>
+				</div>`).join('')}
+		</div>`;
+}
+
+function renderTierError(host, onRetry) {
+	host.innerHTML = `
+		<div class="ref-tier-head"><h3 class="dn-panel-title" style="margin:0">Your membership tier</h3></div>
+		<p class="ref-tier-desc" style="margin-top:8px">Couldn't load your tier just now.</p>
+		<button class="dn-btn" data-action="retry-tier" style="padding:0 16px;height:36px">Retry</button>`;
+	host.querySelector('[data-action="retry-tier"]').addEventListener('click', onRetry);
+}
+
+function tierRung(tier, active, holder) {
+	const unlock = TIER_UNLOCK[tier.id];
+	let status;
+	if (active) {
+		status = `<span class="ref-tier-status active">${CHECK_ICON} Active</span>`;
+	} else if (unlock?.href) {
+		status = `<a class="ref-tier-status locked" href="${esc(unlock.href)}">${esc(unlock.label)} →</a>`;
+	} else if (unlock) {
+		status = `<span class="ref-tier-status locked">${esc(unlock.label)}</span>`;
+	} else {
+		status = '';
+	}
+
+	// Holders see how much they hold, right where the badge lives.
+	const heldNote = tier.id === 'holder' && active && holder?.usd > 0
+		? ` · holding ${fmtUsd(holder.usd)}`
+		: '';
+
+	return `
+		<div class="ref-tier-rung" data-active="${active}">
+			<span class="ref-tier-marker" style="color:${tier.color};border-color:${tier.color}59;background:${tier.color}1f">${tierDot(tier.color)}</span>
+			<div class="ref-tier-rung-body">
+				<div class="ref-tier-rung-title">${esc(tier.label)} <span class="ref-tier-rung-tag">${esc(tier.tagline)}${heldNote}</span></div>
+				<div class="ref-tier-rung-desc">${esc(tier.description)}</div>
+			</div>
+			${status}
+		</div>`;
+}
+
+function renderTierPanel(host, data) {
+	const primary = data.tier;
+	const activeIds = new Set((data.badges || []).map((b) => b.id));
+	const badgeChips = (data.badges || [])
+		.map((b) => `<span class="ref-tier-chip">${tierDot(b.color)}${esc(b.label)}</span>`)
+		.join('');
+
+	const nextHtml = data.next
+		? `<div class="ref-tier-next">
+				${ARROW_UP_ICON}
+				<div class="ref-tier-next-body">Next up: <b>${esc(data.next.label)}</b> — ${esc(data.next.description)}</div>
+				${TIER_UNLOCK[data.next.id]?.href
+					? `<a class="ref-tier-status locked" href="${esc(TIER_UNLOCK[data.next.id].href)}">${esc(TIER_UNLOCK[data.next.id].label)} →</a>`
+					: `<span class="ref-tier-status locked">${esc(TIER_UNLOCK[data.next.id]?.label || 'By invitation')}</span>`}
+			</div>`
+		: '';
+
+	host.innerHTML = `
+		<div class="ref-tier-head">
+			<h3 class="dn-panel-title" style="margin:0">Your membership tier</h3>
+			<span class="ref-tier-badge" style="color:${primary.color};border-color:${primary.color}59;background:${primary.color}1f">
+				${tierDot(primary.color)}${esc(primary.label)}
+			</span>
+		</div>
+		<p class="ref-tier-desc">${esc(primary.description)}</p>
+		${badgeChips ? `<div class="ref-tier-badges">${badgeChips}</div>` : ''}
+		<div class="ref-tier-ladder">
+			${(data.tiers || []).map((t) => tierRung(t, activeIds.has(t.id), data.holder)).join('')}
+		</div>
+		${nextHtml}`;
+}
+
+// Load the member's tier once, cache it on the card (so a code-save re-render
+// doesn't refetch), then fill both the card pill and the ladder panel.
+function loadTier(host, card) {
+	const panel = host.querySelector('[data-slot="tier-panel"]');
+	const pill = host.querySelector('[data-tier-pill]');
+	if (!panel) return;
+
+	const apply = (data) => {
+		fillTierPill(pill, data.tier);
+		renderTierPanel(panel, data);
+	};
+
+	if (card.tierData) { apply(card.tierData); return; }
+
+	renderTierSkeleton(panel);
+	get('/api/users/me/tier')
+		.then((data) => {
+			if (!data || !data.tier) throw new Error('no tier');
+			card.tierData = data;
+			apply(data);
+		})
+		.catch(() => renderTierError(panel, () => loadTier(host, card)));
 }
 
 // ── referred-users table ──────────────────────────────────────────────────────
