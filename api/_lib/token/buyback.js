@@ -213,6 +213,11 @@ export async function executeBuyback(signer, plan) {
 	const payer = signer.publicKey;
 
 	// 1) Buy: deserialize Jupiter's tx, sign as the buyer, broadcast, confirm.
+	// NOT routed through submitProtected: Jupiter returns a fully-built tx tied to
+	// its own quote, blockhash, and CU/priority-fee layout — rebuilding it from
+	// instructions (what submitProtected does) would invalidate the quote. We sign
+	// and broadcast the SDK's bytes as-is and confirm via confirmOrThrow (a revert
+	// throws). The sweep that follows IS a plain transfer, so it uses submitProtected.
 	const swapB64 = await jupiterSwapTx(plan.quote, payer.toBase58());
 	const buyTx = VersionedTransaction.deserialize(Buffer.from(swapB64, 'base64'));
 	buyTx.sign([signer]);

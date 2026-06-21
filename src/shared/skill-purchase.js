@@ -23,6 +23,7 @@
  */
 
 import { log } from './log.js';
+import { showToast } from '../ui-helpers.js';
 
 export const USDC_MAINNET_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 
@@ -70,6 +71,16 @@ const MODAL_HTML = `
 				<span>Total</span>
 				<strong id="payment-price-display"></strong>
 			</div>
+			<div class="payment-pwyw" id="payment-pwyw-area" hidden>
+				<label class="payment-pwyw-label" for="payment-pwyw-input">Name your price</label>
+				<div class="payment-pwyw-row">
+					<input type="number" id="payment-pwyw-input" class="payment-pwyw-input"
+						inputmode="decimal" min="0" step="0.01"
+						autocomplete="off" aria-describedby="payment-pwyw-hint" />
+					<span class="payment-pwyw-unit" id="payment-pwyw-unit">USDC</span>
+				</div>
+				<div class="payment-pwyw-hint" id="payment-pwyw-hint" role="status" aria-live="polite"></div>
+			</div>
 			<div class="payment-gift" id="payment-gift-area" hidden>
 				<label class="payment-gift-toggle">
 					<input type="checkbox" id="payment-gift-toggle-input" />
@@ -103,6 +114,7 @@ function ensureModal() {
 	}
 	$('payment-modal-close')?.addEventListener('click', closePaymentModal);
 	$('payment-confirm-btn')?.addEventListener('click', handlePurchase);
+	$('payment-pwyw-input')?.addEventListener('input', onPwywInput);
 	$('payment-gift-toggle-input')?.addEventListener('change', onGiftToggle);
 	$('payment-gift-input')?.addEventListener('input', onGiftInput);
 	$('payment-modal-overlay')?.addEventListener('click', (e) => {
@@ -212,6 +224,90 @@ function renderPaymentVerifyAgain({ txid, message, retryFn }) {
 // resolved user id to the server, which re-resolves and records it as the
 // purchase's recipient.
 
+// ── Pay-what-you-want ─────────────────────────────────────────────────────────
+//
+// When a skill is priced PWYW the modal shows an amount input instead of a fixed
+// total. The buyer types a human amount; we enforce the creator's minimum
+// client-side (the server re-validates), gate the confirm button on a valid
+// figure, and pass the chosen atomic amount to the purchase create call.
+
+let pwywState = { active: false, decimals: 6, minAtomics: 0n, symbol: 'USDC' };
+
+function setupPwywUI({ active, price }) {
+	const area = $('payment-pwyw-area');
+	const input = $('payment-pwyw-input');
+	const unit = $('payment-pwyw-unit');
+	if (!active) {
+		pwywState = { active: false, decimals: 6, minAtomics: 0n, symbol: 'USDC' };
+		if (area) area.hidden = true;
+		setPwywHint('');
+		return;
+	}
+	const decimals = Number(price.mint_decimals ?? 6);
+	const minAtomics = price.minimum_amount != null ? BigInt(price.minimum_amount) : 0n;
+	const symbol = shortMintLabel(price.currency_mint);
+	pwywState = { active: true, decimals, minAtomics, symbol };
+	const suggested = Number(price.amount) / Math.pow(10, decimals);
+	if (input) input.value = suggested > 0 ? suggested.toFixed(decimals === 6 ? 2 : 4).replace(/\.?0+$/, '') : '';
+	if (unit) unit.textContent = symbol;
+	if (area) area.hidden = false;
+	updatePwywHint();
+}
+
+function pwywMinHuman() {
+	return Number(pwywState.minAtomics) / Math.pow(10, pwywState.decimals);
+}
+
+// Parse the input into atomic units; null when blank or non-numeric.
+function pwywChosenAtomics() {
+	const raw = ($('payment-pwyw-input')?.value || '').trim();
+	if (!raw) return null;
+	const human = Number(raw);
+	if (!Number.isFinite(human) || human < 0) return null;
+	return BigInt(Math.round(human * Math.pow(10, pwywState.decimals)));
+}
+
+function setPwywHint(text, kind) {
+	const el = $('payment-pwyw-hint');
+	if (!el) return;
+	el.textContent = text || '';
+	el.className = 'payment-pwyw-hint' + (kind ? ' ' + kind : '');
+}
+
+function updatePwywHint() {
+	if (!pwywState.active) return;
+	const chosen = pwywChosenAtomics();
+	if (chosen == null) {
+		setPwywHint(
+			pwywState.minAtomics > 0n
+				? `Minimum ${pwywMinHuman()} ${pwywState.symbol}.`
+				: `Enter how much you'd like to pay.`,
+		);
+		return;
+	}
+	if (chosen <= 0n) {
+		setPwywHint('Enter an amount greater than zero.', 'err');
+		return;
+	}
+	if (chosen < pwywState.minAtomics) {
+		setPwywHint(`That's below the ${pwywMinHuman()} ${pwywState.symbol} minimum.`, 'err');
+		return;
+	}
+	setPwywHint(`You'll pay ${(Number(chosen) / Math.pow(10, pwywState.decimals))} ${pwywState.symbol}.`, 'ok');
+}
+
+function onPwywInput() {
+	updatePwywHint();
+	refreshConfirmEnabled();
+}
+
+// Is the current PWYW amount valid? Trivially true when not in PWYW mode.
+function pwywAmountValid() {
+	if (!pwywState.active) return true;
+	const chosen = pwywChosenAtomics();
+	return chosen != null && chosen > 0n && chosen >= pwywState.minAtomics;
+}
+
 let giftState = { enabled: false, active: false, recipient: null, resolving: false, seq: 0 };
 let giftLookupTimer = null;
 
@@ -241,6 +337,7 @@ function refreshConfirmEnabled() {
 	if (!btn) return;
 	let enabled = !!connectedWallet;
 	if (giftState.active && (!giftState.recipient || giftState.resolving)) enabled = false;
+	if (!pwywAmountValid()) enabled = false;
 	btn.disabled = !enabled;
 }
 
@@ -346,6 +443,7 @@ function closePaymentModal() {
 	if (success) { success.hidden = true; success.innerHTML = ''; }
 	setPaymentBadge('');
 	setStatus('');
+	setupPwywUI({ active: false });
 	setupGiftUI({ enabled: false });
 	pendingAssetPurchase = null;
 	pendingSubscription = null;
@@ -542,7 +640,7 @@ async function sendPurchaseTransaction(purchase) {
 
 // ── Server purchase records ─────────────────────────────────────────────────
 
-async function createPendingPurchase(agentId, skill, durationHours = null, buyerPublicKey = null, recipient = null) {
+async function createPendingPurchase(agentId, skill, durationHours = null, buyerPublicKey = null, recipient = null, payAmountAtomics = null) {
 	const body = { agent_id: agentId, skill };
 	if (durationHours) body.duration_hours = durationHours;
 	// Hand the server our wallet pubkey so it can return a gasless, pre-signed
@@ -550,6 +648,10 @@ async function createPendingPurchase(agentId, skill, durationHours = null, buyer
 	if (buyerPublicKey) body.buyer_public_key = buyerPublicKey;
 	// Gift: the resolved recipient's user id; the server re-resolves + validates.
 	if (recipient) body.recipient = recipient;
+	// Pay-what-you-want: the buyer's chosen amount in atomic units. The server
+	// validates it against the skill's minimum + ceiling and ignores it for
+	// fixed-price skills.
+	if (payAmountAtomics != null) body.pay_amount = String(payAmountAtomics);
 	const r = await apiPostWithCsrf('/api/marketplace/purchase', body);
 	const j = await r.json();
 	if (!r.ok) throw new Error(j.error_description || j.error || 'Failed to create purchase');
@@ -583,18 +685,32 @@ export async function openPurchaseFlow(agentId, skill) {
 
 	const decimals = Number(price.mint_decimals ?? 6);
 	const human = (Number(price.amount) / Math.pow(10, decimals)).toFixed(decimals === 6 ? 2 : 4);
+	const isPwyw = price.pricing_type === 'pwyw';
 
 	setPaymentTitle('Unlock skill');
-	setPaymentLede('You are purchasing permanent access to this skill:');
+	setPaymentLede(isPwyw
+		? 'Choose how much to pay for permanent access to this skill:'
+		: 'You are purchasing permanent access to this skill:');
 	setPaymentFromLabel('on agent');
 	setPaymentBadge('');
 	$('payment-skill-name').textContent = skill;
 	$('payment-agent-name').textContent = agent.name;
-	$('payment-price-display').textContent = `${human} ${shortMintLabel(price.currency_mint)}`;
+	// For PWYW the amount input below carries the total, so the static "Total"
+	// line shows the floor (or "Pay what you want") instead of a fixed figure.
+	if (isPwyw) {
+		const minAtomics = price.minimum_amount != null ? Number(price.minimum_amount) : 0;
+		const minHuman = (minAtomics / Math.pow(10, decimals)).toString();
+		$('payment-price-display').textContent = minAtomics > 0
+			? `From ${minHuman} ${shortMintLabel(price.currency_mint)}`
+			: 'Pay what you want';
+	} else {
+		$('payment-price-display').textContent = `${human} ${shortMintLabel(price.currency_mint)}`;
+	}
 	const confirmBtn = $('payment-confirm-btn');
 	if (confirmBtn) confirmBtn.textContent = 'Confirm purchase';
 	const qr = $('payment-qr'); if (qr) qr.innerHTML = '';
 	setStatus('');
+	setupPwywUI({ active: isPwyw, price });
 	setupGiftUI({ enabled: true });
 	$('payment-modal-overlay').hidden = false;
 	updateWalletUI();
@@ -624,6 +740,7 @@ export async function openTimePassFlow(agentId, skill, durationHours, btn) {
 	$('payment-price-display').textContent = `${human} ${shortMintLabel(price.currency_mint)}`;
 	const qr = $('payment-qr'); if (qr) qr.innerHTML = '';
 	setStatus('');
+	setupPwywUI({ active: false });
 	setupGiftUI({ enabled: true });
 	$('payment-modal-overlay').hidden = false;
 	updateWalletUI();
@@ -643,15 +760,16 @@ export async function openTrialFlow(agentId, skill, btn) {
 		const r = await apiPostWithCsrf('/api/marketplace/start-trial', { agent_id: agentId, skill });
 		const j = await r.json().catch(() => ({}));
 		if (!r.ok) {
-			if (j.error === 'already_owned') alert('You already own this skill.');
-			else if (j.error === 'trial_used') alert('You have already used the trial for this skill.');
+			if (j.error === 'already_owned') showToast('You already own this skill.', { type: 'info' });
+			else if (j.error === 'trial_used') showToast('You have already used the trial for this skill.', { type: 'warning' });
 			else if (r.status === 401) { location.href = `/login?next=${encodeURIComponent(location.pathname)}`; return; }
-			else alert(j.error_description || j.error || 'Failed to start trial');
+			else showToast(j.error_description || j.error || 'Failed to start trial', { type: 'error' });
 			return;
 		}
 		await cfg.onPurchased(agentId);
+		showToast(`Free trial of ${skill} started.`, { type: 'success' });
 	} catch (err) {
-		alert(err.message || 'Failed to start trial');
+		showToast(err.message || 'Failed to start trial', { type: 'error' });
 	} finally {
 		if (btn) { btn.disabled = false; btn.textContent = 'Try free'; }
 	}
@@ -691,6 +809,7 @@ export function openAssetPurchaseFlow(asset) {
 
 	const qr = $('payment-qr'); if (qr) qr.innerHTML = '';
 	setStatus('');
+	setupPwywUI({ active: false });
 	setupGiftUI({ enabled: false });
 	$('payment-modal-overlay').hidden = false;
 	updateWalletUI();
@@ -745,10 +864,30 @@ async function handlePurchase() {
 	// Snapshot the gift recipient at click time so a late keystroke can't change
 	// who the in-flight purchase is for.
 	const giftRecipient = activeGiftRecipient();
+	// Snapshot the PWYW amount the same way — the figure in flight must be the one
+	// the buyer saw when they clicked. Guarded by refreshConfirmEnabled (the button
+	// is disabled until the amount clears the minimum), but re-checked here so a
+	// programmatic call can't bypass it.
+	let payAmountAtomics = null;
+	if (pwywState.active) {
+		const chosen = pwywChosenAtomics();
+		if (!pwywAmountValid() || chosen == null) {
+			confirmBtn.disabled = false;
+			setStatus(
+				pwywState.minAtomics > 0n
+					? `Enter at least ${pwywMinHuman()} ${pwywState.symbol}.`
+					: 'Enter how much you want to pay.',
+				'err',
+			);
+			return;
+		}
+		payAmountAtomics = chosen.toString();
+	}
 
 	const onUnlocked = async () => {
 		await cfg.onPurchased(agentId);
 		if (giftRecipient) {
+			showToast(`Gift sent to ${giftLabel(giftRecipient)} — ${skill} unlocked.`, { type: 'success' });
 			renderPaymentSuccess({
 				title: 'Gift sent 🎁',
 				message: durationHours
@@ -759,6 +898,10 @@ async function handlePurchase() {
 			});
 			return;
 		}
+		showToast(
+			durationHours ? `${durationHours}h access to ${skill} unlocked.` : `${skill} unlocked.`,
+			{ type: 'success' },
+		);
 		renderPaymentSuccess({
 			title: durationHours ? `${durationHours}h access unlocked` : 'Skill unlocked',
 			message: durationHours
@@ -771,7 +914,7 @@ async function handlePurchase() {
 
 	let purchase;
 	try {
-		purchase = await createPendingPurchase(agentId, skill, durationHours, connectedWallet.publicKey.toBase58(), giftRecipient?.id || null);
+		purchase = await createPendingPurchase(agentId, skill, durationHours, connectedWallet.publicKey.toBase58(), giftRecipient?.id || null, payAmountAtomics);
 		if (purchase.already_owned) {
 			await cfg.onPurchased(agentId);
 			renderPaymentSuccess({
@@ -827,6 +970,7 @@ async function handlePurchase() {
 			});
 			return;
 		}
+		showToast(e.message || 'Purchase failed', { type: 'error' });
 		setStatus(e.message || 'Purchase failed', 'err');
 		confirmBtn.disabled = false;
 	}
@@ -872,6 +1016,7 @@ async function handleAssetPurchase() {
 		const ok = await pollAssetConfirm(purchase.reference, 60_000);
 		const succeed = () => {
 			const target = assetViewTarget(asset);
+			showToast(`${asset.label} purchased.`, { type: 'success' });
 			renderPaymentSuccess({
 				title: `${asset.label} purchased`,
 				message: `${asset.item_type === 'avatar' ? 'Your new avatar' : asset.item_type === 'agent' ? 'Your new agent' : 'Your purchase'} is in your dashboard.`,
@@ -903,6 +1048,7 @@ async function handleAssetPurchase() {
 					const ok2 = await pollAssetConfirm(purchase.reference, 60_000);
 					if (!ok2) throw new Error('Still not confirmed — wait a few seconds and try again.');
 					const target = assetViewTarget(asset);
+					showToast(`${asset.label} purchased.`, { type: 'success' });
 					renderPaymentSuccess({
 						title: `${asset.label} purchased`,
 						message: `${asset.item_type === 'avatar' ? 'Your new avatar' : 'Your purchase'} is in your dashboard.`,
@@ -913,6 +1059,7 @@ async function handleAssetPurchase() {
 			});
 			return;
 		}
+		showToast(e.message || 'Purchase failed', { type: 'error' });
 		setStatus(e.message || 'Purchase failed', 'err');
 		confirmBtn.disabled = false;
 	}
@@ -961,6 +1108,7 @@ export async function openSubscribeFlow(agentId, tier) {
 	}
 	const qr = $('payment-qr'); if (qr) qr.innerHTML = '';
 	setStatus('');
+	setupPwywUI({ active: false });
 	setupGiftUI({ enabled: false });
 	$('payment-modal-overlay').hidden = false;
 	updateWalletUI();
@@ -1020,6 +1168,7 @@ async function handleSubscription() {
 
 	const succeed = () => {
 		cfg.onPurchased(agentId).catch(() => {});
+		showToast(`Subscribed to ${tier.name}.`, { type: 'success' });
 		renderPaymentSuccess({
 			title: `Subscribed to ${tier.name}`,
 			message: `You now have access to ${agent?.name || 'this agent'}'s paid skills. Billed every ${cycle}.`,
@@ -1075,6 +1224,7 @@ async function handleSubscription() {
 			});
 			return;
 		}
+		showToast(e.message || 'Subscription failed', { type: 'error' });
 		setStatus(e.message || 'Subscription failed', 'err');
 		confirmBtn.disabled = false;
 	}
@@ -1088,10 +1238,27 @@ async function startQrPurchase() {
 	const skill = $('payment-skill-name').textContent;
 	const giftRecipient = activeGiftRecipient();
 
+	// PWYW over the mobile QR path: enforce the same amount validity before we
+	// mint the Solana Pay reference, so the QR encodes the buyer-chosen amount.
+	let payAmountAtomics = null;
+	if (pwywState.active) {
+		const chosen = pwywChosenAtomics();
+		if (!pwywAmountValid() || chosen == null) {
+			setStatus(
+				pwywState.minAtomics > 0n
+					? `Enter at least ${pwywMinHuman()} ${pwywState.symbol}.`
+					: 'Enter how much you want to pay.',
+				'err',
+			);
+			return;
+		}
+		payAmountAtomics = chosen.toString();
+	}
+
 	setStatus('Creating purchase…');
 	let purchase;
 	try {
-		purchase = await createPendingPurchase(agentId, skill, null, null, giftRecipient?.id || null);
+		purchase = await createPendingPurchase(agentId, skill, null, null, giftRecipient?.id || null, payAmountAtomics);
 		if (purchase.already_owned) {
 			await cfg.onPurchased(agentId);
 			renderPaymentSuccess({
@@ -1128,6 +1295,10 @@ async function startQrPurchase() {
 
 	const qrSuccess = async () => {
 		await cfg.onPurchased(agentId);
+		showToast(
+			giftRecipient ? `Gift sent to ${giftLabel(giftRecipient)} — ${skill} unlocked.` : `${skill} unlocked.`,
+			{ type: 'success' },
+		);
 		renderPaymentSuccess({
 			title: giftRecipient ? 'Gift sent 🎁' : 'Skill unlocked',
 			message: giftRecipient

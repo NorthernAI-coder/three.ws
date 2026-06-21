@@ -33,7 +33,8 @@ function keyFor(agentId) {
 async function loadFromDb(agentId) {
 	return sql`
 		SELECT skill, amount, currency_mint, chain, mint_decimals,
-		       trial_uses, time_pass_hours, time_pass_amount
+		       trial_uses, time_pass_hours, time_pass_amount,
+		       pricing_type, minimum_amount
 		FROM agent_skill_prices
 		WHERE agent_id = ${agentId} AND is_active = true
 	`;
@@ -103,6 +104,8 @@ export function skillPriceMap(rows) {
 			trial_uses: p.trial_uses ?? 0,
 			time_pass_hours: p.time_pass_hours ?? null,
 			time_pass_amount: p.time_pass_amount ?? null,
+			pricing_type: p.pricing_type === 'pwyw' ? 'pwyw' : 'fixed',
+			minimum_amount: p.minimum_amount == null ? null : String(p.minimum_amount),
 		};
 	}
 	return map;

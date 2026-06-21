@@ -22,6 +22,7 @@ import { cors, error, json, method, readJson, wrap, rateLimited } from '../_lib/
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { normalizeLegacyPolicy } from '../_lib/embed-policy.js';
 import { llmComplete, LlmUnavailableError } from '../_lib/llm.js';
+import { hasSkillAccess } from '../_lib/skill-access.js';
 import { isUuid } from '../_lib/validate.js';
 
 const ALLOWED_MODELS = new Set([
@@ -37,6 +38,53 @@ const bodySchema = z.object({
 	model: z.string().min(1).max(100).optional(),
 });
 
+// Build the agent's skill_ownership context for one requesting user. Every skill
+// the agent declares is classified as premium (priced + active in
+// agent_skill_prices) or free; for premium skills we resolve the caller's real
+// access via hasSkillAccess (purchase / subscription / trial). Anonymous callers
+// (userId === null) own no premium skill. Returns a compact, structured prompt
+// section, or null when the agent has no skills worth describing.
+async function buildSkillOwnershipBlock(agent, userId) {
+	const skills = Array.isArray(agent.skills) ? agent.skills.filter(Boolean) : [];
+	if (skills.length === 0) return null;
+
+	// One query for all of this agent's active prices, then classify in memory —
+	// avoids a per-skill price lookup. hasSkillAccess re-checks the price row, but
+	// only for skills we already know are premium.
+	const priceRows = await sql`
+		SELECT skill FROM agent_skill_prices
+		WHERE agent_id = ${agent.id} AND is_active = true
+	`;
+	const pricedSkills = new Set(priceRows.map((r) => r.skill));
+
+	const ownership = {};
+	for (const skill of skills) {
+		if (!pricedSkills.has(skill)) {
+			ownership[skill] = { is_premium: false, is_owned: true };
+			continue;
+		}
+		if (!userId) {
+			ownership[skill] = { is_premium: true, is_owned: false };
+			continue;
+		}
+		const access = await hasSkillAccess(userId, agent.id, skill);
+		ownership[skill] = { is_premium: true, is_owned: Boolean(access.owned) };
+	}
+
+	const hasPremium = Object.values(ownership).some((o) => o.is_premium);
+	if (!hasPremium) return null; // nothing to monetize — keep the prompt lean.
+
+	return [
+		'## Skill access (current user)',
+		'The JSON below maps each of your skills to whether it is premium (paid) and whether THIS user has already unlocked it:',
+		JSON.stringify(ownership),
+		'Behaviour rules:',
+		'- Use any skill where is_owned is true freely, without mentioning payment.',
+		'- If the user asks to use a skill where is_premium is true and is_owned is false, do NOT perform it. Politely explain it is a paid skill and invite them to unlock it from your agent profile page, then offer the free skills you can do instead.',
+		'- Never invent prices, never reveal another user\'s access, and never claim a skill is unlocked when is_owned is false.',
+	].join('\n');
+}
+
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'POST,OPTIONS', credentials: false })) return;
 	if (!method(req, res, ['POST'])) return;
@@ -50,6 +98,7 @@ export default wrap(async (req, res) => {
 	const session = await getSessionUser(req);
 	const principal = session ?? (await authenticateBearer(extractBearer(req)));
 	if (!principal) return error(res, 401, 'unauthorized', 'sign in required');
+	const userId = session?.id ?? principal?.userId ?? null;
 
 	const rl = await limits.agentDelegate(clientIp(req));
 	if (!rl.success) return rateLimited(res, rl, 'agent delegate rate limit');
@@ -76,7 +125,7 @@ export default wrap(async (req, res) => {
 	if (!isUuid(agentId)) return error(res, 404, 'agent_not_found', 'agent not found');
 
 	const [agent] = await sql`
-		SELECT id, name, description, embed_policy, meta
+		SELECT id, name, description, embed_policy, meta, skills
 		FROM agent_identities
 		WHERE id = ${agentId} AND deleted_at IS NULL
 	`;
@@ -91,9 +140,15 @@ export default wrap(async (req, res) => {
 	const model =
 		requestedModel && ALLOWED_MODELS.has(requestedModel) ? requestedModel : defaultModel;
 
-	const systemPrompt =
+	const basePrompt =
 		agent.meta?.brain?.instructions ||
 		`You are ${agent.name}. ${agent.description || ''}`.trim();
+
+	// Real per-user skill-ownership context: lets the agent know which of its
+	// skills are premium and whether THIS caller has already unlocked them, so it
+	// can use owned skills freely and offer to sell the ones the user lacks.
+	const ownershipBlock = await buildSkillOwnershipBlock(agent, userId);
+	const systemPrompt = ownershipBlock ? `${basePrompt}\n\n${ownershipBlock}` : basePrompt;
 
 	const started = Date.now();
 	let result;

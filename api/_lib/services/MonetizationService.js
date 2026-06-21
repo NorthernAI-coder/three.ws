@@ -81,7 +81,8 @@ export class MonetizationService {
 	async getSkillPricesForAgent(agentId) {
 		return this.sql`
 			SELECT skill, amount, currency_mint, chain, mint_decimals,
-			       trial_uses, time_pass_hours, time_pass_amount
+			       trial_uses, time_pass_hours, time_pass_amount,
+			       pricing_type, minimum_amount
 			FROM agent_skill_prices
 			WHERE agent_id = ${agentId} AND is_active = true
 			ORDER BY skill
@@ -111,10 +112,13 @@ export class MonetizationService {
 			...prices.map(
 				(p) => this.sql`
 					INSERT INTO agent_skill_prices
-						(agent_id, skill, amount, currency_mint, chain, is_active, trial_uses, time_pass_hours, time_pass_amount)
+						(agent_id, skill, amount, currency_mint, chain, is_active, trial_uses,
+						 time_pass_hours, time_pass_amount, pricing_type, minimum_amount)
 					VALUES
 						(${agentId}, ${p.skill}, ${p.amount}, ${p.currency_mint}, ${p.chain}, true,
-						 ${p.trial_uses ?? 0}, ${p.time_pass_hours ?? null}, ${p.time_pass_amount ?? null})
+						 ${p.trial_uses ?? 0}, ${p.time_pass_hours ?? null}, ${p.time_pass_amount ?? null},
+						 ${p.pricing_type === 'pwyw' ? 'pwyw' : 'fixed'},
+						 ${p.pricing_type === 'pwyw' ? (p.minimum_amount ?? 0) : null})
 					ON CONFLICT (agent_id, skill) DO UPDATE SET
 						amount = EXCLUDED.amount,
 						currency_mint = EXCLUDED.currency_mint,
@@ -123,6 +127,8 @@ export class MonetizationService {
 						trial_uses = EXCLUDED.trial_uses,
 						time_pass_hours = EXCLUDED.time_pass_hours,
 						time_pass_amount = EXCLUDED.time_pass_amount,
+						pricing_type = EXCLUDED.pricing_type,
+						minimum_amount = EXCLUDED.minimum_amount,
 						updated_at = now()
 				`,
 			),
@@ -158,7 +164,7 @@ export class MonetizationService {
 	 * @param {string|null} [opts.referrerUserId] - resolved referrer (handler reads the request).
 	 * @param {string|null} [opts.recipientUserId] - gift beneficiary (resolved by the handler).
 	 */
-	async preparePurchaseTransaction(agentId, skillName, { durationHours = null, referrerUserId = null, recipientUserId = null } = {}) {
+	async preparePurchaseTransaction(agentId, skillName, { durationHours = null, referrerUserId = null, recipientUserId = null, payAmount = null } = {}) {
 		this.requireAuth();
 
 		const isGift = !!recipientUserId && recipientUserId !== this.userId;
@@ -168,11 +174,14 @@ export class MonetizationService {
 		const beneficiaryId = isGift ? recipientUserId : this.userId;
 
 		const [price] = await this.sql`
-			SELECT amount, currency_mint, chain, mint_decimals, trial_uses, time_pass_hours, time_pass_amount
+			SELECT amount, currency_mint, chain, mint_decimals, trial_uses,
+			       time_pass_hours, time_pass_amount, pricing_type, minimum_amount
 			FROM agent_skill_prices
 			WHERE agent_id = ${agentId} AND skill = ${skillName} AND is_active = true
 		`;
 		if (!price) throw svcError(404, 'not_found', 'this skill is not for sale');
+
+		const isPwyw = price.pricing_type === 'pwyw';
 
 		const payoutAddress = await resolvePayoutAddress(agentId, price.chain);
 		if (!payoutAddress) {
@@ -227,9 +236,23 @@ export class MonetizationService {
 		`;
 
 		// Time-pass: prefer an explicit duration, else the skill's configured window.
-		const effectiveDurationHours = durationHours ?? (price.time_pass_hours || null);
+		// PWYW is a permanent-purchase pricing mode and takes precedence over the
+		// time-pass path — a buyer who names their own price is buying the skill
+		// outright, not renting a window.
+		const effectiveDurationHours = isPwyw ? null : (durationHours ?? (price.time_pass_hours || null));
 		const isTimePass = effectiveDurationHours != null;
-		const purchaseAmount = isTimePass && price.time_pass_amount ? price.time_pass_amount : price.amount;
+
+		// Resolve the amount the buyer will be charged. Fixed skills bill the
+		// listed price (or the time-pass price). PWYW skills bill the buyer-chosen
+		// `payAmount`, validated against the configured minimum and a sane ceiling.
+		let purchaseAmount;
+		if (isPwyw) {
+			purchaseAmount = this.resolvePwywAmount(payAmount, price);
+		} else if (isTimePass && price.time_pass_amount) {
+			purchaseAmount = price.time_pass_amount;
+		} else {
+			purchaseAmount = price.amount;
+		}
 		const purchaseKind = isTimePass ? 'time_pass' : 'purchase';
 
 		// Platform fee (Solana only — the split is one atomic SPL transfer the buyer
@@ -272,6 +295,22 @@ export class MonetizationService {
 			`;
 			row = inserted;
 			await logEvent(row.reference, 'created', { agent_id: agentId, skill: skillName, kind: purchaseKind, gift: isGift });
+		} else if (isPwyw && BigInt(pending.amount) !== BigInt(purchaseAmount)) {
+			// PWYW: the buyer changed their chosen amount on a retry. Re-sync the
+			// reused pending row (and its persisted fee split) so the quote — and the
+			// on-chain amount confirm verifies against — match the NEW amount.
+			const [resynced] = await this.sql`
+				UPDATE skill_purchases
+				SET amount = ${purchaseAmount},
+				    platform_fee_amount = ${platformFeeAmount.toString()},
+				    platform_fee_wallet = ${platformFeeWallet},
+				    expires_at = now() + interval '30 minutes'
+				WHERE reference = ${pending.reference} AND status = 'pending'
+				RETURNING reference, amount, currency_mint, chain, expires_at, valid_until,
+				          platform_fee_amount, platform_fee_wallet
+			`;
+			row = resynced ?? pending;
+			await logEvent(pending.reference, 'pwyw_amount_updated', { agent_id: agentId, skill: skillName, amount: String(purchaseAmount) });
 		} else {
 			await logEvent(pending.reference, 'create_idempotent_hit', { agent_id: agentId, skill: skillName });
 		}
@@ -309,10 +348,77 @@ export class MonetizationService {
 			...feeBlock,
 			...(isGift ? { is_gift: true, gift_recipient_id: recipientUserId } : {}),
 			...(isTimePass ? { duration_hours: effectiveDurationHours } : {}),
-			...(price.time_pass_hours
+			...(price.time_pass_hours && !isPwyw
 				? { time_pass_hours: price.time_pass_hours, time_pass_amount: price.time_pass_amount }
 				: {}),
+			...(isPwyw
+				? {
+						pricing_type: 'pwyw',
+						minimum_amount: String(price.minimum_amount ?? 0),
+						suggested_amount: String(price.amount),
+					}
+				: {}),
 		};
+	}
+
+	/**
+	 * Validate and normalize a buyer-supplied "pay what you want" amount against a
+	 * PWYW skill's price row. Returns the atomic-units amount to charge.
+	 *
+	 * Rules:
+	 *   • Must be a finite, non-negative integer in atomic units.
+	 *   • Must be ≥ the configured `minimum_amount` (NULL/0 means no floor).
+	 *   • Must not exceed a sane ceiling (1,000,000 whole tokens, scaled by the
+	 *     mint's decimals) — a guard against fat-finger / overflow inputs, not a
+	 *     business cap.
+	 *   • Omitted (`null`) defaults to the suggested price (`amount`) only when
+	 *     that already satisfies the minimum; otherwise the buyer must choose.
+	 *
+	 * @param {string|number|bigint|null} payAmount - buyer-chosen atomic amount.
+	 * @param {{amount:any, minimum_amount:any, mint_decimals:number}} price
+	 * @returns {bigint} amount in atomic units to charge
+	 * @throws 400 invalid_amount / amount_below_minimum / amount_too_large
+	 */
+	resolvePwywAmount(payAmount, price) {
+		const minimum = price.minimum_amount == null ? 0n : BigInt(price.minimum_amount);
+		const decimals = Number(price.mint_decimals ?? 6);
+		const ceiling = 1_000_000n * 10n ** BigInt(Number.isFinite(decimals) ? decimals : 6);
+
+		let chosen;
+		if (payAmount == null || payAmount === '') {
+			// No explicit amount — fall back to the suggested price if it clears the
+			// minimum; otherwise require the buyer to name a figure.
+			const suggested = BigInt(price.amount ?? 0);
+			if (suggested < minimum) {
+				throw svcError(400, 'invalid_amount', 'choose how much to pay for this skill');
+			}
+			chosen = suggested;
+		} else {
+			let parsed;
+			try {
+				// Reject decimals / non-integers up front: atomic units are whole.
+				const s = String(payAmount).trim();
+				if (!/^\d+$/.test(s)) throw new Error('not an integer');
+				parsed = BigInt(s);
+			} catch {
+				throw svcError(400, 'invalid_amount', 'amount must be a whole number of atomic units');
+			}
+			chosen = parsed;
+		}
+
+		if (chosen < 0n) throw svcError(400, 'invalid_amount', 'amount cannot be negative');
+		if (chosen < minimum) {
+			throw svcError(400, 'amount_below_minimum', 'amount is below this skill’s minimum');
+		}
+		// A purchase must move value: a zero-amount "purchase" can't be verified
+		// on-chain. A creator who wants a free skill should not list a price at all.
+		if (chosen === 0n) {
+			throw svcError(400, 'invalid_amount', 'amount must be greater than zero');
+		}
+		if (chosen > ceiling) {
+			throw svcError(400, 'amount_too_large', 'amount exceeds the maximum allowed');
+		}
+		return chosen;
 	}
 
 	/**

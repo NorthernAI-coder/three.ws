@@ -4,15 +4,24 @@ import { requireCsrf } from '../../_lib/csrf.js';
 import { MonetizationService } from '../../_lib/services/MonetizationService.js';
 import { z } from 'zod';
 
-const priceSchema = z.object({
-	skill: z.string().trim().min(1).max(100),
-	amount: z.number().int().min(1),
-	currency_mint: z.string().trim().min(1).max(100),
-	chain: z.string().trim().min(1).max(20),
-	trial_uses: z.number().int().min(0).max(10).default(0),
-	time_pass_hours: z.number().int().min(1).max(720).nullable().optional(),
-	time_pass_amount: z.number().int().min(1).nullable().optional(),
-});
+const priceSchema = z
+	.object({
+		skill: z.string().trim().min(1).max(100),
+		amount: z.number().int().min(1),
+		currency_mint: z.string().trim().min(1).max(100),
+		chain: z.string().trim().min(1).max(20),
+		trial_uses: z.number().int().min(0).max(10).default(0),
+		time_pass_hours: z.number().int().min(1).max(720).nullable().optional(),
+		time_pass_amount: z.number().int().min(1).nullable().optional(),
+		// Pay-what-you-want: 'fixed' (default) bills `amount`; 'pwyw' lets the buyer
+		// name an amount at or above `minimum_amount` (atomic units, 0 = no floor).
+		pricing_type: z.enum(['fixed', 'pwyw']).default('fixed'),
+		minimum_amount: z.number().int().min(0).nullable().optional(),
+	})
+	.refine((p) => p.pricing_type !== 'pwyw' || (p.minimum_amount ?? 0) <= p.amount, {
+		message: 'minimum cannot exceed the suggested amount',
+		path: ['minimum_amount'],
+	});
 
 const pricingUpdateSchema = z.object({
 	prices: z.array(priceSchema),

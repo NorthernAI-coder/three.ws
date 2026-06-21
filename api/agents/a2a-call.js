@@ -24,6 +24,7 @@ import { limits } from '../_lib/rate-limit.js';
 import { env } from '../_lib/env.js';
 import { assertSafePublicUrl, SsrfBlockedError } from '../_lib/ssrf-guard.js';
 import { assertMandateAllows, MandateError, verifyIntentMandate } from '../_lib/a2a/mandate.js';
+import { issueCartMandate } from '../_lib/a2a/cart-mandate.js';
 import { release, reserve } from '../_lib/a2a/spend-ledger.js';
 import { assertReputationOk, ReputationError } from '../_lib/a2a/reputation-gate.js';
 import {
@@ -205,6 +206,31 @@ export default wrap(async (req, res) => {
 		);
 	}
 
+	// ── Cart Mandate: sign the exact transaction (AP2 per-tx approval) ──────
+	// Bound to the intent mandate + the precise cart, this is the non-repudiable
+	// record of WHAT was paid. Issued before settlement so it accompanies the
+	// payment and is returned to the caller as a verifiable receipt.
+	const cartCurrency = currencyOf(accept) || null;
+	let cartMandateJws = null;
+	let cartMandate = null;
+	try {
+		({ jws: cartMandateJws, cartMandate } = await issueCartMandate({
+			intentMandate: mandate,
+			cart: {
+				resource: safeEndpoint,
+				amountAtomics: amount,
+				currency: cartCurrency || mandate.currency,
+				network,
+				taskId: quote.taskId,
+				items: [{ name: text, amountAtomics: amount }],
+			},
+		}));
+	} catch (err) {
+		await release(mandate.mandateId, amount);
+		if (err instanceof MandateError) return respondError(res, err.status, err.code, err);
+		throw err;
+	}
+
 	try {
 		const resource = quote.required.resource || { url: safeEndpoint, mimeType: 'application/json' };
 		let signer;
@@ -245,10 +271,14 @@ export default wrap(async (req, res) => {
 			task_id: quote.taskId,
 			amount,
 			network,
-			currency: currencyOf(accept) || null,
+			currency: cartCurrency,
 			payer: payerAddress,
 			spent: reservation.spent,
 			cap: reservation.cap,
+			// AP2 Cart Mandate: a signed, independently-verifiable proof of this exact
+			// transaction (verify via POST /api/agents/a2a-cart-verify).
+			cart_mandate: cartMandateJws,
+			cart: cartMandate,
 			receipts: result.receipts || [],
 			artifacts,
 		});

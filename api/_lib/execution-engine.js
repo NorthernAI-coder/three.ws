@@ -373,7 +373,12 @@ export async function submitProtected({ network, connection, payer, instructions
 	// instruction of the same kind makes the runtime reject the whole transaction.
 	// No-op for the trade path (passes none); lets migrated send paths hand us their
 	// raw instructions untouched without each having to remember to drop their own.
-	const userIxs = instructions.filter((ix) => !ix.programId.equals(ComputeBudgetProgram.programId));
+	const computeBudgetId = ComputeBudgetProgram.programId.toBase58();
+	const userIxs = instructions.filter((ix) => {
+		const pid = ix?.programId;
+		const id = typeof pid?.toBase58 === 'function' ? pid.toBase58() : String(pid ?? '');
+		return id !== computeBudgetId;
+	});
 	const t0 = Date.now();
 
 	// 1. Data-driven compute budget. Estimate the priority fee and the CU limit in
