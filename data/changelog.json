@@ -3,6 +3,23 @@
 	"entries": [
 		{
 			"date": "2026-06-21",
+			"title": "Describe-it-to-3D no longer shows a confusing third-party billing error",
+			"summary": "When you turn a text prompt into a 3D avatar, the first step paints a reference image — and that runs on the free NVIDIA lane by default. If that lane was briefly busy, the request could fall through to a paid backstop that had run out of credit, and the backstop's raw \"go purchase credit\" message leaked onto your screen. That's gone: any billing or out-of-credit hiccup on a backstop now shows a clean \"temporarily unavailable — try again later,\" the free NVIDIA lane stays the primary path, and a third party's billing page never reaches you.",
+			"tags": [
+				"fix"
+			],
+			"link": "/create/prompt"
+		},
+		{
+			"date": "2026-06-21",
+			"title": "Fixed: \"Edit Avatar\" no longer 404s",
+			"summary": "The Edit Avatar link in the account menu was sending you to a page that didn't exist, so customizing your avatar dead-ended on a 404. It now opens the avatar editor correctly. We also pointed the \"create your avatar\" button (shown when you don't have one yet) straight at the avatar creator instead of an empty editor.",
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-21",
 			"title": "New tutorial: create, enhance & edit your agent's memory",
 			"summary": "A custom memory is a fact your agent carries into every future conversation — quote prices in USDC, address me formally, ship by July. A new step-by-step tutorial shows the five ways to add one (straight from the dashboard with no code, by just telling the agent, over the MCP tools, via the API, or from inside a skill) and, just as importantly, how to make a memory actually get used: the right type, one fact per memory, tags, and salience. It also covers editing a memory in place and forgetting one you no longer want.",
 			"tags": [
@@ -58,8 +75,8 @@
 		},
 		{
 			"date": "2026-06-21",
-			"title": "Club door payment no longer fails when an RPC node blips",
-			"summary": "Paying the cover charge to enter the Pole Club builds a Solana transaction the moment you authorize, and that step reads a fresh blockhash from the network. If every Solana node we try is momentarily throttled in that instant, the door used to fail with an opaque \"internal error\" right after you confirmed the price — even though nothing was charged. The door now keeps a recent blockhash on hand and reuses it through a brief outage, so a transient node hiccup no longer turns you away. It still refuses only when there's genuinely no valid blockhash to build with.",
+			"title": "Solana reads and the club door survive a degraded RPC provider",
+			"summary": "When a Solana node answers with a 200 but an unusable body — an empty payload, an HTML error page, or a quota-exhausted reply — our network layer had one weak spot: if every node was momentarily cooling off at once, it forwarded that garbage response straight through. In the browser that showed up as broken balance and blockhash reads on the marketplace, staking, and payment screens; at the club door it could fail the cover charge with an opaque error even though nothing was charged. The network layer now validates every reply on every path and fails over to a healthy node instead of passing a bad one along, returning a clean, honest error only when every provider is genuinely down. The club door also keeps a recent blockhash on hand and reuses it through a brief blip, so paying to enter and reading on-chain balances stay reliable through provider hiccups.",
 			"tags": [
 				"fix",
 				"infra"

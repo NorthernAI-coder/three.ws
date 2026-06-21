@@ -21,6 +21,7 @@ import { limits, clientIp } from './_lib/rate-limit.js';
 import {
 	solanaRpcEndpoints,
 	makeRotatingFetch,
+	classifyRpcBody,
 } from './_lib/solana/connection.js';
 
 // Methods a browser Connection needs to read balances/accounts, build, simulate,
@@ -142,6 +143,19 @@ export default wrap(async function handler(req, res) {
 	}
 
 	const text = await upstream.text();
+	// Defense-in-depth: the rotating fetch already validates every body it returns,
+	// but never let a malformed payload reach a browser web3.js Connection — it would
+	// throw an opaque StructError (or silently mis-read an empty `[]`) instead of a
+	// clean error the caller can handle. If the upstream body isn't a well-formed
+	// JSON-RPC response, surface an honest 502 keyed to the same JSON-RPC id.
+	if (classifyRpcBody(text)) {
+		const id = Array.isArray(body) ? null : body?.id ?? null;
+		res.statusCode = 502;
+		res.setHeader('content-type', 'application/json; charset=utf-8');
+		res.setHeader('cache-control', 'no-store');
+		res.end(JSON.stringify({ jsonrpc: '2.0', id, error: { code: -32603, message: 'rpc upstream returned an unusable response' } }));
+		return;
+	}
 	res.statusCode = upstream.status;
 	res.setHeader('content-type', 'application/json; charset=utf-8');
 	res.setHeader('cache-control', 'no-store');

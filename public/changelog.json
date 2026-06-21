@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-21T11:06:25.035Z",
+	"generated_at": "2026-06-21T11:26:39.172Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -173,17 +173,6 @@
 		{
 			"date": "2026-06-21",
 			"type": "update",
-			"title": "Club door payment no longer fails when an RPC node blips",
-			"summary": "Paying the cover charge to enter the Pole Club builds a Solana transaction the moment you authorize, and that step reads a fresh blockhash from the network. If every Solana node we try is momentarily throttled in that instant, the door used to fail with an opaque \"internal error\" right after you confirmed the price — even though nothing was charged. The door now keeps a recent blockhash on hand and reuses it through a brief outage, so a transient node hiccup no longer turns you away. It still refuses only when there's genuinely no valid blockhash to build with.",
-			"link": null,
-			"tags": [
-				"fix",
-				"infra"
-			]
-		},
-		{
-			"date": "2026-06-21",
-			"type": "update",
 			"title": "Coin pages stay fast when pump.fun is having a moment",
 			"summary": "The /launches coin page pulls creator fee-sharing earnings live from pump.fun. We put that call behind a circuit breaker (built on the well-tested cockatiel library rather than home-grown code): if pump.fun slows down or errors, the breaker trips after a few failures and the page instantly skips that one enrichment instead of every visitor waiting out the timeout. The earnings simply show as unavailable until pump.fun recovers, and the rest of the page — registry, intel, outcome, trader record — was never affected. Same approach is now available platform-wide for other third-party data sources.",
 			"link": "/launches",
@@ -243,6 +232,16 @@
 			"tags": [
 				"improvement",
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "update",
+			"title": "Fixed: \"Edit Avatar\" no longer 404s",
+			"summary": "The Edit Avatar link in the account menu was sending you to a page that didn't exist, so customizing your avatar dead-ended on a 404. It now opens the avatar editor correctly. We also pointed the \"create your avatar\" button (shown when you don't have one yet) straight at the avatar creator instead of an empty editor.",
+			"link": null,
+			"tags": [
+				"fix"
 			]
 		},
 		{
@@ -576,6 +575,17 @@
 			"link": "/dashboard",
 			"tags": [
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "update",
+			"title": "Solana reads and the club door survive a degraded RPC provider",
+			"summary": "When a Solana node answers with a 200 but an unusable body — an empty payload, an HTML error page, or a quota-exhausted reply — our network layer had one weak spot: if every node was momentarily cooling off at once, it forwarded that garbage response straight through. In the browser that showed up as broken balance and blockhash reads on the marketplace, staking, and payment screens; at the club door it could fail the cover charge with an opaque error even though nothing was charged. The network layer now validates every reply on every path and fails over to a healthy node instead of passing a bad one along, returning a clean, honest error only when every provider is genuinely down. The club door also keeps a recent blockhash on hand and reuses it through a brief blip, so paying to enter and reading on-chain balances stay reliable through provider hiccups.",
+			"link": null,
+			"tags": [
+				"fix",
+				"infra"
 			]
 		},
 		{
