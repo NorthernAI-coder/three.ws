@@ -1416,6 +1416,11 @@ model-viewer.ad-hero-avatar {
 	border-color: rgba(74, 222, 128, 0.3);
 	background: rgba(74, 222, 128, 0.08);
 }
+.ad-price-badge.pwyw {
+	color: #c4b5fd;
+	border-color: rgba(167, 139, 250, 0.4);
+	background: rgba(167, 139, 250, 0.08);
+}
 .ad-skill-btn {
 	padding: 5px 12px;
 	border-radius: 8px;
@@ -2074,6 +2079,61 @@ model-viewer.ad-hero-avatar {
 	font-size: 18px;
 	color: var(--ad-text);
 }
+/* Pay-what-you-want amount entry (shown in place of a fixed total). */
+.payment-pwyw {
+	margin: 4px 0 14px;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+.payment-pwyw-label {
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--ad-text);
+}
+.payment-pwyw-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+.payment-pwyw-input {
+	flex: 1 1 auto;
+	min-width: 0;
+	padding: 10px 12px;
+	border-radius: 9px;
+	border: 1px solid var(--ad-line);
+	background: var(--ad-bg-2);
+	color: var(--ad-text);
+	font: inherit;
+	font-size: 15px;
+	font-variant-numeric: tabular-nums;
+	box-sizing: border-box;
+}
+.payment-pwyw-input::placeholder {
+	color: var(--ad-dim);
+}
+.payment-pwyw-input:focus {
+	outline: none;
+	border-color: var(--ad-text);
+}
+.payment-pwyw-unit {
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--ad-muted);
+	flex-shrink: 0;
+}
+.payment-pwyw-hint {
+	font-size: 12px;
+	min-height: 14px;
+	color: var(--ad-muted);
+}
+.payment-pwyw-hint.ok {
+	color: var(--ad-green);
+}
+.payment-pwyw-hint.err {
+	color: #ff6b6b;
+}
+
 .payment-gift {
 	margin-bottom: 14px;
 }

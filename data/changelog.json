@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-06-21",
+			"title": "Pay-what-you-want pricing for skills",
+			"summary": "Creators can now price a skill as “pay what you want” with an optional minimum; buyers name their price at checkout and the fee, referral, and revenue math all use the actual amount paid.",
+			"tags": [
+				"feature"
+			],
+			"link": "/marketplace"
+		},
+		{
+			"date": "2026-06-21",
 			"title": "Affiliate dashboard now shows who you referred",
 			"summary": "The referrals dashboard lists each person you referred with their signup date, the revenue they generated, and the commission you earned — not just totals.",
 			"tags": [

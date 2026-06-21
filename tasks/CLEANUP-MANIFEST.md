@@ -201,3 +201,11 @@ Retired (feature verified shipped):
 | tasks/monetization-feature/17-transactional-emails.md | DELETE | Built: sendPurchaseReceiptEmail/sendSaleNotificationEmail/sendReferralCommissionEmail in api/_lib/email.js, triggered in api/_lib/purchase-confirm.js + api/_lib/referrals.js (creditReferralCommission), best-effort. |
 | tasks/monetization-feature/21-user-ratings-and-reviews.md | DELETE | Built: skill_reviews migration + api/skills/review.js (purchase-verified via hasSkillAccess) + src/skill-reviews.js mounted on src/agent-detail-market.js; route via api/skills/[id].js delegation. |
 | tasks/monetization-feature/19-affiliate-dashboard-improvements.md | DELETE | Built: getReferredUsers in api/_lib/referrals.js + per-user list in GET /api/users/referrals + table in src/dashboard-next/pages/referrals.js (real joins over skill_purchases/asset_purchases). |
+
+## 2026-06-21 built-and-shipped (monetization batch B)
+
+| spec file | decision | evidence |
+|---|---|---|
+| tasks/monetization-feature/24-add-toast-notifications.md | DELETE | Built: src/ui-helpers.js showToast (accessible, token-styled, action/dismiss) adopted across src/shared/skill-purchase.js feedback points. |
+| tasks/monetization-feature/15-pay-what-you-want-pricing.md | DELETE | Built: migration 20260621190000_skill_pwyw_pricing.sql (pricing_type/minimum_amount) + creator UI (src/agent-edit.js) + buyer "name your price" (skill-purchase.js) + server-authoritative resolvePwywAmount in MonetizationService; purchase.js passes pay_amount. |
+| tasks/monetization-feature/20-protocol-add-ownership-context.md | DELETE | Built: per-user skill_ownership (is_premium/is_owned via hasSkillAccess) injected into the agent chat system prompt in api/agents/talk.js. |

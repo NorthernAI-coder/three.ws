@@ -247,7 +247,9 @@ export class MonetizationService {
 		// `payAmount`, validated against the configured minimum and a sane ceiling.
 		let purchaseAmount;
 		if (isPwyw) {
-			purchaseAmount = this.resolvePwywAmount(payAmount, price);
+			// resolvePwywAmount returns a BigInt; normalize to a string so every
+			// downstream SQL interpolation matches the fixed/time-pass branches.
+			purchaseAmount = this.resolvePwywAmount(payAmount, price).toString();
 		} else if (isTimePass && price.time_pass_amount) {
 			purchaseAmount = price.time_pass_amount;
 		} else {

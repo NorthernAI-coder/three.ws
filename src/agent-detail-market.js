@@ -508,21 +508,35 @@ function renderPricing(a) {
 			if (purchasedSkills.has(name)) {
 				badge = `<span class="ad-price-badge owned">✓ Owned</span>`;
 			} else if (price && Number(price.amount) > 0) {
-				const priceInUSDC = (Number(price.amount) / 1e6).toFixed(2);
+				const isPwyw = price.pricing_type === 'pwyw';
 				const trialUses = price.trial_uses || 0;
 				const trialBtn = trialUses > 0
 					? `<button class="ad-skill-btn trial-btn" data-skill-name="${escapeHtml(name)}" data-agent-id="${escapeHtml(a.id)}">Try free (${trialUses} left)</button>`
 					: '';
-				const hasTimePass = price.time_pass_hours && price.time_pass_amount;
+				// Time-pass renting is a fixed-price mechanism; PWYW lets the buyer
+				// name the amount instead, so it never pairs with a time-pass button.
+				const hasTimePass = !isPwyw && price.time_pass_hours && price.time_pass_amount;
 				const timePassBtn = hasTimePass
 					? (() => {
 							const tpHuman = (Number(price.time_pass_amount) / 1e6).toFixed(2);
 							return `<button class="ad-skill-btn time-pass-btn" data-skill-name="${escapeHtml(name)}" data-agent-id="${escapeHtml(a.id)}" data-duration="${price.time_pass_hours}">Get ${price.time_pass_hours}h (${tpHuman} USDC)</button>`;
 						})()
 					: '';
+				let priceBadge;
+				let purchaseLabel;
+				if (isPwyw) {
+					const minAtomics = price.minimum_amount != null ? Number(price.minimum_amount) : 0;
+					priceBadge = minAtomics > 0
+						? `<span class="ad-price-badge pwyw">Pay what you want · min ${(minAtomics / 1e6).toFixed(2)} USDC</span>`
+						: `<span class="ad-price-badge pwyw">Pay what you want</span>`;
+					purchaseLabel = 'Name your price';
+				} else {
+					priceBadge = `<span class="ad-price-badge paid">${(Number(price.amount) / 1e6).toFixed(2)} USDC</span>`;
+					purchaseLabel = 'Purchase';
+				}
 				badge =
-					`<span class="ad-price-badge paid">${priceInUSDC} USDC</span>` +
-					`<button class="ad-skill-btn purchase-btn" data-skill-name="${escapeHtml(name)}" data-agent-id="${escapeHtml(a.id)}">Purchase</button>` +
+					priceBadge +
+					`<button class="ad-skill-btn purchase-btn" data-skill-name="${escapeHtml(name)}" data-agent-id="${escapeHtml(a.id)}">${purchaseLabel}</button>` +
 					trialBtn + timePassBtn;
 			} else {
 				badge = `<span class="ad-price-badge free">Free</span>`;

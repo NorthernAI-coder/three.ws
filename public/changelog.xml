@@ -279,6 +279,14 @@
 			<description>Paying for any x402 endpoint with Solana USDC was failing the moment the wallet tried to build the payment — the platform's receiving address was being published with a stray invisible character, so a correctly-built payment got rejected as going to the wrong recipient. Payment addresses are now cleaned before they're ever advertised, so Solana USDC payments to paid endpoints go through and settle as expected.</description>
 		</item>
 		<item>
+			<title>Pay-what-you-want pricing for skills</title>
+			<link>https://three.ws/marketplace</link>
+			<guid isPermaLink="false">2026-06-21:Pay-what-you-want pricing for skills</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Creators can now price a skill as “pay what you want” with an optional minimum; buyers name their price at checkout and the fee, referral, and revenue math all use the actual amount paid.</description>
+		</item>
+		<item>
 			<title>Payment hardening and a steadier holder leaderboard</title>
 			<link>https://three.ws/leaderboard</link>
 			<guid isPermaLink="false">2026-06-21:Payment hardening and a steadier holder leaderboard</guid>

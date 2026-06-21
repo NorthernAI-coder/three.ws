@@ -158,9 +158,23 @@ describe('skillPriceMap', () => {
 			trial_uses: 2,
 			time_pass_hours: null,
 			time_pass_amount: null,
+			pricing_type: 'fixed',
+			minimum_amount: null,
 		});
 		expect(map.summarize.time_pass_hours).toBe(24);
 		expect(map.summarize.time_pass_amount).toBe(250000);
+	});
+
+	it('surfaces pwyw pricing_type and minimum_amount (as a string) when present', () => {
+		const map = skillPriceMap([
+			priceRow('tip', { amount: 100000, pricing_type: 'pwyw', minimum_amount: 50000 }),
+			priceRow('plain', { amount: 75000 }),
+		]);
+		expect(map.tip.pricing_type).toBe('pwyw');
+		expect(map.tip.minimum_amount).toBe('50000');
+		// Unknown/absent pricing_type folds to the fixed default.
+		expect(map.plain.pricing_type).toBe('fixed');
+		expect(map.plain.minimum_amount).toBeNull();
 	});
 
 	it('defaults mint_decimals to 6 and trial_uses to 0 when a row omits them', () => {

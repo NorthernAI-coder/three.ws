@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-21T08:14:13.200Z",
+	"generated_at": "2026-06-21T08:30:32.877Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -366,6 +366,16 @@
 			"link": null,
 			"tags": [
 				"fix"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "update",
+			"title": "Pay-what-you-want pricing for skills",
+			"summary": "Creators can now price a skill as “pay what you want” with an optional minimum; buyers name their price at checkout and the fee, referral, and revenue math all use the actual amount paid.",
+			"link": "/marketplace",
+			"tags": [
+				"feature"
 			]
 		},
 		{
