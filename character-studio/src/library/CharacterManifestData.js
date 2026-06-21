@@ -238,7 +238,7 @@ export class CharacterManifestData{
             this.unlockTraits(userOwnedTraits)
             resolve();
           })
-          .catch(err=>{
+          .catch(()=>{
             resolve();
           })
         })
@@ -359,7 +359,8 @@ export class CharacterManifestData{
      * @returns {Promise<Array>} Promise that resolves to array of NFT trait options
      */
     getNFTraitOptionsFromURL(url, ignoreGroupTraits){
-      return new Promise(async (resolve) => {
+      return new Promise((resolve, reject) => {
+        (async () => {
         try{
           const nftTraits = await this._fetchJson(url);
           resolve(this.getNFTraitOptionsFromObject(nftTraits, ignoreGroupTraits));
@@ -368,6 +369,7 @@ export class CharacterManifestData{
           console.log("unable to fetch from url:", url);
           resolve(null);
         }
+        })().catch(reject);
       });
       
       

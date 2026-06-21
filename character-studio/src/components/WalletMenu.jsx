@@ -4,7 +4,6 @@ import MenuTitle from "./MenuTitle"
 import { SceneContext } from "../context/SceneContext";
 
 //import { useLocation } from "react-router-dom";
-import axios from "axios";
 //import { getUserCNFTs } from "./sola"
 
 export default function WalletMenu({lockedManifests}){
@@ -15,7 +14,7 @@ export default function WalletMenu({lockedManifests}){
 
 
 
-    const [user, setUser] = React.useState(null);
+    const [user] = React.useState(null);
     //const location = useLocation();
     
     // Extract token from URL query

@@ -1,37 +1,35 @@
-// `forge_avatar` — paid MCP tool: text prompt → rigged, animation-ready avatar
-// in ONE call.
+// `forge_avatar` — paid MCP tool: text/image → rigged, ANIMATION-READY avatar.
 //
-// Pricing: $0.40 USDC, settled `exact` on Solana. (A small bundle discount over
-// the $0.25 mesh_forge + $0.20 rig_mesh you'd pay running the two steps by hand.)
+// Pricing: $0.45 USDC, settled `exact` on Solana. That is the sum of the two
+// production ops it bundles — generation (mesh_forge, $0.25) + auto-rig
+// (rig_mesh, $0.20) — with no hidden margin. One call does what previously took
+// two: prompt → textured GLB → humanoid skeleton + skin weights → a model that
+// drops straight into the three.ws pose studio and drives the canonical
+// idle/walk clip library.
 //
-// This composes the two production three.ws pipelines — generate then rig — that
-// mesh_forge and rig_mesh expose individually, so an agent can go straight from a
-// description to a model that drops into the pose studio and plays the canonical
-// idle/walk clips. Like its siblings it is a thin, x402-gated client over the
-// prod /api/forge endpoint and holds NO generation credentials; the USDC payment
-// gates the call and all GPU work runs on three.ws prod.
+// Like mesh_forge / rig_mesh, this is a thin x402-gated client over the three.ws
+// prod pipeline (/api/forge). It holds NO generation or rigging credentials; the
+// USDC payment gates the call and all GPU work runs on prod.
 //
-// Stages:
-//   1. Generate — POST /api/forge with the prompt (text→3D). Produces a textured,
-//      static GLB. Polled to a terminal state.
-//   2. Humanoid gate — the generated mesh is auto-rigged ONLY when the prompt
-//      describes a humanoid figure (classifyHumanoidPrompt). UniRig fits a
-//      humanoid skeleton and the canonical clip library only retargets onto a
-//      humanoid rig, so a non-character prompt ("a leather armchair") skips
-//      rigging instead of burning a paid rig call on a useless skeleton. Set
-//      `force_rig:true` to override and rig regardless.
-//   3. Rig — POST /api/forge?action=rig with the durable mesh URL. Produces a
-//      rigged GLB (skeleton + skin weights). Polled to a terminal state.
-//
-// Always returns the generated mesh; `rigged` reports whether stage 3 ran and,
-// when it did, the rigged GLB + pose-studio link. A rig failure never discards
-// the paid-for mesh — the mesh URL is always returned, with the rig error
-// attached, so the caller keeps the asset they paid to generate.
+// Money safety (real users, real funds):
+//   • A humanoid gate runs BEFORE any paid work. Rigging assumes a humanoid
+//     skeleton, so a confidently non-humanoid prompt (furniture, a vehicle, a
+//     quadruped) returns a toolError — which the x402 wrapper treats as a
+//     failure and CANCELS the payment. The caller is not charged and is pointed
+//     at mesh_forge / forge_free for non-characters. Pass allow_non_humanoid to
+//     override the gate deliberately.
+//   • Every downstream failure (generation error/timeout, rig error/timeout)
+//     also returns a toolError, so a caller is NEVER charged for a bundle that
+//     did not produce a rigged avatar. When generation succeeded but rigging
+//     failed, the generated (unrigged) mesh URL is returned in the error payload
+//     so the work is not lost — the caller keeps the mesh and can retry rig_mesh.
 //
 // Environment (all optional — sensible prod defaults):
-//   MESH_FORGE_API_BASE     — three.ws origin. Default https://three.ws
-//   FORGE_AVATAR_TIMEOUT_MS — overall poll budget PER stage. Default 180000.
-//   FORGE_AVATAR_POLL_MS    — poll interval. Default 3000.
+//   MESH_FORGE_API_BASE       — three.ws origin. Default https://three.ws
+//   FORGE_AVATAR_DIRECTOR     — "0" to skip the Granite prompt-director stage.
+//   FORGE_AVATAR_GEN_TIMEOUT_MS — generation poll budget. Default 180000.
+//   FORGE_AVATAR_RIG_TIMEOUT_MS — rig poll budget. Default 180000.
+//   FORGE_AVATAR_POLL_MS      — poll interval for both stages. Default 3000.
 
 import { z } from 'zod';
 
@@ -41,13 +39,17 @@ import { classifyHumanoidPrompt } from './_humanoid.js';
 
 const TOOL_NAME = 'forge_avatar';
 const TOOL_DESCRIPTION =
-	'Generate a rigged, animation-ready 3D avatar from a text prompt in ONE call. Runs the three.ws ' +
-	'pipeline end to end: text→3D mesh generation, then — when the prompt describes a humanoid figure — ' +
-	'auto-rigging (humanoid skeleton + skin weights via UniRig). Returns the generated mesh URL, the ' +
-	'rigged GLB URL, a three.ws pose-studio link that plays the canonical idle/walk clips, and per-stage ' +
-	'timing. Non-humanoid prompts (a chair, a car) return the textured mesh and skip rigging automatically ' +
-	'so you are never charged a wasted rig on a mesh no humanoid skeleton can drive; pass force_rig:true to ' +
-	'rig anyway. For a static mesh only use mesh_forge; to rig an existing GLB use rig_mesh. Paid: $0.40 USDC.';
+	'Generate a rigged, ANIMATION-READY 3D avatar from a single text prompt or reference image(s) — in ONE call. ' +
+	'Chains the full three.ws pipeline: an IBM Granite prompt director optimizes the prompt, FLUX + TRELLIS/Hunyuan3D ' +
+	'reconstruct a textured GLB, then the auto-rigger (VAST-AI UniRig) adds a humanoid skeleton and skin weights so the ' +
+	'model loads straight into the three.ws pose studio and plays the canonical idle/walk animation library. ' +
+	'Accepts a text prompt, a single image_url, or 1–4 image_urls (front/back/left/right) for higher-fidelity multi-view ' +
+	'reconstruction. A humanoid gate runs first: a clearly non-humanoid subject (furniture, vehicle, quadruped) is ' +
+	'rejected WITHOUT charge (use mesh_forge or forge_free for those) unless allow_non_humanoid is set. Returns the rigged ' +
+	'GLB URL, the intermediate mesh URL, a pose-studio link, the directed prompt, and per-stage timing. Paid: $0.45 USDC ' +
+	'(generation + rig bundled; you are not charged if no rigged avatar is produced).';
+
+const VALID_ASPECT = new Set(['1:1', '4:3', '3:4', '16:9', '9:16']);
 
 function env(k, def) {
 	const v = process.env[k];
@@ -58,40 +60,140 @@ function apiBase() {
 	return env('MESH_FORGE_API_BASE', 'https://three.ws').replace(/\/$/, '');
 }
 
-// Tag a thrown error with a stable `code` (and optional retryAfter) so the
-// handler can translate it into a toolError without string-sniffing messages.
-function fail(code, message, extra) {
-	const e = new Error(message);
-	e.code = code;
-	if (extra && extra.retryAfter != null) e.retryAfter = extra.retryAfter;
-	return e;
+// Granite art-director instruction — same lever mesh_forge uses, tuned for
+// characters: a single isolated full-body figure in a neutral A/T-ish pose so
+// the rigger gets clean, separable limbs.
+const DIRECTOR_INSTRUCTION =
+	'You are a 3D character art director. Rewrite the user\'s idea into ONE concise prompt for a text-to-3D ' +
+	'generator that will be auto-rigged. Describe a SINGLE full-body humanoid character standing in a neutral ' +
+	'pose with arms slightly away from the body, on a plain background. Name the body type, outfit, materials, ' +
+	'colors, and key features. No scene, no props held across the body, no multiple characters, no text or logos. ' +
+	'Output ONLY the rewritten prompt as a single line — no preamble, no quotes.';
+
+// Drive /api/chat (provider=watsonx, IBM Granite) to refine the prompt. Returns
+// the refined string, or null on any failure (fail-soft — the original prompt is
+// used unchanged and `directed:false` is reported, never fabricated).
+async function directPrompt(rawPrompt) {
+	const base = apiBase();
+	let res;
+	try {
+		res = await fetch(`${base}/api/chat`, {
+			method: 'POST',
+			headers: { 'content-type': 'application/json', accept: 'text/event-stream' },
+			body: JSON.stringify({
+				provider: 'watsonx',
+				message: `${DIRECTOR_INSTRUCTION}\n\nIdea: ${rawPrompt}`,
+			}),
+			signal: AbortSignal.timeout(30_000),
+		});
+	} catch {
+		return null;
+	}
+	if (!res.ok || !res.body) return null;
+
+	let acc = '';
+	try {
+		const reader = res.body.getReader();
+		const decoder = new TextDecoder();
+		let buf = '';
+		for (;;) {
+			const { value, done } = await reader.read();
+			if (done) break;
+			buf += decoder.decode(value, { stream: true });
+			const lines = buf.split('\n');
+			buf = lines.pop() ?? '';
+			for (const line of lines) {
+				if (!line.startsWith('data: ')) continue;
+				let evt;
+				try {
+					evt = JSON.parse(line.slice(6));
+				} catch {
+					continue;
+				}
+				if (evt.type === 'chunk' && typeof evt.text === 'string') acc += evt.text;
+				else if (evt.type === 'error') return null;
+				else if (evt.type === 'done' && typeof evt.text === 'string' && !acc) acc = evt.text;
+			}
+		}
+	} catch {
+		return null;
+	}
+
+	const refined = acc.trim().replace(/^["']|["']$/g, '').split('\n')[0].trim();
+	return refined.length >= 3 && refined.length <= 1000 ? refined : null;
 }
 
-async function postForge(path, body) {
-	const res = await fetch(`${apiBase()}/api/forge${path}`, {
+async function startForge({ prompt, aspect, imageUrls }) {
+	const base = apiBase();
+	const payload =
+		Array.isArray(imageUrls) && imageUrls.length
+			? { image_urls: imageUrls, prompt: prompt || undefined, aspect_ratio: aspect }
+			: { prompt, aspect_ratio: aspect };
+	const res = await fetch(`${base}/api/forge`, {
 		method: 'POST',
 		headers: { 'content-type': 'application/json' },
-		body: JSON.stringify(body),
+		body: JSON.stringify(payload),
 		signal: AbortSignal.timeout(30_000),
 	});
 	const data = await res.json().catch(() => ({}));
-	if (res.status === 503) throw fail('not_configured', data?.message || 'this stage is not configured on the three.ws deployment');
-	if (res.status === 501) throw fail('not_configured', data?.message || 'this stage is not enabled on the three.ws deployment');
-	if (res.status === 429) throw fail('rate_limited', data?.message || 'the pipeline is busy; try again shortly', { retryAfter: data?.retry_after });
-	if (!res.ok || !data?.job_id) throw fail('provider_error', data?.message || `forge returned ${res.status}`);
+	if (res.status === 503) {
+		const e = new Error(data?.message || 'text-to-3D is not configured on the three.ws deployment');
+		e.code = 'not_configured';
+		throw e;
+	}
+	if (res.status === 429) {
+		const e = new Error(data?.message || 'the 3D generator is busy; try again shortly');
+		e.code = 'rate_limited';
+		e.retryAfter = data?.retry_after;
+		throw e;
+	}
+	if (!res.ok || !(data?.job_id || (data?.status === 'done' && data?.glb_url))) {
+		const e = new Error(data?.message || `forge returned ${res.status}`);
+		e.code = 'provider_error';
+		throw e;
+	}
 	return data;
 }
 
-// Poll a forge job to a terminal state. Returns the done payload (with glb_url),
-// or `{ ...last, _timedOut:true }` if the budget elapses before completion. A
-// transient network/timeout error during a single poll is retried, not fatal.
-async function pollForge(jobId, { timeoutMs, intervalMs }) {
+async function startRig(glbUrl) {
+	const base = apiBase();
+	const res = await fetch(`${base}/api/forge?action=rig`, {
+		method: 'POST',
+		headers: { 'content-type': 'application/json' },
+		body: JSON.stringify({ glb_url: glbUrl }),
+		signal: AbortSignal.timeout(30_000),
+	});
+	const data = await res.json().catch(() => ({}));
+	if (res.status === 503 || res.status === 501) {
+		const e = new Error(data?.message || 'auto-rigging is not enabled on the three.ws deployment');
+		e.code = 'not_configured';
+		throw e;
+	}
+	if (res.status === 429) {
+		const e = new Error(data?.message || 'the rigger is busy; try again shortly');
+		e.code = 'rate_limited';
+		e.retryAfter = data?.retry_after;
+		throw e;
+	}
+	if (!res.ok || !data?.job_id) {
+		const e = new Error(data?.message || `rig start returned ${res.status}`);
+		e.code = 'provider_error';
+		throw e;
+	}
+	return data;
+}
+
+// Poll /api/forge?job=<id> to a terminal state. Used for both the generation and
+// the rig jobs — both report the same { status, glb_url } contract. `failCode`
+// distinguishes which stage failed in the surfaced error.
+async function pollJob(jobId, { timeoutMs, intervalMs, failCode }) {
+	const base = apiBase();
 	const deadline = Date.now() + timeoutMs;
 	let last = null;
 	while (Date.now() < deadline) {
 		let res;
 		try {
-			res = await fetch(`${apiBase()}/api/forge?job=${encodeURIComponent(jobId)}`, {
+			res = await fetch(`${base}/api/forge?job=${encodeURIComponent(jobId)}`, {
 				headers: { accept: 'application/json' },
 				signal: AbortSignal.timeout(Math.max(intervalMs * 3, 15_000)),
 			});
@@ -100,13 +202,23 @@ async function pollForge(jobId, { timeoutMs, intervalMs }) {
 				await new Promise((r) => setTimeout(r, intervalMs));
 				continue;
 			}
-			throw fail('provider_error', `forge poll failed: ${err?.message || err}`);
+			const e = new Error(`poll failed: ${err?.message || err}`);
+			e.code = 'provider_error';
+			throw e;
 		}
 		const data = await res.json().catch(() => ({}));
-		if (!res.ok) throw fail('provider_error', data?.message || `forge poll returned ${res.status}`);
+		if (!res.ok) {
+			const e = new Error(data?.message || `poll returned ${res.status}`);
+			e.code = 'provider_error';
+			throw e;
+		}
 		last = data;
 		if (data.status === 'done' && data.glb_url) return data;
-		if (data.status === 'failed') throw fail('stage_failed', data.error || 'stage failed');
+		if (data.status === 'failed') {
+			const e = new Error(data.error || 'job failed');
+			e.code = failCode;
+			throw e;
+		}
 		await new Promise((r) => setTimeout(r, intervalMs));
 	}
 	return { ...(last || {}), _timedOut: true };
@@ -117,23 +229,34 @@ const inputZodShape = {
 		.string()
 		.min(3)
 		.max(1000)
-		.describe('Natural-language description of the character to model, e.g. "a friendly cartoon astronaut, glossy white suit". Lead with the figure and its key materials/colors.'),
+		.describe('Text→avatar: natural-language description of a single humanoid character, e.g. "a friendly cartoon astronaut in a glossy white suit". Optional when image_url(s) are provided (then used as guidance + for the humanoid gate).')
+		.optional(),
+	image_url: z
+		.string()
+		.url()
+		.describe('Image→avatar: an http(s) URL to a reference image of a character to reconstruct and rig. The prompt-director and text-to-image stages are skipped.')
+		.optional(),
+	image_urls: z
+		.array(z.string().url())
+		.min(1)
+		.max(4)
+		.describe('Multi-view → avatar: 1–4 http(s) URLs of the SAME character from different angles (front/back/left/right) for higher-fidelity reconstruction with no hallucinated back. Takes precedence over image_url.')
+		.optional(),
 	aspect_ratio: z
 		.enum(['1:1', '4:3', '3:4', '16:9', '9:16'])
-		.describe('Reference image aspect ratio. Default 1:1 (best for an isolated figure).')
+		.describe('Reference image aspect ratio (text mode). Default 3:4 (portrait — best framing for a full-body figure).')
 		.optional(),
-	force_rig: z
+	direct: z
 		.boolean()
-		.describe('Rig the mesh even when the prompt does not read as humanoid. Default false — non-humanoid prompts return the mesh and skip rigging.')
+		.describe('Run the IBM Granite prompt-director stage to optimize the prompt for a riggable full-body figure (text mode only). Default true.')
 		.optional(),
-	skip_rig: z
+	allow_non_humanoid: z
 		.boolean()
-		.describe('Generate the textured mesh only and never rig (equivalent to mesh_forge but on this tool). Default false.')
+		.describe('Bypass the humanoid gate and rig even when the prompt does not look like a character. Off by default — leaving it off means a non-character prompt is rejected WITHOUT charge.')
 		.optional(),
 };
 
 const inputJsonSchema = jsonSchemaFromZod(inputZodShape);
-const VALID_ASPECT = new Set(['1:1', '4:3', '3:4', '16:9', '9:16']);
 
 export async function buildForgeAvatarTool() {
 	const handler = await paid(
@@ -141,161 +264,213 @@ export async function buildForgeAvatarTool() {
 			toolName: TOOL_NAME,
 			description: TOOL_DESCRIPTION,
 			scheme: 'exact',
-			priceUsd: '$0.40',
+			priceUsd: '$0.45',
 			inputSchema: inputJsonSchema,
-			example: { prompt: 'a friendly cartoon astronaut, glossy white suit, rounded helmet' },
+			example: { prompt: 'a friendly cartoon astronaut in a glossy white suit', aspect_ratio: '3:4' },
 			outputExample: {
 				ok: true,
-				prompt: 'a friendly cartoon astronaut, glossy white suit, rounded helmet',
-				meshGlbUrl: 'https://three.ws/cdn/creations/abc123/mesh.glb',
-				meshViewerUrl: 'https://three.ws/viewer?src=https%3A%2F%2Fthree.ws%2F...',
-				rigged: true,
 				riggedGlbUrl: 'https://three.ws/cdn/creations/def456/rigged.glb',
+				meshGlbUrl: 'https://three.ws/cdn/creations/abc123/mesh.glb',
 				poseStudioUrl: 'https://three.ws/pose?src=https%3A%2F%2Fthree.ws%2F...',
-				humanoid: { humanoid: true, confidence: 0.8, reason: 'humanoid signals (1 figure, 0 body) outweigh 0 non-humanoid' },
-				generateJobId: 'k7m2q9x4',
-				rigJobId: 'r9k2m7x4',
-				creationId: 'def456',
-				timings: { generateMs: 96000, rigMs: 48000, totalMs: 144000 },
+				prompt: 'a friendly cartoon astronaut in a glossy white suit',
+				directedPrompt: 'A single full-body cartoon astronaut in a glossy white space suit...',
+				directed: true,
+				humanoid: { confidence: 'high', reason: 'humanoid character signals: astronaut' },
+				generationMs: 96000,
+				rigMs: 48000,
+				durationMs: 144000,
 			},
 		},
-		async ({ prompt, aspect_ratio, force_rig, skip_rig }) => {
+		async ({ prompt, image_url, image_urls, aspect_ratio, direct, allow_non_humanoid }) => {
 			const trimmedPrompt = typeof prompt === 'string' ? prompt.trim() : '';
-			if (trimmedPrompt.length < 3) {
-				return toolError('invalid_input', 'Provide a prompt of at least 3 characters describing the avatar.');
-			}
-			const aspect = VALID_ASPECT.has(aspect_ratio) ? aspect_ratio : '1:1';
-			const timeoutMs = Number(env('FORGE_AVATAR_TIMEOUT_MS', '180000'));
-			const intervalMs = Number(env('FORGE_AVATAR_POLL_MS', '3000'));
-			const startedAt = Date.now();
 
-			// Stage 1 — generate the textured mesh from the prompt (text→3D).
+			// Merge multi-view + single image_url, de-duped, order-preserving.
+			const rawViews = Array.isArray(image_urls)
+				? image_urls
+				: typeof image_url === 'string'
+					? [image_url]
+					: [];
+			const seenViews = new Set();
+			const views = [];
+			for (const v of rawViews) {
+				if (typeof v !== 'string') continue;
+				const t = v.trim();
+				if (!t || seenViews.has(t)) continue;
+				seenViews.add(t);
+				views.push(t);
+			}
+			if (views.length > 4) {
+				return toolError('invalid_input', 'Provide between 1 and 4 reference images.');
+			}
+			const imageMode = views.length > 0;
+			if (!imageMode && trimmedPrompt.length < 3) {
+				return toolError(
+					'invalid_input',
+					'Provide a prompt (3+ chars) for text→avatar, or 1–4 image_urls for image/multi-view→avatar.',
+				);
+			}
+
+			// --- Humanoid gate (BEFORE any paid work) ---------------------------
+			// Classify from the prompt when we have one. In pure image mode with no
+			// prompt we cannot classify text, so we trust the caller's intent (they
+			// chose an avatar tool) and proceed. A toolError here cancels payment.
+			let humanoidInfo = null;
+			const classifierInput = trimmedPrompt || '';
+			if (classifierInput.length >= 3) {
+				const verdict = classifyHumanoidPrompt(classifierInput);
+				humanoidInfo = {
+					humanoid: verdict.humanoid,
+					confidence: verdict.confidence,
+					reason: verdict.reason,
+				};
+				if (!verdict.humanoid && allow_non_humanoid !== true) {
+					return toolError(
+						'not_a_character',
+						`"${trimmedPrompt}" does not look like a humanoid character (${verdict.reason}). ` +
+							'Auto-rigging needs a humanoid subject. Use forge_free or mesh_forge to generate a ' +
+							'non-character mesh, or set allow_non_humanoid:true to rig it anyway. You have not been charged.',
+						{ humanoid: humanoidInfo },
+					);
+				}
+			} else {
+				humanoidInfo = {
+					humanoid: true,
+					confidence: 'low',
+					reason: 'image-only request; trusting caller intent (no prompt to classify)',
+				};
+			}
+
+			const aspect = VALID_ASPECT.has(aspect_ratio) ? aspect_ratio : '3:4';
+			const intervalMs = Number(env('FORGE_AVATAR_POLL_MS', '3000'));
+			const started = Date.now();
+
+			// --- Stage 1: Granite prompt director (text mode, fail-soft) --------
+			const runDirector =
+				!imageMode && trimmedPrompt && direct !== false && env('FORGE_AVATAR_DIRECTOR', '1') !== '0';
+			let directedPrompt = null;
+			if (runDirector) directedPrompt = await directPrompt(trimmedPrompt);
+			const effectivePrompt = directedPrompt || trimmedPrompt;
+
+			// --- Stage 2: generate the textured mesh ----------------------------
+			const genStarted = Date.now();
 			let genJob;
 			try {
-				genJob = await postForge('', { prompt: trimmedPrompt, aspect_ratio: aspect });
+				genJob = await startForge({
+					prompt: effectivePrompt || undefined,
+					aspect,
+					imageUrls: imageMode ? views : undefined,
+				});
 			} catch (err) {
 				return toolError(err.code || 'provider_error', err.message, {
-					...(err.retryAfter != null ? { retryAfter: err.retryAfter } : {}),
+					...(err.retryAfter ? { retryAfter: err.retryAfter } : {}),
 				});
 			}
-			const genStart = Date.now();
+
+			const genTimeout = Number(env('FORGE_AVATAR_GEN_TIMEOUT_MS', '180000'));
 			let gen;
-			try {
-				gen = await pollForge(genJob.job_id, { timeoutMs, intervalMs });
-			} catch (err) {
-				return toolError(err.code === 'stage_failed' ? 'generation_failed' : err.code || 'provider_error', err.message, {
-					generateJobId: genJob.job_id,
-					creationId: genJob.creation_id ?? null,
-					durationMs: Date.now() - startedAt,
-				});
+			if (genJob.status === 'done' && genJob.glb_url) {
+				gen = genJob; // synchronous completion
+			} else {
+				try {
+					gen = await pollJob(genJob.job_id, {
+						timeoutMs: genTimeout,
+						intervalMs,
+						failCode: 'generation_failed',
+					});
+				} catch (err) {
+					return toolError(err.code || 'provider_error', err.message, {
+						stage: 'generation',
+						jobId: genJob.job_id,
+						creationId: genJob.creation_id ?? null,
+						durationMs: Date.now() - started,
+					});
+				}
+				if (gen._timedOut) {
+					return toolError('timeout', `generation did not finish within ${genTimeout}ms`, {
+						stage: 'generation',
+						jobId: genJob.job_id,
+						creationId: genJob.creation_id ?? null,
+						resumeUrl: `${apiBase()}/api/forge?job=${genJob.job_id}`,
+						durationMs: Date.now() - started,
+					});
+				}
 			}
-			if (gen._timedOut) {
-				return toolError('timeout', `mesh generation did not finish within ${timeoutMs}ms`, {
-					generateJobId: genJob.job_id,
-					creationId: genJob.creation_id ?? null,
-					status: gen.status || 'running',
-					resumeUrl: `${apiBase()}/api/forge?job=${genJob.job_id}`,
-					durationMs: Date.now() - startedAt,
-				});
-			}
-
 			const meshGlbUrl = gen.glb_url;
-			const meshViewerUrl = `${apiBase()}/viewer?src=${encodeURIComponent(meshGlbUrl)}`;
-			const generateMs = Date.now() - genStart;
+			const generationMs = Date.now() - genStarted;
 
-			// Stage 2 — humanoid gate. Decide whether rigging is worth a paid call.
-			const humanoid = classifyHumanoidPrompt(trimmedPrompt);
-			const shouldRig = !skip_rig && (force_rig === true || humanoid.humanoid);
-
-			const meshResult = {
-				ok: true,
-				prompt: trimmedPrompt,
-				meshGlbUrl,
-				meshViewerUrl,
-				humanoid,
-				backend: gen.backend ?? genJob.backend ?? null,
-				generateJobId: genJob.job_id,
-				creationId: gen.creation_id ?? genJob.creation_id ?? null,
-				durable: Boolean(gen.durable),
-			};
-
-			if (!shouldRig) {
-				return {
-					...meshResult,
-					rigged: false,
-					rigSkippedReason: skip_rig
-						? 'skip_rig requested'
-						: `prompt is not humanoid (${humanoid.reason}); pass force_rig:true to rig anyway`,
-					riggedGlbUrl: null,
-					poseStudioUrl: null,
-					rigJobId: null,
-					timings: { generateMs, rigMs: 0, totalMs: Date.now() - startedAt },
-					fetchedAt: new Date().toISOString(),
-				};
-			}
-
-			// Stage 3 — auto-rig the durable mesh. A rig failure must NOT discard the
-			// mesh the caller already paid to generate: on any rig error we return
-			// the mesh with `rigged:false` and the error attached, not a hard fail.
-			const rigStart = Date.now();
+			// --- Stage 3: auto-rig the mesh -------------------------------------
+			// Failures here still surface meshGlbUrl so the generation is not lost,
+			// and the toolError cancels the charge — the caller keeps the mesh free.
+			const rigStarted = Date.now();
 			let rigJob;
 			try {
-				rigJob = await postForge('?action=rig', { glb_url: meshGlbUrl });
+				rigJob = await startRig(meshGlbUrl);
 			} catch (err) {
-				return {
-					...meshResult,
-					rigged: false,
-					rigError: { code: err.code || 'provider_error', message: err.message, ...(err.retryAfter != null ? { retryAfter: err.retryAfter } : {}) },
-					riggedGlbUrl: null,
-					poseStudioUrl: null,
-					rigJobId: null,
-					timings: { generateMs, rigMs: Date.now() - rigStart, totalMs: Date.now() - startedAt },
-					fetchedAt: new Date().toISOString(),
-				};
+				return toolError(err.code || 'provider_error', `rigging could not start: ${err.message}`, {
+					stage: 'rig',
+					meshGlbUrl,
+					meshViewerUrl: `${apiBase()}/viewer?src=${encodeURIComponent(meshGlbUrl)}`,
+					generationMs,
+					durationMs: Date.now() - started,
+					...(err.retryAfter ? { retryAfter: err.retryAfter } : {}),
+				});
 			}
 
+			const rigTimeout = Number(env('FORGE_AVATAR_RIG_TIMEOUT_MS', '180000'));
 			let rig;
 			try {
-				rig = await pollForge(rigJob.job_id, { timeoutMs, intervalMs });
+				rig = await pollJob(rigJob.job_id, {
+					timeoutMs: rigTimeout,
+					intervalMs,
+					failCode: 'rig_failed',
+				});
 			} catch (err) {
-				return {
-					...meshResult,
-					rigged: false,
-					rigError: { code: err.code === 'stage_failed' ? 'rig_failed' : err.code || 'provider_error', message: err.message },
+				return toolError(err.code || 'provider_error', `rigging failed: ${err.message}`, {
+					stage: 'rig',
+					meshGlbUrl,
+					meshViewerUrl: `${apiBase()}/viewer?src=${encodeURIComponent(meshGlbUrl)}`,
 					rigJobId: rigJob.job_id,
-					riggedGlbUrl: null,
-					poseStudioUrl: null,
-					timings: { generateMs, rigMs: Date.now() - rigStart, totalMs: Date.now() - startedAt },
-					fetchedAt: new Date().toISOString(),
-				};
+					generationMs,
+					durationMs: Date.now() - started,
+				});
 			}
-
 			if (rig._timedOut) {
-				return {
-					...meshResult,
-					rigged: false,
-					rigError: { code: 'timeout', message: `rigging did not finish within ${timeoutMs}ms`, status: rig.status || 'running', resumeUrl: `${apiBase()}/api/forge?job=${rigJob.job_id}` },
+				return toolError('timeout', `rigging did not finish within ${rigTimeout}ms`, {
+					stage: 'rig',
+					meshGlbUrl,
+					meshViewerUrl: `${apiBase()}/viewer?src=${encodeURIComponent(meshGlbUrl)}`,
 					rigJobId: rigJob.job_id,
-					riggedGlbUrl: null,
-					poseStudioUrl: null,
-					timings: { generateMs, rigMs: Date.now() - rigStart, totalMs: Date.now() - startedAt },
-					fetchedAt: new Date().toISOString(),
-				};
+					resumeUrl: `${apiBase()}/api/forge?job=${rigJob.job_id}`,
+					generationMs,
+					durationMs: Date.now() - started,
+				});
 			}
 
 			const riggedGlbUrl = rig.glb_url;
-			const poseStudioUrl = `${apiBase()}/pose?src=${encodeURIComponent(riggedGlbUrl)}`;
-			const rigMs = Date.now() - rigStart;
+			const rigMs = Date.now() - rigStarted;
 
 			return {
-				...meshResult,
-				rigged: true,
+				ok: true,
+				mode: imageMode ? 'image_to_avatar' : 'text_to_avatar',
 				riggedGlbUrl,
-				poseStudioUrl,
+				meshGlbUrl,
+				poseStudioUrl: `${apiBase()}/pose?src=${encodeURIComponent(riggedGlbUrl)}`,
+				viewerUrl: `${apiBase()}/viewer?src=${encodeURIComponent(riggedGlbUrl)}`,
+				animationReady: true,
+				prompt: trimmedPrompt || null,
+				imageUrls: imageMode ? views : null,
+				viewsUsed: (gen.views_used ?? genJob.views_used) ?? (imageMode ? views.length : 0),
+				backend: (gen.backend ?? genJob.backend) ?? null,
+				directedPrompt: directedPrompt || null,
+				directed: Boolean(directedPrompt),
+				humanoid: humanoidInfo,
+				meshCreationId: gen.creation_id ?? genJob.creation_id ?? null,
+				riggedCreationId: rig.creation_id ?? rigJob.creation_id ?? null,
 				rigJobId: rigJob.job_id,
-				creationId: rig.creation_id ?? meshResult.creationId,
 				durable: Boolean(rig.durable),
-				timings: { generateMs, rigMs, totalMs: Date.now() - startedAt },
+				generationMs,
+				rigMs,
+				durationMs: Date.now() - started,
 				fetchedAt: new Date().toISOString(),
 			};
 		},
@@ -303,11 +478,11 @@ export async function buildForgeAvatarTool() {
 
 	return {
 		name: TOOL_NAME,
-		title: 'Text → rigged avatar ($0.40)',
+		title: 'Text/Image → rigged avatar ($0.45)',
 		description: TOOL_DESCRIPTION,
 		inputSchema: inputZodShape,
-		// Generates a fresh mesh and (when humanoid) a rigged GLB via external
-		// generation/rig APIs; destroys nothing, mints new assets each call.
+		// Mints two fresh hosted GLB artifacts (mesh + rigged) via external
+		// generation/rigging APIs; destroys nothing, every call yields new assets.
 		annotations: {
 			readOnlyHint: false,
 			destructiveHint: false,

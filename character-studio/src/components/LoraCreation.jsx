@@ -1,11 +1,10 @@
-import React, { useContext, useState, useEffect } from "react"
+import React, { useState, useEffect } from "react"
 import styles from "./FloatingMenu.module.css"
 import MenuTitle from "./MenuTitle"
 import { SceneContext } from "../context/SceneContext";
-import Slider from "./Slider";
 import Select from 'react-select';
 
-export default function LoraCreation({selectedTrait, selectedVRM}){
+export default function LoraCreation(){
     const { manifest, loraDataGenerator, sceneElements } = React.useContext(SceneContext)
 
     const [ options, setOptions ] = useState([]) 

@@ -9,7 +9,6 @@ import { SceneContext } from "../context/SceneContext"
 import { SoundContext } from "../context/SoundContext"
 import { AudioContext } from "../context/AudioContext"
 
-import { connectWallet } from "../library/mint-utils"
 // import { getOpenseaCollection } from "../library/mint-utils"
 
 function Wallet() {
@@ -17,12 +16,11 @@ function Wallet() {
   // Translate hook
   const {t} = useContext(LanguageContext);
 
-  const { setViewMode, setIsLoading, isLoading } = React.useContext(ViewContext)
+  const { setViewMode, setIsLoading } = React.useContext(ViewContext)
   const { playSound } = React.useContext(SoundContext)
   const { isMute } = React.useContext(AudioContext)
   const { manifest, characterManager } = React.useContext(SceneContext)
-  const [ classes, setClasses ] = useState([]) 
-  const [ walltNFTs, setWalletNFTs ] = useState([]);
+  const [ walltNFTs ] = useState([]);
   
   useEffect(() => {
     fetchWalletNFTS();

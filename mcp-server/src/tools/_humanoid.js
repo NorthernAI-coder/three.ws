@@ -1,161 +1,458 @@
-// Deterministic humanoid-prompt classifier — shared by the avatar tools.
+// Humanoid prompt classifier — the money-safety gate for auto-rigging.
 //
-// Auto-rigging is a paid GPU operation that only makes sense for a humanoid
-// character: the UniRig pipeline fits a humanoid skeleton, and the three.ws
-// canonical clip library (idle/walk) only retargets onto a humanoid rig. Rigging
-// "a worn leather armchair" burns a paid call and yields a useless skeleton, so
-// the avatar pipeline gates auto-rig on this check.
+// `forge_avatar` bundles a paid generation with a paid rig pass. Rigging (and
+// the three.ws canonical animation library) assumes a HUMANOID skeleton: a
+// biped with a head, spine, two arms and two legs. Running the humanoid rigger
+// on furniture, a vehicle, or a quadruped wastes the paid rig op and produces a
+// useless skeleton. This classifier inspects a generation prompt and decides
+// whether auto-rigging will actually deliver an animation-ready avatar.
 //
-// It is a pure lexical heuristic on purpose: no network, no model call, zero
-// added latency, and fully deterministic (the same prompt always classifies the
-// same way — important for billing and tests). It reads the prompt the way the
-// downstream skeleton fitter does — does this describe a character with a body
-// plan a humanoid rig can drive? — and returns a confidence so callers can pick
-// a threshold. It never throws; an empty or junk prompt yields a low-confidence
-// non-humanoid verdict, which the caller treats as "don't auto-rig."
+// It is intentionally dependency-free and synchronous: a keyword/heuristic
+// classifier, not an LLM call. The gate only HARD-BLOCKS on a confident
+// non-humanoid verdict (clear objects + quadrupeds), so a borderline character
+// prompt is never wrongly refused — the caller opted into an avatar tool, and
+// ambiguity resolves in favour of proceeding.
+//
+// Mirrors the intent of AnimationManager.supportsCanonicalClips() (which gates
+// the same humanoid assumption at playback time) at the generation boundary.
 
-// Strong positive signals: words that almost always denote a humanoid figure.
-// Matched as whole words (see WORD_RE) so "manifold" never trips "man".
+// Tokens that strongly imply a humanoid/biped character. Matched as whole words
+// so "manifold" doesn't trip on "man" and "carapace" doesn't trip on "car".
 const HUMANOID_TERMS = [
-	'avatar', 'character', 'humanoid', 'human', 'person', 'people', 'figure',
-	'man', 'woman', 'men', 'women', 'boy', 'girl', 'child', 'kid', 'lady', 'guy', 'dude',
-	'male', 'female', 'hero', 'heroine', 'villain', 'warrior', 'soldier', 'knight',
-	'wizard', 'mage', 'witch', 'ninja', 'samurai', 'pirate', 'viking', 'gladiator',
-	'astronaut', 'cyborg', 'android', 'robot', 'mecha', 'mech', 'golem', 'zombie',
-	'skeleton', 'mummy', 'vampire', 'werewolf', 'demon', 'angel', 'goddess', 'god',
-	'elf', 'orc', 'goblin', 'dwarf', 'troll', 'fairy', 'gnome', 'centaur',
-	'alien', 'monster', 'creature', 'mascot', 'doll', 'mannequin', 'statue',
-	'king', 'queen', 'prince', 'princess', 'soldier', 'guard', 'monk', 'priest',
-	'dancer', 'fighter', 'athlete', 'player', 'gamer', 'superhero', 'spaceman',
-	'goku', 'anime', 'waifu', 'vtuber', 'npc', 'biped', 'bipedal',
+	// People
+	'human',
+	'person',
+	'man',
+	'woman',
+	'men',
+	'women',
+	'boy',
+	'girl',
+	'guy',
+	'lady',
+	'male',
+	'female',
+	'child',
+	'kid',
+	'baby',
+	'adult',
+	'teenager',
+	'teen',
+	'figure',
+	'body',
+	'fullbody',
+	'full-body',
+	'humanoid',
+	'biped',
+	'bipedal',
+	'portrait',
+	'bust',
+	// Avatar / character vocabulary
+	'avatar',
+	'character',
+	'protagonist',
+	'hero',
+	'heroine',
+	'villain',
+	'npc',
+	'mascot',
+	'figurine',
+	'action figure',
+	// Archetypes / classes (all bipedal humanoids)
+	'knight',
+	'warrior',
+	'soldier',
+	'fighter',
+	'samurai',
+	'ninja',
+	'assassin',
+	'rogue',
+	'wizard',
+	'mage',
+	'sorcerer',
+	'witch',
+	'warlock',
+	'priest',
+	'paladin',
+	'archer',
+	'ranger',
+	'barbarian',
+	'viking',
+	'gladiator',
+	'pirate',
+	'cowboy',
+	'astronaut',
+	'cosmonaut',
+	'spaceman',
+	'pilot',
+	'nurse',
+	'doctor',
+	'chef',
+	'farmer',
+	'miner',
+	'sailor',
+	'guard',
+	'king',
+	'queen',
+	'prince',
+	'princess',
+	'emperor',
+	'empress',
+	'knightess',
+	'monk',
+	'ronin',
+	'mercenary',
+	'bandit',
+	'detective',
+	'spy',
+	'agent',
+	'scientist',
+	'engineer',
+	'explorer',
+	'adventurer',
+	'dancer',
+	'athlete',
+	'boxer',
+	'wrestler',
+	'superhero',
+	'superheroine',
+	// Fantasy / sci-fi humanoid species (biped-shaped)
+	'elf',
+	'dwarf',
+	'orc',
+	'goblin',
+	'troll',
+	'ogre',
+	'gnome',
+	'halfling',
+	'fairy',
+	'angel',
+	'demon',
+	'devil',
+	'vampire',
+	'werewolf',
+	'zombie',
+	'skeleton',
+	'ghost',
+	'ghoul',
+	'mummy',
+	'cyborg',
+	'android',
+	'humanoid robot',
+	'mech pilot',
+	'alien',
+	'titan',
+	'giant',
+	'golem',
+	'wraith',
+	'lich',
+	// Style words that, in practice, describe humanoid characters
+	'anime girl',
+	'anime boy',
+	'anime character',
+	'chibi',
+	'waifu',
+	'vtuber',
+	'vroid',
+	'cartoon character',
 ];
 
-// Body-part / pose cues — a prompt that mentions these describes something with
-// a humanoid body plan even if it never names the figure directly
-// (e.g. "a suit of armour with crossed arms standing on two legs").
-const BODY_TERMS = [
-	'arms', 'arm', 'legs', 'leg', 'torso', 'limbs', 'hands', 'hand', 'fingers',
-	'shoulders', 'shoulder', 'hips', 'hip', 'spine', 'standing', 'walking',
-	'posing', 'pose', 'running', 'sitting', 'two legs', 'upright', 'full body',
-	'full-body', 'fullbody',
-];
-
-// Strong negatives: subjects that are emphatically NOT humanoid. Their presence
-// pulls confidence down hard, so "a cute teapot character" (toy with a face but
-// no body plan) doesn't get auto-rigged into a broken skeleton.
+// Tokens that strongly imply a NON-humanoid subject. A confident hit here is
+// what blocks the paid rig. Grouped only for readability.
 const NON_HUMANOID_TERMS = [
-	'armchair', 'chair', 'sofa', 'couch', 'table', 'desk', 'lamp', 'vase',
-	'teapot', 'mug', 'cup', 'bottle', 'bowl', 'plate', 'cutlery',
-	'car', 'truck', 'vehicle', 'tank', 'plane', 'aircraft', 'jet', 'ship',
-	'boat', 'rocket', 'spaceship', 'spacecraft', 'drone', 'bicycle', 'motorcycle',
-	'building', 'house', 'tower', 'castle', 'bridge', 'temple', 'cathedral',
-	'tree', 'plant', 'flower', 'rock', 'stone', 'mountain', 'terrain', 'landscape',
-	'sword', 'shield', 'gun', 'rifle', 'pistol', 'axe', 'hammer', 'helmet', 'crown',
-	'ring', 'necklace', 'coin', 'gem', 'crystal', 'potion', 'barrel', 'crate', 'chest',
-	'food', 'burger', 'pizza', 'cake', 'fruit', 'apple', 'sneaker', 'shoe', 'boot',
-	'logo', 'icon', 'emblem', 'sign', 'gear', 'engine', 'machine', 'turbine',
-	'fish', 'bird', 'insect', 'butterfly', 'flower', 'mushroom', 'leaf',
+	// Furniture / household objects
+	'chair',
+	'armchair',
+	'sofa',
+	'couch',
+	'stool',
+	'bench',
+	'table',
+	'desk',
+	'shelf',
+	'cabinet',
+	'wardrobe',
+	'dresser',
+	'bed',
+	'lamp',
+	'chandelier',
+	'mirror',
+	'vase',
+	'teapot',
+	'kettle',
+	'mug',
+	'cup',
+	'bottle',
+	'jar',
+	'bowl',
+	'plate',
+	'cutlery',
+	'pan',
+	'pot',
+	'clock',
+	'rug',
+	'curtain',
+	// Vehicles / machines
+	'car',
+	'truck',
+	'van',
+	'bus',
+	'motorcycle',
+	'bicycle',
+	'bike',
+	'scooter',
+	'tank',
+	'plane',
+	'airplane',
+	'aircraft',
+	'jet',
+	'helicopter',
+	'drone',
+	'boat',
+	'ship',
+	'submarine',
+	'rocket',
+	'spaceship',
+	'spacecraft',
+	'train',
+	'tractor',
+	'engine',
+	'turbine',
+	'manifold',
+	'gearbox',
+	'machine',
+	'machinery',
+	'appliance',
+	// Tools / weapons / gear (props, not characters)
+	'sword',
+	'blade',
+	'dagger',
+	'knife',
+	'axe',
+	'hammer',
+	'mace',
+	'spear',
+	'lance',
+	'shield',
+	'bow',
+	'crossbow',
+	'gun',
+	'rifle',
+	'pistol',
+	'cannon',
+	'wrench',
+	'screwdriver',
+	'helmet',
+	'gauntlet',
+	'boot',
+	'glove',
+	'backpack',
+	'amulet',
+	'ring',
+	'crown',
+	'staff',
+	'wand',
+	'torch',
+	'lantern',
+	'chest',
+	'barrel',
+	'crate',
+	// Buildings / environment / nature
+	'building',
+	'house',
+	'castle',
+	'tower',
+	'bridge',
+	'tree',
+	'plant',
+	'flower',
+	'bush',
+	'rock',
+	'stone',
+	'boulder',
+	'mountain',
+	'island',
+	'terrain',
+	'landscape',
+	'planet',
+	'asteroid',
+	'crystal',
+	'gem',
+	'gemstone',
+	'coin',
+	// Food
+	'apple',
+	'banana',
+	'orange',
+	'fruit',
+	'burger',
+	'pizza',
+	'cake',
+	'donut',
+	'bread',
+	'sandwich',
+	'sushi',
+	'cookie',
+	'food',
+	// Quadrupeds & other non-biped animals (won't drive a humanoid rig)
+	'horse',
+	'pony',
+	'donkey',
+	'cow',
+	'bull',
+	'pig',
+	'sheep',
+	'goat',
+	'deer',
+	'dog',
+	'puppy',
+	'cat',
+	'kitten',
+	'lion',
+	'tiger',
+	'leopard',
+	'cheetah',
+	'wolf',
+	'fox',
+	'bear',
+	'elephant',
+	'rhino',
+	'hippo',
+	'giraffe',
+	'zebra',
+	'camel',
+	'kangaroo',
+	'rabbit',
+	'mouse',
+	'rat',
+	'squirrel',
+	'lizard',
+	'crocodile',
+	'alligator',
+	'turtle',
+	'snake',
+	'frog',
+	'fish',
+	'shark',
+	'whale',
+	'dolphin',
+	'octopus',
+	'crab',
+	'lobster',
+	'shrimp',
+	'spider',
+	'scorpion',
+	'ant',
+	'bee',
+	'butterfly',
+	'beetle',
+	'bird',
+	'eagle',
+	'owl',
+	'duck',
+	'chicken',
+	'penguin',
+	'dragon',
+	'dinosaur',
+	'serpent',
+	'hydra',
+	'griffin',
+	'phoenix',
 ];
 
-// Animals are quadrupeds/other — a humanoid rig won't drive them. Kept separate
-// because some are common ("dragon", "horse") and we want them firmly negative.
-const ANIMAL_TERMS = [
-	'dog', 'cat', 'horse', 'cow', 'pig', 'sheep', 'goat', 'lion', 'tiger', 'bear',
-	'wolf', 'fox', 'deer', 'rabbit', 'mouse', 'rat', 'elephant', 'giraffe', 'zebra',
-	'dragon', 'dinosaur', 'dino', 'snake', 'lizard', 'turtle', 'frog', 'shark',
-	'whale', 'dolphin', 'octopus', 'crab', 'spider', 'bee', 'ant', 'horse',
-	'eagle', 'owl', 'penguin', 'duck', 'chicken', 'cow', 'bull', 'ram',
-];
-
-function buildWordSet(terms) {
-	// Multi-word terms ("two legs", "full body") are matched as substrings; the
-	// single-word majority go in a Set for O(1) whole-word lookup.
-	const single = new Set();
-	const phrases = [];
-	for (const t of terms) {
-		if (t.includes(' ') || t.includes('-')) phrases.push(t);
-		else single.add(t);
+// Word-boundary match for a single term against the already-lowercased prompt.
+// Multi-word terms (e.g. "anime girl") match as a substring on boundaries.
+function hasTerm(text, term) {
+	if (term.includes(' ') || term.includes('-')) {
+		return text.includes(term);
 	}
-	return { single, phrases };
+	const re = new RegExp(`\\b${term}\\b`);
+	return re.test(text);
 }
 
-const HUMANOID = buildWordSet(HUMANOID_TERMS);
-const BODY = buildWordSet(BODY_TERMS);
-const NON_HUMANOID = buildWordSet([...NON_HUMANOID_TERMS, ...ANIMAL_TERMS]);
-
-// Split on any run of non-letter characters so punctuation, digits, and emoji
-// never fuse into adjacent words. Lowercased for case-insensitive matching.
-function tokenize(text) {
-	return String(text || '')
-		.toLowerCase()
-		.split(/[^a-z]+/)
-		.filter(Boolean);
-}
-
-function countHits({ single, phrases }, tokens, lowerText) {
-	let hits = 0;
-	for (const tok of tokens) if (single.has(tok)) hits += 1;
-	for (const p of phrases) if (lowerText.includes(p)) hits += 1;
-	return hits;
+function countMatches(text, terms) {
+	let n = 0;
+	const hits = [];
+	for (const term of terms) {
+		if (hasTerm(text, term)) {
+			n += 1;
+			hits.push(term);
+		}
+	}
+	return { n, hits };
 }
 
 /**
- * Classify whether a text prompt describes a humanoid figure worth auto-rigging.
+ * Classify whether a generation prompt describes a riggable humanoid character.
  *
  * @param {string} prompt
- * @returns {{ humanoid: boolean, confidence: number, reason: string,
- *   signals: { humanoid: number, body: number, nonHumanoid: number } }}
- *   `confidence` is in [0,1]. `humanoid` is true when confidence ≥ 0.5.
+ * @returns {{ humanoid: boolean, confidence: 'high'|'medium'|'low', reason: string, signals: { humanoid: string[], nonHumanoid: string[] } }}
+ *   `humanoid:false` is the only verdict `forge_avatar` blocks on. A `low`
+ *   confidence `humanoid:true` is the ambiguous default — proceed, because the
+ *   caller opted into an avatar tool.
  */
 export function classifyHumanoidPrompt(prompt) {
-	const text = String(prompt || '').toLowerCase().trim();
-	const tokens = tokenize(text);
+	const text = String(prompt || '')
+		.toLowerCase()
+		.trim();
 
-	if (tokens.length === 0) {
+	if (text.length < 3) {
 		return {
 			humanoid: false,
-			confidence: 0,
-			reason: 'empty prompt',
-			signals: { humanoid: 0, body: 0, nonHumanoid: 0 },
+			confidence: 'low',
+			reason: 'prompt is empty or too short to describe a character',
+			signals: { humanoid: [], nonHumanoid: [] },
 		};
 	}
 
-	const humanoidHits = countHits(HUMANOID, tokens, text);
-	const bodyHits = countHits(BODY, tokens, text);
-	const nonHits = countHits(NON_HUMANOID, tokens, text);
+	const pos = countMatches(text, HUMANOID_TERMS);
+	const neg = countMatches(text, NON_HUMANOID_TERMS);
+	const signals = { humanoid: pos.hits, nonHumanoid: neg.hits };
 
-	const signals = { humanoid: humanoidHits, body: bodyHits, nonHumanoid: nonHits };
-
-	// Base score: humanoid nouns count full, body cues count half (supporting,
-	// not defining). A strong non-humanoid noun ("armchair", "dragon") subtracts
-	// more than a body cue adds, so "dragon with two arms" stays non-humanoid.
-	const positive = humanoidHits + bodyHits * 0.5;
-	const negative = nonHits;
-	const net = positive - negative * 1.25;
-
-	// Map the net score onto [0,1] with a soft ramp. net ≤ 0 → ≤0.25 (the prompt
-	// names a non-humanoid subject or nothing relevant); net 1 → ~0.6; net ≥ 2 →
-	// ≥0.8. A bare object prompt with zero signals lands at exactly 0.25 — below
-	// threshold, so the default for an ambiguous prompt is "don't rig."
-	let confidence;
-	if (net <= 0) {
-		confidence = Math.max(0, 0.25 + net * 0.12);
-	} else {
-		confidence = Math.min(1, 0.4 + net * 0.2);
-	}
-	confidence = Math.round(confidence * 100) / 100;
-
-	const humanoid = confidence >= 0.5;
-	let reason;
-	if (humanoid) {
-		reason = `humanoid signals (${humanoidHits} figure, ${bodyHits} body) outweigh ${nonHits} non-humanoid`;
-	} else if (nonHits > 0) {
-		reason = `non-humanoid subject detected (${nonHits} signal${nonHits === 1 ? '' : 's'})`;
-	} else {
-		reason = 'no clear humanoid signal';
+	// Both kinds of signal present — e.g. "a knight holding a sword". The subject
+	// (humanoid) wins over the held prop (non-humanoid) when humanoid signals are
+	// at least as strong.
+	if (pos.n > 0 && neg.n > 0) {
+		if (pos.n >= neg.n) {
+			return {
+				humanoid: true,
+				confidence: 'medium',
+				reason: `humanoid subject (${pos.hits.join(', ')}) with incidental props (${neg.hits.join(', ')})`,
+				signals,
+			};
+		}
+		return {
+			humanoid: false,
+			confidence: 'medium',
+			reason: `dominant non-humanoid subject (${neg.hits.join(', ')})`,
+			signals,
+		};
 	}
 
-	return { humanoid, confidence, reason, signals };
+	if (pos.n > 0) {
+		return {
+			humanoid: true,
+			confidence: 'high',
+			reason: `humanoid character signals: ${pos.hits.join(', ')}`,
+			signals,
+		};
+	}
+
+	if (neg.n > 0) {
+		return {
+			humanoid: false,
+			confidence: 'high',
+			reason: `non-humanoid subject: ${neg.hits.join(', ')}`,
+			signals,
+		};
+	}
+
+	// No signal either way. The caller invoked an avatar tool, so default to
+	// proceeding — but flag it low-confidence so the result can say so honestly.
+	return {
+		humanoid: true,
+		confidence: 'low',
+		reason: 'no decisive signal; proceeding because an avatar was explicitly requested',
+		signals,
+	};
 }
-
-export default classifyHumanoidPrompt;

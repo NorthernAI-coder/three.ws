@@ -35,7 +35,7 @@ export class WalletCollections {
                 .then(wallet => fetchSolanaPurchasedAssets(wallet, delegateAddress, collectionName).then(response=>{
                     resolve(new OwnedNFTTraitIDs({ownedIDs:response.ownedIDs,ownedTraits:response.ownedTraits}));
                 }))
-                .catch(err=>{
+                .catch(()=>{
                     resolve(null);
                 })
         });

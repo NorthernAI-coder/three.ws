@@ -19,6 +19,15 @@
 
 import { fetchHolderBalances } from './holders.js';
 import { sampleBucket, inSample } from './cohorts.js';
+import { cacheGet, cacheSet } from '../cache.js';
+
+// Holder sets change on the order of minutes, but the live path is hit on every
+// agent-detail / launch-detail page view — uncached, that meant one full Helius
+// DAS getTokenAccounts walk (the highest credit-multiplier method, 1 call per
+// 1000 holders) per page load. Caching the resolved set per-mint collapses that
+// to at most one walk per mint per TTL regardless of traffic — the single
+// largest reduction in Helius credit spend with no change to what users see.
+const LIVE_HOLDER_TTL_SECONDS = 180;
 
 // Cohorts derivable from current balances alone (the rest need snapshot history).
 const LIVE_COHORT_IDS = new Set(['holders', 'whales']);
@@ -76,12 +85,39 @@ function whaleCutoff(holders, topPct) {
  * @returns {Promise<{holders: Array<{wallet:string, units:bigint}>, totalUnits: bigint}>}
  */
 export async function liveHolderSet({ mint, network = 'mainnet' }) {
+	const cacheKey = `live-holders:${network}:${mint}`;
+
+	// JSON can't carry BigInt, so the cached shape stores units as decimal
+	// strings; rehydrate to BigInt on read so callers are oblivious to the cache.
+	const cached = await cacheGet(cacheKey).catch(() => null);
+	if (cached && Array.isArray(cached.holders)) {
+		return {
+			holders: cached.holders.map((h) => ({ wallet: h.wallet, units: BigInt(h.units) })),
+			totalUnits: BigInt(cached.totalUnits),
+		};
+	}
+
 	const balances = await fetchHolderBalances({ mint, network });
 	const holders = [...balances.entries()]
 		.map(([wallet, units]) => ({ wallet, units }))
 		.filter((h) => h.units > 0n)
 		.sort((a, b) => (b.units > a.units ? 1 : b.units < a.units ? -1 : 0));
 	const totalUnits = holders.reduce((sum, h) => sum + h.units, 0n);
+
+	// Don't cache empty results (an unconfigured key or transient RPC failure
+	// returns an empty map) — caching a 0-holder set would mask recovery for the
+	// whole TTL. A genuinely empty mint is harmless to re-walk; it's one cheap call.
+	if (holders.length > 0) {
+		await cacheSet(
+			cacheKey,
+			{
+				holders: holders.map((h) => ({ wallet: h.wallet, units: h.units.toString() })),
+				totalUnits: totalUnits.toString(),
+			},
+			LIVE_HOLDER_TTL_SECONDS,
+		).catch(() => {});
+	}
+
 	return { holders, totalUnits };
 }
 

@@ -4,9 +4,8 @@ import ParticleEffect from "./particle/particle.js";
 
 import {
   TRANSITION_TIME_OF_SWITCH_ITEM,
-  TRANSITION_TIME_OF_LOADING_AVATAR,
 
-  SWITCH_ITEM_EFFECT_INITIAL_TIME, 
+  SWITCH_ITEM_EFFECT_INITIAL_TIME,
   SWITCH_ITEM_EFFECT_DURATION, 
   SWITCH_ITEM_EFFECT_SPEED,
 
@@ -20,7 +19,6 @@ import {
   transitionEffectTypeNumber,
   
 } from "./constants.js";
-import { MToonMaterial } from "@pixiv/three-vrm";
 
 
 const textureLoader = new THREE.TextureLoader()

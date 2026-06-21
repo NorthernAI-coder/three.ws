@@ -54,7 +54,7 @@ export class KTXTools{
         options.basisu_options = basisu_options;
 
         // supercmp_scheme
-        if (!options.hasOwnProperty('supercmp_scheme')){
+        if (!Object.prototype.hasOwnProperty.call(options, 'supercmp_scheme')){
             options.supercmp_scheme = this.libktx.SupercmpScheme.NONE;
         }
         else{

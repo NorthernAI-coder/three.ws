@@ -1,4 +1,4 @@
-const beamVertex = `\       
+const beamVertex = `
   uniform vec3 cameraDir;
   uniform vec3 eye;
   
@@ -15,7 +15,7 @@ const beamVertex = `\
     gl_Position = projectionMatrix * modelViewMatrix * vec4( pos, 1.0 ); 
   }
 `
-const beamFragment = `\ 
+const beamFragment = `
   uniform float switchItemDuration;
   uniform float switchItemTime;
   uniform vec3 cameraDir;
@@ -55,7 +55,7 @@ const beamFragment = `\
   }
 `
 
-const pixelVertex = `\       
+const pixelVertex = `
   uniform vec4 cameraBillboardQuaternion;
 
   attribute vec2 scales;
@@ -87,7 +87,7 @@ const pixelVertex = `\
     gl_Position = projectionPosition;
   }
 `
-const pixelFragment = `\ 
+const pixelFragment = `
   varying vec2 vUv;
   varying float vOpacity;
   varying vec3 vWorldPosition;
@@ -112,7 +112,7 @@ const pixelFragment = `\
   }
 `
 
-const ringVertex = `\       
+const ringVertex = `
   attribute vec2 scales;
   attribute float opacity;
   attribute vec3 positions;
@@ -139,7 +139,7 @@ const ringVertex = `\
     gl_Position = projectionPosition;
   }
 `
-const ringFragment = `\ 
+const ringFragment = `
   uniform float radius;
 
   varying vec2 vUv;
@@ -164,7 +164,7 @@ const ringFragment = `\
   }
 `
 
-const teleportVertex = `\       
+const teleportVertex = `
   uniform vec4 cameraBillboardQuaternion;
 
   varying vec2 vUv;
@@ -186,7 +186,7 @@ const teleportVertex = `\
     gl_Position = projectionPosition;
   }
 `
-const teleportFragment = `\ 
+const teleportFragment = `
   varying vec2 vUv;
   varying vec3 vWorldPosition;
 
@@ -198,7 +198,7 @@ const teleportFragment = `\
   }
 `
 
-const spotLightVertex = `\       
+const spotLightVertex = `
   varying vec3 vWorldPosition;
   varying vec3 vSurfaceNormal;
 
@@ -212,7 +212,7 @@ const spotLightVertex = `\
     gl_Position = projectionMatrix * modelViewMatrix * vec4( pos, 1.0 ); 
   }
 `
-const spotLightFragment = `\ 
+const spotLightFragment = `
   uniform vec3 cameraDir;
   uniform vec3 eye;
 

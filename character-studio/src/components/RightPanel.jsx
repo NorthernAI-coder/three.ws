@@ -3,7 +3,6 @@ import { SceneContext } from "../context/SceneContext"
 import styles from "./RightPanel.module.css"
 import MenuTitle from "./MenuTitle"
 import traitsIcon from "../images/t-shirt.png"
-import walletIcon from "../images/wallet.png"
 import genSpriteIcon from "../images/users.png"
 import emotionIcon from "../images/emotion.png"
 import genLoraIcon from "../images/paste.png"
@@ -17,12 +16,10 @@ import ThumbnailCreation from "./ThumbnailCreation"
 import Emotions from "./Emotions"
 
 export default function RightPanel({selectedTrait, selectedVRM, traitGroupName}){
-    const {
-        characterManager,
-    } = React.useContext(SceneContext)
+    React.useContext(SceneContext)
 
     const [selectedOption, setSelectedOption] = React.useState("")
-    const [lockedManifests, setLockedManifests] = React.useState("")
+    const [lockedManifests] = React.useState("")
     const setSelectedOptionString = (option) => {
         if (option != selectedOption){
             setSelectedOption(option);

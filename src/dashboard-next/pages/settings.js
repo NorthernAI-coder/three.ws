@@ -496,7 +496,7 @@ function renderDefaultNetwork(prefs) {
 	const panel = document.createElement('div');
 	panel.className = 'dn-panel';
 
-	const current = prefs.default_network || localStorage.getItem('twx_default_network') || 'base';
+	const current = prefs.default_network || localStorage.getItem('twx_default_network') || 'solana';
 
 	panel.innerHTML = `
 		<div style="margin-bottom:14px">
@@ -505,8 +505,8 @@ function renderDefaultNetwork(prefs) {
 		</div>
 		<div style="display:flex;gap:10px;flex-wrap:wrap">
 			${[
-				{ value: 'base', label: 'Base', note: 'Low-fee EVM L2' },
 				{ value: 'solana', label: 'Solana', note: 'Fast, low-cost' },
+				{ value: 'base', label: 'Base', note: 'Low-fee EVM L2' },
 				{ value: 'polygon', label: 'Polygon', note: 'EVM L2' },
 			].map((n) => `
 				<button class="dn-btn ${n.value === current ? 'primary' : ''}" data-network="${n.value}" type="button"

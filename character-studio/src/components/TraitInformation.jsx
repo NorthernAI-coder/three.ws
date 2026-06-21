@@ -6,7 +6,6 @@ import Slider from "./Slider";
 
 export default function TraitInformation({selectedTrait, selectedVRM}){
     const {
-        animationManager,
         characterManager,
     } = useContext(SceneContext);
 

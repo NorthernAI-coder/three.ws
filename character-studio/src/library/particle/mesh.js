@@ -95,7 +95,7 @@ const getRingMesh = (globalUniforms) => {
   return ringMesh;
 }
 
-const getTeleportMesh = (globalUniforms) => {
+const getTeleportMesh = () => {
   const size = 1.0;
   const geometry = new THREE.PlaneGeometry(size, size);
   const material= new THREE.ShaderMaterial({
