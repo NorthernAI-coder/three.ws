@@ -246,7 +246,41 @@ export function makeRotatingFetch(endpoints) {
 					lastErr = new Error(`solana rpc ${resp.status} @ ${maskUrl(url)}`);
 					continue;
 				}
-				return resp;
+				// A healthy 2xx status is not a guarantee of a usable body. Under load
+				// some providers answer a JSON-RPC POST with 200 + an empty payload or
+				// 200 + an HTML interstitial/error page instead of a 5xx. web3.js then
+				// runs that through its superstruct result schema and throws
+				// `StructError: Expected the value to satisfy a union of type | type,
+				// but received:` (the empty/garbage body) straight to the caller,
+				// WITHOUT rotating, because a parse error carries no rotate-worthy HTTP
+				// status. That single failure mode produced the recurring StructError
+				// noise across getBalance / getLatestBlockhash / getSignaturesForAddress
+				// / getBuyQuote. Detect the poison body here and fail over to the next
+				// provider instead of handing web3.js something it cannot parse.
+				const okBody = await resp.text();
+				const firstChar = okBody.trimStart()[0];
+				if (okBody.trim() === '' || firstChar === '<') {
+					const alreadyCooling = isEndpointCooling(url);
+					// Treat like a transient provider 5xx: short cooldown, not a long
+					// quota park. The endpoint is up but momentarily returning garbage.
+					const ms = markEndpointCooldown(url, 502, '');
+					if (!alreadyCooling) {
+						console.log(
+							`[solana-rpc] ${maskUrl(url)} 200 but ${okBody.trim() === '' ? 'empty' : 'non-JSON'} body — cooling ${Math.round(ms / 60_000)}m, failing over`,
+						);
+					}
+					lastErr = new Error(`solana rpc non-JSON-RPC body @ ${maskUrl(url)}`);
+					continue;
+				}
+				// Body already consumed above; hand web3.js a fresh Response carrying
+				// the same payload. Only content-type is preserved; copying
+				// content-encoding/content-length would mislead the consumer since the
+				// transport already decoded the body into `okBody`.
+				return new Response(okBody, {
+					status: resp.status,
+					statusText: resp.statusText,
+					headers: { 'content-type': resp.headers.get('content-type') || 'application/json' },
+				});
 			} catch (err) {
 				// A thrown fetch is a transient network/DNS blip, not a quota signal —
 				// cool only briefly so a healthy provider isn't parked for long.

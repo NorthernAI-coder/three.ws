@@ -35,10 +35,14 @@ describe('discover page — cross-links and new features', () => {
 	});
 
 	it('/discover JS hydrates filter state from URL on load', () => {
+		// Controls are driven by the shared list-controls toolkit; URL hydration
+		// runs through hydrateFromUrl(params) (q / only3d / x402 / source / sort)
+		// plus the page-specific chain read. The behaviour contract — deep links
+		// and back/forward restore every filter — is preserved.
 		expect(discoverJs).toContain('new URLSearchParams(location.search)');
-		expect(discoverJs).toContain("initialParams.get('q')");
+		expect(discoverJs).toContain("params.get('q')");
 		expect(discoverJs).toContain("initialParams.get('chain')");
-		expect(discoverJs).toContain("initialParams.get('only3d')");
+		expect(discoverJs).toContain("params.get('only3d')");
 	});
 
 	it('/discover JS has a clear-all-filters function', () => {
@@ -46,8 +50,13 @@ describe('discover page — cross-links and new features', () => {
 		expect(discoverJs).toContain('data-role="clear-filters"');
 	});
 
-	it('/discover has a search clear button in HTML', () => {
-		expect(discoverHtml).toContain('data-role="search-clear"');
+	it('/discover renders a search input with a clear control via the shared toolkit', () => {
+		// The search box + its clear button are now produced by the shared
+		// list-controls toolkit (mounted into [data-role="list-controls"]), which
+		// renders a data-lc="search" input and a data-lc="search-clear" button.
+		expect(discoverHtml).toContain('data-role="list-controls"');
+		expect(discoverJs).toContain('createListControls');
+		expect(discoverJs).toContain("searchLabel: 'Search agents'");
 	});
 
 	it('/discover JS stats are only set on first page (not on paginated loads)', () => {

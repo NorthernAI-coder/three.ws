@@ -117,6 +117,47 @@
 			<div id="walk-status">loading avatar…</div>
 		</div>
 
+		<!--
+			The postMessage contract (src/walk-embed-events.js) is the single
+			source of truth for the host ↔ iframe protocol. We load it here
+			explicitly — both so the runtime's transitive import is obvious to
+			anyone reading this page, and so the public vocabulary (supported
+			gestures, environments, control modes, protocol version) is readable
+			from the embed window itself via `window.WALK_EMBED_PROTOCOL`. The
+			interactive playground on /docs/walk-embed-api reads it to populate
+			its command pickers, and it gives integrators a way to feature-detect
+			what this build of the embed accepts. Constants only — no internal
+			runtime state is ever exposed here.
+		-->
+		<script type="module">
+			import {
+				CHANNEL,
+				PROTOCOL_VERSION,
+				INBOUND,
+				OUTBOUND,
+				ENV_IDS,
+				GESTURES,
+				CONTROL_MODES,
+				WORLD_RADIUS,
+			} from '/src/walk-embed-events.js';
+			window.WALK_EMBED_PROTOCOL = Object.freeze({
+				channel: CHANNEL,
+				version: PROTOCOL_VERSION,
+				inbound: INBOUND,
+				outbound: OUTBOUND,
+				environments: ENV_IDS,
+				gestures: GESTURES,
+				controls: CONTROL_MODES,
+				worldRadius: WORLD_RADIUS,
+			});
+		</script>
+
+		<!--
+			The walking-avatar runtime. It imports the same contract module and
+			installs installEmbedBridge() against its live scene, so inbound
+			commands drive the real avatar and outbound events fire from real
+			lifecycle points.
+		-->
 		<script type="module" src="/src/walk-embed.js"></script>
 	</body>
 </html>

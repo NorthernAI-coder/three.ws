@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<script>/* three.ws theme boot — no-flash; runtime in /theme-switcher.js */(function(){try{var m=localStorage.getItem('twx_theme');var l=m==='auto'?(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches):m==='light';document.documentElement.setAttribute('data-theme',l?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();</script>
+		<meta charset="utf-8" />
+		<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+		<title>Walk avatar docs — three.ws</title>
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+		<meta name="description" content="Developer and user documentation for the three.ws walking-avatar system: the /walk page, iframe embeds, the JavaScript SDK, the postMessage event contract, companion mode, analytics, and the Chrome extension." />
+		<meta name="theme-color" content="#0a0a0a" />
+		<link rel="canonical" href="https://three.ws/docs/walk" />
+		<link rel="shortcut icon" href="/favicon.ico" />
+		<link rel="stylesheet" href="/fonts/fonts.css" />
+		<link rel="stylesheet" href="/style.css" />
+		<link rel="stylesheet" href="/footer.css" />
+		<link rel="stylesheet" href="/nav.css" />
+		<link rel="stylesheet" href="/docs/walk/docs.css" />
+	</head>
+	<body>
+		<a class="wd-skip" href="#wd-main">Skip to content</a>
+		<header>
+			<div id="nav-container"></div>
+		</header>
+		<script src="/nav.js"></script>
+
+		<div class="wd-shell">
+			<button class="wd-side-toggle" type="button" aria-expanded="false" aria-controls="wd-side">
+				<span>Documentation menu</span>
+				<span aria-hidden="true">☰</span>
+			</button>
+
+			<aside class="wd-side" id="wd-side" aria-label="Walk documentation">
+				<h2>Walk docs</h2>
+				<nav aria-label="Walk documentation pages">
+					<a href="/docs/walk" aria-current="page">Overview</a>
+					<a href="/docs/walk/getting-started">Getting started</a>
+				</nav>
+				<h2>Use it</h2>
+				<nav aria-label="Using Walk">
+					<a href="/docs/walk/walk-page">The walk page</a>
+					<a href="/docs/walk/companion-mode">Companion mode</a>
+					<a href="/docs/walk/chrome-extension">Chrome extension</a>
+				</nav>
+				<h2>Build with it</h2>
+				<nav aria-label="Building with Walk">
+					<a href="/docs/walk/embed-iframe">Iframe embed</a>
+					<a href="/docs/walk/embed-sdk">JavaScript SDK</a>
+					<a href="/docs/walk/postmessage-events">postMessage events</a>
+					<a href="/docs/walk/analytics">Analytics</a>
+				</nav>
+				<h2>Reference</h2>
+				<nav aria-label="Reference">
+					<a href="/docs/walk/changelog">Changelog</a>
+				</nav>
+			</aside>
+
+			<main class="wd-main" id="wd-main">
+				<p class="wd-crumbs"><a href="/docs">Docs</a> / Walk</p>
+				<h1>Walk avatar documentation</h1>
+				<p class="wd-lede">
+					Walk turns a three.ws avatar into a real 3D character that moves through the
+					web — on the dedicated walk page, as a floating companion on any page, as a
+					one-tag embed on your own site, or as a Chrome extension that strolls across
+					every tab. This hub documents everything the system actually ships today.
+				</p>
+
+				<div class="wd-demo">
+					<div class="wd-demo-head"><span><span class="wd-demo-dot"></span>Live embed — a real avatar, rendered now</span><span>/walk-embed</span></div>
+					<iframe
+						title="Live walking avatar embed"
+						src="/walk-embed?controls=none&autoplay=true&ground=false&env=studio"
+						height="320"
+						loading="lazy"
+						allow="accelerometer; gyroscope; xr-spatial-tracking"
+					></iframe>
+				</div>
+
+				<h2>Start here</h2>
+				<div class="wd-cards">
+					<a class="wd-card" href="/docs/walk/getting-started">
+						<h3>Getting started →</h3>
+						<p>Walk your first avatar in five minutes — page, embed, or companion.</p>
+					</a>
+					<a class="wd-card" href="/docs/walk/walk-page">
+						<h3>The walk page →</h3>
+						<p>Controls, four camera modes, six environments, gestures, multiplayer, and AR.</p>
+					</a>
+					<a class="wd-card" href="/docs/walk/embed-iframe">
+						<h3>Iframe embed →</h3>
+						<p>Every <code>/walk-embed</code> query parameter, with a live preview to copy.</p>
+					</a>
+					<a class="wd-card" href="/docs/walk/embed-sdk">
+						<h3>JavaScript SDK →</h3>
+						<p>The <code>window.ThreeWalkAvatar</code> host API: mount, control, listen.</p>
+					</a>
+					<a class="wd-card" href="/docs/walk/postmessage-events">
+						<h3>postMessage events →</h3>
+						<p>The full bi-directional contract between a host page and the iframe.</p>
+					</a>
+					<a class="wd-card" href="/docs/walk/companion-mode">
+						<h3>Companion mode →</h3>
+						<p>A site-wide avatar that walks with you between three.ws pages.</p>
+					</a>
+					<a class="wd-card" href="/docs/walk/analytics">
+						<h3>Analytics →</h3>
+						<p>Sessions, distance, top origins, and conversion events per avatar.</p>
+					</a>
+					<a class="wd-card" href="/docs/walk/chrome-extension">
+						<h3>Chrome extension →</h3>
+						<p>Your avatar on every site, with optional read-aloud narration.</p>
+					</a>
+				</div>
+
+				<h2>What "Walk" is made of</h2>
+				<p>The system is four surfaces over one rendering engine:</p>
+				<ul>
+					<li><strong>The walk page</strong> (<code>/walk</code>) — the full experience: WASD/touch movement, four camera modes, six worlds, gestures, live multiplayer presence, AR camera passthrough, and a global distance leaderboard.</li>
+					<li><strong>The embed</strong> (<code>/walk-embed</code>) — a chrome-less, transparent iframe that renders a single avatar. Configured entirely by URL query parameters and driven live over <code>postMessage</code>.</li>
+					<li><strong>The SDK</strong> (<code>/walk-embed-sdk.js</code>) — a zero-dependency script tag that mounts the embed as a floating corner avatar and exposes <code>window.ThreeWalkAvatar</code> for runtime control and event listening.</li>
+					<li><strong>Companion mode &amp; the extension</strong> — the same avatar following you across three.ws pages, or across every website via the Chrome extension.</li>
+				</ul>
+
+				<div class="wd-note">
+					<span class="wd-icon" aria-hidden="true">✱</span>
+					<span>Every example on these pages is taken from the shipped source. There are no placeholders and no "coming soon" sections — if it is documented here, it works today.</span>
+				</div>
+
+				<h2>Conventions</h2>
+				<ul>
+					<li>URLs are shown relative to <code>https://three.ws</code>. From a third-party page, prefix the origin (e.g. <code>https://three.ws/walk-embed</code>).</li>
+					<li>Code blocks have a <strong>Copy</strong> button. The copied text is the raw source, never the on-screen syntax tint.</li>
+					<li>Every page has an <strong>Edit this page</strong> link to its file in the canonical GitHub repository.</li>
+				</ul>
+
+				<div class="wd-pagefoot">
+					<a class="wd-edit" href="https://github.com/nirholas/three.ws/edit/main/public/docs/walk/index.html" rel="noopener">
+						<span aria-hidden="true">✎</span> Edit this page on GitHub
+					</a>
+					<div class="wd-nextprev">
+						<a href="/docs/walk/getting-started"><span>Next</span>Getting started →</a>
+					</div>
+				</div>
+			</main>
+		</div>
+
+		<div id="footer-container"></div>
+		<script src="/footer.js"></script>
+		<script src="/brand.js" defer></script>
+		<script type="module" src="/docs/walk/docs.js"></script>
+	</body>
+</html>

@@ -20,7 +20,6 @@
 import { createHash } from 'node:crypto';
 
 import {
-	Connection,
 	Keypair,
 	PublicKey,
 	SystemProgram,
@@ -32,6 +31,7 @@ import {
 import bs58 from 'bs58';
 
 import { env } from './env.js';
+import { solanaConnection } from './solana/connection.js';
 
 /** Program id baked into the on-chain program's `declare_id!`. Override per
  *  deployment with SKILL_LICENSE_PROGRAM_ID. */
@@ -184,7 +184,7 @@ export async function verifyOnchainSkillLicense({
 	connection,
 	programId = SKILL_LICENSE_PROGRAM_ID,
 }) {
-	const conn = connection || new Connection(rpcForNetwork(network), 'confirmed');
+	const conn = connection || solanaConnection({ url: rpcForNetwork(network), commitment: 'confirmed', network });
 	const [license] = deriveSkillLicensePda(ownerWallet, agentMint, skill, programId);
 	const [nftMint] = deriveSkillMintPda(ownerWallet, agentMint, skill, programId);
 	const ownerTokenAccount = deriveAssociatedTokenAddress(ownerWallet, nftMint);
@@ -333,7 +333,7 @@ export async function mintSkillLicenseOnchain({
 			code: 'minter_unconfigured',
 		});
 	}
-	const conn = connection || new Connection(rpcForNetwork(network), 'confirmed');
+	const conn = connection || solanaConnection({ url: rpcForNetwork(network), commitment: 'confirmed', network });
 
 	const { instruction, accounts } = buildMintSkillLicenseIx({
 		minter: minter.publicKey,

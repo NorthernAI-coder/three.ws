@@ -23,6 +23,7 @@ import { walletChipHTML, walletChipEl, wireWalletChips } from './shared/agent-wa
 import { seeInWorldHref, hasCustomAvatar } from './shared/agent-3d.js';
 import { coinChipHTML } from './shared/agent-coin.js';
 import { skeletonHTML, emptyStateHTML, errorStateHTML, ensureStateKitStyles } from './shared/state-kit.js';
+import { debounce, syncStateToUrl } from './shared/list-controls.js';
 import { log } from './shared/log.js';
 import { track, trackError, ANALYTICS_EVENTS } from './analytics.js';
 ensureStateKitStyles();
@@ -218,24 +219,27 @@ function readRoute() {
 // and page refresh both restore the same view. Uses replaceState by default
 // to avoid flooding history with every keystroke; pass push=true when the
 // change is user-meaningful (filter chip click, sort change).
+// URL params owned by the discovery list view, with the default value that
+// drops the param from the URL (canonical short links). Shared with /discover's
+// scheme conceptually via the same syncStateToUrl helper from the list-controls
+// toolkit, so both surfaces write querystrings the same way.
+const LIST_URL_DEFAULTS = { tab: '', q: '', sort: 'recommended', pricing: 'all' };
+
 function syncFilterToUrl({ push = false } = {}) {
 	if (!location.pathname.startsWith('/marketplace')) return;
 	// Only sync from the discovery list view — detail / tools / mine views
 	// own their own URLs and we shouldn't trample them.
-	const path = location.pathname;
-	if (path !== '/marketplace') return;
-	const url = new URL(location.href);
-	const set = (key, val) => {
-		if (val) url.searchParams.set(key, val);
-		else url.searchParams.delete(key);
-	};
-	set('tab', LIST_FILTER_TABS.has(state.filter) ? state.filter : null);
-	set('q', state.q || null);
-	set('sort', state.sort && state.sort !== 'recommended' ? state.sort : null);
-	set('pricing', state.priceFilter && state.priceFilter !== 'all' ? state.priceFilter : null);
-	if (url.href === location.href) return;
-	if (push) history.pushState({}, '', url);
-	else history.replaceState({}, '', url);
+	if (location.pathname !== '/marketplace') return;
+	syncStateToUrl(
+		{
+			tab: LIST_FILTER_TABS.has(state.filter) ? state.filter : '',
+			q: state.q || '',
+			sort: state.sort || 'recommended',
+			pricing: state.priceFilter || 'all',
+		},
+		LIST_URL_DEFAULTS,
+		{ push },
+	);
 }
 
 function navTo(path, replace = false) {
@@ -5693,28 +5697,34 @@ async function toggleBookmark() {
 
 function bindEvents() {
 	bindEmptyStateActions();
-	let searchTimer;
-	els.search.addEventListener('input', (e) => {
-		clearTimeout(searchTimer);
-		searchTimer = setTimeout(() => {
-			state.q = e.target.value.trim();
-			syncFilterToUrl();
-			// Engagement: search intent. Debounced above, so this fires once per
-			// settled query — never per keystroke. Length only, never the query text.
-			track(ANALYTICS_EVENTS.MARKETPLACE_SEARCHED, {
-				query_len: state.q.length,
-				filters: { filter: state.filter, sort: state.sort },
-			});
-			// All three feeds (agents, avatars, onchain) accept ?q= on the server.
-			// If we only re-fetch agents on search, the grid keeps stale avatar +
-			// onchain cards from the previous query — and the empty state never
-			// fires when the query genuinely matches nothing.
-			state.publicAvatarsLoaded = false;
-			state.onchainLoaded = false;
-			loadList(true);
-			loadPublicAvatars();
-			loadOnchainAgents(true);
-		}, 200);
+	// Shared 200ms debounce from the list-controls toolkit — same timing and
+	// trailing-edge behaviour as /discover so search feels identical on both.
+	const runSearch = debounce((value) => {
+		state.q = value.trim();
+		syncFilterToUrl();
+		// Engagement: search intent. Debounced above, so this fires once per
+		// settled query — never per keystroke. Length only, never the query text.
+		track(ANALYTICS_EVENTS.MARKETPLACE_SEARCHED, {
+			query_len: state.q.length,
+			filters: { filter: state.filter, sort: state.sort },
+		});
+		// All three feeds (agents, avatars, onchain) accept ?q= on the server.
+		// If we only re-fetch agents on search, the grid keeps stale avatar +
+		// onchain cards from the previous query — and the empty state never
+		// fires when the query genuinely matches nothing.
+		state.publicAvatarsLoaded = false;
+		state.onchainLoaded = false;
+		loadList(true);
+		loadPublicAvatars();
+		loadOnchainAgents(true);
+	}, 200);
+	els.search.addEventListener('input', (e) => runSearch(e.target.value));
+	// Enter flushes the pending search immediately.
+	els.search.addEventListener('keydown', (e) => {
+		if (e.key === 'Enter') {
+			e.preventDefault();
+			runSearch.flush(els.search.value);
+		}
 	});
 	els.sortSel.addEventListener('change', (e) => {
 		state.sort = e.target.value;

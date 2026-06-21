@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<script>/* three.ws theme boot — no-flash; runtime in /theme-switcher.js */(function(){try{var m=localStorage.getItem('twx_theme');var l=m==='auto'?(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches):m==='light';document.documentElement.setAttribute('data-theme',l?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();</script>
+		<meta charset="utf-8" />
+		<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+		<title>Companion mode — Walk docs — three.ws</title>
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+		<meta name="description" content="Companion mode: a site-wide three.ws avatar that detaches from the page, walks around, and follows you between pages — with walk-aware page transitions and wave-goodbye / wave-hello." />
+		<meta name="theme-color" content="#0a0a0a" />
+		<link rel="canonical" href="https://three.ws/docs/walk/companion-mode" />
+		<link rel="shortcut icon" href="/favicon.ico" />
+		<link rel="stylesheet" href="/fonts/fonts.css" />
+		<link rel="stylesheet" href="/style.css" />
+		<link rel="stylesheet" href="/footer.css" />
+		<link rel="stylesheet" href="/nav.css" />
+		<link rel="stylesheet" href="/docs/walk/docs.css" />
+	</head>
+	<body>
+		<a class="wd-skip" href="#wd-main">Skip to content</a>
+		<header><div id="nav-container"></div></header>
+		<script src="/nav.js"></script>
+
+		<div class="wd-shell">
+			<button class="wd-side-toggle" type="button" aria-expanded="false" aria-controls="wd-side">
+				<span>Documentation menu</span><span aria-hidden="true">☰</span>
+			</button>
+			<aside class="wd-side" id="wd-side" aria-label="Walk documentation">
+				<h2>Walk docs</h2>
+				<nav aria-label="Walk documentation pages">
+					<a href="/docs/walk">Overview</a>
+					<a href="/docs/walk/getting-started">Getting started</a>
+				</nav>
+				<h2>Use it</h2>
+				<nav aria-label="Using Walk">
+					<a href="/docs/walk/walk-page">The walk page</a>
+					<a href="/docs/walk/companion-mode" aria-current="page">Companion mode</a>
+					<a href="/docs/walk/chrome-extension">Chrome extension</a>
+				</nav>
+				<h2>Build with it</h2>
+				<nav aria-label="Building with Walk">
+					<a href="/docs/walk/embed-iframe">Iframe embed</a>
+					<a href="/docs/walk/embed-sdk">JavaScript SDK</a>
+					<a href="/docs/walk/postmessage-events">postMessage events</a>
+					<a href="/docs/walk/analytics">Analytics</a>
+				</nav>
+				<h2>Reference</h2>
+				<nav aria-label="Reference"><a href="/docs/walk/changelog">Changelog</a></nav>
+			</aside>
+
+			<main class="wd-main" id="wd-main">
+				<p class="wd-crumbs"><a href="/docs">Docs</a> / <a href="/docs/walk">Walk</a> / Companion mode</p>
+				<h1>Companion mode</h1>
+				<p class="wd-lede">
+					Companion mode is the site-wide walking avatar on three.ws. Turn it on and your
+					avatar detaches from the page chrome, walks around the screen, and follows you
+					as you move between pages — complete with walk-aware page transitions.
+				</p>
+
+				<h2>Turning it on</h2>
+				<p>Three ways:</p>
+				<ul>
+					<li><strong>Nav button</strong> — the <strong>Walk</strong> control in the top navigation toggles the companion on and off. The preference is remembered across visits.</li>
+					<li><strong>Query parameter</strong> — append <code>?walk=1</code> to any three.ws URL to force it on, or <code>?walk=0</code> to force it off.</li>
+					<li><strong>Programmatically</strong> — the companion instance is available at <code>window.__walkCompanion</code> once enabled (this is the interface the navigation drives).</li>
+				</ul>
+				<div class="wd-code" data-lang="text" data-label="URL">
+					<pre><code>https://three.ws/?walk=1</code></pre>
+				</div>
+
+				<h2>What it does</h2>
+				<ul>
+					<li><strong>Detaches and roams.</strong> Your avatar leaves the page layout and becomes a free 3D character you can watch walk around.</li>
+					<li><strong>Follows you between pages.</strong> When you navigate, the companion persists — and walk-aware page transitions dress the jump to match where you're going.</li>
+					<li><strong>Waves goodbye and hello.</strong> On a link click the avatar plays a wave and sets a one-shot flag the destination page reads to wave back when it loads.</li>
+					<li><strong>Picks an avatar.</strong> The picker includes a "make your own" link straight to the <a href="/avatar-studio">avatar studio</a>.</li>
+				</ul>
+
+				<h2>How it's wired</h2>
+				<p>
+					Companion mode is the platform integration of the publishable walk SDK. The
+					three.ws navigation injects the companion script only when the companion is
+					enabled — a page that never turns it on pays nothing for it. Under the hood it
+					loads the avatar's pre-baked animation manifest and the same rendering engine
+					the <a href="/docs/walk/walk-page">walk page</a> and
+					<a href="/docs/walk/embed-iframe">embeds</a> use.
+				</p>
+				<div class="wd-note">
+					<span class="wd-icon" aria-hidden="true">✱</span>
+					<span>Companion mode is a three.ws-site feature. To put a walking avatar on <em>your own</em> site, use the one-tag <a href="/docs/walk/embed-sdk">JavaScript SDK</a>; to walk your avatar on <em>every</em> site you visit, install the <a href="/docs/walk/chrome-extension">Chrome extension</a>.</span>
+				</div>
+
+				<h2>Accessibility &amp; motion</h2>
+				<p>
+					The companion and its page transitions respect <code>prefers-reduced-motion</code>.
+					The roaming avatar is decorative; all navigation and content remain fully usable
+					with the companion off, which is the default state until you opt in.
+				</p>
+
+				<div class="wd-pagefoot">
+					<a class="wd-edit" href="https://github.com/nirholas/three.ws/edit/main/public/docs/walk/companion-mode.html" rel="noopener"><span aria-hidden="true">✎</span> Edit this page on GitHub</a>
+					<div class="wd-nextprev">
+						<a href="/docs/walk/walk-page"><span>Previous</span>← The walk page</a>
+						<a href="/docs/walk/chrome-extension"><span>Next</span>Chrome extension →</a>
+					</div>
+				</div>
+			</main>
+		</div>
+
+		<div id="footer-container"></div>
+		<script src="/footer.js"></script>
+		<script src="/brand.js" defer></script>
+		<script type="module" src="/docs/walk/docs.js"></script>
+	</body>
+</html>

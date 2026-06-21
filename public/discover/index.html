@@ -90,47 +90,16 @@
 			</section>
 
 			<section class="explore-controls">
-				<div class="explore-search">
-					<input
-						type="search"
-						placeholder="Search by name or description…"
-						data-role="search"
-						aria-label="Search agents"
-					/>
-					<button
-						type="button"
-						class="explore-search-clear"
-						data-role="search-clear"
-						aria-label="Clear search"
-						hidden
-					>
-						×
-					</button>
-				</div>
-				<div class="explore-chips" data-role="filters">
-					<button class="explore-chip active" data-filter="all">All agents</button>
-					<button class="explore-chip" data-filter="3d">3D only</button>
-					<button class="explore-chip" data-filter="x402">x402</button>
-				</div>
-				<div class="explore-chips" data-role="sources">
-					<button class="explore-chip active" data-source="all">All sources</button>
-					<button class="explore-chip" data-source="solana">Solana</button>
-					<button class="explore-chip" data-source="onchain">EVM</button>
-					<button class="explore-chip" data-source="avatar">Avatars</button>
-				</div>
-				<div class="explore-controls-row">
-					<div class="explore-chain-select">
-						<label for="explore-chain">Chain:</label>
-						<select id="explore-chain" data-role="chain">
+				<!-- Shared list-controls toolkit (search · filter chips · source chips · sort)
+				     mounts here. Built by discover.js via createListControls(). The chain
+				     selector below is page-specific (dynamic option list) and is appended
+				     into the toolbar's primary row at runtime. -->
+				<div class="explore-toolbar" data-role="list-controls"></div>
+				<div class="explore-chain-select" data-role="chain-wrap">
+					<label for="explore-chain">Chain</label>
+					<div class="explore-chain-select-control">
+						<select id="explore-chain" data-role="chain" aria-label="Filter by chain">
 							<option value="">All chains</option>
-						</select>
-					</div>
-					<div class="explore-sort-select">
-						<label for="explore-sort">Sort:</label>
-						<select id="explore-sort" data-role="sort">
-							<option value="newest">Newest</option>
-							<option value="x402">x402 first</option>
-							<option value="alpha">A → Z</option>
 						</select>
 					</div>
 				</div>

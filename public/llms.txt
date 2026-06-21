@@ -101,7 +101,7 @@ On-chain features: pay-per-call, token launches, vanity wallets.
 - [Watchlist](https://three.ws/watchlist): Your privately-stored watchlist of pump.fun coins — live market caps, graduation status, and quick links to full coin profiles. No account required; stored in your browser.
 - [Pump Dashboard](https://three.ws/pump-dashboard): Pump.fun trading desk: watchlists, scanner, quotes, portfolio, and live charts.
 - [Strategy Lab](https://three.ws/strategy-lab): Build DCA and subscription strategies that trade on-chain on your behalf.
-- [Solana Vanity Wallet](https://three.ws/vanity-wallet): Grind a Solana address with a custom prefix using your browser's GPU.
+- [Solana Vanity Wallet](https://three.ws/vanity-wallet): Grind a Solana address with a custom prefix — entirely in your browser, across your CPU cores.
 - [Verify a Vanity Receipt](https://three.ws/vanity/verify): Independently verify a three.ws provably-fair vanity wallet receipt — entirely in your browser. Prove the key was generated fresh under a committed seed and the operator never kept a copy.
 - [Proof-of-Grind Gallery](https://three.ws/vanity/gallery): A public gallery and leaderboard of the rarest Solana vanity addresses ground on three.ws — each provably-fair, verified, and shareable. Appraise any address to see its honest rarity tier and grind cost.
 - [Grind-Bounty Market](https://three.ws/vanity/bounties): A decentralized x402 bounty market for hard Solana vanity addresses — escrow a USDC bounty and a fleet of independent workers grinds it in parallel. The first verified match wins, but the found key is sealed to you so the worker never sees your wallet. Earn USDC by grinding open bounties.

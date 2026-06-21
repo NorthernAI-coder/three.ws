@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<script>/* three.ws theme boot — no-flash; runtime in /theme-switcher.js */(function(){try{var m=localStorage.getItem('twx_theme');var l=m==='auto'?(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches):m==='light';document.documentElement.setAttribute('data-theme',l?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();</script>
+		<meta charset="utf-8" />
+		<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+		<title>postMessage events — Walk docs — three.ws</title>
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+		<meta name="description" content="The bi-directional postMessage contract between a host page and the three.ws walk-embed iframe: the channelled envelope, inbound commands, outbound events, the handshake, and origin handling." />
+		<meta name="theme-color" content="#0a0a0a" />
+		<link rel="canonical" href="https://three.ws/docs/walk/postmessage-events" />
+		<link rel="shortcut icon" href="/favicon.ico" />
+		<link rel="stylesheet" href="/fonts/fonts.css" />
+		<link rel="stylesheet" href="/style.css" />
+		<link rel="stylesheet" href="/footer.css" />
+		<link rel="stylesheet" href="/nav.css" />
+		<link rel="stylesheet" href="/docs/walk/docs.css" />
+	</head>
+	<body>
+		<a class="wd-skip" href="#wd-main">Skip to content</a>
+		<header><div id="nav-container"></div></header>
+		<script src="/nav.js"></script>
+
+		<div class="wd-shell">
+			<button class="wd-side-toggle" type="button" aria-expanded="false" aria-controls="wd-side">
+				<span>Documentation menu</span><span aria-hidden="true">☰</span>
+			</button>
+			<aside class="wd-side" id="wd-side" aria-label="Walk documentation">
+				<h2>Walk docs</h2>
+				<nav aria-label="Walk documentation pages">
+					<a href="/docs/walk">Overview</a>
+					<a href="/docs/walk/getting-started">Getting started</a>
+				</nav>
+				<h2>Use it</h2>
+				<nav aria-label="Using Walk">
+					<a href="/docs/walk/walk-page">The walk page</a>
+					<a href="/docs/walk/companion-mode">Companion mode</a>
+					<a href="/docs/walk/chrome-extension">Chrome extension</a>
+				</nav>
+				<h2>Build with it</h2>
+				<nav aria-label="Building with Walk">
+					<a href="/docs/walk/embed-iframe">Iframe embed</a>
+					<a href="/docs/walk/embed-sdk">JavaScript SDK</a>
+					<a href="/docs/walk/postmessage-events" aria-current="page">postMessage events</a>
+					<a href="/docs/walk/analytics">Analytics</a>
+				</nav>
+				<h2>Reference</h2>
+				<nav aria-label="Reference"><a href="/docs/walk/changelog">Changelog</a></nav>
+			</aside>
+
+			<main class="wd-main" id="wd-main">
+				<p class="wd-crumbs"><a href="/docs">Docs</a> / <a href="/docs/walk">Walk</a> / postMessage events</p>
+				<h1>postMessage events</h1>
+				<p class="wd-lede">
+					The host page and the <code>/walk-embed</code> iframe talk over
+					<code>window.postMessage</code>. This is the wire contract: the message
+					envelope, the commands you send in, the events the iframe sends back, and how
+					origins are handled.
+				</p>
+
+				<h2>The envelope</h2>
+				<p>Every message is a plain object on the <code>three-walk</code> channel at protocol version <code>1</code>:</p>
+				<div class="wd-code" data-lang="js" data-label="JavaScript">
+					<pre><code>{
+  channel: 'three-walk',  // namespace guard — ignore anything else
+  v: 1,                   // protocol version
+  type: 'walk:moved',     // see commands / events below
+  id: '<correlation id>', // optional; echoed on a command's result
+  // ...type-specific payload
+}</code></pre>
+				</div>
+				<div class="wd-note">
+					<span class="wd-icon" aria-hidden="true">✱</span>
+					<span>The legacy flat shape — a bare <code>{ type: 'walk:*' }</code> with no <code>channel</code>/<code>v</code> — is still accepted inbound for backward compatibility with embeds shipped before this contract existed. New integrations should use the channelled envelope.</span>
+				</div>
+
+				<h2>Handshake</h2>
+				<ul>
+					<li>iframe → host: <code>walk:loaded</code> fires once, when the avatar is ready.</li>
+					<li>host → iframe: <code>walk:ping</code> (optional) makes the iframe re-emit <code>walk:loaded</code>.</li>
+				</ul>
+				<p>If you mount the iframe after it has already loaded, send <code>walk:ping</code> instead of racing the initial <code>walk:loaded</code>.</p>
+
+				<h2>Inbound commands (host → iframe)</h2>
+				<div class="wd-table-wrap">
+					<table class="wd-table">
+						<thead><tr><th>type</th><th>payload</th><th>Effect</th></tr></thead>
+						<tbody>
+							<tr><td><code>walk:ping</code></td><td>—</td><td>Re-emit <code>walk:loaded</code>.</td></tr>
+							<tr><td><code>walk:move</code></td><td><code>{ x, y, run? }</code> or <code>{ dir, meters? }</code></td><td>Analog vector (each axis −1…1) or a discrete step (<code>dir</code>: <code>forward</code>/<code>back</code>/<code>left</code>/<code>right</code>, <code>meters</code> 0…12).</td></tr>
+							<tr><td><code>walk:gesture</code></td><td><code>{ gesture }</code></td><td>Play <code>idle</code>, <code>walk</code>, <code>run</code>, <code>wave</code>, or <code>jump</code>.</td></tr>
+							<tr><td><code>walk:say</code></td><td><code>{ text, durationMs? }</code></td><td>Show a speech bubble. Text is capped at 280 chars; duration clamps to 800–20000 ms.</td></tr>
+							<tr><td><code>walk:setEnvironment</code></td><td><code>{ env }</code></td><td>Switch world: <code>studio</code>, <code>void</code>, <code>beach</code>, <code>sunset</code>, <code>night</code>, or <code>grid</code>.</td></tr>
+							<tr><td><code>walk:setAvatar</code></td><td><code>{ id }</code></td><td>Swap the avatar (UUID or GLB/VRM URL, ≤2048 chars).</td></tr>
+							<tr><td><code>walk:config</code></td><td><code>{ speed? }</code></td><td>Set walk speed multiplier; clamps to 0.3–3.</td></tr>
+							<tr><td><code>walk:reset</code></td><td>—</td><td>Recenter the avatar and reset its pose.</td></tr>
+						</tbody>
+					</table>
+				</div>
+				<h3>Legacy command aliases (still accepted)</h3>
+				<div class="wd-table-wrap">
+					<table class="wd-table">
+						<thead><tr><th>Legacy type</th><th>Canonical</th></tr></thead>
+						<tbody>
+							<tr><td><code>walk:setEnv</code></td><td><code>walk:setEnvironment</code></td></tr>
+							<tr><td><code>walk:setMotion</code></td><td><code>walk:gesture</code></td></tr>
+							<tr><td><code>walk:narrate</code></td><td><code>walk:say</code></td></tr>
+							<tr><td><code>walk:resetPose</code></td><td><code>walk:reset</code></td></tr>
+						</tbody>
+					</table>
+				</div>
+
+				<h2>Outbound events (iframe → host)</h2>
+				<div class="wd-table-wrap">
+					<table class="wd-table">
+						<thead><tr><th>type</th><th>payload</th><th>When</th></tr></thead>
+						<tbody>
+							<tr><td><code>walk:loaded</code></td><td><code>{ avatar }</code></td><td>Once, when the avatar is ready.</td></tr>
+							<tr><td><code>walk:moved</code></td><td><code>{ x, z, yaw, motion }</code></td><td>As the avatar moves (also emitted as legacy <code>walk:position</code>).</td></tr>
+							<tr><td><code>walk:spoke</code></td><td><code>{ text }</code></td><td>After a <code>walk:say</code> command renders.</td></tr>
+							<tr><td><code>walk:gestured</code></td><td><code>{ gesture }</code></td><td>After a gesture plays.</td></tr>
+							<tr><td><code>walk:environment</code></td><td><code>{ env }</code></td><td>After the environment changes.</td></tr>
+							<tr><td><code>walk:avatarChanged</code></td><td><code>{ id }</code></td><td>After an avatar swap succeeds.</td></tr>
+							<tr><td><code>walk:error</code></td><td><code>{ error, code? }</code></td><td>On a load or command failure.</td></tr>
+						</tbody>
+					</table>
+				</div>
+
+				<h2>Origin &amp; security</h2>
+				<p>
+					The embed is designed to run on <em>any</em> origin (it ships
+					<code>frame-ancestors *</code>), so the host's origin cannot be allow-listed in
+					advance. The real authentication is the message <strong>source</strong>: the
+					iframe only accepts messages from its own parent window, and the host SDK only
+					accepts messages from the iframe it mounted. As a belt-and-suspenders filter,
+					a security-conscious integrator can pass an explicit
+					<code>allowOrigins</code> list to the embed when the exact origin is known.
+				</p>
+				<div class="wd-warn">
+					<span class="wd-icon" aria-hidden="true">▲</span>
+					<span>When you listen for events on the host side, always verify <code>event.source === iframe.contentWindow</code> before trusting a message, and check <code>data.channel === 'three-walk'</code> (or that the bare <code>type</code> is a known <code>walk:*</code> event).</span>
+				</div>
+
+				<h2>End-to-end example</h2>
+				<div class="wd-code" data-lang="js" data-label="JavaScript">
+					<pre><code>const frame = document.querySelector('iframe');
+
+// Listen for events from the iframe.
+window.addEventListener('message', (e) =&gt; {
+  if (e.source !== frame.contentWindow) return;          // source check
+  const msg = e.data;
+  if (!msg || msg.channel !== 'three-walk') return;      // channel guard
+  if (msg.type === 'walk:loaded') {
+    // Avatar ready — start driving it.
+    frame.contentWindow.postMessage(
+      { channel: 'three-walk', v: 1, type: 'walk:setEnvironment', env: 'night' }, '*');
+    frame.contentWindow.postMessage(
+      { channel: 'three-walk', v: 1, type: 'walk:say', text: 'Welcome!' }, '*');
+  }
+  if (msg.type === 'walk:moved') {
+    console.log('moved', msg.x, msg.z, msg.yaw, msg.motion);
+  }
+});
+
+// If the frame may already be loaded, nudge it to re-announce.
+frame.contentWindow.postMessage({ channel: 'three-walk', v: 1, type: 'walk:ping' }, '*');</code></pre>
+				</div>
+				<div class="wd-note">
+					<span class="wd-icon" aria-hidden="true">✱</span>
+					<span>Using the <a href="/docs/walk/embed-sdk">JavaScript SDK</a>? It does the source check, channel guard, and event forwarding for you — just call <code>ThreeWalkAvatar.on('walk:ready', …)</code>.</span>
+				</div>
+
+				<div class="wd-pagefoot">
+					<a class="wd-edit" href="https://github.com/nirholas/three.ws/edit/main/public/docs/walk/postmessage-events.html" rel="noopener"><span aria-hidden="true">✎</span> Edit this page on GitHub</a>
+					<div class="wd-nextprev">
+						<a href="/docs/walk/embed-sdk"><span>Previous</span>← JavaScript SDK</a>
+						<a href="/docs/walk/analytics"><span>Next</span>Analytics →</a>
+					</div>
+				</div>
+			</main>
+		</div>
+
+		<div id="footer-container"></div>
+		<script src="/footer.js"></script>
+		<script src="/brand.js" defer></script>
+		<script type="module" src="/docs/walk/docs.js"></script>
+	</body>
+</html>

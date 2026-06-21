@@ -79,11 +79,16 @@ let statusCache = null; // { at, payload }
 async function walletStatus() {
 	if (statusCache && Date.now() - statusCache.at < 10_000) return statusCache.payload;
 	const signer = await agentSigner();
-	const [{ Connection, PublicKey }, { getAssociatedTokenAddressSync }] = await Promise.all([
+	const [{ PublicKey }, { getAssociatedTokenAddressSync }, { solanaConnection }] = await Promise.all([
 		import('@solana/web3.js'),
 		import('@solana/spl-token'),
+		import('./_lib/solana/connection.js'),
 	]);
-	const conn = new Connection(SOLANA_RPC_URL, 'confirmed');
+	// Multi-endpoint failover: a quota-dead or garbage-returning primary is skipped
+	// transparently instead of stalling this handler to the 30s Vercel ceiling
+	// (the source of the "[agent-wallet-bridge] Task timed out" errors) or throwing
+	// a StructError on a poison RPC body.
+	const conn = solanaConnection({ url: SOLANA_RPC_URL, commitment: 'confirmed' });
 	const owner = new PublicKey(signer.address);
 	let sol = null;
 	let usdc = 0;

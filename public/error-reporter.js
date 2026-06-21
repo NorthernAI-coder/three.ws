@@ -75,7 +75,16 @@
 	// "history.pushState is undefined" inside wallet browsers) — analytics
 	// degrading on an exotic UA is not actionable.
 	const IGNORED_THIRD_PARTY_CODE =
-		/ajax\.googleapis\.com\/ajax\/libs\/model-viewer\/|\/_vercel\/(insights|speed-insights)\/script/;
+		/ajax\.googleapis\.com\/ajax\/libs\/model-viewer\/|\/_vercel\/(insights|speed-insights)\/script|\/ingest\/static\/|\.i\.posthog\.com\//;
+	// WalletConnect's sign-client (loaded from esm.sh) raises an unhandled rejection
+	// — "No matching key. session topic doesn't exist: <hex>" — when a relay event
+	// arrives for a session the client has already torn down (the user disconnected,
+	// the pairing expired, or a duplicate event replays). It is a benign internal
+	// race in the SDK's own event queue, not a three.ws fault and not fixable from
+	// app code; the wallet connection still works. Identify it by the SDK in the
+	// stack or the distinctive message so it stops flooding [client-error].
+	const IGNORED_WALLETCONNECT =
+		/@walletconnect\/|\bNo matching key\b|session topic doesn't exist|Record was recently deleted/i;
 	// Expiring signed URLs embedded in user-generated feed data: GitHub
 	// private-user-images, S3/GCS presigned links, and anything carrying a
 	// short-lived JWT/signature. The token lapses on a timer, so the asset 404s
@@ -199,6 +208,13 @@
 		if (
 			IGNORED_THIRD_PARTY_CODE.test(report.source || '') ||
 			IGNORED_THIRD_PARTY_CODE.test(report.stack || '')
+		) {
+			return true;
+		}
+		// WalletConnect's internal session-key race (matched on message or stack).
+		if (
+			IGNORED_WALLETCONNECT.test(report.message || '') ||
+			IGNORED_WALLETCONNECT.test(report.stack || '')
 		) {
 			return true;
 		}

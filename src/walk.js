@@ -4450,3 +4450,140 @@ if (import.meta.env?.DEV) {
 		if (localStorage.getItem(ZEN_STORAGE_KEY) === '1') setZen(true);
 	} catch {}
 })();
+
+// ── Programmatic control mode (REST) ─────────────────────────────────────────
+// When the page is opened as /walk?control=<sessionId>&ck=<controlToken>, an
+// external system (another agent, a CI bot, a webhook) is driving this avatar
+// over the control API (api/walk/control/[action].js). We short-poll the
+// session every second, fold our live position into the same request, and apply
+// each drained command to the real scene:
+//
+//   move    → set the existing waypointTarget; the locomotion pipeline walks
+//             (and faces, and animates) the avatar there, exactly as a minimap
+//             click does.
+//   gesture → gestures.play(name) — the same call the wheel / quick keys use.
+//   say     → a speech bubble above the avatar + the talking overlay, with
+//             optional browser TTS when the command requested voice.
+//   env     → applyEnvironment(name) — a live, faded environment swap.
+//
+// Commands are delivered exactly once by the server, so we simply apply what each
+// poll returns. The poll cadence backs off on transient failures so a blip never
+// turns into a request storm, and stops cleanly if the session 401s (expired or
+// revoked) — there is nothing left to drive.
+(() => {
+	const params = new URLSearchParams(location.search);
+	const sessionId = (params.get('control') || '').trim();
+	const controlToken = (params.get('ck') || '').trim();
+	if (!sessionId || !controlToken) return;
+
+	const POLL_MS = 1000;
+	const MAX_BACKOFF_MS = 15000;
+	let backoff = POLL_MS;
+	let stopped = false;
+	let inFlight = false;
+
+	function speakControl(text, withVoice) {
+		showSpeechBubbleFor('local', text);
+		triggerTalking(text);
+		net?.sendChat(text);
+		if (withVoice && typeof window.speechSynthesis !== 'undefined') {
+			try {
+				const u = new SpeechSynthesisUtterance(text.slice(0, 280));
+				u.rate = 1;
+				u.pitch = 1;
+				window.speechSynthesis.cancel();
+				window.speechSynthesis.speak(u);
+			} catch {
+				/* synthesis unavailable — the bubble already conveyed the line */
+			}
+		}
+	}
+
+	function applyControlCommand(cmd) {
+		switch (cmd.kind) {
+			case 'move': {
+				if (Number.isFinite(cmd.x) && Number.isFinite(cmd.z)) {
+					// Clamp to just inside the playable disc, mirroring the server.
+					let { x, z } = cmd;
+					const r = Math.hypot(x, z);
+					if (r > GROUND_RADIUS - 0.5) {
+						const k = (GROUND_RADIUS - 0.5) / r;
+						x *= k;
+						z *= k;
+					}
+					waypointTarget = { x, z };
+					setStatus('Remote control: walking to target');
+				}
+				break;
+			}
+			case 'gesture': {
+				if (cmd.gesture) {
+					gestures?.play(cmd.gesture);
+					setStatus(`Remote control: ${cmd.gesture}`);
+				}
+				break;
+			}
+			case 'say': {
+				if (cmd.text) speakControl(String(cmd.text), !!cmd.voice);
+				break;
+			}
+			case 'env': {
+				if (cmd.env && cmd.env !== currentEnvName) {
+					applyEnvironment(cmd.env);
+					setStatus(`Remote control: environment → ${cmd.env}`);
+				}
+				break;
+			}
+			default:
+				break;
+		}
+	}
+
+	async function pollOnce() {
+		if (stopped || inFlight) return;
+		inFlight = true;
+		// Fold our live state into the poll so the controller's /state read reflects
+		// the real avatar without a second request.
+		const q = new URLSearchParams({ sessionId, ck: controlToken });
+		if (avatar) {
+			q.set('x', avatarRig.position.x.toFixed(3));
+			q.set('z', avatarRig.position.z.toFixed(3));
+			q.set('facing', avatarYaw.toFixed(3));
+			q.set('motion', currentMotion);
+			q.set('cenv', currentEnvName);
+		}
+		try {
+			const res = await fetch(`/api/walk/control/session?${q.toString()}`, {
+				headers: { accept: 'application/json' },
+				cache: 'no-store',
+			});
+			if (res.status === 401 || res.status === 403) {
+				// Session expired or revoked — nothing left to drive.
+				stopped = true;
+				setStatus('Remote-control session ended', { sticky: false });
+				return;
+			}
+			if (res.ok) {
+				const data = await res.json();
+				for (const cmd of data.commands || []) applyControlCommand(cmd);
+				backoff = POLL_MS; // healthy round-trip resets the cadence
+			} else {
+				backoff = Math.min(MAX_BACKOFF_MS, backoff * 2);
+			}
+		} catch {
+			// Offline / transient — back off and retry.
+			backoff = Math.min(MAX_BACKOFF_MS, backoff * 2);
+		} finally {
+			inFlight = false;
+			if (!stopped) setTimeout(pollOnce, backoff);
+		}
+	}
+
+	window.addEventListener('beforeunload', () => {
+		stopped = true;
+	});
+
+	setStatus('Remote control active — awaiting commands', { sticky: false });
+	// First poll after a short delay so the avatar/scene have a frame to settle.
+	setTimeout(pollOnce, 600);
+})();

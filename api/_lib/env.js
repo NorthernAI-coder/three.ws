@@ -16,6 +16,19 @@ function trimSlash(s) {
 	return s ? s.replace(/\/$/, '') : s;
 }
 
+// Blockchain addresses pasted into dashboards (Vercel/Helius/etc.) frequently
+// carry a trailing newline or stray spaces. An untrimmed address breaks every
+// spec-compliant x402 client the instant it does `new PublicKey(payTo)` —
+// "Non-base58 character" — or silently routes funds via a malformed EVM
+// checksum. Trim address-like env values at the source so no consumer ever
+// emits whitespace into a 402 challenge. Returns undefined when blank so the
+// `if (env.X402_PAY_TO_SOLANA)` guards downstream still skip cleanly.
+function addr(value) {
+	if (value == null) return value;
+	const v = String(value).trim();
+	return v || undefined;
+}
+
 // Canonical fallback origin — used when PUBLIC_APP_ORIGIN is unset, empty, or
 // not a parseable absolute URL.
 const DEFAULT_APP_ORIGIN = 'https://three.ws';
@@ -437,20 +450,22 @@ export const env = {
 	// Asset/mint addresses below keep their public-constant defaults; only the
 	// money-routing receivers (payTo + feePayer) are required-by-config.
 	get X402_PAY_TO_SOLANA() {
-		return opt('X402_PAY_TO_SOLANA', opt('X402_PAY_TO'));
+		return addr(opt('X402_PAY_TO_SOLANA', opt('X402_PAY_TO')));
 	},
 	get X402_PAY_TO_BASE() {
-		return opt('X402_PAY_TO_BASE');
+		return addr(opt('X402_PAY_TO_BASE'));
 	},
 	// USDC asset addresses per network.
 	get X402_ASSET_MINT_SOLANA() {
-		return opt(
-			'X402_ASSET_MINT_SOLANA',
-			opt('X402_ASSET_MINT', 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'),
+		return addr(
+			opt(
+				'X402_ASSET_MINT_SOLANA',
+				opt('X402_ASSET_MINT', 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'),
+			),
 		);
 	},
 	get X402_ASSET_ADDRESS_BASE() {
-		return opt('X402_ASSET_ADDRESS_BASE', '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913');
+		return addr(opt('X402_ASSET_ADDRESS_BASE', '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913'));
 	},
 	// Price per /api/mcp call, in the asset's base units (USDC = 6 decimals; "1000" = 0.001 USDC).
 	get X402_MAX_AMOUNT_REQUIRED() {
@@ -511,7 +526,7 @@ export const env = {
 	get X402_FEE_PAYER_SOLANA() {
 		// No hardcoded default — see X402_PAY_TO_SOLANA. Without a fee payer the
 		// Solana accept can't be co-signed, so it must come from config.
-		return opt('X402_FEE_PAYER_SOLANA');
+		return addr(opt('X402_FEE_PAYER_SOLANA'));
 	},
 	// $THREE as a second Solana settlement asset, offered alongside USDC so
 	// holders can pay any three.ws paid endpoint in the platform token — the
@@ -578,13 +593,13 @@ export const env = {
 	},
 	// Native (non-bridged) USDC on Arbitrum One mainnet.
 	get X402_ASSET_ADDRESS_ARBITRUM() {
-		return opt('X402_ASSET_ADDRESS_ARBITRUM', '0xaf88d065e77c8cC2239327C5EDb3A432268e5831');
+		return addr(opt('X402_ASSET_ADDRESS_ARBITRUM', '0xaf88d065e77c8cC2239327C5EDb3A432268e5831'));
 	},
 	// Binance-Peg USD Coin (USDC) on BSC mainnet. Standard ERC-20; does NOT
 	// implement EIP-3009 transferWithAuthorization, which is why BSC x402
 	// payments use the contract-mediated "direct" scheme (see x402-bsc-direct.js).
 	get X402_ASSET_ADDRESS_BSC() {
-		return opt('X402_ASSET_ADDRESS_BSC', '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d');
+		return addr(opt('X402_ASSET_ADDRESS_BSC', '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d'));
 	},
 	// ThreeWSPayments x402 receiver contract on BSC. Client calls
 	// pay(bytes32 ref) after approving USDC; the contract pulls pricePerCall
@@ -593,7 +608,7 @@ export const env = {
 	get X402_PAY_TO_BSC() {
 		// No hardcoded default — see X402_PAY_TO_SOLANA. The ThreeWSPayments
 		// receiver contract address must be set explicitly per deploy.
-		return opt('X402_PAY_TO_BSC');
+		return addr(opt('X402_PAY_TO_BSC'));
 	},
 	// ── AWS Marketplace ──────────────────────────────────────────────────────
 	// IAM credentials with marketplaceMetering:ResolveCustomer,
