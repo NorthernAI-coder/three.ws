@@ -214,6 +214,11 @@ function renderMonetization() {
     const isPaid = !!price;
     const amount = isPaid ? (price.amount / 1e6).toFixed(2) : '';
     const trialUses = isPaid ? (price.trial_uses ?? 0) : 0;
+    const pricingType = isPaid && price.pricing_type === 'pwyw' ? 'pwyw' : 'fixed';
+    const isPwyw = pricingType === 'pwyw';
+    const minimum = isPwyw && price.minimum_amount != null
+      ? (Number(price.minimum_amount) / 1e6).toFixed(2)
+      : '';
 
     return `
       <div class="skill-item" data-skill-name="${escapeHtml(skillName)}">
@@ -223,13 +228,31 @@ function renderMonetization() {
             <input type="checkbox" class="price-toggle" ${isPaid ? 'checked' : ''}>
             <span class="slider"></span>
           </label>
-          <div class="price-input-wrapper" style="display: ${isPaid ? 'flex' : 'none'}; align-items:center; gap:8px;">
-            <input type="number" class="price-input" min="0" step="0.01" placeholder="0.50" value="${amount}">
-            <span>USDC</span>
-            <label style="font-size:12px;color:#a1a1aa;margin-left:8px;white-space:nowrap">
-              Free trials:
-              <input type="number" class="trial-uses-input" min="0" max="10" step="1" placeholder="0" value="${trialUses}" style="width:52px;margin-left:4px">
-            </label>
+          <div class="price-input-wrapper" style="display: ${isPaid ? 'flex' : 'none'}; flex-direction:column; align-items:flex-start; gap:8px;">
+            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+              <label class="pricing-type-field" style="font-size:12px;color:#a1a1aa;white-space:nowrap">
+                Pricing:
+                <select class="pricing-type-select" aria-label="Pricing model for ${escapeHtml(skillName)}" style="margin-left:4px">
+                  <option value="fixed" ${isPwyw ? '' : 'selected'}>Fixed price</option>
+                  <option value="pwyw" ${isPwyw ? 'selected' : ''}>Pay what you want</option>
+                </select>
+              </label>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+              <label class="price-field" style="display:flex;align-items:center;gap:6px">
+                <span class="price-field-label" style="font-size:12px;color:#a1a1aa;white-space:nowrap">${isPwyw ? 'Suggested:' : 'Price:'}</span>
+                <input type="number" class="price-input" min="0" step="0.01" placeholder="0.50" value="${amount}" aria-label="${isPwyw ? 'Suggested' : 'Price'} for ${escapeHtml(skillName)} in USDC">
+              </label>
+              <label class="min-field" style="display:${isPwyw ? 'flex' : 'none'};align-items:center;gap:6px">
+                <span style="font-size:12px;color:#a1a1aa;white-space:nowrap">Minimum:</span>
+                <input type="number" class="min-amount-input" min="0" step="0.01" placeholder="0.00" value="${minimum}" aria-label="Minimum amount for ${escapeHtml(skillName)} in USDC">
+              </label>
+              <span>USDC</span>
+              <label style="font-size:12px;color:#a1a1aa;margin-left:8px;white-space:nowrap">
+                Free trials:
+                <input type="number" class="trial-uses-input" min="0" max="10" step="1" placeholder="0" value="${trialUses}" style="width:52px;margin-left:4px" aria-label="Free trial uses for ${escapeHtml(skillName)}">
+              </label>
+            </div>
           </div>
         </div>
       </div>
@@ -240,6 +263,19 @@ function renderMonetization() {
     toggle.addEventListener('change', (e) => {
       const wrapper = e.target.closest('.skill-pricing-controls').querySelector('.price-input-wrapper');
       wrapper.style.display = e.target.checked ? 'flex' : 'none';
+    });
+  });
+
+  // Toggle the minimum-amount field + suggested/price label when the creator
+  // switches a skill between Fixed and Pay-what-you-want.
+  container.querySelectorAll('.pricing-type-select').forEach(select => {
+    select.addEventListener('change', (e) => {
+      const controls = e.target.closest('.price-input-wrapper');
+      const minField = controls.querySelector('.min-field');
+      const priceLabel = controls.querySelector('.price-field-label');
+      const isPwyw = e.target.value === 'pwyw';
+      if (minField) minField.style.display = isPwyw ? 'flex' : 'none';
+      if (priceLabel) priceLabel.textContent = isPwyw ? 'Suggested:' : 'Price:';
     });
   });
 }
@@ -998,13 +1034,22 @@ $('monetization-save').addEventListener('click', async () => {
       if (Number.isNaN(parsed) || parsed <= 0) return;
       const trialInput = item.querySelector('.trial-uses-input');
       const trialUses = trialInput ? Math.max(0, Math.min(10, parseInt(trialInput.value || '0', 10) || 0)) : 0;
-      prices.push({
+      const typeSelect = item.querySelector('.pricing-type-select');
+      const pricingType = typeSelect && typeSelect.value === 'pwyw' ? 'pwyw' : 'fixed';
+      const entry = {
         skill,
         amount: Math.round(parsed * 1e6),
         currency_mint: USDC_MINT,
         chain: 'solana',
         trial_uses: trialUses,
-      });
+        pricing_type: pricingType,
+      };
+      if (pricingType === 'pwyw') {
+        const minInput = item.querySelector('.min-amount-input');
+        const minVal = minInput ? parseFloat(minInput.value || '0') : 0;
+        entry.minimum_amount = Number.isNaN(minVal) || minVal < 0 ? 0 : Math.round(minVal * 1e6);
+      }
+      prices.push(entry);
     }
   });
 

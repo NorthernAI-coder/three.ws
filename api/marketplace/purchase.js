@@ -84,6 +84,17 @@ async function handleCreate(req, res) {
 	if (!agentId || !skill) {
 		return error(res, 400, 'validation_error', 'agent_id and skill required');
 	}
+	// Pay-what-you-want: the buyer may name an amount (atomic units). Accepted as a
+	// number or numeric string; the service validates it against the skill's
+	// minimum + a ceiling, and ignores it for fixed-price skills.
+	let payAmount = null;
+	if (body?.pay_amount != null && body.pay_amount !== '') {
+		const raw = typeof body.pay_amount === 'number' ? Math.trunc(body.pay_amount) : String(body.pay_amount).trim();
+		if (!/^\d+$/.test(String(raw))) {
+			return error(res, 400, 'validation_error', 'pay_amount must be a whole number of atomic units');
+		}
+		payAmount = String(raw);
+	}
 	// Optional: when the browser wallet is already connected it passes its
 	// pubkey so we can return a platform-sponsored (gasless) transaction.
 	const buyerPublicKey =
@@ -119,7 +130,7 @@ async function handleCreate(req, res) {
 	const service = new MonetizationService(auth);
 	let result;
 	try {
-		result = await service.preparePurchaseTransaction(agentId, skill, { durationHours, referrerUserId, recipientUserId });
+		result = await service.preparePurchaseTransaction(agentId, skill, { durationHours, referrerUserId, recipientUserId, payAmount });
 	} catch (e) {
 		if (e.status) return error(res, e.status, e.code, e.message);
 		throw e;

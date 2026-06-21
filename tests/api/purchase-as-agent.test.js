@@ -88,6 +88,15 @@ vi.mock('@solana/web3.js', async (orig) => {
 	};
 });
 
+// The handler now sends via the shared protected sender (submitProtected), which
+// builds/simulates/signs a real v0 tx — incompatible with the stubbed web3.js
+// primitives above. Mock it at the module boundary: these tests verify handler
+// logic (status codes, self-deal flagging, DB writes), not the send mechanism.
+const submitProtectedMock = vi.fn(async () => ({ signature: 'txSig', slot: 1, route: 'protected' }));
+vi.mock('../../api/_lib/execution-engine.js', () => ({
+	submitProtected: (...a) => submitProtectedMock(...a),
+}));
+
 vi.mock('@solana/spl-token', () => ({
 	getAssociatedTokenAddressSync: vi.fn(() => ({ toBase58: () => 'ATA' })),
 	createTransferCheckedInstruction: vi.fn(() => ({
@@ -154,6 +163,8 @@ beforeEach(() => {
 	rlState.success = true;
 	confirmResult.status = 'confirmed';
 	confirmResult.tx_signature = 'sig123';
+	submitProtectedMock.mockReset();
+	submitProtectedMock.mockResolvedValue({ signature: 'txSig', slot: 1, route: 'protected' });
 });
 
 // ── Tests ────────────────────────────────────────────────────────────────────
@@ -274,8 +285,8 @@ describe('POST /api/marketplace/purchase-as-agent', () => {
 	});
 
 	it('returns 502 when the on-chain transaction fails', async () => {
-		// Temporarily make sendRawTransaction throw
-		fakeConn.sendRawTransaction.mockRejectedValueOnce(new Error('insufficient funds'));
+		// Temporarily make the protected send throw
+		submitProtectedMock.mockRejectedValueOnce(new Error('insufficient funds'));
 
 		sqlQueue.push([BUYER_ROW]);
 		sqlQueue.push([SELLER_ROW]);

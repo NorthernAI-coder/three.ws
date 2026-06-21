@@ -25,6 +25,11 @@ export async function loadWallet(encryptedSecret) {
 		return tx;
 	}
 
+	// NOT routed through submitProtected: this is a generic signer used by signing
+	// skills (pump-fun-trade, jupiter-swap) that hand us an already-built tx, not
+	// raw instructions — so the instruction-rebuilding protected sender doesn't
+	// apply. We broadcast the caller's tx and confirm via confirmOrThrow (a revert
+	// throws). Skills that DO have instructions should prefer submitProtected.
 	async function sendAndConfirm(tx, conn) {
 		signTransaction(tx);
 		const raw = tx.serialize();
