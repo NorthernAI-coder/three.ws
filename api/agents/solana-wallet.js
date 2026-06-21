@@ -1018,8 +1018,8 @@ async function handleLimits(req, res, id) {
 //   audited as a `vanity_swap` custody event.
 
 // Server-side grind is bounded so a serverless invocation can't hang. Patterns
-// harder than this are ground in the browser at /vanity-wallet (GPU + workers,
-// up to 8 chars) and assigned via POST /api/agents/:id/solana { secret_key }.
+// harder than this are ground in the browser (a WASM worker pool across the
+// user's CPU cores, up to 8 chars) and assigned with the resulting secret_key.
 const VANITY_MAX_CHARS = 3;          // combined prefix+suffix length for server grind
 const VANITY_MAX_ITERATIONS = 4_000_000;
 // Wall-clock grind budget. Kept under the function's 45s maxDuration (vercel.json)
