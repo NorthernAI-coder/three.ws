@@ -9,6 +9,10 @@ import { cacheGet, cacheSet } from '../_lib/cache.js';
 // upstream every time. Cache the resolved descriptor by chain:id so a given
 // asset is fetched from the provider at most once per TTL.
 const RESOLVE_TTL_SECONDS = 6 * 60 * 60; // 6h
+// Last-known-good copy kept far longer, read ONLY when the upstream provider is
+// unreachable. NFT metadata is effectively immutable, so serving a long-stale
+// descriptor during a Helius/Alchemy outage is correct — far better than a 502.
+const RESOLVE_STALE_TTL_SECONDS = 30 * 24 * 60 * 60; // 30d
 
 export default wrap(async (req, res) => {
 	if (cors(req, res)) return;
@@ -27,6 +31,7 @@ export default wrap(async (req, res) => {
 	if (!id) return error(res, 400, 'bad_request', 'id required');
 
 	const cacheKey = `nft-resolve:${chain}:${id}`;
+	const staleKey = `nft-resolve-stale:${chain}:${id}`;
 	const cached = await cacheGet(cacheKey).catch(() => null);
 	if (cached) return json(res, 200, cached);
 
@@ -36,16 +41,43 @@ export default wrap(async (req, res) => {
 	const ceiling = await limits.heliusDasGlobal();
 	if (!ceiling.success) return rateLimited(res, ceiling);
 
+	// Persist a resolved descriptor to both the fresh and long-lived stale tiers.
+	const store = async (result) => {
+		await cacheSet(cacheKey, result, RESOLVE_TTL_SECONDS).catch(() => {});
+		await cacheSet(staleKey, result, RESOLVE_STALE_TTL_SECONDS).catch(() => {});
+		return result;
+	};
+	// Provider unreachable → serve the last-known-good descriptor if we have one,
+	// else fall through to the caller's error. Immutable metadata makes this safe.
+	const serveStaleOr = async (onMiss) => {
+		const lastGood = await cacheGet(staleKey).catch(() => null);
+		if (lastGood) {
+			console.warn('[nft/resolve] upstream unreachable — serving last-known-good for %s', cacheKey);
+			return json(res, 200, { ...lastGood, stale: true });
+		}
+		return onMiss();
+	};
+
 	if (chain === 'solana') {
-		const resp = await fetch(env.SOLANA_RPC_URL, {
-			method: 'POST',
-			headers: { 'content-type': 'application/json' },
-			body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'getAsset', params: { id } }),
-		});
+		let resp;
+		try {
+			resp = await fetch(env.SOLANA_RPC_URL, {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'getAsset', params: { id } }),
+			});
+		} catch (err) {
+			console.error('[nft/resolve] Helius network error', err?.message);
+			return serveStaleOr(() =>
+				serverError(res, 502, 'upstream_error', new Error('Helius unreachable')),
+			);
+		}
 		if (!resp.ok) {
-			const txt = await resp.text();
+			const txt = await resp.text().catch(() => '');
 			console.error('[nft/resolve] Helius error', resp.status, txt);
-			return serverError(res, 502, 'upstream_error', new Error(`Helius error ${resp.status}`));
+			return serveStaleOr(() =>
+				serverError(res, 502, 'upstream_error', new Error(`Helius error ${resp.status}`)),
+			);
 		}
 		const data = await resp.json();
 		if (data.error) {
@@ -60,14 +92,13 @@ export default wrap(async (req, res) => {
 			asset?.content?.links?.image ||
 			files.find((f) => f.mime && f.mime.startsWith('image/'))?.uri ||
 			null;
-		const result = {
+		const result = await store({
 			name,
 			image: imageUrl,
 			model: modelFile?.uri || null,
 			mime: modelFile?.mime || null,
 			source: 'helius',
-		};
-		await cacheSet(cacheKey, result, RESOLVE_TTL_SECONDS).catch(() => {});
+		});
 		return json(res, 200, result);
 	}
 
@@ -84,14 +115,24 @@ export default wrap(async (req, res) => {
 
 	const apiKey = env.ALCHEMY_API_KEY;
 	const url = `https://eth-mainnet.g.alchemy.com/nft/v3/${apiKey}/getNFTMetadata?contractAddress=${encodeURIComponent(contractAddress)}&tokenId=${encodeURIComponent(tokenId)}`;
-	const resp = await fetch(url);
+	let resp;
+	try {
+		resp = await fetch(url);
+	} catch (err) {
+		console.error('[nft/resolve] Alchemy network error', err?.message);
+		return serveStaleOr(() =>
+			serverError(res, 502, 'upstream_error', new Error('Alchemy unreachable')),
+		);
+	}
 	if (!resp.ok) {
-		const txt = await resp.text();
+		const txt = await resp.text().catch(() => '');
 		if (resp.status === 404) {
 			return error(res, 404, 'not_found', `Alchemy error ${resp.status}: ${txt}`);
 		}
 		console.error('[nft/resolve] Alchemy error', resp.status, txt);
-		return serverError(res, 502, 'upstream_error', new Error(`Alchemy error ${resp.status}`));
+		return serveStaleOr(() =>
+			serverError(res, 502, 'upstream_error', new Error(`Alchemy error ${resp.status}`)),
+		);
 	}
 	const data = await resp.json();
 	const name = data.name || data.contract?.name || id;
@@ -106,7 +147,6 @@ export default wrap(async (req, res) => {
 		mime = animationUrl.toLowerCase().endsWith('.gltf') ? 'model/gltf+json' : 'model/gltf-binary';
 	}
 
-	const result = { name, image: imageUrl, model, mime, source: 'alchemy' };
-	await cacheSet(cacheKey, result, RESOLVE_TTL_SECONDS).catch(() => {});
+	const result = await store({ name, image: imageUrl, model, mime, source: 'alchemy' });
 	return json(res, 200, result);
 });

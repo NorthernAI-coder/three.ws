@@ -4,6 +4,58 @@ import { wrap, cors, error, json, readJson, method, rateLimited } from '../_lib/
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { llmComplete, llmConfigured } from '../_lib/llm.js';
 import { cacheGet, cacheSet } from '../_lib/cache.js';
+import { solanaConnection } from '../_lib/solana/connection.js';
+
+// Reduce a raw parsed transaction to the same shape Helius's enhanced endpoint
+// returns, so the fallback path is transparent to the LLM summary and the UI.
+// Native transfers come from lamport balance deltas; token transfers from the
+// pre/post SPL token balances in the tx meta. No `description`/`type` (those are
+// Helius value-adds) — the LLM summary fills that role downstream.
+function parsedTxToExplain(tx) {
+	if (!tx) return null;
+	const meta = tx.meta || {};
+	const keys = (tx.transaction?.message?.accountKeys || []).map((k) =>
+		typeof k === 'string' ? k : k?.pubkey?.toString?.() ?? String(k?.pubkey ?? ''),
+	);
+
+	const nativeTransfers = [];
+	const pre = meta.preBalances || [];
+	const post = meta.postBalances || [];
+	for (let i = 0; i < keys.length; i++) {
+		const delta = (post[i] ?? 0) - (pre[i] ?? 0);
+		if (delta !== 0) nativeTransfers.push({ account: keys[i], amount: delta });
+	}
+
+	const byKey = (arr) => {
+		const m = new Map();
+		for (const b of arr || []) m.set(`${b.accountIndex}:${b.mint}`, b);
+		return m;
+	};
+	const preTok = byKey(meta.preTokenBalances);
+	const postTok = byKey(meta.postTokenBalances);
+	const tokenTransfers = [];
+	for (const k of new Set([...preTok.keys(), ...postTok.keys()])) {
+		const p = preTok.get(k);
+		const q = postTok.get(k);
+		const delta = BigInt(q?.uiTokenAmount?.amount ?? '0') - BigInt(p?.uiTokenAmount?.amount ?? '0');
+		if (delta === 0n) continue;
+		const ref = q || p;
+		tokenTransfers.push({
+			mint: ref.mint,
+			owner: ref.owner || null,
+			rawTokenAmount: { tokenAmount: delta.toString(), decimals: ref.uiTokenAmount?.decimals ?? null },
+		});
+	}
+
+	return {
+		tokenTransfers,
+		nativeTransfers,
+		description: '',
+		type: '',
+		feePayer: keys[0] || '',
+		source: 'rpc-fallback',
+	};
+}
 
 // A confirmed transaction is immutable, but the Helius enhanced-tx (/v0) and
 // Alchemy RPC calls behind this endpoint — plus the LLM summary — were recomputed
@@ -60,52 +112,103 @@ export default wrap(async (req, res) => {
 	let txData;
 
 	if (chain === 'solana') {
-		const resp = await fetch(
-			`https://api.helius.xyz/v0/transactions/?api-key=${env.HELIUS_API_KEY}`,
-			{
-				method: 'POST',
-				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ transactions: [sig] }),
-			},
-		);
-		if (!resp.ok) {
-			console.error('[tx/explain] Helius error', resp.status, await resp.text().catch(() => ''));
-			return error(res, 502, 'upstream_error', 'transaction lookup failed upstream');
+		// Primary: Helius enhanced /v0 (rich description + type). On any upstream
+		// failure, fall back to getParsedTransaction over the rotating multi-provider
+		// RPC chain (Helius → Alchemy → Ankr → PublicNode → public) and reconstruct
+		// the transfer shape ourselves — so a Helius outage still explains the tx.
+		let enhanced = null;
+		try {
+			const resp = await fetch(
+				`https://api.helius.xyz/v0/transactions/?api-key=${env.HELIUS_API_KEY}`,
+				{
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ transactions: [sig] }),
+				},
+			);
+			if (resp.ok) {
+				const data = await resp.json();
+				if (Array.isArray(data) && data.length > 0) enhanced = data[0];
+			} else {
+				console.warn('[tx/explain] Helius enhanced %s — falling back to RPC', resp.status);
+			}
+		} catch (err) {
+			console.warn('[tx/explain] Helius enhanced unreachable — falling back to RPC:', err?.message);
 		}
-		const data = await resp.json();
-		if (!Array.isArray(data) || data.length === 0) {
-			return error(res, 404, 'not_found', 'Transaction not found');
+
+		if (enhanced) {
+			txData = {
+				tokenTransfers: enhanced.tokenTransfers || [],
+				nativeTransfers: enhanced.nativeTransfers || [],
+				description: enhanced.description || '',
+				type: enhanced.type || '',
+				feePayer: enhanced.feePayer || '',
+			};
+		} else {
+			let parsed = null;
+			try {
+				const conn = solanaConnection({ network: 'mainnet' });
+				parsed = await conn.getParsedTransaction(sig, {
+					maxSupportedTransactionVersion: 0,
+					commitment: 'confirmed',
+				});
+			} catch (err) {
+				console.error('[tx/explain] RPC fallback failed:', err?.message);
+				return error(res, 502, 'upstream_error', 'transaction lookup failed upstream');
+			}
+			if (!parsed) {
+				return error(res, 404, 'not_found', 'Transaction not found');
+			}
+			txData = parsedTxToExplain(parsed);
 		}
-		const tx = data[0];
-		txData = {
-			tokenTransfers: tx.tokenTransfers || [],
-			nativeTransfers: tx.nativeTransfers || [],
-			description: tx.description || '',
-			type: tx.type || '',
-			feePayer: tx.feePayer || '',
-		};
 	} else {
-		const rpcUrl = `https://eth-mainnet.g.alchemy.com/v2/${env.ALCHEMY_API_KEY}`;
-		const rpc = (id, methodName, params) =>
-			fetch(rpcUrl, {
+		// EVM failover chain: keyed Alchemy first, then an optional configured RPC,
+		// then keyless public nodes — so an Alchemy outage or quota cap still
+		// resolves the tx. Try each until one responds cleanly.
+		const evmEndpoints = [
+			env.ALCHEMY_API_KEY ? `https://eth-mainnet.g.alchemy.com/v2/${env.ALCHEMY_API_KEY}` : null,
+			env.MAINNET_RPC_URL || null,
+			'https://ethereum-rpc.publicnode.com',
+			'https://eth.llamarpc.com',
+		].filter(Boolean);
+
+		const rpcAt = (url) => (id, methodName, params) =>
+			fetch(url, {
 				method: 'POST',
 				headers: { 'content-type': 'application/json' },
 				body: JSON.stringify({ jsonrpc: '2.0', id, method: methodName, params }),
 			});
 
-		const [txResp, receiptResp] = await Promise.all([
-			rpc(1, 'eth_getTransactionByHash', [sig]),
-			rpc(2, 'eth_getTransactionReceipt', [sig]),
-		]);
-
-		if (!txResp.ok || !receiptResp.ok) {
-			return error(res, 502, 'upstream_error', 'Alchemy RPC request failed');
+		let txJson = null;
+		let receiptJson = null;
+		let lastErr = 'no endpoints configured';
+		for (const url of evmEndpoints) {
+			try {
+				const rpc = rpcAt(url);
+				const [txResp, receiptResp] = await Promise.all([
+					rpc(1, 'eth_getTransactionByHash', [sig]),
+					rpc(2, 'eth_getTransactionReceipt', [sig]),
+				]);
+				if (!txResp.ok || !receiptResp.ok) {
+					lastErr = `status ${txResp.status}/${receiptResp.status}`;
+					continue;
+				}
+				const [tj, rj] = await Promise.all([txResp.json(), receiptResp.json()]);
+				if (tj.error) {
+					lastErr = tj.error?.message || 'rpc error';
+					continue;
+				}
+				// Clean response (result may legitimately be null for an unknown tx).
+				txJson = tj;
+				receiptJson = rj;
+				break;
+			} catch (err) {
+				lastErr = err?.message || 'network error';
+			}
 		}
 
-		const [txJson, receiptJson] = await Promise.all([txResp.json(), receiptResp.json()]);
-
-		if (txJson.error) {
-			console.error('[tx/explain] Alchemy RPC error', txJson.error?.message);
+		if (!txJson) {
+			console.error('[tx/explain] all EVM RPC endpoints failed:', lastErr);
 			return error(res, 502, 'upstream_error', 'transaction lookup failed upstream');
 		}
 		if (!txJson.result) {
@@ -113,7 +216,7 @@ export default wrap(async (req, res) => {
 		}
 
 		const tx = txJson.result;
-		const receipt = receiptJson.result;
+		const receipt = receiptJson?.result;
 		const logs = [];
 		for (const log of receipt?.logs || []) {
 			if (log.topics[0] !== ERC20_TRANSFER_TOPIC) continue;

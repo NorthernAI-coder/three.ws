@@ -29,6 +29,29 @@ import { cacheGet, cacheSet } from '../cache.js';
 // largest reduction in Helius credit spend with no change to what users see.
 const LIVE_HOLDER_TTL_SECONDS = 180;
 
+// Last-known-good copy kept far longer than the fresh window. It is read ONLY
+// when a live Helius DAS walk fails (429 / quota exhausted / outage), so a Helius
+// problem degrades the cohorts panel to slightly-stale real data instead of a
+// hard 503. getTokenAccounts is Helius-proprietary (the rotating multi-provider
+// RPC chain can't serve it), so this stale tier is the failover for this path.
+const LIVE_HOLDER_STALE_TTL_SECONDS = 7 * 24 * 60 * 60; // 7d
+
+// BigInt can't ride through JSON, so the cached shape stores units as decimal
+// strings. These two helpers are the single source of truth for that conversion.
+function serializeHolderSet(holders, totalUnits) {
+	return {
+		holders: holders.map((h) => ({ wallet: h.wallet, units: h.units.toString() })),
+		totalUnits: totalUnits.toString(),
+	};
+}
+
+function deserializeHolderSet(cached) {
+	return {
+		holders: cached.holders.map((h) => ({ wallet: h.wallet, units: BigInt(h.units) })),
+		totalUnits: BigInt(cached.totalUnits),
+	};
+}
+
 // Cohorts derivable from current balances alone (the rest need snapshot history).
 const LIVE_COHORT_IDS = new Set(['holders', 'whales']);
 
@@ -86,39 +109,48 @@ function whaleCutoff(holders, topPct) {
  */
 export async function liveHolderSet({ mint, network = 'mainnet' }) {
 	const cacheKey = `live-holders:${network}:${mint}`;
+	const staleKey = `live-holders-stale:${network}:${mint}`;
 
-	// JSON can't carry BigInt, so the cached shape stores units as decimal
-	// strings; rehydrate to BigInt on read so callers are oblivious to the cache.
+	// Fresh hit — within the short window, serve straight from cache.
 	const cached = await cacheGet(cacheKey).catch(() => null);
 	if (cached && Array.isArray(cached.holders)) {
-		return {
-			holders: cached.holders.map((h) => ({ wallet: h.wallet, units: BigInt(h.units) })),
-			totalUnits: BigInt(cached.totalUnits),
-		};
+		return { ...deserializeHolderSet(cached), stale: false };
 	}
 
-	const balances = await fetchHolderBalances({ mint, network });
-	const holders = [...balances.entries()]
-		.map(([wallet, units]) => ({ wallet, units }))
-		.filter((h) => h.units > 0n)
-		.sort((a, b) => (b.units > a.units ? 1 : b.units < a.units ? -1 : 0));
-	const totalUnits = holders.reduce((sum, h) => sum + h.units, 0n);
+	try {
+		const balances = await fetchHolderBalances({ mint, network });
+		const holders = [...balances.entries()]
+			.map(([wallet, units]) => ({ wallet, units }))
+			.filter((h) => h.units > 0n)
+			.sort((a, b) => (b.units > a.units ? 1 : b.units < a.units ? -1 : 0));
+		const totalUnits = holders.reduce((sum, h) => sum + h.units, 0n);
 
-	// Don't cache empty results (an unconfigured key or transient RPC failure
-	// returns an empty map) — caching a 0-holder set would mask recovery for the
-	// whole TTL. A genuinely empty mint is harmless to re-walk; it's one cheap call.
-	if (holders.length > 0) {
-		await cacheSet(
-			cacheKey,
-			{
-				holders: holders.map((h) => ({ wallet: h.wallet, units: h.units.toString() })),
-				totalUnits: totalUnits.toString(),
-			},
-			LIVE_HOLDER_TTL_SECONDS,
-		).catch(() => {});
+		// Don't cache empty results (an unconfigured key or transient RPC failure
+		// returns an empty map) — caching a 0-holder set would mask recovery for the
+		// whole TTL. A genuinely empty mint is harmless to re-walk; one cheap call.
+		if (holders.length > 0) {
+			const payload = serializeHolderSet(holders, totalUnits);
+			// Fresh cache collapses page-view bursts; the long-lived stale copy is the
+			// failover snapshot, refreshed on every successful walk.
+			await cacheSet(cacheKey, payload, LIVE_HOLDER_TTL_SECONDS).catch(() => {});
+			await cacheSet(staleKey, payload, LIVE_HOLDER_STALE_TTL_SECONDS).catch(() => {});
+		}
+
+		return { holders, totalUnits, stale: false };
+	} catch (err) {
+		// Helius DAS is unreachable (429 / quota / outage). Fall back to the last
+		// known-good snapshot so the cohorts panel degrades to stale-but-real data
+		// instead of failing. Only rethrow if we have nothing to serve.
+		const lastGood = await cacheGet(staleKey).catch(() => null);
+		if (lastGood && Array.isArray(lastGood.holders)) {
+			console.warn(
+				'[cohorts-live] Helius DAS failed for %s — serving last-known-good holder set',
+				mint,
+			);
+			return { ...deserializeHolderSet(lastGood), stale: true };
+		}
+		throw err;
 	}
-
-	return { holders, totalUnits };
 }
 
 /**
