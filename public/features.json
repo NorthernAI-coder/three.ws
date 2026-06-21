@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-21T06:29:17.034Z",
+	"generated_at": "2026-06-21T06:34:11.153Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -170,6 +170,16 @@
 					"title": "Guided Tour",
 					"description": "A 3D guide walks across the live site, points at every feature, and narrates what each one does and how to use it — voice plus an on-screen chat bubble, paced by you.",
 					"added": "2026-06-20",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/walk",
+					"title": "Walk",
+					"description": "Your 3D avatar walks anywhere on the web. Live demos across six environments, a Chrome extension, one-tag embeds, and a global distance leaderboard.",
+					"added": "2026-06-21",
 					"auth": null,
 					"indexable": true,
 					"tags": [],
@@ -564,6 +574,16 @@
 					"title": "Labs Showcase",
 					"description": "A curated gallery of three.ws's most powerful — and most hidden — features. Find and try things you didn't know existed.",
 					"added": "2026-06-05",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/walk-leaderboard",
+					"title": "Walk Leaderboard",
+					"description": "Global leaderboard for the walking avatar — distance walked, sites visited, and time, ranked daily, weekly, and all-time.",
+					"added": "2026-06-21",
 					"auth": null,
 					"indexable": true,
 					"tags": [],
