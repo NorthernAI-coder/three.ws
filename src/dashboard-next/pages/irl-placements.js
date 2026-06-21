@@ -1149,7 +1149,7 @@ function openLocationMap({ pins, focusId, onSaved, onRemoved }) {
 	// ── Markers ────────────────────────────────────────────────────────────
 	function makeIcon(p, focused) {
 		const av = p.avatar_url
-			? `<img src="${esc(p.avatar_url)}" alt="" onerror="this.remove()" />`
+			? `<img loading="lazy" decoding="async" src="${esc(p.avatar_url)}" alt="" onerror="this.remove()" />`
 			: '📍';
 		return L.divIcon({
 			className: 'irlmap-pin',

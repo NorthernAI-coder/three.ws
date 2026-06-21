@@ -13,8 +13,13 @@ page.on('pageerror', (e) => errors.push('PAGEERROR: ' + e.message));
 
 // Fresh user: no localStorage, no session.
 await page.addInitScript(() => { try { localStorage.clear(); sessionStorage.clear(); } catch {} });
-await page.goto(URL, { waitUntil: 'networkidle', timeout: 45000 }).catch((e) => errors.push('GOTO: ' + e.message));
-await page.waitForTimeout(4000);
+await page.goto(URL, { waitUntil: 'domcontentloaded', timeout: 45000 }).catch((e) => errors.push('GOTO: ' + e.message));
+// The agent-home container is populated asynchronously after the app boots —
+// poll for it rather than relying on networkidle (the 3D app holds connections open).
+await page.waitForFunction(() => {
+  const el = document.getElementById('agent-home-container');
+  return el && (el.innerHTML || '').trim().length > 0;
+}, { timeout: 20000 }).catch((e) => errors.push('WAIT_CONTAINER: ' + e.message));
 
 const report = await page.evaluate(() => {
   const home = document.getElementById('agent-home-container');

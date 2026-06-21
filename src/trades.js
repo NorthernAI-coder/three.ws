@@ -325,7 +325,7 @@ function cardHtml(t) {
 	const coinHref  = t.mint && t.oracle_score != null ? `/oracle?mint=${escapeHtml(t.mint)}` : (pumpUrl || '#');
 	const coinTarget = t.oracle_score != null ? '' : ' target="_blank" rel="noopener"';
 	const imgHtml = `<a href="${coinHref}"${coinTarget} class="tf-coin-img-link" aria-label="View ${sym} conviction on Oracle" style="display:block;line-height:0">${imgSrc
-		? `<img src="${imgSrc}" alt="" class="tf-coin-img" style="width:48px;height:48px;border-radius:12px;object-fit:cover" onerror="this.outerHTML='<div class=tf-coin-img>${sym.slice(0, 2)}</div>'" loading="lazy" />`
+		? `<img loading="lazy" decoding="async" src="${imgSrc}" alt="" class="tf-coin-img" style="width:48px;height:48px;border-radius:12px;object-fit:cover" onerror="this.outerHTML='<div class=tf-coin-img>${sym.slice(0, 2)}</div>'" loading="lazy" />`
 		: `<div class="tf-coin-img">${sym.slice(0, 2)}</div>`}</a>`;
 
 	const agentImgHtml = agentImg

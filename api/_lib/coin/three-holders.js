@@ -18,6 +18,7 @@
 import { sql } from '../db.js';
 import { TOKEN_MINT as THREE_MINT } from '../token/config.js';
 import { fetchHolderBalances } from './holders.js';
+import { acquireLock, releaseLock } from '../cache.js';
 
 const UPSERT_CHUNK = 2000; // rows per batched upsert — mirrors persistHolderSnapshot
 // A snapshot older than this is treated as missing: the reader falls back to a
@@ -138,16 +139,64 @@ export async function readThreeHolderSnapshot() {
 	return balances.size > 0 ? balances : null;
 }
 
+// Cross-instance lock + TTL for the cold-fallback scan. The full DAS walk takes
+// several seconds; 90s is comfortably longer so a slow scan keeps the lock, and
+// it auto-expires if the holder's lambda dies mid-scan.
+const COLD_SCAN_LOCK_KEY = 'three:holders:coldscan';
+const COLD_SCAN_LOCK_TTL = 90;
+// In-process single-flight: coalesce concurrent cold scans within ONE warm
+// lambda so a burst of cache-miss requests on the same instance shares one scan.
+let _inflightColdScan = null;
+
 /**
  * The drop-in replacement for fetchHolderBalances({ mint: THREE_MINT }) on public
  * read paths: serve the cached snapshot, falling back to a single live scan only
  * on a cold start (snapshot missing/stale). Same Map<wallet, bigint> shape, so
  * callers' downstream ranking/tier/percentage logic is unchanged.
+ *
+ * The cold fallback is stampede-guarded. Without it, a traffic spike against a
+ * missing/stale snapshot (cold deploy, or a stalled cron) had EVERY uncached
+ * request to the leaderboard, token stats, and OG card independently fire a full
+ * multi-second Helius DAS walk — N concurrent scans burning credits. Now: an
+ * in-process single-flight collapses concurrent callers on one instance, and a
+ * cross-instance Redis lock ensures only one lambda platform-wide runs the scan
+ * — and the winner refreshes the shared snapshot so the fallback self-heals and
+ * everyone else reads from cache.
  */
 export async function threeHolderBalances() {
 	const snap = await readThreeHolderSnapshot();
 	if (snap) return snap;
-	// Cold start or stalled cron — one live scan keeps the page correct. This is
-	// the rare path now, not the per-request default.
-	return fetchHolderBalances({ mint: THREE_MINT });
+	if (_inflightColdScan) return _inflightColdScan;
+	_inflightColdScan = coldFallbackScan().finally(() => { _inflightColdScan = null; });
+	return _inflightColdScan;
+}
+
+async function coldFallbackScan() {
+	const gotLock = await acquireLock(COLD_SCAN_LOCK_KEY, COLD_SCAN_LOCK_TTL);
+	if (!gotLock) {
+		// Another instance is scanning. Wait briefly for it to refresh the snapshot,
+		// then serve from cache. If it never appears (slow/dead holder), scan
+		// ourselves rather than hanging the request.
+		for (let i = 0; i < 12; i++) {
+			await new Promise((r) => setTimeout(r, 500));
+			const snap = await readThreeHolderSnapshot();
+			if (snap) return snap;
+		}
+		return fetchHolderBalances({ mint: THREE_MINT });
+	}
+	try {
+		// Winner: refresh the shared snapshot so subsequent reads hit cache instead
+		// of scanning. Fall back to a read-only scan if the refresh can't persist
+		// (e.g. snapshot table not migrated yet) so the page still renders.
+		try {
+			await refreshThreeHolderSnapshot();
+			const snap = await readThreeHolderSnapshot();
+			if (snap) return snap;
+		} catch (err) {
+			console.warn('[three-holders] cold refresh failed, serving live scan:', err?.message || err);
+		}
+		return fetchHolderBalances({ mint: THREE_MINT });
+	} finally {
+		await releaseLock(COLD_SCAN_LOCK_KEY);
+	}
 }

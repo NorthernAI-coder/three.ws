@@ -138,6 +138,7 @@
 		"mixamo:all": "node scripts/mixamo-all.mjs",
 		"test": "vitest run && playwright test",
 		"test:core": "vitest run --maxWorkers=1",
+		"test:gate": "node scripts/test-gate.mjs",
 		"test:e2e": "playwright test",
 		"test:pages": "node scripts/test-pages.mjs",
 		"verify:ibm": "node scripts/verify-ibm-pages.mjs",

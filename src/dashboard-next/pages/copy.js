@@ -131,7 +131,7 @@ function intentRow(e) {
 	const mintAttr = e.mint ? ` data-oracle-mint="${esc(e.mint)}"` : '';
 	return `
 	<div class="cp-item" data-id="${esc(e.id)}"${mintAttr}>
-		<img class="cp-av" src="${esc(img(e))}" alt="" onerror="this.style.visibility='hidden'" />
+		<img loading="lazy" decoding="async" class="cp-av" src="${esc(img(e))}" alt="" onerror="this.style.visibility='hidden'" />
 		<div class="cp-mid">
 			<div class="cp-title">
 				<span class="cp-tag ${isBuy ? 'buy' : 'sell'}">${isBuy ? 'BUY' : 'SELL'}</span>
@@ -154,7 +154,7 @@ function subRow(s) {
 	const paused = s.status === 'paused';
 	return `
 	<div class="cp-item" data-sub="${esc(s.id)}">
-		<img class="cp-av" src="${esc(img(s))}" alt="" onerror="this.style.visibility='hidden'" />
+		<img loading="lazy" decoding="async" class="cp-av" src="${esc(img(s))}" alt="" onerror="this.style.visibility='hidden'" />
 		<div class="cp-mid">
 			<div class="cp-title">
 				<a href="${traderHref(s.leader_agent_id)}" style="color:inherit;text-decoration:none">${esc(s.leader_name || 'trader')}</a>
@@ -177,7 +177,7 @@ function earningsSection(earnings) {
 	const total = Number(earnings.total_fee_owed_sol) || 0;
 	const rows = owing.map((i) => `
 		<div class="cp-item" data-earn-sub="${esc(i.subscription_id)}">
-			<img class="cp-av" src="${esc(i.leader_image || '/favicon.ico')}" alt="" onerror="this.style.visibility='hidden'" />
+			<img loading="lazy" decoding="async" class="cp-av" src="${esc(i.leader_image || '/favicon.ico')}" alt="" onerror="this.style.visibility='hidden'" />
 			<div class="cp-mid">
 				<div class="cp-title">${esc(i.leader_name || 'trader')}</div>
 				<div class="cp-sub">${fmtSol(i.cumulative_profit_sol)} profit copied · ${(i.perf_fee_bps / 100).toFixed(0)}% fee</div>
@@ -239,7 +239,7 @@ function historyRow(e) {
 	const label = status === 'skipped' ? (SKIP_LABEL[e.skip_reason] || 'Skipped') : status[0].toUpperCase() + status.slice(1);
 	return `
 	<div class="cp-item">
-		<img class="cp-av" src="${esc(img(e))}" alt="" onerror="this.style.visibility='hidden'" />
+		<img loading="lazy" decoding="async" class="cp-av" src="${esc(img(e))}" alt="" onerror="this.style.visibility='hidden'" />
 		<div class="cp-mid">
 			<div class="cp-title">${esc(e.symbol || e.name || 'coin')} <span class="cp-sub" style="margin:0">via ${esc(e.leader_name || 'trader')}</span></div>
 			<div class="cp-sub">${relTime(e.created_at)} · ${e.direction === 'buy' && e.planned_sol ? fmtSol(e.planned_sol) : e.direction}</div>
@@ -287,7 +287,7 @@ function discoverRow(t) {
 	].filter(Boolean).join(' · ');
 	return `
 	<div class="cp-item">
-		<img class="cp-av" src="${esc(imgSrc)}" alt="" onerror="this.style.visibility='hidden'" />
+		<img loading="lazy" decoding="async" class="cp-av" src="${esc(imgSrc)}" alt="" onerror="this.style.visibility='hidden'" />
 		<div class="cp-mid">
 			<div class="cp-title"><a href="/trader/${esc(t.agent_id)}" style="color:inherit;text-decoration:none">${esc(t.agent_name || 'agent')}</a></div>
 			<div class="cp-sub">${esc(meta)}</div>

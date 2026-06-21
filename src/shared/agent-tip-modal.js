@@ -163,7 +163,7 @@ export function openTipModal(agent, opts = {}) {
 		backdrop.innerHTML = `
 			<div class="ttm">
 				<div class="ttm-hd">
-					${avatar ? `<img class="ttm-av" src="${esc(avatar)}" alt="" onerror="this.remove()"/>` : '<div class="ttm-av"></div>'}
+					${avatar ? `<img loading="lazy" decoding="async" class="ttm-av" src="${esc(avatar)}" alt="" onerror="this.remove()"/>` : '<div class="ttm-av"></div>'}
 					<div class="ttm-hd-txt">
 						<div class="ttm-hd-k">${esc(accepted.length ? 'Pay' : 'Tip')}</div>
 						<div class="ttm-hd-n" title="${esc(name)}">${esc(name)}</div>
@@ -198,7 +198,7 @@ export function openTipModal(agent, opts = {}) {
 		backdrop.innerHTML = `
 			<div class="ttm">
 				<div class="ttm-hd">
-					${avatar ? `<img class="ttm-av" src="${esc(avatar)}" alt="" onerror="this.remove()"/>` : '<div class="ttm-av"></div>'}
+					${avatar ? `<img loading="lazy" decoding="async" class="ttm-av" src="${esc(avatar)}" alt="" onerror="this.remove()"/>` : '<div class="ttm-av"></div>'}
 					<div class="ttm-hd-txt">
 						<div class="ttm-hd-k">Sent</div>
 						<div class="ttm-hd-n" title="${esc(name)}">${esc(name)}</div>

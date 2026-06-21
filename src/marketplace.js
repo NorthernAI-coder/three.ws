@@ -3643,7 +3643,7 @@ async function openAnimationPurchase(id) {
 			<button class="anim-buy-close" type="button" aria-label="Close">✕</button>
 			<div class="anim-buy-media">
 				${item.thumbnail_url
-					? `<img src="${escapeHtml(item.thumbnail_url)}" alt="" />`
+					? `<img loading="lazy" decoding="async" src="${escapeHtml(item.thumbnail_url)}" alt="" />`
 					: `<div class="anim-buy-media-empty">🎬</div>`}
 				<span class="anim-listing-price ${item.free ? 'free' : 'paid'}">${escapeHtml(priceLabel)}</span>
 			</div>

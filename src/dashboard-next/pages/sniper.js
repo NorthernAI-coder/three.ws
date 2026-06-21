@@ -305,7 +305,7 @@ function stratCard(s) {
 
 	return `<div class="sn-card ${armed ? 'armed' : ''}" data-agent="${esc(s.agent_id)}">
 		<div class="sn-card-head" data-toggle="card">
-			<img class="sn-av" src="${esc(img)}" alt="" onerror="this.style.visibility='hidden'" />
+			<img loading="lazy" decoding="async" class="sn-av" src="${esc(img)}" alt="" onerror="this.style.visibility='hidden'" />
 			<div class="sn-info">
 				<div class="sn-name">${esc(s.agent_name || s.agent_id)}</div>
 				<div class="sn-meta">

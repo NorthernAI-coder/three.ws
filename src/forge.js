@@ -838,7 +838,7 @@ function buildSlots() {
 				<div class="shimmer" aria-hidden="true"></div>
 				<span>Uploading…</span>
 			</div>
-			<img class="vs-thumb" alt="" />
+			<img loading="lazy" decoding="async" class="vs-thumb" alt="" />
 			<span class="vs-badge">${VIEW_LABELS[i]}</span>
 			<button type="button" class="vs-remove" aria-label="Remove ${VIEW_LABELS[i]} view">×</button>
 			<div class="vs-error">
@@ -1113,7 +1113,7 @@ function buildSketchSlot() {
 			<div class="shimmer" aria-hidden="true"></div>
 			<span>Uploading…</span>
 		</div>
-		<img class="vs-thumb" alt="" />
+		<img loading="lazy" decoding="async" class="vs-thumb" alt="" />
 		<span class="vs-badge">Sketch</span>
 		<button type="button" class="vs-remove" aria-label="Remove sketch">×</button>
 		<div class="vs-error">
@@ -2146,6 +2146,17 @@ els.viewer.addEventListener('error', () => {
 		els.viewerShell.classList.add('has-load-error');
 		els.viewerShell.classList.remove('is-loading');
 	}
+});
+// Retry a failed GLB fetch in place — a transient network blip on the file (the
+// common cause) shouldn't dead-end at download-only. Clearing then re-setting src
+// on the next frame forces model-viewer to refetch the same URL.
+document.getElementById('viewer-retry')?.addEventListener('click', () => {
+	const src = els.viewer.getAttribute('src');
+	if (!src) return;
+	els.viewerShell?.classList.remove('has-load-error');
+	els.viewerShell?.classList.add('is-loading');
+	els.viewer.setAttribute('src', '');
+	requestAnimationFrame(() => els.viewer.setAttribute('src', src));
 });
 // The GLB finished painting — drop the load skeleton.
 els.viewer.addEventListener('load', () => {

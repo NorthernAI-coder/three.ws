@@ -214,7 +214,7 @@ function renderCard({ chainId, agentId, name, description, image, glb, solanaAdd
 	const thumbContent = glb
 		? '' // filled lazily
 		: image
-			? `<img src="${esc(image)}" alt="${esc(name)} thumbnail" style="width:100%;height:100%;object-fit:cover">`
+			? `<img loading="lazy" decoding="async" src="${esc(image)}" alt="${esc(name)} thumbnail" style="width:100%;height:100%;object-fit:cover">`
 			: `<div class="up-card-thumb-placeholder">◎</div>`;
 
 	const editUrl = `/a/${chainId}/${agentId}/edit`;

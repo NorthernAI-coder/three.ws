@@ -490,11 +490,13 @@ async function startJob(req, res) {
 	}
 
 	// $THREE hold-to-access gate (Token Utility v1) — the High tier (200k poly +
-	// PBR) spends real GPU/vendor budget on a PLATFORM-keyed backend, so it's the
-	// first real $THREE-gated feature: reserved for holders (Bronze+, $25 hold) or
-	// a presented tier pass, otherwise a hold-or-pay 402. BYOK backends are exempt
-	// (the caller pays their own vendor key — key-gated, not hold-gated). Draft and
-	// Standard are never gated, and internal cron seed jobs bypass it entirely.
+	// PBR, textured) is the platform's premium quality tier. It now runs on a
+	// free-for-us engine (HuggingFace Hunyuan3D) like every other tier, so this is
+	// a pure monetization gate — we charge for higher quality, not to recover
+	// vendor spend: reserved for holders (Bronze+, $25 hold) or a presented tier
+	// pass, otherwise a hold-or-pay 402. BYOK backends are exempt (the caller pays
+	// their own vendor key — key-gated, not hold-gated). Draft and Standard are
+	// never gated, and internal cron seed jobs bypass it entirely.
 	// requireFeatureAccess writes the 402 (three_hold_required) itself and returns
 	// { ok:false }; on a holder it writes nothing and lets the job proceed.
 	if (tier.id === 'high' && BACKENDS[backendId]?.byok === false && !isInternalSeedRequest(req)) {

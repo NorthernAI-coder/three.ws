@@ -208,7 +208,7 @@ class Gate {
 		const card = (inner) => `
 			<div class="pg-backdrop"></div>
 			<div class="pg-card">
-				<div class="pg-brand"><img src="/three.svg" alt="" width="30" height="30"><span>COIN COMMUNITIES</span></div>
+				<div class="pg-brand"><img loading="lazy" decoding="async" src="/three.svg" alt="" width="30" height="30"><span>COIN COMMUNITIES</span></div>
 				${inner}
 			</div>`;
 

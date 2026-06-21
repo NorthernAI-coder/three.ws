@@ -345,7 +345,7 @@ export async function openIdentityModal(ctx = {}) {
 	}
 
 	const avatarHtml = thumbSrc
-		? `<img class="fm-id-avatar" src="${thumbSrc}" alt="${displayName}" />`
+		? `<img loading="lazy" decoding="async" class="fm-id-avatar" src="${thumbSrc}" alt="${displayName}" />`
 		: `<div class="fm-id-avatar fm-id-avatar--fallback">${displayName.charAt(0).toUpperCase()}</div>`;
 
 	const body = document.createElement('div');
@@ -631,7 +631,7 @@ export default function Page() {
 				<div class="fm-browser-url">three.ws/@${escapeHtml(handle)}</div>
 			</div>
 			<div class="fm-browser-stage" data-stage>
-				<img class="fm-browser-shot" alt="" data-shot hidden />
+				<img loading="lazy" decoding="async" class="fm-browser-shot" alt="" data-shot hidden />
 				<div class="fm-browser-skeleton" data-skel>Rendering live preview…</div>
 			</div>
 		</div>

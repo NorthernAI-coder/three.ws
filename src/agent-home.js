@@ -81,8 +81,42 @@ export class AgentHome {
 
 	// ── Identity Card ─────────────────────────────────────────────────────────
 
+	// Brand-new owner with no agent yet — the activation call-to-action that
+	// replaces the empty identity card, so the sidebar always tells a first-time
+	// user what to do next instead of rendering a placeholder "Agent / no wallet".
+	_buildEmptyState() {
+		const panel = document.createElement('div');
+		panel.className = 'agent-home-panel agent-home-empty-panel';
+		panel.innerHTML = `
+			<div class="agent-home-empty-cta" role="region" aria-label="Get started">
+				<div class="agent-home-empty-ring" aria-hidden="true">
+					<span class="agent-home-empty-emoji">◎</span>
+				</div>
+				<div class="agent-home-empty-title">Create your first agent</div>
+				<p class="agent-home-empty-sub">Give a 3D character a name, a brain, and its own on-chain wallet — live in under a minute.</p>
+				<a class="agent-home-empty-btn" href="/create">
+					<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M11 11V5h2v6h6v2h-6v6h-2v-6H5v-2z"/></svg>
+					Create your agent
+				</a>
+				<a class="agent-home-empty-link" href="/discover">or explore what others built →</a>
+			</div>
+		`;
+		this.container.appendChild(panel);
+		this._panel = panel;
+	}
+
 	_buildPanel() {
 		const id = this.identity;
+
+		// No real agent id yet (a freshly signed-in owner who hasn't created one):
+		// the normal identity card would render a meaningless "Agent / no wallet"
+		// phantom. Show the create-your-first-agent CTA instead. Real agents and
+		// visitor-viewed agents always carry an id, so they are unaffected.
+		if (!id.id) {
+			this._buildEmptyState();
+			return;
+		}
+
 		const skills = id.skills || [];
 
 		// Shared agent-wallet chip for the identity card. Default-deny ownership:

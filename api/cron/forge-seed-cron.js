@@ -22,6 +22,7 @@ import { env } from '../_lib/env.js';
 import { sql } from '../_lib/db.js';
 import { constantTimeEquals } from '../_lib/crypto.js';
 import { SEED_PROMPTS, OG_USERNAMES } from '../_lib/seed-prompts.js';
+import { circuitState, circuitRecordFailure, circuitRecordSuccess } from '../_lib/forge-scale.js';
 import { randomUUID } from 'node:crypto';
 
 const ORIGIN = () => env.APP_ORIGIN || 'https://three.ws';
@@ -34,12 +35,16 @@ const FETCH_TIMEOUT_MS = 48_000;
 const MAX_CONCURRENT_PENDING = 3;
 const MIN_JOB_AGE_SECONDS = 20;
 
-// Circuit breaker — survives warm lambda invocations; resets on cold start / redeploy.
-// When CIRCUIT_THRESHOLD consecutive forge submits fail the circuit opens for
+// Circuit breaker — state is shared across instances via Redis (forge-scale.js) so
+// every cron lambda sees the same open/closed decision; without that, each instance
+// would rediscover a provider outage on its own and keep submitting into a dead
+// lane. When CIRCUIT_THRESHOLD consecutive forge submits fail the circuit opens for
 // (failures × CIRCUIT_BASE_MS) so the cron goes quiet during provider outages.
+const CIRCUIT_NAME = 'forge-seed';
 const CIRCUIT_THRESHOLD = 3;
 const CIRCUIT_BASE_MS = 10 * 60_000; // 10 min × consecutive failures
-const _circuit = { failures: 0, openUntil: 0 };
+const noteCircuitFailure = () =>
+	circuitRecordFailure(CIRCUIT_NAME, { threshold: CIRCUIT_THRESHOLD, baseMs: CIRCUIT_BASE_MS });
 
 function requireCron(req, res) {
 	const secret = process.env.CRON_SECRET || env.CRON_SECRET;
@@ -182,11 +187,12 @@ async function startNextJob(origin) {
 		return { skipped: true, reason: `${count} jobs already pending` };
 	}
 
-	if (_circuit.openUntil > Date.now()) {
-		const minsLeft = Math.ceil((_circuit.openUntil - Date.now()) / 60_000);
+	const circuit = await circuitState(CIRCUIT_NAME);
+	if (circuit.open) {
+		const minsLeft = Math.ceil((circuit.openUntil - Date.now()) / 60_000);
 		return {
 			skipped: true,
-			reason: `circuit open for ${minsLeft}m more (${_circuit.failures} consecutive failures)`,
+			reason: `circuit open for ${minsLeft}m more (${circuit.failures} consecutive failures)`,
 		};
 	}
 
@@ -235,19 +241,13 @@ async function startNextJob(origin) {
 	});
 
 	if (submit.timedOut) {
-		_circuit.failures++;
-		if (_circuit.failures >= CIRCUIT_THRESHOLD) {
-			_circuit.openUntil = Date.now() + _circuit.failures * CIRCUIT_BASE_MS;
-		}
+		await noteCircuitFailure();
 		await sql`delete from users where id = ${user.id}`.catch(() => {});
 		return { ok: false, reason: 'forge submit timed out — will retry next tick' };
 	}
 
 	if (submit.status !== 200) {
-		_circuit.failures++;
-		if (_circuit.failures >= CIRCUIT_THRESHOLD) {
-			_circuit.openUntil = Date.now() + _circuit.failures * CIRCUIT_BASE_MS;
-		}
+		await noteCircuitFailure();
 		await sql`delete from users where id = ${user.id}`.catch(() => {});
 		return {
 			ok: false,
@@ -272,8 +272,7 @@ async function startNextJob(origin) {
 			await sql`delete from users where id = ${user.id}`.catch(() => {});
 			return { ok: false, reason: `avatar insert failed: ${err?.message}` };
 		}
-		_circuit.failures = 0;
-		_circuit.openUntil = 0;
+		await circuitRecordSuccess(CIRCUIT_NAME);
 		await sql`
 			insert into forge_seed_jobs
 				(user_id, raw_client_id, job_id, prompt, model_category,
@@ -295,8 +294,7 @@ async function startNextJob(origin) {
 
 	// Otherwise the lane is asynchronous — record the job so the next tick polls it.
 	if (submit.body?.job_id) {
-		_circuit.failures = 0;
-		_circuit.openUntil = 0;
+		await circuitRecordSuccess(CIRCUIT_NAME);
 		await sql`
 			insert into forge_seed_jobs (user_id, raw_client_id, job_id, prompt, model_category)
 			values (${user.id}, ${rawClientId}, ${submit.body.job_id}, ${chosen.prompt}, ${chosen.category})
@@ -312,10 +310,7 @@ async function startNextJob(origin) {
 	}
 
 	// Neither a finished model nor a poll token — a genuine failure.
-	_circuit.failures++;
-	if (_circuit.failures >= CIRCUIT_THRESHOLD) {
-		_circuit.openUntil = Date.now() + _circuit.failures * CIRCUIT_BASE_MS;
-	}
+	await noteCircuitFailure();
 	await sql`delete from users where id = ${user.id}`.catch(() => {});
 	return {
 		ok: false,

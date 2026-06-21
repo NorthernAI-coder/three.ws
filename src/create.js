@@ -403,7 +403,7 @@ function showSaveOverlay(label, sublabel) {
 		el.setAttribute('aria-live', 'polite');
 		el.setAttribute('aria-busy', 'true');
 		el.innerHTML = `
-			<img src="/three.svg" alt="" />
+			<img loading="lazy" decoding="async" src="/three.svg" alt="" />
 			<div class="dots">...</div>
 			<div class="label"></div>
 			<div class="sublabel"></div>

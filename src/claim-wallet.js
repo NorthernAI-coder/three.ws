@@ -327,7 +327,7 @@ function cardHtml({ wallet, profile, coins, summary }, state = {}) {
 
 	const coinsHtml = coins.slice(0, 15).map((c) => {
 		const sym  = esc((c.symbol || c.mint?.slice(0, 6) || '?').toUpperCase());
-		const img  = c.image_uri ? `<img src="${esc(c.image_uri)}" alt="" class="cw-coin-img" style="width:32px;height:32px;border-radius:8px;object-fit:cover" onerror="this.outerHTML='<div class=cw-coin-img>${sym.slice(0,2)}</div>'" loading="lazy" />` : `<div class="cw-coin-img">${sym.slice(0, 2)}</div>`;
+		const img  = c.image_uri ? `<img loading="lazy" decoding="async" src="${esc(c.image_uri)}" alt="" class="cw-coin-img" style="width:32px;height:32px;border-radius:8px;object-fit:cover" onerror="this.outerHTML='<div class=cw-coin-img>${sym.slice(0,2)}</div>'" loading="lazy" />` : `<div class="cw-coin-img">${sym.slice(0, 2)}</div>`;
 		const pnl  = c.pnl_sol != null ? fmtSol(c.pnl_sol) : '—';
 		const pnlCls = c.pnl_sol != null && c.pnl_sol > 0 ? 'pos' : c.pnl_sol != null && c.pnl_sol < 0 ? 'neg' : 'neu';
 		const creator = c.is_creator ? '<span class="cw-creator-badge">creator</span>' : '';

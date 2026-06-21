@@ -219,7 +219,7 @@ function render(data) {
 	content.innerHTML = `
 		<section class="tp-hero">
 			<div class="tp-avatar-wrap">
-				<img class="tp-avatar" src="${escapeHtml(img)}" alt="" onerror="this.src='${identicon(a.id || '?')}'" />
+				<img loading="lazy" decoding="async" class="tp-avatar" src="${escapeHtml(img)}" alt="" onerror="this.src='${identicon(a.id || '?')}'" />
 			</div>
 			<div class="tp-id">
 				<div class="tp-name">${escapeHtml(a.name || 'Unnamed agent')}${verifiedBadge(m.verified)}</div>
@@ -576,7 +576,7 @@ function renderWalletProfile(data) {
 	content.innerHTML = `
 		<section class="tp-hero">
 			<div class="tp-avatar-wrap">
-				<img class="tp-avatar" src="${identicon(addr)}" alt="" />
+				<img loading="lazy" decoding="async" class="tp-avatar" src="${identicon(addr)}" alt="" />
 			</div>
 			<div class="tp-id">
 				<div class="tp-name"><span style="color:${color}">${escapeHtml(a.title || 'Unproven wallet')}</span></div>

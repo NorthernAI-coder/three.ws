@@ -142,7 +142,7 @@ export class SharePanel {
 
 			<div class="share-panel-row" data-section="og">
 				<div class="share-panel-label">OG preview</div>
-				<img class="share-panel-og-img" src="${_esc(ogUrl)}"
+				<img loading="lazy" decoding="async" class="share-panel-og-img" src="${_esc(ogUrl)}"
 					alt="OG preview for ${_esc(name || id)}"
 					style="aspect-ratio:1200/630;">
 				<div class="share-panel-field" style="margin-top:6px;">

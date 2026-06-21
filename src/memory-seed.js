@@ -261,7 +261,7 @@ export function mountSeedWidget(host, opts = {}) {
 		if (gh) {
 			panels.push(`<div class="msw-panel">
 				<div class="msw-panel-head">
-					${gh.avatar_url ? `<img class="msw-panel-av" src="${esc(gh.avatar_url)}" alt="" referrerpolicy="no-referrer"/>` : ''}
+					${gh.avatar_url ? `<img loading="lazy" decoding="async" class="msw-panel-av" src="${esc(gh.avatar_url)}" alt="" referrerpolicy="no-referrer"/>` : ''}
 					<div><div class="msw-panel-name">${esc(gh.name || gh.handle)}</div><div class="msw-panel-sub">@${esc(gh.handle)}</div></div>
 				</div>
 				<div class="msw-panel-stats"><span><b>${gh.public_repos}</b> repos</span><span><b>${gh.followers}</b> followers</span></div>
@@ -271,7 +271,7 @@ export function mountSeedWidget(host, opts = {}) {
 		if (x) {
 			panels.push(`<div class="msw-panel">
 				<div class="msw-panel-head">
-					${x.avatar_url ? `<img class="msw-panel-av" src="${esc(x.avatar_url)}" alt="" referrerpolicy="no-referrer"/>` : ''}
+					${x.avatar_url ? `<img loading="lazy" decoding="async" class="msw-panel-av" src="${esc(x.avatar_url)}" alt="" referrerpolicy="no-referrer"/>` : ''}
 					<div><div class="msw-panel-name">${esc(x.name || x.handle)}</div><div class="msw-panel-sub">@${esc(x.handle)}</div></div>
 				</div>
 				<div class="msw-panel-stats"><span><b>${x.follower_count}</b> followers</span><span><b>${x.tweet_count}</b> posts</span></div>
@@ -281,7 +281,7 @@ export function mountSeedWidget(host, opts = {}) {
 		if (fc) {
 			panels.push(`<div class="msw-panel">
 				<div class="msw-panel-head">
-					${fc.avatar_url ? `<img class="msw-panel-av" src="${esc(fc.avatar_url)}" alt="" referrerpolicy="no-referrer"/>` : ''}
+					${fc.avatar_url ? `<img loading="lazy" decoding="async" class="msw-panel-av" src="${esc(fc.avatar_url)}" alt="" referrerpolicy="no-referrer"/>` : ''}
 					<div><div class="msw-panel-name">${esc(fc.display_name || fc.handle)}</div><div class="msw-panel-sub">@${esc(fc.handle)}</div></div>
 				</div>
 				<div class="msw-panel-stats"><span><b>${fc.follower_count}</b> followers</span></div>

@@ -282,7 +282,7 @@ function renderMemes(agent) {
 	const createCard = `
 		<a class="ch-meme-create" href="/agent/${agent.id}?meme=1" title="Create meme">
 			<div class="ch-meme-create-icon">
-				<img src="${agent.meta?.profile_image_url || agent.avatar_thumbnail_url || ''}"
+				<img loading="lazy" decoding="async" src="${agent.meta?.profile_image_url || agent.avatar_thumbnail_url || ''}"
 				     onerror="this.style.display='none'"
 				     alt="${agent.name}" />
 			</div>

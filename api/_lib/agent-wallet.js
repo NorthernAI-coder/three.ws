@@ -60,9 +60,45 @@ export async function generateAgentWallet() {
 /**
  * Recover an agent wallet's private key from its encrypted form.
  * Only call this when the agent needs to sign a transaction.
+ *
+ * Audit hook (mirrors recoverSolanaAgentKeypair): pass
+ * `audit: { agentId, userId, reason, meta }` and a usage_events row + an
+ * owner-viewable custody event are written fire-and-forget, so every decrypt of
+ * a custodial EVM key is traceable with its reason — parity with the Solana path.
  */
-export async function recoverAgentKey(encryptedKey) {
-	return decrypt(encryptedKey);
+export async function recoverAgentKey(encryptedKey, audit = null) {
+	const pkHex = await decrypt(encryptedKey);
+	if (audit && audit.agentId) {
+		let address = null;
+		try {
+			const { computeAddress } = await import('ethers');
+			address = computeAddress(pkHex);
+		} catch { /* address is decoration on the audit row */ }
+		import('./usage.js')
+			.then(({ recordEvent }) =>
+				recordEvent({
+					userId: audit.userId ?? null,
+					agentId: audit.agentId,
+					kind: 'evm_key_use',
+					tool: audit.reason || 'sign',
+					status: 'ok',
+					meta: { address, ...(audit.meta || {}) },
+				}),
+			)
+			.catch(() => {});
+		import('./agent-trade-guards.js')
+			.then(({ recordCustodyEvent }) =>
+				recordCustodyEvent({
+					agentId: audit.agentId,
+					userId: audit.userId ?? null,
+					eventType: 'key_recover',
+					reason: audit.reason || 'sign',
+					meta: { address, chain: 'evm', ...(audit.meta || {}) },
+				}),
+			)
+			.catch(() => {});
+	}
+	return pkHex;
 }
 
 /**
