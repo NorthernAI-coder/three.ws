@@ -751,6 +751,14 @@
 			<description>Every agent profile now has a “Walk with this agent” action and a live preview that renders that specific agent walking — the walk embed can now load any agent’s avatar by id. And the walking avatar leaves an aesthetic trail behind it (footprints, a glow, or a fading line, your pick) both in the full walk scene and the site-wide companion.</description>
 		</item>
 		<item>
+			<title>x402 comes to VS Code</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-21:x402 comes to VS Code</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>sdk</category>
+			<description>A new VS Code extension brings the x402 bazaar into your editor. Browse and search every paid API and MCP tool across the network, decode any endpoint's payment challenge to see exactly what it charges and on which chain, and pay-per-call with USDC right from a side panel — the amount is shown and confirmed before signing, a spending cap blocks anything over your limit, and the on-chain receipt comes back inline. Your wallet key is stored in the OS keychain, never in files. Developers can also scaffold a new paid endpoint in one command. Built for the people who wire up and call paid services — and they live in their editor.</description>
+		</item>
+		<item>
 			<title>Your avatar now walks anywhere — new Walk hub, leaderboard, and creator analytics</title>
 			<link>https://three.ws/walk</link>
 			<guid isPermaLink="false">2026-06-21:Your avatar now walks anywhere — new Walk hub, leaderboard, and creator analytics</guid>

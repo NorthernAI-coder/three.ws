@@ -3,6 +3,12 @@
 	"entries": [
 		{
 			"date": "2026-06-21",
+			"title": "x402 comes to VS Code",
+			"summary": "A new VS Code extension brings the x402 bazaar into your editor. Browse and search every paid API and MCP tool across the network, decode any endpoint's payment challenge to see exactly what it charges and on which chain, and pay-per-call with USDC right from a side panel — the amount is shown and confirmed before signing, a spending cap blocks anything over your limit, and the on-chain receipt comes back inline. Your wallet key is stored in the OS keychain, never in files. Developers can also scaffold a new paid endpoint in one command. Built for the people who wire up and call paid services — and they live in their editor.",
+			"tags": ["sdk", "feature"]
+		},
+		{
+			"date": "2026-06-21",
 			"title": "Agent Studio: save a draft or step away without losing work",
 			"summary": "Agent Studio now carries a persistent header on every tab with Save draft and Exit. Your agent already saves automatically as you edit — Save draft commits your progress on demand with a clear confirmation, and Exit saves first, then opens your live agent. Move freely between Brain, Memory, Body, Money and Skills from the tab row at any time, so no single section is a dead end.",
 			"tags": ["improvement"],
