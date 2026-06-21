@@ -53,6 +53,21 @@ export const username = z
 	.max(30)
 	.regex(/^[a-zA-Z0-9_-]+$/, 'username must be alphanumeric with _ or -');
 
+// ── public profile fields (PATCH /api/auth/profile) ─────────────────────────
+// All accept '' so the owner can clear a field; the handler normalises '' → null.
+export const bio = z.string().trim().max(280);
+export const profileLocation = z.string().trim().max(80);
+// http(s) URL or empty. Capped well under any column limit; rejects javascript:
+// and other schemes so a stored value can never become an XSS sink when rendered
+// into an href. Empty string clears the field.
+export const httpUrl = z
+	.string()
+	.trim()
+	.max(500)
+	.refine((v) => v === '' || /^https:\/\/[^\s]+$/i.test(v) || /^http:\/\/[^\s]+$/i.test(v), {
+		message: 'must be an http(s) URL',
+	});
+
 export const registerBody = z.object({
 	email,
 	password,

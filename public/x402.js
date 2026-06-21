@@ -172,6 +172,77 @@ function formatAmount(rawAtomics, decimals = 6) {
 	return n.toFixed(2);
 }
 
+// Block-explorer link for a wallet ADDRESS (not a tx) — used by the
+// insufficient-funds state so the buyer can inspect/top up their own wallet.
+function addressExplorerUrl(net, addr) {
+	if (!addr) return null;
+	if (isSolanaNetwork(net)) return `https://solscan.io/account/${addr}`;
+	const base = EVM_NETWORKS[net]?.explorer; // e.g. https://basescan.org/tx/
+	return base ? `${base.replace(/tx\/?$/, '')}address/${addr}` : null;
+}
+
+// ── Pre-flight balance guard (UX, not security) ──────────────────────────────
+// Spares the buyer from signing a transaction that can only fail at settle.
+// Fail-open: a balance that can't be read (flaky RPC / provider quirk) returns
+// null and the payment proceeds unchanged — only a POSITIVE shortfall blocks.
+function solanaRpcUrl() {
+	const meta = typeof document !== 'undefined' && document.querySelector('meta[name="solana-rpc-url"]');
+	if (meta?.content) return meta.content;
+	if (typeof window !== 'undefined' && window.SOLANA_RPC_URL) return window.SOLANA_RPC_URL;
+	return 'https://api.mainnet-beta.solana.com';
+}
+async function readSolanaBalanceAtomic(owner, mint) {
+	try {
+		const res = await fetch(solanaRpcUrl(), {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({
+				jsonrpc: '2.0', id: 1, method: 'getTokenAccountsByOwner',
+				params: [owner, { mint }, { encoding: 'jsonParsed' }],
+			}),
+		});
+		if (!res.ok) return null;
+		const data = await res.json();
+		let total = 0n;
+		for (const acc of data?.result?.value || []) {
+			const amt = acc?.account?.data?.parsed?.info?.tokenAmount?.amount;
+			if (amt != null) total += BigInt(amt);
+		}
+		return total;
+	} catch (_) { return null; }
+}
+async function readEvmBalanceAtomic(provider, token, owner) {
+	try {
+		const data = '0x70a08231' + String(owner).toLowerCase().replace(/^0x/, '').padStart(64, '0');
+		const hex = await provider.request({ method: 'eth_call', params: [{ to: token, data }, 'latest'] });
+		if (!hex || hex === '0x') return null;
+		return BigInt(hex);
+	} catch (_) { return null; }
+}
+// Throws a structured insufficient-funds error (code + .insufficient) when a
+// balance is positively read and short; resolves otherwise.
+async function assertBalance({ accept, owner, provider }) {
+	const required = BigInt(accept.amount);
+	let balance = null;
+	if (isSolanaNetwork(accept.network)) balance = await readSolanaBalanceAtomic(owner, accept.asset);
+	else if (provider) balance = await readEvmBalanceAtomic(provider, accept.asset, owner);
+	if (balance === null || balance >= required) return;
+	const decimals = Number(accept.extra?.decimals ?? 6);
+	const symbol = accept.extra?.name || 'USDC';
+	const shortfall = required - balance;
+	const err = new Error(
+		`Not enough ${symbol} — you need ${formatAmount(required, decimals)} ${symbol} but your wallet holds ${formatAmount(balance, decimals)} ${symbol}.`,
+	);
+	err.code = 'insufficient_funds';
+	err.insufficient = {
+		symbol, network: accept.network, owner,
+		required: formatAmount(required, decimals),
+		balance: formatAmount(balance, decimals),
+		shortfall: formatAmount(shortfall, decimals),
+	};
+	throw err;
+}
+
 function b64encode(obj) {
 	const json = JSON.stringify(obj);
 	if (typeof Buffer !== 'undefined') return Buffer.from(json, 'utf8').toString('base64');
@@ -1091,6 +1162,8 @@ class CheckoutModal {
 				return;
 			}
 			this.spendReservation = capCheck.reservation || null;
+			this.renderProgress('authorize', { text: 'Checking your balance…' });
+			await assertBalance({ accept, owner: payerAddress });
 			this.renderProgress('authorize', { text: `Building Solana payment for ${payerAddress.slice(0, 6)}…${payerAddress.slice(-4)}` });
 
 			// Only attach the donation when the buyer actually saw and kept the

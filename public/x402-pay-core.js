@@ -129,6 +129,128 @@ export function friendlyError(err) {
 	return msg.slice(0, 240);
 }
 
+// ───────────────────────────────────────────── pre-flight balance guard ───────
+//
+// The balance check is a UX guard, NOT a security gate: it spares the buyer from
+// signing a transaction that can only fail at settle with an opaque error, and
+// lets the UI offer "add funds" instead. It is deliberately fail-open — when the
+// balance can't be read (flaky RPC, provider quirk) it returns null and the
+// payment proceeds exactly as before. Only a POSITIVE shortfall blocks signing.
+
+// Render an atomic token amount as a trimmed decimal string (BigInt-safe — token
+// amounts can exceed Number's safe integer range).
+export function formatTokenAmount(atomic, decimals = 6) {
+	const neg = BigInt(atomic) < 0n;
+	const abs = neg ? -BigInt(atomic) : BigInt(atomic);
+	const base = 10n ** BigInt(decimals);
+	const whole = abs / base;
+	const frac = (abs % base).toString().padStart(decimals, '0').replace(/0+$/, '');
+	return `${neg ? '-' : ''}${whole}${frac ? `.${frac}` : ''}`;
+}
+
+// Structured insufficient-funds error so the UI can render an actionable state
+// (required / current / shortfall + an add-funds CTA) instead of a raw string.
+export function insufficientFundsError({ required, balance, accept }) {
+	const decimals = Number(accept?.extra?.decimals ?? 6);
+	const symbol = accept?.extra?.name || 'USDC';
+	const req = BigInt(required);
+	const bal = BigInt(balance);
+	const shortfall = req > bal ? req - bal : 0n;
+	const err = new Error(
+		`Not enough ${symbol} — you need ${formatTokenAmount(req, decimals)} ${symbol} but your wallet holds ${formatTokenAmount(bal, decimals)} ${symbol}.`,
+	);
+	err.code = 'insufficient_funds';
+	err.insufficient = {
+		symbol,
+		decimals,
+		network: accept?.network || null,
+		asset: accept?.asset || null,
+		required: req.toString(),
+		requiredFormatted: formatTokenAmount(req, decimals),
+		balance: bal.toString(),
+		balanceFormatted: formatTokenAmount(bal, decimals),
+		shortfall: shortfall.toString(),
+		shortfallFormatted: formatTokenAmount(shortfall, decimals),
+	};
+	return err;
+}
+
+// RPC endpoint for the Solana balance read. Overridable via meta tag / global so
+// a deployment can point at its own (Helius) RPC instead of the rate-limited
+// public one; mirrors the WalletConnect project-id resolution.
+function solanaRpcUrl() {
+	if (typeof document !== 'undefined') {
+		const meta = document.querySelector('meta[name="solana-rpc-url"]');
+		if (meta?.content) return meta.content;
+	}
+	if (typeof window !== 'undefined' && window.SOLANA_RPC_URL) return window.SOLANA_RPC_URL;
+	return 'https://api.mainnet-beta.solana.com';
+}
+
+// Sum the owner's SPL balance for `mint`. Returns a BigInt of atomic units, or
+// null when the read fails (→ caller proceeds without blocking).
+export async function readSolanaTokenBalance({ owner, mint, rpcUrl }) {
+	try {
+		const res = await fetch(rpcUrl || solanaRpcUrl(), {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({
+				jsonrpc: '2.0',
+				id: 1,
+				method: 'getTokenAccountsByOwner',
+				params: [owner, { mint }, { encoding: 'jsonParsed' }],
+			}),
+		});
+		if (!res.ok) return null;
+		const data = await res.json();
+		const accounts = data?.result?.value || [];
+		let total = 0n;
+		for (const acc of accounts) {
+			const amt = acc?.account?.data?.parsed?.info?.tokenAmount?.amount;
+			if (amt != null) total += BigInt(amt);
+		}
+		return total;
+	} catch {
+		return null;
+	}
+}
+
+// ERC-20 balanceOf(owner) calldata: selector 0x70a08231 + 32-byte left-padded owner.
+export function erc20BalanceOfCalldata(owner) {
+	return '0x70a08231' + String(owner).toLowerCase().replace(/^0x/, '').padStart(64, '0');
+}
+
+// Read an ERC-20 balance via the connected wallet provider (it IS the RPC for the
+// current chain — no external endpoint needed). Returns a BigInt, or null on failure.
+export async function readEvmTokenBalance({ provider, token, owner }) {
+	try {
+		const hex = await provider.request({
+			method: 'eth_call',
+			params: [{ to: token, data: erc20BalanceOfCalldata(owner) }, 'latest'],
+		});
+		if (!hex || hex === '0x') return null;
+		return BigInt(hex);
+	} catch {
+		return null;
+	}
+}
+
+// Throw insufficientFundsError ONLY when a balance was positively read and falls
+// short of accept.amount. A null read (inconclusive) never blocks the payment.
+export async function assertSufficientBalance({ accept, owner, provider, rpcUrl }) {
+	const required = BigInt(accept.amount);
+	let balance = null;
+	if (isSolanaNetwork(accept.network)) {
+		balance = await readSolanaTokenBalance({ owner, mint: accept.asset, rpcUrl });
+	} else if (isEvmNetwork(accept.network) && provider) {
+		balance = await readEvmTokenBalance({ provider, token: accept.asset, owner });
+	}
+	if (balance !== null && balance < required) {
+		throw insufficientFundsError({ required, balance, accept });
+	}
+	return balance;
+}
+
 // ──────────────────────────────────────────── payment payload builders ────────
 
 // Body for POST /api/x402-checkout?action=prepare. The server returns a
@@ -409,6 +531,10 @@ export async function paySolana({ accept, resourceUrl, walletName, onStatus, ori
 	const payerAddress = (conn?.publicKey || provider.publicKey)?.toString();
 	if (!payerAddress) throw new Error(`${label} did not return a public key`);
 
+	// Pre-flight: don't make the buyer sign a doomed transaction (fail-open).
+	onStatus?.('building', 'Checking your balance…');
+	await assertSufficientBalance({ accept, owner: payerAddress });
+
 	onStatus?.('building', 'Building payment…');
 	const prep = await postJson(
 		`${apiOrigin}/api/x402-checkout?action=prepare`,
@@ -507,6 +633,10 @@ export async function payEvm({ accept, resourceUrl, walletName, onStatus }) {
 		}
 	}
 
+	// Pre-flight: catch an underfunded wallet before the signature prompt (fail-open).
+	onStatus?.('signing', 'Checking your balance…');
+	await assertSufficientBalance({ accept, owner: payerAddress, provider: eth });
+
 	onStatus?.('signing', `Authorize payment in ${label}…`);
 	const { typedData, authorization } = buildEip3009TypedData({
 		accept,
@@ -556,5 +686,10 @@ if (typeof window !== 'undefined') {
 		explorerUrl,
 		getSolanaProvider,
 		getEvmProvider,
+		assertSufficientBalance,
+		readSolanaTokenBalance,
+		readEvmTokenBalance,
+		insufficientFundsError,
+		formatTokenAmount,
 	});
 }

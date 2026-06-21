@@ -67,6 +67,7 @@ import {
 	registerInFlight,
 	acquireBlockingSlot,
 	providerSubmitAllowed,
+	dailyPaidAllowed,
 	SCALE_LIMITS,
 } from './_lib/forge-scale.js';
 import { env as _env } from './_lib/env.js';
@@ -559,6 +560,20 @@ async function startJob(req, res) {
 					globalRl,
 					'Paid 3D generation is at capacity right now — switch to a free engine (NVIDIA or Hugging Face), or try again shortly.',
 				);
+			}
+			// Per-identity daily ceiling: closes the rotating-IP abuse path the per-IP
+			// hourly cap and the global hourly cap leave open (one actor under every
+			// per-request limit can still drain paid spend over a day). Keyed by the
+			// forge client id. Free and BYOK lanes are never counted.
+			const daily = await dailyPaidAllowed(clientKeyFrom(req), {
+				limit: SCALE_LIMITS.paidDailyPerClient,
+			});
+			if (!daily.ok) {
+				return json(res, 429, {
+					error: 'daily_limit_reached',
+					message:
+						'You’ve reached today’s limit for paid generations. Free engines (NVIDIA, Hugging Face) stay open, or try again tomorrow.',
+				});
 			}
 		}
 	}

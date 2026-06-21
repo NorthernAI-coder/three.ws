@@ -32,6 +32,30 @@ create unique index if not exists users_privy_did_unique on users(privy_did) whe
 -- Case-insensitive username lookup on the login/signup hot path (auth/[action].js).
 create index if not exists users_display_name_lower on users(lower(display_name)) where deleted_at is null;
 
+-- Public social-profile fields. Surfaced on /u/<username> and editable by the
+-- owner via PATCH /api/auth/profile. All nullable — a profile with none set
+-- still renders cleanly from the user's avatars/agents/coins.
+alter table users add column if not exists bio text;
+alter table users add column if not exists website text;
+alter table users add column if not exists location text;
+alter table users add column if not exists banner_url text;
+
+-- ── user_follows — the social graph ──────────────────────────────────────────
+-- A directed follow edge: follower_id follows following_id. Composite PK makes
+-- a follow idempotent (one edge per pair) and the toggle a single upsert/delete.
+-- The check blocks self-follows at the storage layer. Two covering indexes back
+-- the hot reads: "who follows X" (follower list + count) and "who X follows"
+-- (following list + count, and the feed fan-out join).
+create table if not exists user_follows (
+    follower_id   uuid not null references users(id) on delete cascade,
+    following_id  uuid not null references users(id) on delete cascade,
+    created_at    timestamptz not null default now(),
+    primary key (follower_id, following_id),
+    check (follower_id <> following_id)
+);
+create index if not exists user_follows_following on user_follows(following_id, created_at desc);
+create index if not exists user_follows_follower  on user_follows(follower_id, created_at desc);
+
 -- SAML SSO subject link (set when a user signs in via an enterprise IdP).
 alter table users add column if not exists saml_name_id text;
 alter table users add column if not exists saml_issuer text;

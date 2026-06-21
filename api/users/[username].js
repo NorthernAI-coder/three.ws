@@ -16,7 +16,8 @@ export default wrap(async (req, res) => {
 	if (!rl.success) return rateLimited(res, rl);
 
 	const [user] = await sql`
-		select id, display_name, username, created_at, wallet_address
+		select id, display_name, username, created_at, wallet_address,
+		       bio, website, location, avatar_url, banner_url
 		from users
 		where lower(username) = ${username} and deleted_at is null
 		limit 1
@@ -143,7 +144,9 @@ export default wrap(async (req, res) => {
 			    where a.user_id = ${user.id} and a.is_public = true and a.deleted_at is null
 			      and m.is_public = true and (m.expires_at is null or m.expires_at > now())) as memories_count,
 			  (select coalesce(sum(view_count), 0)::bigint from widgets
-			    where user_id = ${user.id} and is_public = true and deleted_at is null) as total_widget_views
+			    where user_id = ${user.id} and is_public = true and deleted_at is null) as total_widget_views,
+			  (select count(*)::int from user_follows where following_id = ${user.id}) as followers_count,
+			  (select count(*)::int from user_follows where follower_id = ${user.id}) as following_count
 		`,
 	]);
 
@@ -262,15 +265,23 @@ export default wrap(async (req, res) => {
 		coins: statsRow?.coins_count ?? 0,
 		memories: statsRow?.memories_count ?? 0,
 		widget_views: Number(statsRow?.total_widget_views ?? 0),
+		followers: statsRow?.followers_count ?? 0,
+		following: statsRow?.following_count ?? 0,
 	};
 
 	res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');
 	return json(res, 200, {
 		user: {
+			id: user.id,
 			username: user.username,
 			display_name: user.display_name || user.username,
 			wallet_address: user.wallet_address,
 			created_at: user.created_at,
+			bio: user.bio || null,
+			website: user.website || null,
+			location: user.location || null,
+			avatar_url: user.avatar_url || null,
+			banner_url: user.banner_url || null,
 		},
 		stats,
 		social,

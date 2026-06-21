@@ -47,6 +47,14 @@
 			<description>The Discover grid and the published-agents (Characters) feed now serve from the edge cache, so a surge of visitors is absorbed at the CDN instead of re-running a database scan on every request. Pages stay fast and consistent even during a rush, and a stale-while-revalidate window keeps them warm between refreshes.</description>
 		</item>
 		<item>
+			<title>Every Forge quality tier now runs on free engines</title>
+			<link>https://three.ws/forge</link>
+			<guid isPermaLink="false">2026-06-21:Every Forge quality tier now runs on free engines</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>Forge's quality tiers — Draft, Standard, and High — all generate on zero-cost engines now: Draft and Standard on the fast free NVIDIA lane, and High on the higher-fidelity, fully textured free HuggingFace engine. Higher tiers buy you genuinely better geometry and textures, not a different bill behind the scenes. Photo-to-3D at any tier routes straight to a free engine too, so a generation never quietly falls back to a paid lane. The High tier stays a $THREE holder perk (or a one-off pay-per-use) — that's the price of premium quality, not a cost we're passing through.</description>
+		</item>
+		<item>
 			<title>Forge hardened for a traffic surge — faster loads, protected free lanes</title>
 			<link>https://three.ws/forge</link>
 			<guid isPermaLink="false">2026-06-21:Forge hardened for a traffic surge — faster loads, protected free lanes</guid>
@@ -60,7 +68,15 @@
 			<guid isPermaLink="false">2026-06-21:Forge scales further — duplicate generations collapse, free lane protected, prices shown up front</guid>
 			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
 			<category>improvement</category>
-			<description>More headroom for the influx. Forge now recognizes when the same prompt or photo set is already generating and quietly hands everyone the same result instead of paying to build it twice — so a viral prompt or a double-click no longer multiplies cost or wait. The free Hugging Face engine is now capped to a safe number of simultaneous jobs so a rush can't tie up the servers and stall everyone; over the cap, your generation cleanly falls back to another engine instead of hanging. The composer now shows the real price before you generate — 'Free' for Draft and Standard, the exact dollar amount (or 'Free, you hold $THREE') for High, and 'billed to your own key' for bring-your-own-key engines — so there are no surprises. Finally, the 3D viewer shows a loading shimmer instead of a dark void while your model paints in.</description>
+			<description>More headroom for the influx. Forge now recognizes when the same prompt or photo set is already generating and quietly hands everyone the same result instead of paying to build it twice — so a viral prompt or a double-click no longer multiplies cost or wait. The free Hugging Face engine is now capped to a safe number of simultaneous jobs so a rush can't tie up the servers and stall everyone; over the cap, your generation cleanly falls back to another engine instead of hanging. The composer now shows the real price before you generate — 'Free' for Draft and Standard, the exact dollar amount (or 'Free, you hold $THREE') for High, and 'billed to your own key' for bring-your-own-key engines — so there are no surprises. The engine picker also gained a small legend explaining the badges at a glance — which engines are free, which use your own key, and which are busy or unavailable. And the 3D viewer now shows a loading shimmer instead of a dark void while your model paints in.</description>
+		</item>
+		<item>
+			<title>Forge stays calm under a crowd: live countdown, graceful high-demand handling, one-tap model retry</title>
+			<link>https://three.ws/forge</link>
+			<guid isPermaLink="false">2026-06-21:Forge stays calm under a crowd: live countdown, graceful high-demand handling, one-tap model retry</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>Generating a 3D model now feels steadier when lots of people are forging at once. The progress meter shows a real &quot;~Ns left&quot; countdown instead of a static estimate, so you can see it moving. If the free engines are momentarily at capacity during a rush, you get a friendly &quot;high demand&quot; notice with a live retry countdown that re-arms itself the moment a slot frees up — your spot in line, not a dead-end error — and you can keep refining a model you already have while you wait. And if a finished model ever fails to paint because of a brief network blip, a new Retry button reloads it in place instead of forcing a download. Behind the scenes, generation success rate and latency are now tracked so we can catch slowdowns before they reach you.</description>
 		</item>
 		<item>
 			<title>forge_avatar — one call turns a prompt into a rigged, animation-ready avatar</title>

@@ -169,7 +169,33 @@ export const SCALE_LIMITS = Object.freeze({
 	// Platform Replicate submits per 10s window before we shed to the free lane.
 	replicateSubmitLimit: intEnv('FORGE_REPLICATE_SUBMIT_LIMIT', 40),
 	replicateSubmitWindowS: 10,
+	// Max PLATFORM-keyed paid generations one identity (browser client) may run per
+	// UTC day — the layer per-IP and the global hourly cap don't cover.
+	paidDailyPerClient: intEnv('FORGE_PAID_DAILY_CAP', 60),
 });
+
+// ── Per-identity daily paid cap ───────────────────────────────────────────────
+// Bounds how many PLATFORM-keyed paid generations a single identity can run per UTC
+// day, on top of the per-IP hourly limiter and the platform-wide hourly ceiling.
+// Closes the rotating-IP / multi-session abuse path: one actor can stay under every
+// per-request cap yet drain paid spend across a day. Keyed by the forge client id
+// (the identity the rest of forge already scopes by). Counts attempts — a protective
+// daily ceiling is allowed to be slightly conservative. Fail-open without Redis.
+
+const DAILY_PREFIX = 'fc:daily:';
+
+export async function dailyPaidAllowed(identity, { limit }) {
+	if (!redis || !identity) return { ok: true, used: 0, limit };
+	const day = Math.floor(Date.now() / 86_400_000); // UTC day index
+	const key = `${DAILY_PREFIX}${identity}:${day}`;
+	try {
+		const used = await redis.incr(key);
+		if (used === 1) await redis.expire(key, 86_400 + 3600);
+		return { ok: used <= limit, used, limit };
+	} catch {
+		return { ok: true, used: 0, limit };
+	}
+}
 
 // ── Shared circuit breaker ────────────────────────────────────────────────────
 // A consecutive-failure breaker whose state lives in Redis so EVERY serverless
