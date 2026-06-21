@@ -997,8 +997,17 @@ const handleReconstruct = wrap(async (req, res) => {
 			if (err?.code === 'provider_unreachable') {
 				return error(res, 503, 'txt2img_unreachable', err.message);
 			}
-			if (err?.providerStatus === 402) {
-				return error(res, 402, 'txt2img_billing', err.message || 'image provider billing error');
+			if (err?.code === 'billing' || err?.providerStatus === 402) {
+				// Never relay the provider's raw "purchase credit at …/billing"
+				// copy — even the error_description must be buyer-safe, since a
+				// client may surface it verbatim. textToImage already logged the
+				// raw detail (providerDetail) for operators.
+				return error(
+					res,
+					402,
+					'txt2img_billing',
+					'the image engine is temporarily unavailable — please try again later',
+				);
 			}
 			return error(
 				res,

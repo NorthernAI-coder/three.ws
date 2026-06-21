@@ -4,8 +4,8 @@
 	<script>/* three.ws theme boot — no-flash; runtime in /theme-switcher.js */(function(){try{var m=localStorage.getItem('twx_theme');var l=m==='auto'?(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches):m==='light';document.documentElement.setAttribute('data-theme',l?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();</script>
 	<meta charset="utf-8" />
 	<meta name="viewport" content="width=device-width,initial-scale=1" />
-	<title>three.ws — The 3D Agent Layer of the Internet</title>
-	<meta name="description" content="Make a 3D AI agent from a selfie in 60 seconds. Drop one HTML tag to embed it on any website. Agents think on IBM watsonx.ai (Granite); optionally charge per chat with built-in micropayments." />
+	<title data-i18n="home.meta_title">three.ws — The 3D Agent Layer of the Internet</title>
+	<meta name="description" data-i18n-attr="content:home.meta_desc" content="Make a 3D AI agent from a selfie in 60 seconds. Drop one HTML tag to embed it on any website. Agents think on IBM watsonx.ai (Granite); optionally charge per chat with built-in micropayments." />
 	<link rel="canonical" href="https://three.ws/" />
 	<link rel="alternate" type="application/rss+xml" title="three.ws announcements" href="https://three.ws/rss/announcements.xml" />
 	<meta name="theme-color" content="#050505" />
@@ -2461,22 +2461,22 @@
 <main id="main-content" tabindex="-1">
 <section class="hero">
 	<div class="hero-text">
-		<a class="eyebrow" href="/forge" aria-label="New: Text to 3D is live — open the Forge">New · Text&nbsp;→&nbsp;3D is live — type a prompt, get a model <span class="eyebrow-arrow" aria-hidden="true">→</span></a>
-		<h1 class="hero-h">
+		<a class="eyebrow" href="/forge" data-i18n-html="home.eyebrow" data-i18n-attr="aria-label:home.eyebrow_aria" aria-label="New: Text to 3D is live — open the Forge">New · Text&nbsp;→&nbsp;3D is live — type a prompt, get a model <span class="eyebrow-arrow" aria-hidden="true">→</span></a>
+		<h1 class="hero-h" data-i18n-html="home.hero_h">
 			The 3D agent<br/>
 			layer of the<br/>
 			<em>internet.</em>
 		</h1>
 		<ul class="hero-bullets">
-			<li><strong>Create</strong> a 3D AI agent from a text prompt or selfie in about a minute</li>
-			<li><strong>Embed</strong> it on any website with two lines of HTML</li>
-			<li><strong>Earn</strong> USDC per chat with x402 micropayments</li>
+			<li data-i18n-html="home.bullet_create"><strong>Create</strong> a 3D AI agent from a text prompt or selfie in about a minute</li>
+			<li data-i18n-html="home.bullet_embed"><strong>Embed</strong> it on any website with two lines of HTML</li>
+			<li data-i18n-html="home.bullet_earn"><strong>Earn</strong> USDC per chat with x402 micropayments</li>
 		</ul>
 		<div class="hero-cta-row">
-			<a class="btn btn--primary" href="/create" data-cta="build_agent" data-cta-loc="hero">Build your agent <span class="arrow">→</span></a>
-			<a class="btn btn--forge" href="/forge" data-cta="text_to_3d" data-cta-loc="hero"><span class="btn-forge-dot" aria-hidden="true"></span>Text → 3D</a>
-			<a class="btn" href="#embed" data-cta="see_embed" data-cta-loc="hero">See the embed</a>
-			<a class="btn" href="/tour" id="hero-tour-start" data-cta="guided_tour" data-cta-loc="hero"><span aria-hidden="true">▶</span>&nbsp;Take the tour</a>
+			<a class="btn btn--primary" href="/create" data-cta="build_agent" data-cta-loc="hero" data-i18n-html="home.cta_build">Build your agent <span class="arrow">→</span></a>
+			<a class="btn btn--forge" href="/forge" data-cta="text_to_3d" data-cta-loc="hero"><span class="btn-forge-dot" aria-hidden="true"></span><span data-i18n="home.cta_text3d">Text → 3D</span></a>
+			<a class="btn" href="#embed" data-cta="see_embed" data-cta-loc="hero" data-i18n="home.cta_embed">See the embed</a>
+			<a class="btn" href="/tour" id="hero-tour-start" data-cta="guided_tour" data-cta-loc="hero"><span aria-hidden="true">▶</span>&nbsp;<span data-i18n="common.take_tour">Take the tour</span></a>
 		</div>
 	</div>
 	<div class="hero-stage" id="hero-stage">

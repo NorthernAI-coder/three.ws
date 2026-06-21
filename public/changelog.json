@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-21T11:26:39.172Z",
+	"generated_at": "2026-06-21T11:27:12.278Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -179,6 +179,16 @@
 			"tags": [
 				"infra",
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "update",
+			"title": "Describe-it-to-3D no longer shows a confusing third-party billing error",
+			"summary": "When you turn a text prompt into a 3D avatar, the first step paints a reference image — and that runs on the free NVIDIA lane by default. If that lane was briefly busy, the request could fall through to a paid backstop that had run out of credit, and the backstop's raw \"go purchase credit\" message leaked onto your screen. That's gone: any billing or out-of-credit hiccup on a backstop now shows a clean \"temporarily unavailable — try again later,\" the free NVIDIA lane stays the primary path, and a third party's billing page never reaches you.",
+			"link": "/create/prompt",
+			"tags": [
+				"fix"
 			]
 		},
 		{

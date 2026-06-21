@@ -396,7 +396,7 @@ function renderWalkEmptyState(host) {
 			<path d="M5.5 20a6.5 6.5 0 0113 0"/>
 			<path d="M19 4v4M21 6h-4"/>
 		</svg>`;
-	btn.onclick = () => { location.href = '/avatar-edit'; };
+	btn.onclick = () => { location.href = '/create'; };
 }
 
 // Error: avatar lookup failed (network). Offer a retry rather than a dead frame.
@@ -534,7 +534,7 @@ function toggleWalkMenu(btn) {
 		</div>
 		<div style="padding:6px 0">
 			<a href="/walk/app?avatar=${encodeURIComponent(_walkAvatar.id)}" class="dn-user-menu-item" role="menuitem">Open Walk</a>
-			<a href="/avatar-edit?id=${encodeURIComponent(_walkAvatar.id)}" class="dn-user-menu-item" role="menuitem">Edit Avatar</a>
+			<a href="/avatars/${encodeURIComponent(_walkAvatar.id)}/edit" class="dn-user-menu-item" role="menuitem">Edit Avatar</a>
 		</div>
 	`;
 

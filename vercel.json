@@ -2601,6 +2601,14 @@
 			"dest": "/avatar-edit.html?id=$1"
 		},
 		{
+			"src": "/avatar-edit",
+			"dest": "/avatar-edit.html"
+		},
+		{
+			"src": "/avatar-edit/",
+			"dest": "/avatar-edit.html"
+		},
+		{
 			"src": "/agent/([^/]+)/embed",
 			"headers": {
 				"content-security-policy": "frame-ancestors *; base-uri 'self'; object-src 'none'; report-uri /api/client-errors",
