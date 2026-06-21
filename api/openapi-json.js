@@ -37,7 +37,7 @@ export default wrap(async (req, res) => {
 				description:
 					'API for 3D avatar management, AI agent identity, and MCP tool access.',
 				contact: {
-					email: 'claude@three.ws',
+					email: 'support@three.ws',
 				},
 				'x-guidance':
 					'Use POST /api/mcp to interact with the MCP server. Send a JSON-RPC 2.0 request body. ' +
