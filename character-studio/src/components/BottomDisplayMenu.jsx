@@ -1,7 +1,6 @@
 import React, {useEffect,useState,useContext} from "react"
 import styles from "./BottomDisplayMenu.module.css"
 import { SceneContext } from "../context/SceneContext"
-import { ViewContext } from "../context/ViewContext"
 import randomizeIcon from "../images/randomize-green.png"
 import wireframeIcon from "../images/wireframe.png"
 import solidIcon from "../images/solid.png"
@@ -15,7 +14,6 @@ import fastBackwardIcon from "../images/fast-backward.png"
 
 export default function BottomDisplayMenu({loadedAnimationName, randomize}){
   const {
-    characterManager,
     toggleDebugMode,
     debugMode,
     lookAtManager,

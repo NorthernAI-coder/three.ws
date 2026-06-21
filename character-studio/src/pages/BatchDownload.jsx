@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState } from "react"
+import React, { useContext, useState } from "react"
 import styles from "./Optimizer.module.css"
 import { ViewMode, ViewContext } from "../context/ViewContext"
 import { SceneContext } from "../context/SceneContext"
@@ -8,9 +8,7 @@ import { SoundContext } from "../context/SoundContext"
 import { AudioContext } from "../context/AudioContext"
 import FileDropComponent from "../components/FileDropComponent"
 import BottomDisplayMenu from "../components/BottomDisplayMenu"
-import { getFileNameWithoutExtension, disposeVRM, getAtlasSize } from "../library/utils"
-import { loadVRM, addVRMToScene } from "../library/load-utils"
-import { downloadVRM } from "../library/download-utils"
+import { getFileNameWithoutExtension, getAtlasSize } from "../library/utils"
 import JsonAttributes from "../components/JsonAttributes"
 import ModelInformation from "../components/ModelInformation"
 import MergeOptions from "../components/MergeOptions"
@@ -30,7 +28,7 @@ function BatchDownload() {
   } = React.useContext(SceneContext)
   
   const [model, setModel] = useState(null);
-  const [nameVRM, setNameVRM] = useState("");
+  const [, setNameVRM] = useState("");
   const [loadedAnimationName, setLoadedAnimationName] = React.useState("");
 
   const { playSound } = React.useContext(SoundContext)

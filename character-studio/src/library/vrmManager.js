@@ -27,7 +27,7 @@ export class VRMManager {
      * @param {Array} colors - Array of colors
      * @returns {Object|null} The set up VRM model or null if setup fails
      */
-    setupVRM(m, collectionID, item, traitID, textures, colors) {
+    setupVRM(m, collectionID, item, traitID) {
         let vrm = m.userData.vrm;
         if (m.userData.vrm == null) {
             console.error("No valid VRM was provided for " + traitID + " trait, skipping file.");
@@ -101,7 +101,7 @@ export class VRMManager {
      */
     _getColliderGroups(vrm) {
         const colliderGroups = [];
-        Object.entries(this.vrmModels).map(([_, entry]) => {
+        Object.entries(this.vrmModels).map(([, entry]) => {
             const nodes = getNodesWithColliders(entry.vrm);
             if (nodes.length === 0) return;
 

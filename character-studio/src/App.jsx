@@ -1,7 +1,6 @@
 import React, { Fragment, useContext, useEffect, useState } from "react"
 import * as THREE from "three"
 
-import { LanguageContext } from "./context/LanguageContext"
 import { SceneContext } from "./context/SceneContext"
 import { ViewContext, ViewMode } from "./context/ViewContext"
 import { EffectManager } from "./library/effectManager"
@@ -29,11 +28,6 @@ const assetImportPath = import.meta.env.VITE_ASSET_PATH + "/manifest.json"
 
 const cameraDistanceOther = 6
 const centerCameraTargetOther = new THREE.Vector3(0, 0.8, 0)
-const centerCameraPositionOther = new THREE.Vector3(
-  -2.2367993753934425,
-  1.1512971720174363,
-  2.2612065299409223,
-) // note: get from `moveCamera({ targetY: 0.8, distance: 3.2 })`
 async function fetchManifest(location) {
   try {
     const response = await fetch(location);
@@ -202,9 +196,6 @@ export default function App() {
   useEffect(() => {
     setManifest(initialManifest)
   }, [initialManifest])
-
-  // Translate hook
-  const {t} = useContext(LanguageContext);
 
   return (
     <Fragment>

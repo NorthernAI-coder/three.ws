@@ -53,7 +53,8 @@ function Save() {
   const handleFilesDrop = async(files) => {
     const file = files[0];
     if (file && file.name.toLowerCase().endsWith('.json')) {
-    } 
+      /* noop */
+    }
   };
   const onConfirmPurchase = () =>{
     console.log("confirm purchase!!")
@@ -64,7 +65,7 @@ function Save() {
         setConfirmDialogWindow(true);
         setDialogMessage("Purchase successful");
       })
-      .catch((e)=>{
+      .catch(()=>{
         setConfirmDialogWindow(true);
         setDialogMessage("An error occurred when trying to purchase assets. Please try again.");
       })

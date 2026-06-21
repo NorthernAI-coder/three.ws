@@ -1,8 +1,7 @@
-import React, { useContext, useState, useEffect } from "react"
+import React, { useState, useEffect } from "react"
 import styles from "./FloatingMenu.module.css"
 import MenuTitle from "./MenuTitle"
 import { SceneContext } from "../context/SceneContext";
-import Slider from "./Slider";
 import Select from 'react-select';
 
 const maxResolution = 4096;

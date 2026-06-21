@@ -7,14 +7,11 @@ import { getGLBBlobData } from "../library/download-utils"
 
 import styles from "./ExportMenu.module.css"
 import { local } from "../library/store"
-import { LanguageContext } from "../context/LanguageContext"
 
 const defaultName = "Anon"
 
 export const ExportMenu = ({currentPrice, onPurchaseClick}) => {
 
-  // Translate hook
-  const { t } = useContext(LanguageContext);
   const [name] = React.useState(localStorage.getItem("name") || defaultName)
   const [saving, setSaving] = React.useState(false)
   const { model, characterManager } = useContext(SceneContext)

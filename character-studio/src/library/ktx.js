@@ -62,11 +62,11 @@ class KtxDecoder {
         if (ktexture.needsTranscoding) {
             let format;
 
-            let astcSupported = false;
-            let etcSupported = false;
-            let dxtSupported = false;
-            let bptcSupported = false;
-            let pvrtcSupported = false;
+            let astcSupported;
+            let etcSupported;
+            let dxtSupported;
+            let bptcSupported;
+            let pvrtcSupported;
 
             astcSupported = !!this.gl.getExtension('WEBGL_compressed_texture_astc');
             etcSupported = !!this.gl.getExtension('WEBGL_compressed_texture_etc1');
@@ -148,7 +148,7 @@ class KtxDecoder {
     async compress(raw_data, width, height, comps, options = {}) {
         const texture = new this.libktx.ktxTexture(raw_data, width, height, comps, options.srgb);
 
-        if (!options.hasOwnProperty('basisu_options')) {
+        if (!Object.prototype.hasOwnProperty.call(options, 'basisu_options')) {
             const basisu_options = new this.libktx.ktxBasisParams();
             basisu_options.uastc = false;
             basisu_options.noSSE = true;
@@ -157,10 +157,10 @@ class KtxDecoder {
             basisu_options.compressionLevel = 2;
             options.basisu_options = basisu_options;
         }
-        if (!options.hasOwnProperty('compression_level')) {
+        if (!Object.prototype.hasOwnProperty.call(options, 'compression_level')) {
             options.compression_level = 18;
         }
-        if (!options.hasOwnProperty('supercmp_scheme')) {
+        if (!Object.prototype.hasOwnProperty.call(options, 'supercmp_scheme')) {
             options.supercmp_scheme = this.libktx.SupercmpScheme.NONE;
         }   
         console.log(options);

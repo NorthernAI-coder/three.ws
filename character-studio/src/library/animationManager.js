@@ -1,7 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader"
 import { FBXLoader } from "three/examples/jsm/loaders/FBXLoader"
-import { addModelData } from "./utils";
 import { getMixamoAnimation } from './loadMixamoAnimation';
 import { getAsArray, getFileNameWithoutExtension } from './utils';
 
@@ -348,7 +347,7 @@ export class AnimationManager{
       console.error("Non Existing VRM was provided.")
       return;
     }
-    let animations = null;
+    let animations;
     if (this.mixamoModel != null){
       animations = [getMixamoAnimation(this.mixamoAnimations, this.mixamoModel.clone() ,vrm)]
       if (this.animations == null)

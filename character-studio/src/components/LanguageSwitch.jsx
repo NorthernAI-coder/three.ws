@@ -1,5 +1,5 @@
-import React, { useContext } from "react"
-import { useTranslation, Trans } from "react-i18next"
+import React from "react"
+import { useTranslation } from "react-i18next"
 import styles from "./LanguageSwitch.module.css"
 
 const lngs = {
@@ -12,7 +12,7 @@ const lngs = {
 }
 
 export default function LanguageSwitch() {
-  const { t, i18n } = useTranslation()
+  const { i18n } = useTranslation()
   return (
     <div className={styles.languageSwitchWrap}>
       <select

@@ -27,7 +27,7 @@ export class ZipManager{
             if (prop == "_"){
                 
                 //zip.file(image.name + ".png", image.data.split("base64,")[1], { base64: true });
-                zipContainer[prop].forEach((data, index) => {
+                zipContainer[prop].forEach((data) => {
                     zip.file(data.name + "." + data.extension, data.data, { base64: true });
                 });
             }
@@ -35,7 +35,7 @@ export class ZipManager{
                 const folder = zip.folder(prop);
                 
                 
-                zipContainer[prop].forEach((data, index) => {
+                zipContainer[prop].forEach((data) => {
                     const base64 = data.extension != "txt" ? true : false;
                     folder.file(data.name + "." + data.extension, data.data, { base64: base64 });
                 });

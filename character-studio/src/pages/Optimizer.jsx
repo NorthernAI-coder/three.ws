@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState } from "react"
+import React, { useContext, useState } from "react"
 import styles from "./Optimizer.module.css"
 import { ViewMode, ViewContext } from "../context/ViewContext"
 import { SceneContext } from "../context/SceneContext"
@@ -7,7 +7,7 @@ import { LanguageContext } from "../context/LanguageContext"
 import { SoundContext } from "../context/SoundContext"
 import { AudioContext } from "../context/AudioContext"
 import FileDropComponent from "../components/FileDropComponent"
-import { getFileNameWithoutExtension, disposeVRM, getAtlasSize } from "../library/utils"
+import { getFileNameWithoutExtension, getAtlasSize } from "../library/utils"
 import ModelInformation from "../components/ModelInformation"
 import MergeOptions from "../components/MergeOptions"
 import { local } from "../library/store"
@@ -91,8 +91,7 @@ function Optimizer() {
       const parentScene = sceneElements.parent;
       
       parentScene.remove(sceneElements);
-      const isVRM0 = characterManager.getCurrentOptimizerCharacterModel().data?.isVRM0;
-      
+
       const downloadLora = local["mergeOptions_download_lora"] == null ? true : local["mergeOptions_download_lora"];
       if (downloadLora === true) {
         const promises = manifest.loras.map(async (lora) => {

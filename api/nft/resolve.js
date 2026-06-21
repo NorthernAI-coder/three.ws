@@ -1,6 +1,14 @@
 import { env } from '../_lib/env.js';
 import { wrap, cors, error, json, readJson, method, rateLimited, serverError } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
+import { cacheGet, cacheSet } from '../_lib/cache.js';
+
+// NFT metadata is effectively immutable, but the Helius `getAsset` (DAS) and
+// Alchemy `getNFTMetadata` calls behind this endpoint are billed per request and
+// were re-resolved on every call — a bot re-requesting the same mint paid the
+// upstream every time. Cache the resolved descriptor by chain:id so a given
+// asset is fetched from the provider at most once per TTL.
+const RESOLVE_TTL_SECONDS = 6 * 60 * 60; // 6h
 
 export default wrap(async (req, res) => {
 	if (cors(req, res)) return;
@@ -17,6 +25,16 @@ export default wrap(async (req, res) => {
 		return error(res, 400, 'bad_request', 'chain must be solana or evm');
 	}
 	if (!id) return error(res, 400, 'bad_request', 'id required');
+
+	const cacheKey = `nft-resolve:${chain}:${id}`;
+	const cached = await cacheGet(cacheKey).catch(() => null);
+	if (cached) return json(res, 200, cached);
+
+	// Only a cache MISS reaches the billed upstream — gate that on the shared DAS
+	// cost ceiling so a bot resolving thousands of distinct ids can't run up the
+	// Helius/Alchemy bill past a fixed hourly cap.
+	const ceiling = await limits.heliusDasGlobal();
+	if (!ceiling.success) return rateLimited(res, ceiling);
 
 	if (chain === 'solana') {
 		const resp = await fetch(env.SOLANA_RPC_URL, {
@@ -42,13 +60,15 @@ export default wrap(async (req, res) => {
 			asset?.content?.links?.image ||
 			files.find((f) => f.mime && f.mime.startsWith('image/'))?.uri ||
 			null;
-		return json(res, 200, {
+		const result = {
 			name,
 			image: imageUrl,
 			model: modelFile?.uri || null,
 			mime: modelFile?.mime || null,
 			source: 'helius',
-		});
+		};
+		await cacheSet(cacheKey, result, RESOLVE_TTL_SECONDS).catch(() => {});
+		return json(res, 200, result);
 	}
 
 	// EVM: id is "contract:tokenId" or "chainId:contract:tokenId"
@@ -86,5 +106,7 @@ export default wrap(async (req, res) => {
 		mime = animationUrl.toLowerCase().endsWith('.gltf') ? 'model/gltf+json' : 'model/gltf-binary';
 	}
 
-	return json(res, 200, { name, image: imageUrl, model, mime, source: 'alchemy' });
+	const result = { name, image: imageUrl, model, mime, source: 'alchemy' };
+	await cacheSet(cacheKey, result, RESOLVE_TTL_SECONDS).catch(() => {});
+	return json(res, 200, result);
 });

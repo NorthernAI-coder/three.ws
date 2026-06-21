@@ -5,7 +5,7 @@ import { findChildrenByType } from "../library/utils";
 import { getMaterialsSortedByArray } from "../library/utils";
 import { SceneContext } from "../context/SceneContext"
 
-export default function ModelInformation({model, name, files, index, nextVrm, previousVrm}){
+export default function ModelInformation({model, name, files, nextVrm, previousVrm}){
     const {
         characterManager
       } = React.useContext(SceneContext)

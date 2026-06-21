@@ -3,6 +3,13 @@ import { env } from '../_lib/env.js';
 import { wrap, cors, error, json, readJson, method, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { llmComplete, llmConfigured } from '../_lib/llm.js';
+import { cacheGet, cacheSet } from '../_lib/cache.js';
+
+// A confirmed transaction is immutable, but the Helius enhanced-tx (/v0) and
+// Alchemy RPC calls behind this endpoint — plus the LLM summary — were recomputed
+// on every request, so re-explaining the same signature paid all three each time.
+// Cache the finished explanation by chain:sig; a hit serves with zero upstream cost.
+const EXPLAIN_TTL_SECONDS = 24 * 60 * 60; // 24h
 
 const ERC20_TRANSFER_TOPIC =
 	'0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
@@ -39,6 +46,16 @@ export default wrap(async (req, res) => {
 	if (chain === 'evm' && !/^0x[0-9a-fA-F]{64}$/.test(sig)) {
 		return error(res, 400, 'bad_request', 'sig must be a 0x-prefixed 32-byte tx hash');
 	}
+
+	const cacheKey = `tx-explain:${chain}:${sig}`;
+	const cachedExplain = await cacheGet(cacheKey).catch(() => null);
+	if (cachedExplain) return json(res, 200, cachedExplain);
+
+	// Only a cache MISS reaches the billed enhanced-tx upstream — gate that on the
+	// shared DAS cost ceiling so a bot explaining thousands of distinct signatures
+	// can't run up the Helius bill past a fixed hourly cap.
+	const ceiling = await limits.heliusDasGlobal();
+	if (!ceiling.success) return rateLimited(res, ceiling);
 
 	let txData;
 
@@ -139,5 +156,6 @@ export default wrap(async (req, res) => {
 		}
 	}
 
+	await cacheSet(cacheKey, txData, EXPLAIN_TTL_SECONDS).catch(() => {});
 	return json(res, 200, txData);
 });

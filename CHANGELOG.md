@@ -7,6 +7,8 @@ Public history for [three.ws](https://three.ws), newest first. New pages come fr
 ## 2026-06-21
 
 - **$THREE holder leaderboard loads faster from a shared snapshot** — The $THREE holder leaderboard, its share card, and the token stats panel used to rescan every holder on-chain on each page view. They now read from a holder snapshot that refreshes every few minutes, so the board and badges load faster and the same numbers stay consistent across all three surfaces. (`/leaderboard`) `[improvement, infra]`
+- **forge_avatar — one call turns a prompt into a rigged, animation-ready avatar** — A new forge_avatar MCP tool collapses the old two-step flow (generate a mesh, then rig it) into a single call: describe a character in text — or pass reference images — and it generates the textured model, auto-rigs it with a humanoid skeleton, and returns an animation-ready GLB that drops straight into the pose studio and plays the idle/walk library. A built-in humanoid check runs first, so a non-character prompt (furniture, a vehicle, an animal) is turned away with no charge instead of wasting a paid rig. It bundles generation and rigging at their combined price ($0.45) with no hidden markup, and you are never charged if no rigged avatar is produced. (`/docs/mcp`) `[sdk, feature]`
+- **Solana is now the default payment network** — The Default payment network setting in dashboard settings now defaults to Solana for every user, and Solana is listed first among the options. Base and Polygon remain available if you prefer an EVM chain. (`/dashboard`) `[improvement]`
 
 ## 2026-06-20
 

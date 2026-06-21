@@ -14,7 +14,7 @@ function Claim() {
   // Translate hook
   const {t} = useContext(LanguageContext);
 
-  const { setViewMode, setIsLoading, isLoading } = React.useContext(ViewContext)
+  const { setViewMode, setIsLoading } = React.useContext(ViewContext)
   const { playSound } = React.useContext(SoundContext)
   const { isMute } = React.useContext(AudioContext)
   const { manifest, characterManager } = React.useContext(SceneContext)

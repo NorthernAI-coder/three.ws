@@ -154,7 +154,7 @@ describe('MCP tool surface', () => {
 
 		// Generation + delegation tools are writes (they create hosted artifacts
 		// or dispatch actions); everything else is a pure read.
-		const writes = ['text_to_avatar', 'mesh_forge', 'forge_free', 'rig_mesh', 'agent_delegate_action'];
+		const writes = ['text_to_avatar', 'mesh_forge', 'forge_free', 'rig_mesh', 'forge_avatar', 'agent_delegate_action'];
 		for (const [name, a] of Object.entries(byName)) {
 			expect(a.readOnlyHint, `${name}.readOnlyHint`).toBe(!writes.includes(name));
 		}

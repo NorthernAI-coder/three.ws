@@ -25,7 +25,7 @@
   Storage.prototype.getItem = function( key ) {
     try {
         return JSON.parse(this[key]);
-    } catch (e) {
+    } catch {
         // not json
     }
     return this[key]

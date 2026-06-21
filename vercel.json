@@ -3776,7 +3776,7 @@
 		},
 		{
 			"path": "/api/cron/solana-attestations-crawl",
-			"schedule": "*/5 * * * *"
+			"schedule": "*/10 * * * *"
 		},
 		{
 			"path": "/api/cron/trader-score-attest",

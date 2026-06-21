@@ -47,7 +47,7 @@ function Load() {
         metaMask.activate()
     }
 
-    const loadCharacter = (character) => {
+    const loadCharacter = () => {
         !isMute && playSound('backNextButton');
         setViewMode(ViewMode.APPEARANCE)
     }

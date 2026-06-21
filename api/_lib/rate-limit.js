@@ -407,6 +407,14 @@ export const limits = {
 	solanaRpcIp: (ip) => getLimiter('solana-rpc:ip', { limit: 120, window: '1 m' }).limit(ip),
 	solanaRpcGlobal: () =>
 		getLimiter('solana-rpc:global', { limit: 12000, window: '1 h' }).limit('global'),
+		// Helius DAS / enhanced-API endpoints (nft/resolve getAsset, tx/explain
+		// enhanced-tx, live holder cohorts getTokenAccounts). DAS is billed at a far
+		// higher credit multiplier than plain RPC, and these are public. Per-endpoint
+		// caches collapse repeat hits on the same key; this shared global hourly
+		// ceiling is the hard cost cap against a bot enumerating many DISTINCT keys
+		// (which caching can't stop). One bucket across all DAS endpoints.
+		heliusDasGlobal: () =>
+			getLimiter('helius-das:global', { limit: 3000, window: '1 h' }).limit('global'),
 	// Agent-to-agent economy demo (api/agent-economy/transact). Each call can send
 	// a tiny real SOL payment from the server wallet, so cap per-IP and add a
 	// global daily ceiling as a hard spend cap independent of wallet balance.

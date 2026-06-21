@@ -1,4 +1,4 @@
-import { VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm';
+import { VRMLoaderPlugin } from '@pixiv/three-vrm';
 import {  GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader"
 import { getAsArray, renameVRMBones,getUniqueId } from "../library/utils"
 import { findChildByName } from '../library/utils';
