@@ -100,3 +100,20 @@ verifiably present in code:
 | prompts/avatar-animation-hardening/06-final-qa-and-promote.md | runtime fallen-pose guard in animation-manager.js; regression corpus tests/animation-upright-invariant.test.js green |
 
 **KEEP (notable):** all monetization/ + monetization-prompts/ (subscriptions, bundles, NFT receipts, fiat, creator payouts, email, admin — none shipped); all feature-innovation/ (improvement specs, gaps remain); all living-agents/, living-wallet/, wallet-innovation/, inventions/, moonshots/, agent-studio 04-12, vanity-* (named modules absent).
+
+
+## monetization revenue (2026-06-21) — subscription earnings visibility shipped + 2 specs retired
+
+Built: creator subscription income now surfaced in the earnings dashboard.
+- api/billing/revenue.js: adds a  block (income_usd, payment_count,
+  active_subscribers, plan_count) + , sourced from
+  subscription_payments→creator_subscriptions→subscription_plans. USD-denominated
+  and kept SEPARATE from the atomic net_total/withdrawable balance (subscription
+  legs settle creator-direct on-chain) so there is no unit-mixing or double-pay.
+- src/dashboard-next/pages/monetize.js: new "Subscription income" hero card.
+
+Retired (feature verified shipped):
+| spec | evidence |
+| --- | --- |
+| monetization-prompts/21-skill-subscription-model-backend.md | subscription_plans/creator_subscriptions/subscription_payments (schema.sql:1205+); api/subscriptions/{plans,subscribe,verify}.js; api/_lib/subscription-billing.js; gating in api/_lib/skill-access.js (creator_subscriptions check); process-subscriptions cron in api/cron/[name].js |
+| monetization-prompts/17-database-schema-creator-payouts.md | creator payout function shipped via agent_revenue_events (balance ledger) + agent_withdrawals (payout log) + api/billing/{revenue,withdrawals,payout-wallets} + process-withdrawals cron; the spec-named creator_balances/creator_payouts tables are intentionally superseded by this canonical ledger |

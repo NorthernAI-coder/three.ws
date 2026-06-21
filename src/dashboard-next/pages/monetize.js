@@ -257,6 +257,22 @@ function renderHero({ available, revenue, creatorPlans, subscribedTo, pendingRoy
 		}),
 	);
 
+	// Subscription income is USD-denominated and settles straight to the creator's
+	// wallet (not part of the withdrawable platform balance), so it gets its own
+	// card rather than being folded into "Total earned" / "Available to withdraw".
+	const subIncomeUsd = Number(revenue?.subscriptions?.income_usd ?? 0);
+	const activeSubs = Number(revenue?.subscriptions?.active_subscribers ?? 0);
+	wrap.appendChild(
+		heroCard({
+			title: 'Subscription income',
+			value: subIncomeUsd > 0 ? `$${subIncomeUsd.toFixed(2)}` : '$0.00',
+			sub: activeSubs > 0
+				? `${activeSubs} active subscriber${activeSubs === 1 ? '' : 's'} · paid directly to your wallet (last 30 days)`
+				: 'Recurring plan revenue, paid directly to your wallet.',
+			color: 'var(--nxt-accent)',
+		}),
+	);
+
 	return wrap;
 }
 
