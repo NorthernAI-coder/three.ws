@@ -87,6 +87,16 @@ export function priceUsdcForTier(tier) {
 	return (priceAtomicsForTier(tier) / 1_000_000).toFixed(2);
 }
 
+// USD price (string, e.g. "0.10") of a post-generation export option (Game-Ready),
+// derived from its atomic price in OUTPUTS so the pricing catalog reads it from
+// here rather than carrying a second copy. Throws for an unknown output id so a
+// typo can never silently price an export at $0.
+export function priceUsdcForOutput(outputId) {
+	const o = OUTPUTS[outputId];
+	if (!o) throw new Error(`unknown forge output: ${outputId}`);
+	return (o.priceUsdcAtomics / 1_000_000).toFixed(2);
+}
+
 // Generation backends. `provider` selects the api/_providers/* client that
 // talks to it. `byok` names the provider-key the caller must supply (false for
 // platform-keyed backends). `requiresEnv` lists env vars that must be present

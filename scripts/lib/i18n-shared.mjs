@@ -108,7 +108,10 @@ function escapeRe(s) {
 export function buildMasker(doNotTranslate = []) {
 	// Longer terms first so "IBM watsonx.ai" masks before "watsonx.ai".
 	const terms = [...doNotTranslate].sort((a, b) => b.length - a.length);
-	const sentinel = (i) => `${i}`; // private-use-area, never in real copy
+	// An ASCII token ([[T0]], [[T1]], …): vanishingly rare in real copy and
+	// reproduced reliably even by small/free models, which tend to normalize
+	// exotic Unicode sentinels away.
+	const sentinel = (i) => `[[T${i}]]`;
 
 	function mask(text) {
 		if (typeof text !== 'string') return { masked: text, tokens: [] };
@@ -133,7 +136,7 @@ export function buildMasker(doNotTranslate = []) {
 
 	function unmask(text, tokens) {
 		if (typeof text !== 'string') return text;
-		return text.replace(/(\d+)/g, (_, i) => tokens[Number(i)] ?? '');
+		return text.replace(/\[\[T(\d+)\]\]/g, (_, i) => tokens[Number(i)] ?? '');
 	}
 
 	return { mask, unmask };

@@ -456,13 +456,42 @@ function renderWalkLiveState(host, avatar) {
 		frame.loading = 'lazy';
 		frame.allowTransparency = 'true';
 		frame.src = `/walk-embed?${qs.toString()}`;
-		// Reveal only once the avatar is actually loaded — avoids a flash of
-		// the (transparent) empty scene before the GLB resolves.
-		frame.addEventListener('load', () => {
+
+		// Reveal only once the embed reports the avatar is loaded AND animating.
+		// The iframe's DOM `load` event fires far earlier — the document is parsed
+		// before the GLB and walk clips resolve (those load async). Revealing on it
+		// exposed the bare frame mid-load: a white pre-paint flash, then the model
+		// frozen in its bind-pose T-pose, before the walk clip applied. We instead
+		// hold the dark skeleton until the embed posts `walk:ready` over the
+		// three-walk channel, which fires only after it crossfades into motion.
+		let revealed = false;
+		const reveal = () => {
+			if (revealed) return;
+			revealed = true;
 			host.dataset.ready = '1';
+			frame.classList.add('is-ready');
 			const skel = stage.querySelector('.dn-walk-avatar-skel');
 			if (skel) skel.remove();
+			window.removeEventListener('message', onReady);
+			clearTimeout(failsafe);
+		};
+		function onReady(e) {
+			if (e.source !== frame.contentWindow) return;
+			const d = e.data;
+			if (d && d.type === 'walk:ready') reveal();
+		}
+		window.addEventListener('message', onReady);
+		// `walk:ready` is a one-shot — a host that finishes wiring after the embed
+		// already loaded would miss it. Ping on DOM load so the embed re-emits it.
+		frame.addEventListener('load', () => {
+			try {
+				frame.contentWindow?.postMessage({ channel: 'three-walk', v: 1, type: 'walk:ping' }, '*');
+			} catch (_) {}
 		});
+		// Failsafe: never strand the skeleton if the ready signal is lost (embed
+		// error, blocked message). Reveal anyway after a generous window.
+		const failsafe = setTimeout(reveal, 8000);
+
 		stage.appendChild(frame);
 	};
 
@@ -603,7 +632,9 @@ function injectTopbarStyles() {
 		.dn-walk-avatar-frame {
 			width:100%; height:100%; border:0; display:block;
 			background:transparent; pointer-events:none;
+			opacity:0; transition:opacity 240ms ease;
 		}
+		.dn-walk-avatar-frame.is-ready { opacity:1; }
 		.dn-walk-avatar-skel {
 			position:absolute; inset:8px; border-radius:10px;
 			background:linear-gradient(100deg,
@@ -630,6 +661,7 @@ function injectTopbarStyles() {
 		}
 		@media (prefers-reduced-motion: reduce) {
 			.dn-walk-avatar-skel { animation:none; }
+			.dn-walk-avatar-frame { transition:none; }
 			.dn-walk-avatar-btn:active { transform:none; }
 		}
 	`;
