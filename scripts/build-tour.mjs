@@ -173,11 +173,24 @@ function escapeRe(s) {
 const WPM = 150;
 const STOP_OVERHEAD_S = 9;
 
+// How many leading stops of each chapter belong to the "Quick highlights" track
+// — heroes sort first (see orderSection), so the first few stops of a section
+// are its clearest, most representative features. The Quick tour plays only
+// these (plus every chapter's spoken intro), turning a ~30-minute full walk into
+// a ~5-minute sampler that still touches every chapter.
+const QUICK_PER_SECTION = 3;
+
+function minutesFor(words, count) {
+	return Math.round(words / WPM + (count * STOP_OVERHEAD_S) / 60);
+}
+
 function build() {
 	const bySection = loadPages();
 	const stops = [];
 	const sections = [];
 	let totalWords = 0;
+	let quickWords = 0;
+	let quickCount = 0;
 
 	for (const id of SECTION_ORDER) {
 		const entry = bySection.get(id);
@@ -186,10 +199,17 @@ function build() {
 		sections.push({ id, title: entry.meta.title, intro: SECTION_INTROS[id] || '' });
 		ordered.forEach((page, i) => {
 			const isFirstOfSection = i === 0;
+			const highlight = i < QUICK_PER_SECTION;
 			const narration = narrate(page, stops.length);
-			totalWords += narration.split(/\s+/).length;
-			if (isFirstOfSection && SECTION_INTROS[id]) {
-				totalWords += SECTION_INTROS[id].split(/\s+/).length;
+			const introWords =
+				isFirstOfSection && SECTION_INTROS[id]
+					? SECTION_INTROS[id].split(/\s+/).length
+					: 0;
+			const stopWords = narration.split(/\s+/).length + introWords;
+			totalWords += stopWords;
+			if (highlight) {
+				quickWords += stopWords;
+				quickCount += 1;
 			}
 			stops.push({
 				id: slug(page.path),
@@ -197,6 +217,7 @@ function build() {
 				section: id,
 				title: collapse(page.title),
 				narration,
+				highlight,
 				...(isFirstOfSection && SECTION_INTROS[id]
 					? { sectionIntro: SECTION_INTROS[id] }
 					: {}),
@@ -205,18 +226,33 @@ function build() {
 		});
 	}
 
-	const speakingMinutes = totalWords / WPM;
-	const overheadMinutes = (stops.length * STOP_OVERHEAD_S) / 60;
-	const estimatedMinutes = Math.round(speakingMinutes + overheadMinutes);
+	const estimatedMinutes = minutesFor(totalWords, stops.length);
+	const quickMinutes = Math.max(1, minutesFor(quickWords, quickCount));
 
 	return {
-		version: 1,
+		version: 2,
 		generatedAt: new Date().toISOString(),
 		generatedBy: 'scripts/build-tour.mjs from data/pages.json',
 		title: 'The three.ws Guided Tour',
 		tagline: 'A 3D guide walks you through every feature, live, on the real site.',
 		estimatedMinutes,
 		stopCount: stops.length,
+		tracks: [
+			{
+				id: 'full',
+				title: 'Full tour',
+				description: 'Every feature, chapter by chapter.',
+				stopCount: stops.length,
+				estimatedMinutes,
+			},
+			{
+				id: 'quick',
+				title: 'Quick highlights',
+				description: 'The best of every chapter, in a few minutes.',
+				stopCount: quickCount,
+				estimatedMinutes: quickMinutes,
+			},
+		],
 		sections,
 		stops,
 	};

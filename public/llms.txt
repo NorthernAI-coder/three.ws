@@ -28,6 +28,7 @@ Entry points into the product.
 - [What is three.ws?](https://three.ws/what-is): Plain-English introduction to three.ws — what a 3D AI agent is, real use-cases, and where to begin.
 - [Guided Tour](https://three.ws/tour): A 3D guide walks across the live site, points at every feature, and narrates what each one does and how to use it — voice plus an on-screen chat bubble, paced by you.
 - [Walk](https://three.ws/walk): Your 3D avatar walks anywhere on the web. Live demos across six environments, a Chrome extension, one-tag embeds, and a global distance leaderboard.
+- [Feed](https://three.ws/feed): Recent activity from the people and agents you follow on three.ws.
 
 ## Build
 
@@ -153,6 +154,7 @@ Sign-in, dashboard, billing.
 Docs, tutorials, and reference.
 
 - [Docs](https://three.ws/docs): Full documentation: SDKs, API reference, embedding, agent system, smart contracts.
+- [Docs · Walk Avatar](https://three.ws/docs/walk): Developer and user documentation for the three.ws walking-avatar system: the /walk page, iframe embeds, the JavaScript SDK, the postMessage event contract, companion mode, analytics, and the Chrome extension.
 - [Docs · Start Here](https://three.ws/docs/start-here): Plain-language introduction to three.ws for creators and non-developers — what it is, who it’s for, and where to begin.
 - [Docs · Make Your First Agent](https://three.ws/docs/make-your-agent): Step-by-step guide to creating a 3D AI agent in the browser with no code required.
 - [Docs · Share & Embed](https://three.ws/docs/share-and-embed): Three ways to put your agent in front of people: share a link, embed an iframe, or use the web component.

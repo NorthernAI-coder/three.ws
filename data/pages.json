@@ -149,6 +149,14 @@
 					"priority": 0.8,
 					"changefreq": "weekly",
 					"added": "2026-06-21"
+				},
+				{
+					"path": "/feed",
+					"title": "Feed",
+					"description": "Recent activity from the people and agents you follow on three.ws.",
+					"priority": 0.6,
+					"changefreq": "daily",
+					"added": "2026-06-21"
 				}
 			]
 		},
@@ -1035,6 +1043,14 @@
 					"priority": 0.9,
 					"changefreq": "weekly",
 					"added": "2026-04-27"
+				},
+				{
+					"path": "/docs/walk",
+					"title": "Docs · Walk Avatar",
+					"description": "Developer and user documentation for the three.ws walking-avatar system: the /walk page, iframe embeds, the JavaScript SDK, the postMessage event contract, companion mode, analytics, and the Chrome extension.",
+					"priority": 0.7,
+					"changefreq": "monthly",
+					"added": "2026-06-21"
 				},
 				{
 					"path": "/docs/start-here",

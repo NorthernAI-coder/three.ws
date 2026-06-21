@@ -5,12 +5,23 @@
 // the next stop lives on another route it persists progress and navigates; the
 // tour re-hydrates from sessionStorage on the new page and picks up exactly
 // where it left off. One module owns all of that sequencing and every control.
+//
+// Navigation is expressed over a *playlist* — the ordered list of stop indices
+// the chosen track visits (the Full track is every stop; the Quick track is the
+// highlighted heroes). `pos` is where we are in that playlist; `index` is the
+// absolute curriculum stop it points at. Switching tracks re-derives the
+// playlist and re-anchors `pos` to the nearest stop, so the tour never loses its
+// place. The chapter panel can jump to any stop, expanding to the Full track if
+// the requested stop isn't in the current one.
 
 import {
 	loadCurriculum,
 	readState,
 	writeState,
 	clearState,
+	readResume,
+	markCompleted,
+	buildPlaylist,
 	normalizePath,
 	stopIndexForPath,
 	sectionTitle,
@@ -19,17 +30,23 @@ import { GuideAvatar } from './guide-avatar.js';
 import { Spotlight } from './spotlight.js';
 import { Narrator } from './narrator.js';
 import { TourControls } from './controls.js';
+import { ChapterPanel } from './chapters.js';
 
 const ADVANCE_BEAT_MS = 900; // pause between finishing a stop and moving on
 const Z_BEAM = 2147483280;
+const SPEED_CYCLE = [1, 1.25, 1.5, 0.75];
 
 export class TourDirector {
 	constructor() {
 		this.curriculum = null;
+		this.playlist = [];
+		this.pos = 0;
 		this.index = 0;
+		this.track = 'full';
 		this.paused = false;
 		this.muted = false;
 		this.voice = 'nova';
+		this.speed = 1;
 		this.mounted = false;
 		this.offRoute = false;
 		this._runToken = 0;
@@ -43,13 +60,30 @@ export class TourDirector {
 	// ── Entry points ──────────────────────────────────────────────────────────
 
 	// Begin a fresh tour from the very first stop (called by the "Start tour"
-	// button / ?tour=start). Navigates to stop 0's page if we're elsewhere.
-	async start() {
+	// button / ?tour=start). `track` chooses Quick vs Full; voice/speed default to
+	// the visitor's remembered preferences. Navigates to stop 0's page if needed.
+	async start(track) {
 		await this._ensureCurriculum();
-		writeState({ active: true, index: 0, paused: false });
-		this.index = 0;
+		const prefs = readResume();
+		this.track = track || 'full';
+		this.voice = prefs.voice || 'nova';
+		this.speed = prefs.speed || 1;
+		this.muted = false;
 		this.paused = false;
-		const first = this.curriculum.stops[0];
+		this._seenSections = new Set();
+		this.playlist = buildPlaylist(this.curriculum, this.track);
+		this.pos = 0;
+		this.index = this.playlist[0] ?? 0;
+		writeState({
+			active: true,
+			index: this.index,
+			track: this.track,
+			voice: this.voice,
+			speed: this.speed,
+			paused: false,
+			muted: false,
+		});
+		const first = this.curriculum.stops[this.index];
 		if (normalizePath(first.path) !== normalizePath()) {
 			this._navigate(first.path);
 			return;
@@ -66,6 +100,9 @@ export class TourDirector {
 		this.paused = state.paused;
 		this.muted = state.muted;
 		this.voice = state.voice || 'nova';
+		this.speed = state.speed || 1;
+		this.track = state.track || 'full';
+		this.playlist = buildPlaylist(this.curriculum, this.track);
 
 		const here = stopIndexForPath(this.curriculum, location.pathname);
 		const wanted = state.index || 0;
@@ -80,6 +117,7 @@ export class TourDirector {
 			this.index = wanted; // wandered off the route entirely
 			this.offRoute = true;
 		}
+		this.pos = this._posForAbs(this.index);
 
 		await this._mount();
 		if (this.offRoute) {
@@ -103,15 +141,28 @@ export class TourDirector {
 		this.avatar = new GuideAvatar();
 		await this.avatar.mount();
 		this.controls = new TourControls({
-			onPrev: () => this._goTo(this.index - 1),
-			onNext: () => this._goTo(this.index + 1),
+			onMenu: () => this.panel?.toggle(),
+			onPrev: () => this._go(this.pos - 1),
+			onNext: () => this._go(this.pos + 1),
 			onToggle: () => this._togglePause(),
-			onSeek: (i) => this._goTo(i),
+			onSeek: (i) => this._go(i),
+			onSpeed: () => this._cycleSpeed(),
 			onMute: () => this._toggleMute(),
 			onExit: () => this.exit(),
 		});
+		this.panel = new ChapterPanel(this.curriculum, {
+			onJump: (abs) => this._jumpToAbs(abs),
+			onTrack: (t) => this._applyTrack(t),
+			onSpeed: (v) => this._setSpeed(v),
+			onVoice: (v) => this._setVoice(v),
+			onOpenChange: (open) => this.controls.setMenuOpen(open),
+		});
 		this.controls.setMuted(this.muted);
 		this.controls.setPaused(this.paused);
+		this.controls.setSpeed(this.speed);
+		this.panel.setTrack(this.track);
+		this.panel.setSpeed(this.speed);
+		this.panel.setVoice(this.voice);
 		document.addEventListener('keydown', this._onKey);
 	}
 
@@ -124,6 +175,7 @@ export class TourDirector {
 		if (!stop) return this._finish();
 
 		this._syncControls();
+		this.panel?.setActive(this.index);
 		writeState({ index: this.index });
 
 		// Chapter bridge — spoken once per section per session.
@@ -161,21 +213,33 @@ export class TourDirector {
 		if (this.paused) return;
 		this._advanceTimer = setTimeout(() => {
 			if (token === this._runToken) this._advance();
-		}, ADVANCE_BEAT_MS);
+		}, ADVANCE_BEAT_MS / this.speed);
 	}
 
 	// Show caption + speak; resolves when the voice (or timed fallback) ends.
 	async _present(text, token) {
 		this.avatar.say(text);
-		await this.narrator.speak(text, { muted: this.muted, voice: this.voice });
+		await this.narrator.speak(text, { muted: this.muted, voice: this.voice, speed: this.speed });
 	}
 
 	_advance() {
-		const next = this.index + 1;
-		if (next >= this.curriculum.stops.length) return this._finish();
-		this.index = next;
-		writeState({ index: next });
-		const stop = this.curriculum.stops[next];
+		if (this.pos + 1 >= this.playlist.length) return this._finish();
+		this._go(this.pos + 1);
+	}
+
+	// Go to a playlist position (prev / next / scrub / advance / jump). Cancels
+	// anything in flight, then runs the stop here or navigates if it's off-page.
+	_go(pos) {
+		if (!this.playlist.length) return;
+		const clamped = Math.max(0, Math.min(this.playlist.length - 1, pos));
+		this._runToken++;
+		clearTimeout(this._advanceTimer);
+		this.narrator?.cancel();
+		this.pos = clamped;
+		this.index = this.playlist[clamped];
+		writeState({ index: this.index });
+		this.panel?.setActive(this.index);
+		const stop = this.curriculum.stops[this.index];
 		if (normalizePath(stop.path) === normalizePath()) {
 			this._runCurrent();
 		} else {
@@ -183,20 +247,12 @@ export class TourDirector {
 		}
 	}
 
-	// Jump to an arbitrary stop (prev / next / scrub). Navigates if off-page.
-	_goTo(i) {
-		const clamped = Math.max(0, Math.min(this.curriculum.stops.length - 1, i));
-		this._runToken++; // cancel anything in flight
-		clearTimeout(this._advanceTimer);
-		this.narrator?.cancel();
-		this.index = clamped;
-		writeState({ index: clamped });
-		const stop = this.curriculum.stops[clamped];
-		if (normalizePath(stop.path) === normalizePath()) {
-			this._runCurrent();
-		} else {
-			this._navigate(stop.path);
-		}
+	// Jump to an absolute curriculum stop from the chapter panel. If it isn't in
+	// the current track's playlist, expand to the Full track so every stop is
+	// reachable, then go to it.
+	_jumpToAbs(abs) {
+		if (this.playlist.indexOf(abs) < 0) this._applyTrack('full', { silent: true });
+		this._go(this._posForAbs(abs));
 	}
 
 	_togglePause() {
@@ -208,7 +264,7 @@ export class TourDirector {
 			this.narrator.cancel();
 			this._runToken++; // freeze the current sequence
 		} else if (this.offRoute) {
-			this._goTo(this.index);
+			this._go(this.pos);
 		} else {
 			// Resume re-narrates the current stop, then continues.
 			const token = ++this._runToken;
@@ -227,6 +283,66 @@ export class TourDirector {
 		}
 	}
 
+	// ── Track / speed / voice ───────────────────────────────────────────────────
+	_applyTrack(track, { silent = false } = {}) {
+		if (track === this.track) return;
+		const abs = this.index;
+		this.track = track;
+		this.playlist = buildPlaylist(this.curriculum, track);
+		this.pos = this._posForAbs(abs);
+		this.index = this.playlist[this.pos];
+		writeState({ track, index: this.index });
+		this.panel?.setTrack(track);
+		this._syncControls();
+		if (!silent) this._go(this.pos); // re-anchor to the (possibly new) stop
+	}
+
+	_cycleSpeed() {
+		const i = SPEED_CYCLE.indexOf(this.speed);
+		this._setSpeed(SPEED_CYCLE[(i + 1) % SPEED_CYCLE.length]);
+	}
+
+	_setSpeed(value) {
+		const next = Math.min(2, Math.max(0.5, Number(value) || 1));
+		if (next === this.speed) return;
+		this.speed = next;
+		writeState({ speed: next });
+		this.controls?.setSpeed(next);
+		this.panel?.setSpeed(next);
+		// Re-narrate the current stop at the new rate if we're actively playing.
+		if (!this.paused && !this.offRoute && this.mounted) {
+			const token = ++this._runToken;
+			this._narrateAndMaybeAdvance(token);
+		}
+	}
+
+	_setVoice(value) {
+		if (!value || value === this.voice) return;
+		this.voice = value;
+		writeState({ voice: value });
+		this.panel?.setVoice(value);
+		if (!this.paused && !this.offRoute && this.mounted) {
+			const token = ++this._runToken;
+			this._narrateAndMaybeAdvance(token);
+		}
+	}
+
+	// Playlist position for an absolute stop index — exact match, else nearest.
+	_posForAbs(abs) {
+		const p = this.playlist.indexOf(abs);
+		if (p >= 0) return p;
+		let best = 0;
+		let bestD = Infinity;
+		this.playlist.forEach((a, i) => {
+			const d = Math.abs(a - abs);
+			if (d < bestD) {
+				bestD = d;
+				best = i;
+			}
+		});
+		return best;
+	}
+
 	// ── Off-route recovery ────────────────────────────────────────────────────
 	_showOffRoute() {
 		this._stopBeam();
@@ -236,6 +352,7 @@ export class TourDirector {
 		writeState({ paused: true });
 		this.controls.setPaused(true);
 		this._syncControls();
+		this.panel?.setActive(this.index);
 		this.avatar.say('We stepped off the tour — press play and I’ll take you back to where we were.');
 	}
 
@@ -248,6 +365,7 @@ export class TourDirector {
 		this.avatar.point();
 		const outro = "And that's the whole platform. You've seen how to build an agent, give it a body and a voice, take it on-chain, and put it to work. Go make something — I'll be around if you want to walk it again.";
 		await this._present(outro, token);
+		markCompleted();
 		clearState();
 		this._showCompletion();
 	}
@@ -272,7 +390,7 @@ export class TourDirector {
 			const act = e.target.closest('[data-act]')?.dataset.act;
 			if (act === 'restart') {
 				card.remove();
-				this.start();
+				this.start(this.track);
 			} else if (act === 'close') {
 				card.remove();
 				this.exit();
@@ -293,6 +411,7 @@ export class TourDirector {
 		this.spotlight?.dispose();
 		this.avatar?.dispose();
 		this.controls?.dispose();
+		this.panel?.dispose();
 		this._doneCard?.remove();
 		this.mounted = false;
 	}
@@ -369,8 +488,8 @@ export class TourDirector {
 		const stop = this.curriculum.stops[this.index];
 		this.controls.update({
 			chapter: sectionTitle(this.curriculum, stop.section),
-			index: this.index,
-			total: this.curriculum.stops.length,
+			index: this.pos,
+			total: this.playlist.length,
 		});
 	}
 
@@ -380,14 +499,19 @@ export class TourDirector {
 	}
 
 	_onKey(e) {
+		if (this.panel?.open) return; // the panel owns the keyboard while it's up
 		if (isTypingTarget(e.target)) return;
 		if (e.key === ' ' || e.key === 'k') {
 			e.preventDefault();
 			this._togglePause();
 		} else if (e.key === 'ArrowRight') {
-			this._goTo(this.index + 1);
+			this._go(this.pos + 1);
 		} else if (e.key === 'ArrowLeft') {
-			this._goTo(this.index - 1);
+			this._go(this.pos - 1);
+		} else if (e.key === 'm' || e.key === 'M') {
+			this._toggleMute();
+		} else if (e.key === 'c' || e.key === 'C') {
+			this.panel?.toggle();
 		} else if (e.key === 'Escape') {
 			this.exit();
 		}

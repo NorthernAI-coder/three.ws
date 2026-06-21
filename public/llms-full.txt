@@ -115,6 +115,12 @@ URL: https://three.ws/walk
 
 Your 3D avatar walks anywhere on the web. Live demos across six environments, a Chrome extension, one-tag embeds, and a global distance leaderboard.
 
+### Feed
+
+URL: https://three.ws/feed
+
+Recent activity from the people and agents you follow on three.ws.
+
 ## Build
 
 Create and customize an agent.
@@ -771,6 +777,12 @@ Docs, tutorials, and reference.
 URL: https://three.ws/docs
 
 Full documentation: SDKs, API reference, embedding, agent system, smart contracts.
+
+### Docs · Walk Avatar
+
+URL: https://three.ws/docs/walk
+
+Developer and user documentation for the three.ws walking-avatar system: the /walk page, iframe embeds, the JavaScript SDK, the postMessage event contract, companion mode, analytics, and the Chrome extension.
 
 ### Docs · Start Here
 

@@ -80,6 +80,22 @@ async function getMintDecimals(conn, rpc, mint) {
 	return info.decimals;
 }
 
+// Build a PublicKey from a (schema-trimmed) address, converting web3.js's raw
+// "Non-base58 character" / "Invalid public key" throw into a structured 400.
+// Without this, a malformed address in the posted `accept` surfaces as an opaque
+// 500 — the exact failure that took down USDC checkout when a stray newline rode
+// in on the challenge's payTo.
+function toPubkey(value, field) {
+	try {
+		return new PublicKey(value);
+	} catch {
+		const err = new Error(`${field} is not a valid Solana address`);
+		err.status = 400;
+		err.code = 'invalid_address';
+		throw err;
+	}
+}
+
 async function getRecentBlockhash(conn, rpc) {
 	const hit = blockhashCache.get(rpc);
 	if (hit && Date.now() - hit.at < BLOCKHASH_TTL_MS) return hit.blockhash;
@@ -88,18 +104,26 @@ async function getRecentBlockhash(conn, rpc) {
 	return blockhash;
 }
 
-const acceptSchema = z.object({
+// Solana addresses arrive inside the 402 challenge's `accept` entry, which is
+// built from operator-configured env (X402_PAY_TO_SOLANA / X402_FEE_PAYER_SOLANA).
+// Those values are pasted into dashboards and routinely carry a trailing newline
+// or stray spaces. `.trim()` here means a whitespace-tainted challenge still
+// yields a working transaction instead of 500'ing on `new PublicKey()` — the
+// same defensive posture as env.js's addr(). Length is checked post-trim.
+const solanaAddress = z.string().trim().min(32).max(44);
+
+export const acceptSchema = z.object({
 	scheme: z.literal('exact'),
-	network: z.string().min(1).max(80),
+	network: z.string().trim().min(1).max(80),
 	amount: z.string().regex(/^\d+$/),
-	asset: z.string().min(32).max(44),
-	payTo: z.string().min(32).max(44),
+	asset: solanaAddress,
+	payTo: solanaAddress,
 	maxTimeoutSeconds: z.number().int().positive().optional(),
 	extra: z
 		.object({
 			name: z.string().optional(),
 			decimals: z.number().int().nonnegative().optional(),
-			feePayer: z.string().min(32).max(44),
+			feePayer: solanaAddress,
 		})
 		.passthrough(),
 });
@@ -112,13 +136,13 @@ const acceptSchema = z.object({
 // sweeping a buyer: ≤ 100 tokens and ≤ 50× the payment per recipient.
 const TIP_ABS_MAX = 100_000_000n; // 100 USDC in 6-decimal atomics
 const tipSchema = z.object({
-	to: z.string().min(32).max(44),
+	to: z.string().trim().min(32).max(44),
 	amount: z.string().regex(/^\d+$/),
 });
 
-const prepareSchema = z.object({
+export const prepareSchema = z.object({
 	accept: acceptSchema,
-	buyer: z.string().min(32).max(44),
+	buyer: solanaAddress,
 	tips: z.array(tipSchema).max(2).optional(),
 });
 
@@ -188,10 +212,10 @@ async function handlePrepare(req, res) {
 
 	const rpc = rpcFor(accept.network);
 	const conn = solanaConnection({ url: rpc, commitment: 'confirmed' });
-	const mint = new PublicKey(accept.asset);
-	const payTo = new PublicKey(accept.payTo);
-	const feePayer = new PublicKey(accept.extra.feePayer);
-	const buyerPubkey = new PublicKey(buyer);
+	const mint = toPubkey(accept.asset, 'asset');
+	const payTo = toPubkey(accept.payTo, 'payTo');
+	const feePayer = toPubkey(accept.extra.feePayer, 'feePayer');
+	const buyerPubkey = toPubkey(buyer, 'buyer');
 	const amount = BigInt(accept.amount);
 
 	const senderAta = getAssociatedTokenAddressSync(

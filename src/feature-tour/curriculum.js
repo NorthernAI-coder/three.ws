@@ -5,7 +5,8 @@
 // survives a full-page navigation between stops on different routes.
 
 const CURRICULUM_URL = '/tour/curriculum.json';
-const STATE_KEY = 'tws:tour:state';
+const STATE_KEY = 'tws:tour:state'; // live, per-tab tour (sessionStorage)
+const RESUME_KEY = 'tws:tour:resume'; // durable cross-session memory (localStorage)
 
 let _cache = null;
 
@@ -28,7 +29,15 @@ export function normalizePath(pathname = location.pathname) {
 	return p === '' ? '/' : p;
 }
 
-const DEFAULT_STATE = { active: false, index: 0, paused: false, muted: false, voice: 'nova' };
+const DEFAULT_STATE = {
+	active: false,
+	index: 0,
+	track: 'full',
+	paused: false,
+	muted: false,
+	voice: 'nova',
+	speed: 1,
+};
 
 export function readState() {
 	try {
@@ -47,6 +56,12 @@ export function writeState(patch) {
 	} catch {
 		/* private mode / disabled storage — tour still runs within this page */
 	}
+	// Mirror durable preferences + progress so a returning visitor (new tab,
+	// next day) can pick the tour back up. The live sequencing still reads from
+	// sessionStorage; this is the cross-session memory only.
+	if (next.active) {
+		writeResume({ index: next.index, track: next.track, voice: next.voice, speed: next.speed });
+	}
 	return next;
 }
 
@@ -56,6 +71,55 @@ export function clearState() {
 	} catch {
 		/* ignore */
 	}
+}
+
+// ── Cross-session memory (localStorage) ──────────────────────────────────────
+// Remembers where a visitor got to and their voice/speed preferences across
+// sessions, plus whether they've ever finished the tour. Never drives live
+// sequencing — only the /tour page's "resume" / "completed" affordances and the
+// director's preference defaults read it.
+const DEFAULT_RESUME = { index: 0, track: 'full', voice: 'nova', speed: 1, completed: false };
+
+export function readResume() {
+	try {
+		const raw = localStorage.getItem(RESUME_KEY);
+		if (!raw) return { ...DEFAULT_RESUME };
+		return { ...DEFAULT_RESUME, ...JSON.parse(raw) };
+	} catch {
+		return { ...DEFAULT_RESUME };
+	}
+}
+
+export function writeResume(patch) {
+	const next = { ...readResume(), ...patch };
+	try {
+		localStorage.setItem(RESUME_KEY, JSON.stringify(next));
+	} catch {
+		/* storage unavailable — cross-session resume simply won't persist */
+	}
+	return next;
+}
+
+export function markCompleted() {
+	writeResume({ completed: true, index: 0 });
+}
+
+// ── Playlists ────────────────────────────────────────────────────────────────
+// A track is a view over the curriculum: an ordered list of absolute stop
+// indices to actually visit. 'full' is every stop; 'quick' is the highlighted
+// heroes. Pure (no storage) so the sequencing logic and tests can build it
+// freely. Always non-empty — an unknown track or a curriculum with no highlights
+// falls back to the full list so the tour can never strand itself with nothing
+// to play.
+export function buildPlaylist(curriculum, track = 'full') {
+	const all = curriculum.stops.map((_, i) => i);
+	if (track !== 'quick') return all;
+	const quick = all.filter((i) => curriculum.stops[i].highlight);
+	return quick.length ? quick : all;
+}
+
+export function trackMeta(curriculum, track = 'full') {
+	return (curriculum.tracks || []).find((t) => t.id === track) || null;
 }
 
 // Index of the first stop on a given path, or -1. Used to snap the tour back

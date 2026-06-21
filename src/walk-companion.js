@@ -15,6 +15,7 @@
 import { createWalkCompanion } from '../walk-sdk/src/companion.js';
 import { installTransitions } from './walk-companion-transitions.js';
 import { createWalkTrails2D, createTrailSetting, TRAIL_STYLE_LABELS } from './walk-trails.js';
+import { installClickToWalk } from './walk-companion-click-to-walk.js';
 
 const walk = createWalkCompanion({
 	// Static GLBs and the animation manifest are served from this origin.
@@ -236,5 +237,22 @@ walk.trails = {
 };
 
 trailRaf = requestAnimationFrame(trailTick);
+
+// ── Click-to-walk navigation (Task 35) ──────────────────────────────────────
+// Clicking an empty patch of the page (or long-pressing on touch) sends the
+// companion avatar gliding to that spot, routing around [data-walk-block]
+// elements, facing its heading, and easing into arrival. We never edit the SDK:
+// the walker translates the live instance's host element and drives its
+// controller's walk/idle state + yaw. The on/off pref persists under the
+// companion's own key namespace (`${prefix}:companion:clicktowalk`), and the
+// settings pill is slotted into the same chrome as the trails/transitions
+// toggles. We hand it the live instance getter so it survives avatar swaps and
+// playground round-trips.
+const C2W_KEY = `${(walk.config?.keys?.enabled || 'three:companion:enabled').split(':')[0]}:companion:clicktowalk`;
+installClickToWalk({
+	getInstance: () => walk.instance,
+	getHostEl: companionHost,
+	storageKey: C2W_KEY,
+});
 
 walk.bootstrap();

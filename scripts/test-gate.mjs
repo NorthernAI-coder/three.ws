@@ -17,10 +17,29 @@
  * Anything needing a live DB/RPC/browser belongs in `npm test`, not the gate.
  */
 import { execFileSync } from 'child_process';
-import { resolve, dirname } from 'path';
+import { createRequire } from 'module';
+import { resolve, dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+
+// Resolve vitest's CLI entry through Node module resolution rather than relying
+// on the `.bin/vitest` shim (or `npx`'s PATH lookup). Vercel restores a cached
+// `node_modules` between builds but does NOT always recreate the `.bin/`
+// symlinks — so the vitest *package* is present while `.bin/vitest` is missing,
+// and `npx vitest` dies with "vitest: not found" in <1s, failing every deploy
+// even though no test regressed. `node <pkg>/vitest.mjs` needs only the package
+// directory, which survives the cache intact, so it is immune to the stripped
+// bin. If the package itself is genuinely absent the install is broken and the
+// deploy SHOULD fail — that case throws below with a clear message.
+function resolveVitestCli() {
+	const require = createRequire(import.meta.url);
+	const pkgJsonPath = require.resolve('vitest/package.json');
+	const bin = require(pkgJsonPath).bin;
+	const rel = typeof bin === 'string' ? bin : bin?.vitest;
+	if (!rel) throw new Error('vitest package.json has no `bin.vitest` entry');
+	return join(dirname(pkgJsonPath), rel);
+}
 
 const GATE_TESTS = [
 	'tests/solana-confirm.test.js',        // reverted-tx → throw (no false-success money path)
@@ -33,8 +52,22 @@ const GATE_TESTS = [
 ];
 
 console.log(`[test-gate] running ${GATE_TESTS.length} critical-path test files…`);
+
+let vitestCli;
 try {
-	execFileSync('npx', ['vitest', 'run', ...GATE_TESTS], {
+	vitestCli = resolveVitestCli();
+} catch (err) {
+	// The vitest package could not be resolved at all — a genuinely broken
+	// install, not a code regression. Fail the deploy loudly rather than skip the
+	// only automated checkpoint: a silent pass here would let a real money/auth
+	// regression ship unguarded.
+	console.error(`[test-gate] ✗ cannot resolve the vitest runner: ${err.message}`);
+	console.error('[test-gate]   the test runner is missing from node_modules — the install is broken; blocking deploy');
+	process.exit(1);
+}
+
+try {
+	execFileSync(process.execPath, [vitestCli, 'run', ...GATE_TESTS], {
 		cwd: ROOT,
 		stdio: 'inherit',
 		env: process.env,
