@@ -159,18 +159,9 @@ export function paymentRequirements(resourceUrl, { amount } = {}) {
 		...(resourceUrl ? { resource: resourceUrl } : {}),
 	};
 	const out = [];
-	if (env.X402_PAY_TO_BASE) {
-		pushEvmAccepts(out, {
-			...common,
-			network: NETWORK_BASE_MAINNET,
-			payTo: env.X402_PAY_TO_BASE,
-			asset: env.X402_ASSET_ADDRESS_BASE,
-			// `name` MUST match the on-chain EIP-712 domain. Base USDC's domain
-			// name is "USD Coin" (not "USDC"); using "USDC" here makes the
-			// facilitator recompute the wrong domain hash → invalid signature.
-			extra: { name: 'USD Coin', version: '2', decimals: 6 },
-		});
-	}
+	// Solana-first platform default: the Solana accept leads so first-accept
+	// clients and the payment modal settle on Solana unless the caller picks
+	// another network explicitly. Base/BSC follow as alternatives.
 	if (env.X402_PAY_TO_SOLANA) {
 		out.push({
 			...common,
@@ -197,6 +188,18 @@ export function paymentRequirements(resourceUrl, { amount } = {}) {
 				extra: { name: 'THREE', decimals: env.THREE_TOKEN_DECIMALS, feePayer: env.X402_FEE_PAYER_SOLANA },
 			});
 		}
+	}
+	if (env.X402_PAY_TO_BASE) {
+		pushEvmAccepts(out, {
+			...common,
+			network: NETWORK_BASE_MAINNET,
+			payTo: env.X402_PAY_TO_BASE,
+			asset: env.X402_ASSET_ADDRESS_BASE,
+			// `name` MUST match the on-chain EIP-712 domain. Base USDC's domain
+			// name is "USD Coin" (not "USDC"); using "USDC" here makes the
+			// facilitator recompute the wrong domain hash → invalid signature.
+			extra: { name: 'USD Coin', version: '2', decimals: 6 },
+		});
 	}
 	if (env.X402_PAY_TO_BSC) {
 		// BSC uses the contract-mediated "direct" scheme — see x402-bsc-direct.js

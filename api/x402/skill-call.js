@@ -159,10 +159,12 @@ export default async function handler(req, res) {
 	const payTo = {};
 	if (skill.author_payto_base) payTo.base = skill.author_payto_base;
 	if (skill.author_payto_solana) payTo.solana = skill.author_payto_solana;
+	// Solana-first platform default: advertise Solana ahead of Base so
+	// first-accept clients settle on Solana when the author supports both.
 	const networks = [];
-	if (payTo.base) networks.push('base');
 	if (payTo.solana) networks.push('solana');
-	if (!networks.length) networks.push('base', 'solana'); // platform fallback
+	if (payTo.base) networks.push('base');
+	if (!networks.length) networks.push('solana', 'base'); // platform fallback
 
 	const priceAtomics = priceFor(`skill-call-${slug}`, usdToAtomics(skill.price_per_call_usd));
 
