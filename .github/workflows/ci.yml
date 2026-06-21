@@ -70,12 +70,12 @@ jobs:
       - run: npm run build:pages
 
   typecheck:
-    name: Typecheck (advisory)
+    name: Typecheck
     runs-on: ubuntu-latest
-    # Advisory until the JSDoc type backlog is cleared — surfaces type signal on
-    # every PR without blocking merge. Flip `continue-on-error` to false to make
-    # it a hard gate once `npm run typecheck` is clean.
-    continue-on-error: true
+    # `npm run typecheck` (tsc over jsconfig.json) is clean as of 2026-06-21, so
+    # this is now a hard merge gate: a new type error blocks the PR. The JSDoc
+    # backlog it used to wait on has been burned down — keep it clean by fixing
+    # the types, not by restoring continue-on-error.
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -84,3 +84,47 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run typecheck
+
+  pages:
+    name: Page health
+    runs-on: ubuntu-latest
+    # scripts/test-pages.mjs spawns its own vite server and drives Chromium over
+    # every public route, failing on thrown errors, real console errors, dead
+    # requests, or broken hero images before they ship (npm run test:pages).
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: playwright-${{ runner.os }}-
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:pages
+
+  e2e:
+    name: E2E (Playwright)
+    runs-on: ubuntu-latest
+    # The browser-driven specs (playwright.config.js boots `npm run dev` as its
+    # webServer). retries:1 in the config absorbs a single transient blip; a
+    # spec that fails twice is a real regression and blocks the PR.
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: playwright-${{ runner.os }}-
+      - run: npx playwright install --with-deps chromium
+      - run: npx playwright test

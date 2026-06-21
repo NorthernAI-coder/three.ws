@@ -1100,6 +1100,10 @@
 			"dest": "/pricing.html"
 		},
 		{
+			"src": "/credits/?",
+			"dest": "/credits.html"
+		},
+		{
 			"src": "/x-pricing/?",
 			"dest": "/x-pricing.html"
 		},
@@ -3300,15 +3304,24 @@
 		},
 		{
 			"src": "/blog",
-			"dest": "/blog/index.html"
+			"status": 301,
+			"headers": {
+				"Location": "/changelog"
+			}
 		},
 		{
 			"src": "/blog/",
-			"dest": "/blog/index.html"
+			"status": 301,
+			"headers": {
+				"Location": "/changelog"
+			}
 		},
 		{
 			"src": "/blog/([a-z0-9-]+)/?",
-			"dest": "/blog/$1.html"
+			"status": 301,
+			"headers": {
+				"Location": "/changelog"
+			}
 		},
 		{
 			"src": "/llms.txt",
@@ -3371,11 +3384,17 @@
 		},
 		{
 			"src": "/chat",
-			"dest": "/chat/index.html"
+			"status": 301,
+			"headers": {
+				"Location": "/app"
+			}
 		},
 		{
 			"src": "/chat/",
-			"dest": "/chat/index.html"
+			"status": 301,
+			"headers": {
+				"Location": "/app"
+			}
 		},
 		{
 			"src": "/chat/(.*)",
@@ -3484,6 +3503,14 @@
 		{
 			"src": "/legal/tos/?",
 			"dest": "/legal/tos.html"
+		},
+		{
+			"src": "/legal/content-policy/?",
+			"dest": "/legal/content-policy.html"
+		},
+		{
+			"src": "/content-policy/?",
+			"dest": "/legal/content-policy.html"
 		},
 		{
 			"src": "/extension/auth-callback/?",

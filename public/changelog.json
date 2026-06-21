@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-21T12:19:55.830Z",
+	"generated_at": "2026-06-21T13:16:39.824Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -12,6 +12,16 @@
 			"title": "Arm your agent — automate Oracle conviction",
 			"summary": "Configure your 3D agent to trade Oracle conviction automatically: set the minimum score, position size, daily and open-position caps, narrative filters and Telegram alerts, then arm it in simulate or live mode. Every action is graded against the outcome.",
 			"link": "/oracle/arm",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "launch",
+			"title": "Credits",
+			"summary": "Top up with SOL or $THREE and spend credits on 3D generation, agents, and compute. Hold $THREE for up to 30% off every spend.",
+			"link": "/credits",
 			"tags": [
 				"launch"
 			]
@@ -100,6 +110,16 @@
 		{
 			"date": "2026-06-21",
 			"type": "update",
+			"title": "13 new step-by-step tutorials — Walk, IRL, Scene Studio, voice, vanity names and more",
+			"summary": "The tutorial library got a big fill-in: every major part of three.ws that didn't have a walkthrough now has one. New guides cover putting a walking 3D avatar on your own site, placing your agent in your real room with IRL, building a scene in Scene Studio, animating any avatar, turning a selfie into a rigged avatar, importing an avatar by link, viewing a model in AR, giving an agent a real voice with lip-sync, paying for an x402 service from your agent, claiming a .threews.sol name and getting paid by it, reading an agent's on-chain reputation, mining a Solana vanity address, and a no-code getting-started. Every tutorial is grounded in the live product, with copy-paste steps and troubleshooting.",
+			"link": "/tutorials",
+			"tags": [
+				"docs"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "update",
 			"title": "Affiliate dashboard now shows who you referred",
 			"summary": "The referrals dashboard lists each person you referred with their signup date, the revenue they generated, and the commission you earned — not just totals.",
 			"link": "/dashboard/referrals",
@@ -179,6 +199,16 @@
 			"tags": [
 				"infra",
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "update",
+			"title": "Credits: top up with SOL or $THREE, spend on generation and agents",
+			"summary": "You can now keep a prepaid balance on three.ws. Deposit SOL or $THREE from your wallet and it's credited to your account at the live USD value; spend those credits on paid compute like High-quality 3D generation — no per-action wallet popup each time. Holding $THREE still discounts every spend (up to 30%), so the credits you buy go further the bigger your bag. Deposits are verified on-chain and bound to a wallet linked to your account, your balance and full history live at /credits, and a failed generation is automatically refunded. Forge High now accepts credits as a payment option alongside holding $THREE or paying per generation.",
+			"link": "/credits",
+			"tags": [
+				"feature"
 			]
 		},
 		{
@@ -370,6 +400,16 @@
 			"tags": [
 				"feature",
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "update",
+			"title": "Game-Ready export is now a $THREE perk — hold, or pay per export",
+			"summary": "Turning a generated or uploaded model into a clean, engine-ready asset — one-click retopology to a poly budget with a PBR texture re-bake, delivered as a GLB plus an FBX for Unity and Unreal — is now a $THREE benefit. Hold $THREE and every Game-Ready export is free; if you don't hold, pay once per export in $THREE without leaving the result view, then the export runs immediately. Text→3D generation at Draft and Standard stays free for everyone. The export runs real GPU retopology on our remesh service, so holders fund it by holding rather than us metering everyone — the same hold-or-pay model already used for High-quality generation.",
+			"link": "/forge",
+			"tags": [
+				"feature"
 			]
 		},
 		{

@@ -390,6 +390,7 @@ const appConfig = {
 				'ar-page': resolve(__dirname, 'pages/ar.html'),
 				creating: resolve(__dirname, 'pages/creating.html'),
 				pricing: resolve(__dirname, 'pages/pricing.html'),
+				credits: resolve(__dirname, 'pages/credits.html'),
 				'x-pricing': resolve(__dirname, 'pages/x-pricing.html'),
 				'avatar-studio-demo': resolve(__dirname, 'pages/avatar-studio-demo.html'),
 				'gallery-picker': resolve(__dirname, 'pages/gallery-picker.html'),
