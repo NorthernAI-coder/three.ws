@@ -866,7 +866,7 @@ function renderDrawerContent(host, data, token = null) {
 	const symbol = data.symbol || '?';
 	const chain = CHAIN[data.chain] || CHAIN.solana;
 	const logoHtml = data.logo
-		? `<img src="${esc(data.logo)}" alt="" class="pf-drawer-logo" />`
+		? `<img loading="lazy" decoding="async" src="${esc(data.logo)}" alt="" class="pf-drawer-logo" />`
 		: `<div class="pf-drawer-logo pf-token-logo-ph" style="width:44px;height:44px;font-size:20px">${esc(symbol[0])}</div>`;
 	const hasChart = data.chart?.points?.length >= 2;
 

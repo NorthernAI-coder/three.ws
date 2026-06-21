@@ -141,6 +141,47 @@ export function cacheBackend() {
 }
 
 /**
+ * Best-effort cross-instance lock built on Redis `SET key val NX EX`. Returns
+ * true if THIS caller acquired the lock, false if someone else holds it. Use to
+ * coordinate an expensive recompute (a full on-chain scan, a snapshot rebuild)
+ * across serverless instances so a traffic spike against a cold cache fans out
+ * into ONE recompute platform-wide instead of N.
+ *
+ * The TTL is a safety valve: if the lock holder's lambda dies mid-work, the lock
+ * auto-expires so the work isn't wedged forever — size it longer than the work
+ * takes. When Redis is unavailable we return true (degrade to "no cross-instance
+ * coordination"); pair with an in-process single-flight for the common case.
+ *
+ * @param {string} key
+ * @param {number} ttlSeconds
+ * @returns {Promise<boolean>}
+ */
+export async function acquireLock(key, ttlSeconds) {
+	if (!redisConfigured()) return true;
+	try {
+		const res = await redisCmd(['SET', key, '1', 'NX', 'EX', String(ttlSeconds)]);
+		return res === 'OK';
+	} catch (err) {
+		console.warn('[cache] acquireLock failed, proceeding without lock:', err?.message);
+		return true;
+	}
+}
+
+/**
+ * Release a lock taken with acquireLock. Best-effort — a failed release just
+ * leaves the lock to expire on its TTL.
+ * @param {string} key
+ */
+export async function releaseLock(key) {
+	if (!redisConfigured()) return;
+	try {
+		await redisCmd(['DEL', key]);
+	} catch {
+		/* lock will expire on its own TTL */
+	}
+}
+
+/**
  * Read-through cache: return the cached value for `key`, or compute it with
  * `fn()`, store it for `ttlSeconds`, and return it. Use to shield expensive but
  * staleness-tolerant work (full-table COUNT(*) aggregates, leaderboards) from

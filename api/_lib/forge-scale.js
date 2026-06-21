@@ -170,3 +170,82 @@ export const SCALE_LIMITS = Object.freeze({
 	replicateSubmitLimit: intEnv('FORGE_REPLICATE_SUBMIT_LIMIT', 40),
 	replicateSubmitWindowS: 10,
 });
+
+// ── Shared circuit breaker ────────────────────────────────────────────────────
+// A consecutive-failure breaker whose state lives in Redis so EVERY serverless
+// instance sees the same open/closed decision. Without it each instance
+// rediscovers a provider outage independently — e.g. the seed cron burns N× the
+// retry latency before N instances each open their own in-memory breaker. Falls
+// back to a per-instance object when Redis is absent (the behavior callers had
+// before this was shared). Counters self-expire so a long-idle breaker clears.
+
+const CIRCUIT_PREFIX = 'fc:circuit:';
+const CIRCUIT_TTL_S = 24 * 3600;
+const _circuitMem = new Map(); // name -> { failures, openUntil }
+
+function memCircuit(name) {
+	let c = _circuitMem.get(name);
+	if (!c) {
+		c = { failures: 0, openUntil: 0 };
+		_circuitMem.set(name, c);
+	}
+	return c;
+}
+
+// Current breaker state: { open, failures, openUntil }.
+export async function circuitState(name) {
+	if (!redis) {
+		const c = memCircuit(name);
+		return { open: c.openUntil > Date.now(), failures: c.failures, openUntil: c.openUntil };
+	}
+	try {
+		const [failures, openUntil] = await Promise.all([
+			redis.get(`${CIRCUIT_PREFIX}${name}:failures`),
+			redis.get(`${CIRCUIT_PREFIX}${name}:openUntil`),
+		]);
+		const o = Number(openUntil) || 0;
+		return { open: o > Date.now(), failures: Number(failures) || 0, openUntil: o };
+	} catch {
+		// Blind breaker → fail open (treat as closed) so an outage of the limiter
+		// store doesn't itself silence the cron.
+		return { open: false, failures: 0, openUntil: 0 };
+	}
+}
+
+// Record one failure; opens the breaker for (failures × baseMs) once threshold is
+// reached. Returns the new consecutive-failure count.
+export async function circuitRecordFailure(name, { threshold, baseMs }) {
+	if (!redis) {
+		const c = memCircuit(name);
+		c.failures++;
+		if (c.failures >= threshold) c.openUntil = Date.now() + c.failures * baseMs;
+		return c.failures;
+	}
+	try {
+		const failures = await redis.incr(`${CIRCUIT_PREFIX}${name}:failures`);
+		await redis.expire(`${CIRCUIT_PREFIX}${name}:failures`, CIRCUIT_TTL_S);
+		if (failures >= threshold) {
+			await redis.set(`${CIRCUIT_PREFIX}${name}:openUntil`, String(Date.now() + failures * baseMs), {
+				ex: CIRCUIT_TTL_S,
+			});
+		}
+		return failures;
+	} catch {
+		return 0;
+	}
+}
+
+// Clear the breaker on a success.
+export async function circuitRecordSuccess(name) {
+	if (!redis) {
+		const c = memCircuit(name);
+		c.failures = 0;
+		c.openUntil = 0;
+		return;
+	}
+	try {
+		await redis.del(`${CIRCUIT_PREFIX}${name}:failures`, `${CIRCUIT_PREFIX}${name}:openUntil`);
+	} catch {
+		/* best-effort */
+	}
+}

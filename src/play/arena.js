@@ -223,7 +223,7 @@ function createLabel(agent) {
 	el.type = 'button';
 	el.innerHTML = `
 		<span class="lbl-rank">#${agent.label.rank ?? '?'}</span>
-		${agent.label.thumbnail ? `<img class="lbl-av" src="${esc(agent.label.thumbnail)}" alt="" onerror="this.remove()"/>` : ''}
+		${agent.label.thumbnail ? `<img loading="lazy" decoding="async" class="lbl-av" src="${esc(agent.label.thumbnail)}" alt="" onerror="this.remove()"/>` : ''}
 		<span class="lbl-meta">
 			<span class="lbl-name">${esc(agent.label.name)}</span>
 			<span class="lbl-pnl ${agent.label.pnlUp ? 'up' : 'down'}">${esc(agent.label.pnlText)}</span>
@@ -378,7 +378,7 @@ function renderAgentDrawer(data, id) {
 
 	$('drawerBody').innerHTML = `
 		<div class="dw-head">
-			${a.image ? `<img src="${esc(a.image)}" alt="" onerror="this.remove()"/>` : '<span class="dw-av-fallback"></span>'}
+			${a.image ? `<img loading="lazy" decoding="async" src="${esc(a.image)}" alt="" onerror="this.remove()"/>` : '<span class="dw-av-fallback"></span>'}
 			<div>
 				<div class="dw-name">${esc(a.name || 'Agent')}</div>
 				<div class="dw-sub">${verified}</div>
@@ -447,7 +447,7 @@ function renderBoard(rows) {
 		const onerr = `this.outerHTML='<span class=&quot;r-av r-av-fb&quot;>${initial}</span>'`;
 		return `<button class="row no-orbit" data-id="${esc(r.agent_id)}">
 			<span class="r-rank">${r.rank}</span>
-			<img class="r-av" src="${esc(r.image || '/avatars/thumbs/default.png')}" alt="" onerror="${onerr}"/>
+			<img loading="lazy" decoding="async" class="r-av" src="${esc(r.image || '/avatars/thumbs/default.png')}" alt="" onerror="${onerr}"/>
 			<span class="r-name">${esc(name)}<small>${r.open_positions} open · ${r.closed ? wr + '% win' : 'new'}</small></span>
 			<span class="r-pnl ${up ? 'up' : 'down'}">${fmtSol(r.realized_pnl_sol)}</span>
 		</button>`;

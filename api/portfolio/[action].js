@@ -253,7 +253,11 @@ async function sendEvm({ agent, asset, recipient, amount, memo }) {
 	}
 	const chainId = agent.chain_id || 8453;
 
-	const pkHex = await recoverAgentKey(encryptedKey);
+	const pkHex = await recoverAgentKey(encryptedKey, {
+		agentId: agent.id,
+		userId: agent.user_id ?? null,
+		reason: `portfolio_send_${asset}`,
+	});
 	const { Wallet, parseEther, Contract } = await import('ethers');
 	const provider = await evmFallbackProvider(chainId);
 	const signer = new Wallet(pkHex, provider);

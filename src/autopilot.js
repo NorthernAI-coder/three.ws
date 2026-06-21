@@ -90,7 +90,7 @@ function narrate(activity, coinsById, agentImage) {
 	const a = activity.find((x) => x.status !== 'skipped');
 	const avatarEl = $('#narratorAvatar');
 	if (agentImage && avatarEl && !avatarEl.querySelector('img')) {
-		avatarEl.insertAdjacentHTML('afterbegin', `<img src="${esc(agentImage)}" alt="">`);
+		avatarEl.insertAdjacentHTML('afterbegin', `<img loading="lazy" decoding="async" src="${esc(agentImage)}" alt="">`);
 		const nf = avatarEl.querySelector('.nf');
 		if (nf) nf.style.display = 'none';
 	}
@@ -129,7 +129,7 @@ function coinCard(c) {
 	const on = p.enabled;
 	const initials = (c.symbol || c.name || 'A').slice(0, 2).toUpperCase();
 	const img = c.image
-		? `<img src="${esc(c.image)}" alt="" onerror="this.remove()">`
+		? `<img loading="lazy" decoding="async" src="${esc(c.image)}" alt="" onerror="this.remove()">`
 		: '';
 	const gradPill = c.stats.graduated
 		? `<span class="pill grad"><span class="dot"></span>Graduated</span>`

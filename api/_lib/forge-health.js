@@ -23,6 +23,7 @@ import { BACKENDS, backendIsConfigured } from './forge-tiers.js';
 import { env } from './env.js';
 import { getRedisBurn } from './redis-usage.js';
 import { probeLlmHealth } from './llm-health.js';
+import { readGenerationMetrics } from './forge-events.js';
 
 const PROBE_TIMEOUT_MS = 4_000;
 const CACHE_TTL_MS = 60_000;
@@ -264,7 +265,7 @@ export async function probeForgeHealth({ force = false } = {}) {
 		return { ...cache.payload, cached: true };
 	}
 
-	const [entries, limiter, llm, world, redis] = await Promise.all([
+	const [entries, limiter, llm, world, redis, metrics] = await Promise.all([
 		Promise.all(
 			Object.values(BACKENDS).map(async (b) => {
 				if (b.byok) return byokResult(b.id);
@@ -292,6 +293,12 @@ export async function probeForgeHealth({ force = false } = {}) {
 		// out of quota?" — the slow failure that took the platform down in June
 		// 2026 while every reachability check still read green.
 		getRedisBurn(),
+		// Real generation outcomes over the last 24h (success rate, latency, per-backend
+		// load) from the rolling counters forge-events.js writes. This is what a probe
+		// can't tell you: the upstream can authenticate fine while real user generations
+		// are quietly failing. Null when Redis is absent — the block is then omitted
+		// rather than shown as a misleading all-zero outage.
+		readGenerationMetrics().catch(() => null),
 	]);
 
 	const backends = Object.fromEntries(entries.map((e) => [e.id, e]));
@@ -300,9 +307,21 @@ export async function probeForgeHealth({ force = false } = {}) {
 	// functions when the world is offline), which the cap below already enforces.
 	// A critical Redis burn rate degrades overall too: it predicts the limiters
 	// failing closed before they actually do, so it warns rather than waits.
+	// A real success rate below 75% over a meaningful sample (≥20 terminal outcomes)
+	// is a live outage the upstream auth probes can't see — surface it in the overall
+	// verdict. Below the volume floor the rate is too noisy to act on, so it's ignored.
+	const generationUnhealthy =
+		metrics && metrics.total >= 20 && metrics.success_rate != null && metrics.success_rate < 0.75;
+
 	const statuses = entries
 		.map((e) => e.status)
-		.concat(limiter.status, llm.overall, world.status, redis.status === 'critical' ? 'down' : 'ok');
+		.concat(
+			limiter.status,
+			llm.overall,
+			world.status,
+			redis.status === 'critical' ? 'down' : 'ok',
+			generationUnhealthy ? 'degraded' : 'ok',
+		);
 	const overall = statuses.includes('down') || statuses.includes('degraded') ? 'degraded' : 'ok';
 
 	const payload = {
@@ -313,6 +332,8 @@ export async function probeForgeHealth({ force = false } = {}) {
 		llm,
 		world,
 		redis,
+		// Live generation outcomes (omitted when Redis is absent).
+		...(metrics ? { metrics } : {}),
 	};
 	cache = { at: Date.now(), payload };
 	return { ...payload, cached: false };

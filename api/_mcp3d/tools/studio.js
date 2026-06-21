@@ -204,12 +204,23 @@ const PATH_PROP = {
 	description:
 		'Generation path: "image" (FLUX→TRELLIS reference-image reconstruction, the platform-keyed default) or "geometry" (native text/image→mesh via Meshy/Tripo/Rodin — cleaner topology, but BYOK: needs your own provider key).',
 };
-const BACKEND_PROP = {
-	type: 'string',
+const MCP_UNSELECTABLE_BACKENDS = new Set([
 	// replicate_byok runs on the platform reconstruction path with the caller's
 	// own Replicate account; that BYOK-token routing only exists on /api/forge, so
-	// it isn't offered over MCP. Every other backend is selectable here.
-	enum: Object.keys(BACKENDS).filter((id) => id !== 'replicate_byok'),
+	// it isn't offered over MCP.
+	'replicate_byok',
+	// huggingface is the free Spaces image→3D lane, but it is wired ONLY on
+	// /api/forge (runHfImageLane). The MCP studio path reconstructs via Replicate/GCP
+	// (regenProvider), so selecting it here would silently run a DIFFERENT, paid
+	// engine. Hide it until the free Spaces lane is wired into the MCP path rather
+	// than advertise a free engine that doesn't run here. Free text→3D over MCP is
+	// the separate forge_free tool, which targets the NVIDIA lane via /api/forge.
+	'huggingface',
+]);
+const BACKEND_PROP = {
+	type: 'string',
+	// Every other backend is selectable here.
+	enum: Object.keys(BACKENDS).filter((id) => !MCP_UNSELECTABLE_BACKENDS.has(id)),
 	description:
 		'Force a specific backend (trellis, meshy, tripo, rodin, stability, hunyuan3d). Defaults to the best one for the chosen path. Backends outside the path are ignored.',
 };

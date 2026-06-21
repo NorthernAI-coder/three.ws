@@ -205,7 +205,7 @@ function frontFace(card, refUrl) {
 		<div class="ref-face front" data-face="front">
 			<div class="ref-sheen"></div>
 			<div class="ref-row">
-				<div class="ref-brand"><img src="/favicon.ico" alt="" />three.ws</div>
+				<div class="ref-brand"><img loading="lazy" decoding="async" src="/favicon.ico" alt="" />three.ws</div>
 				<div class="ref-chip" aria-hidden="true"></div>
 			</div>
 			<div class="ref-row" style="margin-top:14px;align-items:flex-start;gap:14px">
@@ -250,7 +250,7 @@ function backFace(card, refUrl) {
 			</div>
 			<div class="ref-divider" style="margin-top:12px"></div>
 			<div class="ref-row" style="margin-top:10px;color:rgba(255,255,255,.5);font-size:11px">
-				<div class="ref-brand" style="font-size:13px;opacity:.85"><img src="/favicon.ico" alt="" />three.ws</div>
+				<div class="ref-brand" style="font-size:13px;opacity:.85"><img loading="lazy" decoding="async" src="/favicon.ico" alt="" />three.ws</div>
 				<span>© ${new Date().getFullYear()} three.ws</span>
 			</div>
 		</div>`;

@@ -19,6 +19,7 @@
  */
 
 import { sql } from './_lib/db.js';
+import { cacheWrap } from './_lib/cache.js';
 import { cors, json, method, readJson, wrap, error, rateLimited } from './_lib/http.js';
 import { clampInt } from './_lib/http-params.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
@@ -218,7 +219,12 @@ async function handleSearch(req, res, cfg) {
 // the most active agents. Wallet + token surface the on-chain identity layer in the
 // viewer; both are public-safe.
 async function loadPublishedAgents(limit) {
-	const rows = await sql`
+	// This is the same public feed for every viewer, and its `chat_count`
+	// correlated subquery + `ORDER BY chat_count` forces a COUNT(*) over
+	// usage_events for EVERY published agent on each load — the dominant cost
+	// here. Cache the result for 60s so that expensive ranking runs at most once
+	// a minute regardless of traffic.
+	const rows = await cacheWrap(`galaxy:published:${limit}`, 60, async () => await sql`
 		SELECT
 			i.id,
 			i.name,
@@ -240,7 +246,7 @@ async function loadPublishedAgents(limit) {
 		  AND length(trim(i.name)) > 0
 		ORDER BY chat_count DESC, i.created_at DESC
 		LIMIT ${limit}
-	`;
+	`);
 
 	return rows.map((row) => {
 		const meta = row.meta || {};

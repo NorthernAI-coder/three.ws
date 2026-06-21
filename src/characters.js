@@ -50,7 +50,7 @@ function cardHtml(ch) {
 	const name = escHtml(ch.name);
 	const imgSrc = safeUrl(ch.image_url);
 	const avatarEl = imgSrc
-		? `<img class="chs-card-avatar" src="${imgSrc}" alt="${name}"
+		? `<img loading="lazy" decoding="async" class="chs-card-avatar" src="${imgSrc}" alt="${name}"
 		        onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"  />
 		   <div class="chs-card-avatar-ph" style="display:none;background:${color}">${letter}</div>`
 		: `<div class="chs-card-avatar-ph" style="background:${color}">${letter}</div>`;

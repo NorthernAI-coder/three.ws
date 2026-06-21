@@ -151,9 +151,16 @@ export async function reserve(route, paymentId, ttlSec) {
 		// Upstash returns 'OK' on success, null when the key already existed.
 		return ok === 'OK' || ok === true;
 	} catch (err) {
-		// On a Redis error, fail OPEN (allow the request) rather than wedging a
-		// legitimate payment — the always-on proof-hash dedup still bounds replay.
-		console.error('[idempotency-cache] reserve failed:', err?.message || err);
+		// On a Redis error, fall back to the IN-PROCESS claim rather than blindly
+		// allowing the request. This de-dupes the common case — a client double-
+		// submit landing on the same warm instance — so a Redis outage can't turn
+		// into concurrent double-execution of paid work, while still not wedging a
+		// legitimate payment (a hard fail-closed would 5xx every paid call during a
+		// Redis blip). Cross-instance races during the outage remain bounded by the
+		// always-on proof-hash dedup.
+		console.error('[idempotency-cache] reserve failed, using in-process claim:', err?.message || err);
+		if (memoryGet(key) != null) return false;
+		memorySet(key, INFLIGHT, ttl);
 		return true;
 	}
 }

@@ -329,7 +329,7 @@ function boot() {
 	wrap.className = 'tk-wrap';
 	wrap.innerHTML = `
 		<div class="tk-head">
-			<div class="tk-logo"><img src="/favicon.svg" alt="three.ws" width="32" height="32" /></div>
+			<div class="tk-logo"><img loading="lazy" decoding="async" src="/favicon.svg" alt="three.ws" width="32" height="32" /></div>
 			<div style="flex:1;min-width:0">
 				<h1 class="tk-title">$THREE</h1>
 				<p class="tk-sub">The protocol token powering the three.ws agent economy</p>

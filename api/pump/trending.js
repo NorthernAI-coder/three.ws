@@ -19,16 +19,42 @@ const PUMP_FRONTEND_BASE = 'https://frontend-api-v3.pump.fun';
 
 // Process-local cache. Trending shifts slowly; many tabs polling on nav into the
 // dashboard would otherwise hammer the upstreams. Warm-starts share this map.
-let _cache = { value: null, expiresAt: 0, limit: 0 };
+// `storedAt` lets us serve the value as STALE (past its TTL) when every live
+// upstream is down — a slowly-changing market feed is far better shown a few
+// minutes old than blanked out with a 502 during an upstream blip.
+let _cache = { value: null, storedAt: 0, expiresAt: 0, limit: 0 };
 // Separate cache slot for the rich (full-coin) payload — it carries far more per
 // token than the thin projection, so it must not collide with `_cache`.
-let _richCache = { value: null, expiresAt: 0, limit: 0 };
+let _richCache = { value: null, storedAt: 0, expiresAt: 0, limit: 0 };
 const TTL_MS = 30_000;
+// How long a cached feed may be served as a stale fallback after every live
+// upstream has failed. Bounds how old the market data can get during an outage.
+const STALE_MAX_MS = 10 * 60_000;
+// Upstream fetch timeout. Trending is a fast feed behind a 30s cache + stale
+// fallback, so a long wait buys nothing — fail fast and fall through.
+const UPSTREAM_TIMEOUT_MS = 5000;
+// Birdeye circuit breaker: after a failure, skip Birdeye entirely for a cooldown
+// so an influx during a Birdeye outage stops paying the per-request timeout on
+// the way to the pump.fun fallback. Auto-recovers when the cooldown elapses.
+const BIRDEYE_COOLDOWN_MS = 60_000;
+let _birdeyeCooldownUntil = 0;
+
+// Serve a cached feed past its TTL when live upstreams are down. Returns the
+// sliced value if the slot holds enough items and is within the stale window,
+// else null. Keyed by the same `limit >=` rule as the fresh-cache check.
+function serveStale(slot, limit, now) {
+	if (!slot.value || slot.limit < limit) return null;
+	if (now - slot.storedAt > STALE_MAX_MS) return null;
+	return slot.value.slice(0, limit);
+}
 
 // Primary: Birdeye trending feed. Returns null (not throws) on any failure so the
 // caller can transparently fall back.
 async function fetchBirdeye(limit) {
 	if (!BIRDEYE_API_KEY) return null;
+	// Circuit open: a recent Birdeye failure put it in cooldown — skip straight to
+	// the fallback instead of paying the timeout again.
+	if (Date.now() < _birdeyeCooldownUntil) return null;
 	const url =
 		`https://public-api.birdeye.so/defi/token_trending` +
 		`?sort_by=rank&sort_type=asc&offset=0&limit=${limit}`;
@@ -36,12 +62,17 @@ async function fetchBirdeye(limit) {
 	try {
 		upstream = await fetch(url, {
 			headers: { 'X-API-KEY': BIRDEYE_API_KEY, 'x-chain': 'solana', accept: 'application/json' },
-			signal: AbortSignal.timeout(8000),
+			signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
 		});
 	} catch {
+		_birdeyeCooldownUntil = Date.now() + BIRDEYE_COOLDOWN_MS;
 		return null;
 	}
-	if (!upstream.ok) return null;
+	if (!upstream.ok) {
+		// 429 / 5xx — trip the breaker so the next requests skip the timeout.
+		_birdeyeCooldownUntil = Date.now() + BIRDEYE_COOLDOWN_MS;
+		return null;
+	}
 	const payload = await upstream.json().catch(() => null);
 	const tokens = payload?.data?.tokens;
 	if (!Array.isArray(tokens)) return null;
@@ -70,7 +101,7 @@ async function fetchPumpFun(limit) {
 	url.searchParams.set('includeNsfw', 'false');
 	let upstream;
 	try {
-		upstream = await fetch(url, { headers: { accept: 'application/json' }, signal: AbortSignal.timeout(8000) });
+		upstream = await fetch(url, { headers: { accept: 'application/json' }, signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS) });
 	} catch {
 		return null;
 	}
@@ -116,7 +147,7 @@ async function fetchPumpFunRich(limit) {
 	url.searchParams.set('includeNsfw', 'false');
 	let upstream;
 	try {
-		upstream = await fetch(url, { headers: { accept: 'application/json' }, signal: AbortSignal.timeout(8000) });
+		upstream = await fetch(url, { headers: { accept: 'application/json' }, signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS) });
 	} catch {
 		return null;
 	}
@@ -152,9 +183,17 @@ export default wrap(async (req, res) => {
 		}
 		const richData = await fetchPumpFunRich(limit);
 		if (!richData) {
+			// Upstream down — serve the last good payload as stale rather than blanking
+			// the visualizer. Shorter edge cache so we retry the live source soon.
+			const stale = serveStale(_richCache, limit, now);
+			if (stale) {
+				return json(res, 200, { data: stale, stale: true }, {
+					'cache-control': 'public, max-age=10, s-maxage=20',
+				});
+			}
 			return error(res, 502, 'upstream_error', 'Trending market data is temporarily unavailable');
 		}
-		_richCache = { value: richData, expiresAt: now + TTL_MS, limit };
+		_richCache = { value: richData, storedAt: now, expiresAt: now + TTL_MS, limit };
 		return json(res, 200, { data: richData }, { 'cache-control': 'public, max-age=15, s-maxage=30' });
 	}
 
@@ -167,9 +206,18 @@ export default wrap(async (req, res) => {
 	let data = await fetchBirdeye(limit);
 	if (!data) data = await fetchPumpFun(limit);
 	if (!data) {
+		// Both live sources are down — serve the last good feed as stale so the home
+		// card, communities, constellation, and visualizer keep rendering through the
+		// blip instead of dead-ending on a 502. Shorter edge cache so we retry soon.
+		const stale = serveStale(_cache, limit, now);
+		if (stale) {
+			return json(res, 200, { data: stale, stale: true }, {
+				'cache-control': 'public, max-age=10, s-maxage=20',
+			});
+		}
 		return error(res, 502, 'upstream_error', 'Trending market data is temporarily unavailable');
 	}
 
-	_cache = { value: data, expiresAt: now + TTL_MS, limit };
+	_cache = { value: data, storedAt: now, expiresAt: now + TTL_MS, limit };
 	return json(res, 200, { data }, { 'cache-control': 'public, max-age=15, s-maxage=30' });
 });

@@ -50,7 +50,7 @@ function avatarChip({ kind, value, label, thumb, id }) {
 	chip.title = label;
 	chip.innerHTML = `
 		<span class="avatar-thumb">${thumb
-			? `<img src="${escAttr(thumb)}" alt="" referrerpolicy="no-referrer" onerror="this.style.display='none'" />`
+			? `<img loading="lazy" decoding="async" src="${escAttr(thumb)}" alt="" referrerpolicy="no-referrer" onerror="this.style.display='none'" />`
 			: `<span class="avatar-glyph">🧍</span>`}</span>
 		<span class="avatar-name">${esc(label)}</span>`;
 	chip.addEventListener('click', () => {

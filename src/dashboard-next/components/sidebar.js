@@ -41,8 +41,8 @@ export function renderSidebar(pathname) {
 		<aside class="dn-rail" data-component="rail">
 			<div class="dn-rail-head">
 				<a href="/dashboard" aria-label="Dashboard home">
-					<img class="dn-rail-full" src="/three.svg" alt="three.ws" />
-					<img class="dn-rail-mark" src="/favicon.ico" alt="three.ws" style="width:22px;height:22px;border-radius:5px" />
+					<img loading="lazy" decoding="async" class="dn-rail-full" src="/three.svg" alt="three.ws" />
+					<img loading="lazy" decoding="async" class="dn-rail-mark" src="/favicon.ico" alt="three.ws" style="width:22px;height:22px;border-radius:5px" />
 				</a>
 			</div>
 			<nav class="dn-rail-scroll" aria-label="Dashboard sections">

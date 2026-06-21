@@ -435,7 +435,11 @@ export const handleSign = wrap(async (req, res, id) => {
 
 	let signature;
 	try {
-		const pkHex = await recoverAgentKey(encryptedKey);
+		const pkHex = await recoverAgentKey(encryptedKey, {
+			agentId: row.id,
+			userId: auth.userId,
+			reason: 'sign_message',
+		});
 		signature = await new Wallet(pkHex).signMessage(body.message);
 	} catch (e) {
 		console.error('[agents/sign] signing failed', e);

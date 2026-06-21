@@ -961,7 +961,7 @@ export class RegisterUI {
 
 	_previewThumbHtml(thumb) {
 		if (thumb.kind === 'img') {
-			return `<img src="${esc(thumb.src)}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" />
+			return `<img loading="lazy" decoding="async" src="${esc(thumb.src)}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" />
 				<div class="deploy-preview-ph" style="display:none">Image failed to load</div>`;
 		}
 		if (thumb.kind === 'glb') {
@@ -2105,7 +2105,7 @@ export class RegisterUI {
 	_imageSummaryHtml() {
 		const url = (this.form.imageUrl || '').trim();
 		if (!url) return '';
-		const thumb = `<img src="${esc(url)}" alt="Agent image" class="erc8004-img-thumb"
+		const thumb = `<img loading="lazy" decoding="async" src="${esc(url)}" alt="Agent image" class="erc8004-img-thumb"
 			onerror="this.style.display='none'" />`;
 		if (url.startsWith('data:')) {
 			const kb = Math.round((url.length * 0.75) / 1024);

@@ -19,7 +19,7 @@ export class ScreenshotModal {
 					<button class="screenshot-modal-close" title="Close">&times;</button>
 				</div>
 				<div class="screenshot-modal-body">
-					<img alt="Screenshot preview" />
+					<img loading="lazy" decoding="async" alt="Screenshot preview" />
 				</div>
 				<div class="screenshot-modal-footer">
 					<button class="btn screenshot-modal-copy">Copy</button>

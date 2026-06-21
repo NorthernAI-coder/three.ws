@@ -141,7 +141,7 @@ export const BACKENDS = Object.freeze({
 		// Free image→3D — no vendor credit cost (HF Spaces' free GPU). One HF_TOKEN
 		// unlocks the whole chain; this is what makes photo→3D free for users.
 		free: true,
-		blurb: 'Free photo→3D on community GPU Spaces — Hunyuan3D / TRELLIS / TripoSR with automatic failover. No vendor cost; queue waits vary.',
+		blurb: 'Free photo→3D and the High-tier engine on community GPU Spaces — Hunyuan3D / TRELLIS / TripoSR with automatic failover, textured GLB. No vendor cost; queue waits vary.',
 	}),
 	trellis: Object.freeze({
 		id: 'trellis',
@@ -154,7 +154,7 @@ export const BACKENDS = Object.freeze({
 		polyControl: false,
 		baseEta: 60,
 		credits: null,
-		blurb: 'Image-intermediate reconstruction. The fast default; no poly target.',
+		blurb: 'Image-intermediate reconstruction on Replicate. A paid platform lane — selectable explicitly, and the last-resort fallback only on deployments with no free engine configured. Free deployments never route here automatically.',
 	}),
 	meshy: Object.freeze({
 		id: 'meshy',
@@ -301,46 +301,68 @@ export function outputIsConfigured(outputId) {
 	return o.requiresEnv.every((name) => Boolean(readEnv(name)));
 }
 
-// Standing backend chosen when the caller doesn't name one, per path. The image
-// path keeps the image-capable Replicate TRELLIS default — it accepts user
-// photos and serves every tier. The free NVIDIA NIM lane (text-only) is layered
-// on top of this for prompt-only drafts via FREE_DEFAULT_FOR_DRAFT below, so it
-// must NOT be the standing default: a photo upload or a standard/high request
-// would otherwise route to a backend that can't serve it. Geometry → Meshy.
+// Standing per-path backend, used ONLY as a last resort when no FREE lane is
+// configured for the path (e.g. a deployment with a Replicate key but no
+// NVIDIA_API_KEY / HF_TOKEN). On a free-configured deployment the resolver below
+// never returns these — every tier routes to a zero-vendor-cost lane first, per
+// the platform's free-for-us policy. The image last-resort is the Replicate
+// TRELLIS lane (which itself free-firsts to HF when it runs); geometry is Meshy
+// (BYOK — the caller's own key, never ours); sketch is the self-host TripoSG worker.
 export const DEFAULT_BACKEND_FOR_PATH = Object.freeze({
 	image: 'trellis',
 	geometry: 'meshy',
 	sketch: 'triposg',
 });
 
-// Free-first override: when the caller asks for draft or standard tier without
-// naming a backend, prefer the free NVIDIA NIM lane (platform LLM/free-first
-// policy) on the paths it serves — but only when it's actually configured, so a
-// deployment without NVIDIA_API_KEY transparently keeps the standing per-path
-// default. Paid backends (Replicate/Meshy/Tripo) stay fully selectable at every
-// tier. High tier always goes to the full-quality paid lane.
+// Free-for-us routing: every tier defaults to a zero-vendor-cost engine. The
+// tier picks WHICH free engine, so quality (and the price we charge the user)
+// scales without us ever spending on a paid API:
+//   • draft / standard → NVIDIA NIM TRELLIS — fast, free, native text→mesh.
+//   • high             → HuggingFace Hunyuan3D — textured, higher-fidelity, free.
+// These apply to text prompts and to the FLUX-synthesized reference the free
+// lanes reconstruct from. Photo submissions can't use the text-only NVIDIA lane,
+// so they fall to the free HuggingFace lane via FREE_FALLBACK_FOR_PATH below.
+// Charging is orthogonal: the High tier stays $THREE hold-or-pay gated in the
+// handler regardless of which free engine serves it — we charge for quality, not
+// to recover vendor cost. Paid backends (Replicate/Meshy/Tripo) stay explicitly
+// selectable at every tier.
 export const FREE_DEFAULT_FOR_TIERS = Object.freeze({
 	draft: Object.freeze({ image: 'nvidia' }),
 	standard: Object.freeze({ image: 'nvidia' }),
+	high: Object.freeze({ image: 'huggingface' }),
 });
 
-// Resolve the default backend for a (path, tier) when the caller didn't name
-// one. Draft and standard route to the free lane first when it's configured;
-// `userImages` matters because a free lane that can't take user photos
-// (BACKENDS[id].userImages === false) must not be defaulted for them.
+// Free lanes to fall back to per path when the tier's named free engine can't
+// serve this request — chiefly a photo submission at draft/standard (NVIDIA's
+// hosted preview is text-only), which routes to the free HuggingFace Spaces lane
+// instead of a paid engine. First configured + capable lane wins.
+export const FREE_FALLBACK_FOR_PATH = Object.freeze({
+	image: Object.freeze(['huggingface']),
+});
+
+// Whether a free lane can serve this (path, userImages) request right now: it
+// exists, is marked free (zero vendor cost), serves the path, is configured on
+// this deployment, and — for photo submissions — accepts user images.
+function freeLaneUsable(id, p, userImages) {
+	const b = id && BACKENDS[id];
+	return Boolean(
+		b &&
+		b.free === true &&
+		b.paths.includes(p) &&
+		backendIsConfigured(id) &&
+		(!userImages || b.userImages !== false),
+	);
+}
+
+// Resolve the default backend for a (path, tier) when the caller didn't name one.
+// Free-for-us policy: try the tier's named free engine, then any other configured
+// free lane for the path, and only fall to the paid standing default when NO free
+// lane is live on this deployment.
 function defaultBackendFor(p, tierId, userImages) {
-	const freeMap = FREE_DEFAULT_FOR_TIERS[tierId];
-	if (freeMap) {
-		const free = freeMap[p];
-		const b = free && BACKENDS[free];
-		if (
-			b &&
-			b.paths.includes(p) &&
-			backendIsConfigured(free) &&
-			(!userImages || b.userImages !== false)
-		) {
-			return free;
-		}
+	const named = FREE_DEFAULT_FOR_TIERS[tierId]?.[p];
+	if (freeLaneUsable(named, p, userImages)) return named;
+	for (const id of FREE_FALLBACK_FOR_PATH[p] || []) {
+		if (freeLaneUsable(id, p, userImages)) return id;
 	}
 	return DEFAULT_BACKEND_FOR_PATH[p];
 }

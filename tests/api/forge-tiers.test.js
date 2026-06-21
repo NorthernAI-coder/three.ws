@@ -17,9 +17,18 @@ import {
 
 describe('forge-tiers — NVIDIA NIM backend registration', () => {
 	const prevKey = process.env.NVIDIA_API_KEY;
+	const prevHf = process.env.HF_TOKEN;
+	// Default routing now consults free-lane config (NVIDIA + HF). Start every test
+	// with HF unset so the "no free image lane → paid last resort" assertions are
+	// deterministic; tests that exercise the HF default opt in explicitly.
+	beforeEach(() => {
+		delete process.env.HF_TOKEN;
+	});
 	afterEach(() => {
 		if (prevKey === undefined) delete process.env.NVIDIA_API_KEY;
 		else process.env.NVIDIA_API_KEY = prevKey;
+		if (prevHf === undefined) delete process.env.HF_TOKEN;
+		else process.env.HF_TOKEN = prevHf;
 	});
 
 	it('registers a platform-keyed, free image-path backend', () => {
@@ -42,10 +51,12 @@ describe('forge-tiers — NVIDIA NIM backend registration', () => {
 	});
 
 	describe('free-tier default routing', () => {
-		it('keeps the Replicate TRELLIS default when NIM is unconfigured', () => {
+		it('falls to the paid TRELLIS last resort only when no free image lane is configured', () => {
 			delete process.env.NVIDIA_API_KEY;
+			delete process.env.HF_TOKEN;
 			expect(resolveBackendId({ path: 'image', tier: 'draft' })).toBe('trellis');
 			expect(resolveBackendId({ path: 'image', tier: 'standard' })).toBe('trellis');
+			expect(resolveBackendId({ path: 'image', tier: 'high' })).toBe('trellis');
 		});
 
 		it('routes draft and standard tiers to the free NIM lane when configured', () => {
@@ -54,9 +65,11 @@ describe('forge-tiers — NVIDIA NIM backend registration', () => {
 			expect(resolveBackendId({ path: 'image', tier: 'standard' })).toBe('nvidia');
 		});
 
-		it('never disturbs the high tier or the geometry path', () => {
+		it('routes the high tier to the free textured engine, geometry stays BYOK Meshy', () => {
 			process.env.NVIDIA_API_KEY = 'nvapi-test';
-			expect(resolveBackendId({ path: 'image', tier: 'high' })).toBe('trellis');
+			process.env.HF_TOKEN = 'hf_test';
+			// High is free-for-us too — the higher-quality HuggingFace engine, not paid Replicate.
+			expect(resolveBackendId({ path: 'image', tier: 'high' })).toBe('huggingface');
 			expect(resolveBackendId({ path: 'geometry', tier: 'draft' })).toBe('meshy');
 			expect(resolveBackendId({ path: 'geometry', tier: 'standard' })).toBe('meshy');
 		});

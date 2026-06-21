@@ -95,6 +95,22 @@
 			<description>Two reliability fixes for everyone trading, launching, and browsing. First: every on-chain action that moves funds — coin launches, buys and sells, buybacks, payouts, transfers — now treats a transaction that lands but reverts as a real failure instead of quietly reporting success. You'll see an accurate error and your spending limit won't be charged for a trade that didn't go through. Second: public profile and creator pages are now cacheable at the edge, so they load noticeably faster under load. No action needed — these apply automatically.</description>
 		</item>
 		<item>
+			<title>Live market feed stays up through provider blips</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-21:Live market feed stays up through provider blips</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>infra</category>
+			<description>The trending-tokens feed that powers the home card, communities, the token constellation, and the 3D visualizer is now resilient to upstream outages. If a market data provider goes down or rate-limits us, we transparently fall back to a second source; if both are briefly unavailable, the surfaces keep showing the last good data (clearly marked as a moment stale) instead of going blank. We also added a fast-fail circuit breaker so a slow provider can't drag the feed down during a traffic spike. Net effect: the live market views stay populated and snappy even when a data provider hiccups.</description>
+		</item>
+		<item>
+			<title>Platform-wide hardening: payment integrity, security, and scale</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-21:Platform-wide hardening: payment integrity, security, and scale</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>security</category>
+			<description>A broad reliability pass across the parts of three.ws that move real money and serve heavy traffic. On the money side: bundle purchases and agent payments are now verified on-chain before anything unlocks, each payment is credited exactly once, withdrawals can't be processed twice, and recurring subscriptions can't be double-billed. On the security side: a set of input-handling and link-safety fixes across pages, stronger protection for custodial keys at rest, and tighter checks on outbound agent payments so funds only ever move in the expected asset. On the scale side: the busiest directory, profile, and feed pages now ride a short cache and run far fewer database queries, so they stay fast as the community grows. Most of this is invisible by design — it's the plumbing that keeps the platform correct and quick under load.</description>
+		</item>
+		<item>
 			<title>Provably-fair vanity grinder now listed in the x402 bazaar</title>
 			<link>https://three.ws/vanity/verify</link>
 			<guid isPermaLink="false">2026-06-21:Provably-fair vanity grinder now listed in the x402 bazaar</guid>
@@ -125,6 +141,14 @@
 			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
 			<category>improvement</category>
 			<description>Solana is now the default everywhere you pick a chain — the dashboard's Default payment network setting, x402 merchant settlement, and the monetization payout wallet all default to Solana for every user, with Solana listed first. Base and Polygon remain available if you prefer an EVM chain.</description>
+		</item>
+		<item>
+			<title>The $THREE page now spells out why to hold — four real utility pillars</title>
+			<link>https://three.ws/three-token</link>
+			<guid isPermaLink="false">2026-06-21:The $THREE page now spells out why to hold — four real utility pillars</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The $THREE page leads with a clear &quot;Why hold $THREE&quot; section: revenue buybacks (a fixed, live share of platform revenue buys $THREE on the open market), holder rewards (every paid action reflects $THREE back to holders pro-rata), hold-to-access (discounts, higher quotas, and pro perks), and real usage (deploying agents, forging avatars, and trading the marketplace all run on $THREE). Each pillar maps to a mechanism that actually exists on the platform, and the buyback figure is wired to the live commitment. The page's market data also now rides a shared cache, so it stays fast and reliable under heavy traffic.</description>
 		</item>
 		<item>
 			<title>Grind-Bounty Market</title>

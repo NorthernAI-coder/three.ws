@@ -157,21 +157,8 @@
 </head>
 <body>
 
-<header>
-  <div id="nav-container"></div>
-</header>
+<div id="nav-container"></div>
 <script src="/nav.js"></script>
-
-<header class="page-header">
-  <div class="brand">
-    <a href="/pay"><div class="logo"></div></a>
-    <div>
-      <div class="title">three.ws · pay-per-call</div>
-      <div class="sub">paid x402 call · permalink</div>
-    </div>
-  </div>
-  <a href="/pay" style="font-size: 13px;">← back to demo</a>
-</header>
 
 <main id="main">
   <div class="skeleton">loading paid call…</div>
@@ -181,6 +168,16 @@
 const main = document.getElementById('main');
 
 function escape(s) { return String(s).replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c])); }
+// Map the settled network (CAIP-2 id or short name, as persisted on the call
+// record) to its display label + block-explorer. Keeps the receipt honest for
+// every chain the payment flow can settle on instead of hardcoding Solana.
+function networkMeta(network) {
+  const n = String(network || '').toLowerCase();
+  if (n.startsWith('eip155:8453') || n === 'base') return { label: 'Base mainnet', explorerTx: tx => `https://basescan.org/tx/${tx}` };
+  if (n.startsWith('eip155:42161') || n === 'arbitrum') return { label: 'Arbitrum One', explorerTx: tx => `https://arbiscan.io/tx/${tx}` };
+  if (n.startsWith('eip155:56') || n === 'bsc' || n === 'bnb') return { label: 'BNB Chain', explorerTx: tx => `https://bscscan.com/tx/${tx}` };
+  return { label: 'Solana mainnet', explorerTx: tx => `https://solscan.io/tx/${tx}` };
+}
 function formatBytes(n) {
   if (!Number.isFinite(n)) return '—';
   if (n < 1024) return `${n} B`;
@@ -268,7 +265,8 @@ function renderResultBlock(record) {
 
 function render(record) {
   const tx = record.tx;
-  const explorer = `https://solscan.io/tx/${tx}`;
+  const net = networkMeta(record.network);
+  const explorer = record.explorer || net.explorerTx(tx);
   const amount = (Number(record.amount || 1000) / 1e6).toFixed(6);
   const ts = new Date(record.ts || Date.now()).toUTCString();
   const url = record.args?.url;
@@ -280,7 +278,7 @@ function render(record) {
   document.querySelector('meta[property="og:title"]').content =
     `three.ws · ${record.tool} (${amount} USDC) · x402 paid call`;
   document.querySelector('meta[name="description"]').content =
-    `${record.tool}${record.argsSummary ? ' · ' + record.argsSummary : ''} — paid ${amount} USDC on Solana, settled on-chain. View the receipt + result.`;
+    `${record.tool}${record.argsSummary ? ' · ' + record.argsSummary : ''} — paid ${amount} USDC on ${net.label}, settled on-chain. View the receipt + result.`;
   const ogUrl = `${location.origin}/api/x402-pay/og?tx=${encodeURIComponent(tx)}`;
   document.getElementById('ogImage').content = ogUrl;
   document.getElementById('twImage').content = ogUrl;
@@ -294,7 +292,7 @@ function render(record) {
       <h1><code style="background: rgba(255,255,255,0.06); padding: 4px 10px; border-radius: 6px; font-family: var(--mono); font-size: 18px;">${escape(record.tool)}</code>${record.argsSummary ? ' · ' + escape(record.argsSummary) : ''}</h1>
       <div class="meta-grid" style="margin-top:14px">
         ${chip('amount', amount + ' USDC')}
-        ${chip('network', 'Solana mainnet')}
+        ${chip('network', net.label)}
         ${chip('payer', `${(record.payer||'').slice(0,4)}…${(record.payer||'').slice(-4)}`)}
         ${chip('payTo', `${(record.payTo||'').slice(0,4)}…${(record.payTo||'').slice(-4)}`)}
       </div>
@@ -308,7 +306,7 @@ function render(record) {
     </div>
 
     <div class="cta">
-      <div class="text"><strong>Try it yourself.</strong> Pay $0.001 USDC for any MCP tool, settled per call on Solana — no API keys, no signup.</div>
+      <div class="text"><strong>Try it yourself.</strong> Pay per call in USDC for any MCP tool, settled on-chain — no API keys, no signup.</div>
       <a class="btn" href="/pay${url ? `?validate=${encodeURIComponent(url)}` : ''}">Open the demo →</a>
     </div>
   `;
