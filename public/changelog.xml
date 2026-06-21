@@ -199,6 +199,14 @@
 			<description>The Edit Avatar link in the account menu was sending you to a page that didn't exist, so customizing your avatar dead-ended on a 404. It now opens the avatar editor correctly. We also pointed the &quot;create your avatar&quot; button (shown when you don't have one yet) straight at the avatar creator instead of an empty editor.</description>
 		</item>
 		<item>
+			<title>Fixed: Agent Studio's Brain tab no longer shows a stray dark overlay</title>
+			<link>https://three.ws/agent-studio</link>
+			<guid isPermaLink="false">2026-06-21:Fixed: Agent Studio's Brain tab no longer shows a stray dark overlay</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>On the agent studio, the Brain tab could render an empty dark box over a dimmed screen, with the editor and template picker stacked on top of each other. A base style rule the page was missing meant elements meant to be hidden stayed visible. The page now hides them correctly, so you see one clean view at a time.</description>
+		</item>
+		<item>
 			<title>Follows and reviews now ring the notification bell</title>
 			<link>https://three.ws/feed</link>
 			<guid isPermaLink="false">2026-06-21:Follows and reviews now ring the notification bell</guid>
@@ -213,6 +221,14 @@
 			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
 			<category>infra</category>
 			<description>We scaled Forge for the influx of new users. The engine catalog and live health status now serve from the edge cache, so the page loads instantly even under heavy traffic instead of recomputing on every visit. We also added a platform-wide safety valve on paid generation: if demand ever spikes past the shared paid budget, the free engines (NVIDIA and Hugging Face) stay fully open and you get a clear 'try a free engine' message instead of a hard failure — your own bring-your-own-key engines are never affected. Net result: Forge stays fast and available as we grow, and free 3D generation never gets crowded out.</description>
+		</item>
+		<item>
+			<title>Forge now uses the full screen</title>
+			<link>https://three.ws/forge</link>
+			<guid isPermaLink="false">2026-06-21:Forge now uses the full screen</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>The Forge page (text/photos → 3D) was squeezed into a narrow column on the left with a big empty space to the right. The composer and the 3D stage now sit side by side and fill the width: your prompt on the left, a large preview area on the right where the model appears. Nothing about generating changed — there's just a lot more room to see your result.</description>
 		</item>
 		<item>
 			<title>Forge scales further — duplicate generations collapse, free lane protected, prices shown up front</title>
@@ -463,6 +479,14 @@
 			<description>Everything onchain — paying, minting, balances, name lookups — depends on a Solana RPC node answering. When our primary paid node was throttled or its plan lapsed, some of those reads could error out. The platform now falls through a deeper chain: the paid node first, then several backup providers, then five independent public nodes (each verified live), so a request only fails if every one of them is down at the same moment. The embeddable payment widget and Solana name registration were moved onto the same resilient connection.</description>
 		</item>
 		<item>
+			<title>The $THREE page now shows live market cap, holders &amp; real trades</title>
+			<link>https://three.ws/three-token</link>
+			<guid isPermaLink="false">2026-06-21:The $THREE page now shows live market cap, holders &amp; real trades</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Because $THREE has graduated to a DEX, the token page's main panel had broken: it read &quot;100% graduated&quot; but then showed a $0 market cap, no price, a blank holder count, and a &quot;live trades&quot; feed that never filled — even though the header above it showed a real $3.5M market cap. All four are fixed. The bonding-curve panel now reads the live DEX price and market cap for the graduated coin, the holder count comes from our own on-chain holder snapshot (so it shows even when the market-data provider omits it), and the live-trades tape now streams real on-chain swaps from the $THREE pool, refreshed every few seconds with buy/sell side, size, and a link to each transaction.</description>
+		</item>
+		<item>
 			<title>The $THREE page now spells out why to hold — four real utility pillars</title>
 			<link>https://three.ws/three-token</link>
 			<guid isPermaLink="false">2026-06-21:The $THREE page now spells out why to hold — four real utility pillars</guid>
@@ -501,6 +525,14 @@
 			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>The walking 3D avatar that strolls along beside you on desktop was unreachable on mobile — the button that summons it lived in the part of the nav bar that collapses on small screens, so there was no way to turn it on from a phone. It's now a switch right inside the mobile menu: tap &quot;Walk with me&quot; and the avatar drops into the corner, wanders on its own without a mouse to follow, and tapping it still opens the full-page playground with on-screen controls.</description>
+		</item>
+		<item>
+			<title>three.ws now speaks your language</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-21:three.ws now speaks your language</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The site can now be translated into many languages. A language picker on the homepage switches the copy instantly, starting with Spanish, and your choice is remembered. Translations are produced by an AI pipeline that locks brand and protocol terms — $THREE, the contract address, USDC, x402 — so they are never altered, and English is always the safe fallback. More languages roll out from here.</description>
 		</item>
 		<item>
 			<title>USDC checkout no longer fails when an RPC node hiccups</title>

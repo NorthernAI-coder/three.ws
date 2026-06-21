@@ -196,6 +196,58 @@ describe('computeView', () => {
 		expect(v.progress).toBe(1);
 	});
 
+	it('renders a graduated coin from graduatedPrice even when the curve account lingers', () => {
+		// The exact production shape for our $THREE: the closed curve account is still
+		// readable (complete=true, reserves zeroed) AND a live DEX price is attached.
+		// The widget must use the DEX price, not the curve's zeroed reserves.
+		const data = {
+			mint: 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump',
+			network: 'mainnet',
+			graduated: true,
+			curve: { realSolReserves: '0', complete: true, isMayhemMode: false },
+			price: null,
+			graduation: { isGraduated: true, progressBps: 10_000 },
+			graduatedPrice: { priceUsd: 0.0035, marketCapUsd: 3_500_000, source: 'jupiter' },
+		};
+		const v = computeView(data, 150);
+		expect(v.status).toBe('graduated');
+		expect(v.progress).toBe(1);
+		expect(v.priceUsd).toBe(0.0035);
+		expect(v.marketCapUsd).toBe(3_500_000);
+		expect(v.hasUsd).toBe(true);
+		expect(v.raisedSol).toBeNull();
+	});
+
+	it('derives a graduated market cap from price × fixed supply when none is supplied', () => {
+		// Older/partial payload: priceUsd present, marketCapUsd absent (the current
+		// live curve endpoint before its market-cap enrichment ships).
+		const data = {
+			mint: 'M',
+			curve: { complete: true, realSolReserves: '0' },
+			graduation: { isGraduated: true, progressBps: 10_000 },
+			graduatedPrice: { priceUsd: 0.002, source: 'jupiter' },
+		};
+		const v = computeView(data);
+		expect(v.status).toBe('graduated');
+		expect(v.priceUsd).toBe(0.002);
+		expect(v.marketCapUsd).toBeCloseTo(0.002 * 1_000_000_000, 3);
+		expect(v.hasUsd).toBe(true);
+	});
+
+	it('handles the curve-gone graduated shape (account closed on migration)', () => {
+		const data = {
+			mint: 'M',
+			graduated: true,
+			curve: null,
+			graduation: { isGraduated: true, progressBps: 10_000 },
+			graduatedPrice: { priceUsd: 0.01, marketCapUsd: 10_000_000, source: 'jupiter' },
+		};
+		const v = computeView(data);
+		expect(v.status).toBe('graduated');
+		expect(v.priceUsd).toBe(0.01);
+		expect(v.marketCapUsd).toBe(10_000_000);
+	});
+
 	it('clamps the negative market cap a fresh curve can report to zero', () => {
 		const data = {
 			mint: 'M',

@@ -266,6 +266,7 @@ const appConfig = {
 					chunk.name === 'feature-tour' ||
 					chunk.name === 'notifications' ||
 					chunk.name === 'nav-tier-badge'
+					|| chunk.name === 'i18n'
 						? `${chunk.name}.js`
 						: 'assets/[name]-[hash].js',
 			},
@@ -276,6 +277,7 @@ const appConfig = {
 				'feature-tour': resolve(__dirname, 'src/feature-tour.js'),
 				notifications: resolve(__dirname, 'src/notifications.js'),
 				'nav-tier-badge': resolve(__dirname, 'src/nav-tier-badge.js'),
+				i18n: resolve(__dirname, 'src/i18n.js'),
 				app: resolve(__dirname, 'pages/app.html'),
 				'app-demo': resolve(__dirname, 'pages/app-demo.html'),
 				'app-next': resolve(__dirname, 'pages/app-next.html'),
@@ -1251,6 +1253,13 @@ support: resolve(__dirname, 'pages/support.html'),
 					// holder tier chip (built to a stable, unhashed name in prod).
 					if (path === '/nav-tier-badge.js') {
 						req.url = '/src/nav-tier-badge.js';
+						return next();
+					}
+					// /i18n.js — runtime locale swap + <lang-switcher>, served from
+					// src in dev at the stable, unhashed name it ships under in prod so
+					// any page can localize itself with one script tag.
+					if (path === '/i18n.js') {
+						req.url = '/src/i18n.js';
 						return next();
 					}
 					// Avatar Studio (rebranded Character Studio fork) — serve the

@@ -30,7 +30,12 @@ const state = {
 
 // Dot-path lookup against a nested catalog: resolveKey({a:{b:'x'}}, 'a.b') → 'x'.
 export function resolveKey(catalog, key) {
-	return key.split('.').reduce((node, part) => (node && typeof node === 'object' ? node[part] : undefined), catalog);
+	return key
+		.split('.')
+		.reduce(
+			(node, part) => (node && typeof node === 'object' ? node[part] : undefined),
+			catalog,
+		);
 }
 
 // {{name}} interpolation. Missing vars are left as the literal token so they're
@@ -107,14 +112,15 @@ function detectLocale(manifest) {
 		if (!nav) continue;
 		if (supported(nav, manifest)) return nav;
 		const base = nav.split('-')[0];
-		const byBase = manifest.locales.find((l) => l.code === base || l.code.split('-')[0] === base);
+		const byBase = manifest.locales.find(
+			(l) => l.code === base || l.code.split('-')[0] === base,
+		);
 		if (byBase) return byBase.code;
 	}
 	return manifest.default;
 }
 
-async function loadCatalog(code, manifest) {
-	if (code === manifest.default) return {}; // English text is already in the HTML
+async function loadCatalog(code) {
 	return fetchJSON(`${LOCALES_BASE}/${code}.json`).catch(() => ({}));
 }
 
@@ -122,12 +128,14 @@ export async function setLocale(code) {
 	const manifest = await loadManifest();
 	const entry = supported(code, manifest) ? code : manifest.default;
 
-	// Fallback catalog is always the entryLocale so partial translations don't
-	// leave blanks; for the default locale the HTML itself is the source.
-	if (entry !== manifest.default && !Object.keys(state.fallback).length) {
-		state.fallback = await loadCatalog(manifest.default, manifest).catch(() => ({}));
+	// The entryLocale catalog is both the fallback (so partial translations never
+	// leave blanks) AND what restores the original copy when switching back to
+	// the default language — the committed English JSON, not the live DOM, is the
+	// source of truth, so a default ⇄ translated round-trip is lossless.
+	if (!Object.keys(state.fallback).length) {
+		state.fallback = await loadCatalog(manifest.default);
 	}
-	state.catalog = await loadCatalog(entry, manifest);
+	state.catalog = entry === manifest.default ? state.fallback : await loadCatalog(entry);
 	state.current = entry;
 
 	if (hasDOM) {
@@ -157,13 +165,15 @@ export async function initI18n() {
 // with hover/focus/active states. Renders nothing until the manifest lists more
 // than one locale, so it self-hides on a single-language deploy.
 
-class LangSwitcher extends HTMLElement {
-	async connectedCallback() {
-		const manifest = await loadManifest();
-		if (!manifest.locales || manifest.locales.length < 2) return;
+function registerLangSwitcher() {
+	if (customElements.get('lang-switcher')) return;
+	class LangSwitcher extends HTMLElement {
+		async connectedCallback() {
+			const manifest = await loadManifest();
+			if (!manifest.locales || manifest.locales.length < 2) return;
 
-		const root = this.attachShadow({ mode: 'open' });
-		root.innerHTML = `
+			const root = this.attachShadow({ mode: 'open' });
+			root.innerHTML = `
 			<style>
 				:host { display: inline-flex; }
 				.wrap { position: relative; display: inline-flex; align-items: center; }
@@ -193,23 +203,22 @@ class LangSwitcher extends HTMLElement {
 				<svg class="chev" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="1.6"/></svg>
 			</span>`;
 
-		const select = root.querySelector('select');
-		select.value = getLocale();
-		select.addEventListener('change', () => setLocale(select.value));
-		// Keep the control in sync if another instance or code path changes locale.
-		window.addEventListener('i18n:change', (e) => {
-			if (e.detail?.locale) select.value = e.detail.locale;
-		});
+			const select = root.querySelector('select');
+			select.value = getLocale();
+			select.addEventListener('change', () => setLocale(select.value));
+			// Keep the control in sync if another instance or code path changes locale.
+			window.addEventListener('i18n:change', (e) => {
+				if (e.detail?.locale) select.value = e.detail.locale;
+			});
+		}
 	}
-}
-
-if (hasDOM && !customElements.get('lang-switcher')) {
 	customElements.define('lang-switcher', LangSwitcher);
 }
 
 // Auto-initialize on load so any page that ships this script is localized with
 // zero per-page wiring.
 if (hasDOM) {
+	registerLangSwitcher();
 	if (document.readyState === 'loading') {
 		document.addEventListener('DOMContentLoaded', () => initI18n());
 	} else {

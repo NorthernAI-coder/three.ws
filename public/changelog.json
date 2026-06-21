@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-21T11:27:12.278Z",
+	"generated_at": "2026-06-21T11:59:22.247Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -257,6 +257,16 @@
 		{
 			"date": "2026-06-21",
 			"type": "update",
+			"title": "Fixed: Agent Studio's Brain tab no longer shows a stray dark overlay",
+			"summary": "On the agent studio, the Brain tab could render an empty dark box over a dimmed screen, with the editor and template picker stacked on top of each other. A base style rule the page was missing meant elements meant to be hidden stayed visible. The page now hides them correctly, so you see one clean view at a time.",
+			"link": "/agent-studio",
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "update",
 			"title": "Follows and reviews now ring the notification bell",
 			"summary": "Following someone now actually reaches them: when a new follower arrives, it shows up in your notification bell with a link straight to their profile. And when someone reviews one of your agents, you get a notification with their rating. Both flow through the same in-app notification center you already use for payments and sales — no new place to check. Re-following or editing an existing review won't re-notify, so the bell stays signal, not noise.",
 			"link": "/feed",
@@ -274,6 +284,16 @@
 			"tags": [
 				"infra",
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "update",
+			"title": "Forge now uses the full screen",
+			"summary": "The Forge page (text/photos → 3D) was squeezed into a narrow column on the left with a big empty space to the right. The composer and the 3D stage now sit side by side and fill the width: your prompt on the left, a large preview area on the right where the model appears. Nothing about generating changed — there's just a lot more room to see your result.",
+			"link": "/forge",
+			"tags": [
+				"fix"
 			]
 		},
 		{
@@ -612,6 +632,16 @@
 		{
 			"date": "2026-06-21",
 			"type": "update",
+			"title": "The $THREE page now shows live market cap, holders & real trades",
+			"summary": "Because $THREE has graduated to a DEX, the token page's main panel had broken: it read \"100% graduated\" but then showed a $0 market cap, no price, a blank holder count, and a \"live trades\" feed that never filled — even though the header above it showed a real $3.5M market cap. All four are fixed. The bonding-curve panel now reads the live DEX price and market cap for the graduated coin, the holder count comes from our own on-chain holder snapshot (so it shows even when the market-data provider omits it), and the live-trades tape now streams real on-chain swaps from the $THREE pool, refreshed every few seconds with buy/sell side, size, and a link to each transaction.",
+			"link": "/three-token",
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "update",
 			"title": "The $THREE page now spells out why to hold — four real utility pillars",
 			"summary": "The $THREE page leads with a clear \"Why hold $THREE\" section: revenue buybacks (a fixed, live share of platform revenue buys $THREE on the open market), holder rewards (every paid action reflects $THREE back to holders pro-rata), hold-to-access (discounts, higher quotas, and pro perks), and real usage (deploying agents, forging avatars, and trading the marketplace all run on $THREE). Each pillar maps to a mechanism that actually exists on the platform, and the buyback figure is wired to the live commitment. The page's market data also now rides a shared cache, so it stays fast and reliable under heavy traffic.",
 			"link": "/three-token",
@@ -661,6 +691,17 @@
 			"tags": [
 				"fix",
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "update",
+			"title": "three.ws now speaks your language",
+			"summary": "The site can now be translated into many languages. A language picker on the homepage switches the copy instantly, starting with Spanish, and your choice is remembered. Translations are produced by an AI pipeline that locks brand and protocol terms — $THREE, the contract address, USDC, x402 — so they are never altered, and English is always the safe fallback. More languages roll out from here.",
+			"link": null,
+			"tags": [
+				"feature",
+				"improvement"
 			]
 		},
 		{

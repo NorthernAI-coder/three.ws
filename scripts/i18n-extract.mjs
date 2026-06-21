@@ -28,7 +28,10 @@ const collapse = (s) => (s || '').replace(/\s+/g, ' ').trim();
 // Pull every (key, sourceValue) pair out of one HTML document. Pure — operates
 // on a string so it is unit-testable without the filesystem.
 export function extractFromHtml(html) {
-	const root = parse(html, { comment: false, blockTextElements: { script: false, style: false } });
+	const root = parse(html, {
+		comment: false,
+		blockTextElements: { script: false, style: false },
+	});
 	const found = new Map(); // key → value
 
 	for (const el of root.querySelectorAll('[data-i18n]')) {
@@ -37,7 +40,7 @@ export function extractFromHtml(html) {
 	}
 	for (const el of root.querySelectorAll('[data-i18n-html]')) {
 		const key = el.getAttribute('data-i18n-html');
-		if (key) found.set(key, el.innerHTML.trim());
+		if (key) found.set(key, collapse(el.innerHTML));
 	}
 	for (const el of root.querySelectorAll('[data-i18n-attr]')) {
 		// "content:home.meta_desc;aria-label:common.tour_aria"
@@ -115,12 +118,16 @@ async function main() {
 	}
 
 	const sorted = deepSort(catalog);
-	writeFileSync(entryPath, JSON.stringify(sorted, null, 2) + '\n');
+	writeFileSync(entryPath, JSON.stringify(sorted, null, '\t') + '\n');
 
 	const total = Object.keys(flatten(sorted)).length;
-	console.log(`i18n-extract: ${files.length} files → ${total} keys (${added} new, ${reused} preserved)`);
+	console.log(
+		`i18n-extract: ${files.length} files → ${total} keys (${added} new, ${reused} preserved)`,
+	);
 	if (collisions.length) {
-		console.warn(`\n⚠ ${collisions.length} key collision(s) — same key, different English text:`);
+		console.warn(
+			`\n⚠ ${collisions.length} key collision(s) — same key, different English text:`,
+		);
 		for (const c of collisions) console.warn('  ' + c);
 		process.exitCode = 1;
 	}

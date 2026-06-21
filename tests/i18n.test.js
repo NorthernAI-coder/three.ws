@@ -1,0 +1,138 @@
+/**
+ * i18n pipeline — unit tests.
+ *
+ * Covers the three pure, security-relevant layers of the LobeHub-style
+ * translation pipeline, with no network and no DOM:
+ *   1. extraction   — annotated HTML → source catalog
+ *   2. glossary mask — brand/protocol terms survive a translation round-trip
+ *   3. lint          — structural validation that gates the build
+ *   4. runtime       — key resolution, interpolation, and English fallback
+ *   5. merge         — stale translations are pruned, prior ones preserved
+ */
+
+import { describe, it, expect } from 'vitest';
+import { extractFromHtml } from '../scripts/i18n-extract.mjs';
+import {
+	buildMasker,
+	lintLocale,
+	mergeOrdered,
+	missingKeys,
+	flatten,
+	setDeep,
+	getDeep,
+} from '../scripts/lib/i18n-shared.mjs';
+import { resolveKey, interpolate, translate } from '../src/i18n.js';
+
+describe('extractFromHtml', () => {
+	it('pulls text, html, and attribute keys with their English source values', () => {
+		const html = `
+			<title data-i18n="home.title">three.ws</title>
+			<meta name="description" data-i18n-attr="content:home.desc" content="Build agents." />
+			<h1 data-i18n-html="home.h1">The <em>3D</em> agent layer</h1>
+			<a data-i18n="common.tour" data-i18n-attr="aria-label:common.tour_aria" aria-label="Start the tour">Take the tour</a>`;
+		const map = extractFromHtml(html);
+		expect(map.get('home.title')).toBe('three.ws');
+		expect(map.get('home.desc')).toBe('Build agents.');
+		expect(map.get('home.h1')).toBe('The <em>3D</em> agent layer');
+		expect(map.get('common.tour')).toBe('Take the tour');
+		expect(map.get('common.tour_aria')).toBe('Start the tour');
+	});
+
+	it('collapses whitespace runs so catalogs stay clean', () => {
+		const map = extractFromHtml('<p data-i18n="k">  hello\n\t\tworld  </p>');
+		expect(map.get('k')).toBe('hello world');
+	});
+});
+
+describe('glossary masking', () => {
+	const masker = buildMasker(['$THREE', 'USDC', 'IBM watsonx.ai', 'watsonx.ai']);
+
+	it('round-trips brand terms, placeholders, and tags byte-for-byte', () => {
+		const src = 'Earn {{amount}} USDC with <strong>$THREE</strong> on IBM watsonx.ai';
+		const { masked, tokens } = masker.mask(src);
+		// The model never sees the protected substrings.
+		expect(masked).not.toContain('$THREE');
+		expect(masked).not.toContain('USDC');
+		expect(masked).not.toContain('{{amount}}');
+		expect(masked).not.toContain('<strong>');
+		// Restoration is exact.
+		expect(masker.unmask(masked, tokens)).toBe(src);
+	});
+
+	it('masks the longest term first (IBM watsonx.ai before watsonx.ai)', () => {
+		const { masked, tokens } = masker.mask('Runs on IBM watsonx.ai today');
+		expect(masker.unmask(masked, tokens)).toBe('Runs on IBM watsonx.ai today');
+		// Exactly one sentinel — the longer term consumed the whole phrase.
+		expect(tokens).toEqual(['IBM watsonx.ai']);
+	});
+
+	it('does not corrupt literal numbers in the copy', () => {
+		const { masked, tokens } = masker.mask('Pay 60 USDC in 2 minutes');
+		const restored = masker.unmask(masked, tokens);
+		expect(restored).toBe('Pay 60 USDC in 2 minutes');
+	});
+});
+
+describe('lintLocale', () => {
+	const source = { home: { title: 'Hi {{name}}', cta: 'Earn $THREE' } };
+
+	it('passes a complete, faithful translation', () => {
+		const target = { home: { title: 'Hola {{name}}', cta: 'Gana $THREE' } };
+		expect(lintLocale(source, target, { code: 'es', doNotTranslate: ['$THREE'] })).toEqual([]);
+	});
+
+	it('flags missing keys, empty values, placeholder drift, and dropped glossary terms', () => {
+		const target = { home: { title: 'Hola', cta: 'Gana monedas' } };
+		const problems = lintLocale(source, target, { code: 'es', doNotTranslate: ['$THREE'] });
+		expect(problems.join('\n')).toMatch(/placeholder drift in home.title/);
+		expect(problems.join('\n')).toMatch(/glossary term dropped in home.cta/);
+	});
+
+	it('flags stale keys that no longer exist in the source', () => {
+		const target = { home: { title: 'Hola {{name}}', cta: 'Gana $THREE', gone: 'x' } };
+		const problems = lintLocale(source, target, { code: 'es', doNotTranslate: ['$THREE'] });
+		expect(problems.join('\n')).toMatch(/stale key.*home.gone/);
+	});
+});
+
+describe('runtime resolution', () => {
+	const catalog = { home: { hi: 'Hola {{name}}' } };
+	const fallback = { home: { hi: 'Hi {{name}}', only_en: 'English only' } };
+
+	it('resolves nested keys', () => {
+		expect(resolveKey(catalog, 'home.hi')).toBe('Hola {{name}}');
+		expect(resolveKey(catalog, 'home.missing')).toBeUndefined();
+	});
+
+	it('interpolates and leaves unknown vars visible', () => {
+		expect(interpolate('Hola {{name}}', { name: 'Ana' })).toBe('Hola Ana');
+		expect(interpolate('Hola {{name}}', {})).toBe('Hola {{name}}');
+	});
+
+	it('falls back active → entryLocale → key', () => {
+		expect(translate('home.hi', { name: 'Ana' }, { catalog, fallback })).toBe('Hola Ana');
+		expect(translate('home.only_en', {}, { catalog, fallback })).toBe('English only');
+		expect(translate('home.nope', {}, { catalog, fallback })).toBe('home.nope');
+	});
+});
+
+describe('merge + diff', () => {
+	const source = { a: '1', b: { c: '2', d: '3' } };
+
+	it('reports only missing/empty target keys', () => {
+		const target = { a: 'uno', b: { c: '' } };
+		expect(missingKeys(source, target).sort()).toEqual(['b.c', 'b.d']);
+	});
+
+	it('keeps prior translations, applies fresh ones, and prunes stale keys', () => {
+		const existing = { a: 'uno', b: { c: 'dos', d: 'tres' }, stale: 'x' };
+		const fresh = {};
+		setDeep(fresh, 'b.c', 'DOS');
+		const merged = mergeOrdered(source, existing, fresh);
+		expect(merged.a).toBe('uno'); // preserved
+		expect(getDeep(merged, 'b.c')).toBe('DOS'); // fresh wins
+		expect(getDeep(merged, 'b.d')).toBe('tres'); // preserved
+		expect('stale' in merged).toBe(false); // pruned (not in source)
+		expect(Object.keys(flatten(merged)).sort()).toEqual(['a', 'b.c', 'b.d']);
+	});
+});

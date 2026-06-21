@@ -185,7 +185,7 @@ function unconfigured(res) {
 	return json(res, 503, {
 		error: 'unconfigured',
 		message:
-			'Text-to-3D generation is not configured on this deployment (REPLICATE_API_TOKEN is missing).',
+			'Text-to-3D generation is not configured on this deployment. Set any one of NVIDIA_API_KEY or HF_TOKEN (free lanes) or REPLICATE_API_TOKEN (flux → TRELLIS) to enable it.',
 	});
 }
 
