@@ -3,6 +3,24 @@
 	"entries": [
 		{
 			"date": "2026-06-21",
+			"title": "New tutorial: create, enhance & edit your agent's memory",
+			"summary": "A custom memory is a fact your agent carries into every future conversation — quote prices in USDC, address me formally, ship by July. A new step-by-step tutorial shows the five ways to add one (straight from the dashboard with no code, by just telling the agent, over the MCP tools, via the API, or from inside a skill) and, just as importantly, how to make a memory actually get used: the right type, one fact per memory, tags, and salience. It also covers editing a memory in place and forgetting one you no longer want.",
+			"tags": [
+				"docs"
+			],
+			"link": "/tutorials/create-and-edit-memory"
+		},
+		{
+			"date": "2026-06-21",
+			"title": "\"Fresh from the Forge\" thumbnails now show your models",
+			"summary": "The community strip on the Forge page shows the newest models people make. Half the tiles were rendering as blank dark squares: for models generated without a reference image, the page builds a thumbnail by snapshotting the 3D model itself — but it was doing that on a one-pixel-wide canvas, so the snapshot came out as a solid block. The snapshot now renders at full thumbnail resolution, and a snapshot that comes back empty cleanly falls back to a labeled prompt card instead of an empty tile. Every card in the strip now shows real artwork.",
+			"tags": [
+				"fix"
+			],
+			"link": "/forge"
+		},
+		{
+			"date": "2026-06-21",
 			"title": "The Forge now fills the whole screen",
 			"summary": "The Forge — where you turn text or photos into a textured 3D model — used to sit in a narrow column down the middle of the page, leaving big empty margins on wide monitors and a cramped preview. It now stretches edge to edge with comfortable side gutters, so the 3D preview gets far more room to show off your model while the controls stay put on the left.",
 			"tags": [
@@ -5819,6 +5837,15 @@
 				"improvement"
 			],
 			"link": "/three-token"
+		},
+		{
+			"date": "2026-06-21",
+			"title": "Nav now points straight to your Dashboard",
+			"summary": "Once you're signed in, the site navigation now shows a single 'Dashboard' entry that takes you to your full console — wallets, agents, portfolio, usage and more — instead of the narrower 'My Agents' link. One clear door to everything you manage on three.ws.",
+			"tags": [
+				"improvement"
+			],
+			"link": "/dashboard"
 		}
 	]
 }

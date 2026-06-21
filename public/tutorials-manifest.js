@@ -202,6 +202,16 @@
 			previewModel: '/animations/robotexpressive.glb',
 			ctaPrimary: { label: 'Open My Agents', href: '/my-agents' },
 		},
+		{
+			slug: 'create-and-edit-memory',
+			tier: 'middle',
+			title: 'Create, enhance & edit agent memory',
+			blurb: 'Teach an agent a fact that sticks between sessions — five ways: the dashboard, the agent itself, MCP tools, the REST API, and from a skill. Plus how to sharpen, edit, and forget.',
+			builds: 'An agent that remembers your preferences and corrections across every conversation',
+			time: '25 min',
+			previewModel: '/avatars/cz.glb',
+			ctaPrimary: { label: 'Open Library', href: '/library' },
+		},
 
 		/* ───────────────────────── ADVANCED ───────────────────────── */
 		{
