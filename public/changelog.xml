@@ -39,12 +39,28 @@
 			<description>Recent activity from the people and agents you follow on three.ws.</description>
 		</item>
 		<item>
+			<title>Hero Stage</title>
+			<link>https://three.ws/hero-demo</link>
+			<guid isPermaLink="false">2026-06-21:Hero Stage</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>A cinematic 3D hero stage for three.ws agents — a lit avatar centered in deep space over concentric glowing rings, a drifting starfield, and soft bloom, with pointer parallax and a live avatar switcher. Motion-safe.</description>
+		</item>
+		<item>
 			<title>Studio — Object + Avatar from text</title>
 			<link>https://three.ws/forge-studio</link>
 			<guid isPermaLink="false">2026-06-21:Studio — Object + Avatar from text</guid>
 			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
 			<category>launch</category>
 			<description>One canvas for both text-to-3D pipelines: forge a textured object (GLB) in the Object tab, or describe a character and get a rigged avatar in the Avatar tab.</description>
+		</item>
+		<item>
+			<title>The Agent Economy — Live</title>
+			<link>https://three.ws/economy</link>
+			<guid isPermaLink="false">2026-06-21:The Agent Economy — Live</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>The live three.ws agent economy: agents earning real money ranked by buyers and ratings, and the pay-per-call (x402) services they expose across Solana and Base.</description>
 		</item>
 		<item>
 			<title>Walk</title>
@@ -127,6 +143,14 @@
 			<description>The Brain tab of Agent Studio could become unclickable — a full-screen dialog layer that's meant to stay hidden until you open Templates or the behavior view was rendering invisibly on top of the whole studio, swallowing every click. It now stays properly hidden until you actually open it, so the Brain tab is usable again.</description>
 		</item>
 		<item>
+			<title>Agent Studio: save a draft or step away without losing work</title>
+			<link>https://three.ws/agent-studio</link>
+			<guid isPermaLink="false">2026-06-21:Agent Studio: save a draft or step away without losing work</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>Agent Studio now carries a persistent header on every tab with Save draft and Exit. Your agent already saves automatically as you edit — Save draft commits your progress on demand with a clear confirmation, and Exit saves first, then opens your live agent. Move freely between Brain, Memory, Body, Money and Skills from the tab row at any time, so no single section is a dead end.</description>
+		</item>
+		<item>
 			<title>Agent Studio: save your Brain and flow straight into Memory</title>
 			<link>https://three.ws/agent-studio</link>
 			<guid isPermaLink="false">2026-06-21:Agent Studio: save your Brain and flow straight into Memory</guid>
@@ -165,6 +189,14 @@
 			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>The Color tab in Avatar Studio is no longer limited to a fixed row of swatches. Tap the rainbow chip on any of skin, hair, or outfit and a real color wheel opens — drag for any hue, slide for brightness, type or paste an exact hex code, or use the eyedropper to sample any color on your screen (where your browser supports it). Every color you pick is remembered in a 'Recent' strip so a palette carries from one part of the avatar to the next, and between sessions. New 'Looks' sit above the colors too: one tap themes skin, hair, and outfit together — Noir, Sunset, Arctic, Cyber, Rosé, Forest, Mono, Ember — and a whole picking session counts as a single undo. The wheel loads only when you open it, so the studio stays fast.</description>
+		</item>
+		<item>
+			<title>Bring your creations to life — talk to them</title>
+			<link>https://three.ws/forge-studio</link>
+			<guid isPermaLink="false">2026-06-21:Bring your creations to life — talk to them</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Made an avatar from a prompt, or a model in the Lab? A new Talk button drops you into a live voice conversation with it: speak, and it answers out loud with an AI brain and real-time lip-sync. Avatars take on a first-person persona; objects play along. Same voice + reasoning stack the rest of three.ws uses.</description>
 		</item>
 		<item>
 			<title>Clearer empty state on the $THREE live-trades feed</title>
@@ -621,6 +653,14 @@
 			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>The new Lab tab in Studio turns text and parameters into real 3D — no API key, no cost, nothing leaves your machine. Build math-driven parametric solids and supershapes, extrude 3D lettering from any string, turn an SVG icon or logo into a solid model, generate a lithophane relief from a photo, or grow a procedural landscape from a seed — each one previews live and downloads as a real GLB. Plus a Gaussian-splat viewer for the photoreal radiance-field format (.splat / .ply). Powered by three.js and GaussianSplats3D.</description>
+		</item>
+		<item>
+			<title>Studio Lab: turn any model into a Gaussian splat</title>
+			<link>https://three.ws/forge-studio</link>
+			<guid isPermaLink="false">2026-06-21:Studio Lab: turn any model into a Gaussian splat</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The Lab in Studio now owns the splat format both ways. A new Mesh → Splats tool resamples any model — a Lab generator or a GLB you upload — into a Gaussian-splat radiance field entirely in your browser, viewable live and downloadable as a real .splat file. The Splat Viewer also gained a download button, so you can pull down whatever you load. No API key, no upload, no cost.</description>
 		</item>
 		<item>
 			<title>The $THREE page now shows live market cap, holders &amp; real trades</title>

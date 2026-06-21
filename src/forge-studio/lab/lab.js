@@ -6,6 +6,9 @@
  *     from npm `three` + its github examples/jsm addons. Each builds a real
  *     THREE.Object3D, which we export to a binary GLB (GLTFExporter) and preview
  *     in <model-viewer> with a working Download GLB button.
+ *   - Mesh → Gaussian-splat conversion (mesh-to-splat.js): our own splat
+ *     generation lane — resamples any mesh (a Lab model or an uploaded GLB) into
+ *     a Gaussian-splat radiance field, downloadable as a real .splat file.
  *   - A Gaussian-splat / radiance-field viewer from the npm package
  *     `@mkkellogg/gaussian-splats-3d` — a 3D representation the platform didn't
  *     have. Loads a .splat/.ply (or a generated sample) into its own renderer.
@@ -16,24 +19,50 @@
 
 import * as THREE from 'three';
 import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { GENERATORS } from './generators.js';
+import { meshToSplatBuffer } from './mesh-to-splat.js';
+import { launchTalk } from '../talk-launch.js';
 
 let _inited = false;
 let _activeId = null;
 let _lastGlbUrl = null;
-let _splat = null; // lazy { viewer, dispose }
+let _lastGlbBlob = null; // last mesh GLB blob (for "Bring it alive")
+let _lastLabel = '';
+let _lastSplatUrl = null;
+let _lastObject = null; // live Object3D from the last mesh gen (for splat conversion)
+let _splat = null; // lazy { viewer, url }
+
+const MESHSPLAT_TOOL = {
+	id: 'meshsplat',
+	label: 'Mesh → Splats',
+	blurb: 'Our own splat lane: resample any mesh — a Lab model or an uploaded GLB — into a Gaussian-splat radiance field, downloadable as .splat.',
+	kind: 'meshsplat',
+	controls: [
+		{
+			key: 'source', label: 'Source', type: 'select', default: 'last',
+			options: [
+				{ value: 'last', label: 'Last Lab model' },
+				{ value: 'upload', label: 'Upload a GLB/GLTF' },
+			],
+		},
+		{ key: 'glb', label: 'GLB / GLTF file', type: 'glbfile', default: null, when: { source: 'upload' } },
+		{ key: 'count', label: 'Splat count', type: 'range', min: 4000, max: 120000, step: 2000, default: 40000 },
+		{ key: 'seed', label: 'Seed', type: 'range', min: 1, max: 999, step: 1, default: 7 },
+	],
+};
 
 const SPLAT_TOOL = {
 	id: 'splat',
-	label: 'Gaussian Splats',
-	blurb: 'View a Gaussian-splat / radiance-field capture (.splat or .ply) — the photoreal 3D format. Drop a file, or render the built-in sample.',
+	label: 'Splat Viewer',
+	blurb: 'View a Gaussian-splat / radiance-field capture (.splat / .ply) — the photoreal 3D format. Drop a file, or render the built-in sample.',
 	kind: 'splat',
 	controls: [
 		{ key: 'file', label: 'Splat file (.splat / .ply / .ksplat)', type: 'splatfile', default: null },
 	],
 };
 
-const TOOLS = [...GENERATORS.map((g) => ({ ...g, kind: 'mesh' })), SPLAT_TOOL];
+const TOOLS = [...GENERATORS.map((g) => ({ ...g, kind: 'mesh' })), MESHSPLAT_TOOL, SPLAT_TOOL];
 
 // ── DOM helpers ───────────────────────────────────────────────────────────────
 
@@ -92,7 +121,7 @@ function currentValues() {
 			continue;
 		}
 		if (f.type === 'checkbox') values[f.key] = node.checked;
-		else if (f.type === 'image' || f.type === 'splatfile') values[f.key] = node._fileData ?? f.default;
+		else if (f.type === 'image' || f.type === 'splatfile' || f.type === 'glbfile') values[f.key] = node._fileData ?? f.default;
 		else values[f.key] = node.value;
 	}
 	return values;
@@ -102,8 +131,6 @@ function renderControls() {
 	const tool = TOOLS.find((t) => t.id === _activeId);
 	const host = $('#lab-controls');
 	host.innerHTML = '';
-	const values = {};
-	for (const f of tool.controls) values[f.key] = f.default;
 
 	for (const f of tool.controls) {
 		const wrap = el('div', { class: 'lab-field', id: `lab-field-wrap-${f.key}` });
@@ -147,10 +174,11 @@ function renderControls() {
 			input.value = f.default || '';
 			wrap.appendChild(labelRow);
 			wrap.appendChild(input);
-		} else if (f.type === 'image' || f.type === 'splatfile') {
-			const accept = f.type === 'image' ? 'image/*' : '.splat,.ply,.ksplat';
+		} else if (f.type === 'image' || f.type === 'splatfile' || f.type === 'glbfile') {
+			const accept = f.type === 'image' ? 'image/*' : f.type === 'glbfile' ? '.glb,.gltf,model/gltf-binary' : '.splat,.ply,.ksplat';
 			input = el('input', { type: 'file', id: `lab-field-${f.key}`, accept });
-			const hint = el('span', { class: 'lab-field-out', text: f.type === 'image' ? 'optional — uses a sample if empty' : 'optional — renders a sample if empty' });
+			const hintText = f.type === 'image' ? 'optional — uses a sample if empty' : f.type === 'glbfile' ? 'pick a .glb / .gltf' : 'optional — renders a sample if empty';
+			const hint = el('span', { class: 'lab-field-out', text: hintText });
 			input.addEventListener('change', async () => {
 				const file = input.files?.[0];
 				if (!file) { input._fileData = null; return; }
@@ -187,21 +215,56 @@ function selectTool(id) {
 	}
 	const tool = TOOLS.find((t) => t.id === id);
 	renderControls();
-	const isSplat = tool.kind === 'splat';
-	$('#lab-viewer').hidden = isSplat;
-	$('#lab-splat').hidden = !isSplat;
-	$('#lab-download').classList.toggle('is-hidden', isSplat);
-	$('#lab-generate').textContent = isSplat ? 'Render splats' : 'Generate model';
+	const splatLike = tool.kind === 'splat' || tool.kind === 'meshsplat';
+	$('#lab-viewer').hidden = splatLike;
+	$('#lab-splat').hidden = !splatLike;
+	$('#lab-generate').textContent =
+		tool.kind === 'mesh' ? 'Generate model' :
+		tool.kind === 'meshsplat' ? 'Convert to splats' : 'Render splats';
+	// Hide download until there's something to download for this tool kind.
+	resetDownload();
+	// "Bring it alive" only applies to mesh GLBs (talk-mode needs a GLB), and
+	// only once one has been generated.
+	$('#lab-talk').classList.toggle('is-hidden', !(tool.kind === 'mesh' && _lastGlbBlob));
 	status('');
-	if (!isSplat) teardownSplat();
+	if (!splatLike) teardownSplat();
 }
 
-// ── Generate (mesh → GLB) ─────────────────────────────────────────────────────
+function resetDownload() {
+	const dl = $('#lab-download');
+	dl.classList.add('is-disabled');
+	dl.removeAttribute('href');
+}
+
+function setDownload(url, filename, label) {
+	const dl = $('#lab-download');
+	dl.href = url;
+	dl.setAttribute('download', filename);
+	dl.querySelector('.lab-dl-label').textContent = label;
+	dl.classList.remove('is-disabled');
+}
+
+// ── Generate ──────────────────────────────────────────────────────────────────
 
 async function exportGlb(object3d) {
 	const exporter = new GLTFExporter();
 	const result = await exporter.parseAsync(object3d, { binary: true, onlyVisible: true });
 	return new Blob([result], { type: 'model/gltf-binary' });
+}
+
+async function loadGlbScene(arrayBuffer) {
+	const loader = new GLTFLoader();
+	const gltf = await loader.parseAsync(arrayBuffer, '');
+	return gltf.scene;
+}
+
+function disposeObject(obj) {
+	if (!obj) return;
+	obj.traverse((o) => {
+		o.geometry?.dispose?.();
+		const mats = Array.isArray(o.material) ? o.material : o.material ? [o.material] : [];
+		for (const m of mats) m.dispose?.();
+	});
 }
 
 async function generate() {
@@ -210,26 +273,12 @@ async function generate() {
 	btn.disabled = true;
 	try {
 		if (tool.kind === 'splat') {
-			await renderSplats();
-			return;
+			await renderSplatFile();
+		} else if (tool.kind === 'meshsplat') {
+			await convertToSplats();
+		} else {
+			await generateMesh(tool);
 		}
-		status('Building geometry…');
-		const params = currentValues();
-		const object = await tool.build(params);
-		object.name = tool.label;
-		status('Exporting GLB…');
-		const blob = await exportGlb(object);
-		if (_lastGlbUrl) URL.revokeObjectURL(_lastGlbUrl);
-		_lastGlbUrl = URL.createObjectURL(blob);
-		const viewer = $('#lab-viewer');
-		viewer.setAttribute('src', _lastGlbUrl);
-		const dl = $('#lab-download');
-		dl.href = _lastGlbUrl;
-		dl.setAttribute('download', `${tool.id}-${Date.now()}.glb`);
-		dl.classList.remove('is-disabled');
-		// Free the geometry/material we just exported.
-		object.traverse((o) => { o.geometry?.dispose?.(); o.material?.dispose?.(); });
-		status(`${tool.label} ready · ${(blob.size / 1024).toFixed(0)} KB GLB`, 'ok');
 	} catch (err) {
 		status(err.message || 'Generation failed.', 'err');
 		// eslint-disable-next-line no-console
@@ -239,37 +288,87 @@ async function generate() {
 	}
 }
 
+async function generateMesh(tool) {
+	status('Building geometry…');
+	const params = currentValues();
+	const object = await tool.build(params);
+	object.name = tool.label;
+	status('Exporting GLB…');
+	const blob = await exportGlb(object);
+	if (_lastGlbUrl) URL.revokeObjectURL(_lastGlbUrl);
+	_lastGlbUrl = URL.createObjectURL(blob);
+	$('#lab-viewer').setAttribute('src', _lastGlbUrl);
+	setDownload(_lastGlbUrl, `${tool.id}-${Date.now()}.glb`, 'Download GLB');
+	_lastGlbBlob = blob;
+	_lastLabel = tool.label;
+	$('#lab-talk').classList.remove('is-hidden');
+	// Keep the live object so Mesh → Splats can convert it; dispose the prior one.
+	disposeObject(_lastObject);
+	_lastObject = object;
+	status(`${tool.label} ready · ${(blob.size / 1024).toFixed(0)} KB GLB · now try Mesh → Splats`, 'ok');
+}
+
+async function bringAlive() {
+	if (!_lastGlbBlob) return;
+	const btn = $('#lab-talk');
+	btn.disabled = true;
+	try {
+		await launchTalk({ name: _lastLabel || 'Your creation', glbBlob: _lastGlbBlob, kind: 'object' });
+	} catch (err) {
+		status(err.message || 'Could not start talk mode.', 'err');
+		// eslint-disable-next-line no-console
+		console.error('[studio-lab] talk', err);
+	} finally {
+		btn.disabled = false;
+	}
+}
+
+async function convertToSplats() {
+	const params = currentValues();
+	let source = _lastObject;
+	let sourceLabel = 'last Lab model';
+	if (params.source === 'upload') {
+		const f = params.glb;
+		if (!f?.buffer) throw new Error('Choose a .glb / .gltf file to convert.');
+		status('Loading GLB…');
+		source = await loadGlbScene(f.buffer);
+		sourceLabel = f.name;
+	}
+	if (!source) throw new Error('No model yet — generate one with a mesh tool first, or upload a GLB.');
+	status('Sampling surface into Gaussians…');
+	const { buffer, count } = meshToSplatBuffer(source, { count: Number(params.count), seed: Number(params.seed) });
+	if (params.source === 'upload') disposeObject(source); // free the uploaded scene
+	await renderSplatBuffer(buffer, `${count.toLocaleString()} splats from ${sourceLabel}`);
+	// .splat download
+	if (_lastSplatUrl) URL.revokeObjectURL(_lastSplatUrl);
+	_lastSplatUrl = URL.createObjectURL(new Blob([buffer], { type: 'application/octet-stream' }));
+	setDownload(_lastSplatUrl, `meshsplat-${Date.now()}.splat`, 'Download .splat');
+}
+
 // ── Gaussian splats ───────────────────────────────────────────────────────────
 
-// Build a sample .splat cloud (antimatter15 format: 32 bytes/splat —
-// center f32×3, scale f32×3, color u8×4, rotation u8×4). A rainbow sphere shell.
+// Built-in sample: a rainbow fibonacci-sphere shell in the antimatter15 .splat
+// layout (32 bytes/splat).
 function sampleSplatBuffer(count = 4000) {
 	const buf = new ArrayBuffer(count * 32);
 	const f = new DataView(buf);
 	const col = new THREE.Color();
 	for (let i = 0; i < count; i++) {
 		const base = i * 32;
-		// Fibonacci sphere for even coverage.
 		const t = i / count;
 		const phi = Math.acos(1 - 2 * t);
 		const theta = Math.PI * (1 + Math.sqrt(5)) * i;
-		const r = 1;
-		const x = r * Math.sin(phi) * Math.cos(theta);
-		const y = r * Math.cos(phi);
-		const z = r * Math.sin(phi) * Math.sin(theta);
-		f.setFloat32(base, x, true);
-		f.setFloat32(base + 4, y, true);
-		f.setFloat32(base + 8, z, true);
-		// scale (log-free world units for .splat)
+		f.setFloat32(base, Math.sin(phi) * Math.cos(theta), true);
+		f.setFloat32(base + 4, Math.cos(phi), true);
+		f.setFloat32(base + 8, Math.sin(phi) * Math.sin(theta), true);
 		f.setFloat32(base + 12, 0.03, true);
 		f.setFloat32(base + 16, 0.03, true);
 		f.setFloat32(base + 20, 0.03, true);
-		col.setHSL((y + 1) / 2, 0.7, 0.55);
+		col.setHSL((Math.cos(phi) + 1) / 2, 0.7, 0.55);
 		f.setUint8(base + 24, Math.round(col.r * 255));
 		f.setUint8(base + 25, Math.round(col.g * 255));
 		f.setUint8(base + 26, Math.round(col.b * 255));
 		f.setUint8(base + 27, 255);
-		// identity rotation: (w,x,y,z) bytes
 		f.setUint8(base + 28, 255);
 		f.setUint8(base + 29, 128);
 		f.setUint8(base + 30, 128);
@@ -278,27 +377,43 @@ function sampleSplatBuffer(count = 4000) {
 	return buf;
 }
 
-async function renderSplats() {
-	status('Loading splat engine…');
-	const GS = await import('@mkkellogg/gaussian-splats-3d');
-	teardownSplat();
-	const host = $('#lab-splat');
-	host.innerHTML = '';
-
+async function renderSplatFile() {
 	const fileField = $('#lab-field-file');
 	const uploaded = fileField?._fileData || null;
-	let url, format;
+	let buffer, format, label;
+	const GS = await loadSplatLib();
 	if (uploaded) {
-		url = URL.createObjectURL(new Blob([uploaded.buffer]));
+		buffer = uploaded.buffer;
 		format =
 			uploaded.name.endsWith('.ply') ? GS.SceneFormat.Ply :
 			uploaded.name.endsWith('.ksplat') ? GS.SceneFormat.KSplat :
 			GS.SceneFormat.Splat;
+		label = `Loaded ${uploaded.name}`;
 	} else {
-		url = URL.createObjectURL(new Blob([sampleSplatBuffer()]));
+		buffer = sampleSplatBuffer();
 		format = GS.SceneFormat.Splat;
+		label = 'Sample radiance field · 4,000 splats';
 	}
+	await renderSplatBuffer(buffer, label, format);
+	// Allow re-downloading the loaded/sample splat.
+	if (_lastSplatUrl) URL.revokeObjectURL(_lastSplatUrl);
+	_lastSplatUrl = URL.createObjectURL(new Blob([buffer], { type: 'application/octet-stream' }));
+	setDownload(_lastSplatUrl, uploaded ? uploaded.name : 'sample.splat', 'Download .splat');
+}
 
+let _GS = null;
+async function loadSplatLib() {
+	if (!_GS) _GS = await import('@mkkellogg/gaussian-splats-3d');
+	return _GS;
+}
+
+async function renderSplatBuffer(buffer, label, format) {
+	status('Loading splat engine…');
+	const GS = await loadSplatLib();
+	await teardownSplat();
+	const host = $('#lab-splat');
+	host.innerHTML = '';
+	const url = URL.createObjectURL(new Blob([buffer]));
 	const viewer = new GS.Viewer({
 		rootElement: host,
 		sharedMemoryForWorkers: false,
@@ -311,20 +426,24 @@ async function renderSplats() {
 	});
 	_splat = { viewer, url };
 	status('Rendering splats…');
-	await viewer.addSplatScene(url, { format, showLoadingUI: false, progressiveLoad: false });
+	await viewer.addSplatScene(url, { format: format ?? GS.SceneFormat.Splat, showLoadingUI: false, progressiveLoad: false });
 	viewer.start();
-	const total = viewer.getSplatCount ? viewer.getSplatCount() : null;
-	status(uploaded ? `Loaded ${uploaded.name}${total ? ` · ${total.toLocaleString()} splats` : ''}` : `Sample radiance field · ${total ? total.toLocaleString() : '4,000'} splats`, 'ok');
+	status(label, 'ok');
 }
 
-function teardownSplat() {
+async function teardownSplat() {
 	if (!_splat) return;
-	try {
-		_splat.viewer.stop?.();
-		_splat.viewer.dispose?.();
-	} catch { /* viewer may already be torn down */ }
-	if (_splat.url) URL.revokeObjectURL(_splat.url);
+	const s = _splat;
 	_splat = null;
+	try {
+		s.viewer.stop?.();
+		// dispose() cleans up the renderer + its canvas first, then tries to
+		// document.body.removeChild(rootElement) — which throws because our root
+		// (#lab-splat) is nested, not a direct child of body. Everything we care
+		// about is already torn down by then, so we await and swallow that one.
+		await s.viewer.dispose?.();
+	} catch { /* harmless nested-root removeChild from the splat lib */ }
+	if (s.url) URL.revokeObjectURL(s.url);
 	const host = document.getElementById('lab-splat');
 	if (host) host.innerHTML = '';
 }
@@ -346,5 +465,6 @@ export function initLab() {
 	_inited = true;
 	renderToolPicker();
 	$('#lab-generate').addEventListener('click', generate);
+	$('#lab-talk').addEventListener('click', bringAlive);
 	selectTool(TOOLS[0].id);
 }

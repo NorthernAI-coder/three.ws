@@ -121,10 +121,19 @@
 			.studio-identity {
 				display: grid;
 				grid-template-columns: 1fr auto;
-				grid-template-areas: 'name save' 'tag tag';
+				grid-template-areas: 'name actions' 'tag actions';
 				gap: 4px var(--space-sm, 0.618rem);
 				padding: var(--space-md, 1rem) var(--space-lg, 1.618rem);
 				border-bottom: 1px solid var(--stroke);
+			}
+			.studio-actions {
+				grid-area: actions;
+				align-self: center;
+				display: flex;
+				align-items: center;
+				flex-wrap: wrap;
+				justify-content: flex-end;
+				gap: var(--space-sm, 0.618rem);
 			}
 			.studio-name {
 				grid-area: name;
@@ -160,12 +169,12 @@
 				background: var(--surface-2);
 			}
 			.studio-save {
-				grid-area: save;
 				align-self: center;
 				font-size: var(--text-2xs, 0.6875rem);
 				font-weight: var(--weight-semibold, 600);
 				color: var(--ink-faint);
 				transition: color var(--duration-fast) var(--ease-standard);
+				white-space: nowrap;
 			}
 			.studio-save[data-state='pending'] { color: var(--warn, #fbbf24); }
 			.studio-save[data-state='saved'] { color: var(--success, #4ade80); }
@@ -302,6 +311,14 @@
 				margin-top: 8px;
 			}
 			.studio-btn-ghost:hover { background: var(--surface-3); }
+			/* Compact header actions (Save draft / Exit) — sit inline beside the save
+			   indicator without the ghost button's stacking margin. */
+			.studio-action {
+				margin-top: 0;
+				padding: 6px 13px;
+				font-size: var(--text-md, 0.8125rem);
+				white-space: nowrap;
+			}
 
 			/* Gate / error / empty-agent */
 			.studio-gate {

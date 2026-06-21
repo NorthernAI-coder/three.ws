@@ -268,6 +268,14 @@
 			"dest": "/agent-economy.html"
 		},
 		{
+			"src": "/economy",
+			"dest": "/economy.html"
+		},
+		{
+			"src": "/economy/",
+			"dest": "/economy.html"
+		},
+		{
 			"src": "/lookup",
 			"dest": "/lookup.html"
 		},
@@ -1086,6 +1094,14 @@
 		{
 			"src": "/coin3d/",
 			"dest": "/coin3d.html"
+		},
+		{
+			"src": "/hero-demo",
+			"dest": "/hero-demo.html"
+		},
+		{
+			"src": "/hero-demo/",
+			"dest": "/hero-demo.html"
 		},
 		{
 			"src": "/constellation",

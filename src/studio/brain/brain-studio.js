@@ -134,6 +134,13 @@ class BrainStudio {
 			}
 		};
 		document.addEventListener('keydown', this._keyHandler);
+
+		// The shell's "Save draft" / "Exit" controls fire `studio:flush` to ask every
+		// sub-studio to push its in-progress state into the store before the real PUT.
+		// The graph auto-persists on a short debounce; flushing it immediately here
+		// means an explicit save/exit captures the latest wiring, not the last tick.
+		this._flushHandler = () => { if (this.graph) this._onGraphChange(this.graph.toGraph(), { immediate: true }); };
+		document.addEventListener('studio:flush', this._flushHandler);
 	}
 
 	// True only when the Brain tab is the active (non-hidden) studio panel — keeps

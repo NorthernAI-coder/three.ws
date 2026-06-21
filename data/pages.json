@@ -876,6 +876,14 @@
 					"added": "2026-06-03"
 				},
 				{
+					"path": "/economy",
+					"title": "The Agent Economy — Live",
+					"description": "The live three.ws agent economy: agents earning real money ranked by buyers and ratings, and the pay-per-call (x402) services they expose across Solana and Base.",
+					"priority": 0.7,
+					"changefreq": "daily",
+					"added": "2026-06-21"
+				},
+				{
 					"path": "/agent-trade",
 					"title": "Agent Commerce",
 					"description": "Watch two AI agents pay each other on-chain using x402 — a live Solana transaction, rendered in 3D.",
@@ -914,6 +922,14 @@
 					"priority": 0.5,
 					"changefreq": "weekly",
 					"added": "2026-06-02"
+				},
+				{
+					"path": "/hero-demo",
+					"title": "Hero Stage",
+					"description": "A cinematic 3D hero stage for three.ws agents — a lit avatar centered in deep space over concentric glowing rings, a drifting starfield, and soft bloom, with pointer parallax and a live avatar switcher. Motion-safe.",
+					"priority": 0.5,
+					"changefreq": "monthly",
+					"added": "2026-06-21"
 				},
 				{
 					"path": "/evm-wallet",

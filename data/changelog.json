@@ -3,6 +3,27 @@
 	"entries": [
 		{
 			"date": "2026-06-21",
+			"title": "Agent Studio: save a draft or step away without losing work",
+			"summary": "Agent Studio now carries a persistent header on every tab with Save draft and Exit. Your agent already saves automatically as you edit — Save draft commits your progress on demand with a clear confirmation, and Exit saves first, then opens your live agent. Move freely between Brain, Memory, Body, Money and Skills from the tab row at any time, so no single section is a dead end.",
+			"tags": ["improvement"],
+			"link": "/agent-studio"
+		},
+		{
+			"date": "2026-06-21",
+			"title": "Studio Lab: turn any model into a Gaussian splat",
+			"summary": "The Lab in Studio now owns the splat format both ways. A new Mesh → Splats tool resamples any model — a Lab generator or a GLB you upload — into a Gaussian-splat radiance field entirely in your browser, viewable live and downloadable as a real .splat file. The Splat Viewer also gained a download button, so you can pull down whatever you load. No API key, no upload, no cost.",
+			"tags": ["feature"],
+			"link": "/forge-studio"
+		},
+		{
+			"date": "2026-06-21",
+			"title": "Bring your creations to life — talk to them",
+			"summary": "Made an avatar from a prompt, or a model in the Lab? A new Talk button drops you into a live voice conversation with it: speak, and it answers out loud with an AI brain and real-time lip-sync. Avatars take on a first-person persona; objects play along. Same voice + reasoning stack the rest of three.ws uses.",
+			"tags": ["feature"],
+			"link": "/forge-studio"
+		},
+		{
+			"date": "2026-06-21",
 			"title": "Membership tiers: see your mode on your member card",
 			"summary": "Your dashboard membership card now shows your tier — User, Beta, Pro, Holder, or Three Dimensional. A new panel on the Referrals page lays out the full ladder: which modes you already hold, and exactly what unlocks the rest. Holder is detected live from the $THREE you hold across any linked Solana wallet (hold more to climb the Bronze→Genesis ladder), Pro comes with a paid plan, and Beta and Three Dimensional are granted by the team. Everyone starts as a User with full free-forever access.",
 			"tags": ["feature"],
