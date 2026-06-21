@@ -186,3 +186,10 @@ Retired (feature verified shipped):
 | tasks/walk/38-walk-session-persistence.md | DELETE | Built: src/walk-session.js + api/walk/session.js (GET/PUT) + migration 20260621170000_walk_session.sql + src/walk.js capture/restore + Welcome-back toast. |
 | tasks/walk/35-click-to-walk-navigation.md | DELETE | Built: src/walk-companion-click-to-walk.js (empty-space click / long-press, data-walk-block routing, persisted toggle) wired into src/walk-companion.js. |
 | tasks/walk/25-features-page-walking-demo.md | DELETE | Built: walking-avatar-inline demoType + renderer + live /walk-embed demo in pages/features.html. |
+
+## 2026-06-21 built-and-shipped (walk batch 6)
+
+| spec file | decision | evidence |
+|---|---|---|
+| tasks/walk/19-walk-npc-companions.md | DELETE | Built: src/walk-npcs.js (greeter/wanderer/guide FSM, real GLBs michelle/xbot/realistic-female, AnimationManager clips, disposal, cap 4) + per-env public/environments/*/dialogue.json + src/walk.js spawn/update/toggle. |
+| tasks/walk/34-section-narration-as-avatar-walks.md | DELETE | Built: src/walk-companion-narrator.js (data-walk-narrate + heading fallback, IntersectionObserver, caption aria-live + optional real /api/tts/speak voice, off/caption/voice toggle) wired into src/walk-companion.js. |
