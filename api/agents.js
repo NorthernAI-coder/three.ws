@@ -22,6 +22,7 @@ import { publicUrl } from './_lib/r2.js';
 import { pingIndexNow } from './_lib/indexnow.js';
 import { publishFeedEvent } from './_lib/feed.js';
 import { getSkillPrices, skillPriceMap } from './_lib/skill-price-cache.js';
+import { cacheWrap } from './_lib/cache.js';
 import { env } from './_lib/env.js';
 import { z } from 'zod';
 import { isUuid } from './_lib/validate.js';
@@ -401,12 +402,17 @@ export async function handleGetOne(req, res, id) {
 		// a usage-stats query failure (e.g. usage_events not yet migrated, code
 		// 42P01) take down the whole agent fetch. Degrade to 0.
 		try {
-			const [chatRow] = await sql`
-				SELECT COUNT(*)::int AS total
-				FROM usage_events
-				WHERE agent_id = ${id} AND kind = 'llm'
-			`;
-			row.chat_count = chatRow?.total ?? 0;
+			// COUNT(*) over the append-only usage_events table per agent GET — cache
+			// it per agent for 60s so a popular profile doesn't re-scan the partition
+			// on every view. chat_count is decorative, so slight staleness is fine.
+			row.chat_count = await cacheWrap(`agent:chat_count:${id}`, 60, async () => {
+				const [chatRow] = await sql`
+					SELECT COUNT(*)::int AS total
+					FROM usage_events
+					WHERE agent_id = ${id} AND kind = 'llm'
+				`;
+				return chatRow?.total ?? 0;
+			});
 		} catch (err) {
 			console.warn(
 				'[agents] chat_count usage_events query failed, defaulting to 0:',

@@ -12,9 +12,9 @@
 import { openVanityModal } from './erc8004/vanity-modal.js';
 import {
 	fetchAgentSolanaWallet,
-	provisionAgentSolanaWallet,
-	deleteAgentSolanaWallet,
+	applyAgentVanityWallet,
 } from './agent-solana-wallet.js';
+import { grindVanity } from './solana/vanity/grinder.js';
 
 const STYLE = `
 .agent-vanity-grinder-details { margin: .85rem 0; }
@@ -158,21 +158,35 @@ export function mountAgentVanityGrinderCard({ panel, identity, onProvisioned }) 
 		const preGround = typeof choice === 'object' ? choice.secretKey : null;
 
 		if (state.hasWallet) {
-			if (!confirm('Replace the existing Solana wallet with a vanity-ground one? The old key will be discarded — funds will be lost if not transferred first.')) return;
+			if (!confirm('Replace this agent’s wallet with a vanity address? Any SOL or tokens it currently holds are automatically moved to the new address first — funds are never lost.')) return;
 		}
 
 		state.busy = true; state.err = null; state.progress = null; render();
 		abort = new AbortController();
 		try {
-			if (state.hasWallet) {
-				await deleteAgentSolanaWallet(identity.id);
+			// Grind in the browser (worker pool), then apply through the sweep-safe
+			// endpoint: it migrates any existing balance to the new address BEFORE
+			// swapping the key, so a replace can never strand funds. No delete-first.
+			let secretKey = preGround;
+			let iterations = null;
+			let durationMs = null;
+			if (!secretKey) {
+				const ground = await grindVanity({
+					prefix,
+					signal: abort.signal,
+					onProgress: (p) => { state.progress = p; render(); },
+				});
+				secretKey = ground.secretKey;
+				iterations = ground.attempts;
+				durationMs = ground.durationMs;
 			}
-			const data = await provisionAgentSolanaWallet({
+			const data = await applyAgentVanityWallet({
 				agentId: identity.id,
-				vanityPrefix: prefix,
-				preGround,
+				secretKey,
+				prefix,
+				iterations,
+				durationMs,
 				signal: abort.signal,
-				onProgress: (p) => { state.progress = p; render(); },
 			});
 			state.hasWallet = true;
 			state.address = data.address;

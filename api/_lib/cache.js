@@ -139,3 +139,28 @@ export async function cacheDel(key) {
 export function cacheBackend() {
 	return redisConfigured() ? 'upstash' : 'memory';
 }
+
+/**
+ * Read-through cache: return the cached value for `key`, or compute it with
+ * `fn()`, store it for `ttlSeconds`, and return it. Use to shield expensive but
+ * staleness-tolerant work (full-table COUNT(*) aggregates, leaderboards) from
+ * every request — at 100x traffic these are the queries that fall over.
+ *
+ * `null`/`undefined` results are NOT cached (so a transient failure isn't pinned
+ * as "no data"); a thrown `fn` propagates and caches nothing.
+ *
+ * @template T
+ * @param {string} key
+ * @param {number} ttlSeconds
+ * @param {() => Promise<T>} fn
+ * @returns {Promise<T>}
+ */
+export async function cacheWrap(key, ttlSeconds, fn) {
+	const hit = await cacheGet(key);
+	if (hit !== null && hit !== undefined) return hit;
+	const value = await fn();
+	if (value !== null && value !== undefined) {
+		await cacheSet(key, value, ttlSeconds);
+	}
+	return value;
+}

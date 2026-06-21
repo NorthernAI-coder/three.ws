@@ -1,5 +1,6 @@
 import { randomBytes } from 'crypto';
 import { sql } from './db.js';
+import { cacheWrap } from './cache.js';
 
 /**
  * Generates a random, human-readable referral code.
@@ -87,9 +88,15 @@ export async function getMembershipCard(userId) {
     SELECT COUNT(*)::int AS position FROM users
     WHERE id <= ${userId} AND deleted_at IS NULL
   `;
-  const [{ total }] = await sql`
-    SELECT COUNT(*)::int AS total FROM users WHERE deleted_at IS NULL
-  `;
+  // Platform-wide member count: a full-table COUNT(*) that is identical for
+  // every viewer and grows monotonically — cache for 60s instead of scanning
+  // users on every member-card render.
+  const total = await cacheWrap('users:total:active', 60, async () => {
+    const [{ total }] = await sql`
+      SELECT COUNT(*)::int AS total FROM users WHERE deleted_at IS NULL
+    `;
+    return total;
+  });
 
   // `referral_earnings_total` accumulates atomic USDC units (6 decimals),
   // written by api/_lib/purchase-confirm.js.

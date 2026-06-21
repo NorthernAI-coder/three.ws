@@ -132,6 +132,9 @@ export async function payWithToken({
 		getAssociatedTokenAddressSync,
 		createTransferInstruction,
 		createAssociatedTokenAccountIdempotentInstruction,
+		TOKEN_PROGRAM_ID,
+		TOKEN_2022_PROGRAM_ID,
+		ASSOCIATED_TOKEN_PROGRAM_ID,
 	} = spl;
 
 	const provider = await getProvider(wallet);
@@ -140,17 +143,35 @@ export async function payWithToken({
 
 	const connection = new Connection(rpcEndpoint(), 'confirmed');
 	const mint = new PublicKey(quote.mint);
-	const fromAta = getAssociatedTokenAddressSync(mint, payer);
+
+	// $THREE is a Token-2022 mint, and the mint may differ per network — so the ATA
+	// derivation and transfers MUST target the mint's actual owning token program,
+	// not the legacy default. Read it from the mint account; fall back to the legacy
+	// program only if the lookup fails (a classic-SPL mint).
+	const mintInfo = await connection.getAccountInfo(mint);
+	const tokenProgramId =
+		mintInfo && mintInfo.owner.equals(TOKEN_2022_PROGRAM_ID) ? TOKEN_2022_PROGRAM_ID : TOKEN_PROGRAM_ID;
+
+	const fromAta = getAssociatedTokenAddressSync(mint, payer, false, tokenProgramId, ASSOCIATED_TOKEN_PROGRAM_ID);
 
 	const tx = new Transaction();
 	for (const leg of quote.legs) {
 		const owner = new PublicKey(leg.address);
 		// allowOwnerOffCurve: the burn incinerator is off-curve.
-		const destAta = getAssociatedTokenAddressSync(mint, owner, true);
+		const destAta = getAssociatedTokenAddressSync(mint, owner, true, tokenProgramId, ASSOCIATED_TOKEN_PROGRAM_ID);
 		// Idempotent: a no-op if the destination ATA already exists; otherwise the
 		// payer funds its rent so burn/treasury/seller can receive on first use.
-		tx.add(createAssociatedTokenAccountIdempotentInstruction(payer, destAta, owner, mint));
-		tx.add(createTransferInstruction(fromAta, destAta, payer, BigInt(leg.atomics)));
+		tx.add(
+			createAssociatedTokenAccountIdempotentInstruction(
+				payer,
+				destAta,
+				owner,
+				mint,
+				tokenProgramId,
+				ASSOCIATED_TOKEN_PROGRAM_ID,
+			),
+		);
+		tx.add(createTransferInstruction(fromAta, destAta, payer, BigInt(leg.atomics), [], tokenProgramId));
 	}
 	// Memo carries the quote nonce so the server can bind this tx to the quote.
 	tx.add(

@@ -28,6 +28,14 @@
 			<guid isPermaLink="false">2026-06-21:Authorize $THREE once, then pay with no wallet popups</guid>
 			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
+			<description>The $THREE page now lets you set a spending allowance: approve a cap once, and paid actions across the platform — forge, skills, names, cosmetics — debit it automatically without asking you to sign every time. It's non-custodial and built on Solana's native, audited Subscriptions &amp; Allowances program: your tokens stay in your own wallet until a charge pulls them, never more than the cap you set. You can see what your remaining cap covers, get a heads-up when it runs low, top it up, or revoke it in one click anytime. Prefer to sign each payment? Just leave it off.</description>
+		</item>
+		<item>
+			<title>Authorize $THREE once, then pay with no wallet popups</title>
+			<link>https://three.ws/three-token</link>
+			<guid isPermaLink="false">2026-06-21:Authorize $THREE once, then pay with no wallet popups</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
 			<description>The $THREE page now lets you set a spending allowance: approve a cap once, and paid actions across the platform — forge, skills, names, cosmetics — debit it automatically without asking you to sign every time. It's non-custodial and built on Solana's native, audited Subscriptions &amp; Allowances program: your tokens stay in your own wallet until a charge pulls them, never more than the cap you set, and you can let it expire or revoke it anytime. Set a cap, top it up, or leave it off and keep signing each payment — your choice.</description>
 		</item>
 		<item>

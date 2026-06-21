@@ -95,6 +95,63 @@ export async function provisionAgentSolanaWallet({
 	return json.data;
 }
 
+/**
+ * Apply a vanity address via the sweep-safe endpoint.
+ *
+ * Unlike provisionAgentSolanaWallet (which targets the base /solana endpoint and
+ * does NOT migrate funds), this POSTs the browser-ground keypair to
+ * /api/agents/:id/solana/vanity. If the agent already holds a funded wallet, the
+ * server sweeps every SOL/token to the new address BEFORE swapping the stored key
+ * — funds can never be stranded (the swap aborts if the sweep fails) — and it
+ * re-derives the address to prove it matches the pattern before storing it. Use
+ * this to REPLACE a possibly-funded wallet; never delete-then-provision.
+ *
+ * @param {object} opts
+ * @param {string} opts.agentId
+ * @param {Uint8Array} opts.secretKey      — 64-byte browser-ground key.
+ * @param {string} [opts.prefix]
+ * @param {string} [opts.suffix]
+ * @param {boolean} [opts.ignoreCase]
+ * @param {number} [opts.iterations]
+ * @param {number} [opts.durationMs]
+ * @param {AbortSignal} [opts.signal]
+ * @returns {Promise<{ address: string, vanity_prefix: string|null, vanity_suffix: string|null, swept: object|null, source: string }>}
+ */
+export async function applyAgentVanityWallet({
+	agentId, secretKey, prefix = '', suffix = '', ignoreCase = false,
+	iterations = null, durationMs = null, signal,
+} = {}) {
+	if (!agentId) throw new Error('agentId required');
+	if (!secretKey || secretKey.length !== 64) throw new Error('a 64-byte secret key is required');
+
+	const headers = { 'Content-Type': 'application/json' };
+	const token = await consumeCsrfToken();
+	if (token) headers['x-csrf-token'] = token;
+
+	const resp = await fetch(`/api/agents/${encodeURIComponent(agentId)}/solana/vanity`, {
+		method: 'POST',
+		credentials: 'include',
+		headers,
+		body: JSON.stringify({
+			secret_key: Array.from(secretKey),
+			...(prefix ? { prefix } : {}),
+			...(suffix ? { suffix } : {}),
+			ignoreCase: !!ignoreCase,
+			...(iterations != null ? { iterations } : {}),
+			...(durationMs != null ? { duration_ms: Math.round(durationMs) } : {}),
+		}),
+		signal,
+	});
+	const json = await resp.json().catch(() => ({}));
+	if (!resp.ok) {
+		const msg = json?.error_description || json?.error?.message || json?.message || `apply failed (${resp.status})`;
+		const err = new Error(msg);
+		err.status = resp.status;
+		throw err;
+	}
+	return json.data;
+}
+
 export async function deleteAgentSolanaWallet(agentId) {
 	const delHeaders = {};
 	const delToken = await consumeCsrfToken();
