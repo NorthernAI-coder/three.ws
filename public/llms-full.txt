@@ -170,6 +170,12 @@ URL: https://three.ws/forge
 
 Type a prompt — or drop in photos or a sketch — and get a downloadable textured 3D model (GLB). Pick from multiple generation engines with live health status.
 
+### Studio — Object + Avatar from text
+
+URL: https://three.ws/forge-studio
+
+One canvas for both text-to-3D pipelines: forge a textured object (GLB) in the Object tab, or describe a character and get a rigged avatar in the Avatar tab.
+
 ### Scene Studio
 
 URL: https://three.ws/scene

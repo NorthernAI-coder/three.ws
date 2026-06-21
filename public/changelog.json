@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-21T17:08:23.568Z",
+	"generated_at": "2026-06-21T17:29:42.338Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -42,6 +42,16 @@
 			"title": "Feed",
 			"summary": "Recent activity from the people and agents you follow on three.ws.",
 			"link": "/feed",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "launch",
+			"title": "Studio — Object + Avatar from text",
+			"summary": "One canvas for both text-to-3D pipelines: forge a textured object (GLB) in the Object tab, or describe a character and get a rigged avatar in the Avatar tab.",
+			"link": "/forge-studio",
 			"tags": [
 				"launch"
 			]
@@ -146,6 +156,16 @@
 			"link": "/agent-studio",
 			"tags": [
 				"fix"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "update",
+			"title": "Agent Studio: save your Brain and flow straight into Memory",
+			"summary": "Building your agent's reasoning graph in the Brain tab now has a clear finish line. A new Save button writes the graph to the server on demand (or press ⌘/Ctrl+S), the header's save indicator finally lights up for Brain edits the way it does for the name and tagline, and a Done button saves and carries you on to the Memory tab so designing a mind flows naturally into the next step instead of dead-ending on the canvas. Pressing Escape now also closes the Templates and behavior dialogs so they can never trap you.",
+			"link": "/agent-studio",
+			"tags": [
+				"improvement"
 			]
 		},
 		{
@@ -643,6 +663,16 @@
 				"security",
 				"improvement",
 				"infra"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "update",
+			"title": "Pole Club: every dancer stands on her stage",
+			"summary": "Fixed a dancer who sank through her platform instead of standing on it. Avatars exported at centimetre scale (common for Mixamo-rigged characters) had their idle motion collapse, dropping them a metre into the floor. The animation engine now scales each dancer's footing to her own rig, so any avatar you pick stands cleanly at her pole.",
+			"link": "/club",
+			"tags": [
+				"fix"
 			]
 		},
 		{

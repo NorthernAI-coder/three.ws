@@ -309,6 +309,7 @@ const appConfig = {
 				create: resolve(__dirname, 'pages/create.html'),
 				'create-agent': resolve(__dirname, 'pages/create-agent.html'),
 				forge: resolve(__dirname, 'pages/forge.html'),
+				'forge-studio': resolve(__dirname, 'pages/forge-studio.html'),
 				'forge-embed': resolve(__dirname, 'pages/forge-embed.html'),
 				scene: resolve(__dirname, 'pages/scene.html'),
 				segment: resolve(__dirname, 'pages/segment.html'),

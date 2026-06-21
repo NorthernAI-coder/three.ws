@@ -763,6 +763,10 @@
 			"dest": "/forge.html"
 		},
 		{
+			"src": "/forge-studio/?",
+			"dest": "/forge-studio.html"
+		},
+		{
 			"src": "/scene/?",
 			"dest": "/scene.html"
 		},

@@ -12,6 +12,8 @@ import { canonicalizeBoneName } from './glb-canonicalize.js';
 import {
 	canonicalNodeMapFromObject,
 	canonicalRestMapFromObject,
+	clipHipBaselineY,
+	hipRestLocalHeight,
 	hipsParentWorldQuat,
 	retargetClip,
 } from './animation-retarget.js';
@@ -191,6 +193,12 @@ export class AnimationManager {
 		// World rotation of the Hips' parent (within the model), so root motion is
 		// re-expressed in the rig's own frame and travels the right way on any rig.
 		this._hipsParentWorldQuat = hipsParentWorldQuat(model);
+		// Rest height of the Hips in the parent's local units (metres for a
+		// metre-native rig, ~100 for a centimetre-scale Mixamo armature). Hip
+		// tracks set the Hips' *local* position, so _retarget scales each clip by
+		// this ÷ the clip's authored baseline — without it a 0.01-scaled rig's
+		// hips collapse to the floor (metre-valued track × 0.01 parent ≈ 1cm).
+		this._hipTargetLocalY = hipRestLocalHeight(model);
 		this._canonicalClipsSupported = _modelSupportsCanonicalClips(model);
 
 		for (const [name, clip] of this.clips) {
@@ -212,9 +220,20 @@ export class AnimationManager {
 	 */
 	_retarget(clip) {
 		if (!this._canonicalToNode || this._canonicalToNode.size === 0) return null;
+		// Scale the clip's hip translation into the rig's local frame. For a
+		// metre-native rig this is ≈1 (no-op); for a centimetre-scale armature it
+		// is ~100, which is what keeps the dancer standing on the stage instead of
+		// sinking a metre through it. Clamped so a degenerate baseline can't fling
+		// the root away.
+		let hipScale = 1;
+		const baseline = clipHipBaselineY(clip);
+		if (this._hipTargetLocalY > 0.05 && baseline > 0.05) {
+			hipScale = Math.min(200, Math.max(0.2, this._hipTargetLocalY / baseline));
+		}
 		const { clip: out } = retargetClip(clip, this._canonicalToNode, {
 			targetRest: this._canonicalRest,
 			hipsParentWorldQuat: this._hipsParentWorldQuat,
+			hipScale,
 		});
 		return out;
 	}

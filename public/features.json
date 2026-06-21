@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-21T17:08:23.534Z",
+	"generated_at": "2026-06-21T17:29:42.288Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -267,6 +267,16 @@
 					"title": "Forge — Text to 3D",
 					"description": "Type a prompt — or drop in photos or a sketch — and get a downloadable textured 3D model (GLB). Pick from multiple generation engines with live health status.",
 					"added": "2026-06-04",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/forge-studio",
+					"title": "Studio — Object + Avatar from text",
+					"description": "One canvas for both text-to-3D pipelines: forge a textured object (GLB) in the Object tab, or describe a character and get a rigged avatar in the Avatar tab.",
+					"added": "2026-06-21",
 					"auth": null,
 					"indexable": true,
 					"tags": [],

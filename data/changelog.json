@@ -3,6 +3,20 @@
 	"entries": [
 		{
 			"date": "2026-06-21",
+			"title": "Pole Club: every dancer stands on her stage",
+			"summary": "Fixed a dancer who sank through her platform instead of standing on it. Avatars exported at centimetre scale (common for Mixamo-rigged characters) had their idle motion collapse, dropping them a metre into the floor. The animation engine now scales each dancer's footing to her own rig, so any avatar you pick stands cleanly at her pole.",
+			"tags": ["fix"],
+			"link": "/club"
+		},
+		{
+			"date": "2026-06-21",
+			"title": "Agent Studio: save your Brain and flow straight into Memory",
+			"summary": "Building your agent's reasoning graph in the Brain tab now has a clear finish line. A new Save button writes the graph to the server on demand (or press ⌘/Ctrl+S), the header's save indicator finally lights up for Brain edits the way it does for the name and tagline, and a Done button saves and carries you on to the Memory tab so designing a mind flows naturally into the next step instead of dead-ending on the canvas. Pressing Escape now also closes the Templates and behavior dialogs so they can never trap you.",
+			"tags": ["improvement"],
+			"link": "/agent-studio"
+		},
+		{
+			"date": "2026-06-21",
 			"title": "Guided Tour: no longer stops dead on full-screen pages",
 			"summary": "The 3D guide that walks you through the platform would vanish the moment the tour stepped onto one of the immersive, full-screen pages — Selfie to Avatar, Scan, the Club and others — because those pages skip the shared top nav that used to start the tour. The tour's start logic now loads on every page, so the guide keeps walking, pointing, and narrating across the whole site without ever stranding you mid-tour.",
 			"tags": ["fix"],

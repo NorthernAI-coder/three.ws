@@ -83,6 +83,8 @@ class BrainStudio {
 							<button class="studio__btn" id="bsFit" title="Frame the graph">Fit</button>
 							<button class="studio__btn" id="bsDiff" title="See how this brain reads">Behavior</button>
 							<button class="studio__btn" id="bsTpl" title="Fork a template">Templates</button>
+							<button class="studio__btn" id="bsSave" title="Save now (⌘/Ctrl + S)">Save</button>
+							<button class="studio__btn studio__btn-primary" id="bsDone" title="Save and continue to Memory">Done →</button>
 						</div>
 					</div>
 					<div class="brainstudio__main">
@@ -113,11 +115,71 @@ class BrainStudio {
 		this.el.querySelector('#bsFit').addEventListener('click', () => this.graph?.fit());
 		this.el.querySelector('#bsDiff').addEventListener('click', () => this._showBehavior());
 		this.el.querySelector('#bsTpl').addEventListener('click', () => this._showTemplateModal());
+		this.el.querySelector('#bsSave').addEventListener('click', () => this._saveNow());
+		this.el.querySelector('#bsDone').addEventListener('click', () => this._done());
 		this.el.querySelector('#bsCompose').addEventListener('submit', (e) => { e.preventDefault(); this._send(); });
 		const input = this.el.querySelector('#bsInput');
 		input.addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); this._send(); } });
 		input.addEventListener('input', () => { input.style.height = 'auto'; input.style.height = `${Math.min(120, input.scrollHeight)}px`; });
 		this.el.querySelector('#bsModal').addEventListener('click', (e) => { if (e.target.id === 'bsModal') this._closeModal(); });
+
+		// Keyboard: ⌘/Ctrl+S saves the graph immediately; Escape always dismisses an
+		// open modal so it can never become a dead-end that blocks the editor beneath.
+		this._keyHandler = (e) => {
+			const modal = this.el.querySelector('#bsModal');
+			if (e.key === 'Escape' && modal && !modal.hidden) { e.preventDefault(); this._closeModal(); return; }
+			if ((e.metaKey || e.ctrlKey) && (e.key === 's' || e.key === 'S') && this._isVisible()) {
+				e.preventDefault();
+				this._saveNow();
+			}
+		};
+		document.addEventListener('keydown', this._keyHandler);
+	}
+
+	// True only when the Brain tab is the active (non-hidden) studio panel — keeps
+	// the global ⌘S handler from firing while the user is editing another tab.
+	_isVisible() {
+		const panel = this.el.closest('.studio-tabpanel');
+		return !!panel && !panel.hidden && this.root?.dataset.view === 'editor';
+	}
+
+	// ── Save + continue ───────────────────────────────────────────────────────
+
+	// Flush the debounced graph persist to the server right now and confirm it on
+	// the Save button. The shell's header indicator also tracks the underlying
+	// store write (save:pending → save:ok), so the user gets two honest signals.
+	async _saveNow({ silent = false } = {}) {
+		// Push the latest graph through the normal persist path (immediate, no debounce)
+		// then flush the store so the write lands before we confirm or navigate.
+		if (this.graph) this._onGraphChange(this.graph.toGraph(), { immediate: true });
+		const btn = this.el.querySelector('#bsSave');
+		if (btn && !silent) { btn.disabled = true; btn.textContent = 'Saving…'; }
+		try {
+			await this.studio.commit();
+			if (btn && !silent) this._flashSaved(btn);
+			return true;
+		} catch {
+			if (btn && !silent) { btn.disabled = false; btn.textContent = 'Retry save'; }
+			return false;
+		}
+	}
+
+	_flashSaved(btn) {
+		btn.disabled = false;
+		btn.textContent = 'Saved ✓';
+		btn.classList.add('is-saved');
+		clearTimeout(this._savedFlash);
+		this._savedFlash = setTimeout(() => { btn.textContent = 'Save'; btn.classList.remove('is-saved'); }, 1600);
+	}
+
+	// Save, then hand off to the next studio section so building a brain flows
+	// naturally into Memory rather than dead-ending on the graph.
+	async _done() {
+		// Only advance once the write actually lands — a failed save rolls back in the
+		// store, so navigating away on failure would silently drop the user's edits.
+		if (await this._saveNow()) {
+			document.dispatchEvent(new CustomEvent('studio:navigate', { detail: { tab: 'memory' } }));
+		}
 	}
 
 	_renderPalette() {
