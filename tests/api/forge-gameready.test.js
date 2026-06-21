@@ -11,6 +11,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Readable } from 'node:stream';
+import { signTierPass } from '../../api/_lib/three-tier.js';
 
 // Stub the GCP provider — each submit returns a distinct upstream task id so the
 // composite job id packs both formats; status() returns a done remesh result.
@@ -83,6 +84,15 @@ beforeEach(() => {
 	}));
 });
 
+// The export is $THREE hold-or-pay gated (Token Utility — consumption lever). A
+// signed Bronze tier pass clears the gate so the worker-logic tests below exercise
+// the real fan-out, not the 402. Dev secret → sign/verify symmetry; without a pass
+// the export 402s (covered in the gate describe block).
+process.env.NODE_ENV = 'development';
+delete process.env.HOLDER_PASS_SECRET;
+const WALLET = 'THREEsynthetic1111111111111111111111111111';
+const BRONZE_PASS = signTierPass({ wallet: WALLET, level: 1, tierId: 'bronze', usd: 30 });
+
 const { default: handler } = await import('../../api/forge-gameready.js');
 
 function makeRes() {
@@ -99,12 +109,20 @@ function makeRes() {
 	};
 }
 
-function makeReq({ method = 'POST', url = '/api/forge-gameready', headers = {}, body = null } = {}) {
+// `pass` defaults to a Bronze tier pass so POSTs clear the $THREE gate; pass `null`
+// to submit as a non-holder (gate tests). GET polls are ungated — the header is
+// harmless there.
+function makeReq({ method = 'POST', url = '/api/forge-gameready', headers = {}, body = null, pass = BRONZE_PASS } = {}) {
 	const payload = body == null ? '' : typeof body === 'string' ? body : JSON.stringify(body);
 	const stream = Readable.from(payload ? [Buffer.from(payload, 'utf8')] : []);
 	stream.method = method;
 	stream.url = url;
-	stream.headers = { 'content-type': 'application/json', 'x-forwarded-for': '203.0.113.9', ...headers };
+	stream.headers = {
+		'content-type': 'application/json',
+		'x-forwarded-for': '203.0.113.9',
+		...(pass ? { 'x-three-tier-pass': pass } : {}),
+		...headers,
+	};
 	return stream;
 }
 
@@ -193,6 +211,46 @@ describe('POST /api/forge-gameready', () => {
 		await handler(makeReq({ body: { mesh_url: MESH } }), res);
 		expect(res.statusCode).toBe(503);
 		expect(JSON.parse(res.body).error).toBe('unconfigured');
+	});
+});
+
+describe('POST /api/forge-gameready — $THREE hold-or-pay gate', () => {
+	it('blocks a non-holder with a 402 three_hold_required + the pay-per-export price', async () => {
+		const res = makeRes();
+		// No pass, no payment → anonymous caller below the Bronze threshold.
+		await handler(makeReq({ body: { mesh_url: MESH }, pass: null }), res);
+		expect(res.statusCode).toBe(402);
+		const b = JSON.parse(res.body);
+		expect(b.error).toBe('three_hold_required');
+		expect(b.feature).toBe('forge.gameready');
+		expect(b.required).toMatchObject({ level: 1, id: 'bronze' });
+		// Pay-per-export price comes straight from the catalog ($0.10 = OUTPUTS.gameready).
+		expect(b.pay_per_use).toMatchObject({ action: 'forge.gameready', usd: 0.1 });
+		// The gate is hermetic — it fired before any worker/DNS call.
+		expect(submit).not.toHaveBeenCalled();
+	});
+
+	it('does not dispatch to the worker when the gate blocks', async () => {
+		const res = makeRes();
+		await handler(makeReq({ body: { mesh_url: MESH, formats: ['glb', 'fbx'] }, pass: null }), res);
+		expect(res.statusCode).toBe(402);
+		expect(submit).not.toHaveBeenCalled();
+	});
+
+	it('lets a verified Bronze holder export (gate falls through to the worker)', async () => {
+		const res = makeRes();
+		await handler(makeReq({ body: { mesh_url: MESH, formats: ['glb'] } }), res); // default Bronze pass
+		expect(res.statusCode).toBe(202);
+		expect(JSON.parse(res.body).error).toBeUndefined();
+		expect(submit).toHaveBeenCalled();
+	});
+
+	it('gates a tampered / invalid pass as a non-holder', async () => {
+		const res = makeRes();
+		await handler(makeReq({ body: { mesh_url: MESH }, pass: 'not.a.valid.pass' }), res);
+		expect(res.statusCode).toBe(402);
+		expect(JSON.parse(res.body).error).toBe('three_hold_required');
+		expect(submit).not.toHaveBeenCalled();
 	});
 });
 
