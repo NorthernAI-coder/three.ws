@@ -71,7 +71,8 @@ function renderBuys(buys) {
 	const host = $('buys');
 	host.innerHTML = '';
 	if (!buys?.length) {
-		host.innerHTML = '<div class="muted" style="font-size:0.85rem">Pricing loads shortly.</div>';
+		host.innerHTML =
+			'<div class="muted" style="font-size:0.85rem">Pricing loads shortly.</div>';
 		return;
 	}
 	for (const b of buys.slice(0, 8)) {
@@ -112,7 +113,10 @@ function renderLedger(items) {
 }
 
 function escapeHtml(s) {
-	return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+	return String(s).replace(
+		/[&<>"]/g,
+		(c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c],
+	);
 }
 
 function renderAll(data) {
@@ -255,7 +259,13 @@ async function doDeposit() {
 
 		let tx;
 		if (state.asset === 'SOL') {
-			tx = await buildSolTransfer({ web3, conn, from: address, to: state.deposit.wallet, amountSol: amount });
+			tx = await buildSolTransfer({
+				web3,
+				conn,
+				from: address,
+				to: state.deposit.wallet,
+				amountSol: amount,
+			});
 		} else {
 			const spl = await import('@solana/spl-token');
 			tx = await buildThreeTransfer({
@@ -273,7 +283,11 @@ async function doDeposit() {
 		tx.recentBlockhash = blockhash;
 		tx.lastValidBlockHeight = lastValidBlockHeight;
 
-		const txBase64 = btoa(String.fromCharCode(...tx.serialize({ requireAllSignatures: false, verifySignatures: false })));
+		const txBase64 = btoa(
+			String.fromCharCode(
+				...tx.serialize({ requireAllSignatures: false, verifySignatures: false }),
+			),
+		);
 
 		setStatus('Confirm the transfer in your wallet…');
 		const { txHash } = await adapter.signAndSend({ txBase64 }, ref);
@@ -296,12 +310,17 @@ async function verifyAndApply(txSignature, asset) {
 	});
 	const data = await r.json().catch(() => ({}));
 	if (!r.ok) {
-		throw Object.assign(new Error(data.error_description || 'Deposit could not be verified.'), { data });
+		throw Object.assign(new Error(data.error_description || 'Deposit could not be verified.'), {
+			data,
+		});
 	}
 	if (data.replay) {
 		setStatus(`Already credited — balance ${fmtUsd(data.balance_usd)}.`, 'ok');
 	} else {
-		setStatus(`Added ${fmtUsd(data.credited_usd)} (${fmtAmount(data.amount)} ${asset}). New balance ${fmtUsd(data.balance_usd)}.`, 'ok');
+		setStatus(
+			`Added ${fmtUsd(data.credited_usd)} (${fmtAmount(data.amount)} ${asset}). New balance ${fmtUsd(data.balance_usd)}.`,
+			'ok',
+		);
 	}
 	$('amount').value = '';
 	$('manual-sig').value = '';

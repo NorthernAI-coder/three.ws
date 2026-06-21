@@ -115,7 +115,11 @@ export async function creditAccount({
 	} catch (err) {
 		if (isUniqueViolation(err)) {
 			const prior = await priorLedger(idempotencyKey);
-			return { balanceUsd: Number(prior?.balance_after ?? 0), ledgerId: prior?.id ?? null, replay: true };
+			return {
+				balanceUsd: Number(prior?.balance_after ?? 0),
+				ledgerId: prior?.id ?? null,
+				replay: true,
+			};
 		}
 		throw err;
 	}
@@ -186,7 +190,12 @@ export async function debitCredits({
 			required_usd: amt,
 		});
 	}
-	return { balanceUsd: Number(rows[0].balance_after), ledgerId: rows[0].id, replay: false, chargedUsd: amt };
+	return {
+		balanceUsd: Number(rows[0].balance_after),
+		ledgerId: rows[0].id,
+		replay: false,
+		chargedUsd: amt,
+	};
 }
 
 /**
@@ -216,7 +225,8 @@ export async function chargeCreditsForAction({
 	idempotencyKey,
 	meta = {},
 }) {
-	if (!user?.id) throw badRequest('a signed-in user is required to spend credits', 'unauthorized');
+	if (!user?.id)
+		throw badRequest('a signed-in user is required to spend credits', 'unauthorized');
 	const discountBps = await holderDiscountBps(user).catch(() => 0);
 	const priced = priceForAction(action, { usd, discountBps });
 	const debit = await debitCredits({

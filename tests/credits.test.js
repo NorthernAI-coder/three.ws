@@ -25,16 +25,13 @@ vi.mock('../api/_lib/three-tier.js', () => ({
 	holderDiscountBps: async () => tier.bps,
 }));
 
-const {
-	getCreditAccount,
-	creditAccount,
-	debitCredits,
-	chargeCreditsForAction,
-	refundCredits,
-} = await import('../api/_lib/credits.js');
+const { getCreditAccount, creditAccount, debitCredits, chargeCreditsForAction, refundCredits } =
+	await import('../api/_lib/credits.js');
 
 function uniqueViolation() {
-	return Object.assign(new Error('duplicate key value violates unique constraint'), { code: '23505' });
+	return Object.assign(new Error('duplicate key value violates unique constraint'), {
+		code: '23505',
+	});
 }
 
 beforeEach(() => {
@@ -55,7 +52,9 @@ describe('getCreditAccount', () => {
 			lifetimeSpentUsd: 0,
 		});
 
-		db.queue.push([{ balance_usd: '12.500000', lifetime_deposited_usd: '20', lifetime_spent_usd: '7.5' }]);
+		db.queue.push([
+			{ balance_usd: '12.500000', lifetime_deposited_usd: '20', lifetime_spent_usd: '7.5' },
+		]);
 		expect(await getCreditAccount('u1')).toMatchObject({
 			balanceUsd: 12.5,
 			lifetimeDepositedUsd: 20,
@@ -66,7 +65,9 @@ describe('getCreditAccount', () => {
 
 describe('creditAccount', () => {
 	it('rejects a non-positive amount', async () => {
-		await expect(creditAccount({ userId: 'u1', amountUsd: 0, idempotencyKey: 'k' })).rejects.toMatchObject({
+		await expect(
+			creditAccount({ userId: 'u1', amountUsd: 0, idempotencyKey: 'k' }),
+		).rejects.toMatchObject({
 			code: 'bad_request',
 		});
 	});
@@ -103,7 +104,9 @@ describe('creditAccount', () => {
 
 describe('debitCredits', () => {
 	it('rejects a non-positive amount', async () => {
-		await expect(debitCredits({ userId: 'u1', amountUsd: 0, idempotencyKey: 'k' })).rejects.toMatchObject({
+		await expect(
+			debitCredits({ userId: 'u1', amountUsd: 0, idempotencyKey: 'k' }),
+		).rejects.toMatchObject({
 			code: 'bad_request',
 		});
 	});
@@ -116,10 +119,17 @@ describe('debitCredits', () => {
 
 	it('throws a 402 insufficient_credits when the balance is short', async () => {
 		db.queue.push([]); // conditional UPDATE matched no row → not enough balance
-		db.queue.push([{ balance_usd: '0.100000', lifetime_deposited_usd: '1', lifetime_spent_usd: '0.9' }]);
+		db.queue.push([
+			{ balance_usd: '0.100000', lifetime_deposited_usd: '1', lifetime_spent_usd: '0.9' },
+		]);
 		await expect(
 			debitCredits({ userId: 'u1', amountUsd: 0.5, idempotencyKey: 'spend:2' }),
-		).rejects.toMatchObject({ status: 402, code: 'insufficient_credits', available_usd: 0.1, required_usd: 0.5 });
+		).rejects.toMatchObject({
+			status: 402,
+			code: 'insufficient_credits',
+			available_usd: 0.1,
+			required_usd: 0.5,
+		});
 	});
 
 	it('resolves a replayed charge to the prior row (no double debit)', async () => {
