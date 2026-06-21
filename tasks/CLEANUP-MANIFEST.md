@@ -170,3 +170,11 @@ Retired (feature verified shipped):
 |---|---|---|
 | tasks/walk/36-walk-path-visualization.md | DELETE | Built: src/walk-trails.js (footprints/glow/line, 3D decals+points & 2D DOM/canvas/SVG, 60-cap, accent color, 5s fade) wired into src/walk.js + src/walk-companion.js with persisted style toggle. |
 | tasks/walk/23-agent-detail-walk-mode.md | DELETE | Built: ?agent=/?avatar= resolution in src/walk-embed.js + "Walk with this agent" CTA & live preview card in pages/agent-detail.html/src/agent-detail.js. |
+
+## 2026-06-21 built-and-shipped (walk batch 4)
+
+| spec file | decision | evidence |
+|---|---|---|
+| tasks/walk/24-agent-embed-walking-mode.md | DELETE | Built: "Walking avatar" mode in src/agent-embed-modal.js (options, live preview, copy snippet → /walk-embed?agent=). |
+| tasks/walk/27-dashboard-topbar-walking-avatar.md | DELETE | Built: 64x80 live walking avatar in src/dashboard-next/components/topbar.js from /api/avatars/mine + unread badge (fixed unread_count) + wave-on-notification. |
+| tasks/walk/28-profile-page-walking-avatar.md | DELETE | Built: src/profile-walk-hero.js walking hero in pages/profile.html with Say hi (real chat surface) + Walk with me, all states. |

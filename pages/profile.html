@@ -1099,6 +1099,7 @@
 			import { mountUserProfile } from '/src/erc8004/user-profile.js';
 			import { onchainBadgeHTML } from '/src/shared/onchain-badge.js';
 			import { apiFetch } from '/src/api.js';
+			import { mountProfileWalkHero } from '/src/profile-walk-hero.js';
 
 			const esc = (s) =>
 				String(s ?? '').replace(
@@ -1526,6 +1527,7 @@
 							</div>
 						</div>
 					</div>
+					<div id="up-walk-hero"></div>
 					<div class="up-stats">${statsHtml}</div>
 					${tabBar}
 					<section class="up-section" data-section="avatars"${defaultTab === 'avatars' ? '' : ' hidden'}>
@@ -1611,6 +1613,18 @@
 						openFollowsModal(user.username, btn.dataset.follows, viewer),
 					);
 				});
+
+				// Live walking-avatar hero — embodies the owner's primary avatar
+				// in a /walk-embed iframe with "Say hi" (real chat) + "Walk with me".
+				const walkHeroSlot = rootEl.querySelector('#up-walk-hero');
+				if (walkHeroSlot) {
+					mountProfileWalkHero(walkHeroSlot, {
+						user,
+						avatars,
+						agents,
+						isOwner,
+					});
+				}
 			}
 
 			// ── Edit profile modal ──────────────────────────────────────────────
