@@ -12,6 +12,15 @@
 // The panel proves its value the way game devs screenshot it: the before→after
 // poly delta and a live wireframe of the retopologized mesh. Nothing fakes
 // progress — it polls the job; the wireframe is the real returned GLB.
+//
+// Charging: the export runs the remesh GPU worker (real cost), so it's a $THREE
+// holder perk with a one-time pay-per-export path — the same hold-or-pay model as
+// High-tier generation. A verified holder exports free; a non-holder is offered the
+// designed $THREE pay modal and the export retries with the settled proof. The
+// price is whatever the server gate quotes — never hardcoded here.
+
+import { payForConsumption } from './forge-pay.js';
+import { threeHeaders } from './three-tier-pass.js';
 
 const resultPanel = document.getElementById('state-result');
 const viewer = document.getElementById('viewer');
@@ -87,6 +96,10 @@ if (resultPanel && viewer && triggerBtn) {
 			.gr-status { font-size: var(--text-xs); font-family: var(--font-mono); color: var(--ink-dim); }
 			.gr-status[data-kind='error'] { color: var(--danger); }
 			.gr-status[data-kind='done'] { color: var(--success); }
+			.gr-pay-note { font-size: var(--text-xs); color: var(--ink-dim); line-height: 1.4; margin: 0; }
+			.gr-pay-note a { color: var(--accent); text-decoration: none; }
+			.gr-pay-note a:hover { text-decoration: underline; }
+			.gr-pay-note a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
 			.gr-skeleton { display: none; height: 4px; border-radius: 2px; overflow: hidden; background: var(--surface-1); position: relative; }
 			.gameready[data-busy='true'] .gr-skeleton { display: block; }
 			.gr-skeleton::after { content: ''; position: absolute; inset: 0; width: 40%; border-radius: 2px; background: linear-gradient(90deg, transparent, var(--accent), transparent); animation: gr-sweep 1.1s ease-in-out infinite; }
@@ -165,6 +178,7 @@ if (resultPanel && viewer && triggerBtn) {
 			<button class="btn btn-ghost gr-wire-toggle" type="button" aria-pressed="false" hidden title="Show the retopologized wireframe">Wireframe</button>
 			<span class="gr-status" role="status" aria-live="polite"></span>
 		</div>
+		<p class="gr-pay-note">$THREE holders export free — others pay once per export in $THREE. <a href="/three-token">Hold $THREE →</a></p>
 		<div class="gr-skeleton" aria-hidden="true"></div>
 		<div class="gr-delta" aria-live="polite"></div>
 		<div class="gr-downloads"></div>
@@ -372,10 +386,14 @@ if (resultPanel && viewer && triggerBtn) {
 		return new Promise((r) => setTimeout(r, ms));
 	}
 
-	async function startExport(formats) {
+	async function startExport(formats, payment) {
+		// Carry the holder's $THREE tier pass so an eligible holder clears the gate
+		// (no payment); harmless / empty for everyone else. A non-holder attaches the
+		// settled pay-per-export proof instead.
+		const threeHdrs = await threeHeaders();
 		const res = await fetch('/api/forge-gameready', {
 			method: 'POST',
-			headers: { 'content-type': 'application/json', ...CLIENT_HEADERS },
+			headers: { 'content-type': 'application/json', ...CLIENT_HEADERS, ...threeHdrs },
 			body: JSON.stringify({
 				mesh_url: state.glbUrl,
 				topology: state.topology,
@@ -383,11 +401,34 @@ if (resultPanel && viewer && triggerBtn) {
 				texture_size: Number(texsizeSel.value),
 				formats,
 				preserve_rig: rigCheck.checked && formats.includes('fbx'),
+				...(payment?.paymentId && payment?.refId
+					? { payment_id: payment.paymentId, ref_id: payment.refId }
+					: {}),
 			}),
 		});
 		const data = await res.json().catch(() => ({}));
 		if (res.status === 503 || data.error === 'unconfigured') {
 			throw new Error('Game-Ready export is not configured on this deployment yet.');
+		}
+		// $THREE hold-or-pay gate, or a pay-per-export proof that didn't verify — both
+		// recoverable by paying once. Tag it so run() can open the pay modal and retry.
+		if (
+			res.status === 402 &&
+			(data.error === 'three_hold_required' ||
+				data.error === 'payment_invalid' ||
+				data.error === 'payment_expired')
+		) {
+			const e = new Error(data.message || 'Game-Ready export is a $THREE holder perk — or pay per export.');
+			e.kind = 'pay_required';
+			e.gate = data;
+			throw e;
+		}
+		// Proof already spent — clear it and re-offer Pay so a retry never replays it.
+		if (res.status === 409 && data.error === 'payment_already_used') {
+			const e = new Error(data.message || 'That payment was already used. Pay again to export.');
+			e.kind = 'pay_required';
+			e.gate = data;
+			throw e;
 		}
 		if (res.status === 429 || data.error === 'rate_limited') {
 			const secs = Number(data.retry_after) > 0 ? Math.ceil(Number(data.retry_after)) : 10;
@@ -397,6 +438,35 @@ if (resultPanel && viewer && triggerBtn) {
 			throw new Error(data.message || `The exporter returned ${res.status}.`);
 		}
 		return data.job_id;
+	}
+
+	// Start the export, transparently handling the $THREE hold-or-pay gate: a holder
+	// passes straight through; a non-holder is offered the one-time pay modal, then
+	// the export retries with the settled proof. Returns the job id, or null when the
+	// user dismissed the payment. The price comes from the server gate — never
+	// hardcoded — so it stays correct if the catalog price changes.
+	async function startWithGate(formats) {
+		try {
+			return await startExport(formats);
+		} catch (err) {
+			if (err.kind !== 'pay_required') throw err;
+			const usd = Number(err.gate?.pay_per_use?.usd) || 0;
+			if (!(usd > 0)) throw err; // hold-only with no pay path — surface the gate copy
+			setStatus('Waiting for payment…');
+			const paid = await payForConsumption({
+				usd,
+				unit: 'one Game-Ready export',
+				confirm: 'One engine-ready export (retopology + PBR re-bake), paid in $THREE.',
+				footnote: '$THREE is the only coin on three.ws. Draft &amp; Standard generation stay free.',
+				successText: 'Payment confirmed — starting your export…',
+				refPrefix: 'forge-gameready',
+			});
+			if (!paid?.ok) {
+				setStatus('Export cancelled — no $THREE was spent.');
+				return null;
+			}
+			return await startExport(formats, { paymentId: paid.paymentId, refId: paid.refId });
+		}
 	}
 
 	async function pollExport(jobId) {
@@ -447,7 +517,8 @@ if (resultPanel && viewer && triggerBtn) {
 		deltaEl.classList.remove('is-shown');
 		downloadsEl.classList.remove('is-shown');
 		try {
-			const jobId = await startExport(formats);
+			const jobId = await startWithGate(formats);
+			if (!jobId) return; // user dismissed the $THREE payment — already messaged
 			const done = await pollExport(jobId);
 			if (!done) return; // superseded by a newer model / cancelled
 			applyResult(done);

@@ -32,13 +32,14 @@ function escapeHtml(s) {
 }
 
 // A fresh client nonce per payment — recorded as token_payments.ref_id at quote
-// time and presented again (with the payment_id) when the generation redeems it,
-// so possession of the payment_id alone can't unlock a generation.
-function clientNonce() {
+// time and presented again (with the payment_id) when the action redeems it, so
+// possession of the payment_id alone can't unlock a dispatch. The prefix names the
+// action (e.g. `forge-high`, `forge-gameready`) for readable ledger/audit rows.
+function clientNonce(prefix = 'forge') {
 	const id =
 		(typeof crypto !== 'undefined' && crypto.randomUUID && crypto.randomUUID()) ||
 		`${Date.now()}-${Math.random().toString(16).slice(2)}`;
-	return `forge-high-${id}`;
+	return `${prefix}-${id}`;
 }
 
 function usdLabel(usd) {
@@ -116,19 +117,35 @@ function classifyError(err) {
 }
 
 /**
- * Run the pay-per-use flow for one Forge High generation.
- * @param {{ usd: number }} params
+ * Run the pay-per-use flow for one Forge consumption action (High generation,
+ * Game-Ready export, …). Drives the same server-authoritative quote → sign →
+ * settle rail behind the designed status modal, then hands back the settled
+ * { paymentId, refId } so the caller can retry the action with the proof attached.
+ * @param {object} params
+ * @param {number} params.usd            price in USD (settled in $THREE)
+ * @param {string} [params.unit]         short unit shown under the price ("one export")
+ * @param {string} [params.confirm]      one-line confirm-step description
+ * @param {string} [params.footnote]     trusted footnote markup under the actions
+ * @param {string} [params.successText]  copy shown on a verified payment
+ * @param {string} [params.refPrefix]    client-nonce prefix (action name)
  * @returns {Promise<{ ok: true, paymentId: string, refId: string } | { ok: false, cancelled?: boolean }>}
  */
-export function payForHighGeneration({ usd }) {
+export function payForConsumption({
+	usd,
+	unit = 'one generation',
+	confirm = 'One generation, paid in $THREE.',
+	footnote = '$THREE is the only coin on three.ws.',
+	successText = 'Payment confirmed — continuing…',
+	refPrefix = 'forge',
+} = {}) {
 	injectStyles();
 	return new Promise((resolve) => {
-		const refId = clientNonce();
+		const refId = clientNonce(refPrefix);
 		let settled = false;
 
 		const overlay = document.createElement('div');
 		overlay.className = 'fpay-overlay';
-		overlay.innerHTML = renderShell(usd);
+		overlay.innerHTML = renderShell(usd, { unit, footnote });
 		document.body.appendChild(overlay);
 
 		const modal = overlay.querySelector('.fpay-modal');
@@ -159,7 +176,7 @@ export function payForHighGeneration({ usd }) {
 		}
 
 		function showConfirm() {
-			showStatus('One High-quality generation (200k poly + PBR), paid in $THREE.');
+			showStatus(confirm);
 			actionsEl.innerHTML =
 				`<button type="button" class="fpay-btn fpay-btn--primary" data-fpay-pay>Pay ${usdLabel(usd)}</button>` +
 				`<button type="button" class="fpay-btn fpay-btn--ghost" data-fpay-cancel>Cancel</button>`;
@@ -213,7 +230,7 @@ export function payForHighGeneration({ usd }) {
 				}
 				settled = true;
 				statusEl.className = 'fpay-status fpay-status--ok';
-				statusEl.innerHTML = `<span class="fpay-check" aria-hidden="true">✓</span> Payment confirmed — starting your generation…`;
+				statusEl.innerHTML = `<span class="fpay-check" aria-hidden="true">✓</span> ${escapeHtml(successText)}`;
 				actionsEl.innerHTML = '';
 				setTimeout(() => finish({ ok: true, paymentId: result.payment_id, refId }), 850);
 			} catch (err) {
@@ -240,16 +257,33 @@ export function payForHighGeneration({ usd }) {
 	});
 }
 
-function renderShell(usd) {
+/**
+ * Pay-per-use for one Forge High generation — the original entry point, preserved
+ * exactly. A thin wrapper over payForConsumption with the High copy/nonce.
+ * @param {{ usd: number }} params
+ * @returns {Promise<{ ok: true, paymentId: string, refId: string } | { ok: false, cancelled?: boolean }>}
+ */
+export function payForHighGeneration({ usd }) {
+	return payForConsumption({
+		usd,
+		unit: 'one High generation',
+		confirm: 'One High-quality generation (200k poly + PBR), paid in $THREE.',
+		footnote: '$THREE is the only coin on three.ws. Draft &amp; Standard generation stay free.',
+		successText: 'Payment confirmed — starting your generation…',
+		refPrefix: 'forge-high',
+	});
+}
+
+function renderShell(usd, { unit = 'one generation', footnote = '$THREE is the only coin on three.ws.' } = {}) {
 	return (
 		`<div class="fpay-modal" role="dialog" aria-modal="true" aria-labelledby="fpay-title">` +
 		`<button class="fpay-x" data-fpay-x type="button" aria-label="Close">✕</button>` +
 		`<div class="fpay-badge" aria-hidden="true">◆</div>` +
 		`<h2 class="fpay-title" id="fpay-title">Pay ${usdLabel(usd)} in $THREE</h2>` +
-		`<div class="fpay-price"><span class="fpay-price-amt">${usdLabel(usd)}</span><span class="fpay-price-unit">in $THREE · one High generation</span></div>` +
+		`<div class="fpay-price"><span class="fpay-price-amt">${usdLabel(usd)}</span><span class="fpay-price-unit">in $THREE · ${escapeHtml(unit)}</span></div>` +
 		`<div class="fpay-status" role="status" aria-live="polite"></div>` +
 		`<div class="fpay-actions"></div>` +
-		`<p class="fpay-foot">$THREE is the only coin on three.ws. Draft &amp; Standard generation stay free.</p>` +
+		`<p class="fpay-foot">${footnote}</p>` +
 		`</div>`
 	);
 }
