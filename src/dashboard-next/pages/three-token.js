@@ -13,6 +13,7 @@
 import { mountShell } from '../shell.js';
 import { requireUser, esc, relTime, ApiError } from '../api.js';
 import { fetchTokenConfig, fetchTokenPrice } from '../../token-pay.js';
+import { fetchAllowanceStatus, grantAllowance } from '../../three-allowance.js';
 import { createThreeTokenData } from '../../pump/three-token-data.js';
 
 const MONO = `'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace`;
@@ -133,6 +134,7 @@ function toast(msg) {
 		host.appendChild(renderHeroMetrics(stats));
 		host.appendChild(renderPositionWidget(store));
 		host.appendChild(renderAccruedRewards(store));
+		host.appendChild(renderSpendAllowance());
 		host.appendChild(renderUtilityPillars(stats));
 		host.appendChild(renderLiveConverter(tokenConfig));
 		host.appendChild(renderRevenueShare(stats, revenueShare));
@@ -375,6 +377,160 @@ function accruedBody(pos, rev, token) {
 			</div>`).join('')}
 		</div>
 					<p style="font-size:12px;color:var(--nxt-ink-fade);margin:0;line-height:1.5">Revenue share is distributed on-chain to $THREE holders pro-rata — your accrual settles to the wallet holding the tokens. No manual claim required.</p>`;
+}
+
+// ── Spend allowance (frictionless pay-from-wallet) ──────────────────────────────
+
+// Lets a holder authorize a $THREE spend cap ONCE; afterwards paid actions
+// (forge, skills, names, cosmetics) debit the cap with no wallet popup. Built on
+// Solana's native, audited Subscriptions & Allowances program — NON-CUSTODIAL:
+// tokens stay in the wallet until a charge pulls them, capped at what the user
+// authorized. The panel self-loads its status and removes itself when the rail is
+// not configured (no dead UI). Every state is designed: loading, no-wallet,
+// not-yet-granted, active, and error.
+const PRESET_CAPS = [100, 1_000, 10_000];
+const EXPIRY_OPTIONS = [
+	{ label: '30 days', days: 30 },
+	{ label: '90 days', days: 90 },
+	{ label: 'No expiry', days: null },
+];
+
+function renderSpendAllowance() {
+	const section = document.createElement('div');
+	section.className = 'dn-panel';
+	section.setAttribute('aria-label', 'Your $THREE spend allowance');
+	section.innerHTML = `
+		<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:4px">
+			<div style="font-size:11.5px;color:var(--nxt-ink-fade);text-transform:uppercase;letter-spacing:0.06em">Spend Allowance</div>
+			<span style="font-size:10.5px;color:var(--nxt-ink-fade);border:1px solid var(--nxt-line);border-radius:999px;padding:2px 8px">Non-custodial</span>
+		</div>
+		<p style="margin:0 0 12px;font-size:12px;color:var(--nxt-ink-fade);line-height:1.5">Authorize a $THREE spending cap once — then pay for forge, skills, names and cosmetics with no wallet popup each time. Your tokens stay in your wallet until a charge pulls them, never above the cap you set. Revoke anytime.</p>
+		<div data-slot="allowance-body"><div class="dn-skeleton" style="height:72px;border-radius:10px" aria-busy="true"></div></div>
+	`;
+	const body = section.querySelector('[data-slot="allowance-body"]');
+
+	let busy = false;
+	const load = async () => {
+		try {
+			const status = await fetchAllowanceStatus();
+			if (!status.enabled) {
+				// The rail isn't configured on this deployment — show nothing rather
+				// than a button that can't work.
+				section.remove();
+				return;
+			}
+			renderBody(status);
+		} catch (err) {
+			if (err?.code === 'unauthorized') {
+				body.innerHTML = positionEmpty('Sign in to set a spend allowance.', 'Sign in', `/login?return=${encodeURIComponent(location.pathname)}`);
+				return;
+			}
+			body.innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+				<span style="color:var(--nxt-ink-fade);font-size:13.5px">Couldn’t load your allowance right now.</span>
+				<button data-action="allowance-retry" class="dn-btn" style="font-size:12px;padding:4px 10px">Retry</button>
+			</div>`;
+		}
+	};
+
+	const renderBody = (status) => {
+		if (!status.wallet) {
+			body.innerHTML = positionEmpty('Link a Solana wallet to enable frictionless spending.', 'Link wallet', '/dashboard/account');
+			return;
+		}
+		const remaining = Number(status.remaining_tokens || 0);
+		const hasAllowance = remaining > 0;
+
+		const capChips = PRESET_CAPS.map(
+			(c) => `<button type="button" data-cap="${c}" class="dn-btn" style="font-size:12.5px;padding:5px 12px">${fmtCompact(c)}</button>`,
+		).join('');
+		const expiryChips = EXPIRY_OPTIONS.map(
+			(o, i) => `<button type="button" data-exp="${o.days ?? ''}" class="dn-btn${i === 0 ? ' is-active' : ''}" aria-pressed="${i === 0}" style="font-size:12px;padding:4px 10px">${esc(o.label)}</button>`,
+		).join('');
+
+		body.innerHTML = `
+			${hasAllowance ? `
+				<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:14px">
+					<div>
+						<div style="font-size:11px;color:var(--nxt-ink-fade);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px">Remaining cap</div>
+						<div style="font-size:24px;font-weight:700;font-family:${MONO};color:#4ade80">${fmtCompact(remaining)} <span style="font-size:13px;color:var(--nxt-ink-fade)">$THREE</span></div>
+					</div>
+					<div>
+						<div style="font-size:11px;color:var(--nxt-ink-fade);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px">Status</div>
+						<div style="font-size:15px;font-weight:600;color:#4ade80">● Frictionless spending on</div>
+					</div>
+				</div>
+			` : `
+				<div style="font-size:13.5px;color:var(--nxt-ink-dim);margin-bottom:14px">No active allowance — paid actions will ask for a signature each time. Authorize a cap to skip the popups.</div>
+			`}
+			<div style="display:flex;flex-direction:column;gap:10px">
+				<div>
+					<label for="allowance-cap" style="display:block;font-size:11px;color:var(--nxt-ink-fade);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">${hasAllowance ? 'Top up cap' : 'Spend cap'} ($THREE)</label>
+					<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+						<input id="allowance-cap" type="number" min="1" step="1" inputmode="numeric" placeholder="1000" value="1000"
+							style="width:120px;padding:7px 10px;background:var(--nxt-bg-soft,rgba(255,255,255,0.04));border:1px solid var(--nxt-line);border-radius:8px;color:var(--nxt-ink);font-family:${MONO};font-size:14px" />
+						${capChips}
+					</div>
+				</div>
+				<div>
+					<span style="display:block;font-size:11px;color:var(--nxt-ink-fade);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">Auto-expiry</span>
+					<div data-slot="expiry-chips" style="display:flex;gap:8px;flex-wrap:wrap">${expiryChips}</div>
+				</div>
+				<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:2px">
+					<button data-action="allowance-grant" class="dn-btn is-primary" style="font-size:13px;padding:8px 18px;font-weight:600">${hasAllowance ? 'Add to cap' : 'Authorize spending'}</button>
+					<span data-slot="allowance-msg" style="font-size:12.5px;color:var(--nxt-ink-fade)" aria-live="polite"></span>
+				</div>
+			</div>
+		`;
+
+		const capInput = body.querySelector('#allowance-cap');
+		body.querySelectorAll('[data-cap]').forEach((b) =>
+			b.addEventListener('click', () => { capInput.value = b.getAttribute('data-cap'); capInput.focus(); }),
+		);
+		const expiryWrap = body.querySelector('[data-slot="expiry-chips"]');
+		expiryWrap.addEventListener('click', (e) => {
+			const btn = e.target.closest('[data-exp]');
+			if (!btn) return;
+			expiryWrap.querySelectorAll('[data-exp]').forEach((b) => { b.classList.remove('is-active'); b.setAttribute('aria-pressed', 'false'); });
+			btn.classList.add('is-active');
+			btn.setAttribute('aria-pressed', 'true');
+		});
+	};
+
+	const doGrant = async (btn) => {
+		if (busy) return;
+		const capInput = body.querySelector('#allowance-cap');
+		const msg = body.querySelector('[data-slot="allowance-msg"]');
+		const capTokens = Math.floor(Number(capInput?.value));
+		if (!(capTokens > 0)) { if (msg) msg.textContent = 'Enter a cap greater than zero.'; return; }
+		const expSel = body.querySelector('[data-slot="expiry-chips"] .is-active');
+		const expVal = expSel?.getAttribute('data-exp');
+		const expiryDays = expVal ? Number(expVal) : undefined;
+
+		busy = true;
+		btn.disabled = true;
+		const labels = { building: 'Building…', awaiting_signature: 'Confirm in wallet…', confirming: 'Confirming…', done: 'Done' };
+		try {
+			await grantAllowance({ capTokens, expiryDays, onStatus: (s) => { btn.textContent = labels[s] || 'Working…'; } });
+			toast(`Authorized ${fmtCompact(capTokens)} $THREE — spending is now frictionless`);
+			busy = false;
+			await load(); // re-render with the new remaining cap
+		} catch (err) {
+			busy = false;
+			btn.disabled = false;
+			btn.textContent = 'Authorize spending';
+			if (msg) msg.textContent = err?.message || 'Could not authorize spending.';
+		}
+	};
+
+	section.addEventListener('click', (e) => {
+		const grantBtn = e.target.closest('[data-action="allowance-grant"]');
+		if (grantBtn) { doGrant(grantBtn); return; }
+		const retry = e.target.closest('[data-action="allowance-retry"]');
+		if (retry) { body.innerHTML = `<div class="dn-skeleton" style="height:72px;border-radius:10px"></div>`; load(); }
+	});
+
+	load();
+	return section;
 }
 
 // ── Four utility pillars ──────────────────────────────────────────────────────

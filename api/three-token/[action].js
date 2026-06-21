@@ -133,13 +133,20 @@ export default wrap(async (req, res) => {
 					agent_deploy_burn: AGENT_DEPLOY_BURN,
 				},
 				// Revenue converted to onchain buy pressure — programmatic, no burn.
+				// Commitment fields mirror buybackStats() so the page renders the
+				// published promise even on a transient stats failure.
 				buyback: buyback ?? {
 					enabled: false,
+					commit_bps: 5000,
+					commit_pct: 50,
+					committed_usd: 0,
+					commitment_progress_pct: 0,
 					revenue_usd: 0,
 					deployed_usd: 0,
 					deployed_pct: 0,
 					three_bought: 0,
 					runs: 0,
+					recent_runs: [],
 					last_run: null,
 				},
 			},

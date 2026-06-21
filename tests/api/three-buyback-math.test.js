@@ -10,6 +10,9 @@ import {
 	USDC_ATOMICS,
 	computeSpend,
 	deployedPct,
+	committedUsd,
+	commitmentProgressPct,
+	envBps,
 	envSlippageBps,
 	envUsd,
 	usdToUsdcAtomics,
@@ -67,6 +70,43 @@ describe('buyback deployedPct', () => {
 	it('clamps to 100 even if more was deployed than the measured revenue', () => {
 		// deployed can exceed the fee ledger when the wallet is topped up directly.
 		expect(deployedPct(150, 100)).toBe(100);
+	});
+});
+
+describe('buyback commitment math', () => {
+	it('committedUsd applies the commitment bps to revenue', () => {
+		expect(committedUsd(1000, 5000)).toBe(500); // 50% of $1000
+		expect(committedUsd(1000, 8000)).toBe(800); // 80%
+		expect(committedUsd(250, 10_000)).toBe(250); // full revenue
+	});
+
+	it('committedUsd is 0 for non-positive revenue or commitment', () => {
+		expect(committedUsd(0, 5000)).toBe(0);
+		expect(committedUsd(-10, 5000)).toBe(0);
+		expect(committedUsd(1000, 0)).toBe(0);
+	});
+
+	it('commitmentProgressPct measures deployed against the committed target', () => {
+		expect(commitmentProgressPct(250, 500)).toBe(50); // half the promise kept
+		expect(commitmentProgressPct(0, 500)).toBe(0); // nothing deployed yet
+		expect(commitmentProgressPct(500, 500)).toBe(100); // promise fully kept
+	});
+
+	it('commitmentProgressPct clamps to 100 and is 0 when nothing is committed', () => {
+		expect(commitmentProgressPct(600, 500)).toBe(100); // over-deployed → capped
+		expect(commitmentProgressPct(50, 0)).toBe(0); // no commitment target yet
+	});
+
+	it('envBps parses [0,10000], else falls back', () => {
+		expect(envBps(undefined, 5000)).toBe(5000);
+		expect(envBps('', 5000)).toBe(5000);
+		expect(envBps('8000', 5000)).toBe(8000);
+		expect(envBps('0', 5000)).toBe(0); // 0% is a valid (if odd) commitment
+		expect(envBps('10000', 5000)).toBe(10_000);
+		expect(envBps('10001', 5000)).toBe(5000); // over ceiling → fallback
+		expect(envBps('-1', 5000)).toBe(5000); // negative → fallback
+		expect(envBps('abc', 5000)).toBe(5000);
+		expect(envBps('5000.6', 5000)).toBe(5001); // rounds
 	});
 });
 

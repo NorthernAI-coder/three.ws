@@ -31,6 +31,9 @@ import { treasuryWallet, treasuryWalletOrNull } from './config.js';
 import {
 	computeSpend,
 	deployedPct,
+	committedUsd,
+	commitmentProgressPct,
+	envBps,
 	envSlippageBps,
 	envUsd,
 	usdcAtomicsToUsd as usdcToUsd,
@@ -51,6 +54,19 @@ export function isEnabled() {
 /** Max USD a single run may deploy — bounds a runaway/over-funded sweep. */
 export function maxUsdPerRun() {
 	return envUsd(process.env.THREE_BUYBACK_MAX_USD, 250);
+}
+
+/**
+ * The PUBLISHED commitment: share of platform revenue the protocol commits to
+ * convert into $THREE buybacks, in basis points (default 5000 = 50%). This is the
+ * holder-facing promise rendered on the token page; it is policy, independent of
+ * whether a given run is enabled or funded. Operators tune the published number via
+ * THREE_BUYBACK_COMMIT_BPS without a code change. The data on comparable
+ * fee-generating protocols puts the credible band at 50–80%; we default to the
+ * conservative floor so the platform over-delivers rather than over-promises.
+ */
+export function commitBps() {
+	return envBps(process.env.THREE_BUYBACK_COMMIT_BPS, 5000);
 }
 
 /** Below this, a run is skipped so dust doesn't pay more in fees than it buys. */
@@ -311,7 +327,7 @@ export async function revenueFeeAtomicsToDate() {
  * deployed into $THREE buybacks, $THREE accumulated, and the latest run.
  */
 export async function buybackStats() {
-	const [agg, lastRow, revenueAtomics] = await Promise.all([
+	const [agg, recentRows, revenueAtomics] = await Promise.all([
 		safeQuery(
 			() => sql`
 				select
@@ -323,13 +339,16 @@ export async function buybackStats() {
 			`,
 			[{ usdc_spent: 0, three_bought: 0, runs: 0 }],
 		),
+		// The verifiable receipt list: every recent confirmed buy with its on-chain
+		// signature, so the token page can render "each buyback, clickable to Solscan"
+		// — proof, not a claim. Capped so the public payload stays small.
 		safeQuery(
 			() => sql`
-				select status, usdc_spent_atomics, three_bought_atomics, price_usd, buy_signature, created_at
+				select usdc_spent_atomics, three_bought_atomics, price_usd, buy_signature, created_at
 				from three_buyback_runs
 				where status = 'confirmed'
 				order by created_at desc
-				limit 1
+				limit 10
 			`,
 			[],
 		),
@@ -340,25 +359,35 @@ export async function buybackStats() {
 	const threeBought = BigInt(agg[0]?.three_bought ?? 0);
 	const revenueUsd = usd(revenueAtomics);
 	const deployedUsd = usd(usdcSpent);
-	const last = lastRow[0] || null;
+
+	const recent = recentRows.map((r) => ({
+		at: r.created_at,
+		usdc: usd(r.usdc_spent_atomics),
+		three: threeTokens(r.three_bought_atomics),
+		price_usd: r.price_usd != null ? Number(r.price_usd) : null,
+		signature: r.buy_signature,
+	}));
+
+	// The published commitment (policy) and how much of it has been honored on-chain.
+	const bps = commitBps();
+	const committed = committedUsd(revenueUsd, bps);
 
 	return {
 		enabled: isEnabled(),
+		// Published promise: share of revenue committed to buybacks (policy, always shown).
+		commit_bps: bps,
+		commit_pct: bps / 100,
+		committed_usd: committed,
+		// Share of the *commitment* already converted to buy pressure (keeping the promise).
+		commitment_progress_pct: commitmentProgressPct(deployedUsd, committed),
 		revenue_usd: revenueUsd,
 		deployed_usd: deployedUsd,
-		// Share of platform revenue already converted to onchain buy pressure.
+		// Share of total platform revenue already converted to onchain buy pressure.
 		deployed_pct: deployedPct(deployedUsd, revenueUsd),
 		three_bought: threeTokens(threeBought),
 		runs: agg[0]?.runs ?? 0,
-		last_run: last
-			? {
-					at: last.created_at,
-					usdc: usd(last.usdc_spent_atomics),
-					three: threeTokens(last.three_bought_atomics),
-					price_usd: last.price_usd != null ? Number(last.price_usd) : null,
-					signature: last.buy_signature,
-				}
-			: null,
+		recent_runs: recent,
+		last_run: recent[0] || null,
 	};
 }
 

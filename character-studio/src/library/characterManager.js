@@ -599,7 +599,8 @@ export class CharacterManager {
      */
     loadTraitsFromNFTObject(NFTObject, identifier = null, fullAvatarReplace = true, ignoreGroupTraits = null) {
       // XXX should identifier be taken from nft group or passed by user?
-      return new Promise(async (resolve, reject) => {
+      return new Promise((resolve, reject) => {
+        (async () => {
         // Check if manifest data is available
         if (this.manifestDataManager.hasExistingManifest()) {
           try {
@@ -621,6 +622,7 @@ export class CharacterManager {
           console.error(errorMessage);
           reject(new Error(errorMessage));
         }
+        })().catch(reject);
       });
     }
 
@@ -629,7 +631,8 @@ export class CharacterManager {
      * @returns {Promise<void>} Promise that resolves when traits are loaded
      */
     loadInitialTraits() {
-      return new Promise(async(resolve, reject) => {
+      return new Promise((resolve, reject) => {
+        (async () => {
         // Check if manifest data is available
         if (this.manifestDataManager.hasExistingManifest()) {
           // Load initial traits using the _loadTraits method
@@ -642,6 +645,7 @@ export class CharacterManager {
           console.error(errorMessage);
           reject(new Error(errorMessage));
         }
+        })().catch(reject);
       });
     }
 
@@ -650,7 +654,8 @@ export class CharacterManager {
      * @returns {Promise<void>} Promise that resolves when traits are loaded
      */
     loadAllTraits() {
-      return new Promise(async(resolve, reject) => {
+      return new Promise((resolve, reject) => {
+        (async () => {
         // Check if manifest data is available
         if (this.manifestDataManager.hasExistingManifest()) {
           // Load initial traits using the _loadTraits method
@@ -663,6 +668,7 @@ export class CharacterManager {
           console.error(errorMessage);
           reject(new Error(errorMessage));
         }
+        })().catch(reject);
       });
     }
     /**
@@ -791,7 +797,8 @@ export class CharacterManager {
      * @returns {Promise<void>} Promise that resolves when trait is loaded
      */
     loadTrait(groupTraitID, traitID, identifierID, soloView = false) {
-      return new Promise(async (resolve, reject) => {
+      return new Promise((resolve, reject) => {
+        (async () => {
         // Check if manifest data is available
         if (this.manifestDataManager.hasExistingManifest()) {
           try {
@@ -815,6 +822,7 @@ export class CharacterManager {
           console.error(errorMessage);
           reject(new Error(errorMessage));
         }
+        })().catch(reject);
       });
     }
 
@@ -825,7 +833,8 @@ export class CharacterManager {
      * @returns {Promise<void>} Promise that resolves when trait is loaded
      */
     loadCustomTrait(groupTraitID, url) {
-      return new Promise(async (resolve, reject) => {
+      return new Promise((resolve, reject) => {
+        (async () => {
         // Check if manifest data is available
         if (this.manifestDataManager.hasExistingManifest()) {
           try {
@@ -849,6 +858,7 @@ export class CharacterManager {
           console.error(errorMessage);
           reject(new Error(errorMessage));
         }
+        })().catch(reject);
       });
     }
 
@@ -859,7 +869,8 @@ export class CharacterManager {
      * @returns {Promise<void>} Promise that resolves when texture is loaded
      */
     loadCustomTexture(groupTraitID, url) {
-      return new Promise(async (resolve, reject) => {
+      return new Promise((resolve, reject) => {
+        (async () => {
         const model = this.avatar[groupTraitID]?.model;
 
         if (model) {
@@ -874,6 +885,7 @@ export class CharacterManager {
           console.warn(errorMessage);
           reject(new Error(errorMessage));
         }
+        })().catch(reject);
       });
     }
 

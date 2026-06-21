@@ -625,7 +625,7 @@ function hydrate(){
 	$('support_email').value = s.support_email || '';
 	$('logo_url').value = s.logo_url || '';
 	$('accent_color').value = s.accent_color || '#0a84ff';
-	setNetSeg(s.default_network || 'base');
+	setNetSeg(s.default_network || 'solana');
 	$('webhook_url').value = s.webhook_url || '';
 	$('facilitator').value = s.facilitator || '';
 	agentWallets = Array.isArray(s.agent_wallets) ? structuredClone(s.agent_wallets) : [];
@@ -634,7 +634,7 @@ function hydrate(){
 	$('store_published').checked = !!s.store_published;
 	$('cap_call').value = s.spend_cap_per_call_atomics ? fmtUsdc(s.spend_cap_per_call_atomics) : '';
 	$('cap_day').value = s.spend_cap_daily_atomics ? fmtUsdc(s.spend_cap_daily_atomics) : '';
-	const nets = Array.isArray(s.allowed_networks) ? s.allowed_networks : ['base','solana'];
+	const nets = Array.isArray(s.allowed_networks) ? s.allowed_networks : ['solana','base'];
 	$('net_base').checked = nets.includes('base');
 	$('net_solana').checked = nets.includes('solana');
 	$('require_siwx').checked = !!s.require_siwx;
@@ -656,8 +656,8 @@ function hydrate(){
 // ── Collect settings from form into a patch ──
 function collect(){
 	const nets = [];
-	if ($('net_base').checked) nets.push('base');
 	if ($('net_solana').checked) nets.push('solana');
+	if ($('net_base').checked) nets.push('base');
 	return {
 		payout_evm: $('payout_evm').value.trim() || null,
 		payout_solana: $('payout_solana').value.trim() || null,
@@ -675,7 +675,7 @@ function collect(){
 		cors_origins: corsOrigins,
 		spend_cap_per_call_atomics: toAtomics($('cap_call').value),
 		spend_cap_daily_atomics: toAtomics($('cap_day').value),
-		allowed_networks: nets.length ? nets : ['base','solana'],
+		allowed_networks: nets.length ? nets : ['solana','base'],
 		require_siwx: $('require_siwx').checked,
 		charity_enabled: $('charity_enabled').checked,
 		charity_name: $('charity_name').value.trim() || null,

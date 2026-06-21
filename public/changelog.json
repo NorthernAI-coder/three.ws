@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-21T04:10:02.450Z",
+	"generated_at": "2026-06-21T04:34:43.784Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -9,12 +9,32 @@
 		{
 			"date": "2026-06-21",
 			"type": "update",
+			"title": "$THREE buyback commitment is now public and verifiable on the token page",
+			"summary": "The $THREE page now leads with the protocol's buyback commitment — the fixed share of all platform revenue routed into buying $THREE on the open market and sending it to the treasury — shown as revenue earned, dollars committed, dollars deployed on-chain, and how much of the commitment has been kept. Every individual buyback is listed with a one-click Solscan receipt, so the promise is provable, not just stated. No burn: supply is never destroyed.",
+			"link": "/three-token",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "update",
 			"title": "$THREE holder leaderboard loads faster from a shared snapshot",
 			"summary": "The $THREE holder leaderboard, its share card, and the token stats panel used to rescan every holder on-chain on each page view. They now read from a holder snapshot that refreshes every few minutes, so the board and badges load faster and the same numbers stay consistent across all three surfaces.",
 			"link": "/leaderboard",
 			"tags": [
 				"improvement",
 				"infra"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "update",
+			"title": "Authorize $THREE once, then pay with no wallet popups",
+			"summary": "The $THREE page now lets you set a spending allowance: approve a cap once, and paid actions across the platform — forge, skills, names, cosmetics — debit it automatically without asking you to sign every time. It's non-custodial and built on Solana's native, audited Subscriptions & Allowances program: your tokens stay in your own wallet until a charge pulls them, never more than the cap you set, and you can let it expire or revoke it anytime. Set a cap, top it up, or leave it off and keep signing each payment — your choice.",
+			"link": "/three-token",
+			"tags": [
+				"feature"
 			]
 		},
 		{
@@ -32,7 +52,7 @@
 			"date": "2026-06-21",
 			"type": "update",
 			"title": "Solana is now the default payment network",
-			"summary": "The Default payment network setting in dashboard settings now defaults to Solana for every user, and Solana is listed first among the options. Base and Polygon remain available if you prefer an EVM chain.",
+			"summary": "Solana is now the default everywhere you pick a chain — the dashboard's Default payment network setting, x402 merchant settlement, and the monetization payout wallet all default to Solana for every user, with Solana listed first. Base and Polygon remain available if you prefer an EVM chain.",
 			"link": "/dashboard",
 			"tags": [
 				"improvement"

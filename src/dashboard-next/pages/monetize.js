@@ -523,7 +523,7 @@ function renderPayoutWalletPanel(wallet, agentId, host, me, agents, legacyWallet
 	function paint(w) {
 		const evmAddr = w?.evm_address || w?.evm || '';
 		const solAddr = w?.solana_address || w?.solana || '';
-		const preferred = w?.preferred_network || 'base';
+		const preferred = w?.preferred_network || 'solana';
 		const balance = w?.available_balance ?? w?.balance ?? 0;
 
 		panel.innerHTML = `
@@ -554,8 +554,8 @@ function renderPayoutWalletPanel(wallet, agentId, host, me, agents, legacyWallet
 				<label class="mon-field" style="margin-bottom:0;flex:1;min-width:160px">
 					<span class="mon-label">Preferred network</span>
 					<select data-slot="network" class="mon-select">
-						<option value="base" ${preferred === 'base' ? 'selected' : ''}>Base (EVM)</option>
 						<option value="solana" ${preferred === 'solana' ? 'selected' : ''}>Solana</option>
+						<option value="base" ${preferred === 'base' ? 'selected' : ''}>Base (EVM)</option>
 					</select>
 				</label>
 				<button class="dn-btn primary" data-action="save-wallet" style="align-self:flex-end">Save Wallet</button>

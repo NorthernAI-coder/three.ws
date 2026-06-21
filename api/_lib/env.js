@@ -925,6 +925,16 @@ export const env = {
 	get THREE_QUOTE_SECRET() {
 		return opt('THREE_QUOTE_SECRET');
 	},
+	// Platform delegate keypair (base64 of a 64-byte secret key) for the $THREE
+	// spend-allowance rail (api/_lib/token/allowance.js). This is the `delegatee`
+	// users authorize via Solana's native Subscriptions program: once set + funded
+	// (it pays tx fees / receiver-ATA rent on pulls), paid actions can debit a
+	// holder's pre-approved cap with no per-action wallet popup. OPTIONAL — when
+	// unset, every charge cleanly falls back to the signed quote→settle flow, so
+	// the allowance fast path is strictly additive. NEVER log this value.
+	get THREE_ALLOWANCE_DELEGATE_SECRET_KEY_B64() {
+		return opt('THREE_ALLOWANCE_DELEGATE_SECRET_KEY_B64');
+	},
 	// Validity window (seconds) for an issued quote. Short enough that a quoted
 	// price can't be exploited after the market moves; long enough to sign + send
 	// one transaction. Default 90s.
