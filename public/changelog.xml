@@ -103,6 +103,14 @@
 			<description>The provably-fair Solana vanity grinder — which returns a signed, independently-verifiable receipt proving the key was ground fresh and never kept — is now published in the x402 discovery catalog, so paying agents and bazaar crawlers can find and call it directly.</description>
 		</item>
 		<item>
+			<title>Regrinding an agent's vanity wallet no longer risks its funds</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-21:Regrinding an agent's vanity wallet no longer risks its funds</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>The compact &quot;Vanity address&quot; card on an agent's page used to replace a wallet by deleting the old one and creating the new one separately — so if the old wallet held SOL or tokens, they could be left behind. It now uses the same money-safe path as the rest of the platform: any balance is automatically swept to the new vanity address first, and the switch only completes once the funds have moved (and only after the server confirms the new address really matches your pattern). Same one-click experience, but your funds follow the wallet.</description>
+		</item>
+		<item>
 			<title>Smoother landing page on hover</title>
 			<link>https://three.ws/</link>
 			<guid isPermaLink="false">2026-06-21:Smoother landing page on hover</guid>
