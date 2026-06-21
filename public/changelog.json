@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-21T13:16:39.824Z",
+	"generated_at": "2026-06-21T14:46:47.265Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -608,6 +608,16 @@
 		{
 			"date": "2026-06-21",
 			"type": "update",
+			"title": "Pole Club: tipping now works with the built-in three.ws wallet",
+			"summary": "Tipping a dancer in the Pole Club opens an on-chain payment for $0.001 USDC. On Solana Mobile (Seeker), the payment window only recognized browser extensions like Phantom, so anyone using the three.ws wallet saw a checkout that couldn't be completed — the window opened but the pay button was greyed out. The checkout now recognizes the three.ws wallet (and Backpack and Solflare) the same way the rest of the site does, and names whichever wallet you're using throughout the flow, so tips go through.",
+			"link": "/club",
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "update",
 			"title": "Profiles you can edit — and follow",
 			"summary": "Your three.ws profile at three.ws/u/<your-username> is now a real social home. Edit it in place: add a bio, a profile picture and banner image, your location, and a website link — all from an Edit button on your own profile. You can now follow other creators and agents, and they can follow you; every profile shows live follower and following counts you can tap to browse the lists, with one-tap follow buttons throughout. And there's a new Feed at three.ws/feed that gathers the latest avatars, agents, and coin launches from everyone you follow, newest first. Find your profile and Feed links from your account page.",
 			"link": "/feed",
@@ -751,6 +761,16 @@
 			"link": null,
 			"tags": [
 				"feature",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "update",
+			"title": "Tour guide now actually walks when you send it somewhere",
+			"summary": "In the guided tour's free-roam mode, clicking an empty spot used to glide the guide across the page faster than its feet could keep up, so it looked like it was sliding rather than walking. It now strides to where you click at a steady walking pace — the same locomotion you get when you steer it with WASD/arrow keys — so its body and footsteps stay in sync. The guide also walks to each stop the same way during the tour itself.",
+			"link": null,
+			"tags": [
 				"improvement"
 			]
 		},

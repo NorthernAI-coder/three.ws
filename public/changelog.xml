@@ -463,6 +463,14 @@
 			<description>A broad reliability pass across the parts of three.ws that move real money and serve heavy traffic. On the money side: bundle purchases and agent payments are now verified on-chain before anything unlocks, each payment is credited exactly once, withdrawals can't be processed twice, and recurring subscriptions can't be double-billed. On the security side: a set of input-handling and link-safety fixes across pages, stronger protection for custodial keys at rest, and tighter checks on outbound agent payments so funds only ever move in the expected asset. On the scale side: the busiest directory, profile, and feed pages now ride a short cache and run far fewer database queries, so they stay fast as the community grows. Most of this is invisible by design — it's the plumbing that keeps the platform correct and quick under load.</description>
 		</item>
 		<item>
+			<title>Pole Club: tipping now works with the built-in three.ws wallet</title>
+			<link>https://three.ws/club</link>
+			<guid isPermaLink="false">2026-06-21:Pole Club: tipping now works with the built-in three.ws wallet</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Tipping a dancer in the Pole Club opens an on-chain payment for $0.001 USDC. On Solana Mobile (Seeker), the payment window only recognized browser extensions like Phantom, so anyone using the three.ws wallet saw a checkout that couldn't be completed — the window opened but the pay button was greyed out. The checkout now recognizes the three.ws wallet (and Backpack and Solflare) the same way the rest of the site does, and names whichever wallet you're using throughout the flow, so tips go through.</description>
+		</item>
+		<item>
 			<title>Profiles you can edit — and follow</title>
 			<link>https://three.ws/feed</link>
 			<guid isPermaLink="false">2026-06-21:Profiles you can edit — and follow</guid>
@@ -573,6 +581,14 @@
 			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>The site can now be translated into many languages. A language picker on the homepage switches the copy instantly, starting with Spanish, and your choice is remembered. Translations are produced by an AI pipeline that locks brand and protocol terms — $THREE, the contract address, USDC, x402 — so they are never altered, and English is always the safe fallback. More languages roll out from here.</description>
+		</item>
+		<item>
+			<title>Tour guide now actually walks when you send it somewhere</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-21:Tour guide now actually walks when you send it somewhere</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>In the guided tour's free-roam mode, clicking an empty spot used to glide the guide across the page faster than its feet could keep up, so it looked like it was sliding rather than walking. It now strides to where you click at a steady walking pace — the same locomotion you get when you steer it with WASD/arrow keys — so its body and footsteps stay in sync. The guide also walks to each stop the same way during the tour itself.</description>
 		</item>
 		<item>
 			<title>USDC checkout no longer fails when an RPC node hiccups</title>

@@ -28,6 +28,11 @@ const CANVAS_H = 240;
 const MARGIN = 16;
 const Z_AVATAR = 2147483300;
 
+// Screen-space walking pace in px/second, matched to free-roam's WALK_SPEED so a
+// click-to-walk advances the body in lockstep with the foot cycle — the guide
+// reads as genuinely walking there, never gliding/teleporting across the page.
+const WALK_SPEED = 460;
+
 // Gravity, mirrored from the walk platformer so the guide obeys the same physics
 // the visitor sees there: it falls onto the ground plane and stays planted,
 // never floating mid-air. SPAWN_DROP is how far above the floor the guide spawns
@@ -60,6 +65,7 @@ export class GuideAvatar {
 		this._yaw = 0;
 		this._targetYaw = 0;
 		this._walking = false;
+		this._walkRaf = 0;
 		this._reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 		this._pos = { x: 0, y: 0 };
 		// Vertical physics state — height above the ground plane and its velocity.
@@ -88,7 +94,7 @@ export class GuideAvatar {
 		}
 		// Park bottom-right until the first stop moves it.
 		const start = { x: window.innerWidth - CANVAS_W - MARGIN, y: window.innerHeight - CANVAS_H - MARGIN };
-		this._setPos(start, false);
+		this._setPos(start);
 	}
 
 	_buildDom() {
@@ -164,33 +170,47 @@ export class GuideAvatar {
 	// ── Public choreography API ───────────────────────────────────────────────
 
 	// Walk the avatar to a screen position (top-left of its canvas). Resolves
-	// when it arrives. The CSS transition does the gliding; we just flip the
-	// controller into its walk cycle for the duration.
+	// when it arrives. Rather than gliding via a CSS transition, it steps the
+	// guide there frame-by-frame at a constant pace through place() — the exact
+	// locomotion the visitor drives in free roam — so the body advances in
+	// lockstep with the walk cycle and reads as genuine walking, not a slide.
 	walkTo(pos) {
 		const clamped = {
 			x: clamp(pos.x, MARGIN, window.innerWidth - CANVAS_W - MARGIN),
 			y: clamp(pos.y, MARGIN, window.innerHeight - CANVAS_H - MARGIN),
 		};
+		// Supersede any walk already in flight so a fresh click redirects the guide.
+		cancelAnimationFrame(this._walkRaf);
+		this._walkRaf = 0;
 		const dx = clamped.x - this._pos.x;
 		const dy = clamped.y - this._pos.y;
 		const dist = Math.hypot(dx, dy);
-		if (dist < 4) {
-			this._setPos(clamped, false);
+		if (dist < 4 || this._reduced) {
+			// Already there, or reduced-motion: place without a stride and settle.
+			this._setPos(clamped);
+			this.settle();
 			return Promise.resolve();
 		}
-		// Face the direction of travel so the walk reads naturally.
-		this._targetYaw = clamp((dx / window.innerWidth) * 1.6, -0.7, 0.7);
-		const durMs = this._reduced ? 0 : clamp(dist * 1.6, 420, 1500);
-		this.controller?.setState('walk');
-		this._walking = true;
-		this._setPos(clamped, !this._reduced, durMs);
+		const ux = dx / dist;
+		const uy = dy / dist;
+		const from = { x: this._pos.x, y: this._pos.y };
+		let traveled = 0;
+		let last = performance.now();
 		return new Promise((resolve) => {
-			clearTimeout(this._walkTimer);
-			this._walkTimer = setTimeout(() => {
-				this._walking = false;
-				this.controller?.setState('idle');
-				resolve();
-			}, durMs + 30);
+			const step = (now) => {
+				const dt = Math.min((now - last) / 1000, 0.05);
+				last = now;
+				traveled = Math.min(dist, traveled + WALK_SPEED * dt);
+				this.place({ x: from.x + ux * traveled, y: from.y + uy * traveled });
+				if (traveled >= dist) {
+					this._walkRaf = 0;
+					this.settle();
+					resolve();
+					return;
+				}
+				this._walkRaf = requestAnimationFrame(step);
+			};
+			this._walkRaf = requestAnimationFrame(step);
 		});
 	}
 
@@ -244,7 +264,7 @@ export class GuideAvatar {
 		this._walking = true;
 		clearTimeout(this._settleTimer);
 		this._settleTimer = setTimeout(() => this.settle(), 180);
-		this._setPos({ x, y }, false);
+		this._setPos({ x, y });
 	}
 
 	settle() {
@@ -293,12 +313,12 @@ export class GuideAvatar {
 	}
 
 	// ── Internals ─────────────────────────────────────────────────────────────
-	_setPos(pos, animate, durMs = 600) {
+	// Snap the host to a screen position. All locomotion is now driven frame-by-
+	// frame (walkTo / place / free-roam), so the host never CSS-transitions — its
+	// stride and travel stay in sync.
+	_setPos(pos) {
 		this._pos = pos;
 		if (!this.host) return;
-		this.host.style.transition = animate
-			? `left ${durMs}ms cubic-bezier(.34,.02,.2,1), top ${durMs}ms cubic-bezier(.34,.02,.2,1)`
-			: 'none';
 		this.host.style.left = pos.x + 'px';
 		this.host.style.top = pos.y + 'px';
 	}
@@ -327,9 +347,10 @@ export class GuideAvatar {
 
 	dispose() {
 		cancelAnimationFrame(this._raf);
-		clearTimeout(this._walkTimer);
+		cancelAnimationFrame(this._walkRaf);
 		clearTimeout(this._settleTimer);
 		this._raf = 0;
+		this._walkRaf = 0;
 		try {
 			this.controller?.dispose();
 		} catch {
