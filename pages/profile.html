@@ -1100,6 +1100,31 @@
 				color: rgba(255, 255, 255, 0.3);
 			}
 
+			/* ── Fork action on agent rows ───────────────────────────────────── */
+			.up-card-row-wrap { display: flex; flex-direction: column; }
+			.up-agent-fork-bar {
+				display: flex;
+				align-items: center;
+				gap: 0.6rem;
+				padding: 0.4rem 0.25rem 0;
+			}
+			.up-agent-fork-btn {
+				display: inline-flex;
+				align-items: center;
+				gap: 0.3rem;
+				background: transparent;
+				border: 1px solid rgba(255, 255, 255, 0.14);
+				color: rgba(255, 255, 255, 0.6);
+				font-family: inherit;
+				font-size: 0.6rem;
+				padding: 0.22rem 0.55rem;
+				border-radius: 999px;
+				cursor: pointer;
+				transition: border-color 0.15s, color 0.15s, background 0.15s;
+			}
+			.up-agent-fork-btn:hover { border-color: rgba(154, 140, 255, 0.5); color: #9a8cff; }
+			.up-agent-fork-btn[disabled] { opacity: 0.5; cursor: default; }
+
 			/* ── Share menu ──────────────────────────────────────────────────── */
 			.profile-share-wrap { position: relative; }
 			.profile-share-menu {
@@ -1873,6 +1898,49 @@
 					}
 				});
 
+				// Fork an agent (clones it into the viewer's account via the
+				// marketplace fork endpoint). Only published agents render the button.
+				rootEl.addEventListener('click', async (e) => {
+					const btn = e.target.closest('.up-agent-fork-btn');
+					if (!btn) return;
+					e.preventDefault();
+					if (!viewer) {
+						location.href = `/login?return=${encodeURIComponent('/u/' + user.username)}`;
+						return;
+					}
+					const agentId = btn.dataset.agent;
+					btn.disabled = true;
+					const label = btn.querySelector('.up-agent-fork-label');
+					const prev = label ? label.textContent : '';
+					if (label) label.textContent = 'Forking…';
+					try {
+						const r = await apiFetch(
+							`/api/marketplace/agents/${encodeURIComponent(agentId)}/fork`,
+							{ method: 'POST', credentials: 'include' },
+						);
+						const j = await r.json().catch(() => ({}));
+						if (!r.ok) throw new Error(j.error_description || j.error || 'Fork failed');
+						const newId = j.data?.agent?.id || j.agent?.id || j.id;
+						showToast(
+							newId
+								? `Forked. <a href="/agent/${esc(newId)}">Open your copy →</a>`
+								: 'Forked to your account.',
+							'ok',
+						);
+						const countEl = btn.parentElement?.querySelector('.up-fork-count');
+						if (countEl) {
+							const n = (parseInt(countEl.dataset.count || '0', 10) || 0) + 1;
+							countEl.dataset.count = String(n);
+							countEl.textContent = `${formatStat(n)} fork${n === 1 ? '' : 's'}`;
+						}
+					} catch (err) {
+						showToast(esc(err.message || 'Could not fork.'), 'err');
+					} finally {
+						btn.disabled = false;
+						if (label) label.textContent = prev || 'Fork';
+					}
+				});
+
 				// Lazy-load on-chain collectibles (NFTs, accessories, wallets). Kept
 				// out of the main payload because the NFT providers are slow + billed;
 				// the profile paints first, these fill in after.
@@ -2339,18 +2407,36 @@
 							meta.push(
 								`<a href="https://warpcast.com/${attr(a.farcaster_fname)}" target="_blank" rel="noopener">/${esc(a.farcaster_fname)}</a>`,
 							);
+						// Forkable agents (published) expose a Fork button that clones the
+						// agent into the viewer's account. The button sits OUTSIDE the card
+						// link so it isn't a nested interactive element.
+						const forkBar = a.is_published
+							? `<div class="up-agent-fork-bar">
+									<button class="up-agent-fork-btn" type="button" data-agent="${attr(a.id)}" title="Fork this agent into your account">
+										<svg width="11" height="11" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M5 3.25a1.75 1.75 0 1 0-2.5 1.58v6.34A1.75 1.75 0 1 0 5 12.75v-1.06a3 3 0 0 1 3-3h.59a1.75 1.75 0 1 0 0-1.5H8a4.5 4.5 0 0 0-3 1.14V4.83A1.75 1.75 0 0 0 5 3.25"/></svg>
+										<span class="up-agent-fork-label">Fork</span>
+									</button>
+									<span class="up-fork-count" data-count="${a.forks_count || 0}">${a.forks_count ? `${formatStat(a.forks_count)} fork${a.forks_count === 1 ? '' : 's'}` : ''}</span>
+									${a.is_fork ? '<span class="up-tag">forked</span>' : ''}
+								</div>`
+							: a.is_fork
+								? `<div class="up-agent-fork-bar"><span class="up-tag">forked</span></div>`
+								: '';
 						return `
-						<a class="up-card-row" href="/agent/${attr(a.id)}">
-							<div class="up-card-row-thumb">${thumb}</div>
-							<div class="up-card-row-body">
-								<div class="up-card-row-head">
-									<h3 class="up-card-row-name">${esc(a.name)}</h3>
-									${onchainBadgeHTML(a, { link: false })}
+						<div class="up-card-row-wrap">
+							<a class="up-card-row" href="/agent/${attr(a.id)}">
+								<div class="up-card-row-thumb">${thumb}</div>
+								<div class="up-card-row-body">
+									<div class="up-card-row-head">
+										<h3 class="up-card-row-name">${esc(a.name)}</h3>
+										${onchainBadgeHTML(a, { link: false })}
+									</div>
+									${a.description ? `<p class="up-card-row-desc">${esc(a.description)}</p>` : ''}
+									${meta.length ? `<div class="up-card-row-meta">${meta.map((m) => `<span>${m}</span>`).join('')}</div>` : ''}
 								</div>
-								${a.description ? `<p class="up-card-row-desc">${esc(a.description)}</p>` : ''}
-								${meta.length ? `<div class="up-card-row-meta">${meta.map((m) => `<span>${m}</span>`).join('')}</div>` : ''}
-							</div>
-						</a>
+							</a>
+							${forkBar}
+						</div>
 					`;
 					})
 					.join('');
