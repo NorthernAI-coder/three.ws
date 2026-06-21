@@ -123,7 +123,7 @@ export function tierById(id) {
 
 /** True if `id` is a mode an admin is allowed to grant. */
 export function isGrantableTier(id) {
-	return GRANTABLE_TIER_IDS.includes(String(id || ''));
+	return GRANTABLE_TIER_IDS.includes(String(id || '').toLowerCase());
 }
 
 /**
@@ -147,13 +147,12 @@ export function normalizeTierGrant(input) {
  * @returns {Promise<{ isHolder: boolean, amount: number, usd: number }>}
  */
 export async function detectHolder(walletAddresses = []) {
-	const seen = new Set();
+	const unique = [...new Set(walletAddresses.filter(Boolean))];
+	if (unique.length === 0) return { isHolder: false, amount: 0, usd: 0 };
+	const results = await Promise.all(unique.map((w) => holderUsd(w)));
 	let amount = 0;
 	let usd = 0;
-	for (const w of walletAddresses) {
-		if (!w || seen.has(w)) continue;
-		seen.add(w);
-		const held = await holderUsd(w); // validates Solana addr + fails closed to 0
+	for (const held of results) {
 		if (held.amount > amount) amount = held.amount;
 		if (held.usd > usd) usd = held.usd;
 	}
