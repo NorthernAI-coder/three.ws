@@ -271,6 +271,24 @@ async function handlePayPrep(req, res) {
 
 	const body = parse(payPrepSchema, await readJson(req));
 
+	// The payer wallet is the fee-payer of the invoice tx and is persisted as the
+	// intent's owner-facing wallet, so it must belong to the authenticated caller —
+	// otherwise any signed-in user could mint intent rows "as" an arbitrary wallet
+	// for any agent/amount/mint (record pollution + spoofed payer attribution).
+	// Mirrors the linkage check every other wallet-signing prep handler enforces.
+	let payerPk;
+	try {
+		payerPk = new PublicKey(body.wallet_address);
+	} catch {
+		return error(res, 400, 'validation_error', 'invalid wallet_address');
+	}
+	const [payerWallet] = await sql`
+		select id from user_wallets
+		where user_id = ${user.id} and address = ${body.wallet_address} and chain_type = 'solana'
+		limit 1
+	`;
+	if (!payerWallet) return error(res, 403, 'forbidden', 'wallet not linked to your account');
+
 	const [agent] = await sql`
 		select id, name, meta from agent_identities
 		where id = ${body.agent_id} and deleted_at is null limit 1
@@ -293,7 +311,7 @@ async function handlePayPrep(req, res) {
 	const endTime = startTime + 60 * 60 * 24; // 24h validity window for the invoice
 
 	const ixs = await pumpAgent.buildAcceptPaymentInstructions({
-		user: new PublicKey(body.wallet_address),
+		user: payerPk,
 		currencyMint: new PublicKey(body.currency_mint),
 		amount: new BN(body.amount),
 		memo: new BN(memo),
@@ -303,7 +321,7 @@ async function handlePayPrep(req, res) {
 
 	const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash('confirmed');
 	const tx = new Transaction({
-		feePayer: new PublicKey(body.wallet_address),
+		feePayer: payerPk,
 		blockhash,
 		lastValidBlockHeight,
 	}).add(

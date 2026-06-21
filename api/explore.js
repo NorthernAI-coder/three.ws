@@ -25,6 +25,7 @@ function isAutoNamed(name) {
 }
 
 import { sql } from './_lib/db.js';
+import { cacheWrap } from './_lib/cache.js';
 import { cors, json, method, wrap, error, rateLimited } from './_lib/http.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 import { CHAIN_BY_ID, tokenExplorerUrl, addressExplorerUrl } from './_lib/erc8004-chains.js';
@@ -274,19 +275,29 @@ export default wrap(async (req, res) => {
 	const items = merged.slice(0, limit);
 	const nextCursor = hasMore && items.length > 0 ? items[items.length - 1].sortDate : null;
 
-	const [{ total: onchainTotal }] = await sql`
-		SELECT count(*)::text as total FROM erc8004_agents_index WHERE active = true
-	`;
-	const [{ total3d: onchain3d }] = await sql`
-		SELECT count(*)::text as total3d FROM erc8004_agents_index WHERE active = true AND has_3d = true
-	`;
-	const [{ total: avatarTotal }] = await sql`
-		SELECT count(*)::text as total FROM avatars WHERE deleted_at IS NULL AND visibility = 'public'
-	`;
-	const [{ total: solanaTotal }] = await sql`
-		SELECT count(*)::text as total FROM agent_identities
-		WHERE deleted_at IS NULL AND meta->>'chain_type' = 'solana' AND meta->>'network' = 'mainnet'
-	`;
+	// Directory totals are four full-table COUNT(*) scans that are identical for
+	// every visitor and change slowly — cache them for 60s so the discover page
+	// doesn't re-scan four growing tables on every request.
+	const { onchainTotal, onchain3d, avatarTotal, solanaTotal } = await cacheWrap(
+		'explore:totals:v1',
+		60,
+		async () => {
+			const [{ total: onchainTotal }] = await sql`
+				SELECT count(*)::text as total FROM erc8004_agents_index WHERE active = true
+			`;
+			const [{ total3d: onchain3d }] = await sql`
+				SELECT count(*)::text as total3d FROM erc8004_agents_index WHERE active = true AND has_3d = true
+			`;
+			const [{ total: avatarTotal }] = await sql`
+				SELECT count(*)::text as total FROM avatars WHERE deleted_at IS NULL AND visibility = 'public'
+			`;
+			const [{ total: solanaTotal }] = await sql`
+				SELECT count(*)::text as total FROM agent_identities
+				WHERE deleted_at IS NULL AND meta->>'chain_type' = 'solana' AND meta->>'network' = 'mainnet'
+			`;
+			return { onchainTotal, onchain3d, avatarTotal, solanaTotal };
+		},
+	);
 	const avatarCount = Number(avatarTotal);
 	const solCount = Number(solanaTotal);
 	const allTotal = Number(onchainTotal) + solCount + avatarCount;

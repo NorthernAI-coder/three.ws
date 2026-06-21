@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-06-21",
+			"title": "Authorize $THREE once, then pay with no wallet popups",
+			"summary": "The $THREE page now lets you set a spending allowance: approve a cap once, and paid actions across the platform — forge, skills, names, cosmetics — debit it automatically without asking you to sign every time. It's non-custodial and built on Solana's native, audited Subscriptions & Allowances program: your tokens stay in your own wallet until a charge pulls them, never more than the cap you set. You can see what your remaining cap covers, get a heads-up when it runs low, top it up, or revoke it in one click anytime. Prefer to sign each payment? Just leave it off.",
+			"tags": [
+				"feature"
+			],
+			"link": "/three-token"
+		},
+		{
+			"date": "2026-06-21",
 			"title": "Discover and character feeds load faster under heavy traffic",
 			"summary": "The Discover grid and the published-agents (Characters) feed now serve from the edge cache, so a surge of visitors is absorbed at the CDN instead of re-running a database scan on every request. Pages stay fast and consistent even during a rush, and a stale-while-revalidate window keeps them warm between refreshes.",
 			"tags": [

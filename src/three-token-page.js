@@ -50,6 +50,7 @@ const relTime = (sec) => {
 function injectStyles() {
 	const css = `
 	:root { color-scheme: dark; }
+	html { scroll-behavior: smooth; }
 	* { box-sizing: border-box; }
 	body { margin:0; background:#0a0a0d; color:#f5f5f7; font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif; -webkit-font-smoothing:antialiased; }
 	a { color:inherit; }
@@ -65,6 +66,17 @@ function injectStyles() {
 	.tk-stat { background:#111116; border:1px solid #1d1d24; border-radius:12px; padding:14px 16px; }
 	.tk-stat-l { font-size:11px; text-transform:uppercase; letter-spacing:0.06em; color:#7d7d86; margin-bottom:5px; }
 	.tk-stat-v { font-size:22px; font-weight:700; font-family:ui-monospace,Menlo,monospace; }
+	.tk-why { margin:2px 0 22px; }
+	.tk-why h2 { font-size:12px; text-transform:uppercase; letter-spacing:0.06em; color:#7d7d86; margin:0 0 12px; }
+	.tk-why-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(212px,1fr)); gap:12px; }
+	.tk-why-card { background:#111116; border:1px solid #1d1d24; border-radius:12px; padding:15px 16px; transition:border-color .15s,transform .12s; }
+	.tk-why-card:hover { border-color:#2a2a32; transform:translateY(-2px); }
+	.tk-why-ico { font-size:19px; line-height:1; margin-bottom:9px; }
+	.tk-why-t { font-size:14px; font-weight:700; margin:0 0 5px; letter-spacing:-0.01em; color:#f5f5f7; }
+	.tk-why-d { font-size:12.5px; color:#9a9aa3; line-height:1.5; margin:0; }
+	.tk-why-d b { color:#4ade80; font-weight:700; }
+	.tk-why-link { display:inline-block; margin-top:9px; font-size:12px; color:#7CC4FF; text-decoration:none; }
+	.tk-why-link:hover { text-decoration:underline; }
 	.tk-grid { display:grid; grid-template-columns:1.1fr 0.9fr; gap:18px; }
 	@media (max-width:820px){ .tk-grid { grid-template-columns:1fr; } }
 	.tk-card { background:#111116; border:1px solid #1d1d24; border-radius:14px; padding:18px; }
@@ -121,7 +133,7 @@ function injectStyles() {
 	.tk-bb-run a { color:#7CC4FF; text-decoration:none; justify-self:end; white-space:nowrap; }
 	.tk-bb-run a:hover { text-decoration:underline; }
 	@media (max-width:560px){ .tk-bb-head { grid-template-columns:repeat(2,1fr); gap:8px; } }
-	@media (prefers-reduced-motion: reduce){ .tk-trade.in { animation:none; } .tk-skel { animation:none; } .tk-bb-bar span { transition:none; } }
+	@media (prefers-reduced-motion: reduce){ html { scroll-behavior:auto; } .tk-trade.in { animation:none; } .tk-skel { animation:none; } .tk-bb-bar span { transition:none; } .tk-why-card { transition:none; } }
 	`;
 	const el = document.createElement('style');
 	el.textContent = css;
@@ -144,6 +156,31 @@ function renderHeaderStats(token) {
 			${s.sub ? `<div style="font-size:12px;margin-top:3px;color:${up ? '#4ade80' : '#f87171'}">${s.sub} 24h</div>` : ''}
 		</div>`;
 	}).join('');
+}
+
+// ── why hold $THREE — the four real utility pillars ──────────────────────────
+// Each line maps to a live mechanism in the codebase (buyback engine, reflections
+// split leg, hold-to-access tiers, deploy/spend sinks) — concrete, not marketing.
+// The buyback % is wired to the live commitment so the headline is always current.
+function renderWhyHold(commitPct) {
+	const pct = Number.isFinite(Number(commitPct)) ? Number(commitPct) : 50;
+	const pctLabel = `${pct % 1 === 0 ? pct.toFixed(0) : pct.toFixed(1)}%`;
+	const pillars = [
+		{ ico: '🔄', t: 'Revenue buybacks', d: `<b>${pctLabel}</b> of all platform revenue buys $THREE on the open market and routes it to the treasury — on-chain, verifiable.`, link: { href: '#tk-bb-proof', label: 'See the proof ↓' } },
+		{ ico: '💸', t: 'Holder rewards', d: 'Every paid action reflects $THREE back to holders pro-rata — deflation-free yield, no burn.' },
+		{ ico: '🎟️', t: 'Hold to access', d: 'Hold $THREE to unlock fee discounts, higher quotas, and pro perks across the platform.', link: { href: '/dashboard/three-token', label: 'View tiers →' } },
+		{ ico: '⚙️', t: 'Powers the economy', d: '$THREE is spent to deploy agents, forge avatars, and trade the marketplace — real usage, real demand.' },
+	];
+	return `<h2>Why hold $THREE</h2><div class="tk-why-grid">${pillars
+		.map(
+			(p) => `<div class="tk-why-card">
+				<div class="tk-why-ico" aria-hidden="true">${p.ico}</div>
+				<p class="tk-why-t">${esc(p.t)}</p>
+				<p class="tk-why-d">${p.d}</p>
+				${p.link ? `<a class="tk-why-link" href="${p.link.href}">${esc(p.link.label)}</a>` : ''}
+			</div>`,
+		)
+		.join('')}</div>`;
 }
 
 // ── programmatic buybacks (revenue → $THREE → treasury) ──────────────────────
@@ -302,6 +339,7 @@ function boot() {
 		<div class="tk-stats" data-stats>
 			${Array.from({ length: 4 }, () => `<div class="tk-stat"><div class="tk-skel" style="height:48px"></div></div>`).join('')}
 		</div>
+		<div class="tk-why" data-why>${renderWhyHold(50)}</div>
 		<div class="tk-grid">
 			<div class="tk-card">
 				<h2>Bonding curve</h2>
@@ -318,7 +356,7 @@ function boot() {
 				</div>
 			</div>
 		</div>
-		<div class="tk-card tk-bb">
+		<div class="tk-card tk-bb" id="tk-bb-proof">
 			<h2>Programmatic buybacks</h2>
 			<div data-buyback><div class="tk-skel" style="height:96px"></div></div>
 		</div>
@@ -369,11 +407,16 @@ function boot() {
 	// Live trade tape.
 	startTradeTape(wrap.querySelector('[data-tape]'), wrap.querySelector('[data-tape-status]'));
 
-	// Programmatic buyback panel — real figures from the protocol stats endpoint.
+	// Programmatic buyback panel + live commitment % in the "why hold" pillars —
+	// both from one protocol stats fetch.
 	const bbEl = wrap.querySelector('[data-buyback]');
+	const whyEl = wrap.querySelector('[data-why]');
 	fetch('/api/three-token/stats', { headers: { accept: 'application/json' } })
 		.then((r) => (r.ok ? r.json() : Promise.reject(new Error(`stats ${r.status}`))))
-		.then((d) => { bbEl.innerHTML = renderBuyback(d.buyback); })
+		.then((d) => {
+			bbEl.innerHTML = renderBuyback(d.buyback);
+			if (d.buyback?.commit_pct != null) whyEl.innerHTML = renderWhyHold(d.buyback.commit_pct);
+		})
 		.catch(() => { bbEl.innerHTML = renderBuyback(null); });
 }
 
