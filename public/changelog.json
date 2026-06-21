@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-21T07:29:27.432Z",
+	"generated_at": "2026-06-21T07:38:52.775Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -100,6 +100,17 @@
 		{
 			"date": "2026-06-21",
 			"type": "update",
+			"title": "Coin pages stay fast when pump.fun is having a moment",
+			"summary": "The /launches coin page pulls creator fee-sharing earnings live from pump.fun. We put that call behind a circuit breaker (built on the well-tested cockatiel library rather than home-grown code): if pump.fun slows down or errors, the breaker trips after a few failures and the page instantly skips that one enrichment instead of every visitor waiting out the timeout. The earnings simply show as unavailable until pump.fun recovers, and the rest of the page — registry, intel, outcome, trader record — was never affected. Same approach is now available platform-wide for other third-party data sources.",
+			"link": "/launches",
+			"tags": [
+				"infra",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "update",
 			"title": "Discover and character feeds load faster under heavy traffic",
 			"summary": "The Discover grid and the published-agents (Characters) feed now serve from the edge cache, so a surge of visitors is absorbed at the CDN instead of re-running a database scan on every request. Pages stay fast and consistent even during a rush, and a stale-while-revalidate window keeps them warm between refreshes.",
 			"link": "/discover",
@@ -137,6 +148,17 @@
 			"tags": [
 				"improvement",
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "update",
+			"title": "Follows and reviews now ring the notification bell",
+			"summary": "Following someone now actually reaches them: when a new follower arrives, it shows up in your notification bell with a link straight to their profile. And when someone reviews one of your agents, you get a notification with their rating. Both flow through the same in-app notification center you already use for payments and sales — no new place to check. Re-following or editing an existing review won't re-notify, so the bell stays signal, not noise.",
+			"link": "/feed",
+			"tags": [
+				"feature",
+				"improvement"
 			]
 		},
 		{
@@ -236,6 +258,16 @@
 			"link": null,
 			"tags": [
 				"infra",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "update",
+			"title": "Our paid services are properly discoverable by AI agents again",
+			"summary": "Every three.ws paid endpoint and MCP tool is published to the x402 discovery indexes (Coinbase's Bazaar, x402scan, agentic.market) so AI agents can find and pay for them automatically. A stray invisible character in the published Solana receiving address was making indexers reject the entire catalog, and our MCP tools weren't flagged as discoverable — both are fixed, service names were tidied to meet listing limits, and we added a checker that catches these issues before they ship. Result: agents can discover and call our services across the ecosystem.",
+			"link": null,
+			"tags": [
 				"improvement"
 			]
 		},
@@ -342,6 +374,17 @@
 			"title": "The guided tour, now yours to steer",
 			"summary": "The 3D guided tour got a major upgrade. Pick how deep to go: a new “Quick highlights” track samples the best of every chapter in a few minutes, or take the full feature-by-feature walk. A new tour map (open it from the ☰ button or press C) lists every chapter and stop, marks where you are, and lets you search and jump anywhere instantly. You can now change the narrator's voice and set the playback speed (0.75×–1.5×) on the fly, and the tour remembers your spot, voice, and pace across sessions — come back later and pick up right where you left off.",
 			"link": "/tour",
+			"tags": [
+				"feature",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "update",
+			"title": "Walk picks up where you left off, plus click-to-walk",
+			"summary": "The walk now remembers your avatar, environment, camera, and position across visits (synced to your account when signed in, cached locally otherwise) and greets you with a “Welcome back” you can dismiss or reset. Click anywhere on the page and your site-wide companion walks there, routing around blocked elements. The features page also gained a live walking-avatar demo.",
+			"link": "/walk",
 			"tags": [
 				"feature",
 				"improvement"
