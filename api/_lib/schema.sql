@@ -40,6 +40,13 @@ alter table users add column if not exists website text;
 alter table users add column if not exists location text;
 alter table users add column if not exists banner_url text;
 
+-- Account tier ("mode"): the coarse membership mode shown on a member's card.
+-- NULL = the default 'user' tier. Granted modes are assigned by an admin
+-- (api/admin/user/[id].js); 'holder' is derived live from on-chain $THREE and is
+-- never stored here. See api/_lib/account-tier.js for the resolver + perk curve.
+alter table users add column if not exists account_tier text
+    check (account_tier is null or account_tier in ('beta', 'pro', 'three-dimensional'));
+
 -- ── user_follows — the social graph ──────────────────────────────────────────
 -- A directed follow edge: follower_id follows following_id. Composite PK makes
 -- a follow idempotent (one edge per pair) and the toggle a single upsert/delete.
