@@ -9,7 +9,16 @@
 
 import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.js';
 import { sql } from '../_lib/db.js';
-import { cors, error, json, method, wrap, readJson, rateLimited, respondError } from '../_lib/http.js';
+import {
+	cors,
+	error,
+	json,
+	method,
+	wrap,
+	readJson,
+	rateLimited,
+	respondError,
+} from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { verifyAndCreditDeposit } from '../_lib/credit-deposit.js';
 
@@ -42,7 +51,8 @@ export default wrap(async (req, res) => {
 	const network = body?.network === 'devnet' ? 'devnet' : 'mainnet';
 
 	if (!txSignature) return error(res, 400, 'bad_request', 'tx_signature is required');
-	if (asset !== 'SOL' && asset !== 'THREE') return error(res, 400, 'bad_request', 'asset must be SOL or THREE');
+	if (asset !== 'SOL' && asset !== 'THREE')
+		return error(res, 400, 'bad_request', 'asset must be SOL or THREE');
 
 	try {
 		const result = await verifyAndCreditDeposit({ user, asset, txSignature, network });

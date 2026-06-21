@@ -87,7 +87,8 @@ function tokenCreditedTo(tx, { mint, owner }) {
 	for (const p of post) {
 		if (p.mint !== mint || p.owner !== owner) continue;
 		const before = pre.find((x) => x.accountIndex === p.accountIndex);
-		delta += BigInt(p.uiTokenAmount?.amount ?? '0') - BigInt(before?.uiTokenAmount?.amount ?? '0');
+		delta +=
+			BigInt(p.uiTokenAmount?.amount ?? '0') - BigInt(before?.uiTokenAmount?.amount ?? '0');
 	}
 	return delta;
 }
@@ -110,10 +111,12 @@ function lamportsCreditedTo(tx, owner) {
  */
 export async function verifyAndCreditDeposit({ user, asset, txSignature, network = 'mainnet' }) {
 	const sink = depositWallet();
-	if (!sink) throw depositError('the deposit wallet is not configured', 503, 'deposit_unavailable');
+	if (!sink)
+		throw depositError('the deposit wallet is not configured', 503, 'deposit_unavailable');
 
 	const assetU = String(asset || '').toUpperCase();
-	if (assetU !== 'SOL' && assetU !== 'THREE') throw depositError('asset must be SOL or THREE', 400, 'bad_request');
+	if (assetU !== 'SOL' && assetU !== 'THREE')
+		throw depositError('asset must be SOL or THREE', 400, 'bad_request');
 	if (typeof txSignature !== 'string' || txSignature.length < 32 || txSignature.length > 128) {
 		throw depositError('a valid tx_signature is required', 400, 'bad_request');
 	}
@@ -126,9 +129,18 @@ export async function verifyAndCreditDeposit({ user, asset, txSignature, network
 			commitment: 'confirmed',
 		});
 	} catch {
-		throw depositError('transaction not found — it may need more confirmations', 422, 'tx_not_found');
+		throw depositError(
+			'transaction not found — it may need more confirmations',
+			422,
+			'tx_not_found',
+		);
 	}
-	if (!tx) throw depositError('transaction not found — it may need more confirmations', 422, 'tx_not_found');
+	if (!tx)
+		throw depositError(
+			'transaction not found — it may need more confirmations',
+			422,
+			'tx_not_found',
+		);
 	if (tx.meta?.err) throw depositError('transaction failed on-chain', 422, 'tx_failed');
 
 	// Bind the deposit to the authenticated user: a signer must be one of their
@@ -150,17 +162,30 @@ export async function verifyAndCreditDeposit({ user, asset, txSignature, network
 	if (assetU === 'SOL') {
 		const lamports = lamportsCreditedTo(tx, sink);
 		if (lamports <= 0n) {
-			throw depositError('no SOL was received at the deposit wallet in this transaction', 422, 'no_funds_received');
+			throw depositError(
+				'no SOL was received at the deposit wallet in this transaction',
+				422,
+				'no_funds_received',
+			);
 		}
 		priceUsd = await solanaMintUsdPrice(SOL_MINT);
-		if (!(priceUsd > 0)) throw depositError('live SOL price unavailable — try again shortly', 503, 'price_unavailable');
+		if (!(priceUsd > 0))
+			throw depositError(
+				'live SOL price unavailable — try again shortly',
+				503,
+				'price_unavailable',
+			);
 		assetAmount = lamports;
 		amount = Number(lamports) / LAMPORTS_PER_SOL;
 		usd = amount * priceUsd;
 	} else {
 		const atomics = tokenCreditedTo(tx, { mint: TOKEN_MINT, owner: sink });
 		if (atomics <= 0n) {
-			throw depositError('no $THREE was received at the deposit wallet in this transaction', 422, 'no_funds_received');
+			throw depositError(
+				'no $THREE was received at the deposit wallet in this transaction',
+				422,
+				'no_funds_received',
+			);
 		}
 		const p = await getTokenPriceUsd();
 		priceUsd = p.priceUsd;
@@ -170,7 +195,12 @@ export async function verifyAndCreditDeposit({ user, asset, txSignature, network
 	}
 
 	usd = Math.round(usd * 1e6) / 1e6;
-	if (!(usd > 0)) throw depositError('deposit amount rounds to zero at the current price', 422, 'amount_too_small');
+	if (!(usd > 0))
+		throw depositError(
+			'deposit amount rounds to zero at the current price',
+			422,
+			'amount_too_small',
+		);
 
 	const res = await creditAccount({
 		userId: user.id,
