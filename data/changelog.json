@@ -3,6 +3,16 @@
 	"entries": [
 		{
 			"date": "2026-06-21",
+			"title": "Grind an agent's vanity wallet right on its page — with your CPU cores",
+			"summary": "Giving an agent a custom wallet address used to run on our servers, so it was capped at short patterns and would time out and error on anything harder. Now the agent's Wallet → Vanity tab grinds the address in your own browser, exactly like the standalone /vanity-wallet tool: choose how many CPU cores to spend, match case-insensitively for a faster find, watch the live tries-per-second and ETA, and pause or resume anytime. Longer, rarer patterns are now possible with no timeouts. When a match is found, any SOL or tokens in the old wallet are still automatically swept to the new address before the key is swapped — funds are never stranded — and the server verifies the new address truly matches your pattern before storing it.",
+			"tags": [
+				"fix",
+				"feature",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-21",
 			"title": "Hardened on-chain confirmations and faster profile loads",
 			"summary": "Two reliability fixes for everyone trading, launching, and browsing. First: every on-chain action that moves funds — coin launches, buys and sells, buybacks, payouts, transfers — now treats a transaction that lands but reverts as a real failure instead of quietly reporting success. You'll see an accurate error and your spending limit won't be charged for a trade that didn't go through. Second: public profile and creator pages are now cacheable at the edge, so they load noticeably faster under load. No action needed — these apply automatically.",
 			"tags": [
