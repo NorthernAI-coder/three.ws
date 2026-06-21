@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-21T07:55:33.519Z",
+	"generated_at": "2026-06-21T08:14:13.200Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -70,6 +70,27 @@
 		{
 			"date": "2026-06-21",
 			"type": "update",
+			"title": "Affiliate dashboard now shows who you referred",
+			"summary": "The referrals dashboard lists each person you referred with their signup date, the revenue they generated, and the commission you earned — not just totals.",
+			"link": "/dashboard/referrals",
+			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "update",
+			"title": "Agent payments now produce a signed receipt of exactly what was bought",
+			"summary": "Autonomous agent-to-agent payments already run under a signed Intent Mandate (your standing authorization with budget and per-call caps). They now also issue a Cart Mandate for each transaction — a tamper-evident, signed record of the exact endpoint paid, the amount, currency, network, and line items, bound to the authorizing mandate. It comes back with every paid call and can be checked by anyone via a new verification endpoint, so a paid service has cryptographic proof of what its caller agreed to. This completes our alignment with Google's Agent Payments Protocol (AP2), layered cleanly on top of x402 settlement.",
+			"link": null,
+			"tags": [
+				"feature",
+				"sdk"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "update",
 			"title": "Authorize $THREE once, then pay with no wallet popups",
 			"summary": "The $THREE page now lets you set a spending allowance: approve a cap once, and paid actions across the platform — forge, skills, names, cosmetics — debit it automatically without asking you to sign every time. It's non-custodial and built on Solana's native, audited Subscriptions & Allowances program: your tokens stay in your own wallet until a charge pulls them, never more than the cap you set. You can see what your remaining cap covers, get a heads-up when it runs low, top it up, or revoke it in one click anytime. Prefer to sign each payment? Just leave it off.",
 			"link": "/three-token",
@@ -85,6 +106,17 @@
 			"link": "/three-token",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "update",
+			"title": "Avatar Studio: full-spectrum color picker and one-tap Looks",
+			"summary": "The Color tab in Avatar Studio is no longer limited to a fixed row of swatches. Tap the rainbow chip on any of skin, hair, or outfit and a real color wheel opens — drag for any hue, slide for brightness, type or paste an exact hex code, or use the eyedropper to sample any color on your screen (where your browser supports it). Every color you pick is remembered in a 'Recent' strip so a palette carries from one part of the avatar to the next, and between sessions. New 'Looks' sit above the colors too: one tap themes skin, hair, and outfit together — Noir, Sunset, Arctic, Cyber, Rosé, Forest, Mono, Ember — and a whole picking session counts as a single undo. The wheel loads only when you open it, so the studio stays fast.",
+			"link": "/avatar-studio",
+			"tags": [
+				"feature",
+				"improvement"
 			]
 		},
 		{
@@ -292,6 +324,18 @@
 			"tags": [
 				"infra",
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "update",
+			"title": "More reliable on-chain transactions across the platform",
+			"summary": "Every on-chain action that moves funds — agent transfers, token launches, buys and sells, creator-fee claims, club and lottery payouts, buybacks, and skill purchases — now goes through one hardened sender. It estimates the right priority fee, automatically re-broadcasts your transaction with a fresh blockhash until it actually lands instead of giving up after one try, and treats a transaction that reverts on-chain as a clear failure rather than a silent success. In practice that means far fewer 'stuck' or dropped transactions when the network is busy, and an honest error (with your funds untouched) when something genuinely can't go through. Nothing to do on your end.",
+			"link": null,
+			"tags": [
+				"improvement",
+				"fix",
+				"infra"
 			]
 		},
 		{

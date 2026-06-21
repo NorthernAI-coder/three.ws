@@ -4,6 +4,7 @@ import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.
 import { cors, json, error, method, readJson, wrap, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { parse, isUuid } from '../_lib/validate.js';
+import skillReviewHandler from './review.js';
 
 const updateSchema = z.object({
 	name: z.string().trim().min(2).max(80).optional(),
@@ -26,6 +27,10 @@ const updateSchema = z.object({
 });
 
 export default wrap(async (req, res) => {
+	// vercel.json routes /api/skills/review → /api/skills/[id]?id=review. Hand the
+	// per-skill ratings & reviews path off to its own handler before the UUID gate.
+	if (req.query?.id === 'review') return skillReviewHandler(req, res);
+
 	if (cors(req, res, { methods: 'GET,PUT,DELETE,OPTIONS', credentials: true })) return;
 	if (!method(req, res, ['GET', 'PUT', 'DELETE'])) return;
 

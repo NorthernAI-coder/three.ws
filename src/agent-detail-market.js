@@ -38,6 +38,7 @@ import {
 } from './shared/skill-purchase.js';
 import { log } from './shared/log.js';
 import { seeInWorldHref, hasCustomAvatar } from './shared/agent-3d.js';
+import { mountSkillReviews } from './skill-reviews.js';
 
 const API = '/api';
 const $ = (id) => document.getElementById(id);
@@ -54,6 +55,10 @@ function escapeHtml(s) {
 		/[&<>"']/g,
 		(ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch],
 	);
+}
+// Safe DOM-id fragment from an arbitrary skill name (used for ARIA panel ids).
+function cssId(s) {
+	return String(s ?? '').replace(/[^a-zA-Z0-9_-]/g, '-').slice(0, 64) || 'x';
 }
 function initial(name) {
 	const s = String(name || '?').trim();
@@ -143,6 +148,10 @@ async function reloadPurchases(agentId) {
 		marketAgent = fresh;
 		purchasedSkills.clear();
 		(fresh.purchased_skills || []).forEach((s) => purchasedSkills.add(s));
+		// renderPricing rebuilds the body HTML, detaching any open review panels —
+		// tear their handles down first so aborters/listeners don't leak.
+		for (const handle of reviewHandles.values()) handle.destroy();
+		reviewHandles.clear();
 		renderPricing(fresh);
 		renderSubscriptionTiers(fresh).catch(() => {});
 	} catch (e) {
@@ -518,9 +527,26 @@ function renderPricing(a) {
 			} else {
 				badge = `<span class="ad-price-badge free">Free</span>`;
 			}
-			return `<div class="ad-skill-row"><span class="ad-skill-name">${escapeHtml(name)}</span><span class="ad-skill-actions">${badge}</span></div>`;
+			// Per-skill ratings & reviews — paid skills only (a review must anchor to
+			// a real purchase). The surface mounts lazily on first expand.
+			const isPaid = !!(price && Number(price.amount) > 0);
+			let reviewsBlock = '';
+			if (isPaid) {
+				const safeName = escapeHtml(name);
+				const panelId = `ad-skill-reviews-${cssId(name)}`;
+				reviewsBlock =
+					`<div class="ad-skill-row ad-skill-reviews-row">` +
+						`<button type="button" class="ad-skill-reviews-toggle" aria-expanded="false" aria-controls="${panelId}" data-reviews-skill="${safeName}" data-reviews-agent="${escapeHtml(a.id)}">` +
+							`<span class="ad-skill-reviews-caret" aria-hidden="true">▸</span> Ratings &amp; reviews` +
+						`</button>` +
+						`<div class="ad-skill-reviews-panel" id="${panelId}" hidden></div>` +
+					`</div>`;
+			}
+			return `<div class="ad-skill-row"><span class="ad-skill-name">${escapeHtml(name)}</span><span class="ad-skill-actions">${badge}</span></div>${reviewsBlock}`;
 		})
 		.join('');
+
+	bindReviewsDelegation(a);
 
 	const lib = $('ad-pricing-library');
 	if (libraryArr.length) {
@@ -553,6 +579,75 @@ function bindPurchaseDelegation() {
 		} else if (target.classList.contains('time-pass-btn')) {
 			const duration = Number(target.dataset.duration);
 			if (duration) openTimePassFlow(agentId, skillName, duration, target).catch((err) => log.error('[agent-detail-market] time-pass', err));
+		}
+	});
+}
+
+// ── Per-skill reviews (lazy-mounted surface) ──────────────────────────────────
+
+// Live review-surface handles keyed by skill name, so a purchase that completes
+// while a panel is open can flip its compose form on without a full re-render.
+const reviewHandles = new Map();
+let reviewsDelegationBound = false;
+let reviewsChromeInjected = false;
+
+// One-time chrome for the per-skill reviews expander. The reviews surface itself
+// injects its own `.skr-*` styles; this only styles the toggle row on this page.
+function injectReviewsChrome() {
+	if (reviewsChromeInjected || typeof document === 'undefined') return;
+	reviewsChromeInjected = true;
+	const el = document.createElement('style');
+	el.id = 'ad-skill-reviews-chrome';
+	el.textContent = `
+.ad-skill-reviews-row{display:block;padding:0 0 6px}
+.ad-skill-reviews-toggle{display:inline-flex;align-items:center;gap:6px;background:none;border:none;padding:4px 0;margin:0;color:var(--ad-muted,rgba(231,233,238,.55));font:inherit;font-size:12px;cursor:pointer;transition:color .12s ease}
+.ad-skill-reviews-toggle:hover{color:var(--ad-text,#e7e9ee)}
+.ad-skill-reviews-toggle:focus-visible{outline:2px solid var(--ad-cyan,#57c7ff);outline-offset:2px;border-radius:4px}
+.ad-skill-reviews-caret{display:inline-block;font-size:10px;transition:transform .12s ease}
+.ad-skill-reviews-toggle[aria-expanded="true"]{color:var(--ad-text,#e7e9ee)}
+.ad-skill-reviews-panel:not([hidden]){display:block}`;
+	document.head.appendChild(el);
+}
+
+function bindReviewsDelegation(agent) {
+	injectReviewsChrome();
+	if (reviewsDelegationBound) return;
+	reviewsDelegationBound = true;
+	const body = $('ad-pricing-body');
+	if (!body) return;
+	body.addEventListener('click', (e) => {
+		const toggle = e.target.closest?.('.ad-skill-reviews-toggle');
+		if (!toggle || !body.contains(toggle)) return;
+		const skillName = toggle.dataset.reviewsSkill;
+		const agentId = toggle.dataset.reviewsAgent || agent?.id;
+		if (!skillName || !agentId) return;
+
+		const panel = toggle.parentElement?.querySelector('.ad-skill-reviews-panel');
+		if (!panel) return;
+		const expanded = toggle.getAttribute('aria-expanded') === 'true';
+		const caret = toggle.querySelector('.ad-skill-reviews-caret');
+
+		if (expanded) {
+			toggle.setAttribute('aria-expanded', 'false');
+			if (caret) caret.textContent = '▸';
+			panel.hidden = true;
+			reviewHandles.get(skillName)?.destroy();
+			reviewHandles.delete(skillName);
+			panel.replaceChildren();
+			return;
+		}
+
+		toggle.setAttribute('aria-expanded', 'true');
+		if (caret) caret.textContent = '▾';
+		panel.hidden = false;
+		if (!reviewHandles.has(skillName)) {
+			const handle = mountSkillReviews(panel, {
+				agentId,
+				skill: skillName,
+				canReview: purchasedSkills.has(skillName),
+				isOwner: !!(agent && agent.is_owner),
+			});
+			reviewHandles.set(skillName, handle);
 		}
 	});
 }

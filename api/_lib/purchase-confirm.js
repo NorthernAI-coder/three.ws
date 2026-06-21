@@ -24,6 +24,63 @@ import { sql } from './db.js';
 import { rpcFallbackFromEnv } from './solana/rpc-fallback.js';
 import { insertNotification } from './notify.js';
 import { verifyEvmUsdcPayment, evmChainId } from './evm-payment-verify.js';
+import { sendPurchaseReceiptEmail, sendSaleNotificationEmail } from './email.js';
+import { creditReferralCommission } from './referrals.js';
+
+const APP_ORIGIN = process.env.APP_ORIGIN || 'https://three.ws';
+
+// USDC and most SPL skill prices use 6 decimals. Render atomic units as a human
+// amount (e.g. 1500000 → "1.50") for receipts/notifications.
+function formatAmount(atomics, decimals = 6) {
+	try {
+		const n = Number(BigInt(atomics)) / 10 ** decimals;
+		return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 6 });
+	} catch {
+		return String(atomics);
+	}
+}
+
+// Best-effort symbol for the currency shown in emails. The platform's only
+// settlement asset is USDC; fall back to a short mint label otherwise.
+function currencyLabel(mint) {
+	if (!mint) return 'USDC';
+	const m = String(mint);
+	if (/usdc/i.test(m)) return 'USDC';
+	return m.length > 10 ? `${m.slice(0, 4)}…${m.slice(-4)}` : m;
+}
+
+// Explorer URL for a confirmed payment, by chain.
+function txExplorerUrl(chain, txSignature) {
+	if (!txSignature) return null;
+	if (chain === 'solana') return `https://solscan.io/tx/${txSignature}`;
+	if (evmChainId(chain) && /^base/i.test(String(chain))) return `https://basescan.org/tx/${txSignature}`;
+	if (evmChainId(chain)) return `https://basescan.org/tx/${txSignature}`;
+	return null;
+}
+
+// Real, sendable email for a user. Skips missing addresses and the synthetic
+// `…@privy.local` placeholders minted for wallet-only Privy accounts — those are
+// not deliverable mailboxes.
+async function getUserEmail(userId) {
+	if (!userId) return null;
+	try {
+		const [row] = await sql`SELECT email FROM users WHERE id = ${userId} AND deleted_at IS NULL`;
+		const email = row?.email;
+		if (!email || /@privy\.local$/i.test(email)) return null;
+		return email;
+	} catch {
+		return null;
+	}
+}
+
+async function getAgentName(agentId) {
+	try {
+		const [row] = await sql`SELECT name FROM agent_identities WHERE id = ${agentId}`;
+		return row?.name || null;
+	} catch {
+		return null;
+	}
+}
 
 let _rpc;
 function rpc() {
@@ -509,13 +566,21 @@ async function finalizeSkillConfirmation(pur, txSignature, payoutAddress, platfo
 			ON CONFLICT (intent_id) DO NOTHING
 		`;
 		if (pur.referrer_user_id && referralAmt > 0n) {
-			// Track the referrer's accrued earnings. Real payout happens via the
-			// existing withdrawal flow keyed off this column.
-			await sql`
-				UPDATE users
-				SET referral_earnings_total = COALESCE(referral_earnings_total, 0) + ${Number(referralAmt)}
-				WHERE id = ${pur.referrer_user_id}
-			`;
+			// Credit the referrer's accrued earnings AND fire the commission email.
+			// Real payout happens via the existing withdrawal flow keyed off the
+			// referral_earnings_total column. Best-effort; never blocks confirm.
+			try {
+				const buyerHandle = await getUserDisplay(pur.user_id);
+				await creditReferralCommission({
+					referrerUserId: pur.referrer_user_id,
+					amountAtomics: referralAmt,
+					currency: currencyLabel(pur.currency_mint),
+					fromHandle: buyerHandle,
+					skillName: pur.skill,
+				});
+			} catch (e) {
+				console.error('[purchase-confirm] referral commission credit failed', e?.message);
+			}
 		}
 
 		await emitReceipt(pur, txSignature, payoutAddress, 'purchase');
@@ -581,6 +646,18 @@ async function finalizeSkillConfirmation(pur, txSignature, payoutAddress, platfo
 				purchase_id: pur.id,
 			});
 		}
+
+		// 3c. Transactional emails — best-effort, fully isolated from the critical
+		// path. A send failure (or missing creds) must never affect the confirmed
+		// payment, the access grant, or the response. These complement the in-app
+		// notifications above; they do not replace them.
+		await sendPurchaseEmails({
+			pur,
+			txSignature,
+			sellerId,
+			grossAmt,
+			netAmt,
+		}).catch((e) => console.error('[purchase-confirm] email dispatch failed', e?.message));
 	}
 
 	return { status: 'confirmed', tx_signature: txSignature };
@@ -696,6 +773,59 @@ async function verifyBundleEvm(b, payoutAddress) {
 async function getSellerUserId(agentId) {
 	const [row] = await sql`SELECT user_id FROM agent_identities WHERE id = ${agentId}`;
 	return row?.user_id ?? null;
+}
+
+// Send the buyer receipt + seller sale-notification for a confirmed purchase.
+// Best-effort: each send is independently guarded so one failure never blocks
+// the other, and the whole function is awaited under a .catch() at the call site
+// so nothing here can break the confirmed payment. Skips users without a real,
+// deliverable email (wallet-only / Privy accounts). sendEmail itself no-ops when
+// RESEND_API_KEY is unset (dev/preview), so these are safe everywhere.
+async function sendPurchaseEmails({ pur, txSignature, sellerId, grossAmt, netAmt }) {
+	const decimals = pur.mint_decimals ?? 6;
+	const currency = currencyLabel(pur.currency_mint);
+	const date = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+	const txUrl = txExplorerUrl(pur.chain, txSignature);
+	const agentName = await getAgentName(pur.agent_id);
+	const agentUrl = pur.agent_id ? `${APP_ORIGIN}/agents/${encodeURIComponent(pur.agent_id)}` : null;
+
+	// Buyer receipt → the payer (the recipient of a gift didn't pay, so the
+	// receipt always goes to whoever was charged).
+	const buyerEmail = await getUserEmail(pur.user_id);
+	if (buyerEmail) {
+		await sendPurchaseReceiptEmail({
+			to: buyerEmail,
+			skillName: pur.skill,
+			agentName,
+			agentUrl,
+			amount: formatAmount(grossAmt.toString(), decimals),
+			currency,
+			date,
+			txUrl,
+			txId: txSignature,
+		}).catch((e) => console.error('[purchase-confirm] receipt email failed', e?.message));
+	}
+
+	// Seller sale-notification → the agent's owner, with net (post-fee, post-
+	// referral) earnings and the buyer's public handle (never their email).
+	if (sellerId && sellerId !== pur.user_id) {
+		const sellerEmail = await getUserEmail(sellerId);
+		if (sellerEmail) {
+			const buyerHandle = await getUserDisplay(pur.user_id);
+			await sendSaleNotificationEmail({
+				to: sellerEmail,
+				skillName: pur.skill,
+				agentName,
+				agentUrl,
+				netAmount: formatAmount(netAmt.toString(), decimals),
+				currency,
+				buyerHandle,
+				date,
+				txUrl,
+				txId: txSignature,
+			}).catch((e) => console.error('[purchase-confirm] sale email failed', e?.message));
+		}
+	}
 }
 
 // Best-effort friendly label for a user (gift notifications). Username first,
