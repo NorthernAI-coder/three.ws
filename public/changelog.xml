@@ -47,6 +47,14 @@
 			<description>Turning a photo into a 3D model is free — and now you can pick it directly. Forge's engine selector has a new 'Hunyuan3D / TRELLIS' lane marked with a FREE badge that reconstructs your uploaded photo (or 2–4 angles) into a textured GLB at no cost and with no API key, running on community GPU Spaces with automatic failover across Hunyuan3D, TRELLIS, and TripoSR. Until now the free photo lane only kicked in behind the scenes; it's a first-class choice in the picker, shows live availability, and never silently falls back to a paid engine. The FREE badge also marks every other no-cost lane so you can always see which engines cost nothing.</description>
 		</item>
 		<item>
+			<title>Grind an agent's vanity wallet right on its page — with your CPU cores</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-21:Grind an agent's vanity wallet right on its page — with your CPU cores</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Giving an agent a custom wallet address used to run on our servers, so it was capped at short patterns and would time out and error on anything harder. Now the agent's Wallet → Vanity tab grinds the address in your own browser, exactly like the standalone /vanity-wallet tool: choose how many CPU cores to spend, match case-insensitively for a faster find, watch the live tries-per-second and ETA, and pause or resume anytime. Longer, rarer patterns are now possible with no timeouts. When a match is found, any SOL or tokens in the old wallet are still automatically swept to the new address before the key is swapped — funds are never stranded — and the server verifies the new address truly matches your pattern before storing it.</description>
+		</item>
+		<item>
 			<title>Hardened on-chain confirmations and faster profile loads</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-21:Hardened on-chain confirmations and faster profile loads</guid>
