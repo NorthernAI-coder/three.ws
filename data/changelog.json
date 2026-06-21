@@ -3,6 +3,26 @@
 	"entries": [
 		{
 			"date": "2026-06-21",
+			"title": "Referrals: claim a custom code that's yours",
+			"summary": "Your referral code now starts as your name instead of a random string — and you can change it to anything you like. Open Referrals in your dashboard, hit Customize, and pick a code (3–20 letters or numbers); it checks availability as you type and updates your shareable link, QR, and membership card the moment you save. Existing links keep working, codes are matched case-insensitively, and you still earn 5% in USDC on every referred purchase.",
+			"tags": ["feature"],
+			"link": "/dashboard/referrals"
+		},
+		{
+			"date": "2026-06-21",
+			"title": "Profiles: your whole on-chain self in one place",
+			"summary": "Your profile at three.ws/u/<username> now shows everything you make and own. New Collectibles and Accessories tabs surface the NFTs held across your wallets — 3D NFTs rotate live right in the grid — and the premium avatar items you've bought. Your linked wallets appear as chain-tagged chips with one-tap copy and a block-explorer link, spanning both Solana and EVM. Every avatar now has a Fork button so anyone can save a copy of it (and its agent) to their own account, with a running fork count on each card. And a new Share menu lets you post your profile straight to X or share it through your phone's native share sheet, alongside copy-link.",
+			"tags": ["feature"]
+		},
+		{
+			"date": "2026-06-21",
+			"title": "Studio Lab: six free 3D generators, right in your browser",
+			"summary": "The new Lab tab in Studio turns text and parameters into real 3D — no API key, no cost, nothing leaves your machine. Build math-driven parametric solids and supershapes, extrude 3D lettering from any string, turn an SVG icon or logo into a solid model, generate a lithophane relief from a photo, or grow a procedural landscape from a seed — each one previews live and downloads as a real GLB. Plus a Gaussian-splat viewer for the photoreal radiance-field format (.splat / .ply). Powered by three.js and GaussianSplats3D.",
+			"tags": ["feature"],
+			"link": "/forge-studio"
+		},
+		{
+			"date": "2026-06-21",
 			"title": "Pole Club: every dancer stands on her stage",
 			"summary": "Fixed a dancer who sank through her platform instead of standing on it. Avatars exported at centimetre scale (common for Mixamo-rigged characters) had their idle motion collapse, dropping them a metre into the floor. The animation engine now scales each dancer's footing to her own rig, so any avatar you pick stands cleanly at her pole.",
 			"tags": ["fix"],

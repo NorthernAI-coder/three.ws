@@ -15,7 +15,7 @@ import { requireCsrf } from '../_lib/csrf.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { parse, loginBody, registerBody, usernameRegisterBody, username as usernameValidator, displayName, email, password, bio as bioValidator, profileLocation, httpUrl } from '../_lib/validate.js';
 import { sendPasswordResetEmail, sendVerificationEmail } from '../_lib/email.js';
-import { generateReferralCode } from '../_lib/referrals.js';
+import { referralCodeCandidates, normalizeReferralCode } from '../_lib/referrals.js';
 import { seedDefaultAgent } from '../_lib/seed-default-agent.js';
 import { logAudit } from '../_lib/audit.js';
 import { z } from 'zod';
@@ -91,15 +91,13 @@ async function handleLogoutEverywhere(req, res) {
 
 // Bounded retry to ride out the rare collision against the unique index on
 // users.referral_code. The index is the authoritative guard; this loop is the
-// UX shield so simultaneous signups don't surface a 500. The generator is a
-// CSPRNG over a 32-char alphabet at length 8, so the chance of MAX_TRIES
-// consecutive collisions is astronomically low — if we ever exhaust, something
-// upstream is wrong (truncated alphabet, broken RNG) and we want to surface it.
-const MAX_REFERRAL_CODE_TRIES = 8;
-
+// UX shield so simultaneous signups don't surface a 500. The first candidate is
+// the member's name (so their default referral code reads like them), then a
+// name+suffix, then CSPRNG fallbacks — so consecutive collisions are
+// astronomically unlikely. If we ever exhaust, something upstream is wrong and
+// we want to surface it.
 async function insertUserWithUniqueReferralCode({ email, passwordHash, displayName, referredById }) {
-	for (let i = 0; i < MAX_REFERRAL_CODE_TRIES; i += 1) {
-		const code = generateReferralCode();
+	for (const code of referralCodeCandidates(displayName)) {
 		try {
 			const [row] = await sql`
 				insert into users (email, password_hash, display_name, referred_by_id, referral_code)
@@ -141,8 +139,9 @@ async function handleRegister(req, res) {
 	}
 
 	let referred_by_id = null;
-	if (referralCode) {
-		const [referrer] = await sql`select id from users where referral_code = ${referralCode}`;
+	const normalizedRef = normalizeReferralCode(referralCode);
+	if (normalizedRef) {
+		const [referrer] = await sql`select id from users where upper(referral_code) = ${normalizedRef} and deleted_at is null limit 1`;
 		if (referrer) {
 			referred_by_id = referrer.id;
 		}

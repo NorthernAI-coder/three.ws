@@ -29,6 +29,7 @@ import { rpcFallbackFromEnv } from '../_lib/solana/rpc-fallback.js';
 import { solanaConnection } from '../_lib/solana/connection.js';
 import { buildGaslessPurchaseTx } from '../_lib/solana/gasless-tx.js';
 import { insertNotification } from '../_lib/notify.js';
+import { normalizeReferralCode } from '../_lib/referrals.js';
 import { verifyEvmUsdcPayment, evmChainId } from '../_lib/evm-payment-verify.js';
 
 const REFERENCE_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
@@ -453,9 +454,9 @@ async function handleEvmAssetConfirm(req, res, pur) {
 // Resolve the inviting user from a ?ref=<code> query or users.referred_by_id.
 async function resolveReferrer(req, buyerUserId) {
 	const url = new URL(req.url, 'http://x');
-	const code = url.searchParams.get('ref');
+	const code = normalizeReferralCode(url.searchParams.get('ref'));
 	if (code) {
-		const [u] = await sql`SELECT id FROM users WHERE referral_code = ${code} LIMIT 1`;
+		const [u] = await sql`SELECT id FROM users WHERE UPPER(referral_code) = ${code} AND deleted_at IS NULL LIMIT 1`;
 		if (u && u.id !== buyerUserId) return u.id;
 	}
 	const [me] = await sql`SELECT referred_by_id FROM users WHERE id = ${buyerUserId}`;

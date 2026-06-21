@@ -6,10 +6,18 @@
 // pulled from /api/users/referrals — no placeholders.
 
 import { mountShell } from '../shell.js';
-import { requireUser, get, esc } from '../api.js';
+import { requireUser, get, put, esc } from '../api.js';
 import { renderQRToSVG, renderQRToCanvas } from '../../erc8004/qr.js';
 
 const MONO = `'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace`;
+
+// Canonical referral-code shape — mirrors REFERRAL_CODE_RE in
+// api/_lib/referrals.js. The server is authoritative; this gates the editor's
+// Save button and pre-filters obviously-invalid input before the availability
+// check fires.
+const CODE_MIN = 3;
+const CODE_MAX = 20;
+const CODE_RE = new RegExp(`^[A-Z0-9]{${CODE_MIN},${CODE_MAX}}$`);
 
 // Referral commission paid to the referrer on each purchase. Mirrors the
 // server default (REFERRAL_COMMISSION_BPS in api/_lib/purchase-confirm.js).
@@ -185,6 +193,33 @@ function injectStyles() {
 	.ref-linkbar{display:flex;gap:8px;align-items:stretch;flex-wrap:wrap}
 	.ref-linkbar input{flex:1;min-width:200px;background:rgba(255,255,255,.04);border:1px solid var(--nxt-stroke-strong);
 		border-radius:9px;padding:11px 13px;color:var(--nxt-ink);font-family:${MONO};font-size:13px}
+	/* ── referral code editor ─────────────────────────────────────────────── */
+	.ref-codebox{margin-top:12px;border:1px solid var(--nxt-stroke);border-radius:var(--nxt-radius-sm,12px);
+		background:rgba(255,255,255,.015);padding:14px 16px}
+	.ref-code-display{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
+	.ref-code-meta{min-width:0}
+	.ref-code-label{font-size:11px;color:var(--nxt-ink-fade);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px}
+	.ref-code-value{font-family:${MONO};font-size:19px;font-weight:700;color:var(--nxt-ink);letter-spacing:.02em;
+		word-break:break-all}
+	.ref-code-cta{display:flex;gap:8px;flex:0 0 auto}
+	.ref-code-inputwrap{display:flex;align-items:center;gap:0;border:1px solid var(--nxt-stroke-strong);
+		border-radius:10px;background:rgba(255,255,255,.04);overflow:hidden;
+		transition:border-color .14s ease,box-shadow .14s ease}
+	.ref-code-inputwrap:focus-within{border-color:rgba(167,139,250,.6);box-shadow:0 0 0 3px rgba(167,139,250,.18)}
+	.ref-code-prefix{padding:0 4px 0 12px;color:var(--nxt-ink-fade);font-family:${MONO};font-size:13px;white-space:nowrap;user-select:none}
+	.ref-code-input{flex:1;min-width:80px;background:transparent;border:0;outline:none;color:var(--nxt-ink);
+		font-family:${MONO};font-size:15px;font-weight:600;letter-spacing:.04em;padding:11px 8px 11px 0;text-transform:uppercase}
+	.ref-code-status{flex:0 0 auto;display:grid;place-items:center;width:34px;height:100%;align-self:stretch}
+	.ref-code-status.good{color:#86efac}
+	.ref-code-status.bad{color:#fca5a5}
+	.ref-code-status.checking{color:var(--nxt-ink-fade)}
+	.ref-code-hint{margin-top:8px;font-size:12.5px;color:var(--nxt-ink-dim);line-height:1.45;min-height:1.2em}
+	.ref-code-hint.good{color:#86efac}
+	.ref-code-hint.bad{color:#fca5a5}
+	.ref-code-actions{display:flex;gap:8px;margin-top:12px}
+	.ref-spin{animation:ref-spin .7s linear infinite;transform-origin:center}
+	@keyframes ref-spin{to{transform:rotate(360deg)}}
+	@media (prefers-reduced-motion: reduce){.ref-spin{animation:none}}
 	.ref-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
 	.ref-tile{border:1px solid var(--nxt-stroke);border-radius:var(--nxt-radius-sm,12px);padding:14px 16px;background:rgba(255,255,255,.015)}
 	.ref-tile-k{font-size:11.5px;color:var(--nxt-ink-fade);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
@@ -454,8 +489,8 @@ function renderCard(host, card) {
 			<div class="ref-linkbar">
 				<input type="text" readonly value="${esc(refUrl)}" data-link aria-label="Referral link" />
 				<button class="dn-btn primary" data-action="copy-link" style="padding:0 18px">Copy link</button>
-				<button class="dn-btn" data-action="copy-code" style="padding:0 16px">Copy code · ${esc(card.referral_code)}</button>
 			</div>
+			<div class="ref-codebox" data-codebox>${codeBoxCollapsed(card)}</div>
 		</div>
 
 		<div class="ref-tiles" style="margin-top:18px">
@@ -529,8 +564,8 @@ function wireCard(host, card, refUrl) {
 	const copyLink = () => copyToClipboard(refUrl);
 	host.querySelector('[data-action="copy"]').addEventListener('click', copyLink);
 	host.querySelector('[data-action="copy-link"]').addEventListener('click', copyLink);
-	host.querySelector('[data-action="copy-code"]').addEventListener('click', () => copyToClipboard(card.referral_code));
 	host.querySelector('[data-link]').addEventListener('click', (e) => { e.currentTarget.select(); });
+	wireCodeEditor(host, card);
 	host.querySelector('[data-action="download"]').addEventListener('click', () => exportCardPNG(card, refUrl));
 
 	host.querySelector('[data-action="share"]').addEventListener('click', async () => {
@@ -545,6 +580,159 @@ function wireCard(host, card, refUrl) {
 			await copyToClipboard(refUrl);
 		}
 	});
+}
+
+// ── referral code editor ──────────────────────────────────────────────────────
+//
+// The code defaults to the member's name at signup; here they make it their own.
+// Collapsed: shows the current code with Copy + Customize. Expanded: an inline
+// editor with a live, debounced availability check against /api/users/referral-code.
+
+const CHECK_ICON = '<svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 4.5 6.5 11 3 7.5"/></svg>';
+const SPINNER = '<svg viewBox="0 0 16 16" width="14" height="14" class="ref-spin" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 1.5a6.5 6.5 0 1 0 6.5 6.5" opacity="0.9"/></svg>';
+const WARN_ICON = '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 5v3.5M8 11h.01"/><circle cx="8" cy="8" r="6.5"/></svg>';
+
+function codeBoxCollapsed(card) {
+	return `
+		<div class="ref-code-display">
+			<div class="ref-code-meta">
+				<div class="ref-code-label">Your referral code</div>
+				<div class="ref-code-value" data-code-value>${esc(card.referral_code)}</div>
+			</div>
+			<div class="ref-code-cta">
+				<button class="dn-btn" data-action="copy-code" type="button">Copy</button>
+				<button class="dn-btn primary" data-action="edit-code" type="button">Customize</button>
+			</div>
+		</div>`;
+}
+
+function codeBoxEditing(card) {
+	return `
+		<label class="ref-code-label" for="ref-code-input">Customize your referral code</label>
+		<div class="ref-code-inputwrap">
+			<span class="ref-code-prefix">?ref=</span>
+			<input id="ref-code-input" class="ref-code-input" data-code-input type="text"
+				value="${esc(card.referral_code)}" maxlength="${CODE_MAX}"
+				autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false"
+				aria-label="Referral code" aria-describedby="ref-code-hint" />
+			<span class="ref-code-status" data-code-status aria-hidden="true"></span>
+		</div>
+		<div class="ref-code-hint" id="ref-code-hint" data-code-hint>${CODE_MIN}–${CODE_MAX} letters or numbers. This becomes your shareable link.</div>
+		<div class="ref-code-actions">
+			<button class="dn-btn primary" data-action="save-code" type="button" disabled>Save code</button>
+			<button class="dn-btn" data-action="cancel-code" type="button">Cancel</button>
+		</div>`;
+}
+
+function wireCodeEditor(host, card) {
+	const box = host.querySelector('[data-codebox]');
+	if (!box) return;
+
+	function showCollapsed() {
+		box.innerHTML = codeBoxCollapsed(card);
+		box.querySelector('[data-action="copy-code"]').addEventListener('click', () => copyToClipboard(card.referral_code));
+		box.querySelector('[data-action="edit-code"]').addEventListener('click', showEditing);
+	}
+
+	function showEditing() {
+		box.innerHTML = codeBoxEditing(card);
+		const input = box.querySelector('[data-code-input]');
+		const statusEl = box.querySelector('[data-code-status]');
+		const hintEl = box.querySelector('[data-code-hint]');
+		const saveBtn = box.querySelector('[data-action="save-code"]');
+		const current = card.referral_code.toUpperCase();
+		let token = 0; // guards against out-of-order availability responses
+		let ok = false;
+
+		const setState = (cls, statusHtml, hintText, canSave) => {
+			statusEl.className = `ref-code-status ${cls}`;
+			statusEl.innerHTML = statusHtml;
+			hintEl.className = `ref-code-hint ${cls === 'good' ? 'good' : cls === 'bad' ? 'bad' : ''}`;
+			hintEl.textContent = hintText;
+			ok = !!canSave;
+			saveBtn.disabled = !canSave;
+		};
+
+		const evaluate = () => {
+			const value = input.value;
+			const myToken = ++token;
+			if (value === current) {
+				setState('', '', 'This is your current code.', false);
+				return;
+			}
+			if (!CODE_RE.test(value)) {
+				setState('', '', `${CODE_MIN}–${CODE_MAX} letters or numbers — no spaces or symbols.`, false);
+				return;
+			}
+			setState('checking', SPINNER, 'Checking availability…', false);
+			get(`/api/users/referral-code?code=${encodeURIComponent(value)}`)
+				.then((r) => {
+					if (myToken !== token) return; // a newer keystroke superseded this
+					if (r.available) {
+						setState('good', CHECK_ICON, r.reason === 'current' ? 'This is your current code.' : 'Available — yours to claim.', r.reason !== 'current');
+					} else if (r.reason === 'reserved') {
+						setState('bad', WARN_ICON, 'That code is reserved. Pick another.', false);
+					} else if (r.reason === 'taken') {
+						setState('bad', WARN_ICON, 'Already taken. Try a variation.', false);
+					} else {
+						setState('bad', WARN_ICON, `${CODE_MIN}–${CODE_MAX} letters or numbers.`, false);
+					}
+				})
+				.catch(() => {
+					if (myToken !== token) return;
+					setState('', '', 'Couldn’t check availability — try again.', false);
+				});
+		};
+
+		let debounce;
+		input.addEventListener('input', () => {
+			// Live-sanitize to the canonical alphabet so the field only ever holds
+			// what can actually be saved.
+			const caret = input.selectionStart;
+			const cleaned = input.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, CODE_MAX);
+			if (cleaned !== input.value) {
+				input.value = cleaned;
+				if (caret != null) input.setSelectionRange(caret - 1, caret - 1);
+			}
+			clearTimeout(debounce);
+			debounce = setTimeout(evaluate, 280);
+		});
+		input.addEventListener('keydown', (e) => {
+			if (e.key === 'Enter') { e.preventDefault(); if (ok) save(); }
+			else if (e.key === 'Escape') { e.preventDefault(); showCollapsed(); }
+		});
+
+		async function save() {
+			if (!ok) return;
+			const desired = input.value;
+			saveBtn.disabled = true;
+			setState('checking', SPINNER, 'Saving…', false);
+			try {
+				const r = await put('/api/users/referral-code', { code: desired });
+				card.referral_code = r.referral_code;
+				toast('Referral code updated');
+				// Re-render the whole card so the link, QR, and PNG export all pick up
+				// the new code.
+				renderCard(host, card);
+			} catch (err) {
+				const reason = err?.code;
+				const msg = reason === 'taken' ? 'Already taken. Try a variation.'
+					: reason === 'reserved' ? 'That code is reserved. Pick another.'
+					: err?.message || 'Couldn’t save — try again.';
+				setState('bad', WARN_ICON, msg, false);
+				saveBtn.disabled = false;
+			}
+		}
+
+		box.querySelector('[data-action="save-code"]').addEventListener('click', save);
+		box.querySelector('[data-action="cancel-code"]').addEventListener('click', showCollapsed);
+
+		input.focus();
+		input.setSelectionRange(input.value.length, input.value.length);
+		evaluate();
+	}
+
+	showCollapsed();
 }
 
 // ── referred-users table ──────────────────────────────────────────────────────
