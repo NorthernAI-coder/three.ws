@@ -101,16 +101,26 @@ async function judgeAndFold() {
 		deltas.set(wallet, cur);
 	};
 
+	// Top buyers (by buy_lamports) for every candidate coin in one round trip,
+	// window-limited to TOP_WALLETS per mint — replaces a per-coin query.
+	const walletRows = await sql`
+		SELECT mint, wallet, buy_lamports, sell_lamports, is_creator, first_ts FROM (
+			SELECT mint, wallet, buy_lamports, sell_lamports, is_creator,
+			       extract(epoch from first_seen_at)::bigint AS first_ts,
+			       row_number() OVER (PARTITION BY mint ORDER BY buy_lamports DESC) AS rn
+			FROM pump_coin_wallets
+			WHERE mint = ANY(${mints})
+		) t WHERE rn <= ${TOP_WALLETS}
+	`;
+	const walletsByCoin = new Map();
+	for (const w of walletRows) {
+		if (!walletsByCoin.has(w.mint)) walletsByCoin.set(w.mint, []);
+		walletsByCoin.get(w.mint).push(w);
+	}
+
 	for (const coin of candidates) {
 		const outcome = graduated.has(coin.mint) ? 'graduated' : 'dud';
-		const wallets = await sql`
-			SELECT wallet, buy_lamports, sell_lamports, is_creator,
-			       extract(epoch from first_seen_at)::bigint AS first_ts
-			FROM pump_coin_wallets
-			WHERE mint = ${coin.mint}
-			ORDER BY buy_lamports DESC
-			LIMIT ${TOP_WALLETS}
-		`;
+		const wallets = walletsByCoin.get(coin.mint) || [];
 		for (const w of wallets) {
 			const d = attributeCoin({
 				outcome,

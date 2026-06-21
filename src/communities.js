@@ -8,6 +8,7 @@
 // a source is empty or unreachable, the UI says so and offers a way forward.
 
 import { log } from './shared/log.js';
+import { safeUrl } from './safe-url.js';
 const NAME_STORAGE_KEY = 'walk:player-name';
 const AVATAR_CHOICE_KEY = 'communities:avatar-choice';
 const DEFAULT_AVATAR_URL = '/avatars/default.glb';
@@ -448,7 +449,7 @@ function renderCoinProfile(coin) {
 	if (coin.telegram) socials.push(['Telegram', coin.telegram]);
 	if (coin.website) socials.push(['Website', coin.website]);
 	$('cp-socials').innerHTML = socials
-		.map(([label, href]) => `<a class="cp-social" href="${escAttr(href)}" target="_blank" rel="noopener">${esc(label)} ↗</a>`)
+		.map(([label, href]) => `<a class="cp-social" href="${escAttr(safeUrl(href))}" target="_blank" rel="noopener">${esc(label)} ↗</a>`)
 		.join('');
 
 	$('coin-profile-skeleton').hidden = true;

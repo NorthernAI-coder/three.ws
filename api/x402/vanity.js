@@ -602,13 +602,31 @@ export default wrap(async (req, res) => {
 	res.end(body);
 
 	if (paymentId) {
+		// Never persist spendable key material at rest. The live response above
+		// delivers the ground secret once over TLS (this endpoint's stated
+		// contract); the x402 replay/idempotency cache must NOT hold it, or a
+		// Redis read or compromise would recover spendable keys for the cache TTL.
+		// Strip the plaintext secret fields from the STORED copy so a replayed
+		// payment receives the public metadata plus an explicit marker, not the
+		// key. Sealed responses carry only ciphertext (sealedSecret), which is
+		// safe at rest, so they are cached unchanged.
+		let storedBody = body;
+		if (!result?.sealed) {
+			const { secretKeyBase58, secretKey, mnemonic, ...publicMeta } = result;
+			void secretKeyBase58; void secretKey; void mnemonic;
+			storedBody = JSON.stringify({
+				...publicMeta,
+				secret_omitted_from_cache: true,
+				note: 'The ground secret is returned only once in the original response and is never stored. If you did not capture it, grind again.',
+			});
+		}
 		await storeResponse({
 			route: ROUTE,
 			paymentId,
 			payloadHash,
 			paymentHash,
 			status: 200,
-			body,
+			body: storedBody,
 			contentType,
 			paymentResponseHeader,
 		});

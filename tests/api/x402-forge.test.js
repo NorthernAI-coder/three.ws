@@ -98,6 +98,9 @@ function makeRes() {
 		setHeader(name, value) {
 			this.headers[String(name).toLowerCase()] = value;
 		},
+		getHeader(name) {
+			return this.headers[String(name).toLowerCase()];
+		},
 		end(body) {
 			this.body = body ?? null;
 		},

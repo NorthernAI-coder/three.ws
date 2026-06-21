@@ -3,6 +3,16 @@
 	"entries": [
 		{
 			"date": "2026-06-21",
+			"title": "Free photo → 3D is now a one-click engine in Forge",
+			"summary": "Turning a photo into a 3D model is free — and now you can pick it directly. Forge's engine selector has a new 'Hunyuan3D / TRELLIS' lane marked with a FREE badge that reconstructs your uploaded photo (or 2–4 angles) into a textured GLB at no cost and with no API key, running on community GPU Spaces with automatic failover across Hunyuan3D, TRELLIS, and TripoSR. Until now the free photo lane only kicked in behind the scenes; it's a first-class choice in the picker, shows live availability, and never silently falls back to a paid engine. The FREE badge also marks every other no-cost lane so you can always see which engines cost nothing.",
+			"tags": [
+				"feature",
+				"improvement"
+			],
+			"link": "/forge"
+		},
+		{
+			"date": "2026-06-21",
 			"title": "Authorize $THREE once, then pay with no wallet popups",
 			"summary": "The $THREE page now lets you set a spending allowance: approve a cap once, and paid actions across the platform — forge, skills, names, cosmetics — debit it automatically without asking you to sign every time. It's non-custodial and built on Solana's native, audited Subscriptions & Allowances program: your tokens stay in your own wallet until a charge pulls them, never more than the cap you set, and you can let it expire or revoke it anytime. Set a cap, top it up, or leave it off and keep signing each payment — your choice.",
 			"tags": [

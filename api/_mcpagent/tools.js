@@ -14,6 +14,7 @@
 import { limits } from '../_lib/rate-limit.js';
 import { env } from '../_lib/env.js';
 import { sql } from '../_lib/db.js';
+import { confirmOrThrow } from '../_lib/solana/confirm.js';
 import { hasScope } from '../_lib/auth.js';
 import { Bazaar, filterByMaxPrice, filterByNetwork } from '../_lib/x402/bazaar-client.js';
 import {
@@ -120,7 +121,7 @@ async function requestDevnetAirdrop(address) {
 	try {
 		const conn = solanaConnection('devnet');
 		const signature = await conn.requestAirdrop(new PublicKey(address), LAMPORTS_PER_SOL);
-		await conn.confirmTransaction(signature, 'confirmed');
+		await confirmOrThrow(conn, signature, 'confirmed');
 		return { ok: true, signature, sol: 1 };
 	} catch (err) {
 		const rateLimited = /429|limit/i.test(err?.message || '');

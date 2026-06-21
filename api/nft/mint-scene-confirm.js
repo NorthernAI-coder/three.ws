@@ -2,6 +2,7 @@ import { env } from '../_lib/env.js';
 import { wrap, cors, error, json, readJson, method, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { solanaConnection } from '../_lib/solana/connection.js';
+import { confirmOrThrow } from '../_lib/solana/confirm.js';
 
 export default wrap(async (req, res) => {
 	if (cors(req, res)) return;
@@ -38,11 +39,17 @@ export default wrap(async (req, res) => {
 
 	try {
 		const latestBlockhash = await connection.getLatestBlockhash('confirmed');
-		await connection.confirmTransaction(
+		await confirmOrThrow(
+			connection,
 			{ signature, ...latestBlockhash },
 			'confirmed',
 		);
 	} catch (e) {
+		// A confirmed-but-reverted tx is a hard failure, not an uncertain one — never
+		// hand back a soft 200 that reads as success.
+		if (e?.code === 'tx_reverted') {
+			return error(res, 422, 'tx_failed', `Mint transaction reverted on-chain: ${JSON.stringify(e.onChainErr)}`);
+		}
 		// Return the signature even if confirmation polling times out — the tx may still land.
 		return json(res, 200, { signature, warning: `Confirmation uncertain: ${e.message}` });
 	}

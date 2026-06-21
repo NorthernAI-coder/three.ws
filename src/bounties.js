@@ -7,6 +7,8 @@
 // bounty, not just the first page. Sort + query are reflected in the URL so a
 // view is shareable and survives refresh. Read-only.
 
+import { safeUrl } from './safe-url.js';
+
 const API = '/api/pump-bounties';
 const PAGE = 30;
 const MAX_SCAN_PAGES = 24; // safety ceiling on the full-board search scan
@@ -266,7 +268,7 @@ function card(b) {
 		(a) => a.kind === 'image' || /^image\//.test(a.contentType || ''),
 	);
 	const thumb = img
-		? `<div class="card-thumb" style="background-image:url('${esc(img.url)}')">${statusBadge(b.status, true)}</div>`
+		? `<div class="card-thumb" style="background-image:url('${esc(safeUrl(img.url, ''))}')">${statusBadge(b.status, true)}</div>`
 		: `<div class="card-thumb empty">🎯${statusBadge(b.status, true)}</div>`;
 	const usd = b.reward.totalUsd != null ? `$${fmtNum(b.reward.totalUsd)}` : '—';
 	const token = b.reward.sol != null ? `◎ ${fmtNum(b.reward.sol)} SOL` : tokenLabel(b);

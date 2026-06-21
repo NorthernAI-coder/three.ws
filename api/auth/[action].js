@@ -39,7 +39,7 @@ async function handleLogin(req, res) {
 	const isEmail = body.email.includes('@');
 	const rows = isEmail
 		? await sql`select id, email, password_hash, display_name, plan, avatar_url, referral_code from users where email = ${body.email} and deleted_at is null limit 1`
-		: await sql`select id, email, password_hash, display_name, plan, avatar_url, referral_code from users where display_name ilike ${body.email} and deleted_at is null limit 1`;
+		: await sql`select id, email, password_hash, display_name, plan, avatar_url, referral_code from users where lower(display_name) = lower(${body.email}) and deleted_at is null limit 1`;
 	const user = rows[0];
 	// Always run a bcrypt compare, even when the account doesn't exist, so the
 	// response time doesn't reveal whether the email/username is registered.
@@ -130,7 +130,7 @@ async function handleRegister(req, res) {
 		displayName_val = body.username;
 		passwordVal = body.password;
 		referralCode = body.referralCode;
-		const existing = await sql`select id from users where display_name ilike ${body.username} and deleted_at is null limit 1`;
+		const existing = await sql`select id from users where lower(display_name) = lower(${body.username}) and deleted_at is null limit 1`;
 		if (existing[0]) return error(res, 409, 'conflict', 'email or username already in use');
 	} else {
 		const body = parse(registerBody, raw);

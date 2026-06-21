@@ -10,6 +10,7 @@
 import { openTalkMode } from './voice/talk-mode.js';
 import { downloadAvatar } from './avatar-export.js';
 import { fbxFromUrl } from './remesh-convert.js';
+import { safeUrl } from './safe-url.js';
 import { log } from './shared/log.js';
 import { emptyStateHTML, errorStateHTML } from './shared/state-kit.js';
 import { mountViewSwitcher } from './view-switcher.js';
@@ -217,7 +218,7 @@ function renderShell(glbUrl) {
 	const author = avatar.author || avatar.attribution;
 	const byLine = author?.handle
 		? author.profileUrl || author.url
-			? `<p class="av-by">by <a href="${esc(author.profileUrl || author.url)}" target="_blank" rel="noopener">${esc(author.displayName || author.handle)}</a></p>`
+			? `<p class="av-by">by <a href="${esc(safeUrl(author.profileUrl || author.url))}" target="_blank" rel="noopener">${esc(author.displayName || author.handle)}</a></p>`
 			: `<p class="av-by">by ${esc(author.displayName || author.handle)}</p>`
 		: avatar.owner_username
 			? `<p class="av-by">by <a href="/u/${esc(avatar.owner_username)}">@${esc(avatar.owner_username)}</a></p>`

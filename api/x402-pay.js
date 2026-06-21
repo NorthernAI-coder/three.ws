@@ -490,6 +490,21 @@ async function probeExternalRequirements({ url, method, body }) {
 		const networks = [...new Set(challenge.accepts.map((a) => a?.network).filter(Boolean))];
 		return { unsupported: true, networks, challenge };
 	}
+	// Pin the asset to the configured Solana USDC mint. Without this an external
+	// server could name ANY SPL token as `asset` (e.g. one the agent holds) and we
+	// would sign a transferChecked of THAT token — draining the wallet — while the
+	// USD spend cap (which divides amount by 1e6 assuming 6-decimal USDC) badly
+	// mis-counts a non-USDC charge. Refuse anything that isn't the known USDC mint.
+	if (!USDC_MAINNET_MINT || solAccept.asset !== USDC_MAINNET_MINT) {
+		throw Object.assign(
+			new Error('this service requested payment in a non-USDC asset; agent wallets only pay Solana USDC'),
+			{
+				status: 422,
+				code: 'unsupported_asset',
+				detail: { asset: solAccept.asset ?? null, expected: USDC_MAINNET_MINT ?? null },
+			},
+		);
+	}
 	const resource =
 		challenge.resource && typeof challenge.resource === 'object'
 			? challenge.resource

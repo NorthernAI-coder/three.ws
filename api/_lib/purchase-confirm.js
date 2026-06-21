@@ -506,6 +506,7 @@ async function finalizeSkillConfirmation(pur, txSignature, payoutAddress, platfo
 				(${pur.agent_id}, ${intentId}, ${pur.skill},
 				 ${grossAmt.toString()}, ${referralAmt.toString()}, ${platformFee.toString()},
 				 ${netAmt.toString()}, ${pur.currency_mint}, ${pur.chain}, ${payoutAddress})
+			ON CONFLICT (intent_id) DO NOTHING
 		`;
 		if (pur.referrer_user_id && referralAmt > 0n) {
 			// Track the referrer's accrued earnings. Real payout happens via the
@@ -583,6 +584,113 @@ async function finalizeSkillConfirmation(pur, txSignature, payoutAddress, platfo
 	}
 
 	return { status: 'confirmed', tx_signature: txSignature };
+}
+
+// ── Bundle verification ───────────────────────────────────────────────────────
+//
+// A bundle is ONE payment for the whole-bundle price. This proves that payment
+// on-chain before any skill is unlocked, reusing the exact primitives the
+// single-skill path uses (Solana-Pay reference + validateTransfer, treasury
+// fee-leg balance delta, EVM payer-binding). The caller performs the DB writes
+// (mark confirmed, unlock skills, record revenue) only on { status: 'confirmed' }.
+//
+// @param {object} b — { chain, reference, txHash, recipient, currencyMint,
+//                       priceAtomics, feeAtomics, feeWallet, decimals, userId }
+// @returns {Promise<{ status: 'confirmed'|'pending'|'mismatch', txSignature?: string, message?: string }>}
+export async function verifyBundlePayment(b) {
+	const recipient = await resolvePayoutAddress(b.agentId, b.chain);
+	if (!recipient) throw new Error('payout wallet not configured');
+	if (b.chain === 'solana') return verifyBundleSolana(b, recipient);
+	if (evmChainId(b.chain)) return verifyBundleEvm(b, recipient);
+	throw new Error(`chain '${b.chain}' not supported`);
+}
+
+async function verifyBundleSolana(b, payoutAddress) {
+	if (!b.reference) return { status: 'mismatch', message: 'purchase is missing its payment reference' };
+	const refKey = new PublicKey(b.reference);
+	const recipient = new PublicKey(payoutAddress);
+	const splToken = new PublicKey(b.currencyMint);
+	const pow = new BigNumber(10).pow(b.decimals ?? 6);
+	const fullAtomics = new BigNumber(b.priceAtomics);
+	const feeAtomics = new BigNumber(b.feeAtomics || 0);
+
+	let signatureInfo;
+	try {
+		signatureInfo = await rpc().withFallback((conn) =>
+			findReference(conn, refKey, { finality: 'confirmed' }),
+		);
+	} catch (e) {
+		if (/FindReferenceError|not found/i.test(e?.message || '')) return { status: 'pending' };
+		throw e;
+	}
+	const txSignature = signatureInfo.signature;
+
+	const validateLeg = (who, amountAtomics) =>
+		rpc().withFallback((conn) =>
+			validateTransfer(
+				conn,
+				txSignature,
+				{ recipient: who, amount: amountAtomics.dividedBy(pow), splToken, reference: refKey },
+				{ commitment: 'confirmed' },
+			),
+		);
+
+	const attempts = [];
+	if (feeAtomics.gt(0) && b.feeWallet)
+		attempts.push({ creator: fullAtomics.minus(feeAtomics), feeTaken: feeAtomics, feeWallet: b.feeWallet });
+	attempts.push({ creator: fullAtomics, feeTaken: new BigNumber(0), feeWallet: null });
+
+	let matched = null;
+	let lastErr = null;
+	for (const a of attempts) {
+		try {
+			await validateLeg(recipient, a.creator);
+			if (a.feeTaken.gt(0)) {
+				const ok = await feeLegSatisfied(txSignature, a.feeWallet, splToken, BigInt(a.feeTaken.toFixed(0)));
+				if (!ok) throw new Error('platform fee leg missing or short');
+			}
+			matched = a;
+			break;
+		} catch (e) {
+			lastErr = e;
+		}
+	}
+	if (!matched)
+		return { status: 'mismatch', message: lastErr?.message || 'on-chain transfer did not match expected' };
+	return { status: 'confirmed', txSignature };
+}
+
+async function verifyBundleEvm(b, payoutAddress) {
+	if (!b.txHash) return { status: 'pending' };
+	const result = await verifyEvmUsdcPayment({
+		txHash: b.txHash,
+		chain: b.chain,
+		recipient: payoutAddress,
+		expectedAmount: b.priceAtomics,
+	});
+	if (result.status === 'pending') return { status: 'pending' };
+
+	// Bind the on-chain payment to the buyer — a public transfer to the seller is
+	// not proof THIS buyer paid. Mirror confirmEvmSkill: the payer must be a
+	// wallet linked to the buyer's account.
+	if (result.from) {
+		const payer = result.from.toLowerCase();
+		const [linked] = await sql`
+			SELECT 1 FROM user_wallets WHERE user_id = ${b.userId} AND lower(address) = ${payer} LIMIT 1
+		`;
+		if (!linked)
+			return {
+				status: 'mismatch',
+				message:
+					'payment must be sent from a wallet linked to your account — link the paying wallet, then retry',
+			};
+	} else if (result.status === 'match') {
+		return { status: 'mismatch', message: 'could not determine payer address from transaction' };
+	}
+
+	if (result.status !== 'match')
+		return { status: 'mismatch', message: result.message || 'amount mismatch' };
+	return { status: 'confirmed', txSignature: b.txHash };
 }
 
 async function getSellerUserId(agentId) {

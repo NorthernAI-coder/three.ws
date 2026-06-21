@@ -55,7 +55,12 @@ async function signAndSend({ network, preferred, ix, feePayer }) {
 
 	const tx = new Transaction({ feePayer, recentBlockhash: blockhash }).add(ix);
 	const { signature } = await provider.signAndSendTransaction(tx);
-	await conn.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, 'confirmed');
+	const conf = await conn.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, 'confirmed');
+	// A confirmed-but-reverted tx carries its error in value.err rather than
+	// throwing — surface it so a failed attestation never looks like a success.
+	if (conf?.value?.err) {
+		throw new Error(`attestation tx ${signature} reverted on-chain: ${JSON.stringify(conf.value.err)}`);
+	}
 	return signature;
 }
 

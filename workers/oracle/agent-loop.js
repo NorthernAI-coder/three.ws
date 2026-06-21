@@ -8,7 +8,7 @@
 import { sql } from '../../api/_lib/db.js';
 import { log } from './log.js';
 import { evaluateWatch } from '../../api/_lib/oracle/agent-eval.js';
-import { executeAction, agentBudget } from './executor.js';
+import { executeAction } from './executor.js';
 import { alertAgentEntry, alertPersonalEntry, alertPersonalSignal, alertPersonalConvictionDrop, alertFollowers } from '../../api/_lib/oracle/alerts.js';
 
 // Module cursor — only consider verdicts scored since the last pass.
@@ -74,12 +74,44 @@ async function droppedConvictionPositions(network, mints) {
 	`.catch((e) => { log.warn('droppedConvictionPositions query failed:', e.message); return []; });
 }
 
-async function alreadyActed(agentId, mint, network) {
-	const r = await sql`
-		select 1 from oracle_watch_actions
-		where agent_id = ${agentId} and mint = ${mint} and network = ${network} limit 1
+/**
+ * Open positions + today's committed SOL for every agent in one pass — the
+ * batched form of executor.agentBudget, keyed by agent_id. Preserves the exact
+ * budget semantics (open = outcome 'open' & status filled/taken; spent = sum of
+ * size_sol over the last 24h for filled/taken). Agents with no rows are absent
+ * from the Map and default to a zero budget at the call site.
+ */
+async function agentBudgets(agentIds, network) {
+	const map = new Map();
+	if (!agentIds.length) return map;
+	const rows = await sql`
+		select agent_id,
+			count(*) filter (where outcome = 'open' and status in ('filled','taken'))::int as open_count,
+			coalesce(sum(size_sol) filter (where acted_at > now() - interval '24 hours' and status in ('filled','taken')), 0)::numeric as spent_today
+		from oracle_watch_actions
+		where agent_id = any(${agentIds}) and network = ${network}
+		group by agent_id
 	`.catch(() => []);
-	return r.length > 0;
+	for (const r of rows) {
+		map.set(r.agent_id, { openCount: Number(r.open_count) || 0, spentTodaySol: Number(r.spent_today) || 0 });
+	}
+	return map;
+}
+
+/**
+ * Set of "agentId:mint" pairs that already have an action for the given agents
+ * and mints — the batched form of alreadyActed. Scoping to the watch agents and
+ * the fresh-coin mints keeps the result bounded.
+ */
+async function actedPairs(agentIds, mints, network) {
+	const set = new Set();
+	if (!agentIds.length || !mints.length) return set;
+	const rows = await sql`
+		select agent_id, mint from oracle_watch_actions
+		where agent_id = any(${agentIds}) and mint = any(${mints}) and network = ${network}
+	`.catch(() => []);
+	for (const r of rows) set.add(`${r.agent_id}:${r.mint}`);
+	return set;
 }
 
 /**
@@ -110,10 +142,17 @@ export async function actOnFreshCoins(cfg, coins) {
 		}).catch(() => {});
 	}
 
-	let acted = 0;
+	// Pre-aggregate budgets (one GROUP BY) and already-acted pairs (one query)
+	// for every armed agent against the fresh mints, replacing per-watch and
+	// per-(watch,coin) round trips inside the loops below.
+	const watchAgentIds = [...new Set(watches.map((w) => w.agent_id))];
+	const budgets = await agentBudgets(watchAgentIds, cfg.network);
+	const acted = await actedPairs(watchAgentIds, freshMints, cfg.network);
+
+	let actedCount = 0;
 	const liveEntries = [];
 	for (const watch of watches) {
-		const { openCount, spentTodaySol } = await agentBudget(watch.agent_id, cfg.network);
+		const { openCount, spentTodaySol } = budgets.get(watch.agent_id) || { openCount: 0, spentTodaySol: 0 };
 		let open = openCount, spent = spentTodaySol;
 
 		// Personal signal alerts: fire once per watch for coins that clear its threshold
@@ -129,10 +168,15 @@ export async function actOnFreshCoins(cfg, coins) {
 		for (const coin of coins) {
 			const decision = evaluateWatch({ watch, coin, openCount: open, spentTodaySol: spent });
 			if (!decision.act) continue;
-			if (await alreadyActed(watch.agent_id, coin.mint, cfg.network)) continue;
+			const actedKey = `${watch.agent_id}:${coin.mint}`;
+			if (acted.has(actedKey)) continue;
 			const res = await executeAction({ cfg, watch, coin, size: decision.size, reason: decision.reason });
+			// executeAction always logs an action row (filled/skipped/failed), so the
+			// original per-iteration alreadyActed check would dedup this pair on any
+			// later coin in this pass — mirror that by recording it now.
+			acted.add(actedKey);
 			if (res.status === 'filled') {
-				acted += 1; open += 1; spent += decision.size;
+				actedCount += 1; open += 1; spent += decision.size;
 				// Platform channel: live-mode entries only (too much noise for sim).
 				if (watch.mode === 'live' && cfg.mode === 'live') {
 					liveEntries.push({
@@ -172,9 +216,9 @@ export async function actOnFreshCoins(cfg, coins) {
 			}
 		}
 	}
-	if (acted) log.info(`agent loop: ${acted} action(s) across ${watches.length} armed agent(s)`);
+	if (actedCount) log.info(`agent loop: ${actedCount} action(s) across ${watches.length} armed agent(s)`);
 	if (liveEntries.length) alertAgentEntry(liveEntries).catch(() => {});
-	return acted;
+	return actedCount;
 }
 
 export async function runAgentPass(cfg) {

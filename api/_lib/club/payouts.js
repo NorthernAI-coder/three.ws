@@ -21,6 +21,7 @@ import {
 	ComputeBudgetProgram,
 } from '@solana/web3.js';
 import { solanaConnection } from '../solana/connection.js';
+import { confirmOrThrow } from '../solana/confirm.js';
 import {
 	getAssociatedTokenAddress,
 	createAssociatedTokenAccountInstruction,
@@ -96,7 +97,7 @@ export async function sendClubUsdcSolana({ recipient, amount }) {
 async function confirmWithTimeout(connection, signature, { blockhash, lastValidBlockHeight }) {
 	const start = Date.now();
 	try {
-		await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, 'confirmed');
+		await confirmOrThrow(connection, { signature, blockhash, lastValidBlockHeight }, 'confirmed');
 		return;
 	} catch {
 		while (Date.now() - start < SEND_TIMEOUT_MS) {

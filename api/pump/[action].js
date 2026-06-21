@@ -54,6 +54,7 @@
 import { z } from 'zod';
 import { Keypair, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { sql } from '../_lib/db.js';
+import { confirmOrThrow } from '../_lib/solana/confirm.js';
 import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.js';
 import { cors, json, method, readJson, wrap, error, rateLimited, respondError } from '../_lib/http.js';
 import { putObject, publicUrl as r2PublicUrl } from '../_lib/r2.js';
@@ -1811,7 +1812,7 @@ async function handleLaunchAgent(req, res) {
 	let signature;
 	try {
 		signature = await conn.sendRawTransaction(vtx.serialize(), { skipPreflight: false });
-		await conn.confirmTransaction(signature, 'confirmed');
+		await confirmOrThrow(conn, signature, 'confirmed');
 	} catch (err) {
 		console.error('[pump/launch-agent] send failed', err);
 		await releaseSpend(reservation.reservationId);
@@ -4557,7 +4558,7 @@ async function signSendWithAgent({ network, agentKeypair, instructions, extraSig
 	const vtx = new VersionedTransaction(msg);
 	vtx.sign([agentKeypair, ...extraSigners]);
 	const signature = await conn.sendRawTransaction(vtx.serialize(), { skipPreflight: false });
-	await conn.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, 'confirmed');
+	await confirmOrThrow(conn, { signature, blockhash, lastValidBlockHeight }, 'confirmed');
 	return signature;
 }
 

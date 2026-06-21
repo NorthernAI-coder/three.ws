@@ -28,8 +28,9 @@ export default [
 			'**/draco/**',
 			'**/basis/**',
 			'public/scene-studio/libs/**',
-			'src/scene-studio/vendor/**',
-			'**/vendor/mediapipe/**',
+			// Any directory named `vendor` holds third-party code we don't own
+			// and must not lint (e.g. extensions/*/vendor/readability.js).
+			'**/vendor/**',
 			'**/*.bundle.js',
 			'public/dashboard/avaturn-sdk.js',
 			// Self-contained sub-projects with their own ESLint flat config

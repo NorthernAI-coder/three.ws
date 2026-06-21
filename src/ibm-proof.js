@@ -291,10 +291,10 @@ function renderProof(data) {
 		['TimeSeries', m.timeseries],
 		['Narrator', m.narrator],
 		['Guardian', m.guardian],
-	].filter(([, v]) => v).map(([k, v]) => `<span class="m"><b>${k}</b> ${v}</span>`).join('');
+	].filter(([, v]) => v).map(([k, v]) => `<span class="m"><b>${k}</b> ${escapeHtml(v)}</span>`).join('');
 	const at = data.attester?.address;
 	$('p-attester').innerHTML = at
-		? `<a href="${data.attester.explorer}" target="_blank" rel="noopener" style="color:var(--brand-blue-light);text-decoration:none">${at}</a>`
+		? `<a href="${escapeHtml(explorerHref(data.attester.explorer))}" target="_blank" rel="noopener" style="color:var(--brand-blue-light);text-decoration:none">${escapeHtml(at)}</a>`
 		: '<span style="color:var(--faint)">not configured — set AVATAR_WALLET_SECRET to enable notarization</span>';
 }
 
@@ -354,7 +354,7 @@ async function notarize(data) {
 		const out = await r.json();
 		const oc = out.onchain || {};
 		if (oc.submitted && oc.signature) {
-			showNotice('ok', `Notarized on-chain. <a href="${oc.explorer}" target="_blank" rel="noopener">View on Solscan ↗</a>`);
+			showNotice('ok', `Notarized on-chain. <a href="${escapeHtml(explorerHref(oc.explorer))}" target="_blank" rel="noopener">View on Solscan ↗</a>`);
 			avatar.speak('Done. The forecast is now permanently on-chain — anyone can verify it.');
 			avatar.animate('celebrate');
 			addToFeed(out);
@@ -395,11 +395,11 @@ function renderFeed() {
 		const cls = it.dir === 'up' ? 'up' : it.dir === 'down' ? 'down' : '';
 		const arrow = it.dir === 'up' ? '▲' : it.dir === 'down' ? '▼' : '—';
 		const right = it.explorer
-			? `<div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px"><a class="tx" href="${it.explorer}" target="_blank" rel="noopener">Solscan ↗</a><button class="copy verify-item" data-sig="${it.signature}">verify on-chain ↻</button></div>`
+			? `<div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px"><a class="tx" href="${escapeHtml(explorerHref(it.explorer))}" target="_blank" rel="noopener">Solscan ↗</a><button class="copy verify-item" data-sig="${escapeHtml(it.signature)}">verify on-chain ↻</button></div>`
 			: '<span class="l2">pending</span>';
 		return `<div class="attestation">
 			<div class="badge2 ${cls}">${arrow}</div>
-			<div class="meta"><div class="l1">${it.symbol} · ${fmtPct(it.changePct)}</div><div class="l2">${it.digest.slice(0, 40)}…</div></div>
+			<div class="meta"><div class="l1">${escapeHtml(it.symbol)} · ${fmtPct(it.changePct)}</div><div class="l2">${escapeHtml(String(it.digest).slice(0, 40))}…</div></div>
 			${right}
 		</div>`;
 	}).join('');
@@ -467,8 +467,8 @@ function renderPicker() {
 		const chg = p.change24h != null
 			? `<span style="color:${p.change24h >= 0 ? 'var(--up)' : 'var(--down)'};margin-left:7px">${p.change24h >= 0 ? '+' : ''}${Number(p.change24h).toFixed(1)}%</span>`
 			: '';
-		return `<button class="chip" role="tab" data-pool="${p.pool}" aria-selected="${i === 0 ? 'true' : 'false'}">
-			<span class="sym">${sym}</span><span class="nm">${nm}</span><span class="px">${px}${chg}</span>
+		return `<button class="chip" role="tab" data-pool="${escapeHtml(p.pool)}" aria-selected="${i === 0 ? 'true' : 'false'}">
+			<span class="sym">${escapeHtml(sym)}</span><span class="nm">${escapeHtml(nm)}</span><span class="px">${px}${chg}</span>
 		</button>`;
 	}).join('');
 	el.querySelectorAll('.chip').forEach((c) => c.addEventListener('click', () => {

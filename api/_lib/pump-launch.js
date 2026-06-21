@@ -16,6 +16,7 @@
 import { Keypair, PublicKey, Transaction } from '@solana/web3.js';
 import { env } from './env.js';
 import { solanaConnection } from './agent-pumpfun.js';
+import { confirmOrThrow } from './solana/confirm.js';
 import { grindMintKeypair } from './pump-vanity.js';
 
 const PUMP_IPFS_ENDPOINT = 'https://pump.fun/api/ipfs';
@@ -243,7 +244,7 @@ export async function launchPumpToken({
 	let signature;
 	try {
 		signature = await conn.sendRawTransaction(tx.serialize(), { skipPreflight: false });
-		await conn.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, 'confirmed');
+		await confirmOrThrow(conn, { signature, blockhash, lastValidBlockHeight }, 'confirmed');
 	} catch (err) {
 		throw launchError(502, 'rpc_error', err.message || 'create-coin transaction failed');
 	}

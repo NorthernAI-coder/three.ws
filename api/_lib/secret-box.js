@@ -26,16 +26,35 @@ export const V2_PREFIX = 'v2:';
 const LEGACY_SALT = new TextEncoder().encode('agent-wallet-v1');
 let _warnedFallback = false;
 
+const IS_PROD =
+	env.VERCEL_ENV === 'production' || env.NODE_ENV === 'production';
+
 // Dedicated master secret for at-rest encryption, decoupled from JWT_SECRET.
+//
+// In production we FAIL CLOSED: a missing/short WALLET_ENCRYPTION_KEY must never
+// silently downgrade custodial-secret confidentiality to JWT_SECRET (the most
+// widely-handled secret on the platform — a JWT_SECRET leak would then decrypt
+// every wallet, and rotating it to invalidate sessions would brick every wallet
+// whose ciphertext used the fallback). The JWT_SECRET fallback survives only
+// outside production so local/CI/preview keep working without extra setup.
 function walletMasterSecret() {
 	const dedicated = env.WALLET_ENCRYPTION_KEY;
+	if (dedicated && dedicated.length >= 32) return dedicated;
+	if (IS_PROD) {
+		throw new Error(
+			'[secret-box] WALLET_ENCRYPTION_KEY is required in production and must be ' +
+				'>=32 chars. Refusing to encrypt/decrypt custodial secrets under the ' +
+				'JWT_SECRET fallback. Set a dedicated WALLET_ENCRYPTION_KEY.',
+		);
+	}
 	if (dedicated && dedicated.length >= 16) return dedicated;
 	if (!_warnedFallback) {
 		_warnedFallback = true;
 		console.warn(
 			'[secret-box] WALLET_ENCRYPTION_KEY is not set (or too short); falling back to ' +
 				'JWT_SECRET for custodial secret encryption. Set a dedicated WALLET_ENCRYPTION_KEY ' +
-				'(>=16 chars) so secret confidentiality does not depend on the session secret.',
+				'(>=32 chars) so secret confidentiality does not depend on the session secret. ' +
+				'(This fallback is disabled in production.)',
 		);
 	}
 	return env.JWT_SECRET;

@@ -245,7 +245,7 @@ function buildLegend(clusters) {
 		btn.type = 'button';
 		btn.dataset.cluster = String(c.id);
 		btn.innerHTML =
-			`<span class="gx-legend-swatch" style="color:${c.color};background:${c.color}"></span>` +
+			`<span class="gx-legend-swatch" style="color:${escapeHtml(c.color)};background:${escapeHtml(c.color)}"></span>` +
 			`<span class="gx-legend-name">${escapeHtml(c.label)}</span>` +
 			`<span class="gx-legend-count">${c.size}</span>`;
 		btn.title = c.theme || c.label;
@@ -406,7 +406,7 @@ function selectAgent(index, fly = false) {
 	}
 	els.gxCardName.textContent = a.name;
 	els.gxCardConstellation.innerHTML = cluster
-		? `<span class="gx-tip-dot" style="background:${cluster.color}"></span>${escapeHtml(cluster.label)}`
+		? `<span class="gx-tip-dot" style="background:${escapeHtml(cluster.color)}"></span>${escapeHtml(cluster.label)}`
 		: '';
 	els.gxCardDesc.textContent = a.description || 'No description.';
 
@@ -597,7 +597,7 @@ function updateHover() {
 	const c = state.clusterById.get(a.cluster);
 	els.gxTip.innerHTML =
 		`<div class="gx-tip-name">${escapeHtml(a.name)}</div>` +
-		(c ? `<div class="gx-tip-cluster"><span class="gx-tip-dot" style="background:${c.color}"></span>${escapeHtml(c.label)}</div>` : '');
+		(c ? `<div class="gx-tip-cluster"><span class="gx-tip-dot" style="background:${escapeHtml(c.color)}"></span>${escapeHtml(c.label)}</div>` : '');
 	els.gxTip.hidden = false;
 	els.gxCanvas.classList.add('gx-pointing');
 	positionTip();

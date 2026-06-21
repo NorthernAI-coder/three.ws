@@ -1,5 +1,6 @@
 import { PublicKey, Transaction, Keypair } from '@solana/web3.js';
 import { solanaConnection } from './solana/connection.js';
+import { confirmOrThrow } from './solana/confirm.js';
 import {
 	getAssociatedTokenAddress,
 	createAssociatedTokenAccountInstruction,
@@ -43,6 +44,6 @@ export async function transferSolanaUSDC({ fromWallet, toAddress, amount, mint }
 
 	tx.sign(kp);
 	const sig = await connection.sendRawTransaction(tx.serialize(), { skipPreflight: false });
-	await connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed');
+	await confirmOrThrow(connection, { signature: sig, blockhash, lastValidBlockHeight }, 'confirmed');
 	return sig;
 }

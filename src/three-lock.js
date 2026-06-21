@@ -17,6 +17,8 @@
 // Fully keyboard-navigable (real <a>/<button>), ARIA-labelled, reduced-motion
 // aware, and responsive. Never throws — a missing target is a no-op.
 
+import { safeUrl } from './safe-url.js';
+
 const ECONOMY_URL = '/three-token';
 const SIGN_IN_URL = '/login';
 const LINK_WALLET_URL = '/dashboard/account#wallets';
@@ -159,7 +161,7 @@ function renderLocked(state) {
 	const held = state.held || { label: 'Member', level: 0 };
 	const reason = state.reason || 'insufficient_tier';
 	const tone = tierTone(required.id);
-	const getUrl = escapeHtml(state.getThreeUrl || ECONOMY_URL);
+	const getUrl = escapeHtml(safeUrl(state.getThreeUrl || ECONOMY_URL));
 
 	const sub =
 		reason === 'sign_in'

@@ -28,6 +28,7 @@
 // the UI never throws and the server stays the only authority on eligibility.
 
 import { getConnectedWallet, getConnectedWalletAddress } from './wallet.js';
+import { safeUrl } from './safe-url.js';
 
 const ACCESS_TTL_MS = 30_000;
 // The matrix cache is keyed by identity (the connected wallet, or null for the
@@ -380,7 +381,7 @@ export function showThreeGate(gate, opts = {}) {
 			<p class="tg-desc" id="tg-desc">${sub}</p>
 			${gate.why ? `<p class="tg-why">${escapeHtml(gate.why)}</p>` : ''}
 			<div class="tg-actions">
-				<a class="tg-btn tg-btn--primary" id="tg-get" href="${escapeHtml(getUrl)}">Get $THREE</a>
+				<a class="tg-btn tg-btn--primary" id="tg-get" href="${escapeHtml(safeUrl(getUrl))}">Get $THREE</a>
 				${payBtn}
 				<a class="tg-btn tg-btn--ghost" href="${ECONOMY_URL}">$THREE price &amp; chart</a>
 			</div>

@@ -3,6 +3,7 @@
 
 import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.js';
 import { sql } from '../_lib/db.js';
+import { confirmOrThrow } from '../_lib/solana/confirm.js';
 import { cors, json, method, error, readJson, rateLimited, serverError } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { requireCsrf } from '../_lib/csrf.js';
@@ -253,7 +254,7 @@ async function handleAirdrop(req, res, id) {
 	try {
 		const conn = solanaConnection('devnet');
 		signature = await conn.requestAirdrop(new PublicKey(address), AIRDROP_LAMPORTS);
-		await conn.confirmTransaction(signature, 'confirmed');
+		await confirmOrThrow(conn, signature, 'confirmed');
 	} catch (err) {
 		console.error('[agents/solana/airdrop] failed', err);
 		return error(res, 502, 'faucet_unavailable',

@@ -16,7 +16,7 @@
 //   });
 
 import { timingSafeEqual } from 'node:crypto';
-import { sql } from '../_lib/db.js';
+import { sql, sqlValues } from '../_lib/db.js';
 import { cors, json, method, wrap, error, readJson } from '../_lib/http.js';
 import { parsePumpTrades } from '../_lib/helius.js';
 import { WSOL_MINT } from '../_lib/pump-quote.js';
@@ -42,26 +42,26 @@ export default wrap(async (req, res) => {
 	const trades = txns.flatMap(parsePumpTrades);
 	if (trades.length === 0) return json(res, 200, { received: txns.length, trades: 0 });
 
-	let inserted = 0;
-	for (const t of trades) {
-		// Helius parses native-SOL pump.fun swaps, so every monitored trade is
-		// SOL-paired: the quote is wrapped SOL and quote_amount == sol_amount.
-		const lamports = Math.round(t.sol * 1e9);
-		const r = await sql`
-			insert into pump_agent_trades (
-				mint_id, user_id, wallet, direction, route,
-				sol_amount, quote_mint, quote_symbol, quote_amount, tx_signature, network
-			)
-			select
-				m.id, null, ${t.wallet}, ${t.side}, 'bonding_curve',
-				${lamports}, ${WSOL_MINT}, 'SOL', ${lamports}, ${t.signature}, 'mainnet'
-			from pump_agent_mints m
-			where m.mint = ${t.mint}
-			on conflict (tx_signature, network) do nothing
-			returning id
-		`;
-		if (r.length) inserted++;
-	}
+	// Helius parses native-SOL pump.fun swaps, so every monitored trade is
+	// SOL-paired: the quote is wrapped SOL and quote_amount == sol_amount.
+	// One multi-row insert, joined to pump_agent_mints exactly as the per-trade
+	// query did — only trades whose mint is a tracked agent mint are persisted,
+	// and (tx_signature, network) collisions are skipped. Atomic in one statement.
+	const rows = trades.map((t) => [t.mint, t.wallet, t.side, Math.round(t.sol * 1e9), t.signature]);
+	const insertedRows = await sql`
+		insert into pump_agent_trades (
+			mint_id, user_id, wallet, direction, route,
+			sol_amount, quote_mint, quote_symbol, quote_amount, tx_signature, network
+		)
+		select
+			m.id, null, v.wallet, v.direction, 'bonding_curve',
+			v.lamports::bigint, ${WSOL_MINT}, 'SOL', v.lamports::bigint, v.signature, 'mainnet'
+		from ( values ${sqlValues(rows)} ) as v(mint, wallet, direction, lamports, signature)
+		join pump_agent_mints m on m.mint = v.mint
+		on conflict (tx_signature, network) do nothing
+		returning id
+	`;
+	const inserted = insertedRows.length;
 
 	return json(res, 200, { received: txns.length, trades: trades.length, inserted });
 });

@@ -1,5 +1,7 @@
 // Bounty board — three.ws/go
 
+import { safeUrl } from './safe-url.js';
+
 const API = '/api/bounties';
 let currentTab = 'feed';
 let currentUser = null;
@@ -177,7 +179,7 @@ function renderSubmissionCard(s) {
 		s.media_url && isImageUrl(s.media_url)
 			? `<img class="sub-media" src="${esc(s.media_url)}" alt="submission media" loading="lazy" />`
 			: s.media_url
-				? `<a href="${esc(s.media_url)}" target="_blank" rel="noopener noreferrer" class="btn btn-ghost btn-sm" style="display:inline-flex;gap:6px;margin-bottom:8px;">🔗 View proof</a>`
+				? `<a href="${esc(safeUrl(s.media_url))}" target="_blank" rel="noopener noreferrer" class="btn btn-ghost btn-sm" style="display:inline-flex;gap:6px;margin-bottom:8px;">🔗 View proof</a>`
 				: '';
 
 	return `
