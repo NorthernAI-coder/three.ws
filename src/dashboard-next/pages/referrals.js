@@ -737,11 +737,13 @@ function wireCodeEditor(host, card) {
 		input.addEventListener('input', () => {
 			// Live-sanitize to the canonical alphabet so the field only ever holds
 			// what can actually be saved.
-			const caret = input.selectionStart;
 			const cleaned = input.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, CODE_MAX);
 			if (cleaned !== input.value) {
 				input.value = cleaned;
-				if (caret != null) input.setSelectionRange(caret - 1, caret - 1);
+				// Place cursor at end of cleaned value — multi-char strips (e.g.
+				// paste of "my-code!") may remove more than one character, making
+				// caret - 1 wrong. End-of-field is always safe and expected.
+				input.setSelectionRange(cleaned.length, cleaned.length);
 			}
 			clearTimeout(debounce);
 			debounce = setTimeout(evaluate, 280);

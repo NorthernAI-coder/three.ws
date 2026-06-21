@@ -3,6 +3,20 @@
 	"entries": [
 		{
 			"date": "2026-06-21",
+			"title": "Membership tiers and referral codes",
+			"summary": "Every member now wears a mode on their card: User, Beta, Pro, Holder, or Three Dimensional. The tier panel on your referrals page shows every badge you hold, what each one unlocks, and the next mode to aim for — with a live $THREE holder check across all your linked wallets. Referral codes now default to your name and you can customize them at any time from your membership card.",
+			"tags": ["feature"],
+			"link": "/dashboard/referrals"
+		},
+		{
+			"date": "2026-06-21",
+			"title": "User profiles: wallets, NFTs, accessories, shop listings, fork agents and avatars",
+			"summary": "The /u/ profile pages now surface the full picture of what a user owns and builds. A wallets row shows every linked Solana and EVM address with one-click copy and a link to the chain explorer. On-chain collectibles load in a lazy background pass — 3D NFTs display as interactive model-viewer tiles; image NFTs sit in a grid. Any premium accessories purchased through the x402 cosmetics rail appear in their own tab with rarity badges. Published avatars and agents carry a Fork button so visitors can clone the item directly into their own account. Items actively listed for sale land in a For sale tab with direct buy links. All counts surface in the stat strip.",
+			"tags": ["feature", "improvement"],
+			"link": "/u"
+		},
+		{
+			"date": "2026-06-21",
 			"title": "Guided Tour: smoother, more reliable, more accessible",
 			"summary": "A pass over the 3D guided tour fixed a handful of rough edges. If a narration clip failed to load, the tour used to skip straight past that stop with no audio and no time to read the caption — now it paces the caption just like it does when audio is muted. In free roam, a movement key still held when you rejoined the tour could leave the guide drifting on its own; that's fixed. The spotlight ring now recovers if the thing it's highlighting briefly disappears and comes back, instead of going dark for the rest of the stop. Restarting from the 'Walk it again' button now cleanly rebuilds the tour, and the chapter menu keeps keyboard focus inside the panel so it no longer wanders behind the overlay.",
 			"tags": ["fix", "improvement"],
