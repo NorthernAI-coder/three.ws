@@ -358,9 +358,48 @@ export function hipRestHeight(rig) {
 	return _v.y;
 }
 
+const _hipScalePos = new Vector3();
+const _hipScaleQuat = new Quaternion();
+const _hipScaleScale = new Vector3();
+
+/**
+ * Rest height of an Object3D rig's Hips expressed in the *hips-parent's local
+ * units*, i.e. world height divided by the parent's accumulated world scale.
+ * Hip-position tracks are authored in metres and set the Hips bone's *local*
+ * position, so the scale factor that lands them at the right place is this local
+ * height ÷ the clip's authored baseline — not the world height. The two agree
+ * for a metre-native rig (parent scale ≈ 1) but diverge hard for a centimetre
+ * rig (e.g. a Mixamo armature exported at `scale 0.01`, whose Hips local sits
+ * near −100): matching world heights there would collapse the hip track to ~1cm
+ * of motion and sink the avatar a metre into the floor. Returns 0 when the hips
+ * or a usable parent scale can't be determined (caller then skips hip scaling).
+ *
+ * @param {import('three').Object3D} root
+ * @returns {number}
+ */
+export function hipRestLocalHeight(root) {
+	let hips = null;
+	root.traverse((n) => {
+		if (!hips && n.isBone && n.name && canonicalizeBoneName(n.name) === 'Hips') hips = n;
+	});
+	if (!hips) {
+		root.traverse((n) => {
+			if (!hips && n.name && canonicalizeBoneName(n.name) === 'Hips') hips = n;
+		});
+	}
+	if (!hips || !hips.parent) return 0;
+	hips.updateWorldMatrix(true, false);
+	hips.getWorldPosition(_hipScalePos);
+	const worldY = _hipScalePos.y;
+	hips.parent.matrixWorld.decompose(_hipScalePos, _hipScaleQuat, _hipScaleScale);
+	const parentScale = (_hipScaleScale.x + _hipScaleScale.y + _hipScaleScale.z) / 3;
+	if (!(parentScale > 1e-6) || !Number.isFinite(worldY)) return 0;
+	return worldY / parentScale;
+}
+
 // First Y value of a `Hips.position` track — the height the clip's root motion
 // was authored around. The retarget scales other-height rigs by target/source.
-function clipHipBaselineY(clip) {
+export function clipHipBaselineY(clip) {
 	const track = clip.tracks.find(
 		(t) =>
 			t.name.endsWith('.position') && canonicalizeBoneName(t.name.split('.')[0]) === 'Hips',

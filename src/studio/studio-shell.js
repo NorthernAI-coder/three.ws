@@ -229,30 +229,31 @@ class StudioShell {
 		const tagEl = this.root.querySelector('#studio-tagline');
 		const saveEl = this.root.querySelector('#studio-save');
 
-		// Save indicator. The store debounces (~600ms) then PUTs; it surfaces a
-		// failure via the 'error' event but no explicit success signal, so we show
-		// "Saving…" on edit and settle to "Saved" shortly after the write window
-		// (unless an error fires first). Honest within a frame of the real write.
-		const markSaving = () => {
+		// Save indicator. Every domain (identity here, Brain/Memory sub-studios, …)
+		// edits through the same store, which emits 'save:pending' on each patch and
+		// 'save:ok' once the debounced PUT reconciles. Driving the indicator off those
+		// events — rather than per-field timers — means any edit anywhere in the studio
+		// honestly reflects the real write, and the Brain graph's saves finally show.
+		nameEl?.addEventListener('input', () => studio.patch({ name: nameEl.value }));
+		tagEl?.addEventListener('input', () => studio.patch({ description: tagEl.value }));
+		this._unsubSaving = studio.on('save:pending', () => {
 			if (!saveEl) return;
 			saveEl.textContent = 'Saving…';
 			saveEl.dataset.state = 'pending';
-			clearTimeout(this._saveTimer);
-			this._saveTimer = setTimeout(() => {
-				if (saveEl.dataset.state === 'pending') {
-					saveEl.textContent = 'Saved';
-					saveEl.dataset.state = 'saved';
-				}
-			}, 1100);
+		});
+		this._unsubSaved = studio.on('save:ok', () => {
+			if (!saveEl || saveEl.dataset.state === 'error') return;
+			saveEl.textContent = 'Saved';
+			saveEl.dataset.state = 'saved';
+		});
+
+		// Sub-studios (e.g. the Brain graph's "Done →") request an onward jump
+		// through a DOM event so they stay decoupled from the shell instance.
+		this._navHandler = (e) => {
+			const key = e.detail?.tab;
+			if (key && TABS.some((t) => t.key === key)) this._selectTab(key, { focus: true });
 		};
-		nameEl?.addEventListener('input', () => {
-			studio.patch({ name: nameEl.value });
-			markSaving();
-		});
-		tagEl?.addEventListener('input', () => {
-			studio.patch({ description: tagEl.value });
-			markSaving();
-		});
+		document.addEventListener('studio:navigate', this._navHandler);
 
 		// Keep the header in sync if another surface edits the same agent.
 		this._unsub = studio.subscribe((agent) => {
@@ -265,7 +266,6 @@ class StudioShell {
 			}
 		});
 		this._unsubErr = studio.on('error', () => {
-			clearTimeout(this._saveTimer);
 			if (saveEl) {
 				saveEl.textContent = 'Save failed — retrying';
 				saveEl.dataset.state = 'error';

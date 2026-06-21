@@ -2182,49 +2182,89 @@
 			</div>
 		</div>
 
-		<!-- Entrance failsafe — the walk-in overlays (#club-loader, opaque and
-		     full-screen; #club-door-canvas, full-screen) are torn down ONLY by
-		     src/club-entrance.js. If that module fails to load, throws, or a venue/
-		     avatar asset hangs, the loader never reaches `is-done` and swallows
-		     every click on the stage — the visitor is trapped on a frozen alley.
-		     This is a classic (non-module) script on purpose: a module failure
-		     can't take it down. It watches real load progress and, only if the
-		     walk-in stalls with no progress, clears the overlays and surfaces the
-		     cover card — exactly the module's own degrade path (club:enter-door). -->
+		<!-- Entrance failsafe — the real click-trap is #club-door-canvas: a
+		     full-screen, z-index-9400, pointer-events:auto canvas that owns input
+		     ONLY while it's the visible walk-in. src/club-entrance.js removes it on
+		     arrival (or on error). If that module hangs — a venue/avatar asset that
+		     never resolves mid-walk, a stuck venue swap, a dispose that never runs —
+		     the canvas is left behind and silently swallows every click on the stage
+		     AND the side panel. The visitor sees the club but can't interact.
+
+		     The earlier version of this watchdog keyed off the loader's `is-done`
+		     class as "the module took over, stop watching." But `is-done` is set the
+		     moment the alley finishes loading — long before the canvas is torn down —
+		     so any hang after that point trapped clicks forever while the watchdog
+		     sat idle. This rewrite watches the canvas itself and the two states that
+		     prove it's trapping clicks. Classic (non-module) script on purpose: a
+		     module failure can't take it down. -->
 		<script>
 		(function () {
-			var loader = document.getElementById('club-loader');
-			if (!loader) return;
-			var STALL_MS = 15000; // no load progress for this long ⇒ walk-in is dead
+			var STALL_MS = 15000; // alley never finished loading this long ⇒ scene is dead
+			var FADED_MS = 1200;  // canvas held transparent this long, never removed ⇒ trapped
+			var POLL_MS = 500;
 			var lastWidth = -1;
 			var lastProgressAt = Date.now();
+			var fadedSince = 0;
 
-			// is-done means src/club-entrance.js rendered the alley and now owns the
-			// overlays (the canvas legitimately persists for the walk and is removed
-			// on arrival). Once that happens the watchdog has nothing left to guard.
-			function tookOver() { return loader.classList.contains('is-done'); }
+			function doorCanvas() { return document.getElementById('club-door-canvas'); }
+			function barWidth() {
+				var bar = document.getElementById('club-loader-bar');
+				return bar ? (parseFloat(bar.style.width) || 0) : 0;
+			}
 
+			// Drop the dead overlay and hand the visitor onward. Dispatching
+			// club:enter-door surfaces the cover card if they haven't paid, and is a
+			// harmless no-op once they're admitted (the door card is already gone) —
+			// so a single reveal() is correct whether the hang happened before the
+			// cover charge or during the final fade onto the stage.
 			function reveal() {
 				try {
-					var canvas = document.getElementById('club-door-canvas');
+					var canvas = doorCanvas();
 					if (canvas) canvas.remove();
-					loader.classList.add('is-done');
-					setTimeout(function () { try { loader.remove(); } catch (e) {} }, 800);
-					// Mirror the module's degrade: a failed walk-in still lets the
-					// visitor pay the cover and reach the stage.
+					var loader = document.getElementById('club-loader');
+					if (loader) {
+						loader.classList.add('is-done');
+						setTimeout(function () { try { loader.remove(); } catch (e) {} }, 800);
+					}
 					window.dispatchEvent(new CustomEvent('club:enter-door'));
 				} catch (e) {}
 			}
 
 			function tick() {
-				if (tookOver()) return; // healthy — module is in control, stop watching
-				var bar = document.getElementById('club-loader-bar');
-				var w = bar ? (parseFloat(bar.style.width) || 0) : 0;
-				if (w > lastWidth) { lastWidth = w; lastProgressAt = Date.now(); }
-				if (Date.now() - lastProgressAt >= STALL_MS) { reveal(); return; }
-				setTimeout(tick, 1000);
+				var canvas = doorCanvas();
+				if (!canvas) return; // module handed off cleanly — nothing left to guard
+
+				var op = parseFloat(getComputedStyle(canvas).opacity);
+				if (isNaN(op)) op = 1;
+
+				// Faded-but-present ⇒ the module faded the canvas out to reveal the
+				// live stage behind it (a final arrival, or a venue swap that's
+				// holding the fade for a download that never resolves) but never
+				// removed it. A canvas this transparent should already be gone.
+				// Require the state to persist so a normal ~0.6s fade transition is
+				// never mistaken for a hang.
+				if (op <= 0.02) {
+					if (!fadedSince) fadedSince = Date.now();
+					if (Date.now() - fadedSince >= FADED_MS) { reveal(); return; }
+				} else {
+					fadedSince = 0;
+				}
+
+				// Still opaque and the loader never reached 100% ⇒ the alley/avatar is
+				// still downloading. Track real byte progress; if it flatlines, the
+				// scene is dead. Once the bar hits 100 the load succeeded — an opaque
+				// canvas is then a legitimate walk-in we must NOT disturb (the visitor
+				// may simply be standing still), so the stall watch stops there and
+				// only the faded-trap check above can still fire.
+				var w = barWidth();
+				if (w < 100) {
+					if (w > lastWidth) { lastWidth = w; lastProgressAt = Date.now(); }
+					if (Date.now() - lastProgressAt >= STALL_MS) { reveal(); return; }
+				}
+
+				setTimeout(tick, POLL_MS);
 			}
-			setTimeout(tick, 1000);
+			setTimeout(tick, POLL_MS);
 		})();
 		</script>
 

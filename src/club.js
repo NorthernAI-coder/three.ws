@@ -475,6 +475,12 @@ const DANCER_META = [
 // differently-authored gallery avatars reads as one lineup.
 const DANCER_HEIGHT_M = 1.75;
 
+// An idle pose that renders shorter than this (metres) has collapsed — the rig's
+// skeleton didn't drive the clip, so the dancer is flattened invisibly on the
+// disc and re-grounding can't rescue her; she falls back to a known-good rig.
+// Set well below DANCER_HEIGHT_M so a genuinely short (but standing) pose passes.
+const MIN_IDLE_STANDING_M = 1.2;
+
 /**
  * Scale a freshly-cloned avatar root to `targetHeight` and ground its feet at
  * local y=0, measuring with the skinning-aware (`precise`) bounding box so a
@@ -724,6 +730,33 @@ class PoleStation {
 	}
 
 	/**
+	 * Plant the live (idle) pose's feet on the stage and report her standing
+	 * height. fitRigToHeight grounds the *bind* pose, but a retargeted idle can
+	 * carry its own vertical offset — some rigs idle a full metre below the bind
+	 * feet line, sinking the dancer through the disc. Measuring the posed skinned
+	 * bounds (precise) and dropping the avatar root by the floor gap re-plants her
+	 * on the stage. Returns the rendered height (m) so the caller can detect a
+	 * collapsed retarget that grounding alone can't rescue.
+	 * @returns {number}
+	 */
+	_groundAndMeasureIdle() {
+		const root = this.skinned;
+		if (!root || !this.anim) return 0;
+		// play() only queues the action; advance the mixer one frame so the idle
+		// pose is realized on the skeleton before we measure it.
+		this.anim.update(0.1);
+		root.updateMatrixWorld(true);
+		root.traverse((n) => { if (n.isSkinnedMesh) n.skeleton?.update?.(); });
+		const box = new Box3().setFromObject(root, true);
+		if (!Number.isFinite(box.min.y) || !Number.isFinite(box.max.y)) return 0;
+		// The rig holder sits at world y=0; drop the avatar root so her lowest
+		// vertex (her feet) lands on that plane — the rig's yaw-only transform
+		// leaves the vertical axis untouched, so the world offset applies directly.
+		root.position.y -= box.min.y;
+		return box.max.y - box.min.y;
+	}
+
+	/**
 	 * Bind the pre-fetched locomotion clips (idle + walk) into this dancer's
 	 * mixer so the first `play('idle')` resolves from memory — no network fetch,
 	 * no T-pose window. No-op until the boot pre-fetch has populated the shared
@@ -768,14 +801,20 @@ class PoleStation {
 		this.skinned = root;
 		this.anim.setAnimationDefs(animationDefs);
 		this._injectLocomotion();
-		// Await idle so we can detect if the fallen-pose guard rejects the
-		// retarget — in which case swap to the fallback rig rather than leave
-		// the dancer frozen in her bind pose. With the locomotion clips injected
-		// above, idle binds synchronously — the dancer's first rendered frame is
-		// her resting stance, never a T-pose.
+		// Await idle so we can detect a retarget that doesn't leave her standing —
+		// rejected outright (fallen-pose guard) or collapsed to a flat pose (the
+		// skeleton didn't drive the clip) — and swap to the fallback rig rather
+		// than leave a dancer sunk through the disc or flattened invisibly on it.
+		// On whichever rig does stand, re-ground her idle pose so her feet sit on
+		// the stage: fitRigToHeight grounds the bind pose, but a retargeted idle
+		// can impose its own vertical offset (some rigs idle a metre low). With the
+		// locomotion clips injected above, idle binds synchronously — the dancer's
+		// first rendered frame is her resting stance, never a T-pose.
 		this.anim.play('idle').then((ok) => {
-			if (ok || !fallback || fallback === template) return;
-			log.warn(`[club] dancer ${this.id} idle retarget rejected — falling back to default avatar`);
+			const standing = ok ? this._groundAndMeasureIdle() : 0;
+			if (standing >= MIN_IDLE_STANDING_M) return;
+			if (!fallback || fallback === template) return;
+			log.warn(`[club] dancer ${this.id} idle not standing (${standing.toFixed(2)}m) — falling back to default avatar`);
 			this.anim.detach();
 			this.rig.remove(root);
 			const fbRoot = this._buildAvatarRoot(fallback);
@@ -784,7 +823,7 @@ class PoleStation {
 			this.skinned = fbRoot;
 			this.anim.setAnimationDefs(animationDefs);
 			this._injectLocomotion();
-			this.anim.play('idle').catch(() => {});
+			this.anim.play('idle').then((ok2) => { if (ok2) this._groundAndMeasureIdle(); }).catch(() => {});
 		}).catch(() => {});
 		// Pre-load the walk clip so the first tip's walk starts immediately
 		// without a network round-trip mid-performance.

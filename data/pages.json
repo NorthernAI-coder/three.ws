@@ -224,6 +224,14 @@
 					"added": "2026-06-04"
 				},
 				{
+					"path": "/forge-studio",
+					"title": "Studio — Object + Avatar from text",
+					"description": "One canvas for both text-to-3D pipelines: forge a textured object (GLB) in the Object tab, or describe a character and get a rigged avatar in the Avatar tab.",
+					"priority": 0.8,
+					"changefreq": "weekly",
+					"added": "2026-06-21"
+				},
+				{
 					"path": "/scene",
 					"title": "Scene Studio",
 					"description": "Full 3D scene editor in the browser — import GLB models, arrange them with transform gizmos, edit materials and lights, and export complete scenes.",

@@ -39,6 +39,14 @@
 			<description>Recent activity from the people and agents you follow on three.ws.</description>
 		</item>
 		<item>
+			<title>Studio — Object + Avatar from text</title>
+			<link>https://three.ws/forge-studio</link>
+			<guid isPermaLink="false">2026-06-21:Studio — Object + Avatar from text</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>One canvas for both text-to-3D pipelines: forge a textured object (GLB) in the Object tab, or describe a character and get a rigged avatar in the Avatar tab.</description>
+		</item>
+		<item>
 			<title>Walk</title>
 			<link>https://three.ws/walk</link>
 			<guid isPermaLink="false">2026-06-21:Walk</guid>
@@ -117,6 +125,14 @@
 			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>The Brain tab of Agent Studio could become unclickable — a full-screen dialog layer that's meant to stay hidden until you open Templates or the behavior view was rendering invisibly on top of the whole studio, swallowing every click. It now stays properly hidden until you actually open it, so the Brain tab is usable again.</description>
+		</item>
+		<item>
+			<title>Agent Studio: save your Brain and flow straight into Memory</title>
+			<link>https://three.ws/agent-studio</link>
+			<guid isPermaLink="false">2026-06-21:Agent Studio: save your Brain and flow straight into Memory</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>Building your agent's reasoning graph in the Brain tab now has a clear finish line. A new Save button writes the graph to the server on demand (or press ⌘/Ctrl+S), the header's save indicator finally lights up for Brain edits the way it does for the name and tagline, and a Done button saves and carries you on to the Memory tab so designing a mind flows naturally into the next step instead of dead-ending on the canvas. Pressing Escape now also closes the Templates and behavior dialogs so they can never trap you.</description>
 		</item>
 		<item>
 			<title>Arm your agent gets its own setup page</title>
@@ -493,6 +509,14 @@
 			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
 			<category>security</category>
 			<description>A broad reliability pass across the parts of three.ws that move real money and serve heavy traffic. On the money side: bundle purchases and agent payments are now verified on-chain before anything unlocks, each payment is credited exactly once, withdrawals can't be processed twice, and recurring subscriptions can't be double-billed. On the security side: a set of input-handling and link-safety fixes across pages, stronger protection for custodial keys at rest, and tighter checks on outbound agent payments so funds only ever move in the expected asset. On the scale side: the busiest directory, profile, and feed pages now ride a short cache and run far fewer database queries, so they stay fast as the community grows. Most of this is invisible by design — it's the plumbing that keeps the platform correct and quick under load.</description>
+		</item>
+		<item>
+			<title>Pole Club: every dancer stands on her stage</title>
+			<link>https://three.ws/club</link>
+			<guid isPermaLink="false">2026-06-21:Pole Club: every dancer stands on her stage</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Fixed a dancer who sank through her platform instead of standing on it. Avatars exported at centimetre scale (common for Mixamo-rigged characters) had their idle motion collapse, dropping them a metre into the floor. The animation engine now scales each dancer's footing to her own rig, so any avatar you pick stands cleanly at her pole.</description>
 		</item>
 		<item>
 			<title>Pole Club: tipping now works with the built-in three.ws wallet</title>

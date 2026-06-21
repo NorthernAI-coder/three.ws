@@ -226,6 +226,8 @@ class AgentStudioStore {
 		this._optimistic = this._optimistic ? deepMerge(this._optimistic, clean) : deepMerge({}, clean);
 		this._notify();
 		this._scheduleFlush();
+		// Any domain editing the agent drives the shell's single save indicator.
+		this.emit('save:pending');
 	}
 
 	_scheduleFlush() {
@@ -269,6 +271,7 @@ class AgentStudioStore {
 				}
 				const { agent } = await resp.json();
 				this._reconcile(agent, optimisticRecord);
+				this.emit('save:ok');
 				return this._record;
 			} catch (err) {
 				// Roll back the optimistic edit; re-queue nothing (the edit is lost on
