@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-21T14:46:47.265Z",
+	"generated_at": "2026-06-21T17:08:23.568Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -141,6 +141,16 @@
 		{
 			"date": "2026-06-21",
 			"type": "update",
+			"title": "Agent Studio: fixed an invisible overlay that blocked the Brain tab",
+			"summary": "The Brain tab of Agent Studio could become unclickable — a full-screen dialog layer that's meant to stay hidden until you open Templates or the behavior view was rendering invisibly on top of the whole studio, swallowing every click. It now stays properly hidden until you actually open it, so the Brain tab is usable again.",
+			"link": "/agent-studio",
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "update",
 			"title": "Arm your agent gets its own setup page",
 			"summary": "Configuring your 3D agent to trade Oracle conviction now has a dedicated page at /oracle/arm — a clean, focused setup laid out the way trading bots do it: a live status bar with a big arm switch, a stats strip, and step-by-step cards for entry rules, position sizing and caps, alerts, and simulate-vs-live mode. The Oracle tab now shows your agent's configuration at a glance and links straight to the full editor.",
 			"link": "/oracle/arm",
@@ -188,6 +198,26 @@
 			"link": "/three-token",
 			"tags": [
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "update",
+			"title": "Club: silenced a spurious audio error on every visit",
+			"summary": "The club's walk-in anthem only ships as an MP3, but the audio mixer always probed for an Ogg version first — so every visit logged a failed file request in the browser console before falling back to the MP3 that was there all along. The mixer now knows which tracks are MP3-only and loads them directly, so the anthem still plays and the console stays clean.",
+			"link": "/club",
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "update",
+			"title": "Club: walk-in can no longer trap you on a frozen loading screen",
+			"summary": "The club's alley walk-in lays a full-screen loading screen and 3D canvas over the stage, and a single script was responsible for clearing them once you arrive. If that script failed to load or a venue asset stalled, the loading screen stayed up and swallowed every click — the club looked frozen and nothing was clickable. A new independent watchdog now watches the load: if the walk-in stalls with no progress, it clears the overlays and opens the cover-charge card so you can always pay in and reach the stage.",
+			"link": "/club",
+			"tags": [
+				"fix"
 			]
 		},
 		{
@@ -422,6 +452,16 @@
 				"fix",
 				"feature",
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "update",
+			"title": "Guided Tour: no longer stops dead on full-screen pages",
+			"summary": "The 3D guide that walks you through the platform would vanish the moment the tour stepped onto one of the immersive, full-screen pages — Selfie to Avatar, Scan, the Club and others — because those pages skip the shared top nav that used to start the tour. The tour's start logic now loads on every page, so the guide keeps walking, pointing, and narrating across the whole site without ever stranding you mid-tour.",
+			"link": "/tour",
+			"tags": [
+				"fix"
 			]
 		},
 		{

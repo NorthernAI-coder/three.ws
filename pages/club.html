@@ -2182,6 +2182,52 @@
 			</div>
 		</div>
 
+		<!-- Entrance failsafe — the walk-in overlays (#club-loader, opaque and
+		     full-screen; #club-door-canvas, full-screen) are torn down ONLY by
+		     src/club-entrance.js. If that module fails to load, throws, or a venue/
+		     avatar asset hangs, the loader never reaches `is-done` and swallows
+		     every click on the stage — the visitor is trapped on a frozen alley.
+		     This is a classic (non-module) script on purpose: a module failure
+		     can't take it down. It watches real load progress and, only if the
+		     walk-in stalls with no progress, clears the overlays and surfaces the
+		     cover card — exactly the module's own degrade path (club:enter-door). -->
+		<script>
+		(function () {
+			var loader = document.getElementById('club-loader');
+			if (!loader) return;
+			var STALL_MS = 15000; // no load progress for this long ⇒ walk-in is dead
+			var lastWidth = -1;
+			var lastProgressAt = Date.now();
+
+			// is-done means src/club-entrance.js rendered the alley and now owns the
+			// overlays (the canvas legitimately persists for the walk and is removed
+			// on arrival). Once that happens the watchdog has nothing left to guard.
+			function tookOver() { return loader.classList.contains('is-done'); }
+
+			function reveal() {
+				try {
+					var canvas = document.getElementById('club-door-canvas');
+					if (canvas) canvas.remove();
+					loader.classList.add('is-done');
+					setTimeout(function () { try { loader.remove(); } catch (e) {} }, 800);
+					// Mirror the module's degrade: a failed walk-in still lets the
+					// visitor pay the cover and reach the stage.
+					window.dispatchEvent(new CustomEvent('club:enter-door'));
+				} catch (e) {}
+			}
+
+			function tick() {
+				if (tookOver()) return; // healthy — module is in control, stop watching
+				var bar = document.getElementById('club-loader-bar');
+				var w = bar ? (parseFloat(bar.style.width) || 0) : 0;
+				if (w > lastWidth) { lastWidth = w; lastProgressAt = Date.now(); }
+				if (Date.now() - lastProgressAt >= STALL_MS) { reveal(); return; }
+				setTimeout(tick, 1000);
+			}
+			setTimeout(tick, 1000);
+		})();
+		</script>
+
 		<!-- x402 drop-in modal (Phantom/MetaMask wallet flow + 402 retry) -->
 		<script type="module" src="/x402.js"></script>
 		<!-- Entrance journey — alley → walk-through, behind the door card. -->

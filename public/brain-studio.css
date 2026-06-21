@@ -179,6 +179,7 @@ textarea.brainstudio__input { resize: vertical; }
 
 /* ── Modal (templates + behavior diff) ──────────────────────────────────── */
 .brainstudio__modal { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; background: rgba(0, 0, 0, 0.55); padding: var(--space-md); }
+.brainstudio__modal[hidden] { display: none; }
 .brainstudio__modal-card { width: min(720px, 100%); max-height: 86vh; overflow: auto; background: var(--bg-1); border: 1px solid var(--surface-3); border-radius: var(--radius-lg); padding: var(--space-lg); }
 .brainstudio__modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-2xs); }
 .brainstudio__modal-head h2 { margin: 0; font-size: var(--text-lg); color: var(--ink-bright); }

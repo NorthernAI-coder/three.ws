@@ -1427,6 +1427,44 @@ support: resolve(__dirname, 'pages/support.html'),
 			},
 		},
 		{
+			// Feature Tour boot gate — injected on every Vite-processed page so the
+			// guided tour can re-hydrate after it navigates (location.assign) to ANY
+			// route, not just the ~79 pages that load public/nav.js. The bespoke
+			// full-screen pages the tour visits (/create/selfie, /scan, /club, …)
+			// deliberately skip nav.js; without this they had no way to re-inject the
+			// engine, so the tour died the moment it stepped onto one of them.
+			//
+			// This is the SINGLE source of the gate (nav.js no longer carries its own
+			// copy). It's a tiny synchronous check — read the live tour state / ?tour=
+			// param and only pull in the heavy /feature-tour.js module when a tour is
+			// actually starting or in progress, so a page that never tours pays
+			// nothing. Idempotent: the script-tag guard stops a double mount if
+			// anything else races to load the engine. Embeds (iframes) are skipped to
+			// match the other injectors, and the gate also self-guards on window.top
+			// so an embed can never spawn the tour.
+			name: 'feature-tour-boot',
+			transformIndexHtml: {
+				order: 'pre',
+				handler(_html, ctx) {
+					const EMBED_FILES = new Set([
+						'widget.html',
+						'embed.html',
+						'avatar-embed.html',
+						'agent-embed.html',
+						'a-embed.html',
+					]);
+					const filename = (ctx.filename || ctx.path || '')
+						.replace(/\\/g, '/')
+						.split('/')
+						.pop();
+					if (EMBED_FILES.has(filename)) return [];
+					const GATE =
+						"(function(){if(window.top!==window.self)return;var a=false;try{var r=sessionStorage.getItem('tws:tour:state');a=!!r&&JSON.parse(r).active===true}catch(e){}var p=new URLSearchParams(location.search).get('tour');if(!(p==='start'||p==='1'||(p!=='0'&&a)))return;if(document.querySelector('script[src=\"/feature-tour.js\"]'))return;var s=document.createElement('script');s.type='module';s.src='/feature-tour.js';document.head.appendChild(s)})();";
+					return [{ tag: 'script', children: GATE, injectTo: 'head' }];
+				},
+			},
+		},
+		{
 			// Vercel Speed Insights — real-user Core Web Vitals (LCP/INP/CLS/TTFB)
 			// for every page, collected from actual visitors and surfaced in the
 			// Vercel dashboard. This is the "measure, don't guess" complement to the
