@@ -195,16 +195,13 @@ export function createRpcFallback(options) {
 	return new RpcFallback(options);
 }
 
-// Convenience: build a fallback set from env. The endpoint list is the canonical
-// chain (explicit SOLANA_RPC_URL → Helius → Alchemy → Ankr-when-keyed →
-// PublicNode → public), with any extra SOLANA_RPC_FALLBACK_URLS appended. So even
-// with no SOLANA_RPC_URL set, the keyed providers plus the two keyless endpoints
-// give a real 3+ deep failover set.
+// Convenience: build a fallback set from env. solanaRpcEndpoints() is now the
+// single source of truth for the whole chain (explicit SOLANA_RPC_URL → Helius →
+// Alchemy → dRPC-when-keyed → Ankr-when-keyed → operator SOLANA_RPC_FALLBACK_URLS
+// → PublicNode → public), so even with no SOLANA_RPC_URL set the keyed providers
+// plus the keyless endpoints give a real deep failover set.
 export function rpcFallbackFromEnv({ network = 'mainnet', commitment = 'confirmed' } = {}) {
-	const extra = (process.env.SOLANA_RPC_FALLBACK_URLS || '')
-		.split(',').map((s) => s.trim()).filter(Boolean);
-	const urls = [...solanaRpcEndpoints(network), ...extra]
-		.filter((u, i, a) => u && a.indexOf(u) === i);
+	const urls = solanaRpcEndpoints(network);
 	const [primary, ...fallbackUrls] = urls;
 	return new RpcFallback({ url: primary, fallbackUrls, commitment });
 }

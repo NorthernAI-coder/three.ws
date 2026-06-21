@@ -10,10 +10,16 @@
 // safe: Solana dedupes by signature.
 //
 // Priority (per network): the caller's explicit url (if any) → Helius → Alchemy
-// → Ankr (authenticated only) → PublicNode → the keyless public endpoint, always
+// → dRPC (authenticated) → Ankr (authenticated only) → operator-supplied
+// SOLANA_RPC_FALLBACK_URLS → PublicNode → the keyless public endpoint, always
 // last. We never depend on the public endpoint alone — it is the most
 // aggressively rate-limited (the source of the `getBalance 429` log noise) — and
 // we never include a keyless Ankr URL, which Ankr now answers with a hard 403.
+//
+// To survive a single provider's quota running dry (e.g. a paid Helius plan
+// exhausting its monthly requests), register free-tier keys at several providers
+// and list their URLs in SOLANA_RPC_FALLBACK_URLS — every connection rotates
+// across the whole set, so the platform keeps serving even mid-outage.
 
 import { Connection } from '@solana/web3.js';
 
@@ -111,21 +117,39 @@ function inferNetwork(url) {
 	return /devnet/i.test(String(url || '')) ? 'devnet' : 'mainnet';
 }
 
+// Operator-supplied extra fallback URLs (comma-separated SOLANA_RPC_FALLBACK_URLS).
+// This is the zero-deploy lever for "spread load across as many free tiers as
+// possible": sign up for free-tier keys at several providers (Alchemy, dRPC,
+// QuickNode, Chainstack, Triton…), drop their URLs here, and EVERY Solana
+// connection rotates across them — so no single free quota becomes the bottleneck
+// and a provider running dry transparently fails over to the next.
+function extraFallbackUrls() {
+	return (process.env.SOLANA_RPC_FALLBACK_URLS || '')
+		.split(',')
+		.map((s) => s.trim())
+		.filter(Boolean);
+}
+
 /**
  * Priority-ordered endpoint list for a network. An explicit `url` (the value a
- * call site already resolved) is pinned first; the keyed providers and public
- * endpoint follow as fallbacks.
+ * call site already resolved) is pinned first; keyed providers, then any
+ * operator-supplied SOLANA_RPC_FALLBACK_URLS, then the keyless public endpoints
+ * follow as fallbacks. The most-throttled public endpoint is always last.
  */
 export function solanaRpcEndpoints(network = 'mainnet', url = null) {
 	const key = process.env.HELIUS_API_KEY;
 	const alch = process.env.ALCHEMY_API_KEY;
 	const ankr = process.env.ANKR_API_KEY;
+	// dRPC — free tier requires a key (keyless now returns "chain is not available
+	// on freetier"). Added in its authenticated form only when DRPC_API_KEY is set.
+	const drpc = process.env.DRPC_API_KEY;
 	if (network === 'devnet') {
 		return dedupe([
 			normalizeRpcUrl(url),
 			normalizeRpcUrl(process.env.SOLANA_RPC_URL_DEVNET),
 			key && `https://devnet.helius-rpc.com/?api-key=${key}`,
 			alch && `https://solana-devnet.g.alchemy.com/v2/${alch}`,
+			drpc && `https://lb.drpc.org/ogrpc?network=solana-devnet&dkey=${drpc}`,
 			PUBLIC_DEVNET,
 		]);
 	}
@@ -134,11 +158,16 @@ export function solanaRpcEndpoints(network = 'mainnet', url = null) {
 		normalizeRpcUrl(process.env.SOLANA_RPC_URL),
 		key && `https://mainnet.helius-rpc.com/?api-key=${key}`,
 		alch && `https://solana-mainnet.g.alchemy.com/v2/${alch}`,
+		drpc && `https://lb.drpc.org/ogrpc?network=solana&dkey=${drpc}`,
 		// Ankr sunset keyless access — every keyless rpc.ankr.com/<chain> now 403s
 		// ("authenticate with an API key"), so include it only in its authenticated
 		// form when ANKR_API_KEY is set. Mirrors idxRpcUrls() in api/cron/[name].js;
 		// a keyless entry here was a guaranteed 403 + cooldown log every cron tick.
 		ankr && `https://rpc.ankr.com/solana/${ankr}`,
+		// Operator's own free-tier fallbacks (mainnet only — devnet URLs would cross
+		// clusters and return wrong data). Tried before the public nodes so the
+		// configured providers absorb load first.
+		...extraFallbackUrls(),
 		// PublicNode — a keyless, un-throttled fallback (the same node mcp-server
 		// uses) so failover lands on a working endpoint instead of depending on the
 		// aggressively rate-limited public mainnet-beta endpoint alone.

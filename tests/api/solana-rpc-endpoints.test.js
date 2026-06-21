@@ -11,7 +11,14 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { solanaRpcEndpoints, shouldRotate } from '../../api/_lib/solana/connection.js';
 
-const KEYS = ['HELIUS_API_KEY', 'ALCHEMY_API_KEY', 'ANKR_API_KEY', 'SOLANA_RPC_URL'];
+const KEYS = [
+	'HELIUS_API_KEY',
+	'ALCHEMY_API_KEY',
+	'ANKR_API_KEY',
+	'DRPC_API_KEY',
+	'SOLANA_RPC_URL',
+	'SOLANA_RPC_FALLBACK_URLS',
+];
 
 describe('solanaRpcEndpoints', () => {
 	let saved;
@@ -63,6 +70,26 @@ describe('solanaRpcEndpoints', () => {
 		const eps = solanaRpcEndpoints('devnet');
 		expect(eps).toContain('https://api.devnet.solana.com');
 		expect(eps).not.toContain('https://api.mainnet-beta.solana.com');
+	});
+
+	it('adds dRPC only in its authenticated form when DRPC_API_KEY is set', () => {
+		process.env.DRPC_API_KEY = 'dk_test_456';
+		const eps = solanaRpcEndpoints('mainnet');
+		expect(eps).toContain('https://lb.drpc.org/ogrpc?network=solana&dkey=dk_test_456');
+	});
+
+	it('includes operator SOLANA_RPC_FALLBACK_URLS before the public endpoints', () => {
+		process.env.SOLANA_RPC_FALLBACK_URLS =
+			'https://free-a.example/sol , https://free-b.example/sol';
+		const eps = solanaRpcEndpoints('mainnet');
+		expect(eps).toContain('https://free-a.example/sol');
+		expect(eps).toContain('https://free-b.example/sol');
+		// Operator fallbacks rank ahead of the most-throttled public endpoint.
+		expect(eps.indexOf('https://free-a.example/sol')).toBeLessThan(
+			eps.indexOf('https://api.mainnet-beta.solana.com'),
+		);
+		// And the public mainnet-beta endpoint is still last.
+		expect(eps[eps.length - 1]).toBe('https://api.mainnet-beta.solana.com');
 	});
 });
 
