@@ -198,7 +198,7 @@ export async function getModelFromScene(modelScene,avatar, format = 'glb', skinC
       truncateDrawRange: true,
       binary: true,
       forcePowerOfTwoTextures: false,
-      maxTextureSize: 1024 || Infinity
+      maxTextureSize: 1024
     };
 
     const avatarCombined = await combine(modelScene,avatar,{ transparentColor: skinColor, scale:scale });
@@ -378,20 +378,6 @@ export function getAtlasSize(value){
       return 16384;
     default:
       return 4096;
-  }
-}
-
-function disposeMesh(mesh){
-  if (mesh.isMesh){
-    mesh.geometry.userData.faceNormals = null;
-    
-    mesh.geometry.dispose();
-    if (mesh.parent) {
-      mesh.parent.remove(mesh);
-    }
-    if (mesh.userData.cancelMesh){
-      disposeMesh(mesh.userData.cancelMesh)
-    }
   }
 }
 
@@ -660,6 +646,7 @@ export const renameVRMBones = (vrm) => {
       bones['leftUpperArm'].node.parent != bones['spine']?.node  &&
       bones['leftUpperArm'].node.parent != bones['neck']?.node  &&
       bones['leftUpperArm'].node.parent != bones['head']?.node ){
+      /* noop */
     }{
       bones['leftShoulder'] = {node:bones['leftUpperArm'].node.parent}
     }
@@ -671,6 +658,7 @@ export const renameVRMBones = (vrm) => {
       bones['rightUpperArm'].node.parent != bones['spine']?.node  &&
       bones['rightUpperArm'].node.parent != bones['neck']?.node  &&
       bones['rightUpperArm'].node.parent != bones['head']?.node ){
+      /* noop */
     }{
       bones['rightShoulder'] = {node:bones['rightUpperArm'].node.parent}
     }

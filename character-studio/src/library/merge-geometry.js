@@ -81,28 +81,6 @@ export function cloneSkeleton(skinnedMesh) {
 //     return newSkeleton;
 // }
 
-function changeBoneHandedness(bone) {
-    console.log("isvrm0")
-    // Clone the bone and apply handedness change
-    const clone = bone.clone(false);
-
-    // Reverse the X-axis scale to change handedness
-    const scale = clone.scale;
-    scale.x = -scale.x;
-
-    // Reverse the rotation around the Y-axis to change handedness
-    const rotation = clone.rotation;
-    rotation.y = -rotation.y;
-
-    // You might need to adjust the position as well depending on your specific use case.
-    // If the mesh is centered at the origin, this may not be necessary.
-    // If your mesh has been moved from the origin, you may need to adjust the position as well.
-    // clone.position.x = -clone.position.x;
-
-    clone.position.set(0,0,0);
-
-    return clone;
-}
 function createMergedSkeleton(meshes, scale){
     /* user should be careful with naming convetions in custom bone names out from humanoids vrm definition,
     for example ones that come from head (to add hair movement), should start with vrm's connected bone 
@@ -110,9 +88,6 @@ function createMergedSkeleton(meshes, scale){
     this will avoid an error of not adding bones if they have they same name but are in different hierarchy location
     todo: add to a user guide how to name bones to avoid this error */
     const boneClones = new Map();
-    const zxNeg = new THREE.Vector3(-1,1,-1)
-    const bnWorldMatrix = new THREE.Matrix4();
-    const bnPosition = new THREE.Vector3();
 
     let index = 0;
     meshes.forEach(mesh => {

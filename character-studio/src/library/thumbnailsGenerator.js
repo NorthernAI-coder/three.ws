@@ -26,7 +26,6 @@ export class ThumbnailGenerator {
             animationFrame,
             animationTime,
             backgroundColor = [1,1,1,0],
-            screenshotOffset,
             topFrameOffset = 0.1,
             bottomFrameOffset = 0.1,
             thumbnailsWidth = 128,
@@ -75,8 +74,6 @@ export class ThumbnailGenerator {
                         bottomBoneMaxVertex = false,
                         topBoneName,
                         topBoneMaxVertex = true,
-                        groupTopOffset,
-                        groupBotomOffset,
                         cameraFrame,
                         saveOnlyIDs
                     } = thumbnailInfo;

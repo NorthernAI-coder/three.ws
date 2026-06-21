@@ -5,7 +5,6 @@ import { SolanaManager } from "./solanaManager"
 import { Connection, Transaction } from "@solana/web3.js";
 // import { Connection, PublicKey } from '@solana/web3.js';
 // import { Metaplex } from '@metaplex-foundation/js';
-import axios from "axios"
 
 const rpcKey = import.meta.env.VITE_HELIUS_KEY;
 const rpcUrl = `https://devnet.helius-rpc.com/?api-key=${rpcKey}`
@@ -21,7 +20,6 @@ const validation_server = import.meta.env.VITE_VALIDATION_SERVER_URL;
 const PIN_ENDPOINT = '/api/pinning/pin'
 
 //const mintCost = 0.01
-const chainId = "0x89";
 let tokenPrice;
 
 const manager = new SolanaManager();
@@ -32,39 +30,6 @@ console.log(manager);
 //   getContract("0xFF9C1b15B16263C61d017ee9F65C50e4AE0113D7");
 // }, 5000);
 
-
-
-async function getContract(address) {
-  const contractAddress = address; // Loot NFT contract address
-  const tokenId = 1; // Replace with the desired token ID
-
-  // ABI for a typical ERC721 contract (simplified)
-  const abi = [
-      "function tokenURI(uint256 tokenId) view returns (string)"
-  ];
-
-  const key = await import.meta.env.ALCHEMY_API_KEY;
-  const defaultProvider = new ethers.AlchemyProvider('mainnet', key);
-
-  //const defaultProvider = new ethers.providers.AlchemyProvider('mainnet', key);
-  // Use Ethereum mainnet provider
-  //const defaultProvider = ethers.getDefaultProvider('mainnet');
-  //const defaultProvider = new ethers.providers.StaticJsonRpcProvider('https://polygon-rpc.com/')
-  console.log(defaultProvider);
-  try {
-    // Connect to the contract
-    const contract = new ethers.Contract(contractAddress, abi, defaultProvider);
-    console.log("Contract instance:", contract);
-
-    // Fetch the token URI (metadata URL)
-    const tokenURI = await contract.tokenURI(tokenId);
-    console.log("Token URI:", tokenURI);
-
-    // Handle the metadata (your existing logic continues here)
-  } catch (error) {
-    console.error("Error fetching metadata:", error);
-  }
-}
 
 
 async function getTokenPrice(){
@@ -102,7 +67,8 @@ export function fetchSolanaPurchasedAssets(walletAddress, delegateAddress, colle
 
 export function buySolanaPurchasableAssets(merchantPublicKey, treeAddress, collectionName, amount, purchaseNFTs){
   
-  return new Promise(async(resolve, reject) => {
+  return new Promise((resolve, reject) => {
+    (async () => {
     const { solana } = window;
     console.log(window.solana)
 
@@ -145,7 +111,7 @@ export function buySolanaPurchasableAssets(merchantPublicKey, treeAddress, colle
       console.error("Error requesting payment:", e.message);
       reject();
     }
-    
+    })().catch(reject);
 
   });
 }
@@ -206,7 +172,6 @@ export function fetchOwnedNFTs (walletAddress, network, collection){
     case 'solana':{
       console.warn("solana work in progress");
       return Promise.resolve(false);
-      return fetchFromMetaplex(walletAddress, collection);
     }
     default:{
       console.log("Unsupported Netwrok: " + walletAddress)
@@ -251,27 +216,6 @@ const fetchFromOpensea = (walletAddress, chain, collection) => {
 }
 
 
-const fetchFromMetaplex = (walletAddress, collection) =>{
-  console.log("work in progress");
-  // return new Promise((resolve, reject) => {
-  //   const connection = new Connection('https://api.mainnet-beta.solana.com'); // Mainnet endpoint
-  //   const metaplex = new Metaplex(connection);
-
-  //   const ownerPublicKey = new PublicKey(walletAddress);
-
-  //   metaplex.nfts().findAllByOwner({ owner: ownerPublicKey })
-  //     .then(nfts => {
-  //       console.log(collection);
-  //       console.log(nfts);
-  //       resolve(nfts); // Resolving with the NFTs data
-  //     })
-  //     .catch(error => {
-  //       reject(error); // Rejecting the promise in case of an error
-  //     });
-  // });
-}
-
-
 /**
  * Switches the active wallet to a specific blockchain and retrieves the wallet address.
  * 
@@ -281,7 +225,8 @@ const fetchFromMetaplex = (walletAddress, collection) =>{
  */
 export function connectWallet(network) {
   console.log("connect wallet:", network);
-  return new Promise(async (resolve, reject) => {
+  return new Promise((resolve, reject) => {
+    (async () => {
     try {
       switch (network.toLowerCase()) {
         case 'ethereum':
@@ -289,7 +234,7 @@ export function connectWallet(network) {
           if (!window.ethereum) {
             return reject(new Error('Ethereum wallet is not available.'));
           }
-         
+
           const chainIdMap = {
             ethereum: '0x1', // Ethereum Mainnet
             polygon: '0x89', // Polygon Mainnet
@@ -299,7 +244,7 @@ export function connectWallet(network) {
           await window.ethereum.request({
               method: 'wallet_switchEthereumChain',
               params: [{ chainId: targetChain }],
-          })  
+          })
 
           const accounts = await window.ethereum.request({
             method: 'eth_requestAccounts',
@@ -322,6 +267,7 @@ export function connectWallet(network) {
     } catch (error) {
       return reject(error);
     }
+    })().catch(reject);
   });
 }
 
@@ -531,7 +477,7 @@ export async function mintAsset(avatar, screenshot, model, name, needCheckOT){
             console.log("Mint success!")
             return "Mint success!";
           }
-        } catch (err) {
+        } catch {
           //console.log("Public Mint failed! Please check your wallet.")
           return "Public Mint failed."
         }

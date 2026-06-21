@@ -43,7 +43,7 @@ export const createTextureAtlas = async ({ transparentColor, meshes, includeNonT
   }
 };
 
-export const createTextureAtlasNode = async ({ meshes, atlasSize, mtoon, transparentMaterial, transparentTexture }) => {
+export const createTextureAtlasNode = async ({ meshes, atlasSize, transparentTexture }) => {
   const ATLAS_SIZE_PX = atlasSize;
   const IMAGE_NAMES = ["diffuse"];
   const bakeObjects = [];
@@ -168,7 +168,7 @@ export const createTextureAtlasNode = async ({ meshes, atlasSize, mtoon, transpa
  * @param {boolean} params.twoSidedMaterial - Whether the material is two-sided.
  * @param {number} params.scale - The scale factor for the meshes.
  */
-export const createTextureAtlasBrowser = async ({ backColor, includeNonTexturedMeshesInAtlas=false,meshes, atlasSize, mtoon, transparentMaterial, transparentTexture, twoSidedMaterial, scale=1}) => {
+export const createTextureAtlasBrowser = async ({ backColor, includeNonTexturedMeshesInAtlas=false,meshes, atlasSize, mtoon, transparentMaterial, transparentTexture, twoSidedMaterial}) => {
   const ATLAS_SIZE_PX = atlasSize;
   const IMAGE_NAMES = mtoon ? ["diffuse"] : ["diffuse", "orm", "normal"];// not using normal texture for now
   const bakeObjects = [];

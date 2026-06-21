@@ -118,7 +118,7 @@ export class CharacterManager {
      * @param {boolean} x - true to pause, false to unpause
      */
     togglePauseSpringBoneAnimation(x){
-      for(const [_,trait] of Object.entries(this.avatar)){
+      for(const [,trait] of Object.entries(this.avatar)){
         if(trait.vrm.springBoneManager){
             trait.vrm.springBoneManager.paused =x
         }
@@ -143,10 +143,6 @@ export class CharacterManager {
           }
         }
       }
-    }
-    unlockManifestByIndex(index, testWallet = null){
-      console.log(index);
-      return this.manifestDataManager.unlockManifestByIndex(index, testWallet);
     }
     unlockManifestByIdentifier(identifier, testWallet = null){
       return this.manifestDataManager.unlockManifestByIdentifier(identifier, testWallet);
@@ -174,7 +170,7 @@ export class CharacterManager {
      * @param {THREE.Camera} camera - Camera used for look-at calculations
      * @param {boolean} [enable=true] - Whether to enable the behavior immediately
      */
-    addLookAtMouse(screenPrecentage, canvasID, camera, enable = true){
+    addLookAtMouse(screenPrecentage, canvasID, camera){
       this.lookAtManager = new LookAtManager(screenPrecentage, canvasID, camera);
       this.lookAtManager.enabled = true;
       for (const prop in this.avatar){
@@ -333,7 +329,8 @@ export class CharacterManager {
      * @returns {Promise<void>} Promise that resolves when download is complete
      */
     downloadVRM(name, exportOptions = null) {
-      return new Promise(async (resolve, reject) => {
+      return new Promise((resolve, reject) => {
+        (async () => {
         if (this.canDownload()) {
           try {
             // Set default export options if not provided
@@ -361,6 +358,7 @@ export class CharacterManager {
           console.error(errorMessage);
           reject(new Error(errorMessage));
         }
+        })().catch(reject);
       });
     }
     downloadGLB(name, exportOptions = null){
@@ -519,7 +517,8 @@ export class CharacterManager {
      * @returns {Promise<void>} Promise that resolves when traits are loaded
      */
     loadRandomTraits() {
-      return new Promise(async (resolve, reject) => {
+      return new Promise((resolve, reject) => {
+        (async () => {
         if (this.manifestDataManager.hasExistingManifest()) {
           const randomTraits = this.manifestDataManager.getRandomTraits();
           await this._loadTraits(randomTraits);
@@ -529,6 +528,7 @@ export class CharacterManager {
           console.error(errorMessage);
           reject(new Error(errorMessage)); // Reject the promise with an error
         }
+        })().catch(reject);
       });
     }
     /**
@@ -537,7 +537,8 @@ export class CharacterManager {
      * @returns {Promise<void>} Promise that resolves when trait is loaded
      */
     loadRandomTrait(groupTraitID) {
-      return new Promise(async (resolve, reject) => {
+      return new Promise((resolve, reject) => {
+        (async () => {
         if (this.manifestDataManager.hasExistingManifest()) {
           const randomTrait = this.manifestDataManager.getRandomTrait(groupTraitID);
           await this._loadTraits(getAsArray(randomTrait));
@@ -547,6 +548,7 @@ export class CharacterManager {
           console.error(errorMessage);
           reject(new Error(errorMessage)); // Reject the promise with an error
         }
+        })().catch(reject);
       });
     }
 
@@ -560,7 +562,8 @@ export class CharacterManager {
      */
     loadTraitsFromNFT(url, identifier = null, fullAvatarReplace = true, ignoreGroupTraits = null) {
       // XXX should identifier be taken from nft group or passed by user?
-      return new Promise(async (resolve, reject) => {
+      return new Promise((resolve, reject) => {
+        (async () => {
         try {
           // Check if manifest data is available
           if (this.manifestDataManager.hasExistingManifest()) {
@@ -582,6 +585,7 @@ export class CharacterManager {
           // Handle any asynchronous errors during trait retrieval or loading
           reject(error);
         }
+        })().catch(reject);
       });
     }
 
@@ -911,7 +915,7 @@ export class CharacterManager {
           });
         } catch (error) {
           console.error("Error setting trait color:", error.message);
-          throw new Error("Failed to set trait color.");
+          throw new Error("Failed to set trait color.", { cause: error });
         }
       } else {
         // Group trait not found, log a warning and throw an error
@@ -1414,7 +1418,7 @@ export class CharacterManager {
   
       const getColliders = ()=>{
         const colliderGroups = [] 
-        Object.entries(this.avatar).map(([_, entry]) => {
+        Object.entries(this.avatar).map(([, entry]) => {
           // get nodes with colliders
           const nodes = getNodesWithColliders(entry.vrm)
           if (nodes.length === 0) return

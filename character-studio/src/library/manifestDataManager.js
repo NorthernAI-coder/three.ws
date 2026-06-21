@@ -96,9 +96,9 @@ export class ManifestDataManager{
       };
     }
     
-    isGroupTraitRestrictedInAnyManifest(trait, groupTraitID){
+    isGroupTraitRestrictedInAnyManifest(trait){
       for (const manifestData of this.manifestDataCollection){
-        const p = manifestData.manifestRestrictions.restrictionMaps[trait]?.isReverseBlendsh
+        void manifestData.manifestRestrictions.restrictionMaps[trait]?.isReverseBlendsh
       }
     }
 
@@ -159,7 +159,7 @@ export class ManifestDataManager{
         console.log(`Manifest with ID ${identifier} has been already loaded.`)
         return Promise.reject(new Error(`Manifest with ID ${identifier} has been already loaded.`));
       }
-      return new Promise(async (resolve, reject) => {
+      return new Promise((resolve, reject) => {
         try{
           if (manifest) {
             // Create a CharacterManifestData instance based on the fetched manifest
@@ -329,7 +329,8 @@ export class ManifestDataManager{
         return Promise.resolve();
       }
       else{
-        return new Promise(async (resolve) => {
+        return new Promise((resolve, reject) => {
+          (async () => {
           try{
             const traits = await manifestData(url, ignoreGroupTraits);
             resolve(traits);
@@ -338,6 +339,7 @@ export class ManifestDataManager{
             console.log("an error ocurred while trying to load:", url);
             resolve(null);
           }
+          })().catch(reject);
         });
         }
     }
