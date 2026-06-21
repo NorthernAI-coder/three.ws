@@ -41,12 +41,17 @@ export class Spotlight {
 	// Highlight an element. Pass null to fade the spotlight out (whole-page stop).
 	async highlight(el) {
 		this.target = el || null;
+		if (!this.el) return; // disposed
 		if (!el) {
 			this.el.classList.remove('is-in');
 			this._rect = null;
 			return;
 		}
 		await scrollIntoViewIfNeeded(el);
+		// The tour may have torn us down, or advanced to another target, during the
+		// ~480ms smooth-scroll settle. Bail so we don't resurrect a RAF loop on a
+		// removed overlay or fight the newer highlight.
+		if (!this.el || this.target !== el) return;
 		this._track();
 		this.el.classList.add('is-in');
 		if (!this._raf) this._raf = requestAnimationFrame(this._track);
@@ -54,10 +59,21 @@ export class Spotlight {
 
 	_track() {
 		this._raf = 0;
+		if (!this.el) return; // disposed
 		const el = this.target;
-		if (!el || !el.isConnected) {
+		if (!el) {
+			// Intentionally cleared (whole-page stop) — stop tracking.
 			this.el.classList.remove('is-in');
 			this._rect = null;
+			return;
+		}
+		if (!el.isConnected) {
+			// Target transiently detached (route re-render / virtualized list). Hide
+			// the ring but keep watching, so it recovers the instant the node
+			// reattaches instead of dying for the rest of this stop.
+			this.el.classList.remove('is-in');
+			this._rect = null;
+			this._raf = requestAnimationFrame(this._track);
 			return;
 		}
 		const r = el.getBoundingClientRect();
@@ -93,7 +109,11 @@ export class Spotlight {
 
 	dispose() {
 		cancelAnimationFrame(this._raf);
+		this._raf = 0;
 		this.el?.remove();
+		this.el = null;
+		this.target = null;
+		this._rect = null;
 	}
 }
 

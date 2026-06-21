@@ -3,9 +3,10 @@
 // The tour engine lives in src/feature-tour/. This file is the thin platform
 // wiring, mirroring src/walk-companion.js: Vite emits it to the stable, unhashed
 // path /feature-tour.js (see vite.config.js → rollupOptions.output.entryFileNames),
-// and public/nav.js injects it with <script type="module"> only when a tour is
-// starting or already in progress — so a page that never runs the tour pays no
-// Three.js cost. public/nav.js drives it through window.__featureTour.
+// and the 'feature-tour-boot' Vite plugin (vite.config.js) injects it with
+// <script type="module"> on every page — but only when a tour is starting or
+// already in progress — so a page that never runs the tour pays no Three.js cost.
+// public/nav.js's "Take the tour" button drives it through window.__featureTour.
 
 import { createFeatureTour } from './feature-tour/index.js';
 

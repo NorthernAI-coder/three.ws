@@ -127,19 +127,23 @@ export class Narrator {
 			// that works on whichever lane answered. (1× leaves audio untouched.)
 			audio.playbackRate = rate;
 			this.audio = audio;
-			const blocked = await new Promise((resolve) => {
+			const outcome = await new Promise((resolve) => {
 				let done = false;
-				const finish = (wasBlocked) => {
+				const finish = (state) => {
 					if (done) return;
 					done = true;
-					audio.removeEventListener('ended', onEnd);
-					audio.removeEventListener('error', onEnd);
-					resolve(!!wasBlocked);
+					audio.removeEventListener('ended', onEnded);
+					audio.removeEventListener('error', onError);
+					resolve(state);
 				};
-				const onEnd = () => finish(false);
-				this._finishCurrent = () => finish(false);
-				audio.addEventListener('ended', onEnd);
-				audio.addEventListener('error', onEnd);
+				const onEnded = () => finish('ended');
+				// A media error (corrupt/expired blob, decode failure) must NOT be treated
+				// like a clean 'ended' — that resolves instantly and races the tour past this
+				// stop with no audio AND no reading time. Pace it like an autoplay-blocked clip.
+				const onError = () => finish('error');
+				this._finishCurrent = () => finish('ended');
+				audio.addEventListener('ended', onEnded);
+				audio.addEventListener('error', onError);
 				audio.play().then(
 					() => {
 						this._blocked = false;
@@ -155,14 +159,15 @@ export class Narrator {
 							} catch {
 								/* hook must never break narration */
 							}
-							finish(true);
+							finish('blocked');
 						} else {
-							finish(false);
+							// play() rejected for some other reason — pace, don't race.
+							finish('error');
 						}
 					},
 				);
 			});
-			if (blocked && token === this._token) {
+			if ((outcome === 'blocked' || outcome === 'error') && token === this._token) {
 				await this._sleep(this.estimateMs(clean, rate), token);
 			}
 		} catch {

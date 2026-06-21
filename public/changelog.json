@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-21T19:17:43.937Z",
+	"generated_at": "2026-06-21T20:51:46.382Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -522,6 +522,17 @@
 			"link": "/tour",
 			"tags": [
 				"fix"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "update",
+			"title": "Guided Tour: smoother, more reliable, more accessible",
+			"summary": "A pass over the 3D guided tour fixed a handful of rough edges. If a narration clip failed to load, the tour used to skip straight past that stop with no audio and no time to read the caption — now it paces the caption just like it does when audio is muted. In free roam, a movement key still held when you rejoined the tour could leave the guide drifting on its own; that's fixed. The spotlight ring now recovers if the thing it's highlighting briefly disappears and comes back, instead of going dark for the rest of the stop. Restarting from the 'Walk it again' button now cleanly rebuilds the tour, and the chapter menu keeps keyboard focus inside the panel so it no longer wanders behind the overlay.",
+			"link": "/tour",
+			"tags": [
+				"fix",
+				"improvement"
 			]
 		},
 		{
