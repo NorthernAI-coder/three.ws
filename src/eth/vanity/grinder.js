@@ -39,7 +39,21 @@ const DEFAULT_MAX_WORKERS = 8;
  * @property {string} [suffix]           - Hex suffix (without 0x), case-insensitive.
  * @property {number} [maxWorkers]
  * @property {AbortSignal} [signal]
- * @property {(p: { attempts: number, rate: number, eta: string, sample?: string }) => void} [onProgress]
+ * @property {GrindController} [controller]      - Opt-in handle for pause/resume/stop. Methods are wired in once workers spawn.
+ * @property {(p: { attempts: number, rate: number, eta: string, sample?: string, paused?: boolean }) => void} [onProgress]
+ */
+
+/**
+ * @typedef {object} GrindController
+ * Pass a plain object as `opts.controller`; grindCreate2Vanity attaches the
+ * methods below once the worker pool is live. Pausing exits each worker's hot
+ * loop — the cores are genuinely freed — while preserving accumulated attempts
+ * so resume picks up the same salt search where it left off.
+ * @property {() => void} [pause]   - Suspend all workers (no-op if already paused/finished).
+ * @property {() => void} [resume]  - Resume all workers (no-op if not paused).
+ * @property {() => void} [stop]    - Abort the grind (rejects the promise with AbortError).
+ * @property {boolean} [paused]     - Current paused state.
+ * @property {number} [workers]     - Number of workers actually spawned.
  */
 
 /**
@@ -169,6 +183,32 @@ export function grindCreate2Vanity(opts = {}) {
 				suffix:        normSuffix,
 				caseSensitive,
 			});
+		}
+
+		// Wire the opt-in controller now that the pool is live.
+		const controller = opts.controller;
+		if (controller) {
+			controller.paused = false;
+			controller.workers = cores;
+			controller.pause = () => {
+				if (controller.paused || workers.length === 0) return;
+				controller.paused = true;
+				for (const w of workers) {
+					try { w.postMessage({ type: 'pause' }); } catch {}
+				}
+				if (onProgress) {
+					const totalAttempts = attemptsByWorker.reduce((a, b) => a + b, 0);
+					onProgress({ attempts: totalAttempts, rate: 0, eta: 'paused', paused: true });
+				}
+			};
+			controller.resume = () => {
+				if (!controller.paused || workers.length === 0) return;
+				controller.paused = false;
+				for (const w of workers) {
+					try { w.postMessage({ type: 'resume' }); } catch {}
+				}
+			};
+			controller.stop = onAbort;
 		}
 	});
 }
