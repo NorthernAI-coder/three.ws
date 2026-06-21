@@ -178,3 +178,11 @@ Retired (feature verified shipped):
 | tasks/walk/24-agent-embed-walking-mode.md | DELETE | Built: "Walking avatar" mode in src/agent-embed-modal.js (options, live preview, copy snippet → /walk-embed?agent=). |
 | tasks/walk/27-dashboard-topbar-walking-avatar.md | DELETE | Built: 64x80 live walking avatar in src/dashboard-next/components/topbar.js from /api/avatars/mine + unread badge (fixed unread_count) + wave-on-notification. |
 | tasks/walk/28-profile-page-walking-avatar.md | DELETE | Built: src/profile-walk-hero.js walking hero in pages/profile.html with Say hi (real chat surface) + Walk with me, all states. |
+
+## 2026-06-21 built-and-shipped (walk batch 5)
+
+| spec file | decision | evidence |
+|---|---|---|
+| tasks/walk/38-walk-session-persistence.md | DELETE | Built: src/walk-session.js + api/walk/session.js (GET/PUT) + migration 20260621170000_walk_session.sql + src/walk.js capture/restore + Welcome-back toast. |
+| tasks/walk/35-click-to-walk-navigation.md | DELETE | Built: src/walk-companion-click-to-walk.js (empty-space click / long-press, data-walk-block routing, persisted toggle) wired into src/walk-companion.js. |
+| tasks/walk/25-features-page-walking-demo.md | DELETE | Built: walking-avatar-inline demoType + renderer + live /walk-embed demo in pages/features.html. |

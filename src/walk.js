@@ -593,6 +593,7 @@ function setCameraMode(mode) {
 		localStorage.setItem(CAMERA_MODE_KEY, mode);
 	} catch {}
 	updateCameraModeIndicator();
+	walkSession?.save();
 }
 
 function cycleCameraMode() {
@@ -1321,6 +1322,9 @@ function applyLocalCosmetics(wire) {
 async function loadAvatar() {
 	setLoadingText('Resolving avatar...');
 	const avatarUrl = await resolveAvatarUrl();
+	// Record the booted avatar's URL so a session snapshot captures the current
+	// avatar even before any in-page swap (id is already seeded from ?avatar).
+	selectedAvatarUrl = avatarUrl;
 	setLoadingText('Loading 3D model...');
 	const loader = new GLTFLoader();
 	const gltf = await loader.loadAsync(avatarUrl);
@@ -1471,6 +1475,17 @@ function setupGestures() {
 	});
 	gestures.buildTray(emoteTrayEl);
 	gestures.attachTouchButton(document.getElementById('walk-touch-gesture'));
+
+	// Track the user's recent gestures for session persistence. Wrapping play()
+	// here (rather than editing walk-gestures.js) records every user-initiated
+	// gesture — wheel, tray, quick keys, programmatic — without touching the
+	// gesture module. Remote echoes pass { silent: true } and are not recorded.
+	const _origPlay = gestures.play.bind(gestures);
+	gestures.play = (name, opts = {}) => {
+		const ok = _origPlay(name, opts);
+		if (ok && !opts.silent) recordRecentGesture(name);
+		return ok;
+	};
 
 	// Programmatic API for the narrator / chat / TTS and embedding hosts.
 	window.walk = window.walk || {};
@@ -2350,6 +2365,107 @@ function recordRecentGesture(name) {
 }
 
 let walkSession = null;
+
+// Read the live scene into a plain, serialisable snapshot. Everything captured is
+// state walk.js genuinely owns; companion/room are mirrored when present so the
+// document is complete. Returns null only if the avatar isn't placed yet.
+function captureWalkState() {
+	const p = avatarRig?.position;
+	return {
+		avatarId: selectedAvatarId || null,
+		avatarUrl: selectedAvatarUrl || null,
+		envId: currentEnvName || null,
+		cameraMode,
+		position: p ? { x: round3(p.x), y: round3(p.y), z: round3(p.z) } : null,
+		heading: round3(avatarYaw),
+		trailStyle: trailSetting.get(),
+		recentGestures: [...recentGestures],
+		// Multiplayer room — the coin mint doubles as the matchmaking key. Recorded
+		// so the snapshot is complete; rejoining is URL-driven so it is informational.
+		roomCode: COIN_PARAMS.coin || null,
+	};
+}
+
+function round3(n) {
+	return typeof n === 'number' && Number.isFinite(n) ? Math.round(n * 1000) / 1000 : 0;
+}
+
+// Apply a restored snapshot to the live scene. Each field is applied defensively
+// (a missing/invalid field is skipped) so a partial or older snapshot still
+// restores what it can. Avatar swaps run async; the rest applies synchronously.
+async function restoreWalkState(state) {
+	if (!state || typeof state !== 'object') return;
+
+	// Environment — only if it differs from what initEnvironments already staged.
+	if (state.envId && walkManifest && state.envId !== currentEnvName) {
+		const meta = getEnvironment(walkManifest, state.envId);
+		if (meta) await applyEnvironment(meta.name, { initial: true });
+	}
+
+	// Camera mode.
+	if (state.cameraMode && CAMERA_MODES.includes(state.cameraMode)) {
+		cameraMode = state.cameraMode;
+		try {
+			localStorage.setItem(CAMERA_MODE_KEY, cameraMode);
+		} catch {}
+		if (avatar) avatar.visible = cameraMode !== 'firstperson';
+		applyCameraImmediate();
+	}
+
+	// Position + heading. Clamp inside the walkable disc and re-snap the physics
+	// body next frame so the controller starts from the restored spot, not spawn.
+	if (state.position && Number.isFinite(state.position.x) && Number.isFinite(state.position.z)) {
+		let x = state.position.x;
+		let z = state.position.z;
+		const r = Math.hypot(x, z);
+		const maxR = GROUND_RADIUS - 0.5;
+		if (r > maxR) {
+			const k = maxR / r;
+			x *= k;
+			z *= k;
+		}
+		const y = terrain ? terrain.heightAt(x, z) : Number(state.position.y) || 0;
+		avatarRig.position.set(x, y, z);
+		physicsActivePrev = false; // force the character controller to re-sync to here
+	}
+	if (Number.isFinite(state.heading)) {
+		avatarYaw = state.heading;
+		avatarRig.quaternion.setFromAxisAngle(upY, avatarYaw);
+	}
+
+	// Trail style.
+	if (state.trailStyle && TRAIL_STYLE_LABELS[state.trailStyle]) {
+		trailSetting.set(state.trailStyle);
+		trails?.setStyle(state.trailStyle);
+		if (trailToggle) {
+			trailToggle.textContent = TRAIL_STYLE_LABELS[state.trailStyle];
+			trailToggle.style.background =
+				state.trailStyle === 'off' ? 'rgba(255,255,255,0.08)' : 'var(--accent,#7c5cff)';
+		}
+	}
+
+	// Recent gestures — seed the most-recent-first ring for quick re-use.
+	if (Array.isArray(state.recentGestures)) {
+		recentGestures.length = 0;
+		for (const g of state.recentGestures.slice(0, 5)) {
+			if (typeof g === 'string' && !recentGestures.includes(g)) recentGestures.push(g);
+		}
+	}
+
+	// Avatar — swap last so it lands on the restored ground position. Only when it
+	// differs from the booted avatar and resolves to a loadable URL.
+	const wantUrl = state.avatarUrl || null;
+	if (wantUrl && wantUrl !== resolvedAvatarUrl && isLoadableAvatarUrl(wantUrl)) {
+		try {
+			await applyAvatarSwap(wantUrl, state.avatarId || null);
+		} catch (err) {
+			log.warn('[walk] session avatar restore failed:', err?.message || err);
+		}
+	}
+
+	frameAvatarCamera({ snap: true });
+	updateCameraModeIndicator();
+}
 
 // Per-session accumulators. `pending*` hold metrics earned since the last flush;
 // `session*` hold lifetime-of-session totals used for achievement thresholds and
@@ -3420,6 +3536,9 @@ async function applyEnvironment(name, { initial = false } = {}) {
 	if (!meta) return;
 	const token = ++envApplyToken;
 	currentEnvName = meta.name;
+	// Persist the scene choice (debounced) so a return visit reloads it. Skipped on
+	// the initial stage so a restore-driven first apply doesn't echo a redundant save.
+	if (!initial) walkSession?.save();
 	if (initial) {
 		applyEnvironmentMeta(meta);
 		await loadEnvScenery(meta, token);
@@ -4059,6 +4178,41 @@ loadAvatar()
 		// synchronously, scenery + HDR streamed in). Degrades to the default
 		// ground/lighting if the manifest can't be reached.
 		await initEnvironments();
+
+		// Resume where you left off: restore the last walk snapshot (server for
+		// signed-in users, else localStorage), apply it to the staged scene, and
+		// surface a "Welcome back" toast with a "Start fresh" action. An explicit
+		// deep-link (?env / ?avatar) is honoured over the saved value.
+		const params = new URLSearchParams(location.search);
+		const hasEnvParam = params.has('env');
+		const hasAvatarParam = params.has('avatar');
+		walkSession = createWalkSession({
+			capture: () => captureWalkState(),
+			restore: (state) => {
+				const s = { ...state };
+				if (hasEnvParam) delete s.envId; // URL deep-link wins
+				if (hasAvatarParam) {
+					delete s.avatarUrl;
+					delete s.avatarId;
+				}
+				return restoreWalkState(s);
+			},
+		});
+		walkSession.ready
+			.then((result) => {
+				if (result?.restored) {
+					const meta = getEnvironment(walkManifest, currentEnvName);
+					showWelcomeBackToast({
+						sceneLabel: meta?.label || null,
+						onStartFresh: () => {
+							walkSession.startFresh();
+							setStatus('Started a fresh walk');
+						},
+					});
+				}
+			})
+			.catch(() => {});
+
 		// Bring up the physics solver (async WASM); legacy movement runs until ready.
 		initWalkPhysics();
 		// Show camera mode if not default
@@ -4114,7 +4268,9 @@ if (import.meta.env?.DEV) {
 	const pickerClose = document.getElementById('walk-avatar-picker-close');
 	let pickerOpen = false;
 	let pickerLoaded = false;
-	let currentAvatarId = new URLSearchParams(location.search).get('avatar') || null;
+	// Mirror the module-level selection (seeded from ?avatar, updated by session
+	// restore + swaps) so the active row reflects a restored avatar.
+	let currentAvatarId = selectedAvatarId || new URLSearchParams(location.search).get('avatar') || null;
 
 	function togglePicker() {
 		pickerOpen = !pickerOpen;
@@ -4176,37 +4332,12 @@ if (import.meta.env?.DEV) {
 				.forEach((b) => b.classList.remove('is-active'));
 			btn.classList.add('is-active');
 			currentAvatarId = btn.dataset.avatarId || null;
-			setWalkMetricsAvatarId(currentAvatarId);
-
 			setStatus('Switching avatar...');
 			try {
-				const loader = new GLTFLoader();
-				const gltf = await loader.loadAsync(url);
-				if (avatar) avatarRig.remove(avatar);
-				avatar = gltf.scene;
-				avatarTemplate = gltf.scene;
-				avatar.traverse((n) => {
-					if (n.isMesh) {
-						n.castShadow = true;
-						n.receiveShadow = false;
-					}
-				});
-				const box = new Box3().setFromObject(avatar);
-				avatar.position.y -= box.min.y;
-				avatarRig.add(avatar);
-				const height = Math.max(0.5, box.max.y - box.min.y);
-				avatarHeight = height;
-				CAM_OFFSET.set(0, height * 1.05, height * 1.95);
-				CAM_LOOK_OFFSET.set(0, height * 0.6, 0);
-				// Respect current camera mode visibility
-				if (cameraMode === 'firstperson') avatar.visible = false;
-				animationManager.attach(avatar);
-				animationManager.crossfadeTo(motionToClipName(currentMotion), 0);
-				// Broadcast the new avatar so everyone else in the room re-renders us
-				// as our real avatar live, without a rejoin. Keep resolvedAvatarUrl in
-				// sync so remote-template caching stays correct.
-				resolvedAvatarUrl = url;
-				net?.sendAvatar(url, currentAvatarId || '');
+				// Shared swap path (build + frame + animate + broadcast) which also
+				// updates the session-tracked selection, then persist the choice.
+				await applyAvatarSwap(url, currentAvatarId);
+				walkSession?.save();
 				setStatus('Avatar switched');
 			} catch (err) {
 				setStatus('Failed to load avatar', { error: true });
