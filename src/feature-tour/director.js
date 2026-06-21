@@ -490,12 +490,15 @@ export class TourDirector {
 		this._stopBeam();
 		this._beam?.remove();
 		document.removeEventListener('keydown', this._onKey);
+		this.roam = false;
+		this.freeRoam?.disable();
 		this.narrator?.dispose();
 		this.spotlight?.dispose();
 		this.avatar?.dispose();
 		this.controls?.dispose();
 		this.panel?.dispose();
 		this._doneCard?.remove();
+		this._restoreCompanion();
 		this.mounted = false;
 	}
 
@@ -595,8 +598,11 @@ export class TourDirector {
 			this._toggleMute();
 		} else if (e.key === 'c' || e.key === 'C') {
 			this.panel?.toggle();
+		} else if (e.key === 'r' || e.key === 'R') {
+			this._toggleRoam();
 		} else if (e.key === 'Escape') {
-			this.exit();
+			if (this.roam) this._exitRoam();
+			else this.exit();
 		}
 	}
 }

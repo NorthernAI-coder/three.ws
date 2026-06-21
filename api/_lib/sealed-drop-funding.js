@@ -35,7 +35,6 @@ import bs58 from 'bs58';
 import {
 	Keypair,
 	PublicKey,
-	Transaction,
 	SystemProgram,
 	LAMPORTS_PER_SOL,
 } from '@solana/web3.js';
@@ -48,7 +47,7 @@ import {
 
 import { env } from './env.js';
 import { solanaConnection } from './agent-pumpfun.js';
-import { confirmOrThrow } from './solana/confirm.js';
+import { submitProtected } from './execution-engine.js';
 import { SOLANA_USDC_MINT } from '../payments/_config.js';
 import { recordReclaim } from './sealed-drop-store.js';
 
@@ -178,26 +177,23 @@ export async function fundDropAddress({ toAddress, asset, atomics }) {
 	const recipient = new PublicKey(toAddress);
 	const conn = solanaConnection('mainnet');
 
-	const tx = new Transaction();
+	const instructions = [];
 	if (asset === 'SOL') {
-		tx.add(SystemProgram.transfer({ fromPubkey: payer.publicKey, toPubkey: recipient, lamports: amount }));
+		instructions.push(SystemProgram.transfer({ fromPubkey: payer.publicKey, toPubkey: recipient, lamports: amount }));
 	} else {
 		const mint = new PublicKey(mintForAsset(asset));
 		const fromATA = await getAssociatedTokenAddress(mint, payer.publicKey);
 		const toATA = await getAssociatedTokenAddress(mint, recipient);
 		const toInfo = await conn.getAccountInfo(toATA);
 		if (!toInfo) {
-			tx.add(createAssociatedTokenAccountInstruction(payer.publicKey, toATA, recipient, mint));
+			instructions.push(createAssociatedTokenAccountInstruction(payer.publicKey, toATA, recipient, mint));
 		}
-		tx.add(createTransferInstruction(fromATA, toATA, payer.publicKey, amount));
+		instructions.push(createTransferInstruction(fromATA, toATA, payer.publicKey, amount));
 	}
 
-	const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash('confirmed');
-	tx.feePayer = payer.publicKey;
-	tx.recentBlockhash = blockhash;
-	tx.sign(payer);
-	const sig = await conn.sendRawTransaction(tx.serialize(), { skipPreflight: false, maxRetries: 3 });
-	await confirmOrThrow(conn, { signature: sig, blockhash, lastValidBlockHeight }, 'confirmed');
+	// Protected send: priority fee + CU estimate, rebroadcast with blockhash
+	// refresh, hard throw on revert.
+	const { signature: sig } = await submitProtected({ network: 'mainnet', connection: conn, payer, instructions });
 	return { fundingTx: sig, atomics: amount.toString(), asset };
 }
 
@@ -262,7 +258,7 @@ export async function sweepReclaim({ record, dropSecretKey, toAddress }) {
 	const conn = solanaConnection('mainnet');
 	const asset = record.asset;
 
-	const tx = new Transaction();
+	const instructions = [];
 	if (asset === 'SOL') {
 		const lamports = await conn.getBalance(dropKp.publicKey, 'confirmed');
 		if (lamports <= 0) {
@@ -271,7 +267,7 @@ export async function sweepReclaim({ record, dropSecretKey, toAddress }) {
 			return { reclaimTx: 'empty', alreadyReclaimed: false };
 		}
 		// Fee is paid by the platform fee-payer, so the full drop balance moves.
-		tx.add(SystemProgram.transfer({ fromPubkey: dropKp.publicKey, toPubkey: recipient, lamports }));
+		instructions.push(SystemProgram.transfer({ fromPubkey: dropKp.publicKey, toPubkey: recipient, lamports }));
 	} else {
 		const mint = new PublicKey(mintForAsset(asset));
 		const fromATA = await getAssociatedTokenAddress(mint, dropKp.publicKey);
@@ -288,17 +284,21 @@ export async function sweepReclaim({ record, dropSecretKey, toAddress }) {
 		const toATA = await getAssociatedTokenAddress(mint, recipient);
 		const toInfo = await conn.getAccountInfo(toATA);
 		if (!toInfo) {
-			tx.add(createAssociatedTokenAccountInstruction(feePayer.publicKey, toATA, recipient, mint));
+			instructions.push(createAssociatedTokenAccountInstruction(feePayer.publicKey, toATA, recipient, mint));
 		}
-		tx.add(createTransferInstruction(fromATA, toATA, dropKp.publicKey, amount));
+		instructions.push(createTransferInstruction(fromATA, toATA, dropKp.publicKey, amount));
 	}
 
-	const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash('confirmed');
-	tx.feePayer = feePayer.publicKey;
-	tx.recentBlockhash = blockhash;
-	tx.sign(feePayer, dropKp);
-	const sig = await conn.sendRawTransaction(tx.serialize(), { skipPreflight: false, maxRetries: 3 });
-	await confirmOrThrow(conn, { signature: sig, blockhash, lastValidBlockHeight }, 'confirmed');
+	// Protected send: platform fee-payer pays + signs, the drop wallet co-signs the
+	// transfer of its own balance. Priority fee + CU estimate, rebroadcast with
+	// blockhash refresh, hard throw on an on-chain revert.
+	const { signature: sig } = await submitProtected({
+		network: 'mainnet',
+		connection: conn,
+		payer: feePayer,
+		instructions,
+		opts: { extraSigners: [dropKp] },
+	});
 	await recordReclaim({ id: record.id, reclaimTx: sig });
 	return { reclaimTx: sig, alreadyReclaimed: false };
 }

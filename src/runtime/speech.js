@@ -1,6 +1,8 @@
 // Speech I/O — TTS and STT. Browser-native by default; provider-swappable.
 
 export { LiveKitVoice } from './livekit-voice.js';
+export { NeuralTTS } from './neural-tts.js';
+import { NeuralTTS } from './neural-tts.js';
 import { startLipsync } from './lipsync.js';
 import { ACTION_TYPES } from '../agent-protocol.js';
 
@@ -512,6 +514,7 @@ export class ElevenLabsTTS {
 const TTS_FACTORIES = {
 	none: () => null,
 	browser: (cfg) => new BrowserTTS(cfg),
+	neural: (cfg) => new NeuralTTS(cfg),
 	elevenlabs: (cfg) => new ElevenLabsTTS(cfg),
 };
 

@@ -13,7 +13,8 @@
 
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { JSDOM } from 'jsdom';
 import { buildPlaylist, trackMeta } from '../src/feature-tour/curriculum.js';
 
 const curriculum = JSON.parse(
@@ -77,5 +78,48 @@ describe('buildPlaylist', () => {
 	it('falls back to the full list when no stops are highlighted', () => {
 		const flat = { stops: [{ highlight: false }, { highlight: false }] };
 		expect(buildPlaylist(flat, 'quick')).toEqual([0, 1]);
+	});
+});
+
+describe('free-roam activation guard', () => {
+	let dom;
+	let isInteractiveTarget;
+
+	beforeAll(async () => {
+		dom = new JSDOM('<!doctype html><body></body>');
+		global.window = dom.window;
+		global.document = dom.window.document;
+		global.matchMedia = () => ({ matches: false });
+		dom.window.matchMedia = global.matchMedia;
+		({ isInteractiveTarget } = await import('../src/feature-tour/free-roam.js'));
+	});
+
+	afterAll(() => {
+		delete global.window;
+		delete global.document;
+		delete global.matchMedia;
+	});
+
+	function make(html) {
+		document.body.innerHTML = html;
+		return document.body.firstElementChild;
+	}
+
+	it('treats links, buttons, inputs and canvases as page interactions', () => {
+		expect(isInteractiveTarget(make('<a href="/x">x</a>'))).toBe(true);
+		expect(isInteractiveTarget(make('<button>x</button>'))).toBe(true);
+		expect(isInteractiveTarget(make('<input>'))).toBe(true);
+		expect(isInteractiveTarget(make('<canvas></canvas>'))).toBe(true);
+		expect(isInteractiveTarget(make('<div data-walk-block>x</div>'))).toBe(true);
+	});
+
+	it('counts a child of an interactive element as interactive', () => {
+		const a = make('<a href="/x"><span>deep</span></a>');
+		expect(isInteractiveTarget(a.querySelector('span'))).toBe(true);
+	});
+
+	it('treats plain empty space as walkable (not interactive)', () => {
+		expect(isInteractiveTarget(make('<div><p>just text</p></div>'))).toBe(false);
+		expect(isInteractiveTarget(null)).toBe(false);
 	});
 });

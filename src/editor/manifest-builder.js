@@ -32,7 +32,7 @@ const OPENAI_MODELS = [
 	{ id: 'gpt-4-turbo', label: 'GPT-4 Turbo' },
 ];
 const BRAIN_PROVIDERS = ['anthropic', 'openai', 'local', 'none'];
-const TTS_PROVIDERS = ['browser', 'elevenlabs', 'openai', 'none'];
+const TTS_PROVIDERS = ['browser', 'neural', 'elevenlabs', 'openai', 'none'];
 const STT_PROVIDERS = ['browser', 'whisper', 'none'];
 const MEMORY_MODES = ['local', 'ipfs', 'encrypted-ipfs', 'none'];
 const RIG_TYPES = ['mixamo', 'vrm', 'custom'];
@@ -69,7 +69,7 @@ const ManifestSchema = z.object({
 		.object({
 			tts: z
 				.object({
-					provider: z.enum(['browser', 'elevenlabs', 'openai', 'none']),
+					provider: z.enum(['browser', 'neural', 'elevenlabs', 'openai', 'none']),
 					voiceId: z.string().optional(),
 					rate: z.number().min(0.5).max(2).optional(),
 					pitch: z.number().min(0).max(2).optional(),
@@ -575,8 +575,9 @@ export function mountManifestBuilder(rootEl, options = {}) {
 				</div>
 				<div id="tts-secondary">
 					<div class="field" id="tts-voiceid-wrap" style="display:none">
-						<label>Voice ID (ElevenLabs)</label>
+						<label id="f-tts-voiceid-label">Voice ID</label>
 						<input id="f-tts-voiceid" type="text" placeholder="21m00Tcm4TlvDq8ikWAM">
+						<span class="hint" id="f-tts-voiceid-hint"></span>
 					</div>
 					<div class="field-row">
 						<div class="field">
@@ -998,7 +999,22 @@ export function mountManifestBuilder(rootEl, options = {}) {
 
 	function refreshTtsSecondary() {
 		const wrap = $('#tts-voiceid-wrap');
-		if (wrap) wrap.style.display = state.ttsProvider === 'elevenlabs' ? '' : 'none';
+		const needsVoiceId = state.ttsProvider === 'elevenlabs' || state.ttsProvider === 'neural';
+		if (wrap) wrap.style.display = needsVoiceId ? '' : 'none';
+		const label = $('#f-tts-voiceid-label');
+		const input = $('#f-tts-voiceid');
+		const hint = $('#f-tts-voiceid-hint');
+		if (state.ttsProvider === 'neural') {
+			if (label) label.textContent = 'Voice (Kokoro)';
+			if (input) input.placeholder = 'af_bella';
+			if (hint)
+				hint.textContent =
+					'Free, runs in the browser (WebGPU) — no API key, no per-word cost. e.g. af_bella, am_fenrir, bf_emma.';
+		} else if (state.ttsProvider === 'elevenlabs') {
+			if (label) label.textContent = 'Voice ID (ElevenLabs)';
+			if (input) input.placeholder = '21m00Tcm4TlvDq8ikWAM';
+			if (hint) hint.textContent = '';
+		}
 	}
 
 	function refreshSttSecondary() {
@@ -1337,7 +1353,8 @@ export function mountManifestBuilder(rootEl, options = {}) {
 		}
 
 		const tts = { provider: state.ttsProvider };
-		if (state.ttsProvider === 'elevenlabs' && state.voiceId) tts.voiceId = state.voiceId;
+		if ((state.ttsProvider === 'elevenlabs' || state.ttsProvider === 'neural') && state.voiceId)
+			tts.voiceId = state.voiceId;
 		if (state.ttsRate !== 1.0) tts.rate = state.ttsRate;
 		if (state.ttsPitch !== 1.0) tts.pitch = state.ttsPitch;
 		const stt = { provider: state.sttProvider, language: state.sttLanguage };

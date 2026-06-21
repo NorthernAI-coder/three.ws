@@ -19,6 +19,17 @@ function fmtAmount(amount, mint) {
 	return symbol ? `${val} ${symbol}` : val;
 }
 
+function fmtUsd(n) {
+	if (n == null || Number.isNaN(Number(n))) return '';
+	return `$${Number(n).toFixed(2)}`;
+}
+
+function esc(s) {
+	return String(s ?? '').replace(/[&<>"']/g, (c) => (
+		{ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+	));
+}
+
 function explorerUrl(mint, network) {
 	const base = network === 'devnet'
 		? 'https://explorer.solana.com/address/'
@@ -80,34 +91,45 @@ function skillCard(p) {
 
 function subCard(s) {
 	const now = Date.now();
-	const expiresAt = s.next_charge_at ? new Date(s.next_charge_at) : null;
-	const isActive = s.status === 'active' && (!expiresAt || expiresAt > now);
+	const periodEnd = s.current_period_end ? new Date(s.current_period_end) : null;
+	const isActive = s.status === 'active' && (!periodEnd || periodEnd > now);
+	const isCancelled = s.status === 'cancelled' || s.status === 'canceled';
+
 	const expiryClass = isActive ? 'active' : 'expired';
-	const expiryText = expiresAt
-		? (isActive ? `Renews ${fmtDate(s.next_charge_at)}` : `Expired ${fmtDate(s.next_charge_at)}`)
+	const expiryText = periodEnd
+		? (isActive
+			? `Renews ${fmtDate(s.current_period_end)}`
+			: `${isCancelled ? 'Ends' : 'Ended'} ${fmtDate(s.current_period_end)}`)
 		: '';
 
 	const statusBadge = isActive
 		? '<span class="badge badge-green">Active</span>'
-		: '<span class="badge badge-amber">Expired</span>';
+		: isCancelled
+			? '<span class="badge badge-muted">Cancelled</span>'
+			: '<span class="badge badge-amber">Expired</span>';
 
-	const amountLine = s.amount_per_period
-		? `<span class="badge badge-muted">${fmtAmount(s.amount_per_period, null)}/period</span>`
+	const priceLine = s.price_usd != null
+		? `<span class="badge badge-muted">${esc(fmtUsd(s.price_usd))}${s.interval ? ` / ${esc(s.interval)}` : ''}</span>`
 		: '';
+
+	const planName = s.plan_name || 'Subscription';
+	const creator = s.creator_name || 'Creator';
+	const creatorHref = s.creator_username ? `/u/${encodeURIComponent(s.creator_username)}` : '/marketplace';
+	const initial = esc((planName[0] || '🔄').toUpperCase());
 
 	return `
 		<article class="col-card">
 			<div class="col-card-header">
-				<div class="col-card-avatar placeholder">🔄</div>
+				<div class="col-card-avatar placeholder">${initial}</div>
 				<div class="col-card-meta">
-					<div class="col-card-skill">Agent Subscription</div>
-					<div class="col-card-agent">ID: ${s.agent_id?.slice(0, 8)}…</div>
+					<div class="col-card-skill">${esc(planName)}</div>
+					<div class="col-card-agent">by ${esc(creator)}</div>
 				</div>
 			</div>
-			<div class="col-card-badges">${statusBadge}${amountLine}</div>
+			<div class="col-card-badges">${statusBadge}${priceLine}</div>
 			<div class="col-card-footer">
-				<span class="col-sub-expiry ${expiryClass}">${expiryText}</span>
-				<a href="/marketplace/agents/${s.agent_id}" class="col-cta">View agent</a>
+				<span class="col-sub-expiry ${expiryClass}">${esc(expiryText)}</span>
+				<a href="${creatorHref}" class="col-cta">View creator</a>
 			</div>
 		</article>`;
 }
@@ -184,7 +206,7 @@ async function load() {
 	try {
 		[skillsRes, subsRes] = await Promise.all([
 			fetch('/api/users/me/purchased-skills', { credentials: 'include' }),
-			fetch('/api/subscriptions', { credentials: 'include' }),
+			fetch('/api/subscriptions/mine', { credentials: 'include' }),
 		]);
 	} catch (err) {
 		// Network-level failure (offline, DNS, aborted): without this the awaited
@@ -209,7 +231,7 @@ async function load() {
 	let skillsData, subsData;
 	try {
 		({ data: skillsData } = await skillsRes.json());
-		({ data: subsData } = await subsRes.json());
+		({ subscriptions: subsData } = await subsRes.json());
 	} catch (err) {
 		renderLoadError(errorEl, skillsGrid, subsGrid, err?.message);
 		return;
@@ -218,7 +240,10 @@ async function load() {
 	const purchases = skillsData?.purchases ?? [];
 	const subs = subsData ?? [];
 	const nftCount = purchases.filter(p => p.skill_nft_mint).length;
-	const activeSubs = subs.filter(s => s.status === 'active').length;
+	const now = Date.now();
+	const activeSubs = subs.filter(s =>
+		s.status === 'active' && (!s.current_period_end || new Date(s.current_period_end) > now)
+	).length;
 
 	// Update stats
 	document.getElementById('stat-skills').textContent = purchases.length;

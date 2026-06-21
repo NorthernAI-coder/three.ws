@@ -217,38 +217,6 @@ export async function openColorPopover({ anchorEl, title, current, onInput, onCh
 		onChange?.(norm);
 	};
 
-	// Lazy-build the iro wheel. If it fails to load, the hex field + eyedropper
-	// still work, so the popover degrades gracefully instead of breaking.
-	try {
-		const iro = await loadIro();
-		if (!el.isConnected) return { close: () => {} }; // closed during load
-		cp = new iro.ColorPicker(wheelHost, {
-			width: 200,
-			color: startHex,
-			borderWidth: 1,
-			borderColor: 'rgba(255,255,255,0.12)',
-			layout: [
-				{ component: iro.ui.Wheel },
-				{ component: iro.ui.Slider, options: { sliderType: 'value' } },
-			],
-		});
-		cp.on('color:change', (color) => {
-			if (suppressInput) return;
-			const hex = color.hexString.toLowerCase();
-			lastHex = hex;
-			hexInput.value = hex.toUpperCase();
-			hexInput.classList.remove('bad');
-			onInput?.(hex);
-		});
-		cp.on('input:end', (color) => commit(color.hexString));
-	} catch (err) {
-		log.warn('[avatar-studio] iro picker failed to load; hex-only fallback', err);
-		const note = document.createElement('div');
-		note.className = 'as-cp-empty';
-		note.textContent = 'Wheel unavailable — type a hex value below.';
-		wheelHost.replaceWith(note);
-	}
-
 	const setFromHex = (raw, { live = false } = {}) => {
 		const norm = normalizeHex(raw);
 		if (!norm) {
@@ -354,6 +322,43 @@ export async function openColorPopover({ anchorEl, title, current, onInput, onCh
 	el.querySelector('.as-cp-close').addEventListener('click', close);
 
 	activePopover = { el, close };
+
+	// Lazy-build the iro wheel LAST, so the hex field, eyedropper, recents, and
+	// dismiss controls above are all interactive the instant the popover opens —
+	// they never wait on the wheel's dynamic import. If iro fails to load, the
+	// popover degrades to a hex-only picker instead of breaking.
+	try {
+		const iro = await loadIro();
+		if (closed || !el.isConnected) return { close };
+		cp = new iro.ColorPicker(wheelHost, {
+			width: 200,
+			color: lastHex,
+			borderWidth: 1,
+			borderColor: 'rgba(255,255,255,0.12)',
+			layout: [
+				{ component: iro.ui.Wheel },
+				{ component: iro.ui.Slider, options: { sliderType: 'value' } },
+			],
+		});
+		cp.on('color:change', (color) => {
+			if (suppressInput) return;
+			const hex = color.hexString.toLowerCase();
+			lastHex = hex;
+			hexInput.value = hex.toUpperCase();
+			hexInput.classList.remove('bad');
+			onInput?.(hex);
+		});
+		cp.on('input:end', (color) => commit(color.hexString));
+		// Re-fit position now that the wheel has given the popover its full height.
+		positionPopover(el, anchorEl);
+	} catch (err) {
+		log.warn('[avatar-studio] iro picker failed to load; hex-only fallback', err);
+		const note = document.createElement('div');
+		note.className = 'as-cp-empty';
+		note.textContent = 'Wheel unavailable — type a hex value below.';
+		wheelHost.replaceWith(note);
+	}
+
 	return { close };
 }
 

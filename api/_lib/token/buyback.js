@@ -26,6 +26,7 @@ import {
 import { sql } from '../db.js';
 import { getConnection, solanaPubkey } from '../pump.js';
 import { confirmOrThrow } from '../solana/confirm.js';
+import { submitProtected } from '../execution-engine.js';
 import { SOLANA_USDC_MINT } from '../../payments/_config.js';
 import { TOKEN_MINT, TOKEN_DECIMALS } from './config.js';
 import { treasuryWallet, treasuryWalletOrNull } from './config.js';
@@ -207,7 +208,7 @@ export async function planBuyback(signerPubkey) {
  * with a `.code` on hard failure so the caller records the precise reason.
  */
 export async function executeBuyback(signer, plan) {
-	const { VersionedTransaction, Transaction, TransactionInstruction, PublicKey } = await import('@solana/web3.js');
+	const { VersionedTransaction, TransactionInstruction, PublicKey } = await import('@solana/web3.js');
 	const connection = getConnection({ network: 'mainnet' });
 	const payer = signer.publicKey;
 
@@ -237,23 +238,21 @@ export async function executeBuyback(signer, plan) {
 		const treasuryPk = new PublicKey(treasury);
 		const fromAta = getAssociatedTokenAddressSync(mintPk, payer, true);
 		const toAta = getAssociatedTokenAddressSync(mintPk, treasuryPk, true);
-		const tx = new Transaction();
-		tx.add(createAssociatedTokenAccountIdempotentInstruction(payer, toAta, treasuryPk, mintPk));
-		tx.add(createTransferInstruction(fromAta, toAta, payer, boughtAtomics));
 		const tag = `three.ws buyback → treasury $${usd(plan.spendUsdcAtomics).toFixed(2)}`.slice(0, 180);
-		tx.add(new TransactionInstruction({ keys: [], programId: new PublicKey(MEMO_PROGRAM_ID), data: Buffer.from(tag, 'utf8') }));
-		const { blockhash } = await connection.getLatestBlockhash('confirmed');
-		tx.recentBlockhash = blockhash;
-		tx.feePayer = payer;
-		tx.sign(signer);
-		sweepSig = await connection.sendRawTransaction(tx.serialize(), { maxRetries: 5 });
+		const sweepIxs = [
+			createAssociatedTokenAccountIdempotentInstruction(payer, toAta, treasuryPk, mintPk),
+			createTransferInstruction(fromAta, toAta, payer, boughtAtomics),
+			new TransactionInstruction({ keys: [], programId: new PublicKey(MEMO_PROGRAM_ID), data: Buffer.from(tag, 'utf8') }),
+		];
 		try {
-			await confirmOrThrow(connection, sweepSig, 'confirmed');
+			// Protected send: priority fee + CU estimate, rebroadcast with blockhash
+			// refresh, hard throw on revert.
+			({ signature: sweepSig } = await submitProtected({ network: 'mainnet', connection, payer: signer, instructions: sweepIxs }));
 		} catch (waitErr) {
 			// The buy already landed; surface a sweep-specific failure so the next
 			// run self-heals (it sweeps any pre-existing $THREE before buying more).
 			throw Object.assign(
-				new Error(`buyback bought $THREE (${buySig}) but treasury sweep ${sweepSig} did not confirm (${waitErr?.message || waitErr})`),
+				new Error(`buyback bought $THREE (${buySig}) but treasury sweep did not confirm (${waitErr?.message || waitErr})`),
 				{ code: 'sweep_failed', status: 'pending', buySignature: buySig, sweepSignature: sweepSig, boughtAtomics },
 			);
 		}
@@ -276,7 +275,7 @@ export async function executeBuyback(signer, plan) {
 export async function sweepStrandedThree(signer) {
 	const treasury = treasuryWalletOrNull();
 	if (!treasury || treasury === signer.publicKey.toBase58()) return null;
-	const { Transaction, TransactionInstruction, PublicKey } = await import('@solana/web3.js');
+	const { TransactionInstruction, PublicKey } = await import('@solana/web3.js');
 	const connection = getConnection({ network: 'mainnet' });
 	const payer = signer.publicKey;
 	const mintPk = new PublicKey(TOKEN_MINT);
@@ -286,16 +285,14 @@ export async function sweepStrandedThree(signer) {
 	const treasuryPk = new PublicKey(treasury);
 	const fromAta = getAssociatedTokenAddressSync(mintPk, payer, true);
 	const toAta = getAssociatedTokenAddressSync(mintPk, treasuryPk, true);
-	const tx = new Transaction();
-	tx.add(createAssociatedTokenAccountIdempotentInstruction(payer, toAta, treasuryPk, mintPk));
-	tx.add(createTransferInstruction(fromAta, toAta, payer, stranded));
-	tx.add(new TransactionInstruction({ keys: [], programId: new PublicKey(MEMO_PROGRAM_ID), data: Buffer.from('three.ws buyback → treasury (recover)', 'utf8') }));
-	const { blockhash } = await connection.getLatestBlockhash('confirmed');
-	tx.recentBlockhash = blockhash;
-	tx.feePayer = payer;
-	tx.sign(signer);
-	const sig = await connection.sendRawTransaction(tx.serialize(), { maxRetries: 5 });
-	await confirmOrThrow(connection, sig, 'confirmed');
+	const strandedIxs = [
+		createAssociatedTokenAccountIdempotentInstruction(payer, toAta, treasuryPk, mintPk),
+		createTransferInstruction(fromAta, toAta, payer, stranded),
+		new TransactionInstruction({ keys: [], programId: new PublicKey(MEMO_PROGRAM_ID), data: Buffer.from('three.ws buyback → treasury (recover)', 'utf8') }),
+	];
+	// Protected send: priority fee + CU estimate, rebroadcast with blockhash
+	// refresh, hard throw on revert.
+	const { signature: sig } = await submitProtected({ network: 'mainnet', connection, payer: signer, instructions: strandedIxs });
 	return sig;
 }
 

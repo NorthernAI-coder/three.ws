@@ -54,7 +54,7 @@
 import { z } from 'zod';
 import { Keypair, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { sql } from '../_lib/db.js';
-import { confirmOrThrow } from '../_lib/solana/confirm.js';
+import { submitProtected } from '../_lib/execution-engine.js';
 import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.js';
 import { cors, json, method, readJson, wrap, error, rateLimited, respondError } from '../_lib/http.js';
 import { putObject, publicUrl as r2PublicUrl } from '../_lib/r2.js';
@@ -1757,35 +1757,6 @@ async function handleLaunchAgent(req, res) {
 		instructions.push(createIx);
 	}
 
-	// Build a v0 transaction so we use the same SDK call path as launch-prep.
-	const { TransactionMessage, VersionedTransaction } = await import('@solana/web3.js');
-	const { blockhash } = await conn.getLatestBlockhash('confirmed');
-	// Compile + sign defensively. When the coin name/uri push the message past
-	// Solana's 1232-byte packet limit, compileToV0Message()/sign() throws a raw
-	// RangeError ("encoding overruns Uint8Array" / "Transaction too large") that
-	// would otherwise surface as an opaque 500. Convert it to a typed 413 with an
-	// actionable message instead.
-	let vtx;
-	try {
-		const msg = new TransactionMessage({
-			payerKey: creator,
-			recentBlockhash: blockhash,
-			instructions,
-		}).compileToV0Message();
-		vtx = new VersionedTransaction(msg);
-		vtx.sign([agentKeypair, mintKeypair]);
-	} catch (err) {
-		if (/too large|overruns/i.test(err?.message || '')) {
-			return error(
-				res,
-				413,
-				'launch_payload_too_large',
-				'token launch transaction exceeds Solana size limits — shorten the token name or metadata URI',
-			);
-		}
-		throw err;
-	}
-
 	// Spend-policy gate: this path signs server-side with the agent's custodial
 	// wallet, so a stolen session could otherwise drive an arbitrarily large SOL
 	// dev-buy (up to the schema max) to drain the wallet. Reserve the SOL outflow
@@ -1811,11 +1782,24 @@ async function handleLaunchAgent(req, res) {
 
 	let signature;
 	try {
-		signature = await conn.sendRawTransaction(vtx.serialize(), { skipPreflight: false });
-		await confirmOrThrow(conn, signature, 'confirmed');
+		// Protected send: the agent custodial wallet pays + signs, the new mint
+		// co-signs. Priority fee + CU estimate, rebroadcast with blockhash refresh,
+		// hard throw on an on-chain revert.
+		({ signature } = await submitProtected({
+			network: body.network,
+			connection: conn,
+			payer: agentKeypair,
+			instructions,
+			opts: { extraSigners: [mintKeypair] },
+		}));
 	} catch (err) {
-		console.error('[pump/launch-agent] send failed', err);
 		await releaseSpend(reservation.reservationId);
+		// A message too large for Solana's packet limit now surfaces here (compile
+		// happens inside submitProtected) — keep the actionable 413 rather than 502.
+		if (/too large|overruns/i.test(err?.message || '')) {
+			return error(res, 413, 'launch_payload_too_large', 'token launch transaction exceeds Solana size limits — shorten the token name or metadata URI');
+		}
+		console.error('[pump/launch-agent] send failed', err);
 		return respondError(res, 502, 'rpc_error', err);
 	}
 
@@ -4548,17 +4532,15 @@ async function handleFeeInfo(req, res) {
 // every server-signed pump action uses the same RPC handling.
 async function signSendWithAgent({ network, agentKeypair, instructions, extraSigners = [] }) {
 	const conn = solanaConnection(network);
-	const { TransactionMessage, VersionedTransaction } = await import('@solana/web3.js');
-	const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash('confirmed');
-	const msg = new TransactionMessage({
-		payerKey: agentKeypair.publicKey,
-		recentBlockhash: blockhash,
+	// Protected send: priority fee + CU estimate, rebroadcast with blockhash
+	// refresh, hard throw on an on-chain revert.
+	const { signature } = await submitProtected({
+		network,
+		connection: conn,
+		payer: agentKeypair,
 		instructions,
-	}).compileToV0Message();
-	const vtx = new VersionedTransaction(msg);
-	vtx.sign([agentKeypair, ...extraSigners]);
-	const signature = await conn.sendRawTransaction(vtx.serialize(), { skipPreflight: false });
-	await confirmOrThrow(conn, { signature, blockhash, lastValidBlockHeight }, 'confirmed');
+		opts: { extraSigners },
+	});
 	return signature;
 }
 
