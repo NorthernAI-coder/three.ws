@@ -32,7 +32,10 @@ async function handleList(req, res) {
 	const url = new URL(req.url, 'http://x');
 	const agentId = url.searchParams.get('agent_id');
 	const limit = Math.min(Number(url.searchParams.get('limit')) || 50, 200);
-	const cursor = url.searchParams.get('cursor'); // bigserial id cursor
+	const cursorRaw = url.searchParams.get('cursor');
+	if (cursorRaw != null && !/^\d+$/.test(cursorRaw))
+		return error(res, 400, 'validation_error', 'cursor must be a numeric id');
+	const cursor = cursorRaw || null; // bigserial id cursor
 
 	if (!agentId) return error(res, 400, 'validation_error', 'agent_id is required');
 

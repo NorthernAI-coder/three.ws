@@ -18,6 +18,7 @@ import { env } from './env.js';
 import { solanaConnection } from './agent-pumpfun.js';
 import { submitProtected } from './execution-engine.js';
 import { grindMintKeypair } from './pump-vanity.js';
+import { fetchSafePublicUrlPinned, SsrfBlockedError } from './ssrf-guard.js';
 
 const PUMP_IPFS_ENDPOINT = 'https://pump.fun/api/ipfs';
 
@@ -96,20 +97,13 @@ export async function uploadPumpMetadata({
 	website = '',
 	showName = true,
 }) {
-	let parsed;
-	try {
-		parsed = new URL(imageUrl);
-	} catch {
-		throw launchError(400, 'invalid_image_url', 'imageUrl is not a valid URL');
-	}
-	if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
-		throw launchError(400, 'invalid_image_url', 'imageUrl must be http(s)');
-	}
-
 	let imgRes;
 	try {
-		imgRes = await fetch(parsed, { redirect: 'follow' });
+		imgRes = await fetchSafePublicUrlPinned(imageUrl, {}, { allowHttp: false });
 	} catch (err) {
+		if (err instanceof SsrfBlockedError) {
+			throw launchError(400, 'invalid_image_url', `imageUrl blocked: ${err.message}`);
+		}
 		throw launchError(502, 'image_fetch_failed', `could not fetch imageUrl: ${err.message}`);
 	}
 	if (!imgRes.ok) {

@@ -24,7 +24,6 @@ import { quoteSwap } from './pump/pump-swap-quote.js';
 import { fetchChannelFeed } from './pump/channel-feed.js';
 import { listRecentClaims } from './pump/pumpkit-claims.js';
 import { getWalletPnl } from './kol/wallet-pnl.js';
-import { getRadarSignals } from './kol/radar.js';
 import { resolveSnsName, reverseLookupAddress } from './solana/sns.js';
 import { correlateXPost } from './social/x-post-impact.js';
 
@@ -948,47 +947,6 @@ export function registerPumpFunSkills(skills) {
 		},
 	});
 
-	// ── kol.radar ─────────────────────────────────────────────────────────────
-	skills.register({
-		name: 'kol.radar',
-		description:
-			'Return gmgn radar signals: early-detection patterns by category, sorted by score.',
-		instruction: 'Read-only. Returns fixture data from src/kol/radar-fixture.json.',
-		animationHint: 'inspect',
-		voicePattern: 'Checking radar for {{category}} signals…',
-		mcpExposed: true,
-		inputSchema: {
-			type: 'object',
-			properties: {
-				category: {
-					type: 'string',
-					enum: ['pump-fun', 'new-mints', 'volume-spike'],
-					default: 'pump-fun',
-					description: 'Signal category to filter by',
-				},
-				limit: {
-					type: 'integer',
-					minimum: 1,
-					maximum: 100,
-					default: 20,
-					description: 'Max results (capped at 100)',
-				},
-			},
-		},
-		handler: async (args, _ctx) => {
-			const signals = await getRadarSignals({
-				category: args.category ?? 'pump-fun',
-				limit: args.limit ?? 20,
-			});
-			return {
-				success: true,
-				output: `Found ${signals.length} radar signal(s) for "${args.category ?? 'pump-fun'}".`,
-				sentiment: signals.length > 0 ? 0.6 : 0.1,
-				data: { signals, category: args.category ?? 'pump-fun', count: signals.length },
-			};
-		},
-	});
-
 	// ── pumpfun-accept-payment ────────────────────────────────────────────────
 	skills.register({
 		name: 'pumpfun-accept-payment',
@@ -1029,7 +987,7 @@ export function registerPumpFunSkills(skills) {
 
 			const agentMint = new web3.PublicKey(args.agentMint);
 			const currencyMint = new web3.PublicKey(args.currencyMint);
-			const env = network === 'devnet' ? 'devnet' : 'mainnet-beta';
+			const env = network === 'devnet' ? 'devnet' : 'mainnet';
 
 			const agent = new pay.PumpAgent(agentMint, env, connection);
 			const now = Math.floor(Date.now() / 1000);

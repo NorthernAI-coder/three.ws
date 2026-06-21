@@ -461,6 +461,19 @@ function fit(w, h, max) {
  */
 function mapApiError(status, payload) {
 	const code = payload.error;
+	// BYOK-specific errors must be checked before the generic 401/402 handlers.
+	if (status === 401 && (code === 'invalid_key' || code === 'missing_key')) {
+		clearStoredByokKey();
+		return withMessage(
+			new Error(code),
+			'Your API key was rejected. Check the key and try again.',
+		);
+	}
+	if (status === 402 && code === 'insufficient_credits')
+		return withMessage(
+			new Error(code),
+			'Your API key is out of credits. Top up your account and try again.',
+		);
 	if (status === 401) {
 		// Return to /create/selfie so the post-login round-trip resumes on the right page.
 		const here = typeof location !== 'undefined' ? location.pathname : '/create/selfie';
@@ -487,18 +500,6 @@ function mapApiError(status, payload) {
 		/** @type {any} */ (e).rateLimited = true;
 		return e;
 	}
-	if (status === 401 && (code === 'invalid_key' || code === 'missing_key')) {
-		clearStoredByokKey();
-		return withMessage(
-			new Error(code),
-			'Your API key was rejected. Check the key and try again.',
-		);
-	}
-	if (status === 402 && code === 'insufficient_credits')
-		return withMessage(
-			new Error(code),
-			'Your API key is out of credits. Top up your account and try again.',
-		);
 	if (status === 501)
 		return withMessage(
 			new Error(code || 'not_configured'),

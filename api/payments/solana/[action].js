@@ -18,7 +18,9 @@ const SOLANA_RPC_DEVNET  = process.env.SOLANA_RPC_URL_DEVNET || 'https://api.dev
 
 const checkoutSchema = z.object({
 	plan:    z.enum(['pro', 'team', 'enterprise']),
-	network: z.enum(['mainnet', 'devnet']).default('mainnet'),
+	// Devnet is only accepted in non-production environments. Accepting devnet
+	// USDC (free from faucet) in production would let anyone upgrade for free.
+	network: z.enum(process.env.NODE_ENV === 'production' ? ['mainnet'] : ['mainnet', 'devnet']).default('mainnet'),
 });
 
 async function handleCheckout(req, res) {
@@ -97,7 +99,10 @@ async function handleConfirm(req, res) {
 		const parsed = ix.parsed;
 		if (parsed?.type !== 'transferChecked' && parsed?.type !== 'transfer') return false;
 		const info = parsed.info;
-		const mintMatch = !info.mint || info.mint === usdcMint;
+		// Require an explicit mint match. `type='transfer'` (legacy Token Program)
+		// omits mint from parsed.info — we reject it rather than accepting any token.
+		// The balance-delta fallback below correctly requires post.mint === usdcMint.
+		const mintMatch = info.mint === usdcMint;
 		const amount = BigInt(info.tokenAmount?.amount ?? info.amount ?? '0');
 		return mintMatch && amount >= expectedAtomics && (info.destination === expectedRecipient || info.destinationOwner === expectedRecipient);
 	});
@@ -119,12 +124,17 @@ async function handleConfirm(req, res) {
 	// not in one transaction, so two concurrent confirms for the same intent could
 	// both pass the status guard. The conditional UPDATE lets exactly one win; if
 	// it claims no row, another request already confirmed → 409 (no double grant).
-	const [claimed] = await sql`update plan_payment_intents set status='confirmed', tx_hash=${tx_signature}, confirmed_at=now() where id=${intent_id} and status <> 'confirmed' returning id`;
-	if (!claimed) return error(res, 409, 'already_confirmed', 'payment already confirmed');
+	// All three writes in one transaction: intent claim + subscription grant + user
+	// plan update. A crash between claim and grant can't leave the user paid but
+	// unsubscribed (the 409 they'd get on retry would permanently block recovery).
 	const planConfig = PLANS[intent.plan];
 	const activeUntil = new Date(Date.now() + planConfig.duration_days * 86400 * 1000);
-	await sql`insert into subscriptions (user_id, plan, chain_type, token_address, tx_hash, amount_usd, status, active_until) values (${user.id}, ${intent.plan}, 'solana', ${usdcMint}, ${tx_signature}, ${intent.amount_usdc}, 'active', ${activeUntil}) on conflict (user_id) where status='active' do update set plan=excluded.plan, chain_type=excluded.chain_type, token_address=excluded.token_address, tx_hash=excluded.tx_hash, amount_usd=excluded.amount_usd, active_until=excluded.active_until, updated_at=now()`;
-	await sql`update users set plan=${intent.plan} where id=${user.id}`;
+	const [claimed] = await sql.transaction([
+		sql`update plan_payment_intents set status='confirmed', tx_hash=${tx_signature}, confirmed_at=now() where id=${intent_id} and status = 'pending' returning id`,
+		sql`insert into subscriptions (user_id, plan, chain_type, token_address, tx_hash, amount_usd, status, active_until) values (${user.id}, ${intent.plan}, 'solana', ${usdcMint}, ${tx_signature}, ${intent.amount_usdc}, 'active', ${activeUntil}) on conflict (user_id) where status='active' do update set plan=excluded.plan, chain_type=excluded.chain_type, token_address=excluded.token_address, tx_hash=excluded.tx_hash, amount_usd=excluded.amount_usd, active_until=excluded.active_until, updated_at=now()`,
+		sql`update users set plan=${intent.plan} where id=${user.id}`,
+	]);
+	if (!claimed?.[0]) return error(res, 409, 'already_confirmed', 'payment already confirmed');
 	queueMicrotask(() => sendSubscriptionConfirmEmail({ to: user.email, plan: intent.plan, chain: `Solana ${network}`, txId: tx_signature }).catch(() => {}));
 	return json(res, 200, { ok: true, plan: intent.plan, active_until: activeUntil.toISOString(), tx_signature });
 }

@@ -21,6 +21,7 @@
 
 import { cors, wrap, error, setRateLimitHeaders } from './_lib/http.js';
 import { getSessionUser, authenticateBearer, extractBearer } from './_lib/auth.js';
+import { requireCsrf } from './_lib/csrf.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 import { createSolanaSigner } from './_lib/x402/a2a-client.js';
 import { enforceCap, commit, rollbackReservation } from './_lib/x402-spending-cap.js';
@@ -303,6 +304,8 @@ export default wrap(async (req, res) => {
 	if (!sessionUser && !bearerUser) {
 		return error(res, 401, 'unauthorized', 'Sign in to let your agent wallet make a real payment.');
 	}
+	const callerUserId = (sessionUser || bearerUser).userId ?? (sessionUser || bearerUser).id;
+	if (!(await requireCsrf(req, res, callerUserId))) return;
 
 	const rl = await limits.publicIp(clientIp(req));
 	if (!rl.success) {

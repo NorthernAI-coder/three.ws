@@ -532,9 +532,9 @@ function updateConfirmButton() {
 	if (!_ctx) { btn.disabled = true; return; }
 	const amount = Number($('sj-from-amount').value);
 	if (!_quote || !amount || amount <= 0) {
-		btn.disabled = !amount || amount <= 0 ? true : false;
-		btn.textContent = (amount && amount > 0) ? 'Get quote' : 'Enter amount';
-		btn.disabled = !(_quote && amount > 0);
+		const hasAmount = amount > 0;
+		btn.disabled = !hasAmount;
+		btn.textContent = hasAmount ? 'Get quote' : 'Enter amount';
 		return;
 	}
 	btn.disabled = false;

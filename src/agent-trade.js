@@ -329,6 +329,17 @@ function updateOverlays() {
   }
 }
 
+// ── HTML escaping ────────────────────────────────────────────────────────────
+function escHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+function safeHref(u) {
+  const s = String(u || '').trim();
+  return /^https?:\/\//i.test(s) ? s : '#';
+}
+
 // ── Bubble helpers ──────────────────────────────────────────────────────────
 function showBubble(side, text) {
   const el = side === 'buyer' ? els.buyerBubble : els.sellerBubble;
@@ -440,11 +451,11 @@ function handleEvent(ev) {
       showCard(`
         <div class="c-badge c-badge-402">⟶ 402 Payment Required</div>
         <div class="c-label">x402 Protocol · oracle-market-analysis</div>
-        <div class="c-price blue">${price.sol ?? '?'} SOL${usdStr}</div>
-        <div class="c-row">Recipient <span>${fmt(m.recipient)}</span></div>
-        <div class="c-row">Network   <span>${m.network || '—'}</span></div>
-        <div class="c-row">Memo      <span>${m.memo || '—'}</span></div>
-        <div class="c-row">Currency  <span>${m.currency || 'SOL'}</span></div>
+        <div class="c-price blue">${escHtml(price.sol ?? '?')} SOL${escHtml(usdStr)}</div>
+        <div class="c-row">Recipient <span>${escHtml(fmt(m.recipient))}</span></div>
+        <div class="c-row">Network   <span>${escHtml(m.network || '—')}</span></div>
+        <div class="c-row">Memo      <span>${escHtml(m.memo || '—')}</span></div>
+        <div class="c-row">Currency  <span>${escHtml(m.currency || 'SOL')}</span></div>
       `);
       setTimeout(() => setChip('challenged', 'done'), 700);
       break;
@@ -475,11 +486,11 @@ function handleEvent(ev) {
       const usdStr = ev.usd != null ? ` ≈ $${ev.usd}` : '';
       showCard(`
         <div class="c-badge c-badge-ok">✓ Transaction Confirmed</div>
-        <div class="c-label">On-Chain · ${ev.sol} SOL${usdStr}</div>
-        <div class="c-price green">${ev.sol} SOL</div>
-        <div class="c-row">Signature <span>${sigShort}</span></div>
-        <div class="c-row">Network   <span>${ev.network || 'solana'}</span></div>
-        ${ev.explorer ? `<a class="c-link" href="${ev.explorer}" target="_blank" rel="noopener">View on Solscan →</a>` : ''}
+        <div class="c-label">On-Chain · ${escHtml(ev.sol)} SOL${escHtml(usdStr)}</div>
+        <div class="c-price green">${escHtml(ev.sol)} SOL</div>
+        <div class="c-row">Signature <span>${escHtml(sigShort)}</span></div>
+        <div class="c-row">Network   <span>${escHtml(ev.network || 'solana')}</span></div>
+        ${ev.explorer ? `<a class="c-link" href="${escHtml(safeHref(ev.explorer))}" target="_blank" rel="noopener">View on Solscan →</a>` : ''}
       `);
       setTimeout(() => setChip('confirmed', 'done'), 800);
       break;
@@ -504,11 +515,11 @@ function handleEvent(ev) {
       controls.autoRotate = true;
       showCard(`
         <div class="c-badge c-badge-ok">✓ Skill Delivered</div>
-        <div class="c-label">${ev.provider || 'AI'} · ${ev.topic || ''}</div>
-        <div class="c-content">${ev.content || ''}</div>
+        <div class="c-label">${escHtml(ev.provider || 'AI')} · ${escHtml(ev.topic || '')}</div>
+        <div class="c-content">${escHtml(ev.content || '')}</div>
         <div class="c-powered">
-          Powered by ${ev.model || ev.provider || ''}
-          ${ev.explorer ? `&nbsp;·&nbsp;<a class="c-link" style="display:inline" href="${ev.explorer}" target="_blank" rel="noopener">tx →</a>` : ''}
+          Powered by ${escHtml(ev.model || ev.provider || '')}
+          ${ev.explorer ? `&nbsp;·&nbsp;<a class="c-link" style="display:inline" href="${escHtml(safeHref(ev.explorer))}" target="_blank" rel="noopener">tx →</a>` : ''}
         </div>
       `);
       setRunning(false);

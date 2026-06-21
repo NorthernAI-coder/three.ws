@@ -26,7 +26,11 @@ const esc = (s) =>
 		/[&<>"']/g,
 		(c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c],
 	);
-const attr = (s) => esc(s).replace(/"/g, '&quot;');
+const attr = (s) =>
+	String(s ?? '').replace(
+		/[&<>"']/g,
+		(c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c],
+	);
 
 let stylesInjected = false;
 

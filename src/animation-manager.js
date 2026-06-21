@@ -12,6 +12,7 @@ import { canonicalizeBoneName } from './glb-canonicalize.js';
 import {
 	canonicalNodeMapFromObject,
 	canonicalRestMapFromObject,
+	canonicalWorldRestMapFromObject,
 	clipHipBaselineY,
 	hipRestLocalHeight,
 	hipsParentWorldQuat,
@@ -153,6 +154,8 @@ export class AnimationManager {
 		this._overlayClips = new Map();
 		/** @type {Function|null} mixer 'finished' listener for the current one-shot overlay. */
 		this._overlayFinishHandler = null;
+		/** @type {Function|null} mixer 'finished' listener for the settle-to-idle after a playOnce. */
+		this._settleFinishHandler = null;
 	}
 
 	/**
@@ -190,6 +193,12 @@ export class AnimationManager {
 		// (a Mixamo rig bakes the up-axis as a −90°X Hips rest the clips would
 		// otherwise overwrite, tipping the avatar onto its back).
 		this._canonicalRest = canonicalRestMapFromObject(model);
+		// World-frame companion to _canonicalRest, captured in the same bind pose.
+		// Supplying it lets the retargeter use the world-delta-preserving correction
+		// (L = Rt·WT⁻¹·WS·Rs⁻¹) instead of the local-only premultiply fallback, which
+		// skews an A-pose clip's limbs ~30° on a T-pose rig. Matches the server
+		// (retargetClipToObject) and rig (retargetClipToRig) paths.
+		this._canonicalWorldRest = canonicalWorldRestMapFromObject(model);
 		// World rotation of the Hips' parent (within the model), so root motion is
 		// re-expressed in the rig's own frame and travels the right way on any rig.
 		this._hipsParentWorldQuat = hipsParentWorldQuat(model);
@@ -232,6 +241,7 @@ export class AnimationManager {
 		}
 		const { clip: out } = retargetClip(clip, this._canonicalToNode, {
 			targetRest: this._canonicalRest,
+			targetWorldRest: this._canonicalWorldRest,
 			hipsParentWorldQuat: this._hipsParentWorldQuat,
 			hipScale,
 		});
@@ -301,7 +311,9 @@ export class AnimationManager {
 		this.model = null;
 		this._canonicalToNode = null;
 		this._canonicalRest = null;
+		this._canonicalWorldRest = null;
 		this._hipsParentWorldQuat = null;
+		this._hipTargetLocalY = 0;
 		this._canonicalClipsSupported = false;
 		this.actions.clear();
 		this.currentAction = null;
@@ -375,6 +387,10 @@ export class AnimationManager {
 	 * @returns {boolean}
 	 */
 	canPlay(name) {
+		// A clip already rejected by the fallen-pose guard must not pass this
+		// filter — it would make club.js route a routine step to it, then silently
+		// no-op the crossfade, leaving the dancer frozen for the full step duration.
+		if (this._fallen.has(name)) return false;
 		if (this.clips.has(name)) return true;
 		if (this._failed.has(name)) return false;
 		return this._animationDefs.some((d) => d.name === name);
@@ -575,13 +591,21 @@ export class AnimationManager {
 		this.currentAction = action;
 		this.currentName = name;
 
+		// Tear down any previous settle listener before registering a new one so
+		// interrupted one-shots don't accumulate listeners on the mixer.
+		if (this._settleFinishHandler && this.mixer) {
+			this.mixer.removeEventListener('finished', this._settleFinishHandler);
+			this._settleFinishHandler = null;
+		}
 		if (settleTo && this.mixer) {
 			const onFinished = (e) => {
 				if (e.action !== action) return;
 				this.mixer.removeEventListener('finished', onFinished);
+				if (this._settleFinishHandler === onFinished) this._settleFinishHandler = null;
 				// Only settle if nothing else took over the avatar meanwhile.
 				if (this.currentAction === action) this.crossfadeTo(settleTo, fade);
 			};
+			this._settleFinishHandler = onFinished;
 			this.mixer.addEventListener('finished', onFinished);
 		}
 		try { this.onChange?.(name); } catch (e) { log.warn('[AnimationManager] onChange threw:', e); }

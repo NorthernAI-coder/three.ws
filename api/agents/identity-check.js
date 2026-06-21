@@ -50,8 +50,10 @@ export default wrap(async (req, res) => {
 	const tags = Array.isArray(body.persona_tone_tags)
 		? body.persona_tone_tags.map((t) => String(t).trim()).filter(Boolean).slice(0, 12)
 		: [];
+	// Only honor excludeAgentId when the caller is authenticated — an unauthenticated
+	// caller has no standing to exclude an arbitrary agent from the similarity check.
 	const excludeAgentId =
-		typeof body.agent_id === 'string' && isUuid(body.agent_id) ? body.agent_id : null;
+		userId && typeof body.agent_id === 'string' && isUuid(body.agent_id) ? body.agent_id : null;
 
 	if (!name && !description) {
 		return error(res, 400, 'validation_error', 'name or description is required');

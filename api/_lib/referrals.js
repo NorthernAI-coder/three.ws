@@ -209,7 +209,7 @@ export async function setReferralCode(userId, desired) {
 // @param {string|number} userId
 // @returns {Promise<string>} the user's referral code
 export async function ensureReferralCode(userId) {
-  const [existing] = await sql`SELECT referral_code, display_name, username FROM users WHERE id = ${userId}`;
+  const [existing] = await sql`SELECT referral_code, display_name, username FROM users WHERE id = ${userId} AND deleted_at IS NULL`;
   if (existing?.referral_code) return existing.referral_code;
 
   // Default the code to the member's name (then name+suffix, then random) so the
@@ -450,7 +450,8 @@ export async function getMembershipCard(userId) {
   `;
   const [{ position }] = await sql`
     SELECT COUNT(*)::int AS position FROM users
-    WHERE id <= ${userId} AND deleted_at IS NULL
+    WHERE created_at <= (SELECT created_at FROM users WHERE id = ${userId})
+      AND deleted_at IS NULL
   `;
   // Platform-wide member count: a full-table COUNT(*) that is identical for
   // every viewer and grows monotonically — cache for 60s instead of scanning

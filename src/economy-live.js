@@ -105,12 +105,13 @@ function agentCard(a) {
 		</a>`;
 }
 
-async function loadAgents() {
+async function loadAgents({ quiet = false } = {}) {
 	const host = $('#ae-agents');
 	if (!host) return;
-	skeleton(host, 6, 'card');
+	if (!quiet) skeleton(host, 6, 'card');
 	try {
-		const params = new URLSearchParams({ sort: 'top_rated', limit: '24' });
+		const sort = $('#ae-sort')?.value || 'top_rated';
+		const params = new URLSearchParams({ sort, limit: '24' });
 		const r = await fetch(`/api/marketplace/agents?${params}`, { credentials: 'include' });
 		if (!r.ok) throw new Error(`status ${r.status}`);
 		const j = await r.json();
@@ -154,10 +155,10 @@ function serviceRow(t) {
 		</a>`;
 }
 
-async function loadServices() {
+async function loadServices({ quiet = false } = {}) {
 	const host = $('#ae-services');
 	if (!host) return;
-	skeleton(host, 5, 'row');
+	if (!quiet) skeleton(host, 5, 'row');
 	try {
 		const params = new URLSearchParams({ type: 'http', maxItems: '40' });
 		const r = await fetch(`/api/agenc/x402-services?${params}`);
@@ -183,9 +184,36 @@ function setStat(sel, value) {
 	if (el) el.textContent = value;
 }
 
+const REFRESH_MS = 45000;
+let _refreshTimer = 0;
+
+function scheduleRefresh() {
+	clearInterval(_refreshTimer);
+	_refreshTimer = window.setInterval(() => {
+		if (document.hidden) return; // don't poll a backgrounded tab
+		loadAgents({ quiet: true });
+		loadServices({ quiet: true });
+		pulseLive();
+	}, REFRESH_MS);
+}
+
+function pulseLive() {
+	const live = $('#ae-live');
+	if (!live) return;
+	live.hidden = false;
+	const label = $('#ae-live-label');
+	if (label) {
+		label.textContent = 'Updated just now';
+		setTimeout(() => { label.textContent = 'Live'; }, 2500);
+	}
+}
+
 export function initEconomyLive() {
-	loadAgents();
+	loadAgents().then(() => pulseLive());
 	loadServices();
+	const sortEl = $('#ae-sort');
+	if (sortEl) sortEl.addEventListener('change', () => loadAgents());
+	scheduleRefresh();
 }
 
 if (typeof document !== 'undefined') {

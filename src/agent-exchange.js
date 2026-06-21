@@ -400,7 +400,7 @@ async function doPurchase() {
 				sayA(LINES.A.settled);
 			} else if (event === 'result') {
 				// result carries { ok, tool, args, result: <intelObj>, payment: <paymentObj>, durations }
-				intel = data.result ?? data;
+				if (data.result != null) intel = data.result;
 				if (data.payment) settled = { ...settled, ...data.payment };
 			} else if (event === 'error') {
 				errored = true;
@@ -409,7 +409,7 @@ async function doPurchase() {
 			}
 		}
 
-		if (!intel || !settled) throw new Error('incomplete response from payment service');
+		if (!intel?.signal || !settled) throw new Error('incomplete response from payment service');
 
 		// ── Success choreography ──────────────────────────────
 		setStage('done', 'done', 'confirmed');

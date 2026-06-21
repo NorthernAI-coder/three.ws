@@ -60,6 +60,9 @@ export default wrap(async (req, res) => {
 	if (!body || body.strategy === undefined) {
 		return error(res, 400, 'validation_error', 'request body must include `strategy`');
 	}
+	if (typeof body.strategy === 'string' && body.strategy.length > 64_000) {
+		return error(res, 413, 'payload_too_large', 'strategy exceeds 64 KB limit');
+	}
 
 	const nextMeta = { ...(agent.meta || {}), strategy: body.strategy };
 	await sql`

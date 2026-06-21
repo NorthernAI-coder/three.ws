@@ -115,7 +115,7 @@ async function main() {
 				'getKingOfTheHill), on-chain analysis (getBondingCurve, getTokenHolders, ' +
 				'getTokenDetails, getTokenTrades), creator intelligence (getCreatorProfile, ' +
 				'pumpfun_list_claims, pumpfun_watch_claims, pumpfun_first_claims), Solana Name ' +
-				'Service (sns_resolve, sns_reverseLookup), market signals (kol_radar, ' +
+				'Service (sns_resolve, sns_reverseLookup), market signals (' +
 				'kol_leaderboard, pumpfun_quote_swap, pumpfun_watch_whales), and social ' +
 				'sentiment (social_cashtag_sentiment, social_x_post_impact). All data is live ' +
 				'and on-chain; no API keys required.',

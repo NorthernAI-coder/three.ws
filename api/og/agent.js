@@ -90,10 +90,18 @@ export default wrap(async (req, res) => {
 		try {
 			const imgResp = await fetch(imgUrl, { signal: AbortSignal.timeout(3000) });
 			if (imgResp.ok) {
-				const ct = imgResp.headers.get('content-type') || 'image/jpeg';
-				const ab = await imgResp.arrayBuffer();
-				const b64 = Buffer.from(ab).toString('base64');
-				avatarData = { ct, b64 };
+				// Cap the inlined avatar so a large/corrupt thumbnail can't bloat the
+				// SVG (and this function's memory). Thumbnails are small JPEGs/PNGs.
+				const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
+				const declared = Number(imgResp.headers.get('content-length') || 0);
+				if (!declared || declared <= MAX_AVATAR_BYTES) {
+					const ct = imgResp.headers.get('content-type') || 'image/jpeg';
+					const ab = await imgResp.arrayBuffer();
+					if (ab.byteLength <= MAX_AVATAR_BYTES) {
+						const b64 = Buffer.from(ab).toString('base64');
+						avatarData = { ct, b64 };
+					}
+				}
 			}
 		} catch { /* non-fatal — use gradient fallback */ }
 	}

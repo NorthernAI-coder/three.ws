@@ -137,6 +137,8 @@ export async function emit402(res, { agent, skill, amount, currency, validForSec
  * @returns {Promise<null | { intentId: string, amount: string, currency: string, paidAt: Date }>}
  */
 export async function verifyPaid(req, { agentId, skill, expectedAmount, expectedCurrency }) {
+	if (!expectedAmount) throw new Error('verifyPaid: expectedAmount is required');
+	if (!expectedCurrency) throw new Error('verifyPaid: expectedCurrency is required');
 	const intentId = (req.headers['x-payment-intent'] || '').toString().trim();
 	if (!intentId) return null;
 

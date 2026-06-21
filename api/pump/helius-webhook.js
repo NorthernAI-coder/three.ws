@@ -15,15 +15,19 @@
 //     webhookURL: `${env.APP_ORIGIN}/api/pump/helius-webhook`,
 //   });
 
-import { timingSafeEqual } from 'node:crypto';
+import { timingSafeEqual, createHash } from 'node:crypto';
 import { sql, sqlValues } from '../_lib/db.js';
 import { cors, json, method, wrap, error, readJson } from '../_lib/http.js';
 import { parsePumpTrades } from '../_lib/helius.js';
 import { WSOL_MINT } from '../_lib/pump-quote.js';
 
 function safeEqual(a, b) {
-	if (typeof a !== 'string' || typeof b !== 'string' || a.length !== b.length) return false;
-	return timingSafeEqual(Buffer.from(a), Buffer.from(b));
+	if (typeof a !== 'string' || typeof b !== 'string') return false;
+	// Hash both values so the comparison buffers are always equal length — a
+	// length pre-check leaks the secret's length as a timing side-channel.
+	const ha = createHash('sha256').update(a).digest();
+	const hb = createHash('sha256').update(b).digest();
+	return timingSafeEqual(ha, hb);
 }
 
 export default wrap(async (req, res) => {

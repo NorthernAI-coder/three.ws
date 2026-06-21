@@ -172,15 +172,15 @@ describe('tools/list', () => {
 		for (const n of INDEXER_TOOL_NAMES) expect(names).not.toContain(n);
 		// …but the always-on metadata tool is.
 		expect(names).toContain('pumpfun_bot_status');
-		// 26 total declared − 6 indexer tools = 20 advertised.
-		expect(json.result.tools).toHaveLength(20);
+		// 25 total declared − 6 indexer tools = 19 advertised.
+		expect(json.result.tools).toHaveLength(19);
 		for (const t of json.result.tools) expect(t.inputSchema.type).toBe('object');
 	});
 
-	it('advertises all 26 tools (incl. indexer tools) when the bot is configured', async () => {
+	it('advertises all 25 tools (incl. indexer tools) when the bot is configured', async () => {
 		pumpfunBotEnabled.mockReturnValue(true);
 		const { json } = await call({ jsonrpc: '2.0', id: 1, method: 'tools/list' });
-		expect(json.result.tools).toHaveLength(26);
+		expect(json.result.tools).toHaveLength(25);
 		const names = json.result.tools.map((t) => t.name);
 		for (const n of INDEXER_TOOL_NAMES) expect(names).toContain(n);
 		expect(names).toContain('pumpfun_bot_status');

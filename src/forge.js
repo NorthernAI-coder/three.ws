@@ -1374,6 +1374,9 @@ async function pollUntilDone(jobId) {
 		const res = await fetch(`/api/forge?job=${encodeURIComponent(jobId)}`, {
 			headers: forgeHeaders(),
 		});
+		if (!res.ok && res.status >= 500) {
+			throw new Error(`Status check failed (HTTP ${res.status}) — please try again.`);
+		}
 		const data = await res.json().catch(() => ({}));
 		if (data.error === 'unconfigured') {
 			const e = new Error(data.message || 'unconfigured');
@@ -1861,6 +1864,7 @@ function showRateLimited({ retryAfter = 10, unavailable = false, busy = false })
 
 // Run a job (text or image/multi-view). `cfg` = { prompt, imageUrls }.
 async function run(cfg) {
+	stopRateLimitCountdown();
 	lastJob = cfg;
 	pollAbort = false;
 	currentCreationId = null;
@@ -1935,6 +1939,9 @@ async function run(cfg) {
 			img.onload = () => {
 				els.genPreview.innerHTML = '';
 				els.genPreview.appendChild(img);
+			};
+			img.onerror = () => {
+				els.genPreview.innerHTML = '';
 			};
 		}
 

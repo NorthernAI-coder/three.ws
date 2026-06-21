@@ -1177,7 +1177,7 @@ async function handleFork(req, res, id) {
 	`;
 	if (!src) return error(res, 404, 'not_found', 'agent not found');
 
-	const [created] = await sql.transaction([
+	const [createdRows] = await sql.transaction([
 		sql`
 			INSERT INTO agent_identities (
 				user_id, name, description, avatar_id, skills, meta,
@@ -1202,6 +1202,8 @@ async function handleFork(req, res, id) {
 		sql`UPDATE agent_identities SET forks_count = forks_count + 1 WHERE id = ${id}`,
 	]);
 
+	const created = createdRows[0];
+	if (!created) return error(res, 500, 'db_error', 'Fork failed');
 	return json(res, 201, { data: { agent: created } });
 }
 
@@ -1274,7 +1276,7 @@ async function handlePublish(req, res, id) {
 		FROM agent_versions WHERE agent_id = ${id}
 	`;
 
-	const [updated] = await sql.transaction([
+	const [updatedRows] = await sql.transaction([
 		sql`
 			UPDATE agent_identities
 			SET is_published  = true,
@@ -1299,6 +1301,8 @@ async function handlePublish(req, res, id) {
 		`,
 	]);
 
+	const updated = updatedRows[0];
+	if (!updated) return error(res, 404, 'not_found', 'agent not found');
 	return json(res, 200, { data: { agent: toDetail(updated, {}, auth.userId), version: next_version } });
 }
 

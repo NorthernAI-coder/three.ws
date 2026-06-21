@@ -784,14 +784,15 @@ async function start(canvasEl) {
 	}
 
 	// Backed out of the cover card without paying — resume walking the alley.
-	window.addEventListener('club:leave-door', () => {
+	const onLeaveDoor = () => {
 		if (phase !== 'walk') return;
 		inputEnabled = true;
 		showHint(true);
 		showJoystick(isTouch);
 		showMinimap(true);
 		showAgentSwitch(true);
-	});
+	};
+	window.addEventListener('club:leave-door', onLeaveDoor);
 
 	// ── State + render loop ──────────────────────────────────────────────────
 	let phase = 'walk'; // walk (any place) → swapOut → swapIn → walk … → arriving → done
@@ -1067,11 +1068,22 @@ async function start(canvasEl) {
 
 	function dispose() {
 		cancelAnimationFrame(raf);
+		if (hintFlashTimer) { clearTimeout(hintFlashTimer); hintFlashTimer = 0; }
 		window.removeEventListener('resize', onResize);
 		window.removeEventListener('keydown', onKeyDown);
 		window.removeEventListener('keyup', onKeyUp);
 		window.removeEventListener('blur', onBlur);
+		window.removeEventListener('club:leave-door', onLeaveDoor);
 		document.removeEventListener('visibilitychange', onVisibility);
+		// Canvas pointer/click + the persistent door-prompt click listener — the
+		// prompt outlives the canvas, so its listener would otherwise pin the whole
+		// scene graph (scene, rig, crowd, renderer) in memory after teardown.
+		canvasEl.removeEventListener('pointerdown', onPointerDown);
+		canvasEl.removeEventListener('pointermove', onPointerMove);
+		canvasEl.removeEventListener('pointerup', endPointer);
+		canvasEl.removeEventListener('pointercancel', endPointer);
+		canvasEl.removeEventListener('click', onClick);
+		promptEl?.removeEventListener('click', tryEnter);
 		agentSelect?.removeEventListener('change', onAgentChange);
 		agentBrowseBtn?.removeEventListener('click', onBrowseAgents);
 		onAdmit = null;

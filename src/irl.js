@@ -1350,6 +1350,9 @@ function deviceHeaders(extra = {}) {
 const glassesBridge = new GlassesBridge();
 
 const gpsState = { lat: null, lng: null, ready: false, watchId: null, accuracy: null, altitude: null };
+window.addEventListener('pagehide', () => {
+	if (gpsState.watchId != null) { navigator.geolocation.clearWatch(gpsState.watchId); gpsState.watchId = null; }
+}, { once: true });
 // DEV-only simulated-location guard (L1). Always false in production — the mock
 // machinery that flips it lives entirely inside an `import.meta.env.DEV` block and
 // is tree-shaken out, leaving this as an inert, always-false check. When set, the
@@ -3297,7 +3300,7 @@ function setShareGhost(on) {
 // Compass-referenced facing we report on each heartbeat — the same absolute yaw
 // placement uses, so a shared ghost is oriented consistently for every viewer.
 function currentHeadingDeg() {
-	return ((cameraYaw * 180 / Math.PI) % 360 + 360) % 360;
+	return ((-cameraYaw * 180 / Math.PI) % 360 + 360) % 360;
 }
 
 // 15 s heartbeat: proves we're still here (the server's 30 s reaper drops silent

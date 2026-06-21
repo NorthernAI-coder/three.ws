@@ -263,17 +263,36 @@ export async function refundCredits({
 	});
 }
 
-/** Keyset-paginated ledger history (newest first) for a user. */
+/** Keyset-paginated ledger history (newest first) for a user.
+ *  Cursor is the `id` of the last-seen row (UUID). Stable even when two rows
+ *  share the same `created_at` timestamp. */
 export async function listLedger({ userId, limit = 25, before = null } = {}) {
 	if (!userId) throw badRequest('userId is required');
 	const cap = Math.min(Math.max(Number(limit) || 25, 1), 100);
+	// before is the id of the last item on the previous page. We look up its
+	// (created_at, id) pair so we can use a compound keyset condition that is
+	// stable across rows with identical timestamps.
+	let beforeTs = null;
+	let beforeId = null;
+	if (before) {
+		const [anchor] = await sql`
+			select created_at from credit_ledger
+			where id = ${before} and user_id = ${userId}
+			limit 1
+		`;
+		if (anchor) { beforeTs = anchor.created_at; beforeId = before; }
+	}
 	const rows = await sql`
 		select id, kind, amount_usd, balance_after, action, ref_type, ref_id,
 			   tx_signature, asset, asset_amount, price_usd, created_at
 		from credit_ledger
 		where user_id = ${userId}
-		  and (${before}::timestamptz is null or created_at < ${before})
-		order by created_at desc
+		  and (
+		    ${beforeTs}::timestamptz is null
+		    or created_at < ${beforeTs}::timestamptz
+		    or (created_at = ${beforeTs}::timestamptz and id < ${beforeId}::uuid)
+		  )
+		order by created_at desc, id desc
 		limit ${cap + 1}
 	`;
 	const hasMore = rows.length > cap;
@@ -291,5 +310,5 @@ export async function listLedger({ userId, limit = 25, before = null } = {}) {
 		price_usd: r.price_usd == null ? null : Number(r.price_usd),
 		created_at: r.created_at,
 	}));
-	return { items, next_cursor: hasMore ? items[items.length - 1].created_at : null };
+	return { items, next_cursor: hasMore ? items[items.length - 1].id : null };
 }

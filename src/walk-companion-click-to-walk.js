@@ -647,6 +647,7 @@ export function installClickToWalk({ getInstance, getHostEl, storageKey } = {}) 
 	// Inject the settings toggle once the host exists (poll briefly after mount),
 	// and re-inject after avatar swaps / playground round-trips replace the host.
 	let tries = 0;
+	let wireTimer = null;
 	const tryInject = () => {
 		const host = (() => {
 			try {
@@ -656,11 +657,12 @@ export function installClickToWalk({ getInstance, getHostEl, storageKey } = {}) 
 			}
 		})();
 		if (host) injectToggle(host);
-		if (tries++ < 600) setTimeout(tryInject, 500); // keep re-asserting on swaps
+		if (tries++ < 600) wireTimer = setTimeout(tryInject, 500); // keep re-asserting on swaps
 	};
 	tryInject();
 
 	return function uninstall() {
+		clearTimeout(wireTimer);
 		document.removeEventListener('click', onClickCapture, { capture: true });
 		document.removeEventListener('touchstart', onTouchStart, { capture: true });
 		document.removeEventListener('touchmove', onTouchMove, { capture: true });

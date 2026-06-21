@@ -259,7 +259,7 @@ export class AgentAvatar {
 		// First-encounter curiosity burst
 		if (this._firstEncounter) {
 			this._firstEncounter = false;
-			setTimeout(() => {
+			this._firstEncounterTimer = setTimeout(() => {
 				this._injectStimulus('curiosity', 0.9);
 				this._injectStimulus('celebration', 0.4);
 			}, 600);
@@ -299,6 +299,8 @@ export class AgentAvatar {
 
 	/** Remove all hooks and listeners */
 	detach() {
+		clearTimeout(this._firstEncounterTimer);
+		clearTimeout(this._playAmClipTimer);
 		if (this.viewer._afterAnimateHooks) {
 			const idx = this.viewer._afterAnimateHooks.indexOf(this._tickBound);
 			if (idx !== -1) this.viewer._afterAnimateHooks.splice(idx, 1);
@@ -455,7 +457,7 @@ export class AgentAvatar {
 		const prev = prevName ?? am.currentName;
 		am.play(clipName);
 		if (prev && am.isLoaded(prev)) {
-			setTimeout(() => am.crossfadeTo(prev, 0.4), duration * 1000);
+			this._playAmClipTimer = setTimeout(() => am.crossfadeTo(prev, 0.4), duration * 1000);
 		}
 	}
 

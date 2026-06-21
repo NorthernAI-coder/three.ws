@@ -40,6 +40,7 @@ import { cors, json, method, readJson, wrap, error, rateLimited } from './_lib/h
 import { parse } from './_lib/validate.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 import { NETWORK_SOLANA_MAINNET, NETWORK_SOLANA_DEVNET } from './_lib/x402-spec.js';
+import { confirmSolanaPayment } from './_lib/x402-solana-confirm.js';
 import { env } from './_lib/env.js';
 
 // Routed through env.* so the `api-mainnet.helius-rpc.com` misconfig is repaired
@@ -378,6 +379,21 @@ async function handleEncode(req, res) {
 
 	const body = parse(encodeSchema, await readJson(req));
 	const { accept, signed_tx_base64, resource_url, builder_code } = body;
+
+	// Defense-in-depth: verify the signed transaction actually pays the declared
+	// amount to the declared recipient before wrapping it into the X-PAYMENT
+	// header. The downstream facilitator /verify also checks, but a bad tx caught
+	// here gives the user a clear error before the payment even hits the wire.
+	if (accept.asset && accept.payTo && accept.amount) {
+		const check = confirmSolanaPayment({
+			paymentPayload: { payload: { transaction: signed_tx_base64 } },
+			requirement: { asset: accept.asset, payTo: accept.payTo, amount: accept.amount },
+		});
+		if (check.confirmed === false) {
+			return error(res, 400, 'invalid_payment', check.reason || 'transaction does not meet payment requirements');
+		}
+	}
+
 	const payload = {
 		x402Version: 2,
 		scheme: 'exact',

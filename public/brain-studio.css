@@ -197,6 +197,22 @@ textarea.brainstudio__input { resize: vertical; }
 .diff-del { color: var(--node-output); text-decoration: line-through; opacity: .8; }
 .diff-muted { color: var(--ink-faint); }
 
+/* ── Footer: save state + continue ─────────────────────────────────────── */
+.brainstudio__footer {
+	display: flex; align-items: center; justify-content: flex-end; gap: var(--space-md);
+	padding: var(--space-xs) var(--space-sm);
+	border-top: 1px solid var(--surface-2);
+	background: var(--bg-1);
+}
+.brainstudio__footer-save {
+	font-size: var(--text-sm); color: var(--ink-faint);
+	transition: color .2s;
+}
+.brainstudio__footer-save[data-state="saving"] { color: var(--warn, #fbbf24); }
+.brainstudio__footer-save[data-state="saved"] { color: var(--node-market); }
+.brainstudio__footer-save[data-state="error"] { color: var(--node-output); }
+.brainstudio__footer-continue { padding: 8px 20px; }
+
 /* ── Responsive ─────────────────────────────────────────────────────────── */
 @media (max-width: 1024px) {
 	.brainstudio__main { grid-template-columns: 1fr; grid-template-rows: minmax(260px, 1fr) auto; }

@@ -25,6 +25,7 @@
 //           (the user owns the domain; we only store the alias against the agent).
 
 import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.js';
+import { requireCsrf } from '../_lib/csrf.js';
 import { sql } from '../_lib/db.js';
 import { submitProtected } from '../_lib/execution-engine.js';
 import { cors, json, method, error, readJson, rateLimited, serverError } from '../_lib/http.js';
@@ -128,6 +129,7 @@ async function handleCheck(req, res) {
 // ── Option A: agent wallet pays + auto-attach ─────────────────────────────
 async function handleRegisterAgent(req, res, id, auth) {
 	if (!method(req, res, ['POST'])) return;
+	if (!(await requireCsrf(req, res, auth.userId))) return;
 	const body = await readJson(req).catch(() => ({}));
 	const domain = normalizeDomain(body?.domain);
 	if (!domain) return error(res, 400, 'validation_error', 'domain required (a–z, 0–9, hyphen)');
@@ -169,6 +171,7 @@ async function handleRegisterAgent(req, res, id, auth) {
 // ── Option B step 1: build unsigned tx for user wallet ────────────────────
 async function handleRegisterPrep(req, res, id, auth) {
 	if (!method(req, res, ['POST'])) return;
+	if (!(await requireCsrf(req, res, auth.userId))) return;
 	const body = await readJson(req).catch(() => ({}));
 	const domain = normalizeDomain(body?.domain);
 	if (!domain) return error(res, 400, 'validation_error', 'domain required');
@@ -225,6 +228,7 @@ async function handleRegisterPrep(req, res, id, auth) {
 // ── Option B step 2: confirm and attach ───────────────────────────────────
 async function handleRegisterConfirm(req, res, id, auth) {
 	if (!method(req, res, ['POST'])) return;
+	if (!(await requireCsrf(req, res, auth.userId))) return;
 	const body = await readJson(req).catch(() => ({}));
 	const domain = normalizeDomain(body?.domain);
 	const signature = String(body?.signature || '').trim();

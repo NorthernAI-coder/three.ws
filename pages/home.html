@@ -3944,7 +3944,7 @@
 	const io = new IntersectionObserver((entries) => {
 		if (entries[0].isIntersecting) { io.disconnect(); init(); }
 	}, { rootMargin: '200px' });
-	io.observe(section);
+	if (section) io.observe(section);
 })();
 </script>
 

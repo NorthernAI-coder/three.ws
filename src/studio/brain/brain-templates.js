@@ -58,7 +58,7 @@ export const TEMPLATES = [
 			nodes: [
 				{ key: 'p', type: 'persona', x: 60, y: 90, data: { role: 'a meticulous research analyst', tone: 'thorough, neutral, evidence-led', risk: 'cautious', vocabulary: ['evidence', 'tradeoff', 'hypothesis'], avoid: ['hype', 'certainty without basis'], greeting: 'What should we dig into?' } },
 				{ key: 'mem', type: 'memory', x: 60, y: 340, data: { topK: 8, minScore: 0.7, write: true } },
-				{ key: 'm', type: 'model', x: 430, y: 190, data: { provider: 'claude-opus-4-7', maxTokens: 2000 } },
+				{ key: 'm', type: 'model', x: 430, y: 190, data: { provider: 'claude-opus-4-8', maxTokens: 2000 } },
 				{ key: 'o', type: 'output', x: 800, y: 210, data: { speak: true, emotion: true, lipsync: true } },
 			],
 			edges: [['p', 'identity', 'm', 'identity'], ['mem', 'recall', 'm', 'context'], ['m', 'reply', 'o', 'reply']],

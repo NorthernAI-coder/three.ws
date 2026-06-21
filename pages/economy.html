@@ -69,6 +69,23 @@
 			.ae-section-head h2 { font-size: 19px; margin: 0; letter-spacing: -0.01em; }
 			.ae-section-head a { font-size: 13px; color: var(--text-muted, #888); text-decoration: none; }
 			.ae-section-head a:hover { color: var(--text, #e8e8e8); }
+			.ae-head-tools { display: flex; align-items: center; gap: 14px; }
+			.ae-sort select {
+				font: inherit; font-size: 13px;
+				background: var(--surface-1, #0a0a0a); color: var(--text, #e8e8e8);
+				border: 1px solid var(--border-strong, #2a2a2a); border-radius: 10px;
+				padding: 6px 10px; cursor: pointer;
+			}
+			.ae-sort select:focus-visible { outline: 2px solid var(--text, #fff); outline-offset: 2px; }
+			.is-hidden-visually { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+			.ae-live {
+				display: inline-flex; align-items: center; gap: 7px;
+				align-self: center; margin-left: auto;
+				font-size: 12px; color: var(--text-muted, #888);
+				border: 1px solid var(--border, #1a1a1a); border-radius: 999px; padding: 8px 14px;
+			}
+			.ae-live-dot { width: 8px; height: 8px; border-radius: 50%; background: #6ee7a8; box-shadow: 0 0 0 0 rgba(110, 231, 168, 0.6); animation: ae-pulse 2s ease-out infinite; }
+			@keyframes ae-pulse { 0% { box-shadow: 0 0 0 0 rgba(110,231,168,0.5); } 70% { box-shadow: 0 0 0 7px rgba(110,231,168,0); } 100% { box-shadow: 0 0 0 0 rgba(110,231,168,0); } }
 			.ae-muted { color: var(--text-muted, #888); }
 
 			/* Agent grid */
@@ -156,13 +173,24 @@
 					<div class="ae-stat"><div class="ae-stat-num" id="ae-stat-agents">—</div><div class="ae-stat-label">Agents listed</div></div>
 					<div class="ae-stat"><div class="ae-stat-num" id="ae-stat-earning">—</div><div class="ae-stat-label">With paying buyers</div></div>
 					<div class="ae-stat"><div class="ae-stat-num" id="ae-stat-services">—</div><div class="ae-stat-label">Live x402 services</div></div>
+					<div class="ae-live" id="ae-live" hidden><span class="ae-live-dot" aria-hidden="true"></span><span id="ae-live-label">Live</span></div>
 				</div>
 			</header>
 
 			<section class="ae-section">
 				<div class="ae-section-head">
 					<h2>Agents earning on three.ws</h2>
-					<a href="/marketplace">Open marketplace →</a>
+					<div class="ae-head-tools">
+						<label class="ae-sort">
+							<span class="is-hidden-visually">Sort agents</span>
+							<select id="ae-sort" aria-label="Sort agents">
+								<option value="top_rated">Top rated</option>
+								<option value="popular">Most popular</option>
+								<option value="recent">Newest</option>
+							</select>
+						</label>
+						<a href="/marketplace">Open marketplace →</a>
+					</div>
 				</div>
 				<div class="ae-grid" id="ae-agents"></div>
 			</section>

@@ -146,10 +146,10 @@ async function handleGetTokenDetails({ mint, network = 'mainnet' }, env) {
 			const buf = Buffer.from(metaInfo.data);
 			let cursor = 1 + 32 + 32;
 			const readStr = (max) => {
-				const len = buf.readUInt32LE(cursor);
+				const len = Math.min(buf.readUInt32LE(cursor), max);
 				cursor += 4;
 				const slice = buf.slice(cursor, cursor + len);
-				cursor += max;
+				cursor += len;
 				return slice.toString('utf8').replace(/\0+$/g, '').trim();
 			};
 			name = readStr(32);

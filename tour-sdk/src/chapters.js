@@ -106,7 +106,7 @@ export class ChapterPanel {
 		this.trackSeg.innerHTML = tracks
 			.map(
 				(t) =>
-					`<button class="tws-tour-seg__btn" data-val="${t.id}" role="radio" aria-checked="false" title="${esc(t.description || '')}">${esc(t.title.replace(/ tour| highlights/i, ''))}${t.estimatedMinutes ? ` · ~${t.estimatedMinutes}m` : ''}</button>`,
+					`<button class="tws-tour-seg__btn" data-val="${t.id}" role="radio" aria-checked="false" title="${esc(t.description || '')}">${esc((t.title || '').replace(/ tour| highlights/i, ''))}${t.estimatedMinutes ? ` · ~${t.estimatedMinutes}m` : ''}</button>`,
 			)
 			.join('');
 		this.speedSeg.innerHTML = SPEEDS.map(

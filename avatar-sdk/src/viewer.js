@@ -80,9 +80,11 @@ class ThreeWsViewerElement extends HTMLElement {
 			this._renderer.forceContextLoss?.();
 			this._renderer = null;
 		}
+		this._envTex?.dispose();
+		this._envTex = null;
+		if (this._model) { this._disposeModel(this._model); this._model = null; }
 		this._scene = null;
 		this._camera = null;
-		this._model = null;
 	}
 
 	attributeChangedCallback(name, _old, value) {
@@ -115,7 +117,9 @@ class ThreeWsViewerElement extends HTMLElement {
 		this._renderer.toneMappingExposure = 1.0;
 
 		const pmrem = new PMREMGenerator(this._renderer);
-		this._scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+		this._envTex = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+		this._scene.environment = this._envTex;
+		pmrem.dispose();
 
 		this._scene.add(new AmbientLight(0xffffff, 0.55));
 		const key = new DirectionalLight(0xffffff, 1.1);
@@ -148,7 +152,7 @@ class ThreeWsViewerElement extends HTMLElement {
 		try {
 			const gltf = await loader.loadAsync(url);
 			if (token !== this._loadToken || !this._scene) return;
-			if (this._model) this._scene.remove(this._model);
+			if (this._model) { this._scene.remove(this._model); this._disposeModel(this._model); }
 			this._model = gltf.scene;
 			this._scene.add(this._model);
 			this._frameModel(this._model);
@@ -208,6 +212,18 @@ class ThreeWsViewerElement extends HTMLElement {
 			this._shadow.appendChild(this._label);
 		}
 		this._label.textContent = text;
+	}
+
+	_disposeModel(obj) {
+		obj?.traverse?.((n) => {
+			n.geometry?.dispose?.();
+			const mats = Array.isArray(n.material) ? n.material : [n.material];
+			mats.forEach((m) => {
+				if (!m) return;
+				for (const v of Object.values(m)) if (v?.isTexture) v.dispose();
+				m.dispose?.();
+			});
+		});
 	}
 
 	_render() {

@@ -651,11 +651,16 @@ function applySearchResults(query, data) {
 	applyVisibility();
 	renderResults(query, data.results || []);
 
+	// Clear all search highlights before applying the new best result.
+	aHi.fill(0);
+	state.selected = -1;
+	geometry.attributes.aHi.needsUpdate = true;
+
 	const best = data.best && state.byId.get(data.best.id);
 	if (best) {
 		const idx = state.agents.indexOf(best);
 		flyTo(new THREE.Vector3(best.x, best.y, best.z), 64);
-		if (idx >= 0) { aHi[idx] = 1; state.selected = -1; geometry.attributes.aHi.needsUpdate = true; }
+		if (idx >= 0) { aHi[idx] = 1; geometry.attributes.aHi.needsUpdate = true; }
 	}
 }
 

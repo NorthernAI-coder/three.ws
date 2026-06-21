@@ -110,12 +110,18 @@ export default wrap(async (req, res) => {
 	];
 
 	// Accessories: premium cosmetics any of the user's wallets actually own.
-	const accessories = await loadAccessories([...sol.keys(), ...evm.keys()]);
+	// Pass ORIGINAL-case addresses — cosmetic ownership is keyed on the exact
+	// account string the buyer signed with (normalizeAccountId never lowercases),
+	// so a lowercased EVM key would miss a checksummed purchase.
+	const accessories = await loadAccessories(
+		[...sol.values(), ...evm.values()].map((w) => w.address),
+	);
 
 	// NFTs across all wallets. Each cache MISS that reaches a billed provider
 	// must pass the shared Helius DAS ceiling — a hard cost cap independent of
 	// caching (which can't stop enumeration of distinct usernames).
 	let nfts = [];
+	let nftFetchBlocked = false;
 	const solWallets = [...sol.keys()].slice(0, MAX_WALLETS_PER_CHAIN);
 	const evmWallets = [...evm.values()].slice(0, MAX_WALLETS_PER_CHAIN);
 
@@ -126,17 +132,23 @@ export default wrap(async (req, res) => {
 				...solWallets.map((w) => fetchSolanaNfts(w).catch(() => [])),
 				...evmWallets.map((w) => fetchEvmNfts(w.address, w.chainId).catch(() => [])),
 			]);
+			// Sort models-first across the WHOLE set before capping, so 3D NFTs are
+			// never dropped by the cap in favour of plain images.
+			const all = batches.flat().filter(Boolean);
+			all.sort((a, b) => (b.model ? 1 : 0) - (a.model ? 1 : 0));
 			const seen = new Set();
-			for (const item of batches.flat()) {
-				if (!item || seen.has(item.id)) continue;
+			for (const item of all) {
+				if (seen.has(item.id)) continue;
 				seen.add(item.id);
 				nfts.push(item);
 				if (nfts.length >= NFT_CAP) break;
 			}
-			// Models first (they render in 3D on the profile), then the rest.
-			nfts.sort((a, b) => (b.model ? 1 : 0) - (a.model ? 1 : 0));
+		} else {
+			// Ceiling hit: nfts stays []; the tab shows its empty state. Don't cache
+			// this degraded result — a cache write here would pin empty NFTs for the
+			// full TTL even after the ceiling resets.
+			nftFetchBlocked = true;
 		}
-		// ceiling hit → nfts stays []; the tab simply shows its empty state.
 	}
 
 	const payload = {
@@ -150,7 +162,7 @@ export default wrap(async (req, res) => {
 		},
 	};
 
-	await cacheSet(cacheKey, payload, CACHE_TTL_SECONDS).catch(() => {});
+	if (!nftFetchBlocked) await cacheSet(cacheKey, payload, CACHE_TTL_SECONDS).catch(() => {});
 
 	res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=900');
 	return json(res, 200, payload);

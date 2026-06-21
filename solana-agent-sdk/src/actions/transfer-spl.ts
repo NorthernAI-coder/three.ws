@@ -8,13 +8,13 @@ import {
   createAssociatedTokenAccountInstruction,
   createTransferCheckedInstruction,
   getMint,
-  TOKEN_PROGRAM_ID,
   ASSOCIATED_TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
 import type { WalletProvider } from "../wallet/types.js";
 import { buildAndSend, type BuildAndSendOptions } from "../tx/build.js";
 import { MissingTokenAccountError } from "../errors.js";
 import { toUiAmount } from "../utils/format.js";
+import { resolveTokenProgramId } from "../utils/token-program.js";
 
 export interface TransferSplParams {
   mint: PublicKey | string;
@@ -35,11 +35,15 @@ export async function transferSpl(
   const mint = typeof params.mint === "string" ? new PublicKey(params.mint) : params.mint;
   const to = typeof params.to === "string" ? new PublicKey(params.to) : params.to;
 
-  const mintInfo = await getMint(connection, mint);
+  // Resolve classic SPL vs Token-2022 from the mint owner so $THREE and other
+  // Token-2022 mints get the correct ATA derivation and program — not the
+  // classic-only default, which derives the wrong address and fails.
+  const tokenProgramId = await resolveTokenProgramId(connection, mint);
+  const mintInfo = await getMint(connection, mint, undefined, tokenProgramId);
   const instructions: TransactionInstruction[] = [];
 
-  const senderAta = getAssociatedTokenAddressSync(mint, wallet.publicKey, false, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID);
-  const receiverAta = getAssociatedTokenAddressSync(mint, to, false, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID);
+  const senderAta = getAssociatedTokenAddressSync(mint, wallet.publicKey, false, tokenProgramId, ASSOCIATED_TOKEN_PROGRAM_ID);
+  const receiverAta = getAssociatedTokenAddressSync(mint, to, false, tokenProgramId, ASSOCIATED_TOKEN_PROGRAM_ID);
 
   const senderInfo = await connection.getAccountInfo(senderAta);
   if (!senderInfo) {
@@ -51,7 +55,7 @@ export async function transferSpl(
     instructions.push(
       createAssociatedTokenAccountInstruction(
         wallet.publicKey, receiverAta, to, mint,
-        TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID,
+        tokenProgramId, ASSOCIATED_TOKEN_PROGRAM_ID,
       ),
     );
   }
@@ -59,7 +63,7 @@ export async function transferSpl(
   instructions.push(
     createTransferCheckedInstruction(
       senderAta, mint, receiverAta, wallet.publicKey,
-      params.amount, mintInfo.decimals, [], TOKEN_PROGRAM_ID,
+      params.amount, mintInfo.decimals, [], tokenProgramId,
     ),
   );
 

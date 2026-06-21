@@ -2,8 +2,10 @@ import {
 	AudioListener,
 	AxesHelper,
 	Box3,
+	BufferAttribute,
 	BufferGeometry,
 	Cache,
+	CanvasTexture,
 	Color,
 	GridHelper,
 	LoaderUtils,
@@ -12,6 +14,7 @@ import {
 	Mesh,
 	PMREMGenerator,
 	PerspectiveCamera,
+	Points,
 	PointsMaterial,
 	Scene,
 	SkeletonHelper,
@@ -59,6 +62,31 @@ BufferGeometry.prototype.disposeBoundsTree = disposeBoundsTree;
 Mesh.prototype.raycast = acceleratedRaycast;
 
 Cache.enabled = true;
+
+// Draw a small gold coin sprite on a canvas for the pump.fun trade shower, so the
+// effect is self-contained (no external image asset to 404). A fresh texture is
+// returned each call; the caller owns disposal.
+function makeCoinTexture() {
+	const size = 64;
+	const canvas = document.createElement('canvas');
+	canvas.width = canvas.height = size;
+	const ctx = canvas.getContext('2d');
+	const r = size / 2;
+	const grad = ctx.createRadialGradient(r * 0.7, r * 0.7, r * 0.2, r, r, r);
+	grad.addColorStop(0, '#ffe9a8');
+	grad.addColorStop(0.6, '#f4b73d');
+	grad.addColorStop(1, '#b9791a');
+	ctx.beginPath();
+	ctx.arc(r, r, r - 2, 0, Math.PI * 2);
+	ctx.fillStyle = grad;
+	ctx.fill();
+	ctx.lineWidth = 3;
+	ctx.strokeStyle = 'rgba(255,243,205,0.85)';
+	ctx.stroke();
+	const tex = new CanvasTexture(canvas);
+	tex.needsUpdate = true;
+	return tex;
+}
 
 /**
  * @class Viewer
@@ -672,11 +700,14 @@ export class Viewer {
 	}
 
 	showPumpFunTrades() {
+		// Re-entrant guard: a second call while a shower is live would orphan the
+		// first's geometry/material/texture and stack animate hooks.
+		if (this._pumpFunFx || this._disposed) return;
+
 		const particleCount = 1000;
-		const particles = new THREE.BufferGeometry();
+		const particles = new BufferGeometry();
 		const positions = new Float32Array(particleCount * 3);
-		const textureLoader = new THREE.TextureLoader();
-		const coinTexture = textureLoader.load('assets/coin.png');
+		const coinTexture = makeCoinTexture();
 
 		for (let i = 0; i < particleCount; i++) {
 			positions[i * 3] = (Math.random() * 2 - 1) * 10;
@@ -684,24 +715,24 @@ export class Viewer {
 			positions[i * 3 + 2] = (Math.random() * 2 - 1) * 10;
 		}
 
-		particles.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+		particles.setAttribute('position', new BufferAttribute(positions, 3));
 
-		const particleMaterial = new THREE.PointsMaterial({
+		const particleMaterial = new PointsMaterial({
 			map: coinTexture,
 			size: 0.5,
 			transparent: true,
 			alphaTest: 0.5,
 		});
 
-		const particleSystem = new THREE.Points(particles, particleMaterial);
+		const particleSystem = new Points(particles, particleMaterial);
 		this.scene.add(particleSystem);
 
 		const animateParticles = () => {
-			const positions = particleSystem.geometry.attributes.position.array;
+			const pos = particleSystem.geometry.attributes.position.array;
 			for (let i = 0; i < particleCount; i++) {
-				positions[i * 3 + 1] -= 0.1;
-				if (positions[i * 3 + 1] < -10) {
-					positions[i * 3 + 1] = 20;
+				pos[i * 3 + 1] -= 0.1;
+				if (pos[i * 3 + 1] < -10) {
+					pos[i * 3 + 1] = 20;
 				}
 			}
 			particleSystem.geometry.attributes.position.needsUpdate = true;
@@ -713,13 +744,29 @@ export class Viewer {
 		}
 		this._afterAnimateHooks.push(animateParticles);
 
-		setTimeout(() => {
-			this.scene.remove(particleSystem);
-			const index = this._afterAnimateHooks.indexOf(animateParticles);
-			if (index > -1) {
-				this._afterAnimateHooks.splice(index, 1);
-			}
-		}, 10000);
+		this._pumpFunFx = { particleSystem, particles, particleMaterial, coinTexture, animateParticles };
+		this._pumpFunTimer = setTimeout(() => this._clearPumpFunTrades(), 10000);
+	}
+
+	// Tear down the pump.fun coin shower: detach the animate hook, remove from the
+	// scene, and dispose every GPU resource it allocated. Idempotent.
+	_clearPumpFunTrades() {
+		if (this._pumpFunTimer) {
+			clearTimeout(this._pumpFunTimer);
+			this._pumpFunTimer = null;
+		}
+		const fx = this._pumpFunFx;
+		if (!fx) return;
+		this._pumpFunFx = null;
+		if (this._afterAnimateHooks) {
+			const index = this._afterAnimateHooks.indexOf(fx.animateParticles);
+			if (index > -1) this._afterAnimateHooks.splice(index, 1);
+		}
+		this.scene.remove(fx.particleSystem);
+		fx.particles.dispose();
+		fx.particleMaterial.dispose();
+		fx.coinTexture.dispose();
+		this.invalidate();
 	}
 
 	takeScreenshot() {
@@ -2005,6 +2052,7 @@ export class Viewer {
 			window.removeEventListener('message', this._onMessage, false);
 		}
 		if (this._cameraTweenRaf) cancelAnimationFrame(this._cameraTweenRaf);
+		this._clearPumpFunTrades();
 		if (this._onAnimHotkey) {
 			document.removeEventListener('keydown', this._onAnimHotkey);
 			this._onAnimHotkey = null;

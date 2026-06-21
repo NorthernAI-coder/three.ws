@@ -261,7 +261,7 @@ export class FaceMocap {
 		const wasRunning = this._running;
 		this._running = false; // freeze live capture while playing back
 
-		const t0     = performance.now();
+		let t0       = performance.now();
 		const frames = clip.frames;
 		let i = 0, raf = 0, stopped = false;
 
@@ -298,7 +298,9 @@ export class FaceMocap {
 			if (i >= frames.length - 1 && t >= clip.duration) {
 				if (opts.loop) {
 					i = 0;
-					return; // restart on next rAF
+					t0 = performance.now();
+					raf = requestAnimationFrame(tick);
+					return;
 				}
 				stopped = true;
 				this._running = wasRunning;

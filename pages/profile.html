@@ -991,6 +991,7 @@
 			}
 			.up-nft-media img, .up-nft-media model-viewer {
 				width: 100%; height: 100%; object-fit: cover; background: transparent;
+				--poster-color: transparent;
 			}
 			.up-nft-badge {
 				position: absolute;
@@ -1377,7 +1378,12 @@
 							c
 						],
 				);
-			const attr = (s) => esc(s).replace(/"/g, '&quot;');
+			const attr = (s) =>
+				String(s ?? '').replace(
+					/[&<>"']/g,
+					(c) =>
+						({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c],
+				);
 
 			const segments = location.pathname.split('/').filter(Boolean);
 			const slug = segments[1]; // /u/<slug>
@@ -1627,10 +1633,10 @@
 						if (e.target === modal) close();
 					});
 					modal.querySelector('#up-pay-close').addEventListener('click', close);
-					document.addEventListener('keydown', function esc(e) {
+					document.addEventListener('keydown', function onPayEscKey(e) {
 						if (e.key === 'Escape') {
 							close();
-							document.removeEventListener('keydown', esc);
+							document.removeEventListener('keydown', onPayEscKey);
 						}
 					});
 
@@ -1944,7 +1950,7 @@
 				// Lazy-load on-chain collectibles (NFTs, accessories, wallets). Kept
 				// out of the main payload because the NFT providers are slow + billed;
 				// the profile paints first, these fill in after.
-				loadCollectibles(rootEl, user, tabBarEl);
+				loadCollectibles(rootEl, user, tabBarEl, activateTab);
 
 				// Follow / unfollow
 				const followBtn = rootEl.querySelector('#up-follow-btn');
@@ -2017,13 +2023,14 @@
 				];
 				const body = fields
 					.map((f) => {
+						const inputId = `up-edit-${attr(f.key)}`;
 						const counter = f.max
-							? `<span class="up-field-count" data-count-for="${f.key}">${(f.value || '').length}/${f.max}</span>`
+							? `<span class="up-field-count" data-count-for="${attr(f.key)}">${(f.value || '').length}/${f.max}</span>`
 							: '';
 						const input = f.textarea
-							? `<textarea name="${f.key}" maxlength="${f.max}" placeholder="${attr(f.placeholder || '')}">${esc(f.value)}</textarea>`
-							: `<input name="${f.key}" type="text" maxlength="${f.max}" value="${attr(f.value)}" placeholder="${attr(f.placeholder || '')}">`;
-						return `<div class="up-field"><label>${esc(f.label)}${counter}</label>${input}</div>`;
+							? `<textarea id="${inputId}" name="${attr(f.key)}" maxlength="${f.max}" placeholder="${attr(f.placeholder || '')}">${esc(f.value)}</textarea>`
+							: `<input id="${inputId}" name="${attr(f.key)}" type="text" maxlength="${f.max}" value="${attr(f.value)}" placeholder="${attr(f.placeholder || '')}">`;
+						return `<div class="up-field"><label for="${inputId}">${esc(f.label)}${counter}</label>${input}</div>`;
 					})
 					.join('');
 
@@ -2096,6 +2103,7 @@
 						`/api/users/${encodeURIComponent(username)}/follows?type=${type}&limit=100`,
 						{ credentials: 'include' },
 					);
+					if (!r.ok) throw new Error(`HTTP ${r.status}`);
 					const j = await r.json();
 					const users = j.users || [];
 					if (!users.length) {
@@ -2160,10 +2168,11 @@
 				backdrop.id = 'up-modal-backdrop';
 				backdrop.setAttribute('role', 'dialog');
 				backdrop.setAttribute('aria-modal', 'true');
+				backdrop.setAttribute('aria-labelledby', 'up-modal-title');
 				backdrop.innerHTML = `
 					<div class="up-modal">
 						<div class="up-modal-head">
-							<h3>${esc(title)}</h3>
+							<h3 id="up-modal-title">${esc(title)}</h3>
 							<button class="up-modal-close" aria-label="Close" data-close>×</button>
 						</div>
 						<div class="up-modal-body">${innerHtml}</div>
@@ -2210,7 +2219,7 @@
 			// Fetches /api/users/:username/collectibles after the main paint and
 			// fills the Wallets row + NFT/Accessories tabs. Failure is silent — the
 			// surfaces just stay absent rather than showing a broken state.
-			async function loadCollectibles(rootEl, user, tabBarEl) {
+			async function loadCollectibles(rootEl, user, tabBarEl, activateTab) {
 				let data;
 				try {
 					const r = await fetch(
@@ -2251,17 +2260,23 @@
 					});
 				}
 
-				// NFTs + Accessories tabs are revealed only when non-empty.
+				// NFTs + Accessories tabs are revealed only when non-empty. If the
+				// user has no content in the main tabs (no active tab yet), auto-activate
+				// the first deferred tab so the content isn't stuck behind a hidden section.
+				const hadActiveTab = Boolean(tabBarEl?.querySelector('.up-tab--active'));
 				if (nfts.length) {
 					rootEl.querySelector('#up-nfts-body').innerHTML = renderNftGrid(nfts);
 					addDeferredTab(tabBarEl, 'nfts', 'Collectibles', nfts.length);
 					addStat(rootEl, 'NFTs', nfts.length);
+					if (!hadActiveTab && activateTab) activateTab('nfts');
 				}
 				if (accessories.length) {
 					rootEl.querySelector('#up-accessories-body').innerHTML =
 						renderAccessoriesGrid(accessories);
 					addDeferredTab(tabBarEl, 'accessories', 'Accessories', accessories.length);
 					addStat(rootEl, 'Accessories', accessories.length);
+					// Only auto-activate accessories if NFTs didn't already take the active slot.
+					if (!hadActiveTab && !nfts.length && activateTab) activateTab('accessories');
 				}
 			}
 
@@ -2276,7 +2291,23 @@
 				btn.setAttribute('aria-selected', 'false');
 				btn.innerHTML = `${esc(label)} <span class="up-tab-badge">${count}</span>`;
 				tabBarEl.appendChild(btn);
-				if (tabBarEl.querySelectorAll('.up-tab').length > 1) tabBarEl.hidden = false;
+				// Reveal the bar whenever at least one tab exists. The >= 1 threshold
+				// handles profiles with no static tabs (no avatars/agents/etc.) that
+				// still have on-chain collectibles — without this they get a hidden bar
+				// and an unreachable NFT section.
+				if (tabBarEl.querySelectorAll('.up-tab').length >= 1) tabBarEl.hidden = false;
+				// If this is the ONLY tab in the bar, auto-activate it so the section
+				// it points to is shown instead of the default "No avatars" empty state.
+				if (tabBarEl.querySelectorAll('.up-tab').length === 1) {
+					btn.classList.add('up-tab--active');
+					btn.setAttribute('aria-selected', 'true');
+					const profileRoot = tabBarEl.closest('#profile-root');
+					if (profileRoot) {
+						profileRoot.querySelectorAll('.up-section').forEach((s) => {
+							s.hidden = s.dataset.section !== key;
+						});
+					}
+				}
 			}
 
 			// Append a read-only stat tile to the strip.
@@ -2659,7 +2690,7 @@
 				const url = location.href;
 				const title = document.title.replace(/ — three\.ws$/, '');
 				const xText = `${title} on three.ws`;
-				const xUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(xText)}&url=${encodeURIComponent(url)}`;
+				const xUrl = `https://x.com/intent/tweet?text=${encodeURIComponent(xText)}&url=${encodeURIComponent(url)}`;
 				const canNativeShare = typeof navigator.share === 'function';
 				shareMenu.innerHTML = `
 					${

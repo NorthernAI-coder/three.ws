@@ -34,8 +34,20 @@ export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'GET,PUT,OPTIONS', credentials: true })) return;
 	if (!method(req, res, ['GET', 'PUT'])) return;
 
-	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return rateLimited(res, rl);
+	const ip = clientIp(req);
+
+	// GET (availability check) gets its own lighter bucket — typing a 20-char
+	// vanity code produces ~20 debounced requests and must not eat the shared
+	// authIp budget that login/registration use, which would lock out all users
+	// from the same IP (offices, shared NAT) for up to 10 minutes.
+	// PUT (set code) is a mutation → strict authIp.
+	if (req.method === 'GET') {
+		const rl = await limits.referralCodeCheckIp(ip);
+		if (!rl.success) return rateLimited(res, rl);
+	} else {
+		const rl = await limits.authIp(ip);
+		if (!rl.success) return rateLimited(res, rl);
+	}
 
 	const auth = await resolveAuth(req);
 	if (!auth) return error(res, 401, 'unauthorized', 'sign in required');

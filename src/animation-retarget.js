@@ -393,7 +393,7 @@ export function hipRestLocalHeight(root) {
 	const worldY = _hipScalePos.y;
 	hips.parent.matrixWorld.decompose(_hipScalePos, _hipScaleQuat, _hipScaleScale);
 	const parentScale = (_hipScaleScale.x + _hipScaleScale.y + _hipScaleScale.z) / 3;
-	if (!(parentScale > 1e-6) || !Number.isFinite(worldY)) return 0;
+	if (!(parentScale > 1e-6) || !(worldY > 0) || !Number.isFinite(worldY)) return 0;
 	return worldY / parentScale;
 }
 

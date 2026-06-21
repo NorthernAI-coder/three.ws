@@ -128,8 +128,8 @@ function ipfsToHttp(url) {
 // isn't a known gateway URL (nothing useful to retry).
 function altIpfsGateway(url) {
 	if (typeof url !== 'string') return null;
-	if (url.includes('ipfs.io/ipfs/')) return url.replace('ipfs.io/ipfs/', 'cloudflare-ipfs.com/ipfs/');
-	if (url.includes('cloudflare-ipfs.com/ipfs/')) return url.replace('cloudflare-ipfs.com/ipfs/', 'ipfs.io/ipfs/');
+	if (url.includes('ipfs.io/ipfs/')) return url.replace('ipfs.io/ipfs/', 'dweb.link/ipfs/');
+	if (url.includes('dweb.link/ipfs/')) return url.replace('dweb.link/ipfs/', 'ipfs.io/ipfs/');
 	return null;
 }
 

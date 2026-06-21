@@ -27,7 +27,12 @@ import { cors, method } from '../_lib/http.js';
 // Each registered listener is a function: (event, data) => void.
 const clients = new Set();
 let pollTimer = null;
+// Compound cursor (created_at, ticket_id). A plain `created_at >` cursor drops
+// tips that share an identical timestamp at the LIMIT boundary — realistic under
+// the bursts this stream exists for. The unique ticket_id breaks ties so the
+// cursor is strictly monotonic and lossless. Empty id sorts before any ticket.
 let sharedCursor = new Date();
+let sharedCursorId = '';
 let idleTicks = 0;
 
 const HEARTBEAT_MS = 15_000;
@@ -52,16 +57,17 @@ async function runSharedPoll() {
 			select ticket_id, dancer, dance, clip, label, payer, network,
 			       amount_atomics, asset, started_at, ends_at, created_at
 			from club_tips
-			where created_at > ${sharedCursor.toISOString()}
-			order by created_at asc
+			where (created_at, ticket_id) > (${sharedCursor.toISOString()}::timestamptz, ${sharedCursorId})
+			order by created_at asc, ticket_id asc
 			limit ${MAX_ROWS_PER_TICK}
 		`;
 		if (rows.length > 0) {
 			idleTicks = 0;
-			for (const row of rows) {
-				const ts = row.created_at instanceof Date ? row.created_at : new Date(row.created_at);
-				if (ts > sharedCursor) sharedCursor = ts;
-			}
+			// Rows are ordered by (created_at, ticket_id); advance the cursor to the
+			// last one so a same-timestamp tie split across batches isn't skipped.
+			const last = rows[rows.length - 1];
+			sharedCursor = last.created_at instanceof Date ? last.created_at : new Date(last.created_at);
+			sharedCursorId = last.ticket_id;
 			// Fan out to all connected clients.
 			for (const send of clients) {
 				for (const row of rows) {

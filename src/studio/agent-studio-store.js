@@ -103,11 +103,18 @@ class AgentStudioStore {
 	async load({ agentId = null } = {}) {
 		if (this._loadPromise) return this._loadPromise;
 		this._loadPromise = (async () => {
-			this.identity = new AgentIdentity({ agentId, autoLoad: false });
-			await this.identity.load();
-			this._record = this._snapshotFromIdentity();
-			this._notify();
-			return this._record;
+			try {
+				this.identity = new AgentIdentity({ agentId, autoLoad: false });
+				await this.identity.load();
+				this._record = this._snapshotFromIdentity();
+				this._notify();
+				return this._record;
+			} catch (err) {
+				// Clear so the next load() call retries rather than returning this stale
+				// rejected promise forever (which would break the shell's retry button).
+				this._loadPromise = null;
+				throw err;
+			}
 		})();
 		return this._loadPromise;
 	}

@@ -335,10 +335,15 @@ async function convertToSplats() {
 		sourceLabel = f.name;
 	}
 	if (!source) throw new Error('No model yet — generate one with a mesh tool first, or upload a GLB.');
-	status('Sampling surface into Gaussians…');
-	const { buffer, count } = meshToSplatBuffer(source, { count: Number(params.count), seed: Number(params.seed) });
+	status('Sampling surface into Gaussians… 0%');
+	const { buffer, count, textured } = await meshToSplatBuffer(source, {
+		count: Number(params.count),
+		seed: Number(params.seed),
+		onProgress: (pct) => status(`Sampling surface into Gaussians… ${pct}%`),
+	});
 	if (params.source === 'upload') disposeObject(source); // free the uploaded scene
-	await renderSplatBuffer(buffer, `${count.toLocaleString()} splats from ${sourceLabel}`);
+	const colorNote = textured ? ' · textured' : '';
+	await renderSplatBuffer(buffer, `${count.toLocaleString()} splats from ${sourceLabel}${colorNote}`);
 	// .splat download
 	if (_lastSplatUrl) URL.revokeObjectURL(_lastSplatUrl);
 	_lastSplatUrl = URL.createObjectURL(new Blob([buffer], { type: 'application/octet-stream' }));

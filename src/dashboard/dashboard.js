@@ -5972,7 +5972,8 @@ async function renderEarnings(root) {
 		return;
 	}
 
-	const { pending_usd, settled_usd, entries } = data;
+	const { pending_usd, settled_usd } = data;
+	const entries = Array.isArray(data.entries) ? data.entries : [];
 
 	if (!entries.length) {
 		body.innerHTML = `
@@ -6059,6 +6060,21 @@ async function renderPayments(root) {
 
 	let nextPayCursor = null;
 
+	// wei (integer string) → trimmed ETH string. Defensive: a malformed
+	// amount_wei (decimals, hex, empty) would otherwise throw in BigInt and abort
+	// rendering every remaining payment row, so bad values degrade to '—'.
+	function formatWeiToEth(weiStr) {
+		if (!weiStr || !/^\d+$/.test(String(weiStr).trim())) return '—';
+		try {
+			return (Number(BigInt(String(weiStr).trim())) / 1e18)
+				.toFixed(8)
+				.replace(/0+$/, '')
+				.replace(/\.$/, '.0');
+		} catch {
+			return '—';
+		}
+	}
+
 	async function loadPayPage(replace) {
 		const params = new URLSearchParams({ direction: 'sent', limit: '20' });
 		if (nextPayCursor) params.set('cursor', nextPayCursor);
@@ -6118,12 +6134,7 @@ async function renderPayments(root) {
 		const moreEl = body.querySelector('#pay-more');
 
 		for (const p of data.payments) {
-			const amountEth = p.amount_wei
-				? (Number(BigInt(p.amount_wei)) / 1e18)
-						.toFixed(8)
-						.replace(/0+$/, '')
-						.replace(/\.$/, '.0')
-				: '—';
+			const amountEth = formatWeiToEth(p.amount_wei);
 			const statusColor =
 				p.status === 'confirmed' ? '#00e5a0' : p.status === 'failed' ? '#ff5c5c' : '#888';
 			const explorerBase =

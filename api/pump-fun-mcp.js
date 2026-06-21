@@ -39,12 +39,12 @@ import {
 } from './_lib/x402-spec.js';
 import { getPumpSdk, getConnection, solanaPubkey, getAmmPoolState } from './_lib/pump.js';
 import { pumpfunMcp, pumpfunBotEnabled } from './_lib/pumpfun-mcp.js';
-import { getRadarSignals } from '../src/kol/radar.js';
 import { TOOLS, resolveToolName, rpcError, rpcEnvelope } from '../src/pump/mcp-tools.js';
 import { generateVanityKey } from '../src/pump/vanity-keygen.js';
 import bs58 from 'bs58';
 import { resolveSnsName, reverseLookupAddress } from '../src/solana/sns.js';
 import { scanFirstClaims } from './_lib/pump-claims.js';
+import { getSolPriceUsd } from '../src/shared/usd-price.js';
 
 // ── On-chain handlers ──────────────────────────────────────────────────────
 
@@ -119,10 +119,10 @@ async function handleGetTokenDetails({ mint, network = 'mainnet' }) {
 			const buf = metaInfo.data;
 			let cursor = 1 + 32 + 32;
 			const readStr = (max) => {
-				const len = buf.readUInt32LE(cursor);
+				const len = Math.min(buf.readUInt32LE(cursor), max);
 				cursor += 4;
 				const slice = buf.slice(cursor, cursor + len);
-				cursor += max;
+				cursor += max; // always step the full fixed-width field
 				return slice.toString('utf8').replace(/\0+$/g, '').trim();
 			};
 			name = readStr(32);
@@ -177,12 +177,6 @@ async function handleGetTokenHolders({ mint, limit = 10, network = 'mainnet' }) 
 		topHolderPercent,
 		holders,
 	};
-}
-
-// ── kol_radar handler ──────────────────────────────────────────────────────
-
-async function handleKolRadar({ category = 'pump-fun', limit = 20 }) {
-	return getRadarSignals({ category, limit });
 }
 
 async function handleKolLeaderboard({ window = '7d', limit = 25 }) {
@@ -646,7 +640,7 @@ async function readTradesFromChain({ mint, limit, network }) {
 		import('@coral-xyz/anchor'),
 		import('@pump-fun/pump-sdk'),
 		import('@pump-fun/pump-swap-sdk'),
-		getSolPriceUsd(),
+		getSolPriceUsd().catch(() => 150),
 	]);
 	const { BorshCoder, EventParser } = anchor;
 
@@ -1309,7 +1303,6 @@ const HANDLERS = {
 	get_token_holders: handleGetTokenHolders,
 	get_coin_intel: handleGetCoinIntel,
 	get_oracle_conviction: handleGetOracleConviction,
-	kol_radar: handleKolRadar,
 	kol_leaderboard: handleKolLeaderboard,
 	search_tokens: indexerOrUnavailable('search_tokens'),
 	get_token_trades: handleGetTokenTrades,
@@ -1357,7 +1350,7 @@ const INSTRUCTIONS =
 	'get_token_holders, get_token_details, get_token_trades), creator intelligence ' +
 	'(get_creator_profile, pumpfun_list_claims, pumpfun_watch_claims, ' +
 	'pumpfun_first_claims), Solana Name Service (sns_resolve, sns_reverseLookup), ' +
-	'market signals (kol_radar, kol_leaderboard, pumpfun_quote_swap, ' +
+	'market signals (kol_leaderboard, pumpfun_quote_swap, ' +
 	'pumpfun_watch_whales), and social sentiment (social_cashtag_sentiment, ' +
 	'social_x_post_impact). Discovery tools require the indexer backend — call ' +
 	'pumpfun_bot_status (always available) to check. ' +

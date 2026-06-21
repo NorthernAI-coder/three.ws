@@ -24,7 +24,8 @@ export default wrap(async (req, res) => {
 	const rl = await limits.authIp(clientIp(req));
 	if (!rl.success) return rateLimited(res, rl);
 
-	const body = await readJson(req).catch(() => null);
+	let body;
+	try { body = await readJson(req); } catch { return error(res, 400, 'invalid_json', 'request body is not valid JSON'); }
 	const agent_id = body?.agent_id;
 	const skill    = typeof body?.skill === 'string' ? body.skill.trim() : null;
 	if (!agent_id || !skill) {

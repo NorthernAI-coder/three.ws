@@ -106,7 +106,13 @@ async function insertUserWithUniqueReferralCode({ email, passwordHash, displayNa
 			`;
 			return row;
 		} catch (err) {
-			if (err && err.code === '23505' && /referral_code/.test(err.message || '')) continue;
+			if (err?.code === '23505') {
+				// Referral code collision → try next candidate.
+				if (/referral_code/.test(err.message || '')) continue;
+				// Email / display_name collision from a concurrent registration that
+				// slipped past the pre-check — surface as a proper 409 instead of 500.
+				throw Object.assign(new Error('email or username already in use'), { status: 409, code: 'conflict' });
+			}
 			throw err;
 		}
 	}
@@ -148,12 +154,18 @@ async function handleRegister(req, res) {
 	}
 
 	const hash = await hashPassword(passwordVal);
-	const user = await insertUserWithUniqueReferralCode({
-		email: email_val,
-		passwordHash: hash,
-		displayName: displayName_val,
-		referredById: referred_by_id,
-	});
+	let user;
+	try {
+		user = await insertUserWithUniqueReferralCode({
+			email: email_val,
+			passwordHash: hash,
+			displayName: displayName_val,
+			referredById: referred_by_id,
+		});
+	} catch (err) {
+		if (err?.status === 409) return error(res, 409, err.code || 'conflict', err.message);
+		throw err;
+	}
 	// Fire-and-forget: every new account gets a starter draft agent so the
 	// marketplace's "My Agents" tab and onboarding flow have something to show.
 	queueMicrotask(() => seedDefaultAgent(user.id));

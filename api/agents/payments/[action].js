@@ -434,9 +434,11 @@ async function handlePayConfirm(req, res) {
 	const [updated] = await sql`
 		update agent_payment_intents
 		set status = 'paid', tx_signature = ${body.tx_signature}, paid_at = now()
-		where id = ${intent.id}
+		where id = ${intent.id} and status = 'pending'
 		returning id, agent_id, amount, currency_mint, paid_at
 	`;
+	// Concurrent request already marked this paid — idempotent success.
+	if (!updated) return json(res, 200, { ok: true, intent_id: intent.id, status: 'paid' });
 
 	// Fire-and-forget: notify the agent owner that they received a payment.
 	sql`select user_id from agent_identities where id = ${updated.agent_id} and deleted_at is null limit 1`

@@ -71,11 +71,14 @@ export function heuristicClassify({ name, symbol, description } = {}) {
 const SYSTEM = `You are a pump.fun coin classifier. Given a coin's name, symbol, and description, classify it precisely. Be literal and grounded — do not hype. Output ONLY strict JSON, no prose.`;
 
 function buildUser({ name, symbol, description, twitter, telegram, website }) {
+	// Truncate and XML-delimit each field so a token creator can't inject LLM
+	// instructions via a crafted coin name/description and force a mis-classify.
+	const safe = (s, max) => String(s || '').slice(0, max);
 	return `Classify this pump.fun coin.
 
-Name: ${name || '(none)'}
-Symbol: ${symbol || '(none)'}
-Description: ${description || '(none)'}
+<name>${safe(name, 64) || '(none)'}</name>
+<symbol>${safe(symbol, 10) || '(none)'}</symbol>
+<description>${safe(description, 300) || '(none)'}</description>
 Has socials: ${[twitter && 'twitter', telegram && 'telegram', website && 'website'].filter(Boolean).join(', ') || 'none'}
 
 Output strict JSON:

@@ -24,7 +24,8 @@ export default async function handler(req, res) {
 	try {
 		built = await getIssuer();
 	} catch (err) {
-		return error(res, 500, 'issuer_misconfigured', err.message);
+		console.error('[x402/did] issuer error:', err?.message);
+		return error(res, 500, 'issuer_misconfigured', 'signing key configuration error');
 	}
 	if (!built) {
 		return error(

@@ -53,12 +53,17 @@ class BrainStudio {
 			if (resp.ok) this.providers = (await resp.json()).providers || [];
 		} catch { /* picker falls back to a static list of model ids */ }
 
-		const stored = this.studio.brain?.graph;
-		if (stored) {
-			this._showEditor();
-			this.graph.load(normalizeGraph(stored));
-		} else {
-			this._showOnboarding();
+		// Don't overwrite a graph the user started editing during the async provider
+		// fetch above (e.g. they clicked a template while we were awaiting). Only
+		// apply the stored state if no editing has begun yet.
+		if (this.root?.dataset.view !== 'editor') {
+			const stored = this.studio.brain?.graph;
+			if (stored) {
+				this._showEditor();
+				this.graph.load(normalizeGraph(stored));
+			} else {
+				this._showOnboarding();
+			}
 		}
 	}
 
@@ -101,6 +106,10 @@ class BrainStudio {
 							</div>
 						</aside>
 					</div>
+					<div class="brainstudio__footer">
+						<span class="brainstudio__footer-save" id="bsFooterSave">Auto-saved</span>
+						<button class="studio__btn studio__btn-primary brainstudio__footer-continue" id="bsContinue">Save &amp; continue →</button>
+					</div>
 				</div>
 
 				<div class="brainstudio__modal" id="bsModal" hidden>
@@ -117,6 +126,7 @@ class BrainStudio {
 		this.el.querySelector('#bsTpl').addEventListener('click', () => this._showTemplateModal());
 		this.el.querySelector('#bsSave').addEventListener('click', () => this._saveNow());
 		this.el.querySelector('#bsDone').addEventListener('click', () => this._done());
+		this.el.querySelector('#bsContinue').addEventListener('click', () => this._done());
 		this.el.querySelector('#bsCompose').addEventListener('submit', (e) => { e.preventDefault(); this._send(); });
 		const input = this.el.querySelector('#bsInput');
 		input.addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); this._send(); } });
@@ -141,6 +151,20 @@ class BrainStudio {
 		// means an explicit save/exit captures the latest wiring, not the last tick.
 		this._flushHandler = () => { if (this.graph) this._onGraphChange(this.graph.toGraph(), { immediate: true }); };
 		document.addEventListener('studio:flush', this._flushHandler);
+
+		// Footer save-state indicator — mirrors the shell header but anchored at the
+		// bottom of the canvas so it's visible while the user's eyes are on the graph.
+		this._unsubFooterPending = this.studio.on('save:pending', () => this._setFooterSave('saving'));
+		this._unsubFooterOk = this.studio.on('save:ok', () => this._setFooterSave('saved'));
+		this._unsubFooterErr = this.studio.on('error', () => this._setFooterSave('error'));
+	}
+
+	_setFooterSave(state) {
+		const el = this.el.querySelector('#bsFooterSave');
+		if (!el) return;
+		const map = { saving: 'Saving…', saved: 'Saved ✓', error: 'Save failed' };
+		el.textContent = map[state] || 'Auto-saved';
+		el.dataset.state = state;
 	}
 
 	// True only when the Brain tab is the active (non-hidden) studio panel — keeps
@@ -180,12 +204,18 @@ class BrainStudio {
 	}
 
 	// Save, then hand off to the next studio section so building a brain flows
-	// naturally into Memory rather than dead-ending on the graph.
+	// naturally into Memory rather than dead-ending on the graph. Both the toolbar
+	// #bsDone and the footer #bsContinue buttons invoke this, so we disable both
+	// during the write to prevent double-submit.
 	async _done() {
-		// Only advance once the write actually lands — a failed save rolls back in the
-		// store, so navigating away on failure would silently drop the user's edits.
-		if (await this._saveNow()) {
+		const btns = ['#bsDone', '#bsContinue'].map((s) => this.el.querySelector(s)).filter(Boolean);
+		if (btns.some((b) => b.dataset.busy)) return;
+		btns.forEach((b) => { b.dataset.busy = '1'; b.disabled = true; b.textContent = 'Saving…'; });
+		const ok = await this._saveNow({ silent: true });
+		if (ok) {
 			document.dispatchEvent(new CustomEvent('studio:navigate', { detail: { tab: 'memory' } }));
+		} else {
+			btns.forEach((b) => { b.disabled = false; b.textContent = 'Retry'; delete b.dataset.busy; });
 		}
 	}
 

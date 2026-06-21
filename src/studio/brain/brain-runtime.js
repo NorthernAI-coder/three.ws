@@ -52,9 +52,14 @@ export class BrainRuntime {
 		const graph = this.getGraph();
 		const nodeOf = (type) => graph.nodes.find((n) => n.type === type);
 
+		// Create the AbortController up-front so P4 runners (step 3) and the stream
+		// (step 4) share the same signal and can all be cancelled together.
+		this._abort = new AbortController();
+
 		gv.clearActive();
 		const circuit = gv.circuit();
 		gv.setActive(circuit.nodeIds, circuit.edgeIds);
+		const circuitIds = new Set(circuit.nodeIds);
 
 		// 1. Persona lights up first.
 		const personaNode = nodeOf('persona');
@@ -85,7 +90,9 @@ export class BrainRuntime {
 		}
 
 		// 3. Skill / market nodes — P4 runners if registered (reasoning-only otherwise).
-		for (const node of graph.nodes.filter((n) => n.type === 'skill' || n.type === 'market')) {
+		// Only nodes wired into the live circuit: orphaned nodes are inert by design
+		// (they contribute nothing to the compiled system prompt either).
+		for (const node of graph.nodes.filter((n) => circuitIds.has(n.id) && (n.type === 'skill' || n.type === 'market'))) {
 			const runner = getNodeRunner(node.type);
 			if (!runner) continue;
 			gv.setNodeBusy(node.id, true);
@@ -188,7 +195,8 @@ export class BrainRuntime {
 	// ── SSE stream from /api/brain/chat ─────────────────────────────────────────
 
 	async _stream({ provider, system, messages, maxTokens, onMeta, onFirst, onToken, onDone }) {
-		this._abort = new AbortController();
+		// _abort was already created in run() before step 3, so P4 runners and this
+		// stream share the same signal. Don't recreate it here.
 		const resp = await apiFetch('/api/brain/chat', {
 			method: 'POST',
 			headers: { 'content-type': 'application/json' },

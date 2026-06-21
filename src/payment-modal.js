@@ -16,6 +16,12 @@ import { log } from './shared/log.js';
 
 const USDC_DECIMALS = 6;
 
+function escHtml(s) {
+	return String(s == null ? '' : s)
+		.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+		.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
 // Lazy-load Solana modules via bundled npm deps. Dynamic import keeps the
 // Solana SDKs out of the initial chunk; Vite splits them into their own
 // asset that's only fetched when a payment actually happens.
@@ -346,6 +352,10 @@ export class SkillPaymentModal {
 		// Step 2: Build + sign + send the SPL transfer
 		this._setStatus('Building transaction…');
 		const txStartMs = Date.now();
+		// Once the transfer is broadcast the money is in flight — any later error
+		// (confirm timeout, server mismatch) must NOT re-arm the pay button, or the
+		// user pays a second time. Only pre-broadcast failures are retryable.
+		let broadcast = false;
 		try {
 			const { web3, spl } = await loadSolana();
 			const { Connection, PublicKey, Transaction } = web3;
@@ -383,15 +393,18 @@ export class SkillPaymentModal {
 			const ix = createTransferInstruction(fromAta, toAta, payerKey, BigInt(purchase.amount));
 			ix.keys.push({ pubkey: referenceKey, isSigner: false, isWritable: false });
 
-			const { blockhash } = await this._connection.getLatestBlockhash('confirmed');
+			const { blockhash, lastValidBlockHeight } = await this._connection.getLatestBlockhash('confirmed');
 			const tx = new Transaction({ feePayer: payerKey, recentBlockhash: blockhash }).add(ix);
 
 			this._setStatus('Approve in wallet…');
 			const wallet = this._wallet || window.solana;
 			const txid = await wallet.sendTransaction(tx, this._connection);
+			broadcast = true;
 
 			this._setStatus('Waiting for confirmation…');
-			await this._connection.confirmTransaction(txid, 'confirmed');
+			// Bind confirmation to the blockhash's expiry so a dropped tx fails fast
+			// instead of polling the signature for the full default timeout.
+			await this._connection.confirmTransaction({ signature: txid, blockhash, lastValidBlockHeight }, 'confirmed');
 
 			this._setStatus('Verifying with server…');
 			const ok = await this._pollConfirm(purchase.reference);
@@ -416,10 +429,18 @@ export class SkillPaymentModal {
 			log.warn('[three.ws] payment-modal purchase error:', e);
 			const msg = e.message || '';
 			const payerAddr = (this._wallet?.publicKey || window.solana?.publicKey)?.toBase58?.() || null;
+			// After broadcast the transfer is irreversible — present a terminal state
+			// and leave the pay button disabled so the user can't double-pay.
+			if (broadcast) {
+				if (e?.code === 'mismatch') {
+					this._setStatus('Payment was sent but didn\'t match the expected amount or recipient. Don\'t pay again — contact support with this transaction.', 'err');
+				} else {
+					this._setStatus('Payment was sent but couldn\'t be confirmed in time. Don\'t pay again — check your wallet, and contact support if funds were deducted.', 'err');
+				}
+				return;
+			}
 			if (/reject|denied|cancel|user.*declin/i.test(msg)) {
 				this._setStatus('Transaction cancelled — try again whenever you\'re ready.', 'err');
-			} else if (msg === 'verification_failed') {
-				this._setStatus('Payment may have gone through but couldn\'t be verified. Contact support if funds were deducted.', 'err');
 			} else if (/insufficient|balance|funds/i.test(msg)) {
 				this._showInsufficientFunds(payerAddr, purchase?.amount, null, confirm);
 				return;
@@ -441,7 +462,13 @@ export class SkillPaymentModal {
 			});
 			const j = await r.json().catch(() => ({}));
 			if (r.ok && j.data?.status === 'confirmed') return true;
-			if (r.status === 409) throw new Error(j.error_description || 'Transfer mismatch');
+			if (r.status === 409) {
+				// Definitive server verdict: the on-chain transfer didn't match.
+				// Tag it so the caller renders a terminal "don't pay again" state.
+				const err = new Error(j.error_description || 'Transfer mismatch');
+				err.code = 'mismatch';
+				throw err;
+			}
 			await delay(2500);
 		}
 		return false;
@@ -488,8 +515,8 @@ export class PaymentChip {
 						<div class="pay-chip-head">
 							<span class="pay-chip-label">Payment required</span>
 						</div>
-						<div class="pay-chip-skill">${skill}</div>
-						<div class="pay-chip-price">${amountUsdc} ${currency}<span class="usd-eq" hidden></span></div>
+						<div class="pay-chip-skill">${escHtml(skill)}</div>
+						<div class="pay-chip-price">${escHtml(amountUsdc)} ${escHtml(currency)}<span class="usd-eq" hidden></span></div>
 						<div class="pay-chip-actions"></div>
 						<div class="pay-chip-status"></div>
 					</div>
@@ -516,7 +543,7 @@ export class PaymentChip {
 				const connected = this._wallet?.isConnected || window.solana?.isConnected;
 				if (connected) {
 					actions.innerHTML = `
-						<button class="pay-chip-btn pay-chip-btn-pay">Pay ${amountUsdc} ${currency}</button>
+						<button class="pay-chip-btn pay-chip-btn-pay">Pay ${escHtml(amountUsdc)} ${escHtml(currency)}</button>
 						<button class="pay-chip-btn pay-chip-btn-cancel">Cancel</button>
 					`;
 					actions.querySelector('.pay-chip-btn-pay').addEventListener('click', () => runPurchase());
@@ -616,6 +643,9 @@ export class PaymentChip {
 					if (payBtn) payBtn.disabled = false;
 				};
 
+				// Once broadcast, the transfer is irreversible — never re-arm the pay
+				// button on a later error, or the user double-pays.
+				let broadcast = false;
 				try {
 					const { web3, spl } = await loadSolana();
 					const { Connection, PublicKey, Transaction } = web3;
@@ -651,15 +681,16 @@ export class PaymentChip {
 					const ix = createTransferInstruction(fromAta, toAta, payerKey, BigInt(purch.amount));
 					ix.keys.push({ pubkey: referenceKey, isSigner: false, isWritable: false });
 
-					const { blockhash } = await this._connection.getLatestBlockhash('confirmed');
+					const { blockhash, lastValidBlockHeight } = await this._connection.getLatestBlockhash('confirmed');
 					const tx = new Transaction({ feePayer: payerKey, recentBlockhash: blockhash }).add(ix);
 
-					setStatus('Approve in Phantom…');
+					setStatus('Approve in your wallet…');
 					const wallet = this._wallet || window.solana;
 					const txid = await wallet.sendTransaction(tx, this._connection);
+					broadcast = true;
 
 					setStatus('Confirming…');
-					await this._connection.confirmTransaction(txid, 'confirmed');
+					await this._connection.confirmTransaction({ signature: txid, blockhash, lastValidBlockHeight }, 'confirmed');
 
 					setStatus('Verifying…');
 					const ok = await this._pollConfirm(purch.reference);
@@ -685,10 +716,18 @@ export class PaymentChip {
 				} catch (e) {
 					log.warn('[three.ws] payment-chip purchase error:', e);
 					const msg = e.message || '';
+					// After broadcast the money is in flight — terminal state, pay
+					// button stays disabled so the user can't pay a second time.
+					if (broadcast) {
+						if (e?.code === 'mismatch') {
+							setStatus('Payment was sent but didn\'t match the expected amount or recipient. Don\'t pay again — contact support with this transaction.', 'err');
+						} else {
+							setStatus('Payment was sent but couldn\'t be confirmed in time. Don\'t pay again — check your wallet, and contact support if funds were deducted.', 'err');
+						}
+						return;
+					}
 					if (/reject|denied|cancel|user.*declin/i.test(msg)) {
 						setStatus('Transaction cancelled — try again whenever you\'re ready.', 'err');
-					} else if (msg === 'verification_failed') {
-						setStatus('Payment may have gone through but couldn\'t be verified. Contact support if funds were deducted.', 'err');
 					} else if (/insufficient|balance|funds/i.test(msg)) {
 						showChipAddFunds(purch?.amount, null);
 						return;
@@ -716,7 +755,11 @@ export class PaymentChip {
 			});
 			const j = await r.json().catch(() => ({}));
 			if (r.ok && j.data?.status === 'confirmed') return true;
-			if (r.status === 409) throw new Error(j.error_description || 'Transfer mismatch');
+			if (r.status === 409) {
+				const err = new Error(j.error_description || 'Transfer mismatch');
+				err.code = 'mismatch';
+				throw err;
+			}
 			await delay(2500);
 		}
 		return false;
