@@ -679,6 +679,10 @@
 			"dest": "/api/oracle-share?mint=$1"
 		},
 		{
+			"src": "/(oracle/arm|arm)/?",
+			"dest": "/arm.html"
+		},
+		{
 			"src": "/oracle/?",
 			"dest": "/oracle.html"
 		},

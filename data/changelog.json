@@ -3,6 +3,41 @@
 	"entries": [
 		{
 			"date": "2026-06-21",
+			"title": "Arm your agent gets its own setup page",
+			"summary": "Configuring your 3D agent to trade Oracle conviction now has a dedicated page at /oracle/arm — a clean, focused setup laid out the way trading bots do it: a live status bar with a big arm switch, a stats strip, and step-by-step cards for entry rules, position sizing and caps, alerts, and simulate-vs-live mode. The Oracle tab now shows your agent's configuration at a glance and links straight to the full editor.",
+			"tags": [
+				"feature",
+				"improvement"
+			],
+			"link": "/oracle/arm"
+		},
+		{
+			"date": "2026-06-21",
+			"title": "Launch-and-snipe: atomic dev buy at token launch",
+			"summary": "Atomic pump.fun launches can now include a first buy in the very same transaction that creates the token. The creator's buy lands in the same block as the mint — inside one Jito bundle — so no external sniper can wedge in ahead of the floor. Set a buy size and slippage; the funder covers it on top of rent, and the same spend caps apply.",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"title": "Oracle gets a monochrome look",
+			"summary": "The Oracle page is now styled in a clean grayscale palette. Conviction tiers, pillar bars, wallet labels, and the 3D conviction graph read by brightness instead of color — brighter means stronger — for a calmer, more focused view.",
+			"tags": [
+				"improvement"
+			],
+			"link": "/oracle"
+		},
+		{
+			"date": "2026-06-21",
+			"title": "No more nav flash on page refresh",
+			"summary": "Fixed a brief flash of unstyled menu and footer links that could appear when hard-refreshing a page. The shared navigation and footer now wait for their styles to load before appearing.",
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-21",
 			"title": "Pay-what-you-want pricing for skills",
 			"summary": "Creators can now price a skill as “pay what you want” with an optional minimum; buyers name their price at checkout and the fee, referral, and revenue math all use the actual amount paid.",
 			"tags": [

@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+	<script>/* three.ws theme boot — no-flash; runtime in /theme-switcher.js */(function(){try{var m=localStorage.getItem('twx_theme');var l=m==='auto'?(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches):m==='light';document.documentElement.setAttribute('data-theme',l?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();</script>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+	<title>Arm your agent — automate Oracle conviction · three.ws</title>
+	<meta name="description" content="Configure your 3D agent to act on Oracle conviction automatically: set the minimum score, position size, daily and open-position caps, narrative filters and alerts, then arm it in simulate or live mode. Every action gets graded against the outcome." />
+	<meta property="og:title" content="Arm your agent · three.ws" />
+	<meta property="og:description" content="Set the rules, arm your 3D agent, and let it trade Oracle conviction from its own custodial Solana wallet — simulate first, go live when you trust it." />
+	<meta property="og:type" content="website" />
+	<meta property="og:site_name" content="three.ws" />
+	<meta property="og:url" content="https://three.ws/oracle/arm" />
+	<meta name="twitter:card" content="summary_large_image" />
+	<meta name="twitter:title" content="Arm your agent — automate Oracle conviction" />
+	<meta name="twitter:description" content="Rules, sizing, caps, alerts — then arm. Your 3D agent acts the instant a coin clears your bar." />
+	<link rel="canonical" href="https://three.ws/oracle/arm" />
+	<link rel="icon" href="/favicon.ico" />
+	<link rel="stylesheet" href="/nav.css" />
+	<style>
+		:root {
+			--bg: #05060c; --panel: rgba(13,15,23,0.72); --panel-solid: #0c0e16; --line: rgba(255,255,255,0.09);
+			--ink: #eaeefa; --muted: #8a92a8; --faint: rgba(255,255,255,0.45);
+			--cyan: #cdd2e0; --violet: #a6acbc; --gold: #c4c9d6; --up: #e4e8f2; --down: #6c7280; --amber: #b6bcca;
+			--accent: #cdd2e0; --stroke-strong: rgba(255,255,255,0.22);
+			--r: 16px; --r-sm: 11px;
+			--mono: ui-monospace, "JetBrains Mono", SFMono-Regular, Menlo, monospace;
+			--shadow: 0 18px 52px -22px rgba(0,0,0,0.86), 0 1px 0 rgba(255,255,255,0.05) inset;
+			--blur: saturate(160%) blur(16px);
+		}
+		* { box-sizing: border-box; }
+		html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--ink);
+			font: 15px/1.55 Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing: antialiased; }
+		body { background:
+			radial-gradient(58% 48% at 82% -6%, color-mix(in srgb, var(--violet) 16%, transparent), transparent 70%),
+			radial-gradient(48% 42% at 3% -2%, color-mix(in srgb, var(--cyan) 12%, transparent), transparent 66%), var(--bg); }
+		a { color: inherit; text-decoration: none; }
+		button { font: inherit; color: inherit; cursor: pointer; }
+		.wrap { max-width: 1180px; margin: 0 auto; padding: 0 18px 90px; }
+
+		/* hero */
+		.crumb { display: inline-flex; align-items: center; gap: 7px; margin: 30px 0 0; font: 600 12px/1 var(--mono); color: var(--muted); }
+		.crumb a:hover { color: var(--ink); }
+		.hero { padding: 14px 0 18px; }
+		.hero h1 { font-size: clamp(26px, 4vw, 38px); line-height: 1.05; letter-spacing: -0.024em; margin: 8px 0 10px; font-weight: 800; }
+		.hero p { max-width: 680px; font-size: 15px; color: var(--muted); margin: 0; }
+
+		.card { background: var(--panel); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+			border: 1px solid var(--line); border-radius: var(--r); padding: 18px; box-shadow: var(--shadow); }
+		.card > h3 { margin: 0 0 3px; font-size: 15px; letter-spacing: -0.01em; display: flex; align-items: center; gap: 8px; }
+		.card .sub { color: var(--muted); font-size: 12.5px; margin: 0 0 16px; }
+		.card .stepno { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 6px; font: 700 11px/1 var(--mono);
+			background: color-mix(in srgb, var(--cyan) 16%, transparent); color: var(--cyan); border: 1px solid color-mix(in srgb, var(--cyan) 30%, var(--line)); }
+
+		/* control bar — agent + arm status */
+		.control { display: grid; grid-template-columns: 1fr auto; gap: 18px; align-items: center; margin: 6px 0 16px; }
+		.control .agentpick { min-width: 0; }
+		.control .agentpick label { display: block; font: 600 10px/1 var(--mono); text-transform: uppercase; letter-spacing: .08em; color: var(--faint); margin-bottom: 7px; }
+		.control select { width: 100%; max-width: 320px; background: rgba(255,255,255,0.03); border: 1px solid var(--line); border-radius: var(--r-sm); color: var(--ink); padding: 10px 12px; font: 600 14px/1 var(--mono); }
+		.armbox { display: flex; align-items: center; gap: 14px; }
+		.arm-state { text-align: right; }
+		.arm-state .lab { display: flex; align-items: center; gap: 8px; justify-content: flex-end; font-weight: 700; font-size: 15px; }
+		.arm-state .sub { font-size: 11.5px; color: var(--muted); max-width: 320px; margin-top: 3px; }
+		.arm-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); }
+		.arm-dot.off { background: var(--muted); }
+		.arm-dot.sim { background: var(--cyan); box-shadow: 0 0 0 0 color-mix(in srgb, var(--cyan) 55%, transparent); animation: pulse 1.9s infinite; }
+		.arm-dot.live { background: var(--amber); box-shadow: 0 0 0 0 color-mix(in srgb, var(--amber) 55%, transparent); animation: pulse 1.5s infinite; }
+		@keyframes pulse { 0%{box-shadow:0 0 0 0 currentColor} 70%{box-shadow:0 0 0 8px transparent} 100%{box-shadow:0 0 0 0 transparent} }
+
+		/* stat strip */
+		.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--r-sm); overflow: hidden; margin: 0 0 18px; }
+		.stat { background: var(--panel-solid); padding: 13px 16px; }
+		.stat span { display: block; font: 600 10px/1 var(--mono); letter-spacing: .07em; text-transform: uppercase; color: var(--faint); margin-bottom: 7px; }
+		.stat-val { font: 800 21px/1 var(--mono); }
+		.stat-val.up { color: var(--up); } .stat-val.dn { color: var(--down); }
+
+		/* layout */
+		.layout { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+		.col-config { display: flex; flex-direction: column; gap: 14px; }
+		.col-side { display: flex; flex-direction: column; gap: 14px; position: sticky; top: 14px; }
+
+		/* fields */
+		.field { margin-bottom: 14px; }
+		.field:last-child { margin-bottom: 0; }
+		.field > label { display: block; font: 600 10.5px/1 var(--mono); text-transform: uppercase; letter-spacing: .07em; color: var(--faint); margin-bottom: 8px; }
+		.field input, .field select { width: 100%; background: rgba(255,255,255,0.03); border: 1px solid var(--line); border-radius: var(--r-sm); color: var(--ink); padding: 10px 12px; font: 600 14px/1 var(--mono); }
+		.field input:focus, .field select:focus { outline: 2px solid color-mix(in srgb, var(--cyan) 60%, transparent); outline-offset: 1px; }
+		.field-hint { margin-top: 7px; font-size: 11.5px; color: var(--muted); line-height: 1.5; }
+		.field-hint a { color: var(--cyan); } .field-hint code { background: rgba(255,255,255,.06); padding: 1px 4px; border-radius: 3px; font-size: 11px; }
+		.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+		.suffixed { position: relative; }
+		.suffixed .suf { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font: 600 11px/1 var(--mono); color: var(--faint); pointer-events: none; }
+
+		/* segmented control */
+		.seg { display: inline-flex; width: 100%; background: rgba(255,255,255,0.03); border: 1px solid var(--line); border-radius: var(--r-sm); padding: 3px; gap: 3px; }
+		.seg button { flex: 1; padding: 9px 8px; border-radius: 8px; border: none; background: none; color: var(--muted); font: 600 12.5px/1.2 var(--mono); transition: background .16s, color .16s; text-align: center; }
+		.seg button small { display: block; font-size: 10px; color: var(--faint); margin-top: 3px; font-weight: 600; }
+		.seg button.on { background: color-mix(in srgb, var(--cyan) 20%, transparent); color: var(--ink); }
+		.seg button.on small { color: var(--cyan); }
+		.seg.live-on button[data-mode="live"].on { background: color-mix(in srgb, var(--amber) 22%, transparent); }
+		.seg.live-on button[data-mode="live"].on small { color: var(--amber); }
+
+		/* toggles */
+		.toggle { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 13px 0; border-top: 1px solid var(--line); }
+		.toggle:first-of-type { border-top: none; }
+		.toggle .t-lab b { display: block; font-size: 13.5px; }
+		.toggle .t-lab span { font-size: 12px; color: var(--muted); }
+		.sw { width: 46px; height: 26px; border-radius: 999px; background: rgba(255,255,255,0.1); border: 1px solid var(--line); position: relative; transition: background .2s; flex: none; }
+		.sw::after { content: ""; position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 50%; background: #fff; transition: transform .2s; }
+		.sw.on { background: var(--up); } .sw.on::after { transform: translateX(20px); }
+		.sw:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+		/* big arm switch */
+		.sw.xl { width: 64px; height: 34px; }
+		.sw.xl::after { width: 28px; height: 28px; }
+		.sw.xl.on::after { transform: translateX(30px); }
+
+		/* chips */
+		.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+		.cchip { padding: 6px 11px; border-radius: 999px; border: 1px solid var(--line); background: rgba(255,255,255,0.03); font: 600 12px/1 var(--mono); color: var(--muted); transition: background .15s, color .15s, border-color .15s; }
+		.cchip:hover { color: var(--ink); border-color: var(--stroke-strong); }
+		.cchip.on { border-color: color-mix(in srgb, var(--violet) 50%, var(--line)); color: var(--ink); background: color-mix(in srgb, var(--violet) 15%, transparent); }
+
+		.risk { margin-top: 12px; padding: 11px 13px; border-radius: var(--r-sm); background: rgba(255,255,255,0.03); border: 1px solid var(--line); font: 600 12px/1.5 var(--mono); color: var(--muted); }
+
+		/* telegram */
+		.tg-row { display: flex; gap: 6px; align-items: center; }
+		.tg-row input { flex: 1; min-width: 0; font-size: 12px; }
+		.tg-note { display: none; margin-top: 7px; font-size: 11.5px; line-height: 1.4; }
+		.tg-note.ok { color: var(--up); } .tg-note.warn { color: var(--amber); }
+		.opt { font: 600 10px/1 var(--mono); padding: 2px 7px; border-radius: 999px; background: rgba(255,255,255,.08); color: var(--muted); border: 1px solid var(--line); text-transform: uppercase; letter-spacing: .05em; }
+
+		/* buttons */
+		.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 16px; border-radius: 999px; border: 1px solid var(--line);
+			background: var(--panel); color: var(--ink); font-weight: 600; font-size: 13.5px; transition: transform .14s, border-color .18s, background .18s; }
+		.btn:hover { transform: translateY(-1px); border-color: color-mix(in srgb, var(--cyan) 50%, var(--line)); }
+		.btn:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+		.btn.sm { padding: 9px 13px; font-size: 12.5px; white-space: nowrap; flex-shrink: 0; }
+		.btn.primary { width: 100%; padding: 13px; font-size: 14px;
+			background: linear-gradient(135deg, color-mix(in srgb, var(--cyan) 26%, var(--panel)), color-mix(in srgb, var(--violet) 26%, var(--panel)));
+			border-color: color-mix(in srgb, var(--cyan) 42%, var(--line)); color: #fff; }
+		.btn.primary.dirty { box-shadow: 0 0 0 0 color-mix(in srgb, var(--cyan) 60%, transparent); animation: dirtypulse 2s infinite; }
+		@keyframes dirtypulse { 0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--cyan) 50%,transparent)} 70%{box-shadow:0 0 0 6px transparent} 100%{box-shadow:0 0 0 0 transparent} }
+		.save-note { font-size: 12px; margin-top: 10px; min-height: 16px; line-height: 1.45; }
+		.save-note.ok { color: var(--up); } .save-note.warn { color: var(--amber); }
+
+		/* ledger */
+		.ledger-empty { padding: 40px 18px; text-align: center; color: var(--muted); font-size: 13px; }
+		.act-wrap { overflow-x: auto; }
+		.act-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+		.act-table th { padding: 8px 10px; text-align: left; font: 600 10px/1 var(--mono); letter-spacing: .07em; text-transform: uppercase; color: var(--faint); border-bottom: 1px solid var(--line); white-space: nowrap; }
+		.act-row td { padding: 9px 10px; border-bottom: 1px solid rgba(255,255,255,0.04); vertical-align: middle; }
+		.act-row:last-child td { border-bottom: none; }
+		.act-row[data-outcome="win"] .act-coin { color: var(--up); }
+		.act-row[data-outcome="loss"] .act-coin { color: var(--down); }
+		.act-coin a { color: inherit; font-weight: 600; }
+		.act-coin a:hover { text-decoration: underline; }
+		.act-mono { font-family: var(--mono); }
+		.act-mono.up { color: var(--up); } .act-mono.dn { color: var(--down); }
+		.act-when { color: var(--faint); font-size: 11px; white-space: nowrap; }
+		.act-live { font: 700 9.5px/1 var(--mono); letter-spacing: .04em; padding: 2px 6px; border-radius: 4px; background: color-mix(in srgb, var(--amber) 18%, transparent); color: var(--amber); }
+		.act-sim  { font: 700 9.5px/1 var(--mono); letter-spacing: .04em; padding: 2px 6px; border-radius: 4px; background: rgba(255,255,255,0.06); color: var(--faint); }
+		.act-delta { font-size: 10px; margin-left: 4px; font-weight: 700; } .act-delta.up { color: var(--up); } .act-delta.dn { color: var(--down); }
+		.tierpill { font: 700 10px/1 var(--mono); padding: 3px 7px; border-radius: 5px; text-transform: uppercase; letter-spacing: .04em; background: rgba(255,255,255,0.06); color: var(--muted); }
+		.tp-prime, .tp-strong { background: color-mix(in srgb, var(--up) 16%, transparent); color: var(--up); }
+		.tp-lean { background: color-mix(in srgb, var(--gold) 16%, transparent); color: var(--gold); }
+		.ledger-foot { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); font-size: 11.5px; color: var(--faint); line-height: 1.5; }
+		.ledger-foot a { color: var(--cyan); }
+
+		/* empty / signed-out state */
+		.empty { display: none; text-align: center; padding: 60px 22px; }
+		.empty b { display: block; color: var(--ink); font-size: 18px; margin-bottom: 8px; }
+		.empty p { color: var(--muted); max-width: 460px; margin: 0 auto 20px; font-size: 14px; }
+
+		.foot { margin-top: 34px; padding-top: 22px; border-top: 1px solid var(--line); color: var(--faint); font-size: 12px; line-height: 1.6; }
+
+		@media (max-width: 860px) {
+			.layout { grid-template-columns: 1fr; }
+			.col-side { position: static; }
+			.control { grid-template-columns: 1fr; }
+			.armbox { justify-content: space-between; }
+			.arm-state { text-align: left; } .arm-state .lab { justify-content: flex-start; }
+			.stats { grid-template-columns: repeat(2, 1fr); }
+		}
+	</style>
+</head>
+<body>
+	<header><div id="nav-container"></div></header>
+
+	<main class="wrap">
+		<div class="crumb"><a href="/oracle">← Oracle</a> <span>/</span> <span style="color:var(--ink)">Arm your agent</span></div>
+		<div class="hero">
+			<h1>Arm your agent</h1>
+			<p>Set the rules once. Your 3D agent watches the live Oracle conviction stream and acts the instant a coin clears your bar — buying a small position from its own custodial Solana wallet. Starts in <b>simulate</b> so you can watch it work risk-free, then go live when you trust it.</p>
+		</div>
+
+		<!-- signed-out / no-agent state -->
+		<div class="empty" id="emptyState">
+			<b>Create a 3D agent to arm it</b>
+			<p>Your agent needs its own custodial Solana wallet to act on conviction. Spin one up in the studio — it takes about a minute — then come back here to set its rules.</p>
+			<a class="btn primary" style="display:inline-flex;width:auto;padding:12px 22px" href="/create/studio">Create an agent →</a>
+		</div>
+
+		<!-- control bar -->
+		<div class="card control" id="setup">
+			<div class="agentpick">
+				<label for="agentSel">Agent</label>
+				<select id="agentSel" aria-label="Choose which agent to arm"></select>
+			</div>
+			<div class="armbox">
+				<div class="arm-state">
+					<div class="lab"><span class="arm-dot off" id="armStatusDot"></span><span id="armStatusLab">Disarmed</span></div>
+					<div class="sub" id="armStatusSub">Your agent is idle. Flip the switch to start watching the conviction stream.</div>
+				</div>
+				<div class="sw xl" id="armToggle" role="switch" aria-checked="false" tabindex="0" aria-label="Arm agent"></div>
+			</div>
+		</div>
+
+		<!-- live stats -->
+		<div class="stats" id="statsStrip">
+			<div class="stat"><span>Win rate</span><b class="stat-val" id="statWin">—</b></div>
+			<div class="stat"><span>Realized PnL</span><b class="stat-val" id="statPnl">—</b></div>
+			<div class="stat"><span>Open now</span><b class="stat-val" id="statOpen">—</b></div>
+			<div class="stat"><span>Total acts</span><b class="stat-val" id="statTotal">—</b></div>
+		</div>
+
+		<div class="layout">
+			<!-- configuration -->
+			<div class="col-config">
+				<div class="card">
+					<h3><span class="stepno">1</span> Entry rules</h3>
+					<p class="sub">When should your agent buy? Only plays that clear every rule below get acted on.</p>
+					<div class="field">
+						<label>Minimum conviction</label>
+						<div class="seg" id="convSeg" role="group" aria-label="Minimum conviction">
+							<button type="button" data-min="86">Prime<small>≥ 86</small></button>
+							<button type="button" data-min="72" class="on">Strong+<small>≥ 72</small></button>
+							<button type="button" data-min="56">Lean+<small>≥ 56</small></button>
+						</div>
+					</div>
+					<div class="toggle">
+						<div class="t-lab"><b>Require smart money in</b><span>Only act if ≥1 proven wallet has already bought</span></div>
+						<div class="sw on" id="smartToggle" role="switch" aria-checked="true" tabindex="0" aria-label="Require smart money"></div>
+					</div>
+					<div class="field" style="margin-top:14px">
+						<label>Only these narratives <span style="text-transform:none;letter-spacing:0;color:var(--muted)">— none selected = any</span></label>
+						<div class="chips" id="catChips"></div>
+					</div>
+				</div>
+
+				<div class="card">
+					<h3><span class="stepno">2</span> Position sizing &amp; risk</h3>
+					<p class="sub">How much to commit, and the hard caps your agent can never cross.</p>
+					<div class="row2">
+						<div class="field"><label>Size / trade</label>
+							<div class="suffixed"><input id="fSize" type="number" min="0.001" step="0.01" value="0.05"><span class="suf">SOL</span></div>
+						</div>
+						<div class="field"><label>Max open positions</label><input id="fOpen" type="number" min="1" step="1" value="5"></div>
+					</div>
+					<div class="field"><label>Max spend / day</label>
+						<div class="suffixed"><input id="fDaily" type="number" min="0.01" step="0.05" value="0.5"><span class="suf">SOL</span></div>
+					</div>
+					<div class="toggle">
+						<div class="t-lab"><b>Scale size by conviction</b><span id="scaleSub">Off — every qualifying play uses the same size</span></div>
+						<div class="sw" id="scaleToggle" role="switch" aria-checked="false" tabindex="0" aria-label="Scale size by conviction"></div>
+					</div>
+					<div class="risk" id="riskSummary">Set a per-trade size and daily cap to see your exposure.</div>
+				</div>
+
+				<div class="card">
+					<h3><span class="stepno">3</span> Alerts <span class="opt">optional</span></h3>
+					<p class="sub">Get a personal Telegram ping whenever a coin crosses your threshold — armed or not.</p>
+					<div class="field">
+						<label>Telegram chat ID or @channel</label>
+						<div class="tg-row">
+							<input id="tgInput" type="text" placeholder="Your chat ID or @channel" autocomplete="off">
+							<button id="tgTest" class="btn sm" type="button">Send test</button>
+						</div>
+						<div class="tg-note" id="tgNote"></div>
+						<div class="field-hint">Chat <a href="https://t.me/three_ws_bot" target="_blank" rel="noopener">@three_ws_bot</a> and send <code>/start</code> to get your chat ID.</div>
+					</div>
+				</div>
+			</div>
+
+			<!-- side: mode + save + ledger -->
+			<div class="col-side">
+				<div class="card">
+					<h3><span class="stepno">4</span> Mode &amp; arm</h3>
+					<p class="sub">Simulate logs every play risk-free. Live spends real SOL from the agent wallet, capped by your limits.</p>
+					<div class="field">
+						<label>Execution mode</label>
+						<div class="seg" id="modeSeg" role="group" aria-label="Execution mode">
+							<button type="button" data-mode="simulate" class="on">Simulate<small>spends nothing</small></button>
+							<button type="button" data-mode="live">Live<small>real SOL, capped</small></button>
+						</div>
+					</div>
+					<button class="btn primary" id="saveBtn" style="margin-top:6px">Save configuration</button>
+					<div class="save-note" id="saveNote"></div>
+				</div>
+
+				<div class="card" id="ledgerCard">
+					<h3>Recent actions</h3>
+					<p class="sub">Every move your agent makes — simulated or live — lands here and gets graded against the outcome. This is its win-rate ledger.</p>
+					<div id="ledgerBody"><div class="ledger-empty">Sign in and arm an agent to see its actions.</div></div>
+					<div class="ledger-foot">Want the full trading floor across every agent? See <a href="/activity">live agent activity →</a></div>
+				</div>
+			</div>
+		</div>
+
+		<div class="foot">
+			Conviction is a probability, not a promise — nothing here is financial advice. Your agent only ever spends from its own custodial wallet, never your personal one, and never beyond the daily and per-trade caps you set above. Trade small, especially early.
+		</div>
+	</main>
+
+	<script src="/nav.js"></script>
+	<script src="/footer.js"></script>
+	<script type="module" src="/src/arm.js"></script>
+</body>
+</html>

@@ -160,9 +160,9 @@ function boot() {
 		const data = await res.json().catch(() => null);
 		const items = data?.items || [];
 		if (!items.length) { closeSearchDrop(); return; }
-		const TCOL = { prime: '#c084fc', strong: '#34d399', lean: '#fbbf24', watch: '#94a3b8', avoid: '#f87171' };
+		const TCOL = { prime: '#e8ebf2', strong: '#e4e8f2', lean: '#c4c9d6', watch: '#8a92a8', avoid: '#6c7280' };
 		_searchDrop.innerHTML = items.map((it) => {
-			const col = TCOL[it.tier] || '#94a3b8';
+			const col = TCOL[it.tier] || '#8a92a8';
 			const label = it.symbol || it.name || it.mint.slice(0, 8);
 			return `<button class="ms-item" data-mint="${esc(it.mint)}" type="button" aria-label="View ${esc(label)} conviction">
 				<span class="ms-sym">${esc(label)}</span>
@@ -994,7 +994,7 @@ function moverCardHtml(m) {
 	const imgSrc = m.image_uri
 		? `<img class="mv-img" src="${esc(m.image_uri)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">`
 		: `<div class="mv-img">${esc((m.symbol || '?')[0])}</div>`;
-	const TIER_META = { prime: { color: '#c084fc' }, strong: { color: '#34d399' }, lean: { color: '#fbbf24' }, watch: { color: '#94a3b8' }, avoid: { color: '#f87171' } };
+	const TIER_META = { prime: { color: '#e8ebf2' }, strong: { color: '#e4e8f2' }, lean: { color: '#c4c9d6' }, watch: { color: '#8a92a8' }, avoid: { color: '#6c7280' } };
 	const tierColor = (TIER_META[tier] || TIER_META.watch).color;
 
 	const pil = (val, key) => {
@@ -1383,7 +1383,7 @@ async function loadRelatedCoins(mint, category) {
 	const related = data.items.filter((it) => it.mint !== mint).slice(0, 3);
 	if (!related.length) return;
 
-	const TIER_META = { prime: { color: '#c084fc' }, strong: { color: '#34d399' }, lean: { color: '#fbbf24' }, watch: { color: '#94a3b8' }, avoid: { color: '#f87171' } };
+	const TIER_META = { prime: { color: '#e8ebf2' }, strong: { color: '#e4e8f2' }, lean: { color: '#c4c9d6' }, watch: { color: '#8a92a8' }, avoid: { color: '#6c7280' } };
 
 	const html = `<div class="dr-sec" style="margin-top:16px">Related · ${esc(category)}</div>
 		<div style="display:flex;flex-direction:column;gap:6px">
@@ -1513,7 +1513,7 @@ function renderSparkline(points, trend) {
 	const xs = scores.map((_, i) => PAD + (i / (n - 1)) * (W - PAD * 2));
 	const ys = scores.map((s) => PAD + (1 - (s - min) / range) * (H - PAD * 2));
 	const d = xs.map((x, i) => `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${ys[i].toFixed(1)}`).join(' ');
-	const trendColor = trend === 'rising' ? '#34d399' : trend === 'falling' ? '#f87171' : '#94a3b8';
+	const trendColor = trend === 'rising' ? '#e4e8f2' : trend === 'falling' ? '#6c7280' : '#8a92a8';
 	const trendArrow = trend === 'rising' ? '↑' : trend === 'falling' ? '↓' : '→';
 	const lastScore = scores[n - 1];
 	const firstScore = scores[0];
@@ -1550,7 +1550,7 @@ async function loadProofTrades(mint) {
 			const pct    = t.realized_pnl_pct != null ? `+${Math.round(t.realized_pnl_pct)}%` : null;
 			const pnlSol = t.realized_pnl_sol != null ? `+${t.realized_pnl_sol.toFixed(3)} ◎` : null;
 			const isPos  = (t.realized_pnl_sol ?? 0) >= 0;
-			const color  = isPos ? 'var(--up, #34d399)' : 'var(--down, #f87171)';
+			const color  = isPos ? 'var(--up, #e4e8f2)' : 'var(--down, #6c7280)';
 			return `<div class="dr-ptrade">
 				<span class="dr-ptrade-mult" style="color:${color}">${mult || pct || pnlSol || '+?'}</span>
 				<div class="dr-ptrade-mid">
@@ -1607,13 +1607,16 @@ async function openWallet(wallet) {
 		<div class="dr-sec">Recent footprint</div>${recent}
 		<div class="dr-actions" style="margin-top:16px">
 			<a class="dr-act" href="/trader/${encodeURIComponent(wallet)}" rel="noopener">Trader profile ↗</a>
-			<a class="dr-act" href="/trader/${encodeURIComponent(wallet)}#copy" rel="noopener" style="background:rgba(139,92,246,.18);border-color:rgba(139,92,246,.45)">Copy trades →</a>
+			<a class="dr-act" href="/trader/${encodeURIComponent(wallet)}#copy" rel="noopener" style="background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.28)">Copy trades →</a>
 			<a class="dr-act solscan" href="${solscan(wallet)}" target="_blank" rel="noopener">Solscan ↗</a>
 		</div>
 	`;
 }
 
 // ── agent arm panel ──────────────────────────────────────────────────────────
+// Configuration lives on the dedicated /oracle/arm page (the trading-bot setup
+// surface). Here we show a compact status summary + the live action ledger, and
+// hand off to that page to change anything.
 async function loadAgentPanel() {
 	const body = $('#armBody');
 	body.dataset.loaded = '1';
@@ -1626,172 +1629,46 @@ async function loadAgentPanel() {
 			<div style="margin-top:16px"><a class="btn" href="/create/studio">Create an agent →</a></div></div>`;
 		return;
 	}
-	renderArmForm();
-}
-
-function renderArmForm() {
-	const body = $('#armBody');
 	const opts = state.agents.map((a) => `<option value="${esc(a.id)}">${esc(a.name || a.id)}</option>`).join('');
 	body.innerHTML = `
 		<div class="field"><label>Agent</label><select id="agSel">${opts}</select></div>
-		<div class="row2">
-			<div class="field"><label>Min conviction</label><select id="agMin">
-				<option value="86">Prime only (≥86)</option>
-				<option value="72" selected>Strong+ (≥72)</option>
-				<option value="56">Lean+ (≥56)</option>
-			</select></div>
-			<div class="field"><label>Size / trade (SOL)</label><input id="agSize" type="number" min="0.001" step="0.01" value="0.05"></div>
-		</div>
-		<div class="row2">
-			<div class="field"><label>Max daily (SOL)</label><input id="agDaily" type="number" min="0.01" step="0.05" value="0.5"></div>
-			<div class="field"><label>Max open</label><input id="agOpen" type="number" min="1" step="1" value="5"></div>
-		</div>
-		<div class="field"><label>Only these narratives (none = any)</label>
-			<div class="chips" id="agCats">${CATEGORIES.map((c) => `<button type="button" class="cchip" data-cat="${c}">${c}</button>`).join('')}</div>
-		</div>
-		<div class="toggle">
-			<div class="t-lab"><b>Require smart money in</b><span>Only act if ≥1 proven wallet has bought</span></div>
-			<div class="sw on" id="agSmart" role="switch" aria-checked="true"></div>
-		</div>
-		<div class="toggle">
-			<div class="t-lab"><b>Scale by conviction</b><span id="agScaleSub">1.0× at min score → up to 1.5× at score 100</span></div>
-			<div class="sw" id="agScale" role="switch" aria-checked="false"></div>
-		</div>
-		<div class="toggle">
-			<div class="t-lab"><b>Mode</b><span id="agModeSub">Simulate — logs actions, spends nothing</span></div>
-			<div class="sw live" id="agLive" role="switch" aria-checked="false"></div>
-		</div>
-		<div class="toggle">
-			<div class="t-lab"><b id="agArmLab">Armed</b><span>Master switch for this agent</span></div>
-			<div class="sw" id="agArm" role="switch" aria-checked="false"></div>
-		</div>
-		<div class="field" style="margin-top:12px">
-			<label>Personal Telegram alerts <span class="chip sm" style="background:rgba(139,92,246,.15);color:#c084fc;border-color:rgba(139,92,246,.35)">optional</span></label>
-			<div style="display:flex;gap:6px;align-items:center">
-				<input id="agTelegram" type="text" placeholder="Your chat ID or @channel" autocomplete="off" style="font-size:12px;font-family:var(--mono,monospace);flex:1;min-width:0">
-				<button id="agTgTest" class="btn sm" style="white-space:nowrap;flex-shrink:0" type="button">Send test</button>
-			</div>
-			<div id="agTgNote" style="display:none;margin-top:5px;font-size:11.5px;line-height:1.4"></div>
-			<div class="field-hint">Chat <a href="https://t.me/three_ws_bot" target="_blank" rel="noopener">@three_ws_bot</a> on Telegram and send <code>/start</code> to get your chat ID. You'll receive a signal whenever a coin crosses your threshold.</div>
-		</div>
-		<button class="btn primary" id="agSave" style="margin-top:8px">Save configuration</button>
-		<div class="note" id="agNote"></div>`;
-
-	// toggles
-	wireSwitch('#agSmart');
-	wireSwitch('#agScale', (on) => {
-		const sizeInput = $('#agSize');
-		$('#agScaleSub').textContent = on
-			? `${Number(sizeInput?.value || 0.05).toFixed(3)} SOL base → up to ${(Number(sizeInput?.value || 0.05) * 1.5).toFixed(3)} SOL at score 100`
-			: '1.0× at min score → up to 1.5× at score 100';
-	});
-	wireSwitch('#agLive', (on) => { $('#agModeSub').textContent = on ? 'Live — real SOL from the agent wallet (capped)' : 'Simulate — logs actions, spends nothing'; $('#agLive').classList.toggle('on', on); });
-	wireSwitch('#agArm');
-	$('#agCats').addEventListener('click', (e) => { const b = e.target.closest('.cchip'); if (b) b.classList.toggle('on'); });
+		<div id="armSummary"><div class="state" style="padding:18px 0">Loading configuration…</div></div>
+		<a class="btn primary" href="/oracle/arm" style="margin-top:14px;text-decoration:none">Open full setup →</a>`;
 	$('#agSel').addEventListener('change', () => loadWatch($('#agSel').value));
-	$('#agSave').addEventListener('click', saveWatch);
-	$('#agTgTest').addEventListener('click', sendTelegramTest);
-
 	state.agentId = state.agents[0].id;
 	loadWatch(state.agentId);
 }
 
-function wireSwitch(sel, cb) {
-	const el = $(sel);
-	el.addEventListener('click', () => {
-		const on = !el.classList.contains('on');
-		el.classList.toggle('on', on);
-		el.setAttribute('aria-checked', String(on));
-		if (cb) cb(on);
-	});
+function armSummaryHtml(w) {
+	if (!w) return '<div class="state" style="padding:18px 0">Not configured yet — open the full setup to arm this agent.</div>';
+	const min = w.min_score >= 86 ? 'Prime (≥86)' : w.min_score >= 72 ? 'Strong+ (≥72)' : 'Lean+ (≥56)';
+	const live = w.mode === 'live';
+	const dotCls = !w.armed ? 'off' : live ? 'live' : 'sim';
+	const statusLab = !w.armed ? 'Disarmed' : live ? 'Armed · Live' : 'Armed · Simulate';
+	const cats = (w.categories && w.categories.length) ? w.categories.map((c) => `<span class="cchip on" style="pointer-events:none">${esc(c)}</span>`).join('') : '<span style="color:var(--faint)">any narrative</span>';
+	const row = (k, v) => `<div class="arm-srow"><span>${k}</span><b>${v}</b></div>`;
+	return `
+		<div class="arm-status arm-${dotCls}"><i></i>${esc(statusLab)}</div>
+		<div class="arm-sgrid">
+			${row('Min conviction', esc(min))}
+			${row('Size / trade', fmtSol(w.per_trade_sol))}
+			${row('Max daily', fmtSol(w.max_daily_sol))}
+			${row('Max open', w.max_open ?? 5)}
+			${row('Smart money', w.require_smart_money !== false ? 'Required' : 'Optional')}
+			${row('Size scaling', w.size_scaling ? 'On' : 'Off')}
+		</div>
+		<div class="arm-cats">${cats}</div>
+		${w.telegram_chat_id ? '<div class="arm-tg">✓ Telegram alerts active</div>' : ''}`;
 }
 
 async function loadWatch(agentId) {
 	state.agentId = agentId;
+	const sum = $('#armSummary');
 	const { ok, data } = await api(`/api/oracle/watch?agent_id=${encodeURIComponent(agentId)}&network=${NETWORK}`);
 	const w = ok && data ? data.watch : null;
 	state.watch = w;
-	if (w) {
-		$('#agMin').value = String(w.min_score >= 86 ? 86 : w.min_score >= 72 ? 72 : 56);
-		$('#agSize').value = w.per_trade_sol ?? 0.05;
-		$('#agDaily').value = w.max_daily_sol ?? 0.5;
-		$('#agOpen').value = w.max_open ?? 5;
-		setSwitch('#agSmart', w.require_smart_money !== false);
-		setSwitch('#agScale', !!w.size_scaling);
-		setSwitch('#agArm', !!w.armed);
-		const live = w.mode === 'live'; setSwitch('#agLive', live);
-		$('#agModeSub').textContent = live ? 'Live — real SOL from the agent wallet (capped)' : 'Simulate — logs actions, spends nothing';
-		const base = Number(w.per_trade_sol) || 0.05;
-		$('#agScaleSub').textContent = w.size_scaling
-			? `${base.toFixed(3)} SOL base → up to ${(base * 1.5).toFixed(3)} SOL at score 100`
-			: '1.0× at min score → up to 1.5× at score 100';
-		const cats = new Set(w.categories || []);
-		$$('#agCats .cchip').forEach((b) => b.classList.toggle('on', cats.has(b.dataset.cat)));
-		$('#agTelegram').value = w.telegram_chat_id || '';
-	}
+	if (sum) sum.innerHTML = armSummaryHtml(w);
 	loadActions(agentId);
-}
-
-function setSwitch(sel, on) { const el = $(sel); el.classList.toggle('on', on); el.setAttribute('aria-checked', String(on)); }
-
-async function saveWatch() {
-	const btn = $('#agSave'); btn.disabled = true; btn.textContent = 'Saving…';
-	const cats = $$('#agCats .cchip.on').map((b) => b.dataset.cat);
-	const min = Number($('#agMin').value);
-	const payload = {
-		agent_id: state.agentId, network: NETWORK,
-		armed: $('#agArm').classList.contains('on'),
-		mode: $('#agLive').classList.contains('on') ? 'live' : 'simulate',
-		min_score: min, min_tier: min >= 86 ? 'prime' : min >= 72 ? 'strong' : 'lean',
-		categories: cats,
-		per_trade_sol: Number($('#agSize').value) || 0.05,
-		max_daily_sol: Number($('#agDaily').value) || 0.5,
-		max_open: Number($('#agOpen').value) || 5,
-		require_smart_money: $('#agSmart').classList.contains('on'),
-		size_scaling: $('#agScale').classList.contains('on'),
-		telegram_chat_id: ($('#agTelegram').value || '').trim() || null,
-	};
-	const { ok, data } = await api('/api/oracle/watch', {
-		method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
-	});
-	btn.disabled = false; btn.textContent = 'Save configuration';
-	const note = $('#agNote');
-	if (ok && data?.watch) {
-		const tgNote = data.watch.telegram_chat_id ? ' Telegram alerts active.' : '';
-		note.className = 'note'; note.textContent = data.watch.armed ? `Armed in ${data.watch.mode} mode. Your agent is watching the stream.${tgNote}` : `Saved. Toggle "Armed" to start watching.${tgNote}`;
-		loadActions(state.agentId);
-	} else {
-		note.className = 'note warn';
-		note.textContent = data?.error?.message || 'Could not save — sign in and make sure you own this agent.';
-	}
-}
-
-async function sendTelegramTest() {
-	const chatId = ($('#agTelegram').value || '').trim();
-	const note = $('#agTgNote');
-	if (!chatId) {
-		note.style.display = 'block';
-		note.style.color = 'var(--warn, #fbbf24)';
-		note.textContent = 'Enter your Telegram chat ID or @channel first.';
-		return;
-	}
-	const btn = $('#agTgTest');
-	btn.disabled = true; btn.textContent = 'Sending…';
-	note.style.display = 'none';
-	const { ok, data } = await api('/api/oracle/test-alert', {
-		method: 'POST',
-		headers: { 'content-type': 'application/json' },
-		body: JSON.stringify({ agent_id: state.agentId, chat_id: chatId }),
-	});
-	btn.disabled = false; btn.textContent = 'Send test';
-	note.style.display = 'block';
-	if (ok && data?.ok) {
-		note.style.color = 'var(--green, #34d399)';
-		note.textContent = '✓ Test message delivered. Check Telegram.';
-	} else {
-		note.style.color = 'var(--warn, #fbbf24)';
-		note.textContent = (data?.error || 'Delivery failed.') + (data?.hint ? ' ' + data.hint : '');
-	}
 }
 
 async function loadActions(agentId) {

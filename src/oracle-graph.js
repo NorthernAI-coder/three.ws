@@ -36,11 +36,11 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 // Tier → hex color
 const TIER_COLOR = {
-	prime:  0xffd700,
-	strong: 0x4ad6ff,
-	lean:   0x9b5dff,
-	watch:  0xffb03b,
-	avoid:  0xff3b5c,
+	prime:  0xeceff5,
+	strong: 0xc2c7d4,
+	lean:   0x9aa0b0,
+	watch:  0x8a92a8,
+	avoid:  0x6c7280,
 };
 const TIER_GLOW = {
 	prime:  0.9,
@@ -84,7 +84,7 @@ export function mountOracleGraph(canvas, labelContainer) {
 	const scene = new Scene();
 	scene.background = new Color(0x05060c);
 	scene.fog = new FogExp2(0x05060c, 0.012);
-	scene.add(new AmbientLight(0x241433, 1.2));
+	scene.add(new AmbientLight(0x24262e, 1.2));
 
 	const camera = new PerspectiveCamera(50, W() / H(), 0.1, 500);
 	camera.position.set(0, 0, 55);

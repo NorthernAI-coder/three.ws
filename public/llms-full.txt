@@ -376,6 +376,12 @@ URL: https://three.ws/oracle
 
 A fused AI conviction engine for every pump.fun launch: pedigree (who's buying), structure (bundle vs organic), narrative (what story is it riding), and momentum — fused into a single 0–100 conviction score with transparent pillar reasoning.
 
+### Arm your agent — automate Oracle conviction
+
+URL: https://three.ws/oracle/arm
+
+Configure your 3D agent to trade Oracle conviction automatically: set the minimum score, position size, daily and open-position caps, narrative filters and Telegram alerts, then arm it in simulate or live mode. Every action is graded against the outcome.
+
 ### Agent Activity — Oracle conviction in real time
 
 URL: https://three.ws/activity

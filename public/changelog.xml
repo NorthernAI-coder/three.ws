@@ -7,6 +7,14 @@
 		<description>What's new on three.ws — features, improvements, and releases, newest first.</description>
 		<language>en</language>
 		<item>
+			<title>Arm your agent — automate Oracle conviction</title>
+			<link>https://three.ws/oracle/arm</link>
+			<guid isPermaLink="false">2026-06-21:Arm your agent — automate Oracle conviction</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>Configure your 3D agent to trade Oracle conviction automatically: set the minimum score, position size, daily and open-position caps, narrative filters and Telegram alerts, then arm it in simulate or live mode. Every action is graded against the outcome.</description>
+		</item>
+		<item>
 			<title>Docs · Walk Avatar</title>
 			<link>https://three.ws/docs/walk</link>
 			<guid isPermaLink="false">2026-06-21:Docs · Walk Avatar</guid>
@@ -69,6 +77,14 @@
 			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>Autonomous agent-to-agent payments already run under a signed Intent Mandate (your standing authorization with budget and per-call caps). They now also issue a Cart Mandate for each transaction — a tamper-evident, signed record of the exact endpoint paid, the amount, currency, network, and line items, bound to the authorizing mandate. It comes back with every paid call and can be checked by anyone via a new verification endpoint, so a paid service has cryptographic proof of what its caller agreed to. This completes our alignment with Google's Agent Payments Protocol (AP2), layered cleanly on top of x402 settlement.</description>
+		</item>
+		<item>
+			<title>Arm your agent gets its own setup page</title>
+			<link>https://three.ws/oracle/arm</link>
+			<guid isPermaLink="false">2026-06-21:Arm your agent gets its own setup page</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Configuring your 3D agent to trade Oracle conviction now has a dedicated page at /oracle/arm — a clean, focused setup laid out the way trading bots do it: a live status bar with a big arm switch, a stats strip, and step-by-step cards for entry rules, position sizing and caps, alerts, and simulate-vs-live mode. The Oracle tab now shows your agent's configuration at a glance and links straight to the full editor.</description>
 		</item>
 		<item>
 			<title>Authorize $THREE once, then pay with no wallet popups</title>
@@ -239,6 +255,14 @@
 			<description>Animations are authored on one reference rig and retargeted onto whatever avatar you bring — Mixamo, Ready Player Me, VRoid, and more. We found that limbs on those rigs could play roughly 30° off from where they should be, because the retarget replayed each joint's motion in the wrong frame when a rig's rest pose differed from ours. The retarget now preserves each joint's true world-space motion, so idle, walk, and every other clip drive a foreign rig's arms and legs the way they were animated. Avatars matching the reference rig are byte-for-byte unchanged.</description>
 		</item>
 		<item>
+			<title>Launch-and-snipe: atomic dev buy at token launch</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-21:Launch-and-snipe: atomic dev buy at token launch</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Atomic pump.fun launches can now include a first buy in the very same transaction that creates the token. The creator's buy lands in the same block as the mint — inside one Jito bundle — so no external sniper can wedge in ahead of the floor. Set a buy size and slippage; the funder covers it on top of rent, and the same spend caps apply.</description>
+		</item>
+		<item>
 			<title>Live market feed stays up through provider blips</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-21:Live market feed stays up through provider blips</guid>
@@ -261,6 +285,22 @@
 			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>The /collection page — where your unlocked skills and active subscriptions live — was returning a 404 because its route pointed at the wrong build path, and its subscriptions list was calling an endpoint that rejected the request. Both are fixed: the page loads, your purchased skills and NFT receipts render, and the Subscriptions tab now shows your active creator subscriptions with plan, price, renewal date, and a link to each creator. The marketplace analytics page had the same routing fault and now loads too.</description>
+		</item>
+		<item>
+			<title>No more nav flash on page refresh</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-21:No more nav flash on page refresh</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Fixed a brief flash of unstyled menu and footer links that could appear when hard-refreshing a page. The shared navigation and footer now wait for their styles to load before appearing.</description>
+		</item>
+		<item>
+			<title>Oracle gets a monochrome look</title>
+			<link>https://three.ws/oracle</link>
+			<guid isPermaLink="false">2026-06-21:Oracle gets a monochrome look</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>The Oracle page is now styled in a clean grayscale palette. Conviction tiers, pillar bars, wallet labels, and the 3D conviction graph read by brightness instead of color — brighter means stronger — for a calmer, more focused view.</description>
 		</item>
 		<item>
 			<title>Our paid services are properly discoverable by AI agents again</title>

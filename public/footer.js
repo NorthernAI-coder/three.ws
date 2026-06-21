@@ -3,13 +3,27 @@
 // is on the page, fetches /footer.html, injects it, and lazy-loads the
 // newsletter wiring + model-viewer module if not already present.
 (function () {
+	// Resolves once the stylesheet has loaded so the footer markup is never
+	// injected unstyled (flash-of-unstyled-content on hard refresh). A
+	// JS-inserted <link> loads asynchronously without blocking paint, so the
+	// injected innerHTML must wait on its load event.
 	function ensureStylesheet(href) {
-		if (!document.querySelector(`link[href="${href}"]`)) {
-			const link = document.createElement('link');
+		let link = document.querySelector(`link[href="${href}"]`);
+		if (link) {
+			if (link.sheet) return Promise.resolve();
+			return new Promise((resolve) => {
+				link.addEventListener('load', resolve, { once: true });
+				link.addEventListener('error', resolve, { once: true });
+			});
+		}
+		return new Promise((resolve) => {
+			link = document.createElement('link');
 			link.rel = 'stylesheet';
 			link.href = href;
+			link.addEventListener('load', resolve, { once: true });
+			link.addEventListener('error', resolve, { once: true });
 			document.head.appendChild(link);
-		}
+		});
 	}
 
 	function ensureScript({ src, type, attr }) {
@@ -25,11 +39,8 @@
 		const container = document.getElementById('footer-container');
 		if (!container) return;
 
-		ensureStylesheet('/footer.css');
-
-		fetch('/footer.html')
-			.then((r) => r.text())
-			.then((html) => {
+		Promise.all([fetch('/footer.html').then((r) => r.text()), ensureStylesheet('/footer.css')])
+			.then(([html]) => {
 				container.innerHTML = html;
 
 				if (container.querySelector('#footer-bot-canvas')) {
