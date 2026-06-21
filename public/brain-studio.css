@@ -179,8 +179,12 @@ textarea.brainstudio__input { resize: vertical; }
 .brainstudio__compose textarea:focus { outline: none; border-color: var(--accent); }
 
 /* ── Modal (templates + behavior diff) ──────────────────────────────────── */
-.brainstudio__modal { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; background: rgba(0, 0, 0, 0.55); padding: var(--space-md); }
-.brainstudio__modal[hidden] { display: none; }
+/* Resting state sets NO `display`, so the UA `[hidden]{display:none}` rule alone
+ * keeps the overlay collapsed — the component is correct even without the global
+ * guard in tokens.css. Visibility lives on `:not([hidden])`, applied only when
+ * _showTemplateModal()/_showBehavior() drop the attribute. */
+.brainstudio__modal { position: fixed; inset: 0; z-index: 1000; }
+.brainstudio__modal:not([hidden]) { display: grid; place-items: center; background: rgba(0, 0, 0, 0.55); padding: var(--space-md); }
 .brainstudio__modal-card { width: min(720px, 100%); max-height: 86vh; overflow: auto; background: var(--bg-1); border: 1px solid var(--surface-3); border-radius: var(--radius-lg); padding: var(--space-lg); }
 .brainstudio__modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-2xs); }
 .brainstudio__modal-head h2 { margin: 0; font-size: var(--text-lg); color: var(--ink-bright); }

@@ -407,6 +407,14 @@
 			<description>The trending-tokens feed that powers the home card, communities, the token constellation, and the 3D visualizer is now resilient to upstream outages. If a market data provider goes down or rate-limits us, we transparently fall back to a second source; if both are briefly unavailable, the surfaces keep showing the last good data (clearly marked as a moment stale) instead of going blank. We also added a fast-fail circuit breaker so a slow provider can't drag the feed down during a traffic spike. Net effect: the live market views stay populated and snappy even when a data provider hiccups.</description>
 		</item>
 		<item>
+			<title>Membership tiers: see your mode on your member card</title>
+			<link>https://three.ws/dashboard/referrals</link>
+			<guid isPermaLink="false">2026-06-21:Membership tiers: see your mode on your member card</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Your dashboard membership card now shows your tier — User, Beta, Pro, Holder, or Three Dimensional. A new panel on the Referrals page lays out the full ladder: which modes you already hold, and exactly what unlocks the rest. Holder is detected live from the $THREE you hold across any linked Solana wallet (hold more to climb the Bronze→Genesis ladder), Pro comes with a paid plan, and Beta and Three Dimensional are granted by the team. Everyone starts as a User with full free-forever access.</description>
+		</item>
+		<item>
 			<title>More reliable on-chain transactions across the platform</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-21:More reliable on-chain transactions across the platform</guid>
@@ -533,6 +541,14 @@
 			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>Your three.ws profile at three.ws/u/&lt;your-username&gt; is now a real social home. Edit it in place: add a bio, a profile picture and banner image, your location, and a website link — all from an Edit button on your own profile. You can now follow other creators and agents, and they can follow you; every profile shows live follower and following counts you can tap to browse the lists, with one-tap follow buttons throughout. And there's a new Feed at three.ws/feed that gathers the latest avatars, agents, and coin launches from everyone you follow, newest first. Find your profile and Feed links from your account page.</description>
+		</item>
+		<item>
+			<title>Profiles: a storefront for what you sell, and fork any agent</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-21:Profiles: a storefront for what you sell, and fork any agent</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Your profile now has a For sale tab that gathers every avatar, agent, and plugin you've priced into one storefront — each card shows the asking price and links straight to its purchase page. And published agents now carry a Fork button, so anyone can clone an agent (its prompt, skills, and settings) into their own account in one tap, with a running fork count on every card.</description>
 		</item>
 		<item>
 			<title>Profiles: your whole on-chain self in one place</title>

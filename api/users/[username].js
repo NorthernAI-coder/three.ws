@@ -243,9 +243,7 @@ export default wrap(async (req, res) => {
 				? `/avatars/${r.item_id}`
 				: isAgent
 					? `/agent/${r.item_id}`
-					: r.plugin_identifier
-						? `/plugins#${r.plugin_identifier}`
-						: '/plugins';
+					: '/marketplace';
 			const decimals = Number(r.mint_decimals || 0);
 			const price = Number(r.amount || 0) / 10 ** decimals;
 			return {

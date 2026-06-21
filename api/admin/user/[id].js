@@ -13,6 +13,10 @@ const patchSchema = z
 		plan: z.enum(['free', 'pro', 'team', 'enterprise']).optional(),
 		is_admin: z.boolean().optional(),
 		deleted: z.boolean().optional(),
+		// Account tier ("mode") grant. null / 'none' clears it to the default
+		// 'user' tier; 'holder' is derived on-chain and isn't grantable here.
+		// See api/_lib/account-tier.js.
+		account_tier: z.enum(['beta', 'pro', 'three-dimensional', 'none']).nullable().optional(),
 	})
 	.refine((d) => Object.keys(d).length > 0, { message: 'nothing to update' });
 
@@ -34,7 +38,7 @@ export default wrap(async (req, res) => {
 	if (req.method === 'GET') {
 		const [user] = await sql`
 			select
-				u.id, u.email, u.display_name, u.plan, u.is_admin,
+				u.id, u.email, u.display_name, u.plan, u.is_admin, u.account_tier,
 				u.wallet_address, u.email_verified, u.created_at, u.updated_at, u.deleted_at,
 				(
 					select json_agg(json_build_object(
@@ -68,6 +72,13 @@ export default wrap(async (req, res) => {
 		params.push(body.is_admin);
 		setFrags.push(`is_admin = $${params.length}`);
 	}
+	if (body.account_tier !== undefined) {
+		// 'none' / null clears the grant; the resolver treats NULL as the default
+		// 'user' tier.
+		const grant = body.account_tier && body.account_tier !== 'none' ? body.account_tier : null;
+		params.push(grant);
+		setFrags.push(`account_tier = $${params.length}`);
+	}
 	if (body.deleted !== undefined) {
 		if (body.deleted) {
 			setFrags.push(`deleted_at = now()`);
@@ -85,7 +96,7 @@ export default wrap(async (req, res) => {
 		`
 		update users set ${setFrags.join(', ')}
 		where id = $${idIdx}
-		returning id, email, display_name, plan, is_admin, deleted_at
+		returning id, email, display_name, plan, is_admin, account_tier, deleted_at
 	`,
 		params,
 	);
