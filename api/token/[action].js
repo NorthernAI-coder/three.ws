@@ -17,9 +17,16 @@ import { getSessionUser } from '../_lib/auth.js';
 import { cors, error, json, method, readJson, wrap, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { parse } from '../_lib/validate.js';
-import { publicConfig } from '../_lib/token/config.js';
+import { publicConfig, ATOMICS_PER_TOKEN } from '../_lib/token/config.js';
 import { getTokenPriceUsd, quoteTokenForUsd } from '../_lib/token/price.js';
-import { issueQuote, verifyAndSettlePayment, listPayments } from '../_lib/token/index.js';
+import {
+	issueQuote,
+	verifyAndSettlePayment,
+	listPayments,
+	getAllowanceStatus,
+	buildGrantTransaction,
+	delegateAddress,
+} from '../_lib/token/index.js';
 
 // Allowlisted purposes for the generic quote endpoint. Each maps to a split
 // policy and a sanity ceiling so this surface can't be used to mint an absurd
@@ -179,6 +186,85 @@ async function handleSettle(req, res) {
 	});
 }
 
+// ── GET /api/token/allowance-status ──────────────────────────────────────────
+//
+// The signed-in holder's live $THREE spend allowance (remaining cap they've
+// pre-authorized to the platform delegate). Powers the wallet panel's "frictionless
+// spend" state and the decision to skip a wallet popup on the next paid action.
+
+async function handleAllowanceStatus(req, res) {
+	if (cors(req, res, { methods: 'GET,OPTIONS', credentials: true })) return;
+	if (!method(req, res, ['GET'])) return;
+	const user = await getSessionUser(req, res);
+	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
+
+	const delegate = await delegateAddress();
+	if (!delegate) {
+		return json(res, 200, { enabled: false, delegate: null, remaining_atomics: '0', delegations: [] });
+	}
+	if (!user.wallet_address) {
+		return json(res, 200, { enabled: true, delegate, wallet: null, remaining_atomics: '0', delegations: [] });
+	}
+
+	const url = new URL(req.url, 'http://x');
+	const network = url.searchParams.get('network') === 'devnet' ? 'devnet' : 'mainnet';
+	const status = await getAllowanceStatus(user.wallet_address, { network });
+	return json(res, 200, { wallet: user.wallet_address, ...status });
+}
+
+// ── POST /api/token/allowance-grant ──────────────────────────────────────────
+//
+// Build the user-signed transaction that authorizes a $THREE spend cap. The
+// client signs + sends it once; afterwards paid actions debit the cap with no
+// popup until it's exhausted, expires, or the user revokes. Non-custodial: funds
+// never leave the user's wallet until an actual charge pulls them.
+
+const grantSchema = z.object({
+	cap_tokens: z.number().positive().max(1_000_000_000),
+	expiry_days: z.number().int().min(1).max(365).optional(),
+	network: z.enum(['mainnet', 'devnet']).default('mainnet'),
+});
+
+async function handleAllowanceGrant(req, res) {
+	if (cors(req, res, { methods: 'POST,OPTIONS', credentials: true })) return;
+	if (!method(req, res, ['POST'])) return;
+	const user = await getSessionUser(req, res);
+	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
+	if (!user.wallet_address) {
+		return error(res, 400, 'wallet_required', 'connect a Solana wallet to authorize spending');
+	}
+	const rl = await limits.tokenQuote(user.id);
+	if (!rl.success) return rateLimited(res, rl);
+
+	const delegate = await delegateAddress();
+	if (!delegate) {
+		return error(res, 503, 'allowance_unavailable', 'the spend-allowance rail is not configured');
+	}
+
+	const body = parse(grantSchema, await readJson(req));
+	// cap_tokens (whole $THREE, possibly fractional) → atomics. Max 1e9 tokens ×
+	// 1e6 atomics = 1e15, within Number.MAX_SAFE_INTEGER, so the round is exact.
+	const capAtomics = BigInt(Math.round(body.cap_tokens * Number(ATOMICS_PER_TOKEN)));
+	const expiryTs = body.expiry_days
+		? Math.floor(Date.now() / 1000) + body.expiry_days * 86_400
+		: 0;
+
+	const built = await buildGrantTransaction({
+		userWallet: user.wallet_address,
+		capAtomics,
+		expiryTs,
+		network: body.network,
+	});
+
+	return json(res, 200, {
+		delegate,
+		cap_tokens: body.cap_tokens,
+		cap_atomics: capAtomics.toString(),
+		expiry_ts: expiryTs,
+		...built,
+	});
+}
+
 // ── GET /api/token/payments (audit) ──────────────────────────────────────────
 
 async function handlePayments(req, res) {
@@ -207,6 +293,8 @@ const DISPATCH = {
 	quote: handleQuote,
 	settle: handleSettle,
 	payments: handlePayments,
+	'allowance-status': handleAllowanceStatus,
+	'allowance-grant': handleAllowanceGrant,
 };
 
 export default wrap(async (req, res) => {

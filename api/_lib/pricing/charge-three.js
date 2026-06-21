@@ -16,7 +16,13 @@
 // that tries to charge for one throws a loud developer error rather than quietly
 // putting a paywall in front of the funnel.
 
-import { issueQuote, verifyAndSettlePayment } from '../token/index.js';
+import {
+	issueQuote,
+	verifyAndSettlePayment,
+	allowanceEnabled,
+	pullFromAllowance,
+	recordAllowancePayment,
+} from '../token/index.js';
 import { catalogEntry, priceForAction, POLICY } from './catalog.js';
 
 // Surfaces that are free forever (the growth funnel). These are NOT catalog
@@ -140,6 +146,45 @@ export async function requireThreePayment({
 		refType: refType ?? action,
 		refId,
 	});
+
+	// Allowance fast path: if the user pre-authorized a $THREE spend cap (Solana
+	// native Subscriptions program) and the platform delegate is configured, pull
+	// the charge with NO wallet popup — same price, same split legs, same on-chain
+	// record. Any miss (no allowance, cap too low, degraded RPC) falls through to
+	// the signed quote below, so this is strictly additive and never blocks a pay.
+	const payerWallet = user?.wallet_address ?? null;
+	if (payerWallet && (await allowanceEnabled())) {
+		try {
+			const pull = await pullFromAllowance({ userWallet: payerWallet, legs: quote.legs, network });
+			const record = await recordAllowancePayment({
+				quote,
+				txSignature: pull.signature,
+				network,
+				payerWallet,
+				userId: user?.id ?? null,
+				slot: pull.slot,
+			});
+			return {
+				paid: true,
+				via: 'allowance',
+				payment: {
+					payment_id: record.id,
+					replay: record.replay,
+					tx_signature: pull.signature,
+					total_atomics: quote.total,
+					legs: quote.legs,
+					slot: pull.slot,
+				},
+			};
+		} catch (err) {
+			// insufficient_allowance is the expected "not enough cap" signal — fall
+			// back silently. Anything else, log once and still fall back so a flaky
+			// allowance path can never strand a user who could pay the normal way.
+			if (err?.code !== 'insufficient_allowance') {
+				console.warn(`[charge-three] allowance pull failed for ${action}, falling back to quote:`, err?.message || err);
+			}
+		}
+	}
 
 	return {
 		paid: false,

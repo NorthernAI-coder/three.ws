@@ -7,12 +7,28 @@
 		<description>What's new on three.ws — features, improvements, and releases, newest first.</description>
 		<language>en</language>
 		<item>
+			<title>$THREE buyback commitment is now public and verifiable on the token page</title>
+			<link>https://three.ws/three-token</link>
+			<guid isPermaLink="false">2026-06-21:$THREE buyback commitment is now public and verifiable on the token page</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The $THREE page now leads with the protocol's buyback commitment — the fixed share of all platform revenue routed into buying $THREE on the open market and sending it to the treasury — shown as revenue earned, dollars committed, dollars deployed on-chain, and how much of the commitment has been kept. Every individual buyback is listed with a one-click Solscan receipt, so the promise is provable, not just stated. No burn: supply is never destroyed.</description>
+		</item>
+		<item>
 			<title>$THREE holder leaderboard loads faster from a shared snapshot</title>
 			<link>https://three.ws/leaderboard</link>
 			<guid isPermaLink="false">2026-06-21:$THREE holder leaderboard loads faster from a shared snapshot</guid>
 			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
 			<category>improvement</category>
 			<description>The $THREE holder leaderboard, its share card, and the token stats panel used to rescan every holder on-chain on each page view. They now read from a holder snapshot that refreshes every few minutes, so the board and badges load faster and the same numbers stay consistent across all three surfaces.</description>
+		</item>
+		<item>
+			<title>Authorize $THREE once, then pay with no wallet popups</title>
+			<link>https://three.ws/three-token</link>
+			<guid isPermaLink="false">2026-06-21:Authorize $THREE once, then pay with no wallet popups</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The $THREE page now lets you set a spending allowance: approve a cap once, and paid actions across the platform — forge, skills, names, cosmetics — debit it automatically without asking you to sign every time. It's non-custodial and built on Solana's native, audited Subscriptions &amp; Allowances program: your tokens stay in your own wallet until a charge pulls them, never more than the cap you set, and you can let it expire or revoke it anytime. Set a cap, top it up, or leave it off and keep signing each payment — your choice.</description>
 		</item>
 		<item>
 			<title>forge_avatar — one call turns a prompt into a rigged, animation-ready avatar</title>
@@ -28,7 +44,7 @@
 			<guid isPermaLink="false">2026-06-21:Solana is now the default payment network</guid>
 			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
 			<category>improvement</category>
-			<description>The Default payment network setting in dashboard settings now defaults to Solana for every user, and Solana is listed first among the options. Base and Polygon remain available if you prefer an EVM chain.</description>
+			<description>Solana is now the default everywhere you pick a chain — the dashboard's Default payment network setting, x402 merchant settlement, and the monetization payout wallet all default to Solana for every user, with Solana listed first. Base and Polygon remain available if you prefer an EVM chain.</description>
 		</item>
 		<item>
 			<title>Grind-Bounty Market</title>

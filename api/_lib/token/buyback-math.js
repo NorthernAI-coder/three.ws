@@ -20,6 +20,13 @@ export function envSlippageBps(raw, fallback = 300) {
 	return Number.isFinite(n) && n > 0 && n <= 5000 ? Math.round(n) : fallback;
 }
 
+/** Parse a commitment-bps env value in [0, 10000], else fallback. */
+export function envBps(raw, fallback) {
+	if (raw === undefined || String(raw).trim() === '') return fallback;
+	const n = Number(raw);
+	return Number.isFinite(n) && n >= 0 && n <= 10_000 ? Math.round(n) : fallback;
+}
+
 /** Whole USD → USDC atomics (6dp), floored. */
 export function usdToUsdcAtomics(usd) {
 	return BigInt(Math.floor(Number(usd) * Number(USDC_ATOMICS)));
@@ -59,4 +66,27 @@ export function computeSpend(walletUsdcAtomics, { maxUsd, minUsd }) {
 export function deployedPct(deployedUsd, revenueUsd) {
 	if (!(revenueUsd > 0)) return 0;
 	return Math.min(100, (deployedUsd / revenueUsd) * 100);
+}
+
+/**
+ * USD the protocol has *committed* to convert into $THREE buybacks: the published
+ * commitment (commitBps) applied to lifetime revenue. This is the promise — the
+ * dollar target that on-chain buys are measured against — not what's been deployed.
+ */
+export function committedUsd(revenueUsd, commitBps) {
+	const rev = Number(revenueUsd);
+	const bps = Number(commitBps);
+	if (!(rev > 0) || !(bps > 0)) return 0;
+	return rev * (bps / 10_000);
+}
+
+/**
+ * Share of the *commitment* actually deployed on-chain, clamped to [0,100]. 100%
+ * means every committed dollar of revenue has already been converted to buy
+ * pressure; this is the honest "are we keeping the promise" figure, distinct from
+ * deployedPct (share of *all* revenue).
+ */
+export function commitmentProgressPct(deployedUsd, committedUsdTarget) {
+	if (!(committedUsdTarget > 0)) return 0;
+	return Math.min(100, (Number(deployedUsd) / Number(committedUsdTarget)) * 100);
 }

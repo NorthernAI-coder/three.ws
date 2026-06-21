@@ -101,6 +101,45 @@ function isUniqueViolation(err) {
 }
 
 /**
+ * Record a $THREE allowance pull as a settled payment, in the exact same
+ * token_payments shape as settlePayment(). The allowance rail (Solana native
+ * Subscriptions program) pulls funds with the platform delegate key instead of a
+ * user-signed quote tx, but the economic record is identical — same purpose,
+ * mint, split legs, and on-chain signature — so economy stats and creator
+ * earnings (which match the `seller` split leg) stay consistent across both rails.
+ *
+ * Uses the issued quote's nonce as the unique key (the quote was priced normally;
+ * only its settlement path differs), so a double-submit is caught by the same
+ * UNIQUE(nonce)/UNIQUE(tx_signature) guard.
+ */
+export async function recordAllowancePayment({ quote, txSignature, network, payerWallet, userId, slot = null }) {
+	try {
+		const [row] = await sql`
+			insert into token_payments
+				(user_id, payer_wallet, purpose, mint, decimals, usd, price_usd,
+				 total_atomics, splits, nonce, tx_signature, network, slot, ref_type, ref_id, confirmed_at)
+			values
+				(${userId ?? null}, ${payerWallet ?? null}, ${quote.purpose}, ${quote.mint}, ${quote.decimals},
+				 ${quote.usd}, ${quote.priceUsd}, ${quote.total}, ${JSON.stringify(quote.legs)}::jsonb,
+				 ${quote.nonce}, ${txSignature}, ${network}, ${slot},
+				 ${quote.refType ?? null}, ${quote.refId ?? null}, now())
+			returning id, created_at
+		`;
+		return { id: row.id, replay: false, created_at: row.created_at };
+	} catch (err) {
+		if (isUniqueViolation(err)) {
+			const [existing] = await sql`
+				select id, created_at from token_payments
+				where nonce = ${quote.nonce} or tx_signature = ${txSignature}
+				limit 1
+			`;
+			return { id: existing?.id ?? null, replay: true, created_at: existing?.created_at ?? null };
+		}
+		throw err;
+	}
+}
+
+/**
  * Record a verified payment. Returns { id, replay, created_at }. A duplicate
  * nonce or tx_signature resolves to { replay: true } (the prior settled row).
  */

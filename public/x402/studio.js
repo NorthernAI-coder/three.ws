@@ -431,7 +431,7 @@ function renderWallets(host) {
 			field('Solana payout (USDC)', solAddrField('po_sol', m.payout_solana || '')),
 			field('Base / EVM payout (USDC)', input({ id: 'po_evm', value: m.payout_evm || '', placeholder: '0x…', class: 'mono' })),
 		),
-		field('Default settlement network', select('po_net', ['base', 'solana'], m.default_network || 'base')),
+		field('Default settlement network', select('po_net', ['solana', 'base'], m.default_network || 'solana')),
 		el('div', { class: 'row', style: 'margin-top:4px' }, el('button', { class: 'btn primary', id: 'po_save', onclick: savePayout }, 'Save payout wallets')),
 	);
 	host.append(payout);
