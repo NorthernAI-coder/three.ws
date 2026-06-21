@@ -109,6 +109,62 @@ function chunkKeys(keys, budgetChars) {
 }
 
 // --- LLM backends ----------------------------------------------------------
+//
+// Every backend below is free-tier capable. Gemini and Anthropic use native
+// APIs; the rest are OpenAI-compatible chat-completions endpoints, so a single
+// caller serves all of them. Env-var names and model defaults match
+// api/_lib/chat-models.js, so a key that already powers /chat works here too.
+//
+// Free lanes (no card required):
+//   groq       GROQ_API_KEY        https://console.groq.com/keys
+//   gemini     GEMINI_API_KEY      https://aistudio.google.com/apikey  (free tier)
+//   openrouter OPENROUTER_API_KEY  https://openrouter.ai/keys  (use a :free model)
+//   nvidia     NVIDIA_API_KEY      https://build.nvidia.com  (free NIM credits)
+
+const PROVIDER_DEFAULT_MODEL = {
+	gemini: 'gemini-2.5-flash',
+	groq: 'llama-3.3-70b-versatile',
+	openrouter: 'meta-llama/llama-3.3-70b-instruct:free',
+	nvidia: 'meta/llama-3.3-70b-instruct',
+	openai: 'gpt-4o-mini',
+	anthropic: 'claude-haiku-4-5-20251001',
+};
+
+// OpenAI-compatible lanes. jsonMode is set only where the endpoint reliably
+// honors response_format:json_object — free models often 400 on it, so those
+// rely on prompt-enforced JSON plus fence stripping instead.
+const OPENAI_COMPAT = {
+	groq: {
+		envKey: 'GROQ_API_KEY',
+		url: () => 'https://api.groq.com/openai/v1/chat/completions',
+		jsonMode: true,
+	},
+	openrouter: {
+		envKey: 'OPENROUTER_API_KEY',
+		url: () => 'https://openrouter.ai/api/v1/chat/completions',
+		extraHeaders: { 'HTTP-Referer': 'https://three.ws', 'X-Title': 'three.ws i18n' },
+	},
+	nvidia: {
+		envKey: 'NVIDIA_API_KEY',
+		url: () => 'https://integrate.api.nvidia.com/v1/chat/completions',
+	},
+	openai: {
+		envKey: 'OPENAI_API_KEY',
+		url: () => `${process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1'}/chat/completions`,
+		jsonMode: true,
+	},
+};
+
+function httpError(provider, status, body, retryAfter) {
+	return Object.assign(new Error(`${provider} ${status}: ${String(body).slice(0, 300)}`), {
+		status,
+		retryAfter,
+	});
+}
+
+function modelName() {
+	return cfg.modelName || PROVIDER_DEFAULT_MODEL[cfg.provider] || PROVIDER_DEFAULT_MODEL.gemini;
+}
 
 function stripFences(text) {
 	return text
@@ -124,9 +180,9 @@ function buildPrompt(langName, payload) {
 		'',
 		'Rules:',
 		`- Translate every VALUE in the JSON below into ${langName}. Keep every KEY exactly as-is.`,
-		'- Return ONLY a single minified JSON object with the same keys. No prose, no code fences.',
-		'- Some values contain sentinel runs of unusual non-Latin control characters (private-use-area glyphs surrounding digits). These are protected tokens for brand names, code, and placeholders. Reproduce every such sentinel EXACTLY, in a natural position for the target language. Never translate, reorder the digits, drop, or add them.',
-		'- Preserve meaning, tone, and any HTML that survives as a sentinel. Do not add explanations.',
+		'- Return ONLY a single JSON object with the same keys. No prose, no markdown, no code fences.',
+		'- Some values contain protected tokens written as [[T0]], [[T1]], and so on. They stand in for brand names, code, and placeholders. Copy each token VERBATIM into a natural position for the target language. Never translate a token, change its number, add one, or drop one.',
+		'- Preserve meaning and tone. Do not add explanations.',
 		'',
 		'JSON to translate:',
 		JSON.stringify(payload),
@@ -140,9 +196,11 @@ async function callGemini(prompt) {
 		process.env.GEMINI_API_KEY ||
 		process.env.GOOGLE_API_KEY ||
 		process.env.GOOGLE_GENAI_API_KEY;
-	if (!key) throw new Error('GEMINI_API_KEY (or GOOGLE_API_KEY) not set');
-	const model = cfg.modelName || 'gemini-2.5-flash';
-	const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
+	if (!key)
+		throw new Error(
+			'GEMINI_API_KEY (or GOOGLE_API_KEY) not set — free keys: https://aistudio.google.com/apikey',
+		);
+	const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName()}:generateContent?key=${key}`;
 	const res = await fetch(url, {
 		method: 'POST',
 		headers: { 'content-type': 'application/json' },
@@ -155,31 +213,17 @@ async function callGemini(prompt) {
 			},
 		}),
 	});
-	if (!res.ok) throw new Error(`gemini ${res.status}: ${(await res.text()).slice(0, 300)}`);
+	if (!res.ok)
+		throw httpError(
+			'gemini',
+			res.status,
+			await res.text(),
+			Number(res.headers.get('retry-after')) || 0,
+		);
 	const data = await res.json();
 	const text = data?.candidates?.[0]?.content?.parts?.map((p) => p.text).join('') || '';
 	if (!text) throw new Error('gemini returned empty content');
 	return text;
-}
-
-async function callOpenAI(prompt) {
-	const key = process.env.OPENAI_API_KEY;
-	if (!key) throw new Error('OPENAI_API_KEY not set');
-	const base = process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1';
-	const res = await fetch(`${base}/chat/completions`, {
-		method: 'POST',
-		headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` },
-		body: JSON.stringify({
-			model: cfg.modelName || 'gpt-4o-mini',
-			temperature: cfg.temperature ?? 0.2,
-			top_p: cfg.topP ?? 0.9,
-			response_format: { type: 'json_object' },
-			messages: [{ role: 'user', content: prompt }],
-		}),
-	});
-	if (!res.ok) throw new Error(`openai ${res.status}: ${(await res.text()).slice(0, 300)}`);
-	const data = await res.json();
-	return data?.choices?.[0]?.message?.content || '';
 }
 
 async function callAnthropic(prompt) {
@@ -193,30 +237,80 @@ async function callAnthropic(prompt) {
 			'anthropic-version': '2023-06-01',
 		},
 		body: JSON.stringify({
-			model: cfg.modelName || 'claude-haiku-4-5-20251001',
+			model: modelName(),
 			max_tokens: 8192,
 			temperature: cfg.temperature ?? 0.2,
 			messages: [{ role: 'user', content: prompt }],
 		}),
 	});
-	if (!res.ok) throw new Error(`anthropic ${res.status}: ${(await res.text()).slice(0, 300)}`);
+	if (!res.ok)
+		throw httpError(
+			'anthropic',
+			res.status,
+			await res.text(),
+			Number(res.headers.get('retry-after')) || 0,
+		);
 	const data = await res.json();
 	return data?.content?.map((b) => b.text || '').join('') || '';
 }
 
-const BACKENDS = { gemini: callGemini, openai: callOpenAI, anthropic: callAnthropic };
+async function callOpenAICompat(prompt) {
+	const spec = OPENAI_COMPAT[cfg.provider];
+	const key = process.env[spec.envKey];
+	if (!key) throw new Error(`${spec.envKey} not set`);
+	const body = {
+		model: modelName(),
+		temperature: cfg.temperature ?? 0.2,
+		top_p: cfg.topP ?? 0.9,
+		messages: [{ role: 'user', content: prompt }],
+	};
+	if (spec.jsonMode) body.response_format = { type: 'json_object' };
+	const res = await fetch(spec.url(), {
+		method: 'POST',
+		headers: {
+			'content-type': 'application/json',
+			authorization: `Bearer ${key}`,
+			...(spec.extraHeaders || {}),
+		},
+		body: JSON.stringify(body),
+	});
+	if (!res.ok)
+		throw httpError(
+			cfg.provider,
+			res.status,
+			await res.text(),
+			Number(res.headers.get('retry-after')) || 0,
+		);
+	const data = await res.json();
+	return data?.choices?.[0]?.message?.content || '';
+}
+
+function backend() {
+	if (cfg.provider === 'gemini') return callGemini;
+	if (cfg.provider === 'anthropic') return callAnthropic;
+	if (OPENAI_COMPAT[cfg.provider]) return callOpenAICompat;
+	throw new Error(
+		`unknown provider: ${cfg.provider} (use gemini, groq, openrouter, nvidia, openai, or anthropic)`,
+	);
+}
 
 async function translateChunk(langName, payload, attempt = 0) {
-	const call = BACKENDS[cfg.provider || 'gemini'];
-	if (!call) throw new Error(`unknown provider: ${cfg.provider}`);
+	const call = backend();
 	try {
 		const raw = await call(buildPrompt(langName, payload));
 		const parsed = JSON.parse(stripFences(raw));
 		if (!parsed || typeof parsed !== 'object') throw new Error('non-object response');
 		return parsed;
 	} catch (err) {
-		if (attempt < 2) {
-			await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
+		// Free tiers rate-limit hard; honor Retry-After and back off more on a 429
+		// than on a transient parse/5xx error.
+		const max = err.status === 429 ? 5 : 2;
+		if (attempt < max) {
+			const wait =
+				err.status === 429
+					? Math.max((err.retryAfter || 0) * 1000, 2000 * (attempt + 1))
+					: 400 * (attempt + 1);
+			await new Promise((r) => setTimeout(r, wait));
 			return translateChunk(langName, payload, attempt + 1);
 		}
 		throw err;

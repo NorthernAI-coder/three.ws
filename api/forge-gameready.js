@@ -31,6 +31,15 @@ import { limits, clientIp } from './_lib/rate-limit.js';
 import { assertPublicHttpsUrl, SsrfError } from './_lib/ssrf.js';
 import { createRegenProvider } from './_providers/gcp.js';
 import { putObject, publicUrl } from './_lib/r2.js';
+import { requireFeatureAccess } from './_lib/require-three.js';
+import {
+	assertForgePurchase,
+	redeemForgePurchase,
+	releaseForgePurchase,
+} from './_lib/forge-consumption-payment.js';
+import { priceForAction } from './_lib/pricing/catalog.js';
+
+const GAMEREADY_ACTION = 'forge.gameready';
 
 // The composite job id is a base64url JSON envelope packing one upstream task per
 // requested format, so it is far longer than a raw worker task id.
@@ -104,6 +113,40 @@ async function startJob(req, res) {
 	}
 
 	const body = await readJson(req, 4_000).catch(() => null);
+
+	// $THREE hold-or-pay gate (Token Utility — consumption lever). The engine-ready
+	// export runs the remesh GPU worker (retopology + PBR re-bake), so it's a holder
+	// perk with a per-use pay path — the same model as the High-tier Forge gate. This
+	// runs BEFORE any network-touching validation so a non-holder's 402 is hermetic
+	// (no DNS, no worker call). A verified holder (tier pass or on-chain tier) passes;
+	// a non-holder presents a settled $THREE payment instead. The payment is validated
+	// here (read-only) and claimed atomically just before dispatch (paidExport below).
+	let paidExport = null;
+	const paymentId = typeof body?.payment_id === 'string' ? body.payment_id.trim() : '';
+	const payRefId = typeof body?.ref_id === 'string' ? body.ref_id.trim() : '';
+	if (paymentId && payRefId) {
+		try {
+			const proof = await assertForgePurchase({ action: GAMEREADY_ACTION, paymentId, refId: payRefId });
+			paidExport = { paymentId, refId: payRefId, settledAt: proof.payment.settledAt };
+		} catch (err) {
+			let usd = null;
+			try {
+				usd = Number(priceForAction(GAMEREADY_ACTION).usd) || null;
+			} catch {
+				usd = null;
+			}
+			return json(res, err.status || 402, {
+				error: err.code || 'payment_invalid',
+				feature: GAMEREADY_ACTION,
+				pay_per_use: usd ? { action: GAMEREADY_ACTION, usd } : null,
+				message: err.message || 'That $THREE payment could not be verified.',
+			});
+		}
+	} else {
+		const gate = await requireFeatureAccess(req, res, GAMEREADY_ACTION, { body });
+		if (!gate.ok) return; // 402 three_hold_required already sent
+	}
+
 	const rawMeshUrl = typeof body?.mesh_url === 'string' ? body.mesh_url.trim() : '';
 	// Resolve + validate the host our side (rejects private/loopback/metadata IPs)
 	// before handing the URL to the worker — SSRF defense in depth.
@@ -141,6 +184,25 @@ async function startJob(req, res) {
 		return unconfigured(res);
 	}
 
+	// Claim the settled $THREE payment now — immediately before dispatch — so any
+	// failure above (validation, unconfigured worker) left it reusable. The atomic
+	// claim (payment_id PRIMARY KEY) is the single-use source of truth: a concurrent
+	// retry of the same payment loses the race and is told it was already used.
+	if (paidExport) {
+		const claim = await redeemForgePurchase({
+			action: GAMEREADY_ACTION,
+			paymentId: paidExport.paymentId,
+			refId: paidExport.refId,
+			settledAt: paidExport.settledAt,
+		});
+		if (!claim.redeemed) {
+			return json(res, 409, {
+				error: 'payment_already_used',
+				message: 'That payment was already used for an export. Pay again to export.',
+			});
+		}
+	}
+
 	const sub = {};
 	let maxEta = 0;
 	try {
@@ -161,6 +223,11 @@ async function startJob(req, res) {
 			maxEta = Math.max(maxEta, Number(job.eta) || 0);
 		}
 	} catch (err) {
+		// Dispatch failed before any artifact was produced — release the claim so the
+		// paid user can retry without paying again.
+		if (paidExport) {
+			await releaseForgePurchase({ paymentId: paidExport.paymentId }).catch(() => {});
+		}
 		return json(res, 502, {
 			error: 'gameready_failed',
 			message: err?.message || 'Game-Ready export could not start.',

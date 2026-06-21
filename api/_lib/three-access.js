@@ -40,8 +40,9 @@ function tierByLevel(level) {
 //                feature is hold-only. The price is attached by the caller from the
 //                pricing catalog so this module stays dependency-free.
 //
-// Enforced today: only `forge.high` — the High-tier Forge gate in api/forge.js. The
-// rest are planned. As each gate ships, flip its `enforced` to true (and add a test);
+// Enforced today: `forge.high` (High-tier Forge gate in api/forge.js) and
+// `forge.gameready` (engine-ready export gate in api/forge-gameready.js). The rest
+// are planned. As each gate ships, flip its `enforced` to true (and add a test);
 // nothing else changes — the access endpoint and /three pick it up automatically.
 export const GATED_FEATURES = Object.freeze({
 	'forge.high': Object.freeze({
@@ -50,6 +51,13 @@ export const GATED_FEATURES = Object.freeze({
 		label: 'High-quality generation (200k poly + PBR)',
 		why: 'The High tier spends real GPU/vendor budget — holders fund it by holding, not draining.',
 		payPerUse: 'forge.high',
+	}),
+	'forge.gameready': Object.freeze({
+		minLevel: 1,
+		enforced: true, // gated in api/forge-gameready.js — see tests/api/forge-gameready.test.js
+		label: 'Game-Ready export (Unity/Unreal retopo + PBR)',
+		why: 'Retopology + PBR re-bake runs the remesh GPU worker — holders fund it by holding, or pay per export.',
+		payPerUse: 'forge.gameready',
 	}),
 	'worlds.private': Object.freeze({
 		minLevel: 2,

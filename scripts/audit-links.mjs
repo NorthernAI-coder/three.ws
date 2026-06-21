@@ -1,0 +1,347 @@
+#!/usr/bin/env node
+/**
+ * audit-links.mjs — static link & route integrity audit for the whole site.
+ *
+ * Crawls every navigable target across pages/, public/ and src/ — `href`,
+ * `action`, `data-href`/`data-route`/`data-link`, JS `location`/`window.open`
+ * navigations, and internal `fetch()` targets — then resolves each one against
+ * the real routing model so a dead path can never ship unseen:
+ *
+ *   • internal clean URL (/marketplace, /u/:id …) → must resolve to a specific
+ *     vercel.json route OR a real source file (pages/**, public/**). The two
+ *     catch-alls (/(.*) and the asset glob) are NOT treated as proof — they only
+ *     serve a literal file, so existence is checked directly.
+ *   • internal /api/* → must resolve to a vercel route or an api/ handler file.
+ *   • stub hrefs (#, "", javascript:void(0)) → flagged; never allowed to ship.
+ *   • dangling routes — a vercel route whose .html dest has no source file.
+ *   • external http(s) links → collected; liveness checked only with --external
+ *     (network) so the default run is deterministic and offline/CI-safe.
+ *
+ * Dynamic targets (template literals with ${…}, string concatenation) are
+ * reported separately as "skipped" rather than guessed — they're not failures.
+ *
+ * Usage:
+ *   node scripts/audit-links.mjs              # offline integrity audit (gate)
+ *   node scripts/audit-links.mjs --external   # also probe external links (slow)
+ *   node scripts/audit-links.mjs --json       # machine-readable report to stdout
+ *   node scripts/audit-links.mjs --report     # write reports/link-audit-*.json
+ *
+ * Exit code is non-zero when broken internal links, stub hrefs, or dangling
+ * routes are found — so it can gate CI. External failures only warn.
+ */
+
+import { readFileSync, existsSync, statSync, readdirSync, writeFileSync, mkdirSync } from 'node:fs';
+import { resolve, join, dirname, extname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const ROOT = resolve(__dirname, '..');
+
+const args = new Set(process.argv.slice(2));
+const CHECK_EXTERNAL = args.has('--external');
+const AS_JSON = args.has('--json');
+const WRITE_REPORT = args.has('--report');
+
+// ── Filesystem walk ──────────────────────────────────────────────────────────
+function walk(dir, exts, out = []) {
+	let entries;
+	try {
+		entries = readdirSync(dir, { withFileTypes: true });
+	} catch {
+		return out;
+	}
+	for (const e of entries) {
+		if (e.name.startsWith('.') || e.name === 'node_modules') continue;
+		const full = join(dir, e.name);
+		if (e.isDirectory()) walk(full, exts, out);
+		else if (exts.has(extname(e.name))) out.push(full);
+	}
+	return out;
+}
+
+function fileExists(p) {
+	try {
+		return statSync(p).isFile();
+	} catch {
+		return false;
+	}
+}
+
+// ── Route table from vercel.json ─────────────────────────────────────────────
+const vercel = JSON.parse(readFileSync(join(ROOT, 'vercel.json'), 'utf8'));
+
+const ASSET_CATCHALL = '/(.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico|woff2|woff|ttf|otf|glb|gltf|hdr|exr|ktx2|basis|bin))$';
+const isCatchAll = (src) => src === '/(.*)' || src === ASSET_CATCHALL;
+
+// Specific routes that actually resolve a request to something (have a dest).
+const destRoutes = (vercel.routes || []).filter((r) => r.dest && !isCatchAll(r.src));
+
+const compiledRoutes = destRoutes.map((r) => {
+	let s = r.src;
+	if (!s.startsWith('^')) s = '^' + s;
+	if (!s.endsWith('$')) s = s + '$';
+	let re = null;
+	try {
+		re = new RegExp(s);
+	} catch {
+		re = null;
+	}
+	return { re, dest: r.dest, src: r.src };
+});
+
+function matchRoute(path) {
+	for (const r of compiledRoutes) {
+		if (r.re && r.re.test(path)) return r;
+	}
+	return null;
+}
+
+// Does a clean path resolve to a real source file (what the catch-all serves)?
+function fileForCleanPath(path) {
+	const p = path.replace(/^\/+/, '').replace(/\/+$/, '');
+	if (p === '') return 'pages/home.html'; // root served from a real homepage
+	// /src/** and /node_modules/** are served straight from the repo by vite in dev
+	// and rewritten to hashed assets at build time — resolve against the real tree.
+	if (p.startsWith('src/') || p.startsWith('node_modules/')) {
+		return fileExists(join(ROOT, p)) ? p : null;
+	}
+	const candidates = [
+		join('public', p),
+		join('public', p + '.html'),
+		join('public', p, 'index.html'),
+		join('pages', p + '.html'),
+		join('pages', p, 'index.html'),
+		join('pages', p), // already has extension (e.g. /foo.html)
+	];
+	for (const c of candidates) {
+		if (fileExists(join(ROOT, c))) return c;
+	}
+	return null;
+}
+
+// Resolve a relative (non-/) link against the directory of the file it lives in.
+function fileForRelative(rel, baseDir) {
+	const cleaned = rel.replace(/\/+$/, '');
+	const base = join(ROOT, baseDir);
+	const candidates = [
+		join(base, cleaned),
+		join(base, cleaned + '.html'),
+		join(base, cleaned, 'index.html'),
+	];
+	return candidates.some((c) => fileExists(c));
+}
+
+function apiResolves(path) {
+	// vercel route maps it, or an api/ handler file exists.
+	if (matchRoute(path)) return true;
+	const p = path.replace(/^\/+/, '');
+	const bases = [join(ROOT, p), join(ROOT, p + '.js'), join(ROOT, p, 'index.js')];
+	return bases.some((b) => fileExists(b));
+}
+
+// ── Resolve a single internal target ─────────────────────────────────────────
+function resolveInternal(rawTarget, baseDir) {
+	const target = rawTarget.split('#')[0].split('?')[0];
+	if (target === '') return { ok: true }; // pure #anchor / query on current page
+	// Relative path (not root-absolute) → resolve against the file's own directory.
+	if (!target.startsWith('/')) {
+		return fileForRelative(target, baseDir) ? { ok: true } : { ok: false, kind: 'relative' };
+	}
+	if (target.startsWith('/api/')) {
+		return apiResolves(target) ? { ok: true } : { ok: false, kind: 'api' };
+	}
+	const route = matchRoute(target);
+	if (route) {
+		// Route maps it — confirm an html dest's source actually exists (dangling check
+		// happens separately; here a matched route is enough to call the link reachable).
+		return { ok: true, via: route.src };
+	}
+	const file = fileForCleanPath(target);
+	if (file) return { ok: true, via: file };
+	return { ok: false, kind: 'page' };
+}
+
+// ── Target extraction ────────────────────────────────────────────────────────
+const STUB_VALUES = new Set(['#', '', 'javascript:void(0)', 'javascript:void(0);', 'javascript:;', 'javascript:']);
+
+function classifyTarget(value) {
+	const v = (value || '').trim();
+	if (STUB_VALUES.has(v.toLowerCase())) return { type: 'stub', value: v };
+	// javascript:void(0) is a stub; any other javascript: URL runs real code → scheme.
+	if (/^(mailto:|tel:|sms:|data:|blob:|javascript:)/i.test(v)) return { type: 'scheme', value: v };
+	if (/^https?:\/\//i.test(v)) return { type: 'external', value: v };
+	if (/^\/\//.test(v)) return { type: 'external', value: 'https:' + v };
+	if (v.includes('${') || /["'`]\s*\+/.test(v) || v.includes('+ ')) return { type: 'dynamic', value: v };
+	if (v.startsWith('#')) return { type: 'anchor', value: v };
+	if (v.startsWith('/') || /^[\w.-]/.test(v)) return { type: 'internal', value: v };
+	return { type: 'dynamic', value: v };
+}
+
+// Lookbehind blocks `data-action`/`reaction`/etc. from matching the bare `action`
+// attribute — only a real navigable attribute (preceded by whitespace or tag-open).
+const htmlAttrRe = /(?<![\w-])(?:href|formaction|action|data-href|data-route|data-link|data-target-href)\s*=\s*("([^"]*)"|'([^']*)')/gi;
+const jsNavRe = /(?:\.href\s*=|location\.(?:assign|replace)\s*\(|window\.open\s*\(|\bhref\s*:|\bnavigateTo\s*\(|\brouteTo\s*\()\s*("([^"]*)"|'([^']*)'|`([^`$]*)`)/gi;
+const fetchRe = /\bfetch\s*\(\s*("([^"]*)"|'([^']*)'|`([^`$]*)`)/gi;
+
+function lineOf(content, index) {
+	let line = 1;
+	for (let i = 0; i < index && i < content.length; i++) if (content[i] === '\n') line++;
+	return line;
+}
+
+const findings = {
+	brokenInternal: [],
+	stubs: [],
+	external: new Map(), // url -> [{file,line}]
+	dynamic: 0,
+	scanned: 0,
+};
+
+function record(target, file, line) {
+	const rel = file.replace(ROOT + '/', '');
+	const baseDir = dirname(rel); // for resolving relative links from this file's dir
+	const c = classifyTarget(target);
+	if (c.type === 'stub') {
+		findings.stubs.push({ file: rel, line, value: c.value });
+		return;
+	}
+	if (c.type === 'external') {
+		const list = findings.external.get(c.value) || [];
+		list.push({ file: rel, line });
+		findings.external.set(c.value, list);
+		return;
+	}
+	if (c.type === 'internal') {
+		const r = resolveInternal(c.value, baseDir);
+		if (!r.ok) findings.brokenInternal.push({ file: rel, line, value: c.value, kind: r.kind });
+		return;
+	}
+	if (c.type === 'dynamic') findings.dynamic++;
+	// scheme / anchor → fine
+}
+
+function scanFile(file) {
+	const content = readFileSync(file, 'utf8');
+	const isJs = /\.m?js$/.test(file);
+	findings.scanned++;
+	let m;
+	if (!isJs) {
+		htmlAttrRe.lastIndex = 0;
+		while ((m = htmlAttrRe.exec(content))) {
+			record(m[2] ?? m[3] ?? '', file, lineOf(content, m.index));
+		}
+		// Inline <script> nav + fetch inside HTML too.
+	}
+	jsNavRe.lastIndex = 0;
+	while ((m = jsNavRe.exec(content))) {
+		record(m[2] ?? m[3] ?? m[4] ?? '', file, lineOf(content, m.index));
+	}
+	fetchRe.lastIndex = 0;
+	while ((m = fetchRe.exec(content))) {
+		const t = m[2] ?? m[3] ?? m[4] ?? '';
+		if (t.startsWith('/')) record(t, file, lineOf(content, m.index)); // only internal fetches
+	}
+}
+
+// ── Dangling-route check: vercel route → missing source file ─────────────────
+function danglingRoutes() {
+	const out = [];
+	for (const r of destRoutes) {
+		const dest = r.dest.split('?')[0];
+		if (!dest.endsWith('.html')) continue;
+		if (dest.includes('$')) continue; // dest uses a capture group — resolved per-request
+		const p = dest.replace(/^\/+/, '');
+		const exists = fileExists(join(ROOT, 'pages', p)) || fileExists(join(ROOT, 'public', p));
+		if (!exists) out.push({ src: r.src, dest: r.dest });
+	}
+	return out;
+}
+
+// ── External liveness (opt-in) ───────────────────────────────────────────────
+async function probeExternal(urls) {
+	const dead = [];
+	const queue = [...urls];
+	const CONCURRENCY = 12;
+	async function worker() {
+		while (queue.length) {
+			const url = queue.shift();
+			let ok = false;
+			let status = 0;
+			try {
+				const ctrl = new AbortController();
+				const t = setTimeout(() => ctrl.abort(), 10000);
+				let res = await fetch(url, { method: 'HEAD', redirect: 'follow', signal: ctrl.signal });
+				if (res.status === 405 || res.status === 403 || res.status === 501) {
+					res = await fetch(url, { method: 'GET', redirect: 'follow', signal: ctrl.signal });
+				}
+				clearTimeout(t);
+				status = res.status;
+				ok = res.status < 400;
+			} catch (e) {
+				status = e.name === 'AbortError' ? 'timeout' : 'error';
+			}
+			if (!ok) dead.push({ url, status });
+		}
+	}
+	await Promise.all(Array.from({ length: CONCURRENCY }, worker));
+	return dead;
+}
+
+// ── Run ──────────────────────────────────────────────────────────────────────
+const exts = new Set(['.html', '.js', '.mjs']);
+const files = [...walk(join(ROOT, 'pages'), exts), ...walk(join(ROOT, 'public'), exts), ...walk(join(ROOT, 'src'), exts)];
+for (const f of files) scanFile(f);
+
+const dangling = danglingRoutes();
+const externalUrls = [...findings.external.keys()];
+
+let externalDead = [];
+if (CHECK_EXTERNAL) externalDead = await probeExternal(externalUrls);
+
+const report = {
+	scannedFiles: findings.scanned,
+	brokenInternal: findings.brokenInternal,
+	stubs: findings.stubs,
+	danglingRoutes: dangling,
+	externalCount: externalUrls.length,
+	externalDead,
+	dynamicSkipped: findings.dynamic,
+};
+
+if (AS_JSON) {
+	console.log(JSON.stringify(report, null, 2));
+} else {
+	const line = (s = '') => console.log(s);
+	line(`Link audit — scanned ${findings.scanned} files`);
+	line('');
+	line(`Broken internal links : ${findings.brokenInternal.length}`);
+	for (const b of findings.brokenInternal.slice(0, 60)) line(`  ✗ ${b.value}  (${b.kind})  — ${b.file}:${b.line}`);
+	if (findings.brokenInternal.length > 60) line(`  … +${findings.brokenInternal.length - 60} more`);
+	line('');
+	line(`Stub hrefs (#, void(0)) : ${findings.stubs.length}`);
+	for (const s of findings.stubs.slice(0, 40)) line(`  ✗ "${s.value}"  — ${s.file}:${s.line}`);
+	if (findings.stubs.length > 40) line(`  … +${findings.stubs.length - 40} more`);
+	line('');
+	line(`Dangling routes (→ missing file) : ${dangling.length}`);
+	for (const d of dangling) line(`  ✗ ${d.src} → ${d.dest}`);
+	line('');
+	line(`External links collected : ${externalUrls.length}`);
+	if (CHECK_EXTERNAL) {
+		line(`Dead external links : ${externalDead.length}`);
+		for (const d of externalDead) line(`  ✗ [${d.status}] ${d.url}`);
+	} else {
+		line('  (run with --external to probe liveness)');
+	}
+	line('');
+	line(`Dynamic targets skipped : ${findings.dynamic}`);
+}
+
+if (WRITE_REPORT) {
+	mkdirSync(join(ROOT, 'reports'), { recursive: true });
+	const out = join(ROOT, 'reports', `link-audit-${Date.now()}.json`);
+	writeFileSync(out, JSON.stringify(report, null, 2));
+	console.log(`\nReport: ${out.replace(ROOT + '/', '')}`);
+}
+
+const hardFails = findings.brokenInternal.length + findings.stubs.length + dangling.length;
+if (hardFails > 0) process.exitCode = 1;

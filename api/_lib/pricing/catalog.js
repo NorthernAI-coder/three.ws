@@ -19,7 +19,7 @@
 // This module is pure (no network, no DB, no env beyond forge-tiers' constants)
 // so it is safe to import on the client for display and on the server for pricing.
 
-import { TIERS, priceUsdcForTier } from '../forge-tiers.js';
+import { TIERS, priceUsdcForTier, priceUsdcForOutput } from '../forge-tiers.js';
 
 // ── Split-policy aliases ───────────────────────────────────────────────────────
 // Names map 1:1 to SPLIT_POLICIES keys; aliased here so call sites read in
@@ -34,6 +34,10 @@ export const POLICY = Object.freeze({
 // Prices come from forge-tiers.js so they're never duplicated.
 const FORGE_STANDARD_USD = Number(priceUsdcForTier(TIERS.standard)); // 0.15
 const FORGE_HIGH_USD = Number(priceUsdcForTier(TIERS.high)); // 0.50
+// Game-Ready export price, read from OUTPUTS.gameready (its source of truth) so
+// it isn't duplicated. The export drives the remesh worker (real GPU cost) to turn
+// any model into an engine-ready asset — a deliverable, billed per export.
+const FORGE_GAMEREADY_USD = Number(priceUsdcForOutput('gameready')); // 0.10
 
 // ── The catalog ─────────────────────────────────────────────────────────────────
 // id → { label, category, policy, usd }. `usd: null` ⇒ price set per-call.
@@ -50,6 +54,12 @@ export const CATALOG = Object.freeze({
 		category: 'generation',
 		policy: POLICY.CONSUMPTION,
 		usd: FORGE_HIGH_USD,
+	},
+	'forge.gameready': {
+		label: 'Forge — Game-Ready export (Unity/Unreal)',
+		category: 'generation',
+		policy: POLICY.CONSUMPTION,
+		usd: FORGE_GAMEREADY_USD,
 	},
 	'mcp3d.text_to_3d': {
 		label: 'MCP-3D — text → 3D',
