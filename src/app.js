@@ -13,6 +13,7 @@ import { ThoughtBubble } from './thought-bubble.js';
 import { AvatarCreator } from './avatar-creator.js';
 import { resolveURI, isDecentralizedURI } from './ipfs.js';
 import { resolveDevR2Url } from './shared/dev-r2-proxy.js';
+import { isSafeQueryModelUrl } from './shared/safe-model-url.js';
 
 // Resolve a model URL for loading: expand decentralized URIs (ipfs:/ar:) via the
 // gateway, then route r2.dev assets through the dev /r2-proxy so cross-origin
@@ -21,12 +22,6 @@ function resolveModelUrl(url) {
 	const expanded = isDecentralizedURI(url) ? resolveURI(url) : url;
 	return resolveDevR2Url(expanded);
 }
-// Hosts we trust to serve 3D assets when a model URL arrives from an untrusted
-// source (the `?model=` query param). Same-origin, decentralized (ipfs:/ar:),
-// and these first-party/gateway hosts only — so a crafted link can't make the
-// viewer fetch and render an attacker-hosted GLB under the three.ws origin
-// (brand-spoof / phishing).
-const TRUSTED_ASSET_HOST_RE = /(^|\.)(three\.ws|r2\.dev|mypinata\.cloud|pinata\.cloud|ipfs\.io|dweb\.link|arweave\.net)$/i;
 // The on-chain deployment agent — the guided flow for deploying 3D assets on
 // Solana. The "Deploy on Solana" CTA in /app always routes here.
 const ONCHAIN_DEPLOY_AGENT_ID = '67bf6e67-93bb-40c6-9a6b-91e921696248';
@@ -43,20 +38,6 @@ function ensureCornerStack() {
 	(document.head || document.documentElement).appendChild(s);
 }
 
-function isSafeQueryModelUrl(raw) {
-	if (!raw || typeof raw !== 'string') return false;
-	if (raw.startsWith('/') && !raw.startsWith('//')) return true; // same-origin relative
-	if (isDecentralizedURI(raw)) return true; // ipfs:// / ar://
-	try {
-		const u = new URL(raw, location.origin);
-		if (u.origin === location.origin) return true;
-		if (u.protocol !== 'https:') return false;
-		if (u.hostname === 'storage.googleapis.com') return true;
-		return TRUSTED_ASSET_HOST_RE.test(u.hostname);
-	} catch {
-		return false;
-	}
-}
 import { saveRemoteGlbToAccount, getMe, readAuthHint } from './account.js';
 import { getWidget } from './widgets.js';
 import { mountAnimationGallery } from './widgets/animation-gallery.js';
@@ -870,7 +851,7 @@ class App {
 		const btn = document.getElementById('save-to-account-btn');
 		if (btn) {
 			btn.setAttribute('disabled', '');
-			btn.querySelector('span').textContent = 'Preparing…';
+			btn.querySelector('span')?.textContent = 'Preparing…';
 		}
 
 		const stash = {
@@ -913,7 +894,7 @@ class App {
 		const btn = document.getElementById('save-to-account-btn');
 		if (btn) {
 			btn.setAttribute('disabled', '');
-			btn.querySelector('span').textContent = 'Saving…';
+			btn.querySelector('span')?.textContent = 'Saving…';
 		}
 		try {
 			let avatarId;
@@ -922,7 +903,7 @@ class App {
 				// Nothing to save — reset UI and bail
 				if (btn) {
 					btn.removeAttribute('disabled');
-					btn.querySelector('span').textContent = 'Save to account';
+					btn.querySelector('span')?.textContent = 'Save to account';
 				}
 				return;
 			}
@@ -981,7 +962,7 @@ class App {
 					this._flashSaved({ name: 'your account' });
 					if (btn) {
 						btn.removeAttribute('disabled');
-						btn.querySelector('span').textContent = 'Save to account';
+						btn.querySelector('span')?.textContent = 'Save to account';
 					}
 				}
 			}
@@ -989,7 +970,7 @@ class App {
 			log.warn('[3d-agent] save failed:', err.message);
 			if (btn) {
 				btn.removeAttribute('disabled');
-				btn.querySelector('span').textContent = 'Save to account';
+				btn.querySelector('span')?.textContent = 'Save to account';
 			}
 		}
 	}

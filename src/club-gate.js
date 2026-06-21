@@ -73,9 +73,12 @@ function initDoor(root) {
 		window.dispatchEvent(new CustomEvent('club:leave-door'));
 	};
 	backBtn?.addEventListener('click', backToAlley);
-	window.addEventListener('keydown', (e) => {
+	const onKeyDown = (e) => {
 		if (e.key === 'Escape' && root.dataset.state === 'queue') backToAlley();
-	});
+	};
+	window.addEventListener('keydown', onKeyDown);
+	// Expose cleanup so openDoor can remove the listener when the card is torn down.
+	root._removeKeyDown = () => window.removeEventListener('keydown', onKeyDown);
 }
 
 async function payCover(root, { payBtn, msgEl, tierEl }) {
@@ -142,7 +145,15 @@ async function payCover(root, { payBtn, msgEl, tierEl }) {
 function openDoor(root, { silent = false } = {}) {
 	root.classList.add('is-open');
 	root.setAttribute('aria-hidden', 'true');
+	// transitionend and the failsafe timer both call remove(); guard so the room
+	// is torn down — and `club:admitted` dispatched — exactly once.
+	let removed = false;
+	let failsafe = null;
 	const remove = () => {
+		if (removed) return;
+		removed = true;
+		if (failsafe) clearTimeout(failsafe);
+		try { root._removeKeyDown?.(); } catch {}
 		root.remove();
 		// Send focus into the room.
 		try { document.getElementById('club-stage')?.focus?.({ preventScroll: true }); } catch {}
@@ -153,7 +164,7 @@ function openDoor(root, { silent = false } = {}) {
 	} else {
 		root.addEventListener('transitionend', remove, { once: true });
 		// Failsafe if transitionend never fires (reduced-motion / display swap).
-		setTimeout(remove, 900);
+		failsafe = setTimeout(remove, 900);
 	}
 }
 

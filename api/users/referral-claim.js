@@ -50,7 +50,7 @@ export default wrap(async (req, res) => {
 	if (!CODE_RE.test(code)) return error(res, 400, 'invalid_code', 'malformed referral code');
 
 	const [me] = await sql`
-		SELECT id, referred_by_id, created_at, referral_code
+		SELECT id, referred_by_id, created_at, referral_code, display_name
 		FROM users WHERE id = ${session.id} AND deleted_at IS NULL
 	`;
 	if (!me) return error(res, 404, 'not_found', 'user not found');

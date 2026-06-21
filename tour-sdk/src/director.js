@@ -455,8 +455,10 @@ export class TourDirector {
 		await this.avatar.park();
 		this.avatar.point();
 		await this._present(this.config.copy.outro, token);
+		if (token !== this._runToken) return;
 		this.state.markCompleted();
 		this.state.clearState();
+		document.removeEventListener('keydown', this._onKey);
 		this._showCompletion();
 	}
 

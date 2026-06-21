@@ -322,6 +322,7 @@ function cardHtml(t) {
 	const agentName = escapeHtml(t.agent_name || shortAddr(t.agent_id || ''));
 	const traderUrl = `/trader/${escapeHtml(t.agent_id || '')}`;
 
+	const pumpUrl   = t.mint ? `https://pump.fun/${escapeHtml(t.mint)}` : null;
 	const coinHref  = t.mint && t.oracle_score != null ? `/oracle?mint=${escapeHtml(t.mint)}` : (pumpUrl || '#');
 	const coinTarget = t.oracle_score != null ? '' : ' target="_blank" rel="noopener"';
 	const imgHtml = `<a href="${coinHref}"${coinTarget} class="tf-coin-img-link" aria-label="View ${sym} conviction on Oracle" style="display:block;line-height:0">${imgSrc
@@ -352,7 +353,6 @@ function cardHtml(t) {
 
 	const scoreStr = t.oracle_score != null ? `Score ${Math.round(t.oracle_score)}` : '';
 
-	const pumpUrl   = t.mint ? `https://pump.fun/${escapeHtml(t.mint)}` : null;
 	const oracleUrl = t.mint && t.oracle_score != null ? `/oracle?mint=${escapeHtml(t.mint)}` : null;
 	const buySig  = t.buy_sig  ? `https://solscan.io/tx/${escapeHtml(t.buy_sig)}`  : null;
 	const sellSig = t.sell_sig ? `https://solscan.io/tx/${escapeHtml(t.sell_sig)}` : null;

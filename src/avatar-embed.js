@@ -71,6 +71,7 @@ import {
 	conformanceReport,
 } from './runtime/arkit52.js';
 import { log } from './shared/log.js';
+import { isSafeQueryModelUrl } from './shared/safe-model-url.js';
 
 const BRIDGE_VERSION = '1.0';
 const CAPABILITIES = [
@@ -215,6 +216,7 @@ async function main() {
 
 	// ── Face mocap (webcam, opt-in) ────────────────────────────────────────
 	let mocap = null;
+	let mocapVideo = null;
 	let mocapBindingsReady = false;
 	const findHeadBone = () => {
 		let head = null;
@@ -241,12 +243,12 @@ async function main() {
 		mocap.onFaceDetected((has) => {
 			updatePill(true, has);
 		});
-		const video = await mocap.startWebcam();
-		video.style.cssText =
+		mocapVideo = await mocap.startWebcam();
+		mocapVideo.style.cssText =
 			'position:absolute;right:10px;bottom:10px;width:120px;height:90px;' +
 			'object-fit:cover;border-radius:8px;border:1px solid rgba(255,255,255,0.15);' +
 			'transform:scaleX(-1);z-index:4;background:#000;';
-		document.body.appendChild(video);
+		document.body.appendChild(mocapVideo);
 		mocap.start();
 		mocapBindingsReady = true;
 		// Drive per-frame via viewer hook.
@@ -275,8 +277,8 @@ async function main() {
 		// Restore idle.
 		if (idleEnabled) idle.setChannels({ saccade: true, blink: true });
 		// Remove the picture-in-picture <video>.
-		const v = document.querySelector('video');
-		if (v) v.remove();
+		mocapVideo?.remove();
+		mocapVideo = null;
 		mocap = null;
 		mocapBindingsReady = false;
 		updatePill(false, false);
@@ -812,10 +814,12 @@ async function main() {
 // ── Resolve which avatar to render from URL params ──────────────────────────
 
 async function resolveAvatar(params) {
-	// Direct model URL — must be same-origin OR a three.ws CDN. Untrusted
-	// origins are silently rejected to avoid being a CSRF-style open relay.
+	// Direct model URL — must be same-origin OR a trusted three.ws asset host.
+	// Untrusted origins are rejected so the embed can't be turned into an open
+	// relay that renders an attacker-hosted GLB under the three.ws origin.
 	const model = params.get('model');
 	if (model) {
+		if (!isSafeQueryModelUrl(model)) throw new Error('untrusted model URL');
 		return { modelUrl: model, name: null, id: null, handle: null };
 	}
 

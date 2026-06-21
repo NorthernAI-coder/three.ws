@@ -178,13 +178,15 @@ export default async function handleMemorySeed(req, res, agentId) {
 		return json(res, 200, { seeded: 0, facts: [], seeded_at: new Date().toISOString() });
 	}
 
-	// Replace previous github memories with fresh distillation
-	await sql`DELETE FROM agent_memories WHERE agent_id = ${agentId} AND 'github' = ANY(tags)`;
-
+	// Replace previous github memories with the fresh distillation atomically, so
+	// a mid-loop failure can't leave the agent with its old memories deleted and
+	// only a partial new set (the 24h rate limit would then block a retry).
 	const seededAt = new Date().toISOString();
 	const ctx = JSON.stringify({ source: 'github_seed', seeded_at: seededAt });
-	for (const fact of facts) {
-		await sql`
+	await sql.transaction([
+		sql`DELETE FROM agent_memories WHERE agent_id = ${agentId} AND 'github' = ANY(tags)`,
+		...facts.map(
+			(fact) => sql`
 			INSERT INTO agent_memories (agent_id, type, content, tags, context, salience)
 			VALUES (
 				${agentId},
@@ -194,8 +196,9 @@ export default async function handleMemorySeed(req, res, agentId) {
 				${ctx}::jsonb,
 				0.7
 			)
-		`;
-	}
+		`,
+		),
+	]);
 
 	return json(res, 200, { seeded: facts.length, facts, seeded_at: seededAt });
 }

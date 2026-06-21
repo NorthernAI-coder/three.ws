@@ -128,10 +128,11 @@ async function persistWallets(sql, mint, creator, walletAgg) {
 	const rows = [...walletAgg.entries()]
 		.sort((a, b) => (b[1].buyLamports + b[1].sellLamports) - (a[1].buyLamports + a[1].sellLamports))
 		.slice(0, 200);
-	try {
-		for (const [wallet, w] of rows) {
-			// funder is written by the funding-graph enrichment step in watcher.js
-			const funder = w.funder || null;
+	let failed = 0;
+	for (const [wallet, w] of rows) {
+		// funder is written by the funding-graph enrichment step in watcher.js
+		const funder = w.funder || null;
+		try {
 			await sql`
 				insert into pump_coin_wallets (
 					mint, wallet, buy_count, sell_count, buy_lamports, sell_lamports,
@@ -150,10 +151,12 @@ async function persistWallets(sql, mint, creator, walletAgg) {
 					last_seen_at = excluded.last_seen_at,
 					funder = coalesce(excluded.funder, pump_coin_wallets.funder)
 			`;
+		} catch (err) {
+			failed++;
+			if (failed === 1) console.warn('[coin-intel] persist wallet row failed:', err?.message);
 		}
-	} catch (err) {
-		console.warn('[coin-intel] persist wallets failed:', err?.message);
 	}
+	if (failed > 0) console.warn(`[coin-intel] persist wallets: ${failed}/${rows.length} rows failed for mint ${mint}`);
 }
 
 /** Read one coin's intel — cache first, then DB. */

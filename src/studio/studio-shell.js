@@ -181,7 +181,7 @@ class StudioShell {
 								title="Save your progress now — your agent stays a private draft you can keep editing">Save draft</button>
 							<a class="studio-btn studio-btn-ghost studio-action" id="studio-exit"
 								href="${agent.id ? `/agent/${encodeURIComponent(agent.id)}` : '/'}"
-								title="Save and leave the Studio — opens your live agent">Exit ↗</a>
+								title="Save and view your live agent page">View agent ↗</a>
 						</div>
 					</header>
 
@@ -249,7 +249,7 @@ class StudioShell {
 			saveEl.dataset.state = 'pending';
 		});
 		this._unsubSaved = studio.on('save:ok', () => {
-			if (!saveEl || saveEl.dataset.state === 'error') return;
+			if (!saveEl) return;
 			saveEl.textContent = 'Saved';
 			saveEl.dataset.state = 'saved';
 		});

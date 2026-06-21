@@ -8,22 +8,6 @@
  * the requester is the agent's owner — render() tolerates them being absent.
  */
 
-import {
-	Connection,
-	PublicKey,
-	Transaction,
-	SystemProgram,
-	LAMPORTS_PER_SOL,
-	clusterApiUrl,
-} from '@solana/web3.js';
-const solanaWeb3 = {
-	Connection,
-	PublicKey,
-	Transaction,
-	SystemProgram,
-	LAMPORTS_PER_SOL,
-	clusterApiUrl,
-};
 import { onchainBadgeEl } from './shared/onchain-badge.js';
 import { walletChipEl } from './shared/agent-wallet-chip.js';
 import { mountValidationBadge } from './shared/validation-badge.js';
@@ -1478,7 +1462,7 @@ function renderReputation(r) {
 		? Number(r.average).toFixed(2)
 		: '0.00';
 	document.getElementById('ad-rep-count').textContent = String(r.count || 0);
-	if (r.total_stake_wei && r.total_stake_wei !== '0') {
+	if (r.total_stake_wei && r.total_stake_wei !== '0' && /^\d+$/.test(r.total_stake_wei)) {
 		document.getElementById('ad-rep-stake-row').style.display = '';
 		const wei = BigInt(r.total_stake_wei);
 		const eth = Number(wei) / 1e18;
@@ -2083,42 +2067,6 @@ async function loadAgent(id) {
 	return { agent: normalize(rec, avatar), error: null };
 }
 
-// --- Wallet Integration ---
-
-const getProvider = () => {
-	if ('phantom' in window) {
-		const provider = window.phantom?.solana;
-		if (provider?.isPhantom) {
-			return provider;
-		}
-	}
-	window.open('https://phantom.app/', '_blank');
-	return null;
-};
-
-let wallet = null;
-// Route through our same-origin proxy. Public devnet RPC is also rate-limited
-// from browsers; the proxy keeps both clusters consistent.
-const _rpcOrigin = window.location?.origin || 'https://three.ws';
-const connection = new solanaWeb3.Connection(
-	`${_rpcOrigin}/api/solana-rpc?net=devnet`,
-	'confirmed',
-);
-const connectWalletBtn = document.getElementById('connect-wallet-btn');
-
-connectWalletBtn.addEventListener('click', async () => {
-	const provider = getProvider();
-	if (provider) {
-		try {
-			const resp = await provider.connect();
-			wallet = resp.publicKey;
-
-			connectWalletBtn.textContent = `${wallet.toString().slice(0, 4)}...${wallet.toString().slice(-4)}`;
-		} catch (err) {
-			log.error('Failed to connect to wallet:', err);
-		}
-	}
-});
 
 const id =
 	new URLSearchParams(location.search).get('id') ||

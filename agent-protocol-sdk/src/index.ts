@@ -81,10 +81,10 @@ export async function invokeSkill({
   const program = new Program<AgentInvocation>(idl, provider);
 
   const instruction = await program.methods
-    .invoke_skill(skillName, parameters)
+    .invokeSkill(skillName, parameters)
     .accounts({
-      invoker_authority: invokerAuthority.publicKey,
-      target_authority: targetAuthority,
+      invokerAuthority: invokerAuthority.publicKey,
+      targetAuthority: targetAuthority,
     })
     .instruction();
 

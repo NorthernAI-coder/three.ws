@@ -2545,6 +2545,10 @@
 			"dest": "/api/users/referrals.js"
 		},
 		{
+			"src": "/api/users/referral-code",
+			"dest": "/api/users/referral-code.js"
+		},
+		{
 			"src": "/api/users/referral-claim",
 			"dest": "/api/users/referral-claim.js"
 		},
@@ -3467,6 +3471,14 @@
 		{
 			"src": "/scan/",
 			"dest": "/scan.html"
+		},
+		{
+			"src": "/dad",
+			"dest": "/dad.html"
+		},
+		{
+			"src": "/dad/",
+			"dest": "/dad.html"
 		},
 		{
 			"src": "/worlds/?",

@@ -91,11 +91,19 @@ export async function verifyEvmPayment(
   // The deposit response must echo back the Solana agent mint that the quote
   // was created against so we can re-verify the payer didn't reuse a deposit
   // destined for a different agent.
+  if (!/^0x[0-9a-fA-F]{64}$/.test(proof.txHash)) {
+    return { valid: false, error: "Invalid txHash format" };
+  }
+  if (!Number.isInteger(proof.chainId) || proof.chainId <= 0) {
+    return { valid: false, error: "Invalid chainId" };
+  }
+
   let depositId: string;
   try {
-    const res = await fetch(
-      `${PUMP_CROSSCHAIN_API}/deposit?txHash=${proof.txHash}&chainId=${proof.chainId}`
-    );
+    const depositUrl = new URL(`${PUMP_CROSSCHAIN_API}/deposit`);
+    depositUrl.searchParams.set("txHash", proof.txHash);
+    depositUrl.searchParams.set("chainId", String(proof.chainId));
+    const res = await fetch(depositUrl.toString());
     if (!res.ok) throw new Error(`Deposit lookup failed (${res.status})`);
     const data: {
       depositId: string;
@@ -128,12 +136,19 @@ export async function verifyEvmPayment(
         error: `Insufficient amount: got ${confirmedAmount}, need ${minAmountUsdc}`,
       };
     }
+  } catch (err) {
+    return {
+      valid: false,
+      error: `EVM tx verification failed: ${(err as Error).message}`,
+    };
+  }
 
-    // Atomically consume the deposit txHash so it can't be redeemed twice.
+  const replayKey = `${proof.chainId}:${proof.txHash}`;
+
+  if (!params.waitForSolana) {
+    // Consume the replay key before returning; no Solana wait requested.
     if (params.replayStore) {
-      const claimed = await params.replayStore.claim(
-        `${proof.chainId}:${proof.txHash}`,
-      );
+      const claimed = await params.replayStore.claim(replayKey);
       if (!claimed) {
         return {
           valid: false,
@@ -142,22 +157,24 @@ export async function verifyEvmPayment(
         };
       }
     }
-  } catch (err) {
-    return {
-      valid: false,
-      error: `EVM tx verification failed: ${(err as Error).message}`,
-    };
-  }
-
-  if (!params.waitForSolana) {
     return { valid: true, depositId };
   }
 
-  // Wait for Solana arrival
+  // Wait for Solana arrival, then consume the replay key on success only.
   try {
     const status: CrossChainPaymentStatusResult = await waitWithTimeout(depositId);
 
     if (status.status === "arrived_on_solana") {
+      if (params.replayStore) {
+        const claimed = await params.replayStore.claim(replayKey);
+        if (!claimed) {
+          return {
+            valid: false,
+            depositId,
+            error: "Duplicate payment: this EVM deposit was already redeemed",
+          };
+        }
+      }
       return {
         valid: true,
         depositId,

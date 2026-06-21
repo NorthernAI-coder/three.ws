@@ -40,6 +40,10 @@ export interface EvmWalletClient {
     value: bigint;
     chainId: number;
   }) => Promise<`0x${string}`>;
+  /** Wait for a tx to be included in a block. Provide this (e.g. viem's
+   *  `waitForTransactionReceipt`) to guarantee the ERC-20 approval is confirmed
+   *  on-chain before the bridge tx is submitted. */
+  confirmTransaction?: (txHash: `0x${string}`) => Promise<void>;
 }
 
 export interface EvmX402FetchOptions {
@@ -102,14 +106,18 @@ export function createEvmX402Fetch(opts: EvmX402FetchOptions) {
       sender: opts.walletClient.address,
     });
 
-    // Send approval if needed
+    // Send approval if needed; confirm before submitting the bridge tx so the
+    // allowance is set on-chain before the bridge contract reads it.
     if (txs.approval) {
-      await opts.walletClient.sendTransaction({
+      const approvalTxHash = await opts.walletClient.sendTransaction({
         to: txs.approval.to,
         data: txs.approval.data,
         value: txs.approval.value,
         chainId: opts.walletClient.chainId,
       });
+      if (opts.walletClient.confirmTransaction) {
+        await opts.walletClient.confirmTransaction(approvalTxHash);
+      }
     }
 
     // Send bridge tx

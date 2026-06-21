@@ -63,7 +63,8 @@ export class AvatarStage {
 		this.renderer.toneMappingExposure = 1.05;
 
 		const pmrem = new PMREMGenerator(this.renderer);
-		this.scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+		this._envTex = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+		this.scene.environment = this._envTex;
 		pmrem.dispose();
 
 		this.scene.add(new AmbientLight(0xffffff, 0.6));
@@ -118,6 +119,7 @@ export class AvatarStage {
 			this.scene.remove(this.model);
 			this._disposeObject(this.model);
 		}
+		if (this.mixer) { this.mixer.stopAllAction(); this.mixer.uncacheRoot(this.model); }
 		this.mixer = null;
 		this._idleAction = null;
 		this._talkAction = null;
@@ -261,9 +263,12 @@ export class AvatarStage {
 	_disposeObject(obj) {
 		obj.traverse?.((n) => {
 			n.geometry?.dispose?.();
-			const m = n.material;
-			if (Array.isArray(m)) m.forEach((x) => x?.dispose?.());
-			else m?.dispose?.();
+			const mats = Array.isArray(n.material) ? n.material : [n.material];
+			mats.forEach((m) => {
+				if (!m) return;
+				for (const v of Object.values(m)) if (v?.isTexture) v.dispose();
+				m.dispose?.();
+			});
 		});
 	}
 
@@ -273,6 +278,8 @@ export class AvatarStage {
 		this._resizeObs?.disconnect();
 		this._frameHooks.clear();
 		if (this.model) { this.scene.remove(this.model); this._disposeObject(this.model); }
+		this._envTex?.dispose();
+		this._envTex = null;
 		this.renderer?.dispose();
 		this.renderer?.forceContextLoss?.();
 		this.renderer = null;

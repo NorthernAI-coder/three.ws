@@ -263,6 +263,7 @@
 		const STATS_API = '/api/three-token/stats';
 		const TRADES_SSE = `/api/agents/pumpfun-feed?kind=trades&mint=${THREE_MINT}`;
 		const STATS_INTERVAL_MS = 8_000;
+		let _solUsd = 0; // refreshed from Jupiter on boot
 		const FLOW_WINDOW_MS = 60_000;
 		const WHALE_USD = 2_000;             // a trade this big sends a shockwave
 		const PARTICLE_POOL = 1400;          // hard cap on live particles
@@ -496,6 +497,7 @@
 			}
 			// momentary core kick + heartbeat feed
 			coreUniforms.uPulse.value = Math.min(1.2, coreUniforms.uPulse.value + 0.25 + mag * 0.6);
+			pGeo.attributes.color.needsUpdate = true;
 			if (value >= WHALE_USD) spawnShockwave(baseColor);
 		}
 
@@ -603,7 +605,7 @@
 			es.addEventListener('trade', (ev) => {
 				let d; try { d = JSON.parse(ev.data); } catch { return; }
 				const isBuy = d.is_buy === true || d.txType === 'buy' || d.tx_type === 'buy';
-				const usd = Number(d.sol_value_usd) || (Number(d.sol_amount ?? d.solAmount) || 0) * 150; // sol fallback
+				const usd = Number(d.sol_value_usd) || (Number(d.sol_amount ?? d.solAmount) || 0) * _solUsd;
 				const now = performance.now();
 				lastTradeAt = now;
 				recentTrades.push({ t: now, isBuy, usd });
@@ -663,9 +665,10 @@
 				const baseSz = pSize[i];
 				pGeo.attributes.psize.array[i] = baseSz * (0.3 + f * 0.7);
 			}
-			pGeo.attributes.position.needsUpdate = true;
-			pGeo.attributes.color.needsUpdate = true;
-			pGeo.attributes.psize.needsUpdate = true;
+			if (anyAlive) {
+				pGeo.attributes.position.needsUpdate = true;
+				pGeo.attributes.psize.needsUpdate = true;
+			}
 
 			// shockwaves
 			for (let i = shockwaves.length - 1; i >= 0; i--) {
@@ -702,6 +705,11 @@
 
 		// ── Boot ──────────────────────────────────────────────────────────────────
 		setHero('connecting', '$THREE · connecting…');
+		// Seed the SOL price used for trades that only supply sol_amount.
+		fetch('https://api.jup.ag/price/v2?ids=So11111111111111111111111111111111111111112', { signal: AbortSignal.timeout(5000) })
+			.then((r) => r.ok ? r.json() : null)
+			.then((d) => { const p = Number(d?.data?.So11111111111111111111111111111111111111112?.price); if (p > 0) _solUsd = p; })
+			.catch(() => {});
 		pollStats().finally(() => { setTimeout(() => introEl.classList.add('is-hidden'), 350); });
 		statsTimer = setInterval(pollStats, STATS_INTERVAL_MS);
 		connectTrades();

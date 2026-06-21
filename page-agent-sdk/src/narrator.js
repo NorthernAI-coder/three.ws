@@ -38,8 +38,9 @@ export class SpeechNarrator {
 		this._voices = [];
 
 		if (hasTTS) {
+			this._onVoices = this._loadVoices.bind(this);
 			this._loadVoices();
-			window.speechSynthesis.addEventListener?.('voiceschanged', this._loadVoices.bind(this));
+			window.speechSynthesis.addEventListener?.('voiceschanged', this._onVoices);
 		}
 	}
 
@@ -183,7 +184,7 @@ export class SpeechNarrator {
 	dispose() {
 		this.cancel();
 		this._frameUnsub?.();
-		if (hasTTS) window.speechSynthesis.removeEventListener?.('voiceschanged', this._loadVoices);
+		if (hasTTS) window.speechSynthesis.removeEventListener?.('voiceschanged', this._onVoices);
 	}
 }
 

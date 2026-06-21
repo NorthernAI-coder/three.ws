@@ -274,25 +274,37 @@ class AgentPresenceElement extends HTMLElement {
 
 	async _refreshBody() {
 		if (!this._viewer || this._disposed) return;
-		const resolved = await this._resolveBody();
-		if (this._disposed || !this._viewer) return;
-		if (!resolved) {
-			this._handleNoBody();
-			return;
-		}
-		this.hidden = false;
-		if (resolved === this._currentModelUrl) return;
-		this._setStatus('loading');
+		// Guard against concurrent refresh calls (rapid store patches). If already
+		// refreshing, queue one follow-up so the last state wins without piling up.
+		if (this._refreshing) { this._pendingRefresh = true; return; }
+		this._refreshing = true;
 		try {
-			const { Viewer } = await import('../viewer.js');
-			const { AgentAvatar } = await import('../agent-avatar.js');
-			this._avatar?.detach();
-			this._avatar = null;
-			await this._loadModel(resolved, Viewer, AgentAvatar);
-			this._setStatus('live');
-		} catch (err) {
-			log.warn('[agent-presence] body refresh failed', err);
-			this._setStatus('error');
+			const resolved = await this._resolveBody();
+			if (this._disposed || !this._viewer) return;
+			if (!resolved) {
+				this._handleNoBody();
+				return;
+			}
+			this.hidden = false;
+			if (resolved === this._currentModelUrl) return;
+			this._setStatus('loading');
+			try {
+				const { Viewer } = await import('../viewer.js');
+				const { AgentAvatar } = await import('../agent-avatar.js');
+				this._avatar?.detach();
+				this._avatar = null;
+				await this._loadModel(resolved, Viewer, AgentAvatar);
+				this._setStatus('live');
+			} catch (err) {
+				log.warn('[agent-presence] body refresh failed', err);
+				this._setStatus('error');
+			}
+		} finally {
+			this._refreshing = false;
+			if (this._pendingRefresh && !this._disposed) {
+				this._pendingRefresh = false;
+				this._refreshBody();
+			}
 		}
 	}
 
@@ -450,7 +462,10 @@ class AgentPresenceElement extends HTMLElement {
 		}
 		status.setAttribute('data-show', '1');
 		if (state === 'no-body') {
-			inner.innerHTML = `<div>No body yet</div><a class="cta" href="/agent-studio#body">Give it a body →</a>`;
+			inner.innerHTML = `<div>No avatar yet</div><button class="cta" type="button">Set up in Body tab →</button>`;
+			inner.querySelector('.cta')?.addEventListener('click', () => {
+				document.dispatchEvent(new CustomEvent('studio:navigate', { detail: { tab: 'body' } }));
+			});
 		} else if (state === 'error') {
 			inner.innerHTML = `<div>Couldn't load the avatar.</div><button class="retry" type="button">Try again</button>`;
 			inner.querySelector('.retry')?.addEventListener('click', () => {

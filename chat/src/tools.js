@@ -1944,24 +1944,6 @@ export const pumpToolSchema = {
 				},
 			},
 		},
-		{
-			clientDefinition: {
-				id: 'pump-kol-012',
-				name: 'kol_radar',
-				description: 'Early-detection signals for memecoins from KOL wallets.',
-				arguments: [{ name: 'limit', type: 'number', description: 'Number of signals (default 20)' }],
-				body: pumpBody('kol_radar'),
-			},
-			type: 'function',
-			function: {
-				name: 'kol_radar',
-				description: 'Get early-detection alpha signals from key opinion leader (KOL) wallets on pump.fun.',
-				parameters: {
-					type: 'object',
-					properties: { limit: { type: 'integer', default: 20, description: 'Number of signals to return' } },
-				},
-			},
-		},
 	],
 };
 

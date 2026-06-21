@@ -5,11 +5,11 @@ import {
 import {
   getAssociatedTokenAddressSync,
   createAssociatedTokenAccountInstruction,
-  TOKEN_PROGRAM_ID,
   ASSOCIATED_TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
 import type { WalletProvider } from "../wallet/types.js";
 import { buildAndSend, type BuildAndSendOptions } from "../tx/build.js";
+import { resolveTokenProgramId } from "../utils/token-program.js";
 
 export interface GetOrCreateAtaParams {
   mint: PublicKey | string;
@@ -35,11 +35,15 @@ export async function getOrCreateAta(
       : params.owner
     : wallet.publicKey;
 
+  // Classic SPL vs Token-2022, resolved from the mint owner — a hardcoded
+  // classic program derives the wrong ATA for Token-2022 mints (e.g. $THREE).
+  const tokenProgramId = await resolveTokenProgramId(connection, mint);
+
   const ata = getAssociatedTokenAddressSync(
     mint,
     owner,
     false,
-    TOKEN_PROGRAM_ID,
+    tokenProgramId,
     ASSOCIATED_TOKEN_PROGRAM_ID,
   );
 
@@ -51,7 +55,7 @@ export async function getOrCreateAta(
     ata,
     owner,
     mint,
-    TOKEN_PROGRAM_ID,
+    tokenProgramId,
     ASSOCIATED_TOKEN_PROGRAM_ID,
   );
 

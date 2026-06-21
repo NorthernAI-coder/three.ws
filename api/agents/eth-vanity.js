@@ -29,6 +29,7 @@
 //   }
 
 import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.js';
+import { requireCsrf } from '../_lib/csrf.js';
 import { sql } from '../_lib/db.js';
 import { cors, json, method, error, readJson, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
@@ -140,6 +141,10 @@ export default async function handler(req, res, id, action) {
 	if (row.user_id !== auth.userId) return error(res, 403, 'forbidden', 'not your agent');
 
 	let meta = { ...(row.meta || {}) };
+
+	if (req.method !== 'GET') {
+		if (!(await requireCsrf(req, res, auth.userId))) return;
+	}
 
 	if (req.method === 'DELETE') {
 		delete meta.eth_vanity;

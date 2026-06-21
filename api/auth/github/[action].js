@@ -124,6 +124,13 @@ async function handleCallback(req, res) {
 		return error(res, 400, 'state_expired', 'OAuth state has expired — please try again');
 	}
 
+	// Session-bind: if a session is active it must match the state's userId so a
+	// state token can't be replayed by a different user in their browser session.
+	const callbackSession = await getSessionUser(req).catch(() => null);
+	if (callbackSession && callbackSession.id !== stateData.userId) {
+		return error(res, 403, 'session_mismatch', 'OAuth state does not match the current session');
+	}
+
 	// Exchange code for access token
 	const tokenRes = await fetch('https://github.com/login/oauth/access_token', {
 		method: 'POST',

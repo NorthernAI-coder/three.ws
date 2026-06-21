@@ -474,12 +474,7 @@ async function handleBuyPrep(req, res) {
 			tx_base64,
 		});
 	} catch (e) {
-		return error(
-			res,
-			e.status || 502,
-			e.code || 'pump_sdk_error',
-			e.message || 'failed to build buy tx',
-		);
+		return respondError(res, e.status || 502, e.code || 'pump_sdk_error', e);
 	}
 }
 
@@ -798,12 +793,7 @@ async function handleSellPrep(req, res) {
 			tx_base64,
 		});
 	} catch (e) {
-		return error(
-			res,
-			e.status || 502,
-			e.code || 'pump_sdk_error',
-			e.message || 'failed to build sell tx',
-		);
+		return respondError(res, e.status || 502, e.code || 'pump_sdk_error', e);
 	}
 }
 
@@ -2113,7 +2103,7 @@ async function handleAcceptPaymentConfirm(req, res) {
 // ── payments-list ──────────────────────────────────────────────────────────
 
 async function handlePaymentsList(req, res) {
-	if (cors(req, res, { methods: 'GET,OPTIONS', origins: '*' })) return;
+	if (cors(req, res, { methods: 'GET,OPTIONS', credentials: true })) return;
 	if (!method(req, res, ['GET'])) return;
 
 	const rl = await limits.authIp(clientIp(req));
@@ -2123,7 +2113,14 @@ async function handlePaymentsList(req, res) {
 	const mint = url.searchParams.get('mint');
 	const network = url.searchParams.get('network') === 'devnet' ? 'devnet' : 'mainnet';
 	const limit = Math.min(Number(url.searchParams.get('limit') || 50), 500);
-	const includePending = url.searchParams.get('include_pending') === '1';
+	const wantsPending = url.searchParams.get('include_pending') === '1';
+
+	// Pending payments expose unconfirmed invoices — require auth.
+	if (wantsPending) {
+		const auth = await resolveAuth(req);
+		if (!auth) return error(res, 401, 'unauthorized', 'sign in required to view pending payments');
+	}
+	const includePending = wantsPending;
 
 	if (!mint) return error(res, 400, 'validation_error', 'mint required');
 
@@ -2882,12 +2879,7 @@ async function handleQuote(req, res) {
 			quote,
 		});
 	} catch (err) {
-		return error(
-			res,
-			err.status || 502,
-			err.code || 'pump_sdk_error',
-			err.message || 'pump.fun SDK error',
-		);
+		return respondError(res, err.status || 502, err.code || 'pump_sdk_error', err);
 	}
 }
 
@@ -3084,8 +3076,11 @@ async function resolveStrategyMints(invoke, strategy, explicit, limit) {
 }
 
 async function handleStrategyBacktest(req, res) {
-	if (cors(req, res, { methods: 'POST,OPTIONS', origins: '*' })) return;
+	if (cors(req, res, { methods: 'POST,OPTIONS', credentials: true })) return;
 	if (!method(req, res, ['POST'])) return;
+
+	const auth = await resolveAuth(req);
+	if (!auth) return error(res, 401, 'unauthorized', 'sign in required');
 
 	const rl = await limits.authIp(clientIp(req));
 	if (!rl.success) return rateLimited(res, rl);
@@ -3720,7 +3715,10 @@ const _deliverSchema = _z.object({
 });
 
 async function handleDeliverTelegram(req, res) {
+	if (cors(req, res, { methods: 'POST,OPTIONS', credentials: true })) return;
 	if (!method(req, res, ['POST'])) return;
+	const auth = await resolveAuth(req);
+	if (!auth) return error(res, 401, 'unauthorized', 'sign in required');
 	const botToken = process.env.TELEGRAM_BOT_TOKEN;
 	if (!botToken) return error(res, 500, 'misconfigured', 'TELEGRAM_BOT_TOKEN is not set');
 	const raw = await readJson(req);
@@ -3786,11 +3784,13 @@ async function handleFirstClaims(req, res) {
 // ── vanity-keygen (SSE) ───────────────────────────────────────────────────────
 
 async function handleVanityKeygen(req, res) {
-	if (cors(req, res, { methods: 'POST,OPTIONS', origins: '*' })) return;
+	if (cors(req, res, { methods: 'POST,OPTIONS', credentials: true })) return;
 	if (req.method !== 'POST') {
 		res.setHeader('allow', 'POST');
 		return error(res, 405, 'method_not_allowed', 'method POST required');
 	}
+	const auth = await resolveAuth(req);
+	if (!auth) return error(res, 401, 'unauthorized', 'sign in required');
 	const rl = await limits.mcpIp(clientIp(req));
 	if (!rl.success) return rateLimited(res, rl);
 	let body;

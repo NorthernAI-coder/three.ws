@@ -113,8 +113,10 @@ export async function stakeSOL(
 
       if (!isExpired || attempt === maxRetries - 1) throw err;
 
-      const slot = await connection.getSlot();
-      if (slot > lastValidBlockHeight) continue;
+      // Compare block HEIGHT to lastValidBlockHeight — not getSlot(), whose slot
+      // counter runs ahead of block height (skipped slots) and isn't comparable.
+      const blockHeight = await connection.getBlockHeight();
+      if (blockHeight > lastValidBlockHeight) continue;
       throw err;
     }
   }

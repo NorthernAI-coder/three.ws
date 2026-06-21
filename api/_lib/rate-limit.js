@@ -282,6 +282,12 @@ export const limits = {
 	// writes a public rarity entry — bound per IP so one caller can't carpet the
 	// gallery, but generous enough for a real owner publishing a few grinds.
 	// Reads (gallery list / leaderboard / appraisal) are cheap and CDN-cacheable.
+	// Referral-code availability check (GET /api/users/referral-code?code=…).
+	// Debounced at 280 ms client-side; a 20-char code produces ~20 checks. Use a
+	// dedicated bucket (not authIp) so typing a vanity code doesn't consume the
+	// login/auth budget and lock out shared-IP users (offices, shared NAT).
+	referralCodeCheckIp: (ip) =>
+		getLimiter('referral:code:check:ip', { limit: 120, window: '5 m' }).limit(ip),
 	vanityGalleryPublishIp: (ip) =>
 		getLimiter('vanity:gallery:publish:ip', { limit: 12, window: '10 m' }).limit(ip),
 	vanityGalleryReadIp: (ip) =>

@@ -340,15 +340,15 @@ export default wrap(async (req, res) => {
 	`.catch(() => [{ followers: 0, following: 0 }]);
 
 	const stats = {
-		avatars: statsRow?.avatars_count ?? 0,
-		agents: statsRow?.agents_count ?? 0,
-		widgets: statsRow?.widgets_count ?? 0,
-		skills: statsRow?.skills_count ?? 0,
-		plugins: statsRow?.plugins_count ?? 0,
-		coins: statsRow?.coins_count ?? 0,
-		memories: statsRow?.memories_count ?? 0,
+		avatars: statsRow?.[0]?.avatars_count ?? 0,
+		agents: statsRow?.[0]?.agents_count ?? 0,
+		widgets: statsRow?.[0]?.widgets_count ?? 0,
+		skills: statsRow?.[0]?.skills_count ?? 0,
+		plugins: statsRow?.[0]?.plugins_count ?? 0,
+		coins: statsRow?.[0]?.coins_count ?? 0,
+		memories: statsRow?.[0]?.memories_count ?? 0,
 		shop: shop.length,
-		widget_views: Number(statsRow?.total_widget_views ?? 0),
+		widget_views: Number(statsRow?.[0]?.total_widget_views ?? 0),
 		followers: followCounts?.followers ?? 0,
 		following: followCounts?.following ?? 0,
 	};

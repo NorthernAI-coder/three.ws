@@ -424,6 +424,14 @@
 					"priority": 0.7,
 					"changefreq": "monthly",
 					"added": "2026-05-29"
+				},
+				{
+					"path": "/dad",
+					"title": "Make Dad a 3D Avatar",
+					"description": "Turn one photo of your dad into a recognizable, rigged, animated 3D avatar — it idles, walks, and waves — then share a permalink.",
+					"priority": 0.7,
+					"changefreq": "monthly",
+					"added": "2026-06-21"
 				}
 			]
 		},

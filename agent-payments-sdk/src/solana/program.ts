@@ -19,8 +19,8 @@ export function getPumpProgram(
 ): Program<PumpAgentPayments> {
   const dummyWallet = {
     publicKey: PublicKey.default,
-    signTransaction: () => Promise.reject(),
-    signAllTransactions: () => Promise.reject(),
+    signTransaction: () => Promise.reject(new Error('offline program cannot sign')),
+    signAllTransactions: () => Promise.reject(new Error('offline program cannot sign')),
   };
   return new Program(
     IDL as unknown as PumpAgentPayments,

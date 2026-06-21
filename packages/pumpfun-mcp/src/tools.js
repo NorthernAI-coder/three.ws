@@ -100,7 +100,6 @@ export const TOOL_ANNOTATIONS = Object.freeze({
 	get_new_tokens: { title: 'New Tokens', ...LIVE_READ },
 	get_graduated_tokens: { title: 'Graduated Tokens', ...LIVE_READ },
 	get_king_of_the_hill: { title: 'King of the Hill', ...LIVE_READ },
-	kol_radar: { title: 'KOL Radar', ...LIVE_READ },
 	get_creator_profile: { title: 'Creator Profile', ...LIVE_READ },
 	get_token_holders: { title: 'Token Holders', ...LIVE_READ },
 	pumpfun_vanity_mint: { title: 'Vanity Mint Keypair', ...LOCAL_GENERATIVE },
@@ -226,22 +225,6 @@ export const FALLBACK_TOOLS = [
 		name: 'get_king_of_the_hill',
 		description: 'Highest-market-cap token still on the bonding curve.',
 		inputSchema: { type: 'object', properties: {} },
-	},
-	{
-		name: 'kol_radar',
-		description:
-			'gmgn radar signals: early-detection patterns filtered by category, sorted by score desc.',
-		inputSchema: {
-			type: 'object',
-			properties: {
-				category: {
-					type: 'string',
-					enum: ['pump-fun', 'new-mints', 'volume-spike'],
-					default: 'pump-fun',
-				},
-				limit: { type: 'integer', minimum: 1, maximum: 100, default: 20 },
-			},
-		},
 	},
 	{
 		name: 'get_creator_profile',

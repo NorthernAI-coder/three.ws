@@ -210,9 +210,9 @@ export function installAccessControl({ requiredScope, resolveCaller } = {}) {
 						granted: false,
 						meta,
 					});
-					// Don't 403 — fall through to payment flow. The caller may
-					// simply have an unrelated user token they sent along.
-					return null;
+					// An invalid/expired token is a clear auth failure — reject
+					// with 401 rather than silently billing the caller.
+					return { abort: true, status: 401, reason: 'invalid_token' };
 				}
 				if (!hasScope(claims.scope, requiredScope)) {
 					logAccess({
@@ -222,7 +222,8 @@ export function installAccessControl({ requiredScope, resolveCaller } = {}) {
 						granted: false,
 						meta: { ...meta, granted_scope: claims.scope },
 					});
-					// Same — let them pay normally.
+					// Wrong scope — fall through to payment flow so callers with a
+					// valid session token can still pay for access to the endpoint.
 					return null;
 				}
 				logAccess({

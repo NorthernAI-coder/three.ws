@@ -4605,8 +4605,12 @@ async function loadDetail(id) {
 	// Optimistically render from cached list item if available, then refresh from API.
 	const cached = state.items.find((item) => item.id === id);
 	if (cached) {
-		detailState = { agent: cached, bookmarked: false };
-		renderDetail(cached, false);
+		// Seed the optimistic bookmark state from the client-side source of truth
+		// (loaded with the user's bookmarks) so a star click during the refresh
+		// window picks the correct DELETE/POST method instead of always adding.
+		const bmOn = bookmarkedAgents.has(id);
+		detailState = { agent: cached, bookmarked: bmOn };
+		renderDetail(cached, bmOn);
 	} else {
 		showDetailState('loading');
 	}
@@ -4635,6 +4639,9 @@ async function loadDetail(id) {
 			fetch(`${API}/marketplace/agents/${id}/versions`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
 			fetch(`${API}/marketplace/agents/${id}/similar`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
 		]).then(([versionsRes, similarRes]) => {
+			// Guard against a stale response: if the user has since opened a
+			// different agent, don't paint this one's versions/similar over it.
+			if (detailState?.agent?.id !== id) return;
 			const versions = versionsRes?.data?.items || versionsRes?.data?.versions || [];
 			renderVersions(versions);
 			const similar = similarRes?.data?.items || similarRes?.data?.similar || [];

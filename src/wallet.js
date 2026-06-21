@@ -102,3 +102,7 @@ export function getConnectedWallet() {
 export function getConnectedWalletAddress() {
 	return connectedWalletAddress;
 }
+
+export function connectWallet() {
+	return onConnectWallet();
+}

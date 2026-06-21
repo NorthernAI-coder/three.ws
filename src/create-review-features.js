@@ -28,7 +28,7 @@ async function fetchPlatformStats() {
 		const data = await res.json();
 		return data && data.available ? data : null;
 	} catch (err) {
-		log('[features] home-stats fetch failed:', err?.message || err);
+		log.warn('[features] home-stats fetch failed:', err?.message || err);
 		return null;
 	}
 }
@@ -1070,7 +1070,7 @@ async function fetchThreeTokenStats() {
 		const data = await res.json();
 		return data && data.token ? data.token : null;
 	} catch (err) {
-		log('[features] three-token stats fetch failed:', err?.message || err);
+		log.warn('[features] three-token stats fetch failed:', err?.message || err);
 		return null;
 	}
 }

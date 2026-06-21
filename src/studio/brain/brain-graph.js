@@ -93,6 +93,7 @@ export class BrainGraphView {
 		const spec = NODE_TYPES[node.type];
 		const list = dir === 'out' ? spec.outputs : spec.inputs;
 		const idx = list.findIndex((p) => p.id === portId);
+		if (idx === -1) return null; // stale edge referencing a port removed from the spec
 		const y = node.y + HEADER_H + idx * PORT_ROW + PORT_ROW / 2 + PORT_PAD / 2;
 		const x = dir === 'out' ? node.x + NODE_W : node.x;
 		return { x, y };
@@ -160,6 +161,7 @@ export class BrainGraphView {
 			if (!fromNode || !toNode) continue;
 			const a = this._portAnchor(fromNode, e.fromPort, 'out');
 			const b = this._portAnchor(toNode, e.toPort, 'in');
+			if (!a || !b) continue; // port removed from spec; normalizeGraph will drop it on next load
 			parts.push(`<path class="bedge" data-id="${e.id}" d="${this._curve(a, b)}" />`);
 			parts.push(`<path class="bedge-hit" data-id="${e.id}" d="${this._curve(a, b)}" />`);
 		}
@@ -186,9 +188,8 @@ export class BrainGraphView {
 				e.stopPropagation();
 				if (portEl.dataset.dir === 'out') this._startLink(e, node, portEl);
 			});
-			portEl.addEventListener('pointerup', (e) => {
-				if (portEl.dataset.dir === 'in') this._completeLink(e, node, portEl);
-			});
+			// Connection on in-ports is handled by _startLink's global pointerup via
+			// elementFromPoint — no per-port listener needed here.
 		});
 	}
 
@@ -217,6 +218,7 @@ export class BrainGraphView {
 		const a = this._portAnchor(node, portEl.dataset.port, 'out');
 		const ghost = document.createElementNS('http://www.w3.org/2000/svg', 'path');
 		ghost.setAttribute('class', 'bedge bedge--ghost');
+		ghost.setAttribute('pointer-events', 'none'); // must not intercept elementFromPoint at release
 		this.svg.appendChild(ghost);
 		this._linking = { from: node.id, fromPort: portEl.dataset.port, kind, a, ghost };
 		this.host.querySelector('#bgHint').textContent = `Connecting ${kind} — drop on a matching input`;
@@ -227,7 +229,6 @@ export class BrainGraphView {
 		const up = (ev) => {
 			window.removeEventListener('pointermove', move);
 			window.removeEventListener('pointerup', up);
-			// If released over an input port, _completeLink already ran; clean up ghost.
 			const target = document.elementFromPoint(ev.clientX, ev.clientY);
 			const portTarget = target?.closest?.('.bport--in');
 			if (portTarget) {
@@ -241,8 +242,6 @@ export class BrainGraphView {
 		window.addEventListener('pointermove', move);
 		window.addEventListener('pointerup', up);
 	}
-
-	_completeLink() { /* handled in _startLink's pointerup via elementFromPoint */ }
 
 	_tryConnect(toId, toPort, toKind) {
 		if (!this._linking || !toId) return;

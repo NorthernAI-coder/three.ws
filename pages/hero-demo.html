@@ -456,6 +456,7 @@
 			}
 
 			function loadAvatar(glb) {
+				clearTimeout(revealTimer); // drop any pending reveal from a prior load
 				subject.querySelector('.subject-error')?.remove();
 				if (agentEl) agentEl.remove();
 				showSkeleton();

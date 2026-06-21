@@ -572,7 +572,10 @@ function boot() {
 		syncIKHandles();
 	}
 	function clearIKHandles() {
-		for (const m of state.ikHandles.values()) ikLayer.remove(m);
+		for (const m of state.ikHandles.values()) {
+			ikLayer.remove(m);
+			m.material?.dispose();
+		}
 		state.ikHandles.clear();
 	}
 	function syncIKHandles() {
@@ -777,20 +780,24 @@ function boot() {
 		await ensureDecoders();
 		setStatus(`Loading ${meta.name || 'avatar'}…`);
 		state.loadingAvatar = true;
-		const gltf = await new Promise((resolve, reject) => {
-			gltfLoader.load(
-				modelUrl,
-				resolve,
-				(xhr) => {
-					if (xhr.total) {
-						const pct = Math.round((xhr.loaded / xhr.total) * 100);
-						setStatus(`Loading ${meta.name || 'avatar'}… ${pct}%`);
-					}
-				},
-				reject,
-			);
-		});
-		state.loadingAvatar = false;
+		let gltf;
+		try {
+			gltf = await new Promise((resolve, reject) => {
+				gltfLoader.load(
+					modelUrl,
+					resolve,
+					(xhr) => {
+						if (xhr.total) {
+							const pct = Math.round((xhr.loaded / xhr.total) * 100);
+							setStatus(`Loading ${meta.name || 'avatar'}… ${pct}%`);
+						}
+					},
+					reject,
+				);
+			});
+		} finally {
+			state.loadingAvatar = false;
+		}
 		const scn = gltf.scene || gltf.scenes?.[0];
 		const rig = scn && makeGltfRig(scn);
 		if (!rig) {
@@ -1004,6 +1011,14 @@ function boot() {
 			);
 			btn.addEventListener('click', () => {
 				state.prop = id;
+				if (state.propGroup) {
+					state.propGroup.traverse((n) => {
+						n.geometry?.dispose();
+						if (Array.isArray(n.material)) n.material.forEach((m) => m.dispose());
+						else n.material?.dispose();
+					});
+					state.propGroup = null;
+				}
 				propLayer.clear();
 				if (def.build) {
 					const g = def.build();

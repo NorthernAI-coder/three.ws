@@ -48,7 +48,7 @@ export function detectProfile(env = {}) {
 	const isMobile = /(iPhone|iPad|Android|Mobi)/i.test(ua);
 	const lowMem = (nav.deviceMemory ?? 8) < 4;
 	const lowCores = (nav.hardwareConcurrency ?? 8) < 4;
-	const coarse = !!(win.matchMedia && win.matchMedia('(pointer: coarse)').matches);
+	const coarse = !!(win.matchMedia && win.matchMedia('(any-pointer: coarse)').matches);
 	const touchPrimary = !!(win.matchMedia && win.matchMedia('(pointer: coarse)').matches);
 
 	if (!isMobile && !lowMem && !lowCores) return 'high';

@@ -169,9 +169,17 @@ export class ClubCamera {
 			// offset vector so pending transitions stay in sync.
 			const nextRadius = Math.max(bounds.min, Math.min(bounds.max, this._autoOrbitRadius * factor));
 			this._autoOrbitRadius = nextRadius;
+			// Keep the fallback offset (used only when no dancer is performing) in
+			// sync. Scale the HORIZONTAL components to the new radius and leave Y
+			// (orbit height) untouched — scaling the full vector by the horizontal
+			// ratio would drag the camera height with it.
 			const current = this._pending ? this._pending.offset : this.offset;
-			const len = current.length();
-			if (len > 1e-4) current.multiplyScalar(nextRadius / (len > 1e-4 ? Math.hypot(current.x, current.z) || len : len));
+			const horiz = Math.hypot(current.x, current.z);
+			if (horiz > 1e-4) {
+				const s = nextRadius / horiz;
+				current.x *= s;
+				current.z *= s;
+			}
 			return;
 		}
 

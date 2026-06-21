@@ -20,7 +20,7 @@ const JITO_TIP_ACCOUNTS = [
 	'96gYZGLnJYVFmbjzopPSU6QiEV5fGqZNyN9nmNhvrZU5',
 	'HFqU5x63VTqvQss8hp11i4wVV8bD44PvwucfZ2bU7gRe',
 	'Cw8CFyM9FkoMi7K7Crf6HNQqf4uEMzpKw6QNghXLvLkY',
-	'ADaUMid9yfUytqMBgopwjb2DTLSokTSzL1zt13UZKZr',
+	'ADaUMid9yfUytqMBgopwjb2DTLSokTSzL1zt13UZKZr1',
 	'DfXygSm4jCyNCybVYYK6DwvWqjKee8pbDmJGcLWNDXjh',
 	'ADuUkR4vqLUMWXxW9gh6D6L8pMSawimctcNZ5pGwDcEt',
 	'DttWaMuVvTiduZRnguLF7jNxTgiMBZ1hyAumKUiL2KRL',
@@ -131,7 +131,13 @@ async function buyOnPump({ network, mint, solAmount, payer, useJito = false, jit
 	const tx = new VersionedTransaction(msg);
 	tx.sign([payer]);
 	const sig = await connection.sendRawTransaction(tx.serialize(), { skipPreflight: false, maxRetries: 3 });
-	const conf = await connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed');
+	// confirmTransaction can stall indefinitely under cluster congestion — race it
+	// against a hard timeout so a stuck confirm never blocks the oracle agent loop.
+	const CONFIRM_TIMEOUT_MS = 60_000;
+	const conf = await Promise.race([
+		connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed'),
+		new Promise((_, reject) => setTimeout(() => reject(new Error(`oracle tx ${sig} confirm timed out after ${CONFIRM_TIMEOUT_MS}ms`)), CONFIRM_TIMEOUT_MS)),
+	]);
 	// confirmTransaction resolves for a tx that landed-but-reverted; the on-chain
 	// error is in value.err, not a thrown exception. Surface it so the executor
 	// never records a reverted oracle execution as a confirmed one.
@@ -174,6 +180,7 @@ async function buyOnPumpJito({ ixs, user, payer, blockhash, jitoTipSol, jitoBund
 			jsonrpc: '2.0', id: 1, method: 'sendBundle',
 			params: [[bs58.encode(tx.serialize())]],
 		}),
+		signal: AbortSignal.timeout(15_000),
 	});
 	if (!res.ok) throw new Error(`Jito HTTP ${res.status}`);
 	const json = await res.json();

@@ -12,22 +12,22 @@
 // sequencing logic and tests can use them freely. The IO/state surface is bound
 // to a host's config through createTourState() / loadCurriculum().
 
-let _cache = null;
+const _cache = new Map();
 
 // Load the curriculum from config.curriculum — either an inline object (used as
-// is) or a URL to fetch (cached after the first successful load).
+// is) or a URL to fetch (cached per URL after the first successful load).
 export async function loadCurriculum(config) {
 	const source = config?.curriculum ?? '/tour/curriculum.json';
 	if (source && typeof source === 'object') {
 		assertCurriculum(source);
 		return source;
 	}
-	if (_cache) return _cache;
+	if (_cache.has(source)) return _cache.get(source);
 	const res = await fetch(source, { cache: 'force-cache' });
 	if (!res.ok) throw new Error(`tour curriculum ${res.status}`);
 	const data = await res.json();
 	assertCurriculum(data);
-	_cache = data;
+	_cache.set(source, data);
 	return data;
 }
 

@@ -112,15 +112,18 @@ export function buildSpendingCapHook() {
 			}
 		}
 
-		// 3. Cumulative session ceiling. Reserve atomically so concurrent calls
-		// can't both pass the check and jointly overshoot the cap.
-		if (sessionSpentAtomic + amount > totalCap) {
+		// 3. Cumulative session ceiling. Pre-reserve before any await so two
+		// concurrent calls can't both pass the check and jointly overshoot the cap
+		// (JavaScript is single-threaded but the check+increment isn't atomic across
+		// an await boundary — pre-reserving makes it atomic).
+		sessionSpentAtomic += amount;
+		if (sessionSpentAtomic > totalCap) {
+			sessionSpentAtomic -= amount;  // rollback the reservation
 			return {
 				abort: true,
-				reason: `payment refused: would exceed session spend cap (${sessionSpentAtomic + amount} > ${totalCap}; already spent ${sessionSpentAtomic}). Set MCP_BRIDGE_MAX_TOTAL_ATOMIC to raise it.`,
+				reason: `payment refused: would exceed session spend cap (would reach ${sessionSpentAtomic + amount} > ${totalCap}; already spent ${sessionSpentAtomic}). Set MCP_BRIDGE_MAX_TOTAL_ATOMIC to raise it.`,
 			};
 		}
-		sessionSpentAtomic += amount;
 		return undefined;
 	};
 }

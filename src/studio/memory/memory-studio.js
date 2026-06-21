@@ -343,7 +343,7 @@ class MemoryStudio {
 					</div>
 					<div class="mem-card-content" data-act="expand">${esc(m.content)}</div>
 					<div class="mem-card-foot">
-						<div class="mem-tags">${tags.map((t) => `<span class="mem-tag" data-tag="${esc(t)}">${esc(t)}</span>`).join('')}</div>
+						<div class="mem-tags">${tags.map((t) => `<span class="mem-tag" data-act="tag" data-tag="${esc(t)}">${esc(t)}</span>`).join('')}</div>
 						<div class="mem-sal">
 							<input class="mem-sal-range" type="range" min="0" max="100" value="${sal}" data-act="salience" aria-label="Salience" />
 							<span class="mem-sal-val">${(m.salience || 0).toFixed(2)}</span>
@@ -556,8 +556,6 @@ class MemoryStudio {
 			if (a === 'retry') return this._load();
 			if (a === 'seed') return this._openSeed();
 			if (a === 'add') return this._openAddForm();
-			if (a === 'search-back') { this.state.search = null; return this._renderBody(); }
-			if (a === 'entity-back') { this.state.entity = null; return this._renderBody(); }
 		}
 		const act = e.target.closest('[data-act]');
 		if (!act) return;
@@ -684,6 +682,8 @@ class MemoryStudio {
 		const n = this.state.selection.size;
 		bar.hidden = !this.state.mergeMode || n < 1;
 		this._q('[data-merge-count]').textContent = `${n} selected`;
+		const mergeBtn = bar.querySelector('[data-action="merge-commit"]');
+		if (mergeBtn) mergeBtn.disabled = n < 2;
 	}
 
 	async _commitMerge() {

@@ -187,7 +187,7 @@ function renderTipRow(rowLike, { live = false, prepend = true } = {}) {
 	const ticketId = rowLike.ticket_id ?? rowLike.ticketId ?? null;
 	if (ticketId && !rememberTicketId(ticketId)) return;
 
-	const dancerId = rowLike.dancer ?? '?';
+	const dancerId = String(rowLike.dancer ?? '?').replace(/[<>&"]/g, '');
 	const dancerIdx = parseInt(dancerId, 10) - 1;
 	const dancerName = DANCER_META[dancerIdx]?.name || `Dancer ${dancerId}`;
 	const label = rowLike.label ?? rowLike.dance ?? 'dance';
@@ -847,10 +847,26 @@ class PoleStation {
 		// Cancel any in-flight performance: drop to idle, resolve pending
 		// render-clock sleepers so a running playSequence unblocks and exits
 		// (its isCancelled sees performing === false), and re-home the rig.
+		const wasPerforming = this.performing;
 		this.performing = false;
 		this.walkPhase = 'idle';
 		while (this._sleepers.length) this._sleepers.pop().resolve();
 		this.activeTicket = null;
+
+		// If a performance was interrupted, release the auto-cam and signal
+		// the audio mixer — _endPerformance() won't run because walkPhase is
+		// now 'idle', so we duplicate its cam+audio cleanup here.
+		if (wasPerforming) {
+			if (this._autoCammed && (clubCam.getMode() === 'auto' || clubCam.getMode() === 'vip')) {
+				clubCam.setFree();
+			}
+			this._autoCammed = false;
+			try {
+				window.dispatchEvent(new CustomEvent('club:performance-end', {
+					detail: { dancer: this.id, ticket: null },
+				}));
+			} catch {}
+		}
 
 		this.anim?.detach();
 		if (this.skinned) {
@@ -1476,23 +1492,29 @@ window.addEventListener('club:performance-end', () => {
 // module finishes evaluating, but module load order and a failed/blocked script
 // mean we can't assume it's there. Poll briefly for window.X402.pay; resolve the
 // moment it appears (typically immediately on the first check).
+let _x402PollId = null;
 function whenX402Ready(cb) {
 	if (window.X402?.pay) { cb(); return; }
 	let waited = 0;
 	const POLL_MS = 100;
 	const MAX_WAIT_MS = 15000;
-	const id = setInterval(() => {
+	_x402PollId = setInterval(() => {
 		waited += POLL_MS;
 		if (window.X402?.pay) {
-			clearInterval(id);
+			clearInterval(_x402PollId);
+			_x402PollId = null;
 			cb();
 		} else if (waited >= MAX_WAIT_MS) {
-			clearInterval(id);
+			clearInterval(_x402PollId);
+			_x402PollId = null;
 			// Widget never loaded — leave tip buttons disabled and tell the user.
 			onTipButtonsUnavailable();
 		}
 	}, POLL_MS);
 }
+window.addEventListener('pagehide', () => {
+	if (_x402PollId !== null) { clearInterval(_x402PollId); _x402PollId = null; }
+});
 
 function enableTipButtons() {
 	for (const card of poleCardEls.values()) {
@@ -1815,7 +1837,7 @@ function registerAvatar(entry) {
 }
 
 function escapeText(value) {
-	return String(value ?? '').replace(/[<>&"]/g, '');
+	return String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
 const savedPoleAvatars = (() => {
@@ -2551,4 +2573,7 @@ bootstrap()
 		log.error('[club] bootstrap failed', err);
 		setStatus(`Club failed to load: ${err.message}`, { kind: 'error' });
 	})
-	.finally(() => animate());
+	// Guard against a double-start: if the tab was hidden→shown during bootstrap,
+	// the visibilitychange handler may have already started the loop. Starting a
+	// second rAF chain here would double GPU cost and run the mixer at 2×.
+	.finally(() => { if (rafId == null) animate(); });

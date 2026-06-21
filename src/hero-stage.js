@@ -99,8 +99,9 @@ export class HeroStage {
 		// Post-processing: bloom is ~70% of the look. Keep it generous on the
 		// emissive rings/stars but the threshold is high enough that only the
 		// genuinely bright geometry blooms.
+		// The composer inherits the renderer's pixel ratio on construction and
+		// rescales every pass by it on setSize — no separate ratio call needed.
 		this.composer = new EffectComposer(this.renderer);
-		this.composer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 		this.composer.setSize(w, h);
 		this.composer.addPass(new RenderPass(this.scene, this.camera));
 		this.bloom = new UnrealBloomPass(new Vector2(w, h), 0.9, 0.7, 0.2);
@@ -268,8 +269,10 @@ export class HeroStage {
 		const h = this._cssHeight();
 		if (!w || !h) return;
 		this.renderer.setSize(w, h, false);
+		// composer.setSize already resizes every pass (incl. bloom) by the
+		// pixel ratio — calling bloom.setSize again here would override it with
+		// the un-scaled CSS size and soften the glow on hi-DPI screens.
 		this.composer.setSize(w, h);
-		this.bloom.setSize(w, h);
 		this.camera.aspect = w / h;
 		this.camera.updateProjectionMatrix();
 		if (this._reduced) this._composeStatic();

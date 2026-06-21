@@ -409,13 +409,38 @@ async function handleEvmAssetConfirm(req, res, pur) {
 	const txHash = body?.tx_hash || body?.txHash || null;
 	if (!txHash) return error(res, 400, 'tx_hash_required', 'tx_hash is required to confirm an EVM purchase');
 
-	// Idempotency: one settlement tx can confirm at most one purchase.
+	// Idempotency guard: check already-settled rows AND atomically lock this
+	// purchase by writing tx_signature before we hit the payment verifier.
+	// Without this, two concurrent confirms of different pending purchases with
+	// the same tx_hash could both pass the old read-only dupe check and both
+	// call finalizeAssetConfirm (one tx → two confirmed rows).
 	const [dupe] = await sql`
 		SELECT id FROM asset_purchases
 		WHERE tx_signature = ${txHash} AND status IN ('confirmed', 'tipped') AND id != ${pur.id}
 		LIMIT 1
 	`;
 	if (dupe) return error(res, 409, 'transfer_mismatch', 'this transaction has already been used for another purchase');
+
+	// Atomically claim this tx_hash on this purchase row before hitting the
+	// payment verifier. This prevents a concurrent confirm of a *different*
+	// pending purchase from using the same hash while this request is in flight
+	// (the unique constraint + IS NULL guard block the other row's claim).
+	// Retries of this same purchase with the same hash match the second condition
+	// and proceed normally (idempotent).
+	const claimed = await sql`
+		UPDATE asset_purchases
+		SET tx_signature = ${txHash}, updated_at = now()
+		WHERE id = ${pur.id} AND status = 'pending'
+		  AND (tx_signature IS NULL OR tx_signature = ${txHash})
+		RETURNING id
+	`;
+	if (claimed.length === 0) {
+		// Another concurrent request already claimed a different tx_hash for this
+		// purchase, or the purchase moved out of pending. Re-read current state.
+		const [current] = await sql`SELECT status, tx_signature FROM asset_purchases WHERE id = ${pur.id}`;
+		if (current?.status === 'confirmed') return json(res, 200, { data: { status: 'confirmed', tx_signature: current.tx_signature } });
+		return error(res, 409, 'transfer_mismatch', 'a different transaction is already being confirmed for this purchase');
+	}
 
 	const result = await verifyEvmUsdcPayment({
 		txHash,
