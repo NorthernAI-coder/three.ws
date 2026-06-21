@@ -3,6 +3,19 @@
 	"entries": [
 		{
 			"date": "2026-06-21",
+			"title": "Pole Club: tipping now works with the built-in three.ws wallet",
+			"summary": "Tipping a dancer in the Pole Club opens an on-chain payment for $0.001 USDC. On Solana Mobile (Seeker), the payment window only recognized browser extensions like Phantom, so anyone using the three.ws wallet saw a checkout that couldn't be completed — the window opened but the pay button was greyed out. The checkout now recognizes the three.ws wallet (and Backpack and Solflare) the same way the rest of the site does, and names whichever wallet you're using throughout the flow, so tips go through.",
+			"tags": ["fix"],
+			"link": "/club"
+		},
+		{
+			"date": "2026-06-21",
+			"title": "Tour guide now actually walks when you send it somewhere",
+			"summary": "In the guided tour's free-roam mode, clicking an empty spot used to glide the guide across the page faster than its feet could keep up, so it looked like it was sliding rather than walking. It now strides to where you click at a steady walking pace — the same locomotion you get when you steer it with WASD/arrow keys — so its body and footsteps stay in sync. The guide also walks to each stop the same way during the tour itself.",
+			"tags": ["improvement"]
+		},
+		{
+			"date": "2026-06-21",
 			"title": "Credits: top up with SOL or $THREE, spend on generation and agents",
 			"summary": "You can now keep a prepaid balance on three.ws. Deposit SOL or $THREE from your wallet and it's credited to your account at the live USD value; spend those credits on paid compute like High-quality 3D generation — no per-action wallet popup each time. Holding $THREE still discounts every spend (up to 30%), so the credits you buy go further the bigger your bag. Deposits are verified on-chain and bound to a wallet linked to your account, your balance and full history live at /credits, and a failed generation is automatically refunded. Forge High now accepts credits as a payment option alongside holding $THREE or paying per generation.",
 			"tags": ["feature"],

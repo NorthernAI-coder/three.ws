@@ -84,6 +84,35 @@ function isEvmNetwork(net) {
 	return typeof net === 'string' && net.startsWith('eip155:');
 }
 
+// Resolve the active injected Solana wallet provider. Priority mirrors
+// src/onchain/adapters/solana.js so the drop-in modal recognizes the SAME
+// wallets the rest of three.ws does — most importantly the platform's own
+// embedded wallet (the Seeker/Saga MWA bridge), which injects with
+// isThreeWs=true / isPhantom=false. An isPhantom-only check left those users
+// staring at a disabled "Phantom (not detected)" button: the modal opened but
+// there was no way to pay (e.g. tipping a club dancer).
+export function detectSolanaProvider() {
+	if (typeof window === 'undefined') return null;
+	if (window.threeWsWallet?.isThreeWs) return window.threeWsWallet;
+	if (window.solana?.isThreeWs) return window.solana;
+	if (window.phantom?.solana?.isPhantom) return window.phantom.solana;
+	if (window.solana?.isPhantom) return window.solana;
+	if (window.backpack?.solana) return window.backpack.solana;
+	if (window.solflare?.isSolflare) return window.solflare;
+	return null;
+}
+
+// Human-readable name for whichever Solana provider is connected, so progress
+// copy and the wallet button say "three.ws Wallet" / "Backpack" instead of
+// always claiming "Phantom".
+export function solanaWalletLabel(provider) {
+	if (provider?.isThreeWs) return 'three.ws Wallet';
+	if (provider?.isPhantom) return 'Phantom';
+	if (provider?.isBackpack) return 'Backpack';
+	if (provider?.isSolflare) return 'Solflare';
+	return 'Solana wallet';
+}
+
 // Compute the buyer-facing donation for a Solana `accept` under a merchant's
 // giving config (charity split + round-up). Returns null when nothing applies:
 // giving off, cause wallet on a different chain than this checkout, or a zero
@@ -1044,7 +1073,8 @@ class CheckoutModal {
 	}
 
 	renderConnect() {
-		const phantomDetected = typeof window !== 'undefined' && (window.solana?.isPhantom || window.phantom?.solana);
+		const solanaProvider = detectSolanaProvider();
+		const phantomDetected = !!solanaProvider;
 		const evmDetected = typeof window !== 'undefined' && window.ethereum;
 		const solanaAccept = this.challenge?.accepts.find((a) => isSolanaNetwork(a.network));
 		const evmAccept = this.challenge?.accepts.find(isEip3009Accept);
@@ -1089,8 +1119,8 @@ class CheckoutModal {
 		if (solanaAccept) {
 			buttons.push(`
 				<button class="x402-wallet-btn" data-wallet="phantom" ${phantomDetected ? '' : 'disabled'}>
-					<div class="x402-wallet-icon x402-phantom">P</div>
-					<span class="x402-wallet-name">${phantomDetected ? 'Phantom' : 'Phantom (not detected)'}</span>
+					<div class="x402-wallet-icon x402-phantom">${solanaProvider?.isThreeWs ? '3' : 'P'}</div>
+					<span class="x402-wallet-name">${phantomDetected ? solanaWalletLabel(solanaProvider) : 'No Solana wallet detected'}</span>
 					<span class="x402-wallet-meta">${networkLabel(solanaAccept.network, solanaAccept)}</span>
 				</button>
 			`);
@@ -1150,7 +1180,9 @@ class CheckoutModal {
 		const siwxTarget = siwxSolana
 			? { kind: 'solana', chain: siwxSolana.chain }
 			: { kind: 'evm', chain: siwxEvm.chain };
-		const siwxLabel = siwxTarget.kind === 'solana' ? 'Sign in with Phantom' : 'Sign in with wallet';
+		const siwxLabel = siwxTarget.kind === 'solana'
+			? `Sign in with ${solanaWalletLabel(detectSolanaProvider())}`
+			: 'Sign in with wallet';
 		this.bodyEl.innerHTML = `
 			${this.renderSteps('connect', { discover: 'done' })}
 			<button class="x402-pay-btn" data-action="siwx">${siwxLabel}</button>
@@ -1329,13 +1361,14 @@ class CheckoutModal {
 	async runSolana(accept) {
 		this.accept = accept;
 		this.setPrice(accept);
-		this.renderProgress('connect', { text: 'Opening Phantom…' });
+		const provider = detectSolanaProvider();
+		const walletName = solanaWalletLabel(provider);
+		this.renderProgress('connect', { text: `Opening ${walletName}…` });
 		try {
-			const provider = window.phantom?.solana || window.solana;
-			if (!provider) throw new Error('Phantom wallet not detected');
+			if (!provider) throw new Error('No Solana wallet detected');
 			const conn = await provider.connect();
 			const payerAddress = (conn?.publicKey || provider.publicKey)?.toString();
-			if (!payerAddress) throw new Error('Phantom did not return a public key');
+			if (!payerAddress) throw new Error(`${walletName} did not return a public key`);
 			this.payerAddress = payerAddress;
 			const capCheck = browserEnforceCap({
 				accept,
@@ -1362,9 +1395,9 @@ class CheckoutModal {
 				buyer: payerAddress,
 				...(tips ? { tips } : {}),
 			});
-			this.renderProgress('authorize', { text: 'Confirm in Phantom…' });
+			this.renderProgress('authorize', { text: `Confirm in ${walletName}…` });
 			const txBytes = base64ToUint8Array(prep.tx_base64);
-			// Phantom returns a fully-signed VersionedTransaction with the buyer's
+			// The wallet returns a fully-signed VersionedTransaction with the buyer's
 			// signature added. The facilitator's fee-payer signature is added by
 			// PayAI during /settle.
 			const SolanaWeb3 = await loadSolanaWeb3();
@@ -1625,14 +1658,15 @@ class CheckoutModal {
 	}
 
 	async runSiwxSolana(chain) {
-		this.renderProgress('connect', { text: 'Opening Phantom…' });
+		const provider = detectSolanaProvider();
+		const walletName = solanaWalletLabel(provider);
+		this.renderProgress('connect', { text: `Opening ${walletName}…` });
 		try {
-			const provider = window.phantom?.solana || window.solana;
-			if (!provider) throw new Error('Phantom wallet not detected');
+			if (!provider) throw new Error('No Solana wallet detected');
 			const conn = await provider.connect();
 			const pubkey = conn?.publicKey || provider.publicKey;
 			const address = pubkey?.toString();
-			if (!address) throw new Error('Phantom did not return a public key');
+			if (!address) throw new Error(`${walletName} did not return a public key`);
 			this.payerAddress = address;
 			this.renderProgress('authorize', { text: `Sign sign-in message as ${address.slice(0, 6)}…${address.slice(-4)}` });
 
@@ -1640,7 +1674,7 @@ class CheckoutModal {
 			const encoded = new TextEncoder().encode(message);
 			const signed = await provider.signMessage(encoded, 'utf8');
 			const sigBytes = signed?.signature instanceof Uint8Array ? signed.signature : new Uint8Array(signed?.signature || signed);
-			if (!sigBytes || !sigBytes.length) throw new Error('Phantom did not return a signature');
+			if (!sigBytes || !sigBytes.length) throw new Error(`${walletName} did not return a signature`);
 			const signature = base58encode(sigBytes);
 
 			const info = this.siwx.info;
