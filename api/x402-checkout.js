@@ -104,6 +104,24 @@ async function getRecentBlockhash(conn, rpc) {
 	return blockhash;
 }
 
+// Does an ATA already exist on-chain? web3.js decodes getAccountInfo's reply
+// through a superstruct union, so a flaky/misconfigured RPC returning a malformed
+// 200 (truncated body, proxy error page, wrong-cluster node) throws StructError
+// instead of a clean null — which 500'd the whole checkout at the prepare step.
+// Treat any probe failure as "missing": the only thing the answer gates is an
+// *idempotent* ATA-create instruction, a no-op when the account already exists,
+// so assuming-missing is always safe — same fail-open posture as getMintDecimals.
+export async function ataExists(conn, ata) {
+	try {
+		return (await conn.getAccountInfo(ata)) != null;
+	} catch (err) {
+		console.warn(
+			`[x402-checkout] getAccountInfo(${ata.toBase58()}) failed, assuming ATA missing: ${err?.message || err}`,
+		);
+		return false;
+	}
+}
+
 // Solana addresses arrive inside the 402 challenge's `accept` entry, which is
 // built from operator-configured env (X402_PAY_TO_SOLANA / X402_FEE_PAYER_SOLANA).
 // Those values are pasted into dashboards and routinely carry a trailing newline
@@ -242,8 +260,7 @@ async function handlePrepare(req, res) {
 		ComputeBudgetProgram.setComputeUnitLimit({ units: 60_000 + tipCount * 40_000 }),
 		ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1 }),
 	];
-	const receiverInfo = await conn.getAccountInfo(receiverAta);
-	if (!receiverInfo) {
+	if (!(await ataExists(conn, receiverAta))) {
 		ixs.push(
 			createAssociatedTokenAccountIdempotentInstruction(
 				feePayer,
@@ -299,8 +316,7 @@ async function handlePrepare(req, res) {
 				return error(res, 400, 'invalid_tip', 'donation recipient cannot be the payment recipient');
 			}
 			const tipAta = getAssociatedTokenAddressSync(mint, tipTo, false, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID);
-			const tipAtaInfo = await conn.getAccountInfo(tipAta);
-			if (!tipAtaInfo) {
+			if (!(await ataExists(conn, tipAta))) {
 				ixs.push(
 					createAssociatedTokenAccountIdempotentInstruction(feePayer, tipAta, tipTo, mint, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID),
 				);

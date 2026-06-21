@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { PublicKey } from '@solana/web3.js';
 
-import { acceptSchema, prepareSchema } from '../api/x402-checkout.js';
+import { acceptSchema, prepareSchema, ataExists } from '../api/x402-checkout.js';
 
 // The 402 challenge's `accept` is built from operator env (X402_PAY_TO_SOLANA /
 // X402_FEE_PAYER_SOLANA). Those values are pasted into dashboards and routinely
@@ -63,5 +63,30 @@ describe('x402-checkout prepareSchema', () => {
 			tips: [{ to: `${USDC}\n`, amount: '1000' }],
 		});
 		expect(parsed.tips[0].to).toBe(USDC);
+	});
+});
+
+describe('x402-checkout ataExists — fail-open on a flaky RPC', () => {
+	const ata = new PublicKey('HgwbNyweQUiV5diWJ1a7ocxgzf3AYSLhTpphEYRLujtN');
+
+	it('reports existing when the RPC returns account data', async () => {
+		const conn = { getAccountInfo: async () => ({ data: Buffer.alloc(165), owner: ata }) };
+		expect(await ataExists(conn, ata)).toBe(true);
+	});
+
+	it('reports missing when the RPC returns a clean null', async () => {
+		const conn = { getAccountInfo: async () => null };
+		expect(await ataExists(conn, ata)).toBe(false);
+	});
+
+	it('assumes missing (fail-open) when getAccountInfo throws StructError — the prepare-step 500 this guards', async () => {
+		const conn = {
+			getAccountInfo: async () => {
+				throw new Error('failed to get info about account: StructError: Expected the value to satisfy a union');
+			},
+		};
+		// Must NOT propagate — assuming-missing only adds an idempotent ATA-create,
+		// safe whether or not the account exists.
+		await expect(ataExists(conn, ata)).resolves.toBe(false);
 	});
 });

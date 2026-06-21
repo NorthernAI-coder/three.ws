@@ -3,6 +3,14 @@
 	"entries": [
 		{
 			"date": "2026-06-21",
+			"title": "USDC checkout no longer fails when an RPC node hiccups",
+			"summary": "Paying with USDC at a door (like the Pole Club cover charge) could occasionally fail with an \"internal error\" right after you connected your wallet, if our Solana RPC briefly returned a malformed reply while building your payment. The checkout now shrugs that off and builds the transaction anyway, so a flaky node no longer turns you away at the door. Nothing was ever charged when this happened.",
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-21",
 			"title": "Arm your agent gets its own setup page",
 			"summary": "Configuring your 3D agent to trade Oracle conviction now has a dedicated page at /oracle/arm — a clean, focused setup laid out the way trading bots do it: a live status bar with a big arm switch, a stats strip, and step-by-step cards for entry rules, position sizing and caps, alerts, and simulate-vs-live mode. The Oracle tab now shows your agent's configuration at a glance and links straight to the full editor.",
 			"tags": [
