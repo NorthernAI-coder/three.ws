@@ -6,6 +6,16 @@ import { mountAgentVanityGrinderCard } from '/src/agent-vanity-grinder.js';
 import { onchainBadgeHTML } from '/src/shared/onchain-badge.js';
 import { renderError as renderAsyncError } from '/src/shared/async-state.js';
 import { log } from '../shared/log.js';
+import { safeUrl } from '../safe-url.js';
+
+function escapeHtml(s) {
+	return String(s == null ? '' : s)
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+		.replace(/"/g, '&quot;')
+		.replace(/'/g, '&#39;');
+}
 
 export const state = { user: null };
 
@@ -1168,7 +1178,7 @@ async function loadXPanel({ host, meterEl, bodyEl, avatar }) {
 			if (!r.ok) {
 				if (data.upgrade_url) {
 					setMsg(
-						`${data.error_description} <a href="${data.upgrade_url}">Upgrade to Pro</a>`,
+						`${escapeHtml(data.error_description)} <a href="${escapeHtml(safeUrl(data.upgrade_url))}">Upgrade to Pro</a>`,
 						'#ffb3b3',
 					);
 					return;
@@ -1176,7 +1186,7 @@ async function loadXPanel({ host, meterEl, bodyEl, avatar }) {
 				throw new Error(data.error_description || 'post failed');
 			}
 			setMsg(
-				`Posted: <a href="${data.url}" target="_blank" rel="noopener">${data.url}</a>${data.thread ? ` (${data.thread.length}-tweet thread)` : ''}`,
+				`Posted: <a href="${escapeHtml(safeUrl(data.url))}" target="_blank" rel="noopener">${escapeHtml(data.url)}</a>${data.thread ? ` (${data.thread.length}-tweet thread)` : ''}`,
 			);
 			textEl.value = '';
 			countEl.textContent = 0;

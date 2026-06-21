@@ -1011,8 +1011,7 @@ function moverCardHtml(m) {
 		: '';
 
 	return `<div class="mv-card mv-${m.delta >= 0 ? 'rising' : 'falling'}" role="button" tabindex="0"
-		data-mint="${esc(m.mint)}" onclick="window.oracleOpenMover('${esc(m.mint)}')"
-		onkeydown="if(event.key==='Enter'||event.key===' ')window.oracleOpenMover('${esc(m.mint)}')">
+		data-mint="${esc(m.mint)}">
 		<div class="mv-head">
 			${imgSrc}
 			<div class="mv-id">
@@ -1044,6 +1043,20 @@ function moverCardHtml(m) {
 async function loadMovers(reset = false) {
 	const grid = $('#moversGrid');
 	if (!grid) return;
+	if (grid.dataset.loaded !== '1') {
+		const openFromCard = (el) => {
+			const mint = el?.dataset?.mint;
+			if (mint) openCoin(mint);
+		};
+		grid.addEventListener('click', (e) => openFromCard(e.target.closest('.mv-card')));
+		grid.addEventListener('keydown', (e) => {
+			if (e.key !== 'Enter' && e.key !== ' ') return;
+			const card = e.target.closest('.mv-card');
+			if (!card) return;
+			e.preventDefault();
+			openFromCard(card);
+		});
+	}
 	grid.dataset.loaded = '1';
 
 	const skels = Array.from({ length: 6 }, () =>
@@ -1067,8 +1080,6 @@ async function loadMovers(reset = false) {
 
 	grid.innerHTML = data.items.map(moverCardHtml).join('');
 }
-
-window.oracleOpenMover = (mint) => openCoin(mint);
 
 function winCardHtml(w, idx) {
 	const tier = w.tier || 'watch';
@@ -1381,7 +1392,7 @@ async function loadRelatedCoins(mint, category) {
 				const imgEl = r.image_uri
 					? `<img src="${esc(r.image_uri)}" alt="" style="width:28px;height:28px;border-radius:7px;object-fit:cover;flex:none;border:1px solid var(--line)" loading="lazy">`
 					: `<div style="width:28px;height:28px;border-radius:7px;background:var(--line);display:grid;place-items:center;font:700 11px/1 var(--mono);color:var(--faint);flex:none">${esc((r.symbol||'?')[0])}</div>`;
-				return `<button type="button" onclick="window.__oracleOpenRelated('${esc(r.mint)}')"
+				return `<button type="button" class="dr-related" data-related-mint="${esc(r.mint)}"
 					style="display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 10px;cursor:pointer;text-align:left;width:100%;transition:background .12s"
 					onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='var(--panel)'">
 					${imgEl}
@@ -1400,6 +1411,14 @@ async function loadRelatedCoins(mint, category) {
 	// Insert before the "Who's in" section.
 	const body = $('#drBody');
 	if (!body) return;
+	if (body.dataset.relatedWired !== '1') {
+		body.dataset.relatedWired = '1';
+		body.addEventListener('click', (e) => {
+			const btn = e.target.closest('.dr-related');
+			const mint = btn?.dataset?.relatedMint;
+			if (mint) openCoin(mint);
+		});
+	}
 	const whosSecEl = Array.from(body.querySelectorAll('.dr-sec')).find((el) => el.textContent.startsWith("Who's in"));
 	if (whosSecEl) {
 		whosSecEl.insertAdjacentHTML('beforebegin', html);
@@ -1407,8 +1426,6 @@ async function loadRelatedCoins(mint, category) {
 		body.insertAdjacentHTML('beforeend', html);
 	}
 }
-
-window.__oracleOpenRelated = (mint) => openCoin(mint);
 
 function whoRow(w) {
 	const title = ARCH_TITLE[w.label] || 'Unproven';

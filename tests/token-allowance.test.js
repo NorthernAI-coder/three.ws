@@ -15,6 +15,7 @@ import {
 	eventAuthorityPda,
 	ixInitSubscriptionAuthority,
 	ixCreateFixedDelegation,
+	ixRevokeDelegation,
 	ixTransferFixed,
 	parseSubscriptionAuthorityInitId,
 	parseFixedDelegation,
@@ -86,6 +87,23 @@ describe('instruction encodings', () => {
 		expect(d.readBigInt64LE(25)).toBe(1_750_000_000n);
 		expect(d.length).toBe(33); // 1 + 8 + 8 + 8 + 8
 		expect(ix.keys[0].isSigner).toBe(true); // delegator signs the grant
+	});
+
+	it('revokeDelegation: discriminator 3, authority signs, delegation account is writable', () => {
+		const delegationPda = fixedDelegationPda({
+			subscriptionAuthority: subscriptionAuthorityPda(USER, MINT),
+			delegator: USER,
+			delegatee: DELEGATEE,
+			nonce: 3,
+		});
+		const ix = ixRevokeDelegation({ authority: USER, delegationPda });
+		expect([...ix.data]).toEqual([3]);
+		expect(ix.keys).toHaveLength(2);
+		expect(ix.keys[0].pubkey.equals(USER)).toBe(true);
+		expect(ix.keys[0].isSigner).toBe(true);
+		expect(ix.keys[1].pubkey.equals(delegationPda)).toBe(true);
+		expect(ix.keys[1].isWritable).toBe(true);
+		expect(ix.keys[1].isSigner).toBe(false);
 	});
 
 	it('transferFixed: disc 4 + amount(u64) + delegator(32) + mint(32); delegatee is the signer', () => {

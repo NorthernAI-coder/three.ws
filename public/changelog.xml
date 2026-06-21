@@ -47,6 +47,14 @@
 			<description>Turning a photo into a 3D model is free — and now you can pick it directly. Forge's engine selector has a new 'Hunyuan3D / TRELLIS' lane marked with a FREE badge that reconstructs your uploaded photo (or 2–4 angles) into a textured GLB at no cost and with no API key, running on community GPU Spaces with automatic failover across Hunyuan3D, TRELLIS, and TripoSR. Until now the free photo lane only kicked in behind the scenes; it's a first-class choice in the picker, shows live availability, and never silently falls back to a paid engine. The FREE badge also marks every other no-cost lane so you can always see which engines cost nothing.</description>
 		</item>
 		<item>
+			<title>Hardened on-chain confirmations and faster profile loads</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-21:Hardened on-chain confirmations and faster profile loads</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Two reliability fixes for everyone trading, launching, and browsing. First: every on-chain action that moves funds — coin launches, buys and sells, buybacks, payouts, transfers — now treats a transaction that lands but reverts as a real failure instead of quietly reporting success. You'll see an accurate error and your spending limit won't be charged for a trade that didn't go through. Second: public profile and creator pages are now cacheable at the edge, so they load noticeably faster under load. No action needed — these apply automatically.</description>
+		</item>
+		<item>
 			<title>Solana is now the default payment network</title>
 			<link>https://three.ws/dashboard</link>
 			<guid isPermaLink="false">2026-06-21:Solana is now the default payment network</guid>

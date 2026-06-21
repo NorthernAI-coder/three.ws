@@ -288,7 +288,8 @@ export async function ensureEntities(agentId, cap = ENTITY_CAP) {
 		]);
 		const upserted = await sql`
 			INSERT INTO agent_memory_entities (agent_id, kind, label, normalized, mention_count, salience, meta)
-			SELECT v.agent_id, v.kind, v.label, v.normalized, v.cnt, 0.5, v.meta::jsonb
+			SELECT v.agent_id, v.kind, v.label, v.normalized, v.cnt::int,
+			       LEAST(1.0, 0.5 + 0.05 * (v.cnt::int - 1)), v.meta::jsonb
 			FROM ( VALUES ${sqlValues(entityRows)} ) AS v(agent_id, kind, label, normalized, cnt, meta)
 			ON CONFLICT (agent_id, kind, normalized) DO UPDATE
 			SET mention_count = agent_memory_entities.mention_count + EXCLUDED.mention_count,

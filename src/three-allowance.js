@@ -112,6 +112,10 @@ export async function grantAllowance({
 		'confirmed',
 	);
 
+	// Reconcile server-side so the registry flips this grant to active and the
+	// wallet panel shows the new cap immediately (best-effort; status read self-heals).
+	await confirmOnServer(prep.delegation_pda, { network }).catch(() => {});
+
 	onStatus('done');
 	return {
 		ok: true,
@@ -120,4 +124,56 @@ export async function grantAllowance({
 		cap_tokens: prep.cap_tokens,
 		expiry_ts: prep.expiry_ts,
 	};
+}
+
+/** Tell the server a signed grant/revoke landed so it reconciles the registry now. */
+async function confirmOnServer(delegationPda, { revoked = false, network = 'mainnet' } = {}) {
+	const r = await fetch('/api/token/allowance-confirm', {
+		method: 'POST',
+		headers: { 'content-type': 'application/json' },
+		credentials: 'include',
+		body: JSON.stringify({ delegation_pda: delegationPda, revoked, network }),
+	});
+	return r.ok ? r.json() : null;
+}
+
+/**
+ * Revoke a delegation — cancel a spend cap and reclaim its rent. One signature.
+ * @param {{ delegationPda: string, network?: string, wallet?: any,
+ *   onStatus?: (s: 'building'|'awaiting_signature'|'confirming'|'done') => void }} params
+ */
+export async function revokeAllowance({ delegationPda, network = 'mainnet', wallet, onStatus = () => {} }) {
+	if (!delegationPda) throw Object.assign(new Error('Missing allowance to revoke.'), { code: 'bad_input' });
+
+	onStatus('building');
+	const prepResp = await fetch('/api/token/allowance-revoke', {
+		method: 'POST',
+		headers: { 'content-type': 'application/json' },
+		credentials: 'include',
+		body: JSON.stringify({ delegation_pda: delegationPda, network }),
+	});
+	const prep = await prepResp.json();
+	if (!prepResp.ok) {
+		throw Object.assign(new Error(prep.error_description || 'could not build revoke'), { code: prep.error });
+	}
+
+	const web3 = await loadWeb3();
+	const { Connection, Transaction } = web3;
+	const provider = await getProvider(wallet);
+	const connection = new Connection(rpcEndpoint(), 'confirmed');
+	const tx = Transaction.from(Buffer.from(prep.transaction, 'base64'));
+
+	onStatus('awaiting_signature');
+	const signature = await provider.sendTransaction(tx, connection);
+
+	onStatus('confirming');
+	const latest = await connection.getLatestBlockhash('confirmed');
+	await connection.confirmTransaction(
+		{ signature, blockhash: latest.blockhash, lastValidBlockHeight: latest.lastValidBlockHeight },
+		'confirmed',
+	);
+	await confirmOnServer(delegationPda, { revoked: true, network }).catch(() => {});
+
+	onStatus('done');
+	return { ok: true, signature, delegation_pda: delegationPda };
 }

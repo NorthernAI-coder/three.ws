@@ -19,7 +19,7 @@ import {
 	createAssociatedTokenAccountIdempotentInstruction, createCloseAccountInstruction, getMint,
 	TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID,
 } from '@solana/spl-token';
-import { grindMintKeypair, estimateAttempts, BASE58_ALPHABET } from '../_lib/pump-vanity.js';
+import { grindMintKeypair, estimateAttempts, BASE58_ALPHABET, addressMatchesPattern } from '../_lib/pump-vanity.js';
 import { randomUUID } from 'node:crypto';
 import { recordEvent } from '../_lib/usage.js';
 import { cacheGet, cacheSet } from '../_lib/cache.js';
@@ -1183,31 +1183,58 @@ async function handleVanity(req, res, id) {
 	if (!prefix && !suffix) return error(res, 400, 'validation_error', 'provide a prefix and/or suffix');
 
 	const combinedLen = (prefix?.length || 0) + (suffix?.length || 0);
-	if (combinedLen > VANITY_MAX_CHARS) {
-		return error(res, 400, 'pattern_too_hard',
-			`server-side grinding supports up to ${VANITY_MAX_CHARS} combined characters. ` +
-			`Grind longer patterns in your browser at /vanity-wallet (GPU-accelerated, up to 8 chars) and assign the result.`);
-	}
 
-	// Grind the vanity keypair. The secret stays in process memory only.
-	let ground;
-	try {
-		const est = estimateAttempts({ prefix, suffix, ignoreCase });
-		const maxIterations = Math.min(VANITY_MAX_ITERATIONS, Math.max(200_000, Math.ceil(est * 25)));
-		// Bail before the function's maxDuration (45s, see vercel.json) so the grind
-		// returns a clean `vanity_timeout` 504 instead of a hard runtime kill, and
-		// still leaves headroom to sweep the wallet to the new address afterward.
-		ground = await grindMintKeypair({ prefix, suffix, ignoreCase, maxIterations, maxMs: VANITY_GRIND_BUDGET_MS });
-	} catch (e) {
-		if (e?.code === 'vanity_timeout') {
-			return error(res, 504, 'vanity_timeout', 'could not find a matching address in time — try a shorter pattern or grind it in the browser at /vanity-wallet');
+	// Two ways to supply the new keypair, both ending in the identical sweep-then-
+	// swap below so funds are equally safe either way:
+	//   (A) `secret_key` — a 64-byte Ed25519 key the owner ground in their browser
+	//       at full speed (worker pool, longer patterns, case-insensitive). We
+	//       re-derive the address and prove it matches the requested pattern before
+	//       adopting it — the client's "this is vanity" claim is never trusted.
+	//   (B) no key — a bounded server-side grind for short patterns only.
+	let ground = null;
+	let newKp;
+
+	if (body.secret_key != null) {
+		const sk = body.secret_key;
+		if (!Array.isArray(sk) || sk.length !== 64 || !sk.every((n) => Number.isInteger(n) && n >= 0 && n <= 255)) {
+			return error(res, 400, 'validation_error', 'secret_key must be a 64-byte number array');
 		}
-		if (e?.code === 'invalid_vanity') return error(res, 400, 'validation_error', e.message);
-		console.error('[agents/solana/vanity] grind failed', e?.message);
-		return error(res, 502, 'grind_failed', 'vanity grind failed — try again');
+		try {
+			newKp = Keypair.fromSecretKey(Uint8Array.from(sk));
+		} catch {
+			return error(res, 400, 'validation_error', 'secret_key did not parse as a valid Solana keypair');
+		}
+		// Verify the supplied address genuinely satisfies the pattern — the
+		// client's "this is vanity" claim is never trusted.
+		const claimed = newKp.publicKey.toBase58();
+		if (!addressMatchesPattern(claimed, { prefix, suffix, ignoreCase })) {
+			return error(res, 400, 'validation_error', 'the supplied address does not match the requested prefix/suffix');
+		}
+	} else {
+		if (combinedLen > VANITY_MAX_CHARS) {
+			return error(res, 400, 'pattern_too_hard',
+				`server-side grinding supports up to ${VANITY_MAX_CHARS} combined characters. ` +
+				`Grind longer patterns in your browser (this tab grinds with your CPU cores) — they assign automatically.`);
+		}
+		// Grind the vanity keypair. The secret stays in process memory only.
+		try {
+			const est = estimateAttempts({ prefix, suffix, ignoreCase });
+			const maxIterations = Math.min(VANITY_MAX_ITERATIONS, Math.max(200_000, Math.ceil(est * 25)));
+			// Bail before the function's maxDuration (45s, see vercel.json) so the grind
+			// returns a clean `vanity_timeout` 504 instead of a hard runtime kill, and
+			// still leaves headroom to sweep the wallet to the new address afterward.
+			ground = await grindMintKeypair({ prefix, suffix, ignoreCase, maxIterations, maxMs: VANITY_GRIND_BUDGET_MS });
+		} catch (e) {
+			if (e?.code === 'vanity_timeout') {
+				return error(res, 504, 'vanity_timeout', 'could not find a matching address in time — try a shorter pattern or grind it in the browser');
+			}
+			if (e?.code === 'invalid_vanity') return error(res, 400, 'validation_error', e.message);
+			console.error('[agents/solana/vanity] grind failed', e?.message);
+			return error(res, 502, 'grind_failed', 'vanity grind failed — try again');
+		}
+		newKp = ground.keypair;
 	}
 
-	const newKp = ground.keypair;
 	const newAddress = newKp.publicKey.toBase58();
 
 	// If the agent already holds a funded custodial wallet, migrate the balance to
@@ -1263,13 +1290,14 @@ async function handleVanity(req, res, id) {
 	}
 
 	// Persist the new keypair as the agent's custodial wallet.
+	const walletSource = ground ? 'vanity_grind' : 'imported_vanity';
 	const encrypted_secret = await _encryptSecret(Buffer.from(newKp.secretKey).toString('base64'));
 	const history = Array.isArray(meta.solana_wallet_history) ? meta.solana_wallet_history : [];
 	const nextMeta = {
 		...meta,
 		solana_address: newAddress,
 		encrypted_solana_secret: encrypted_secret,
-		solana_wallet_source: 'vanity_grind',
+		solana_wallet_source: walletSource,
 		solana_vanity_prefix: prefix || null,
 		solana_vanity_suffix: suffix || null,
 	};
@@ -1286,9 +1314,11 @@ async function handleVanity(req, res, id) {
 	if (currentAddress) await cacheSet(`sol:bal:${currentAddress}:${network}`, null, 1).catch(() => {});
 	await cacheSet(`sol:bal:${newAddress}:${network}`, null, 1).catch(() => {});
 
+	const iterations = ground ? ground.iterations : (Number.isFinite(Number(body.iterations)) ? Number(body.iterations) : null);
+	const durationMs = ground ? ground.durationMs : (Number.isFinite(Number(body.duration_ms)) ? Number(body.duration_ms) : null);
 	recordEvent({
-		userId: auth.userId, agentId: id, kind: 'solana_vanity_grind', tool: 'server', status: 'ok',
-		meta: { address: newAddress, prefix, suffix, ignoreCase, iterations: ground.iterations, swept: swept ? { sol: swept.sol, tokens: swept.tokens.length } : null },
+		userId: auth.userId, agentId: id, kind: 'solana_vanity_grind', tool: ground ? 'server' : 'browser', status: 'ok',
+		meta: { address: newAddress, prefix, suffix, ignoreCase, iterations, swept: swept ? { sol: swept.sol, tokens: swept.tokens.length } : null },
 	});
 	logAudit({ userId: auth.userId, action: 'custody.vanity_grind', resourceId: id, meta: { address: newAddress, prefix, suffix, replaced: currentAddress || null, swept: !!swept }, req });
 
@@ -1298,11 +1328,11 @@ async function handleVanity(req, res, id) {
 			vanity_prefix: prefix,
 			vanity_suffix: suffix,
 			network,
-			iterations: ground.iterations,
-			duration_ms: ground.durationMs,
+			iterations,
+			duration_ms: durationMs,
 			replaced: currentAddress && currentAddress !== newAddress ? currentAddress : null,
 			swept,
-			source: 'vanity_grind',
+			source: walletSource,
 		},
 	});
 }

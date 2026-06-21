@@ -24,4 +24,11 @@ export {
 } from './payments.js';
 export { computeRewardsDistribution } from './rewards.js';
 export { allowanceEnabled, delegateAddress } from './allowance.js';
-export { getAllowanceStatus, buildGrantTransaction, pullFromAllowance } from './allowance-ops.js';
+export {
+	getAllowanceStatus,
+	buildGrantTransaction,
+	confirmAllowance,
+	buildRevokeTransaction,
+	pullFromAllowance,
+	invalidateAllowanceStatus,
+} from './allowance-ops.js';

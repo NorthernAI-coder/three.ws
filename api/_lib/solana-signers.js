@@ -118,7 +118,7 @@ export async function decodeSecretKey(secret) {
 		try {
 			const arr = JSON.parse(raw);
 			if (Array.isArray(arr) && (arr.length === 64 || arr.length === 32)) {
-				return Uint8Array.from(arr);
+				return toFullSecretKey(Uint8Array.from(arr));
 			}
 		} catch {
 			/* fall through */
@@ -132,7 +132,7 @@ export async function decodeSecretKey(secret) {
 			// Guard against base58 strings that happen to base64-decode to 64 bytes:
 			// re-encode and compare, accept only on round-trip match.
 			if (buf.toString('base64').replace(/=+$/, '') === raw.replace(/=+$/, '')) {
-				return new Uint8Array(buf);
+				return toFullSecretKey(new Uint8Array(buf));
 			}
 		}
 	} catch {
@@ -144,11 +144,24 @@ export async function decodeSecretKey(secret) {
 		const bs58mod = await import('bs58');
 		const bs58 = bs58mod.default || bs58mod;
 		const bytes = bs58.decode(raw);
-		if (bytes.length === 64 || bytes.length === 32) return Uint8Array.from(bytes);
+		if (bytes.length === 64 || bytes.length === 32) return toFullSecretKey(Uint8Array.from(bytes));
 	} catch {
 		/* fall through */
 	}
 
+	return null;
+}
+
+// Normalize to a full 64-byte ed25519 secret key. A 32-byte value is a SEED, not
+// a secret key — passing it straight to Keypair.fromSecretKey throws or, worse,
+// resolves a DIFFERENT pubkey than intended (so a treasury/relayer signer would
+// silently sign from the wrong address). Expand the seed deterministically.
+async function toFullSecretKey(bytes) {
+	if (bytes.length === 64) return bytes;
+	if (bytes.length === 32) {
+		const { Keypair } = await import('@solana/web3.js');
+		return Keypair.fromSeed(bytes).secretKey;
+	}
 	return null;
 }
 

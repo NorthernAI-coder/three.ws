@@ -1428,9 +1428,16 @@ export default wrap(async (req, res) => {
 
 	// ?catalog — the tier + backend + cost/time matrix the composer renders.
 	// Public, no secrets; lets the UI communicate the time/cost trade-off and
-	// which backends are live before the user commits.
+	// which backends are live before the user commits. The payload only changes
+	// on a redeploy (tiers/backends are static; `configured` reflects env
+	// presence), so it is heavily CDN-cacheable — one of the hottest GETs on the
+	// site (every /forge load), now served almost entirely from the edge instead
+	// of recomputing per request. stale-while-revalidate keeps it instant even as
+	// the cache refreshes in the background.
 	if (url.searchParams.has('catalog')) {
-		return json(res, 200, buildCatalog());
+		return json(res, 200, buildCatalog(), {
+			'cache-control': 'public, max-age=60, s-maxage=600, stale-while-revalidate=86400',
+		});
 	}
 
 	// ?health — live-probes every platform backend's upstream (auth + quota
@@ -1441,7 +1448,14 @@ export default wrap(async (req, res) => {
 		const rl = await limits.mcp3dStatus(clientIp(req));
 		if (!rl.success) return rateLimited(res, rl);
 		const { probeForgeHealth } = await import('./_lib/forge-health.js');
-		return json(res, 200, await probeForgeHealth());
+		// The probe already memoizes per instance (60s TTL); a short edge cache
+		// collapses an influx of identical health polls into one shared response
+		// every ~30s instead of one origin probe per client. stale-while-revalidate
+		// means a client never waits on a refresh — it sees the live status surface
+		// update within ~30s while the CDN absorbs the load.
+		return json(res, 200, await probeForgeHealth(), {
+			'cache-control': 'public, max-age=15, s-maxage=30, stale-while-revalidate=120',
+		});
 	}
 
 	const jobId = (url.searchParams.get('job') || '').trim();

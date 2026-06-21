@@ -343,7 +343,11 @@ describe('Revenue Attribution', () => {
 				end_time: null,
 			},
 		]);
-		// consumeIntent UPDATE and revenue event INSERT both hit empty queue → []
+		// consumeIntent UPDATE ... RETURNING id → this request wins the
+		// paid→consumed claim, so the revenue insert proceeds (gating the credit
+		// on the claim is what prevents double-credit under concurrency).
+		sqlState.queue.push([{ id: intentId }]);
+		// revenue event INSERT (ON CONFLICT DO NOTHING) → []
 
 		const { status, body } = await invoke(x402Handler, {
 			method: 'POST',

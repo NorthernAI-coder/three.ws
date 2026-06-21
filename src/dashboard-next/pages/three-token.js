@@ -13,7 +13,7 @@
 import { mountShell } from '../shell.js';
 import { requireUser, esc, relTime, ApiError } from '../api.js';
 import { fetchTokenConfig, fetchTokenPrice } from '../../token-pay.js';
-import { fetchAllowanceStatus, grantAllowance } from '../../three-allowance.js';
+import { fetchAllowanceStatus, grantAllowance, revokeAllowance } from '../../three-allowance.js';
 import { createThreeTokenData } from '../../pump/three-token-data.js';
 
 const MONO = `'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace`;
@@ -395,6 +395,21 @@ const EXPIRY_OPTIONS = [
 	{ label: 'No expiry', days: null },
 ];
 
+// Reference unit prices (USD) from the pricing catalog, used only to translate a
+// $THREE cap into relatable "what this covers" estimates. Display-only.
+const FORGE_STD_USD = 0.1;
+const SKILL_TYPICAL_USD = 0.05;
+const LOW_BALANCE_USD = 1; // below this, nudge a top-up
+
+function expiryLabel(ts) {
+	if (!ts || ts <= 0) return 'No expiry';
+	const days = Math.round((ts - Date.now() / 1000) / 86_400);
+	if (days <= 0) return 'Expired';
+	if (days === 1) return 'Expires in 1 day';
+	if (days < 45) return `Expires in ${days} days`;
+	return `Expires in ${Math.round(days / 30)} months`;
+}
+
 function renderSpendAllowance() {
 	const section = document.createElement('div');
 	section.className = 'dn-panel';
@@ -405,14 +420,20 @@ function renderSpendAllowance() {
 			<span style="font-size:10.5px;color:var(--nxt-ink-fade);border:1px solid var(--nxt-line);border-radius:999px;padding:2px 8px">Non-custodial</span>
 		</div>
 		<p style="margin:0 0 12px;font-size:12px;color:var(--nxt-ink-fade);line-height:1.5">Authorize a $THREE spending cap once — then pay for forge, skills, names and cosmetics with no wallet popup each time. Your tokens stay in your wallet until a charge pulls them, never above the cap you set. Revoke anytime.</p>
-		<div data-slot="allowance-body"><div class="dn-skeleton" style="height:72px;border-radius:10px" aria-busy="true"></div></div>
+		<div data-slot="allowance-body"><div class="dn-skeleton" style="height:96px;border-radius:10px" aria-busy="true"></div></div>
 	`;
 	const body = section.querySelector('[data-slot="allowance-body"]');
 
 	let busy = false;
+	let priceUsd = null; // live $THREE price, for "what this covers" translation
+
 	const load = async () => {
 		try {
-			const status = await fetchAllowanceStatus();
+			const [status, price] = await Promise.all([
+				fetchAllowanceStatus(),
+				priceUsd == null ? fetchTokenPrice().catch(() => null) : Promise.resolve(null),
+			]);
+			if (price?.price_usd != null) priceUsd = Number(price.price_usd);
 			if (!status.enabled) {
 				// The rail isn't configured on this deployment — show nothing rather
 				// than a button that can't work.
@@ -439,6 +460,16 @@ function renderSpendAllowance() {
 		}
 		const remaining = Number(status.remaining_tokens || 0);
 		const hasAllowance = remaining > 0;
+		const usdValue = priceUsd != null ? remaining * priceUsd : null;
+		const low = usdValue != null && usdValue < LOW_BALANCE_USD;
+
+		// "What this covers" — concrete, relatable units from the live USD value.
+		let covers = '';
+		if (usdValue != null && hasAllowance) {
+			const gens = Math.floor(usdValue / FORGE_STD_USD);
+			const skills = Math.floor(usdValue / SKILL_TYPICAL_USD);
+			covers = `≈ ${fmtUsd(usdValue)} — about ${fmtCompact(gens)} forge generations or ${fmtCompact(skills)} skill calls`;
+		}
 
 		const capChips = PRESET_CAPS.map(
 			(c) => `<button type="button" data-cap="${c}" class="dn-btn" style="font-size:12.5px;padding:5px 12px">${fmtCompact(c)}</button>`,
@@ -447,18 +478,32 @@ function renderSpendAllowance() {
 			(o, i) => `<button type="button" data-exp="${o.days ?? ''}" class="dn-btn${i === 0 ? ' is-active' : ''}" aria-pressed="${i === 0}" style="font-size:12px;padding:4px 10px">${esc(o.label)}</button>`,
 		).join('');
 
+		// One manageable row per active delegation (remaining + expiry + revoke).
+		const grantsList = (status.delegations || [])
+			.map((d) => {
+				const tok = Number(d.remaining_tokens || 0);
+				return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid var(--nxt-line)">
+					<div style="min-width:0">
+						<div style="font-size:14px;font-weight:600;font-family:${MONO}">${fmtCompact(tok)} <span style="font-size:12px;color:var(--nxt-ink-fade)">$THREE</span></div>
+						<div style="font-size:11px;color:var(--nxt-ink-fade)">${esc(expiryLabel(d.expiry_ts))}</div>
+					</div>
+					<button data-action="allowance-revoke" data-pda="${esc(d.pubkey)}" class="dn-btn" style="font-size:11.5px;padding:4px 12px;white-space:nowrap">Revoke</button>
+				</div>`;
+			})
+			.join('');
+
 		body.innerHTML = `
 			${hasAllowance ? `
-				<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:14px">
+				<div style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:6px">
 					<div>
 						<div style="font-size:11px;color:var(--nxt-ink-fade);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px">Remaining cap</div>
-						<div style="font-size:24px;font-weight:700;font-family:${MONO};color:#4ade80">${fmtCompact(remaining)} <span style="font-size:13px;color:var(--nxt-ink-fade)">$THREE</span></div>
+						<div style="font-size:28px;font-weight:700;font-family:${MONO};color:${low ? '#fbbf24' : '#4ade80'};letter-spacing:-0.02em">${fmtCompact(remaining)} <span style="font-size:14px;color:var(--nxt-ink-fade)">$THREE</span></div>
 					</div>
-					<div>
-						<div style="font-size:11px;color:var(--nxt-ink-fade);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px">Status</div>
-						<div style="font-size:15px;font-weight:600;color:#4ade80">● Frictionless spending on</div>
-					</div>
+					<div style="font-size:12px;font-weight:600;color:${low ? '#fbbf24' : '#4ade80'};white-space:nowrap">${low ? '● Running low' : '● Frictionless spending on'}</div>
 				</div>
+				${covers ? `<div style="font-size:12px;color:var(--nxt-ink-fade);margin-bottom:${low ? '8' : '14'}px">${esc(covers)}</div>` : ''}
+				${low ? `<div style="font-size:12.5px;color:#fbbf24;background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.25);border-radius:8px;padding:8px 10px;margin-bottom:14px">Your cap is running low — top it up below to keep paying without popups.</div>` : ''}
+				<div style="margin-bottom:14px">${grantsList}</div>
 			` : `
 				<div style="font-size:13.5px;color:var(--nxt-ink-dim);margin-bottom:14px">No active allowance — paid actions will ask for a signature each time. Authorize a cap to skip the popups.</div>
 			`}
@@ -522,11 +567,35 @@ function renderSpendAllowance() {
 		}
 	};
 
+	const doRevoke = async (btn) => {
+		if (busy) return;
+		const pda = btn.getAttribute('data-pda');
+		if (!pda) return;
+		busy = true;
+		btn.disabled = true;
+		const labels = { building: 'Building…', awaiting_signature: 'Confirm in wallet…', confirming: 'Revoking…', done: 'Done' };
+		const original = btn.textContent;
+		try {
+			await revokeAllowance({ delegationPda: pda, onStatus: (s) => { btn.textContent = labels[s] || 'Working…'; } });
+			toast('Allowance revoked — your cap was cancelled and rent returned');
+			busy = false;
+			await load();
+		} catch (err) {
+			busy = false;
+			btn.disabled = false;
+			btn.textContent = original;
+			const msg = body.querySelector('[data-slot="allowance-msg"]');
+			if (msg) msg.textContent = err?.message || 'Could not revoke.';
+		}
+	};
+
 	section.addEventListener('click', (e) => {
 		const grantBtn = e.target.closest('[data-action="allowance-grant"]');
 		if (grantBtn) { doGrant(grantBtn); return; }
+		const revokeBtn = e.target.closest('[data-action="allowance-revoke"]');
+		if (revokeBtn) { doRevoke(revokeBtn); return; }
 		const retry = e.target.closest('[data-action="allowance-retry"]');
-		if (retry) { body.innerHTML = `<div class="dn-skeleton" style="height:72px;border-radius:10px"></div>`; load(); }
+		if (retry) { body.innerHTML = `<div class="dn-skeleton" style="height:96px;border-radius:10px"></div>`; load(); }
 	});
 
 	load();
