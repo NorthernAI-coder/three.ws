@@ -184,7 +184,11 @@ function solanaRpcUrl() {
 		if (meta?.content) return meta.content;
 	}
 	if (typeof window !== 'undefined' && window.SOLANA_RPC_URL) return window.SOLANA_RPC_URL;
-	return 'https://api.mainnet-beta.solana.com';
+	// Last resort: our same-origin proxy, which fails over across Helius → Alchemy →
+	// dRPC → five keyless public lanes, so the balance read survives any single
+	// provider (an expired Helius plan included) being down. Absolute URL so the
+	// widget still resolves a working RPC when embedded on a third-party origin.
+	return 'https://three.ws/api/solana-rpc';
 }
 
 // Sum the owner's SPL balance for `mint`. Returns a BigInt of atomic units, or

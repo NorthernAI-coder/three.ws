@@ -19,8 +19,9 @@
  */
 
 import { createHash } from 'node:crypto';
-import { Connection, Keypair, PublicKey, TransactionMessage, VersionedTransaction } from '@solana/web3.js';
+import { Keypair, PublicKey, TransactionMessage, VersionedTransaction } from '@solana/web3.js';
 import bs58 from 'bs58';
+import { solanaConnection } from '../../api/_lib/solana/connection.js';
 
 const DEFAULT_RPC_URL = process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com';
 
@@ -167,7 +168,10 @@ export async function createNamedSubdomain({
 	const newOwnerKey = new PublicKey(newOwner);
 
 	const parentKp = loadParentOwnerKeypair();
-	const connection = new Connection(rpcUrl, 'confirmed');
+	// Failover-aware connection: rotates the resolved url across Helius → Alchemy →
+	// dRPC → the keyless public lanes so subdomain registration never dies on a
+	// single provider being down (an expired Helius plan included).
+	const connection = solanaConnection({ url: rpcUrl, commitment: 'confirmed' });
 
 	const availability = await checkSubdomainAvailability({
 		connection,

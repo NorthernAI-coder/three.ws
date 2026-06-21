@@ -151,6 +151,14 @@
 			<description>Across the dashboard and marketplace, anywhere a list can be empty now explains what belongs there, why it's useful, and the next step — instead of a bare 'No data' line. Your Agents, Avatars, Analytics, Brain, embed policies, the marketplace, and My Agents each greet a fresh account with a short plain-language intro and a clear button to create your first one (plus a 'What's an agent?' link). Filtered searches that return nothing now say so and offer to clear the filter. It's the same designed component everywhere, so the whole platform feels consistent and never abandoned.</description>
 		</item>
 		<item>
+			<title>Every avatar you create now auto-rigs so it can move</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-21:Every avatar you create now auto-rigs so it can move</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>A 3D model can only walk, wave, and emote if it has a skeleton. Until now only prompt and selfie avatars got one automatically — a GLB you uploaded, imported by link, or generated in chat would land as a frozen statue. Now every creation path auto-rigs: drop in a static model and the platform quietly builds a skeleton in the background and swaps the animation-ready version in place, so the avatar (and the agent it backs) can play the full motion library. Models that already carry a skeleton — like Avaturn characters — are left untouched, never re-rigged. If rigging isn't available on a deployment, you still get your model, exactly as before.</description>
+		</item>
+		<item>
 			<title>Every Forge quality tier now runs on free engines</title>
 			<link>https://three.ws/forge</link>
 			<guid isPermaLink="false">2026-06-21:Every Forge quality tier now runs on free engines</guid>
@@ -335,6 +343,14 @@
 			<description>Two behind-the-scenes reliability and safety fixes. Agent payment invoices now verify that the wallet paying is actually linked to your account before an invoice is created, closing a gap that let bogus payment requests be generated against any agent. And the $THREE holder leaderboard, its share card, and the token stats panel no longer each kick off a full on-chain holder scan during a traffic spike — one scan now serves everyone and refreshes the shared snapshot, so the leaderboard stays fast and responsive under load. Nothing to do on your end.</description>
 		</item>
 		<item>
+			<title>Pick your own guide for the product tour</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-21:Pick your own guide for the product tour</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The 3D guide who walks you through the product tour now starts as Ava, our photoreal full-body character — and you can swap her for anyone in the cast. Open the tour menu and use the new Guide picker to choose any avatar (your own custom ones included); the tour switches on the spot and remembers your pick. She also obeys gravity now, just like your character on the Walk pages: she drops in and plants her feet on the ground instead of hovering.</description>
+		</item>
+		<item>
 			<title>Platform-wide hardening: payment integrity, security, and scale</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-21:Platform-wide hardening: payment integrity, security, and scale</guid>
@@ -381,6 +397,14 @@
 			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
 			<category>improvement</category>
 			<description>Solana is now the default everywhere you pick a chain — the dashboard's Default payment network setting, x402 merchant settlement, and the monetization payout wallet all default to Solana for every user, with Solana listed first. Base and Polygon remain available if you prefer an EVM chain.</description>
+		</item>
+		<item>
+			<title>Solana stays online even if our paid RPC goes dark</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-21:Solana stays online even if our paid RPC goes dark</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Everything onchain — paying, minting, balances, name lookups — depends on a Solana RPC node answering. When our primary paid node was throttled or its plan lapsed, some of those reads could error out. The platform now falls through a deeper chain: the paid node first, then several backup providers, then five independent public nodes (each verified live), so a request only fails if every one of them is down at the same moment. The embeddable payment widget and Solana name registration were moved onto the same resilient connection.</description>
 		</item>
 		<item>
 			<title>The $THREE page now spells out why to hold — four real utility pillars</title>

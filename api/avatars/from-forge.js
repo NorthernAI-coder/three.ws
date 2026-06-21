@@ -30,6 +30,7 @@ import { putObject } from '../_lib/r2.js';
 import { isValidGlbHeader, inspectGlb } from '../_lib/glb-inspect.js';
 import { fetchSafePublicUrl, SsrfBlockedError } from '../_lib/ssrf-guard.js';
 import { provisionAvatarAgent } from '../_lib/avatar-agent.js';
+import { maybeAutoRigAvatar } from '../_lib/auto-rig.js';
 import { limits } from '../_lib/rate-limit.js';
 import { recordEvent } from '../_lib/usage.js';
 import { env } from '../_lib/env.js';
@@ -153,6 +154,19 @@ export default wrap(async (req, res) => {
 	// First-class like a normal upload: provision the agent + custodial wallet.
 	queueMicrotask(() =>
 		provisionAvatarAgent({ userId: auth.userId, avatarId: avatar.id, avatarName: avatar.name }),
+	);
+
+	// Auto-rig if the forged mesh arrived static (e.g. a mesh_forge save) so the
+	// agent's avatar can animate. A no-op when it's already rigged — forge_avatar
+	// and the chat forge tool deliver a rigged GLB and pass rigged:true — or when
+	// no rerig model is configured. Upgraded in place once the job completes.
+	queueMicrotask(() =>
+		maybeAutoRigAvatar({
+			userId: auth.userId,
+			avatar,
+			rigInfo: { is_rigged: rigged || info.isRigged === true, skeleton_joint_count: info.skeletonJointCount ?? null },
+			source: 'studio',
+		}),
 	);
 
 	recordEvent({

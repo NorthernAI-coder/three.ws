@@ -2,10 +2,12 @@
 // that walks across the viewport to stand beside whatever the tour is showing,
 // turns to face it, gestures at it, and carries a speech bubble above its head.
 //
-// It reuses the published walk-sdk avatar loader (loadWalkAvatar) so the guide
-// is the same rig the visitor picked for the Walk Companion and can never freeze
-// in a bind/T-pose, and the same simple controller surface — setState('walk' |
-// 'idle') + playWave() — drives the walk-in and the point gesture.
+// It reuses the published @three-ws/walk avatar loader (loadWalkAvatar) so the
+// guide is the same rig family the Walk Companion drives and can never freeze in
+// a bind/T-pose, and the same simple controller surface — setState('walk' |
+// 'idle') + playWave() — drives the walk-in and the point gesture. By default it
+// reads the visitor's chosen companion avatar (config.avatarStorageKey), so the
+// guide matches whoever they walk with; otherwise it loads config.guideAvatarId.
 
 import {
 	AmbientLight,
@@ -19,35 +21,33 @@ import {
 	Vector3,
 	WebGLRenderer,
 } from 'three';
-import { loadWalkAvatar } from '../../walk-sdk/src/internal/load-avatar.js';
-import { resolveConfig, resolveAvatarEntry } from '../../walk-sdk/src/config.js';
+import { loadWalkAvatar, resolveConfig, resolveAvatarEntry } from '@three-ws/walk';
 
 const CANVAS_W = 168;
 const CANVAS_H = 240;
 const MARGIN = 16;
 const Z_AVATAR = 2147483300;
 
-// Gravity, mirrored from the walk platformer (src/walk.js GRAVITY = -14) so the
-// guide obeys the same physics the visitor sees there: it falls onto the ground
-// plane and stays planted, never floating mid-air. SPAWN_DROP is how far above
-// the floor the guide spawns so it visibly settles when it first appears.
+// Gravity, mirrored from the walk platformer so the guide obeys the same physics
+// the visitor sees there: it falls onto the ground plane and stays planted,
+// never floating mid-air. SPAWN_DROP is how far above the floor the guide spawns
+// so it visibly settles when it first appears.
 const GRAVITY = -14;
 const SPAWN_DROP = 0.32;
 
-// The platform's recurring default character — "Ava", the photoreal full-body
-// humanoid (/avatars/realistic-female.glb). The same rig stands in as the guide
-// NPC in the walk world, so the tour guide matches her by default.
-const DEFAULT_GUIDE_AVATAR = 'realistic-female';
-
 export class GuideAvatar {
-	constructor() {
+	constructor(tourConfig = {}) {
+		// Feed the host's avatar settings into the walk SDK's config resolver, which
+		// gives us the roster, the default avatar entry, and the storage keys.
 		this.config = resolveConfig({
-			assetBase: '',
-			apiBase: '',
-			manifestUrl: '/animations/manifest.json',
-			docsUrl: '/avatar-studio',
-			defaultAvatarId: DEFAULT_GUIDE_AVATAR,
+			assetBase: tourConfig.assetBase || '',
+			apiBase: tourConfig.apiBase || '',
+			manifestUrl: tourConfig.manifestUrl || '/animations/manifest.json',
+			defaultAvatarId: tourConfig.guideAvatarId || 'realistic-female',
 		});
+		// Which avatar the guide adopts: the visitor's saved companion choice if
+		// present, else the configured guide default.
+		this.avatarStorageKey = tourConfig.avatarStorageKey || this.config.keys.avatar;
 		this.host = null;
 		this.renderer = null;
 		this.scene = null;
@@ -127,10 +127,10 @@ export class GuideAvatar {
 		this.rig = new Group();
 		scene.add(this.rig);
 
-		const savedId = lsGet(this.config.keys.avatar) || this.config.defaultAvatarId;
+		const savedId = lsGet(this.avatarStorageKey) || this.config.defaultAvatarId;
 		const entry = resolveAvatarEntry(savedId, this.config);
 		const fallback = resolveAvatarEntry(this.config.defaultAvatarId, this.config);
-		const { model, controller, entry: active } = await loadWalkAvatar(entry, {
+		const { model, controller } = await loadWalkAvatar(entry, {
 			assetBase: this.config.assetBase,
 			apiBase: this.config.apiBase,
 			manifestUrl: this.config.manifestUrl,
@@ -138,68 +138,7 @@ export class GuideAvatar {
 		});
 		this.model = model;
 		this.controller = controller;
-		this._entry = active;
 		this._frame(model, this.rig, this.camera);
-	}
-
-	// ── Live avatar swap ───────────────────────────────────────────────────────
-	// Hot-swap the guide to any roster (or user-generated) avatar. Persists the
-	// choice to the shared Walk Companion key so it sticks across the tour and the
-	// rest of the site, then disposes the old rig and drops the new one in under
-	// gravity. Resolves to the entry actually shown (the fallback if the pick fails
-	// to load), so the picker UI can reflect what really happened.
-	async setAvatar(idOrEntry) {
-		const entry =
-			typeof idOrEntry === 'string' ? resolveAvatarEntry(idOrEntry, this.config) : idOrEntry;
-		if (!entry) return this._entry;
-		lsSet(this.config.keys.avatar, entry.id);
-		// Headless (WebGL/GLB failed) or not yet built — remember the pick; it
-		// applies on the next successful mount.
-		if (this._headless || !this.rig) {
-			this._entry = entry;
-			return entry;
-		}
-		const fallback = resolveAvatarEntry(this.config.defaultAvatarId, this.config);
-		try {
-			const { model, controller, entry: active } = await loadWalkAvatar(entry, {
-				assetBase: this.config.assetBase,
-				apiBase: this.config.apiBase,
-				manifestUrl: this.config.manifestUrl,
-				fallbackEntry: fallback,
-			});
-			// The guide may have been torn down while the GLB was loading.
-			if (!this.rig) {
-				model.traverse((n) => n.isMesh && disposeMesh(n));
-				controller.dispose?.();
-				return this._entry;
-			}
-			if (this.model) {
-				this.rig.remove(this.model);
-				this.model.traverse((n) => n.isMesh && disposeMesh(n));
-			}
-			this.controller?.dispose();
-			this._yaw = 0;
-			this._targetYaw = 0;
-			this.rig.rotation.y = 0;
-			this.model = model;
-			this.controller = controller;
-			this._entry = active;
-			this._frame(model, this.rig, this.camera);
-			return active;
-		} catch (err) {
-			console.warn('[tour] guide avatar swap failed:', err?.message || err);
-			return this._entry;
-		}
-	}
-
-	// The roster the guide can switch between, and the id it's currently wearing —
-	// surfaced so the tour's settings UI can build a picker without reaching into
-	// the SDK config itself.
-	avatars() {
-		return this.config.avatars;
-	}
-	currentAvatarId() {
-		return this._entry?.id || lsGet(this.config.keys.avatar) || this.config.defaultAvatarId;
 	}
 
 	_frame(model, rig, camera) {
@@ -419,13 +358,6 @@ function lsGet(key) {
 		return localStorage.getItem(key);
 	} catch {
 		return null;
-	}
-}
-function lsSet(key, value) {
-	try {
-		localStorage.setItem(key, value);
-	} catch {
-		/* private mode / quota — the swap still applies for this session */
 	}
 }
 function disposeMesh(n) {

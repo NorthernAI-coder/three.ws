@@ -13,6 +13,7 @@ import {
 	solanaRpcEndpoints,
 	shouldRotate,
 	makeRotatingFetch,
+	classifyRpcBody,
 } from '../../api/_lib/solana/connection.js';
 
 const KEYS = [
@@ -46,10 +47,27 @@ describe('solanaRpcEndpoints', () => {
 		expect(eps.some((u) => u.startsWith('https://rpc.ankr.com/') && !/\/solana\/.+/.test(u))).toBe(false);
 	});
 
-	it('includes PublicNode and the public endpoint as keyless fallbacks', () => {
+	it('includes PublicNode, Leo RPC, and the public endpoint as keyless fallbacks', () => {
 		const eps = solanaRpcEndpoints('mainnet');
 		expect(eps).toContain('https://solana-rpc.publicnode.com');
+		expect(eps).toContain('https://solana.leorpc.com/?api_key=FREE');
 		expect(eps).toContain('https://api.mainnet-beta.solana.com');
+	});
+
+	it('keeps five working keyless lanes even with every API key absent', () => {
+		// Helius/Alchemy/dRPC/Ankr all unset (the "paid plan lapsed" state): the
+		// chain must still resolve a usable node, never collapse to one throttled lane.
+		// Five independent public nodes were each verified answering live mainnet RPC,
+		// so a request only errors if all five are down at once.
+		const eps = solanaRpcEndpoints('mainnet');
+		const keyless = [
+			'https://solana-rpc.publicnode.com',
+			'https://solana.leorpc.com/?api_key=FREE',
+			'https://api.tatum.io/v3/blockchain/node/solana-mainnet',
+			'https://solana.therpc.io',
+			'https://api.mainnet-beta.solana.com',
+		];
+		for (const u of keyless) expect(eps).toContain(u);
 	});
 
 	it('keeps the public mainnet-beta endpoint last (most rate-limited)', () => {
@@ -181,5 +199,85 @@ describe('makeRotatingFetch poison-body failover', () => {
 		});
 		const resp = await fetchImpl(a, { method: 'POST', body: '{}' });
 		expect(await resp.text()).toBe(errBody);
+	});
+
+	it('fails over a 200 envelope missing both result and error (the StructError shape)', async () => {
+		vi.spyOn(console, 'log').mockImplementation(() => {});
+		// `{jsonrpc,id}` with no result/error — what web3.js choked on with the
+		// empty-`received:` StructError that 500'd the club-cover prepare step.
+		const a = 'https://poison-noresult.example/sol';
+		const b = 'https://healthy.example/sol';
+		mockResponses({ [a]: { body: '{"jsonrpc":"2.0","id":1}' }, [b]: { body: json } });
+		const resp = await makeRotatingFetch([a, b])(a, { method: 'POST', body: '{}' });
+		expect(await resp.text()).toBe(json);
+	});
+
+	it('fails over a 200 + provider quota error (exhausted paid plan) to the next lane', async () => {
+		vi.spyOn(console, 'log').mockImplementation(() => {});
+		// How an exhausted Helius plan answers: HTTP 200, JSON-RPC error -32429.
+		const quota = '{"jsonrpc":"2.0","error":{"code":-32429,"message":"max usage reached"},"id":1}';
+		const a = 'https://exhausted.example/sol';
+		const b = 'https://healthy.example/sol';
+		mockResponses({ [a]: { body: quota }, [b]: { body: json } });
+		const resp = await makeRotatingFetch([a, b])(a, { method: 'POST', body: '{}' });
+		expect(await resp.text()).toBe(json);
+	});
+
+	it('fails over a truncated JSON body to the next lane', async () => {
+		vi.spyOn(console, 'log').mockImplementation(() => {});
+		const a = 'https://truncated.example/sol';
+		const b = 'https://healthy.example/sol';
+		mockResponses({ [a]: { body: '{"jsonrpc":"2.0","result":{"val' }, [b]: { body: json } });
+		const resp = await makeRotatingFetch([a, b])(a, { method: 'POST', body: '{}' });
+		expect(await resp.text()).toBe(json);
+	});
+});
+
+// classifyRpcBody is the single source of truth for "is this 200 body usable?".
+// It turns the recurring StructError (web3.js choking on a malformed 200) into a
+// rotate signal instead of a thrown error reaching the caller.
+describe('classifyRpcBody', () => {
+	it('accepts a normal JSON-RPC success (result present, even when null)', () => {
+		expect(classifyRpcBody('{"jsonrpc":"2.0","result":{"value":null},"id":1}')).toBeNull();
+		expect(classifyRpcBody('{"jsonrpc":"2.0","result":null,"id":1}')).toBeNull();
+		// Tatum omits the jsonrpc/id echo but carries `result` — still usable.
+		expect(classifyRpcBody('{"result":{"context":{"slot":1},"value":null}}')).toBeNull();
+	});
+
+	it('accepts a deterministic JSON-RPC request error (must surface, not rotate)', () => {
+		expect(classifyRpcBody('{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid params"},"id":1}')).toBeNull();
+		expect(classifyRpcBody('{"jsonrpc":"2.0","error":{"code":-32002,"message":"Transaction simulation failed"},"id":1}')).toBeNull();
+	});
+
+	it('flags empty, HTML, and truncated bodies', () => {
+		expect(classifyRpcBody('')?.reason).toBe('empty body');
+		expect(classifyRpcBody('   ')?.reason).toBe('empty body');
+		expect(classifyRpcBody('<!DOCTYPE html><html>502</html>')?.reason).toBe('HTML body');
+		expect(classifyRpcBody('{"jsonrpc":"2.0","result":{')?.reason).toBe('unparseable body');
+	});
+
+	it('flags a 200 envelope missing both result and error', () => {
+		expect(classifyRpcBody('{"jsonrpc":"2.0","id":1}')?.reason).toBe('missing result/error');
+	});
+
+	it('flags provider capacity/quota/auth errors for failover', () => {
+		// Quota → status 429 so the cooldown picks the long quota park.
+		const quota = classifyRpcBody('{"jsonrpc":"2.0","error":{"code":-32429,"message":"max usage reached"},"id":1}');
+		expect(quota?.status).toBe(429);
+		for (const [code, msg] of [
+			[-32029, 'Too Many Requests'],
+			[-32052, 'API key is not allowed'],
+			[0, 'rate limit exceeded'],
+			[0, 'forbidden'],
+		]) {
+			expect(classifyRpcBody(`{"jsonrpc":"2.0","error":{"code":${code},"message":"${msg}"},"id":1}`)).not.toBeNull();
+		}
+	});
+
+	it('validates every element of a JSON-RPC batch', () => {
+		const goodBatch = '[{"jsonrpc":"2.0","result":1,"id":1},{"jsonrpc":"2.0","result":2,"id":2}]';
+		expect(classifyRpcBody(goodBatch)).toBeNull();
+		const badBatch = '[{"jsonrpc":"2.0","result":1,"id":1},{"jsonrpc":"2.0","id":2}]';
+		expect(classifyRpcBody(badBatch)?.reason).toBe('missing result/error');
 	});
 });

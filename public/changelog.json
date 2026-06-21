@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-21T09:24:07.978Z",
+	"generated_at": "2026-06-21T09:59:56.909Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -189,6 +189,17 @@
 			"summary": "Across the dashboard and marketplace, anywhere a list can be empty now explains what belongs there, why it's useful, and the next step — instead of a bare 'No data' line. Your Agents, Avatars, Analytics, Brain, embed policies, the marketplace, and My Agents each greet a fresh account with a short plain-language intro and a clear button to create your first one (plus a 'What's an agent?' link). Filtered searches that return nothing now say so and offer to clear the filter. It's the same designed component everywhere, so the whole platform feels consistent and never abandoned.",
 			"link": "/dashboard",
 			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "update",
+			"title": "Every avatar you create now auto-rigs so it can move",
+			"summary": "A 3D model can only walk, wave, and emote if it has a skeleton. Until now only prompt and selfie avatars got one automatically — a GLB you uploaded, imported by link, or generated in chat would land as a frozen statue. Now every creation path auto-rigs: drop in a static model and the platform quietly builds a skeleton in the background and swaps the animation-ready version in place, so the avatar (and the agent it backs) can play the full motion library. Models that already carry a skeleton — like Avaturn characters — are left untouched, never re-rigged. If rigging isn't available on a deployment, you still get your model, exactly as before.",
+			"link": null,
+			"tags": [
+				"feature",
 				"improvement"
 			]
 		},
@@ -444,6 +455,17 @@
 		{
 			"date": "2026-06-21",
 			"type": "update",
+			"title": "Pick your own guide for the product tour",
+			"summary": "The 3D guide who walks you through the product tour now starts as Ava, our photoreal full-body character — and you can swap her for anyone in the cast. Open the tour menu and use the new Guide picker to choose any avatar (your own custom ones included); the tour switches on the spot and remembers your pick. She also obeys gravity now, just like your character on the Walk pages: she drops in and plants her feet on the ground instead of hovering.",
+			"link": null,
+			"tags": [
+				"feature",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "update",
 			"title": "Platform-wide hardening: payment integrity, security, and scale",
 			"summary": "A broad reliability pass across the parts of three.ws that move real money and serve heavy traffic. On the money side: bundle purchases and agent payments are now verified on-chain before anything unlocks, each payment is credited exactly once, withdrawals can't be processed twice, and recurring subscriptions can't be double-billed. On the security side: a set of input-handling and link-safety fixes across pages, stronger protection for custodial keys at rest, and tighter checks on outbound agent payments so funds only ever move in the expected asset. On the scale side: the busiest directory, profile, and feed pages now ride a short cache and run far fewer database queries, so they stay fast as the community grows. Most of this is invisible by design — it's the plumbing that keeps the platform correct and quick under load.",
 			"link": null,
@@ -503,6 +525,17 @@
 			"link": "/dashboard",
 			"tags": [
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "update",
+			"title": "Solana stays online even if our paid RPC goes dark",
+			"summary": "Everything onchain — paying, minting, balances, name lookups — depends on a Solana RPC node answering. When our primary paid node was throttled or its plan lapsed, some of those reads could error out. The platform now falls through a deeper chain: the paid node first, then several backup providers, then five independent public nodes (each verified live), so a request only fails if every one of them is down at the same moment. The embeddable payment widget and Solana name registration were moved onto the same resilient connection.",
+			"link": null,
+			"tags": [
+				"fix",
+				"infra"
 			]
 		},
 		{

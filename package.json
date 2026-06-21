@@ -53,7 +53,8 @@
 		"packages/ibm-x402-mcp",
 		"packages/three-token-mcp",
 		"packages/threews-avatar-mcp",
-		"walk-sdk"
+		"walk-sdk",
+		"tour-sdk"
 	],
 	"main": "src/app.js",
 	"browserslist": [

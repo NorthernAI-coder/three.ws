@@ -1,40 +1,29 @@
-// chapters.js — the tour's navigation drawer. An 85-stop tour needs a map, so
-// this panel lays the whole curriculum out as chapters → stops, marks the one
-// you're on, and lets you jump to any of them. It doubles as the settings
-// surface: switch between the Quick-highlights and Full tracks, change the
-// narration voice, set the playback speed, and search across every stop's title.
-// It is pure UI — every action forwards to a handler the director supplies, and
-// the director calls setActive()/setTrack()/setVoice()/setSpeed() to keep it in
+// chapters.js — the tour's navigation drawer. A long tour needs a map, so this
+// panel lays the whole curriculum out as chapters → stops, marks the one you're
+// on, and lets you jump to any of them. It doubles as the settings surface:
+// switch between tracks (e.g. Quick highlights vs Full), change the narration
+// voice, set the playback speed, and search across every stop's title. It is
+// pure UI — every action forwards to a handler the director supplies, and the
+// director calls setActive()/setTrack()/setVoice()/setSpeed() to keep it in
 // sync. Open/close is fully keyboard- and screen-reader-friendly.
-
-import { createAvatarPicker } from '../../walk-sdk/src/picker.js';
 
 const Z_PANEL = 2147483450;
 
-// A curated client-side slice of the platform voice catalog (api/_lib/tts-voices.js).
-// Kept small so the menu stays scannable; every id here renders on both the free
-// Magpie lane and the OpenAI backstop.
-const VOICES = [
+// Fallback voice catalogue if a host doesn't pass one. Kept small so the menu
+// stays scannable.
+const FALLBACK_VOICES = [
 	{ id: 'nova', name: 'Nova' },
 	{ id: 'alloy', name: 'Alloy' },
-	{ id: 'echo', name: 'Echo' },
 	{ id: 'fable', name: 'Fable' },
-	{ id: 'onyx', name: 'Onyx' },
-	{ id: 'sage', name: 'Sage' },
-	{ id: 'shimmer', name: 'Shimmer' },
 ];
 
 const SPEEDS = [0.75, 1, 1.25, 1.5];
 
 export class ChapterPanel {
-	constructor(curriculum, handlers, avatarConfig = {}) {
+	constructor(curriculum, handlers, voices) {
 		this.curriculum = curriculum;
-		this.handlers = handlers; // { onJump(abs), onTrack, onVoice, onSpeed, onAvatar, onClose }
-		// The avatar roster the guide can wear, plus who it's wearing now.
-		this.avatars = avatarConfig.avatars || [];
-		this.currentAvatarId = avatarConfig.currentId || null;
-		this.assetBase = avatarConfig.assetBase || '';
-		this.docsUrl = avatarConfig.docsUrl || null;
+		this.handlers = handlers; // { onJump(abs), onTrack, onVoice, onSpeed, onOpenChange }
+		this.voices = Array.isArray(voices) && voices.length ? voices : FALLBACK_VOICES;
 		this.open = false;
 		this.activeAbs = 0;
 		this._query = '';
@@ -66,18 +55,6 @@ export class ChapterPanel {
 						<span class="tws-tour-menu__lbl" id="tws-tour-voice-lbl">Voice</span>
 						<select class="tws-tour-menu__select" data-act="voice" aria-labelledby="tws-tour-voice-lbl"></select>
 					</label>
-					${
-						this.avatars.length
-							? `<label class="tws-tour-menu__field">
-						<span class="tws-tour-menu__lbl">Guide</span>
-						<button type="button" class="tws-tour-menu__avatar" data-act="avatar" aria-haspopup="dialog" aria-label="Change the guide avatar">
-							<span class="tws-tour-menu__avatar-orb" aria-hidden="true"></span>
-							<span class="tws-tour-menu__avatar-name">Avatar</span>
-							<span class="tws-tour-menu__avatar-chev" aria-hidden="true">▾</span>
-						</button>
-					</label>`
-							: ''
-					}
 				</div>
 				<div class="tws-tour-menu__search">
 					<input type="search" class="tws-tour-menu__input" placeholder="Search features…" aria-label="Search tour stops" autocomplete="off" spellcheck="false" />
@@ -91,12 +68,10 @@ export class ChapterPanel {
 		this.trackSeg = root.querySelector('[data-group="track"]');
 		this.speedSeg = root.querySelector('[data-group="speed"]');
 		this.voiceSel = root.querySelector('[data-act="voice"]');
-		this.avatarBtn = root.querySelector('[data-act="avatar"]');
 		this.searchInput = root.querySelector('.tws-tour-menu__input');
 
 		this._buildSegments();
 		this._buildVoices();
-		this._renderAvatarBtn();
 		this._buildList();
 
 		root.addEventListener('click', (e) => {
@@ -111,7 +86,6 @@ export class ChapterPanel {
 			if (v) this.handlers.onSpeed?.(Number(v));
 		});
 		this.voiceSel.addEventListener('change', () => this.handlers.onVoice?.(this.voiceSel.value));
-		this.avatarBtn?.addEventListener('click', () => this._openAvatarPicker());
 		this.searchInput.addEventListener('input', () => {
 			this._query = this.searchInput.value.trim().toLowerCase();
 			this._buildList();
@@ -142,75 +116,19 @@ export class ChapterPanel {
 	}
 
 	_buildVoices() {
-		this.voiceSel.innerHTML = VOICES.map(
-			(v) => `<option value="${v.id}">${esc(v.name)}</option>`,
-		).join('');
-	}
-
-	// ── Guide avatar picker ─────────────────────────────────────────────────────
-	// Reuses the Walk SDK's avatar picker so the tour offers the exact same cast a
-	// visitor can pick anywhere else. The picker is responsibility-free — it just
-	// fires onSelect; we persist + hot-swap through the director's onAvatar handler.
-	_renderAvatarBtn() {
-		if (!this.avatarBtn) return;
-		const orb = this.avatarBtn.querySelector('.tws-tour-menu__avatar-orb');
-		const name = this.avatarBtn.querySelector('.tws-tour-menu__avatar-name');
-		const entry = this.avatars.find((a) => a.id === this.currentAvatarId);
-		if (entry) {
-			name.textContent = entry.name;
-			if (entry.accent) orb.style.setProperty('--wp-accent', entry.accent);
-			if (entry.thumb) {
-				orb.style.backgroundImage = `url('${this.assetBase}${entry.thumb}')`;
-				orb.textContent = '';
-			} else {
-				orb.style.backgroundImage = 'none';
-				orb.textContent = entry.emoji || '🧍';
-			}
-		} else {
-			// A user-generated avatar that isn't in the static roster.
-			name.textContent = 'Your avatar';
-			orb.style.backgroundImage = 'none';
-			orb.textContent = '✨';
-		}
-	}
-
-	_openAvatarPicker() {
-		if (!this.avatars.length) return;
-		if (!this._picker) {
-			this._picker = createAvatarPicker({
-				avatars: this.avatars,
-				currentId: this.currentAvatarId,
-				assetBase: this.assetBase,
-				docsUrl: this.docsUrl,
-				// Float above the playback bar, clear of the left-docked menu.
-				anchor: { right: 16, bottom: 92 },
-				onSelect: (entry) => this._onAvatarPicked(entry),
-			});
-		}
-		this._picker.setCurrent(this.currentAvatarId);
-		// The menu scrim sits above the picker, so step the menu aside to reveal it.
-		this.close();
-		this._picker.show();
-	}
-
-	_onAvatarPicked(entry) {
-		this.currentAvatarId = entry.id;
-		this._renderAvatarBtn();
-		this.handlers.onAvatar?.(entry);
-	}
-
-	// Director-driven sync: reflect an avatar change that happened elsewhere.
-	setAvatarCurrent(id) {
-		this.currentAvatarId = id;
-		this._renderAvatarBtn();
-		this._picker?.setCurrent(id);
+		this.voiceSel.innerHTML = this.voices
+			.map((v) => `<option value="${esc(v.id)}">${esc(v.name)}</option>`)
+			.join('');
 	}
 
 	_buildList() {
-		const { sections, stops } = this.curriculum;
+		const { sections = [], stops } = this.curriculum;
 		const q = this._query;
 		const rows = [];
-		for (const section of sections) {
+		// Stops whose section isn't declared in `sections` still need a home, so
+		// render any leftover sections referenced only by stops, in first-seen order.
+		const sectionList = sections.length ? sections : inferSections(stops);
+		for (const section of sectionList) {
 			const items = stops
 				.map((s, abs) => ({ s, abs }))
 				.filter(({ s }) => s.section === section.id)
@@ -301,11 +219,26 @@ export class ChapterPanel {
 
 	dispose() {
 		document.removeEventListener('keydown', this._onKey, true);
-		this._picker?.destroy();
-		this._picker = null;
 		this.root?.remove();
 		this.root = null;
 	}
+}
+
+// Derive section headers from the stops themselves when a curriculum omits the
+// top-level `sections` array — first-seen order, titled by the section id.
+function inferSections(stops) {
+	const seen = new Map();
+	for (const s of stops) {
+		const id = s.section || 'tour';
+		if (!seen.has(id)) seen.set(id, { id, title: titleCase(id) });
+	}
+	return [...seen.values()];
+}
+
+function titleCase(id) {
+	return String(id || '')
+		.replace(/[-_]+/g, ' ')
+		.replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 function esc(s) {
@@ -341,12 +274,6 @@ function ensureStyles() {
 .tws-tour-seg__btn:focus-visible{outline:2px solid #7aa2ff;outline-offset:1px}
 .tws-tour-menu__select{flex:1;appearance:none;background:rgba(255,255,255,.05);color:#e7eaf2;border:1px solid rgba(255,255,255,.12);border-radius:9px;padding:8px 10px;font:600 13px/1 inherit;cursor:pointer}
 .tws-tour-menu__select:focus-visible{outline:2px solid #7aa2ff;outline-offset:1px}
-.tws-tour-menu__avatar{flex:1;display:flex;align-items:center;gap:9px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:9px;padding:5px 10px 5px 5px;color:#e7eaf2;font:600 13px/1 inherit;cursor:pointer;transition:background .16s ease,border-color .16s ease}
-.tws-tour-menu__avatar:hover{background:rgba(255,255,255,.09);border-color:rgba(122,162,255,.4)}
-.tws-tour-menu__avatar:focus-visible{outline:2px solid #7aa2ff;outline-offset:1px}
-.tws-tour-menu__avatar-orb{flex:0 0 auto;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-size:14px;background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.35),transparent 60%),var(--wp-accent,#7aa2ff);background-size:cover;background-position:center;box-shadow:inset 0 -4px 8px rgba(0,0,0,.25)}
-.tws-tour-menu__avatar-name{flex:1;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.tws-tour-menu__avatar-chev{flex:0 0 auto;color:#9aa3b6;font-size:11px}
 .tws-tour-menu__search{padding:12px 18px 8px}
 .tws-tour-menu__input{width:100%;box-sizing:border-box;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:10px;color:#e7eaf2;font:500 13.5px/1 inherit;padding:10px 12px}
 .tws-tour-menu__input::placeholder{color:#7f8aa0}

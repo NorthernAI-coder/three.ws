@@ -189,7 +189,11 @@ function solanaRpcUrl() {
 	const meta = typeof document !== 'undefined' && document.querySelector('meta[name="solana-rpc-url"]');
 	if (meta?.content) return meta.content;
 	if (typeof window !== 'undefined' && window.SOLANA_RPC_URL) return window.SOLANA_RPC_URL;
-	return 'https://api.mainnet-beta.solana.com';
+	// Last resort: our same-origin proxy, which fails over across Helius → Alchemy →
+	// dRPC → five keyless public lanes, so the balance read survives any single
+	// provider (an expired Helius plan included) being down. Absolute URL so the
+	// widget still resolves a working RPC when embedded on a third-party origin.
+	return 'https://three.ws/api/solana-rpc';
 }
 async function readSolanaBalanceAtomic(owner, mint) {
 	try {

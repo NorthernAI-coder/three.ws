@@ -18,6 +18,7 @@ import { isValidGlbHeader } from '../_lib/glb-inspect.js';
 import { getRegenProvider, getRegenProviderByName, getRegenProviderForJob, BYOK_REGEN_PROVIDERS } from '../_lib/regen-provider.js';
 import { resolveProviderKey } from '../_lib/forge-provider-key.js';
 import { finalizeReconstructStage, pollRiggingStage } from '../_lib/reconstruct-finalize.js';
+import { finalizeAutoRigStage } from '../_lib/auto-rig.js';
 import { textToImage } from '../_mcp3d/text-to-image.js';
 
 // ── presign ───────────────────────────────────────────────────────────────────
@@ -519,6 +520,25 @@ const handleRegenerateStatus = wrap(async (req, res) => {
 			job = { ...job, status: result.status, result_avatar_id: result.resultAvatarId ?? job.result_avatar_id };
 		} catch (err) {
 			job = { ...job, error: job.error || `materialize failed: ${err?.message}` };
+		}
+	}
+
+	// Auto-rig completion (browser-poll fallback to the webhook) — a static
+	// upload/import/forge avatar finished its 'rerig' job. Upgrade it in place so
+	// it becomes animation-ready. Gated on auto_rig so the manual rig panel (which
+	// materializes a sibling client-side) is untouched.
+	if (
+		job.status === 'done' &&
+		job.mode === 'rerig' &&
+		job.params?.auto_rig === true &&
+		!job.result_avatar_id &&
+		job.result_glb_url
+	) {
+		try {
+			const result = await finalizeAutoRigStage({ userId, jobId, job, glbUrl: job.result_glb_url });
+			job = { ...job, status: result.status, result_avatar_id: result.resultAvatarId ?? job.result_avatar_id };
+		} catch (err) {
+			job = { ...job, error: job.error || `auto-rig finalize failed: ${err?.message}` };
 		}
 	}
 

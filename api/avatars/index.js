@@ -9,6 +9,7 @@ import { HeadObjectCommand } from '@aws-sdk/client-s3';
 import { env } from '../_lib/env.js';
 import { sql } from '../_lib/db.js';
 import { provisionAvatarAgent } from '../_lib/avatar-agent.js';
+import { maybeAutoRigAvatar } from '../_lib/auto-rig.js';
 import { cors, json, method, readJson, wrap, error } from '../_lib/http.js';
 import { parse, createAvatarBody } from '../_lib/validate.js';
 import { recordEvent } from '../_lib/usage.js';
@@ -142,6 +143,20 @@ async function handleCreate(req, res) {
 	if (!body.parent_avatar_id) {
 		queueMicrotask(() =>
 			provisionAvatarAgent({ userId: auth.userId, avatarId: avatar.id, avatarName: avatar.name }),
+		);
+
+		// Auto-rig any static upload/import so the agent's avatar can animate, the
+		// same way Avaturn ships rigged avatars. A no-op when the GLB already has a
+		// skeleton (the inspection above stamped is_rigged) or no rerig model is
+		// configured. Fire-and-forget — the avatar is upgraded in place once the
+		// rig job lands (webhook / status poll); 201 returns immediately.
+		queueMicrotask(() =>
+			maybeAutoRigAvatar({
+				userId: auth.userId,
+				avatar,
+				rigInfo: body.source_meta,
+				source: body.source || 'upload',
+			}),
 		);
 	}
 
